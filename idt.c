@@ -26,7 +26,7 @@ extern void idt_load();
  * Set an IDT gate
  */
 void
-set_idt_gate(
+idt_set_gate(
 		unsigned char num,
 		unsigned long base,
 		unsigned short sel,
