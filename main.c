@@ -104,7 +104,7 @@ main() {
 	gdt_install();
 	idt_install();
 	init_video();
-	puts("Hello world!\n");
+	puts("Good Morning!\n");
 	for (;;);
 	return 0;
 }
