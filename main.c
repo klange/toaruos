@@ -102,6 +102,7 @@ outportb(
 int
 main() {
 	gdt_install();
+	idt_install();
 	init_video();
 	puts("Hello world!\n");
 	for (;;);
