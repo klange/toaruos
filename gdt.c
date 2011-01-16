@@ -62,7 +62,7 @@ void
 gdt_install() {
 	/* GDT pointer and limits */
 	gp.limit = (sizeof(struct gdt_entry) * 3) - 1;
-	gp.base = &gdt;
+	gp.base = (unsigned int)&gdt;
 	/* NULL */
 	gdt_set_gate(0, 0, 0, 0, 0);
 	/* Code segment */

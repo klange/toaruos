@@ -109,7 +109,7 @@ putch(
  */
 void
 puts(
-		unsigned char * text
+		char * text
 	){ 
 	int i;
 	int len = strlen(text);

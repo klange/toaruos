@@ -12,7 +12,7 @@ extern void outportb (unsigned short _port, unsigned char _data);
 /* VGA driver */
 extern void cls();
 extern void putch(unsigned char c);
-extern void puts(unsigned char *str);
+extern void puts(char *str);
 extern void settextcolor(unsigned char forecolor, unsigned char backcolor);
 extern void init_video();
 
@@ -32,9 +32,17 @@ struct regs {
     unsigned int eip, cs, eflags, useresp, ss;
 };
 
+/* ISRS */
+extern void isrs_install();
+
 /* Interrupt Handlers */
 extern void irq_install();
 extern void irq_install_handler(int irq, void *handler);
 extern void irq_uninstall_handler(int irq);
+
+/* Timer */
+extern void timer_install();
+extern int timer_ticks;
+extern void timer_wait(int ticks);
 
 #endif
