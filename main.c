@@ -152,6 +152,7 @@ main() {
 	irq_install();
 	__asm__ __volatile__("sti");
 	timer_install();
+	keyboard_install();
 	init_video();
 	puts("Good Morning!\n");
 	beer();

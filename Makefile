@@ -7,7 +7,7 @@ install: kernel
 	cp kernel /mnt/kernel
 	umount /mnt
 
-kernel: start.o link.ld main.o vga.o gdt.o idt.o isrs.o irq.o timer.o
+kernel: start.o link.ld main.o vga.o gdt.o idt.o isrs.o irq.o timer.o kbd.o
 	ld -m elf_i386 -T link.ld -o kernel *.o
 
 %.o: %.c

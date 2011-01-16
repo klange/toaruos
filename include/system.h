@@ -45,4 +45,8 @@ extern void timer_install();
 extern int timer_ticks;
 extern void timer_wait(int ticks);
 
+/* Keyboard */
+extern void keyboard_install();
+extern void keyboard_wait();
+
 #endif
