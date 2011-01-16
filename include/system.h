@@ -32,4 +32,9 @@ struct regs {
     unsigned int eip, cs, eflags, useresp, ss;
 };
 
+/* Interrupt Handlers */
+extern void irq_install();
+extern void irq_install_handler(int irq, void *handler);
+extern void irq_uninstall_handler(int irq);
+
 #endif
