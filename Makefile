@@ -1,4 +1,8 @@
-.PHONY: all clean install
+include Makefile.inc
+
+DIRS = core
+
+.PHONY: all clean install core
 
 all: kernel
 
@@ -8,14 +12,18 @@ install: kernel
 	umount /mnt
 	cp kernel /boot/toaruos-kernel
 
-kernel: start.o link.ld main.o vga.o gdt.o idt.o isrs.o irq.o timer.o kbd.o kprintf.o
-	ld -m elf_i386 -T link.ld -o kernel *.o
+kernel: start.o link.ld main.o core
+	${LD} -T link.ld -o kernel *.o core/*.o
 
 %.o: %.c
-	gcc -Wall -m32 -O0 -fstrength-reduce -fomit-frame-pointer -finline-functions -nostdinc -fno-builtin -I./include -c -o $@ $<
+	${CC} ${CFLAGS} -I./include -c -o $@ $<
+
+core:
+	cd core; ${MAKE} ${MFLAGS}
 
 start.o: start.asm
 	nasm -f elf -o start.o start.asm
 
 clean:
-	rm -f *.o kernel
+	-rm -f *.o kernel
+	-for d in ${DIRS}; do (cd $$d; ${MAKE} clean); done
