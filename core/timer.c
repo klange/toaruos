@@ -10,7 +10,7 @@ timer_phase(
 	outportb(0x40, divisor >> 8);
 }
 
-int timer_ticks = 0;
+long timer_ticks = 0;
 unsigned long ticker = 0;
 
 void
@@ -37,7 +37,7 @@ void
 timer_wait(
 		int ticks
 		) {
-	unsigned long eticks;
-	eticks = timer_ticks + ticks;
+	long eticks;
+	eticks = (long)timer_ticks + (long)ticks;
 	while(timer_ticks < eticks);
 }

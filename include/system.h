@@ -1,9 +1,14 @@
 #ifndef __SYSTEM_H
 #define __SYSTEM_H
 
+#define NULL ((void *)0UL)
+
+typedef unsigned long uintptr_t;
+typedef long size_t;
+
 /* Kernel Main */
-extern unsigned char *memcpy(unsigned char *dest, const unsigned char *src, int count);
-extern unsigned char *memset(unsigned char *dest, unsigned char val, int count);
+extern void *memcpy(void * restrict dest, const void * restrict src, size_t count);
+extern void *memset(void *dest, int val, size_t count);
 extern unsigned short *memsetw(unsigned short *dest, unsigned short val, int count);
 extern int strlen(const char *str);
 extern unsigned char inportb (unsigned short _port);
@@ -32,17 +37,19 @@ struct regs {
     unsigned int eip, cs, eflags, useresp, ss;
 };
 
+typedef void (*irq_handler_t)(struct regs *);
+
 /* ISRS */
 extern void isrs_install();
 
 /* Interrupt Handlers */
 extern void irq_install();
-extern void irq_install_handler(int irq, void *handler);
+extern void irq_install_handler(int irq, irq_handler_t);
 extern void irq_uninstall_handler(int irq);
 
 /* Timer */
 extern void timer_install();
-extern int timer_ticks;
+extern long timer_ticks;
 extern void timer_wait(int ticks);
 
 /* Keyboard */

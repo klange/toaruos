@@ -17,15 +17,12 @@ extern void _irq13();
 extern void _irq14();
 extern void _irq15();
 
-void *irq_routines[16] = {
-	0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0
-};
+static irq_handler_t irq_routines[16] = { NULL };
 
 void
 irq_install_handler(
 		int irq,
-		void *handler
+		irq_handler_t handler
 		) {
 	irq_routines[irq] = handler;
 }

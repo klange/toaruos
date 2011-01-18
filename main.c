@@ -5,17 +5,17 @@
  * Copy from source to destination. Assumes that
  * source and destination are not overlapping.
  */
-unsigned char *
+void *
 memcpy(
-		unsigned char *dest,
-		const unsigned char *src,
-		int count
+		void * restrict dest,
+		const void * restrict src,
+		size_t count
 	  ) {
-	int i;
-	i = 0;
-	for ( ; i < count; ++i ) {
-		dest[i] = src[i];
-		
+	size_t i;
+	unsigned char *a = dest;
+	const unsigned char *b = src;
+	for ( i = 0; i < count; ++i ) {
+		a[i] = b[i];
 	}
 	return dest;
 }
@@ -24,18 +24,18 @@ memcpy(
  * memset
  * Set `count` bytes to `val`.
  */
-unsigned char *
+void *
 memset(
-		unsigned char *dest,
-		unsigned char val,
-		int count
+		void *b,
+		int val,
+		size_t count
 	  ) {
-	int i;
-	i = 0;
-	for ( ; i < count; ++i ) {
-		dest[i] = val;
+	size_t i;
+	unsigned char * dest = b;
+	for ( i = 0; i < count; ++i ) {
+		dest[i] = (unsigned char)val;
 	}
-	return dest;
+	return b;
 }
 
 /*
