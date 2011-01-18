@@ -13,7 +13,7 @@ struct idt_entry {
 
 struct idt_ptr {
 	unsigned short limit;
-	unsigned long base; /* int? */
+	uintptr_t base;
 } __attribute__((packed));
 
 struct idt_entry idt[256];
