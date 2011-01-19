@@ -30,4 +30,5 @@ start.o: start.asm
 
 clean:
 	-rm -f *.o kernel
+	-rm -f bootdisk.img
 	-for d in ${DIRS}; do (cd $$d; ${MAKE} clean); done
