@@ -172,12 +172,16 @@ main(struct multiboot *mboot_ptr) {
 	kprintf("Testing colors...\n");
 	resettextcolor();
 	int i;
-	for (i = 0; i < 256; ++i) {
+	for (i = 0; i < 16; ++i) {
 		settextcolor(i,i);
 		putch(' ');
 	}
+	putch('\n');
 	resettextcolor();
-
+	kprintf("%dkB lower memory\n", mboot_ptr->mem_lower);
+	kprintf("%dkB higher memory ", mboot_ptr->mem_upper);
+	int mem_mb = mboot_ptr->mem_upper / 1024;
+	kprintf("(%dMB)\n", mem_mb);
 
 	//for (;;);
 	return 0;
