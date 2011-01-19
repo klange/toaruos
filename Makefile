@@ -7,6 +7,7 @@ DIRS = core
 all: kernel
 
 install: kernel
+	cp bootdisk.src.img bootdisk.img
 	mount bootdisk.img /mnt -o loop
 	cp kernel /mnt/kernel
 	umount /mnt
