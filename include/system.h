@@ -1,10 +1,18 @@
 #ifndef __SYSTEM_H
 #define __SYSTEM_H
 
+/* Types */
+
 #define NULL ((void *)0UL)
 
 typedef unsigned long uintptr_t;
 typedef long size_t;
+typedef unsigned int uint32_t;
+
+/* Unimportant Kernel Strings */
+#define KERNEL_UNAME "ToAruOS"
+#define KERNEL_VERSION_STRING "0.0.1"
+
 
 /* Kernel Main */
 extern void *memcpy(void * restrict dest, const void * restrict src, size_t count);
@@ -19,6 +27,7 @@ extern void cls();
 extern void putch(unsigned char c);
 extern void puts(char *str);
 extern void settextcolor(unsigned char forecolor, unsigned char backcolor);
+extern void resettextcolor();
 extern void init_video();
 
 /* GDT */

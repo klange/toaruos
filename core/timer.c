@@ -19,18 +19,13 @@ timer_handler(
 		) {
 	++timer_ticks;
 	if (timer_ticks % 18 == 0) {
-		ticker++;
-		puts ("Tick. ");
-		if     (ticker % 4 == 0) { putch('|'); }
-		else if(ticker % 4 == 1) { putch('/'); }
-		else if(ticker % 4 == 2) { putch('-'); }
-		else if(ticker % 4 == 3) { putch('\\'); }
-		putch('\n');
+		++ticker;
 	}
 }
 
 void timer_install() {
 	irq_install_handler(0, timer_handler);
+	timer_phase(100); /* 100Hz */
 }
 
 void

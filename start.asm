@@ -16,9 +16,12 @@ mboot:
 global start
 start:
 	mov esp, _sys_stack
+	push ebx
+	cli
 	extern	main
 	call	main
 	jmp		$
+
 
 ; Global Descriptor Table
 global gdt_flush
