@@ -1,15 +1,10 @@
 # klange's OS Development Repo #
 I'm writing an OS because I'm bored and want a massive project to suck up the little pieces of my time for the next few years.
 
-
 ## Testing it Out ##
-Grab `bootdisk.img` from the git repo and load it into a virtual machine. The bootdisk will start GRUB with a single menu entry to boot the kernel off of the same diskette.
+Clone the git repository and run `make` and `sudo make install` (yes, the `sudo` is necessary because of how I am building my floppy image). This will build a working `bootdisk.img` that you can load with an emulator. If you have QEMU installed, you can then run `make run` to start the emulator. You should see a GRUB menu with one entry which should boot into the kernel.
 
-For example, you can boot the disk in `qemu`:
-
-    qemu -fda bootdisk.img
-
-Or you could set up a VirtualBox machine and load the floppy image.
+My testing environment is a combination of QEMU and VirtualBox.
 
 ## Goals and Roadmap ##
 Overall, the goal of this project is to write a relatively POSIX-compatible OS from the ground up. With a focus on generic hardware functionality and universal specifications like VESA, I hope to eventually get something fairly complete in terms of what an OS should be. At some times, I may focus on an actual piece of complex hardware (I am looking to write a basic driver for Intel graphics cards based on the X driver and the Mesa components), but in general, I will stick to generic interfaces.
