@@ -81,6 +81,6 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
 I'll be more detailed here eventually, but for the most part, I have been using:
 
 * [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html)
-* [Bran's Kernel Development Tutorial}(http://www.osdever.net/bkerndev/) *completed*
+* [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/) *completed*
 * [Skelix's OS tutorial](http://en.skelix.org/skelixos/)
 
