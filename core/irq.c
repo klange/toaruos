@@ -67,6 +67,7 @@ irq_install() {
 	idt_set_gate(45, (unsigned)_irq13, 0x08, 0x8E);
 	idt_set_gate(46, (unsigned)_irq14, 0x08, 0x8E);
 	idt_set_gate(47, (unsigned)_irq15, 0x08, 0x8E);
+	__asm__ __volatile__("sti");
 }
 
 void

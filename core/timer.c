@@ -7,7 +7,7 @@ timer_phase(
 	int divisor = 1193180 / hz;
 	outportb(0x43, 0x36);
 	outportb(0x40, divisor & 0xFF);
-	outportb(0x40, divisor >> 8);
+	outportb(0x40, (divisor >> 8) & 0xFF);
 }
 
 long timer_ticks = 0;

@@ -36,6 +36,24 @@ extern void _isr29();
 extern void _isr30();
 extern void _isr31();
 
+static irq_handler_t isrs_routines[32] = { NULL };
+
+void
+isrs_install_handler(
+		int isrs,
+		irq_handler_t handler
+		) {
+	isrs_routines[isrs] = handler;
+}
+
+void
+isrs_uninstall_handler(
+		int isrs
+		) {
+	isrs_routines[isrs] = 0;
+}
+
+
 void
 isrs_install() {
 	/* Exception Handlers */
@@ -110,8 +128,14 @@ char *exception_messages[] = {
 
 void fault_handler(struct regs *r) {
 	if (r->int_no < 32) {
-		puts(exception_messages[r->int_no]);
-		puts(" exception. System halted.\n");
-		for (;;);
+		void (*handler)(struct regs *r);
+		handler = isrs_routines[r->int_no];
+		if (handler) {
+			handler(r);
+		} else {
+			kprintf("%s exception encountered.\n", exception_messages[r->int_no]);
+			puts(exception_messages[r->int_no]);
+			HALT_AND_CATCH_FIRE("System halted.");
+		}
 	}
 }

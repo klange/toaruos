@@ -22,6 +22,12 @@ extern int strlen(const char *str);
 extern unsigned char inportb (unsigned short _port);
 extern void outportb (unsigned short _port, unsigned char _data);
 
+/* Panic */
+#define HALT_AND_CATCH_FIRE(mesg) halt_and_catch_fire(mesg, __FILE__, __LINE__)
+#define ASSERT(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
+void halt_and_catch_fire(char * error_message, const char * file, int line);
+void assert_failed(const char *file, uint32_t line, const char *desc);
+
 /* VGA driver */
 extern void cls();
 extern void putch(unsigned char c);
@@ -50,6 +56,8 @@ typedef void (*irq_handler_t)(struct regs *);
 
 /* ISRS */
 extern void isrs_install();
+extern void isrs_install_handler(int isrs, irq_handler_t);
+extern void isrs_uninstall_handler(int isrs);
 
 /* Interrupt Handlers */
 extern void irq_install();
@@ -67,5 +75,43 @@ extern void keyboard_wait();
 
 /* kprintf */
 extern void kprintf(const char *fmt, ...);
+
+/* Memory Management */
+extern uintptr_t placement_pointer;
+extern uintptr_t kmalloc_real(size_t size, int align, uintptr_t * phys);
+extern uintptr_t kmalloc(size_t size);
+extern uintptr_t kvmalloc(size_t size);
+extern uintptr_t kmalloc_p(size_t size, uintptr_t * phys);
+extern uintptr_t kvmalloc_p(size_t size, uintptr_t * phys);
+
+typedef struct page {
+	uint32_t present : 1;
+	uint32_t rw      : 1;
+	uint32_t user    : 1;
+	uint32_t accessed: 1;
+	uint32_t dirty   : 1;
+	uint32_t unused  : 7;
+	uint32_t frame   : 20;
+} page_t;
+
+typedef struct page_table {
+	page_t pages[1024];
+} page_table_t;
+
+typedef struct page_directory {
+	page_table_t *tables[1024]; /* 1024 pointers to page tables... */
+	uintptr_t physical_tables[1024]; /* Physical addresses of the tables */
+	uintptr_t physical_address; /* The physical address of physical_tables */
+} page_directory_t;
+
+page_directory_t * kernel_directory;
+page_directory_t * current_directory;
+
+extern void paging_install(uint32_t memsize);
+extern void switch_page_directory(page_directory_t *new);
+extern page_t *get_page(uintptr_t address, int make, page_directory_t *dir);
+extern void page_fault(struct regs *r);
+
+
 
 #endif
