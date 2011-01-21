@@ -145,5 +145,6 @@ resettextcolor() {
  */
 void init_video() {
 	textmemptr = (unsigned short *)0xB8000;
-	cls();
+	csr_y = 10;
+	move_csr();
 }
