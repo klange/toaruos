@@ -32,7 +32,7 @@ Some things are far easier said than done, but I like to say them anyway. The ti
 Currently, I have a kernel capable of reading its multiboot parameters, which is terribly un-useful. The current, ordered, plan of attack is as follows:
 
 * Finish James M's tutorial (second half), which covers:
-    * Paging
+    * Paging *done*
     * Heap
     * VFS
     * Initial RAM Disk (except I'll probably use my own format for the directory structure)
