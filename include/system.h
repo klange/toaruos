@@ -119,7 +119,7 @@ extern void switch_page_directory(page_directory_t *new);
 extern page_t *get_page(uintptr_t address, int make, page_directory_t *dir);
 extern void page_fault(struct regs *r);
 
-void * heap_install();
+void heap_install();
 
 /* klmalloc */
 void * __attribute__ ((malloc)) malloc(size_t size);

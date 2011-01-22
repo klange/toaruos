@@ -5,17 +5,6 @@
 
 #include <system.h>
 
-typedef struct {
-	uint32_t magic;
-	char     is_hole;
-	uint32_t size;
-} header_t;
-
-typedef struct {
-	uint32_t magic;
-	header_t * header;
-} footer_t;
-
 extern uintptr_t end;
 uintptr_t placement_pointer = &end;
 
@@ -75,28 +64,6 @@ kvmalloc_p(
 		uintptr_t *phys
 		) {
 	return kmalloc_real(size, 1, phys);
-}
-
-uintptr_t heap_end = NULL;
-
-void *
-heap_install() {
-	heap_end = placement_pointer;
-}
-
-void *
-sbrk(
-	uintptr_t increment
-    ) {
-	ASSERT(increment % 0x1000 == 0);
-	uintptr_t address = heap_end;
-	heap_end += increment;
-	int i;
-	for (i = address; i < heap_end; i += 0x1000) {
-		get_page(i, 1, kernel_directory);
-		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
-	}
-	return address;
 }
 
 /*
@@ -255,3 +222,35 @@ page_fault(
 	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d) at 0x%x\n", present, rw, user, reserved, faulting_address);
 	HALT_AND_CATCH_FIRE("Page fault");
 }
+
+/*
+ * Heap
+ * Stop using kalloc and friends after installing the heap
+ * otherwise shit will break. I've conveniently broken
+ * kalloc when installing the heap, just for those of you
+ * who feel the need to screw up.
+ */
+
+uintptr_t heap_end = (uintptr_t)NULL;
+
+void
+heap_install() {
+	heap_end = placement_pointer;
+	placement_pointer = 0;
+}
+
+void *
+sbrk(
+	uintptr_t increment
+    ) {
+	ASSERT(increment % 0x1000 == 0);
+	uintptr_t address = heap_end;
+	heap_end += increment;
+	uintptr_t i;
+	for (i = address; i < heap_end; i += 0x1000) {
+		get_page(i, 1, kernel_directory);
+		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
+	}
+	return (void *)address;
+}
+
