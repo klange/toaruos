@@ -1,5 +1,5 @@
-# klange's OS Development Repo #
-I'm writing an OS because I'm bored and want a massive project to suck up the little pieces of my time for the next few years.
+# ToAruOS (とあるOS) #
+This is a toy OS based on the POSIX standards. The primarily goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library.
 
 ## Testing it Out ##
 Clone the git repository and run `make` and `sudo make install` (yes, the `sudo` is necessary because of how I am building my floppy image). This will build a working `bootdisk.img` that you can load with an emulator. If you have QEMU installed, you can then run `make run` to start the emulator. You should see a GRUB menu with one entry which should boot into the kernel.
