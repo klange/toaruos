@@ -553,7 +553,6 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 			 */
 			bin_header = (klmalloc_bin_header*)sbrk(PAGE_SIZE);
 			assert((uintptr_t)bin_header % PAGE_SIZE == 0);
-			kprintf("bin_header = 0x%x\n", bin_header);
 
 			/*
 			 * Set the head of the stack.
