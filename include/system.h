@@ -86,6 +86,7 @@ extern void kprintf(const char *fmt, ...);
 
 /* Memory Management */
 extern uintptr_t placement_pointer;
+extern void kmalloc_startat(uintptr_t address);
 extern uintptr_t kmalloc_real(size_t size, int align, uintptr_t * phys);
 extern uintptr_t kmalloc(size_t size);
 extern uintptr_t kvmalloc(size_t size);
