@@ -164,11 +164,46 @@ main(struct multiboot *mboot_ptr) {
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
 	paging_install(mboot_ptr->mem_upper);
 	dump_multiboot(mboot_ptr);
-	resettextcolor();
 
 	/* Boot Stage 2 */
 	timer_install();
 	keyboard_install();
+
+	heap_install();
+
+	/* Alright, let's try some really fun stuff. */
+	kprintf("asking for %d\n", sizeof(int) * 50);
+	int * some_ints = malloc(sizeof(int) * 50);
+	kprintf("Herp derp.\n");
+	int j;
+	for (j = 0; j < 50; ++j) {
+		some_ints[j] = 50;
+	}
+	kprintf("some_ints[23]: %d\n", some_ints[23]);
+	char * some_chars = malloc(sizeof(char) * 4);
+	for (j = 0; j < 4; ++j) {
+		some_chars[j] = 'a';
+	}
+	kprintf("some_chars[2]: %c\n", some_chars[2]);
+	free(some_chars);
+	free(some_ints);
+	char * a_string = malloc(sizeof(char) * 6);
+	a_string[0] = 'h';
+	a_string[1] = 'e';
+	a_string[2] = 'l';
+	a_string[3] = 'l';
+	a_string[4] = 'o';
+	a_string[5] = '\0';
+	kprintf("a_string: %s\n", a_string);
+	free(a_string);
+	kprintf("freed a_string\n");
+	a_string = malloc(sizeof(char) * 6);
+	a_string[0] = '1';
+	a_string[1] = '2';
+	a_string[2] = '3';
+	a_string[3] = '\0';
+	kprintf("a_string: %s\n", a_string);
+	free(a_string);
 
 	return 0;
 }

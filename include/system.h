@@ -14,6 +14,12 @@ typedef unsigned int uint32_t;
 #define KERNEL_VERSION_STRING "0.0.1"
 
 
+#define CHAR_BIT 8
+#define INT32_MAX 0x7fffffffL
+#define UINT32_MAX 0xffffffffL
+
+extern void * sbrk(uintptr_t increment);
+
 /* Kernel Main */
 extern void *memcpy(void * restrict dest, const void * restrict src, size_t count);
 extern void *memset(void *dest, int val, size_t count);
@@ -25,6 +31,7 @@ extern void outportb (unsigned short _port, unsigned char _data);
 /* Panic */
 #define HALT_AND_CATCH_FIRE(mesg) halt_and_catch_fire(mesg, __FILE__, __LINE__)
 #define ASSERT(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
+#define assert(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
 void halt_and_catch_fire(char * error_message, const char * file, int line);
 void assert_failed(const char *file, uint32_t line, const char *desc);
 
@@ -112,6 +119,11 @@ extern void switch_page_directory(page_directory_t *new);
 extern page_t *get_page(uintptr_t address, int make, page_directory_t *dir);
 extern void page_fault(struct regs *r);
 
+void * heap_install();
 
+/* klmalloc */
+void * __attribute__ ((malloc)) malloc(size_t size);
+void * __attribute__ ((malloc)) realloc(void * ptr, size_t size);
+void * __attribute__ ((malloc)) calloc(size_t nmemb, size_t size);
 
 #endif
