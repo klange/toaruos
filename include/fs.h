@@ -11,7 +11,7 @@
 
 typedef uint32_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t *);
 typedef uint32_t (*write_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t *);
-typedef void (*open_type_t)(struct fs_node*);
+typedef void (*open_type_t)(struct fs_node*, uint8_t read, uint8_t write);
 typedef void (*close_type_t)(struct fs_node*);
 typedef struct dirent * (*readdir_type_t)(struct fs_node*, uint32_t);
 typedef struct fs_node * (*finddir_type_t)(struct fs_node*, char *name);
@@ -39,7 +39,7 @@ typedef struct fs_node {
 	struct fs_node	*ptr;
 } fs_node_t;
 
-extern *fs_root = 0;
+extern fs_node_t *fs_root;
 
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);

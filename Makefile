@@ -10,6 +10,7 @@ install: kernel
 	cp bootdisk.src.img bootdisk.img
 	mount bootdisk.img /mnt -o loop
 	cp kernel /mnt/kernel
+	cp initrd /mnt/initrd
 	umount /mnt
 	cp kernel /boot/toaruos-kernel
 
