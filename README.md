@@ -33,7 +33,7 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
 
 * Finish James M's tutorial (second half), which covers:
     * Paging *done*
-    * Heap *done, implemented with klmalloc in the voide*
+    * Heap *done, implemented with klmalloc in the void*
     * VFS *done*
     * Initial RAM Disk
     * Multitasking
