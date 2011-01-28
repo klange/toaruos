@@ -1,5 +1,12 @@
 [BITS 32]
 ALIGN 4
+
+; ToAruOS
+; Copyright 2011 ToAruOS Kernel Development Group
+; See main.c for licensing terms (NCSA)
+
+
+; Kernel Multiboot Headers
 mboot:
 	MULTIBOOT_PAGE_ALIGN	equ 1<<0
 	MULTIBOOT_MEMORY_INFO	equ 1<<1
@@ -16,8 +23,11 @@ mboot:
 global start
 start:
 	mov esp, _sys_stack
+	; Push the incoming mulitboot headers
 	push ebx
+	; Disable interrupts
 	cli
+	; Call the C entry
 	extern	main
 	call	main
 	jmp		$
@@ -63,6 +73,7 @@ idt_load:
 		jmp isr_common_stub
 %endmacro
 
+; Standard X86 interrupt service routines
 ISR_NOERR 0
 ISR_NOERR 1
 ISR_NOERR 2
@@ -111,6 +122,7 @@ isr_common_stub:
 	mov gs, ax
 	mov eax, esp
 	push eax
+	; Call the C kernel fault handler
 	mov eax, fault_handler
 	call eax
 	pop eax
@@ -131,6 +143,7 @@ isr_common_stub:
 		jmp irq_common_stub
 %endmacro
 
+; Interrupt Requests
 IRQ_ENTRY 0, 32
 IRQ_ENTRY 1, 33
 IRQ_ENTRY 2, 34
@@ -163,6 +176,7 @@ irq_common_stub:
 	mov gs, ax
 	mov eax, esp
 	push eax
+	; Call the C kernel hardware interrupt handler
 	mov eax, irq_handler
 	call eax
 	pop eax
@@ -180,5 +194,4 @@ SECTION .bss
 	resb 8192 ; 8KB of memory reserved
 _sys_stack:
 ; This line intentionally left blank
-
 
