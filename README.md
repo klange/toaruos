@@ -33,9 +33,9 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
 
 * Finish James M's tutorial (second half), which covers:
     * Paging *done*
-    * Heap
-    * VFS
-    * Initial RAM Disk (except I'll probably use my own format for the directory structure)
+    * Heap *done, implemented with klmalloc in the voide*
+    * VFS *done*
+    * Initial RAM Disk
     * Multitasking
     * User mode
 * Finish basic kernel functionality
