@@ -20,8 +20,10 @@ Overall, the goal of this project is to write a relatively POSIX-compatible OS f
 ### Loftier Goals ###
 Some things are far easier said than done, but I like to say them anyway. The time span for these depends greatly on how quickly the basic goals are completed and can range anywhere from a few months to years from now.
 
+* Dynamic library loader
 * Create a working implementation of Wayland under VESA (will be slow)
 * Port Qt (under Wayland) and some Qt apps
+    * Port Qt under framebuffer first? Qt has everything...
 * Support audio in a way that doesn't suck like Linux's mess of libraries and mixers
 * Various hardware-specific drivers (primarily for my T410):
     * Intel graphics driver, with acceleration so Wayland isn't slow
@@ -75,7 +77,7 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
 ## References ##
 I'll be more detailed here eventually, but for the most part, I have been using:
 
-* [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html)
+* [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html) *almost done*
 * [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/) *completed*
-* [Skelix's OS tutorial](http://en.skelix.org/skelixos/)
+* [Skelix's OS tutorial](http://en.skelix.org/skelixos/) *Author is not a native speaker of English and makes some grammatical mistakes; can be hard to follow*
 
