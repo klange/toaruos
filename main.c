@@ -93,11 +93,19 @@ main(struct multiboot *mboot_ptr) {
 	uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr+4);
 
 	initrd_mount(module_start, module_end);
-	fs_node_t * test_file = kopen("/hello.txt", NULL);
+	kprintf("Opening /etc/kernel/hello.txt... ");
+	fs_node_t * test_file = kopen("/etc/kernel/hello.txt", NULL);
 	if (!test_file) {
-		kprintf("Couldn't find /hello.txt\n");
+		kprintf("Couldn't find hello.txt\n");
 	}
-	kprintf("Found %s at inode %d\n", test_file->name, test_file->inode);
+	kprintf("Found at inode %d\n", test_file->name, test_file->inode);
+	char buffer[256];
+	uint32_t bytes_read;
+	bytes_read = read_fs(test_file, 0, 255, &buffer);
+	kprintf("Read %d bytes from file:\n", bytes_read);
+	kprintf("%s\n", buffer);
+	kprintf("| end file\n");
+	close_fs(test_file);
 
 #if 0
 	ext2_superblock_t * superblock = (ext2_superblock_t *)(module_start + 1024);

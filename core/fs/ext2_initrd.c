@@ -29,7 +29,17 @@ read_initrd(
 		uint32_t size,
 		uint8_t *buffer
 		) {
-	return 0;
+	ext2_inodetable_t * inode = ext2_get_inode(node->inode);
+	uint32_t end;
+	if (offset + size > inode->size) {
+		end = inode->size;
+	} else {
+		end = offset + size;
+	}
+	uint32_t size_to_read = end - offset;
+	// TODO: proper block reading, read files larger than one block
+	memcpy(buffer, ext2_get_block(inode->block[0]) + offset, size_to_read);
+	return size_to_read;
 }
 
 uint32_t
@@ -130,7 +140,7 @@ finddir_initrd(
 		return NULL;
 	}
 	fs_node_t * outnode = malloc(sizeof(fs_node_t));
-	initrd_node_from_file(direntry->inode, direntry, outnode);
+	initrd_node_from_file(ext2_get_inode(direntry->inode), direntry, outnode);
 	return outnode;
 }
 
@@ -204,22 +214,22 @@ initrd_node_from_dirent(
 	/* File Flags */
 	fnode->flags = 0;
 	if (inode->mode & EXT2_S_IFREG) {
-		fnode->flags &= FS_FILE;
+		fnode->flags |= FS_FILE;
 	}
 	if (inode->mode & EXT2_S_IFDIR) {
-		fnode->flags &= FS_DIRECTORY;
+		fnode->flags |= FS_DIRECTORY;
 	}
 	if (inode->mode & EXT2_S_IFBLK) {
-		fnode->flags &= FS_BLOCKDEVICE;
+		fnode->flags |= FS_BLOCKDEVICE;
 	}
 	if (inode->mode & EXT2_S_IFCHR) {
-		fnode->flags &= FS_CHARDEVICE;
+		fnode->flags |= FS_CHARDEVICE;
 	}
 	if (inode->mode & EXT2_S_IFIFO) {
-		fnode->flags &= FS_PIPE;
+		fnode->flags |= FS_PIPE;
 	}
 	if (inode->mode & EXT2_S_IFLNK) {
-		fnode->flags &= FS_SYMLINK;
+		fnode->flags |= FS_SYMLINK;
 	}
 	fnode->read    = read_initrd;
 	fnode->write   = write_initrd;
