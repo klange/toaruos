@@ -47,4 +47,12 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 	}
 }
 
+fs_node_t *
+kopen(
+		const char *filename,
+		uint32_t flags
+	 ) {
+	/* let's do this shit */
+}
+
 
