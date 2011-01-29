@@ -20,6 +20,26 @@ memcpy(
 	return dest;
 }
 
+int
+strcmp(
+		const char * a,
+		const char * b
+	  ) {
+	uint32_t i = 0;
+	while (1) {
+		if (a[i] < b[i]) {
+			return -1;
+		} else if (a[i] > b[i]) {
+			return 1;
+		} else {
+			if (a[i] == '\0') {
+				return 0;
+			}
+			++i;
+		}
+	}
+}
+
 /*
  * memset
  * Set `count` bytes to `val`.

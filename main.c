@@ -92,6 +92,14 @@ main(struct multiboot *mboot_ptr) {
 	uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr);
 	uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr+4);
 
+	initrd_mount(module_start, module_end);
+	fs_node_t * test_file = kopen("/hello.txt", NULL);
+	if (!test_file) {
+		kprintf("Couldn't find /hello.txt\n");
+	}
+	kprintf("Found %s at inode %d\n", test_file->name, test_file->inode);
+
+#if 0
 	ext2_superblock_t * superblock = (ext2_superblock_t *)(module_start + 1024);
 	kprintf("Magic is 0x%x\n", (int)superblock->magic);
 	assert(superblock->magic == EXT2_SUPER_MAGIC);
@@ -160,6 +168,7 @@ main(struct multiboot *mboot_ptr) {
 		}
 		kprintf("\n");
 	};
+#endif
 
 	return 0;
 }
