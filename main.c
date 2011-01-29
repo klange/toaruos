@@ -31,6 +31,7 @@
 
 #include <system.h>
 #include <multiboot.h>
+#include <ext2.h>
 
 /*
  * kernel entry point
@@ -88,18 +89,77 @@ main(struct multiboot *mboot_ptr) {
 	/* Print multiboot information */
 	dump_multiboot(mboot_ptr);
 
-	kprintf("Will begin dumping from second kB of module 1 in a second.\n");
-	timer_wait(100);
-	kprintf("Dumping.\n");
-	uint32_t i;
 	uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr);
 	uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr+4);
-	for (i = module_start + 1024; i < module_end; ++i) {
-		kprintf("%c ", *((char *)i));
-		if (i % 35 == 0) { kprintf("\n"); }
-		timer_wait(1);
-	}
 
+	ext2_superblock_t * superblock = (ext2_superblock_t *)(module_start + 1024);
+	kprintf("Magic is 0x%x\n", (int)superblock->magic);
+	assert(superblock->magic == EXT2_SUPER_MAGIC);
+	
+	kprintf("Partition has %d inodes and %d blocks.\n", superblock->inodes_count, superblock->blocks_count);
+	kprintf("%d blocks reserved for root\n", superblock->r_blocks_count);
+	kprintf("%d blocks free\n", superblock->free_blocks_count);
+	kprintf("%d free inodes\n", superblock->free_inodes_count);
+	kprintf("Blocks contain %d bytes\n", 1024 << superblock->log_block_size);
+	kprintf("Fragments contain %d bytes\n", 1024 << superblock->log_frag_size);
+	kprintf("I am at block id: %d (should be 1 if this is a 1KB block)\n", superblock->first_data_block);
+	kprintf("There are %d blocks in a group\n", superblock->blocks_per_group);
+	kprintf("There are %d fragments in a group\n", superblock->frags_per_group);
+	kprintf("There are %d inodes in a group\n", superblock->inodes_per_group);
+	kprintf("Last mount: 0x%x\n", superblock->mtime);
+	kprintf("Last write: 0x%x\n", superblock->wtime);
+	kprintf("Mounts since verification: %d\n", superblock->mnt_count);
+	kprintf("Must be verified in %d mounts\n", superblock->max_mnt_count - superblock->mnt_count);
+	kprintf("Inodes are %d bytes\n", (int)superblock->inode_size);
+
+	ext2_bgdescriptor_t * blockgroups = (ext2_bgdescriptor_t *)(module_start + 1024 + 1024);
+	kprintf("First block group has %d free blocks, %d free inodes, %d used dirs\n",
+			blockgroups->free_blocks_count,
+			blockgroups->free_inodes_count,
+			blockgroups->used_dirs_count);
+	
+	ext2_inodetable_t * inodetable = (ext2_inodetable_t *)(module_start + (1024 << superblock->log_block_size) * blockgroups->inode_table);
+	uint32_t i;
+	for (i = 0; i < superblock->inodes_per_group; ++i) {
+		ext2_inodetable_t * inode = (ext2_inodetable_t *)((int)inodetable + (int)superblock->inode_size * i);
+		if (inode->block[0] == 0)
+			continue;
+		kprintf("Inode %d starts at block %d,%d and is %d bytes (%d blocks). ", i, inode->block[0], inode->block[1], inode->size, inode->blocks);
+		if (inode->mode & EXT2_S_IFDIR) {
+			kprintf("is a directory\n");
+			kprintf("File listing:\n");
+			uint32_t dir_offset;
+			dir_offset = 0;
+			while (dir_offset < inode->size) {
+				ext2_dir_t * d_ent = (ext2_dir_t *)(module_start + (1024 << superblock->log_block_size) * inode->block[0] + dir_offset);
+				unsigned char * name = malloc(sizeof(unsigned char) * (d_ent->name_len + 1));
+				memcpy(name, &d_ent->name, d_ent->name_len);
+				name[d_ent->name_len] = '\0';
+				kprintf("[%d] %s [%d]\n", dir_offset, name, d_ent->inode);
+				if (name[0] == 'h' &&
+					name[1] == 'e' &&
+					name[2] == 'l' &&
+					name[3] == 'l' &&
+					name[4] == 'o') {
+					kprintf("Found a file to read.\n");
+					ext2_inodetable_t * inode_f = (ext2_inodetable_t *)((int)inodetable + (int)superblock->inode_size * (d_ent->inode -1));
+					kprintf("Going to print %d bytes from block %d\n", inode_f->size, inode_f->block[0]);
+					unsigned char * file_pointer = (unsigned char *)(module_start + (1024 << superblock->log_block_size) * inode_f->block[0]);
+					unsigned int file_offset;
+					for (file_offset = 0; file_offset < inode_f->size; ++file_offset) {
+						kprintf("%c", file_pointer[file_offset]);
+					}
+				}
+
+				free(name);
+				dir_offset += d_ent->rec_len;
+				if (d_ent->inode == 0)
+					break;
+			}
+			break;
+		}
+		kprintf("\n");
+	};
 
 	return 0;
 }
