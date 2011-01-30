@@ -102,9 +102,8 @@ main(struct multiboot *mboot_ptr) {
 	char buffer[256];
 	uint32_t bytes_read;
 	bytes_read = read_fs(test_file, 0, 255, &buffer);
-	kprintf("Read %d bytes from file:\n", bytes_read);
-	kprintf("%s\n", buffer);
-	kprintf("| end file\n");
+	kprintf("cat /etc/kernel/hello.txt\n");
+	kprintf("%s", buffer);
 	close_fs(test_file);
 
 #if 0
