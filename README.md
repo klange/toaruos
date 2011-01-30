@@ -2,7 +2,7 @@
 This is a toy OS based on the POSIX standards. The primarily goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library.
 
 ## Testing it Out ##
-Clone the git repository and run `make` and `sudo make install` (yes, the `sudo` is necessary because of how I am building my floppy image). This will build a working `bootdisk.img` that you can load with an emulator. If you have QEMU installed, you can then run `make run` to start the emulator. You should see a GRUB menu with one entry which should boot into the kernel.
+Clone the git repository and run `make` and `sudo make install` (yes, the `sudo` is necessary because of how I am building my floppy image, I'll fix it eventually). This will build a working `bootdisk.img` that you can load with an emulator. If you have QEMU installed, you can then run `make run` to start the emulator. You should see a GRUB menu with one entry which should boot into the kernel.
 
 My testing environment is a combination of QEMU and VirtualBox.
 
@@ -29,6 +29,7 @@ Some things are far easier said than done, but I like to say them anyway. The ti
     * Intel graphics driver, with acceleration so Wayland isn't slow
     * Realtek wireless driver, with WPA2
     * Specific drivers for the Thinkpad itself (or just acpi?)
+* Custom b-tree filesystem
 
 ### Roadmap ###
 Currently, I have a kernel capable of reading its multiboot parameters, which is terribly un-useful. The current, ordered, plan of attack is as follows:
@@ -37,7 +38,7 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
     * Paging *done*
     * Heap *done, implemented with klmalloc in the void*
     * VFS *done*
-    * Initial RAM Disk
+    * Initial RAM Disk *works, but not perfect*
     * Multitasking
     * User mode
 * Finish basic kernel functionality
@@ -45,7 +46,7 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
     * Complete system call table
     * Get a better semblance of users and groups
 * Write a file system driver for a real file system
-    * Target is EXT2, but might do FAT
+    * Target is EXT2, but might do FAT *can read small EXT2 partitions from memory*
     * Move OS development images to some form of virtual drive (VDI or something QEMU compatible)
 * Implement a VESA mode handler
     * Requires a Virtual 8086 monitor
