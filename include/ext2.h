@@ -66,14 +66,14 @@ struct ext2_superblock {
 	uint32_t hash_seed[4];
 	uint8_t def_hash_version;
 	uint16_t _padding_a;
-	uint8_t  _padding_b;
+	uint8_t _padding_b;
 
 	/* Other Options */
 	uint32_t default_mount_options;
 	uint32_t first_meta_bg;
 	uint8_t _unused[760];
 
-} __attribute__((packed));
+} __attribute__ ((packed));
 
 typedef struct ext2_superblock ext2_superblock_t;
 
@@ -85,8 +85,8 @@ struct ext2_bgdescriptor {
 	uint16_t free_inodes_count;
 	uint16_t used_dirs_count;
 	uint16_t pad;
-	uint8_t  reserved[12];
-} __attribute__((packed));
+	uint8_t reserved[12];
+} __attribute__ ((packed));
 
 typedef struct ext2_bgdescriptor ext2_bgdescriptor_t;
 
@@ -115,7 +115,6 @@ typedef struct ext2_bgdescriptor ext2_bgdescriptor_t;
 #define EXT2_S_IWOTH	0x0002
 #define EXT2_S_IXOTH	0x0001
 
-
 struct ext2_inodetable {
 	uint16_t mode;
 	uint16_t uid;
@@ -134,18 +133,18 @@ struct ext2_inodetable {
 	uint32_t file_acl;
 	uint32_t dir_acl;
 	uint32_t faddr;
-	uint8_t  osd2[12];
-} __attribute__((packed));
+	uint8_t osd2[12];
+} __attribute__ ((packed));
 
 typedef struct ext2_inodetable ext2_inodetable_t;
 
 struct ext2_dir {
 	uint32_t inode;
 	uint16_t rec_len;
-	uint8_t  name_len;
-	uint8_t  file_type;
-	char     name; /* Actually a set of characters, at most 255 bytes */
-} __attribute__((packed));
+	uint8_t name_len;
+	uint8_t file_type;
+	char name;		/* Actually a set of characters, at most 255 bytes */
+} __attribute__ ((packed));
 
 typedef struct ext2_dir ext2_dir_t;
 
