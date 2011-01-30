@@ -103,7 +103,22 @@ main(struct multiboot *mboot_ptr) {
 	uint32_t bytes_read;
 	bytes_read = read_fs(test_file, 0, 255, &buffer);
 	kprintf("cat /etc/kernel/hello.txt\n");
-	kprintf("%s", buffer);
+	uint32_t i = 0;
+	for (i = 0; i < bytes_read; ++i) {
+		kprintf("%c", buffer[i]);
+	}
+	close_fs(test_file);
+	free(test_file);
+	test_file = kopen("/usr/docs/README.md", NULL);
+	char * bufferb = malloc(test_file->length + 200);
+	bytes_read = read_fs(test_file, 100, test_file->length, bufferb);
+	for (i = 0; i < bytes_read; ++i) {
+		kprintf("%c", (char)bufferb[i]);
+		if (i % 500 == 0) {
+			timer_wait(30);
+		}
+	}
+	free(bufferb);
 	close_fs(test_file);
 
 #if 0

@@ -21,6 +21,7 @@ fs_node_t *finddir_initrd(fs_node_t *node, char *name);
 ext2_dir_t * ext2_get_direntry(ext2_inodetable_t * inode, uint32_t index);
 ext2_inodetable_t * ext2_get_inode(uint32_t inode);
 void * ext2_get_block(uint32_t block);
+void * ext2_get_inode_block(ext2_inodetable_t * inode, uint32_t block);
 
 uint32_t
 read_initrd(
@@ -36,9 +37,27 @@ read_initrd(
 	} else {
 		end = offset + size;
 	}
+	uint32_t block_size  = 1024 << initrd_superblock->log_block_size;
+	uint32_t start_block = offset / block_size;
+	uint32_t end_block   = end / block_size;
+	uint32_t end_size    = end % block_size;
 	uint32_t size_to_read = end - offset;
-	// TODO: proper block reading, read files larger than one block
-	memcpy(buffer, ext2_get_block(inode->block[0]) + offset, size_to_read);
+	if (start_block == end_block) {
+		memcpy(buffer, ext2_get_inode_block(inode, start_block) + offset % block_size, size_to_read);
+		return size_to_read;
+	} else {
+		uint32_t block_offset = start_block;
+		uint32_t blocks_read = 0;
+		for (block_offset = start_block; block_offset < end_block; ++block_offset) {
+			if (block_offset == start_block) {
+				memcpy(buffer, ext2_get_inode_block(inode, block_offset) + (offset % block_size), (block_size - (offset % block_size)));
+			} else {
+				memcpy(buffer + block_size * blocks_read - (offset % block_size), ext2_get_inode_block(inode, block_offset), block_size);
+			}
+			blocks_read++;
+		}
+		memcpy(buffer + block_size * blocks_read - (offset % block_size), ext2_get_inode_block(inode, end_block), (end % block_size));
+	}
 	return size_to_read;
 }
 
@@ -110,7 +129,7 @@ finddir_initrd(
 	ext2_inodetable_t * inode = ext2_get_inode(node->inode);
 	void * block;
 	ext2_dir_t * direntry = NULL;
-	block = (void *)ext2_get_block(inode->block[0]);
+	block = (void *)ext2_get_inode_block(inode, 0);
 	uint32_t dir_offset;
 	dir_offset = 0;
 	/*
@@ -245,6 +264,18 @@ ext2_get_inode(
 		uint32_t inode
 		) {
 	return (ext2_inodetable_t *)((uintptr_t)initrd_inode_table + initrd_superblock->inode_size * (inode - 1));
+}
+
+void *
+ext2_get_inode_block(
+		ext2_inodetable_t * inode,
+		uint32_t block
+		) {
+	if (block < 12) {
+		return ext2_get_block(inode->block[block]);
+	} else if (block < 12 + (1024 << initrd_superblock->log_block_size) / sizeof(uint32_t)) {
+		return ext2_get_block(*(uint32_t*)((uintptr_t)ext2_get_block(inode->block[12]) + (block - 12) * sizeof(uint32_t)));
+	}
 }
 
 void *
