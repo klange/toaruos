@@ -13,6 +13,7 @@ install: kernel
 	cp initrd /mnt/initrd
 	umount /mnt
 	cp kernel /boot/toaruos-kernel
+	cp initrd /boot/toaruos-initrd
 
 run: bootdisk.img
 	qemu -fda bootdisk.img
