@@ -1,4 +1,6 @@
 include ../Makefile.inc
+DIRS = fs
+
 .PHONY: all clean install fs
 
 all: system.o multiboot.o gdt.o idt.o irq.o isrs.o kbd.o kprintf.o timer.o vga.o mem.o panic.o alloc.o vfs.o fs
@@ -13,3 +15,4 @@ fs:
 
 clean:
 	@-rm -f *.o
+	@-for d in ${DIRS}; do (cd $$d; ${MAKE} clean); done

@@ -43,20 +43,20 @@ read_initrd(
 	uint32_t end_size    = end % block_size;
 	uint32_t size_to_read = end - offset;
 	if (start_block == end_block) {
-		memcpy(buffer, ext2_get_inode_block(inode, start_block) + offset % block_size, size_to_read);
+		memcpy(buffer, (void *)((uintptr_t)ext2_get_inode_block(inode, start_block) + offset % block_size), size_to_read);
 		return size_to_read;
 	} else {
 		uint32_t block_offset = start_block;
 		uint32_t blocks_read = 0;
 		for (block_offset = start_block; block_offset < end_block; ++block_offset) {
 			if (block_offset == start_block) {
-				memcpy(buffer, ext2_get_inode_block(inode, block_offset) + (offset % block_size), (block_size - (offset % block_size)));
+				memcpy(buffer, (void *)((uintptr_t)ext2_get_inode_block(inode, block_offset) + (offset % block_size)), (block_size - (offset % block_size)));
 			} else {
 				memcpy(buffer + block_size * blocks_read - (offset % block_size), ext2_get_inode_block(inode, block_offset), block_size);
 			}
 			blocks_read++;
 		}
-		memcpy(buffer + block_size * blocks_read - (offset % block_size), ext2_get_inode_block(inode, end_block), (end % block_size));
+		memcpy(buffer + block_size * blocks_read - (offset % block_size), ext2_get_inode_block(inode, end_block), end_size);
 	}
 	return size_to_read;
 }
@@ -325,6 +325,7 @@ ext2_get_inode_block(
 	} else if (block < 12 + (1024 << initrd_superblock->log_block_size) / sizeof(uint32_t)) {
 		return ext2_get_block(*(uint32_t*)((uintptr_t)ext2_get_block(inode->block[12]) + (block - 12) * sizeof(uint32_t)));
 	}
+	return NULL;
 }
 
 void *

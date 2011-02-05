@@ -4,7 +4,9 @@ include ../../Makefile.inc
 all: ext2_initrd.o
 
 %.o: %.c
-	${CC} ${CFLAGS} -I../../include -c -o $@ $<
+	@${ECHO} -n "\e[32m   CC   core/fs/$<\e[0m"
+	@${CC} ${CFLAGS} -I../../include -c -o $@ $<
+	@${ECHO} "\r\e[32;1m   CC   core/fs/$<\e[0m"
 
 clean:
 	-rm -f *.o
