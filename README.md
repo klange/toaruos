@@ -2,7 +2,13 @@
 This is a toy OS based on the POSIX standards. The primarily goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library.
 
 ## Testing it Out ##
-Clone the git repository and run `make` and `sudo make install` (yes, the `sudo` is necessary because of how I am building my floppy image, I'll fix it eventually). This will build a working `bootdisk.img` that you can load with an emulator. If you have QEMU installed, you can then run `make run` to start the emulator. You should see a GRUB menu with one entry which should boot into the kernel.
+Clone the git repository and run:
+
+    make                # to build the kernel
+    make initrd         # to create an initial RAM-disk image
+    sudo make install   # to build the bootdisk
+
+This will build a working `bootdisk.img` that you can load with an emulator. If you have QEMU installed, you can then run `make run` to start the emulator. You should see a GRUB menu with one entry which should boot into the kernel.
 
 My testing environment is a combination of QEMU and VirtualBox.
 
