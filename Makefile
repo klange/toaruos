@@ -2,9 +2,9 @@ include Makefile.inc
 
 DIRS = core
 
-.PHONY: all clean install core run curses
+.PHONY: all clean install core run curses initrd
 
-all: kernel initrd
+all: kernel
 
 install: kernel
 	cp bootdisk.src.img bootdisk.img
@@ -34,6 +34,7 @@ start.o: start.asm
 	nasm -f elf -o start.o start.asm
 
 initrd: fs
+	-rm -f initrd
 	genext2fs -d fs -q -b 249 -v initrd
 
 clean:
