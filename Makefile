@@ -4,7 +4,7 @@ DIRS = core
 
 .PHONY: all clean install core run curses
 
-all: kernel
+all: kernel initrd
 
 install: kernel
 	cp bootdisk.src.img bootdisk.img
@@ -33,7 +33,11 @@ core:
 start.o: start.asm
 	nasm -f elf -o start.o start.asm
 
+initrd: fs
+	genext2fs -d fs -q -b 249 -v initrd
+
 clean:
 	-rm -f *.o kernel
 	-rm -f bootdisk.img
+	-rm -f initrd
 	-for d in ${DIRS}; do (cd $$d; ${MAKE} clean); done

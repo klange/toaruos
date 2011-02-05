@@ -127,6 +127,7 @@ finddir_initrd(
 	 * Find the actual inode in the ramdisk image for the requested file
 	 */
 	ext2_inodetable_t * inode = ext2_get_inode(node->inode);
+	assert(inode->mode & EXT2_S_IFDIR);
 	void * block;
 	ext2_dir_t * direntry = NULL;
 	block = (void *)ext2_get_inode_block(inode, 0);
@@ -134,13 +135,15 @@ finddir_initrd(
 	dir_offset = 0;
 	/*
 	 * Look through the requested entries until we find what we're looking for
-	 */
+	 i*/
 	while (dir_offset < inode->size) {
 		ext2_dir_t * d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
+#if 0
 		if (strlen(name) != d_ent->name_len) {
 			dir_offset += d_ent->rec_len;
 			continue;
 		}
+#endif
 		char * dname = malloc(sizeof(char) * (d_ent->name_len + 1));
 		memcpy(dname, &d_ent->name, d_ent->name_len);
 		dname[d_ent->name_len] = '\0';
@@ -177,6 +180,52 @@ initrd_node_from_file(
 	fnode->inode = direntry->inode;
 	memcpy(&fnode->name, &direntry->name, direntry->name_len);
 	fnode->name[direntry->name_len] = '\0';
+	/* Information from the inode */
+	fnode->uid = inode->uid;
+	fnode->gid = inode->gid;
+	fnode->length = inode->size;
+	fnode->mask = inode->mode & 0xFFF;
+	/* File Flags */
+	fnode->flags = 0;
+	if (inode->mode & EXT2_S_IFREG) {
+		fnode->flags |= FS_FILE;
+	}
+	if (inode->mode & EXT2_S_IFDIR) {
+		fnode->flags |= FS_DIRECTORY;
+	}
+	if (inode->mode & EXT2_S_IFBLK) {
+		fnode->flags |= FS_BLOCKDEVICE;
+	}
+	if (inode->mode & EXT2_S_IFCHR) {
+		fnode->flags |= FS_CHARDEVICE;
+	}
+	if (inode->mode & EXT2_S_IFIFO) {
+		fnode->flags |= FS_PIPE;
+	}
+	if (inode->mode & EXT2_S_IFLNK) {
+		fnode->flags |= FS_SYMLINK;
+	}
+	fnode->read    = read_initrd;
+	fnode->write   = write_initrd;
+	fnode->open    = open_initrd;
+	fnode->close   = close_initrd;
+	fnode->readdir = readdir_initrd;
+	fnode->finddir = finddir_initrd;
+	return 1;
+}
+
+uint32_t
+initrd_node_root(
+		ext2_inodetable_t * inode,
+		fs_node_t * fnode
+		) {
+	if (!fnode) {
+		return 0;
+	}
+	/* Information from the direntry */
+	fnode->inode = 2;
+	fnode->name[0] = '/';
+	fnode->name[1] = '\0';
 	/* Information from the inode */
 	fnode->uid = inode->uid;
 	fnode->gid = inode->gid;
@@ -290,7 +339,6 @@ ext2_get_direntry(
 		ext2_inodetable_t * inode,
 		uint32_t index
 		) {
-	assert(inode->mode & EXT2_S_IFDIR);
 	void * block;
 	block = (void *)ext2_get_block(inode->block[0]);
 	uint32_t dir_offset;
@@ -316,12 +364,17 @@ initrd_mount(
 	initrd_start = (void *)mem_head;
 	initrd_superblock = (ext2_superblock_t *)((uintptr_t)initrd_start + 1024);
 	assert(initrd_superblock->magic == EXT2_SUPER_MAGIC);
+	if (initrd_superblock->inode_size == 0) {
+		/**
+		 * Broken EXT2 instances may not give us a proper size for this.
+		 * We will assume it is 128.
+		 */
+		initrd_superblock->inode_size = 128;
+	}
 	initrd_root_block = (ext2_bgdescriptor_t *)((uintptr_t)initrd_start + 1024 + 1024);
 	initrd_inode_table = (ext2_inodetable_t *)((uintptr_t)initrd_start + (1024 << initrd_superblock->log_block_size) * initrd_root_block->inode_table);
-	// Get the second inode
 	ext2_inodetable_t * root_inode = ext2_get_inode(2);
-	ext2_dir_t * root_direntry = ext2_get_direntry(root_inode, 0);
 	initrd_root = (fs_node_t *)malloc(sizeof(fs_node_t));
-	assert(initrd_node_from_file(root_inode, root_direntry, initrd_root));
+	assert(initrd_node_root(root_inode, initrd_root));
 	fs_root = initrd_root;
 }
