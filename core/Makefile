@@ -4,10 +4,12 @@ include ../Makefile.inc
 all: system.o multiboot.o gdt.o idt.o irq.o isrs.o kbd.o kprintf.o timer.o vga.o mem.o panic.o alloc.o vfs.o fs
 
 %.o: %.c
-	${CC} ${CFLAGS} -I../include -c -o $@ $<
+	@${ECHO} -n "\e[32m   CC   core/$<\e[0m"
+	@${CC} ${CFLAGS} -I../include -c -o $@ $<
+	@${ECHO} "\r\e[32;1m   CC   core/$<\e[0m"
 
 fs:
-	cd fs; ${MAKE} ${MFLAGS}
+	@cd fs; ${MAKE} ${MFLAGS}
 
 clean:
-	-rm -f *.o
+	@-rm -f *.o

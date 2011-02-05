@@ -6,7 +6,7 @@
 #include <system.h>
 
 extern uintptr_t end;
-uintptr_t placement_pointer = &end;
+uintptr_t placement_pointer = (uintptr_t)&end;
 
 void
 kmalloc_startat(
@@ -226,7 +226,7 @@ page_fault(
 	int reserved = r->err_code & 0x8;
 	int id       = r->err_code & 0x10;
 
-	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d) at 0x%x\n", present, rw, user, reserved, faulting_address);
+	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x\n", present, rw, user, reserved, id, faulting_address);
 	HALT_AND_CATCH_FIRE("Page fault");
 }
 

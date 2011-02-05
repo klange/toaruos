@@ -50,7 +50,7 @@ dump_multiboot(
 	kprintf("(%dMB)\n", mem_mb);
 	kprintf("Found %d module(s).\n", mboot_ptr->mods_count);
 	if (mboot_ptr->mods_count > 0) {
-		int i;
+		uint32_t i;
 		for (i = 0; i < mboot_ptr->mods_count; ++i ) {
 			uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr + 8 * i);
 			uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr + 8 * i + 4);
