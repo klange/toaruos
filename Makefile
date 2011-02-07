@@ -2,7 +2,7 @@ include Makefile.inc
 
 DIRS = core
 
-.PHONY: all clean install core run curses initrd
+.PHONY: all clean install run curses initrd
 
 all: kernel
 
@@ -23,7 +23,7 @@ run: bootdisk.img
 curses: bootdisk.img
 	@qemu -curses -fda bootdisk.img
 
-kernel: start.o link.ld main.o core
+kernel: start.o link.ld main.o core.d
 	@${ECHO} -n "\e[32m   LD   $<\e[0m"
 	@${LD} -T link.ld -o kernel *.o core/*.o core/fs/*.o
 	@${ECHO} "\r\e[32;1m   LD   $<\e[0m"
@@ -38,8 +38,9 @@ start.o: start.asm
 	@${CC} ${CFLAGS} -I./include -c -o $@ $<
 	@${ECHO} "\r\e[32;1m   CC   $<\e[0m"
 
-core:
+core.d:
 	@cd core; ${MAKE} ${MFLAGS}
+	@touch core.d
 
 initrd: fs
 	@${ECHO} -n "\e[32m initrd  Generating initial RAM disk\e[0m"
@@ -51,4 +52,5 @@ clean:
 	@-rm -f *.o kernel
 	@-rm -f bootdisk.img
 	@-rm -f initrd
+	@-rm -f core.d
 	@-for d in ${DIRS}; do (cd $$d; ${MAKE} clean); done
