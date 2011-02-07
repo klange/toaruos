@@ -103,3 +103,41 @@ kprintf(
 	args_end(args);
 	puts(buf);
 }
+
+char * kgets_buffer = NULL;
+int kgets_collected = 0;
+int kgets_want      = 0;
+int kgets_newline   = 0;
+
+void
+kgets_handler(
+		char ch
+		) {
+	writech(ch);
+	if (ch == '\n') {
+		kgets_newline = 1;
+		return;
+	}
+	if (kgets_collected < kgets_want) {
+		kgets_buffer[kgets_collected] = ch;
+		kgets_collected++;
+	}
+}
+
+int
+kgets(
+		char *buffer,
+		int size
+	 ) {
+	kgets_buffer    = buffer;
+	kgets_collected = 0;
+	kgets_want      = size;
+	kgets_newline   = 0;
+	keyboard_buffer_handler = kgets_handler;
+	while ((kgets_collected < size) && (!kgets_newline)) {
+		// spin spin spin
+	}
+	buffer[kgets_collected] = '\0';
+	keyboard_buffer_handler = NULL;
+	return kgets_collected;
+}

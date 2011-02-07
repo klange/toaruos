@@ -109,19 +109,8 @@ int main(struct multiboot *mboot_ptr)
 	close_fs(test_file);
 	free(test_file);
 	free(buffer);
-#if 0
-	test_file = kopen("/usr/docs/README.md", NULL);
-	char *bufferb = malloc(test_file->length + 200);
-	bytes_read = read_fs(test_file, 100, test_file->length, bufferb);
-	for (i = 0; i < bytes_read; ++i) {
-		kprintf("%c", (char)bufferb[i]);
-		if (i % 500 == 0) {
-			timer_wait(10);
-		}
-	}
-	free(bufferb);
-	close_fs(test_file);
-#endif
+
+	start_shell();
 
 	return 0;
 }

@@ -98,6 +98,7 @@ readdir_initrd(
 		uint32_t index
 		) {
 	ext2_inodetable_t * inode = ext2_get_inode(node->inode);
+	assert(inode->mode & EXT2_S_IFDIR);
 	ext2_dir_t * direntry = ext2_get_direntry(inode, index);
 	if (!direntry) {
 		return NULL;
@@ -135,7 +136,7 @@ finddir_initrd(
 	dir_offset = 0;
 	/*
 	 * Look through the requested entries until we find what we're looking for
-	 i*/
+	 */
 	while (dir_offset < inode->size) {
 		ext2_dir_t * d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
 #if 0
@@ -341,7 +342,7 @@ ext2_get_direntry(
 		uint32_t index
 		) {
 	void * block;
-	block = (void *)ext2_get_block(inode->block[0]);
+	block = (void *)ext2_get_inode_block(inode,0);
 	uint32_t dir_offset;
 	dir_offset = 0;
 	uint32_t dir_index;

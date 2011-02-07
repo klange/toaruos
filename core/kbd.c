@@ -159,9 +159,25 @@ void
 keyboard_install() {
 	/* IRQ installer */
 	irq_install_handler(1, keyboard_handler);
+	keyboard_buffer_handler = NULL;
 }
 
 void
 keyboard_wait() {
 	while(inportb(0x64) & 2);
 }
+
+/*
+ * putch
+ */
+void
+putch(
+		unsigned char c
+	 ) {
+	if (keyboard_buffer_handler) {
+		keyboard_buffer_handler(c);
+	} else {
+		writech(c);
+	}
+}
+

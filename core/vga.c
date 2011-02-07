@@ -67,13 +67,13 @@ cls() {
 }
 
 /*
- * putch
- * Puts a character to the screen
+ * writech
+ * Write a character to the screen.
  */
 void
-putch(
+writech(
 		unsigned char c
-	 ) {
+	   ) {
 	unsigned short *where;
 	unsigned att = attrib << 8;
 	if (c == 0x08) {

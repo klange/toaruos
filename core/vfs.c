@@ -32,7 +32,7 @@ void close_fs(fs_node_t *node) {
 }
 
 struct dirent * readdir_fs(fs_node_t *node, uint32_t index) {
-	if ((node->flags & 0x07) == FS_DIRECTORY && node->readdir != 0) {
+	if ((node->flags & FS_DIRECTORY) && node->readdir != NULL) {
 		return node->readdir(node, index);
 	} else {
 		return (struct dirent *)NULL;
@@ -40,7 +40,7 @@ struct dirent * readdir_fs(fs_node_t *node, uint32_t index) {
 }
 
 fs_node_t *finddir_fs(fs_node_t *node, char *name) {
-	if ((node->flags & FS_DIRECTORY) && node->readdir != 0) {
+	if ((node->flags & FS_DIRECTORY) && node->readdir != NULL) {
 		return node->finddir(node, name);
 	} else {
 		return (fs_node_t *)NULL;
@@ -59,11 +59,17 @@ kopen(
 	if (!fs_root) {
 		HALT_AND_CATCH_FIRE("Attempted to kopen() without a filesystem in place.");
 	}
-	if (!filename[0] == '/') {
+	if (!filename) {
+		HALT_AND_CATCH_FIRE("Attempted to kopen() without a filename.");
+	}
+	if (filename[0] != '/') {
 		HALT_AND_CATCH_FIRE("Attempted to kopen() a non-absolute path.");
 	}
-	uint32_t path_len = strlen(filename);
-	char * path = (char *)malloc(sizeof(char) * (path_len));
+	size_t path_len = strlen(filename);
+	if (path_len == 1) {
+		return fs_root;
+	}
+	char * path = (char *)malloc(sizeof(char) * (path_len + 1));
 	memcpy(path, filename, path_len);
 	char * path_offset = path;
 	uint32_t path_depth = 0;

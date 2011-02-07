@@ -29,7 +29,11 @@ extern unsigned short *memsetw(unsigned short *dest, unsigned short val, int cou
 extern int strlen(const char *str);
 extern unsigned char inportb(unsigned short _port);
 extern void outportb(unsigned short _port, unsigned char _data);
-int strcmp(const char *a, const char *b);
+extern int strcmp(const char *a, const char *b);
+extern char * strtok_r(char * str, const char * delim, char ** saveptr);
+extern size_t lfind(const char * str, const char accept);
+extern size_t strspn(const char * str, const char * accept);
+extern char * strpbrk(const char * str, const char * accept);
 
 /* Panic */
 #define HALT_AND_CATCH_FIRE(mesg) halt_and_catch_fire(mesg, __FILE__, __LINE__)
@@ -40,11 +44,11 @@ void assert_failed(const char *file, uint32_t line, const char *desc);
 
 /* VGA driver */
 extern void cls();
-extern void putch(unsigned char c);
 extern void puts(char *str);
 extern void settextcolor(unsigned char forecolor, unsigned char backcolor);
 extern void resettextcolor();
 extern void init_video();
+extern void writech(unsigned char c);
 
 /* GDT */
 extern void gdt_install();
@@ -82,11 +86,15 @@ extern long timer_ticks;
 extern void timer_wait(int ticks);
 
 /* Keyboard */
+typedef void (*keyboard_buffer_t)(char ch);
+keyboard_buffer_t keyboard_buffer_handler;
 extern void keyboard_install();
 extern void keyboard_wait();
+extern void putch(unsigned char c);
 
 /* kprintf */
 extern void kprintf(const char *fmt, ...);
+extern int kgets(char *buf, int size);
 
 /* Memory Management */
 extern uintptr_t placement_pointer;
@@ -132,5 +140,8 @@ void * __attribute__ ((malloc)) malloc(size_t size);
 void * __attribute__ ((malloc)) realloc(void *ptr, size_t size);
 void * __attribute__ ((malloc)) calloc(size_t nmemb, size_t size);
 void free(void *ptr);
+
+/* shell */
+extern void start_shell();
 
 #endif
