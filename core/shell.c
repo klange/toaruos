@@ -42,15 +42,25 @@ start_shell() {
 					kprintf("cd: argument expected\n");
 					continue;
 				} else {
+					char * filename = malloc(sizeof(char) * 1024);
 					if (argv[1][0] == '/') {
-						fs_node_t * chd = kopen(argv[1], 0);
-						if (chd) {
-							node = chd;
-							memcpy(path, argv[1], strlen(argv[1]));
-							path[strlen(argv[1])] = '\0';
+						memcpy(filename, argv[1], strlen(argv[1]) + 1);
+					} else {
+						memcpy(filename, path, strlen(path));
+						if (!strcmp(path,"/")) {
+							memcpy((void *)((uintptr_t)filename + strlen(path)),argv[1],strlen(argv[1])+1); 
 						} else {
-							kprintf("cd: could not change directory\n");
+							filename[strlen(path)] = '/';
+							memcpy((void *)((uintptr_t)filename + strlen(path) + 1),argv[1],strlen(argv[1])+1); 
 						}
+					}
+					fs_node_t * chd = kopen(filename, 0);
+					if (chd) {
+						node = chd;
+						memcpy(path, filename, strlen(filename));
+						path[strlen(filename)] = '\0';
+					} else {
+						kprintf("cd: could not change directory\n");
 					}
 				}
 			} else if (!strcmp(cmd, "cat")) {
@@ -58,21 +68,31 @@ start_shell() {
 					kprintf("cat: argument expected\n");
 					continue;
 				} else {
+					char * filename = malloc(sizeof(char) * 1024);
 					if (argv[1][0] == '/') {
-						fs_node_t * file = kopen(argv[1],0);
-						if (!file) {
-							kprintf("cat: could not open file `%s`\n", argv[1]);
-							continue;
+						memcpy(filename, argv[1], strlen(argv[1]) + 1);
+					} else {
+						memcpy(filename, path, strlen(path));
+						if (!strcmp(path,"/")) {
+							memcpy((void *)((uintptr_t)filename + strlen(path)),argv[1],strlen(argv[1])+1); 
+						} else {
+							filename[strlen(path)] = '/';
+							memcpy((void *)((uintptr_t)filename + strlen(path) + 1),argv[1],strlen(argv[1])+1); 
 						}
-						char *bufferb = malloc(file->length + 200);
-						size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
-						size_t i = 0;
-						for (i = 0; i < bytes_read; ++i) {
-							writech(bufferb[i]);
-						}
-						free(bufferb);
-						close_fs(file);
 					}
+					fs_node_t * file = kopen(filename,0);
+					if (!file) {
+						kprintf("cat: could not open file `%s`\n", argv[1]);
+						continue;
+					}
+					char *bufferb = malloc(file->length + 200);
+					size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
+					size_t i = 0;
+					for (i = 0; i < bytes_read; ++i) {
+						writech(bufferb[i]);
+					}
+					free(bufferb);
+					close_fs(file);
 				}
 			} else if (!strcmp(cmd, "echo")) {
 				if (tokenid < 2) {
