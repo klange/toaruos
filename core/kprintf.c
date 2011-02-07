@@ -113,10 +113,23 @@ void
 kgets_handler(
 		char ch
 		) {
-	writech(ch);
-	if (ch == '\n') {
-		kgets_newline = 1;
+
+	if (ch == 0x08) {
+		/* Backspace */
+		if (kgets_collected != 0) {
+			writech(0x08);
+			writech(' ');
+			writech(0x08);
+			kgets_buffer[kgets_collected] = '\0';
+			--kgets_collected;
+		}
 		return;
+	} else if (ch == '\n') {
+		kgets_newline = 1;
+		writech('\n');
+		return;
+	} else {
+		writech(ch);
 	}
 	if (kgets_collected < kgets_want) {
 		kgets_buffer[kgets_collected] = ch;

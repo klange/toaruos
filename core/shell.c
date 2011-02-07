@@ -114,6 +114,14 @@ start_shell() {
 					i++;
 					entry = readdir_fs(node, i);
 				}
+			} else if (!strcmp(cmd, "help")) {
+				settextcolor(9,0);
+				kprintf("                 - ToAruOS Kernel Debug Shell - \n");
+				resettextcolor();
+				kprintf(" This is the ToAruOS kernel debugging environment.\n");
+				kprintf(" From here, you have access to the virtual file system layer and \n");
+				kprintf(" can read files, list files in directories, dump memory, registers,\n");
+				kprintf(" and a few other things.\n");
 			} else {
 				kprintf("Unrecognized command: %s\n", cmd);
 			}
