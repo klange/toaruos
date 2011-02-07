@@ -88,27 +88,10 @@ int main(struct multiboot *mboot_ptr)
 	/* Print multiboot information */
 	dump_multiboot(mboot_ptr);
 
-	timer_wait(100);
-
 	uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);
 	uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
 
 	initrd_mount(module_start, module_end);
-	fs_node_t *test_file = kopen("/etc/motd", 0);
-	if (!test_file) {
-		kprintf("Could not find an MOTD in the provided initial RAMdisk.\n");
-		return 0;
-	}
-	char * buffer = malloc(sizeof(char) * 2048);
-	uint32_t bytes_read;
-	bytes_read = read_fs(test_file, 0, 2047, (uint8_t *) buffer);
-	uint32_t i = 0;
-	for (i = 0; i < bytes_read; ++i) {
-		putch(buffer[i]);
-	}
-	close_fs(test_file);
-	free(test_file);
-	free(buffer);
 
 	start_shell();
 
