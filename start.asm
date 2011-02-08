@@ -22,9 +22,10 @@ mboot:
 ; Main entrypoint
 global start
 start:
-	mov esp, _sys_stack
+	mov esp, 0x7FFFF ; grub likes this
 	; Push the incoming mulitboot headers
-	push ebx
+	push eax ; Magic
+	push ebx ; Header pointer
 	; Disable interrupts
 	cli
 	; Call the C entry
@@ -192,6 +193,4 @@ irq_common_stub:
 ; BSS Section
 SECTION .bss
 	resb 8192 ; 8KB of memory reserved
-_sys_stack:
-; This line intentionally left blank
 

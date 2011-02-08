@@ -54,17 +54,20 @@
  * multiboot data from the bootloader. It will then proceed to print
  * out the contents of the initial ramdisk image.
  */
-int main(struct multiboot *mboot_ptr)
+int main(struct multiboot *mboot_ptr, uint32_t mboot_mag)
 {
-
-	/* Realing memory to the end of the multiboot modules */
-	if (mboot_ptr->mods_count > 0) {
-		uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
-		kmalloc_startat(module_end);
-	}
-#if 0
-	mboot_ptr = copy_multiboot(mboot_ptr);
+	int using_multiboot = 0;
+	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
+		using_multiboot = 1;
+		/* Realing memory to the end of the multiboot modules */
+		if (mboot_ptr->mods_count > 0) {
+			uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
+			kmalloc_startat(module_end);
+		}
+#if 1
+		mboot_ptr = copy_multiboot(mboot_ptr);
 #endif
+	}
 
 	/* Initialize core modules */
 	gdt_install();		/* Global descriptor table */
@@ -85,13 +88,17 @@ int main(struct multiboot *mboot_ptr)
 	settextcolor(12, 0);
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
 
-	/* Print multiboot information */
-	dump_multiboot(mboot_ptr);
+	if (using_multiboot) {
+		/* Print multiboot information */
+		dump_multiboot(mboot_ptr);
 
-	uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);
-	uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
+		if (mboot_ptr->mods_count > 0) {
+			uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);
+			uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
 
-	initrd_mount(module_start, module_end);
+			initrd_mount(module_start, module_end);
+		}
+	}
 
 	start_shell();
 
