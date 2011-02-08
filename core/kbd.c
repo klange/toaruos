@@ -98,8 +98,12 @@ void norm(int scancode) {
 	if (keyboard_state.shift) {
 		putch(kbd_us_l2[scancode]);
 	} else if (keyboard_state.ctrl) {
-		putch('^');
-		putch(kbd_us_l2[scancode]);
+		int out = (int)(kbd_us_l2[scancode] - 0x40);
+		if (out < 0 || out > 0x1F) {
+			putch(kbd_us[scancode]);
+		} else {
+			putch((char)out);
+		}
 	} else {
 		putch(kbd_us[scancode]);
 	}
