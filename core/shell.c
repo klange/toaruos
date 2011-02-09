@@ -1,19 +1,36 @@
 /*
- * ToAruOS Kernel Shell
+ * ToAruOS Kernel Debugger Shell
+ *
+ * Part of the ToAruOS Kernel, under the NCSA license
+ *
+ * Copyright 2011 Kevin Lange
+ *
+ *   (Preliminary documentation based on intended future use; currently,
+ *    this is just a file system explorer)
+ *
+ * This is a kernel debugging shell that allows basic, sh-like operation
+ * of the system while it is in use, without other tasks running in the
+ * background. While the debug shell is running, the tasker is disabled
+ * and the kernel will remainin on its current task, allowing users to
+ * display registry and memory information relavent to the current task.
+ *
  */
 #include <system.h>
 #include <fs.h>
 
 void
 start_shell() {
-	char path[1024];
+	/* Current working directory */
+	char path[1024] = {'/', '\0'};
+	/* File system node for the working directory */
 	fs_node_t * node = fs_root;
-	path[0] = '/';
-	path[1] = '\0';
 	while (1) {
+		/* Read buffer */
 		char buffer[1024];
 		int size;
+		/* Print the prompt */
 		kprintf("kernel %s> ", path);
+		/* Read commands */
 		size = kgets((char *)&buffer, 1023);
 		if (size < 1) {
 			continue;
@@ -26,7 +43,7 @@ start_shell() {
 			char * save;
 			pch = strtok_r(buffer," ",&save);
 			cmd = pch;
-			char * argv[1024];
+			char * argv[1024]; /* Command tokens (space-separated elements) */
 			int tokenid = 0;
 			while (pch != NULL) {
 				argv[tokenid] = (char *)pch;
@@ -38,6 +55,9 @@ start_shell() {
 			 * Execute the command
 			 */
 			if (!strcmp(cmd, "cd")) {
+				/*
+				 * Change Directory
+				 */
 				if (tokenid < 2) {
 					kprintf("cd: argument expected\n");
 					continue;
@@ -56,6 +76,10 @@ start_shell() {
 					}
 					fs_node_t * chd = kopen(filename, 0);
 					if (chd) {
+						if ((chd->flags & FS_DIRECTORY) == 0) {
+							kprintf("cd: %s is not a directory\n", filename);
+							continue;
+						}
 						node = chd;
 						memcpy(path, filename, strlen(filename));
 						path[strlen(filename)] = '\0';
@@ -64,6 +88,9 @@ start_shell() {
 					}
 				}
 			} else if (!strcmp(cmd, "cat")) {
+				/*
+				 * Read and print content of file
+				 */
 				if (tokenid < 2) {
 					kprintf("cat: argument expected\n");
 					continue;
@@ -95,6 +122,9 @@ start_shell() {
 					close_fs(file);
 				}
 			} else if (!strcmp(cmd, "echo")) {
+				/*
+				 * Print given arguments
+				 */
 				if (tokenid < 2) {
 					continue;
 				} else {
@@ -105,6 +135,9 @@ start_shell() {
 					kprintf("\n");
 				}
 			} else if (!strcmp(cmd, "ls")) {
+				/*
+				 * List the files in the current working directory
+				 */
 				struct dirent * entry = NULL;
 				int i = 0;
 				entry = readdir_fs(node, i);
@@ -114,6 +147,8 @@ start_shell() {
 					i++;
 					entry = readdir_fs(node, i);
 				}
+			} else if (!strcmp(cmd, "info")) {
+				kprintf("Flags: 0x%x\n", node->flags);
 			} else if (!strcmp(cmd, "help")) {
 				settextcolor(9,0);
 				kprintf("                 - ToAruOS Kernel Debug Shell - \n");
