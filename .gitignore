@@ -2,4 +2,3 @@ kernel
 *.o
 bootdisk.img
 initrd
-core.d
