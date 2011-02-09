@@ -13,7 +13,7 @@ GENEXT = genext2fs
 all: kernel initrd
 
 install: kernel initrd
-	@${ECHO} -n "\e[32m   --   Installing floppy image...\e[0m"
+	@${ECHO} -n "\e[34m   --   Installing floppy image...\e[0m"
 	@cp bootdisk.src.img bootdisk.img
 	@mount bootdisk.img /mnt -o loop
 	@cp kernel /mnt/kernel
@@ -21,7 +21,7 @@ install: kernel initrd
 	@umount /mnt
 	@cp kernel /boot/toaruos-kernel
 	@cp initrd /boot/toaruos-initrd
-	@${ECHO} "\r\e[32;1m   --   Floppy image created.     \e[0m"
+	@${ECHO} "\r\e[34;1m   --   Floppy image created.     \e[0m"
 
 run: bootdisk.img
 	${EMU} bootdisk.img
@@ -48,8 +48,10 @@ initrd: fs
 	@${ECHO} "\r\e[32;1m initrd  Generated initial RAM disk image\e[0m"
 
 clean:
+	@${ECHO} -n "\e[31m   RM   Cleaning...\e[0m"
 	@-rm -f *.o kernel
 	@-rm -f bootdisk.img
 	@-rm -f initrd
 	@-rm -f core/*.o
 	@-rm -f core/fs/*.o
+	@${ECHO} "\r\e[31;1m   RM   Finished cleaning.\e[0m"
