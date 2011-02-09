@@ -1,12 +1,16 @@
-include Makefile.inc
+CC = gcc
+LD = ld -m elf_i386
+CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter
+NASM = nasm -f elf
+ECHO = `which echo` -e
+MODULES = $(patsubst %.c,%.o,$(wildcard core/*.c))
+FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard core/fs/*.c))
 
-DIRS = core
+.PHONY: all clean install run curses initrd corr
 
-.PHONY: all clean install run curses initrd core
+all: kernel initrd
 
-all: kernel
-
-install: kernel
+install: kernel initrd
 	@${ECHO} -n "\e[32m   --   Installing floppy image...\e[0m"
 	@cp bootdisk.src.img bootdisk.img
 	@mount bootdisk.img /mnt -o loop
@@ -23,7 +27,7 @@ run: bootdisk.img
 curses: bootdisk.img
 	@qemu -curses -fda bootdisk.img
 
-kernel: start.o link.ld main.o core
+kernel: start.o link.ld main.o ${MODULES} ${FILESYSEMS}
 	@${ECHO} -n "\e[32m   LD   $<\e[0m"
 	@${LD} -T link.ld -o kernel *.o core/*.o core/fs/*.o
 	@${ECHO} "\r\e[32;1m   LD   $<\e[0m"
@@ -38,9 +42,6 @@ start.o: start.asm
 	@${CC} ${CFLAGS} -I./include -c -o $@ $<
 	@${ECHO} "\r\e[32;1m   CC   $<\e[0m"
 
-core:
-	@cd core; ${MAKE} ${MFLAGS}
-
 initrd: fs
 	@${ECHO} -n "\e[32m initrd  Generating initial RAM disk\e[0m"
 	@-rm -f initrd
@@ -51,5 +52,5 @@ clean:
 	@-rm -f *.o kernel
 	@-rm -f bootdisk.img
 	@-rm -f initrd
-	@-rm -f core.d
-	@-for d in ${DIRS}; do (cd $$d; ${MAKE} clean); done
+	@-rm -f core/*.o
+	@-rm -f core/fs/*.o

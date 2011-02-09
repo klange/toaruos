@@ -57,16 +57,19 @@
 int main(struct multiboot *mboot_ptr, uint32_t mboot_mag)
 {
 	int using_multiboot = 0;
+	char * ramdisk = NULL;
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		using_multiboot = 1;
 		/* Realing memory to the end of the multiboot modules */
-		if (mboot_ptr->mods_count > 0) {
-			uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
-			kmalloc_startat(module_end);
+		kmalloc_startat(0x200000);
+		if (mboot_ptr->flags & 0x04) {
+			if (mboot_ptr->mods_count > 0) {
+				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);
+				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
+				ramdisk = (char *)kmalloc(module_end - module_start);
+				memcpy(ramdisk, (char *)module_start, module_end - module_start);
+			}
 		}
-#if 1
-		mboot_ptr = copy_multiboot(mboot_ptr);
-#endif
 	}
 
 	/* Initialize core modules */
@@ -92,11 +95,10 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag)
 		/* Print multiboot information */
 		dump_multiboot(mboot_ptr);
 
-		if (mboot_ptr->mods_count > 0) {
-			uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);
-			uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
-
-			initrd_mount(module_start, module_end);
+		if (mboot_ptr->flags & 0x04) {
+			if (mboot_ptr->mods_count > 0) {
+				initrd_mount((uintptr_t)ramdisk, 0);
+			}
 		}
 	}
 
