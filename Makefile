@@ -5,8 +5,10 @@ NASM = nasm -f elf
 ECHO = `which echo` -e
 MODULES = $(patsubst %.c,%.o,$(wildcard core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard core/fs/*.c))
+EMU = qemu -fda
+GENEXT = genext2fs
 
-.PHONY: all clean install run curses initrd corr
+.PHONY: all clean install run
 
 all: kernel initrd
 
@@ -22,10 +24,7 @@ install: kernel initrd
 	@${ECHO} "\r\e[32;1m   --   Floppy image created.     \e[0m"
 
 run: bootdisk.img
-	qemu -fda bootdisk.img
-
-curses: bootdisk.img
-	@qemu -curses -fda bootdisk.img
+	${EMU} bootdisk.img
 
 kernel: start.o link.ld main.o ${MODULES} ${FILESYSTEMS}
 	@${ECHO} -n "\e[32m   LD   $<\e[0m"
@@ -34,7 +33,7 @@ kernel: start.o link.ld main.o ${MODULES} ${FILESYSTEMS}
 
 start.o: start.asm
 	@${ECHO} -n "\e[32m  nasm  start.asm\e[0m"
-	@nasm -f elf -o start.o start.asm
+	@${NASM} -o start.o start.asm
 	@${ECHO} "\r\e[32;1m  nasm  start.asm\e[0m"
 
 %.o: %.c
@@ -45,7 +44,7 @@ start.o: start.asm
 initrd: fs
 	@${ECHO} -n "\e[32m initrd  Generating initial RAM disk\e[0m"
 	@-rm -f initrd
-	@genext2fs -d fs -q -b 249 initrd
+	@${GENEXT} -d fs -q -b 249 initrd
 	@${ECHO} "\r\e[32;1m initrd  Generated initial RAM disk image\e[0m"
 
 clean:
