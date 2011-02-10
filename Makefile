@@ -13,18 +13,13 @@ GENEXT = genext2fs
 all: kernel initrd
 
 install: kernel initrd
-	@${ECHO} -n "\e[34m   --   Installing floppy image...\e[0m"
-	@cp bootdisk.src.img bootdisk.img
-	@mount bootdisk.img /mnt -o loop
-	@cp kernel /mnt/kernel
-	@cp initrd /mnt/initrd
-	@umount /mnt
+	@${ECHO} -n "\e[34m   --   Installing to /boot...\e[0m"
 	@cp kernel /boot/toaruos-kernel
 	@cp initrd /boot/toaruos-initrd
-	@${ECHO} "\r\e[34;1m   --   Floppy image created.     \e[0m"
+	@${ECHO} "\r\e[34;1m   --   Kernel and ramdisk installed.\e[0m"
 
-run: bootdisk.img
-	${EMU} bootdisk.img
+run: kernel initrd
+	${EMU} -kernel kernel -initrd initrd
 
 kernel: start.o link.ld main.o ${MODULES} ${FILESYSTEMS}
 	@${ECHO} -n "\e[32m   LD   $<\e[0m"
