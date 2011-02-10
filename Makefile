@@ -5,7 +5,7 @@ NASM = nasm -f elf
 ECHO = `which echo` -e
 MODULES = $(patsubst %.c,%.o,$(wildcard core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard core/fs/*.c))
-EMU = qemu -fda
+EMU = qemu
 GENEXT = genext2fs
 
 .PHONY: all clean install run
