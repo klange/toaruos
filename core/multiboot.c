@@ -42,19 +42,27 @@ dump_multiboot(
 	kprintf("VBE of: 0x%x ",  mboot_ptr->vbe_interface_off);
 	kprintf("VBE le: 0x%x\n", mboot_ptr->vbe_interface_len);
 	resettextcolor();
-	kprintf("Started with: %s\n", (char *)mboot_ptr->cmdline);
-	kprintf("Booted from: %s\n", (char *)mboot_ptr->boot_loader_name);
-	kprintf("%dkB lower memory\n", mboot_ptr->mem_lower);
-	kprintf("%dkB higher memory ", mboot_ptr->mem_upper);
-	int mem_mb = mboot_ptr->mem_upper / 1024;
-	kprintf("(%dMB)\n", mem_mb);
-	kprintf("Found %d module(s).\n", mboot_ptr->mods_count);
-	if (mboot_ptr->mods_count > 0) {
-		uint32_t i;
-		for (i = 0; i < mboot_ptr->mods_count; ++i ) {
-			uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr + 8 * i);
-			uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr + 8 * i + 4);
-			kprintf("Module %d is at 0x%x:0x%x\n", i+1, module_start, module_end);
+	if (mboot_ptr->flags & (1 << 2)) {
+		kprintf("Started with: %s\n", (char *)mboot_ptr->cmdline);
+	}
+	if (mboot_ptr->flags & (1 << 9)) {
+		kprintf("Booted from: %s\n", (char *)mboot_ptr->boot_loader_name);
+	}
+	if (mboot_ptr->flags & (1 << 0)) {
+		kprintf("%dkB lower memory\n", mboot_ptr->mem_lower);
+		kprintf("%dkB higher memory ", mboot_ptr->mem_upper);
+		int mem_mb = mboot_ptr->mem_upper / 1024;
+		kprintf("(%dMB)\n", mem_mb);
+	}
+	if (mboot_ptr->flags & (1 << 3)) {
+		kprintf("Found %d module(s).\n", mboot_ptr->mods_count);
+		if (mboot_ptr->mods_count > 0) {
+			uint32_t i;
+			for (i = 0; i < mboot_ptr->mods_count; ++i ) {
+				uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr + 8 * i);
+				uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr + 8 * i + 4);
+				kprintf("Module %d is at 0x%x:0x%x\n", i+1, module_start, module_end);
+			}
 		}
 	}
 }
