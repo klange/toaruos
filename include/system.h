@@ -48,6 +48,8 @@ extern void puts(char *str);
 extern void settextcolor(unsigned char forecolor, unsigned char backcolor);
 extern void resettextcolor();
 extern void init_video();
+extern void placech(unsigned char c, int x, int y, int attr);
+extern void writechf(unsigned char c);
 extern void writech(unsigned char c);
 
 /* GDT */
