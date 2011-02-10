@@ -5,10 +5,11 @@ This is a toy OS based on the POSIX standards. The primarily goal of the project
 Clone the git repository and run:
 
     make                # to build the kernel
-    make initrd         # to create an initial RAM-disk image
-    sudo make install   # to build the bootdisk
+    make run            # to run qemu with the proper arguments
+    # optionally:
+    sudo make install   # to install the kernel and ramdisk to your /boot directory
 
-This will build a working `bootdisk.img` that you can load with an emulator. If you have QEMU installed, you can then run `make run` to start the emulator. You should see a GRUB menu with one entry which should boot into the kernel.
+This will build the kernel and the ramdisk and, optionally, copy them to your boot directory so you can add them to your grub config. As of 10 Feb 2011, a bootdisk is no longer created and the git repository no longer carries a GRUB disk. Building a bootable floppy has been deprecated in favor of running with QEMU's built-in multiboot support.
 
 My testing environment is a combination of QEMU and VirtualBox.
 
