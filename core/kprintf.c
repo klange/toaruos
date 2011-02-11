@@ -151,7 +151,7 @@ kgets(
 	kgets_newline   = 0;
 	keyboard_buffer_handler = kgets_handler;
 	while ((kgets_collected < size) && (!kgets_newline)) {
-		// spin spin spin
+		__asm__ __volatile__ ("hlt");
 	}
 	buffer[kgets_collected] = '\0';
 	keyboard_buffer_handler = NULL;
