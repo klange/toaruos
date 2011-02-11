@@ -131,6 +131,7 @@ writech(
 		*where = c | att;
 		csr_x++;
 	}
+	serial_send(c);
 
 	if (csr_x >= 80) {
 		csr_x = 0;

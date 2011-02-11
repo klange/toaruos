@@ -19,7 +19,7 @@ install: kernel initrd
 	@${ECHO} "\r\033[34;1m   --   Kernel and ramdisk installed.\033[0m"
 
 run: kernel initrd
-	${EMU} -kernel kernel -initrd initrd
+	${EMU} -kernel kernel -initrd initrd -serial stdio
 
 kernel: start.o link.ld main.o ${MODULES} ${FILESYSTEMS}
 	@${ECHO} -n "\033[32m   LD   $<\033[0m"

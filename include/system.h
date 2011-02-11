@@ -27,6 +27,7 @@ extern void *memcpy(void *restrict dest, const void *restrict src, size_t count)
 extern void *memset(void *dest, int val, size_t count);
 extern unsigned short *memsetw(unsigned short *dest, unsigned short val, int count);
 extern int strlen(const char *str);
+extern int atoi(const char *str);
 extern unsigned char inportb(unsigned short _port);
 extern void outportb(unsigned short _port, unsigned char _data);
 extern int strcmp(const char *a, const char *b);
@@ -145,5 +146,11 @@ void free(void *ptr);
 
 /* shell */
 extern void start_shell();
+
+/* Serial */
+extern void serial_install();
+extern char serial_recv();
+extern void serial_send(char out);
+
 
 #endif
