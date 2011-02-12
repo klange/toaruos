@@ -1,5 +1,4 @@
-kernel
+toaruos-kernel
+toaruos-initrd
 *.o
-bootdisk.img
-initrd
 *.swp

@@ -4,50 +4,50 @@ CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack
 LD = ld -m elf_i386
 NASM = nasm -f elf
 ECHO = `which echo` -e
-MODULES = $(patsubst %.c,%.o,$(wildcard core/*.c))
-FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard core/fs/*.c))
+MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
+FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 EMU = qemu
 GENEXT = genext2fs
 
 .PHONY: all clean install run
 
-all: kernel initrd
+all: toaruos-kernel toaruos-initrd
 
-install: kernel initrd
+install: toaruos-kernel toaruos-initrd
 	@${ECHO} -n "\033[34m   --   Installing to /boot...\033[0m"
-	@cp kernel /boot/toaruos-kernel
-	@cp initrd /boot/toaruos-initrd
+	@cp toaruos-kernel /boot/toaruos-kernel
+	@cp toaruos-initrd /boot/toaruos-initrd
 	@${ECHO} "\r\033[34;1m   --   Kernel and ramdisk installed.\033[0m"
 
-run: kernel initrd
-	${EMU} -kernel kernel -initrd initrd -serial stdio
+run: toaruos-kernel toaruos-initrd
+	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -serial stdio
 
-kernel: start.o link.ld main.o ${MODULES} ${FILESYSTEMS}
+toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYSTEMS}
 	@${ECHO} -n "\033[32m   LD   $<\033[0m"
-	@${LD} -T link.ld -o kernel *.o core/*.o core/fs/*.o
+	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o kernel/core/*.o kernel/core/fs/*.o
 	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"
 
-start.o: start.asm
-	@${ECHO} -n "\033[32m  nasm  start.asm\033[0m"
-	@${NASM} -o start.o start.asm
-	@${ECHO} "\r\033[32;1m  nasm  start.asm\033[0m"
+kernel/start.o: kernel/start.asm
+	@${ECHO} -n "\033[32m  nasm  kernel/start.asm\033[0m"
+	@${NASM} -o kernel/start.o kernel/start.asm
+	@${ECHO} "\r\033[32;1m  nasm  kernel/start.asm\033[0m"
 
 %.o: %.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${CC} ${CFLAGS} -I./include -c -o $@ $<
+	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $<
 	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
 
-initrd: fs
+toaruos-initrd: initrd
 	@${ECHO} -n "\033[32m initrd  Generating initial RAM disk\033[0m"
-	@-rm -f initrd
-	@${GENEXT} -d fs -q -b 249 initrd
+	@-rm -f toaruos-initrd
+	@${GENEXT} -d initrd -q -b 249 toaruos-initrd
 	@${ECHO} "\r\033[32;1m initrd  Generated initial RAM disk image\033[0m"
 
 clean:
 	@${ECHO} -n "\033[31m   RM   Cleaning...\033[0m"
-	@-rm -f *.o kernel
-	@-rm -f bootdisk.img
-	@-rm -f initrd
-	@-rm -f core/*.o
-	@-rm -f core/fs/*.o
+	@-rm -f toaruos-kernel
+	@-rm -f toaruos-initrd
+	@-rm -f kernel/*.o
+	@-rm -f kernel/core/*.o
+	@-rm -f kernel/core/fs/*.o
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m"
