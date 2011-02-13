@@ -92,38 +92,38 @@ isrs_install() {
 }
 
 char *exception_messages[] = {
-	"division by zero",
-	"debug",
-	"non-maskable interrupt",
-	"breakpoint",
-	"detected overflow",
-	"out-of-bounds",
-	"invalid opcode",
-	"no coprocessor",
-	"double fault",
-	"coprocessor segment overrun",
-	"bad TSS",
-	"segment not present",
-	"stack fault",
-	"general protection fault",
-	"page fault",
-	"unknown interrupt",
-	"coprocessor fault",
-	"alignment check",
-	"machine check",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved"
+	"Division by zero",
+	"Debug",
+	"Non-maskable interrupt",
+	"Breakpoint",
+	"Detected overflow",
+	"Out-of-bounds",
+	"Invalid opcode",
+	"No coprocessor",
+	"Double fault",
+	"Coprocessor segment overrun",
+	"Bad TSS",
+	"Segment not present",
+	"Stack fault",
+	"General protection fault",
+	"Page fault",
+	"Unknown interrupt",
+	"Coprocessor fault",
+	"Alignment check",
+	"Machine check",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved"
 };
 
 void fault_handler(struct regs *r) {
@@ -133,9 +133,9 @@ void fault_handler(struct regs *r) {
 		if (handler) {
 			handler(r);
 		} else {
-			kprintf("%s exception encountered.\n", exception_messages[r->int_no]);
-			puts(exception_messages[r->int_no]);
-			HALT_AND_CATCH_FIRE("System halted.");
+			settextcolor(14,4);
+			kprintf("Unhandled exception: %s\n", exception_messages[r->int_no]);
+			HALT_AND_CATCH_FIRE("System halted - unhandled exception");
 		}
 	}
 }
