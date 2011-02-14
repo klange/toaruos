@@ -6,7 +6,7 @@ void halt_and_catch_fire(char * error_message, const char * file, int line) {
 	kprintf("PANIC! %s\n", error_message);
 	kprintf("File: %s\n", file);
 	kprintf("Line: %d\n", line);
-	for (;;);
+	__asm__ __volatile__ ("hlt");
 }
 
 void assert_failed(const char *file, uint32_t line, const char *desc) {
@@ -15,5 +15,5 @@ void assert_failed(const char *file, uint32_t line, const char *desc) {
 	kprintf("ASSERTION FAILED! %s\n", desc);
 	kprintf("File: %s\n", file);
 	kprintf("Line: %d\n", line);
-	for (;;);
+	__asm__ __volatile__ ("hlt");
 }
