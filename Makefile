@@ -2,12 +2,13 @@
 CC = clang
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter
 LD = ld -m elf_i386
-NASM = nasm -f elf
+NASM = nasm
 ECHO = `which echo` -e
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 EMU = qemu
 GENEXT = genext2fs
+DD = dd conv=notrunc
 
 .PHONY: all clean install run
 
@@ -22,6 +23,9 @@ install: toaruos-kernel toaruos-initrd
 run: toaruos-kernel toaruos-initrd
 	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -serial stdio
 
+################
+#    Kernel    #
+################
 toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYSTEMS}
 	@${ECHO} -n "\033[32m   LD   $<\033[0m"
 	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o kernel/core/*.o kernel/core/fs/*.o
@@ -29,7 +33,7 @@ toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYS
 
 kernel/start.o: kernel/start.asm
 	@${ECHO} -n "\033[32m  nasm  kernel/start.asm\033[0m"
-	@${NASM} -o kernel/start.o kernel/start.asm
+	@${NASM} -f elf -o kernel/start.o kernel/start.asm
 	@${ECHO} "\r\033[32;1m  nasm  kernel/start.asm\033[0m"
 
 %.o: %.c
@@ -37,11 +41,24 @@ kernel/start.o: kernel/start.asm
 	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $<
 	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
 
-toaruos-initrd: initrd
+################
+#   Ram disk   #
+################
+toaruos-initrd: initrd bootloader/stage1
 	@${ECHO} -n "\033[32m initrd  Generating initial RAM disk\033[0m"
 	@-rm -f toaruos-initrd
 	@${GENEXT} -d initrd -q -b 249 toaruos-initrd
+	@${DD} if=bootloader/stage1 of=toaruos-initrd 2>/dev/null
 	@${ECHO} "\r\033[32;1m initrd  Generated initial RAM disk image\033[0m"
+
+################
+#  Bootloader  #
+################
+bootloader/stage1: bootloader/stage1.s
+	@${ECHO} -n "\033[32m  nasm  bootloader/stage1.s\033[0m"
+	@${NASM} -f bin -o bootloader/stage1 bootloader/stage1.s
+	@${ECHO} "\r\033[32;1m  nasm  bootloader/stage1.s\033[0m"
+
 
 clean:
 	@${ECHO} -n "\033[31m   RM   Cleaning...\033[0m"
@@ -50,4 +67,5 @@ clean:
 	@-rm -f kernel/*.o
 	@-rm -f kernel/core/*.o
 	@-rm -f kernel/core/fs/*.o
+	@-rm -f bootloader/stage1
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m"
