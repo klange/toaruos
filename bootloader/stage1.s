@@ -1,33 +1,22 @@
 ; Mr. Boots - Stage 1
 ; Find Stage 2 and immediately load it.
+;
+; NOTICE: This stage should be loaded from a partition on
+;         an EXT2-only disk without a partition table.
+;         If you want to use it with a different set up
+;         you need to patch it to include an MBR header
+;         and all the other necessary bits.
+;
+; Part of the ToAruOS Distribution of the ToAru Kernel
+;
+; NCSA license is available from the root directory of the
+; source tree in which this file is shipped.
+;
+;
 [BITS 16]          ; 16-bit Boot Loader
 [ORG 0x7C00]       ; Start point
 
 start:
-;	jmp loader     ; Jump over the MBR bits
-;
-;; MBR OEM Parameter Block
-;bpbOEM               db "ToAruOS "
-;bpbBytesPerSector    dw 512
-;bpbSectorsPerCluster db 1
-;bpbReservedSectors   dw 1
-;bpbNumberoOfFATs     db 2
-;bpbRootEntries       dw 224
-;bpbTotalSectors      dw 2880
-;bpbMedia             db 0xf0
-;bpbSectorsPerFAT     dw 9
-;bpbSectorsPerTrack   dw 18
-;bpbHeadsPerCylinder  dw 2
-;bpbHiddenSectors     dd 0
-;bpbTotalSectorsBig   dd 0
-;bsDriveNumber        db 0
-;bsUnused             db 0
-;bsExtBootSignature   db 0x29
-;bsSerialNumber       dd 0xdeadbeef
-;bsVolumeLabel        db "ToAru Boot "
-;bsFileSystem         db "FAT12   "
-;
-;loader:
 	mov ax, 0x00   ; Initialize data segment
 	mov ds, ax     ; ...
 
