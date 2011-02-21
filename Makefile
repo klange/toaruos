@@ -45,7 +45,7 @@ kernel/start.o: kernel/start.asm
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd bootloader/stage1.bin initrd/boot/kernel
+toaruos-initrd: initrd bootloader/stage1.bin initrd/kernel
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@-rm -f toaruos-initrd
 	@${GENEXT} -d initrd -q -b 249 toaruos-initrd
@@ -55,18 +55,18 @@ toaruos-initrd: initrd bootloader/stage1.bin initrd/boot/kernel
 ### Ram Disk installers...
 
 # Kernel
-initrd/boot/kernel: toaruos-kernel
-	@mkdir -p initrd/boot
-	@cp toaruos-kernel initrd/boot/kernel
+initrd/kernel: toaruos-kernel
+	@cp toaruos-kernel initrd/kernel
 
 # Second-stage bootloader
-initrd/boot/stage2: bootloader/stage2.bin
-	@mkdir -p initrd/boot
+initrd/stage2: bootloader/stage2.bin
 	@cp bootloader/stage2.bin initrd/boot/stage2
 
 ################
 #  Bootloader  #
 ################
+
+# Stage 1
 bootloader/stage1/main.o: bootloader/stage1/main.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"
 	@${GCC} ${CFLAGS} -c -o $@ $<
@@ -82,6 +82,26 @@ bootloader/stage1.bin: bootloader/stage1/main.o bootloader/stage1/start.o bootlo
 	@${LD} -o bootloader/stage1.bin -T bootloader/stage1/link.ld bootloader/stage1/start.o bootloader/stage1/main.o
 	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
 
+# Stage 2
+bootloader/stage2/main.o: bootloader/stage2/main.c
+	@${ECHO} -n "\033[32m   CC   $<\033[0m"
+	@${GCC} ${CFLAGS} -c -o $@ $<
+	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+
+bootloader/stage2/start.o: bootloader/stage2/start.s
+	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
+	@${YASM} -f elf32 -p gas -o $@ $<
+	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
+
+bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootloader/stage2/link.ld
+	@${ECHO} -n "\033[32m   ld   $<\033[0m"
+	@${LD} -o bootloader/stage2.bin -T bootloader/stage2/link.ld bootloader/stage2/start.o bootloader/stage2/main.o
+	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
+
+
+###############
+#    clean    #
+###############
 clean:
 	@${ECHO} -n "\033[31m   RM   Cleaning... \033[0m"
 	@-rm -f toaruos-kernel
@@ -91,6 +111,8 @@ clean:
 	@-rm -f kernel/core/fs/*.o
 	@-rm -f bootloader/stage1.bin
 	@-rm -f bootloader/stage1/*.o
-	@-rm -f initrd/boot/stage2
-	@-rm -f initrd/boot/kernel
+	@-rm -f bootloader/stage2.bin
+	@-rm -f bootloader/stage2/*.o
+	@-rm -f initrd/stage2
+	@-rm -f initrd/kernel
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"

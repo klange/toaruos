@@ -4,5 +4,6 @@ toaruos-initrd
 *.swp
 bootloader/stage1.bin
 bootloader/stage2.bin
-initrd/boot
+initrd/kernel
+initrd/stage2
 .gdb_history
