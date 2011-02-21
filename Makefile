@@ -14,9 +14,9 @@ DD = dd conv=notrunc
 
 .PHONY: all clean install run
 
-all: toaruos-kernel toaruos-initrd
+all: toaruos-initrd toaruos-kernel
 
-install: toaruos-kernel toaruos-initrd
+install: toaruos-initrd toaruos-kernel
 	@${ECHO} -n "\033[34m   --   Installing to /boot...\033[0m"
 	@cp toaruos-kernel /boot/toaruos-kernel
 	@cp toaruos-initrd /boot/toaruos-initrd
