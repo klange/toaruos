@@ -18,8 +18,6 @@
 .text
 
 .global _start
-.global _print
-.global _readn
 _start: 
         movw $0x00,%ax   # Initialize segments...
         movw %ax,%ds     # ... data
@@ -38,19 +36,7 @@ _start:
         calll _print     # ...
         hlt
 
-_readn:
-        movw $0x0000, %ax # We are segment 0...
-        movw %ax, %es
-        movw $0x7e00, %bx # Address to put output
-        movb $0x01, %al   # Count
-        movb $0x00, %ch   # Track
-        movb $0x02, %cl   # Sector
-        movb $0x00, %dh   # Head
-        movb $0x80, %dl   # Disk
-        movb $0x02, %ah   # Command number
-        int  $0x13
-        retl
-
+.global _print
 _print: 
         movb $0x0E,%ah # set registers for
         movb $0x00,%bh # bios video call

@@ -7,3 +7,4 @@ bootloader/stage2.bin
 initrd/kernel
 initrd/stage2
 .gdb_history
+testdisk
