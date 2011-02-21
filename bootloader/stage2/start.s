@@ -15,15 +15,8 @@ _start:
 
         movw $0x7bf0,%sp # stack pointer
 
-        movw $bmsga, %si # Print "Starting..."
-        calll _print     # ...
-
         .extern main     # Jump the C main entry point...
-        calll main
-
-        movw $bmsgb, %si # We should not be here...
-        calll _print     # ...
-        hlt
+        jmp main
 
 _print: 
         movb $0x0E,%ah # set registers for
@@ -37,10 +30,3 @@ _print.next:
         jmp _print.next # continue
 _print.return: 
         retl
-
-.data
-
-bmsga:
-        .string "Starting Stage 2...\r\n"
-bmsgb:
-        .string "Critical failure!\r\n"

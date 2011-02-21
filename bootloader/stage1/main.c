@@ -32,8 +32,9 @@ void read(unsigned char count, unsigned char sector, short segment, short offset
  */
 void main()
 {
-	PRINT("Loading...\r\n");
+	PRINT("Loading... ");
 	read(2,2,0,0x7e00);
+	PRINT("Ready.\r\n");
 
 	/* Let's do this... */
 	__asm__ __volatile__ ("jmp $0x00, $0x7e00");

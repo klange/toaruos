@@ -1,17 +1,5 @@
-# Mr. Boots - Stage 1
-# Find Stage 2 and immediately load it.
 #
-# NOTICE: This stage should be loaded from a partition on
-#         an EXT2-only disk without a partition table.
-#         If you want to use it with a different set up
-#         you need to patch it to include an MBR header
-#         and all the other necessary bits.
-#
-# Part of the ToAruOS Distribution of the ToAru Kernel
-#
-# NCSA license is available from the root directory of the
-# source tree in which this file is shipped.
-#
+# Mr. Boots - Stage 1 (ASM entry point)
 #
 .code16
 
