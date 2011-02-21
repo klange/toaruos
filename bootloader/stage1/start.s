@@ -20,25 +20,21 @@
 .global _start
 .global _print
 _start: 
-        movw $0x00,%ax # Initialize data segment
-        movw %ax,%ds   # ...
-        movw %ax,%es
-        movw %ax,%ss
-        movw $0x7bf0,%sp # stack
+        movw $0x00,%ax   # Initialize segments...
+        movw %ax,%ds     # ... data
+        movw %ax,%es     # ... e?
+        movw %ax,%ss     # ... selector
 
-        #mov ax, 0x4F02 ; VESA function "Set Video Mode"
-        #mov bx, 0x0107 ; 1024x768x256
-        #int 0x10       ; BIOS video interrupt
+        movw $0x7bf0,%sp # stack pointer
 
         movw $bmsga, %si # Print "Starting..."
         calll _print     # ...
 
-        .extern main
+        .extern main     # Jump the C main entry point...
         calll main
 
-        movw $bmsgb, %si # Print ":("
+        movw $bmsgb, %si # We should not be here...
         calll _print     # ...
-        # uh...
         hlt
 
 _print: 
@@ -59,4 +55,4 @@ _print.return:
 bmsga:
         .string "Starting up...\r\n"
 bmsgb:
-        .string ":(\r\n"
+        .string "Critical failure!\r\n"
