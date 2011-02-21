@@ -99,7 +99,7 @@ bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootlo
 	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
 
 testdisk: bootloader/stage1.bin bootloader/stage2.bin
-	cat bootloader/stage1.bin README.md > testdisk
+	cat bootloader/stage1.bin bootloader/stage2.bin > testdisk
 
 ###############
 #    clean    #
