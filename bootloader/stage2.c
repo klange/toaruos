@@ -11,5 +11,5 @@ __asm__(".code16\n");
  * Main entry point
  */
 int main() {
-	// derp?
+	return 0;
 }

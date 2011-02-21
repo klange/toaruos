@@ -5,3 +5,4 @@ toaruos-initrd
 bootloader/stage1
 bootloader/stage2
 bootloader/stage2.s
+initrd/boot
