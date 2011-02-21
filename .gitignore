@@ -2,7 +2,6 @@ toaruos-kernel
 toaruos-initrd
 *.o
 *.swp
-bootloader/stage1
-bootloader/stage2
-bootloader/stage2.s
+bootloader/stage1.bin
+bootloader/stage2.bin
 initrd/boot

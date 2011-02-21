@@ -1,5 +1,6 @@
 #CC = gcc
 CC = clang
+GCC = gcc
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter
 LD = ld -m elf_i386
 NASM = nasm
@@ -45,11 +46,11 @@ kernel/start.o: kernel/start.asm
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd bootloader/stage1 initrd/boot/stage2 initrd/boot/kernel
+toaruos-initrd: initrd bootloader/stage1.bin initrd/boot/kernel
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@-rm -f toaruos-initrd
 	@${GENEXT} -d initrd -q -b 249 toaruos-initrd
-	@${DD} if=bootloader/stage1 of=toaruos-initrd 2>/dev/null
+	@${DD} if=bootloader/stage1.bin of=toaruos-initrd 2>/dev/null
 	@${ECHO} "\r\033[32;1m initrd Generated initial RAM disk image\033[0m"
 
 ### Ram Disk installers...
@@ -60,27 +61,27 @@ initrd/boot/kernel: toaruos-kernel
 	@cp toaruos-kernel initrd/boot/kernel
 
 # Second-stage bootloader
-initrd/boot/stage2: bootloader/stage2
+initrd/boot/stage2: bootloader/stage2.bin
 	@mkdir -p initrd/boot
-	@cp bootloader/stage2 initrd/boot/stage2
+	@cp bootloader/stage2.bin initrd/boot/stage2
 
 ################
 #  Bootloader  #
 ################
-bootloader/stage1: bootloader/stage1.s
-	@${ECHO} -n "\033[32m  nasm  $<\033[0m"
-	@${NASM} -f bin -o $@ $<
-	@${ECHO} "\r\033[32;1m  nasm  $<\033[0m"
+bootloader/stage1/main.o: bootloader/stage1/main.c
+	@${ECHO} -n "\033[32m   CC   $<\033[0m"
+	@${GCC} ${CFLAGS} -c -o $@ $<
+	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
 
-bootloader/stage2: bootloader/stage2.s
+bootloader/stage1/start.o: bootloader/stage1/start.s
 	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
-	@${YASM} -p gas -f bin -w: -o $@ $<
+	@${YASM} -f elf32 -p gas -o $@ $<
 	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
 
-bootloader/stage2.s: bootloader/stage2.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${CC} ${CFLAGS} -S -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+bootloader/stage1.bin: bootloader/stage1/main.o bootloader/stage1/start.o bootloader/stage1/link.ld
+	@${ECHO} -n "\033[32m   ld   $<\033[0m"
+	@${LD} -o bootloader/stage1.bin -T bootloader/stage1/link.ld bootloader/stage1/start.o bootloader/stage1/main.o
+	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
 
 clean:
 	@${ECHO} -n "\033[31m   RM   Cleaning... \033[0m"
@@ -89,9 +90,8 @@ clean:
 	@-rm -f kernel/*.o
 	@-rm -f kernel/core/*.o
 	@-rm -f kernel/core/fs/*.o
-	@-rm -f bootloader/stage1
-	@-rm -f bootloader/stage2
-	@-rm -f bootloader/stage2.s
+	@-rm -f bootloader/stage1.bin
+	@-rm -f bootloader/stage1/*.o
 	@-rm -f initrd/boot/stage2
 	@-rm -f initrd/boot/kernel
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"
