@@ -37,13 +37,10 @@ void read(unsigned char count, unsigned char sector, short segment, short offset
 int main() {
 	kprint((short)(int)"Welcome to C!\r\n");
 
-	read(1,3,0,0x7e00);
+	read(2,2,0,0x7e00);
 
-	kprint((short)(int)"Contents of 0x7e00:\r\n");
-	kprint(0x7e00);
-	kprint((short)(int)"[end]\r\n");
-
-
+	/* Let's do this... */
+	__asm__ __volatile__ ("jmp $0x00, $0x7e00");
 
 	/* And that's it for now... */
 	__asm__ __volatile__ ("hlt");
