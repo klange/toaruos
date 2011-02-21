@@ -45,7 +45,7 @@ kernel/start.o: kernel/start.asm
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd bootloader/stage1.bin initrd/kernel
+toaruos-initrd: initrd bootloader/stage1.bin initrd/stage2 initrd/kernel
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@-rm -f toaruos-initrd
 	@${GENEXT} -d initrd -q -b 249 toaruos-initrd
@@ -60,7 +60,7 @@ initrd/kernel: toaruos-kernel
 
 # Second-stage bootloader
 initrd/stage2: bootloader/stage2.bin
-	@cp bootloader/stage2.bin initrd/boot/stage2
+	@cp bootloader/stage2.bin initrd/stage2
 
 ################
 #  Bootloader  #
