@@ -18,6 +18,16 @@ SECTIONS
 	{
 		*(.rodata)
 	}
+	.padding : AT (phys + SIZEOF(.text) + SIZEOF(.data) + SIZEOF(.rodata))
+	{
+		/* Pad so we have at least one sector */
+		. = ALIGN(4096);
+		/* Add an additional sector for good measure */
+		. = ALIGN(508);
+		/* End it with a sad face */
+		SHORT(0xada5);
+		SHORT(0xcefa);
+	}
 	/DISCARD/ :
 	{
 		*(.bss)

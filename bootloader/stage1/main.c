@@ -37,7 +37,6 @@ void read(unsigned char count, unsigned char sector, short segment, short offset
 int main() {
 	kprint((short)(int)"Welcome to C!\r\n");
 
-	//__asm__("calll _readn");
 	read(1,3,0,0x7e00);
 
 	kprint((short)(int)"Contents of 0x7e00:\r\n");

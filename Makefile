@@ -99,7 +99,10 @@ bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootlo
 	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
 
 testdisk: bootloader/stage1.bin bootloader/stage2.bin
-	cat bootloader/stage1.bin bootloader/stage2.bin > testdisk
+	@${ECHO} "\033[31;1m  WARN  This disk is a temporary development test only!\033[0m"
+	@${ECHO} -n "\033[34m   --   Building tesdisk...\033[0m"
+	@cat bootloader/stage1.bin bootloader/stage2.bin > testdisk
+	@${ECHO} "\r\033[34;1m   --   Testdisk compiled.  \033[0m"
 
 ###############
 #    clean    #
