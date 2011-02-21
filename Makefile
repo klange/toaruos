@@ -3,7 +3,6 @@ CC = clang
 GCC = gcc
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter
 LD = ld -m elf_i386
-NASM = nasm
 YASM = yasm
 ECHO = `which echo` -e
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
@@ -34,9 +33,9 @@ toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYS
 	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"
 
 kernel/start.o: kernel/start.asm
-	@${ECHO} -n "\033[32m  nasm  $<\033[0m"
-	@${NASM} -f elf -o kernel/start.o kernel/start.asm
-	@${ECHO} "\r\033[32;1m  nasm  $<\033[0m"
+	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
+	@${YASM} -f elf -o kernel/start.o kernel/start.asm
+	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
 
 %.o: %.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"

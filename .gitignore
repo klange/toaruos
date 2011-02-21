@@ -5,3 +5,4 @@ toaruos-initrd
 bootloader/stage1.bin
 bootloader/stage2.bin
 initrd/boot
+.gdb_history
