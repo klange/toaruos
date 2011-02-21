@@ -19,6 +19,14 @@ void kprint(short s)
 int main() {
 	kprint((short)(int)"Welcome to C!\r\n");
 
+	__asm__("calll _readn");
+
+	kprint((short)(int)"Contents of 0x7e00:\r\n");
+	kprint(0x7e00);
+	kprint((short)(int)"[end]\r\n");
+
+
+
 	/* And that's it for now... */
 	__asm__ __volatile__ ("hlt");
 	while (1) {};
