@@ -18,7 +18,7 @@ void read(unsigned char count, unsigned char sector, short segment, short offset
 			"movb $0, %%ch\n"
 			"movb %3, %%cl\n"
 			"movb $0, %%dh\n"
-			"movb $0x80, %%dl\n"
+			"movb $0x00, %%dl\n"
 			"movb $0x02, %%ah\n"
 			"int $0x13" : :
 			"l" (segment),
