@@ -1,8 +1,7 @@
 OUTPUT_FORMAT(binary)
-ENTRY(main)
-load = 0x7e00;
+ENTRY(_start)
+load = 0x8000;
 phys = 0x0;
-end  = 0x1ff;
 SECTIONS
 {
 	.text load : AT(phys)
@@ -19,9 +18,15 @@ SECTIONS
 	{
 		*(.rodata)
 	}
-	.end : AT(end)
+	.padding : AT (phys + SIZEOF(.text) + SIZEOF(.data) + SIZEOF(.rodata))
 	{
-		BYTE(0x01);
+		/* Pad so we have at least one sector */
+		. = ALIGN(4096);
+		/* Add an additional sector for good measure */
+		. = ALIGN(508);
+		/* End it with a sad face */
+		SHORT(0xada5);
+		SHORT(0xcefa);
 	}
 	/DISCARD/ :
 	{
