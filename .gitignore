@@ -5,6 +5,5 @@ toaruos-initrd
 bootloader/stage1.bin
 bootloader/stage2.bin
 initrd/kernel
-initrd/stage2
 .gdb_history
-testdisk
+bootdisk.img
