@@ -376,6 +376,10 @@ initrd_mount(
 	initrd_root_block = (ext2_bgdescriptor_t *)((uintptr_t)initrd_start + 1024 + 1024);
 	initrd_inode_table = (ext2_inodetable_t *)((uintptr_t)initrd_start + (1024 << initrd_superblock->log_block_size) * initrd_root_block->inode_table);
 	ext2_inodetable_t * root_inode = ext2_get_inode(2);
+	kprintf("[DEBUG] root block 0 is %d\n", root_inode->block[0]);
+	kprintf("[DEBUG] root size    is %d\n", root_inode->size);
+	kprintf("[DEBUG]          uid is %d\n", root_inode->uid);
+	kprintf("[DEBUG]        atime is %d\n", root_inode->atime);
 	initrd_root = (fs_node_t *)malloc(sizeof(fs_node_t));
 	assert(initrd_node_root(root_inode, initrd_root));
 	fs_root = initrd_root;

@@ -1,8 +1,7 @@
 #ifndef EXT2_H
 #define EXT2_h
 
-#include <system.h>
-#include <fs.h>
+#include <types.h>
 
 #define EXT2_SUPER_MAGIC 0xEF53
 

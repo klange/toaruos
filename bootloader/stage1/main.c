@@ -33,7 +33,7 @@ void read(unsigned char count, unsigned char sector, short segment, short offset
 void main()
 {
 	PRINT("Loading... ");
-	read(2,2,0,0x7e00);
+	read(6,2,0,0x7e00);
 	PRINT("Ready.\r\n");
 
 	/* Let's do this... */

@@ -82,7 +82,7 @@ bootloader/stage1.bin: bootloader/stage1/main.o bootloader/stage1/start.o bootlo
 # Stage 2
 bootloader/stage2/main.o: bootloader/stage2/main.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${GCC} ${CFLAGS} -c -o $@ $<
+	@${GCC} ${CFLAGS} -I./kernel/include -c -o $@ $<
 	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
 
 bootloader/stage2/start.o: bootloader/stage2/start.s

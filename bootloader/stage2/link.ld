@@ -21,7 +21,7 @@ SECTIONS
 	.padding : AT (phys + SIZEOF(.text) + SIZEOF(.data) + SIZEOF(.rodata))
 	{
 		/* Pad so we have at least one sector */
-		. = ALIGN(4096);
+		. = ALIGN(512);
 		/* Add an additional sector for good measure */
 		. = ALIGN(508);
 		/* End it with a sad face */
