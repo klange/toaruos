@@ -45,12 +45,11 @@ kernel/start.o: kernel/start.asm
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd bootloader/stage1.bin bootloader/stage2.bin initrd/stage3 initrd/kernel
+toaruos-initrd: initrd bootloader/stage1.bin initrd/stage2 initrd/kernel
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@-rm -f toaruos-initrd
 	@${GENEXT} -d initrd -q -b 249 toaruos-initrd
 	@${DD} if=bootloader/stage1.bin of=toaruos-initrd 2>/dev/null
-	@${DD} if=bootloader/stage2.bin of=toaruos-initrd seek=1 count=1 bs=512 2>/dev/null
 	@${ECHO} "\r\033[32;1m initrd Generated initial RAM disk image\033[0m"
 
 ### Ram Disk installers...
@@ -60,8 +59,8 @@ initrd/kernel: toaruos-kernel
 	@cp toaruos-kernel initrd/kernel
 
 # Second-stage bootloader
-initrd/stage3: bootloader/stage3.bin
-	@cp bootloader/stage3.bin initrd/stage3
+initrd/stage2: bootloader/stage2.bin
+	@cp bootloader/stage2.bin initrd/stage2
 
 ################
 #  Bootloader  #
@@ -70,7 +69,7 @@ initrd/stage3: bootloader/stage3.bin
 # Stage 1
 bootloader/stage1/main.o: bootloader/stage1/main.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${GCC} ${CFLAGS} -I./kernel/include/ -c -o $@ $<
+	@${GCC} ${CFLAGS} -c -o $@ $<
 	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
 
 bootloader/stage1/start.o: bootloader/stage1/start.s
@@ -86,29 +85,24 @@ bootloader/stage1.bin: bootloader/stage1/main.o bootloader/stage1/start.o bootlo
 # Stage 2
 bootloader/stage2/main.o: bootloader/stage2/main.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${GCC} ${CFLAGS} -I./kernel/include/ -c -o $@ $<
+	@${GCC} ${CFLAGS} -c -o $@ $<
 	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
 
-bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/link.ld
-	@${ECHO} -n "\033[32m   ld   $<\033[0m"
-	@${LD} -o bootloader/stage2.bin -T bootloader/stage2/link.ld bootloader/stage2/main.o
-	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
-
-# Stage 3
-bootloader/stage3/main.o: bootloader/stage3/main.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${GCC} ${CFLAGS} -I./kernel/include/ -c -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
-
-bootloader/stage3/start.o: bootloader/stage3/start.s
+bootloader/stage2/start.o: bootloader/stage2/start.s
 	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
 	@${YASM} -f elf32 -p gas -o $@ $<
 	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
 
-bootloader/stage3.bin: bootloader/stage3/main.o bootloader/stage3/start.o bootloader/stage3/link.ld
+bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootloader/stage2/link.ld
 	@${ECHO} -n "\033[32m   ld   $<\033[0m"
-	@${LD} -o bootloader/stage3.bin -T bootloader/stage3/link.ld bootloader/stage3/start.o bootloader/stage3/main.o
+	@${LD} -o bootloader/stage2.bin -T bootloader/stage2/link.ld bootloader/stage2/start.o bootloader/stage2/main.o
 	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
+
+testdisk: bootloader/stage1.bin bootloader/stage2.bin
+	@${ECHO} "\033[31;1m  WARN  This disk is a temporary development test only!\033[0m"
+	@${ECHO} -n "\033[34m   --   Building tesdisk...\033[0m"
+	@cat bootloader/stage1.bin bootloader/stage2.bin > testdisk
+	@${ECHO} "\r\033[34;1m   --   Testdisk compiled.  \033[0m"
 
 ###############
 #    clean    #
@@ -124,9 +118,7 @@ clean:
 	@-rm -f bootloader/stage1/*.o
 	@-rm -f bootloader/stage2.bin
 	@-rm -f bootloader/stage2/*.o
-	@-rm -f bootloader/stage3.bin
-	@-rm -f bootloader/stage3/*.o
-	@-rm -f initrd/stage3
+	@-rm -f initrd/stage2
 	@-rm -f initrd/kernel
 	@-rm -f testdisk
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"

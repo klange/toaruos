@@ -4,8 +4,7 @@ toaruos-initrd
 *.swp
 bootloader/stage1.bin
 bootloader/stage2.bin
-bootloader/stage3.bin
 initrd/kernel
-initrd/stage3
+initrd/stage2
 .gdb_history
 testdisk

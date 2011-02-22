@@ -30,7 +30,6 @@
  */
 
 #include <system.h>
-#include <fs.h>
 #include <boot.h>
 #include <ext2.h>
 

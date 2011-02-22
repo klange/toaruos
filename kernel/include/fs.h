@@ -1,8 +1,6 @@
 #ifndef FS_H
 #define FS_H
 
-#include <types.h>
-
 #define FS_FILE        0x01
 #define FS_DIRECTORY   0x02
 #define FS_CHARDEVICE  0x04
