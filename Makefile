@@ -95,6 +95,9 @@ bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootlo
 	@${LD} -o bootloader/stage2.bin -T bootloader/stage2/link.ld bootloader/stage2/start.o bootloader/stage2/main.o
 	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
 
+##############
+#  bootdisk  #
+##############
 bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin
 	@${ECHO} -n "\033[34m   --   Building bootdisk.img...\033[0m"
 	@cat bootloader/stage1.bin bootloader/stage2.bin > bootdisk.img
