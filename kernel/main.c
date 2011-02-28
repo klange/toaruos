@@ -60,7 +60,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag)
 	char * ramdisk = NULL;
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		boot_mode = multiboot;
-		/* Realing memory to the end of the multiboot modules */
+		/* Realign memory to the end of the multiboot modules */
 		kmalloc_startat(0x200000);
 		if (mboot_ptr->flags & (1 << 3)) {
 			if (mboot_ptr->mods_count > 0) {

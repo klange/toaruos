@@ -33,9 +33,9 @@ toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYS
 	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"
 	@${ECHO} "\033[34;1m   --   Kernel is ready!\033[0m"
 
-kernel/start.o: kernel/start.asm
+kernel/start.o: kernel/start.s
 	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
-	@${YASM} -f elf -o kernel/start.o kernel/start.asm
+	@${YASM} -f elf -o kernel/start.o kernel/start.s
 	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
 
 %.o: %.c
