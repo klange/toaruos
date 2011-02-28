@@ -1,9 +1,12 @@
+; ToAruOS Start Up / Entry Point
+; vim:syntax=nasm
+;
+; Copyright 2011 ToAruOS Kernel Development Group
+; See main.c for licensing terms (NCSA)
+;
 [BITS 32]
 ALIGN 4
 
-; ToAruOS
-; Copyright 2011 ToAruOS Kernel Development Group
-; See main.c for licensing terms (NCSA)
 
 
 ; Kernel Multiboot Headers
