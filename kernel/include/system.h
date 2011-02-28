@@ -129,6 +129,7 @@ void heap_install();
 void * __attribute__ ((malloc)) malloc(size_t size);
 void * __attribute__ ((malloc)) realloc(void *ptr, size_t size);
 void * __attribute__ ((malloc)) calloc(size_t nmemb, size_t size);
+void * __attribute__ ((malloc)) valloc(size_t size);
 void free(void *ptr);
 
 /* shell */
