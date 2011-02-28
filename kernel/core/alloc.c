@@ -7,6 +7,8 @@
  * Overall competition winner for speed.
  * Well ranked in memory usage.
  *
+ * XXX: Modified to work withe the ToAru kernel.
+ *
  * Copyright (c) 2010 Kevin Lange.  All rights reserved.
  *
  * Developed by: Kevin Lange <lange7@acm.uiuc.edu>
@@ -137,6 +139,7 @@
 static void * __attribute__ ((malloc)) klmalloc(size_t size);
 static void * __attribute__ ((malloc)) klrealloc(void * ptr, size_t size);
 static void * __attribute__ ((malloc)) klcalloc(size_t nmemb, size_t size);
+static void * __attribute__ ((malloc)) klvalloc(size_t size);
 static void klfree(void * ptr);
 
 void * __attribute__ ((malloc)) malloc(size_t size) {
@@ -149,6 +152,10 @@ void * __attribute__ ((malloc)) realloc(void * ptr, size_t size) {
 
 void * __attribute__ ((malloc)) calloc(size_t nmemb, size_t size) {
 	return klcalloc(nmemb, size);
+}
+
+void * __attribute__ ((malloc)) valloc(size_t size) {
+	return klvalloc(size);
 }
 
 void free(void * ptr) {
@@ -683,6 +690,17 @@ static void klfree(void *ptr) {
 	}
 
 	/*
+	 * Woah, woah, hold on, was this a page-aligned block?
+	 */
+	if ((uintptr_t)ptr % PAGE_SIZE == 0) {
+		/*
+		 * Well howdy-do, it was.
+		 */
+		kprintf("Attempted to free herpaderpaderpa.\n");
+		ptr = (void *)((uintptr_t)ptr - 1);
+	}
+
+	/*
 	 * Get our pointer to the head of this block by
 	 * page aligning it.
 	 */
@@ -799,7 +817,18 @@ static void klfree(void *ptr) {
 		 */
 		klmalloc_stack_push(header, ptr);
 	}
-
+}
+/* }}} */
+/* valloc() {{{ */
+static void * __attribute__ ((malloc)) klvalloc(size_t size) {
+	/*
+	 * Allocate a page-aligned block.
+	 * XXX: THIS IS HORRIBLY, HORRIBLY WASTEFUL!! ONLY USE THIS
+	 *      IF YOU KNOW WHAT YOU ARE DOING!
+	 */
+	size_t true_size = size + PAGE_SIZE - sizeof(klmalloc_big_bin_header); /* Here we go... */
+	void * result = klmalloc(true_size);
+	return (void *)((uintptr_t)result + (PAGE_SIZE - sizeof(klmalloc_big_bin_header)));
 }
 /* }}} */
 /* realloc() {{{ */

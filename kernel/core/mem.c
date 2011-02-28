@@ -1,6 +1,7 @@
 /*
  * Kernel Memory Manager
- *   (and pager)
+ * vim:tabstop=4
+ * vim:noexpandtab
  */
 
 #include <system.h>
@@ -24,6 +25,7 @@ kmalloc_real(
 		int align,
 		uintptr_t * phys
 		) {
+	
 	if (align && (placement_pointer & 0xFFFFF000)) {
 		placement_pointer &= 0xFFFFF000;
 	}
