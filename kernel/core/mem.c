@@ -8,6 +8,7 @@
 
 extern uintptr_t end;
 uintptr_t placement_pointer = (uintptr_t)&end;
+uintptr_t heap_end = (uintptr_t)NULL;
 
 void
 kmalloc_startat(
@@ -25,7 +26,20 @@ kmalloc_real(
 		int align,
 		uintptr_t * phys
 		) {
-	
+	if (heap_end) {
+		void * address;
+		if (align) {
+			address = valloc(size);
+		} else {
+			address = malloc(size);
+		}
+		if (phys) {
+			page_t *page = get_page((uintptr_t)address, 0, kernel_directory);
+			*phys = page->frame * 0x1000 + ((uintptr_t)address & 0xFFF);
+		}
+		return (uintptr_t)address;
+	}
+
 	if (align && (placement_pointer & 0xFFFFF000)) {
 		placement_pointer &= 0xFFFFF000;
 	}
@@ -34,7 +48,7 @@ kmalloc_real(
 	}
 	uintptr_t address = placement_pointer;
 	placement_pointer += size;
-	return address;
+	return (uintptr_t)address;
 }
 /*
  * Normal
@@ -138,6 +152,8 @@ alloc_frame(
 		int is_writeable
 		) {
 	if (page->frame) {
+		page->rw      = (is_writeable == 1) ? 1 : 0;
+		page->user    = (is_kernel == 1)    ? 0 : 1;
 		return;
 	} else {
 		uint32_t index = first_frame();
@@ -146,8 +162,8 @@ alloc_frame(
 		}
 		set_frame(index * 0x1000);
 		page->present = 1;
-		page->rw      = (is_writeable) ? 1 : 0;
-		page->user    = (is_kernel)    ? 0 : 1;
+		page->rw      = (is_writeable == 1) ? 1 : 0;
+		page->user    = (is_kernel == 1)    ? 0 : 1;
 		page->frame   = index;
 	}
 }
@@ -170,16 +186,23 @@ paging_install(uint32_t memsize) {
 	nframes = memsize  / 4;
 	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
-	kernel_directory = (page_directory_t *)kvmalloc(sizeof(page_directory_t));
+
+	uintptr_t phys;
+	kernel_directory = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t),&phys);
 	memset(kernel_directory, 0, sizeof(page_directory_t));
-	current_directory = kernel_directory;
+
+	kprintf("0x%x\n", phys);
 
 	uint32_t i = 0;
-	while (i < placement_pointer) {
+	while (i < placement_pointer + 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
 		i += 0x1000;
 	}
 	isrs_install_handler(14, page_fault);
+	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
+
+
+	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(kernel_directory);
 }
 
@@ -188,7 +211,7 @@ switch_page_directory(
 		page_directory_t * dir
 		) {
 	current_directory = dir;
-	__asm__ __volatile__ ("mov %0, %%cr3":: "r"(&dir->physical_tables));
+	__asm__ __volatile__ ("mov %0, %%cr3":: "r"(dir->physical_address));
 	uint32_t cr0;
 	__asm__ __volatile__ ("mov %%cr0, %0": "=r"(cr0));
 	cr0 |= 0x80000000;
@@ -240,11 +263,10 @@ page_fault(
  * who feel the need to screw up.
  */
 
-uintptr_t heap_end = (uintptr_t)NULL;
 
 void
 heap_install() {
-	heap_end = placement_pointer;
+	heap_end = (placement_pointer + 0x1000) & ~0xFFF;
 	placement_pointer = 0;
 }
 
@@ -253,12 +275,13 @@ sbrk(
 	uintptr_t increment
     ) {
 	ASSERT(increment % 0x1000 == 0);
+	ASSERT(heap_end % 0x1000 == 0);
 	uintptr_t address = heap_end;
 	heap_end += increment;
 	uintptr_t i;
 	for (i = address; i < heap_end; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
-		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
+		alloc_frame(get_page(i, 1, kernel_directory), 0, 1);
 	}
 	return (void *)address;
 }

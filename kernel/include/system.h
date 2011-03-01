@@ -125,6 +125,8 @@ extern void page_fault(struct regs *r);
 
 void heap_install();
 
+void alloc_frame(page_t *page, int is_kernel, int is_writeable);
+
 /* klmalloc */
 void * __attribute__ ((malloc)) malloc(size_t size);
 void * __attribute__ ((malloc)) realloc(void *ptr, size_t size);
@@ -140,5 +142,27 @@ extern void serial_install();
 extern char serial_recv();
 extern void serial_send(char out);
 
+/* Tasks */
+extern uintptr_t read_eip();
+extern void copy_page_physical(uint32_t, uint32_t);
+extern page_directory_t * clone_directory(page_directory_t * src);
+extern page_table_t * clone_table(page_table_t * src, uintptr_t * physAddr);
+extern void move_stack(void *new_stack_start, size_t size);
+
+typedef struct task {
+	uint32_t  id;
+	uintptr_t esp;
+	uintptr_t ebp;
+	uintptr_t eip;
+	page_directory_t * page_directory;
+	struct task *next;
+} task_t;
+
+extern void tasking_install();
+extern void switch_task();
+extern uint32_t fork();
+extern uint32_t getpid();
+
+uintptr_t initial_esp;
 
 #endif

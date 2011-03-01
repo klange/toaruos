@@ -1,4 +1,6 @@
 /*
+ * vim:tabstop=4
+ * vim:noexpandtab
  * Copyright (c) 2011 Kevin Lange.  All rights reserved.
  *
  * Developed by: ToAruOS Kernel Development Team
@@ -54,8 +56,9 @@
  * multiboot data from the bootloader. It will then proceed to print
  * out the contents of the initial ramdisk image.
  */
-int main(struct multiboot *mboot_ptr, uint32_t mboot_mag)
+int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 {
+	initial_esp = esp;
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
 	char * ramdisk = NULL;
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
@@ -92,12 +95,17 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag)
 
 	/* Memory management */
 	paging_install(mboot_ptr->mem_upper);
+	kprintf("herp\n");
 	heap_install();
+	tasking_install();
+	kprintf("derp\n");
 
 	/* Kernel Version */
 	settextcolor(12, 0);
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
 
+
+	__asm__ __volatile__ ("cli");
 	if (boot_mode == multiboot) {
 		/* Print multiboot information */
 		dump_multiboot(mboot_ptr);
@@ -108,8 +116,26 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag)
 			}
 		}
 	}
+	__asm__ __volatile__ ("sti");
 
 	start_shell();
+
+	/*
+	 * Aw man...
+	 */
+
+	uint32_t child = fork();
+
+	uint32_t i = getpid();
+	while (1) {
+		__asm__ __volatile__ ("cli");
+		if (i == 1) {
+			putch('A');
+		} else {
+			putch('B');
+		}
+		__asm__ __volatile__ ("sti");
+	}
 
 	return 0;
 }

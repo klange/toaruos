@@ -696,7 +696,6 @@ static void klfree(void *ptr) {
 		/*
 		 * Well howdy-do, it was.
 		 */
-		kprintf("Attempted to free herpaderpaderpa.\n");
 		ptr = (void *)((uintptr_t)ptr - 1);
 	}
 

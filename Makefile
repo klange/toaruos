@@ -1,7 +1,7 @@
 #CC = gcc
 CC = clang
 GCC = gcc
-CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter
+CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -g
 LD = ld -m elf_i386
 YASM = yasm
 ECHO = `which echo` -e
