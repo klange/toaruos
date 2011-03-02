@@ -67,10 +67,8 @@ move_stack(
 	for (	i = (uintptr_t)new_stack_start;
 			i >= ((uintptr_t)new_stack_start - size);
 			i -= 0x1000) {
-		kprintf("Allocating a page for 0x%x\n", i);
 		alloc_frame(get_page(i, 1, current_directory), 0 /* user */, 1 /* writable */);
 	}
-	puts("Herping the derp.\n");
 	uintptr_t pd_addr;
 	__asm__ __volatile__ ("mov %%cr3, %0" : "=r" (pd_addr));
 	__asm__ __volatile__ ("mov %0, %%cr3" : : "r" (pd_addr));
@@ -81,7 +79,6 @@ move_stack(
 	uintptr_t offset = (uintptr_t)new_stack_start - initial_esp;
 	uintptr_t new_stack_pointer = old_stack_pointer + offset;
 	uintptr_t new_base_pointer  = old_base_pointer  + offset;
-	kprintf("0x%x 0x%x\n", new_stack_pointer, old_stack_pointer);
 	memcpy((void *)new_stack_pointer, (void *)old_stack_pointer, initial_esp - old_stack_pointer);
 	for (i = (uintptr_t)new_stack_start; i > (uintptr_t)new_stack_start - size; i -= 4) {
 		uintptr_t temp = *(uintptr_t*)i;
