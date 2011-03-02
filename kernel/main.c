@@ -118,7 +118,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	}
 	__asm__ __volatile__ ("sti");
 
-	start_shell();
+	//start_shell();
 
 	/*
 	 * Aw man...
@@ -126,15 +126,14 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 
 	uint32_t child = fork();
 
-	uint32_t i = getpid();
 	while (1) {
-		__asm__ __volatile__ ("cli");
+		uint32_t i = getpid();
 		if (i == 1) {
 			putch('A');
 		} else {
 			putch('B');
 		}
-		__asm__ __volatile__ ("sti");
+		switch_task();
 	}
 
 	return 0;
