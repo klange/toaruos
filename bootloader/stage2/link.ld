@@ -17,16 +17,13 @@ SECTIONS
 	.rodata : AT (phys + SIZEOF(.text) + SIZEOF(.data))
 	{
 		*(.rodata)
+		herp = .;
 	}
-	.padding : AT (phys + SIZEOF(.text) + SIZEOF(.data) + SIZEOF(.rodata))
+	.padding : 
 	{
 		/* Pad so we have at least one sector */
-		. = ALIGN(512);
-		/* Add an additional sector for good measure */
-		. = ALIGN(508);
-		/* End it with a sad face */
-		SHORT(0xada5);
-		SHORT(0xcefa);
+		. = ALIGN(512) - 1;
+		BYTE(42);
 	}
 	/DISCARD/ :
 	{

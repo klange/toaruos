@@ -40,7 +40,7 @@ void read(unsigned char count, unsigned char sector, short segment, short offset
  */
 void main()
 {
-	PRINT("M");
+	PRINT("M"); /* Entered stage 2 bootloader */
 	/*
 	 * Load up the superblock
 	 */
@@ -55,7 +55,7 @@ void main()
 	ext2_bgdescriptor_t * rblock = (ext2_bgdescriptor_t *)(EXT2_START + 0x400 + 0x400);
 	ext2_inodetable_t   * itable = (ext2_inodetable_t   *)(EXT2_START + (0x400 << sblock->log_block_size) * rblock->inode_table);
 	ext2_inodetable_t   * rnode  = (ext2_inodetable_t   *)((unsigned short)(unsigned int)itable + (unsigned short)(unsigned int)sblock->inode_size);
-	PRINT("r");
+	PRINT("r"); /* Successfully loaded EXT2 data from the disk */
 
 	/*
 	 * Grab the first inode's data...
@@ -65,7 +65,7 @@ void main()
 	ext2_dir_t * direntry = NULL;
 	block = (void *)ext2_get_block((rnode->block[0]));
 
-	PRINT(". ");
+	PRINT(". "); /* Finished loaded first inode */
 
 	uint32_t     dir_offset = 0;
 	dir_offset = 0;
@@ -79,7 +79,13 @@ void main()
 	}
 	goto failure;
 success:
-	PRINT("B");
+	PRINT("B"); /* Found a kernel (I think) */
+	rnode  = (ext2_inodetable_t   *)((unsigned short)(unsigned int)itable + (unsigned short)(unsigned int)sblock->inode_size * direntry->inode);
+
+	short i = 0;
+	for (; i < 11; ++i) {
+		read(2,9 + (ext2_get_block((rnode->block[i]))) / 0x200,0,0x10000 + 0x400 * i);
+	}
 
 
 	PRINT("o");
