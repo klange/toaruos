@@ -124,16 +124,10 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	 * Aw man...
 	 */
 
-	uint32_t child = fork();
+	fork();
 
 	while (1) {
-		uint32_t i = getpid();
-		if (i == 1) {
-			putch('A');
-		} else {
-			putch('B');
-		}
-		switch_task();
+		putch(48 + getpid());
 	}
 
 	return 0;

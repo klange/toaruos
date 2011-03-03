@@ -7,7 +7,7 @@
 __volatile__ task_t * current_task;
 __volatile__ task_t * ready_queue;
 
-uint32_t next_pid = 1;
+uint32_t next_pid = 0;
 
 page_directory_t *
 clone_directory(

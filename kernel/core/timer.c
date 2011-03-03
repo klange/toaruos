@@ -18,10 +18,12 @@ timer_handler(
 		struct regs *r
 		) {
 	++timer_ticks;
+#if 0
 	if (timer_ticks % 18 == 0) {
 		++ticker;
 	}
-	//switch_task();
+#endif
+	switch_task();
 }
 
 void timer_install() {
