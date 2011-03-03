@@ -95,10 +95,8 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 
 	/* Memory management */
 	paging_install(mboot_ptr->mem_upper);
-	kprintf("herp\n");
 	heap_install();
 	tasking_install();
-	kprintf("derp\n");
 
 	/* Kernel Version */
 	settextcolor(12, 0);

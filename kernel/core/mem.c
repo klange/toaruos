@@ -191,8 +191,6 @@ paging_install(uint32_t memsize) {
 	kernel_directory = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t),&phys);
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 
-	kprintf("0x%x\n", phys);
-
 	uint32_t i = 0;
 	while (i < placement_pointer + 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
