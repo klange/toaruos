@@ -3,6 +3,7 @@
  * vim:noexpandtab
  */
 #include <system.h>
+#define KERNEL_STACK_SIZE 0x1000
 
 __volatile__ task_t * current_task;
 __volatile__ task_t * ready_queue;
@@ -120,7 +121,7 @@ fork() {
 	new_task->ebp = 0;
 	new_task->eip = 0;
 	new_task->page_directory = directory;
-	new_task->next = 0;
+	new_task->next = NULL;
 	task_t * tmp_task = (task_t *)ready_queue;
 	while (tmp_task->next) {
 		tmp_task = tmp_task->next;
@@ -156,7 +157,7 @@ switch_task() {
 	__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
 	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
 	eip = read_eip();
-	if (eip == 0x12345) {
+	if (eip == 0x10000) {
 		return;
 	}
 	current_task->eip = eip;
@@ -175,8 +176,9 @@ switch_task() {
 			"mov %1, %%esp\n"
 			"mov %2, %%ebp\n"
 			"mov %3, %%cr3\n"
-			"mov $0x12345, %%eax\n"
+			"mov $0x10000, %%eax\n"
 			"sti\n"
 			"jmp *%%ecx"
 			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address));
+	switch_page_directory(current_task->page_directory);
 }

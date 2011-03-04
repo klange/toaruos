@@ -116,13 +116,21 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	}
 	__asm__ __volatile__ ("sti");
 
-	//start_shell();
+	start_shell();
 
 	/*
 	 * Aw man...
 	 */
 
 	fork();
+
+#if 0
+	if (child == 0) {
+		kprintf("Hello world.\n");
+	} else {
+		kprintf("child: %d\tme: %d\n", child, getpid());
+	}
+#endif
 
 	while (1) {
 		putch(48 + getpid());
