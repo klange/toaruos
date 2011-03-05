@@ -1,26 +1,34 @@
 ; ToAruOS Start Up / Entry Point
 ; vim:syntax=nasm
+; vim:tabstop=4
 ;
 ; Copyright 2011 ToAruOS Kernel Development Group
 ; See main.c for licensing terms (NCSA)
 ;
-[BITS 32]
+BITS 32
 ALIGN 4
 
 
-
-; Kernel Multiboot Headers
 mboot:
+	; Multiboot headers:
+	;   Page aligned loading, please
 	MULTIBOOT_PAGE_ALIGN	equ 1<<0
+	;   We require memory information
 	MULTIBOOT_MEMORY_INFO	equ 1<<1
+	;   We are multiboot compatible!
 	MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002
+	;   Load up those flags.
 	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO
+	;   Checksum the result
 	MULTIBOOT_CHECKSUM		equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
-	EXTERN code, bss, end
-	; GRUB Multiboot header, boot signature
+	; Load the headers into the binary image.
 	dd MULTIBOOT_HEADER_MAGIC
 	dd MULTIBOOT_HEADER_FLAGS
 	dd MULTIBOOT_CHECKSUM
+
+
+; Some external references.
+extern code, bss, end
 
 ; Main entrypoint
 global start

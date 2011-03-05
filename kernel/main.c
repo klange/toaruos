@@ -62,15 +62,26 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
 	char * ramdisk = NULL;
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
+		/*
+		 * Multiboot (GRUB, native QEMU, PXE)
+		 */
 		boot_mode = multiboot;
-		/* Realign memory to the end of the multiboot modules */
+		/*
+		 * Realign memory to the end of the multiboot modules
+		 */
 		kmalloc_startat(0x200000);
 		if (mboot_ptr->flags & (1 << 3)) {
+			/*
+			 * Mboot modules are available.
+			 */
 			if (mboot_ptr->mods_count > 0) {
-				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);
-				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);
-				ramdisk = (char *)kmalloc(module_end - module_start);
-				memcpy(ramdisk, (char *)module_start, module_end - module_start);
+				/*
+				 * Ramdisk image was provided. (hopefully)
+				 */
+				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
+				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
+				ramdisk = (char *)kmalloc(module_end - module_start);				/* New chunk of ram for it. */
+				memcpy(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
 			}
 		}
 	} else {
@@ -89,14 +100,14 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	init_video();		/* VGA driver */
 
 	/* Hardware drivers */
-	timer_install();
-	keyboard_install();
-	serial_install();
+	timer_install();	/* PIC driver */
+	keyboard_install();	/* Keyboard interrupt handler */
+	serial_install();	/* Serial console */
 
 	/* Memory management */
-	paging_install(mboot_ptr->mem_upper);
-	heap_install();
-	tasking_install();
+	paging_install(mboot_ptr->mem_upper);	/* Paging */
+	heap_install();							/* Kernel heap */
+	tasking_install();						/* Multi-tasking */
 
 	/* Kernel Version */
 	settextcolor(12, 0);
@@ -109,6 +120,9 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 		dump_multiboot(mboot_ptr);
 
 		if (mboot_ptr->flags & (1 << 3)) {
+			/*
+			 * If we have an initial ramdisk, mount it.
+			 */
 			if (mboot_ptr->mods_count > 0) {
 				initrd_mount((uintptr_t)ramdisk, 0);
 			}
@@ -121,16 +135,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	/*
 	 * Aw man...
 	 */
-
 	fork();
-
-#if 0
-	if (child == 0) {
-		kprintf("Hello world.\n");
-	} else {
-		kprintf("child: %d\tme: %d\n", child, getpid());
-	}
-#endif
 
 	while (1) {
 		putch(48 + getpid());
