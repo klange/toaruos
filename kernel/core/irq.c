@@ -19,6 +19,9 @@ extern void _irq15();
 
 static irq_handler_t irq_routines[16] = { NULL };
 
+/*
+ * Install an interupt handler for a hardware device.
+ */
 void
 irq_install_handler(
 		int irq,
@@ -27,6 +30,9 @@ irq_install_handler(
 	irq_routines[irq] = handler;
 }
 
+/*
+ * Remove an interrupt handler for a hardware device.
+ */
 void
 irq_uninstall_handler(
 		int irq
@@ -34,6 +40,9 @@ irq_uninstall_handler(
 	irq_routines[irq] = 0;
 }
 
+/*
+ * Remap interrupt handlers
+ */
 void
 irq_remap() {
 	outportb(0x20, 0x11);
@@ -48,6 +57,9 @@ irq_remap() {
 	outportb(0xA1, 0x0);
 }
 
+/*
+ * Set up interrupt handler for hardware devices.
+ */
 void
 irq_install() {
 	irq_remap();

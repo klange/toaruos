@@ -1,12 +1,15 @@
 #include <system.h>
 
 /*
- * Global Descriptor Tablet Entry
+ * Global Descriptor Table Entry
  */
 struct gdt_entry {
+	/* Limits */
 	unsigned short limit_low;
+	/* Segment address */
 	unsigned short base_low;
 	unsigned char base_middle;
+	/* Access modes */
 	unsigned char access;
 	unsigned char granularity;
 	unsigned char base_high;

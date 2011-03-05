@@ -11,6 +11,9 @@ struct idt_entry {
 	unsigned short base_high;
 } __attribute__((packed));
 
+/*
+ * IDT pointer
+ */
 struct idt_ptr {
 	unsigned short limit;
 	uintptr_t base;
