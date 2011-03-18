@@ -13,6 +13,14 @@ This will build the kernel and the ramdisk and, optionally, copy them to your bo
 
 My testing environment is a combination of QEMU and VirtualBox.
 
+## Dependencies ##
+
+### Kernel ###
+To build the kernel, you will need `yasm`, `clang` (or `gcc`, change the Makefile), and GNU `ld` (which you undoubtedly have if you have `clang` or `gcc`).
+
+### Documentation ###
+To build the primary documentation, you need a complete LaTeX stack with `pdftex`, including the CJK module and Japanese fonts. To build the kernel API documentation, you will need Doxygen.
+
 ## Goals and Roadmap ##
 Overall, the goal of this project is to write a relatively POSIX-compatible OS from the ground up. With a focus on generic hardware functionality and universal specifications like VESA, I hope to eventually get something fairly complete in terms of what an OS should be. At some times, I may focus on an actual piece of complex hardware (I am looking to write a basic driver for Intel graphics cards based on the X driver and the Mesa components), but in general, I will stick to generic interfaces.
 
