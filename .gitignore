@@ -7,3 +7,6 @@ bootloader/stage2.bin
 initrd/kernel
 .gdb_history
 bootdisk.img
+*.log
+*.pdf
+*.aux
