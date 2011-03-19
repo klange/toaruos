@@ -28,12 +28,14 @@ run: toaruos-kernel toaruos-initrd
 #################
 # Documentation #
 #################
-docs: docs/loader.pdf
+docs: docs/core.pdf
 
-%.pdf: %.tex
-	@${ECHO} -n "\033[32m  docs  Generating documentation file $@"
-	@pdflatex -halt-on-error -output-directory docs/ $< > /dev/null
-	@${ECHO} "\r\033[32;1m  docs  Generated documentation file '$@'"
+docs/core.pdf: docs/*.tex 
+	@${ECHO} -n "\033[32m  docs  Generating documentation..."
+	@pdflatex -halt-on-error -output-directory docs/ docs/core.tex > /dev/null
+	@makeindex -q docs/*.idx
+	@pdflatex -halt-on-error -output-directory docs/ docs/core.tex > /dev/null
+	@${ECHO} "\r\033[32;1m  docs  Generated documentation PDF."
 
 ################
 #    Kernel    #
@@ -130,5 +132,6 @@ clean:
 	@-rm -f bootloader/stage2/*.o
 	@-rm -f initrd/kernel
 	@-rm -f bootdisk.img
-	@-rm -f docs/*.pdf docs/*.aux docs/*.log
+	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out
+	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"

@@ -1,47 +1,25 @@
-\documentclass{article}
+\section{Dynamic Linker/Loader for ELF Binaries}
+\subsection{Overview}
 
-\usepackage[margin=1in]{geometry}
-\usepackage{fancyhdr}
-\usepackage{amsmath}
-\usepackage{listings}
-\usepackage{graphicx}
-\usepackage[overlap, CJK]{ruby}
+\subsubsection{Goal}
 
-\pagestyle{fancy}
-
-\lhead{CS 242}
-\chead{}
-\rhead{Kevin Lange}
-\lfoot{}
-\cfoot{}
-\rfoot{}
-
-\begin{document}
-\begin{CJK}{UTF8}{goth}
-
-\section*{Final Project Proposal}
-\subsection*{\emph{Dynamic Linker/Loader for ELF Binaries}}
-
-\subsection*{Overview}
-
-\subsubsection*{Goal}
-
+\index{dynamic linker}
 To develop a stable, simplistic dynamic linker for ELF binaries and
 shared libraries.
 
-\subsubsection*{Purpose}
+\subsubsection{Purpose}
 
 The purpose of this project is to facilitate understanding of the ELF
 binary format and its use in dynamic libraries and executables. Work
 from this project will be used to give the とあるOS kernel a working
 implementation of dynamic libraries.
 
-\subsubsection*{Scope}
+\subsubsection{Scope}
 
 This project will be developed for the とあるOS kernel and/or in
 user-space under Linux.
 
-\subsubsection*{Description}
+\subsubsection{Description}
 
 The linker/loader will be built to handle 32-bit ELF binaries
 compiled for use with shared libraries. It will load the dynamic
@@ -49,7 +27,7 @@ binaries and it associated chain of library dependencies and link
 the symbol tables of the binary and libraries to create an
 executable process image.
 
-\subsubsection*{Schedule}
+\subsubsection{Schedule}
 
 The four week schedule for this project will be broken up as follows:
 
@@ -59,8 +37,3 @@ The four week schedule for this project will be broken up as follows:
     \item Loading and execuation of binaries through the linker.
     \item Dynamic linking and execution of binaries and libraries.
 \end{enumerate}
-
-
-
-\end{CJK}
-\end{document}

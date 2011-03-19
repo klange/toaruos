@@ -10,3 +10,8 @@ bootdisk.img
 *.log
 *.pdf
 *.aux
+*.ilg
+*.idx
+*.ind
+*.out
+*.toc

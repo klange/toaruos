@@ -1,0 +1,57 @@
+% Documentation core for ToAruOS
+% Copyright 2011 Kevin Lange
+\documentclass{article}
+
+% Switch to a nice sans-serif font.
+\renewcommand*\familydefault{\sfdefault}
+\usepackage[margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage[overlap, CJK]{ruby}
+\usepackage{makeidx}
+\usepackage[bookmarks]{hyperref}
+
+\def\Title{ToAruOS Kernel Documentation}
+\def\Author{Kevin Lange}
+
+\makeindex
+
+% Some nice headers for the core contents.
+\pagestyle{fancy}
+\lhead{ToAruOS Documentation}
+\rhead{v0.0.1}
+
+\begin{document}
+\begin{CJK}{UTF8}{goth}
+
+% Title page for documentation
+\begin{titlepage}
+\title{ToAruOS Kernel Documentation}
+\author{Kevin Lange}
+\maketitle
+
+% Make sure we don't have a number here...
+\thispagestyle{empty}
+\end{titlepage}
+
+% We're now on page 2.
+\setcounter{page}{2}
+
+% Table of Contents
+\tableofcontents
+\clearpage
+
+%% BEGIN DOCUMENT CONTENTS %%
+
+% Dynamic Linker / Loader documentation
+\input{loader.tex}
+\clearpage
+
+%% Index %%
+\addcontentsline{toc}{chapter}{Index}
+\printindex
+
+\end{CJK}
+\end{document}
