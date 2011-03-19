@@ -1,37 +1,45 @@
 % Documentation core for ToAruOS
 % Copyright 2011 Kevin Lange
-\documentclass{article}
 
+% Standard article with (centered) title page
+\documentclass[titlepage]{article}
 % Switch to a nice sans-serif font.
 \renewcommand*\familydefault{\sfdefault}
-\usepackage[margin=1in]{geometry}
-\usepackage{fancyhdr}
-\usepackage{amsmath}
-\usepackage{listings}
-\usepackage{graphicx}
-\usepackage[overlap, CJK]{ruby}
-\usepackage{makeidx}
-\usepackage[bookmarks]{hyperref}
+\usepackage[margin=1in]{geometry}   % Margins
+\usepackage{fancyhdr}               % Fancy page header
+\usepackage{amsmath}                % Extra mathemtics stuff
+\usepackage{listings}               % Source code styling
+\usepackage{graphicx}               % Graphics support
+\usepackage[overlap, CJK]{ruby}     % For Japanese
+\usepackage{makeidx}                % Indexing
+\usepackage[bookmarks]{hyperref}    % PDF hyperlink index
 
-\def\Title{ToAruOS Kernel Documentation}
-\def\Author{Kevin Lange}
+% Some useful macros for the documentation
+\newcommand{\toarutitle}{ToAruOS Kernel Documentation}
+\newcommand{\toaruversi}{v 0.0.1}
+\newcommand{\toaruautho}{Kevin Lange}
 
+% Title / Author
+\def\Title{\toarutitle}
+\title{\toarutitle}
+\def\Author{\toaruautho}
+\author{\toaruautho}
+
+% Enable indexing
 \makeindex
 
 % Some nice headers for the core contents.
 \pagestyle{fancy}
-\lhead{ToAruOS Documentation}
-\rhead{v0.0.1}
+\lhead{\toarutitle}
+\rhead{\toaruversi}
 
+% Begin document contents
 \begin{document}
 \begin{CJK}{UTF8}{goth}
 
 % Title page for documentation
 \begin{titlepage}
-\title{ToAruOS Kernel Documentation}
-\author{Kevin Lange}
 \maketitle
-
 % Make sure we don't have a number here...
 \thispagestyle{empty}
 \end{titlepage}
@@ -62,9 +70,10 @@
 \addcontentsline{toc}{section}{Index}
 \printindex
 
+% License information
 \clearpage
 \input{license.tex}
 
-
+% Fin
 \end{CJK}
 \end{document}
