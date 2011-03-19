@@ -5,7 +5,7 @@
 #include <system.h>
 #define KERNEL_STACK_SIZE 0x1000
 
-__volatile__ task_t * current_task;
+__volatile__ task_t * current_task = NULL;
 __volatile__ task_t * ready_queue;
 
 uint32_t next_pid = 0;
@@ -153,6 +153,7 @@ switch_task() {
 	if (!current_task) {
 		return;
 	}
+	if (!current_task->next && current_task == ready_queue) return;
 	uintptr_t esp, ebp, eip;
 	__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
 	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
