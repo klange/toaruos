@@ -20,10 +20,18 @@
 \newcommand{\toaruautho}{Kevin Lange}
 
 % Title / Author
-\def\Title{\toarutitle}
 \title{\toarutitle}
-\def\Author{\toaruautho}
 \author{\toaruautho}
+
+% PDF Data
+\hypersetup{
+    pdftitle={\toarutitle},
+    pdfauthor={\toaruautho},
+    pdfkeywords={toaruos, kernel, development, documentation},
+    bookmarksnumbered,
+    pdfstartview={FitH},
+    urlcolor=cyan,
+}
 
 % Enable indexing
 \makeindex
