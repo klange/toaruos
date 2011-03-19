@@ -40,17 +40,22 @@
 \setcounter{page}{2}
 
 % Table of Contents
+\cleardoublepage
 \tableofcontents
-\clearpage
 
 %% BEGIN DOCUMENT CONTENTS %%
 
-% Dynamic Linker / Loader documentation
-\input{loader.tex}
+% Introduction
 \clearpage
+\input{intro.tex}
+
+% Dynamic Linker / Loader documentation
+\clearpage
+\input{loader.tex}
 
 %% Index %%
-\addcontentsline{toc}{chapter}{Index}
+\clearpage
+\addcontentsline{toc}{section}{Index}
 \printindex
 
 \end{CJK}
