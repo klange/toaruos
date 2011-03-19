@@ -32,7 +32,7 @@ docs: docs/core.pdf
 
 docs/core.pdf: docs/*.tex 
 	@${ECHO} -n "\033[32m  docs  Generating documentation..."
-	@pdflatex -halt-on-error -output-directory docs/ docs/core.tex > /dev/null
+	@pdflatex -draftmode -halt-on-error -output-directory docs/ docs/core.tex > /dev/null
 	@makeindex -q docs/*.idx
 	@pdflatex -halt-on-error -output-directory docs/ docs/core.tex > /dev/null
 	@${ECHO} "\r\033[32;1m  docs  Generated documentation PDF."
