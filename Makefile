@@ -11,7 +11,7 @@ EMU = qemu
 GENEXT = genext2fs
 DD = dd conv=notrunc
 
-.PHONY: all system clean install run
+.PHONY: all system clean install run docs
 
 all: system bootdisk.img docs
 system: toaruos-initrd toaruos-kernel
