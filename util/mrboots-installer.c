@@ -108,6 +108,19 @@ iopen(
 	return NULL;
 }
 
+uint32_t
+ext2_get_inode_block_num(
+		ext2_inodetable_t * inode,
+		uint32_t block
+		) {
+	if (block < 12) {
+		return inode->block[block];
+	} else if (block < 12 + (1024 << sblock->log_block_size) / sizeof(uint32_t)) {
+		return *(uint32_t*)((uintptr_t)ext2_get_block(inode->block[12]) + (block - 12) * sizeof(uint32_t));
+	}
+	return 0;
+}
+
 int main(int argc, char ** argv) {
 	if (argc < 3) {
 		fprintf(stderr, "Expected two additional arguments: a ramdisk, and a file path to second stage to find in it.\n");
@@ -132,8 +145,8 @@ int main(int argc, char ** argv) {
 	if (sblock->inode_size == 0) {
 		sblock->inode_size = 128;
 	}
-	fprintf(stderr,"INODE_SIZE = 0x%x\n", sblock->inode_size);
-	fprintf(stderr,"BLOCK_SIZE = 0x%x\n", 0x400 << sblock->log_block_size);
+	fprintf(stdout,"INODE_SIZE = 0x%x\n", sblock->inode_size);
+	fprintf(stdout,"BLOCK_SIZE = 0x%x\n", 0x400 << sblock->log_block_size);
 	/* More pointers! */
 	ext2_bgdescriptor_t * rblock = (ext2_bgdescriptor_t *)((uintptr_t)hdd_dump + 0x400 + 0x400);
 	fprintf(stderr,"INODE_TABL = 0x%x\n", rblock->inode_table);
@@ -143,6 +156,18 @@ int main(int argc, char ** argv) {
 	ext2_inodetable_t   * rnode  = (ext2_inodetable_t   *)((uintptr_t)itable + sblock->inode_size);
 	fprintf(stderr, "Pretty sure everything is right so far...\n");
 
-	ext2_inodetable_t   * fnode  = iopen(rnode, "/boot/stage2");
-	fprintf(stderr, "fnode: %d\n", fnode->size);
+	ext2_inodetable_t   * fnode  = iopen(rnode, argv[2]);
+	if (!fnode) {
+		fprintf(stderr,"Failed to locate the requested file on the disk image.\n");
+		return -1;
+	}
+	fprintf(stdout,"FILE_SIZE   = 0x%x\n", fnode->size);
+	fprintf(stdout,"BLOCK_COUNT = 0x%x\n", fnode->blocks);
+	fprintf(stdout,"BLOCK_SIZE  = 0x%x\n", fnode->size / (0x400 << sblock->log_block_size)) + 1;
+	fprintf(stdout,"BLOCKS = { ");
+	for (uint32_t i = 0; i < fnode->size / (0x400 << sblock->log_block_size) + 1; ++i) {
+		fprintf(stdout, "%d", ext2_get_inode_block_num(fnode, i));
+		if (i < fnode->blocks - 1) { fprintf(stdout, ","); }
+	}
+	fprintf(stdout," }\n");
 }
