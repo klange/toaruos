@@ -65,7 +65,7 @@ kernel/start.o: kernel/start.s
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd/boot/kernel bootloader/stage2.bin
+toaruos-initrd: initrd/boot/kernel initrd/boot/stage2
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
@@ -78,7 +78,7 @@ toaruos-initrd: initrd/boot/kernel bootloader/stage2.bin
 # Second stage bootloader
 initrd/boot/stage2: bootloader/stage2.bin
 	@mkdir -p initrd/boot
-	@cp bootloader/stager2.bin initrd/boot/stage2
+	@cp bootloader/stage2.bin initrd/boot/stage2
 
 # Kernel
 initrd/boot/kernel: toaruos-kernel
