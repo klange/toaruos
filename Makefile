@@ -1,10 +1,16 @@
 #CC = gcc
 CC = clang
+# Sometimes we just have to use GCC
 GCC = gcc
+# CFLAGS for core components
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -g
+# CFLAGS for native utils
+NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra
+# Linker for core
 LD = ld -m elf_i386
 YASM = yasm
 ECHO = `which echo` -e
+# Feel free to be specific, but I'd rather you not be.
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 EMU = qemu
@@ -73,6 +79,15 @@ initrd/kernel: toaruos-kernel
 	@cp toaruos-kernel initrd/kernel
 
 ################
+#   Utilities  #
+################
+
+util/bin/mrboots-installer: util/mrboots-installer.c
+	@${ECHO} -n "\033[32m   CC   $<\033[0m"
+	@${CC} ${NATIVEFLAGS} -o $@ $<
+	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+
+################
 #  Bootloader  #
 ################
 
@@ -111,7 +126,7 @@ bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootlo
 ##############
 #  bootdisk  #
 ##############
-bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin
+bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin util/bin/mrboots-installer
 	@${ECHO} -n "\033[34m   --   Building bootdisk.img...\033[0m"
 	@cat bootloader/stage1.bin bootloader/stage2.bin > bootdisk.img
 	@${ECHO} "\r\033[34;1m   --   Bootdisk is ready!      \033[0m"
@@ -134,4 +149,5 @@ clean:
 	@-rm -f bootdisk.img
 	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out
 	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
+	@-rm -f util/bin/*
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"
