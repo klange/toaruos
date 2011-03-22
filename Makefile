@@ -5,7 +5,7 @@ GCC = gcc
 # CFLAGS for core components
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -g
 # CFLAGS for native utils
-NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra
+NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra -Wno-unused-parameter
 # Linker for core
 LD = ld -m elf_i386
 YASM = yasm
