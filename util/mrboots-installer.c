@@ -6,9 +6,10 @@
  * architecture you feel like running me on, though I much
  * prefer something simple and 32-bit.
  */
-#include <stdint.h>
 #include <stdio.h>
+#include "../kernel/include/ext2.h"
 
 int main(int argc, char ** argv) {
 	printf("Mr. Boots Installer\n");
+	
 }

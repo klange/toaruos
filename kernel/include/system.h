@@ -1,7 +1,8 @@
 #ifndef __SYSTEM_H
 #define __SYSTEM_H
-
+#define _KERNEL_
 #include <types.h>
+
 
 /* Unimportant Kernel Strings */
 #define KERNEL_UNAME "ToAruOS"

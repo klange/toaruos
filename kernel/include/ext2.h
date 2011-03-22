@@ -1,7 +1,15 @@
 #ifndef EXT2_H
 #define EXT2_h
 
-#include <types.h>
+#ifdef _KERNEL_
+#	include <types.h>
+#else
+#	ifdef BOOTLOADER
+#		include <types.h>
+#	else
+#		include <stdint.h>
+#	endif
+#endif
 
 #define EXT2_SUPER_MAGIC 0xEF53
 
