@@ -152,7 +152,7 @@ clean:
 	@-rm -f bootloader/stage1/*.o
 	@-rm -f bootloader/stage2.bin
 	@-rm -f bootloader/stage2/*.o
-	@-rm -f initrd/boot
+	@-rm -f -r initrd/boot
 	@-rm -f bootdisk.img
 	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out
 	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
