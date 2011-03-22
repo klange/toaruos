@@ -162,12 +162,16 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 	fprintf(stdout,"FILE_SIZE   = 0x%x\n", fnode->size);
-	fprintf(stdout,"BLOCK_COUNT = 0x%x\n", fnode->blocks);
-	fprintf(stdout,"BLOCK_SIZE  = 0x%x\n", fnode->size / (0x400 << sblock->log_block_size)) + 1;
 	fprintf(stdout,"BLOCKS = { ");
-	for (uint32_t i = 0; i < fnode->size / (0x400 << sblock->log_block_size) + 1; ++i) {
-		fprintf(stdout, "%d", ext2_get_inode_block_num(fnode, i));
-		if (i < fnode->blocks - 1) { fprintf(stdout, ","); }
+	for (uint32_t i = 0; i < fnode->blocks; ++i) {
+		uint32_t block = ext2_get_inode_block_num(fnode, i);
+		fprintf(stdout, "%d", block);
+		if (ext2_get_inode_block_num(fnode, i+1) == 0) {
+			fprintf(stdout, " }\n");
+			fprintf(stdout, "BLOCK_COUNT = 0x%x\n", i + 1);
+			break;
+		} else {
+			fprintf(stdout, ",");
+		};
 	}
-	fprintf(stdout," }\n");
 }
