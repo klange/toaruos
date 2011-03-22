@@ -15,6 +15,7 @@
 #include "../kernel/include/ext2.h"
 
 #define ext2_get_block(block) ((uintptr_t)hdd_dump + (0x400 << sblock->log_block_size) * block)
+#define ext2_get_block_offset(block) ((0x400 << sblock->log_block_size) * block)
 
 char * hdd_dump = NULL;
 ext2_superblock_t * sblock;
@@ -140,38 +141,36 @@ int main(int argc, char ** argv) {
 	fread(hdd_dump, hdd_size, 1, hdd);
 	/* And lets make us some pointers. */
 	sblock = (ext2_superblock_t *)((uintptr_t)hdd_dump + 0x400);
-	fprintf(stderr, "Superblock magic is 0x%x\n", sblock->magic);
 	assert(sblock->magic == EXT2_SUPER_MAGIC);
 	if (sblock->inode_size == 0) {
 		sblock->inode_size = 128;
 	}
-	fprintf(stdout,"INODE_SIZE = 0x%x\n", sblock->inode_size);
-	fprintf(stdout,"BLOCK_SIZE = 0x%x\n", 0x400 << sblock->log_block_size);
 	/* More pointers! */
 	ext2_bgdescriptor_t * rblock = (ext2_bgdescriptor_t *)((uintptr_t)hdd_dump + 0x400 + 0x400);
-	fprintf(stderr,"INODE_TABL = 0x%x\n", rblock->inode_table);
 	/* Inode table */
 	itable = (ext2_inodetable_t   *)((uintptr_t)hdd_dump + (0x400 << sblock->log_block_size) * rblock->inode_table);
 	/* Root node */
 	ext2_inodetable_t   * rnode  = (ext2_inodetable_t   *)((uintptr_t)itable + sblock->inode_size);
-	fprintf(stderr, "Pretty sure everything is right so far...\n");
-
 	ext2_inodetable_t   * fnode  = iopen(rnode, argv[2]);
 	if (!fnode) {
 		fprintf(stderr,"Failed to locate the requested file on the disk image.\n");
 		return -1;
 	}
-	fprintf(stdout,"FILE_SIZE   = 0x%x\n", fnode->size);
-	fprintf(stdout,"BLOCKS = { ");
+	uint32_t offset = 0x8000; /* Destination offset */
+	uint32_t _block = 0;
+	uint32_t _block_last = 0;
 	for (uint32_t i = 0; i < fnode->blocks; ++i) {
 		uint32_t block = ext2_get_inode_block_num(fnode, i);
-		fprintf(stdout, "%d", block);
-		if (ext2_get_inode_block_num(fnode, i+1) == 0) {
-			fprintf(stdout, " }\n");
-			fprintf(stdout, "BLOCK_COUNT = 0x%x\n", i + 1);
-			break;
-		} else {
-			fprintf(stdout, ",");
-		};
+		if (_block == 0 || block != _block_last + 1) {
+			if (_block != 0) {
+				uint32_t size = (_block_last - _block + 1) * (0x400 << sblock->log_block_size);
+				uint32_t place = ext2_get_block_offset(_block);
+				fprintf(stdout, "0x%x, 0x%x -> 0x%x\n", place, size, offset);
+				offset += size;
+			}
+			if (block == 0) { break; }
+			_block = block;
+		}
+		_block_last = block;
 	}
 }
