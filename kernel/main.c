@@ -136,8 +136,10 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	 * Aw man...
 	 */
 	fork();
+	fork();
 
 	while (1) {
+		settextcolor(getpid() + 10, 0);
 		putch(48 + getpid());
 	}
 
