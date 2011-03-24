@@ -59,10 +59,11 @@ clone_table(
 	return table;
 }
 
-void
-move_stack(
+uintptr_t
+copy_stack(
 		void *new_stack_start,
-		size_t size
+		size_t size,
+		uintptr_t initial
 		) {
 	uintptr_t i;
 	for (	i = (uintptr_t)new_stack_start;
@@ -77,10 +78,10 @@ move_stack(
 	__asm__ __volatile__ ("mov %%esp, %0" : "=r" (old_stack_pointer));
 	uintptr_t old_base_pointer;
 	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (old_base_pointer));
-	uintptr_t offset = (uintptr_t)new_stack_start - initial_esp;
+	uintptr_t offset = (uintptr_t)new_stack_start - initial;
 	uintptr_t new_stack_pointer = old_stack_pointer + offset;
 	uintptr_t new_base_pointer  = old_base_pointer  + offset;
-	memcpy((void *)new_stack_pointer, (void *)old_stack_pointer, initial_esp - old_stack_pointer);
+	memcpy((void *)new_stack_pointer, (void *)old_stack_pointer, initial - old_stack_pointer);
 	for (i = (uintptr_t)new_stack_start; i > (uintptr_t)new_stack_start - size; i -= 4) {
 		uintptr_t temp = *(uintptr_t*)i;
 		if ((old_stack_pointer < temp) && (temp < initial_esp)) {
@@ -91,12 +92,12 @@ move_stack(
 	}
 	__asm__ __volatile__ ("mov %0, %%esp" : : "r" (new_stack_pointer));
 	__asm__ __volatile__ ("mov %0, %%ebp" : : "r" (new_base_pointer));
+	return new_stack_pointer + (initial_esp - old_stack_pointer);
 }
 
 void
 tasking_install() {
 	__asm__ __volatile__ ("cli");
-	move_stack((void *)0xE000000, 0x2000);
 
 	current_task = (task_t *)kmalloc(sizeof(task_t));
 	ready_queue = current_task;
@@ -104,6 +105,7 @@ tasking_install() {
 	current_task->esp = 0;
 	current_task->ebp = 0;
 	current_task->eip = 0;
+	current_task->stack = copy_stack((void *)0xE000000, 0x2000, initial_esp);
 	current_task->page_directory = current_directory;
 	current_task->next = 0;
 
@@ -122,6 +124,7 @@ fork() {
 	new_task->eip = 0;
 	new_task->page_directory = directory;
 	new_task->next = NULL;
+	new_task->stack = kvmalloc(KERNEL_STACK_SIZE);
 	task_t * tmp_task = (task_t *)ready_queue;
 	while (tmp_task->next) {
 		tmp_task = tmp_task->next;
@@ -133,7 +136,10 @@ fork() {
 		uintptr_t ebp;
 		__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
 		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
-		new_task->esp = esp;
+		uint32_t old_stack_offset = current_task->stack + KERNEL_STACK_SIZE - esp;
+		new_task->esp = (new_task->stack + KERNEL_STACK_SIZE) - old_stack_offset;
+		memcpy((void *)(new_task->esp),(void*)esp,old_stack_offset);
+		//new_task->esp = esp;
 		new_task->ebp = ebp;
 		new_task->eip = eip;
 		__asm__ __volatile__ ("sti");

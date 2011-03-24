@@ -158,6 +158,7 @@ typedef struct task {
 	page_directory_t * page_directory;
 	struct task *next;
 	uintptr_t kernel_stack;
+	uintptr_t stack;
 } task_t;
 
 extern void tasking_install();
