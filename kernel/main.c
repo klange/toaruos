@@ -35,6 +35,9 @@
 #include <boot.h>
 #include <ext2.h>
 
+
+#define from_bcd(val)  ((val / 16) * 10 + (val & 0xf))
+
 /*
  * kernel entry point
  *
@@ -137,10 +140,46 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	 */
 	fork();
 	fork();
+	fork();
+	fork();
 
-	while (1) {
-		settextcolor(getpid() + 10, 0);
-		putch(48 + getpid());
+	uint32_t i = getpid() * 10000;
+
+	if (getpid() == 0) {
+		while (1) {
+			uint16_t values[128];
+			uint16_t index;
+			__asm__ __volatile__ ("cli");
+			for (index = 0; index < 128; ++index) {
+				outportb(0x70, index);
+				values[index] = inportb(0x71);
+			}
+			__asm__ __volatile__ ("sti");
+
+			uint16_t hours   = from_bcd(values[4]);
+			uint16_t minutes = from_bcd(values[2]);
+			uint16_t seconds = from_bcd(values[0]);
+
+			__asm__ __volatile__ ("cli");
+			place_csr(0,0);
+			settextcolor(10,0);
+			kprintf("%d:%d:%d", hours, minutes, seconds);
+			__asm__ __volatile__ ("sti");
+		}
+	} else {
+
+		while (1) {
+			++i;
+			__asm__ __volatile__ ("cli");
+			if (getpid() % 2 == 0) {
+				place_csr(0, getpid() / 2);
+			} else {
+				place_csr(30, getpid()/ 2);
+			}
+			settextcolor(getpid() + 1, 0);
+			kprintf("%d:%d", getpid(), i);
+			__asm__ __volatile__ ("sti");
+		}
 	}
 
 	return 0;

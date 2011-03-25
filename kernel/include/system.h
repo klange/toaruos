@@ -40,6 +40,7 @@ extern void init_video();
 extern void placech(unsigned char c, int x, int y, int attr);
 extern void writechf(unsigned char c);
 extern void writech(unsigned char c);
+extern void place_csr(uint32_t x, uint32_t y);
 
 /* GDT */
 extern void gdt_install();

@@ -50,6 +50,19 @@ move_csr() {
 }
 
 /*
+ * place_csr(x, y)
+ */
+void
+place_csr(
+		uint32_t x,
+		uint32_t y
+		) {
+	csr_x = x;
+	csr_y = y;
+	move_csr();
+}
+
+/*
  * cls
  * Clear the screen
  */
