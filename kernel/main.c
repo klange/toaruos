@@ -133,17 +133,10 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	}
 	__asm__ __volatile__ ("sti");
 
-	start_shell();
-
 	/*
 	 * Aw man...
 	 */
 	fork();
-	fork();
-	fork();
-	fork();
-
-	uint32_t i = getpid() * 10000;
 
 	if (getpid() == 0) {
 		while (1) {
@@ -161,25 +154,15 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 			uint16_t seconds = from_bcd(values[0]);
 
 			__asm__ __volatile__ ("cli");
-			place_csr(0,0);
-			settextcolor(10,0);
-			kprintf("%d:%d:%d", hours, minutes, seconds);
+			store_csr();
+			place_csr(70,0);
+			set_serial(0);
+			kprintf("[%d:%d:%d]", hours, minutes, seconds);
+			restore_csr();
 			__asm__ __volatile__ ("sti");
 		}
 	} else {
-
-		while (1) {
-			++i;
-			__asm__ __volatile__ ("cli");
-			if (getpid() % 2 == 0) {
-				place_csr(0, getpid() / 2);
-			} else {
-				place_csr(30, getpid()/ 2);
-			}
-			settextcolor(getpid() + 1, 0);
-			kprintf("%d:%d", getpid(), i);
-			__asm__ __volatile__ ("sti");
-		}
+		start_shell();
 	}
 
 	return 0;

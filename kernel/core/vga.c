@@ -5,7 +5,8 @@
  */
 unsigned short * textmemptr;
 int attrib = 0x0F;
-int csr_x = 0, csr_y = 0;
+int csr_x = 0, csr_y = 0, use_serial = 1;
+int old_x = 0, old_y = 0, old_s = 1;
 
 /*
  * scroll
@@ -29,6 +30,25 @@ scroll() {
 		memsetw(textmemptr + (25 - temp) * 80, blank, 80);
 		csr_y = 25 - 1;
 	}
+}
+
+void
+set_serial(int on) {
+	use_serial = on;
+}
+
+void
+store_csr() {
+	old_x = csr_x;
+	old_y = csr_y;
+	old_s = use_serial;
+}
+
+void
+restore_csr() {
+	csr_x = old_x;
+	csr_y = old_y;
+	use_serial = old_s;
 }
 
 /*
@@ -144,7 +164,9 @@ writech(
 		*where = c | att;
 		csr_x++;
 	}
-	serial_send(c);
+	if (use_serial) {
+		serial_send(c);
+	}
 
 	if (csr_x >= 80) {
 		csr_x = 0;

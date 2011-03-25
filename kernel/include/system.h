@@ -41,6 +41,9 @@ extern void placech(unsigned char c, int x, int y, int attr);
 extern void writechf(unsigned char c);
 extern void writech(unsigned char c);
 extern void place_csr(uint32_t x, uint32_t y);
+extern void store_csr();
+extern void restore_csr();
+extern void set_serial(int);
 
 /* GDT */
 extern void gdt_install();
