@@ -152,7 +152,18 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 			set_serial(0);
 			set_csr(0);
 			place_csr(70,0);
-			kprintf("[%d:%d:%d]", hours, minutes, seconds);
+			/* It would help a lot if I had %.2d */
+			/* kprintf("[%.2d:%.2d:%.2d]", hours, minutes, seconds); */
+			writech('[');
+			kprintf("%d", hours   / 10);
+			kprintf("%d", hours   % 10);
+			writech(':');
+			kprintf("%d", minutes / 10);
+			kprintf("%d", minutes % 10);
+			writech(':');
+			kprintf("%d", seconds / 10);
+			kprintf("%d", seconds % 10);
+			writech(']');
 			restore_csr();
 			__asm__ __volatile__ ("sti");
 			__asm__ __volatile__ ("hlt");
