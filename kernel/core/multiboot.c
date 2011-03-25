@@ -14,9 +14,9 @@ void
 dump_multiboot(
 		struct multiboot *mboot_ptr
 		) {
-	resettextcolor();
+	brighttextcolor();
 	kprintf("MULTIBOOT header at 0x%x:\n", (uintptr_t)mboot_ptr);
-	settextcolor(7,0);
+	resettextcolor();
 	kprintf("Flags : 0x%x ",  mboot_ptr->flags);
 	kprintf("Mem Lo: 0x%x ",  mboot_ptr->mem_lower);
 	kprintf("Mem Hi: 0x%x ",  mboot_ptr->mem_upper);
@@ -41,7 +41,7 @@ dump_multiboot(
 	kprintf("VBE se: 0x%x ",  mboot_ptr->vbe_interface_seg);
 	kprintf("VBE of: 0x%x ",  mboot_ptr->vbe_interface_off);
 	kprintf("VBE le: 0x%x\n", mboot_ptr->vbe_interface_len);
-	resettextcolor();
+	brighttextcolor();
 	if (mboot_ptr->flags & (1 << 2)) {
 		kprintf("Started with: %s\n", (char *)mboot_ptr->cmdline);
 	}
@@ -65,5 +65,6 @@ dump_multiboot(
 			}
 		}
 	}
+	resettextcolor();
 }
 

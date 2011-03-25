@@ -209,6 +209,11 @@ settextcolor(
  */
 void
 resettextcolor() {
+	settextcolor(7,0);
+}
+
+void
+brighttextcolor() {
 	settextcolor(15,0);
 }
 
