@@ -5,8 +5,8 @@
  */
 unsigned short * textmemptr;
 int attrib = 0x0F;
-int csr_x = 0, csr_y = 0, use_serial = 1;
-int old_x = 0, old_y = 0, old_s = 1;
+int csr_x = 0, csr_y = 0, use_serial = 1, use_csr = 1;
+int old_x = 0, old_y = 0, old_s = 1, old_csr = 1;
 
 /*
  * scroll
@@ -38,10 +38,16 @@ set_serial(int on) {
 }
 
 void
+set_csr(int on) {
+	use_csr = on;
+}
+
+void
 store_csr() {
 	old_x = csr_x;
 	old_y = csr_y;
 	old_s = use_serial;
+	old_csr = use_csr;
 }
 
 void
@@ -49,6 +55,7 @@ restore_csr() {
 	csr_x = old_x;
 	csr_y = old_y;
 	use_serial = old_s;
+	use_csr = old_csr;
 }
 
 /*
@@ -57,6 +64,7 @@ restore_csr() {
  */
 void
 move_csr() {
+	if (!use_csr) return;
 	unsigned temp;
 	temp = csr_y * 80 + csr_x;
 	

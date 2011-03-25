@@ -149,8 +149,9 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 
 			__asm__ __volatile__ ("cli");
 			store_csr();
-			place_csr(70,0);
 			set_serial(0);
+			set_csr(0);
+			place_csr(70,0);
 			kprintf("[%d:%d:%d]", hours, minutes, seconds);
 			restore_csr();
 			__asm__ __volatile__ ("sti");

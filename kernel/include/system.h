@@ -45,6 +45,7 @@ extern void place_csr(uint32_t x, uint32_t y);
 extern void store_csr();
 extern void restore_csr();
 extern void set_serial(int);
+extern void set_csr(int);
 
 /* GDT */
 extern void gdt_install();
