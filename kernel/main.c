@@ -35,9 +35,6 @@
 #include <boot.h>
 #include <ext2.h>
 
-
-#define from_bcd(val)  ((val / 16) * 10 + (val & 0xf))
-
 /*
  * kernel entry point
  *
@@ -116,8 +113,6 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	settextcolor(12, 0);
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
 
-
-	__asm__ __volatile__ ("cli");
 	if (boot_mode == multiboot) {
 		/* Print multiboot information */
 		dump_multiboot(mboot_ptr);
@@ -131,7 +126,16 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 			}
 		}
 	}
-	__asm__ __volatile__ ("sti");
+
+	/*
+	 * All the output we just dumped went to the serial line.
+	 * If you really want it that bad, feel free to remove
+	 * the clear before the rest of the boot process starts.
+	 *
+	 * But really, the kernel shouldn't be outputting all 
+	 * sorts of random text on boot up. Only important stuff!
+	 */
+	cls();
 
 	/*
 	 * Aw man...
@@ -140,18 +144,8 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 
 	if (getpid() == 0) {
 		while (1) {
-			uint16_t values[128];
-			uint16_t index;
-			__asm__ __volatile__ ("cli");
-			for (index = 0; index < 128; ++index) {
-				outportb(0x70, index);
-				values[index] = inportb(0x71);
-			}
-			__asm__ __volatile__ ("sti");
-
-			uint16_t hours   = from_bcd(values[4]);
-			uint16_t minutes = from_bcd(values[2]);
-			uint16_t seconds = from_bcd(values[0]);
+			uint16_t hours, minutes, seconds;
+			get_time(&hours, &minutes, &seconds);
 
 			__asm__ __volatile__ ("cli");
 			store_csr();

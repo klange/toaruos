@@ -123,26 +123,33 @@ void ctlk(int scancode) {
 }
 
 void func(int scancode) {
-	
+	kprintf("[NOTICE] Function key %d pressed\n", scancode);
+}
+
+void spec(int scancode) {
+	if (scancode & 0x80) {
+		return;
+	}
+	kprintf("[NOTICE] Special key %d pressed\n", scancode);
 }
 
 keyboard_handler_t key_method[] = {
-	/* 00 */ NULL, NULL, norm, norm, norm, norm, norm, norm,
+	/* 00 */ NULL, spec, norm, norm, norm, norm, norm, norm,
 	/* 08 */ norm, norm, norm, norm, norm, norm, norm, norm,
 	/* 10 */ norm, norm, norm, norm, norm, norm, norm, norm,
 	/* 18 */ norm, norm, norm, norm, norm, ctlk, norm, norm,
 	/* 20 */ norm, norm, norm, norm, norm, norm, norm, norm,
 	/* 28 */ norm, norm, shft, norm, norm, norm, norm, norm,
 	/* 30 */ norm, norm, norm, norm, norm, norm, shft, norm,
-	/* 38 */ altk, norm, NULL, func, func, func, func, func,
-	/* 40 */ func, func, func, func, func, NULL, NULL, NULL,
-	/* 48 */ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 50 */ NULL, NULL, NULL, NULL, NULL, NULL, NULL, func,
-	/* 58 */ func, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 60 */ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 68 */ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 70 */ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 78 */ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 38 */ altk, norm, spec, func, func, func, func, func,
+	/* 40 */ func, func, func, func, func, spec, spec, spec,
+	/* 48 */ spec, spec, spec, spec, spec, spec, spec, spec,
+	/* 50 */ spec, spec, spec, spec, spec, spec, spec, func,
+	/* 58 */ func, spec, spec, spec, spec, spec, spec, spec,
+	/* 60 */ spec, spec, spec, spec, spec, spec, spec, spec,
+	/* 68 */ spec, spec, spec, spec, spec, spec, spec, spec,
+	/* 70 */ spec, spec, spec, spec, spec, spec, spec, spec,
+	/* 78 */ spec, spec, spec, spec, spec, spec, spec, spec,
 };
 
 

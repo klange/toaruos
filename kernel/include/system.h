@@ -173,4 +173,7 @@ extern uint32_t getpid();
 
 uintptr_t initial_esp;
 
+/* CMOS */
+extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
+
 #endif
