@@ -84,4 +84,5 @@ bochs_draw_logo() {
 			++y;
 		}
 	}
+	free(bufferb);
 }
