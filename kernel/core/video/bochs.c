@@ -15,6 +15,7 @@ uint16_t bochs_current_bank = 0;
 
 #define BOCHS_BANK_SIZE 16384
 #define BOCHS_VID_MEMORY ((uint32_t *)0xA0000)
+#define BOCHS_BANKS (1024 * 768 / BOCHS_BANK_SIZE)
 
 void
 graphics_install_bochs() {
@@ -63,6 +64,20 @@ bochs_set_coord(
 	bochs_set_bank(location / BOCHS_BANK_SIZE);
 	uint32_t offset = location % BOCHS_BANK_SIZE;
 	BOCHS_VID_MEMORY[offset] = color;
+}
+
+void
+bochs_scroll() {
+	__asm__ __volatile__ ("cli");
+	uint32_t * bank_store = malloc(sizeof(uint32_t) * BOCHS_BANK_SIZE);
+	for (uint32_t i = 1; i < BOCHS_BANKS; ++i) {
+		bochs_set_bank(i);
+		memcpy(bank_store, BOCHS_VID_MEMORY, sizeof(uint32_t) * BOCHS_BANK_SIZE);
+		bochs_set_bank(i - 1);
+		memcpy(BOCHS_VID_MEMORY, bank_store, sizeof(uint32_t) * BOCHS_BANK_SIZE);
+	}
+	free(bank_store);
+	__asm__ __volatile__ ("sti");
 }
 
 void
