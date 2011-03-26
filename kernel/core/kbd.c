@@ -1,3 +1,13 @@
+/*
+ * Low-level keyboard interrupt driver.
+ * vim:tabstop=4
+ * vim:noexpandtab
+ *
+ * XXX: This should move to a server for handling
+ *      input devices and what have you.
+ *
+ */
+
 #include <system.h>
 
 struct keyboard_states {

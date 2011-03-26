@@ -1,4 +1,7 @@
 /*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ *
  * ToAruOS Kernel Debugger Shell
  *
  * Part of the ToAruOS Kernel, under the NCSA license

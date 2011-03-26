@@ -1,3 +1,10 @@
+/*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ *
+ * Simple, painfully lacking, implementation of printf(),
+ * for the kernel of all things.
+ */
 #include <system.h>
 
 typedef __builtin_va_list va_list;
