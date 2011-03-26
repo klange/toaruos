@@ -43,6 +43,7 @@ start_shell() {
 			char * save;
 			pch = strtok_r(buffer," ",&save);
 			cmd = pch;
+			if (!cmd) { continue; }
 			char * argv[1024]; /* Command tokens (space-separated elements) */
 			int tokenid = 0;
 			while (pch != NULL) {
