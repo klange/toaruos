@@ -54,7 +54,7 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
     * Heap *done, implemented with klmalloc in the void*
     * VFS *done*
     * Initial RAM Disk *works, but not perfect*
-    * Multitasking
+    * Multitasking *done*
     * User mode
 * Finish basic kernel functionality
     * Loading ELF binaries and executing them in user mode
