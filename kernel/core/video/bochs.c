@@ -6,6 +6,7 @@
  */
 
 #include <system.h>
+#include <fs.h>
 
 uint16_t bochs_resolution_x = 1024;
 uint16_t bochs_resolution_y = 768;
@@ -62,4 +63,25 @@ bochs_set_coord(
 	bochs_set_bank(location / BOCHS_BANK_SIZE);
 	uint32_t offset = location % BOCHS_BANK_SIZE;
 	BOCHS_VID_MEMORY[offset] = color;
+}
+
+void
+bochs_draw_logo() {
+	fs_node_t * file = kopen("/bs.bmp",0);
+	char *bufferb = malloc(file->length);
+	size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
+	size_t i;
+	uint16_t x = 0;
+	uint16_t y = 0;
+	for (i = 54; i < bytes_read; i += 3) {
+		uint32_t color =	bufferb[i] +
+							bufferb[i+1] * 0x100 +
+							bufferb[i+2] * 0x10000;
+		bochs_set_coord(406 + x, 350 + (68 - y), color);
+		++x;
+		if (x == 212) {
+			x = 0;
+			++y;
+		}
+	}
 }

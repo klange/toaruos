@@ -125,6 +125,9 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 				initrd_mount((uintptr_t)ramdisk, 0);
 			}
 		}
+
+		/* Parse the command-line arguments */
+		parse_args((char *)mboot_ptr->cmdline);
 	}
 
 	/*

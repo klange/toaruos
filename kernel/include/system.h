@@ -177,6 +177,9 @@ extern uint32_t getpid();
 
 uintptr_t initial_esp;
 
+/* Kernel Argument Parser */
+extern void parse_args(char * argv);
+
 /* CMOS */
 extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
 
@@ -185,5 +188,6 @@ extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
 extern void graphics_install_bochs();
 extern void bochs_set_bank(uint16_t bank);
 extern void bochs_set_coord(uint16_t x, uint16_t y, uint32_t color);
+extern void bochs_draw_logo();
 
 #endif
