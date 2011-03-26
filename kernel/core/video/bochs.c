@@ -32,7 +32,7 @@ graphics_install_bochs() {
 	/* Set Y resolution to 768 */
 	outports(0x1CE, 0x02);
 	outports(0x1CF, 768);
-	/* Set bpp to 8 */
+	/* Set bpp to 32 */
 	outports(0x1CE, 0x03);
 	outports(0x1CF, 0x20);
 	/* Re-enable VBE */
