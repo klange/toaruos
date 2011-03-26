@@ -198,7 +198,21 @@ start_shell() {
 			} else if (!strcmp(cmd, "exit")) {
 				kprintf("Good byte.\n");
 				break;
-			}else {
+			} else if (!strcmp(cmd, "short-text")) {
+				kprintf("I'm going to make text shorter. This is a silly demo.\n");
+				outportb(0x3D4, 0x9);
+				outportb(0x3D5, 0x0E);
+			} else if (!strcmp(cmd, "vid-mode")) {
+				if (tokenid < 2) {
+					kprintf("Please select a graphics driver: bochs\n");
+				} else {
+					if (!strcmp(argv[1], "bochs")) {
+						graphics_install_bochs();
+					} else {
+						kprintf("Unknown graphics driver: %s\n", argv[1]);
+					}
+				}
+			} else {
 				kprintf("Unrecognized command: %s\n", cmd);
 			}
 		}

@@ -91,6 +91,19 @@ strlen(
 	return i;
 }
 
+uint32_t __attribute__ ((pure)) krand() {
+	static uint32_t x = 123456789;
+	static uint32_t y = 362436069;
+	static uint32_t z = 521288629;
+	static uint32_t w = 88675123;
+
+	uint32_t t;
+
+	t = x ^ (x << 11);
+	x = y; y = z; z = w;
+	return w = w ^ (w >> 19) ^ t ^ (t >> 8);
+}
+
 /*
  * atoi
  * Naïve implementation thereof.
@@ -109,6 +122,24 @@ atoi(
 	}
 	return out;
 }
+
+unsigned short
+inports(
+		unsigned short _port
+	   ) {
+	unsigned short rv;
+	__asm__ __volatile__ ("inw %1, %0" : "=a" (rv) : "dN" (_port));
+	return rv;
+}
+
+void
+outports(
+		unsigned short _port,
+		unsigned short _data
+		) {
+	__asm__ __volatile__ ("outw %1, %0" : : "dN" (_port), "a" (_data));
+}
+
 
 /*
  * inportb

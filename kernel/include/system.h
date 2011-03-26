@@ -18,11 +18,14 @@ extern int strlen(const char *str);
 extern int atoi(const char *str);
 extern unsigned char inportb(unsigned short _port);
 extern void outportb(unsigned short _port, unsigned char _data);
+extern unsigned short inports(unsigned short _port);
+extern void outports(unsigned short _port, unsigned short _data);
 extern int strcmp(const char *a, const char *b);
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 extern size_t lfind(const char * str, const char accept);
 extern size_t strspn(const char * str, const char * accept);
 extern char * strpbrk(const char * str, const char * accept);
+extern uint32_t krand();
 
 /* Panic */
 #define HALT_AND_CATCH_FIRE(mesg) halt_and_catch_fire(mesg, __FILE__, __LINE__)
@@ -176,5 +179,9 @@ uintptr_t initial_esp;
 
 /* CMOS */
 extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
+
+/* Video Drivers */
+/* BOCHS / QEMU VBE Driver */
+extern void graphics_install_bochs();
 
 #endif
