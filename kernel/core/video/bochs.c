@@ -15,14 +15,21 @@ uint16_t bochs_current_bank = 0;
 
 #define BOCHS_BANK_SIZE 16384
 #define BOCHS_VID_MEMORY ((uint32_t *)0xA0000)
-#define BOCHS_BANKS (1024 * 768 / BOCHS_BANK_SIZE)
+#define BOCHS_BANKS (bochs_resolution_x * bochs_resolution_y * bochs_resolution_b / (BOCHS_BANK_SIZE * 32))
 
 void
 graphics_install_bochs() {
 	outports(0x1CE, 0x00);
+	uint16_t i = inports(0x1CF);
+	if (i < 0xB0C0 || i > 0xB0C6) {
+		kprintf("[bochs] You are not a Bochs VBE pseudo-card!\n");
+		kprintf("[bochs] 0x%x is totally wrong!\n", (unsigned int)i);
+		return;
+	}
+	kprintf("[bochs] Successfully detected a Bochs VBE setup!\n");
+	kprintf("[bochs] You are using QEMU or Bochs and I love you.\n");
 	outports(0x1CF, 0xB0C4);
-	short i = inports(0x1CF);
-	kprintf("[bochs] Graphics ID is %x\n", (unsigned int)i);
+	i = inports(0x1CF);
 	kprintf("[bochs] Enabling 1024x768x32 graphics mode!\n");
 	/* Disable VBE */
 	outports(0x1CE, 0x04);
@@ -30,12 +37,15 @@ graphics_install_bochs() {
 	/* Set X resolution to 1024 */
 	outports(0x1CE, 0x01);
 	outports(0x1CF, 1024);
+	bochs_resolution_x = 1024;
 	/* Set Y resolution to 768 */
 	outports(0x1CE, 0x02);
 	outports(0x1CF, 768);
+	bochs_resolution_y = 768;
 	/* Set bpp to 32 */
 	outports(0x1CE, 0x03);
 	outports(0x1CF, 0x20);
+	bochs_resolution_b = 32;
 	/* Re-enable VBE */
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x01);
@@ -82,19 +92,29 @@ bochs_scroll() {
 
 void
 bochs_draw_logo() {
+	/* This is slow and ineffecient, but it's also dead simple. */
 	fs_node_t * file = kopen("/bs.bmp",0);
 	char *bufferb = malloc(file->length);
+	/* Read the boot logo */
 	size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
 	size_t i;
-	uint16_t x = 0;
-	uint16_t y = 0;
+	uint16_t x = 0; /* -> 212 */
+	uint16_t y = 0; /* -> 68 */
+	/* Get the width / height of the image */
+	signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
+	uint32_t width = bufferi[4];
+	uint32_t height = bufferi[5];
+	/* Skip right to the important part */
 	for (i = 54; i < bytes_read; i += 3) {
+		/* Extract the color */
 		uint32_t color =	bufferb[i] +
 							bufferb[i+1] * 0x100 +
 							bufferb[i+2] * 0x10000;
-		bochs_set_coord(406 + x, 350 + (68 - y), color);
+		/* Set our point */
+		bochs_set_coord((bochs_resolution_x - width) / 2 + x, (bochs_resolution_y - height) / 2 + (height - y), color);
 		++x;
-		if (x == 212) {
+		/* If we hit the end of the line, move on */
+		if (x == width) {
 			x = 0;
 			++y;
 		}
