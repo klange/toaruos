@@ -8,9 +8,13 @@
 #include <system.h>
 #include <fs.h>
 
-uint16_t bochs_resolution_x = 1024;
-uint16_t bochs_resolution_y = 768;
-uint16_t bochs_resolution_b = 32;
+#define PREFERRED_X 1024
+#define PREFERRED_Y 768
+#define PREFERRED_B 32
+
+uint16_t bochs_resolution_x = 0;
+uint16_t bochs_resolution_y = 0;
+uint16_t bochs_resolution_b = 0;
 uint16_t bochs_current_bank = 0;
 
 #define BOCHS_BANK_SIZE 16384
@@ -36,16 +40,16 @@ graphics_install_bochs() {
 	outports(0x1CF, 0x00);
 	/* Set X resolution to 1024 */
 	outports(0x1CE, 0x01);
-	outports(0x1CF, 1024);
-	bochs_resolution_x = 1024;
+	outports(0x1CF, PREFERRED_X);
+	bochs_resolution_x = PREFERRED_X;
 	/* Set Y resolution to 768 */
 	outports(0x1CE, 0x02);
-	outports(0x1CF, 768);
-	bochs_resolution_y = 768;
+	outports(0x1CF, PREFERRED_Y);
+	bochs_resolution_y = PREFERRED_Y;
 	/* Set bpp to 32 */
 	outports(0x1CE, 0x03);
-	outports(0x1CF, 0x20);
-	bochs_resolution_b = 32;
+	outports(0x1CF, PREFERRED_B);
+	bochs_resolution_b = PREFERRED_B;
 	/* Re-enable VBE */
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x01);
@@ -91,9 +95,11 @@ bochs_scroll() {
 }
 
 void
-bochs_draw_logo() {
+bochs_draw_logo(char * filename) {
 	/* This is slow and ineffecient, but it's also dead simple. */
-	fs_node_t * file = kopen("/bs.bmp",0);
+	if (!bochs_resolution_x) { return; }
+	fs_node_t * file = kopen(filename,0);
+	if (!file) { return; }
 	char *bufferb = malloc(file->length);
 	/* Read the boot logo */
 	size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);

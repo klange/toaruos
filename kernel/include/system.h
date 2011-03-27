@@ -191,7 +191,7 @@ extern int detect_cpu();
 extern void graphics_install_bochs();
 extern void bochs_set_bank(uint16_t bank);
 extern void bochs_set_coord(uint16_t x, uint16_t y, uint32_t color);
-extern void bochs_draw_logo();
+extern void bochs_draw_logo(char *);
 extern void bochs_scroll();
 
 #endif

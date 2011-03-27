@@ -26,7 +26,7 @@ parse_args(char * arg) {
 		if (!strcmp(argv[i],"vid=qemu")) {
 			/* QEMU Video Mode, we are free to set things for 1024x768 */
 			graphics_install_bochs();
-			bochs_draw_logo();
+			bochs_draw_logo("/bs.bmp");
 		}
 	}
 }

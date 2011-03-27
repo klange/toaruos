@@ -217,7 +217,11 @@ start_shell() {
 					}
 				}
 			} else if (!strcmp(cmd, "logo")) {
-				bochs_draw_logo();
+				if (tokenid < 2) {
+					bochs_draw_logo("/bs.bmp");
+				} else {
+					bochs_draw_logo(argv[1]);
+				}
 			} else {
 				kprintf("Unrecognized command: %s\n", cmd);
 			}
