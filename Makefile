@@ -66,7 +66,7 @@ kernel/start.o: kernel/start.s
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd/boot/kernel initrd/boot/stage2
+toaruos-initrd: initrd/boot/kernel initrd/boot/stage2 initrd/bs.bmp
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd

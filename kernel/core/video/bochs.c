@@ -103,27 +103,24 @@ bochs_draw_logo(char * filename) {
 	char *bufferb = malloc(file->length);
 	/* Read the boot logo */
 	size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
-	size_t i;
 	uint16_t x = 0; /* -> 212 */
 	uint16_t y = 0; /* -> 68 */
 	/* Get the width / height of the image */
 	signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
 	uint32_t width = bufferi[4];
 	uint32_t height = bufferi[5];
+	uint32_t row_width = (24 * width + 31) / 32 * 4;
 	/* Skip right to the important part */
-	for (i = bufferi[2]; i < bytes_read; i += 3) {
-		/* Extract the color */
-		uint32_t color =	bufferb[i] +
-							bufferb[i+1] * 0x100 +
-							bufferb[i+2] * 0x10000;
-		/* Set our point */
-		bochs_set_coord((bochs_resolution_x - width) / 2 + x, (bochs_resolution_y - height) / 2 + (height - y), color);
-		++x;
-		/* If we hit the end of the line, move on */
-		if (x == width) {
-			x = 0;
-			++y;
+	size_t i = bufferi[2];
+	for (y = 0; y < height; ++y) {
+		for (x = 0; x < width; ++x) {
+			/* Extract the color */
+			uint32_t color =	bufferb[i   + 3 * x] +
+								bufferb[i+1 + 3 * x] * 0x100 +
+								bufferb[i+2 + 3 * x] * 0x10000;
+			/* Set our point */
+			bochs_set_coord((bochs_resolution_x - width) / 2 + x, (bochs_resolution_y - height) / 2 + (height - y), color);
 		}
+		i += row_width;
 	}
-	free(bufferb);
 }

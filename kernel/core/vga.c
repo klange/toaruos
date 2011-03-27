@@ -154,6 +154,9 @@ writech(
 	   ) {
 	unsigned short *where;
 	unsigned att = attrib << 8;
+	if (use_serial) {
+		serial_send(c);
+	}
 	if (c == 0x08) {
 		/* Backspace */
 		if (csr_x != 0) csr_x--;
@@ -171,9 +174,6 @@ writech(
 		where = textmemptr + (csr_y * 80 + csr_x);
 		*where = c | att;
 		csr_x++;
-	}
-	if (use_serial) {
-		serial_send(c);
 	}
 
 	if (csr_x >= 80) {
