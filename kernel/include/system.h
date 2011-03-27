@@ -183,6 +183,9 @@ extern void parse_args(char * argv);
 /* CMOS */
 extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
 
+/* CPU Detect by Brynet */
+extern int detect_cpu();
+
 /* Video Drivers */
 /* BOCHS / QEMU VBE Driver */
 extern void graphics_install_bochs();

@@ -202,6 +202,8 @@ start_shell() {
 				kprintf("I'm going to make text shorter. This is a silly demo.\n");
 				outportb(0x3D4, 0x9);
 				outportb(0x3D5, 0x0E);
+			} else if (!strcmp(cmd, "cpu-detect")) {
+				detect_cpu();
 			} else if (!strcmp(cmd, "scroll")) {
 				bochs_scroll();
 			} else if (!strcmp(cmd, "vid-mode")) {
