@@ -114,6 +114,7 @@ bochs_draw_logo(char * filename) {
 	size_t i = bufferi[2];
 	for (y = 0; y < height; ++y) {
 		for (x = 0; x < width; ++x) {
+			if (i > bytes_read) return;
 			/* Extract the color */
 			uint32_t color =	bufferb[i   + 3 * x] +
 								bufferb[i+1 + 3 * x] * 0x100 +
