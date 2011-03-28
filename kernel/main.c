@@ -140,11 +140,6 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	 */
 	cls();
 
-	char * welcome = "Welcome to ToAruOS!";
-	for (uint16_t i = 0; i < strlen(welcome); ++i) {
-		bochs_write_char(welcome[i], i * 8, 0, 0x00FFFFFF, 0x0);
-	}
-
 	/*
 	 * Aw man...
 	 */

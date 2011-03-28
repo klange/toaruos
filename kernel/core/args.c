@@ -27,7 +27,7 @@ parse_args(char * arg) {
 			/* QEMU Video Mode, we are free to set things for 1024x768 */
 			graphics_install_bochs();
 			bochs_draw_logo("/bs.bmp");
-			char * welcome = "Welcome to ToAruOS!";
+			char * welcome = "Welcome to \200\201\202OS!";
 			for (uint16_t i = 0; i < strlen(welcome); ++i) {
 				bochs_write_char(welcome[i], i * 8, 0, 0x00FFFFFF, 0x0);
 			}
