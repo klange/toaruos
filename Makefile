@@ -1,4 +1,4 @@
-#CC = gcc
+#CC = gcc-4.3
 CC = clang
 # Sometimes we just have to use GCC
 GCC = gcc

@@ -84,7 +84,7 @@ void
 bochs_scroll() {
 	__asm__ __volatile__ ("cli");
 	uint32_t * bank_store = malloc(sizeof(uint32_t) * BOCHS_BANK_SIZE);
-	for (uint32_t i = 1; i < BOCHS_BANKS; ++i) {
+	for (int i = 1; i < BOCHS_BANKS; ++i) {
 		bochs_set_bank(i);
 		memcpy(bank_store, BOCHS_VID_MEMORY, sizeof(uint32_t) * BOCHS_BANK_SIZE);
 		bochs_set_bank(i - 1);
