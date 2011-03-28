@@ -3,7 +3,7 @@
  * vim:noexpandtab
  */
 #include <system.h>
-#define KERNEL_STACK_SIZE 0x2400
+#define KERNEL_STACK_SIZE 0x2000
 
 __volatile__ task_t * current_task = NULL;
 __volatile__ task_t * ready_queue;
@@ -94,7 +94,7 @@ copy_stack(
 	}
 	__asm__ __volatile__ ("mov %0, %%esp" : : "r" (new_stack_pointer));
 	__asm__ __volatile__ ("mov %0, %%ebp" : : "r" (new_base_pointer));
-	return new_stack_pointer - size;
+	return (uintptr_t)new_stack_start - size;
 }
 
 void
@@ -107,7 +107,7 @@ tasking_install() {
 	current_task->esp = 0;
 	current_task->ebp = 0;
 	current_task->eip = 0;
-	current_task->stack = copy_stack((void *)0xE000000, 0x2000, initial_esp);
+	current_task->stack = copy_stack((void *)0xE000000, KERNEL_STACK_SIZE, initial_esp);
 	current_task->page_directory = current_directory;
 	current_task->next = 0;
 
