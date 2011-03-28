@@ -30,7 +30,7 @@ install: toaruos-initrd toaruos-kernel
 	@${ECHO} "\r\033[34;1m   --   Kernel and ramdisk installed.\033[0m"
 
 run: toaruos-kernel toaruos-initrd
-	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std -s
+	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std
 
 #################
 # Documentation #

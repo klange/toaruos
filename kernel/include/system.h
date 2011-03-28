@@ -194,11 +194,11 @@ extern void bochs_set_coord(uint16_t x, uint16_t y, uint32_t color);
 extern void bochs_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color);
 extern void bochs_draw_logo(char *);
 extern void bochs_scroll();
-extern void bochs_write_number(uint8_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg);
+extern void bochs_write_char(uint8_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg);
 extern uint16_t bochs_resolution_x;
 extern uint16_t bochs_resolution_y;
 extern uint16_t bochs_resolution_b;
 
-extern char number_font[][12];
+extern uint8_t number_font[][12];
 
 #endif
