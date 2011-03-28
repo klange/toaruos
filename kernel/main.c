@@ -151,23 +151,34 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 			get_time(&hours, &minutes, &seconds);
 
 			__asm__ __volatile__ ("cli");
-			store_csr();
-			set_serial(0);
-			set_csr(0);
-			place_csr(70,0);
 			/* It would help a lot if I had %.2d */
 			/* kprintf("[%.2d:%.2d:%.2d]", hours, minutes, seconds); */
-			writech('[');
-			kprintf("%d", hours   / 10);
-			kprintf("%d", hours   % 10);
-			writech(':');
-			kprintf("%d", minutes / 10);
-			kprintf("%d", minutes % 10);
-			writech(':');
-			kprintf("%d", seconds / 10);
-			kprintf("%d", seconds % 10);
-			writech(']');
-			restore_csr();
+			if (bochs_resolution_x) {
+				bochs_write_number(hours   / 10, bochs_resolution_x - 8 * 8, 0, 0x00FFFFFF, 0x0);
+				bochs_write_number(hours   % 10, bochs_resolution_x - 8 * 7, 0, 0x00FFFFFF, 0x0);
+				bochs_write_number(          10, bochs_resolution_x - 8 * 6, 0, 0x00FFFFFF, 0x0);
+				bochs_write_number(minutes / 10, bochs_resolution_x - 8 * 5, 0, 0x00FFFFFF, 0x0);
+				bochs_write_number(minutes % 10, bochs_resolution_x - 8 * 4, 0, 0x00FFFFFF, 0x0);
+				bochs_write_number(          10, bochs_resolution_x - 8 * 3, 0, 0x00FFFFFF, 0x0);
+				bochs_write_number(seconds / 10, bochs_resolution_x - 8 * 2, 0, 0x00FFFFFF, 0x0);
+				bochs_write_number(seconds % 10, bochs_resolution_x - 8 * 1, 0, 0x00FFFFFF, 0x0);
+			} else {
+				store_csr();
+				set_serial(0);
+				set_csr(0);
+				place_csr(70,0);
+				writech('[');
+				kprintf("%d", hours   / 10);
+				kprintf("%d", hours   % 10);
+				writech(':');
+				kprintf("%d", minutes / 10);
+				kprintf("%d", minutes % 10);
+				writech(':');
+				kprintf("%d", seconds / 10);
+				kprintf("%d", seconds % 10);
+				writech(']');
+				restore_csr();
+			}
 			__asm__ __volatile__ ("sti");
 			__asm__ __volatile__ ("hlt");
 		}

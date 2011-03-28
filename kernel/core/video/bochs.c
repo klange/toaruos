@@ -68,6 +68,15 @@ bochs_set_bank(
 	bochs_current_bank = bank;
 }
 
+static void
+bochs_set_point(
+		uint16_t x,
+		uint16_t y,
+		uint32_t color
+		) {
+	BOCHS_VID_MEMORY[(y * bochs_resolution_x + x) % BOCHS_BANK_SIZE] = color;
+}
+
 void
 bochs_set_coord(
 		uint16_t x,
@@ -123,5 +132,43 @@ bochs_draw_logo(char * filename) {
 			bochs_set_coord((bochs_resolution_x - width) / 2 + x, (bochs_resolution_y - height) / 2 + (height - y), color);
 		}
 		i += row_width;
+	}
+}
+
+void
+bochs_fill_rect(
+		uint16_t x,
+		uint16_t y,
+		uint16_t w,
+		uint16_t h,
+		uint32_t color
+		) {
+	for (uint16_t i = y; i < h + y; ++i) {
+		bochs_set_bank(y * bochs_resolution_x / BOCHS_BANK_SIZE);
+		for (uint16_t j = x; j < w + x; ++j) {
+			bochs_set_point(j,i,color);
+		}
+	}
+}
+
+void
+bochs_write_number(
+		uint8_t val,
+		uint16_t x,
+		uint16_t y,
+		uint32_t fg,
+		uint32_t bg
+		) {
+	char * c = number_font[val + 0x10];
+	for (uint8_t i = 0; i < 12; ++i) {
+		bochs_set_bank((y+i) * bochs_resolution_x / BOCHS_BANK_SIZE);
+		if (c[i] & 0x80) { bochs_set_point(x,y+i,fg);   } else { bochs_set_point(x,y+i,bg); }
+		if (c[i] & 0x40) { bochs_set_point(x+1,y+i,fg); } else { bochs_set_point(x+1,y+i,bg); }
+		if (c[i] & 0x20) { bochs_set_point(x+2,y+i,fg); } else { bochs_set_point(x+2,y+i,bg); }
+		if (c[i] & 0x10) { bochs_set_point(x+3,y+i,fg); } else { bochs_set_point(x+3,y+i,bg); }
+		if (c[i] & 0x08) { bochs_set_point(x+4,y+i,fg); } else { bochs_set_point(x+4,y+i,bg); }
+		if (c[i] & 0x04) { bochs_set_point(x+5,y+i,fg); } else { bochs_set_point(x+5,y+i,bg); }
+		if (c[i] & 0x02) { bochs_set_point(x+6,y+i,fg); } else { bochs_set_point(x+6,y+i,bg); }
+		if (c[i] & 0x01) { bochs_set_point(x+7,y+i,fg); } else { bochs_set_point(x+7,y+i,bg); }
 	}
 }
