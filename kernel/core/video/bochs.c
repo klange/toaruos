@@ -159,7 +159,7 @@ bochs_write_char(
 		uint32_t fg,
 		uint32_t bg
 		) {
-	char * c = number_font[val - 0x20];
+	uint8_t * c = number_font[val - 0x20];
 	for (uint8_t i = 0; i < 12; ++i) {
 		bochs_set_bank((y+i) * bochs_resolution_x / BOCHS_BANK_SIZE);
 		if (c[i] & 0x80) { bochs_set_point(x,y+i,fg);   } else { bochs_set_point(x,y+i,bg); }
