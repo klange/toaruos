@@ -3,7 +3,7 @@
  * vim:noexpandtab
  */
 #include <system.h>
-#define KERNEL_STACK_SIZE 0x1000
+#define KERNEL_STACK_SIZE 0x2400
 
 __volatile__ task_t * current_task = NULL;
 __volatile__ task_t * ready_queue;
@@ -79,8 +79,10 @@ copy_stack(
 	uintptr_t old_base_pointer;
 	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (old_base_pointer));
 	uintptr_t offset = (uintptr_t)new_stack_start - initial;
+	kprintf("Offset is %x\n", offset);
 	uintptr_t new_stack_pointer = old_stack_pointer + offset;
 	uintptr_t new_base_pointer  = old_base_pointer  + offset;
+	kprintf("New base pointer is %x %x\n");
 	memcpy((void *)new_stack_pointer, (void *)old_stack_pointer, initial - old_stack_pointer);
 	for (i = (uintptr_t)new_stack_start; i > (uintptr_t)new_stack_start - size; i -= 4) {
 		uintptr_t temp = *(uintptr_t*)i;
@@ -92,7 +94,7 @@ copy_stack(
 	}
 	__asm__ __volatile__ ("mov %0, %%esp" : : "r" (new_stack_pointer));
 	__asm__ __volatile__ ("mov %0, %%ebp" : : "r" (new_base_pointer));
-	return new_stack_pointer + (initial_esp - old_stack_pointer);
+	return new_stack_pointer - size;
 }
 
 void
@@ -136,11 +138,19 @@ fork() {
 		uintptr_t ebp;
 		__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
 		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
-		uint32_t old_stack_offset = current_task->stack + KERNEL_STACK_SIZE - esp;
-		new_task->esp = (new_task->stack + KERNEL_STACK_SIZE) - old_stack_offset;
-		memcpy((void *)(new_task->esp),(void*)esp,old_stack_offset);
+		kprintf("%x %x %x\n", esp, current_task->stack, (current_task->stack + KERNEL_STACK_SIZE));
+		signed int old_stack_offset;
+		if (current_task->stack > new_task->stack) {
+			old_stack_offset = -(current_task->stack - new_task->stack);
+		} else {
+			old_stack_offset = new_task->stack - current_task->stack;
+		}
+		new_task->esp = esp + old_stack_offset;
+		kprintf("%x %x %x\n", new_task->esp, new_task->stack, new_task->stack + KERNEL_STACK_SIZE);
+		memcpy((void *)(new_task->esp),(void*)esp,current_task->stack + KERNEL_STACK_SIZE - esp);
 		//new_task->esp = esp;
-		new_task->ebp = ebp;
+		kprintf("Herp.\n");
+		new_task->ebp = ebp + old_stack_offset;
 		new_task->eip = eip;
 		__asm__ __volatile__ ("sti");
 		return new_task->id;
