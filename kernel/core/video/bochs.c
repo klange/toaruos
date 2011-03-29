@@ -243,14 +243,14 @@ void bochs_term_scroll() {
 
 void bochs_term_clear() {
 	/* Oh dear */
+	csr_x = 0;
+	csr_y = 0;
 	for (uint16_t y = 0; y < TERM_HEIGHT; ++y) {
 		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
 			cell_set(x,y,' ',current_fg, current_bg);
 		}
 	}
 	bochs_redraw();
-	csr_x = 0;
-	csr_y = 0;
 }
 
 void bochs_set_colors(uint8_t fg, uint8_t bg) {
