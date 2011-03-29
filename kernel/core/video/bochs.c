@@ -235,7 +235,7 @@ void bochs_term_scroll() {
 	}
 	for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
 		cell_set(x, TERM_HEIGHT-1,' ',current_fg, current_bg);
-		cell_redraw(csr_x, csr_y);
+		cell_redraw(x, TERM_HEIGHT-1);
 	}
 	//bochs_redraw();
 }
