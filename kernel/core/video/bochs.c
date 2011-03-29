@@ -15,11 +15,17 @@
 uint16_t bochs_resolution_x = 0;
 uint16_t bochs_resolution_y = 0;
 uint16_t bochs_resolution_b = 0;
-uint16_t bochs_current_bank = 0;
 
-#define BOCHS_BANK_SIZE 16384
-#define BOCHS_VID_MEMORY ((uint32_t *)0xA0000)
-#define BOCHS_BANKS (bochs_resolution_x * bochs_resolution_y * bochs_resolution_b / (BOCHS_BANK_SIZE * 32))
+#define BOCHS_VID_MEMORY ((uint32_t *)0xE0000000) //((uint32_t *)0xA0000)
+
+#define TERM_WIDTH 128
+#define TERM_HEIGHT 64
+
+static short csr_x = 0;
+static short csr_y = 0;
+static uint8_t * term_buffer;
+static uint8_t current_fg = 7;
+static uint8_t current_bg = 0;
 
 void
 graphics_install_bochs() {
@@ -41,31 +47,31 @@ graphics_install_bochs() {
 	/* Set X resolution to 1024 */
 	outports(0x1CE, 0x01);
 	outports(0x1CF, PREFERRED_X);
-	bochs_resolution_x = PREFERRED_X;
 	/* Set Y resolution to 768 */
 	outports(0x1CE, 0x02);
 	outports(0x1CF, PREFERRED_Y);
-	bochs_resolution_y = PREFERRED_Y;
 	/* Set bpp to 32 */
 	outports(0x1CE, 0x03);
 	outports(0x1CF, PREFERRED_B);
-	bochs_resolution_b = PREFERRED_B;
 	/* Re-enable VBE */
 	outports(0x1CE, 0x04);
-	outports(0x1CF, 0x01);
-}
+	outports(0x1CF, 0x41);
+	/* Herp derp */
 
-void
-bochs_set_bank(
-		uint16_t bank
-		) {
-	if (bank == bochs_current_bank) {
-		/* We are already in this bank, stop wasting cycles */
-		return;
+	for (uint16_t x = 0; x < 1024; ++x) {
+		for (uint16_t y = 0; y < 768; ++y) {
+			BOCHS_VID_MEMORY[y * 1024 + x] = 0xFFFFFF;
+		}
 	}
-	outports(0x1CE, 0x05); /* Bank */
-	outports(0x1CF, bank);
-	bochs_current_bank = bank;
+
+	//HALT_AND_CATCH_FIRE("Herp");
+
+	bochs_resolution_x = PREFERRED_X;
+	bochs_resolution_y = PREFERRED_Y;
+	bochs_resolution_b = PREFERRED_B;
+
+	/* Buffer contains characters, fg (of 256), bg (same), flags (one byte) */
+	term_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 4 * TERM_WIDTH * TERM_HEIGHT);
 }
 
 static void
@@ -74,32 +80,14 @@ bochs_set_point(
 		uint16_t y,
 		uint32_t color
 		) {
-	BOCHS_VID_MEMORY[(y * bochs_resolution_x + x) % BOCHS_BANK_SIZE] = color;
-}
-
-void
-bochs_set_coord(
-		uint16_t x,
-		uint16_t y,
-		uint32_t color
-		) {
-	uint32_t location = y * bochs_resolution_x + x;
-	bochs_set_bank(location / BOCHS_BANK_SIZE);
-	uint32_t offset = location % BOCHS_BANK_SIZE;
-	BOCHS_VID_MEMORY[offset] = color;
+	BOCHS_VID_MEMORY[(y * bochs_resolution_x + x)] = color;
 }
 
 void
 bochs_scroll() {
 	__asm__ __volatile__ ("cli");
-	uint32_t * bank_store = malloc(sizeof(uint32_t) * BOCHS_BANK_SIZE);
-	for (int i = 1; i < BOCHS_BANKS; ++i) {
-		bochs_set_bank(i);
-		memcpy(bank_store, BOCHS_VID_MEMORY, sizeof(uint32_t) * BOCHS_BANK_SIZE);
-		bochs_set_bank(i - 1);
-		memcpy(BOCHS_VID_MEMORY, bank_store, sizeof(uint32_t) * BOCHS_BANK_SIZE);
-	}
-	free(bank_store);
+	uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
+	memmove((void *)BOCHS_VID_MEMORY, (void *)((uintptr_t)BOCHS_VID_MEMORY + bochs_resolution_x * 12 * sizeof(uint32_t)), size);
 	__asm__ __volatile__ ("sti");
 }
 
@@ -129,10 +117,11 @@ bochs_draw_logo(char * filename) {
 								bufferb[i+1 + 3 * x] * 0x100 +
 								bufferb[i+2 + 3 * x] * 0x10000;
 			/* Set our point */
-			bochs_set_coord((bochs_resolution_x - width) / 2 + x, (bochs_resolution_y - height) / 2 + (height - y), color);
+			bochs_set_point((bochs_resolution_x - width) / 2 + x, (bochs_resolution_y - height) / 2 + (height - y), color);
 		}
 		i += row_width;
 	}
+	free(bufferb);
 }
 
 void
@@ -144,7 +133,6 @@ bochs_fill_rect(
 		uint32_t color
 		) {
 	for (uint16_t i = y; i < h + y; ++i) {
-		bochs_set_bank(y * bochs_resolution_x / BOCHS_BANK_SIZE);
 		for (uint16_t j = x; j < w + x; ++j) {
 			bochs_set_point(j,i,color);
 		}
@@ -160,8 +148,8 @@ bochs_write_char(
 		uint32_t bg
 		) {
 	uint8_t * c = number_font[val - 0x20];
+	__asm__ __volatile__ ("cli");
 	for (uint8_t i = 0; i < 12; ++i) {
-		bochs_set_bank((y+i) * bochs_resolution_x / BOCHS_BANK_SIZE);
 		if (c[i] & 0x80) { bochs_set_point(x,y+i,fg);   } else { bochs_set_point(x,y+i,bg); }
 		if (c[i] & 0x40) { bochs_set_point(x+1,y+i,fg); } else { bochs_set_point(x+1,y+i,bg); }
 		if (c[i] & 0x20) { bochs_set_point(x+2,y+i,fg); } else { bochs_set_point(x+2,y+i,bg); }
@@ -171,4 +159,136 @@ bochs_write_char(
 		if (c[i] & 0x02) { bochs_set_point(x+6,y+i,fg); } else { bochs_set_point(x+6,y+i,bg); }
 		if (c[i] & 0x01) { bochs_set_point(x+7,y+i,fg); } else { bochs_set_point(x+7,y+i,bg); }
 	}
+	__asm__ __volatile__ ("sti");
+}
+
+uint32_t bochs_colors[16] = {
+	/* black  */ 0x000000,
+	/* red    */ 0xcc0000,
+	/* green  */ 0x3e9a06,
+	/* brown  */ 0xc4a000,
+	/* navy   */ 0x3465a4,
+	/* purple */ 0x75507b,
+	/* d cyan */ 0x06989a,
+	/* gray   */ 0xeeeeec,
+	/* d gray */ 0x555753,
+	/* red    */ 0xef2929,
+	/* green  */ 0x8ae234,
+	/* yellow */ 0xfce94f,
+	/* blue   */ 0x729fcf,
+	/* magenta*/ 0xad7fa8,
+	/* cyan   */ 0x34e2e2,
+	/* white  */ 0xFFFFFF
+};
+
+static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg) {
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	cell[0] = c;
+	cell[1] = fg;
+	cell[2] = bg;
+}
+
+static uint16_t cell_ch(uint16_t x, uint16_t y) {
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	return cell[0];
+}
+
+static uint16_t cell_fg(uint16_t x, uint16_t y) {
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	return cell[1];
+}
+
+static uint16_t cell_bg(uint16_t x, uint16_t y) {
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	return cell[2];
+}
+
+static void cell_redraw(uint16_t x, uint16_t y) {
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	bochs_write_char(cell[0], x * 8, y * 12, bochs_colors[cell[1]], bochs_colors[cell[2]]);
+}
+
+void bochs_redraw() {
+	for (uint16_t y = 0; y < TERM_HEIGHT; ++y) {
+		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+			cell_redraw(x,y);
+		}
+	}
+
+}
+
+void bochs_term_scroll() {
+	/* Oh dear */
+	bochs_scroll();
+	for (uint16_t y = 0; y < TERM_HEIGHT - 1; ++y) {
+		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+			cell_set(x,y,cell_ch(x,y+1),cell_fg(x,y+1),cell_bg(x,y+1));
+		}
+	}
+	for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+		cell_set(x, TERM_HEIGHT-1,' ',current_fg, current_bg);
+		cell_redraw(csr_x, csr_y);
+	}
+	//bochs_redraw();
+}
+
+
+void bochs_term_clear() {
+	/* Oh dear */
+	for (uint16_t y = 0; y < TERM_HEIGHT; ++y) {
+		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+			cell_set(x,y,' ',current_fg, current_bg);
+		}
+	}
+	bochs_redraw();
+	csr_x = 0;
+	csr_y = 0;
+}
+
+void bochs_set_colors(uint8_t fg, uint8_t bg) {
+	current_fg = fg;
+	current_bg = bg;
+}
+
+void bochs_reset_colors() {
+	current_fg = 7;
+	current_bg = 0;
+}
+
+void draw_cursor() {
+	for (uint32_t x = 0; x < 8; ++x) {
+		bochs_set_point(csr_x * 8 + x, csr_y * 12 + 11, bochs_colors[current_fg]);
+	}
+}
+
+void bochs_write(char c) {
+	__asm__ __volatile__ ("cli");
+	cell_redraw(csr_x, csr_y);
+	if (c == '\n') {
+		for (uint16_t i = csr_x; i < TERM_WIDTH; ++i) {
+			/* I like this behaviour */
+			cell_set(i, csr_y, ' ',current_fg, current_bg);
+			cell_redraw(i, csr_y);
+		}
+		csr_x = 0;
+		++csr_y;
+	} else if (c == '\b') {
+		--csr_x;
+		cell_set(csr_x, csr_y, ' ',current_fg, current_bg);
+		cell_redraw(csr_x, csr_y);
+	} else {
+		cell_set(csr_x,csr_y, c, current_fg, current_bg);
+		cell_redraw(csr_x,csr_y);
+		csr_x++;
+	}
+	if (csr_x == TERM_WIDTH) {
+		csr_x = 0;
+		++csr_y;
+	}
+	if (csr_y == TERM_HEIGHT) {
+		bochs_term_scroll();
+		csr_y = TERM_HEIGHT - 1;
+	}
+	draw_cursor();
+	__asm__ __volatile__ ("sti");
 }

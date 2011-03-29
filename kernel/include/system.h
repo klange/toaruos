@@ -12,6 +12,7 @@ extern void *sbrk(uintptr_t increment);
 
 /* Kernel Main */
 extern void *memcpy(void *restrict dest, const void *restrict src, size_t count);
+extern void *memmove(void *restrict dest, const void *restrict src, size_t count);
 extern void *memset(void *dest, int val, size_t count);
 extern unsigned short *memsetw(unsigned short *dest, unsigned short val, int count);
 extern int strlen(const char *str);
@@ -20,6 +21,8 @@ extern unsigned char inportb(unsigned short _port);
 extern void outportb(unsigned short _port, unsigned char _data);
 extern unsigned short inports(unsigned short _port);
 extern void outports(unsigned short _port, unsigned short _data);
+extern unsigned int inportl(unsigned short _port);
+extern void outportl(unsigned short _port, unsigned int _data);
 extern int strcmp(const char *a, const char *b);
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 extern size_t lfind(const char * str, const char accept);
@@ -198,6 +201,12 @@ extern void bochs_write_char(uint8_t val, uint16_t x, uint16_t y, uint32_t fg, u
 extern uint16_t bochs_resolution_x;
 extern uint16_t bochs_resolution_y;
 extern uint16_t bochs_resolution_b;
+extern uint32_t bochs_colors[];
+/* Terminal functions */
+extern void bochs_term_clear();
+extern void bochs_write(char c);
+extern void bochs_reset_colors();
+extern void bochs_set_colors(uint8_t, uint8_t);
 
 extern uint8_t number_font[][12];
 

@@ -196,6 +196,9 @@ paging_install(uint32_t memsize) {
 		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
 		i += 0x1000;
 	}
+	for (i = 0; i < 0xFFFFFF; i += 0x1000) {
+		alloc_frame(get_page(0xE0000000 + i, 1, kernel_directory), 0, 0);
+	}
 	isrs_install_handler(14, page_fault);
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
 
@@ -209,6 +212,7 @@ switch_page_directory(
 		page_directory_t * dir
 		) {
 	current_directory = dir;
+	return;
 	__asm__ __volatile__ ("mov %0, %%cr3":: "r"(dir->physical_address));
 	uint32_t cr0;
 	__asm__ __volatile__ ("mov %%cr0, %0": "=r"(cr0));

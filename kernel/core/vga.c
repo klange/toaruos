@@ -105,6 +105,9 @@ cls() {
 	csr_x = 0;
 	csr_y = 0;
 	move_csr();
+	if (bochs_resolution_x) {
+		bochs_term_clear();
+	}
 }
 
 /*
@@ -156,6 +159,10 @@ writech(
 	unsigned att = attrib << 8;
 	if (use_serial) {
 		serial_send(c);
+	}
+	if (bochs_resolution_x) {
+		bochs_write(c);
+		return;
 	}
 	if (c == 0x08) {
 		/* Backspace */
@@ -209,6 +216,14 @@ settextcolor(
 		unsigned char backcolor
 		) {
 	attrib = (backcolor << 4) | (forecolor & 0x0F);
+	if (use_serial) {
+		serial_send('\033');
+		serial_send('[');
+		serial_send('3');
+		serial_send(forecolor % 8 + '0');
+		serial_send('m');
+	}
+	bochs_set_colors(forecolor, backcolor);
 }
 
 /*
@@ -218,6 +233,13 @@ settextcolor(
 void
 resettextcolor() {
 	settextcolor(7,0);
+	if (use_serial) {
+		serial_send('\033');
+		serial_send('[');
+		serial_send('0');
+		serial_send('m');
+	}
+	bochs_reset_colors();
 }
 
 void

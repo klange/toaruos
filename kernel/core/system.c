@@ -1,3 +1,7 @@
+/*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ */
 #include <system.h>
 
 /*
@@ -16,6 +20,27 @@ memcpy(
 	const unsigned char *b = src;
 	for ( i = 0; i < count; ++i ) {
 		a[i] = b[i];
+	}
+	return dest;
+}
+
+void *
+memmove(
+		void * restrict dest,
+		const void * restrict src,
+		size_t count
+	  ) {
+	size_t i;
+	unsigned char *a = dest;
+	const unsigned char *b = src;
+	if (src < dest) {
+		for ( i = count; i > 0; --i) {
+			a[i-1] = b[i-1];
+		}
+	} else {
+		for ( i = 0; i < count; ++i) {
+			a[i] = b[i];
+		}
 	}
 	return dest;
 }
@@ -138,6 +163,23 @@ outports(
 		unsigned short _data
 		) {
 	__asm__ __volatile__ ("outw %1, %0" : : "dN" (_port), "a" (_data));
+}
+
+unsigned int
+inportl(
+		unsigned short _port
+	   ) {
+	unsigned short rv;
+	__asm__ __volatile__ ("inl %%dx, %%eax" : "=a" (rv) : "dN" (_port));
+	return rv;
+}
+
+void
+outportl(
+		unsigned short _port,
+		unsigned int _data
+		) {
+	__asm__ __volatile__ ("outl %%eax, %%dx" : : "dN" (_port), "a" (_data));
 }
 
 
