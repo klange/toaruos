@@ -62,7 +62,6 @@ graphics_install_bochs() {
 	herp[0] = 0xA5ADFACE;
 	
 	uint16_t lfb_addr = pci_get_lfb_addr(0x1234);
-	kprintf("%x!\n", lfb_addr);
 	if (lfb_addr) {
 		BOCHS_VID_MEMORY = (uint32_t *)((uint32_t)lfb_addr << 16);
 	} else {

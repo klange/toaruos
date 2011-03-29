@@ -131,8 +131,8 @@ kgets_handler(
 		}
 		return;
 	} else if (ch == '\n') {
-		kgets_newline = 1;
 		writech('\n');
+		kgets_newline = 1;
 		return;
 	} else if (ch < 0x20) {
 		writech('^');
