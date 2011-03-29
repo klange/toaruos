@@ -1,3 +1,7 @@
+/*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ */
 #include <system.h>
 
 /*
@@ -228,6 +232,13 @@ settextcolor(
 		serial_send('[');
 		serial_send('3');
 		serial_send(forecolor % 8 + '0');
+		serial_send(';');
+		serial_send('4');
+		serial_send(backcolor % 8 + '0');
+		if (forecolor > 7) {
+			serial_send(';');
+			serial_send('1');
+		}
 		serial_send('m');
 	}
 	bochs_set_colors(forecolor, backcolor);

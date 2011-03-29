@@ -1,3 +1,7 @@
+/*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ */
 /* This is the default VGA 8 x 12 font */
 #include <system.h>
 
