@@ -206,6 +206,11 @@ puts(
 	}
 }
 
+char vga_to_ansi[] = {
+    0, 4, 2, 6, 1, 5, 3, 7,
+    8,12,10,14, 9,13,11,15
+};
+
 /*
  * settextcolor
  * Sets the foreground and background color
@@ -216,6 +221,8 @@ settextcolor(
 		unsigned char backcolor
 		) {
 	attrib = (backcolor << 4) | (forecolor & 0x0F);
+	forecolor = vga_to_ansi[forecolor];
+	backcolor = vga_to_ansi[backcolor];
 	if (use_serial) {
 		serial_send('\033');
 		serial_send('[');
