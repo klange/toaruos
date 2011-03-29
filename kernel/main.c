@@ -146,7 +146,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	fork();
 
 	if (getpid() == 0) {
-		while (0) {
+		while (1) {
 			uint16_t hours, minutes, seconds;
 			get_time(&hours, &minutes, &seconds);
 
@@ -154,14 +154,16 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 			/* It would help a lot if I had %.2d */
 			/* kprintf("[%.2d:%.2d:%.2d]", hours, minutes, seconds); */
 			if (bochs_resolution_x) {
-				bochs_write_char('0' + hours   / 10, bochs_resolution_x - 8 * 8 - 1, 0, 0x00FFFFFF, 0x0);
-				bochs_write_char('0' + hours   % 10, bochs_resolution_x - 8 * 7 - 1, 0, 0x00FFFFFF, 0x0);
-				bochs_write_char(':',                bochs_resolution_x - 8 * 6 - 1, 0, 0x00FFFFFF, 0x0);
-				bochs_write_char('0' + minutes / 10, bochs_resolution_x - 8 * 5 - 1, 0, 0x00FFFFFF, 0x0);
-				bochs_write_char('0' + minutes % 10, bochs_resolution_x - 8 * 4 - 1, 0, 0x00FFFFFF, 0x0);
-				bochs_write_char(':',                bochs_resolution_x - 8 * 3 - 1, 0, 0x00FFFFFF, 0x0);
-				bochs_write_char('0' + seconds / 10, bochs_resolution_x - 8 * 2 - 1, 0, 0x00FFFFFF, 0x0);
-				bochs_write_char('0' + seconds % 10, bochs_resolution_x - 8 * 1 - 1, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char('[',                bochs_resolution_x - 8 * 10, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char('0' + hours   / 10, bochs_resolution_x - 8 * 9, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char('0' + hours   % 10, bochs_resolution_x - 8 * 8, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char(':',                bochs_resolution_x - 8 * 7, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char('0' + minutes / 10, bochs_resolution_x - 8 * 6, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char('0' + minutes % 10, bochs_resolution_x - 8 * 5, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char(':',                bochs_resolution_x - 8 * 4, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char('0' + seconds / 10, bochs_resolution_x - 8 * 3, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char('0' + seconds % 10, bochs_resolution_x - 8 * 2, 0, 0x00FFFFFF, 0x0);
+				bochs_write_char(']',                bochs_resolution_x - 8 * 1, 0, 0x00FFFFFF, 0x0);
 			} else {
 				store_csr();
 				set_serial(0);
@@ -180,9 +182,6 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 				restore_csr();
 			}
 			__asm__ __volatile__ ("sti");
-		}
-		while (1) {
-			__asm__ __volatile__ ("hlt");
 		}
 	} else {
 		start_shell();

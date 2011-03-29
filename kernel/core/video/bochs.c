@@ -67,22 +67,13 @@ graphics_install_bochs() {
 		BOCHS_VID_MEMORY = (uint32_t *)((uint32_t)lfb_addr << 16);
 	} else {
 		/* Go find it */
-		for (uintptr_t x = (uintptr_t)herp + 0x1000; x < 0xFFFFF000; x += 0x1000) {
+		for (uintptr_t x = 0xE0000000; x < 0xFFFFF000; x += 0x1000) {
 			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
 				BOCHS_VID_MEMORY = (uint32_t *)x;
 				break;
 			}
 		}
 	}
-
-
-	for (uint16_t x = 0; x < 1024; ++x) {
-		for (uint16_t y = 0; y < 768; ++y) {
-			BOCHS_VID_MEMORY[y * 1024 + x] = 0xFFFFFF;
-		}
-	}
-
-	//HALT_AND_CATCH_FIRE("Herp");
 
 	bochs_resolution_x = PREFERRED_X;
 	bochs_resolution_y = PREFERRED_Y;
