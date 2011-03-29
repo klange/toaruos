@@ -108,6 +108,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	paging_install(mboot_ptr->mem_upper);	/* Paging */
 	heap_install();							/* Kernel heap */
 	tasking_install();						/* Multi-tasking */
+	enable_fpu();
 
 	/* Kernel Version */
 	settextcolor(12, 0);

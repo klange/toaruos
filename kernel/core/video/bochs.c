@@ -188,6 +188,7 @@ bochs_write_char(
 	__asm__ __volatile__ ("sti");
 }
 
+/* This is mapped to ANSI */
 uint32_t bochs_colors[16] = {
 	/* black  */ 0x000000,
 	/* red    */ 0xcc0000,
@@ -317,4 +318,26 @@ void bochs_write(char c) {
 	}
 	draw_cursor();
 	__asm__ __volatile__ ("sti");
+}
+
+
+void bochs_draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color) {
+	int deltax = abs(x1 - x0);
+	int deltay = abs(y1 - y0);
+	int sx = (x0 < x1) ? 1 : -1;
+	int sy = (y0 < y1) ? 1 : -1;
+	int error = deltax - deltay;
+	while (1) {
+		bochs_set_point(x0, y0, color);
+		if (x0 == x1 && y0 == y1) break;
+		int e2 = 2 * error;
+		if (e2 > -deltay) {
+			error -= deltay;
+			x0 += sx;
+		}
+		if (e2 < deltax) {
+			error += deltax;
+			y0 += sy;
+		}
+	}
 }

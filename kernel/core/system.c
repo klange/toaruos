@@ -24,6 +24,23 @@ memcpy(
 	return dest;
 }
 
+int
+max(int a, int b) {
+	return (a > b) ? a : b;
+}
+
+int
+abs(int a) {
+	return (a >= 0) ? a : -a;
+}
+
+void
+swap(int *a, int *b) {
+	int t = *a;
+	*a = *b;
+	*b = t;
+}
+
 void *
 memmove(
 		void * restrict dest,

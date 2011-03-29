@@ -16,6 +16,9 @@ extern void *sbrk(uintptr_t increment);
 extern uint16_t pci_get_lfb_addr(uint16_t id);
 
 /* Kernel Main */
+extern int max(int,int);
+extern int abs(int);
+extern void swap(int *, int *);
 extern void *memcpy(void *restrict dest, const void *restrict src, size_t count);
 extern void *memmove(void *restrict dest, const void *restrict src, size_t count);
 extern void *memset(void *dest, int val, size_t count);
@@ -213,7 +216,13 @@ extern void bochs_term_clear();
 extern void bochs_write(char c);
 extern void bochs_reset_colors();
 extern void bochs_set_colors(uint8_t, uint8_t);
+extern void bochs_draw_line(uint16_t,uint16_t,uint16_t,uint16_t,uint32_t);
 
 extern uint8_t number_font[][12];
+
+/* Floating Point Unit */
+
+void set_fpu_cw(const uint16_t);
+void enable_fpu();
 
 #endif

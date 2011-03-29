@@ -222,6 +222,20 @@ start_shell() {
 				} else {
 					bochs_draw_logo(argv[1]);
 				}
+			} else if (!strcmp(cmd, "line")) {
+				if (tokenid < 5) {
+					bochs_draw_line(0,1024,0,768, 0xFFFFFF);
+				} else {
+					bochs_draw_line(atoi(argv[1]),atoi(argv[2]),atoi(argv[3]),atoi(argv[4]),0xFFFFFF);
+				}
+			} else if (!strcmp(cmd, "boredom")) {
+				for (int derp = 0; derp < 30; ++derp) {
+					int x0 = krand() % 1024;
+					int x1 = krand() % 1024;
+					int y0 = krand() % 768;
+					int y1 = krand() % 768;
+					bochs_draw_line(x0,x1,y0,y1, krand() % 0xFFFFFF);
+				}
 			} else {
 				kprintf("Unrecognized command: %s\n", cmd);
 			}
