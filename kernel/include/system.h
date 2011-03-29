@@ -140,6 +140,7 @@ extern void paging_install(uint32_t memsize);
 extern void switch_page_directory(page_directory_t * new);
 extern page_t *get_page(uintptr_t address, int make, page_directory_t * dir);
 extern void page_fault(struct regs *r);
+extern void dma_frame(page_t * page, int, int, uintptr_t);
 
 void heap_install();
 

@@ -60,19 +60,37 @@ graphics_install_bochs() {
 
 	uint32_t * herp = (uint32_t *)0xA0000;
 	herp[0] = 0xA5ADFACE;
+
+	/* Enable the higher memory */
+	for (uintptr_t i = 0xE0000000; i <= 0xE0FF0000; i += 0x1000) {
+		dma_frame(get_page(i, 1, kernel_directory), 1, 1, i);
+	}
+	for (uintptr_t i = 0xF0000000; i <= 0xF0FF0000; i += 0x1000) {
+		dma_frame(get_page(i, 1, kernel_directory), 1, 1, i);
+	}
+	
 	
 	uint16_t lfb_addr = pci_get_lfb_addr(0x1234);
 	if (lfb_addr) {
 		BOCHS_VID_MEMORY = (uint32_t *)((uint32_t)lfb_addr << 16);
 	} else {
 		/* Go find it */
-		for (uintptr_t x = 0xE0000000; x < 0xFFFFF000; x += 0x1000) {
+		for (uintptr_t x = 0xE0000000; x < 0xE0FF0000; x += 0x1000) {
 			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
 				BOCHS_VID_MEMORY = (uint32_t *)x;
-				break;
+				goto mem_found;
+			}
+		}
+		for (uintptr_t x = 0xF0000000; x < 0xF0FF0000; x += 0x1000) {
+			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
+				BOCHS_VID_MEMORY = (uint32_t *)x;
+				goto mem_found;
 			}
 		}
 	}
+
+mem_found:
+	kprintf("[bochs] Video memory paged and located.\n");
 
 	bochs_resolution_x = PREFERRED_X;
 	bochs_resolution_y = PREFERRED_Y;
