@@ -1,9 +1,6 @@
 /* This is the default VGA 8 x 12 font */
 #include <system.h>
 
-#define b(x) ((uint8_t)b_(0 ## x ## uL))
-#define b_(x) ((x & 1) | (x >> 2 & 2) | (x >> 4 & 4) | (x >> 6 & 8) | (x >> 8 & 16) | (x >> 10 & 32) | (x >> 12 & 64) | (x >> 14 & 128))
-
 uint8_t number_font[][12] = {
 	{	b(00000000),
 		b(00000000),
