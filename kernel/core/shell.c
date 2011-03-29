@@ -32,7 +32,7 @@ start_shell() {
 		char buffer[1024];
 		int size;
 		/* Print the prompt */
-		kprintf("kernel %s> ", path);
+		kprintf("smash %s $ ", path);
 		/* Read commands */
 		size = kgets((char *)&buffer, 1023);
 		if (size < 1) {
@@ -229,7 +229,11 @@ start_shell() {
 					bochs_draw_line(atoi(argv[1]),atoi(argv[2]),atoi(argv[3]),atoi(argv[4]),0xFFFFFF);
 				}
 			} else if (!strcmp(cmd, "boredom")) {
-				for (int derp = 0; derp < 30; ++derp) {
+				int x = 30;
+				if (tokenid > 1) {
+					x = atoi(argv[1]);
+				}
+				for (int derp = 0; derp < x; ++derp) {
 					int x0 = krand() % 1024;
 					int x1 = krand() % 1024;
 					int y0 = krand() % 768;
