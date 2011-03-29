@@ -105,7 +105,7 @@ tasking_install() {
 	current_task->esp = 0;
 	current_task->ebp = 0;
 	current_task->eip = 0;
-	current_task->stack = copy_stack((void *)0xE000000, KERNEL_STACK_SIZE, initial_esp);
+	current_task->stack = initial_esp; //copy_stack((void *)0xE000000, KERNEL_STACK_SIZE, initial_esp);
 	current_task->page_directory = current_directory;
 	current_task->next = 0;
 

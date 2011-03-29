@@ -16,7 +16,7 @@ uint16_t bochs_resolution_x = 0;
 uint16_t bochs_resolution_y = 0;
 uint16_t bochs_resolution_b = 0;
 
-#define BOCHS_VID_MEMORY ((uint32_t *)0xE0000000) //((uint32_t *)0xA0000)
+uint32_t * BOCHS_VID_MEMORY = (uint32_t *)0xE0000000;
 
 #define TERM_WIDTH 128
 #define TERM_HEIGHT 64
@@ -57,6 +57,24 @@ graphics_install_bochs() {
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x41);
 	/* Herp derp */
+
+	uint32_t * herp = (uint32_t *)0xA0000;
+	herp[0] = 0xA5ADFACE;
+	
+	uint16_t lfb_addr = pci_get_lfb_addr(0x1234);
+	kprintf("%x!\n", lfb_addr);
+	if (lfb_addr) {
+		BOCHS_VID_MEMORY = (uint32_t *)((uint32_t)lfb_addr << 16);
+	} else {
+		/* Go find it */
+		for (uintptr_t x = (uintptr_t)herp + 0x1000; x < 0xFFFFF000; x += 0x1000) {
+			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
+				BOCHS_VID_MEMORY = (uint32_t *)x;
+				break;
+			}
+		}
+	}
+
 
 	for (uint16_t x = 0; x < 1024; ++x) {
 		for (uint16_t y = 0; y < 768; ++y) {

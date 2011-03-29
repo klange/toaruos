@@ -8,6 +8,7 @@
 
 void
 parse_args(char * arg) {
+	if (!arg) { return; }
 	char * pch;
 	char * cmd;
 	char * save;

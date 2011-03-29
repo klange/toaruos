@@ -10,6 +10,8 @@
 
 extern void *sbrk(uintptr_t increment);
 
+extern uint16_t pci_get_lfb_addr(uint16_t id);
+
 /* Kernel Main */
 extern void *memcpy(void *restrict dest, const void *restrict src, size_t count);
 extern void *memmove(void *restrict dest, const void *restrict src, size_t count);

@@ -234,6 +234,59 @@ copy_page_physical:
     pop ebx
     ret
 
+global pci_get_lfb_addr
+pci_get_lfb_addr:
+	push bx
+	push cx
+	push dx
+	push eax
+		mov bx, ax
+		xor cx, cx
+		mov dl, 0x00
+		call pci_read_reg
+		cmp ax, 0xffff
+		jz  pci_get_lfb_addr_7
+pci_get_lfb_addr_3:
+		mov cx, 0x1111
+		mov dl, 0x00
+		call pci_read_reg
+		cmp ax, bx
+		jz pci_get_lfb_addr_4
+		add cx, 0x8
+		cmp cx, 0x200
+		jb pci_get_lfb_addr_3
+pci_get_lfb_addr_5:
+		xor dx, dx
+		jmp pci_get_lfb_addr_6
+pci_get_lfb_addr_7:
+		mov dx, 0xffff
+		jmp pci_get_lfb_addr_6
+pci_get_lfb_addr_4:
+		mov dl, 0x10
+		call pci_read_reg
+		test ax, 0xfff1
+		jnz pci_get_lfb_addr_5
+		shr eax, 16
+		mov dx, ax
+pci_get_lfb_addr_6:
+	pop eax
+	mov ax, dx
+	pop dx
+	pop cx
+	pop bx
+	ret
+
+pci_read_reg:
+	mov eax, 0x00800000
+	mov ax, cx
+	shl eax, 8
+	mov al, dl
+	mov dx, 0xcf8
+	out dx, eax
+	add dl, 4
+	in  eax, dx
+	ret
+
 ; BSS Section
 SECTION .bss
 	resb 8192 ; 8KB of memory reserved
