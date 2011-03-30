@@ -10,9 +10,9 @@ static int print(char * s) {
 }
 
 static void syscall_handler(struct regs * r);
-static void *syscalls[] = {
+static uintptr_t syscalls[] = {
 	/* System Call Table */
-	(void *)&print
+	(uintptr_t)&print
 };
 uint32_t num_syscalls = 1;
 
@@ -29,7 +29,7 @@ syscall_handler(
 	if (r->eax >= num_syscalls) {
 		return;
 	}
-	void *location = syscalls[r->eax];
+	uintptr_t location = syscalls[r->eax];
 
 	uint32_t ret;
 	__asm__ __volatile__ (
