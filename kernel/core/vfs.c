@@ -57,13 +57,13 @@ kopen(
 	 ) {
 	/* let's do this shit */
 	if (!fs_root) {
-		HALT_AND_CATCH_FIRE("Attempted to kopen() without a filesystem in place.");
+		HALT_AND_CATCH_FIRE("Attempted to kopen() without a filesystem in place.", NULL);
 	}
 	if (!filename) {
-		HALT_AND_CATCH_FIRE("Attempted to kopen() without a filename.");
+		HALT_AND_CATCH_FIRE("Attempted to kopen() without a filename.", NULL);
 	}
 	if (filename[0] != '/') {
-		HALT_AND_CATCH_FIRE("Attempted to kopen() a non-absolute path.");
+		HALT_AND_CATCH_FIRE("Attempted to kopen() a non-absolute path.", NULL);
 	}
 	size_t path_len = strlen(filename);
 	if (path_len == 1) {
