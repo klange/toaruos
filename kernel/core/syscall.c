@@ -25,7 +25,6 @@ void
 syscall_handler(
 		struct regs * r
 		) {
-	kprintf("[syscall] syscall\n");
 	if (r->eax >= num_syscalls) {
 		return;
 	}

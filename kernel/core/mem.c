@@ -158,7 +158,7 @@ alloc_frame(
 	} else {
 		uint32_t index = first_frame();
 		if (index == (uint32_t)-1) {
-			HALT_AND_CATCH_FIRE("Failed to allocate a frame: out of frames");
+			HALT_AND_CATCH_FIRE("Failed to allocate a frame: out of frames", NULL);
 		}
 		set_frame(index * 0x1000);
 		page->present = 1;
@@ -270,7 +270,7 @@ page_fault(
 	}
 
 	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x\n", present, rw, user, reserved, id, faulting_address);
-	HALT_AND_CATCH_FIRE("Page fault");
+	HALT_AND_CATCH_FIRE("Page fault", r);
 }
 
 /*

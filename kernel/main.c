@@ -190,12 +190,12 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 		if (fork()) {
 			enter_user_mode();
 			while(1) {
-				syscall_print("Herp");
+				syscall_print("Herp\n");
 			};
 		} else {
 			enter_user_mode();
 			while(1) {
-				syscall_print("Derp");
+				syscall_print("Derp\n");
 			};
 		}
 	}

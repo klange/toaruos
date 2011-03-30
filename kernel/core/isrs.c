@@ -136,6 +136,6 @@ void fault_handler(struct regs *r) {
 	} else {
 		settextcolor(14,4);
 		kprintf("Unhandled exception: [%d] %s\n", r->int_no, exception_messages[r->int_no]);
-		HALT_AND_CATCH_FIRE("System halted - unhandled exception");
+		HALT_AND_CATCH_FIRE("System halted - unhandled exception", r);
 	}
 }

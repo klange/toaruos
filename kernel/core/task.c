@@ -198,7 +198,6 @@ switch_task() {
 void
 enter_user_mode() {
 	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
-	kprintf("I am a sad, sad thingy.\n");
 	__asm__ __volatile__(
 			"cli\n"
 			//"mov $0x23, %ax\n"

@@ -38,13 +38,6 @@ extern size_t strspn(const char * str, const char * accept);
 extern char * strpbrk(const char * str, const char * accept);
 extern uint32_t krand();
 
-/* Panic */
-#define HALT_AND_CATCH_FIRE(mesg) halt_and_catch_fire(mesg, __FILE__, __LINE__)
-#define ASSERT(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
-#define assert(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
-void halt_and_catch_fire(char *error_message, const char *file, int line);
-void assert_failed(const char *file, uint32_t line, const char *desc);
-
 /* VGA driver */
 extern void cls();
 extern void puts(char *str);
@@ -81,6 +74,13 @@ struct regs {
 };
 
 typedef void (*irq_handler_t) (struct regs *);
+
+/* Panic */
+#define HALT_AND_CATCH_FIRE(mesg, regs) halt_and_catch_fire(mesg, __FILE__, __LINE__, regs)
+#define ASSERT(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
+#define assert(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
+void halt_and_catch_fire(char *error_message, const char *file, int line, struct regs * regs);
+void assert_failed(const char *file, uint32_t line, const char *desc);
 
 /* ISRS */
 extern void isrs_install();
