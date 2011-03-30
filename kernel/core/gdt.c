@@ -1,4 +1,11 @@
+/*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ */
 #include <system.h>
+
+static void write_tss(int32_t, uint16_t, uint32_t);
+tss_entry_t tss_entry;
 
 /*
  * Global Descriptor Table Entry
@@ -23,7 +30,7 @@ struct gdt_ptr {
 	unsigned int base;
 } __attribute__((packed));
 
-struct gdt_entry	gdt[3];
+struct gdt_entry	gdt[6];
 struct gdt_ptr		gp;
 
 /*
@@ -64,7 +71,7 @@ gdt_set_gate(
 void
 gdt_install() {
 	/* GDT pointer and limits */
-	gp.limit = (sizeof(struct gdt_entry) * 3) - 1;
+	gp.limit = (sizeof(struct gdt_entry) * 6) - 1;
 	gp.base = (unsigned int)&gdt;
 	/* NULL */
 	gdt_set_gate(0, 0, 0, 0, 0);
@@ -72,6 +79,45 @@ gdt_install() {
 	gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);
 	/* Data segment */
 	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
+	/* User code */
+	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);
+	/* User data */
+	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
+	write_tss(5, 0x10, 0x0);
 	/* Go go go */
 	gdt_flush();
+	tss_flush();
 }
+
+static void
+write_tss(
+		int32_t num,
+		uint16_t ss0,
+		uint32_t esp0
+		) {
+	uintptr_t base  = (uintptr_t)&tss_entry;
+	uintptr_t limit = base + sizeof(tss_entry);
+
+	/* Add the TSS descriptor to the GDT */
+	gdt_set_gate(num, base, limit, 0xE9, 0x00);
+
+	memset(&tss_entry, 0x0, sizeof(tss_entry));
+
+	tss_entry.ss0    = ss0;
+	tss_entry.esp0   = esp0;
+	tss_entry.cs     = 0x0b;
+	tss_entry.ss     =
+		tss_entry.ds =
+		tss_entry.es =
+		tss_entry.fs =
+		tss_entry.gs = 0x13;
+}
+
+void
+set_kernel_stack(
+		uintptr_t stack
+		) {
+	tss_entry.esp0 = stack;
+}
+
+

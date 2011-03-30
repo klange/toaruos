@@ -164,6 +164,7 @@ switch_task() {
 		return;
 	}
 	if (!current_task->next && current_task == ready_queue) return;
+
 	uintptr_t esp, ebp, eip;
 	__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
 	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
@@ -192,4 +193,30 @@ switch_task() {
 			"jmp *%%ecx"
 			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address));
 	switch_page_directory(current_task->page_directory);
+}
+
+void
+enter_user_mode() {
+	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
+	kprintf("I am a sad, sad thingy.\n");
+	__asm__ __volatile__(
+			"cli\n"
+			//"mov $0x23, %ax\n"
+			"mov $0x23, %ax\n"
+			"mov %ax, %ds\n"
+			"mov %ax, %es\n"
+			"mov %ax, %fs\n"
+			"mov %ax, %gs\n"
+			"mov %esp, %eax\n"
+			"pushl $0x23\n"
+			"pushl %eax\n"
+			"pushf\n"
+			"popl %eax\n"
+			"orl  $0x200, %eax\n"
+			"pushl %eax\n"
+			"pushl $0x1B\n"
+			"push $1f\n"
+			"iret\n"
+		"1:\n"
+			"mov %ax, %ax\n");
 }

@@ -35,6 +35,7 @@ extern void _isr28();
 extern void _isr29();
 extern void _isr30();
 extern void _isr31();
+extern void _isr127();
 
 static irq_handler_t isrs_routines[32] = { NULL };
 
@@ -89,6 +90,7 @@ isrs_install() {
 	idt_set_gate(29, (unsigned)_isr29, 0x08, 0x8E);
 	idt_set_gate(30, (unsigned)_isr30, 0x08, 0x8E);
 	idt_set_gate(31, (unsigned)_isr31, 0x08, 0x8E);
+	idt_set_gate(0x7F, (unsigned)_isr127, 0x08, 0x8E);
 }
 
 char *exception_messages[] = {
@@ -127,15 +129,13 @@ char *exception_messages[] = {
 };
 
 void fault_handler(struct regs *r) {
-	if (r->int_no < 32) {
-		void (*handler)(struct regs *r);
-		handler = isrs_routines[r->int_no];
-		if (handler) {
-			handler(r);
-		} else {
-			settextcolor(14,4);
-			kprintf("Unhandled exception: %s\n", exception_messages[r->int_no]);
-			HALT_AND_CATCH_FIRE("System halted - unhandled exception");
-		}
+	void (*handler)(struct regs *r);
+	handler = isrs_routines[r->int_no];
+	if (handler) {
+		handler(r);
+	} else {
+		settextcolor(14,4);
+		kprintf("Unhandled exception: [%d] %s\n", r->int_no, exception_messages[r->int_no]);
+		HALT_AND_CATCH_FIRE("System halted - unhandled exception");
 	}
 }

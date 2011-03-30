@@ -39,7 +39,7 @@ idt_set_gate(
 	idt[num].base_high =	(base >> 16) & 0xFFFF;
 	idt[num].sel =			sel;
 	idt[num].zero =			0;
-	idt[num].flags =		flags;
+	idt[num].flags =		flags | 0x60;
 }
 
 /*
