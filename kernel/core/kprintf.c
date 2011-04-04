@@ -106,7 +106,11 @@ kprintf(
 	}
 	buf[ptr] = '\0';
 	va_end(args);
-	puts(buf);
+	if (ansi_ready) {
+		ansi_print(buf);
+	} else {
+		puts(buf);
+	}
 }
 
 char * kgets_buffer = NULL;

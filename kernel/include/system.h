@@ -103,6 +103,7 @@ keyboard_buffer_t keyboard_buffer_handler;
 extern void keyboard_install();
 extern void keyboard_wait();
 extern void putch(unsigned char c);
+extern void set_kbd(int,int,int);
 
 /* kprintf */
 extern void kprintf(const char *fmt, ...);
@@ -164,6 +165,7 @@ extern void start_shell();
 extern void serial_install();
 extern char serial_recv();
 extern void serial_send(char out);
+extern void serial_string(char * out);
 
 /* Tasks */
 extern uintptr_t read_eip();
@@ -227,6 +229,7 @@ extern void parse_args(char * argv);
 
 /* CMOS */
 extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
+extern void get_date(uint16_t * month, uint16_t * day);
 
 /* CPU Detect by Brynet */
 extern int detect_cpu();
@@ -244,12 +247,20 @@ extern uint16_t bochs_resolution_x;
 extern uint16_t bochs_resolution_y;
 extern uint16_t bochs_resolution_b;
 extern uint32_t bochs_colors[];
+extern void bochs_set_y_offset(uint16_t y);
+extern uint16_t bochs_current_scroll();
 /* Terminal functions */
 extern void bochs_term_clear();
 extern void bochs_write(char c);
 extern void bochs_reset_colors();
 extern void bochs_set_colors(uint8_t, uint8_t);
 extern void bochs_draw_line(uint16_t,uint16_t,uint16_t,uint16_t,uint32_t);
+
+/* ANSI Terminal Escape Processor */
+void ansi_put(char c);
+void ansi_print(char * c);
+void ansi_init();
+int  ansi_ready;
 
 extern uint8_t number_font[][12];
 

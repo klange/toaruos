@@ -9,7 +9,7 @@ __asm__(".code16gcc\n");
 
 #define PRINT(s) __asm__ ("movw %0, %%si\ncall _print" : : "l"((short)(int)s))
 
-void read(unsigned char count, unsigned char sector, short segment, short offset)
+void read(unsigned short count, unsigned short sector, unsigned short segment, unsigned short offset)
 {
 	__asm__ __volatile__ (
 			"movw %0, %%es\n"
@@ -33,9 +33,12 @@ void read(unsigned char count, unsigned char sector, short segment, short offset
 void main()
 {
 	PRINT("Loading... ");
-	read(6,2,0,0x7e00);
+	read(0x18, 0x68, 0x1000, 0x0);
+	read(0x14c, 0x82, 0x1000, 0x3000);
 	PRINT("Ready.\r\n");
 
 	/* Let's do this... */
-	__asm__ __volatile__ ("jmp $0x00, $0x7e00");
+	__asm__ __volatile__ ("jmpl $0x1, $0x0");
+	PRINT("I definitely went somewhere...\r\n");
+
 }

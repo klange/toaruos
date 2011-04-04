@@ -27,12 +27,19 @@ start_shell() {
 	char path[1024] = {'/', '\0'};
 	/* File system node for the working directory */
 	fs_node_t * node = fs_root;
+	char * username = "klange";
+	char * hostname = "piko";
+	ansi_init();
 	while (1) {
 		/* Read buffer */
 		char buffer[1024];
 		int size;
 		/* Print the prompt */
-		kprintf("smash %s $ ", path);
+		uint16_t month, day, hours, minutes, seconds;
+		get_date(&month, &day);
+		get_time(&hours, &minutes, &seconds);
+		kprintf("\033[1m[\033[1;33m%s \033[1;32m%s \033[1;31m%d/%d \033[1;34m%d:%d:%d\033[0m \033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ",
+				username, hostname, month, day, hours, minutes, seconds, path);
 		/* Read commands */
 		size = kgets((char *)&buffer, 1023);
 		if (size < 1) {
@@ -120,7 +127,7 @@ start_shell() {
 					size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
 					size_t i = 0;
 					for (i = 0; i < bytes_read; ++i) {
-						writech(bufferb[i]);
+						ansi_put(bufferb[i]);
 					}
 					free(bufferb);
 					close_fs(file);
@@ -198,24 +205,10 @@ start_shell() {
 			} else if (!strcmp(cmd, "exit")) {
 				kprintf("Good byte.\n");
 				break;
-			} else if (!strcmp(cmd, "short-text")) {
-				kprintf("I'm going to make text shorter. This is a silly demo.\n");
-				outportb(0x3D4, 0x9);
-				outportb(0x3D5, 0x0E);
 			} else if (!strcmp(cmd, "cpu-detect")) {
 				detect_cpu();
 			} else if (!strcmp(cmd, "scroll")) {
 				bochs_scroll();
-			} else if (!strcmp(cmd, "vid-mode")) {
-				if (tokenid < 2) {
-					kprintf("Please select a graphics driver: bochs\n");
-				} else {
-					if (!strcmp(argv[1], "bochs")) {
-						graphics_install_bochs();
-					} else {
-						kprintf("Unknown graphics driver: %s\n", argv[1]);
-					}
-				}
 			} else if (!strcmp(cmd, "logo")) {
 				if (tokenid < 2) {
 					bochs_draw_logo("/bs.bmp");
@@ -240,6 +233,14 @@ start_shell() {
 					int y1 = krand() % 768;
 					bochs_draw_line(x0,x1,y0,y1, krand() % 0xFFFFFF);
 				}
+			} else if (!strcmp(cmd, "test-scroll")) {
+				bochs_set_y_offset(12 * 20);
+			} else if (!strcmp(cmd, "reset-keyboard")) {
+				/* Reset the shift/alt/ctrl statuses, in case they get messed up */
+				set_kbd(0,0,0);
+			} else if (!strcmp(cmd, "test-ansi")) {
+				ansi_print("This is a \033[32mtest\033[0m of the \033[33mANSI\033[0m driver.\n");
+				ansi_print("This is a \033[32;1mte\033[34mst\033[0m of \033[1mthe \033[33mANSI\033[0m driver.\n");
 			} else {
 				kprintf("Unrecognized command: %s\n", cmd);
 			}

@@ -66,3 +66,10 @@ serial_send(char out) {
 	while (serial_transmit_empty() == 0);
 	outportb(SERIAL_PORT_A, out);
 }
+
+void
+serial_string(char * out) {
+	for (int i = 0; i < strlen(out); ++i) {
+		serial_send(out[i]);
+	}
+}

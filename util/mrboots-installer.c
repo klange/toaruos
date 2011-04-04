@@ -156,7 +156,7 @@ int main(int argc, char ** argv) {
 		fprintf(stderr,"Failed to locate the requested file on the disk image.\n");
 		return -1;
 	}
-	uint32_t offset = 0x8000; /* Destination offset */
+	uint32_t offset = 0x10000; /* Destination offset */
 	uint32_t _block = 0;
 	uint32_t _block_last = 0;
 	for (uint32_t i = 0; i < fnode->blocks; ++i) {
@@ -165,7 +165,7 @@ int main(int argc, char ** argv) {
 			if (_block != 0) {
 				uint32_t size = (_block_last - _block + 1) * (0x400 << sblock->log_block_size);
 				uint32_t place = ext2_get_block_offset(_block);
-				fprintf(stdout, "0x%x, 0x%x -> 0x%x\n", place, size, offset);
+				fprintf(stdout, "read(0x%x, 0x%x, 0x%x, 0x%x);\n", size / 512, place / 512, 0x1000, offset % 0x10000);
 				offset += size;
 			}
 			if (block == 0) { break; }
