@@ -27,8 +27,8 @@ start_shell() {
 	char path[1024] = {'/', '\0'};
 	/* File system node for the working directory */
 	fs_node_t * node = fs_root;
-	char * username = "klange";
-	char * hostname = "piko";
+	char * username = "kernel";
+	char * hostname = "toaru";
 	ansi_init();
 	while (1) {
 		/* Read buffer */

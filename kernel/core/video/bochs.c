@@ -184,6 +184,9 @@ bochs_write_char(
 		uint32_t fg,
 		uint32_t bg
 		) {
+	if (val < 0x20 || val > 131) {
+		val = ' ';
+	}
 	uint8_t * c = number_font[val - 0x20];
 	for (uint8_t i = 0; i < 12; ++i) {
 		if (c[i] & 0x80) { bochs_set_point(x,y+i,fg);   } else { bochs_set_point(x,y+i,bg); }
@@ -256,7 +259,7 @@ void bochs_redraw() {
 
 void bochs_term_scroll() {
 	/* Oh dear */
-	if (current_scroll + 24 >= 3328) {
+	if (current_scroll + 12 >= 3072) {//3328) {
 		/* And here's where it gets hacky */
 		__asm__ __volatile__ ("cli");
 		uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
