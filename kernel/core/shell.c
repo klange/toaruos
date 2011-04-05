@@ -161,9 +161,9 @@ start_shell() {
 			} else if (!strcmp(cmd, "info")) {
 				kprintf("Flags: 0x%x\n", node->flags);
 			} else if (!strcmp(cmd, "help")) {
-				settextcolor(9,0);
+				kprintf("\033[1;34m");
 				kprintf("                 - ToAruOS Kernel Debug Shell - \n");
-				resettextcolor();
+				kprintf("\033[0m");
 				kprintf(" This is the ToAruOS kernel debugging environment.\n");
 				kprintf(" From here, you have access to the virtual file system layer and \n");
 				kprintf(" can read files, list files in directories, dump memory, registers,\n");

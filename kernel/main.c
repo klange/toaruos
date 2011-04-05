@@ -112,7 +112,6 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	syscalls_install();
 
 	/* Kernel Version */
-	settextcolor(12, 0);
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
 
 	if (boot_mode == multiboot) {
