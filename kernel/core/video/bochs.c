@@ -122,10 +122,10 @@ bochs_set_point(
 
 void
 bochs_scroll() {
-	__asm__ __volatile__ ("cli");
+	//__asm__ __volatile__ ("cli");
 	uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
 	memmove((void *)BOCHS_VID_MEMORY, (void *)((uintptr_t)BOCHS_VID_MEMORY + bochs_resolution_x * 12 * sizeof(uint32_t)), size);
-	__asm__ __volatile__ ("sti");
+	//__asm__ __volatile__ ("sti");
 }
 
 void
