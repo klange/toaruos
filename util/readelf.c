@@ -7,3 +7,7 @@
 
 /* The Master ELF Header */
 #include "../kernel/include/elf.h"
+
+int main(int argc, char ** argv) {
+    return -1;
+}
