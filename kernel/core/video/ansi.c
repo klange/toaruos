@@ -212,14 +212,15 @@ ansi_put(
 }
 
 void
-ansi_init() {
+ansi_init(void (*writer)(char), int w, int y) {
 	/* Terminal Defaults */
 	state.fg     = 7; /* Light grey */
 	state.bg     = 0; /* Black */
 	state.flags  = 0; /* Nothing fancy*/
-	state.width  = 128; /* 1024 / 8  */
-	state.height = 64;  /* 768  / 12 */
+	state.width  = w; /* 1024 / 8  */
+	state.height = y; /* 768  / 12 */
 	ansi_ready   = 1;
+	ansi_writer  = writer;
 }
 
 void

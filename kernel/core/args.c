@@ -27,11 +27,7 @@ parse_args(char * arg) {
 		if (!strcmp(argv[i],"vid=qemu")) {
 			/* QEMU Video Mode, we are free to set things for 1024x768 */
 			graphics_install_bochs();
-			bochs_draw_logo("/bs.bmp");
-			char * welcome = "Welcome to \200\201\202OS!\n";
-			for (uint16_t i = 0; i < strlen(welcome); ++i) {
-				bochs_write(welcome[i]);
-			}
+			ansi_init(&bochs_write, 128, 64);
 		}
 	}
 }

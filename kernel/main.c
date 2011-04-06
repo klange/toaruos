@@ -110,6 +110,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	tasking_install();						/* Multi-tasking */
 	enable_fpu();
 	syscalls_install();
+	ansi_init(&writech, 80, 25);
 
 	/* Kernel Version */
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
@@ -144,7 +145,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	/*
 	 * Aw man...
 	 */
-	fork();
+	//fork();
 
 	if (getpid() == 1) {
 		while (1) {

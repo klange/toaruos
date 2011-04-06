@@ -161,13 +161,6 @@ writech(
 	   ) {
 	unsigned short *where;
 	unsigned att = attrib << 8;
-	if (use_serial) {
-		serial_send(c);
-	}
-	if (bochs_resolution_x) {
-		bochs_write(c);
-		return;
-	}
 	if (c == 0x08) {
 		/* Backspace */
 		if (csr_x != 0) csr_x--;

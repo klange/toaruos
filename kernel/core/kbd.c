@@ -198,7 +198,7 @@ putch(
 	if (keyboard_buffer_handler) {
 		keyboard_buffer_handler(c);
 	} else {
-		writech(c);
+		ansi_put(c);
 	}
 }
 

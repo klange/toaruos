@@ -119,6 +119,14 @@ int kgets_want      = 0;
 int kgets_newline   = 0;
 int kgets_cancel    = 0;
 
+static void
+kwrite(
+		char ch
+		) {
+	ansi_put(ch);
+	serial_send(ch);
+}
+
 void
 kgets_handler(
 		char ch
@@ -127,23 +135,23 @@ kgets_handler(
 	if (ch == 0x08) {
 		/* Backspace */
 		if (kgets_collected != 0) {
-			writech(0x08);
-			writech(' ');
-			writech(0x08);
+			kwrite(0x08);
+			kwrite(' ');
+			kwrite(0x08);
 			kgets_buffer[kgets_collected] = '\0';
 			--kgets_collected;
 		}
 		return;
 	} else if (ch == '\n') {
-		writech('\n');
+		kwrite('\n');
 		kgets_newline = 1;
 		return;
 	} else if (ch < 0x20) {
-		writech('^');
-		writech(ch + 0x40);
+		kwrite('^');
+		kwrite(ch + 0x40);
 		return;
 	} else {
-		writech(ch);
+		kwrite(ch);
 	}
 	if (kgets_collected < kgets_want) {
 		kgets_buffer[kgets_collected] = ch;

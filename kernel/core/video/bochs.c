@@ -8,6 +8,11 @@
 #include <system.h>
 #include <fs.h>
 
+/* Friggin' frick, this should be a config option
+ * because it's 4096 on some instances of Qemu,
+ * ie the one on my laptop, but it's 2048 on
+ * the EWS machines. */
+#define BOCHS_BUFFER_SIZE 2048
 #define PREFERRED_X 1024
 #define PREFERRED_Y 768
 #define PREFERRED_VY 4096
@@ -17,7 +22,12 @@ uint16_t bochs_resolution_x = 0;
 uint16_t bochs_resolution_y = 0;
 uint16_t bochs_resolution_b = 0;
 
-uint32_t * BOCHS_VID_MEMORY = (uint32_t *)0xE0000000;
+/*
+ * Address of the linear frame buffer.
+ * This can move, so it's a pointer instead of
+ * #define.
+ */
+uint32_t * bochs_vid_memory = (uint32_t *)0xE0000000;
 
 #define TERM_WIDTH 128
 #define TERM_HEIGHT 64
@@ -89,13 +99,13 @@ graphics_install_bochs() {
 	/* Go find it */
 	for (uintptr_t x = 0xE0000000; x < 0xE0FF0000; x += 0x1000) {
 		if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-			BOCHS_VID_MEMORY = (uint32_t *)x;
+			bochs_vid_memory = (uint32_t *)x;
 			goto mem_found;
 		}
 	}
 	for (uintptr_t x = 0xF0000000; x < 0xF0FF0000; x += 0x1000) {
 		if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-			BOCHS_VID_MEMORY = (uint32_t *)x;
+			bochs_vid_memory = (uint32_t *)x;
 			goto mem_found;
 		}
 	}
@@ -117,13 +127,13 @@ bochs_set_point(
 		uint16_t y,
 		uint32_t color
 		) {
-	BOCHS_VID_MEMORY[((y + current_scroll) * bochs_resolution_x + x)] = color;
+	bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)] = color;
 }
 
 void
 bochs_scroll() {
 	uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
-	memmove((void *)BOCHS_VID_MEMORY, (void *)((uintptr_t)BOCHS_VID_MEMORY + bochs_resolution_x * 12 * sizeof(uint32_t)), size);
+	memmove((void *)bochs_vid_memory, (void *)((uintptr_t)bochs_vid_memory + bochs_resolution_x * 12 * sizeof(uint32_t)), size);
 }
 
 void
@@ -257,12 +267,11 @@ void bochs_redraw() {
 
 void bochs_term_scroll() {
 	/* Oh dear */
-	if (current_scroll + 12 >= 3072) {//3328) {
+	/* I'd really prefer the much-bigger 4096 - 768 */
+	if (current_scroll + 12 >= BOCHS_BUFFER_SIZE - 768) {
 		/* And here's where it gets hacky */
-		// __asm__ __volatile__ ("cli");
 		uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
-		memmove((void *)BOCHS_VID_MEMORY, (void *)((uintptr_t)BOCHS_VID_MEMORY + bochs_resolution_x * (current_scroll + 12) * sizeof(uint32_t)), size);
-		// __asm__ __volatile__ ("sti");
+		memmove((void *)bochs_vid_memory, (void *)((uintptr_t)bochs_vid_memory + bochs_resolution_x * (current_scroll + 12) * sizeof(uint32_t)), size);
 		bochs_set_y_offset(0);
 	} else {
 		bochs_set_y_offset(current_scroll + 12);
@@ -283,7 +292,7 @@ void bochs_term_clear() {
 	csr_x = 0;
 	csr_y = 0;
 	memset((void *)term_buffer, 0x00,TERM_WIDTH * TERM_HEIGHT * sizeof(uint8_t) * 4);
-	memset((void *)BOCHS_VID_MEMORY, 0x00, sizeof(uint32_t) * bochs_resolution_x * bochs_resolution_y);
+	memset((void *)bochs_vid_memory, 0x00, sizeof(uint32_t) * bochs_resolution_x * bochs_resolution_y);
 	bochs_set_y_offset(0);
 }
 

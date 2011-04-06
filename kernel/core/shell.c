@@ -29,7 +29,6 @@ start_shell() {
 	fs_node_t * node = fs_root;
 	char * username = "kernel";
 	char * hostname = "toaru";
-	ansi_init();
 	while (1) {
 		/* Read buffer */
 		char buffer[1024];
