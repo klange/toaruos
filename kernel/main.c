@@ -66,9 +66,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 		 */
 		boot_mode = multiboot;
 
-		void * new_mboot = (void *)0x10000000;
-		memcpy(new_mboot, mboot, sizeof(struct multiboot));
-		mboot_ptr = (struct multiboot *)new_mboot;
+		mboot_ptr = mboot;
 
 		/*
 		 * Realign memory to the end of the multiboot modules
@@ -79,7 +77,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 
 		if (mboot_ptr->flags & (1 << 3)) {
 			ramdisk = (char *)module_start;
-#if 0
 			/*
 			 * Mboot modules are available.
 			 */
@@ -92,7 +89,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 				ramdisk = (char *)kmalloc(module_end - module_start);				/* New chunk of ram for it. */
 				memcpy(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
 			}
-#endif
 		}
 	} else {
 		/*
