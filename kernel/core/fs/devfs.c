@@ -23,6 +23,7 @@ fs_node_t * devfs_root;
 void
 devfs_install(char * path) {
 	fs_node_t * dev_node = kopen(path,0);
+	kprintf("Installing devfs... %s\n", dev_node->name);
 }
 
 /*
