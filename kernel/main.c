@@ -123,9 +123,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
 
 	if (boot_mode == multiboot) {
-		for (uintptr_t i = 0x10000000; i <= 0x10FF0000; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
-		}
 		/* Print multiboot information */
 		dump_multiboot(mboot_ptr);
 
