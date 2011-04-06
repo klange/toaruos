@@ -1,6 +1,9 @@
 #include <system.h>
 #include <multiboot.h>
 
+char * ramdisk = NULL;
+struct multiboot * mboot_ptr = NULL;
+
 struct multiboot *
 copy_multiboot(
 		struct multiboot *mboot_ptr

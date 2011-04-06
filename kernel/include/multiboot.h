@@ -47,5 +47,7 @@ struct multiboot
 
 struct multiboot *copy_multiboot(struct multiboot *mboot_ptr);
 void dump_multiboot(struct multiboot *mboot_ptr);
+char * ramdisk;
+struct multiboot * mboot_ptr;
 
 #endif

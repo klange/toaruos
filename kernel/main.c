@@ -56,21 +56,30 @@
  * multiboot data from the bootloader. It will then proceed to print
  * out the contents of the initial ramdisk image.
  */
-int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
+int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 {
 	initial_esp = esp;
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
-	char * ramdisk = NULL;
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/*
 		 * Multiboot (GRUB, native QEMU, PXE)
 		 */
 		boot_mode = multiboot;
+
+		void * new_mboot = (void *)0x10000000;
+		memcpy(new_mboot, mboot, sizeof(struct multiboot));
+		mboot_ptr = (struct multiboot *)new_mboot;
+
 		/*
 		 * Realign memory to the end of the multiboot modules
 		 */
-		kmalloc_startat(0x200000);
+		uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
+		uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
+		kmalloc_startat(module_end + 1024);
+
 		if (mboot_ptr->flags & (1 << 3)) {
+			ramdisk = (char *)module_start;
+#if 0
 			/*
 			 * Mboot modules are available.
 			 */
@@ -83,6 +92,7 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 				ramdisk = (char *)kmalloc(module_end - module_start);				/* New chunk of ram for it. */
 				memcpy(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
 			}
+#endif
 		}
 	} else {
 		/*
@@ -93,11 +103,12 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	}
 
 	/* Initialize core modules */
+	init_video();		/* VGA driver */
 	gdt_install();		/* Global descriptor table */
 	idt_install();		/* IDT */
 	isrs_install();		/* Interrupt service requests */
 	irq_install();		/* Hardware interrupt requests */
-	init_video();		/* VGA driver */
+
 
 	/* Hardware drivers */
 	timer_install();	/* PIC driver */
@@ -116,6 +127,9 @@ int main(struct multiboot *mboot_ptr, uint32_t mboot_mag, uintptr_t esp)
 	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
 
 	if (boot_mode == multiboot) {
+		for (uintptr_t i = 0x10000000; i <= 0x10FF0000; i += 0x1000) {
+			dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
+		}
 		/* Print multiboot information */
 		dump_multiboot(mboot_ptr);
 

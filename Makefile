@@ -14,6 +14,7 @@ ECHO = `which echo` -e
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/core/video/*.c))
+BINARIES = initrd/bin/test
 EMU = qemu
 GENEXT = genext2fs
 DD = dd conv=notrunc
@@ -66,11 +67,11 @@ kernel/start.o: kernel/start.s
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd/boot/kernel initrd/boot/stage2 initrd/bs.bmp
+toaruos-initrd: initrd/boot/kernel initrd/boot/stage2 initrd/bs.bmp ${BINARIES}
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
-	@${GENEXT} -d initrd -q -b 249 toaruos-initrd
+	@${GENEXT} -d initrd -q -b 1024 toaruos-initrd
 	@${ECHO} "\r\033[32;1m initrd Generated initial RAM disk image\033[0m"
 	@${ECHO} "\033[34;1m   --   HDD image is ready!\033[0m"
 
@@ -93,6 +94,26 @@ initrd/boot/kernel: toaruos-kernel
 util/bin/mrboots-installer: util/mrboots-installer.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"
 	@${CC} ${NATIVEFLAGS} -o $@ $<
+	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+
+
+################
+#   Userspace  #
+################
+loader/crtbegin.o: loader/crtbegin.s
+	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
+	@${YASM} -f elf32 -o $@ $<
+	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
+
+initrd/bin/test: loader/test.o loader/crtbegin.o
+	@${ECHO} -n "\033[32m   LD   $<\033[0m"
+	@${LD} -T loader/link.ld -o $@ $<
+	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"
+	@${ECHO} "\033[34;1m   --   Kernel is ready!\033[0m"
+
+loader/%.o: loader/%.c
+	@${ECHO} -n "\033[32m   CC   $<\033[0m"
+	@${CC} ${CFLAGS} -c -o $@ $<
 	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
 
 ################
@@ -154,6 +175,8 @@ clean:
 	@-rm -f bootloader/stage1/*.o
 	@-rm -f bootloader/stage2.bin
 	@-rm -f bootloader/stage2/*.o
+	@-rm -f initrd/bin/*
+	@-rm -f loader/*.o
 	@-rm -f -r initrd/boot
 	@-rm -f bootdisk.img
 	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out

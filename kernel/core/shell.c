@@ -20,6 +20,7 @@
  */
 #include <system.h>
 #include <fs.h>
+#include <multiboot.h>
 
 void
 start_shell() {
@@ -240,6 +241,8 @@ start_shell() {
 			} else if (!strcmp(cmd, "test-ansi")) {
 				ansi_print("This is a \033[32mtest\033[0m of the \033[33mANSI\033[0m driver.\n");
 				ansi_print("This is a \033[32;1mte\033[34mst\033[0m of \033[1mthe \033[33mANSI\033[0m driver.\n");
+			} else if (!strcmp(cmd, "multiboot")) {
+				dump_multiboot(mboot_ptr);
 			} else {
 				kprintf("Unrecognized command: %s\n", cmd);
 			}
