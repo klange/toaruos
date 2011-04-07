@@ -147,6 +147,7 @@ int main(int argc, char ** argv) {
 		}
 	}
 
+	/* Find the (hopefully two) string tables */
 	printf("\033[1mString Tables\033[0m\n");
 	uint32_t i = 0;
 	for (uint32_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
@@ -162,6 +163,7 @@ int main(int argc, char ** argv) {
 		if (i == 5) break;
 	}
 
+	/* Read the section headers */
 	printf("\033[1mSection Headers\033[0m\n");
 	for (uint32_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
 		if (header->e_shoff + x > binary_size) {
@@ -176,11 +178,6 @@ int main(int argc, char ** argv) {
 			printf("It should be loaded at 0x%x.\n", shdr->sh_addr);
 		}
 	}
-
-
-	/* Read the section headers */
-
-
 
 	return 0;
 }
