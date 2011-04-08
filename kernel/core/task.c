@@ -257,10 +257,28 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv) {
 			: : "m"(location), "m"(argc), "m"(argv));
 }
 
-void kexit(int retval) {
-	kprintf("Kernel task (id=%d) exiting with return value %d.\n", getpid(), retval);
+void task_exit(int retval) {
+	__asm__ __volatile__ ("cli");
 	current_task->retval   = retval;
 	current_task->finished = 1;
+	/* Dequeue us */
+	task_t volatile * temp = ready_queue;
+	task_t volatile * prev = NULL;
+	while (temp != current_task && temp != NULL) {
+		prev = temp;
+		temp = temp->next;
+	}
+	if (prev == NULL) {
+		ready_queue = current_task->next;
+	} else {
+		prev->next = current_task->next;
+	}
+	__asm__ __volatile__ ("sti");
+}
+
+void kexit(int retval) {
+	kprintf("Kernel task (id=%d) exiting with return value %d.\n", getpid(), retval);
+	task_exit(retval);
 	while (1) {
 		__asm__ __volatile__("hlt");
 	}

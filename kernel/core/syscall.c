@@ -12,8 +12,7 @@ static int print(char * s) {
 static int exit(int retval) {
 	/* Deschedule the current task */
 	kprintf("Task (id=%d) exiting with return value %d.\n", getpid(), retval);
-	current_task->retval   = retval;
-	current_task->finished = 1;
+	task_exit(retval);
 	while (1) { };
 	return retval;
 }
