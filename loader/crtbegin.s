@@ -6,8 +6,9 @@ _start:
 	push   0 ; argv
 	extern main
 	call   main
-	mov    eax, 0
-	int    0x79
+	mov    ebx, eax ; return value from main
+	mov    eax, 0x0
+	int    0x7F
 _wait:
 	hlt
 	jmp    _wait

@@ -168,12 +168,6 @@ extern void serial_send(char out);
 extern void serial_string(char * out);
 
 /* Tasks */
-extern uintptr_t read_eip();
-extern void copy_page_physical(uint32_t, uint32_t);
-extern page_directory_t * clone_directory(page_directory_t * src);
-extern page_table_t * clone_table(page_table_t * src, uintptr_t * physAddr);
-extern void move_stack(void *new_stack_start, size_t size);
-
 typedef struct task {
 	uint32_t  id;
 	uintptr_t esp;
@@ -183,8 +177,20 @@ typedef struct task {
 	struct task *next;
 	uintptr_t stack;
 	uintptr_t user_stack;
+	int       retval;
+	uint8_t   finished;
 } task_t;
 
+extern __volatile__ task_t * current_task;
+extern __volatile__ task_t * ready_queue;
+
+extern uintptr_t read_eip();
+extern void copy_page_physical(uint32_t, uint32_t);
+extern page_directory_t * clone_directory(page_directory_t * src);
+extern page_table_t * clone_table(page_table_t * src, uintptr_t * physAddr);
+extern void move_stack(void *new_stack_start, size_t size);
+extern task_t * gettask(uint32_t pid);
+extern void kexit(int retval);
 
 typedef struct tss_entry {
 	uint32_t	prev_tss;
@@ -221,6 +227,7 @@ extern void switch_task();
 extern uint32_t fork();
 extern uint32_t getpid();
 extern void enter_user_mode();
+extern void enter_user_jmp(uintptr_t location, int argc, char ** argv);
 
 uintptr_t initial_esp;
 
@@ -269,6 +276,9 @@ extern uint8_t number_font[][12];
 void set_fpu_cw(const uint16_t);
 void enable_fpu();
 
+/* ELF */
+int exec( char *, int, char **);
+
 /* Sytem Calls */
 void syscalls_install();
 #define DECL_SYSCALL0(fn)       int syscall_##fn()
@@ -293,6 +303,7 @@ void syscalls_install();
 		return a; \
 	}
 
+DECL_SYSCALL1(exit, int);
 DECL_SYSCALL1(print, const char *);
 
 #endif

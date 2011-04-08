@@ -6,15 +6,25 @@
 
 static int print(char * s) {
 	kprintf(s);
-	return 2;
+	return 0;
+}
+
+static int exit(int retval) {
+	/* Deschedule the current task */
+	kprintf("Task (id=%d) exiting with return value %d.\n", getpid(), retval);
+	current_task->retval   = retval;
+	current_task->finished = 1;
+	while (1) { };
+	return retval;
 }
 
 static void syscall_handler(struct regs * r);
 static uintptr_t syscalls[] = {
 	/* System Call Table */
+	(uintptr_t)&exit,
 	(uintptr_t)&print
 };
-uint32_t num_syscalls = 1;
+uint32_t num_syscalls = 2;
 
 void
 syscalls_install() {
@@ -47,9 +57,5 @@ syscall_handler(
 	r->eax = ret;
 }
 
-//DEFN_SYSCALL1(print, 0, const char *)
-int syscall_print(const char * p1) {
-	int a = 0xA5ADFACE;
-	__asm__ __volatile__("int $0x7F" : "=a" (a) : "0" (0), "b" ((int)p1));
-	return a;
-}
+DEFN_SYSCALL1(exit,  0, int)
+DEFN_SYSCALL1(print, 1, const char *)

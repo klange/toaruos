@@ -221,6 +221,12 @@ start_shell() {
 				} else {
 					bochs_draw_line(atoi(argv[1]),atoi(argv[2]),atoi(argv[3]),atoi(argv[4]),0xFFFFFF);
 				}
+			} else if (!strcmp(cmd, "exec")) {
+				if (tokenid < 2) {
+					continue;
+				}
+				int ret = exec(argv[1],tokenid - 1, &argv[1]);
+				kprintf("Returned %d\n", ret);
 			} else if (!strcmp(cmd, "boredom")) {
 				int x = 30;
 				if (tokenid > 1) {

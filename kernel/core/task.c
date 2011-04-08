@@ -6,7 +6,7 @@
 #define KERNEL_STACK_SIZE 0x2000
 
 __volatile__ task_t * current_task = NULL;
-__volatile__ task_t * ready_queue;
+__volatile__ task_t * ready_queue  = NULL;
 
 uint32_t next_pid = 0;
 
@@ -112,6 +112,17 @@ tasking_install() {
 	__asm__ __volatile__ ("sti");
 }
 
+task_t *
+gettask(
+		uint32_t pid
+	   ) {
+	task_t * output = (task_t *)ready_queue;
+	while (output->id != pid && output != NULL) {
+		output = output->next;
+	}
+	return output;
+}
+
 uint32_t
 fork() {
 	__asm__ __volatile__ ("cli");
@@ -125,6 +136,7 @@ fork() {
 	new_task->page_directory = directory;
 	new_task->next = NULL;
 	new_task->stack = kvmalloc(KERNEL_STACK_SIZE);
+	new_task->finished = 0;
 	task_t * tmp_task = (task_t *)ready_queue;
 	while (tmp_task->next) {
 		tmp_task = tmp_task->next;
@@ -218,4 +230,38 @@ enter_user_mode() {
 			"iret\n"
 		"1:\n"
 			"mov %ax, %ax\n");
+}
+
+void
+enter_user_jmp(uintptr_t location, int argc, char ** argv) {
+	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
+	__asm__ __volatile__(
+			"cli\n"
+			//"mov $0x23, %ax\n"
+			"mov $0x23, %%ax\n"
+			"mov %%ax, %%ds\n"
+			"mov %%ax, %%es\n"
+			"mov %%ax, %%fs\n"
+			"mov %%ax, %%gs\n"
+			"mov %%esp, %%eax\n"
+			"pushl $0x23\n"
+			"pushl %%eax\n"
+			"pushf\n"
+			"popl %%eax\n"
+			"orl  $0x200, %%eax\n"
+			"pushl %%eax\n"
+			"pushl $0x1B\n"
+			"pushl %2\n"
+			"pushl %1\n"
+			"call  *%0\n"
+			: : "m"(location), "m"(argc), "m"(argv));
+}
+
+void kexit(int retval) {
+	kprintf("Kernel task (id=%d) exiting with return value %d.\n", getpid(), retval);
+	current_task->retval   = retval;
+	current_task->finished = 1;
+	while (1) {
+		__asm__ __volatile__("hlt");
+	}
 }
