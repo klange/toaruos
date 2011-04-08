@@ -117,7 +117,7 @@ gettask(
 		uint32_t pid
 	   ) {
 	task_t * output = (task_t *)ready_queue;
-	while (output->id != pid && output != NULL) {
+	while (output != NULL && output->id != pid) {
 		output = output->next;
 	}
 	return output;
@@ -137,6 +137,8 @@ fork() {
 	new_task->next = NULL;
 	new_task->stack = kvmalloc(KERNEL_STACK_SIZE);
 	new_task->finished = 0;
+	new_task->image_size = 0;
+	new_task->entry = 0xFFFFFFFF;
 	task_t * tmp_task = (task_t *)ready_queue;
 	while (tmp_task->next) {
 		tmp_task = tmp_task->next;
@@ -191,6 +193,9 @@ switch_task() {
 	if (!current_task) {
 		current_task = ready_queue;
 	}
+	if (!current_task) {
+		HALT_AND_CATCH_FIRE("Empty ready queue!", NULL);
+	}
 	eip = current_task->eip;
 	esp = current_task->esp;
 	ebp = current_task->ebp;
@@ -212,7 +217,6 @@ enter_user_mode() {
 	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
 	__asm__ __volatile__(
 			"cli\n"
-			//"mov $0x23, %ax\n"
 			"mov $0x23, %ax\n"
 			"mov %ax, %ds\n"
 			"mov %ax, %es\n"
@@ -261,6 +265,10 @@ void task_exit(int retval) {
 	__asm__ __volatile__ ("cli");
 	current_task->retval   = retval;
 	current_task->finished = 1;
+	/* Free the image memory */
+	for (uintptr_t i = 0; i < current_task->image_size; i += 0x1000) {
+		free_frame(get_page(current_task->entry + i, 0, current_directory));
+	}
 	/* Dequeue us */
 	task_t volatile * temp = ready_queue;
 	task_t volatile * prev = NULL;
@@ -273,11 +281,11 @@ void task_exit(int retval) {
 	} else {
 		prev->next = current_task->next;
 	}
+	free((void *)current_task->stack);
 	__asm__ __volatile__ ("sti");
 }
 
 void kexit(int retval) {
-	kprintf("Kernel task (id=%d) exiting with return value %d.\n", getpid(), retval);
 	task_exit(retval);
 	while (1) {
 		__asm__ __volatile__("hlt");

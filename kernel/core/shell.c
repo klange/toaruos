@@ -261,6 +261,7 @@ start_shell() {
 				if (!chd) {
 					kprintf("Unrecognized command: %s\n", cmd);
 				} else {
+					close_fs(chd);
 					exec(filename, tokenid, argv);
 				}
 			}

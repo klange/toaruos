@@ -102,16 +102,6 @@
  *
 **/
 
-/*
- * Disable assertions when not in debug mode,
- * as this saves a lot of time.
- */
-#if !defined(DEBUG)
-#define NDEBUG
-#endif
-
-#define _XOPEN_SOURCE 700
-
 /* Includes {{{ */
 #include <system.h>
 /* }}} */

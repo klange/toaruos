@@ -150,6 +150,7 @@ extern void dma_frame(page_t * page, int, int, uintptr_t);
 void heap_install();
 
 void alloc_frame(page_t *page, int is_kernel, int is_writeable);
+void free_frame(page_t *page);
 
 /* klmalloc */
 void * __attribute__ ((malloc)) malloc(size_t size);
@@ -179,6 +180,8 @@ typedef struct task {
 	uintptr_t user_stack;
 	int       retval;
 	uint8_t   finished;
+	uint32_t  image_size;
+	uintptr_t entry;
 } task_t;
 
 extern __volatile__ task_t * current_task;

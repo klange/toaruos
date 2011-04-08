@@ -40,7 +40,7 @@ struct dirent * readdir_fs(fs_node_t *node, uint32_t index) {
 }
 
 fs_node_t *finddir_fs(fs_node_t *node, char *name) {
-	if ((node->flags & FS_DIRECTORY) && node->readdir != NULL) {
+	if ((node->flags & FS_DIRECTORY) && node->finddir != NULL) {
 		return node->finddir(node, name);
 	} else {
 		return (fs_node_t *)NULL;
@@ -91,8 +91,10 @@ kopen(
 			return NULL;
 		} else if (depth == path_depth - 1) {
 			open_fs(node_ptr, 1, 0);
+			free((void *)path);
 			return node_ptr;
 		}
+		free(node_ptr);
 		path_offset += strlen(path_offset) + 1;
 	}
 	free((void *)path);

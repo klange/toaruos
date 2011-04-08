@@ -87,6 +87,7 @@ void
 close_initrd(
 		fs_node_t *node
 		) {
+	free(node);
 	/*
 	 * Nothing to do here
 	 */

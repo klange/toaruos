@@ -39,8 +39,8 @@ exec(
 			/* Command not found */
 			kexit(127);
 		}
-		Elf32_Header * header = (Elf32_Header *)malloc(file->length);
-		size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)header);
+		Elf32_Header * header = (Elf32_Header *)malloc(file->length + 100);
+		read_fs(file, 0, file->length, (uint8_t *)header);
 
 		/* Alright, we've read the binary, time to load the loadable sections */
 		/* Verify the magic */
@@ -49,12 +49,20 @@ exec(
 				header->e_ident[2] != ELFMAG2 ||
 				header->e_ident[3] != ELFMAG3) {
 			kprintf("Fatal: Not a valid ELF executable.\n");
+			free(header);
+			close_fs(file);
 			kexit(127);
 		}
 
 		for (uintptr_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
 			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)header + (header->e_shoff + x));
 			if (shdr->sh_addr) {
+				if (shdr->sh_addr < current_task->entry) {
+					current_task->entry = shdr->sh_addr;
+				}
+				if (shdr->sh_addr + shdr->sh_size - current_task->entry > current_task->image_size) {
+					current_task->image_size = shdr->sh_addr + shdr->sh_size - current_task->entry;
+				}
 				for (uintptr_t i = 0; i < shdr->sh_size; i += 0x1000) {
 					/* This doesn't care if we already allocated this page */
 					alloc_frame(get_page(shdr->sh_addr + i, 1, current_directory), 0, 1);
@@ -62,6 +70,9 @@ exec(
 				memcpy((void *)(shdr->sh_addr), (void *)((uintptr_t)header + shdr->sh_offset), shdr->sh_size);
 			}
 		}
+
+		free(header);
+		close_fs(file);
 
 		enter_user_jmp((uintptr_t)header->e_entry, argc, argv);
 
@@ -73,6 +84,7 @@ exec(
 	} else {
 		/* You can wait here if you want... */
 		task_t * volatile child_task = gettask(child);
+		if (!child_task) return -1;
 		while (child_task->finished == 0) {
 			if (child_task->finished != 0) break;
 		}
