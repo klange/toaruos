@@ -14,7 +14,7 @@ ECHO = `which echo` -e
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/core/video/*.c))
-BINARIES = initrd/bin/test
+BINARIES = initrd/bin/test initrd/bin/echo
 UTILITIES = util/bin/readelf
 EMU = qemu
 GENEXT = genext2fs
@@ -112,11 +112,10 @@ loader/crtbegin.o: loader/crtbegin.s
 	@${YASM} -f elf32 -o $@ $<
 	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
 
-initrd/bin/test: loader/test.o loader/crtbegin.o
+initrd/bin/%: loader/%.o loader/crtbegin.o
 	@${ECHO} -n "\033[32m   LD   $<\033[0m"
 	@${LD} -T loader/link.ld -o $@ $<
 	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"
-	@${ECHO} "\033[34;1m   --   Kernel is ready!\033[0m"
 
 loader/%.o: loader/%.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"

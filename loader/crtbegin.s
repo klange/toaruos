@@ -2,8 +2,7 @@ BITS 32
 
 global _start
 _start:
-	push   0 ; argc
-	push   0 ; argv
+	pop    eax
 	extern main
 	call   main
 	mov    ebx, eax ; return value from main
