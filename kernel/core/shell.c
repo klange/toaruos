@@ -132,19 +132,6 @@ start_shell() {
 					free(bufferb);
 					close_fs(file);
 				}
-			} else if (!strcmp(cmd, "echo")) {
-				/*
-				 * Print given arguments
-				 */
-				if (tokenid < 2) {
-					continue;
-				} else {
-					int i = 1;
-					for (i = 1; i < tokenid; ++i) {
-						kprintf("%s ", argv[i]);
-					}
-					kprintf("\n");
-				}
 			} else if (!strcmp(cmd, "ls")) {
 				/*
 				 * List the files in the current working directory
@@ -250,7 +237,32 @@ start_shell() {
 			} else if (!strcmp(cmd, "multiboot")) {
 				dump_multiboot(mboot_ptr);
 			} else {
-				kprintf("Unrecognized command: %s\n", cmd);
+				/* Alright, here we go */
+				char * filename = malloc(sizeof(char) * 1024);
+				if (argv[0][0] == '/') {
+					memcpy(filename, argv[0], strlen(argv[0]) + 1);
+				} else {
+					memcpy(filename, path, strlen(path));
+					if (!strcmp(path,"/")) {
+						memcpy((void *)((uintptr_t)filename + strlen(path)),argv[0],strlen(argv[0])+1);
+					} else {
+						filename[strlen(path)] = '/';
+						memcpy((void *)((uintptr_t)filename + strlen(path) + 1),argv[0],strlen(argv[0])+1);
+					}
+				}
+				fs_node_t * chd = kopen(filename, 0);
+				if (!chd) {
+					/* Alright, let's try this... */
+					char * search_path = "/bin/";
+					memcpy(filename, search_path, strlen(search_path));
+					memcpy((void*)((uintptr_t)filename + strlen(search_path)),argv[0],strlen(argv[0])+1);
+					chd = kopen(filename, 0);
+				}
+				if (!chd) {
+					kprintf("Unrecognized command: %s\n", cmd);
+				} else {
+					exec(filename, tokenid, argv);
+				}
 			}
 		}
 	}
