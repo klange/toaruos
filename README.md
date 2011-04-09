@@ -55,15 +55,16 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
     * VFS *done*
     * Initial RAM Disk *works, but not perfect*
     * Multitasking *done*
-    * User mode
+    * User mode *done*
 * Finish basic kernel functionality
-    * Loading ELF binaries and executing them in user mode
+    * Loading ELF binaries and executing them in user mode *done (static)*
     * Complete system call table
     * Get a better semblance of users and groups
 * Write a file system driver for a real file system
     * Target is EXT2, but might do FAT *can read small EXT2 partitions from memory*
     * Move OS development images to some form of virtual drive (VDI or something QEMU compatible)
 * Implement a VESA mode handler
+    * QEMU / BOCHS VBE driver *done*
     * Requires a Virtual 8086 monitor
     * Need to be able to use graphics modes and still have output, so write a framebuffer terminal
 * Complete libc
@@ -93,7 +94,7 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
 ## References ##
 I'll be more detailed here eventually, but for the most part, I have been using:
 
-* [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html) *almost done*
+* [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html) *completed*
 * [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/) *completed*
 * [Skelix's OS tutorial](http://en.skelix.org/skelixos/) *Author is not a native speaker of English and makes some grammatical mistakes; can be hard to follow*
 
