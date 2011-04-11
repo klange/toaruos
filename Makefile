@@ -21,6 +21,7 @@ GENEXT = genext2fs
 DD = dd conv=notrunc
 
 .PHONY: all system clean install run docs utils
+.SECONDARY: 
 
 all: system bootdisk.img docs utils
 system: toaruos-initrd toaruos-kernel
