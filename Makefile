@@ -117,7 +117,7 @@ loader/crtbegin.o: loader/crtbegin.s
 	@${YASM} -f elf32 -o $@ $<
 	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
 
-initrd/bin/%: loader/%.o loader/crtbegin.o
+initrd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
 	@${ECHO} -n "\033[32m   LD   $<\033[0m"
 	@${LD} -T loader/link.ld -o $@ $<
 	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"

@@ -5,6 +5,7 @@
 OUTPUT_FORMAT(elf32-i386)
 ENTRY(_start)
 STARTUP(loader/crtbegin.o)
+INPUT(loader/syscall.o)
 phys = 0x02000000;
 SECTIONS
 {
