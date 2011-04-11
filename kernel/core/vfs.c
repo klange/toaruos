@@ -26,6 +26,9 @@ void open_fs(fs_node_t *node, uint8_t read, uint8_t write) {
 }
 
 void close_fs(fs_node_t *node) {
+	if (node == fs_root) { 
+		HALT_AND_CATCH_FIRE("Attemped to close the filesystem root. kablooey", NULL);
+	}
 	if (node->close != 0) {
 		node->close(node);
 	}

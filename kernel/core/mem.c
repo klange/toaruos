@@ -164,8 +164,6 @@ alloc_frame(
 		page->present = 1;
 		page->rw      = (is_writeable == 1) ? 1 : 0;
 		page->user    = (is_kernel == 1)    ? 0 : 1;
-		page->rw   = 1;
-		page->user = 1;
 		page->frame   = index;
 	}
 }
@@ -208,12 +206,19 @@ paging_install(uint32_t memsize) {
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 
 	uint32_t i = 0;
-	while (i < 0x400000 ) { //placement_pointer + 0x1000) {
-		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
+	while (i < placement_pointer + 0x3000) {
+		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
 		i += 0x1000;
 	}
 	isrs_install_handler(14, page_fault);
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
+
+	/* Kernel Heap Space */
+	for (i = placement_pointer; i < 0x2000000; i += 0x1000) {
+		get_page(i, 1, kernel_directory);
+		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
+	}
+
 
 
 	current_directory = clone_directory(kernel_directory);
@@ -285,7 +290,6 @@ page_fault(
 void
 heap_install() {
 	heap_end = (placement_pointer + 0x1000) & ~0xFFF;
-	placement_pointer = 0;
 }
 
 void *
@@ -296,11 +300,6 @@ sbrk(
 	ASSERT(heap_end % 0x1000 == 0);
 	uintptr_t address = heap_end;
 	heap_end += increment;
-	uintptr_t i;
-	for (i = address; i < heap_end; i += 0x1000) {
-		get_page(i, 1, kernel_directory);
-		alloc_frame(get_page(i, 1, kernel_directory), 0, 1);
-	}
 	memset((void *)address, 0x0, increment);
 	return (void *)address;
 }

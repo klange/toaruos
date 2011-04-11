@@ -6,18 +6,6 @@
 #include <fs.h>
 #include <elf.h>
 
-static void
-a_task(int argc, char ** argv) {
-	syscall_print("Hello world!\n");
-	syscall_print("I am: (");
-	char blarg[2] = { '0' + argc, 0};
-	syscall_print(blarg);
-	syscall_print(") ");
-	syscall_print(argv[0]);
-	syscall_print("\n");
-	syscall_exit(2);
-}
-
 /**
  * Load and execute.
  * @param path Path to the executable to attempt to execute.
@@ -76,9 +64,6 @@ exec(
 
 		enter_user_jmp((uintptr_t)header->e_entry, argc, argv);
 
-
-
-
 		/* We should never reach this mode */
 		kexit(0x5ADFACE);
 	} else {
@@ -92,8 +77,6 @@ exec(
 	}
 	return -1;
 }
-
-
 
 /*
  * vim:noexpandtab

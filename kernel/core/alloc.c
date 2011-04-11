@@ -149,7 +149,9 @@ void * __attribute__ ((malloc)) valloc(size_t size) {
 }
 
 void free(void * ptr) {
-	klfree(ptr);
+	if ((uintptr_t)ptr > placement_pointer) {
+		klfree(ptr);
+	}
 }
 
 
@@ -911,3 +913,10 @@ static void * __attribute__ ((malloc)) klcalloc(size_t nmemb, size_t size) {
 	return ptr;
 }
 /* }}} */
+
+
+/*
+ * vim:noexpandtab
+ * vim:tabstop=4
+ * vim:shiftwidth=4
+ */

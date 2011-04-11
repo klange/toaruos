@@ -106,17 +106,20 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	irq_install();		/* Hardware interrupt requests */
 
 
+	/* Memory management */
+	paging_install(mboot_ptr->mem_upper);	/* Paging */
+	heap_install();							/* Kernel heap */
+
 	/* Hardware drivers */
 	timer_install();	/* PIC driver */
 	keyboard_install();	/* Keyboard interrupt handler */
 	serial_install();	/* Serial console */
 
-	/* Memory management */
-	paging_install(mboot_ptr->mem_upper);	/* Paging */
-	heap_install();							/* Kernel heap */
-	tasking_install();						/* Multi-tasking */
-	enable_fpu();
-	syscalls_install();
+	tasking_install();	/* Multi-tasking */
+	enable_fpu();		/* Enable the floating point unit */
+	syscalls_install();	/* Install the system calls */
+
+	/* Initialize the standard VGA display */
 	ansi_init(&writech, 80, 25);
 
 	/* Kernel Version */
@@ -150,16 +153,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	cls();
 
 	start_shell();
-
-	uint32_t i = 0;
-	while (1) {
-		if (!fork()) {
-			kprintf("%d\n",getpid());
-			kexit(getpid());
-			while (1) { }
-		}
-		++i;
-	}
 
 	return 0;
 }

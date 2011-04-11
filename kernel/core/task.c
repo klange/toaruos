@@ -59,42 +59,6 @@ clone_table(
 	return table;
 }
 
-uintptr_t
-copy_stack(
-		void *new_stack_start,
-		size_t size,
-		uintptr_t initial
-		) {
-	uintptr_t i;
-	for (	i = (uintptr_t)new_stack_start;
-			i >= ((uintptr_t)new_stack_start - size);
-			i -= 0x1000) {
-		alloc_frame(get_page(i, 1, current_directory), 0 /* user */, 1 /* writable */);
-	}
-	uintptr_t pd_addr;
-	__asm__ __volatile__ ("mov %%cr3, %0" : "=r" (pd_addr));
-	__asm__ __volatile__ ("mov %0, %%cr3" : : "r" (pd_addr));
-	uintptr_t old_stack_pointer;
-	__asm__ __volatile__ ("mov %%esp, %0" : "=r" (old_stack_pointer));
-	uintptr_t old_base_pointer;
-	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (old_base_pointer));
-	uintptr_t offset = (uintptr_t)new_stack_start - initial;
-	uintptr_t new_stack_pointer = old_stack_pointer + offset;
-	uintptr_t new_base_pointer  = old_base_pointer  + offset;
-	memcpy((void *)new_stack_pointer, (void *)old_stack_pointer, initial - old_stack_pointer);
-	for (i = (uintptr_t)new_stack_start; i > (uintptr_t)new_stack_start - size; i -= 4) {
-		uintptr_t temp = *(uintptr_t*)i;
-		if ((old_stack_pointer < temp) && (temp < initial_esp)) {
-			temp = temp + offset;
-			uintptr_t *temp2 = (uintptr_t *)i;
-			*temp2 = temp;
-		}
-	}
-	__asm__ __volatile__ ("mov %0, %%esp" : : "r" (new_stack_pointer));
-	__asm__ __volatile__ ("mov %0, %%ebp" : : "r" (new_base_pointer));
-	return (uintptr_t)new_stack_start - size;
-}
-
 void
 tasking_install() {
 	__asm__ __volatile__ ("cli");
@@ -105,9 +69,11 @@ tasking_install() {
 	current_task->esp = 0;
 	current_task->ebp = 0;
 	current_task->eip = 0;
-	current_task->stack = initial_esp; //copy_stack((void *)0xE000000, KERNEL_STACK_SIZE, initial_esp);
-	current_task->page_directory = current_directory;
+	current_task->stack = initial_esp;
+	current_task->page_directory = current_directory; //clone_directory(current_directory);
 	current_task->next = 0;
+
+	//switch_page_directory(current_task->page_directory);
 
 	__asm__ __volatile__ ("sti");
 }
@@ -184,6 +150,7 @@ switch_task() {
 	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
 	eip = read_eip();
 	if (eip == 0x10000) {
+
 		return;
 	}
 	current_task->eip = eip;
@@ -241,7 +208,6 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv) {
 	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
 	__asm__ __volatile__(
 			"cli\n"
-			//"mov $0x23, %ax\n"
 			"mov $0x23, %%ax\n"
 			"mov %%ax, %%ds\n"
 			"mov %%ax, %%es\n"
