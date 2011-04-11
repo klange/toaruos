@@ -17,3 +17,4 @@ bootdisk.img
 *.out
 *.toc
 util/bin/*
+.passed
