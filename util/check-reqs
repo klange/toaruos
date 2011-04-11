@@ -1,0 +1,32 @@
+#!/bin/bash
+# Build Dependencies Checker
+# ToAruOS Kernel / Userspace
+
+function INFO {
+    echo $1 >&2
+}
+
+function WARN {
+    echo -e "\033[33;1mwarning\033[0m $1" >&2
+}
+
+function ERROR {
+    echo -e "\033[31;1merror\033[0m $1" >&2
+    exit 1
+}
+
+if [ -z `which clang` ] ; then
+    WARN "Missing clang"
+    if [ -z `which gcc` ] ; then
+        WARN "Missing gcc"
+        if [ -z `which cc` ] ; then
+            ERROR "No compiler found"
+        fi
+    fi
+fi
+
+if [ -z `which genext2fs` ] ; then
+    WARN "Missing genext2fs"
+    INFO "You can probably get it from a package of the same name."
+fi
+
