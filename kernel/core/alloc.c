@@ -480,7 +480,13 @@ static void klmalloc_skip_list_delete(klmalloc_big_bin_header * value) {
 static void * klmalloc_stack_pop(klmalloc_bin_header *header) {
 	assert(header);
 	assert(header->head != NULL);
-
+	assert((uintptr_t)header->head > (uintptr_t)header);
+	if (header->size > NUM_BINS) {
+		assert((uintptr_t)header->head < (uintptr_t)header + header->size);
+	} else {
+		assert((uintptr_t)header->head < (uintptr_t)header + PAGE_SIZE);
+	}
+	
 	/*
 	 * Remove the current head and point
 	 * the head to where the old head pointed.
