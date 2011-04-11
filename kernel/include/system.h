@@ -285,29 +285,5 @@ int exec( char *, int, char **);
 
 /* Sytem Calls */
 void syscalls_install();
-#define DECL_SYSCALL0(fn)       int syscall_##fn()
-#define DECL_SYSCALL1(fn,p1)    int syscall_##fn(p1)
-#define DECL_SYSCALL2(fn,p1,p2) int syscall_##fn(p1,p2)
-
-#define DEFN_SYSCALL0(fn, num) \
-	int syscall_##fn() { \
-		int a; __asm__ __volatile__("int $0x7F" : "=a" (a) : "0" (num)); \
-		return a; \
-	}
-
-#define DEFN_SYSCALL1(fn, num, P1) \
-	int syscall_##fn(P1 p1) { \
-		int a; __asm__ __volatile__("int $0x7F" : "=a" (a) : "0" (num), "b" ((int)p1)); \
-		return a; \
-	}
-
-#define DEFN_SYSCALL2(fn, num, P1, P2) \
-	int syscall_##fn(P1 p1, P2 p2) { \
-		int a; __asm__ __volatile__("int $0x7F" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2)); \
-		return a; \
-	}
-
-DECL_SYSCALL1(exit, int);
-DECL_SYSCALL1(print, const char *);
 
 #endif

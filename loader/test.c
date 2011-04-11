@@ -1,8 +1,6 @@
-int syscall_print(const char * p1) {
-	int a = 0xA5ADFACE;
-	__asm__ __volatile__("int $0x7F" : "=a" (a) : "0" (1), "b" ((int)p1));
-	return a;
-}
+#include <syscall.h>
+
+DEFN_SYSCALL1(print, 1, const char *)
 
 int main(int argc, char ** argv) {
     syscall_print("Hello world!\n");

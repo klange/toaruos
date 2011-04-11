@@ -3,12 +3,25 @@
  * vim:noexpandtab
  */
 #include <system.h>
+#include <syscall.h>
 
+
+/*
+ * System calls themselves
+ */
+
+/*
+ * print something to the core terminal
+ */
 static int print(char * s) {
 	kprintf(s);
 	return 0;
 }
 
+/*
+ * Exit the current task.
+ * DOES NOT RETURN!
+ */
 static int exit(int retval) {
 	/* Deschedule the current task */
 	task_exit(retval);
@@ -16,6 +29,9 @@ static int exit(int retval) {
 	return retval;
 }
 
+/*
+ * System Call Internals
+ */
 static void syscall_handler(struct regs * r);
 static uintptr_t syscalls[] = {
 	/* System Call Table */
@@ -54,6 +70,3 @@ syscall_handler(
 			: "=a" (ret) : "r" (r->edi), "r" (r->esi), "r" (r->edx), "r" (r->ecx), "r" (r->ebx), "r" (location));
 	r->eax = ret;
 }
-
-DEFN_SYSCALL1(exit,  0, int)
-DEFN_SYSCALL1(print, 1, const char *)
