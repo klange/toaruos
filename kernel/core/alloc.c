@@ -346,6 +346,12 @@ static void klmalloc_skip_list_insert(klmalloc_big_bin_header * value) {
 	 */
 	assert(value != NULL);
 	assert(value->head != NULL);
+	assert((uintptr_t)value->head > (uintptr_t)value);
+	if (value->size > NUM_BINS) {
+		assert((uintptr_t)value->head < (uintptr_t)value + value->size);
+	} else {
+		assert((uintptr_t)value->head < (uintptr_t)value + PAGE_SIZE);
+	}
 	assert((uintptr_t)value % PAGE_SIZE == 0);
 	assert((value->size + sizeof(klmalloc_big_bin_header)) % PAGE_SIZE == 0);
 	assert(value->size != 0);
@@ -415,6 +421,12 @@ static void klmalloc_skip_list_delete(klmalloc_big_bin_header * value) {
 	 */
 	assert(value != NULL);
 	assert(value->head);
+	assert((uintptr_t)value->head > (uintptr_t)value);
+	if (value->size > NUM_BINS) {
+		assert((uintptr_t)value->head < (uintptr_t)value + value->size);
+	} else {
+		assert((uintptr_t)value->head < (uintptr_t)value + PAGE_SIZE);
+	}
 
 	/*
 	 * Starting from the bin header, again...
@@ -507,6 +519,12 @@ static void * klmalloc_stack_pop(klmalloc_bin_header *header) {
  */
 static void klmalloc_stack_push(klmalloc_bin_header *header, void *ptr) {
 	assert(ptr != NULL);
+	assert((uintptr_t)ptr > (uintptr_t)header);
+	if (header->size > NUM_BINS) {
+		assert((uintptr_t)ptr < (uintptr_t)header + header->size);
+	} else {
+		assert((uintptr_t)ptr < (uintptr_t)header + PAGE_SIZE);
+	}
 	size_t **item = (size_t **)ptr;
 	*item = (size_t *)header->head;
 	header->head = item;
@@ -596,6 +614,7 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 		 */
 		klmalloc_big_bin_header * bin_header = klmalloc_skip_list_findbest(size);
 		if (bin_header) {
+			assert(bin_header->size >= size);
 			/*
 			 * If we found one, delete it from the skip list
 			 */

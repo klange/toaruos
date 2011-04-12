@@ -35,6 +35,8 @@
 #include <boot.h>
 #include <ext2.h>
 
+extern uintptr_t heap_end;
+
 /*
  * kernel entry point
  *
@@ -153,6 +155,13 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	cls();
 
 	start_shell();
+
+	while (1) {
+		if (!fork()) {
+			kprintf("%d 0x%x\n", getpid(), heap_end);
+			kexit(0);
+		}
+	}
 
 	return 0;
 }
