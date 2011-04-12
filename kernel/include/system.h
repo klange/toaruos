@@ -195,6 +195,7 @@ extern void move_stack(void *new_stack_start, size_t size);
 extern task_t * gettask(uint32_t pid);
 extern void kexit(int retval);
 extern void task_exit(int retval);
+extern uint32_t next_pid;
 
 typedef struct tss_entry {
 	uint32_t	prev_tss;

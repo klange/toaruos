@@ -157,6 +157,10 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	start_shell();
 
 	while (1) {
+		kprintf("[%d] 0x%x\n", next_pid, exec("/bin/test", 0, NULL));
+	}
+
+	while (1) {
 		if (!fork()) {
 			kprintf("%d 0x%x\n", getpid(), heap_end);
 			kexit(0);
