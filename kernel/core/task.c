@@ -249,7 +249,7 @@ void task_exit(int retval) {
 	}
 	free((void *)current_task->stack);
 	free((void *)current_task->page_directory);
-	free((void *)current_task);
+	//free((void *)current_task);
 	__asm__ __volatile__ ("sti");
 }
 
