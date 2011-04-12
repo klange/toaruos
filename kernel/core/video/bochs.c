@@ -271,7 +271,7 @@ void bochs_term_scroll() {
 	if (current_scroll + 12 >= BOCHS_BUFFER_SIZE - 768) {
 		/* And here's where it gets hacky */
 		uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
-		memmove((void *)bochs_vid_memory, (void *)((uintptr_t)bochs_vid_memory + bochs_resolution_x * (current_scroll + 12) * sizeof(uint32_t)), size);
+		memcpy((void *)bochs_vid_memory, (void *)((uintptr_t)bochs_vid_memory + bochs_resolution_x * (current_scroll + 12) * sizeof(uint32_t)), size);
 		bochs_set_y_offset(0);
 	} else {
 		bochs_set_y_offset(current_scroll + 12);

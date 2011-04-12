@@ -15,12 +15,7 @@ memcpy(
 		const void * restrict src,
 		size_t count
 	  ) {
-	size_t i;
-	unsigned char *a = dest;
-	const unsigned char *b = src;
-	for ( i = 0; i < count; ++i ) {
-		a[i] = b[i];
-	}
+	__asm__ __volatile__ ("cld; rep movsb" : "+c" (count), "+S" (src), "+D" (dest) :: "memory");
 	return dest;
 }
 
@@ -92,11 +87,7 @@ memset(
 		int val,
 		size_t count
 	  ) {
-	size_t i;
-	unsigned char * dest = b;
-	for ( i = 0; i < count; ++i ) {
-		dest[i] = (unsigned char)val;
-	}
+	__asm__ __volatile__ ("cld; rep stosb" : "+c" (count), "+D" (b) : "a" (val) : "memory");
 	return b;
 }
 
