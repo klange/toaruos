@@ -119,6 +119,7 @@ start_shell() {
 						}
 					}
 					fs_node_t * file = kopen(filename,0);
+					free(filename);
 					if (!file) {
 						kprintf("cat: could not open file `%s`\n", argv[1]);
 						continue;
