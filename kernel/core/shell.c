@@ -213,7 +213,7 @@ start_shell() {
 				if (tokenid < 2) {
 					continue;
 				}
-				int ret = exec(argv[1],tokenid - 1, &argv[1]);
+				int ret = system(argv[1],tokenid - 1, &argv[1]);
 				kprintf("Returned %d\n", ret);
 			} else if (!strcmp(cmd, "boredom")) {
 				int x = 30;
@@ -263,7 +263,7 @@ start_shell() {
 					kprintf("Unrecognized command: %s\n", cmd);
 				} else {
 					close_fs(chd);
-					exec(filename, tokenid, argv);
+					system(filename, tokenid, argv);
 				}
 				free(filename);
 			}

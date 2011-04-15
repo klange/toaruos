@@ -283,6 +283,7 @@ void enable_fpu();
 
 /* ELF */
 int exec( char *, int, char **);
+int system( char *, int, char **);
 
 /* Sytem Calls */
 void syscalls_install();
