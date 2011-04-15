@@ -125,3 +125,10 @@ ToAruOS is under the NCSA license, which is a derivative (and fully compatible w
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
     WITH THE SOFTWARE.
+
+### Additional Licenses ###
+
+ToAruOS contains additional software with the following copyright notices:
+
+* The CPU detection code provided in `kernel/core/cpudet.c`:
+  Copyright (c) 2006-2007 -  http://brynet.biz.tm - <brynet@gmail.com>
