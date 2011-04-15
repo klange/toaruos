@@ -265,6 +265,7 @@ start_shell() {
 					close_fs(chd);
 					exec(filename, tokenid, argv);
 				}
+				free(filename);
 			}
 		}
 	}
