@@ -92,7 +92,7 @@ exec(
 		close_fs(file);
 
 		/* Go go go */
-		enter_user_jmp(e_entry, argc, argv);
+		enter_user_jmp(entry, argc, argv);
 
 		/* We should never reach this code */
 		kexit(0x5ADFACE);
