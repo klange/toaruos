@@ -42,10 +42,18 @@ get_date(
 		) {
 	uint16_t values[128]; /* CMOS dump */
 	cmos_dump(values);
+
 	*month = from_bcd(values[8]);
 	*day   = from_bcd(values[7]);
 }
 
+/**
+ * Get the current time.
+ *
+ * @param hours   Pointer to a short to store the current hour (/24)
+ * @param minutes Pointer to a short to store the current minute
+ * @param seconds Pointer to a short to store the current second
+ */
 void
 get_time(
 		uint16_t * hours,
