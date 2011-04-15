@@ -2,7 +2,7 @@
 
 void kernel_halt() {
 	settextcolor(4,15);
-	kprintf("\n \203 System Halted!\n\n");
+	kprintf("\n \x13 System Halted!\n\n");
 
 	while (1) {
 		__asm__ __volatile__ ("cli");

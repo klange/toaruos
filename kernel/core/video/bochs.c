@@ -192,10 +192,10 @@ bochs_write_char(
 		uint32_t fg,
 		uint32_t bg
 		) {
-	if (val < 0x20 || val > 131) {
+	if (val > 131) {
 		val = ' ';
 	}
-	uint8_t * c = number_font[val - 0x20];
+	uint8_t * c = number_font[val];
 	for (uint8_t i = 0; i < 12; ++i) {
 		if (c[i] & 0x80) { bochs_set_point(x,y+i,fg);   } else { bochs_set_point(x,y+i,bg); }
 		if (c[i] & 0x40) { bochs_set_point(x+1,y+i,fg); } else { bochs_set_point(x+1,y+i,bg); }
