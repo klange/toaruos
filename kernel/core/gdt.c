@@ -1,6 +1,8 @@
 /*
- * vim:tabstop=4
- * vim:noexpandtab
+ * Global Descriptor Tables module
+ *
+ * Part of the ToAruOS Kernel
+ * (C) 2011 Kevin Lange
  */
 #include <system.h>
 
@@ -33,15 +35,20 @@ struct gdt_ptr {
 struct gdt_entry	gdt[6];
 struct gdt_ptr		gp;
 
-/*
+/**
  * (ASM) gdt_flush
  * Reloads the segment registers
  */
 extern void gdt_flush();
 
-/*
- * gdt_set_gate
+/**
  * Set a GDT descriptor
+ *
+ * @param num The number for the descriptor to set.
+ * @param base Base address
+ * @param limit Limit
+ * @param access Access permissions
+ * @param gran Granularity
  */
 void
 gdt_set_gate(
@@ -89,6 +96,9 @@ gdt_install() {
 	tss_flush();
 }
 
+/**
+ * Write a TSS (we only do this once)
+ */
 static void
 write_tss(
 		int32_t num,
@@ -105,6 +115,7 @@ write_tss(
 
 	tss_entry.ss0    = ss0;
 	tss_entry.esp0   = esp0;
+	/* Zero out the descriptors */
 	tss_entry.cs     = 0x0b;
 	tss_entry.ss     =
 		tss_entry.ds =
@@ -113,6 +124,11 @@ write_tss(
 		tss_entry.gs = 0x13;
 }
 
+/**
+ * Set the kernel stack.
+ *
+ * @param stack Pointer to a the stack pointer for the kernel.
+ */
 void
 set_kernel_stack(
 		uintptr_t stack
@@ -120,4 +136,7 @@ set_kernel_stack(
 	tss_entry.esp0 = stack;
 }
 
-
+/*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ */

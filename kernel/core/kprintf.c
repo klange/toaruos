@@ -1,6 +1,5 @@
 /*
- * vim:tabstop=4
- * vim:noexpandtab
+ * Kernel printf implementation
  *
  * Simple, painfully lacking, implementation of printf(),
  * for the kernel of all things.
@@ -17,7 +16,7 @@ static char buf[1024] = {-1};
 static int ptr = -1;
 
 /*
- * Parse integer
+ * Integer to string
  */
 static void
 parse_num(
@@ -37,7 +36,7 @@ parse_num(
 }
 
 /*
- * Parse hexadecimal
+ * Hexadecimal to string
  */
 static void
 parse_hex(
@@ -49,10 +48,12 @@ parse_hex(
 	}
 }
 
-/*
- * kprintf
- * %s, %c, %x, %d, %%
+/**
  * (Kernel) Print a formatted string.
+ * %s, %c, %x, %d, %%
+ *
+ * @param fmt Formatted string to print
+ * @param ... Additional arguments to format
  */
 void
 kprintf(
@@ -65,53 +66,50 @@ kprintf(
 	va_start(args, fmt);
 	ptr = 0;
 	for ( ; fmt[i]; ++i) {
-		if ((fmt[i] != '%') && (fmt[i] != '\\')) {
+		if (fmt[i] != '%') {
 			buf[ptr++] = fmt[i];
-			continue;
-		} else if (fmt[i] == '\\') {
-			switch (fmt[++i]) {
-				case 'a': buf[ptr++] = '\a'; break;
-				case 'b': buf[ptr++] = '\b'; break;
-				case 't': buf[ptr++] = '\t'; break;
-				case 'n': buf[ptr++] = '\n'; break;
-				case 'r': buf[ptr++] = '\r'; break;
-				case '\\':buf[ptr++] = '\\'; break;
-			}
 			continue;
 		}
 		/* fmt[i] == '%' */
 		switch (fmt[++i]) {
-			case 's':
+			case 's': /* String pointer -> String */
 				s = (char *)va_arg(args, char *);
 				while (*s) {
 					buf[ptr++] = *s++;
 				}
 				break;
-			case 'c':
+			case 'c': /* Single character */
 				buf[ptr++] = (char)va_arg(args, int);
 				break;
-			case 'x':
+			case 'x': /* Hexadecimal number */
 				parse_hex((unsigned long)va_arg(args, unsigned long));
 				break;
-			case 'd':
+			case 'd': /* Decimal number */
 				parse_num((unsigned long)va_arg(args, unsigned long), 10);
 				break;
-			case '%':
+			case '%': /* Escape */
 				buf[ptr++] = '%';
 				break;
-			default:
+			default: /* Nothing at all, just dump it */
 				buf[ptr++] = fmt[i];
 				break;
 		}
 	}
+	/* Ensure the buffer ends in a null */
 	buf[ptr] = '\0';
+	/* We're done with our arguments */
 	va_end(args);
+	/* Print that sucker */
 	if (ansi_ready) {
 		ansi_print(buf);
 	} else {
 		puts(buf);
 	}
 }
+
+/*
+ * gets() implementation for the kernel
+ */
 
 char * kgets_buffer = NULL;
 int kgets_collected = 0;
@@ -127,6 +125,9 @@ kwrite(
 	serial_send(ch);
 }
 
+/**
+ * (Internal) kgets keyboard handler
+ */
 void
 kgets_handler(
 		char ch
@@ -135,44 +136,66 @@ kgets_handler(
 	if (ch == 0x08) {
 		/* Backspace */
 		if (kgets_collected != 0) {
+			/* Clear the previous character */
 			kwrite(0x08);
 			kwrite(' ');
 			kwrite(0x08);
+			/* Erase the end of the buffer */
 			kgets_buffer[kgets_collected] = '\0';
+			/* The buffer just got on character smaller */
 			--kgets_collected;
 		}
 		return;
 	} else if (ch == '\n') {
+		/* Newline finishes off the kgets() */
 		kwrite('\n');
 		kgets_newline = 1;
 		return;
 	} else if (ch < 0x20) {
+		/* Uh, control characters in our kgets()? It's more likely than you think */
 		kwrite('^');
 		kwrite(ch + 0x40);
 		return;
-	} else {
-		kwrite(ch);
 	}
+	/* Add this character to the buffer. */
+	kwrite(ch);
 	if (kgets_collected < kgets_want) {
 		kgets_buffer[kgets_collected] = ch;
 		kgets_collected++;
 	}
 }
 
+/**
+ * Synchronously get a string from the keyboard.
+ *
+ * @param buffer Where to put it
+ * @param size   Maximum size of the string to receive.
+ */
 int
 kgets(
 		char *buffer,
 		int size
 	 ) {
+	/* Reset the buffer */
 	kgets_buffer    = buffer;
 	kgets_collected = 0;
 	kgets_want      = size;
 	kgets_newline   = 0;
+	/* Assign the keyboard handler */
 	keyboard_buffer_handler = kgets_handler;
 	while ((kgets_collected < size) && (!kgets_newline)) {
+		/* Wait until the buffer is ready */
 		__asm__ __volatile__ ("hlt");
 	}
+	/* Fix any missing nulls */
 	buffer[kgets_collected] = '\0';
+	/* Disable the buffer */
 	keyboard_buffer_handler = NULL;
+	/* Return the string */
 	return kgets_collected;
 }
+
+/*
+ * vim:tabstop=4
+ * vim:noexpandtab
+ */
