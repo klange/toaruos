@@ -150,9 +150,11 @@ ansi_put(
 							} else if (arg >= 90 && arg < 100) {
 								/* Bright foreground */
 								state.fg = 8 + (arg - 90);
-							} else if (arg >= 40 && arg < 50) {
+							} else if (arg >= 40 && arg < 49) {
 								/* Set background */
 								state.bg = arg - 40;
+							} else if (arg == 49) {
+								state.bg = 0;
 							} else if (arg >= 30 && arg < 39) {
 								/* Set Foreground */
 								state.fg = arg - 30;
