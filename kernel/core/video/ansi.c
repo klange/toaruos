@@ -203,6 +203,9 @@ ansi_put(
 						}
 						bochs_set_csr(atoi(argv[1]) - 1, atoi(argv[0]) - 1);
 						break;
+					case ANSI_ED:
+						cls();
+						break;
 					case ANSI_EL:
 						{
 							int what = 0, x = 0, y = 0;
