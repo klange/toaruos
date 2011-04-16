@@ -128,7 +128,7 @@ start_shell() {
 					size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
 					size_t i = 0;
 					for (i = 0; i < bytes_read; ++i) {
-						ansi_put(bufferb[i]);
+						kprintf("%c", bufferb[i]);
 					}
 					free(bufferb);
 					close_fs(file);

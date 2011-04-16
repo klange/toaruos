@@ -15,7 +15,7 @@ MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/core/video/*.c))
 BINARIES = initrd/bin/hello initrd/bin/echo initrd/bin/yes
-UTILITIES = util/bin/readelf
+UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
 GENEXT = genext2fs
 DD = dd conv=notrunc
@@ -99,12 +99,7 @@ initrd/boot/kernel: toaruos-kernel
 #   Utilities  #
 ################
 
-util/bin/mrboots-installer: util/mrboots-installer.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${CC} ${NATIVEFLAGS} -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
-
-util/bin/readelf: util/readelf.c
+util/bin/%: util/%.c
 	@${ECHO} -n "\033[32m   CC   $<\033[0m"
 	@${CC} ${NATIVEFLAGS} -o $@ $<
 	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"

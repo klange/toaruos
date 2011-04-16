@@ -12,7 +12,7 @@
 #define ANSI_BRACKET '['
 /* Anything in this range (should) exit escape mode. */
 #define ANSI_LOW    'A'
-#define ANSI_HIGH   'u'
+#define ANSI_HIGH   'z'
 /* Escape commands */
 #define ANSI_CUU    'A' /* CUrsor Up                  */
 #define ANSI_CUD    'B' /* CUrsor Down                */
@@ -153,9 +153,12 @@ ansi_put(
 							} else if (arg >= 40 && arg < 50) {
 								/* Set background */
 								state.bg = arg - 40;
-							} else if (arg >= 30 && arg < 40) {
+							} else if (arg >= 30 && arg < 39) {
 								/* Set Foreground */
 								state.fg = arg - 30;
+							} else if (arg == 39) {
+								/* Default Foreground */
+								state.fg = 7;
 							} else if (arg == 20) {
 								/* FRAKTUR: Like old German stuff */
 								state.flags |= ANSI_FRAKTUR;
@@ -185,6 +188,58 @@ ansi_put(
 								state.bg = 0;
 								state.flags = 0;
 							}
+						}
+						break;
+					case ANSI_SHOW:
+						if (!strcmp(argv[0], "?1049")) {
+							cls();
+							bochs_set_csr(0,0);
+						}
+						break;
+					case ANSI_CUP:
+						if (argc < 2) {
+							bochs_set_csr(0,0);
+							break;
+						}
+						bochs_set_csr(atoi(argv[1]) - 1, atoi(argv[0]) - 1);
+						break;
+					case ANSI_EL:
+						{
+							int what = 0, x = 0, y = 0;
+							if (argc >= 1) {
+								what = atoi(argv[0]);
+							}
+							if (what == 0) {
+								x = bochs_get_csr_x();
+								y = bochs_get_width();
+							} else if (what == 1) {
+								x = 0;
+								y = bochs_get_csr_x();
+							} else if (what == 2) {
+								x = 0;
+								y = bochs_get_width();
+							}
+							for (int i = x; i < y; ++i) {
+								bochs_set_cell(i, bochs_get_csr_y(), ' ');
+							}
+						}
+						break;
+					case 'X':
+						{
+						int how_many = 1;
+						if (argc >= 1) {
+							how_many = atoi(argv[0]);
+						}
+						for (int i = 0; i < how_many; ++i) {
+							ansi_writer(' ');
+						}
+						}
+						break;
+					case 'd':
+						if (argc < 1) {
+							bochs_set_csr(bochs_get_csr_x(), 0);
+						} else {
+							bochs_set_csr(bochs_get_csr_x(), atoi(argv[0]) - 1);
 						}
 						break;
 					default:

@@ -38,6 +38,7 @@ static uint8_t * term_buffer;
 static uint8_t current_fg = 7;
 static uint8_t current_bg = 0;
 static uint16_t current_scroll = 0;
+static uint8_t cursor_on = 1;
 
 void
 bochs_set_y_offset(uint16_t y) {
@@ -307,6 +308,7 @@ void bochs_reset_colors() {
 }
 
 void draw_cursor() {
+	if (!cursor_on) return;
 	for (uint32_t x = 0; x < 8; ++x) {
 		bochs_set_point(csr_x * 8 + x, csr_y * 12 + 11, bochs_colors[current_fg]);
 	}
@@ -323,6 +325,9 @@ void bochs_write(char c) {
 		}
 		csr_x = 0;
 		++csr_y;
+	} else if (c == '\r') {
+		cell_redraw(csr_x,csr_y);
+		csr_x = 0;
 	} else if (c == '\b') {
 		--csr_x;
 		cell_set(csr_x, csr_y, ' ',current_fg, current_bg, 0);
@@ -364,4 +369,42 @@ void bochs_draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_
 			y0 += sy;
 		}
 	}
+}
+
+void
+bochs_set_csr(int x, int y) {
+	cell_redraw(csr_x,csr_y);
+	csr_x = x;
+	csr_y = y;
+}
+
+int
+bochs_get_csr_x() {
+	return csr_x;
+}
+
+int
+bochs_get_csr_y() {
+	return csr_y;
+}
+
+void
+bochs_set_csr_show(uint8_t on) {
+	cursor_on = on;
+}
+
+int
+bochs_get_width() {
+	return bochs_resolution_x / 8;
+}
+
+int
+bochs_get_height() {
+	return bochs_resolution_y / 12;
+}
+
+void
+bochs_set_cell(int x, int y, char c) {
+	cell_set(x, y, c, current_fg, current_bg, 0);
+	cell_redraw(x, y);
 }

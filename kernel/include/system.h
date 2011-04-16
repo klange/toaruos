@@ -249,6 +249,10 @@ extern int detect_cpu();
 /* Video Drivers */
 /* BOCHS / QEMU VBE Driver */
 extern void graphics_install_bochs();
+extern void bochs_set_csr(int x, int y);
+extern int  bochs_get_csr_x();
+extern int  bochs_get_csr_y();
+extern void bochs_set_csr_on(uint8_t);
 extern void bochs_set_bank(uint16_t bank);
 extern void bochs_set_coord(uint16_t x, uint16_t y, uint32_t color);
 extern void bochs_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color);
@@ -267,6 +271,9 @@ extern void bochs_write(char c);
 extern void bochs_reset_colors();
 extern void bochs_set_colors(uint8_t, uint8_t);
 extern void bochs_draw_line(uint16_t,uint16_t,uint16_t,uint16_t,uint32_t);
+extern int bochs_get_width();
+extern int bochs_get_height();
+extern void bochs_set_cell(int x, int y, char c);
 
 /* ANSI Terminal Escape Processor */
 void ansi_put(char c);
