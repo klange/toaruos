@@ -9,15 +9,20 @@ int main(int argc, char ** argv) {
 	};
 	syscall_print(x);
 	syscall_print("\n");
-	char * bin = "/bin/echo";
-	char * args = "herp";
-	char * argv_[] = {
-		bin,
-		args,
-		args,
-		args,
-		0
-	};
-	syscall_execve(bin, argv_, 0);
+	int i = syscall_getpid();
+	syscall_fork();
+	if (syscall_getpid() != i) {
+		syscall_print("Herp!\n");
+		char * bin = "/bin/echo";
+		char * args = "von derpington";
+		char * argv_[] = {
+			bin,
+			args,
+			0
+		};
+		syscall_execve(bin, argv_, 0);
+	} else {
+		syscall_print("Awe shucks\n");
+	}
 	return 0;
 }

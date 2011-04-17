@@ -12,7 +12,7 @@
 
 void validate(void * ptr) {
 	if (ptr && (uintptr_t)ptr < current_task->entry) {
-		kprintf("SEGFAULT: Invalid pointer passed to syscall. (0x%x)\n", (uintptr_t)ptr);
+		kprintf("SEGFAULT: Invalid pointer passed to syscall. (0x%x < 0x%x)\n", (uintptr_t)ptr, current_task->entry);
 		HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
 	}
 }

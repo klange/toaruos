@@ -110,7 +110,12 @@ fork() {
 	new_task->next_fd = 0;
 	new_task->finished = 0;
 	new_task->image_size = 0;
-	new_task->entry = 0xFFFFFFFF;
+	/* Some stuff */
+	new_task->entry  = current_task->entry;
+	new_task->heap   = current_task->heap;
+	new_task->heap_a = current_task->heap_a;
+	new_task->image_size = current_task->image_size;
+
 	task_t * tmp_task = (task_t *)ready_queue;
 	new_task->parent = parent;
 	while (tmp_task->next) {
@@ -130,6 +135,7 @@ fork() {
 			new_task->esp = esp + (new_task->stack - current_task->stack);
 			new_task->ebp = ebp - (current_task->stack - new_task->stack);
 		}
+		kprintf("old: %x new: %x; end: %x %x\n", esp, new_task->esp, current_task->stack, new_task->stack);
 		memcpy((void *)(new_task->stack - KERNEL_STACK_SIZE), (void *)(current_task->stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
 		new_task->eip = eip;
 		__asm__ __volatile__ ("sti");
@@ -215,7 +221,7 @@ void task_exit(int retval) {
 	current_task->finished = 1;
 	/* Free the image memory */
 	for (uintptr_t i = 0; i < current_task->image_size; i += 0x1000) {
-		free_frame(get_page(current_task->entry + i, 0, current_directory));
+		//free_frame(get_page(current_task->entry + i, 0, current_directory));
 	}
 	/* Dequeue us */
 	task_t volatile * temp = ready_queue;
@@ -229,7 +235,7 @@ void task_exit(int retval) {
 	} else {
 		prev->next = current_task->next;
 	}
-	free((void *)(current_task->stack - KERNEL_STACK_SIZE));
+	//free((void *)(current_task->stack - KERNEL_STACK_SIZE));
 	free((void *)current_task->page_directory);
 	free((void *)current_task->descriptors);
 	//free((void *)current_task);
