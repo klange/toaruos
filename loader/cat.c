@@ -6,6 +6,12 @@ int main(int argc, char ** argv) {
 		return -1;
 	} else {
 		int i = syscall_open(argv[1], 0, 0);
+		if (i < 0) {
+			syscall_print("cat: could not open '");
+			syscall_print(argv[1]);
+			syscall_print("': no such file or directory\n");
+			return 1;
+		}
 		char dat[2] = {0, 0};
 		int read = 0;
 		while ((read = syscall_read(i, dat, 1))) {

@@ -30,7 +30,7 @@ static int exit(int retval) {
 }
 
 static int read(int fd, char * ptr, int len) {
-	if (fd >= current_task->next_fd) {
+	if (fd >= current_task->next_fd || fd < 0) {
 		return -1;
 	}
 	fs_node_t * node = current_task->descriptors[fd];
@@ -40,7 +40,7 @@ static int read(int fd, char * ptr, int len) {
 }
 
 static int write(int fd, char * ptr, int len) {
-	if (fd >= current_task->next_fd) {
+	if (fd >= current_task->next_fd || fd < 0) {
 		return -1;
 	}
 	fs_node_t * node = current_task->descriptors[fd];
@@ -60,7 +60,7 @@ static int open(const char * file, int flags, int mode) {
 }
 
 static int close(int fd) {
-	if (fd <= current_task->next_fd) { 
+	if (fd <= current_task->next_fd || fd < 0) { 
 		return -1;
 	}
 	close_fs(current_task->descriptors[fd]);
