@@ -247,6 +247,14 @@ extern void parse_args(char * argv);
 extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
 extern void get_date(uint16_t * month, uint16_t * day);
 
+struct timeval {
+	uint32_t tv_sec;
+	uint32_t tv_usec;
+};
+
+extern int gettimeofday(struct timeval * t, void * z);
+
+
 /* CPU Detect by Brynet */
 extern int detect_cpu();
 

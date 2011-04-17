@@ -68,6 +68,23 @@ get_time(
 	*seconds = from_bcd(values[0]);
 }
 
+int
+gettimeofday(struct timeval * t, void *z) {
+	uint16_t values[128];
+	cmos_dump(values);
+
+	/* Math Time */
+	uint32_t time = (from_bcd(values[9]) - 70) * 31556926 +
+					from_bcd(values[8]) * 2629743 +
+					from_bcd(values[7]) * 87400 +
+					from_bcd(values[4]) * 3600 +
+					from_bcd(values[2]) * 60 +
+					from_bcd(values[0]);
+	t->tv_sec = time;
+	t->tv_usec = 0;
+	return 0;
+}
+
 /*
  * vim:tabstop=4
  * vim:noexpandtab

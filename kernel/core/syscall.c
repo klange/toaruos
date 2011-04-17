@@ -67,6 +67,20 @@ static int close(int fd) {
 	return 0;
 }
 
+static int execve(const char * filename, char *const argv[], char *const envp[]) {
+	int i = 0;
+	while (argv[i]) {
+		++i;
+	}
+	/* Discard envp */
+	exec((char *)filename, i, (char **)argv);
+	return -1;
+}
+
+static int sys_fork() {
+	return fork();
+}
+
 /*
  * System Call Internals
  */
@@ -78,9 +92,12 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&open,
 	(uintptr_t)&read,
 	(uintptr_t)&write,
-	(uintptr_t)&close
+	(uintptr_t)&close,
+	(uintptr_t)&gettimeofday,
+	(uintptr_t)&execve,
+	(uintptr_t)&sys_fork,
 };
-uint32_t num_syscalls = 6;
+uint32_t num_syscalls = 9;
 
 void
 syscalls_install() {

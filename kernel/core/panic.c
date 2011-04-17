@@ -12,7 +12,8 @@ void kernel_halt() {
 
 void halt_and_catch_fire(char * error_message, const char * file, int line, struct regs * regs) {
 	__asm__ __volatile__("cli");
-	settextcolor(14,4);
+	settextcolor(0,11);
+	kprintf("Process %d did a dumb.\n", getpid());
 	kprintf("PANIC! %s\n", error_message);
 	kprintf("File: %s\n", file);
 	kprintf("Line: %d\n", line);
@@ -26,7 +27,9 @@ void halt_and_catch_fire(char * error_message, const char * file, int line, stru
 		kprintf("User ESP:   0x%x\n",  regs->useresp);
 		kprintf("eip=0x%x\n",          regs->eip);
 	}
-	kernel_halt();
+	kprintf("Killing process...\n");
+	resettextcolor();
+	kexit(0);
 }
 
 void assert_failed(const char *file, uint32_t line, const char *desc) {

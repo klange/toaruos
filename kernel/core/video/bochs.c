@@ -315,7 +315,6 @@ void draw_cursor() {
 }
 
 void bochs_write(char c) {
-	__asm__ __volatile__ ("cli");
 	cell_redraw(csr_x, csr_y);
 	if (c == '\n') {
 		for (uint16_t i = csr_x; i < TERM_WIDTH; ++i) {
@@ -346,7 +345,6 @@ void bochs_write(char c) {
 		csr_y = TERM_HEIGHT - 1;
 	}
 	draw_cursor();
-	__asm__ __volatile__ ("sti");
 }
 
 

@@ -157,7 +157,7 @@ switch_task() {
 	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
 	eip = read_eip();
 	if (eip == 0x10000) {
-
+		__asm__ __volatile__ ("sti");
 		return;
 	}
 	current_task->eip = eip;
@@ -190,7 +190,6 @@ void
 enter_user_mode() {
 	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
 	__asm__ __volatile__(
-			"cli\n"
 			"mov $0x23, %ax\n"
 			"mov %ax, %ds\n"
 			"mov %ax, %es\n"
@@ -214,7 +213,6 @@ void
 enter_user_jmp(uintptr_t location, int argc, char ** argv) {
 	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
 	__asm__ __volatile__(
-			"cli\n"
 			"mov $0x23, %%ax\n"
 			"mov %%ax, %%ds\n"
 			"mov %%ax, %%es\n"

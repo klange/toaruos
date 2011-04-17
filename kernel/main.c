@@ -157,9 +157,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 
 	start_shell();
 
-	fork();
-
-	if (getpid() == 0) {
+	if (fork()) {
 		char * args[] = {
 			"/bin/yes",
 			"\033[1;32mA\033[0m"
