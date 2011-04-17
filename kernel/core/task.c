@@ -73,6 +73,9 @@ tasking_install() {
 	current_task->page_directory = current_directory; //clone_directory(current_directory);
 	current_task->next = 0;
 
+	current_task->descriptors = (fs_node_t **)kmalloc(sizeof(fs_node_t *) * 1024);
+	current_task->next_fd = 0;
+
 	//switch_page_directory(current_task->page_directory);
 
 	__asm__ __volatile__ ("sti");
@@ -102,10 +105,14 @@ fork() {
 	new_task->page_directory = directory;
 	new_task->next = NULL;
 	new_task->stack = kvmalloc(KERNEL_STACK_SIZE);
+	new_task->descriptors = (fs_node_t **)kmalloc(sizeof(fs_node_t *) * 1024);
+	memcpy(new_task->descriptors, parent->descriptors, sizeof(fs_node_t *) * 1024);
+	new_task->next_fd = 0;
 	new_task->finished = 0;
 	new_task->image_size = 0;
 	new_task->entry = 0xFFFFFFFF;
 	task_t * tmp_task = (task_t *)ready_queue;
+	new_task->parent = parent;
 	while (tmp_task->next) {
 		tmp_task = tmp_task->next;
 	}
@@ -249,6 +256,7 @@ void task_exit(int retval) {
 	}
 	free((void *)current_task->stack);
 	free((void *)current_task->page_directory);
+	free((void *)current_task->descriptors);
 	//free((void *)current_task);
 	__asm__ __volatile__ ("sti");
 }

@@ -98,41 +98,6 @@ start_shell() {
 						kprintf("cd: could not change directory\n");
 					}
 				}
-			} else if (!strcmp(cmd, "cat")) {
-				/*
-				 * Read and print content of file
-				 */
-				if (tokenid < 2) {
-					kprintf("cat: argument expected\n");
-					continue;
-				} else {
-					char * filename = malloc(sizeof(char) * 1024);
-					if (argv[1][0] == '/') {
-						memcpy(filename, argv[1], strlen(argv[1]) + 1);
-					} else {
-						memcpy(filename, path, strlen(path));
-						if (!strcmp(path,"/")) {
-							memcpy((void *)((uintptr_t)filename + strlen(path)),argv[1],strlen(argv[1])+1); 
-						} else {
-							filename[strlen(path)] = '/';
-							memcpy((void *)((uintptr_t)filename + strlen(path) + 1),argv[1],strlen(argv[1])+1); 
-						}
-					}
-					fs_node_t * file = kopen(filename,0);
-					free(filename);
-					if (!file) {
-						kprintf("cat: could not open file `%s`\n", argv[1]);
-						continue;
-					}
-					char *bufferb = malloc(file->length + 200);
-					size_t bytes_read = read_fs(file, 0, file->length, (uint8_t *)bufferb);
-					size_t i = 0;
-					for (i = 0; i < bytes_read; ++i) {
-						kprintf("%c", bufferb[i]);
-					}
-					free(bufferb);
-					close_fs(file);
-				}
 			} else if (!strcmp(cmd, "ls")) {
 				/*
 				 * List the files in the current working directory

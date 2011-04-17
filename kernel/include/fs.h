@@ -34,6 +34,7 @@ typedef struct fs_node {
 	readdir_type_t readdir;
 	finddir_type_t finddir;
 	struct fs_node *ptr;
+	uint32_t offset;
 } fs_node_t;
 
 struct dirent {

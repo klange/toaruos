@@ -1,8 +1,6 @@
 /*
  * ToAruOS DevFS
  *
- * vim:noexpandtab
- * vim:tabstop=4
  */
 #include <system.h>
 #include <fs.h>
@@ -37,3 +35,14 @@ uint32_t write_devfs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 	return -1;
 }
 
+
+fs_node_t *
+devfs_create_keyboard() {
+	return NULL;
+}
+
+/*
+ * vim:noexpandtab
+ * vim:tabstop=4
+ * vim:shiftwidth=4
+ */

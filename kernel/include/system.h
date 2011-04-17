@@ -2,6 +2,7 @@
 #define __SYSTEM_H
 #define _KERNEL_
 #include <types.h>
+#include <fs.h>
 
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
@@ -178,6 +179,9 @@ typedef struct task {
 	struct task *next;
 	uintptr_t stack;
 	uintptr_t user_stack;
+	struct task * parent;
+	fs_node_t **  descriptors;
+	uint16_t  next_fd;
 	int       retval;
 	uint8_t   finished;
 	uint32_t  image_size;

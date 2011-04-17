@@ -29,6 +29,44 @@ static int exit(int retval) {
 	return retval;
 }
 
+static int read(int fd, char * ptr, int len) {
+	if (fd >= current_task->next_fd) {
+		return -1;
+	}
+	fs_node_t * node = current_task->descriptors[fd];
+	uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
+	node->offset += out;
+	return out;
+}
+
+static int write(int fd, char * ptr, int len) {
+	if (fd >= current_task->next_fd) {
+		return -1;
+	}
+	fs_node_t * node = current_task->descriptors[fd];
+	uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
+	node->offset += out;
+	return out;
+}
+
+static int open(const char * file, int flags, int mode) {
+	fs_node_t * node = kopen(file, 0);
+	if (!node) {
+		return -1;
+	}
+	current_task->descriptors[current_task->next_fd] = node;
+	node->offset = 0;
+	return current_task->next_fd++;
+}
+
+static int close(int fd) {
+	if (fd <= current_task->next_fd) { 
+		return -1;
+	}
+	close_fs(current_task->descriptors[fd]);
+	return 0;
+}
+
 /*
  * System Call Internals
  */
@@ -36,9 +74,13 @@ static void syscall_handler(struct regs * r);
 static uintptr_t syscalls[] = {
 	/* System Call Table */
 	(uintptr_t)&exit,
-	(uintptr_t)&print
+	(uintptr_t)&print,
+	(uintptr_t)&open,
+	(uintptr_t)&read,
+	(uintptr_t)&write,
+	(uintptr_t)&close
 };
-uint32_t num_syscalls = 2;
+uint32_t num_syscalls = 6;
 
 void
 syscalls_install() {
