@@ -186,6 +186,8 @@ typedef struct task {
 	uint8_t   finished;
 	uint32_t  image_size;
 	uintptr_t entry;
+	uintptr_t heap;
+	uintptr_t heap_a;
 } task_t;
 
 extern __volatile__ task_t * current_task;

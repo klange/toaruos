@@ -78,6 +78,16 @@ static int close(int fd) {
 	return 0;
 }
 
+static int sys_sbrk(int size) {
+	uintptr_t ret = current_task->heap;
+	current_task->heap += size;
+	while (current_task->heap > current_task->heap_a) {
+		current_task->heap_a += 0x1000;
+		alloc_frame(get_page(current_task->heap_a, 1, current_directory), 0, 1);
+	}
+	return ret;
+}
+
 static int execve(const char * filename, char *const argv[], char *const envp[]) {
 	validate((void *)argv);
 	validate((void *)filename);
@@ -116,8 +126,9 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&execve,
 	(uintptr_t)&sys_fork,
 	(uintptr_t)&getpid,
+	(uintptr_t)&sys_sbrk,
 };
-uint32_t num_syscalls = 10;
+uint32_t num_syscalls = 11;
 
 void
 syscalls_install() {

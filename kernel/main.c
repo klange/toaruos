@@ -162,12 +162,14 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 			"/bin/yes",
 			"\033[1;32mA\033[0m"
 		};
+		kprintf("%x", &args);
 		exec("/bin/yes",2,args);
 	} else {
 		char * args[] = {
 			"/bin/yes",
 			"\033[1;31mB\033[0m"
 		};
+		kprintf("%x", &args);
 		exec("/bin/yes",2,args);
 	}
 

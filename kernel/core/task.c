@@ -69,7 +69,7 @@ tasking_install() {
 	current_task->esp = 0;
 	current_task->ebp = 0;
 	current_task->eip = 0;
-	current_task->stack = initial_esp;
+	current_task->stack = initial_esp + 1;
 	current_task->page_directory = current_directory; //clone_directory(current_directory);
 	current_task->next = 0;
 
@@ -104,7 +104,7 @@ fork() {
 	new_task->eip = 0;
 	new_task->page_directory = directory;
 	new_task->next = NULL;
-	new_task->stack = kvmalloc(KERNEL_STACK_SIZE);
+	new_task->stack = kvmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
 	new_task->descriptors = (fs_node_t **)kmalloc(sizeof(fs_node_t *) * 1024);
 	memcpy(new_task->descriptors, parent->descriptors, sizeof(fs_node_t *) * 1024);
 	new_task->next_fd = 0;
@@ -123,15 +123,14 @@ fork() {
 		uintptr_t ebp;
 		__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
 		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
-		signed int old_stack_offset;
 		if (current_task->stack > new_task->stack) {
-			old_stack_offset = -(current_task->stack - new_task->stack);
+			new_task->esp = esp - (current_task->stack - new_task->stack);
+			new_task->ebp = ebp - (current_task->stack - new_task->stack);
 		} else {
-			old_stack_offset = new_task->stack - current_task->stack;
+			new_task->esp = esp + (new_task->stack - current_task->stack);
+			new_task->ebp = ebp - (current_task->stack - new_task->stack);
 		}
-		new_task->esp = esp + old_stack_offset;
-		memcpy((void *)(new_task->esp),(void*)esp,current_task->stack + KERNEL_STACK_SIZE - esp);
-		new_task->ebp = ebp + old_stack_offset;
+		memcpy((void *)(new_task->stack - KERNEL_STACK_SIZE), (void *)(current_task->stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
 		new_task->eip = eip;
 		__asm__ __volatile__ ("sti");
 		return new_task->id;
@@ -188,7 +187,7 @@ switch_task() {
 
 void
 enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
-	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
+	set_kernel_stack(current_task->stack);
 	__asm__ __volatile__(
 			"mov %3, %%esp\n"
 			"mov $0x23, %%ax\n"
@@ -230,7 +229,7 @@ void task_exit(int retval) {
 	} else {
 		prev->next = current_task->next;
 	}
-	free((void *)current_task->stack);
+	free((void *)(current_task->stack - KERNEL_STACK_SIZE));
 	free((void *)current_task->page_directory);
 	free((void *)current_task->descriptors);
 	//free((void *)current_task);
