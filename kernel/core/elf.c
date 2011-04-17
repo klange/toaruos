@@ -21,7 +21,6 @@
  * can be read properly.
  *
  * TODO: Environment variables should be loaded somewhere.
- * TODO: Keep track of file descriptors so we can do open/read/write/close
  *
  * HACK: ELF verification isn't complete.
  *
@@ -88,8 +87,25 @@ exec(
 	free(header);
 	close_fs(file);
 
+	for (uintptr_t stack_pointer = 0x10000000; stack_pointer < 0x100F0000; stack_pointer += 0x1000) {
+		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
+	}
+
+	
+
+	uintptr_t heap = current_task->entry + current_task->image_size;
+	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+	char ** argv_ = (char **)heap;
+	heap += sizeof(char *) * argc;
+	for (int i = 0; i < argc; ++i) {
+		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+		argv_[i] = (char *)heap;
+		memcpy((void *)heap, argv[i], strlen(argv[i]) * sizeof(char) + 1);
+		heap += strlen(argv[i]) + 1;
+	}
+
 	/* Go go go */
-	enter_user_jmp(entry, argc, argv);
+	enter_user_jmp(entry, argc, argv_, 0x100EFFFF);
 
 		/* We should never reach this code */
 	return -1;

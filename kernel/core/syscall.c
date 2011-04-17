@@ -10,10 +10,18 @@
  * System calls themselves
  */
 
+void validate(void * ptr) {
+	if (ptr && (uintptr_t)ptr < current_task->entry) {
+		kprintf("SEGFAULT: Invalid pointer passed to syscall. (0x%x)\n", (uintptr_t)ptr);
+		HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
+	}
+}
+
 /*
  * print something to the core terminal
  */
 static int print(char * s) {
+	validate((void *)s);
 	kprintf(s);
 	return 0;
 }
@@ -33,6 +41,7 @@ static int read(int fd, char * ptr, int len) {
 	if (fd >= current_task->next_fd || fd < 0) {
 		return -1;
 	}
+	validate(ptr);
 	fs_node_t * node = current_task->descriptors[fd];
 	uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
 	node->offset += out;
@@ -43,6 +52,7 @@ static int write(int fd, char * ptr, int len) {
 	if (fd >= current_task->next_fd || fd < 0) {
 		return -1;
 	}
+	validate(ptr);
 	fs_node_t * node = current_task->descriptors[fd];
 	uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
 	node->offset += out;
@@ -50,6 +60,7 @@ static int write(int fd, char * ptr, int len) {
 }
 
 static int open(const char * file, int flags, int mode) {
+	validate((void *)file);
 	fs_node_t * node = kopen(file, 0);
 	if (!node) {
 		return -1;
@@ -68,12 +79,20 @@ static int close(int fd) {
 }
 
 static int execve(const char * filename, char *const argv[], char *const envp[]) {
+	validate((void *)argv);
+	validate((void *)filename);
+	validate((void *)envp);
 	int i = 0;
 	while (argv[i]) {
 		++i;
 	}
+	char ** argv_ = malloc(sizeof(char *) * i);
+	for (int j = 0; j < i; ++j) {
+		argv_[j] = malloc((strlen(argv[j]) + 1) * sizeof(char));
+		memcpy(argv_[j], argv[j], strlen(argv[j]) + 1);
+	}
 	/* Discard envp */
-	exec((char *)filename, i, (char **)argv);
+	exec((char *)filename, i, (char **)argv_);
 	return -1;
 }
 
@@ -96,8 +115,9 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&gettimeofday,
 	(uintptr_t)&execve,
 	(uintptr_t)&sys_fork,
+	(uintptr_t)&getpid,
 };
-uint32_t num_syscalls = 9;
+uint32_t num_syscalls = 10;
 
 void
 syscalls_install() {

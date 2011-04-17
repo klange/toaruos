@@ -187,32 +187,10 @@ switch_task() {
 }
 
 void
-enter_user_mode() {
+enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
 	__asm__ __volatile__(
-			"mov $0x23, %ax\n"
-			"mov %ax, %ds\n"
-			"mov %ax, %es\n"
-			"mov %ax, %fs\n"
-			"mov %ax, %gs\n"
-			"mov %esp, %eax\n"
-			"pushl $0x23\n"
-			"pushl %eax\n"
-			"pushf\n"
-			"popl %eax\n"
-			"orl  $0x200, %eax\n"
-			"pushl %eax\n"
-			"pushl $0x1B\n"
-			"push $1f\n"
-			"iret\n"
-		"1:\n"
-			"mov %ax, %ax\n");
-}
-
-void
-enter_user_jmp(uintptr_t location, int argc, char ** argv) {
-	set_kernel_stack(current_task->stack + KERNEL_STACK_SIZE);
-	__asm__ __volatile__(
+			"mov %3, %%esp\n"
 			"mov $0x23, %%ax\n"
 			"mov %%ax, %%ds\n"
 			"mov %%ax, %%es\n"
@@ -229,7 +207,7 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv) {
 			"pushl %2\n"
 			"pushl %1\n"
 			"call  *%0\n"
-			: : "m"(location), "m"(argc), "m"(argv));
+			: : "m"(location), "m"(argc), "m"(argv), "r"(stack));
 }
 
 void task_exit(int retval) {

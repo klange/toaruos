@@ -235,8 +235,7 @@ extern void tasking_install();
 extern void switch_task();
 extern uint32_t fork();
 extern uint32_t getpid();
-extern void enter_user_mode();
-extern void enter_user_jmp(uintptr_t location, int argc, char ** argv);
+extern void enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack);
 
 uintptr_t initial_esp;
 

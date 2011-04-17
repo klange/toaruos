@@ -14,7 +14,7 @@ ECHO = `which echo` -e
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/core/video/*.c))
-BINARIES = initrd/bin/hello initrd/bin/echo initrd/bin/yes initrd/bin/cat initrd/bin/sh
+BINARIES = initrd/bin/hello initrd/bin/echo initrd/bin/yes initrd/bin/cat initrd/bin/sh initrd/bin/clear
 UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
 GENEXT = genext2fs
@@ -190,3 +190,8 @@ clean:
 	@-rm -f util/bin/*
 	@-rm -f .passed
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"
+
+
+# vim:noexpandtab
+# vim:tabstop=4
+# vim:shiftwidth=4

@@ -111,16 +111,6 @@ start_shell() {
 					i++;
 					entry = readdir_fs(node, i);
 				}
-			} else if (!strcmp(cmd, "info")) {
-				kprintf("Flags: 0x%x\n", node->flags);
-			} else if (!strcmp(cmd, "help")) {
-				kprintf("\033[1;34m");
-				kprintf("                 - ToAruOS Kernel Debug Shell - \n");
-				kprintf("\033[0m");
-				kprintf(" This is the ToAruOS kernel debugging environment.\n");
-				kprintf(" From here, you have access to the virtual file system layer and \n");
-				kprintf(" can read files, list files in directories, dump memory, registers,\n");
-				kprintf(" and a few other things.\n");
 			} else if (!strcmp(cmd, "out")) {
 				if (tokenid < 3) {
 					kprintf("Need a port and a character (both as numbers, please) to write...\n");
@@ -148,8 +138,6 @@ start_shell() {
 					serial_send('\n');
 					writech('\n');
 				}
-			} else if (!strcmp(cmd, "clear")) {
-				cls();
 			} else if (!strcmp(cmd, "crash")) {
 				kprintf("Going to dereference some invalid pointers.\n");
 				int i = 0xFFFFFFFF;
@@ -160,8 +148,6 @@ start_shell() {
 				break;
 			} else if (!strcmp(cmd, "cpu-detect")) {
 				detect_cpu();
-			} else if (!strcmp(cmd, "scroll")) {
-				bochs_scroll();
 			} else if (!strcmp(cmd, "logo")) {
 				if (tokenid < 2) {
 					bochs_draw_logo("/bs.bmp");
@@ -174,12 +160,6 @@ start_shell() {
 				} else {
 					bochs_draw_line(atoi(argv[1]),atoi(argv[2]),atoi(argv[3]),atoi(argv[4]),0xFFFFFF);
 				}
-			} else if (!strcmp(cmd, "exec")) {
-				if (tokenid < 2) {
-					continue;
-				}
-				int ret = system(argv[1],tokenid - 1, &argv[1]);
-				kprintf("Returned %d\n", ret);
 			} else if (!strcmp(cmd, "boredom")) {
 				int x = 30;
 				if (tokenid > 1) {
@@ -192,16 +172,41 @@ start_shell() {
 					int y1 = krand() % 768;
 					bochs_draw_line(x0,x1,y0,y1, krand() % 0xFFFFFF);
 				}
-			} else if (!strcmp(cmd, "test-scroll")) {
-				bochs_set_y_offset(12 * 20);
 			} else if (!strcmp(cmd, "reset-keyboard")) {
 				/* Reset the shift/alt/ctrl statuses, in case they get messed up */
 				set_kbd(0,0,0);
-			} else if (!strcmp(cmd, "test-ansi")) {
-				ansi_print("This is a \033[32mtest\033[0m of the \033[33mANSI\033[0m driver.\n");
-				ansi_print("This is a \033[32;1mte\033[34mst\033[0m of \033[1mthe \033[33mANSI\033[0m driver.\n");
 			} else if (!strcmp(cmd, "multiboot")) {
 				dump_multiboot(mboot_ptr);
+			} else if (!strcmp(cmd, "test-alloc")) {
+				kprintf("Testing the kernel allocator...\n");
+				uint32_t sizers[] = { 1, 4, 4, 32, 64, 256, 1024, 795, 2042, 6204, 2525 };
+				uint32_t sizes_c = 11;
+				uint32_t size = krand();
+				void ** allocs = (void **)malloc(sizeof(uintptr_t *) * 500);
+				uint32_t * sizes = (uint32_t *)malloc(sizeof(uint32_t *) * 500);
+				for (uint32_t i = 0; i < 500; ++i) {
+					uint32_t s = sizers[size % sizes_c];
+					kprintf("[%d] Allocating %d... ",i, s);
+					allocs[i] = malloc(s);
+					kprintf("0x%x\n", allocs[i]);
+					sizes[i]  = s;
+					if (krand() % 2) {
+						kprintf("[%d] Freeing %d...\n", i, s);
+						free(allocs[i]);
+						allocs[i] = NULL;
+					}
+					size = krand();
+				}
+				for (uint32_t i = 0; i < 500; ++i) {
+					if (allocs[i]) {
+						kprintf("[%d] Freeing %d...\n", i, sizes[i]);
+						free(allocs[i]);
+						allocs[i] = NULL;
+					}
+				}
+				free(allocs);
+				free(sizes);
+				kprintf("Testing complete.\n");
 			} else {
 				/* Alright, here we go */
 				char * filename = malloc(sizeof(char) * 1024);
