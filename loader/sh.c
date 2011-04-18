@@ -10,19 +10,21 @@ int main(int argc, char ** argv) {
 	syscall_print(x);
 	syscall_print("\n");
 	int i = syscall_getpid();
-	syscall_fork();
-	if (syscall_getpid() != i) {
-		syscall_print("Herp!\n");
-		char * bin = "/bin/echo";
-		char * args = "von derpington";
-		char * argv_[] = {
-			bin,
-			args,
-			0
-		};
-		syscall_execve(bin, argv_, 0);
-	} else {
-		syscall_print("Awe shucks\n");
+	for (int j = 0; j < 5; ++j) {
+		syscall_fork();
+		if (syscall_getpid() != i) {
+			syscall_print("[Forked]\n");
+			char * bin = "/bin/echo";
+			char * args = "Executed echo.";
+			char * argv_[] = {
+				bin,
+				args,
+				0
+			};
+			syscall_execve(bin, argv_, 0);
+		} else {
+			syscall_print("(hello from parent)\n");
+		}
 	}
 	return 0;
 }

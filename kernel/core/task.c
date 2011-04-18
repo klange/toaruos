@@ -135,7 +135,7 @@ fork() {
 			new_task->esp = esp + (new_task->stack - current_task->stack);
 			new_task->ebp = ebp - (current_task->stack - new_task->stack);
 		}
-		kprintf("old: %x new: %x; end: %x %x\n", esp, new_task->esp, current_task->stack, new_task->stack);
+		// kprintf("old: %x new: %x; end: %x %x\n", esp, new_task->esp, current_task->stack, new_task->stack);
 		memcpy((void *)(new_task->stack - KERNEL_STACK_SIZE), (void *)(current_task->stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
 		new_task->eip = eip;
 		__asm__ __volatile__ ("sti");
