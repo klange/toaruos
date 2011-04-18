@@ -133,6 +133,9 @@ void ctlk(int scancode) {
 }
 
 void func(int scancode) {
+	if (scancode & 0x80) {
+		return;
+	}
 	kprintf("[NOTICE] Function key %d pressed\n", scancode);
 }
 
@@ -140,7 +143,33 @@ void spec(int scancode) {
 	if (scancode & 0x80) {
 		return;
 	}
-	kprintf("[NOTICE] Special key %d pressed\n", scancode);
+	switch (scancode) {
+		case 75:
+			putch('\033');
+			putch('[');
+			putch('D');
+			break;
+		case 72:
+			putch('\033');
+			putch('[');
+			putch('A');
+			break;
+		case 77:
+			putch('\033');
+			putch('[');
+			putch('C');
+			break;
+		case 80:
+			putch('\033');
+			putch('[');
+			putch('B');
+			break;
+		case 1:
+			putch('\033');
+		default:
+			kprintf("[NOTICE] Special key %d pressed\n", scancode);
+			break;
+	}
 }
 
 keyboard_handler_t key_method[] = {

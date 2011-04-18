@@ -218,6 +218,33 @@ ansi_put(
 							bochs_set_csr(bochs_get_csr_x() + i, bochs_get_csr_y());
 						}
 						break;
+					case ANSI_CUU:
+						{
+							int i = 1;
+							if (argc) {
+								i = atoi(argv[0]);
+							}
+							bochs_set_csr(bochs_get_csr_x(), bochs_get_csr_y() - i);
+						}
+						break;
+					case ANSI_CUD:
+						{
+							int i = 1;
+							if (argc) {
+								i = atoi(argv[0]);
+							}
+							bochs_set_csr(bochs_get_csr_x(), bochs_get_csr_y() + i);
+						}
+						break;
+					case ANSI_CUB:
+						{
+							int i = 1;
+							if (argc) {
+								i = atoi(argv[0]);
+							}
+							bochs_set_csr(bochs_get_csr_x() - 1, bochs_get_csr_y());
+						}
+						break;
 					case ANSI_CUP:
 						if (argc < 2) {
 							bochs_set_csr(0,0);

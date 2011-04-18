@@ -151,13 +151,7 @@ kgets_handler(
 		kwrite('\n');
 		kgets_newline = 1;
 		return;
-	} else if (ch < 0x20) {
-		/* Uh, control characters in our kgets()? It's more likely than you think */
-		kwrite('^');
-		kwrite(ch + 0x40);
-		return;
-	}
-	/* Add this character to the buffer. */
+	}	/* Add this character to the buffer. */
 	kwrite(ch);
 	if (kgets_collected < kgets_want) {
 		kgets_buffer[kgets_collected] = ch;
