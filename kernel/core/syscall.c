@@ -22,7 +22,7 @@ void validate(void * ptr) {
  */
 static int print(char * s) {
 	validate((void *)s);
-	kprintf(s);
+	ansi_print(s);
 	return 0;
 }
 
