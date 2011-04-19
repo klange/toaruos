@@ -125,12 +125,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	/* Initialize the standard VGA display */
 	ansi_init(&writech, 80, 25);
 
-	/* Kernel Version */
-	kprintf("[%s %s]\n", KERNEL_UNAME, KERNEL_VERSION_STRING);
-
 	if (boot_mode == multiboot) {
-		/* Print multiboot information */
-		dump_multiboot(mboot_ptr);
 
 		if (mboot_ptr->flags & (1 << 3)) {
 			/*
@@ -145,14 +140,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 		parse_args((char *)mboot_ptr->cmdline);
 	}
 
-	/*
-	 * All the output we just dumped went to the serial line.
-	 * If you really want it that bad, feel free to remove
-	 * the clear before the rest of the boot process starts.
-	 *
-	 * But really, the kernel shouldn't be outputting all 
-	 * sorts of random text on boot up. Only important stuff!
-	 */
 	cls();
 
 	start_shell();

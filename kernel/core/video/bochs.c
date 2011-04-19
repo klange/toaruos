@@ -57,15 +57,10 @@ graphics_install_bochs() {
 	outports(0x1CE, 0x00);
 	uint16_t i = inports(0x1CF);
 	if (i < 0xB0C0 || i > 0xB0C6) {
-		kprintf("[bochs] You are not a Bochs VBE pseudo-card!\n");
-		kprintf("[bochs] 0x%x is totally wrong!\n", (unsigned int)i);
 		return;
 	}
-	kprintf("[bochs] Successfully detected a Bochs VBE setup!\n");
-	kprintf("[bochs] You are using QEMU or Bochs and I love you.\n");
 	outports(0x1CF, 0xB0C4);
 	i = inports(0x1CF);
-	kprintf("[bochs] Enabling 1024x768x32 graphics mode!\n");
 	/* Disable VBE */
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x00);
@@ -112,8 +107,6 @@ graphics_install_bochs() {
 	}
 
 mem_found:
-	kprintf("[bochs] Video memory paged and located.\n");
-
 	bochs_resolution_x = PREFERRED_X;
 	bochs_resolution_y = PREFERRED_Y;
 	bochs_resolution_b = PREFERRED_B;
