@@ -49,6 +49,12 @@ int main(int argc, char ** argv) {
 							argv[i][k] = argv[i][k+1];
 						}
 					}
+					if (argv[i][j+1] == 'n') {
+						argv[i][j] = '\n';
+						for (int k = j + 1; k < strlen(argv[i]); ++k) {
+							argv[i][k] = argv[i][k+1];
+						}
+					}
 				}
 			}
 		}
