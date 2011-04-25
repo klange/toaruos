@@ -107,6 +107,7 @@ exec(
 	current_task->heap   = heap; /* heap end */
 	current_task->heap_a = heap + (0x1000 - heap % 0x1000);
 	current_task->stack  = 0x100F0000;
+	current_task->next_fd = 3;
 
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, 0x100EFFFF);

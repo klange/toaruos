@@ -79,7 +79,7 @@ toaruos-initrd: initrd/boot/kernel initrd/boot/stage2 initrd/bs.bmp ${BINARIES}
 	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
-	@${GENEXT} -d initrd -q -b 1024 toaruos-initrd
+	@${GENEXT} -d initrd -q -b 4096 toaruos-initrd
 	@${ECHO} "\r\033[32;1m initrd Generated initial RAM disk image\033[0m"
 	@${ECHO} "\033[34;1m   --   HDD image is ready!\033[0m"
 
