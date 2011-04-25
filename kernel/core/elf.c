@@ -71,7 +71,7 @@ exec(
 				/* We also store the total size of the memory region used by the application */
 				current_task->image_size = shdr->sh_addr + shdr->sh_size - current_task->entry;
 			}
-			for (uintptr_t i = 0; i < shdr->sh_size; i += 0x1000) {
+			for (uintptr_t i = 0; i < shdr->sh_size + 0x5000; i += 0x1000) {
 				/* This doesn't care if we already allocated this page */
 				alloc_frame(get_page(shdr->sh_addr + i, 1, current_directory), 0, 1);
 			}

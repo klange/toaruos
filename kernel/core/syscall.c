@@ -41,7 +41,14 @@ static int exit(int retval) {
 static int read(int fd, char * ptr, int len) {
 #ifdef SPECIAL_CASE_STDIO
 	if (fd == 0) {
+		__asm__ __volatile__ ("sti");
 		kgets(ptr, len);
+		__asm__ __volatile__ ("cli");
+		if (strlen(ptr) < len) {
+			int j = strlen(ptr);
+			ptr[j] = '\n';
+			ptr[j+1] = '\0';
+		}
 		return strlen(ptr);
 	}
 #endif
