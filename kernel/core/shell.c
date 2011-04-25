@@ -177,6 +177,12 @@ start_shell() {
 				set_kbd(0,0,0);
 			} else if (!strcmp(cmd, "multiboot")) {
 				dump_multiboot(mboot_ptr);
+			} else if (!strcmp(cmd, "exec")) {
+				if (tokenid < 2) {
+					continue;
+				}
+				int ret = system(argv[1], tokenid - 1, &argv[1]);
+				kprintf("Returned %d\n", ret);
 			} else if (!strcmp(cmd, "test-alloc")) {
 				kprintf("Testing the kernel allocator...\n");
 				uint32_t sizers[] = { 1, 4, 4, 32, 64, 256, 1024, 795, 2042, 6204, 2525 };

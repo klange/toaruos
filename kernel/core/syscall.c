@@ -5,6 +5,7 @@
 #include <system.h>
 #include <syscall.h>
 
+#define SPECIAL_CASE_STDIO
 
 /*
  * System calls themselves
@@ -38,6 +39,12 @@ static int exit(int retval) {
 }
 
 static int read(int fd, char * ptr, int len) {
+#ifdef SPECIAL_CASE_STDIO
+	if (fd == 0) {
+		kgets(ptr, len);
+		return strlen(ptr);
+	}
+#endif
 	if (fd >= current_task->next_fd || fd < 0) {
 		return -1;
 	}
@@ -49,6 +56,14 @@ static int read(int fd, char * ptr, int len) {
 }
 
 static int write(int fd, char * ptr, int len) {
+#ifdef SPECIAL_CASE_STDIO
+	if (fd == 1 || fd == 2) {
+		for (int i = 0; i < len; ++i) {
+			ansi_put(ptr[i]);
+		}
+		return len;
+	}
+#endif
 	if (fd >= current_task->next_fd || fd < 0) {
 		return -1;
 	}
