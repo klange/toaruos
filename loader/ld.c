@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <string.h>
 
 /* The Master ELF Header */
 #include "../kernel/include/elf.h"
@@ -22,11 +24,46 @@ void usage(int argc, char ** argv) {
 	exit(1);
 }
 
+#define   SOURCE        0x02000000
+uintptr_t DESTINATION = 0x03000000;
+
+int _main();
+int argc;
+char ** argv;
+
 /**
  * Application entry point.
  * @returns 0 on sucess, 1 on failure
  */
-int main(int argc, char ** argv) {
+int main(int argc_, char ** argv_) {
+	/* ld stuff */
+	uintptr_t END = (uintptr_t)sbrk(0);
+	if (END > DESTINATION) {
+		printf("Oh. Welcome back. Uh. I'm just going to kill myself now.\n");
+		return 2;
+	}
+	printf("End of memory is 0x%x\n", END);
+	printf("We are, therefore, 0x%x bytes long.\n", END - SOURCE);
+	printf("I am moving myself to 0x%x", DESTINATION);
+	printf("So I want to sbrk(0x%x)\n", DESTINATION + (END - SOURCE) - SOURCE);
+	sbrk(DESTINATION + (END - SOURCE) - SOURCE);
+
+	argc = argc_;
+	argv = argv_;
+
+	memcpy((void *)DESTINATION, (void *)SOURCE, END - SOURCE);
+	printf("Jumping to 0x%x\n", (uintptr_t)&_main - SOURCE + DESTINATION);
+	uintptr_t location = ((uintptr_t)&_main - SOURCE + DESTINATION);
+	__asm__ __volatile__ ("jmp *%0" : : "m"(location));
+
+	return -1;
+}
+
+int _main() {
+here:
+	printf("Oh, hello.\n");
+	printf("0x%x\n", &&here);
+
 	/* Process arguments */
 	if (argc < 2) usage(argc,argv);
 
@@ -175,9 +212,22 @@ int main(int argc, char ** argv) {
 		printf("[%d] %s\n", shdr->sh_type, (char *)((uintptr_t)string_table[0] + shdr->sh_name));
 		printf("Section starts at 0x%x and is 0x%x bytes long.\n", shdr->sh_offset, shdr->sh_size);
 		if (shdr->sh_addr) {
-			printf("It should be loaded at 0x%x.\n", shdr->sh_addr);
+			printf("It [0x%x] should be loaded at 0x%x.\n", ((uintptr_t)header + shdr->sh_offset), shdr->sh_addr);
+			memcpy((void *)shdr->sh_addr,(void *)((uintptr_t)header + shdr->sh_offset), shdr->sh_size);
 		}
 	}
+	printf("Done.\n");
+
+	uintptr_t location = SOURCE;
+	uintptr_t argc_    = (uintptr_t)&argc;
+	__asm__ __volatile__ (
+			"push $0\n"
+			"push $0\n"
+			"push %2\n"
+			"push %1\n"
+			"push $0\n"
+			"call *%0\n"
+			: : "m"(location), "m"(argc_), "m"(argv));
 
 	return 0;
 }
