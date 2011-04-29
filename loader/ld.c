@@ -1,5 +1,5 @@
 /*
- * ToAruOS Miniature ELF Reader
+ * ToAruOS Loader
  * (C) 2011 Kevin Lange
  */
 
@@ -18,8 +18,7 @@
 void usage(int argc, char ** argv) {
 	/* Show usage */
 	printf("%s [filename]\n", argv[0]);
-	printf("\tDisplays information on ELF binaries such as section names,\n");
-	printf("\tlocations, sizes, and loading positions in memory.\n");
+	printf("Loads a /static/ binary into memory and executes it.\n");
 	exit(1);
 }
 
@@ -40,24 +39,13 @@ int main(int argc, char ** argv) {
 	/* Open the requested binary */
 	binary = fopen(argv[1], "r");
 
-#if 0
-	/* Jump to the end so we can get the size */
-	fseek(binary, 0, SEEK_END);
-	binary_size = ftell(binary);
-	fseek(binary, 0, SEEK_SET);
-
-	/* Some sanity checks */
-	if (binary_size < 4 || binary_size > 0xFFFFFFF) {
-		printf("Oh no! I don't quite like the size of this binary.\n");
-		return 1;
-	}
-#endif
+	/* Hack because we don't have seek/tell */
 	char garbage[3];
 	binary_size = 0;
 	while (fread((void *)&garbage, 1, 1, binary) != 0) {
 		++binary_size;
 	}
-	printf("Binary is %d bytes.\n", binary_size);
+	printf("Binary is %u bytes.\n", binary_size);
 	fclose(binary);
 	binary = fopen(argv[1], "r");
 

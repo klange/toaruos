@@ -67,6 +67,7 @@ static int write(int fd, char * ptr, int len) {
 	if (fd == 1 || fd == 2) {
 		for (int i = 0; i < len; ++i) {
 			ansi_put(ptr[i]);
+			serial_send(ptr[i]);
 		}
 		return len;
 	}
