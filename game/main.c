@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#if 1
+#if 0
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
@@ -21,6 +21,7 @@ FT_Face    face;
 DEFN_SYSCALL0(getgraphicsaddress, 11);
 DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
+DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 
 typedef struct sprite {
 	uint16_t width;
@@ -46,8 +47,17 @@ uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void flip() {
+#if 1
+	static int offset = 768;
+	void * tmp = frame_mem;
+	frame_mem = gfx_mem;
+	gfx_mem = tmp;
+	syscall_setgraphicsoffset(offset);
+	offset = 768 - offset;
+#else
 	memcpy(gfx_mem, frame_mem, gfx_size);
-	memset(frame_mem, 0, gfx_size);
+#endif
+	memset(frame_mem, 0, GFX_H * GFX_W * GFX_B);
 }
 
 void
@@ -131,10 +141,66 @@ void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t colo
 	}
 }
 
+float conx = -0.74;
+float cony = 0.1;
+float Maxx = 2;
+float Minx = -2;
+float Maxy = 1;
+float Miny = -1;
+float initer = 100;
+float pixcorx;
+float pixcory;
+
+int newcolor;
+int lastcolor;
+
+int colors[] = {
+	/* black  */ 0x242424,
+	/* red    */ 0xcc0000,
+	/* green  */ 0x3e9a06,
+	/* brown  */ 0xc4a000,
+	/* navy   */ 0x3465a4,
+	/* purple */ 0x75507b,
+	/* d cyan */ 0x06989a,
+	/* gray   */ 0xeeeeec,
+	/* d gray */ 0x555753,
+	/* red    */ 0xef2929,
+	/* green  */ 0x8ae234,
+	/* yellow */ 0xfce94f,
+	/* blue   */ 0x729fcf,
+	/* magenta*/ 0xad7fa8,
+	/* cyan   */ 0x34e2e2,
+	/* white  */ 0xFFFFFF,
+};
+
+void julia(int xpt, int ypt) {
+	long double x = xpt * pixcorx + Minx;
+	long double y = Maxy - ypt * pixcory;
+	long double xnew = 0;
+	long double ynew = 0;
+
+	int k = 0;
+	for (k = 0; k <= initer; k++) {
+		xnew = x * x - y * y + conx;
+		ynew = 2 * x * y     + cony;
+		x    = xnew;
+		y    = ynew;
+		if ((x * x + y * y) > 4)
+			break;
+	}
+
+	int color = k;
+	if (color > 15) color = color % 15;
+	if (k >= initer)
+		GFX(xpt, ypt) = 0;
+	else
+		GFX(xpt, ypt) = colors[color];
+	newcolor = color;
+}
 
 int main(int argc, char ** argv) {
 	gfx_mem = (void *)syscall_getgraphicsaddress();
-	frame_mem = malloc(sizeof(uint32_t) * 1024 * 768);
+	frame_mem = (void *)((uintptr_t)gfx_mem + sizeof(uint32_t) * 1024 * 768); //malloc(sizeof(uint32_t) * 1024 * 768);
 	printf("Graphics memory is at %p, backbuffer is at %p.\n", gfx_mem, frame_mem);
 
 	printf("Loading sprites...\n");
@@ -144,7 +210,7 @@ int main(int argc, char ** argv) {
 	printf("Sprite is %d by %d\n", sprites[0]->width, sprites[0]->height);
 	printf("%x\n", sprites[0]->bitmap);
 
-#if 1
+#if 0
 	printf("Initialzing Freetype...\n");
 	int error = FT_Init_FreeType(&library);
 	if (error) {
@@ -171,21 +237,91 @@ int main(int argc, char ** argv) {
 
 	int playing = 1;
 
+	int obj_x = 0;
+	int obj_y = 0;
+
+	int obj_h = 5;
+	int obj_v = 5;
+
+	pixcorx = (Maxx - Minx) / GFX_W;
+	pixcory = (Maxy - Miny) / GFX_H;
+	int j = 0;
+	do {
+		int i = 0;
+		do {
+			julia(i,j);
+			if (lastcolor != newcolor) julia(i-1,j);
+			else GFX(i-1,j) = colors[lastcolor];
+			newcolor = lastcolor;
+			i+= 2;
+		} while ( i < GFX_W );
+		++j;
+	} while ( j < GFX_H );
+
+	flip();
+
+	waitabit();
+	waitabit();
+
 	while (playing) {
+#if 0
 		uint32_t c = 0; //0x72A0CF; /* A nice sky blue */
+		/* Clear the background */
 		for (uint16_t x = 0; x < 1024; ++x) {
 			for (uint16_t y = 0; y < 768; ++y) {
 				GFX(x,y) = c;
 			}
 		}
-		draw_sprite(sprites[0], rand() % 1000, rand() % 700);
+#endif
+
+#if 1
+		/* Update the sprite location */
+		obj_x += obj_h;
+		obj_y += obj_v;
+		if (obj_x < 0) {
+			obj_x = 0;
+			obj_h = -obj_h;
+		}
+		if (obj_x > GFX_W - sprites[0]->width) {
+			obj_x = GFX_W - sprites[0]->width;
+			obj_h = -obj_h;
+		}
+		if (obj_y < 0) {
+			obj_y = 0;
+			obj_v = -obj_v;
+		}
+		if (obj_y > GFX_H - sprites[0]->height) {
+			obj_y = GFX_H - sprites[0]->height;
+			obj_v = -obj_v;
+		}
+
+		draw_sprite(sprites[0], obj_x, obj_y);
 		flip();
+#endif
 		char ch = 0;
 		if ((ch = syscall_kbd_get())) {
 			switch (ch) {
 				case 113:
 					playing = 0;
+					break;
+				case 119:
+					--obj_v;
+					break;
+				case 115:
+					++obj_v;
+					break;
+				case 97:
+					--obj_h;
+					break;
+				case 100:
+					++obj_h;
+					break;
+				case 101:
+					obj_v = 0;
+					obj_h = 0;
+					break;
 				default:
+					printf("%d\n", ch);
 					break;
 			}
 		}

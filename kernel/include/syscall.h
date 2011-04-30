@@ -76,6 +76,7 @@ DECL_SYSCALL1(kbd_mode, int);
 DECL_SYSCALL0(kbd_get);
 DECL_SYSCALL3(lseek, int, int, int);
 DECL_SYSCALL2(fstat, int, void *);
+DECL_SYSCALL1(setgraphicsoffset, int);
 
 
 #endif

@@ -161,14 +161,12 @@ static int kbd_get() {
 }
 
 static int seek(int fd, int offset, int whence) {
-	kprintf("[call from %d to seek %d to %d type %d]\n", getpid(), fd, offset, whence);
 	if (fd >= current_task->next_fd || fd < 0) {
 		return -1;
 	}
 	if (fd < 3) {
 		return 0;
 	}
-	kprintf("[current is %x]\n", current_task->descriptors[fd]->offset);
 	if (whence == 0) {
 		current_task->descriptors[fd]->offset = offset;
 	} else if (whence == 1) {
@@ -176,11 +174,15 @@ static int seek(int fd, int offset, int whence) {
 	} else if (whence == 2) {
 		current_task->descriptors[fd]->offset = current_task->descriptors[fd]->length + offset;
 	}
-	kprintf("[now at %x]\n", current_task->descriptors[fd]->offset);
 	return current_task->descriptors[fd]->offset;
 }
 
 static int stat(int fd, uint32_t * st) {
+	return 0;
+}
+
+static int setgraphicsoffset(int rows) {
+	bochs_set_y_offset(rows);
 	return 0;
 }
 
@@ -206,8 +208,9 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&kbd_get,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,
+	(uintptr_t)&setgraphicsoffset,
 };
-uint32_t num_syscalls = 16;
+uint32_t num_syscalls = 17;
 
 void
 syscalls_install() {
