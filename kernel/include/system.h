@@ -287,6 +287,7 @@ extern void bochs_draw_line(uint16_t,uint16_t,uint16_t,uint16_t,uint32_t);
 extern int bochs_get_width();
 extern int bochs_get_height();
 extern void bochs_set_cell(int x, int y, char c);
+extern uintptr_t bochs_get_address();
 
 /* ANSI Terminal Escape Processor */
 void ansi_put(char c);

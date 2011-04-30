@@ -71,6 +71,11 @@ DECL_SYSCALL1(wait, int *);
 DECL_SYSCALL1(sbrk, int);
 
 DECL_SYSCALL2(gettimeofday, void *, void *);
+DECL_SYSCALL0(getgraphicsaddress);
+DECL_SYSCALL1(kbd_mode, int);
+DECL_SYSCALL0(kbd_get);
+DECL_SYSCALL3(lseek, int, int, int);
+DECL_SYSCALL2(fstat, int, void *);
 
 
 #endif

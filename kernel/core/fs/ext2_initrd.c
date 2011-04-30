@@ -326,6 +326,13 @@ ext2_get_inode_block(
 		return ext2_get_block(inode->block[block]);
 	} else if (block < 12 + (1024 << initrd_superblock->log_block_size) / sizeof(uint32_t)) {
 		return ext2_get_block(*(uint32_t*)((uintptr_t)ext2_get_block(inode->block[12]) + (block - 12) * sizeof(uint32_t)));
+	} else if (block < 12 + 256 + 256 * 256) {
+		uint32_t a = block - 12;
+		uint32_t b = a - 256;
+		uint32_t c = b / 256;
+		uint32_t d = b - c * 256;
+		void * c_block = ext2_get_block(*(uint32_t *)((uintptr_t)ext2_get_block(inode->block[13]) + (c) * sizeof(uint32_t)));
+		return ext2_get_block(*(uint32_t *)((uintptr_t)c_block + (d) * sizeof(uint32_t)));
 	}
 	return NULL;
 }

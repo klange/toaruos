@@ -133,6 +133,57 @@ static int sys_fork() {
 	return fork();
 }
 
+static int getgraphicsaddress() {
+	return (int)bochs_get_address();
+}
+
+static volatile char kbd_last = 0;
+
+static void kbd_direct_handler(char ch) {
+	kbd_last = ch;
+}
+
+static int kbd_mode(int mode) {
+	if (mode == 0) {
+		if (keyboard_buffer_handler) {
+			keyboard_buffer_handler = NULL;
+		}
+	} else {
+		keyboard_buffer_handler = kbd_direct_handler;
+	}
+	return 0;
+}
+
+static int kbd_get() {
+	char x = kbd_last;
+	kbd_last = 0;
+	return (int)x;
+}
+
+static int seek(int fd, int offset, int whence) {
+	kprintf("[call from %d to seek %d to %d type %d]\n", getpid(), fd, offset, whence);
+	if (fd >= current_task->next_fd || fd < 0) {
+		return -1;
+	}
+	if (fd < 3) {
+		return 0;
+	}
+	kprintf("[current is %x]\n", current_task->descriptors[fd]->offset);
+	if (whence == 0) {
+		current_task->descriptors[fd]->offset = offset;
+	} else if (whence == 1) {
+		current_task->descriptors[fd]->offset += offset;
+	} else if (whence == 2) {
+		current_task->descriptors[fd]->offset = current_task->descriptors[fd]->length + offset;
+	}
+	kprintf("[now at %x]\n", current_task->descriptors[fd]->offset);
+	return current_task->descriptors[fd]->offset;
+}
+
+static int stat(int fd, uint32_t * st) {
+	return 0;
+}
+
 /*
  * System Call Internals
  */
@@ -150,8 +201,13 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_fork,
 	(uintptr_t)&getpid,
 	(uintptr_t)&sys_sbrk,
+	(uintptr_t)&getgraphicsaddress,
+	(uintptr_t)&kbd_mode,
+	(uintptr_t)&kbd_get,
+	(uintptr_t)&seek,
+	(uintptr_t)&stat,
 };
-uint32_t num_syscalls = 11;
+uint32_t num_syscalls = 16;
 
 void
 syscalls_install() {

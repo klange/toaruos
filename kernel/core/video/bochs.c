@@ -52,6 +52,11 @@ bochs_current_scroll() {
 	return current_scroll;
 }
 
+uintptr_t
+bochs_get_address() {
+	return (uintptr_t)bochs_vid_memory;
+}
+
 void
 graphics_install_bochs() {
 	outports(0x1CE, 0x00);
