@@ -10,34 +10,47 @@
 #include <time.h>
 #include <unistd.h>
 
+/*
+ * Some of the system calls for the graphics
+ * functionality.
+ */
 DEFN_SYSCALL0(getgraphicsaddress, 11);
 DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
 DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 
-#define GFX_W  1024
-#define GFX_H  768
-#define GFX_B  4
+#define GFX_W  1024 /* Display width */
+#define GFX_H  768  /* Display height */
+#define GFX_B  4    /* Display byte depth */
+
+/*
+ * Macros make verything easier.
+ */
 #define GFX(x,y) gfx_mem[GFX_W * (y) + (x)]
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 
+/* Pointer to graphics memory */
 uint32_t * gfx_mem;
-uint32_t   gfx_size = GFX_B * GFX_H * GFX_W;
 
-float conx = -0.74;
-float cony = 0.1;
-float Maxx = 2;
+/* Julia fractals elements */
+float conx = -0.74;  /* real part of c */
+float cony = 0.1;    /* imag part of c */
+float Maxx = 2;      /* X bounds */
 float Minx = -2;
-float Maxy = 1;
+float Maxy = 1;      /* Y bounds */
 float Miny = -1;
-float initer = 1000;
-float pixcorx;
+float initer = 1000; /* Iteration levels */
+float pixcorx;       /* Internal values */
 float pixcory;
 
-int newcolor;
-int lastcolor;
-int no_repeat = 0;
+int newcolor;        /* Color we're placing */
+int lastcolor;       /* Last color we placed */
+int no_repeat = 0;   /* Repeat colors? */
 
+/*
+ * Color table
+ * These are orange/red shades from the Ubuntu platte.
+ */
 int colors[] = {
 	0xeec73e,
 	0xf0a513,
@@ -117,7 +130,7 @@ int main(int argc, char ** argv) {
 	printf("initer: %f\n", initer);
 	printf("X: %f %f\n", Minx, Maxx);
 	float _x = Maxx - Minx;
-	float _y = _x / 1024.0 * 768.0;
+	float _y = _x / GFX_W * GFX_H;
 	Miny = 0 - _y / 2;
 	Maxy = _y / 2;
 	printf("Y: %f %f\n", Miny, Maxy);
