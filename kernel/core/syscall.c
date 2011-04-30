@@ -145,16 +145,18 @@ static void kbd_direct_handler(char ch) {
 
 static int kbd_mode(int mode) {
 	if (mode == 0) {
-		if (keyboard_buffer_handler) {
-			keyboard_buffer_handler = NULL;
+		if (keyboard_direct_handler) {
+			keyboard_direct_handler = NULL;
 		}
 	} else {
-		keyboard_buffer_handler = kbd_direct_handler;
+		keyboard_direct_handler = kbd_direct_handler;
 	}
 	return 0;
 }
 
 static int kbd_get() {
+	/* If we're requesting keyboard input, we better damn well be getting it */
+	__asm__ __volatile__ ("sti");
 	char x = kbd_last;
 	kbd_last = 0;
 	return (int)x;

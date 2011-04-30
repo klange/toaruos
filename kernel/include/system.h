@@ -101,6 +101,7 @@ extern void timer_wait(int ticks);
 /* Keyboard */
 typedef void (*keyboard_buffer_t)(char ch);
 keyboard_buffer_t keyboard_buffer_handler;
+keyboard_buffer_t keyboard_direct_handler;
 extern void keyboard_install();
 extern void keyboard_wait();
 extern void putch(unsigned char c);

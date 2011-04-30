@@ -141,63 +141,6 @@ void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t colo
 	}
 }
 
-float conx = -0.74;
-float cony = 0.1;
-float Maxx = 2;
-float Minx = -2;
-float Maxy = 1;
-float Miny = -1;
-float initer = 100;
-float pixcorx;
-float pixcory;
-
-int newcolor;
-int lastcolor;
-
-int colors[] = {
-	/* black  */ 0x242424,
-	/* red    */ 0xcc0000,
-	/* green  */ 0x3e9a06,
-	/* brown  */ 0xc4a000,
-	/* navy   */ 0x3465a4,
-	/* purple */ 0x75507b,
-	/* d cyan */ 0x06989a,
-	/* gray   */ 0xeeeeec,
-	/* d gray */ 0x555753,
-	/* red    */ 0xef2929,
-	/* green  */ 0x8ae234,
-	/* yellow */ 0xfce94f,
-	/* blue   */ 0x729fcf,
-	/* magenta*/ 0xad7fa8,
-	/* cyan   */ 0x34e2e2,
-	/* white  */ 0xFFFFFF,
-};
-
-void julia(int xpt, int ypt) {
-	long double x = xpt * pixcorx + Minx;
-	long double y = Maxy - ypt * pixcory;
-	long double xnew = 0;
-	long double ynew = 0;
-
-	int k = 0;
-	for (k = 0; k <= initer; k++) {
-		xnew = x * x - y * y + conx;
-		ynew = 2 * x * y     + cony;
-		x    = xnew;
-		y    = ynew;
-		if ((x * x + y * y) > 4)
-			break;
-	}
-
-	int color = k;
-	if (color > 15) color = color % 15;
-	if (k >= initer)
-		GFX(xpt, ypt) = 0;
-	else
-		GFX(xpt, ypt) = colors[color];
-	newcolor = color;
-}
-
 int main(int argc, char ** argv) {
 	gfx_mem = (void *)syscall_getgraphicsaddress();
 	frame_mem = (void *)((uintptr_t)gfx_mem + sizeof(uint32_t) * 1024 * 768); //malloc(sizeof(uint32_t) * 1024 * 768);
@@ -243,26 +186,6 @@ int main(int argc, char ** argv) {
 	int obj_h = 5;
 	int obj_v = 5;
 
-	pixcorx = (Maxx - Minx) / GFX_W;
-	pixcory = (Maxy - Miny) / GFX_H;
-	int j = 0;
-	do {
-		int i = 0;
-		do {
-			julia(i,j);
-			if (lastcolor != newcolor) julia(i-1,j);
-			else GFX(i-1,j) = colors[lastcolor];
-			newcolor = lastcolor;
-			i+= 2;
-		} while ( i < GFX_W );
-		++j;
-	} while ( j < GFX_H );
-
-	flip();
-
-	waitabit();
-	waitabit();
-
 	while (playing) {
 #if 0
 		uint32_t c = 0; //0x72A0CF; /* A nice sky blue */
@@ -274,7 +197,6 @@ int main(int argc, char ** argv) {
 		}
 #endif
 
-#if 1
 		/* Update the sprite location */
 		obj_x += obj_h;
 		obj_y += obj_v;
@@ -297,33 +219,34 @@ int main(int argc, char ** argv) {
 
 		draw_sprite(sprites[0], obj_x, obj_y);
 		flip();
-#endif
+
 		char ch = 0;
-		if ((ch = syscall_kbd_get())) {
-			switch (ch) {
-				case 113:
-					playing = 0;
-					break;
-				case 119:
-					--obj_v;
-					break;
-				case 115:
-					++obj_v;
-					break;
-				case 97:
-					--obj_h;
-					break;
-				case 100:
-					++obj_h;
-					break;
-				case 101:
-					obj_v = 0;
-					obj_h = 0;
-					break;
-				default:
+		ch = syscall_kbd_get();
+		switch (ch) {
+			case 16:
+				playing = 0;
+				break;
+			case 17:
+				--obj_v;
+				break;
+			case 31:
+				++obj_v;
+				break;
+			case 30:
+				--obj_h;
+				break;
+			case 32:
+				++obj_h;
+				break;
+			case 18:
+				obj_v = 0;
+				obj_h = 0;
+				break;
+			default:
+				if (ch) {
 					printf("%d\n", ch);
-					break;
-			}
+				}
+				break;
 		}
 	}
 

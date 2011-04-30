@@ -198,6 +198,10 @@ keyboard_handler(
 		) {
 	unsigned char scancode;
 	scancode = inportb(0x60);
+	if (keyboard_direct_handler) {
+		keyboard_direct_handler(scancode & 0x7f);
+		return;
+	}
 	keyboard_handler_t handler;
 	handler = key_method[(int)scancode & 0x7f];
 	if (handler) {
@@ -210,6 +214,7 @@ keyboard_install() {
 	/* IRQ installer */
 	irq_install_handler(1, keyboard_handler);
 	keyboard_buffer_handler = NULL;
+	keyboard_direct_handler = NULL;
 }
 
 void
