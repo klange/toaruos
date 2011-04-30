@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#if 0
+#if 1
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
@@ -153,7 +153,7 @@ int main(int argc, char ** argv) {
 	printf("Sprite is %d by %d\n", sprites[0]->width, sprites[0]->height);
 	printf("%x\n", sprites[0]->bitmap);
 
-#if 0
+#if 1
 	printf("Initialzing Freetype...\n");
 	int error = FT_Init_FreeType(&library);
 	if (error) {
