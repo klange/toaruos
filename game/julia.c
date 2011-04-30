@@ -36,6 +36,7 @@ float pixcory;
 
 int newcolor;
 int lastcolor;
+int no_repeat = 0;
 
 int colors[] = {
 	0xeec73e,
@@ -69,7 +70,11 @@ void julia(int xpt, int ypt) {
 	}
 
 	int color = k;
-	if (color > 11) color = color % 12;
+	if (!no_repeat) {
+		if (color > 11) color = color % 12;
+	} else {
+		color = 12 * k / initer;
+	}
 	if (k >= initer)
 		GFX(xpt, ypt) = 0;
 	else
@@ -85,8 +90,11 @@ int main(int argc, char ** argv) {
 		optind = 0;
 	}
 	int index, c;
-	while ((c = getopt(argc, argv, "i:x:X:y:Y:c:C:")) != -1) {
+	while ((c = getopt(argc, argv, "ni:x:X:c:C:")) != -1) {
 		switch (c) {
+			case 'n':
+				no_repeat = 1;
+				break;
 			case 'i':
 				initer = atof(optarg);
 				break;
@@ -95,12 +103,6 @@ int main(int argc, char ** argv) {
 				break;
 			case 'X':
 				Maxx = atof(optarg);
-				break;
-			case 'y':
-				Miny = atof(optarg);
-				break;
-			case 'Y':
-				Maxy = atof(optarg);
 				break;
 			case 'c':
 				conx = atof(optarg);
@@ -114,6 +116,10 @@ int main(int argc, char ** argv) {
 	}
 	printf("initer: %f\n", initer);
 	printf("X: %f %f\n", Minx, Maxx);
+	float _x = Maxx - Minx;
+	float _y = _x / 1024.0 * 768.0;
+	Miny = 0 - _y / 2;
+	Maxy = _y / 2;
 	printf("Y: %f %f\n", Miny, Maxy);
 	printf("conx: %f cony: %f\n", conx, cony);
 
