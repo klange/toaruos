@@ -75,8 +75,12 @@ exec(
 				/* This doesn't care if we already allocated this page */
 				alloc_frame(get_page(shdr->sh_addr + i, 1, current_directory), 0, 1);
 			}
-			/* Copy the section into memory */
-			memcpy((void *)(shdr->sh_addr), (void *)((uintptr_t)header + shdr->sh_offset), shdr->sh_size);
+			if (shdr->sh_type == SHT_NOBITS) {
+				memset((void *)(shdr->sh_addr), 0x0, shdr->sh_size);
+			} else {
+				/* Copy the section into memory */
+				memcpy((void *)(shdr->sh_addr), (void *)((uintptr_t)header + shdr->sh_offset), shdr->sh_size);
+			}
 		}
 	}
 
