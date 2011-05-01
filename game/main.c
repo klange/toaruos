@@ -110,7 +110,7 @@ load_sprite(sprite_t * sprite, char * filename) {
 						bufferb[i+3 + 4 * x] * 0x1;
 			}
 			/* Set our point */
-			sprite->bitmap[(height - y) * width + x] = color;
+			sprite->bitmap[(height - y - 1) * width + x] = color;
 		}
 		i += row_width;
 	}
@@ -171,6 +171,145 @@ void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t colo
 	}
 }
 
+/* RPG Mapping Bits */
+struct {
+	int width;
+	int height;
+	char * buffer;
+	int size;
+} map;
+
+void load_map(char * filename) {
+	FILE * f = fopen(filename, "r");
+	char tmp[256];
+	fgets(tmp, 255, f);
+	map.width = atoi(tmp);
+	fgets(tmp, 256, f);
+	map.height = atoi(tmp);
+	map.size   = map.height * map.width;
+	map.buffer = malloc_(map.size);
+	fread(map.buffer, map.size, 1, f);
+	fclose(f);
+}
+
+char cell(int x, int y) {
+	if (x < 0 || y < 0 || x >= map.width || y >= map.height) {
+		return 'A'; /* The abyss is trees! */
+	}
+	return (map.buffer[y * map.width + x]);
+}
+
+#define VIEW_SIZE 4
+#define CELL_SIZE 64
+
+int my_x = 2;
+int my_y = 2;
+int direction = 0;
+int offset_x = 0;
+int offset_y = 0;
+int offset_iter = 0;
+
+int map_x = GFX_W / 2 - (64 * 9) / 2;
+int map_y = GFX_H / 2 - (64 * 9) / 2;
+
+void render_map(int x, int y) {
+	int i = 0;
+	for (int _y = y - VIEW_SIZE; _y <= y + VIEW_SIZE; ++_y) {
+		int j = 0;
+		for (int _x = x - VIEW_SIZE; _x <= x + VIEW_SIZE; ++_x) {
+			char c = cell(_x,_y);
+			int sprite;
+			switch (c) {
+				case 'A':
+					sprite = 1;
+					break;
+				case '.':
+					sprite = 2;
+					break;
+				case 'W':
+					sprite = 3;
+					break;
+				default:
+					sprite = 0;
+					break;
+			}
+			draw_sprite(sprites[sprite],
+					map_x + offset_x * offset_iter + j * CELL_SIZE,
+					map_y + offset_y * offset_iter + i * CELL_SIZE);
+			++j;
+		}
+		++i;
+	}
+}
+
+
+void display() {
+	render_map(my_x,my_y);
+	draw_sprite(sprites[124 + direction], map_x + CELL_SIZE * 4, map_y + CELL_SIZE * 4);
+	flip();
+}
+
+void transition(int nx, int ny) {
+	if (nx < my_x) {
+		offset_x = 1;
+		offset_y = 0;
+	} else if (ny < my_y) {
+		offset_x = 0;
+		offset_y = 1;
+	} else if (nx > my_x) {
+		offset_x = -1;
+		offset_y = 0;
+	} else if (ny > my_y) {
+		offset_x = 0;
+		offset_y = -1;
+	}
+	for (int i = 0; i < 64; i += 8) {
+		offset_iter = i;
+		display();
+	}
+	offset_iter = 0;
+	offset_x = 0;
+	offset_y = 0;
+	my_x = nx;
+	my_y = ny;
+}
+
+void move(int cx, int cy) {
+	int nx = my_x + cx;
+	int ny = my_y + cy;
+
+	if (cx == 1) {
+		if (direction != 1) {
+			direction = 1;
+			return;
+		}
+	} else if (cx == -1) {
+		if (direction != 2) {
+			direction = 2;
+			return;
+		}
+	} else if (cy == 1) {
+		if (direction != 0) {
+			direction = 0;
+			return;
+		}
+	} else if (cy == -1) {
+		if (direction != 3) {
+			direction = 3;
+			return;
+		}
+	}
+
+	switch (cell(nx,ny)) {
+		case '_':
+		case '.':
+			transition(nx,ny);
+			break;
+		default:
+			break;
+	}
+}
+
 /* woah */
 char font_buffer[400000];
 sprite_t alpha_tmp;
@@ -195,47 +334,25 @@ int main(int argc, char ** argv) {
 	printf("Graphics memory is at %p, backbuffer is at %p.\n", gfx_mem, frame_mem);
 
 	printf("Loading sprites...\n");
-	init_sprite(0, "/etc/ball.bmp", NULL);
-	init_sprite(1, "/etc/toaru_logo.bmp", "/etc/toaru_logo_a.bmp");
+	init_sprite(0, "/etc/game/0.bmp", NULL);
+	init_sprite(1, "/etc/game/1.bmp", NULL);
+	init_sprite(2, "/etc/game/2.bmp", NULL);
+	init_sprite(3, "/etc/game/3.bmp", NULL);
+	init_sprite(124, "/etc/game/remilia.bmp", NULL);
+	init_sprite(125, "/etc/game/remilia_r.bmp", NULL);
+	init_sprite(126, "/etc/game/remilia_l.bmp", NULL);
+	init_sprite(127, "/etc/game/remilia_f.bmp", NULL);
+	load_map("/etc/game/map");
+	printf("%d x %d\n", map.width, map.height);
 
 	printf("\033[J\n");
 
 	syscall_kbd_mode(1);
 
 	int playing = 1;
-
-	int obj_x = GFX_W / 2;
-	int obj_y = GFX_H - 200;
-
-	int obj_h = 1;
-	int obj_v = 1;
-
-	uint32_t which = 0;
-
 	while (playing) {
 
-		/* Update the sprite location */
-		obj_x += obj_h;
-		obj_y += obj_v;
-		if (obj_x < 0) {
-			obj_x = 0;
-			obj_h = -obj_h;
-		}
-		if (obj_x > GFX_W - sprites[which]->width) {
-			obj_x = GFX_W - sprites[which]->width;
-			obj_h = -obj_h;
-		}
-		if (obj_y < 0) {
-			obj_y = 0;
-			obj_v = -obj_v;
-		}
-		if (obj_y > GFX_H - sprites[which]->height) {
-			obj_y = GFX_H - sprites[which]->height;
-			obj_v = -obj_v;
-		}
-
-		draw_sprite(sprites[which], obj_x, obj_y);
-		flip();
+		display();
 
 		char ch = 0;
 		ch = syscall_kbd_get();
@@ -244,24 +361,22 @@ int main(int argc, char ** argv) {
 				playing = 0;
 				break;
 			case 30:
-				obj_h = -1;
+				move(-1,0);
 				/* left */
 				break;
 			case 32:
-				obj_h = 1;
+				move(1,0);
 				/* right */
 				break;
+			case 31:
+				move(0,1);
+				/* Down */
+				break;
+			case 17:
+				move(0,-1);
+				/* Up */
+				break;
 			case 18:
-				obj_x = GFX_W / 2;
-				obj_y = GFX_H - 200;
-				obj_v = 1;
-				obj_h = 1;
-				break;
-			case 2:
-				which = 0;
-				break;
-			case 3:
-				which = 1;
 				break;
 			default:
 				break;

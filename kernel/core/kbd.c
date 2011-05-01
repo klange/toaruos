@@ -199,7 +199,7 @@ keyboard_handler(
 	unsigned char scancode;
 	scancode = inportb(0x60);
 	if (keyboard_direct_handler) {
-		keyboard_direct_handler(scancode & 0x7f);
+		keyboard_direct_handler(scancode);
 		return;
 	}
 	keyboard_handler_t handler;
