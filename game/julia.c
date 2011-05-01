@@ -82,49 +82,52 @@ void julia(int xpt, int ypt) {
 			break;
 	}
 
-	int color = k;
-	if (!no_repeat) {
-		if (color > 11) color = color % 12;
-	} else {
+	int color;
+	if (no_repeat) {
 		color = 12 * k / initer;
+	} else {
+		color = k;
+		if (color > 11) {
+			color = color % 12;
+		}
 	}
-	if (k >= initer)
+	if (k >= initer) {
 		GFX(xpt, ypt) = 0;
-	else
+	} else {
 		GFX(xpt, ypt) = colors[color];
+	}
 	newcolor = color;
 }
 
 int main(int argc, char ** argv) {
 	gfx_mem = (void *)syscall_getgraphicsaddress();
 
-	/* Read some arguments */
 	if (argc > 1) {
-		optind = 0;
-	}
-	int index, c;
-	while ((c = getopt(argc, argv, "ni:x:X:c:C:")) != -1) {
-		switch (c) {
-			case 'n':
-				no_repeat = 1;
-				break;
-			case 'i':
-				initer = atof(optarg);
-				break;
-			case 'x':
-				Minx = atof(optarg);
-				break;
-			case 'X':
-				Maxx = atof(optarg);
-				break;
-			case 'c':
-				conx = atof(optarg);
-				break;
-			case 'C':
-				cony = atof(optarg);
-				break;
-			default:
-				break;
+		/* Read some arguments */
+		int index, c;
+		while ((c = getopt(argc, argv, "ni:x:X:c:C:")) != -1) {
+			switch (c) {
+				case 'n':
+					no_repeat = 1;
+					break;
+				case 'i':
+					initer = atof(optarg);
+					break;
+				case 'x':
+					Minx = atof(optarg);
+					break;
+				case 'X':
+					Maxx = atof(optarg);
+					break;
+				case 'c':
+					conx = atof(optarg);
+					break;
+				case 'C':
+					cony = atof(optarg);
+					break;
+				default:
+					break;
+			}
 		}
 	}
 	printf("initer: %f\n", initer);
