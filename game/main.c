@@ -220,6 +220,7 @@ void render_map(int x, int y) {
 			char c = cell(_x,_y);
 			int sprite;
 			switch (c) {
+				case '\n':
 				case 'A':
 					sprite = 1;
 					break;
