@@ -76,6 +76,7 @@ exec(
 				alloc_frame(get_page(shdr->sh_addr + i, 1, current_directory), 0, 1);
 			}
 			if (shdr->sh_type == SHT_NOBITS) {
+				/* This is the .bss, zero it */
 				memset((void *)(shdr->sh_addr), 0x0, shdr->sh_size);
 			} else {
 				/* Copy the section into memory */
@@ -94,8 +95,6 @@ exec(
 	for (uintptr_t stack_pointer = 0x10000000; stack_pointer < 0x100F0000; stack_pointer += 0x1000) {
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
 	}
-
-	
 
 	uintptr_t heap = current_task->entry + current_task->image_size;
 	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
