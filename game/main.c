@@ -339,6 +339,10 @@ int main(int argc, char ** argv) {
 	init_sprite(1, "/etc/game/1.bmp", NULL);
 	init_sprite(2, "/etc/game/2.bmp", NULL);
 	init_sprite(3, "/etc/game/3.bmp", NULL);
+	init_sprite(4, "/etc/game/4.bmp", NULL);
+	init_sprite(5, "/etc/game/5.bmp", NULL);
+	init_sprite(6, "/etc/game/6.bmp", NULL);
+	init_sprite(7, "/etc/game/7.bmp", NULL);
 	init_sprite(124, "/etc/game/remilia.bmp", NULL);
 	init_sprite(125, "/etc/game/remilia_r.bmp", NULL);
 	init_sprite(126, "/etc/game/remilia_l.bmp", NULL);
