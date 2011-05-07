@@ -57,12 +57,8 @@ irq_remap() {
 	outportb(0xA1, 0x0);
 }
 
-/*
- * Set up interrupt handler for hardware devices.
- */
 void
-irq_install() {
-	irq_remap();
+irq_gates() {
 	idt_set_gate(32, (unsigned)_irq0, 0x08, 0x8E);
 	idt_set_gate(33, (unsigned)_irq1, 0x08, 0x8E);
 	idt_set_gate(34, (unsigned)_irq2, 0x08, 0x8E);
@@ -79,6 +75,15 @@ irq_install() {
 	idt_set_gate(45, (unsigned)_irq13, 0x08, 0x8E);
 	idt_set_gate(46, (unsigned)_irq14, 0x08, 0x8E);
 	idt_set_gate(47, (unsigned)_irq15, 0x08, 0x8E);
+}
+
+/*
+ * Set up interrupt handler for hardware devices.
+ */
+void
+irq_install() {
+	irq_remap();
+	irq_gates();
 	__asm__ __volatile__("sti");
 }
 

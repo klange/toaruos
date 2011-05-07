@@ -92,6 +92,7 @@ extern void isrs_uninstall_handler(int isrs);
 extern void irq_install();
 extern void irq_install_handler(int irq, irq_handler_t);
 extern void irq_uninstall_handler(int irq);
+extern void irq_gates();
 
 /* Timer */
 extern void timer_install();

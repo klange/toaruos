@@ -18,11 +18,6 @@ timer_handler(
 		struct regs *r
 		) {
 	++timer_ticks;
-#if 0
-	if (timer_ticks % 18 == 0) {
-		++ticker;
-	}
-#endif
 	switch_task();
 }
 
