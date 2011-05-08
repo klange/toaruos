@@ -26,14 +26,17 @@ DD = dd conv=notrunc
 all: .passed system bootdisk.img docs utils
 system: toaruos-initrd toaruos-kernel
 
-install: toaruos-initrd toaruos-kernel
+install: system
 	@${ECHO} -n "\033[34m   --   Installing to /boot...\033[0m"
 	@cp toaruos-kernel /boot/toaruos-kernel
 	@cp toaruos-initrd /boot/toaruos-initrd
 	@${ECHO} "\r\033[34;1m   --   Kernel and ramdisk installed.\033[0m"
 
-run: toaruos-kernel toaruos-initrd
+run: system
 	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std
+
+kvm: system
+	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std -enable-kvm
 
 utils: ${UTILITIES}
 
