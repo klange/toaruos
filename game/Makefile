@@ -1,5 +1,5 @@
 CC = i686-pc-toaru-gcc
-CFLAGS = -march=core2 -std=c99 -O3
+CFLAGS = -march=core2 -std=c99 -O3 -m32
 
 .PHONY: all
 

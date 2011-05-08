@@ -264,7 +264,7 @@ void transition(int nx, int ny) {
 		offset_x = 0;
 		offset_y = -1;
 	}
-	for (int i = 0; i < 64; i += 8) {
+	for (int i = 0; i < 64; i += 1) {
 		offset_iter = i;
 		display();
 	}
