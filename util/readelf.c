@@ -40,7 +40,6 @@ int main(int argc, char ** argv) {
 	/* Open the requested binary */
 	binary = fopen(argv[1], "r");
 
-#if 0
 	/* Jump to the end so we can get the size */
 	fseek(binary, 0, SEEK_END);
 	binary_size = ftell(binary);
@@ -51,15 +50,7 @@ int main(int argc, char ** argv) {
 		printf("Oh no! I don't quite like the size of this binary.\n");
 		return 1;
 	}
-#endif
-	char garbage[3];
-	binary_size = 0;
-	while (fread((void *)&garbage, 1, 1, binary) != 0) {
-		++binary_size;
-	}
-	printf("Binary is %d bytes.\n", binary_size);
-	fclose(binary);
-	binary = fopen(argv[1], "r");
+	printf("Binary is %u bytes.\n", (unsigned int)binary_size);
 
 	/* Read the binary into a buffer */
 	binary_buf = malloc(binary_size);
