@@ -141,8 +141,6 @@ int main(int argc, char ** argv) {
 
 	printf("\033[J\n");
 
-	syscall_kbd_mode(1);
-
 	pixcorx = (Maxx - Minx) / GFX_W;
 	pixcory = (Maxy - Miny) / GFX_H;
 	int j = 0;
@@ -158,12 +156,18 @@ int main(int argc, char ** argv) {
 		++j;
 	} while ( j < GFX_H );
 
-	while (1) {
+	syscall_kbd_mode(1);
+
+	int playing = 1;
+	while (playing) {
 		char ch = 0;
-		if ((ch = syscall_kbd_get())) {
-			if (ch == 16) {
+		ch = syscall_kbd_get();
+		switch (ch) {
+			case 16:
+				playing = 0;
 				break;
-			}
+			default:
+				break;
 		}
 	}
 
