@@ -1,6 +1,14 @@
 # ToAruOS (とあるOS) #
 This is a toy OS based on the POSIX standards. The primarily goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library.
 
+## Screenshots ##
+Here's what とあるOS looks like:
+
+* [Empty kernel shell](http://i.imgur.com/44huV.jpg)
+* [Playing a simple RPG](http://i.imgur.com/A7csE.jpg)
+* [Generating Julia fractals](http://i.imgur.com/Uy3JJ.jpg)
+* [Early boot screen testing and some old serial output](http://i.imgur.com/1CMJ0.jpg)
+
 ## Testing it Out ##
 Clone the git repository and run:
 
