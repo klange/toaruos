@@ -2,7 +2,7 @@
 Project development will continue on **August 21st, 2011**.
 
 # ToAruOS (とあるOS) #
-This is a toy OS based on the POSIX standards. The primarily goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library.
+This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library.
 
 ## Screenshots ##
 Here's what とあるOS looks like:
