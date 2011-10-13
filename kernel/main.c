@@ -3,6 +3,10 @@
  * vim:noexpandtab
  * Copyright (c) 2011 Kevin Lange.  All rights reserved.
  *
+ *                           Dedicated to the memory of
+ *                                Dennis Ritchie
+ *                                   1941-2011
+ *
  * Developed by: ToAruOS Kernel Development Team
  *               http://github.com/klange/osdev
  *
