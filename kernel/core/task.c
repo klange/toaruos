@@ -180,14 +180,15 @@ switch_task() {
 	ebp = current_task->ebp;
 	__asm__ __volatile__ (
 			"cli\n"
-			"mov %0, %%ecx\n"
+			"mov %0, %%ebx\n"
 			"mov %1, %%esp\n"
 			"mov %2, %%ebp\n"
 			"mov %3, %%cr3\n"
 			"mov $0x10000, %%eax\n"
 			"sti\n"
-			"jmp *%%ecx"
-			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address));
+			"jmp *%%ebx"
+			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address)
+			: "%ebx", "%esp", "%ebp", "%eax");
 	switch_page_directory(current_task->page_directory);
 }
 
@@ -212,7 +213,7 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 			"pushl %2\n"
 			"pushl %1\n"
 			"call  *%0\n"
-			: : "m"(location), "m"(argc), "m"(argv), "r"(stack));
+			: : "m"(location), "m"(argc), "m"(argv), "r"(stack) : "%ax", "%esp", "%eax");
 }
 
 void task_exit(int retval) {
