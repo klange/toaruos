@@ -138,11 +138,6 @@ start_shell() {
 					serial_send('\n');
 					writech('\n');
 				}
-			} else if (!strcmp(cmd, "crash")) {
-				kprintf("Going to dereference some invalid pointers.\n");
-				int i = 0xFFFFFFFF;
-				int j = *(int *)i;
-				j = 0xDEADBEEF;
 			} else if (!strcmp(cmd, "exit")) {
 				kprintf("Good byte.\n");
 				break;

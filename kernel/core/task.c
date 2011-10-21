@@ -188,7 +188,7 @@ switch_task() {
 			"sti\n"
 			"jmp *%%ebx"
 			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address)
-			: "%ebx", "%esp", "%ebp", "%eax");
+			: "%ebx", "%esp", "%eax");
 	switch_page_directory(current_task->page_directory);
 }
 

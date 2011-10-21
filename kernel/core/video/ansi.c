@@ -242,7 +242,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							bochs_set_csr(bochs_get_csr_x() - 1, bochs_get_csr_y());
+							bochs_set_csr(bochs_get_csr_x() - i, bochs_get_csr_y());
 						}
 						break;
 					case ANSI_CUP:
