@@ -141,10 +141,12 @@ kgets_handler(
 			kwrite(' ');
 			kwrite(0x08);
 			/* Erase the end of the buffer */
-			kgets_buffer[kgets_collected] = '\0';
-			/* The buffer just got on character smaller */
-			--kgets_collected;
+			kgets_buffer[--kgets_collected] = '\0';
 		}
+		return;
+	} else if (ch == '\x0c') {
+		kprintf("\033[J");
+		kprintf(kgets_buffer);
 		return;
 	} else if (ch == '\n') {
 		/* Newline finishes off the kgets() */
@@ -155,7 +157,7 @@ kgets_handler(
 	kwrite(ch);
 	if (kgets_collected < kgets_want) {
 		kgets_buffer[kgets_collected] = ch;
-		kgets_collected++;
+		kgets_buffer[++kgets_collected] = '\0';
 	}
 }
 
