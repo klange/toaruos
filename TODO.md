@@ -4,6 +4,7 @@
 ## I/O
 * `/dev` file system
 * `/dev/fbN` and `/dev/ttyN` for virtual framebuffer terminals and graphics
+* `/dev/ttyS0` for serial I/O
 * Support framebuffer switching via keyboard
 * Remove hardcoded special-casing for `stdin`/`stdout`/`stderr`
 * SATA read/write drivers (`/dev/sdaN`)
