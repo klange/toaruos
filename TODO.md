@@ -13,12 +13,13 @@
 * Mounting of `/dev/*` files using a filesystem handler
 * VFS tree
 
-## `libc`
+## libc
 * Fork `newlib`
 * Changes for `newlib` should be moved to a git repository
 * Fix 64-bit host builds?
 * `dirent.h` support; `readdir` in kernel
 * Entire user-space library set should build from scratch on any compatible system
+* Consider working with `glib`?
 
 ## GCC
 * Port GCC
