@@ -177,6 +177,7 @@ kgets(
 	kgets_collected = 0;
 	kgets_want      = size;
 	kgets_newline   = 0;
+	kgets_buffer[0] = '\0';
 	/* Assign the keyboard handler */
 	keyboard_buffer_handler = kgets_handler;
 	while ((kgets_collected < size) && (!kgets_newline)) {
