@@ -232,7 +232,20 @@ putch(
 	if (keyboard_buffer_handler) {
 		keyboard_buffer_handler(c);
 	} else {
-		ansi_put(c);
+		if (c == 3) {
+			__volatile__ task_t * prev_task = current_task;
+			while (current_task && !current_task->id) {
+				current_task = current_task->next;
+			}
+			if (current_task) {
+				kprintf("Killing task %d!\n", current_task->id);
+				kexit(1);
+			} else {
+				current_task = prev_task;
+			}
+			return;
+		}
+		kprintf("[notice] Key %d pressed without a handler active!\n", (int)c);
 	}
 }
 
