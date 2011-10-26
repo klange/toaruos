@@ -141,7 +141,9 @@ start_shell() {
 				}
 				while (buf[0]) {
 					ide_read_sector(0x1F0, slave, i, buf);
-					kprintf("%s", buf);
+					for (uint16_t j = 0; j < 512; ++j) {
+						ansi_put(buf[j]);
+					}
 					++i;
 				}
 			} else if (!strcmp(cmd, "write-disk")) {
