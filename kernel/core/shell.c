@@ -214,13 +214,15 @@ start_shell() {
 				char buf[512];
 				uint32_t lba = 0x0;
 				uint16_t bus = 0x1F0;
-				outportb(bus + 0x01, 0x00);
-				outportb(bus + 0x03, lba & 0xff);
-				outportb(bus + 0x04, (lba >> 8) & 0xff);
-				outportb(bus + 0x05, (lba >> 16)& 0xff);
-				outportb(bus + 0x06, 0xf0 | (lba >> 24 & 0xf));
-				outportb(bus + 0x07, ATA_CMD_READ_PIO);
-				outportb(bus + 0x02, 1);
+				uint8_t  slavebit = 0;
+				outportb(bus + ATA_REG_FEATURES, 0x00);
+				outportb(bus + ATA_REG_SECCOUNT0, 1);
+				outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slavebit << 4 | 
+						                     (lba & 0x0f000000) >> 24);
+				outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
+				outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
+				outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
+				outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
 				uint8_t status = 0;
 				while ((status = inportb(bus + 0x07)) & 0x80) {
 				}
@@ -237,24 +239,27 @@ start_shell() {
 				__asm__ __volatile__ ("sti");
 			} else if (!strcmp(cmd, "write-disk")) {
 				__asm__ __volatile__ ("cli");
+				char buf[512] = "Hello world!\n";
 				uint32_t lba = 0x0;
 				uint16_t bus = 0x1F0;
-				outportb(bus + 0x01, 0x00);
-				outportb(bus + 0x03, lba & 0xff);
-				outportb(bus + 0x04, (lba >> 8) & 0xff);
-				outportb(bus + 0x05, (lba >> 16)& 0xff);
-				outportb(bus + 0x06, 0xf0 | (lba >> 24 & 0xf));
-				outportb(bus + 0x07, ATA_CMD_WRITE_PIO);
+				uint8_t  slavebit = 0;
+				outportb(bus + ATA_REG_FEATURES, 0x00);
+				outportb(bus + ATA_REG_SECCOUNT0, 1);
+				outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slavebit << 4 | 
+						                     (lba & 0x0f000000) >> 24);
+				outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
+				outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
+				outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
+				outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 				uint8_t status = 0;
 				while ((status = inportb(bus + 0x07)) & 0x80) {
 				}
 				for (volatile int i = 0; i < 512; i+=2)
 				{
-					outportb(bus + 0x02, 0);
-					outports(bus, 0x4344);
+					uint16_t s = (buf[i+1] << 8) + (buf[i]);
+					outports(bus, s);
 				}
 				outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
-				outportb(bus + 0x02, 0);
 				outportb(0x177, 0xe7);
 				__asm__ __volatile__ ("sti");
 			} else {
