@@ -21,6 +21,7 @@
 #include <system.h>
 #include <fs.h>
 #include <multiboot.h>
+#include <ata.h>
 
 void
 start_shell() {
@@ -208,6 +209,54 @@ start_shell() {
 				free(allocs);
 				free(sizes);
 				kprintf("Testing complete.\n");
+			} else if (!strcmp(cmd, "read-disk")) {
+				__asm__ __volatile__ ("cli");
+				char buf[512];
+				uint32_t lba = 0x0;
+				uint16_t bus = 0x1F0;
+				outportb(bus + 0x01, 0x00);
+				outportb(bus + 0x03, lba & 0xff);
+				outportb(bus + 0x04, (lba >> 8) & 0xff);
+				outportb(bus + 0x05, (lba >> 16)& 0xff);
+				outportb(bus + 0x06, 0xf0 | (lba >> 24 & 0xf));
+				outportb(bus + 0x07, ATA_CMD_READ_PIO);
+				outportb(bus + 0x02, 1);
+				uint8_t status = 0;
+				while ((status = inportb(bus + 0x07)) & 0x80) {
+				}
+				for (volatile int i = 0; i < 512; i += 2)
+				{
+					uint16_t s = inports(0x1f0);
+					buf[i] = s & 0xFF;
+					buf[i+1] = (s & 0xFF00) >> 8;
+				}
+				outportb(0x177, 0xe7);
+				for (uint16_t i = 0; i < 512; ++i) {
+					kprintf("%c", (int)(buf[i] & 0xFF));
+				}
+				__asm__ __volatile__ ("sti");
+			} else if (!strcmp(cmd, "write-disk")) {
+				__asm__ __volatile__ ("cli");
+				uint32_t lba = 0x0;
+				uint16_t bus = 0x1F0;
+				outportb(bus + 0x01, 0x00);
+				outportb(bus + 0x03, lba & 0xff);
+				outportb(bus + 0x04, (lba >> 8) & 0xff);
+				outportb(bus + 0x05, (lba >> 16)& 0xff);
+				outportb(bus + 0x06, 0xf0 | (lba >> 24 & 0xf));
+				outportb(bus + 0x07, ATA_CMD_WRITE_PIO);
+				uint8_t status = 0;
+				while ((status = inportb(bus + 0x07)) & 0x80) {
+				}
+				for (volatile int i = 0; i < 512; i+=2)
+				{
+					outportb(bus + 0x02, 0);
+					outports(bus, 0x4344);
+				}
+				outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
+				outportb(bus + 0x02, 0);
+				outportb(0x177, 0xe7);
+				__asm__ __volatile__ ("sti");
 			} else {
 				/* Alright, here we go */
 				char * filename = malloc(sizeof(char) * 1024);
