@@ -20,7 +20,7 @@ EMU = qemu
 GENEXT = genext2fs
 DD = dd conv=notrunc
 
-.PHONY: all system clean install run docs utils
+.PHONY: all system clean clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
 .SECONDARY: 
 
 all: .passed system bootdisk.img docs utils
@@ -172,25 +172,50 @@ bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin util/bin/mrboots-insta
 ###############
 #    clean    #
 ###############
-clean:
-	@${ECHO} -n "\033[31m   RM   Cleaning... \033[0m"
-	@-rm -f toaruos-kernel
-	@-rm -f toaruos-initrd
+
+clean-soft:
+	@${ECHO} -n "\033[31m   RM   Cleaning modules... \033[0m"
 	@-rm -f kernel/*.o
 	@-rm -f kernel/core/*.o
 	@-rm -f kernel/core/fs/*.o
 	@-rm -f kernel/core/video/*.o
+	@${ECHO} "\r\033[31;1m   RM   Cleaned modules.\033[0m\033[K"
+
+clean-docs:
+	@${ECHO} -n "\033[31m   RM   Cleaning documentation... \033[0m"
+	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out
+	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
+	@${ECHO} "\r\033[31;1m   RM   Cleaned documentation.\033[0m\033[K"
+
+clean-boot:
+	@${ECHO} -n "\033[31m   RM   Cleaning bootloader... \033[0m"
 	@-rm -f bootloader/stage1.bin
 	@-rm -f bootloader/stage1/*.o
 	@-rm -f bootloader/stage2.bin
 	@-rm -f bootloader/stage2/*.o
-	@-rm -f initrd/bin/*
-	@-rm -f loader/*.o
 	@-rm -f -r initrd/boot
 	@-rm -f bootdisk.img
-	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out
-	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
+	@${ECHO} "\r\033[31;1m   RM   Cleaned bootloader.\033[0m\033[K"
+
+clean-bin:
+	@${ECHO} -n "\033[31m   RM   Cleaning native binaries... \033[0m"
+	@-rm -f initrd/bin/*
+	@${ECHO} "\r\033[31;1m   RM   Cleaned native binaries.\033[0m\033[K"
+
+clean-aux:
+	@${ECHO} -n "\033[31m   RM   Cleaning auxillary... \033[0m"
+	@-rm -f loader/*.o
 	@-rm -f util/bin/*
+	@${ECHO} "\r\033[31;1m   RM   Cleaned auxillary.\033[0m\033[K"
+
+clean-core:
+	@${ECHO} -n "\033[31m   RM   Cleaning final output... \033[0m"
+	@-rm -f toaruos-kernel
+	@-rm -f toaruos-initrd
+	@${ECHO} "\r\033[31;1m   RM   Cleaned final output.\033[0m\033[K"
+
+clean: clean-soft clean-docs clean-boot clean-bin clean-core clean-aux
+	@${ECHO} -n "\033[31m   RM   Finalizing clean... \033[0m"
 	@-rm -f .passed
 	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"
 
