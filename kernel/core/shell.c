@@ -123,105 +123,26 @@ start_shell() {
 					kprintf("Writing %d (%c) to port %d\n", val, (unsigned char)val, port);
 					outportb((short)port, (unsigned char)val);
 				}
-			} else if (!strcmp(cmd, "serial")) {
-				if (tokenid < 2) {
-					kprintf("Need some arguments.\n");
-				} else {
-					int i = 1;
-					for (i = 1; i < tokenid; ++i) {
-						int j = 0;
-						for (j = 0; j < strlen(argv[i]); ++j) {
-							serial_send(argv[i][j]);
-							writech(argv[i][j]);
-						}
-						writech(' ');
-					}
-					serial_send('\n');
-					writech('\n');
-				}
-			} else if (!strcmp(cmd, "exit")) {
-				kprintf("Good byte.\n");
-				break;
 			} else if (!strcmp(cmd, "cpu-detect")) {
 				detect_cpu();
-			} else if (!strcmp(cmd, "logo")) {
-				if (tokenid < 2) {
-					bochs_draw_logo("/bs.bmp");
-				} else {
-					bochs_draw_logo(argv[1]);
-				}
-			} else if (!strcmp(cmd, "line")) {
-				if (tokenid < 5) {
-					bochs_draw_line(0,1024,0,768, 0xFFFFFF);
-				} else {
-					bochs_draw_line(atoi(argv[1]),atoi(argv[2]),atoi(argv[3]),atoi(argv[4]),0xFFFFFF);
-				}
-			} else if (!strcmp(cmd, "boredom")) {
-				int x = 30;
-				if (tokenid > 1) {
-					x = atoi(argv[1]);
-				}
-				for (int derp = 0; derp < x; ++derp) {
-					int x0 = krand() % 1024;
-					int x1 = krand() % 1024;
-					int y0 = krand() % 768;
-					int y1 = krand() % 768;
-					bochs_draw_line(x0,x1,y0,y1, krand() % 0xFFFFFF);
-				}
 			} else if (!strcmp(cmd, "reset-keyboard")) {
 				/* Reset the shift/alt/ctrl statuses, in case they get messed up */
 				set_kbd(0,0,0);
 			} else if (!strcmp(cmd, "multiboot")) {
 				dump_multiboot(mboot_ptr);
-			} else if (!strcmp(cmd, "exec")) {
-				if (tokenid < 2) {
-					continue;
-				}
-				int ret = system(argv[1], tokenid - 1, &argv[1]);
-				kprintf("Returned %d\n", ret);
-			} else if (!strcmp(cmd, "test-alloc")) {
-				kprintf("Testing the kernel allocator...\n");
-				uint32_t sizers[] = { 1, 4, 4, 32, 64, 256, 1024, 795, 2042, 6204, 2525 };
-				uint32_t sizes_c = 11;
-				uint32_t size = krand();
-				void ** allocs = (void **)malloc(sizeof(uintptr_t *) * 500);
-				uint32_t * sizes = (uint32_t *)malloc(sizeof(uint32_t *) * 500);
-				for (uint32_t i = 0; i < 500; ++i) {
-					uint32_t s = sizers[size % sizes_c];
-					kprintf("[%d] Allocating %d... ",i, s);
-					allocs[i] = malloc(s);
-					kprintf("0x%x\n", allocs[i]);
-					sizes[i]  = s;
-					if (krand() % 2) {
-						kprintf("[%d] Freeing %d...\n", i, s);
-						free(allocs[i]);
-						allocs[i] = NULL;
-					}
-					size = krand();
-				}
-				for (uint32_t i = 0; i < 500; ++i) {
-					if (allocs[i]) {
-						kprintf("[%d] Freeing %d...\n", i, sizes[i]);
-						free(allocs[i]);
-						allocs[i] = NULL;
-					}
-				}
-				free(allocs);
-				free(sizes);
-				kprintf("Testing complete.\n");
-			} else if (!strcmp(cmd, "read-slave")) {
+			} else if (!strcmp(cmd, "read-disk")) {
 				char buf[512] = {1};
 				uint32_t i = 0;
+				uint8_t slave = 0;
+				if (tokenid >= 2) {
+					if (!strcmp(argv[1], "slave")) {
+						slave = 1;
+					}
+				}
 				while (buf[0]) {
-					ide_read_sector(0x1F0, 1, i, buf);
+					ide_read_sector(0x1F0, slave, i, buf);
 					kprintf("%s", buf);
 					++i;
-				}
-			} else if (!strcmp(cmd, "read-disk")) {
-				char buf[512];
-				ide_read_sector(0x1F0, 0, 0, buf);
-				for (uint16_t i = 0; i < 512; ++i) {
-					kprintf("%c", (int)(buf[i] & 0xFF));
 				}
 			} else if (!strcmp(cmd, "write-disk")) {
 				char buf[512] = "Hello world!\n";
