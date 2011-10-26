@@ -209,6 +209,14 @@ start_shell() {
 				free(allocs);
 				free(sizes);
 				kprintf("Testing complete.\n");
+			} else if (!strcmp(cmd, "read-slave")) {
+				char buf[512] = {1};
+				uint32_t i = 0;
+				while (buf[0]) {
+					ide_read_sector(0x1F0, 1, i, buf);
+					kprintf("%s", buf);
+					++i;
+				}
 			} else if (!strcmp(cmd, "read-disk")) {
 				char buf[512];
 				ide_read_sector(0x1F0, 0, 0, buf);
