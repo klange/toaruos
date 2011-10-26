@@ -311,4 +311,8 @@ int system( char *, int, char **);
 /* Sytem Calls */
 void syscalls_install();
 
+/* IDE / PATA */
+void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf);
+void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf);
+
 #endif
