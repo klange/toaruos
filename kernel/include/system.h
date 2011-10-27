@@ -12,6 +12,8 @@
 #define KERNEL_UNAME "ToAruOS"
 #define KERNEL_VERSION_STRING "0.0.1"
 
+#define STOP while (1) { __asm__ __volatile__ ("hlt"); }
+
 extern void *sbrk(uintptr_t increment);
 
 extern void tss_flush();
