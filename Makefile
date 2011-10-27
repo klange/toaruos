@@ -20,7 +20,7 @@ EMU = qemu
 GENEXT = genext2fs
 DD = dd conv=notrunc
 
-.PHONY: all system clean clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
+.PHONY: all system clean clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
 .SECONDARY: 
 
 all: .passed system bootdisk.img docs utils
@@ -212,12 +212,14 @@ clean-core:
 	@${ECHO} -n "\033[31m   RM   Cleaning final output... \033[0m"
 	@-rm -f toaruos-kernel
 	@-rm -f toaruos-initrd
+	@-rm -f .passed
 	@${ECHO} "\r\033[31;1m   RM   Cleaned final output.\033[0m\033[K"
 
-clean: clean-soft clean-docs clean-boot clean-bin clean-core clean-aux
-	@${ECHO} -n "\033[31m   RM   Finalizing clean... \033[0m"
-	@-rm -f .passed
-	@${ECHO} "\r\033[31;1m   RM   Finished cleaning.\033[0m\033[K"
+clean: clean-soft clean-boot clean-core
+	@${ECHO} "\033[34;1m   --   Finished soft cleaning.\033[0m\033[K"
+
+clean-hard: clean clean-bin clean-aux clean-docs
+	@${ECHO} "\033[34;1m   --   Finished hard cleaning.\033[0m\033[K"
 
 
 # vim:noexpandtab
