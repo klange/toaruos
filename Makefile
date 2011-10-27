@@ -1,5 +1,6 @@
-#CC = gcc-4.3
-CC = clang
+# ToAruOS Primary Build Script
+# This script will pull either clang (with -fcolor-diagnostics), gcc (with no extra options), or cc
+CC = `util/compiler`
 # Sometimes we just have to use GCC
 GCC = gcc
 # CFLAGS for core components
@@ -21,8 +22,8 @@ DD = dd conv=notrunc
 BEG = util/mk-beg
 END = util/mk-end
 INFO = util/mk-info
-ERRORS = 2>>/tmp/.build-errors
-ERRORSS = >>/tmp/.build-errors
+ERRORS = 2>>/tmp/.build-errors || util/mk-error
+ERRORSS = >>/tmp/.build-errors || util/mk-error
 
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm

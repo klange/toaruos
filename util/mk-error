@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo -e "\033[1;31m! Fatal error encountered.\033[0m"
+cat /tmp/.build-errors
+
+exit 1

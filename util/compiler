@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [[ -n `which clang` ]] ; then
+	echo "clang -fcolor-diagnostics"
+elif [[ -n `which gcc` ]] ; then
+	echo "gcc"
+else
+	echo "cc"
+fi
