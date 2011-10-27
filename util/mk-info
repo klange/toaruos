@@ -1,0 +1,5 @@
+#!/bin/bash
+. util/cpad.sh
+
+CMD=`cpad "$1" 8 " "`
+echo -e -n "\r\033[1;34m${CMD}${2}\033[0m\n"

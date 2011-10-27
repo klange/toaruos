@@ -9,7 +9,6 @@ NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra -Wno-unused-parameter
 # Linker for core
 LD = ld -m elf_i386
 YASM = yasm
-ECHO = `which echo` -e
 # Feel free to be specific, but I'd rather you not be.
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
@@ -19,6 +18,14 @@ UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
 GENEXT = genext2fs
 DD = dd conv=notrunc
+BEG = util/mk-beg
+END = util/mk-end
+INFO = util/mk-info
+ERRORS = 2>>/tmp/.build-errors
+ERRORSS = >>/tmp/.build-errors
+
+BEGRM = util/mk-beg-rm
+ENDRM = util/mk-end-rm
 
 .PHONY: all system clean clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
 .SECONDARY: 
@@ -27,10 +34,10 @@ all: .passed system bootdisk.img docs utils
 system: toaruos-initrd toaruos-kernel
 
 install: system
-	@${ECHO} -n "\033[34m   --   Installing to /boot...\033[0m"
+	@${BEG} "CP" "Installing to /boot..."
 	@cp toaruos-kernel /boot/toaruos-kernel
 	@cp toaruos-initrd /boot/toaruos-initrd
-	@${ECHO} "\r\033[34;1m   --   Kernel and ramdisk installed.\033[0m"
+	@${END} "CP" "Installed to /boot"
 
 run: system
 	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std
@@ -50,41 +57,41 @@ utils: ${UTILITIES}
 docs: docs/core.pdf
 
 docs/core.pdf: docs/*.tex 
-	@${ECHO} -n "\033[32m  docs  Generating documentation...\033[0m"
-	@pdflatex -draftmode -halt-on-error -output-directory docs/ docs/core.tex > /dev/null
-	@makeindex -q docs/*.idx
-	@pdflatex -halt-on-error -output-directory docs/ docs/core.tex > /dev/null
-	@${ECHO} "\r\033[32;1m  docs  Generated documentation PDF.\033[0m"
+	@${BEG} "docs" "Generating documentation..."
+	@pdflatex -draftmode -halt-on-error -output-directory docs/ docs/core.tex > /dev/null ${ERRORS}
+	@makeindex -q docs/*.idx ${ERRORS}
+	@pdflatex -halt-on-error -output-directory docs/ docs/core.tex > /dev/null ${ERRORS}
+	@${END} "docs" "Generated documentation"
 
 ################
 #    Kernel    #
 ################
 toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS}
-	@${ECHO} -n "\033[32m   LD   $<\033[0m"
-	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o kernel/core/*.o kernel/core/fs/*.o kernel/core/video/*.o
-	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"
-	@${ECHO} "\033[34;1m   --   Kernel is ready!\033[0m"
+	@${BEG} "LD""$<"
+	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o kernel/core/*.o kernel/core/fs/*.o kernel/core/video/*.o ${ERRORS}
+	@${END} "LD" "$<"
+	@${INFO} "--" "Kernel is ready!"
 
 kernel/start.o: kernel/start.s
-	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
-	@${YASM} -f elf -o kernel/start.o kernel/start.s
-	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
+	@${BEG} "yasm" "$<"
+	@${YASM} -f elf -o kernel/start.o kernel/start.s ${ERRORS}
+	@${END} "yasm" "$<"
 
 %.o: %.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+	@${BEG} "CC" "$<"
+	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
+	@${END} "CC" "$<"
 
 ################
 #   Ram disk   #
 ################
 toaruos-initrd: initrd/boot/kernel initrd/boot/stage2 initrd/bs.bmp ${BINARIES}
-	@${ECHO} -n "\033[32m initrd Generating initial RAM disk\033[0m"
+	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
-	@${GENEXT} -d initrd -q -b 4096 toaruos-initrd
-	@${ECHO} "\r\033[32;1m initrd Generated initial RAM disk image\033[0m"
-	@${ECHO} "\033[34;1m   --   HDD image is ready!\033[0m"
+	@${GENEXT} -d initrd -q -b 4096 toaruos-initrd ${ERRORS}
+	@${END} "initrd" "Generated initial RAM disk"
+	@${INFO} "--" "HDD image is ready!"
 
 ### Ram Disk installers...
 
@@ -103,27 +110,27 @@ initrd/boot/kernel: toaruos-kernel
 ################
 
 util/bin/%: util/%.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${CC} ${NATIVEFLAGS} -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+	@${BEG} "CC" "$<"
+	@${CC} ${NATIVEFLAGS} -o $@ $< ${ERRORS}
+	@${END} "CC" "$<"
 
 ################
 #   Userspace  #
 ################
 loader/crtbegin.o: loader/crtbegin.s
-	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
-	@${YASM} -f elf32 -o $@ $<
-	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
+	@${BEG} "yasm" "$<"
+	@${YASM} -f elf32 -o $@ $< ${ERRORS}
+	@${END} "yasm" "$<"
 
 initrd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
-	@${ECHO} -n "\033[32m   LD   $<\033[0m"
-	@${LD} -T loader/link.ld -o $@ $<
-	@${ECHO} "\r\033[32;1m   LD   $<\033[0m"
+	@${BEG} "LD" "$<"
+	@${LD} -T loader/link.ld -o $@ $< ${ERRORS}
+	@${END} "LD" "$<"
 
 loader/%.o: loader/%.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${CC} ${CFLAGS} -c -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+	@${BEG} "CC" "$<"
+	@${CC} ${CFLAGS} -c -o $@ $< ${ERRORS}
+	@${END} "CC" "$<"
 
 ################
 #  Bootloader  #
@@ -131,95 +138,94 @@ loader/%.o: loader/%.c
 
 # Stage 1
 bootloader/stage1/main.o: bootloader/stage1/main.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${GCC} ${CFLAGS} -c -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+	@${BEG} "CC" "$<"
+	@${GCC} ${CFLAGS} -c -o $@ $< ${ERRORS}
+	@${END} "CC" "$<"
 
 bootloader/stage1/start.o: bootloader/stage1/start.s
-	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
-	@${YASM} -f elf32 -p gas -o $@ $<
-	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
+	@${BEG} "yasm" "$<"
+	@${YASM} -f elf32 -p gas -o $@ $< ${ERRORS}
+	@${END} "yasm" "$<"
 
 bootloader/stage1.bin: bootloader/stage1/main.o bootloader/stage1/start.o bootloader/stage1/link.ld
-	@${ECHO} -n "\033[32m   ld   $<\033[0m"
-	@${LD} -o bootloader/stage1.bin -T bootloader/stage1/link.ld bootloader/stage1/start.o bootloader/stage1/main.o
-	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
+	@${BEG} "LD" "$<"
+	@${LD} -o bootloader/stage1.bin -T bootloader/stage1/link.ld bootloader/stage1/start.o bootloader/stage1/main.o ${ERRORS}
+	@${END} "LD" "$<"
 
 # Stage 2
 bootloader/stage2/main.o: bootloader/stage2/main.c
-	@${ECHO} -n "\033[32m   CC   $<\033[0m"
-	@${GCC} ${CFLAGS} -I./kernel/include -c -o $@ $<
-	@${ECHO} "\r\033[32;1m   CC   $<\033[0m"
+	@${BEG} "CC" "$<"
+	@${GCC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
+	@${END} "CC" "$<"
 
 bootloader/stage2/start.o: bootloader/stage2/start.s
-	@${ECHO} -n "\033[32m  yasm  $<\033[0m"
-	@${YASM} -f elf32 -p gas -o $@ $<
-	@${ECHO} "\r\033[32;1m  yasm  $<\033[0m"
+	@${BEG} "yasm" "$<"
+	@${YASM} -f elf32 -p gas -o $@ $< ${ERRORS}
+	@${END} "yasm" "$<"
 
 bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootloader/stage2/link.ld
-	@${ECHO} -n "\033[32m   ld   $<\033[0m"
-	@${LD} -o bootloader/stage2.bin -T bootloader/stage2/link.ld bootloader/stage2/start.o bootloader/stage2/main.o
-	@${ECHO} "\r\033[32;1m   ld   $<\033[0m"
+	@${BEG} "LD" "$<"
+	@${LD} -o bootloader/stage2.bin -T bootloader/stage2/link.ld bootloader/stage2/start.o bootloader/stage2/main.o ${ERRORS}
+	@${END} "LD" "$<"
 
 ##############
 #  bootdisk  #
 ##############
 bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin util/bin/mrboots-installer
-	@${ECHO} -n "\033[34m   --   Building bootdisk.img...\033[0m"
 	@cat bootloader/stage1.bin bootloader/stage2.bin > bootdisk.img
-	@${ECHO} "\r\033[34;1m   --   Bootdisk is ready!      \033[0m"
+	@${INFO} "--" "Bootdisk is ready!"
 
 ###############
 #    clean    #
 ###############
 
 clean-soft:
-	@${ECHO} -n "\033[31m   RM   Cleaning modules... \033[0m"
+	@${BEGRM} "RM" "Cleaning modules..."
 	@-rm -f kernel/*.o
 	@-rm -f kernel/core/*.o
 	@-rm -f kernel/core/fs/*.o
 	@-rm -f kernel/core/video/*.o
-	@${ECHO} "\r\033[31;1m   RM   Cleaned modules.\033[0m\033[K"
+	@${ENDRM} "RM" "Cleaned modules."
 
 clean-docs:
-	@${ECHO} -n "\033[31m   RM   Cleaning documentation... \033[0m"
+	@${BEGRM} "RM" "Cleaning documentation..."
 	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out
 	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
-	@${ECHO} "\r\033[31;1m   RM   Cleaned documentation.\033[0m\033[K"
+	@${ENDRM} "RM" "Cleaned documentation"
 
 clean-boot:
-	@${ECHO} -n "\033[31m   RM   Cleaning bootloader... \033[0m"
+	@${BEGRM} "RM" "Cleaning bootloader..."
 	@-rm -f bootloader/stage1.bin
 	@-rm -f bootloader/stage1/*.o
 	@-rm -f bootloader/stage2.bin
 	@-rm -f bootloader/stage2/*.o
 	@-rm -f -r initrd/boot
 	@-rm -f bootdisk.img
-	@${ECHO} "\r\033[31;1m   RM   Cleaned bootloader.\033[0m\033[K"
+	@${ENDRM} "RM" "Cleaned bootloader"
 
 clean-bin:
-	@${ECHO} -n "\033[31m   RM   Cleaning native binaries... \033[0m"
+	@${BEGRM} "RM" "Cleaning native binaries..."
 	@-rm -f initrd/bin/*
-	@${ECHO} "\r\033[31;1m   RM   Cleaned native binaries.\033[0m\033[K"
+	@${ENDRM} "RM" "Cleaned native binaries"
 
 clean-aux:
-	@${ECHO} -n "\033[31m   RM   Cleaning auxillary... \033[0m"
+	@${BEGRM} "RM" "Cleaning auxillary files..."
 	@-rm -f loader/*.o
 	@-rm -f util/bin/*
-	@${ECHO} "\r\033[31;1m   RM   Cleaned auxillary.\033[0m\033[K"
+	@${ENDRM} "RM" "Cleaned auxillary files"
 
 clean-core:
-	@${ECHO} -n "\033[31m   RM   Cleaning final output... \033[0m"
+	@${BEGRM} "RM" "Cleaning final output..."
 	@-rm -f toaruos-kernel
 	@-rm -f toaruos-initrd
 	@-rm -f .passed
-	@${ECHO} "\r\033[31;1m   RM   Cleaned final output.\033[0m\033[K"
+	@${ENDRM} "RM" "Cleaned final output"
 
 clean: clean-soft clean-boot clean-core
-	@${ECHO} "\033[34;1m   --   Finished soft cleaning.\033[0m\033[K"
+	@${INFO} "--" "Finished soft cleaning"
 
 clean-hard: clean clean-bin clean-aux clean-docs
-	@${ECHO} "\033[34;1m   --   Finished hard cleaning.\033[0m\033[K"
+	@${INFO} "--" "Finished hard cleaning"
 
 
 # vim:noexpandtab
