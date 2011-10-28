@@ -1,5 +1,7 @@
 toaruos-kernel
 toaruos-initrd
+toaruos-disk.img
+hdd/*
 *.o
 *.swp
 bootloader/stage1.bin

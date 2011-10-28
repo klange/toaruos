@@ -28,11 +28,14 @@ ERRORSS = >>/tmp/.build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-.PHONY: all system clean clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
+EMUARGS = -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std -hda toaruos-disk.img
+EMUKVM  = -enable-kvm
+
+.PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
 .SECONDARY: 
 
 all: .passed system bootdisk.img docs utils
-system: toaruos-initrd toaruos-kernel
+system: toaruos-initrd toaruos-disk.img toaruos-kernel
 
 install: system
 	@${BEG} "CP" "Installing to /boot..."
@@ -41,10 +44,10 @@ install: system
 	@${END} "CP" "Installed to /boot"
 
 run: system
-	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std
+	${EMU} ${EMUARGS}
 
 kvm: system
-	${EMU} -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std -enable-kvm
+	${EMU} ${EMUARGS} ${EMUKVM}
 
 utils: ${UTILITIES}
 
@@ -92,7 +95,7 @@ toaruos-initrd: initrd/boot/kernel initrd/boot/stage2 initrd/bs.bmp ${BINARIES}
 	@-rm -f toaruos-initrd
 	@${GENEXT} -d initrd -q -b 4096 toaruos-initrd ${ERRORS}
 	@${END} "initrd" "Generated initial RAM disk"
-	@${INFO} "--" "HDD image is ready!"
+	@${INFO} "--" "Ramdisk image is ready!"
 
 ### Ram Disk installers...
 
@@ -105,6 +108,23 @@ initrd/boot/stage2: bootloader/stage2.bin
 initrd/boot/kernel: toaruos-kernel
 	@mkdir -p initrd/boot
 	@cp toaruos-kernel initrd/boot/kernel
+
+####################
+# Hard Disk Images #
+####################
+
+# TODO: Install Grub to one of these by pulling newest grub builds
+#       from the Grub2 website.
+
+hdd:
+	@mkdir hdd
+
+toaruos-disk.img: hdd
+	@${BEG} "hdd" "Generating a Hard Disk image..."
+	@-rm -f toaruos-disk.img
+	@${GENEXT} -d hdd -q -b 131072 toaruos-disk.img ${ERRORS}
+	@${END} "hdd" "Generated Hard Disk image"
+	@${INFO} "--" "Hard disk image is ready!"
 
 ################
 #   Utilities  #
@@ -219,7 +239,6 @@ clean-core:
 	@${BEGRM} "RM" "Cleaning final output..."
 	@-rm -f toaruos-kernel
 	@-rm -f toaruos-initrd
-	@-rm -f .passed
 	@${ENDRM} "RM" "Cleaned final output"
 
 clean: clean-soft clean-boot clean-core
@@ -227,6 +246,12 @@ clean: clean-soft clean-boot clean-core
 
 clean-hard: clean clean-bin clean-aux clean-docs
 	@${INFO} "--" "Finished hard cleaning"
+
+clean-once:
+	@${BEGRM} "RM" "Cleaning one-time files..."
+	@-rm -f .passed
+	@-rm -f toaruos-disk.img
+	@${ENDRM} "RM" "Cleaned one-time files"
 
 
 # vim:noexpandtab
