@@ -31,7 +31,7 @@ ENDRM = util/mk-end-rm
 EMUARGS = -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std -hda toaruos-disk.img
 EMUKVM  = -enable-kvm
 
-.PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
+.PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
 .SECONDARY: 
 
 all: .passed system bootdisk.img docs utils
@@ -54,6 +54,9 @@ utils: ${UTILITIES}
 .passed:
 	@util/check-reqs > /dev/null
 	@touch .passed
+
+check-toolchain:
+	@util/install-toolchain.sh
 
 #################
 # Documentation #

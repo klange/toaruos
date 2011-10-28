@@ -10,6 +10,7 @@ initrd/boot
 initrd/bin/*
 .gdb_history
 bootdisk.img
+util/toaru-toolchain/*
 *.log
 *.pdf
 *.aux
