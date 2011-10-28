@@ -148,7 +148,7 @@ loader/crtbegin.o: loader/crtbegin.s
 
 initrd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
 	@${BEG} "LD" "$<"
-	@${LD} -T loader/link.ld -o $@ $< ${ERRORS}
+	@${LD} -T loader/link.ld -s -S -o $@ $< ${ERRORS}
 	@${END} "LD" "$<"
 
 loader/%.o: loader/%.c

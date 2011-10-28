@@ -12,4 +12,4 @@ clean:
 	-rm -f ${EXECUTABLES}
 
 ../initrd/bin/%: %.c
-	${CC} ${CFLAGS} -o $@ $<
+	${CC} ${CFLAGS} -s -O3 -o $@ $<
