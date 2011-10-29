@@ -74,7 +74,7 @@ docs/core.pdf: docs/*.tex
 #    Kernel    #
 ################
 toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS}
-	@${BEG} "LD""$<"
+	@${BEG} "LD" "$<"
 	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o kernel/core/*.o kernel/core/fs/*.o kernel/core/video/*.o ${ERRORS}
 	@${END} "LD" "$<"
 	@${INFO} "--" "Kernel is ready!"
