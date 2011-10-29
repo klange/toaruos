@@ -121,6 +121,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	timer_install();	/* PIC driver */
 	keyboard_install();	/* Keyboard interrupt handler */
 	serial_install();	/* Serial console */
+	mouse_install();	/* Mouse driver */
 
 	tasking_install();	/* Multi-tasking */
 	enable_fpu();		/* Enable the floating point unit */
