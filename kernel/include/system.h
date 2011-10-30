@@ -110,6 +110,9 @@ extern void keyboard_wait();
 extern void putch(unsigned char c);
 extern void set_kbd(int,int,int);
 
+/* Mouse */
+extern void mouse_install();
+
 /* kprintf */
 extern void kprintf(const char *fmt, ...);
 extern int kgets(char *buf, int size);
