@@ -16,6 +16,8 @@
 #define KEY_DEVICE    0x60
 #define KEY_PENDING   0x64
 
+#define KEYBOARD_NOTICES 0
+
 /* A bit-map to store the keyboard states */
 struct keyboard_states {
 	uint32_t shift : 1;
@@ -160,7 +162,9 @@ void func(int scancode) {
 	if (scancode & KEY_UP_MASK) {
 		return;
 	}
+#if KEYBOARD_NOTICES
 	kprintf("[NOTICE] Function key %d pressed\n", scancode);
+#endif
 }
 
 /*
@@ -196,7 +200,9 @@ void spec(int scancode) {
 		case 1:
 			putch('\033');
 		default:
+#if KEYBOARD_NOTICES
 			kprintf("[NOTICE] Special key %d pressed\n", scancode);
+#endif
 			break;
 	}
 }
