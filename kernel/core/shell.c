@@ -128,9 +128,6 @@ start_shell() {
 				}
 			} else if (!strcmp(cmd, "cpu-detect")) {
 				detect_cpu();
-			} else if (!strcmp(cmd, "reset-keyboard")) {
-				/* Reset the shift/alt/ctrl statuses, in case they get messed up */
-				set_kbd(0,0,0);
 			} else if (!strcmp(cmd, "multiboot")) {
 				dump_multiboot(mboot_ptr);
 			} else if (!strcmp(cmd, "read-disk")) {
