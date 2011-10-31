@@ -21,12 +21,12 @@ cmos_dump(
 		uint16_t * values
 		) {
 	uint16_t index;
-	__asm__ __volatile__ ("cli");
+	IRQ_OFF;
 	for (index = 0; index < 128; ++index) {
 		outportb(0x70, index);
 		values[index] = inportb(0x71);
 	}
-	__asm__ __volatile__ ("sti");
+	IRQ_ON;
 }
 
 /**

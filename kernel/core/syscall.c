@@ -41,9 +41,9 @@ static int exit(int retval) {
 static int read(int fd, char * ptr, int len) {
 #ifdef SPECIAL_CASE_STDIO
 	if (fd == 0) {
-		__asm__ __volatile__ ("sti");
+		IRQ_ON;
 		kgets(ptr, len);
-		__asm__ __volatile__ ("cli");
+		IRQ_OFF;
 		if (strlen(ptr) < len) {
 			int j = strlen(ptr);
 			ptr[j] = '\n';
@@ -156,7 +156,7 @@ static int kbd_mode(int mode) {
 
 static int kbd_get() {
 	/* If we're requesting keyboard input, we better damn well be getting it */
-	__asm__ __volatile__ ("sti");
+	IRQ_ON;
 	char x = kbd_last;
 	kbd_last = 0;
 	return (int)x;
@@ -229,7 +229,7 @@ syscall_handler(
 	uintptr_t location = syscalls[r->eax];
 
 	uint32_t ret;
-	__asm__ __volatile__ (
+	asm volatile (
 			"push %1\n"
 			"push %2\n"
 			"push %3\n"

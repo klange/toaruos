@@ -230,11 +230,11 @@ switch_page_directory(
 		page_directory_t * dir
 		) {
 	current_directory = dir;
-	__asm__ __volatile__ ("mov %0, %%cr3":: "r"(dir->physical_address));
+	asm volatile ("mov %0, %%cr3":: "r"(dir->physical_address));
 	uint32_t cr0;
-	__asm__ __volatile__ ("mov %%cr0, %0": "=r"(cr0));
+	asm volatile ("mov %%cr0, %0": "=r"(cr0));
 	cr0 |= 0x80000000;
-	__asm__ __volatile__ ("mov %0, %%cr0":: "r"(cr0));
+	asm volatile ("mov %0, %%cr0":: "r"(cr0));
 }
 
 page_t *
@@ -262,7 +262,7 @@ void
 page_fault(
 		struct regs *r)  {
 	uint32_t faulting_address;
-	__asm__ __volatile__("mov %%cr2, %0" : "=r"(faulting_address));
+	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
 	int present  = !(r->err_code & 0x1);
 	int rw       = r->err_code & 0x2;

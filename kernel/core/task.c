@@ -5,8 +5,8 @@
 #include <system.h>
 #define KERNEL_STACK_SIZE 0x2000
 
-__volatile__ task_t * current_task = NULL;
-__volatile__ task_t * ready_queue  = NULL;
+volatile task_t * current_task = NULL;
+volatile task_t * ready_queue  = NULL;
 
 uint32_t next_pid = 0;
 
@@ -61,7 +61,7 @@ clone_table(
 
 void
 tasking_install() {
-	__asm__ __volatile__ ("cli");
+	IRQ_OFF;
 
 	current_task = (task_t *)kmalloc(sizeof(task_t));
 	ready_queue = current_task;
@@ -78,7 +78,7 @@ tasking_install() {
 
 	//switch_page_directory(current_task->page_directory);
 
-	__asm__ __volatile__ ("sti");
+	IRQ_ON;
 }
 
 task_t *
@@ -94,7 +94,7 @@ gettask(
 
 uint32_t
 fork() {
-	__asm__ __volatile__ ("cli");
+	IRQ_OFF;
 	task_t * parent = (task_t *)current_task;
 	page_directory_t * directory = clone_directory(current_directory);
 	task_t * new_task = (task_t *)kmalloc(sizeof(task_t));
@@ -126,8 +126,8 @@ fork() {
 	if (current_task == parent) {
 		uintptr_t esp;
 		uintptr_t ebp;
-		__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
-		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
+		asm volatile ("mov %%esp, %0" : "=r" (esp));
+		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
 		if (current_task->stack > new_task->stack) {
 			new_task->esp = esp - (current_task->stack - new_task->stack);
 			new_task->ebp = ebp - (current_task->stack - new_task->stack);
@@ -138,7 +138,7 @@ fork() {
 		// kprintf("old: %x new: %x; end: %x %x\n", esp, new_task->esp, current_task->stack, new_task->stack);
 		memcpy((void *)(new_task->stack - KERNEL_STACK_SIZE), (void *)(current_task->stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
 		new_task->eip = eip;
-		__asm__ __volatile__ ("sti");
+		IRQ_ON;
 		return new_task->id;
 	} else {
 		return 0;
@@ -158,11 +158,11 @@ switch_task() {
 	if (!current_task->next && current_task == ready_queue) return;
 
 	uintptr_t esp, ebp, eip;
-	__asm__ __volatile__ ("mov %%esp, %0" : "=r" (esp));
-	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
+	asm volatile ("mov %%esp, %0" : "=r" (esp));
+	asm volatile ("mov %%ebp, %0" : "=r" (ebp));
 	eip = read_eip();
 	if (eip == 0x10000) {
-		__asm__ __volatile__ ("sti");
+		IRQ_ON;
 		return;
 	}
 	current_task->eip = eip;
@@ -178,8 +178,8 @@ switch_task() {
 	eip = current_task->eip;
 	esp = current_task->esp;
 	ebp = current_task->ebp;
-	__asm__ __volatile__ (
-			"cli\n"
+	IRQ_OFF;
+	asm volatile (
 			"mov %0, %%ebx\n"
 			"mov %1, %%esp\n"
 			"mov %2, %%ebp\n"
@@ -195,7 +195,7 @@ switch_task() {
 void
 enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 	set_kernel_stack(current_task->stack);
-	__asm__ __volatile__(
+	asm volatile(
 			"mov %3, %%esp\n"
 			"mov $0x23, %%ax\n"
 			"mov %%ax, %%ds\n"
@@ -217,7 +217,7 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 }
 
 void task_exit(int retval) {
-	__asm__ __volatile__ ("cli");
+	IRQ_OFF;
 	current_task->retval   = retval;
 	current_task->finished = 1;
 	/* Free the image memory */
@@ -240,12 +240,10 @@ void task_exit(int retval) {
 	free((void *)current_task->page_directory);
 	free((void *)current_task->descriptors);
 	//free((void *)current_task);
-	__asm__ __volatile__ ("sti");
+	IRQ_ON;
 }
 
 void kexit(int retval) {
 	task_exit(retval);
-	while (1) {
-		__asm__ __volatile__("hlt");
-	}
+	STOP;
 }

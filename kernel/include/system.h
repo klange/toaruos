@@ -12,7 +12,14 @@
 #define KERNEL_UNAME "ToAruOS"
 #define KERNEL_VERSION_STRING "0.0.1"
 
-#define STOP while (1) { __asm__ __volatile__ ("hlt"); }
+#define asm __asm__
+#define volatile __volatile__
+
+#define IRQ_OFF asm volatile ("cli")
+#define IRQ_ON  asm volatile ("sti")
+#define PAUSE   asm volatile ("hlt")
+
+#define STOP while (1) { PAUSE; }
 
 extern void *sbrk(uintptr_t increment);
 

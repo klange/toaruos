@@ -84,7 +84,7 @@ void
 irq_install() {
 	irq_remap();
 	irq_gates();
-	__asm__ __volatile__("sti");
+	IRQ_ON;
 }
 
 void

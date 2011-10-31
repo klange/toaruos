@@ -15,7 +15,7 @@ memcpy(
 		const void * restrict src,
 		size_t count
 	  ) {
-	__asm__ __volatile__ ("cld; rep movsb" : "+c" (count), "+S" (src), "+D" (dest) :: "memory");
+	asm volatile ("cld; rep movsb" : "+c" (count), "+S" (src), "+D" (dest) :: "memory");
 	return dest;
 }
 
@@ -87,7 +87,7 @@ memset(
 		int val,
 		size_t count
 	  ) {
-	__asm__ __volatile__ ("cld; rep stosb" : "+c" (count), "+D" (b) : "a" (val) : "memory");
+	asm volatile ("cld; rep stosb" : "+c" (count), "+D" (b) : "a" (val) : "memory");
 	return b;
 }
 
@@ -161,7 +161,7 @@ inports(
 		unsigned short _port
 	   ) {
 	unsigned short rv;
-	__asm__ __volatile__ ("inw %1, %0" : "=a" (rv) : "dN" (_port));
+	asm volatile ("inw %1, %0" : "=a" (rv) : "dN" (_port));
 	return rv;
 }
 
@@ -170,7 +170,7 @@ outports(
 		unsigned short _port,
 		unsigned short _data
 		) {
-	__asm__ __volatile__ ("outw %1, %0" : : "dN" (_port), "a" (_data));
+	asm volatile ("outw %1, %0" : : "dN" (_port), "a" (_data));
 }
 
 unsigned int
@@ -178,7 +178,7 @@ inportl(
 		unsigned short _port
 	   ) {
 	unsigned short rv;
-	__asm__ __volatile__ ("inl %%dx, %%eax" : "=a" (rv) : "dN" (_port));
+	asm volatile ("inl %%dx, %%eax" : "=a" (rv) : "dN" (_port));
 	return rv;
 }
 
@@ -187,7 +187,7 @@ outportl(
 		unsigned short _port,
 		unsigned int _data
 		) {
-	__asm__ __volatile__ ("outl %%eax, %%dx" : : "dN" (_port), "a" (_data));
+	asm volatile ("outl %%eax, %%dx" : : "dN" (_port), "a" (_data));
 }
 
 
@@ -200,7 +200,7 @@ inportb(
 		unsigned short _port
 	   ) {
 	unsigned char rv;
-	__asm__ __volatile__ ("inb %1, %0" : "=a" (rv) : "dN" (_port));
+	asm volatile ("inb %1, %0" : "=a" (rv) : "dN" (_port));
 	return rv;
 }
 
@@ -213,7 +213,7 @@ outportb(
 		unsigned short _port,
 		unsigned char _data
 		) {
-	__asm__ __volatile__ ("outb %1, %0" : : "dN" (_port), "a" (_data));
+	asm volatile ("outb %1, %0" : : "dN" (_port), "a" (_data));
 }
 
 char *

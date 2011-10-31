@@ -61,6 +61,6 @@ timer_wait(
 	eticks = (long)timer_ticks + (long)ticks;
 	while(timer_ticks < eticks) {
 		/* Halt for interrupt */
-		__asm__ __volatile__("hlt");
+		PAUSE;
 	}
 }

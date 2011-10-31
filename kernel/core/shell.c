@@ -112,6 +112,9 @@ start_shell() {
 					i++;
 					entry = readdir_fs(node, i);
 				}
+			} else if (!strcmp(cmd, "reset")) {
+				while (inportb(0x64) & 0x10);
+				outportb(0x64,0xFE);
 			} else if (!strcmp(cmd, "out")) {
 				if (tokenid < 3) {
 					kprintf("Need a port and a character (both as numbers, please) to write...\n");

@@ -182,7 +182,7 @@ kgets(
 	keyboard_buffer_handler = kgets_handler;
 	while ((kgets_collected < size) && (!kgets_newline)) {
 		/* Wait until the buffer is ready */
-		__asm__ __volatile__ ("hlt");
+		PAUSE;
 	}
 	/* Fix any missing nulls */
 	buffer[kgets_collected] = '\0';

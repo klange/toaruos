@@ -17,7 +17,7 @@ void ide_detect() {
 }
 
 void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
-	__asm__ __volatile__ ("cli");
+	IRQ_OFF;
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_SECCOUNT0, 1);
 	outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slave << 4 | 
@@ -34,11 +34,11 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
 		buf[i+1] = (s & 0xFF00) >> 8;
 	}
 	outportb(0x177, 0xe7);
-	__asm__ __volatile__ ("sti");
+	IRQ_ON;
 }
 
 void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
-	__asm__ __volatile__ ("cli");
+	IRQ_OFF;
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_SECCOUNT0, 1);
 	outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slave << 4 | 
@@ -55,5 +55,5 @@ void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
 	}
 	outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
 	outportb(0x177, 0xe7);
-	__asm__ __volatile__ ("sti");
+	IRQ_ON;
 }

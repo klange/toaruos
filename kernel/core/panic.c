@@ -5,13 +5,13 @@ void kernel_halt() {
 	kprintf("\n \x13 System Halted!\n\n");
 
 	while (1) {
-		__asm__ __volatile__ ("cli");
-		__asm__ __volatile__ ("hlt");
+		IRQ_OFF;
+		PAUSE;
 	}
 }
 
 void halt_and_catch_fire(char * error_message, const char * file, int line, struct regs * regs) {
-	__asm__ __volatile__("cli");
+	IRQ_OFF;
 	settextcolor(0,11);
 	kprintf("Process %d did a dumb.\n", getpid());
 	kprintf("PANIC! %s\n", error_message);
@@ -33,7 +33,7 @@ void halt_and_catch_fire(char * error_message, const char * file, int line, stru
 }
 
 void assert_failed(const char *file, uint32_t line, const char *desc) {
-	__asm__ __volatile__("cli");
+	IRQ_OFF;
 	settextcolor(14,3);
 	kprintf("Kernel Assertion Failed: %s\n", desc);
 	kprintf("File: %s\n", file);
