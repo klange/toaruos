@@ -1,3 +1,12 @@
+# Short-Term Development Targets as of 2011/10/31
+
+## Harddisk Support
+* Write support for EXT2
+* Port EXT2 drivers to IDE read/write
+* Build a better VFS with support for disk mounting
+* Get all of the example binaries onto a hard disk image
+* **PORT GCC**
+
 # Development Targets as of 2011/10/21
 
 
