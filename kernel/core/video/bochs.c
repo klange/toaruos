@@ -646,3 +646,7 @@ bochs_set_cell(int x, int y, char c) {
 	cell_set(x, y, c, current_fg, current_bg, 0);
 	cell_redraw(x, y);
 }
+
+void bochs_redraw_cell(int x, int y) {
+	cell_redraw(x,y);
+}

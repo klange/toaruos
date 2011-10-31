@@ -31,12 +31,15 @@ void mouse_handler(struct regs *r) {
 			if (actual_x > 10230) actual_x = 10230;
 			if (actual_y < 0) actual_y = 0;
 			if (actual_y > 7670) actual_y = 7670;
-			uint32_t color = 0x00FF00;
-			if (mouse_byte[0] & 0x01) color = 0xFF00FF;
-			bochs_draw_line(previous_x / 10, actual_x / 10, 767 - (previous_y / 10), 767 - (actual_y / 10), color);
-#if 0
-			kprintf("[mouse] %d %d %x\n", (uint32_t)actual_x, (uint32_t)actual_y, (uint32_t)mouse_byte[0]);
-#endif
+			uint32_t color = 0x444444;
+			if (mouse_byte[0] & 0x01) color = 0xFF0000;
+			if (mouse_byte[0] & 0x02) color = 0x0000FF;
+			int c_x = (int)(previous_x / 10 / 8);
+			int c_y = (int)((7670 - previous_y) / 10 / 12);
+			int b_x = (int)(actual_x / 10 / 8);
+			int b_y = (int)((7670 - actual_y) / 10 / 12);
+			bochs_redraw_cell(c_x,c_y);
+			bochs_fill_rect(b_x * 8, b_y * 12,8,12,color);
 			break;
 	}
 }
