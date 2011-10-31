@@ -125,9 +125,8 @@ void init_cursor(char * filename, char * alpha) {
 	cursor->blank = 0x0;
 }
 
-
-
 void mouse_handler(struct regs *r) {
+	IRQ_OFF;
 	switch (mouse_cycle) {
 		case 0:
 			mouse_byte[0] = inportb(0x60);
@@ -168,41 +167,53 @@ void mouse_handler(struct regs *r) {
 			draw_sprite(cursor, actual_x / 10 - 24, 767 - actual_y / 10 - 24);
 			break;
 	}
+	IRQ_ON;
 }
 
 void mouse_wait(uint8_t a_type) {
+	IRQ_OFF;
 	uint32_t timeout = 100000;
 	if (!a_type) {
 		while (--timeout) {
 			if ((inportb(0x64) & 0x01) == 1) {
+				IRQ_ON;
 				return;
 			}
 		}
+		IRQ_ON;
 		return;
 	} else {
 		while (--timeout) {
 			if (!((inportb(0x64) & 0x02))) {
+				IRQ_ON;
 				return;
 			}
 		}
+		IRQ_ON;
 		return;
 	}
 }
 
 void mouse_write(uint8_t write) {
+	IRQ_OFF;
 	mouse_wait(1);
 	outportb(0x64, 0xD4);
 	mouse_wait(1);
 	outportb(0x60, write);
+	IRQ_ON;
 }
 
 uint8_t mouse_read() {
+	IRQ_OFF;
 	mouse_wait(0);
-	return inportb(0x60);
+	char t = inportb(0x60);
+	IRQ_ON;
+	return t;
 }
 
 void mouse_install() {
 	uint8_t status;
+	IRQ_OFF;
 	mouse_wait(1);
 	outportb(0x64,0xA8);
 	mouse_wait(1);
@@ -217,6 +228,7 @@ void mouse_install() {
 	mouse_read();
 	mouse_write(0xF4);
 	mouse_read();
+	IRQ_ON;
 	init_cursor("/usr/share/arrow.bmp", "/usr/share/arrow_alpha.bmp");
 	irq_install_handler(12, mouse_handler);
 }

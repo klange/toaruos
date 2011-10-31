@@ -232,6 +232,7 @@ keyboard_handler(
 		struct regs *r
 		) {
 	unsigned char scancode;
+	keyboard_wait();
 	scancode = inportb(KEY_DEVICE);
 	if (keyboard_direct_handler) {
 		keyboard_direct_handler(scancode);
