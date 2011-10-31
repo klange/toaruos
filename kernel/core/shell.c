@@ -130,8 +130,12 @@ start_shell() {
 				detect_cpu();
 			} else if (!strcmp(cmd, "multiboot")) {
 				dump_multiboot(mboot_ptr);
+			} else if (!strcmp(cmd, "wallpaper")) {
+				bochs_install_wallpaper();
+			} else if (!strcmp(cmd, "screenshot")) {
+				bochs_screenshot();
 			} else if (!strcmp(cmd, "read-disk")) {
-				char buf[512] = {1};
+				uint8_t buf[512] = {1};
 				uint32_t i = 0;
 				uint8_t slave = 0;
 				if (tokenid >= 2) {
@@ -147,7 +151,7 @@ start_shell() {
 					++i;
 				}
 			} else if (!strcmp(cmd, "write-disk")) {
-				char buf[512] = "Hello world!\n";
+				uint8_t buf[512] = "Hello world!\n";
 				ide_write_sector(0x1F0, 0, 0x000000, buf);
 			} else {
 				/* Alright, here we go */

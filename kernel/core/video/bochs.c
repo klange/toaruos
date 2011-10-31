@@ -57,6 +57,96 @@ bochs_get_address() {
 	return (uintptr_t)bochs_vid_memory;
 }
 
+typedef struct sprite {
+	uint16_t width;
+	uint16_t height;
+	uint32_t * bitmap;
+	uint32_t * masks;
+	uint32_t blank;
+	uint8_t  alpha;
+} sprite_t;
+
+sprite_t * wallpaper = NULL;
+
+#define _RED(color) ((color & 0x00FF0000) / 0x10000)
+#define _GRE(color) ((color & 0x0000FF00) / 0x100)
+#define _BLU(color) ((color & 0x000000FF) / 0x1)
+
+void
+bochs_screenshot() {
+	uint8_t * buf = malloc(1024 * 768 * 4);
+	uint32_t * bufi = (uint32_t *)buf;
+	uint32_t x, y, i;
+	for (x = 0; x < 1024; ++x) {
+		for (y = 0; y < 768; ++y) {
+			uint32_t color = bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)];
+			bufi[y * 1024 + x] = _BLU(color) * 0x10000 +
+								 _GRE(color) * 0x100 +
+								 _RED(color) * 0x1 +
+								 0xFF000000;
+		}
+	}
+	i = 0;
+	while (i < 6144) {
+		ide_write_sector(0x170, 0, i, (uint8_t *)((uint32_t)buf + i * 512));
+		++i;
+		PAUSE;
+	}
+	free(buf);
+}
+
+void
+bochs_install_wallpaper() {
+	char * bufferb = malloc(2359808);
+	uint32_t _i = 0;
+	kprintf("Reading...");
+	while (_i < 4609) {
+		ide_read_sector(0x1F0, 1, _i, (uint8_t *)((uint32_t)bufferb + _i * 512));
+		++_i;
+	}
+	kprintf(" Done.\n");
+	uint16_t x = 0; /* -> 212 */
+	uint16_t y = 0; /* -> 68 */
+	/* Get the width / height of the image */
+	signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
+	uint32_t width  = bufferi[4];
+	uint32_t height = bufferi[5];
+	uint16_t bpp    = bufferi[6] / 0x10000;
+	uint32_t row_width = (bpp * width + 31) / 32 * 4;
+	/* Skip right to the important part */
+	size_t i = bufferi[2];
+
+	wallpaper = malloc(sizeof(sprite_t));
+	wallpaper->width = width;
+	wallpaper->height = height;
+	wallpaper->bitmap = malloc(sizeof(uint32_t) * width * height);
+
+	kprintf("Loading...");
+
+	for (y = 0; y < height; ++y) {
+		for (x = 0; x < width; ++x) {
+			/* Extract the color */
+			uint32_t color;
+			if (bpp == 24) {
+				color =	bufferb[i   + 3 * x] +
+						bufferb[i+1 + 3 * x] * 0x100 +
+						bufferb[i+2 + 3 * x] * 0x10000;
+			} else if (bpp == 32) {
+				color =	bufferb[i   + 4 * x] * 0x1000000 +
+						bufferb[i+1 + 4 * x] * 0x100 +
+						bufferb[i+2 + 4 * x] * 0x10000 +
+						bufferb[i+3 + 4 * x] * 0x1;
+			}
+			/* Set our point */
+			wallpaper->bitmap[(height - y - 1) * width + x] = color;
+		}
+		i += row_width;
+	}
+	kprintf(" Done.\n");
+
+	free(bufferb);
+}
+
 void
 graphics_install_bochs() {
 	outports(0x1CE, 0x00);
@@ -129,6 +219,19 @@ bochs_set_point(
 	bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)] = color;
 }
 
+static void
+bochs_set_point_bg(
+		uint16_t x,
+		uint16_t y,
+		uint32_t color
+		) {
+	if (!color && wallpaper) {
+		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)] = wallpaper->bitmap[bochs_resolution_x * y + x];
+	} else {
+		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)] = color;
+	}
+}
+
 void
 bochs_scroll() {
 	uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
@@ -196,14 +299,14 @@ bochs_write_char(
 	}
 	uint8_t * c = number_font[val];
 	for (uint8_t i = 0; i < 12; ++i) {
-		if (c[i] & 0x80) { bochs_set_point(x,y+i,fg);   } else { bochs_set_point(x,y+i,bg); }
-		if (c[i] & 0x40) { bochs_set_point(x+1,y+i,fg); } else { bochs_set_point(x+1,y+i,bg); }
-		if (c[i] & 0x20) { bochs_set_point(x+2,y+i,fg); } else { bochs_set_point(x+2,y+i,bg); }
-		if (c[i] & 0x10) { bochs_set_point(x+3,y+i,fg); } else { bochs_set_point(x+3,y+i,bg); }
-		if (c[i] & 0x08) { bochs_set_point(x+4,y+i,fg); } else { bochs_set_point(x+4,y+i,bg); }
-		if (c[i] & 0x04) { bochs_set_point(x+5,y+i,fg); } else { bochs_set_point(x+5,y+i,bg); }
-		if (c[i] & 0x02) { bochs_set_point(x+6,y+i,fg); } else { bochs_set_point(x+6,y+i,bg); }
-		if (c[i] & 0x01) { bochs_set_point(x+7,y+i,fg); } else { bochs_set_point(x+7,y+i,bg); }
+		if (c[i] & 0x80) { bochs_set_point(x,y+i,fg);   } else { bochs_set_point_bg(x,y+i,bg); }
+		if (c[i] & 0x40) { bochs_set_point(x+1,y+i,fg); } else { bochs_set_point_bg(x+1,y+i,bg); }
+		if (c[i] & 0x20) { bochs_set_point(x+2,y+i,fg); } else { bochs_set_point_bg(x+2,y+i,bg); }
+		if (c[i] & 0x10) { bochs_set_point(x+3,y+i,fg); } else { bochs_set_point_bg(x+3,y+i,bg); }
+		if (c[i] & 0x08) { bochs_set_point(x+4,y+i,fg); } else { bochs_set_point_bg(x+4,y+i,bg); }
+		if (c[i] & 0x04) { bochs_set_point(x+5,y+i,fg); } else { bochs_set_point_bg(x+5,y+i,bg); }
+		if (c[i] & 0x02) { bochs_set_point(x+6,y+i,fg); } else { bochs_set_point_bg(x+6,y+i,bg); }
+		if (c[i] & 0x01) { bochs_set_point(x+7,y+i,fg); } else { bochs_set_point_bg(x+7,y+i,bg); }
 	}
 }
 
@@ -504,9 +607,18 @@ void bochs_redraw() {
 
 }
 
+void bochs_redraw_all() { 
+	for (uint16_t y = 0; y < TERM_HEIGHT; ++y) {
+		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+			cell_redraw(x,y);
+		}
+	}
+}
+
 void bochs_term_scroll() {
 	/* Oh dear */
 	/* I'd really prefer the much-bigger 4096 - 768 */
+#if 0
 	if (current_scroll + 12 >= BOCHS_BUFFER_SIZE - 768) {
 		/* And here's where it gets hacky */
 		uint32_t size = sizeof(uint32_t) * bochs_resolution_x * (bochs_resolution_y - 12);
@@ -515,6 +627,7 @@ void bochs_term_scroll() {
 	} else {
 		bochs_set_y_offset(current_scroll + 12);
 	}
+#else
 	for (uint16_t y = 0; y < TERM_HEIGHT - 1; ++y) {
 		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
 			cell_set(x,y,cell_ch(x,y+1),cell_fg(x,y+1),cell_bg(x,y+1), 0);
@@ -522,8 +635,10 @@ void bochs_term_scroll() {
 	}
 	for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
 		cell_set(x, TERM_HEIGHT-1,' ',current_fg, current_bg,0);
-		cell_redraw(x, TERM_HEIGHT-1);
+		//cell_redraw(x, TERM_HEIGHT-1);
 	}
+	bochs_redraw_all();
+#endif
 }
 
 void bochs_term_clear() {
@@ -533,6 +648,7 @@ void bochs_term_clear() {
 	memset((void *)term_buffer, 0x00,TERM_WIDTH * TERM_HEIGHT * sizeof(uint8_t) * 4);
 	memset((void *)bochs_vid_memory, 0x00, sizeof(uint32_t) * bochs_resolution_x * bochs_resolution_y);
 	bochs_set_y_offset(0);
+	bochs_redraw_all();
 }
 
 void bochs_set_colors(uint8_t fg, uint8_t bg) {

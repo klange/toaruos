@@ -303,6 +303,8 @@ extern int bochs_get_height();
 extern void bochs_set_cell(int x, int y, char c);
 extern uintptr_t bochs_get_address();
 extern void bochs_redraw_cell(int x, int y);
+extern void bochs_install_wallpaper();
+extern void bochs_screenshot();
 
 /* ANSI Terminal Escape Processor */
 void ansi_put(char c);
@@ -325,7 +327,7 @@ int system( char *, int, char **);
 void syscalls_install();
 
 /* IDE / PATA */
-void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf);
-void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf);
+void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
+void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 
 #endif
