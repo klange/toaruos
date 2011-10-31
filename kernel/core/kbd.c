@@ -138,21 +138,21 @@ void norm(int scancode) {
  * Toggle Shift
  */
 void shft(int scancode) {
-	keyboard_state.shift ^= 1;
+	keyboard_state.shift = !((scancode & KEY_UP_MASK) == KEY_UP_MASK);
 }
 
 /*
  * Toggle Alt
  */
 void altk(int scancode) {
-	keyboard_state.alt ^= 1;
+	keyboard_state.alt = !((scancode & KEY_UP_MASK) == KEY_UP_MASK);
 }
 
 /*
  * Toggle Control
  */
 void ctlk(int scancode) {
-	keyboard_state.ctrl ^= 1;
+	keyboard_state.ctrl = !((scancode & KEY_UP_MASK) == KEY_UP_MASK);
 }
 
 /*
@@ -227,6 +227,8 @@ keyboard_handler_t key_method[] = {
 };
 
 
+extern uint8_t mouse_cycle;
+
 void
 keyboard_handler(
 		struct regs *r
@@ -239,6 +241,7 @@ keyboard_handler(
 		return;
 	}
 	keyboard_handler_t handler;
+
 	handler = key_method[(int)scancode & KEY_CODE_MASK];
 	if (handler) {
 		handler(scancode);
