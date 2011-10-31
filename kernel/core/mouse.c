@@ -8,6 +8,123 @@ int8_t  mouse_y = 0;
 int32_t actual_x = 5120;
 int32_t actual_y = 3835;
 
+extern uint32_t * bochs_vid_memory;
+
+#define GFX_W  1024
+#define GFX_H  768
+#define GFX_B  4
+#define GFX(x,y) bochs_vid_memory[GFX_W * (y) + (x)]
+#define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
+#define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
+#define _RED(color) ((color & 0x00FF0000) / 0x10000)
+#define _GRE(color) ((color & 0x0000FF00) / 0x100)
+#define _BLU(color) ((color & 0x000000FF) / 0x1)
+#define GUARD(x,y) ((x) < 0 || (y) < 0 || (x) >= GFX_W || (y) >= GFX_H)
+
+typedef struct sprite {
+	uint16_t width;
+	uint16_t height;
+	uint32_t * bitmap;
+	uint32_t * masks;
+	uint32_t blank;
+	uint8_t  alpha;
+} sprite_t;
+
+sprite_t * sprites[3];
+
+uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
+	return (r * 0x10000) + (g * 0x100) + (b * 0x1);
+}
+
+uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
+	float a = _RED(mask) / 256.0;
+	uint8_t red = _RED(bottom) * (1.0 - a) + _RED(top) * a;
+	uint8_t gre = _GRE(bottom) * (1.0 - a) + _GRE(top) * a;
+	uint8_t blu = _BLU(bottom) * (1.0 - a) + _BLU(top) * a;
+	return rgb(red,gre,blu);
+}
+
+void draw_sprite(sprite_t * sprite, int16_t x, int16_t y) {
+	for (int16_t _y = 0; _y < sprite->height; ++_y) {
+		for (int16_t _x = 0; _x < sprite->width; ++_x) {
+			if (sprite->alpha) {
+				if (!GUARD(x + _x, y + _y))
+					GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
+			} else {
+				if (SPRITE(sprite,_x,_y) != sprite->blank) {
+					if (!GUARD(x + _x, y + _y))
+						GFX(x + _x, y + _y) = SPRITE(sprite, _x, _y);
+				}
+			}
+		}
+	}
+}
+
+void load_sprite(sprite_t * sprite, char * filename) {
+	/* Open the requested binary */
+
+
+	fs_node_t * image = kopen(filename, 0);
+	size_t image_size= 0;
+
+	image_size = image->length;
+
+	/* Alright, we have the length */
+	char * bufferb = malloc(image_size);
+	read_fs(image, 0, image_size, (uint8_t *)bufferb);
+	uint16_t x = 0; /* -> 212 */
+	uint16_t y = 0; /* -> 68 */
+	/* Get the width / height of the image */
+	signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
+	uint32_t width  = bufferi[4];
+	uint32_t height = bufferi[5];
+	uint16_t bpp    = bufferi[6] / 0x10000;
+	uint32_t row_width = (bpp * width + 31) / 32 * 4;
+	/* Skip right to the important part */
+	size_t i = bufferi[2];
+
+	sprite->width = width;
+	sprite->height = height;
+	sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
+
+	for (y = 0; y < height; ++y) {
+		for (x = 0; x < width; ++x) {
+			if (i > image_size) return;
+			/* Extract the color */
+			uint32_t color;
+			if (bpp == 24) {
+				color =	bufferb[i   + 3 * x] +
+						bufferb[i+1 + 3 * x] * 0x100 +
+						bufferb[i+2 + 3 * x] * 0x10000;
+			} else if (bpp == 32) {
+				color =	bufferb[i   + 4 * x] * 0x1000000 +
+						bufferb[i+1 + 4 * x] * 0x100 +
+						bufferb[i+2 + 4 * x] * 0x10000 +
+						bufferb[i+3 + 4 * x] * 0x1;
+			}
+			/* Set our point */
+			sprite->bitmap[(height - y - 1) * width + x] = color;
+		}
+		i += row_width;
+	}
+	free(bufferb);
+}
+void init_sprite(int i, char * filename, char * alpha) {
+	sprites[i] = malloc(sizeof(sprite_t));
+	load_sprite(sprites[i], filename);
+	sprite_t alpha_tmp;
+	if (alpha) {
+		sprites[i]->alpha = 1;
+		load_sprite(&alpha_tmp, alpha);
+		sprites[i]->masks = alpha_tmp.bitmap;
+	} else {
+		sprites[i]->alpha = 0;
+	}
+	sprites[i]->blank = 0x0;
+}
+
+
+
 void mouse_handler(struct regs *r) {
 	switch (mouse_cycle) {
 		case 0:
@@ -31,15 +148,20 @@ void mouse_handler(struct regs *r) {
 			if (actual_x > 10230) actual_x = 10230;
 			if (actual_y < 0) actual_y = 0;
 			if (actual_y > 7670) actual_y = 7670;
-			uint32_t color = 0x444444;
-			if (mouse_byte[0] & 0x01) color = 0xFF0000;
-			if (mouse_byte[0] & 0x02) color = 0x0000FF;
-			int c_x = (int)(previous_x / 10 / 8);
-			int c_y = (int)((7670 - previous_y) / 10 / 12);
-			int b_x = (int)(actual_x / 10 / 8);
-			int b_y = (int)((7670 - actual_y) / 10 / 12);
-			bochs_redraw_cell(c_x,c_y);
-			bochs_fill_rect(b_x * 8, b_y * 12,8,12,color);
+			short c_x = (short)(previous_x / 10 / 8);
+			short c_y = (short)((7670 - previous_y) / 10 / 12);
+			//short b_x = (short)(actual_x / 10 / 8);
+			//short b_y = (short)((7670 - actual_y) / 10 / 12);
+			for (short i = c_x - 2; i < c_x + 3; ++i) {
+				for (short j = c_y - 2; j < c_y + 3; ++j) {
+					bochs_redraw_cell(i,j);
+				}
+			}
+			uint8_t sprite = 0;
+			if ((mouse_byte[0] & 0x01) == 0x01) sprite = 1;
+			if ((mouse_byte[0] & 0x02) == 0x02) sprite = 2;
+			//bochs_fill_rect(b_x * 8, b_y * 12,8,12,color);
+			draw_sprite(sprites[sprite], actual_x / 10 - 32, 767 - actual_y / 10 - 32);
 			break;
 	}
 }
@@ -91,5 +213,8 @@ void mouse_install() {
 	mouse_read();
 	mouse_write(0xF4);
 	mouse_read();
+	init_sprite(0, "/etc/game/remilia.bmp", NULL);
+	init_sprite(1, "/etc/game/remilia_l.bmp", NULL);
+	init_sprite(2, "/etc/game/remilia_r.bmp", NULL);
 	irq_install_handler(12, mouse_handler);
 }

@@ -648,5 +648,6 @@ bochs_set_cell(int x, int y, char c) {
 }
 
 void bochs_redraw_cell(int x, int y) {
+	if (x < 0 || y < 0 || x >= TERM_WIDTH || y >= TERM_HEIGHT) return;
 	cell_redraw(x,y);
 }
