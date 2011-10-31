@@ -5,6 +5,8 @@ int8_t  mouse_byte[3];
 int8_t  mouse_x = 0;
 int8_t  mouse_y = 0;
 
+#define MOUSE_SCALE 10;
+
 int32_t actual_x = 5120;
 int32_t actual_y = 3835;
 
@@ -142,8 +144,8 @@ void mouse_handler(struct regs *r) {
 			mouse_cycle = 0;
 			uint32_t previous_x = actual_x;
 			uint32_t previous_y = actual_y;
-			actual_x = actual_x + mouse_x;
-			actual_y = actual_y + mouse_y;
+			actual_x = actual_x + mouse_x * MOUSE_SCALE;
+			actual_y = actual_y + mouse_y * MOUSE_SCALE;
 			if (actual_x < 0) actual_x = 0;
 			if (actual_x > 10230) actual_x = 10230;
 			if (actual_y < 0) actual_y = 0;
