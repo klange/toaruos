@@ -7,6 +7,13 @@
 * Get all of the example binaries onto a hard disk image
 * **PORT GCC**
 
+## Operation Viper
+* Port ncurses
+    * Requires some terminal-related C library functions
+* Port Vim
+    * Requires directory support
+    * Disable command execution?
+
 # Development Targets as of 2011/10/21
 
 
