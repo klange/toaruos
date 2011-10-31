@@ -13,7 +13,7 @@ extern uint32_t * bochs_vid_memory;
 #define GFX_W  1024
 #define GFX_H  768
 #define GFX_B  4
-#define GFX(x,y) bochs_vid_memory[GFX_W * (y) + (x)]
+#define GFX(x,y) bochs_vid_memory[GFX_W * (y + bochs_current_scroll()) + (x)]
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 #define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
@@ -30,7 +30,7 @@ typedef struct sprite {
 	uint8_t  alpha;
 } sprite_t;
 
-sprite_t * sprites[3];
+sprite_t * cursor;
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 	return (r * 0x10000) + (g * 0x100) + (b * 0x1);
@@ -48,8 +48,10 @@ void draw_sprite(sprite_t * sprite, int16_t x, int16_t y) {
 	for (int16_t _y = 0; _y < sprite->height; ++_y) {
 		for (int16_t _x = 0; _x < sprite->width; ++_x) {
 			if (sprite->alpha) {
-				if (!GUARD(x + _x, y + _y))
-					GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
+				if (SMASKS(sprite,_x,_y) != sprite->blank) {
+					if (!GUARD(x + _x, y + _y))
+						GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
+				}
 			} else {
 				if (SPRITE(sprite,_x,_y) != sprite->blank) {
 					if (!GUARD(x + _x, y + _y))
@@ -109,18 +111,18 @@ void load_sprite(sprite_t * sprite, char * filename) {
 	}
 	free(bufferb);
 }
-void init_sprite(int i, char * filename, char * alpha) {
-	sprites[i] = malloc(sizeof(sprite_t));
-	load_sprite(sprites[i], filename);
+void init_cursor(char * filename, char * alpha) {
+	cursor = malloc(sizeof(sprite_t));
+	load_sprite(cursor, filename);
 	sprite_t alpha_tmp;
 	if (alpha) {
-		sprites[i]->alpha = 1;
+		cursor->alpha = 1;
 		load_sprite(&alpha_tmp, alpha);
-		sprites[i]->masks = alpha_tmp.bitmap;
+		cursor->masks = alpha_tmp.bitmap;
 	} else {
-		sprites[i]->alpha = 0;
+		cursor->alpha = 0;
 	}
-	sprites[i]->blank = 0x0;
+	cursor->blank = 0x0;
 }
 
 
@@ -157,11 +159,13 @@ void mouse_handler(struct regs *r) {
 					bochs_redraw_cell(i,j);
 				}
 			}
+			/*
 			uint8_t sprite = 0;
 			if ((mouse_byte[0] & 0x01) == 0x01) sprite = 1;
 			if ((mouse_byte[0] & 0x02) == 0x02) sprite = 2;
+			*/
 			//bochs_fill_rect(b_x * 8, b_y * 12,8,12,color);
-			draw_sprite(sprites[sprite], actual_x / 10 - 32, 767 - actual_y / 10 - 32);
+			draw_sprite(cursor, actual_x / 10 - 24, 767 - actual_y / 10 - 24);
 			break;
 	}
 }
@@ -213,8 +217,6 @@ void mouse_install() {
 	mouse_read();
 	mouse_write(0xF4);
 	mouse_read();
-	init_sprite(0, "/etc/game/remilia.bmp", NULL);
-	init_sprite(1, "/etc/game/remilia_l.bmp", NULL);
-	init_sprite(2, "/etc/game/remilia_r.bmp", NULL);
+	init_cursor("/usr/share/arrow.bmp", "/usr/share/arrow_alpha.bmp");
 	irq_install_handler(12, mouse_handler);
 }
