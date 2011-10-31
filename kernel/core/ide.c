@@ -16,7 +16,7 @@ void ide_detect() {
 	
 }
 
-void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
+void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 	IRQ_OFF;
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_SECCOUNT0, 1);
@@ -28,19 +28,18 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
 	uint8_t status = 0;
 	while ((status = inportb(bus + 0x07)) & 0x80);
-	for (volatile int i = 0; i < 512; i += 2) {
+	for (volatile uint32_t i = 0; i < 512; i += 2) {
 		uint16_t s = inports(0x1f0);
 		buf[i] = s & 0xFF;
 		buf[i+1] = (s & 0xFF00) >> 8;
 	}
-	outportb(0x177, 0xe7);
 	IRQ_ON;
 }
 
-void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
+void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 	IRQ_OFF;
 	outportb(bus + ATA_REG_FEATURES, 0x00);
-	outportb(bus + ATA_REG_SECCOUNT0, 1);
+	outportl(bus + ATA_REG_SECCOUNT0, 0x01);
 	outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slave << 4 | 
 								 (lba & 0x0f000000) >> 24);
 	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
@@ -49,11 +48,10 @@ void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, char * buf) {
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 	uint8_t status = 0;
 	while ((status = inportb(bus + 0x07)) & 0x80);
-	for (volatile int i = 0; i < 512; i+=2) {
+	for (volatile uint32_t i = 0; i < 512; i+=2) {
 		uint16_t s = (buf[i+1] << 8) + (buf[i]);
 		outports(bus, s);
 	}
 	outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
-	outportb(0x177, 0xe7);
 	IRQ_ON;
 }
