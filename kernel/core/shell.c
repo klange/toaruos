@@ -107,14 +107,27 @@ start_shell() {
 				int i = 0;
 				entry = readdir_fs(node, i);
 				while (entry != NULL) {
-					kprintf("%s\n", entry->name);
+					char * filename = malloc(sizeof(char) * 1024);
+					memcpy(filename, path, strlen(path));
+					if (!strcmp(path,"/")) {
+						memcpy((void *)((uintptr_t)filename + strlen(path)),entry->name,strlen(entry->name)+1); 
+					} else {
+						filename[strlen(path)] = '/';
+						memcpy((void *)((uintptr_t)filename + strlen(path) + 1),entry->name,strlen(entry->name)+1); 
+					}
+					fs_node_t * chd = kopen(filename, 0);
+					if (chd) {
+						if (chd->flags & FS_DIRECTORY) {
+							kprintf("\033[1;34m");
+						}
+						close_fs(chd);
+					}
+					free(filename);
+					kprintf("%s\033[0m\n", entry->name);
 					free(entry);
 					i++;
 					entry = readdir_fs(node, i);
 				}
-			} else if (!strcmp(cmd, "reset")) {
-				while (inportb(0x64) & 0x10);
-				outportb(0x64,0xFE);
 			} else if (!strcmp(cmd, "out")) {
 				if (tokenid < 3) {
 					kprintf("Need a port and a character (both as numbers, please) to write...\n");
