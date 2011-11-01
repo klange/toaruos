@@ -74,31 +74,47 @@ start_shell() {
 					kprintf("cd: argument expected\n");
 					continue;
 				} else {
-					char * filename = malloc(sizeof(char) * 1024);
-					if (argv[1][0] == '/') {
-						memcpy(filename, argv[1], strlen(argv[1]) + 1);
+					if (!strcmp(argv[1],".")) {
+						continue;
 					} else {
-						memcpy(filename, path, strlen(path));
-						if (!strcmp(path,"/")) {
-							memcpy((void *)((uintptr_t)filename + strlen(path)),argv[1],strlen(argv[1])+1); 
+						if (!strcmp(argv[1],"..")) {
+							char * last_slash = (char *)rfind(path,'/');
+							if (last_slash == path) { 
+								last_slash[1] = '\0';
+							} else {
+								last_slash[0] = '\0';
+							}
+							node = kopen(path, 0);
 						} else {
-							filename[strlen(path)] = '/';
-							memcpy((void *)((uintptr_t)filename + strlen(path) + 1),argv[1],strlen(argv[1])+1); 
+							char * filename = malloc(sizeof(char) * 1024);
+							if (argv[1][0] == '/') {
+								memcpy(filename, argv[1], strlen(argv[1]) + 1);
+							} else {
+								memcpy(filename, path, strlen(path));
+								if (!strcmp(path,"/")) {
+									memcpy((void *)((uintptr_t)filename + strlen(path)),argv[1],strlen(argv[1])+1); 
+								} else {
+									filename[strlen(path)] = '/';
+									memcpy((void *)((uintptr_t)filename + strlen(path) + 1),argv[1],strlen(argv[1])+1); 
+								}
+							}
+							fs_node_t * chd = kopen(filename, 0);
+							if (chd) {
+								if ((chd->flags & FS_DIRECTORY) == 0) {
+									kprintf("cd: %s is not a directory\n", filename);
+									continue;
+								}
+								node = chd;
+								memcpy(path, filename, strlen(filename));
+								path[strlen(filename)] = '\0';
+							} else {
+								kprintf("cd: could not change directory\n");
+							}
 						}
-					}
-					fs_node_t * chd = kopen(filename, 0);
-					if (chd) {
-						if ((chd->flags & FS_DIRECTORY) == 0) {
-							kprintf("cd: %s is not a directory\n", filename);
-							continue;
-						}
-						node = chd;
-						memcpy(path, filename, strlen(filename));
-						path[strlen(filename)] = '\0';
-					} else {
-						kprintf("cd: could not change directory\n");
 					}
 				}
+			} else if (!strcmp(cmd, "pwd")) {
+				kprintf("%d %s\n", strlen(path), path);
 			} else if (!strcmp(cmd, "ls")) {
 				/*
 				 * List the files in the current working directory

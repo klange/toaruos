@@ -44,6 +44,7 @@ extern void outportl(unsigned short _port, unsigned int _data);
 extern int strcmp(const char *a, const char *b);
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 extern size_t lfind(const char * str, const char accept);
+extern size_t rfind(const char * str, const char accept);
 extern size_t strspn(const char * str, const char * accept);
 extern char * strpbrk(const char * str, const char * accept);
 extern uint32_t krand();

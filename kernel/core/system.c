@@ -255,6 +255,19 @@ lfind(
 }
 
 size_t
+rfind(
+		const char * str,
+		const char accept
+	 ) {
+	size_t i = strlen(str) - 1;
+	while (str[i] != accept) {
+		if (i == 0) return UINT32_MAX;
+		i--;
+	}
+	return (size_t)(str) + i;
+}
+
+size_t
 strspn(
 		const char * str,
 		const char * accept
