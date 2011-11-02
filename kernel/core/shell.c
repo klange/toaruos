@@ -163,6 +163,8 @@ start_shell() {
 				bochs_install_wallpaper();
 			} else if (!strcmp(cmd, "screenshot")) {
 				bochs_screenshot();
+			} else if (!strcmp(cmd, "read-sb")) {
+				ext2_disk_read_superblock();
 			} else if (!strcmp(cmd, "read-disk")) {
 				uint8_t buf[512] = {1};
 				uint32_t i = 0;
