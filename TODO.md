@@ -2,7 +2,7 @@
 
 ## Harddisk Support
 * Write support for EXT2
-* Port EXT2 drivers to IDE read/write
+* Port EXT2 drivers to IDE read/write (superblock read testing was successful)
 * Build a better VFS with support for disk mounting
 * Get all of the example binaries onto a hard disk image
 * **PORT GCC**
