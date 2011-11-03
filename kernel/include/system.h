@@ -327,6 +327,10 @@ int system( char *, int, char **);
 /* Sytem Calls */
 void syscalls_install();
 
+/* PCI */
+uint16_t pci_read_word(uint32_t bus, uint32_t slot, uint32_t func, uint16_t offset);
+void pci_write_word(uint32_t bus, uint32_t slot, uint32_t func, uint16_t offset, uint32_t data);
+
 /* IDE / PATA */
 void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);

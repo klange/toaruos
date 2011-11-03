@@ -5,13 +5,13 @@
 
 #include <system.h>
 
-void
-pci_install() {
-	/* No op */
-}
-
 #define PCI_CONFIG_ADDRESS 0xCF8
 #define PCI_CONFIG_DATA    0xCFC
+
+void
+pci_install() {
+	/* Do nothing */
+}
 
 /*
  * Read a PCI config value for the given bus/slot/function/offset
