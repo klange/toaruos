@@ -7,6 +7,7 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 Here's what とあるOS looks like:
 
 * [Empty kernel shell](http://i.imgur.com/44huV.jpg)
+* [With a wallpaper and mouse cursor](http://i.imgur.com/eG0i9.png)
 * [Running some GNU apps](http://i.imgur.com/aKyJb.png)
 * [Playing a simple RPG](http://i.imgur.com/A7csE.jpg)
 * [Generating Julia fractals](http://i.imgur.com/Uy3JJ.jpg)
