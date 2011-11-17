@@ -68,7 +68,11 @@ kopen(
 	}
 	char npath[1024];
 	if (filename[0] != '/') {
-		sprintf(npath, "%s/%s", cwd, filename);
+		if (!strcmp(cwd, "/")) {
+			sprintf(npath, "/%s", filename);
+		} else {
+			sprintf(npath, "%s/%s", cwd, filename);
+		}
 	} else {
 		sprintf(npath, "%s", filename);
 	}
