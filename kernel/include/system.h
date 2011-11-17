@@ -33,7 +33,7 @@ extern void *memcpy(void *restrict dest, const void *restrict src, size_t count)
 extern void *memmove(void *restrict dest, const void *restrict src, size_t count);
 extern void *memset(void *dest, int val, size_t count);
 extern unsigned short *memsetw(unsigned short *dest, unsigned short val, int count);
-extern int strlen(const char *str);
+extern uint32_t strlen(const char *str);
 extern int atoi(const char *str);
 extern unsigned char inportb(unsigned short _port);
 extern void outportb(unsigned short _port, unsigned char _data);
@@ -123,7 +123,8 @@ extern void mouse_install();
 
 /* kprintf */
 extern void kprintf(const char *fmt, ...);
-extern int kgets(char *buf, int size);
+extern int  sprintf(char *buf, const char *fmt, ...);
+extern int  kgets(char *buf, int size);
 
 /* Memory Management */
 extern uintptr_t placement_pointer;
@@ -203,6 +204,7 @@ typedef struct task {
 	uintptr_t entry;
 	uintptr_t heap;
 	uintptr_t heap_a;
+	char      wd[1024];
 } task_t;
 
 extern __volatile__ task_t * current_task;

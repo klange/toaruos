@@ -75,6 +75,8 @@ tasking_install() {
 
 	current_task->descriptors = (fs_node_t **)kmalloc(sizeof(fs_node_t *) * 1024);
 	current_task->next_fd = 0;
+	current_task->wd[0] = '/';
+	current_task->wd[1] = 0;
 
 	//switch_page_directory(current_task->page_directory);
 
@@ -115,6 +117,9 @@ fork() {
 	new_task->heap   = current_task->heap;
 	new_task->heap_a = current_task->heap_a;
 	new_task->image_size = current_task->image_size;
+	for (uint32_t i = 0; i <= strlen(current_task->wd); ++i) {
+		new_task->wd[i] = current_task->wd[i];
+	}
 
 	task_t * tmp_task = (task_t *)ready_queue;
 	new_task->parent = parent;

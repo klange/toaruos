@@ -113,7 +113,7 @@ memsetw(
  * strlen
  * Returns the length of a given `str`.
  */
-int
+uint32_t
 strlen(
 		const char *str
 	  ) {

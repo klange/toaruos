@@ -61,18 +61,25 @@ kopen(
 		const char *filename,
 		uint32_t flags
 	 ) {
+	char * cwd = (char *)&(current_task->wd);
 	/* Some sanity checks */
-	if (!fs_root || !filename || filename[0] != '/') {
+	if (!fs_root || !filename) { //|| filename[0] != '/') {
 		return NULL;
 	}
-	size_t path_len = strlen(filename);
+	char npath[1024];
+	if (filename[0] != '/') {
+		sprintf(npath, "%s/%s", cwd, filename);
+	} else {
+		sprintf(npath, "%s", filename);
+	}
+	size_t path_len = strlen(npath);
 	if (path_len == 1) {
 		fs_node_t * root_clone = malloc(sizeof(fs_node_t));
 		memcpy(root_clone, fs_root, sizeof(fs_node_t));
 		return root_clone;
 	}
 	char * path = (char *)malloc(sizeof(char) * (path_len + 1));
-	memcpy(path, filename, path_len);
+	memcpy(path, npath, path_len);
 	char * path_offset = path;
 	uint32_t path_depth = 0;
 	while (path_offset < path + path_len) {

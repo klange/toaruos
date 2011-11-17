@@ -111,10 +111,11 @@ start_shell() {
 								kprintf("cd: could not change directory\n");
 							}
 						}
+						for (uint32_t i = 0; i <= strlen(path); ++i) {
+							current_task->wd[i] = path[i];
+						}
 					}
 				}
-			} else if (!strcmp(cmd, "pwd")) {
-				kprintf("%d %s\n", strlen(path), path);
 			} else if (!strcmp(cmd, "ls")) {
 				/*
 				 * List the files in the current working directory
@@ -187,18 +188,11 @@ start_shell() {
 			} else {
 				/* Alright, here we go */
 				char * filename = malloc(sizeof(char) * 1024);
+				fs_node_t * chd = NULL;
 				if (argv[0][0] == '/') {
 					memcpy(filename, argv[0], strlen(argv[0]) + 1);
-				} else {
-					memcpy(filename, path, strlen(path));
-					if (!strcmp(path,"/")) {
-						memcpy((void *)((uintptr_t)filename + strlen(path)),argv[0],strlen(argv[0])+1);
-					} else {
-						filename[strlen(path)] = '/';
-						memcpy((void *)((uintptr_t)filename + strlen(path) + 1),argv[0],strlen(argv[0])+1);
-					}
+					chd = kopen(filename, 0);
 				}
-				fs_node_t * chd = kopen(filename, 0);
 				if (!chd) {
 					/* Alright, let's try this... */
 					char * search_path = "/bin/";
