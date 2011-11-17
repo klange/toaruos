@@ -122,7 +122,17 @@ start_shell() {
 				 */
 				struct dirent * entry = NULL;
 				int i = 0;
-				entry = readdir_fs(node, i);
+				fs_node_t * ls_node;
+				if (tokenid < 2) {
+					ls_node = node;
+				} else {
+					ls_node = kopen(argv[1], 0);
+					if (!ls_node) {
+						kprintf("Could not stat directory '%s'.\n", argv[1]);
+						continue;
+					}
+				}
+				entry = readdir_fs(ls_node, i);
 				while (entry != NULL) {
 					char * filename = malloc(sizeof(char) * 1024);
 					memcpy(filename, path, strlen(path));
@@ -143,7 +153,10 @@ start_shell() {
 					kprintf("%s\033[0m\n", entry->name);
 					free(entry);
 					i++;
-					entry = readdir_fs(node, i);
+					entry = readdir_fs(ls_node, i);
+				}
+				if (ls_node != node) {
+					close_fs(ls_node);
 				}
 			} else if (!strcmp(cmd, "out")) {
 				if (tokenid < 3) {
