@@ -85,6 +85,12 @@ gettimeofday(struct timeval * t, void *z) {
 	return 0;
 }
 
+uint32_t now() {
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return t.tv_sec;
+}
+
 /*
  * vim:tabstop=4
  * vim:noexpandtab

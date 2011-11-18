@@ -271,6 +271,7 @@ struct timeval {
 };
 
 extern int gettimeofday(struct timeval * t, void * z);
+extern uint32_t now();
 
 
 /* CPU Detect by Brynet */

@@ -131,6 +131,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 
 	if (boot_mode == multiboot) {
 
+#if 0
 		if (mboot_ptr->flags & (1 << 3)) {
 			/*
 			 * If we have an initial ramdisk, mount it.
@@ -139,12 +140,16 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 				initrd_mount((uintptr_t)ramdisk, 0);
 			}
 		}
+#endif
 
 		/* Parse the command-line arguments */
 		parse_args((char *)mboot_ptr->cmdline);
 	}
 
-	mouse_install();	/* Mouse driver */
+	ext2_disk_mount();
+
+
+	//mouse_install();	/* Mouse driver */
 
 	cls();
 
