@@ -97,11 +97,10 @@ bochs_screenshot() {
 
 void
 bochs_install_wallpaper(char * filename) {
-	kprintf("Loading wallpaper... ");
-
+	kprintf("Starting up...\n");
 	fs_node_t * image = kopen(filename, 0);
 	if (!image) {
-		kprintf("Could not load wallpaper (%s), bailing.\n", filename);
+		kprintf("[NOTICE] Failed to load wallpaper `%s`.\n", filename);
 		return;
 	}
 	size_t image_size= 0;
@@ -148,7 +147,6 @@ bochs_install_wallpaper(char * filename) {
 		}
 		i += row_width;
 	}
-	kprintf(" Done.\n");
 
 	free(bufferb);
 }
