@@ -71,7 +71,7 @@ serial_send(char out) {
 
 void
 serial_string(char * out) {
-	for (int i = 0; i < strlen(out); ++i) {
+	for (uint32_t i = 0; i < strlen(out); ++i) {
 		serial_send(out[i]);
 	}
 }

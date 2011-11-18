@@ -117,7 +117,7 @@ fork() {
 	new_task->heap   = current_task->heap;
 	new_task->heap_a = current_task->heap_a;
 	new_task->image_size = current_task->image_size;
-	for (uint32_t i = 0; i <= strlen(current_task->wd); ++i) {
+	for (uint32_t i = 0; i <= strlen((const char *)current_task->wd); ++i) {
 		new_task->wd[i] = current_task->wd[i];
 	}
 

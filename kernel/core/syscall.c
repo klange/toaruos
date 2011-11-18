@@ -44,7 +44,7 @@ static int read(int fd, char * ptr, int len) {
 		IRQ_ON;
 		kgets(ptr, len);
 		IRQ_OFF;
-		if (strlen(ptr) < len) {
+		if (strlen(ptr) < (uint32_t)len) {
 			int j = strlen(ptr);
 			ptr[j] = '\n';
 			ptr[j+1] = '\0';
