@@ -176,6 +176,7 @@ start_shell() {
 			} else if (!strcmp(cmd, "screenshot")) {
 				bochs_screenshot();
 			} else if (!strcmp(cmd, "read-sb")) {
+				extern void ext2_disk_read_superblock();
 				ext2_disk_read_superblock();
 			} else if (!strcmp(cmd, "read-disk")) {
 				uint8_t buf[512] = {1};
