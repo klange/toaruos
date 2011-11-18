@@ -139,15 +139,17 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 				initrd_mount((uintptr_t)ramdisk, 0);
 			}
 		}
-
-		/* Parse the command-line arguments */
-		parse_args((char *)mboot_ptr->cmdline);
 	}
 
 	mouse_install();	/* Mouse driver */
 
+	extern void ext2_disk_mount(void);
 	ext2_disk_mount();
 
+	if (boot_mode == multiboot) {
+		/* Parse the command-line arguments */
+		parse_args((char *)mboot_ptr->cmdline);
+	}
 	cls();
 
 	start_shell();

@@ -96,14 +96,23 @@ bochs_screenshot() {
 }
 
 void
-bochs_install_wallpaper() {
-	char * bufferb = malloc(2359808);
-	uint32_t _i = 0;
-	kprintf("Loading...");
-	while (_i < 4609) {
-		ide_read_sector(0x1F0, 1, _i, (uint8_t *)((uint32_t)bufferb + _i * 512));
-		++_i;
+bochs_install_wallpaper(char * filename) {
+	kprintf("Loading wallpaper... ");
+
+	fs_node_t * image = kopen(filename, 0);
+	if (!image) {
+		kprintf("Could not load wallpaper (%s), bailing.\n", filename);
+		return;
 	}
+	size_t image_size= 0;
+
+	image_size = image->length;
+
+	/* Alright, we have the length */
+	char * bufferb = malloc(image_size);
+	read_fs(image, 0, image_size, (uint8_t *)bufferb);
+	close_fs(image);
+
 	uint16_t x = 0; /* -> 212 */
 	uint16_t y = 0; /* -> 68 */
 	/* Get the width / height of the image */
@@ -119,8 +128,6 @@ bochs_install_wallpaper() {
 	wallpaper->width = width;
 	wallpaper->height = height;
 	wallpaper->bitmap = malloc(sizeof(uint32_t) * width * height);
-
-	kprintf("Loading...");
 
 	for (y = 0; y < height; ++y) {
 		for (x = 0; x < width; ++x) {
