@@ -1,6 +1,6 @@
 CC = i686-pc-toaru-gcc
 CFLAGS = -march=core2 -std=c99 -O3 -m32 -Wa,--32
-EXECUTABLES = $(patsubst %.c,../initrd/bin/%,$(wildcard *.c))
+EXECUTABLES = $(patsubst %.c,../hdd/bin/%,$(wildcard *.c))
 ERRORS = 2>>/tmp/.build-errors || util/mk-error
 
 
@@ -11,5 +11,5 @@ all: ${EXECUTABLES}
 clean:
 	-rm -f ${EXECUTABLES}
 
-../initrd/bin/%: %.c
+../hdd/bin/%: %.c
 	${CC} ${CFLAGS} -s -O3 -o $@ $<

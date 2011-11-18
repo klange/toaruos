@@ -1,13 +1,14 @@
 toaruos-kernel
 toaruos-initrd
 toaruos-disk.img
-hdd/*
 *.o
 *.swp
 bootloader/stage1.bin
 bootloader/stage2.bin
 initrd/boot
 initrd/bin/*
+hdd/boot
+hdd/bin/*
 .gdb_history
 bootdisk.img
 util/toaru-toolchain/*

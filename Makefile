@@ -14,7 +14,7 @@ YASM = yasm
 MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
 FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
 VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/core/video/*.c))
-BINARIES = initrd/bin/hello initrd/bin/echo initrd/bin/yes initrd/bin/cat initrd/bin/sh initrd/bin/clear
+BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/cat hdd/bin/sh hdd/bin/clear
 UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
 GENEXT = genext2fs
@@ -92,7 +92,7 @@ kernel/start.o: kernel/start.s
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd/boot/kernel initrd/boot/stage2 initrd/bs.bmp ${BINARIES}
+toaruos-initrd: initrd/boot/kernel initrd/boot/stage2
 	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
@@ -122,7 +122,7 @@ initrd/boot/kernel: toaruos-kernel
 hdd:
 	@mkdir hdd
 
-toaruos-disk.img: hdd
+toaruos-disk.img: hdd hdd/bs.bmp ${BINARIES}
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}
@@ -146,7 +146,7 @@ loader/crtbegin.o: loader/crtbegin.s
 	@${YASM} -f elf32 -o $@ $< ${ERRORS}
 	@${END} "yasm" "$<"
 
-initrd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
+hdd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
 	@${BEG} "LD" "$<"
 	@${LD} -T loader/link.ld -s -S -o $@ $< ${ERRORS}
 	@${END} "LD" "$<"
