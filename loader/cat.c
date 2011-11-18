@@ -12,10 +12,13 @@ int main(int argc, char ** argv) {
 			syscall_print("': no such file or directory\n");
 			return 1;
 		}
-		char dat[2] = {0, 0};
+		char dat[1024];
 		int read = 0;
-		while ((read = syscall_read(i, dat, 1))) {
-			syscall_print(dat);
+		while ((read = syscall_read(i, dat, 1024))) {
+			for (int j = 0; j < read; ++j) {
+				char datum[2] = {dat[j], '\0'};
+				syscall_print(datum);
+			}
 		}
 		syscall_close(i);
 	}
