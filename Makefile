@@ -28,7 +28,7 @@ ERRORSS = >>/tmp/.build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS = -kernel toaruos-kernel -initrd toaruos-initrd -append vid=qemu -serial stdio -vga std -hda toaruos-disk.img
+EMUARGS = -kernel toaruos-kernel -initrd toaruos-initrd -append "vid=qemu wallpaper" -serial stdio -vga std -hda toaruos-disk.img -hdb util/toaruos-wallpaper.bmp
 EMUKVM  = -enable-kvm
 
 .PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
@@ -125,7 +125,7 @@ hdd:
 toaruos-disk.img: hdd
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
-	@${GENEXT} -d hdd -q -b 131072 toaruos-disk.img ${ERRORS}
+	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 

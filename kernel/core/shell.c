@@ -173,8 +173,6 @@ start_shell() {
 				detect_cpu();
 			} else if (!strcmp(cmd, "multiboot")) {
 				dump_multiboot(mboot_ptr);
-			} else if (!strcmp(cmd, "wallpaper")) {
-				bochs_install_wallpaper();
 			} else if (!strcmp(cmd, "screenshot")) {
 				bochs_screenshot();
 			} else if (!strcmp(cmd, "read-sb")) {

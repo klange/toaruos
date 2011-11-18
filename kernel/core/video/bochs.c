@@ -99,12 +99,11 @@ void
 bochs_install_wallpaper() {
 	char * bufferb = malloc(2359808);
 	uint32_t _i = 0;
-	kprintf("Reading...");
+	kprintf("Loading...");
 	while (_i < 4609) {
 		ide_read_sector(0x1F0, 1, _i, (uint8_t *)((uint32_t)bufferb + _i * 512));
 		++_i;
 	}
-	kprintf(" Done.\n");
 	uint16_t x = 0; /* -> 212 */
 	uint16_t y = 0; /* -> 68 */
 	/* Get the width / height of the image */

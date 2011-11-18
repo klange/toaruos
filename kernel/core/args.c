@@ -43,6 +43,8 @@ parse_args(
 			/* Bochs / Qemu Video Device */
 			graphics_install_bochs();
 			ansi_init(&bochs_write, 128, 64);
+		} if (!strcmp(argv[i],"wallpaper")) {
+			bochs_install_wallpaper();
 		}
 	}
 }
