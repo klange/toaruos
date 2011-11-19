@@ -4,7 +4,7 @@
 
 #define BLOCKSIZE    1024
 #define SECTORSIZE   512
-#define CACHEENTRIES 64
+#define CACHEENTRIES 512
 
 #define DISK_PORT 0x1F0
 
@@ -14,7 +14,7 @@ typedef struct {
 	uint8_t  block[BLOCKSIZE];
 } ext2_disk_cache_entry_t;
 
-ext2_disk_cache_entry_t ext2_disk_cache[CACHEENTRIES];
+ext2_disk_cache_entry_t *ext2_disk_cache = NULL;
 
 ext2_superblock_t * ext2_disk_superblock    = NULL;
 ext2_bgdescriptor_t * ext2_disk_root_block = NULL;
@@ -29,6 +29,7 @@ uint32_t ext2_disk_bg_descriptors = 0;
 #define SB ext2_disk_superblock
 #define BGD ext2_disk_root_block
 #define RN ext2_root_fsnode
+#define DC ext2_disk_cache
 
 static uint32_t btos(uint32_t block) {
 	return block * (BLOCKSIZE / SECTORSIZE); 
@@ -40,21 +41,21 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t * buf) {
 	int oldest = -1;
 	uint32_t oldest_age = UINT32_MAX;
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
-		if (ext2_disk_cache[i].block_no == block_no) {
-			ext2_disk_cache[i].last_use = now();
-			memcpy(buf, &ext2_disk_cache[i].block, BLOCKSIZE);
+		if (DC[i].block_no == block_no) {
+			DC[i].last_use = now();
+			memcpy(buf, &DC[i].block, BLOCKSIZE);
 			return;
 		}
-		if (ext2_disk_cache[i].last_use < oldest_age) {
+		if (DC[i].last_use < oldest_age) {
 			oldest = i;
-			oldest_age = ext2_disk_cache[i].last_use;
+			oldest_age = DC[i].last_use;
 		}
 	}
-	ide_read_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)&(ext2_disk_cache[oldest].block) + 0));
-	ide_read_sector(DISK_PORT, 0, btos(block_no) + 1, (uint8_t *)((uint32_t)&(ext2_disk_cache[oldest].block) + SECTORSIZE));
-	memcpy(buf, &ext2_disk_cache[oldest].block, BLOCKSIZE);
-	ext2_disk_cache[oldest].block_no = block_no;
-	ext2_disk_cache[oldest].last_use = now();
+	ide_read_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)&(DC[oldest].block) + 0));
+	ide_read_sector(DISK_PORT, 0, btos(block_no) + 1, (uint8_t *)((uint32_t)&(DC[oldest].block) + SECTORSIZE));
+	memcpy(buf, &DC[oldest].block, BLOCKSIZE);
+	DC[oldest].block_no = block_no;
+	DC[oldest].last_use = now();
 }
 
 uint32_t ext2_disk_inode_block(ext2_inodetable_t * inode, uint32_t block, uint8_t * buf) {
@@ -360,6 +361,7 @@ void ext2_disk_read_superblock() {
 }
 
 void ext2_disk_mount() {
+	DC = malloc(sizeof(ext2_disk_cache_entry_t) * CACHEENTRIES);
 	SB = malloc(BLOCKSIZE);
 	ide_read_sector(DISK_PORT, 0, btos(1) + 0, (uint8_t *)SB);
 	ide_read_sector(DISK_PORT, 0, btos(1) + 1, (uint8_t *)((uint32_t)SB + SECTORSIZE));
