@@ -130,7 +130,8 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 }
 
 static int sys_fork() {
-	return fork();
+	uint32_t f = fork();
+	return f;
 }
 
 static int getgraphicsaddress() {
