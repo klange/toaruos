@@ -116,6 +116,27 @@ start_shell() {
 						}
 					}
 				}
+			} else if (!strcmp(cmd, "info")) {
+				if (tokenid < 2) {
+					kprintf("info: Expected argument\n");
+					continue;
+				}
+				fs_node_t * file = kopen(argv[1], 0);
+				if (!file) {
+					kprintf("Could not open file `%s`\n", argv[1]);
+					continue;
+				}
+				kprintf("flags:   0x%x\n", file->flags);
+				kprintf("mask:    0x%x\n", file->mask);
+				kprintf("inode:   0x%x\n", file->inode);
+				kprintf("uid: %d gid: %d\n", file->uid, file->gid);
+				kprintf("open():  0x%x\n", file->open);
+				kprintf("read():  0x%x\n", file->read);
+				kprintf("write(): 0x%x\n", file->write);
+				if ((file->mask & 0x001) || (file->mask & 0x008) || (file->mask & 0x040)) {
+					kprintf("File is executable.\n");
+				}
+				close_fs(file);
 			} else if (!strcmp(cmd, "ls")) {
 				/*
 				 * List the files in the current working directory
@@ -146,6 +167,8 @@ start_shell() {
 					if (chd) {
 						if (chd->flags & FS_DIRECTORY) {
 							kprintf("\033[1;34m");
+						} else if ((chd->mask & 0x001) || (chd->mask & 0x008) || (chd->mask & 0x040)) {
+							kprintf("\033[1;32m");
 						}
 						close_fs(chd);
 					}
