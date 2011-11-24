@@ -154,14 +154,14 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
 				fs_node_t * chd = kopen(filename, 0);
 				if (chd) {
 					if ((chd->flags & FS_DIRECTORY) == 0) {
-						kprintf("cd: %s is not a directory\n", filename);
+						kprintf("%s: %s is not a directory\n", argv[0], filename);
 						return 1;
 					}
 					shell.node = chd;
 					memcpy(shell.path, filename, strlen(filename));
 					shell.path[strlen(filename)] = '\0';
 				} else {
-					kprintf("cd: could not change directory\n");
+					kprintf("%s: could not change directory\n", argv[0]);
 				}
 			}
 			for (uint32_t i = 0; i <= strlen(shell.path); ++i) {
@@ -174,7 +174,7 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
 
 uint32_t shell_cmd_info(int argc, char * argv[]) {
 	if (argc < 2) {
-		kprintf("info: Expected argument\n");
+		kprintf("%s: Expected argument\n", argv[0]);
 		return 1;
 	}
 	fs_node_t * file = kopen(argv[1], 0);
@@ -208,7 +208,7 @@ uint32_t shell_cmd_ls(int argc, char * argv[]) {
 	} else {
 		ls_node = kopen(argv[1], 0);
 		if (!ls_node) {
-			kprintf("Could not stat directory '%s'.\n", argv[1]);
+			kprintf("%s: Could not stat directory '%s'.\n", argv[0], argv[1]);
 			return 1;
 		}
 	}
@@ -269,7 +269,11 @@ uint32_t shell_cmd_multiboot(int argc, char * argv[]) {
 }
 
 uint32_t shell_cmd_screenshot(int argc, char * argv[]) {
-	bochs_screenshot();
+	if (argc < 2) {
+		bochs_screenshot(NULL);
+	} else {
+		bochs_screenshot(argv[1]);
+	}
 	return 0;
 }
 

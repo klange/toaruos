@@ -73,7 +73,11 @@ sprite_t * wallpaper = NULL;
 #define _BLU(color) ((color & 0x000000FF) / 0x1)
 
 void
-bochs_screenshot() {
+bochs_screenshot(char * filename) {
+	if (filename) {
+		kprintf("Error: Writing screenshots to a file is not currently supported.\n");
+		return;
+	}
 	uint8_t * buf = malloc(1024 * 768 * 4);
 	uint32_t * bufi = (uint32_t *)buf;
 	uint32_t x, y, i;
