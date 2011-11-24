@@ -125,6 +125,8 @@ extern void mouse_install();
 extern void kprintf(const char *fmt, ...);
 extern int  sprintf(char *buf, const char *fmt, ...);
 extern int  kgets(char *buf, int size);
+typedef void (*kgets_redraw_t)();
+extern kgets_redraw_t kgets_redraw_func;
 
 /* Memory Management */
 extern uintptr_t placement_pointer;

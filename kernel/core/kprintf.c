@@ -162,6 +162,7 @@ int kgets_collected = 0;
 int kgets_want      = 0;
 int kgets_newline   = 0;
 int kgets_cancel    = 0;
+kgets_redraw_t kgets_redraw_func = NULL;
 
 static void
 kwrite(
@@ -192,6 +193,9 @@ kgets_handler(
 		return;
 	} else if (ch == '\x0c') {
 		kprintf("\033[J");
+		if (kgets_redraw_func) {
+			kgets_redraw_func();
+		}
 		kprintf(kgets_buffer);
 		return;
 	} else if (ch == '\n') {
@@ -234,6 +238,7 @@ kgets(
 	buffer[kgets_collected] = '\0';
 	/* Disable the buffer */
 	keyboard_buffer_handler = NULL;
+	kgets_redraw_func = NULL;
 	/* Return the string */
 	return kgets_collected;
 }

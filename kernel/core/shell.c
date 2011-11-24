@@ -328,6 +328,7 @@ start_shell() {
 		char buffer[1024];
 		int size;
 		/* Read commands */
+		kgets_redraw_func = redraw_shell;
 		size = kgets((char *)&buffer, 1023);
 		if (size < 1) {
 			continue;
