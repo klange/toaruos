@@ -33,11 +33,12 @@ uint32_t ext2_disk_bg_descriptors = 0;
 #define RN ext2_root_fsnode
 #define DC ext2_disk_cache
 
+#define BLOCKBIT(n) (bg_buffer[(n / 8)] & (1 << ((n % 8))))
+
 static uint32_t btos(uint32_t block) {
 	return block * (BLOCKSIZE / SECTORSIZE); 
 }
 
-#if 1
 void ext2_disk_read_block(uint32_t block_no, uint8_t * buf) {
 	if (!block_no) return;
 	int oldest = -1;
@@ -56,6 +57,28 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t * buf) {
 	ide_read_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)&(DC[oldest].block) + 0));
 	ide_read_sector(DISK_PORT, 0, btos(block_no) + 1, (uint8_t *)((uint32_t)&(DC[oldest].block) + SECTORSIZE));
 	memcpy(buf, &DC[oldest].block, BLOCKSIZE);
+	DC[oldest].block_no = block_no;
+	DC[oldest].last_use = now();
+}
+
+void ext2_disk_write_block(uint32_t block_no, uint8_t * buf) {
+	if (!block_no) return;
+	ide_write_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)buf + 0));
+	ide_write_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)buf + SECTORSIZE));
+	int oldest = -1;
+	uint32_t oldest_age = UINT32_MAX;
+	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
+		if (DC[i].block_no == block_no) {
+			DC[i].last_use = now();
+			memcpy(&DC[i].block, buf, BLOCKSIZE);
+			return;
+		}
+		if (DC[i].last_use < oldest_age) {
+			oldest = i;
+			oldest_age = DC[i].last_use;
+		}
+	}
+	memcpy(&DC[oldest].block, buf, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
 	DC[oldest].last_use = now();
 }
@@ -228,12 +251,10 @@ finddir_ext2_disk (
 	 */
 	while (dir_offset < inode->size) {
 		ext2_dir_t * d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
-#if 0
 		if (strlen(name) != d_ent->name_len) {
 			dir_offset += d_ent->rec_len;
 			continue;
 		}
-#endif
 		char * dname = malloc(sizeof(char) * (d_ent->name_len + 1));
 		memcpy(dname, &d_ent->name, d_ent->name_len);
 		dname[d_ent->name_len] = '\0';
@@ -348,9 +369,6 @@ uint32_t ext2_disk_node_root(ext2_inodetable_t * inode, fs_node_t * fnode) {
 	return 1;
 }
 
-
-#endif
-
 void ext2_disk_read_superblock() {
 	kprintf("Volume '%s'\n", SB->volume_name);
 	kprintf("%d inodes\n", SB->inodes_count);
@@ -362,13 +380,14 @@ void ext2_disk_read_superblock() {
 	kprintf("0x%x\n", SB->magic);
 }
 
-#define BLOCKBIT(n) (bg_buffer[(n / 8)] & (1 << ((n % 8))))
-
 void ext2_disk_mount() {
 	DC = malloc(sizeof(ext2_disk_cache_entry_t) * CACHEENTRIES);
 	SB = malloc(BLOCKSIZE);
+#if 0
 	ide_read_sector(DISK_PORT, 0, btos(1) + 0, (uint8_t *)SB);
 	ide_read_sector(DISK_PORT, 0, btos(1) + 1, (uint8_t *)((uint32_t)SB + SECTORSIZE));
+#endif
+	ext2_disk_read_block(1, (uint8_t *)SB);
 	assert(SB->magic == EXT2_SUPER_MAGIC);
 	if (SB->inode_size == 0) {
 		SB->inode_size = 128;
@@ -377,8 +396,7 @@ void ext2_disk_mount() {
 	ext2_disk_inodes_per_group = SB->inodes_count / BGDS;
 
 	ext2_disk_root_block = malloc(BGDS * sizeof(ext2_bgdescriptor_t *));
-	ide_read_sector(DISK_PORT, 0, btos(2) + 0, (uint8_t *)(BGD));
-	ide_read_sector(DISK_PORT, 0, btos(2) + 1, (uint8_t *)((uint32_t)(BGD) + SECTORSIZE));
+	ext2_disk_read_block(2, (uint8_t *)BGD);
 
 #if EXT2_DEBUG_BLOCK_DESCRIPTORS
 	char bg_buffer[BLOCKSIZE];
@@ -386,8 +404,7 @@ void ext2_disk_mount() {
 		kprintf("Block Group Descriptor #%d @ %d\n", i, 2 + i * SB->blocks_per_group);
 		kprintf("\tBlock Bitmap @ %d\n", BGD[i].block_bitmap); { 
 			kprintf("\t\tExamining block bitmap at %d\n", BGD[i].block_bitmap);
-			ide_read_sector(DISK_PORT, 0, btos(BGD[i].block_bitmap) + 0, (uint8_t *)bg_buffer);
-			ide_read_sector(DISK_PORT, 0, btos(BGD[i].block_bitmap) + 1, (uint8_t *)((uint32_t)bg_buffer + SECTORSIZE));
+			ext2_disk_read_block(BGD[i].block_bitmap, (uint8_t *)bg_buffer);
 			uint32_t j = 0;
 			while (BLOCKBIT(j)) {
 				++j;
@@ -396,8 +413,7 @@ void ext2_disk_mount() {
 		}
 		kprintf("\tInode Bitmap @ %d\n", BGD[i].inode_bitmap); {
 			kprintf("\t\tExamining inode bitmap at %d\n", BGD[i].inode_bitmap);
-			ide_read_sector(DISK_PORT, 0, btos(BGD[i].inode_bitmap) + 0, (uint8_t *)bg_buffer);
-			ide_read_sector(DISK_PORT, 0, btos(BGD[i].inode_bitmap) + 1, (uint8_t *)((uint32_t)bg_buffer + SECTORSIZE));
+			ext2_disk_read_block(BGD[i].inode_bitmap, (uint8_t *)bg_buffer);
 			uint32_t j = 0;
 			while (BLOCKBIT(j)) {
 				++j;
