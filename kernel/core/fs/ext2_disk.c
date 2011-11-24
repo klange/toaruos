@@ -2,6 +2,8 @@
 #include <ext2.h>
 #include <fs.h>
 
+#define EXT2_DEBUG_BLOCK_DESCRIPTORS 1
+
 #define BLOCKSIZE    1024
 #define SECTORSIZE   512
 #define CACHEENTRIES 512
@@ -360,6 +362,8 @@ void ext2_disk_read_superblock() {
 	kprintf("0x%x\n", SB->magic);
 }
 
+#define BLOCKBIT(n) (bg_buffer[(n / 8)] & (1 << ((n % 8))))
+
 void ext2_disk_mount() {
 	DC = malloc(sizeof(ext2_disk_cache_entry_t) * CACHEENTRIES);
 	SB = malloc(BLOCKSIZE);
@@ -375,14 +379,34 @@ void ext2_disk_mount() {
 	ext2_disk_root_block = malloc(BGDS * sizeof(ext2_bgdescriptor_t *));
 	ide_read_sector(DISK_PORT, 0, btos(2) + 0, (uint8_t *)(BGD));
 	ide_read_sector(DISK_PORT, 0, btos(2) + 1, (uint8_t *)((uint32_t)(BGD) + SECTORSIZE));
-#if 0
+
+#if EXT2_DEBUG_BLOCK_DESCRIPTORS
+	char bg_buffer[BLOCKSIZE];
 	for (uint32_t i = 0; i < BGDS; ++i) {
 		kprintf("Block Group Descriptor #%d @ %d\n", i, 2 + i * SB->blocks_per_group);
-		kprintf("   Block Bitmap @ %d\n", BGD[i].block_bitmap);
-		kprintf("   Inode Bitmap @ %d\n", BGD[i].inode_bitmap);
-		kprintf("   Inode Table  @ %d\n", BGD[i].inode_table);
-		kprintf("   Free Blocks =  %d\n", BGD[i].free_blocks_count);
-		kprintf("   Free Inodes =  %d\n", BGD[i].free_inodes_count);
+		kprintf("\tBlock Bitmap @ %d\n", BGD[i].block_bitmap); { 
+			kprintf("\t\tExamining block bitmap at %d\n", BGD[i].block_bitmap);
+			ide_read_sector(DISK_PORT, 0, btos(BGD[i].block_bitmap) + 0, (uint8_t *)bg_buffer);
+			ide_read_sector(DISK_PORT, 0, btos(BGD[i].block_bitmap) + 1, (uint8_t *)((uint32_t)bg_buffer + SECTORSIZE));
+			uint32_t j = 0;
+			while (BLOCKBIT(j)) {
+				++j;
+			}
+			kprintf("\t\tFirst free block in group is %d\n", j + BGD[i].block_bitmap - 2);
+		}
+		kprintf("\tInode Bitmap @ %d\n", BGD[i].inode_bitmap); {
+			kprintf("\t\tExamining inode bitmap at %d\n", BGD[i].inode_bitmap);
+			ide_read_sector(DISK_PORT, 0, btos(BGD[i].inode_bitmap) + 0, (uint8_t *)bg_buffer);
+			ide_read_sector(DISK_PORT, 0, btos(BGD[i].inode_bitmap) + 1, (uint8_t *)((uint32_t)bg_buffer + SECTORSIZE));
+			uint32_t j = 0;
+			while (BLOCKBIT(j)) {
+				++j;
+			}
+			kprintf("\t\tFirst free inode in group is %d\n", j + ext2_disk_inodes_per_group * i + 1);
+		}
+		kprintf("\tInode Table  @ %d\n", BGD[i].inode_table);
+		kprintf("\tFree Blocks =  %d\n", BGD[i].free_blocks_count);
+		kprintf("\tFree Inodes =  %d\n", BGD[i].free_inodes_count);
 	}
 #endif
 
