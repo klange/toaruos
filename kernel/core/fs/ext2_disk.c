@@ -7,7 +7,6 @@
 #define BLOCKSIZE    1024
 #define SECTORSIZE   512
 #define CACHEENTRIES 512
-
 #define DISK_PORT 0x1F0
 
 typedef struct {
@@ -16,11 +15,10 @@ typedef struct {
 	uint8_t  block[BLOCKSIZE];
 } ext2_disk_cache_entry_t;
 
-ext2_disk_cache_entry_t *ext2_disk_cache = NULL;
-
-ext2_superblock_t * ext2_disk_superblock    = NULL;
+ext2_disk_cache_entry_t *ext2_disk_cache   = NULL;
+ext2_superblock_t * ext2_disk_superblock   = NULL;
 ext2_bgdescriptor_t * ext2_disk_root_block = NULL;
-fs_node_t * ext2_root_fsnode                = NULL;
+fs_node_t * ext2_root_fsnode               = NULL;
 
 uint32_t ext2_disk_node_from_file(ext2_inodetable_t * inode, ext2_dir_t * direntry, fs_node_t * fnode);
 
@@ -383,10 +381,6 @@ void ext2_disk_read_superblock() {
 void ext2_disk_mount() {
 	DC = malloc(sizeof(ext2_disk_cache_entry_t) * CACHEENTRIES);
 	SB = malloc(BLOCKSIZE);
-#if 0
-	ide_read_sector(DISK_PORT, 0, btos(1) + 0, (uint8_t *)SB);
-	ide_read_sector(DISK_PORT, 0, btos(1) + 1, (uint8_t *)((uint32_t)SB + SECTORSIZE));
-#endif
 	ext2_disk_read_block(1, (uint8_t *)SB);
 	assert(SB->magic == EXT2_SUPER_MAGIC);
 	if (SB->inode_size == 0) {
