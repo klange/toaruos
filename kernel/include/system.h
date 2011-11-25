@@ -127,6 +127,9 @@ extern int  sprintf(char *buf, const char *fmt, ...);
 extern int  kgets(char *buf, int size);
 typedef void (*kgets_redraw_t)();
 extern kgets_redraw_t kgets_redraw_func;
+typedef void (*kgets_tab_complete_t)(char *);
+extern kgets_tab_complete_t kgets_tab_complete_func;
+extern void kgets_redraw_buffer();
 
 /* Memory Management */
 extern uintptr_t placement_pointer;

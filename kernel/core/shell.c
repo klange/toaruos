@@ -203,10 +203,13 @@ uint32_t shell_cmd_ls(int argc, char * argv[]) {
 	struct dirent * entry = NULL;
 	int i = 0;
 	fs_node_t * ls_node;
+	char * dir_path;
 	if (argc < 2) {
 		ls_node = shell.node;
+		dir_path = shell.path;
 	} else {
 		ls_node = kopen(argv[1], 0);
+		dir_path = argv[1];
 		if (!ls_node) {
 			kprintf("%s: Could not stat directory '%s'.\n", argv[0], argv[1]);
 			return 1;
@@ -215,12 +218,12 @@ uint32_t shell_cmd_ls(int argc, char * argv[]) {
 	entry = readdir_fs(ls_node, i);
 	while (entry != NULL) {
 		char * filename = malloc(sizeof(char) * 1024);
-		memcpy(filename, shell.path, strlen(shell.path));
-		if (!strcmp(shell.path,"/")) {
-			memcpy((void *)((uintptr_t)filename + strlen(shell.path)),entry->name,strlen(entry->name)+1); 
+		memcpy(filename, dir_path, strlen(dir_path));
+		if (!strcmp(dir_path,"/")) {
+			memcpy((void *)((uintptr_t)filename + strlen(dir_path)),entry->name,strlen(entry->name)+1); 
 		} else {
-			filename[strlen(shell.path)] = '/';
-			memcpy((void *)((uintptr_t)filename + strlen(shell.path) + 1),entry->name,strlen(entry->name)+1); 
+			filename[strlen(dir_path)] = '/';
+			memcpy((void *)((uintptr_t)filename + strlen(dir_path) + 1),entry->name,strlen(entry->name)+1); 
 		}
 		fs_node_t * chd = kopen(filename, 0);
 		if (chd) {
@@ -308,6 +311,14 @@ uint32_t shell_cmd_writedisk(int argc, char * argv[]) {
 	return 0;
 }
 
+#include <ext2.h>
+ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * name);
+
+uint32_t shell_cmd_testing(int argc, char * argv[]) {
+	ext2_inodetable_t * derp = ext2_disk_alloc_inode(NULL, "test");
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",         shell_cmd_cd);
 	shell_install_command("ls",         shell_cmd_ls);
@@ -319,12 +330,124 @@ void install_commands() {
 	shell_install_command("read-sb",    shell_cmd_readsb);
 	shell_install_command("read-disk",  shell_cmd_readdisk);
 	shell_install_command("write-disk", shell_cmd_writedisk);
+	shell_install_command("test-alloc-block", shell_cmd_testing);
+}
+
+void add_path_contents() {
+	struct dirent * entry = NULL;
+	int i = 0;
+	fs_node_t * ls_node;
+	ls_node = kopen("/bin", 0);
+	char * dir_path = "/bin";
+	if (!ls_node) {
+		kprintf("Failed to open /bin\n");
+		return;
+	}
+	entry = readdir_fs(ls_node, i);
+	while (entry != NULL) {
+		char * filename = malloc(sizeof(char) * 1024);
+		memcpy(filename, dir_path, strlen(dir_path));
+		filename[strlen(dir_path)] = '/';
+		memcpy((void *)((uintptr_t)filename + strlen(dir_path) + 1),entry->name,strlen(entry->name)+1); 
+		fs_node_t * chd = kopen(filename, 0);
+		if (chd) {
+			if (chd->flags & FS_DIRECTORY) {
+			} else if ((chd->mask & 0x001) || (chd->mask & 0x008) || (chd->mask & 0x040)) {
+				char * s = malloc(sizeof(char) * (strlen(entry->name) + 1));
+				memcpy(s, entry->name, strlen(entry->name) + 1);
+				shell_install_command(s, NULL);
+			}
+			close_fs(chd);
+		}
+		free(filename);
+		free(entry);
+		i++;
+		entry = readdir_fs(ls_node, i);
+	}
+	if (ls_node != shell.node) {
+		close_fs(ls_node);
+	}
+}
+
+void tab_complete_shell(char * buffer) {
+	char buf[1024];
+	memcpy(buf, buffer, 1024);
+	char * pch;
+	char * cmd;
+	char * save;
+	pch = strtok_r(buf," ",&save);
+	cmd = pch;
+	char * argv[1024]; /* Command tokens (space-separated elements) */
+	int argc = 0;
+	if (!cmd) { 
+		argv[0] = "";
+		argc = 1;
+	} else {
+		while (pch != NULL) {
+			argv[argc] = (char *)pch;
+			++argc;
+			pch = strtok_r(NULL," ",&save);
+		}
+	}
+	argv[argc] = NULL;
+	if (argc < 2) {
+		if (buffer[strlen(buffer)-1] == ' ' || argc == 0) {
+			kprintf("\n");
+			for (uint32_t i = 0; i < shell_commands_len; ++i) {
+				kprintf(shell_commands[i]);
+				if (i < shell_commands_len - 1) {
+					kprintf(", ");
+				}
+			}
+			kprintf("\n");
+			redraw_shell();
+			kgets_redraw_buffer();
+			return;
+		} else {
+			uint32_t count = 0, j = 0;
+			for (uint32_t i = 0; i < shell_commands_len; ++i) {
+				if (strspn(shell_commands[i], argv[0]) == strlen(argv[0])) {
+					count++;
+				}
+			}
+			for (uint32_t i = 0; i < shell_commands_len; ++i) {
+				if (strspn(shell_commands[i], argv[0]) == strlen(argv[0])) {
+					if (count == 1) {
+						for (uint32_t j = 0; j < strlen(buffer); ++j) {
+							kprintf("\x08 \x08");
+						}
+						kprintf(shell_commands[i]);
+						memcpy(buffer, shell_commands[i], strlen(shell_commands[i]) + 1);
+						return;
+					}
+				}
+			}
+			kprintf("\n");
+			for (uint32_t i = 0; i < shell_commands_len; ++i) {
+				if (strspn(shell_commands[i], argv[0]) == strlen(argv[0])) {
+					kprintf(shell_commands[i]);
+					++j;
+					if (j < count) {
+						kprintf(", ");
+					}
+				}
+			}
+			kprintf("\n");
+			redraw_shell();
+			kgets_redraw_buffer();
+			return;
+		}
+	} else {
+		/* Complete path names */
+		kprintf("%d\n", argc);
+	}
 }
 
 void
 start_shell() {
 	init_shell();
 	install_commands();
+	add_path_contents();
 	while (1) {
 		/* Read buffer */
 		shell_update_time();
@@ -333,6 +456,7 @@ start_shell() {
 		int size;
 		/* Read commands */
 		kgets_redraw_func = redraw_shell;
+		kgets_tab_complete_func = tab_complete_shell;
 		size = kgets((char *)&buffer, 1023);
 		if (size < 1) {
 			continue;

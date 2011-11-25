@@ -2,7 +2,7 @@
 #include <ext2.h>
 #include <fs.h>
 
-#define EXT2_DEBUG_BLOCK_DESCRIPTORS 1
+#define EXT2_DEBUG_BLOCK_DESCRIPTORS 0
 
 #define BLOCKSIZE    1024
 #define SECTORSIZE   512
@@ -31,7 +31,9 @@ uint32_t ext2_disk_bg_descriptors = 0;
 #define RN ext2_root_fsnode
 #define DC ext2_disk_cache
 
-#define BLOCKBIT(n) (bg_buffer[(n / 8)] & (1 << ((n % 8))))
+#define BLOCKBIT(n)  (bg_buffer[((n) / 8)] & (1 << (((n) % 8))))
+#define BLOCKBYTE(n) (bg_buffer[((n) / 8)])
+#define SETBIT(n)    (1 << (((n) % 8)))
 
 static uint32_t btos(uint32_t block) {
 	return block * (BLOCKSIZE / SECTORSIZE); 
@@ -62,7 +64,9 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t * buf) {
 void ext2_disk_write_block(uint32_t block_no, uint8_t * buf) {
 	if (!block_no) return;
 	ide_write_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)buf + 0));
-	ide_write_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)buf + SECTORSIZE));
+	timer_wait(10);
+	ide_write_sector(DISK_PORT, 0, btos(block_no) + 1, (uint8_t *)((uint32_t)buf + SECTORSIZE));
+	timer_wait(10);
 	int oldest = -1;
 	uint32_t oldest_age = UINT32_MAX;
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
@@ -108,6 +112,56 @@ uint32_t ext2_disk_inode_block(ext2_inodetable_t * inode, uint32_t block, uint8_
 	}
 	HALT_AND_CATCH_FIRE("Attempted to read a file block that was too high :(", NULL);
 	return 0;
+}
+
+ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * name) {
+#if 0
+	/* Allocate a new inode with parent as the parent directory node and name as the filename
+	 * within that parent directory. Returns a pointer to a memory-copy of the node which
+	 * the client can (and should) free. */
+	ext2_inodetable_t * inode = (ext2_inodetable_t * )malloc(BLOCKSIZE);
+	uint32_t node_no = 0, node_offset = 0, group = 0;
+	char bg_buffer[BLOCKSIZE];
+	/* Locate a block with an available inode. Will probably be the first block group. */
+	for (uint32_t i = 0; i < BGDS; ++i) {
+		if (BGD[i].free_inodes_count > 0) {
+			kprintf("Group %d has %d free inodes!\n", i, BGD[i].free_inodes_count);
+			ext2_disk_read_block(BGD[i].inode_bitmap, (uint8_t *)bg_buffer);
+			node_offset = 0;
+			while (BLOCKBIT(node_offset)) ++node_offset;
+			node_no = node_offset + ext2_disk_inodes_per_group * i + 1;
+			group = i;
+			break;
+		}
+	}
+	if (!node_no) {
+		free(inode);
+		return NULL;
+	}
+	/* Alright, we found an inode (node_no), we need to mark it as in-use... */
+	uint8_t b = BLOCKBYTE(node_offset);
+	kprintf("Located an inode at #%d (%d), the byte for this block is currently set to %x\n", node_no, node_offset, (uint32_t)b);
+	b |= SETBIT(node_offset);
+	kprintf("We would want to set it to %x\n", (uint32_t)b);
+	kprintf("Setting it in our temporary buffer...\n");
+	BLOCKBYTE(node_offset) = b;
+	for (uint32_t i = 0; i < BLOCKSIZE / 4; ++i) {
+		kprintf("%x", ((uint32_t *)bg_buffer)[i]);
+	}
+	kprintf("\nWriting back out.\n");
+	ext2_disk_write_block(BGD[group].inode_bitmap, (uint8_t * )bg_buffer);
+	kprintf("Okay, now we need to update the available inodes count...\n");
+	kprintf("it is %d, it should be %d\n", BGD[group].free_inodes_count, BGD[group].free_inodes_count - 1);
+	BGD[group].free_inodes_count -= 1;
+	for (uint32_t i = 0; i < BLOCKSIZE / 4; ++i) {
+		kprintf("%x", ((uint32_t *)BGD)[i]);
+	}
+	kprintf("\nOkay, writing the block descriptors back to disk.\n");
+	ext2_disk_write_block(2, (uint8_t *)BGD);
+	kprintf("Alright, we have an inode (%d), time to write it out to disk and make the file in the directory.\n", node_no);
+	free(inode);
+#endif
+	return NULL;
 }
 
 ext2_dir_t * ext2_disk_direntry(ext2_inodetable_t * inode, uint32_t index) {

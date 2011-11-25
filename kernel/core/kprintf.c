@@ -163,6 +163,7 @@ int kgets_want      = 0;
 int kgets_newline   = 0;
 int kgets_cancel    = 0;
 kgets_redraw_t kgets_redraw_func = NULL;
+kgets_tab_complete_t kgets_tab_complete_func = NULL;
 
 static void
 kwrite(
@@ -196,7 +197,11 @@ kgets_handler(
 		if (kgets_redraw_func) {
 			kgets_redraw_func();
 		}
-		kprintf(kgets_buffer);
+		kgets_redraw_buffer();
+		return;
+	} else if (ch == '\t' && kgets_tab_complete_func) {
+		kgets_tab_complete_func(kgets_buffer);
+		kgets_collected = strlen(kgets_buffer);
 		return;
 	} else if (ch == '\n') {
 		/* Newline finishes off the kgets() */
@@ -209,6 +214,10 @@ kgets_handler(
 		kgets_buffer[kgets_collected] = ch;
 		kgets_buffer[++kgets_collected] = '\0';
 	}
+}
+
+void kgets_redraw_buffer() {
+	kprintf(kgets_buffer);
 }
 
 /**
@@ -239,6 +248,7 @@ kgets(
 	/* Disable the buffer */
 	keyboard_buffer_handler = NULL;
 	kgets_redraw_func = NULL;
+	kgets_tab_complete_func = NULL;
 	/* Return the string */
 	return kgets_collected;
 }
