@@ -1,7 +1,7 @@
 # ToAruOS (とあるOS) #
 ![ToAruOS (logo)](https://github.com/klange/osdev/raw/master/docs/logo.png)
 
-This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS is currently maintained by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/).
+This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS is currently maintained by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/). While the ultimate goal is a microkernel, we currently have a very monolithic kernel.
 
 ## Screenshots ##
 Here's what とあるOS looks like:
@@ -18,7 +18,9 @@ Clone the git repository and run:
 
     make                # to build the kernel
     make run            # to run qemu with the proper arguments
-    # optionally:
+    # or
+    make kvm            # to run qemu in KVM mode
+    # and optionally
     sudo make install   # to install the kernel and ramdisk to your /boot directory
 
 This will build the kernel and the ramdisk and, optionally, copy them to your boot directory so you can add them to your grub config. As of 10 Feb 2011, a bootdisk is no longer created and the git repository no longer carries a GRUB disk. Building a bootable floppy has been deprecated in favor of running with QEMU's built-in multiboot support.
@@ -28,10 +30,10 @@ My testing environment is a combination of QEMU and VirtualBox.
 ## Dependencies ##
 
 ### Kernel ###
-To build the kernel, you will need `yasm`, `clang` (or `gcc`, change the Makefile), and GNU `ld` (which you undoubtedly have if you have `clang` or `gcc`).
+To build the kernel, you will need `yasm`, `clang` (or `gcc`, the build tools will autodetect), and GNU `ld` (which you undoubtedly have if you have `clang` or `gcc`).
 
 ### Documentation ###
-To build the primary documentation, you need a complete LaTeX stack with `pdftex`, including the CJK module and Japanese fonts. To build the kernel API documentation, you will need Doxygen.
+To build the primary documentation, you need a complete LaTeX stack with `pdftex`, including the CJK module and Japanese fonts. To build the kernel API documentation, you will need Doxygen (eventually).
 
 ## Goals and Roadmap ##
 Overall, the goal of this project is to write a relatively POSIX-compatible OS from the ground up. With a focus on generic hardware functionality and universal specifications like VESA, I hope to eventually get something fairly complete in terms of what an OS should be. At some times, I may focus on an actual piece of complex hardware (I am looking to write a basic driver for Intel graphics cards based on the X driver and the Mesa components), but in general, I will stick to generic interfaces.
@@ -65,15 +67,15 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
     * Paging *done*
     * Heap *done, implemented with klmalloc in the void*
     * VFS *done*
-    * Initial RAM Disk *works, but not perfect*
+    * Initial RAM Disk *done*
     * Multitasking *done*
     * User mode *done*
 * Finish basic kernel functionality
     * Loading ELF binaries and executing them in user mode *done (static)*
-    * Complete system call table
+    * Complete system call table *pretty close*
     * Get a better semblance of users and groups
 * Write a file system driver for a real file system
-    * Target is EXT2, but might do FAT *can read small EXT2 partitions from memory*
+    * Target is EXT2, but might do FAT *hard disk read support*
     * Move OS development images to some form of virtual drive (VDI or something QEMU compatible)
 * Implement a VESA mode handler
     * QEMU / BOCHS VBE driver *done*
@@ -108,7 +110,7 @@ I'll be more detailed here eventually, but for the most part, I have been using:
 
 * [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html) *completed*
 * [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/) *completed*
-* [Skelix's OS tutorial](http://en.skelix.org/skelixos/) *Author is not a native speaker of English and makes some grammatical mistakes; can be hard to follow*
+* [Skelix's OS tutorial](http://en.skelix.org/skelixos/) *completed*
 
 ## License ##
 
