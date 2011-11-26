@@ -267,6 +267,42 @@ rfind(
 	return (size_t)(str) + i;
 }
 
+char *
+strstr(const char * haystack, const char * needle) {
+	const char * out = NULL;
+	const char * ptr;
+	const char * acc;
+	const char * p;
+	size_t s = strlen(needle);
+	for (ptr = haystack; *ptr != '\0'; ++ptr) {
+		size_t accept = 0;
+		out = ptr;
+		p = ptr;
+		for (acc = needle; (*acc != '\0') && (*p != '\0'); ++acc) {
+			if (*p == *acc) {
+				accept++;
+				p++;
+			} else {
+				break;
+			}
+		}
+		if (accept == s) {
+			return (char *)out;
+		}
+	}
+	return NULL;
+}
+
+uint8_t startswith(const char * str, const char * accept) {
+	size_t s = strlen(accept);
+	for (size_t i = 0; i < s; ++i) {
+		if (*str != *accept) return 0;
+		str++;
+		accept++;
+	}
+	return 1;
+}
+
 size_t
 strspn(
 		const char * str,

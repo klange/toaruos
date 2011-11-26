@@ -48,6 +48,8 @@ extern size_t rfind(const char * str, const char accept);
 extern size_t strspn(const char * str, const char * accept);
 extern char * strpbrk(const char * str, const char * accept);
 extern uint32_t krand();
+extern char * strstr(const char * haystack, const char * needle);
+extern uint8_t startswith(const char * str, const char * accept);
 
 /* VGA driver */
 extern void cls();
