@@ -676,6 +676,12 @@ void draw_cursor() {
 	}
 }
 
+void bochs_redraw_cursor() {
+	if (term_buffer) {
+		draw_cursor();
+	}
+}
+
 void bochs_write(char c) {
 	cell_redraw(csr_x, csr_y);
 	if (c == '\n') {

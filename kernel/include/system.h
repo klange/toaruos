@@ -321,6 +321,7 @@ extern uintptr_t bochs_get_address();
 extern void bochs_redraw_cell(int x, int y);
 extern void bochs_install_wallpaper();
 extern void bochs_screenshot();
+extern void bochs_redraw_cursor();
 
 /* ANSI Terminal Escape Processor */
 void ansi_put(char c);
