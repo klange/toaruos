@@ -82,7 +82,7 @@ kopen(
 		memcpy(root_clone, fs_root, sizeof(fs_node_t));
 		return root_clone;
 	}
-	char * path = (char *)malloc(sizeof(char) * (path_len + 1));
+	char * path = (char *)malloc(sizeof(char) * 1024);
 	memcpy(path, npath, path_len);
 	char * path_offset = path;
 	uint32_t path_depth = 0;
