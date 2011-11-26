@@ -406,13 +406,13 @@ void tab_complete_shell(char * buffer) {
 		} else {
 			uint32_t count = 0, j = 0;
 			for (uint32_t i = 0; i < shell_commands_len; ++i) {
-				if (strspn(shell_commands[i], argv[0]) == strlen(argv[0])) {
+				if (startswith(shell_commands[i], argv[0])) {
 					count++;
 				}
 			}
-			for (uint32_t i = 0; i < shell_commands_len; ++i) {
-				if (strspn(shell_commands[i], argv[0]) == strlen(argv[0])) {
-					if (count == 1) {
+			if (count == 1) {
+				for (uint32_t i = 0; i < shell_commands_len; ++i) {
+					if (startswith(shell_commands[i], argv[0])) {
 						for (uint32_t j = 0; j < strlen(buffer); ++j) {
 							kprintf("\x08 \x08");
 						}
@@ -424,7 +424,7 @@ void tab_complete_shell(char * buffer) {
 			}
 			kprintf("\n");
 			for (uint32_t i = 0; i < shell_commands_len; ++i) {
-				if (strspn(shell_commands[i], argv[0]) == strlen(argv[0])) {
+				if (startswith(shell_commands[i], argv[0])) {
 					kprintf(shell_commands[i]);
 					++j;
 					if (j < count) {
