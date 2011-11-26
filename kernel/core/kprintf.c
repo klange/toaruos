@@ -164,6 +164,12 @@ int kgets_newline   = 0;
 int kgets_cancel    = 0;
 kgets_redraw_t kgets_redraw_func = NULL;
 kgets_tab_complete_t kgets_tab_complete_func = NULL;
+kgets_special_t kgets_key_down  = NULL;
+kgets_special_t kgets_key_up    = NULL;
+kgets_special_t kgets_key_left  = NULL;
+kgets_special_t kgets_key_right = NULL;
+
+uint8_t kgets_special = 0;
 
 static void
 kwrite(
@@ -180,6 +186,47 @@ void
 kgets_handler(
 		char ch
 		) {
+	if (kgets_special == 1) {
+		if (ch == 91) {
+			kgets_special = 2;
+			return;
+		}
+		kgets_special = 0;
+		return;
+	}
+	if (kgets_special == 2) {
+		switch (ch) {
+			case 66:
+				if (kgets_key_down) {
+					kgets_key_down(kgets_buffer);
+					kgets_collected = strlen(kgets_buffer);
+				}
+				break;
+			case 65:
+				if (kgets_key_up) {
+					kgets_key_up(kgets_buffer);
+					kgets_collected = strlen(kgets_buffer);
+				}
+				break;
+			case 68:
+				if (kgets_key_left) {
+					kgets_key_left(kgets_buffer);
+					kgets_collected = strlen(kgets_buffer);
+				}
+				break;
+			case 67:
+				if (kgets_key_right) {
+					kgets_key_right(kgets_buffer);
+					kgets_collected = strlen(kgets_buffer);
+				}
+				break;
+			default:
+				kprintf("Unrecognized: %d\n", ch);
+				break;
+		}
+		kgets_special = 0;
+		return;
+	}
 
 	if (ch == 0x08) {
 		/* Backspace */
@@ -202,6 +249,9 @@ kgets_handler(
 	} else if (ch == '\t' && kgets_tab_complete_func) {
 		kgets_tab_complete_func(kgets_buffer);
 		kgets_collected = strlen(kgets_buffer);
+		return;
+	} else if (ch == 27) {
+		kgets_special = 1;
 		return;
 	} else if (ch == '\n') {
 		/* Newline finishes off the kgets() */

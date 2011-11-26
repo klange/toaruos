@@ -132,6 +132,11 @@ extern kgets_redraw_t kgets_redraw_func;
 typedef void (*kgets_tab_complete_t)(char *);
 extern kgets_tab_complete_t kgets_tab_complete_func;
 extern void kgets_redraw_buffer();
+typedef void (*kgets_special_t)(char *);
+extern kgets_special_t kgets_key_down;
+extern kgets_special_t kgets_key_up;
+extern kgets_special_t kgets_key_left;
+extern kgets_special_t kgets_key_right;
 
 /* Memory Management */
 extern uintptr_t placement_pointer;

@@ -42,6 +42,9 @@ char * shell_history[SHELL_HISTORY_ENTRIES];
 size_t shell_history_count  = 0;
 size_t shell_history_offset = 0;
 
+size_t shell_scroll = 0;
+char   shell_temp[1024];
+
 void
 shell_history_insert(char * str) {
 	if (shell_history_count == SHELL_HISTORY_ENTRIES) {
@@ -119,6 +122,7 @@ void shell_exec(char * buffer, int size) {
 			size = strlen(buffer);
 		} else {
 			kprintf("history: invalid index %d\n", x);
+			return;
 		}
 	}
 	char * history = malloc(sizeof(char) * (size + 1));
@@ -495,6 +499,40 @@ void tab_complete_shell(char * buffer) {
 	}
 }
 
+void key_up_shell(char * buffer) {
+	if (shell_scroll == 0) {
+		memcpy(shell_temp, buffer, strlen(buffer) + 1);
+	}
+	if (shell_scroll < shell_history_count) {
+		shell_scroll++;
+		for (size_t i = 0; i < strlen(buffer); ++i) {
+			kprintf("\x08 \x08");
+		}
+		char * h = shell_history_prev(shell_scroll);
+		memcpy(buffer, h, strlen(h) + 1);
+		kprintf(h);
+	}
+}
+
+void key_down_shell(char * buffer) {
+	if (shell_scroll > 1) {
+		shell_scroll--;
+		for (size_t i = 0; i < strlen(buffer); ++i) {
+			kprintf("\x08 \x08");
+		}
+		char * h = shell_history_prev(shell_scroll);
+		memcpy(buffer, h, strlen(h) + 1);
+		kprintf(h);
+	} else if (shell_scroll == 1) {
+		for (size_t i = 0; i < strlen(buffer); ++i) {
+			kprintf("\x08 \x08");
+		}
+		shell_scroll = 0;
+		memcpy(buffer, shell_temp, strlen(shell_temp) + 1);
+		kprintf(buffer);
+	}
+}
+
 void
 start_shell() {
 	init_shell();
@@ -509,6 +547,8 @@ start_shell() {
 		/* Read commands */
 		kgets_redraw_func = redraw_shell;
 		kgets_tab_complete_func = tab_complete_shell;
+		kgets_key_down = key_down_shell;
+		kgets_key_up   = key_up_shell;
 		size = kgets((char *)&buffer, 1023);
 		if (size < 1) {
 			continue;
