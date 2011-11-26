@@ -37,6 +37,33 @@ char * shell_commands[SHELL_COMMANDS];
 shell_command_t shell_pointers[SHELL_COMMANDS];
 uint32_t shell_commands_len = 0;
 
+#define SHELL_HISTORY_ENTRIES 128
+char * shell_history[SHELL_HISTORY_ENTRIES];
+size_t shell_history_count  = 0;
+size_t shell_history_offset = 0;
+
+void
+shell_history_insert(char * str) {
+	if (shell_history_count == SHELL_HISTORY_ENTRIES) {
+		free(shell_history[shell_history_offset]);
+		shell_history[shell_history_offset] = str;
+		shell_history_offset = (shell_history_offset + 1) % SHELL_HISTORY_ENTRIES;
+	} else {
+		shell_history[shell_history_count] = str;
+		shell_history_count++;
+	}
+}
+
+char *
+shell_history_get(size_t item) {
+	return shell_history[(item + shell_history_offset) % SHELL_HISTORY_ENTRIES];
+}
+
+char *
+shell_history_prev(size_t item) {
+	return shell_history_get(shell_history_count - item);
+}
+
 void
 redraw_shell() {
 	kprintf("\033[1m[\033[1;33m%s \033[1;32m%s \033[1;31m%d/%d \033[1;34m%d:%d:%d\033[0m \033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ",
@@ -84,9 +111,26 @@ void shell_exec(char * buffer, int size) {
 	char * pch;
 	char * cmd;
 	char * save;
+	/* First off, let's check if it's a history request */
+	if (buffer[0] == '!') {
+		uint32_t x = atoi((char *)((uint32_t)buffer + 1));
+		if (x <= shell_history_count) {
+			buffer = shell_history_get(x - 1);
+			size = strlen(buffer);
+		} else {
+			kprintf("history: invalid index %d\n", x);
+		}
+	}
+	char * history = malloc(sizeof(char) * (size + 1));
+	memcpy(history, buffer, strlen(buffer));
+	history[size] = '\0';
 	pch = strtok_r(buffer," ",&save);
 	cmd = pch;
-	if (!cmd) { return; }
+	if (!cmd) {
+		free(history);
+		return;
+	}
+	shell_history_insert(history);
 	char * argv[1024]; /* Command tokens (space-separated elements) */
 	int tokenid = 0;
 	while (pch != NULL) {
@@ -319,6 +363,13 @@ uint32_t shell_cmd_testing(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_history(int argc, char * argv[]) {
+	for (size_t i = 0; i < shell_history_count; ++i) {
+		kprintf("%d\t%s\n", i + 1, shell_history_get(i));
+	}
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",         shell_cmd_cd);
 	shell_install_command("ls",         shell_cmd_ls);
@@ -331,6 +382,7 @@ void install_commands() {
 	shell_install_command("read-disk",  shell_cmd_readdisk);
 	shell_install_command("write-disk", shell_cmd_writedisk);
 	shell_install_command("test-alloc-block", shell_cmd_testing);
+	shell_install_command("history",    shell_cmd_history);
 }
 
 void add_path_contents() {
