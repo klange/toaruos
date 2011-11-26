@@ -555,6 +555,7 @@ start_shell() {
 		} else {
 			/* Execute command */
 			shell_exec(buffer, size);
+			shell_scroll = 0;
 		}
 	}
 }

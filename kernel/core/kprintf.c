@@ -169,6 +169,8 @@ kgets_special_t kgets_key_up    = NULL;
 kgets_special_t kgets_key_left  = NULL;
 kgets_special_t kgets_key_right = NULL;
 
+int kgets_offset = 0;
+
 uint8_t kgets_special = 0;
 
 static void
@@ -200,24 +202,44 @@ kgets_handler(
 				if (kgets_key_down) {
 					kgets_key_down(kgets_buffer);
 					kgets_collected = strlen(kgets_buffer);
+					kgets_offset = kgets_collected;
 				}
 				break;
 			case 65:
 				if (kgets_key_up) {
 					kgets_key_up(kgets_buffer);
 					kgets_collected = strlen(kgets_buffer);
+					kgets_offset = kgets_collected;
 				}
 				break;
 			case 68:
 				if (kgets_key_left) {
 					kgets_key_left(kgets_buffer);
 					kgets_collected = strlen(kgets_buffer);
+					kgets_offset = kgets_collected;
+				} else {
+					if (kgets_offset > 0) {
+						kwrite(27);
+						kwrite(91);
+						kwrite(68);
+						kgets_offset--;
+						bochs_redraw_cursor();
+					}
 				}
 				break;
 			case 67:
 				if (kgets_key_right) {
 					kgets_key_right(kgets_buffer);
 					kgets_collected = strlen(kgets_buffer);
+					kgets_offset = kgets_collected;
+				} else {
+					if (kgets_offset < kgets_collected) {
+						kwrite(27);
+						kwrite(91);
+						kwrite(67);
+						kgets_offset++;
+						bochs_redraw_cursor();
+					}
 				}
 				break;
 			default:
@@ -231,16 +253,36 @@ kgets_handler(
 	if (ch == 0x08) {
 		/* Backspace */
 		if (kgets_collected != 0) {
-			/* Clear the previous character */
+			if (kgets_offset == 0) {
+				return;
+			}			/* Clear the previous character */
 			kwrite(0x08);
 			kwrite(' ');
 			kwrite(0x08);
-			/* Erase the end of the buffer */
-			kgets_buffer[--kgets_collected] = '\0';
+			if (kgets_offset != kgets_collected) {
+				int remaining = kgets_collected - kgets_offset;
+				for (int i = 0; i < remaining; ++i) {
+					kwrite(kgets_buffer[kgets_offset + i]);
+					kgets_buffer[kgets_offset + i - 1] = kgets_buffer[kgets_offset + i];
+				}
+				kwrite(' ');
+				for (int i = 0; i < remaining + 1; ++i) {
+					kwrite(27);
+					kwrite(91);
+					kwrite(68);
+				}
+				kgets_offset--;
+				kgets_collected--;
+				bochs_redraw_cursor();
+			} else {
+				/* Erase the end of the buffer */
+				kgets_buffer[--kgets_collected] = '\0';
+				kgets_offset--;
+			}
 		}
 		return;
 	} else if (ch == '\x0c') {
-		kprintf("\033[J");
+		kprintf("\033[H\033[2J");
 		if (kgets_redraw_func) {
 			kgets_redraw_func();
 		}
@@ -255,19 +297,51 @@ kgets_handler(
 		return;
 	} else if (ch == '\n') {
 		/* Newline finishes off the kgets() */
+		while (kgets_offset < kgets_collected) {
+			kwrite(27);
+			kwrite(91);
+			kwrite(67);
+			kgets_offset++;
+		}
 		kwrite('\n');
 		kgets_newline = 1;
 		return;
 	}	/* Add this character to the buffer. */
-	kwrite(ch);
-	if (kgets_collected < kgets_want) {
-		kgets_buffer[kgets_collected] = ch;
-		kgets_buffer[++kgets_collected] = '\0';
+	if (kgets_offset != kgets_collected) {
+		for (int i = kgets_collected; i > kgets_offset; --i) {
+			kgets_buffer[i] = kgets_buffer[i-1];
+		}
+		if (kgets_collected < kgets_want) {
+			kgets_buffer[kgets_offset] = ch;
+			kgets_buffer[++kgets_collected] = '\0';
+			kgets_offset++;
+		}
+		for (int i = kgets_offset - 1; i < kgets_collected; ++i) {
+			kwrite(kgets_buffer[i]);
+		}
+		for (int i = kgets_offset; i < kgets_collected; ++i) {
+			kwrite(27);
+			kwrite(91);
+			kwrite(68);
+		}
+		bochs_redraw_cursor();
+	} else {
+		kwrite(ch);
+		if (kgets_collected < kgets_want) {
+			kgets_buffer[kgets_collected] = ch;
+			kgets_buffer[++kgets_collected] = '\0';
+			kgets_offset++;
+		}
 	}
 }
 
 void kgets_redraw_buffer() {
 	kprintf(kgets_buffer);
+	for (int i = kgets_offset; i < kgets_collected; ++i) {
+		kwrite(27);
+		kwrite(91);
+		kwrite(68);
+	}
 }
 
 /**
@@ -287,6 +361,7 @@ kgets(
 	kgets_want      = size;
 	kgets_newline   = 0;
 	kgets_buffer[0] = '\0';
+	kgets_offset    = 0;
 	/* Assign the keyboard handler */
 	keyboard_buffer_handler = kgets_handler;
 	while ((kgets_collected < size) && (!kgets_newline)) {
