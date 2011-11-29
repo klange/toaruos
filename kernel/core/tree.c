@@ -7,6 +7,7 @@
 #include <tree.h>
 
 tree_t * tree_create() {
+	/* Create a new tree */
 	tree_t * out = malloc(sizeof(tree_t));
 	out->nodes  = 0;
 	out->root   = NULL;
@@ -14,12 +15,15 @@ tree_t * tree_create() {
 }
 
 void tree_set_root(tree_t * tree, void * value) {
+	/* Set the root node for a tree
+	 * XXX THAT DIDN'T ALREADY HAVE ONE! XXX */
 	tree_node_t * root = tree_node_create(value);
 	tree->root = root;
 	tree->nodes = 1;
 }
 
 void tree_node_destroy(tree_node_t * node) {
+	/* Free the contents of a node and its children, but not the nodes themselves */
 	foreach(child, node->children) {
 		tree_node_destroy((tree_node_t *)child->value);
 	}
@@ -27,12 +31,14 @@ void tree_node_destroy(tree_node_t * node) {
 }
 
 void tree_destroy(tree_t * tree) {
+	/* Free the contents of a tree, but not the nodes */
 	if (tree->root) {
 		tree_node_destroy(tree->root);
 	}
 }
 
 void tree_node_free(tree_node_t * node) {
+	/* Free a node and its children, but not their contents */
 	if (!node) return;
 	foreach(child, node->children) {
 		tree_node_free(child->value);
@@ -41,10 +47,12 @@ void tree_node_free(tree_node_t * node) {
 }
 
 void tree_free(tree_t * tree) {
+	/* Free all of the nodes in a tree, but not their contents */
 	tree_node_free(tree->root);
 }
 
 tree_node_t * tree_node_create(void * value) {
+	/* Create a new tree node pointing to the given value */
 	tree_node_t * out = malloc(sizeof(tree_node_t));
 	out->value = value;
 	out->children = list_create();
@@ -53,18 +61,21 @@ tree_node_t * tree_node_create(void * value) {
 }
 
 void tree_node_insert_child_node(tree_t * tree, tree_node_t * parent, tree_node_t * node) {
+	/* Insert a node as a child of parent */
 	list_insert(parent->children, node);
 	node->parent = parent;
 	tree->nodes++;
 }
 
 tree_node_t * tree_node_insert_child(tree_t * tree, tree_node_t * parent, void * value) {
+	/* Insert a (fresh) node as a child of parent */
 	tree_node_t * out = tree_node_create(value);
 	tree_node_insert_child_node(tree, parent, out);
 	return out;
 }
 
 tree_node_t * tree_node_find_parent(tree_node_t * haystack, tree_node_t * needle) {
+	/* Recursive node part of tree_find_parent */
 	tree_node_t * found = NULL;
 	foreach(child, haystack->children) {
 		if (child->value == needle) {
@@ -79,11 +90,13 @@ tree_node_t * tree_node_find_parent(tree_node_t * haystack, tree_node_t * needle
 }
 
 tree_node_t * tree_find_parent(tree_t * tree, tree_node_t * node) {
+	/* Return the parent of a node, inefficiently. */
 	if (!tree->root) return NULL;
 	return tree_node_find_parent(tree->root, node);
 }
 
 size_t tree_count_children(tree_node_t * node) {
+	/* return the number of children this node has */
 	if (!node) return 0;
 	if (!node->children) return 0;
 	size_t out = node->children->length;
@@ -94,22 +107,36 @@ size_t tree_count_children(tree_node_t * node) {
 }
 
 void tree_node_parent_remove(tree_t * tree, tree_node_t * parent, tree_node_t * node) {
+	/* remove a node when we know its parent; update node counts for the tree */
 	tree->nodes -= tree_count_children(node) + 1;
 	list_delete(parent->children, list_find(parent->children, node));
 	tree_node_free(node);
 }
 
 void tree_node_remove(tree_t * tree, tree_node_t * node) {
+	/* remove an entire branch given its root */
 	tree_node_t * parent = node->parent;
-	/* We can not directly remove the root node, try constructing a new tree instead. */
-	if (!parent) return;
+	if (!parent) {
+		if (node == tree->root) {
+			tree->nodes = 0;
+			tree->root  = NULL;
+			tree_node_free(node);
+		}
+	}
 	tree_node_parent_remove(tree, parent, node);
 }
 
 void tree_remove(tree_t * tree, tree_node_t * node) {
-	tree_node_t * parent = node->parent;
-	if (!parent) return;
 	/* Remove this node and move its children into its parent's list of children */
+	tree_node_t * parent = node->parent;
+	/* This is something we just can't do. We don't know how to merge our
+	 * children into our "parent" because then we'd have more than one root node.
+	 * A good way to think about this is actually what this tree struct
+	 * primarily exists for: processes. Trying to remove the root is equivalent
+	 * to trying to kill init! Which is bad. We immediately fault on such
+	 * a case anyway ("Tried to kill init, shutting down!").
+	 */
+	if (!parent) return;
 	tree->nodes--;
 	list_delete(parent->children, list_find(parent->children, node));
 	list_merge(parent->children, node->children);
