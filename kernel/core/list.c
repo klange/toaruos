@@ -65,11 +65,12 @@ node_t * list_find(list_t * list, void * value) {
 
 void list_remove(list_t * list, size_t index) {
 	/* remove index from the list */
-	if (index < list->length) return;
+	if (index > list->length) return;
 	size_t i = 0;
 	node_t * n = list->head;
 	while (i < index) {
 		n = n->next;
+		i++;
 	}
 	list_delete(list, n);
 }
@@ -91,13 +92,13 @@ void list_delete(list_t * list, node_t * node) {
 	list->length--;
 }
 
-void * list_pop(list_t * list) {
+node_t * list_pop(list_t * list) {
 	/* Remove and return the last value in the list
 	 * If you don't need it, you still probably want to free it!
 	 * Try free(list_pop(list)); !
 	 * */
 	if (!list->tail) return NULL;
-	void * out = list->tail->value;
+	node_t * out = list->tail;
 	list_delete(list, list->tail);
 	return out;
 }
