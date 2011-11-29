@@ -83,14 +83,34 @@ tree_node_t * tree_find_parent(tree_t * tree, tree_node_t * node) {
 	return tree_node_find_parent(tree->root, node);
 }
 
+size_t tree_count_children(tree_node_t * node) {
+	if (!node) return 0;
+	size_t out = node->children->length;
+	foreach(child, node->children) {
+		out += tree_count_children((tree_node_t *)node->value);
+	}
+	return out;
+}
+
 void tree_node_parent_remove(tree_t * tree, tree_node_t * parent, tree_node_t * node) {
-	tree->nodes--;
+	tree->nodes -= tree_count_children(node) + 1;
 	list_delete(parent->children, list_find(parent->children, node));
 	tree_node_free(node);
 }
 
 void tree_node_remove(tree_t * tree, tree_node_t * node) {
 	tree_node_t * parent = node->parent;
+	/* We can not directly remove the root node, try constructing a new tree instead. */
 	if (!parent) return;
 	tree_node_parent_remove(tree, parent, node);
+}
+
+void tree_remove(tree_t * tree, tree_node_t * node) {
+	tree_node_t * parent = node->parent;
+	if (!parent) return;
+	/* Remove this node and move its children into its parent's list of children */
+	tree->nodes--;
+	list_delete(parent->children, list_find(parent->children, node));
+	list_merge(parent->children, node->children);
+	free(node);
 }

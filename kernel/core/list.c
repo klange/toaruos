@@ -24,12 +24,8 @@ void list_free(list_t * list) {
 	}
 }
 
-void list_insert(list_t * list, void * item) {
-	/* Insert an item into a list */
-	node_t * node = malloc(sizeof(node_t));
-	node->value = item;
-	node->next  = NULL;
-	node->prev  = NULL;
+void list_append(list_t * list, node_t * node) {
+	/* Insert a node onto the end of a list */
 	if (!list->tail) {
 		list->head = node;
 	} else {
@@ -38,6 +34,15 @@ void list_insert(list_t * list, void * item) {
 	}
 	list->tail = node;
 	list->length++;
+}
+
+void list_insert(list_t * list, void * item) {
+	/* Insert an item into a list */
+	node_t * node = malloc(sizeof(node_t));
+	node->value = item;
+	node->next  = NULL;
+	node->prev  = NULL;
+	list_append(list, node);
 }
 
 list_t * list_create() {
@@ -105,4 +110,16 @@ list_t * list_copy(list_t * original) {
 		list_insert(out, node->value);
 	}
 	return out;
+}
+
+void list_merge(list_t * target, list_t * source) {
+	/* Destructively merges source into target */
+	if (target->tail) {
+		target->tail->next = source->head;
+	} else {
+		target->head = source->head;
+	}
+	target->tail = source->tail;
+	target->length += source->length;
+	free(source);
 }

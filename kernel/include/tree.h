@@ -30,5 +30,6 @@ tree_node_t * tree_node_insert_child(tree_t * tree, tree_node_t * parent, void *
 tree_node_t * tree_node_find_parent(tree_node_t * haystack, tree_node_t * needle);
 void tree_node_parent_remove(tree_t * tree, tree_node_t * parent, tree_node_t * node);
 void tree_node_remove(tree_t * tree, tree_node_t * node);
+void tree_remove(tree_t * tree, tree_node_t * node);
 
 #endif
