@@ -85,9 +85,10 @@ tree_node_t * tree_find_parent(tree_t * tree, tree_node_t * node) {
 
 size_t tree_count_children(tree_node_t * node) {
 	if (!node) return 0;
+	if (!node->children) return 0;
 	size_t out = node->children->length;
 	foreach(child, node->children) {
-		out += tree_count_children((tree_node_t *)node->value);
+		out += tree_count_children((tree_node_t *)child->value);
 	}
 	return out;
 }
