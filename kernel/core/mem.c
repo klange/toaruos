@@ -270,12 +270,14 @@ page_fault(
 	int reserved = r->err_code & 0x8;
 	int id       = r->err_code & 0x10;
 
+	kprintf("\033[1;37;41m");
+
 	if (faulting_address == 0) {
 		kprintf("Null pointer dereference in the kernel.\n");
 	}
 
 	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x\n", present, rw, user, reserved, id, faulting_address);
-	HALT_AND_CATCH_FIRE("Page fault", r);
+	HALT_AND_CATCH_FIRE("Page fault", NULL);
 }
 
 /*

@@ -178,7 +178,8 @@ switch_task() {
 		current_task = ready_queue;
 	}
 	if (!current_task) {
-		HALT_AND_CATCH_FIRE("Empty ready queue!", NULL);
+		kprintf("Ran out of processes to run. Halting!\n");
+		STOP;
 	}
 	eip = current_task->eip;
 	esp = current_task->esp;
