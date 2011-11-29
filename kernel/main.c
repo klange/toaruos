@@ -1,6 +1,5 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 noexpandtab shiftwidth=4
+ *
  * Copyright (c) 2011 Kevin Lange.  All rights reserved.
  *
  *                           Dedicated to the memory of
