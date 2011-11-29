@@ -22,6 +22,10 @@
 #include <fs.h>
 #include <multiboot.h>
 #include <ata.h>
+#include <ext2.h>
+#include <list.h>
+#include <tree.h>
+
 
 struct {
 	char path[1024];
@@ -126,8 +130,7 @@ void shell_exec(char * buffer, int size) {
 		}
 	}
 	char * history = malloc(sizeof(char) * (size + 1));
-	memcpy(history, buffer, strlen(buffer));
-	history[size] = '\0';
+	memcpy(history, buffer, strlen(buffer) + 1);
 	pch = strtok_r(buffer," ",&save);
 	cmd = pch;
 	if (!cmd) {
@@ -359,7 +362,6 @@ uint32_t shell_cmd_writedisk(int argc, char * argv[]) {
 	return 0;
 }
 
-#include <ext2.h>
 ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * name);
 
 uint32_t shell_cmd_testing(int argc, char * argv[]) {
@@ -370,6 +372,85 @@ uint32_t shell_cmd_testing(int argc, char * argv[]) {
 uint32_t shell_cmd_history(int argc, char * argv[]) {
 	for (size_t i = 0; i < shell_history_count; ++i) {
 		kprintf("%d\t%s\n", i + 1, shell_history_get(i));
+	}
+	return 0;
+}
+
+uint32_t shell_cmd_testlist(int argc, char * argv[]) {
+	list_t * list = list_create();
+	int * i = malloc(sizeof(int));
+	*i = 32;
+	list_insert(list,i);
+	i = malloc(sizeof(int));
+	*i = 245252;
+	list_insert(list,i);
+	i = malloc(sizeof(int));
+	*i = 6432643;
+	list_insert(list,i);
+	i = malloc(sizeof(int));
+	*i = 9502;
+	list_insert(list,i);
+	kprintf("list: %d\n", list->length);
+	foreach(node, list) {
+		kprintf("0x%x ", node);
+		kprintf("-> %d\n", *(uint32_t *)node->value);
+	}
+	list_remove(list, 0);
+	kprintf("list: %d\n", list->length);
+	foreach(node, list) {
+		kprintf("0x%x ", node);
+		kprintf("-> %d\n", *(uint32_t *)node->value);
+	}
+	list_destroy(list);
+	list_free(list);
+	free(list);
+	return 0;
+}
+
+void debug_print_tree_node(tree_node_t * node, size_t height) {
+	if (!node) return;
+	for (uint32_t i = 0; i < height; ++i) { kprintf("  "); }
+	kprintf("%s\n", (char *)node->value);
+	foreach(child, node->children) {
+		debug_print_tree_node(child->value, height + 1);
+	}
+}
+
+void debug_print_tree(tree_t * tree) {
+	kprintf("Tree 0x%x; %d nodes\n", tree, tree->nodes);
+	debug_print_tree_node(tree->root, 0);
+}
+
+uint32_t shell_cmd_testtree(int argc, char * argv[]) {
+	tree_t * tree = tree_create();
+	tree_set_root(tree,"a");
+	tree_node_t * b = tree_node_insert_child(tree, tree->root, "b");
+	tree_node_t * c = tree_node_insert_child(tree, tree->root, "c");
+	tree_node_t * d = tree_node_insert_child(tree, b, "d");
+	tree_node_t * e = tree_node_insert_child(tree, c, "e");
+	tree_node_t * f = tree_node_insert_child(tree, c, "f");
+	tree_node_t * g = tree_node_insert_child(tree, e, "g");
+	tree_node_t * h = tree_node_insert_child(tree, d, "h");
+	debug_print_tree(tree);
+	tree_node_remove(tree, d);
+	debug_print_tree(tree);
+	tree_remove(tree, e);
+	debug_print_tree(tree);
+	tree_destroy(tree);
+	tree_free(tree);
+	free(tree);
+	return 0;
+}
+
+uint32_t shell_cmd_testcd(int argc, char * argv[]) {
+	if (argc < 2) {
+		kprintf("%s: Expected arguments\n", argv[0]);
+		return 1;
+	}
+	char * path = canonicalize_path(argv[1], argv[2]);
+	if (path) {
+		kprintf("-> %s\n", path);
+		free(path);
 	}
 	return 0;
 }
@@ -387,6 +468,9 @@ void install_commands() {
 	shell_install_command("write-disk", shell_cmd_writedisk);
 	shell_install_command("test-alloc-block", shell_cmd_testing);
 	shell_install_command("history",    shell_cmd_history);
+	shell_install_command("test-list",  shell_cmd_testlist);
+	shell_install_command("test-tree",  shell_cmd_testtree);
+	shell_install_command("test-cd",    shell_cmd_testcd);
 }
 
 void add_path_contents() {
