@@ -49,6 +49,15 @@ list_t * list_create() {
 	return out;
 }
 
+node_t * list_find(list_t * list, void * value) {
+	foreach(item, list) {
+		if (item->value == value) {
+			return item;
+		}
+	}
+	return NULL;
+}
+
 void list_remove(list_t * list, size_t index) {
 	/* remove index from the list */
 	if (index < list->length) return;
