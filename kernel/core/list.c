@@ -28,6 +28,8 @@ void list_insert(list_t * list, void * item) {
 	/* Insert an item into a list */
 	node_t * node = malloc(sizeof(node_t));
 	node->value = item;
+	node->next  = NULL;
+	node->prev  = NULL;
 	if (!list->tail) {
 		list->head = node;
 	} else {
@@ -72,6 +74,17 @@ void list_delete(list_t * list, node_t * node) {
 	if (node->next) {
 		node->next->prev = node->prev;
 	}
+}
+
+void * list_pop(list_t * list) {
+	/* Remove and return the last value in the list
+	 * If you don't need it, you still probably want to free it!
+	 * Try free(list_pop(list)); !
+	 * */
+	if (!list->tail) return NULL;
+	void * out = list->tail->value;
+	list_delete(list, list->tail);
+	return out;
 }
 
 list_t * list_copy(list_t * original) {

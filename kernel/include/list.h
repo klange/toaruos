@@ -28,4 +28,8 @@ void list_remove(list_t * list, size_t index);
 
 void list_delete(list_t * list, node_t * node);
 
+void * list_pop(list_t * list);
+
 list_t * list_copy(list_t * original);
+
+#define foreach(i, list) for (node_t * i = list->head; i != NULL; i = i->next)
