@@ -195,7 +195,8 @@ ext2_inodetable_t * ext2_disk_inode(uint32_t inode) {
 	uint32_t block_offset      = ((inode - 1) * SB->inode_size) / BLOCKSIZE;
 	uint32_t offset_in_block   = (inode - 1) - block_offset * (BLOCKSIZE / SB->inode_size);
 	uint8_t  * buf             = malloc(BLOCKSIZE);
-	ext2_inodetable_t * inodet = malloc(sizeof(ext2_inodetable_t));
+	ext2_inodetable_t * inodet = malloc(BLOCKSIZE);
+ 
 	ext2_disk_read_block(inode_table_block + block_offset, buf);
 	ext2_inodetable_t * inodes = (ext2_inodetable_t *)buf;
 	memcpy(inodet, &inodes[offset_in_block], sizeof(ext2_inodetable_t));
@@ -442,8 +443,9 @@ void ext2_disk_mount() {
 	}
 	BGDS = SB->blocks_count / SB->blocks_per_group;
 	ext2_disk_inodes_per_group = SB->inodes_count / BGDS;
+	BGD = malloc(BLOCKSIZE);
 
-	ext2_disk_root_block = malloc(BGDS * sizeof(ext2_bgdescriptor_t *));
+	ext2_disk_root_block = malloc(BLOCKSIZE);
 	ext2_disk_read_block(2, (uint8_t *)BGD);
 
 #if EXT2_DEBUG_BLOCK_DESCRIPTORS
@@ -473,7 +475,6 @@ void ext2_disk_mount() {
 		kprintf("\tFree Inodes =  %d\n", BGD[i].free_inodes_count);
 	}
 #endif
-
 	ext2_inodetable_t * root_inode = ext2_disk_inode(2);
 
 	RN = (fs_node_t *)malloc(sizeof(fs_node_t));
