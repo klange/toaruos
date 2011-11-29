@@ -74,6 +74,7 @@ void list_delete(list_t * list, node_t * node) {
 	if (node->next) {
 		node->next->prev = node->prev;
 	}
+	list->length--;
 }
 
 void * list_pop(list_t * list) {
