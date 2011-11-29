@@ -1,5 +1,6 @@
 #include <system.h>
 #include <fs.h>
+#include <list.h>
 
 fs_node_t *fs_root = 0;
 
@@ -48,6 +49,73 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 	} else {
 		return (fs_node_t *)NULL;
 	}
+}
+
+/*
+ * Canonicalize a path.
+ */
+char *
+canonicalize_path(char *cwd, char *input) {
+	list_t * out = list_create();
+
+	if (strlen(input) && input[0] != '/') {
+		char * path = malloc((strlen(cwd) + 1) * sizeof(char));
+		memcpy(path, cwd, strlen(cwd) + 1);
+
+		char * pch;
+		char * save;
+		pch = strtok_r(path,"/",&save);
+
+		while (pch != NULL) {
+			char * s = malloc(sizeof(char) * (strlen(pch) + 1));
+			memcpy(s, pch, strlen(pch) + 1);
+			list_insert(out, s);
+			pch = strtok_r(NULL,"/",&save);
+		}
+		free(path);
+	}
+
+	char * path = malloc((strlen(input) + 1) * sizeof(char));
+	memcpy(path, input, strlen(input) + 1);
+	char * pch;
+	char * save;
+	pch = strtok_r(path,"/",&save);
+	while (pch != NULL) {
+		if (!strcmp(pch,"..")) {
+			node_t * n = list_pop(out);
+			free(n->value);
+			free(n);
+		} else if (!strcmp(pch,".")) {
+			/* pass */
+		} else {
+			char * s = malloc(sizeof(char) * (strlen(pch) + 1));
+			memcpy(s, pch, strlen(pch) + 1);
+			list_insert(out, s);
+		}
+		pch = strtok_r(NULL, "/", &save);
+	}
+	free(path);
+
+	size_t size = 0;
+
+	foreach(item, out) {
+		size += strlen(item->value) + 1;
+	}
+
+	char * output = malloc(sizeof(char) * (size + 1));
+	char * output_offset = output;
+	foreach(item, out) {
+		output_offset[0] = '/';
+		output_offset++;
+		memcpy(output_offset, item->value, strlen(item->value) + 1);
+		output_offset += strlen(item->value);
+	}
+
+	list_destroy(out);
+	list_free(out);
+	free(out);
+
+	return output;
 }
 
 /*
