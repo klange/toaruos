@@ -83,8 +83,10 @@ canonicalize_path(char *cwd, char *input) {
 	while (pch != NULL) {
 		if (!strcmp(pch,"..")) {
 			node_t * n = list_pop(out);
-			free(n->value);
-			free(n);
+			if (n) {
+				free(n->value);
+				free(n);
+			}
 		} else if (!strcmp(pch,".")) {
 			/* pass */
 		} else {
@@ -104,11 +106,17 @@ canonicalize_path(char *cwd, char *input) {
 
 	char * output = malloc(sizeof(char) * (size + 1));
 	char * output_offset = output;
-	foreach(item, out) {
-		output_offset[0] = '/';
-		output_offset++;
-		memcpy(output_offset, item->value, strlen(item->value) + 1);
-		output_offset += strlen(item->value);
+	if (size == 0) {
+		output = realloc(output, sizeof(char) * 2);
+		output[0] = '/';
+		output[1] = '\0';
+	} else {
+		foreach(item, out) {
+			output_offset[0] = '/';
+			output_offset++;
+			memcpy(output_offset, item->value, strlen(item->value) + 1);
+			output_offset += strlen(item->value);
+		}
 	}
 
 	list_destroy(out);
@@ -126,32 +134,24 @@ canonicalize_path(char *cwd, char *input) {
  */
 fs_node_t *
 kopen(
-		const char *filename,
+		char *filename,
 		uint32_t flags
 	 ) {
-	char * cwd = (char *)&(current_task->wd);
 	/* Some sanity checks */
-	if (!fs_root || !filename) { //|| filename[0] != '/') {
+	if (!fs_root || !filename) {
 		return NULL;
 	}
-	char npath[1024];
-	if (filename[0] != '/') {
-		if (!strcmp(cwd, "/")) {
-			sprintf(npath, "/%s", filename);
-		} else {
-			sprintf(npath, "%s/%s", cwd, filename);
-		}
-	} else {
-		sprintf(npath, "%s", filename);
-	}
+	char * cwd = (char *)&(current_task->wd);
+	char * npath = canonicalize_path(cwd, filename);
 	size_t path_len = strlen(npath);
 	if (path_len == 1) {
 		fs_node_t * root_clone = malloc(sizeof(fs_node_t));
 		memcpy(root_clone, fs_root, sizeof(fs_node_t));
 		return root_clone;
 	}
-	char * path = (char *)malloc(sizeof(char) * 1024);
-	memcpy(path, npath, path_len);
+	char * path = (char *)malloc(sizeof(char) * (path_len + 1));
+	memcpy(path, npath, path_len + 1);
+	free(npath);
 	char * path_offset = path;
 	uint32_t path_depth = 0;
 	while (path_offset < path + path_len) {

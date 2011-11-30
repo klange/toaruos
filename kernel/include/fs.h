@@ -50,7 +50,7 @@ void open_fs(fs_node_t * node, uint8_t read, uint8_t write);
 void close_fs(fs_node_t * node);
 struct dirent *readdir_fs(fs_node_t * node, uint32_t index);
 fs_node_t *finddir_fs(fs_node_t * node, char *name);
-fs_node_t *kopen(const char *filename, uint32_t flags);
+fs_node_t *kopen(char *filename, uint32_t flags);
 char * canonicalize_path(char *cwd, char *input);
 
 #endif

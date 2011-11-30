@@ -178,43 +178,20 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
 	if (argc < 2) {
 		return 1;
 	} else {
-		if (!strcmp(argv[1],".")) {
-			return 0;
-		} else {
-			if (!strcmp(argv[1],"..")) {
-				char * last_slash = (char *)rfind(shell.path,'/');
-				if (last_slash == shell.path) { 
-					last_slash[1] = '\0';
-				} else {
-					last_slash[0] = '\0';
-				}
-				shell.node = kopen(shell.path, 0);
-			} else {
-				char * filename = malloc(sizeof(char) * 1024);
-				if (argv[1][0] == '/') {
-					memcpy(filename, argv[1], strlen(argv[1]) + 1);
-				} else {
-					memcpy(filename, shell.path, strlen(shell.path));
-					if (!strcmp(shell.path,"/")) {
-						memcpy((void *)((uintptr_t)filename + strlen(shell.path)),argv[1],strlen(argv[1])+1); 
-					} else {
-						filename[strlen(shell.path)] = '/';
-						memcpy((void *)((uintptr_t)filename + strlen(shell.path) + 1),argv[1],strlen(argv[1])+1); 
-					}
-				}
-				fs_node_t * chd = kopen(filename, 0);
-				if (chd) {
-					if ((chd->flags & FS_DIRECTORY) == 0) {
-						kprintf("%s: %s is not a directory\n", argv[0], filename);
-						return 1;
-					}
-					shell.node = chd;
-					memcpy(shell.path, filename, strlen(filename));
-					shell.path[strlen(filename)] = '\0';
-				} else {
-					kprintf("%s: could not change directory\n", argv[0]);
-				}
+		fs_node_t * chd = kopen(argv[1], 0);
+		char * path = canonicalize_path(shell.path, argv[1]);
+		if (chd) {
+			if ((chd->flags & FS_DIRECTORY) == 0) {
+				kprintf("%s: %s is not a directory\n", argv[0], argv[1]);
+				free(chd);
+				return 1;
 			}
+			if (shell.node != fs_root) {
+				free(shell.node);
+			}
+			shell.node = chd;
+			memcpy(shell.path, path, strlen(path) + 1);
+			free(path);
 			for (uint32_t i = 0; i <= strlen(shell.path); ++i) {
 				current_task->wd[i] = shell.path[i];
 			}
