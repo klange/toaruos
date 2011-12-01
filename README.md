@@ -32,6 +32,9 @@ My testing environment is a combination of QEMU and VirtualBox.
 ### Kernel ###
 To build the kernel, you will need `yasm`, `clang` (or `gcc`, the build tools will autodetect), and GNU `ld` (which you undoubtedly have if you have `clang` or `gcc`).
 
+### Hard disks and initrds ###
+You need `genext2fs` to generate the EXT2 images for the ramdisk and the hard disk drive.
+
 ### Documentation ###
 To build the primary documentation, you need a complete LaTeX stack with `pdftex`, including the CJK module and Japanese fonts. To build the kernel API documentation, you will need Doxygen (eventually).
 
