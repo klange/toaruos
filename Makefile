@@ -151,11 +151,6 @@ hdd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
 	@${LD} -T loader/link.ld -s -S -o $@ $< ${ERRORS}
 	@${END} "LD" "$<"
 
-loader/%.o: loader/%.c
-	@${BEG} "CC" "$<"
-	@${CC} ${CFLAGS} -c -o $@ $< ${ERRORS}
-	@${END} "CC" "$<"
-
 ################
 #  Bootloader  #
 ################
