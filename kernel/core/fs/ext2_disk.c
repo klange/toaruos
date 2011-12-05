@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #include <system.h>
 #include <ext2.h>
 #include <fs.h>
@@ -115,13 +117,14 @@ uint32_t ext2_disk_inode_block(ext2_inodetable_t * inode, uint32_t block, uint8_
 }
 
 ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * name) {
-#if 0
+#if 1
 	/* Allocate a new inode with parent as the parent directory node and name as the filename
 	 * within that parent directory. Returns a pointer to a memory-copy of the node which
 	 * the client can (and should) free. */
 	ext2_inodetable_t * inode = (ext2_inodetable_t * )malloc(BLOCKSIZE);
+
 	uint32_t node_no = 0, node_offset = 0, group = 0;
-	char bg_buffer[BLOCKSIZE];
+	char *bg_buffer = malloc(BLOCKSIZE);
 	/* Locate a block with an available inode. Will probably be the first block group. */
 	for (uint32_t i = 0; i < BGDS; ++i) {
 		if (BGD[i].free_inodes_count > 0) {
@@ -136,6 +139,7 @@ ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * nam
 	}
 	if (!node_no) {
 		free(inode);
+		free(bg_buffer);
 		return NULL;
 	}
 	/* Alright, we found an inode (node_no), we need to mark it as in-use... */
@@ -145,21 +149,20 @@ ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * nam
 	kprintf("We would want to set it to %x\n", (uint32_t)b);
 	kprintf("Setting it in our temporary buffer...\n");
 	BLOCKBYTE(node_offset) = b;
-	for (uint32_t i = 0; i < BLOCKSIZE / 4; ++i) {
-		kprintf("%x", ((uint32_t *)bg_buffer)[i]);
-	}
 	kprintf("\nWriting back out.\n");
 	ext2_disk_write_block(BGD[group].inode_bitmap, (uint8_t * )bg_buffer);
 	kprintf("Okay, now we need to update the available inodes count...\n");
 	kprintf("it is %d, it should be %d\n", BGD[group].free_inodes_count, BGD[group].free_inodes_count - 1);
+	kprintf("\n");
+	kprintf("%d\n", BGD[group].free_inodes_count);
 	BGD[group].free_inodes_count -= 1;
-	for (uint32_t i = 0; i < BLOCKSIZE / 4; ++i) {
-		kprintf("%x", ((uint32_t *)BGD)[i]);
-	}
+	kprintf("%d\n", BGD[group].free_inodes_count);
 	kprintf("\nOkay, writing the block descriptors back to disk.\n");
 	ext2_disk_write_block(2, (uint8_t *)BGD);
+	STOP;
 	kprintf("Alright, we have an inode (%d), time to write it out to disk and make the file in the directory.\n", node_no);
 	free(inode);
+	free(bg_buffer);
 #endif
 	return NULL;
 }
