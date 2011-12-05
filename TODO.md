@@ -46,3 +46,8 @@
 * Fix user-mode `fork`
 * Add user-mode `wait` (with queues!)
 * Signals (`signal()`, `kill()`, etc.)
+
+
+## Signals and Exceptions
+
+SIGDIAF (Die in a fire)

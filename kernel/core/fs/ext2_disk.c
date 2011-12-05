@@ -159,7 +159,6 @@ ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * nam
 	kprintf("%d\n", BGD[group].free_inodes_count);
 	kprintf("\nOkay, writing the block descriptors back to disk.\n");
 	ext2_disk_write_block(2, (uint8_t *)BGD);
-	STOP;
 	kprintf("Alright, we have an inode (%d), time to write it out to disk and make the file in the directory.\n", node_no);
 	free(inode);
 	free(bg_buffer);
