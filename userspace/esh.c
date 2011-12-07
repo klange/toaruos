@@ -23,7 +23,6 @@ int main(int argc, char ** argv) {
 		fflush(stdout);
 		fgets(cmd, 1024, stdin);
 		cmd[strlen(cmd)-1] = '\0';
-		printf("[%s]\n", cmd);
 		char *p, *tokens[512], *last;
 		int i = 0;
 		for ((p = strtok_r(cmd, " ", &last)); p;
@@ -31,18 +30,21 @@ int main(int argc, char ** argv) {
 			if (i < 511) tokens[i] = p;
 		}
 		tokens[i] = NULL;
-		for (uint32_t j = 0; j < i; ++j) {
-			printf("> %s\n", tokens[j]);
+		if (!tokens[0] || strlen(tokens[0]) < 1) {
+			continue;
 		}
 		if (!strcmp(tokens[0],"exit")) {
 			goto exit;
 		}
 		uint32_t f = fork();
 		if (getpid() != pid) {
-			printf("Executing %s!\n", tokens[0]);
-			execve(tokens[0], tokens, NULL);
+			int i = execve(tokens[0], tokens, NULL);
+			return i;
 		} else {
-			syscall_wait(f);
+			int i = syscall_wait(f);
+			if (i) {
+				printf("[%d] ");
+			}
 		}
 	}
 exit:
