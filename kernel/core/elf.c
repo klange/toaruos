@@ -38,7 +38,7 @@ exec(
 	fs_node_t * file = kopen(path,0);
 	if (!file) {
 		/* Command not found */
-		kexit(127);
+		return 0;
 	}
 	/* Read in the binary contents */
 	Elf32_Header * header = (Elf32_Header *)malloc(file->length + 100);
@@ -54,7 +54,7 @@ exec(
 		kprintf("Fatal: Not a valid ELF executable.\n");
 		free(header);
 		close_fs(file);
-		kexit(127);
+		return -1;
 	}
 
 	/* Load the loadable segments from the binary */
@@ -128,7 +128,7 @@ system(
 	int child = fork();
 	if (child == 0) {
 		exec(path,argc,argv);
-		kexit(0x5ADFACE);
+		kexit(-1);
 		return -1;
 	} else {
 		/* We are system(), so we need to wait for the child

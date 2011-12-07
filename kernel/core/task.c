@@ -222,8 +222,6 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 
 void task_exit(int retval) {
 	IRQ_OFF;
-	current_task->retval   = retval;
-	current_task->finished = 1;
 	/* Free the image memory */
 	for (uintptr_t i = 0; i < current_task->image_size; i += 0x1000) {
 #if 0
@@ -244,6 +242,8 @@ void task_exit(int retval) {
 	} else {
 		prev->next = current_task->next;
 	}
+	current_task->retval   = retval;
+	current_task->finished = 1;
 	//free((void *)(current_task->stack - KERNEL_STACK_SIZE));
 	//free((void *)current_task->page_directory);
 	//free((void *)current_task->descriptors);
