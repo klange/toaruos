@@ -226,6 +226,22 @@ paging_install(uint32_t memsize) {
 }
 
 void
+debug_print_directory() {
+	kprintf(" ---- [k:0x%x u:0x%x]\n", kernel_directory, current_directory);
+	for (uintptr_t i = 0; i < 1024; ++i) {
+		if (!current_directory->tables[i] || (uintptr_t)current_directory->tables[i] == (uintptr_t)0xFFFFFFFF) {
+			continue;
+		}
+		if (kernel_directory->tables[i] == current_directory->tables[i]) {
+			kprintf("  0x%x - kern %d\n", current_directory->tables[i], i);
+		} else {
+			kprintf("  0x%x - user %d\n", current_directory->tables[i], i);
+		}
+	}
+	kprintf(" ---- [done]\n");
+}
+
+void
 switch_page_directory(
 		page_directory_t * dir
 		) {
@@ -272,11 +288,24 @@ page_fault(
 
 	kprintf("\033[1;37;41m");
 
-	if (faulting_address == 0) {
-		kprintf("Null pointer dereference in the kernel.\n");
+	if (!getpid()) {
+		kprintf("\n\n!!! KERNEL PAGE FAULT !!!\n\n");
+		kprintf("   The kernel auxillary process (pid 0) has encountered a page fault.\n");
+		kprintf("   The system will now halt.\n");
+		kprintf("\n");
+		kprintf("   The faulting address was 0x%x\n", faulting_address);
+		kprintf("   The faulting instruction was 0x%x\n", r->eip);
+		kprintf("\n");
+		STOP;
+	} else if (r->eip < current_task->entry) {
+		kprintf("\n\n!!! KERNEL PAGE FAULT !!!\n\n");
+		kprintf("   The kernel has encountered a pgae fault during the execution of\n");
+		kprintf("   process ID %d, entry point 0x%x\n", getpid(), r->eip);
+	} else {
+		kprintf("User task page fault: 0x%x >= 0x%x\n", r->eip, current_task->entry);
 	}
 
-	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x\n", present, rw, user, reserved, id, faulting_address);
+	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x\n", present, rw, user, reserved, id, faulting_address, r->eip);
 	HALT_AND_CATCH_FIRE("Page fault", NULL);
 }
 
