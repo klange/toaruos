@@ -251,9 +251,9 @@ keyboard_handler(
 void
 keyboard_install() {
 	/* IRQ installer */
-	irq_install_handler(1, keyboard_handler);
 	keyboard_buffer_handler = NULL;
 	keyboard_direct_handler = NULL;
+	irq_install_handler(1, keyboard_handler);
 }
 
 void
@@ -286,7 +286,6 @@ putch(
 			}
 			return;
 		}
-		kprintf("[notice] Key %d pressed without a handler active!\n", (int)c);
 	}
 }
 
