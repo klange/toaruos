@@ -11,3 +11,5 @@ DEFN_SYSCALL3(execve, 7, char *, char **, char **)
 DEFN_SYSCALL0(fork, 8)
 DEFN_SYSCALL0(getpid, 9)
 DEFN_SYSCALL1(sbrk, 10, int)
+
+DEFN_SYSCALL1(wait, 16, unsigned int)

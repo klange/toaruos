@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+DEFN_SYSCALL1(wait, 17, unsigned int);
+
 int main(int argc, char ** argv) {
 	printf("I am pid %d\n", getpid());
 	char cwd[1024] = {'/',0};
@@ -40,7 +42,7 @@ int main(int argc, char ** argv) {
 			printf("Executing %s!\n", tokens[0]);
 			execve(tokens[0], tokens, NULL);
 		} else {
-			printf("Waiting for process (%d) to finish.\n", f);
+			syscall_wait(f);
 		}
 	}
 exit:

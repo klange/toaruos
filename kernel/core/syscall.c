@@ -82,6 +82,21 @@ static int write(int fd, char * ptr, int len) {
 	return out;
 }
 
+static int wait(unsigned int child) {
+	task_t * volatile child_task = gettask(child);
+	/* If the child task doesn't exist, bail */
+	if (!child_task) return -1;
+	/* Wait until it finishes (this is stupidly memory intensive,
+	 * but we haven't actually implemented wait() yet, so there's
+	 * not all that much we can do right now. */
+	while (child_task->finished == 0) {
+		if (child_task->finished != 0) break;
+		switch_task();
+	}
+	/* Grab the child's return value */
+	return child_task->retval;
+}
+
 static int open(const char * file, int flags, int mode) {
 	validate((void *)file);
 	fs_node_t * node = kopen(file, 0);
@@ -195,25 +210,26 @@ static int setgraphicsoffset(int rows) {
 static void syscall_handler(struct regs * r);
 static uintptr_t syscalls[] = {
 	/* System Call Table */
-	(uintptr_t)&exit,
+	(uintptr_t)&exit,				/* 0 */
 	(uintptr_t)&print,
 	(uintptr_t)&open,
 	(uintptr_t)&read,
-	(uintptr_t)&write,
+	(uintptr_t)&write,				/* 4 */
 	(uintptr_t)&close,
 	(uintptr_t)&gettimeofday,
 	(uintptr_t)&execve,
-	(uintptr_t)&sys_fork,
+	(uintptr_t)&sys_fork,			/* 8 */
 	(uintptr_t)&getpid,
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&getgraphicsaddress,
-	(uintptr_t)&kbd_mode,
+	(uintptr_t)&kbd_mode,			/* 12 */
 	(uintptr_t)&kbd_get,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,
-	(uintptr_t)&setgraphicsoffset,
+	(uintptr_t)&setgraphicsoffset,	/* 16 */
+	(uintptr_t)&wait,
 };
-uint32_t num_syscalls = 17;
+uint32_t num_syscalls = 18;
 
 void
 syscalls_install() {
