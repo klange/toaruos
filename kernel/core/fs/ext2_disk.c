@@ -117,7 +117,6 @@ uint32_t ext2_disk_inode_block(ext2_inodetable_t * inode, uint32_t block, uint8_
 }
 
 ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * name) {
-#if 1
 	/* Allocate a new inode with parent as the parent directory node and name as the filename
 	 * within that parent directory. Returns a pointer to a memory-copy of the node which
 	 * the client can (and should) free. */
@@ -160,10 +159,24 @@ ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * nam
 	kprintf("\nOkay, writing the block descriptors back to disk.\n");
 	ext2_disk_write_block(2, (uint8_t *)BGD);
 	kprintf("Alright, we have an inode (%d), time to write it out to disk and make the file in the directory.\n", node_no);
-	free(inode);
 	free(bg_buffer);
-#endif
-	return NULL;
+	return inode;
+}
+
+void ext2_disk_write_inode(ext2_inodetable_t * inode, uint32_t index) {
+	uint32_t group = index / ext2_disk_inodes_per_group;
+	if (group > BGDS) { return; }
+	uint32_t inode_table_block = BGD[group].inode_table;
+	inode -= group * ext2_disk_inodes_per_group;
+	uint32_t block_offset      = ((index - 1) * SB->inode_size) / BLOCKSIZE;
+	uint32_t offset_in_block   = (index - 1) - block_offset * (BLOCKSIZE / SB->inode_size);
+
+	ext2_inodetable_t * inodet = malloc(BLOCKSIZE);
+	/* Read the current table block */
+	ext2_disk_read_block(inode_table_block + block_offset, (uint8_t *)inodet);
+
+	memcpy(&inodet[offset_in_block], inode, sizeof(ext2_inodetable_t));
+	ext2_disk_write_block(inode_table_block + block_offset, (uint8_t *)inodet);
 }
 
 ext2_dir_t * ext2_disk_direntry(ext2_inodetable_t * inode, uint32_t index) {
