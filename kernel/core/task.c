@@ -1,6 +1,4 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
 #include <system.h>
 #define KERNEL_STACK_SIZE 0x2000
@@ -21,7 +19,7 @@ clone_directory(
 	dir->physical_address = phys + offset;
 	uint32_t i;
 	for (i = 0; i < 1024; ++i) {
-		if (!src->tables[i]) {
+		if (!src->tables[i] || (uintptr_t)src->tables[i] == (uintptr_t)0xFFFFFFFF) {
 			continue;
 		}
 		if (kernel_directory->tables[i] == src->tables[i]) {
@@ -78,7 +76,7 @@ tasking_install() {
 	current_task->wd[0] = '/';
 	current_task->wd[1] = 0;
 
-	//switch_page_directory(current_task->page_directory);
+	switch_page_directory(current_task->page_directory);
 
 	IRQ_ON;
 }
@@ -121,8 +119,8 @@ fork() {
 		new_task->wd[i] = current_task->wd[i];
 	}
 
-	task_t * tmp_task = (task_t *)ready_queue;
 	new_task->parent = parent;
+	task_t * tmp_task = (task_t *)ready_queue;
 	while (tmp_task->next) {
 		tmp_task = tmp_task->next;
 	}
@@ -185,6 +183,7 @@ switch_task() {
 	esp = current_task->esp;
 	ebp = current_task->ebp;
 	IRQ_OFF;
+	current_directory = current_task->page_directory;
 	asm volatile (
 			"mov %0, %%ebx\n"
 			"mov %1, %%esp\n"
@@ -195,7 +194,6 @@ switch_task() {
 			"jmp *%%ebx"
 			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address)
 			: "%ebx", "%esp", "%eax");
-	switch_page_directory(current_task->page_directory);
 }
 
 void
@@ -228,7 +226,11 @@ void task_exit(int retval) {
 	current_task->finished = 1;
 	/* Free the image memory */
 	for (uintptr_t i = 0; i < current_task->image_size; i += 0x1000) {
-		//free_frame(get_page(current_task->entry + i, 0, current_directory));
+#if 0
+		if (kernel_directory->tables[i] != current_task->page_directory->tables[i] && current_task->page_directory->tables[i] != 0xFFFFFFFF) {
+			//free_frame(get_page(current_task->entry + i, 0, current_task->page_directory));
+		}
+#endif
 	}
 	/* Dequeue us */
 	task_t volatile * temp = ready_queue;
@@ -243,8 +245,8 @@ void task_exit(int retval) {
 		prev->next = current_task->next;
 	}
 	//free((void *)(current_task->stack - KERNEL_STACK_SIZE));
-	free((void *)current_task->page_directory);
-	free((void *)current_task->descriptors);
+	//free((void *)current_task->page_directory);
+	//free((void *)current_task->descriptors);
 	//free((void *)current_task);
 	IRQ_ON;
 }

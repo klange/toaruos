@@ -168,6 +168,7 @@ kgets_special_t kgets_key_down  = NULL;
 kgets_special_t kgets_key_up    = NULL;
 kgets_special_t kgets_key_left  = NULL;
 kgets_special_t kgets_key_right = NULL;
+volatile task_t * kgets_client = NULL;
 
 int kgets_offset = 0;
 
@@ -188,6 +189,10 @@ void
 kgets_handler(
 		char ch
 		) {
+	if (current_task != kgets_client) {
+		/* Switch page directories into the caller so we can write to its buffers */
+		switch_page_directory(kgets_client->page_directory);
+	}
 	if (kgets_special == 1) {
 		if (ch == 91) {
 			kgets_special = 2;
@@ -363,6 +368,7 @@ kgets(
 	kgets_buffer[0] = '\0';
 	kgets_offset    = 0;
 	/* Assign the keyboard handler */
+	kgets_client    = current_task;
 	keyboard_buffer_handler = kgets_handler;
 	while ((kgets_collected < size) && (!kgets_newline)) {
 		/* Wait until the buffer is ready */
