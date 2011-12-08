@@ -25,6 +25,7 @@
 #include <ext2.h>
 #include <list.h>
 #include <tree.h>
+#include <process.h>
 
 
 struct {
@@ -343,6 +344,7 @@ ext2_inodetable_t * ext2_disk_alloc_inode(ext2_inodetable_t * parent, char * nam
 
 uint32_t shell_cmd_testing(int argc, char * argv[]) {
 	ext2_inodetable_t * derp = ext2_disk_alloc_inode(NULL, "test");
+	free(derp);
 	return 0;
 }
 
@@ -405,9 +407,9 @@ uint32_t shell_cmd_testtree(int argc, char * argv[]) {
 	tree_node_t * c = tree_node_insert_child(tree, tree->root, "c");
 	tree_node_t * d = tree_node_insert_child(tree, b, "d");
 	tree_node_t * e = tree_node_insert_child(tree, c, "e");
-	tree_node_t * f = tree_node_insert_child(tree, c, "f");
-	tree_node_t * g = tree_node_insert_child(tree, e, "g");
-	tree_node_t * h = tree_node_insert_child(tree, d, "h");
+	tree_node_insert_child(tree, c, "f");
+	tree_node_insert_child(tree, e, "g");
+	tree_node_insert_child(tree, d, "h");
 	debug_print_tree(tree);
 	tree_node_remove(tree, d);
 	debug_print_tree(tree);
@@ -419,16 +421,21 @@ uint32_t shell_cmd_testtree(int argc, char * argv[]) {
 	return 0;
 }
 
-uint32_t shell_cmd_testcd(int argc, char * argv[]) {
-	if (argc < 2) {
-		kprintf("%s: Expected arguments\n", argv[0]);
-		return 1;
-	}
-	char * path = canonicalize_path(argv[1], argv[2]);
-	if (path) {
-		kprintf("-> %s\n", path);
-		free(path);
-	}
+uint32_t shell_cmd_testnewprocessmodel(int argc, char * argv[]) {
+	process_t * init = debug_make_init();
+	process_t * n    = spawn_process(init);
+	n->name = "hello world";
+		process_t * p = spawn_process(n);
+		p->name = "herp";
+		process_t * f = spawn_process(n);
+		f->name = "derp";
+	process_disown(p);
+
+	return 0;
+}
+
+uint32_t shell_cmd_ps(int argc, char * argv[]) {
+	debug_print_process_tree();
 	return 0;
 }
 
@@ -447,7 +454,8 @@ void install_commands() {
 	shell_install_command("history",    shell_cmd_history);
 	shell_install_command("test-list",  shell_cmd_testlist);
 	shell_install_command("test-tree",  shell_cmd_testtree);
-	shell_install_command("test-cd",    shell_cmd_testcd);
+	shell_install_command("test-new-process-model", shell_cmd_testnewprocessmodel);
+	shell_install_command("ps",         shell_cmd_ps);
 }
 
 void add_path_contents() {
