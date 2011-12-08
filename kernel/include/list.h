@@ -28,6 +28,7 @@ node_t * list_find(list_t * list, void * value);
 void list_remove(list_t * list, size_t index);
 void list_delete(list_t * list, node_t * node);
 node_t * list_pop(list_t * list);
+node_t * list_dequeue(list_t * list);
 list_t * list_copy(list_t * original);
 void list_merge(list_t * target, list_t * source);
 

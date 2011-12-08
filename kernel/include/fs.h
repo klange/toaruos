@@ -52,5 +52,6 @@ struct dirent *readdir_fs(fs_node_t * node, uint32_t index);
 fs_node_t *finddir_fs(fs_node_t * node, char *name);
 fs_node_t *kopen(char *filename, uint32_t flags);
 char * canonicalize_path(char *cwd, char *input);
+fs_node_t * clone_fs(fs_node_t * source);
 
 #endif

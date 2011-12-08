@@ -1,10 +1,12 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
 #include <system.h>
-#define KERNEL_STACK_SIZE 0x2000
+#include <process.h>
 
 volatile task_t * current_task = NULL;
 volatile task_t * ready_queue  = NULL;
+
+task_t * root_task = NULL;
 
 uint32_t next_pid = 0;
 
@@ -34,13 +36,23 @@ clone_directory(
 	return dir;
 }
 
+void assertDir(page_directory_t * src) {
+	for (uint32_t i = 0; i < 1024; ++i) {
+		if (!src->tables[i] || (uintptr_t)src->tables[i] == (uintptr_t)0xFFFFFFFF) {
+			continue;
+		}
+		assert(((uintptr_t)src->tables[i] >= 0x00010000) && "Failure!");
+	}
+}
+
+
 page_table_t *
 clone_table(
 		page_table_t * src,
 		uintptr_t * physAddr
 		) {
 	page_table_t * table = (page_table_t *)kvmalloc_p(sizeof(page_table_t), physAddr);
-	memset(table, 0, sizeof(page_directory_t));
+	memset(table, 0, sizeof(page_table_t));
 	uint32_t i;
 	for (i = 0; i < 1024; ++i) {
 		if (!src->pages[i].frame) {
@@ -61,6 +73,10 @@ void
 tasking_install() {
 	IRQ_OFF;
 
+	initialize_process_tree();
+	current_process = spawn_init();
+	set_process_environment((process_t *)current_process, current_directory);
+
 	current_task = (task_t *)kmalloc(sizeof(task_t));
 	ready_queue = current_task;
 	current_task->id  = next_pid++;
@@ -76,7 +92,10 @@ tasking_install() {
 	current_task->wd[0] = '/';
 	current_task->wd[1] = 0;
 
-	switch_page_directory(current_task->page_directory);
+
+	root_task = (task_t *)current_task;
+
+	switch_page_directory(current_process->thread.page_directory);
 
 	IRQ_ON;
 }
@@ -95,54 +114,30 @@ gettask(
 uint32_t
 fork() {
 	IRQ_OFF;
-	task_t * parent = (task_t *)current_task;
+	process_t * parent = (process_t *)current_process;
 	page_directory_t * directory = clone_directory(current_directory);
-	task_t * new_task = (task_t *)kmalloc(sizeof(task_t));
-	new_task->id  = next_pid++;
-	new_task->esp = 0;
-	new_task->ebp = 0;
-	new_task->eip = 0;
-	new_task->page_directory = directory;
-	new_task->next = NULL;
-	new_task->stack = kvmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	new_task->descriptors = (fs_node_t **)kmalloc(sizeof(fs_node_t *) * 1024);
-	memcpy(new_task->descriptors, parent->descriptors, sizeof(fs_node_t *) * 1024);
-	new_task->next_fd = 0;
-	new_task->finished = 0;
-	new_task->image_size = 0;
-	/* Some stuff */
-	new_task->entry  = current_task->entry;
-	new_task->heap   = current_task->heap;
-	new_task->heap_a = current_task->heap_a;
-	new_task->image_size = current_task->image_size;
-	for (uint32_t i = 0; i <= strlen((const char *)current_task->wd); ++i) {
-		new_task->wd[i] = current_task->wd[i];
-	}
 
-	new_task->parent = parent;
-	task_t * tmp_task = (task_t *)ready_queue;
-	while (tmp_task->next) {
-		tmp_task = tmp_task->next;
-	}
-	tmp_task->next = new_task;
+	process_t * new_proc = spawn_process(current_process);
+	set_process_environment(new_proc, directory);
+
 	uintptr_t eip = read_eip();
-	if (current_task == parent) {
+	if (current_process == parent) {
 		uintptr_t esp;
 		uintptr_t ebp;
 		asm volatile ("mov %%esp, %0" : "=r" (esp));
 		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
-		if (current_task->stack > new_task->stack) {
-			new_task->esp = esp - (current_task->stack - new_task->stack);
-			new_task->ebp = ebp - (current_task->stack - new_task->stack);
+		if (current_process->image.stack > new_proc->image.stack) {
+			new_proc->thread.esp = esp - (current_process->image.stack - new_proc->image.stack);
+			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
 		} else {
-			new_task->esp = esp + (new_task->stack - current_task->stack);
-			new_task->ebp = ebp - (current_task->stack - new_task->stack);
+			new_proc->thread.esp = esp + (new_proc->image.stack - current_process->image.stack);
+			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
 		}
-		// kprintf("old: %x new: %x; end: %x %x\n", esp, new_task->esp, current_task->stack, new_task->stack);
-		memcpy((void *)(new_task->stack - KERNEL_STACK_SIZE), (void *)(current_task->stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
-		new_task->eip = eip;
+		memcpy((void *)(new_proc->image.stack - KERNEL_STACK_SIZE), (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+		new_proc->thread.eip = eip;
+		make_process_ready(new_proc);
 		IRQ_ON;
-		return new_task->id;
+		return new_proc->id;
 	} else {
 		return 0;
 	}
@@ -150,15 +145,17 @@ fork() {
 
 uint32_t
 getpid() {
-	return current_task->id;
+	return current_process->id;
 }
 
 void
 switch_task() {
-	if (!current_task) {
+	if (!current_process) {
 		return;
 	}
-	if (!current_task->next && current_task == ready_queue) return;
+	if (!process_available()) {
+		return;
+	}
 
 	uintptr_t esp, ebp, eip;
 	asm volatile ("mov %%esp, %0" : "=r" (esp));
@@ -168,22 +165,25 @@ switch_task() {
 		IRQ_ON;
 		return;
 	}
-	current_task->eip = eip;
-	current_task->esp = esp;
-	current_task->ebp = ebp;
-	current_task = current_task->next;
-	if (!current_task) {
-		current_task = ready_queue;
-	}
-	if (!current_task) {
-		kprintf("Ran out of processes to run. Halting!\n");
-		STOP;
-	}
-	eip = current_task->eip;
-	esp = current_task->esp;
-	ebp = current_task->ebp;
+
+	current_process->thread.eip = eip;
+	current_process->thread.esp = esp;
+	current_process->thread.ebp = ebp;
+	make_process_ready((process_t *)current_process);
+
+	switch_next();
+}
+
+void
+switch_next() {
+	uintptr_t esp, ebp, eip;
+	current_process = next_ready_process();
+	eip = current_process->thread.eip;
+	esp = current_process->thread.esp;
+	ebp = current_process->thread.ebp;
 	IRQ_OFF;
-	current_directory = current_task->page_directory;
+	current_directory = current_process->thread.page_directory;
+	//assertDir(current_directory);
 	asm volatile (
 			"mov %0, %%ebx\n"
 			"mov %1, %%esp\n"
@@ -194,11 +194,12 @@ switch_task() {
 			"jmp *%%ebx"
 			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address)
 			: "%ebx", "%esp", "%eax");
+
 }
 
 void
 enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
-	set_kernel_stack(current_task->stack);
+	set_kernel_stack(current_process->image.stack);
 	asm volatile(
 			"mov %3, %%esp\n"
 			"mov $0x23, %%ax\n"
@@ -223,32 +224,18 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 void task_exit(int retval) {
 	IRQ_OFF;
 	/* Free the image memory */
-	for (uintptr_t i = 0; i < current_task->image_size; i += 0x1000) {
 #if 0
-		if (kernel_directory->tables[i] != current_task->page_directory->tables[i] && current_task->page_directory->tables[i] != 0xFFFFFFFF) {
-			//free_frame(get_page(current_task->entry + i, 0, current_task->page_directory));
-		}
+	for (uintptr_t i = 0; i < current_process->image.size; i += 0x1000) {
+		free_frame(get_page(current_process->image.entry + i, 0, current_process->image.page_directory));
+	}
 #endif
-	}
-	/* Dequeue us */
-	task_t volatile * temp = ready_queue;
-	task_t volatile * prev = NULL;
-	while (temp != current_task && temp != NULL) {
-		prev = temp;
-		temp = temp->next;
-	}
-	if (prev == NULL) {
-		ready_queue = current_task->next;
-	} else {
-		prev->next = current_task->next;
-	}
-	current_task->retval   = retval;
-	current_task->finished = 1;
-	//free((void *)(current_task->stack - KERNEL_STACK_SIZE));
-	//free((void *)current_task->page_directory);
-	//free((void *)current_task->descriptors);
-	//free((void *)current_task);
-	IRQ_ON;
+	current_process->status   = retval;
+	current_process->finished = 1;
+	//free((void *)(current_process->image.stack - KERNEL_STACK_SIZE));
+	//free((void *)current_process->thread.page_directory);
+	//free((void *)current_process->fds.entries);
+	//free((void *)current_process);
+	switch_next();
 }
 
 void kexit(int retval) {

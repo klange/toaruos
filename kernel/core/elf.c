@@ -10,6 +10,7 @@
 #include <system.h>
 #include <fs.h>
 #include <elf.h>
+#include <process.h>
 
 /**
  * Load and execute a static ELF binary.
@@ -34,6 +35,7 @@ exec(
 		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
 		char ** argv  /* Argument strings (including executable path) */
 	) {
+
 	/* Open the file */
 	fs_node_t * file = kopen(path,0);
 	if (!file) {
@@ -43,6 +45,9 @@ exec(
 	/* Read in the binary contents */
 	Elf32_Header * header = (Elf32_Header *)malloc(file->length + 100);
 	read_fs(file, 0, file->length, (uint8_t *)header);
+
+	current_process->name = malloc(strlen(path) + 1);
+	memcpy(current_process->name, path, strlen(path) + 1);
 
 	/* Alright, we've read the binary, time to load the loadable sections */
 	/* Verify the magic */
@@ -57,21 +62,22 @@ exec(
 		return -1;
 	}
 
+	IRQ_OFF;
 	/* Load the loadable segments from the binary */
 	for (uintptr_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
 		/* read a section header */
 		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)header + (header->e_shoff + x));
 		if (shdr->sh_addr) {
 			/* If this is a loadable section, load it up. */
-			if (shdr->sh_addr < current_task->entry) {
+			if (shdr->sh_addr < current_process->image.entry) {
 				/* If this is the lowest entry point, store it for memory reasons */
-				current_task->entry = shdr->sh_addr;
+				current_process->image.entry = shdr->sh_addr;
 			}
-			if (shdr->sh_addr + shdr->sh_size - current_task->entry > current_task->image_size) {
+			if (shdr->sh_addr + shdr->sh_size - current_process->image.entry > current_process->image.size) {
 				/* We also store the total size of the memory region used by the application */
-				current_task->image_size = shdr->sh_addr + shdr->sh_size - current_task->entry;
+				current_process->image.size = shdr->sh_addr + shdr->sh_size - current_process->image.entry;
 			}
-			for (uintptr_t i = 0; i < shdr->sh_size + 0x5000; i += 0x1000) {
+			for (uintptr_t i = 0; i < shdr->sh_size + 0x2000; i += 0x1000) {
 				/* This doesn't care if we already allocated this page */
 				alloc_frame(get_page(shdr->sh_addr + i, 1, current_directory), 0, 1);
 			}
@@ -84,6 +90,7 @@ exec(
 			}
 		}
 	}
+	IRQ_ON;
 
 	/* Store the entry point to the code segment */
 	uintptr_t entry = (uintptr_t)header->e_entry;
@@ -96,7 +103,7 @@ exec(
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
 	}
 
-	uintptr_t heap = current_task->entry + current_task->image_size;
+	uintptr_t heap = current_process->image.entry + current_process->image.size;
 	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
 	char ** argv_ = (char **)heap;
 	heap += sizeof(char *) * argc;
@@ -107,10 +114,12 @@ exec(
 		heap += strlen(argv[i]) + 1;
 	}
 
-	current_task->heap   = heap; /* heap end */
-	current_task->heap_a = heap + (0x1000 - heap % 0x1000);
-	current_task->stack  = 0x100F0000;
-	current_task->next_fd = 3;
+	current_process->image.heap        = heap; /* heap end */
+	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
+	current_process->image.stack  = 0x100F0000;
+	while (current_process->fds.length < 3) {
+		process_append_fd((process_t *)current_process, NULL);
+	}
 
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, 0x100EFFFF);
@@ -134,7 +143,7 @@ system(
 		/* We are system(), so we need to wait for the child
 		 * application to exit before we can continue. */
 		/* Get the child task. */
-		task_t * volatile child_task = gettask(child);
+		process_t * volatile child_task = process_from_pid(child);
 		/* If the child task doesn't exist, bail */
 		if (!child_task) return -1;
 		/* Wait until it finishes (this is stupidly memory intensive,
@@ -144,7 +153,7 @@ system(
 			if (child_task->finished != 0) break;
 		}
 		/* Grab the child's return value */
-		return child_task->retval;
+		return child_task->status;
 	}
 }
 

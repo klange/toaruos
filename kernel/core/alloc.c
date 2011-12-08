@@ -844,7 +844,9 @@ static void * __attribute__ ((malloc)) klvalloc(size_t size) {
 	 */
 	size_t true_size = size + PAGE_SIZE - sizeof(klmalloc_big_bin_header); /* Here we go... */
 	void * result = klmalloc(true_size);
-	return (void *)((uintptr_t)result + (PAGE_SIZE - sizeof(klmalloc_big_bin_header)));
+	void * out = (void *)((uintptr_t)result + (PAGE_SIZE - sizeof(klmalloc_big_bin_header)));
+	assert((uintptr_t)out % PAGE_SIZE == 0);
+	return out;
 }
 /* }}} */
 /* realloc() {{{ */

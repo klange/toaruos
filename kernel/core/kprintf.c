@@ -5,6 +5,7 @@
  * for the kernel of all things.
  */
 #include <system.h>
+#include <process.h>
 
 typedef __builtin_va_list va_list;
 #define va_start(ap,last) __builtin_va_start(ap, last)
@@ -168,7 +169,7 @@ kgets_special_t kgets_key_down  = NULL;
 kgets_special_t kgets_key_up    = NULL;
 kgets_special_t kgets_key_left  = NULL;
 kgets_special_t kgets_key_right = NULL;
-volatile task_t * kgets_client = NULL;
+volatile process_t * kgets_client = NULL;
 
 int kgets_offset = 0;
 
@@ -189,10 +190,6 @@ void
 kgets_handler(
 		char ch
 		) {
-	if (current_task != kgets_client) {
-		/* Switch page directories into the caller so we can write to its buffers */
-		switch_page_directory(kgets_client->page_directory);
-	}
 	if (kgets_special == 1) {
 		if (ch == 91) {
 			kgets_special = 2;
@@ -267,6 +264,10 @@ kgets_handler(
 			if (kgets_offset != kgets_collected) {
 				int remaining = kgets_collected - kgets_offset;
 				for (int i = 0; i < remaining; ++i) {
+					if (current_process != kgets_client) {
+						/* Switch page directories into the caller so we can write to its buffers */
+						switch_page_directory(kgets_client->thread.page_directory);
+					}
 					kwrite(kgets_buffer[kgets_offset + i]);
 					kgets_buffer[kgets_offset + i - 1] = kgets_buffer[kgets_offset + i];
 				}
@@ -281,6 +282,10 @@ kgets_handler(
 				bochs_redraw_cursor();
 			} else {
 				/* Erase the end of the buffer */
+				if (current_process != kgets_client) {
+					/* Switch page directories into the caller so we can write to its buffers */
+					switch_page_directory(kgets_client->thread.page_directory);
+				}
 				kgets_buffer[--kgets_collected] = '\0';
 				kgets_offset--;
 			}
@@ -294,6 +299,10 @@ kgets_handler(
 		kgets_redraw_buffer();
 		return;
 	} else if (ch == '\t' && kgets_tab_complete_func) {
+		if (current_process != kgets_client) {
+			/* Switch page directories into the caller so we can write to its buffers */
+			switch_page_directory(kgets_client->thread.page_directory);
+		}
 		kgets_tab_complete_func(kgets_buffer);
 		kgets_collected = strlen(kgets_buffer);
 		return;
@@ -313,6 +322,11 @@ kgets_handler(
 		return;
 	}	/* Add this character to the buffer. */
 	if (kgets_offset != kgets_collected) {
+		IRQ_OFF;
+		if (current_process != kgets_client) {
+			/* Switch page directories into the caller so we can write to its buffers */
+			switch_page_directory(kgets_client->thread.page_directory);
+		}
 		for (int i = kgets_collected; i > kgets_offset; --i) {
 			kgets_buffer[i] = kgets_buffer[i-1];
 		}
@@ -330,12 +344,19 @@ kgets_handler(
 			kwrite(68);
 		}
 		bochs_redraw_cursor();
+		IRQ_ON;
 	} else {
 		kwrite(ch);
 		if (kgets_collected < kgets_want) {
+			IRQ_OFF;
+			if (current_process != kgets_client) {
+				/* Switch page directories into the caller so we can write to its buffers */
+				switch_page_directory(kgets_client->thread.page_directory);
+			}
 			kgets_buffer[kgets_collected] = ch;
 			kgets_buffer[++kgets_collected] = '\0';
 			kgets_offset++;
+			IRQ_ON;
 		}
 	}
 }
@@ -368,7 +389,7 @@ kgets(
 	kgets_buffer[0] = '\0';
 	kgets_offset    = 0;
 	/* Assign the keyboard handler */
-	kgets_client    = current_task;
+	kgets_client    = current_process;
 	keyboard_buffer_handler = kgets_handler;
 	while ((kgets_collected < size) && (!kgets_newline)) {
 		/* Wait until the buffer is ready */

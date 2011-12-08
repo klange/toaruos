@@ -42,6 +42,7 @@ kmalloc_real(
 
 	if (align && (placement_pointer & 0xFFFFF000)) {
 		placement_pointer &= 0xFFFFF000;
+		placement_pointer += 0x1000;
 	}
 	if (phys) {
 		*phys = placement_pointer;
@@ -135,8 +136,8 @@ first_frame() {
 	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
 		if (frames[i] != 0xFFFFFFFF) {
 			for (j = 0; j < 32; ++j) {
-				uint32_t test_frame = 0x1 << j;
-				if (!(frames[i] & test_frame)) {
+				uint32_t testFrame = 0x1 << j;
+				if (!(frames[i] & testFrame)) {
 					return i * 0x20 + j;
 				}
 			}
@@ -227,18 +228,20 @@ paging_install(uint32_t memsize) {
 
 void
 debug_print_directory() {
+	IRQ_OFF;
 	kprintf(" ---- [k:0x%x u:0x%x]\n", kernel_directory, current_directory);
 	for (uintptr_t i = 0; i < 1024; ++i) {
 		if (!current_directory->tables[i] || (uintptr_t)current_directory->tables[i] == (uintptr_t)0xFFFFFFFF) {
 			continue;
 		}
 		if (kernel_directory->tables[i] == current_directory->tables[i]) {
-			kprintf("  0x%x - kern %d\n", current_directory->tables[i], i);
+			kprintf("  0x%x - kern [0x%x] %d\n", current_directory->tables[i], &current_directory->tables[i], i);
 		} else {
-			kprintf("  0x%x - user %d\n", current_directory->tables[i], i);
+			kprintf("  0x%x - user [0x%x] %d\n", current_directory->tables[i], &current_directory->tables[i], i);
 		}
 	}
 	kprintf(" ---- [done]\n");
+	IRQ_ON;
 }
 
 void
@@ -266,7 +269,7 @@ get_page(
 	} else if(make) {
 		uint32_t temp;
 		dir->tables[table_index] = (page_table_t *)kvmalloc_p(sizeof(page_table_t), (uintptr_t *)(&temp));
-		memset(dir->tables[table_index], 0, 0x1000);
+		memset(dir->tables[table_index], 0, sizeof(page_table_t));
 		dir->physical_tables[table_index] = temp | 0x7; /* Present, R/w, User */
 		return &dir->tables[table_index]->pages[address % 1024];
 	} else {

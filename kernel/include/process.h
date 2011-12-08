@@ -8,6 +8,8 @@
 #include <tree.h>
 #include <signal.h>
 
+#define KERNEL_STACK_SIZE 0x2000
+
 typedef signed int    pid_t;
 typedef unsigned int  user_t;
 typedef unsigned int  group_t;
@@ -69,9 +71,20 @@ typedef struct process {
 	fd_table_t    fds;          /* File descriptor table */
 	status_t      status;       /* Process status */
 	sig_table_t   signals;      /* Signal table */
+	uint8_t       finished;
 } process_t;
 
 void initialize_process_tree();
+process_t * spawn_process(volatile process_t * parent);
 void debug_print_process_tree();
+process_t * spawn_init();
+void set_process_environment(process_t * proc, page_directory_t * directory);
+void make_process_ready(process_t * proc);
+uint8_t process_available();
+process_t * next_ready_process();
+uint32_t process_append_fd(process_t * proc, fs_node_t * node);
+process_t * process_from_pid(pid_t pid);
+
+volatile process_t * current_process;
 
 #endif

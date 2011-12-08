@@ -222,6 +222,7 @@ typedef struct task {
 
 extern __volatile__ task_t * current_task;
 extern __volatile__ task_t * ready_queue;
+extern task_t * root_task;
 
 extern uintptr_t read_eip();
 extern void copy_page_physical(uint32_t, uint32_t);
@@ -265,6 +266,7 @@ typedef struct tss_entry {
 
 extern void tasking_install();
 extern void switch_task();
+extern void switch_next();
 extern uint32_t fork();
 extern uint32_t getpid();
 extern void enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack);

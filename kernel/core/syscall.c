@@ -4,6 +4,7 @@
  */
 #include <system.h>
 #include <syscall.h>
+#include <process.h>
 
 #define SPECIAL_CASE_STDIO
 
@@ -12,8 +13,8 @@
  */
 
 void validate(void * ptr) {
-	if (ptr && (uintptr_t)ptr < current_task->entry) {
-		kprintf("SEGFAULT: Invalid pointer passed to syscall. (0x%x < 0x%x)\n", (uintptr_t)ptr, current_task->entry);
+	if (ptr && (uintptr_t)ptr < current_process->image.entry) {
+		kprintf("SEGFAULT: Invalid pointer passed to syscall. (0x%x < 0x%x)\n", (uintptr_t)ptr, current_process->image.entry);
 		HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
 	}
 }
@@ -52,11 +53,11 @@ static int read(int fd, char * ptr, int len) {
 		return strlen(ptr);
 	}
 #endif
-	if (fd >= current_task->next_fd || fd < 0) {
+	if (fd >= (int)current_process->fds.length || fd < 0) {
 		return -1;
 	}
 	validate(ptr);
-	fs_node_t * node = current_task->descriptors[fd];
+	fs_node_t * node = current_process->fds.entries[fd];
 	uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
 	node->offset += out;
 	return out;
@@ -72,18 +73,18 @@ static int write(int fd, char * ptr, int len) {
 		return len;
 	}
 #endif
-	if (fd >= current_task->next_fd || fd < 0) {
+	if (fd >= (int)current_process->fds.length || fd < 0) {
 		return -1;
 	}
 	validate(ptr);
-	fs_node_t * node = current_task->descriptors[fd];
+	fs_node_t * node = current_process->fds.entries[fd];
 	uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
 	node->offset += out;
 	return out;
 }
 
 static int wait(unsigned int child) {
-	task_t * volatile child_task = gettask(child);
+	process_t * volatile child_task = process_from_pid(child);
 	/* If the child task doesn't exist, bail */
 	if (!child_task) return -1;
 	/* Wait until it finishes (this is stupidly memory intensive,
@@ -94,34 +95,33 @@ static int wait(unsigned int child) {
 		switch_task();
 	}
 	/* Grab the child's return value */
-	return child_task->retval;
+	return child_task->status;
 }
 
 static int open(const char * file, int flags, int mode) {
 	validate((void *)file);
-	fs_node_t * node = kopen(file, 0);
+	fs_node_t * node = kopen((char *)file, 0);
 	if (!node) {
 		return -1;
 	}
-	current_task->descriptors[current_task->next_fd] = node;
 	node->offset = 0;
-	return current_task->next_fd++;
+	return process_append_fd((process_t *)current_process, node);
 }
 
 static int close(int fd) {
-	if (fd <= current_task->next_fd || fd < 0) { 
+	if (fd <= (int)current_process->fds.length || fd < 0) { 
 		return -1;
 	}
-	close_fs(current_task->descriptors[fd]);
+	close_fs(current_process->fds.entries[fd]);
 	return 0;
 }
 
 static int sys_sbrk(int size) {
-	uintptr_t ret = current_task->heap;
-	current_task->heap += size;
-	while (current_task->heap > current_task->heap_a) {
-		current_task->heap_a += 0x1000;
-		alloc_frame(get_page(current_task->heap_a, 1, current_directory), 0, 1);
+	uintptr_t ret = current_process->image.heap;
+	current_process->image.heap += size;
+	while (current_process->image.heap > current_process->image.heap_actual) {
+		current_process->image.heap_actual += 0x1000;
+		alloc_frame(get_page(current_process->image.heap_actual, 1, current_directory), 0, 1);
 	}
 	return ret;
 }
@@ -179,20 +179,20 @@ static int kbd_get() {
 }
 
 static int seek(int fd, int offset, int whence) {
-	if (fd >= current_task->next_fd || fd < 0) {
+	if (fd >= (int)current_process->fds.length || fd < 0) {
 		return -1;
 	}
 	if (fd < 3) {
 		return 0;
 	}
 	if (whence == 0) {
-		current_task->descriptors[fd]->offset = offset;
+		current_process->fds.entries[fd]->offset = offset;
 	} else if (whence == 1) {
-		current_task->descriptors[fd]->offset += offset;
+		current_process->fds.entries[fd]->offset += offset;
 	} else if (whence == 2) {
-		current_task->descriptors[fd]->offset = current_task->descriptors[fd]->length + offset;
+		current_process->fds.entries[fd]->offset = current_process->fds.entries[fd]->length + offset;
 	}
-	return current_task->descriptors[fd]->offset;
+	return current_process->fds.entries[fd]->offset;
 }
 
 static int stat(int fd, uint32_t * st) {

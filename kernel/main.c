@@ -151,8 +151,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	}
 	cls();
 
-	initialize_process_tree();
-
 	start_shell();
 
 	return 0;

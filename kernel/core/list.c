@@ -103,6 +103,13 @@ node_t * list_pop(list_t * list) {
 	return out;
 }
 
+node_t * list_dequeue(list_t * list) {
+	if (!list->head) return NULL;
+	node_t * out = list->head;
+	list_delete(list, list->head);
+	return out;
+}
+
 list_t * list_copy(list_t * original) {
 	/* Create a new copy of original */
 	list_t * out = list_create();

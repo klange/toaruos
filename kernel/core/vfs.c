@@ -51,6 +51,15 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 	}
 }
 
+fs_node_t * clone_fs(fs_node_t * source) {
+	if (!source) {
+		return NULL;
+	}
+	fs_node_t * n = malloc(sizeof(fs_node_t));
+	memcpy(n, source, sizeof(fs_node_t));
+	return n;
+}
+
 /*
  * Canonicalize a path.
  */
