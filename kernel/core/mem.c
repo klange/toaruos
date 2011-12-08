@@ -5,6 +5,7 @@
  */
 
 #include <system.h>
+#include <process.h>
 
 extern uintptr_t end;
 uintptr_t placement_pointer = (uintptr_t)&end;
@@ -300,12 +301,12 @@ page_fault(
 		kprintf("   The faulting instruction was 0x%x\n", r->eip);
 		kprintf("\n");
 		STOP;
-	} else if (r->eip < current_task->entry) {
+	} else if (r->eip < current_process->image.entry) {
 		kprintf("\n\n!!! KERNEL PAGE FAULT !!!\n\n");
 		kprintf("   The kernel has encountered a pgae fault during the execution of\n");
 		kprintf("   process ID %d, entry point 0x%x\n", getpid(), r->eip);
 	} else {
-		kprintf("User task page fault: 0x%x >= 0x%x\n", r->eip, current_task->entry);
+		kprintf("User task page fault: 0x%x >= 0x%x\n", r->eip, current_process->image.entry);
 	}
 
 	kprintf("Page fault! (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x\n", present, rw, user, reserved, id, faulting_address, r->eip);

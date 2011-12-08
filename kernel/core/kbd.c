@@ -274,18 +274,6 @@ putch(
 		keyboard_buffer_handler(c);
 	} else {
 		if (c == 3 /* ^L */) {
-			/* Find the next task that isn't the kernel and kill it */
-			__volatile__ task_t * prev_task = current_task;
-			while (current_task && !current_task->id) {
-				current_task = current_task->next;
-			}
-			if (current_task) {
-				kprintf("Killing task %d!\n", current_task->id);
-				kexit(1);
-			} else {
-				/* The only available task /is/ the kernel. Run away! */
-				current_task = prev_task;
-			}
 			return;
 		}
 	}

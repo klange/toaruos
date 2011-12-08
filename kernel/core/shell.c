@@ -177,6 +177,7 @@ void shell_exec(char * buffer, int size) {
 
 uint32_t shell_cmd_cd(int argc, char * argv[]) {
 	if (argc < 2) {
+		kprintf("pwd: %s\n", current_process->wd_name);
 		return 1;
 	} else {
 		fs_node_t * chd = kopen(argv[1], 0);
@@ -193,9 +194,10 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
 			shell.node = chd;
 			memcpy(shell.path, path, strlen(path) + 1);
 			free(path);
-			for (uint32_t i = 0; i <= strlen(shell.path); ++i) {
-				current_task->wd[i] = shell.path[i];
-			}
+			current_process->wd_name = malloc(strlen(shell.path) + 1);
+			memcpy(current_process->wd_name, shell.path, strlen(shell.path) + 1);
+		} else {
+			kprintf("%s: could not cd %s: no such file or directory\n", argv[0], argv[1]);
 		}
 	}
 	return 0;

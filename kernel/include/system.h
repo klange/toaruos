@@ -199,37 +199,11 @@ extern void serial_send(char out);
 extern void serial_string(char * out);
 
 /* Tasks */
-typedef struct task {
-	uint32_t  id;
-	uintptr_t esp;
-	uintptr_t ebp;
-	uintptr_t eip;
-	page_directory_t * page_directory;
-	struct task *next;
-	uintptr_t stack;
-	uintptr_t user_stack;
-	struct task * parent;
-	fs_node_t **  descriptors;
-	uint16_t  next_fd;
-	int       retval;
-	uint8_t   finished;
-	uint32_t  image_size;
-	uintptr_t entry;
-	uintptr_t heap;
-	uintptr_t heap_a;
-	char      wd[1024];
-} task_t;
-
-extern __volatile__ task_t * current_task;
-extern __volatile__ task_t * ready_queue;
-extern task_t * root_task;
-
 extern uintptr_t read_eip();
 extern void copy_page_physical(uint32_t, uint32_t);
 extern page_directory_t * clone_directory(page_directory_t * src);
 extern page_table_t * clone_table(page_table_t * src, uintptr_t * physAddr);
 extern void move_stack(void *new_stack_start, size_t size);
-extern task_t * gettask(uint32_t pid);
 extern void kexit(int retval);
 extern void task_exit(int retval);
 extern uint32_t next_pid;

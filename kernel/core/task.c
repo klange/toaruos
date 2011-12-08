@@ -3,11 +3,6 @@
 #include <system.h>
 #include <process.h>
 
-volatile task_t * current_task = NULL;
-volatile task_t * ready_queue  = NULL;
-
-task_t * root_task = NULL;
-
 uint32_t next_pid = 0;
 
 page_directory_t *
@@ -77,38 +72,9 @@ tasking_install() {
 	current_process = spawn_init();
 	set_process_environment((process_t *)current_process, current_directory);
 
-	current_task = (task_t *)kmalloc(sizeof(task_t));
-	ready_queue = current_task;
-	current_task->id  = next_pid++;
-	current_task->esp = 0;
-	current_task->ebp = 0;
-	current_task->eip = 0;
-	current_task->stack = initial_esp + 1;
-	current_task->page_directory = current_directory; //clone_directory(current_directory);
-	current_task->next = 0;
-
-	current_task->descriptors = (fs_node_t **)kmalloc(sizeof(fs_node_t *) * 1024);
-	current_task->next_fd = 0;
-	current_task->wd[0] = '/';
-	current_task->wd[1] = 0;
-
-
-	root_task = (task_t *)current_task;
-
 	switch_page_directory(current_process->thread.page_directory);
 
 	IRQ_ON;
-}
-
-task_t *
-gettask(
-		uint32_t pid
-	   ) {
-	task_t * output = (task_t *)ready_queue;
-	while (output != NULL && output->id != pid) {
-		output = output->next;
-	}
-	return output;
 }
 
 uint32_t

@@ -1,6 +1,9 @@
+/* vim: noexpandtab shiftwidth=4 tabstop=4
+ */
 #include <system.h>
 #include <fs.h>
 #include <list.h>
+#include <process.h>
 
 fs_node_t *fs_root = 0;
 
@@ -150,7 +153,7 @@ kopen(
 	if (!fs_root || !filename) {
 		return NULL;
 	}
-	char * cwd = (char *)&(current_task->wd);
+	char * cwd = (char *)(current_process->wd_name);
 	char * npath = canonicalize_path(cwd, filename);
 	size_t path_len = strlen(npath);
 	if (path_len == 1) {
