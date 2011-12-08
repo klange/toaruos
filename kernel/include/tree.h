@@ -19,6 +19,8 @@ typedef struct {
 	tree_node_t * root;
 } tree_t;
 
+typedef uint8_t (*tree_comparator_t) (void *, void *);
+
 tree_t * tree_create();
 void tree_set_root(tree_t * tree, void * value);
 void tree_node_destroy(tree_node_t * node);
@@ -31,5 +33,8 @@ tree_node_t * tree_node_find_parent(tree_node_t * haystack, tree_node_t * needle
 void tree_node_parent_remove(tree_t * tree, tree_node_t * parent, tree_node_t * node);
 void tree_node_remove(tree_t * tree, tree_node_t * node);
 void tree_remove(tree_t * tree, tree_node_t * node);
+tree_node_t * tree_find(tree_t * tree, void * value, tree_comparator_t comparator);
+void tree_break_off(tree_t * tree, tree_node_t * node);
+
 
 #endif

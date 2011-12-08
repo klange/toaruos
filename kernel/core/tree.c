@@ -142,3 +142,25 @@ void tree_remove(tree_t * tree, tree_node_t * node) {
 	list_merge(parent->children, node->children);
 	free(node);
 }
+
+void tree_break_off(tree_t * tree, tree_node_t * node) {
+	tree_node_t * parent = node->parent;
+	if (!parent) return;
+	list_delete(parent->children, list_find(parent->children, node));
+}
+
+tree_node_t * tree_node_find(tree_node_t * node, void * search, tree_comparator_t comparator) {
+	if (comparator(node->value,search)) {
+		return node;
+	}
+	tree_node_t * found;
+	foreach(child, node->children) {
+		found = tree_node_find((tree_node_t *)child->value, search, comparator);
+		if (found) return found;
+	}
+	return NULL;
+}
+
+tree_node_t * tree_find(tree_t * tree, void * value, tree_comparator_t comparator) {
+	return tree_node_find(tree->root, value, comparator);
+}
