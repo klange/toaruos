@@ -233,9 +233,11 @@ void
 keyboard_handler(
 		struct regs *r
 		) {
+	IRQ_OFF;
 	unsigned char scancode;
 	keyboard_wait();
 	scancode = inportb(KEY_DEVICE);
+	IRQ_ON;
 	if (keyboard_direct_handler) {
 		keyboard_direct_handler(scancode);
 		return;

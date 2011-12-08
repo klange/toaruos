@@ -113,6 +113,7 @@ void load_sprite(sprite_t * sprite, char * filename) {
 	}
 	free(bufferb);
 }
+
 void init_cursor(char * filename, char * alpha) {
 	cursor = malloc(sizeof(sprite_t));
 	load_sprite(cursor, filename);
@@ -128,6 +129,7 @@ void init_cursor(char * filename, char * alpha) {
 }
 
 void mouse_handler(struct regs *r) {
+	IRQ_OFF;
 	switch (mouse_cycle) {
 		case 0:
 			mouse_byte[0] = inportb(0x60);
@@ -152,22 +154,15 @@ void mouse_handler(struct regs *r) {
 			if (actual_y > 7670) actual_y = 7670;
 			short c_x = (short)(previous_x / 10 / 8);
 			short c_y = (short)((7670 - previous_y) / 10 / 12);
-			//short b_x = (short)(actual_x / 10 / 8);
-			//short b_y = (short)((7670 - actual_y) / 10 / 12);
 			for (short i = c_x - 2; i < c_x + 3; ++i) {
 				for (short j = c_y - 2; j < c_y + 3; ++j) {
 					bochs_redraw_cell(i,j);
 				}
 			}
-			/*
-			uint8_t sprite = 0;
-			if ((mouse_byte[0] & 0x01) == 0x01) sprite = 1;
-			if ((mouse_byte[0] & 0x02) == 0x02) sprite = 2;
-			*/
-			//bochs_fill_rect(b_x * 8, b_y * 12,8,12,color);
 			draw_sprite(cursor, actual_x / 10 - 24, 767 - actual_y / 10 - 24);
 			break;
 	}
+	IRQ_ON;
 }
 
 void mouse_wait(uint8_t a_type) {
