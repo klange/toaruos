@@ -92,7 +92,3 @@ uint32_t now() {
 	return t.tv_sec;
 }
 
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- */

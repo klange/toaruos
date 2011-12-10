@@ -294,7 +294,3 @@ set_kbd(
 	keyboard_state.ctrl  = ctrl;
 }
 
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- */

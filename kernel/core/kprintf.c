@@ -406,7 +406,3 @@ kgets(
 	return kgets_collected;
 }
 
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- */

@@ -35,7 +35,3 @@ enable_fpu() {
 	set_fpu_cw(0x37F);
 }
 
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- */

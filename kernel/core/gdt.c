@@ -137,7 +137,3 @@ set_kernel_stack(
 	tss_entry.esp0 = stack;
 }
 
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- */
