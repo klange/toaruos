@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #ifndef EXT2_H
 #define EXT2_h
 

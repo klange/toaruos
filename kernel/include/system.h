@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #ifndef __SYSTEM_H
 #define __SYSTEM_H
 #define _KERNEL_

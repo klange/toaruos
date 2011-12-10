@@ -1,6 +1,4 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
 #ifndef _TSS_H
 #define _TSS_H
@@ -38,3 +36,4 @@ struct tss_entry_s {
 } __attribute__ ((packed));
 
 #endif /* _TSS_H */
+

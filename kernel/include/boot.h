@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #ifndef BOOT_H
 #define BOOT_H
 /*

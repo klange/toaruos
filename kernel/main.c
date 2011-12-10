@@ -1,4 +1,4 @@
-/* vim: tabstop=4 noexpandtab shiftwidth=4
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * Copyright (c) 2011 Kevin Lange.  All rights reserved.
  *
@@ -155,3 +155,4 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 
 	return 0;
 }
+

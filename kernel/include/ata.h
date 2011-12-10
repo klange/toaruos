@@ -1,4 +1,4 @@
-/* vim: noexpandtab tabstop=4 shiftwidth=4
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * Values for ATA / PATA devices
  */

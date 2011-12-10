@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #ifndef TYPES_H
 #define TYPES_H
 

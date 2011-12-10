@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #ifndef _SYSCALL_H
 #define _SYSCALL_H
 
