@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Kernel printf implementation
  *
  * Simple, painfully lacking, implementation of printf(),

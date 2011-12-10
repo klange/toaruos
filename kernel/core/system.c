@@ -1,6 +1,11 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * System Functions
+ *
+ * Part of the ToAru OS Kernel
+ * (C) 2011 Kevin Lange
+ * Released under the terms of the NCSA License, see the included
+ * README file for further information.
  */
 #include <system.h>
 

@@ -1,7 +1,6 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * ANSI-esque Terminal Escape Driver
- * vim:tabstop=4
- * vim:noexpandtab
  */
 
 #include <system.h>

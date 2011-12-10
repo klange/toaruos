@@ -1,6 +1,7 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Syscall Tables
+ *
  */
 #include <system.h>
 #include <syscall.h>

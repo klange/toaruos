@@ -1,7 +1,6 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Kernel Memory Manager
- * vim:tabstop=4
- * vim:noexpandtab
  */
 
 #include <system.h>

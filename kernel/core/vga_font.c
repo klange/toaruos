@@ -1,6 +1,7 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Graphical mode terminal font
+ *
  */
 /* This is the default VGA 8 x 12 font */
 #include <system.h>

@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Kevin Lange's Slab Allocator
  *
  * Implemented for CS241, Fall 2010, machine problem 7
@@ -940,10 +941,3 @@ static void * __attribute__ ((malloc)) klcalloc(size_t nmemb, size_t size) {
 	return ptr;
 }
 /* }}} */
-
-
-/*
- * vim:noexpandtab
- * vim:tabstop=4
- * vim:shiftwidth=4
- */

@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Kernel Argument Parser
  *
  * Parses arguments passed by, ie, a Multiboot bootloader.

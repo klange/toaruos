@@ -1,3 +1,7 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Processes
+ */
 #include <system.h>
 #include <process.h>
 #include <tree.h>

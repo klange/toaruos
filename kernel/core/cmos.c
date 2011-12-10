@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * CMOS Driver
  *
  * Part of the ToAruOS Kernel

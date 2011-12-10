@@ -1,6 +1,9 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * VGA Text-mode handlers
+ *
+ * (For debugging, etc.)
+ *
  */
 #include <system.h>
 

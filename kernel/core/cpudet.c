@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Copyright (c) 2006-2007 -  http://brynet.biz.tm - <brynet@gmail.com>
  * All rights reserved.
  *

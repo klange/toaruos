@@ -1,6 +1,4 @@
-/*
- * vim:tabstop=4
- * vim:noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * Bochs VBE / QEMU vga=std Graphics Driver
  */

@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Global Descriptor Tables module
  *
  * Part of the ToAruOS Kernel

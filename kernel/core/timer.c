@@ -1,3 +1,7 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Programmable Interrupt Timer
+ */
 #include <system.h>
 
 #define PIT_A 0x40

@@ -1,3 +1,7 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Panic functions
+ */
 #include <system.h>
 
 void kernel_halt() {

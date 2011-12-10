@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Low-level keyboard interrupt driver.
  *
  * Part of the ToAruOS Kernel

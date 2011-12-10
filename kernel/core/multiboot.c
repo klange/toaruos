@@ -1,3 +1,7 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Multiboot (GRUB) handler
+ */
 #include <system.h>
 #include <multiboot.h>
 

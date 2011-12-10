@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * ELF Static Executable Loader
  *
  * Part of the ToAru OS Kernel
@@ -157,8 +158,3 @@ system(
 	}
 }
 
-/*
- * vim:noexpandtab
- * vim:tabstop=4
- * vim:shiftwidth=4
- */
