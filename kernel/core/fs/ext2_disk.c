@@ -41,14 +41,18 @@ static uint32_t btos(uint32_t block) {
 	return block * (BLOCKSIZE / SECTORSIZE); 
 }
 
+static uint8_t volatile lock;
+
 void ext2_disk_read_block(uint32_t block_no, uint8_t * buf) {
 	if (!block_no) return;
+	spin_lock(&lock);
 	int oldest = -1;
 	uint32_t oldest_age = UINT32_MAX;
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
 		if (DC[i].block_no == block_no) {
 			DC[i].last_use = now();
 			memcpy(buf, &DC[i].block, BLOCKSIZE);
+			spin_unlock(&lock);
 			return;
 		}
 		if (DC[i].last_use < oldest_age) {
@@ -61,10 +65,12 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t * buf) {
 	memcpy(buf, &DC[oldest].block, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
 	DC[oldest].last_use = now();
+	spin_unlock(&lock);
 }
 
 void ext2_disk_write_block(uint32_t block_no, uint8_t * buf) {
 	if (!block_no) return;
+	spin_lock(&lock);
 	ide_write_sector(DISK_PORT, 0, btos(block_no) + 0, (uint8_t *)((uint32_t)buf + 0));
 	timer_wait(10);
 	ide_write_sector(DISK_PORT, 0, btos(block_no) + 1, (uint8_t *)((uint32_t)buf + SECTORSIZE));
@@ -75,6 +81,7 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t * buf) {
 		if (DC[i].block_no == block_no) {
 			DC[i].last_use = now();
 			memcpy(&DC[i].block, buf, BLOCKSIZE);
+			spin_unlock(&lock);
 			return;
 		}
 		if (DC[i].last_use < oldest_age) {
@@ -85,6 +92,7 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t * buf) {
 	memcpy(&DC[oldest].block, buf, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
 	DC[oldest].last_use = now();
+	spin_unlock(&lock);
 }
 
 uint32_t ext2_disk_inode_block(ext2_inodetable_t * inode, uint32_t block, uint8_t * buf) {

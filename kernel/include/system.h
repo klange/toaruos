@@ -27,6 +27,9 @@ extern void *sbrk(uintptr_t increment);
 
 extern void tss_flush();
 
+extern void spin_lock(uint8_t volatile * lock);
+extern void spin_unlock(uint8_t volatile * lock);
+
 /* Kernel Main */
 extern int max(int,int);
 extern int abs(int);

@@ -9,6 +9,17 @@
  */
 #include <system.h>
 
+
+void spin_lock(uint8_t volatile * lock) {
+	while(__sync_lock_test_and_set(lock, 0x01)) {
+		switch_task();
+	}
+}
+
+void spin_unlock(uint8_t volatile * lock) {
+	__sync_lock_release(lock);
+}
+
 /*
  * memcpy
  * Copy from source to destination. Assumes that
