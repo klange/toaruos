@@ -2,9 +2,9 @@
 
 ## Harddisk Support
 * Write support for EXT2
-* Port EXT2 drivers to IDE read/write (superblock read testing was successful)
+* Port EXT2 drivers to IDE -read-/write (superblock read testing was successful)
 * Build a better VFS with support for disk mounting
-* Get all of the example binaries onto a hard disk image
+* -Get all of the example binaries onto a hard disk image-
 * **PORT GCC**
 
 ## Operation Viper
@@ -43,11 +43,46 @@
 * Port `yasm`, `make`
 
 ## Task Management
-* Fix user-mode `fork`
-* Add user-mode `wait` (with queues!)
+* -Fix user-mode `fork`-
+* -Add user-mode `wait`- (with queues!)
 * Signals (`signal()`, `kill()`, etc.)
 
 
 ## Signals and Exceptions
 
 SIGDIAF (Die in a fire)
+
+# EOH
+EOH, "Engineering Open House", is an annual event held at the University of Illinois at Urbana-Champaign which showcases student projects and research.
+
+## Primary Plans
+* Windowing environment
+* More user applications
+
+## Details
+
+### Windowing Environment
+
+EOH is focused on making stuff that looks cool. Judges are impressed by things they can see, thus the primary target for EOH is a GUI.
+
+Complete the windowing environment (which will eventually be rebuilt to implement Wayland, in the far future), will require:
+
+* Pipes (for user applications, terminal windows, etc.)
+* Shared memory buffers (single writer; client-server model; for window graphics buffers)
+* Input device files (for mouse and keyboard reads)
+
+Additionally, it would be nice to have:
+
+* Freetype (for smooth, unicode text rendering; I have had difficulties getting Freetype to process font files, this may be a bug in the ELF loader; try to trace what calls Freetype normally makes to figure thise out)
+* There is an embedded, pure-software implementation of OpenGL; consider porting it (because 3d stuff is cool)
+
+### Applications
+
+Both for the purpose of demonstrating the windowing environment and to make とあるOS more usable, it would be ideal to have a few usable applications.
+
+* A simple editor (I would love to port something real like Vim, but this has proven difficult due to external requirements)
+* Graphical applications such as:
+    * A calculator
+    * Some simple game (perhaps minesweeper)
+    * An analog clock
+* A compiler for something, even if it isn't C.
