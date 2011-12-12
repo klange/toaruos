@@ -32,7 +32,7 @@ uint32_t * bochs_vid_memory = (uint32_t *)0xE0000000;
 
 static short csr_x = 0;
 static short csr_y = 0;
-static uint8_t * term_buffer;
+static uint8_t * term_buffer = NULL;
 static uint8_t current_fg = 7;
 static uint8_t current_bg = 0;
 static uint16_t current_scroll = 0;

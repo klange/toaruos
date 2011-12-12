@@ -62,7 +62,7 @@ typedef struct process {
 	char *        name;         /* Process Name */
 	char *        description;  /* Process description */
 	user_t        user;         /* Effective user */
-	group_t       group;        /* Effective group */
+	group_t       group;        /* Process scheduling group */
 	thread_t      thread;       /* Associated task information */
 	tree_node_t * tree_entry;   /* Process Tree Entry */
 	image_t       image;        /* Binary image information */
@@ -71,7 +71,7 @@ typedef struct process {
 	fd_table_t    fds;          /* File descriptor table */
 	status_t      status;       /* Process status */
 	sig_table_t   signals;      /* Signal table */
-	uint8_t       finished;
+	uint8_t       finished;     /* Status indicator */
 } process_t;
 
 void initialize_process_tree();

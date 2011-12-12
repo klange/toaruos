@@ -179,6 +179,14 @@ process_t * process_wait(process_t * process, pid_t pid, int * status, int optio
 	return NULL;
 }
 
+/*
+ * Wake up a sleeping process
+ */
+int process_wake(process_t * process, process_t * caller) {
+
+	return 0;
+}
+
 void set_process_environment(process_t * proc, page_directory_t * directory) {
 	assert(proc);
 	assert(directory);
