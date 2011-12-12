@@ -12,4 +12,4 @@ clean:
 	-rm -f ${EXECUTABLES}
 
 ../hdd/bin/%: %.c
-	${CC} ${CFLAGS} -s -O3 -o $@ $<
+	${CC} ${CFLAGS} -s -o $@ $<
