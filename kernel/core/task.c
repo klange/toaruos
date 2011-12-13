@@ -152,6 +152,7 @@ switch_next() {
 	ebp = current_process->thread.ebp;
 	IRQ_OFF;
 	current_directory = current_process->thread.page_directory;
+	set_kernel_stack(current_process->image.stack);
 	//assertDir(current_directory);
 	asm volatile (
 			"mov %0, %%ebx\n"
@@ -171,6 +172,10 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 	set_kernel_stack(current_process->image.stack);
 	asm volatile(
 			"mov %3, %%esp\n"
+			"pushl $0\n"
+			"pushl %2\n"
+			"pushl %1\n"
+			"pushl $1\n"
 			"mov $0x23, %%ax\n"
 			"mov %%ax, %%ds\n"
 			"mov %%ax, %%es\n"
@@ -184,9 +189,8 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 			"orl  $0x200, %%eax\n"
 			"pushl %%eax\n"
 			"pushl $0x1B\n"
-			"pushl %2\n"
-			"pushl %1\n"
-			"call  *%0\n"
+			"pushl %0\n"
+			"iret\n"
 			: : "m"(location), "m"(argc), "m"(argv), "r"(stack) : "%ax", "%esp", "%eax");
 }
 

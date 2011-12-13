@@ -122,7 +122,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->image.heap_actual = parent->image.heap_actual;
 	proc->image.size        = parent->image.size;
 	proc->image.stack       = kvmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	proc->image.user_stack  = 0;
+	proc->image.user_stack  = parent->image.user_stack;
 
 	proc->fds.length   = parent->fds.length;
 	proc->fds.capacity = parent->fds.capacity;

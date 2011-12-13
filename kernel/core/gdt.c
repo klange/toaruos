@@ -123,6 +123,7 @@ write_tss(
 		tss_entry.es =
 		tss_entry.fs =
 		tss_entry.gs = 0x13;
+	tss_entry.iomap_base = sizeof(tss_entry);
 }
 
 /**

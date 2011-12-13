@@ -187,10 +187,10 @@ graphics_install_bochs() {
 
 	/* Enable the higher memory */
 	for (uintptr_t i = 0xE0000000; i <= 0xE0FF0000; i += 0x1000) {
-		dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
+		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 	}
 	for (uintptr_t i = 0xF0000000; i <= 0xF0FF0000; i += 0x1000) {
-		dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
+		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 	}
 
 	/* Go find it */
