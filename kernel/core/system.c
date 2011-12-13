@@ -232,6 +232,29 @@ outportb(
 	asm volatile ("outb %1, %0" : : "dN" (_port), "a" (_data));
 }
 
+
+/*
+ * Output multiple sets of shorts
+ */
+void outportsm(
+		unsigned short  port,
+		unsigned char * data,
+		unsigned long   size
+		) {
+	asm volatile ("rep outsw" : "+S" (data), "+c" (size) : "d" (port));
+}
+
+/*
+ * Input multiple sets of shorts
+ */
+void inportsm(
+		unsigned short  port,
+		unsigned char * data,
+		unsigned long   size
+		) {
+	asm volatile ("rep insw" : "+D" (data), "+c" (size) : "d" (port) : "memory");
+}
+
 char *
 strtok_r(
 		char * str,

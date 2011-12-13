@@ -28,11 +28,8 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
 	uint8_t status = 0;
 	while ((status = inportb(bus + 0x07)) & 0x80);
-	for (volatile uint32_t i = 0; i < 512; i += 2) {
-		uint16_t s = inports(bus);
-		buf[i] = s & 0xFF;
-		buf[i+1] = (s & 0xFF00) >> 8;
-	}
+	int size = 256;
+	inportsm(bus,buf,size);
 	IRQ_ON;
 }
 
@@ -48,10 +45,8 @@ void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) 
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 	uint8_t status = 0;
 	while ((status = inportb(bus + 0x07)) & 0x80);
-	for (volatile uint32_t i = 0; i < 512; i+=2) {
-		uint16_t s = (buf[i+1] << 8) + (buf[i]);
-		outports(bus, s);
-	}
+	int size = 256;
+	outportsm(bus,buf,size);
 	outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
 	IRQ_ON;
 }

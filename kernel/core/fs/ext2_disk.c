@@ -8,7 +8,7 @@
 
 #define BLOCKSIZE    1024
 #define SECTORSIZE   512
-#define CACHEENTRIES 512
+#define CACHEENTRIES 10240
 #define DISK_PORT 0x1F0
 
 typedef struct {

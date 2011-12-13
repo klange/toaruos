@@ -46,6 +46,8 @@ extern unsigned short inports(unsigned short _port);
 extern void outports(unsigned short _port, unsigned short _data);
 extern unsigned int inportl(unsigned short _port);
 extern void outportl(unsigned short _port, unsigned int _data);
+extern void outportsm(unsigned short port, unsigned char * data, unsigned long size);
+extern void inportsm(unsigned short port, unsigned char * data, unsigned long size);
 extern int strcmp(const char *a, const char *b);
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 extern size_t lfind(const char * str, const char accept);
