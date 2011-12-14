@@ -38,6 +38,7 @@
 #include <boot.h>
 #include <ext2.h>
 #include <fs.h>
+#include <logging.h>
 
 extern uintptr_t heap_end;
 
@@ -111,10 +112,12 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	isrs_install();		/* Interrupt service requests */
 	irq_install();		/* Hardware interrupt requests */
 
-
 	/* Memory management */
 	paging_install(mboot_ptr->mem_upper);	/* Paging */
 	heap_install();							/* Kernel heap */
+
+	/* Install the logging module */
+	logging_install();
 
 	/* Hardware drivers */
 	timer_install();	/* PIC driver */

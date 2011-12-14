@@ -24,7 +24,7 @@
 #include <list.h>
 #include <tree.h>
 #include <process.h>
-
+#include <logging.h>
 
 struct {
 	char path[1024];
@@ -426,6 +426,11 @@ uint32_t shell_cmd_ps(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_dmesg(int argc, char * argv[]) {
+	debug_print_log();
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",         shell_cmd_cd);
 	shell_install_command("ls",         shell_cmd_ls);
@@ -442,6 +447,7 @@ void install_commands() {
 	shell_install_command("test-list",  shell_cmd_testlist);
 	shell_install_command("test-tree",  shell_cmd_testtree);
 	shell_install_command("ps",         shell_cmd_ps);
+	shell_install_command("dmesg",      shell_cmd_dmesg);
 }
 
 void add_path_contents() {
