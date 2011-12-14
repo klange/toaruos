@@ -3,6 +3,10 @@
 
 This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS is currently maintained by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/). While the ultimate goal is a microkernel, we currently have a very monolithic kernel.
 
+
+## Notice ##
+*This repository is moving to [`acm-uiuc/toaruos`](https://github.com/acm-uiuc/toaruos) at the end of January, 2012. Please be prepared to update your pull URLs and any bookmarks you have.*
+
 ## Screenshots ##
 Here's what とあるOS looks like:
 
