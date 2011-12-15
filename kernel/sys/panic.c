@@ -16,9 +16,9 @@ void kernel_halt() {
 
 void halt_and_catch_fire(char * error_message, const char * file, int line, struct regs * regs) {
 	IRQ_OFF;
-	settextcolor(0,11);
-	kprintf("Process %d did a dumb.\n", getpid());
-	kprintf("PANIC! %s\n", error_message);
+	kprintf("\033[1;37;44m");
+	kprintf("HACF: %s\n", error_message);
+	kprintf("Proc: %d\n", getpid());
 	kprintf("File: %s\n", file);
 	kprintf("Line: %d\n", line);
 	if (regs) {
@@ -31,8 +31,8 @@ void halt_and_catch_fire(char * error_message, const char * file, int line, stru
 		kprintf("User ESP:   0x%x\n",  regs->useresp);
 		kprintf("eip=0x%x\n",          regs->eip);
 	}
-	kprintf("Killing process...\n");
-	resettextcolor();
+	kprintf("This process has been descheduled.\n");
+	kprintf("\033[0m");
 	kexit(0);
 }
 
