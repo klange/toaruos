@@ -8,6 +8,7 @@
  * can be considered copyrightable in your jurisdiction.
  */
 #include <system.h>
+#include <logging.h>
 
 /**
  * Set the FPU control word
@@ -28,6 +29,7 @@ set_fpu_cw(const uint16_t cw) {
  */
 void
 enable_fpu() {
+	LOG(INFO, "Enabling floating-point arithmetic unit");
 	size_t cr4;
 	asm volatile ("mov %%cr4, %0" : "=r"(cr4));
 	cr4 |= 0x200;

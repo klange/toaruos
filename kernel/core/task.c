@@ -5,6 +5,7 @@
  */
 #include <system.h>
 #include <process.h>
+#include <logging.h>
 
 uint32_t next_pid = 0;
 
@@ -89,6 +90,8 @@ clone_table(
 void
 tasking_install() {
 	IRQ_OFF; /* Disable interrupts */
+
+	LOG(NOTICE, "Initializing multitasking");
 
 	/* Initialize the process tree */
 	initialize_process_tree();

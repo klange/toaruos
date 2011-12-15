@@ -9,6 +9,7 @@
  */
 
 #include <system.h>
+#include <logging.h>
 
 #define KEY_UP_MASK   0x80
 #define KEY_CODE_MASK 0x7F
@@ -253,6 +254,7 @@ keyboard_handler(
 
 void
 keyboard_install() {
+	LOG(INFO, "Initializing PS/2 keyboard driver");
 	/* IRQ installer */
 	keyboard_buffer_handler = NULL;
 	keyboard_direct_handler = NULL;

@@ -3,6 +3,7 @@
  * Serial Port Driver
  */
 #include <system.h>
+#include <logging.h>
 
 #define SERIAL_PORT_A 0x3F8
 #define SERIAL_PORT_B 0x2F8
@@ -34,6 +35,7 @@ serial_handler(
 
 void
 serial_install() {
+	LOG(INFO, "Installing serial communication driver");
 	/* We will initialize the first serial port */
 	outportb(SERIAL_PORT_A + 1, 0x00);
 	outportb(SERIAL_PORT_A + 3, 0x80); /* Enable divisor mode */

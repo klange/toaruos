@@ -6,6 +6,7 @@
 #include <system.h>
 #include <syscall.h>
 #include <process.h>
+#include <logging.h>
 
 #define SPECIAL_CASE_STDIO
 
@@ -234,6 +235,7 @@ uint32_t num_syscalls = 18;
 
 void
 syscalls_install() {
+	LOG(INFO, "Initializing syscall table with %d functions", num_syscalls);
 	isrs_install_handler(0x7F, &syscall_handler);
 }
 

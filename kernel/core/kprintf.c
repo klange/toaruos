@@ -9,16 +9,15 @@
 #include <process.h>
 #include <va_list.h>
 
-static char buf[1024] = {-1};
-static int ptr = -1;
-
 /*
  * Integer to string
  */
 static void
 parse_num(
 		unsigned int value,
-		unsigned int base
+		unsigned int base,
+		char * buf,
+		int * ptr
 		) {
 	unsigned int n = value / base;
 	int r = value % base;
@@ -27,9 +26,10 @@ parse_num(
 		--n;
 	}
 	if (value >= base) {
-		parse_num(n, base);
+		parse_num(n, base, buf, ptr);
 	}
-	buf[ptr++] = (r+'0');
+	buf[*ptr] = (r+'0');
+	*ptr = *ptr + 1;
 }
 
 /*
@@ -37,11 +37,14 @@ parse_num(
  */
 static void
 parse_hex(
-		unsigned int value
+		unsigned int value,
+		char * buf,
+		int * ptr
 		) {
 	int i = 8;
 	while (i-- > 0) {
-		buf[ptr++] = "0123456789abcdef"[(value>>(i*4))&0xF];
+		buf[*ptr] = "0123456789abcdef"[(value>>(i*4))&0xF];
+		*ptr = *ptr + 1;
 	}
 }
 
@@ -57,6 +60,8 @@ kprintf(
 		const char *fmt,
 		...
 	   ) {
+	char buf[1024] = {-1};
+	int ptr = -1;
 	int i = 0;
 	char *s;
 	va_list args;
@@ -79,10 +84,10 @@ kprintf(
 				buf[ptr++] = (char)va_arg(args, int);
 				break;
 			case 'x': /* Hexadecimal number */
-				parse_hex((unsigned long)va_arg(args, unsigned long));
+				parse_hex((unsigned long)va_arg(args, unsigned long), buf, &ptr);
 				break;
 			case 'd': /* Decimal number */
-				parse_num((unsigned long)va_arg(args, unsigned long), 10);
+				parse_num((unsigned long)va_arg(args, unsigned long), 10, buf, &ptr);
 				break;
 			case '%': /* Escape */
 				buf[ptr++] = '%';
@@ -114,7 +119,7 @@ sprintf(
 	char *s;
 	va_list args;
 	va_start(args, fmt);
-	ptr = 0;
+	int ptr = 0;
 	for ( ; fmt[i]; ++i) {
 		if (fmt[i] != '%') {
 			buf[ptr++] = fmt[i];
@@ -132,10 +137,10 @@ sprintf(
 				buf[ptr++] = (char)va_arg(args, int);
 				break;
 			case 'x': /* Hexadecimal number */
-				parse_hex((unsigned long)va_arg(args, unsigned long));
+				parse_hex((unsigned long)va_arg(args, unsigned long), buf, &ptr);
 				break;
 			case 'd': /* Decimal number */
-				parse_num((unsigned long)va_arg(args, unsigned long), 10);
+				parse_num((unsigned long)va_arg(args, unsigned long), 10, buf, &ptr);
 				break;
 			case '%': /* Escape */
 				buf[ptr++] = '%';

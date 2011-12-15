@@ -22,6 +22,7 @@ static char * messages[] = {
 
 void logging_install() {
 	log_buffer = list_create();
+	LOG(INFO, "Kernel log initialized");
 }
 
 void debug_print_log_entry(log_entry_t * l) {

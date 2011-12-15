@@ -3,6 +3,7 @@
  * Programmable Interrupt Timer
  */
 #include <system.h>
+#include <logging.h>
 
 #define PIT_A 0x40
 #define PIT_B 0x41
@@ -48,6 +49,7 @@ timer_handler(
  * Device installer for the PIT
  */
 void timer_install() {
+	LOG(INFO,"Initializing interval timer");
 	irq_install_handler(0, timer_handler);
 	timer_phase(100); /* 100Hz */
 }
