@@ -4,6 +4,7 @@
  */
 
 #include <system.h>
+#include <logging.h>
 
 /* Triggers escape mode. */
 #define ANSI_ESCAPE  27
@@ -319,6 +320,7 @@ ansi_put(
 
 void
 ansi_init(void (*writer)(char), int w, int y) {
+	LOG(INFO,"Initializing ANSI console with writer function 0x%x and terminal size of %dx%d", (uint32_t)writer, (uint32_t)w, (uint32_t)y);
 	/* Terminal Defaults */
 	state.fg     = 7; /* Light grey */
 	state.bg     = 0; /* Black */

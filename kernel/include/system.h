@@ -5,6 +5,7 @@
 #define _KERNEL_
 #include <types.h>
 #include <fs.h>
+#include <va_list.h>
 
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
@@ -131,6 +132,7 @@ extern void set_kbd(int,int,int);
 extern void mouse_install();
 
 /* kprintf */
+extern size_t vasprintf(char * buf, const char *fmt, va_list args);
 extern void kprintf(const char *fmt, ...);
 extern int  sprintf(char *buf, const char *fmt, ...);
 extern int  kgets(char *buf, int size);

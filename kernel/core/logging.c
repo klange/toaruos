@@ -9,6 +9,7 @@
 #include <system.h>
 #include <list.h>
 #include <logging.h>
+#include <va_list.h>
 
 static list_t * log_buffer;
 
@@ -46,6 +47,9 @@ void klog(log_type_t type, char *module, unsigned int line, const char *fmt, ...
 	l->module = module;
 	l->line   = line;
 	l->text   = malloc(sizeof(char) * 1024);
-	sprintf(l->text, fmt);
+	va_list args;
+	va_start(args, fmt);
+	vasprintf(l->text, fmt, args);
+	va_end(args);
 	list_insert(log_buffer, l);
 }

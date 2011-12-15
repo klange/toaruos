@@ -48,77 +48,13 @@ parse_hex(
 	}
 }
 
-/**
- * (Kernel) Print a formatted string.
- * %s, %c, %x, %d, %%
- *
- * @param fmt Formatted string to print
- * @param ... Additional arguments to format
+/*
+ * vasprintf()
  */
-void
-kprintf(
-		const char *fmt,
-		...
-	   ) {
-	char buf[1024] = {-1};
-	int ptr = -1;
+size_t
+vasprintf(char * buf, const char *fmt, va_list args) {
 	int i = 0;
 	char *s;
-	va_list args;
-	va_start(args, fmt);
-	ptr = 0;
-	for ( ; fmt[i]; ++i) {
-		if (fmt[i] != '%') {
-			buf[ptr++] = fmt[i];
-			continue;
-		}
-		/* fmt[i] == '%' */
-		switch (fmt[++i]) {
-			case 's': /* String pointer -> String */
-				s = (char *)va_arg(args, char *);
-				while (*s) {
-					buf[ptr++] = *s++;
-				}
-				break;
-			case 'c': /* Single character */
-				buf[ptr++] = (char)va_arg(args, int);
-				break;
-			case 'x': /* Hexadecimal number */
-				parse_hex((unsigned long)va_arg(args, unsigned long), buf, &ptr);
-				break;
-			case 'd': /* Decimal number */
-				parse_num((unsigned long)va_arg(args, unsigned long), 10, buf, &ptr);
-				break;
-			case '%': /* Escape */
-				buf[ptr++] = '%';
-				break;
-			default: /* Nothing at all, just dump it */
-				buf[ptr++] = fmt[i];
-				break;
-		}
-	}
-	/* Ensure the buffer ends in a null */
-	buf[ptr] = '\0';
-	/* We're done with our arguments */
-	va_end(args);
-	/* Print that sucker */
-	if (ansi_ready) {
-		ansi_print(buf);
-	} else {
-		puts(buf);
-	}
-}
-
-int
-sprintf(
-		char * buf,
-		const char *fmt,
-		...
-	   ) {
-	int i = 0;
-	char *s;
-	va_list args;
-	va_start(args, fmt);
 	int ptr = 0;
 	for ( ; fmt[i]; ++i) {
 		if (fmt[i] != '%') {
@@ -153,6 +89,46 @@ sprintf(
 	/* Ensure the buffer ends in a null */
 	buf[ptr] = '\0';
 	return ptr;
+
+}
+
+/**
+ * (Kernel) Print a formatted string.
+ * %s, %c, %x, %d, %%
+ *
+ * @param fmt Formatted string to print
+ * @param ... Additional arguments to format
+ */
+void
+kprintf(
+		const char *fmt,
+		...
+	   ) {
+	char buf[1024] = {-1};
+	va_list args;
+	va_start(args, fmt);
+	vasprintf(buf, fmt, args);
+	/* We're done with our arguments */
+	va_end(args);
+	/* Print that sucker */
+	if (ansi_ready) {
+		ansi_print(buf);
+	} else {
+		puts(buf);
+	}
+}
+
+int
+sprintf(
+		char * buf,
+		const char *fmt,
+		...
+	   ) {
+	va_list args;
+	va_start(args, fmt);
+	int out = vasprintf(buf, fmt, args);
+	va_end(args);
+	return out;
 }
 
 /*
