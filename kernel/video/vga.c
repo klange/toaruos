@@ -258,10 +258,8 @@ static void redraw_csr() {
 
 
 static void vga_set_color(unsigned char fg, unsigned char bg) {
-#if 0
 	if (fg > 16) fg = 7;
 	if (bg > 16) bg = 7;
-#endif
 	fg = vga_to_ansi[fg];
 	bg = vga_to_ansi[bg];
 	settextcolor(fg, bg);

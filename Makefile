@@ -11,9 +11,17 @@ NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra -Wno-unused-parameter
 LD = ld -m elf_i386
 YASM = yasm
 # Feel free to be specific, but I'd rather you not be.
-MODULES = $(patsubst %.c,%.o,$(wildcard kernel/core/*.c))
-FILESYSTEMS = $(patsubst %.c,%.o,$(wildcard kernel/core/fs/*.c))
-VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/core/video/*.c))
+FILESYSTEMS  = $(patsubst %.c,%.o,$(wildcard kernel/fs/*.c))
+VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/video/*.c))
+DEVICES      = $(patsubst %.c,%.o,$(wildcard kernel/devices/*.c))
+VIRTUALMEM   = $(patsubst %.c,%.o,$(wildcard kernel/mem/*.c))
+MISCMODS     = $(patsubst %.c,%.o,$(wildcard kernel/misc/*.c))
+SYSTEM       = $(patsubst %.c,%.o,$(wildcard kernel/sys/*.c))
+DATASTRUCTS  = $(patsubst %.c,%.o,$(wildcard kernel/ds/*.c))
+CPUBITS      = $(patsubst %.c,%.o,$(wildcard kernel/cpu/*.c))
+
+SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS}
+
 BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/cat hdd/bin/sh hdd/bin/clear
 UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
@@ -73,9 +81,9 @@ docs/core.pdf: docs/*.tex
 ################
 #    Kernel    #
 ################
-toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS}
+toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES}
 	@${BEG} "LD" "$<"
-	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o kernel/core/*.o kernel/core/fs/*.o kernel/core/video/*.o ${ERRORS}
+	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o ${SUBMODULES} ${ERRORS}
 	@${END} "LD" "$<"
 	@${INFO} "--" "Kernel is ready!"
 
@@ -201,9 +209,7 @@ bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin util/bin/mrboots-insta
 clean-soft:
 	@${BEGRM} "RM" "Cleaning modules..."
 	@-rm -f kernel/*.o
-	@-rm -f kernel/core/*.o
-	@-rm -f kernel/core/fs/*.o
-	@-rm -f kernel/core/video/*.o
+	@-rm -f ${SUBMODULES}
 	@${ENDRM} "RM" "Cleaned modules."
 
 clean-docs:
