@@ -85,7 +85,11 @@ static int write(int fd, char * ptr, int len) {
 	return out;
 }
 
-static int wait(unsigned int child) {
+static int wait(int child) {
+	if (child < 1) {
+		kprintf("lol nope\n");
+		return 0;
+	}
 	process_t * volatile child_task = process_from_pid(child);
 	/* If the child task doesn't exist, bail */
 	if (!child_task) return -1;
@@ -248,6 +252,9 @@ syscall_handler(
 	}
 	uintptr_t location = syscalls[r->eax];
 
+	/* In case of a fork, we need to return the PID to the correct place */
+	volatile uintptr_t stack = current_process->image.stack - KERNEL_STACK_SIZE;
+
 	uint32_t ret;
 	asm volatile (
 			"push %1\n"
@@ -262,5 +269,10 @@ syscall_handler(
 			"pop %%ebx\n"
 			"pop %%ebx\n"
 			: "=a" (ret) : "r" (r->edi), "r" (r->esi), "r" (r->edx), "r" (r->ecx), "r" (r->ebx), "r" (location));
+	volatile uintptr_t n_stack = current_process->image.stack - KERNEL_STACK_SIZE;
+	if (n_stack != stack) {
+		uintptr_t temp = ((uintptr_t)r - stack);
+		r = (struct regs *)(n_stack + temp);
+	}
 	r->eax = ret;
 }

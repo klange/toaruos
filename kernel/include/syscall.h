@@ -67,7 +67,7 @@ DECL_SYSCALL0(getpid);
 DECL_SYSCALL3(execve, char *, char **, char **);
 DECL_SYSCALL0(fork);
 DECL_SYSCALL2(kill, int, int);
-DECL_SYSCALL1(wait, unsigned int);
+DECL_SYSCALL1(wait, int);
 
 /* Memory management */
 DECL_SYSCALL1(sbrk, int);

@@ -207,8 +207,8 @@ irq_common_stub:
 
 global read_eip
 read_eip: ; Clever girl
-    pop eax
-    jmp eax
+	pop eax
+	jmp eax
 
 global copy_page_physical
 copy_page_physical:
