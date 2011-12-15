@@ -101,7 +101,9 @@ static int wait(int child) {
 		switch_task();
 	}
 	/* Grab the child's return value */
-	return child_task->status;
+	int ret = child_task->status;
+	free(child_task);
+	return ret;
 }
 
 static int open(const char * file, int flags, int mode) {

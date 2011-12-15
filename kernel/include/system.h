@@ -24,6 +24,8 @@
 
 #define STOP while (1) { PAUSE; }
 
+#define SYSCALL_VECTOR 0x7F
+
 extern void *sbrk(uintptr_t increment);
 
 extern void tss_flush();
@@ -164,7 +166,7 @@ typedef struct page {
 	uint32_t dirty:1;
 	uint32_t unused:7;
 	uint32_t frame:20;
-} page_t;
+} __attribute__((packed)) page_t;
 
 typedef struct page_table {
 	page_t pages[1024];

@@ -94,26 +94,26 @@ isrs_install() {
 	idt_set_gate(29, (unsigned)_isr29, 0x08, 0x8E);
 	idt_set_gate(30, (unsigned)_isr30, 0x08, 0x8E);
 	idt_set_gate(31, (unsigned)_isr31, 0x08, 0x8E);
-	idt_set_gate(0x7F, (unsigned)_isr127, 0x08, 0x8E);
+	idt_set_gate(SYSCALL_VECTOR, (unsigned)_isr127, 0x08, 0x8E);
 }
 
 char *exception_messages[] = {
-	"Division by zero",
+	"Division by zero",				/* 0 */
 	"Debug",
 	"Non-maskable interrupt",
 	"Breakpoint",
 	"Detected overflow",
-	"Out-of-bounds",
+	"Out-of-bounds",				/* 5 */
 	"Invalid opcode",
 	"No coprocessor",
 	"Double fault",
 	"Coprocessor segment overrun",
-	"Bad TSS",
+	"Bad TSS",						/* 10 */
 	"Segment not present",
 	"Stack fault",
 	"General protection fault",
 	"Page fault",
-	"Unknown interrupt",
+	"Unknown interrupt",			/* 15 */
 	"Coprocessor fault",
 	"Alignment check",
 	"Machine check",
@@ -133,6 +133,9 @@ char *exception_messages[] = {
 };
 
 void fault_handler(struct regs *r) {
+	if (r->int_no >= 32 && r->int_no != SYSCALL_VECTOR) {
+		STOP;
+	}
 	void (*handler)(struct regs *r);
 	handler = isrs_routines[r->int_no];
 	if (handler) {

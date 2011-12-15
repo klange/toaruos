@@ -12,6 +12,7 @@
 
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_queue; /* Ready queue */
+list_t * reap_queue;    /* Processes to reap */
 volatile process_t * current_process = NULL;
 
 /* Default process name string */
@@ -23,6 +24,7 @@ char * default_name = "[unnamed]";
 void initialize_process_tree() {
 	process_tree = tree_create();
 	process_queue = list_create();
+	reap_queue = list_create();
 }
 
 /*
@@ -73,6 +75,14 @@ process_t * next_ready_process() {
 	return next;
 }
 
+process_t * next_reapable_process() {
+	node_t * np = list_dequeue(reap_queue);
+	assert(np && "Nothing to reap.");
+	process_t * next = np->value;
+	free(np);
+	return next;
+}
+
 /*
  * Reinsert a process into the ready queue.
  *
@@ -80,6 +90,10 @@ process_t * next_ready_process() {
  */
 void make_process_ready(process_t * proc) {
 	list_insert(process_queue, (void *)proc);
+}
+
+void make_process_reapable(process_t * proc) {
+	list_insert(reap_queue, (void *)proc);
 }
 
 /*
@@ -202,10 +216,13 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->image.stack       = kvmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
 	proc->image.user_stack  = parent->image.user_stack;
 
+	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
+
 	/* Clone the file descriptors from the original process */
 	proc->fds.length   = parent->fds.length;
 	proc->fds.capacity = parent->fds.capacity;
 	proc->fds.entries  = malloc(sizeof(fs_node_t *) * proc->fds.capacity);
+	assert(proc->fds.entries && "Failed to allocate file descriptor table for new process.");
 	for (uint32_t i = 0; i < parent->fds.length; ++i) {
 		proc->fds.entries[i] = clone_fs(parent->fds.entries[i]);
 	}
@@ -213,6 +230,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	/* As well as the working directory */
 	proc->wd_node = clone_fs(parent->wd_node);
 	proc->wd_name = malloc((strlen(parent->wd_name) + 1) * sizeof(char));
+	assert(proc->wd_name && "Failed to allocate cwd string for new process.");
 	memcpy(proc->wd_name, parent->wd_name, strlen(parent->wd_name) + 1);
 
 	/* Zero out the process status */
@@ -222,6 +240,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */
 	tree_node_t * entry = tree_node_create(proc);
+	assert(entry && "Failed to allocate a process tree node for new process.");
 	proc->tree_entry = entry;
 	tree_node_insert_child_node(process_tree, parent->tree_entry, entry);
 
@@ -303,6 +322,10 @@ void set_process_environment(process_t * proc, page_directory_t * directory) {
  */
 uint8_t process_available() {
 	return (process_queue->head != NULL);
+}
+
+uint8_t should_reap() {
+	return (reap_queue->head != NULL);
 }
 
 /*

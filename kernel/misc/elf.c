@@ -154,7 +154,9 @@ system(
 			if (child_task->finished != 0) break;
 		}
 		/* Grab the child's return value */
-		return child_task->status;
+		int ret = child_task->status;
+		free(child_task);
+		return ret;
 	}
 }
 

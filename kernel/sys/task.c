@@ -50,6 +50,34 @@ clone_directory(
 }
 
 /*
+ * Free a directory and its tables
+ */
+void free_directory(page_directory_t * dir) {
+	uint32_t i;
+	for (i = 0; i < 1024; ++i) {
+		if (!dir->tables[i] || (uintptr_t)dir->tables[i] == (uintptr_t)0xFFFFFFFF) {
+			continue;
+		}
+		if (kernel_directory->tables[i] != dir->tables[i]) {
+			for (uint32_t j = 0; j < 1024; ++j) {
+				if (dir->tables[i]->pages[j].frame) {
+					free_frame(&(dir->tables[i]->pages[j]));
+				}
+			}
+			free(dir->tables[i]);
+		}
+	}
+	free(dir);
+}
+
+void reap_process(process_t * proc) {
+	delete_process(proc);
+	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
+	free_directory(proc->thread.page_directory);
+	free((void *)(proc->fds.entries));
+}
+
+/*
  * Clone a page table
  *
  * @param src      Pointer to a page table to clone.
@@ -121,10 +149,13 @@ fork() {
 
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
+	assert(parent && "Forked from nothing??");
 	/* Clone the current process' page directory */
 	page_directory_t * directory = clone_directory(current_directory);
+	assert(directory && "Could not allocate a new page directory!");
 	/* Spawn a new process from this one */
 	process_t * new_proc = spawn_process(current_process);
+	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to clone */
 	set_process_environment(new_proc, directory);
 	/* Read the instruction pointer */
@@ -201,6 +232,11 @@ switch_task() {
 	if (eip == 0x10000) {
 		/* Returned from EIP after task switch, we have
 		 * finished switching. */
+		IRQ_OFF;
+		while (should_reap()) {
+			process_t * proc = next_reapable_process();
+			reap_process(proc);
+		}
 		IRQ_ON;
 		return;
 	}
@@ -309,6 +345,7 @@ void task_exit(int retval) {
 	free((void *)current_process->fds.entries);
 	free((void *)current_process);
 #endif
+	make_process_reapable((process_t *)current_process);
 	switch_next();
 }
 

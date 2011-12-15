@@ -143,6 +143,7 @@ first_frame() {
 			}
 		}
 	}
+	assert(0 && "Well, this sucks.");
 	return -1;
 }
 
@@ -152,15 +153,15 @@ alloc_frame(
 		int is_kernel,
 		int is_writeable
 		) {
-	if (page->frame) {
+	if (page->frame != 0) {
+#if 0
 		page->rw      = (is_writeable == 1) ? 1 : 0;
 		page->user    = (is_kernel == 1)    ? 0 : 1;
+#endif
 		return;
 	} else {
 		uint32_t index = first_frame();
-		if (index == (uint32_t)-1) {
-			HALT_AND_CATCH_FIRE("Failed to allocate a frame: out of frames", NULL);
-		}
+		assert(index != (uint32_t)-1 && "Out of frames.");
 		set_frame(index * 0x1000);
 		page->present = 1;
 		page->rw      = (is_writeable == 1) ? 1 : 0;
@@ -189,16 +190,17 @@ free_frame(
 		) {
 	uint32_t frame;
 	if (!(frame = page->frame)) {
+		assert(0);
 		return;
 	} else {
-		clear_frame(frame);
+		clear_frame(frame * 0x1000);
 		page->frame = 0x0;
 	}
 }
 
 void
 paging_install(uint32_t memsize) {
-	nframes = memsize  / 4;
+	nframes = memsize  / 16;
 	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
@@ -216,11 +218,9 @@ paging_install(uint32_t memsize) {
 
 	/* Kernel Heap Space */
 	for (i = placement_pointer; i < 0x2000000; i += 0x1000) {
-		get_page(i, 1, kernel_directory);
+		//get_page(i, 1, kernel_directory);
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
 	}
-
-
 
 	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(kernel_directory);
@@ -313,8 +313,9 @@ void *
 sbrk(
 	uintptr_t increment
     ) {
-	ASSERT(increment % 0x1000 == 0);
-	ASSERT(heap_end % 0x1000 == 0);
+	ASSERT((increment % 0x1000 == 0) && "Kernel requested to expand heap by a non-page-multiple value");
+	ASSERT((heap_end % 0x1000 == 0)  && "Kernel heap is not page-aligned!");
+	ASSERT(heap_end + increment <= 0x02000000 && "The kernel has attempted to allocate beyond the end of its heap.");
 	uintptr_t address = heap_end;
 	heap_end += increment;
 	memset((void *)address, 0x0, increment);
