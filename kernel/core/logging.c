@@ -27,11 +27,20 @@ void logging_install() {
 }
 
 void debug_print_log_entry(log_entry_t * l) {
-	kprintf("[%s] %s line %d: %s\n",
+	int i;
+	i = kprintf("[%s] %s ",
 			messages[l->type],
-			l->module,
-			l->line,
-			l->text);
+			l->module);
+	while (i < 40) {
+		kprintf(" ");
+		++i;
+	}
+	i = kprintf("line %d", l->line);
+	while (i < 10) {
+		kprintf(" ");
+		++i;
+	}
+	kprintf("%s\n", l->text);
 }
 
 void debug_print_log() {

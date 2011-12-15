@@ -1,6 +1,7 @@
 #include <system.h>
 #include <ext2.h>
 #include <fs.h>
+#include <logging.h>
 
 ext2_superblock_t * initrd_superblock;
 ext2_inodetable_t * initrd_root_node;
@@ -387,4 +388,5 @@ initrd_mount(
 	initrd_root = (fs_node_t *)malloc(sizeof(fs_node_t));
 	assert(initrd_node_root(root_inode, initrd_root));
 	fs_root = initrd_root;
+	LOG(INFO, "Mounted EXT2 ramdisk at 0x%x-0x%x, root VFS node is 0x%x", mem_head, mem_top, initrd_root);
 }

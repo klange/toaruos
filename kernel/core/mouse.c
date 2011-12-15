@@ -2,6 +2,7 @@
  * Mouse driver
  */
 #include <system.h>
+#include <logging.h>
 
 uint8_t mouse_cycle = 0;
 int8_t  mouse_byte[3];
@@ -201,6 +202,7 @@ uint8_t mouse_read() {
 }
 
 void mouse_install() {
+	LOG(INFO, "Initializing mouse cursor driver");
 	uint8_t status;
 	IRQ_OFF;
 	mouse_wait(1);

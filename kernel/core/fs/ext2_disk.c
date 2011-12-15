@@ -3,6 +3,7 @@
 #include <system.h>
 #include <ext2.h>
 #include <fs.h>
+#include <logging.h>
 
 #define EXT2_DEBUG_BLOCK_DESCRIPTORS 0
 
@@ -503,6 +504,7 @@ void ext2_disk_mount() {
 	RN = (fs_node_t *)malloc(sizeof(fs_node_t));
 	assert(ext2_disk_node_root(root_inode, RN));
 	fs_root = RN;
+	LOG(INFO,"Mounted EXT2 disk, root VFS node is at 0x%x", RN);
 }
 
 void ext2_disk_forget_superblock() {

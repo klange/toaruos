@@ -133,9 +133,9 @@ extern void mouse_install();
 
 /* kprintf */
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
-extern void kprintf(const char *fmt, ...);
-extern int  sprintf(char *buf, const char *fmt, ...);
-extern int  kgets(char *buf, int size);
+extern int    kprintf(const char *fmt, ...);
+extern int    sprintf(char *buf, const char *fmt, ...);
+extern int    kgets(char *buf, int size);
 typedef void (*kgets_redraw_t)();
 extern kgets_redraw_t kgets_redraw_func;
 typedef void (*kgets_tab_complete_t)(char *);

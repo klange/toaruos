@@ -99,7 +99,7 @@ vasprintf(char * buf, const char *fmt, va_list args) {
  * @param fmt Formatted string to print
  * @param ... Additional arguments to format
  */
-void
+int
 kprintf(
 		const char *fmt,
 		...
@@ -107,7 +107,7 @@ kprintf(
 	char buf[1024] = {-1};
 	va_list args;
 	va_start(args, fmt);
-	vasprintf(buf, fmt, args);
+	int out = vasprintf(buf, fmt, args);
 	/* We're done with our arguments */
 	va_end(args);
 	/* Print that sucker */
@@ -116,6 +116,7 @@ kprintf(
 	} else {
 		puts(buf);
 	}
+	return out;
 }
 
 int
