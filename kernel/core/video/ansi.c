@@ -59,11 +59,18 @@ static struct _ansi_state {
 	char *   buffer;  /* Previous buffer */
 } state;
 
-void (*ansi_writer)(char) = &bochs_write;
+void (*ansi_writer)(char) = NULL;
+void (*ansi_set_color)(unsigned char, unsigned char) = NULL;
+void (*ansi_set_csr)(int,int) = NULL;
+int  (*ansi_get_csr_x)(void) = NULL;
+int  (*ansi_get_csr_y)(void) = NULL;
+void (*ansi_set_cell)(int,int,char) = NULL;
+void (*ansi_cls)(void) = NULL;
+
+void (*redraw_cursor)(void) = NULL;
 
 void
 ansi_dump_buffer() {
-	/* Assuming bochs_write() is the unprocessed output function */
 	for (int i = 0; i < state.buflen; ++i) {
 		ansi_writer(state.buffer[i]);
 	}
@@ -205,8 +212,8 @@ ansi_put(
 						break;
 					case ANSI_SHOW:
 						if (!strcmp(argv[0], "?1049")) {
-							cls();
-							bochs_set_csr(0,0);
+							ansi_cls();
+							ansi_set_csr(0,0);
 						}
 						break;
 					case ANSI_CUF:
@@ -215,7 +222,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							bochs_set_csr(bochs_get_csr_x() + i, bochs_get_csr_y());
+							ansi_set_csr(ansi_get_csr_x() + i, ansi_get_csr_y());
 						}
 						break;
 					case ANSI_CUU:
@@ -224,7 +231,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							bochs_set_csr(bochs_get_csr_x(), bochs_get_csr_y() - i);
+							ansi_set_csr(ansi_get_csr_x(), ansi_get_csr_y() - i);
 						}
 						break;
 					case ANSI_CUD:
@@ -233,7 +240,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							bochs_set_csr(bochs_get_csr_x(), bochs_get_csr_y() + i);
+							ansi_set_csr(ansi_get_csr_x(), ansi_get_csr_y() + i);
 						}
 						break;
 					case ANSI_CUB:
@@ -242,18 +249,18 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							bochs_set_csr(bochs_get_csr_x() - i, bochs_get_csr_y());
+							ansi_set_csr(ansi_get_csr_x() - i, ansi_get_csr_y());
 						}
 						break;
 					case ANSI_CUP:
 						if (argc < 2) {
-							bochs_set_csr(0,0);
+							ansi_set_csr(0,0);
 							break;
 						}
-						bochs_set_csr(atoi(argv[1]) - 1, atoi(argv[0]) - 1);
+						ansi_set_csr(atoi(argv[1]) - 1, atoi(argv[0]) - 1);
 						break;
 					case ANSI_ED:
-						cls();
+						ansi_cls();
 						break;
 					case ANSI_EL:
 						{
@@ -262,17 +269,17 @@ ansi_put(
 								what = atoi(argv[0]);
 							}
 							if (what == 0) {
-								x = bochs_get_csr_x();
-								y = bochs_get_width();
+								x = ansi_get_csr_x();
+								y = state.width;
 							} else if (what == 1) {
 								x = 0;
-								y = bochs_get_csr_x();
+								y = ansi_get_csr_x();
 							} else if (what == 2) {
 								x = 0;
-								y = bochs_get_width();
+								y = state.width;
 							}
 							for (int i = x; i < y; ++i) {
-								bochs_set_cell(i, bochs_get_csr_y(), ' ');
+								ansi_set_cell(i, ansi_get_csr_y(), ' ');
 							}
 						}
 						break;
@@ -289,9 +296,9 @@ ansi_put(
 						break;
 					case 'd':
 						if (argc < 1) {
-							bochs_set_csr(bochs_get_csr_x(), 0);
+							ansi_set_csr(ansi_get_csr_x(), 0);
 						} else {
-							bochs_set_csr(bochs_get_csr_x(), atoi(argv[0]) - 1);
+							ansi_set_csr(ansi_get_csr_x(), atoi(argv[0]) - 1);
 						}
 						break;
 					default:
@@ -300,9 +307,9 @@ ansi_put(
 				}
 				/* Set the states */
 				if (state.flags & ANSI_BOLD && state.fg < 9) {
-					bochs_set_colors(state.fg % 8 + 8, state.bg);
+					ansi_set_color(state.fg % 8 + 8, state.bg);
 				} else {
-					bochs_set_colors(state.fg, state.bg);
+					ansi_set_color(state.fg, state.bg);
 				}
 				/* Clear out the buffer */
 				free(state.buffer);
@@ -319,8 +326,18 @@ ansi_put(
 }
 
 void
-ansi_init(void (*writer)(char), int w, int y) {
+ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char), void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,char), void (*cls)(void), void (*redraw_csr)(void)) {
 	LOG(INFO,"Initializing ANSI console, writer=0x%x, size=%dx%d", (uint32_t)writer, (uint32_t)w, (uint32_t)y);
+
+	ansi_writer    = writer;
+	ansi_set_color = setcolor;
+	ansi_set_csr   = setcsr;
+	ansi_get_csr_x = getcsrx;
+	ansi_get_csr_y = getcsry;
+	ansi_set_cell  = setcell;
+	ansi_cls       = cls;
+	redraw_cursor  = redraw_csr;
+
 	/* Terminal Defaults */
 	state.fg     = 7; /* Light grey */
 	state.bg     = 0; /* Black */
@@ -328,7 +345,6 @@ ansi_init(void (*writer)(char), int w, int y) {
 	state.width  = w; /* 1024 / 8  */
 	state.height = y; /* 768  / 12 */
 	ansi_ready   = 1;
-	ansi_writer  = writer;
 }
 
 void

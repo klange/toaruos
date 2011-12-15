@@ -156,6 +156,8 @@ void mouse_handler(struct regs *r) {
 			if (actual_x > 10230) actual_x = 10230;
 			if (actual_y < 0) actual_y = 0;
 			if (actual_y > 7670) actual_y = 7670;
+			if (!bochs_resolution_x)
+				break;
 			short c_x = (short)(previous_x / 10 / 8);
 			short c_y = (short)((7670 - previous_y) / 10 / 12);
 			for (short i = c_x - 2; i < c_x + 3; ++i) {

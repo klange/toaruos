@@ -203,7 +203,7 @@ kgets_handler(
 						kwrite(91);
 						kwrite(68);
 						kgets_offset--;
-						bochs_redraw_cursor();
+						redraw_cursor();
 					}
 				}
 				break;
@@ -218,7 +218,7 @@ kgets_handler(
 						kwrite(91);
 						kwrite(67);
 						kgets_offset++;
-						bochs_redraw_cursor();
+						redraw_cursor();
 					}
 				}
 				break;
@@ -257,7 +257,7 @@ kgets_handler(
 				}
 				kgets_offset--;
 				kgets_collected--;
-				bochs_redraw_cursor();
+				redraw_cursor();
 			} else {
 				/* Erase the end of the buffer */
 				if (current_process != kgets_client) {
@@ -321,7 +321,7 @@ kgets_handler(
 			kwrite(91);
 			kwrite(68);
 		}
-		bochs_redraw_cursor();
+		redraw_cursor();
 		IRQ_ON;
 	} else {
 		kwrite(ch);

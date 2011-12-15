@@ -112,9 +112,6 @@ cls() {
 	csr_x = 0;
 	csr_y = 0;
 	move_csr();
-	if (bochs_resolution_x) {
-		bochs_term_clear();
-	}
 }
 
 /*
@@ -160,7 +157,7 @@ writechf(
  */
 void
 writech(
-		unsigned char c
+		char c
 	   ) {
 	unsigned short *where;
 	unsigned att = attrib << 8;
@@ -221,23 +218,6 @@ settextcolor(
 		unsigned char backcolor
 		) {
 	attrib = (backcolor << 4) | (forecolor & 0x0F);
-	forecolor = vga_to_ansi[forecolor];
-	backcolor = vga_to_ansi[backcolor];
-	if (use_serial) {
-		serial_send('\033');
-		serial_send('[');
-		serial_send('3');
-		serial_send(forecolor % 8 + '0');
-		serial_send(';');
-		serial_send('4');
-		serial_send(backcolor % 8 + '0');
-		if (forecolor > 7) {
-			serial_send(';');
-			serial_send('1');
-		}
-		serial_send('m');
-	}
-	bochs_set_colors(forecolor, backcolor);
 }
 
 /*
@@ -247,18 +227,44 @@ settextcolor(
 void
 resettextcolor() {
 	settextcolor(7,0);
-	if (use_serial) {
-		serial_send('\033');
-		serial_send('[');
-		serial_send('0');
-		serial_send('m');
-	}
-	bochs_reset_colors();
 }
 
 void
 brighttextcolor() {
 	settextcolor(15,0);
+}
+
+static int vga_get_csr_x() {
+	return csr_x;
+}
+
+static int vga_get_csr_y() {
+	return csr_y;
+}
+
+static void vga_set_csr(int x, int y) {
+	csr_x = x;
+	csr_y = y;
+	move_csr();
+}
+
+static void vga_set_cell(int x, int y, char c) {
+	placech(c, x, y, attrib);
+}
+
+static void redraw_csr() {
+	move_csr();
+}
+
+
+static void vga_set_color(unsigned char fg, unsigned char bg) {
+#if 0
+	if (fg > 16) fg = 7;
+	if (bg > 16) bg = 7;
+#endif
+	fg = vga_to_ansi[fg];
+	bg = vga_to_ansi[bg];
+	settextcolor(fg, bg);
 }
 
 /*
@@ -269,4 +275,6 @@ void init_video() {
 	textmemptr = (unsigned short *)0xB8000;
 	csr_y = 10;
 	move_csr();
+
+	ansi_init(&writech, 80, 25, &vga_set_color, &vga_set_csr, &vga_get_csr_x, &vga_get_csr_y, &vga_set_cell, &cls, &redraw_csr);
 }

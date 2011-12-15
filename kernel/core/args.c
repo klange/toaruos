@@ -59,7 +59,6 @@ parse_args(
 			if (!strcmp(argp[1],"qemu")) {
 				/* Bochs / Qemu Video Device */
 				graphics_install_bochs();
-				ansi_init(&bochs_write, 128, 64);
 			} else {
 				kprintf("Unrecognized video adapter: %s\n", argp[1]);
 			}

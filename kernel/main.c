@@ -128,9 +128,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	enable_fpu();		/* Enable the floating point unit */
 	syscalls_install();	/* Install the system calls */
 
-	/* Initialize the standard VGA display */
-	ansi_init(&writech, 80, 25);
-
 	if (boot_mode == multiboot) {
 
 		if (mboot_ptr->flags & (1 << 3)) {

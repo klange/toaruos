@@ -68,7 +68,7 @@ extern void brighttextcolor();
 extern void init_video();
 extern void placech(unsigned char c, int x, int y, int attr);
 extern void writechf(unsigned char c);
-extern void writech(unsigned char c);
+extern void writech(char c);
 extern void place_csr(uint32_t x, uint32_t y);
 extern void store_csr();
 extern void restore_csr();
@@ -312,8 +312,9 @@ extern void bochs_redraw_cursor();
 /* ANSI Terminal Escape Processor */
 void ansi_put(char c);
 void ansi_print(char * c);
-void ansi_init();
+void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char), void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,char), void (*cls)(void), void (*redraw_csr)(void));
 int  ansi_ready;
+void (*redraw_cursor)(void);
 
 extern uint8_t number_font[][12];
 

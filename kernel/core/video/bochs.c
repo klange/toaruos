@@ -214,6 +214,7 @@ mem_found:
 
 	/* Buffer contains characters, fg (of 256), bg (same), flags (one byte) */
 	term_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 4 * TERM_WIDTH * TERM_HEIGHT);
+	ansi_init(&bochs_write, 128, 64, &bochs_set_colors, &bochs_set_csr, &bochs_get_csr_x, &bochs_get_csr_y, &bochs_set_cell, &bochs_term_clear, &bochs_redraw_cursor);
 }
 
 static void
