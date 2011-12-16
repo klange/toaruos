@@ -25,6 +25,7 @@
 #include <tree.h>
 #include <process.h>
 #include <logging.h>
+#include <version.h>
 
 struct {
 	char path[1024];
@@ -462,6 +463,24 @@ uint32_t shell_cmd_mem(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_uname(int argc, char *argv[]) {
+	kprintf("Notice: This is as hell builtin. uname() is not implemented.\n");
+	char version_number[1024];
+	sprintf(version_number, __kernel_version_format,
+			__kernel_version_major,
+			__kernel_version_minor,
+			__kernel_version_lower,
+			__kernel_version_suffix);
+	kprintf("%s %s %s %s %s %s\n",
+			__kernel_name,
+			version_number,
+			__kernel_version_codename,
+			__kernel_build_date,
+			__kernel_build_time,
+			__kernel_arch);
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",         shell_cmd_cd);
 	shell_install_command("ls",         shell_cmd_ls);
@@ -481,6 +500,7 @@ void install_commands() {
 	shell_install_command("dmesg",      shell_cmd_dmesg);
 	shell_install_command("kill",       shell_cmd_kill);
 	shell_install_command("mem",        shell_cmd_mem);
+	shell_install_command("uname",      shell_cmd_uname);
 }
 
 void add_path_contents() {
