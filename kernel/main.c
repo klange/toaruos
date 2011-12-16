@@ -113,7 +113,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	irq_install();		/* Hardware interrupt requests */
 
 	/* Memory management */
-	paging_install(mboot_ptr->mem_upper);	/* Paging */
+	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);	/* Paging */
 	heap_install();							/* Kernel heap */
 
 	/* Install the logging module */
