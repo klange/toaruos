@@ -127,7 +127,9 @@ void list_merge(list_t * target, list_t * source) {
 	} else {
 		target->head = source->head;
 	}
-	target->tail = source->tail;
+	if (source->tail) {
+		target->tail = source->tail;
+	}
 	target->length += source->length;
 	free(source);
 }
