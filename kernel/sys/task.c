@@ -71,7 +71,6 @@ void free_directory(page_directory_t * dir) {
 }
 
 void reap_process(process_t * proc) {
-	delete_process(proc);
 	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	free_directory(proc->thread.page_directory);
 	free((void *)(proc->fds.entries));
@@ -235,7 +234,9 @@ switch_task() {
 		IRQ_OFF;
 		while (should_reap()) {
 			process_t * proc = next_reapable_process();
-			reap_process(proc);
+			if (proc) {
+				reap_process(proc);
+			}
 		}
 		IRQ_ON;
 		return;

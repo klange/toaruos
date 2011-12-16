@@ -102,7 +102,7 @@ static int wait(int child) {
 	}
 	/* Grab the child's return value */
 	int ret = child_task->status;
-	free(child_task);
+	delete_process(child_task);
 	return ret;
 }
 

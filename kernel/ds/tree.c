@@ -139,6 +139,10 @@ void tree_remove(tree_t * tree, tree_node_t * node) {
 	if (!parent) return;
 	tree->nodes--;
 	list_delete(parent->children, list_find(parent->children, node));
+	foreach(child, node->children) {
+		/* Reassign the parents */
+		((tree_node_t *)child->value)->parent = parent;
+	}
 	list_merge(parent->children, node->children);
 	free(node);
 }

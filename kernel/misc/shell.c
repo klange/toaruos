@@ -431,6 +431,28 @@ uint32_t shell_cmd_dmesg(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_kill(int argc, char * argv[]) {
+	if (argc < 2) {
+		kprintf("  kill pid\n");
+		kprintf("  Remove the zombie process with PID `n`.\n");
+		return 1;
+	}
+	pid_t id = atoi(argv[1]);
+	process_t * child_task = process_from_pid(id);
+	if (!child_task) {
+		kprintf("No process with pid %d found.\n", id);
+		return 1;
+	} else if (!child_task->finished) {
+		kprintf("Process %d is not a zombie.\n", id);
+		return 1;
+	} else {
+		kprintf("Killing process %d [0x%x]\n", child_task->id, child_task);
+
+		delete_process(child_task);
+		return 0;
+	}
+}
+
 void install_commands() {
 	shell_install_command("cd",         shell_cmd_cd);
 	shell_install_command("ls",         shell_cmd_ls);
@@ -448,6 +470,7 @@ void install_commands() {
 	shell_install_command("test-tree",  shell_cmd_testtree);
 	shell_install_command("ps",         shell_cmd_ps);
 	shell_install_command("dmesg",      shell_cmd_dmesg);
+	shell_install_command("kill",       shell_cmd_kill);
 }
 
 void add_path_contents() {

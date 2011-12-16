@@ -15,6 +15,10 @@ list_t * process_queue; /* Ready queue */
 list_t * reap_queue;    /* Processes to reap */
 volatile process_t * current_process = NULL;
 
+static uint8_t volatile ready_lock;
+static uint8_t volatile reap_lock;
+static uint8_t volatile tree_lock;
+
 /* Default process name string */
 char * default_name = "[unnamed]";
 
@@ -46,6 +50,9 @@ void debug_print_process_tree_node(tree_node_t * node, size_t height) {
 		/* And, if it has one, its description */
 		kprintf(" %s", proc->description);
 	}
+	if (proc->finished) {
+		kprintf(" [zombie]");
+	}
 	/* Linefeed */
 	kprintf("\n");
 	foreach(child, node->children) {
@@ -68,7 +75,9 @@ void debug_print_process_tree() {
  * @return A pointer to the next process in the queue.
  */
 process_t * next_ready_process() {
+	spin_lock(&ready_lock);
 	node_t * np = list_dequeue(process_queue);
+	spin_unlock(&ready_lock);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
 	free(np);
@@ -76,8 +85,10 @@ process_t * next_ready_process() {
 }
 
 process_t * next_reapable_process() {
+	spin_lock(&reap_lock);
 	node_t * np = list_dequeue(reap_queue);
-	assert(np && "Nothing to reap.");
+	spin_unlock(&reap_lock);
+	if (!np) { return NULL; }
 	process_t * next = np->value;
 	free(np);
 	return next;
@@ -89,11 +100,15 @@ process_t * next_reapable_process() {
  * @param proc Process to reinsert
  */
 void make_process_ready(process_t * proc) {
+	spin_lock(&ready_lock);
 	list_insert(process_queue, (void *)proc);
+	spin_unlock(&ready_lock);
 }
 
 void make_process_reapable(process_t * proc) {
+	spin_lock(&reap_lock);
 	list_insert(reap_queue, (void *)proc);
+	spin_unlock(&reap_lock);
 }
 
 /*
@@ -111,11 +126,11 @@ void delete_process(process_t * proc) {
 	assert((entry != process_tree->root) && "Attempted to kill init.");
 
 	/* Remove the entry. */
+	spin_lock(&tree_lock);
 	tree_remove(process_tree, entry);
-}
+	spin_unlock(&tree_lock);
 
-void process_destroy() {
-	/* Free all the dynamicly allocate elements of a process */
+	free(proc);
 }
 
 /*
@@ -183,9 +198,11 @@ void process_disown(process_t * proc) {
 	/* Find the process in the tree */
 	tree_node_t * entry = proc->tree_entry;
 	/* Break it of from its current parent */
+	spin_lock(&tree_lock);
 	tree_break_off(process_tree, entry);
 	/* And insert it back elsewhere */
 	tree_node_insert_child_node(process_tree, process_tree->root, entry);
+	spin_unlock(&tree_lock);
 }
 
 /*
@@ -242,7 +259,9 @@ process_t * spawn_process(volatile process_t * parent) {
 	tree_node_t * entry = tree_node_create(proc);
 	assert(entry && "Failed to allocate a process tree node for new process.");
 	proc->tree_entry = entry;
+	spin_lock(&tree_lock);
 	tree_node_insert_child_node(process_tree, parent->tree_entry, entry);
+	spin_unlock(&tree_lock);
 
 	/* Return the new process */
 	return proc;
@@ -258,7 +277,9 @@ uint8_t process_compare(void * proc_v, void * pid_v) {
 process_t * process_from_pid(pid_t pid) {
 	assert((pid > 0) && "Tried to retreive a process with PID < 0");
 
+	spin_lock(&tree_lock);
 	tree_node_t * entry = tree_find(process_tree,&pid,process_compare);
+	spin_unlock(&tree_lock);
 	if (entry) {
 		return (process_t *)entry->value;
 	} else {
