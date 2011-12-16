@@ -56,17 +56,19 @@ parse_args(
 
 		if (!strcmp(argp[0],"vid")) {
 			if (argc < 2) { kprintf("vid=?\n"); continue; }
+			uint16_t x, y;
+			if (argc < 4) {
+				x = 1024;
+				y = 768;
+			} else {
+				x = atoi(argp[2]);
+				y = atoi(argp[3]);
+			}
 			if (!strcmp(argp[1],"qemu")) {
 				/* Bochs / Qemu Video Device */
-				uint16_t x, y;
-				if (argc < 4) {
-					x = 1024;
-					y = 768;
-				} else {
-					x = atoi(argp[2]);
-					y = atoi(argp[3]);
-				}
 				graphics_install_bochs(x,y);
+			} else if (!strcmp(argp[1],"vesa")) {
+				graphics_install_vesa(x,y);
 			} else {
 				kprintf("Unrecognized video adapter: %s\n", argp[1]);
 			}

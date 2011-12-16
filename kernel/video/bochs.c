@@ -151,6 +151,19 @@ bochs_install_wallpaper(char * filename) {
 	free(bufferb);
 }
 
+static void finalize_graphics(uint16_t x, uint16_t y) {
+	bochs_resolution_x = x;
+	bochs_resolution_y = y;
+	bochs_resolution_b = PREFERRED_B;
+
+	term_width  = bochs_resolution_x / 8;
+	term_height = bochs_resolution_y / 12;
+
+	/* Buffer contains characters, fg (of 256), bg (same), flags (one byte) */
+	term_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 4 * term_width * term_height);
+	ansi_init(&bochs_write, 128, 64, &bochs_set_colors, &bochs_set_csr, &bochs_get_csr_x, &bochs_get_csr_y, &bochs_set_cell, &bochs_term_clear, &bochs_redraw_cursor);
+}
+
 void
 graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 	outports(0x1CE, 0x00);
@@ -206,16 +219,30 @@ graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 	}
 
 mem_found:
-	bochs_resolution_x = resolution_x;
-	bochs_resolution_y = resolution_y;
-	bochs_resolution_b = PREFERRED_B;
+	finalize_graphics(resolution_x, resolution_y);
+}
 
-	term_width  = bochs_resolution_x / 8;
-	term_height = bochs_resolution_y / 12;
+void
+graphics_install_vesa(uint16_t x, uint16_t y) {
+	kprintf("VESA graphics mode not yet supported.\n");
+	return;
 
-	/* Buffer contains characters, fg (of 256), bg (same), flags (one byte) */
-	term_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 4 * term_width * term_height);
-	ansi_init(&bochs_write, 128, 64, &bochs_set_colors, &bochs_set_csr, &bochs_get_csr_x, &bochs_get_csr_y, &bochs_set_cell, &bochs_term_clear, &bochs_redraw_cursor);
+	uint16_t actual_x, actual_y;
+
+	/*
+	 * TODO: Vesa initialization and mode setting; match requested
+	 *       or prompt with available modes.
+	 */
+
+
+	/*
+	 * TODO: Activate DMA paging records for the graphics region.
+	 */
+
+	/*
+	 * Finalize the graphics setup with the actual selected resolution.
+	 */
+	finalize_graphics(actual_x,actual_y);
 }
 
 static void
