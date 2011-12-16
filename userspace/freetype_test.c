@@ -24,7 +24,6 @@ uint16_t graphics_height = 0;
 #define GFX(x,y) gfx_mem[GFX_W * (y) + (x)]
 
 uint32_t * gfx_mem;
-#define   gfx_size (GFX_B * GFX_H * GFX_W);
 
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
 #define _GRE(color) ((color & 0x0000FF00) / 0x100)
@@ -57,7 +56,7 @@ int main(int argc, char *argv[]) {
 	graphics_width  = syscall_getgraphicswidth();
 	graphics_height = syscall_getgraphicsheight();
 	gfx_mem = (void *)syscall_getgraphicsaddress();
-	printf("Starting.\n");
+	printf("Display is %dx%d\n", graphics_width, graphics_height);
 	unsigned long str[] = {
 		'H',
 		'e',
