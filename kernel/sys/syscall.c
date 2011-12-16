@@ -212,6 +212,14 @@ static int setgraphicsoffset(int rows) {
 	return 0;
 }
 
+static int getgraphicswidth() {
+	return bochs_resolution_x;
+}
+
+static int getgraphicsheight() {
+	return bochs_resolution_y;
+}
+
 /*
  * System Call Internals
  */
@@ -236,8 +244,10 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&stat,
 	(uintptr_t)&setgraphicsoffset,	/* 16 */
 	(uintptr_t)&wait,
+	(uintptr_t)&getgraphicswidth,
+	(uintptr_t)&getgraphicsheight,
 };
-uint32_t num_syscalls = 18;
+uint32_t num_syscalls = 20;
 
 void
 syscalls_install() {

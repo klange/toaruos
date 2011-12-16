@@ -13,3 +13,6 @@ DEFN_SYSCALL0(getpid, 9)
 DEFN_SYSCALL1(sbrk, 10, int)
 
 DEFN_SYSCALL1(wait, 17, int)
+
+DEFN_SYSCALL0(getgraphicswidth,  18)
+DEFN_SYSCALL0(getgraphicsheight, 19)

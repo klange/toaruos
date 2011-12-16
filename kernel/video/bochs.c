@@ -11,8 +11,8 @@
  * ie the one on my laptop, but it's 2048 on
  * the EWS machines. */
 #define BOCHS_BUFFER_SIZE 2048
-#define PREFERRED_X 1024
-#define PREFERRED_Y 768
+#define PREFERRED_X 1280 //1024
+#define PREFERRED_Y 720 //768
 #define PREFERRED_VY 4096
 #define PREFERRED_B 32
 
@@ -27,8 +27,8 @@ uint16_t bochs_resolution_b = 0;
  */
 uint32_t * bochs_vid_memory = (uint32_t *)0xE0000000;
 
-#define TERM_WIDTH 128
-#define TERM_HEIGHT 64
+static short term_width  = 128;
+static short term_height = 64;
 
 static short csr_x = 0;
 static short csr_y = 0;
@@ -212,8 +212,11 @@ mem_found:
 	bochs_resolution_y = PREFERRED_Y;
 	bochs_resolution_b = PREFERRED_B;
 
+	term_width  = bochs_resolution_x / 8;
+	term_height = bochs_resolution_y / 12;
+
 	/* Buffer contains characters, fg (of 256), bg (same), flags (one byte) */
-	term_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 4 * TERM_WIDTH * TERM_HEIGHT);
+	term_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 4 * term_width * term_height);
 	ansi_init(&bochs_write, 128, 64, &bochs_set_colors, &bochs_set_csr, &bochs_get_csr_x, &bochs_get_csr_y, &bochs_set_cell, &bochs_term_clear, &bochs_redraw_cursor);
 }
 
@@ -232,8 +235,8 @@ bochs_set_point_bg(
 		uint16_t y,
 		uint32_t color
 		) {
-	if (!color && wallpaper) {
-		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)] = wallpaper->bitmap[bochs_resolution_x * y + x];
+	if (!color && wallpaper && y < wallpaper->height && x < wallpaper->width) {
+		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)] = wallpaper->bitmap[wallpaper->width * y + x];
 	} else {
 		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x)] = color;
 	}
@@ -578,7 +581,7 @@ uint32_t bochs_colors[256] = {
 };
 
 static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, uint8_t flags) {
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	cell[0] = c;
 	cell[1] = fg;
 	cell[2] = bg;
@@ -586,28 +589,28 @@ static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, 
 }
 
 static uint16_t cell_ch(uint16_t x, uint16_t y) {
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	return cell[0];
 }
 
 static uint16_t cell_fg(uint16_t x, uint16_t y) {
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	return cell[1];
 }
 
 static uint16_t cell_bg(uint16_t x, uint16_t y) {
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	return cell[2];
 }
 
 static void cell_redraw(uint16_t x, uint16_t y) {
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * TERM_WIDTH + x) * 4);
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	bochs_write_char(cell[0], x * 8, y * 12, bochs_colors[cell[1]], bochs_colors[cell[2]]);
 }
 
 void bochs_redraw() {
-	for (uint16_t y = 0; y < TERM_HEIGHT; ++y) {
-		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+	for (uint16_t y = 0; y < term_height; ++y) {
+		for (uint16_t x = 0; x < term_width; ++x) {
 			cell_redraw(x,y);
 		}
 	}
@@ -615,8 +618,8 @@ void bochs_redraw() {
 }
 
 void bochs_redraw_all() { 
-	for (uint16_t y = 0; y < TERM_HEIGHT; ++y) {
-		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+	for (uint16_t y = 0; y < term_height; ++y) {
+		for (uint16_t x = 0; x < term_width; ++x) {
 			cell_redraw(x,y);
 		}
 	}
@@ -635,14 +638,14 @@ void bochs_term_scroll() {
 		bochs_set_y_offset(current_scroll + 12);
 	}
 #else
-	for (uint16_t y = 0; y < TERM_HEIGHT - 1; ++y) {
-		for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
+	for (uint16_t y = 0; y < term_height - 1; ++y) {
+		for (uint16_t x = 0; x < term_width; ++x) {
 			cell_set(x,y,cell_ch(x,y+1),cell_fg(x,y+1),cell_bg(x,y+1), 0);
 		}
 	}
-	for (uint16_t x = 0; x < TERM_WIDTH; ++x) {
-		cell_set(x, TERM_HEIGHT-1,' ',current_fg, current_bg,0);
-		//cell_redraw(x, TERM_HEIGHT-1);
+	for (uint16_t x = 0; x < term_width; ++x) {
+		cell_set(x, term_height-1,' ',current_fg, current_bg,0);
+		//cell_redraw(x, term_height-1);
 	}
 	bochs_redraw_all();
 #endif
@@ -652,7 +655,7 @@ void bochs_term_clear() {
 	/* Oh dear */
 	csr_x = 0;
 	csr_y = 0;
-	memset((void *)term_buffer, 0x00,TERM_WIDTH * TERM_HEIGHT * sizeof(uint8_t) * 4);
+	memset((void *)term_buffer, 0x00,term_width * term_height * sizeof(uint8_t) * 4);
 	memset((void *)bochs_vid_memory, 0x00, sizeof(uint32_t) * bochs_resolution_x * bochs_resolution_y);
 	bochs_set_y_offset(0);
 	bochs_redraw_all();
@@ -684,7 +687,7 @@ void bochs_redraw_cursor() {
 void bochs_write(char c) {
 	cell_redraw(csr_x, csr_y);
 	if (c == '\n') {
-		for (uint16_t i = csr_x; i < TERM_WIDTH; ++i) {
+		for (uint16_t i = csr_x; i < term_width; ++i) {
 			/* I like this behaviour */
 			cell_set(i, csr_y, ' ',current_fg, current_bg, 0);
 			cell_redraw(i, csr_y);
@@ -705,13 +708,13 @@ void bochs_write(char c) {
 		cell_redraw(csr_x,csr_y);
 		csr_x++;
 	}
-	if (csr_x == TERM_WIDTH) {
+	if (csr_x == term_width) {
 		csr_x = 0;
 		++csr_y;
 	}
-	if (csr_y == TERM_HEIGHT) {
+	if (csr_y == term_height) {
 		bochs_term_scroll();
-		csr_y = TERM_HEIGHT - 1;
+		csr_y = term_height - 1;
 	}
 	draw_cursor();
 }
@@ -777,6 +780,6 @@ bochs_set_cell(int x, int y, char c) {
 }
 
 void bochs_redraw_cell(int x, int y) {
-	if (x < 0 || y < 0 || x >= TERM_WIDTH || y >= TERM_HEIGHT) return;
+	if (x < 0 || y < 0 || x >= term_width || y >= term_height) return;
 	cell_redraw(x,y);
 }

@@ -16,8 +16,8 @@ int32_t actual_y = 3835;
 
 extern uint32_t * bochs_vid_memory;
 
-#define GFX_W  1024
-#define GFX_H  768
+#define GFX_W  (bochs_resolution_x)
+#define GFX_H  (bochs_resolution_y)
 #define GFX_B  4
 #define GFX(x,y) bochs_vid_memory[GFX_W * (y + bochs_current_scroll()) + (x)]
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
@@ -153,19 +153,19 @@ void mouse_handler(struct regs *r) {
 			actual_x = actual_x + mouse_x * MOUSE_SCALE;
 			actual_y = actual_y + mouse_y * MOUSE_SCALE;
 			if (actual_x < 0) actual_x = 0;
-			if (actual_x > 10230) actual_x = 10230;
+			if (actual_x > (GFX_W - 1) * 10) actual_x = (GFX_W - 1) * 10;
 			if (actual_y < 0) actual_y = 0;
-			if (actual_y > 7670) actual_y = 7670;
+			if (actual_y > (GFX_H - 1) * 10) actual_y = (GFX_H - 1) * 10;
 			if (!bochs_resolution_x)
 				break;
 			short c_x = (short)(previous_x / 10 / 8);
-			short c_y = (short)((7670 - previous_y) / 10 / 12);
+			short c_y = (short)(((GFX_H - 1) * 10 - previous_y) / 10 / 12);
 			for (short i = c_x - 2; i < c_x + 3; ++i) {
 				for (short j = c_y - 2; j < c_y + 3; ++j) {
 					bochs_redraw_cell(i,j);
 				}
 			}
-			draw_sprite(cursor, actual_x / 10 - 24, 767 - actual_y / 10 - 24);
+			draw_sprite(cursor, actual_x / 10 - 24, GFX_H - actual_y / 10 - 25);
 			break;
 	}
 	IRQ_ON;

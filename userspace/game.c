@@ -14,6 +14,9 @@ DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
 DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 
+DEFN_SYSCALL0(getgraphicswidth,  18);
+DEFN_SYSCALL0(getgraphicsheight, 19);
+
 typedef struct sprite {
 	uint16_t width;
 	uint16_t height;
@@ -23,8 +26,11 @@ typedef struct sprite {
 	uint8_t  alpha;
 } sprite_t;
 
-#define GFX_W  1024
-#define GFX_H  768
+uint16_t graphics_width  = 0;
+uint16_t graphics_height = 0;
+
+#define GFX_W  graphics_width
+#define GFX_H  graphics_height
 #define GFX_B  4
 #define GFX(x,y) frame_mem[GFX_W * (y) + (x)]
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
@@ -32,7 +38,7 @@ typedef struct sprite {
 
 uint32_t * gfx_mem;
 uint32_t * frame_mem;
-uint32_t   gfx_size = GFX_B * GFX_H * GFX_W;
+uint32_t   gfx_size;
 sprite_t * sprites[128];
 
 
@@ -52,14 +58,15 @@ uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 	return (r * 0x10000) + (g * 0x100) + (b * 0x1);
 }
 
+uint32_t flip_offset;
+
 void flip() {
 #if 1
-	static int offset = 768;
 	void * tmp = frame_mem;
 	frame_mem = gfx_mem;
 	gfx_mem = tmp;
-	syscall_setgraphicsoffset(offset);
-	offset = 768 - offset;
+	syscall_setgraphicsoffset(flip_offset);
+	flip_offset = GFX_H - flip_offset;
 #else
 	memcpy(gfx_mem, frame_mem, gfx_size);
 #endif
@@ -208,9 +215,8 @@ int direction = 0;
 int offset_x = 0;
 int offset_y = 0;
 int offset_iter = 0;
-
-int map_x = GFX_W / 2 - (64 * 9) / 2;
-int map_y = GFX_H / 2 - (64 * 9) / 2;
+int map_x;
+int map_y;
 
 void render_map(int x, int y) {
 	int i = 0;
@@ -330,8 +336,14 @@ void init_sprite(int i, char * filename, char * alpha) {
 
 int main(int argc, char ** argv) {
 
+	graphics_width  = syscall_getgraphicswidth();
+	graphics_height = syscall_getgraphicsheight();
+	map_x = GFX_W / 2 - (64 * 9) / 2;
+	map_y = GFX_H / 2 - (64 * 9) / 2;
+	flip_offset = GFX_H;
+	gfx_size = GFX_B * GFX_H * GFX_W;
 	gfx_mem = (void *)syscall_getgraphicsaddress();
-	frame_mem = (void *)((uintptr_t)gfx_mem + sizeof(uint32_t) * 1024 * 768); //malloc_(sizeof(uint32_t) * 1024 * 768);
+	frame_mem = (void *)((uintptr_t)gfx_mem + sizeof(uint32_t) * GFX_W * GFX_H);
 	printf("Graphics memory is at %p, backbuffer is at %p.\n", gfx_mem, frame_mem);
 
 	printf("Loading sprites...\n");

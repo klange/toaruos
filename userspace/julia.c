@@ -19,8 +19,14 @@ DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
 DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 
-#define GFX_W  1024 /* Display width */
-#define GFX_H  768  /* Display height */
+DEFN_SYSCALL0(getgraphicswidth,  18);
+DEFN_SYSCALL0(getgraphicsheight, 19);
+
+uint16_t graphics_width  = 0;
+uint16_t graphics_height = 0;
+
+#define GFX_W  graphics_width /* Display width */
+#define GFX_H  graphics_height  /* Display height */
 #define GFX_B  4    /* Display byte depth */
 
 /*
@@ -100,6 +106,8 @@ void julia(int xpt, int ypt) {
 }
 
 int main(int argc, char ** argv) {
+	graphics_width  = syscall_getgraphicswidth();
+	graphics_height = syscall_getgraphicsheight();
 	gfx_mem = (void *)syscall_getgraphicsaddress();
 
 	if (argc > 1) {

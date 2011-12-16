@@ -80,6 +80,9 @@ DECL_SYSCALL3(lseek, int, int, int);
 DECL_SYSCALL2(fstat, int, void *);
 DECL_SYSCALL1(setgraphicsoffset, int);
 
+DECL_SYSCALL0(getgraphicswidth);
+DECL_SYSCALL0(getgraphicsheight);
+
 
 #endif
 /*
