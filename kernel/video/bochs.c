@@ -11,8 +11,6 @@
  * ie the one on my laptop, but it's 2048 on
  * the EWS machines. */
 #define BOCHS_BUFFER_SIZE 2048
-#define PREFERRED_X 1280 //1024
-#define PREFERRED_Y 720 //768
 #define PREFERRED_VY 4096
 #define PREFERRED_B 32
 
@@ -154,7 +152,7 @@ bochs_install_wallpaper(char * filename) {
 }
 
 void
-graphics_install_bochs() {
+graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 	outports(0x1CE, 0x00);
 	uint16_t i = inports(0x1CF);
 	if (i < 0xB0C0 || i > 0xB0C6) {
@@ -167,10 +165,10 @@ graphics_install_bochs() {
 	outports(0x1CF, 0x00);
 	/* Set X resolution to 1024 */
 	outports(0x1CE, 0x01);
-	outports(0x1CF, PREFERRED_X);
+	outports(0x1CF, resolution_x);
 	/* Set Y resolution to 768 */
 	outports(0x1CE, 0x02);
-	outports(0x1CF, PREFERRED_Y);
+	outports(0x1CF, resolution_y);
 	/* Set bpp to 32 */
 	outports(0x1CE, 0x03);
 	outports(0x1CF, PREFERRED_B);
@@ -208,8 +206,8 @@ graphics_install_bochs() {
 	}
 
 mem_found:
-	bochs_resolution_x = PREFERRED_X;
-	bochs_resolution_y = PREFERRED_Y;
+	bochs_resolution_x = resolution_x;
+	bochs_resolution_y = resolution_y;
 	bochs_resolution_b = PREFERRED_B;
 
 	term_width  = bochs_resolution_x / 8;

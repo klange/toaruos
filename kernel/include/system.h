@@ -281,7 +281,7 @@ extern int detect_cpu();
 
 /* Video Drivers */
 /* BOCHS / QEMU VBE Driver */
-extern void graphics_install_bochs();
+extern void graphics_install_bochs(uint16_t, uint16_t);
 extern void bochs_set_csr(int x, int y);
 extern int  bochs_get_csr_x();
 extern int  bochs_get_csr_y();
