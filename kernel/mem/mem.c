@@ -198,9 +198,29 @@ free_frame(
 	}
 }
 
+uintptr_t
+memory_use() {
+	uintptr_t ret = 0;
+	uint32_t i, j;
+	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
+		for (j = 0; j < 32; ++j) {
+			uint32_t testFrame = 0x1 << j;
+			if (frames[i] & testFrame) {
+				ret++;
+			}
+		}
+	}
+	return ret * 4;
+}
+
+uintptr_t
+memory_total(){
+	return nframes * 4;
+}
+
 void
 paging_install(uint32_t memsize) {
-	nframes = memsize  / 16;
+	nframes = memsize  / 4;
 	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 

@@ -146,7 +146,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 		/* Parse the command-line arguments */
 		parse_args((char *)mboot_ptr->cmdline);
 	}
-	cls();
+
+	kprintf("\033[2J");
 
 	start_shell();
 

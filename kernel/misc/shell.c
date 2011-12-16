@@ -453,6 +453,15 @@ uint32_t shell_cmd_kill(int argc, char * argv[]) {
 	}
 }
 
+uint32_t shell_cmd_mem(int argc, char * argv[]) {
+	uintptr_t mem_use = memory_use();
+	uintptr_t mem_tot = memory_total();
+	kprintf("%dkB in use\n", mem_use);
+	kprintf("%dkB available\n", mem_tot - mem_use);
+	kprintf("%dkB total\n",   mem_tot);
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",         shell_cmd_cd);
 	shell_install_command("ls",         shell_cmd_ls);
@@ -471,6 +480,7 @@ void install_commands() {
 	shell_install_command("ps",         shell_cmd_ps);
 	shell_install_command("dmesg",      shell_cmd_dmesg);
 	shell_install_command("kill",       shell_cmd_kill);
+	shell_install_command("mem",        shell_cmd_mem);
 }
 
 void add_path_contents() {

@@ -192,6 +192,8 @@ void heap_install();
 
 void alloc_frame(page_t *page, int is_kernel, int is_writeable);
 void free_frame(page_t *page);
+uintptr_t memory_use();
+uintptr_t memory_total();
 
 /* klmalloc */
 void * __attribute__ ((malloc)) malloc(size_t size);
