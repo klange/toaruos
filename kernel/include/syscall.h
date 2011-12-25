@@ -82,6 +82,7 @@ DECL_SYSCALL1(setgraphicsoffset, int);
 
 DECL_SYSCALL0(getgraphicswidth);
 DECL_SYSCALL0(getgraphicsheight);
+DECL_SYSCALL0(getgraphicsdepth);
 
 
 #endif

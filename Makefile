@@ -19,8 +19,9 @@ MISCMODS     = $(patsubst %.c,%.o,$(wildcard kernel/misc/*.c))
 SYSTEM       = $(patsubst %.c,%.o,$(wildcard kernel/sys/*.c))
 DATASTRUCTS  = $(patsubst %.c,%.o,$(wildcard kernel/ds/*.c))
 CPUBITS      = $(patsubst %.c,%.o,$(wildcard kernel/cpu/*.c))
+REALEMU      = $(patsubst %.c,%.o,$(wildcard kernel/v8086/*.c))
 
-SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS}
+SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS} ${REALEMU}
 
 BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/cat hdd/bin/sh hdd/bin/clear
 UTILITIES = util/bin/readelf util/bin/typewriter

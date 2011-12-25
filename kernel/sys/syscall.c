@@ -220,6 +220,10 @@ static int getgraphicsheight() {
 	return bochs_resolution_y;
 }
 
+static int getgraphicsdepth() {
+	return bochs_resolution_b;
+}
+
 /*
  * System Call Internals
  */
@@ -246,8 +250,9 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&wait,
 	(uintptr_t)&getgraphicswidth,
 	(uintptr_t)&getgraphicsheight,
+	(uintptr_t)&getgraphicsdepth,
 };
-uint32_t num_syscalls = 20;
+uint32_t num_syscalls = 21;
 
 void
 syscalls_install() {

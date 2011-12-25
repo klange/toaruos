@@ -381,3 +381,17 @@ strpbrk(
 	}
 	return NULL;
 }
+
+void
+real_mode_int(int num, struct regs * r) {
+	/* Give non-kernel access to the first 1MB of RAM */
+	for (uintptr_t i = 0; i < 0x00100000; i += 0x1000) {
+		alloc_frame(get_page(i, 1, kernel_directory), 0, 1);
+	}
+
+
+	/* Reset protection on first 1MB of RAM when we're done */
+	for (uintptr_t i = 0; i < 0x00100000; i += 0x1000) {
+		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
+	}
+}

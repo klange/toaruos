@@ -154,10 +154,8 @@ alloc_frame(
 		int is_writeable
 		) {
 	if (page->frame != 0) {
-#if 0
 		page->rw      = (is_writeable == 1) ? 1 : 0;
 		page->user    = (is_kernel == 1)    ? 0 : 1;
-#endif
 		return;
 	} else {
 		uint32_t index = first_frame();

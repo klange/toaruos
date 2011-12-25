@@ -14,12 +14,12 @@ int8_t  mouse_y = 0;
 int32_t actual_x = 5120;
 int32_t actual_y = 3835;
 
-extern uint32_t * bochs_vid_memory;
+extern uint8_t * bochs_vid_memory;
 
 #define GFX_W  (bochs_resolution_x)
 #define GFX_H  (bochs_resolution_y)
-#define GFX_B  4
-#define GFX(x,y) bochs_vid_memory[GFX_W * (y + bochs_current_scroll()) + (x)]
+#define GFX_B  (bochs_resolution_b / 8)
+#define GFX(x,y) *((uint32_t *)&bochs_vid_memory[(GFX_W * ((y) + bochs_current_scroll()) + (x)) * GFX_B])
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 #define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)

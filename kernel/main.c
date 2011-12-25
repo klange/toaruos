@@ -65,6 +65,7 @@ extern uintptr_t heap_end;
  */
 int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 {
+	memcpy((void*)0x1E00000, (void*)0x0, 0x500);
 	initial_esp = esp;
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
@@ -127,6 +128,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	tasking_install();	/* Multi-tasking */
 	enable_fpu();		/* Enable the floating point unit */
 	syscalls_install();	/* Install the system calls */
+
+	memcpy((void *)0x0, (void*)0x1E00000, 0x500);
 
 	if (boot_mode == multiboot) {
 

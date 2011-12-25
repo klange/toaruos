@@ -16,6 +16,7 @@ DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 
 DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
+DEFN_SYSCALL0(getgraphicsdepth,  20);
 
 typedef struct sprite {
 	uint16_t width;
@@ -28,16 +29,17 @@ typedef struct sprite {
 
 uint16_t graphics_width  = 0;
 uint16_t graphics_height = 0;
+uint16_t graphics_depth  = 0;
 
 #define GFX_W  graphics_width
 #define GFX_H  graphics_height
-#define GFX_B  4
-#define GFX(x,y) frame_mem[GFX_W * (y) + (x)]
+#define GFX_B  (graphics_depth / 8)    /* Display byte depth */
+#define GFX(x,y) *((uint32_t *)&frame_mem[(GFX_W * (y) + (x)) * GFX_B])
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 #define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
 
-uint32_t * gfx_mem;
-uint32_t * frame_mem;
+uint8_t  * gfx_mem;
+uint8_t  * frame_mem;
 uint32_t   gfx_size;
 sprite_t * sprites[128];
 
@@ -61,7 +63,7 @@ uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 uint32_t flip_offset;
 
 void flip() {
-#if 1
+#if 0
 	void * tmp = frame_mem;
 	frame_mem = gfx_mem;
 	gfx_mem = tmp;
@@ -338,6 +340,7 @@ int main(int argc, char ** argv) {
 
 	graphics_width  = syscall_getgraphicswidth();
 	graphics_height = syscall_getgraphicsheight();
+	graphics_depth  = syscall_getgraphicsdepth();
 	map_x = GFX_W / 2 - (64 * 9) / 2;
 	map_y = GFX_H / 2 - (64 * 9) / 2;
 	flip_offset = GFX_H;

@@ -464,7 +464,6 @@ uint32_t shell_cmd_mem(int argc, char * argv[]) {
 }
 
 uint32_t shell_cmd_uname(int argc, char *argv[]) {
-	kprintf("Notice: This is as hell builtin. uname() is not implemented.\n");
 	char version_number[1024];
 	sprintf(version_number, __kernel_version_format,
 			__kernel_version_major,
@@ -478,6 +477,10 @@ uint32_t shell_cmd_uname(int argc, char *argv[]) {
 			__kernel_build_date,
 			__kernel_build_time,
 			__kernel_arch);
+	return 0;
+}
+
+uint32_t shell_cmd_set_mode(int argc, char *argv[]) {
 	return 0;
 }
 
@@ -501,6 +504,7 @@ void install_commands() {
 	shell_install_command("kill",       shell_cmd_kill);
 	shell_install_command("mem",        shell_cmd_mem);
 	shell_install_command("uname",      shell_cmd_uname);
+	shell_install_command("set-mode",   shell_cmd_set_mode);
 }
 
 void add_path_contents() {

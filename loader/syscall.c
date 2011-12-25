@@ -16,3 +16,4 @@ DEFN_SYSCALL1(wait, 17, int)
 
 DEFN_SYSCALL0(getgraphicswidth,  18)
 DEFN_SYSCALL0(getgraphicsheight, 19)
+DEFN_SYSCALL0(getgraphicsdepth,  20)

@@ -21,22 +21,24 @@ DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 
 DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
+DEFN_SYSCALL0(getgraphicsdepth,  20);
 
 uint16_t graphics_width  = 0;
 uint16_t graphics_height = 0;
+uint16_t graphics_depth  = 0;
 
 #define GFX_W  graphics_width /* Display width */
 #define GFX_H  graphics_height  /* Display height */
-#define GFX_B  4    /* Display byte depth */
+#define GFX_B  (graphics_depth / 8)    /* Display byte depth */
 
 /*
  * Macros make verything easier.
  */
-#define GFX(x,y) gfx_mem[GFX_W * (y) + (x)]
+#define GFX(x,y) *((uint32_t *)&gfx_mem[(GFX_W * (y) + (x)) * GFX_B])
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 
 /* Pointer to graphics memory */
-uint32_t * gfx_mem;
+uint8_t * gfx_mem;
 
 /* Julia fractals elements */
 float conx = -0.74;  /* real part of c */
@@ -108,6 +110,7 @@ void julia(int xpt, int ypt) {
 int main(int argc, char ** argv) {
 	graphics_width  = syscall_getgraphicswidth();
 	graphics_height = syscall_getgraphicsheight();
+	graphics_depth  = syscall_getgraphicsdepth();
 	gfx_mem = (void *)syscall_getgraphicsaddress();
 
 	if (argc > 1) {

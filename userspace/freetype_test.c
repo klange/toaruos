@@ -8,6 +8,7 @@ DEFN_SYSCALL0(getgraphicsaddress, 11);
 
 DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
+DEFN_SYSCALL0(getgraphicsdepth,  20);
 
 #define FONT_SIZE 12
 
@@ -17,13 +18,14 @@ uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 
 uint16_t graphics_width  = 0;
 uint16_t graphics_height = 0;
+uint16_t graphics_depth  = 0;
 
 #define GFX_W  graphics_width
 #define GFX_H  graphics_height
-#define GFX_B  4
-#define GFX(x,y) gfx_mem[GFX_W * (y) + (x)]
+#define GFX_B  (graphics_depth / 8)
+#define GFX(x,y) *((uint32_t *)&gfx_mem[(GFX_W * (y) + (x)) * GFX_B])
 
-uint32_t * gfx_mem;
+uint8_t * gfx_mem;
 
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
 #define _GRE(color) ((color & 0x0000FF00) / 0x100)
@@ -55,8 +57,9 @@ void drawChar(FT_Bitmap * bitmap, int x, int y) {
 int main(int argc, char *argv[]) {
 	graphics_width  = syscall_getgraphicswidth();
 	graphics_height = syscall_getgraphicsheight();
+	graphics_depth  = syscall_getgraphicsdepth ();
 	gfx_mem = (void *)syscall_getgraphicsaddress();
-	printf("Display is %dx%d\n", graphics_width, graphics_height);
+	printf("Display is %dx%dx%d\n", graphics_width, graphics_height, graphics_depth);
 	unsigned long str[] = {
 		'H',
 		'e',
