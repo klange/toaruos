@@ -8,6 +8,8 @@
 #include <types.h>
 #include <vesa.h>
 
+#define PROMPT_FOR_MODE 0
+
 /* Friggin' frick, this should be a config option
  * because it's 4096 on some instances of Qemu,
  * ie the one on my laptop, but it's 2048 on
@@ -242,7 +244,7 @@ graphics_install_vesa(uint16_t x, uint16_t y) {
 	for (int i = RME_BLOCK_SIZE; i < 0x100000; i += RME_BLOCK_SIZE) {
 		emu->Memory[i/RME_BLOCK_SIZE] = (void*)i;
 	}
-	int ret;
+	int ret, mode;
 
 	/* Find modes */
 	uint16_t * modes;
@@ -252,11 +254,12 @@ graphics_install_vesa(uint16_t x, uint16_t y) {
 	emu->DI.W = 0;
 	ret = RME_CallInt(emu, 0x10);
 	if (info->Version < 0x200 || info->Version > 0x300) {
-		kprintf("You have attempted to use the VESA/VBE2 driver\nwith a card that does not support VBE2.\n");
-		kprintf("System boot has been halted.\nPlease check your kernel command line options.\n");
+		kprintf("\033[JYou have attempted to use the VESA/VBE2 driver\nwith a card that does not support VBE2.\n");
+		kprintf("\nSystem responded to VBE request with version: 0x%x\n", info->Version);
+
 		STOP;
 	}
-	modes = (void*)FP_TO_LINEAR(info->Videomodes.Segment,info->Videomodes.Offset); //(void*)((info->Videomodes.Segment * 16) + info->Videomodes.Offset);
+	modes = (void*)FP_TO_LINEAR(info->Videomodes.Segment,info->Videomodes.Offset);
 
 	uint16_t best_x    = 0;
 	uint16_t best_y    = 0;
@@ -269,6 +272,15 @@ graphics_install_vesa(uint16_t x, uint16_t y) {
 		emu->ES   = 0x0900;
 		emu->DI.W = 0x0000;
 		RME_CallInt(emu, 0x10);
+#if PROMPT_FOR_MODE
+		kprintf("%d = %dx%d:%d\n", i, modeinfo->Xres, modeinfo->Yres, modeinfo->bpp);
+	}
+
+	kprintf("Please select a mode: ");
+	char buf[10];
+	kgets(buf, 10);
+	mode = atoi(buf);
+#else
 		if ((abs(modeinfo->Xres - x) < abs(best_x - x)) && (abs(modeinfo->Yres - y) < abs(best_y - y))) {
 				best_mode = i;
 				best_x = modeinfo->Xres;
@@ -289,24 +301,23 @@ graphics_install_vesa(uint16_t x, uint16_t y) {
 			}
 		}
 	}
-#if 0
-	kprintf("%d = %dx%d:%d\n", i, modeinfo->Xres, modeinfo->Yres, modeinfo->bpp);
-
-	kprintf("Please select a mode: ");
-	char buf[10];
-	kgets(buf, 10);
-	int mode = atoi(buf);
-#endif
 
 	if (best_b < 24) {
 		kprintf("!!! Rendering at this bit depth (%d) is not currently supported.\n", best_b);
 		STOP;
 	}
 
-	int mode = best_mode;
+
+	mode = best_mode;
+
+#endif
 
 	emu->AX.W = 0x4F01;
-	emu->CX.W = modes[mode];
+	if (mode < 100) {
+		emu->CX.W = modes[mode];
+	} else {
+		emu->CX.W = mode;
+	}
 	emu->ES   = 0x0900;
 	emu->DI.W = 0x0000;
 	RME_CallInt(emu, 0x10);

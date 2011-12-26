@@ -656,6 +656,7 @@ start_shell() {
 	init_shell();
 	install_commands();
 	add_path_contents();
+	kprintf("\033[2J");
 	while (1) {
 		/* Read buffer */
 		shell_update_time();

@@ -40,7 +40,7 @@
 #include <fs.h>
 #include <logging.h>
 
-extern uintptr_t heap_end;
+extern void * end;
 
 /*
  * kernel entry point
@@ -65,49 +65,46 @@ extern uintptr_t heap_end;
  */
 int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 {
-	memcpy((void*)0x1E00000, (void*)0x0, 0x500);
 	initial_esp = esp;
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
+	char * cmdline = NULL;
+
+	/* Immediately initialize the video service so we can spew usable error messages */
+	init_video();
+
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/*
 		 * Multiboot (GRUB, native QEMU, PXE)
 		 */
 		boot_mode = multiboot;
-
 		mboot_ptr = mboot;
 
-		/*
-		 * Realign memory to the end of the multiboot modules
-		 */
-		uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
-		uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
-		kmalloc_startat(module_end + 1024);
+		/* Relocate the command line */
+		size_t len = strlen((char *)mboot_ptr->cmdline);
+		cmdline = (char *)kmalloc(len + 1);
+		memmove(cmdline, (char *)mboot_ptr->cmdline, len + 1);
 
+		/* Relocate any available modules */
 		if (mboot_ptr->flags & (1 << 3)) {
-			ramdisk = (char *)module_start;
-			/*
-			 * Mboot modules are available.
-			 */
 			if (mboot_ptr->mods_count > 0) {
 				/*
 				 * Ramdisk image was provided. (hopefully)
 				 */
 				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
 				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
-				ramdisk = (char *)kmalloc(module_end - module_start);				/* New chunk of ram for it. */
-				memcpy(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
+				ramdisk = (char *)kmalloc(module_end - module_start);
+				memmove(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
 			}
 		}
 	} else {
 		/*
 		 * This isn't a multiboot attempt. We were probably loaded by
-		 * Mr. Boots, our dedicated boot loader. Verify this...
+		 * Mr. Boots, our (non-existent) dedicated boot loader. Verify this...
 		 */
 		boot_mode = mrboots;
 	}
 
 	/* Initialize core modules */
-	init_video();		/* VGA driver */
 	gdt_install();		/* Global descriptor table */
 	idt_install();		/* IDT */
 	isrs_install();		/* Interrupt service requests */
@@ -129,28 +126,15 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	enable_fpu();		/* Enable the floating point unit */
 	syscalls_install();	/* Install the system calls */
 
-	memcpy((void *)0x0, (void*)0x1E00000, 0x500);
-
-	if (boot_mode == multiboot) {
-
-		if (mboot_ptr->flags & (1 << 3)) {
-			/*
-			 * If we have an initial ramdisk, mount it.
-			 */
-			if (mboot_ptr->mods_count > 0) {
-				initrd_mount((uintptr_t)ramdisk, 0);
-			}
-		}
+	if (ramdisk) {
+		initrd_mount((uintptr_t)ramdisk, 0);
 	}
 
 	mouse_install();	/* Mouse driver */
 
-	if (boot_mode == multiboot) {
-		/* Parse the command-line arguments */
-		parse_args((char *)mboot_ptr->cmdline);
+	if (cmdline) {
+		parse_args(cmdline);
 	}
-
-	kprintf("\033[2J");
 
 	start_shell();
 
