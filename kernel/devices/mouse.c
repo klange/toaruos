@@ -38,9 +38,7 @@ typedef struct sprite {
 
 sprite_t * cursor;
 
-uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
-	return (r * 0x10000) + (g * 0x100) + (b * 0x1);
-}
+#define rgb(r,g,b) (((r) << 16) + ((g) << 8) + ((b)))
 
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
 	float a = _RED(mask) / 256.0;

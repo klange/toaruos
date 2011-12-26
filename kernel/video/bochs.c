@@ -372,7 +372,13 @@ bochs_set_point(
 		uint16_t y,
 		uint32_t color
 		) {
-	*((uint32_t *)&bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x) * (bochs_resolution_b / 8)]) = color;
+	if (bochs_resolution_b == 32) {
+		*((uint32_t *)&bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x) * 4]) = color;
+	} else if (bochs_resolution_b == 24) {
+		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x) * 3 + 2] = _RED(color);
+		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x) * 3 + 1] = _GRE(color);
+		bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x) * 3 + 0] = _BLU(color);
+	}
 }
 
 static inline void
@@ -382,9 +388,9 @@ bochs_set_point_bg(
 		uint32_t color
 		) {
 	if (!color && wallpaper && y < wallpaper->height && x < wallpaper->width) {
-		*((uint32_t *)&bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x) * (bochs_resolution_b / 8)]) = wallpaper->bitmap[wallpaper->width * y + x];
+		bochs_set_point(x,y,wallpaper->bitmap[wallpaper->width * y + x]);
 	} else {
-		*((uint32_t *)&bochs_vid_memory[((y + current_scroll) * bochs_resolution_x + x) * (bochs_resolution_b / 8)]) = color;
+		bochs_set_point(x,y,color);
 	}
 }
 
