@@ -116,6 +116,7 @@ clone_table(
  */
 void
 tasking_install() {
+	blog("Initializing multitasking...");
 	IRQ_OFF; /* Disable interrupts */
 
 	LOG(NOTICE, "Initializing multitasking");
@@ -131,6 +132,7 @@ tasking_install() {
 
 	/* Reenable interrupts */
 	IRQ_ON;
+	bfinish(0);
 }
 
 /*

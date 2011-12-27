@@ -6,6 +6,7 @@
  *
  */
 #include <system.h>
+#include <logging.h>
 
 /*
  * Text pointer, background, foreground
@@ -275,4 +276,6 @@ void init_video() {
 	move_csr();
 
 	ansi_init(&writech, 80, 25, &vga_set_color, &vga_set_csr, &vga_get_csr_x, &vga_get_csr_y, &vga_set_cell, &cls, &redraw_csr);
+	blog("Initializing video services...");
+	bfinish(0);
 }

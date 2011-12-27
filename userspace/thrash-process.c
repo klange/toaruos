@@ -8,14 +8,24 @@
 DEFN_SYSCALL1(wait, 17, unsigned int);
 
 int main(int argc, char ** argv) {
+	int quiet = 0;
+	if (argc > 1) {
+		if (!strcmp(argv[1],"-q")) {
+			printf("I'll be quiet...\n");
+			quiet = 1;
+		}
+	}
 	for (int j = 0; j < 1024; ++j) {
 		volatile int k = fork();
-		printf("I am %d, I got %d\n", getpid(), k);
+		if (!quiet)
+			printf("I am %d, I got %d\n", getpid(), k);
 		if (k == 0) {
-			printf("I am %d\n", getpid());
+			if (!quiet || !(j % 10))
+				printf("I am %d\n", getpid());
 			return 0;
 		} else {
-			printf("Waiting on %d\n", k);
+			if (!quiet)
+				printf("Waiting on %d\n", k);
 			syscall_wait(k);
 		}
 	}

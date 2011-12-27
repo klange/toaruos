@@ -252,10 +252,14 @@ clean: clean-soft clean-boot clean-core
 clean-hard: clean clean-bin clean-aux clean-docs
 	@${INFO} "--" "Finished hard cleaning"
 
+clean-disk:
+	@${BEGRM} "RM" "Deleting hard disk image..."
+	@-rm -f toaruos-disk.img
+	@${ENDRM} "RM" "Deleted hard disk image"
+
 clean-once:
 	@${BEGRM} "RM" "Cleaning one-time files..."
 	@-rm -f .passed
-	@-rm -f toaruos-disk.img
 	@${ENDRM} "RM" "Cleaned one-time files"
 
 

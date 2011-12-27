@@ -68,6 +68,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	initial_esp = esp;
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
 	char * cmdline = NULL;
+	uintptr_t ramdisk_top = 0;
 
 	/* Immediately initialize the video service so we can spew usable error messages */
 	init_video();
@@ -76,6 +77,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 		/*
 		 * Multiboot (GRUB, native QEMU, PXE)
 		 */
+		blog("Relocating Multiboot structures...");
 		boot_mode = multiboot;
 		mboot_ptr = mboot;
 
@@ -93,9 +95,11 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
 				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
 				ramdisk = (char *)kmalloc(module_end - module_start);
+				ramdisk_top = (uintptr_t)ramdisk + (module_end - module_start);
 				memmove(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
 			}
 		}
+		bfinish(0);
 	} else {
 		/*
 		 * This isn't a multiboot attempt. We were probably loaded by
@@ -127,7 +131,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	syscalls_install();	/* Install the system calls */
 
 	if (ramdisk) {
-		initrd_mount((uintptr_t)ramdisk, 0);
+		initrd_mount((uintptr_t)ramdisk, ramdisk_top);
 	}
 
 	mouse_install();	/* Mouse driver */

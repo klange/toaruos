@@ -256,8 +256,10 @@ uint32_t num_syscalls = 21;
 
 void
 syscalls_install() {
+	blog("Initializing syscall table...");
 	LOG(INFO, "Initializing syscall table with %d functions", num_syscalls);
 	isrs_install_handler(0x7F, &syscall_handler);
+	bfinish(0);
 }
 
 void

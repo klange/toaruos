@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #include <system.h>
 #include <ext2.h>
 #include <fs.h>
@@ -372,6 +374,7 @@ initrd_mount(
 		uint32_t mem_head,
 		uint32_t mem_top
 		) {
+	blog("Mounting EXT2 ramdisk...");
 	initrd_start = (void *)mem_head;
 	initrd_superblock = (ext2_superblock_t *)((uintptr_t)initrd_start + 1024);
 	assert(initrd_superblock->magic == EXT2_SUPER_MAGIC);
@@ -389,4 +392,5 @@ initrd_mount(
 	assert(initrd_node_root(root_inode, initrd_root));
 	fs_root = initrd_root;
 	LOG(INFO, "Mounted EXT2 ramdisk at 0x%x-0x%x, root VFS node is 0x%x", mem_head, mem_top, initrd_root);
+	bfinish(0);
 }

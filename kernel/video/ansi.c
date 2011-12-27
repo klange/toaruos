@@ -56,7 +56,7 @@ static struct _ansi_state {
 	uint8_t  flags ;  /* Bright, etc. */
 	uint8_t  escape;  /* Escape status */
 	uint8_t  buflen;  /* Buffer Length */
-	char *   buffer;  /* Previous buffer */
+	char     buffer[100];  /* Previous buffer */
 } state;
 
 void (*ansi_writer)(char) = NULL;
@@ -98,7 +98,6 @@ ansi_put(
 				 * fill the buffer, get out of here.
 				 */
 				state.escape    = 1;
-				state.buffer    = malloc(sizeof(char) * 100);
 				state.buflen    = 0;
 				ansi_buf_add(c);
 				return;
@@ -117,8 +116,6 @@ ansi_put(
 				ansi_dump_buffer();
 				ansi_writer(c);
 				state.escape = 0;
-				free(state.buffer);
-				state.buffer = NULL;
 				state.buflen = 0;
 				return;
 			}
@@ -222,7 +219,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							ansi_set_csr(ansi_get_csr_x() + i, ansi_get_csr_y());
+							ansi_set_csr(min(ansi_get_csr_x() + i, state.width - 1), ansi_get_csr_y());
 						}
 						break;
 					case ANSI_CUU:
@@ -231,7 +228,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							ansi_set_csr(ansi_get_csr_x(), ansi_get_csr_y() - i);
+							ansi_set_csr(ansi_get_csr_x(), max(ansi_get_csr_y() - i, 0));
 						}
 						break;
 					case ANSI_CUD:
@@ -240,7 +237,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							ansi_set_csr(ansi_get_csr_x(), ansi_get_csr_y() + i);
+							ansi_set_csr(ansi_get_csr_x(), min(ansi_get_csr_y() + i, state.height - 1));
 						}
 						break;
 					case ANSI_CUB:
@@ -249,7 +246,7 @@ ansi_put(
 							if (argc) {
 								i = atoi(argv[0]);
 							}
-							ansi_set_csr(ansi_get_csr_x() - i, ansi_get_csr_y());
+							ansi_set_csr(max(ansi_get_csr_x() - i,0), ansi_get_csr_y());
 						}
 						break;
 					case ANSI_CUP:
@@ -312,8 +309,6 @@ ansi_put(
 					ansi_set_color(state.fg, state.bg);
 				}
 				/* Clear out the buffer */
-				free(state.buffer);
-				state.buffer = NULL;
 				state.buflen = 0;
 				state.escape = 0;
 				return;

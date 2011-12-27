@@ -35,6 +35,7 @@ serial_handler(
 
 void
 serial_install() {
+	blog("Installing serial communication driver...");
 	LOG(INFO, "Installing serial communication driver");
 	/* We will initialize the first serial port */
 	outportb(SERIAL_PORT_A + 1, 0x00);
@@ -46,6 +47,7 @@ serial_install() {
 	outportb(SERIAL_PORT_A + 4, 0x0B);
 	irq_install_handler(4, serial_handler); /* Install the serial input handler */
 	outportb(SERIAL_PORT_A + 1, 0x01);      /* Enable interrupts on receive */
+	bfinish(0);
 }
 
 int

@@ -35,6 +35,7 @@ extern void spin_unlock(uint8_t volatile * lock);
 
 /* Kernel Main */
 extern int max(int,int);
+extern int min(int,int);
 extern int abs(int);
 extern void swap(int *, int *);
 extern void *memcpy(void *restrict dest, const void *restrict src, size_t count);

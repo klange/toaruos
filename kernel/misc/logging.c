@@ -22,8 +22,10 @@ static char * messages[] = {
 };
 
 void logging_install() {
+	blog("Installing stored logging...");
 	log_buffer = list_create();
 	LOG(INFO, "Kernel log initialized");
+	bfinish(0);
 }
 
 void debug_print_log_entry(log_entry_t * l) {
@@ -61,4 +63,25 @@ void klog(log_type_t type, char *module, unsigned int line, const char *fmt, ...
 	vasprintf(l->text, fmt, args);
 	va_end(args);
 	list_insert(log_buffer, l);
+}
+
+/*
+ * Messsage... <---  ---> [  OK  ]
+ */
+
+static char * boot_messages[] = {
+	"\033[1;32m  OK  ",
+	"\033[1;33m WARN ",
+	"\033[1;31mERROR!"
+};
+
+char * last_message = NULL;
+
+void blog(char * string) {
+	last_message = string;
+	kprintf("\033[0m%s\033[1000C\033[8D[ \033[1;34m....\033[0m ]", string);
+}
+void bfinish(int status) {
+	if (!last_message) { return; }
+	kprintf("\033[1000D\033[0m%s\033[1000C\033[8D[%s\033[0m]\n", last_message, boot_messages[status]);
 }

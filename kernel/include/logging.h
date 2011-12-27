@@ -23,4 +23,7 @@ void klog(log_type_t type, char *module, unsigned int line, const char *fmt, ...
 void debug_print_log();
 void logging_install();
 
+void blog(char * string);
+void bfinish(int status);
+
 #endif

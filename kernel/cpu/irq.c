@@ -4,6 +4,7 @@
  *
  */
 #include <system.h>
+#include <logging.h>
 
 extern void _irq0();
 extern void _irq1();
@@ -87,9 +88,11 @@ irq_gates() {
  */
 void
 irq_install() {
+	blog("Setting up and enabling hardware interrupts...");
 	irq_remap();
 	irq_gates();
 	IRQ_ON;
+	bfinish(0);
 }
 
 void

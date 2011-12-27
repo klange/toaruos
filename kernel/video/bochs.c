@@ -7,6 +7,7 @@
 #include <fs.h>
 #include <types.h>
 #include <vesa.h>
+#include <logging.h>
 
 #define PROMPT_FOR_MODE 0
 
@@ -101,9 +102,10 @@ bochs_screenshot(char * filename) {
 
 void
 bochs_install_wallpaper(char * filename) {
-	kprintf("Starting up...\n");
+	blog("Loading wallpaper...");
 	fs_node_t * image = kopen(filename, 0);
 	if (!image) {
+		bfinish(2);
 		kprintf("[NOTICE] Failed to load wallpaper `%s`.\n", filename);
 		return;
 	}
@@ -153,6 +155,7 @@ bochs_install_wallpaper(char * filename) {
 	}
 
 	free(bufferb);
+	bfinish(0);
 }
 
 static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
@@ -170,6 +173,7 @@ static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
 
 void
 graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
+	blog("Setting up BOCHS/QEMU graphics controller...");
 	outports(0x1CE, 0x00);
 	uint16_t i = inports(0x1CF);
 	if (i < 0xB0C0 || i > 0xB0C6) {
@@ -224,12 +228,15 @@ graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 
 mem_found:
 	finalize_graphics(resolution_x, resolution_y, PREFERRED_B);
+	bfinish(0);
 }
 
 #include "../v8086/rme.h"
 
 void
 graphics_install_vesa(uint16_t x, uint16_t y) {
+	blog("Setting up VESA video controller...");
+
 	/* VESA Structs */
 	struct VesaControllerInfo *info = (void*)0x10000;
 	struct VesaModeInfo *modeinfo = (void*)0x9000;
@@ -254,6 +261,7 @@ graphics_install_vesa(uint16_t x, uint16_t y) {
 	emu->DI.W = 0;
 	ret = RME_CallInt(emu, 0x10);
 	if (info->Version < 0x200 || info->Version > 0x300) {
+		bfinish(2);
 		kprintf("\033[JYou have attempted to use the VESA/VBE2 driver\nwith a card that does not support VBE2.\n");
 		kprintf("\nSystem responded to VBE request with version: 0x%x\n", info->Version);
 
@@ -344,6 +352,7 @@ graphics_install_vesa(uint16_t x, uint16_t y) {
 			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 		}
 
+
 		/* Go find it */
 		for (uintptr_t x = 0xE0000000; x < 0xE0FF0000; x += 0x1000) {
 			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
@@ -364,6 +373,7 @@ mem_found:
 	 * Finalize the graphics setup with the actual selected resolution.
 	 */
 	finalize_graphics(actual_x, actual_y, actual_b);
+	bfinish(0);
 }
 
 static inline void

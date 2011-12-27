@@ -254,11 +254,13 @@ keyboard_handler(
 
 void
 keyboard_install() {
+	blog("Initializing PS/2 keyboard driver...");
 	LOG(INFO, "Initializing PS/2 keyboard driver");
 	/* IRQ installer */
 	keyboard_buffer_handler = NULL;
 	keyboard_direct_handler = NULL;
 	irq_install_handler(1, keyboard_handler);
+	bfinish(0);
 }
 
 void
