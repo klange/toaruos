@@ -69,6 +69,11 @@ void (*ansi_cls)(void) = NULL;
 
 void (*redraw_cursor)(void) = NULL;
 
+static struct {
+	uint16_t x;
+	uint16_t y;
+} saved_state;
+
 void
 ansi_dump_buffer() {
 	for (int i = 0; i < state.buflen; ++i) {
@@ -139,6 +144,17 @@ ansi_put(
 				argv[argc] = NULL;
 				/* Alright, let's do this */
 				switch (c) {
+					case ANSI_SCP:
+						{
+							saved_state.x = ansi_get_csr_x();
+							saved_state.y = ansi_get_csr_y();
+						}
+						break;
+					case ANSI_RCP:
+						{
+							ansi_set_csr(saved_state.x, saved_state.y);
+						}
+						break;
 					case ANSI_SGR:
 						/* Set Graphics Rendition */
 						if (argc == 0) {
@@ -254,7 +270,7 @@ ansi_put(
 							ansi_set_csr(0,0);
 							break;
 						}
-						ansi_set_csr(atoi(argv[1]) - 1, atoi(argv[0]) - 1);
+						ansi_set_csr(min(max(atoi(argv[1]), 1), state.width) - 1, min(max(atoi(argv[0]), 1), state.height) - 1);
 						break;
 					case ANSI_ED:
 						ansi_cls();
