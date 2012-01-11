@@ -37,7 +37,7 @@ int main(int argc, char ** argv) {
 		int pid = fork();
 		if (!pid) {
 			while (1) {
-				printf("%c\n", i + 'A');
+				printf("%c", i + 'A');
 			}
 		} else {
 			npid = pid;

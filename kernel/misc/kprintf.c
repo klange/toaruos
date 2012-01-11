@@ -177,12 +177,10 @@ kgets_handler(
 	if (kgets_special == 1) {
 		if (ch == 91) {
 			kgets_special = 2;
-			IRQ_ON;
-			return;
+			goto _cleanup;
 		}
 		kgets_special = 0;
-		IRQ_ON;
-		return;
+		goto _cleanup;
 	}
 	if (kgets_special == 2) {
 		switch (ch) {
@@ -235,17 +233,16 @@ kgets_handler(
 				break;
 		}
 		kgets_special = 0;
-		IRQ_ON;
-		return;
+		goto _cleanup;
 	}
 
 	if (ch == 0x08) {
 		/* Backspace */
 		if (kgets_collected != 0) {
 			if (kgets_offset == 0) {
-				IRQ_ON;
-				return;
-			}			/* Clear the previous character */
+				goto _cleanup;
+			}
+			/* Clear the previous character */
 			kwrite(0x08);
 			kwrite(' ');
 			kwrite(0x08);
@@ -270,30 +267,22 @@ kgets_handler(
 				kgets_offset--;
 			}
 		}
-		IRQ_ON;
-		return;
+		goto _cleanup;
 	} else if (ch == '\x0c') {
 		kprintf("\033[H\033[2J");
 		if (kgets_redraw_func) {
 			kgets_redraw_func();
 		}
 		kgets_redraw_buffer();
-		IRQ_ON;
-		return;
+		goto _cleanup;
 	} else if (ch == '\t' && kgets_tab_complete_func) {
-		if (current_process != kgets_client) {
-			/* Switch page directories into the caller so we can write to its buffers */
-			switch_page_directory(kgets_client->thread.page_directory);
-		}
 		kgets_tab_complete_func(kgets_buffer);
 		kgets_collected = strlen(kgets_buffer);
 		kgets_offset = kgets_collected;
-		IRQ_ON;
-		return;
+		goto _cleanup;
 	} else if (ch == 27) {
 		kgets_special = 1;
-		IRQ_ON;
-		return;
+		goto _cleanup;
 	} else if (ch == '\n') {
 		/* Newline finishes off the kgets() */
 		while (kgets_offset < kgets_collected) {
@@ -304,14 +293,9 @@ kgets_handler(
 		}
 		kwrite('\n');
 		kgets_newline = 1;
-		IRQ_ON;
-		return;
+		goto _cleanup;
 	}	/* Add this character to the buffer. */
 	if (kgets_offset != kgets_collected) {
-		if (current_process != kgets_client) {
-			/* Switch page directories into the caller so we can write to its buffers */
-			switch_page_directory(kgets_client->thread.page_directory);
-		}
 		for (int i = kgets_collected; i > kgets_offset; --i) {
 			kgets_buffer[i] = kgets_buffer[i-1];
 		}
@@ -332,16 +316,16 @@ kgets_handler(
 	} else {
 		kwrite(ch);
 		if (kgets_collected < kgets_want) {
-			if (current_process != kgets_client) {
-				/* Switch page directories into the caller so we can write to its buffers */
-				switch_page_directory(kgets_client->thread.page_directory);
-			}
 			kgets_buffer[kgets_collected] = ch;
 			kgets_buffer[++kgets_collected] = '\0';
 			kgets_offset++;
 		}
 	}
+_cleanup:
 	IRQ_ON;
+	if (current_process != kgets_client) {
+		switch_page_directory(current_process->thread.page_directory);
+	}
 }
 
 void kgets_redraw_buffer() {
