@@ -26,6 +26,10 @@
 
 #define SYSCALL_VECTOR 0x7F
 
+extern void * code;
+extern void * end;
+
+
 extern void *sbrk(uintptr_t increment);
 
 extern void tss_flush();

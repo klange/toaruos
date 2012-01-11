@@ -68,10 +68,12 @@ static int read(int fd, char * ptr, int len) {
 static int write(int fd, char * ptr, int len) {
 #ifdef SPECIAL_CASE_STDIO
 	if (fd == 1 || fd == 2) {
+		IRQ_OFF;
 		for (int i = 0; i < len; ++i) {
 			ansi_put(ptr[i]);
 			serial_send(ptr[i]);
 		}
+		IRQ_ON;
 		return len;
 	}
 #endif

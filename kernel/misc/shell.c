@@ -484,6 +484,13 @@ uint32_t shell_cmd_set_mode(int argc, char *argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_kern_info(int argc, char *argv[]) {
+	extern void *data, *bss;
+	kprintf("Kernel is at 0x%x-0x%x\n", (uintptr_t)&code, (uintptr_t)&end);
+	kprintf("Data is at 0x%x and 0x%x\n", (uintptr_t)&data, (uintptr_t)&bss);
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",         shell_cmd_cd);
 	shell_install_command("ls",         shell_cmd_ls);
@@ -505,6 +512,7 @@ void install_commands() {
 	shell_install_command("mem",        shell_cmd_mem);
 	shell_install_command("uname",      shell_cmd_uname);
 	shell_install_command("set-mode",   shell_cmd_set_mode);
+	shell_install_command("kern-info",  shell_cmd_kern_info);
 }
 
 void add_path_contents() {

@@ -40,8 +40,6 @@
 #include <fs.h>
 #include <logging.h>
 
-extern void * end;
-
 /*
  * kernel entry point
  *

@@ -233,7 +233,6 @@ switch_task() {
 	if (eip == 0x10000) {
 		/* Returned from EIP after task switch, we have
 		 * finished switching. */
-		IRQ_OFF;
 		while (should_reap()) {
 			process_t * proc = next_reapable_process();
 			if (proc) {
@@ -271,6 +270,10 @@ switch_next() {
 	ebp = current_process->thread.ebp;
 	/* Disable interrupts */
 	IRQ_OFF;
+
+	/* Validate */
+	assert((eip > (uintptr_t)&code) && (eip < (uintptr_t)&end) && "Task switch return point is not within Kernel!");
+
 	/* Set the page directory */
 	current_directory = current_process->thread.page_directory;
 	/* Set the kernel stack in the TSS */
@@ -282,7 +285,6 @@ switch_next() {
 			"mov %2, %%ebp\n"
 			"mov %3, %%cr3\n"
 			"mov $0x10000, %%eax\n" /* read_eip() will return 0x10000 */
-			"sti\n" /* Reenable interrupts */
 			"jmp *%%ebx"
 			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address)
 			: "%ebx", "%esp", "%eax");
@@ -305,7 +307,7 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 			"pushl $0\n"           /* Push the null terminator  */
 			"pushl %2\n"           /* Push the argument pointer */
 			"pushl %1\n"           /*          argument count   */
-			"pushl $1\n"           /* [backwards-compatibility] */
+			"pushl $0xDECADE21\n"  /* Magic */
 			"mov $0x23, %%ax\n"    /* Segment selector */
 			"mov %%ax, %%ds\n"
 			"mov %%ax, %%es\n"
