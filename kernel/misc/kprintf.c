@@ -284,6 +284,7 @@ kgets_handler(
 		}
 		kgets_tab_complete_func(kgets_buffer);
 		kgets_collected = strlen(kgets_buffer);
+		kgets_offset = kgets_collected;
 		return;
 	} else if (ch == 27) {
 		kgets_special = 1;

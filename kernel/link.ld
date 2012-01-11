@@ -1,4 +1,4 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  * Kernel linker script for x86
  */
 OUTPUT_FORMAT(elf32-i386)
