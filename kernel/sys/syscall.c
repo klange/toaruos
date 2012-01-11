@@ -44,9 +44,8 @@ static int exit(int retval) {
 static int read(int fd, char * ptr, int len) {
 #ifdef SPECIAL_CASE_STDIO
 	if (fd == 0) {
-		IRQ_ON;
+		IRQ_RES;
 		kgets(ptr, len);
-		IRQ_OFF;
 		if (strlen(ptr) < (uint32_t)len) {
 			int j = strlen(ptr);
 			ptr[j] = '\n';
@@ -182,7 +181,7 @@ static int kbd_mode(int mode) {
 
 static int kbd_get() {
 	/* If we're requesting keyboard input, we better damn well be getting it */
-	IRQ_ON;
+	IRQ_RES;
 	char x = kbd_last;
 	kbd_last = 0;
 	return (int)x;

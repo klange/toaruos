@@ -186,7 +186,7 @@ fork() {
 		make_process_ready(new_proc);
 
 		/* Reenable interrupts */
-		IRQ_ON;
+		IRQ_RES;
 
 		/* Return the child PID */
 		return new_proc->id;
@@ -239,7 +239,7 @@ switch_task() {
 				reap_process(proc);
 			}
 		}
-		IRQ_ON;
+		IRQ_RES;
 		return;
 	}
 

@@ -18,8 +18,11 @@
 #define asm __asm__
 #define volatile __volatile__
 
-#define IRQ_OFF asm volatile ("cli")
-#define IRQ_ON  asm volatile ("sti")
+extern unsigned int __irq_sem;
+
+#define IRQ_OFF { asm volatile ("cli"); __irq_sem++; }
+#define IRQ_ON  { if (__irq_sem > 0) __irq_sem--; if (!__irq_sem) asm volatile ("sti"); }
+#define IRQ_RES { __irq_sem = 0; asm volatile ("sti"); }
 #define PAUSE   asm volatile ("hlt")
 
 #define STOP while (1) { PAUSE; }

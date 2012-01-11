@@ -7,7 +7,7 @@
 #include <process.h>
 #include <logging.h>
 
-extern uintptr_t end;
+extern void *end;
 uintptr_t placement_pointer = (uintptr_t)&end;
 uintptr_t heap_end = (uintptr_t)NULL;
 
