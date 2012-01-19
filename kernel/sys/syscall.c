@@ -127,9 +127,14 @@ static int close(int fd) {
 
 static int sys_sbrk(int size) {
 	uintptr_t ret = current_process->image.heap;
-	current_process->image.heap += size;
+	uintptr_t i_ret = ret;
+	while (ret % 0x1000) {
+		ret++;
+	}
+	current_process->image.heap += (ret - i_ret) + size;
 	while (current_process->image.heap > current_process->image.heap_actual) {
 		current_process->image.heap_actual += 0x1000;
+		assert(current_process->image.heap_actual % 0x1000 == 0);
 		alloc_frame(get_page(current_process->image.heap_actual, 1, current_directory), 0, 1);
 	}
 	return ret;

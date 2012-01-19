@@ -35,7 +35,7 @@ int main(int argc, char ** argv) {
 	size_t binary_size;      /**< Size of the file */
 	char * binary_buf;       /**< Buffer to store the binary in memory */
 	Elf32_Header * header;   /**< ELF header */
-	char * string_table[5];  /**< Room for some string tables */
+	char * string_table;     /**< Room for some string tables */
 
 	/* Open the requested binary */
 	binary = fopen(argv[1], "r");
@@ -159,11 +159,11 @@ int main(int argc, char ** argv) {
 			return 1;
 		}
 		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)binary_buf + (header->e_shoff + x));
-		if (shdr->sh_type != SHT_STRTAB) continue;
-		string_table[i] = (char *)((uintptr_t)binary_buf + shdr->sh_offset);
-		printf("Found a string table at 0x%x\n", shdr->sh_offset);
+		if (i == header->e_shstrndx) {
+			string_table = (char *)((uintptr_t)binary_buf + shdr->sh_offset);
+			printf("Found a string table at 0x%x\n", shdr->sh_offset);
+		}
 		++i;
-		if (i == 5) break;
 	}
 
 	/* Read the section headers */
@@ -175,7 +175,7 @@ int main(int argc, char ** argv) {
 		}
 		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)binary_buf + (header->e_shoff + x));
 
-		printf("[%d] %s\n", shdr->sh_type, (char *)((uintptr_t)string_table[0] + shdr->sh_name));
+		printf("[%d] %s\n", shdr->sh_type, (char *)((uintptr_t)string_table + shdr->sh_name));
 		printf("Section starts at 0x%x and is 0x%x bytes long.\n", shdr->sh_offset, shdr->sh_size);
 		if (shdr->sh_addr) {
 			printf("It should be loaded at 0x%x.\n", shdr->sh_addr);

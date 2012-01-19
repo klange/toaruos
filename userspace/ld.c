@@ -30,6 +30,7 @@ uintptr_t DESTINATION = 0x03000000;
 int _main();
 int argc;
 char ** argv;
+uintptr_t epoint = 0;
 
 /**
  * Application entry point.
@@ -63,19 +64,21 @@ here:
 	size_t binary_size;      /**< Size of the file */
 	char * binary_buf;       /**< Buffer to store the binary in memory */
 	Elf32_Header * header;   /**< ELF header */
-	char * string_table[5];  /**< Room for some string tables */
+	char * string_table;     /**< Room for some string tables */
+	uintptr_t __init = 0;
 
 	/* Open the requested binary */
 	binary = fopen(argv[1], "r");
 
-	/* Hack because we don't have seek/tell */
-	char garbage[3];
-	binary_size = 0;
-	while (fread((void *)&garbage, 1, 1, binary) != 0) {
-		++binary_size;
+	if (!binary) {
+		printf("Oh no! This is terrible!\n");
+		return 1;
 	}
-	fclose(binary);
-	binary = fopen(argv[1], "r");
+
+	/* Hack because we don't have seek/tell */
+	fseek(binary, 0, SEEK_END);
+	binary_size = ftell(binary);
+	fseek(binary, 0, SEEK_SET);
 
 	/* Read the binary into a buffer */
 	binary_buf = malloc(binary_size);
@@ -89,6 +92,21 @@ here:
 			header->e_ident[1] != ELFMAG1 ||
 			header->e_ident[2] != ELFMAG2 ||
 			header->e_ident[3] != ELFMAG3) {
+		printf("Failed to load binary: bad magic\n");
+		return 1;
+	}
+
+	uint32_t i = 0;
+	for (uint32_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
+		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)header + (header->e_shoff + x));
+		if (i == header->e_shstrndx) {
+			string_table = (char *)((uintptr_t)header + shdr->sh_offset);
+		}
+		++i;
+	}
+
+	if (!string_table) {
+		printf("No string table?\n");
 		return 1;
 	}
 
@@ -100,18 +118,37 @@ here:
 		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)binary_buf + (header->e_shoff + x));
 
 		if (shdr->sh_addr) {
-			memcpy((void *)shdr->sh_addr,(void *)((uintptr_t)header + shdr->sh_offset), shdr->sh_size);
+			if (shdr->sh_type == SHT_NOBITS) {
+				/* This is the .bss, zero it */
+				memset((void *)(shdr->sh_addr), 0x0, shdr->sh_size);
+			} else {
+				memcpy((void *)(shdr->sh_addr), (void *)((uintptr_t)header + shdr->sh_offset), shdr->sh_size);
+			}
+			char * sh_name = (char *)((uintptr_t)string_table + shdr->sh_name);
+			printf("%s %p\n", sh_name, shdr->sh_addr);
+			if (!strcmp(sh_name,".init")) {
+				__init = shdr->sh_addr;
+				printf("Found .init\n");
+			}
 		}
 	}
 
-	uintptr_t location = header->e_entry;
-	uintptr_t argc_    = (uintptr_t)&argc;
+	if (__init) {
+		printf("Calling _init()\n");
+		__asm__ __volatile__ (
+				"call *%0\n"
+				: : "m"(__init));
+	}
+
+
+	epoint = header->e_entry;
 	__asm__ __volatile__ (
-			"push %2\n"
-			"push %1\n"
-			"push $0\n"
-			"call *%0\n"
-			: : "m"(location), "m"(argc_), "m"(argv));
+			"pushl $0\n"
+			"pushl %2\n"
+			"pushl %1\n"
+			"pushl $0xDECADE21\n"
+			"jmp *%0\n"
+			: : "m"(epoint), "r"(argc-1), "r"(argv+1));
 
 	return 0;
 }
