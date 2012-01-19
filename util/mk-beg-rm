@@ -1,7 +1,7 @@
 #!/bin/bash
 . util/cpad.sh
 
-echo -n > /tmp/.build-errors
+echo -n > /tmp/.`whoami`-build-errors
 
 CMD=`cpad "$1" 8 " "`
 echo -e -n "\033[31m${CMD}${2}\033[0m\n"
