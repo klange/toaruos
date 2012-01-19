@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
 #ifndef EXT2_H
-#define EXT2_h
+#define EXT2_H
 
 #ifdef _KERNEL_
 #	include <types.h>
