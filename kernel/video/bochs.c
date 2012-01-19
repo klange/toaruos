@@ -199,31 +199,25 @@ graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 	/* Re-enable VBE */
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x41);
-	/* Herp derp */
 
-	uint32_t * herp = (uint32_t *)0xA0000;
-	herp[0] = 0xA5ADFACE;
+	/* XXX: Massive hack */
+	uint32_t * text_vid_mem = (uint32_t *)0xA0000;
+	text_vid_mem[0] = 0xA5ADFACE;
 
-	/* Enable the higher memory */
-	for (uintptr_t i = 0xE0000000; i <= 0xE0FF0000; i += 0x1000) {
-		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-	}
-	for (uintptr_t i = 0xF0000000; i <= 0xF0FF0000; i += 0x1000) {
-		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-	}
-
-	/* Go find it */
-	for (uintptr_t x = 0xE0000000; x < 0xE0FF0000; x += 0x1000) {
-		if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-			bochs_vid_memory = (uint8_t *)x;
-			goto mem_found;
+	for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
+		/* Enable the higher memory */
+		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
+			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 		}
-	}
-	for (uintptr_t x = 0xF0000000; x < 0xF0FF0000; x += 0x1000) {
-		if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-			bochs_vid_memory = (uint8_t *)x;
-			goto mem_found;
+
+		/* Go find it */
+		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
+			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
+				bochs_vid_memory = (uint8_t *)x;
+				goto mem_found;
+			}
 		}
+
 	}
 
 mem_found:
