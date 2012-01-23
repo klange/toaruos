@@ -9,6 +9,9 @@ int main(int argc, char ** argv) {
 	FILE * fd = stdin;
 	if (argc > 1) {
 		fd = fopen(argv[1], "r");
+		if (!fd) {
+			return 1;
+		}
 	}
 
 	size_t length;
