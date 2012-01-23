@@ -1,5 +1,5 @@
 /*
- * Julia Fractal Generator
+ * Terminal Emulator
  */
 
 #include <stdio.h>
@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
+#define FONT_SIZE 12
 
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
@@ -2443,6 +2447,23 @@ uint8_t number_font[][12] = {
 	},
 };
 
+FT_Library   library;
+FT_Face      face;
+FT_GlyphSlot slot;
+FT_UInt      glyph_index;
+
+void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
+	int i, j, p, q;
+	int x_max = x + bitmap->width;
+	int y_max = y + bitmap->rows;
+	for (j = y, q = 0; j < y_max; j++, q++) {
+		for ( i = x, p = 0; i < x_max; i++, p++) {
+			//GFX(i,j) = alpha_blend(GFX(i,j),rgb(0xff,0xff,0xff),rgb(bitmap->buffer[q * bitmap->width + p],0,0));
+			GFX(i,j) = alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0));
+		}
+	}
+}
+
 void
 term_write_char(
 		uint8_t val,
@@ -2451,9 +2472,36 @@ term_write_char(
 		uint32_t fg,
 		uint32_t bg
 		) {
-	if (val > 131) {
-		val = ' ';
+	if (val < 32 || val > 126) {
+		return;
 	}
+
+#if 1
+
+	for (uint8_t i = 0; i < 12; ++i) {
+		term_set_point(x+0,y+i,bg);
+		term_set_point(x+1,y+i,bg);
+		term_set_point(x+2,y+i,bg);
+		term_set_point(x+3,y+i,bg);
+		term_set_point(x+4,y+i,bg);
+		term_set_point(x+5,y+i,bg);
+		term_set_point(x+6,y+i,bg);
+		term_set_point(x+7,y+i,bg);
+	}
+
+	int pen_x = x;
+	int pen_y = y + 10;
+	int error;
+	glyph_index = FT_Get_Char_Index(face, val);
+	error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT );
+	if (error) return;
+	error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+	if (error) return;
+	slot = face->glyph;
+	drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+
+#else
+
 	uint8_t * c = number_font[val];
 	for (uint8_t i = 0; i < 12; ++i) {
 		if (c[i] & 0x80) { term_set_point(x,y+i,fg);   } else { term_set_point_bg(x,y+i,bg); }
@@ -2465,6 +2513,7 @@ term_write_char(
 		if (c[i] & 0x02) { term_set_point(x+6,y+i,fg); } else { term_set_point_bg(x+6,y+i,bg); }
 		if (c[i] & 0x01) { term_set_point(x+7,y+i,fg); } else { term_set_point_bg(x+7,y+i,bg); }
 	}
+#endif
 }
 
 static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, uint8_t flags) {
@@ -2611,8 +2660,29 @@ void term_term_clear() {
 	csr_x = 0;
 	csr_y = 0;
 	memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(uint8_t) * 4);
-	memset((void *)gfx_mem, 0x00, graphics_depth * graphics_width * graphics_height);
 	term_redraw_all();
+}
+
+void cat(char * file) {
+	FILE * f = fopen(file, "rb");
+	if (!f) {
+		ansi_print("Failed to open file, so skipping that part.\n");
+		return;
+	}
+
+	size_t len = 0;
+	fseek(f, 0, SEEK_END);
+	len = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	char * buffer = (char *)malloc(sizeof(char) * len);
+	fread(buffer, 1, len, f);
+	fclose(f);
+	for (size_t i = 0; i < len; ++i) {
+		ansi_put(buffer[i]);
+	}
+
+	free(buffer);
 }
 
 
@@ -2641,7 +2711,25 @@ int main(int argc, char ** argv) {
 		}
 	}
 
+	int error;
+	error = FT_Init_FreeType(&library);
+	if (error) return 1;
+	error = FT_New_Face(library, "/font.ttf", 0, &face);
+	if (error) return 2;
+	error = FT_Set_Pixel_Sizes(face, 0, FONT_SIZE);
+	if (error) return 3;
+
 	ansi_print("Hello World!\nThis is a test.\n\033[1;32mHello and thank you\n\033[0mDone.\n");
+
+	cat("/etc/.vim");
+
+	fgetc(stdin);
+
+	ansi_print("\033[H\033[2J");
+
+	cat("/etc/color-test");
+
+	fgetc(stdin);
 
 	return 0;
 }
