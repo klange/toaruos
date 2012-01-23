@@ -16,6 +16,9 @@ clean:
 ../hdd/bin/freetype_test: freetype_test.c
 	${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
 
+../hdd/bin/terminal: terminal.c
+	${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
+
 ../hdd/bin/%: %.cpp
 	${CPP} ${CPPFLAGS} -s -o $@ $<
 
