@@ -363,7 +363,5 @@ ansi_print(char * c) {
 	uint32_t len = strlen(c);
 	for (uint32_t i = 0; i < len; ++i) {
 		ansi_put(c[i]);
-		/* Assume our serial output is also kinda smart */
-		serial_send(c[i]);
 	}
 }

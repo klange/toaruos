@@ -23,7 +23,7 @@ REALEMU      = $(patsubst %.c,%.o,$(wildcard kernel/v8086/*.c))
 
 SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS} ${REALEMU}
 
-BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/cat hdd/bin/sh hdd/bin/clear
+BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/sh hdd/bin/clear
 UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
 GENEXT = genext2fs

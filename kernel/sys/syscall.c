@@ -70,7 +70,6 @@ static int write(int fd, char * ptr, int len) {
 		IRQ_OFF;
 		for (int i = 0; i < len; ++i) {
 			ansi_put(ptr[i]);
-			serial_send(ptr[i]);
 		}
 		IRQ_ON;
 		return len;

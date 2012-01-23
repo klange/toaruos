@@ -159,7 +159,6 @@ kwrite(
 		char ch
 		) {
 	ansi_put(ch);
-	serial_send(ch);
 }
 
 /**

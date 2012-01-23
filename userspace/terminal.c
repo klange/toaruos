@@ -63,6 +63,8 @@ uint16_t max(uint16_t a, uint16_t b) {
 	return (a > b) ? a : b;
 }
 
+uint8_t _use_freetype = 0;
+
 /* State machine status */
 static struct _ansi_state {
 	uint16_t x     ;  /* Current cursor location */
@@ -2476,44 +2478,34 @@ term_write_char(
 		return;
 	}
 
-#if 1
-
-	for (uint8_t i = 0; i < 12; ++i) {
-		term_set_point(x+0,y+i,bg);
-		term_set_point(x+1,y+i,bg);
-		term_set_point(x+2,y+i,bg);
-		term_set_point(x+3,y+i,bg);
-		term_set_point(x+4,y+i,bg);
-		term_set_point(x+5,y+i,bg);
-		term_set_point(x+6,y+i,bg);
-		term_set_point(x+7,y+i,bg);
+	if (_use_freetype) {
+		for (uint8_t i = 0; i < 12; ++i) {
+			for (uint8_t j = 0; j < 8; ++j) {
+				term_set_point(x+j,y+i,bg);
+			}
+		}
+		int pen_x = x;
+		int pen_y = y + 10;
+		int error;
+		glyph_index = FT_Get_Char_Index(face, val);
+		error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT );
+		if (error) return;
+		error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+		if (error) return;
+		slot = face->glyph;
+		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+	} else {
+		uint8_t * c = number_font[val];
+		for (uint8_t i = 0; i < 12; ++i) {
+			for (uint8_t j = 0; j < 8; ++j) {
+				if (c[i] & (1 << (8-j))) {
+					term_set_point(x+j,y+i,fg);
+				} else {
+					term_set_point_bg(x+j,y+i,bg);
+				}
+			}
+		}
 	}
-
-	int pen_x = x;
-	int pen_y = y + 10;
-	int error;
-	glyph_index = FT_Get_Char_Index(face, val);
-	error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT );
-	if (error) return;
-	error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-	if (error) return;
-	slot = face->glyph;
-	drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
-
-#else
-
-	uint8_t * c = number_font[val];
-	for (uint8_t i = 0; i < 12; ++i) {
-		if (c[i] & 0x80) { term_set_point(x,y+i,fg);   } else { term_set_point_bg(x,y+i,bg); }
-		if (c[i] & 0x40) { term_set_point(x+1,y+i,fg); } else { term_set_point_bg(x+1,y+i,bg); }
-		if (c[i] & 0x20) { term_set_point(x+2,y+i,fg); } else { term_set_point_bg(x+2,y+i,bg); }
-		if (c[i] & 0x10) { term_set_point(x+3,y+i,fg); } else { term_set_point_bg(x+3,y+i,bg); }
-		if (c[i] & 0x08) { term_set_point(x+4,y+i,fg); } else { term_set_point_bg(x+4,y+i,bg); }
-		if (c[i] & 0x04) { term_set_point(x+5,y+i,fg); } else { term_set_point_bg(x+5,y+i,bg); }
-		if (c[i] & 0x02) { term_set_point(x+6,y+i,fg); } else { term_set_point_bg(x+6,y+i,bg); }
-		if (c[i] & 0x01) { term_set_point(x+7,y+i,fg); } else { term_set_point_bg(x+7,y+i,bg); }
-	}
-#endif
 }
 
 static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, uint8_t flags) {
@@ -2700,8 +2692,11 @@ int main(int argc, char ** argv) {
 	if (argc > 1) {
 		/* Read some arguments */
 		int index, c;
-		while ((c = getopt(argc, argv, "h")) != -1) {
+		while ((c = getopt(argc, argv, "fh")) != -1) {
 			switch (c) {
+				case 'f':
+					_use_freetype = 1;
+					break;
 				case 'h':
 					printf("terminal - ansi graphical terminal");
 					break;
@@ -2711,13 +2706,15 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	int error;
-	error = FT_Init_FreeType(&library);
-	if (error) return 1;
-	error = FT_New_Face(library, "/font.ttf", 0, &face);
-	if (error) return 2;
-	error = FT_Set_Pixel_Sizes(face, 0, FONT_SIZE);
-	if (error) return 3;
+	if (_use_freetype) {
+		int error;
+		error = FT_Init_FreeType(&library);
+		if (error) return 1;
+		error = FT_New_Face(library, "/font.ttf", 0, &face);
+		if (error) return 2;
+		error = FT_Set_Pixel_Sizes(face, 0, FONT_SIZE);
+		if (error) return 3;
+	}
 
 	ansi_print("Hello World!\nThis is a test.\n\033[1;32mHello and thank you\n\033[0mDone.\n");
 
