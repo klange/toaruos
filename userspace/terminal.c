@@ -375,11 +375,11 @@ ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, un
 	redraw_cursor  = redraw_csr;
 
 	/* Terminal Defaults */
-	state.fg     = 7; /* Light grey */
-	state.bg     = 0; /* Black */
-	state.flags  = 0; /* Nothing fancy*/
-	state.width  = w; /* 1024 / 8  */
-	state.height = y; /* 768  / 12 */
+	state.fg     = DEFAULT_FG;    /* Light grey */
+	state.bg     = DEFAULT_BG;    /* Black */
+	state.flags  = DEFAULT_FLAGS; /* Nothing fancy*/
+	state.width  = w;
+	state.height = y;
 }
 
 void
@@ -2459,6 +2459,8 @@ uint8_t number_font[][12] = {
 FT_Library   library;
 FT_Face      face;
 FT_Face      face_bold;
+FT_Face      face_italic;
+FT_Face      face_bold_italic;
 FT_GlyphSlot slot;
 FT_UInt      glyph_index;
 
@@ -2496,20 +2498,33 @@ term_write_char(
 		int pen_x = x;
 		int pen_y = y + char_offset;
 		int error;
-		if (flags & ANSI_BOLD) {
-			glyph_index = FT_Get_Char_Index(face_bold, val);
-			error = FT_Load_Glyph(face_bold, glyph_index, FT_LOAD_DEFAULT);
-			if (error) return;
-			error = FT_Render_Glyph(face_bold->glyph, FT_RENDER_MODE_NORMAL);
-			if (error) return;
-			slot = face_bold->glyph; drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+		FT_Face * _font = NULL;
+		if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
+			_font = &face_bold_italic;
+		} else if (flags & ANSI_ITALIC) {
+			_font = &face_italic;
+		} else if (flags & ANSI_BOLD) {
+			_font = &face_bold;
 		} else {
-			glyph_index = FT_Get_Char_Index(face, val);
-			error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
-			if (error) return;
-			error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-			if (error) return;
-			slot = face->glyph; drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+			_font = &face;
+		}
+		glyph_index = FT_Get_Char_Index(*_font, val);
+		error = FT_Load_Glyph(*_font, glyph_index, FT_LOAD_DEFAULT);
+		if (error) return;
+		error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
+		if (error) return;
+		slot = (*_font)->glyph;
+		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+
+		if (flags & ANSI_UNDERLINE) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_offset + 2, fg);
+			}
+		}
+		if (flags & ANSI_CROSS) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_offset - 5, fg);
+			}
 		}
 	} else {
 		uint8_t * c = number_font[val];
@@ -2738,14 +2753,14 @@ int main(int argc, char ** argv) {
 		int error;
 		error = FT_Init_FreeType(&library);
 		if (error) return 1;
-		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono.ttf", 0, &face);
-		if (error) return 2;
-		error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
-		if (error) return 3;
-		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-Bold.ttf", 0, &face_bold);
-		if (error) return 2;
-		error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
-		if (error) return 3;
+		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono.ttf", 0, &face); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-Bold.ttf", 0, &face_bold); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-Oblique.ttf", 0, &face_italic); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", 0, &face_bold_italic); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
 
 		char_height = 17;
 		char_width  = 8;
@@ -2770,6 +2785,8 @@ int main(int argc, char ** argv) {
 	cat("/etc/color-test");
 
 	ansi_print("\033[1m[\033[1;33mklange \033[1;32mpiko \033[1;31m01/23 \033[1;34m22:33:27 \033[1;32mgit\033[1;33m master\033[0m \033[0m~/osdev\033[1m]\033[0m\n\033[1;32m$\033[0m exit");
+
+	ansi_print("\n\033[1mBold \033[0m\033[3mItalic \033[1mBolid+Italic\033[0m\033[0m \033[4mUnderline\033[0m \033[9mX-Out\033[0m \033[1;3;4;9mEverything\033[0m\n");
 
 	fgetc(stdin);
 
