@@ -139,6 +139,7 @@ void fault_handler(struct regs *r) {
 	if (r->int_no >= 32 && r->int_no != SYSCALL_VECTOR) {
 		STOP;
 	}
+	IRQ_OFF;
 	void (*handler)(struct regs *r);
 	handler = isrs_routines[r->int_no];
 	if (handler) {
@@ -148,4 +149,5 @@ void fault_handler(struct regs *r) {
 		kprintf("Unhandled exception: [%d] %s\n", r->int_no, exception_messages[r->int_no]);
 		HALT_AND_CATCH_FIRE("Process caused an unhandled exception", r);
 	}
+	IRQ_RES;
 }

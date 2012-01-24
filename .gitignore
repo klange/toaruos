@@ -12,6 +12,7 @@ hdd/bin/*
 .gdb_history
 bootdisk.img
 util/toaru-toolchain/*
+util/toaru-toolchain
 *.log
 *.pdf
 *.aux
