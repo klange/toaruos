@@ -8,7 +8,7 @@
 
 #include <types.h>
 
-struct _pipe_device {
+typedef struct _pipe_device {
 	uint8_t * buffer;
 	size_t write_ptr;
 	size_t read_ptr;

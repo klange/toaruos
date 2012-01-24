@@ -105,7 +105,7 @@ void close_pipe(fs_node_t * node) {
 		/* No other references exist, free the pipe (but not its buffer) */
 		free(pipe);
 		/* And let the creator know there are no more references */
-		node->inode = NULL;
+		node->inode = 0;
 	}
 
 	return;
