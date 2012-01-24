@@ -12,7 +12,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#define FONT_SIZE 12
+#define FONT_SIZE 13
 
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
@@ -433,6 +433,9 @@ uint8_t * gfx_mem;
 
 uint16_t term_width    = 0;
 uint16_t term_height   = 0;
+uint16_t char_width    = 8;
+uint16_t char_height   = 12;
+uint16_t char_offset   = 0;
 uint16_t csr_x = 0;
 uint16_t csr_y = 0;
 uint8_t * term_buffer = NULL;
@@ -2479,16 +2482,16 @@ term_write_char(
 	}
 
 	if (_use_freetype) {
-		for (uint8_t i = 0; i < 12; ++i) {
-			for (uint8_t j = 0; j < 8; ++j) {
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
 				term_set_point(x+j,y+i,bg);
 			}
 		}
 		int pen_x = x;
-		int pen_y = y + 10;
+		int pen_y = y + char_offset;
 		int error;
 		glyph_index = FT_Get_Char_Index(face, val);
-		error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT );
+		error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
 		if (error) return;
 		error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
 		if (error) return;
@@ -2496,8 +2499,8 @@ term_write_char(
 		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
 	} else {
 		uint8_t * c = number_font[val];
-		for (uint8_t i = 0; i < 12; ++i) {
-			for (uint8_t j = 0; j < 8; ++j) {
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
 				if (c[i] & (1 << (8-j))) {
 					term_set_point(x+j,y+i,fg);
 				} else {
@@ -2533,13 +2536,13 @@ static uint16_t cell_bg(uint16_t x, uint16_t y) {
 
 static void cell_redraw(uint16_t x, uint16_t y) {
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	term_write_char(cell[0], x * 8, y * 12, term_colors[cell[1]], term_colors[cell[2]]);
+	term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[1]], term_colors[cell[2]]);
 }
 
 void draw_cursor() {
 	if (!cursor_on) return;
-	for (uint32_t x = 0; x < 8; ++x) {
-		term_set_point(csr_x * 8 + x, csr_y * 12 + 11, term_colors[current_fg]);
+	for (uint32_t x = 0; x < char_width; ++x) {
+		term_set_point(csr_x * char_width + x, csr_y * char_height + (char_height - 1), term_colors[current_fg]);
 	}
 }
 
@@ -2684,11 +2687,6 @@ int main(int argc, char ** argv) {
 	graphics_depth  = syscall_getgraphicsdepth();
 	gfx_mem = (void *)syscall_getgraphicsaddress();
 
-	term_width  = graphics_width / 8;
-	term_height = graphics_height / 12;
-	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
-	ansi_init(&term_write, 128, 64, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
-
 	if (argc > 1) {
 		/* Read some arguments */
 		int index, c;
@@ -2710,17 +2708,28 @@ int main(int argc, char ** argv) {
 		int error;
 		error = FT_Init_FreeType(&library);
 		if (error) return 1;
-		error = FT_New_Face(library, "/font.ttf", 0, &face);
+		error = FT_New_Face(library, "/font-term.ttf", 0, &face);
 		if (error) return 2;
-		error = FT_Set_Pixel_Sizes(face, 0, FONT_SIZE);
+		error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
 		if (error) return 3;
+
+		char_height = 17;
+		char_width  = 8;
+		char_offset = 13;
 	}
+
+	term_width  = graphics_width / char_width;
+	term_height = graphics_height / char_height;
+	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
+	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 
 	ansi_print("Hello World!\nThis is a test.\n\033[1;32mHello and thank you\n\033[0mDone.\n");
 
+#if 0
 	cat("/etc/.vim");
 
 	fgetc(stdin);
+#endif
 
 	ansi_print("\033[H\033[2J");
 
