@@ -380,6 +380,8 @@ ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, un
 	state.flags  = DEFAULT_FLAGS; /* Nothing fancy*/
 	state.width  = w;
 	state.height = y;
+
+	ansi_set_color(state.fg, state.bg);
 }
 
 void
@@ -2773,6 +2775,8 @@ int main(int argc, char ** argv) {
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 
 	ansi_print("Hello World!\nThis is a test.\n\033[1;32mHello and thank you\n\033[0mDone.\n");
+
+	return 0;
 
 #if 0
 	cat("/etc/.vim");
