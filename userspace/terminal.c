@@ -2696,7 +2696,10 @@ int main(int argc, char ** argv) {
 					_use_freetype = 1;
 					break;
 				case 'h':
-					printf("terminal - ansi graphical terminal");
+					printf("terminal - ansi graphical terminal\n");
+					printf("   -f      Run with freetype enabled.\n");
+					printf("   -h      Print this help text.\n");
+					return 0;
 					break;
 				default:
 					break;
