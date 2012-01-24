@@ -2735,6 +2735,8 @@ int main(int argc, char ** argv) {
 
 	cat("/etc/color-test");
 
+	ansi_print("\033[1m[\033[1;33mklange \033[1;32mpiko \033[1;31m01/23 \033[1;34m22:33:27 \033[1;32mgit\033[1;33m master\033[0m \033[0m~/osdev\033[1m]\033[0m\n\033[1;32m$\033[0m exit");
+
 	fgetc(stdin);
 
 	return 0;
