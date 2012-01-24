@@ -2553,11 +2553,24 @@ static void cell_redraw(uint16_t x, uint16_t y) {
 	term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[1]], term_colors[cell[2]], cell[3]);
 }
 
+static void cell_redraw_inverted(uint16_t x, uint16_t y) {
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
+	if (((uint32_t *)cell)[0] == 0x00000000) {
+		term_write_char(' ', x * char_width, y * char_height, term_colors[DEFAULT_BG], term_colors[DEFAULT_FG], DEFAULT_FLAGS);
+	} else {
+		term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[2]], term_colors[cell[1]], cell[3]);
+	}
+}
+
 void draw_cursor() {
 	if (!cursor_on) return;
+#if 0
 	for (uint32_t x = 0; x < char_width; ++x) {
 		term_set_point(csr_x * char_width + x, csr_y * char_height + (char_height - 1), term_colors[current_fg]);
 	}
+#else
+	cell_redraw_inverted(csr_x, csr_y);
+#endif
 }
 
 void term_redraw_all() { 
