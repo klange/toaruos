@@ -55,6 +55,10 @@
 #define ANSI_BLINK     0x40
 #define ANSI_CROSS     0x80 /* And that's all I'm going to support */
 
+#define DEFAULT_FG     0x07
+#define DEFAULT_BG     0x10
+#define DEFAULT_FLAGS  0x00
+
 uint16_t min(uint16_t a, uint16_t b) {
 	return (a < b) ? a : b;
 }
@@ -239,9 +243,9 @@ ansi_put(
 								state.flags |= ANSI_BOLD;
 							} else if (arg == 0) {
 								/* Reset everything */
-								state.fg = 7;
-								state.bg = 0;
-								state.flags = 0;
+								state.fg = DEFAULT_FG;
+								state.bg = DEFAULT_BG;
+								state.flags = DEFAULT_FLAGS;
 							}
 						}
 						break;
@@ -445,7 +449,7 @@ uint16_t current_scroll = 0;
 uint8_t  cursor_on = 1;
 
 uint32_t term_colors[256] = {
-	/* black  */ 0x000000,
+	/* black  */ 0x2e3436,
 	/* red    */ 0xcc0000,
 	/* green  */ 0x3e9a06,
 	/* brown  */ 0xc4a000,
@@ -2454,6 +2458,7 @@ uint8_t number_font[][12] = {
 
 FT_Library   library;
 FT_Face      face;
+FT_Face      face_bold;
 FT_GlyphSlot slot;
 FT_UInt      glyph_index;
 
@@ -2475,7 +2480,8 @@ term_write_char(
 		uint16_t x,
 		uint16_t y,
 		uint32_t fg,
-		uint32_t bg
+		uint32_t bg,
+		uint8_t flags
 		) {
 	if (val < 32 || val > 126) {
 		return;
@@ -2490,13 +2496,21 @@ term_write_char(
 		int pen_x = x;
 		int pen_y = y + char_offset;
 		int error;
-		glyph_index = FT_Get_Char_Index(face, val);
-		error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
-		if (error) return;
-		error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-		if (error) return;
-		slot = face->glyph;
-		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+		if (flags & ANSI_BOLD) {
+			glyph_index = FT_Get_Char_Index(face_bold, val);
+			error = FT_Load_Glyph(face_bold, glyph_index, FT_LOAD_DEFAULT);
+			if (error) return;
+			error = FT_Render_Glyph(face_bold->glyph, FT_RENDER_MODE_NORMAL);
+			if (error) return;
+			slot = face_bold->glyph; drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+		} else {
+			glyph_index = FT_Get_Char_Index(face, val);
+			error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
+			if (error) return;
+			error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+			if (error) return;
+			slot = face->glyph; drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+		}
 	} else {
 		uint8_t * c = number_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
@@ -2536,7 +2550,7 @@ static uint16_t cell_bg(uint16_t x, uint16_t y) {
 
 static void cell_redraw(uint16_t x, uint16_t y) {
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[1]], term_colors[cell[2]]);
+	term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[1]], term_colors[cell[2]], cell[3]);
 }
 
 void draw_cursor() {
@@ -2571,7 +2585,7 @@ void term_write(char c) {
 	if (c == '\n') {
 		for (uint16_t i = csr_x; i < term_width; ++i) {
 			/* I like this behaviour */
-			cell_set(i, csr_y, ' ',current_fg, current_bg, 0);
+			cell_set(i, csr_y, ' ',current_fg, current_bg, state.flags);
 			cell_redraw(i, csr_y);
 		}
 		csr_x = 0;
@@ -2581,12 +2595,12 @@ void term_write(char c) {
 		csr_x = 0;
 	} else if (c == '\b') {
 		--csr_x;
-		cell_set(csr_x, csr_y, ' ',current_fg, current_bg, 0);
+		cell_set(csr_x, csr_y, ' ',current_fg, current_bg, state.flags);
 		cell_redraw(csr_x, csr_y);
 	} else if (c == '\t') {
 		csr_x = (csr_x + 8) & ~(8 - 1);
 	} else {
-		cell_set(csr_x,csr_y, c, current_fg, current_bg, 0);
+		cell_set(csr_x,csr_y, c, current_fg, current_bg, state.flags);
 		cell_redraw(csr_x,csr_y);
 		csr_x++;
 	}
@@ -2711,9 +2725,13 @@ int main(int argc, char ** argv) {
 		int error;
 		error = FT_Init_FreeType(&library);
 		if (error) return 1;
-		error = FT_New_Face(library, "/font-term.ttf", 0, &face);
+		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono.ttf", 0, &face);
 		if (error) return 2;
 		error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
+		if (error) return 3;
+		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-Bold.ttf", 0, &face_bold);
+		if (error) return 2;
+		error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
 		if (error) return 3;
 
 		char_height = 17;
