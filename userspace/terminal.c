@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_CACHE_H
 
 #define FONT_SIZE 13
 
@@ -2514,11 +2515,13 @@ term_write_char(
 			_font = &face;
 		}
 		glyph_index = FT_Get_Char_Index(*_font, val);
-		error = FT_Load_Glyph(*_font, glyph_index, FT_LOAD_DEFAULT);
-		if (error) return;
-		error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
+		error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
 		if (error) return;
 		slot = (*_font)->glyph;
+		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+			error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
+			if (error) return;
+		}
 		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
 
 		if (flags & ANSI_UNDERLINE) {
@@ -2736,6 +2739,33 @@ void cat(char * file) {
 	free(buffer);
 }
 
+char * loadMemFont(char * name, size_t * size) {
+	FILE * f = fopen(name, "r");
+	size_t s = 0;
+	fseek(f, 0, SEEK_END);
+	s = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char * font = malloc(s);
+	fread(font, s, 1, f);
+	fclose(f);
+	*size = s;
+	return font;
+}
+
+void setLoaded(int i, int yes) {
+	uint32_t color = rgb(255,0,0);
+	if (yes == 1) {
+		color = rgb(0,255,0);
+	}
+	if (yes == 2) {
+		color = rgb(0,0,255);
+	}
+	for (uint32_t j = 0; j < 8; ++j) {
+		for (uint32_t k = 0; k < 8; ++k) {
+			term_set_point(i * 8 + j, k, color);
+		}
+	}
+}
 
 int main(int argc, char ** argv) {
 	graphics_width  = syscall_getgraphicswidth();
@@ -2767,14 +2797,38 @@ int main(int argc, char ** argv) {
 		int error;
 		error = FT_Init_FreeType(&library);
 		if (error) return 1;
-		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono.ttf", 0, &face); if (error) return 1;
+
+		char * font = NULL;
+		size_t s;
+
+		setLoaded(0,0);
+		setLoaded(1,0);
+		setLoaded(2,0);
+		setLoaded(3,0);
+
+		setLoaded(0,2);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", &s);
+		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE); if (error) return 1;
-		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-Bold.ttf", 0, &face_bold); if (error) return 1;
+		setLoaded(0,1);
+
+		setLoaded(1,2);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", &s);
+		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE); if (error) return 1;
-		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-Oblique.ttf", 0, &face_italic); if (error) return 1;
+		setLoaded(1,1);
+
+		setLoaded(2,2);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", &s);
+		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
-		error = FT_New_Face(library, "/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", 0, &face_bold_italic); if (error) return 1;
+		setLoaded(2,1);
+
+		setLoaded(3,2);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", &s);
+		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		setLoaded(3,1);
 
 		char_height = 17;
 		char_width  = 8;
