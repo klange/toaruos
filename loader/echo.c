@@ -13,9 +13,10 @@ strlen(
 }
 
 void usage() {
-	syscall_print("echo [-n] [-e] [STRING]...\n"
+	char * str ="echo [-n] [-e] [STRING]...\n"
 				"  -n    do not output a new line at the end\n"
-				"  -e    process escape sequences\n");
+				"  -e    process escape sequences\n";
+	syscall_write(1, str, strlen(str));
 }
 
 int main(int argc, char ** argv) {
@@ -58,14 +59,14 @@ int main(int argc, char ** argv) {
 				}
 			}
 		}
-		syscall_print(argv[i]);
+		syscall_write(1, argv[i], strlen(argv[1]));
 		if (i != argc - 1) {
-			syscall_print(" ");
+			syscall_write(1, " ", 1);
 		}
 	}
 
 	if (use_newline) {
-		syscall_print("\n");
+		syscall_write(1, "\n", 1);
 	}
 	return 0;
 }

@@ -119,7 +119,7 @@ int main(int argc, char ** argv) {
 			if (!nowait) {
 				int i = syscall_wait(f);
 				if (i) {
-					printf("[%d] ");
+					printf("[%d] ", i);
 				}
 			}
 			free(cmd);
