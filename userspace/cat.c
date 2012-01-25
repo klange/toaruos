@@ -24,11 +24,13 @@ int main(int argc, char ** argv) {
 	while (length > CHUNK_SIZE) {
 		fread( buf, 1, CHUNK_SIZE, fd);
 		fwrite(buf, 1, CHUNK_SIZE, stdout);
+		fflush(stdout);
 		length -= CHUNK_SIZE;
 	}
 	if (length > 0) {
 		fread( buf, 1, length, fd);
 		fwrite(buf, 1, length, stdout);
+		fflush(stdout);
 	}
 
 	fclose(fd);

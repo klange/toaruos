@@ -149,7 +149,7 @@ process_t * spawn_init() {
 	/* Set its tree entry pointer so we can keep track
 	 * of the process' entry in the process tree. */
 	init->tree_entry = process_tree->root;
-	init->id      = 1;       /* Init is PID 1 */
+	init->id      = 0;       /* Init is PID 1 */
 	init->name    = "init";  /* Um, duh. */
 	init->user    = 0;       /* UID 0 */
 	init->group   = 0;       /* Task group 0 */
@@ -185,7 +185,7 @@ process_t * spawn_init() {
  */
 pid_t get_next_pid() {
 	/* Terribly naïve, I know, but it works for now */
-	static pid_t next = 2;
+	static pid_t next = 1;
 	return (next++);
 }
 

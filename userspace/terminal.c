@@ -2813,25 +2813,5 @@ int main(int argc, char ** argv) {
 		return 0;
 	}
 
-#if 0
-	ansi_print("Hello World!\nThis is a test.\n\033[1;32mHello and thank you\n\033[0mDone.\n");
-
-#if 0
-	cat("/etc/.vim");
-
-	fgetc(stdin);
-#endif
-
-	ansi_print("\033[H\033[2J");
-
-	cat("/etc/color-test");
-
-	ansi_print("\033[1m[\033[1;33mklange \033[1;32mpiko \033[1;31m01/23 \033[1;34m22:33:27 \033[1;32mgit\033[1;33m master\033[0m \033[0m~/osdev\033[1m]\033[0m\n\033[1;32m$\033[0m exit");
-
-	ansi_print("\n\033[1mBold \033[0m\033[3mItalic \033[1mBold+Italic\033[0m\033[0m \033[4mUnderline\033[0m \033[9mX-Out\033[0m \033[1;3;4;9mEverything\033[0m\n");
-
-	fgetc(stdin);
-#endif
-
 	return 0;
 }

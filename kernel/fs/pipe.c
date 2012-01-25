@@ -6,30 +6,33 @@
 #include <fs.h>
 #include <pipe.h>
 
+#define DEBUG_PIPES 0
+
 uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 void open_pipe(fs_node_t *node, uint8_t read, uint8_t write);
 void close_pipe(fs_node_t *node);
 
 static inline size_t pipe_unread(pipe_device_t * pipe) {
+	if (pipe->read_ptr == pipe->write_ptr) {
+		return 0;
+	}
 	if (pipe->read_ptr > pipe->write_ptr) {
 		return (pipe->size - pipe->read_ptr) + pipe->write_ptr;
 	} else {
-		if (pipe->write_ptr == 0 && pipe->read_ptr == pipe->size - 1) {
-			return 0;
-		}
 		return (pipe->write_ptr - pipe->read_ptr);
 	}
 }
 
 static inline size_t pipe_available(pipe_device_t * pipe) {
+	if (pipe->read_ptr == pipe->write_ptr) {
+		return pipe->size - 1;
+	}
+
 	if (pipe->read_ptr > pipe->write_ptr) {
-		return (pipe->read_ptr - pipe->write_ptr);
+		return pipe->read_ptr - pipe->write_ptr - 1;
 	} else {
-		if (pipe->read_ptr == 0 && pipe->write_ptr == pipe->size - 1) {
-			return 0;
-		}
-		return (pipe->size - pipe->write_ptr)+ pipe->read_ptr;
+		return (pipe->size - pipe->write_ptr) + pipe->read_ptr - 1;
 	}
 }
 
@@ -53,14 +56,16 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->inode;
 
-#if 0
-	kprintf("[debug] Call to read from pipe 0x%x\n", node->inode);
-	kprintf("        Unread bytes:    %d\n", pipe_unread(pipe));
-	kprintf("        Total size:      %d\n", pipe->size);
-	kprintf("        Request size:    %d\n", size);
-	kprintf("        Write pointer:   %d\n", pipe->write_ptr);
-	kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
-	kprintf("        Buffer address:  0x%x\n", pipe->buffer);
+#if DEBUG_PIPES
+	if (pipe->size > 300) { /* Ignore small pipes (ie, keyboard) */
+		kprintf("[debug] Call to read from pipe 0x%x\n", node->inode);
+		kprintf("        Unread bytes:    %d\n", pipe_unread(pipe));
+		kprintf("        Total size:      %d\n", pipe->size);
+		kprintf("        Request size:    %d\n", size);
+		kprintf("        Write pointer:   %d\n", pipe->write_ptr);
+		kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
+		kprintf("        Buffer address:  0x%x\n", pipe->buffer);
+	}
 #endif
 
 	size_t collected = 0;
@@ -87,14 +92,17 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->inode;
 
-#if 0
-	kprintf("[debug] Call to write to pipe 0x%x\n", node->inode);
-	kprintf("        Available space: %d\n", pipe_available(pipe));
-	kprintf("        Total size:      %d\n", pipe->size);
-	kprintf("        Request size:    %d\n", size);
-	kprintf("        Write pointer:   %d\n", pipe->write_ptr);
-	kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
-	kprintf("        Buffer address:  0x%x\n", pipe->buffer);
+#if DEBUG_PIPES
+	if (pipe->size > 300) { /* Ignore small pipes (ie, keyboard) */
+		kprintf("[debug] Call to write to pipe 0x%x\n", node->inode);
+		kprintf("        Available space: %d\n", pipe_available(pipe));
+		kprintf("        Total size:      %d\n", pipe->size);
+		kprintf("        Request size:    %d\n", size);
+		kprintf("        Write pointer:   %d\n", pipe->write_ptr);
+		kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
+		kprintf("        Buffer address:  0x%x\n", pipe->buffer);
+		kprintf(" Write: %s\n", buffer);
+	}
 #endif
 
 	size_t written = 0;

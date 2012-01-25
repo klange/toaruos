@@ -137,13 +137,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 		parse_args(cmdline);
 	}
 
-	/* Switch to a userspace page directory */
-#if 0
-	page_directory_t * directory = clone_directory(kernel_directory);
-	set_process_environment((process_t *)current_process, directory);
-	switch_page_directory(directory);
-#endif
-
 	/*
 	 * XXX: Execute /bin/init
 	 */
@@ -158,7 +151,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	while (argv[argc]) {
 		argc++;
 	}
-	system("/bin/terminal", argc, argv);
+	system("/bin/terminal", argc, argv); /* Run init */
 
 	return 0;
 }
