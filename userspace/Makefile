@@ -3,7 +3,15 @@ CPP = i686-pc-toaru-g++
 CFLAGS = -march=core2 -std=c99 -O3 -m32 -Wa,--32
 CPPFLAGS = -march=core2 -O3 -m32 -Wa,--32
 EXECUTABLES = $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
-ERRORS = 2>>/tmp/.build-errors || util/mk-error
+
+BEG = ../util/mk-beg
+END = ../util/mk-end
+INFO = ../util/mk-info
+ERRORS = 2>>/tmp/.`whoami`-build-errors || ../util/mk-error
+ERRORSS = >>/tmp/.`whoami`-build-errors || ../util/mk-error
+
+BEGRM = ../util/mk-beg-rm
+ENDRM = ../util/mk-end-rm
 
 
 .PHONY: all clean
@@ -11,19 +19,32 @@ ERRORS = 2>>/tmp/.build-errors || util/mk-error
 all: ${EXECUTABLES}
 
 clean:
-	-rm -f ${EXECUTABLES}
+	@${BEGRM} "RM" "Cleaning userspace full-toolchain applications."
+	@-rm -f ${EXECUTABLES}
+	@${ENDRM} "RM" "Cleaned userspace full-toolchain applications."
 
 ../hdd/bin/freetype_test: freetype_test.c
-	${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
+	@${BEG} "CC" "$< [freetype]"
+	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}
+	@${END} "CC" "$< [freetype]"
 
 ../hdd/bin/terminal: terminal.c
-	${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
+	@${BEG} "CC" "$< [freetype]"
+	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}
+	@${END} "CC" "$< [freetype]"
 
 ../hdd/bin/%: %.cpp
-	${CPP} ${CPPFLAGS} -s -o $@ $<
+	@${BEG} "CPP" "$<"
+	@${CPP} ${CPPFLAGS} -s -o $@ $< ${ERRORS}
+	@${END} "CPP" "$<"
 
 ../hdd/bin/ld: ld.c
-	${CC} ${CFLAGS} -s -fPIC -o $@ $<
+	@${BEG} "CC" "$< [-fPIC]"
+	@${CC} ${CFLAGS} -s -fPIC -o $@ $< ${ERRORS}
+	@${END} "CC" "$< [-fPIC]"
 
 ../hdd/bin/%: %.c
-	${CC} ${CFLAGS} -s -o $@ $<
+	@${BEG} "CC" "$<"
+	@${CC} ${CFLAGS} -s -o $@ $< ${ERRORS}
+	@${END} "CC" "$<"
+
