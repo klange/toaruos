@@ -2568,9 +2568,18 @@ static uint16_t cell_bg(uint16_t x, uint16_t y) {
 	return cell[2];
 }
 
+static uint8_t  cell_flags(uint16_t x, uint16_t y) {
+	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
+	return cell[3];
+}
+
 static void cell_redraw(uint16_t x, uint16_t y) {
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[1]], term_colors[cell[2]], cell[3]);
+	if (((uint32_t *)cell)[0] == 0x00000000) {
+		term_write_char(' ', x * char_width, y * char_height, term_colors[DEFAULT_FG], term_colors[DEFAULT_BG], DEFAULT_FLAGS);
+	} else {
+		term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[1]], term_colors[cell[2]], cell[3]);
+	}
 }
 
 static void cell_redraw_inverted(uint16_t x, uint16_t y) {
@@ -2604,7 +2613,7 @@ void term_redraw_all() {
 void term_term_scroll() {
 	for (uint16_t y = 0; y < term_height - 1; ++y) {
 		for (uint16_t x = 0; x < term_width; ++x) {
-			cell_set(x,y,cell_ch(x,y+1),cell_fg(x,y+1),cell_bg(x,y+1), 0);
+			cell_set(x,y,cell_ch(x,y+1),cell_fg(x,y+1),cell_bg(x,y+1), cell_flags(x,y+1));
 		}
 	}
 	for (uint16_t x = 0; x < term_width; ++x) {
@@ -2777,32 +2786,32 @@ int main(int argc, char ** argv) {
 	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 
-	int fd = syscall_mkpipe();
-	char str[100];
-	sprintf(str, "%d <- pipe\n", fd);
-	ansi_print(str);
+	term_term_clear();
+	ansi_print("\033[H\033[2J");
+
+	int ofd = syscall_mkpipe();
+	//int ifd = syscall_mkpipe();
+
 	int pid = getpid();
 	uint32_t f = fork();
+
 	if (getpid() != pid) {
-		syscall_dup2(fd, 1);
-		syscall_dup2(fd, 2);
-
-		char * tokens[] = {NULL};
-
+		//syscall_dup2(ifd, 0);
+		syscall_dup2(ofd, 1);
+		syscall_dup2(ofd, 2);
+		char * tokens[] = {"/bin/esh",NULL};
 		int i = execve("/bin/esh", tokens, NULL);
-
 		return 0;
 	} else {
-		char buf[256];
+		char buf[1024];
 		while (1) {
-			int r = read(fd, buf, 1);
-			if (r > 0) {
-				ansi_put(buf[0]);
+			int r = read(ofd, buf, 1024);
+			for (uint32_t i = 0; i < r; ++i) {
+				ansi_put(buf[i]);
 			}
 		}
 		return 0;
 	}
-
 
 #if 0
 	ansi_print("Hello World!\nThis is a test.\n\033[1;32mHello and thank you\n\033[0mDone.\n");

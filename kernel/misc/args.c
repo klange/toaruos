@@ -72,9 +72,6 @@ parse_args(
 			} else {
 				kprintf("Unrecognized video adapter: %s\n", argp[1]);
 			}
-		} else if (!strcmp(argp[0],"wallpaper")) {
-			if (argc < 2) { kprintf("wallpaper=?\n"); continue; }
-			bochs_install_wallpaper(argp[1]);
 		} else if (!strcmp(argp[0],"hdd")) {
 			extern void ext2_disk_mount(void);
 			ext2_disk_mount();

@@ -24,11 +24,11 @@ void validate(void * ptr) {
 }
 
 /*
- * print something to the core terminal
+ * print something to the debug terminal (serial)
  */
 static int print(char * s) {
 	validate((void *)s);
-	ansi_print(s);
+	serial_string(s);
 	return 0;
 }
 
@@ -44,19 +44,10 @@ static int exit(int retval) {
 }
 
 static int read(int fd, char * ptr, int len) {
-#ifdef SPECIAL_CASE_STDIO
-	if (fd == 0) {
-		IRQ_RES;
-		kgets(ptr, len);
-		if (strlen(ptr) < (uint32_t)len) {
-			int j = strlen(ptr);
-			ptr[j] = '\n';
-			ptr[j+1] = '\0';
-		}
-		return strlen(ptr);
-	}
-#endif
 	if (fd >= (int)current_process->fds.length || fd < 0) {
+		return -1;
+	}
+	if (current_process->fds.entries[fd] == NULL) {
 		return -1;
 	}
 	validate(ptr);
@@ -67,19 +58,15 @@ static int read(int fd, char * ptr, int len) {
 }
 
 static int write(int fd, char * ptr, int len) {
-#if 0
-#ifdef SPECIAL_CASE_STDIO
-	if (fd == 1 || fd == 2) {
-		IRQ_OFF;
-		for (int i = 0; i < len; ++i) {
-			ansi_put(ptr[i]);
-		}
-		IRQ_ON;
+	if ((fd == 1 && !current_process->fds.entries[fd]) ||
+		(fd == 2 && !current_process->fds.entries[fd])) {
+		serial_string(ptr);
 		return len;
 	}
-#endif
-#endif
 	if (fd >= (int)current_process->fds.length || fd < 0) {
+		return -1;
+	}
+	if (current_process->fds.entries[fd] == NULL) {
 		return -1;
 	}
 	validate(ptr);
@@ -96,7 +83,9 @@ static int wait(int child) {
 	}
 	process_t * volatile child_task = process_from_pid(child);
 	/* If the child task doesn't exist, bail */
-	if (!child_task) return -1;
+	if (!child_task) {
+		kprintf("Tried to wait for non-existent process\n");
+	}
 	/* Wait until it finishes (this is stupidly memory intensive,
 	 * but we haven't actually implemented wait() yet, so there's
 	 * not all that much we can do right now. */
@@ -234,7 +223,7 @@ static int getgraphicsdepth() {
 }
 
 static int mkpipe() {
-	fs_node_t * node = make_pipe(4096);
+	fs_node_t * node = make_pipe(4096 * 2);
 	return process_append_fd((process_t *)current_process, node);
 }
 
@@ -293,6 +282,10 @@ syscall_handler(
 		return;
 	}
 	uintptr_t location = syscalls[r->eax];
+
+#if 0
+	kprintf("[debug] Process %d has made syscall %d\n", current_process->id, r->eax);
+#endif
 
 	/* In case of a fork, we need to return the PID to the correct place */
 	volatile uintptr_t stack = current_process->image.stack - KERNEL_STACK_SIZE;

@@ -249,7 +249,6 @@ paging_install(uint32_t memsize) {
 
 void
 debug_print_directory() {
-	IRQ_OFF;
 	kprintf(" ---- [k:0x%x u:0x%x]\n", kernel_directory, current_directory);
 	for (uintptr_t i = 0; i < 1024; ++i) {
 		if (!current_directory->tables[i] || (uintptr_t)current_directory->tables[i] == (uintptr_t)0xFFFFFFFF) {
@@ -262,7 +261,6 @@ debug_print_directory() {
 		}
 	}
 	kprintf(" ---- [done]\n");
-	IRQ_ON;
 }
 
 void

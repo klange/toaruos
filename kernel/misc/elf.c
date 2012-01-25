@@ -63,7 +63,6 @@ exec(
 		return -1;
 	}
 
-	IRQ_OFF;
 	/* Load the loadable segments from the binary */
 	for (uintptr_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
 		/* read a section header */
@@ -91,7 +90,6 @@ exec(
 			}
 		}
 	}
-	IRQ_ON;
 
 	/* Store the entry point to the code segment */
 	uintptr_t entry = (uintptr_t)header->e_entry;

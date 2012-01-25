@@ -17,7 +17,6 @@ void ide_detect() {
 }
 
 void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
-	IRQ_OFF;
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_SECCOUNT0, 1);
 	outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slave << 4 | 
@@ -30,11 +29,9 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 	while ((status = inportb(bus + 0x07)) & 0x80);
 	int size = 256;
 	inportsm(bus,buf,size);
-	IRQ_ON;
 }
 
 void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
-	IRQ_OFF;
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_SECCOUNT0, 0x01);
 	outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slave << 4 | 
@@ -48,5 +45,4 @@ void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) 
 	int size = 256;
 	outportsm(bus,buf,size);
 	outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
-	IRQ_ON;
 }

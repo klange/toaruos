@@ -20,10 +20,10 @@
 
 extern unsigned int __irq_sem;
 
-#define IRQ_OFF { asm volatile ("cli"); __irq_sem++; }
-#define IRQ_ON  { if (__irq_sem > 0) __irq_sem--; if (!__irq_sem) asm volatile ("sti"); }
-#define IRQ_RES { __irq_sem = 0; asm volatile ("sti"); }
-#define PAUSE   asm volatile ("hlt")
+#define IRQ_OFF { asm volatile ("cli"); }
+#define IRQ_RES { asm volatile ("sti"); }
+#define PAUSE   { asm volatile ("hlt"); }
+#define IRQS_ON_AND_PAUSE { asm volatile ("sti\nhlt\ncli"); }
 
 #define STOP while (1) { PAUSE; }
 
@@ -261,6 +261,7 @@ typedef struct tss_entry {
 
 extern void tasking_install();
 extern void switch_task();
+extern void switch_from_cross_thread_lock();
 extern void switch_next();
 extern uint32_t fork();
 extern uint32_t getpid();

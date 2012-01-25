@@ -10,6 +10,9 @@
 
 #include <system.h>
 #include <logging.h>
+#include <fs.h>
+#include <pipe.h>
+#include <process.h>
 
 #define KEY_UP_MASK   0x80
 #define KEY_CODE_MASK 0x7F
@@ -28,6 +31,7 @@ struct keyboard_states {
 } keyboard_state;
 
 typedef void (*keyboard_handler_t)(int scancode);
+fs_node_t * keyboard_pipe;
 
 char kbd_us[128] = {
 	0, 27,
@@ -235,11 +239,9 @@ void
 keyboard_handler(
 		struct regs *r
 		) {
-	IRQ_OFF;
 	unsigned char scancode;
 	keyboard_wait();
 	scancode = inportb(KEY_DEVICE);
-	IRQ_ON;
 	if (keyboard_direct_handler) {
 		keyboard_direct_handler(scancode);
 		return;
@@ -259,7 +261,12 @@ keyboard_install() {
 	/* IRQ installer */
 	keyboard_buffer_handler = NULL;
 	keyboard_direct_handler = NULL;
+
+	keyboard_pipe = make_pipe(128);
+	current_process->fds.entries[0] = keyboard_pipe;
+
 	irq_install_handler(1, keyboard_handler);
+
 	bfinish(0);
 }
 
@@ -278,9 +285,10 @@ putch(
 	if (keyboard_buffer_handler) {
 		keyboard_buffer_handler(c);
 	} else {
-		if (c == 3 /* ^L */) {
-			return;
-		}
+		uint8_t buf[2];
+		buf[0] = c;
+		buf[1] = '\0';
+		write_fs(keyboard_pipe, 0, 1, buf);
 	}
 }
 

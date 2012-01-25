@@ -23,7 +23,7 @@ REALEMU      = $(patsubst %.c,%.o,$(wildcard kernel/v8086/*.c))
 
 SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS} ${REALEMU}
 
-BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/sh hdd/bin/clear
+BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/sh
 UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
 GENEXT = genext2fs
@@ -37,7 +37,7 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS = -kernel toaruos-kernel -m 256 -initrd toaruos-initrd -append "vid=qemu hdd wallpaper=/usr/share/wallpaper.bmp" -serial stdio -vga std -hda toaruos-disk.img
+EMUARGS = -kernel toaruos-kernel -m 256 -initrd toaruos-initrd -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img
 EMUKVM  = -enable-kvm
 
 .PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils

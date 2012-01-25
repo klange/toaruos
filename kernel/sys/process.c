@@ -154,7 +154,7 @@ process_t * spawn_init() {
 	init->user    = 0;       /* UID 0 */
 	init->group   = 0;       /* Task group 0 */
 	init->status  = 0;       /* Run status */
-	init->fds.length   = 0;  /* Initialize the file descriptors */
+	init->fds.length   = 3;  /* Initialize the file descriptors */
 	init->fds.capacity = 4;
 	init->fds.entries  = malloc(sizeof(fs_node_t *) * init->fds.capacity);
 

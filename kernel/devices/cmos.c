@@ -22,12 +22,10 @@ cmos_dump(
 		uint16_t * values
 		) {
 	uint16_t index;
-	IRQ_OFF;
 	for (index = 0; index < 128; ++index) {
 		outportb(0x70, index);
 		values[index] = inportb(0x71);
 	}
-	IRQ_ON;
 }
 
 /**

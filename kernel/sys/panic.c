@@ -5,8 +5,7 @@
 #include <system.h>
 
 void kernel_halt() {
-	settextcolor(4,15);
-	kprintf("\n \x13 System Halted!\n\n");
+	kprintf("\n System Halted!\n\n");
 
 	while (1) {
 		IRQ_OFF;
@@ -38,7 +37,6 @@ void halt_and_catch_fire(char * error_message, const char * file, int line, stru
 
 void assert_failed(const char *file, uint32_t line, const char *desc) {
 	IRQ_OFF;
-	settextcolor(14,3);
 	kprintf("Kernel Assertion Failed: %s\n", desc);
 	kprintf("File: %s\n", file);
 	kprintf("Line: %d\n", line);

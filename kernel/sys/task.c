@@ -133,7 +133,7 @@ tasking_install() {
 	switch_page_directory(current_process->thread.page_directory);
 
 	/* Reenable interrupts */
-	IRQ_ON;
+	IRQ_RES;
 	bfinish(0);
 }
 
@@ -144,7 +144,6 @@ tasking_install() {
  */
 uint32_t
 fork() {
-	/* Disable interrupts */
 	IRQ_OFF;
 
 	unsigned int magic = TASK_MAGIC;
@@ -187,7 +186,6 @@ fork() {
 		/* Add the new process to the ready queue */
 		make_process_ready(new_proc);
 
-		/* Reenable interrupts */
 		IRQ_RES;
 
 		/* Return the child PID */
@@ -205,9 +203,6 @@ fork() {
  */
 uint32_t
 clone(uintptr_t stack_top, uintptr_t stack_used) {
-	/* Disable interrupts */
-	IRQ_OFF;
-
 	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
@@ -246,9 +241,6 @@ clone(uintptr_t stack_top, uintptr_t stack_used) {
 		/* Add the new process to the ready queue */
 		make_process_ready(new_proc);
 
-		/* Reenable interrupts */
-		IRQ_RES;
-
 		/* Return the child PID */
 		return new_proc->id;
 	} else {
@@ -267,6 +259,14 @@ uint32_t
 getpid() {
 	/* Fairly self-explanatory. */
 	return current_process->id;
+}
+
+void
+switch_from_cross_thread_lock() {
+	if (!process_available()) {
+		IRQS_ON_AND_PAUSE;
+	}
+	switch_task();
 }
 
 /*
@@ -300,7 +300,6 @@ switch_task() {
 				reap_process(proc);
 			}
 		}
-		IRQ_RES;
 		return;
 	}
 
@@ -329,8 +328,6 @@ switch_next() {
 	eip = current_process->thread.eip;
 	esp = current_process->thread.esp;
 	ebp = current_process->thread.ebp;
-	/* Disable interrupts */
-	IRQ_OFF;
 
 	/* Validate */
 	assert((eip > (uintptr_t)&code) && (eip < (uintptr_t)&end) && "Task switch return point is not within Kernel!");
@@ -362,6 +359,7 @@ switch_next() {
  */
 void
 enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
+	IRQ_OFF;
 	set_kernel_stack(current_process->image.stack);
 	asm volatile(
 			"mov %3, %%esp\n"
@@ -393,7 +391,6 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
  * @param retval Set the return value to this.
  */
 void task_exit(int retval) {
-	IRQ_OFF;
 	/* Free the image memory */
 	current_process->status   = retval;
 	current_process->finished = 1;

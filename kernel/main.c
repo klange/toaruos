@@ -39,6 +39,7 @@
 #include <ext2.h>
 #include <fs.h>
 #include <logging.h>
+#include <process.h>
 
 /*
  * kernel entry point
@@ -67,9 +68,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
 	char * cmdline = NULL;
 	uintptr_t ramdisk_top = 0;
-
-	/* Immediately initialize the video service so we can spew usable error messages */
-	init_video();
 
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/*
@@ -121,24 +119,46 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
 
 	/* Hardware drivers */
 	timer_install();	/* PIC driver */
-	keyboard_install();	/* Keyboard interrupt handler */
 	serial_install();	/* Serial console */
 
 	tasking_install();	/* Multi-tasking */
 	enable_fpu();		/* Enable the floating point unit */
 	syscalls_install();	/* Install the system calls */
 
+	keyboard_install();	/* Keyboard interrupt handler */
+
 	if (ramdisk) {
 		initrd_mount((uintptr_t)ramdisk, ramdisk_top);
 	}
 
-	mouse_install();	/* Mouse driver */
+	//mouse_install();	/* Mouse driver */
 
 	if (cmdline) {
 		parse_args(cmdline);
 	}
 
-	start_shell();
+	/* Switch to a userspace page directory */
+#if 0
+	page_directory_t * directory = clone_directory(kernel_directory);
+	set_process_environment((process_t *)current_process, directory);
+	switch_page_directory(directory);
+#endif
+
+	/*
+	 * XXX: Execute /bin/init
+	 */
+	char * argv[] = {
+		"terminal",
+#if 0
+		"-f",
+#endif
+		NULL
+	};
+	int argc = 0;
+	while (argv[argc]) {
+		argc++;
+	}
+	system("/bin/terminal", argc, argv);
 
 	return 0;
 }

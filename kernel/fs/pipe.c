@@ -15,6 +15,9 @@ static inline size_t pipe_unread(pipe_device_t * pipe) {
 	if (pipe->read_ptr > pipe->write_ptr) {
 		return (pipe->size - pipe->read_ptr) + pipe->write_ptr;
 	} else {
+		if (pipe->write_ptr == 0 && pipe->read_ptr == pipe->size - 1) {
+			return 0;
+		}
 		return (pipe->write_ptr - pipe->read_ptr);
 	}
 }
@@ -23,6 +26,9 @@ static inline size_t pipe_available(pipe_device_t * pipe) {
 	if (pipe->read_ptr > pipe->write_ptr) {
 		return (pipe->read_ptr - pipe->write_ptr);
 	} else {
+		if (pipe->read_ptr == 0 && pipe->write_ptr == pipe->size - 1) {
+			return 0;
+		}
 		return (pipe->size - pipe->write_ptr)+ pipe->read_ptr;
 	}
 }
@@ -47,17 +53,32 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->inode;
 
+#if 0
+	kprintf("[debug] Call to read from pipe 0x%x\n", node->inode);
+	kprintf("        Unread bytes:    %d\n", pipe_unread(pipe));
+	kprintf("        Total size:      %d\n", pipe->size);
+	kprintf("        Request size:    %d\n", size);
+	kprintf("        Write pointer:   %d\n", pipe->write_ptr);
+	kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
+	kprintf("        Buffer address:  0x%x\n", pipe->buffer);
+#endif
+
 	size_t collected = 0;
-	while (collected < size) {
+	while (collected == 0) {
 		while (pipe_unread(pipe) > 0 && collected < size) {
+			spin_lock(&pipe->lock);
 			buffer[collected] = pipe->buffer[pipe->read_ptr];
 			pipe_increment_read(pipe);
+			spin_unlock(&pipe->lock);
+			if (buffer[collected] == '\n') {
+				return collected + 1;
+			}
 			collected++;
 		}
-		switch_task();
+		switch_from_cross_thread_lock();
 	}
 
-	return size;
+	return collected;
 }
 
 uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -79,14 +100,16 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 	size_t written = 0;
 	while (written < size) {
 		while (pipe_available(pipe) > 0 && written < size) {
+			spin_lock(&pipe->lock);
 			pipe->buffer[pipe->write_ptr] = buffer[written];
 			pipe_increment_write(pipe);
+			spin_unlock(&pipe->lock);
 			written++;
 		}
 		switch_task();
 	}
 
-	return size;
+	return written;
 }
 
 void open_pipe(fs_node_t * node, uint8_t read, uint8_t write) {

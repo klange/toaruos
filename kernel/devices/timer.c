@@ -69,6 +69,6 @@ timer_wait(
 	eticks = (long)timer_ticks + (long)ticks;
 	while(timer_ticks < eticks) {
 		/* Halt for interrupt */
-		PAUSE;
+		IRQS_ON_AND_PAUSE;
 	}
 }
