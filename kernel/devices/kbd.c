@@ -2,10 +2,14 @@
  *
  * Low-level keyboard interrupt driver.
  *
- * Part of the ToAruOS Kernel
- * (C) 2011 Kevin Lange
+ * Creates a device file (keyboard_pipe) that can be read
+ * to retreive keyboard events.
  *
- * TODO: Move this to a server.
+ * Part of the ToAruOS Kernel
+ * Copyright 2011-2012 Kevin Lange
+ *
+ * TODO: Move this to a server
+ * TODO: Better handling of function keys
  */
 
 #include <system.h>
@@ -254,29 +258,39 @@ keyboard_handler(
 	}
 }
 
+/*
+ * Install the keyboard driver and initialize the
+ * pipe device for userspace.
+ */
 void
 keyboard_install() {
 	blog("Initializing PS/2 keyboard driver...");
 	LOG(INFO, "Initializing PS/2 keyboard driver");
-	/* IRQ installer */
+
+	/* Clear the buffer handlers */
 	keyboard_buffer_handler = NULL;
 	keyboard_direct_handler = NULL;
 
+	/* Create a device pipe */
 	keyboard_pipe = make_pipe(128);
 	current_process->fds.entries[0] = keyboard_pipe;
 
+	/* Install the interrupt handler */
 	irq_install_handler(1, keyboard_handler);
 
 	bfinish(0);
 }
 
+/*
+ * Wait on the keyboard.
+ */
 void
 keyboard_wait() {
 	while(inportb(KEY_PENDING) & 2);
 }
 
 /*
- * putch
+ * Add a character to the device buffer.
  */
 void
 putch(

@@ -41,6 +41,9 @@ int readline(char * buf, size_t size) {
 		char * cmd = malloc(2);
 		size_t nread = fread(cmd, 1, 1, stdin);
 		if (nread > 0) {
+			if (cmd[0] < 10 || (cmd[0] > 10 && cmd[0] < 32) || cmd[0] > 126) {
+				continue;
+			}
 			buf[collected] = cmd[0];
 			printf("%c", cmd[0]);
 			fflush(stdout);
@@ -57,8 +60,6 @@ _done:
 }
 
 int main(int argc, char ** argv) {
-	printf("I am pid %d\n", getpid());
-
 	int  pid = getpid();
 	int  nowait = 0;
 	int  free_cmd = 0;
