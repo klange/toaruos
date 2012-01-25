@@ -17,6 +17,6 @@ typedef struct _pipe_device {
 	uint8_t volatile lock;
 } pipe_device_t;
 
-fs_node_t * make_pipe(uint8_t * buffer, size_t size);
+fs_node_t * make_pipe(size_t size);
 
 #endif

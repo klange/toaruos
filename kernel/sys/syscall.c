@@ -7,6 +7,8 @@
 #include <syscall.h>
 #include <process.h>
 #include <logging.h>
+#include <fs.h>
+#include <pipe.h>
 
 #define SPECIAL_CASE_STDIO
 
@@ -229,6 +231,11 @@ static int getgraphicsdepth() {
 	return bochs_resolution_b;
 }
 
+static int mkpipe() {
+	fs_node_t * node = make_pipe(4096);
+	return process_append_fd((process_t *)current_process, node);
+}
+
 /*
  * System Call Internals
  */
@@ -255,13 +262,16 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&wait,
 	(uintptr_t)&getgraphicswidth,
 	(uintptr_t)&getgraphicsheight,
-	(uintptr_t)&getgraphicsdepth,
+	(uintptr_t)&getgraphicsdepth,	/* 20 */
+	(uintptr_t)&mkpipe,
+	0
 };
-uint32_t num_syscalls = 21;
+uint32_t num_syscalls;
 
 void
 syscalls_install() {
 	blog("Initializing syscall table...");
+	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
 	LOG(INFO, "Initializing syscall table with %d functions", num_syscalls);
 	isrs_install_handler(0x7F, &syscall_handler);
 	bfinish(0);

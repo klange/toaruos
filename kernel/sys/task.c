@@ -7,6 +7,8 @@
 #include <process.h>
 #include <logging.h>
 
+#define TASK_MAGIC 0xDEADBEEF
+
 uint32_t next_pid = 0;
 
 /*
@@ -145,7 +147,7 @@ fork() {
 	/* Disable interrupts */
 	IRQ_OFF;
 
-	unsigned int magic = 0xDEADBEEF;
+	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
 	/* Make a pointer to the parent process (us) on the stack */
@@ -165,7 +167,7 @@ fork() {
 	if (current_process == parent) {
 		/* Returned as the parent */
 		/* Verify magic */
-		assert(magic == 0xDEADBEEF && "Bad process fork magic (parent)!");
+		assert(magic == TASK_MAGIC && "Bad process fork magic (parent)!");
 		/* Collect the stack and base pointers */
 		asm volatile ("mov %%esp, %0" : "=r" (esp));
 		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
@@ -191,7 +193,66 @@ fork() {
 		/* Return the child PID */
 		return new_proc->id;
 	} else {
-		assert(magic == 0xDEADBEEF && "Bad process fork magic (child)!");
+		assert(magic == TASK_MAGIC && "Bad process fork magic (child)!");
+		/* Child fork is complete, return */
+		return 0;
+	}
+}
+
+/*
+ * clone the current thread and create a new one in the same
+ * memory space with the given pointer as its new stack.
+ */
+uint32_t
+clone(uintptr_t stack_top, uintptr_t stack_used) {
+	/* Disable interrupts */
+	IRQ_OFF;
+
+	unsigned int magic = TASK_MAGIC;
+	uintptr_t esp, ebp, eip;
+
+	/* Make a pointer to the parent process (us) on the stack */
+	process_t * parent = (process_t *)current_process;
+	assert(parent && "Cloned from nothing??");
+	page_directory_t * directory = current_directory;
+	/* Spawn a new process from this one */
+	process_t * new_proc = spawn_process(current_process);
+	assert(new_proc && "Could not allocate a new process!");
+	/* Set the new process' page directory to the original process' */
+	set_process_environment(new_proc, directory);
+	/* Read the instruction pointer */
+	eip = read_eip();
+
+	if (current_process == parent) {
+		/* Returned as the parent */
+		/* Verify magic */
+		assert(magic == TASK_MAGIC && "Bad process fork magic (parent clone)!");
+		/* Collect the stack and base pointers */
+		asm volatile ("mov %%esp, %0" : "=r" (esp));
+		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
+		/* Calculate new ESP and EBP for the child process */
+		if (current_process->image.stack > new_proc->image.stack) {
+			new_proc->thread.esp = esp - (current_process->image.stack - new_proc->image.stack);
+			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
+		} else {
+			new_proc->thread.esp = esp + (new_proc->image.stack - current_process->image.stack);
+			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
+		}
+		/* Copy the kernel stack from this process to new process */
+		memcpy((void *)(new_proc->image.stack - KERNEL_STACK_SIZE), (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+
+		/* Set the new process instruction pointer (to the return from read_eip) */
+		new_proc->thread.eip = eip;
+		/* Add the new process to the ready queue */
+		make_process_ready(new_proc);
+
+		/* Reenable interrupts */
+		IRQ_RES;
+
+		/* Return the child PID */
+		return new_proc->id;
+	} else {
+		assert(magic == TASK_MAGIC && "Bad process fork magic (child clone)!");
 		/* Child fork is complete, return */
 		return 0;
 	}

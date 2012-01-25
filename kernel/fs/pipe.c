@@ -49,7 +49,7 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 
 	size_t collected = 0;
 	while (collected < size) {
-		while (pipe_unread(pipe) > 0) {
+		while (pipe_unread(pipe) > 0 && collected < size) {
 			buffer[collected] = pipe->buffer[pipe->read_ptr];
 			pipe_increment_read(pipe);
 			collected++;
@@ -66,9 +66,19 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->inode;
 
+#if 0
+	kprintf("[debug] Call to write to pipe 0x%x\n", node->inode);
+	kprintf("        Available space: %d\n", pipe_available(pipe));
+	kprintf("        Total size:      %d\n", pipe->size);
+	kprintf("        Request size:    %d\n", size);
+	kprintf("        Write pointer:   %d\n", pipe->write_ptr);
+	kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
+	kprintf("        Buffer address:  0x%x\n", pipe->buffer);
+#endif
+
 	size_t written = 0;
 	while (written < size) {
-		while (pipe_available(pipe) > 0) {
+		while (pipe_available(pipe) > 0 && written < size) {
 			pipe->buffer[pipe->write_ptr] = buffer[written];
 			pipe_increment_write(pipe);
 			written++;
@@ -103,6 +113,7 @@ void close_pipe(fs_node_t * node) {
 	/* Check the reference count number */
 	if (pipe->refcount == 0) {
 		/* No other references exist, free the pipe (but not its buffer) */
+		free(pipe->buffer);
 		free(pipe);
 		/* And let the creator know there are no more references */
 		node->inode = 0;
@@ -111,7 +122,7 @@ void close_pipe(fs_node_t * node) {
 	return;
 }
 
-fs_node_t * make_pipe(uint8_t * buffer, size_t size) {
+fs_node_t * make_pipe(size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	pipe_device_t * pipe = malloc(sizeof(fs_node_t));
 
@@ -129,7 +140,7 @@ fs_node_t * make_pipe(uint8_t * buffer, size_t size) {
 
 	fnode->inode = (uintptr_t)pipe;
 
-	pipe->buffer    = buffer;
+	pipe->buffer    = malloc(size);
 	pipe->write_ptr = 0;
 	pipe->read_ptr  = 0;
 	pipe->size      = size;
