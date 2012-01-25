@@ -405,6 +405,9 @@ DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
 DEFN_SYSCALL0(getgraphicsdepth,  20);
 
+DEFN_SYSCALL0(mkpipe, 21);
+DEFN_SYSCALL2(dup2, 22, int, int);
+
 uint16_t graphics_width  = 0;
 uint16_t graphics_height = 0;
 uint16_t graphics_depth  = 0;
@@ -2774,6 +2777,34 @@ int main(int argc, char ** argv) {
 	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 
+	int fd = syscall_mkpipe();
+	char str[100];
+	sprintf(str, "%d <- pipe\n", fd);
+	ansi_print(str);
+	int pid = getpid();
+	uint32_t f = fork();
+	if (getpid() != pid) {
+		syscall_dup2(fd, 1);
+		syscall_dup2(fd, 2);
+
+		char * tokens[] = {NULL};
+
+		int i = execve("/bin/esh", tokens, NULL);
+
+		return 0;
+	} else {
+		char buf[256];
+		while (1) {
+			int r = read(fd, buf, 1);
+			if (r > 0) {
+				ansi_put(buf[0]);
+			}
+		}
+		return 0;
+	}
+
+
+#if 0
 	ansi_print("Hello World!\nThis is a test.\n\033[1;32mHello and thank you\n\033[0mDone.\n");
 
 #if 0
@@ -2791,6 +2822,7 @@ int main(int argc, char ** argv) {
 	ansi_print("\n\033[1mBold \033[0m\033[3mItalic \033[1mBold+Italic\033[0m\033[0m \033[4mUnderline\033[0m \033[9mX-Out\033[0m \033[1;3;4;9mEverything\033[0m\n");
 
 	fgetc(stdin);
+#endif
 
 	return 0;
 }

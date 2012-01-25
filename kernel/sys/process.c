@@ -365,3 +365,25 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
 	proc->fds.length++;
 	return proc->fds.length-1;
 }
+
+/*
+ * dup2() -> Move the file pointed to by `s(ou)rc(e)` into
+ *           the slot pointed to be `dest(ination)`.
+ *
+ * @param proc  Process to do this for
+ * @param src   Source file descriptor
+ * @param dest  Destination file descriptor
+ * @return The destination file descriptor, -1 on failure
+ */
+uint32_t process_move_fd(process_t * proc, int src, int dest) {
+	if ((size_t)src > proc->fds.length || (size_t)dest > proc->fds.length) {
+		return -1;
+	}
+#if 0
+	if (proc->fds.entries[dest] != proc->fds.entries[src]) {
+		close_fs(proc->fds.entries[src]);
+	}
+#endif
+	proc->fds.entries[dest] = proc->fds.entries[src];
+	return dest;
+}

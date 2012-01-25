@@ -67,6 +67,7 @@ static int read(int fd, char * ptr, int len) {
 }
 
 static int write(int fd, char * ptr, int len) {
+#if 0
 #ifdef SPECIAL_CASE_STDIO
 	if (fd == 1 || fd == 2) {
 		IRQ_OFF;
@@ -76,6 +77,7 @@ static int write(int fd, char * ptr, int len) {
 		IRQ_ON;
 		return len;
 	}
+#endif
 #endif
 	if (fd >= (int)current_process->fds.length || fd < 0) {
 		return -1;
@@ -236,6 +238,11 @@ static int mkpipe() {
 	return process_append_fd((process_t *)current_process, node);
 }
 
+static int dup2(int old, int new) {
+	process_move_fd((process_t *)current_process, old, new);
+	return new;
+}
+
 /*
  * System Call Internals
  */
@@ -264,6 +271,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&getgraphicsheight,
 	(uintptr_t)&getgraphicsdepth,	/* 20 */
 	(uintptr_t)&mkpipe,
+	(uintptr_t)&dup2,
 	0
 };
 uint32_t num_syscalls;
