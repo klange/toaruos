@@ -21,7 +21,7 @@ struct timeval {
 };
 
 
-void draw_prompt() {
+void draw_prompt(int ret) {
 	struct tm * timeinfo;
 	struct timeval now;
 	syscall_gettimeofday(&now, NULL); //time(NULL);
@@ -30,8 +30,12 @@ void draw_prompt() {
 	strftime(date_buffer, 80, "%m/%d", timeinfo);
 	char time_buffer[80];
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
-	printf("\033[1m[\033[1;33m%s \033[1;32m%s \033[1;31m%s \033[1;34m%s\033[0m \033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ",
-			"test", "esh", date_buffer, time_buffer, cwd);
+	printf("\033[1m[\033[1;33m%s \033[1;32m%s \033[1;31m%s \033[1;34m%s\033[0m ",
+			"test", "esh", date_buffer, time_buffer);
+	if (ret != 0) {
+		printf("\033[1;31m%d ", ret);
+	}
+	printf("\033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ", cwd);
 	fflush(stdout);
 }
 
@@ -63,10 +67,11 @@ int main(int argc, char ** argv) {
 	int  pid = getpid();
 	int  nowait = 0;
 	int  free_cmd = 0;
+	int  last_ret = 0;
 	while (1) {
 		char * cmd = malloc(sizeof(char) * 1024);
 
-		draw_prompt();
+		draw_prompt(last_ret);
 #if 0
 		fgets(cmd, 1024, stdin);
 #endif
@@ -117,10 +122,7 @@ int main(int argc, char ** argv) {
 			return i;
 		} else {
 			if (!nowait) {
-				int i = syscall_wait(f);
-				if (i) {
-					printf("[%d] ", i);
-				}
+				last_ret = syscall_wait(f);
 			}
 			free(cmd);
 		}
