@@ -568,7 +568,6 @@ uint32_t write_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	// need to update if size has increased.
 	if (inode->size < end) {
 		inode->size = end;
-		inode->blocks = end_block - start_block + 1;
 		ext2_disk_write_inode(inode, node->inode);
 	}
 	
