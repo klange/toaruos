@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
 #ifndef EXT2_H
-#define EXT2_h
+#define EXT2_H
 
 #ifdef _KERNEL_
 #	include <types.h>
@@ -15,6 +15,7 @@
 
 #define EXT2_SUPER_MAGIC 0xEF53
 
+/* Super block struct. */
 struct ext2_superblock {
 	uint32_t inodes_count;
 	uint32_t blocks_count;
@@ -56,7 +57,7 @@ struct ext2_superblock {
 	uint8_t uuid[16];
 	uint8_t volume_name[16];
 
-	uint8_t last_mounted[16];
+	uint8_t last_mounted[64];
 
 	uint32_t algo_bitmap;
 
@@ -86,9 +87,10 @@ struct ext2_superblock {
 
 typedef struct ext2_superblock ext2_superblock_t;
 
+/* Block group descriptor. */
 struct ext2_bgdescriptor {
 	uint32_t block_bitmap;
-	uint32_t inode_bitmap;
+	uint32_t inode_bitmap;		// block no. of inode bitmap
 	uint32_t inode_table;
 	uint16_t free_blocks_count;
 	uint16_t free_inodes_count;
@@ -124,10 +126,12 @@ typedef struct ext2_bgdescriptor ext2_bgdescriptor_t;
 #define EXT2_S_IWOTH	0x0002
 #define EXT2_S_IXOTH	0x0001
 
+/* This is not actually the inode table.
+ * It represents an inode in an inode table on disk. */
 struct ext2_inodetable {
 	uint16_t mode;
 	uint16_t uid;
-	uint32_t size;
+	uint32_t size;			// file length in byte.
 	uint32_t atime;
 	uint32_t ctime;
 	uint32_t mtime;
@@ -147,6 +151,7 @@ struct ext2_inodetable {
 
 typedef struct ext2_inodetable ext2_inodetable_t;
 
+/* Represents directory entry on disk. */
 struct ext2_dir {
 	uint32_t inode;
 	uint16_t rec_len;
@@ -160,3 +165,4 @@ typedef struct ext2_dir ext2_dir_t;
 void initrd_mount(uint32_t mem_head, uint32_t mem_top);
 
 #endif
+
