@@ -149,12 +149,12 @@ process_t * spawn_init() {
 	/* Set its tree entry pointer so we can keep track
 	 * of the process' entry in the process tree. */
 	init->tree_entry = process_tree->root;
-	init->id      = 1;       /* Init is PID 1 */
+	init->id      = 0;       /* Init is PID 1 */
 	init->name    = "init";  /* Um, duh. */
 	init->user    = 0;       /* UID 0 */
 	init->group   = 0;       /* Task group 0 */
 	init->status  = 0;       /* Run status */
-	init->fds.length   = 0;  /* Initialize the file descriptors */
+	init->fds.length   = 3;  /* Initialize the file descriptors */
 	init->fds.capacity = 4;
 	init->fds.entries  = malloc(sizeof(fs_node_t *) * init->fds.capacity);
 
@@ -185,7 +185,7 @@ process_t * spawn_init() {
  */
 pid_t get_next_pid() {
 	/* Terribly naïve, I know, but it works for now */
-	static pid_t next = 2;
+	static pid_t next = 1;
 	return (next++);
 }
 
@@ -364,4 +364,26 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
 	proc->fds.entries[proc->fds.length] = node;
 	proc->fds.length++;
 	return proc->fds.length-1;
+}
+
+/*
+ * dup2() -> Move the file pointed to by `s(ou)rc(e)` into
+ *           the slot pointed to be `dest(ination)`.
+ *
+ * @param proc  Process to do this for
+ * @param src   Source file descriptor
+ * @param dest  Destination file descriptor
+ * @return The destination file descriptor, -1 on failure
+ */
+uint32_t process_move_fd(process_t * proc, int src, int dest) {
+	if ((size_t)src > proc->fds.length || (size_t)dest > proc->fds.length) {
+		return -1;
+	}
+#if 0
+	if (proc->fds.entries[dest] != proc->fds.entries[src]) {
+		close_fs(proc->fds.entries[src]);
+	}
+#endif
+	proc->fds.entries[dest] = proc->fds.entries[src];
+	return dest;
 }

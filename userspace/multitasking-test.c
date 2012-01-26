@@ -38,6 +38,7 @@ int main(int argc, char ** argv) {
 		if (!pid) {
 			while (1) {
 				printf("%c", i + 'A');
+				fflush(stdout);
 			}
 		} else {
 			npid = pid;
@@ -45,12 +46,6 @@ int main(int argc, char ** argv) {
 	}
 
 	printf("Done.\n");
-
-#if 0
-	while (1) {
-		;
-	}
-#endif
 
 	return 0;
 }

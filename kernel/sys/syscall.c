@@ -7,6 +7,8 @@
 #include <syscall.h>
 #include <process.h>
 #include <logging.h>
+#include <fs.h>
+#include <pipe.h>
 
 #define SPECIAL_CASE_STDIO
 
@@ -22,11 +24,11 @@ void validate(void * ptr) {
 }
 
 /*
- * print something to the core terminal
+ * print something to the debug terminal (serial)
  */
 static int print(char * s) {
 	validate((void *)s);
-	ansi_print(s);
+	serial_string(s);
 	return 0;
 }
 
@@ -42,19 +44,10 @@ static int exit(int retval) {
 }
 
 static int read(int fd, char * ptr, int len) {
-#ifdef SPECIAL_CASE_STDIO
-	if (fd == 0) {
-		IRQ_RES;
-		kgets(ptr, len);
-		if (strlen(ptr) < (uint32_t)len) {
-			int j = strlen(ptr);
-			ptr[j] = '\n';
-			ptr[j+1] = '\0';
-		}
-		return strlen(ptr);
-	}
-#endif
 	if (fd >= (int)current_process->fds.length || fd < 0) {
+		return -1;
+	}
+	if (current_process->fds.entries[fd] == NULL) {
 		return -1;
 	}
 	validate(ptr);
@@ -65,18 +58,15 @@ static int read(int fd, char * ptr, int len) {
 }
 
 static int write(int fd, char * ptr, int len) {
-#ifdef SPECIAL_CASE_STDIO
-	if (fd == 1 || fd == 2) {
-		IRQ_OFF;
-		for (int i = 0; i < len; ++i) {
-			ansi_put(ptr[i]);
-			serial_send(ptr[i]);
-		}
-		IRQ_ON;
+	if ((fd == 1 && !current_process->fds.entries[fd]) ||
+		(fd == 2 && !current_process->fds.entries[fd])) {
+		serial_string(ptr);
 		return len;
 	}
-#endif
 	if (fd >= (int)current_process->fds.length || fd < 0) {
+		return -1;
+	}
+	if (current_process->fds.entries[fd] == NULL) {
 		return -1;
 	}
 	validate(ptr);
@@ -93,7 +83,9 @@ static int wait(int child) {
 	}
 	process_t * volatile child_task = process_from_pid(child);
 	/* If the child task doesn't exist, bail */
-	if (!child_task) return -1;
+	if (!child_task) {
+		kprintf("Tried to wait for non-existent process\n");
+	}
 	/* Wait until it finishes (this is stupidly memory intensive,
 	 * but we haven't actually implemented wait() yet, so there's
 	 * not all that much we can do right now. */
@@ -127,9 +119,14 @@ static int close(int fd) {
 
 static int sys_sbrk(int size) {
 	uintptr_t ret = current_process->image.heap;
-	current_process->image.heap += size;
+	uintptr_t i_ret = ret;
+	while (ret % 0x1000) {
+		ret++;
+	}
+	current_process->image.heap += (ret - i_ret) + size;
 	while (current_process->image.heap > current_process->image.heap_actual) {
 		current_process->image.heap_actual += 0x1000;
+		assert(current_process->image.heap_actual % 0x1000 == 0);
 		alloc_frame(get_page(current_process->image.heap_actual, 1, current_directory), 0, 1);
 	}
 	return ret;
@@ -225,6 +222,16 @@ static int getgraphicsdepth() {
 	return bochs_resolution_b;
 }
 
+static int mkpipe() {
+	fs_node_t * node = make_pipe(4096 * 2);
+	return process_append_fd((process_t *)current_process, node);
+}
+
+static int dup2(int old, int new) {
+	process_move_fd((process_t *)current_process, old, new);
+	return new;
+}
+
 /*
  * System Call Internals
  */
@@ -251,13 +258,17 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&wait,
 	(uintptr_t)&getgraphicswidth,
 	(uintptr_t)&getgraphicsheight,
-	(uintptr_t)&getgraphicsdepth,
+	(uintptr_t)&getgraphicsdepth,	/* 20 */
+	(uintptr_t)&mkpipe,
+	(uintptr_t)&dup2,
+	0
 };
-uint32_t num_syscalls = 21;
+uint32_t num_syscalls;
 
 void
 syscalls_install() {
 	blog("Initializing syscall table...");
+	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
 	LOG(INFO, "Initializing syscall table with %d functions", num_syscalls);
 	isrs_install_handler(0x7F, &syscall_handler);
 	bfinish(0);
@@ -271,6 +282,10 @@ syscall_handler(
 		return;
 	}
 	uintptr_t location = syscalls[r->eax];
+
+#if 0
+	kprintf("[debug] Process %d has made syscall %d\n", current_process->id, r->eax);
+#endif
 
 	/* In case of a fork, we need to return the PID to the correct place */
 	volatile uintptr_t stack = current_process->image.stack - KERNEL_STACK_SIZE;

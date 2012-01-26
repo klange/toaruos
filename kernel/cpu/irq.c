@@ -91,12 +91,13 @@ irq_install() {
 	blog("Setting up and enabling hardware interrupts...");
 	irq_remap();
 	irq_gates();
-	IRQ_ON;
+	IRQ_RES;
 	bfinish(0);
 }
 
 void
 irq_handler(struct regs *r) {
+	IRQ_OFF;
 	void (*handler)(struct regs *r);
 	handler = irq_routines[r->int_no - 32];
 	if (r->int_no >= 40) {
@@ -106,4 +107,5 @@ irq_handler(struct regs *r) {
 	if (handler) {
 		handler(r);
 	}
+	IRQ_RES;
 }

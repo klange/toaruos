@@ -88,6 +88,7 @@ process_t * next_reapable_process();
 uint32_t process_append_fd(process_t * proc, fs_node_t * node);
 process_t * process_from_pid(pid_t pid);
 void delete_process(process_t * proc);
+uint32_t process_move_fd(process_t * proc, int src, int dest);
 
 volatile process_t * current_process;
 

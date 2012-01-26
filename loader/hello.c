@@ -1,7 +1,8 @@
 #include <syscall.h>
 
 int main(int argc, char ** argv) {
-	syscall_print("Hello world!\n");
+	char * str = "Hello world!\n";
+	syscall_write(1 /* stdout */, str, 13);
 	return 0;
 }
 

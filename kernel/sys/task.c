@@ -7,6 +7,8 @@
 #include <process.h>
 #include <logging.h>
 
+#define TASK_MAGIC 0xDEADBEEF
+
 uint32_t next_pid = 0;
 
 /*
@@ -131,7 +133,7 @@ tasking_install() {
 	switch_page_directory(current_process->thread.page_directory);
 
 	/* Reenable interrupts */
-	IRQ_ON;
+	IRQ_RES;
 	bfinish(0);
 }
 
@@ -142,10 +144,9 @@ tasking_install() {
  */
 uint32_t
 fork() {
-	/* Disable interrupts */
 	IRQ_OFF;
 
-	unsigned int magic = 0xDEADBEEF;
+	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
 	/* Make a pointer to the parent process (us) on the stack */
@@ -165,7 +166,7 @@ fork() {
 	if (current_process == parent) {
 		/* Returned as the parent */
 		/* Verify magic */
-		assert(magic == 0xDEADBEEF && "Bad process fork magic (parent)!");
+		assert(magic == TASK_MAGIC && "Bad process fork magic (parent)!");
 		/* Collect the stack and base pointers */
 		asm volatile ("mov %%esp, %0" : "=r" (esp));
 		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
@@ -185,13 +186,65 @@ fork() {
 		/* Add the new process to the ready queue */
 		make_process_ready(new_proc);
 
-		/* Reenable interrupts */
 		IRQ_RES;
 
 		/* Return the child PID */
 		return new_proc->id;
 	} else {
-		assert(magic == 0xDEADBEEF && "Bad process fork magic (child)!");
+		assert(magic == TASK_MAGIC && "Bad process fork magic (child)!");
+		/* Child fork is complete, return */
+		return 0;
+	}
+}
+
+/*
+ * clone the current thread and create a new one in the same
+ * memory space with the given pointer as its new stack.
+ */
+uint32_t
+clone(uintptr_t stack_top, uintptr_t stack_used) {
+	unsigned int magic = TASK_MAGIC;
+	uintptr_t esp, ebp, eip;
+
+	/* Make a pointer to the parent process (us) on the stack */
+	process_t * parent = (process_t *)current_process;
+	assert(parent && "Cloned from nothing??");
+	page_directory_t * directory = current_directory;
+	/* Spawn a new process from this one */
+	process_t * new_proc = spawn_process(current_process);
+	assert(new_proc && "Could not allocate a new process!");
+	/* Set the new process' page directory to the original process' */
+	set_process_environment(new_proc, directory);
+	/* Read the instruction pointer */
+	eip = read_eip();
+
+	if (current_process == parent) {
+		/* Returned as the parent */
+		/* Verify magic */
+		assert(magic == TASK_MAGIC && "Bad process fork magic (parent clone)!");
+		/* Collect the stack and base pointers */
+		asm volatile ("mov %%esp, %0" : "=r" (esp));
+		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
+		/* Calculate new ESP and EBP for the child process */
+		if (current_process->image.stack > new_proc->image.stack) {
+			new_proc->thread.esp = esp - (current_process->image.stack - new_proc->image.stack);
+			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
+		} else {
+			new_proc->thread.esp = esp + (new_proc->image.stack - current_process->image.stack);
+			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
+		}
+		/* Copy the kernel stack from this process to new process */
+		memcpy((void *)(new_proc->image.stack - KERNEL_STACK_SIZE), (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+
+		/* Set the new process instruction pointer (to the return from read_eip) */
+		new_proc->thread.eip = eip;
+		/* Add the new process to the ready queue */
+		make_process_ready(new_proc);
+
+		/* Return the child PID */
+		return new_proc->id;
+	} else {
+		assert(magic == TASK_MAGIC && "Bad process fork magic (child clone)!");
 		/* Child fork is complete, return */
 		return 0;
 	}
@@ -206,6 +259,14 @@ uint32_t
 getpid() {
 	/* Fairly self-explanatory. */
 	return current_process->id;
+}
+
+void
+switch_from_cross_thread_lock() {
+	if (!process_available()) {
+		IRQS_ON_AND_PAUSE;
+	}
+	switch_task();
 }
 
 /*
@@ -239,7 +300,6 @@ switch_task() {
 				reap_process(proc);
 			}
 		}
-		IRQ_RES;
 		return;
 	}
 
@@ -268,8 +328,6 @@ switch_next() {
 	eip = current_process->thread.eip;
 	esp = current_process->thread.esp;
 	ebp = current_process->thread.ebp;
-	/* Disable interrupts */
-	IRQ_OFF;
 
 	/* Validate */
 	assert((eip > (uintptr_t)&code) && (eip < (uintptr_t)&end) && "Task switch return point is not within Kernel!");
@@ -301,6 +359,7 @@ switch_next() {
  */
 void
 enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
+	IRQ_OFF;
 	set_kernel_stack(current_process->image.stack);
 	asm volatile(
 			"mov %3, %%esp\n"
@@ -332,7 +391,6 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
  * @param retval Set the return value to this.
  */
 void task_exit(int retval) {
-	IRQ_OFF;
 	/* Free the image memory */
 	current_process->status   = retval;
 	current_process->finished = 1;

@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 	FT_UInt glyph_index;
 	error = FT_Init_FreeType(&library);
 	if (error) return 1;
-	error = FT_New_Face(library, "/font.ttf", 0, &face);
+	error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face);
 	if (error) return 2;
 	error = FT_Set_Pixel_Sizes(face, 0, FONT_SIZE);
 	if (error) return 3;
