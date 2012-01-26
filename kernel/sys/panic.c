@@ -32,7 +32,7 @@ void halt_and_catch_fire(char * error_message, const char * file, int line, stru
 	}
 	kprintf("This process has been descheduled.\n");
 	kprintf("\033[0m");
-	kexit(0);
+	kexit(1);
 }
 
 void assert_failed(const char *file, uint32_t line, const char *desc) {
