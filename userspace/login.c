@@ -56,9 +56,9 @@ _done:
 
 int checkUserPass(char * user, char * pass) {
 	for (int i = 0; i < n_users; ++i) {
-		if (!strcmp(user, users[0].name)) {
-			if (!strcmp(pass, users[0].pass)) {
-				return users[0].uid;
+		if (!strcmp(user, users[i].name)) {
+			if (!strcmp(pass, users[i].pass)) {
+				return users[i].uid;
 			}
 		}
 	}
