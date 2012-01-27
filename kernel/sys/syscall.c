@@ -238,7 +238,7 @@ static int getuid() {
 }
 
 static int setuid(user_t new_uid) {
-	if (current_process->user != USER_ROOT_UID) {
+	if (current_process->user == USER_ROOT_UID) {
 		current_process->user = new_uid;
 		return 0;
 	}
@@ -259,6 +259,23 @@ static int kernel_name_XXX(char * buffer) {
 			__kernel_build_date,
 			__kernel_build_time,
 			__kernel_arch);
+}
+
+static int reboot() {
+	kprintf("[kernel] Reboot requested from process %d by user #%d\n", current_process->id, current_process->user);
+	kprintf("[kernel] Good bye!\n");
+	if (current_process->user != 0) {
+		return -1;
+	} else {
+		/* Goodbye, cruel world */
+		uint8_t out = 0x02;
+		while ((out & 0x02) != 0) {
+			out = inportb(0x64);
+		}
+		outportb(0x64, 0xFE); /* Reset */
+		STOP;
+	}
+	return 0;
 }
 
 /*
@@ -293,6 +310,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&getuid,
 	(uintptr_t)&setuid,				/* 24 */
 	(uintptr_t)&kernel_name_XXX,
+	(uintptr_t)&reboot,
 	0
 };
 uint32_t num_syscalls;

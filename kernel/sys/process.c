@@ -220,6 +220,10 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->name = default_name; /* Use the default name */
 	proc->description = NULL;  /* No description */
 
+	/* Copy permissions */
+	proc->user  = parent->user;
+	proc->group = parent->group;
+
 	/* Zero out the ESP/EBP/EIP */
 	proc->thread.esp = 0;
 	proc->thread.ebp = 0;
