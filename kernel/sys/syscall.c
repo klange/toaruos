@@ -202,7 +202,30 @@ static int seek(int fd, int offset, int whence) {
 	return current_process->fds.entries[fd]->offset;
 }
 
-static int stat(int fd, uint32_t * st) {
+static int stat(int fd, uint32_t st) {
+	if (fd >= (int)current_process->fds.length || fd < 0) {
+		return -1;
+	}
+	fs_node_t * fn = current_process->fds.entries[fd];
+	struct stat * f = (struct stat *)st;
+	f->st_dev   = 0;
+	f->st_ino   = fn->inode;
+
+	uint32_t flags = 0;
+	if (fn->flags & FS_FILE)        { flags |= _IFREG; }
+	if (fn->flags & FS_DIRECTORY)   { flags |= _IFDIR; }
+	if (fn->flags & FS_CHARDEVICE)  { flags |= _IFCHR; }
+	if (fn->flags & FS_BLOCKDEVICE) { flags |= _IFBLK; }
+	if (fn->flags & FS_PIPE)        { flags |= _IFIFO; }
+	if (fn->flags & FS_SYMLINK)     { flags |= _IFLNK; }
+
+	f->st_mode  = fn->mask | flags;
+	f->st_nlink = 0;
+	f->st_uid   = fn->uid;
+	f->st_gid   = fn->gid;
+	f->st_rdev  = 0;
+	f->st_size  = fn->length;
+
 	return 0;
 }
 

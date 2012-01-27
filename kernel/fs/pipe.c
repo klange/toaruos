@@ -161,7 +161,7 @@ fs_node_t * make_pipe(size_t size) {
 	fnode->name[0] = '\0';
 	fnode->uid   = 0;
 	fnode->gid   = 0;
-	fnode->flags = 0;
+	fnode->flags = FS_PIPE;
 	fnode->read  = read_pipe;
 	fnode->write = write_pipe;
 	fnode->open  = open_pipe;

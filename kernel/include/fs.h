@@ -11,6 +11,15 @@
 #define FS_SYMLINK     0x20
 #define FS_MOUNTPOINT  0x40
 
+#define	_IFMT		0170000	/* type of file */
+#define		_IFDIR	0040000	/* directory */
+#define		_IFCHR	0020000	/* character special */
+#define		_IFBLK	0060000	/* block special */
+#define		_IFREG	0100000	/* regular */
+#define		_IFLNK	0120000	/* symbolic link */
+#define		_IFSOCK	0140000	/* socket */
+#define		_IFIFO	0010000	/* fifo */
+
 struct fs_node;
 
 typedef uint32_t (*read_type_t) (struct fs_node *, uint32_t, uint32_t, uint8_t *);
@@ -46,6 +55,17 @@ typedef struct fs_node {
 struct dirent {
 	char name[256];			// The filename.
 	uint32_t ino;			// Inode number.
+};
+
+struct stat  {
+	uint16_t  st_dev;
+	uint16_t  st_ino;
+	uint32_t  st_mode;
+	uint16_t  st_nlink;
+	uint16_t   st_uid;
+	uint16_t   st_gid;
+	uint16_t  st_rdev;
+	uint32_t  st_size;
 };
 
 extern fs_node_t *fs_root;
