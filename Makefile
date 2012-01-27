@@ -43,7 +43,7 @@ EMUKVM  = -enable-kvm
 .PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
 .SECONDARY: 
 
-all: .passed system bootdisk.img docs utils
+all: .passed system bootdisk.img docs utils tags
 system: toaruos-initrd toaruos-disk.img toaruos-kernel
 
 install: system
@@ -202,6 +202,14 @@ bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootlo
 bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin util/bin/mrboots-installer
 	@cat bootloader/stage1.bin bootloader/stage2.bin > bootdisk.img
 	@${INFO} "--" "Bootdisk is ready!"
+
+##############
+#    ctags   #
+##############
+tags: kernel/*/*.c kernel/*.c userspace/*.c
+	@${BEG} "ctag" "Generating CTags..."
+	@ctags -R --c++-kinds=+p --fields=+iaS --extra=+q
+	@${END} "ctag" "Generated CTags."
 
 ###############
 #    clean    #
