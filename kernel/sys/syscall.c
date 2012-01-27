@@ -58,6 +58,27 @@ static int read(int fd, char * ptr, int len) {
 	return out;
 }
 
+static int readdir(int fd, int index, struct dirent * entry) {
+	if (fd >= (int)current_process->fds.length || fd < 0) {
+		return -1;
+	}
+	if (current_process->fds.entries[fd] == NULL) {
+		return -1;
+	}
+	validate(entry);
+	fs_node_t * node = current_process->fds.entries[fd];
+
+	struct dirent * kentry = readdir_fs(node, (uint32_t)index);
+	if (!kentry) {
+		free(kentry);
+		return 1;
+	}
+
+	memcpy(entry, kentry, sizeof(struct dirent));
+	free(kentry);
+	return 0;
+}
+
 static int write(int fd, char * ptr, int len) {
 	if ((fd == 1 && !current_process->fds.entries[fd]) ||
 		(fd == 2 && !current_process->fds.entries[fd])) {
@@ -111,7 +132,7 @@ static int open(const char * file, int flags, int mode) {
 }
 
 static int close(int fd) {
-	if (fd <= (int)current_process->fds.length || fd < 0) { 
+	if (fd >= (int)current_process->fds.length || fd < 0) { 
 		return -1;
 	}
 	close_fs(current_process->fds.entries[fd]);
@@ -334,6 +355,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&setuid,				/* 24 */
 	(uintptr_t)&kernel_name_XXX,
 	(uintptr_t)&reboot,
+	(uintptr_t)&readdir,
 	0
 };
 uint32_t num_syscalls;

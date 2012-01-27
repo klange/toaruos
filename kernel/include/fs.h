@@ -53,8 +53,8 @@ typedef struct fs_node {
 } fs_node_t;
 
 struct dirent {
-	char name[256];			// The filename.
 	uint32_t ino;			// Inode number.
+	char name[256];			// The filename.
 };
 
 struct stat  {

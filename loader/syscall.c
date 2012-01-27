@@ -20,3 +20,5 @@ DEFN_SYSCALL0(getgraphicsdepth,  20)
 
 DEFN_SYSCALL0(getuid, 23)
 DEFN_SYSCALL1(setuid, 24, unsigned int)
+
+DEFN_SYSCALL3(readdir, 27, int, int, void *)

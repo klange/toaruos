@@ -51,16 +51,17 @@ DECL_SYSCALL1(exit, int);
 DECL_SYSCALL1(print, const char *);
 
 /* Files */
-DECL_SYSCALL1(close,  int);
-DECL_SYSCALL3(open,   const char *, int, int);
-DECL_SYSCALL3(read,   int, char *, int);
-DECL_SYSCALL3(write,  int, char *, int);
-DECL_SYSCALL2(fstat,  int, void *);
-DECL_SYSCALL1(isatty, int);
-DECL_SYSCALL2(link,   char *, char *);
-DECL_SYSCALL1(unlink, char *);
-DECL_SYSCALL3(lseek,  int, int, int);
-DECL_SYSCALL2(stat,   const char *, void *);
+DECL_SYSCALL1(close,   int);
+DECL_SYSCALL3(open,    const char *, int, int);
+DECL_SYSCALL3(read,    int, char *, int);
+DECL_SYSCALL3(readdir, int, int, void *);
+DECL_SYSCALL3(write,   int, char *, int);
+DECL_SYSCALL2(fstat,   int, void *);
+DECL_SYSCALL1(isatty,  int);
+DECL_SYSCALL2(link,    char *, char *);
+DECL_SYSCALL1(unlink,  char *);
+DECL_SYSCALL3(lseek,   int, int, int);
+DECL_SYSCALL2(stat,    const char *, void *);
 
 /* Process Control */
 DECL_SYSCALL0(getpid);
