@@ -68,6 +68,20 @@ int main(int argc, char ** argv) {
 	int  nowait = 0;
 	int  free_cmd = 0;
 	int  last_ret = 0;
+
+	FILE * motd = fopen("/etc/motd", "r");
+	if (motd) {
+		size_t s = 0;
+		fseek(motd, 0, SEEK_END);
+		s = ftell(motd);
+		fseek(motd, 0, SEEK_SET);
+		char * m = malloc(sizeof(char) * s);
+		fread(m, s, 1, motd);
+		fwrite(m, s, 1, stdout);
+		fprintf(stdout, "\n");
+		fflush(stdout);
+	}
+
 	while (1) {
 		char * cmd = malloc(sizeof(char) * 1024);
 

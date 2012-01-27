@@ -9,6 +9,7 @@
 #include <logging.h>
 #include <fs.h>
 #include <pipe.h>
+#include <version.h>
 
 #define SPECIAL_CASE_STDIO
 
@@ -232,6 +233,34 @@ static int dup2(int old, int new) {
 	return new;
 }
 
+static int getuid() {
+	return current_process->user;
+}
+
+static int setuid(user_t new_uid) {
+	if (current_process->user != USER_ROOT_UID) {
+		current_process->user = new_uid;
+		return 0;
+	}
+	return -1;
+}
+
+static int kernel_name_XXX(char * buffer) {
+	char version_number[1024];
+	sprintf(version_number, __kernel_version_format,
+			__kernel_version_major,
+			__kernel_version_minor,
+			__kernel_version_lower,
+			__kernel_version_suffix);
+	return sprintf(buffer, "%s %s %s %s %s %s",
+			__kernel_name,
+			version_number,
+			__kernel_version_codename,
+			__kernel_build_date,
+			__kernel_build_time,
+			__kernel_arch);
+}
+
 /*
  * System Call Internals
  */
@@ -261,6 +290,9 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&getgraphicsdepth,	/* 20 */
 	(uintptr_t)&mkpipe,
 	(uintptr_t)&dup2,
+	(uintptr_t)&getuid,
+	(uintptr_t)&setuid,				/* 24 */
+	(uintptr_t)&kernel_name_XXX,
 	0
 };
 uint32_t num_syscalls;

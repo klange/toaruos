@@ -84,6 +84,9 @@ DECL_SYSCALL0(getgraphicswidth);
 DECL_SYSCALL0(getgraphicsheight);
 DECL_SYSCALL0(getgraphicsdepth);
 
+DECL_SYSCALL0(getuid);
+DECL_SYSCALL1(setuid, unsigned int);
+
 
 #endif
 /*

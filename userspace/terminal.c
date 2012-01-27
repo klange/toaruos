@@ -2853,8 +2853,8 @@ int main(int argc, char ** argv) {
 		//syscall_dup2(ifd, 0);
 		syscall_dup2(ofd, 1);
 		syscall_dup2(ofd, 2);
-		char * tokens[] = {"/bin/esh",NULL};
-		int i = execve("/bin/esh", tokens, NULL);
+		char * tokens[] = {"/bin/login",NULL};
+		int i = execve(tokens[0], tokens, NULL);
 		return 0;
 	} else {
 		char buf[1024];

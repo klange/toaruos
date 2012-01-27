@@ -15,6 +15,8 @@ typedef unsigned int  user_t;
 typedef unsigned int  group_t;
 typedef unsigned char status_t;
 
+#define USER_ROOT_UID (user_t)0
+
 /* Unix waitpid() options */
 enum wait_option{
 	WCONTINUED,
