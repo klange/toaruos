@@ -14,6 +14,9 @@
 
 DEFN_SYSCALL1(wait, 17, unsigned int);
 
+DEFN_SYSCALL2(getcwd, 29, char *, size_t);
+DEFN_SYSCALL1(chdir, 28, char *);
+
 char cwd[1024] = {'/',0};
 struct timeval {
 	unsigned int tv_sec;
@@ -35,6 +38,7 @@ void draw_prompt(int ret) {
 	if (ret != 0) {
 		printf("\033[1;31m%d ", ret);
 	}
+	syscall_getcwd(cwd, 1024);
 	printf("\033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ", cwd);
 	fflush(stdout);
 }
@@ -105,27 +109,41 @@ int main(int argc, char ** argv) {
 		if (!strcmp(tokens[0],"exit")) {
 			goto exit;
 		}
+		if (!strcmp(tokens[0],"cd")) {
+			if (i > 1) {
+				if (syscall_chdir(tokens[1]) != 0) {
+					printf("cd: Could not cd to '%s'.\n", tokens[1]);
+					last_ret = 1;
+				}
+			} else {
+				printf("cd: expected argument\n");
+				last_ret = 1;
+			}
+			continue;
+		}
 		nowait = (!strcmp(tokens[i-1],"&"));
 
 		/* Attempt to open the command */
-		FILE * file = fopen(tokens[0], "r");
-		if (!file) {
-			if (!strstr(tokens[0],"/")) {
-				cmd = malloc(sizeof(char) * (strlen(tokens[0]) + strlen("/bin/") + 1));
-				sprintf(cmd, "%s%s", "/bin/", tokens[0]);
-				file = fopen(cmd,"r");
-				if (!file) {
-					printf("Command not found: %s\n", tokens[0]);
-					free(cmd);
-					continue;
-				}
-				fclose(file);
-			} else {
+		FILE * file = NULL; //fopen(tokens[0], "r");
+		if (!strstr(tokens[0],"/")) {
+			cmd = malloc(sizeof(char) * (strlen(tokens[0]) + strlen("/bin/") + 1));
+			sprintf(cmd, "%s%s", "/bin/", tokens[0]);
+			file = fopen(cmd,"r");
+			if (!file) {
 				printf("Command not found: %s\n", tokens[0]);
+				last_ret = 1;
 				free(cmd);
 				continue;
 			}
+			fclose(file);
 		} else {
+			file = fopen(tokens[0], "r");
+			if (!file) {
+				printf("Command not found: %s\n", tokens[0]);
+				last_ret = 1;
+				free(cmd);
+				continue;
+			}
 			fclose(file);
 		}
 

@@ -160,7 +160,9 @@ process_t * spawn_init() {
 
 	/* Set the working directory */
 	init->wd_node = clone_fs(fs_root);
-	init->wd_name = "/";
+	init->wd_name = malloc(2);
+	init->wd_name[0] = '/';
+	init->wd_name[1] = '\0';
 
 	/* Heap and stack pointers (and actuals) */
 	init->image.entry       = 0;

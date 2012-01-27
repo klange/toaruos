@@ -322,6 +322,29 @@ static int reboot() {
 	return 0;
 }
 
+static int chdir(char * newdir) {
+	char * path = canonicalize_path(current_process->wd_name, newdir);
+	fs_node_t * chd = kopen(path, 0);
+	if (chd) {
+		if ((chd->flags & FS_DIRECTORY) == 0) {
+			return -1;
+		}
+		free(current_process->wd_name);
+		current_process->wd_name = malloc(strlen(path) + 1);
+		memcpy(current_process->wd_name, path, strlen(path) + 1);
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static char * getcwd(char * buf, size_t size) {
+	if (!buf) return NULL;
+	validate((void *)buf);
+	memcpy(buf, current_process->wd_name, min(size, strlen(current_process->wd_name) + 1));
+	return buf;
+}
+
 /*
  * System Call Internals
  */
@@ -356,6 +379,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&kernel_name_XXX,
 	(uintptr_t)&reboot,
 	(uintptr_t)&readdir,
+	(uintptr_t)&chdir,				/* 28 */
+	(uintptr_t)&getcwd,
 	0
 };
 uint32_t num_syscalls;
