@@ -74,6 +74,7 @@ typedef struct process {
 	status_t      status;       /* Process status */
 	sig_table_t   signals;      /* Signal table */
 	uint8_t       finished;     /* Status indicator */
+	struct regs * syscall_registers; /* Registers at interrupt */
 } process_t;
 
 void initialize_process_tree();

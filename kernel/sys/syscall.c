@@ -172,11 +172,6 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	return -1;
 }
 
-static int sys_fork() {
-	uint32_t f = fork();
-	return f;
-}
-
 static int getgraphicsaddress() {
 	return (int)bochs_get_address();
 }
@@ -359,7 +354,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&close,
 	(uintptr_t)&gettimeofday,
 	(uintptr_t)&execve,
-	(uintptr_t)&sys_fork,			/* 8 */
+	(uintptr_t)&fork,				/* 8 */
 	(uintptr_t)&getpid,
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&getgraphicsaddress,
@@ -381,6 +376,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&readdir,
 	(uintptr_t)&chdir,				/* 28 */
 	(uintptr_t)&getcwd,
+	(uintptr_t)&clone,
 	0
 };
 uint32_t num_syscalls;
@@ -403,12 +399,8 @@ syscall_handler(
 	}
 	uintptr_t location = syscalls[r->eax];
 
-#if 0
-	kprintf("[debug] Process %d has made syscall %d\n", current_process->id, r->eax);
-#endif
-
-	/* In case of a fork, we need to return the PID to the correct place */
-	volatile uintptr_t stack = current_process->image.stack - KERNEL_STACK_SIZE;
+	/* Update the syscall registers for this process */
+	current_process->syscall_registers = r;
 
 	uint32_t ret;
 	asm volatile (
@@ -424,10 +416,10 @@ syscall_handler(
 			"pop %%ebx\n"
 			"pop %%ebx\n"
 			: "=a" (ret) : "r" (r->edi), "r" (r->esi), "r" (r->edx), "r" (r->ecx), "r" (r->ebx), "r" (location));
-	volatile uintptr_t n_stack = current_process->image.stack - KERNEL_STACK_SIZE;
-	if (n_stack != stack) {
-		uintptr_t temp = ((uintptr_t)r - stack);
-		r = (struct regs *)(n_stack + temp);
-	}
+
+	/* The syscall handler may have moved the register pointer
+	 * (ie, by creating a new stack)
+	 * Update the pointer */
+	r = current_process->syscall_registers;
 	r->eax = ret;
 }

@@ -92,6 +92,8 @@ kernel/start.o: kernel/start.s
 	@${YASM} -f elf -o kernel/start.o kernel/start.s ${ERRORS}
 	@${END} "yasm" "$<"
 
+kernel/sys/version.o: kernel/*/*.c kernel/*.c
+
 %.o: %.c
 	@${BEG} "CC" "$<"
 	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
@@ -268,12 +270,6 @@ clean-once:
 	@${BEGRM} "RM" "Cleaning one-time files..."
 	@-rm -f .passed
 	@${ENDRM} "RM" "Cleaned one-time files"
-
-update-version:
-	@-rm -f kernel/sys/version.o
-	@touch kernel/sys/version.c
-	@${INFO} "info" "Kernel version information will be updated on next build."
-
 
 # vim:noexpandtab
 # vim:tabstop=4

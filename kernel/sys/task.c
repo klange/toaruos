@@ -181,6 +181,12 @@ fork() {
 		/* Copy the kernel stack from this process to new process */
 		memcpy((void *)(new_proc->image.stack - KERNEL_STACK_SIZE), (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
 
+		/* Move the syscall_registers pointer */
+		uintptr_t o_stack = ((uintptr_t)current_process->image.stack - KERNEL_STACK_SIZE);
+		uintptr_t n_stack = ((uintptr_t)new_proc->image.stack - KERNEL_STACK_SIZE);
+		uintptr_t offset  = ((uintptr_t)current_process->syscall_registers - o_stack);
+		new_proc->syscall_registers = (struct regs *)(n_stack + offset);
+
 		/* Set the new process instruction pointer (to the return from read_eip) */
 		new_proc->thread.eip = eip;
 		/* Add the new process to the ready queue */
@@ -202,9 +208,13 @@ fork() {
  * memory space with the given pointer as its new stack.
  */
 uint32_t
-clone(uintptr_t stack_top, uintptr_t stack_used) {
+clone(uintptr_t stack_top, uintptr_t stack_old) {
 	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
+
+	struct regs * r = current_process->syscall_registers;
+
+	kprintf("[clone] ESP at interrupt: 0x%x\n", r->esp);
 
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
@@ -235,6 +245,13 @@ clone(uintptr_t stack_top, uintptr_t stack_used) {
 		}
 		/* Copy the kernel stack from this process to new process */
 		memcpy((void *)(new_proc->image.stack - KERNEL_STACK_SIZE), (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+
+		/* Move the syscall_registers pointer */
+		uintptr_t o_stack = ((uintptr_t)current_process->image.stack - KERNEL_STACK_SIZE);
+		uintptr_t n_stack = ((uintptr_t)new_proc->image.stack - KERNEL_STACK_SIZE);
+		uintptr_t offset  = ((uintptr_t)current_process->syscall_registers - o_stack);
+		new_proc->syscall_registers = (struct regs *)(n_stack + offset);
+
 
 		/* Set the new process instruction pointer (to the return from read_eip) */
 		new_proc->thread.eip = eip;
