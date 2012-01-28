@@ -12,22 +12,11 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "lib/sha2.h"
+
 DEFN_SYSCALL1(wait, 17, unsigned int);
 DEFN_SYSCALL1(setuid, 24, unsigned int);
 DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
-
-typedef struct {
-	int uid;
-	char * name;
-	char * pass;
-} user_combo;
-
-user_combo users[] = {
-	{0, "root", "toor"},
-	{1, "klange", "herp"}
-};
-
-int n_users = 2;
 
 int readline(char * buf, size_t size, uint8_t display) {
 	size_t collected = 0;
@@ -55,18 +44,42 @@ _done:
 }
 
 int checkUserPass(char * user, char * pass) {
-	for (int i = 0; i < n_users; ++i) {
-		if (!strcmp(user, users[i].name)) {
-			if (!strcmp(pass, users[i].pass)) {
-				return users[i].uid;
-			}
+
+	/* Generate SHA512 */
+	char hash[SHA512_DIGEST_STRING_LENGTH];
+	SHA512_Data(pass, strlen(pass), hash);
+
+	/* Open up /etc/master.passwd */
+
+	FILE * passwd = fopen("/etc/master.passwd", "r");
+	char line[2048];
+
+	while (fgets(line, 2048, passwd) != NULL) {
+
+		line[strlen(line)-1] = '\0';
+
+		char *p, *tokens[4], *last;
+		int i = 0;
+		for ((p = strtok_r(line, ":", &last)); p;
+				(p = strtok_r(NULL, ":", &last)), i++) {
+			if (i < 511) tokens[i] = p;
 		}
-	}
+		tokens[i] = NULL;
+		
+		if (strcmp(tokens[0],user) != 0) {
+			continue;
+		}
+		if (!strcmp(tokens[1],hash)) {
+			fclose(passwd);
+			return atoi(tokens[2]);
+		}
+		}
+	fclose(passwd);
 	return -1;
+
 }
 
 int main(int argc, char ** argv) {
-	/* TODO: Read /etc/shadow */
 
 	/* TODO: uname() */
 	char * _uname = malloc(sizeof(char) * 1024);
@@ -100,6 +113,7 @@ int main(int argc, char ** argv) {
 
 		uint32_t f = fork();
 		if (getpid() != pid) {
+			/* TODO: Read appropriate shell from /etc/passwd */
 			char * args[] = {
 				"/bin/esh",
 				NULL

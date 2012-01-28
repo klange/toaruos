@@ -17,12 +17,42 @@ DEFN_SYSCALL1(wait, 17, unsigned int);
 DEFN_SYSCALL2(getcwd, 29, char *, size_t);
 DEFN_SYSCALL1(chdir, 28, char *);
 
+DEFN_SYSCALL0(getuid, 23);
+
+#define LINE_LEN 4096
+
 char cwd[1024] = {'/',0};
 struct timeval {
 	unsigned int tv_sec;
 	unsigned int tv_usec;
 };
 
+char username[1024];
+
+void getusername() {
+	FILE * passwd = fopen("/etc/passwd", "r");
+	char line[LINE_LEN];
+	
+	int uid = syscall_getuid();
+
+	while (fgets(line, LINE_LEN, passwd) != NULL) {
+
+		line[strlen(line)-1] = '\0';
+
+		char *p, *tokens[10], *last;
+		int i = 0;
+		for ((p = strtok_r(line, ":", &last)); p;
+				(p = strtok_r(NULL, ":", &last)), i++) {
+			if (i < 511) tokens[i] = p;
+		}
+		tokens[i] = NULL;
+
+		if (atoi(tokens[2]) == uid) {
+			memcpy(username, tokens[0], strlen(tokens[0]) + 1);
+		}
+	}
+	fclose(passwd);
+}
 
 void draw_prompt(int ret) {
 	struct tm * timeinfo;
@@ -34,7 +64,7 @@ void draw_prompt(int ret) {
 	char time_buffer[80];
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
 	printf("\033[1m[\033[1;33m%s \033[1;32m%s \033[1;31m%s \033[1;34m%s\033[0m ",
-			"test", "esh", date_buffer, time_buffer);
+			username, "esh", date_buffer, time_buffer);
 	if (ret != 0) {
 		printf("\033[1;31m%d ", ret);
 	}
@@ -83,6 +113,8 @@ int main(int argc, char ** argv) {
 	int  free_cmd = 0;
 	int  last_ret = 0;
 
+	getusername();
+
 	FILE * motd = fopen("/etc/motd", "r");
 	if (motd) {
 		size_t s = 0;
@@ -94,6 +126,7 @@ int main(int argc, char ** argv) {
 		fwrite(m, s, 1, stdout);
 		fprintf(stdout, "\n");
 		fflush(stdout);
+		free(m);
 	}
 
 	while (1) {
@@ -129,6 +162,7 @@ int main(int argc, char ** argv) {
 				printf("cd: expected argument\n");
 				last_ret = 1;
 			}
+			free(cmd);
 			continue;
 		}
 		nowait = (!strcmp(tokens[i-1],"&"));
