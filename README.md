@@ -5,7 +5,7 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 
 
 ## Notice ##
-*This repository is moving to [`acm-uiuc/toaruos`](https://github.com/acm-uiuc/toaruos) at the end of January, 2012. Please be prepared to update your pull URLs and any bookmarks you have.*
+*This repository is moving to [`acm-uiuc/toaruos`](https://github.com/acm-uiuc/toaruos) in May, 2012. Please be prepared to update your pull URLs and any bookmarks you have.*
 
 ## Screenshots ##
 Here's what とあるOS looks like:
@@ -20,16 +20,19 @@ Here's what とあるOS looks like:
 ## Testing it Out ##
 Clone the git repository and run:
 
+    # Retreive the precompiled binaries:
+    cd hdd/bin && wget http://dl.dropbox.com/u/44305966/toaru-bin-current.tar.gz
+    # Extract them
+    tar -xvf toaru-bin-current.tar.gz
+    cd ../..
     make                # to build the kernel
     make run            # to run qemu with the proper arguments
-    # or
+    # Or, if you have KVM...
     make kvm            # to run qemu in KVM mode
-    # and optionally
-    sudo make install   # to install the kernel and ramdisk to your /boot directory
 
-This will build the kernel and the ramdisk and, optionally, copy them to your boot directory so you can add them to your grub config. As of 10 Feb 2011, a bootdisk is no longer created and the git repository no longer carries a GRUB disk. Building a bootable floppy has been deprecated in favor of running with QEMU's built-in multiboot support.
+This will build the kernel and the ramdisk. 
 
-My testing environment is a combination of QEMU and VirtualBox.
+Currently, the only supported environment is QEMU, as our limited graphics drivers do not operate on most real hardware.
 
 ## Dependencies ##
 
@@ -72,27 +75,27 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
 
 * Finish James M's tutorial (second half), which covers:
     * Paging *done*
-    * Heap *done, implemented with klmalloc in the void*
+    * Heap *done*
     * VFS *done*
     * Initial RAM Disk *done*
     * Multitasking *done*
     * User mode *done*
 * Finish basic kernel functionality
     * Loading ELF binaries and executing them in user mode *done (static)*
-    * Complete system call table *pretty close*
-    * Get a better semblance of users and groups
+    * Complete system call table *good*
+    * Get a better semblance of users and groups *we have users*
 * Write a file system driver for a real file system
-    * Target is EXT2, but might do FAT *hard disk read support*
-    * Move OS development images to some form of virtual drive (VDI or something QEMU compatible)
+    * Target is EXT2, but might do FAT *IDE PIO support*
+    * Move OS development images to some form of virtual drive *done*
 * Implement a VESA mode handler
     * QEMU / BOCHS VBE driver *done*
-    * Requires a Virtual 8086 monitor
-    * Need to be able to use graphics modes and still have output, so write a framebuffer terminal
+    * Requires a Virtual 8086 monitor *emulated*
+    * Need to be able to use graphics modes and still have output, so write a framebuffer terminal *done*
 * Complete libc
-    * Enough to run basic unix tools...
+    * Enough to run basic unix tools... *basically done*
 * Port some basic UNIX tools
-    * a shell (bash and zsh, because I like bash, but the office uses zsh)
-    * ls, mv, rm, etc.
+    * a shell (bash and zsh, because I like bash, but the office uses zsh) *esh, the "experimental shell"*
+    * *ls*, mv, rm, etc.
     * here's a real test: perl
 * Implement networking
     * IPv4
@@ -113,11 +116,11 @@ Currently, I have a kernel capable of reading its multiboot parameters, which is
     * Should support software mixing at least, hardware under a virtual machine, maybe my Intel hw
 
 ## References ##
-I'll be more detailed here eventually, but for the most part, I have been using:
+Here are some tutorials we found useful early on:
 
-* [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html) *completed*
-* [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/) *completed*
-* [Skelix's OS tutorial](http://en.skelix.org/skelixos/) *completed*
+* [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html)
+* [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/)
+* [Skelix's OS tutorial](http://en.skelix.org/skelixos/)
 
 ## License ##
 
