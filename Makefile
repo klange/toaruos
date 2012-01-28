@@ -40,7 +40,7 @@ ENDRM = util/mk-end-rm
 EMUARGS = -kernel toaruos-kernel -m 256 -initrd toaruos-initrd -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img
 EMUKVM  = -enable-kvm
 
-.PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core clean-boot install run docs utils
+.PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version clean-boot install run docs utils
 .SECONDARY: 
 
 all: .passed system bootdisk.img docs utils tags
@@ -269,6 +269,11 @@ clean-once:
 	@${BEGRM} "RM" "Cleaning one-time files..."
 	@-rm -f .passed
 	@${ENDRM} "RM" "Cleaned one-time files"
+
+update-version:
+	@-rm -f kernel/sys/version.o
+	@touch kernel/sys/version.c
+	@${INFO} "info" "Kernel version information will be updated on next build."
 
 
 # vim:noexpandtab
