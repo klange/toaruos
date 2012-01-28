@@ -1,22 +1,13 @@
-#include <syscall.h>
-
-/* I really need a standard library */
-int
-strlen(
-		const char *str
-	  ) {
-	int i = 0;
-	while (str[i] != (char)0) {
-		++i;
-	}
-	return i;
-}
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * echo
+ */
+#include <stdio.h>
 
 void usage() {
-	char * str ="echo [-n] [-e] [STRING]...\n"
-				"  -n    do not output a new line at the end\n"
-				"  -e    process escape sequences\n";
-	syscall_write(1, str, strlen(str));
+	printf("echo [-n] [-e] [STRING]...\n"
+	       "  -n    do not output a new line at the end\n"
+	       "  -e    process escape sequences\n");
 }
 
 int main(int argc, char ** argv) {
@@ -59,20 +50,14 @@ int main(int argc, char ** argv) {
 				}
 			}
 		}
-		syscall_write(1, argv[i], strlen(argv[1]));
+		printf("%s",argv[i]);
 		if (i != argc - 1) {
-			syscall_write(1, " ", 1);
+			printf(" ");
 		}
 	}
 
 	if (use_newline) {
-		syscall_write(1, "\n", 1);
+		printf("\n");
 	}
 	return 0;
 }
-
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- * vim:shiftwidth=4
- */

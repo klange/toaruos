@@ -23,7 +23,6 @@ REALEMU      = $(patsubst %.c,%.o,$(wildcard kernel/v8086/*.c))
 
 SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS} ${REALEMU}
 
-BINARIES = hdd/bin/hello hdd/bin/echo hdd/bin/yes hdd/bin/sh
 UTILITIES = util/bin/readelf util/bin/typewriter
 EMU = qemu
 GENEXT = genext2fs
@@ -131,7 +130,7 @@ initrd/boot/kernel: toaruos-kernel
 hdd:
 	@mkdir hdd
 
-toaruos-disk.img: hdd hdd/bs.bmp ${BINARIES}
+toaruos-disk.img: hdd hdd/bs.bmp
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}
