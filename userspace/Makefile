@@ -1,6 +1,6 @@
 CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
-CFLAGS = -march=core2 -std=c99 -O3 -m32 -Wa,--32
+CFLAGS = -march=core2 -std=c99 -O3 -m32 -Wa,--32 -Xlinker --eh-frame-hdr
 CPPFLAGS = -march=core2 -O3 -m32 -Wa,--32
 EXECUTABLES = $(patsubst %.c,%.o,$(wildcard lib/*.c)) $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
 
@@ -28,9 +28,9 @@ clean:
 	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}
 	@${END} "CC" "$< [freetype]"
 
-../hdd/bin/terminal: terminal.c
+../hdd/bin/terminal: terminal.c lib/utf8_decode.o
 	@${BEG} "CC" "$< [freetype]"
-	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}
+	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a lib/utf8_decode.o ${ERRORS}
 	@${END} "CC" "$< [freetype]"
 
 ../hdd/bin/login: login.c lib/sha2.o

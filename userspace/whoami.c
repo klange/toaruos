@@ -5,6 +5,8 @@
  */
 #include <stdio.h>
 #include <syscall.h>
+#include <string.h>
+#include <stdlib.h>
 
 DEFN_SYSCALL0(getuid, 23);
 

@@ -3,6 +3,7 @@
  * echo
  */
 #include <stdio.h>
+#include <string.h>
 
 void usage() {
 	printf("echo [-n] [-e] [STRING]...\n"

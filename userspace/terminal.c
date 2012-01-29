@@ -13,6 +13,8 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
+#include "lib/utf8_decode.h"
+
 #define FONT_SIZE 13
 
 /* Binary Literals */
@@ -50,15 +52,17 @@
 #define ANSI_BOLD      0x01
 #define ANSI_UNDERLINE 0x02
 #define ANSI_ITALIC    0x04
-#define ANSI_FRAKTUR   0x08 /* As if I'll ever implement that */
+#define ANSI_EXTRA     0x08 /* Character should use "extra" font (Japanese) */
 #define ANSI_DOUBLEU   0x10
 #define ANSI_OVERLINE  0x20
-#define ANSI_BLINK     0x40
+#define ANSI_WIDE      0x40 /* Character is double width */
 #define ANSI_CROSS     0x80 /* And that's all I'm going to support */
 
 #define DEFAULT_FG     0x07
 #define DEFAULT_BG     0x10
 #define DEFAULT_FLAGS  0x00
+
+#define ANSI_EXT_IOCTL 'z'
 
 uint16_t min(uint16_t a, uint16_t b) {
 	return (a < b) ? a : b;
@@ -82,6 +86,7 @@ static struct _ansi_state {
 	uint8_t  bg    ;  /* Current background color */
 	uint8_t  flags ;  /* Bright, etc. */
 	uint8_t  escape;  /* Escape status */
+	uint8_t  local_echo;
 	uint8_t  buflen;  /* Buffer Length */
 	char     buffer[100];  /* Previous buffer */
 } state;
@@ -95,11 +100,6 @@ void (*ansi_set_cell)(int,int,char) = NULL;
 void (*ansi_cls)(void) = NULL;
 
 void (*redraw_cursor)(void) = NULL;
-
-static struct {
-	uint16_t x;
-	uint16_t y;
-} saved_state;
 
 void
 ansi_dump_buffer() {
@@ -171,15 +171,32 @@ ansi_put(
 				argv[argc] = NULL;
 				/* Alright, let's do this */
 				switch (c) {
+					case ANSI_EXT_IOCTL:
+						{
+							if (argc > 0) {
+								int arg = atoi(argv[0]);
+								switch (argc) {
+									case 1001:
+										/* Local Echo Off */
+										break;
+									case 1002:
+										/* Local Echo On */
+										break;
+									default:
+										break;
+								}
+							}
+						}
+						break;
 					case ANSI_SCP:
 						{
-							saved_state.x = ansi_get_csr_x();
-							saved_state.y = ansi_get_csr_y();
+							state.save_x = ansi_get_csr_x();
+							state.save_y = ansi_get_csr_y();
 						}
 						break;
 					case ANSI_RCP:
 						{
-							ansi_set_csr(saved_state.x, saved_state.y);
+							ansi_set_csr(state.save_x, state.save_y);
 						}
 						break;
 					case ANSI_SGR:
@@ -208,9 +225,6 @@ ansi_put(
 							} else if (arg == 39) {
 								/* Default Foreground */
 								state.fg = 7;
-							} else if (arg == 20) {
-								/* FRAKTUR: Like old German stuff */
-								state.flags |= ANSI_FRAKTUR;
 							} else if (arg == 9) {
 								/* X-OUT */
 								state.flags |= ANSI_CROSS;
@@ -220,8 +234,7 @@ ansi_put(
 								state.fg = state.bg;
 								state.bg = temp;
 							} else if (arg == 5) {
-								/* BLINK: I have no idea how I'm going to make this work! */
-								state.flags |= ANSI_BLINK;
+								/* Supposed to be blink; instead, support X-term 256 colors */
 								if (i == 0) { break; }
 								if (i < argc) {
 									if (atoi(argv[i-1]) == 48) {
@@ -381,6 +394,7 @@ ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, un
 	state.flags  = DEFAULT_FLAGS; /* Nothing fancy*/
 	state.width  = w;
 	state.height = y;
+	state.local_echo = 1;
 
 	ansi_set_color(state.fg, state.bg);
 }
@@ -427,7 +441,7 @@ uint16_t graphics_depth  = 0;
 #define GFX(x,y) *((uint32_t *)&gfx_mem[(GFX_W * (y) + (x)) * GFX_B])
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
-	return (r * 0x10000) + (g * 0x100) + (b * 0x1);
+	return 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
 }
 
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
@@ -2467,6 +2481,7 @@ FT_Face      face;
 FT_Face      face_bold;
 FT_Face      face_italic;
 FT_Face      face_bold_italic;
+FT_Face      face_extra;
 FT_GlyphSlot slot;
 FT_UInt      glyph_index;
 
@@ -2484,28 +2499,32 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 
 void
 term_write_char(
-		uint8_t val,
+		uint32_t val,
 		uint16_t x,
 		uint16_t y,
 		uint32_t fg,
 		uint32_t bg,
 		uint8_t flags
 		) {
-	if (val < 32 || val > 126) {
-		return;
-	}
 
 	if (_use_freetype) {
+		if (val == 0xFFFFFFFF) { return; } /* Unicode, do not redraw here */
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
 				term_set_point(x+j,y+i,bg);
 			}
 		}
+		if (val < 32) {
+			return;
+		}
 		int pen_x = x;
 		int pen_y = y + char_offset;
 		int error;
 		FT_Face * _font = NULL;
-		if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
+		
+		if (flags & ANSI_EXTRA) {
+			_font = &face_extra;
+		} else if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
 			_font = &face_bold_italic;
 		} else if (flags & ANSI_ITALIC) {
 			_font = &face_italic;
@@ -2516,7 +2535,9 @@ term_write_char(
 		}
 		glyph_index = FT_Get_Char_Index(*_font, val);
 		error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
-		if (error) return;
+		if (error) {
+			ansi_print("Error loading glyph.\n");
+		};
 		slot = (*_font)->glyph;
 		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
 			error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
@@ -2549,6 +2570,7 @@ term_write_char(
 }
 
 static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, uint8_t flags) {
+	if (x >= term_width || y >= term_height) return;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	cell[0] = c;
 	cell[1] = fg;
@@ -2557,26 +2579,31 @@ static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, 
 }
 
 static uint16_t cell_ch(uint16_t x, uint16_t y) {
+	if (x >= term_width || y >= term_height) return 0;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	return cell[0];
 }
 
 static uint16_t cell_fg(uint16_t x, uint16_t y) {
+	if (x >= term_width || y >= term_height) return 0;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	return cell[1];
 }
 
 static uint16_t cell_bg(uint16_t x, uint16_t y) {
+	if (x >= term_width || y >= term_height) return 0;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	return cell[2];
 }
 
 static uint8_t  cell_flags(uint16_t x, uint16_t y) {
+	if (x >= term_width || y >= term_height) return 0;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	return cell[3];
 }
 
 static void cell_redraw(uint16_t x, uint16_t y) {
+	if (x >= term_width || y >= term_height) return;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, term_colors[DEFAULT_FG], term_colors[DEFAULT_BG], DEFAULT_FLAGS);
@@ -2586,6 +2613,7 @@ static void cell_redraw(uint16_t x, uint16_t y) {
 }
 
 static void cell_redraw_inverted(uint16_t x, uint16_t y) {
+	if (x >= term_width || y >= term_height) return;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, term_colors[DEFAULT_BG], term_colors[DEFAULT_FG], DEFAULT_FLAGS);
@@ -2805,6 +2833,7 @@ int main(int argc, char ** argv) {
 		setLoaded(1,0);
 		setLoaded(2,0);
 		setLoaded(3,0);
+		setLoaded(4,0);
 
 		setLoaded(0,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", &s);
@@ -2830,6 +2859,11 @@ int main(int argc, char ** argv) {
 		error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(3,1);
 
+		setLoaded(4,2);
+		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
+		error = FT_Set_Pixel_Sizes(face_extra, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		setLoaded(4,1);
+
 		char_height = 17;
 		char_width  = 8;
 		char_offset = 13;
@@ -2842,6 +2876,31 @@ int main(int argc, char ** argv) {
 
 	term_term_clear();
 	ansi_print("\033[H\033[2J");
+
+#if 0
+	ansi_print("Hello World!\n");
+
+	/* UTF 8 testing */
+	char * str = "Hello World~~ * とある";
+	utf8_decode_init(str, strlen(str));
+
+	int c = 0;
+	int j = 0;
+	char herp[1024];
+	while ((c = utf8_decode_next()) != -1) {
+		if (c > 0x3000) {
+			term_write_char(c, 10 + j, 50, rgb(255,255,255), rgb(0,0,0), ANSI_EXTRA);
+			j += 2*char_width;
+		} else {
+			term_write_char(c, 10 + j, 50, rgb(255,255,255), rgb(0,0,0), 0);
+			j += char_width;
+		}
+	}
+
+	ansi_print("Done.\n");
+
+	while (1) { }
+#endif
 
 	int ofd = syscall_mkpipe();
 	//int ifd = syscall_mkpipe();
