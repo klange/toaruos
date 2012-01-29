@@ -223,7 +223,7 @@ ToAruOS contains additional software with the following copyright notices:
         are those of the authors and should not be interpreted as representing
         official policies, either expressed or implied, of the author.
 
-* As of January 23, 2012, the repository also contains DejaVu fonts, which are modifications of the Bitstream Vera font set, which is released under this license:
+* As of January 23, 2012, the repository also contains DejaVu fonts, which are public-domain modifications of the Bitstream Vera font set, which is released under this license:
 
         Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. Bitstream
         Vera is a trademark of Bitstream, Inc.
@@ -271,7 +271,7 @@ ToAruOS contains additional software with the following copyright notices:
         or Bitstream Inc., respectively. For further information, contact:
         fonts at gnome dot org.
 
-* The include SHA512 support library (userspace/lib/sha2.{c,h}) is provided under the BSD license as follows:
+* The included SHA512 support library (userspace/lib/sha2.{c,h}) is provided under the BSD license as follows:
 
         Copyright (c) 2000-2001, Aaron D. Gifford
         All rights reserved.
