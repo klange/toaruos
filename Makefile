@@ -39,10 +39,10 @@ ENDRM = util/mk-end-rm
 EMUARGS = -kernel toaruos-kernel -m 256 -initrd toaruos-initrd -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img
 EMUKVM  = -enable-kvm
 
-.PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version clean-boot install run docs utils
+.PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
 .SECONDARY: 
 
-all: .passed system bootdisk.img docs utils tags
+all: .passed system docs utils tags
 system: toaruos-initrd toaruos-disk.img toaruos-kernel
 
 install: system
@@ -102,7 +102,7 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd/boot/kernel initrd/boot/stage2
+toaruos-initrd: initrd/boot/kernel
 	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
@@ -111,11 +111,6 @@ toaruos-initrd: initrd/boot/kernel initrd/boot/stage2
 	@${INFO} "--" "Ramdisk image is ready!"
 
 ### Ram Disk installers...
-
-# Second stage bootloader
-initrd/boot/stage2: bootloader/stage2.bin
-	@mkdir -p initrd/boot
-	@cp bootloader/stage2.bin initrd/boot/stage2
 
 # Kernel
 initrd/boot/kernel: toaruos-kernel
@@ -161,49 +156,6 @@ hdd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
 	@${LD} -T loader/link.ld -s -S -o $@ $< ${ERRORS}
 	@${END} "LD" "$<"
 
-################
-#  Bootloader  #
-################
-
-# Stage 1
-bootloader/stage1/main.o: bootloader/stage1/main.c
-	@${BEG} "CC" "$<"
-	@${GCC} ${CFLAGS} -c -o $@ $< ${ERRORS}
-	@${END} "CC" "$<"
-
-bootloader/stage1/start.o: bootloader/stage1/start.s
-	@${BEG} "yasm" "$<"
-	@${YASM} -f elf32 -p gas -o $@ $< ${ERRORS}
-	@${END} "yasm" "$<"
-
-bootloader/stage1.bin: bootloader/stage1/main.o bootloader/stage1/start.o bootloader/stage1/link.ld
-	@${BEG} "LD" "$<"
-	@${LD} -o bootloader/stage1.bin -T bootloader/stage1/link.ld bootloader/stage1/start.o bootloader/stage1/main.o ${ERRORS}
-	@${END} "LD" "$<"
-
-# Stage 2
-bootloader/stage2/main.o: bootloader/stage2/main.c
-	@${BEG} "CC" "$<"
-	@${GCC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
-	@${END} "CC" "$<"
-
-bootloader/stage2/start.o: bootloader/stage2/start.s
-	@${BEG} "yasm" "$<"
-	@${YASM} -f elf32 -p gas -o $@ $< ${ERRORS}
-	@${END} "yasm" "$<"
-
-bootloader/stage2.bin: bootloader/stage2/main.o bootloader/stage2/start.o bootloader/stage2/link.ld
-	@${BEG} "LD" "$<"
-	@${LD} -o bootloader/stage2.bin -T bootloader/stage2/link.ld bootloader/stage2/start.o bootloader/stage2/main.o ${ERRORS}
-	@${END} "LD" "$<"
-
-##############
-#  bootdisk  #
-##############
-bootdisk.img: bootloader/stage1.bin bootloader/stage2.bin util/bin/mrboots-installer
-	@cat bootloader/stage1.bin bootloader/stage2.bin > bootdisk.img
-	@${INFO} "--" "Bootdisk is ready!"
-
 ##############
 #    ctags   #
 ##############
@@ -228,16 +180,6 @@ clean-docs:
 	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
 	@${ENDRM} "RM" "Cleaned documentation"
 
-clean-boot:
-	@${BEGRM} "RM" "Cleaning bootloader..."
-	@-rm -f bootloader/stage1.bin
-	@-rm -f bootloader/stage1/*.o
-	@-rm -f bootloader/stage2.bin
-	@-rm -f bootloader/stage2/*.o
-	@-rm -f -r initrd/boot
-	@-rm -f bootdisk.img
-	@${ENDRM} "RM" "Cleaned bootloader"
-
 clean-bin:
 	@${BEGRM} "RM" "Cleaning native binaries..."
 	@-rm -f initrd/bin/*
@@ -255,7 +197,7 @@ clean-core:
 	@-rm -f toaruos-initrd
 	@${ENDRM} "RM" "Cleaned final output"
 
-clean: clean-soft clean-boot clean-core
+clean: clean-soft clean-core
 	@${INFO} "--" "Finished soft cleaning"
 
 clean-hard: clean clean-bin clean-aux clean-docs
