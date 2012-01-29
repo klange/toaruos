@@ -62,17 +62,14 @@
  * multiboot data from the bootloader. It will then proceed to print
  * out the contents of the initial ramdisk image.
  */
-int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp)
-{
+int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	initial_esp = esp;
 	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
 	char * cmdline = NULL;
 	uintptr_t ramdisk_top = 0;
 
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
-		/*
-		 * Multiboot (GRUB, native QEMU, PXE)
-		 */
+		/* Multiboot (GRUB, native QEMU, PXE) */
 		blog("Relocating Multiboot structures...");
 		boot_mode = multiboot;
 		mboot_ptr = mboot;
