@@ -9,6 +9,7 @@ initrd/boot
 initrd/bin/*
 hdd/boot
 hdd/bin/*
+hdd/etc/hostname
 .gdb_history
 bootdisk.img
 util/toaru-toolchain/*

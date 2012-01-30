@@ -4,6 +4,9 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <syscall.h>
 
 DEFN_SYSCALL1(sethostname, 31, char *);
@@ -21,6 +24,9 @@ void set_hostname() {
 	} else {
 		char buf[256];
 		fgets(buf, 255, _host_file);
+		if (buf[strlen(buf)-1] == '\n') {
+			buf[strlen(buf)-1] = '\0';
+		}
 		syscall_sethostname(buf);
 		fclose(_host_file);
 	}
