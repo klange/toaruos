@@ -3,6 +3,11 @@
 #ifndef FS_H
 #define FS_H
 
+#define PATH_SEPARATOR '/'
+#define PATH_SEPARATOR_STRING "/"
+#define PATH_UP  ".."
+#define PATH_DOT "."
+
 #define FS_FILE        0x01
 #define FS_DIRECTORY   0x02
 #define FS_CHARDEVICE  0x04
