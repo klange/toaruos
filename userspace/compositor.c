@@ -138,8 +138,8 @@ int main(int argc, char * argv[]) {
 	redraw_window(&root); /* We only need to redraw root if things move around */
 	redraw_window(&panel);
 
-	int16_t direction_x = 1;
-	int16_t direction_y = 1;
+	int16_t direction_x = 10;
+	int16_t direction_y = 10;
 
 	while (1) {
 		window_draw_line(&wina, rand() % 300, rand() % 300, rand() % 300, rand() % 300, rgb(rand() % 255,rand() % 255,rand() % 255));
@@ -151,16 +151,16 @@ int main(int argc, char * argv[]) {
 		winb.x += direction_x;
 		winb.y += direction_y;
 		if (winb.x >= graphics_width - winb.width) {
-			direction_x = -1;
+			direction_x = -10;
 		}
 		if (winb.y >= graphics_height - winb.height) {
-			direction_y = -1;
+			direction_y = -10;
 		}
 		if (winb.x <= 0) {
-			direction_x = 1;
+			direction_x = 10;
 		}
 		if (winb.y <= 0) {
-			direction_y = 1;
+			direction_y = 10;
 		}
 	}
 }

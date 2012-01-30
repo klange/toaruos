@@ -20,10 +20,22 @@ DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
 
 int readline(char * buf, size_t size, uint8_t display) {
 	size_t collected = 0;
+	char * cmd = malloc(2);
 	while (collected < size - 1) {
-		char * cmd = malloc(2);
 		size_t nread = fread(cmd, 1, 1, stdin);
 		if (nread > 0) {
+			if (cmd[0] == 8) {
+				/* Backspace */
+				if (collected > 0) {
+					collected--;
+					buf[collected] = '\0';
+					if (display || buf[collected] == '\n') {
+						printf("%c", cmd[0]);
+					}
+					fflush(stdout);
+				}
+				continue;
+			}
 			if (cmd[0] < 10 || (cmd[0] > 10 && cmd[0] < 32) || cmd[0] > 126) {
 				continue;
 			}
