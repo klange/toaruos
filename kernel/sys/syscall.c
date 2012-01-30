@@ -340,6 +340,28 @@ static char * getcwd(char * buf, size_t size) {
 	return buf;
 }
 
+static char   hostname[256];
+static size_t hostname_len = 0;
+
+static int sethostname(char * new_hostname) {
+	if (current_process->user == USER_ROOT_UID) {
+		size_t len = strlen(new_hostname) + 1;
+		if (len > 256) {
+			return 1;
+		}
+		hostname_len = len;
+		memcpy(hostname, new_hostname, hostname_len);
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+static int gethostname(char * buffer) {
+	memcpy(buffer, hostname, hostname_len);
+	return hostname_len;
+}
+
 /*
  * System Call Internals
  */
@@ -377,6 +399,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&chdir,				/* 28 */
 	(uintptr_t)&getcwd,
 	(uintptr_t)&clone,
+	(uintptr_t)&sethostname,
+	(uintptr_t)&gethostname,		/* 32 */
 	0
 };
 uint32_t num_syscalls;

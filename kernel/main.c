@@ -136,21 +136,16 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		parse_args(cmdline);
 	}
 
-	/*
-	 * XXX: Execute /bin/init
-	 */
+	/* Prepare to run /bin/init */
 	char * argv[] = {
-		"terminal",
-#if 1
-		"-f",
-#endif
+		"/bin/init",
 		NULL
 	};
 	int argc = 0;
 	while (argv[argc]) {
 		argc++;
 	}
-	system("/bin/terminal", argc, argv); /* Run init */
+	system(argv[0], argc, argv); /* Run init */
 
 	return 0;
 }

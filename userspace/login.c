@@ -17,6 +17,7 @@
 DEFN_SYSCALL1(wait, 17, unsigned int);
 DEFN_SYSCALL1(setuid, 24, unsigned int);
 DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
+DEFN_SYSCALL0(gethostname, 32);
 
 int readline(char * buf, size_t size, uint8_t display) {
 	size_t collected = 0;
@@ -104,7 +105,8 @@ int main(int argc, char ** argv) {
 		char * password = malloc(sizeof(char) * 1024);
 
 		/* TODO: gethostname() */
-		char * _hostname = "test";
+		char _hostname[256];
+		syscall_gethostname(_hostname);
 
 		fprintf(stdout, "%s login: ", _hostname);
 		fflush(stdout);
