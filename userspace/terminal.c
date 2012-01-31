@@ -2798,6 +2798,45 @@ void setLoaded(int i, int yes) {
 	}
 }
 
+#define INPUT_SIZE 1024
+char input_buffer[INPUT_SIZE];
+int  input_collected = 0;
+
+void clear_input() {
+	memset(input_buffer, 0x0, INPUT_SIZE);
+	input_collected = 0;
+}
+
+int buffer_put(char c) {
+	if (c == 8) {
+		/* Backspace */
+		if (input_collected > 0) {
+			input_collected--;
+			input_buffer[input_collected] = '\0';
+			if (state.local_echo) {
+				ansi_put(c);
+			}
+		}
+		return 0;
+	}
+	if (c < 10 || (c > 10 && c < 32) || c > 126) {
+		return 0;
+	}
+	input_buffer[input_collected] = c;
+	if (state.local_echo) {
+		ansi_put(c);
+	}
+	if (input_buffer[input_collected] == '\n') {
+		input_collected++;
+		return 1;
+	}
+	input_collected++;
+	if (input_collected == INPUT_SIZE) {
+		return 1;
+	}
+	return 0;
+}
+
 int main(int argc, char ** argv) {
 	graphics_width  = syscall_getgraphicswidth();
 	graphics_height = syscall_getgraphicsheight();
@@ -2926,12 +2965,10 @@ int main(int argc, char ** argv) {
 			if (_stat.st_size) {
 				int r = read(0, buf, min(_stat.st_size, 1024));
 				for (uint32_t i = 0; i < r; ++i) {
-					if (state.local_echo) {
-						ansi_put(buf[i]);
+					if (buffer_put(buf[0])) {
+						write(ifd, input_buffer, input_collected);
+						clear_input();
 					}
-					char b[1];
-					b[0] = buf[i];
-					write(ifd, b, 1);
 				}
 			}
 			fstat(ofd, &_stat);

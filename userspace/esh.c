@@ -81,40 +81,6 @@ void draw_prompt(int ret) {
 	fflush(stdout);
 }
 
-int readline(char * buf, size_t size) {
-	size_t collected = 0;
-	char * cmd = malloc(2);
-	while (collected < size - 1) {
-		size_t nread = fread(cmd, 1, 1, stdin);
-		if (nread > 0) {
-			if (cmd[0] == 8) {
-				/* Backspace */
-				if (collected > 0) {
-					collected--;
-					buf[collected] = '\0';
-					printf("%c", cmd[0]);
-					fflush(stdout);
-				}
-				continue;
-			}
-			if (cmd[0] < 10 || (cmd[0] > 10 && cmd[0] < 32) || cmd[0] > 126) {
-				continue;
-			}
-			buf[collected] = cmd[0];
-			printf("%c", cmd[0]);
-			fflush(stdout);
-			if (buf[collected] == '\n') {
-				collected++;
-				goto _done;
-			}
-			collected++;
-		}
-	}
-_done:
-	buf[collected] = '\0';
-	return collected;
-}
-
 int main(int argc, char ** argv) {
 	int  pid = getpid();
 	int  nowait = 0;

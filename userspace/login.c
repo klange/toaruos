@@ -19,43 +19,6 @@ DEFN_SYSCALL1(setuid, 24, unsigned int);
 DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
 DEFN_SYSCALL0(gethostname, 32);
 
-int readline(char * buf, size_t size, uint8_t display) {
-	size_t collected = 0;
-	char * cmd = malloc(2);
-	while (collected < size - 1) {
-		size_t nread = fread(cmd, 1, 1, stdin);
-		if (nread > 0) {
-			if (cmd[0] == 8) {
-				/* Backspace */
-				if (collected > 0) {
-					collected--;
-					buf[collected] = '\0';
-					if (display || buf[collected] == '\n') {
-						printf("%c", cmd[0]);
-					}
-					fflush(stdout);
-				}
-				continue;
-			}
-			if (cmd[0] < 10 || (cmd[0] > 10 && cmd[0] < 32) || cmd[0] > 126) {
-				continue;
-			}
-			buf[collected] = cmd[0];
-			if (display || buf[collected] == '\n') {
-				printf("%c", cmd[0]);
-			}
-			fflush(stdout);
-			if (buf[collected] == '\n') {
-				goto _done;
-			}
-			collected++;
-		}
-	}
-_done:
-	buf[collected] = '\0';
-	return collected;
-}
-
 int checkUserPass(char * user, char * pass) {
 
 	/* Generate SHA512 */
