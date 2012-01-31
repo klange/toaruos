@@ -18,5 +18,6 @@ typedef struct _pipe_device {
 } pipe_device_t;
 
 fs_node_t * make_pipe(size_t size);
+size_t pipe_size(fs_node_t * node);
 
 #endif

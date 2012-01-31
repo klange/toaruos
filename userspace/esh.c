@@ -142,10 +142,7 @@ int main(int argc, char ** argv) {
 		char * cmd = malloc(sizeof(char) * 1024);
 
 		draw_prompt(last_ret);
-#if 0
 		fgets(cmd, 1024, stdin);
-#endif
-		readline(cmd, 1024);
 		cmd[strlen(cmd)-1] = '\0';
 		char *p, *tokens[512], *last;
 		int i = 0;

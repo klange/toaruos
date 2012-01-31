@@ -110,11 +110,14 @@ int main(int argc, char ** argv) {
 
 		fprintf(stdout, "%s login: ", _hostname);
 		fflush(stdout);
-		readline(username, 1024, 1);
+		fgets(username, 1024, stdin);
+		username[strlen(username)-1] = '\0';
 
-		fprintf(stdout, "password: ");
+		fprintf(stdout, "password: \033[1001z");
 		fflush(stdout);
-		readline(password, 1024, 0);
+		fgets(password, 1024, stdin);
+		password[strlen(password)-1] = '\0';
+		fprintf(stdout, "\033[1002z\n");
 
 		int uid = checkUserPass(username, password);
 

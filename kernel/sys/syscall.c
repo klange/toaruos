@@ -100,7 +100,7 @@ static int write(int fd, char * ptr, int len) {
 
 static int wait(int child) {
 	if (child < 1) {
-		kprintf("lol nope\n");
+		kprintf("[debug] Process %d requested group wait, which we can not do!\n", getpid());
 		return 0;
 	}
 	process_t * volatile child_task = process_from_pid(child);
@@ -122,8 +122,13 @@ static int wait(int child) {
 }
 
 static int open(const char * file, int flags, int mode) {
+	kprintf("[debug] open(%s, 0x%x, 0x%x)\n", file, flags, mode);
+
 	validate((void *)file);
 	fs_node_t * node = kopen((char *)file, 0);
+	if (!node && (mode & 0x600)) {
+		/* Um, make one */
+	}
 	if (!node) {
 		return -1;
 	}
@@ -241,6 +246,11 @@ static int stat(int fd, uint32_t st) {
 	f->st_gid   = fn->gid;
 	f->st_rdev  = 0;
 	f->st_size  = fn->length;
+
+	if (fn->flags & FS_PIPE) {
+		/* Pipes have dynamic sizes */
+		f->st_size = pipe_size(fn);
+	}
 
 	return 0;
 }

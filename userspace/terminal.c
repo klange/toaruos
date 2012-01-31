@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_CACHE_H
@@ -175,12 +176,14 @@ ansi_put(
 						{
 							if (argc > 0) {
 								int arg = atoi(argv[0]);
-								switch (argc) {
+								switch (arg) {
 									case 1001:
 										/* Local Echo Off */
+										state.local_echo = 0;
 										break;
 									case 1002:
 										/* Local Echo On */
+										state.local_echo = 1;
 										break;
 									default:
 										break;
@@ -2903,13 +2906,13 @@ int main(int argc, char ** argv) {
 #endif
 
 	int ofd = syscall_mkpipe();
-	//int ifd = syscall_mkpipe();
+	int ifd = syscall_mkpipe();
 
 	int pid = getpid();
 	uint32_t f = fork();
 
 	if (getpid() != pid) {
-		//syscall_dup2(ifd, 0);
+		syscall_dup2(ifd, 0);
 		syscall_dup2(ofd, 1);
 		syscall_dup2(ofd, 2);
 		char * tokens[] = {"/bin/login",NULL};
@@ -2918,9 +2921,25 @@ int main(int argc, char ** argv) {
 	} else {
 		char buf[1024];
 		while (1) {
-			int r = read(ofd, buf, 1024);
-			for (uint32_t i = 0; i < r; ++i) {
-				ansi_put(buf[i]);
+			struct stat _stat;
+			fstat(0, &_stat);
+			if (_stat.st_size) {
+				int r = read(0, buf, min(_stat.st_size, 1024));
+				for (uint32_t i = 0; i < r; ++i) {
+					if (state.local_echo) {
+						ansi_put(buf[i]);
+					}
+					char b[1];
+					b[0] = buf[i];
+					write(ifd, b, 1);
+				}
+			}
+			fstat(ofd, &_stat);
+			if (_stat.st_size) {
+				int r = read(ofd, buf, min(_stat.st_size, 1024));
+				for (uint32_t i = 0; i < r; ++i) {
+					ansi_put(buf[i]);
+				}
 			}
 		}
 		return 0;
