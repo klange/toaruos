@@ -43,6 +43,11 @@ clean:
 	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< lib/graphics.o lib/list.o ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
+../hdd/bin/solver: solver.c lib/list.o
+	@${BEG} "CC" "$< [w/libs]"
+	@${CC} ${CFLAGS} -s -o $@ $< lib/list.o ${ERRORS}
+	@${END} "CC" "$< [w/libs]"
+
 ../hdd/bin/%: %.cpp
 	@${BEG} "CPP" "$<"
 	@${CPP} ${CPPFLAGS} -s -o $@ $< ${ERRORS}

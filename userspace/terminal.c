@@ -738,8 +738,10 @@ term_set_point(
 		) {
 	if (graphics_depth == 32) {
 		GFX(x,y) = color;
-	} else {
-		printf("Unsupported mode!\n");
+	} else if (graphics_depth == 24) {
+		gfx_mem[((y) * graphics_width + x) * 3 + 2] = _RED(color);
+		gfx_mem[((y) * graphics_width + x) * 3 + 1] = _GRE(color);
+		gfx_mem[((y) * graphics_width + x) * 3 + 0] = _BLU(color);
 	}
 }
 
@@ -2495,7 +2497,7 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
 			//GFX(i,j) = alpha_blend(GFX(i,j),rgb(0xff,0xff,0xff),rgb(bitmap->buffer[q * bitmap->width + p],0,0));
-			GFX(i,j) = alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0));
+			term_set_point(i,j, alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0)));
 		}
 	}
 }
