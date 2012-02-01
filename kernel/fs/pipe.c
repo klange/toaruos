@@ -84,8 +84,13 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 				return collected + 1;
 			}
 			collected++;
+			wakeup_queue(pipe->wait_queue);
 		}
-		switch_from_cross_thread_lock();
+		//switch_from_cross_thread_lock();
+		/* Deschedule and switch */
+		if (collected == 0) {
+			sleep_on(pipe->wait_queue);
+		}
 	}
 
 	return collected;
@@ -118,8 +123,11 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 			pipe_increment_write(pipe);
 			spin_unlock(&pipe->lock);
 			written++;
+			wakeup_queue(pipe->wait_queue);
 		}
-		switch_task();
+		if (written < size) {
+			sleep_on(pipe->wait_queue);
+		}
 	}
 
 	return written;
@@ -150,6 +158,8 @@ void close_pipe(fs_node_t * node) {
 	if (pipe->refcount == 0) {
 		/* No other references exist, free the pipe (but not its buffer) */
 		free(pipe->buffer);
+		list_free(pipe->wait_queue);
+		free(pipe->wait_queue);
 		free(pipe);
 		/* And let the creator know there are no more references */
 		node->inode = 0;
@@ -182,6 +192,8 @@ fs_node_t * make_pipe(size_t size) {
 	pipe->size      = size;
 	pipe->refcount  = 0;
 	pipe->lock      = 0;
+
+	pipe->wait_queue = list_create();
 
 	return fnode;
 }

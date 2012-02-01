@@ -13,7 +13,7 @@ unsigned int __irq_sem = 0;
 
 void spin_lock(uint8_t volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
-		switch_task();
+		switch_task(1);
 	}
 }
 

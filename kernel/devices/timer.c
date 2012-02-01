@@ -42,7 +42,7 @@ timer_handler(
 		struct regs *r
 		) {
 	++timer_ticks;
-	switch_task();
+	switch_task(1);
 }
 
 /*

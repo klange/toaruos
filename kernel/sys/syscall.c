@@ -108,12 +108,10 @@ static int wait(int child) {
 	if (!child_task) {
 		kprintf("Tried to wait for non-existent process\n");
 	}
-	/* Wait until it finishes (this is stupidly memory intensive,
-	 * but we haven't actually implemented wait() yet, so there's
-	 * not all that much we can do right now. */
 	while (child_task->finished == 0) {
 		if (child_task->finished != 0) break;
-		switch_task();
+		/* Add us to the wait queue for this child */
+		sleep_on(child_task->wait_queue);
 	}
 	/* Grab the child's return value */
 	int ret = child_task->status;

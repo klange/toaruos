@@ -6,6 +6,7 @@
 #include <types.h>
 #include <fs.h>
 #include <va_list.h>
+#include <list.h>
 
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
@@ -260,7 +261,7 @@ typedef struct tss_entry {
 } __attribute__ ((packed)) tss_entry_t;
 
 extern void tasking_install();
-extern void switch_task();
+extern void switch_task(uint8_t reschedule);
 extern void switch_from_cross_thread_lock();
 extern void switch_next();
 extern uint32_t fork();
@@ -367,5 +368,8 @@ typedef struct {
 	uint16_t seg;
 } rm_ptr_t;
 
+/* wakeup queue */
+int wakeup_queue(list_t * queue);
+int sleep_on(list_t * queue);
 
 #endif

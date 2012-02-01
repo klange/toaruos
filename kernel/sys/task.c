@@ -73,6 +73,8 @@ void free_directory(page_directory_t * dir) {
 }
 
 void reap_process(process_t * proc) {
+	list_free(proc->wait_queue);
+	free(proc->wait_queue);
 	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	free_directory(proc->thread.page_directory);
 	free((void *)(proc->fds.entries));
@@ -283,7 +285,7 @@ switch_from_cross_thread_lock() {
 	if (!process_available()) {
 		IRQS_ON_AND_PAUSE;
 	}
-	switch_task();
+	switch_task(1);
 }
 
 /*
@@ -293,7 +295,7 @@ switch_from_cross_thread_lock() {
  * perform standard task switching.
  */
 void
-switch_task() {
+switch_task(uint8_t reschedule) {
 	if (!current_process) {
 		/* Tasking is not yet installed. */
 		return;
@@ -324,8 +326,11 @@ switch_task() {
 	current_process->thread.eip = eip;
 	current_process->thread.esp = esp;
 	current_process->thread.ebp = ebp;
-	/* And reinsert it into the ready queue */
-	make_process_ready((process_t *)current_process);
+
+	if (reschedule) {
+		/* And reinsert it into the ready queue */
+		make_process_ready((process_t *)current_process);
+	}
 
 	/* Switch to the next task */
 	switch_next();
@@ -411,6 +416,7 @@ void task_exit(int retval) {
 	/* Free the image memory */
 	current_process->status   = retval;
 	current_process->finished = 1;
+	wakeup_queue(current_process->wait_queue);
 #if 0
 	/*
 	 * These things should be done by another thread.

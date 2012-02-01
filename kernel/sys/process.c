@@ -174,6 +174,7 @@ process_t * spawn_init() {
 
 	/* Process is not finished */
 	init->finished = 0;
+	init->wait_queue = list_create();
 
 	/* What the hey, let's also set the description on this one */
 	init->description = "[init]";
@@ -259,6 +260,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	/* Zero out the process status */
 	proc->status = 0;
 	proc->finished = 0;
+	proc->wait_queue = list_create();
 
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */
@@ -392,4 +394,21 @@ uint32_t process_move_fd(process_t * proc, int src, int dest) {
 #endif
 	proc->fds.entries[dest] = proc->fds.entries[src];
 	return dest;
+}
+
+int wakeup_queue(list_t * queue) {
+	int awoken_processes = 0;
+	while (queue->length > 0) {
+		node_t * node = list_pop(queue);
+		make_process_ready(node->value);
+		free(node);
+		awoken_processes++;
+	}
+	return awoken_processes;
+}
+
+int sleep_on(list_t * queue) {
+	list_insert(queue, (void *)current_process);
+	switch_task(0);
+	return 0;
 }
