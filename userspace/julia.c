@@ -150,8 +150,6 @@ int main(int argc, char ** argv) {
 	printf("Y: %f %f\n", Miny, Maxy);
 	printf("conx: %f cony: %f\n", conx, cony);
 
-	printf("\033[J\n");
-
 	pixcorx = (Maxx - Minx) / GFX_W;
 	pixcory = (Maxy - Miny) / GFX_H;
 	int j = 0;
