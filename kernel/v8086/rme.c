@@ -2019,7 +2019,7 @@ static inline int RME_Int_Write32(tRME_State *State, uint16_t Seg, uint16_t Ofs,
 	int v = (to) - (from) + ((State->Flags&FLAG_CF)?1:0);\
 	State->Flags &= ~(FLAG_PF|FLAG_ZF|FLAG_SF|FLAG_OF|FLAG_CF);\
 	SET_COMM_FLAGS(State,(to),(width));\
-	State->Flags |= ((to)<(from) || (from)==((1<<((width)-1)-1)|(1<<((width)-1)))) ? FLAG_CF : 0;\
+	State->Flags |= ((to)<(from) || (from)==(uint32_t)((1<<((width)-1)-1)|(1<<((width)-1)))) ? FLAG_CF : 0;\
 	State->Flags |= (((((to) ^ (from)) & ((to) ^ (v))) & (1<<((width)-1))) != 0) ? FLAG_OF : 0;\
 	(to) = v;\
 	}while(0)
