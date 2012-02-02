@@ -15,6 +15,7 @@
 #include FT_CACHE_H
 
 #include "lib/utf8_decode.h"
+#include "../kernel/include/mouse.h"
 
 #define FONT_SIZE 13
 
@@ -101,6 +102,9 @@ void (*ansi_set_cell)(int,int,char) = NULL;
 void (*ansi_cls)(void) = NULL;
 
 void (*redraw_cursor)(void) = NULL;
+
+int32_t mouse_x;
+int32_t mouse_y;
 
 void
 ansi_dump_buffer() {
@@ -425,6 +429,8 @@ DEFN_SYSCALL0(getgraphicsdepth,  20);
 
 DEFN_SYSCALL0(mkpipe, 21);
 DEFN_SYSCALL2(dup2, 22, int, int);
+
+DEFN_SYSCALL0(mousedevice, 33);
 
 uint16_t graphics_width  = 0;
 uint16_t graphics_height = 0;
@@ -2918,6 +2924,9 @@ int main(int argc, char ** argv) {
 	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 
+	mouse_x = graphics_width / 2;
+	mouse_y = graphics_height / 2;
+
 	term_term_clear();
 	ansi_print("\033[H\033[2J");
 
@@ -2949,6 +2958,8 @@ int main(int argc, char ** argv) {
 	int ofd = syscall_mkpipe();
 	int ifd = syscall_mkpipe();
 
+	int mfd = syscall_mousedevice();
+
 	int pid = getpid();
 	uint32_t f = fork();
 
@@ -2963,6 +2974,24 @@ int main(int argc, char ** argv) {
 		char buf[1024];
 		while (1) {
 			struct stat _stat;
+			fstat(mfd, &_stat);
+			if (_stat.st_size >= sizeof(mouse_device_packet_t)) {
+				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
+				int r = read(mfd, buf, sizeof(mouse_device_packet_t));
+				if (packet->magic != MOUSE_MAGIC) {
+					int r = read(mfd, buf, 1);
+					goto fail_mouse;
+				}
+				cell_redraw((mouse_x * term_width) / graphics_width, (mouse_y * term_height) / graphics_height);
+				mouse_x += packet->x_difference;
+				mouse_y -= packet->y_difference;
+				if (mouse_x < 0) mouse_x = 0;
+				if (mouse_y < 0) mouse_y = 0;
+				if (mouse_x > graphics_width) mouse_x = graphics_width;
+				if (mouse_y > graphics_height) mouse_y = graphics_height;
+				cell_redraw_inverted((mouse_x * term_width) / graphics_width, (mouse_y * term_height) / graphics_height);
+			}
+fail_mouse:
 			fstat(0, &_stat);
 			if (_stat.st_size) {
 				int r = read(0, buf, min(_stat.st_size, 1024));

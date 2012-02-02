@@ -370,6 +370,11 @@ static int gethostname(char * buffer) {
 	return hostname_len;
 }
 
+static int mousedevice() {
+	extern fs_node_t * mouse_pipe;
+	return process_append_fd((process_t *)current_process, mouse_pipe);
+}
+
 /*
  * System Call Internals
  */
@@ -409,6 +414,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&clone,
 	(uintptr_t)&sethostname,
 	(uintptr_t)&gethostname,		/* 32 */
+	(uintptr_t)&mousedevice,
 	0
 };
 uint32_t num_syscalls;

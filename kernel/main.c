@@ -128,9 +128,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		initrd_mount((uintptr_t)ramdisk, ramdisk_top);
 	}
 
-#if 0
 	mouse_install();	/* Mouse driver */
-#endif
 
 	if (cmdline) {
 		parse_args(cmdline);

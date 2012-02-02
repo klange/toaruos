@@ -3,16 +3,13 @@
  */
 #include <system.h>
 #include <logging.h>
+#include <pipe.h>
+#include <mouse.h>
 
 uint8_t mouse_cycle = 0;
 int8_t  mouse_byte[3];
-int8_t  mouse_x = 0;
-int8_t  mouse_y = 0;
 
-#define MOUSE_SCALE 10;
-
-int32_t actual_x = 5120;
-int32_t actual_y = 3835;
+fs_node_t * mouse_pipe;
 
 void mouse_handler(struct regs *r) {
 	switch (mouse_cycle) {
@@ -26,11 +23,19 @@ void mouse_handler(struct regs *r) {
 			break;
 		case 2:
 			mouse_byte[2] = inportb(0x60);
-			mouse_x = mouse_byte[1];
-			mouse_y = mouse_byte[2];
+			mouse_device_packet_t packet;
+			packet.magic = MOUSE_MAGIC;
+			packet.x_difference = mouse_byte[1];
+			packet.y_difference = mouse_byte[2];
+			packet.buttons = 0;
+			if (mouse_byte[0] & 0x01) {
+				packet.buttons |= LEFT_CLICK;
+			}
+			if (mouse_byte[0] & 0x02) {
+				packet.buttons |= RIGHT_CLICK;
+			}
 			mouse_cycle = 0;
-			actual_x = actual_x + mouse_x * MOUSE_SCALE;
-			actual_y = actual_y + mouse_y * MOUSE_SCALE;
+			write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 			break;
 	}
 }
@@ -71,6 +76,7 @@ void mouse_install() {
 	LOG(INFO, "Initializing mouse cursor driver");
 	uint8_t status;
 	IRQ_OFF;
+	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * 40);
 	mouse_wait(1);
 	outportb(0x64,0xA8);
 	mouse_wait(1);
