@@ -9,6 +9,9 @@
 uint8_t mouse_cycle = 0;
 int8_t  mouse_byte[3];
 
+#define PACKETS_IN_PIPE 64
+#define DISCARD_POINT 32
+
 fs_node_t * mouse_pipe;
 
 void mouse_handler(struct regs *r) {
@@ -35,6 +38,12 @@ void mouse_handler(struct regs *r) {
 				packet.buttons |= RIGHT_CLICK;
 			}
 			mouse_cycle = 0;
+
+			mouse_device_packet_t bitbucket;
+			while (pipe_size(mouse_pipe) > (DISCARD_POINT * sizeof(packet))) {
+				kprintf("[debug] Discarding a packet...\n");
+				read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
+			}
 			write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 			break;
 	}
@@ -76,7 +85,7 @@ void mouse_install() {
 	LOG(INFO, "Initializing mouse cursor driver");
 	uint8_t status;
 	IRQ_OFF;
-	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * 40);
+	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_wait(1);
 	outportb(0x64,0xA8);
 	mouse_wait(1);
