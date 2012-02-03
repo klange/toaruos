@@ -19,6 +19,9 @@
 
 #define FONT_SIZE 13
 
+static unsigned int timer_tick = 0;
+#define TIMER_TICK 400000
+
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
 #define b_(x) ((x & 1) | (x >> 2 & 2) | (x >> 4 & 4) | (x >> 6 & 8) | (x >> 8 & 16) | (x >> 10 & 32) | (x >> 12 & 64) | (x >> 14 & 128))
@@ -2635,6 +2638,7 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 
 void draw_cursor() {
 	if (!cursor_on) return;
+	timer_tick = 0;
 #if 0
 	for (uint32_t x = 0; x < char_width; ++x) {
 		term_set_point(csr_x * char_width + x, csr_y * char_height + (char_height - 1), term_colors[current_fg]);
@@ -2735,6 +2739,16 @@ void term_redraw_cursor() {
 	if (term_buffer) {
 		draw_cursor();
 	}
+}
+
+void flip_cursor() {
+	static uint8_t cursor_flipped = 0;
+	if (cursor_flipped) {
+		cell_redraw(csr_x, csr_y);
+	} else {
+		cell_redraw_inverted(csr_x, csr_y);
+	}
+	cursor_flipped = 1 - cursor_flipped;
 }
 
 void
@@ -2975,7 +2989,12 @@ int main(int argc, char ** argv) {
 		while (1) {
 			struct stat _stat;
 			fstat(mfd, &_stat);
-			if (_stat.st_size >= sizeof(mouse_device_packet_t)) {
+			timer_tick++;
+			if (timer_tick == TIMER_TICK) {
+				timer_tick = 0;
+				flip_cursor();
+			}
+			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
 				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
 				int r = read(mfd, buf, sizeof(mouse_device_packet_t));
 				if (packet->magic != MOUSE_MAGIC) {
@@ -2987,9 +3006,10 @@ int main(int argc, char ** argv) {
 				mouse_y -= packet->y_difference;
 				if (mouse_x < 0) mouse_x = 0;
 				if (mouse_y < 0) mouse_y = 0;
-				if (mouse_x > graphics_width) mouse_x = graphics_width;
-				if (mouse_y > graphics_height) mouse_y = graphics_height;
+				if (mouse_x >= graphics_width) mouse_x = graphics_width - char_width;
+				if (mouse_y >= graphics_height) mouse_y = graphics_height - char_height;
 				cell_redraw_inverted((mouse_x * term_width) / graphics_width, (mouse_y * term_height) / graphics_height);
+				fstat(mfd, &_stat);
 			}
 fail_mouse:
 			fstat(0, &_stat);
