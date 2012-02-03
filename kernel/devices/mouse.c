@@ -41,7 +41,6 @@ void mouse_handler(struct regs *r) {
 
 			mouse_device_packet_t bitbucket;
 			while (pipe_size(mouse_pipe) > (DISCARD_POINT * sizeof(packet))) {
-				kprintf("[debug] Discarding a packet...\n");
 				read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
 			}
 			write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
