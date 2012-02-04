@@ -26,9 +26,7 @@ char * __kernel_version_suffix   = "testing";
 /* The release codename.
  *
  * History:
- *  * 0.0.X have the codename "uiharu"
- *  * 0.1.X will have the codename "saten"
- *  * 1.0.X will have the codename "mikoto"
+ *  * 0.0.X+ are part of the "uiharu" family
  */
 char * __kernel_version_codename = "uiharu";
 
