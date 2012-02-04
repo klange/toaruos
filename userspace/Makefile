@@ -38,9 +38,9 @@ clean:
 	@${CC} ${CFLAGS} -s -o $@ $< lib/sha2.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
-../hdd/bin/bootsplash-test: bootsplash-test.c lib/list.o
+../hdd/bin/bootsplash-test: bootsplash-test.c lib/graphics.o lib/list.o
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -s -o $@ $< lib/list.o ${ERRORS}
+	@${CC} ${CFLAGS} -s -o $@ $< lib/graphics.o lib/list.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/compositor: compositor.c lib/graphics.o lib/list.o
