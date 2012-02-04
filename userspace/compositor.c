@@ -197,7 +197,16 @@ void draw_progress() {
 
 }
 
+uint32_t gradient_at(uint16_t j) {
+	float x = j * 80;
+	x = x / graphics_height;
+	return rgb(0, 1 * x, 2 * x);
+}
+
 void display() {
+	for (uint16_t j = 0; j < graphics_height; ++j) {
+		draw_line(0, graphics_width, j, j, gradient_at(j));
+	}
 	draw_sprite(sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height));
 	draw_progress();
 	flip();
@@ -306,7 +315,7 @@ int main(int argc, char ** argv) {
 	init_graphics_double_buffer();
 
 	/* Load sprites */
-	init_sprite(0, "/usr/share/bs.bmp", NULL);
+	init_sprite(0, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
 	display();
 
 	/* Count startup items */
