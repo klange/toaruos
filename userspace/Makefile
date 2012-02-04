@@ -38,6 +38,11 @@ clean:
 	@${CC} ${CFLAGS} -s -o $@ $< lib/sha2.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
+../hdd/bin/bootsplash-test: bootsplash-test.c lib/list.o
+	@${BEG} "CC" "$< [w/libs]"
+	@${CC} ${CFLAGS} -s -o $@ $< lib/list.o ${ERRORS}
+	@${END} "CC" "$< [w/libs]"
+
 ../hdd/bin/compositor: compositor.c lib/graphics.o lib/list.o
 	@${BEG} "CC" "$< [w/libs]"
 	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< lib/graphics.o lib/list.o ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}

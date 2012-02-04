@@ -38,7 +38,7 @@ void start_terminal() {
 	if (!pid) {
 #endif
 	char * tokens[] = {
-		"/bin/terminal",
+		"/bin/bootsplash-test",
 #if FREETYPE
 		"-f",
 #endif

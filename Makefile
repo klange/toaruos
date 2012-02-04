@@ -127,7 +127,7 @@ initrd/boot/kernel: toaruos-kernel
 hdd:
 	@mkdir hdd
 
-toaruos-disk.img: hdd hdd/bs.bmp userspace/*.c
+toaruos-disk.img: hdd userspace/*.c
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}
