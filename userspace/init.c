@@ -13,7 +13,6 @@ DEFN_SYSCALL1(sethostname, 31, char *);
 
 #define DEFAULT_HOSTNAME "toaru-test"
 #define FORK_FOR_TERMINAL 0
-#define FREETYPE 1
 
 /* Set the hostname to whatever is in /etc/hostname */
 void set_hostname() {
@@ -38,10 +37,7 @@ void start_terminal() {
 	if (!pid) {
 #endif
 	char * tokens[] = {
-		"/bin/bootsplash-test",
-#if FREETYPE
-		"-f",
-#endif
+		"/bin/compositor",
 		NULL
 	};
 	int i = execve(tokens[0], tokens, NULL);

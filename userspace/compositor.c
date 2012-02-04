@@ -1,14 +1,26 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- *
- * Window Compositor
+/*
+ * The ToAru Sample Game
  */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <syscall.h>
 #include <stdint.h>
-#include "lib/graphics.h"
+#include <syscall.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_CACHE_H
+
 #include "lib/list.h"
+#include "lib/graphics.h"
+
+/* For terminal, not for us */
+#define FREETYPE 1
+
+sprite_t * sprites[128];
 
 typedef struct {
 	uint32_t wid; /* Window identifier */
@@ -105,6 +117,22 @@ void window_draw_line(window_t * window, uint16_t x0, uint16_t x1, uint16_t y0, 
 	}
 }
 
+void window_draw_sprite(window_t * window, sprite_t * sprite, uint16_t x, uint16_t y) {
+	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+			if (sprite->alpha) {
+				/* Technically, unsupported! */
+				window_set_point(window, x + _x, y + _y, SPRITE(sprite, _x, _y));
+			} else {
+				if (SPRITE(sprite,_x,_y) != sprite->blank) {
+					window_set_point(window, x + _x, y + _y, SPRITE(sprite, _x, _y));
+				}
+			}
+		}
+	}
+}
+
+
 void window_fill(window_t *window, uint32_t color) {
 	for (uint16_t i = 0; i < window->height; ++i) {
 		for (uint16_t j = 0; j < window->width; ++j) {
@@ -113,19 +141,224 @@ void window_fill(window_t *window, uint32_t color) {
 	}
 }
 
-int main(int argc, char * argv[]) {
+void waitabit() {
+	int x = time(NULL);
+	while (time(NULL) < x + 1) {
+		// Do nothing.
+	}
+}
+
+sprite_t alpha_tmp;
+
+void init_sprite(int i, char * filename, char * alpha) {
+	sprites[i] = malloc(sizeof(sprite_t));
+	load_sprite(sprites[i], filename);
+	if (alpha) {
+		sprites[i]->alpha = 1;
+		load_sprite(&alpha_tmp, alpha);
+		sprites[i]->masks = alpha_tmp.bitmap;
+	} else {
+		sprites[i]->alpha = 0;
+	}
+	sprites[i]->blank = 0x0;
+}
+
+int center_x(int x) {
+	return (graphics_width - x) / 2;
+}
+
+int center_y(int y) {
+	return (graphics_height - y) / 2;
+}
+
+static int progress = 0;
+static int progress_width = 0;
+
+#define PROGRESS_WIDTH  120
+#define PROGRESS_HEIGHT 6
+#define PROGRESS_OFFSET 50
+
+void draw_progress() {
+	int x = center_x(PROGRESS_WIDTH);
+	int y = center_y(0);
+	uint32_t color = rgb(0,120,230);
+	uint32_t fill  = rgb(0,70,160);
+	draw_line(x, x + PROGRESS_WIDTH, y + PROGRESS_OFFSET, y + PROGRESS_OFFSET, color);
+	draw_line(x, x + PROGRESS_WIDTH, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, color);
+	draw_line(x, x, y + PROGRESS_OFFSET, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, color);
+	draw_line(x + PROGRESS_WIDTH, x + PROGRESS_WIDTH, y + PROGRESS_OFFSET, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, color);
+
+	if (progress_width > 0) {
+		int width = ((PROGRESS_WIDTH - 2) * progress) / progress_width;
+		for (int8_t i = 0; i < PROGRESS_HEIGHT - 1; ++i) {
+			draw_line(x + 1, x + 1 + width, y + PROGRESS_OFFSET + i + 1, y + PROGRESS_OFFSET + i + 1, fill);
+		}
+	}
+
+}
+
+void display() {
+	draw_sprite(sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height));
+	draw_progress();
+	flip();
+}
+
+
+typedef struct {
+	void (*func)();
+	char * name;
+	int  time;
+} startup_item;
+
+list_t * startup_items;
+
+void add_startup_item(char * name, void (*func)(), int time) {
+	progress_width += time;
+	startup_item * item = malloc(sizeof(startup_item));
+
+	item->name = name;
+	item->func = func;
+	item->time = time;
+
+	list_insert(startup_items, item);
+}
+
+static void test() {
+	/* Do Nothing */
+}
+
+void run_startup_item(startup_item * item) {
+	printf("[compositor] Running startup item: %s\n", item->name);
+	item->func();
+	progress += item->time;
+}
+
+FT_Library   library;
+FT_Face      face;
+FT_Face      face_bold;
+FT_Face      face_italic;
+FT_Face      face_bold_italic;
+FT_Face      face_extra;
+FT_GlyphSlot slot;
+FT_UInt      glyph_index;
+
+char * loadMemFont(char * name, size_t * size) {
+	FILE * f = fopen(name, "r");
+	size_t s = 0;
+	fseek(f, 0, SEEK_END);
+	s = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char * font = malloc(s);
+	fread(font, s, 1, f);
+	fclose(f);
+	*size = s;
+	return font;
+}
+
+void _init_freetype() {
+	int error;
+	error = FT_Init_FreeType(&library);
+}
+
+#define FONT_SIZE 13
+
+int error;
+
+void _load_dejavu() {
+	char * font;
+	size_t s;
+	font = loadMemFont("/usr/share/fonts/DejaVuSans.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face);
+	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_dejavubold() {
+	char * font;
+	size_t s;
+	font = loadMemFont("/usr/share/fonts/DejaVuSans-Bold.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face_bold);
+	error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_dejavuitalic() {
+	char * font;
+	size_t s;
+	font = loadMemFont("/usr/share/fonts/DejaVuSans-Oblique.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face_italic);
+	error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_dejavubolditalic() {
+	char * font;
+	size_t s;
+	font = loadMemFont("/usr/share/fonts/DejaVuSans-BoldOblique.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
+	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_wallpaper() {
+	init_sprite(1, "/usr/share/wallpaper.bmp", NULL);
+}
+
+int main(int argc, char ** argv) {
+
+	/* Initialize graphics setup */
+	init_graphics_double_buffer();
+
+	/* Load sprites */
+	init_sprite(0, "/usr/share/bs.bmp", NULL);
+	display();
+
+	/* Count startup items */
+	startup_items = list_create();
+	add_startup_item("Initializing FreeType", _init_freetype, 1);
+	add_startup_item("Loading font: Deja Vu Sans", _load_dejavu, 2);
+	add_startup_item("Loading font: Deja Vu Sans Bold", _load_dejavubold, 2);
+	add_startup_item("Loading font: Deja Vu Sans Oblique", _load_dejavuitalic, 2);
+	add_startup_item("Loading font: Deja Vu Sans Bold+Oblique", _load_dejavubolditalic, 2);
+	add_startup_item("Loading wallpaper (/usr/share/wallpaper.bmp)", _load_wallpaper, 4);
+
+	foreach(node, startup_items) {
+		run_startup_item((startup_item *)node->value);
+		display();
+	}
+
+#if 0
+	/* Reinitialize for single buffering */
 	init_graphics();
+#endif
+
 	window_list = list_create();
 
 	window_t wina, winb, root, panel;
 
 	init_window(&root, 0, 0, graphics_width, graphics_height, 0);
 	list_insert(window_list, &root);
-	window_fill(&root, rgb(20,20,20));
+#if 0
+	uint32_t odd = 0;
+	uint32_t black = rgb(0,0,0);
+	uint32_t white = rgb(255,255,255);
+	for (uint16_t j = 0; j < root.height; ++j) {
+		for (uint16_t i = 0; i < root.width; ++i) {
+			odd++;
+			if ((odd + j) % 2) {
+				window_set_point(&root, i, j, black);
+			} else {
+				window_set_point(&root, i, j, white);
+				
+			}
+		}
+	}
+#endif
+	window_draw_sprite(&root, sprites[1], 0, 0);
 
 	init_window(&panel, 0, 0, graphics_width, 24, -1);
 	list_insert(window_list, &panel);
-	window_fill(&panel, rgb(20,40,60));
+	window_fill(&panel, rgb(0,120,230));
+	init_sprite(2, "/usr/share/panel.bmp", NULL);
+	for (uint32_t i = 0; i < graphics_width; i += sprites[2]->width) {
+		window_draw_sprite(&panel, sprites[2], i, 0);
+	}
 
 	init_window(&wina, 10, 10, 300, 300, 1);
 	list_insert(window_list, &wina);
@@ -137,30 +370,31 @@ int main(int argc, char * argv[]) {
 
 	redraw_window(&root); /* We only need to redraw root if things move around */
 	redraw_window(&panel);
+	redraw_window(&wina);
+	redraw_window(&winb);
 
-	int16_t direction_x = 10;
-	int16_t direction_y = 10;
+	flip();
 
-	while (1) {
+	int32_t stop = 100;
+	while (stop > 0) {
 		window_draw_line(&wina, rand() % 300, rand() % 300, rand() % 300, rand() % 300, rgb(rand() % 255,rand() % 255,rand() % 255));
 		window_draw_line(&winb, rand() % 300, rand() % 300, rand() % 300, rand() % 300, rgb(rand() % 255,rand() % 255,rand() % 255));
 		redraw_window(&wina);
 		redraw_window(&winb);
 		redraw_window(&root);
-
-		winb.x += direction_x;
-		winb.y += direction_y;
-		if (winb.x >= graphics_width - winb.width) {
-			direction_x = -10;
-		}
-		if (winb.y >= graphics_height - winb.height) {
-			direction_y = -10;
-		}
-		if (winb.x <= 0) {
-			direction_x = 10;
-		}
-		if (winb.y <= 0) {
-			direction_y = 10;
-		}
+		redraw_window(&panel);
+		flip();
+		stop--;
 	}
+
+	char * tokens[] = {
+		"/bin/terminal",
+#if FREETYPE
+		"-f",
+#endif
+		NULL
+	};
+	int i = execve(tokens[0], tokens, NULL);
+
+	return 0;
 }

@@ -13,6 +13,9 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || ../util/mk-error
 BEGRM = ../util/mk-beg-rm
 ENDRM = ../util/mk-end-rm
 
+FREETYPE_INC = -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/
+FREETYPE_LIB = ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
+
 
 .PHONY: all clean
 
@@ -25,12 +28,12 @@ clean:
 
 ../hdd/bin/freetype_test: freetype_test.c
 	@${BEG} "CC" "$< [freetype]"
-	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}
+	@${CC} ${CFLAGS} -s ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [freetype]"
 
 ../hdd/bin/terminal: terminal.c lib/utf8_decode.o
 	@${BEG} "CC" "$< [freetype]"
-	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a lib/utf8_decode.o ${ERRORS}
+	@${CC} ${CFLAGS} -s ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} lib/utf8_decode.o ${ERRORS}
 	@${END} "CC" "$< [freetype]"
 
 ../hdd/bin/login: login.c lib/sha2.o
@@ -38,14 +41,9 @@ clean:
 	@${CC} ${CFLAGS} -s -o $@ $< lib/sha2.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
-../hdd/bin/bootsplash-test: bootsplash-test.c lib/graphics.o lib/list.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -s -o $@ $< lib/graphics.o lib/list.o ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
 ../hdd/bin/compositor: compositor.c lib/graphics.o lib/list.o
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -s -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/ -o $@ $< lib/graphics.o lib/list.o ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a ${ERRORS}
+	@${CC} ${CFLAGS} -s ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/solver: solver.c lib/list.o
