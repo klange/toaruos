@@ -183,7 +183,7 @@ void list_merge(list_t * target, list_t * source) {
 
 /* Shit that belongs in the clib */
 
-inline int max (int a, int b) {
+int max (int a, int b) {
 	if (a > b) {
 		return a;
 	} else {

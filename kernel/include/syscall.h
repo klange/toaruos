@@ -73,6 +73,9 @@ DECL_SYSCALL1(wait, int);
 /* Memory management */
 DECL_SYSCALL1(sbrk, int);
 
+DECL_SYSCALL2(shm_obtain, int, int);
+DECL_SYSCALL1(shm_release, int);
+
 DECL_SYSCALL2(gettimeofday, void *, void *);
 DECL_SYSCALL0(getgraphicsaddress);
 DECL_SYSCALL1(kbd_mode, int);

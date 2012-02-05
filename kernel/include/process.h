@@ -4,9 +4,10 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <system.h>
+//#include <system.h>
 #include <tree.h>
 #include <signal.h>
+#include <task.h>
 
 #define KERNEL_STACK_SIZE 0x2000
 
@@ -60,22 +61,23 @@ typedef struct signal_table {
 
 /* Portable process struct */
 typedef struct process {
-	pid_t         id;           /* Process ID (pid) */
-	char *        name;         /* Process Name */
-	char *        description;  /* Process description */
-	user_t        user;         /* Effective user */
-	group_t       group;        /* Process scheduling group */
-	thread_t      thread;       /* Associated task information */
-	tree_node_t * tree_entry;   /* Process Tree Entry */
-	image_t       image;        /* Binary image information */
-	fs_node_t *   wd_node;      /* Working directory VFS node */
-	char *        wd_name;      /* Working directory path name */
-	fd_table_t    fds;          /* File descriptor table */
-	status_t      status;       /* Process status */
-	sig_table_t   signals;      /* Signal table */
-	uint8_t       finished;     /* Status indicator */
+	pid_t         id;                /* Process ID (pid) */
+	char *        name;              /* Process Name */
+	char *        description;       /* Process description */
+	user_t        user;              /* Effective user */
+	group_t       group;             /* Process scheduling group */
+	thread_t      thread;            /* Associated task information */
+	tree_node_t * tree_entry;        /* Process Tree Entry */
+	image_t       image;             /* Binary image information */
+	fs_node_t *   wd_node;           /* Working directory VFS node */
+	char *        wd_name;           /* Working directory path name */
+	fd_table_t    fds;               /* File descriptor table */
+	status_t      status;            /* Process status */
+	sig_table_t   signals;           /* Signal table */
+	uint8_t       finished;          /* Status indicator */
 	struct regs * syscall_registers; /* Registers at interrupt */
 	list_t *      wait_queue;
+	list_t *      shm_mappings;      /* Shared memory chunk mappings */
 } process_t;
 
 void initialize_process_tree();

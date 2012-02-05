@@ -175,6 +175,7 @@ process_t * spawn_init() {
 	/* Process is not finished */
 	init->finished = 0;
 	init->wait_queue = list_create();
+	init->shm_mappings = NULL;
 
 	/* What the hey, let's also set the description on this one */
 	init->description = "[init]";
@@ -261,6 +262,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->status = 0;
 	proc->finished = 0;
 	proc->wait_queue = list_create();
+	proc->shm_mappings = list_create();
 
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */

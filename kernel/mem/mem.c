@@ -3,6 +3,7 @@
  * Kernel Memory Manager
  */
 
+#include <mem.h>
 #include <system.h>
 #include <process.h>
 #include <logging.h>
@@ -103,7 +104,7 @@ uint32_t nframes;
 #define INDEX_FROM_BIT(b) (b / 0x20)
 #define OFFSET_FROM_BIT(b) (b % 0x20)
 
-static void
+void
 set_frame(
 		uintptr_t frame_addr
 		) {
@@ -113,7 +114,7 @@ set_frame(
 	frames[index] |= (0x1 << offset);
 }
 
-static void
+void
 clear_frame(
 		uintptr_t frame_addr
 		) {
@@ -123,7 +124,7 @@ clear_frame(
 	frames[index] &= ~(0x1 << offset);
 }
 
-static uint32_t
+uint32_t
 test_frame(
 		uintptr_t frame_addr
 		) {
@@ -133,7 +134,7 @@ test_frame(
 	return (frames[index] & (0x1 << offset));
 }
 
-static uint32_t
+uint32_t
 first_frame() {
 	uint32_t i, j;
 	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {

@@ -6,6 +6,7 @@
 #include <system.h>
 #include <process.h>
 #include <logging.h>
+#include <shm.h>
 
 #define TASK_MAGIC 0xDEADBEEF
 
@@ -78,6 +79,8 @@ void reap_process(process_t * proc) {
 	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	free_directory(proc->thread.page_directory);
 	free((void *)(proc->fds.entries));
+	shm_release_all(proc);
+	kprintf("reaping %s\n", proc->name);
 }
 
 /*

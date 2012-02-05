@@ -313,6 +313,13 @@ static int kernel_name_XXX(char * buffer) {
 			__kernel_arch);
 }
 
+/*
+static void inspect_memory (uintptr_t vaddr) {
+	// Please use this scary hack of a function as infrequently as possible.
+	shmem_debug_frame(vaddr);
+}
+*/
+
 static int reboot() {
 	kprintf("[kernel] Reboot requested from process %d by user #%d\n", current_process->id, current_process->user);
 	kprintf("[kernel] Good bye!\n");
@@ -427,8 +434,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&gethostname,		/* 32 */
 	(uintptr_t)&mousedevice,
 	(uintptr_t)&sys_mkdir,
-	(uintptr_t)&shm_negotiate,
-	(uintptr_t)&shm_free,			/* 36 */
+	(uintptr_t)&shm_obtain,
+	(uintptr_t)&shm_release,			/* 36 */
 	0
 };
 uint32_t num_syscalls;

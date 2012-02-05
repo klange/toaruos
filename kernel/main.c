@@ -40,6 +40,7 @@
 #include <fs.h>
 #include <logging.h>
 #include <process.h>
+#include <shm.h>
 
 /*
  * kernel entry point
@@ -121,6 +122,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	tasking_install();	/* Multi-tasking */
 	enable_fpu();		/* Enable the floating point unit */
 	syscalls_install();	/* Install the system calls */
+
+	shm_install();		/* Install shared memory */
 
 	keyboard_install();	/* Keyboard interrupt handler */
 

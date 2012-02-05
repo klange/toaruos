@@ -1,21 +1,32 @@
-/* vim:tabstop=4 shiftwidth=4 noexpandtab
- *
- * Hello World!
- */
+#include <sys/types.h>
 #include <stdio.h>
-#include <syscall.h>
 #include <stdint.h>
+#include <syscall.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-DEFN_SYSCALL3(shm_negotiate, 35, char *, void *, uint32_t)
 
-int main(int argc, char ** argv) {
+int main (int argc, char ** argv) {
 	if (argc < 2) {
 		fprintf(stderr, "%s: expected argument\n", argv[0]);
 		return 1;
 	}
+	char * tokens[] = { NULL, argv[1], NULL };
 
-	syscall_shm_negotiate(argv[1], NULL, 0x00);
+	int pid = getpid();
+	uint32_t f = fork();
+	if (getpid() != pid) {
+		// Child: client
+		tokens[0] = "/bin/shm_client";
+		execve(tokens[0], tokens, NULL);
+		return 3;
+	} else {
+		// Parent: server
+		tokens[0] = "/bin/shm_server";
+		execve(tokens[0], tokens, NULL);
+		return 4;
+	}
 
 	return 0;
 }
-
