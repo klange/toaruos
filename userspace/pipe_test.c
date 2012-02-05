@@ -9,9 +9,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL1(wait, 17, unsigned int);
-DEFN_SYSCALL0(mkpipe, 21);
-
 int main(int argc, char ** argv) {
 	int fd = syscall_mkpipe();
 	printf("%d <- pipe\n", fd);

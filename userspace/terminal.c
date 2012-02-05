@@ -432,9 +432,6 @@ DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
 DEFN_SYSCALL0(getgraphicsdepth,  20);
 
-DEFN_SYSCALL0(mkpipe, 21);
-DEFN_SYSCALL2(dup2, 22, int, int);
-
 DEFN_SYSCALL0(mousedevice, 33);
 
 uint16_t graphics_width  = 0;

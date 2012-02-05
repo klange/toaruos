@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL1(wait, 17, unsigned int);
-
 int main(int argc, char ** argv) {
 	int quiet = 0;
 	if (argc > 1) {

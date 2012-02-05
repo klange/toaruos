@@ -12,8 +12,6 @@
 #include <unistd.h>
 #include <time.h>
 
-DEFN_SYSCALL1(wait, 17, unsigned int);
-
 DEFN_SYSCALL2(getcwd, 29, char *, size_t);
 DEFN_SYSCALL1(chdir, 28, char *);
 

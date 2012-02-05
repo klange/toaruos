@@ -14,7 +14,6 @@
 
 #include "lib/sha2.h"
 
-DEFN_SYSCALL1(wait, 17, unsigned int);
 DEFN_SYSCALL1(setuid, 24, unsigned int);
 DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
 DEFN_SYSCALL0(gethostname, 32);
