@@ -78,7 +78,7 @@ docs/core.pdf: docs/*.tex
 ################
 #    Kernel    #
 ################
-toaruos-kernel: .passed kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES}
+toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES} .passed
 	@${BEG} "LD" "$<"
 	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o ${SUBMODULES} ${ERRORS}
 	@${END} "LD" "$<"
