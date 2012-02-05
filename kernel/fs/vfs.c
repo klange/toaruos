@@ -110,7 +110,7 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
  *      and a file, thus, the use of flag sets should suffice
  */
 
-void create_file_fs(char *name, uint16_t permission) {
+int create_file_fs(char *name, uint16_t permission) {
 	int32_t i = strlen(name);
 	char *dir_name = malloc(i + 1);
 	memcpy(dir_name, name, i);
@@ -118,8 +118,7 @@ void create_file_fs(char *name, uint16_t permission) {
 	if (dir_name[i - 1] == '/')
 		dir_name[i - 1] = '\0';
 	if (strlen(dir_name) == 0) {
-		kprintf("mkdir: /: Is a directory\n");
-		return;
+		return 1;
 	}
 	for (i = strlen(dir_name) - 1; i >= 0; i--) {
 		if (dir_name[i] == '/') {
@@ -138,9 +137,8 @@ void create_file_fs(char *name, uint16_t permission) {
 	}
 
 	if (node == NULL) {
-		kprintf("mkdir: Directory does not exist\n");
 		free(dir_name);
-		return;
+		return 2;
 	}
 
 	i++;
@@ -150,9 +148,10 @@ void create_file_fs(char *name, uint16_t permission) {
 
 	free(node);
 	free(dir_name);
+	return 0;
 }
 
-void mkdir_fs(char *name, uint16_t permission) {
+int mkdir_fs(char *name, uint16_t permission) {
 	int32_t i = strlen(name);
 	char *dir_name = malloc(i + 1);
 	memcpy(dir_name, name, i);
@@ -160,8 +159,7 @@ void mkdir_fs(char *name, uint16_t permission) {
 	if (dir_name[i - 1] == '/')
 		dir_name[i - 1] = '\0';
 	if (strlen(dir_name) == 0) {
-		kprintf("mkdir: /: Is a directory\n");
-		return;
+		return 1;
 	}
 	for (i = strlen(dir_name) - 1; i >= 0; i--) {
 		if (dir_name[i] == '/') {
@@ -181,7 +179,7 @@ void mkdir_fs(char *name, uint16_t permission) {
 	if (node == NULL) {
 		kprintf("mkdir: Directory does not exist\n");
 		free(dir_name);
-		return;
+		return 1;
 	}
 
 	i++;
@@ -191,6 +189,8 @@ void mkdir_fs(char *name, uint16_t permission) {
 
 	free(node);
 	free(dir_name);
+
+	return 0;
 }
 
 fs_node_t *clone_fs(fs_node_t *source) {

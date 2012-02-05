@@ -124,8 +124,12 @@ static int open(const char * file, int flags, int mode) {
 
 	validate((void *)file);
 	fs_node_t * node = kopen((char *)file, 0);
-	if (!node && (mode & 0x600)) {
+	if (!node && (flags & 0x600)) {
 		/* Um, make one */
+		if (!create_file_fs((char *)file, 0777)) {
+			kprintf("[debug] Created file %s\n", file);
+			node = kopen((char *)file, 0);
+		}
 	}
 	if (!node) {
 		return -1;
@@ -375,6 +379,12 @@ static int mousedevice() {
 	return process_append_fd((process_t *)current_process, mouse_pipe);
 }
 
+extern int mkdir_fs(char *name, uint16_t permission);
+
+static int sys_mkdir(char * path, uint32_t mode) {
+	return mkdir_fs(path, 0777);
+}
+
 /*
  * System Call Internals
  */
@@ -415,6 +425,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sethostname,
 	(uintptr_t)&gethostname,		/* 32 */
 	(uintptr_t)&mousedevice,
+	(uintptr_t)&sys_mkdir,
 	0
 };
 uint32_t num_syscalls;
