@@ -17,6 +17,6 @@ $DIR/mk-end "rm" "Hard disk image removed."
 
 $DIR/mk-beg "rm" "Cleaning up..."
 rm /tmp/`whoami`-toaru-bin.tar.gz
-$dir/mk-end "rm" "Cleaned up."
+$DIR/mk-end "rm" "Cleaned up."
 
 $DIR/mk-info "    ---  Done!"
