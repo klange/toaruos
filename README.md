@@ -22,7 +22,7 @@ Clone the git repository and run:
 
     # Retreive the precompiled binaries:
     util/grab-binaries.sh
-    make                # to build the kernel
+    make system         # to build the kernel
     make run            # to run qemu with the proper arguments
     # Or, if you have KVM...
     make kvm            # to run qemu in KVM mode

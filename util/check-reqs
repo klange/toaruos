@@ -18,6 +18,8 @@ function BAIL {
     exit 1
 }
 
+INFO "Checking for required tools (one-time check)..."
+
 if [ -z `which clang` ] ; then
     WARN "Missing clang"
     if [ -z `which gcc` ] ; then
@@ -33,5 +35,15 @@ if [ -z `which genext2fs` ] ; then
     ERROR "Missing genext2fs"
     INFO  "You can probably get it from a package of the same name."
     BAIL
+fi
+
+if [ -z `which qemu` ] ; then
+    if [ -z `which qemu-system-i386` ] ; then
+        ERROR "Missing qemu"
+        INFO  "You can probably install it from a package of the same name."
+    fi
+    ERROR "qemu is installed, but not as 'qemu'"
+    INFO  "You have a version of qemu which does not provide the 'qemu' binary."
+    INFO  "You should run 'ln -s ~/bin/qemu \`which qemu-system-i386\` or similar to correct this."
 fi
 

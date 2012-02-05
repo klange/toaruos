@@ -39,11 +39,11 @@ ENDRM = util/mk-end-rm
 EMUARGS = -kernel toaruos-kernel -m 256 -initrd toaruos-initrd -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img
 EMUKVM  = -enable-kvm
 
-.PHONY: all check-toolchain system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
+.PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
 .SECONDARY: 
 
 all: .passed system docs utils tags
-system: toaruos-initrd toaruos-disk.img toaruos-kernel
+system: .passed toaruos-initrd toaruos-disk.img toaruos-kernel
 
 install: system
 	@${BEG} "CP" "Installing to /boot..."
@@ -63,15 +63,12 @@ utils: ${UTILITIES}
 	@util/check-reqs > /dev/null
 	@touch .passed
 
-check-toolchain:
-	@util/install-toolchain.sh
-
 #################
 # Documentation #
 #################
 docs: docs/core.pdf
 
-docs/core.pdf: docs/*.tex 
+docs/core.pdf: docs/*.tex
 	@${BEG} "docs" "Generating documentation..."
 	@pdflatex -draftmode -halt-on-error -output-directory docs/ docs/core.tex > /dev/null ${ERRORS}
 	@makeindex -q docs/*.idx ${ERRORS}
@@ -81,7 +78,7 @@ docs/core.pdf: docs/*.tex
 ################
 #    Kernel    #
 ################
-toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES}
+toaruos-kernel: .passed kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES}
 	@${BEG} "LD" "$<"
 	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o ${SUBMODULES} ${ERRORS}
 	@${END} "LD" "$<"
@@ -102,7 +99,7 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: initrd/boot/kernel
+toaruos-initrd: .passed initrd/boot/kernel
 	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
