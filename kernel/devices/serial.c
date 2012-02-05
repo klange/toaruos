@@ -10,11 +10,14 @@
 #define SERIAL_PORT_C 0x3E8
 #define SERIAL_PORT_D 0x2E8
 
+#define SERIAL_IRQ 4
+
 void
 serial_handler(
 		struct regs *r
 		) {
 	char serial = serial_recv();
+	irq_ack(SERIAL_IRQ);
 	/*
 	 * Fix the serial input assuming it is ascii
 	 */
@@ -45,7 +48,7 @@ serial_install() {
 	outportb(SERIAL_PORT_A + 3, 0x03);
 	outportb(SERIAL_PORT_A + 2, 0xC7);
 	outportb(SERIAL_PORT_A + 4, 0x0B);
-	irq_install_handler(4, serial_handler); /* Install the serial input handler */
+	irq_install_handler(SERIAL_IRQ, serial_handler); /* Install the serial input handler */
 	outportb(SERIAL_PORT_A + 1, 0x01);      /* Enable interrupts on receive */
 	bfinish(0);
 }

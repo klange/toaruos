@@ -26,6 +26,7 @@
 #define KEY_PENDING   0x64
 
 #define KEYBOARD_NOTICES 0
+#define KEYBOARD_IRQ 1
 
 /* A bit-map to store the keyboard states */
 struct keyboard_states {
@@ -246,6 +247,7 @@ keyboard_handler(
 	unsigned char scancode;
 	keyboard_wait();
 	scancode = inportb(KEY_DEVICE);
+	irq_ack(KEYBOARD_IRQ);
 	if (keyboard_direct_handler) {
 		keyboard_direct_handler(scancode);
 		return;
@@ -256,6 +258,7 @@ keyboard_handler(
 	if (handler) {
 		handler(scancode);
 	}
+
 }
 
 /*
@@ -276,7 +279,7 @@ keyboard_install() {
 	current_process->fds.entries[0] = keyboard_pipe;
 
 	/* Install the interrupt handler */
-	irq_install_handler(1, keyboard_handler);
+	irq_install_handler(KEYBOARD_IRQ, keyboard_handler);
 
 	bfinish(0);
 }

@@ -14,6 +14,8 @@
 #define PIT_SCALE 1193180
 #define PIT_SET 0x36
 
+#define TIMER_IRQ 0
+
 /*
  * Set the phase (in hertz) for the Programmable
  * Interrupt Timer (PIT).
@@ -42,6 +44,7 @@ timer_handler(
 		struct regs *r
 		) {
 	++timer_ticks;
+	irq_ack(TIMER_IRQ);
 	switch_task(1);
 }
 
@@ -51,7 +54,7 @@ timer_handler(
 void timer_install() {
 	blog("Installing Programmable Interval Timer...");
 	LOG(INFO,"Initializing interval timer");
-	irq_install_handler(0, timer_handler);
+	irq_install_handler(TIMER_IRQ, timer_handler);
 	timer_phase(100); /* 100Hz */
 	bfinish(0);
 }

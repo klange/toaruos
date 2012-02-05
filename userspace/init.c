@@ -37,7 +37,7 @@ void start_terminal() {
 	if (!pid) {
 #endif
 	char * tokens[] = {
-		"/bin/compositor",
+		"/bin/terminal",
 		NULL
 	};
 	int i = execve(tokens[0], tokens, NULL);

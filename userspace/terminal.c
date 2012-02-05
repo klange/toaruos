@@ -19,6 +19,8 @@
 
 #define FONT_SIZE 13
 
+#define MOUSE_SCALE 6
+
 static unsigned int timer_tick = 0;
 #define TIMER_TICK 400000
 
@@ -2995,14 +2997,26 @@ int main(int argc, char ** argv) {
 					int r = read(mfd, buf, 1);
 					goto fail_mouse;
 				}
-				cell_redraw((mouse_x * term_width) / graphics_width, (mouse_y * term_height) / graphics_height);
-				mouse_x += packet->x_difference;
-				mouse_y -= packet->y_difference;
+				cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+				/* Apply mouse movement */
+				int c, l;
+				c = abs(packet->x_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_x += packet->x_difference * l;
+				c = abs(packet->y_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_y -= packet->y_difference * l;
 				if (mouse_x < 0) mouse_x = 0;
 				if (mouse_y < 0) mouse_y = 0;
-				if (mouse_x >= graphics_width) mouse_x = graphics_width - char_width;
-				if (mouse_y >= graphics_height) mouse_y = graphics_height - char_height;
-				cell_redraw_inverted((mouse_x * term_width) / graphics_width, (mouse_y * term_height) / graphics_height);
+				if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width - char_width)   * MOUSE_SCALE;
+				if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height - char_height) * MOUSE_SCALE;
+				cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
 				fstat(mfd, &_stat);
 			}
 fail_mouse:

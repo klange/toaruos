@@ -95,17 +95,22 @@ irq_install() {
 	bfinish(0);
 }
 
+void irq_ack(int irq_no) {
+	if (irq_no >= 12) {
+		outportb(0xA0, 0x20);
+	}
+	outportb(0x20, 0x20);
+}
+
 void
 irq_handler(struct regs *r) {
 	IRQ_OFF;
 	void (*handler)(struct regs *r);
 	handler = irq_routines[r->int_no - 32];
-	if (r->int_no >= 40) {
-		outportb(0xA0, 0x20);
-	}
-	outportb(0x20, 0x20);
 	if (handler) {
 		handler(r);
+	} else {
+		irq_ack(r->int_no - 32);
 	}
 	IRQ_RES;
 }
