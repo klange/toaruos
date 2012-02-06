@@ -6,6 +6,8 @@
 
 #include <types.h>
 
+#define SHM_PATH_SEPARATOR "."
+
 typedef struct {
 	char name[256];
 } shm_node_t;
