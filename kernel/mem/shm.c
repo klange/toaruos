@@ -89,16 +89,35 @@ char * shm_negotiate(char * shm_path, uintptr_t address, size_t * size) {
 
 		if (!node) {
 			kprintf("And could not be created.\n");
+			return NULL;
 		}
-
-
-		return NULL;
 	}
+
+	/* TODO:
+	 * Mount shmem region
+	 */
 
 	return NULL;
 }
 
 int shm_free(char * shm_path) {
-	
+	/* Sanity check */
+	if (__builtin_expect(shm_tree == NULL, 0)) {
+		shm_tree = tree_create();
+	}
+
+	kprintf("[debug] shm_free(%s, 0x%x, 0x%x)\n", shm_path);
+
+	char * path = malloc(strlen(shm_path)+1);
+	memcpy(path, shm_path, strlen(shm_path)+1);
+	shm_node_t * node = shm_get_node(path, shm_tree->root);
+
+	if (!node) {
+		return 1;
+	}
+
+	/* TODO:
+	 * Unmount shmem region
+	 */
 	return 0;
 }
