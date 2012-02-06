@@ -10,6 +10,7 @@
 #include <fs.h>
 #include <pipe.h>
 #include <version.h>
+#include <shm.h>
 
 #define SPECIAL_CASE_STDIO
 
@@ -426,6 +427,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&gethostname,		/* 32 */
 	(uintptr_t)&mousedevice,
 	(uintptr_t)&sys_mkdir,
+	(uintptr_t)&shm_negotiate,
+	(uintptr_t)&shm_free,			/* 33 */
 	0
 };
 uint32_t num_syscalls;
