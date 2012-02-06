@@ -428,7 +428,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&mousedevice,
 	(uintptr_t)&sys_mkdir,
 	(uintptr_t)&shm_negotiate,
-	(uintptr_t)&shm_free,			/* 33 */
+	(uintptr_t)&shm_free,			/* 36 */
 	0
 };
 uint32_t num_syscalls;
