@@ -52,9 +52,9 @@ clean:
 	@${CC} ${CFLAGS} -s -o $@ $< lib/list.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
-../hdd/bin/donut: donut.c
+../hdd/bin/donut%: donut%.c
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -s -o $@ $< ${LIBM} ${ERRORS}
+	@${CC} ${CFLAGS} -g -o $@ $< ${LIBM} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/%: %.cpp
