@@ -15,6 +15,7 @@ ENDRM = ../util/mk-end-rm
 
 FREETYPE_INC = -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/
 FREETYPE_LIB = ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
+LIBM = ../util/toaru-toolchain/i686-pc-toaru/lib/libm.a
 
 
 .PHONY: all clean
@@ -49,6 +50,11 @@ clean:
 ../hdd/bin/solver: solver.c lib/list.o
 	@${BEG} "CC" "$< [w/libs]"
 	@${CC} ${CFLAGS} -s -o $@ $< lib/list.o ${ERRORS}
+	@${END} "CC" "$< [w/libs]"
+
+../hdd/bin/donut%: donut%.c
+	@${BEG} "CC" "$< [w/libs]"
+	@${CC} ${CFLAGS} -g -o $@ $< ${LIBM} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/%: %.cpp
