@@ -174,6 +174,8 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 		argv_[j] = malloc((strlen(argv[j]) + 1) * sizeof(char));
 		memcpy(argv_[j], argv[j], strlen(argv[j]) + 1);
 	}
+	shm_release_all((process_t *)current_process);
+
 	/* Discard envp */
 	exec((char *)filename, i, (char **)argv_);
 	return -1;

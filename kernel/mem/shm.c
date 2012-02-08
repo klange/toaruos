@@ -246,8 +246,7 @@ int shm_release (char * path) {
 		page_t * page = get_page(mapping->vaddrs[i], 0, proc->thread.page_directory);
 		assert(page && "Shared memory mapping was invalid!");
 
-//		memset(page, 0, sizeof(page_t));
-		page->frame = 0x0;
+		memset(page, 0, sizeof(page_t));
 	}
 
 	/* Clean up */
