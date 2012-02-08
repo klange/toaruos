@@ -108,7 +108,7 @@ inline uint8_t is_clause_true(uint64_t i) {
 	list_t * clause = clauses[i];
 
 	foreach(node, clause) {
-		int64_t var = (int64_t)node->value;
+		intptr_t var = (intptr_t)node->value;
 		if (var < 0) {
 			if (!checkbit(-var - 1)) return 1;
 		} else {

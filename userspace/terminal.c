@@ -435,6 +435,9 @@ DEFN_SYSCALL0(getgraphicsdepth,  20);
 
 DEFN_SYSCALL0(mousedevice, 33);
 
+DECL_SYSCALL2(dup2, int, int);
+DECL_SYSCALL0(mkpipe);
+
 uint16_t graphics_width  = 0;
 uint16_t graphics_height = 0;
 uint16_t graphics_depth  = 0;
@@ -2840,7 +2843,7 @@ int buffer_put(char c) {
 		return 0;
 	}
 	if (c == 3) {
-		syscall_send_signal(child_pid, 9);
+		syscall_send_signal(child_pid, 2);
 		return 0;
 	}
 	if (c < 10 || (c > 10 && c < 32) || c > 126) {

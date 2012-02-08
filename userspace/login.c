@@ -81,7 +81,7 @@ int main(int argc, char ** argv) {
 
 	fprintf(stdout, "\n%s\n\n", _uname);
 
-	syscall_signal(9, sig_int);
+	syscall_signal(2, sig_int);
 	syscall_signal(11, sig_segv);
 
 	while (1) {

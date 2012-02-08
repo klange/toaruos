@@ -98,7 +98,7 @@ int main(int argc, char ** argv) {
 	int  free_cmd = 0;
 	int  last_ret = 0;
 
-	syscall_signal(9, sig_int);
+	syscall_signal(2, sig_int);
 
 	getusername();
 	gethostname();
