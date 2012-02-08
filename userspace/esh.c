@@ -85,10 +85,12 @@ void draw_prompt(int ret) {
 uint32_t child = 0;
 
 void sig_int(int sig) {
+	static uint32_t times = 1;
 	if (child) {
 		syscall_send_signal(child, sig);
 	} else {
-		printf("stop that!\n");
+		printf("stop that! you've interrupted me %d time%s!\n", times, (times > 1) ? "s" : "");
+		times++;
 	}
 }
 
