@@ -1,4 +1,5 @@
-/*
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * Terminal Emulator
  */
 
@@ -2822,6 +2823,10 @@ void clear_input() {
 	input_collected = 0;
 }
 
+uint32_t child_pid = 0;
+
+DEFN_SYSCALL2(send_signal, 37, uint32_t, uint32_t)
+
 int buffer_put(char c) {
 	if (c == 8) {
 		/* Backspace */
@@ -2832,6 +2837,10 @@ int buffer_put(char c) {
 				ansi_put(c);
 			}
 		}
+		return 0;
+	}
+	if (c == 3) {
+		syscall_send_signal(child_pid, 9);
 		return 0;
 	}
 	if (c < 10 || (c > 10 && c < 32) || c > 126) {
@@ -2978,6 +2987,10 @@ int main(int argc, char ** argv) {
 		int i = execve(tokens[0], tokens, NULL);
 		return 0;
 	} else {
+
+		child_pid = f;
+		printf("[terminal] child is %d\n", child_pid);
+
 		char buf[1024];
 		while (1) {
 			struct stat _stat;

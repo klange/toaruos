@@ -7,6 +7,7 @@
 #include <system.h>
 #include <process.h>
 #include <logging.h>
+#include <signal.h>
 
 #define KERNEL_HEAP_END 0x02000000
 
@@ -305,6 +306,11 @@ page_fault(
 	uint32_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
+	if (r->eip == 0xFFFFFFFF) {
+		return_from_signal_handler();
+	}
+
+#if 1
 	int present  = !(r->err_code & 0x1);
 	int rw       = r->err_code & 0x2;
 	int user     = r->err_code & 0x4;
@@ -313,8 +319,14 @@ page_fault(
 
 	kprintf("\033[1;37;41m");
 	kprintf("Segmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d\n", present, rw, user, reserved, id, faulting_address, r->eip, getpid());
-
 	HALT_AND_CATCH_FIRE("Segmentation fault", r);
+#else
+	signal_t * sig = malloc(sizeof(signal_t));
+	sig->handler = current_process->signals.functions[SIGSEGV];
+	sig->signum  = SIGSEGV;
+	handle_signal(current_process, sig);
+#endif
+
 }
 
 /*

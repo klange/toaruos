@@ -18,6 +18,9 @@ DEFN_SYSCALL1(chdir, 28, char *);
 DEFN_SYSCALL0(getuid, 23);
 DEFN_SYSCALL0(gethostname, 32);
 
+DEFN_SYSCALL2(signal, 38, uint32_t, void *);
+DEFN_SYSCALL2(send_signal, 37, uint32_t, uint32_t)
+
 #define LINE_LEN 4096
 
 char cwd[1024] = {'/',0};
@@ -79,11 +82,23 @@ void draw_prompt(int ret) {
 	fflush(stdout);
 }
 
+uint32_t child = 0;
+
+void sig_int(int sig) {
+	if (child) {
+		syscall_send_signal(child, sig);
+	} else {
+		printf("stop that!\n");
+	}
+}
+
 int main(int argc, char ** argv) {
 	int  pid = getpid();
 	int  nowait = 0;
 	int  free_cmd = 0;
 	int  last_ret = 0;
+
+	syscall_signal(9, sig_int);
 
 	getusername();
 	gethostname();
@@ -168,6 +183,7 @@ int main(int argc, char ** argv) {
 			return i;
 		} else {
 			if (!nowait) {
+				child = f;
 				last_ret = syscall_wait(f);
 			}
 			free(cmd);

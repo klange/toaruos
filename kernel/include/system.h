@@ -107,6 +107,8 @@ struct regs {
 	unsigned int eip, cs, eflags, useresp, ss;
 };
 
+typedef struct regs regs_t;
+
 typedef void (*irq_handler_t) (struct regs *);
 
 /* Panic */
@@ -356,5 +358,11 @@ typedef struct {
 /* wakeup queue */
 int wakeup_queue(list_t * queue);
 int sleep_on(list_t * queue);
+
+typedef struct {
+	uint32_t  signum;
+	uintptr_t handler;
+	regs_t registers_before;
+} signal_t;
 
 #endif

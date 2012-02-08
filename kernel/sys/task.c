@@ -76,11 +76,14 @@ void free_directory(page_directory_t * dir) {
 void reap_process(process_t * proc) {
 	list_free(proc->wait_queue);
 	free(proc->wait_queue);
+	list_free(proc->signal_queue);
+	free(proc->signal_queue);
 	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	free_directory(proc->thread.page_directory);
 	free((void *)(proc->fds.entries));
+
 	shm_release_all(proc);
-	kprintf("reaping %s\n", proc->name);
+	kprintf("[kernel] reaping %s\n", proc->name);
 }
 
 /*
@@ -322,6 +325,17 @@ switch_task(uint8_t reschedule) {
 				reap_process(proc);
 			}
 		}
+		fix_signal_stacks();
+		/* XXX: Signals */
+		if (!current_process->finished) {
+			if (current_process->signal_queue->length > 0) {
+				node_t * node = list_dequeue(current_process->signal_queue);
+				signal_t * sig = node->value;
+				free(node);
+				handle_signal(current_process, sig);
+			}
+		}
+
 		return;
 	}
 
@@ -356,6 +370,16 @@ switch_next() {
 
 	/* Validate */
 	assert((eip > (uintptr_t)&code) && (eip < (uintptr_t)&end) && "Task switch return point is not within Kernel!");
+
+	if (!current_process->finished) {
+		if (current_process->signal_queue->length > 0) {
+			current_process->signal_kstack  = malloc(KERNEL_STACK_SIZE);
+			current_process->signal_state.esp = current_process->thread.esp;
+			current_process->signal_state.eip = current_process->thread.eip;
+			current_process->signal_state.ebp = current_process->thread.ebp;
+			memcpy(current_process->signal_kstack, current_process->image.stack - KERNEL_STACK_SIZE, KERNEL_STACK_SIZE);
+		}
+	}
 
 	/* Set the page directory */
 	current_directory = current_process->thread.page_directory;

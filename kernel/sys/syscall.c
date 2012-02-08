@@ -110,7 +110,6 @@ static int wait(int child) {
 		kprintf("Tried to wait for non-existent process\n");
 	}
 	while (child_task->finished == 0) {
-		if (child_task->finished != 0) break;
 		/* Add us to the wait queue for this child */
 		sleep_on(child_task->wait_queue);
 	}
@@ -313,6 +312,55 @@ static int kernel_name_XXX(char * buffer) {
 			__kernel_arch);
 }
 
+static int send_signal(pid_t process, uint32_t signal) {
+	process_t * receiver = process_from_pid(process);
+
+	if (!receiver) {
+		/* Invalid pid */
+		return 1;
+	}
+
+	if (receiver->user != current_process->user && current_process->user != USER_ROOT_UID) {
+		/* No way in hell. */
+		return 1;
+	}
+
+	if (signal >= NUMSIGNALS) {
+		/* Invalid signal */
+		return 1;
+	}
+
+	if (receiver->finished) {
+		/* Can't send signals to finished processes */
+		return 1;
+	}
+
+	/* Append signal to list */
+	signal_t * sig = malloc(sizeof(signal_t));
+	sig->handler = (uintptr_t)receiver->signals.functions[signal];
+	sig->signum  = signal;
+	memset(&sig->registers_before, 0x00, sizeof(regs_t));
+
+	if (!XXX_slow_process_is_queued(receiver)) {
+		make_process_ready(receiver);
+	}
+
+	kprintf("[signal] Sending signal %d to PID %d from PID %d\n", signal, process, current_process->id);
+
+	list_insert(receiver->signal_queue, sig);
+
+	return 0;
+}
+
+static uintptr_t sys_signal(uint32_t signum, uintptr_t handler) {
+	if (signum >= NUMSIGNALS) {
+		return -1;
+	}
+	uintptr_t old = current_process->signals.functions[signum];
+	current_process->signals.functions[signum] = handler;
+	return old;
+}
+
 /*
 static void inspect_memory (uintptr_t vaddr) {
 	// Please use this scary hack of a function as infrequently as possible.
@@ -322,10 +370,10 @@ static void inspect_memory (uintptr_t vaddr) {
 
 static int reboot() {
 	kprintf("[kernel] Reboot requested from process %d by user #%d\n", current_process->id, current_process->user);
-	kprintf("[kernel] Good bye!\n");
-	if (current_process->user != 0) {
+	if (current_process->user != USER_ROOT_UID) {
 		return -1;
 	} else {
+		kprintf("[kernel] Good bye!\n");
 		/* Goodbye, cruel world */
 		uint8_t out = 0x02;
 		while ((out & 0x02) != 0) {
@@ -435,7 +483,9 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&mousedevice,
 	(uintptr_t)&sys_mkdir,
 	(uintptr_t)&shm_obtain,
-	(uintptr_t)&shm_release,			/* 36 */
+	(uintptr_t)&shm_release,		/* 36 */
+	(uintptr_t)&send_signal,
+	(uintptr_t)&sys_signal,
 	0
 };
 uint32_t num_syscalls;

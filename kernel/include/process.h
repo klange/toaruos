@@ -42,6 +42,7 @@ typedef struct image {
 	uintptr_t heap_actual; /* Actual heap location */
 	uintptr_t stack;       /* Process kernel stack */
 	uintptr_t user_stack;  /* User stack */
+	uintptr_t start;
 } image_t;
 
 /* Resizable descriptor table */
@@ -56,7 +57,7 @@ typedef struct descriptor_table {
 
 /* Signal Table */
 typedef struct signal_table {
-	uintptr_t *   functions[NUMSIGNALS];
+	uintptr_t functions[NUMSIGNALS];
 } sig_table_t;
 
 /* Portable process struct */
@@ -78,6 +79,9 @@ typedef struct process {
 	struct regs * syscall_registers; /* Registers at interrupt */
 	list_t *      wait_queue;
 	list_t *      shm_mappings;      /* Shared memory chunk mappings */
+	list_t *      signal_queue;      /* Queued signals */
+	thread_t      signal_state;
+	char *        signal_kstack;
 } process_t;
 
 void initialize_process_tree();
@@ -95,6 +99,7 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node);
 process_t * process_from_pid(pid_t pid);
 void delete_process(process_t * proc);
 uint32_t process_move_fd(process_t * proc, int src, int dest);
+int XXX_slow_process_is_queued(process_t * proc);
 
 volatile process_t * current_process;
 

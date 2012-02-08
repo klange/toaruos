@@ -176,6 +176,7 @@ process_t * spawn_init() {
 	init->finished = 0;
 	init->wait_queue = list_create();
 	init->shm_mappings = NULL;
+	init->signal_queue = list_create();
 
 	/* What the hey, let's also set the description on this one */
 	init->description = "[init]";
@@ -261,8 +262,10 @@ process_t * spawn_process(volatile process_t * parent) {
 	/* Zero out the process status */
 	proc->status = 0;
 	proc->finished = 0;
+	memset(proc->signals.functions, 0x00, sizeof(uintptr_t) * NUMSIGNALS);
 	proc->wait_queue = list_create();
 	proc->shm_mappings = list_create();
+	proc->signal_queue = list_create();
 
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */
@@ -402,7 +405,9 @@ int wakeup_queue(list_t * queue) {
 	int awoken_processes = 0;
 	while (queue->length > 0) {
 		node_t * node = list_pop(queue);
-		make_process_ready(node->value);
+		if (!((process_t *)node->value)->finished) {
+			make_process_ready(node->value);
+		}
 		free(node);
 		awoken_processes++;
 	}
@@ -414,3 +419,12 @@ int sleep_on(list_t * queue) {
 	switch_task(0);
 	return 0;
 }
+
+int XXX_slow_process_is_queued(process_t * proc) {
+	foreach(node, process_queue) {
+		if (node->value == proc)
+			return 1;
+	}
+	return 0;
+}
+

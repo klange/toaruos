@@ -18,6 +18,25 @@ DEFN_SYSCALL1(setuid, 24, unsigned int);
 DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
 DEFN_SYSCALL0(gethostname, 32);
 
+DEFN_SYSCALL2(signal, 38, uint32_t, void *);
+DEFN_SYSCALL2(send_signal, 37, uint32_t, uint32_t)
+
+uint32_t child = 0;
+
+void sig_int(int sig) {
+	/* Pass onto the shell */
+	if (child) {
+		syscall_send_signal(child, sig);
+	}
+	/* Else, ignore */
+}
+
+void sig_segv(int sig) {
+	printf("Segmentation fault.\n");
+	exit(127 + sig);
+	/* no return */
+}
+
 int checkUserPass(char * user, char * pass) {
 
 	/* Generate SHA512 */
@@ -62,6 +81,9 @@ int main(int argc, char ** argv) {
 
 	fprintf(stdout, "\n%s\n\n", _uname);
 
+	syscall_signal(9, sig_int);
+	syscall_signal(11, sig_segv);
+
 	while (1) {
 		char * username = malloc(sizeof(char) * 1024);
 		char * password = malloc(sizeof(char) * 1024);
@@ -100,8 +122,10 @@ int main(int argc, char ** argv) {
 			syscall_setuid(uid);
 			int i = execve(args[0], args, NULL);
 		} else {
+			child = f;
 			syscall_wait(f);
 		}
+		child = 0;
 		free(username);
 		free(password);
 	}

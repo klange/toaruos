@@ -98,7 +98,7 @@ exec(
 	free(header);
 	close_fs(file);
 
-	for (uintptr_t stack_pointer = 0x10000000; stack_pointer < 0x100F0000; stack_pointer += 0x1000) {
+	for (uintptr_t stack_pointer = 0x10000000; stack_pointer < 0x10100000; stack_pointer += 0x1000) {
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
 	}
 
@@ -119,6 +119,8 @@ exec(
 	while (current_process->fds.length < 3) {
 		process_append_fd((process_t *)current_process, NULL);
 	}
+
+	current_process->image.start = entry;
 
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, 0x100EFFFF);
@@ -150,6 +152,7 @@ system(
 		 * not all that much we can do right now. */
 		while (child_task->finished == 0) {
 			if (child_task->finished != 0) break;
+			switch_task(1);
 		}
 		/* Grab the child's return value */
 		int ret = child_task->status;
