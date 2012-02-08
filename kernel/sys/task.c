@@ -332,7 +332,7 @@ switch_task(uint8_t reschedule) {
 				node_t * node = list_dequeue(current_process->signal_queue);
 				signal_t * sig = node->value;
 				free(node);
-				handle_signal(current_process, sig);
+				handle_signal((process_t *)current_process, sig);
 			}
 		}
 
@@ -377,7 +377,7 @@ switch_next() {
 			current_process->signal_state.esp = current_process->thread.esp;
 			current_process->signal_state.eip = current_process->thread.eip;
 			current_process->signal_state.ebp = current_process->thread.ebp;
-			memcpy(current_process->signal_kstack, current_process->image.stack - KERNEL_STACK_SIZE, KERNEL_STACK_SIZE);
+			memcpy(current_process->signal_kstack, (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
 		}
 	}
 

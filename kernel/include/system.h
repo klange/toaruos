@@ -365,4 +365,6 @@ typedef struct {
 	regs_t registers_before;
 } signal_t;
 
+void handle_signal(process_t *, signal_t *);
+
 #endif

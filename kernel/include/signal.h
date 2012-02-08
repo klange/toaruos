@@ -6,6 +6,8 @@
 
 #ifdef _KERNEL_
 #	include <types.h>
+void return_from_signal_handler();
+void fix_signal_stacks();
 #else
 #	include <stdint.h>
 #endif

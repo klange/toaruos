@@ -37,7 +37,7 @@ void handle_signal(process_t * proc, signal_t * sig) {
 	if (!sig->handler) {
 		kprintf("[debug] Process %d killed by unhandled signal.\n", proc->id);
 		kprintf("Current process = %d\n", current_process->id);
-		kexit(127 + sig);
+		kexit(127 + sig->signum);
 		kprintf("Still here.\n");
 		return;
 	}
@@ -62,7 +62,7 @@ void return_from_signal_handler() {
 		rets_from_sig = list_create();
 	}
 
-	list_insert(rets_from_sig, current_process);
+	list_insert(rets_from_sig, (process_t *)current_process);
 
 	switch_next();
 }
@@ -75,7 +75,7 @@ void fix_signal_stacks() {
 			p->thread.esp = p->signal_state.esp;
 			p->thread.eip = p->signal_state.eip;
 			p->thread.ebp = p->signal_state.ebp;
-			memcpy(p->image.stack - KERNEL_STACK_SIZE, p->signal_kstack, KERNEL_STACK_SIZE);
+			memcpy((void *)(p->image.stack - KERNEL_STACK_SIZE), p->signal_kstack, KERNEL_STACK_SIZE);
 			free(p->signal_kstack);
 			make_process_ready(p);
 			free(n);
