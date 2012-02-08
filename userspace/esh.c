@@ -187,6 +187,7 @@ int main(int argc, char ** argv) {
 			if (!nowait) {
 				child = f;
 				last_ret = syscall_wait(f);
+				child = 0;
 			}
 			free(cmd);
 		}

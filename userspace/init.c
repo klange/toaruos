@@ -38,6 +38,7 @@ void start_terminal() {
 #endif
 	char * tokens[] = {
 		"/bin/terminal",
+		"-f",
 		NULL
 	};
 	int i = execve(tokens[0], tokens, NULL);
