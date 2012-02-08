@@ -384,8 +384,7 @@ int main(int argc, char ** argv) {
 
 	flip();
 
-	int32_t stop = 100;
-	while (stop > 0) {
+	while (1) {
 		window_draw_line(&wina, rand() % 300, rand() % 300, rand() % 300, rand() % 300, rgb(rand() % 255,rand() % 255,rand() % 255));
 		window_draw_line(&winb, rand() % 300, rand() % 300, rand() % 300, rand() % 300, rgb(rand() % 255,rand() % 255,rand() % 255));
 		redraw_window(&wina);
@@ -393,17 +392,8 @@ int main(int argc, char ** argv) {
 		redraw_window(&root);
 		redraw_window(&panel);
 		flip();
-		stop--;
 	}
 
-	char * tokens[] = {
-		"/bin/terminal",
-#if FREETYPE
-		"-f",
-#endif
-		NULL
-	};
-	int i = execve(tokens[0], tokens, NULL);
 
 	return 0;
 }
