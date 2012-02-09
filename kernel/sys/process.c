@@ -176,7 +176,7 @@ process_t * spawn_init() {
 	init->finished = 0;
 	init->started = 1;
 	init->wait_queue = list_create();
-	init->shm_mappings = NULL;
+	init->shm_mappings = list_create();
 	init->signal_queue = list_create();
 
 	/* What the hey, let's also set the description on this one */
