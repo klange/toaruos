@@ -2,6 +2,7 @@ CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
 CFLAGS = -march=core2 -std=c99 -O3 -m32 -Wa,--32 -Xlinker --eh-frame-hdr
 CPPFLAGS = -march=core2 -O3 -m32 -Wa,--32
+EXTRAFLAGS = -g
 EXECUTABLES = $(patsubst %.c,%.o,$(wildcard lib/*.c)) $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
 
 BEG = ../util/mk-beg
@@ -29,50 +30,50 @@ clean:
 
 ../hdd/bin/freetype_test: freetype_test.c
 	@${BEG} "CC" "$< [freetype]"
-	@${CC} ${CFLAGS} -s ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [freetype]"
 
 ../hdd/bin/terminal: terminal.c lib/utf8_decode.o
 	@${BEG} "CC" "$< [freetype]"
-	@${CC} ${CFLAGS} -s ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} lib/utf8_decode.o ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} lib/utf8_decode.o ${ERRORS}
 	@${END} "CC" "$< [freetype]"
 
 ../hdd/bin/login: login.c lib/sha2.o
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -s -o $@ $< lib/sha2.o ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/sha2.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/compositor: compositor.c lib/graphics.o lib/list.o
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -s ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o ${FREETYPE_LIB} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/solver: solver.c lib/list.o
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -s -o $@ $< lib/list.o ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/list.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/donu%: donu%.c
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} -g -o $@ $< ${LIBM} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< ${LIBM} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/%: %.cpp
 	@${BEG} "CPP" "$<"
-	@${CPP} ${CPPFLAGS} -s -o $@ $< ${ERRORS}
+	@${CPP} ${CPPFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CPP" "$<"
 
 ../hdd/bin/ld: ld.c
 	@${BEG} "CC" "$< [-fPIC]"
-	@${CC} ${CFLAGS} -s -fPIC -o $@ $< ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -fPIC -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [-fPIC]"
 
 ../hdd/bin/%: %.c
 	@${BEG} "CC" "$<"
-	@${CC} ${CFLAGS} -s -o $@ $< ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
 %.o: %.c
 	@${BEG} "CC" "$< [lib]"
-	@${CC} ${CFLAGS} -c -s -o $@ $< ${ERRORS}
+	@${CC} ${CFLAGS} -c ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [lib]"
