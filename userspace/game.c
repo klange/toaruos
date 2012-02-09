@@ -138,9 +138,24 @@ uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
 	return rgb(red,gre,blu);
 }
 
+#define WINDOW_SIZE 224
+int out_of_bounds(int x, int y) {
+	if (x < graphics_width / 2 - WINDOW_SIZE)
+		return 1;
+	if (x > graphics_width / 2 + WINDOW_SIZE)
+		return 1;
+	if (y < graphics_height / 2 - WINDOW_SIZE)
+		return 1;
+	if (y > graphics_height / 2 + WINDOW_SIZE)
+		return 1;
+	return 0;
+}
+
 void draw_sprite(sprite_t * sprite, uint16_t x, uint16_t y) {
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+			if (out_of_bounds(x + _x, y + _y))
+				continue;
 			if (sprite->alpha) {
 				GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
 			} else {
