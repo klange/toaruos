@@ -33,13 +33,14 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 }
 
 void handle_signal(process_t * proc, signal_t * sig) {
-	kprintf("[signal] Need to process signal %d for process %d\n", sig->signum, proc->id);
+	if (proc->finished) {
+		return;
+	}
 
 	if (!sig->handler) {
-		kprintf("[debug] Process %d killed by unhandled signal.\n", proc->id);
-		kprintf("Current process = %d\n", current_process->id);
+		kprintf("[debug] Process %d killed by unhandled signal (%d).\n", proc->id, sig->signum);
 		kexit(128 + sig->signum);
-		kprintf("Still here.\n");
+		__builtin_unreachable();
 		return;
 	}
 
@@ -69,17 +70,25 @@ void return_from_signal_handler() {
 }
 
 void fix_signal_stacks() {
+	uint8_t redo_me = 0;
 	if (rets_from_sig) {
 		while (rets_from_sig->head) {
 			node_t * n = list_dequeue(rets_from_sig);
 			process_t * p = n->value;
+			free(n);
+			if (p == current_process) {
+				redo_me = 1;
+				continue;
+			}
 			p->thread.esp = p->signal_state.esp;
 			p->thread.eip = p->signal_state.eip;
 			p->thread.ebp = p->signal_state.ebp;
 			memcpy((void *)(p->image.stack - KERNEL_STACK_SIZE), p->signal_kstack, KERNEL_STACK_SIZE);
 			free(p->signal_kstack);
 			make_process_ready(p);
-			free(n);
 		}
+	}
+	if (redo_me) {
+		list_insert(rets_from_sig, (process_t *)current_process);
 	}
 }

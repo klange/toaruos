@@ -369,9 +369,16 @@ switch_next() {
 	ebp = current_process->thread.ebp;
 
 	/* Validate */
-	assert((eip > (uintptr_t)&code) && (eip < (uintptr_t)&end) && "Task switch return point is not within Kernel!");
+	if ((eip < (uintptr_t)&code) || (eip > (uintptr_t)&end)) {
+		kprintf("[warning] Skipping broken procress %d!\n", current_process->id);
+		switch_next();
+	}
 
-	if (!current_process->finished) {
+	if (current_process->finished) {
+		switch_next();
+	}
+
+	if (current_process->started) {
 		if (current_process->signal_queue->length > 0) {
 			current_process->signal_kstack  = malloc(KERNEL_STACK_SIZE);
 			current_process->signal_state.esp = current_process->thread.esp;
@@ -379,6 +386,8 @@ switch_next() {
 			current_process->signal_state.ebp = current_process->thread.ebp;
 			memcpy(current_process->signal_kstack, (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
 		}
+	} else {
+		current_process->started = 1;
 	}
 
 	/* Set the page directory */

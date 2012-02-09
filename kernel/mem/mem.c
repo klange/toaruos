@@ -310,22 +310,21 @@ page_fault(
 		return_from_signal_handler();
 	}
 
-#if 0
+#if 1
 	int present  = !(r->err_code & 0x1);
 	int rw       = r->err_code & 0x2;
 	int user     = r->err_code & 0x4;
 	int reserved = r->err_code & 0x8;
 	int id       = r->err_code & 0x10;
 
-	kprintf("\033[1;37;41m");
-	kprintf("Segmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d\n", present, rw, user, reserved, id, faulting_address, r->eip, getpid());
-	HALT_AND_CATCH_FIRE("Segmentation fault", r);
-#else
+	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d \033[0m\n",
+			present, rw, user, reserved, id, faulting_address, r->eip, getpid());
+#endif
+
 	signal_t * sig = malloc(sizeof(signal_t));
 	sig->handler = current_process->signals.functions[SIGSEGV];
 	sig->signum  = SIGSEGV;
 	handle_signal((process_t *)current_process, sig);
-#endif
 
 }
 

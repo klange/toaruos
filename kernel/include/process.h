@@ -75,7 +75,8 @@ typedef struct process {
 	fd_table_t    fds;               /* File descriptor table */
 	status_t      status;            /* Process status */
 	sig_table_t   signals;           /* Signal table */
-	uint8_t       finished;          /* Status indicator */
+	uint8_t       finished : 2;      /* Status indicator */
+	uint8_t       started  : 2;
 	struct regs * syscall_registers; /* Registers at interrupt */
 	list_t *      wait_queue;
 	list_t *      shm_mappings;      /* Shared memory chunk mappings */

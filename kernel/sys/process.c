@@ -174,6 +174,7 @@ process_t * spawn_init() {
 
 	/* Process is not finished */
 	init->finished = 0;
+	init->started = 1;
 	init->wait_queue = list_create();
 	init->shm_mappings = NULL;
 	init->signal_queue = list_create();
@@ -262,6 +263,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	/* Zero out the process status */
 	proc->status = 0;
 	proc->finished = 0;
+	proc->started = 0;
 	memset(proc->signals.functions, 0x00, sizeof(uintptr_t) * NUMSIGNALS);
 	proc->wait_queue = list_create();
 	proc->shm_mappings = list_create();
