@@ -310,7 +310,7 @@ page_fault(
 		return_from_signal_handler();
 	}
 
-#if 1
+#if 0
 	int present  = !(r->err_code & 0x1);
 	int rw       = r->err_code & 0x2;
 	int user     = r->err_code & 0x4;
@@ -324,7 +324,7 @@ page_fault(
 	signal_t * sig = malloc(sizeof(signal_t));
 	sig->handler = current_process->signals.functions[SIGSEGV];
 	sig->signum  = SIGSEGV;
-	handle_signal(current_process, sig);
+	handle_signal((process_t *)current_process, sig);
 #endif
 
 }

@@ -320,6 +320,55 @@ char *canonicalize_path(char *cwd, char *input) {
 }
 
 /**
+ * get_mount_point
+ *
+ */
+fs_node_t *get_mount_point(char * path, size_t path_depth) {
+	size_t depth;
+
+#if 0
+	tree_node_t * tnode = from;
+	foreach(node, tnode->children) {
+		tree_node_t * _node = (tree_node_t *)node->value;
+		shm_node_t *  snode = (shm_node_t *)_node->value;
+
+		if (!strcmp(snode->name, pch)) {
+			if (*save == '\0') {
+				return snode;
+			}
+			return _get_node(save, create, _node);
+		}
+	}
+#endif
+
+#if 0
+	for (depth = 0; depth < path_depth; ++depth) {
+		/* Search the active directory for the requested directory */
+		node_next = finddir_fs(node_ptr, path_offset);
+		free(node_ptr);
+		node_ptr = node_next;
+		if (!node_ptr) {
+			/* We failed to find the requested directory */
+			/* XXX: This is where we should be checking other file system mappings */
+			free((void *)path);
+			return NULL;
+		} else if (depth == path_depth - 1) {
+			/* We found the file and are done, open the node */
+			open_fs(node_ptr, 1, 0);
+			free((void *)path);
+			return node_ptr;
+		}
+		/* We are still searching... */
+		path_offset += strlen(path_offset) + 1;
+	}
+#endif
+
+	return fs_root;
+}
+
+
+
+/**
  * kopen: Open a file by name.
  *
  * Explore the file system tree to find the appropriate node for
@@ -379,12 +428,13 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 
 	/*
 	 * Dig through the (real) tree to find the file
-	 * XXX: Integrate VFS tree!
 	 */
 	uint32_t depth;
 	fs_node_t *node_ptr = malloc(sizeof(fs_node_t));
-	/* Set the active directory to the root */
-	memcpy(node_ptr, fs_root, sizeof(fs_node_t));
+	/* Find the mountpoint for this file */
+	fs_node_t *mount_point = get_mount_point(path, path_depth);
+	/* Set the active directory to the mountpoint */
+	memcpy(node_ptr, mount_point, sizeof(fs_node_t));
 	fs_node_t *node_next = NULL;
 	for (depth = 0; depth < path_depth; ++depth) {
 		/* Search the active directory for the requested directory */
@@ -393,7 +443,6 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 		node_ptr = node_next;
 		if (!node_ptr) {
 			/* We failed to find the requested directory */
-			/* XXX: This is where we should be checking other file system mappings */
 			free((void *)path);
 			return NULL;
 		} else if (depth == path_depth - 1) {

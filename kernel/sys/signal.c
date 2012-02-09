@@ -7,6 +7,7 @@
 #include <signal.h>
 
 void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
+	IRQ_OFF;
 	kprintf("[debug] Jumping to 0x%x with %d pushed and a stack at 0x%x\n", location, signum, stack);
 	asm volatile(
 			"mov %2, %%esp\n"
@@ -37,7 +38,7 @@ void handle_signal(process_t * proc, signal_t * sig) {
 	if (!sig->handler) {
 		kprintf("[debug] Process %d killed by unhandled signal.\n", proc->id);
 		kprintf("Current process = %d\n", current_process->id);
-		kexit(127 + sig->signum);
+		kexit(128 + sig->signum);
 		kprintf("Still here.\n");
 		return;
 	}

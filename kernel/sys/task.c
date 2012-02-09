@@ -441,6 +441,11 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
  */
 void task_exit(int retval) {
 	/* Free the image memory */
+	if (__builtin_expect(current_process->id == 0,0)) {
+		/* This is probably bad... */
+		switch_next();
+		return;
+	}
 	current_process->status   = retval;
 	current_process->finished = 1;
 	wakeup_queue(current_process->wait_queue);
