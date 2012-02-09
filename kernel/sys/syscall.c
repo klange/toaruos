@@ -443,6 +443,31 @@ static int sys_mkdir(char * path, uint32_t mode) {
 	return mkdir_fs(path, 0777);
 }
 
+/**
+ * share_fd: Make a file descriptor available to another process.
+ */
+static uintptr_t share_fd(int fd, int pid) {
+	if (fd >= (int)current_process->fds.length || fd < 0) {
+		return 0;
+	}
+	fs_node_t * fn = current_process->fds.entries[fd];
+	fn->shared_with = pid;
+	return (uintptr_t)fn;
+}
+
+/**
+ * get_fd: Retreive a file descriptor (by key == pointer to fs_node_t) from
+ *         another proces.
+ */
+static int get_fd(uintptr_t fn) {
+	fs_node_t * node = (fs_node_t *)node;
+	if (node->shared_with == current_process->id) {
+		return process_append_fd((process_t *)current_process, node);
+	} else {
+		return -1;
+	}
+}
+
 /*
  * System Call Internals
  */
@@ -488,6 +513,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&shm_release,		/* 36 */
 	(uintptr_t)&send_signal,
 	(uintptr_t)&sys_signal,
+	(uintptr_t)&share_fd,
+	(uintptr_t)&get_fd,				/* 40 */
 	0
 };
 uint32_t num_syscalls;

@@ -55,6 +55,7 @@ typedef struct fs_node {
 	mkdir_type_t mkdir;
 	struct fs_node *ptr;	// Used by mountpoints and symlinks.
 	uint32_t offset;
+	int32_t shared_with;
 } fs_node_t;
 
 struct dirent {
