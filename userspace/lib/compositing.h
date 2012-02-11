@@ -22,6 +22,7 @@ typedef struct {
 	uint16_t server_width;			/* Screen resolution, width */
 	uint16_t server_height;			/* Screen resolution, height */
 	uint8_t server_depth;			/* Native screen depth (in bits) */
+	uint32_t magic;
 
 } wins_server_global_t;
 
@@ -31,6 +32,11 @@ typedef struct {
 } wins_packet_t;
 
 #define WINS_PACKET(p) ((char *)((uintptr_t)p + sizeof(wins_packet_t)))
+
+#define WINS_SERVER_IDENTIFIER "sys.compositor"
+#define WINS_MAGIC 0xDECADE99
+
+extern wins_server_global_t * wins_globals;
 
 /* Commands */
 #define WC_NEWWINDOW	0x00 /* New Window */
