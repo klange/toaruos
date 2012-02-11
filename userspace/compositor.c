@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <assert.h>
 #include <sys/stat.h>
 
 #include <ft2build.h>
@@ -129,7 +130,7 @@ uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 window_t * init_window (process_windows_t * pw, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
 	static int _last_wid = 0;
 
-	window_t * window = malloc(sizeof(window));
+	window_t * window = malloc(sizeof(window_t));
 	if (!window) {
 		printf("[compositor] SEVERE: Could not malloc a window_t!");
 		return NULL;
@@ -187,6 +188,11 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
 			if (is_top(window, x, y)) {
+				assert(0 <= x);
+				assert(x < GFX_W);
+				assert(0 <= y);
+				assert(y < GFX_H);
+
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 			}
 		}
@@ -270,12 +276,10 @@ void sig_window_command (int sig) {
 }
 
 void window_set_point(window_t * window, uint16_t x, uint16_t y, uint32_t color) {
-#if 0
-	printf("window_set_point(0x%x, %d, %d) = 0x%x\n", window->buffer, x, y, color);
-	if (!window) {
-		return;
-	}
-#endif
+	assert(0 <= x);
+	assert(x < GFX_W);
+	assert(0 <= y);
+	assert(y < GFX_H);
 
 	((uint32_t *)window->buffer)[DIRECT_OFFSET(x,y)] = color;
 }
@@ -581,6 +585,7 @@ void init_base_windows () {
 	pw->command_pipe = syscall_mkpipe(); /* nothing in here */
 	pw->event_pipe = syscall_mkpipe(); /* nothing in here */
 	pw->windows = list_create();
+	list_insert(process_list, pw);
 
 	/* Create the background window */
 	window_t * root = init_window(pw, 0, 0, graphics_width, graphics_height, 0);
@@ -640,6 +645,7 @@ int main(int argc, char ** argv) {
 	init_base_windows();
 
 	process_windows_t * rootpw = get_process_windows(getpid());
+	assert(rootpw);
 
 #define WINA_WIDTH  300
 #define WINA_HEIGHT 300
