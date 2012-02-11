@@ -9,21 +9,25 @@
 #include <stdint.h>
 
 typedef struct {
+	/* Control flow structures */
 	volatile uint8_t lock;			/* Spinlock byte */
 
 	/* LOCK REQUIRED REGION */
 	volatile uint8_t client_done;	/* Client has finished work */
 	volatile uint8_t server_done;	/* Server has finished work */
+
+	/* The actual data passed back and forth */
 	pid_t client_pid;				/* Actively communicating client process */
 	uintptr_t event_pipe;			/* Client event pipe (ie, mouse, keyboard) */
 	uintptr_t command_pipe;			/* Client command pipe (ie, resize) */
 	/* END LOCK REQUIRED REGION */
 
+	/* Data about the system */
 	uint16_t server_width;			/* Screen resolution, width */
 	uint16_t server_height;			/* Screen resolution, height */
 	uint8_t server_depth;			/* Native screen depth (in bits) */
-	uint32_t magic;
 
+	uint32_t magic;
 } wins_server_global_t;
 
 typedef struct {
@@ -80,6 +84,9 @@ typedef struct {
 #define MOUSE_BUTTON_LEFT		0x01
 #define MOUSE_BUTTON_RIGHT		0x02
 #define MOUSE_BUTTON_MIDDLE		0x04
+
+
+#define SHMKEY(buf,sz,window) snprintf(buf, sz, "%s.%d.%d.%d", WINS_SERVER_IDENTIFIER, window->owner->pid, window->wid, window->bufid);
 
 
 #endif

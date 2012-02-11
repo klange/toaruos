@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -16,15 +17,28 @@
 
 #include "lib/list.h"
 #include "lib/graphics.h"
+#include "lib/compositing.h"
+
+//DEFN_SYSCALL0(getpid, 9)
+//DEFN_SYSCALL0(mkpipe, 21)
+DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL1(shm_release, 36, char *)
+DEFN_SYSCALL2(sys_signal, 38, int, int)
+DEFN_SYSCALL2(share_fd, 39, int, int)
 
 /* For terminal, not for us */
 #define FREETYPE 1
 
 sprite_t * sprites[128];
 
+#define WIN_D 32
+#define WIN_B WIN_D / 8
+
+typedef struct process_windows process_windows_t;
+
 typedef struct {
 	uint32_t wid; /* Window identifier */
-	uint32_t owner; /* Owning process */
+	process_windows_t * owner; /* Owning process (back ptr) */
 
 	uint16_t width;  /* Buffer width in pixels */
 	uint16_t height; /* Buffer height in pixels */
@@ -34,12 +48,52 @@ typedef struct {
 	uint16_t z; /* Stack order */
 
 	void * buffer; /* Window buffer */
+	uint16_t bufid; /* We occasionally replace the buffer; each is uniquely-indexed */
 } window_t;
+
+struct process_windows {
+	uint32_t pid;
+
+	int event_pipe;  /* Pipe to send events through */
+	int command_pipe; /* Pipe on which we receive commands */
+
+	list_t * windows;
+};
+
+list_t * process_list;
+
+process_windows_t * get_process_windows (uint32_t pid) {
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+		if (pw->pid == pid) {
+			return pw;
+		}
+	}
+
+	return NULL;
+}
+
+window_t * get_window (uint32_t wid) {
+	foreach (n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+		foreach (m, pw->windows) {
+			window_t * w = (window_t *)m->value;
+			if (w->wid == wid) {
+				return w;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+void init_process_list () {
+	process_list = list_create();
+}
 
 #define TO_WINDOW_OFFSET(x,y) (((x) - window->x) + ((y) - window->y) * window->width)
 #define DIRECT_OFFSET(x,y) ((x) + (y) * window->width)
 
-list_t * window_list;
 
 int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
@@ -56,22 +110,79 @@ uint8_t is_between(int32_t lo, int32_t hi, int32_t val) {
 
 uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 	uint16_t index = window->z;
-	foreach(node, window_list) {
-		window_t * win = (window_t *)node->value;
-		if (win == window)  continue;
-		if (win->z < index) continue;
-		if (is_between(win->x, win->x + win->width, x) && is_between(win->y, win->y + win->height, y)) {
-			return 0;
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+
+		foreach(node, pw->windows) {
+			window_t * win = (window_t *)node->value;
+			if (win == window)  continue;
+			if (win->z < index) continue;
+			if (is_between(win->x, win->x + win->width, x) && is_between(win->y, win->y + win->height, y)) {
+				return 0;
+			}
 		}
 	}
 	return 1;
 }
 
-void redraw_window(window_t *window) {
-	uint16_t _lo_x = max(window->x, 0);
-	uint16_t _hi_x = min(window->x + window->width, graphics_width);
-	uint16_t _lo_y = max(window->y, 0);
-	uint16_t _hi_y = min(window->y + window->height, graphics_height);
+
+window_t * init_window (process_windows_t * pw, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
+	static int _last_wid = 0;
+
+	window_t * window = malloc(sizeof(window));
+	if (!window) {
+		printf("[compositor] SEVERE: Could not malloc a window_t!");
+		return NULL;
+	}
+
+	window->owner = pw;
+	window->wid = _last_wid++;
+	window->bufid = 0;
+
+	window->width  = width;
+	window->height = height;
+	window->x = x;
+	window->y = y;
+	window->z = index;
+
+	char key[256];
+	SHMKEY(key, 256, window);
+	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
+	if (!window->buffer) {
+		printf("[compositor] SEVERE: Could not create a buffer for a new window for pid %d!", pw->pid);
+		free(window);
+		return NULL;
+	}
+
+	list_insert(pw->windows, window);
+
+	return window;
+}
+
+void resize_window (window_t * window, uint16_t width, uint16_t height) {
+	window->width = width;
+	window->height = height;
+
+	/* Release the old buffer */
+	char key[256];
+	SHMKEY(key, 256, window);
+	syscall_shm_release(key);
+
+	/* Create the new one */
+	window->bufid++;
+	SHMKEY(key, 256, window);
+	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
+}
+
+void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
+	if (!window) {
+		return;
+	}
+
+	uint16_t _lo_x = max(window->x + x, 0);
+	uint16_t _hi_x = min(window->x + width, graphics_width);
+	uint16_t _lo_y = max(window->y + y, 0);
+	uint16_t _hi_y = min(window->y + height, graphics_height);
 
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
@@ -82,17 +193,90 @@ void redraw_window(window_t *window) {
 	}
 }
 
-void init_window(window_t *window, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
-	window->width  = width;
-	window->height = height;
-	window->x = x;
-	window->y = y;
-	window->z = index;
-	/* XXX */
-	window->buffer = (void *)malloc(sizeof(uint32_t) * window->width * window->height);
+void redraw_full_window (window_t * window) {
+	if (!window) {
+		return;
+	}
+
+	redraw_window(window, (uint16_t)0, (uint16_t)0, window->width, window->height);
+}
+
+void destroy_window (window_t * window) {
+	/* Free the window buffer */
+	char key[256];
+	SHMKEY(key, 256, window);
+	syscall_shm_release(key);
+
+	/* Now, kill the object itself */
+	process_windows_t * pw = window->owner;
+
+	node_t * n = list_find(pw->windows, window);
+	list_delete(pw->windows, n);
+	free(n);
+
+#if 0
+	/* Does the owner have any windows themselves? */
+	if (pw->windows->length == 0) {
+		delete_process(pw);
+	}
+#endif
+}
+
+void sig_window_command (int sig) {
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+
+		/* Are there any messages in this process's command pipe? */
+		struct stat buf;
+		fstat(pw->command_pipe, &buf);
+		while (buf.st_size > 0) {
+			w_window_t wwt;
+			wins_packet_t header;
+			read(pw->command_pipe, &header, sizeof(wins_packet_t));
+
+			switch (header.command_type) {
+				case WC_NEWWINDOW:
+					/* No packet */
+					read(pw->command_pipe, &wwt, sizeof(w_window_t));
+					init_window(pw, wwt.left, wwt.top, wwt.width, wwt.height, 0); //XXX: an actual index
+					break;
+
+				case WC_RESIZE:
+					read(pw->command_pipe, &wwt, sizeof(w_window_t));
+					resize_window(get_window(wwt.wid), /*wwt.left, wwt.top,*/ wwt.width, wwt.height);
+					break;
+
+				case WC_DESTROY:
+					read(pw->command_pipe, &wwt, sizeof(w_window_t));
+					destroy_window(get_window(wwt.wid));
+					break;
+
+				case WC_DAMAGE:
+					read(pw->command_pipe, &wwt, sizeof(w_window_t));
+					redraw_window(get_window(wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
+					break;
+
+				default:
+					printf("[compositor] WARN: Unknown command type %d...\n");
+					void * nullbuf = malloc(header.packet_size);
+					read(pw->command_pipe, nullbuf, header.packet_size);
+					free(nullbuf);
+					break;
+			}
+
+			fstat(pw->command_pipe, &buf);
+		}
+	}
 }
 
 void window_set_point(window_t * window, uint16_t x, uint16_t y, uint32_t color) {
+#if 0
+	printf("window_set_point(0x%x, %d, %d) = 0x%x\n", window->buffer, x, y, color);
+	if (!window) {
+		return;
+	}
+#endif
+
 	((uint32_t *)window->buffer)[DIRECT_OFFSET(x,y)] = color;
 }
 
@@ -118,8 +302,11 @@ void window_draw_line(window_t * window, uint16_t x0, uint16_t x1, uint16_t y0, 
 }
 
 void window_draw_sprite(window_t * window, sprite_t * sprite, uint16_t x, uint16_t y) {
-	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+	int x_hi = min(sprite->width, (graphics_width - x));
+	int y_hi = min(sprite->height, (graphics_height - y));
+
+	for (uint16_t _y = 0; _y < y_hi; ++_y) {
+		for (uint16_t _x = 0; _x < x_hi; ++_x) {
 			if (sprite->alpha) {
 				/* Technically, unsupported! */
 				window_set_point(window, x + _x, y + _y, SPRITE(sprite, _x, _y));
@@ -131,7 +318,6 @@ void window_draw_sprite(window_t * window, sprite_t * sprite, uint16_t x, uint16
 		}
 	}
 }
-
 
 void window_fill(window_t *window, uint32_t color) {
 	for (uint16_t i = 0; i < window->height; ++i) {
@@ -147,6 +333,84 @@ void waitabit() {
 		// Do nothing.
 	}
 }
+
+
+/* Request page system */
+
+
+wins_server_global_t * _request_page;
+
+void init_request_system () {
+	_request_page = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, sizeof(wins_server_global_t));
+	if (!_request_page) {
+		printf("Compositor could not get a shm block for its request page! Bailing...");
+		exit(-1);
+	}
+
+	_request_page->lock         = 0;
+	_request_page->server_done  = 0;
+	_request_page->client_done  = 0;
+	_request_page->client_pid   = 0;
+	_request_page->event_pipe   = 0;
+	_request_page->command_pipe = 0;
+	_request_page->magic = WINS_MAGIC;
+}
+
+void process_request () {
+	if (_request_page->client_done) {
+		process_windows_t * pw = malloc(sizeof(process_windows_t));
+		pw->pid = _request_page->client_pid;
+		pw->event_pipe = syscall_mkpipe();
+		pw->command_pipe = syscall_mkpipe();
+		pw->windows = list_create();
+
+		_request_page->event_pipe = syscall_share_fd(pw->event_pipe, pw->pid);
+		_request_page->command_pipe = syscall_share_fd(pw->command_pipe, pw->pid);
+		_request_page->client_pid = 0;
+		_request_page->server_done = 1;
+	}
+}
+
+void delete_process (process_windows_t * pw) {
+	list_destroy(pw->windows);
+	list_free(pw->windows);
+	free(pw->windows);
+
+	close(pw->command_pipe);
+	close(pw->event_pipe);
+
+	node_t * n = list_find(process_list, pw);
+	list_delete(process_list, n);
+	free(n);
+	free(pw);
+}
+
+
+/* Signals */
+
+
+void init_signal_handlers () {
+	syscall_sys_signal(WC_NEWWINDOW, (uintptr_t)sig_window_command);
+	syscall_sys_signal(WC_RESIZE,    (uintptr_t)sig_window_command);
+	syscall_sys_signal(WC_DESTROY,   (uintptr_t)sig_window_command);
+	syscall_sys_signal(WC_DAMAGE,    (uintptr_t)sig_window_command);
+
+#if 0
+	syscall_sys_signal(WE_KEYDOWN,    (uintptr_t)sig_event);
+	syscall_sys_signal(WE_KEYUP,      (uintptr_t)sig_event);
+	syscall_sys_signal(WE_MOUSEMOVE,  (uintptr_t)sig_event);
+	syscall_sys_signal(WE_MOUSEENTER, (uintptr_t)sig_event);
+	syscall_sys_signal(WE_MOUSELEAVE, (uintptr_t)sig_event);
+	syscall_sys_signal(WE_MOUSECLICK, (uintptr_t)sig_event);
+	syscall_sys_signal(WE_MOUSEUP,    (uintptr_t)sig_event);
+	syscall_sys_signal(WE_NEWWINDOW,  (uintptr_t)sig_event);
+	syscall_sys_signal(WE_RESIZED,    (uintptr_t)sig_event);
+#endif
+}
+
+
+/* Sprite stuff */
+
 
 sprite_t alpha_tmp;
 
@@ -237,7 +501,9 @@ static void test() {
 }
 
 void run_startup_item(startup_item * item) {
+#if 0 // No printing!
 	printf("[compositor] Running startup item: %s\n", item->name);
+#endif
 	item->func();
 	progress += item->time;
 }
@@ -309,10 +575,41 @@ void _load_wallpaper() {
 	init_sprite(1, "/usr/share/wallpaper.bmp", NULL);
 }
 
+void init_base_windows () {
+	process_windows_t * pw = malloc(sizeof(process_windows_t));
+	pw->pid = getpid();
+	pw->command_pipe = syscall_mkpipe(); /* nothing in here */
+	pw->event_pipe = syscall_mkpipe(); /* nothing in here */
+	pw->windows = list_create();
+
+	/* Create the background window */
+	window_t * root = init_window(pw, 0, 0, graphics_width, graphics_height, 0);
+	window_draw_sprite(root, sprites[1], 0, 0);
+	redraw_full_window(root);
+
+	/* Create the panel */
+	window_t * panel = init_window(pw, 0, 0, graphics_width, 24, -1);
+	window_fill(panel, rgb(0,120,230));
+	init_sprite(2, "/usr/share/panel.bmp", NULL);
+	for (uint32_t i = 0; i < graphics_width; i += sprites[2]->width) {
+		window_draw_sprite(panel, sprites[2], i, 0);
+	}
+	redraw_full_window(panel);
+}
+
 int main(int argc, char ** argv) {
 
 	/* Initialize graphics setup */
 	init_graphics_double_buffer();
+
+	/* Initialize the client request system */
+	init_request_system();
+
+	/* Initialize process list */
+	init_process_list();
+
+	/* Initialize signal handlers */
+	init_signal_handlers();
 
 	/* Load sprites */
 	init_sprite(0, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
@@ -339,71 +636,39 @@ int main(int argc, char ** argv) {
 	init_graphics();
 #endif
 
-	window_list = list_create();
+	/* Create the root and panel */
+	init_base_windows();
 
-	window_t wina, winb, root, panel;
-
-	init_window(&root, 0, 0, graphics_width, graphics_height, 0);
-	list_insert(window_list, &root);
-#if 0
-	uint32_t odd = 0;
-	uint32_t black = rgb(0,0,0);
-	uint32_t white = rgb(255,255,255);
-	for (uint16_t j = 0; j < root.height; ++j) {
-		for (uint16_t i = 0; i < root.width; ++i) {
-			odd++;
-			if ((odd + j) % 2) {
-				window_set_point(&root, i, j, black);
-			} else {
-				window_set_point(&root, i, j, white);
-				
-			}
-		}
-	}
-#endif
-	window_draw_sprite(&root, sprites[1], 0, 0);
-
-	init_window(&panel, 0, 0, graphics_width, 24, -1);
-	list_insert(window_list, &panel);
-	window_fill(&panel, rgb(0,120,230));
-	init_sprite(2, "/usr/share/panel.bmp", NULL);
-	for (uint32_t i = 0; i < graphics_width; i += sprites[2]->width) {
-		window_draw_sprite(&panel, sprites[2], i, 0);
-	}
+	process_windows_t * rootpw = get_process_windows(getpid());
 
 #define WINA_WIDTH  300
 #define WINA_HEIGHT 300
-	init_window(&wina, 10, 10, WINA_WIDTH, WINA_HEIGHT, 1);
-	list_insert(window_list, &wina);
-	window_fill(&wina, rgb(0,255,0));
+	window_t * wina = init_window(rootpw, 10, 10, WINA_WIDTH, WINA_HEIGHT, 1);
+	window_fill(wina, rgb(0,255,0));
 
 #define WINB_WIDTH  700
 #define WINB_HEIGHT 700
-	init_window(&winb, 120, 120, WINB_WIDTH, WINB_HEIGHT, 2);
-	list_insert(window_list, &winb);
-	window_fill(&winb, rgb(0,0,255));
+	window_t * winb = init_window(rootpw, 120, 120, WINB_WIDTH, WINB_HEIGHT, 2);
+	window_fill(winb, rgb(0,0,255));
 
-	redraw_window(&root); /* We only need to redraw root if things move around */
-	redraw_window(&panel);
-	redraw_window(&wina);
-	redraw_window(&winb);
+	redraw_full_window(wina);
+	redraw_full_window(winb);
 
 #if 0
 	flip();
 #endif
 
 	while (1) {
-		window_draw_line(&wina, rand() % WINA_WIDTH, rand() % WINA_WIDTH, rand() % WINA_HEIGHT, rand() % WINA_HEIGHT, rgb(rand() % 255,rand() % 255,rand() % 255));
-		window_draw_line(&winb, rand() % WINB_WIDTH, rand() % WINB_WIDTH, rand() % WINB_HEIGHT, rand() % WINB_HEIGHT, rgb(rand() % 255,rand() % 255,rand() % 255));
-		redraw_window(&wina);
-		redraw_window(&winb);
+		window_draw_line(wina, rand() % WINA_WIDTH, rand() % WINA_WIDTH, rand() % WINA_HEIGHT, rand() % WINA_HEIGHT, rgb(rand() % 255,rand() % 255,rand() % 255));
+		window_draw_line(winb, rand() % WINB_WIDTH, rand() % WINB_WIDTH, rand() % WINB_HEIGHT, rand() % WINB_HEIGHT, rgb(rand() % 255,rand() % 255,rand() % 255));
+		redraw_full_window(wina);
+		redraw_full_window(winb);
 #if 0
 		redraw_window(&root);
 		redraw_window(&panel);
 		flip();
 #endif
 	}
-
 
 	return 0;
 }

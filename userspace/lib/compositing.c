@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+
 #include "compositing.h"
 
 #ifndef syscall_shm_obtain
@@ -35,7 +36,7 @@ static struct {
 } wins_status;
 
 int wins_connect() {
-	wins_globals = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, sizeof(wins_server_global_t));
+	wins_globals = (volatile wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, sizeof(wins_server_global_t));
 
 	/* Verify magic */
 	if (wins_globals->magic != WINS_MAGIC) {
@@ -64,6 +65,8 @@ int wins_connect() {
 	wins_status.command_pipe = syscall_get_fd(tmp);
 
 	/* Reset client status for next client */
+	wins_globals->event_pipe = 0;
+	wins_globals->command_pipe = 0;
 	wins_globals->client_done = 0;
 
 	/* Done with lock */
