@@ -101,7 +101,9 @@ static shm_chunk_t * create_chunk (shm_node_t * parent, size_t size) {
 		uint32_t index = first_frame();
 		set_frame(index * 0x1000);
 		chunk->frames[i] = index;
-//		kprintf("Using frame 0x%x for chunk[%d] (name=%s)\n", index, i, parent->name);
+#if 0
+		kprintf("Using frame #%d for chunk[%d] (name=%s)\n", index, i, parent->name);
+#endif
 	}
 
 	return chunk;
@@ -113,7 +115,7 @@ static int release_chunk (shm_chunk_t * chunk) {
 
 		/* Does the chunk need to be freed? */
 		if (chunk->ref_count < 1) {
-//			kprintf("[kernel] [shm] Freeing chunk with name %s\n", chunk->parent->name);
+			kprintf("[shm] Freeing chunk with name %s\n", chunk->parent->name);
 
 			/* First, free the frames used by this chunk */
 			for (uint32_t i = 0; i < chunk->num_frames; i++) {
@@ -135,19 +137,18 @@ static int release_chunk (shm_chunk_t * chunk) {
 
 /* Mapping and Unmapping */
 
-static uintptr_t proc_sbrk(int size, process_t * proc) {
-	uintptr_t ret = proc->image.heap;
-	uintptr_t i_ret = ret;
-	while (ret % 0x1000) {
-		ret++;
+static uintptr_t proc_sbrk(uint32_t num_pages, process_t * proc) {
+	uintptr_t initial = proc->image.shm_heap;
+	assert(!(initial & 0xFFF) && "shm_heap not page-aligned!");
+
+	if (initial % 0x1000) {
+		initial += 0x1000 - (initial % 0x1000);
+		proc->image.shm_heap = initial;
 	}
-	proc->image.heap += (ret - i_ret) + size;
-	while (proc->image.heap > proc->image.heap_actual) {
-		proc->image.heap_actual += 0x1000;
-		assert(proc->image.heap_actual % 0x1000 == 0);
-		alloc_frame(get_page(proc->image.heap_actual, 1, current_directory), 0, 1);
-	}
-	return ret;
+	proc->image.shm_heap += num_pages * 0x1000;
+	assert(!(proc->image.shm_heap & 0xFFF) && "math is wrong, dumbass");
+
+	return initial;
 }
 
 static void * map_in (shm_chunk_t * chunk, process_t * proc) {
@@ -164,12 +165,16 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 		uintptr_t new_vpage = proc_sbrk(1, proc);
 		assert(new_vpage % 0x1000 == 0);
 
-		page_t * page = get_page(new_vpage, 0, proc->thread.page_directory);
+		page_t * page = get_page(new_vpage, 1, proc->thread.page_directory);
 		assert(page && "Page not allocated by sys_sbrk?");
 
+		alloc_frame(page, 0, 1);
 		page->frame = chunk->frames[i];
 		mapping->vaddrs[i] = new_vpage;
-//		kprintf("[kernel] [shm] mapping vaddr 0x%x --> %x\n", new_vpage, page->frame);
+
+#if 0
+			kprintf("[kernel] [shm] mapping vaddr 0x%x --> #%d\n", new_vpage, page->frame);
+#endif
 	}
 
 	list_insert(proc->shm_mappings, mapping);
@@ -182,6 +187,7 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 
 
 void * shm_obtain (char * path, size_t size) {
+	validate(path);
 	spin_lock(&bsl);
 	process_t * proc = (process_t *)current_process;
 
@@ -279,3 +285,50 @@ void shm_release_all (process_t * proc) {
 
 	spin_unlock(&bsl);
 }
+
+
+/* XXX: oh god don't use this */
+
+#if 0
+void shm_debug_frame (uintptr_t vaddr) {
+	uintptr_t vframe = vaddr / 0x1000;
+	uintptr_t pframe, paddr;
+
+	kprintf("[kernel] Inspecting user page 0x%x\n", vframe * 0x1000);
+
+	uintptr_t table_index = vframe / 1024;
+
+	if (!current_directory->tables[table_index]) {
+		kprintf("[kernel] Page does not exist!\n");
+		return;
+	} else {
+
+		// Where is the vaddr pointing to?
+		page_t * page = &current_directory->tables[table_index]->pages[vframe % 1024];
+		pframe = page->frame;
+		paddr = pframe * 0x1000;
+
+		kprintf("[kernel] Refers to physical frame #%d (present=%d rw=%d user=%d accessed=%d dirty=%d)\n", page->frame, page->present, page->rw, page->user, page->accessed, page->dirty);
+
+#if 0
+		// Map the page into kernel memory. Oh god.
+		assert((heap_end % 0x1000 == 0) && "Kernel heap not page-aligned!");
+
+		uintptr_t address = heap_end;
+		heap_end += 0x1000;
+		page_t * kpage = get_page(address, 1, kernel_directory);
+		kpage->frame = pframe;
+		alloc_frame(kpage, 0, 1);
+#endif
+
+		// Read it out...
+#if 0
+		kprintf("[kernel] Data in frame: ");
+		for (int i = 0; i < 0x1000; i++) {
+			kprintf("%c", ((char *)vaddr)[i]);
+		}
+		kprintf("\n");
+#endif
+	}
+}
+#endif

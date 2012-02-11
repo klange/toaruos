@@ -368,3 +368,5 @@ typedef struct {
 void handle_signal(process_t *, signal_t *);
 
 #endif
+
+void validate(void * ptr);

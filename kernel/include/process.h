@@ -43,6 +43,7 @@ typedef struct image {
 	uintptr_t stack;       /* Process kernel stack */
 	uintptr_t user_stack;  /* User stack */
 	uintptr_t start;
+	uintptr_t shm_heap;
 } image_t;
 
 /* Resizable descriptor table */

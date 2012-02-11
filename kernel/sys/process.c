@@ -171,6 +171,7 @@ process_t * spawn_init() {
 	init->image.stack       = initial_esp + 1;
 	init->image.user_stack  = 0;
 	init->image.size        = 0;
+	init->image.shm_heap    = 0x20000000; /* Yeah, a bit of a hack. */
 
 	/* Process is not finished */
 	init->finished = 0;
@@ -242,6 +243,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->image.size        = parent->image.size;
 	proc->image.stack       = kvmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
 	proc->image.user_stack  = parent->image.user_stack;
+	proc->image.shm_heap    = 0x20000000; /* Yeah, a bit of a hack. */
 
 	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
 
