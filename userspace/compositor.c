@@ -321,10 +321,12 @@ int main(int argc, char ** argv) {
 	/* Count startup items */
 	startup_items = list_create();
 	add_startup_item("Initializing FreeType", _init_freetype, 1);
+#if 0
 	add_startup_item("Loading font: Deja Vu Sans", _load_dejavu, 2);
 	add_startup_item("Loading font: Deja Vu Sans Bold", _load_dejavubold, 2);
 	add_startup_item("Loading font: Deja Vu Sans Oblique", _load_dejavuitalic, 2);
 	add_startup_item("Loading font: Deja Vu Sans Bold+Oblique", _load_dejavubolditalic, 2);
+#endif
 	add_startup_item("Loading wallpaper (/usr/share/wallpaper.bmp)", _load_wallpaper, 4);
 
 	foreach(node, startup_items) {
@@ -332,7 +334,7 @@ int main(int argc, char ** argv) {
 		display();
 	}
 
-#if 0
+#if 1
 	/* Reinitialize for single buffering */
 	init_graphics();
 #endif
@@ -369,11 +371,15 @@ int main(int argc, char ** argv) {
 		window_draw_sprite(&panel, sprites[2], i, 0);
 	}
 
-	init_window(&wina, 10, 10, 300, 300, 1);
+#define WINA_WIDTH  300
+#define WINA_HEIGHT 300
+	init_window(&wina, 10, 10, WINA_WIDTH, WINA_HEIGHT, 1);
 	list_insert(window_list, &wina);
 	window_fill(&wina, rgb(0,255,0));
 
-	init_window(&winb, 120, 120, 300, 300, 2);
+#define WINB_WIDTH  700
+#define WINB_HEIGHT 700
+	init_window(&winb, 120, 120, WINB_WIDTH, WINB_HEIGHT, 2);
 	list_insert(window_list, &winb);
 	window_fill(&winb, rgb(0,0,255));
 
@@ -382,16 +388,20 @@ int main(int argc, char ** argv) {
 	redraw_window(&wina);
 	redraw_window(&winb);
 
+#if 0
 	flip();
+#endif
 
 	while (1) {
-		window_draw_line(&wina, rand() % 300, rand() % 300, rand() % 300, rand() % 300, rgb(rand() % 255,rand() % 255,rand() % 255));
-		window_draw_line(&winb, rand() % 300, rand() % 300, rand() % 300, rand() % 300, rgb(rand() % 255,rand() % 255,rand() % 255));
+		window_draw_line(&wina, rand() % WINA_WIDTH, rand() % WINA_WIDTH, rand() % WINA_HEIGHT, rand() % WINA_HEIGHT, rgb(rand() % 255,rand() % 255,rand() % 255));
+		window_draw_line(&winb, rand() % WINB_WIDTH, rand() % WINB_WIDTH, rand() % WINB_HEIGHT, rand() % WINB_HEIGHT, rgb(rand() % 255,rand() % 255,rand() % 255));
 		redraw_window(&wina);
 		redraw_window(&winb);
+#if 0
 		redraw_window(&root);
 		redraw_window(&panel);
 		flip();
+#endif
 	}
 
 
