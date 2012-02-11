@@ -6,6 +6,7 @@
 #include <syscall.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "compositing.h"
 
 #ifndef syscall_shm_obtain
@@ -21,10 +22,10 @@ DEFN_SYSCALL2(share_fd, 39, int, int)
 DEFN_SYSCALL1(get_fd, 40, unsigned int)
 #endif
 
-#define LOCK(lock) while (__sync_lock_test_and_set((lock), 0x01));
-#define UNLOCK(lock) __sync_lock_release((lock));
+#define LOCK(lock) while (__sync_lock_test_and_set(&lock, 0x01));
+#define UNLOCK(lock) __sync_lock_release(&lock);
 
-volatile wins_server_globals_t * wins_globals;
+volatile wins_server_global_t * wins_globals;
 
 /* Internal status */
 static struct {
@@ -34,7 +35,7 @@ static struct {
 } wins_status;
 
 int wins_connect() {
-	wins_globals = syscall_shm_obtain(WINS_SERVER_IDENTIFER, sizeof(wins_server_global_t));
+	wins_globals = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, sizeof(wins_server_global_t));
 
 	/* Verify magic */
 	if (wins_globals->magic != WINS_MAGIC) {

@@ -36,7 +36,7 @@ typedef struct {
 #define WINS_SERVER_IDENTIFIER "sys.compositor"
 #define WINS_MAGIC 0xDECADE99
 
-extern wins_server_global_t * wins_globals;
+volatile wins_server_global_t * wins_globals;
 
 /* Commands */
 #define WC_NEWWINDOW	0x00 /* New Window */
