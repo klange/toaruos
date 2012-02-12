@@ -18,6 +18,7 @@
 #include "lib/list.h"
 #include "lib/graphics.h"
 #include "lib/compositing.h"
+#include "../kernel/include/signal.h"
 
 //DEFN_SYSCALL0(getpid, 9)
 //DEFN_SYSCALL0(mkpipe, 21)
@@ -26,13 +27,15 @@ DEFN_SYSCALL1(shm_release, 36, char *)
 DEFN_SYSCALL2(sys_signal, 38, int, int)
 DEFN_SYSCALL2(share_fd, 39, int, int)
 
+DECL_SYSCALL0(mkpipe);
+
 /* For terminal, not for us */
 #define FREETYPE 1
 
 sprite_t * sprites[128];
 
 #define WIN_D 32
-#define WIN_B WIN_D / 8
+#define WIN_B (WIN_D / 8)
 
 typedef struct process_windows process_windows_t;
 
@@ -129,7 +132,7 @@ uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 window_t * init_window (process_windows_t * pw, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
 	static int _last_wid = 0;
 
-	window_t * window = malloc(sizeof(window));
+	window_t * window = malloc(sizeof(window_t));
 	if (!window) {
 		printf("[compositor] SEVERE: Could not malloc a window_t!");
 		return NULL;
@@ -180,9 +183,9 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 	}
 
 	uint16_t _lo_x = max(window->x + x, 0);
-	uint16_t _hi_x = min(window->x + width, graphics_width);
+	uint16_t _hi_x = min(window->x + width - 1, graphics_width);
 	uint16_t _lo_y = max(window->y + y, 0);
-	uint16_t _hi_y = min(window->y + height, graphics_height);
+	uint16_t _hi_y = min(window->y + height - 1, graphics_height);
 
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
@@ -276,6 +279,8 @@ void window_set_point(window_t * window, uint16_t x, uint16_t y, uint32_t color)
 		return;
 	}
 #endif
+	if (x < 0 || y < 0 || x >= window->width || y >= window->height)
+		return;
 
 	((uint32_t *)window->buffer)[DIRECT_OFFSET(x,y)] = color;
 }
@@ -302,8 +307,8 @@ void window_draw_line(window_t * window, uint16_t x0, uint16_t x1, uint16_t y0, 
 }
 
 void window_draw_sprite(window_t * window, sprite_t * sprite, uint16_t x, uint16_t y) {
-	int x_hi = min(sprite->width, (graphics_width - x));
-	int y_hi = min(sprite->height, (graphics_height - y));
+	int x_hi = min(sprite->width, (window->width - x));
+	int y_hi = min(sprite->height, (window->height - y));
 
 	for (uint16_t _y = 0; _y < y_hi; ++_y) {
 		for (uint16_t _x = 0; _x < x_hi; ++_x) {
@@ -390,22 +395,10 @@ void delete_process (process_windows_t * pw) {
 
 
 void init_signal_handlers () {
-	syscall_sys_signal(WC_NEWWINDOW, (uintptr_t)sig_window_command);
-	syscall_sys_signal(WC_RESIZE,    (uintptr_t)sig_window_command);
-	syscall_sys_signal(WC_DESTROY,   (uintptr_t)sig_window_command);
-	syscall_sys_signal(WC_DAMAGE,    (uintptr_t)sig_window_command);
-
-#if 0
-	syscall_sys_signal(WE_KEYDOWN,    (uintptr_t)sig_event);
-	syscall_sys_signal(WE_KEYUP,      (uintptr_t)sig_event);
-	syscall_sys_signal(WE_MOUSEMOVE,  (uintptr_t)sig_event);
-	syscall_sys_signal(WE_MOUSEENTER, (uintptr_t)sig_event);
-	syscall_sys_signal(WE_MOUSELEAVE, (uintptr_t)sig_event);
-	syscall_sys_signal(WE_MOUSECLICK, (uintptr_t)sig_event);
-	syscall_sys_signal(WE_MOUSEUP,    (uintptr_t)sig_event);
-	syscall_sys_signal(WE_NEWWINDOW,  (uintptr_t)sig_event);
-	syscall_sys_signal(WE_RESIZED,    (uintptr_t)sig_event);
-#endif
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)sig_window_command);
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)sig_window_command);
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)sig_window_command);
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)sig_window_command);
 }
 
 
@@ -582,6 +575,9 @@ void init_base_windows () {
 	pw->event_pipe = syscall_mkpipe(); /* nothing in here */
 	pw->windows = list_create();
 
+	list_insert(process_list, pw);
+
+#if 1
 	/* Create the background window */
 	window_t * root = init_window(pw, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
@@ -595,6 +591,7 @@ void init_base_windows () {
 		window_draw_sprite(panel, sprites[2], i, 0);
 	}
 	redraw_full_window(panel);
+#endif
 }
 
 int main(int argc, char ** argv) {
@@ -640,6 +637,13 @@ int main(int argc, char ** argv) {
 	init_base_windows();
 
 	process_windows_t * rootpw = get_process_windows(getpid());
+
+	if (!rootpw) {
+		printf("? No root process window?\n");
+		while (1) {
+
+		}
+	}
 
 #define WINA_WIDTH  300
 #define WINA_HEIGHT 300
