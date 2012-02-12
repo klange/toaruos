@@ -47,6 +47,7 @@ void fix_signal_stacks();
 #define SIGWAITING	32 /* Herp */
 #define SIGDIAF		33 /* Die in a fire */
 #define SIGHATE		34 /* The sending process does not like you */
+#define SIGWINEVENT	35 /* Window server event */
 
 #define NUMSIGNALS	35
 
