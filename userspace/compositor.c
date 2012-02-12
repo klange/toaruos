@@ -463,15 +463,15 @@ void init_base_windows () {
 	pw->windows = list_create();
 	list_insert(process_list, pw);
 
-	list_insert(process_list, pw);
-
 #if 1
 	/* Create the background window */
+	printf("Creating root window...\n");
 	window_t * root = init_window(pw, _next_wid++, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
 	redraw_full_window(root);
 
 	/* Create the panel */
+	printf("Creating panel window...\n");
 	window_t * panel = init_window(pw, _next_wid++, 0, 0, graphics_width, 24, -1);
 	window_fill(panel, rgb(0,120,230));
 	init_sprite(2, "/usr/share/panel.bmp", NULL);
@@ -521,6 +521,8 @@ int main(int argc, char ** argv) {
 	init_graphics();
 #endif
 
+	printf("Loading up base windows.\n");
+
 	/* Create the root and panel */
 	init_base_windows();
 
@@ -531,7 +533,7 @@ int main(int argc, char ** argv) {
 	}
 
 	if (!fork()) {
-		char * args[] = {"/bin/drawlines", NULL};
+		char * args[] = {"/bin/drawlines", "100","100","300","300",NULL};
 		execve(args[0], args, NULL);
 	}
 	printf("waiting for clients...\n");

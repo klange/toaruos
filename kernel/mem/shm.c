@@ -187,6 +187,7 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 
 
 void * shm_obtain (char * path, size_t size) {
+	kprintf("[debug] shm_obtain(%s, 0x%x)\n", path, size);
 	validate(path);
 	spin_lock(&bsl);
 	process_t * proc = (process_t *)current_process;
@@ -194,6 +195,8 @@ void * shm_obtain (char * path, size_t size) {
 	shm_node_t * node = get_node(path, 1); // (if it exists, just get it)
 	assert(node && "shm_node_t not created by get_node");
 	shm_chunk_t * chunk = node->chunk;
+
+	kprintf("Have a node for path %s\n", path);
 
 	if (chunk == NULL) {
 		/* There's no chunk for that key -- we need to allocate it! */
@@ -208,12 +211,16 @@ void * shm_obtain (char * path, size_t size) {
 			return NULL;
 		}
 
+		kprintf("[shm] Created chunk for %s\n", path);
+
 		node->chunk = chunk;
 	} else {
 		/* New accessor! */
 		chunk->ref_count++;
 	}
 	void * vshm_start = map_in(chunk, proc);
+
+	kprintf("Mapping chunk to 0x%x\n", vshm_start);
 
 
 	spin_unlock(&bsl);

@@ -83,7 +83,9 @@ static int readdir(int fd, int index, struct dirent * entry) {
 static int write(int fd, char * ptr, int len) {
 	if ((fd == 1 && !current_process->fds.entries[fd]) ||
 		(fd == 2 && !current_process->fds.entries[fd])) {
-		serial_string(ptr);
+		for (uint32_t i = 0; i < (uint32_t)len; ++i) {
+			serial_send(ptr[i]);
+		}
 		return len;
 	}
 	if (fd >= (int)current_process->fds.length || fd < 0) {

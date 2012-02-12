@@ -27,7 +27,7 @@ DEFN_SYSCALL1(get_fd, 40, int)
 #define LOCK(lock) while (__sync_lock_test_and_set(&lock, 0x01));
 #define UNLOCK(lock) __sync_lock_release(&lock);
 
-#define WIN_B (wins_globals->server_depth / 8)
+#define WIN_B 4
 
 volatile wins_server_global_t * wins_globals = NULL;
 process_windows_t * process_windows = NULL;
@@ -47,6 +47,8 @@ static window_t * get_window (wid_t wid) {
 
 window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
 
+	printf("Creating window id %d (+%d,%d:%dx%d)\n", wid, x, y, width, height);
+
 	window_t * window = malloc(sizeof(window_t));
 	if (!window) {
 		fprintf(stderr, "[%d] [window] Could not malloc a window_t!", getpid());
@@ -63,9 +65,12 @@ window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y,
 	window->y = y;
 	window->z = index;
 
-	char key[256];
-	SHMKEY(key, 256, window);
+	char key[1024];
+	SHMKEY(key, 1024, window);
+
+	/* And now the fucked up stuff happens */
 	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
+
 	if (!window->buffer) {
 		fprintf(stderr, "[%d] [window] Could not create a buffer for a new window for pid %d!", getpid(), pw->pid);
 		free(window);
@@ -150,6 +155,10 @@ void window_draw_line(window_t * window, uint16_t x0, uint16_t x1, uint16_t y0, 
 			y0 += sy;
 		}
 	}
+}
+
+static int32_t min(int32_t a, int32_t b) {
+	return (a < b) ? a : b;
 }
 
 void window_draw_sprite(window_t * window, sprite_t * sprite, uint16_t x, uint16_t y) {
