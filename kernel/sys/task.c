@@ -384,6 +384,10 @@ void
 switch_next() {
 	uintptr_t esp, ebp, eip;
 	/* Get the next available process */
+	while (!process_available()) {
+		/* Uh, no. */
+		return;
+	}
 	current_process = next_ready_process();
 	/* Retreive the ESP/EBP/EIP */
 	eip = current_process->thread.eip;
