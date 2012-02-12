@@ -43,9 +43,14 @@ clean:
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/sha2.o ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
-../hdd/bin/compositor: compositor.c lib/graphics.o lib/list.o
+../hdd/bin/compositor: compositor.c lib/graphics.o lib/list.o lib/window.o
 	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o ${FREETYPE_LIB} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
+	@${END} "CC" "$< [w/libs]"
+
+../hdd/bin/drawlines: drawlines.c lib/graphics.o lib/list.o lib/window.o
+	@${BEG} "CC" "$< [w/libs]"
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/solver: solver.c lib/list.o
