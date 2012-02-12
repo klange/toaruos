@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <assert.h>
 #include <sys/stat.h>
 
 #include <ft2build.h>
@@ -190,6 +191,11 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
 			if (is_top(window, x, y)) {
+				assert(0 <= x);
+				assert(x < GFX_W);
+				assert(0 <= y);
+				assert(y < GFX_H);
+
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 			}
 		}
@@ -574,6 +580,7 @@ void init_base_windows () {
 	pw->command_pipe = syscall_mkpipe(); /* nothing in here */
 	pw->event_pipe = syscall_mkpipe(); /* nothing in here */
 	pw->windows = list_create();
+	list_insert(process_list, pw);
 
 	list_insert(process_list, pw);
 
@@ -637,6 +644,7 @@ int main(int argc, char ** argv) {
 	init_base_windows();
 
 	process_windows_t * rootpw = get_process_windows(getpid());
+	assert(rootpw);
 
 	if (!rootpw) {
 		printf("? No root process window?\n");
