@@ -181,6 +181,7 @@ int main(int argc, char ** argv) {
 		++j;
 	} while ( j < GFX_H );
 
+#if 0
 	syscall_kbd_mode(1);
 
 	int playing = 1;
@@ -197,6 +198,7 @@ int main(int argc, char ** argv) {
 	}
 
 	syscall_kbd_mode(0);
+#endif
 
 	return 0;
 }
