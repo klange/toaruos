@@ -25,13 +25,18 @@ int main (int argc, char ** argv) {
 
 	setup_windowing();
 
+	printf("[drawlines] Windowing ready.\n");
+
 	/* Do something with a window */
 #define WINA_WIDTH 300
 #define WINA_HEIGHT 300
 	window_t * wina = window_create(0, 0, WINA_WIDTH, WINA_HEIGHT);
+	printf("Window created?\n");
 	assert(wina);
 	window_fill(wina, rgb(0,255,0));
 	window_redraw_full(wina);
+
+	printf("Redraw sent\n");
 
 	while (1) {
 		window_draw_line(wina, rand() % WINA_WIDTH, rand() % WINA_WIDTH, rand() % WINA_HEIGHT, rand() % WINA_HEIGHT, rgb(rand() % 255,rand() % 255,rand() % 255));

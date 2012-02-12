@@ -533,6 +533,7 @@ int main(int argc, char ** argv) {
 	}
 
 	if (!fork()) {
+		printf("Drawing lines~\n");
 		char * args[] = {"/bin/drawlines", "100","100","300","300",NULL};
 		execve(args[0], args, NULL);
 	}

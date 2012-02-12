@@ -9,9 +9,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <signal.h>
 #include <assert.h>
 #include <sys/stat.h>
+#include "../../kernel/include/signal.h"
 
 #include "window.h"
 
@@ -215,7 +215,7 @@ void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, 
 
 	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
 	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
-	syscall_send_signal(process_windows->pid, command);
+	syscall_send_signal(process_windows->pid, SIGWINEVENT);
 
 	/* Now wait for the command to be processed before returning */
 	if (wait_for_reply) {
