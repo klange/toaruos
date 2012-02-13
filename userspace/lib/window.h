@@ -112,6 +112,7 @@ typedef struct {
 
 
 #define SHMKEY(buf,sz,win) snprintf(buf, sz, "%s.%d.%d.%d", WINS_SERVER_IDENTIFIER, win->owner->pid, win->wid, win->bufid);
+#define SHMKEY_(buf,sz,win) snprintf(buf, sz, "%s.%d.%d.%d", WINS_SERVER_IDENTIFIER, getpid(), win->wid, win->bufid);
 
 
 /* Windows */

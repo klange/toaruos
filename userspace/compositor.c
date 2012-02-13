@@ -74,6 +74,17 @@ static window_t * get_window (wid_t wid) {
 	return NULL;
 }
 
+static window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
+	foreach (m, pw->windows) {
+		window_t * w = (window_t *)m->value;
+		if (w->wid == wid) {
+			return w;
+		}
+	}
+
+	return NULL;
+}
+
 void init_process_list () {
 	process_list = list_create();
 }
@@ -134,7 +145,7 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 				assert(0 <= y);
 				assert(y < GFX_H);
 #endif
-
+				fflush(stdout);
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 			}
 		}
@@ -166,16 +177,13 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet
 }
 
 void process_window_command (int sig) {
-	printf("Received signal!\n");
 	foreach(n, process_list) {
 		process_windows_t * pw = (process_windows_t *)n->value;
-		printf("Processing PID=%d, pipe=%d\n", pw->pid, pw->command_pipe);
 
 		/* Are there any messages in this process's command pipe? */
 		struct stat buf;
 		fstat(pw->command_pipe, &buf);
 		while (buf.st_size > 0) {
-			printf("> Data available!\n");
 			w_window_t wwt;
 			wins_packet_t header;
 			read(pw->command_pipe, &header, sizeof(wins_packet_t));
@@ -184,7 +192,8 @@ void process_window_command (int sig) {
 				case WC_NEWWINDOW:
 					printf("[compositor] New window request\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, 0); //XXX: an actual index
+					wwt.wid = _next_wid;
+					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, 5); //XXX: an actual index
 					send_window_event(pw, WE_NEWWINDOW, wwt);
 					break;
 
@@ -201,7 +210,7 @@ void process_window_command (int sig) {
 
 				case WC_DAMAGE:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					redraw_window(get_window(wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
+					redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					break;
 
 				default:
@@ -215,7 +224,6 @@ void process_window_command (int sig) {
 			fstat(pw->command_pipe, &buf);
 		}
 	}
-	printf("Done...\n");
 }
 
 
@@ -477,7 +485,7 @@ void init_base_windows () {
 	printf("Creating root window...\n");
 	window_t * root = init_window(pw, _next_wid++, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
-	redraw_full_window(root);
+	//redraw_full_window(root);
 
 	/* Create the panel */
 	printf("Creating panel window...\n");
@@ -550,7 +558,8 @@ int main(int argc, char ** argv) {
 	/* Sit in a run loop */
 	while (1) {
 		process_request();
-		waitabit(); // XXX: Can't we deschedule?
+		process_window_command(0);
+		//waitabit(); // XXX: Can't we deschedule?
 	}
 
 	// XXX: Better have SIGINT/SIGSTOP handlers

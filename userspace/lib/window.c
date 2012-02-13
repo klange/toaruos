@@ -67,6 +67,46 @@ window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y,
 
 	char key[1024];
 	SHMKEY(key, 1024, window);
+	printf("[%d] : %s\n", getpid(), key);
+
+	/* And now the fucked up stuff happens */
+	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
+
+	if (!window->buffer) {
+		fprintf(stderr, "[%d] [window] Could not create a buffer for a new window for pid %d!", getpid(), pw->pid);
+		free(window);
+		return NULL;
+	}
+
+	list_insert(pw->windows, window);
+
+	return window;
+}
+
+/*XXX ... */
+window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
+
+	printf("Creating window id %d (+%d,%d:%dx%d)\n", wid, x, y, width, height);
+
+	window_t * window = malloc(sizeof(window_t));
+	if (!window) {
+		fprintf(stderr, "[%d] [window] Could not malloc a window_t!", getpid());
+		return NULL;
+	}
+
+	window->owner = pw;
+	window->wid = wid;
+	window->bufid = 0;
+
+	window->width  = width;
+	window->height = height;
+	window->x = x;
+	window->y = y;
+	window->z = index;
+
+	char key[1024];
+	SHMKEY_(key, 1024, window);
+	printf("[%d] : %s\n", getpid(), key);
 
 	/* And now the fucked up stuff happens */
 	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
@@ -105,6 +145,10 @@ void free_window (window_t * window) {
 
 void resize_window_buffer (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
 
+	printf("window = 0x%x\n", window);
+	if (!window) {
+		return;
+	}
 	/* If the window has enlarged, we need to create a new buffer */
 	if ((width * height) > (window->width * window->height)) {
 		/* Release the old buffer */
@@ -215,16 +259,13 @@ void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, 
 
 	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
 	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
-	printf("[debug] Sending signal...\n");
-	syscall_send_signal(process_windows->pid, SIGWINEVENT);
+	//syscall_send_signal(process_windows->pid, SIGWINEVENT);
 
 	/* Now wait for the command to be processed before returning */
 	if (wait_for_reply) {
-		while((wins_command_recvd & 0xF) != (command & 0xF)) {
-			printf("0x%x\n", wins_command_recvd);
-		}
+		syscall_send_signal(process_windows->pid, SIGWINEVENT);
+		while((wins_command_recvd & 0xF) != (command & 0xF)) { }
 	}
-	printf("[debug] Done sending signal?\n");
 
 #if 0
 	/* Were we waiting for that? */
@@ -239,6 +280,7 @@ void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, 
 
 window_t * window_create (uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
 	wins_send_command(0, left, top, width, height, WC_NEWWINDOW, 1);
+	printf("[herpaderpderpderpderpderp =======================] Window created!\n");
 
 	assert(wins_last_new);
 	return (window_t *)wins_last_new;
@@ -318,7 +360,8 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 	switch (command) {
 		window_t * window = NULL;
 		case WE_NEWWINDOW:
-			window = init_window(process_windows, evt.wid, evt.left, evt.top, evt.width, evt.height, 0);
+			printf("event window %d\n", evt.wid);
+			window = init_window_client(process_windows, evt.wid, evt.left, evt.top, evt.width, evt.height, 0);
 			wins_last_new = window;
 			break;
 
@@ -336,7 +379,6 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 }
 
 static void process_evt (int sig) {
-	printf("[window] Child processing event signal\n");
 	/* Are there any messages in this process's event pipe? */
 	struct stat buf;
 	fstat(process_windows->event_pipe, &buf);
@@ -347,7 +389,7 @@ static void process_evt (int sig) {
 		read(process_windows->event_pipe, &header, sizeof(wins_packet_t));
 
 		/* Determine type, read, and dispatch */
-		switch (header.command_type | WE_GROUP_MASK) {
+		switch (header.command_type & WE_GROUP_MASK) {
 			case WE_MOUSE_EVT: {
 				w_mouse_t * mevt = malloc(sizeof(w_mouse_t));
 				read(process_windows->event_pipe, &mevt, sizeof(w_mouse_t));
@@ -379,7 +421,6 @@ static void process_evt (int sig) {
 
 		fstat(process_windows->event_pipe, &buf);
 	}
-	printf("Done processing events.\n");
 }
 
 void install_signal_handlers () {
@@ -431,9 +472,6 @@ int wins_connect() {
 	if (process_windows->event_pipe < 0) {
 		printf("ERROR: Failed to initialize an event pipe!\n");
 	}
-
-	printf("Event pipe   initialized on file descriptor #%d\n", process_windows->event_pipe);
-	printf("Command pipe initialized on file descriptor #%d\n", process_windows->command_pipe);
 
 	/* Reset client status for next client */
 	wins_globals->client_done  = 0;
