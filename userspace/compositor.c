@@ -22,15 +22,6 @@
 
 #include "../kernel/include/signal.h"
 
-#if 0
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
-DEFN_SYSCALL1(shm_release, 36, char *)
-DEFN_SYSCALL2(send_signal, 37, int, int)
-DEFN_SYSCALL2(sys_signal, 38, int, int)
-DEFN_SYSCALL2(share_fd, 39, int, int)
-DEFN_SYSCALL1(get_fd, 40, int)
-#endif
-
 DECL_SYSCALL0(mkpipe);
 
 
@@ -173,7 +164,7 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet
 	// XXX: we have a race condition here
 	write(pw->event_pipe, &header, sizeof(wins_packet_t));
 	write(pw->event_pipe, &packet, sizeof(w_window_t));
-	syscall_send_signal(pw->pid, 35); // SIGWINEVENT
+	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
 }
 
 void process_window_command (int sig) {
@@ -183,10 +174,15 @@ void process_window_command (int sig) {
 		/* Are there any messages in this process's command pipe? */
 		struct stat buf;
 		fstat(pw->command_pipe, &buf);
-		while (buf.st_size > 0) {
+
+		int max_requests_per_cycle = 10;
+
+		while ((buf.st_size > 0) && (max_requests_per_cycle > 0)) {
 			w_window_t wwt;
 			wins_packet_t header;
 			read(pw->command_pipe, &header, sizeof(wins_packet_t));
+
+			max_requests_per_cycle--;
 
 			switch (header.command_type) {
 				case WC_NEWWINDOW:
@@ -265,6 +261,7 @@ void init_request_system () {
 }
 
 void process_request () {
+	fflush(stdout);
 	if (_request_page->client_done) {
 		process_windows_t * pw = malloc(sizeof(process_windows_t));
 		pw->pid = _request_page->client_pid;
@@ -272,13 +269,12 @@ void process_request () {
 		pw->command_pipe = syscall_mkpipe();
 		pw->windows = list_create();
 
-		printf("Created two pipes (%d and %d) and sharing them with %d\n", pw->event_pipe, pw->command_pipe, pw->pid);
 		_request_page->event_pipe = syscall_share_fd(pw->event_pipe, pw->pid);
 		_request_page->command_pipe = syscall_share_fd(pw->command_pipe, pw->pid);
+		_request_page->client_done = 0;
 		_request_page->server_done = 1;
 
 		list_insert(process_list, pw);
-		printf("A client (%d) replied to\n", pw->pid);
 	}
 }
 
@@ -301,7 +297,6 @@ void delete_process (process_windows_t * pw) {
 
 
 void init_signal_handlers () {
-	printf("Accepting SIGWINEVENT with 0x%x...\n", process_window_command);
 	syscall_sys_signal(SIGWINEVENT, (uintptr_t)process_window_command); // SIGWINEVENT
 }
 
@@ -398,9 +393,6 @@ static void test() {
 }
 
 void run_startup_item(startup_item * item) {
-#if 0 // No printing!
-	printf("[compositor] Running startup item: %s\n", item->name);
-#endif
 	item->func();
 	progress += item->time;
 }
@@ -480,15 +472,12 @@ void init_base_windows () {
 	pw->windows = list_create();
 	list_insert(process_list, pw);
 
-#if 1
 	/* Create the background window */
-	printf("Creating root window...\n");
 	window_t * root = init_window(pw, _next_wid++, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
 	redraw_full_window(root);
 
 	/* Create the panel */
-	printf("Creating panel window...\n");
 	window_t * panel = init_window(pw, _next_wid++, 0, 0, graphics_width, 24, -1);
 	window_fill(panel, rgb(0,120,230));
 	init_sprite(2, "/usr/share/panel.bmp", NULL);
@@ -496,7 +485,6 @@ void init_base_windows () {
 		window_draw_sprite(panel, sprites[2], i, 0);
 	}
 	redraw_full_window(panel);
-#endif
 }
 
 int main(int argc, char ** argv) {
@@ -538,8 +526,6 @@ int main(int argc, char ** argv) {
 	init_graphics();
 #endif
 
-	printf("Loading up base windows.\n");
-
 	/* Create the root and panel */
 	init_base_windows();
 
@@ -551,7 +537,6 @@ int main(int argc, char ** argv) {
 
 	if (!fork()) {
 		waitabit();
-		printf("Drawing lines~\n");
 		char * args[] = {"/bin/drawlines", "100","100","300","300",NULL};
 		execve(args[0], args, NULL);
 	}
@@ -561,16 +546,14 @@ int main(int argc, char ** argv) {
 		waitabit();
 		waitabit();
 		waitabit();
-		printf("Drawing lines~\n");
 		char * args[] = {"/bin/drawlines", "200","200","400","400",NULL};
 		execve(args[0], args, NULL);
 	}
-	printf("waiting for clients...\n");
+
 	/* Sit in a run loop */
 	while (1) {
 		process_request();
 		process_window_command(0);
-		//waitabit(); // XXX: Can't we deschedule?
 	}
 
 	// XXX: Better have SIGINT/SIGSTOP handlers

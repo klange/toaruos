@@ -47,8 +47,6 @@ static window_t * get_window (wid_t wid) {
 
 window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
 
-	printf("Creating window id %d (+%d,%d:%dx%d)\n", wid, x, y, width, height);
-
 	window_t * window = malloc(sizeof(window_t));
 	if (!window) {
 		fprintf(stderr, "[%d] [window] Could not malloc a window_t!", getpid());
@@ -67,7 +65,6 @@ window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y,
 
 	char key[1024];
 	SHMKEY(key, 1024, window);
-	printf("[%d] : %s\n", getpid(), key);
 
 	/* And now the fucked up stuff happens */
 	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
@@ -85,8 +82,6 @@ window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y,
 
 /*XXX ... */
 window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
-
-	printf("Creating window id %d (+%d,%d:%dx%d)\n", wid, x, y, width, height);
 
 	window_t * window = malloc(sizeof(window_t));
 	if (!window) {
@@ -106,7 +101,6 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 
 	char key[1024];
 	SHMKEY_(key, 1024, window);
-	printf("[%d] : %s\n", getpid(), key);
 
 	/* And now the fucked up stuff happens */
 	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
@@ -145,7 +139,6 @@ void free_window (window_t * window) {
 
 void resize_window_buffer (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
 
-	printf("window = 0x%x\n", window);
 	if (!window) {
 		return;
 	}
@@ -259,7 +252,6 @@ void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, 
 
 	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
 	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
-	//syscall_send_signal(process_windows->pid, SIGWINEVENT);
 
 	/* Now wait for the command to be processed before returning */
 	if (wait_for_reply) {
@@ -267,22 +259,15 @@ void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, 
 		while((wins_command_recvd & 0xF) != (command & 0xF)) { }
 	}
 
-#if 0
-	/* Were we waiting for that? */
-	if (wins_command_recvd != command) {
-		fprintf(stderr, "[%d] [window] WARN: Waited for %d, got %d\n", getpid(), command, wins_command_recvd);
-	}
-#endif
-
 	UNLOCK(wins_command_lock);
 }
 
 
 window_t * window_create (uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
 	wins_send_command(0, left, top, width, height, WC_NEWWINDOW, 1);
-	printf("[herpaderpderpderpderpderp =======================] Window created!\n");
 
-	assert(wins_last_new);
+	while (!wins_last_new);
+
 	return (window_t *)wins_last_new;
 }
 
@@ -360,7 +345,6 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 	switch (command) {
 		window_t * window = NULL;
 		case WE_NEWWINDOW:
-			printf("event window %d\n", evt.wid);
 			window = init_window_client(process_windows, evt.wid, evt.left, evt.top, evt.width, evt.height, 0);
 			wins_last_new = window;
 			break;
@@ -462,7 +446,9 @@ int wins_connect() {
 
 	/* Mark us as done and wait for the server */
 	wins_globals->client_done = 1;
+
 	while (!wins_globals->server_done);
+
 
 	assert(process_windows && "process_windows was not initialized!");
 	process_windows->pid          = wins_globals->server_pid;
@@ -470,7 +456,8 @@ int wins_connect() {
 	process_windows->command_pipe = syscall_get_fd(wins_globals->command_pipe);
 
 	if (process_windows->event_pipe < 0) {
-		printf("ERROR: Failed to initialize an event pipe!\n");
+		fprintf(stderr, "ERROR: Failed to initialize an event pipe!\n");
+		return 1;
 	}
 
 	/* Reset client status for next client */
