@@ -189,7 +189,7 @@ void process_window_command (int sig) {
 					printf("[compositor] New window request\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					wwt.wid = _next_wid;
-					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, 5); //XXX: an actual index
+					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid + 5); //XXX: an actual index
 					send_window_event(pw, WE_NEWWINDOW, wwt);
 					break;
 
