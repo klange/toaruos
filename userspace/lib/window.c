@@ -215,12 +215,16 @@ void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, 
 
 	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
 	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
+	printf("[debug] Sending signal...\n");
 	syscall_send_signal(process_windows->pid, SIGWINEVENT);
 
 	/* Now wait for the command to be processed before returning */
 	if (wait_for_reply) {
-		while((wins_command_recvd & 0xF) != (command & 0xF)) {}
+		while((wins_command_recvd & 0xF) != (command & 0xF)) {
+			printf("0x%x\n", wins_command_recvd);
+		}
 	}
+	printf("[debug] Done sending signal?\n");
 
 #if 0
 	/* Were we waiting for that? */
@@ -332,6 +336,7 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 }
 
 static void process_evt (int sig) {
+	printf("[window] Child processing event signal\n");
 	/* Are there any messages in this process's event pipe? */
 	struct stat buf;
 	fstat(process_windows->event_pipe, &buf);
@@ -374,10 +379,11 @@ static void process_evt (int sig) {
 
 		fstat(process_windows->event_pipe, &buf);
 	}
+	printf("Done processing events.\n");
 }
 
 void install_signal_handlers () {
-	syscall_sys_signal(35, (uintptr_t)process_evt); // SIGWINEVENT
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)process_evt); // SIGWINEVENT
 	key_evt_buffer = list_create();
 	mouse_evt_buffer = list_create();
 }
@@ -421,6 +427,13 @@ int wins_connect() {
 	process_windows->pid          = wins_globals->server_pid;
 	process_windows->event_pipe   = syscall_get_fd(wins_globals->event_pipe);
 	process_windows->command_pipe = syscall_get_fd(wins_globals->command_pipe);
+
+	if (process_windows->event_pipe < 0) {
+		printf("ERROR: Failed to initialize an event pipe!\n");
+	}
+
+	printf("Event pipe   initialized on file descriptor #%d\n", process_windows->event_pipe);
+	printf("Command pipe initialized on file descriptor #%d\n", process_windows->command_pipe);
 
 	/* Reset client status for next client */
 	wins_globals->client_done  = 0;

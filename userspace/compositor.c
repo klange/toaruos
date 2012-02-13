@@ -20,6 +20,8 @@
 #include "lib/graphics.h"
 #include "lib/window.h"
 
+#include "../kernel/include/signal.h"
+
 #if 0
 DEFN_SYSCALL2(shm_obtain, 35, char *, int)
 DEFN_SYSCALL1(shm_release, 36, char *)
@@ -164,19 +166,23 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet
 }
 
 void process_window_command (int sig) {
+	printf("Received signal!\n");
 	foreach(n, process_list) {
 		process_windows_t * pw = (process_windows_t *)n->value;
+		printf("Processing PID=%d, pipe=%d\n", pw->pid, pw->command_pipe);
 
 		/* Are there any messages in this process's command pipe? */
 		struct stat buf;
 		fstat(pw->command_pipe, &buf);
 		while (buf.st_size > 0) {
+			printf("> Data available!\n");
 			w_window_t wwt;
 			wins_packet_t header;
 			read(pw->command_pipe, &header, sizeof(wins_packet_t));
 
 			switch (header.command_type) {
 				case WC_NEWWINDOW:
+					printf("[compositor] New window request\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, 0); //XXX: an actual index
 					send_window_event(pw, WE_NEWWINDOW, wwt);
@@ -209,6 +215,7 @@ void process_window_command (int sig) {
 			fstat(pw->command_pipe, &buf);
 		}
 	}
+	printf("Done...\n");
 }
 
 
@@ -257,6 +264,7 @@ void process_request () {
 		pw->command_pipe = syscall_mkpipe();
 		pw->windows = list_create();
 
+		printf("Created two pipes (%d and %d) and sharing them with %d\n", pw->event_pipe, pw->command_pipe, pw->pid);
 		_request_page->event_pipe = syscall_share_fd(pw->event_pipe, pw->pid);
 		_request_page->command_pipe = syscall_share_fd(pw->command_pipe, pw->pid);
 		_request_page->server_done = 1;
@@ -285,7 +293,8 @@ void delete_process (process_windows_t * pw) {
 
 
 void init_signal_handlers () {
-	syscall_sys_signal(35, (uintptr_t)process_window_command); // SIGWINEVENT
+	printf("Accepting SIGWINEVENT with 0x%x...\n", process_window_command);
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)process_window_command); // SIGWINEVENT
 }
 
 

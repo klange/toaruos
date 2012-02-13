@@ -115,7 +115,7 @@ exec(
 
 	current_process->image.heap        = heap; /* heap end */
 	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
-	current_process->image.user_stack  = 0x100EFFFF;
+	current_process->image.user_stack  = 0x100FFFFF;
 	while (current_process->fds.length < 3) {
 		process_append_fd((process_t *)current_process, NULL);
 	}
@@ -123,7 +123,7 @@ exec(
 	current_process->image.start = entry;
 
 	/* Go go go */
-	enter_user_jmp(entry, argc, argv_, 0x100EFFFF);
+	enter_user_jmp(entry, argc, argv_, 0x100FFFFF);
 
 		/* We should never reach this code */
 	return -1;

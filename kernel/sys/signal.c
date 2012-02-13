@@ -53,7 +53,12 @@ void handle_signal(process_t * proc, signal_t * sig) {
 		return;
 	}
 
-	uintptr_t stack = 0x100EFFFF;
+	uintptr_t stack = 0xFFFF0000;
+	if (proc->syscall_registers->useresp < 0x10000100) {
+		stack = proc->image.user_stack;
+	} else {
+		stack = proc->syscall_registers->useresp;
+	}
 
 	/* Not marked as ignored, must call signal */
 	enter_signal_handler(sig->handler, sig->signum, stack);

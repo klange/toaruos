@@ -329,7 +329,7 @@ static int send_signal(pid_t process, uint32_t signal) {
 		return 1;
 	}
 
-	if (signal >= NUMSIGNALS) {
+	if (signal > NUMSIGNALS) {
 		/* Invalid signal */
 		return 1;
 	}
@@ -357,7 +357,7 @@ static int send_signal(pid_t process, uint32_t signal) {
 }
 
 static uintptr_t sys_signal(uint32_t signum, uintptr_t handler) {
-	if (signum >= NUMSIGNALS) {
+	if (signum > NUMSIGNALS) {
 		return -1;
 	}
 	uintptr_t old = current_process->signals.functions[signum];
@@ -453,7 +453,9 @@ static uintptr_t share_fd(int fd, int pid) {
 		return 0;
 	}
 	fs_node_t * fn = current_process->fds.entries[fd];
+	kprintf("[debug] Sharing FD#%d[0x%x][%s] with PID %d\n", fd, fn, fn->name, pid);
 	fn->shared_with = pid;
+	kprintf("[debug] shared_with = 0x%x!\n", fn->shared_with);
 	return (uintptr_t)fn;
 }
 
@@ -462,10 +464,12 @@ static uintptr_t share_fd(int fd, int pid) {
  *         another proces.
  */
 static int get_fd(uintptr_t fn) {
-	fs_node_t * node = (fs_node_t *)node;
+	fs_node_t * node = (fs_node_t *)fn;
+	kprintf("[debug] Retreiving node 0x%x for PID %d\n", fn, getpid());
 	if (node->shared_with == current_process->id) {
 		return process_append_fd((process_t *)current_process, node);
 	} else {
+		kprintf("wah? [%s] shared_with = 0x%x!\n", node->name, node->shared_with);
 		return -1;
 	}
 }

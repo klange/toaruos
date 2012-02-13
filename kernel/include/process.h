@@ -58,7 +58,7 @@ typedef struct descriptor_table {
 
 /* Signal Table */
 typedef struct signal_table {
-	uintptr_t functions[NUMSIGNALS];
+	uintptr_t functions[NUMSIGNALS+1];
 } sig_table_t;
 
 /* Portable process struct */

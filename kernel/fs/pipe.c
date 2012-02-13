@@ -174,6 +174,7 @@ fs_node_t * make_pipe(size_t size) {
 
 	fnode->inode = 0;
 	fnode->name[0] = '\0';
+	sprintf(fnode->name, "[pipe]");
 	fnode->uid   = 0;
 	fnode->gid   = 0;
 	fnode->flags = FS_PIPE;
