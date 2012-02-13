@@ -132,9 +132,9 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 	}
 
 	uint16_t _lo_x = max(window->x + x, 0);
-	uint16_t _hi_x = min(window->x + width - 1, graphics_width);
+	uint16_t _hi_x = min(window->x + width, graphics_width);
 	uint16_t _lo_y = max(window->y + y, 0);
-	uint16_t _hi_y = min(window->y + height - 1, graphics_height);
+	uint16_t _hi_y = min(window->y + height, graphics_height);
 
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
