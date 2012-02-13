@@ -485,7 +485,7 @@ void init_base_windows () {
 	printf("Creating root window...\n");
 	window_t * root = init_window(pw, _next_wid++, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
-	//redraw_full_window(root);
+	redraw_full_window(root);
 
 	/* Create the panel */
 	printf("Creating panel window...\n");
