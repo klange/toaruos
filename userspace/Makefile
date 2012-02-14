@@ -53,6 +53,11 @@ clean:
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
+../hdd/bin/julia-win: julia-win.c lib/graphics.o lib/list.o lib/window.o
+	@${BEG} "CC" "$< [w/libs]"
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
+	@${END} "CC" "$< [w/libs]"
+
 ../hdd/bin/solver: solver.c lib/list.o
 	@${BEG} "CC" "$< [w/libs]"
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/list.o ${ERRORS}

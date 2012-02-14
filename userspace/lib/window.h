@@ -83,8 +83,8 @@ typedef uint16_t wid_t;
 
 typedef struct {
 	wid_t    wid;		/* or none for new window */
-	uint16_t left;		/* X coordinate */
-	uint16_t top;		/* Y coordinate */
+	int16_t left;		/* X coordinate */
+	int16_t top;		/* Y coordinate */
 	uint16_t width;		/* Width of window or region */
 	uint16_t height;	/* Height of window or region */
 	uint8_t  command;	/* The command (duplicated) */
@@ -151,9 +151,9 @@ struct process_windows {
 int setup_windowing ();
 void teardown_windowing ();
 
-window_t * window_create (uint16_t left, uint16_t top, uint16_t width, uint16_t height);
-void window_resize (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height);
-void window_redraw (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height);
+window_t * window_create (int16_t left, int16_t top, uint16_t width, uint16_t height);
+void window_resize (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
+void window_redraw (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
 void window_redraw_full (window_t * window);
 void window_destroy (window_t * window);
 

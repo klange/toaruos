@@ -137,7 +137,7 @@ void free_window (window_t * window) {
 #endif
 }
 
-void resize_window_buffer (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
+void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
 
 	if (!window) {
 		return;
@@ -232,7 +232,7 @@ uint8_t volatile wins_command_recvd;
 window_t volatile * wins_last_new;
 
 
-void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, uint16_t height, int command, int wait_for_reply) {
+void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, uint16_t height, int command, int wait_for_reply) {
 
 	/* Construct the header and packet */
 	wins_packet_t header;
@@ -263,7 +263,7 @@ void wins_send_command (wid_t wid, uint16_t left, uint16_t top, uint16_t width, 
 }
 
 
-window_t * window_create (uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
+window_t * window_create (int16_t left, int16_t top, uint16_t width, uint16_t height) {
 	wins_send_command(0, left, top, width, height, WC_NEWWINDOW, 1);
 
 	while (!wins_last_new);
@@ -271,11 +271,11 @@ window_t * window_create (uint16_t left, uint16_t top, uint16_t width, uint16_t 
 	return (window_t *)wins_last_new;
 }
 
-void window_resize (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
+void window_resize (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
 	wins_send_command(window->wid, left, top, width, height, WC_RESIZE, 1);
 }
 
-void window_redraw (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height) {
+void window_redraw (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
 	wins_send_command(window->wid, left, top, width, height, WC_DAMAGE, 0);
 }
 

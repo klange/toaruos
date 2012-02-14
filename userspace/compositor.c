@@ -38,7 +38,7 @@ list_t * process_list;
 
 extern window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index);
 extern void free_window (window_t * window);
-extern void resize_window_buffer (window_t * window, uint16_t left, uint16_t top, uint16_t width, uint16_t height);
+extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
 
 process_windows_t * get_process_windows (uint32_t pid) {
 	foreach(n, process_list) {
@@ -545,10 +545,17 @@ int main(int argc, char ** argv) {
 		waitabit();
 		waitabit();
 		waitabit();
-		waitabit();
-		char * args[] = {"/bin/drawlines", "200","200","400","400",NULL};
+		char * args[] = {"/bin/julia-win", "200","200","400","400",NULL};
 		execve(args[0], args, NULL);
 	}
+
+	if (!fork()) {
+		waitabit();
+		waitabit();
+		char * args[] = {"/bin/julia-win", "20","20","500","300",NULL};
+		execve(args[0], args, NULL);
+	}
+
 
 	/* Sit in a run loop */
 	while (1) {
