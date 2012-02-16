@@ -322,11 +322,11 @@ page_fault(
 	}
 
 #if 1
-	int present  = !(r->err_code & 0x1);
-	int rw       = r->err_code & 0x2;
-	int user     = r->err_code & 0x4;
-	int reserved = r->err_code & 0x8;
-	int id       = r->err_code & 0x10;
+	int present  = !(r->err_code & 0x1) ? 1 : 0;
+	int rw       = r->err_code & 0x2    ? 1 : 0;
+	int user     = r->err_code & 0x4    ? 1 : 0;
+	int reserved = r->err_code & 0x8    ? 1 : 0;
+	int id       = r->err_code & 0x10   ? 1 : 0;
 
 	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d \033[0m\n",
 			present, rw, user, reserved, id, faulting_address, r->eip, getpid());

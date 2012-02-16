@@ -637,13 +637,13 @@ int main(int argc, char ** argv) {
 
 	if (!fork()) {
 		waitabit();
+		waitabit();
+		waitabit();
 		char * args[] = {"/bin/drawlines", "100","100","300","300",NULL};
 		execve(args[0], args, NULL);
 	}
 
 	if (!fork()) {
-		waitabit();
-		waitabit();
 		waitabit();
 		char * args[] = {"/bin/julia-win", "200","200","400","400",NULL};
 		execve(args[0], args, NULL);
