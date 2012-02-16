@@ -13,9 +13,6 @@
 #include <elf.h>
 #include <process.h>
 
-#define USER_STACK_TOP    0x10010000
-#define USER_STACK_BOTTOM 0x10000000
-
 /**
  * Load and execute a static ELF binary.
  *
