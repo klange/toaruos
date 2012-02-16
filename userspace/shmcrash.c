@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 
 
@@ -23,7 +23,8 @@ int main (int argc, char ** argv) {
 
 	printf("(This should fork and the child process (but not the parent) should segfault)\n");
 
-	volatile char * shm = (char *)syscall_shm_obtain(argv[1], 27);
+	size_t size = 27;
+	volatile char * shm = (char *)syscall_shm_obtain(argv[1], &size);
 	if (shm == NULL) {
 		return 1;
 	}

@@ -184,12 +184,17 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 	return (void *)mapping->vaddrs[0];
 }
 
+static size_t chunk_size (shm_chunk_t * chunk) {
+	return (size_t)(chunk->num_frames * 0x1000);
+}
+
 
 /* Kernel-Facing Functions and Syscalls */
 
 
-void * shm_obtain (char * path, size_t size) {
+void * shm_obtain (char * path, size_t * size) {
 	validate(path);
+	validate(size);
 	spin_lock(&bsl);
 	process_t * proc = (process_t *)current_process;
 
@@ -204,7 +209,7 @@ void * shm_obtain (char * path, size_t size) {
 			return NULL;
 		}
 
-		chunk = create_chunk(node, size);
+		chunk = create_chunk(node, *size);
 		if (chunk == NULL) {
 			LOG(ERROR, "[shm] Could not allocate a shm_chunk_t!\n");
 			return NULL;
@@ -216,7 +221,7 @@ void * shm_obtain (char * path, size_t size) {
 		chunk->ref_count++;
 	}
 	void * vshm_start = map_in(chunk, proc);
-
+	*size = chunk_size(chunk);
 
 	spin_unlock(&bsl);
 

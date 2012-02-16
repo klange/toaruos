@@ -16,7 +16,7 @@
  */
 DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 
 uint16_t graphics_width  = 0;
@@ -116,8 +116,8 @@ int main(int argc, char ** argv) {
 		return -2;
 	}
 
-	int buf_size = (GFX_W * GFX_H * GFX_B);
-	gfx_mem = (void *)syscall_shm_obtain(argv[4], buf_size);
+	size_t buf_size = (GFX_W * GFX_H * GFX_B);
+	gfx_mem = (void *)syscall_shm_obtain(argv[4], &buf_size);
 	if (!gfx_mem) {
 		return 1;
 	}

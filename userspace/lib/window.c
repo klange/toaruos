@@ -16,7 +16,7 @@
 #include "window.h"
 
 #if 1
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 DEFN_SYSCALL2(send_signal, 37, int, int)
 DEFN_SYSCALL2(sys_signal, 38, int, int)
@@ -66,8 +66,8 @@ window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y,
 	char key[1024];
 	SHMKEY(key, 1024, window);
 
-	/* And now the fucked up stuff happens */
-	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
+	size_t size = (width * height * WIN_B);
+	window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
 
 	if (!window->buffer) {
 		fprintf(stderr, "[%d] [window] Could not create a buffer for a new window for pid %d!", getpid(), pw->pid);
@@ -102,8 +102,8 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 	char key[1024];
 	SHMKEY_(key, 1024, window);
 
-	/* And now the fucked up stuff happens */
-	window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
+	size_t size = (width * height * WIN_B);
+	window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
 
 	if (!window->buffer) {
 		fprintf(stderr, "[%d] [window] Could not create a buffer for a new window for pid %d!", getpid(), pw->pid);
@@ -152,8 +152,9 @@ void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_
 		/* Create the new one */
 		window->bufid++;
 		SHMKEY(key, 256, window);
-		window->buffer = (uint8_t *)syscall_shm_obtain(key, (width * height * WIN_B));
-		memset(window->buffer, 0, (width * height * WIN_B));
+		size_t size = (width * height * WIN_B);
+		window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+		memset(window->buffer, 0, size);
 	}
 
 	window->x = left;
@@ -425,7 +426,8 @@ int wins_connect() {
 		return 0;
 	}
 
-	wins_globals = (volatile wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, sizeof(wins_server_global_t));
+	size_t size = sizeof(wins_server_global_t);
+	wins_globals = (volatile wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, &size);
 	if (!wins_globals) {
 		fprintf(stderr, "[%d] [window] Unable to connect with wins through shared memory.\n", getpid());
 		return EACCES;

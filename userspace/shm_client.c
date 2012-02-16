@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 
 #define SHMSZ	27
@@ -26,8 +26,9 @@ int main(int argc, char ** argv) {
 	/*
 	 * Attach the segment to our data space.
 	 */
+	size_t size = SHMSZ;
 	malloc(9 * 0x1000); // Make our heap a bit different from the server
-	if ((shm = (char *)syscall_shm_obtain(key, SHMSZ)) == (char *) NULL) {
+	if ((shm = (char *)syscall_shm_obtain(key, &size)) == (char *) NULL) {
 		printf("Client: syscall_shm_mount returned NULL!\n");
 		return 1;
 	}

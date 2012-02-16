@@ -35,7 +35,7 @@ DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
 DEFN_SYSCALL0(getgraphicsdepth,  20);
 */
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 
 
@@ -74,10 +74,11 @@ int main (int argc, char ** argv) {
 	char * julia_window_key = "julia2.windowbuffer";
 	char * game_window_key = "game2.windowbuffer";
 
-	char * julia_window = (char *)syscall_shm_obtain(julia_window_key, SIZE);
-	char * game_window = (char *)syscall_shm_obtain(game_window_key, SIZE);
-	memset(julia_window, 0, SIZE);
-	memset(game_window, 0, SIZE);
+	size_t size = SIZE;
+	char * julia_window = (char *)syscall_shm_obtain(julia_window_key, &size);
+	char * game_window = (char *)syscall_shm_obtain(game_window_key, &size);
+	memset(julia_window, 0, size);
+	memset(game_window, 0, size);
 
 	/* Fork off two children */
 	if (!fork()) {

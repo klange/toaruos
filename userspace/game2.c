@@ -11,7 +11,7 @@
 
 DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 
 typedef struct sprite {
@@ -337,8 +337,8 @@ int main(int argc, char ** argv) {
 		return -2;
 	}
 
-	int buf_size = (graphics_width * graphics_depth * graphics_depth);
-	gfx_mem = (void *)syscall_shm_obtain(argv[4], buf_size);
+	size_t buf_size = (graphics_width * graphics_depth * graphics_depth);
+	gfx_mem = (void *)syscall_shm_obtain(argv[4], &buf_size);
 	if (!gfx_mem) {
 		return 1;
 	}
