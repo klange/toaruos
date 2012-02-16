@@ -163,6 +163,11 @@ static int sys_sbrk(int size) {
 	return ret;
 }
 
+static int sys_getpid() {
+	/* The user actually wants the pid of the originating thread (which can be us). */
+	return current_process->group;
+}
+
 static int execve(const char * filename, char *const argv[], char *const envp[]) {
 	validate((void *)argv);
 	validate((void *)filename);
@@ -489,7 +494,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&gettimeofday,
 	(uintptr_t)&execve,
 	(uintptr_t)&fork,				/* 8 */
-	(uintptr_t)&getpid,
+	(uintptr_t)&sys_getpid,
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&getgraphicsaddress,
 	(uintptr_t)&kbd_mode,			/* 12 */

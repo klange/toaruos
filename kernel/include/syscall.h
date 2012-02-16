@@ -64,7 +64,7 @@ DECL_SYSCALL3(lseek,   int, int, int);
 DECL_SYSCALL2(stat,    const char *, void *);
 
 /* Process Control */
-DECL_SYSCALL0(getpid);
+DECL_SYSCALL0(sys_getpid);
 DECL_SYSCALL3(execve, char *, char **, char **);
 DECL_SYSCALL0(fork);
 DECL_SYSCALL2(kill, int, int);

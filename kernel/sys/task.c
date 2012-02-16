@@ -29,6 +29,8 @@ clone_directory(
 	page_directory_t * dir = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t), &phys);
 	/* Clear it out */
 	memset(dir, 0, sizeof(page_directory_t));
+	dir->ref_count = 1;
+
 	/* Calculate the physical address offset */
 	uintptr_t offset = (uintptr_t)dir->physical_tables - (uintptr_t)dir;
 	/* And store it... */
@@ -56,22 +58,26 @@ clone_directory(
 /*
  * Free a directory and its tables
  */
-void free_directory(page_directory_t * dir) {
-	uint32_t i;
-	for (i = 0; i < 1024; ++i) {
-		if (!dir->tables[i] || (uintptr_t)dir->tables[i] == (uintptr_t)0xFFFFFFFF) {
-			continue;
-		}
-		if (kernel_directory->tables[i] != dir->tables[i]) {
-			for (uint32_t j = 0; j < 1024; ++j) {
-				if (dir->tables[i]->pages[j].frame) {
-					free_frame(&(dir->tables[i]->pages[j]));
-				}
+void release_directory(page_directory_t * dir) {
+	dir->ref_count--;
+
+	if (dir->ref_count < 1) {
+		uint32_t i;
+		for (i = 0; i < 1024; ++i) {
+			if (!dir->tables[i] || (uintptr_t)dir->tables[i] == (uintptr_t)0xFFFFFFFF) {
+				continue;
 			}
-			free(dir->tables[i]);
+			if (kernel_directory->tables[i] != dir->tables[i]) {
+				for (uint32_t j = 0; j < 1024; ++j) {
+					if (dir->tables[i]->pages[j].frame) {
+						free_frame(&(dir->tables[i]->pages[j]));
+					}
+				}
+				free(dir->tables[i]);
+			}
 		}
+		free(dir);
 	}
-	free(dir);
 }
 
 void reap_process(process_t * proc) {
@@ -80,7 +86,7 @@ void reap_process(process_t * proc) {
 	list_free(proc->signal_queue);
 	free(proc->signal_queue);
 	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
-	free_directory(proc->thread.page_directory);
+	release_directory(proc->thread.page_directory);
 	free((void *)(proc->fds.entries));
 
 	shm_release_all(proc);
@@ -238,7 +244,7 @@ fork() {
  * memory space with the given pointer as its new stack.
  */
 uint32_t
-clone(uintptr_t stack_top, uintptr_t stack_old) {
+clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
@@ -255,6 +261,7 @@ clone(uintptr_t stack_top, uintptr_t stack_old) {
 	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to the original process' */
 	set_process_environment(new_proc, directory);
+	directory->ref_count++;
 	/* Read the instruction pointer */
 	eip = read_eip();
 
@@ -282,6 +289,19 @@ clone(uintptr_t stack_top, uintptr_t stack_old) {
 		uintptr_t offset  = ((uintptr_t)current_process->syscall_registers - o_stack);
 		new_proc->syscall_registers = (struct regs *)(n_stack + offset);
 
+		/* Set the gid */
+		new_proc->group = current_process->group;
+
+		/* Push arg, bogus return address onto the new thread's stack */
+		new_stack -= sizeof(uintptr_t);
+		*((uintptr_t *)new_stack) = arg;
+		new_stack -= sizeof(uintptr_t);
+		*((uintptr_t *)new_stack) = THREAD_RETURN;
+
+		/* Set esp, ebp, and eip for the new thread */
+		new_proc->syscall_registers->esp = new_stack;
+		new_proc->syscall_registers->ebp = new_stack;
+		new_proc->syscall_registers->eip = thread_func;
 
 		/* Set the new process instruction pointer (to the return from read_eip) */
 		new_proc->thread.eip = eip;
@@ -291,7 +311,7 @@ clone(uintptr_t stack_top, uintptr_t stack_old) {
 		/* Return the child PID */
 		return new_proc->id;
 	} else {
-		assert(magic == TASK_MAGIC && "Bad process fork magic (child clone)!");
+		assert(magic == TASK_MAGIC && "Bad process clone magic (child clone)!");
 		/* Child fork is complete, return */
 		return 0;
 	}

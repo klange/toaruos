@@ -257,7 +257,7 @@ extern void switch_task(uint8_t reschedule);
 extern void switch_from_cross_thread_lock();
 extern void switch_next();
 extern uint32_t fork();
-extern uint32_t clone(uintptr_t new_stack, uintptr_t old_stack);
+extern uint32_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg);
 extern uint32_t getpid();
 extern void enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack);
 

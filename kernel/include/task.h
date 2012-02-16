@@ -22,6 +22,8 @@ typedef struct page_directory {
 	page_table_t *tables[1024];	/* 1024 pointers to page tables... */
 	uintptr_t physical_tables[1024];	/* Physical addresses of the tables */
 	uintptr_t physical_address;	/* The physical address of physical_tables */
+
+	int32_t ref_count;
 } page_directory_t;
 
 

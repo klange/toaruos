@@ -150,6 +150,7 @@ process_t * spawn_init() {
 	 * of the process' entry in the process tree. */
 	init->tree_entry = process_tree->root;
 	init->id      = 0;       /* Init is PID 1 */
+	init->group   = 0;
 	init->name    = "init";  /* Um, duh. */
 	init->user    = 0;       /* UID 0 */
 	init->group   = 0;       /* Task group 0 */
@@ -224,6 +225,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	/* Allocate a new process */
 	process_t * proc = malloc(sizeof(process_t));
 	proc->id = get_next_pid(); /* Set its PID */
+	proc->group = proc->id;    /* Set the GID */
 	proc->name = default_name; /* Use the default name */
 	proc->description = NULL;  /* No description */
 
