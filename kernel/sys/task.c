@@ -290,8 +290,14 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 		new_proc->syscall_registers = (struct regs *)(n_stack + offset);
 
 		/* Set the gid */
-		new_proc->group = current_process->group;
+		if (current_process->group) {
+			new_proc->group = current_process->group;
+		} else {
+			/* We are the session leader */
+			new_proc->group = current_process->id;
+		}
 
+		kprintf("[clone] Cloning with new stack at 0x%x, new EIP of 0x%x\n", new_stack, thread_func);
 		/* Push arg, bogus return address onto the new thread's stack */
 		new_stack -= sizeof(uintptr_t);
 		*((uintptr_t *)new_stack) = arg;

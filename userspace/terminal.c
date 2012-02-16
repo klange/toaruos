@@ -2870,8 +2870,6 @@ int main(int argc, char ** argv) {
 	graphics_depth  = syscall_getgraphicsdepth();
 	gfx_mem = (void *)syscall_getgraphicsaddress();
 
-	printf("terminal booted\n");
-
 	if (argc > 1) {
 		/* Read some arguments */
 		int index, c;

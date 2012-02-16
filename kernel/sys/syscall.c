@@ -165,7 +165,17 @@ static int sys_sbrk(int size) {
 
 static int sys_getpid() {
 	/* The user actually wants the pid of the originating thread (which can be us). */
-	return current_process->group;
+	if (current_process->group) {
+		return current_process->group;
+	} else {
+		/* We are the leader */
+		return current_process->id;
+	}
+}
+
+/* Actual getpid() */
+static int gettid() {
+	return getpid();
 }
 
 static int execve(const char * filename, char *const argv[], char *const envp[]) {
@@ -526,6 +536,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_signal,
 	(uintptr_t)&share_fd,
 	(uintptr_t)&get_fd,				/* 40 */
+	(uintptr_t)&gettid,
 	0
 };
 uint32_t num_syscalls;

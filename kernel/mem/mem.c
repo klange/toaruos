@@ -308,6 +308,9 @@ page_fault(
 
 	if (r->eip == SIGNAL_RETURN) {
 		return_from_signal_handler();
+	} else if (r->eip == THREAD_RETURN) {
+		kprintf("[kernel:XXX] Return from thread!\n");
+		kexit(0);
 	}
 
 #if 1
