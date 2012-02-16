@@ -37,6 +37,7 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 ## Screenshots ##
 
 Here's what とあるOS looks like:
+
 * [Fully userspace shell, demonstrating a threading application](http://i.imgur.com/S7rab.png)
 * [Logging in and moving around](http://i.imgur.com/VjTMv.png)
 * [Booting up the (WIP) graphical interface](http://i.imgur.com/g2yfr.png)
