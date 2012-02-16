@@ -38,17 +38,18 @@ void pthread_exit(void * value) {
 }
 
 #define NUM_THREADS 5
-#define VALUE 100000
+#define VALUE      0x1000000
+#define CHECKPOINT 0x03FFFFF
 
 volatile uint32_t result = 0;
 
 void *print_pid(void * garbage) {
 	printf("I am a thread and my pid is %d but my tid is %d\n", getpid(), gettid());
-	printf("[%d] And I'm a lumberjack, and I'm okay.\n", gettid());
-	printf("[%d] I sleep all night, and I work all day.\n", gettid());
-	printf("[%d] I'm a lumberjack and I'm okay!\n", gettid());
 
 	for (uint32_t i = 0; i < VALUE; ++i) {
+		if (!(result & CHECKPOINT)) {
+			printf("[%d] Checkpoint: %x\n", gettid(), result);
+		}
 		result++;
 	}
 
@@ -59,6 +60,8 @@ int main(int argc, char * argv[]) {
 	pthread_t thread[NUM_THREADS];
 	printf("I am the main process and my pid is %d and my tid is also %d\n", getpid(), gettid());
 
+	printf("Attempting to unsafely calculate %d!\n", NUM_THREADS * VALUE);
+
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_create(&thread[i], NULL, print_pid, NULL);
 	}
@@ -67,7 +70,7 @@ int main(int argc, char * argv[]) {
 		syscall_wait(thread[i].id);
 	}
 
-	printf("Done. Result of (potentially unsafe) computation was %d%s!!\n", result,
+	printf("Done. Result of (potentially unsafe) computation was %d %s!!\n", result,
 			(result == NUM_THREADS * VALUE) ? "(yay, that's right!)" : "(boo, that's wrong!)");
 
 	return 0;
