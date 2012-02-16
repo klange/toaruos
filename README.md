@@ -5,10 +5,45 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 
 
 ## Notice ##
-*This repository is moving to [`acm-uiuc/toaruos`](https://github.com/acm-uiuc/toaruos) in May, 2012. Please be prepared to update your pull URLs and any bookmarks you have.*
+*This repository may be moving to [`acm-uiuc/toaruos`](https://github.com/acm-uiuc/toaruos) in May, 2012. Please be prepared to update your pull URLs and any bookmarks you have.*
+
+## Features ##
+
+とあるOS currently supports a number of important operating system concepts and facilities:
+
+* Processes
+  * Preemptive multasking
+  * Kernel threads
+* Shared memory
+  * Through page table mappings
+* POSIX-compliant file operations
+* Pipes
+  * Backed by ring buffers
+* Signals
+  * Mostly POSIX-compliant under the loose method
+* EXT2 read/write support
+  * For IDE devices or SATA devices *operating in IDE compatibility mode*
+* PS/2 keyboard/mouse support
+  * Of course, what doesn't?
+* Graphical features
+  * We are hard at work building a window environment that makes use of shared memory
+  * Currently supports full-screen operation of graphical applications
+* Extensive, ANSI-capable terminal
+  * Includes extensive compatibility with xterm
+  * Support for 256 colors
+  * Beautifully rendered anti-aliased text through FreeType (please see the licenses below for included fonts)
+* And dozens of other minor things not worth listing here.
 
 ## Screenshots ##
+
 Here's what とあるOS looks like:
+* [Fully userspace shell, demonstrating a threading application](http://i.imgur.com/S7rab.png)
+* [Logging in and moving around](http://i.imgur.com/VjTMv.png)
+* [Booting up the (WIP) graphical interface](http://i.imgur.com/g2yfr.png)
+* [Nyaning](http://i.imgur.com/2BISA.png)
+* [Demoing multitasking](http://i.imgur.com/RY4lb.png)
+
+Here's what とあるOS has looked like in the past:
 
 * [Empty kernel shell](http://i.imgur.com/44huV.jpg)
 * [With a wallpaper and mouse cursor](http://i.imgur.com/eG0i9.png)
@@ -26,6 +61,10 @@ Clone the git repository and run:
     make run            # to run qemu with the proper arguments
     # Or, if you have KVM...
     make kvm            # to run qemu in KVM mode
+    # If you happen to have a complete LaTeX CJK package, you can also
+    # build the docs, and thus everything:
+    make docs
+    make
 
 This will build the kernel and the ramdisk. 
 
@@ -41,6 +80,10 @@ You need `genext2fs` to generate the EXT2 images for the ramdisk and the hard di
 
 ### Documentation ###
 To build the primary documentation, you need a complete LaTeX stack with `pdftex`, including the CJK module and Japanese fonts. To build the kernel API documentation, you will need Doxygen (eventually).
+
+# Goals and Future Development #
+
+### Please note that much of this section is outdated. ###
 
 ## Goals and Roadmap ##
 Overall, the goal of this project is to write a relatively POSIX-compatible OS from the ground up. With a focus on generic hardware functionality and universal specifications like VESA, I hope to eventually get something fairly complete in terms of what an OS should be. At some times, I may focus on an actual piece of complex hardware (I am looking to write a basic driver for Intel graphics cards based on the X driver and the Mesa components), but in general, I will stick to generic interfaces.
@@ -119,7 +162,9 @@ Here are some tutorials we found useful early on:
 * [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/)
 * [Skelix's OS tutorial](http://en.skelix.org/skelixos/)
 
-## License ##
+# Licenses #
+
+## ToAruOS Itself ##
 
 ToAruOS is under the NCSA license, which is a derivative (and fully compatible with) the BSD license. It is also forward compatible with the GPL, so you can use ToAruOS bits and pieces in GPL. The terms of the license are listed here for your convience:
 
@@ -147,7 +192,7 @@ ToAruOS is under the NCSA license, which is a derivative (and fully compatible w
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
     WITH THE SOFTWARE.
 
-### Additional Licenses ###
+## Additional Licenses ##
 
 ToAruOS contains additional software with the following copyright notices:
 
