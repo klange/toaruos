@@ -36,6 +36,12 @@ int main (int argc, char ** argv) {
 	printf("[drawlines] Window drawn for client[%d,%d,%d,%d]\n", left, top, width, height);
 
 	while (1) {
+		w_keyboard_t * kbd = poll_keyboard();
+		if (kbd != NULL) {
+			printf("[drawlines] got key '%c'\n", kbd->key);
+			free(kbd);
+		}
+
 		window_draw_line(wina, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
 		window_redraw_full(wina);
 	}
