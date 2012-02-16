@@ -155,9 +155,10 @@ process_t * spawn_init() {
 	init->user    = 0;       /* UID 0 */
 	init->group   = 0;       /* Task group 0 */
 	init->status  = 0;       /* Run status */
-	init->fds.length   = 3;  /* Initialize the file descriptors */
-	init->fds.capacity = 4;
-	init->fds.entries  = malloc(sizeof(fs_node_t *) * init->fds.capacity);
+	init->fds = malloc(sizeof(fd_table_t));
+	init->fds->length   = 3;  /* Initialize the file descriptors */
+	init->fds->capacity = 4;
+	init->fds->entries  = malloc(sizeof(fs_node_t *) * init->fds->capacity);
 
 	/* Set the working directory */
 	init->wd_node = clone_fs(fs_root);
@@ -250,12 +251,13 @@ process_t * spawn_process(volatile process_t * parent) {
 	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
 
 	/* Clone the file descriptors from the original process */
-	proc->fds.length   = parent->fds.length;
-	proc->fds.capacity = parent->fds.capacity;
-	proc->fds.entries  = malloc(sizeof(fs_node_t *) * proc->fds.capacity);
-	assert(proc->fds.entries && "Failed to allocate file descriptor table for new process.");
-	for (uint32_t i = 0; i < parent->fds.length; ++i) {
-		proc->fds.entries[i] = clone_fs(parent->fds.entries[i]);
+	proc->fds = malloc(sizeof(fd_table_t));
+	proc->fds->length   = parent->fds->length;
+	proc->fds->capacity = parent->fds->capacity;
+	proc->fds->entries  = malloc(sizeof(fs_node_t *) * proc->fds->capacity);
+	assert(proc->fds->entries && "Failed to allocate file descriptor table for new process.");
+	for (uint32_t i = 0; i < parent->fds->length; ++i) {
+		proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
 	}
 
 	/* As well as the working directory */
@@ -376,13 +378,13 @@ uint8_t should_reap() {
  * @return The actual fd, for use in userspace
  */
 uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
-	if (proc->fds.length == proc->fds.capacity) {
-		proc->fds.capacity *= 2;
-		proc->fds.entries = realloc(proc->fds.entries, sizeof(fs_node_t *) * proc->fds.capacity);
+	if (proc->fds->length == proc->fds->capacity) {
+		proc->fds->capacity *= 2;
+		proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
 	}
-	proc->fds.entries[proc->fds.length] = node;
-	proc->fds.length++;
-	return proc->fds.length-1;
+	proc->fds->entries[proc->fds->length] = node;
+	proc->fds->length++;
+	return proc->fds->length-1;
 }
 
 /*
@@ -395,15 +397,15 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
  * @return The destination file descriptor, -1 on failure
  */
 uint32_t process_move_fd(process_t * proc, int src, int dest) {
-	if ((size_t)src > proc->fds.length || (size_t)dest > proc->fds.length) {
+	if ((size_t)src > proc->fds->length || (size_t)dest > proc->fds->length) {
 		return -1;
 	}
 #if 0
-	if (proc->fds.entries[dest] != proc->fds.entries[src]) {
-		close_fs(proc->fds.entries[src]);
+	if (proc->fds->entries[dest] != proc->fds->entries[src]) {
+		close_fs(proc->fds->entries[src]);
 	}
 #endif
-	proc->fds.entries[dest] = proc->fds.entries[src];
+	proc->fds->entries[dest] = proc->fds->entries[src];
 	return dest;
 }
 

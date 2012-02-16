@@ -106,7 +106,11 @@ void
 irq_handler(struct regs *r) {
 	IRQ_OFF;
 	void (*handler)(struct regs *r);
-	handler = irq_routines[r->int_no - 32];
+	if (r->int_no > 47 || r->int_no < 32) {
+		handler = NULL;
+	} else {
+		handler = irq_routines[r->int_no - 32];
+	}
 	if (handler) {
 		handler(r);
 	} else {

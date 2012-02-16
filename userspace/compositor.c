@@ -25,6 +25,39 @@
 
 DECL_SYSCALL0(mkpipe);
 DEFN_SYSCALL0(mousedevice, 33);
+DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
+DEFN_SYSCALL0(gettid, 41);
+
+int clone(uintptr_t,uintptr_t,void*) __attribute__((alias("syscall_clone")));
+int gettid() __attribute__((alias("syscall_gettid")));
+
+typedef struct {
+	uint32_t id;
+	char * stack;
+	void * ret_val;
+} pthread_t;
+typedef unsigned int pthread_attr_t;
+
+#define PTHREAD_STACK_SIZE 10240
+
+int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
+	char * stack = malloc(PTHREAD_STACK_SIZE);
+	uintptr_t stack_top = (uintptr_t)stack + PTHREAD_STACK_SIZE;
+	fprintf(stderr, "\033[1;31mGenerating a new thread with stack at %p.\033[0m\n", stack_top);
+	thread->stack = stack;
+	thread->id = clone(stack_top, (uintptr_t)start_routine, arg);
+	return 0;
+}
+
+void pthread_exit(void * value) {
+	/* Perform nice cleanup */
+#if 0
+	/* XXX: LOCK */
+	free(stack);
+	/* XXX: Return value!? */
+#endif
+	__asm__ ("jmp 0xFFFFB00F"); /* Force thread exit */
+}
 
 
 /* For terminal, not for us */
@@ -491,6 +524,60 @@ void init_base_windows () {
 	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 }
 
+void * process_requests(void * garbage) {
+	int32_t mouse_x, mouse_y;
+	int mfd = *((int *)garbage);
+	struct stat _stat;
+	char buf[sizeof(mouse_device_packet_t)];
+	printf("Request processing thread started with TID#%d\n", gettid());
+	printf("\033[1;32mMouse device is fd #%d\033[0m\n", mfd);
+	while (1) {
+		{ 
+#define MOUSE_SCALE 10
+#define MOUSE_OFFSET_X 24
+#define MOUSE_OFFSET_Y 24
+			fstat(mfd, &_stat);
+			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
+				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
+				int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
+#if 1
+				if (packet->magic != MOUSE_MAGIC) {
+					int r = read(mfd, buf, 1);
+					break;
+				}
+				//cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+				/* XXX: Redraw below */
+				/* Apply mouse movement */
+				int c, l;
+				c = abs(packet->x_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_x += packet->x_difference * l;
+				c = abs(packet->y_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_y -= packet->y_difference * l;
+				if (mouse_x < 0) mouse_x = 0;
+				if (mouse_y < 0) mouse_y = 0;
+				if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
+				if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
+				/* XXX: DRAW CURSOR */
+				//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+				if (l) {
+					draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+				}
+#endif
+				fstat(mfd, &_stat);
+			}
+		}
+	}
+	return NULL;
+}
+
 int main(int argc, char ** argv) {
 
 	/* Initialize graphics setup */
@@ -508,9 +595,6 @@ int main(int argc, char ** argv) {
 	/* Load sprites */
 	init_sprite(0, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
 	display();
-
-	/* Grab the mouse */
-	int mfd = syscall_mousedevice();
 
 	/* Count startup items */
 	startup_items = list_create();
@@ -542,6 +626,13 @@ int main(int argc, char ** argv) {
 		return 1;
 	}
 
+	/* Grab the mouse */
+	int mfd = syscall_mousedevice();
+	printf("\033[1;34mmfd = %d!\033[0m\n", mfd);
+	pthread_t input_thread;
+	pthread_create(&input_thread, NULL, process_requests, (void *)&mfd);
+
+
 	if (!fork()) {
 		waitabit();
 		char * args[] = {"/bin/drawlines", "100","100","300","300",NULL};
@@ -563,54 +654,10 @@ int main(int argc, char ** argv) {
 		execve(args[0], args, NULL);
 	}
 
-	int32_t mouse_x, mouse_y;
-
 	/* Sit in a run loop */
 	while (1) {
 		process_request();
-		//process_window_command(0);
-		{ 
-#define MOUSE_SCALE 10
-#define MOUSE_OFFSET_X 24
-#define MOUSE_OFFSET_Y 24
-			struct stat _stat;
-			fstat(mfd, &_stat);
-			char buf[sizeof(mouse_device_packet_t)];
-			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
-				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-				int r = read(mfd, buf, sizeof(mouse_device_packet_t));
-				if (packet->magic != MOUSE_MAGIC) {
-					int r = read(mfd, buf, 1);
-					break;
-				}
-				//cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-				/* XXX: Redraw below */
-				/* Apply mouse movement */
-				int c, l;
-				c = abs(packet->x_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_x += packet->x_difference * l;
-				c = abs(packet->y_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_y -= packet->y_difference * l;
-				if (mouse_x < 0) mouse_x = 0;
-				if (mouse_y < 0) mouse_y = 0;
-				if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
-				if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
-				/* XXX: DRAW CURSOR */
-				//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-				if (l) {
-					draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
-				}
-				fstat(mfd, &_stat);
-			}
-		}
+		process_window_command(0);
 	}
 
 	// XXX: Better have SIGINT/SIGSTOP handlers

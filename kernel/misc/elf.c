@@ -13,6 +13,9 @@
 #include <elf.h>
 #include <process.h>
 
+#define USER_STACK_TOP    0x10100000
+#define USER_STACK_BOTTOM 0x10000000
+
 /**
  * Load and execute a static ELF binary.
  *
@@ -98,7 +101,7 @@ exec(
 	free(header);
 	close_fs(file);
 
-	for (uintptr_t stack_pointer = 0x10000000; stack_pointer < 0x10100000; stack_pointer += 0x1000) {
+	for (uintptr_t stack_pointer = USER_STACK_BOTTOM; stack_pointer < USER_STACK_TOP; stack_pointer += 0x1000) {
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
 	}
 
@@ -115,15 +118,18 @@ exec(
 
 	current_process->image.heap        = heap; /* heap end */
 	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
-	current_process->image.user_stack  = 0x100FFFFF;
-	while (current_process->fds.length < 3) {
+	current_process->image.user_stack  = USER_STACK_TOP;
+	while (current_process->fds->length < 3) {
 		process_append_fd((process_t *)current_process, NULL);
 	}
 
 	current_process->image.start = entry;
 
+	/* Verify... */
+	debug_print_directory();
+
 	/* Go go go */
-	enter_user_jmp(entry, argc, argv_, 0x100FFFFF);
+	enter_user_jmp(entry, argc, argv_, USER_STACK_TOP);
 
 		/* We should never reach this code */
 	return -1;

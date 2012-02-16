@@ -58,7 +58,8 @@ void spin_unlock(uint8_t volatile * lock) {
 }
 
 void *print_pid(void * garbage) {
-	printf("I am a thread and my pid is %d but my tid is %d\n", getpid(), gettid());
+	int i;
+	printf("I am a thread and my pid is %d but my tid is %d and my stack is at %p\n", getpid(), gettid(), &i);
 
 	for (uint32_t i = 0; i < VALUE; ++i) {
 		if (use_locks) {

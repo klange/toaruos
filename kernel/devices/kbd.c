@@ -276,7 +276,7 @@ keyboard_install() {
 
 	/* Create a device pipe */
 	keyboard_pipe = make_pipe(128);
-	current_process->fds.entries[0] = keyboard_pipe;
+	current_process->fds->entries[0] = keyboard_pipe;
 
 	/* Install the interrupt handler */
 	irq_install_handler(KEYBOARD_IRQ, keyboard_handler);

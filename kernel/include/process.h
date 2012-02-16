@@ -13,7 +13,7 @@
 
 typedef signed int    pid_t;
 typedef unsigned int  user_t;
-typedef unsigned int  group_t;
+typedef signed int  group_t;
 typedef unsigned char status_t;
 
 #define USER_ROOT_UID (user_t)0
@@ -73,7 +73,7 @@ typedef struct process {
 	image_t       image;             /* Binary image information */
 	fs_node_t *   wd_node;           /* Working directory VFS node */
 	char *        wd_name;           /* Working directory path name */
-	fd_table_t    fds;               /* File descriptor table */
+	fd_table_t *  fds;               /* File descriptor table */
 	status_t      status;            /* Process status */
 	sig_table_t   signals;           /* Signal table */
 	uint8_t       finished : 2;      /* Status indicator */

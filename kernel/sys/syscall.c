@@ -46,28 +46,28 @@ static int exit(int retval) {
 }
 
 static int read(int fd, char * ptr, int len) {
-	if (fd >= (int)current_process->fds.length || fd < 0) {
+	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}
-	if (current_process->fds.entries[fd] == NULL) {
+	if (current_process->fds->entries[fd] == NULL) {
 		return -1;
 	}
 	validate(ptr);
-	fs_node_t * node = current_process->fds.entries[fd];
+	fs_node_t * node = current_process->fds->entries[fd];
 	uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
 	node->offset += out;
 	return out;
 }
 
 static int readdir(int fd, int index, struct dirent * entry) {
-	if (fd >= (int)current_process->fds.length || fd < 0) {
+	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}
-	if (current_process->fds.entries[fd] == NULL) {
+	if (current_process->fds->entries[fd] == NULL) {
 		return -1;
 	}
 	validate(entry);
-	fs_node_t * node = current_process->fds.entries[fd];
+	fs_node_t * node = current_process->fds->entries[fd];
 
 	struct dirent * kentry = readdir_fs(node, (uint32_t)index);
 	if (!kentry) {
@@ -81,21 +81,21 @@ static int readdir(int fd, int index, struct dirent * entry) {
 }
 
 static int write(int fd, char * ptr, int len) {
-	if ((fd == 1 && !current_process->fds.entries[fd]) ||
-		(fd == 2 && !current_process->fds.entries[fd])) {
+	if ((fd == 1 && !current_process->fds->entries[fd]) ||
+		(fd == 2 && !current_process->fds->entries[fd])) {
 		for (uint32_t i = 0; i < (uint32_t)len; ++i) {
 			serial_send(ptr[i]);
 		}
 		return len;
 	}
-	if (fd >= (int)current_process->fds.length || fd < 0) {
+	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}
-	if (current_process->fds.entries[fd] == NULL) {
+	if (current_process->fds->entries[fd] == NULL) {
 		return -1;
 	}
 	validate(ptr);
-	fs_node_t * node = current_process->fds.entries[fd];
+	fs_node_t * node = current_process->fds->entries[fd];
 	uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
 	node->offset += out;
 	return out;
@@ -141,10 +141,10 @@ static int open(const char * file, int flags, int mode) {
 }
 
 static int close(int fd) {
-	if (fd >= (int)current_process->fds.length || fd < 0) { 
+	if (fd >= (int)current_process->fds->length || fd < 0) { 
 		return -1;
 	}
-	close_fs(current_process->fds.entries[fd]);
+	close_fs(current_process->fds->entries[fd]);
 	return 0;
 }
 
@@ -228,27 +228,27 @@ static int kbd_get() {
 }
 
 static int seek(int fd, int offset, int whence) {
-	if (fd >= (int)current_process->fds.length || fd < 0) {
+	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}
 	if (fd < 3) {
 		return 0;
 	}
 	if (whence == 0) {
-		current_process->fds.entries[fd]->offset = offset;
+		current_process->fds->entries[fd]->offset = offset;
 	} else if (whence == 1) {
-		current_process->fds.entries[fd]->offset += offset;
+		current_process->fds->entries[fd]->offset += offset;
 	} else if (whence == 2) {
-		current_process->fds.entries[fd]->offset = current_process->fds.entries[fd]->length + offset;
+		current_process->fds->entries[fd]->offset = current_process->fds->entries[fd]->length + offset;
 	}
-	return current_process->fds.entries[fd]->offset;
+	return current_process->fds->entries[fd]->offset;
 }
 
 static int stat(int fd, uint32_t st) {
-	if (fd >= (int)current_process->fds.length || fd < 0) {
+	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}
-	fs_node_t * fn = current_process->fds.entries[fd];
+	fs_node_t * fn = current_process->fds->entries[fd];
 	struct stat * f = (struct stat *)st;
 	f->st_dev   = 0;
 	f->st_ino   = fn->inode;
@@ -464,10 +464,10 @@ static int sys_mkdir(char * path, uint32_t mode) {
  * share_fd: Make a file descriptor available to another process.
  */
 static uintptr_t share_fd(int fd, int pid) {
-	if (fd >= (int)current_process->fds.length || fd < 0) {
+	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return 0;
 	}
-	fs_node_t * fn = current_process->fds.entries[fd];
+	fs_node_t * fn = current_process->fds->entries[fd];
 	kprintf("[debug] Sharing FD#%d[0x%x][%s] with PID %d\n", fd, fn, fn->name, pid);
 	fn->shared_with = pid;
 	kprintf("[debug] shared_with = 0x%x!\n", fn->shared_with);
@@ -481,7 +481,7 @@ static uintptr_t share_fd(int fd, int pid) {
 static int get_fd(uintptr_t fn) {
 	fs_node_t * node = (fs_node_t *)fn;
 	kprintf("[debug] Retreiving node 0x%x for PID %d\n", fn, getpid());
-	if (node->shared_with == current_process->id) {
+	if (node->shared_with == current_process->id || node->shared_with == current_process->group) {
 		return process_append_fd((process_t *)current_process, node);
 	} else {
 		kprintf("wah? [%s] shared_with = 0x%x!\n", node->name, node->shared_with);

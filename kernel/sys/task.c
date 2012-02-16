@@ -85,9 +85,15 @@ void reap_process(process_t * proc) {
 	free(proc->wait_queue);
 	list_free(proc->signal_queue);
 	free(proc->signal_queue);
-	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
+	if (proc->image.stack - KERNEL_STACK_SIZE > heap_end) {
+		kprintf("\033[1;41;32mNot sure what's happening, this seems wrong:\n");
+		kprintf("  Process' claimed kernel stack is at 0x%x?\033[0m\n", proc->image.stack - KERNEL_STACK_SIZE);
+	} else {
+		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
+	}
 	release_directory(proc->thread.page_directory);
-	free((void *)(proc->fds.entries));
+	/* XXX: Free file descriptors! */
+	//free((void *)(proc->fds->entries));
 
 	shm_release_all(proc);
 	kprintf("[kernel] reaping %s\n", proc->name);
@@ -305,9 +311,21 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 		*((uintptr_t *)new_stack) = THREAD_RETURN;
 
 		/* Set esp, ebp, and eip for the new thread */
+		kprintf("Before updating, esp[0x%x], ebp[0x%x], eip[0x%x]\n",
+				new_proc->syscall_registers->useresp,
+				new_proc->syscall_registers->ebp,
+				new_proc->syscall_registers->eip);
 		new_proc->syscall_registers->esp = new_stack;
+		new_proc->syscall_registers->useresp = new_stack;
 		new_proc->syscall_registers->ebp = new_stack;
 		new_proc->syscall_registers->eip = thread_func;
+		kprintf("After updating,  esp[0x%x], ebp[0x%x], eip[0x%x]\n",
+				new_proc->syscall_registers->useresp,
+				new_proc->syscall_registers->ebp,
+				new_proc->syscall_registers->eip);
+
+		free(new_proc->fds);
+		new_proc->fds = current_process->fds;
 
 		/* Set the new process instruction pointer (to the return from read_eip) */
 		new_proc->thread.eip = eip;
@@ -430,6 +448,12 @@ switch_next() {
 		switch_next();
 	}
 
+	/* Set the page directory */
+	current_directory = current_process->thread.page_directory;
+	switch_page_directory(current_directory);
+	/* Set the kernel stack in the TSS */
+	set_kernel_stack(current_process->image.stack);
+
 	if (current_process->started) {
 		if (current_process->signal_queue->length > 0) {
 			current_process->signal_kstack  = malloc(KERNEL_STACK_SIZE);
@@ -442,10 +466,6 @@ switch_next() {
 		current_process->started = 1;
 	}
 
-	/* Set the page directory */
-	current_directory = current_process->thread.page_directory;
-	/* Set the kernel stack in the TSS */
-	set_kernel_stack(current_process->image.stack);
 	/* Jump, baby, jump */
 	asm volatile (
 			"mov %0, %%ebx\n"
@@ -521,7 +541,7 @@ void task_exit(int retval) {
 #endif
 	free((void *)(current_process->image.stack - KERNEL_STACK_SIZE));
 	free((void *)current_process->thread.page_directory);
-	free((void *)current_process->fds.entries);
+	free((void *)current_process->fds->entries);
 	free((void *)current_process);
 #endif
 	make_process_reapable((process_t *)current_process);

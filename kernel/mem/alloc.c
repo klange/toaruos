@@ -122,6 +122,8 @@
 #define SKIP_P INT32_MAX							/* INT32_MAX is half of UINT32_MAX; this gives us a 50% marker for skip lists. */
 #define SKIP_MAX_LEVEL 6							/* We have a maximum of 6 levels in our skip lists. */
 
+#define BIN_MAGIC 0xDEFAD00D
+
 /* }}} */
 
 /*
@@ -211,6 +213,7 @@ typedef struct _klmalloc_bin_header {
 	struct _klmalloc_bin_header *  next;	/* Pointer to the next node. */
 	void * head;							/* Head of this bin. */
 	size_t size;							/* Size of this bin, if big; otherwise bin index. */
+	uint32_t bin_magic;
 } klmalloc_bin_header;
 
 /*
@@ -222,6 +225,7 @@ typedef struct _klmalloc_big_bin_header {
 	struct _klmalloc_big_bin_header * next;
 	void * head;
 	size_t size;
+	uint32_t bin_magic;
 	struct _klmalloc_big_bin_header * prev;
 	struct _klmalloc_big_bin_header * forward[SKIP_MAX_LEVEL+1];
 } klmalloc_big_bin_header;
@@ -586,6 +590,7 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 			 * Grow the heap for the new bin.
 			 */
 			bin_header = (klmalloc_bin_header*)sbrk(PAGE_SIZE);
+			bin_header->bin_magic = BIN_MAGIC;
 			assert((uintptr_t)bin_header % PAGE_SIZE == 0);
 
 			/*
@@ -690,6 +695,7 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 			 */
 			size_t pages = (size + sizeof(klmalloc_big_bin_header)) / PAGE_SIZE + 1;
 			bin_header = (klmalloc_big_bin_header*)sbrk(PAGE_SIZE * pages);
+			bin_header->bin_magic = BIN_MAGIC;
 			assert((uintptr_t)bin_header % PAGE_SIZE == 0);
 			/*
 			 * Give the header the remaining space.
@@ -739,6 +745,9 @@ static void klfree(void *ptr) {
 	 */
 	klmalloc_bin_header * header = (klmalloc_bin_header *)((uintptr_t)ptr & (size_t)~PAGE_MASK);
 	assert((uintptr_t)header % PAGE_SIZE == 0);
+
+	if (header->bin_magic != BIN_MAGIC)
+		return;
 
 	/*
 	 * For small bins, the bin number is stored in the size
@@ -890,6 +899,8 @@ static void * __attribute__ ((malloc)) klrealloc(void *ptr, size_t size) {
 	 * by aligning it to a page.
 	 */
 	klmalloc_bin_header * header_old = (void *)((uintptr_t)ptr & (size_t)~PAGE_MASK);
+	if (header_old->bin_magic != BIN_MAGIC)
+		return NULL;
 
 
 	/*

@@ -259,9 +259,17 @@ debug_print_directory() {
 			continue;
 		}
 		if (kernel_directory->tables[i] == current_directory->tables[i]) {
-			kprintf("  0x%x - kern [0x%x] %d\n", current_directory->tables[i], &current_directory->tables[i], i);
+			//kprintf("  0x%x - kern [0x%x] %d\n", current_directory->tables[i], &current_directory->tables[i], i);
 		} else {
-			kprintf("  0x%x - user [0x%x] %d\n", current_directory->tables[i], &current_directory->tables[i], i);
+			kprintf("  0x%x - user [0x%x] 0x%x\n", current_directory->tables[i], &current_directory->tables[i], i * 0x1000 * 1024);
+			for (uint16_t j = 0; j < 1024; ++j) {
+#if 0
+				page_t *  p= &current_directory->tables[i]->pages[j];
+				if (p->frame) {
+					kprintf("    0x%x - 0x%x %s\n", p->frame * 0x1000, p->frame * 0x1000 + 0xFFF, p->present ? "[present]" : "");
+				}
+#endif
+			}
 		}
 	}
 	kprintf(" ---- [done]\n");
@@ -322,6 +330,9 @@ page_fault(
 
 	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d \033[0m\n",
 			present, rw, user, reserved, id, faulting_address, r->eip, getpid());
+
+	debug_print_directory();
+
 #endif
 
 	signal_t * sig = malloc(sizeof(signal_t));
