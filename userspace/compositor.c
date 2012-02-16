@@ -524,18 +524,21 @@ void init_base_windows () {
 	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 }
 
+int32_t mouse_x, mouse_y;
+#define MOUSE_SCALE 10
+#define MOUSE_OFFSET_X 26
+#define MOUSE_OFFSET_Y 26
+
 void * process_requests(void * garbage) {
-	int32_t mouse_x, mouse_y;
 	int mfd = *((int *)garbage);
+
+	mouse_x = MOUSE_SCALE * graphics_width / 2;
+	mouse_y = MOUSE_SCALE * graphics_height / 2;
+
 	struct stat _stat;
 	char buf[sizeof(mouse_device_packet_t)];
-	printf("Request processing thread started with TID#%d\n", gettid());
-	printf("\033[1;32mMouse device is fd #%d\033[0m\n", mfd);
 	while (1) {
 		{ 
-#define MOUSE_SCALE 10
-#define MOUSE_OFFSET_X 24
-#define MOUSE_OFFSET_Y 24
 			fstat(mfd, &_stat);
 			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
 				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
@@ -628,7 +631,6 @@ int main(int argc, char ** argv) {
 
 	/* Grab the mouse */
 	int mfd = syscall_mousedevice();
-	printf("\033[1;34mmfd = %d!\033[0m\n", mfd);
 	pthread_t input_thread;
 	pthread_create(&input_thread, NULL, process_requests, (void *)&mfd);
 

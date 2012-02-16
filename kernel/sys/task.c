@@ -304,6 +304,10 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 		}
 
 		kprintf("[clone] Cloning with new stack at 0x%x, new EIP of 0x%x\n", new_stack, thread_func);
+
+		new_proc->syscall_registers->ebp = new_stack;
+		new_proc->syscall_registers->eip = thread_func;
+
 		/* Push arg, bogus return address onto the new thread's stack */
 		new_stack -= sizeof(uintptr_t);
 		*((uintptr_t *)new_stack) = arg;
@@ -311,18 +315,8 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 		*((uintptr_t *)new_stack) = THREAD_RETURN;
 
 		/* Set esp, ebp, and eip for the new thread */
-		kprintf("Before updating, esp[0x%x], ebp[0x%x], eip[0x%x]\n",
-				new_proc->syscall_registers->useresp,
-				new_proc->syscall_registers->ebp,
-				new_proc->syscall_registers->eip);
 		new_proc->syscall_registers->esp = new_stack;
 		new_proc->syscall_registers->useresp = new_stack;
-		new_proc->syscall_registers->ebp = new_stack;
-		new_proc->syscall_registers->eip = thread_func;
-		kprintf("After updating,  esp[0x%x], ebp[0x%x], eip[0x%x]\n",
-				new_proc->syscall_registers->useresp,
-				new_proc->syscall_registers->ebp,
-				new_proc->syscall_registers->eip);
 
 		free(new_proc->fds);
 		new_proc->fds = current_process->fds;
