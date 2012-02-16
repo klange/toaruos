@@ -109,9 +109,23 @@ void load_sprite(sprite_t * sprite, char * filename) {
 	free(bufferb);
 }
 
-void draw_sprite(sprite_t * sprite, uint16_t x, uint16_t y) {
+static inline int32_t min(int32_t a, int32_t b) {
+	return (a < b) ? a : b;
+}
+
+static inline int32_t max(int32_t a, int32_t b) {
+	return (a > b) ? a : b;
+}
+
+void draw_sprite(sprite_t * sprite, int32_t x, int32_t y) {
+	int32_t _left   = max(x, 0);
+	int32_t _top    = max(y, 0);
+	int32_t _right  = min(x + sprite->width,  graphics_width - 1);
+	int32_t _bottom = min(y + sprite->height, graphics_height - 1);
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+				continue;
 			if (sprite->alpha) {
 				GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
 			} else {

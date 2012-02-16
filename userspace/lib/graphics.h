@@ -61,7 +61,7 @@ uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask);
 void flip();
 
 void load_sprite(sprite_t * sprite, char * filename);
-void draw_sprite(sprite_t * sprite, uint16_t x, uint16_t y);
+void draw_sprite(sprite_t * sprite, int32_t x, int32_t y);
 void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color);
 
 

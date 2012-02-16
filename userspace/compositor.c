@@ -21,8 +21,10 @@
 #include "lib/window.h"
 
 #include "../kernel/include/signal.h"
+#include "../kernel/include/mouse.h"
 
 DECL_SYSCALL0(mkpipe);
+DEFN_SYSCALL0(mousedevice, 33);
 
 
 /* For terminal, not for us */
@@ -175,7 +177,7 @@ void process_window_command (int sig) {
 		struct stat buf;
 		fstat(pw->command_pipe, &buf);
 
-		int max_requests_per_cycle = 10;
+		int max_requests_per_cycle = 3;
 
 		while ((buf.st_size > 0) && (max_requests_per_cycle > 0)) {
 			w_window_t wwt;
@@ -485,6 +487,8 @@ void init_base_windows () {
 		window_draw_sprite(panel, sprites[2], i, 0);
 	}
 	redraw_full_window(panel);
+
+	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 }
 
 int main(int argc, char ** argv) {
@@ -504,6 +508,9 @@ int main(int argc, char ** argv) {
 	/* Load sprites */
 	init_sprite(0, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
 	display();
+
+	/* Grab the mouse */
+	int mfd = syscall_mousedevice();
 
 	/* Count startup items */
 	startup_items = list_create();
@@ -556,11 +563,54 @@ int main(int argc, char ** argv) {
 		execve(args[0], args, NULL);
 	}
 
+	int32_t mouse_x, mouse_y;
 
 	/* Sit in a run loop */
 	while (1) {
 		process_request();
-		process_window_command(0);
+		//process_window_command(0);
+		{ 
+#define MOUSE_SCALE 10
+#define MOUSE_OFFSET_X 24
+#define MOUSE_OFFSET_Y 24
+			struct stat _stat;
+			fstat(mfd, &_stat);
+			char buf[sizeof(mouse_device_packet_t)];
+			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
+				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
+				int r = read(mfd, buf, sizeof(mouse_device_packet_t));
+				if (packet->magic != MOUSE_MAGIC) {
+					int r = read(mfd, buf, 1);
+					break;
+				}
+				//cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+				/* XXX: Redraw below */
+				/* Apply mouse movement */
+				int c, l;
+				c = abs(packet->x_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_x += packet->x_difference * l;
+				c = abs(packet->y_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_y -= packet->y_difference * l;
+				if (mouse_x < 0) mouse_x = 0;
+				if (mouse_y < 0) mouse_y = 0;
+				if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
+				if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
+				/* XXX: DRAW CURSOR */
+				//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+				if (l) {
+					draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+				}
+				fstat(mfd, &_stat);
+			}
+		}
 	}
 
 	// XXX: Better have SIGINT/SIGSTOP handlers

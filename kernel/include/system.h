@@ -10,6 +10,9 @@
 #include <task.h>
 #include <process.h>
 
+#define STR(x) #x
+#define STRSTR(x) STR(x)
+
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
 #define b_(x) ((x & 1) | (x >> 2 & 2) | (x >> 4 & 4) | (x >> 6 & 8) | (x >> 8 & 16) | (x >> 10 & 32) | (x >> 12 & 64) | (x >> 14 & 128))
@@ -31,6 +34,8 @@ extern unsigned int __irq_sem;
 #define STOP while (1) { PAUSE; }
 
 #define SYSCALL_VECTOR 0x7F
+#define SIGNAL_RETURN 0xFFFFDEAF
+#define THREAD_RETURN 0xFFFFB00F
 
 extern void * code;
 extern void * end;

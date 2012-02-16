@@ -306,7 +306,7 @@ page_fault(
 	uint32_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
-	if (r->eip == 0xFFFFFFFF) {
+	if (r->eip == SIGNAL_RETURN) {
 		return_from_signal_handler();
 	}
 

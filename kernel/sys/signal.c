@@ -12,7 +12,7 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 	asm volatile(
 			"mov %2, %%esp\n"
 			"pushl %1\n"           /*          argument count   */
-			"pushl $0xFFFFFFFF\n"
+			"pushl $" STRSTR(SIGNAL_RETURN) "\n"
 			"mov $0x23, %%ax\n"    /* Segment selector */
 			"mov %%ax, %%ds\n"
 			"mov %%ax, %%es\n"
