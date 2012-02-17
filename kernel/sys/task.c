@@ -253,8 +253,6 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
-	struct regs * r = current_process->syscall_registers;
-
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
 	assert(parent && "Cloned from nothing??");
@@ -492,8 +490,8 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 	*((uintptr_t *)location) = THREAD_RETURN;
 #endif
 
-	PUSH(stack, uintptr_t, argv);
-	PUSH(stack, int, (uintptr_t)argc);
+	PUSH(stack, uintptr_t, (uintptr_t)argv);
+	PUSH(stack, int, argc);
 
 	asm volatile(
 			"mov %3, %%esp\n"
