@@ -328,18 +328,9 @@ page_fault(
 	int user     = r->err_code & 0x4    ? 1 : 0;
 	int reserved = r->err_code & 0x8    ? 1 : 0;
 	int id       = r->err_code & 0x10   ? 1 : 0;
-	
-	if (faulting_address <= USER_STACK_TOP && faulting_address >= USER_STACK_BOTTOM) {
-		/* XXX: This is a bug, and we don't know how it happened. */
-		page_t * page = get_page(faulting_address, 0, current_directory);
-		alloc_frame(page, 0, 1);
-		return;
-	}
 
 	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d \033[0m\n",
 			present, rw, user, reserved, id, faulting_address, r->eip, getpid());
-
-	debug_print_directory();
 
 #endif
 

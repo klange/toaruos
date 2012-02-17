@@ -8,7 +8,6 @@
 
 void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 	IRQ_OFF;
-	kprintf("[debug] Jumping to 0x%x with %d pushed and a stack at 0x%x\n", location, signum, stack);
 	asm volatile(
 			"mov %2, %%esp\n"
 			"pushl %1\n"           /*          argument count   */
@@ -29,7 +28,8 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 			"pushl %0\n"           /* Push the entry point */
 			"iret\n"
 			: : "m"(location), "m"(signum), "r"(stack) : "%ax", "%esp", "%eax");
-	kprintf("Yep, definitely an iret issue.\n");
+
+	kprintf("Failed to jump to signal handler!\n");
 }
 
 void handle_signal(process_t * proc, signal_t * sig) {
@@ -68,7 +68,9 @@ void handle_signal(process_t * proc, signal_t * sig) {
 list_t * rets_from_sig;
 
 void return_from_signal_handler() {
+#if 0
 	kprintf("[debug] Return From Signal for process %d\n", current_process->id);
+#endif
 
 	if (__builtin_expect(!rets_from_sig, 0)) {
 		rets_from_sig = list_create();

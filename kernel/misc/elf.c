@@ -122,9 +122,6 @@ exec(
 
 	current_process->image.start = entry;
 
-	/* Verify... */
-	debug_print_directory();
-
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, USER_STACK_TOP);
 
@@ -144,23 +141,7 @@ system(
 		kexit(-1);
 		return -1;
 	} else {
-		/* We are system(), so we need to wait for the child
-		 * application to exit before we can continue. */
-		/* Get the child task. */
-		process_t * volatile child_task = process_from_pid(child);
-		/* If the child task doesn't exist, bail */
-		if (!child_task) return -1;
-		/* Wait until it finishes (this is stupidly memory intensive,
-		 * but we haven't actually implemented wait() yet, so there's
-		 * not all that much we can do right now. */
-		while (child_task->finished == 0) {
-			if (child_task->finished != 0) break;
-			switch_task(1);
-		}
-		/* Grab the child's return value */
-		int ret = child_task->status;
-		delete_process(child_task);
-		return ret;
+		switch_next();
 	}
 }
 

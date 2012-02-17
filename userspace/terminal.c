@@ -2949,31 +2949,6 @@ int main(int argc, char ** argv) {
 	term_term_clear();
 	ansi_print("\033[H\033[2J");
 
-#if 0
-	ansi_print("Hello World!\n");
-
-	/* UTF 8 testing */
-	char * str = "Hello World~~ * とある";
-	utf8_decode_init(str, strlen(str));
-
-	int c = 0;
-	int j = 0;
-	char herp[1024];
-	while ((c = utf8_decode_next()) != -1) {
-		if (c > 0x3000) {
-			term_write_char(c, 10 + j, 50, rgb(255,255,255), rgb(0,0,0), ANSI_EXTRA);
-			j += 2*char_width;
-		} else {
-			term_write_char(c, 10 + j, 50, rgb(255,255,255), rgb(0,0,0), 0);
-			j += char_width;
-		}
-	}
-
-	ansi_print("Done.\n");
-
-	while (1) { }
-#endif
-
 	int ofd = syscall_mkpipe();
 	int ifd = syscall_mkpipe();
 
@@ -2992,7 +2967,6 @@ int main(int argc, char ** argv) {
 	} else {
 
 		child_pid = f;
-		printf("[terminal] child is %d\n", child_pid);
 
 		char buf[1024];
 		while (1) {

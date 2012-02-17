@@ -122,14 +122,11 @@ static int wait(int child) {
 }
 
 static int open(const char * file, int flags, int mode) {
-	kprintf("[debug] open(%s, 0x%x, 0x%x)\n", file, flags, mode);
-
 	validate((void *)file);
 	fs_node_t * node = kopen((char *)file, 0);
 	if (!node && (flags & 0x600)) {
 		/* Um, make one */
 		if (!create_file_fs((char *)file, 0777)) {
-			kprintf("[debug] Created file %s\n", file);
 			node = kopen((char *)file, 0);
 		}
 	}
@@ -364,8 +361,6 @@ static int send_signal(pid_t process, uint32_t signal) {
 		make_process_ready(receiver);
 	}
 
-	kprintf("[signal] Sending signal %d to PID %d from PID %d\n", signal, process, current_process->id);
-
 	list_insert(receiver->signal_queue, sig);
 
 	return 0;
@@ -468,9 +463,7 @@ static uintptr_t share_fd(int fd, int pid) {
 		return 0;
 	}
 	fs_node_t * fn = current_process->fds->entries[fd];
-	kprintf("[debug] Sharing FD#%d[0x%x][%s] with PID %d\n", fd, fn, fn->name, pid);
 	fn->shared_with = pid;
-	kprintf("[debug] shared_with = 0x%x!\n", fn->shared_with);
 	return (uintptr_t)fn;
 }
 
@@ -480,11 +473,9 @@ static uintptr_t share_fd(int fd, int pid) {
  */
 static int get_fd(uintptr_t fn) {
 	fs_node_t * node = (fs_node_t *)fn;
-	kprintf("[debug] Retreiving node 0x%x for PID %d\n", fn, getpid());
 	if (node->shared_with == current_process->id || node->shared_with == current_process->group) {
 		return process_append_fd((process_t *)current_process, node);
 	} else {
-		kprintf("wah? [%s] shared_with = 0x%x!\n", node->name, node->shared_with);
 		return -1;
 	}
 }

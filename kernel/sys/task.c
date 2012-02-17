@@ -96,7 +96,6 @@ void reap_process(process_t * proc) {
 	//free((void *)(proc->fds->entries));
 
 	shm_release_all(proc);
-	kprintf("[kernel] reaping %s\n", proc->name);
 }
 
 /*
@@ -256,8 +255,6 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 
 	struct regs * r = current_process->syscall_registers;
 
-	kprintf("[clone] ESP at interrupt: 0x%x\n", r->esp);
-
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
 	assert(parent && "Cloned from nothing??");
@@ -302,8 +299,6 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 			/* We are the session leader */
 			new_proc->group = current_process->id;
 		}
-
-		kprintf("[clone] Cloning with new stack at 0x%x, new EIP of 0x%x\n", new_stack, thread_func);
 
 		new_proc->syscall_registers->ebp = new_stack;
 		new_proc->syscall_registers->eip = thread_func;
@@ -473,6 +468,9 @@ switch_next() {
 
 }
 
+#define PUSH(stack, type, item) stack -= sizeof(type); \
+							*((type *) stack) = item
+
 /*
  * Enter ring 3 and jump to `location`.
  *
@@ -485,11 +483,20 @@ void
 enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 	IRQ_OFF;
 	set_kernel_stack(current_process->image.stack);
+
+	/* Push arg, bogus return address onto the new thread's stack */
+#if 0
+	location -= sizeof(uintptr_t);
+	*((uintptr_t *)location) = arg;
+	location -= sizeof(uintptr_t);
+	*((uintptr_t *)location) = THREAD_RETURN;
+#endif
+
+	PUSH(stack, uintptr_t, argv);
+	PUSH(stack, int, (uintptr_t)argc);
+
 	asm volatile(
 			"mov %3, %%esp\n"
-			"pushl $0\n"           /* Push the null terminator  */
-			"pushl %2\n"           /* Push the argument pointer */
-			"pushl %1\n"           /*          argument count   */
 			"pushl $0xDECADE21\n"  /* Magic */
 			"mov $0x23, %%ax\n"    /* Segment selector */
 			"mov %%ax, %%ds\n"
@@ -506,7 +513,7 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 			"pushl $0x1B\n"
 			"pushl %0\n"           /* Push the entry point */
 			"iret\n"
-			: : "m"(location), "m"(argc), "m"(argv), "r"(stack) : "%ax", "%esp", "%eax");
+			: : "m"(location), "r"(argc), "r"(argv), "r"(stack) : "%ax", "%esp", "%eax");
 }
 
 /*
