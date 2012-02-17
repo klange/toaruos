@@ -295,7 +295,7 @@ uint8_t volatile key_evt_buffer_lock;
 list_t * key_evt_buffer;
 
 w_keyboard_t * poll_keyboard () {
-	w_keyboard_t * evt;
+	w_keyboard_t * evt = NULL;
 
 	LOCK(key_evt_buffer_lock);
 	if (key_evt_buffer->length > 0) {
@@ -310,9 +310,9 @@ w_keyboard_t * poll_keyboard () {
 
 static void process_key_evt (uint8_t command, w_keyboard_t * evt) {
 	/* Push the event onto a buffer for the process to poll */
-	LOCK(key_evt_buffer_lock);
+	//LOCK(key_evt_buffer_lock);
 	list_insert(key_evt_buffer, evt);
-	UNLOCK(key_evt_buffer_lock);
+	//UNLOCK(key_evt_buffer_lock);
 }
 
 
@@ -335,9 +335,9 @@ w_mouse_t * poll_mouse () {
 
 static void process_mouse_evt (uint8_t command, w_mouse_t * evt) {
 	/* Push the event onto a buffer for the process to poll */
-	LOCK(mouse_evt_buffer_lock);
+	//LOCK(mouse_evt_buffer_lock);
 	list_insert(mouse_evt_buffer, evt);
-	UNLOCK(mouse_evt_buffer_lock);
+	//UNLOCK(mouse_evt_buffer_lock);
 }
 
 
@@ -372,6 +372,8 @@ static void process_evt (int sig) {
 		wins_packet_t header;
 		read(process_windows->event_pipe, &header, sizeof(wins_packet_t));
 
+		printf("Incoming event: 0x%x\n", header.command_type);
+
 		/* Determine type, read, and dispatch */
 		switch (header.command_type & WE_GROUP_MASK) {
 			case WE_MOUSE_EVT: {
@@ -382,6 +384,7 @@ static void process_evt (int sig) {
 			}
 
 			case WE_KEY_EVT: {
+				printf("Received a keyboard event.\n");
 				w_keyboard_t * kevt = malloc(sizeof(w_keyboard_t));
 				read(process_windows->event_pipe, kevt, sizeof(w_keyboard_t));
 				process_key_evt(header.command_type, kevt);

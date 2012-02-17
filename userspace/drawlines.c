@@ -38,7 +38,8 @@ int main (int argc, char ** argv) {
 	while (1) {
 		w_keyboard_t * kbd = poll_keyboard();
 		if (kbd != NULL) {
-			printf("[drawlines] got key '%c'\n", kbd->key);
+			printf("[drawlines] kbd=0x%x\n", kbd);
+			printf("[drawlines] got key '%c'\n", (char)kbd->key);
 			free(kbd);
 		}
 

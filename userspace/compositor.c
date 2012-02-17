@@ -146,6 +146,19 @@ uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 	return 1;
 }
 
+window_t * focused_window() {
+	uint32_t index_top = 0;
+	window_t * window_top = NULL;
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+		foreach(node, pw->windows) {
+			window_t * win = (window_t *)node->value;
+			if (win->z < index_top) continue;
+			window_top = win;
+		}
+	}
+	return window_top;
+}
 
 
 
@@ -198,6 +211,19 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet
 	// XXX: we have a race condition here
 	write(pw->event_pipe, &header, sizeof(wins_packet_t));
 	write(pw->event_pipe, &packet, sizeof(w_window_t));
+	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+}
+
+void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t packet) {
+	/* Construct the header */
+	wins_packet_t header;
+	header.command_type = event;
+	header.packet_size = sizeof(w_keyboard_t);
+
+	/* Send them */
+	// XXX: we have a race condition here
+	write(pw->event_pipe, &header, sizeof(wins_packet_t));
+	write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
 	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
 }
 
@@ -535,45 +561,64 @@ void * process_requests(void * garbage) {
 	mouse_y = MOUSE_SCALE * graphics_height / 2;
 
 	struct stat _stat;
-	char buf[sizeof(mouse_device_packet_t)];
+	char buf[1024];
 	while (1) {
-		{ 
-			fstat(mfd, &_stat);
-			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
-				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-				int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
+		fstat(mfd, &_stat);
+		while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
+			mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
+			int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
 #if 1
-				if (packet->magic != MOUSE_MAGIC) {
-					int r = read(mfd, buf, 1);
-					break;
-				}
-				//cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-				/* XXX: Redraw below */
-				/* Apply mouse movement */
-				int c, l;
-				c = abs(packet->x_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_x += packet->x_difference * l;
-				c = abs(packet->y_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_y -= packet->y_difference * l;
-				if (mouse_x < 0) mouse_x = 0;
-				if (mouse_y < 0) mouse_y = 0;
-				if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
-				if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
-				/* XXX: DRAW CURSOR */
-				//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-				if (l) {
-					draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
-				}
+			if (packet->magic != MOUSE_MAGIC) {
+				int r = read(mfd, buf, 1);
+				break;
+			}
+			//cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+			/* XXX: Redraw below */
+			/* Apply mouse movement */
+			int c, l;
+			c = abs(packet->x_difference);
+			l = 0;
+			while (c >>= 1) {
+				l++;
+			}
+			mouse_x += packet->x_difference * l;
+			c = abs(packet->y_difference);
+			l = 0;
+			while (c >>= 1) {
+				l++;
+			}
+			mouse_y -= packet->y_difference * l;
+			if (mouse_x < 0) mouse_x = 0;
+			if (mouse_y < 0) mouse_y = 0;
+			if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
+			if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
+			/* XXX: DRAW CURSOR */
+			//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+			if (l) {
+				draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+			}
 #endif
-				fstat(mfd, &_stat);
+			fstat(mfd, &_stat);
+		}
+		fstat(0, &_stat);
+		if (_stat.st_size) {
+			int r = read(0, buf, 1);
+			if (r > 0) {
+				printf("Key struck: '%c' (%d)\n", buf[0], buf[0]);
+				w_keyboard_t packet;
+				window_t * focused = focused_window();
+				if (focused) {
+					packet.wid = focused->wid;
+					packet.command = 0;
+					packet.key = (uint16_t)buf[0];
+					send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
+				}
+				/*
+				if (buffer_put(buf[0])) {
+					write(ifd, input_buffer, input_collected);
+					clear_input();
+				}
+				*/
 			}
 		}
 	}
