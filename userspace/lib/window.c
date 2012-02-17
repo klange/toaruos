@@ -299,7 +299,7 @@ w_keyboard_t * poll_keyboard () {
 
 	LOCK(key_evt_buffer_lock);
 	if (key_evt_buffer->length > 0) {
-		node_t * n = list_pop(key_evt_buffer);
+		node_t * n = list_dequeue(key_evt_buffer);
 		evt = (w_keyboard_t *)n->value;
 		free(n);
 	}
@@ -324,7 +324,7 @@ w_mouse_t * poll_mouse () {
 
 	LOCK(mouse_evt_buffer_lock);
 	if (mouse_evt_buffer->length > 0) {
-		node_t * n = list_pop(mouse_evt_buffer);
+		node_t * n = list_dequeue(mouse_evt_buffer);
 		evt = (w_mouse_t *)n->value;
 		free(n);
 	}
