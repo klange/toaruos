@@ -32,6 +32,9 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 	kprintf("Failed to jump to signal handler!\n");
 }
 
+static uint8_t volatile lock;
+static uint8_t volatile lock_b;
+
 void handle_signal(process_t * proc, signal_t * sig) {
 	if (proc->finished) {
 		return;
@@ -76,7 +79,9 @@ void return_from_signal_handler() {
 		rets_from_sig = list_create();
 	}
 
+	spin_lock(&lock);
 	list_insert(rets_from_sig, (process_t *)current_process);
+	spin_unlock(&lock);
 
 	switch_next();
 }
@@ -84,8 +89,14 @@ void return_from_signal_handler() {
 void fix_signal_stacks() {
 	uint8_t redo_me = 0;
 	if (rets_from_sig) {
+		spin_lock(&lock_b);
 		while (rets_from_sig->head) {
+			spin_lock(&lock);
 			node_t * n = list_dequeue(rets_from_sig);
+			spin_unlock(&lock);
+			if (!n) {
+				continue;
+			}
 			process_t * p = n->value;
 			free(n);
 			if (p == current_process) {
@@ -99,8 +110,12 @@ void fix_signal_stacks() {
 			free(p->signal_kstack);
 			make_process_ready(p);
 		}
+		spin_unlock(&lock_b);
 	}
 	if (redo_me) {
+		spin_lock(&lock);
 		list_insert(rets_from_sig, (process_t *)current_process);
+		spin_unlock(&lock);
+		switch_next();
 	}
 }

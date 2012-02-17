@@ -429,7 +429,7 @@ switch_next() {
 
 	/* Validate */
 	if ((eip < (uintptr_t)&code) || (eip > (uintptr_t)&end)) {
-		kprintf("[warning] Skipping broken procress %d!\n", current_process->id);
+		kprintf("[warning] Skipping broken process %d!\n", current_process->id);
 		switch_next();
 	}
 
