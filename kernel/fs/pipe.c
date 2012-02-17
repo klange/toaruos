@@ -7,6 +7,7 @@
 #include <pipe.h>
 
 #define DEBUG_PIPES 0
+#define BUFFER_TO_NEWLINES 0
 
 uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -80,9 +81,11 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 			buffer[collected] = pipe->buffer[pipe->read_ptr];
 			pipe_increment_read(pipe);
 			spin_unlock(&pipe->lock);
+#if BUFFERED_TO_NEWLINE
 			if (buffer[collected] == '\n') {
 				return collected + 1;
 			}
+#endif
 			collected++;
 			wakeup_queue(pipe->wait_queue);
 		}
