@@ -532,6 +532,7 @@ void init_base_windows () {
 	pw->windows = list_create();
 	list_insert(process_list, pw);
 
+#if 0
 	/* Create the background window */
 	window_t * root = init_window(pw, _next_wid++, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
@@ -545,6 +546,7 @@ void init_base_windows () {
 		window_draw_sprite(panel, sprites[2], i, 0);
 	}
 	redraw_full_window(panel);
+#endif
 
 	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 }
@@ -652,7 +654,9 @@ int main(int argc, char ** argv) {
 	add_startup_item("Loading font: Deja Vu Sans Oblique", _load_dejavuitalic, 2);
 	add_startup_item("Loading font: Deja Vu Sans Bold+Oblique", _load_dejavubolditalic, 2);
 #endif
+#if 0
 	add_startup_item("Loading wallpaper (/usr/share/wallpaper.bmp)", _load_wallpaper, 4);
+#endif
 
 	foreach(node, startup_items) {
 		run_startup_item((startup_item *)node->value);
@@ -679,6 +683,7 @@ int main(int argc, char ** argv) {
 	pthread_create(&input_thread, NULL, process_requests, (void *)&mfd);
 
 
+#if 0
 	if (!fork()) {
 		waitabit();
 		waitabit();
@@ -699,6 +704,17 @@ int main(int argc, char ** argv) {
 		char * args[] = {"/bin/julia-win", "20","20","500","300",NULL};
 		execve(args[0], args, NULL);
 	}
+#else
+
+	if (!fork()) {
+		char arg_width[10], arg_height[10];
+		sprintf(arg_width, "%d", graphics_width);
+		sprintf(arg_height, "%d", graphics_height);
+		char * args[] = {"/bin/glogin", arg_width, arg_height, NULL};
+		execve(args[0], args, NULL);
+	}
+
+#endif
 
 	/* Sit in a run loop */
 	while (1) {

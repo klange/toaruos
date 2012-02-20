@@ -142,6 +142,7 @@ system(
 		return -1;
 	} else {
 		switch_next();
+		return -1;
 	}
 }
 

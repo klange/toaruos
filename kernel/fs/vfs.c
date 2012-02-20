@@ -326,6 +326,12 @@ char *canonicalize_path(char *cwd, char *input) {
 fs_node_t *get_mount_point(char * path, size_t path_depth) {
 	size_t depth;
 
+	kprintf("[root]");
+	for (depth = 0; depth <= path_depth; ++depth) {
+		kprintf("%s%c", path, (depth == path_depth) ? '\n' : '/');
+		path += strlen(path) + 1;
+	}
+
 #if 0
 	tree_node_t * tnode = from;
 	foreach(node, tnode->children) {
