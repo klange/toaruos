@@ -43,7 +43,7 @@ void init_graphics() {
 
 void init_graphics_double_buffer() {
 	init_graphics();
-	frame_mem = (void *)((uintptr_t)gfx_mem + sizeof(uint32_t) * GFX_W * GFX_H);
+	frame_mem = malloc(sizeof(uint32_t) * GFX_W * GFX_H);
 }
 
 void init_graphics_window(window_t * window) {
