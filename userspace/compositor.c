@@ -466,13 +466,13 @@ FT_Face      face_extra;
 FT_GlyphSlot slot;
 FT_UInt      glyph_index;
 
-char * loadMemFont(char * name, size_t * size) {
+char * loadMemFont(char * ident, char * name, size_t * size) {
 	FILE * f = fopen(name, "r");
 	size_t s = 0;
 	fseek(f, 0, SEEK_END);
 	s = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	char * font = malloc(s);
+	char * font = (char *)syscall_shm_obtain(ident, s); //malloc(s);
 	fread(font, s, 1, f);
 	fclose(f);
 	*size = s;
@@ -491,7 +491,7 @@ int error;
 void _load_dejavu() {
 	char * font;
 	size_t s;
-	font = loadMemFont("/usr/share/fonts/DejaVuSans.ttf", &s);
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif", "/usr/share/fonts/DejaVuSans.ttf", &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &face);
 	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
 }
@@ -499,7 +499,7 @@ void _load_dejavu() {
 void _load_dejavubold() {
 	char * font;
 	size_t s;
-	font = loadMemFont("/usr/share/fonts/DejaVuSans-Bold.ttf", &s);
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bold", "/usr/share/fonts/DejaVuSans-Bold.ttf", &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &face_bold);
 	error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
 }
@@ -507,7 +507,7 @@ void _load_dejavubold() {
 void _load_dejavuitalic() {
 	char * font;
 	size_t s;
-	font = loadMemFont("/usr/share/fonts/DejaVuSans-Oblique.ttf", &s);
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.italic", "/usr/share/fonts/DejaVuSans-Oblique.ttf", &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &face_italic);
 	error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE);
 }
@@ -515,7 +515,7 @@ void _load_dejavuitalic() {
 void _load_dejavubolditalic() {
 	char * font;
 	size_t s;
-	font = loadMemFont("/usr/share/fonts/DejaVuSans-BoldOblique.ttf", &s);
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic", "/usr/share/fonts/DejaVuSans-BoldOblique.ttf", &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
 	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
 }
@@ -648,7 +648,7 @@ int main(int argc, char ** argv) {
 	/* Count startup items */
 	startup_items = list_create();
 	add_startup_item("Initializing FreeType", _init_freetype, 1);
-#if 0
+#if 1
 	add_startup_item("Loading font: Deja Vu Sans", _load_dejavu, 2);
 	add_startup_item("Loading font: Deja Vu Sans Bold", _load_dejavubold, 2);
 	add_startup_item("Loading font: Deja Vu Sans Oblique", _load_dejavuitalic, 2);
