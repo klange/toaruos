@@ -205,8 +205,8 @@ void window_draw_sprite(window_t * window, sprite_t * sprite, uint16_t x, uint16
 	for (uint16_t _y = 0; _y < y_hi; ++_y) {
 		for (uint16_t _x = 0; _x < x_hi; ++_x) {
 			if (sprite->alpha) {
-				/* Technically, unsupported! */
-				window_set_point(window, x + _x, y + _y, SPRITE(sprite, _x, _y));
+				uint32_t color = ((uint32_t *)window->buffer)[DIRECT_OFFSET(x+_x,y+_y)];
+				window_set_point(window, x + _x, y + _y, alpha_blend(color, SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y)));
 			} else {
 				if (SPRITE(sprite,_x,_y) != sprite->blank) {
 					window_set_point(window, x + _x, y + _y, SPRITE(sprite, _x, _y));

@@ -6,6 +6,7 @@
 #include <syscall.h>
 #include <stdint.h>
 #include "graphics.h"
+#include "window.h"
 
 DEFN_SYSCALL0(getgraphicsaddress, 11);
 DEFN_SYSCALL1(kbd_mode, 12, int);
@@ -25,7 +26,6 @@ uint16_t graphics_depth  __attribute__ ((aligned (16))) = 0;
 uint8_t * gfx_mem = 0;
 uint8_t  * frame_mem;
 uint32_t   gfx_size;
-uint32_t flip_offset;
 
 void flip() {
 	memcpy(gfx_mem, frame_mem, gfx_size);
@@ -36,7 +36,6 @@ void init_graphics() {
 	graphics_width  = syscall_getgraphicswidth();
 	graphics_height = syscall_getgraphicsheight();
 	graphics_depth  = syscall_getgraphicsdepth();
-	flip_offset = GFX_H;
 	gfx_size = GFX_B * GFX_H * GFX_W;
 	gfx_mem = (void *)syscall_getgraphicsaddress();
 	frame_mem = gfx_mem;
@@ -45,6 +44,20 @@ void init_graphics() {
 void init_graphics_double_buffer() {
 	init_graphics();
 	frame_mem = (void *)((uintptr_t)gfx_mem + sizeof(uint32_t) * GFX_W * GFX_H);
+}
+
+void init_graphics_window(window_t * window) {
+	graphics_width  = window->width;
+	graphics_height = window->height;
+	graphics_depth  = 32;
+	gfx_size = GFX_B * GFX_H * GFX_W;
+	gfx_mem = (void *)window->buffer;
+	frame_mem = gfx_mem;
+}
+
+void init_graphics_window_double_buffer(window_t * window) {
+	init_graphics_window(window);
+	frame_mem = malloc(sizeof(uint32_t) * GFX_W * GFX_H);
 }
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {

@@ -16,6 +16,7 @@
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
 #define _GRE(color) ((color & 0x0000FF00) / 0x100)
 #define _BLU(color) ((color & 0x000000FF) / 0x1)
+#define _ALP(color) ((color & 0xFF000000) / 0x1000000)
 
 /*
  * Macros make verything easier.
