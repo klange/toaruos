@@ -47,6 +47,7 @@ typedef struct {
 
 /* Commands and Events */
 typedef struct {
+	uint32_t magic;
 	uint8_t command_type;	/* Command or event specifier */
 	size_t  packet_size;	/* Size of the *remaining* packet data */
 } wins_packet_t;

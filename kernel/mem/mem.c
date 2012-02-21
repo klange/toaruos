@@ -148,7 +148,11 @@ first_frame() {
 			}
 		}
 	}
-	assert(0 && "Well, this sucks.");
+
+	kprintf("\033[1;37;41mWARNING: System claims to be out of usable memory, which means we probably overwrote the page frames.\033[0m\n");
+
+	STOP;
+
 	return -1;
 }
 
@@ -243,7 +247,6 @@ paging_install(uint32_t memsize) {
 
 	/* Kernel Heap Space */
 	for (i = placement_pointer; i < KERNEL_HEAP_END; i += 0x1000) {
-		//get_page(i, 1, kernel_directory);
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
 	}
 

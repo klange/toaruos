@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <task.h>
 
-#define KERNEL_STACK_SIZE 0x2000
+#define KERNEL_STACK_SIZE 0x8000
 
 typedef signed int    pid_t;
 typedef unsigned int  user_t;
@@ -84,6 +84,7 @@ typedef struct process {
 	list_t *      signal_queue;      /* Queued signals */
 	thread_t      signal_state;
 	char *        signal_kstack;
+	node_t        sched_node;
 } process_t;
 
 void initialize_process_tree();

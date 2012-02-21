@@ -136,6 +136,9 @@ char *exception_messages[] = {
 };
 
 void fault_handler(struct regs *r) {
+	if (r->int_no == 8) {
+		STOP;
+	}
 	if (r->int_no >= 32 && r->int_no != SYSCALL_VECTOR) {
 		STOP;
 	}

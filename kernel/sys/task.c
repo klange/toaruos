@@ -442,12 +442,14 @@ switch_next() {
 	set_kernel_stack(current_process->image.stack);
 
 	if (current_process->started) {
-		if (current_process->signal_queue->length > 0) {
-			current_process->signal_kstack  = malloc(KERNEL_STACK_SIZE);
-			current_process->signal_state.esp = current_process->thread.esp;
-			current_process->signal_state.eip = current_process->thread.eip;
-			current_process->signal_state.ebp = current_process->thread.ebp;
-			memcpy(current_process->signal_kstack, (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+		if (!current_process->signal_kstack) {
+			if (current_process->signal_queue->length > 0) {
+				current_process->signal_kstack  = malloc(KERNEL_STACK_SIZE);
+				current_process->signal_state.esp = current_process->thread.esp;
+				current_process->signal_state.eip = current_process->thread.eip;
+				current_process->signal_state.ebp = current_process->thread.ebp;
+				memcpy(current_process->signal_kstack, (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+			}
 		}
 	} else {
 		current_process->started = 1;

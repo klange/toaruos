@@ -204,6 +204,7 @@ wid_t volatile _next_wid = 0;
 void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet) {
 	/* Construct the header */
 	wins_packet_t header;
+	header.magic = WINS_MAGIC;
 	header.command_type = event;
 	header.packet_size = sizeof(w_window_t);
 
@@ -217,6 +218,7 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet
 void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t packet) {
 	/* Construct the header */
 	wins_packet_t header;
+	header.magic = WINS_MAGIC;
 	header.command_type = event;
 	header.packet_size = sizeof(w_keyboard_t);
 
@@ -610,7 +612,6 @@ void * process_requests(void * garbage) {
 		if (_stat.st_size) {
 			int r = read(0, buf, 1);
 			if (r > 0) {
-				printf("Key struck: '%c' (%d)\n", buf[0], buf[0]);
 				w_keyboard_t packet;
 				window_t * focused = focused_window();
 				if (focused) {

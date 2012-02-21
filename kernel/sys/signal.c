@@ -108,6 +108,7 @@ void fix_signal_stacks() {
 			p->thread.ebp = p->signal_state.ebp;
 			memcpy((void *)(p->image.stack - KERNEL_STACK_SIZE), p->signal_kstack, KERNEL_STACK_SIZE);
 			free(p->signal_kstack);
+			p->signal_kstack = NULL;
 			make_process_ready(p);
 		}
 		spin_unlock(&lock_b);

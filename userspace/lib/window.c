@@ -236,6 +236,7 @@ void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, ui
 
 	/* Construct the header and packet */
 	wins_packet_t header;
+	header.magic = WINS_MAGIC;
 	header.command_type = command;
 	header.packet_size = sizeof(w_window_t);
 
@@ -372,7 +373,11 @@ static void process_evt (int sig) {
 		wins_packet_t header;
 		read(process_windows->event_pipe, &header, sizeof(wins_packet_t));
 
-		printf("Incoming event: 0x%x\n", header.command_type);
+		while (header.magic != WINS_MAGIC) {
+			/* REALIGN!! */
+			memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
+			read(process_windows->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
+		}
 
 		/* Determine type, read, and dispatch */
 		switch (header.command_type & WE_GROUP_MASK) {
@@ -384,7 +389,6 @@ static void process_evt (int sig) {
 			}
 
 			case WE_KEY_EVT: {
-				printf("Received a keyboard event.\n");
 				w_keyboard_t * kevt = malloc(sizeof(w_keyboard_t));
 				read(process_windows->event_pipe, kevt, sizeof(w_keyboard_t));
 				process_key_evt(header.command_type, kevt);
@@ -399,10 +403,12 @@ static void process_evt (int sig) {
 			}
 
 			default:
-				fprintf(stderr, "[%d] [window] WARN: Received unknown event type %d\n", getpid(), header.command_type);
-				void * nullbuf = malloc(header.packet_size);
-				read(process_windows->command_pipe, nullbuf, header.packet_size);
-				free(nullbuf);
+				fprintf(stderr, "[%d] [window] WARN: Received unknown event type %d, 0x%x\n", getpid(), header.command_type, header.packet_size);
+				fstat(process_windows->event_pipe, &buf);
+				char devnull[1];
+				for (uint32_t i = 0; i < buf.st_size; ++i) {
+					read(process_windows->event_pipe, devnull, 1);
+				}
 				break;
 		}
 

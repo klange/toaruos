@@ -80,7 +80,6 @@ process_t * next_ready_process() {
 	spin_unlock(&ready_lock);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
-	free(np);
 	return next;
 }
 
@@ -101,7 +100,15 @@ process_t * next_reapable_process() {
  */
 void make_process_ready(process_t * proc) {
 	spin_lock(&ready_lock);
-	list_insert(process_queue, (void *)proc);
+
+	foreach(node, process_queue) {
+		if (node->value == proc) {
+			spin_unlock(&ready_lock);
+			return;
+		}
+	}
+
+	list_append(process_queue, &proc->sched_node);
 	spin_unlock(&ready_lock);
 }
 
@@ -181,6 +188,11 @@ process_t * spawn_init() {
 	init->wait_queue = list_create();
 	init->shm_mappings = list_create();
 	init->signal_queue = list_create();
+	init->signal_kstack = NULL; /* None yet initialized */
+
+	init->sched_node.prev = NULL;
+	init->sched_node.next = NULL;
+	init->sched_node.value = init;
 
 	/* What the hey, let's also set the description on this one */
 	init->description = "[init]";
@@ -274,6 +286,11 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->wait_queue = list_create();
 	proc->shm_mappings = list_create();
 	proc->signal_queue = list_create();
+	proc->signal_kstack = NULL; /* None yet initialized */
+
+	proc->sched_node.prev = NULL;
+	proc->sched_node.next = NULL;
+	proc->sched_node.value = proc;
 
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */

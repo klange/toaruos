@@ -25,6 +25,7 @@ void list_free(list_t * list) {
 }
 
 void list_append(list_t * list, node_t * node) {
+	node->next = NULL;
 	/* Insert a node onto the end of a list */
 	if (!list->tail) {
 		list->head = node;
