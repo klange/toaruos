@@ -301,7 +301,8 @@ void waitabit() {
 wins_server_global_t volatile * _request_page;
 
 void init_request_system () {
-	_request_page = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, sizeof(wins_server_global_t));
+	size_t size = sizeof(wins_server_global_t);
+	_request_page = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, &size);
 	if (!_request_page) {
 		fprintf(stderr, "[wins] Could not get a shm block for its request page! Bailing...");
 		exit(-1);
@@ -474,8 +475,12 @@ char * loadMemFont(char * ident, char * name, size_t * size) {
 	fseek(f, 0, SEEK_END);
 	s = ftell(f);
 	fseek(f, 0, SEEK_SET);
+
 	printf("loading %s, size %d\n", name, s);
-	char * font = (char *)syscall_shm_obtain(ident, s); //malloc(s);
+	size_t shm_size = s;
+	char * font = (char *)syscall_shm_obtain(ident, &shm_size); //malloc(s);
+	assert((shm_size >= s) && "shm_obtain returned too little memory to load a font into!");
+
 	fread(font, s, 1, f);
 
 	printf("First few bytes are %x%x%x%x\n", font[0], font[1], font[2], font[3]);

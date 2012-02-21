@@ -12,7 +12,7 @@
 #include "graphics.h"
 
 
-DECL_SYSCALL2(shm_obtain, char *, int);
+DECL_SYSCALL2(shm_obtain, char *, size_t *);
 DECL_SYSCALL1(shm_release, char *);
 DECL_SYSCALL2(send_signal, int, int);
 DECL_SYSCALL2(sys_signal, int, int);

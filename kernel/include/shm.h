@@ -34,7 +34,7 @@ typedef struct {
 } shm_mapping_t;
 
 /* Syscalls */
-extern void * shm_obtain  (char * path, size_t size);
+extern void * shm_obtain  (char * path, size_t * size);
 extern int    shm_release (char * path);
 
 /* Other exposed functions */

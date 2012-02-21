@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 
 #define SHMSZ	27
@@ -26,7 +26,8 @@ int main(int argc, char ** argv) {
 	/*
 	 * Attach to the shared memory chunk
 	 */
-	if ((shm = (char *)syscall_shm_obtain(key, SHMSZ)) == (char *) NULL) {
+	size_t size = SHMSZ;
+	if ((shm = (char *)syscall_shm_obtain(key, &size)) == (char *) NULL) {
 		return 1;
 	}
 	printf("Server: mounted to 0x%x\n", shm);

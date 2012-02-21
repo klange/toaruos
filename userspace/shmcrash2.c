@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
 
 
@@ -18,7 +18,8 @@ int main (int argc, char ** argv) {
 
 	printf("(this should not crash; but the kernel should free the shm block)\n");
 
-	volatile char * shm = (char *)syscall_shm_obtain(argv[1], 0x1000);
+	size_t size = 0x1000;
+	volatile char * shm = (char *)syscall_shm_obtain(argv[1], &size);
 	if (shm == NULL) {
 		return 1;
 	}

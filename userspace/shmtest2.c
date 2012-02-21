@@ -5,13 +5,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL2(shm_obtain, 35, char *, int)
+DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 
 #define KEY "shm_test3.mem"
 #define MAGIC 111
 
 int client_proc(uint32_t size) {
-	volatile unsigned char * mem = (volatile unsigned char *)syscall_shm_obtain(KEY, size);
+	volatile unsigned char * mem = (volatile unsigned char *)syscall_shm_obtain(KEY, &size);
 
 	while (mem[0] != MAGIC) {}
 	mem[0] = (uint8_t)(MAGIC + 1);
@@ -28,7 +28,7 @@ int client_proc(uint32_t size) {
 }
 
 int server_proc(uint32_t size) {
-	volatile unsigned char * mem = (volatile unsigned char *)syscall_shm_obtain(KEY, size);
+	volatile unsigned char * mem = (volatile unsigned char *)syscall_shm_obtain(KEY, &size);
 
 	for (uint32_t i = 1; i < size; i++) {
 		mem[i] = (unsigned char)i;
