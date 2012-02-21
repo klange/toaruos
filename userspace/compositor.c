@@ -472,8 +472,12 @@ char * loadMemFont(char * ident, char * name, size_t * size) {
 	fseek(f, 0, SEEK_END);
 	s = ftell(f);
 	fseek(f, 0, SEEK_SET);
+	printf("loading %s, size %d\n", name, s);
 	char * font = (char *)syscall_shm_obtain(ident, s); //malloc(s);
 	fread(font, s, 1, f);
+
+	printf("First few bytes are %x%x%x%x\n", font[0], font[1], font[2], font[3]);
+
 	fclose(f);
 	*size = s;
 	return font;
