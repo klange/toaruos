@@ -180,13 +180,12 @@ void draw_string(int x, int y, uint32_t fg, char * string) {
 }
 
 #define FONT_SIZE 14
-#define FONT_BYTE_SIZE 720012
 
 void _loadDejavu() {
 	char * font;
-	size_t s = FONT_BYTE_SIZE;
+	size_t s = 0;
 	int error;
-	font = (char *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER ".fonts.sans-serif", s);
+	font = (char *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER ".fonts.sans-serif", &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &face);
 	if (error) {
 		printf("Oh dear, this is bad.\n");
