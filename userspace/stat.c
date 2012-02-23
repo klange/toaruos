@@ -7,12 +7,15 @@
 #include <stdint.h>
 
 int main(int argc, char ** argv) {
+	if (argc < 2) {
+		fprintf(stderr,"%s: expected argument\n", argv[0]);
+		return 1;
+	}
+
 	FILE * fd = stdin;
-	if (argc > 1) {
-		fd = fopen(argv[1], "r");
-		if (!fd) {
-			return 1;
-		}
+	fd = fopen(argv[1], "r");
+	if (!fd) {
+		return 1;
 	}
 	fclose(fd);
 
