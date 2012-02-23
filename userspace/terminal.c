@@ -2908,7 +2908,7 @@ int main(int argc, char ** argv) {
 	if (_windowed) {
 		setup_windowing();
 		waitabit();
-		window = window_create(0,0, 400, 400);
+		window = window_create(0,0, 640, 408);
 		printf("Have a window! %p\n", window);
 
 		pthread_t input_thread;
@@ -3037,13 +3037,24 @@ int main(int argc, char ** argv) {
 				fstat(mfd, &_stat);
 			}
 fail_mouse:
-			fstat(0, &_stat);
-			if (_stat.st_size) {
-				int r = read(0, buf, min(_stat.st_size, 1024));
-				for (uint32_t i = 0; i < r; ++i) {
-					if (buffer_put(buf[0])) {
+			if (_windowed) {
+				w_keyboard_t * kbd = poll_keyboard();
+				if (kbd != NULL) {
+					if (buffer_put(kbd->key)) {
 						write(ifd, input_buffer, input_collected);
 						clear_input();
+					}
+					free(kbd);
+				}
+			} else {
+				fstat(0, &_stat);
+				if (_stat.st_size) {
+					int r = read(0, buf, min(_stat.st_size, 1024));
+					for (uint32_t i = 0; i < r; ++i) {
+						if (buffer_put(buf[0])) {
+							write(ifd, input_buffer, input_collected);
+							clear_input();
+						}
 					}
 				}
 			}

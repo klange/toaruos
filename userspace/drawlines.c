@@ -35,11 +35,14 @@ int main (int argc, char ** argv) {
 
 	printf("[drawlines] Window drawn for client[%d,%d,%d,%d]\n", left, top, width, height);
 
-	while (1) {
+	int exit = 0;
+	while (!exit) {
 		w_keyboard_t * kbd = poll_keyboard();
 		if (kbd != NULL) {
 			printf("[drawlines] kbd=0x%x\n", kbd);
 			printf("[drawlines] got key '%c'\n", (char)kbd->key);
+			if (kbd->key == 'q')
+				exit = 1;
 			free(kbd);
 		}
 
@@ -47,7 +50,7 @@ int main (int argc, char ** argv) {
 		window_redraw_full(wina);
 	}
 
-	//window_destroy(window); // (will close on exit)
+	window_destroy(wina); // (will close on exit)
 	teardown_windowing();
 
 	return 0;

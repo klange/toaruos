@@ -727,6 +727,12 @@ int main(int argc, char ** argv) {
 #else 
 	if (!fork()) {
 		waitabit();
+		char * args[] = {"/bin/julia-win", "200","400","400","400",NULL};
+		execve(args[0], args, NULL);
+	}
+
+	if (!fork()) {
+		waitabit();
 		char * args[] = {"/bin/terminal", "-w", "-f", NULL};
 		execve(args[0], args, NULL);
 	}
