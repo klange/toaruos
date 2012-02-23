@@ -18,6 +18,9 @@
 #include "lib/utf8_decode.h"
 #include "../kernel/include/mouse.h"
 
+#include "lib/graphics.h"
+#include "lib/window.h"
+
 #define FONT_SIZE 13
 
 #define MOUSE_SCALE 6
@@ -421,54 +424,45 @@ ansi_print(char * c) {
 }
 
 /*
- * Some of the system calls for the graphics
- * functionality.
+ * Syscalls for pipes and devices.
  */
-DEFN_SYSCALL0(getgraphicsaddress, 11);
-DEFN_SYSCALL1(kbd_mode, 12, int);
-DEFN_SYSCALL0(kbd_get, 13);
-DEFN_SYSCALL1(setgraphicsoffset, 16, int);
-
-DEFN_SYSCALL0(getgraphicswidth,  18);
-DEFN_SYSCALL0(getgraphicsheight, 19);
-DEFN_SYSCALL0(getgraphicsdepth,  20);
-
 DEFN_SYSCALL0(mousedevice, 33);
-
 DECL_SYSCALL2(dup2, int, int);
 DECL_SYSCALL0(mkpipe);
 
-uint16_t graphics_width  = 0;
-uint16_t graphics_height = 0;
-uint16_t graphics_depth  = 0;
+DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
+DEFN_SYSCALL0(gettid, 41);
 
-#define GFX_W  graphics_width /* Display width */
-#define GFX_H  graphics_height  /* Display height */
-#define GFX_B  (graphics_depth / 8)    /* Display byte depth */
+int clone(uintptr_t,uintptr_t,void*) __attribute__((alias("syscall_clone")));
+int gettid() __attribute__((alias("syscall_gettid")));
 
-#define _RED(color) ((color & 0x00FF0000) / 0x10000)
-#define _GRE(color) ((color & 0x0000FF00) / 0x100)
-#define _BLU(color) ((color & 0x000000FF) / 0x1)
+typedef struct {
+	uint32_t id;
+	char * stack;
+	void * ret_val;
+} pthread_t;
+typedef unsigned int pthread_attr_t;
 
-/*
- * Macros make verything easier.
- */
-#define GFX(x,y) *((uint32_t *)&gfx_mem[(GFX_W * (y) + (x)) * GFX_B])
+#define PTHREAD_STACK_SIZE 10240
 
-uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
-	return 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
+int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
+	char * stack = malloc(PTHREAD_STACK_SIZE);
+	uintptr_t stack_top = (uintptr_t)stack + PTHREAD_STACK_SIZE;
+	thread->stack = stack;
+	thread->id = clone(stack_top, (uintptr_t)start_routine, arg);
+	return 0;
 }
 
-uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
-	float a = _RED(mask) / 256.0;
-	uint8_t red = _RED(bottom) * (1.0 - a) + _RED(top) * a;
-	uint8_t gre = _GRE(bottom) * (1.0 - a) + _GRE(top) * a;
-	uint8_t blu = _BLU(bottom) * (1.0 - a) + _BLU(top) * a;
-	return rgb(red,gre,blu);
+void pthread_exit(void * value) {
+	/* Perform nice cleanup */
+#if 0
+	/* XXX: LOCK */
+	free(stack);
+	/* XXX: Return value!? */
+#endif
+	__asm__ ("jmp 0xFFFFB00F"); /* Force thread exit */
 }
 
-/* Pointer to graphics memory */
-uint8_t * gfx_mem;
 
 uint16_t term_width    = 0;
 uint16_t term_height   = 0;
@@ -482,6 +476,8 @@ uint8_t  current_fg = 7;
 uint8_t  current_bg = 0;
 uint16_t current_scroll = 0;
 uint8_t  cursor_on = 1;
+window_t * window = NULL;
+int      _windowed = 0;
 
 uint32_t term_colors[256] = {
 	/* black  */ 0x2e3436,
@@ -748,13 +744,17 @@ term_set_point(
 		uint16_t y,
 		uint32_t color
 		) {
+#if 0
 	if (graphics_depth == 32) {
+#endif
 		GFX(x,y) = color;
+#if 0
 	} else if (graphics_depth == 24) {
-		gfx_mem[((y) * graphics_width + x) * 3 + 2] = _RED(color);
-		gfx_mem[((y) * graphics_width + x) * 3 + 1] = _GRE(color);
-		gfx_mem[((y) * graphics_width + x) * 3 + 0] = _BLU(color);
+		frame_mem[((y) * graphics_width + x) * 3 + 2] = _RED(color);
+		frame_mem[((y) * graphics_width + x) * 3 + 1] = _GRE(color);
+		frame_mem[((y) * graphics_width + x) * 3 + 0] = _BLU(color);
 	}
+#endif
 }
 
 static inline void
@@ -2828,7 +2828,9 @@ void clear_input() {
 
 uint32_t child_pid = 0;
 
+#if 0
 DEFN_SYSCALL2(send_signal, 37, uint32_t, uint32_t)
+#endif
 
 int buffer_put(char c) {
 	if (c == 8) {
@@ -2864,17 +2866,30 @@ int buffer_put(char c) {
 	return 0;
 }
 
+void * screen_redrawer(void * garbage) {
+	while (1) {
+		window_redraw_full(window);
+	}
+}
+
+void waitabit() {
+	int x = time(NULL);
+	while (time(NULL) < x + 1) {
+		// Do nothing.
+	}
+}
+
+
 int main(int argc, char ** argv) {
-	graphics_width  = syscall_getgraphicswidth();
-	graphics_height = syscall_getgraphicsheight();
-	graphics_depth  = syscall_getgraphicsdepth();
-	gfx_mem = (void *)syscall_getgraphicsaddress();
 
 	if (argc > 1) {
 		/* Read some arguments */
 		int index, c;
-		while ((c = getopt(argc, argv, "fh")) != -1) {
+		while ((c = getopt(argc, argv, "fhw")) != -1) {
 			switch (c) {
+				case 'w':
+					_windowed = 1;
+					break;
 				case 'f':
 					_use_freetype = 1;
 					break;
@@ -2888,6 +2903,21 @@ int main(int argc, char ** argv) {
 					break;
 			}
 		}
+	}
+
+	if (_windowed) {
+		setup_windowing();
+		waitabit();
+		window = window_create(0,0, 400, 400);
+		printf("Have a window! %p\n", window);
+
+		pthread_t input_thread;
+		pthread_create(&input_thread, NULL, screen_redrawer, NULL);
+
+		window_fill(window, rgb(100,100,100));
+		init_graphics_window(window);
+	} else {
+		init_graphics();
 	}
 
 	if (_use_freetype) {

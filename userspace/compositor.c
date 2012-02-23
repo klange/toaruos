@@ -716,6 +716,7 @@ int main(int argc, char ** argv) {
 	}
 #else
 
+#if 0
 	if (!fork()) {
 		char arg_width[10], arg_height[10];
 		sprintf(arg_width, "%d", graphics_width);
@@ -723,6 +724,14 @@ int main(int argc, char ** argv) {
 		char * args[] = {"/bin/glogin", arg_width, arg_height, NULL};
 		execve(args[0], args, NULL);
 	}
+#else 
+	if (!fork()) {
+		waitabit();
+		char * args[] = {"/bin/terminal", "-w", "-f", NULL};
+		execve(args[0], args, NULL);
+	}
+
+#endif
 
 #endif
 

@@ -151,6 +151,15 @@ first_frame() {
 
 	kprintf("\033[1;37;41mWARNING: System claims to be out of usable memory, which means we probably overwrote the page frames.\033[0m\n");
 
+#if 0
+	signal_t * sig = malloc(sizeof(signal_t));
+	sig->handler = current_process->signals.functions[SIGSEGV];
+	sig->signum  = SIGSEGV;
+	handle_signal((process_t *)current_process, sig);
+#else
+	kexit(128);
+#endif
+
 	STOP;
 
 	return -1;

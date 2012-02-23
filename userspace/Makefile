@@ -33,10 +33,10 @@ clean:
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [freetype]"
 
-../hdd/bin/terminal: terminal.c lib/utf8_decode.o
-	@${BEG} "CC" "$< [freetype]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} lib/utf8_decode.o ${ERRORS}
-	@${END} "CC" "$< [freetype]"
+../hdd/bin/terminal: terminal.c lib/graphics.o lib/list.o lib/window.o
+	@${BEG} "CC" "$< [w/libs]"
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
+	@${END} "CC" "$< [w/libs]"
 
 ../hdd/bin/login: login.c lib/sha2.o
 	@${BEG} "CC" "$< [w/libs]"
