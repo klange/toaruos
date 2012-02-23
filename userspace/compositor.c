@@ -162,9 +162,11 @@ window_t * top_at(uint16_t x, uint16_t y) {
 				if (window_top == NULL) {
 					window_top = win;
 					index_top = win->z;
-					continue;
+				} else {
+					if (win->z < index_top) continue;
+					window_top = win;
+					index_top  = win->z;
 				}
-				if (win->z < index_top) continue;
 			}
 		}
 	}
