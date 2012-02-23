@@ -2882,6 +2882,7 @@ void waitabit() {
 
 int main(int argc, char ** argv) {
 
+#if 0
 	if (argc > 1) {
 		/* Read some arguments */
 		int index, c;
@@ -2899,16 +2900,46 @@ int main(int argc, char ** argv) {
 					printf("   -h      Print this help text.\n");
 					return 0;
 					break;
+				case '?':
+					break;
 				default:
 					break;
 			}
+		}
+	}
+#endif
+	int index = 1;
+
+	while (index < argc) {
+		printf("arg[%d] = %s\n", index, argv[index]);
+		if (argv[index][0] == '-') {
+			if (!strcmp(argv[index], "-w")) {
+				_windowed = 1;
+			} else if (!strcmp(argv[index], "-f")) {
+				_use_freetype = 1;
+			}
+			index++;
+		} else {
+			break;
 		}
 	}
 
 	if (_windowed) {
 		setup_windowing();
 		waitabit();
-		window = window_create(0,0, 640, 408);
+		int x = 0, y = 0;
+		if (index < argc) {
+			x = atoi(argv[index]);
+			printf("Window offset x = %d\n", x);
+			index++;
+		}
+		if (index < argc) {
+			y = atoi(argv[index]);
+			printf("Window offset y = %d\n", y);
+			index++;
+		}
+
+		window = window_create(x,y, 640, 408);
 		printf("Have a window! %p\n", window);
 
 		pthread_t input_thread;
@@ -3007,36 +3038,6 @@ int main(int argc, char ** argv) {
 				timer_tick = 0;
 				flip_cursor();
 			}
-			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
-				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-				int r = read(mfd, buf, sizeof(mouse_device_packet_t));
-				if (packet->magic != MOUSE_MAGIC) {
-					int r = read(mfd, buf, 1);
-					goto fail_mouse;
-				}
-				cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-				/* Apply mouse movement */
-				int c, l;
-				c = abs(packet->x_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_x += packet->x_difference * l;
-				c = abs(packet->y_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_y -= packet->y_difference * l;
-				if (mouse_x < 0) mouse_x = 0;
-				if (mouse_y < 0) mouse_y = 0;
-				if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width - char_width)   * MOUSE_SCALE;
-				if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height - char_height) * MOUSE_SCALE;
-				cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-				fstat(mfd, &_stat);
-			}
-fail_mouse:
 			if (_windowed) {
 				w_keyboard_t * kbd = poll_keyboard();
 				if (kbd != NULL) {
@@ -3047,6 +3048,36 @@ fail_mouse:
 					free(kbd);
 				}
 			} else {
+				while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
+					mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
+					int r = read(mfd, buf, sizeof(mouse_device_packet_t));
+					if (packet->magic != MOUSE_MAGIC) {
+						int r = read(mfd, buf, 1);
+						goto fail_mouse;
+					}
+					cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+					/* Apply mouse movement */
+					int c, l;
+					c = abs(packet->x_difference);
+					l = 0;
+					while (c >>= 1) {
+						l++;
+					}
+					mouse_x += packet->x_difference * l;
+					c = abs(packet->y_difference);
+					l = 0;
+					while (c >>= 1) {
+						l++;
+					}
+					mouse_y -= packet->y_difference * l;
+					if (mouse_x < 0) mouse_x = 0;
+					if (mouse_y < 0) mouse_y = 0;
+					if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width - char_width)   * MOUSE_SCALE;
+					if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height - char_height) * MOUSE_SCALE;
+					cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+					fstat(mfd, &_stat);
+				}
+fail_mouse:
 				fstat(0, &_stat);
 				if (_stat.st_size) {
 					int r = read(0, buf, min(_stat.st_size, 1024));

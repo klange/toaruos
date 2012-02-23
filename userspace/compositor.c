@@ -70,6 +70,11 @@ sprite_t * sprites[128];
 
 list_t * process_list;
 
+int32_t mouse_x, mouse_y;
+#define MOUSE_SCALE 10
+#define MOUSE_OFFSET_X 26
+#define MOUSE_OFFSET_Y 26
+
 extern window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index);
 extern void free_window (window_t * window);
 extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
@@ -146,7 +151,27 @@ uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 	return 1;
 }
 
-window_t * focused_window() {
+window_t * top_at(uint16_t x, uint16_t y) {
+	uint32_t index_top = 0;
+	window_t * window_top = NULL;
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+		foreach(node, pw->windows) {
+			window_t * win = (window_t *)node->value;
+			if (is_between(win->x, win->x + win->width, x) && is_between(win->y, win->y + win->height, y)) {
+				if (window_top == NULL) {
+					window_top = win;
+					index_top = win->z;
+					continue;
+				}
+				if (win->z < index_top) continue;
+			}
+		}
+	}
+	return window_top;
+}
+
+window_t * absolute_top() {
 	uint32_t index_top = 0;
 	window_t * window_top = NULL;
 	foreach(n, process_list) {
@@ -158,6 +183,11 @@ window_t * focused_window() {
 		}
 	}
 	return window_top;
+}
+
+
+window_t * focused_window() {
+	return top_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 }
 
 
@@ -243,6 +273,12 @@ void process_window_command (int sig) {
 			w_window_t wwt;
 			wins_packet_t header;
 			read(pw->command_pipe, &header, sizeof(wins_packet_t));
+
+			while (header.magic != WINS_MAGIC) {
+				printf("Magic is wrong, expected 0x%x but got 0x%x\n", WINS_MAGIC, header.magic);
+				memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
+				read(pw->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
+			}
 
 			max_requests_per_cycle--;
 
@@ -562,11 +598,6 @@ void init_base_windows () {
 	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 }
 
-int32_t mouse_x, mouse_y;
-#define MOUSE_SCALE 10
-#define MOUSE_OFFSET_X 26
-#define MOUSE_OFFSET_Y 26
-
 void * process_requests(void * garbage) {
 	int mfd = *((int *)garbage);
 
@@ -733,7 +764,13 @@ int main(int argc, char ** argv) {
 
 	if (!fork()) {
 		waitabit();
-		char * args[] = {"/bin/terminal", "-w", "-f", NULL};
+		char * args[] = {"/bin/terminal", "-w", "-f", "10", "10", NULL};
+		execve(args[0], args, NULL);
+	}
+	if (!fork()) {
+		waitabit();
+		waitabit();
+		char * args[] = {"/bin/terminal", "-w", "-f", "10", "420", NULL};
 		execve(args[0], args, NULL);
 	}
 
