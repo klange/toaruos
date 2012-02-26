@@ -28,6 +28,8 @@ DEFN_SYSCALL0(mousedevice, 33);
 DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, 41);
 
+
+
 int clone(uintptr_t,uintptr_t,void*) __attribute__((alias("syscall_clone")));
 int gettid() __attribute__((alias("syscall_gettid")));
 
@@ -183,6 +185,26 @@ window_t * absolute_top() {
 	return window_top;
 }
 
+void make_top(window_t * window) {
+	uint16_t index = window->z;
+	if (index == 0)  return;
+	if (index == 0xFFFF) return;
+	uint16_t highest = 0;
+
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+		foreach(node, pw->windows) {
+			window_t * win = (window_t *)node->value;
+			if (win->z == 0)   continue;
+			if (win->z == 0xFFFF)  continue;
+			if (highest < win->z) highest = win->z;
+			if (win == window) continue;
+			if (win->z > window->z) win->z--;
+		}
+	}
+
+	window->z = highest;
+}
 
 window_t * focused_window() {
 	return top_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
@@ -211,6 +233,7 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 				assert(0 <= y);
 				assert(y < GFX_H);
 #endif
+				if (TO_WINDOW_OFFSET(x,y) >= window->width * window->height) continue;
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 			}
 		}
@@ -237,6 +260,30 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 			if (!window) continue;
 			GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 		}
+	}
+}
+
+void redraw_bounding_box(window_t *window, int32_t left, int32_t top, uint32_t derped) {
+	if (!window) {
+		return;
+	}
+
+	int32_t _min_x = max(left, 0);
+	int32_t _min_y = max(top,  0);
+	int32_t _max_x = min(left + window->width  - 1, graphics_width  - 1);
+	int32_t _max_y = min(top  + window->height - 1, graphics_height - 1);
+
+	if (!derped) {
+		redraw_region_slow(_min_x, _min_y, (_max_x - _min_x + 1), 1);
+		redraw_region_slow(_min_x, _max_y, (_max_x - _min_x + 1), 1);
+		redraw_region_slow(_min_x, _min_y, 1, (_max_y - _min_y + 1));
+		redraw_region_slow(_max_x, _min_y, 1, (_max_y - _min_y + 1));
+	} else {
+		uint32_t color = rgb(255,0,0);
+		draw_line(_min_x, _max_x, _min_y, _min_y, color);
+		draw_line(_min_x, _max_x, _max_y, _max_y, color);
+		draw_line(_min_x, _min_x, _min_y, _max_y, color);
+		draw_line(_max_x, _max_x, _min_y, _max_y, color);
 	}
 }
 
@@ -646,7 +693,7 @@ void init_base_windows () {
 	redraw_full_window(root);
 
 	/* Create the panel */
-	window_t * panel = init_window(pw, _next_wid++, 0, 0, graphics_width, 24, -1);
+	window_t * panel = init_window(pw, _next_wid++, 0, 0, graphics_width, 24, 0xFFFF);
 	window_fill(panel, rgb(0,120,230));
 	init_sprite(2, "/usr/share/panel.bmp", NULL);
 	for (uint32_t i = 0; i < graphics_width; i += sprites[2]->width) {
@@ -663,6 +710,16 @@ void * process_requests(void * garbage) {
 
 	mouse_x = MOUSE_SCALE * graphics_width / 2;
 	mouse_y = MOUSE_SCALE * graphics_height / 2;
+
+	uint16_t _mouse_state = 0;
+	window_t * _mouse_window = NULL;
+	int32_t _mouse_init_x;
+	int32_t _mouse_init_y;
+	int32_t _mouse_win_x;
+	int32_t _mouse_win_y;
+
+	int32_t _mouse_win_x_p;
+	int32_t _mouse_win_y_p;
 
 	struct stat _stat;
 	char buf[1024];
@@ -700,11 +757,42 @@ void * process_requests(void * garbage) {
 			/* XXX: DRAW CURSOR */
 			//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
 			draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT)) {
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
+						/* *sigh* */
+					} else {
+						_mouse_state = 1;
+						_mouse_init_x = mouse_x;
+						_mouse_init_y = mouse_y;
+						_mouse_win_x  = _mouse_window->x;
+						_mouse_win_y  = _mouse_window->y;
+						_mouse_win_x_p = _mouse_win_x;
+						_mouse_win_y_p = _mouse_win_y;
+						make_top(_mouse_window);
+						redraw_region_slow(0,0,graphics_width,graphics_height);
+					}
+				}
+			} else if (_mouse_state == 1) {
+				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
+					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					redraw_region_slow(0,0,graphics_width,graphics_height);
+					_mouse_state = 0;
+				} else {
+					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
+					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
+				}
+			}
 			if (packet->buttons & MOUSE_BUTTON_RIGHT) {
 				printf("right click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				window_t * focused = focused_window();
 				if (focused) {
 					free_window(focused);
+					redraw_region_slow(0,0,graphics_width,graphics_height);
 				}
 			}
 #endif

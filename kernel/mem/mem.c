@@ -341,8 +341,8 @@ page_fault(
 	int reserved = r->err_code & 0x8    ? 1 : 0;
 	int id       = r->err_code & 0x10   ? 1 : 0;
 
-	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d \033[0m\n",
-			present, rw, user, reserved, id, faulting_address, r->eip, getpid());
+	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d [%s]\033[0m\n",
+			present, rw, user, reserved, id, faulting_address, r->eip, getpid(), current_process->name);
 
 #endif
 
