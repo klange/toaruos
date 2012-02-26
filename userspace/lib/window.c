@@ -118,6 +118,7 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 
 void free_window (window_t * window) {
 	/* Free the window buffer */
+	if (!window) return;
 	char key[256];
 	SHMKEY(key, 256, window);
 	syscall_shm_release(key);
@@ -509,6 +510,7 @@ void teardown_windowing () {
 	if (process_windows) {
 		window_t * window;
 		while ((window = (window_t *)list_pop(process_windows->windows)) != NULL) {
+			if (!window) break;
 			window_destroy(window);
 		}
 

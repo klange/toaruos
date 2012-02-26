@@ -58,10 +58,6 @@ void pthread_exit(void * value) {
 	__asm__ ("jmp 0xFFFFB00F"); /* Force thread exit */
 }
 
-
-/* For terminal, not for us */
-#define FREETYPE 1
-
 sprite_t * sprites[128];
 
 #define WIN_D 32
@@ -215,7 +211,6 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 				assert(0 <= y);
 				assert(y < GFX_H);
 #endif
-				fflush(stdout);
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 			}
 		}
@@ -228,6 +223,21 @@ void redraw_full_window (window_t * window) {
 	}
 
 	redraw_window(window, (uint16_t)0, (uint16_t)0, window->width, window->height);
+}
+
+void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
+	uint16_t _lo_x = max(x, 0);
+	uint16_t _hi_x = min(x + width, graphics_width);
+	uint16_t _lo_y = max(y, 0);
+	uint16_t _hi_y = min(y + height, graphics_height);
+
+	for (uint32_t y = _lo_y; y < _hi_y; ++y) {
+		for (uint32_t x = _lo_x; x < _hi_x; ++x) {
+			window_t * window = top_at(x,y);
+			if (!window) continue;
+			GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
+		}
+	}
 }
 
 
@@ -274,10 +284,10 @@ void process_window_command (int sig) {
 		while ((buf.st_size > 0) && (max_requests_per_cycle > 0)) {
 			w_window_t wwt;
 			wins_packet_t header;
-			read(pw->command_pipe, &header, sizeof(wins_packet_t));
+			int bytes_read = read(pw->command_pipe, &header, sizeof(wins_packet_t));
 
 			while (header.magic != WINS_MAGIC) {
-				printf("Magic is wrong, expected 0x%x but got 0x%x\n", WINS_MAGIC, header.magic);
+				printf("Magic is wrong, expected 0x%x but got 0x%x [read %d bytes of %d]\n", WINS_MAGIC, header.magic, bytes_read, sizeof(header));
 				goto bad_magic;
 				memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
 				read(pw->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
@@ -533,6 +543,7 @@ void _init_freetype() {
 }
 
 #define FONT_SIZE 13
+#define ACTUALLY_LOAD_FONTS 0
 
 int error;
 
@@ -540,64 +551,80 @@ void _load_dejavu() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif", "/usr/share/fonts/DejaVuSans.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face);
 	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_dejavubold() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bold", "/usr/share/fonts/DejaVuSans-Bold.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face_bold);
 	error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_dejavuitalic() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.italic", "/usr/share/fonts/DejaVuSans-Oblique.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face_italic);
 	error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_dejavubolditalic() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic", "/usr/share/fonts/DejaVuSans-BoldOblique.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
 	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_dejamonovu() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace", "/usr/share/fonts/DejaVuSansMono.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face);
 	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_dejamonovubold() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", "/usr/share/fonts/DejaVuSansMono-Bold.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face_bold);
 	error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_dejamonovuitalic() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", "/usr/share/fonts/DejaVuSansMono-Oblique.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face_italic);
 	error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_dejamonovubolditalic() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", "/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", &s);
+#if ACTUALLY_LOAD_FONTS
 	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
 	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
+#endif
 }
 
 void _load_wallpaper() {
@@ -612,7 +639,7 @@ void init_base_windows () {
 	pw->windows = list_create();
 	list_insert(process_list, pw);
 
-#if 0
+#if 1
 	/* Create the background window */
 	window_t * root = init_window(pw, _next_wid++, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
@@ -651,6 +678,7 @@ void * process_requests(void * garbage) {
 			}
 			//cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
 			/* XXX: Redraw below */
+			redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
 			/* Apply mouse movement */
 			int c, l;
 			c = abs(packet->x_difference);
@@ -671,8 +699,13 @@ void * process_requests(void * garbage) {
 			if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
 			/* XXX: DRAW CURSOR */
 			//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-			if (l) {
-				draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+			draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+			if (packet->buttons & MOUSE_BUTTON_RIGHT) {
+				printf("right click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+				window_t * focused = focused_window();
+				if (focused) {
+					free_window(focused);
+				}
 			}
 #endif
 			fstat(mfd, &_stat);
@@ -732,7 +765,7 @@ int main(int argc, char ** argv) {
 	add_startup_item("Loading font: Deja Vu Sans Mono Oblique", _load_dejamonovuitalic, 2);
 	add_startup_item("Loading font: Deja Vu Sans Mono Bold+Oblique", _load_dejamonovubolditalic, 2);
 #endif
-#if 0
+#if 1
 	add_startup_item("Loading wallpaper (/usr/share/wallpaper.bmp)", _load_wallpaper, 4);
 #endif
 

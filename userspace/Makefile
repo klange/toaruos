@@ -48,6 +48,11 @@ clean:
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
+../hdd/bin/view: view.c lib/graphics.o lib/list.o lib/window.o
+	@${BEG} "CC" "$< [w/libs]"
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
+	@${END} "CC" "$< [w/libs]"
+
 ../hdd/bin/drawlines: drawlines.c lib/graphics.o lib/list.o lib/window.o
 	@${BEG} "CC" "$< [w/libs]"
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}

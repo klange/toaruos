@@ -2953,7 +2953,7 @@ int main(int argc, char ** argv) {
 		pthread_t input_thread;
 		pthread_create(&input_thread, NULL, screen_redrawer, NULL);
 
-		window_fill(window, rgb(100,100,100));
+		window_fill(window, rgb(0,0,0));
 		init_graphics_window(window);
 	} else {
 		init_graphics();
@@ -2971,7 +2971,9 @@ int main(int argc, char ** argv) {
 		setLoaded(1,0);
 		setLoaded(2,0);
 		setLoaded(3,0);
+#if 0
 		setLoaded(4,0);
+#endif
 
 		setLoaded(0,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace", &s);
@@ -2997,10 +2999,12 @@ int main(int argc, char ** argv) {
 		error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(3,1);
 
+#if 0
 		setLoaded(4,2);
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
 		error = FT_Set_Pixel_Sizes(face_extra, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(4,1);
+#endif
 
 		char_height = 17;
 		char_width  = 8;
