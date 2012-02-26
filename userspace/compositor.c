@@ -77,6 +77,8 @@ extern window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int
 extern void free_window (window_t * window);
 extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
 
+uint16_t * depth_map = NULL;
+
 process_windows_t * get_process_windows (uint32_t pid) {
 	foreach(n, process_list) {
 		process_windows_t * pw = (process_windows_t *)n->value;
@@ -147,6 +149,14 @@ uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 		}
 	}
 	return 1;
+}
+
+uint8_t is_top_fast(window_t * window, uint16_t x, uint16_t y) {
+	if (x >= graphics_width || y >= graphics_height)
+		return 0;
+	if (window->z == depth_map[x + y * graphics_width])
+		return 1;
+	return 0;
 }
 
 window_t * top_at(uint16_t x, uint16_t y) {
@@ -226,13 +236,8 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
-			if (is_top(window, x, y)) {
-#if 0
-				assert(0 <= x);
-				assert(x < GFX_W);
-				assert(0 <= y);
-				assert(y < GFX_H);
-#endif
+			/* XXX MAKE THIS FASTER */
+			if (is_top_fast(window, x, y)) {
 				if (TO_WINDOW_OFFSET(x,y) >= window->width * window->height) continue;
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 			}
@@ -259,6 +264,7 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 			window_t * window = top_at(x,y);
 			if (!window) continue;
 			GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
+			depth_map[x + y * graphics_width] = window->z;
 		}
 	}
 }
@@ -329,12 +335,16 @@ void process_window_command (int sig) {
 		int max_requests_per_cycle = 3;
 
 		while ((buf.st_size > 0) && (max_requests_per_cycle > 0)) {
+			if (!(buf.st_size > sizeof(wins_packet_t))) {
+				fstat(pw->command_pipe, &buf);
+				continue;
+			}
 			w_window_t wwt;
 			wins_packet_t header;
 			int bytes_read = read(pw->command_pipe, &header, sizeof(wins_packet_t));
 
 			while (header.magic != WINS_MAGIC) {
-				printf("Magic is wrong, expected 0x%x but got 0x%x [read %d bytes of %d]\n", WINS_MAGIC, header.magic, bytes_read, sizeof(header));
+				printf("Magic is wrong from pid %d, expected 0x%x but got 0x%x [read %d bytes of %d]\n", pw->pid, WINS_MAGIC, header.magic, bytes_read, sizeof(header));
 				goto bad_magic;
 				memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
 				read(pw->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
@@ -348,6 +358,7 @@ void process_window_command (int sig) {
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					wwt.wid = _next_wid;
 					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid + 5); //XXX: an actual index
+					redraw_region_slow(0,0,graphics_width,graphics_height);
 					send_window_event(pw, WE_NEWWINDOW, wwt);
 					break;
 
@@ -700,6 +711,7 @@ void init_base_windows () {
 		window_draw_sprite(panel, sprites[2], i, 0);
 	}
 	redraw_full_window(panel);
+	redraw_region_slow(0,0,graphics_width,graphics_height);
 #endif
 
 	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
@@ -826,6 +838,8 @@ int main(int argc, char ** argv) {
 
 	/* Initialize graphics setup */
 	init_graphics_double_buffer();
+
+	depth_map = malloc(sizeof(uint16_t) * graphics_width * graphics_height);
 
 	/* Initialize the client request system */
 	init_request_system();

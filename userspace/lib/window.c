@@ -253,6 +253,9 @@ void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, ui
 	LOCK(wins_command_lock);
 	wins_command_recvd = 0xFF; // XXX: Will this work?
 
+	if (command == WC_NEWWINDOW) {
+		fprintf(stderr, "> Creating a window. Sending a packet of size %d+%d\n", sizeof(wins_packet_t), sizeof(w_window_t));
+	}
 	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
 	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
 
