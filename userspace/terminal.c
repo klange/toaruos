@@ -2789,17 +2789,25 @@ void cat(char * file) {
 	free(buffer);
 }
 
-char * loadMemFont(char * name, size_t * size) {
-	FILE * f = fopen(name, "r");
-	size_t s = 0;
-	fseek(f, 0, SEEK_END);
-	s = ftell(f);
-	fseek(f, 0, SEEK_SET);
-	char * font = malloc(s);
-	fread(font, s, 1, f);
-	fclose(f);
-	*size = s;
-	return font;
+char * loadMemFont(char * name, char * ident, size_t * size) {
+	if (!_windowed) {
+		FILE * f = fopen(name, "r");
+		size_t s = 0;
+		fseek(f, 0, SEEK_END);
+		s = ftell(f);
+		fseek(f, 0, SEEK_SET);
+		char * font = malloc(s);
+		fread(font, s, 1, f);
+		fclose(f);
+		*size = s;
+		return font;
+	} else {
+		size_t s = 0;
+		int error;
+		char * font = (char *)syscall_shm_obtain(ident, &s);
+		*size = s;
+		return font;
+	}
 }
 
 void setLoaded(int i, int yes) {
@@ -2966,25 +2974,25 @@ int main(int argc, char ** argv) {
 		setLoaded(4,0);
 
 		setLoaded(0,2);
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(0,1);
 
 		setLoaded(1,2);
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(1,1);
 
 		setLoaded(2,2);
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(2,1);
 
 		setLoaded(3,2);
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
 		error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(3,1);

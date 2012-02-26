@@ -278,6 +278,7 @@ void process_window_command (int sig) {
 
 			while (header.magic != WINS_MAGIC) {
 				printf("Magic is wrong, expected 0x%x but got 0x%x\n", WINS_MAGIC, header.magic);
+				goto bad_magic;
 				memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
 				read(pw->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
 			}
@@ -317,6 +318,7 @@ void process_window_command (int sig) {
 					break;
 			}
 
+bad_magic:
 			fstat(pw->command_pipe, &buf);
 		}
 	}
@@ -514,14 +516,11 @@ char * loadMemFont(char * ident, char * name, size_t * size) {
 	s = ftell(f);
 	fseek(f, 0, SEEK_SET);
 
-	printf("loading %s, size %d\n", name, s);
 	size_t shm_size = s;
 	char * font = (char *)syscall_shm_obtain(ident, &shm_size); //malloc(s);
 	assert((shm_size >= s) && "shm_obtain returned too little memory to load a font into!");
 
 	fread(font, s, 1, f);
-
-	printf("First few bytes are %x%x%x%x\n", font[0], font[1], font[2], font[3]);
 
 	fclose(f);
 	*size = s;
@@ -565,6 +564,38 @@ void _load_dejavubolditalic() {
 	char * font;
 	size_t s;
 	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic", "/usr/share/fonts/DejaVuSans-BoldOblique.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
+	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_dejamonovu() {
+	char * font;
+	size_t s;
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace", "/usr/share/fonts/DejaVuSansMono.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face);
+	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_dejamonovubold() {
+	char * font;
+	size_t s;
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", "/usr/share/fonts/DejaVuSansMono-Bold.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face_bold);
+	error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_dejamonovuitalic() {
+	char * font;
+	size_t s;
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", "/usr/share/fonts/DejaVuSansMono-Oblique.ttf", &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &face_italic);
+	error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE);
+}
+
+void _load_dejamonovubolditalic() {
+	char * font;
+	size_t s;
+	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", "/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
 	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
 }
@@ -696,6 +727,10 @@ int main(int argc, char ** argv) {
 	add_startup_item("Loading font: Deja Vu Sans Bold", _load_dejavubold, 2);
 	add_startup_item("Loading font: Deja Vu Sans Oblique", _load_dejavuitalic, 2);
 	add_startup_item("Loading font: Deja Vu Sans Bold+Oblique", _load_dejavubolditalic, 2);
+	add_startup_item("Loading font: Deja Vu Sans Mono", _load_dejamonovu, 2);
+	add_startup_item("Loading font: Deja Vu Sans Mono Bold", _load_dejamonovubold, 2);
+	add_startup_item("Loading font: Deja Vu Sans Mono Oblique", _load_dejamonovuitalic, 2);
+	add_startup_item("Loading font: Deja Vu Sans Mono Bold+Oblique", _load_dejamonovubolditalic, 2);
 #endif
 #if 0
 	add_startup_item("Loading wallpaper (/usr/share/wallpaper.bmp)", _load_wallpaper, 4);
