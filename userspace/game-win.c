@@ -104,7 +104,7 @@ void display() {
 	render_map(my_x,my_y);
 	draw_sprite(sprites[124 + direction], map_x + CELL_SIZE * 4, map_y + CELL_SIZE * 4);
 	flip();
-	window_redraw_full(window);
+	window_redraw_wait(window);
 }
 
 void transition(int nx, int ny) {
@@ -121,7 +121,7 @@ void transition(int nx, int ny) {
 		offset_x = 0;
 		offset_y = -1;
 	}
-	for (int i = 0; i < 64; i += 2) {
+	for (int i = 0; i < 64; i += 16) {
 		offset_iter = i;
 		display();
 	}
@@ -130,6 +130,7 @@ void transition(int nx, int ny) {
 	offset_y = 0;
 	my_x = nx;
 	my_y = ny;
+	display();
 }
 
 void move(int cx, int cy) {
@@ -188,9 +189,11 @@ void init_sprite(int i, char * filename, char * alpha) {
 int main(int argc, char ** argv) {
 	setup_windowing();
 
-	window = window_create(0,0, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
+	window = window_create(10,10, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
 	window_fill(window, rgb(100,100,100));
+	window_redraw_full(window);
 	init_graphics_window_double_buffer(window);
+
 
 	map_x = GFX_W / 2 - (64 * 9) / 2;
 	map_y = GFX_H / 2 - (64 * 9) / 2;
@@ -212,10 +215,11 @@ int main(int argc, char ** argv) {
 	load_map("/etc/game/map");
 	printf("%d x %d\n", map.width, map.height);
 
+	display();
+
+
 	int playing = 1;
 	while (playing) {
-
-		display();
 
 		char ch = 0;
 		w_keyboard_t * kbd;

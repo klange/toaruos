@@ -181,6 +181,20 @@ window_t * top_at(uint16_t x, uint16_t y) {
 	return window_top;
 }
 
+window_t * top_at_fast(uint16_t x, uint16_t y) {
+	uint32_t index_top = 0;
+	window_t * window_top = NULL;
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+		foreach(node, pw->windows) {
+			window_t * win = (window_t *)node->value;
+			if (is_top_fast(win, x, y)) return win;
+		}
+	}
+	return NULL;
+}
+
+
 window_t * absolute_top() {
 	uint32_t index_top = 0;
 	window_t * window_top = NULL;
@@ -217,7 +231,7 @@ void make_top(window_t * window) {
 }
 
 window_t * focused_window() {
-	return top_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+	return top_at_fast(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 }
 
 
@@ -262,9 +276,13 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 	for (uint32_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint32_t x = _lo_x; x < _hi_x; ++x) {
 			window_t * window = top_at(x,y);
-			if (!window) continue;
-			GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
-			depth_map[x + y * graphics_width] = window->z;
+			if (window) {
+				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
+				depth_map[x + y * graphics_width] = window->z;
+			} else {
+				GFX(x,y) = (y % 2 && x % 2) ? rgb(0,0,0) : rgb(255,255,255);
+				depth_map[x + y * graphics_width] = window->z;
+			}
 		}
 	}
 }
@@ -286,6 +304,30 @@ void redraw_bounding_box(window_t *window, int32_t left, int32_t top, uint32_t d
 		redraw_region_slow(_max_x, _min_y, 1, (_max_y - _min_y + 1));
 	} else {
 		uint32_t color = rgb(255,0,0);
+		draw_line(_min_x, _max_x, _min_y, _min_y, color);
+		draw_line(_min_x, _max_x, _max_y, _max_y, color);
+		draw_line(_min_x, _min_x, _min_y, _max_y, color);
+		draw_line(_max_x, _max_x, _min_y, _max_y, color);
+	}
+}
+
+void redraw_bounding_box_r(window_t *window, int32_t width, int32_t height, uint32_t derped) {
+	if (!window) {
+		return;
+	}
+
+	int32_t _min_x = max(window->x, 0);
+	int32_t _min_y = max(window->y,  0);
+	int32_t _max_x = min(window->x + width  - 1, graphics_width  - 1);
+	int32_t _max_y = min(window->y + height - 1, graphics_height - 1);
+
+	if (!derped) {
+		redraw_region_slow(_min_x, _min_y, (_max_x - _min_x + 1), 1);
+		redraw_region_slow(_min_x, _max_y, (_max_x - _min_x + 1), 1);
+		redraw_region_slow(_min_x, _min_y, 1, (_max_y - _min_y + 1));
+		redraw_region_slow(_max_x, _min_y, 1, (_max_y - _min_y + 1));
+	} else {
+		uint32_t color = rgb(0,255,0);
 		draw_line(_min_x, _max_x, _min_y, _min_y, color);
 		draw_line(_min_x, _max_x, _max_y, _max_y, color);
 		draw_line(_min_x, _min_x, _min_y, _max_y, color);
@@ -332,19 +374,22 @@ void process_window_command (int sig) {
 		struct stat buf;
 		fstat(pw->command_pipe, &buf);
 
-		int max_requests_per_cycle = 3;
+		int max_requests_per_cycle = 1;
 
 		while ((buf.st_size > 0) && (max_requests_per_cycle > 0)) {
+#if 0
 			if (!(buf.st_size > sizeof(wins_packet_t))) {
 				fstat(pw->command_pipe, &buf);
 				continue;
 			}
+#endif
 			w_window_t wwt;
 			wins_packet_t header;
 			int bytes_read = read(pw->command_pipe, &header, sizeof(wins_packet_t));
 
 			while (header.magic != WINS_MAGIC) {
 				printf("Magic is wrong from pid %d, expected 0x%x but got 0x%x [read %d bytes of %d]\n", pw->pid, WINS_MAGIC, header.magic, bytes_read, sizeof(header));
+				max_requests_per_cycle--;
 				goto bad_magic;
 				memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
 				read(pw->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
@@ -358,8 +403,8 @@ void process_window_command (int sig) {
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					wwt.wid = _next_wid;
 					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid + 5); //XXX: an actual index
-					redraw_region_slow(0,0,graphics_width,graphics_height);
 					send_window_event(pw, WE_NEWWINDOW, wwt);
+					redraw_region_slow(0,0,graphics_width,graphics_height);
 					break;
 
 				case WC_RESIZE:
@@ -378,6 +423,12 @@ void process_window_command (int sig) {
 					redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					break;
 
+				case WC_REDRAW:
+					read(pw->command_pipe, &wwt, sizeof(w_window_t));
+					redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
+					send_window_event(pw, WE_REDRAWN, wwt);
+					break;
+
 				default:
 					printf("[compositor] WARN: Unknown command type %d...\n", header.command_type);
 					void * nullbuf = malloc(header.packet_size);
@@ -390,6 +441,7 @@ bad_magic:
 			fstat(pw->command_pipe, &buf);
 		}
 	}
+	syscall_yield();
 }
 
 
@@ -398,7 +450,7 @@ bad_magic:
 void waitabit() {
 	int x = time(NULL);
 	while (time(NULL) < x + 1) {
-		// Do nothing.
+		syscall_yield();
 	}
 }
 
@@ -408,14 +460,7 @@ void waitabit() {
 
 wins_server_global_t volatile * _request_page;
 
-void init_request_system () {
-	size_t size = sizeof(wins_server_global_t);
-	_request_page = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, &size);
-	if (!_request_page) {
-		fprintf(stderr, "[wins] Could not get a shm block for its request page! Bailing...");
-		exit(-1);
-	}
-
+void reset_request_system () {
 	_request_page->lock          = 0;
 	_request_page->server_done   = 0;
 	_request_page->client_done   = 0;
@@ -429,6 +474,18 @@ void init_request_system () {
 	_request_page->server_depth  = graphics_depth;
 
 	_request_page->magic         = WINS_MAGIC;
+}
+
+void init_request_system () {
+	size_t size = sizeof(wins_server_global_t);
+	_request_page = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, &size);
+	if (!_request_page) {
+		fprintf(stderr, "[wins] Could not get a shm block for its request page! Bailing...");
+		exit(-1);
+	}
+
+	reset_request_system();
+
 }
 
 void process_request () {
@@ -446,6 +503,10 @@ void process_request () {
 		_request_page->server_done = 1;
 
 		list_insert(process_list, pw);
+	}
+
+	if (!_request_page->lock) {
+		reset_request_system();
 	}
 }
 
@@ -466,9 +527,16 @@ void delete_process (process_windows_t * pw) {
 
 /* Signals */
 
+void * ignore(void * value) {
+	return NULL;
+}
 
 void init_signal_handlers () {
+#if 0
 	syscall_sys_signal(SIGWINEVENT, (uintptr_t)process_window_command); // SIGWINEVENT
+#else
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)ignore); // SIGWINEVENT
+#endif
 }
 
 
@@ -745,8 +813,6 @@ void * process_requests(void * garbage) {
 				int r = read(mfd, buf, 1);
 				break;
 			}
-			//cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
-			/* XXX: Redraw below */
 			redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
 			/* Apply mouse movement */
 			int c, l;
@@ -766,8 +832,6 @@ void * process_requests(void * garbage) {
 			if (mouse_y < 0) mouse_y = 0;
 			if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
 			if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
-			/* XXX: DRAW CURSOR */
-			//cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
 			draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT)) {
 				_mouse_window = focused_window();
@@ -786,6 +850,23 @@ void * process_requests(void * garbage) {
 						redraw_region_slow(0,0,graphics_width,graphics_height);
 					}
 				}
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_RIGHT)) {
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
+
+					} else {
+						_mouse_state = 2;
+						_mouse_init_x = mouse_x;
+						_mouse_init_y = mouse_y;
+						_mouse_win_x  = _mouse_window->width;
+						_mouse_win_y  = _mouse_window->height;
+						_mouse_win_x_p= _mouse_win_x;
+						_mouse_win_y_p= _mouse_win_y;
+						make_top(_mouse_window);
+						redraw_region_slow(0,0,graphics_width,graphics_height);
+					}
+				}
 			} else if (_mouse_state == 1) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
 					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
@@ -798,9 +879,35 @@ void * process_requests(void * garbage) {
 					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
 				}
+			} else if (_mouse_state == 2) {
+				if (!(packet->buttons & MOUSE_BUTTON_RIGHT)) {
+					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					if (_mouse_win_x_p < 10) _mouse_win_x_p = 10;
+					if (_mouse_win_y_p < 10) _mouse_win_y_p = 10;
+					printf("resizing window to %d x %d\n", _mouse_win_x_p, _mouse_win_y_p);
+					resize_window_buffer(_mouse_window, _mouse_window->x, _mouse_window->y, _mouse_win_x_p, _mouse_win_y_p);
+					w_window_t tmp;
+					tmp.left = _mouse_window->x;
+					tmp.top  = _mouse_window->y;
+					tmp.wid  = _mouse_window->wid;
+					tmp.width = _mouse_win_x_p;
+					tmp.height = _mouse_win_y_p;
+					send_window_event(_mouse_window->owner, WE_RESIZED, tmp);
+					redraw_region_slow(0,0,graphics_width,graphics_height);
+					_mouse_state = 0;
+				} else {
+					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
+					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					if (_mouse_win_x_p < 10) _mouse_win_x_p = 10;
+					if (_mouse_win_y_p < 10) _mouse_win_y_p = 10;
+					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
+				}
+
 			}
-			if (packet->buttons & MOUSE_BUTTON_RIGHT) {
-				printf("right click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+			if (packet->buttons & MOUSE_BUTTON_MIDDLE) {
+				printf("middle click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				window_t * focused = focused_window();
 				if (focused) {
 					free_window(focused);
@@ -822,12 +929,6 @@ void * process_requests(void * garbage) {
 					packet.key = (uint16_t)buf[0];
 					send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
 				}
-				/*
-				if (buffer_put(buf[0])) {
-					write(ifd, input_buffer, input_collected);
-					clear_input();
-				}
-				*/
 			}
 		}
 	}
@@ -929,20 +1030,12 @@ int main(int argc, char ** argv) {
 	}
 #else 
 	if (!fork()) {
-		waitabit();
 		char * args[] = {"/bin/julia-win", "200","400","400","400",NULL};
 		execve(args[0], args, NULL);
 	}
 
 	if (!fork()) {
-		waitabit();
 		char * args[] = {"/bin/terminal", "-w", "-f", "10", "10", NULL};
-		execve(args[0], args, NULL);
-	}
-	if (!fork()) {
-		waitabit();
-		waitabit();
-		char * args[] = {"/bin/terminal", "-w", "-f", "10", "420", NULL};
 		execve(args[0], args, NULL);
 	}
 

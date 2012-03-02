@@ -28,6 +28,8 @@
 static unsigned int timer_tick = 0;
 #define TIMER_TICK 400000
 
+volatile int needs_redraw = 1;
+
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
 #define b_(x) ((x & 1) | (x >> 2 & 2) | (x >> 4 & 4) | (x >> 6 & 8) | (x >> 8 & 16) | (x >> 10 & 32) | (x >> 12 & 64) | (x >> 14 & 128))
@@ -2584,6 +2586,7 @@ term_write_char(
 			}
 		}
 	}
+	needs_redraw = 1;
 }
 
 static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, uint8_t flags) {
@@ -2876,7 +2879,10 @@ int buffer_put(char c) {
 
 void * screen_redrawer(void * garbage) {
 	while (1) {
-		window_redraw_full(window);
+		if (needs_redraw) {
+			needs_redraw = 0;
+			window_redraw_wait(window);
+		}
 	}
 }
 

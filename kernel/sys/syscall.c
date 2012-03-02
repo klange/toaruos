@@ -481,6 +481,15 @@ static int get_fd(uintptr_t fn) {
 }
 
 /*
+ * Yield the rest of the quantum;
+ * useful for busy waiting and other such things
+ */
+static int yield() {
+	switch_task(1);
+	return 1;
+}
+
+/*
  * System Call Internals
  */
 static void syscall_handler(struct regs * r);
@@ -528,6 +537,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&share_fd,
 	(uintptr_t)&get_fd,				/* 40 */
 	(uintptr_t)&gettid,
+	(uintptr_t)&yield,
 	0
 };
 uint32_t num_syscalls;

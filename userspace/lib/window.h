@@ -18,6 +18,7 @@ DECL_SYSCALL2(send_signal, int, int);
 DECL_SYSCALL2(sys_signal, int, int);
 DECL_SYSCALL2(share_fd, int, int);
 DECL_SYSCALL1(get_fd, int);
+DECL_SYSCALL0(yield);
 
 
 /* Connection */
@@ -63,6 +64,7 @@ typedef struct {
 #define WC_RESIZE		0x01 /* Resize and move an existing window */
 #define WC_DESTROY		0x02 /* Destroy an existing window */
 #define WC_DAMAGE		0x03 /* Damage window (redraw region) */
+#define WC_REDRAW		0x04 /* Damage window (redraw region) */
 
 /* Events */
 #define WE_KEYDOWN		0x10 /* A key has been pressed down */
@@ -74,6 +76,7 @@ typedef struct {
 #define WE_MOUSEUP		0x24 /* A mouse button has been released */
 #define WE_NEWWINDOW	0x30 /* A new window has been created */
 #define WE_RESIZED		0x31 /* Your window has been resized or moved */
+#define WE_REDRAWN		0x34
 
 #define WE_GROUP_MASK	0xF0
 #define WE_KEY_EVT		0x10 /* Some sort of keyboard event */
@@ -156,6 +159,7 @@ window_t * window_create (int16_t left, int16_t top, uint16_t width, uint16_t he
 void window_resize (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
 void window_redraw (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
 void window_redraw_full (window_t * window);
+void window_redraw_wait (window_t * window);
 void window_destroy (window_t * window);
 
 w_keyboard_t * poll_keyboard();

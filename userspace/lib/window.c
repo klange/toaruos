@@ -22,9 +22,10 @@ DEFN_SYSCALL2(send_signal, 37, int, int)
 DEFN_SYSCALL2(sys_signal, 38, int, int)
 DEFN_SYSCALL2(share_fd, 39, int, int)
 DEFN_SYSCALL1(get_fd, 40, int)
+DEFN_SYSCALL0(yield, 42)
 #endif
 
-#define LOCK(lock) while (__sync_lock_test_and_set(&lock, 0x01));
+#define LOCK(lock) while (__sync_lock_test_and_set(&lock, 0x01)) { syscall_yield(); };
 #define UNLOCK(lock) __sync_lock_release(&lock);
 
 #define WIN_B 4
@@ -127,8 +128,10 @@ void free_window (window_t * window) {
 	process_windows_t * pw = window->owner;
 
 	node_t * n = list_find(pw->windows, window);
-	list_delete(pw->windows, n);
-	free(n);
+	if (n) {
+		list_delete(pw->windows, n);
+		free(n);
+	}
 
 #if 0
 	/* Does the owner have any windows themselves? */
@@ -146,16 +149,25 @@ void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_
 	/* If the window has enlarged, we need to create a new buffer */
 	if ((width * height) > (window->width * window->height)) {
 		/* Release the old buffer */
-		char key[256];
+		char key[256], keyn[256];
 		SHMKEY(key, 256, window);
-		syscall_shm_release(key);
+
+		printf("Key = %s\n", key);
 
 		/* Create the new one */
 		window->bufid++;
-		SHMKEY(key, 256, window);
+		SHMKEY(keyn, 256, window);
+
+		printf("nkey = %s\n", keyn);
+
 		size_t size = (width * height * WIN_B);
-		window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+		printf("obtaining new buffer..\n");
+		window->buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
+		printf("copying buffer [%d]...\n", size);
 		memset(window->buffer, 0, size);
+		printf("herping...\n");
+		//syscall_shm_release(key);
+		printf("derping...\n");
 	}
 
 	window->x = left;
@@ -262,7 +274,9 @@ void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, ui
 	/* Now wait for the command to be processed before returning */
 	if (wait_for_reply) {
 		syscall_send_signal(process_windows->pid, SIGWINEVENT);
-		while((wins_command_recvd & 0xF) != (command & 0xF)) { }
+		while((wins_command_recvd & 0xF) != (command & 0xF)) {
+			syscall_yield();
+		}
 	}
 
 	UNLOCK(wins_command_lock);
@@ -272,7 +286,9 @@ void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, ui
 window_t * window_create (int16_t left, int16_t top, uint16_t width, uint16_t height) {
 	wins_send_command(0, left, top, width, height, WC_NEWWINDOW, 1);
 
-	while (!wins_last_new);
+	while (!wins_last_new) {
+		syscall_yield();
+	}
 
 	return (window_t *)wins_last_new;
 }
@@ -287,6 +303,10 @@ void window_redraw (window_t * window, int16_t left, int16_t top, uint16_t width
 
 void window_redraw_full (window_t * window) {
 	wins_send_command(window->wid, 0, 0, window->width, window->height, WC_DAMAGE, 0);
+}
+
+void window_redraw_wait (window_t * window) {
+	wins_send_command(window->wid, 0, 0, window->width, window->height, WC_REDRAW, 1);
 }
 
 void window_destroy (window_t * window) {
@@ -462,7 +482,9 @@ int wins_connect() {
 	/* Mark us as done and wait for the server */
 	wins_globals->client_done = 1;
 
-	while (!wins_globals->server_done);
+	while (!wins_globals->server_done) {
+		syscall_yield();
+	}
 
 
 	assert(process_windows && "process_windows was not initialized!");
