@@ -19,7 +19,7 @@ DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
 DEFN_SYSCALL0(gethostname, 32);
 
 DEFN_SYSCALL2(signal, 38, uint32_t, void *);
-DEFN_SYSCALL2(send_signal, 37, uint32_t, uint32_t)
+DECL_SYSCALL2(send_signal, uint32_t, uint32_t);
 
 uint32_t child = 0;
 

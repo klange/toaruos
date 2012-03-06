@@ -18,6 +18,9 @@ FREETYPE_INC = -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/
 FREETYPE_LIB = ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
 LIBM = ../util/toaru-toolchain/i686-pc-toaru/lib/libm.a
 
+TARGETDIR = ../hdd/bin/
+ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver donut donut-checker
+FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 .PHONY: all clean
 
@@ -28,72 +31,22 @@ clean:
 	@-rm -f ${EXECUTABLES}
 	@${ENDRM} "RM" "Cleaned userspace full-toolchain applications."
 
-../hdd/bin/freetype_test: freetype_test.c
-	@${BEG} "CC" "$< [freetype]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${FREETYPE_LIB} ${ERRORS}
-	@${END} "CC" "$< [freetype]"
-
-../hdd/bin/terminal: terminal.c lib/graphics.o lib/list.o lib/window.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
+${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o
+	@${BEG} "CC" "$@ $< [w/libs]"
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o ${LIBM} ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
-../hdd/bin/login: login.c lib/sha2.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/sha2.o ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/compositor: compositor.c lib/graphics.o lib/list.o lib/window.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/view: view.c lib/graphics.o lib/list.o lib/window.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/game-win: game-win.c lib/graphics.o lib/list.o lib/window.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/drawlines: drawlines.c lib/graphics.o lib/list.o lib/window.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/glogin: glogin.c lib/graphics.o lib/list.o lib/window.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o -lm ${FREETYPE_LIB} ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/julia-win: julia-win.c lib/graphics.o lib/list.o lib/window.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o ${FREETYPE_LIB} ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/solver: solver.c lib/list.o
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/list.o ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/donu%: donu%.c
-	@${BEG} "CC" "$< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< ${LIBM} ${ERRORS}
-	@${END} "CC" "$< [w/libs]"
-
-../hdd/bin/%: %.cpp
+$(TARGETDIR)%: %.cpp
 	@${BEG} "CPP" "$<"
 	@${CPP} ${CPPFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CPP" "$<"
 
-../hdd/bin/ld: ld.c
+$(TARGETDIR)ld: ld.c
 	@${BEG} "CC" "$< [-fPIC]"
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} -fPIC -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [-fPIC]"
 
-../hdd/bin/%: %.c
+$(TARGETDIR)%: %.c
 	@${BEG} "CC" "$<"
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
