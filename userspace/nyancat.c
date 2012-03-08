@@ -839,8 +839,8 @@ int main(int argc, char ** argv) {
 	size_t i = 0;
 	char last = 0;
 	while (playing) {
-		for (size_t y = 12; y < 52; ++y) {
-			for (size_t x = 0; x < 63; ++x) {
+		for (size_t y = 20; y < 43; ++y) {
+			for (size_t x = 10; x < 49; ++x) {
 				if (frames[i][y][x] != last && colors[frames[i][y][x]]) {
 					last = frames[i][y][x];
 					printf("%s  ", colors[frames[i][y][x]]);
