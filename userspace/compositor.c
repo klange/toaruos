@@ -1029,10 +1029,7 @@ int main(int argc, char ** argv) {
 #else
 
 	if (!fork()) {
-		char arg_width[10], arg_height[10];
-		sprintf(arg_width, "%d", graphics_width);
-		sprintf(arg_height, "%d", graphics_height);
-		char * args[] = {"/bin/wallpaper", arg_width, arg_height, NULL};
+		char * args[] = {"/bin/wallpaper", NULL};
 		execve(args[0], args, NULL);
 	}
 

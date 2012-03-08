@@ -92,18 +92,14 @@ void draw_sprite_scaled(sprite_t * sprite, uint16_t x, uint16_t y, uint16_t widt
 }
 
 int main (int argc, char ** argv) {
-	if (argc < 3) {
-		printf("usage: %s width height\n", argv[0]);
-		return -1;
-	}
+	setup_windowing();
 
-	int width = atoi(argv[1]);
-	int height = atoi(argv[2]);
+	int width  = wins_globals->server_width;
+	int height = wins_globals->server_height;
 
 	win_width = width;
 	win_height = height;
 
-	setup_windowing();
 
 	/* Do something with a window */
 	window_t * wina = window_create(0,0, width, height);

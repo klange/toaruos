@@ -149,7 +149,7 @@ struct process_windows {
 	list_t * windows;
 };
 
-
+volatile wins_server_global_t * wins_globals;
 
 /* Client Windowing */
 
