@@ -782,6 +782,7 @@ void init_base_windows () {
 	redraw_full_window(root);
 #endif
 
+#if 0
 	/* Create the panel */
 	window_t * panel = init_window(pw, _next_wid++, 0, 0, graphics_width, 24, 0xFFFF);
 	window_fill(panel, rgb(0,120,230));
@@ -791,6 +792,7 @@ void init_base_windows () {
 	}
 	redraw_full_window(panel);
 	redraw_region_slow(0,0,graphics_width,graphics_height);
+#endif
 #endif
 
 	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
@@ -1030,6 +1032,10 @@ int main(int argc, char ** argv) {
 
 	if (!fork()) {
 		char * args[] = {"/bin/wallpaper", NULL};
+		execve(args[0], args, NULL);
+	}
+	if (!fork()) {
+		char * args[] = {"/bin/panel", NULL};
 		execve(args[0], args, NULL);
 	}
 

@@ -124,6 +124,10 @@ int main (int argc, char ** argv) {
 	flip();
 	window_redraw_full(wina);
 
+	while (1) {
+		syscall_wait(wins_globals->server_pid);
+	}
+
 
 #if 0
 	window_destroy(window); // (will close on exit)

@@ -120,18 +120,30 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 void free_window (window_t * window) {
 	/* Free the window buffer */
 	if (!window) return;
+#if 0
 	char key[256];
 	SHMKEY(key, 256, window);
 	syscall_shm_release(key);
+#endif
 
 	/* Now, kill the object itself */
+#if 0
 	process_windows_t * pw = window->owner;
+	node_t * n = list_find(pw->windows, window);
+	if (n) {
+		window_t * window = n->value;
+		window->x = 0xFFFFF;
+	}
+#endif
+	window->x = 0xFFFFF;
 
+#if 0
 	node_t * n = list_find(pw->windows, window);
 	if (n) {
 		list_delete(pw->windows, n);
 		free(n);
 	}
+#endif
 
 #if 0
 	/* Does the owner have any windows themselves? */
