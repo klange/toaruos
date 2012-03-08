@@ -231,10 +231,6 @@ int main(int argc, char ** argv) {
 			}
 		} while (kbd != NULL);
 
-		if (ch) {
-			printf("Key press: '%c'\n", ch);
-		}
-
 		switch (ch) {
 			case 'q':
 				playing = 0;

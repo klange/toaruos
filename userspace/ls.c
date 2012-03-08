@@ -21,6 +21,8 @@
 #define SYM_COLOR		""
 #define BROKEN_COLOR	"1;"
 
+#define DEFAULT_TERM_WIDTH 80
+
 
 /* Shit that belongs as a separate data structure */
 
@@ -377,7 +379,7 @@ int main (int argc, char * argv[]) {
 		ent_max_len = max(ent_max_len, strlen(ents_array[i]->name));
 	}
 
-	const int term_width = 128; // For now, we assume 128
+	const int term_width = DEFAULT_TERM_WIDTH; // For now, we assume 128
 
 	int col_ext = ent_max_len + MIN_COL_SPACING;
 	int cols = ((term_width - ent_max_len) / col_ext) + 1;
