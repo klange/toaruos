@@ -259,6 +259,14 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 	}
 }
 
+void reorder_window (window_t * window, uint16_t new_zed) {
+	if (!window) {
+		return;
+	}
+
+	window->z = new_zed;
+}
+
 void redraw_full_window (window_t * window) {
 	if (!window) {
 		return;
@@ -281,7 +289,7 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 				depth_map[x + y * graphics_width] = window->z;
 			} else {
 				GFX(x,y) = (y % 2 && x % 2) ? rgb(0,0,0) : rgb(255,255,255);
-				depth_map[x + y * graphics_width] = window->z;
+				depth_map[x + y * graphics_width] = 0;
 			}
 		}
 	}
@@ -402,7 +410,7 @@ void process_window_command (int sig) {
 					printf("[compositor] New window request\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					wwt.wid = _next_wid;
-					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid + 5); //XXX: an actual index
+					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid); //XXX: an actual index
 					send_window_event(pw, WE_NEWWINDOW, wwt);
 					redraw_region_slow(0,0,graphics_width,graphics_height);
 					break;
@@ -427,6 +435,11 @@ void process_window_command (int sig) {
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					send_window_event(pw, WE_REDRAWN, wwt);
+					break;
+
+				case WC_REORDER:
+					read(pw->command_pipe, &wwt, sizeof(w_window_t));
+					reorder_window(get_window_with_process(pw, wwt.wid), wwt.left);
 					break;
 
 				default:
@@ -753,10 +766,6 @@ void _load_dejamonovubolditalic() {
 #endif
 }
 
-void _load_wallpaper() {
-	init_sprite(1, "/usr/share/wallpaper.bmp", NULL);
-}
-
 void init_base_windows () {
 	process_windows_t * pw = malloc(sizeof(process_windows_t));
 	pw->pid = getpid();
@@ -767,9 +776,11 @@ void init_base_windows () {
 
 #if 1
 	/* Create the background window */
+#if 0
 	window_t * root = init_window(pw, _next_wid++, 0, 0, graphics_width, graphics_height, 0);
 	window_draw_sprite(root, sprites[1], 0, 0);
 	redraw_full_window(root);
+#endif
 
 	/* Create the panel */
 	window_t * panel = init_window(pw, _next_wid++, 0, 0, graphics_width, 24, 0xFFFF);
@@ -968,9 +979,6 @@ int main(int argc, char ** argv) {
 	add_startup_item("Loading font: Deja Vu Sans Mono Oblique", _load_dejamonovuitalic, 2);
 	add_startup_item("Loading font: Deja Vu Sans Mono Bold+Oblique", _load_dejamonovubolditalic, 2);
 #endif
-#if 1
-	add_startup_item("Loading wallpaper (/usr/share/wallpaper.bmp)", _load_wallpaper, 4);
-#endif
 
 	foreach(node, startup_items) {
 		run_startup_item((startup_item *)node->value);
@@ -1020,6 +1028,14 @@ int main(int argc, char ** argv) {
 	}
 #else
 
+	if (!fork()) {
+		char arg_width[10], arg_height[10];
+		sprintf(arg_width, "%d", graphics_width);
+		sprintf(arg_height, "%d", graphics_height);
+		char * args[] = {"/bin/wallpaper", arg_width, arg_height, NULL};
+		execve(args[0], args, NULL);
+	}
+
 #if 0
 	if (!fork()) {
 		char arg_width[10], arg_height[10];
@@ -1030,11 +1046,13 @@ int main(int argc, char ** argv) {
 	}
 #else 
 	if (!fork()) {
+		waitabit();
 		char * args[] = {"/bin/julia-win", "200","400","400","400",NULL};
 		execve(args[0], args, NULL);
 	}
 
 	if (!fork()) {
+		waitabit();
 		char * args[] = {"/bin/terminal", "-w", "-f", "10", "10", NULL};
 		execve(args[0], args, NULL);
 	}

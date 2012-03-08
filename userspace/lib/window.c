@@ -314,6 +314,10 @@ void window_destroy (window_t * window) {
 	free_window(window);
 }
 
+void window_reorder (window_t * window, uint16_t new_zed) {
+	wins_send_command(window->wid, new_zed, 0, 0, 0, WC_REORDER, 0);
+}
+
 
 /* Event Processing (invoked by signal only) */
 

@@ -65,6 +65,7 @@ typedef struct {
 #define WC_DESTROY		0x02 /* Destroy an existing window */
 #define WC_DAMAGE		0x03 /* Damage window (redraw region) */
 #define WC_REDRAW		0x04 /* Damage window (redraw region) */
+#define WC_REORDER		0x05 /* Set the Z-index for a window (request) */
 
 /* Events */
 #define WE_KEYDOWN		0x10 /* A key has been pressed down */
@@ -161,6 +162,7 @@ void window_redraw (window_t * window, int16_t left, int16_t top, uint16_t width
 void window_redraw_full (window_t * window);
 void window_redraw_wait (window_t * window);
 void window_destroy (window_t * window);
+void window_reorder (window_t * window, uint16_t new_zed);
 
 w_keyboard_t * poll_keyboard();
 w_mouse_t *    poll_mouse();
