@@ -20,15 +20,15 @@ void init_sprite(int i, char * filename, char * alpha) {
 }
 
 int main (int argc, char ** argv) {
-	if (argc < 4) {
-		printf("usage: %s left top path\n", argv[0]);
+	if (argc < 2) {
+		printf("usage: %s file\n", argv[0]);
 		return -1;
 	}
 
-	int left = atoi(argv[1]);
-	int top  = atoi(argv[2]);
+	int left = 30;
+	int top  = 30;
 
-	init_sprite(0, argv[3], NULL);
+	init_sprite(0, argv[1], NULL);
 
 	int width  = sprites[0]->width;
 	int height = sprites[0]->height;
