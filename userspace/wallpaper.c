@@ -83,9 +83,7 @@ void draw_sprite_scaled(sprite_t * sprite, uint16_t x, uint16_t y, uint16_t widt
 				uint32_t f_color = rgb(_ALP(n_color), 0, 0);
 				GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), n_color, f_color);
 			} else {
-				if (SPRITE(sprite,_x,_y) != sprite->blank) {
-					GFX(x + _x, y + _y) = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
-				}
+				GFX(x + _x, y + _y) = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
 			}
 		}
 	}

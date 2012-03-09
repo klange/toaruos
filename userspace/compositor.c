@@ -440,6 +440,7 @@ void process_window_command (int sig) {
 				case WC_REORDER:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					reorder_window(get_window_with_process(pw, wwt.wid), wwt.left);
+					redraw_region_slow(0,0,graphics_width,graphics_height);
 					break;
 
 				default:

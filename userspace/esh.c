@@ -153,6 +153,9 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 		nowait = (!strcmp(tokens[i-1],"&"));
+		if (nowait) {
+			tokens[i-1] = NULL;
+		}
 
 		/* Attempt to open the command */
 		FILE * file = NULL; //fopen(tokens[0], "r");
