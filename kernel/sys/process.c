@@ -80,7 +80,6 @@ process_t * next_ready_process() {
 	spin_unlock(&ready_lock);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
-	free(np);
 	return next;
 }
 
