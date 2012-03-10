@@ -1,5 +1,8 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
+ * The ToAruOS kernel is released under the terms of the
+ * University of Illinois / NCSA License.
+ *
  * Copyright (c) 2011 Kevin Lange.  All rights reserved.
  *
  *                           Dedicated to the memory of

@@ -110,6 +110,7 @@ static int wait(int child) {
 	/* If the child task doesn't exist, bail */
 	if (!child_task) {
 		kprintf("Tried to wait for non-existent process\n");
+		return -1;
 	}
 	while (child_task->finished == 0) {
 		/* Add us to the wait queue for this child */
