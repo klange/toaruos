@@ -63,8 +63,13 @@ void handle_signal(process_t * proc, signal_t * sig) {
 		stack = proc->syscall_registers->useresp;
 	}
 
+	uintptr_t handler = sig->handler;
+	uintptr_t signum  = sig->signum;
+
+	free(sig);
+
 	/* Not marked as ignored, must call signal */
-	enter_signal_handler(sig->handler, sig->signum, stack);
+	enter_signal_handler(handler, signum, stack);
 
 }
 
