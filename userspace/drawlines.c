@@ -50,7 +50,7 @@ int main (int argc, char ** argv) {
 		window_redraw_full(wina);
 	}
 
-	window_destroy(wina); // (will close on exit)
+	//window_destroy(wina); // (will close on exit)
 	teardown_windowing();
 
 	return 0;
