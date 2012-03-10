@@ -288,7 +288,7 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 				depth_map[x + y * graphics_width] = window->z;
 			} else {
-				GFX(x,y) = (y % 2 && x % 2) ? rgb(0,0,0) : rgb(255,255,255);
+				GFX(x,y) = (y % 2 ^ x % 2) ? rgb(0,0,0) : rgb(255,255,255);
 				depth_map[x + y * graphics_width] = 0;
 			}
 		}
@@ -865,6 +865,7 @@ void * process_requests(void * garbage) {
 					}
 				}
 			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_RIGHT)) {
+#if 0
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
@@ -881,6 +882,7 @@ void * process_requests(void * garbage) {
 						redraw_region_slow(0,0,graphics_width,graphics_height);
 					}
 				}
+#endif
 			} else if (_mouse_state == 1) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
 					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
@@ -895,6 +897,7 @@ void * process_requests(void * garbage) {
 				}
 			} else if (_mouse_state == 2) {
 				if (!(packet->buttons & MOUSE_BUTTON_RIGHT)) {
+#if 0
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					if (_mouse_win_x_p < 10) _mouse_win_x_p = 10;
@@ -910,6 +913,7 @@ void * process_requests(void * garbage) {
 					send_window_event(_mouse_window->owner, WE_RESIZED, tmp);
 					redraw_region_slow(0,0,graphics_width,graphics_height);
 					_mouse_state = 0;
+#endif
 				} else {
 					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
@@ -920,14 +924,18 @@ void * process_requests(void * garbage) {
 				}
 
 			}
+#if 1
 			if (packet->buttons & MOUSE_BUTTON_MIDDLE) {
 				printf("middle click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				window_t * focused = focused_window();
 				if (focused) {
-					free_window(focused);
+					if (focused->z != 0 && focused->z != 0xFFFF) {
+						free_window(focused);
+					}
 					redraw_region_slow(0,0,graphics_width,graphics_height);
 				}
 			}
+#endif
 #endif
 			fstat(mfd, &_stat);
 		}
