@@ -36,25 +36,27 @@ static uint8_t volatile lock;
 static uint8_t volatile lock_b;
 
 void handle_signal(process_t * proc, signal_t * sig) {
+	uintptr_t handler = sig->handler;
+	uintptr_t signum  = sig->signum;
+	free(sig);
+
 	if (proc->finished) {
 		return;
 	}
 
-	if (sig->signum == 0 || sig->signum > NUMSIGNALS) {
+	if (signum == 0 || signum > NUMSIGNALS) {
 		/* Ignore */
 		return;
 	}
 
-	if (!sig->handler) {
-		kprintf("[debug] Process %d killed by unhandled signal (%d).\n", proc->id, sig->signum);
-		int signum = sig->signum;
-		free(sig);
+	if (!handler) {
+		kprintf("[debug] Process %d killed by unhandled signal (%d).\n", proc->id, signum);
 		kexit(128 + signum);
 		__builtin_unreachable();
 		return;
 	}
 
-	if (sig->handler == 1) /* Ignore */ {
+	if (handler == 1) /* Ignore */ {
 		return;
 	}
 
@@ -64,11 +66,6 @@ void handle_signal(process_t * proc, signal_t * sig) {
 	} else {
 		stack = proc->syscall_registers->useresp;
 	}
-
-	uintptr_t handler = sig->handler;
-	uintptr_t signum  = sig->signum;
-
-	free(sig);
 
 	/* Not marked as ignored, must call signal */
 	enter_signal_handler(handler, signum, stack);
