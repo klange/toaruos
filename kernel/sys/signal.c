@@ -47,7 +47,9 @@ void handle_signal(process_t * proc, signal_t * sig) {
 
 	if (!sig->handler) {
 		kprintf("[debug] Process %d killed by unhandled signal (%d).\n", proc->id, sig->signum);
-		kexit(128 + sig->signum);
+		int signum = sig->signum;
+		free(sig);
+		kexit(128 + signum);
 		__builtin_unreachable();
 		return;
 	}
