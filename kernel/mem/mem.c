@@ -138,6 +138,7 @@ test_frame(
 uint32_t
 first_frame() {
 	uint32_t i, j;
+
 	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
 		if (frames[i] != 0xFFFFFFFF) {
 			for (j = 0; j < 32; ++j) {
@@ -156,8 +157,6 @@ first_frame() {
 	sig->handler = current_process->signals.functions[SIGSEGV];
 	sig->signum  = SIGSEGV;
 	handle_signal((process_t *)current_process, sig);
-#else
-	kexit(128);
 #endif
 
 	STOP;
@@ -239,7 +238,7 @@ void
 paging_install(uint32_t memsize) {
 	blog("Setting up memory paging...");
 	nframes = memsize  / 4;
-	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes));
+	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes * 8));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
 	uintptr_t phys;
@@ -272,9 +271,9 @@ debug_print_directory() {
 			continue;
 		}
 		if (kernel_directory->tables[i] == current_directory->tables[i]) {
-			//kprintf("  0x%x - kern [0x%x] %d\n", current_directory->tables[i], &current_directory->tables[i], i);
+			kprintf("  0x%x - kern [0x%x/0x%x] 0x%x\n", current_directory->tables[i], &current_directory->tables[i], &kernel_directory->tables[i], i * 0x1000 * 1024);
 		} else {
-			kprintf("  0x%x - user [0x%x] 0x%x\n", current_directory->tables[i], &current_directory->tables[i], i * 0x1000 * 1024);
+			kprintf("  0x%x - user [0x%x] 0x%x [0x%x]\n", current_directory->tables[i], &current_directory->tables[i], i * 0x1000 * 1024, kernel_directory->tables[i]);
 			for (uint16_t j = 0; j < 1024; ++j) {
 #if 0
 				page_t *  p= &current_directory->tables[i]->pages[j];
@@ -341,8 +340,8 @@ page_fault(
 	int reserved = r->err_code & 0x8    ? 1 : 0;
 	int id       = r->err_code & 0x10   ? 1 : 0;
 
-	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d [%s]\033[0m\n",
-			present, rw, user, reserved, id, faulting_address, r->eip, getpid(), current_process->name);
+	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d,%d [%s]\033[0m\n",
+			present, rw, user, reserved, id, faulting_address, r->eip, current_process->id, current_process->group, current_process->name);
 
 #endif
 
@@ -376,7 +375,7 @@ sbrk(
 	ASSERT((increment % 0x1000 == 0) && "Kernel requested to expand heap by a non-page-multiple value");
 	ASSERT((heap_end % 0x1000 == 0)  && "Kernel heap is not page-aligned!");
 	ASSERT(heap_end + increment <= KERNEL_HEAP_END && "The kernel has attempted to allocate beyond the end of its heap.");
-#if 1
+#if 0
 	if (current_process) {
 		kprintf("[kernel] Requested new page for kernel stack from [0x%x]+0x%x pid=%d [%s]\n", heap_end, increment, getpid(), current_process->name);
 	}

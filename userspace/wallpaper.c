@@ -123,7 +123,8 @@ int main (int argc, char ** argv) {
 	window_redraw_full(wina);
 
 	while (1) {
-		syscall_wait(wins_globals->server_pid);
+		syscall_yield();
+		//syscall_wait(wins_globals->server_pid);
 	}
 
 

@@ -46,10 +46,12 @@ clone_directory(
 			dir->tables[i] = src->tables[i];
 			dir->physical_tables[i] = src->physical_tables[i];
 		} else {
-			/* User tables must be cloned */
-			uintptr_t phys;
-			dir->tables[i] = clone_table(src->tables[i], &phys);
-			dir->physical_tables[i] = phys | 0x07;
+			if (i * 0x1000 * 1024 < 0x20000000) {
+				/* User tables must be cloned */
+				uintptr_t phys;
+				dir->tables[i] = clone_table(src->tables[i], &phys);
+				dir->physical_tables[i] = phys | 0x07;
+			}
 		}
 	}
 	return dir;
@@ -211,6 +213,7 @@ fork() {
 		new_proc->thread.eip = eip;
 
 		/* Clear page table tie-ins for shared memory mappings */
+#if 0
 		assert((new_proc->shm_mappings->length == 0) && "Spawned process had shared memory mappings!");
 		foreach (n, current_process->shm_mappings) {
 			shm_mapping_t * mapping = (shm_mapping_t *)n->value;
@@ -229,6 +232,7 @@ fork() {
 				memset(page, 0, sizeof(page_t));
 			}
 		}
+#endif
 
 		/* Add the new process to the ready queue */
 		make_process_ready(new_proc);

@@ -1077,6 +1077,7 @@ int main(int argc, char ** argv) {
 	while (1) {
 		process_request();
 		process_window_command(0);
+		syscall_yield();
 	}
 
 	// XXX: Better have SIGINT/SIGSTOP handlers
