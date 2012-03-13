@@ -322,7 +322,7 @@ void window_redraw_wait (window_t * window) {
 }
 
 void window_destroy (window_t * window) {
-	wins_send_command(window->wid, 0, 0, 0, 0, WC_DESTROY, 0);
+	wins_send_command(window->wid, 0, 0, 0, 0, WC_DESTROY, 1);
 	free_window(window);
 }
 

@@ -358,6 +358,7 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet
 	write(pw->event_pipe, &header, sizeof(wins_packet_t));
 	write(pw->event_pipe, &packet, sizeof(w_window_t));
 	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	syscall_yield();
 }
 
 void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t packet) {
@@ -424,6 +425,7 @@ void process_window_command (int sig) {
 				case WC_DESTROY:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					free_window(get_window(wwt.wid));
+					send_window_event(pw, WE_DESTROYED, wwt);
 					break;
 
 				case WC_DAMAGE:

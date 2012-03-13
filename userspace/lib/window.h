@@ -77,6 +77,7 @@ typedef struct {
 #define WE_MOUSEUP		0x24 /* A mouse button has been released */
 #define WE_NEWWINDOW	0x30 /* A new window has been created */
 #define WE_RESIZED		0x31 /* Your window has been resized or moved */
+#define WE_DESTROYED	0x32 /* Window has been removed */
 #define WE_REDRAWN		0x34
 
 #define WE_GROUP_MASK	0xF0
