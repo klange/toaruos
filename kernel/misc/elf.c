@@ -112,6 +112,8 @@ exec(
 		memcpy((void *)heap, argv[i], strlen(argv[i]) * sizeof(char) + 1);
 		heap += strlen(argv[i]) + 1;
 	}
+	/* Don't forget the NULL at the end of that... */
+	argv_[argc] = 0;
 
 	current_process->image.heap        = heap; /* heap end */
 	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
