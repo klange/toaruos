@@ -375,9 +375,9 @@ sbrk(
 	ASSERT((increment % 0x1000 == 0) && "Kernel requested to expand heap by a non-page-multiple value");
 	ASSERT((heap_end % 0x1000 == 0)  && "Kernel heap is not page-aligned!");
 	ASSERT(heap_end + increment <= KERNEL_HEAP_END && "The kernel has attempted to allocate beyond the end of its heap.");
-#if 0
+#if 1
 	if (current_process) {
-		kprintf("[kernel] Requested new page for kernel stack from [0x%x]+0x%x pid=%d [%s]\n", heap_end, increment, getpid(), current_process->name);
+		kprintf("[kernel] sbrk [0x%x]+0x%x pid=%d [%s]\n", heap_end, increment, getpid(), current_process->name);
 	}
 #endif
 	uintptr_t address = heap_end;

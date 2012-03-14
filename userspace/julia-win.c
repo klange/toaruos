@@ -9,15 +9,17 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "lib/window.h"
+#include "lib/decorations.h"
 
 /*
  * Macros make verything easier.
  */
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 
-#define GFX_(xpt, ypt) ((uint32_t *)window->buffer)[DIRECT_OFFSET(xpt,ypt)]
+#define GFX_(xpt, ypt) ((uint32_t *)window->buffer)[DIRECT_OFFSET(xpt+decor_left_width,ypt+decor_top_height)]
 
 /* Pointer to graphics memory */
 window_t * window = NULL;
@@ -82,43 +84,61 @@ void julia(int xpt, int ypt) {
 		}
 	}
 	if (k >= initer) {
-		((uint32_t *)window->buffer)[DIRECT_OFFSET(xpt,ypt)] = 0;
+		GFX_(xpt,ypt) = 0;
 	} else {
-		((uint32_t *)window->buffer)[DIRECT_OFFSET(xpt,ypt)] = colors[color];
+		GFX_(xpt,ypt) = colors[color];
 	}
 	newcolor = color;
 }
 
-int main(int argc, char ** argv) {
-	if (argc < 5) {
-		printf("usage: %s left top width height\n", argv[0]);
-		return -1;
-	}
+void usage(char * argv[]) {
+	printf(
+			"Julia fractal generator.\n"
+			"\n"
+			"usage: %s [-n] [-i \033[3miniter\033[0m] [-x \033[3mminx\033[0m] \n"
+			"          [-X \033[3mmaxx\033[0m] [-c \033[3mconx\033[0m] [-C \033[3mcony\033[0m]\n"
+			"          [-W \033[3mwidth\033[0m] [-H \033[3mheight\033[0m] [-h]\n"
+			"\n"
+			" -n --no-repeat \033[3mDo not repeat colors\033[0m\n"
+			" -i --initer    \033[3mInitializer value\033[0m\n"
+			" -x --minx      \033[3mMinimum X value\033[0m\n"
+			" -X --maxx      \033[3mMaximum X value\033[0m\n"
+			" -c --conx      \033[3mcon x\033[0m\n"
+			" -C --cony      \033[3mcon y\033[0m\n"
+			" -W --width     \033[3mWindow width\033[0m\n"
+			" -H --height    \033[3mWindow height\033[0m\n"
+			" -h --help      \033[3mShow this help message.\033[0m\n",
+			argv[0]);
+}
 
-	int left = atoi(argv[1]);
-	int top = atoi(argv[2]);
-	int width = atoi(argv[3]);
-	int height = atoi(argv[4]);
+int main(int argc, char * argv[]) {
+	int left   = 40;
+	int top    = 40;
+	int width  = 300;
+	int height = 300;
 
-	setup_windowing();
+	static struct option long_opts[] = {
+		{"no-repeat", no_argument,    0, 'n'},
+		{"initer", required_argument, 0, 'i'},
+		{"minx",   required_argument, 0, 'x'},
+		{"maxx",   required_argument, 0, 'X'},
+		{"conx",   required_argument, 0, 'c'},
+		{"cony",   required_argument, 0, 'C'},
+		{"width",  required_argument, 0, 'W'},
+		{"height", required_argument, 0, 'H'},
+		{"help",   no_argument,       0, 'h'},
+		{0,0,0,0}
+	};
 
-	window = window_create(left, top, width, height);
-	window_fill(window, rgb(127,127,127));
-
-#if 0
-	graphics_width  = syscall_getgraphicswidth();
-	graphics_height = syscall_getgraphicsheight();
-	graphics_depth  = syscall_getgraphicsdepth();
-	gfx_mem = (void *)syscall_getgraphicsaddress();
-#endif
-
-
-
-#if 0
 	if (argc > 1) {
 		/* Read some arguments */
 		int index, c;
-		while ((c = getopt(argc, argv, "ni:x:X:c:C:")) != -1) {
+		while ((c = getopt_long(argc, argv, "ni:x:X:c:C:W:H:h", long_opts, &index)) != -1) {
+			if (!c) {
+				if (long_opts[index].flag == 0) {
+					c = long_opts[index].val;
+				}
+			}
 			switch (c) {
 				case 'n':
 					no_repeat = 1;
@@ -138,13 +158,29 @@ int main(int argc, char ** argv) {
 				case 'C':
 					cony = atof(optarg);
 					break;
+				case 'W':
+					width = atoi(optarg);
+					break;
+				case 'H':
+					height = atoi(optarg);
+					break;
+				case 'h':
+					usage(argv);
+					exit(0);
+					break;
 				default:
 					break;
 			}
 		}
 	}
-#endif
-	
+
+	setup_windowing();
+
+	window = window_create(left, top, width + decor_width(), height + decor_height());
+	window_fill(window, rgb(127,127,127));
+	init_decorations();
+	render_decorations(window, window->buffer, "Julia Fractals");
+
 	printf("initer: %f\n", initer);
 	printf("X: %f %f\n", Minx, Maxx);
 	float _x = Maxx - Minx;
@@ -170,9 +206,34 @@ int main(int argc, char ** argv) {
 		window_redraw_full(window);
 	} while ( j < height );
 
-	while (1) {
-		
+	int playing = 1;
+	while (playing) {
+		char ch = 0;
+		w_keyboard_t * kbd;
+		do {
+			kbd = poll_keyboard();
+			if (kbd != NULL) {
+				ch = kbd->key;
+				free(kbd);
+			}
+		} while (kbd != NULL);
+		if (ch) {
+			printf("Received a %d!\n", ch);
+		}
+
+		switch (ch) {
+			case 'q':
+				playing = 0;
+				break;
+			default:
+				break;
+		}
+		syscall_yield();
 	}
+
+	printf("Closing down Julia Fractal Generate\n");
+
+	teardown_windowing();
 
 	return 0;
 }

@@ -423,8 +423,9 @@ void process_window_command (int sig) {
 					break;
 
 				case WC_DESTROY:
+					printf("[compositor] Destroying window!\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					free_window(get_window(wwt.wid));
+					free_window(get_window_with_process(pw,wwt.wid));
 					send_window_event(pw, WE_DESTROYED, wwt);
 					break;
 
@@ -1059,14 +1060,15 @@ int main(int argc, char ** argv) {
 		execve(args[0], args, NULL);
 	}
 #else 
+#if 0
 	if (!fork()) {
 		waitabit();
 		char * args[] = {"/bin/julia-win", "200","400","400","400",NULL};
 		execve(args[0], args, NULL);
 	}
+#endif
 
 	if (!fork()) {
-		waitabit();
 		char * args[] = {"/bin/terminal", "-w", "-f", "10", "10", NULL};
 		execve(args[0], args, NULL);
 	}

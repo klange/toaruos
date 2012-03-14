@@ -277,9 +277,11 @@ void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, ui
 	LOCK(wins_command_lock);
 	wins_command_recvd = 0xFF; // XXX: Will this work?
 
+#if 0
 	if (command == WC_NEWWINDOW) {
 		fprintf(stderr, "> Creating a window. Sending a packet of size %d+%d\n", sizeof(wins_packet_t), sizeof(w_window_t));
 	}
+#endif
 	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
 	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
 
@@ -322,7 +324,9 @@ void window_redraw_wait (window_t * window) {
 }
 
 void window_destroy (window_t * window) {
-	wins_send_command(window->wid, 0, 0, 0, 0, WC_DESTROY, 1);
+	printf("Sending window destroy command\n");
+	wins_send_command(window->wid, 50, 50, 50, 50, WC_DESTROY, 1);
+	printf("Window destroyed.\n");
 	free_window(window);
 }
 
@@ -482,6 +486,7 @@ int wins_connect() {
 	/* Verify magic */
 	if (wins_globals->magic != WINS_MAGIC) {
 		/* If the magic is incorrent, this probably means the server isn't available. */
+		fprintf(stderr, "[%d] [window] Window server [%p] size claims to be %dx%d\n", getpid(), wins_globals, wins_globals->server_width, wins_globals->server_height);
 		fprintf(stderr, "[%d] [window] Window server not available (expected magic %x, got %x)\n", getpid(), WINS_MAGIC, wins_globals->magic);
 		syscall_shm_release(WINS_SERVER_IDENTIFIER);
 		return EAGAIN;

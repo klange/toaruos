@@ -11,6 +11,7 @@
 
 #include "lib/window.h"
 #include "lib/graphics.h"
+#include "lib/decorations.h"
 
 sprite_t * sprites[128];
 window_t * window;
@@ -91,8 +92,8 @@ void render_map(int x, int y) {
 					break;
 			}
 			draw_sprite(sprites[sprite],
-					map_x + offset_x * offset_iter + j * CELL_SIZE,
-					map_y + offset_y * offset_iter + i * CELL_SIZE);
+					decor_left_width + map_x + offset_x * offset_iter + j * CELL_SIZE,
+					decor_top_height + map_y + offset_y * offset_iter + i * CELL_SIZE);
 			++j;
 		}
 		++i;
@@ -102,7 +103,8 @@ void render_map(int x, int y) {
 
 void display() {
 	render_map(my_x,my_y);
-	draw_sprite(sprites[124 + direction], map_x + CELL_SIZE * 4, map_y + CELL_SIZE * 4);
+	draw_sprite(sprites[124 + direction], decor_left_width + map_x + CELL_SIZE * 4, decor_top_height + map_y + CELL_SIZE * 4);
+	render_decorations(window, frame_mem, "RPG Demo");
 	flip();
 	window_redraw_wait(window);
 }
@@ -194,9 +196,10 @@ int main(int argc, char ** argv) {
 	window_redraw_full(window);
 	init_graphics_window_double_buffer(window);
 
+	init_decorations();
 
-	map_x = GFX_W / 2 - (64 * 9) / 2;
-	map_y = GFX_H / 2 - (64 * 9) / 2;
+	map_x = WINDOW_SIZE - (64 * 9) / 2;
+	map_y = WINDOW_SIZE - (64 * 9) / 2;
 	printf("Graphics memory is at %p, backbuffer is at %p.\n", gfx_mem, frame_mem);
 
 	printf("Loading sprites...\n");

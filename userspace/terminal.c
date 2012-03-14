@@ -20,6 +20,7 @@
 
 #include "lib/graphics.h"
 #include "lib/window.h"
+#include "lib/decorations.h"
 
 #define FONT_SIZE 13
 
@@ -27,6 +28,9 @@
 
 static unsigned int timer_tick = 0;
 #define TIMER_TICK 400000
+
+#define WINDOW_WIDTH  640
+#define WINDOW_HEIGHT 408
 
 volatile int needs_redraw = 1;
 
@@ -740,6 +744,10 @@ uint32_t term_colors[256] = {
 				 0xeeeeee,
 };
 
+static void render_decors() {
+	render_decorations(window, window->buffer, "Terminal");
+}
+
 static inline void
 term_set_point(
 		uint16_t x,
@@ -749,7 +757,11 @@ term_set_point(
 #if 0
 	if (graphics_depth == 32) {
 #endif
-		GFX(x,y) = color;
+		if (_windowed) {
+			GFX((x+decor_left_width),(y+decor_top_height)) = color;
+		} else {
+			GFX(x,y) = color;
+		}
 #if 0
 	} else if (graphics_depth == 24) {
 		frame_mem[((y) * graphics_width + x) * 3 + 2] = _RED(color);
@@ -2767,6 +2779,9 @@ void term_term_clear() {
 	csr_x = 0;
 	csr_y = 0;
 	memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(uint8_t) * 4);
+	if (_windowed) {
+		render_decors();
+	}
 	term_redraw_all();
 }
 
@@ -2953,8 +2968,13 @@ int main(int argc, char ** argv) {
 			index++;
 		}
 
-		window = window_create(x,y, 640, 408);
+		printf("Decorations are %d %d %d %d\n", decor_top_height, decor_right_width, decor_bottom_height, decor_left_width);
+
+		window = window_create(x,y, WINDOW_WIDTH + decor_left_width + decor_right_width, WINDOW_HEIGHT + decor_top_height + decor_bottom_height);
 		printf("Have a window! %p\n", window);
+
+		init_decorations();
+		render_decors();
 
 		pthread_t input_thread;
 		pthread_create(&input_thread, NULL, screen_redrawer, NULL);
@@ -3017,8 +3037,13 @@ int main(int argc, char ** argv) {
 		char_offset = 13;
 	}
 
-	term_width  = graphics_width / char_width;
-	term_height = graphics_height / char_height;
+	if (_windowed) {
+		term_width  = WINDOW_WIDTH / char_width;
+		term_height = WINDOW_HEIGHT / char_height;
+	} else {
+		term_width  = graphics_width / char_width;
+		term_height = graphics_height / char_height;
+	}
 	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 

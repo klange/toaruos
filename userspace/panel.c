@@ -1,3 +1,5 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ */
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
@@ -207,13 +209,13 @@ int main (int argc, char ** argv) {
 			last = now.tv_sec;
 			timeinfo = localtime((time_t *)&now.tv_sec);
 			strftime(buffer, 80, "%I:%M:%S %p", timeinfo);
+
+			draw_string(width - 100, 17, rgb(255,255,255), buffer);
+			draw_string_wide(10, 17, rgb(255,255,255), os_name);
+
+			flip();
+			window_redraw_wait(panel);
 		}
-
-		draw_string(width - 100, 17, rgb(255,255,255), buffer);
-		draw_string_wide(10, 17, rgb(255,255,255), os_name);
-
-		flip();
-		window_redraw_wait(panel);
 	}
 
 	//window_destroy(window); // (will close on exit)
