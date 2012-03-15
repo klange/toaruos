@@ -4,6 +4,6 @@
 RAMDISK="-initrd toaruos-initrd"
 RAM=512
 KVM="-enable-kvm"
-FULLSCREEN="-full-screen"
+FULLSCREEN="-no-frame"
 
 qemu -kernel toaruos-kernel -m $RAM $RAMDISK -append "vid=qemu,`xrandr -q|perl -F'\s|,' -lane "/^Sc/&&print join '',@F[8..10]" | sed 's/x/,/'` hdd" -serial stdio -vga std -hda toaruos-disk.img $KVM $FULLSCREEN
