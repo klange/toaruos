@@ -15,8 +15,7 @@ tree_t * tree_create() {
 }
 
 void tree_set_root(tree_t * tree, void * value) {
-	/* Set the root node for a tree
-	 * XXX THAT DIDN'T ALREADY HAVE ONE! XXX */
+	/* Set the root node for a new tree. */
 	tree_node_t * root = tree_node_create(value);
 	tree->root = root;
 	tree->nodes = 1;

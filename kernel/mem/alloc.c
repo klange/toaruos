@@ -8,8 +8,6 @@
  * Overall competition winner for speed.
  * Well ranked in memory usage.
  *
- * XXX: Modified to work withe the ToAru kernel.
- *
  * Copyright (c) 2010 Kevin Lange.  All rights reserved.
  *
  * Developed by: Kevin Lange <lange7@acm.uiuc.edu>
@@ -781,9 +779,7 @@ static void klfree(void *ptr) {
 				 * coalesce it into us to form one larger bin.
 				 */
 
-				// XXX
 				size_t old_size = bheader->size;
-				// XXX
 
 				klmalloc_skip_list_delete(next);
 				bheader->size = (size_t)bheader->size + (size_t)sizeof(klmalloc_big_bin_header) + next->size;

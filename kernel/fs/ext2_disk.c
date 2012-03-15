@@ -90,6 +90,7 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 	for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
 		ide_write_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)buf + SECTORSIZE * i));
 		//XXX: a hack? how about making ide_write_sector() blocking?
+		//  XXX: ^ ide_write_sector() IS blocking, we don't get notified properly of finishes to write calls
 		timer_wait(10);
 	}
 	
@@ -654,12 +655,12 @@ uint32_t read_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t
 
 void
 open_ext2_disk(fs_node_t *node, uint8_t read, uint8_t write) {
-	//TODO: implementation
+	/* Nothing to do here */
 }
 
 void
 close_ext2_disk(fs_node_t *node) {
-	//TODO: implementation
+	/* Nothing to do here */
 }
 
 /**
