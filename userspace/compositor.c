@@ -73,6 +73,12 @@ int32_t mouse_x, mouse_y;
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
 
+void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height);
+void redraw_cursor() {
+	redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
+	draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+}
+
 extern window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index);
 extern void free_window (window_t * window);
 extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
@@ -257,6 +263,9 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 			}
 		}
 	}
+
+	//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
+	redraw_cursor();
 }
 
 void reorder_window (window_t * window, uint16_t new_zed) {

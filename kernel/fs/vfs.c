@@ -118,6 +118,7 @@ int create_file_fs(char *name, uint16_t permission) {
 	if (dir_name[i - 1] == '/')
 		dir_name[i - 1] = '\0';
 	if (strlen(dir_name) == 0) {
+		free(dir_name);
 		return 1;
 	}
 	for (i = strlen(dir_name) - 1; i >= 0; i--) {
@@ -159,6 +160,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 	if (dir_name[i - 1] == '/')
 		dir_name[i - 1] = '\0';
 	if (strlen(dir_name) == 0) {
+		free(dir_name);
 		return 1;
 	}
 	for (i = strlen(dir_name) - 1; i >= 0; i--) {

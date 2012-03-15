@@ -51,6 +51,7 @@ typedef struct descriptor_table {
 	fs_node_t ** entries;
 	size_t       length;
 	size_t       capacity;
+	size_t       refs;
 } fd_table_t;
 
 /* XXX */

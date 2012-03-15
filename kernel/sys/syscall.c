@@ -184,6 +184,7 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	while (argv[i]) {
 		++i;
 	}
+	kprintf("Allocating space for arguments...\n");
 	char ** argv_ = malloc(sizeof(char *) * i);
 	for (int j = 0; j < i; ++j) {
 		argv_[j] = malloc((strlen(argv[j]) + 1) * sizeof(char));

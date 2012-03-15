@@ -552,6 +552,7 @@ void ext2_disk_write_inode(ext2_inodetable_t *inode, uint32_t index) {
 	ext2_disk_read_block(inode_table_block + block_offset, (uint8_t *)inodet);
 	memcpy(&inodet[offset_in_block], inode, sizeof(ext2_inodetable_t));
 	ext2_disk_write_block(inode_table_block + block_offset, (uint8_t *)inodet);
+	free(inodet);
 }
 
 uint32_t write_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {

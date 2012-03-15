@@ -70,9 +70,11 @@ void release_directory(page_directory_t * dir) {
 				continue;
 			}
 			if (kernel_directory->tables[i] != dir->tables[i]) {
-				for (uint32_t j = 0; j < 1024; ++j) {
-					if (dir->tables[i]->pages[j].frame) {
-						free_frame(&(dir->tables[i]->pages[j]));
+				if (i * 0x1000 * 1024 < 0x20000000) {
+					for (uint32_t j = 0; j < 1024; ++j) {
+						if (dir->tables[i]->pages[j].frame) {
+							free_frame(&(dir->tables[i]->pages[j]));
+						}
 					}
 				}
 				free(dir->tables[i]);
@@ -82,22 +84,36 @@ void release_directory(page_directory_t * dir) {
 	}
 }
 
+extern char * default_name;
+
 void reap_process(process_t * proc) {
 	list_free(proc->wait_queue);
 	free(proc->wait_queue);
 	list_free(proc->signal_queue);
 	free(proc->signal_queue);
-	if (proc->image.stack - KERNEL_STACK_SIZE > heap_end) {
-		kprintf("\033[1;41;32mNot sure what's happening, this seems wrong:\n");
-		kprintf("  Process' claimed kernel stack is at 0x%x?\033[0m\n", proc->image.stack - KERNEL_STACK_SIZE);
-	} else {
+	free(proc->wd_name);
+	shm_release_all(proc);
+	free(proc->shm_mappings);
+	if (proc->name != default_name) {
+		free(proc->name);
+	}
+	if (proc->signal_kstack) {
+		free(proc->signal_kstack);
+	}
+	proc->fds->refs--;
+	if (proc->fds->refs == 0) {
+		free(proc->thread.page_directory);
+		for (uint32_t i = 0; i < proc->fds->length; ++i) {
+			close_fs(proc->fds->entries[i]);
+			free(proc->fds->entries[i]);
+		}
+		free(proc->fds->entries);
+		free(proc->fds);
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	}
-	release_directory(proc->thread.page_directory);
-	/* XXX: Free file descriptors! */
-	//free((void *)(proc->fds->entries));
-
-	shm_release_all(proc);
+	// These things are bad!
+	//delete_process(proc);
+	//free((void *)proc);
 }
 
 /*
@@ -178,7 +194,9 @@ fork() {
 	page_directory_t * directory = clone_directory(current_directory);
 	assert(directory && "Could not allocate a new page directory!");
 	/* Spawn a new process from this one */
+	kprintf("\033[1;32mALLOC {\033[0m\n");
 	process_t * new_proc = spawn_process(current_process);
+	kprintf("\033[1;32m}\033[0m\n");
 	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to clone */
 	set_process_environment(new_proc, directory);
@@ -317,6 +335,7 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 
 		free(new_proc->fds);
 		new_proc->fds = current_process->fds;
+		new_proc->fds->refs++;
 
 		/* Set the new process instruction pointer (to the return from read_eip) */
 		new_proc->thread.eip = eip;
@@ -535,20 +554,6 @@ void task_exit(int retval) {
 	current_process->status   = retval;
 	current_process->finished = 1;
 	wakeup_queue(current_process->wait_queue);
-#if 0
-	/*
-	 * These things should be done by another thread.
-	 */
-#if 0
-	for (uintptr_t i = 0; i < current_process->image.size; i += 0x1000) {
-		free_frame(get_page(current_process->image.entry + i, 0, current_process->image.page_directory));
-	}
-#endif
-	free((void *)(current_process->image.stack - KERNEL_STACK_SIZE));
-	free((void *)current_process->thread.page_directory);
-	free((void *)current_process->fds->entries);
-	free((void *)current_process);
-#endif
 	make_process_reapable((process_t *)current_process);
 	switch_next();
 }
