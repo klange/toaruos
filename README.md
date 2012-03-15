@@ -38,13 +38,17 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 
 Here's what とあるOS looks like:
 
+![Screenshot](http://i.imgur.com/Xn93Pl.png)
+
+(http://i.imgur.com/Xn93P.png)
+
+Here's what とあるOS has looked like in the past:
+
 * [Fully userspace shell, demonstrating a threading application](http://i.imgur.com/S7rab.png)
 * [Logging in and moving around](http://i.imgur.com/VjTMv.png)
 * [Booting up the (WIP) graphical interface](http://i.imgur.com/g2yfr.png)
 * [Nyaning](http://i.imgur.com/2BISA.png)
 * [Demoing multitasking](http://i.imgur.com/RY4lb.png)
-
-Here's what とあるOS has looked like in the past:
 
 * [Empty kernel shell](http://i.imgur.com/44huV.jpg)
 * [With a wallpaper and mouse cursor](http://i.imgur.com/eG0i9.png)
