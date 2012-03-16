@@ -11,6 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <getopt.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_CACHE_H
@@ -29,10 +30,15 @@
 static unsigned int timer_tick = 0;
 #define TIMER_TICK 400000
 
+#define TERMINAL_TITLE_SIZE 512
+char   terminal_title[TERMINAL_TITLE_SIZE];
+size_t terminal_title_length = 0;
+
 #define WINDOW_WIDTH  640
 #define WINDOW_HEIGHT 408
 
 volatile int needs_redraw = 1;
+static void render_decors();
 
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
@@ -42,6 +48,7 @@ volatile int needs_redraw = 1;
 #define ANSI_ESCAPE  27
 /* Escape verify */
 #define ANSI_BRACKET '['
+#define ANSI_BRACKET_RIGHT ']'
 /* Anything in this range (should) exit escape mode. */
 #define ANSI_LOW    'A'
 #define ANSI_HIGH   'z'
@@ -161,6 +168,9 @@ ansi_put(
 			/* We're ready for [ */
 			if (c == ANSI_BRACKET) {
 				state.escape = 2;
+				ansi_buf_add(c);
+			} else if (c == ANSI_BRACKET_RIGHT) {
+				state.escape = 3;
 				ansi_buf_add(c);
 			} else {
 				/* This isn't a bracket, we're not actually escaped!
@@ -386,6 +396,42 @@ ansi_put(
 				} else {
 					ansi_set_color(state.fg, state.bg);
 				}
+				/* Clear out the buffer */
+				state.buflen = 0;
+				state.escape = 0;
+				return;
+			} else {
+				/* Still escaped */
+				ansi_buf_add(c);
+			}
+			break;
+		case 3:
+			if (c == '\007') {
+				/* Tokenize on semicolons, like we always do */
+				char * pch;  /* tokenizer pointer */
+				char * save; /* strtok_r pointer */
+				char * argv[1024]; /* escape arguments */
+				/* Get rid of the front of the buffer */
+				strtok_r(state.buffer,"]",&save);
+				pch = strtok_r(NULL,";",&save);
+				/* argc = Number of arguments, obviously */
+				int argc = 0;
+				while (pch != NULL) {
+					argv[argc] = (char *)pch;
+					++argc;
+					pch = strtok_r(NULL,";",&save);
+				}
+				argv[argc] = NULL;
+				/* Start testing the first argument for what command to use */
+				if (!strcmp(argv[0], "1")) {
+					if (argc > 1) {
+						int len = min(TERMINAL_TITLE_SIZE, strlen(argv[1])+1);
+						memcpy(terminal_title, argv[1], len);
+						terminal_title[len-1] = '\0';
+						terminal_title_length = len - 1;
+						render_decors();
+					}
+				} /* Currently, no other options */
 				/* Clear out the buffer */
 				state.buflen = 0;
 				state.escape = 0;
@@ -745,7 +791,11 @@ uint32_t term_colors[256] = {
 };
 
 static void render_decors() {
-	render_decorations(window, window->buffer, "Terminal");
+	if (terminal_title_length) {
+		render_decorations(window, window->buffer, terminal_title);
+	} else {
+		render_decorations(window, window->buffer, "Terminal");
+	}
 }
 
 static inline void
@@ -2908,55 +2958,65 @@ void waitabit() {
 	}
 }
 
+void usage(char * argv[]) {
+	printf(
+			"Terminal Emulator\n"
+			"\n"
+			"usage: %s [-b] [-F] [-h]\n"
+			"\n"
+			" -F --fullscreen \033[3mRun in legacy fullscreen mode.\033[0m\n"
+			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
+			" -h --help       \033[3mShow this help message.\033[0m\n"
+			"\n"
+			" This terminal emulator provides basic support for VT220 escapes and\n"
+			" XTerm extensions, including 256 color support and font effects.\n",
+			argv[0]);
+}
+
 
 int main(int argc, char ** argv) {
 
-#if 0
-	if (argc > 1) {
-		/* Read some arguments */
-		int index, c;
-		while ((c = getopt(argc, argv, "fhw")) != -1) {
-			switch (c) {
-				case 'w':
-					_windowed = 1;
-					break;
-				case 'f':
-					_use_freetype = 1;
-					break;
-				case 'h':
-					printf("terminal - ansi graphical terminal\n");
-					printf("   -f      Run with freetype enabled.\n");
-					printf("   -h      Print this help text.\n");
-					return 0;
-					break;
-				case '?':
-					break;
-				default:
-					break;
+	_windowed = 1;
+	_use_freetype = 1;
+
+	static struct option long_opts[] = {
+		{"fullscreen", no_argument,   0, 'F'},
+		{"bitmap",     no_argument,   0, 'b'},
+		{"help",       no_argument,   0, 'h'},
+		{0,0,0,0}
+	};
+
+	/* Read some arguments */
+	int index, c;
+	while ((c = getopt_long(argc, argv, "fhF", long_opts, &index)) != -1) {
+		if (!c) {
+			if (long_opts[index].flag == 0) {
+				c = long_opts[index].val;
 			}
 		}
-	}
-#endif
-	int index = 1;
-
-	while (index < argc) {
-		printf("arg[%d] = %s\n", index, argv[index]);
-		if (argv[index][0] == '-') {
-			if (!strcmp(argv[index], "-w")) {
-				_windowed = 1;
-			} else if (!strcmp(argv[index], "-f")) {
-				_use_freetype = 1;
-			}
-			index++;
-		} else {
-			break;
+		switch (c) {
+			case 'F':
+				_windowed = 0;
+				break;
+			case 'b':
+				_use_freetype = 0;
+				break;
+			case 'h':
+				usage(argv);
+				return 0;
+				break;
+			case '?':
+				break;
+			default:
+				break;
 		}
 	}
 
 	if (_windowed) {
 		setup_windowing();
 		waitabit();
-		int x = 0, y = 0;
+		int x = 20, y = 20;
+#if 0
 		if (index < argc) {
 			x = atoi(argv[index]);
 			printf("Window offset x = %d\n", x);
@@ -2967,6 +3027,7 @@ int main(int argc, char ** argv) {
 			printf("Window offset y = %d\n", y);
 			index++;
 		}
+#endif
 
 		printf("Decorations are %d %d %d %d\n", decor_top_height, decor_right_width, decor_bottom_height, decor_left_width);
 
@@ -3065,7 +3126,10 @@ int main(int argc, char ** argv) {
 		syscall_dup2(ifd, 0);
 		syscall_dup2(ofd, 1);
 		syscall_dup2(ofd, 2);
-		char * tokens[] = {"/bin/login",NULL};
+		/*
+		 * TODO: Check the public-readable passwd file to select which shell to run
+		 */
+		char * tokens[] = {"/bin/esh",NULL};
 		int i = execve(tokens[0], tokens, NULL);
 		return 0;
 	} else {

@@ -1078,7 +1078,7 @@ int main(int argc, char ** argv) {
 #endif
 
 	if (!fork()) {
-		char * args[] = {"/bin/terminal", "-w", "-f", "10", "10", NULL};
+		char * args[] = {"/bin/terminal", NULL};
 		execve(args[0], args, NULL);
 	}
 

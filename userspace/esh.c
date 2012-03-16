@@ -79,6 +79,7 @@ void draw_prompt(int ret) {
 	}
 	syscall_getcwd(cwd, 1024);
 	printf("\033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ", cwd);
+	printf("\033]1;%s@%s:%s\007", username, _hostname, cwd);
 	fflush(stdout);
 }
 

@@ -99,7 +99,7 @@ void render_decorations(window_t * window, uint8_t * ctx, char * title) {
 	draw_string(TEXT_OFFSET_X,TEXT_OFFSET_Y,TEXTCOLOR,title,window,ctx);
 	for (uint32_t i = 0; i < window->width; ++i) {
 		SGFX(ctx,i,0,window->width) = BORDERCOLOR;
-		SGFX(ctx,i,decor_top_height,window->width) = BORDERCOLOR;
+		SGFX(ctx,i,decor_top_height-1,window->width) = BORDERCOLOR;
 		SGFX(ctx,i,window->height-1,window->width) = BORDERCOLOR;
 	}
 }
