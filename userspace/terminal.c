@@ -2988,7 +2988,7 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "fhF", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhF", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
