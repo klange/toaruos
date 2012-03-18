@@ -201,7 +201,7 @@ ToAruOS is under the NCSA license, which is a derivative (and fully compatible w
 
 ToAruOS contains additional software with the following copyright notices:
 
-* The CPU detection code provided in `kernel/devices/cpudet.c`:
+* The CPU detection code provided in `userspace/cpudet.c`:
   Copyright (c) 2006-2007 -  http://brynet.biz.tm - <brynet@gmail.com>
 
 * A copy of the VL Gothic TrueType font is included in this repository; VL Gothic is distributed under the following license:
