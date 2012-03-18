@@ -1,10 +1,10 @@
 # Short-Term Development Targets as of 2011/10/31
 
 ## Harddisk Support
-* Write support for EXT2
+* Write support for EXT2 *working, but needs more work, if that makes any sense*
 * Port EXT2 drivers to IDE -read-/write (superblock read testing was successful)
-* Build a better VFS with support for disk mounting
-* -Get all of the example binaries onto a hard disk image-
+* Build a better VFS with support for disk mounting *oh, please, yes...*
+* -Get all of the example binaries onto a hard disk image- *did this, sort of*
 * **PORT GCC**
 
 ## Operation Viper
@@ -50,7 +50,7 @@
 
 ## Signals and Exceptions
 
-SIGDIAF (Die in a fire)
+*Signals have been implemented.*
 
 # EOH
 EOH, "Engineering Open House", is an annual event held at the University of Illinois at Urbana-Champaign which showcases student projects and research.
