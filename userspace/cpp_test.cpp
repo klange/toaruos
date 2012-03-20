@@ -24,7 +24,7 @@ class test {
 			i++;
 		}
 		int value() {
-			/* And can have its value retreived */
+			/* And can have its value retrieved */
 			return i;
 		}
 };
@@ -34,7 +34,7 @@ int main() {
 	 * HACK: We need to execute ios_base::Init() to ensure the base
 	 * IO objects are accessible (this would normally be called by
 	 * the static constructor for std::__ioinit, but we don't currently
-	 * execute static constructurs as we never execute the .init section)
+	 * execute static constructors as we never execute the .init section)
 	 */
 	std::ios_base::Init();
 
