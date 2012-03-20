@@ -15,6 +15,8 @@
 
 #include "window.h"
 
+FILE *fdopen(int fildes, const char *mode);
+
 #if 1
 DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
 DEFN_SYSCALL1(shm_release, 36, char *)
@@ -117,40 +119,37 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 	return window;
 }
 
-void free_window (window_t * window) {
+void free_window_client (window_t * window) {
 	/* Free the window buffer */
 	if (!window) return;
-#if 0
 	char key[256];
 	SHMKEY(key, 256, window);
 	syscall_shm_release(key);
-#endif
 
 	/* Now, kill the object itself */
-#if 0
 	process_windows_t * pw = window->owner;
-	node_t * n = list_find(pw->windows, window);
-	if (n) {
-		window_t * window = n->value;
-		window->x = 0xFFFFF;
-	}
-#endif
-	window->x = 0xFFFFF;
-
-#if 0
 	node_t * n = list_find(pw->windows, window);
 	if (n) {
 		list_delete(pw->windows, n);
 		free(n);
 	}
-#endif
+}
 
-#if 0
-	/* Does the owner have any windows themselves? */
-	if (pw->windows->length == 0) {
-		delete_process(pw);
+void free_window (window_t * window) {
+	/* Free the window buffer */
+	if (!window) return;
+	char key[256];
+	SHMKEY(key, 256, window);
+	syscall_shm_release(key);
+
+	/* Now, kill the object itself */
+	process_windows_t * pw = window->owner;
+
+	node_t * n = list_find(pw->windows, window);
+	if (n) {
+		list_delete(pw->windows, n);
+		free(n);
 	}
-#endif
 }
 
 void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
@@ -282,8 +281,13 @@ void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, ui
 		fprintf(stderr, "> Creating a window. Sending a packet of size %d+%d\n", sizeof(wins_packet_t), sizeof(w_window_t));
 	}
 #endif
+#if 0
 	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
 	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
+#endif
+	fwrite(&header, sizeof(wins_packet_t), 1, process_windows->command_pipe_file);
+	fwrite(&packet, sizeof(w_window_t),    1, process_windows->command_pipe_file);
+	fflush(process_windows->command_pipe_file);
 
 	/* Now wait for the command to be processed before returning */
 	if (wait_for_reply) {
@@ -324,10 +328,10 @@ void window_redraw_wait (window_t * window) {
 }
 
 void window_destroy (window_t * window) {
-	printf("Sending window destroy command\n");
-	wins_send_command(window->wid, 50, 50, 50, 50, WC_DESTROY, 1);
+	printf("Sending window destroy command for window [%p] %d\n", window, window->wid);
+	wins_send_command(window->wid, 50, 50, 50, 50, WC_DESTROY, 0);
 	printf("Window destroyed.\n");
-	free_window(window);
+	free_window_client(window);
 }
 
 void window_reorder (window_t * window, uint16_t new_zed) {
@@ -512,6 +516,7 @@ int wins_connect() {
 	process_windows->pid          = wins_globals->server_pid;
 	process_windows->event_pipe   = syscall_get_fd(wins_globals->event_pipe);
 	process_windows->command_pipe = syscall_get_fd(wins_globals->command_pipe);
+	process_windows->command_pipe_file = fdopen(process_windows->command_pipe, "w");
 
 	if (process_windows->event_pipe < 0) {
 		fprintf(stderr, "ERROR: Failed to initialize an event pipe!\n");
@@ -533,7 +538,7 @@ int wins_connect() {
 int wins_disconnect() {
 	syscall_shm_release(WINS_SERVER_IDENTIFIER);
 	if (wins_globals) {
-		free((wins_server_global_t *)wins_globals);
+		//free((wins_server_global_t *)wins_globals);
 		wins_globals = NULL;
 	}
 }

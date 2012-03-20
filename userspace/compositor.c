@@ -434,8 +434,13 @@ void process_window_command (int sig) {
 				case WC_DESTROY:
 					printf("[compositor] Destroying window!\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					free_window(get_window_with_process(pw,wwt.wid));
-					send_window_event(pw, WE_DESTROYED, wwt);
+					printf("Window to destroy is %d\n", wwt.wid);
+					window_t * win = get_window_with_process(pw, wwt.wid);
+					printf("Window = %p\n", win);
+					free_window(win);
+					printf("Redrawing...\n");
+					//send_window_event(pw, WE_DESTROYED, wwt);
+					redraw_region_slow(0,0,graphics_width,graphics_height);
 					break;
 
 				case WC_DAMAGE:

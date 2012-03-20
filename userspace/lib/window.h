@@ -146,6 +146,7 @@ struct process_windows {
 
 	int event_pipe;  /* Pipe to send events through */
 	int command_pipe; /* Pipe on which we receive commands */
+	FILE * command_pipe_file;
 
 	list_t * windows;
 };
