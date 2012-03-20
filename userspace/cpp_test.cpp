@@ -21,6 +21,7 @@ class test {
 };
 
 int main() {
+	std::ios_base::Init();
 	std::cout << "Hello world\n";
 
 	int * x = (int *)malloc(sizeof(int));
