@@ -203,8 +203,9 @@ int main(int argc, char * argv[]) {
 			i+= 2;
 		} while ( i < width );
 		++j;
-		window_redraw_full(window);
 	} while ( j < height );
+
+	window_redraw_wait(window);
 
 	int playing = 1;
 	while (playing) {
@@ -217,9 +218,6 @@ int main(int argc, char * argv[]) {
 				free(kbd);
 			}
 		} while (kbd != NULL);
-		if (ch) {
-			printf("Received a %d!\n", ch);
-		}
 
 		switch (ch) {
 			case 'q':
@@ -234,6 +232,7 @@ int main(int argc, char * argv[]) {
 	printf("Closing down Julia Fractal Generate\n");
 
 	teardown_windowing();
+	printf("Exiting...\n");
 
 	return 0;
 }

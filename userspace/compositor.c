@@ -355,7 +355,7 @@ void redraw_bounding_box_r(window_t *window, int32_t width, int32_t height, uint
 
 wid_t volatile _next_wid = 0;
 
-void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet) {
+void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet) {
 	/* Construct the header */
 	wins_packet_t header;
 	header.magic = WINS_MAGIC;
@@ -365,7 +365,7 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t packet
 	/* Send them */
 	// XXX: we have a race condition here
 	write(pw->event_pipe, &header, sizeof(wins_packet_t));
-	write(pw->event_pipe, &packet, sizeof(w_window_t));
+	write(pw->event_pipe, packet, sizeof(w_window_t));
 	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
 	syscall_yield();
 }
@@ -403,7 +403,9 @@ void process_window_command (int sig) {
 #endif
 			w_window_t wwt;
 			wins_packet_t header;
+			printf("[compositor] read [%d] {\n", pw->pid);
 			int bytes_read = read(pw->command_pipe, &header, sizeof(wins_packet_t));
+			printf("[compositor] } read [%d] \n", pw->pid);
 
 			while (header.magic != WINS_MAGIC) {
 				printf("Magic is wrong from pid %d, expected 0x%x but got 0x%x [read %d bytes of %d]\n", pw->pid, WINS_MAGIC, header.magic, bytes_read, sizeof(header));
@@ -420,26 +422,23 @@ void process_window_command (int sig) {
 					printf("[compositor] New window request\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					wwt.wid = _next_wid;
-					init_window(pw, _next_wid++, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid); //XXX: an actual index
-					send_window_event(pw, WE_NEWWINDOW, wwt);
+					init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid); //XXX: an actual index
+					_next_wid++;
+					send_window_event(pw, WE_NEWWINDOW, &wwt);
 					redraw_region_slow(0,0,graphics_width,graphics_height);
 					break;
 
 				case WC_RESIZE:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					resize_window_buffer(get_window(wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
-					send_window_event(pw, WE_RESIZED, wwt);
+					send_window_event(pw, WE_RESIZED, &wwt);
 					break;
 
 				case WC_DESTROY:
-					printf("[compositor] Destroying window!\n");
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					printf("Window to destroy is %d\n", wwt.wid);
 					window_t * win = get_window_with_process(pw, wwt.wid);
-					printf("Window = %p\n", win);
 					free_window(win);
-					printf("Redrawing...\n");
-					//send_window_event(pw, WE_DESTROYED, wwt);
+					send_window_event(pw, WE_DESTROYED, &wwt);
 					redraw_region_slow(0,0,graphics_width,graphics_height);
 					break;
 
@@ -451,7 +450,7 @@ void process_window_command (int sig) {
 				case WC_REDRAW:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
-					send_window_event(pw, WE_REDRAWN, wwt);
+					send_window_event(pw, WE_REDRAWN, &wwt);
 					break;
 
 				case WC_REORDER:
@@ -927,7 +926,7 @@ void * process_requests(void * garbage) {
 					tmp.wid  = _mouse_window->wid;
 					tmp.width = _mouse_win_x_p;
 					tmp.height = _mouse_win_y_p;
-					send_window_event(_mouse_window->owner, WE_RESIZED, tmp);
+					send_window_event(_mouse_window->owner, WE_RESIZED, &tmp);
 					redraw_region_slow(0,0,graphics_width,graphics_height);
 					_mouse_state = 0;
 #endif

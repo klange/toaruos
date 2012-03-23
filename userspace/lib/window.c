@@ -328,9 +328,7 @@ void window_redraw_wait (window_t * window) {
 }
 
 void window_destroy (window_t * window) {
-	printf("Sending window destroy command for window [%p] %d\n", window, window->wid);
-	wins_send_command(window->wid, 50, 50, 50, 50, WC_DESTROY, 0);
-	printf("Window destroyed.\n");
+	wins_send_command(window->wid, 0, 0, 0, 0, WC_DESTROY, 1);
 	free_window_client(window);
 }
 
@@ -536,7 +534,9 @@ int wins_connect() {
 }
 
 int wins_disconnect() {
+#if 0
 	syscall_shm_release(WINS_SERVER_IDENTIFIER);
+#endif
 	if (wins_globals) {
 		//free((wins_server_global_t *)wins_globals);
 		wins_globals = NULL;
@@ -560,15 +560,22 @@ int setup_windowing () {
 void teardown_windowing () {
 	if (process_windows) {
 		window_t * window;
-		while ((window = (window_t *)list_pop(process_windows->windows)) != NULL) {
+		node_t   * node;
+		while ((node = list_pop(process_windows->windows)) != NULL) {
+			window = node->value;
 			if (!window) break;
+			printf("Have a window [%d, %dx%d]\n", window->wid, window->width, window->height);
 			window_destroy(window);
+			printf("Window destroy signal sent.\n");
 		}
 
+		printf("Freeing data...\n");
 		free(process_windows->windows);
+		printf("Freeing some more data...\n");
 		free(process_windows);
 		process_windows = NULL;
 	}
 
+	printf("Disconnecting...\n");
 	wins_disconnect();
 }

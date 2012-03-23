@@ -791,10 +791,12 @@ uint32_t term_colors[256] = {
 };
 
 static void render_decors() {
-	if (terminal_title_length) {
-		render_decorations(window, window->buffer, terminal_title);
-	} else {
-		render_decorations(window, window->buffer, "Terminal");
+	if (_windowed) {
+		if (terminal_title_length) {
+			render_decorations(window, window->buffer, terminal_title);
+		} else {
+			render_decorations(window, window->buffer, "Terminal");
+		}
 	}
 }
 
@@ -804,21 +806,17 @@ term_set_point(
 		uint16_t y,
 		uint32_t color
 		) {
-#if 0
-	if (graphics_depth == 32) {
-#endif
 		if (_windowed) {
 			GFX((x+decor_left_width),(y+decor_top_height)) = color;
 		} else {
-			GFX(x,y) = color;
+			if (graphics_depth == 32) {
+				GFX(x,y) = color;
+			} else if (graphics_depth == 24) {
+				gfx_mem[((y) * graphics_width + x) * 3 + 2] = _RED(color);
+				gfx_mem[((y) * graphics_width + x) * 3 + 1] = _GRE(color);
+				gfx_mem[((y) * graphics_width + x) * 3 + 0] = _BLU(color);
+			}
 		}
-#if 0
-	} else if (graphics_depth == 24) {
-		frame_mem[((y) * graphics_width + x) * 3 + 2] = _RED(color);
-		frame_mem[((y) * graphics_width + x) * 3 + 1] = _GRE(color);
-		frame_mem[((y) * graphics_width + x) * 3 + 0] = _BLU(color);
-	}
-#endif
 }
 
 static inline void

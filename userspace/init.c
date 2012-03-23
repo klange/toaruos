@@ -13,6 +13,7 @@ DEFN_SYSCALL1(sethostname, 31, char *);
 
 #define DEFAULT_HOSTNAME "toaru-test"
 #define FORK_FOR_TERMINAL 1
+#define TERMINAL 1
 
 /* Set the hostname to whatever is in /etc/hostname */
 void set_hostname() {
@@ -36,13 +37,21 @@ void start_terminal() {
 	int pid = fork();
 	if (!pid) {
 #endif
-	char * tokens[] = {
-		"/bin/compositor",
-		NULL
-	};
-	int i = execve(tokens[0], tokens, NULL);
-	exit(0);
+#if TERMINAL == 1
+		char * tokens[] = {
+			"/bin/terminal",
+			"-F",
+			NULL
+		};
+#else
+		char * tokens[] = {
+			"/bin/compositor",
+			NULL
+		};
+#endif
+		int i = execve(tokens[0], tokens, NULL);
 #if FORK_FOR_TERMINAL
+		exit(0);
 	} else {
 		syscall_wait(pid);
 	}
