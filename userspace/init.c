@@ -13,7 +13,7 @@ DEFN_SYSCALL1(sethostname, 31, char *);
 
 #define DEFAULT_HOSTNAME "toaru-test"
 #define FORK_FOR_TERMINAL 1
-#define TERMINAL 1
+#define TERMINAL 0
 
 /* Set the hostname to whatever is in /etc/hostname */
 void set_hostname() {

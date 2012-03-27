@@ -7,7 +7,6 @@
 #include <pipe.h>
 
 #define DEBUG_PIPES 0
-#define BUFFER_TO_NEWLINES 0
 
 uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -76,19 +75,14 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 
 	size_t collected = 0;
 	while (collected == 0) {
+		spin_lock(&pipe->lock);
 		while (pipe_unread(pipe) > 0 && collected < size) {
-			spin_lock(&pipe->lock);
 			buffer[collected] = pipe->buffer[pipe->read_ptr];
 			pipe_increment_read(pipe);
-			spin_unlock(&pipe->lock);
-#if BUFFERED_TO_NEWLINE
-			if (buffer[collected] == '\n') {
-				return collected + 1;
-			}
-#endif
 			collected++;
-			wakeup_queue(pipe->wait_queue);
 		}
+		spin_unlock(&pipe->lock);
+		wakeup_queue(pipe->wait_queue);
 		//switch_from_cross_thread_lock();
 		/* Deschedule and switch */
 		if (collected == 0) {
@@ -120,14 +114,14 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 
 	size_t written = 0;
 	while (written < size) {
+		spin_lock(&pipe->lock);
 		while (pipe_available(pipe) > 0 && written < size) {
-			spin_lock(&pipe->lock);
 			pipe->buffer[pipe->write_ptr] = buffer[written];
 			pipe_increment_write(pipe);
-			spin_unlock(&pipe->lock);
 			written++;
-			wakeup_queue(pipe->wait_queue);
 		}
+		spin_unlock(&pipe->lock);
+		wakeup_queue(pipe->wait_queue);
 		if (written < size) {
 			sleep_on(pipe->wait_queue);
 		}

@@ -3035,8 +3035,10 @@ int main(int argc, char ** argv) {
 		init_decorations();
 		render_decors();
 
-		pthread_t input_thread;
-		pthread_create(&input_thread, NULL, screen_redrawer, NULL);
+#if 0
+		pthread_t redraw_thread;
+		pthread_create(&redraw_thread, NULL, screen_redrawer, NULL);
+#endif
 
 		window_fill(window, rgb(0,0,0));
 		init_graphics_window(window);

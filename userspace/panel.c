@@ -179,7 +179,7 @@ int main (int argc, char ** argv) {
 
 	init_graphics_window_double_buffer(panel);
 	flip();
-	window_redraw_wait(panel);
+	//window_redraw_wait(panel);
 
 	struct timeval now;
 	int last = 0;
@@ -214,7 +214,8 @@ int main (int argc, char ** argv) {
 			draw_string_wide(10, 17, rgb(255,255,255), os_name);
 
 			flip();
-			window_redraw_wait(panel);
+			//window_redraw_wait(panel);
+			syscall_yield();
 		}
 	}
 

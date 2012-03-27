@@ -84,6 +84,7 @@ extern void free_window (window_t * window);
 extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
 
 uint16_t * depth_map = NULL;
+uintptr_t * top_map  = NULL;
 
 process_windows_t * get_process_windows (uint32_t pid) {
 	foreach(n, process_list) {
@@ -157,7 +158,7 @@ uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 	return 1;
 }
 
-uint8_t is_top_fast(window_t * window, uint16_t x, uint16_t y) {
+uint8_t inline is_top_fast(window_t * window, uint16_t x, uint16_t y) {
 	if (x >= graphics_width || y >= graphics_height)
 		return 0;
 	if (window->z == depth_map[x + y * graphics_width])
@@ -296,9 +297,24 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 			if (window) {
 				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 				depth_map[x + y * graphics_width] = window->z;
+				top_map[x + y * graphics_width]   = (uintptr_t)window;
 			} else {
 				GFX(x,y) = (y % 2 ^ x % 2) ? rgb(0,0,0) : rgb(255,255,255);
 				depth_map[x + y * graphics_width] = 0;
+				top_map[x + y * graphics_width]   = 0;
+			}
+		}
+	}
+}
+
+void redraw_everything_fast() {
+	for (uint32_t y = 0; y < graphics_height; ++y) {
+		for (uint32_t x = 0; x < graphics_width; ++x) {
+			window_t * window = (window_t *)top_map[x + y * graphics_width];
+			if (window) {
+				/* UGGGG */
+				if (TO_WINDOW_OFFSET(x,y) >= window->width * window->height) continue;
+				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 			}
 		}
 	}
@@ -444,12 +460,12 @@ void process_window_command (int sig) {
 
 				case WC_DAMAGE:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
+					//redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					break;
 
 				case WC_REDRAW:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
+					//redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					send_window_event(pw, WE_REDRAWN, &wwt);
 					break;
 
@@ -973,12 +989,22 @@ void * process_requests(void * garbage) {
 	return NULL;
 }
 
+void * redraw_thread(void * derp) {
+	while (1) {
+		redraw_everything_fast();
+		redraw_cursor();
+		flip();
+		syscall_yield();
+	}
+}
+
 int main(int argc, char ** argv) {
 
 	/* Initialize graphics setup */
 	init_graphics_double_buffer();
 
-	depth_map = malloc(sizeof(uint16_t) * graphics_width * graphics_height);
+	depth_map = malloc(sizeof(uint16_t)  * graphics_width * graphics_height);
+	top_map   = malloc(sizeof(uintptr_t) * graphics_width * graphics_height);
 
 	/* Initialize the client request system */
 	init_request_system();
@@ -1012,7 +1038,7 @@ int main(int argc, char ** argv) {
 		display();
 	}
 
-#if 1
+#if 0
 	/* Reinitialize for single buffering */
 	init_graphics();
 #endif
@@ -1030,6 +1056,9 @@ int main(int argc, char ** argv) {
 	int mfd = syscall_mousedevice();
 	pthread_t input_thread;
 	pthread_create(&input_thread, NULL, process_requests, (void *)&mfd);
+
+	pthread_t redraw_everything_thread;
+	pthread_create(&redraw_everything_thread, NULL, redraw_thread, NULL);
 
 
 #if 0

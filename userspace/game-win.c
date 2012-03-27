@@ -106,7 +106,7 @@ void display() {
 	draw_sprite(sprites[124 + direction], decor_left_width + map_x + CELL_SIZE * 4, decor_top_height + map_y + CELL_SIZE * 4);
 	render_decorations(window, frame_mem, "RPG Demo");
 	flip();
-	window_redraw_wait(window);
+	//window_redraw_wait(window);
 }
 
 void transition(int nx, int ny) {
@@ -123,7 +123,7 @@ void transition(int nx, int ny) {
 		offset_x = 0;
 		offset_y = -1;
 	}
-	for (int i = 0; i < 64; i += 16) {
+	for (int i = 0; i < 64; i += 2) {
 		offset_iter = i;
 		display();
 	}
@@ -169,6 +169,7 @@ void move(int cx, int cy) {
 		default:
 			break;
 	}
+	display();
 }
 
 /* woah */
