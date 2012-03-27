@@ -241,7 +241,9 @@ window_t * focused_window() {
 	return top_at_fast(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 }
 
-
+window_t * moving_window = NULL;
+int32_t    moving_window_l = 0;
+int32_t    moving_window_t = 0;
 
 /* Internal drawing functions */
 
@@ -319,6 +321,26 @@ void redraw_everything_fast() {
 		}
 	}
 }
+
+void draw_bounding_box(window_t * window, int32_t left, int32_t top) {
+	if (!window) return;
+
+	uint16_t _lo_x = max(left, 0);
+	uint16_t _hi_x = min(left + window->width,  graphics_width);
+	uint16_t _lo_y = max(top, 0);
+	uint16_t _hi_y = min(top  + window->height, graphics_height);
+	#define TO_DERPED_OFFSET(x,y) (((x) - left) + ((y) - top) * window->width)
+
+	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
+		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
+			/* XXX MAKE THIS FASTER */
+				if (TO_DERPED_OFFSET(x,y) >= window->width * window->height) continue;
+				GFX(x,y) = alpha_blend(GFX(x,y), ((uint32_t *)window->buffer)[TO_DERPED_OFFSET(x,y)], rgb(127,0,0));
+		}
+	}
+
+}
+
 
 void redraw_bounding_box(window_t *window, int32_t left, int32_t top, uint32_t derped) {
 	return;
@@ -894,6 +916,9 @@ void * process_requests(void * garbage) {
 						_mouse_win_y  = _mouse_window->y;
 						_mouse_win_x_p = _mouse_win_x;
 						_mouse_win_y_p = _mouse_win_y;
+						moving_window = _mouse_window;
+						moving_window_l = _mouse_win_x_p;
+						moving_window_t = _mouse_win_y_p;
 						make_top(_mouse_window);
 						redraw_region_slow(0,0,graphics_width,graphics_height);
 					}
@@ -921,12 +946,16 @@ void * process_requests(void * garbage) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
 					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					moving_window = NULL;
 					redraw_region_slow(0,0,graphics_width,graphics_height);
 					_mouse_state = 0;
 				} else {
 					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					moving_window = _mouse_window;
+					moving_window_l = _mouse_win_x_p;
+					moving_window_t = _mouse_win_y_p;
 					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
 				}
 			} else if (_mouse_state == 2) {
@@ -994,6 +1023,8 @@ void * process_requests(void * garbage) {
 void * redraw_thread(void * derp) {
 	while (1) {
 		redraw_everything_fast();
+		/* Other stuff */
+		draw_bounding_box(moving_window, moving_window_l, moving_window_t);
 		redraw_cursor();
 		flip();
 		syscall_yield();
