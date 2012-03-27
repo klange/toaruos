@@ -153,6 +153,7 @@ void close_pipe(fs_node_t * node) {
 
 	/* Check the reference count number */
 	if (pipe->refcount == 0) {
+#if 0
 		/* No other references exist, free the pipe (but not its buffer) */
 		free(pipe->buffer);
 		list_free(pipe->wait_queue);
@@ -160,6 +161,7 @@ void close_pipe(fs_node_t * node) {
 		free(pipe);
 		/* And let the creator know there are no more references */
 		node->inode = 0;
+#endif
 	}
 
 	return;

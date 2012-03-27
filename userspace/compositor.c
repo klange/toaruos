@@ -75,7 +75,7 @@ int32_t mouse_x, mouse_y;
 
 void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height);
 void redraw_cursor() {
-	redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
+	//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
 	draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 }
 
@@ -266,7 +266,7 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 	}
 
 	//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
-	redraw_cursor();
+	//redraw_cursor();
 }
 
 void reorder_window (window_t * window, uint16_t new_zed) {
@@ -295,11 +295,11 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 		for (uint32_t x = _lo_x; x < _hi_x; ++x) {
 			window_t * window = top_at(x,y);
 			if (window) {
-				GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
+				//GFX(x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
 				depth_map[x + y * graphics_width] = window->z;
 				top_map[x + y * graphics_width]   = (uintptr_t)window;
 			} else {
-				GFX(x,y) = (y % 2 ^ x % 2) ? rgb(0,0,0) : rgb(255,255,255);
+				//GFX(x,y) = (y % 2 ^ x % 2) ? rgb(0,0,0) : rgb(255,255,255);
 				depth_map[x + y * graphics_width] = 0;
 				top_map[x + y * graphics_width]   = 0;
 			}
@@ -321,6 +321,7 @@ void redraw_everything_fast() {
 }
 
 void redraw_bounding_box(window_t *window, int32_t left, int32_t top, uint32_t derped) {
+	return;
 	if (!window) {
 		return;
 	}
@@ -345,6 +346,7 @@ void redraw_bounding_box(window_t *window, int32_t left, int32_t top, uint32_t d
 }
 
 void redraw_bounding_box_r(window_t *window, int32_t width, int32_t height, uint32_t derped) {
+	return;
 	if (!window) {
 		return;
 	}
@@ -859,7 +861,7 @@ void * process_requests(void * garbage) {
 				int r = read(mfd, buf, 1);
 				break;
 			}
-			redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
+			//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
 			/* Apply mouse movement */
 			int c, l;
 			c = abs(packet->x_difference);
@@ -878,7 +880,7 @@ void * process_requests(void * garbage) {
 			if (mouse_y < 0) mouse_y = 0;
 			if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
 			if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
-			draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+			//draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT)) {
 				_mouse_window = focused_window();
 				if (_mouse_window) {
