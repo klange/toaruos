@@ -353,4 +353,4 @@ ToAruOS contains additional software with the following copyright notices:
 
 * `userspace/donut.c` and `userspace/fire.c` are obfucscated C demos by Andy Sloane.
 
-* We ask that anyone who notices unlicensed materials in this repository apply Hanlon's Razor and assume we're were idiots and missed it before assuming malicious intent; you may report content for which a license is not provided by emailing us.
+* We ask that anyone who notices unlicensed materials in this repository apply Hanlon's Razor and assume we were idiots and missed it before assuming malicious intent; you may report content for which a license is not provided by emailing us.
