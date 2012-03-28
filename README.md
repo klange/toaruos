@@ -351,6 +351,6 @@ ToAruOS contains additional software with the following copyright notices:
 
         Copyright © 2007-2010 Novell, Inc.
 
-* `userspace/donut.c` and `userspace/fire.c` are obfucscated C demos by Andy Sloane.
+* `userspace/donut.c` and `userspace/fire.c` are obfuscated C demos by Andy Sloane.
 
 * We ask that anyone who notices unlicensed materials in this repository apply Hanlon's Razor and assume we were idiots and missed it before assuming malicious intent; you may report content for which a license is not provided by emailing us.
