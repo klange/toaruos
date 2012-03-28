@@ -206,12 +206,14 @@ void * shm_obtain (char * path, size_t * size) {
 		/* There's no chunk for that key -- we need to allocate it! */
 		if (size == 0) {
 			// The process doesn't want a chunk...?
+			spin_unlock(&bsl);
 			return NULL;
 		}
 
 		chunk = create_chunk(node, *size);
 		if (chunk == NULL) {
 			LOG(ERROR, "[shm] Could not allocate a shm_chunk_t!\n");
+			spin_unlock(&bsl);
 			return NULL;
 		}
 
@@ -235,6 +237,7 @@ int shm_release (char * path) {
 	/* First, find the right chunk */
 	shm_node_t * _node = get_node(path, 0);
 	if (!_node) {
+		spin_unlock(&bsl);
 		return 1;
 	}
 	shm_chunk_t * chunk = _node->chunk;
@@ -249,6 +252,7 @@ int shm_release (char * path) {
 		}
 	}
 	if (node == NULL) {
+		spin_unlock(&bsl);
 		return 1;
 	}
 

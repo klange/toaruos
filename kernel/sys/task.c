@@ -553,6 +553,7 @@ void task_exit(int retval) {
 	}
 	current_process->status   = retval;
 	current_process->finished = 1;
+	kprintf("[%d] Waking up %d processes...\n", getpid(), current_process->wait_queue->length);
 	wakeup_queue(current_process->wait_queue);
 	make_process_reapable((process_t *)current_process);
 	switch_next();

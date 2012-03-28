@@ -28,7 +28,15 @@ DEFN_SYSCALL0(mousedevice, 33);
 DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, 41);
 
+void spin_lock(int volatile * lock) {
+	while(__sync_lock_test_and_set(lock, 0x01)) {
+		syscall_yield();
+	}
+}
 
+void spin_unlock(int volatile * lock) {
+	__sync_lock_release(lock);
+}
 
 int clone(uintptr_t,uintptr_t,void*) __attribute__((alias("syscall_clone")));
 int gettid() __attribute__((alias("syscall_gettid")));
@@ -241,6 +249,7 @@ window_t * focused_window() {
 	return top_at_fast(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 }
 
+volatile int am_drawing  = 0;
 window_t * moving_window = NULL;
 int32_t    moving_window_l = 0;
 int32_t    moving_window_t = 0;
@@ -334,7 +343,7 @@ void draw_bounding_box(window_t * window, int32_t left, int32_t top) {
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
 			/* XXX MAKE THIS FASTER */
-				if (TO_DERPED_OFFSET(x,y) >= window->width * window->height) continue;
+				//if (TO_DERPED_OFFSET(x,y) >= window->width * window->height) continue;
 				GFX(x,y) = alpha_blend(GFX(x,y), ((uint32_t *)window->buffer)[TO_DERPED_OFFSET(x,y)], rgb(127,0,0));
 		}
 	}
@@ -477,9 +486,13 @@ void process_window_command (int sig) {
 				case WC_DESTROY:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					window_t * win = get_window_with_process(pw, wwt.wid);
+					win->x = 0xFFFF;
+					redraw_region_slow(0,0,graphics_width,graphics_height);
+					/* Wait until we're done drawing */
+					spin_lock(&am_drawing);
+					spin_unlock(&am_drawing);
 					free_window(win);
 					send_window_event(pw, WE_DESTROYED, &wwt);
-					redraw_region_slow(0,0,graphics_width,graphics_height);
 					break;
 
 				case WC_DAMAGE:
@@ -1022,10 +1035,12 @@ void * process_requests(void * garbage) {
 
 void * redraw_thread(void * derp) {
 	while (1) {
+		spin_lock(&am_drawing);
 		redraw_everything_fast();
 		/* Other stuff */
 		draw_bounding_box(moving_window, moving_window_l, moving_window_t);
 		redraw_cursor();
+		spin_unlock(&am_drawing);
 		flip();
 		syscall_yield();
 	}

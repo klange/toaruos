@@ -52,6 +52,11 @@ static uint32_t btos(uint32_t block) {
 
 static uint8_t volatile lock;
 
+static uint32_t _now = 1;
+static uint32_t ext2_time() {
+	return _now++;
+}
+
 void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 	if (!block_no) return;
 	spin_lock(&lock);
@@ -59,7 +64,7 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 	uint32_t oldest_age = UINT32_MAX;
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
 		if (DC[i].block_no == block_no) {
-			DC[i].last_use = now();
+			DC[i].last_use = ext2_time();
 			memcpy(buf, &DC[i].block, BLOCKSIZE);
 			spin_unlock(&lock);
 			return;
@@ -76,7 +81,7 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 
 	memcpy(buf, &DC[oldest].block, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
-	DC[oldest].last_use = now();
+	DC[oldest].last_use = ext2_time();
 	spin_unlock(&lock);
 }
 
@@ -99,7 +104,7 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 	uint32_t oldest_age = UINT32_MAX;
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
 		if (DC[i].block_no == block_no) {
-			DC[i].last_use = now();
+			DC[i].last_use = ext2_time();
 			memcpy(&DC[i].block, buf, BLOCKSIZE);
 			spin_unlock(&lock);
 			return;
@@ -111,7 +116,7 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 	}
 	memcpy(&DC[oldest].block, buf, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
-	DC[oldest].last_use = now();
+	DC[oldest].last_use = ext2_time();
 	spin_unlock(&lock);
 }
 

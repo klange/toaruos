@@ -142,21 +142,25 @@ void move(int cx, int cy) {
 	if (cx == 1) {
 		if (direction != 1) {
 			direction = 1;
+			display();
 			return;
 		}
 	} else if (cx == -1) {
 		if (direction != 2) {
 			direction = 2;
+			display();
 			return;
 		}
 	} else if (cy == 1) {
 		if (direction != 0) {
 			direction = 0;
+			display();
 			return;
 		}
 	} else if (cy == -1) {
 		if (direction != 3) {
 			direction = 3;
+			display();
 			return;
 		}
 	}
