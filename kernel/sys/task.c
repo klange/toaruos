@@ -87,6 +87,7 @@ void release_directory(page_directory_t * dir) {
 extern char * default_name;
 
 void reap_process(process_t * proc) {
+	kprintf("Reaping process %d; mem before = %d\n", proc->id, memory_use());
 	list_free(proc->wait_queue);
 	free(proc->wait_queue);
 	list_free(proc->signal_queue);
@@ -102,7 +103,7 @@ void reap_process(process_t * proc) {
 	}
 	proc->fds->refs--;
 	if (proc->fds->refs == 0) {
-		free(proc->thread.page_directory);
+		release_directory(proc->thread.page_directory);
 		for (uint32_t i = 0; i < proc->fds->length; ++i) {
 			close_fs(proc->fds->entries[i]);
 			free(proc->fds->entries[i]);
@@ -111,6 +112,7 @@ void reap_process(process_t * proc) {
 		free(proc->fds);
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	}
+	kprintf("Reaped  process %d; mem after = %d\n", proc->id, memory_use());
 	// These things are bad!
 	//delete_process(proc);
 	//free((void *)proc);
