@@ -12,8 +12,6 @@
 DEFN_SYSCALL1(sethostname, 31, char *);
 
 #define DEFAULT_HOSTNAME "toaru-test"
-#define FORK_FOR_TERMINAL 1
-#define TERMINAL 0
 
 /* Set the hostname to whatever is in /etc/hostname */
 void set_hostname() {
@@ -33,35 +31,44 @@ void set_hostname() {
 }
 
 void start_terminal() {
-#if FORK_FOR_TERMINAL
 	int pid = fork();
 	if (!pid) {
-#endif
-#if TERMINAL == 1
 		char * tokens[] = {
 			"/bin/terminal",
 			"-F",
 			NULL
 		};
-#else
-		char * tokens[] = {
-			"/bin/compositor",
-			NULL
-		};
-#endif
 		int i = execve(tokens[0], tokens, NULL);
-#if FORK_FOR_TERMINAL
 		exit(0);
 	} else {
 		syscall_wait(pid);
 	}
-#endif
 }
+
+void start_compositor() {
+	int pid = fork();
+	if (!pid) {
+		char * tokens[] = {
+			"/bin/compositor",
+			NULL
+		};
+		int i = execve(tokens[0], tokens, NULL);
+		exit(0);
+	} else {
+		syscall_wait(pid);
+	}
+}
+
 
 void main(int argc, char * argv[]) {
 	fprintf(stderr, "[init] Hello world.\n");
 	/* Hostname */
 	set_hostname();
-	/* Terminal */
-	start_terminal();
+	if (argc > 1 && !strcmp(argv[1],"--single")) {
+		/* Terminal */
+		start_terminal();
+	} else {
+		/* Compositor */
+		start_compositor();
+	}
 }

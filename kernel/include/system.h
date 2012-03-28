@@ -39,7 +39,7 @@ extern unsigned int __irq_sem;
 
 extern void * code;
 extern void * end;
-
+extern char * boot_arg;
 
 extern void *sbrk(uintptr_t increment);
 

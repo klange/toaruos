@@ -75,6 +75,8 @@ parse_args(
 		} else if (!strcmp(argp[0],"hdd")) {
 			extern void ext2_disk_mount(void);
 			ext2_disk_mount();
+		} else if (!strcmp(argp[0],"single")) {
+			boot_arg = "--single";
 		}
 	}
 }

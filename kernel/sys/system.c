@@ -21,6 +21,8 @@ void spin_unlock(uint8_t volatile * lock) {
 	__sync_lock_release(lock);
 }
 
+char * boot_arg = NULL;
+
 /*
  * memcpy
  * Copy from source to destination. Assumes that
