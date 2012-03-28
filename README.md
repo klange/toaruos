@@ -346,3 +346,11 @@ ToAruOS contains additional software with the following copyright notices:
         LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
         OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
         SUCH DAMAGE.
+
+* The DMZ mouse cursor theme is licensed under the Creative Commons Attribution-ShareAlike 3.0 license with the following copyright notice:
+
+        Copyright © 2007-2010 Novell, Inc.
+
+* `userspace/donut.c` and `userspace/fire.c` are obfucscated C demos by Andy Sloane.
+
+* We ask that anyone who notices unlicensed materials in this repository apply Hanlon's Razor and assume we're were idiots and missed it before assuming malicious intent; you may report content for which a license is not provided by emailing us.
