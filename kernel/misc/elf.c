@@ -112,7 +112,7 @@ exec(
 	uintptr_t heap = current_process->image.entry + current_process->image.size;
 	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
 	char ** argv_ = (char **)heap;
-	heap += sizeof(char *) * argc;
+	heap += sizeof(char *) * (argc + 1);
 	for (int i = 0; i < argc; ++i) {
 		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
 		argv_[i] = (char *)heap;
