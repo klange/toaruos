@@ -64,6 +64,6 @@ void flip();
 void load_sprite(sprite_t * sprite, char * filename);
 void draw_sprite(sprite_t * sprite, int32_t x, int32_t y);
 void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color);
-
+void draw_fill(uint32_t color);
 
 #endif

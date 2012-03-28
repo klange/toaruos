@@ -167,10 +167,12 @@ uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
 }
 
 uint8_t inline is_top_fast(window_t * window, uint16_t x, uint16_t y) {
-	if (x >= graphics_width || y >= graphics_height)
+	if (x >= graphics_width || y >= graphics_height) {
 		return 0;
-	if (window->z == depth_map[x + y * graphics_width])
+	}
+	if (window->z == depth_map[x + y * graphics_width]) {
 		return 1;
+	}
 	return 0;
 }
 
@@ -246,7 +248,11 @@ void make_top(window_t * window) {
 }
 
 window_t * focused_window() {
+#if 0
 	return top_at_fast(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+#else
+	return top_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+#endif
 }
 
 volatile int am_drawing  = 0;
@@ -920,6 +926,7 @@ void * process_requests(void * garbage) {
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
+						redraw_region_slow(0,0,graphics_width,graphics_height);
 						/* *sigh* */
 					} else {
 						_mouse_state = 1;

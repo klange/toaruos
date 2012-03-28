@@ -171,3 +171,11 @@ void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t colo
 	}
 }
 
+void draw_fill(uint32_t color) {
+	for (uint16_t y = 0; y < graphics_width; ++y) {
+		for (uint16_t x = 0; x < graphics_width; ++x) {
+			GFX(x, y) = color;
+		}
+	}
+}
+
