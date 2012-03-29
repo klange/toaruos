@@ -135,8 +135,19 @@ void draw(int secs) {
 #endif
 	draw_fill(rgb(255,255,255));
 
+	{
+		int r1 = win_width * 3 / 7;
+		int r2 = win_width / 2;
+		for (int val = 0; val < 12; val += 1) {
+			double _val = (float)val / 12.0;
+			_val *= 2.0 * PI;
+			draw_line(decor_left_width + win_width / 2 + r1 * sin(_val), decor_left_width + win_width / 2 + r2 * sin(_val),
+			          decor_top_height + win_width / 2 - r1 * cos(_val), decor_top_height + win_width / 2 - r2 * cos(_val), rgb(0,0,0));
+		}
+	}
 	{ /* Hours */
 		double val = timeinfo->tm_hour;
+		val += (double)timeinfo->tm_min / 60.0;
 		if (val > 12.0)
 			val -= 12.0;
 		val /= 12.0;
@@ -149,6 +160,7 @@ void draw(int secs) {
 	}
 	{ /* Minutes */
 		double val = timeinfo->tm_min;
+		val += (double)timeinfo->tm_sec / 60.0;
 		val /= 60.0;
 		val *= 2.0 * PI;
 		int radius = win_width * 3 / 7;
