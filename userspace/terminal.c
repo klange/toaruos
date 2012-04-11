@@ -40,6 +40,8 @@ size_t terminal_title_length = 0;
 volatile int needs_redraw = 1;
 static void render_decors();
 
+volatile int exit_application = 0;
+
 /* Binary Literals */
 #define b(x) ((uint8_t)b_(0 ## x ## uL))
 #define b_(x) ((x & 1) | (x >> 2 & 2) | (x >> 4 & 4) | (x >> 6 & 8) | (x >> 8 & 16) | (x >> 10 & 32) | (x >> 12 & 64) | (x >> 14 & 128))
@@ -2949,6 +2951,13 @@ void * screen_redrawer(void * garbage) {
 	}
 }
 
+void * wait_for_exit(void * garbage) {
+	syscall_wait(child_pid);
+	/* Clean up */
+	exit_application = 1;
+	/* Exit */
+}
+
 void waitabit() {
 	int x = time(NULL);
 	while (time(NULL) < x + 1) {
@@ -3034,11 +3043,6 @@ int main(int argc, char ** argv) {
 
 		init_decorations();
 		render_decors();
-
-#if 0
-		pthread_t redraw_thread;
-		pthread_create(&redraw_thread, NULL, screen_redrawer, NULL);
-#endif
 
 		window_fill(window, rgb(0,0,0));
 		init_graphics_window(window);
@@ -3131,10 +3135,16 @@ int main(int argc, char ** argv) {
 		 */
 		char * tokens[] = {"/bin/esh",NULL};
 		int i = execve(tokens[0], tokens, NULL);
-		return 0;
+
+		exit_application = 1;
+
+		return 1;
 	} else {
 
 		child_pid = f;
+
+		pthread_t wait_for_exit_thread;
+		pthread_create(&wait_for_exit_thread, NULL, wait_for_exit, NULL);
 
 		char buf[1024];
 		while (1) {
@@ -3144,6 +3154,9 @@ int main(int argc, char ** argv) {
 			if (timer_tick == TIMER_TICK) {
 				timer_tick = 0;
 				flip_cursor();
+			}
+			if (exit_application) {
+				break;
 			}
 			if (_windowed) {
 				w_keyboard_t * kbd = poll_keyboard();
@@ -3204,7 +3217,11 @@ fail_mouse:
 				}
 			}
 		}
-		return 0;
+
+	}
+
+	if (_windowed) {
+		teardown_windowing();
 	}
 
 	return 0;
