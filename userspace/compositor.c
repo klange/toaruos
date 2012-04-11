@@ -922,7 +922,7 @@ void * process_requests(void * garbage) {
 			if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width)   * MOUSE_SCALE;
 			if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height) * MOUSE_SCALE;
 			//draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
-			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT)) {
+			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_RIGHT)) {
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
@@ -943,7 +943,19 @@ void * process_requests(void * garbage) {
 						redraw_region_slow(0,0,graphics_width,graphics_height);
 					}
 				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_RIGHT)) {
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT)) {
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					_mouse_state = 2; /* Dragging */
+					/* In window coordinates, that's... */
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
+
+					int32_t click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					int32_t click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					printf("Mouse down at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
+				}
 #if 0
 				_mouse_window = focused_window();
 				if (_mouse_window) {
@@ -963,7 +975,7 @@ void * process_requests(void * garbage) {
 				}
 #endif
 			} else if (_mouse_state == 1) {
-				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
+				if (!(packet->buttons & MOUSE_BUTTON_RIGHT)) {
 					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					moving_window = NULL;
@@ -979,8 +991,17 @@ void * process_requests(void * garbage) {
 					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
 				}
 			} else if (_mouse_state == 2) {
-				if (!(packet->buttons & MOUSE_BUTTON_RIGHT)) {
-#if 0
+				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
+					/* Released */
+					_mouse_state = 0;
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
+
+					int32_t click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					int32_t click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					printf("Mouse up at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
+#if 0 /* Resizing */
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					if (_mouse_win_x_p < 10) _mouse_win_x_p = 10;
@@ -998,12 +1019,22 @@ void * process_requests(void * garbage) {
 					_mouse_state = 0;
 #endif
 				} else {
+					/* Still down */
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
+
+					int32_t click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					int32_t click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					printf("Mouse move to @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
+#if 0
 					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					if (_mouse_win_x_p < 10) _mouse_win_x_p = 10;
 					if (_mouse_win_y_p < 10) _mouse_win_y_p = 10;
 					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
+#endif
 				}
 
 			}
