@@ -821,19 +821,36 @@ int main(int argc, char ** argv) {
 
 	printf("\033[H\033[2J");
 
-	colors[',']  = "\033[48;5;17m";
-	colors['>']  = "\033[48;5;9m";
-	colors['.']  = "\033[48;5;15m";
-	colors['\''] = "\033[48;5;0m";
-	colors['@']  = "\033[48;5;230m";
-	colors['$']  = "\033[48;5;175m";
-	colors['&']  = "\033[48;5;202m";
-	colors['+']  = "\033[48;5;11m";
-	colors['-']  = "\033[48;5;162m";
-	colors['#']  = "\033[48;5;10m";
-	colors['*']  = "\033[48;5;8m";
-	colors['=']  = "\033[48;5;33m";
-	colors[';']  = "\033[48;5;19m";
+	if (argc < 2) {
+		colors[',']  = "\033[48;5;17m";
+		colors['>']  = "\033[48;5;9m";
+		colors['.']  = "\033[48;5;15m";
+		colors['\''] = "\033[48;5;0m";
+		colors['@']  = "\033[48;5;230m";
+		colors['$']  = "\033[48;5;175m";
+		colors['&']  = "\033[48;5;202m";
+		colors['+']  = "\033[48;5;11m";
+		colors['-']  = "\033[48;5;162m";
+		colors['#']  = "\033[48;5;10m";
+		colors['*']  = "\033[48;5;8m";
+		colors['=']  = "\033[48;5;33m";
+		colors[';']  = "\033[48;5;19m";
+	} else {
+		colors[',']  = "\033[104m";      /* Blue background */
+		colors['.']  = "\033[107m";      /* White stars */
+		colors['\''] = "\033[40m";       /* Black border */
+		colors['@']  = "\033[47m";       /* Tan poptart */
+		colors['$']  = "\033[105m";      /* Pink poptart */
+		colors['-']  = "\033[101m";      /* Red poptart */
+		colors['>']  = "\033[101m";      /* Red rainbow */
+		colors['&']  = "\033[43m";       /* Orange rainbow */
+		colors['+']  = "\033[103m";      /* Yellow Rainbow */
+		colors['#']  = "\033[102m";      /* Green rainbow */
+		colors['=']  = "\033[104m";      /* Light blue rainbow */
+		colors[';']  = "\033[44m";       /* Dark blue rainbow */
+		colors['*']  = "\033[100m";      /* Gray cat face */
+		colors['%']  = "\033[105m";      /* Pink cheeks */
+	}
 
 	int playing = 1;
 	size_t i = 0;
