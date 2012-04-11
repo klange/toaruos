@@ -36,7 +36,7 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS = -kernel toaruos-kernel -m 256 -initrd toaruos-initrd -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
+EMUARGS = -kernel toaruos-kernel -m 256 -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
 EMUKVM  = -enable-kvm
 
 .PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
