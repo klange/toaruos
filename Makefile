@@ -40,7 +40,7 @@ EMUARGS = -kernel toaruos-kernel -m 256 -append "vid=qemu hdd" -serial stdio -vg
 EMUKVM  = -enable-kvm
 
 H=hdd/bin
-INITRDBIN = $H/clear $H/cat $H/terminal $H/esh $H/echo $H/init $H/login $H/ls $H/uname $H/fire $H/donut $H/whoami $H/yes
+INITRDBIN = $H/reboot $H/nyancat $H/clear $H/cat $H/terminal $H/esh $H/echo $H/init $H/login $H/ls $H/uname $H/fire $H/donut $H/whoami $H/yes
 
 .PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
 .SECONDARY: 

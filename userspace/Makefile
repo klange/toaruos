@@ -2,7 +2,7 @@ CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
 CFLAGS = -std=c99 -O3 -m32 -Wa,--32 -Xlinker --eh-frame-hdr
 CPPFLAGS = -O3 -m32 -Wa,--32
-EXTRAFLAGS = -g
+EXTRAFLAGS = -s
 EXECUTABLES = $(patsubst %.c,%.o,$(wildcard lib/*.c)) $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
 
 BEG = ../util/mk-beg
