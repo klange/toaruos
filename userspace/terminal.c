@@ -536,6 +536,7 @@ uint8_t  cursor_on = 1;
 window_t * window = NULL;
 int      _windowed = 0;
 int      _vga_mode = 0;
+int      _login_shell = 0;
 
 uint32_t term_colors[256] = {
 	/* black  */ 0x2e3436,
@@ -3011,24 +3012,29 @@ int main(int argc, char ** argv) {
 
 	_windowed = 1;
 	_use_freetype = 1;
+	_login_shell = 0;
 
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,   0, 'F'},
 		{"bitmap",     no_argument,   0, 'b'},
 		{"vga",        no_argument,   0, 'V'},
+		{"login",      no_argument,   0, 'l'},
 		{"help",       no_argument,   0, 'h'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhFV", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhFVl", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
 			}
 		}
 		switch (c) {
+			case 'l':
+				_login_shell = 1;
+				break;
 			case 'V':
 				_use_freetype = 0;
 				_vga_mode = 1;
@@ -3179,8 +3185,13 @@ int main(int argc, char ** argv) {
 		/*
 		 * TODO: Check the public-readable passwd file to select which shell to run
 		 */
-		char * tokens[] = {"/bin/esh",NULL};
-		int i = execve(tokens[0], tokens, NULL);
+		if (_login_shell) {
+			char * tokens[] = {"/bin/login",NULL};
+			int i = execve(tokens[0], tokens, NULL);
+		} else {
+			char * tokens[] = {"/bin/esh",NULL};
+			int i = execve(tokens[0], tokens, NULL);
+		}
 
 		exit_application = 1;
 

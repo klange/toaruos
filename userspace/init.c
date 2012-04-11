@@ -50,7 +50,7 @@ void start_vga_terminal() {
 	if (!pid) {
 		char * tokens[] = {
 			"/bin/terminal",
-			"-V",
+			"-Vl",
 			NULL
 		};
 		int i = execve(tokens[0], tokens, NULL);
