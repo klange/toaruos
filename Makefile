@@ -39,6 +39,9 @@ ENDRM = util/mk-end-rm
 EMUARGS = -kernel toaruos-kernel -m 256 -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
 EMUKVM  = -enable-kvm
 
+H=hdd/bin
+INITRDBIN = $H/clear $H/cat $H/terminal $H/esh $H/echo $H/init $H/login $H/ls $H/uname $H/fire $H/donut $H/whoami $H/yes
+
 .PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
 .SECONDARY: 
 
@@ -96,13 +99,18 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
+hdd/bin/%:
+	@cd userspace; make ../$@
+
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: .passed
+toaruos-initrd: .passed ${INITRDBIN}
 	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
+	@-rm -f initrd/bin/*
+	@cp ${INITRDBIN} initrd/bin/
 	@${GENEXT} -d initrd -q -b 4096 toaruos-initrd ${ERRORS}
 	@${END} "initrd" "Generated initial RAM disk"
 	@${INFO} "--" "Ramdisk image is ready!"
