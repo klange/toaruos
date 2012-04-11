@@ -250,6 +250,10 @@ paging_install(uint32_t memsize) {
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
 		i += 0x1000;
 	}
+	/* XXX VGA TEXT MODE VIDEO MEMORY EXTENSION */
+	for (uint32_t j = 0xb8000; j < 0xc0000; j += 0x1000) {
+		alloc_frame(get_page(j, 1, kernel_directory), 0, 1);
+	}
 	isrs_install_handler(14, page_fault);
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
 

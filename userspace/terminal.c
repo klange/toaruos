@@ -97,6 +97,9 @@ uint16_t min(uint16_t a, uint16_t b) {
 uint16_t max(uint16_t a, uint16_t b) {
 	return (a > b) ? a : b;
 }
+void outb(unsigned char _data, unsigned short _port) {
+	__asm__ __volatile__ ("outb %1, %0" : : "dN" (_port), "a" (_data));
+}
 
 uint8_t _use_freetype = 0;
 
@@ -532,6 +535,7 @@ uint16_t current_scroll = 0;
 uint8_t  cursor_on = 1;
 window_t * window = NULL;
 int      _windowed = 0;
+int      _vga_mode = 0;
 
 uint32_t term_colors[256] = {
 	/* black  */ 0x2e3436,
@@ -2578,6 +2582,19 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	}
 }
 
+unsigned short * textmemptr = (unsigned short *)0xB8000;
+void placech(unsigned char c, int x, int y, int attr) {
+	unsigned short *where;
+	unsigned att = attr << 8;
+	where = textmemptr + (y * 80 + x);
+	*where = c | att;
+}
+
+char vga_to_ansi[] = {
+    0, 4, 2, 6, 1, 5, 3, 7,
+    8,12,10,14, 9,13,11,15
+};
+
 void
 term_write_char(
 		uint32_t val,
@@ -2588,7 +2605,14 @@ term_write_char(
 		uint8_t flags
 		) {
 
-	if (_use_freetype) {
+	if (_vga_mode) {
+		if (fg > 15) fg = 7;
+		if (bg > 15) bg = 0;
+		placech(val, x, y, (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4));
+		/* Disable / update cursor? We have our own cursor... */
+	} else if (_use_freetype) {
+		fg = term_colors[fg];
+		bg = term_colors[bg];
 		if (val == 0xFFFFFFFF) { return; } /* Unicode, do not redraw here */
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -2637,6 +2661,8 @@ term_write_char(
 			}
 		}
 	} else {
+		fg = term_colors[fg];
+		bg = term_colors[bg];
 		uint8_t * c = number_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -2688,9 +2714,9 @@ static void cell_redraw(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, term_colors[DEFAULT_FG], term_colors[DEFAULT_BG], DEFAULT_FLAGS);
+		term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
 	} else {
-		term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[1]], term_colors[cell[2]], cell[3]);
+		term_write_char(cell[0], x * char_width, y * char_height, cell[1], cell[2], cell[3]);
 	}
 }
 
@@ -2698,9 +2724,9 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
 	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
 	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, term_colors[DEFAULT_BG], term_colors[DEFAULT_FG], DEFAULT_FLAGS);
+		term_write_char(' ', x * char_width, y * char_height, DEFAULT_BG, DEFAULT_FG, DEFAULT_FLAGS);
 	} else {
-		term_write_char(cell[0], x * char_width, y * char_height, term_colors[cell[2]], term_colors[cell[1]], cell[3]);
+		term_write_char(cell[0], x * char_width, y * char_height, cell[2], cell[1], cell[3]);
 	}
 }
 
@@ -2989,19 +3015,25 @@ int main(int argc, char ** argv) {
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,   0, 'F'},
 		{"bitmap",     no_argument,   0, 'b'},
+		{"vga",        no_argument,   0, 'V'},
 		{"help",       no_argument,   0, 'h'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhF", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhFV", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
 			}
 		}
 		switch (c) {
+			case 'V':
+				_use_freetype = 0;
+				_vga_mode = 1;
+				_windowed = 0;
+				break;
 			case 'F':
 				_windowed = 0;
 				break;
@@ -3046,6 +3078,13 @@ int main(int argc, char ** argv) {
 
 		window_fill(window, rgb(0,0,0));
 		init_graphics_window(window);
+	} else if (_vga_mode) {
+		/* Herp derp? */
+		int temp = 0xFFFF;
+		outb(14, 0x3D4);
+		outb(temp >> 8, 0x3D5);
+		outb(15, 0x3D4);
+		outb(temp, 0x3D5);
 	} else {
 		init_graphics();
 	}
@@ -3105,6 +3144,13 @@ int main(int argc, char ** argv) {
 	if (_windowed) {
 		term_width  = WINDOW_WIDTH / char_width;
 		term_height = WINDOW_HEIGHT / char_height;
+	} else if (_vga_mode) {
+		graphics_width = 800;
+		graphics_height = 250;
+		term_width  = 80;
+		term_height = 25;
+		char_width  = 1;
+		char_height = 1;
 	} else {
 		term_width  = graphics_width / char_width;
 		term_height = graphics_height / char_height;

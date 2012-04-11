@@ -77,6 +77,8 @@ parse_args(
 			ext2_disk_mount();
 		} else if (!strcmp(argp[0],"single")) {
 			boot_arg = "--single";
+		} else if (!strcmp(argp[0],"vgaterm")) {
+			boot_arg = "--vga";
 		}
 	}
 }

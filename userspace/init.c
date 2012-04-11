@@ -45,6 +45,21 @@ void start_terminal() {
 	}
 }
 
+void start_vga_terminal() {
+	int pid = fork();
+	if (!pid) {
+		char * tokens[] = {
+			"/bin/terminal",
+			"-V",
+			NULL
+		};
+		int i = execve(tokens[0], tokens, NULL);
+		exit(0);
+	} else {
+		syscall_wait(pid);
+	}
+}
+
 void start_compositor() {
 	int pid = fork();
 	if (!pid) {
@@ -67,6 +82,8 @@ void main(int argc, char * argv[]) {
 	if (argc > 1 && !strcmp(argv[1],"--single")) {
 		/* Terminal */
 		start_terminal();
+	} else if (argc > 1 && !strcmp(argv[1],"--vga")) {
+		start_vga_terminal();
 	} else {
 		/* Compositor */
 		start_compositor();
