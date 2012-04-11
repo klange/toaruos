@@ -43,7 +43,7 @@ EMUKVM  = -enable-kvm
 .SECONDARY: 
 
 all: .passed system docs utils tags
-system: .passed toaruos-initrd toaruos-disk.img toaruos-kernel
+system: .passed toaruos-disk.img toaruos-kernel
 
 install: system
 	@${BEG} "CP" "Installing to /boot..."
@@ -99,20 +99,13 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 ################
 #   Ram disk   #
 ################
-toaruos-initrd: .passed initrd/boot/kernel
+toaruos-initrd: .passed
 	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
 	@${GENEXT} -d initrd -q -b 4096 toaruos-initrd ${ERRORS}
 	@${END} "initrd" "Generated initial RAM disk"
 	@${INFO} "--" "Ramdisk image is ready!"
-
-### Ram Disk installers...
-
-# Kernel
-initrd/boot/kernel: toaruos-kernel
-	@mkdir -p initrd/boot
-	@cp toaruos-kernel initrd/boot/kernel
 
 ####################
 # Hard Disk Images #
@@ -179,7 +172,7 @@ clean-docs:
 
 clean-bin:
 	@${BEGRM} "RM" "Cleaning native binaries..."
-	@-rm -f initrd/bin/*
+	@-rm -f hdd/bin/*
 	@${ENDRM} "RM" "Cleaned native binaries"
 
 clean-aux:
