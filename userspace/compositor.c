@@ -19,14 +19,13 @@
 #include "lib/list.h"
 #include "lib/graphics.h"
 #include "lib/window.h"
+#include "lib/pthread.h"
 
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
 DECL_SYSCALL0(mkpipe);
 DEFN_SYSCALL0(mousedevice, 33);
-DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
-DEFN_SYSCALL0(gettid, 41);
 
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
@@ -38,35 +37,6 @@ void spin_unlock(int volatile * lock) {
 	__sync_lock_release(lock);
 }
 
-int clone(uintptr_t,uintptr_t,void*) __attribute__((alias("syscall_clone")));
-int gettid() __attribute__((alias("syscall_gettid")));
-
-typedef struct {
-	uint32_t id;
-	char * stack;
-	void * ret_val;
-} pthread_t;
-typedef unsigned int pthread_attr_t;
-
-#define PTHREAD_STACK_SIZE 10240
-
-int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
-	char * stack = malloc(PTHREAD_STACK_SIZE);
-	uintptr_t stack_top = (uintptr_t)stack + PTHREAD_STACK_SIZE;
-	thread->stack = stack;
-	thread->id = clone(stack_top, (uintptr_t)start_routine, arg);
-	return 0;
-}
-
-void pthread_exit(void * value) {
-	/* Perform nice cleanup */
-#if 0
-	/* XXX: LOCK */
-	free(stack);
-	/* XXX: Return value!? */
-#endif
-	__asm__ ("jmp 0xFFFFB00F"); /* Force thread exit */
-}
 
 sprite_t * sprites[128];
 
@@ -77,6 +47,7 @@ sprite_t * sprites[128];
 list_t * process_list;
 
 int32_t mouse_x, mouse_y;
+int32_t click_x, click_y;
 #define MOUSE_SCALE 10
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
@@ -437,6 +408,22 @@ void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t pa
 	write(pw->event_pipe, &header, sizeof(wins_packet_t));
 	write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
 	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	syscall_yield();
+}
+
+void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet) {
+	/* Construct the header */
+	wins_packet_t header;
+	header.magic = WINS_MAGIC;
+	header.command_type = event;
+	header.packet_size = sizeof(w_mouse_t);
+
+	/* Send them */
+	// XXX: we have a race condition here
+	write(pw->event_pipe, &header, sizeof(wins_packet_t));
+	write(pw->event_pipe, packet, sizeof(w_mouse_t));
+	//syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	syscall_yield();
 }
 
 void process_window_command (int sig) {
@@ -879,6 +866,8 @@ void * process_requests(void * garbage) {
 
 	mouse_x = MOUSE_SCALE * graphics_width / 2;
 	mouse_y = MOUSE_SCALE * graphics_height / 2;
+	click_x = 0;
+	click_y = 0;
 
 	uint16_t _mouse_state = 0;
 	window_t * _mouse_window = NULL;
@@ -951,8 +940,8 @@ void * process_requests(void * garbage) {
 					_mouse_win_x  = _mouse_window->x;
 					_mouse_win_y  = _mouse_window->y;
 
-					int32_t click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					int32_t click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
 
 					printf("Mouse down at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
 				}
@@ -997,8 +986,8 @@ void * process_requests(void * garbage) {
 					_mouse_win_x  = _mouse_window->x;
 					_mouse_win_y  = _mouse_window->y;
 
-					int32_t click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					int32_t click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
 
 					printf("Mouse up at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
 #if 0 /* Resizing */
@@ -1020,13 +1009,25 @@ void * process_requests(void * garbage) {
 #endif
 				} else {
 					/* Still down */
+
+					w_mouse_t _packet;
+					_packet.wid = _mouse_window->wid;
+
 					_mouse_win_x  = _mouse_window->x;
 					_mouse_win_y  = _mouse_window->y;
 
-					int32_t click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					int32_t click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+					_packet.old_x = click_x;
+					_packet.old_y = click_y;
 
-					printf("Mouse move to @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					_packet.new_x = click_x;
+					_packet.new_y = click_y;
+
+					_packet.buttons = packet->buttons;
+
+					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 #if 0
 					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;

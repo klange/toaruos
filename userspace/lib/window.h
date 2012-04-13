@@ -181,5 +181,6 @@ void window_fill(window_t *window, uint32_t color);
 void init_graphics_window(window_t * window);
 void init_graphics_window_double_buffer(window_t * window);
 
+void win_use_threaded_handler();
 
 #endif

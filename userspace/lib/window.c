@@ -14,6 +14,7 @@
 #include "../../kernel/include/signal.h"
 
 #include "window.h"
+#include "pthread.h"
 
 FILE *fdopen(int fildes, const char *mode);
 
@@ -368,15 +369,15 @@ uint8_t volatile mouse_evt_buffer_lock;
 list_t * mouse_evt_buffer;
 
 w_mouse_t * poll_mouse () {
-	w_mouse_t * evt;
+	w_mouse_t * evt = NULL;
 
-	LOCK(mouse_evt_buffer_lock);
+	//LOCK(mouse_evt_buffer_lock);
 	if (mouse_evt_buffer->length > 0) {
 		node_t * n = list_dequeue(mouse_evt_buffer);
 		evt = (w_mouse_t *)n->value;
 		free(n);
 	}
-	UNLOCK(mouse_evt_buffer_lock);
+	//UNLOCK(mouse_evt_buffer_lock);
 
 	return evt;
 }
@@ -384,6 +385,11 @@ w_mouse_t * poll_mouse () {
 static void process_mouse_evt (uint8_t command, w_mouse_t * evt) {
 	/* Push the event onto a buffer for the process to poll */
 	//LOCK(mouse_evt_buffer_lock);
+	if (mouse_evt_buffer->length > 5000) {
+		node_t * n = list_dequeue(mouse_evt_buffer);
+		free(n->value);
+		free(n);
+	}
 	list_insert(mouse_evt_buffer, evt);
 	//UNLOCK(mouse_evt_buffer_lock);
 }
@@ -430,7 +436,7 @@ static void process_evt (int sig) {
 		switch (header.command_type & WE_GROUP_MASK) {
 			case WE_MOUSE_EVT: {
 				w_mouse_t * mevt = malloc(sizeof(w_mouse_t));
-				read(process_windows->event_pipe, &mevt, sizeof(w_mouse_t));
+				read(process_windows->event_pipe, mevt, sizeof(w_mouse_t));
 				process_mouse_evt(header.command_type, mevt);
 				break;
 			}
@@ -469,6 +475,23 @@ void install_signal_handlers () {
 	mouse_evt_buffer = list_create();
 }
 
+static void ignore(int sig) {
+	return;
+}
+
+void * win_threaded_event_processor(void * garbage) {
+	while (1) {
+		process_evt (0);
+		syscall_yield();
+	}
+}
+
+
+void win_use_threaded_handler() {
+	syscall_sys_signal(SIGWINEVENT, (uintptr_t)ignore); // SIGWINEVENT
+	pthread_t event_thread;
+	pthread_create(&event_thread, NULL, win_threaded_event_processor, NULL);
+}
 
 /* Initial Connection */
 

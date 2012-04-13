@@ -2,7 +2,7 @@ CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
 CFLAGS = -std=c99 -O3 -m32 -Wa,--32 -Xlinker --eh-frame-hdr
 CPPFLAGS = -O3 -m32 -Wa,--32
-EXTRAFLAGS = -s
+EXTRAFLAGS = -g
 EXECUTABLES = $(patsubst %.c,%.o,$(wildcard lib/*.c)) $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
 
 BEG = ../util/mk-beg
@@ -19,7 +19,7 @@ FREETYPE_LIB = ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
 LIBM = ../util/toaru-toolchain/i686-pc-toaru/lib/libm.a
 
 TARGETDIR = ../hdd/bin/
-ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver donut wallpaper panel glock clock-win
+ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver donut wallpaper panel glock clock-win draw
 FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 .PHONY: all clean
@@ -31,9 +31,9 @@ clean:
 	@-rm -f ${EXECUTABLES}
 	@${ENDRM} "RM" "Cleaned userspace full-toolchain applications."
 
-${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o
+${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o
 	@${BEG} "CC" "$@ $< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o ${LIBM} ${FREETYPE_LIB} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o ${LIBM} ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 $(TARGETDIR)%: %.cpp
