@@ -145,6 +145,7 @@ struct process_windows {
 	uint32_t pid;
 
 	int event_pipe;  /* Pipe to send events through */
+	FILE * event_pipe_file;
 	int command_pipe; /* Pipe on which we receive commands */
 	FILE * command_pipe_file;
 

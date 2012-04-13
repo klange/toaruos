@@ -55,6 +55,10 @@ static inline void pipe_increment_write(pipe_device_t * pipe) {
 	}
 }
 
+static inline void pipe_increment_write_by(pipe_device_t * pipe, size_t amount) {
+	pipe->write_ptr = (pipe->write_ptr + amount) % pipe->size;
+}
+
 uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	assert(node->inode != 0 && "Attempted to read from a fully-closed pipe.");
 
@@ -115,11 +119,28 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 	size_t written = 0;
 	while (written < size) {
 		spin_lock(&pipe->lock);
+
+#if 0
+		size_t available = 0;
+		if (pipe->read_ptr <= pipe->write_ptr) {
+			available = pipe->size - pipe->write_ptr;
+		} else {
+			available = pipe->read_ptr - pipe->write_ptr - 1;
+		}
+		if (available) {
+			available = min(available, size - written);
+			memcpy(&pipe->buffer[pipe->write_ptr], buffer, available);
+			pipe_increment_write_by(pipe, available);
+			written += available;
+		}
+#else
 		while (pipe_available(pipe) > 0 && written < size) {
 			pipe->buffer[pipe->write_ptr] = buffer[written];
 			pipe_increment_write(pipe);
 			written++;
 		}
+#endif
+
 		spin_unlock(&pipe->lock);
 		wakeup_queue(pipe->wait_queue);
 		if (written < size) {

@@ -48,6 +48,7 @@ list_t * process_list;
 
 int32_t mouse_x, mouse_y;
 int32_t click_x, click_y;
+uint32_t mouse_discard = 0;
 #define MOUSE_SCALE 10
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
@@ -411,6 +412,8 @@ void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t pa
 	syscall_yield();
 }
 
+FILE *fdopen(int fd, const char *mode);
+
 void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet) {
 	/* Construct the header */
 	wins_packet_t header;
@@ -419,11 +422,11 @@ void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet
 	header.packet_size = sizeof(w_mouse_t);
 
 	/* Send them */
-	// XXX: we have a race condition here
-	write(pw->event_pipe, &header, sizeof(wins_packet_t));
-	write(pw->event_pipe, packet, sizeof(w_mouse_t));
+	fwrite(&header, 1, sizeof(wins_packet_t), pw->event_pipe_file);
+	fwrite(packet,  1, sizeof(w_mouse_t),     pw->event_pipe_file);
+	fflush(pw->event_pipe_file);
 	//syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
-	syscall_yield();
+	//syscall_yield();
 }
 
 void process_window_command (int sig) {
@@ -570,6 +573,7 @@ void process_request () {
 		process_windows_t * pw = malloc(sizeof(process_windows_t));
 		pw->pid = _request_page->client_pid;
 		pw->event_pipe = syscall_mkpipe();
+		pw->event_pipe_file = fdopen(pw->event_pipe, "a");
 		pw->command_pipe = syscall_mkpipe();
 		pw->windows = list_create();
 
@@ -1010,24 +1014,29 @@ void * process_requests(void * garbage) {
 				} else {
 					/* Still down */
 
-					w_mouse_t _packet;
-					_packet.wid = _mouse_window->wid;
+					mouse_discard++;
+					if (mouse_discard == 5) {
+						mouse_discard = 0;
 
-					_mouse_win_x  = _mouse_window->x;
-					_mouse_win_y  = _mouse_window->y;
+						w_mouse_t _packet;
+						_packet.wid = _mouse_window->wid;
 
-					_packet.old_x = click_x;
-					_packet.old_y = click_y;
+						_mouse_win_x  = _mouse_window->x;
+						_mouse_win_y  = _mouse_window->y;
 
-					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+						_packet.old_x = click_x;
+						_packet.old_y = click_y;
 
-					_packet.new_x = click_x;
-					_packet.new_y = click_y;
+						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
 
-					_packet.buttons = packet->buttons;
+						_packet.new_x = click_x;
+						_packet.new_y = click_y;
 
-					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+						_packet.buttons = packet->buttons;
+
+						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+					}
 #if 0
 					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;

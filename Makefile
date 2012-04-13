@@ -36,8 +36,9 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS = -kernel toaruos-kernel -m 256 -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
-EMUKVM  = -enable-kvm
+EMUARGS     = -kernel toaruos-kernel -m 256 -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
+EMUARGSVGA  = -kernel toaruos-kernel -m 256 -append "vgaterm hdd"  -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
+EMUKVM      = -enable-kvm
 
 H=hdd/bin
 INITRDBIN = $H/reboot $H/nyancat $H/clear $H/cat $H/terminal $H/esh $H/echo $H/init $H/login $H/ls $H/uname $H/fire $H/donut $H/whoami $H/yes
@@ -59,6 +60,9 @@ run: system
 
 kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM}
+
+vga: system
+	${EMU} ${EMUARGSVGA} ${EMUKVM}
 
 utils: ${UTILITIES}
 
