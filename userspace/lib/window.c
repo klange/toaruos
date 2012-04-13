@@ -419,6 +419,7 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 static void process_evt (int sig) {
 	/* Are there any messages in this process's event pipe? */
 	struct stat buf;
+	if (!process_windows) return;
 	fstat(process_windows->event_pipe, &buf);
 
 	/* Read them all out */

@@ -42,6 +42,7 @@ sprite_t * sprites[128];
 
 #define WIN_D 32
 #define WIN_B (WIN_D / 8)
+#define MOUSE_DISCARD_LEVEL 6
 
 
 list_t * process_list;
@@ -947,6 +948,8 @@ void * process_requests(void * garbage) {
 					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
 					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
 
+					mouse_discard = 1;
+
 					printf("Mouse down at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
 				}
 #if 0
@@ -1014,9 +1017,9 @@ void * process_requests(void * garbage) {
 				} else {
 					/* Still down */
 
-					mouse_discard++;
-					if (mouse_discard == 5) {
-						mouse_discard = 0;
+					mouse_discard--;
+					if (mouse_discard < 1) {
+						mouse_discard = MOUSE_DISCARD_LEVEL;
 
 						w_mouse_t _packet;
 						_packet.wid = _mouse_window->wid;
