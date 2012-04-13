@@ -183,5 +183,6 @@ void init_graphics_window(window_t * window);
 void init_graphics_window_double_buffer(window_t * window);
 
 void win_use_threaded_handler();
+void (*mouse_action_callback)(w_mouse_t *);
 
 #endif

@@ -47,6 +47,8 @@ static window_t * get_window (wid_t wid) {
 	return NULL;
 }
 
+void (*mouse_action_callback)(w_mouse_t *)  = NULL;
+
 /* Window Object Management */
 
 window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
@@ -389,6 +391,9 @@ static void process_mouse_evt (uint8_t command, w_mouse_t * evt) {
 		node_t * n = list_dequeue(mouse_evt_buffer);
 		free(n->value);
 		free(n);
+	}
+	if (mouse_action_callback) {
+		mouse_action_callback(evt);
 	}
 	list_insert(mouse_evt_buffer, evt);
 	//UNLOCK(mouse_evt_buffer_lock);

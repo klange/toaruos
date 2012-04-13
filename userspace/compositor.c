@@ -880,6 +880,7 @@ void * process_requests(void * garbage) {
 	int32_t _mouse_init_y;
 	int32_t _mouse_win_x;
 	int32_t _mouse_win_y;
+	int8_t  _mouse_moved = 0;
 
 	int32_t _mouse_win_x_p;
 	int32_t _mouse_win_y_p;
@@ -949,6 +950,7 @@ void * process_requests(void * garbage) {
 					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
 
 					mouse_discard = 1;
+					_mouse_moved = 0;
 
 					printf("Mouse down at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
 				}
@@ -995,6 +997,23 @@ void * process_requests(void * garbage) {
 
 					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
 					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+					
+					if (!_mouse_moved) {
+						printf("Finished a click!\n");
+						w_mouse_t _packet;
+						_packet.wid = _mouse_window->wid;
+						_mouse_win_x  = _mouse_window->x;
+						_mouse_win_y  = _mouse_window->y;
+						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+						_packet.new_x = click_x;
+						_packet.new_y = click_y;
+						_packet.old_x = -1;
+						_packet.old_y = -1;
+						_packet.buttons = packet->buttons;
+						_packet.command = WE_MOUSECLICK;
+						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+					}
 
 					printf("Mouse up at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
 #if 0 /* Resizing */
@@ -1017,6 +1036,7 @@ void * process_requests(void * garbage) {
 				} else {
 					/* Still down */
 
+					_mouse_moved = 1;
 					mouse_discard--;
 					if (mouse_discard < 1) {
 						mouse_discard = MOUSE_DISCARD_LEVEL;
@@ -1037,6 +1057,7 @@ void * process_requests(void * garbage) {
 						_packet.new_y = click_y;
 
 						_packet.buttons = packet->buttons;
+						_packet.command = WE_MOUSEMOVE;
 
 						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 					}
