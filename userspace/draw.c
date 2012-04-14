@@ -6,31 +6,41 @@
 
 /* XXX TOOLKIT FUNCTIONS */
 
+/* Active TTK window XXX */
 static window_t * ttk_window = NULL;
+
+/* TTK Window's objects XXX */
 static list_t *   ttk_objects = NULL;
 
+#define TTK_BUTTON_TYPE 0x00000001
+
+/*
+ * Core TTK GUI object
+ */
 typedef struct {
-	uint32_t type;
-	int32_t  x;
+	uint32_t type; /* Object type indicator (for introspection) */
+	int32_t  x;    /* Coordinates */
 	int32_t  y;
-	int32_t  width;
+	int32_t  width;  /* Sizes */
 	int32_t  height;
-	void (*render_func)(void *);
-	void (*click_callback)(void *, w_mouse_t *);
+	void (*render_func)(void *); /* (Internal) function to render the object */
+	void (*click_callback)(void *, w_mouse_t *); /* Callback function for clicking */
 } ttk_object;
 
-/* Button */
+/* TTK Button */
 typedef struct {
-	ttk_object _super;
-	char * title;
-	uint32_t fill_color;
+	ttk_object _super;   /* Parent type (Object -> Button) */
+	char * title;        /* Button text */
+	uint32_t fill_color; /* Fill color */
 } ttk_button;
 
 void ttk_render_button(void * s) {
 	ttk_object * self = (ttk_object *)s;
+	/* Fill the button */
 	for (uint16_t y = self->y + 1; y < self->y + self->height; y++) {
 		draw_line(self->x, self->x + self->width, y, y, ((ttk_button *)self)->fill_color);
 	}
+	/* Then draw the border */
 	uint32_t border_color = rgb(0,0,0);
 	draw_line(self->x, self->x + self->width, self->y, self->y, border_color);
 	draw_line(self->x, self->x,  self->y, self->y + self->height, border_color);
@@ -47,11 +57,19 @@ ttk_button * ttk_new_button(char * title, void (*callback)(void *, w_mouse_t *))
 	ttk_object * obj = (ttk_object *)out;
 	obj->click_callback = callback;;
 	obj->render_func = ttk_render_button;
+	obj->type = TTK_BUTTON_TYPE;
+	obj->x = 0;
+	obj->y = 0;
+	obj->width  = 20;
+	obj->height = 20;
 
 	list_insert(ttk_objects, obj);
 	return out;
 }
 
+/*
+ * Reposition a TTK object
+ */
 void ttk_position(ttk_object * obj, int x, int y, int width, int height) {
 	obj->x = x;
 	obj->y = y;
@@ -69,11 +87,9 @@ int ttk_within(ttk_object * obj, w_mouse_t * evt) {
 
 void ttk_check_click(w_mouse_t * evt) {
 	if (evt->command == WE_MOUSECLICK) {
-		printf("Mouse click occured at %d,%d\n", evt->new_x, evt->new_y);
 		foreach(node, ttk_objects) {
 			ttk_object * obj = (ttk_object *)node->value;
 			if (ttk_within(obj, evt)) {
-				printf("And I found where!\n");
 				if (obj->click_callback) {
 					obj->click_callback(obj, evt);
 				}
@@ -98,10 +114,17 @@ void setup_ttk(window_t * window) {
 }
 
 uint32_t drawing_color = 0;
+uint16_t quit = 0;
 
 static void set_color(void * button, w_mouse_t * event) {
 	ttk_button * self = (ttk_button *)button;
 	drawing_color = self->fill_color;
+}
+
+static void quit_app(void * button, w_mouse_t * event) {
+	quit = 1;
+	teardown_windowing();
+	exit(0);
 }
 
 int main (int argc, char ** argv) {
@@ -133,11 +156,14 @@ int main (int argc, char ** argv) {
 	ttk_position((ttk_object *)button_red, 209, 3, 100, 20);
 	button_red->fill_color = rgb(255,0,0);
 
+	ttk_button * button_quit = ttk_new_button("Quit", quit_app);
+	ttk_position((ttk_object *)button_quit, width - 23, 3, 20, 20);
+
 	drawing_color = rgb(255,0,0);
 
 	ttk_render();
 
-	while (1) {
+	while (!quit) {
 		w_keyboard_t * kbd = poll_keyboard();
 		if (kbd != NULL) {
 			if (kbd->key == 'q') {
