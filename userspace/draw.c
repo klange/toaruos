@@ -137,6 +137,28 @@ static void quit_app(void * button, w_mouse_t * event) {
 	exit(0);
 }
 
+ttk_button * button_thick;
+ttk_button * button_thin;
+int thick = 0;
+
+static void set_thickness_thick(void * button, w_mouse_t * event) {
+	button_thick->fill_color = rgb(127,127,127);
+	button_thick->fore_color = rgb(255,255,255);
+	button_thin->fill_color = rgb(40,40,40);
+	button_thin->fore_color = rgb(255,255,255);
+	thick = 1;
+	ttk_render();
+}
+
+static void set_thickness_thin(void * button, w_mouse_t * event) {
+	button_thin->fill_color = rgb(127,127,127);
+	button_thin->fore_color = rgb(255,255,255);
+	button_thick->fill_color = rgb(40,40,40);
+	button_thick->fore_color = rgb(255,255,255);
+	thick = 0;
+	ttk_render();
+}
+
 void decors(window_t * win) {
 	render_decorations(win, win->buffer, "Draw!");
 }
@@ -174,6 +196,16 @@ int main (int argc, char ** argv) {
 	button_red->fill_color = rgb(255,0,0);
 	button_red->fore_color = rgb(255,255,255);
 
+	button_thick = ttk_new_button("Thick", set_thickness_thick);
+	ttk_position((ttk_object *)button_thick, decor_left_width + 312, decor_top_height + 3, 50, 20);
+	button_thick->fill_color = rgb(40,40,40);
+	button_thick->fore_color = rgb(255,255,255);
+
+	button_thin = ttk_new_button("Thin", set_thickness_thin);
+	ttk_position((ttk_object *)button_thin, decor_left_width + 362, decor_top_height + 3, 50, 20);
+	button_thin->fill_color = rgb(127,127,127);
+	button_thin->fore_color = rgb(255,255,255);
+
 	ttk_button * button_quit = ttk_new_button("X", quit_app);
 	ttk_position((ttk_object *)button_quit, width - 23, 2, 20, 20);
 	button_quit->fill_color = rgb(255,0,0);
@@ -195,7 +227,11 @@ int main (int argc, char ** argv) {
 		w_mouse_t * mouse = poll_mouse();
 		if (mouse != NULL) {
 			if (mouse->command == WE_MOUSEMOVE && mouse->buttons & MOUSE_BUTTON_LEFT) {
-				draw_line(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
+				if (thick) {
+					draw_line_thick(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color, 2);
+				} else {
+					draw_line(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
+				}
 				decors(wina);
 				ttk_render();
 			}
