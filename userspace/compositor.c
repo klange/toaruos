@@ -323,9 +323,7 @@ void draw_bounding_box(window_t * window, int32_t left, int32_t top) {
 
 	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
 		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
-			/* XXX MAKE THIS FASTER */
-				//if (TO_DERPED_OFFSET(x,y) >= window->width * window->height) continue;
-				GFX(ctx,x,y) = alpha_blend(GFX(ctx,x,y), ((uint32_t *)window->buffer)[TO_DERPED_OFFSET(x,y)], rgb(127,0,0));
+			GFX(ctx,x,y) = alpha_blend(GFX(ctx,x,y), ((uint32_t *)window->buffer)[TO_DERPED_OFFSET(x,y)], rgb(127,0,0));
 		}
 	}
 

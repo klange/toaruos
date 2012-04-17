@@ -67,10 +67,10 @@ uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
-	float a = _RED(mask) / 256.0;
-	uint8_t red = _RED(bottom) * (1.0 - a) + _RED(top) * a;
-	uint8_t gre = _GRE(bottom) * (1.0 - a) + _GRE(top) * a;
-	uint8_t blu = _BLU(bottom) * (1.0 - a) + _BLU(top) * a;
+	uint8_t a = _RED(mask);
+	uint8_t red = (_RED(bottom) * (255 - a) + _RED(top) * a) / 256;
+	uint8_t gre = (_GRE(bottom) * (255 - a) + _GRE(top) * a) / 256;
+	uint8_t blu = (_BLU(bottom) * (255 - a) + _BLU(top) * a) / 256;
 	return rgb(red,gre,blu);
 }
 

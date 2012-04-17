@@ -52,7 +52,7 @@ int main (int argc, char ** argv) {
 	assert(wina);
 	window_reorder (wina, 0);
 	ctx = init_graphics_window_double_buffer(wina);
-	draw_fill(ctx, rgb(0,0,0));
+	draw_fill(ctx, rgb(127,127,127));
 	flip(ctx);
 
 #if 1

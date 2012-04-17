@@ -4,6 +4,7 @@
 #include "lib/graphics.h"
 #include "lib/list.h"
 #include "lib/shmemfonts.h"
+#include "lib/decorations.h"
 
 /* XXX TOOLKIT FUNCTIONS */
 
@@ -136,6 +137,10 @@ static void quit_app(void * button, w_mouse_t * event) {
 	exit(0);
 }
 
+void decors(window_t * win) {
+	render_decorations(win, win->buffer, "Draw!");
+}
+
 int main (int argc, char ** argv) {
 	int left = 30;
 	int top  = 30;
@@ -149,27 +154,29 @@ int main (int argc, char ** argv) {
 	window_t * wina = window_create(left, top, width, height);
 	ctx = init_graphics_window(wina);
 	draw_fill(ctx, rgb(255,255,255));
+	init_decorations();
+	decors(wina);
 
 	win_use_threaded_handler();
 
 	setup_ttk(wina);
 	ttk_button * button_blue = ttk_new_button("Blue", set_color);
-	ttk_position((ttk_object *)button_blue, 3, 3, 100, 20);
+	ttk_position((ttk_object *)button_blue, decor_left_width + 3, decor_top_height + 3, 100, 20);
 	button_blue->fill_color = rgb(0,0,255);
 	button_blue->fore_color = rgb(255,255,255);
 
 	ttk_button * button_green = ttk_new_button("Green", set_color);
-	ttk_position((ttk_object *)button_green, 106, 3, 100, 20);
+	ttk_position((ttk_object *)button_green, decor_left_width + 106, decor_top_height + 3, 100, 20);
 	button_green->fill_color = rgb(0,255,0);
 	button_green->fore_color = rgb(0,0,0);
 
 	ttk_button * button_red = ttk_new_button("Red", set_color);
-	ttk_position((ttk_object *)button_red, 209, 3, 100, 20);
+	ttk_position((ttk_object *)button_red, decor_left_width + 209, decor_top_height + 3, 100, 20);
 	button_red->fill_color = rgb(255,0,0);
 	button_red->fore_color = rgb(255,255,255);
 
 	ttk_button * button_quit = ttk_new_button("X", quit_app);
-	ttk_position((ttk_object *)button_quit, width - 23, 3, 20, 20);
+	ttk_position((ttk_object *)button_quit, decor_left_width + width - 25, decor_top_height + 3, 20, 20);
 	button_quit->fill_color = rgb(255,0,0);
 	button_quit->fore_color = rgb(255,255,255);
 
@@ -188,10 +195,8 @@ int main (int argc, char ** argv) {
 		w_mouse_t * mouse = poll_mouse();
 		if (mouse != NULL) {
 			if (mouse->command == WE_MOUSEMOVE && mouse->buttons & MOUSE_BUTTON_LEFT) {
-				//if (mouse->old_x >= 0 && mouse->new_x >= 0 && mouse->old_y >= 0 && mouse->new_y >= 0 &&
-				//	mouse->old_x < width && mouse->new_x < width && mouse->old_y < width && mouse->new_y < width) {
-					draw_line(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
-				//}
+				draw_line(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
+				decors(wina);
 			}
 			free(mouse);
 		}
