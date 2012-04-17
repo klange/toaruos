@@ -25,6 +25,7 @@ uint16_t win_width;
 uint16_t win_height;
 
 window_t * window;
+gfx_context_t * w_ctx;
 
 int center_x(int x) {
 	return (win_width - x) / 2;
@@ -54,78 +55,6 @@ int32_t min(int32_t a, int32_t b) {
 int32_t max(int32_t a, int32_t b) {
 	return (a > b) ? a : b;
 }
-
-/* Bilinear filtering from Wikipedia */
-uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v) {
-	u *= tex->width;
-	v *= tex->height;
-	int x = floor(u);
-	int y = floor(v);
-	if (x >= tex->width)  return 0;
-	if (y >= tex->height) return 0;
-	double u_ratio = u - x;
-	double v_ratio = v - y;
-	double u_o = 1 - u_ratio;
-	double v_o = 1 - v_ratio;
-	double r_ALP = 256;
-	if (tex->alpha) {
-		if (x == tex->width - 1 || y == tex->height - 1) return (SPRITE(tex,x,y) | 0xFF000000) & (0xFFFFFF + _RED(SMASKS(tex,x,y)) * 0x1000000);
-		r_ALP = (_RED(SMASKS(tex,x,y)) * u_o + _RED(SMASKS(tex,x+1,y)) * u_ratio) * v_o + (_RED(SMASKS(tex,x,y+1)) * u_o  + _RED(SMASKS(tex,x+1,y+1)) * u_ratio) * v_ratio;
-	}
-	if (x == tex->width - 1 || y == tex->height - 1) return SPRITE(tex,x,y);
-	double r_RED = (_RED(SPRITE(tex,x,y)) * u_o + _RED(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_RED(SPRITE(tex,x,y+1)) * u_o  + _RED(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
-	double r_BLU = (_BLU(SPRITE(tex,x,y)) * u_o + _BLU(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_BLU(SPRITE(tex,x,y+1)) * u_o  + _BLU(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
-	double r_GRE = (_GRE(SPRITE(tex,x,y)) * u_o + _GRE(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_GRE(SPRITE(tex,x,y+1)) * u_o  + _GRE(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
-
-	return rgb(r_RED,r_GRE,r_BLU) & (0xFFFFFF + (int)r_ALP * 0x1000000);
-}
-
-void draw_sprite_scaled(sprite_t * sprite, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
-	int32_t _left   = max(x, 0);
-	int32_t _top    = max(y, 0);
-	int32_t _right  = min(x + width,  graphics_width - 1);
-	int32_t _bottom = min(y + height, graphics_height - 1);
-	for (uint16_t _y = 0; _y < height; ++_y) {
-		for (uint16_t _x = 0; _x < width; ++_x) {
-			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-				continue;
-			if (sprite->alpha) {
-				uint32_t n_color = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
-				uint32_t f_color = rgb(_ALP(n_color), 0, 0);
-				GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), n_color, f_color);
-			} else {
-				GFX(x + _x, y + _y) = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
-			}
-		}
-	}
-}
-
-void draw_line_thick(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color, char thickness) {
-	int deltax = abs(x1 - x0);
-	int deltay = abs(y1 - y0);
-	int sx = (x0 < x1) ? 1 : -1;
-	int sy = (y0 < y1) ? 1 : -1;
-	int error = deltax - deltay;
-	while (1) {
-		for (char j = -thickness; j <= thickness; ++j) {
-			for (char i = -thickness; i <= thickness; ++i) {
-				GFX(x0 + i, y0 + j) = color;
-			}
-		}
-		if (x0 == x1 && y0 == y1) break;
-		int e2 = 2 * error;
-		if (e2 > -deltay) {
-			error -= deltay;
-			x0 += sx;
-		}
-		if (e2 < deltax) {
-			error += deltax;
-			y0 += sy;
-		}
-	}
-}
-
-
 void draw(int secs) {
 	struct tm * timeinfo = localtime((time_t *)&secs);
 #if 0
@@ -133,7 +62,7 @@ void draw(int secs) {
 	printf("Min:  %d\n", timeinfo->tm_min);
 	printf("Sec:  %d\n", timeinfo->tm_sec);
 #endif
-	draw_fill(rgb(255,255,255));
+	draw_fill(w_ctx, rgb(255,255,255));
 
 	{
 		int r1 = win_width * 3 / 7;
@@ -141,7 +70,8 @@ void draw(int secs) {
 		for (int val = 0; val < 12; val += 1) {
 			double _val = (float)val / 12.0;
 			_val *= 2.0 * PI;
-			draw_line(decor_left_width + win_width / 2 + r1 * sin(_val), decor_left_width + win_width / 2 + r2 * sin(_val),
+			draw_line(w_ctx,
+					  decor_left_width + win_width / 2 + r1 * sin(_val), decor_left_width + win_width / 2 + r2 * sin(_val),
 			          decor_top_height + win_width / 2 - r1 * cos(_val), decor_top_height + win_width / 2 - r2 * cos(_val), rgb(0,0,0));
 		}
 	}
@@ -156,7 +86,7 @@ void draw(int secs) {
 		int left = win_width / 2 + radius * sin(val);
 		int top  = win_width / 2 - radius * cos(val);
 		uint32_t color = rgb(0,0,0);
-		draw_line_thick(decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color, 2);
+		draw_line_thick(w_ctx, decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color, 2);
 	}
 	{ /* Minutes */
 		double val = timeinfo->tm_min;
@@ -167,7 +97,7 @@ void draw(int secs) {
 		int left = win_width / 2 + radius * sin(val);
 		int top  = win_width / 2 - radius * cos(val);
 		uint32_t color = rgb(0,0,0);
-		draw_line_thick(decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color, 1);
+		draw_line_thick(w_ctx, decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color, 1);
 	}
 	{ /* Seconds */
 		double val = timeinfo->tm_sec;
@@ -177,11 +107,11 @@ void draw(int secs) {
 		int left = win_width / 2 + radius * sin(val);
 		int top  = win_width / 2 - radius * cos(val);
 		uint32_t color = rgb(255,0,0);
-		draw_line(decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color);
+		draw_line(w_ctx, decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color);
 	}
 
-	render_decorations(window, frame_mem, "Clock");
-	flip();
+	render_decorations(window, w_ctx->backbuffer, "Clock");
+	flip(w_ctx);
 }
 
 int main (int argc, char ** argv) {
@@ -197,7 +127,7 @@ int main (int argc, char ** argv) {
 
 	/* Do something with a window */
 	window = window_create(left, top, width + decor_width(), height + decor_height());
-	init_graphics_window_double_buffer(window);
+	w_ctx = init_graphics_window_double_buffer(window);
 	init_decorations();
 
 	struct timeval now;

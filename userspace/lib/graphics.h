@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define GFX_W  graphics_width			/* Display width */
-#define GFX_H  graphics_height			/* Display height */
-#define GFX_B  (graphics_depth / 8)		/* Display byte depth */
+#define GFX_W(ctx)  ((ctx)->width)			/* Display width */
+#define GFX_H(ctx)  ((ctx)->height)			/* Display height */
+#define GFX_B(ctx)  ((ctx)->depth / 8)		/* Display byte depth */
 
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
 #define _GRE(color) ((color & 0x0000FF00) / 0x100)
@@ -21,7 +21,7 @@
 /*
  * Macros make verything easier.
  */
-#define GFX(x,y) *((uint32_t *)&frame_mem[(GFX_W * (y) + (x)) * GFX_B])
+#define GFX(ctx,x,y) *((uint32_t *)&((ctx)->backbuffer)[(GFX_W(ctx) * (y) + (x)) * GFX_B(ctx)])
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 #define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
 
@@ -35,14 +35,6 @@ DECL_SYSCALL0(getgraphicswidth);
 DECL_SYSCALL0(getgraphicsheight);
 DECL_SYSCALL0(getgraphicsdepth);
 
-uint16_t graphics_width;
-uint16_t graphics_height;
-uint16_t graphics_depth;
-
-/* Pointer to graphics memory */
-uint8_t * gfx_mem;
-uint8_t  * frame_mem;
-
 typedef struct sprite {
 	uint16_t width;
 	uint16_t height;
@@ -52,18 +44,30 @@ typedef struct sprite {
 	uint8_t  alpha;
 } sprite_t;
 
+typedef struct context {
+	uint16_t width;
+	uint16_t height;
+	uint16_t depth;
+	uint32_t size;
+	char *   buffer;
+	char *   backbuffer;
+} gfx_context_t;
 
-void init_graphics();
-void init_graphics_double_buffer();
+gfx_context_t * init_graphics_fullscreen();
+gfx_context_t * init_graphics_fullscreen_double_buffer();
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask);
 
-void flip();
+void flip(gfx_context_t * ctx);
+void clear_buffer(gfx_context_t * ctx);
 
 void load_sprite(sprite_t * sprite, char * filename);
-void draw_sprite(sprite_t * sprite, int32_t x, int32_t y);
-void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color);
-void draw_fill(uint32_t color);
+void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y);
+void draw_line(gfx_context_t * ctx, uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color);
+void draw_fill(gfx_context_t * ctx, uint32_t color);
+
+void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+void draw_line_thick(gfx_context_t * ctx, uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color, char thickness);
 
 #endif

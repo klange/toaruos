@@ -38,6 +38,7 @@ size_t terminal_title_length = 0;
 #define WINDOW_WIDTH  640
 #define WINDOW_HEIGHT 408
 
+gfx_context_t * ctx;
 volatile int needs_redraw = 1;
 static void render_decors();
 
@@ -781,14 +782,14 @@ term_set_point(
 		uint32_t color
 		) {
 		if (_windowed) {
-			GFX((x+decor_left_width),(y+decor_top_height)) = color;
+			GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
 		} else {
-			if (graphics_depth == 32) {
-				GFX(x,y) = color;
-			} else if (graphics_depth == 24) {
-				gfx_mem[((y) * graphics_width + x) * 3 + 2] = _RED(color);
-				gfx_mem[((y) * graphics_width + x) * 3 + 1] = _GRE(color);
-				gfx_mem[((y) * graphics_width + x) * 3 + 0] = _BLU(color);
+			if (ctx->depth == 32) {
+				GFX(ctx, x,y) = color;
+			} else if (ctx->depth == 24) {
+				ctx->backbuffer[((y) * ctx->width + x) * 3 + 2] = _RED(color);
+				ctx->backbuffer[((y) * ctx->width + x) * 3 + 1] = _GRE(color);
+				ctx->backbuffer[((y) * ctx->width + x) * 3 + 0] = _BLU(color);
 			}
 		}
 }
@@ -2544,7 +2545,7 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
-			//GFX(i,j) = alpha_blend(GFX(i,j),rgb(0xff,0xff,0xff),rgb(bitmap->buffer[q * bitmap->width + p],0,0));
+			//GFX(ctx, i,j) = alpha_blend(GFX(ctx, i,j),rgb(0xff,0xff,0xff),rgb(bitmap->buffer[q * bitmap->width + p],0,0));
 			term_set_point(i,j, alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0)));
 		}
 	}
@@ -3049,8 +3050,8 @@ int main(int argc, char ** argv) {
 		init_decorations();
 		render_decors();
 
-		window_fill(window, rgb(0,0,0));
-		init_graphics_window(window);
+		ctx = init_graphics_window(window);
+		draw_fill(ctx, rgb(0,0,0));
 	} else if (_vga_mode) {
 		/* Herp derp? */
 		int temp = 0xFFFF;
@@ -3059,7 +3060,7 @@ int main(int argc, char ** argv) {
 		outb(15, 0x3D4);
 		outb(temp, 0x3D5);
 	} else {
-		init_graphics();
+		ctx = init_graphics_fullscreen();
 	}
 
 	if (_use_freetype) {
@@ -3118,21 +3119,22 @@ int main(int argc, char ** argv) {
 		term_width  = WINDOW_WIDTH / char_width;
 		term_height = WINDOW_HEIGHT / char_height;
 	} else if (_vga_mode) {
-		graphics_width = 800;
-		graphics_height = 250;
+		ctx = malloc(sizeof(gfx_context_t));
+		ctx->width = 800;
+		ctx->height = 250;
 		term_width  = 80;
 		term_height = 25;
 		char_width  = 1;
 		char_height = 1;
 	} else {
-		term_width  = graphics_width / char_width;
-		term_height = graphics_height / char_height;
+		term_width  = ctx->width / char_width;
+		term_height = ctx->height / char_height;
 	}
 	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 
-	mouse_x = graphics_width / 2;
-	mouse_y = graphics_height / 2;
+	mouse_x = ctx->width / 2;
+	mouse_y = ctx->height / 2;
 
 	term_term_clear();
 	ansi_print("\033[H\033[2J");
@@ -3199,7 +3201,7 @@ int main(int argc, char ** argv) {
 						int r = read(mfd, buf, 1);
 						goto fail_mouse;
 					}
-					cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+					cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
 					/* Apply mouse movement */
 					int c, l;
 					c = abs(packet->x_difference);
@@ -3216,9 +3218,9 @@ int main(int argc, char ** argv) {
 					mouse_y -= packet->y_difference * l;
 					if (mouse_x < 0) mouse_x = 0;
 					if (mouse_y < 0) mouse_y = 0;
-					if (mouse_x >= graphics_width  * MOUSE_SCALE) mouse_x = (graphics_width - char_width)   * MOUSE_SCALE;
-					if (mouse_y >= graphics_height * MOUSE_SCALE) mouse_y = (graphics_height - char_height) * MOUSE_SCALE;
-					cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / graphics_width, ((mouse_y / MOUSE_SCALE) * term_height) / graphics_height);
+					if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width - char_width)   * MOUSE_SCALE;
+					if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height - char_height) * MOUSE_SCALE;
+					cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
 					fstat(mfd, &_stat);
 				}
 fail_mouse:

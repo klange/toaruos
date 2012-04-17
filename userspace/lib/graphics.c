@@ -5,6 +5,7 @@
 
 #include <syscall.h>
 #include <stdint.h>
+#include <math.h>
 #include "graphics.h"
 #include "window.h"
 
@@ -17,47 +18,48 @@ DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
 DEFN_SYSCALL0(getgraphicsdepth,  20);
 
-
-uint16_t graphics_width  __attribute__ ((aligned (16))) = 0;
-uint16_t graphics_height __attribute__ ((aligned (16))) = 0;
-uint16_t graphics_depth  __attribute__ ((aligned (16))) = 0;
-
 /* Pointer to graphics memory */
-uint8_t * gfx_mem = 0;
-uint8_t  * frame_mem;
-uint32_t   gfx_size;
-
-void flip() {
-	memcpy(gfx_mem, frame_mem, gfx_size);
-	memset(frame_mem, 0, GFX_H * GFX_W * GFX_B);
+void flip(gfx_context_t * ctx) {
+	memcpy(ctx->buffer, ctx->backbuffer, ctx->size);
 }
 
-void init_graphics() {
-	graphics_width  = syscall_getgraphicswidth();
-	graphics_height = syscall_getgraphicsheight();
-	graphics_depth  = syscall_getgraphicsdepth();
-	gfx_size = GFX_B * GFX_H * GFX_W;
-	gfx_mem = (void *)syscall_getgraphicsaddress();
-	frame_mem = gfx_mem;
+void clearbuffer(gfx_context_t * ctx) {
+	memset(ctx->backbuffer, 0, ctx->size);
 }
 
-void init_graphics_double_buffer() {
-	init_graphics();
-	frame_mem = malloc(sizeof(uint32_t) * GFX_W * GFX_H);
+/* Deprecated */
+gfx_context_t * init_graphics_fullscreen() {
+	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+	out->width  = syscall_getgraphicswidth();
+	out->height = syscall_getgraphicsheight();
+	out->depth  = syscall_getgraphicsdepth();
+	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
+	out->buffer = (void *)syscall_getgraphicsaddress();
+	out->backbuffer = out->buffer;
+	return out;
 }
 
-void init_graphics_window(window_t * window) {
-	graphics_width  = window->width;
-	graphics_height = window->height;
-	graphics_depth  = 32;
-	gfx_size = GFX_B * GFX_H * GFX_W;
-	gfx_mem = (void *)window->buffer;
-	frame_mem = gfx_mem;
+gfx_context_t * init_graphics_fullscreen_double_buffer() {
+	gfx_context_t * out = init_graphics_fullscreen();
+	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+	return out;
 }
 
-void init_graphics_window_double_buffer(window_t * window) {
-	init_graphics_window(window);
-	frame_mem = malloc(sizeof(uint32_t) * GFX_W * GFX_H);
+gfx_context_t * init_graphics_window(window_t * window) {
+	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+	out->width  = window->width;
+	out->height = window->height;
+	out->depth  = 32;
+	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
+	out->buffer = window->buffer;
+	out->backbuffer = out->buffer;
+	return out;
+}
+
+gfx_context_t *  init_graphics_window_double_buffer(window_t * window) {
+	gfx_context_t * out = init_graphics_window(window);
+	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+	return out;
 }
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
@@ -130,34 +132,34 @@ static inline int32_t max(int32_t a, int32_t b) {
 	return (a > b) ? a : b;
 }
 
-void draw_sprite(sprite_t * sprite, int32_t x, int32_t y) {
+void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
-	int32_t _right  = min(x + sprite->width,  graphics_width - 1);
-	int32_t _bottom = min(y + sprite->height, graphics_height - 1);
+	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
+	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
 			if (sprite->alpha) {
-				GFX(x + _x, y + _y) = alpha_blend(GFX(x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
+				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
 			} else {
 				if (SPRITE(sprite,_x,_y) != sprite->blank) {
-					GFX(x + _x, y + _y) = SPRITE(sprite, _x, _y);
+					GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y);
 				}
 			}
 		}
 	}
 }
 
-void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color) {
+void draw_line(gfx_context_t * ctx, uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color) {
 	int deltax = abs(x1 - x0);
 	int deltay = abs(y1 - y0);
 	int sx = (x0 < x1) ? 1 : -1;
 	int sy = (y0 < y1) ? 1 : -1;
 	int error = deltax - deltay;
 	while (1) {
-		GFX(x0, y0) = color;
+		GFX(ctx, x0, y0) = color;
 		if (x0 == x1 && y0 == y1) break;
 		int e2 = 2 * error;
 		if (e2 > -deltay) {
@@ -171,10 +173,80 @@ void draw_line(uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t colo
 	}
 }
 
-void draw_fill(uint32_t color) {
-	for (uint16_t y = 0; y < graphics_height; ++y) {
-		for (uint16_t x = 0; x < graphics_width; ++x) {
-			GFX(x, y) = color;
+void draw_fill(gfx_context_t * ctx, uint32_t color) {
+	for (uint16_t y = 0; y < ctx->height; ++y) {
+		for (uint16_t x = 0; x < ctx->width; ++x) {
+			GFX(ctx, x, y) = color;
+		}
+	}
+}
+
+/* Bilinear filtering from Wikipedia */
+uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v) {
+	u *= tex->width;
+	v *= tex->height;
+	int x = floor(u);
+	int y = floor(v);
+	if (x >= tex->width)  return 0;
+	if (y >= tex->height) return 0;
+	double u_ratio = u - x;
+	double v_ratio = v - y;
+	double u_o = 1 - u_ratio;
+	double v_o = 1 - v_ratio;
+	double r_ALP = 256;
+	if (tex->alpha) {
+		if (x == tex->width - 1 || y == tex->height - 1) return (SPRITE(tex,x,y) | 0xFF000000) & (0xFFFFFF + _RED(SMASKS(tex,x,y)) * 0x1000000);
+		r_ALP = (_RED(SMASKS(tex,x,y)) * u_o + _RED(SMASKS(tex,x+1,y)) * u_ratio) * v_o + (_RED(SMASKS(tex,x,y+1)) * u_o  + _RED(SMASKS(tex,x+1,y+1)) * u_ratio) * v_ratio;
+	}
+	if (x == tex->width - 1 || y == tex->height - 1) return SPRITE(tex,x,y);
+	double r_RED = (_RED(SPRITE(tex,x,y)) * u_o + _RED(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_RED(SPRITE(tex,x,y+1)) * u_o  + _RED(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
+	double r_BLU = (_BLU(SPRITE(tex,x,y)) * u_o + _BLU(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_BLU(SPRITE(tex,x,y+1)) * u_o  + _BLU(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
+	double r_GRE = (_GRE(SPRITE(tex,x,y)) * u_o + _GRE(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_GRE(SPRITE(tex,x,y+1)) * u_o  + _GRE(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
+
+	return rgb(r_RED,r_GRE,r_BLU) & (0xFFFFFF + (int)r_ALP * 0x1000000);
+}
+
+void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
+	int32_t _left   = max(x, 0);
+	int32_t _top    = max(y, 0);
+	int32_t _right  = min(x + width,  ctx->width - 1);
+	int32_t _bottom = min(y + height, ctx->height - 1);
+	for (uint16_t _y = 0; _y < height; ++_y) {
+		for (uint16_t _x = 0; _x < width; ++_x) {
+			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+				continue;
+			if (sprite->alpha) {
+				uint32_t n_color = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
+				uint32_t f_color = rgb(_ALP(n_color), 0, 0);
+				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+			} else {
+				GFX(ctx, x + _x, y + _y) = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
+			}
+		}
+	}
+}
+
+void draw_line_thick(gfx_context_t * ctx, uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color, char thickness) {
+	int deltax = abs(x1 - x0);
+	int deltay = abs(y1 - y0);
+	int sx = (x0 < x1) ? 1 : -1;
+	int sy = (y0 < y1) ? 1 : -1;
+	int error = deltax - deltay;
+	while (1) {
+		for (char j = -thickness; j <= thickness; ++j) {
+			for (char i = -thickness; i <= thickness; ++i) {
+				GFX(ctx, x0 + i, y0 + j) = color;
+			}
+		}
+		if (x0 == x1 && y0 == y1) break;
+		int e2 = 2 * error;
+		if (e2 > -deltay) {
+			error -= deltay;
+			x0 += sx;
+		}
+		if (e2 < deltax) {
+			error += deltax;
+			y0 += sy;
 		}
 	}
 }

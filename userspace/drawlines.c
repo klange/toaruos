@@ -2,6 +2,7 @@
 #include <assert.h>
 
 #include "lib/window.h"
+#include "lib/graphics.h"
 
 
 int32_t min(int32_t a, int32_t b) {
@@ -30,8 +31,10 @@ int main (int argc, char ** argv) {
 	/* Do something with a window */
 	window_t * wina = window_create(left, top, width, height);
 	assert(wina);
-	window_fill(wina, rgb(0,255,0));
-	window_redraw_full(wina);
+
+	gfx_context_t * ctx = init_graphics_window(wina);
+	draw_fill(ctx, rgb(0,0,0));
+
 
 	printf("[drawlines] Window drawn for client[%d,%d,%d,%d]\n", left, top, width, height);
 
@@ -46,8 +49,7 @@ int main (int argc, char ** argv) {
 			free(kbd);
 		}
 
-		window_draw_line(wina, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
-		window_redraw_full(wina);
+		draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
 	}
 
 	//window_destroy(wina); // (will close on exit)

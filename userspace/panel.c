@@ -29,6 +29,7 @@ FT_UInt      glyph_index;
 
 uint16_t win_width;
 uint16_t win_height;
+gfx_context_t * ctx;
 
 int center_x(int x) {
 	return (win_width - x) / 2;
@@ -58,7 +59,7 @@ void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg) {
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
-			GFX(i,j) = alpha_blend(GFX(i,j),fg,rgb(bitmap->buffer[q * bitmap->width + p],0,0));
+			GFX(ctx, i,j) = alpha_blend(GFX(ctx, i,j),fg,rgb(bitmap->buffer[q * bitmap->width + p],0,0));
 			//term_set_point(i,j, alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0)));
 		}
 	}
@@ -165,20 +166,22 @@ int main (int argc, char ** argv) {
 
 	/* Create the panel */
 	window_t * panel = window_create(0, 0, width, 24);
-	window_fill(panel, rgb(0,120,230));
 	window_reorder (panel, 0xFFFF);
+	ctx = init_graphics_window_double_buffer(panel);
+	draw_fill(ctx, rgb(0,0,0));
+	flip(ctx);
+
 	init_sprite(0, "/usr/share/panel.bmp", NULL);
 
 	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
-		window_draw_sprite(panel, sprites[0], i, 0);
+		draw_sprite(ctx, sprites[0], i, 0);
 	}
 
 	size_t buf_size = panel->width * panel->height * sizeof(uint32_t);
 	char * buf = malloc(buf_size);
-	memcpy(buf, panel->buffer, buf_size);
+	memcpy(buf, ctx->backbuffer, buf_size);
 
-	init_graphics_window_double_buffer(panel);
-	flip();
+	flip(ctx);
 	//window_redraw_wait(panel);
 
 	struct timeval now;
@@ -203,7 +206,7 @@ int main (int argc, char ** argv) {
 
 	while (1) {
 		/* Redraw the background by memcpy (super speedy) */
-		memcpy(frame_mem, buf, buf_size);
+		memcpy(ctx->backbuffer, buf, buf_size);
 		syscall_gettimeofday(&now, NULL); //time(NULL);
 		if (now.tv_sec != last) {
 			last = now.tv_sec;
@@ -213,7 +216,7 @@ int main (int argc, char ** argv) {
 			draw_string(width - 100, 17, rgb(255,255,255), buffer);
 			draw_string_wide(10, 17, rgb(255,255,255), os_name);
 
-			flip();
+			flip(ctx);
 			//window_redraw_wait(panel);
 			syscall_yield();
 		}

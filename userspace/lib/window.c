@@ -191,68 +191,6 @@ void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_
 }
 
 
-/* Drawing Tools */
-
-void window_set_point(window_t * window, uint16_t x, uint16_t y, uint32_t color) {
-	if (x < 0 || y < 0 || x >= window->width || y >= window->height) {
-		return;
-	}
-
-	((uint32_t *)window->buffer)[DIRECT_OFFSET(x,y)] = color;
-}
-
-void window_draw_line(window_t * window, uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color) {
-	int deltax = abs(x1 - x0);
-	int deltay = abs(y1 - y0);
-	int sx = (x0 < x1) ? 1 : -1;
-	int sy = (y0 < y1) ? 1 : -1;
-	int error = deltax - deltay;
-	while (1) {
-		window_set_point(window, x0, y0, color);
-		if (x0 == x1 && y0 == y1) break;
-		int e2 = 2 * error;
-		if (e2 > -deltay) {
-			error -= deltay;
-			x0 += sx;
-		}
-		if (e2 < deltax) {
-			error += deltax;
-			y0 += sy;
-		}
-	}
-}
-
-static int32_t min(int32_t a, int32_t b) {
-	return (a < b) ? a : b;
-}
-
-void window_draw_sprite(window_t * window, sprite_t * sprite, uint16_t x, uint16_t y) {
-	int x_hi = min(sprite->width, (window->width - x));
-	int y_hi = min(sprite->height, (window->height - y));
-
-	for (uint16_t _y = 0; _y < y_hi; ++_y) {
-		for (uint16_t _x = 0; _x < x_hi; ++_x) {
-			if (sprite->alpha) {
-				uint32_t color = ((uint32_t *)window->buffer)[DIRECT_OFFSET(x+_x,y+_y)];
-				window_set_point(window, x + _x, y + _y, alpha_blend(color, SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y)));
-			} else {
-				if (SPRITE(sprite,_x,_y) != sprite->blank) {
-					window_set_point(window, x + _x, y + _y, SPRITE(sprite, _x, _y));
-				}
-			}
-		}
-	}
-}
-
-void window_fill(window_t *window, uint32_t color) {
-	for (uint16_t i = 0; i < window->height; ++i) {
-		for (uint16_t j = 0; j < window->width; ++j) {
-			((uint32_t *)window->buffer)[DIRECT_OFFSET(j,i)] = color;
-		}
-	}
-}
-
-
 /* Command Dispatch */
 
 uint8_t volatile wins_command_lock;

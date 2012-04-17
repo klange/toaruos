@@ -12,6 +12,7 @@
 #include <getopt.h>
 
 #include "lib/window.h"
+#include "lib/graphics.h"
 #include "lib/decorations.h"
 
 /*
@@ -177,7 +178,7 @@ int main(int argc, char * argv[]) {
 	setup_windowing();
 
 	window = window_create(left, top, width + decor_width(), height + decor_height());
-	window_fill(window, rgb(127,127,127));
+	//window_fill(window, rgb(127,127,127));
 	init_decorations();
 	render_decorations(window, window->buffer, "Julia Fractals");
 

@@ -5,6 +5,7 @@
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
+gfx_context_t * ctx;
 
 void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i] = malloc(sizeof(sprite_t));
@@ -37,11 +38,10 @@ int main (int argc, char ** argv) {
 
 	/* Do something with a window */
 	window_t * wina = window_create(left, top, width, height);
-	window_fill(wina, rgb(100,100,100));
-	init_graphics_window(wina);
+	ctx = init_graphics_window(wina);
+	draw_fill(ctx, rgb(0,0,0));
 
-	draw_sprite(sprites[0], 0, 0);
-	window_redraw_full(wina);
+	draw_sprite(ctx, sprites[0], 0, 0);
 
 	while (1) {
 		w_keyboard_t * kbd = poll_keyboard();

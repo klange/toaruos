@@ -56,6 +56,11 @@ lib/decorations.o: lib/decorations.c
 	@${CC} ${CFLAGS} -c ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [lib]"
 
+lib/shmemfonts.o: lib/shmemfonts.c
+	@${BEG} "CC" "$< [lib]"
+	@${CC} ${CFLAGS} -c ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${ERRORS}
+	@${END} "CC" "$< [lib]"
+
 %.o: %.c
 	@${BEG} "CC" "$< [lib]"
 	@${CC} ${CFLAGS} -c ${EXTRAFLAGS} -o $@ $< ${ERRORS}

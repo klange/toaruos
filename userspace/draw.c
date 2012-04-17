@@ -6,6 +6,8 @@
 
 /* XXX TOOLKIT FUNCTIONS */
 
+gfx_context_t * ctx;
+
 /* Active TTK window XXX */
 static window_t * ttk_window = NULL;
 
@@ -38,14 +40,14 @@ void ttk_render_button(void * s) {
 	ttk_object * self = (ttk_object *)s;
 	/* Fill the button */
 	for (uint16_t y = self->y + 1; y < self->y + self->height; y++) {
-		draw_line(self->x, self->x + self->width, y, y, ((ttk_button *)self)->fill_color);
+		draw_line(ctx, self->x, self->x + self->width, y, y, ((ttk_button *)self)->fill_color);
 	}
 	/* Then draw the border */
 	uint32_t border_color = rgb(0,0,0);
-	draw_line(self->x, self->x + self->width, self->y, self->y, border_color);
-	draw_line(self->x, self->x,  self->y, self->y + self->height, border_color);
-	draw_line(self->x + self->width, self->x + self->width, self->y, self->y + self->height, border_color);
-	draw_line(self->x, self->x + self->width, self->y + self->height, self->y + self->height, border_color);
+	draw_line(ctx, self->x, self->x + self->width, self->y, self->y, border_color);
+	draw_line(ctx, self->x, self->x,  self->y, self->y + self->height, border_color);
+	draw_line(ctx, self->x + self->width, self->x + self->width, self->y, self->y + self->height, border_color);
+	draw_line(ctx, self->x, self->x + self->width, self->y + self->height, self->y + self->height, border_color);
 }
 
 ttk_button * ttk_new_button(char * title, void (*callback)(void *, w_mouse_t *)) {
@@ -138,8 +140,8 @@ int main (int argc, char ** argv) {
 
 	/* Do something with a window */
 	window_t * wina = window_create(left, top, width, height);
-	window_fill(wina, rgb(255,255,255));
-	init_graphics_window(wina);
+	ctx = init_graphics_window(wina);
+	draw_fill(ctx, rgb(255,255,255));
 
 	win_use_threaded_handler();
 
@@ -176,7 +178,7 @@ int main (int argc, char ** argv) {
 			if (mouse->command == WE_MOUSEMOVE && mouse->buttons & MOUSE_BUTTON_LEFT) {
 				if (mouse->old_x >= 0 && mouse->new_x >= 0 && mouse->old_y >= 0 && mouse->new_y >= 0 &&
 					mouse->old_x < width && mouse->new_x < width && mouse->old_y < width && mouse->new_y < width) {
-					draw_line(mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
+					draw_line(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
 				}
 			}
 			free(mouse);

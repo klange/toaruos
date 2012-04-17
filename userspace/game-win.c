@@ -16,15 +16,17 @@
 sprite_t * sprites[128];
 window_t * window;
 
+gfx_context_t * ctx;
+
 #define WINDOW_SIZE 224
 int out_of_bounds(int x, int y) {
-	if (x < graphics_width / 2 - WINDOW_SIZE)
+	if (x < ctx->width / 2 - WINDOW_SIZE)
 		return 1;
-	if (x >= graphics_width / 2 + WINDOW_SIZE)
+	if (x >= ctx->width / 2 + WINDOW_SIZE)
 		return 1;
-	if (y < graphics_height / 2 - WINDOW_SIZE)
+	if (y < ctx->height / 2 - WINDOW_SIZE)
 		return 1;
-	if (y >= graphics_height / 2 + WINDOW_SIZE)
+	if (y >= ctx->height / 2 + WINDOW_SIZE)
 		return 1;
 	return 0;
 }
@@ -91,7 +93,7 @@ void render_map(int x, int y) {
 					sprite = 0;
 					break;
 			}
-			draw_sprite(sprites[sprite],
+			draw_sprite(ctx, sprites[sprite],
 					decor_left_width + map_x + offset_x * offset_iter + j * CELL_SIZE,
 					decor_top_height + map_y + offset_y * offset_iter + i * CELL_SIZE);
 			++j;
@@ -103,9 +105,9 @@ void render_map(int x, int y) {
 
 void display() {
 	render_map(my_x,my_y);
-	draw_sprite(sprites[124 + direction], decor_left_width + map_x + CELL_SIZE * 4, decor_top_height + map_y + CELL_SIZE * 4);
-	render_decorations(window, frame_mem, "RPG Demo");
-	flip();
+	draw_sprite(ctx, sprites[124 + direction], decor_left_width + map_x + CELL_SIZE * 4, decor_top_height + map_y + CELL_SIZE * 4);
+	render_decorations(window, ctx->backbuffer, "RPG Demo");
+	flip(ctx);
 	//window_redraw_wait(window);
 }
 
@@ -197,15 +199,13 @@ int main(int argc, char ** argv) {
 	setup_windowing();
 
 	window = window_create(10,10, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
-	window_fill(window, rgb(100,100,100));
-	window_redraw_full(window);
-	init_graphics_window_double_buffer(window);
+	ctx = init_graphics_window_double_buffer(window);
+	draw_fill(ctx,rgb(0,0,0));
 
 	init_decorations();
 
 	map_x = WINDOW_SIZE - (64 * 9) / 2;
 	map_y = WINDOW_SIZE - (64 * 9) / 2;
-	printf("Graphics memory is at %p, backbuffer is at %p.\n", gfx_mem, frame_mem);
 
 	printf("Loading sprites...\n");
 	init_sprite(0, "/etc/game/0.bmp", NULL);
