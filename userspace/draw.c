@@ -155,7 +155,6 @@ int main (int argc, char ** argv) {
 	ctx = init_graphics_window(wina);
 	draw_fill(ctx, rgb(255,255,255));
 	init_decorations();
-	decors(wina);
 
 	win_use_threaded_handler();
 
@@ -176,12 +175,13 @@ int main (int argc, char ** argv) {
 	button_red->fore_color = rgb(255,255,255);
 
 	ttk_button * button_quit = ttk_new_button("X", quit_app);
-	ttk_position((ttk_object *)button_quit, decor_left_width + width - 25, decor_top_height + 3, 20, 20);
+	ttk_position((ttk_object *)button_quit, width - 23, 2, 20, 20);
 	button_quit->fill_color = rgb(255,0,0);
 	button_quit->fore_color = rgb(255,255,255);
 
 	drawing_color = rgb(255,0,0);
 
+	decors(wina);
 	ttk_render();
 
 	while (!quit) {
@@ -197,6 +197,7 @@ int main (int argc, char ** argv) {
 			if (mouse->command == WE_MOUSEMOVE && mouse->buttons & MOUSE_BUTTON_LEFT) {
 				draw_line(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
 				decors(wina);
+				ttk_render();
 			}
 			free(mouse);
 		}
