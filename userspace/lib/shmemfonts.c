@@ -56,6 +56,27 @@ static void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg, gfx_context
 	}
 }
 
+uint32_t draw_string_width(char * string) {
+	slot = face->glyph;
+	int pen_x = 0, i = 0;
+	int len = strlen(string);
+	int error;
+
+	for (i = 0; i < len; ++i) {
+		FT_UInt glyph_index;
+
+		glyph_index = FT_Get_Char_Index( face, string[i]);
+		error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
+		if (error) {
+			printf("Error loading glyph for '%c'\n", string[i]);
+			continue;
+		}
+		slot = (face)->glyph;
+		pen_x += slot->advance.x >> 6;
+	}
+	return pen_x;
+}
+
 void draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
 	slot = face->glyph;
 	int pen_x = x, pen_y = y, i = 0;

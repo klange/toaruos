@@ -51,7 +51,9 @@ void ttk_render_button(void * s) {
 	draw_line(ctx, self->x + self->width, self->x + self->width, self->y, self->y + self->height, border_color);
 	draw_line(ctx, self->x, self->x + self->width, self->y + self->height, self->y + self->height, border_color);
 	/* button-specific stuff */
-	draw_string(ctx, self->x + 10, self->y + self->height - 3, ((ttk_button *)self)->fore_color, ((ttk_button * )self)->title);
+	uint32_t w = draw_string_width(((ttk_button * )self)->title);
+	uint16_t offset = (self->width - w) / 2;
+	draw_string(ctx, self->x + offset, self->y + self->height - 3, ((ttk_button *)self)->fore_color, ((ttk_button * )self)->title);
 }
 
 ttk_button * ttk_new_button(char * title, void (*callback)(void *, w_mouse_t *)) {
