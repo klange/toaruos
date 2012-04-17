@@ -152,14 +152,16 @@ void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 	}
 }
 
-void draw_line(gfx_context_t * ctx, uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color) {
+void draw_line(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color) {
 	int deltax = abs(x1 - x0);
 	int deltay = abs(y1 - y0);
 	int sx = (x0 < x1) ? 1 : -1;
 	int sy = (y0 < y1) ? 1 : -1;
 	int error = deltax - deltay;
 	while (1) {
-		GFX(ctx, x0, y0) = color;
+		if (x0 >= 0 && y0 >= 0 && x0 < ctx->width && y0 < ctx->height) {
+			GFX(ctx, x0, y0) = color;
+		}
 		if (x0 == x1 && y0 == y1) break;
 		int e2 = 2 * error;
 		if (e2 > -deltay) {
@@ -172,6 +174,34 @@ void draw_line(gfx_context_t * ctx, uint16_t x0, uint16_t x1, uint16_t y0, uint1
 		}
 	}
 }
+
+void draw_line_thick(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color, char thickness) {
+	int deltax = abs(x1 - x0);
+	int deltay = abs(y1 - y0);
+	int sx = (x0 < x1) ? 1 : -1;
+	int sy = (y0 < y1) ? 1 : -1;
+	int error = deltax - deltay;
+	while (1) {
+		for (char j = -thickness; j <= thickness; ++j) {
+			for (char i = -thickness; i <= thickness; ++i) {
+				if (x0 + i >= 0 && x0 + i < ctx->width && y0 + j >= 0 && y0 + j < ctx->height) {
+					GFX(ctx, x0 + i, y0 + j) = color;
+				}
+			}
+		}
+		if (x0 == x1 && y0 == y1) break;
+		int e2 = 2 * error;
+		if (e2 > -deltay) {
+			error -= deltay;
+			x0 += sx;
+		}
+		if (e2 < deltax) {
+			error += deltax;
+			y0 += sy;
+		}
+	}
+}
+
 
 void draw_fill(gfx_context_t * ctx, uint32_t color) {
 	for (uint16_t y = 0; y < ctx->height; ++y) {
@@ -225,29 +255,3 @@ void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, uint16_t x, uint
 		}
 	}
 }
-
-void draw_line_thick(gfx_context_t * ctx, uint16_t x0, uint16_t x1, uint16_t y0, uint16_t y1, uint32_t color, char thickness) {
-	int deltax = abs(x1 - x0);
-	int deltay = abs(y1 - y0);
-	int sx = (x0 < x1) ? 1 : -1;
-	int sy = (y0 < y1) ? 1 : -1;
-	int error = deltax - deltay;
-	while (1) {
-		for (char j = -thickness; j <= thickness; ++j) {
-			for (char i = -thickness; i <= thickness; ++i) {
-				GFX(ctx, x0 + i, y0 + j) = color;
-			}
-		}
-		if (x0 == x1 && y0 == y1) break;
-		int e2 = 2 * error;
-		if (e2 > -deltay) {
-			error -= deltay;
-			x0 += sx;
-		}
-		if (e2 < deltax) {
-			error += deltax;
-			y0 += sy;
-		}
-	}
-}
-

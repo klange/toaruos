@@ -104,10 +104,10 @@ typedef struct {
 
 typedef struct {
 	wid_t    wid;
-	uint16_t old_x;
-	uint16_t old_y;
-	uint16_t new_x;
-	uint16_t new_y;
+	int32_t  old_x;
+	int32_t  old_y;
+	int32_t  new_x;
+	int32_t  new_y;
 	uint8_t  buttons;
 	uint8_t  command;
 } w_mouse_t;

@@ -188,10 +188,10 @@ int main (int argc, char ** argv) {
 		w_mouse_t * mouse = poll_mouse();
 		if (mouse != NULL) {
 			if (mouse->command == WE_MOUSEMOVE && mouse->buttons & MOUSE_BUTTON_LEFT) {
-				if (mouse->old_x >= 0 && mouse->new_x >= 0 && mouse->old_y >= 0 && mouse->new_y >= 0 &&
-					mouse->old_x < width && mouse->new_x < width && mouse->old_y < width && mouse->new_y < width) {
+				//if (mouse->old_x >= 0 && mouse->new_x >= 0 && mouse->old_y >= 0 && mouse->new_y >= 0 &&
+				//	mouse->old_x < width && mouse->new_x < width && mouse->old_y < width && mouse->new_y < width) {
 					draw_line(ctx, mouse->old_x, mouse->new_x, mouse->old_y, mouse->new_y, drawing_color);
-				}
+				//}
 			}
 			free(mouse);
 		}
