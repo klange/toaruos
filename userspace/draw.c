@@ -3,6 +3,7 @@
 #include "lib/window.h"
 #include "lib/graphics.h"
 #include "lib/list.h"
+#include "lib/shmemfonts.h"
 
 /* XXX TOOLKIT FUNCTIONS */
 
@@ -34,6 +35,7 @@ typedef struct {
 	ttk_object _super;   /* Parent type (Object -> Button) */
 	char * title;        /* Button text */
 	uint32_t fill_color; /* Fill color */
+	uint32_t fore_color; /* Text color */
 } ttk_button;
 
 void ttk_render_button(void * s) {
@@ -48,6 +50,8 @@ void ttk_render_button(void * s) {
 	draw_line(ctx, self->x, self->x,  self->y, self->y + self->height, border_color);
 	draw_line(ctx, self->x + self->width, self->x + self->width, self->y, self->y + self->height, border_color);
 	draw_line(ctx, self->x, self->x + self->width, self->y + self->height, self->y + self->height, border_color);
+	/* button-specific stuff */
+	draw_string(ctx, self->x + 10, self->y + self->height - 3, ((ttk_button *)self)->fore_color, ((ttk_button * )self)->title);
 }
 
 ttk_button * ttk_new_button(char * title, void (*callback)(void *, w_mouse_t *)) {
@@ -113,6 +117,7 @@ void setup_ttk(window_t * window) {
 	ttk_window = window;
 	ttk_objects = list_create();
 	mouse_action_callback = ttk_check_click;
+	init_shmemfonts();
 }
 
 uint32_t drawing_color = 0;
@@ -149,17 +154,22 @@ int main (int argc, char ** argv) {
 	ttk_button * button_blue = ttk_new_button("Blue", set_color);
 	ttk_position((ttk_object *)button_blue, 3, 3, 100, 20);
 	button_blue->fill_color = rgb(0,0,255);
+	button_blue->fore_color = rgb(255,255,255);
 
-	ttk_button * button_green = ttk_new_button("Grn", set_color);
+	ttk_button * button_green = ttk_new_button("Green", set_color);
 	ttk_position((ttk_object *)button_green, 106, 3, 100, 20);
 	button_green->fill_color = rgb(0,255,0);
+	button_green->fore_color = rgb(0,0,0);
 
 	ttk_button * button_red = ttk_new_button("Red", set_color);
 	ttk_position((ttk_object *)button_red, 209, 3, 100, 20);
 	button_red->fill_color = rgb(255,0,0);
+	button_red->fore_color = rgb(255,255,255);
 
-	ttk_button * button_quit = ttk_new_button("Quit", quit_app);
+	ttk_button * button_quit = ttk_new_button("X", quit_app);
 	ttk_position((ttk_object *)button_quit, width - 23, 3, 20, 20);
+	button_quit->fill_color = rgb(255,0,0);
+	button_quit->fore_color = rgb(255,255,255);
 
 	drawing_color = rgb(255,0,0);
 

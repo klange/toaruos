@@ -31,9 +31,9 @@ clean:
 	@-rm -f ${EXECUTABLES}
 	@${ENDRM} "RM" "Cleaned userspace full-toolchain applications."
 
-${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o
+${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o
 	@${BEG} "CC" "$@ $< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o ${LIBM} ${FREETYPE_LIB} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o ${LIBM} ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 $(TARGETDIR)%: %.cpp
@@ -50,11 +50,6 @@ $(TARGETDIR)%: %.c
 	@${BEG} "CC" "$<"
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
-
-lib/decorations.o: lib/decorations.c
-	@${BEG} "CC" "$< [lib]"
-	@${CC} ${CFLAGS} -c ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${ERRORS}
-	@${END} "CC" "$< [lib]"
 
 lib/shmemfonts.o: lib/shmemfonts.c
 	@${BEG} "CC" "$< [lib]"

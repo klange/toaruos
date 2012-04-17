@@ -65,7 +65,7 @@ void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg) {
 	}
 }
 
-void draw_string(int x, int y, uint32_t fg, char * string) {
+static void draw_string(int x, int y, uint32_t fg, char * string) {
 	slot = face->glyph;
 	int pen_x = x, pen_y = y, i = 0;
 	int len = strlen(string);
@@ -103,7 +103,7 @@ int wstrlen(uint16_t * s) {
 	return i;
 }
 
-void draw_string_wide(int x, int y, uint32_t fg, uint16_t * string) {
+static void draw_string_wide(int x, int y, uint32_t fg, uint16_t * string) {
 	slot = face->glyph;
 	int pen_x = x, pen_y = y, i = 0;
 	int len = wstrlen(string);

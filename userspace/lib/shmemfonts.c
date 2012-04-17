@@ -17,6 +17,7 @@ static FT_Library   library;
 static FT_Face      face; /* perhaps make this an array ? */
 static FT_GlyphSlot slot;
 static FT_UInt      glyph_index;
+static int initialized = 0;
 
 #define SGFX(CTX,x,y,WIDTH) *((uint32_t *)&CTX[((WIDTH) * (y) + (x)) * 4])
 #define FONT_SIZE 12
@@ -33,6 +34,14 @@ static void _loadSansSerif() {
 	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
 }
 
+void init_shmemfonts() {
+	if (!initialized) {
+		FT_Init_FreeType(&library);
+		_loadSansSerif();
+		initialized = 1;
+	}
+}
+
 /*
  * Draw a character to a context.
  */
@@ -42,12 +51,12 @@ static void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg, gfx_context
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
-			SGFX(ctx->buffer,i,j,ctx->width) = alpha_blend(SGFX(ctx->buffer,i,j,ctx->width),fg,rgb(bitmap->buffer[q * bitmap->width + p],0,0));
+			SGFX(ctx->backbuffer,i,j,ctx->width) = alpha_blend(SGFX(ctx->backbuffer,i,j,ctx->width),fg,rgb(bitmap->buffer[q * bitmap->width + p],0,0));
 		}
 	}
 }
 
-static void draw_string(int x, int y, uint32_t fg, char * string, gfx_context_t * ctx) {
+void draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
 	slot = face->glyph;
 	int pen_x = x, pen_y = y, i = 0;
 	int len = strlen(string);
