@@ -19,7 +19,7 @@ FREETYPE_LIB = ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
 LIBM = ../util/toaru-toolchain/i686-pc-toaru/lib/libm.a
 
 TARGETDIR = ../hdd/bin/
-ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver donut wallpaper panel glock clock-win draw
+ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver donut wallpaper panel glock clock-win draw test-gfx
 FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 .PHONY: all clean
