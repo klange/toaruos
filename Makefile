@@ -36,8 +36,7 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS     = -kernel toaruos-kernel -m 256 -append "vid=qemu hdd" -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
-EMUARGSVGA  = -kernel toaruos-kernel -m 256 -append "vgaterm hdd"  -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
+EMUARGS     = -kernel toaruos-kernel -m 256 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
 EMUKVM      = -enable-kvm
 
 H=hdd/bin
@@ -55,14 +54,19 @@ install: system
 	@cp toaruos-initrd /boot/toaruos-initrd
 	@${END} "CP" "Installed to /boot"
 
+# Various different quick options
 run: system
-	${EMU} ${EMUARGS}
-
+	${EMU} ${EMUARGS} -append "vid=qemu hdd"
 kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM}
-
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu hdd"
 vga: system
-	${EMU} ${EMUARGSVGA} ${EMUKVM}
+	${EMU} ${EMUARGS} -append "vgaterm hdd"
+vga-kvm: system
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vgaterm hdd"
+term: system
+	${EMU} ${EMUARGS} -append "vid=qemu single hdd"
+term-kvm: system
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single hdd"
 
 utils: ${UTILITIES}
 
