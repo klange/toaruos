@@ -206,8 +206,6 @@ int main(int argc, char * argv[]) {
 		++j;
 	} while ( j < height );
 
-	window_redraw_wait(window);
-
 	int playing = 1;
 	while (playing) {
 		char ch = 0;

@@ -1,10 +1,11 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Wallpaper renderer.
+ *
+ */
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
-
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_CACHE_H
 
 #include "lib/window.h"
 #include "lib/graphics.h"
@@ -68,7 +69,6 @@ int main (int argc, char ** argv) {
 #endif
 
 	flip(ctx);
-	window_redraw_full(wina);
 
 	while (1) {
 		syscall_yield();

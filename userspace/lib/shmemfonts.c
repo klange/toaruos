@@ -29,7 +29,7 @@ static void _loadSansSerif() {
 	char * font;
 	size_t s = 0;
 	int error;
-	font = (char *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bold", &s);
+	font = (char *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER ".fonts.sans-serif", &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &face);
 	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
 }

@@ -60,7 +60,6 @@ void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg) {
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
 			GFX(ctx, i,j) = alpha_blend(GFX(ctx, i,j),fg,rgb(bitmap->buffer[q * bitmap->width + p],0,0));
-			//term_set_point(i,j, alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0)));
 		}
 	}
 }
@@ -182,7 +181,6 @@ int main (int argc, char ** argv) {
 	memcpy(buf, ctx->backbuffer, buf_size);
 
 	flip(ctx);
-	//window_redraw_wait(panel);
 
 	struct timeval now;
 	int last = 0;
@@ -217,7 +215,6 @@ int main (int argc, char ** argv) {
 			draw_string_wide(10, 17, rgb(255,255,255), os_name);
 
 			flip(ctx);
-			//window_redraw_wait(panel);
 			syscall_yield();
 		}
 	}

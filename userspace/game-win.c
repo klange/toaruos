@@ -108,7 +108,6 @@ void display() {
 	draw_sprite(ctx, sprites[124 + direction], decor_left_width + map_x + CELL_SIZE * 4, decor_top_height + map_y + CELL_SIZE * 4);
 	render_decorations(window, ctx->backbuffer, "RPG Demo");
 	flip(ctx);
-	//window_redraw_wait(window);
 }
 
 void transition(int nx, int ny) {

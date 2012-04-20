@@ -2937,15 +2937,6 @@ int buffer_put(char c) {
 	return 0;
 }
 
-void * screen_redrawer(void * garbage) {
-	while (1) {
-		if (needs_redraw) {
-			needs_redraw = 0;
-			window_redraw_wait(window);
-		}
-	}
-}
-
 void * wait_for_exit(void * garbage) {
 	syscall_wait(child_pid);
 	/* Clean up */
