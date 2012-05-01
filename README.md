@@ -1,11 +1,11 @@
 # ToAruOS (とあるOS) #
 ![ToAruOS (logo)](https://github.com/klange/osdev/raw/master/docs/logo.png)
 
-This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS is currently maintained by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/). While the ultimate goal is a microkernel, we currently have a very monolithic kernel.
+This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS was managed by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/) until May, 2012. While the ultimate goal is a microkernel, we currently have a relatively monolithic kernel.
 
+## News ##
 
-## Notice ##
-*This repository may be moving to [`acm-uiuc/toaruos`](https://github.com/acm-uiuc/toaruos) in May, 2012. Please be prepared to update your pull URLs and any bookmarks you have.*
+We are currently working on porting a toolchain to natively run under とあるOS. We currently have a nearly-working build of binutils and are working on porting gcc.
 
 ## Features ##
 
