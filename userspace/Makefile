@@ -41,9 +41,9 @@ $(TARGETDIR)%: %.cpp
 	@${CPP} ${CPPFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CPP" "$<"
 
-$(TARGETDIR)ld: ld.c
+$(TARGETDIR)ld: ld.c lib/ldlib.o
 	@${BEG} "CC" "$< [-fPIC]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} -fPIC -o $@ $< ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -fPIC -o $@ $< lib/ldlib.o ${ERRORS}
 	@${END} "CC" "$< [-fPIC]"
 
 $(TARGETDIR)%: %.c
