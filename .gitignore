@@ -11,6 +11,7 @@ initrd/etc
 hdd/boot
 hdd/bin/*
 hdd/etc/hostname
+hdd/lib
 .gdb_history
 bootdisk.img
 util/toaru-toolchain/*
