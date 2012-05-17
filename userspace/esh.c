@@ -12,10 +12,6 @@
 #include <unistd.h>
 #include <time.h>
 
-DEFN_SYSCALL2(getcwd, 29, char *, size_t);
-DEFN_SYSCALL1(chdir, 28, char *);
-
-DEFN_SYSCALL0(getuid, 23);
 DEFN_SYSCALL0(gethostname, 32);
 
 DEFN_SYSCALL2(signal, 38, uint32_t, void *);

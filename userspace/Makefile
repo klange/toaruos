@@ -14,9 +14,11 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || ../util/mk-error
 BEGRM = ../util/mk-beg-rm
 ENDRM = ../util/mk-end-rm
 
-FREETYPE_INC = -I ../util/toaru-toolchain/i686-pc-toaru/include/freetype2/
-FREETYPE_LIB = ../util/toaru-toolchain/i686-pc-toaru/lib/libfreetype.a
-LIBM = ../util/toaru-toolchain/i686-pc-toaru/lib/libm.a
+TOOLCHAIN= ../toolchain/local/i686-pc-toaru
+
+FREETYPE_INC = -I ${TOOLCHAIN}/include/freetype2/
+FREETYPE_LIB = ${TOOLCHAIN}/lib/libfreetype.a
+LIBM = ${TOOLCHAIN}/lib/libm.a
 
 TARGETDIR = ../hdd/bin/
 ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver donut wallpaper panel glock clock-win draw test-gfx

@@ -6,8 +6,6 @@
 #include <syscall.h>
 #include <stdint.h>
 
-DEFN_SYSCALL2(mkdir, 34, char *, uint32_t)
-
 int main(int argc, char ** argv) {
 	if (argc < 2) {
 		fprintf(stderr, "%s: expected argument\n", argv[0]);

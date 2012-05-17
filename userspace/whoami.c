@@ -8,8 +8,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-DEFN_SYSCALL0(getuid, 23);
-
 #define LINE_LEN 4096
 
 int main(int argc, char ** argv) {

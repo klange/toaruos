@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <syscall.h>
 
-DEFN_SYSCALL0(getuid, 23);
 DEFN_SYSCALL1(sethostname, 31, char *)
 DEFN_SYSCALL0(gethostname, 32)
 

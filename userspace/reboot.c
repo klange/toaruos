@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <syscall.h>
 
-DEFN_SYSCALL0(getuid, 23);
 DEFN_SYSCALL0(reboot, 26);
 
 int main(int argc, char ** argv) {

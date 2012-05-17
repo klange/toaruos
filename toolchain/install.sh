@@ -33,7 +33,7 @@ pushd build
     pushd $DIR/tarballs/newlib-1.19.0/newlib/libc/sys
         autoconf
         pushd toaru
-            autoconf
+            autoreconf
             yasm -f elf -o crt0.o crt0.s
             cp crt0.o ../
             cp crt0.o /tmp/__toaru_crt0.o
@@ -47,5 +47,13 @@ pushd build
         make
         make install
         cp $DIR/patches/newlib/syscall.h $PREFIX/$TARGET/include/
+    popd
+    if [ ! -d freetype ]; then
+        mkdir freetype
+    fi
+    pushd freetype
+        $DIR/tarballs/freetype-2.4.9/configure --host=$TARGET --prefix=$PREFIX/$TARGET
+        make
+        make install
     popd
 popd
