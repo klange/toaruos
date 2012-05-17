@@ -11,22 +11,22 @@ pushd build
     if [ ! -d binutils ]; then
         mkdir binutils
     fi
-    #pushd binutils
-    #    $DIR/tarballs/binutils-2.22/configure --target=$TARGET --prefix=$PREFIX
-    #    make
-    #    make install
-    #popd
+    pushd binutils
+        $DIR/tarballs/binutils-2.22/configure --target=$TARGET --prefix=$PREFIX
+        make
+        make install
+    popd
     export PATH=$PATH:$PREFIX/bin
     if [ ! -d gcc ]; then
         mkdir gcc
     fi
-    #pushd gcc
-    #    $DIR/tarballs/gcc-4.6.0/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c
-    #    make all-gcc
-    #    make install-gcc
-    #    make all-target-libgcc
-    #    make install-target-libgcc
-    #popd
+    pushd gcc
+        $DIR/tarballs/gcc-4.6.0/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c
+        make all-gcc
+        make install-gcc
+        make all-target-libgcc
+        make install-target-libgcc
+    popd
     if [ ! -d newlib ]; then
         mkdir newlib
     fi
