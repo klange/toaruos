@@ -46,5 +46,6 @@ pushd build
         $DIR/tarballs/newlib-1.19.0/configure --target=$TARGET --prefix=$PREFIX
         make
         make install
+        cp $DIR/patches/newlib/syscall.h $PREFIX/$TARGET/include/
     popd
 popd
