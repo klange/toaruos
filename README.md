@@ -60,8 +60,19 @@ Here's what とあるOS has looked like in the past:
 ## Testing it Out ##
 Clone the git repository and run:
 
-    # Retreive the precompiled binaries:
-    util/grab-binaries.sh
+    # Ensure that you have clang, yasm, a working C stack, etc.
+    sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp-dev
+    # Build the toolchain:
+    pushd toolchain
+    ./prepare.sh
+    ./install.sh
+    . activate.sh
+    popd
+    # Build the userspace tools:
+    pushd userspace
+    make
+    popd
+    # Build the kernel
     make system         # to build the kernel
     make run            # to run qemu with the proper arguments
     # Or, if you have KVM...
