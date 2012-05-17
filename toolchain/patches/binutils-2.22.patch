@@ -1,0 +1,80 @@
+diff -rupN original/bfd/config.bfd new/bfd/config.bfd
+--- original/bfd/config.bfd	2011-07-28 17:35:13.000000000 -0500
++++ new/bfd/config.bfd	2012-05-16 20:51:26.000000000 -0500
+@@ -674,6 +674,10 @@ case "${targ}" in
+     targ_defvec=bfd_elf32_i386_vec
+     targ_selfvecs=i386chaos_vec
+     ;;
++  i[3-7]86-*-toaru*)
++    targ_defvec=bfd_elf32_i386_vec
++    ;;
++
+ 
+   i860-*-mach3* | i860-*-osf1* | i860-*-coff*)
+     targ_defvec=i860coff_vec
+diff -rupN original/config.sub new/config.sub
+--- original/config.sub	2011-06-06 05:36:06.000000000 -0500
++++ new/config.sub	2012-05-16 20:49:18.000000000 -0500
+@@ -1323,6 +1323,7 @@ case $os in
+ 	      | -sym* | -kopensolaris* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+ 	      | -aos* | -aros* \
++	      | -toaru * \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -rupN original/gas/configure.tgt new/gas/configure.tgt
+--- original/gas/configure.tgt	2011-06-20 08:23:21.000000000 -0500
++++ new/gas/configure.tgt	2012-05-16 20:51:49.000000000 -0500
+@@ -228,6 +228,7 @@ case ${generic_target} in
+   i386-*-chaos)				fmt=elf ;;
+   i386-*-rdos*)				fmt=elf ;;
+   i386-*-darwin*)			fmt=macho ;;
++  i386-*-toaru*)			fmt=elf ;;
+ 
+   i860-*-*)				fmt=elf endian=little ;;
+ 
+diff -rupN original/ld/configure.tgt new/ld/configure.tgt
+--- original/ld/configure.tgt	2011-11-21 03:29:37.000000000 -0600
++++ new/ld/configure.tgt	2012-05-16 20:49:58.000000000 -0500
+@@ -195,6 +195,7 @@ x86_64-*-linux-*)	targ_emul=elf_x86_64
+ 			targ_extra_libpath="elf_i386 elf32_x86_64 elf_l1om elf_k1om"
+ 			tdir_i386linux=`echo ${targ_alias}aout | sed -e 's/x86_64/i386/'`
+ 			tdir_elf_i386=`echo ${targ_alias} | sed -e 's/x86_64/i386/'` ;;
++i[3-7]86-*-toaru*)	targ_emul=toaru_i386 ;;
+ i[3-7]86-*-sysv[45]*)	targ_emul=elf_i386 ;;
+ i[3-7]86-*-solaris2*)	targ_emul=elf_i386_sol2
+                         targ_extra_emuls="elf_i386_ldso elf_i386 elf_x86_64_sol2 elf_x86_64 elf_l1om elf_k1om"
+diff -rupN original/ld/emulparams/toaru_i386.sh new/ld/emulparams/toaru_i386.sh
+--- original/ld/emulparams/toaru_i386.sh	1969-12-31 18:00:00.000000000 -0600
++++ new/ld/emulparams/toaru_i386.sh	2012-05-16 20:48:40.000000000 -0500
+@@ -0,0 +1,16 @@
++SCRIPT_NAME=elf
++ELFSIZE=32
++OUTPUT_FORMAT=elf32-i386
++NO_RELA_RELOCS=yes
++TEXT_START_ADDR=0x02000000
++MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
++COMMONPAGESIZE="CONSTANT (COMMONPAGESIZE)"
++ARCH=i386
++MACHINE=
++NOP=0x90909090
++TEMPLATE_NAME=elf32
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
++NO_SMALL_DATA=yes
++SEPARATE_GOTPLT=12
++IREL_IN_PLT=
+diff -rupN original/ld/Makefile.in new/ld/Makefile.in
+--- original/ld/Makefile.in	2011-07-22 15:22:37.000000000 -0500
++++ new/ld/Makefile.in	2012-05-16 20:50:54.000000000 -0500
+@@ -2627,6 +2627,9 @@ eelf32xtensa.c: $(srcdir)/emulparams/elf
+ eelf_i386.c: $(srcdir)/emulparams/elf_i386.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf_i386 "$(tdir_elf_i386)"
++etoaru_i386.c: $(srcdir)/emulparams/toaru_i386.sh \
++  $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++	${GENSCRIPTS} toaru_i386 "$(tdir_toaru_i386)"
+ eelf_i386_be.c: $(srcdir)/emulparams/elf_i386_be.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf_i386_be "$(tdir_elf_i386_be)"
