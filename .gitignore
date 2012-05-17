@@ -27,3 +27,4 @@ util/toaru-toolchain
 util/bin/*
 .passed
 tags
+toolchain/tarballs

@@ -1,0 +1,11 @@
+diff -rupN original/configfsf.sub new/configfsf.sub
+--- original/configfsf.sub	2010-02-06 06:43:13.000000000 -0600
++++ new/configfsf.sub	2012-04-23 16:18:31.000000000 -0500
+@@ -1252,6 +1252,7 @@ case $os in
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+ 	      | -aos* \
++	      | -toaru* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
