@@ -28,3 +28,5 @@ util/bin/*
 .passed
 tags
 toolchain/tarballs
+toolchain/local
+toolchain/build

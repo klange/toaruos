@@ -73,4 +73,7 @@ pushd "$DIR" > /dev/null
         installNewlibStuff "newlib-1.19.0"
     popd > /dev/null
 
+    mkdir build
+    mkdir local
+
 popd > /dev/null
