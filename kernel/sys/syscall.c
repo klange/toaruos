@@ -128,6 +128,7 @@ static int open(const char * file, int flags, int mode) {
 	if (!node && (flags & 0x600)) {
 		/* Um, make one */
 		if (!create_file_fs((char *)file, 0777)) {
+			kprintf("[creat] Creating file!\n");
 			node = kopen((char *)file, 0);
 		}
 	}
@@ -135,7 +136,9 @@ static int open(const char * file, int flags, int mode) {
 		return -1;
 	}
 	node->offset = 0;
-	return process_append_fd((process_t *)current_process, node);
+	int fd = process_append_fd((process_t *)current_process, node);
+	kprintf("[open] pid=%d %s -> %d\n", getpid(), file, fd);
+	return fd;
 }
 
 static int close(int fd) {
@@ -235,6 +238,7 @@ static int seek(int fd, int offset, int whence) {
 	if (fd < 3) {
 		return 0;
 	}
+	kprintf("[seek] pid=%d fd=%d offset=%d whence=%d\n", getpid(), fd, offset, whence);
 	if (whence == 0) {
 		current_process->fds->entries[fd]->offset = offset;
 	} else if (whence == 1) {
@@ -494,6 +498,33 @@ static int yield() {
 }
 
 /*
+ * System Function
+ */
+static int system_function(int fn, char * args) {
+	/* System Functions are special debugging system calls */
+	if (current_process->user == USER_ROOT_UID) {
+		kprintf("Executing system function %d\n", fn);
+		switch (fn) {
+			case 1:
+				/* Print memory information */
+				/* Future: /proc/meminfo */
+				kprintf("Memory used:      %d\n", memory_use());
+				kprintf("Memory available: %d\n", memory_total());
+				return 0;
+			case 2:
+				/* Print process tree */
+				/* Future: /proc in general */
+				debug_print_process_tree();
+				return 0;
+			default:
+				kprintf("Bad system function.\n");
+				break;
+		}
+	}
+	return -1; /* Bad system function or access failure */
+}
+
+/*
  * System Call Internals
  */
 static void syscall_handler(struct regs * r);
@@ -542,6 +573,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&get_fd,				/* 40 */
 	(uintptr_t)&gettid,
 	(uintptr_t)&yield,
+	(uintptr_t)&system_function,
 	0
 };
 uint32_t num_syscalls;
