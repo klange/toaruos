@@ -15,6 +15,7 @@
 typedef struct {
 	uint32_t block_no;
 	uint32_t last_use;
+	uint8_t  dirty;
 	uint8_t  block[BLOCKSIZE];
 } ext2_disk_cache_entry_t;
 
@@ -57,6 +58,17 @@ static uint32_t ext2_time() {
 	return _now++;
 }
 
+void ext2_flush_dirty(uint32_t ent_no) {
+	// write out to the disk
+	for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
+		ide_write_sector(DISK_PORT, 0, btos(DC[ent_no].block_no) + i, (uint8_t *)((uint32_t)&DC[ent_no].block + SECTORSIZE * i));
+		//XXX: a hack? how about making ide_write_sector() blocking?
+		//  XXX: ^ ide_write_sector() IS blocking, we don't get notified properly of finishes to write calls
+		timer_wait(10);
+	}
+	DC[ent_no].dirty = 0;
+}
+
 void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 	if (!block_no) return;
 	spin_lock(&lock);
@@ -79,9 +91,13 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 		ide_read_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)&(DC[oldest].block) + SECTORSIZE * i));
 	}
 
+	if (DC[oldest].dirty) {
+		ext2_flush_dirty(oldest);
+	}
 	memcpy(buf, &DC[oldest].block, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
 	DC[oldest].last_use = ext2_time();
+	DC[oldest].dirty = 0;
 	spin_unlock(&lock);
 }
 
@@ -92,20 +108,13 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 	}
 	spin_lock(&lock);
 
-	// write out to the disk
-	for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
-		ide_write_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)buf + SECTORSIZE * i));
-		//XXX: a hack? how about making ide_write_sector() blocking?
-		//  XXX: ^ ide_write_sector() IS blocking, we don't get notified properly of finishes to write calls
-		timer_wait(30);
-	}
-	
 	// update the cache
 	int oldest = -1;
 	uint32_t oldest_age = UINT32_MAX;
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
 		if (DC[i].block_no == block_no) {
 			DC[i].last_use = ext2_time();
+			DC[i].dirty = 1;
 			memcpy(&DC[i].block, buf, BLOCKSIZE);
 			spin_unlock(&lock);
 			return;
@@ -115,9 +124,13 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 			oldest_age = DC[i].last_use;
 		}
 	}
+	if (DC[oldest].dirty) {
+		ext2_flush_dirty(oldest);
+	}
 	memcpy(&DC[oldest].block, buf, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
 	DC[oldest].last_use = ext2_time();
+	DC[oldest].dirty = 1;
 	spin_unlock(&lock);
 }
 
@@ -965,6 +978,16 @@ void ext2_disk_read_superblock() {
 	kprintf("0x%x last write time\n", SB->wtime);
 	kprintf("Mounted %d times.\n", SB->mnt_count);
 	kprintf("0x%x\n", SB->magic);
+}
+
+void ext2_disk_sync() {
+	spin_lock(&lock);
+	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
+		if (DC[i].dirty) {
+			ext2_flush_dirty(i);
+		}
+	}
+	spin_unlock(&lock);
 }
 
 void ext2_disk_mount() {

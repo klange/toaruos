@@ -497,6 +497,8 @@ static int yield() {
 	return 1;
 }
 
+extern void ext2_disk_sync();
+
 /*
  * System Function
  */
@@ -515,6 +517,9 @@ static int system_function(int fn, char * args) {
 				/* Print process tree */
 				/* Future: /proc in general */
 				debug_print_process_tree();
+				return 0;
+			case 3:
+				ext2_disk_sync();
 				return 0;
 			default:
 				kprintf("Bad system function.\n");
