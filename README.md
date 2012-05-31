@@ -61,7 +61,7 @@ Here's what とあるOS has looked like in the past:
 Clone the git repository and run:
 
     # Ensure that you have clang, yasm, a working C stack, etc.
-    sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp-dev
+    sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp-dev qemu autoconf automake texinfo
     # Build the toolchain:
     pushd toolchain
     ./prepare.sh
