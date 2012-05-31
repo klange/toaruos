@@ -167,7 +167,7 @@ hdd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
 ##############
 tags: kernel/*/*.c kernel/*.c userspace/*.c
 	@${BEG} "ctag" "Generating CTags..."
-	@ctags -R --c++-kinds=+p --fields=+iaS --extra=+q
+	@ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace util
 	@${END} "ctag" "Generated CTags."
 
 ###############
