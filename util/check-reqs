@@ -44,6 +44,6 @@ if [ -z `which qemu` ] ; then
     fi
     ERROR "qemu is installed, but not as 'qemu'"
     INFO  "You have a version of qemu which does not provide the 'qemu' binary."
-    INFO  "You should run 'ln -s ~/bin/qemu \`which qemu-system-i386\` or similar to correct this."
+    INFO  "You should run 'ln -s \`which qemu-system-i386\` ~bin' or similar to correct this."
 fi
 
