@@ -16,7 +16,7 @@ function grab () {
 }
 
 function deco () {
-    $BEG "tar" "Unarchving $1..."
+    $BEG "tar" "Un-archiving $1..."
     tar -xf $2
     $END "tar" "$1"
 }
@@ -30,7 +30,7 @@ function patc () {
 }
 
 function deleteUnusedGCC () {
-    # These directories are not used and are primarily for support of unecessarily libraries like Java and the testsuite.
+    # These directories are not used and are primarily for support of unnecessarily libraries like Java and the testsuite.
     rm -r $1/boehm-gc $1/gcc/ada $1/gcc/go $1/gcc/java $1/gcc/objc $1/gcc/objcp $1/gcc/testsuite $1/gnattools $1/libada $1/libffi $1/libgo $1/libjava $1/libobjc 
 }
 
@@ -44,7 +44,7 @@ pushd "$DIR" > /dev/null
         mkdir tarballs
     fi
     pushd tarballs > /dev/null
-        $INFO "wget" "Pulling source pakcages..."
+        $INFO "wget" "Pulling source packages..."
         grab "gcc"  "http://gcc.petsads.us/releases/gcc-4.6.0/gcc-4.6.0.tar.gz"
         grab "mpc"  "http://www.multiprecision.org/mpc/download/mpc-0.9.tar.gz"
         grab "mpfr" "http://www.mpfr.org/mpfr-3.0.1/mpfr-3.0.1.tar.gz"
