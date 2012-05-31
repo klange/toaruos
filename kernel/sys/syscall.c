@@ -238,7 +238,7 @@ static int seek(int fd, int offset, int whence) {
 	if (fd < 3) {
 		return 0;
 	}
-	kprintf("[seek] pid=%d fd=%d offset=%d whence=%d\n", getpid(), fd, offset, whence);
+	//kprintf("[seek] pid=%d fd=%d offset=%d whence=%d\n", getpid(), fd, offset, whence);
 	if (whence == 0) {
 		current_process->fds->entries[fd]->offset = offset;
 	} else if (whence == 1) {

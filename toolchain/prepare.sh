@@ -36,6 +36,7 @@ function deleteUnusedGCC () {
 
 function installNewlibStuff () {
     cp -r ../patches/newlib/toaru $1/newlib/libc/sys/toaru
+    cp -r ../patches/newlib/malloc.c $1/newlib/libc/stdlib/malloc.c
 }
 
 pushd "$DIR" > /dev/null
