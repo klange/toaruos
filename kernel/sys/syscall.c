@@ -535,47 +535,47 @@ static int system_function(int fn, char * args) {
 static void syscall_handler(struct regs * r);
 static uintptr_t syscalls[] = {
 	/* System Call Table */
-	(uintptr_t)&exit,				/* 0 */
+	(uintptr_t)&exit,               /* 0 */
 	(uintptr_t)&print,
 	(uintptr_t)&open,
 	(uintptr_t)&read,
-	(uintptr_t)&write,				/* 4 */
+	(uintptr_t)&write,              /* 4 */
 	(uintptr_t)&close,
 	(uintptr_t)&gettimeofday,
 	(uintptr_t)&execve,
-	(uintptr_t)&fork,				/* 8 */
+	(uintptr_t)&fork,               /* 8 */
 	(uintptr_t)&sys_getpid,
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&getgraphicsaddress,
-	(uintptr_t)&kbd_mode,			/* 12 */
+	(uintptr_t)&kbd_mode,           /* 12 */
 	(uintptr_t)&kbd_get,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,
-	(uintptr_t)&setgraphicsoffset,	/* 16 */
+	(uintptr_t)&setgraphicsoffset,  /* 16 */
 	(uintptr_t)&wait,
 	(uintptr_t)&getgraphicswidth,
 	(uintptr_t)&getgraphicsheight,
-	(uintptr_t)&getgraphicsdepth,	/* 20 */
+	(uintptr_t)&getgraphicsdepth,   /* 20 */
 	(uintptr_t)&mkpipe,
 	(uintptr_t)&dup2,
 	(uintptr_t)&getuid,
-	(uintptr_t)&setuid,				/* 24 */
+	(uintptr_t)&setuid,             /* 24 */
 	(uintptr_t)&kernel_name_XXX,
 	(uintptr_t)&reboot,
 	(uintptr_t)&readdir,
-	(uintptr_t)&chdir,				/* 28 */
+	(uintptr_t)&chdir,              /* 28 */
 	(uintptr_t)&getcwd,
 	(uintptr_t)&clone,
 	(uintptr_t)&sethostname,
-	(uintptr_t)&gethostname,		/* 32 */
+	(uintptr_t)&gethostname,        /* 32 */
 	(uintptr_t)&mousedevice,
 	(uintptr_t)&sys_mkdir,
 	(uintptr_t)&shm_obtain,
-	(uintptr_t)&shm_release,		/* 36 */
+	(uintptr_t)&shm_release,        /* 36 */
 	(uintptr_t)&send_signal,
 	(uintptr_t)&sys_signal,
 	(uintptr_t)&share_fd,
-	(uintptr_t)&get_fd,				/* 40 */
+	(uintptr_t)&get_fd,             /* 40 */
 	(uintptr_t)&gettid,
 	(uintptr_t)&yield,
 	(uintptr_t)&system_function,
