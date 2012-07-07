@@ -26,7 +26,7 @@
  * @param string_array String arrays, which are separated.
  * @returns Stuff.
  */
-int function(int argument, void *pointer, char * string_array[]) {
+int function(int argument, void * pointer, char * string_array[]) {
 	/* Inline comments should use the classic C-style*/
 	if (condition) {
 		/*
