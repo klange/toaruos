@@ -1,5 +1,8 @@
 /*
- * The ToAru Sample Game
+ * keyboard-test
+ *
+ * Waits for key presses in locked keyboard mode
+ * and prints them to the screen.
  */
 
 #include <stdio.h>

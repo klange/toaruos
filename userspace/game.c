@@ -1,5 +1,8 @@
 /*
  * The ToAru Sample Game
+ *
+ * This is a simple RPG. This is the outdated non-windowed
+ * fullscreen version that makes direct graphics calls.
  */
 
 #include <stdio.h>

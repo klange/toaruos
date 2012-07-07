@@ -1,5 +1,9 @@
 /*
- * The ToAru Sample Game
+ * Compositor
+ * 
+ * This is the window compositor application.
+ * It serves shared memory regions to clients
+ * and renders them to the screen.
  */
 
 #include <stdio.h>

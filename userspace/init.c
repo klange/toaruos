@@ -1,6 +1,9 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
- * Initial Startup
+ * init
+ *
+ * Provides the standard boot routines and
+ * calls the user session (compositor / terminal)
  */
 
 #include <stdio.h>

@@ -1,6 +1,9 @@
 /*
  * ToAruOS Miniature ELF Reader
  * (C) 2011 Kevin Lange
+ *
+ * This is mostly superceded by the fact that the binutils
+ * version of readelf actually compiles and executes...
  */
 
 #include <stdio.h>

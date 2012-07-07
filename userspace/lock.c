@@ -1,3 +1,9 @@
+/*
+ * lock
+ *
+ * CLI screen locker. Useful for a single-user
+ * terminal-only session.
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>

@@ -1,5 +1,7 @@
 /*
  * The ToAru Sample Game
+ *
+ * This is the updated, windowed version of the sample RPG
  */
 
 #include <stdio.h>

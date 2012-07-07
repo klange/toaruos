@@ -1,6 +1,6 @@
 /* vim:tabstop=4 shiftwidth=4 noexpandtab
  *
- * Hello World!
+ * prints "Hello World!" to standard out.
  */
 #include <stdio.h>
 

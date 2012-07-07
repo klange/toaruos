@@ -1,6 +1,8 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * uname
+ *
+ * Prints the kernel version information.
  */
 #include <stdio.h>
 #include <syscall.h>

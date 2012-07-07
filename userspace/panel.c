@@ -1,4 +1,9 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Panel
+ *
+ * Provides a graphical panel with a clock, and
+ * hopefully more things in the future.
  */
 #include <stdlib.h>
 #include <assert.h>

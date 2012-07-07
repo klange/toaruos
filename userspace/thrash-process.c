@@ -1,3 +1,7 @@
+/*
+ * thrash-process
+ * Creates a lot of processes.
+ */
 #include <stdio.h>
 #include <stdint.h>
 #include <syscall.h>

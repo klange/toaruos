@@ -1,3 +1,8 @@
+/*
+ * glogin
+ *
+ * Graphical Login screen
+ */
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>

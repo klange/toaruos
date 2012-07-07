@@ -1,3 +1,7 @@
+/*
+ * shmtest
+ * It's an shmtest.
+ */
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>

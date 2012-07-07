@@ -1,3 +1,10 @@
+/*
+ * edit
+ *
+ * A super-simple one-pass file... uh "editor".
+ * Takes stdin until a blank line and writes
+ * it back to standard out.
+ */
 #include <stdio.h>
 #include <string.h>
 

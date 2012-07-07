@@ -1,5 +1,7 @@
 /*
- * cat
+ * stat
+ *
+ * Displays information on a file's inode.
  */
 #include <stdio.h>
 #include <sys/stat.h>

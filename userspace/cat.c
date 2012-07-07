@@ -1,5 +1,10 @@
 /*
  * cat
+ *
+ * Concatenates files together to standard output.
+ * In a supporting terminal, you can then pipe
+ * standard out to another file or other useful
+ * things like that.
  */
 #include <stdio.h>
 

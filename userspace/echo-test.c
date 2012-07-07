@@ -1,7 +1,9 @@
 /*
  * echo-test
  *
- * Test string for ANSI support
+ * Prints a test string to standard out
+ * that includes various bits of ANSI
+ * escape sequences.
  */
 #include <stdio.h>
 

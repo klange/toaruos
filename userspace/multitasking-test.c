@@ -2,6 +2,10 @@
  *
  * Multitasking Thrasher
  *
+ * Useful for testing that multitasking still works.
+ * Starts up a bunch of threads, lets them do stuff,
+ * cleans them up, etc.
+ *
  */
 
 #include <stdio.h>

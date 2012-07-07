@@ -1,3 +1,8 @@
+/*
+ * test-gfx
+ *
+ * Windowed graphical test application.
+ */
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>

@@ -1,5 +1,9 @@
 /*
- * The ToAru Sample Game
+ * nyancat
+ *
+ * (this is not quite the same as the debian version,
+ *  it is the original source... we don't quite support
+ *  the updates made to the debian/ubuntu version)
  */
 
 #include <stdio.h>

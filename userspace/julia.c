@@ -1,5 +1,8 @@
 /*
  * Julia Fractal Generator
+ *
+ * This is non-windowed, fullscreen version of the julia
+ * fractal generator demo.
  */
 
 #include <stdio.h>

@@ -1,3 +1,8 @@
+/*
+ * verify-write
+ *
+ * A dangerous tool to write to a file and verified it worked.
+ */
 #include <stdio.h>
 #include <unistd.h>
 

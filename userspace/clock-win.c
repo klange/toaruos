@@ -1,3 +1,10 @@
+/*
+ * clock-win
+ *
+ * Windowed Clock Application
+ *
+ * Creates a window that displays an analog clock.
+ */
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>

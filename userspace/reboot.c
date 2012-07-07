@@ -1,3 +1,8 @@
+/*
+ * reboot
+ *
+ * Reboot the system.
+ */
 #include <stdio.h>
 #include <syscall.h>
 

@@ -1,3 +1,11 @@
+/*
+ * Argument processing test tool.
+ *
+ * Usage:
+ *    Run as ./argv-tester herp derp etc.
+ *    Evaluate the arguments as they are printed to verify
+ *    they match the input that you provided.
+ */
 #include <stdio.h>
 
 int main(int argc, char * argv[]) {

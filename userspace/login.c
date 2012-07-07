@@ -2,6 +2,8 @@
  *
  * Login Service
  *
+ * Provides the user with a login prompt and starts their session.
+ *
  */
 
 #include <stdio.h>

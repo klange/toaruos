@@ -1,6 +1,9 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * echo
+ *
+ * Prints its arguments (with some processing, ask --help)
+ * to standard out.
  */
 #include <stdio.h>
 #include <string.h>

@@ -1,3 +1,8 @@
+/*
+ * view
+ *
+ * Displays bitmap images in windows
+ */
 #include <stdlib.h>
 
 #include "lib/window.h"

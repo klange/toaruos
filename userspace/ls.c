@@ -1,5 +1,8 @@
 /*
  * ls
+ *
+ * Lists files in a directory, with nice color
+ * output like any modern ls should have.
  */
 
 

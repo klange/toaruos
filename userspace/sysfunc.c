@@ -1,4 +1,9 @@
 /* vim:tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * sysfunc
+ *
+ * Executes an "extended system function" which
+ * is basically just a super-syscall.
  */
 #include <syscall.h>
 #include <stdlib.h>

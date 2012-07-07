@@ -1,6 +1,8 @@
 /* vim:tabstop=4 shiftwidth=4 noexpandtab
  *
- * Hello World!
+ * mkdir
+ *
+ * Create a directory.
  */
 #include <stdio.h>
 #include <syscall.h>

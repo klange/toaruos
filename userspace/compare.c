@@ -1,3 +1,11 @@
+/*
+ * compare
+ *
+ * Compares two files and prints out some
+ * statistics on how they differ.
+ *
+ * This is *NOT* diff.
+ */
 #include <stdio.h>
 #include <string.h>
 

@@ -1,3 +1,8 @@
+/*
+ * drawlines
+ *
+ * Test application to draw lines to a window.
+ */
 #include <stdlib.h>
 #include <assert.h>
 

@@ -1,3 +1,9 @@
+/*
+ * touch
+ *
+ * Creates a file or updates its last-modified date.
+ * (in theory)
+ */
 #include <stdio.h>
 #include <string.h>
 

@@ -1,3 +1,9 @@
+/*
+ * threadtest
+ *
+ * A class concurreny failure demonstration.
+ * Append -l to use locks.
+ */
 #include <stdio.h>
 #include <unistd.h>
 #include <syscall.h>

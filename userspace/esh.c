@@ -1,7 +1,11 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * E-Shell
  *
- * Test shell for ToAruOS
+ * This is the "experimental shell". It provides
+ * a somewhat unix-like shell environment, but does
+ * not include a parser any advanced functionality.
+ * It simply cuts its input into arguments and executes
+ * programs.
  */
 
 #include <stdio.h>

@@ -1,6 +1,8 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * yes
+ *
+ * Continually prints its first argument, followed by a newline.
  */
 #include <stdio.h>
 

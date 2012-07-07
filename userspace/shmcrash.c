@@ -1,3 +1,7 @@
+/*
+ * shmcrash
+ * Like shmcrash2, except it's not #2!
+ */
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>

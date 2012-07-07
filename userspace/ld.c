@@ -1,6 +1,8 @@
 /*
  * ToAruOS Loader
  * (C) 2011 Kevin Lange
+ *
+ * This is a broken, experimental `ld` binary loader.
  */
 
 #include <stdio.h>

@@ -1,3 +1,7 @@
+/*
+ * shmtest2
+ * It's a test app. For shm.
+ */
 #include <sys/types.h>
 #include <stdint.h>
 #include <syscall.h>

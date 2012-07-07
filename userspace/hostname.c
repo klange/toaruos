@@ -1,6 +1,8 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * hostname
+ *
+ * Prints or sets the system hostname.
  */
 #include <stdio.h>
 #include <syscall.h>

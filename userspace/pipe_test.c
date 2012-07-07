@@ -1,5 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * pipe test
+ *
+ * Makes a pipe. Pipes stuff to it. Yeah.
  */
 
 #include <stdio.h>

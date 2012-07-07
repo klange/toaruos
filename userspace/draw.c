@@ -1,3 +1,12 @@
+/*
+ * draw
+ *
+ * Windowed graphical drawing tool.
+ * Simple painting application.
+ *
+ * This is also the playground for the work-in-progress
+ * ToaruToolKit GUI toolkit.
+ */
 #include <stdlib.h>
 
 #include "lib/window.h"

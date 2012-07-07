@@ -1,6 +1,16 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * Terminal Emulator
+ *
+ * Graphical terminal emulator.
+ *
+ * Provides a number of features:
+ *  - Windowed and full screen modes
+ *  - Antialiased fonts
+ *  - Built-in fallback bitmap font
+ *  - ANSI escape support
+ *  - 256 colors
+ *  - [mouse support; incomplete]
  */
 
 #include <stdio.h>

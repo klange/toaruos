@@ -1,3 +1,8 @@
+/*
+ * shmcrash2
+ *
+ * crashes!
+ */
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>

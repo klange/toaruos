@@ -1,7 +1,8 @@
 /*
  * clock
  *
- * Test shell for ToAruOS
+ * Displays the current time in the upper right corner
+ * of your terminal session; forks on startup.
  */
 
 #include <stdio.h>
