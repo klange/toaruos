@@ -58,31 +58,13 @@ Here's what とあるOS has looked like in the past:
 * [Early boot screen testing and some old serial output](http://i.imgur.com/1CMJ0.jpg)
 
 ## Testing it Out ##
-Clone the git repository and run:
+If you are on Debian/Ubuntu/etc., you can clone the repository and run:
 
-    # Ensure that you have clang, yasm, a working C stack, etc.
-    sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp-dev qemu autoconf automake texinfo
-    # Build the toolchain:
-    pushd toolchain
-    ./prepare.sh
-    ./install.sh
-    . activate.sh
-    popd
-    # Build the userspace tools:
-    pushd userspace
-    make
-    popd
-    # Build the kernel
-    make system         # to build the kernel
-    make run            # to run qemu with the proper arguments
-    # Or, if you have KVM...
-    make kvm            # to run qemu in KVM mode
-    # If you happen to have a complete LaTeX CJK package, you can also
-    # build the docs, and thus everything:
-    make docs
-    make
+    ./build.sh
 
-This will build the kernel and the ramdisk. 
+This will install the required dependencies, build the userspace libraries and toolchain, build the kernel, and give you a working ramdisk and hard disk.
+
+You can then run `make run` or `make kvm` to run QEMU, or `make docs` to build documentation (which requires a LaTeX stack with CJK support).
 
 Currently, the only supported environment is QEMU, as our limited graphics drivers do not operate on most real hardware.
 
