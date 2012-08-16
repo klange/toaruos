@@ -45,12 +45,12 @@ parse_args(
 		char * save_i;
 		char * argp[1024];
 		int    argc = 0;
-		pch_i = strtok_r(argv[i],"=,",&save_i);
+		pch_i = strtok_r(argv[i],"=",&save_i);
 		if (!pch_i) { continue; }
 		while (pch_i != NULL) {
 			argp[argc] = (char *)pch_i;
 			++argc;
-			pch_i = strtok_r(NULL,"=,",&save_i);
+			pch_i = strtok_r(NULL,"=",&save_i);
 		}
 		argp[argc] = NULL;
 
@@ -64,6 +64,7 @@ parse_args(
 				x = atoi(argp[2]);
 				y = atoi(argp[3]);
 			}
+			kprintf("--> Requested display resolution is %dx%d\n", x, y);
 			if (!strcmp(argp[1],"qemu")) {
 				/* Bochs / Qemu Video Device */
 				graphics_install_bochs(x,y);
