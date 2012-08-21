@@ -30,3 +30,4 @@ tags
 toolchain/tarballs
 toolchain/local
 toolchain/build
+.config
