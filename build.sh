@@ -21,3 +21,4 @@ make
 popd
 # Build the kernel
 make system         # to build the kernel
+# XXX: Attempt to boot the kernel with qemu automatically...
