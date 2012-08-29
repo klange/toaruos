@@ -1,5 +1,6 @@
 #!/bin/bash
 
+unset CC
 sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp-dev qemu autoconf automake texinfo
 # Build the toolchain: (silently)
 pushd toolchain
