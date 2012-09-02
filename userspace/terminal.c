@@ -34,6 +34,10 @@
 #include "lib/decorations.h"
 #include "lib/pthread.h"
 
+#ifndef strtok_r
+char *strtok_r(char *s1, const char *s2, char **s3);
+#endif
+
 #define FONT_SIZE 13
 
 #define MOUSE_SCALE 6
@@ -3152,15 +3156,24 @@ int main(int argc, char ** argv) {
 		syscall_dup2(ifd, 0);
 		syscall_dup2(ofd, 1);
 		syscall_dup2(ofd, 2);
-		/*
-		 * TODO: Check the public-readable passwd file to select which shell to run
-		 */
-		if (_login_shell) {
-			char * tokens[] = {"/bin/login",NULL};
+
+		if (argv[optind] != NULL) {
+			char * tokens[] = {argv[optind], NULL};
 			int i = execve(tokens[0], tokens, NULL);
+			printf("Failed to execute requested startup application `%s`!\n", argv[optind]);
+			printf("Your system is now unusable, and a restart will not be attempted.\n");
+			syscall_print("core-tests : FATAL : Could not execute the core-tests binary. This is a fatal error.\n");
 		} else {
-			char * tokens[] = {"/bin/esh",NULL};
-			int i = execve(tokens[0], tokens, NULL);
+			/*
+			 * TODO: Check the public-readable passwd file to select which shell to run
+			 */
+			if (_login_shell) {
+				char * tokens[] = {"/bin/login",NULL};
+				int i = execve(tokens[0], tokens, NULL);
+			} else {
+				char * tokens[] = {"/bin/esh",NULL};
+				int i = execve(tokens[0], tokens, NULL);
+			}
 		}
 
 		exit_application = 1;

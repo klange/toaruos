@@ -63,8 +63,8 @@ parse_args(
 			} else {
 				x = atoi(argp[2]);
 				y = atoi(argp[3]);
+				kprintf("[video] Requested display resolution is %dx%d\n", x, y);
 			}
-			kprintf("--> Requested display resolution is %dx%d\n", x, y);
 			if (!strcmp(argp[1],"qemu")) {
 				/* Bochs / Qemu Video Device */
 				graphics_install_bochs(x,y);
@@ -80,6 +80,9 @@ parse_args(
 			boot_arg = "--single";
 		} else if (!strcmp(argp[0],"vgaterm")) {
 			boot_arg = "--vga";
+		} else if (!strcmp(argp[0],"start")) {
+			if (argc < 2) { kprintf("start=?\n"); continue; }
+			boot_arg_extra = argp[1];
 		}
 	}
 }

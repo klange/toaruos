@@ -14,4 +14,5 @@ make || exit 1
 popd
 # Build the kernel
 make system || exit 1        # to build the kernel
-# XXX: Attempt to boot the kernel with qemu automatically...
+# Boot it up and run some tests
+make test || exit 1

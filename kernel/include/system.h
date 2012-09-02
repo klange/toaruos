@@ -39,7 +39,9 @@ extern unsigned int __irq_sem;
 
 extern void * code;
 extern void * end;
-extern char * boot_arg;
+
+extern char * boot_arg; /* Argument to pass to init */
+extern char * boot_arg_extra; /* Extra data to pass to init */
 
 extern void *sbrk(uintptr_t increment);
 

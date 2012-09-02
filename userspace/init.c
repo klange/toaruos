@@ -33,12 +33,13 @@ void set_hostname() {
 	}
 }
 
-void start_terminal() {
+void start_terminal(char * arg) {
 	int pid = fork();
 	if (!pid) {
 		char * tokens[] = {
 			"/bin/terminal",
 			"-F",
+			arg,
 			NULL
 		};
 		int i = execve(tokens[0], tokens, NULL);
@@ -48,12 +49,13 @@ void start_terminal() {
 	}
 }
 
-void start_vga_terminal() {
+void start_vga_terminal(char * arg) {
 	int pid = fork();
 	if (!pid) {
 		char * tokens[] = {
 			"/bin/terminal",
 			"-Vl",
+			arg,
 			NULL
 		};
 		int i = execve(tokens[0], tokens, NULL);
@@ -78,17 +80,22 @@ void start_compositor() {
 }
 
 
-void main(int argc, char * argv[]) {
+int main(int argc, char * argv[]) {
 	fprintf(stderr, "[init] Hello world.\n");
 	/* Hostname */
 	set_hostname();
-	if (argc > 1 && !strcmp(argv[1],"--single")) {
-		/* Terminal */
-		start_terminal();
-	} else if (argc > 1 && !strcmp(argv[1],"--vga")) {
-		start_vga_terminal();
-	} else {
-		/* Compositor */
-		start_compositor();
+	if (argc > 1) {
+		char * args = NULL;
+		if (argc > 2) {
+			args = argv[2];
+		}
+		if (!strcmp(argv[1],"--single")) {
+			start_terminal(args);
+			return 0;
+		} else if (!strcmp(argv[1], "--vga")) {
+			start_vga_terminal(args);
+			return 0;
+		}
 	}
+	start_compositor();
 }

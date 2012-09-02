@@ -22,6 +22,7 @@ void spin_unlock(uint8_t volatile * lock) {
 }
 
 char * boot_arg = NULL;
+char * boot_arg_extra = NULL;
 
 /*
  * memcpy

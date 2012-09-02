@@ -58,7 +58,7 @@ install: system
 run: system
 	${EMU} ${EMUARGS} -append "vid=qemu hdd"
 kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu hdd"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "optirun vid=qemu hdd"
 vga: system
 	${EMU} ${EMUARGS} -append "vgaterm hdd"
 vga-kvm: system
@@ -69,6 +69,9 @@ term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single hdd"
 run-config: system
 	util/config-parser | xargs ${EMU}
+
+test: system
+	python util/run-tests.py 2>/dev/null
 
 utils: ${UTILITIES}
 

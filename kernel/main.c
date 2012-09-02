@@ -144,6 +144,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	char * argv[] = {
 		"/bin/init",
 		boot_arg,
+		boot_arg_extra,
 		NULL
 	};
 	int argc = 0;
