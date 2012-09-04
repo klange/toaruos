@@ -20,7 +20,7 @@
 
 void validate(void * ptr) {
 	if (ptr && (uintptr_t)ptr < current_process->image.entry) {
-		kprintf("SEGFAULT: Invalid pointer passed to syscall. (0x%x < 0x%x)\n", (uintptr_t)ptr, current_process->image.entry);
+		debug_print(ERROR, "SEGFAULT: Invalid pointer passed to syscall. (0x%x < 0x%x)", (uintptr_t)ptr, current_process->image.entry);
 		HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
 	}
 }
@@ -103,13 +103,13 @@ static int write(int fd, char * ptr, int len) {
 
 static int wait(int child) {
 	if (child < 1) {
-		kprintf("[debug] Process %d requested group wait, which we can not do!\n", getpid());
+		debug_print(WARNING, "Process %d requested group wait, which we can not do!", getpid());
 		return 0;
 	}
 	process_t * volatile child_task = process_from_pid(child);
 	/* If the child task doesn't exist, bail */
 	if (!child_task) {
-		kprintf("Tried to wait for non-existent process\n");
+		debug_print(WARNING, "Tried to wait for non-existent process");
 		return -1;
 	}
 	while (child_task->finished == 0) {
@@ -128,7 +128,7 @@ static int open(const char * file, int flags, int mode) {
 	if (!node && (flags & 0x600)) {
 		/* Um, make one */
 		if (!create_file_fs((char *)file, 0777)) {
-			kprintf("[creat] Creating file!\n");
+			debug_print(NOTICE, "[creat] Creating file!");
 			node = kopen((char *)file, 0);
 		}
 	}
@@ -137,7 +137,7 @@ static int open(const char * file, int flags, int mode) {
 	}
 	node->offset = 0;
 	int fd = process_append_fd((process_t *)current_process, node);
-	kprintf("[open] pid=%d %s -> %d\n", getpid(), file, fd);
+	debug_print(INFO, "[open] pid=%d %s -> %d", getpid(), file, fd);
 	return fd;
 }
 
@@ -187,16 +187,16 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	while (argv[i]) {
 		++i;
 	}
-	kprintf("Allocating space for arguments...\n");
+	debug_print(INFO, "Allocating space for arguments...");
 	char ** argv_ = malloc(sizeof(char *) * i);
 	for (int j = 0; j < i; ++j) {
 		argv_[j] = malloc((strlen(argv[j]) + 1) * sizeof(char));
 		memcpy(argv_[j], argv[j], strlen(argv[j]) + 1);
 	}
-	kprintf("Releasing all shmem regions...\n");
+	debug_print(INFO,"Releasing all shmem regions...");
 	shm_release_all((process_t *)current_process);
 
-	kprintf("Executing...\n");
+	debug_print(INFO,"Executing...");
 	/* Discard envp */
 	exec((char *)filename, i, (char **)argv_);
 	return -1;
@@ -238,7 +238,6 @@ static int seek(int fd, int offset, int whence) {
 	if (fd < 3) {
 		return 0;
 	}
-	//kprintf("[seek] pid=%d fd=%d offset=%d whence=%d\n", getpid(), fd, offset, whence);
 	if (whence == 0) {
 		current_process->fds->entries[fd]->offset = offset;
 	} else if (whence == 1) {
@@ -391,11 +390,11 @@ static void inspect_memory (uintptr_t vaddr) {
 */
 
 static int reboot() {
-	kprintf("[kernel] Reboot requested from process %d by user #%d\n", current_process->id, current_process->user);
+	debug_print(NOTICE, "[kernel] Reboot requested from process %d by user #%d", current_process->id, current_process->user);
 	if (current_process->user != USER_ROOT_UID) {
 		return -1;
 	} else {
-		kprintf("[kernel] Good bye!\n");
+		debug_print(NOTICE, "[kernel] Good bye!");
 		/* Goodbye, cruel world */
 		uint8_t out = 0x02;
 		while ((out & 0x02) != 0) {
@@ -502,10 +501,9 @@ extern void ext2_disk_sync();
 /*
  * System Function
  */
-static int system_function(int fn, char * args) {
+static int system_function(int fn, char ** args) {
 	/* System Functions are special debugging system calls */
 	if (current_process->user == USER_ROOT_UID) {
-		kprintf("Executing system function %d\n", fn);
 		switch (fn) {
 			case 1:
 				/* Print memory information */
@@ -521,8 +519,14 @@ static int system_function(int fn, char * args) {
 			case 3:
 				ext2_disk_sync();
 				return 0;
+			case 4:
+				/* Request kernel output to file descriptor in arg0*/
+				kprintf("Setting output to file object in process %d's fd=%d!\n", getpid(), (int)args);
+				kprint_to_file = current_process->fds->entries[(int)args];
+				kprint_to_serial = 0;
+				break;
 			default:
-				kprintf("Bad system function.\n");
+				kprintf("Bad system function %d\n", fn);
 				break;
 		}
 	}

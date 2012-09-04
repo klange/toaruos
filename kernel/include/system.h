@@ -156,7 +156,17 @@ extern void mouse_install();
 
 /* kprintf */
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
+#ifndef EXTREME_KPRINTF_DEBUGGING
 extern int    kprintf(const char *fmt, ...);
+#else
+/* This is really, really extreme */
+extern int    _kprintf(char * file, int line, const char *fmt, ...);
+#define kprintf(...) _kprintf(__FILE__, __LINE__, __VA_ARGS__)
+#endif
+
+extern short  kprint_to_serial;
+extern void * kprint_to_file;
+
 extern int    sprintf(char *buf, const char *fmt, ...);
 extern int    kgets(char *buf, int size);
 typedef void (*kgets_redraw_t)();

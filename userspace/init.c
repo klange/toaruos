@@ -81,7 +81,6 @@ void start_compositor() {
 
 
 int main(int argc, char * argv[]) {
-	fprintf(stderr, "[init] Hello world.\n");
 	/* Hostname */
 	set_hostname();
 	if (argc > 1) {

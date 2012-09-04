@@ -8,6 +8,7 @@
 #include <system.h>
 #include <process.h>
 #include <va_list.h>
+#include <fs.h>
 
 /*
  * Integer to string
@@ -93,6 +94,9 @@ vasprintf(char * buf, const char *fmt, va_list args) {
 
 }
 
+short  kprint_to_serial = 0;
+void * kprint_to_file   = NULL;
+
 /**
  * (Kernel) Print a formatted string.
  * %s, %c, %x, %d, %%
@@ -100,6 +104,7 @@ vasprintf(char * buf, const char *fmt, va_list args) {
  * @param fmt Formatted string to print
  * @param ... Additional arguments to format
  */
+#ifndef EXTREME_KPRINTF_DEBUGGING
 int
 kprintf(
 		const char *fmt,
@@ -112,9 +117,46 @@ kprintf(
 	/* We're done with our arguments */
 	va_end(args);
 	/* Print that sucker */
-	serial_string(buf);
+	if (kprint_to_serial) {
+		serial_string(buf);
+	} else {
+		/* TODO "Registered Ouput Terminal", which is probably *not* the serial output */
+		/* XXX */
+		if (kprint_to_file) {
+			fs_node_t * node = (fs_node_t *)kprint_to_file;
+			uint32_t out = write_fs(node, node->offset, strlen(buf), (uint8_t *)buf);
+			node->offset += out;
+		}
+	}
 	return out;
 }
+#else
+int
+_kprintf(
+		char * file,
+		int line,
+		const char *fmt,
+		...
+	   ) {
+	char buf[1024] = {-1};
+	va_list args;
+	va_start(args, fmt);
+	int out = vasprintf(buf, fmt, args);
+	/* We're done with our arguments */
+	va_end(args);
+	/* Print that sucker */
+	if (buf[strlen(buf)-1] == '\n') {
+		buf[strlen(buf)-1] = '\0';
+		serial_string(buf);
+		char buf2[1024];
+		sprintf(buf2, " %s:%d\n", file, line);
+		serial_string(buf2);
+	} else {
+		serial_string(buf);
+	}
+	return out;
+}
+#endif
 
 int
 sprintf(

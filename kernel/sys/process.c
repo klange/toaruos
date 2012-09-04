@@ -9,6 +9,7 @@
 #include <process.h>
 #include <tree.h>
 #include <list.h>
+#include <logging.h>
 
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_queue; /* Ready queue */
@@ -237,9 +238,9 @@ process_t * spawn_process(volatile process_t * parent) {
 	assert(process_tree->root && "Attempted to spawn a process without init.");
 
 	/* Allocate a new process */
-	kprintf("   process_t {\n");
+	debug_print(INFO,"   process_t {");
 	process_t * proc = malloc(sizeof(process_t));
-	kprintf("   }\n");
+	debug_print(INFO,"   }");
 	proc->id = get_next_pid(); /* Set its PID */
 	proc->group = proc->id;    /* Set the GID */
 	proc->name = default_name; /* Use the default name */
@@ -259,9 +260,9 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->image.heap        = parent->image.heap;
 	proc->image.heap_actual = parent->image.heap_actual;
 	proc->image.size        = parent->image.size;
-	kprintf("    stack {\n");
+	debug_print(INFO,"    stack {");
 	proc->image.stack       = (uintptr_t)malloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	kprintf("    }\n");
+	debug_print(INFO,"    }");
 	proc->image.user_stack  = parent->image.user_stack;
 	proc->image.shm_heap    = 0x20000000; /* Yeah, a bit of a hack. */
 
@@ -272,14 +273,14 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->fds->refs     = 1;
 	proc->fds->length   = parent->fds->length;
 	proc->fds->capacity = parent->fds->capacity;
-	kprintf("    fds / files {\n");
+	debug_print(INFO,"    fds / files {");
 	proc->fds->entries  = malloc(sizeof(fs_node_t *) * proc->fds->capacity);
 	assert(proc->fds->entries && "Failed to allocate file descriptor table for new process.");
-	kprintf("    ---\n");
+	debug_print(INFO,"    ---");
 	for (uint32_t i = 0; i < parent->fds->length; ++i) {
 		proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
 	}
-	kprintf("    }\n");
+	debug_print(INFO,"    }");
 
 	/* As well as the working directory */
 	proc->wd_node = clone_fs(parent->wd_node);

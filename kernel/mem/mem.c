@@ -269,26 +269,26 @@ paging_install(uint32_t memsize) {
 
 void
 debug_print_directory() {
-	kprintf(" ---- [k:0x%x u:0x%x]\n", kernel_directory, current_directory);
+	debug_print(INFO, " ---- [k:0x%x u:0x%x]", kernel_directory, current_directory);
 	for (uintptr_t i = 0; i < 1024; ++i) {
 		if (!current_directory->tables[i] || (uintptr_t)current_directory->tables[i] == (uintptr_t)0xFFFFFFFF) {
 			continue;
 		}
 		if (kernel_directory->tables[i] == current_directory->tables[i]) {
-			kprintf("  0x%x - kern [0x%x/0x%x] 0x%x\n", current_directory->tables[i], &current_directory->tables[i], &kernel_directory->tables[i], i * 0x1000 * 1024);
+			debug_print(INFO, "  0x%x - kern [0x%x/0x%x] 0x%x", current_directory->tables[i], &current_directory->tables[i], &kernel_directory->tables[i], i * 0x1000 * 1024);
 		} else {
-			kprintf("  0x%x - user [0x%x] 0x%x [0x%x]\n", current_directory->tables[i], &current_directory->tables[i], i * 0x1000 * 1024, kernel_directory->tables[i]);
+			debug_print(INFO, "  0x%x - user [0x%x] 0x%x [0x%x]", current_directory->tables[i], &current_directory->tables[i], i * 0x1000 * 1024, kernel_directory->tables[i]);
 			for (uint16_t j = 0; j < 1024; ++j) {
 #if 0
 				page_t *  p= &current_directory->tables[i]->pages[j];
 				if (p->frame) {
-					kprintf("    0x%x - 0x%x %s\n", p->frame * 0x1000, p->frame * 0x1000 + 0xFFF, p->present ? "[present]" : "");
+					debug_print(INFO, "    0x%x - 0x%x %s", p->frame * 0x1000, p->frame * 0x1000 + 0xFFF, p->present ? "[present]" : "");
 				}
 #endif
 			}
 		}
 	}
-	kprintf(" ---- [done]\n");
+	debug_print(INFO, " ---- [done]");
 }
 
 void
@@ -333,7 +333,7 @@ page_fault(
 	if (r->eip == SIGNAL_RETURN) {
 		return_from_signal_handler();
 	} else if (r->eip == THREAD_RETURN) {
-		kprintf("[kernel:XXX] Return from thread!\n");
+		debug_print(INFO, "Returned from thread.");
 		kexit(0);
 	}
 
@@ -376,9 +376,9 @@ void *
 sbrk(
 	uintptr_t increment
     ) {
-#if 1
+#if 0
 	if (current_process) {
-		kprintf("[kernel] sbrk [0x%x]+0x%x pid=%d [%s]\n", heap_end, increment, getpid(), current_process->name);
+		debug_print(INFO, "sbrk [0x%x]+0x%x pid=%d [%s]", heap_end, increment, getpid(), current_process->name);
 	}
 #endif
 	ASSERT((increment % 0x1000 == 0) && "Kernel requested to expand heap by a non-page-multiple value");

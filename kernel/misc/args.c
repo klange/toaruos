@@ -83,6 +83,8 @@ parse_args(
 		} else if (!strcmp(argp[0],"start")) {
 			if (argc < 2) { kprintf("start=?\n"); continue; }
 			boot_arg_extra = argp[1];
+		} else if (!strcmp(argp[0],"logtoserial")) {
+			kprint_to_serial = 1;
 		}
 	}
 }

@@ -130,6 +130,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	keyboard_install();	/* Keyboard interrupt handler */
 
+	debug_print(WARNING, "I am test, test test test!");
+
 	if (ramdisk) {
 		initrd_mount((uintptr_t)ramdisk, ramdisk_top);
 	}

@@ -87,7 +87,7 @@ void release_directory(page_directory_t * dir) {
 extern char * default_name;
 
 void reap_process(process_t * proc) {
-	kprintf("Reaping process %d; mem before = %d\n", proc->id, memory_use());
+	debug_print(INFO, "Reaping process %d; mem before = %d", proc->id, memory_use());
 	list_free(proc->wait_queue);
 	free(proc->wait_queue);
 	list_free(proc->signal_queue);
@@ -117,8 +117,8 @@ void reap_process(process_t * proc) {
 		free(proc->fds);
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	}
-	kprintf("Reaped  process %d; mem after = %d\n", proc->id, memory_use());
-	// These things are bad!
+	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
+	// XXX These things are bad!
 	//delete_process(proc);
 	//free((void *)proc);
 }
@@ -201,9 +201,9 @@ fork() {
 	page_directory_t * directory = clone_directory(current_directory);
 	assert(directory && "Could not allocate a new page directory!");
 	/* Spawn a new process from this one */
-	kprintf("\033[1;32mALLOC {\033[0m\n");
+	debug_print(INFO,"\033[1;32mALLOC {\033[0m");
 	process_t * new_proc = spawn_process(current_process);
-	kprintf("\033[1;32m}\033[0m\n");
+	debug_print(INFO,"\033[1;32m}\033[0m");
 	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to clone */
 	set_process_environment(new_proc, directory);
@@ -457,7 +457,7 @@ switch_next() {
 
 	/* Validate */
 	if ((eip < (uintptr_t)&code) || (eip > (uintptr_t)&end)) {
-		kprintf("[warning] Skipping broken process %d!\n", current_process->id);
+		debug_print(WARNING, "Skipping broken process %d!", current_process->id);
 		switch_next();
 	}
 
@@ -560,7 +560,7 @@ void task_exit(int retval) {
 	}
 	current_process->status   = retval;
 	current_process->finished = 1;
-	kprintf("[%d] Waking up %d processes...\n", getpid(), current_process->wait_queue->length);
+	debug_print(INFO, "[%d] Waking up %d processes...", getpid(), current_process->wait_queue->length);
 	wakeup_queue(current_process->wait_queue);
 	make_process_reapable((process_t *)current_process);
 	switch_next();

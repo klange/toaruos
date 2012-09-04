@@ -26,6 +26,10 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
+#ifndef syscall_system_function
+DEFN_SYSCALL2(system_function, 43, int, int);
+#endif
+
 #include "lib/utf8_decode.h"
 #include "../kernel/include/mouse.h"
 
@@ -3162,7 +3166,7 @@ int main(int argc, char ** argv) {
 			int i = execve(tokens[0], tokens, NULL);
 			printf("Failed to execute requested startup application `%s`!\n", argv[optind]);
 			printf("Your system is now unusable, and a restart will not be attempted.\n");
-			syscall_print("core-tests : FATAL : Could not execute the core-tests binary. This is a fatal error.\n");
+			syscall_print("core-tests : FATAL : Failed to execute requested startup binary.\n");
 		} else {
 			/*
 			 * TODO: Check the public-readable passwd file to select which shell to run
@@ -3180,6 +3184,12 @@ int main(int argc, char ** argv) {
 
 		return 1;
 	} else {
+
+		if (!_windowed) {
+			ansi_print("Requesting terminal output to me!\n");
+			/* Request kernel output to this terminal */
+			syscall_system_function(4, ofd);
+		}
 
 		child_pid = f;
 

@@ -7,6 +7,7 @@
 #include <fs.h>
 #include <list.h>
 #include <process.h>
+#include <logging.h>
 
 fs_node_t *fs_root = 0;
 
@@ -179,7 +180,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 	}
 
 	if (node == NULL) {
-		kprintf("mkdir: Directory does not exist\n");
+		debug_print(WARNING, "mkdir: Directory does not exist");
 		free(dir_name);
 		return 1;
 	}
@@ -326,6 +327,7 @@ char *canonicalize_path(char *cwd, char *input) {
  *
  */
 fs_node_t *get_mount_point(char * path, size_t path_depth) {
+#if 0
 	size_t depth;
 
 	kprintf("[root]");
@@ -333,6 +335,7 @@ fs_node_t *get_mount_point(char * path, size_t path_depth) {
 		kprintf("%s%c", path, (depth == path_depth) ? '\n' : '/');
 		path += strlen(path) + 1;
 	}
+#endif
 
 #if 0
 	tree_node_t * tnode = from;
