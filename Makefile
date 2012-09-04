@@ -24,7 +24,7 @@ REALEMU      = $(patsubst %.c,%.o,$(wildcard kernel/v8086/*.c))
 SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS} ${REALEMU}
 
 UTILITIES = util/bin/readelf util/bin/typewriter
-EMU = qemu
+EMU = qemu-system-i386
 GENEXT = genext2fs
 DD = dd conv=notrunc
 BEG = util/mk-beg
