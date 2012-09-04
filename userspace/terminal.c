@@ -3186,7 +3186,6 @@ int main(int argc, char ** argv) {
 	} else {
 
 		if (!_windowed) {
-			ansi_print("Requesting terminal output to me!\n");
 			/* Request kernel output to this terminal */
 			syscall_system_function(4, ofd);
 		}
