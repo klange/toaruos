@@ -28,7 +28,7 @@
  * 
  * If set to -1, size overrides will cause a \#UD
  */
-#define USE_SIZE_OVERRIDES	1
+#define USE_SIZE_OVERRIDES	0
 
 /**
  * \brief Size of a memory block
