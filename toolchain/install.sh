@@ -49,9 +49,9 @@ pushd build
         cp /tmp/__toaru_crt0.o $TARGET/newlib/libc/sys/crt0.o
         rm /tmp/__toaru_crt0.o
         $DIR/tarballs/newlib-1.19.0/configure --target=$TARGET --prefix=$PREFIX || bail
-        cp $DIR/patches/newlib/syscall.h $PREFIX/$TARGET/include/
         make || bail
         make install || bail
+        cp $DIR/patches/newlib/syscall.h $PREFIX/$TARGET/include/
     popd
     if [ ! -d freetype ]; then
         mkdir freetype
