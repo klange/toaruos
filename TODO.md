@@ -1,88 +1,49 @@
-# Short-Term Development Targets as of 2011/10/31
+# TODO as of Septemember 2012
 
-## Harddisk Support
-* Write support for EXT2 *working, but needs more work, if that makes any sense*
-* Port EXT2 drivers to IDE -read-/write (superblock read testing was successful)
-* Build a better VFS with support for disk mounting *oh, please, yes...*
-* -Get all of the example binaries onto a hard disk image- *did this, sort of*
-* **PORT GCC**
+## Build Fixes ##
+* Update userspace syscalls.h to include `sys_func` system call.
+* Fix "no .eh_frame_hdr table will be created." warning when building userspace apps.
+* Fix all other [legtimate] warnings when building userspace apps.
+* Silence warnings on obfuscated C examples in build process or remove them as unecessary (we have `nyancat`)
 
-## Operation Viper
-* Port ncurses
-    * Requires some terminal-related C library functions
-* Port Vim
-    * Requires directory support
-    * Disable command execution?
+## Terminal Fixes ##
+* Investigate issues with slow terminal pipes (`yes` running amok)
+* Mouse features; mouse support in windowed mode
+* Tab completion in shell (this is mostly a shell-specific thing)
+* Unicode support
+  * UTF-8 parsing
+  * UCS storage of characters in the terminal screen display
+  * Font fallback for characters not in core font
+  * Character width detection from fonts (for determining double-width characters)
 
-# Development Targets as of 2011/10/21
+## Windowing System ##
+* Graphical Login Manager
+* Finish GUI toolkit
+* File manager app
 
+## Harddisk Drive Extras
+* VFS support is still almost entirely non-existent
+* Write support for EXT2 is still sketchy
+* Still lacking fast read/write for IDE - needs more DMA!
 
-## I/O
+## Toolchain
+* Finish GCC port
+  * Still missing a few things in the underlying C library
+  * Ideally, also want to be able to build natively, so need scripting, build utils, etc.
+* Port ncurses/vim/etc.
+  * Native development requires good tools.
+  * Also port genext2fs.
+* Directory support needs to be better integrated into the C library still
+
+## Old I/O goals
+
+### I/O
 * `/dev` file system
 * `/dev/fbN` and `/dev/ttyN` for virtual framebuffer terminals and graphics
 * `/dev/ttyS0` for serial I/O
-* Support framebuffer switching via keyboard
-* Remove hardcoded special-casing for `stdin`/`stdout`/`stderr`
 * SATA read/write drivers (`/dev/sdaN`)
 * `/dev/ramdisk` (read-only)
-* EXT2 write support (including file creation, directory creation, rm, unlink, etc.)
 * EXT2 drivers should operate on a `/dev/*` file
 * Mounting of `/dev/*` files using a filesystem handler
 * VFS tree
 
-## libc
-* Fork `newlib`
-* Changes for `newlib` should be moved to a git repository
-* Fix 64-bit host builds?
-* `dirent.h` support; `readdir` in kernel
-* Entire user-space library set should build from scratch on any compatible system
-* Consider working with `glib`?
-
-## GCC
-* Port GCC
-* Port `yasm`, `make`
-
-## Task Management
-* -Fix user-mode `fork`-
-* -Add user-mode `wait`- (with queues!)
-* Signals (`signal()`, `kill()`, etc.)
-
-
-## Signals and Exceptions
-
-*Signals have been implemented.*
-
-# EOH
-EOH, "Engineering Open House", is an annual event held at the University of Illinois at Urbana-Champaign which showcases student projects and research.
-
-## Primary Plans
-* Windowing environment
-* More user applications
-
-## Details
-
-### Windowing Environment
-
-EOH is focused on making stuff that looks cool. Judges are impressed by things they can see, thus the primary target for EOH is a GUI.
-
-Complete the windowing environment (which will eventually be rebuilt to implement Wayland, in the far future), will require:
-
-* Pipes (for user applications, terminal windows, etc.)
-* Shared memory buffers (single writer; client-server model; for window graphics buffers)
-* Input device files (for mouse and keyboard reads)
-
-Additionally, it would be nice to have:
-
-* Freetype (for smooth, unicode text rendering; I have had difficulties getting Freetype to process font files, this may be a bug in the ELF loader; try to trace what calls Freetype normally makes to figure thise out)
-* There is an embedded, pure-software implementation of OpenGL; consider porting it (because 3d stuff is cool)
-
-### Applications
-
-Both for the purpose of demonstrating the windowing environment and to make とあるOS more usable, it would be ideal to have a few usable applications.
-
-* A simple editor (I would love to port something real like Vim, but this has proven difficult due to external requirements)
-* Graphical applications such as:
-    * A calculator
-    * Some simple game (perhaps minesweeper)
-    * An analog clock
-* A compiler for something, even if it isn't C.
