@@ -4,7 +4,6 @@
  *
  */
 #include <system.h>
-#include <syscall.h>
 #include <process.h>
 #include <logging.h>
 #include <fs.h>
