@@ -49,7 +49,7 @@ DEFN_SYSCALL1(chdir, 28, char *);
 DEFN_SYSCALL2(getcwd, 29, char *, size_t);
 DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL1(sethostname, 31, char *);
-DEFN_SYSCALL0(gethostname, 32);
+DEFN_SYSCALL1(gethostname, 32, char *);
 DEFN_SYSCALL0(mousedevice, 33);
 DEFN_SYSCALL2(mkdir, 34, char *, unsigned int);
 DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *);

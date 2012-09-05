@@ -80,7 +80,7 @@ DECL_SYSCALL1(chdir, char *);
 DECL_SYSCALL2(getcwd, char *, size_t);
 DECL_SYSCALL3(clone, uintptr_t, uintptr_t, void *);
 DECL_SYSCALL1(sethostname, char *);
-DECL_SYSCALL0(gethostname);
+DECL_SYSCALL1(gethostname, char *);
 DECL_SYSCALL0(mousedevice);
 DECL_SYSCALL2(mkdir, char *, unsigned int);
 DECL_SYSCALL2(shm_obtain, char *, size_t *);
