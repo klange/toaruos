@@ -12,8 +12,6 @@
 #include <string.h>
 #include <syscall.h>
 
-DEFN_SYSCALL1(sethostname, 31, char *);
-
 #define DEFAULT_HOSTNAME "toaru-test"
 
 /* Set the hostname to whatever is in /etc/hostname */

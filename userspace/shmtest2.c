@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
-
 #define KEY "shm_test3.mem"
 #define MAGIC 111
 

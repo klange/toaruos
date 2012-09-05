@@ -1,6 +1,9 @@
 #ifndef _SYSCALL_H
 #define _SYSCALL_H
 
+#include <stdint.h>
+#include <string.h>
+
 #define DECL_SYSCALL0(fn)                int syscall_##fn()
 #define DECL_SYSCALL1(fn,p1)             int syscall_##fn(p1)
 #define DECL_SYSCALL2(fn,p1,p2)          int syscall_##fn(p1,p2)
@@ -44,35 +47,51 @@
 		return a; \
 	}
 
-/* Core */
+
 DECL_SYSCALL1(exit, int);
 DECL_SYSCALL1(print, const char *);
-
-/* Files */
-DECL_SYSCALL1(close,  int);
-DECL_SYSCALL3(open,   const char *, int, int);
-DECL_SYSCALL3(read,   int, char *, int);
-DECL_SYSCALL3(write,  int, char *, int);
-DECL_SYSCALL2(fstat,  int, void *);
-DECL_SYSCALL1(isatty, int);
-DECL_SYSCALL2(link,   char *, char *);
-DECL_SYSCALL1(unlink, char *);
-DECL_SYSCALL3(lseek,  int, int, int);
-DECL_SYSCALL2(stat,   const char *, void *);
-
-/* Process Control */
-DECL_SYSCALL0(getpid);
+DECL_SYSCALL3(open, const char *, int, int);
+DECL_SYSCALL3(read, int, char *, int);
+DECL_SYSCALL3(write, int, char *, int);
+DECL_SYSCALL1(close, int);
+DECL_SYSCALL2(gettimeofday, void *, void *);
 DECL_SYSCALL3(execve, char *, char **, char **);
 DECL_SYSCALL0(fork);
-DECL_SYSCALL2(kill, int, int);
-DECL_SYSCALL1(wait, unsigned int);
-
-/* Memory management */
+DECL_SYSCALL0(getpid);
 DECL_SYSCALL1(sbrk, int);
-
-DECL_SYSCALL2(gettimeofday, void *, void *);
 DECL_SYSCALL0(getgraphicsaddress);
-
+DECL_SYSCALL1(kbd_mode, int);
+DECL_SYSCALL0(kbd_get);
+DECL_SYSCALL3(lseek, int, int, int);
+DECL_SYSCALL2(fstat, int, void *);
+DECL_SYSCALL1(setgraphicsoffset, int);
+DECL_SYSCALL1(wait, unsigned int);
+DECL_SYSCALL0(getgraphicswidth);
+DECL_SYSCALL0(getgraphicsheight);
+DECL_SYSCALL0(getgraphicsdepth);
+DECL_SYSCALL0(mkpipe);
+DECL_SYSCALL2(dup2, int, int);
+DECL_SYSCALL0(getuid);
+DECL_SYSCALL1(setuid, unsigned int);
+DECL_SYSCALL1(kernel_string_XXX, char *);
+DECL_SYSCALL0(reboot);
+DECL_SYSCALL3(readdir, int, int, void *);
+DECL_SYSCALL1(chdir, char *);
+DECL_SYSCALL2(getcwd, char *, size_t);
+DECL_SYSCALL3(clone, uintptr_t, uintptr_t, void *);
+DECL_SYSCALL1(sethostname, char *);
+DECL_SYSCALL0(gethostname);
+DECL_SYSCALL0(mousedevice);
+DECL_SYSCALL2(mkdir, char *, unsigned int);
+DECL_SYSCALL2(shm_obtain, char *, size_t *);
+DECL_SYSCALL1(shm_release, char *);
+DECL_SYSCALL2(send_signal, uint32_t, uint32_t);
+DECL_SYSCALL2(signal, uint32_t, void *);
+DECL_SYSCALL2(share_fd, int, int);
+DECL_SYSCALL1(get_fd, int);
+DECL_SYSCALL0(gettid);
+DECL_SYSCALL0(yield);
+DECL_SYSCALL2(system_function, int, char **);
 
 #endif
 /*

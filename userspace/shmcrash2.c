@@ -11,10 +11,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
-DEFN_SYSCALL1(shm_release, 36, char *)
-
-
 int main (int argc, char ** argv) {
 	if (argc < 2) {
 		fprintf(stderr, "%s: expected argument\n", argv[0]);

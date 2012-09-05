@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DECL_SYSCALL0(mkpipe);
-
 int main(int argc, char ** argv) {
 	int fd = syscall_mkpipe();
 	printf("%d <- pipe\n", fd);

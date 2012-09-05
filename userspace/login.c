@@ -16,13 +16,6 @@
 
 #include "lib/sha2.h"
 
-DEFN_SYSCALL1(setuid, 24, unsigned int);
-DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
-DEFN_SYSCALL0(gethostname, 32);
-
-DEFN_SYSCALL2(signal, 38, uint32_t, void *);
-DECL_SYSCALL2(send_signal, uint32_t, uint32_t);
-
 uint32_t child = 0;
 
 void sig_int(int sig) {

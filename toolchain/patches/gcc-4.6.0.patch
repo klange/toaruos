@@ -46,7 +46,7 @@ diff -rupN original/gcc/config.gcc new/gcc/config.gcc
  	;;
 +i[34567]86-*-toaru*)
 +	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h toaru.h"
-+	tmake_file="${tmake_file} i386/t-i386elf t-svr4"
++	tmake_file="${tmake_file} i386/t-i386elf t-svr4 i386/t-crtstuff"
 +	use_fixproto=yes
 +	;;
  i[34567]86-*-darwin*)

@@ -1,15 +1,16 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <syscall.h>
 #include "pthread.h"
-
-DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
-DEFN_SYSCALL0(gettid, 41);
 
 #define PTHREAD_STACK_SIZE 10240
 
-int clone(uintptr_t,uintptr_t,void*) __attribute__((alias("syscall_clone")));
-int gettid() __attribute__((alias("syscall_gettid")));
-
+int clone(uintptr_t a,uintptr_t b,void* c) {
+	syscall_clone(a,b,c);
+}
+int gettid() {
+	syscall_gettid();
+}
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
 	char * stack = malloc(PTHREAD_STACK_SIZE);

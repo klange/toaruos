@@ -11,16 +11,6 @@
 #include "list.h"
 #include "graphics.h"
 
-
-DECL_SYSCALL2(shm_obtain, char *, size_t *);
-DECL_SYSCALL1(shm_release, char *);
-DECL_SYSCALL2(send_signal, int, int);
-DECL_SYSCALL2(sys_signal, int, int);
-DECL_SYSCALL2(share_fd, int, int);
-DECL_SYSCALL1(get_fd, int);
-DECL_SYSCALL0(yield);
-
-
 /* Connection */
 typedef struct {
 	/* Control flow structures */

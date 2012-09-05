@@ -25,16 +25,6 @@
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 #define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
 
-
-DECL_SYSCALL0(getgraphicsaddress);
-DECL_SYSCALL1(kbd_mode, int);
-DECL_SYSCALL0(kbd_get);
-DECL_SYSCALL1(setgraphicsoffset, int);
-
-DECL_SYSCALL0(getgraphicswidth);
-DECL_SYSCALL0(getgraphicsheight);
-DECL_SYSCALL0(getgraphicsdepth);
-
 typedef struct sprite {
 	uint16_t width;
 	uint16_t height;

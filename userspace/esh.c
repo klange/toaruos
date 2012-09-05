@@ -16,11 +16,6 @@
 #include <unistd.h>
 #include <time.h>
 
-DEFN_SYSCALL0(gethostname, 32);
-
-DEFN_SYSCALL2(signal, 38, uint32_t, void *);
-DEFN_SYSCALL2(send_signal, 37, uint32_t, uint32_t)
-
 #define LINE_LEN 4096
 
 char cwd[1024] = {'/',0};

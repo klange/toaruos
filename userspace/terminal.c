@@ -26,10 +26,6 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
-#ifndef syscall_system_function
-DEFN_SYSCALL2(system_function, 43, int, int);
-#endif
-
 #include "lib/utf8_decode.h"
 #include "../kernel/include/mouse.h"
 
@@ -499,13 +495,6 @@ ansi_print(char * c) {
 		ansi_put(c[i]);
 	}
 }
-
-/*
- * Syscalls for pipes and devices.
- */
-DEFN_SYSCALL0(mousedevice, 33);
-DECL_SYSCALL2(dup2, int, int);
-DECL_SYSCALL0(mkpipe);
 
 uint16_t term_width    = 0;
 uint16_t term_height   = 0;
@@ -2917,10 +2906,6 @@ void clear_input() {
 
 uint32_t child_pid = 0;
 
-#if 0
-DEFN_SYSCALL2(send_signal, 37, uint32_t, uint32_t)
-#endif
-
 int buffer_put(char c) {
 	if (c == 8) {
 		/* Backspace */
@@ -3187,7 +3172,7 @@ int main(int argc, char ** argv) {
 
 		if (!_windowed) {
 			/* Request kernel output to this terminal */
-			syscall_system_function(4, ofd);
+			syscall_system_function(4, (char **)ofd);
 		}
 
 		child_pid = f;

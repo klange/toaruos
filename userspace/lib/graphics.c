@@ -9,15 +9,6 @@
 #include "graphics.h"
 #include "window.h"
 
-DEFN_SYSCALL0(getgraphicsaddress, 11);
-DEFN_SYSCALL1(kbd_mode, 12, int);
-DEFN_SYSCALL0(kbd_get, 13);
-DEFN_SYSCALL1(setgraphicsoffset, 16, int);
-
-DEFN_SYSCALL0(getgraphicswidth,  18);
-DEFN_SYSCALL0(getgraphicsheight, 19);
-DEFN_SYSCALL0(getgraphicsdepth,  20);
-
 /* Pointer to graphics memory */
 void flip(gfx_context_t * ctx) {
 	memcpy(ctx->buffer, ctx->backbuffer, ctx->size);

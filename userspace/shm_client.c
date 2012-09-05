@@ -6,10 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
-DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
-DEFN_SYSCALL1(shm_release, 36, char *)
-
 #define SHMSZ	27
 
 int main(int argc, char ** argv) {

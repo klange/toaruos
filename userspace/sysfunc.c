@@ -7,7 +7,6 @@
  */
 #include <syscall.h>
 #include <stdlib.h>
-DEFN_SYSCALL2(system_function, 43, int, char **);
 
 int main(int argc, char ** argv) {
 	if (argc < 2) return 1;

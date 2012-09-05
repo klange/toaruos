@@ -18,16 +18,6 @@
 
 FILE *fdopen(int fildes, const char *mode);
 
-#if 1
-DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *)
-DEFN_SYSCALL1(shm_release, 36, char *)
-DEFN_SYSCALL2(send_signal, 37, int, int)
-DEFN_SYSCALL2(sys_signal, 38, int, int)
-DEFN_SYSCALL2(share_fd, 39, int, int)
-DEFN_SYSCALL1(get_fd, 40, int)
-DEFN_SYSCALL0(yield, 42)
-#endif
-
 #define LOCK(lock) while (__sync_lock_test_and_set(&lock, 0x01)) { syscall_yield(); };
 #define UNLOCK(lock) __sync_lock_release(&lock);
 
@@ -414,7 +404,7 @@ static void process_evt (int sig) {
 }
 
 void install_signal_handlers () {
-	syscall_sys_signal(SIGWINEVENT, (uintptr_t)process_evt); // SIGWINEVENT
+	syscall_signal(SIGWINEVENT, process_evt); // SIGWINEVENT
 	key_evt_buffer = list_create();
 	mouse_evt_buffer = list_create();
 }
@@ -432,7 +422,7 @@ void * win_threaded_event_processor(void * garbage) {
 
 
 void win_use_threaded_handler() {
-	syscall_sys_signal(SIGWINEVENT, (uintptr_t)ignore); // SIGWINEVENT
+	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
 	pthread_t event_thread;
 	pthread_create(&event_thread, NULL, win_threaded_event_processor, NULL);
 }

@@ -28,9 +28,6 @@
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
-DECL_SYSCALL0(mkpipe);
-DEFN_SYSCALL0(mousedevice, 33);
-
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
 		syscall_yield();
@@ -618,9 +615,9 @@ void * ignore(void * value) {
 
 void init_signal_handlers () {
 #if 0
-	syscall_sys_signal(SIGWINEVENT, (uintptr_t)process_window_command); // SIGWINEVENT
+	syscall_signal(SIGWINEVENT, process_window_command); // SIGWINEVENT
 #else
-	syscall_sys_signal(SIGWINEVENT, (uintptr_t)ignore); // SIGWINEVENT
+	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
 #endif
 }
 

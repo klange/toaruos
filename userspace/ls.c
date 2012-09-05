@@ -196,8 +196,6 @@ int max (int a, int b) {
 	}
 }
 
-DEFN_SYSCALL3(readdir, 27, int, int, void *)
-
 /* Should be kept in sync with 'struct dirent' in kernel/include/fs.h */
 struct dirent {
 	uint32_t inode;

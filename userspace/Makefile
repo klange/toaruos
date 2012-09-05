@@ -1,6 +1,6 @@
 CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
-CFLAGS = -std=c99 -O3 -m32 -Wa,--32 -Xlinker --eh-frame-hdr
+CFLAGS = -std=c99 -U__STRICT_ANSI__ -O3 -m32 -Wa,--32 -Xlinker --eh-frame-hdr
 CPPFLAGS = -O3 -m32 -Wa,--32
 EXTRAFLAGS = -g
 EXECUTABLES = $(patsubst %.c,%.o,$(wildcard lib/*.c)) $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
@@ -21,7 +21,7 @@ FREETYPE_LIB = ${TOOLCHAIN}/lib/libfreetype.a
 LIBM = ${TOOLCHAIN}/lib/libm.a
 
 TARGETDIR = ../hdd/bin/
-ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver donut wallpaper panel glock clock-win draw test-gfx
+ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver wallpaper panel glock clock-win draw test-gfx threadtest
 FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 .PHONY: all clean
