@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int main(char argc, char * argv[]) {
+int main(int argc, char * argv[]) {
     printf("\033[1003z");
     fflush(stdout);
     int width, height;

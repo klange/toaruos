@@ -427,15 +427,22 @@ ansi_put(
 							}
 						}
 						break;
+					case ANSI_DSR:
+						{
+							char out[24];
+							sprintf(out, "\033[%d;%dR", csr_y + 1, csr_x + 1);
+							input_buffer_stuff(out);
+						}
+						break;
 					case 'X':
 						{
-						int how_many = 1;
-						if (argc >= 1) {
-							how_many = atoi(argv[0]);
-						}
-						for (int i = 0; i < how_many; ++i) {
-							ansi_writer(' ');
-						}
+							int how_many = 1;
+							if (argc >= 1) {
+								how_many = atoi(argv[0]);
+							}
+							for (int i = 0; i < how_many; ++i) {
+								ansi_writer(' ');
+							}
 						}
 						break;
 					case 'd':
