@@ -25,6 +25,7 @@
 #define BROKEN_COLOR	"1;"
 
 #define DEFAULT_TERM_WIDTH 80
+#define DEFAULT_TERM_HEIGHT 24
 
 
 /* Shit that belongs as a separate data structure */
@@ -380,7 +381,12 @@ int main (int argc, char * argv[]) {
 		ent_max_len = max(ent_max_len, strlen(ents_array[i]->name));
 	}
 
-	const int term_width = DEFAULT_TERM_WIDTH; // For now, we assume 128
+	int term_width = DEFAULT_TERM_WIDTH; // For now, we assume 128
+	int term_height = DEFAULT_TERM_HEIGHT;
+
+	printf("\033[1003z");
+	fflush(stdout);
+	scanf("%d,%d", &term_width, &term_height);
 
 	int col_ext = ent_max_len + MIN_COL_SPACING;
 	int cols = ((term_width - ent_max_len) / col_ext) + 1;

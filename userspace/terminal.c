@@ -38,9 +38,35 @@
 char *strtok_r(char *s1, const char *s2, char **s3);
 #endif
 
-#define FONT_SIZE 13
+typedef struct _terminal_cell {
+	uint16_t c;
+	uint8_t  fg;
+	uint8_t  bg;
+	uint8_t  flags;
+} __attribute__((packed)) t_cell;
 
 #define MOUSE_SCALE 6
+
+static int ofd, ifd;
+
+uint16_t term_width    = 0;
+uint16_t term_height   = 0;
+uint16_t font_size     = 13;
+uint16_t char_width    = 8;
+uint16_t char_height   = 12;
+uint16_t char_offset   = 0;
+uint16_t csr_x = 0;
+uint16_t csr_y = 0;
+t_cell * term_buffer = NULL;
+uint8_t  current_fg = 7;
+uint8_t  current_bg = 0;
+uint16_t current_scroll = 0;
+uint8_t  cursor_on = 1;
+window_t * window = NULL;
+int      _windowed = 0;
+int      _vga_mode = 0;
+int      _login_shell = 0;
+
 
 static unsigned int timer_tick = 0;
 #define TIMER_TICK 400000
@@ -117,14 +143,12 @@ void outb(unsigned char _data, unsigned short _port) {
 	__asm__ __volatile__ ("outb %1, %0" : : "dN" (_port), "a" (_data));
 }
 
-uint8_t _use_freetype = 0;
+void input_buffer_stuff(char * str) {
+	size_t s = strlen(str);
+	write(ifd, str, s);
+}
 
-typedef struct _terminal_cell {
-	uint16_t c;
-	uint8_t  fg;
-	uint8_t  bg;
-	uint8_t  flags;
-} __attribute__((packed)) t_cell;
+uint8_t _use_freetype = 0;
 
 /* State machine status */
 static struct _ansi_state {
@@ -241,6 +265,13 @@ ansi_put(
 									case 1002:
 										/* Local Echo On */
 										state.local_echo = 1;
+										break;
+									case 1003:
+										{
+											char out[24];
+											sprintf(out, "%d,%d\n", term_width, term_height);
+											input_buffer_stuff(out);
+										}
 										break;
 									default:
 										break;
@@ -502,23 +533,6 @@ ansi_print(char * c) {
 		ansi_put(c[i]);
 	}
 }
-
-uint16_t term_width    = 0;
-uint16_t term_height   = 0;
-uint16_t char_width    = 8;
-uint16_t char_height   = 12;
-uint16_t char_offset   = 0;
-uint16_t csr_x = 0;
-uint16_t csr_y = 0;
-t_cell * term_buffer = NULL;
-uint8_t  current_fg = 7;
-uint8_t  current_bg = 0;
-uint16_t current_scroll = 0;
-uint8_t  cursor_on = 1;
-window_t * window = NULL;
-int      _windowed = 0;
-int      _vga_mode = 0;
-int      _login_shell = 0;
 
 uint32_t term_colors[256] = {
 	/* black  */ 0x2e3436,
@@ -3135,44 +3149,51 @@ int main(int argc, char ** argv) {
 		setLoaded(1,0);
 		setLoaded(2,0);
 		setLoaded(3,0);
-#if 0
 		setLoaded(4,0);
+
+#ifndef BIG_FONTS
+		font_size   = 13;
+		char_height = 17;
+		char_width  = 8;
+		char_offset = 13;
+#else
+		font_size   = 26;
+		char_height = 34;
+		char_width  = 16;
+		char_offset = 26;
 #endif
+
 
 		setLoaded(0,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face, font_size, font_size); if (error) return 1;
 		setLoaded(0,1);
 
 		setLoaded(1,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face_bold, font_size, font_size); if (error) return 1;
 		setLoaded(1,1);
 
 		setLoaded(2,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face_italic, font_size, font_size); if (error) return 1;
 		setLoaded(2,1);
 
 		setLoaded(3,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face_bold_italic, font_size, font_size); if (error) return 1;
 		setLoaded(3,1);
 
 #if 1
 		setLoaded(4,2);
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
-		error = FT_Set_Pixel_Sizes(face_extra, FONT_SIZE, FONT_SIZE); if (error) return 1;
+		error = FT_Set_Pixel_Sizes(face_extra, font_size, font_size); if (error) return 1;
 		setLoaded(4,1);
 #endif
-
-		char_height = 17;
-		char_width  = 8;
-		char_offset = 13;
 	}
 
 	if (_windowed) {
@@ -3200,8 +3221,8 @@ int main(int argc, char ** argv) {
 	ansi_print("\033[H\033[2J");
 
 
-	int ofd = syscall_mkpipe();
-	int ifd = syscall_mkpipe();
+	ofd = syscall_mkpipe();
+	ifd = syscall_mkpipe();
 
 	int mfd = syscall_mousedevice();
 
@@ -3303,7 +3324,7 @@ fail_mouse:
 				if (_stat.st_size) {
 					int r = read(0, buf, min(_stat.st_size, 1024));
 					for (uint32_t i = 0; i < r; ++i) {
-						if (buffer_put(buf[0])) {
+						if (buffer_put(buf[i])) {
 							write(ifd, input_buffer, input_collected);
 							clear_input();
 						}
