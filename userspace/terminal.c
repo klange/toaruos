@@ -2602,6 +2602,13 @@ term_write_char(
 				term_set_point(x+j,y+i,bg);
 			}
 		}
+		if (flags & ANSI_WIDE) {
+			for (uint8_t i = 0; i < char_height; ++i) {
+				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
+					term_set_point(x+j,y+i,bg);
+				}
+			}
+		}
 		if (val < 32) {
 			return;
 		}
@@ -2794,11 +2801,15 @@ void term_write(char c) {
 			csr_x = (csr_x + 8) & ~(8 - 1);
 		} else {
 			int wide = is_wide(codepoint);
+			uint8_t flags = state.flags;
 			if (wide && csr_x == term_width - 1) {
 				csr_x = 0;
 				++csr_y;
 			}
-			cell_set(csr_x,csr_y, codepoint, current_fg, current_bg, state.flags);
+			if (wide) {
+				flags = flags | ANSI_WIDE;
+			}
+			cell_set(csr_x,csr_y, codepoint, current_fg, current_bg, flags);
 			cell_redraw(csr_x,csr_y);
 			csr_x++;
 			if (wide && csr_x != term_width) {
