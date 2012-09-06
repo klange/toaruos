@@ -10,6 +10,8 @@
 #include <math.h>
 #include <time.h>
 
+#include "lib/utf8decode.h"
+
 struct timeval {
 	unsigned int tv_sec;
 	unsigned int tv_usec;
@@ -43,7 +45,6 @@ int center_x(int x) {
 int center_y(int y) {
 	return (win_height - y) / 2;
 }
-
 
 void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i] = malloc(sizeof(sprite_t));
@@ -116,18 +117,36 @@ static void draw_string_wide(int x, int y, uint32_t fg, uint16_t * string) {
 	for (i = 0; i < len; ++i) {
 		FT_UInt glyph_index;
 
-		glyph_index = FT_Get_Char_Index( face_extra, string[i]);
-		error = FT_Load_Glyph(face_extra, glyph_index, FT_LOAD_DEFAULT);
-		if (error) {
-			printf("Error loading glyph for '%c'\n", string[i]);
-			continue;
-		}
-		slot = (face_extra)->glyph;
-		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
-			error = FT_Render_Glyph((face_extra)->glyph, FT_RENDER_MODE_NORMAL);
+		glyph_index = FT_Get_Char_Index( face, string[i]);
+
+		if (glyph_index) {
+			error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
 			if (error) {
-				printf("Error rendering glyph for '%c'\n", string[i]);
+				printf("Error loading glyph for '%c'\n", string[i]);
 				continue;
+			}
+			slot = (face)->glyph;
+			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+				error = FT_Render_Glyph((face)->glyph, FT_RENDER_MODE_NORMAL);
+				if (error) {
+					printf("Error rendering glyph for '%c'\n", string[i]);
+					continue;
+				}
+			}
+		} else {
+			glyph_index = FT_Get_Char_Index( face_extra, string[i]);
+			error = FT_Load_Glyph(face_extra, glyph_index, FT_LOAD_DEFAULT);
+			if (error) {
+				printf("Error loading glyph for '%c'\n", string[i]);
+				continue;
+			}
+			slot = (face_extra)->glyph;
+			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+				error = FT_Render_Glyph((face_extra)->glyph, FT_RENDER_MODE_NORMAL);
+				if (error) {
+					printf("Error rendering glyph for '%c'\n", string[i]);
+					continue;
+				}
 			}
 		}
 
@@ -192,20 +211,27 @@ int main (int argc, char ** argv) {
 	struct tm * timeinfo;
 	char   buffer[80];
 
-	uint16_t os_name[] = {
-		0x3068, // と
-		0x3042, // あ
-		0x308B, // る
-		'O',
-		'S',
-		' ',
-		'0',
-		'.',
-		'2',
-		'.',
-		'0',
-		0
-	};
+	/* UTF-8 Strings FTW! */
+	uint8_t * os_name_ = "とあるOS 0.2.0";
+
+	uint8_t *s = os_name_;
+	uint16_t os_name[256];
+	uint16_t *o = os_name;
+
+	uint32_t codepoint;
+	uint32_t state = 0;
+
+	/* TODO: This should be part of the graphics library (combined with generic text rendering) */
+	while (*s) {
+		if (!decode(&state, &codepoint, *s)) {
+			*o = (uint16_t)codepoint;
+			o++;
+		} else if (state == UTF8_REJECT) {
+			state = 0;
+		}
+		s++;
+	}
+	o = 0;
 
 	while (1) {
 		/* Redraw the background by memcpy (super speedy) */

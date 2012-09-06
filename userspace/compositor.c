@@ -450,9 +450,7 @@ void process_window_command (int sig) {
 #endif
 			w_window_t wwt;
 			wins_packet_t header;
-			printf("[compositor] read [%d] {\n", pw->pid);
 			int bytes_read = read(pw->command_pipe, &header, sizeof(wins_packet_t));
-			printf("[compositor] } read [%d] \n", pw->pid);
 
 			while (header.magic != WINS_MAGIC) {
 				printf("Magic is wrong from pid %d, expected 0x%x but got 0x%x [read %d bytes of %d]\n", pw->pid, WINS_MAGIC, header.magic, bytes_read, sizeof(header));

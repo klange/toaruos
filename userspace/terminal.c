@@ -26,7 +26,7 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
-#include "lib/utf8_decode.h"
+#include "lib/utf8decode.h"
 #include "../kernel/include/mouse.h"
 
 #include "lib/graphics.h"
@@ -119,6 +119,13 @@ void outb(unsigned char _data, unsigned short _port) {
 
 uint8_t _use_freetype = 0;
 
+typedef struct _terminal_cell {
+	uint16_t c;
+	uint8_t  fg;
+	uint8_t  bg;
+	uint8_t  flags;
+} __attribute__((packed)) t_cell;
+
 /* State machine status */
 static struct _ansi_state {
 	uint16_t x     ;  /* Current cursor location */
@@ -141,7 +148,7 @@ void (*ansi_set_color)(unsigned char, unsigned char) = NULL;
 void (*ansi_set_csr)(int,int) = NULL;
 int  (*ansi_get_csr_x)(void) = NULL;
 int  (*ansi_get_csr_y)(void) = NULL;
-void (*ansi_set_cell)(int,int,char) = NULL;
+void (*ansi_set_cell)(int,int,uint16_t) = NULL;
 void (*ansi_cls)(void) = NULL;
 
 void (*redraw_cursor)(void) = NULL;
@@ -466,7 +473,7 @@ ansi_put(
 }
 
 void
-ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char), void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,char), void (*cls)(void), void (*redraw_csr)(void)) {
+ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char), void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,uint16_t), void (*cls)(void), void (*redraw_csr)(void)) {
 
 	ansi_writer    = writer;
 	ansi_set_color = setcolor;
@@ -503,7 +510,7 @@ uint16_t char_height   = 12;
 uint16_t char_offset   = 0;
 uint16_t csr_x = 0;
 uint16_t csr_y = 0;
-uint8_t * term_buffer = NULL;
+t_cell * term_buffer = NULL;
 uint8_t  current_fg = 7;
 uint8_t  current_bg = 0;
 uint16_t current_scroll = 0;
@@ -2589,7 +2596,7 @@ term_write_char(
 	} else if (_use_freetype) {
 		fg = term_colors[fg];
 		bg = term_colors[bg];
-		if (val == 0xFFFFFFFF) { return; } /* Unicode, do not redraw here */
+		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
 				term_set_point(x+j,y+i,bg);
@@ -2615,9 +2622,16 @@ term_write_char(
 			_font = &face;
 		}
 		glyph_index = FT_Get_Char_Index(*_font, val);
+		if (glyph_index == 0) {
+			glyph_index = FT_Get_Char_Index(face_extra, val);
+			_font = &face_extra;
+		}
 		error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
 		if (error) {
-			ansi_print("Error loading glyph.\n");
+			char tmp[256];
+			sprintf(tmp, "%d", val);
+			ansi_print("Error loading glyph: ");
+			ansi_print(tmp);
 		};
 		slot = (*_font)->glyph;
 		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
@@ -2653,56 +2667,56 @@ term_write_char(
 	needs_redraw = 1;
 }
 
-static void cell_set(uint16_t x, uint16_t y, uint8_t c, uint8_t fg, uint8_t bg, uint8_t flags) {
+static void cell_set(uint16_t x, uint16_t y, uint16_t c, uint8_t fg, uint8_t bg, uint8_t flags) {
 	if (x >= term_width || y >= term_height) return;
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	cell[0] = c;
-	cell[1] = fg;
-	cell[2] = bg;
-	cell[3] = flags;
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	cell->c     = c;
+	cell->fg    = fg;
+	cell->bg    = bg;
+	cell->flags = flags;
 }
 
 static uint16_t cell_ch(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return 0;
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	return cell[0];
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	return cell->c;
 }
 
 static uint16_t cell_fg(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return 0;
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	return cell[1];
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	return cell->fg;
 }
 
 static uint16_t cell_bg(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return 0;
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	return cell[2];
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	return cell->bg;
 }
 
 static uint8_t  cell_flags(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return 0;
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
-	return cell[3];
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	return cell->flags;
 }
 
 static void cell_redraw(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
 	} else {
-		term_write_char(cell[0], x * char_width, y * char_height, cell[1], cell[2], cell[3]);
+		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
 	}
 }
 
 static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
-	uint8_t * cell = (uint8_t *)((uintptr_t)term_buffer + (y * term_width + x) * 4);
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, DEFAULT_BG, DEFAULT_FG, DEFAULT_FLAGS);
 	} else {
-		term_write_char(cell[0], x * char_width, y * char_height, cell[2], cell[1], cell[3]);
+		term_write_char(cell->c, x * char_width, y * char_height, cell->bg, cell->fg, cell->flags);
 	}
 }
 
@@ -2732,37 +2746,78 @@ void term_term_scroll() {
 	term_redraw_all();
 }
 
+uint32_t codepoint;
+uint32_t unicode_state = 0;
+
+int is_wide(uint32_t codepoint) {
+	if (codepoint < 256 || !_use_freetype) return 0;
+	FT_Face * _font = &face;
+	glyph_index = FT_Get_Char_Index(*_font, codepoint);
+	if (glyph_index == 0) {
+		glyph_index = FT_Get_Char_Index(face_extra, codepoint);
+		_font = &face_extra;
+	} else {
+		return 0;
+	}
+	int error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
+	slot = (*_font)->glyph;
+	if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+		error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
+	}
+	if (slot->advance.x >> 6 > char_width) return 1;
+	return 0;
+}
+
 void term_write(char c) {
 	cell_redraw(csr_x, csr_y);
-	if (c == '\n') {
-		for (uint16_t i = csr_x; i < term_width; ++i) {
-			/* I like this behaviour */
-			cell_set(i, csr_y, ' ',current_fg, current_bg, state.flags);
-			cell_redraw(i, csr_y);
+	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
+		if (codepoint > 0xFFFF) {
+			codepoint = '?';
+			c = '?';
 		}
-		csr_x = 0;
-		++csr_y;
-	} else if (c == '\r') {
-		cell_redraw(csr_x,csr_y);
-		csr_x = 0;
-	} else if (c == '\b') {
-		--csr_x;
-		cell_set(csr_x, csr_y, ' ',current_fg, current_bg, state.flags);
-		cell_redraw(csr_x, csr_y);
-	} else if (c == '\t') {
-		csr_x = (csr_x + 8) & ~(8 - 1);
-	} else {
-		cell_set(csr_x,csr_y, c, current_fg, current_bg, state.flags);
-		cell_redraw(csr_x,csr_y);
-		csr_x++;
-	}
-	if (csr_x == term_width) {
-		csr_x = 0;
-		++csr_y;
-	}
-	if (csr_y == term_height) {
-		term_term_scroll();
-		csr_y = term_height - 1;
+		if (c == '\n') {
+			for (uint16_t i = csr_x; i < term_width; ++i) {
+				/* I like this behaviour */
+				cell_set(i, csr_y, ' ',current_fg, current_bg, state.flags);
+				cell_redraw(i, csr_y);
+			}
+			csr_x = 0;
+			++csr_y;
+		} else if (c == '\r') {
+			cell_redraw(csr_x,csr_y);
+			csr_x = 0;
+		} else if (c == '\b') {
+			--csr_x;
+			cell_set(csr_x, csr_y, ' ',current_fg, current_bg, state.flags);
+			cell_redraw(csr_x, csr_y);
+		} else if (c == '\t') {
+			csr_x = (csr_x + 8) & ~(8 - 1);
+		} else {
+			int wide = is_wide(codepoint);
+			if (wide && csr_x == term_width - 1) {
+				csr_x = 0;
+				++csr_y;
+			}
+			cell_set(csr_x,csr_y, codepoint, current_fg, current_bg, state.flags);
+			cell_redraw(csr_x,csr_y);
+			csr_x++;
+			if (wide && csr_x != term_width) {
+				cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, state.flags);
+				cell_redraw(csr_x,csr_y);
+				cell_redraw(csr_x-1,csr_y);
+				csr_x++;
+			}
+		}
+		if (csr_x == term_width) {
+			csr_x = 0;
+			++csr_y;
+		}
+		if (csr_y == term_height) {
+			term_term_scroll();
+			csr_y = term_height - 1;
+		}
+	} else if (unicode_state == UTF8_REJECT) {
+		unicode_state = 0;
 	}
 	draw_cursor();
 }
@@ -2816,7 +2871,7 @@ void flip_cursor() {
 }
 
 void
-term_set_cell(int x, int y, char c) {
+term_set_cell(int x, int y, uint16_t c) {
 	cell_set(x, y, c, current_fg, current_bg, 0);
 	cell_redraw(x, y);
 }
@@ -2830,7 +2885,7 @@ void term_term_clear() {
 	/* Oh dear */
 	csr_x = 0;
 	csr_y = 0;
-	memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(uint8_t) * 4);
+	memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(t_cell));
 	if (_windowed) {
 		render_decors();
 	}
@@ -3097,7 +3152,7 @@ int main(int argc, char ** argv) {
 		error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE); if (error) return 1;
 		setLoaded(3,1);
 
-#if 0
+#if 1
 		setLoaded(4,2);
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
 		error = FT_Set_Pixel_Sizes(face_extra, FONT_SIZE, FONT_SIZE); if (error) return 1;
@@ -3124,7 +3179,7 @@ int main(int argc, char ** argv) {
 		term_width  = ctx->width / char_width;
 		term_height = ctx->height / char_height;
 	}
-	term_buffer = malloc(sizeof(uint32_t) * term_width * term_height);
+	term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
 
 	mouse_x = ctx->width / 2;
@@ -3132,6 +3187,7 @@ int main(int argc, char ** argv) {
 
 	term_term_clear();
 	ansi_print("\033[H\033[2J");
+
 
 	int ofd = syscall_mkpipe();
 	int ifd = syscall_mkpipe();
