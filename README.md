@@ -7,6 +7,10 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 
 [![Automated build testing provided by Travis CI.](https://secure.travis-ci.org/klange/osdev.png?branch=master)](http://travis-ci.org/klange/osdev)
 
+### IRC ###
+
+`#toaruos@irc.freenode.net`
+
 ## News ##
 
 We are currently working on porting a toolchain to natively run under とあるOS. We currently have a nearly-working build of binutils and are working on porting gcc.
@@ -368,4 +372,5 @@ ToAruOS contains additional software with the following copyright notices:
         COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
         IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
         CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 
