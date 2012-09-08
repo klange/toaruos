@@ -9,11 +9,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
+
+#ifdef __linux__
+#include <stdio_ext.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#define BACKSPACE_KEY 0x7F
+#else
 #include <syscall.h>
+#define BACKSPACE_KEY 0x08
+#endif
 
 #include "lib/utf8decode.h"
 
 #define BLOCK_SIZE 256
+#define ENTER_KEY     '\n'
+
 
 static struct _env {
 	int    width;
@@ -114,26 +126,33 @@ void setup_buffer() {
 #define COLOR_ERROR_BG  196
 
 uint32_t codepoint;
+uint32_t codepoint_r;
 uint32_t state = 0;
 uint32_t istate = 0;
 
-#if 0
-FT_Library   library;
-FT_Face      face;
-FT_Face      face_extra;
-FT_GlyphSlot slot;
-FT_UInt      glyph_index;
+#ifdef __linux__
+struct termios old;
 #endif
 
-
 void set_unbuffered() {
+#ifdef __linux__
+	tcgetattr(fileno(stdin), &old);
+	struct termios new = old;
+	new.c_lflag &= (~ICANON & ~ECHO);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+#else
 	printf("\033[1560z");
 	fflush(stdout);
+#endif
 }
 
 void set_buffered() {
+#ifdef __linux__
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+#else
 	printf("\033[1561z");
 	fflush(stdout);
+#endif
 }
 
 int to_eight(uint16_t codepoint, uint8_t * out) {
@@ -161,7 +180,11 @@ int codepoint_width(uint16_t codepoint) {
 		char tmp[4];
 		int x, y;
 		to_eight(codepoint, tmp);
+#ifdef __linux__
+		__fpurge(stdin);
+#else
 		fpurge(stdin);
+#endif
 		printf("\033[s\033[%d;1H%s\033[6n", env.height, tmp);
 		fflush(stdout);
 		scanf("\033[%d;%dR", &y, &x);
@@ -238,12 +261,15 @@ void render_line(line_t * line, int width) {
 	set_colors(COLOR_FG, COLOR_BG);
 	while (i < line->actual) {
 		char_t c = line->text[i];
-		j += c.display_width;
-		if (j >= width) {
+		if (j + c.display_width >= width) {
 			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-			printf("…");
+			while (j < width) {
+				printf("…");
+				j++;
+			}
 			break;
 		}
+		j += c.display_width;
 		if (c.codepoint == '\t') {
 			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 			printf("»···");
@@ -304,7 +330,7 @@ void redraw_statusbar() {
 	char right_hand[1024];
 	sprintf(right_hand, "Line %d/%d Col: %d ", env.line_no, env.line_count, env.col_no);
 	place_cursor_h(env.width - strlen(right_hand));
-	printf(right_hand);
+	printf("%s",right_hand);
 	fflush(stdout);
 }
 
@@ -323,7 +349,11 @@ void redraw_all() {
 
 void update_title() {
 	char cwd[1024] = {'/',0};
+#ifdef __linux__
+	getcwd(cwd, 1024);
+#else
 	syscall_getcwd(cwd, 1024);
+#endif
 	printf("\033]1;%s%s (%s) - BIM\007", env.file_name, env.modified ? " +" : "", cwd);
 }
 
@@ -358,14 +388,23 @@ void place_cursor_actual() {
 	int y = env.line_no - env.offset + 1;
 
 	place_cursor(x,y);
+#ifndef __linux__
 	render_cursor();
+#endif
 }
 
 void initialize() {
+#ifdef __linux__
+	struct winsize w;
+	ioctl(0, TIOCGWINSZ, &w);
+	env.width = w.ws_col;
+	env.height = w.ws_row;
+#else
 	printf("\033[1003z");
 	fflush(stdout);
 	scanf("%d,%d", &env.width, &env.height);
 	fpurge(stdin);
+#endif
 	set_unbuffered();
 
 	update_title();
@@ -382,9 +421,9 @@ void goto_line(int line) {
 }
 
 void add_buffer(uint8_t * buf, int size) {
-	uint32_t c;
 	for (int i = 0; i < size; ++i) {
-		if (!decode(&state, &c, buf[i])) {
+		if (!decode(&state, &codepoint_r, buf[i])) {
+			uint32_t c = codepoint_r;
 			if (c == '\n') {
 				line_t ** nlines = add_line(lines, env.line_no);
 				if (nlines != lines) {
@@ -394,8 +433,8 @@ void add_buffer(uint8_t * buf, int size) {
 				env.line_no += 1;
 			} else {
 				char_t _c;
-				_c.codepoint = c;
-				_c.display_width = codepoint_width(c);
+				_c.codepoint = (uint16_t)c;
+				_c.display_width = codepoint_width((uint16_t)c);
 				line_t * line  = lines[env.line_no - 1];
 				line_t * nline = line_insert(line, _c, env.col_no - 1);
 				if (line != nline) {
@@ -442,7 +481,7 @@ void open_file(char * file) {
 	uint8_t buf[BLOCK_SIZE];
 
 	while (length > BLOCK_SIZE) {
-		fread(buf, 1, BLOCK_SIZE, f);
+		fread(buf, BLOCK_SIZE, 1, f);
 		add_buffer(buf, BLOCK_SIZE);
 		length -= BLOCK_SIZE;
 	}
@@ -522,14 +561,15 @@ void command_mode() {
 	while (c = fgetc(stdin)) {
 		if (c == '\033') {
 			break;
-		} else if (c == '\n') {
+		} else if (c == ENTER_KEY) {
 			process_command(buffer);
 			break;
-		} else if (c == 8) {
+		} else if (c == BACKSPACE_KEY) {
 			if (buffer_len > 0) {
-				buffer[buffer_len] = '\0';
 				buffer_len -= 1;
-				printf("\010");
+				buffer[buffer_len] = '\0';
+				redraw_commandline();
+				printf(":%s", buffer);
 				fflush(stdout);
 			} else {
 				redraw_commandline();
@@ -563,7 +603,7 @@ void insert_mode() {
 					if (env.col_no == 0) env.col_no = 1;
 					redraw_commandline();
 					return;
-				case 8:
+				case BACKSPACE_KEY:
 					if (env.col_no > 1) {
 						line_delete(lines[env.line_no - 1], env.col_no - 1);
 						env.col_no -= 1;
@@ -573,7 +613,7 @@ void insert_mode() {
 						place_cursor_actual();
 					}
 					break;
-				case '\n':
+				case ENTER_KEY:
 					if (env.col_no == lines[env.line_no - 1]->actual + 1) {
 						line_t ** nlines = add_line(lines, env.line_no);
 						if (nlines != lines) {
@@ -680,6 +720,9 @@ int main(int argc, char * argv[]) {
 						redraw_statusbar();
 						place_cursor_actual();
 					}
+					break;
+				case ' ':
+					goto_line(env.line_no + env.height - 6);
 					break;
 				case 'O':
 					{

@@ -23,7 +23,7 @@ REALEMU      = $(patsubst %.c,%.o,$(wildcard kernel/v8086/*.c))
 
 SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS} ${REALEMU}
 
-UTILITIES = util/bin/readelf util/bin/typewriter
+UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
 GENEXT = genext2fs
 DD = dd conv=notrunc
@@ -148,6 +148,11 @@ toaruos-disk.img: hdd userspace/*.c
 ################
 #   Utilities  #
 ################
+
+util/bin/bim: userspace/bim.c
+	@${BEG} "CC" "$<"
+	@${GCC} -std=c99 -posix -g -o $@ $<
+	@${END} "CC" "$<"
 
 util/bin/%: util/%.c
 	@${BEG} "CC" "$<"
