@@ -90,6 +90,40 @@ line_t ** add_line(line_t ** lines, uint32_t offset) {
 	return lines;
 }
 
+line_t ** split_line(line_t ** lines, uint32_t line, uint32_t split) {
+	if (split == 0) {
+		return add_line(lines, line - 1);
+	}
+	if (env.line_count == env.line_avail) {
+		env.line_avail *= 2;
+		lines = realloc(lines, sizeof(line_t *) * env.line_avail);
+	}
+	if (line < env.line_count) {
+		memmove(&lines[line+1], &lines[line], sizeof(line_t *) * (env.line_count - line));
+	}
+	uint32_t remaining = lines[line-1]->actual - split;
+
+	uint32_t v = remaining;
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+
+	lines[line] = malloc(sizeof(line_t) + sizeof(char_t) * v);
+	lines[line]->available = v;
+	lines[line]->actual = remaining;
+
+	memmove(lines[line]->text, &lines[line-1]->text[split], sizeof(char_t) * remaining);
+	lines[line-1]->actual = split;
+
+	env.line_count += 1;
+
+	return lines;
+}
+
 void setup_buffer() {
 	if (lines) {
 		for (int i = 0; i < env.line_count; ++i) {
@@ -619,18 +653,22 @@ void insert_mode() {
 						if (nlines != lines) {
 							lines = nlines;
 						}
-						env.col_no = 1;
-						env.line_no += 1;
-						if (env.line_no > env.offset + env.height - env.bottom_size - 1) {
-							env.offset += 1;
-						}
-						redraw_text();
-						set_modified();
-						redraw_statusbar();
-						place_cursor_actual();
 					} else {
 						/* oh oh god we're all gonna die */
+						line_t ** nlines = split_line(lines, env.line_no, env.col_no - 1);
+						if (nlines != lines) {
+							lines = nlines;
+						}
 					}
+					env.col_no = 1;
+					env.line_no += 1;
+					if (env.line_no > env.offset + env.height - env.bottom_size - 1) {
+						env.offset += 1;
+					}
+					redraw_text();
+					set_modified();
+					redraw_statusbar();
+					place_cursor_actual();
 					break;
 				default:
 					{
