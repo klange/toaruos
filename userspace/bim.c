@@ -569,6 +569,7 @@ void insert_mode() {
 						env.col_no -= 1;
 						redraw_text();
 						set_modified();
+						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
@@ -585,6 +586,7 @@ void insert_mode() {
 						}
 						redraw_text();
 						set_modified();
+						redraw_statusbar();
 						place_cursor_actual();
 					} else {
 						/* oh oh god we're all gonna die */
@@ -603,6 +605,7 @@ void insert_mode() {
 						redraw_text(); /* XXX */
 						env.col_no += 1;
 						set_modified();
+						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
@@ -645,6 +648,7 @@ int main(int argc, char * argv[]) {
 							env.offset += 1;
 							redraw_text();
 						}
+						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
@@ -659,18 +663,21 @@ int main(int argc, char * argv[]) {
 							env.offset -= 1;
 							redraw_text();
 						}
+						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
 				case 'h':
 					if (env.col_no > 1) {
 						env.col_no -= 1;
+						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
 				case 'l':
 					if (env.col_no < lines[env.line_no-1]->actual) {
 						env.col_no += 1;
+						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
