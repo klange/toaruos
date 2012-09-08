@@ -266,6 +266,9 @@ ansi_put(
 							if (argc > 0) {
 								int arg = atoi(argv[0]);
 								switch (arg) {
+									case 1:
+										redraw_cursor();
+										break;
 									case 1001:
 										/* Local Echo Off */
 										state.local_echo = 0;
@@ -820,9 +823,6 @@ int is_wide(uint32_t codepoint) {
 	}
 	int error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
 	slot = (*_font)->glyph;
-	if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
-		error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
-	}
 	if (slot->advance.x >> 6 > char_width) return 1;
 	return 0;
 }
