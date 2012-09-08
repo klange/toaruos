@@ -21,7 +21,7 @@ FREETYPE_LIB = ${TOOLCHAIN}/lib/libfreetype.a
 LIBM = ${TOOLCHAIN}/lib/libm.a
 
 TARGETDIR = ../hdd/bin/
-ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver wallpaper panel glock clock-win draw test-gfx threadtest
+ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver wallpaper panel glock clock-win draw test-gfx threadtest bim
 FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 .PHONY: all clean

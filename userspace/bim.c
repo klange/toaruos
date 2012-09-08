@@ -26,6 +26,35 @@
 #define BLOCK_SIZE 256
 #define ENTER_KEY     '\n'
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_CACHE_H
+
+FT_Library   library;
+FT_Face      face;
+#define font_size 13
+#define char_width 8
+
+void ft_init() {
+	FT_Init_FreeType(&library);
+#ifdef __linux__
+	FT_New_Face(library, "/usr/share/fonts/truetype/vlgothic/VL-Gothic-Regular.ttf", 0, &face);
+#else
+	FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face);
+#endif
+	FT_Set_Pixel_Sizes(face, font_size, font_size);
+}
+
+int ft_width(uint32_t codepoint) {
+	FT_GlyphSlot slot;
+	FT_UInt      glyph_index;
+	glyph_index = FT_Get_Char_Index(face, codepoint);
+	FT_Load_Glyph(face, glyph_index,  FT_LOAD_DEFAULT);
+	slot = face->glyph;
+	if (slot->advance.x >> 6 > char_width)
+		return 2;
+	return 1;
+}
 
 static struct _env {
 	int    width;
@@ -211,6 +240,7 @@ int codepoint_width(uint16_t codepoint) {
 		return 4;
 	}
 	if (codepoint > 256) {
+#if 0
 		char tmp[4];
 		int x, y;
 		to_eight(codepoint, tmp);
@@ -224,6 +254,8 @@ int codepoint_width(uint16_t codepoint) {
 		scanf("\033[%d;%dR", &y, &x);
 
 		return x - 1;
+#endif
+		return ft_width(codepoint);
 	}
 	return 1;
 }
@@ -441,6 +473,8 @@ void initialize() {
 #endif
 	set_unbuffered();
 
+	ft_init();
+
 	update_title();
 	setup_buffer();
 }
@@ -547,6 +581,42 @@ int isnumeric(char * str) {
 	return 1;
 }
 
+void write_file(char * file) {
+	if (!file) {
+		render_error("Need a file to write to.");
+		return;
+	}
+
+	FILE * f = fopen(file, "w");
+
+	if (!f) {
+		render_error("Failed to open file for writing.");
+	}
+
+	uint32_t i, j;
+	for (i = 0; i < env.line_count; ++i) {
+		line_t * line = lines[i];
+		for (j = 0; j < line->actual; j++) {
+			char_t c = line->text[j];
+			char tmp[4];
+			to_eight(c.codepoint, tmp);
+			fprintf(f, "%s", tmp);
+		}
+		if (i + 1 < env.line_count) {
+			fprintf(f, "\n");
+		}
+	}
+	fclose(f);
+
+	env.modified = 0;
+	if (!env.file_name) {
+		env.file_name = malloc(strlen(file) + 1);
+		memcpy(env.file_name, file, strlen(file) + 1);
+	}
+
+	redraw_all();
+}
+
 void process_command(char * cmd) {
 	char *p, *argv[512], *last;
 	int argc = 0;
@@ -565,6 +635,12 @@ void process_command(char * cmd) {
 			open_file(argv[1]);
 		} else {
 			render_error("Expected a file to open...");
+		}
+	} else if (!strcmp(argv[0], "w")) {
+		if (argc > 1) {
+			write_file(argv[1]);
+		} else {
+			write_file(env.file_name);
 		}
 	} else if (!strcmp(argv[0], "q")) {
 		if (env.modified) {
@@ -619,7 +695,8 @@ void command_mode() {
 }
 
 void insert_mode() {
-	char cin;
+	uint8_t cin;
+	uint32_t c;
 	redraw_commandline();
 	set_bold();
 	printf("-- INSERT --");
@@ -627,7 +704,6 @@ void insert_mode() {
 	place_cursor_actual();
 	set_colors(COLOR_FG, COLOR_BG);
 	while (cin = fgetc(stdin)) {
-		uint32_t c;
 		if (!decode(&istate, &c, cin)) {
 			switch (c) {
 				case '\033':

@@ -151,7 +151,7 @@ toaruos-disk.img: hdd userspace/*.c
 
 util/bin/bim: userspace/bim.c
 	@${BEG} "CC" "$<"
-	@${GCC} -std=c99 -posix -g -o $@ $<
+	@${GCC} -std=c99 -posix -g -I/usr/include/freetype2 -o $@ $< -lfreetype
 	@${END} "CC" "$<"
 
 util/bin/%: util/%.c
