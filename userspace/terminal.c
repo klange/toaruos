@@ -65,10 +65,11 @@ uint8_t  current_fg     = 7;    /* Current foreground color */
 uint8_t  current_bg     = 0;    /* Current background color */
 uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 window_t * window       = NULL; /* GUI window */
-int      _windowed      = 0;    /* Whether or not we are running in the GUI enviornment */
-int      _vga_mode      = 0;    /* Whether or not we are in VGA mode XXX should be combined ^ */
-int      _login_shell   = 0;    /* Whether we're going to display a login shell or not */
+uint8_t  _windowed      = 0;    /* Whether or not we are running in the GUI enviornment */
+uint8_t  _vga_mode      = 0;    /* Whether or not we are in VGA mode XXX should be combined ^ */
+uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
+uint8_t  _unbuffered    = 0;
 
 void reinit(); /* Defined way further down */
 
@@ -287,6 +288,13 @@ ansi_put(
 											font_scaling = atof(argv[1]);
 											reinit();
 										}
+										break;
+									case 1560:
+										_unbuffered = 1;
+										break;
+									case 1561:
+										_unbuffered = 0;
+										break;
 									default:
 										break;
 								}
@@ -409,6 +417,13 @@ ansi_put(
 							}
 							ansi_set_csr(max(ansi_get_csr_x() - i,0), ansi_get_csr_y());
 						}
+						break;
+					case ANSI_CHA:
+						if (argc < 1) {
+							ansi_set_csr(0,ansi_get_csr_y());
+							break;
+						}
+						ansi_set_csr(min(max(atoi(argv[0]), 1), state.width) - 1, ansi_get_csr_y());
 						break;
 					case ANSI_CUP:
 						if (argc < 2) {
@@ -1043,6 +1058,17 @@ int buffer_put(char c) {
 	return 0;
 }
 
+void handle_input(char c) {
+	if (_unbuffered) {
+		write(ifd, &c, 1);
+	} else {
+		if (buffer_put(c)) {
+			write(ifd, input_buffer, input_collected);
+			clear_input();
+		}
+	}
+}
+
 void * wait_for_exit(void * garbage) {
 	syscall_wait(child_pid);
 	/* Clean up */
@@ -1327,10 +1353,7 @@ int main(int argc, char ** argv) {
 			if (_windowed) {
 				w_keyboard_t * kbd = poll_keyboard();
 				if (kbd != NULL) {
-					if (buffer_put(kbd->key)) {
-						write(ifd, input_buffer, input_collected);
-						clear_input();
-					}
+					handle_input(kbd->key);
 					free(kbd);
 				}
 			} else {
@@ -1368,10 +1391,7 @@ fail_mouse:
 				if (_stat.st_size) {
 					int r = read(0, buf, min(_stat.st_size, 1024));
 					for (uint32_t i = 0; i < r; ++i) {
-						if (buffer_put(buf[i])) {
-							write(ifd, input_buffer, input_collected);
-							clear_input();
-						}
+						handle_input(buf[i]);
 					}
 				}
 			}
