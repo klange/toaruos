@@ -26,6 +26,9 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
+#include <wchar.h>
+int mk_wcwidth_cjk(wchar_t ucs);
+
 #include "lib/utf8decode.h"
 #include "../kernel/include/mouse.h"
 
@@ -813,18 +816,7 @@ uint32_t unicode_state = 0;
 
 int is_wide(uint32_t codepoint) {
 	if (codepoint < 256 || !_use_freetype) return 0;
-	FT_Face * _font = &face;
-	glyph_index = FT_Get_Char_Index(*_font, codepoint);
-	if (glyph_index == 0) {
-		glyph_index = FT_Get_Char_Index(face_extra, codepoint);
-		_font = &face_extra;
-	} else {
-		return 0;
-	}
-	int error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
-	slot = (*_font)->glyph;
-	if (slot->advance.x >> 6 > char_width) return 1;
-	return 0;
+	return mk_wcwidth_cjk(codepoint) == 2;
 }
 
 void term_write(char c) {

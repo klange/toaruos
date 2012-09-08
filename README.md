@@ -373,4 +373,14 @@ ToAruOS contains additional software with the following copyright notices:
         IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
         CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+* `userspace/lib/wcwidth.c` is an implementation of the `wcwidth()` non-standard C function by Markus Kuhn, it is provided with the following license:
+
+        Markus Kuhn -- 2007-05-26 (Unicode 5.0)
+
+        Permission to use, copy, modify, and distribute this software
+        for any purpose and without fee is hereby granted. The author
+        disclaims all warranties with regard to this software.
+
+        Latest version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
+
 

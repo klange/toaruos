@@ -21,40 +21,13 @@
 #define BACKSPACE_KEY 0x08
 #endif
 
+#include <wchar.h>
+int mk_wcwidth_cjk(wchar_t ucs);
+
 #include "lib/utf8decode.h"
 
 #define BLOCK_SIZE 256
 #define ENTER_KEY     '\n'
-
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_CACHE_H
-
-FT_Library   library;
-FT_Face      face;
-#define font_size 13
-#define char_width 8
-
-void ft_init() {
-	FT_Init_FreeType(&library);
-#ifdef __linux__
-	FT_New_Face(library, "/usr/share/fonts/truetype/vlgothic/VL-Gothic-Regular.ttf", 0, &face);
-#else
-	FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face);
-#endif
-	FT_Set_Pixel_Sizes(face, font_size, font_size);
-}
-
-int ft_width(uint32_t codepoint) {
-	FT_GlyphSlot slot;
-	FT_UInt      glyph_index;
-	glyph_index = FT_Get_Char_Index(face, codepoint);
-	FT_Load_Glyph(face, glyph_index,  FT_LOAD_DEFAULT);
-	slot = face->glyph;
-	if (slot->advance.x >> 6 > char_width)
-		return 2;
-	return 1;
-}
 
 static struct _env {
 	int    width;
@@ -240,6 +213,7 @@ int codepoint_width(uint16_t codepoint) {
 		return 4;
 	}
 	if (codepoint > 256) {
+		return mk_wcwidth_cjk(codepoint);
 #if 0
 		char tmp[4];
 		int x, y;
@@ -255,7 +229,6 @@ int codepoint_width(uint16_t codepoint) {
 
 		return x - 1;
 #endif
-		return ft_width(codepoint);
 	}
 	return 1;
 }
@@ -472,8 +445,6 @@ void initialize() {
 	fpurge(stdin);
 #endif
 	set_unbuffered();
-
-	ft_init();
 
 	update_title();
 	setup_buffer();

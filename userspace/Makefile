@@ -33,9 +33,9 @@ clean:
 	@-rm -f ${EXECUTABLES}
 	@${ENDRM} "RM" "Cleaned userspace full-toolchain applications."
 
-${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o
+${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o lib/wcwidth.o
 	@${BEG} "CC" "$@ $< [w/libs]"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o ${LIBM} ${FREETYPE_LIB} ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o lib/wcwidth.o ${LIBM} ${FREETYPE_LIB} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 $(TARGETDIR)%: %.cpp
