@@ -521,18 +521,13 @@ void teardown_windowing () {
 		while ((node = list_pop(process_windows->windows)) != NULL) {
 			window = node->value;
 			if (!window) break;
-			printf("Have a window [%d, %dx%d]\n", window->wid, window->width, window->height);
 			window_destroy(window);
-			printf("Window destroy signal sent.\n");
 		}
 
-		printf("Freeing data...\n");
 		free(process_windows->windows);
-		printf("Freeing some more data...\n");
 		free(process_windows);
 		process_windows = NULL;
 	}
 
-	printf("Disconnecting...\n");
 	wins_disconnect();
 }

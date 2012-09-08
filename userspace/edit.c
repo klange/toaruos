@@ -17,6 +17,11 @@ uint16_t * file_buffer;
 size_t file_len_unicode;
 size_t file_len_available;
 
+static struct _env {
+	int width;
+	int height;
+} environment;
+
 
 uint32_t codepoint;
 uint32_t state = 0;
@@ -65,6 +70,11 @@ int main(int argc, char * argv[]) {
 		fprintf(stderr, "%s: Could not open %s\n", argv[0], argv[1]);
 		return 1;
 	}
+
+	printf("\033[1003z");
+	fflush(stdout);
+	scanf("%d,%d", &environment.width, &environment.height);
+	printf("Terminal is %dx%d\n", environment.width, environment.height);
 
 	size_t length;
 

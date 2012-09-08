@@ -37,50 +37,62 @@
 #include "terminal-palette.h"
 #include "terminal-font.h"
 
+/* A terminal cell represents a single character on screen */
 typedef struct _terminal_cell {
-	uint16_t c;
-	uint8_t  fg;
-	uint8_t  bg;
-	uint8_t  flags;
+	uint16_t c;     /* codepoint */
+	uint8_t  fg;    /* background indexed color */
+	uint8_t  bg;    /* foreground indexed color */
+	uint8_t  flags; /* other flags */
 } __attribute__((packed)) t_cell;
 
-#define MOUSE_SCALE 6
+/* The input and output descriptors for the child process;
+ * we read from ofd and write to ifd, so make sure you don't
+ * get them backwards. */
+static int ofd, ifd; 
 
-static int ofd, ifd;
+int      scale_fonts    = 0;    /* Whether fonts should be scaled */
+float    font_scaling   = 1.0;  /* How much they should be scaled by */
+uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
+uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
+uint16_t font_size      = 13;   /* Font size according to Freetype */
+uint16_t char_width     = 8;    /* Width of a cell in pixels */
+uint16_t char_height    = 12;   /* Height of a cell in pixels */
+uint16_t char_offset    = 0;    /* Offset of the font within the cell */
+uint16_t csr_x          = 0;    /* Cursor X */
+uint16_t csr_y          = 0;    /* Cursor Y */
+t_cell * term_buffer    = NULL; /* The terminal cell buffer */
+uint8_t  current_fg     = 7;    /* Current foreground color */
+uint8_t  current_bg     = 0;    /* Current background color */
+uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
+window_t * window       = NULL; /* GUI window */
+int      _windowed      = 0;    /* Whether or not we are running in the GUI enviornment */
+int      _vga_mode      = 0;    /* Whether or not we are in VGA mode XXX should be combined ^ */
+int      _login_shell   = 0;    /* Whether we're going to display a login shell or not */
+uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 
-uint16_t term_width    = 0;
-uint16_t term_height   = 0;
-uint16_t font_size     = 13;
-uint16_t char_width    = 8;
-uint16_t char_height   = 12;
-uint16_t char_offset   = 0;
-uint16_t csr_x = 0;
-uint16_t csr_y = 0;
-t_cell * term_buffer = NULL;
-uint8_t  current_fg = 7;
-uint8_t  current_bg = 0;
-uint16_t current_scroll = 0;
-uint8_t  cursor_on = 1;
-window_t * window = NULL;
-int      _windowed = 0;
-int      _vga_mode = 0;
-int      _login_shell = 0;
+void reinit(); /* Defined way further down */
 
-
+/* Cursor bink timer */
 static unsigned int timer_tick = 0;
 #define TIMER_TICK 400000
 
+/* Mouse control */
+#define MOUSE_SCALE 6
+int32_t mouse_x;
+int32_t mouse_y;
+
+/* Some GUI-only options */
+uint16_t window_width  = 640;
+uint16_t window_height = 408;
 #define TERMINAL_TITLE_SIZE 512
 char   terminal_title[TERMINAL_TITLE_SIZE];
 size_t terminal_title_length = 0;
-
-#define WINDOW_WIDTH  640
-#define WINDOW_HEIGHT 408
-
 gfx_context_t * ctx;
 volatile int needs_redraw = 1;
 static void render_decors();
 
+/* Trigger to exit the terminal when the child process dies or
+ * we otherwise receive an exit signal */
 volatile int exit_application = 0;
 
 /* Triggers escape mode. */
@@ -125,25 +137,22 @@ volatile int exit_application = 0;
 #define DEFAULT_BG     0x10
 #define DEFAULT_FLAGS  0x00
 
-#define ANSI_EXT_IOCTL 'z'
+#define ANSI_EXT_IOCTL 'z'  /* These are special escapes only we support */
 
+/* Returns the lower of two shorts */
 uint16_t min(uint16_t a, uint16_t b) {
 	return (a < b) ? a : b;
 }
 
+/* Returns the higher of two shorts */
 uint16_t max(uint16_t a, uint16_t b) {
 	return (a > b) ? a : b;
 }
+
+/* Performs low-level port I/O; used for VGA initialization */
 void outb(unsigned char _data, unsigned short _port) {
 	__asm__ __volatile__ ("outb %1, %0" : : "dN" (_port), "a" (_data));
 }
-
-void input_buffer_stuff(char * str) {
-	size_t s = strlen(str);
-	write(ifd, str, s);
-}
-
-uint8_t _use_freetype = 0;
 
 /* State machine status */
 static struct _ansi_state {
@@ -170,22 +179,25 @@ int  (*ansi_get_csr_y)(void) = NULL;
 void (*ansi_set_cell)(int,int,uint16_t) = NULL;
 void (*ansi_cls)(void) = NULL;
 
+/* XXX: Needs verification, but I'm pretty sure this never gets called */
 void (*redraw_cursor)(void) = NULL;
 
-int32_t mouse_x;
-int32_t mouse_y;
+/* Stuffs a string into the stdin of the terminal's child process
+ * Useful for things like the ANSI DSR command. */
+void input_buffer_stuff(char * str) {
+	size_t s = strlen(str);
+	write(ifd, str, s);
+}
 
-void
-ansi_dump_buffer() {
+/* Write the contents of the buffer, as they were all non-escaped data. */
+void ansi_dump_buffer() {
 	for (int i = 0; i < state.buflen; ++i) {
 		ansi_writer(state.buffer[i]);
 	}
 }
 
-void
-ansi_buf_add(
-		char c
-		) {
+/* Add to the internal buffer for the ANSI parser */
+void ansi_buf_add(char c) {
 	state.buffer[state.buflen] = c;
 	state.buflen++;
 	state.buffer[state.buflen] = '\0';
@@ -268,6 +280,13 @@ ansi_put(
 											input_buffer_stuff(out);
 										}
 										break;
+									case 1555:
+										if (argc > 1) {
+											printf("Setting scaling to %s\n", argv[1]);
+											scale_fonts  = 1;
+											font_scaling = atof(argv[1]);
+											reinit();
+										}
 									default:
 										break;
 								}
@@ -505,8 +524,9 @@ ansi_put(
 	}
 }
 
-void
-ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char), void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,uint16_t), void (*cls)(void), void (*redraw_csr)(void)) {
+void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char),
+		void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,uint16_t),
+		void (*cls)(void), void (*redraw_csr)(void)) {
 
 	ansi_writer    = writer;
 	ansi_set_color = setcolor;
@@ -528,8 +548,7 @@ ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, un
 	ansi_set_color(state.fg, state.bg);
 }
 
-void
-ansi_print(char * c) {
+void ansi_print(char * c) {
 	uint32_t len = strlen(c);
 	for (uint32_t i = 0; i < len; ++i) {
 		ansi_put(c[i]);
@@ -546,24 +565,21 @@ static void render_decors() {
 	}
 }
 
-static inline void
-term_set_point(
-		uint16_t x,
-		uint16_t y,
-		uint32_t color
-		) {
-		if (_windowed) {
-			GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
-		} else {
-			if (ctx->depth == 32) {
-				GFX(ctx, x,y) = color;
-			} else if (ctx->depth == 24) {
-				ctx->backbuffer[((y) * ctx->width + x) * 3 + 2] = _RED(color);
-				ctx->backbuffer[((y) * ctx->width + x) * 3 + 1] = _GRE(color);
-				ctx->backbuffer[((y) * ctx->width + x) * 3 + 0] = _BLU(color);
-			}
+static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
+	if (_windowed) {
+		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
+	} else {
+		if (ctx->depth == 32) {
+			GFX(ctx, x,y) = color;
+		} else if (ctx->depth == 24) {
+			ctx->backbuffer[((y) * ctx->width + x) * 3 + 2] = _RED(color);
+			ctx->backbuffer[((y) * ctx->width + x) * 3 + 1] = _GRE(color);
+			ctx->backbuffer[((y) * ctx->width + x) * 3 + 0] = _BLU(color);
 		}
+	}
 }
+
+/* FreeType text rendering */
 
 FT_Library   library;
 FT_Face      face;
@@ -580,7 +596,6 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
-			//GFX(ctx, i,j) = alpha_blend(GFX(ctx, i,j),rgb(0xff,0xff,0xff),rgb(bitmap->buffer[q * bitmap->width + p],0,0));
 			term_set_point(i,j, alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0)));
 		}
 	}
@@ -594,6 +609,7 @@ void placech(unsigned char c, int x, int y, int attr) {
 	*where = c | att;
 }
 
+/* ANSI-to-VGA */
 char vga_to_ansi[] = {
     0, 4, 2, 6, 1, 5, 3, 7,
     8,12,10,14, 9,13,11,15
@@ -1034,13 +1050,6 @@ void * wait_for_exit(void * garbage) {
 	/* Exit */
 }
 
-void waitabit() {
-	int x = time(NULL);
-	while (time(NULL) < x + 1) {
-		// Do nothing.
-	}
-}
-
 void usage(char * argv[]) {
 	printf(
 			"Terminal Emulator\n"
@@ -1050,12 +1059,76 @@ void usage(char * argv[]) {
 			" -F --fullscreen \033[3mRun in legacy fullscreen mode.\033[0m\n"
 			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
+			" -s --scale      \033[3mScale the font in FreeType mode by a given amount.\033[0m\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
 			argv[0]);
 }
 
+void reinit() {
+	if (_use_freetype) {
+
+		/* Reset font sizes */
+
+		font_size   = 13;
+		char_height = 17;
+		char_width  = 8;
+		char_offset = 13;
+
+		if (scale_fonts) {
+			/* Recalculate scaling */
+			font_size   *= font_scaling;
+			char_height *= font_scaling;
+			char_width  *= font_scaling;
+			char_offset *= font_scaling;
+		}
+
+		/* Initialize the freetype font pixel sizes */
+		FT_Set_Pixel_Sizes(face, font_size, font_size);
+		FT_Set_Pixel_Sizes(face_bold, font_size, font_size);
+		FT_Set_Pixel_Sizes(face_italic, font_size, font_size);
+		FT_Set_Pixel_Sizes(face_bold_italic, font_size, font_size);
+		FT_Set_Pixel_Sizes(face_extra, font_size, font_size);
+	}
+
+	if (_windowed) {
+		term_width  = window_width  / char_width;
+		term_height = window_height / char_height;
+	} else if (_vga_mode) {
+		if (!ctx) {
+			/* This is only set so that the mouse scaling has only one code-path
+			 * so reallocating this for resizes is pointless as VGA mode will never
+			 * change its sizes. */
+			ctx = malloc(sizeof(gfx_context_t));
+			ctx->width = 800;
+			ctx->height = 250;
+		}
+		/* Set the actual terminal size */
+		term_width  = 80;
+		term_height = 25;
+		/* Set these to fake values, primarily for the mouse again */
+		char_width  = 1;
+		char_height = 1;
+	} else {
+		/* Non-windowed graphical mode */
+		term_width  = ctx->width / char_width;
+		term_height = ctx->height / char_height;
+	}
+	if (term_buffer) {
+		free(term_buffer);
+	}
+	/* XXX: Transfer values, cursor location, etc.? */
+	term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
+	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
+
+	mouse_x = ctx->width / 2;
+	mouse_y = ctx->height / 2;
+
+	/* A lot of this is probably uneccessary if we do some sort of resize... */
+	term_term_clear();
+	ansi_print("\033[H\033[2J");
+}
 
 int main(int argc, char ** argv) {
 
@@ -1064,17 +1137,19 @@ int main(int argc, char ** argv) {
 	_login_shell = 0;
 
 	static struct option long_opts[] = {
-		{"fullscreen", no_argument,   0, 'F'},
-		{"bitmap",     no_argument,   0, 'b'},
-		{"vga",        no_argument,   0, 'V'},
-		{"login",      no_argument,   0, 'l'},
-		{"help",       no_argument,   0, 'h'},
+		{"fullscreen", no_argument,       0, 'F'},
+		{"bitmap",     no_argument,       0, 'b'},
+		{"vga",        no_argument,       0, 'V'},
+		{"login",      no_argument,       0, 'l'},
+		{"help",       no_argument,       0, 'h'},
+		{"scale",      required_argument, 0, 's'},
+		{"geometry",   required_argument, 0, 'g'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhFVl", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhFVls:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -1099,6 +1174,21 @@ int main(int argc, char ** argv) {
 				usage(argv);
 				return 0;
 				break;
+			case 's':
+				scale_fonts = 1;
+				font_scaling = atof(optarg);
+				break;
+			case 'g':
+				{
+					char * c = strstr(optarg, "x");
+					if (c) {
+						*c = '\0';
+						c++;
+						window_width = atoi(optarg);
+						window_width = atoi(c);
+					}
+				}
+				break;
 			case '?':
 				break;
 			default:
@@ -1107,34 +1197,24 @@ int main(int argc, char ** argv) {
 	}
 
 	if (_windowed) {
+		/* Initialize the windowing library */
 		setup_windowing();
-		waitabit();
+
 		int x = 20, y = 20;
-#if 0
-		if (index < argc) {
-			x = atoi(argv[index]);
-			printf("Window offset x = %d\n", x);
-			index++;
-		}
-		if (index < argc) {
-			y = atoi(argv[index]);
-			printf("Window offset y = %d\n", y);
-			index++;
-		}
-#endif
 
-		printf("Decorations are %d %d %d %d\n", decor_top_height, decor_right_width, decor_bottom_height, decor_left_width);
+		/* Create the window */
+		window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
 
-		window = window_create(x,y, WINDOW_WIDTH + decor_left_width + decor_right_width, WINDOW_HEIGHT + decor_top_height + decor_bottom_height);
-		printf("Have a window! %p\n", window);
-
+		/* Initialize the decoration library */
 		init_decorations();
-		render_decors();
 
+		/* Initialize the graphics context */
 		ctx = init_graphics_window(window);
+
+		/* Clear to black */
 		draw_fill(ctx, rgb(0,0,0));
 	} else if (_vga_mode) {
-		/* Herp derp? */
+		/* Set some important VGA options */
 		int temp = 0xFFFF;
 		outb(14, 0x3D4);
 		outb(temp >> 8, 0x3D5);
@@ -1158,73 +1238,32 @@ int main(int argc, char ** argv) {
 		setLoaded(3,0);
 		setLoaded(4,0);
 
-#ifndef BIG_FONTS
-		font_size   = 13;
-		char_height = 17;
-		char_width  = 8;
-		char_offset = 13;
-#else
-		font_size   = 26;
-		char_height = 34;
-		char_width  = 16;
-		char_offset = 26;
-#endif
-
-
 		setLoaded(0,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face, font_size, font_size); if (error) return 1;
 		setLoaded(0,1);
 
 		setLoaded(1,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face_bold, font_size, font_size); if (error) return 1;
 		setLoaded(1,1);
 
 		setLoaded(2,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face_italic, font_size, font_size); if (error) return 1;
 		setLoaded(2,1);
 
 		setLoaded(3,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
-		error = FT_Set_Pixel_Sizes(face_bold_italic, font_size, font_size); if (error) return 1;
 		setLoaded(3,1);
 
 		setLoaded(4,2);
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
-		error = FT_Set_Pixel_Sizes(face_extra, font_size, font_size); if (error) return 1;
 		setLoaded(4,1);
 	}
 
-	if (_windowed) {
-		term_width  = WINDOW_WIDTH / char_width;
-		term_height = WINDOW_HEIGHT / char_height;
-	} else if (_vga_mode) {
-		ctx = malloc(sizeof(gfx_context_t));
-		ctx->width = 800;
-		ctx->height = 250;
-		term_width  = 80;
-		term_height = 25;
-		char_width  = 1;
-		char_height = 1;
-	} else {
-		term_width  = ctx->width / char_width;
-		term_height = ctx->height / char_height;
-	}
-	term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
-	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
-
-	mouse_x = ctx->width / 2;
-	mouse_y = ctx->height / 2;
-
-	term_term_clear();
-	ansi_print("\033[H\033[2J");
-
+	reinit();
 
 	ofd = syscall_mkpipe();
 	ifd = syscall_mkpipe();

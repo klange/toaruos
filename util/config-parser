@@ -8,6 +8,7 @@ FULLSCREEN=false
 ENABLE_SERIAL=true
 ENABLE_GRAPHICS=true
 BORDERLESS=true
+SINGLE=false
 
 # Load the config file
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -40,6 +41,10 @@ fi
 BORDERS="-no-frame"
 if [ $BORDERLESS == false ]; then
     BORDERS=""
+fi
+
+if [ $SINGLE == true ]; then
+    GRAPHICS="$GRAPHICS single"
 fi
 
 # Generate the QEMU arguments list
