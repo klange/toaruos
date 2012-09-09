@@ -40,13 +40,15 @@ typedef struct {
 	char_t   text[0];
 } line_t;
 
-uint32_t term_width, term_height;
+int term_width, term_height;
+int csr_x_actual, csr_y_actual;
 
 typedef struct _env {
 	int    bottom_size;
 	short  lineno_width;
 	char * file_name;
 	int    offset;
+	int    coffset;
 	int    line_no;
 	int    line_count;
 	int    line_avail;
@@ -335,35 +337,62 @@ int log_base_10(unsigned int v) {
 	return r;
 }
 
-void render_line(line_t * line, int width) {
+void render_line(line_t * line, int width, int offset) {
 	uint32_t i = 0;
 	uint32_t j = 0;
 	set_colors(COLOR_FG, COLOR_BG);
 	while (i < line->actual) {
 		char_t c = line->text[i];
-		if (j + c.display_width >= width) {
-			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-			while (j < width) {
-				printf("…");
-				j++;
+		if (j >= offset) {
+			if (j - offset + c.display_width >= width) {
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				while (j - offset < width - 1) {
+					printf("-");
+					j++;
+				}
+				printf(">");
+				break;
 			}
-			break;
+			if (c.codepoint == '\t') {
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("»···");
+				set_colors(COLOR_FG, COLOR_BG);
+			} else if (c.codepoint < 32) {
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("<%02x>", c.codepoint);
+				set_colors(COLOR_FG, COLOR_BG);
+			} else {
+				char tmp[4];
+				to_eight(c.codepoint, tmp);
+				printf("%s", tmp);
+			}
+		} else if (j + c.display_width == offset + 1) {
+			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+			printf("<");
+			set_colors(COLOR_FG, COLOR_BG);
 		}
 		j += c.display_width;
-		if (c.codepoint == '\t') {
-			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-			printf("»···");
-			set_colors(COLOR_FG, COLOR_BG);
-		} else if (c.codepoint < 32) {
-			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-			printf("<%02x>", c.codepoint);
-			set_colors(COLOR_FG, COLOR_BG);
-		} else {
-			char tmp[4];
-			to_eight(c.codepoint, tmp);
-			printf("%s", tmp);
-		}
 		i += 1;
+	}
+}
+
+void realign_cursor() {
+	line_t * line = env->lines[env->line_no-1];
+	int x = -env->coffset;
+	int i = 0;
+	for (; i < env->col_no - 1; ++i) {
+		if (x + 12 > term_width) {
+			env->col_no = i + 1;
+			return;
+		}
+		char_t * c = &env->lines[env->line_no-1]->text[i];
+		x += c->display_width;
+	}
+	while (x < 0) {
+		env->col_no += 1;
+		i++;
+		char_t * c = &env->lines[env->line_no-1]->text[i];
+		x += c->display_width;
 	}
 }
 
@@ -384,7 +413,7 @@ void redraw_text() {
 		printf("%d ", x + 1);
 		set_colors(COLOR_FG, COLOR_BG);
 		clear_to_end();
-		render_line(env->lines[x], term_width - 3 - num_size);
+		render_line(env->lines[x], term_width - 3 - num_size, env->coffset);
 		j++;
 	}
 	for (; j < l; ++j) {
@@ -460,7 +489,7 @@ void render_cursor() {
 
 void place_cursor_actual() {
 	int num_size = log_base_10(env->line_count) + 5;
-	int x = num_size + 1;
+	int x = num_size + 1 - env->coffset;
 	for (int i = 0; i < env->col_no - 1; ++i) {
 		char_t * c = &env->lines[env->line_no-1]->text[i];
 		x += c->display_width;
@@ -468,6 +497,9 @@ void place_cursor_actual() {
 	int y = env->line_no - env->offset + 1;
 
 	place_cursor(x,y);
+	csr_x_actual = x;
+	csr_y_actual = y;
+
 #ifndef __linux__
 	render_cursor();
 #endif
@@ -927,6 +959,20 @@ int main(int argc, char * argv[]) {
 						place_cursor_actual();
 						goto _insert;
 					}
+				case ',':
+					if (env->coffset > 5) {
+						env->coffset -= 5;
+					} else {
+						env->coffset = 0;
+					}
+					realign_cursor();
+					redraw_all();
+					break;
+				case '.':
+					env->coffset += 5;
+					realign_cursor();
+					redraw_all();
+					break;
 				case 'a':
 					if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
 						env->col_no += 1;
