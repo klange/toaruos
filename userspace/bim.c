@@ -29,20 +29,6 @@ int mk_wcwidth_cjk(wchar_t ucs);
 #define BLOCK_SIZE 256
 #define ENTER_KEY     '\n'
 
-static struct _env {
-	int    width;
-	int    height;
-	int    bottom_size;
-	short  lineno_width;
-	char * file_name;
-	int    offset;
-	int    line_no;
-	int    line_count;
-	int    line_avail;
-	int    col_no;
-	short  modified;
-} env;
-
 typedef struct {
 	uint8_t  display_width;
 	uint16_t codepoint;
@@ -54,7 +40,62 @@ typedef struct {
 	char_t   text[0];
 } line_t;
 
-line_t ** lines = 0;
+uint32_t term_width, term_height;
+
+typedef struct _env {
+	int    bottom_size;
+	short  lineno_width;
+	char * file_name;
+	int    offset;
+	int    line_no;
+	int    line_count;
+	int    line_avail;
+	int    col_no;
+	short  modified;
+	line_t ** lines;
+} buffer_t;
+
+buffer_t * env;
+
+uint32_t    buffers_len;
+uint32_t    buffers_avail;
+buffer_t ** buffers;
+
+buffer_t * buffer_new() {
+	if (buffers_len == buffers_avail) {
+		buffers_avail *= 2;
+		buffers = realloc(buffers, sizeof(buffer_t *) * buffers_avail);
+	}
+	buffers[buffers_len] = malloc(sizeof(buffer_t));
+	memset(buffers[buffers_len], 0x00, sizeof(buffer_t));
+	buffers_len++;
+
+	return buffers[buffers_len-1];
+}
+
+buffer_t * buffer_close(buffer_t * buf) {
+	uint32_t i;
+	for (i = 0; i < buffers_len; i++) {
+		if (buf == buffers[i])
+			break;
+	}
+	if (i == buffers_len) {
+		return env; /* wtf */
+	}
+
+	if (i != buffers_len - 1) {
+		memmove(&buffers[i], &buffers[i+1], buffers_len - i);
+	}
+
+	buffers_len--;
+	if (!buffers_len) { 
+		return NULL;
+	}
+	if (i == buffers_len) {
+		return buffers[buffers_len-1];
+	}
+	return buffers[buffers_len];
+}
 
 line_t * line_insert(line_t * line, char_t c, uint32_t offset) {
 	if (line->actual == line->available) {
@@ -78,17 +119,17 @@ void line_delete(line_t * line, uint32_t offset) {
 }
 
 line_t ** add_line(line_t ** lines, uint32_t offset) {
-	if (env.line_count == env.line_avail) {
-		env.line_avail *= 2;
-		lines = realloc(lines, sizeof(line_t *) * env.line_avail);
+	if (env->line_count == env->line_avail) {
+		env->line_avail *= 2;
+		lines = realloc(lines, sizeof(line_t *) * env->line_avail);
 	}
-	if (offset < env.line_count) {
-		memmove(&lines[offset+1], &lines[offset], sizeof(line_t *) * (env.line_count - offset));
+	if (offset < env->line_count) {
+		memmove(&lines[offset+1], &lines[offset], sizeof(line_t *) * (env->line_count - offset));
 	}
 	lines[offset] = malloc(sizeof(line_t) + sizeof(char_t) * 32);
 	lines[offset]->available = 32;
 	lines[offset]->actual    = 0;
-	env.line_count += 1;
+	env->line_count += 1;
 	return lines;
 }
 
@@ -96,12 +137,12 @@ line_t ** split_line(line_t ** lines, uint32_t line, uint32_t split) {
 	if (split == 0) {
 		return add_line(lines, line - 1);
 	}
-	if (env.line_count == env.line_avail) {
-		env.line_avail *= 2;
-		lines = realloc(lines, sizeof(line_t *) * env.line_avail);
+	if (env->line_count == env->line_avail) {
+		env->line_avail *= 2;
+		lines = realloc(lines, sizeof(line_t *) * env->line_avail);
 	}
-	if (line < env.line_count) {
-		memmove(&lines[line+1], &lines[line], sizeof(line_t *) * (env.line_count - line));
+	if (line < env->line_count) {
+		memmove(&lines[line+1], &lines[line], sizeof(line_t *) * (env->line_count - line));
 	}
 	uint32_t remaining = lines[line-1]->actual - split;
 
@@ -121,30 +162,30 @@ line_t ** split_line(line_t ** lines, uint32_t line, uint32_t split) {
 	memmove(lines[line]->text, &lines[line-1]->text[split], sizeof(char_t) * remaining);
 	lines[line-1]->actual = split;
 
-	env.line_count += 1;
+	env->line_count += 1;
 
 	return lines;
 }
 
-void setup_buffer() {
-	if (lines) {
-		for (int i = 0; i < env.line_count; ++i) {
-			free(lines[i]);
+void setup_buffer(buffer_t * env) {
+	if (env->lines) {
+		for (int i = 0; i < env->line_count; ++i) {
+			free(env->lines[i]);
 		}
-		free(lines);
+		free(env->lines);
 	}
-	env.line_no     = 1;
-	env.col_no      = 1;
-	env.line_count  = 1; /* XXX */
-	env.modified    = 0;
-	env.bottom_size = 2;
-	env.offset      = 0;
-	env.line_avail  = 8;
+	env->line_no     = 1;
+	env->col_no      = 1;
+	env->line_count  = 1; /* XXX */
+	env->modified    = 0;
+	env->bottom_size = 2;
+	env->offset      = 0;
+	env->line_avail  = 8;
 
-	lines = malloc(sizeof(line_t *) * env.line_avail);
-	lines[0] = malloc(sizeof(line_t) + sizeof(char_t) * 32);
-	lines[0]->available = 32;
-	lines[0]->actual    = 0;
+	env->lines = malloc(sizeof(line_t *) * env->line_avail);
+	env->lines[0] = malloc(sizeof(line_t) + sizeof(char_t) * 32);
+	env->lines[0]->available = 32;
+	env->lines[0]->actual    = 0;
 
 }
 
@@ -214,21 +255,6 @@ int codepoint_width(uint16_t codepoint) {
 	}
 	if (codepoint > 256) {
 		return mk_wcwidth_cjk(codepoint);
-#if 0
-		char tmp[4];
-		int x, y;
-		to_eight(codepoint, tmp);
-#ifdef __linux__
-		__fpurge(stdin);
-#else
-		fpurge(stdin);
-#endif
-		printf("\033[s\033[%d;1H%s\033[6n", env.height, tmp);
-		fflush(stdout);
-		scanf("\033[%d;%dR", &y, &x);
-
-		return x - 1;
-#endif
 	}
 	return 1;
 }
@@ -260,6 +286,11 @@ void set_bold() {
 	fflush(stdout);
 }
 
+void set_underline() {
+	printf("\033[4m");
+	fflush(stdout);
+}
+
 void reset() {
 	printf("\033[0m");
 	fflush(stdout);
@@ -272,15 +303,25 @@ void clear_screen() {
 
 void redraw_tabbar() {
 	place_cursor(1,1);
-	set_colors(COLOR_FG, COLOR_BG);
-	set_bold();
-	if (env.modified) {
-		printf(" +");
-	}
-	if (env.file_name) {
-		printf(" %s ", env.file_name);
-	} else {
-		printf(" [No Name] ");
+	for (uint32_t i = 0; i < buffers_len; i++) {
+		buffer_t * _env = buffers[i];
+		if (_env == env) {
+			reset();
+			set_colors(COLOR_FG, COLOR_BG);
+			set_bold();
+		} else {
+			reset();
+			set_colors(COLOR_FG, COLOR_TAB_BG);
+			set_underline();
+		}
+		if (_env->modified) {
+			printf(" +");
+		}
+		if (_env->file_name) {
+			printf(" %s ", _env->file_name);
+		} else {
+			printf(" [No Name] ");
+		}
 	}
 	reset();
 	set_colors(COLOR_FG, COLOR_TABBAR_BG);
@@ -327,11 +368,11 @@ void render_line(line_t * line, int width) {
 }
 
 void redraw_text() {
-	int l = env.height - env.bottom_size - 1;
+	int l = term_height - env->bottom_size - 1;
 	int j = 0;
 
-	int num_size = log_base_10(env.line_count) + 2;
-	for (int x = env.offset; j < l && x < env.line_count; x++) {
+	int num_size = log_base_10(env->line_count) + 2;
+	for (int x = env->offset; j < l && x < env->line_count; x++) {
 		place_cursor(1,2 + j);
 		/* draw line number */
 		set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
@@ -343,7 +384,7 @@ void redraw_text() {
 		printf("%d ", x + 1);
 		set_colors(COLOR_FG, COLOR_BG);
 		clear_to_end();
-		render_line(lines[x], env.width - 3 - num_size);
+		render_line(env->lines[x], term_width - 3 - num_size);
 		j++;
 	}
 	for (; j < l; ++j) {
@@ -355,26 +396,26 @@ void redraw_text() {
 }
 
 void redraw_statusbar() {
-	place_cursor(1, env.height - 1);
+	place_cursor(1, term_height - 1);
 	set_colors(COLOR_FG, COLOR_STATUS_BG);
-	if (env.file_name) {
-		printf("%s", env.file_name);
+	if (env->file_name) {
+		printf("%s", env->file_name);
 	} else {
 		printf("[No Name]");
 	}
-	if (env.modified) {
+	if (env->modified) {
 		printf(" [+]");
 	}
 	clear_to_end();
 	char right_hand[1024];
-	sprintf(right_hand, "Line %d/%d Col: %d ", env.line_no, env.line_count, env.col_no);
-	place_cursor_h(env.width - strlen(right_hand));
+	sprintf(right_hand, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
+	place_cursor_h(term_width - strlen(right_hand));
 	printf("%s",right_hand);
 	fflush(stdout);
 }
 
 void redraw_commandline() {
-	place_cursor(1, env.height);
+	place_cursor(1, term_height);
 	set_colors(COLOR_FG, COLOR_BG);
 	clear_to_end();
 }
@@ -393,14 +434,14 @@ void update_title() {
 #else
 	syscall_getcwd(cwd, 1024);
 #endif
-	printf("\033]1;%s%s (%s) - BIM\007", env.file_name, env.modified ? " +" : "", cwd);
+	printf("\033]1;%s%s (%s) - BIM\007", env->file_name, env->modified ? " +" : "", cwd);
 }
 
 void set_modified() {
-	if (env.modified) return;
+	if (env->modified) return;
 
 	update_title();
-	env.modified = 1;
+	env->modified = 1;
 	redraw_tabbar();
 	redraw_statusbar();
 }
@@ -418,13 +459,13 @@ void render_cursor() {
 }
 
 void place_cursor_actual() {
-	int num_size = log_base_10(env.line_count) + 5;
+	int num_size = log_base_10(env->line_count) + 5;
 	int x = num_size + 1;
-	for (int i = 0; i < env.col_no - 1; ++i) {
-		char_t * c = &lines[env.line_no-1]->text[i];
+	for (int i = 0; i < env->col_no - 1; ++i) {
+		char_t * c = &env->lines[env->line_no-1]->text[i];
 		x += c->display_width;
 	}
-	int y = env.line_no - env.offset + 1;
+	int y = env->line_no - env->offset + 1;
 
 	place_cursor(x,y);
 #ifndef __linux__
@@ -433,29 +474,30 @@ void place_cursor_actual() {
 }
 
 void initialize() {
+	buffers_avail = 4;
+	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
+
 #ifdef __linux__
 	struct winsize w;
 	ioctl(0, TIOCGWINSZ, &w);
-	env.width = w.ws_col;
-	env.height = w.ws_row;
+	term_width = w.ws_col;
+	term_height = w.ws_row;
 #else
 	printf("\033[1003z");
 	fflush(stdout);
-	scanf("%d,%d", &env.width, &env.height);
+	scanf("%d,%d", &term_width, &term_height);
 	fpurge(stdin);
 #endif
 	set_unbuffered();
 
-	update_title();
-	setup_buffer();
 }
 
 void goto_line(int line) {
 	if (line < 1) line = 1;
-	if (line > env.line_count) line = env.line_count;
-	env.offset = line - 1;
-	env.line_no = line;
-	env.col_no  = 1;
+	if (line > env->line_count) line = env->line_count;
+	env->offset = line - 1;
+	env->line_no = line;
+	env->col_no  = 1;
 	redraw_all();
 }
 
@@ -464,22 +506,19 @@ void add_buffer(uint8_t * buf, int size) {
 		if (!decode(&state, &codepoint_r, buf[i])) {
 			uint32_t c = codepoint_r;
 			if (c == '\n') {
-				line_t ** nlines = add_line(lines, env.line_no);
-				if (nlines != lines) {
-					lines = nlines;
-				}
-				env.col_no = 1;
-				env.line_no += 1;
+				env->lines = add_line(env->lines, env->line_no);
+				env->col_no = 1;
+				env->line_no += 1;
 			} else {
 				char_t _c;
 				_c.codepoint = (uint16_t)c;
 				_c.display_width = codepoint_width((uint16_t)c);
-				line_t * line  = lines[env.line_no - 1];
-				line_t * nline = line_insert(line, _c, env.col_no - 1);
+				line_t * line  = env->lines[env->line_no - 1];
+				line_t * nline = line_insert(line, _c, env->col_no - 1);
 				if (line != nline) {
-					lines[env.line_no - 1] = nline;
+					env->lines[env->line_no - 1] = nline;
 				}
-				env.col_no += 1;
+				env->col_no += 1;
 			}
 		} else if (state == UTF8_REJECT) {
 			state = 0;
@@ -489,18 +528,12 @@ void add_buffer(uint8_t * buf, int size) {
 
 
 void open_file(char * file) {
-	if (env.modified) {
-		render_error("No writes since last edit, you'll need to save this to open a new file.\n");
-		return;
-	}
+	env = buffer_new();
 
-	if (env.file_name) {
-		free(env.file_name);
-	}
-	env.file_name = malloc(strlen(file) + 1);
-	memcpy(env.file_name, file, strlen(file) + 1);
+	env->file_name = malloc(strlen(file) + 1);
+	memcpy(env->file_name, file, strlen(file) + 1);
 
-	setup_buffer();
+	setup_buffer(env);
 
 	FILE * f = fopen(file, "r");
 
@@ -543,6 +576,55 @@ void quit() {
 	exit(0);
 }
 
+void try_quit() {
+	for (uint32_t i = 0; i < buffers_len; i++ ) {
+		buffer_t * _env = buffers[i];
+		if (_env->modified) {
+			char msg[100];
+			snprintf(msg, 100, "Modifications made to file `%s` in tab %d. Aborting.", _env->file_name, i+1);
+			render_error(msg);
+			return;
+		}
+	}
+	quit();
+}
+
+void previous_tab() {
+	buffer_t * last = NULL;
+	for (uint32_t i = 0; i < buffers_len; i++) {
+		buffer_t * _env = buffers[i];
+		if (_env == env) {
+			if (last) {
+				env = last;
+				redraw_all();
+				return;
+			} else {
+				env = buffers[buffers_len-1];
+				redraw_all();
+				return;
+			}
+		}
+		last = _env;
+	}
+}
+
+void next_tab() {
+	for (uint32_t i = 0; i < buffers_len; i++) {
+		buffer_t * _env = buffers[i];
+		if (_env == env) {
+			if (i != buffers_len - 1) {
+				env = buffers[i+1];
+				redraw_all();
+				return;
+			} else {
+				env = buffers[0];
+				redraw_all();
+				return;
+			}
+		}
+	}
+}
+
 int isnumeric(char * str) {
 	char *p = str;
 	while (*p) {
@@ -565,24 +647,24 @@ void write_file(char * file) {
 	}
 
 	uint32_t i, j;
-	for (i = 0; i < env.line_count; ++i) {
-		line_t * line = lines[i];
+	for (i = 0; i < env->line_count; ++i) {
+		line_t * line = env->lines[i];
 		for (j = 0; j < line->actual; j++) {
 			char_t c = line->text[j];
 			char tmp[4];
 			to_eight(c.codepoint, tmp);
 			fprintf(f, "%s", tmp);
 		}
-		if (i + 1 < env.line_count) {
+		if (i + 1 < env->line_count) {
 			fprintf(f, "\n");
 		}
 	}
 	fclose(f);
 
-	env.modified = 0;
-	if (!env.file_name) {
-		env.file_name = malloc(strlen(file) + 1);
-		memcpy(env.file_name, file, strlen(file) + 1);
+	env->modified = 0;
+	if (!env->file_name) {
+		env->file_name = malloc(strlen(file) + 1);
+		memcpy(env->file_name, file, strlen(file) + 1);
 	}
 
 	redraw_all();
@@ -611,16 +693,32 @@ void process_command(char * cmd) {
 		if (argc > 1) {
 			write_file(argv[1]);
 		} else {
-			write_file(env.file_name);
+			write_file(env->file_name);
 		}
 	} else if (!strcmp(argv[0], "q")) {
-		if (env.modified) {
+		if (env->modified) {
 			render_error("No write since last change. Use :q! to force exit.");
 		} else {
-			quit();
+			buffer_t * previous_env = env;
+			buffer_t * new_env = buffer_close(env);
+			if (new_env == previous_env) {
+				render_error("lolwat");
+			}
+			if (!new_env) {
+				quit();
+			}
+			free(previous_env);
+			env = new_env;
+			redraw_all();
 		}
+	} else if (!strcmp(argv[0], "qall")) {
+		try_quit();
 	} else if (!strcmp(argv[0], "q!")) {
 		quit();
+	} else if (!strcmp(argv[0], "tabp")) {
+		previous_tab();
+	} else if (!strcmp(argv[0], "tabn")) {
+		next_tab();
 	} else if (isnumeric(argv[0])) {
 		goto_line(atoi(argv[0]));
 	} else {
@@ -678,16 +776,16 @@ void insert_mode() {
 		if (!decode(&istate, &c, cin)) {
 			switch (c) {
 				case '\033':
-					if (env.col_no > lines[env.line_no-1]->actual) {
-						env.col_no = lines[env.line_no-1]->actual;
+					if (env->col_no > env->lines[env->line_no-1]->actual) {
+						env->col_no = env->lines[env->line_no-1]->actual;
 					}
-					if (env.col_no == 0) env.col_no = 1;
+					if (env->col_no == 0) env->col_no = 1;
 					redraw_commandline();
 					return;
 				case BACKSPACE_KEY:
-					if (env.col_no > 1) {
-						line_delete(lines[env.line_no - 1], env.col_no - 1);
-						env.col_no -= 1;
+					if (env->col_no > 1) {
+						line_delete(env->lines[env->line_no - 1], env->col_no - 1);
+						env->col_no -= 1;
 						redraw_text();
 						set_modified();
 						redraw_statusbar();
@@ -695,22 +793,16 @@ void insert_mode() {
 					}
 					break;
 				case ENTER_KEY:
-					if (env.col_no == lines[env.line_no - 1]->actual + 1) {
-						line_t ** nlines = add_line(lines, env.line_no);
-						if (nlines != lines) {
-							lines = nlines;
-						}
+					if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
+						env->lines = add_line(env->lines, env->line_no);
 					} else {
 						/* oh oh god we're all gonna die */
-						line_t ** nlines = split_line(lines, env.line_no, env.col_no - 1);
-						if (nlines != lines) {
-							lines = nlines;
-						}
+						env->lines = split_line(env->lines, env->line_no, env->col_no - 1);
 					}
-					env.col_no = 1;
-					env.line_no += 1;
-					if (env.line_no > env.offset + env.height - env.bottom_size - 1) {
-						env.offset += 1;
+					env->col_no = 1;
+					env->line_no += 1;
+					if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+						env->offset += 1;
 					}
 					redraw_text();
 					set_modified();
@@ -722,13 +814,13 @@ void insert_mode() {
 						char_t _c;
 						_c.codepoint = c;
 						_c.display_width = codepoint_width(c);
-						line_t * line  = lines[env.line_no - 1];
-						line_t * nline = line_insert(line, _c, env.col_no - 1);
+						line_t * line  = env->lines[env->line_no - 1];
+						line_t * nline = line_insert(line, _c, env->col_no - 1);
 						if (line != nline) {
-							lines[env.line_no - 1] = nline;
+							env->lines[env->line_no - 1] = nline;
 						}
 						redraw_text(); /* XXX */
-						env.col_no += 1;
+						env->col_no += 1;
 						set_modified();
 						redraw_statusbar();
 						place_cursor_actual();
@@ -746,6 +838,10 @@ int main(int argc, char * argv[]) {
 
 	if (argc > 1) {
 		open_file(argv[1]);
+	} else {
+		env = buffer_new();
+		update_title();
+		setup_buffer(env);
 	}
 
 	while (1) {
@@ -763,14 +859,14 @@ int main(int argc, char * argv[]) {
 					command_mode();
 					break;
 				case 'j':
-					if (env.line_no < env.line_count) {
-						env.line_no += 1;
-						if (env.col_no > lines[env.line_no-1]->actual) {
-							env.col_no = lines[env.line_no-1]->actual;
+					if (env->line_no < env->line_count) {
+						env->line_no += 1;
+						if (env->col_no > env->lines[env->line_no-1]->actual) {
+							env->col_no = env->lines[env->line_no-1]->actual;
 						}
-						if (env.col_no == 0) env.col_no = 1;
-						if (env.line_no > env.offset + env.height - env.bottom_size - 1) {
-							env.offset += 1;
+						if (env->col_no == 0) env->col_no = 1;
+						if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+							env->offset += 1;
 							redraw_text();
 						}
 						redraw_statusbar();
@@ -778,14 +874,14 @@ int main(int argc, char * argv[]) {
 					}
 					break;
 				case 'k':
-					if (env.line_no > 1) {
-						env.line_no -= 1;
-						if (env.col_no > lines[env.line_no-1]->actual) {
-							env.col_no = lines[env.line_no-1]->actual;
+					if (env->line_no > 1) {
+						env->line_no -= 1;
+						if (env->col_no > env->lines[env->line_no-1]->actual) {
+							env->col_no = env->lines[env->line_no-1]->actual;
 						}
-						if (env.col_no == 0) env.col_no = 1;
-						if (env.line_no <= env.offset) {
-							env.offset -= 1;
+						if (env->col_no == 0) env->col_no = 1;
+						if (env->line_no <= env->offset) {
+							env->offset -= 1;
 							redraw_text();
 						}
 						redraw_statusbar();
@@ -793,29 +889,26 @@ int main(int argc, char * argv[]) {
 					}
 					break;
 				case 'h':
-					if (env.col_no > 1) {
-						env.col_no -= 1;
+					if (env->col_no > 1) {
+						env->col_no -= 1;
 						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
 				case 'l':
-					if (env.col_no < lines[env.line_no-1]->actual) {
-						env.col_no += 1;
+					if (env->col_no < env->lines[env->line_no-1]->actual) {
+						env->col_no += 1;
 						redraw_statusbar();
 						place_cursor_actual();
 					}
 					break;
 				case ' ':
-					goto_line(env.line_no + env.height - 6);
+					goto_line(env->line_no + term_height - 6);
 					break;
 				case 'O':
 					{
-						line_t ** nlines = add_line(lines, env.line_no-1);
-						if (nlines != lines) {
-							lines = nlines;
-						}
-						env.col_no = 1;
+						env->lines = add_line(env->lines, env->line_no-1);
+						env->col_no = 1;
 						redraw_text();
 						set_modified();
 						place_cursor_actual();
@@ -823,14 +916,11 @@ int main(int argc, char * argv[]) {
 					}
 				case 'o':
 					{
-						line_t ** nlines = add_line(lines, env.line_no);
-						if (nlines != lines) {
-							lines = nlines;
-						}
-						env.col_no = 1;
-						env.line_no += 1;
-						if (env.line_no > env.offset + env.height - env.bottom_size - 1) {
-							env.offset += 1;
+						env->lines = add_line(env->lines, env->line_no);
+						env->col_no = 1;
+						env->line_no += 1;
+						if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+							env->offset += 1;
 						}
 						redraw_text();
 						set_modified();
@@ -838,15 +928,15 @@ int main(int argc, char * argv[]) {
 						goto _insert;
 					}
 				case 'a':
-					if (env.col_no < lines[env.line_no-1]->actual + 1) {
-						env.col_no += 1;
+					if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
+						env->col_no += 1;
 					}
 					goto _insert;
 				case '$':
-					env.col_no = lines[env.line_no-1]->actual+1;
+					env->col_no = env->lines[env->line_no-1]->actual+1;
 					break;
 				case '0':
-					env.col_no = 1;
+					env->col_no = 1;
 					break;
 				case 'i':
 _insert:
