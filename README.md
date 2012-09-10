@@ -13,7 +13,7 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 
 ## News ##
 
-We are currently working on porting a toolchain to natively run under とあるOS. We currently have a nearly-working build of binutils and are working on porting gcc.
+The Terminal now supprots Unicode text. We also have an editor based loosely on Vim.
 
 ## Features ##
 
@@ -40,7 +40,12 @@ We are currently working on porting a toolchain to natively run under とあるO
   * Includes extensive compatibility with xterm
   * Support for 256 colors
   * Beautifully rendered anti-aliased text through FreeType (please see the licenses below for included fonts)
+  * Supports Unicode text (UTF-8 encoded)
 * And dozens of other minor things not worth listing here.
+
+## Current Plans ##
+
+The current development focus for the project is networking support.
 
 ## Screenshots ##
 
@@ -72,94 +77,17 @@ If you are on Debian/Ubuntu/etc., you can clone the repository and run:
 
 This will install the required dependencies, build the userspace libraries and toolchain, build the kernel, and give you a working ramdisk and hard disk.
 
-You can then run `make run` or `make kvm` to run QEMU, or `make docs` to build documentation (which requires a LaTeX stack with CJK support).
+You can then run `make run` or `make kvm` to run QEMU. An additional `make run-config` command is available that allows easy customization of the emulation environment.
 
 Currently, the only supported environment is QEMU, as our limited graphics drivers do not operate on most real hardware.
 
 ## Dependencies ##
 
 ### Kernel ###
-To build the kernel, you will need `yasm`, `clang` (or `gcc`, the build tools will autodetect), and GNU `ld` (which you undoubtedly have if you have `clang` or `gcc`).
+To build the kernel, you will need `yasm`, `clang`, and GNU `ld` (which you undoubtedly have if you have `clang` or `gcc`).
 
-### Hard disks and initrds ###
-You need `genext2fs` to generate the EXT2 images for the ramdisk and the hard disk drive.
-
-### Documentation ###
-To build the primary documentation, you need a complete LaTeX stack with `pdftex`, including the CJK module and Japanese fonts. To build the kernel API documentation, you will need Doxygen (eventually).
-
-# Goals and Future Development #
-
-### Please note that much of this section is outdated. ###
-
-## Goals and Roadmap ##
-Overall, the goal of this project is to write a relatively POSIX-compatible OS from the ground up. With a focus on generic hardware functionality and universal specifications like VESA, I hope to eventually get something fairly complete in terms of what an OS should be. At some times, I may focus on an actual piece of complex hardware (I am looking to write a basic driver for Intel graphics cards based on the X driver and the Mesa components), but in general, I will stick to generic interfaces.
-
-### Basic Goals ###
-* Create a working modular monolithic kernel capable of executing arbitrary ELF binaries
-* Write, from scratch, a C standard library using past experience in writing standard library functions
-* Support POSIX threads
-* Implement an existing file system, specifically EXT2
-* Be able to manipulate VESA modes to run at an optimal resolution for graphics
-* Handle basic networking on a virtual Ethernet device (DHCP, TCP, etc.)
-
-### Loftier Goals ###
-Some things are far easier said than done, but I like to say them anyway. The time span for these depends greatly on how quickly the basic goals are completed and can range anywhere from a few months to years from now.
-
-* Dynamic library loader
-* Create a working implementation of Wayland under VESA (will be slow)
-* Port Qt (under Wayland) and some Qt apps
-    * Port Qt under framebuffer first? Qt has everything...
-* Support audio in a way that doesn't suck like Linux's mess of libraries and mixers
-* Various hardware-specific drivers (primarily for my T410):
-    * Intel graphics driver, with acceleration so Wayland isn't slow
-    * Realtek wireless driver, with WPA2
-    * Specific drivers for the Thinkpad itself (or just acpi?)
-* Custom b-tree filesystem
-
-### Roadmap ###
-Currently, I have a kernel capable of reading its multiboot parameters, which is terribly un-useful. The current, ordered, plan of attack is as follows:
-
-* Finish James M's tutorial (second half), which covers:
-    * Paging *done*
-    * Heap *done*
-    * VFS *done*
-    * Initial RAM Disk *done*
-    * Multitasking *done*
-    * User mode *done*
-* Finish basic kernel functionality
-    * Loading ELF binaries and executing them in user mode *done (static)*
-    * Complete system call table *good*
-    * Get a better semblance of users and groups *we have users*
-* Write a file system driver for a real file system
-    * Target is EXT2, but might do FAT *IDE PIO support*
-    * Move OS development images to some form of virtual drive *done*
-* Implement a VESA mode handler
-    * QEMU / BOCHS VBE driver *done*
-    * Requires a Virtual 8086 monitor *emulated*
-    * Need to be able to use graphics modes and still have output, so write a framebuffer terminal *done*
-* Complete libc
-    * Enough to run basic unix tools... *basically done*
-* Port some basic UNIX tools
-    * a shell (bash and zsh, because I like bash, but the office uses zsh) *esh, the "experimental shell"*
-    * *ls*, mv, rm, etc.
-    * here's a real test: perl
-* Implement networking
-    * IPv4
-    * Ethernet driver for QEMU or VirtualBox
-
-*Anything beyond this point is part of the 'Loftier Goals' section*
-
-* Wayland compositor
-    * based on specifications for a Wayland environment
-    * Port some of the Wayland sample applications
-    * Write my own!
-* Port Qt
-    * Specifically, for Wayland
-    * Qt is huge and has its own standard library, might need more extensive libc
-    * Need to support C++-built stuff, so will probably need a C++ stdlib.
-* Audio drivers
-    * Maybe before Qt?
-    * Should support software mixing at least, hardware under a virtual machine, maybe my Intel hw
+### Hard disks ###
+You will need `genext2fs` to generate the EXT2 images for the hard disk drive.
 
 ## References ##
 Here are some tutorials we found useful early on:
@@ -172,7 +100,7 @@ Here are some tutorials we found useful early on:
 
 ## ToAruOS Itself ##
 
-ToAruOS is under the NCSA license, which is a derivative (and fully compatible with) the BSD license. It is also forward compatible with the GPL, so you can use ToAruOS bits and pieces in GPL. The terms of the license are listed here for your convience:
+This project is released under the terms of the University of Illinois / NCSA Open Source License, an OSI- and FSF-approved, GPL-compatible open source license. The NCSA License is a derivative of the MIT license and the BSD license; it is reproduced here for your convenience:
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to
@@ -202,10 +130,10 @@ ToAruOS is under the NCSA license, which is a derivative (and fully compatible w
 
 ToAruOS contains additional software with the following copyright notices:
 
-* The CPU detection code provided in `userspace/cpudet.c`:
+* The CPU detection code provided in `userspace/cpudet.c` carries the following copyright notice, and has been made available by its author for use in other projects:
   Copyright (c) 2006-2007 -  http://brynet.biz.tm - <brynet@gmail.com>
 
-* A copy of the VL Gothic TrueType font is included in this repository; VL Gothic is distributed under the following license:
+* A copy of the [VL Gothic TrueType font](http://vlgothic.dicey.org/) is included in this repository; VL Gothic is distributed under the following license:
 
         Copyright (c) 1990-2003 Wada Laboratory, the University of Tokyo.
         Copyright (c) 2003-2004 Electronic Font Open Laboratory (/efont/).
@@ -271,7 +199,7 @@ ToAruOS contains additional software with the following copyright notices:
         are those of the authors and should not be interpreted as representing
         official policies, either expressed or implied, of the author.
 
-* As of January 23, 2012, the repository also contains DejaVu fonts, which are public-domain modifications of the Bitstream Vera font set, which is released under this license:
+* As of January 23, 2012, the repository also contains the [DejaVu fonts](http://dejavu-fonts.org/wiki/Main_Page) package, which is a set of public-domain modifications of the Bitstream Vera font set, which is released under this license:
 
         Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. Bitstream
         Vera is a trademark of Bitstream, Inc.
@@ -383,4 +311,5 @@ ToAruOS contains additional software with the following copyright notices:
 
         Latest version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
 
+* Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/) and [FreeType](http://www.freetype.org/). Patches for these software packages are provided under the same license as the package they are for.
 

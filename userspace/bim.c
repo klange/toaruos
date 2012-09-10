@@ -683,12 +683,17 @@ void write_file(char * file) {
 		line_t * line = env->lines[i];
 		for (j = 0; j < line->actual; j++) {
 			char_t c = line->text[j];
-			char tmp[4];
-			to_eight(c.codepoint, tmp);
-			fprintf(f, "%s", tmp);
+			if (c.codepoint == 0) {
+				char buf[1] = {0};
+				fwrite(buf, 1, 1, f);
+			} else {
+				char tmp[4];
+				int i = to_eight(c.codepoint, tmp);
+				fwrite(tmp, i, 1, f);
+			}
 		}
 		if (i + 1 < env->line_count) {
-			fprintf(f, "\n");
+			fputc('\n', f);
 		}
 	}
 	fclose(f);

@@ -7,11 +7,6 @@
 * Investigate issues with slow terminal pipes (`yes` running amok)
 * Mouse features; mouse support in windowed mode
 * Tab completion in shell (this is mostly a shell-specific thing)
-* Unicode support
-  * UTF-8 parsing
-  * Wider storage of characters in the terminal screen display
-  * Font fallback for characters not in core font
-  * Character width detection from fonts (for determining double-width characters)
 
 ## Windowing System ##
 * Graphical Login Manager
