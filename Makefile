@@ -45,7 +45,8 @@ INITRDBIN = $H/reboot $H/nyancat $H/clear $H/cat $H/terminal $H/esh $H/echo $H/i
 .PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
 .SECONDARY: 
 
-all: .passed system docs utils tags
+all: .passed system tags
+aux: utils docs
 system: .passed toaruos-disk.img toaruos-kernel
 
 install: system
