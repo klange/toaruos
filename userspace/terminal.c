@@ -800,15 +800,33 @@ void term_redraw_all() {
 }
 
 void term_term_scroll() {
-	for (uint16_t y = 0; y < term_height - 1; ++y) {
+	/* Shirt terminal cells one row up */
+	memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), sizeof(t_cell) * term_width * (term_height - 1));
+	/* Reset the "new" row to clean cells */
+	memset((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width * (term_height - 1)), 0x0, sizeof(t_cell) * term_width);
+	if (_vga_mode) {
+		/* In VGA mode, we can very quickly just redraw everything */
+		term_redraw_all();
+	} else {
+		/* In graphical modes, we will shift the graphics buffer up as necessary */
+		uintptr_t dst, src;
+		size_t    siz = char_height * (term_height - 1) * GFX_W(ctx) * GFX_B(ctx);
+		if (_windowed) {
+			/* Windowed mode must take borders into account */
+			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
+			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height)) * GFX_B(ctx);
+		} else {
+			/* While fullscreen mode does not */
+			dst = (uintptr_t)ctx->backbuffer;
+			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height) * GFX_B(ctx);
+		}
+		/* Perform the shift */
+		memmove((void *)dst, (void *)src, siz);
+		/* And redraw the new rows */
 		for (uint16_t x = 0; x < term_width; ++x) {
-			cell_set(x,y,cell_ch(x,y+1),cell_fg(x,y+1),cell_bg(x,y+1), cell_flags(x,y+1));
+			cell_redraw(x, term_height - 1);
 		}
 	}
-	for (uint16_t x = 0; x < term_width; ++x) {
-		cell_set(x, term_height-1,' ',current_fg, current_bg,0);
-	}
-	term_redraw_all();
 }
 
 uint32_t codepoint;
