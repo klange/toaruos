@@ -297,7 +297,6 @@ uint32_t ext2_disk_inode_read_block(ext2_inodetable_t *inode, uint32_t no, uint3
 uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t no, uint32_t block, uint8_t *buf) {
 	/* We must allocate blocks up to this point to account for unused space in the middle. */
 	while (block >= inode->blocks) {
-		kprintf("[kernel/ext2] Need to allocate blocks, have %d, want to write to #%d.\n", inode->blocks, block);
 		ext2_disk_inode_alloc_block(inode, no, inode->blocks);
 		if (block != inode->blocks - 1) {
 			/* Clear the block */
@@ -310,6 +309,7 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t no, uint
 
 	// The real work to write to a block of an inode.
 	uint32_t real_block = ext2_get_real_block(inode, block);
+
 	ext2_disk_write_block(real_block, buf);
 	return real_block;
 }
@@ -611,7 +611,8 @@ uint32_t write_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	if (start_block == end_block) {
 		void *buf = malloc(BLOCKSIZE);
 		ext2_disk_inode_read_block(inode, node->inode, start_block, buf);
-		memcpy((uint8_t *)((uintptr_t)buf + (offset)), buffer, size_to_write);
+		memcpy((uint8_t *)((uintptr_t)buf + (offset % BLOCKSIZE)), buffer, size_to_write);
+		kprintf("[kernel/ext2] Single-block write.\n");
 		ext2_disk_inode_write_block(inode, node->inode, start_block, buf);
 		free(buf);
 		free(inode);
@@ -785,6 +786,8 @@ void insertdir_ext2_disk(ext2_inodetable_t *p_node, uint32_t no, uint32_t inode,
 	memset(((uint8_t *)block) + dir_offset + new_entry->rec_len, 0x00, 4);
 	ext2_disk_inode_write_block(p_node, no, block_nr, block);
 
+	free(new_entry);
+
 	// Update parent node size
 	//p_node->size += size;
 	ext2_disk_write_inode(p_node, no);
@@ -865,6 +868,7 @@ fs_node_t *finddir_ext2_disk(fs_node_t *node, char *name) {
 	fs_node_t *outnode = malloc(sizeof(fs_node_t));
 	inode = ext2_disk_inode(direntry->inode);
 	ext2_disk_node_from_file(inode, direntry, outnode);
+	free(direntry);
 	free(inode);
 	return outnode;
 }
