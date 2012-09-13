@@ -211,11 +211,23 @@ int main (int argc, char ** argv) {
 	struct tm * timeinfo;
 	char   buffer[80];
 
-	/* UTF-8 Strings FTW! */
-	uint8_t * os_name_ = "とあるOS 0.2.0";
+	char _uname[1024];
+	syscall_kernel_string_XXX(_uname);
 
-	uint8_t *s = os_name_;
-	uint16_t os_name[256];
+	char * os_version = strstr(_uname, " ");
+	os_version++;
+	char * tmp = strstr(os_version, " ");
+	tmp[0] = 0;
+
+	/* UTF-8 Strings FTW! */
+	uint8_t * os_name_ = "とあるOS";
+
+	uint8_t final[512];
+
+	uint32_t l = snprintf(final, 512, "%s %s", os_name_, os_version);
+
+	uint8_t *s = final;
+	uint16_t os_name[256] = {0};
 	uint16_t *o = os_name;
 
 	uint32_t codepoint;

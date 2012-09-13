@@ -104,6 +104,7 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 	if (!block_no) {
 		kprintf("[kernel/ext2] block_no = 0?\n");
+		kprintf("[kernel/ext2] Investigate the call before this, you have done something terrible!\n");
 		return;
 	}
 	spin_lock(&lock);
@@ -231,7 +232,8 @@ uint32_t ext2_get_real_block(ext2_inodetable_t *inode, uint32_t block) {
 /**
  * Allocate memory for a block in an inode whose inode number is 'no'.
  */
-void ext2_disk_inode_alloc_block(ext2_inodetable_t *inode, uint32_t no, uint32_t block) {
+void ext2_disk_inode_alloc_block(ext2_inodetable_t *inode, uint32_t inode_no, uint32_t block) {
+	kprintf("Allocating block %d for inode #%d\n", block, inode_no);
 	uint32_t block_no = 0, block_offset = 0, group = 0;
 	char *bg_buffer = malloc(BLOCKSIZE);
 	for (uint32_t i = 0; i < BGDS; ++i) {
@@ -264,7 +266,7 @@ void ext2_disk_inode_alloc_block(ext2_inodetable_t *inode, uint32_t no, uint32_t
 	ext2_disk_write_block(2, (uint8_t *)BGD);
 
 	inode->blocks++;
-	ext2_disk_write_inode(inode, no);
+	ext2_disk_write_inode(inode, inode_no);
 }
 
 /**
@@ -294,10 +296,10 @@ uint32_t ext2_disk_inode_read_block(ext2_inodetable_t *inode, uint32_t no, uint3
  * In other words, this function writes to the actual file content.
  * @return the actual block number read from.
  */
-uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t no, uint32_t block, uint8_t *buf) {
+uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no, uint32_t block, uint8_t *buf) {
 	/* We must allocate blocks up to this point to account for unused space in the middle. */
 	while (block >= inode->blocks) {
-		ext2_disk_inode_alloc_block(inode, no, inode->blocks);
+		ext2_disk_inode_alloc_block(inode, inode_no, inode->blocks);
 		if (block != inode->blocks - 1) {
 			/* Clear the block */
 			uint32_t real_block = ext2_get_real_block(inode, inode->blocks - 1);
@@ -309,6 +311,8 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t no, uint
 
 	// The real work to write to a block of an inode.
 	uint32_t real_block = ext2_get_real_block(inode, block);
+
+	kprintf("Virtual block %d maps to real block %d.\n", block, real_block);
 
 	ext2_disk_write_block(real_block, buf);
 	return real_block;
