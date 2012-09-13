@@ -18,6 +18,7 @@ static FT_Face      face; /* perhaps make this an array ? */
 static FT_GlyphSlot slot;
 static FT_UInt      glyph_index;
 static int initialized = 0;
+static float opacity = 1.0;
 
 #define SGFX(CTX,x,y,WIDTH) *((uint32_t *)&CTX[((WIDTH) * (y) + (x)) * 4])
 #define FONT_SIZE 12
@@ -42,6 +43,14 @@ void init_shmemfonts() {
 	}
 }
 
+void set_font_size(int size) {
+	FT_Set_Pixel_Sizes(face, size, size);
+}
+
+void set_text_opacity(float new_opacity) {
+	opacity = new_opacity;
+}
+
 /*
  * Draw a character to a context.
  */
@@ -51,7 +60,7 @@ static void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg, gfx_context
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
-			SGFX(ctx->backbuffer,i,j,ctx->width) = alpha_blend(SGFX(ctx->backbuffer,i,j,ctx->width),fg,rgb(bitmap->buffer[q * bitmap->width + p],0,0));
+			SGFX(ctx->backbuffer,i,j,ctx->width) = alpha_blend(SGFX(ctx->backbuffer,i,j,ctx->width),fg,rgb(bitmap->buffer[q * bitmap->width + p] * opacity,0,0));
 		}
 	}
 }

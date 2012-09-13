@@ -53,6 +53,7 @@ void flip(gfx_context_t * ctx);
 void clear_buffer(gfx_context_t * ctx);
 
 void load_sprite(sprite_t * sprite, char * filename);
+int load_sprite_png(sprite_t * sprite, char * file);
 void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y);
 void draw_line(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color);
 void draw_line_thick(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color, char thickness);

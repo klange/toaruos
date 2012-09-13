@@ -73,6 +73,7 @@ uint8_t  _vga_mode      = 0;    /* Whether or not we are in VGA mode XXX should 
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _unbuffered    = 0;
+uint8_t  _force_kernel  = 0;
 
 void reinit(); /* Defined way further down */
 
@@ -1178,6 +1179,7 @@ int main(int argc, char ** argv) {
 		{"vga",        no_argument,       0, 'V'},
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
+		{"kernel",     no_argument,       0, 'k'},
 		{"scale",      required_argument, 0, 's'},
 		{"geometry",   required_argument, 0, 'g'},
 		{0,0,0,0}
@@ -1185,13 +1187,16 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhFVls:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhFVlks:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
 			}
 		}
 		switch (c) {
+			case 'k':
+				_force_kernel = 1;
+				break;
 			case 'l':
 				_login_shell = 1;
 				break;
@@ -1338,7 +1343,7 @@ int main(int argc, char ** argv) {
 		return 1;
 	} else {
 
-		if (!_windowed) {
+		if (!_windowed || _force_kernel) {
 			/* Request kernel output to this terminal */
 			syscall_system_function(4, (char **)ofd);
 		}

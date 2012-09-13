@@ -1189,64 +1189,10 @@ int main(int argc, char ** argv) {
 	pthread_t redraw_everything_thread;
 	pthread_create(&redraw_everything_thread, NULL, redraw_thread, NULL);
 
-
-#if 0
 	if (!fork()) {
-		waitabit();
-		waitabit();
-		waitabit();
-		char * args[] = {"/bin/drawlines", "100","100","300","300",NULL};
+		char * args[] = {"/bin/glogin", NULL};
 		execve(args[0], args, NULL);
 	}
-
-	if (!fork()) {
-		waitabit();
-		char * args[] = {"/bin/julia-win", "200","200","400","400",NULL};
-		execve(args[0], args, NULL);
-	}
-
-	if (!fork()) {
-		waitabit();
-		waitabit();
-		char * args[] = {"/bin/julia-win", "20","20","500","300",NULL};
-		execve(args[0], args, NULL);
-	}
-#else
-
-	if (!fork()) {
-		char * args[] = {"/bin/wallpaper", NULL};
-		execve(args[0], args, NULL);
-	}
-	if (!fork()) {
-		char * args[] = {"/bin/panel", NULL};
-		execve(args[0], args, NULL);
-	}
-
-#if 0
-	if (!fork()) {
-		char arg_width[10], arg_height[10];
-		sprintf(arg_width, "%d", ctx->width);
-		sprintf(arg_height, "%d", ctx->height);
-		char * args[] = {"/bin/glogin", arg_width, arg_height, NULL};
-		execve(args[0], args, NULL);
-	}
-#else 
-#if 0
-	if (!fork()) {
-		waitabit();
-		char * args[] = {"/bin/julia-win", "200","400","400","400",NULL};
-		execve(args[0], args, NULL);
-	}
-#endif
-
-	if (!fork()) {
-		char * args[] = {"/bin/terminal", NULL};
-		execve(args[0], args, NULL);
-	}
-
-#endif
-
-#endif
 
 	/* Sit in a run loop */
 	while (1) {

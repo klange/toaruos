@@ -9,6 +9,10 @@
 #include "graphics.h"
 #include "window.h"
 
+#define PNG_DEBUG 3
+#include <png.h>
+
+
 /* Pointer to graphics memory */
 void flip(gfx_context_t * ctx) {
 	memcpy(ctx->buffer, ctx->backbuffer, ctx->size);
@@ -114,6 +118,72 @@ void load_sprite(sprite_t * sprite, char * filename) {
 	}
 	free(bufferb);
 }
+
+int load_sprite_png(sprite_t * sprite, char * file) {
+	png_structp png_ptr;
+	png_infop info_ptr;
+	int number_of_passes;
+	png_bytep * row_pointers;
+	int x, y;
+	png_uint_32 width, height;
+	int color_type;
+	int bit_depth;
+
+	char header[8];
+
+	FILE *fp = fopen(file, "rb");
+	if (!fp) {
+		printf("Oh dear. Failed to open wallpaper file.\n");
+		return 1;
+	}
+	fread(header, 1, 8, fp);
+	if (png_sig_cmp(header, 0, 8)) {
+		printf("Oh dear. Bad signature.\n");
+		return 1;
+	}
+
+	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (!png_ptr) {
+		printf("Oh dear. Couldn't make a read struct.\n");
+		return 1;
+	}
+	info_ptr = png_create_info_struct(png_ptr);
+
+	png_init_io(png_ptr, fp);
+	png_set_sig_bytes(png_ptr, 8);
+	png_read_info(png_ptr, info_ptr);
+
+	png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, NULL, NULL, NULL);
+
+	row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
+	for (y = 0; y < height; ++y) {
+		row_pointers[y] = (png_byte *) malloc(png_get_rowbytes(png_ptr, info_ptr));
+	}
+	png_read_image(png_ptr, row_pointers);
+	fclose(fp);
+
+	sprite->width = width;
+	sprite->height = height;
+	sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
+	sprite->alpha = 0;
+	sprite->blank = 0;
+
+	for (y = 0; y < height; ++y) {
+		png_byte* row = row_pointers[y];
+		for (x = 0; x < width; ++x) {
+			png_byte * ptr = &(row[x*3]);
+			sprite->bitmap[(y) * width + x] = rgb(ptr[0], ptr[1], ptr[2]);
+		}
+	}
+
+	for (y = 0; y < height; ++y) {
+		free(row_pointers[y]);
+	}
+	free(row_pointers);
+
+	return 0;
+}
+
 
 static inline int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;

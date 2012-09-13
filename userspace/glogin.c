@@ -5,6 +5,7 @@
  */
 #include <stdlib.h>
 #include <assert.h>
+#include <unistd.h>
 #include <math.h>
 
 #include "lib/window.h"
@@ -16,6 +17,8 @@ sprite_t * sprites[128];
 sprite_t alpha_tmp;
 
 gfx_context_t * ctx;
+
+int _alright_get_on_with_it = 0;
 
 
 uint16_t win_width;
@@ -75,73 +78,137 @@ void * process_input(void * arg) {
 		w_keyboard_t * kbd = poll_keyboard();
 		if (kbd != NULL) {
 			buffer_put(kbd->key);
+			if (kbd->key == '\n') {
+				_alright_get_on_with_it = 1;
+				pthread_exit(NULL);
+			}
 			free(kbd);
 		}
 	}
 }
 
+uint32_t gradient_at(uint16_t j) {
+	float x = j * 80;
+	x = x / ctx->height;
+	return rgb(0, 1 * x, 2 * x);
+}
+
+void draw_gradient() {
+	for (uint16_t j = 0; j < ctx->height; ++j) {
+		draw_line(ctx, 0, ctx->width, j, j, gradient_at(j));
+	}
+}
+
 int main (int argc, char ** argv) {
-	if (argc < 3) {
-		printf("usage: %s width height\n", argv[0]);
-		return -1;
-	}
-
-	int width = atoi(argv[1]);
-	int height = atoi(argv[2]);
-
-	win_width = width;
-	win_height = height;
-
-	setup_windowing();
-
-	init_shmemfonts();
-
-	/* Do something with a window */
-	window_t * wina = window_create(0,0, width, height);
-	assert(wina);
-	ctx = init_graphics_window_double_buffer(wina);
-	draw_fill(ctx, rgb(0,0,0));
-
-#if 1
-	printf("Loading background...\n");
-	init_sprite(0, "/usr/share/login-background.bmp", NULL);
-	printf("Background loaded.\n");
-	draw_sprite_scaled(ctx,sprites[0], 0, 0, width, height);
-#endif
-
-	init_sprite(1, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
-	draw_sprite_scaled(ctx, sprites[1], center_x(sprites[1]->width), center_y(sprites[1]->height), sprites[1]->width, sprites[1]->height);
-
-	flip(ctx);
-
-	size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
-	char * buf = malloc(buf_size);
-	memcpy(buf, wina->buffer, buf_size);
-
-	uint32_t i = 0;
-
-	pthread_t input_thread;
-	pthread_create(&input_thread, NULL, process_input, NULL);
-
 	while (1) {
+		setup_windowing();
 
-		double scale = 2.0 + 1.5 * sin((double)i * 0.02);
+		int width  = wins_globals->server_width;
+		int height = wins_globals->server_height;
+
+		win_width = width;
+		win_height = height;
+
+		init_shmemfonts();
+
+		/* Do something with a window */
+		window_t * wina = window_create(0,0, width, height);
+		assert(wina);
+		ctx = init_graphics_window_double_buffer(wina);
+		draw_gradient();
+		flip(ctx);
+
+		/* Fade in */
+		size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
+		char * buf = malloc(buf_size);
+		uint16_t fade = 0;
+		gfx_context_t fade_ctx;
+		fade_ctx.backbuffer = buf;
+		fade_ctx.width      = wina->width;
+		fade_ctx.height     = wina->height;
+		fade_ctx.depth      = 32;
+		gfx_context_t * fc = &fade_ctx;
+
+		sprites[0] = malloc(sizeof(sprite_t));
+		load_sprite_png(sprites[0], "/usr/share/wallpaper.png");
+		draw_sprite_scaled(fc,sprites[0], 0, 0, width, height);
+
+		while (fade < 256) {
+			for (uint32_t y = 0; y < wina->height; y++) {
+				for (uint32_t x = 0; x < wina->width; x++) {
+					GFX(ctx, x, y) = alpha_blend(GFX(ctx, x, y), GFX(fc, x, y), rgb(fade,0,0));
+				}
+			}
+			flip(ctx);
+			fade += 10;
+		}
+
+		init_sprite(1, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
+		draw_sprite_scaled(fc, sprites[1], center_x(sprites[1]->width), center_y(sprites[1]->height), sprites[1]->width, sprites[1]->height);
+
+		uint32_t i = 0;
+
+		pthread_t input_thread;
+		pthread_create(&input_thread, NULL, process_input, NULL);
+
+
+		uint32_t black = rgb(0,0,0);
+		uint32_t white = rgb(255,255,255);
+
+		int x_offset = 65;
+		int y_offset = 64;
+
+		int fuzz = 3;
+
+		set_font_size(22);
+
+		char * msg = "Press enter.";
+
+		while (1) {
+
+			if (_alright_get_on_with_it) {
+				_alright_get_on_with_it = 0;
+				break;
+			}
 
 #if 1
-		/* Redraw the background by memcpy (super speedy) */
-		memcpy(ctx->backbuffer, buf, buf_size);
+			/* Redraw the background by memcpy (super speedy) */
+			memcpy(ctx->backbuffer, buf, buf_size);
 
-		draw_string(ctx, 50 + scale * 30,50 + scale * 30, rgb(255,0,0), input_buffer);
+			set_text_opacity(0.2);
+			for (int y = -fuzz; y <= fuzz; ++y) {
+				for (int x = -fuzz; x <= fuzz; ++x) {
+					draw_string(ctx, wina->width / 2 - x_offset + x, wina->height / 2 + y_offset + y, black, msg);
+				}
+			}
+			set_text_opacity(1.0);
+			draw_string(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg);
 
-
-		flip(ctx);
+			flip(ctx);
 #endif
 
-		++i;
-	}
+			++i;
+		}
 
-	//window_destroy(window); // (will close on exit)
-	teardown_windowing();
+		memcpy(ctx->backbuffer, buf, buf_size);
+		flip(ctx);
+
+		teardown_windowing();
+
+		int _session_pid = fork();
+		if (!_session_pid) {
+			syscall_setuid(1000);
+			char * args[] = {"/bin/gsession", NULL};
+			execve(args[0], args, NULL);
+		}
+
+		syscall_wait(_session_pid);
+
+		free(buf);
+		free(sprites[0]);
+		free(sprites[1]);
+
+	}
 
 	return 0;
 }
