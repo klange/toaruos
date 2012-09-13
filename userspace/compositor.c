@@ -267,6 +267,16 @@ void reorder_window (window_t * window, uint16_t new_zed) {
 		return;
 	}
 
+	foreach(n, process_list) {
+		process_windows_t * pw = (process_windows_t *)n->value;
+		foreach(node, pw->windows) {
+			window_t * w = (window_t *)node->value;
+			if (w->z == new_zed) {
+				w->z += 1;
+			}
+		}
+	}
+
 	window->z = new_zed;
 }
 

@@ -1220,8 +1220,8 @@ int main(int argc, char ** argv) {
 					if (c) {
 						*c = '\0';
 						c++;
-						window_width = atoi(optarg);
-						window_width = atoi(c);
+						window_width  = atoi(optarg);
+						window_height = atoi(c);
 					}
 				}
 				break;

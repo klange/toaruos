@@ -7,6 +7,9 @@
 #include <assert.h>
 #include <math.h>
 
+#define PNG_DEBUG 3
+#include <png.h>
+
 #include "lib/window.h"
 #include "lib/graphics.h"
 
@@ -25,17 +28,68 @@ int center_y(int y) {
 	return (win_height - y) / 2;
 }
 
-void init_sprite(int i, char * filename, char * alpha) {
-	sprites[i] = malloc(sizeof(sprite_t));
-	load_sprite(sprites[i], filename);
-	if (alpha) {
-		sprites[i]->alpha = 1;
-		load_sprite(&alpha_tmp, alpha);
-		sprites[i]->masks = alpha_tmp.bitmap;
-	} else {
-		sprites[i]->alpha = 0;
+int x, y;
+
+png_uint_32 width, height;
+int color_type;
+int bit_depth;
+
+png_structp png_ptr;
+png_infop info_ptr;
+int number_of_passes;
+png_bytep * row_pointers;
+
+int read_png(char * file) {
+	char header[8];
+	FILE *fp = fopen(file, "rb");
+	if (!fp) {
+		printf("Oh dear. Failed to open wallpaper file.\n");
+		return 1;
 	}
-	sprites[i]->blank = 0x0;
+	fread(header, 1, 8, fp);
+	if (png_sig_cmp(header, 0, 8)) {
+		printf("Oh dear. Bad signature.\n");
+		return 1;
+	}
+
+	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (!png_ptr) {
+		printf("Oh dear. Couldn't make a read struct.\n");
+		return 1;
+	}
+	info_ptr = png_create_info_struct(png_ptr);
+
+	png_init_io(png_ptr, fp);
+	png_set_sig_bytes(png_ptr, 8);
+	png_read_info(png_ptr, info_ptr);
+
+	png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, NULL, NULL, NULL);
+
+	row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
+	for (y = 0; y < height; ++y) {
+		row_pointers[y] = (png_byte *) malloc(png_get_rowbytes(png_ptr, info_ptr));
+	}
+	png_read_image(png_ptr, row_pointers);
+	fclose(fp);
+
+	sprites[0] = malloc(sizeof(sprite_t));
+
+	sprite_t * sprite = sprites[0];
+	sprite->width = width;
+	sprite->height = height;
+	sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
+	sprite->alpha = 0;
+	sprite->blank = 0;
+
+	for (y = 0; y < height; ++y) {
+		png_byte* row = row_pointers[y];
+		for (x = 0; x < width; ++x) {
+			png_byte * ptr = &(row[x*3]);
+			sprite->bitmap[(y) * width + x] = rgb(ptr[0], ptr[1], ptr[2]);
+		}
+	}
+
+	return 0;
 }
 
 int main (int argc, char ** argv) {
@@ -47,7 +101,6 @@ int main (int argc, char ** argv) {
 	win_width = width;
 	win_height = height;
 
-
 	/* Do something with a window */
 	window_t * wina = window_create(0,0, width, height);
 	assert(wina);
@@ -56,17 +109,10 @@ int main (int argc, char ** argv) {
 	draw_fill(ctx, rgb(127,127,127));
 	flip(ctx);
 
-#if 1
-	printf("Loading background...\n");
-	init_sprite(0, "/usr/share/login-background.bmp", NULL);
-	printf("Background loaded.\n");
+	if (read_png("/usr/share/wallpaper.png")) {
+		return 0;
+	}
 	draw_sprite_scaled(ctx, sprites[0], 0, 0, width, height);
-#endif
-
-#if 0
-	init_sprite(1, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
-	draw_sprite_scaled(sprites[1], center_x(sprites[1]->width), center_y(sprites[1]->height), sprites[1]->width, sprites[1]->height);
-#endif
 
 	flip(ctx);
 
