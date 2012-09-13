@@ -22,7 +22,7 @@ int main(int argc, char * argv[]) {
 		execve(args[0], args, NULL);
 	}
 	if (!fork()) {
-		char * args[] = {"/bin/terminal", "--kernel", NULL};
+		char * args[] = {"/bin/terminal", NULL};
 		execve(args[0], args, NULL);
 	}
 

@@ -522,7 +522,6 @@ static int system_function(int fn, char ** args) {
 				/* Request kernel output to file descriptor in arg0*/
 				kprintf("Setting output to file object in process %d's fd=%d!\n", getpid(), (int)args);
 				kprint_to_file = current_process->fds->entries[(int)args];
-				kprint_to_serial = 0;
 				break;
 			default:
 				kprintf("Bad system function %d\n", fn);

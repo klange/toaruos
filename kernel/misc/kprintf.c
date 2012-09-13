@@ -119,14 +119,12 @@ kprintf(
 	/* Print that sucker */
 	if (kprint_to_serial) {
 		serial_string(buf);
-	} else {
-		/* TODO "Registered Ouput Terminal", which is probably *not* the serial output */
-		/* XXX */
-		if (kprint_to_file) {
-			fs_node_t * node = (fs_node_t *)kprint_to_file;
-			uint32_t out = write_fs(node, node->offset, strlen(buf), (uint8_t *)buf);
-			node->offset += out;
-		}
+	}
+	/* Registered output file */
+	if (kprint_to_file) {
+		fs_node_t * node = (fs_node_t *)kprint_to_file;
+		uint32_t out = write_fs(node, node->offset, strlen(buf), (uint8_t *)buf);
+		node->offset += out;
 	}
 	return out;
 }

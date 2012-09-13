@@ -93,19 +93,24 @@ void reap_process(process_t * proc) {
 	list_free(proc->signal_queue);
 	free(proc->signal_queue);
 	free(proc->wd_name);
+	debug_print(INFO, "Releasing shared memory for %d", proc->id);
 	shm_release_all(proc);
 	free(proc->shm_mappings);
+	debug_print(INFO, "Freeing more mems %d", proc->id);
 	if (proc->name != default_name) {
 		free(proc->name);
 	}
 	if (proc->signal_kstack) {
 		free(proc->signal_kstack);
 	}
+	debug_print(INFO, "Dec'ing fds for %d", proc->id);
 	proc->fds->refs--;
 	if (proc->fds->refs == 0) {
+		debug_print(INFO, "Reached 0, all dependencies are closed for %d's file descriptors and page directories", proc->id);
 		release_directory(proc->thread.page_directory);
+		debug_print(INFO, "Going to clear out the file descriptors %d", proc->id);
 		for (uint32_t i = 0; i < proc->fds->length; ++i) {
-			close_fs(proc->fds->entries[i]);
+			//close_fs(proc->fds->entries[i]);
 			/* XXX
 			 * We need to actually clean these up, but because
 			 * of the way sharing operates, we're not able to do
@@ -113,8 +118,10 @@ void reap_process(process_t * proc) {
 			 */
 			//free(proc->fds->entries[i]);
 		}
+		debug_print(INFO, "... and their storage %d", proc->id);
 		free(proc->fds->entries);
 		free(proc->fds);
+		debug_print(INFO, "... and the kernel stack (hope this ain't us) %d", proc->id);
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	}
 	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
@@ -282,6 +289,8 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
+	IRQ_OFF;
+
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
 	assert(parent && "Cloned from nothing??");
@@ -348,6 +357,8 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 		new_proc->thread.eip = eip;
 		/* Add the new process to the ready queue */
 		make_process_ready(new_proc);
+
+		IRQ_RES;
 
 		/* Return the child PID */
 		return new_proc->id;

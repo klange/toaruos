@@ -8,6 +8,7 @@
  * (C) 2011 Kevin Lange
  */
 #include <system.h>
+#include <logging.h>
 
 extern void bochs_install_wallpaper(char *);
 
@@ -85,6 +86,7 @@ parse_args(
 			boot_arg_extra = argp[1];
 		} else if (!strcmp(argp[0],"logtoserial")) {
 			kprint_to_serial = 1;
+			debug_level = INFO;
 		}
 	}
 }

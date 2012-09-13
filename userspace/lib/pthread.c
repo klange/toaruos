@@ -6,10 +6,10 @@
 #define PTHREAD_STACK_SIZE 10240
 
 int clone(uintptr_t a,uintptr_t b,void* c) {
-	syscall_clone(a,b,c);
+	return syscall_clone(a,b,c);
 }
 int gettid() {
-	syscall_gettid();
+	return syscall_gettid();
 }
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {

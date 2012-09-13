@@ -8,21 +8,56 @@
 #include <unistd.h>
 #include <math.h>
 
+#include "lib/sha2.h"
 #include "lib/window.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
-#include "lib/pthread.h"
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
 
 gfx_context_t * ctx;
 
-int _alright_get_on_with_it = 0;
-
-
 uint16_t win_width;
 uint16_t win_height;
+
+int uid = 0;
+
+int checkUserPass(char * user, char * pass) {
+
+	/* Generate SHA512 */
+	char hash[SHA512_DIGEST_STRING_LENGTH];
+	SHA512_Data(pass, strlen(pass), hash);
+
+	/* Open up /etc/master.passwd */
+
+	FILE * passwd = fopen("/etc/master.passwd", "r");
+	char line[2048];
+
+	while (fgets(line, 2048, passwd) != NULL) {
+
+		line[strlen(line)-1] = '\0';
+
+		char *p, *tokens[4], *last;
+		int i = 0;
+		for ((p = strtok_r(line, ":", &last)); p;
+				(p = strtok_r(NULL, ":", &last)), i++) {
+			if (i < 511) tokens[i] = p;
+		}
+		tokens[i] = NULL;
+		
+		if (strcmp(tokens[0],user) != 0) {
+			continue;
+		}
+		if (!strcmp(tokens[1],hash)) {
+			fclose(passwd);
+			return atoi(tokens[2]);
+		}
+		}
+	fclose(passwd);
+	return -1;
+
+}
 
 int center_x(int x) {
 	return (win_width - x) / 2;
@@ -75,15 +110,6 @@ int buffer_put(char c) {
 
 void * process_input(void * arg) {
 	while (1) {
-		w_keyboard_t * kbd = poll_keyboard();
-		if (kbd != NULL) {
-			buffer_put(kbd->key);
-			if (kbd->key == '\n') {
-				_alright_get_on_with_it = 1;
-				pthread_exit(NULL);
-			}
-			free(kbd);
-		}
 	}
 }
 
@@ -148,10 +174,6 @@ int main (int argc, char ** argv) {
 
 		uint32_t i = 0;
 
-		pthread_t input_thread;
-		pthread_create(&input_thread, NULL, process_input, NULL);
-
-
 		uint32_t black = rgb(0,0,0);
 		uint32_t white = rgb(255,255,255);
 
@@ -162,32 +184,104 @@ int main (int argc, char ** argv) {
 
 		set_font_size(22);
 
-		char * msg = "Press enter.";
+		char * m_username = "Username: ";
+		char * m_password = "Password: ";
+
+		char msg[1024];
+
+		char username[1024] = {0};
+		char password[1024] = {0};
+
+		input_buffer[0] = '\0';
+		input_collected = 0;
+
+		uid = 0;
 
 		while (1) {
+			while (1) {
+				snprintf(msg, 1024, "%s%s", m_username, input_buffer);
 
-			if (_alright_get_on_with_it) {
-				_alright_get_on_with_it = 0;
+				/* Redraw the background by memcpy (super speedy) */
+				memcpy(ctx->backbuffer, buf, buf_size);
+
+				set_text_opacity(0.2);
+				for (int y = -fuzz; y <= fuzz; ++y) {
+					for (int x = -fuzz; x <= fuzz; ++x) {
+						draw_string(ctx, wina->width / 2 - x_offset + x, wina->height / 2 + y_offset + y, black, msg);
+					}
+				}
+				set_text_opacity(1.0);
+				draw_string(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg);
+
+				flip(ctx);
+
+				w_keyboard_t * kbd = NULL;
+				do {
+					kbd = poll_keyboard();
+				} while (!kbd);
+
+				if (kbd->key == '\n') {
+					free(kbd);
+					goto _have_username;
+				}
+
+				buffer_put(kbd->key);
+				free(kbd);
+
+			}
+_have_username:
+
+			input_buffer[input_collected] = '\0';
+			sprintf(username, "%s", input_buffer);
+
+			input_collected = 0;
+			input_buffer[0] = '\0';
+
+			while (1) {
+				snprintf(msg, 1024, "%s", m_password);
+
+				/* Redraw the background by memcpy (super speedy) */
+				memcpy(ctx->backbuffer, buf, buf_size);
+
+				set_text_opacity(0.2);
+				for (int y = -fuzz; y <= fuzz; ++y) {
+					for (int x = -fuzz; x <= fuzz; ++x) {
+						draw_string(ctx, wina->width / 2 - x_offset + x, wina->height / 2 + y_offset + y, black, msg);
+					}
+				}
+				set_text_opacity(1.0);
+				draw_string(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg);
+
+				flip(ctx);
+
+				w_keyboard_t * kbd = NULL;
+				do {
+					kbd = poll_keyboard();
+				} while (!kbd);
+
+				if (kbd->key == '\n') {
+					free(kbd);
+					goto _have_password;
+				}
+
+				buffer_put(kbd->key);
+				free(kbd);
+
+			}
+
+_have_password:
+
+			input_buffer[input_collected] = '\0';
+			sprintf(password, "%s", input_buffer);
+
+			input_collected = 0;
+			input_buffer[0] = '\0';
+
+			uid = checkUserPass(username, password);
+
+			if (uid >= 0) {
 				break;
 			}
-
-#if 1
-			/* Redraw the background by memcpy (super speedy) */
-			memcpy(ctx->backbuffer, buf, buf_size);
-
-			set_text_opacity(0.2);
-			for (int y = -fuzz; y <= fuzz; ++y) {
-				for (int x = -fuzz; x <= fuzz; ++x) {
-					draw_string(ctx, wina->width / 2 - x_offset + x, wina->height / 2 + y_offset + y, black, msg);
-				}
-			}
-			set_text_opacity(1.0);
-			draw_string(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg);
-
-			flip(ctx);
-#endif
-
-			++i;
 		}
 
 		memcpy(ctx->backbuffer, buf, buf_size);
@@ -197,7 +291,7 @@ int main (int argc, char ** argv) {
 
 		int _session_pid = fork();
 		if (!_session_pid) {
-			syscall_setuid(1000);
+			syscall_setuid(uid);
 			char * args[] = {"/bin/gsession", NULL};
 			execve(args[0], args, NULL);
 		}
