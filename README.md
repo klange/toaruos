@@ -81,6 +81,10 @@ You can then run `make run` or `make kvm` to run QEMU. An additional `make run-c
 
 Currently, the only supported environment is QEMU, as our limited graphics drivers do not operate on most real hardware.
 
+### User Accounts ###
+
+The default root password is `toor`. There is also a regular user `local` with password `local`. While general system security is lacking, most system-modifying calls to the kernel require root privileges. When booting directly to a graphical terminal, the system will run in single-user mode and automatically log in as root. When running in graphical or VGA-terminal mode, a login screen is presented. When logging in graphically, the terminal window that appears controls the session; you can log out by exiting it. Most of this is temporary as the graphical environment is still under development.
+
 ## Dependencies ##
 
 ### Kernel ###
