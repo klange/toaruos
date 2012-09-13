@@ -173,6 +173,13 @@ void _loadVlgothic() {
 	error = FT_Set_Pixel_Sizes(face_extra, FONT_SIZE, FONT_SIZE);
 }
 
+volatile int _continue = 1;
+
+void sig_int(int sig) {
+	printf("Received shutdown signal in panel!\n");
+	_continue = 0;
+}
+
 int main (int argc, char ** argv) {
 	setup_windowing();
 
@@ -245,7 +252,9 @@ int main (int argc, char ** argv) {
 	}
 	o = 0;
 
-	while (1) {
+	syscall_signal(2, sig_int);
+
+	while (_continue) {
 		/* Redraw the background by memcpy (super speedy) */
 		memcpy(ctx->backbuffer, buf, buf_size);
 		syscall_gettimeofday(&now, NULL); //time(NULL);
@@ -262,7 +271,6 @@ int main (int argc, char ** argv) {
 		}
 	}
 
-	//window_destroy(window); // (will close on exit)
 	teardown_windowing();
 
 	return 0;

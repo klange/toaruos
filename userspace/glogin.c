@@ -97,12 +97,9 @@ int buffer_put(char c) {
 		return 0;
 	}
 	input_buffer[input_collected] = c;
-	if (input_buffer[input_collected] == '\n') {
-		input_collected++;
-		return 1;
-	}
 	input_collected++;
-	if (input_collected == INPUT_SIZE) {
+	input_buffer[input_collected] = '\0';
+	if (input_collected == INPUT_SIZE - 1) {
 		return 1;
 	}
 	return 0;
@@ -140,6 +137,7 @@ int main (int argc, char ** argv) {
 		/* Do something with a window */
 		window_t * wina = window_create(0,0, width, height);
 		assert(wina);
+		window_reorder (wina, 0); /* Disables movement */
 		ctx = init_graphics_window_double_buffer(wina);
 		draw_gradient();
 		flip(ctx);

@@ -25,6 +25,13 @@ int center_y(int y) {
 	return (win_height - y) / 2;
 }
 
+volatile int _continue = 1;
+
+void sig_int(int sig) {
+	printf("Received shutdown signal in wallpaper!\n");
+	_continue = 0;
+}
+
 int main (int argc, char ** argv) {
 	setup_windowing();
 
@@ -42,6 +49,8 @@ int main (int argc, char ** argv) {
 	draw_fill(ctx, rgb(127,127,127));
 	flip(ctx);
 
+	syscall_signal(2, sig_int);
+
 	sprites[0] = malloc(sizeof(sprite_t));
 	if (load_sprite_png(sprites[0], "/usr/share/wallpaper.png")) {
 		return 0;
@@ -50,7 +59,7 @@ int main (int argc, char ** argv) {
 
 	flip(ctx);
 
-	while (1) {
+	while (_continue) {
 		syscall_yield();
 	}
 
