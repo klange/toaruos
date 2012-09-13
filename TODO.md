@@ -1,10 +1,22 @@
+# TODO for 0.4.0 Distribution Release
+
+* CD support
+  * Boot from "CD"
+  * Distribute with Grub
+  * CD image generator in-repo
+* User Interface
+  * Graphical Login
+  * More applications
+* Stable Harddisk writes
+  * Screenshot functionality
+  * Attempt an installer?
+
 # TODO as of Septemember 2012
 
 ## C++
 * Build with C++ support
 
 ## Terminal Fixes ##
-* Investigate issues with slow terminal pipes (`yes` running amok)
 * Mouse features; mouse support in windowed mode
 * Tab completion in shell (this is mostly a shell-specific thing)
 
@@ -26,6 +38,30 @@
   * Native development requires good tools.
   * Also port genext2fs.
 * Directory support needs to be better integrated into the C library still
+
+## Microkernal Readiness
+
+* Deprecate ramdisks
+  * Haven't used them in development in over a year
+  * Not useful anywhere else due to their limiting sizes
+* Implement module execution
+  * Instead of loading a ramdisk, modules should be standard binaries
+  * The binaries will be executed in a new "service mode"
+* Implement "servicespace"
+  * Userspace, but at a different ring
+  * Special access features, like extended port access
+  * Higher priority scheduling
+
+### Services to Implement
+
+* PCI Service
+* Graphics Management Service
+* Compositor as a service?
+* Virtual File System Service
+
+Heh... Consider writing some of these in better languages than C. May a D servicespace?
+
+TODO: Get D working.
 
 ## Old I/O goals
 

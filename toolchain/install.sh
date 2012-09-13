@@ -61,4 +61,20 @@ pushd build
         make || bail
         make install || bail
     popd
+    #
+    # XXX zlib can not be built in a separate directory
+    #
+    pushd ../tarballs/zlib*
+        CC=i686-pc-toaru-gcc ./configure --static --prefix=$PREFIX/$TARGET --solo || bail
+        make || bail
+        make install || bail
+    popd
+    if [ ! -d libpng ]; then
+        mkdir libpng
+    fi
+    pushd libpng
+        $DIR/tarballs/libpng-1.5.12/configure --host=$TARGET --prefix=$PREFIX/$TARGET || bail
+        make || bail
+        make install || bail
+    popd
 popd
