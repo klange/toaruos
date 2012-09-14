@@ -76,11 +76,12 @@ uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
 
 uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top) {
 	uint8_t a = _ALP(top);
-	uint8_t red = (_RED(bottom) * (255 - a) + _RED(top) * a) / 255;
-	uint8_t gre = (_GRE(bottom) * (255 - a) + _GRE(top) * a) / 255;
-	uint8_t blu = (_BLU(bottom) * (255 - a) + _BLU(top) * a) / 255;
-	uint8_t alp = a + _ALP(bottom) > 255 ? 255 : a + _ALP(bottom);
-	return rgba(red,gre,blu, alp);
+	uint8_t b = ((int)_ALP(bottom) * (255 - a)) / 255;
+	uint8_t alp = a + b;
+	uint8_t red = alp ? (int)(_RED(bottom) * (b) + _RED(top) * a) / (alp): 0;
+	uint8_t gre = alp ? (int)(_GRE(bottom) * (b) + _GRE(top) * a) / (alp): 0;
+	uint8_t blu = alp ? (int)(_BLU(bottom) * (b) + _BLU(top) * a) / (alp): 0;
+	return rgba(red,gre,blu,alp);
 }
 
 void load_sprite(sprite_t * sprite, char * filename) {
@@ -182,13 +183,27 @@ int load_sprite_png(sprite_t * sprite, char * file) {
 	sprite->alpha = 0;
 	sprite->blank = 0;
 
-	printf(">> Notice, loaded with bit_depth = %d\n", bit_depth);
-	for (y = 0; y < height; ++y) {
-		png_byte* row = row_pointers[y];
-		for (x = 0; x < width; ++x) {
-			png_byte * ptr = &(row[x*3]);
-			sprite->bitmap[(y) * width + x] = rgb(ptr[0], ptr[1], ptr[2]);
+	if (color_type == 2) {
+		sprite->alpha = ALPHA_OPAQUE;
+		for (y = 0; y < height; ++y) {
+			png_byte* row = row_pointers[y];
+			for (x = 0; x < width; ++x) {
+				png_byte * ptr = &(row[x*3]);
+				sprite->bitmap[(y) * width + x] = rgb(ptr[0], ptr[1], ptr[2]);
+			}
 		}
+	} else if (color_type == 6) {
+		sprite->alpha = ALPHA_EMBEDDED;
+		for (y = 0; y < height; ++y) {
+			png_byte* row = row_pointers[y];
+			for (x = 0; x < width; ++x) {
+				png_byte * ptr = &(row[x*4]);
+				sprite->bitmap[(y) * width + x] = rgba(ptr[0], ptr[1], ptr[2], ptr[3]);
+			}
+		}
+
+	} else {
+		printf("XXX: UNKNOWN COLOR TYPE: %d!\n", color_type);
 	}
 
 	for (y = 0; y < height; ++y) {

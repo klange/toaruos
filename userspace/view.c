@@ -34,7 +34,12 @@ int main (int argc, char ** argv) {
 	int left = 30;
 	int top  = 30;
 
-	init_sprite(0, argv[1], NULL);
+	if (strstr(argv[1], ".png")) {
+		sprites[0] = malloc(sizeof(sprite_t));
+		load_sprite_png(sprites[0], argv[1]);
+	} else {
+		init_sprite(0, argv[1], NULL);
+	}
 
 	int width  = sprites[0]->width;
 	int height = sprites[0]->height;
@@ -45,6 +50,11 @@ int main (int argc, char ** argv) {
 	window_t * wina = window_create(left, top, width, height);
 	ctx = init_graphics_window(wina);
 	draw_fill(ctx, rgb(0,0,0));
+
+	if (sprites[0]->alpha == ALPHA_EMBEDDED) {
+		draw_fill(ctx, rgba(0,0,0,0));
+		window_enable_alpha(wina);
+	}
 
 	draw_sprite(ctx, sprites[0], 0, 0);
 
