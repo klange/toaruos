@@ -56,6 +56,7 @@ typedef struct {
 #define WC_DAMAGE		0x03 /* Damage window (redraw region) */
 #define WC_REDRAW		0x04 /* Damage window (redraw region) */
 #define WC_REORDER		0x05 /* Set the Z-index for a window (request) */
+#define WC_SET_ALPHA	0x06 /* Enable RGBA for compositing */
 
 /* Events */
 #define WE_KEYDOWN		0x10 /* A key has been pressed down */
@@ -125,6 +126,7 @@ typedef struct {
 	int32_t  x; /* X coordinate of upper-left corner */
 	int32_t  y; /* Y coordinate of upper-left corner */
 	uint16_t z; /* Stack order */
+	uint8_t  use_alpha;
 /* END UNUSED IN CLIENT */
 
 	uint8_t * buffer; /* Window buffer */
@@ -156,6 +158,7 @@ void window_redraw_full (window_t * window);
 void window_redraw_wait (window_t * window);
 void window_destroy (window_t * window);
 void window_reorder (window_t * window, uint16_t new_zed);
+void window_enable_alpha (window_t * window);
 
 w_keyboard_t * poll_keyboard();
 w_mouse_t *    poll_mouse();

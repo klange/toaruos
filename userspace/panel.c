@@ -54,9 +54,8 @@ void init_sprite(int i, char * filename, char * alpha) {
 		load_sprite(&alpha_tmp, alpha);
 		sprites[i]->masks = alpha_tmp.bitmap;
 	} else {
-		sprites[i]->alpha = 0;
+		sprites[i]->alpha = ALPHA_OPAQUE;
 	}
-	sprites[i]->blank = 0x0;
 }
 
 void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg) {

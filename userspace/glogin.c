@@ -154,6 +154,7 @@ int main (int argc, char ** argv) {
 		gfx_context_t * fc = &fade_ctx;
 
 		sprites[0] = malloc(sizeof(sprite_t));
+		sprites[0]->alpha = 0;
 		load_sprite_png(sprites[0], "/usr/share/wallpaper.png");
 		draw_sprite_scaled(fc,sprites[0], 0, 0, width, height);
 
@@ -165,6 +166,13 @@ int main (int argc, char ** argv) {
 			}
 			flip(ctx);
 			fade += 10;
+		}
+
+		fade = 255;
+		for (uint32_t y = 0; y < wina->height; y++) {
+			for (uint32_t x = 0; x < wina->width; x++) {
+				GFX(ctx, x, y) = alpha_blend(GFX(ctx, x, y), GFX(fc, x, y), rgb(fade,0,0));
+			}
 		}
 
 		init_sprite(1, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");

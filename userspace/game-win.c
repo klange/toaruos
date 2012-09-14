@@ -187,11 +187,11 @@ void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i] = malloc(sizeof(sprite_t));
 	load_sprite(sprites[i], filename);
 	if (alpha) {
-		sprites[i]->alpha = 1;
+		sprites[i]->alpha = ALPHA_MASK;
 		load_sprite(&alpha_tmp, alpha);
 		sprites[i]->masks = alpha_tmp.bitmap;
 	} else {
-		sprites[i]->alpha = 0;
+		sprites[i]->alpha = ALPHA_INDEXED;
 	}
 	sprites[i]->blank = 0x0;
 }

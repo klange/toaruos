@@ -58,6 +58,7 @@ window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y,
 	window->x = x;
 	window->y = y;
 	window->z = index;
+	window->use_alpha = 0;
 
 	char key[1024];
 	SHMKEY(key, 1024, window);
@@ -267,6 +268,9 @@ void window_reorder (window_t * window, uint16_t new_zed) {
 	wins_send_command(window->wid, new_zed, 0, 0, 0, WC_REORDER, 0);
 }
 
+void window_enable_alpha (window_t * window) {
+	wins_send_command(window->wid, 0, 0, 0, 0, WC_SET_ALPHA, 0);
+}
 
 /* Event Processing (invoked by signal only) */
 

@@ -46,8 +46,14 @@ typedef struct context {
 gfx_context_t * init_graphics_fullscreen();
 gfx_context_t * init_graphics_fullscreen_double_buffer();
 
+#define ALPHA_OPAQUE   0
+#define ALPHA_MASK     1
+#define ALPHA_EMBEDDED 2
+#define ALPHA_INDEXED  3
+
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask);
+uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top);
 
 void flip(gfx_context_t * ctx);
 void clear_buffer(gfx_context_t * ctx);

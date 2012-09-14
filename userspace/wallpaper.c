@@ -52,6 +52,7 @@ int main (int argc, char ** argv) {
 	syscall_signal(2, sig_int);
 
 	sprites[0] = malloc(sizeof(sprite_t));
+	sprites[0]->alpha = 0;
 	if (load_sprite_png(sprites[0], "/usr/share/wallpaper.png")) {
 		return 0;
 	}

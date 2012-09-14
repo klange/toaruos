@@ -601,6 +601,21 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 	}
 }
 
+static inline void term_set_point_alpha(uint16_t x, uint16_t y, uint32_t color, uint8_t alpha) {
+	if (_windowed) {
+		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color | (alpha * 0x1000000);
+	} else {
+		if (ctx->depth == 32) {
+			GFX(ctx, x,y) = color | 0xFF000000;
+		} else if (ctx->depth == 24) {
+			ctx->backbuffer[((y) * ctx->width + x) * 3 + 2] = _RED(color);
+			ctx->backbuffer[((y) * ctx->width + x) * 3 + 1] = _GRE(color);
+			ctx->backbuffer[((y) * ctx->width + x) * 3 + 0] = _BLU(color);
+		}
+	}
+}
+
+
 /* FreeType text rendering */
 
 FT_Library   library;
@@ -655,6 +670,12 @@ term_write_char(
 	} else if (_use_freetype) {
 		fg = term_colors[fg];
 		bg = term_colors[bg];
+		if (bg == 0x0) {
+			bg |= 0xBB000000;
+		} else {
+			bg |= 0xFF000000;
+		}
+		fg |= 0xFF000000;
 		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -1245,6 +1266,8 @@ int main(int argc, char ** argv) {
 
 		/* Create the window */
 		window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
+
+		window_enable_alpha(window);
 
 		/* Initialize the decoration library */
 		init_decorations();

@@ -38,6 +38,8 @@ void spin_unlock(int volatile * lock) {
 	__sync_lock_release(lock);
 }
 
+window_t * windows[0x10000];
+
 
 sprite_t * sprites[128];
 
@@ -53,7 +55,7 @@ list_t * process_list;
 int32_t mouse_x, mouse_y;
 int32_t click_x, click_y;
 uint32_t mouse_discard = 0;
-#define MOUSE_SCALE 10
+#define MOUSE_SCALE 3
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
 
@@ -108,6 +110,7 @@ static window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
 
 void init_process_list () {
 	process_list = list_create();
+	memset(windows, 0x00000000, sizeof(window_t *) * 0x10000);
 }
 
 
@@ -174,33 +177,58 @@ window_t * top_at(uint16_t x, uint16_t y) {
 	return window_top;
 }
 
-window_t * top_at_fast(uint16_t x, uint16_t y) {
-	uint32_t index_top = 0;
-	window_t * window_top = NULL;
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		foreach(node, pw->windows) {
-			window_t * win = (window_t *)node->value;
-			if (is_top_fast(win, x, y)) return win;
+void rebalance_windows() {
+	uint32_t i = 1;
+	for (; i < 0xFFF8; ++i) {
+		if (!windows[i]) break;
+	}
+	uint32_t j = i + 1;
+	for (; j < 0xFFF8; ++j) {
+		if (!windows[j]) break;
+	}
+	if (j == i + 1) {
+		printf("Nothing to reorder.\n");
+		return;
+	} else {
+		printf("Need to reshuffle. One moment.\n");
+		for (j = i; j < 0xFFF8; ++j) {
+			windows[j] = windows[j+1];
+			if (windows[j+1] == NULL) return;
+			windows[j]->z = j;
 		}
 	}
-	return NULL;
 }
 
-
-window_t * absolute_top() {
-	uint32_t index_top = 0;
-	window_t * window_top = NULL;
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		foreach(node, pw->windows) {
-			window_t * win = (window_t *)node->value;
-			if (win->z < index_top) continue;
-			window_top = win;
-		}
+void reorder_window (window_t * window, uint16_t new_zed) {
+	if (!window) {
+		return;
 	}
-	return window_top;
+
+	int z = window->z;
+	window->z = new_zed;
+
+	if (windows[z] == window) {
+		windows[z] = NULL;
+	}
+
+	if (new_zed == 0 || new_zed == 0xFFFF) {
+		windows[new_zed] = window;
+		if (z != new_zed) {
+			rebalance_windows();
+		}
+		return;
+	}
+
+	if (windows[new_zed] != window) {
+		reorder_window(windows[new_zed], new_zed + 1);
+		windows[new_zed ] = window;
+	}
+	if (z != new_zed) {
+		rebalance_windows();
+	}
+	printf("Window 0x%x is now at z=%d\n", window, new_zed);
 }
+
 
 void make_top(window_t * window) {
 	uint16_t index = window->z;
@@ -212,23 +240,21 @@ void make_top(window_t * window) {
 		process_windows_t * pw = (process_windows_t *)n->value;
 		foreach(node, pw->windows) {
 			window_t * win = (window_t *)node->value;
+			if (win == window) continue;
 			if (win->z == 0)   continue;
 			if (win->z == 0xFFFF)  continue;
 			if (highest < win->z) highest = win->z;
 			if (win == window) continue;
-			if (win->z > window->z) win->z--;
+			if (win->z > window->z) continue;
 		}
 	}
 
-	window->z = highest;
+	printf("Making top will make this window stack at %d.\n", highest+1);
+	reorder_window(window, highest+1);
 }
 
 window_t * focused_window() {
-#if 0
-	return top_at_fast(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-#else
 	return top_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-#endif
 }
 
 volatile int am_drawing  = 0;
@@ -262,22 +288,23 @@ void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uin
 	//redraw_cursor();
 }
 
-void reorder_window (window_t * window, uint16_t new_zed) {
-	if (!window) {
-		return;
+void window_add (window_t * window) {
+	int z = window->z;
+	while (windows[z]) {
+		z++;
 	}
+	printf("Assigning depth of %d to window 0x%x\n", z, window);
+	window->z = z;
+	windows[z] = window;
+}
 
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		foreach(node, pw->windows) {
-			window_t * w = (window_t *)node->value;
-			if (w->z == new_zed) {
-				w->z += 1;
-			}
-		}
+void unorder_window (window_t * window) {
+	int z = window->z;
+	if (z < 0x10000 && windows[z]) {
+		windows[z] = 0;
 	}
-
-	window->z = new_zed;
+	window->z = 0;
+	return;
 }
 
 void redraw_full_window (window_t * window) {
@@ -310,36 +337,44 @@ void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
 	}
 }
 
+void blit_window(window_t * window, int32_t left, int32_t top) {
+#define TO_DERPED_OFFSET(x,y) (((x) - left) + ((y) - top) * window->width)
+	uint16_t _lo_x = max(left, 0);
+	uint16_t _hi_x = min(left + window->width, ctx->width);
+	uint16_t _lo_y = max(top, 0);
+	uint16_t _hi_y = min(top + window->height, ctx->height);
+	if (window->use_alpha) {
+		for (uint16_t y = _lo_y; y < _hi_y; ++y) {
+			for (uint16_t x = _lo_x; x < _hi_x; ++x) {
+				GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), ((uint32_t *)window->buffer)[TO_DERPED_OFFSET(x,y)]);
+			}
+		}
+	} else {
+		uint16_t win_x = _lo_x - left;
+		uint16_t width = (_hi_x - _lo_x) * 4;
+		uint16_t win_y = _lo_y - top;
+
+		for (uint16_t y = _lo_y; y < _hi_y; ++y) {
+			win_y = y - top;
+			memcpy(&ctx->backbuffer[4 * (y * ctx->width + _lo_x)], &window->buffer[(win_y * window->width + win_x) * 4], width);
+		}
+	}
+
+}
+
 void redraw_everything_fast() {
-	for (uint32_t y = 0; y < ctx->height; ++y) {
-		for (uint32_t x = 0; x < ctx->width; ++x) {
-			window_t * window = (window_t *)top_map[x + y * ctx->width];
-			if (window) {
-				/* UGGGG */
-				if (TO_WINDOW_OFFSET(x,y) >= window->width * window->height) continue;
-				GFX(ctx,x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
+	for (uint32_t i = 0; i < 0x10000; ++i) {
+		window_t * window = NULL;
+		if (windows[i]) {
+			window = windows[i];
+			if (window == moving_window) {
+				blit_window(moving_window, moving_window_l, moving_window_t);
+			} else {
+				blit_window(window, window->x, window->y);
 			}
 		}
 	}
 }
-
-void draw_bounding_box(window_t * window, int32_t left, int32_t top) {
-	if (!window) return;
-
-	uint16_t _lo_x = max(left, 0);
-	uint16_t _hi_x = min(left + window->width,  ctx->width);
-	uint16_t _lo_y = max(top, 0);
-	uint16_t _hi_y = min(top  + window->height, ctx->height);
-	#define TO_DERPED_OFFSET(x,y) (((x) - left) + ((y) - top) * window->width)
-
-	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
-		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
-			GFX(ctx,x,y) = alpha_blend(GFX(ctx,x,y), ((uint32_t *)window->buffer)[TO_DERPED_OFFSET(x,y)], rgb(127,0,0));
-		}
-	}
-
-}
-
 
 void redraw_bounding_box(window_t *window, int32_t left, int32_t top, uint32_t derped) {
 	return;
@@ -474,13 +509,24 @@ void process_window_command (int sig) {
 
 			switch (header.command_type) {
 				case WC_NEWWINDOW:
-					printf("[compositor] New window request\n");
-					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					wwt.wid = _next_wid;
-					init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid); //XXX: an actual index
-					_next_wid++;
-					send_window_event(pw, WE_NEWWINDOW, &wwt);
-					redraw_region_slow(0,0,ctx->width,ctx->height);
+					{
+						printf("[compositor] New window request\n");
+						read(pw->command_pipe, &wwt, sizeof(w_window_t));
+						wwt.wid = _next_wid;
+						window_t * new_window = init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid); //XXX: an actual index
+						window_add(new_window);
+						_next_wid++;
+						send_window_event(pw, WE_NEWWINDOW, &wwt);
+						redraw_region_slow(0,0,ctx->width,ctx->height);
+					}
+					break;
+
+				case WC_SET_ALPHA:
+					{
+						read(pw->command_pipe, &wwt, sizeof(w_window_t));
+						window_t * window = get_window_with_process(pw, wwt.wid);
+						window->use_alpha = 1;
+					}
 					break;
 
 				case WC_RESIZE:
@@ -493,6 +539,7 @@ void process_window_command (int sig) {
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					window_t * win = get_window_with_process(pw, wwt.wid);
 					win->x = 0xFFFF;
+					unorder_window(win);
 					redraw_region_slow(0,0,ctx->width,ctx->height);
 					/* Wait until we're done drawing */
 					spin_lock(&am_drawing);
@@ -1119,7 +1166,6 @@ void * redraw_thread(void * derp) {
 		spin_lock(&am_drawing);
 		redraw_everything_fast();
 		/* Other stuff */
-		draw_bounding_box(moving_window, moving_window_l, moving_window_t);
 		redraw_cursor();
 		spin_unlock(&am_drawing);
 		flip(ctx);

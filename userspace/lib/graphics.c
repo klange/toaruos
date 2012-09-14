@@ -61,12 +61,26 @@ uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 	return 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
 }
 
+uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+	return (a * 0x1000000) + (r * 0x10000) + (g * 0x100) + (b * 0x1);
+}
+
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
 	uint8_t a = _RED(mask);
-	uint8_t red = (_RED(bottom) * (256 - a) + _RED(top) * a) / 256;
-	uint8_t gre = (_GRE(bottom) * (256 - a) + _GRE(top) * a) / 256;
-	uint8_t blu = (_BLU(bottom) * (256 - a) + _BLU(top) * a) / 256;
-	return rgb(red,gre,blu);
+	uint8_t red = (_RED(bottom) * (255 - a) + _RED(top) * a) / 255;
+	uint8_t gre = (_GRE(bottom) * (255 - a) + _GRE(top) * a) / 255;
+	uint8_t blu = (_BLU(bottom) * (255 - a) + _BLU(top) * a) / 255;
+	uint8_t alp = (int)a + (int)_ALP(bottom) > 255 ? 255 : a + _ALP(bottom);
+	return rgba(red,gre,blu, alp);
+}
+
+uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top) {
+	uint8_t a = _ALP(top);
+	uint8_t red = (_RED(bottom) * (255 - a) + _RED(top) * a) / 255;
+	uint8_t gre = (_GRE(bottom) * (255 - a) + _GRE(top) * a) / 255;
+	uint8_t blu = (_BLU(bottom) * (255 - a) + _BLU(top) * a) / 255;
+	uint8_t alp = a + _ALP(bottom) > 255 ? 255 : a + _ALP(bottom);
+	return rgba(red,gre,blu, alp);
 }
 
 void load_sprite(sprite_t * sprite, char * filename) {
@@ -168,6 +182,7 @@ int load_sprite_png(sprite_t * sprite, char * file) {
 	sprite->alpha = 0;
 	sprite->blank = 0;
 
+	printf(">> Notice, loaded with bit_depth = %d\n", bit_depth);
 	for (y = 0; y < height; ++y) {
 		png_byte* row = row_pointers[y];
 		for (x = 0; x < width; ++x) {
@@ -202,12 +217,16 @@ void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
-			if (sprite->alpha) {
+			if (sprite->alpha == ALPHA_MASK) {
 				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
-			} else {
-				if (SPRITE(sprite,_x,_y) != sprite->blank) {
-					GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y);
+			} else if (sprite->alpha == ALPHA_EMBEDDED) {
+				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
+			} else if (sprite->alpha == ALPHA_INDEXED) {
+				if (SPRITE(sprite, _x, _y) != sprite->blank) {
+					GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
 				}
+			} else {
+				GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
 			}
 		}
 	}
@@ -284,10 +303,13 @@ uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v) {
 	double v_ratio = v - y;
 	double u_o = 1 - u_ratio;
 	double v_o = 1 - v_ratio;
-	double r_ALP = 256;
-	if (tex->alpha) {
+	double r_ALP = 255;
+	if (tex->alpha == ALPHA_MASK) {
 		if (x == tex->width - 1 || y == tex->height - 1) return (SPRITE(tex,x,y) | 0xFF000000) & (0xFFFFFF + _RED(SMASKS(tex,x,y)) * 0x1000000);
 		r_ALP = (_RED(SMASKS(tex,x,y)) * u_o + _RED(SMASKS(tex,x+1,y)) * u_ratio) * v_o + (_RED(SMASKS(tex,x,y+1)) * u_o  + _RED(SMASKS(tex,x+1,y+1)) * u_ratio) * v_ratio;
+	} else if (tex->alpha == ALPHA_EMBEDDED) {
+		if (x == tex->width - 1 || y == tex->height - 1) return (SPRITE(tex,x,y) | 0xFF000000) & (0xFFFFFF + _ALP(SPRITE(tex,x,y)) * 0x1000000);
+		r_ALP = (_ALP(SPRITE(tex,x,y)) * u_o + _ALP(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_ALP(SPRITE(tex,x,y+1)) * u_o  + _ALP(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
 	}
 	if (x == tex->width - 1 || y == tex->height - 1) return SPRITE(tex,x,y);
 	double r_RED = (_RED(SPRITE(tex,x,y)) * u_o + _RED(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_RED(SPRITE(tex,x,y+1)) * u_o  + _RED(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
@@ -306,7 +328,7 @@ void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, uint16_t x, uint
 		for (uint16_t _x = 0; _x < width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
-			if (sprite->alpha) {
+			if (sprite->alpha > 0) {
 				uint32_t n_color = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
 				uint32_t f_color = rgb(_ALP(n_color), 0, 0);
 				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
