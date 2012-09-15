@@ -36,7 +36,7 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS     = -kernel toaruos-kernel -m 256 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
+EMUARGS     = -kernel toaruos-kernel -m 1024 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame
 EMUKVM      = -enable-kvm
 
 H=hdd/bin
