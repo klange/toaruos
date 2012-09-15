@@ -72,6 +72,10 @@ int execve(char *name, char **argv, char **env) {
 	return syscall_execve(name,argv,env);
 }
 
+int execvp(const char *file, char *const argv[]) {
+	return syscall_execve(file,argv, NULL);
+}
+
 /*
  * getpid -- only one process, so just return 1.
  */
@@ -305,3 +309,14 @@ char *getlogin(void) {
 	return &_username;
 }
 
+int dup2(int oldfd, int newfd) {
+	return syscall_dup2(oldfd, newfd);
+}
+
+unsigned int alarm(unsigned int seconds) {
+	return 0;
+}
+
+clock_t times(struct tms *buf) {
+	return -1;
+}
