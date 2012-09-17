@@ -427,7 +427,7 @@ void redraw_bounding_box_r(window_t *window, int32_t width, int32_t height, uint
 }
 
 
-wid_t volatile _next_wid = 0;
+wid_t volatile _next_wid = 1;
 
 void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet) {
 	/* Construct the header */

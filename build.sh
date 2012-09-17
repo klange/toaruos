@@ -10,6 +10,7 @@ elif [ -f /etc/fedora-release ]; then
     echo "For best results, follow the steps in the script manually."
 fi
 # Build the toolchain:
+unset PKG_CONFIG_LIBDIR
 pushd toolchain
 ./prepare.sh
 ./install.sh
