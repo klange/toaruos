@@ -14,6 +14,7 @@
 #include <string.h>
 #include <syscall.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #define MIN_COL_SPACING 2
 
@@ -198,49 +199,6 @@ int max (int a, int b) {
 }
 
 /* Should be kept in sync with 'struct dirent' in kernel/include/fs.h */
-struct dirent {
-	uint32_t inode;
-	char name[256];
-};
-
-
-typedef struct DIR {
-	int fd;
-	int cur_entry;
-} DIR;
-
-DIR * opendir (const char * dirname) {
-	int fd = open(dirname, O_RDONLY);
-	if (fd == -1) {
-		return NULL;
-	}
-
-	DIR * dir = malloc(sizeof(DIR));
-	dir->fd = fd;
-	dir->cur_entry = -1;
-	return dir;
-}
-
-int closedir (DIR * dir) {
-	if (dir && (dir->fd != -1)) {
-		return close(dir->fd);
-	} else {
-		return -1;
-	}
-}
-
-struct dirent * readdir (DIR * dirp) {
-	static struct dirent ent;
-
-	int ret = syscall_readdir(dirp->fd, ++dirp->cur_entry, &ent);
-	if (ret != 0) {
-		memset(&ent, 0, sizeof(struct dirent));
-		return NULL;
-	}
-
-	return &ent;
-}
-
 // TODO: This thing is broken! Oh fuck!
 /*
 int readdir_r (DIR           *restrict  dirp,
@@ -273,7 +231,7 @@ int readdir_r (DIR           *restrict  dirp,
 int entcmp (const void * c1, const void * c2) {
 	struct dirent * d1 = *(struct dirent **)c1;
 	struct dirent * d2 = *(struct dirent **)c2;
-	return strcmp(d1->name, d2->name);
+	return strcmp(d1->d_name, d2->d_name);
 }
 
 void print_entry (const char * filename, const char * srcpath, int colwidth) {
@@ -353,7 +311,7 @@ int main (int argc, char * argv[]) {
 
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
-		if (show_hidden || (ent->name[0] != '.')) {
+		if (show_hidden || (ent->d_name[0] != '.')) {
 			struct dirent * entcpy = malloc(sizeof(struct dirent));
 			memcpy(entcpy, ent, sizeof(struct dirent));
 			list_insert(ents_list, (void *)entcpy);
@@ -378,7 +336,7 @@ int main (int argc, char * argv[]) {
 	/* Determine the gridding dimensions */
 	int ent_max_len = 0;
 	for (int i = 0; i < numents; i++) {
-		ent_max_len = max(ent_max_len, strlen(ents_array[i]->name));
+		ent_max_len = max(ent_max_len, strlen(ents_array[i]->d_name));
 	}
 
 	int term_width = DEFAULT_TERM_WIDTH; // For now, we assume 128
@@ -401,11 +359,11 @@ int main (int argc, char * argv[]) {
 	for (int i = 0; i < numents;) {
 
 		// Print columns on this row
-		print_entry(ents_array[i++]->name, p, ent_max_len);
+		print_entry(ents_array[i++]->d_name, p, ent_max_len);
 
 		for (int j = 0; (i < numents) && (j < (cols-1)); j++) {
 			printf("  ");
-			print_entry(ents_array[i++]->name, p, ent_max_len);
+			print_entry(ents_array[i++]->d_name, p, ent_max_len);
 		}
 
 		printf("\n");

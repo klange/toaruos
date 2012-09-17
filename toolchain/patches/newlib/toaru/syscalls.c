@@ -16,6 +16,7 @@
 #include <errno.h>
 
 #include "syscall.h"
+#include <bits/dirent.h>
 
 DEFN_SYSCALL1(exit,  0, int);
 DEFN_SYSCALL1(print, 1, const char *);
@@ -65,6 +66,7 @@ DEFN_SYSCALL2(system_function, 43, int, char **);
 // --- Process Control ---
 
 int _exit(int val){
+	printf("exit(%d)\n", val);
 	return syscall_exit(val);
 }
 
@@ -73,6 +75,12 @@ int execve(char *name, char **argv, char **env) {
 }
 
 int execvp(const char *file, char *const argv[]) {
+	fprintf(stderr, "execvp(%s,...);\n", file);
+	return syscall_execve(file,argv, NULL);
+}
+
+int execv(const char * file, char *const argv[]) {
+	fprintf(stderr, "execv(%s,...);\n", file);
 	return syscall_execve(file,argv, NULL);
 }
 
@@ -310,13 +318,53 @@ char *getlogin(void) {
 }
 
 int dup2(int oldfd, int newfd) {
+	fprintf(stderr, "dup2(%d,%d);\n", oldfd, newfd);
 	return syscall_dup2(oldfd, newfd);
 }
 
 unsigned int alarm(unsigned int seconds) {
+	fprintf(stderr, "alarm(%s);\n", seconds);
 	return 0;
 }
 
 clock_t times(struct tms *buf) {
+	fprintf(stderr, "times(...)\n");
+	return -1;
+}
+
+DIR * opendir (const char * dirname) {
+	int fd = open(dirname, O_RDONLY);
+	if (fd == -1) {
+		return NULL;
+	}
+
+	DIR * dir = malloc(sizeof(DIR));
+	dir->fd = fd;
+	dir->cur_entry = -1;
+	return dir;
+}
+
+int closedir (DIR * dir) {
+	if (dir && (dir->fd != -1)) {
+		return close(dir->fd);
+	} else {
+		return -1;
+	}
+}
+
+struct dirent * readdir (DIR * dirp) {
+	static struct dirent ent;
+
+	int ret = syscall_readdir(dirp->fd, ++dirp->cur_entry, &ent);
+	if (ret != 0) {
+		memset(&ent, 0, sizeof(struct dirent));
+		return NULL;
+	}
+
+	return &ent;
+}
+
+long sysconf(int name) {
+	fprintf(stderr, "sysconf(%d);\n", name);
 	return -1;
 }
