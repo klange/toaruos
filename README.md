@@ -9,11 +9,11 @@ This is a toy OS based on the POSIX standards. The primary goal of the project i
 
 ### IRC ###
 
-`#toaruos@irc.freenode.net`
+For discussion, help with building or running the OS, and for up-to-date build verification, please join us in `#toaruos` on Freenode.
 
 ## News ##
 
-The Terminal now supprots Unicode text. We also have an editor based loosely on Vim.
+Full compositing has been enabled. For opaque windows, it is considerably faster than the old rendering methods. This is not the case for transparent windows, which I am working on. Eventually, blitting of transparent windows will be done with SSE instructions, and should be about as fast as non-transparent windows, at which point transparency may become the default.
 
 ## Features ##
 
@@ -34,8 +34,8 @@ The Terminal now supprots Unicode text. We also have an editor based loosely on 
 * PS/2 keyboard/mouse support
   * Of course, what doesn't?
 * Graphical features
-  * We are hard at work building a window environment that makes use of shared memory
-  * Currently supports full-screen operation of graphical applications
+  * Windows GUI environment with transparency support
+  * Limited GUI toolkit available
 * Extensive, ANSI-capable terminal
   * Includes extensive compatibility with xterm
   * Support for 256 colors
@@ -43,26 +43,36 @@ The Terminal now supprots Unicode text. We also have an editor based loosely on 
   * Supports Unicode text (UTF-8 encoded)
 * And dozens of other minor things not worth listing here.
 
-## Current Plans ##
+### Third-Party Software ###
 
-The current development focus for the project is networking support.
+While とあるOS ships with only its own native software tools, we are working on packages for additional third-party software, incuding:
+
+* Lua
+  * Lua's standalone interpreter has been sucessfully built and run.
+  * Some Lua functionality is currently missing and we are working to solve this.
+* Cairo
+  * Cairo and its dependencies can be built if care is taken to supply the correct configuration settings.
+  * To build pixman, modifications to the `config.h` header must be made to disable global constructors, as these are not currently supported.
 
 ## Screenshots ##
 
 Here's what とあるOS looks like:
 
-![Screenshot](http://i.imgur.com/Xn93Pl.png)
+![Screenshot](http://i.imgur.com/NRUWGl.png)
 
-(http://i.imgur.com/Xn93P.png)
+(http://i.imgur.com/NRUWG.png)
 
 Here's what とあるOS has looked like in the past:
 
+* [Running a Cairo demo](http://i.imgur.com/DQK7P.png)
+* [With multiple transparent terminals](http://i.imgur.com/K6nPC.png)
+* [A terminal and the native editor](http://i.imgur.com/4SGhd.png)
+* [Running the  native editor in a full-screen terminal](http://i.imgur.com/u1DEX.png)
 * [Fully userspace shell, demonstrating a threading application](http://i.imgur.com/S7rab.png)
 * [Logging in and moving around](http://i.imgur.com/VjTMv.png)
 * [Booting up the (WIP) graphical interface](http://i.imgur.com/g2yfr.png)
 * [Nyaning](http://i.imgur.com/2BISA.png)
 * [Demoing multitasking](http://i.imgur.com/RY4lb.png)
-
 * [Empty kernel shell](http://i.imgur.com/44huV.jpg)
 * [With a wallpaper and mouse cursor](http://i.imgur.com/eG0i9.png)
 * [Running some GNU apps](http://i.imgur.com/aKyJb.png)
@@ -315,5 +325,5 @@ ToAruOS contains additional software with the following copyright notices:
 
         Latest version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
 
-* Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/) and [FreeType](http://www.freetype.org/). Patches for these software packages are provided under the same license as the package they are for.
+* Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html) and [zlib](http://www.zlib.net/) Patches for these software packages are provided under the same license as the package they are for.
 
