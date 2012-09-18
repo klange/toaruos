@@ -202,7 +202,7 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 }
 
 static int getgraphicsaddress() {
-	return (int)bochs_get_address();
+	return (int)lfb_get_address();
 }
 
 static volatile char kbd_last = 0;
@@ -285,15 +285,15 @@ static int setgraphicsoffset(int rows) {
 }
 
 static int getgraphicswidth() {
-	return bochs_resolution_x;
+	return lfb_resolution_x;
 }
 
 static int getgraphicsheight() {
-	return bochs_resolution_y;
+	return lfb_resolution_y;
 }
 
 static int getgraphicsdepth() {
-	return bochs_resolution_b;
+	return lfb_resolution_b;
 }
 
 static int mkpipe() {

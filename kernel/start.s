@@ -15,16 +15,29 @@ mboot:
 	MULTIBOOT_PAGE_ALIGN	equ 1<<0
 	;   We require memory information
 	MULTIBOOT_MEMORY_INFO	equ 1<<1
+	;   We would really, really like graphics...
+	MULTIBOOT_USE_GFX		equ 1<<2
 	;   We are multiboot compatible!
 	MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002
 	;   Load up those flags.
-	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO
+	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO | MULTIBOOT_USE_GFX
 	;   Checksum the result
 	MULTIBOOT_CHECKSUM		equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
 	; Load the headers into the binary image.
 	dd MULTIBOOT_HEADER_MAGIC
 	dd MULTIBOOT_HEADER_FLAGS
 	dd MULTIBOOT_CHECKSUM
+	dd 0x00000000 ; header_addr
+	dd 0x00000000 ; load_addr
+	dd 0x00000000 ; load_end_addr
+	dd 0x00000000 ; bss_end_addr
+	dd 0x00000000 ; entry_addr
+	; Graphics requests
+	dd 0x00000000 ; 0 = linear graphics
+	dd 0
+	dd 0
+	dd 32         ; Set me to 32 or else.
+
 
 
 ; Some external references.

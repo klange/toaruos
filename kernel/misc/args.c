@@ -10,8 +10,6 @@
 #include <system.h>
 #include <logging.h>
 
-extern void bochs_install_wallpaper(char *);
-
 /**
  * Parse the given arguments to the kernel.
  *

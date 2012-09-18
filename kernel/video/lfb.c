@@ -11,40 +11,38 @@
 #define PREFERRED_VY 4096
 #define PREFERRED_B 32
 
-uint16_t bochs_resolution_x = 0;
-uint16_t bochs_resolution_y = 0;
-uint16_t bochs_resolution_b = 0;
+uint16_t lfb_resolution_x = 0;
+uint16_t lfb_resolution_y = 0;
+uint16_t lfb_resolution_b = 0;
 
 /*
  * Address of the linear frame buffer.
  * This can move, so it's a pointer instead of
  * #define.
  */
-uint8_t * bochs_vid_memory = (uint8_t *)0xE0000000;
+uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
 
+static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
+	lfb_resolution_x = x;
+	lfb_resolution_y = y;
+	lfb_resolution_b = b;
+}
+
+uintptr_t lfb_get_address() {
+	return (uintptr_t)lfb_vid_memory;
+}
+
+/* Bochs support {{{ */
 uintptr_t current_scroll = 0;
 
-void
-bochs_set_y_offset(uint16_t y) {
+void bochs_set_y_offset(uint16_t y) {
 	outports(0x1CE, 0x9);
 	outports(0x1CF, y);
 	current_scroll = y;
 }
 
-uint16_t
-bochs_current_scroll() {
+uint16_t bochs_current_scroll() {
 	return current_scroll;
-}
-
-uintptr_t
-bochs_get_address() {
-	return (uintptr_t)bochs_vid_memory;
-}
-
-static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
-	bochs_resolution_x = x;
-	bochs_resolution_y = y;
-	bochs_resolution_b = b;
 }
 
 void
@@ -89,7 +87,7 @@ graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 		/* Go find it */
 		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
 			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-				bochs_vid_memory = (uint8_t *)x;
+				lfb_vid_memory = (uint8_t *)x;
 				goto mem_found;
 			}
 		}
@@ -100,6 +98,8 @@ mem_found:
 	finalize_graphics(resolution_x, resolution_y, PREFERRED_B);
 	bfinish(0);
 }
+
+/* }}} end bochs support */
 
 void graphics_install_preset(uint16_t w, uint16_t h) {
 	blog("Graphics were pre-configured (thanks, bootloader!), locating video memory...");
@@ -118,7 +118,7 @@ void graphics_install_preset(uint16_t w, uint16_t h) {
 		/* Go find it */
 		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
 			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-				bochs_vid_memory = (uint8_t *)x;
+				lfb_vid_memory = (uint8_t *)x;
 				goto mem_found;
 			}
 		}

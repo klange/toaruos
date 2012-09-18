@@ -295,39 +295,17 @@ extern uint32_t now();
 extern int detect_cpu();
 
 /* Video Drivers */
+/* Generic (pre-set, 32-bit, linear frame buffer) */
+extern void graphics_install_preset(uint16_t, uint16_t);
+extern uint16_t lfb_resolution_x;
+extern uint16_t lfb_resolution_y;
+extern uint16_t lfb_resolution_b;
+extern uintptr_t lfb_get_address();
+
 /* BOCHS / QEMU VBE Driver */
 extern void graphics_install_bochs(uint16_t, uint16_t);
-extern void graphics_install_preset(uint16_t, uint16_t);
-extern void bochs_set_csr(int x, int y);
-extern int  bochs_get_csr_x();
-extern int  bochs_get_csr_y();
-extern void bochs_set_csr_on(uint8_t);
-extern void bochs_set_bank(uint16_t bank);
-extern void bochs_set_coord(uint16_t x, uint16_t y, uint32_t color);
-extern void bochs_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color);
-extern void bochs_draw_logo(char *);
-extern void bochs_scroll();
-extern void bochs_write_char(uint8_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg);
-extern uint16_t bochs_resolution_x;
-extern uint16_t bochs_resolution_y;
-extern uint16_t bochs_resolution_b;
-extern uint32_t bochs_colors[];
 extern void bochs_set_y_offset(uint16_t y);
 extern uint16_t bochs_current_scroll();
-/* Terminal functions */
-extern void bochs_term_clear();
-extern void bochs_write(char c);
-extern void bochs_reset_colors();
-extern void bochs_set_colors(uint8_t, uint8_t);
-extern void bochs_draw_line(uint16_t,uint16_t,uint16_t,uint16_t,uint32_t);
-extern int bochs_get_width();
-extern int bochs_get_height();
-extern void bochs_set_cell(int x, int y, char c);
-extern uintptr_t bochs_get_address();
-extern void bochs_redraw_cell(int x, int y);
-extern void bochs_install_wallpaper();
-extern void bochs_screenshot();
-extern void bochs_redraw_cursor();
 
 /* ANSI Terminal Escape Processor */
 void ansi_put(char c);
