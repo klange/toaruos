@@ -142,6 +142,12 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		parse_args(cmdline);
 	}
 
+	if (!fs_root) {
+		kprintf("Nothing to do.\n");
+		while (1) {
+		}
+	}
+
 	/* Prepare to run /bin/init */
 	char * argv[] = {
 		"/bin/init",

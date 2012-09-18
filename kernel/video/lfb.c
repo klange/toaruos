@@ -126,6 +126,14 @@ void graphics_install_preset(uint16_t w, uint16_t h) {
 
 mem_found:
 	finalize_graphics(w,h,b);
+
+	for (uint16_t y = 0; y < h; y++) {
+		for (uint16_t x = 0; x < w; x++) {
+			uint8_t f = y % 255;
+			((uint32_t *)lfb_vid_memory)[x + y * w] = 0xFF000000 | (f * 0x10000) | (f * 0x100) | f;
+		}
+	}
+
 	bfinish(0);
 }
 
