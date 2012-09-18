@@ -69,8 +69,8 @@ parse_args(
 			if (!strcmp(argp[1],"qemu")) {
 				/* Bochs / Qemu Video Device */
 				graphics_install_bochs(x,y);
-			} else if (!strcmp(argp[1],"vesa")) {
-				graphics_install_vesa(x,y);
+			} else if (!strcmp(argp[1],"preset")) {
+				graphics_install_preset(x,y);
 			} else {
 				kprintf("Unrecognized video adapter: %s\n", argp[1]);
 			}
