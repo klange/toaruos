@@ -78,10 +78,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		boot_mode = multiboot;
 		mboot_ptr = mboot;
 
-		/* Relocate the command line */
-		size_t len = strlen((char *)mboot_ptr->cmdline);
-		cmdline = (char *)kmalloc(len + 1);
-		memmove(cmdline, (char *)mboot_ptr->cmdline, len + 1);
+		kmalloc_startat(mboot_ptr->cmdline + strlen((char *)mboot_ptr->cmdline));
 
 		/* Relocate any available modules */
 		if (mboot_ptr->flags & (1 << 3)) {
@@ -93,9 +90,16 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
 				ramdisk = (char *)kmalloc(module_end - module_start);
 				ramdisk_top = (uintptr_t)ramdisk + (module_end - module_start);
+
 				memmove(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
 			}
 		}
+
+		/* Relocate the command line */
+		size_t len = strlen((char *)mboot_ptr->cmdline);
+		cmdline = (char *)kmalloc(len + 1);
+		memmove(cmdline, (char *)mboot_ptr->cmdline, len + 1);
+
 		bfinish(0);
 	} else {
 		/*
@@ -129,8 +133,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	shm_install();		/* Install shared memory */
 
 	keyboard_install();	/* Keyboard interrupt handler */
-
-	debug_print(WARNING, "I am test, test test test!");
 
 	if (ramdisk) {
 		initrd_mount((uintptr_t)ramdisk, ramdisk_top);

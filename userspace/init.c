@@ -47,6 +47,22 @@ void start_terminal(char * arg) {
 	}
 }
 
+void start_terminal_no_freetype(char * arg) {
+	int pid = fork();
+	if (!pid) {
+		char * tokens[] = {
+			"/bin/terminal",
+			"-Fkb",
+			arg,
+			NULL
+		};
+		int i = execve(tokens[0], tokens, NULL);
+		exit(0);
+	} else {
+		syscall_wait(pid);
+	}
+}
+
 void start_vga_terminal(char * arg) {
 	int pid = fork();
 	if (!pid) {
@@ -91,6 +107,9 @@ int main(int argc, char * argv[]) {
 			return 0;
 		} else if (!strcmp(argv[1], "--vga")) {
 			start_vga_terminal(args);
+			return 0;
+		} else if (!strcmp(argv[1], "--special")) {
+			start_terminal_no_freetype(args);
 			return 0;
 		}
 	}
