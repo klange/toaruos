@@ -77,8 +77,10 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		blog("Relocating Multiboot structures...");
 		boot_mode = multiboot;
 		mboot_ptr = mboot;
+		char cmdline_[1024];
 
-		kmalloc_startat(mboot_ptr->cmdline + strlen((char *)mboot_ptr->cmdline));
+		size_t len = strlen((char *)mboot_ptr->cmdline);
+		memmove(cmdline_, (char *)mboot_ptr->cmdline, len + 1);
 
 		/* Relocate any available modules */
 		if (mboot_ptr->flags & (1 << 3)) {
@@ -96,9 +98,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		}
 
 		/* Relocate the command line */
-		size_t len = strlen((char *)mboot_ptr->cmdline);
 		cmdline = (char *)kmalloc(len + 1);
-		memmove(cmdline, (char *)mboot_ptr->cmdline, len + 1);
+		memcpy(cmdline, cmdline_, len + 1);
 
 		bfinish(0);
 	} else {
@@ -134,15 +135,17 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	keyboard_install();	/* Keyboard interrupt handler */
 
-	if (ramdisk) {
-		initrd_mount((uintptr_t)ramdisk, ramdisk_top);
-	}
-
 	mouse_install();	/* Mouse driver */
 
 	if (cmdline) {
 		parse_args(cmdline);
 	}
+
+	if (ramdisk && !fs_root) {
+		kprintf("---- ramdisk[0x%x:0x%x]\n", ramdisk, ramdisk_top);
+		initrd_mount((uintptr_t)ramdisk, ramdisk_top);
+	}
+
 
 	if (!fs_root) {
 		kprintf("Nothing to do.\n");
