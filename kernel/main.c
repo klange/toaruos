@@ -90,7 +90,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 				 */
 				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
 				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
-				ramdisk = (char *)kmalloc(module_end - module_start);
+				ramdisk = (char *)0xD0000000; //(char *)kmalloc(module_end - module_start);
 				ramdisk_top = (uintptr_t)ramdisk + (module_end - module_start);
 
 				memmove(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
@@ -143,7 +143,11 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	if (ramdisk && !fs_root) {
 		kprintf("---- ramdisk[0x%x:0x%x]\n", ramdisk, ramdisk_top);
-		initrd_mount((uintptr_t)ramdisk, ramdisk_top);
+		for (uintptr_t i = (uintptr_t)ramdisk; i <= (uintptr_t)ramdisk_top; i += 0x1000) {
+			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		}
+
+		ext2_ramdisk_mount((uintptr_t)ramdisk);
 	}
 
 

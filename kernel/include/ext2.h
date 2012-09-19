@@ -162,7 +162,7 @@ struct ext2_dir {
 
 typedef struct ext2_dir ext2_dir_t;
 
-void initrd_mount(uint32_t mem_head, uint32_t mem_top);
+void ext2_ramdisk_mount(uint32_t offset);
 
 #endif
 

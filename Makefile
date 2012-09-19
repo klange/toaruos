@@ -121,7 +121,8 @@ toaruos-initrd: .passed
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
 	@#${GENEXT} -d initrd -q -b 20480 toaruos-initrd ${ERRORS}
-	@${GENEXT} -d initrd -q -b 8192 toaruos-initrd ${ERRORS}
+	@#${GENEXT} -d initrd -q -b 8192 toaruos-initrd ${ERRORS}
+	@${GENEXT} -d hdd -q -b 81920 toaruos-initrd ${ERRORS}
 	@${END} "initrd" "Generated initial RAM disk"
 	@${INFO} "--" "Ramdisk image is ready!"
 
