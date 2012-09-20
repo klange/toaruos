@@ -89,11 +89,11 @@ This will install the required dependencies, build the userspace libraries and t
 
 You can then run `make run` or `make kvm` to run QEMU. An additional `make run-config` command is available that allows easy customization of the emulation environment.
 
-Currently, the only supported environment is QEMU, as our limited graphics drivers do not operate on most real hardware.
+While we only officially support QEMU, other environments - including actual hardware - should work given the appropriate tools. If you are eager to try とあるOS from a real machine, please use GRUB 2 and ensure that you provide the correct graphics payload options. In the future, GRUB 2 configurations will be supported with configuration files and build scripts.
 
 ### User Accounts ###
 
-The default root password is `toor`. There is also a regular user `local` with password `local`. While general system security is lacking, most system-modifying calls to the kernel require root privileges. When booting directly to a graphical terminal, the system will run in single-user mode and automatically log in as root. When running in graphical or VGA-terminal mode, a login screen is presented. When logging in graphically, the terminal window that appears controls the session; you can log out by exiting it. Most of this is temporary as the graphical environment is still under development.
+The default root password is `toor`. There is also a regular user `local` with password `local`. While general system security is lacking, most system-modifying calls to the kernel require root privileges. When booting directly to a graphical terminal, the system will run in single-user mode and automatically log in as root. When running in graphical or VGA-terminal mode, a login screen is presented.
 
 ## Dependencies ##
 
@@ -292,6 +292,8 @@ ToAruOS contains additional software with the following copyright notices:
         disclaims all warranties with regard to this software.
 
         Latest version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
+
+* Some icons from the Elementary Icons set are included. These are icons are released under the GPL. You may find a list of authors and contributors alongside the icon files.
 
 * Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html) and [zlib](http://www.zlib.net/) Patches for these software packages are provided under the same license as the package they are for.
 

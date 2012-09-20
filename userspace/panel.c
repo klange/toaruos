@@ -58,6 +58,11 @@ void init_sprite(int i, char * filename, char * alpha) {
 	}
 }
 
+void init_sprite_png(int i, char * filename) {
+	sprites[i] = malloc(sizeof(sprite_t));
+	load_sprite_png(sprites[i], filename);
+}
+
 void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg) {
 	int i, j, p, q;
 	int x_max = x + bitmap->width;
@@ -179,6 +184,16 @@ void sig_int(int sig) {
 	_continue = 0;
 }
 
+void panel_check_click(w_mouse_t * evt) {
+	if (evt->command == WE_MOUSECLICK) {
+		printf("Click!\n");
+		if (evt->new_x >= win_width - 24 ) {
+			printf("Clicked log-out button. Good bye!\n");
+			_continue = 0;
+		}
+	}
+}
+
 int main (int argc, char ** argv) {
 	setup_windowing();
 
@@ -201,6 +216,7 @@ int main (int argc, char ** argv) {
 	flip(ctx);
 
 	init_sprite(0, "/usr/share/panel.bmp", NULL);
+	init_sprite_png(1, "/usr/share/icons/panel-shutdown.png");
 
 	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
 		draw_sprite(ctx, sprites[0], i, 0);
@@ -253,6 +269,10 @@ int main (int argc, char ** argv) {
 
 	syscall_signal(2, sig_int);
 
+	/* Enable mouse */
+	win_use_threaded_handler();
+	mouse_action_callback = panel_check_click;
+
 	while (_continue) {
 		/* Redraw the background by memcpy (super speedy) */
 		memcpy(ctx->backbuffer, buf, buf_size);
@@ -262,12 +282,14 @@ int main (int argc, char ** argv) {
 			timeinfo = localtime((time_t *)&now.tv_sec);
 			strftime(buffer, 80, "%I:%M:%S %p", timeinfo);
 
-			draw_string(width - 100, 17, rgb(255,255,255), buffer);
+			draw_string(width - 120, 17, rgb(255,255,255), buffer);
 			draw_string_wide(10, 17, rgb(255,255,255), os_name);
 
+			draw_sprite(ctx, sprites[1], win_width - 23, 1); /* Logout button */
+
 			flip(ctx);
-			syscall_yield();
 		}
+		syscall_yield();
 	}
 
 	teardown_windowing();

@@ -16,23 +16,16 @@ int main(int argc, char * argv[]) {
 		char * args[] = {"/bin/panel", NULL};
 		execve(args[0], args, NULL);
 	}
-	int _terminal_pid = fork();
-	if (!_terminal_pid) {
-		char * args[] = {"/bin/terminal", "--kerne", NULL};
-		execve(args[0], args, NULL);
-	}
 
-	syscall_wait(_terminal_pid);
+	syscall_wait(_panel_pid);
 
-	printf("Terminal has exited. Sending INT signals to %d and %d.\n", _wallpaper_pid,  _panel_pid);
+	printf("Session leader has exited. Sending INT signals to %d.\n", _wallpaper_pid);
 
 	syscall_send_signal(_wallpaper_pid, 2);
-	syscall_send_signal(_panel_pid,     2);
 
 	printf("Waiting on wallpaper.\n");
 	syscall_wait(_wallpaper_pid);
 
-	printf("Waiting on panel.\n");
-	syscall_wait(_panel_pid);
+	printf("Session has ended.\n");
 
 }
