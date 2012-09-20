@@ -1,7 +1,7 @@
 # ToAruOS (とあるOS) #
 ![ToAruOS (logo)](https://github.com/klange/osdev/raw/master/docs/logo.png)
 
-This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and constructon of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS was managed by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/) until May, 2012. While the ultimate goal is a microkernel, we currently have a relatively monolithic kernel.
+This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and construction of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS was managed by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/) until May, 2012. While the ultimate goal is a microkernel, we currently have a relatively monolithic kernel.
 
 ### Build Status ###
 
@@ -20,7 +20,7 @@ Full compositing has been enabled. For opaque windows, it is considerably faster
 とあるOS currently supports a number of important operating system concepts and facilities:
 
 * Processes
-  * Preemptive multasking
+  * Preemptive multitasking
   * Kernel threads
 * Shared memory
   * Through page table mappings
@@ -45,10 +45,10 @@ Full compositing has been enabled. For opaque windows, it is considerably faster
 
 ### Third-Party Software ###
 
-While とあるOS ships with only its own native software tools, we are working on packages for additional third-party software, incuding:
+While とあるOS ships with only its own native software tools, we are working on packages for additional third-party software, including:
 
 * Lua
-  * Lua's standalone interpreter has been sucessfully built and run.
+  * Lua's standalone interpreter has been successfully built and run.
   * Some Lua functionality is currently missing and we are working to solve this.
 * Cairo
   * Cairo and its dependencies can be built if care is taken to supply the correct configuration settings.
