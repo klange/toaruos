@@ -1,89 +1,233 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset='utf-8'>
 
-  <title>klange/osdev @ GitHub</title>
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="とあるOS : A POSIX-like operating system and userspace." />
 
-  <style type="text/css">
-    body {
-      margin-top: 1.0em;
-      background-color: #7db0d4;
-      font-family: "Helvetica,Arial,FreeSans";
-      color: #000000;
-    }
-    #container {
-      margin: 0 auto;
-      width: 700px;
-    }
-    h1 { font-size: 3.8em; color: #824f2b; margin-bottom: 3px; }
-    h1 .small { font-size: 0.3em; }
-    h1 a { text-decoration: none }
-    h2 { font-size: 1.5em; color: #824f2b; }
-    h3 { text-align: center; color: #824f2b; }
-    a { color: #824f2b; }
-    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
-    .download { float: right; }
-    pre { background: #000; color: #fff; padding: 15px;}
-    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-    .footer { text-align:center; padding-top:30px; font-style: italic; }
-  </style>
-</head>
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
-<body>
-  <a href="http://github.com/klange/osdev"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+    <title>とあるOS</title>
+  </head>
 
-  <div id="container">
+  <body>
 
-    <div class="download">
-      <a href="http://github.com/klange/osdev/zipball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
-      <a href="http://github.com/klange/osdev/tarball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/klange/osdev">View on GitHub</a>
+
+          <h1 id="project_title">とあるOS</h1>
+          <h2 id="project_tagline">A POSIX-like operating system and userspace.</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/klange/osdev/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/klange/osdev/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
     </div>
 
-    <h1><a href="http://github.com/klange/osdev">とあるOS</a><br />
-      <span class="small">by
-        <a href="http://github.com/klange">klange</a>
-      </span>
-   </h1>
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <p><img src="https://github.com/klange/osdev/raw/master/docs/logo.png" alt="ToAruOS (logo)"></p>
 
-    <div class="description">
-      A Certain Hobby Operating System
-    </div>
-    
-    <p>This page is seriously outdated and you should probably just look at the <a href="https://github.com/klange/osdev">README</a>.</p>
+<p>とあるOS is a toy operating system based loosely on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and construction of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS was managed by the UIUC <a href="http://www.acm.uiuc.edu/sigops/">SIGOps</a> until May, 2012. While the ultimate goal is a microkernel, we currently have a relatively monolithic kernel.</p>
 
-    <p>ToAruOS is a hobby operating system project under development by a couple of UIUC computer science undergraduates.</p>
-    
+<h3>IRC</h3>
+
+<p>For discussion, help with building or running the OS, and for up-to-date build verification, please join us in <code>#toaruos</code> on Freenode.</p>
+
+<h2>News</h2>
+
+<p>Full compositing has been enabled. For opaque windows, it is considerably faster than the old rendering methods. This is not the case for transparent windows, which I am working on. Eventually, blitting of transparent windows will be done with SSE instructions, and should be about as fast as non-transparent windows, at which point transparency may become the default.</p>
+
+<h2>Features</h2>
+
+<p>とあるOS currently supports a number of important operating system concepts and facilities:</p>
+
+<ul>
+<li>Processes
+
+<ul>
+<li>Preemptive multitasking</li>
+<li>Kernel threads</li>
+</ul>
+</li>
+<li>Shared memory
+
+<ul>
+<li>Through page table mappings</li>
+</ul>
+</li>
+<li>POSIX-compliant file operations</li>
+<li>Pipes
+
+<ul>
+<li>Backed by ring buffers</li>
+</ul>
+</li>
+<li>Signals
+
+<ul>
+<li>Mostly POSIX-compliant under the loose method</li>
+</ul>
+</li>
+<li>EXT2 read/write support
+
+<ul>
+<li>For IDE devices or SATA devices <em>operating in IDE compatibility mode</em>
+</li>
+</ul>
+</li>
+<li>PS/2 keyboard/mouse support
+
+<ul>
+<li>Of course, what doesn't?</li>
+</ul>
+</li>
+<li>Graphical features
+
+<ul>
+<li>Windows GUI environment with transparency support</li>
+<li>Limited GUI toolkit available</li>
+</ul>
+</li>
+<li>Extensive, ANSI-capable terminal
+
+<ul>
+<li>Includes extensive compatibility with xterm</li>
+<li>Support for 256 colors</li>
+<li>Beautifully rendered anti-aliased text through FreeType (please see the licenses below for included fonts)</li>
+<li>Supports Unicode text (UTF-8 encoded)</li>
+</ul>
+</li>
+<li>And dozens of other minor things not worth listing here.</li>
+</ul><h3>Third-Party Software</h3>
+
+<p>While とあるOS ships with only its own native software tools, we are working on packages for additional third-party software, including:</p>
+
+<ul>
+<li>Lua
+
+<ul>
+<li>Lua's standalone interpreter has been successfully built and run.</li>
+<li>Some Lua functionality is currently missing and we are working to solve this.</li>
+</ul>
+</li>
+<li>Cairo
+
+<ul>
+<li>Cairo and its dependencies can be built if care is taken to supply the correct configuration settings.</li>
+<li>To build pixman, modifications to the <code>config.h</code> header must be made to disable global constructors, as these are not currently supported.</li>
+</ul>
+</li>
+</ul><h2>Screenshots</h2>
+
+<p>Here's what とあるOS looks like:</p>
+
+<p><img src="http://i.imgur.com/NRUWGl.png" alt="Screenshot"></p>
+
+<p>(<a href="http://i.imgur.com/NRUWG.png">http://i.imgur.com/NRUWG.png</a>)</p>
+
+<p>Here's what とあるOS has looked like in the past:</p>
+
+<ul>
+<li><a href="http://i.imgur.com/DQK7P.png">Running a Cairo demo</a></li>
+<li><a href="http://i.imgur.com/K6nPC.png">With multiple transparent terminals</a></li>
+<li><a href="http://i.imgur.com/4SGhd.png">A terminal and the native editor</a></li>
+<li><a href="http://i.imgur.com/u1DEX.png">Running the  native editor in a full-screen terminal</a></li>
+<li><a href="http://i.imgur.com/S7rab.png">Fully userspace shell, demonstrating a threading application</a></li>
+<li><a href="http://i.imgur.com/VjTMv.png">Logging in and moving around</a></li>
+<li><a href="http://i.imgur.com/g2yfr.png">Booting up the (WIP) graphical interface</a></li>
+<li><a href="http://i.imgur.com/2BISA.png">Nyaning</a></li>
+<li><a href="http://i.imgur.com/RY4lb.png">Demoing multitasking</a></li>
+<li><a href="http://i.imgur.com/44huV.jpg">Empty kernel shell</a></li>
+<li><a href="http://i.imgur.com/eG0i9.png">With a wallpaper and mouse cursor</a></li>
+<li><a href="http://i.imgur.com/aKyJb.png">Running some GNU apps</a></li>
+<li><a href="http://i.imgur.com/A7csE.jpg">Playing a simple RPG</a></li>
+<li><a href="http://i.imgur.com/Uy3JJ.jpg">Generating Julia fractals</a></li>
+<li><a href="http://i.imgur.com/1CMJ0.jpg">Early boot screen testing and some old serial output</a></li>
+</ul><h2>Testing it Out</h2>
+
+<p>If you are on Debian/Ubuntu/etc., you can clone the repository and run:</p>
+
+<pre><code>./build.sh
+</code></pre>
+
+<p>This will install the required dependencies, build the userspace libraries and toolchain, build the kernel, and give you a working ramdisk and hard disk.</p>
+
+<p>You can then run <code>make run</code> or <code>make kvm</code> to run QEMU. An additional <code>make run-config</code> command is available that allows easy customization of the emulation environment.</p>
+
+<p>While we only officially support QEMU, other environments - including actual hardware - should work given the appropriate tools. If you are eager to try とあるOS from a real machine, please use GRUB 2 and ensure that you provide the correct graphics payload options. In the future, GRUB 2 configurations will be supported with configuration files and build scripts.</p>
+
+<h3>User Accounts</h3>
+
+<p>The default root password is <code>toor</code>. There is also a regular user <code>local</code> with password <code>local</code>. While general system security is lacking, most system-modifying calls to the kernel require root privileges. When booting directly to a graphical terminal, the system will run in single-user mode and automatically log in as root. When running in graphical or VGA-terminal mode, a login screen is presented.</p>
+
 <h2>Dependencies</h2>
-<p>yasm and clang to build the kernel, gcc to build the toolchain and userspace applications, genext2fs to build a hard disk image, and QEMU</p>
-<h2>Install</h2>
-<p><pre>./build.sh && make run</pre></p>
-<h2>License</h2>
-<p>ToAruOS is under the NCSA license, which is a derivative of the BSD 3-clause license.</p>
-<h2>Authors</h2>
-<p>Kevin Lange (kevin.lange@dakko.us)
-<br/>
-<br/>      </p>
 
-    <h2>Download</h2>
-    <p>
-      You can download this project in either
-      <a href="http://github.com/klange/osdev/zipball/master">zip</a> or
-      <a href="http://github.com/klange/osdev/tarball/master">tar</a> formats.
-    </p>
-    <p>You can also clone the project with <a href="http://git-scm.com">Git</a>
-      by running:
-      <pre>$ git clone git://github.com/klange/osdev</pre>
-    </p>
+<h3>Kernel</h3>
 
-    <div class="footer">
-      get the source code on GitHub : <a href="http://github.com/klange/osdev">klange/osdev</a>
+<p>To build the kernel, you will need <code>yasm</code>, <code>clang</code>, and GNU <code>ld</code> (which you undoubtedly have if you have <code>clang</code> or <code>gcc</code>).</p>
+
+<h3>Hard disks</h3>
+
+<p>You will need <code>genext2fs</code> to generate the EXT2 images for the hard disk drive.</p>
+
+<h2>References</h2>
+
+<p>Here are some tutorials we found useful early on:</p>
+
+<ul>
+<li><a href="http://www.jamesmolloy.co.uk/tutorial_html/index.html">James M's kernel development tutorials</a></li>
+<li><a href="http://www.osdever.net/bkerndev/">Bran's Kernel Development Tutorial</a></li>
+<li><a href="http://en.skelix.org/skelixos/">Skelix's OS tutorial</a></li>
+</ul><h1>License</h1>
+
+<p>This project is released under the terms of the University of Illinois / NCSA Open Source License, an OSI- and FSF-approved, GPL-compatible open source license. The NCSA License is a derivative of the MIT license and the BSD license; it is reproduced here for your convenience:</p>
+
+<pre><code>Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal with the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimers.
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimers in the
+     documentation and/or other materials provided with the distribution.
+  3. Neither the names of the ToAruOS Kernel Development Team, Kevin Lange,
+     nor the names of its contributors may be used to endorse
+     or promote products derived from this Software without specific prior
+     written permission.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+WITH THE SOFTWARE.
+</code></pre>
+
+<h2>Additional License</h2>
+
+<p>とあるOS comes packaged with some third-party software under other licenses, which can be viewed in the README.</p>
+      </section>
     </div>
 
-  </div>
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">とあるOS maintained by <a href="https://github.com/klange">klange</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
 
-  
-</body>
+    
+
+  </body>
 </html>
