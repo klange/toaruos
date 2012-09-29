@@ -388,13 +388,17 @@ static void inspect_memory (uintptr_t vaddr) {
 }
 */
 
+extern void ext2_disk_sync();
+
 static int reboot() {
 	debug_print(NOTICE, "[kernel] Reboot requested from process %d by user #%d", current_process->id, current_process->user);
 	if (current_process->user != USER_ROOT_UID) {
 		return -1;
 	} else {
 		debug_print(NOTICE, "[kernel] Good bye!");
+		ext2_disk_sync();
 		/* Goodbye, cruel world */
+		IRQ_OFF;
 		uint8_t out = 0x02;
 		while ((out & 0x02) != 0) {
 			out = inportb(0x64);
@@ -494,8 +498,6 @@ static int yield() {
 	switch_task(1);
 	return 1;
 }
-
-extern void ext2_disk_sync();
 
 /*
  * System Function
