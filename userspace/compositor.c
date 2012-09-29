@@ -40,6 +40,7 @@ void spin_unlock(int volatile * lock) {
 
 window_t * windows[0x10000];
 
+volatile uint8_t screenshot_next_frame = 0;
 
 sprite_t * sprites[128];
 
@@ -1131,6 +1132,9 @@ void * process_requests(void * garbage) {
 #if 1
 			if (packet->buttons & MOUSE_BUTTON_MIDDLE) {
 				printf("middle click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+				screenshot_next_frame = 1;
+				printf("Screenshot, plz?\n");
+#if 0
 				window_t * focused = focused_window();
 				if (focused) {
 					if (focused->z != 0 && focused->z != 0xFFFF) {
@@ -1138,6 +1142,7 @@ void * process_requests(void * garbage) {
 					}
 					redraw_region_slow(0,0,ctx->width,ctx->height);
 				}
+#endif
 			}
 #endif
 #endif
@@ -1169,6 +1174,15 @@ void * redraw_thread(void * derp) {
 		redraw_cursor();
 		spin_unlock(&am_drawing);
 		flip(ctx);
+		if (screenshot_next_frame) {
+			screenshot_next_frame = 0;
+
+			printf("Going for screenshot...\n");
+
+			FILE * screenshot = fopen("/usr/share/screenshot.png", "w");
+			context_to_png(screenshot, ctx);
+			fclose(screenshot);
+		}
 		syscall_yield();
 	}
 }
