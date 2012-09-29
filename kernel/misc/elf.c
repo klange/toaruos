@@ -12,6 +12,7 @@
 #include <fs.h>
 #include <elf.h>
 #include <process.h>
+#include <logging.h>
 
 /**
  * Load and execute a static ELF binary.
@@ -147,6 +148,7 @@ system(
 	int child = fork();
 	if (child == 0) {
 		exec(path,argc,argv);
+		debug_print(ERROR, "Failed to execute process!");
 		kexit(-1);
 		return -1;
 	} else {

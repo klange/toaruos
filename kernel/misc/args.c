@@ -9,6 +9,11 @@
  */
 #include <system.h>
 #include <logging.h>
+#include <ata.h>
+
+/* XXX: This should be moved */
+void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector);
+int read_partition_map(int device);
 
 /**
  * Parse the given arguments to the kernel.
@@ -62,7 +67,7 @@ parse_args(
 			} else {
 				x = atoi(argp[2]);
 				y = atoi(argp[3]);
-				kprintf("[video] Requested display resolution is %dx%d\n", x, y);
+				debug_print(NOTICE, "Requested display resolution is %dx%d", x, y);
 			}
 			if (!strcmp(argp[1],"qemu")) {
 				/* Bochs / Qemu Video Device */
@@ -70,11 +75,22 @@ parse_args(
 			} else if (!strcmp(argp[1],"preset")) {
 				graphics_install_preset(x,y);
 			} else {
-				kprintf("Unrecognized video adapter: %s\n", argp[1]);
+				debug_print(WARNING, "Unrecognized video adapter: %s", argp[1]);
 			}
 		} else if (!strcmp(argp[0],"hdd")) {
-			extern void ext2_disk_mount(void);
-			ext2_disk_mount();
+			if (argc > 1) {
+				debug_print(INFO, "Scanning disk...");
+				if (read_partition_map(0)) {
+					debug_print(ERROR, "Failed to read MBR.");
+					continue;
+				}
+				int partition = atoi(argp[1]);
+				debug_print(NOTICE, "Selected partition %d starts at sector %d", partition, mbr.partitions[partition].lba_first_sector);
+				ext2_disk_mount(mbr.partitions[partition].lba_first_sector,mbr.partitions[partition].sector_count);
+			} else {
+				ext2_disk_mount(0, 0);
+			}
+			ext2_disk_read_superblock();
 		} else if (!strcmp(argp[0],"single")) {
 			boot_arg = "--single";
 		} else if (!strcmp(argp[0],"lite")) {
@@ -82,11 +98,19 @@ parse_args(
 		} else if (!strcmp(argp[0],"vgaterm")) {
 			boot_arg = "--vga";
 		} else if (!strcmp(argp[0],"start")) {
-			if (argc < 2) { kprintf("start=?\n"); continue; }
+			if (argc < 2) {
+				debug_print(WARNING, "Expected an argument to kernel option `start`. Ignoring.");
+				continue;
+			}
 			boot_arg_extra = argp[1];
 		} else if (!strcmp(argp[0],"logtoserial")) {
+			if (argc > 1) {
+				debug_level = atoi(argp[1]);
+			} else {
+				debug_level = NOTICE; /* INFO is a bit verbose for a default */
+			}
 			kprint_to_serial = 1;
-			debug_level = INFO;
+			debug_print(NOTICE, "Kernel serial logging enabled at level %d.", debug_level);
 		}
 	}
 }

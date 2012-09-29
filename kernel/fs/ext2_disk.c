@@ -5,18 +5,18 @@
 #include <fs.h>
 #include <logging.h>
 
-#define EXT2_DEBUG_BLOCK_DESCRIPTORS 0
+#define EXT2_DEBUG_BLOCK_DESCRIPTORS 1
 
-#define BLOCKSIZE		1024
+uint32_t BLOCKSIZE = 1024;
+uint32_t CACHEENTRIES = 10240;
 #define SECTORSIZE		512
-#define CACHEENTRIES	10240
 #define DISK_PORT		0x1F0
 
 typedef struct {
 	uint32_t block_no;
 	uint32_t last_use;
 	uint8_t  dirty;
-	uint8_t  block[BLOCKSIZE];
+	uint8_t *block;
 } ext2_disk_cache_entry_t;
 
 ext2_disk_cache_entry_t *ext2_disk_cache   = NULL;	// LSU block cache
@@ -37,6 +37,8 @@ uint32_t read_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t
 uint32_t ext2_disk_inodes_per_group = 0;
 uint32_t ext2_disk_bg_descriptors = 0;		// Total number of block groups
 
+uint32_t ext2_offset = 0;
+
 #define BGDS ext2_disk_bg_descriptors
 #define SB ext2_disk_superblock
 #define BGD ext2_disk_root_block
@@ -48,7 +50,7 @@ uint32_t ext2_disk_bg_descriptors = 0;		// Total number of block groups
 #define SETBIT(n)    (1 << (((n) % 8)))
 
 static uint32_t btos(uint32_t block) {
-	return block * (BLOCKSIZE / SECTORSIZE); 
+	return ext2_offset + block * (BLOCKSIZE / SECTORSIZE); 
 }
 
 static uint8_t volatile lock;
@@ -61,10 +63,7 @@ static uint32_t ext2_time() {
 void ext2_flush_dirty(uint32_t ent_no) {
 	// write out to the disk
 	for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
-		ide_write_sector(DISK_PORT, 0, btos(DC[ent_no].block_no) + i, (uint8_t *)((uint32_t)&DC[ent_no].block + SECTORSIZE * i));
-		//XXX: a hack? how about making ide_write_sector() blocking?
-		//  XXX: ^ ide_write_sector() IS blocking, we don't get notified properly of finishes to write calls
-		timer_wait(10);
+		ide_write_sector_retry(DISK_PORT, 0, btos(DC[ent_no].block_no) + i, (uint8_t *)((uint32_t)DC[ent_no].block + SECTORSIZE * i));
 	}
 	DC[ent_no].dirty = 0;
 }
@@ -72,12 +71,23 @@ void ext2_flush_dirty(uint32_t ent_no) {
 void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 	if (!block_no) return;
 	spin_lock(&lock);
+
+	if (!DC) {
+		/* There is not disk cache, do a raw read */
+		for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
+			ide_read_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)buf + SECTORSIZE * i));
+		}
+		spin_unlock(&lock);
+		return;
+	}
+
+
 	int oldest = -1;
 	uint32_t oldest_age = UINT32_MAX;
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
 		if (DC[i].block_no == block_no) {
 			DC[i].last_use = ext2_time();
-			memcpy(buf, &DC[i].block, BLOCKSIZE);
+			memcpy(buf, DC[i].block, BLOCKSIZE);
 			spin_unlock(&lock);
 			return;
 		}
@@ -88,13 +98,13 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 	}
 
 	for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
-		ide_read_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)&(DC[oldest].block) + SECTORSIZE * i));
+		ide_read_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)(DC[oldest].block) + SECTORSIZE * i));
 	}
 
 	if (DC[oldest].dirty) {
 		ext2_flush_dirty(oldest);
 	}
-	memcpy(buf, &DC[oldest].block, BLOCKSIZE);
+	memcpy(buf, DC[oldest].block, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
 	DC[oldest].last_use = ext2_time();
 	DC[oldest].dirty = 0;
@@ -116,7 +126,7 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 		if (DC[i].block_no == block_no) {
 			DC[i].last_use = ext2_time();
 			DC[i].dirty = 1;
-			memcpy(&DC[i].block, buf, BLOCKSIZE);
+			memcpy(DC[i].block, buf, BLOCKSIZE);
 			spin_unlock(&lock);
 			return;
 		}
@@ -128,7 +138,7 @@ void ext2_disk_write_block(uint32_t block_no, uint8_t *buf) {
 	if (DC[oldest].dirty) {
 		ext2_flush_dirty(oldest);
 	}
-	memcpy(&DC[oldest].block, buf, BLOCKSIZE);
+	memcpy(DC[oldest].block, buf, BLOCKSIZE);
 	DC[oldest].block_no = block_no;
 	DC[oldest].last_use = ext2_time();
 	DC[oldest].dirty = 1;
@@ -303,9 +313,10 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no
 		if (block != inode->blocks - 1) {
 			/* Clear the block */
 			uint32_t real_block = ext2_get_real_block(inode, inode->blocks - 1);
-			uint8_t empty[1024] = {0};
-			memset(empty, 0x00, 1024);
+			uint8_t * empty = malloc(BLOCKSIZE);
+			memset(empty, 0x00, BLOCKSIZE);
 			ext2_disk_write_block(real_block, empty);
+			free(empty);
 		}
 	}
 
@@ -561,12 +572,14 @@ ext2_inodetable_t *ext2_disk_inode(uint32_t inode) {
 	inode -= group * ext2_disk_inodes_per_group;	// adjust index within group
 	uint32_t block_offset		= ((inode - 1) * SB->inode_size) / BLOCKSIZE;
 	uint32_t offset_in_block    = (inode - 1) - block_offset * (BLOCKSIZE / SB->inode_size);
+
 	uint8_t *buf                = malloc(BLOCKSIZE);
-	ext2_inodetable_t *inodet   = malloc(BLOCKSIZE);
- 
+	ext2_inodetable_t *inodet   = malloc(SB->inode_size);
+
 	ext2_disk_read_block(inode_table_block + block_offset, buf);
 	ext2_inodetable_t *inodes = (ext2_inodetable_t *)buf;
-	memcpy(inodet, &inodes[offset_in_block], sizeof(ext2_inodetable_t));
+
+	memcpy(inodet, (uint8_t *)((uint32_t)inodes + offset_in_block * SB->inode_size), SB->inode_size);
 
 	free(buf);
 	return inodet;
@@ -589,7 +602,7 @@ void ext2_disk_write_inode(ext2_inodetable_t *inode, uint32_t index) {
 	ext2_inodetable_t *inodet = malloc(BLOCKSIZE);
 	/* Read the current table block */
 	ext2_disk_read_block(inode_table_block + block_offset, (uint8_t *)inodet);
-	memcpy(&inodet[offset_in_block], inode, sizeof(ext2_inodetable_t));
+	memcpy((uint8_t *)((uint32_t)inodet + offset_in_block * SB->inode_size), inode, SB->inode_size);
 	ext2_disk_write_block(inode_table_block + block_offset, (uint8_t *)inodet);
 	free(inodet);
 }
@@ -803,7 +816,7 @@ void insertdir_ext2_disk(ext2_inodetable_t *p_node, uint32_t no, uint32_t inode,
  * Find the actual inode in the ramdisk image for the requested file.
  */
 fs_node_t *finddir_ext2_disk(fs_node_t *node, char *name) {
-	
+
 	ext2_inodetable_t *inode = ext2_disk_inode(node->inode);
 	assert(inode->mode & EXT2_S_IFDIR);
 	void *block = malloc(BLOCKSIZE);
@@ -814,15 +827,7 @@ fs_node_t *finddir_ext2_disk(fs_node_t *node, char *name) {
 	uint32_t total_offset = 0;
 
 	// Look through the requested entries until we find what we're looking for
-#if EXT2_DEBUG_BLOCK_DESCRIPTORS
-	kprintf("file looking for: %s\n", name);
-	kprintf("total size: %d\n", inode->size);
-#endif
 	while (total_offset < inode->size) {
-#if EXT2_DEBUG_BLOCK_DESCRIPTORS
-		kprintf("dir_offset: %d\n", dir_offset);
-		kprintf("total_offset: %d\n", total_offset);
-#endif
 		ext2_dir_t *d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
 		
 		if (strlen(name) != d_ent->name_len) {
@@ -842,9 +847,6 @@ fs_node_t *finddir_ext2_disk(fs_node_t *node, char *name) {
 		char *dname = malloc(sizeof(char) * (d_ent->name_len + 1));
 		memcpy(dname, &(d_ent->name), d_ent->name_len);
 		dname[d_ent->name_len] = '\0';
-#if EXT2_DEBUG_BLOCK_DESCRIPTORS
-		kprintf("cur file: %s\n", dname);
-#endif
 		if (!strcmp(dname, name)) {
 			free(dname);
 			direntry = malloc(d_ent->rec_len);
@@ -870,8 +872,13 @@ fs_node_t *finddir_ext2_disk(fs_node_t *node, char *name) {
 		return NULL;
 	}
 	fs_node_t *outnode = malloc(sizeof(fs_node_t));
+
 	inode = ext2_disk_inode(direntry->inode);
-	ext2_disk_node_from_file(inode, direntry, outnode);
+
+	if (!ext2_disk_node_from_file(inode, direntry, outnode)) {
+		debug_print(CRITICAL, "Oh dear. Couldn't allocate the outnode?");
+	}
+
 	free(direntry);
 	free(inode);
 	return outnode;
@@ -947,14 +954,18 @@ uint32_t ext2_disk_node_root(ext2_inodetable_t *inode, fs_node_t *fnode) {
 	/* File Flags */
 	fnode->flags = 0;
 	if ((inode->mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
-		fnode->flags |= FS_FILE;
-		fnode->create = NULL;
-		fnode->mkdir = NULL;
+		debug_print(CRITICAL, "The hell? Root appears to be a regular file.");
+		debug_print(CRITICAL, "This is probably very, very wrong.");
+		return 0;
 	}
 	if ((inode->mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
 		fnode->flags |= FS_DIRECTORY;
 		fnode->create = ext2_create;
 		fnode->mkdir = ext2_mkdir;
+	} else {
+		debug_print(CRITICAL, "The hell? Root doesn't appear to be a directory.");
+		debug_print(CRITICAL, "This is probably very, very wrong.");
+		return 0;
 	}
 	if ((inode->mode & EXT2_S_IFBLK) == EXT2_S_IFBLK) {
 		fnode->flags |= FS_BLOCKDEVICE;
@@ -978,14 +989,15 @@ uint32_t ext2_disk_node_root(ext2_inodetable_t *inode, fs_node_t *fnode) {
 }
 
 void ext2_disk_read_superblock() {
-	kprintf("Volume '%s'\n", SB->volume_name);
-	kprintf("%d inodes\n", SB->inodes_count);
-	kprintf("%d blocks\n", SB->blocks_count);
-	kprintf("%d free blocks\n", SB->free_blocks_count);
-	kprintf("0x%x last mount time\n", SB->mtime);
-	kprintf("0x%x last write time\n", SB->wtime);
-	kprintf("Mounted %d times.\n", SB->mnt_count);
-	kprintf("0x%x\n", SB->magic);
+	debug_print(NOTICE, "Volume '%s'", SB->volume_name);
+	debug_print(NOTICE, "%d inodes", SB->inodes_count);
+	debug_print(NOTICE, "%d blocks", SB->blocks_count);
+	debug_print(NOTICE, "%d free blocks", SB->free_blocks_count);
+	debug_print(NOTICE, "0x%x last mount time", SB->mtime);
+	debug_print(NOTICE, "0x%x last write time", SB->wtime);
+	debug_print(NOTICE, "Mounted %d times.", SB->mnt_count);
+	debug_print(NOTICE, "0x%x", SB->magic);
+	debug_print(NOTICE, "feature_incompat = 0x%x", SB->feature_incompat);
 }
 
 void ext2_disk_sync() {
@@ -998,52 +1010,91 @@ void ext2_disk_sync() {
 	spin_unlock(&lock);
 }
 
-void ext2_disk_mount() {
-	DC = malloc(sizeof(ext2_disk_cache_entry_t) * CACHEENTRIES);
+void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector) {
+	debug_print(NOTICE, "Mounting EXT2 partition between sectors [%d:%d].", offset_sector, max_sector);
+
+	ext2_offset = offset_sector;
+
+	BLOCKSIZE = 1024;
+
 	SB = malloc(BLOCKSIZE);
 	ext2_disk_read_block(1, (uint8_t *)SB);
 	assert(SB->magic == EXT2_SUPER_MAGIC);
 	if (SB->inode_size == 0) {
 		SB->inode_size = 128;
 	}
+	BLOCKSIZE = 1024 << SB->log_block_size;
+	if (BLOCKSIZE > 2048) {
+		CACHEENTRIES /= 4;
+	}
+	debug_print(NOTICE, "Log block size = %d -> %d", SB->log_block_size, BLOCKSIZE);
 	BGDS = SB->blocks_count / SB->blocks_per_group;
+	if (SB->blocks_per_group * BGDS < SB->blocks_count) {
+		BGDS += 1;
+	}
 	ext2_disk_inodes_per_group = SB->inodes_count / BGDS;
 
+	debug_print(NOTICE, "Allocating cache...");
+	DC = malloc(sizeof(ext2_disk_cache_entry_t) * CACHEENTRIES);
+	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
+		DC[i].block = malloc(BLOCKSIZE);
+		if (i % 128 == 0) {
+			debug_print(INFO, "Allocated cache block #%d", i+1);
+		}
+	}
+	debug_print(NOTICE, "Allocated cache.");
+
 	// load the block group descriptors
-	BGD = malloc(BLOCKSIZE);
-	ext2_disk_read_block(2, (uint8_t *)BGD);
+	int bgd_block_span = sizeof(ext2_bgdescriptor_t) * BGDS / BLOCKSIZE + 1;
+	BGD = malloc(BLOCKSIZE * bgd_block_span);
+
+	debug_print(INFO, "bgd_block_span = %d", bgd_block_span);
+
+	int bgd_offset = 2;
+
+	if (BLOCKSIZE > 1024) {
+		bgd_offset = 1;
+	}
+
+	for (int i = 0; i < bgd_block_span; ++i) {
+		ext2_disk_read_block(bgd_offset + i, (uint8_t *)((uint32_t)BGD + BLOCKSIZE * i));
+	}
 
 #if EXT2_DEBUG_BLOCK_DESCRIPTORS
-	char bg_buffer[BLOCKSIZE];
+	char * bg_buffer = malloc(BLOCKSIZE * sizeof(char));
 	for (uint32_t i = 0; i < BGDS; ++i) {
-		kprintf("Block Group Descriptor #%d @ %d\n", i, 2 + i * SB->blocks_per_group);
-		kprintf("\tBlock Bitmap @ %d\n", BGD[i].block_bitmap); { 
-			kprintf("\t\tExamining block bitmap at %d\n", BGD[i].block_bitmap);
+		debug_print(INFO, "Block Group Descriptor #%d @ %d", i, bgd_offset + i * SB->blocks_per_group);
+		debug_print(INFO, "\tBlock Bitmap @ %d", BGD[i].block_bitmap); { 
+			debug_print(INFO, "\t\tExamining block bitmap at %d", BGD[i].block_bitmap);
 			ext2_disk_read_block(BGD[i].block_bitmap, (uint8_t *)bg_buffer);
 			uint32_t j = 0;
 			while (BLOCKBIT(j)) {
 				++j;
 			}
-			kprintf("\t\tFirst free block in group is %d\n", j + BGD[i].block_bitmap - 2);
+			debug_print(INFO, "\t\tFirst free block in group is %d", j + BGD[i].block_bitmap - 2);
 		}
-		kprintf("\tInode Bitmap @ %d\n", BGD[i].inode_bitmap); {
-			kprintf("\t\tExamining inode bitmap at %d\n", BGD[i].inode_bitmap);
+		debug_print(INFO, "\tInode Bitmap @ %d", BGD[i].inode_bitmap); {
+			debug_print(INFO, "\t\tExamining inode bitmap at %d", BGD[i].inode_bitmap);
 			ext2_disk_read_block(BGD[i].inode_bitmap, (uint8_t *)bg_buffer);
 			uint32_t j = 0;
 			while (BLOCKBIT(j)) {
 				++j;
 			}
-			kprintf("\t\tFirst free inode in group is %d\n", j + ext2_disk_inodes_per_group * i + 1);
+			debug_print(INFO, "\t\tFirst free inode in group is %d", j + ext2_disk_inodes_per_group * i + 1);
 		}
-		kprintf("\tInode Table  @ %d\n", BGD[i].inode_table);
-		kprintf("\tFree Blocks =  %d\n", BGD[i].free_blocks_count);
-		kprintf("\tFree Inodes =  %d\n", BGD[i].free_inodes_count);
+		debug_print(INFO, "\tInode Table  @ %d", BGD[i].inode_table);
+		debug_print(INFO, "\tFree Blocks =  %d", BGD[i].free_blocks_count);
+		debug_print(INFO, "\tFree Inodes =  %d", BGD[i].free_inodes_count);
 	}
+	free(bg_buffer);
 #endif
-	ext2_inodetable_t *root_inode = ext2_disk_inode(2);
 
+	ext2_inodetable_t *root_inode = ext2_disk_inode(2);
 	RN = (fs_node_t *)malloc(sizeof(fs_node_t));
-	assert(ext2_disk_node_root(root_inode, RN));
+	if (!ext2_disk_node_root(root_inode, RN)) {
+		debug_print(NOTICE, "Oh dear...");
+	}
+	debug_print(NOTICE, "Root file system is ready.");
 	fs_root = RN;
 	LOG(INFO,"Mounted EXT2 disk, root VFS node is at 0x%x", RN);
 }

@@ -104,4 +104,21 @@ typedef struct {
 	uint8_t  model[41];
 } ide_device_t;
 
+typedef struct {
+	uint8_t  status;
+	uint8_t  chs_first_sector[3];
+	uint8_t  type;
+	uint8_t  chs_last_sector[3];
+	uint32_t lba_first_sector;
+	uint32_t sector_count;
+} partition_t;
+
+typedef struct {
+	uint8_t     boostrap[446];
+	partition_t partitions[4];
+	uint8_t     signature[2];
+} __attribute__((packed)) mbr_t;
+mbr_t mbr;
+
+
 #endif

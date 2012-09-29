@@ -100,6 +100,7 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 		fs_node_t *ret = node->finddir(node, name);
 		return ret;
 	} else {
+		debug_print(WARNING, "Node passed to finddir_fs isn't a directory!");
 		return (fs_node_t *)NULL;
 	}
 }
@@ -396,6 +397,8 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 		return NULL;
 	}
 
+	debug_print(INFO, "kopen(%s)", filename);
+
 	/* Reference the current working directory */
 	char *cwd = (char *)(current_process->wd_name);
 	/* Canonicalize the (potentially relative) path... */
@@ -449,6 +452,7 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	fs_node_t *node_next = NULL;
 	for (depth = 0; depth < path_depth; ++depth) {
 		/* Search the active directory for the requested directory */
+		debug_print(INFO, "... Searching for %s", path_offset);
 		node_next = finddir_fs(node_ptr, path_offset);
 		free(node_ptr);
 		node_ptr = node_next;
