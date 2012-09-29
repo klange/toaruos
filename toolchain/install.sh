@@ -73,7 +73,7 @@ pushd build
         mkdir libpng
     fi
     pushd libpng
-        $DIR/tarballs/libpng-1.5.12/configure --host=$TARGET --prefix=$PREFIX/$TARGET || bail
+        $DIR/tarballs/libpng-1.5.13/configure --host=$TARGET --prefix=$PREFIX/$TARGET || bail
         make || bail
         make install || bail
     popd
