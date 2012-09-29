@@ -11,6 +11,50 @@
   * Screenshot functionality
   * Attempt an installer?
 
+# TODO for Microkernel Launch (0.5.0?)
+
+* Replace ramdisks with ELF service executables
+  * Boot with multiple modules = boot with multiple services.
+  * vfs.srv, for example
+* VFS as a service.
+  * It would be super awesome to write this in a language that is more flexible.
+  * Actual file system drivers as separate modules, or what?
+* Service bindings
+  * Essentially, a system call interface to discovering available services.
+  * `require_service(...)` system call for usable errors when a service is missing?
+* Deprecate old graphics applications
+  * And rename the windowed versions.
+* Environment variables
+  * Support them in general
+  * Push things like graphics parameters to environment variables
+* Integrate service-based VFS into C library
+  * Which probably means integrating shmem services into the C library
+* Services in a separate ring
+  * Compositor as a service
+  * Compositor shmem names integrated with service discovery
+* For VFS, need better IPC for cross-process read/write/info/readdir/etc. calls
+
+
+## Service Modules (aka "Services")
+
+* `vfs.srv` The virtual file system server. (required to provide file system endpoints)
+* `ext2.srv` Ext2 file system server. (provides `/`)
+* `ata.srv` ATA disk access server. (provides `/dev/hd*`)
+* `compositor.srv` The window compositing server. (provides shmem regions)
+* `ps2_hid.srv` The keyboard/mouse server. (provides `/dev/input/ps2/*`)
+* `serial.srv` UART serial communication server (provides `/dev/ttyS*`)
+
+### Future Servers
+
+* `usb.srv` Generic USB device server (provides `/dev/input/usb/*`)
+* `proc.srv` Process information server (provides `/dev/proc`; uses lots of kernel bindings)
+* `net.srv` Networking server (provides `/dev/net`)
+* `gfx.srv` Block-access graphics server (provides `/dev/fb*`)
+
+## Things that are not services
+
+* ELF support is not a service
+
 # TODO as of Septemember 2012
 
 ## C++
