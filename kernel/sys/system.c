@@ -29,44 +29,30 @@ char * boot_arg_extra = NULL;
  * Copy from source to destination. Assumes that
  * source and destination are not overlapping.
  */
-void *
-memcpy(
-		void * restrict dest,
-		const void * restrict src,
-		size_t count
-	  ) {
+void * memcpy(void * restrict dest, const void * restrict src, size_t count) {
 	asm volatile ("cld; rep movsb" : "+c" (count), "+S" (src), "+D" (dest) :: "memory");
 	return dest;
 }
 
-int
-max(int a, int b) {
+int max(int a, int b) {
 	return (a > b) ? a : b;
 }
 
-int
-min(int a, int b) {
+int min(int a, int b) {
 	return (a > b) ? b : a;
 }
 
-int
-abs(int a) {
+int abs(int a) {
 	return (a >= 0) ? a : -a;
 }
 
-void
-swap(int *a, int *b) {
+void swap(int *a, int *b) {
 	int t = *a;
 	*a = *b;
 	*b = t;
 }
 
-void *
-memmove(
-		void * restrict dest,
-		const void * restrict src,
-		size_t count
-	  ) {
+void * memmove(void * restrict dest, const void * restrict src, size_t count) {
 	size_t i;
 	unsigned char *a = dest;
 	const unsigned char *b = src;
@@ -82,11 +68,7 @@ memmove(
 	return dest;
 }
 
-int
-strcmp(
-		const char * a,
-		const char * b
-	  ) {
+int strcmp(const char * a, const char * b) {
 	uint32_t i = 0;
 	while (1) {
 		if (a[i] < b[i]) {
@@ -106,12 +88,7 @@ strcmp(
  * memset
  * Set `count` bytes to `val`.
  */
-void *
-memset(
-		void *b,
-		int val,
-		size_t count
-	  ) {
+void * memset(void * b, int val, size_t count) {
 	asm volatile ("cld; rep stosb" : "+c" (count), "+D" (b) : "a" (val) : "memory");
 	return b;
 }
@@ -120,14 +97,8 @@ memset(
  * memsetw
  * Set `count` shorts to `val`.
  */
-unsigned short *
-memsetw(
-		unsigned short *dest,
-		unsigned short val,
-		int count
-	) {
-	int i;
-	i = 0;
+unsigned short * memsetw(unsigned short * dest, unsigned short val, int count) {
+	int i = 0;
 	for ( ; i < count; ++i ) {
 		dest[i] = val;
 	}
@@ -138,10 +109,7 @@ memsetw(
  * strlen
  * Returns the length of a given `str`.
  */
-uint32_t
-strlen(
-		const char *str
-	  ) {
+uint32_t strlen(const char *str) {
 	int i = 0;
 	while (str[i] != (char)0) {
 		++i;
@@ -166,10 +134,7 @@ uint32_t __attribute__ ((pure)) krand() {
  * atoi
  * Naïve implementation thereof.
  */
-int
-atoi(
-		const char *str
-	) {
+int atoi(const char * str) {
 	uint32_t len = strlen(str);
 	uint32_t out = 0;
 	uint32_t i;
@@ -181,49 +146,31 @@ atoi(
 	return out;
 }
 
-unsigned short
-inports(
-		unsigned short _port
-	   ) {
+unsigned short inports(unsigned short _port) {
 	unsigned short rv;
 	asm volatile ("inw %1, %0" : "=a" (rv) : "dN" (_port));
 	return rv;
 }
 
-void
-outports(
-		unsigned short _port,
-		unsigned short _data
-		) {
+void outports(unsigned short _port, unsigned short _data) {
 	asm volatile ("outw %1, %0" : : "dN" (_port), "a" (_data));
 }
 
-unsigned int
-inportl(
-		unsigned short _port
-	   ) {
+unsigned int inportl(unsigned short _port) {
 	unsigned short rv;
 	asm volatile ("inl %%dx, %%eax" : "=a" (rv) : "dN" (_port));
 	return rv;
 }
 
-void
-outportl(
-		unsigned short _port,
-		unsigned int _data
-		) {
+void outportl(unsigned short _port, unsigned int _data) {
 	asm volatile ("outl %%eax, %%dx" : : "dN" (_port), "a" (_data));
 }
-
 
 /*
  * inportb
  * Read from an I/O port.
  */
-unsigned char
-inportb(
-		unsigned short _port
-	   ) {
+unsigned char inportb(unsigned short _port) {
 	unsigned char rv;
 	asm volatile ("inb %1, %0" : "=a" (rv) : "dN" (_port));
 	return rv;
@@ -233,43 +180,25 @@ inportb(
  * outportb
  * Write to an I/O port.
  */
-void
-outportb(
-		unsigned short _port,
-		unsigned char _data
-		) {
+void outportb(unsigned short _port, unsigned char _data) {
 	asm volatile ("outb %1, %0" : : "dN" (_port), "a" (_data));
 }
-
 
 /*
  * Output multiple sets of shorts
  */
-void outportsm(
-		unsigned short  port,
-		unsigned char * data,
-		unsigned long   size
-		) {
+void outportsm(unsigned short port, unsigned char * data, unsigned long size) {
 	asm volatile ("rep outsw" : "+S" (data), "+c" (size) : "d" (port));
 }
 
 /*
  * Input multiple sets of shorts
  */
-void inportsm(
-		unsigned short  port,
-		unsigned char * data,
-		unsigned long   size
-		) {
+void inportsm(unsigned short port, unsigned char * data, unsigned long size) {
 	asm volatile ("rep insw" : "+D" (data), "+c" (size) : "d" (port) : "memory");
 }
 
-char *
-strtok_r(
-		char * str,
-		const char * delim,
-		char ** saveptr
-		) {
+char * strtok_r(char * str, const char * delim, char ** saveptr) {
 	char * token;
 	if (str == NULL) {
 		str = *saveptr;
@@ -290,11 +219,7 @@ strtok_r(
 	return token;
 }
 
-size_t
-lfind(
-		const char * str,
-		const char accept
-	 ) {
+size_t lfind(const char * str, const char accept) {
 	size_t i = 0;
 	while ( str[i] != accept) {
 		i++;
@@ -302,11 +227,7 @@ lfind(
 	return (size_t)(str) + i;
 }
 
-size_t
-rfind(
-		const char * str,
-		const char accept
-	 ) {
+size_t rfind(const char * str, const char accept) {
 	size_t i = strlen(str) - 1;
 	while (str[i] != accept) {
 		if (i == 0) return UINT32_MAX;
@@ -315,8 +236,7 @@ rfind(
 	return (size_t)(str) + i;
 }
 
-char *
-strstr(const char * haystack, const char * needle) {
+char * strstr(const char * haystack, const char * needle) {
 	const char * out = NULL;
 	const char * ptr;
 	const char * acc;
@@ -351,56 +271,49 @@ uint8_t startswith(const char * str, const char * accept) {
 	return 1;
 }
 
-size_t
-strspn(
-		const char * str,
-		const char * accept
-	  ) {
-	const char * ptr;
+size_t strspn(const char * str, const char * accept) {
+	const char * ptr = str;
 	const char * acc;
-	size_t size = 0;
-	for (ptr = str; *ptr != '\0'; ++ptr) {
-		for (acc = accept; *acc != '\0'; ++acc) {
-			if (*ptr == *acc) {
+
+	while (*str) {
+		for (acc = accept; *acc; ++acc) {
+			if (*str == *acc) {
 				break;
 			}
 		}
 		if (*acc == '\0') {
-			return size;
-		} else {
-			++size;
+			break;
 		}
+
+		str++;
 	}
-	return size;
+
+	return str - ptr;
 }
 
-char *
-strpbrk(
-		const char * str,
-		const char * accept
-	   ) {
-	while (*str != '\0') {
-		const char *acc = accept;
-		while (*acc != '\0') {
-			if (*acc++ == *str) {
-				return (char *) str;
+char * strpbrk(const char * str, const char * accept) {
+	const char *acc = accept;
+
+	if (!*str) {
+		return NULL;
+	}
+
+	while (*str) {
+		for (acc = accept; *acc; ++acc) {
+			if (*str == *acc) {
+				break;
 			}
+		}
+		if (*acc) {
+			break;
 		}
 		++str;
 	}
-	return NULL;
-}
 
-void
-real_mode_int(int num, struct regs * r) {
-	/* Give non-kernel access to the first 1MB of RAM */
-	for (uintptr_t i = 0; i < 0x00100000; i += 0x1000) {
-		alloc_frame(get_page(i, 1, kernel_directory), 0, 1);
+	if (*acc == '\0') {
+		return NULL;
 	}
 
-
-	/* Reset protection on first 1MB of RAM when we're done */
-	for (uintptr_t i = 0; i < 0x00100000; i += 0x1000) {
-		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
-	}
+	return (char *)str;
 }
+
