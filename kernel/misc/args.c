@@ -54,7 +54,7 @@ parse_args(
 		while (pch_i != NULL) {
 			argp[argc] = (char *)pch_i;
 			++argc;
-			pch_i = strtok_r(NULL,"=",&save_i);
+			pch_i = strtok_r(NULL,"=,",&save_i);
 		}
 		argp[argc] = NULL;
 
@@ -90,7 +90,6 @@ parse_args(
 			} else {
 				ext2_disk_mount(0, 0);
 			}
-			ext2_disk_read_superblock();
 		} else if (!strcmp(argp[0],"single")) {
 			boot_arg = "--single";
 		} else if (!strcmp(argp[0],"lite")) {
@@ -111,6 +110,16 @@ parse_args(
 			}
 			kprint_to_serial = 1;
 			debug_print(NOTICE, "Kernel serial logging enabled at level %d.", debug_level);
+		} else if (!strcmp(argp[0],"kernel-term")) {
+			if (argc > 1) {
+				debug_level = atoi(argp[1]);
+			} else {
+				debug_level = NOTICE; /* INFO is a bit verbose for a default */
+			}
+			kprint_to_screen = 1;
+			debug_print(NOTICE, "Kernel serial logging enabled at level %d.", debug_level);
+		} else if (!strcmp(argp[0],"read-mbr")) {
+			read_partition_map(0);
 		}
 	}
 }

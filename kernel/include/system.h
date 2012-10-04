@@ -165,6 +165,7 @@ extern int    _kprintf(char * file, int line, const char *fmt, ...);
 #endif
 
 extern short  kprint_to_serial;
+extern short  kprint_to_screen;
 extern void * kprint_to_file;
 
 extern int    sprintf(char *buf, const char *fmt, ...);

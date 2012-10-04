@@ -32,7 +32,7 @@ if [ $ENABLE_SERIAL ]; then
     SERIAL="-serial stdio"
 fi
 
-RESPARSED=`echo $RESOLUTION | sed 's/x/=/'`
+RESPARSED=`echo $RESOLUTION | sed 's/x/,,/'`
 GRAPHICS="vid=qemu=$RESPARSED"
 if [ $ENABLE_GRAPHICS == false ]; then
     GRAPHICS="vgaterm"
