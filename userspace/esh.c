@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-DEFN_SYSCALL1(wait, 17, unsigned int);
+//DEFN_SYSCALL1(wait, 17, unsigned int);
 
 int main(int argc, char ** argv) {
 	printf("I am pid %d\n", getpid());

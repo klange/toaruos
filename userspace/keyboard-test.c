@@ -8,8 +8,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#if 0
 DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
+#endif
 
 
 int main(int argc, char ** argv) {

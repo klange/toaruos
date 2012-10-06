@@ -14,6 +14,7 @@
  * Some of the system calls for the graphics
  * functionality.
  */
+#if 0
 DEFN_SYSCALL0(getgraphicsaddress, 11);
 DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
@@ -22,6 +23,7 @@ DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
 DEFN_SYSCALL0(getgraphicsdepth,  20);
+#endif
 
 uint16_t graphics_width  = 0;
 uint16_t graphics_height = 0;

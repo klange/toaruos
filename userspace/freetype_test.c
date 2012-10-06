@@ -4,11 +4,13 @@
 
 #include <stdint.h>
 #include <syscall.h>
+#if 0
 DEFN_SYSCALL0(getgraphicsaddress, 11);
 
 DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
 DEFN_SYSCALL0(getgraphicsdepth,  20);
+#endif
 
 #define FONT_SIZE 12
 

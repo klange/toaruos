@@ -11,7 +11,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#if 0
 DEFN_SYSCALL1(wait, 17, unsigned int);
+#endif
 
 int main(int argc, char ** argv) {
 	int nthreads = 2, base_pid = getpid(), npid = -1;

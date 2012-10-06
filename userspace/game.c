@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#if 0
 DEFN_SYSCALL0(getgraphicsaddress, 11);
 DEFN_SYSCALL1(kbd_mode, 12, int);
 DEFN_SYSCALL0(kbd_get, 13);
@@ -17,6 +18,7 @@ DEFN_SYSCALL1(setgraphicsoffset, 16, int);
 DEFN_SYSCALL0(getgraphicswidth,  18);
 DEFN_SYSCALL0(getgraphicsheight, 19);
 DEFN_SYSCALL0(getgraphicsdepth,  20);
+#endif
 
 typedef struct sprite {
 	uint16_t width;
