@@ -34,7 +34,7 @@ Full compositing has been enabled. For opaque windows, it is considerably faster
 * PS/2 keyboard/mouse support
   * Of course, what doesn't?
 * Graphical features
-  * Windows GUI environment with transparency support
+  * Windowed GUI environment with transparency support
   * Limited GUI toolkit available
 * Extensive, ANSI-capable terminal
   * Includes extensive compatibility with xterm
