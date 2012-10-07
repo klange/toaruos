@@ -38,14 +38,14 @@ int pid;
 char * shell_history_prev(size_t item);
 
 void shell_history_insert(char * str) {
+	if (str[strlen(str)-1] == '\n') {
+		str[strlen(str)-1] = '\0';
+	}
 	if (shell_history_count) {
 		if (!strcmp(str, shell_history_prev(1))) {
 			free(str);
 			return;
 		}
-	}
-	if (str[strlen(str)-1] == '\n') {
-		str[strlen(str)-1] = '\0';
 	}
 	if (shell_history_count == SHELL_HISTORY_ENTRIES) {
 		free(shell_history[shell_history_offset]);
@@ -121,6 +121,7 @@ int kbd_state = 0;
 #define KEY_NONE        0
 #define KEY_BACKSPACE   8
 #define KEY_CTRL_C      3
+#define KEY_CTRL_L      12
 #define KEY_CTRL_R      18
 #define KEY_ESCAPE      27
 #define KEY_NORMAL_MAX  256
@@ -383,11 +384,12 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 					fflush(stdout);
 				}
 				continue;
-			case 0x0C: /* ^L: Clear Screen, redraw prompt and buffer */
+			case KEY_CTRL_L: /* ^L: Clear Screen, redraw prompt and buffer */
 				printf("\033[H\033[2J");
 				if (callbacks->redraw_prompt) {
 					callbacks->redraw_prompt(&context);
 				}
+				printf("\033[s");
 				rline_redraw(&context);
 				continue;
 			case '\t':
