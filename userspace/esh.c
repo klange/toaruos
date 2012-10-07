@@ -754,6 +754,9 @@ int shell_exec(char * buffer, size_t buffer_size) {
 					}
 					goto _just_add;
 				case '\\':
+					if (backtick) {
+						goto _just_add;
+					}
 					backtick = 1;
 					goto _next;
 				case ' ':
