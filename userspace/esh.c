@@ -35,9 +35,11 @@ char   shell_temp[1024];
 
 int pid;
 
+char * shell_history_prev(size_t item);
+
 void shell_history_insert(char * str) {
 	if (shell_history_count) {
-		if (!strcmp(str, shell_history[shell_history_count-1])) {
+		if (!strcmp(str, shell_history_prev(1))) {
 			free(str);
 			return;
 		}
@@ -265,6 +267,7 @@ typedef struct {
 	rline_callback_t key_down;
 	rline_callback_t key_left;
 	rline_callback_t key_right;
+	rline_callback_t rev_search;
 } rline_callbacks_t;
 
 void rline_redraw(rline_context_t * context) {
@@ -296,6 +299,12 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 				printf("^C\n");
 				context.buffer[0] = '\0';
 				return 0;
+			case KEY_CTRL_R:
+				if (callbacks->rev_search) {
+					callbacks->rev_search(&context);
+					return context.collected;
+				}
+				continue;
 			case KEY_ARROW_UP:
 				if (callbacks->key_up) {
 					callbacks->key_up(&context);
@@ -529,6 +538,72 @@ void tab_complete_func(rline_context_t * context) {
 	}
 }
 
+void reverse_search(rline_context_t * context) {
+	char input[512] = {0};
+	size_t collected = 0;
+	int start_at = 0;
+	while (1) {
+		/* Find matches */
+		char * match = "";
+		int match_index = 0;
+try_rev_search_again:
+		if (collected) {
+			for (int i = start_at; i < shell_history_count; i++) {
+				char * c = shell_history_prev(i+1);
+				if (strstr(c, input)) {
+					match = c;
+					match_index = i;
+					break;
+				}
+			}
+			if (!strcmp(match,"")) {
+				if (start_at) {
+					start_at = 0;
+					goto try_rev_search_again;
+				}
+				collected--;
+				input[collected] = '\0';
+				if (collected) {
+					goto try_rev_search_again;
+				}
+			}
+		}
+		fprintf(stderr, "\033[G(reverse-i-search)`%s': %s\033[K", input, match);
+		fflush(stderr);
+		uint32_t key_sym = kbd_key(fgetc(stdin));
+		switch (key_sym) {
+			case KEY_BACKSPACE:
+				if (collected > 0) {
+					collected--;
+					input[collected] = '\0';
+					start_at = 0;
+				}
+				break;
+			case KEY_CTRL_C:
+				printf("^C\n");
+				return;
+			case KEY_CTRL_R:
+				start_at = match_index + 1;
+				break;
+			case '\n':
+				/* XXX execute */
+				memcpy(context->buffer, match, strlen(match) + 1);
+				context->collected = strlen(match);
+				context->offset = context->collected;
+				printf("\n");
+				return;
+			default:
+				if (key_sym < KEY_NORMAL_MAX) {
+					input[collected] = (char)key_sym;
+					collected++;
+					input[collected] = '\0';
+					start_at = 0;
+				}
+				break;
+		}
+	}
+}
+
 void history_previous(rline_context_t * context) {
 	if (shell_scroll == 0) {
 		memcpy(shell_temp, context->buffer, strlen(context->buffer) + 1);
@@ -588,17 +663,21 @@ int shell_exec(char * buffer, size_t buffer_size) {
 		}
 	}
 
+	char * history = malloc(strlen(buffer) + 1);
+	memcpy(history, buffer, strlen(buffer) + 1);
+
 	pch = strtok_r(buffer," ", &save);
 	cmd = pch;
 
 	if (!cmd) {
+		free(history);
 		return 0;
 	}
 
 	if (buffer[0] != ' ') {
-		char * history = malloc(sizeof(char) * (buffer_size + 1));
-		memcpy(history, buffer, (buffer_size + 1));
 		shell_history_insert(history);
+	} else {
+		free(history);
 	}
 
 	char * argv[1024];
@@ -735,7 +814,7 @@ int main(int argc, char ** argv) {
 		rline_callbacks_t callbacks = {
 			tab_complete_func, redraw_prompt_func, NULL,
 			history_previous, history_next,
-			NULL, NULL
+			NULL, NULL, reverse_search
 		};
 		set_unbuffered();
 		buffer_size = rline((char *)&buffer, LINE_LEN, &callbacks);
