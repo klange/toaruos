@@ -379,6 +379,11 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 					printf("\033[C");
 					context.offset++;
 				}
+				if (context.collected < context.requested) {
+					context.buffer[context.collected] = '\n';
+					context.buffer[++context.collected] = '\0';
+					context.offset++;
+				}
 				printf("\n");
 				fflush(stdout);
 				context.newline = 1;
@@ -418,6 +423,14 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 
 void redraw_prompt_func(rline_context_t * context) {
 	draw_prompt(0);
+}
+
+void draw_prompt_c() {
+	printf("> ");
+	fflush(stdout);
+}
+void redraw_prompt_func_c(rline_context_t * context) {
+	draw_prompt_c();
 }
 
 void tab_complete_func(rline_context_t * context) {
@@ -645,11 +658,38 @@ void history_next(rline_context_t * context) {
 	context->offset = context->collected;
 }
 
-int shell_exec(char * buffer, size_t buffer_size) {
+void add_argument(list_t * argv, char * buf) {
+	char * c = malloc(strlen(buf) + 1);
+	memcpy(c, buf, strlen(buf) + 1);
 
-	char * pch;
-	char * cmd;
-	char * save;
+	list_insert(argv, c);
+}
+
+size_t read_entry(char * buffer) {
+	rline_callbacks_t callbacks = {
+		tab_complete_func, redraw_prompt_func, NULL,
+		history_previous, history_next,
+		NULL, NULL, reverse_search
+	};
+	set_unbuffered();
+	size_t buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	set_buffered();
+	return buffer_size;
+}
+
+size_t read_entry_continued(char * buffer) {
+	rline_callbacks_t callbacks = {
+		tab_complete_func, redraw_prompt_func_c, NULL,
+		history_previous, history_next,
+		NULL, NULL, reverse_search
+	};
+	set_unbuffered();
+	size_t buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	set_buffered();
+	return buffer_size;
+}
+
+int shell_exec(char * buffer, size_t buffer_size) {
 
 	/* Read previous history entries */
 	if (buffer[0] == '!') {
@@ -666,15 +706,7 @@ int shell_exec(char * buffer, size_t buffer_size) {
 	char * history = malloc(strlen(buffer) + 1);
 	memcpy(history, buffer, strlen(buffer) + 1);
 
-	pch = strtok_r(buffer," ", &save);
-	cmd = pch;
-
-	if (!cmd) {
-		free(history);
-		return 0;
-	}
-
-	if (buffer[0] != ' ') {
+	if (buffer[0] != ' ' && buffer[0] != '\n') {
 		shell_history_insert(history);
 	} else {
 		free(history);
@@ -683,13 +715,121 @@ int shell_exec(char * buffer, size_t buffer_size) {
 	char * argv[1024];
 	int tokenid = 0;
 
-	while (pch) {
-		argv[tokenid] = (char *)pch;
-		++tokenid;
-		pch = strtok_r(NULL, " ", &save);
+	char quoted = 0;
+	char backtick = 0;
+	int _argc = 0;
+	char buffer_[512] = {0};
+	int collected = 0;
+
+	list_t * args = list_create();
+
+	while (1) {
+
+		char * p = buffer;
+
+		while (*p) {
+			switch (*p) {
+				case '\"':
+					if (quoted == '\"') {
+						if (backtick) {
+							goto _just_add;
+						}
+						quoted = 0;
+						goto _next;
+					} else if (!quoted) {
+						quoted = *p;
+						goto _next;
+					}
+					goto _just_add;
+				case '\'':
+					if (quoted == '\'') {
+						if (backtick) {
+							goto _just_add;
+						}
+						quoted = 0;
+						goto _next;
+					} else if (!quoted) {
+						quoted = *p;
+						goto _next;
+					}
+					goto _just_add;
+				case '\\':
+					backtick = 1;
+					goto _next;
+				case ' ':
+					if (backtick) {
+						goto _just_add;
+					}
+					if (!quoted) {
+						goto _new_arg;
+					}
+					goto _just_add;
+				case '\n':
+					if (!quoted) {
+						goto _done;
+					}
+					goto _just_add;
+				default:
+					if (backtick) {
+						buffer_[collected] = '\\';
+						collected++;
+						buffer_[collected] = '\0';
+					}
+_just_add:
+					backtick = 0;
+					buffer_[collected] = *p;
+					collected++;
+					buffer_[collected] = '\0';
+					goto _next;
+			}
+
+_new_arg:
+			backtick = 0;
+			if (collected) {
+				add_argument(args, buffer_);
+				buffer_[0] = '\0';
+				collected = 0;
+				_argc++;
+			}
+
+_next:
+			p++;
+		}
+
+_done:
+
+		if (quoted) {
+			draw_prompt_c();
+			buffer_size = read_entry_continued(buffer);
+			continue;
+		}
+
+		if (collected) {
+			add_argument(args, buffer_);
+			break;
+		}
+
+		break;
 	}
 
-	argv[tokenid] = NULL;
+	int i = 0;
+	foreach(node, args) {
+		char * c = node->value;
+
+		argv[i] = c;
+		i++;
+	}
+
+	if (i == 0) {
+		return 0;
+	}
+
+	list_free(args);
+
+	argv[i] = NULL;
+	char * cmd = argv[0];
+	tokenid = i;
+
 	shell_command_t func = shell_find(argv[0]);
 
 	if (func) {
@@ -811,15 +951,8 @@ int main(int argc, char ** argv) {
 		draw_prompt(last_ret);
 		char buffer[LINE_LEN] = {0};
 		int  buffer_size;
-		rline_callbacks_t callbacks = {
-			tab_complete_func, redraw_prompt_func, NULL,
-			history_previous, history_next,
-			NULL, NULL, reverse_search
-		};
-		set_unbuffered();
-		buffer_size = rline((char *)&buffer, LINE_LEN, &callbacks);
-		set_buffered();
 
+		buffer_size = read_entry(buffer);
 		last_ret = shell_exec(buffer, buffer_size);
 		shell_scroll = 0;
 
