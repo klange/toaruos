@@ -16,17 +16,162 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "lib/list.h"
+
+#define SHELL_COMMANDS 512
+typedef uint32_t(*shell_command_t) (int argc, char ** argv);
+char * shell_commands[SHELL_COMMANDS];
+shell_command_t shell_pointers[SHELL_COMMANDS];
+uint32_t shell_commands_len = 0;
+
+#define SHELL_HISTORY_ENTRIES 128
+char * shell_history[SHELL_HISTORY_ENTRIES];
+size_t shell_history_count  = 0;
+size_t shell_history_offset = 0;
+
+size_t shell_scroll = 0;
+char   shell_temp[1024];
+
+int pid;
+
+void shell_history_insert(char * str) {
+	if (shell_history_count) {
+		if (!strcmp(str, shell_history[shell_history_count-1])) {
+			free(str);
+			return;
+		}
+	}
+	if (shell_history_count == SHELL_HISTORY_ENTRIES) {
+		free(shell_history[shell_history_offset]);
+		shell_history[shell_history_offset] = str;
+		shell_history_offset = (shell_history_offset + 1) % SHELL_HISTORY_ENTRIES;
+	} else {
+		shell_history[shell_history_count] = str;
+		shell_history_count++;
+	}
+}
+
+char * shell_history_get(size_t item) {
+	return shell_history[(item + shell_history_offset) % SHELL_HISTORY_ENTRIES];
+}
+
+char * shell_history_prev(size_t item) {
+	return shell_history_get(shell_history_count - item);
+}
+
+void shell_install_command(char * name, shell_command_t func) {
+	if (shell_commands_len == SHELL_COMMANDS) {
+		fprintf(stderr, "Ran out of space for static shell commands. The maximum number of commands is %d\n", SHELL_COMMANDS);
+		return;
+	}
+	shell_commands[shell_commands_len] = name;
+	shell_pointers[shell_commands_len] = func;
+	shell_commands_len++;
+}
+
+shell_command_t shell_find(char * str) {
+	for (uint32_t i = 0; i < shell_commands_len; ++i) {
+		if (!strcmp(str, shell_commands[i])) {
+			return shell_pointers[i];
+		}
+	}
+	return NULL;
+}
+
+void set_unbuffered() {
+	printf("\033[1560z");
+	fflush(stdout);
+}
+
+void set_buffered() {
+	printf("\033[1561z");
+	fflush(stdout);
+}
+
+void install_commands();
+
+#define KBD_NORMAL 0
+#define KBD_ESC_A  1
+#define KBD_ESC_B  2
+#define KBD_FUNC   3
+
+int kbd_state = 0;
+
+#define KEY_NONE        0
+#define KEY_BACKSPACE   8
+#define KEY_ESCAPE      27
+#define KEY_NORMAL_MAX  256
+#define KEY_ARROW_UP    257
+#define KEY_ARROW_DOWN  258
+#define KEY_ARROW_RIGHT 259
+#define KEY_ARROW_LEFT  260
+#define KEY_BAD_STATE   -1
+
+uint32_t kbd_key(uint8_t c) {
+	switch (kbd_state) {
+		case KBD_NORMAL:
+			switch (c) {
+				case 0x1b:
+					kbd_state = KBD_ESC_A;
+					return KEY_NONE;
+				default:
+					return c;
+			}
+		case KBD_ESC_A:
+			switch (c) {
+				case 0x5b:
+					kbd_state = KBD_ESC_B;
+					return KEY_NONE;
+				default:
+					kbd_state = KBD_NORMAL;
+					return c;
+			}
+		case KBD_ESC_B:
+			switch (c) {
+				case 0x41:
+					kbd_state = KBD_NORMAL;
+					return KEY_ARROW_UP;
+				case 0x42:
+					kbd_state = KBD_NORMAL;
+					return KEY_ARROW_DOWN;
+				case 0x43:
+					kbd_state = KBD_NORMAL;
+					return KEY_ARROW_RIGHT;
+				case 0x44:
+					kbd_state = KBD_NORMAL;
+					return KEY_ARROW_LEFT;
+				default:
+				kbd_state = KBD_NORMAL;
+				return c;
+			}
+		default:
+			fprintf(stderr, "Keyboard in unknown state? Not sure what to do. kbd_state = %d\n", kbd_state);
+			return KEY_BAD_STATE;
+	}
+
+	return KEY_BAD_STATE;
+}
+
+
+/* Maximum command length */
 #define LINE_LEN 4096
 
+/* Current working directory */
 char cwd[1024] = {'/',0};
+
+/* Timing type */
 struct timeval {
 	unsigned int tv_sec;
 	unsigned int tv_usec;
 };
 
+/* Username */
 char username[1024];
+
+/* Hostname for prompt */
 char _hostname[256];
 
+/* function to update the cached username */
 void getusername() {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
@@ -52,26 +197,34 @@ void getusername() {
 	fclose(passwd);
 }
 
+/* function to update the cached hostname */
 void gethostname() {
 	char buffer[256];
 	size_t len = syscall_gethostname(buffer);
 	memcpy(_hostname, buffer, len);
 }
 
+/* Draw the user prompt */
 void draw_prompt(int ret) {
+	/* Get the time */
 	struct tm * timeinfo;
 	struct timeval now;
 	syscall_gettimeofday(&now, NULL); //time(NULL);
 	timeinfo = localtime((time_t *)&now.tv_sec);
+
+	/* Format the date and time for prompt display */
 	char date_buffer[80];
 	strftime(date_buffer, 80, "%m/%d", timeinfo);
 	char time_buffer[80];
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
+
+	/* Print the prompt. */
 	printf("\033[1m[\033[1;33m%s \033[1;32m%s \033[1;31m%s \033[1;34m%s\033[0m ",
 			username, _hostname, date_buffer, time_buffer);
 	if (ret != 0) {
 		printf("\033[1;31m%d ", ret);
 	}
+	/* Print the working directory in there, too */
 	syscall_getcwd(cwd, 1024);
 	printf("\033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ", cwd);
 	printf("\033]1;%s@%s:%s\007", username, _hostname, cwd);
@@ -81,20 +234,390 @@ void draw_prompt(int ret) {
 uint32_t child = 0;
 
 void sig_int(int sig) {
-	static uint32_t times = 1;
+	/* Interrupt handler */
 	if (child) {
 		syscall_send_signal(child, sig);
 	} else {
-		printf("stop that! you've interrupted me %d time%s!\n", times, (times > 1) ? "s" : "");
-		times++;
+		fprintf(stderr, "XXX: Clear the buffer and re-render the prompt\n");
+	}
+}
+
+typedef struct {
+	char *  buffer;
+	int     collected;
+	int     requested;
+	int     newline;
+	int     cancel;
+	int     offset;
+} rline_context_t;
+
+typedef void (*rline_callback_t)(rline_context_t * context);
+
+typedef struct {
+	rline_callback_t tab_complete;
+	rline_callback_t redraw_prompt;
+	rline_callback_t special_key;
+	rline_callback_t key_up;
+	rline_callback_t key_down;
+	rline_callback_t key_left;
+	rline_callback_t key_right;
+} rline_callbacks_t;
+
+void rline_redraw(rline_context_t * context) {
+	printf("%s", context->buffer);
+	for (int i = context->offset; i < context->collected; ++i) {
+		printf("\033[D");
+	}
+	fflush(stdout);
+}
+
+size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
+	/* Initialize context */
+	rline_context_t context = {
+		buffer,
+		0,
+		buf_size,
+		0,
+		0,
+		0,
+	};
+
+	/* Read keys */
+	while ((context.collected < context.requested) && (!context.newline)) {
+		uint32_t key_sym = kbd_key(fgetc(stdin));
+		if (key_sym == KEY_NONE) continue;
+		switch (key_sym) {
+			case KEY_ARROW_UP:
+				if (callbacks->key_up) {
+					callbacks->key_up(&context);
+				}
+				continue;
+			case KEY_ARROW_DOWN:
+				if (callbacks->key_down) {
+					callbacks->key_down(&context);
+				}
+				continue;
+			case KEY_ARROW_RIGHT:
+				if (callbacks->key_right) {
+					callbacks->key_right(&context);
+				} else {
+					if (context.offset < context.collected) {
+						printf("\033[C");
+						fflush(stdout);
+						context.offset++;
+					}
+				}
+				continue;
+			case KEY_ARROW_LEFT:
+				if (callbacks->key_left) {
+					callbacks->key_left(&context);
+				} else {
+					if (context.offset > 0) {
+						printf("\033[D");
+						fflush(stdout);
+						context.offset--;
+					}
+				}
+				continue;
+			case KEY_BACKSPACE:
+				if (context.collected) {
+					if (!context.offset) {
+						continue;
+					}
+					printf("\010 \010");
+					if (context.offset != context.collected) {
+						int remaining = context.collected - context.offset;
+						for (int i = 0; i < remaining; ++i) {
+							printf("%c", context.buffer[context.offset + i]);
+							context.buffer[context.offset + i - 1] = context.buffer[context.offset + i];
+						}
+						printf(" ");
+						for (int i = 0; i < remaining + 1; ++i) {
+							printf("\033[D");
+						}
+						context.offset--;
+						context.collected--;
+					} else {
+						context.buffer[--context.collected] = '\0';
+						context.offset--;
+					}
+					fflush(stdout);
+				}
+				continue;
+			case 0x0C: /* ^L: Clear Screen, redraw prompt and buffer */
+				printf("\033[H\033[2J");
+				if (callbacks->redraw_prompt) {
+					callbacks->redraw_prompt(&context);
+				}
+				rline_redraw(&context);
+				continue;
+			case '\t':
+				if (callbacks->tab_complete) {
+					callbacks->tab_complete(&context);
+				}
+				continue;
+			case '\n':
+				while (context.offset < context.collected) {
+					printf("\033[C");
+					context.offset++;
+				}
+				printf("\n");
+				fflush(stdout);
+				context.newline = 1;
+				continue;
+		}
+		if (context.offset != context.collected) {
+			for (int i = context.collected; i > context.offset; --i) {
+				context.buffer[i] = context.buffer[i-1];
+			}
+			if (context.collected < context.requested) {
+				context.buffer[context.offset] = (char)key_sym;
+				context.buffer[++context.collected] = '\0';
+				context.offset++;
+			}
+			for (int i = context.offset - 1; i < context.collected; ++i) {
+				printf("%c", context.buffer[i]);
+			}
+			for (int i = context.offset; i < context.collected; ++i) {
+				printf("\033[D");
+			}
+			fflush(stdout);
+		} else {
+			printf("%c", (char)key_sym);
+			if (context.collected < context.requested) {
+				context.buffer[context.collected] = (char)key_sym;
+				context.buffer[++context.collected] = '\0';
+				context.offset++;
+			}
+			fflush(stdout);
+		}
+	}
+
+	/* Cap that with a null */
+	context.buffer[context.collected] = '\0';
+	return context.collected;
+}
+
+void redraw_prompt_func(rline_context_t * context) {
+	draw_prompt(0);
+}
+
+void tab_complete_func(rline_context_t * context) {
+	char buf[1024];
+	char * pch;
+	char * cmd;
+	char * save;
+
+	memcpy(buf, context->buffer, 1024);
+
+	pch = strtok_r(buf, " ", &save);
+	cmd = pch;
+
+	char * argv[1024];
+	int argc = 0;
+
+	if (!cmd) {
+		argv[0] = "";
+		argc = 1;
+	} else {
+		while (pch != NULL) {
+			++argc;
+			pch = strtok_r(NULL, " ", &save);
+		}
+	}
+
+	argv[argc] = NULL;
+
+	if (argc < 2) {
+		if (context->buffer[strlen(context->buffer) - 1] == ' ' || argc == 0) {
+			fprintf(stderr, "\n");
+			for (int i = 0; i < shell_commands_len; ++i) {
+				fprintf(stderr, "%s", shell_commands[i]);
+				if (i < shell_commands_len - 1) {
+					fprintf(stderr, ", ");
+				}
+			}
+			fprintf(stderr, "\n");
+			redraw_prompt_func(context);
+			rline_redraw(context);
+			return;
+		} else {
+			int count = 0, j = 0;
+			char * match = NULL;
+			for (int i = 0; i < shell_commands_len; ++i) {
+				if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
+					count++;
+					match = shell_commands[i];
+				}
+			}
+			if (count == 1) {
+				for (int j = 0; j < strlen(context->buffer); ++j) {
+					printf("\010 \010");
+				}
+				printf(match);
+				fflush(stdout);
+				memcpy(context->buffer, match, strlen(match) + 1);
+				context->collected = strlen(context->buffer);
+				context->offset = context->collected;
+				return;
+			} else {
+				fprintf(stderr, "\n");
+				for (int i = 0; i < shell_commands_len; ++i) {
+					if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
+						fprintf(stderr, "%s", shell_commands[i]);
+						++j;
+						if (j < count) {
+							fprintf(stderr, ", ");
+						}
+					}
+				}
+				fprintf(stderr, "\n");
+				redraw_prompt_func(context);
+				rline_redraw(context);
+				return;
+			}
+		}
+	} else {
+		/* XXX */
+		fprintf(stderr, "%d\n", argc);
+	}
+}
+
+void history_previous(rline_context_t * context) {
+	if (shell_scroll == 0) {
+		memcpy(shell_temp, context->buffer, strlen(context->buffer) + 1);
+	}
+	if (shell_scroll < shell_history_count) {
+		shell_scroll++;
+		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+			printf("\010 \010");
+		}
+		char * h = shell_history_prev(shell_scroll);
+		memcpy(context->buffer, h, strlen(h) + 1);
+		printf("%s", h);
+		fflush(stdout);
+	}
+	context->collected = strlen(context->buffer);
+	context->offset = context->collected;
+}
+
+void history_next(rline_context_t * context) {
+	if (shell_scroll > 1) {
+		shell_scroll--;
+		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+			printf("\010 \010");
+		}
+		char * h = shell_history_prev(shell_scroll);
+		memcpy(context->buffer, h, strlen(h) + 1);
+		printf("%s", h);
+		fflush(stdout);
+	} else if (shell_scroll == 1) {
+		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+			printf("\010 \010");
+		}
+		shell_scroll = 0;
+		memcpy(context->buffer, shell_temp, strlen(shell_temp) + 1);
+		printf("%s", context->buffer);
+		fflush(stdout);
+	}
+	context->collected = strlen(context->buffer);
+	context->offset = context->collected;
+}
+
+int shell_exec(char * buffer, size_t buffer_size) {
+
+	char * pch;
+	char * cmd;
+	char * save;
+
+	/* Read previous history entries */
+	if (buffer[0] == '!') {
+		uint32_t x = atoi((char *)((uintptr_t)buffer + 1));
+		if (x <= shell_history_count) {
+			buffer = shell_history_get(x - 1);
+			buffer_size = strlen(buffer);
+		} else {
+			fprintf(stderr, "esh: !%d: event not found\n", x);
+			return 0;
+		}
+	}
+
+	pch = strtok_r(buffer," ", &save);
+	cmd = pch;
+
+	if (!cmd) {
+		return 0;
+	}
+
+	char * history = malloc(sizeof(char) * (buffer_size + 1));
+	memcpy(history, buffer, (buffer_size + 1));
+	shell_history_insert(history);
+
+	char * argv[1024];
+	int tokenid = 0;
+
+	while (pch) {
+		argv[tokenid] = (char *)pch;
+		++tokenid;
+		pch = strtok_r(NULL, " ", &save);
+	}
+
+	argv[tokenid] = NULL;
+	shell_command_t func = shell_find(argv[0]);
+
+	if (func) {
+		func(tokenid, argv);
+	} else {
+		FILE * file = NULL; //fopen(argv[0], "r");
+		if (!strstr(argv[0],"/")) {
+			cmd = malloc(sizeof(char) * (strlen(argv[0]) + strlen("/bin/") + 1));
+			sprintf(cmd, "%s%s", "/bin/", argv[0]);
+			file = fopen(cmd,"r");
+			if (!file) {
+				printf("Command not found: %s\n", argv[0]);
+				free(cmd);
+				return 1;
+			}
+			fclose(file);
+		} else {
+			file = fopen(argv[0], "r");
+			if (!file) {
+				printf("Command not found: %s\n", argv[0]);
+				free(cmd);
+				return 1;
+			}
+			fclose(file);
+		}
+
+		int nowait = (!strcmp(argv[tokenid-1],"&"));
+		if (nowait) {
+			argv[tokenid-1] = NULL;
+		}
+
+
+		uint32_t f = fork();
+		if (getpid() != pid) {
+			int i = execve(cmd, argv, NULL);
+			return i;
+		} else {
+			int ret_code = 0;
+			if (!nowait) {
+				child = f;
+				ret_code = syscall_wait(f);
+				child = 0;
+			}
+			free(cmd);
+			return ret_code;
+		}
 	}
 }
 
 int main(int argc, char ** argv) {
-	int  pid = getpid();
 	int  nowait = 0;
 	int  free_cmd = 0;
 	int  last_ret = 0;
+
+	pid = getpid();
 
 	syscall_signal(2, sig_int);
 
@@ -115,83 +638,62 @@ int main(int argc, char ** argv) {
 		free(m);
 	}
 
+	install_commands();
+	//add_path_contents()
 	while (1) {
-		char * cmd = malloc(sizeof(char) * 1024);
-
 		draw_prompt(last_ret);
-		fgets(cmd, 1024, stdin);
-		cmd[strlen(cmd)-1] = '\0';
-		char *p, *tokens[512], *last;
-		int i = 0;
-		for ((p = strtok_r(cmd, " ", &last)); p;
-				(p = strtok_r(NULL, " ", &last)), i++) {
-			if (i < 511) tokens[i] = p;
-		}
-		tokens[i] = NULL;
-		if (!tokens[0] || strlen(tokens[0]) < 1) {
-			free(cmd);
-			continue;
-		}
-		if (!strcmp(tokens[0],"exit")) {
-			goto exit;
-		}
-		if (!strcmp(tokens[0],"cd")) {
-			if (i > 1) {
-				if (syscall_chdir(tokens[1]) != 0) {
-					printf("cd: Could not cd to '%s'.\n", tokens[1]);
-					last_ret = 1;
-				}
-			} else {
-				printf("cd: expected argument\n");
-				last_ret = 1;
-			}
-			free(cmd);
-			continue;
-		}
-		nowait = (!strcmp(tokens[i-1],"&"));
-		if (nowait) {
-			tokens[i-1] = NULL;
-		}
+		char buffer[LINE_LEN] = {0};
+		int  buffer_size;
+		rline_callbacks_t callbacks = {
+			tab_complete_func, redraw_prompt_func, NULL,
+			history_previous, history_next,
+			NULL, NULL
+		};
+		set_unbuffered();
+		buffer_size = rline((char *)&buffer, LINE_LEN, &callbacks);
+		set_buffered();
 
-		/* Attempt to open the command */
-		FILE * file = NULL; //fopen(tokens[0], "r");
-		if (!strstr(tokens[0],"/")) {
-			cmd = malloc(sizeof(char) * (strlen(tokens[0]) + strlen("/bin/") + 1));
-			sprintf(cmd, "%s%s", "/bin/", tokens[0]);
-			file = fopen(cmd,"r");
-			if (!file) {
-				printf("Command not found: %s\n", tokens[0]);
-				last_ret = 1;
-				free(cmd);
-				continue;
-			}
-			fclose(file);
-		} else {
-			file = fopen(tokens[0], "r");
-			if (!file) {
-				printf("Command not found: %s\n", tokens[0]);
-				last_ret = 1;
-				free(cmd);
-				continue;
-			}
-			fclose(file);
-		}
+		last_ret = shell_exec(buffer, buffer_size);
+		shell_scroll = 0;
 
-
-		uint32_t f = fork();
-		if (getpid() != pid) {
-			int i = execve(cmd, tokens, NULL);
-			return i;
-		} else {
-			if (!nowait) {
-				child = f;
-				last_ret = syscall_wait(f);
-				child = 0;
-			}
-			free(cmd);
-		}
 	}
+
 exit:
 
 	return 0;
+}
+
+/*
+ * cd [path]
+ */
+uint32_t shell_cmd_cd(int argc, char * argv[]) {
+	if (argc > 1) {
+		if (chdir(argv[1])) {
+			fprintf(stderr, "%s: could not cd '%s': no such file or directory\n", argv[0], argv[1]);
+			return 1;
+		} /* else success */
+	} else /* argc < 2 */ {
+		char home_path[512];
+		sprintf(home_path, "/home/%s", username);
+		if (chdir(home_path)) {
+			fprintf(stderr, "%s: could not cd %s': no such file or directory\n", argv[0], argv[1]);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * history
+ */
+uint32_t shell_cmd_history(int argc, char * argv[]) {
+	for (size_t i = 0; i < shell_history_count; ++i) {
+		printf("%d\t%s\n", i + 1, shell_history_get(i));
+	}
+	return 0;
+}
+
+void install_commands() {
+	shell_install_command("cd",      shell_cmd_cd);
+	shell_install_command("history", shell_cmd_history);
 }
