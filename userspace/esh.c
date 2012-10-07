@@ -480,6 +480,25 @@ void tab_complete_func(rline_context_t * context) {
 					context->tabbed = 1;
 					return;
 				}
+				j = count;
+				char tmp[1024];
+				memcpy(tmp, argv[0], strlen(argv[0])+1);
+				while (j == count) {
+					j = 0;
+					int x = strlen(tmp);
+					tmp[x] = match[x];
+					tmp[x+1] = '\0';
+					for (int i = 0; i < shell_commands_len; ++i) {
+						if (strstr(shell_commands[i], tmp) == shell_commands[i]) {
+							j++;
+						}
+					}
+				}
+				tmp[strlen(tmp)-1] = '\0';
+				memcpy(context->buffer, tmp, strlen(tmp) + 1);
+				context->collected = strlen(context->buffer);
+				context->offset = context->collected;
+				j = 0;
 				fprintf(stderr, "\n");
 				for (int i = 0; i < shell_commands_len; ++i) {
 					if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
@@ -568,9 +587,11 @@ int shell_exec(char * buffer, size_t buffer_size) {
 		return 0;
 	}
 
-	char * history = malloc(sizeof(char) * (buffer_size + 1));
-	memcpy(history, buffer, (buffer_size + 1));
-	shell_history_insert(history);
+	if (buffer[0] != ' ') {
+		char * history = malloc(sizeof(char) * (buffer_size + 1));
+		memcpy(history, buffer, (buffer_size + 1));
+		shell_history_insert(history);
+	}
 
 	char * argv[1024];
 	int tokenid = 0;
