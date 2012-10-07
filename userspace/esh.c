@@ -44,6 +44,9 @@ void shell_history_insert(char * str) {
 			return;
 		}
 	}
+	if (str[strlen(str)-1] == '\n') {
+		str[strlen(str)-1] = '\0';
+	}
 	if (shell_history_count == SHELL_HISTORY_ENTRIES) {
 		free(shell_history[shell_history_offset]);
 		shell_history[shell_history_offset] = str;
@@ -51,6 +54,21 @@ void shell_history_insert(char * str) {
 	} else {
 		shell_history[shell_history_count] = str;
 		shell_history_count++;
+	}
+}
+
+void shell_history_append_line(char * str) {
+	if (shell_history_count) {
+		char ** s = &shell_history[(shell_history_count - 1 + shell_history_offset) % SHELL_HISTORY_ENTRIES];
+		char * c = malloc(strlen(*s) + strlen(str) + 2);
+		sprintf(c, "%s\n%s", *s, str);
+		if (c[strlen(c)-1] == '\n') {
+			c[strlen(c)-1] = '\0';
+		}
+		free(*s);
+		*s = c;
+	} else {
+		/* wat */
 	}
 }
 
@@ -271,7 +289,7 @@ typedef struct {
 } rline_callbacks_t;
 
 void rline_redraw(rline_context_t * context) {
-	printf("%s", context->buffer);
+	printf("\033[u%s\033[K", context->buffer);
 	for (int i = context->offset; i < context->collected; ++i) {
 		printf("\033[D");
 	}
@@ -289,6 +307,9 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 		0,
 		0,
 	};
+
+	printf("\033[s");
+	fflush(stdout);
 
 	/* Read keys */
 	while ((context.collected < context.requested) && (!context.newline)) {
@@ -555,6 +576,8 @@ void reverse_search(rline_context_t * context) {
 	char input[512] = {0};
 	size_t collected = 0;
 	int start_at = 0;
+	fprintf(stderr, "\033[G\033[s");
+	fflush(stderr);
 	while (1) {
 		/* Find matches */
 		char * match = "";
@@ -581,7 +604,7 @@ try_rev_search_again:
 				}
 			}
 		}
-		fprintf(stderr, "\033[G(reverse-i-search)`%s': %s\033[K", input, match);
+		fprintf(stderr, "\033[u(reverse-i-search)`%s': %s\033[K", input, match);
 		fflush(stderr);
 		uint32_t key_sym = kbd_key(fgetc(stdin));
 		switch (key_sym) {
@@ -628,7 +651,7 @@ void history_previous(rline_context_t * context) {
 		}
 		char * h = shell_history_prev(shell_scroll);
 		memcpy(context->buffer, h, strlen(h) + 1);
-		printf("%s", h);
+		printf("\033[u%s\033[K", h);
 		fflush(stdout);
 	}
 	context->collected = strlen(context->buffer);
@@ -651,7 +674,7 @@ void history_next(rline_context_t * context) {
 		}
 		shell_scroll = 0;
 		memcpy(context->buffer, shell_temp, strlen(shell_temp) + 1);
-		printf("%s", context->buffer);
+		printf("\033[u%s\033[K", context->buffer);
 		fflush(stdout);
 	}
 	context->collected = strlen(context->buffer);
@@ -804,6 +827,7 @@ _done:
 		if (quoted) {
 			draw_prompt_c();
 			buffer_size = read_entry_continued(buffer);
+			shell_history_append_line(buffer);
 			continue;
 		}
 

@@ -878,7 +878,9 @@ void term_write(char c) {
 			cell_redraw(csr_x,csr_y);
 			csr_x = 0;
 		} else if (c == '\b') {
-			--csr_x;
+			if (csr_x > 0) {
+				--csr_x;
+			}
 			cell_set(csr_x, csr_y, ' ',current_fg, current_bg, state.flags);
 			cell_redraw(csr_x, csr_y);
 		} else if (c == '\t') {
