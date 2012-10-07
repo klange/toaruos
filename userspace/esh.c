@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <dirent.h>
 
 #include "lib/list.h"
 
@@ -99,6 +100,8 @@ int kbd_state = 0;
 
 #define KEY_NONE        0
 #define KEY_BACKSPACE   8
+#define KEY_CTRL_C      3
+#define KEY_CTRL_R      18
 #define KEY_ESCAPE      27
 #define KEY_NORMAL_MAX  256
 #define KEY_ARROW_UP    257
@@ -249,6 +252,7 @@ typedef struct {
 	int     newline;
 	int     cancel;
 	int     offset;
+	int     tabbed;
 } rline_context_t;
 
 typedef void (*rline_callback_t)(rline_context_t * context);
@@ -280,6 +284,7 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 		0,
 		0,
 		0,
+		0,
 	};
 
 	/* Read keys */
@@ -287,6 +292,10 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 		uint32_t key_sym = kbd_key(fgetc(stdin));
 		if (key_sym == KEY_NONE) continue;
 		switch (key_sym) {
+			case KEY_CTRL_C:
+				printf("^C\n");
+				context.buffer[0] = '\0';
+				return 0;
 			case KEY_ARROW_UP:
 				if (callbacks->key_up) {
 					callbacks->key_up(&context);
@@ -421,6 +430,7 @@ void tab_complete_func(rline_context_t * context) {
 		argc = 1;
 	} else {
 		while (pch != NULL) {
+			argv[argc] = (char *)pch;
 			++argc;
 			pch = strtok_r(NULL, " ", &save);
 		}
@@ -430,6 +440,10 @@ void tab_complete_func(rline_context_t * context) {
 
 	if (argc < 2) {
 		if (context->buffer[strlen(context->buffer) - 1] == ' ' || argc == 0) {
+			if (!context->tabbed) {
+				context->tabbed = 1;
+				return;
+			}
 			fprintf(stderr, "\n");
 			for (int i = 0; i < shell_commands_len; ++i) {
 				fprintf(stderr, "%s", shell_commands[i]);
@@ -446,6 +460,7 @@ void tab_complete_func(rline_context_t * context) {
 			char * match = NULL;
 			for (int i = 0; i < shell_commands_len; ++i) {
 				if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
+					//fprintf(stderr, "%s matches %s\n", argv[0], shell_commands[i]);
 					count++;
 					match = shell_commands[i];
 				}
@@ -461,6 +476,10 @@ void tab_complete_func(rline_context_t * context) {
 				context->offset = context->collected;
 				return;
 			} else {
+				if (!context->tabbed) {
+					context->tabbed = 1;
+					return;
+				}
 				fprintf(stderr, "\n");
 				for (int i = 0; i < shell_commands_len; ++i) {
 					if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
@@ -478,7 +497,7 @@ void tab_complete_func(rline_context_t * context) {
 			}
 		}
 	} else {
-		/* XXX */
+		/* XXX Should complete to file names here */
 		fprintf(stderr, "%d\n", argc);
 	}
 }
@@ -612,6 +631,45 @@ int shell_exec(char * buffer, size_t buffer_size) {
 	}
 }
 
+void add_path_contents() {
+	DIR * dirp = opendir("/bin");
+
+	struct dirent * ent = readdir(dirp);
+	while (ent != NULL) {
+		if (ent->d_name[0] != '.') {
+			char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
+			memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
+			shell_install_command(s, NULL);
+		}
+
+		ent = readdir(dirp);
+	}
+	closedir(dirp);
+
+}
+
+struct command {
+	char * string;
+	void * func;
+};
+
+static int comp_shell_commands(const void *p1, const void *p2) {
+	return strcmp(((struct command *)p1)->string, ((struct command *)p2)->string);
+}
+
+void sort_commands() {
+	struct command commands[SHELL_COMMANDS];
+	for (int i = 0; i < shell_commands_len; ++i) {
+		commands[i].string = shell_commands[i];
+		commands[i].func   = shell_pointers[i];
+	}
+	qsort(&commands, shell_commands_len, sizeof(struct command), comp_shell_commands);
+	for (int i = 0; i < shell_commands_len; ++i) {
+		shell_commands[i] = commands[i].string;
+		shell_pointers[i] = commands[i].func;
+	}
+}
+
 int main(int argc, char ** argv) {
 	int  nowait = 0;
 	int  free_cmd = 0;
@@ -639,7 +697,8 @@ int main(int argc, char ** argv) {
 	}
 
 	install_commands();
-	//add_path_contents()
+	add_path_contents();
+	sort_commands();
 	while (1) {
 		draw_prompt(last_ret);
 		char buffer[LINE_LEN] = {0};
