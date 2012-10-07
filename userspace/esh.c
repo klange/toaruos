@@ -456,16 +456,19 @@ void tab_complete_func(rline_context_t * context) {
 			rline_redraw(context);
 			return;
 		} else {
-			int count = 0, j = 0;
+			int j = 0;
+			list_t * matches = list_create();
 			char * match = NULL;
 			for (int i = 0; i < shell_commands_len; ++i) {
 				if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
-					//fprintf(stderr, "%s matches %s\n", argv[0], shell_commands[i]);
-					count++;
+					list_insert(matches, shell_commands[i]);
 					match = shell_commands[i];
 				}
 			}
-			if (count == 1) {
+			if (matches->length == 0) {
+				list_free(matches);
+				return;
+			} else if (matches->length == 1) {
 				for (int j = 0; j < strlen(context->buffer); ++j) {
 					printf("\010 \010");
 				}
@@ -474,22 +477,26 @@ void tab_complete_func(rline_context_t * context) {
 				memcpy(context->buffer, match, strlen(match) + 1);
 				context->collected = strlen(context->buffer);
 				context->offset = context->collected;
+				list_free(matches);
 				return;
-			} else {
+			} else  {
 				if (!context->tabbed) {
 					context->tabbed = 1;
+					list_free(matches);
 					return;
 				}
-				j = count;
+				j = matches->length;
 				char tmp[1024];
 				memcpy(tmp, argv[0], strlen(argv[0])+1);
-				while (j == count) {
+				while (j == matches->length) {
 					j = 0;
 					int x = strlen(tmp);
 					tmp[x] = match[x];
 					tmp[x+1] = '\0';
-					for (int i = 0; i < shell_commands_len; ++i) {
-						if (strstr(shell_commands[i], tmp) == shell_commands[i]) {
+					node_t * node;
+					foreach(node, matches) {
+						char * match = (char *)node->value;
+						if (strstr(match, tmp) == match) {
 							j++;
 						}
 					}
@@ -500,18 +507,19 @@ void tab_complete_func(rline_context_t * context) {
 				context->offset = context->collected;
 				j = 0;
 				fprintf(stderr, "\n");
-				for (int i = 0; i < shell_commands_len; ++i) {
-					if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
-						fprintf(stderr, "%s", shell_commands[i]);
-						++j;
-						if (j < count) {
-							fprintf(stderr, ", ");
-						}
+				node_t * node;
+				foreach(node, matches) {
+					char * match = (char *)node->value;
+					fprintf(stderr, "%s", match);
+					++j;
+					if (j < matches->length) {
+						fprintf(stderr, ", ");
 					}
 				}
 				fprintf(stderr, "\n");
 				redraw_prompt_func(context);
 				rline_redraw(context);
+				list_free(matches);
 				return;
 			}
 		}

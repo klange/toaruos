@@ -55,6 +55,11 @@ $(TARGETDIR)%: %.c
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
+$(TARGETDIR)esh: esh.c lib/list.o
+	@${BEG} "CC" "$<"
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/list.o ${ERRORS}
+	@${END} "CC" "$<"
+
 lib/shmemfonts.o: lib/shmemfonts.c
 	@${BEG} "CC" "$< [lib]"
 	@${CC} ${CFLAGS} -c ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${ERRORS}
