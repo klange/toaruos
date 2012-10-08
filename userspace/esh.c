@@ -599,6 +599,7 @@ void tab_complete_func(rline_context_t * context) {
 				}
 				fprintf(stderr, "\n");
 				redraw_prompt_func(context);
+				fprintf(stderr, "\033[s");
 				rline_redraw(context);
 				list_free(matches);
 				return;
