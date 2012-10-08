@@ -5,45 +5,11 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-BEG=$DIR/../util/mk-beg
-END=$DIR/../util/mk-end
-INFO=$DIR/../util/mk-info
-
-function grab () {
-    $BEG "wget" "Pulling $1... [$2/$3]"
-    if [ ! -f "$3" ]; then
-        wget -q "$2/$3"
-        $END "wget" "$1"
-    else
-        $END "-" "Already have a $1"
-    fi
-}
-
-function deco () {
-    $BEG "tar" "Un-archiving $1..."
-    tar -xf $2
-    $END "tar" "$1"
-}
-
-function patc () {
-    $BEG "patch" "Patching $1..."
-    pushd "$2" > /dev/null
-    patch -p1 < ../../patches/$2.patch > /dev/null
-    popd > /dev/null
-    $END "patch" "$1"
-}
+. $DIR/util.sh
 
 function deleteUnusedGCC () {
     # These directories are not used and are primarily for support of unnecessarily libraries like Java and the testsuite.
     rm -r $1/boehm-gc $1/gcc/ada $1/gcc/go $1/gcc/java $1/gcc/objc $1/gcc/objcp $1/gcc/testsuite $1/gnattools $1/libada $1/libffi $1/libgo $1/libjava $1/libobjc 
-}
-
-function installNewlibStuff () {
-    cp -r ../patches/newlib/toaru $1/newlib/libc/sys/toaru
-    cp -r ../patches/newlib/syscall.h $1/newlib/libc/sys/toaru/syscall.h
-    # dlmalloc
-    cp -r ../patches/newlib/malloc.c $1/newlib/libc/stdlib/malloc.c
-    cp -r ../patches/newlib/setjmp.S $1/newlib/libc/machine/i386/setjmp.S
 }
 
 pushd "$DIR" > /dev/null

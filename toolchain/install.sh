@@ -1,16 +1,8 @@
 #!/bin/bash
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-BEG=$DIR/../util/mk-beg
-END=$DIR/../util/mk-end
-INFO=$DIR/../util/mk-info
-
 . $DIR/config.sh
-
-function bail () {
-    echo -e "\033[1;31mBuild failed. Please check the logs above to see what went wrong.\033[0m"
-    exit 1
-}
+. $DIR/util.sh
 
 pushd build
     if [ ! -d binutils ]; then
