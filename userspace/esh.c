@@ -1032,8 +1032,7 @@ void collect_environment(int argc, char ** argv) {
 	unsigned int x = 0;
 	unsigned int nulls = 0;
 	memset(envp, 0x00, sizeof(char *) * ENV_SIZE);
-#if 0
-	while (1) {
+	for (x = 0; 1; ++x) {
 		if (!argv[x]) {
 			++nulls;
 			if (nulls == 2) {
@@ -1044,19 +1043,17 @@ void collect_environment(int argc, char ** argv) {
 		if (nulls == 1) {
 			_setenv(argv[x]);
 		}
-		++x;
 	}
-#endif
 }
 
 int main(int argc, char ** argv) {
+	collect_environment(argc, argv);
+
 	int  nowait = 0;
 	int  free_cmd = 0;
 	int  last_ret = 0;
 
 	pid = getpid();
-
-	collect_environment(argc, argv);
 
 	syscall_signal(2, sig_int);
 
@@ -1141,9 +1138,19 @@ uint32_t shell_cmd_export(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_exit(int argc, char * argv[]) {
+	if (argc > 1) {
+		exit(atoi(argv[1]));
+	} else {
+		exit(0);
+	}
+	return -1;
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd);
 	shell_install_command("history", shell_cmd_history);
 	shell_install_command("export",  shell_cmd_export);
 	shell_install_command("test",    shell_cmd_test);
+	shell_install_command("exit",    shell_cmd_exit);
 }
