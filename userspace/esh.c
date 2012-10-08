@@ -19,21 +19,57 @@
 
 #include "lib/list.h"
 
-#define SHELL_COMMANDS 512
+/* Environment Variables */
+#define ENV_SIZE 1024
+char * envp[ENV_SIZE];
+size_t envc;
+
+int env_find(char * variable) {
+	char key[512];
+	sprintf(key, "%s=", variable);
+	for (int i = 0; i < envc; ++i) {
+		if (strstr(envp[i], key) == envp[i]) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void _setenv(char * val) {
+	char * newval = malloc(strlen(val) + 1);
+	memcpy(newval, val, strlen(val) + 1);
+	char * k = val;
+	if (!strstr(k, "=")) return;
+	char * v = strtok(k, "=");
+	int index = env_find(k);
+	if (index < 0) {
+		envp[envc] = newval;
+		envc++;
+	} else {
+		envp[index] = realloc(envp[index], strlen(newval) + 1);
+	}
+}
+
+/* A shell command is like a C program */
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
-char * shell_commands[SHELL_COMMANDS];
-shell_command_t shell_pointers[SHELL_COMMANDS];
+
+/* We have a static array that fits a certain number of them. */
+#define SHELL_COMMANDS 512
+char * shell_commands[SHELL_COMMANDS];          /* Command names */
+shell_command_t shell_pointers[SHELL_COMMANDS]; /* Command functions */
+
+/* This is the number of actual commands installed */
 uint32_t shell_commands_len = 0;
 
+/* We also support history through a circular buffer. */
 #define SHELL_HISTORY_ENTRIES 128
 char * shell_history[SHELL_HISTORY_ENTRIES];
 size_t shell_history_count  = 0;
 size_t shell_history_offset = 0;
-
 size_t shell_scroll = 0;
 char   shell_temp[1024];
 
-int pid;
+int pid; /* Process ID of the shell */
 
 char * shell_history_prev(size_t item);
 
@@ -624,7 +660,6 @@ try_rev_search_again:
 				start_at = match_index + 1;
 				break;
 			case '\n':
-				/* XXX execute */
 				memcpy(context->buffer, match, strlen(match) + 1);
 				context->collected = strlen(match);
 				context->offset = context->collected;
@@ -714,6 +749,14 @@ size_t read_entry_continued(char * buffer) {
 	return buffer_size;
 }
 
+inline int variable_char(uint8_t c) {
+	if (c >= 65 && c <= 90)  return 1;
+	if (c >= 97 && c <= 122) return 1;
+	if (c >= 48 && c <= 57)  return 1;
+	if (c == 95) return 1;
+	return 0;
+}
+
 int shell_exec(char * buffer, size_t buffer_size) {
 
 	/* Read previous history entries */
@@ -754,6 +797,44 @@ int shell_exec(char * buffer, size_t buffer_size) {
 
 		while (*p) {
 			switch (*p) {
+				case '$':
+					if (quoted != '\'') {
+						p++;
+						char var[100];
+						int  coll = 0;
+						if (*p == '{') {
+							p++;
+							while (*p != '}' && *p != '\0' && (coll < 100)) {
+								var[coll] = *p;
+								coll++;
+								var[coll] = '\0';
+								p++;
+							}
+							if (*p == '}') {
+								p++;
+							}
+						} else {
+							while (*p != '\0' && variable_char(*p) && (coll < 100)) {
+								var[coll] = *p;
+								coll++;
+								var[coll] = '\0';
+								p++;
+							}
+						}
+						int i = env_find(var);
+						if (i >= 0) {
+							char * c = strstr(envp[i], "=");
+							c++;
+							backtick = 0;
+							for (int i = 0; i < strlen(c); ++i) {
+								buffer_[collected] = c[i];
+								collected++;
+							}
+							buffer_[collected] = '\0';
+						}
+						continue;
+					}
+					goto _next;
 				case '\"':
 					if (quoted == '\"') {
 						if (backtick) {
@@ -893,7 +974,7 @@ _done:
 
 		uint32_t f = fork();
 		if (getpid() != pid) {
-			int i = execve(cmd, argv, NULL);
+			int i = execve(cmd, argv, envp);
 			return i;
 		} else {
 			int ret_code = 0;
@@ -947,12 +1028,35 @@ void sort_commands() {
 	}
 }
 
+void collect_environment(int argc, char ** argv) {
+	unsigned int x = 0;
+	unsigned int nulls = 0;
+	memset(envp, 0x00, sizeof(char *) * ENV_SIZE);
+#if 0
+	while (1) {
+		if (!argv[x]) {
+			++nulls;
+			if (nulls == 2) {
+				break;
+			}
+			continue;
+		}
+		if (nulls == 1) {
+			_setenv(argv[x]);
+		}
+		++x;
+	}
+#endif
+}
+
 int main(int argc, char ** argv) {
 	int  nowait = 0;
 	int  free_cmd = 0;
 	int  last_ret = 0;
 
 	pid = getpid();
+
+	collect_environment(argc, argv);
 
 	syscall_signal(2, sig_int);
 
@@ -1022,7 +1126,24 @@ uint32_t shell_cmd_history(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_test(int argc, char * argv[]) {
+	printf("%d arguments.\n", argc);
+	for (int i = 0; i < argc; ++i) {
+		printf("%d -> %s\n", i, argv[i]);
+	}
+	return argc;
+}
+
+uint32_t shell_cmd_export(int argc, char * argv[]) {
+	if (argc > 1) {
+		_setenv(argv[1]);
+	}
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd);
 	shell_install_command("history", shell_cmd_history);
+	shell_install_command("export",  shell_cmd_export);
+	shell_install_command("test",    shell_cmd_test);
 }

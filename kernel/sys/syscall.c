@@ -182,22 +182,35 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	validate((void *)argv);
 	validate((void *)filename);
 	validate((void *)envp);
-	int i = 0;
-	while (argv[i]) {
-		++i;
+	int argc = 0, envc = 0;
+	while (argv[argc]) { ++argc; }
+	if (envp) {
+		while (envp[envc]) { ++envc; }
 	}
 	debug_print(INFO, "Allocating space for arguments...");
-	char ** argv_ = malloc(sizeof(char *) * i);
-	for (int j = 0; j < i; ++j) {
+	char ** argv_ = malloc(sizeof(char *) * argc);
+	for (int j = 0; j < argc; ++j) {
 		argv_[j] = malloc((strlen(argv[j]) + 1) * sizeof(char));
 		memcpy(argv_[j], argv[j], strlen(argv[j]) + 1);
+	}
+	char ** envp_;
+	if (envp && envc) {
+		envp_ = malloc(sizeof(char *) * (envc + 1));
+		for (int j = 0; j < envc; ++j) {
+			envp_[j] = malloc((strlen(envp[j]) + 1) * sizeof(char));
+			memcpy(envp_[j], envp[j], strlen(envp[j]) + 1);
+		}
+		envp_[envc] = 0;
+	} else {
+		envp_ = malloc(sizeof(char *));
+		envp_[0] = NULL;
 	}
 	debug_print(INFO,"Releasing all shmem regions...");
 	shm_release_all((process_t *)current_process);
 
 	debug_print(INFO,"Executing...");
 	/* Discard envp */
-	exec((char *)filename, i, (char **)argv_);
+	exec((char *)filename, argc, (char **)argv_, (char **)envp_);
 	return -1;
 }
 

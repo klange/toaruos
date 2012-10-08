@@ -123,6 +123,11 @@ typedef struct {
 	Elf32_Word sh_entsize;
 } Elf32_Shdr;
 
+typedef struct {
+	uint32_t  id;
+	uintptr_t ptr;
+} Elf32_auxv;
+
 /* sh_type values */
 #define SHT_NONE     0
 #define SHT_PROGBITS 1

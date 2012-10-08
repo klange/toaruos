@@ -35,7 +35,8 @@ int
 exec(
 		char *  path, /* Path to the executable to run */
 		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
-		char ** argv  /* Argument strings (including executable path) */
+		char ** argv, /* Argument strings (including executable path) */
+		char ** env   /* Environmen variables */
 	) {
 
 	/* Open the file */
@@ -110,10 +111,27 @@ exec(
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
 	}
 
+	/* Collect arguments */
+	int envc = 0;
+	for (envc = 0; env[envc] != NULL; ++envc);
+	
+	/* Format auxv */
+	Elf32_auxv auxv[] = {
+		{256, 0xDEADBEEF},
+		{0, 0}
+	};
+	int auxvc = 0;
+	for (auxvc = 0; auxv[auxvc].id != 0; ++auxvc);
+
 	uintptr_t heap = current_process->image.entry + current_process->image.size;
 	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
 	char ** argv_ = (char **)heap;
 	heap += sizeof(char *) * (argc + 1);
+	char ** env_ = (char **)heap;
+	heap += sizeof(char *) * (envc + 1);
+	void * auxv_ptr = (void *)heap;
+	heap += sizeof(Elf32_auxv) * (auxvc);
+
 	for (int i = 0; i < argc; ++i) {
 		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
 		argv_[i] = (char *)heap;
@@ -122,6 +140,16 @@ exec(
 	}
 	/* Don't forget the NULL at the end of that... */
 	argv_[argc] = 0;
+
+	for (int i = 0; i < envc; ++i) {
+		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+		env_[i] = (char *)heap;
+		memcpy((void *)heap, env[i], strlen(env[i]) * sizeof(char) + 1);
+		heap += strlen(env[i]) + 1;
+	}
+	env_[envc] = 0;
+
+	memcpy(auxv_ptr, auxv, sizeof(Elf32_auxv) * (auxvc));
 
 	current_process->image.heap        = heap; /* heap end */
 	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
@@ -135,7 +163,7 @@ exec(
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, USER_STACK_TOP);
 
-		/* We should never reach this code */
+	/* We should never reach this code */
 	return -1;
 }
 
@@ -147,7 +175,8 @@ system(
 	) {
 	int child = fork();
 	if (child == 0) {
-		exec(path,argc,argv);
+		char * env[] = {NULL};
+		exec(path,argc,argv,env);
 		debug_print(ERROR, "Failed to execute process!");
 		kexit(-1);
 		return -1;

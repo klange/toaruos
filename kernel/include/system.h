@@ -323,7 +323,7 @@ void set_fpu_cw(const uint16_t);
 void enable_fpu();
 
 /* ELF */
-int exec( char *, int, char **);
+int exec( char *, int, char **, char **);
 int system( char *, int, char **);
 
 /* Sytem Calls */
