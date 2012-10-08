@@ -9,12 +9,12 @@ int main(int argc, char * argv[]) {
 	int _wallpaper_pid = fork();
 	if (!_wallpaper_pid) {
 		char * args[] = {"/bin/wallpaper", NULL};
-		execve(args[0], args, NULL);
+		execvp(args[0], args);
 	}
 	int _panel_pid = fork();
 	if (!_panel_pid) {
 		char * args[] = {"/bin/panel", NULL};
-		execve(args[0], args, NULL);
+		execvp(args[0], args);
 	}
 
 	syscall_wait(_panel_pid);

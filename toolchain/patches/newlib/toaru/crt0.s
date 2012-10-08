@@ -4,8 +4,8 @@ BITS 32
 global _start
 _start:             ; Global entry point
 	pop    eax      ; Our stack is slightly off
-	extern main     ;
-	call   main     ; call C main function
+	extern pre_main     ;
+	call   pre_main     ; call C main function
 	mov    ebx, eax ; return value from main
 	mov    eax, 0x0 ; sys_exit
 	int    0x7F     ; syscall

@@ -115,7 +115,7 @@ int main(int argc, char ** argv) {
 				NULL
 			};
 			syscall_setuid(uid);
-			int i = execve(args[0], args, NULL);
+			int i = execvp(args[0], args);
 		} else {
 			child = f;
 			syscall_wait(f);

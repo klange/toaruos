@@ -19,37 +19,6 @@
 
 #include "lib/list.h"
 
-/* Environment Variables */
-#define ENV_SIZE 1024
-char * envp[ENV_SIZE];
-size_t envc;
-
-int env_find(char * variable) {
-	char key[512];
-	sprintf(key, "%s=", variable);
-	for (int i = 0; i < envc; ++i) {
-		if (strstr(envp[i], key) == envp[i]) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-void _setenv(char * val) {
-	char * newval = malloc(strlen(val) + 1);
-	memcpy(newval, val, strlen(val) + 1);
-	char * k = val;
-	if (!strstr(k, "=")) return;
-	char * v = strtok(k, "=");
-	int index = env_find(k);
-	if (index < 0) {
-		envp[envc] = newval;
-		envc++;
-	} else {
-		envp[index] = realloc(envp[index], strlen(newval) + 1);
-	}
-}
-
 /* A shell command is like a C program */
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
 
@@ -822,10 +791,8 @@ int shell_exec(char * buffer, size_t buffer_size) {
 								p++;
 							}
 						}
-						int i = env_find(var);
-						if (i >= 0) {
-							char * c = strstr(envp[i], "=");
-							c++;
+						char *c = getenv(var);
+						if (c) {
 							backtick = 0;
 							for (int i = 0; i < strlen(c); ++i) {
 								buffer_[collected] = c[i];
@@ -975,7 +942,7 @@ _done:
 
 		uint32_t f = fork();
 		if (getpid() != pid) {
-			int i = execve(cmd, argv, envp);
+			int i = execvp(cmd, argv);
 			return i;
 		} else {
 			int ret_code = 0;
@@ -1029,26 +996,7 @@ void sort_commands() {
 	}
 }
 
-void collect_environment(int argc, char ** argv) {
-	unsigned int x = 0;
-	unsigned int nulls = 0;
-	memset(envp, 0x00, sizeof(char *) * ENV_SIZE);
-	for (x = 0; 1; ++x) {
-		if (!argv[x]) {
-			++nulls;
-			if (nulls == 2) {
-				break;
-			}
-			continue;
-		}
-		if (nulls == 1) {
-			_setenv(argv[x]);
-		}
-	}
-}
-
 int main(int argc, char ** argv) {
-	collect_environment(argc, argv);
 
 	int  nowait = 0;
 	int  free_cmd = 0;
@@ -1134,7 +1082,7 @@ uint32_t shell_cmd_test(int argc, char * argv[]) {
 
 uint32_t shell_cmd_export(int argc, char * argv[]) {
 	if (argc > 1) {
-		_setenv(argv[1]);
+		putenv(argv[1]);
 	}
 	return 0;
 }

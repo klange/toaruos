@@ -1260,6 +1260,8 @@ int main(int argc, char ** argv) {
 		}
 	}
 
+	putenv("TERM=toaru");
+
 	if (_windowed) {
 		/* Initialize the windowing library */
 		setup_windowing();
@@ -1346,7 +1348,7 @@ int main(int argc, char ** argv) {
 
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};
-			int i = execve(tokens[0], tokens, NULL);
+			int i = execvp(tokens[0], tokens);
 			printf("Failed to execute requested startup application `%s`!\n", argv[optind]);
 			printf("Your system is now unusable, and a restart will not be attempted.\n");
 			syscall_print("core-tests : FATAL : Failed to execute requested startup binary.\n");
@@ -1356,10 +1358,10 @@ int main(int argc, char ** argv) {
 			 */
 			if (_login_shell) {
 				char * tokens[] = {"/bin/login",NULL};
-				int i = execve(tokens[0], tokens, NULL);
+				int i = execvp(tokens[0], tokens);
 			} else {
 				char * tokens[] = {"/bin/esh",NULL};
-				int i = execve(tokens[0], tokens, NULL);
+				int i = execvp(tokens[0], tokens);
 			}
 		}
 

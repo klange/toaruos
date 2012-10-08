@@ -23,12 +23,12 @@ int main (int argc, char ** argv) {
 	if (getpid() != pid) {
 		// Child: client
 		tokens[0] = "/bin/shm_client";
-		execve(tokens[0], tokens, NULL);
+		execvp(tokens[0], tokens);
 		return 3;
 	} else {
 		// Parent: server
 		tokens[0] = "/bin/shm_server";
-		execve(tokens[0], tokens, NULL);
+		execvp(tokens[0], tokens);
 		return 4;
 	}
 

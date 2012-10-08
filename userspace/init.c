@@ -27,6 +27,7 @@ void set_hostname() {
 			buf[strlen(buf)-1] = '\0';
 		}
 		syscall_sethostname(buf);
+		setenv("HOST", buf, 1);
 		fclose(_host_file);
 	}
 }
@@ -40,7 +41,7 @@ void start_terminal(char * arg) {
 			arg,
 			NULL
 		};
-		int i = execve(tokens[0], tokens, NULL);
+		int i = execvp(tokens[0], tokens);
 		exit(0);
 	} else {
 		syscall_wait(pid);
@@ -56,7 +57,7 @@ void start_terminal_no_freetype(char * arg) {
 			arg,
 			NULL
 		};
-		int i = execve(tokens[0], tokens, NULL);
+		int i = execv(tokens[0], tokens);
 		exit(0);
 	} else {
 		syscall_wait(pid);
@@ -72,7 +73,7 @@ void start_vga_terminal(char * arg) {
 			arg,
 			NULL
 		};
-		int i = execve(tokens[0], tokens, NULL);
+		int i = execvp(tokens[0], tokens);
 		exit(0);
 	} else {
 		syscall_wait(pid);
@@ -86,7 +87,7 @@ void start_compositor() {
 			"/bin/compositor",
 			NULL
 		};
-		int i = execve(tokens[0], tokens, NULL);
+		int i = execvp(tokens[0], tokens);
 		exit(0);
 	} else {
 		syscall_wait(pid);

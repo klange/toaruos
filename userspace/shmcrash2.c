@@ -26,7 +26,7 @@ int main (int argc, char ** argv) {
 	}
 
 	char * args[] = {"/bin/echo", "exec'd to echo\n", NULL};
-	execve(args[0], args, NULL);
+	execvp(args[0], args);
 
 	return 5;
 }

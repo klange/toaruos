@@ -63,10 +63,11 @@ DEFN_SYSCALL0(gettid, 41);
 DEFN_SYSCALL0(yield, 42);
 DEFN_SYSCALL2(system_function, 43, int, char **);
 
+extern char ** environ;
+
 // --- Process Control ---
 
 int _exit(int val){
-	printf("exit(%d)\n", val);
 	return syscall_exit(val);
 }
 
@@ -75,13 +76,12 @@ int execve(char *name, char **argv, char **env) {
 }
 
 int execvp(const char *file, char *const argv[]) {
-	fprintf(stderr, "execvp(%s,...);\n", file);
-	return syscall_execve(file,argv, NULL);
+	return syscall_execve(file,argv,environ);
 }
 
 int execv(const char * file, char *const argv[]) {
 	fprintf(stderr, "execv(%s,...);\n", file);
-	return syscall_execve(file,argv, NULL);
+	return syscall_execve(file,argv,environ);
 }
 
 /*
@@ -367,4 +367,23 @@ struct dirent * readdir (DIR * dirp) {
 long sysconf(int name) {
 	fprintf(stderr, "sysconf(%d);\n", name);
 	return -1;
+}
+
+void pre_main(int argc, char * argv[]) {
+	unsigned int x = 0;
+	unsigned int nulls = 0;
+	for (x = 0; 1; ++x) {
+		if (!argv[x]) {
+			++nulls;
+			if (nulls == 2) {
+				break;
+			}
+			continue;
+		}
+		if (nulls == 1) {
+			environ = &argv[x];
+			break;
+		}
+	}
+	main(argc, argv);
 }

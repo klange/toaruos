@@ -57,7 +57,7 @@ void launch_application(char * app) {
 		sprintf(name, "/bin/%s", app);
 		printf("Starting %s\n", name);
 		char * args[] = {name, NULL};
-		execve(args[0], args, NULL);
+		execvp(args[0], args);
 		exit(1);
 	}
 }

@@ -38,7 +38,7 @@ int main(int argc, char * argv[]) {
 	fclose(input);
 
 	char * args[] = {"/bin/compare", argv[1], argv[2], NULL };
-	execve(args[0], args, NULL);
+	execvp(args[0], args);
 
 	return 0;
 }

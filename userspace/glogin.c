@@ -299,7 +299,7 @@ _have_password:
 		if (!_session_pid) {
 			syscall_setuid(uid);
 			char * args[] = {"/bin/gsession", NULL};
-			execve(args[0], args, NULL);
+			execvp(args[0], args);
 		}
 
 		syscall_wait(_session_pid);

@@ -1251,7 +1251,7 @@ int main(int argc, char ** argv) {
 
 	if (!fork()) {
 		char * args[] = {"/bin/glogin", NULL};
-		execve(args[0], args, NULL);
+		execvp(args[0], args);
 	}
 
 	/* Sit in a run loop */
