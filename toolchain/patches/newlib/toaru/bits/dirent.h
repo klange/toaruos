@@ -1,10 +1,11 @@
 #ifndef DIRENT_H
 
-struct dirent {
+#include <stdint.h>
+
+typedef struct dirent {
 	uint32_t d_ino;
 	char d_name[256];
-};
-
+} dirent;
 
 typedef struct DIR {
 	int fd;
