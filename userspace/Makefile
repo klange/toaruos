@@ -23,7 +23,7 @@ LIBM = ${TOOLCHAIN}/lib/libm.a
 LIBZ = ${TOOLCHAIN}/lib/libz.a
 
 TARGETDIR = ../hdd/bin/
-ETARGETS = terminal login compositor view game-win drawlines glogin julia-win solver wallpaper panel glock clock-win draw test-gfx threadtest bim
+ETARGETS = terminal login compositor view game drawlines glogin julia solver wallpaper panel glock clock-win draw test-gfx threadtest bim
 FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 .PHONY: all clean
