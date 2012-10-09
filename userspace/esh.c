@@ -18,6 +18,7 @@
 #include <dirent.h>
 
 #include "lib/list.h"
+#include "lib/kbd.h"
 
 /* A shell command is like a C program */
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
@@ -115,72 +116,6 @@ void set_buffered() {
 }
 
 void install_commands();
-
-#define KBD_NORMAL 0
-#define KBD_ESC_A  1
-#define KBD_ESC_B  2
-#define KBD_FUNC   3
-
-int kbd_state = 0;
-
-#define KEY_NONE        0
-#define KEY_BACKSPACE   8
-#define KEY_CTRL_C      3
-#define KEY_CTRL_L      12
-#define KEY_CTRL_R      18
-#define KEY_ESCAPE      27
-#define KEY_NORMAL_MAX  256
-#define KEY_ARROW_UP    257
-#define KEY_ARROW_DOWN  258
-#define KEY_ARROW_RIGHT 259
-#define KEY_ARROW_LEFT  260
-#define KEY_BAD_STATE   -1
-
-uint32_t kbd_key(uint8_t c) {
-	switch (kbd_state) {
-		case KBD_NORMAL:
-			switch (c) {
-				case 0x1b:
-					kbd_state = KBD_ESC_A;
-					return KEY_NONE;
-				default:
-					return c;
-			}
-		case KBD_ESC_A:
-			switch (c) {
-				case 0x5b:
-					kbd_state = KBD_ESC_B;
-					return KEY_NONE;
-				default:
-					kbd_state = KBD_NORMAL;
-					return c;
-			}
-		case KBD_ESC_B:
-			switch (c) {
-				case 0x41:
-					kbd_state = KBD_NORMAL;
-					return KEY_ARROW_UP;
-				case 0x42:
-					kbd_state = KBD_NORMAL;
-					return KEY_ARROW_DOWN;
-				case 0x43:
-					kbd_state = KBD_NORMAL;
-					return KEY_ARROW_RIGHT;
-				case 0x44:
-					kbd_state = KBD_NORMAL;
-					return KEY_ARROW_LEFT;
-				default:
-				kbd_state = KBD_NORMAL;
-				return c;
-			}
-		default:
-			fprintf(stderr, "Keyboard in unknown state? Not sure what to do. kbd_state = %d\n", kbd_state);
-			return KEY_BAD_STATE;
-	}
-
-	return KEY_BAD_STATE;
-}
-
 
 /* Maximum command length */
 #define LINE_LEN 4096

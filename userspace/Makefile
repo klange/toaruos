@@ -26,6 +26,8 @@ TARGETDIR = ../hdd/bin/
 ETARGETS = terminal login compositor view game drawlines glogin julia solver wallpaper panel glock clock-win draw test-gfx threadtest bim
 FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
+LOCAL_LIBS = $(patsubst %.c,%.o,$(wildcard lib/*.c))
+
 .PHONY: all clean
 
 all: ${EXECUTABLES}
@@ -35,9 +37,9 @@ clean:
 	@-rm -f ${EXECUTABLES}
 	@${ENDRM} "RM" "Cleaned userspace full-toolchain applications."
 
-${FTARGETS}: $(TARGETDIR)% : %.c lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o lib/wcwidth.o
+${FTARGETS}: $(TARGETDIR)% : %.c ${LOCAL_LIBS}
 	@${BEG} "CC" "$@ $< [w/libs]"
-	@${CC} -flto ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< lib/graphics.o lib/list.o lib/window.o lib/sha2.o lib/decorations.o lib/pthread.o lib/shmemfonts.o lib/wcwidth.o ${LIBM} ${FREETYPE_LIB} ${LIBPNG} ${LIBZ} ${ERRORS}
+	@${CC} -flto ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${LOCAL_LIBS} ${LIBM} ${FREETYPE_LIB} ${LIBPNG} ${LIBZ} ${ERRORS}
 	@${END} "CC" "$< [w/libs]"
 
 $(TARGETDIR)%: %.cpp
@@ -55,9 +57,9 @@ $(TARGETDIR)%: %.c
 	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
-$(TARGETDIR)esh: esh.c lib/list.o
+$(TARGETDIR)esh: esh.c lib/list.o lib/kbd.o
 	@${BEG} "CC" "$<"
-	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/list.o ${ERRORS}
+	@${CC} ${CFLAGS} ${EXTRAFLAGS} -o $@ $< lib/list.o lib/kbd.o ${ERRORS}
 	@${END} "CC" "$<"
 
 lib/shmemfonts.o: lib/shmemfonts.c
