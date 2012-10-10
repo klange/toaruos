@@ -1,6 +1,10 @@
 # ToAruOS Primary Build Script
 # This script will pull either clang (with -fcolor-diagnostics), gcc (with no extra options), or cc
+#
+ifeq ($(CCC_ANALYZE),yes)
+else
 CC = `util/compiler`
+endif
 # Sometimes we just have to use GCC
 GCC = gcc
 # CFLAGS for core components
