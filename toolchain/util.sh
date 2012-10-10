@@ -30,7 +30,7 @@ function patc () {
 
 function installNewlibStuff () {
     cp -r ../patches/newlib/toaru $1/newlib/libc/sys/toaru
-    cp -r ../patches/newlib/syscall.h $1/newlib/libc/sys/toaru/syscall.h
+    cp -r ../patches/newlib/include/* $1/newlib/libc/sys/toaru/
     # dlmalloc
     cp -r ../patches/newlib/malloc.c $1/newlib/libc/stdlib/malloc.c
     cp -r ../patches/newlib/setjmp.S $1/newlib/libc/machine/i386/setjmp.S

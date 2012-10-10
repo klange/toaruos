@@ -9,13 +9,9 @@
 #include <assert.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "lib/utf8decode.h"
-
-struct timeval {
-	unsigned int tv_sec;
-	unsigned int tv_usec;
-};
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

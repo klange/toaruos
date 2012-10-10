@@ -16,6 +16,7 @@
 #include <errno.h>
 
 #include "syscall.h"
+#include "termios.h"
 #include <bits/dirent.h>
 
 DEFN_SYSCALL1(exit,  0, int);
@@ -387,3 +388,62 @@ void pre_main(int argc, char * argv[]) {
 	}
 	main(argc, argv);
 }
+
+
+/* termios */
+speed_t cfgetispeed(const struct termios * tio) {
+	return 0;
+}
+speed_t cfgetospeed(const struct termios * tio) {
+	return 0;
+}
+
+int cfsetispeed(struct termios * tio, speed_t speed) {
+	/* hahahaha, yeah right */
+	return -1;
+}
+
+int cfsetospeed(struct termios * tio, speed_t speed) {
+	return -1;
+}
+
+int tcdrain(int i) {
+	fprintf(stderr, "tcdrain(%d)\n", i);
+	return 0;
+}
+
+int tcflow(int a, int b) {
+	fprintf(stderr, "tcflow(%d,%d)\n", a, b);
+	return 0;
+}
+
+int tcflush(int a, int b) {
+	fprintf(stderr, "tcflow(%d,%d)\n", a, b);
+	return 0;
+}
+
+int tcgetattr(int fd, struct termios * tio) {
+	fprintf(stderr, "tcgetattr(%d, ...)\n", fd);
+	return 0;
+}
+
+pid_t tcgetsid(int fd) {
+	fprintf(stderr, "tcgetsid(%d)\n", fd);
+	return getpid();
+}
+
+int tcsendbreak(int a, int b) {
+	fprintf(stderr, "tcsendbreak(%d,%d)\n", a, b);
+	return 0;
+}
+
+int tcsetattr(int fd, int actions, struct termios * tio) {
+	fprintf(stderr, "tcsetattr(%d,%d,...)\n", fd, actions);
+	return 0;
+}
+
+int fpathconf(char * file, int name) {
+	fprintf(stderr, "fpathconf(%s,%d)\n", file, name);
+	return 0;
+}
+

@@ -12,11 +12,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
-
-struct timeval {
-	unsigned int tv_sec;
-	unsigned int tv_usec;
-};
+#include <sys/time.h>
 
 int main(int argc, char ** argv) {
 	if (!fork()) {

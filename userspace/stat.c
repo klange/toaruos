@@ -8,6 +8,8 @@
 #include <syscall.h>
 #include <stdint.h>
 
+#include <sys/time.h>
+
 int main(int argc, char ** argv) {
 	if (argc < 2) {
 		fprintf(stderr,"%s: expected argument\n", argv[0]);

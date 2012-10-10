@@ -43,7 +43,7 @@ pushd build
         $DIR/tarballs/newlib-1.19.0/configure --target=$TARGET --prefix=$PREFIX || bail
         make || bail
         make install || bail
-        cp $DIR/patches/newlib/syscall.h $PREFIX/$TARGET/include/
+        cp -r $DIR/patches/newlib/include/* $PREFIX/$TARGET/include/
     popd
     if [ ! -d freetype ]; then
         mkdir freetype
