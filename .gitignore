@@ -31,3 +31,4 @@ toolchain/tarballs
 toolchain/local
 toolchain/build
 .config
+toaru-pdfviewer
