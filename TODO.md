@@ -11,6 +11,28 @@
   * Screenshot functionality
   * Attempt an installer?
 
+# Doc Revamp
+
+* Get rid of old, outdated TeX/PDF manual
+* Build a modern doxygen-powered documentation system for
+  kernel functions for use by kernel developers.
+* Also include doxygen documentation for included libraries
+  (lib/graphics, etc.)
+
+# Keyboard Library
+
+* Capture all key events in kernel
+  * Send all of them through the keyboard device
+  * Include ctrl/alt/shift up/down
+* Do translations in library
+  * shift to key numbers
+  * ctrl/alt to modes
+* Convert to terminal codes in library
+  * For use in terminal, primarily
+* Revamp compositor keyboard events
+  * Focus on complete key events
+  * Add support for modes for ctrl/alt
+
 # TODO for Microkernel Launch (0.5.0?)
 
 * Replace ramdisks with ELF service executables
@@ -33,7 +55,6 @@
   * Compositor as a service
   * Compositor shmem names integrated with service discovery
 * For VFS, need better IPC for cross-process read/write/info/readdir/etc. calls
-
 
 ## Service Modules (aka "Services")
 
