@@ -935,18 +935,9 @@ void * process_requests(void * garbage) {
 			}
 			//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
 			/* Apply mouse movement */
-			int c, l;
-			c = abs(packet->x_difference);
-			l = 0;
-			while (c >>= 1) {
-				l++;
-			}
+			int l;
+			l = 3;
 			mouse_x += packet->x_difference * l;
-			c = abs(packet->y_difference);
-			l = 0;
-			while (c >>= 1) {
-				l++;
-			}
 			mouse_y -= packet->y_difference * l;
 			if (mouse_x < 0) mouse_x = 0;
 			if (mouse_y < 0) mouse_y = 0;
