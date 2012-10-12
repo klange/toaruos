@@ -269,6 +269,10 @@ void window_reorder (window_t * window, uint16_t new_zed) {
 }
 
 void window_enable_alpha (window_t * window) {
+	wins_send_command(window->wid, 1, 0, 0, 0, WC_SET_ALPHA, 0);
+}
+
+void window_disable_alpha (window_t * window) {
 	wins_send_command(window->wid, 0, 0, 0, 0, WC_SET_ALPHA, 0);
 }
 

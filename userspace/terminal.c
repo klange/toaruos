@@ -302,6 +302,16 @@ ansi_put(
 									case 1561:
 										_unbuffered = 0;
 										break;
+									case 2000:
+										if (_windowed) {
+											window_disable_alpha(window);
+										}
+										break;
+									case 2001:
+										if (_windowed) {
+											window_enable_alpha(window);
+										}
+										break;
 									default:
 										break;
 								}

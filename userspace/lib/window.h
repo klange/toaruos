@@ -159,6 +159,7 @@ void window_redraw_wait (window_t * window);
 void window_destroy (window_t * window);
 void window_reorder (window_t * window, uint16_t new_zed);
 void window_enable_alpha (window_t * window);
+void window_disable_alpha (window_t * window);
 
 w_keyboard_t * poll_keyboard();
 w_mouse_t *    poll_mouse();

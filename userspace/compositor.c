@@ -526,7 +526,7 @@ void process_window_command (int sig) {
 					{
 						read(pw->command_pipe, &wwt, sizeof(w_window_t));
 						window_t * window = get_window_with_process(pw, wwt.wid);
-						window->use_alpha = 1;
+						window->use_alpha = wwt.left;
 					}
 					break;
 
@@ -899,27 +899,6 @@ void init_base_windows () {
 	pw->windows = list_create();
 	list_insert(process_list, pw);
 
-#if 1
-	/* Create the background window */
-#if 0
-	window_t * root = init_window(pw, _next_wid++, 0, 0, ctx->width, ctx->height, 0);
-	window_draw_sprite(root, sprites[1], 0, 0);
-	redraw_full_window(root);
-#endif
-
-#if 0
-	/* Create the panel */
-	window_t * panel = init_window(pw, _next_wid++, 0, 0, ctx->width, 24, 0xFFFF);
-	window_fill(panel, rgb(0,120,230));
-	init_sprite(2, "/usr/share/panel.bmp", NULL);
-	for (uint32_t i = 0; i < ctx->width; i += sprites[2]->width) {
-		window_draw_sprite(panel, sprites[2], i, 0);
-	}
-	redraw_full_window(panel);
-	redraw_region_slow(0,0,ctx->width,ctx->height);
-#endif
-#endif
-
 	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 }
 
@@ -1211,7 +1190,6 @@ int main(int argc, char ** argv) {
 	/* Count startup items */
 	startup_items = list_create();
 	add_startup_item("Initializing FreeType", _init_freetype, 1);
-#if 1
 	add_startup_item("Loading font: Deja Vu Sans", _load_dejavu, 2);
 	add_startup_item("Loading font: Deja Vu Sans Bold", _load_dejavubold, 2);
 	add_startup_item("Loading font: Deja Vu Sans Oblique", _load_dejavuitalic, 2);
@@ -1220,26 +1198,14 @@ int main(int argc, char ** argv) {
 	add_startup_item("Loading font: Deja Vu Sans Mono Bold", _load_dejamonovubold, 2);
 	add_startup_item("Loading font: Deja Vu Sans Mono Oblique", _load_dejamonovuitalic, 2);
 	add_startup_item("Loading font: Deja Vu Sans Mono Bold+Oblique", _load_dejamonovubolditalic, 2);
-#endif
 
 	foreach(node, startup_items) {
 		run_startup_item((startup_item *)node->value);
 		display();
 	}
 
-#if 0
-	/* Reinitialize for single buffering */
-	init_graphics();
-#endif
-
-	/* Create the root and panel */
-	init_base_windows();
-
-	process_windows_t * rootpw = get_process_windows(getpid());
-	if (!rootpw) {
-		printf("[compositor] SEVERE: No root process windows!\n");
-		return 1;
-	}
+	/* load the mouse cursor */
+	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 
 	/* Grab the mouse */
 	int mfd = syscall_mousedevice();
@@ -1248,6 +1214,8 @@ int main(int argc, char ** argv) {
 
 	pthread_t redraw_everything_thread;
 	pthread_create(&redraw_everything_thread, NULL, redraw_thread, NULL);
+
+	setenv("DISPLAY", WINS_SERVER_IDENTIFIER, 1);
 
 	if (!fork()) {
 		char * args[] = {"/bin/glogin", NULL};
