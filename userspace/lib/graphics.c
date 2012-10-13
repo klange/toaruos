@@ -57,6 +57,20 @@ gfx_context_t *  init_graphics_window_double_buffer(window_t * window) {
 	return out;
 }
 
+void reinit_graphics_window(gfx_context_t * out, window_t * window) {
+	out->width  = window->width;
+	out->height = window->height;
+	out->depth  = 32;
+	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
+	if (out->buffer == out->backbuffer) {
+		out->buffer = window->buffer;
+		out->backbuffer = out->buffer;
+	} else {
+		out->buffer = window->buffer;
+		out->backbuffer = realloc(out->backbuffer, sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+	}
+}
+
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 	return 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
 }

@@ -312,6 +312,14 @@ ansi_put(
 											window_enable_alpha(window);
 										}
 										break;
+									case 3000:
+										if (_windowed) {
+											if (argc > 2) {
+												uint16_t win_id = window->bufid;
+												printf("\033[1;32mGoing to resize window with id %d\033[0m\n", window->wid);
+												window_resize(window, window->x, window->y, atoi(argv[1]), atoi(argv[2]));
+											}
+										}
 									default:
 										break;
 								}
@@ -661,6 +669,17 @@ char vga_to_ansi[] = {
     0, 4, 2, 6, 1, 5, 3, 7,
     8,12,10,14, 9,13,11,15
 };
+
+void resize_callback(window_t * window) {
+	printf("Resizing.\n");
+
+	window_width  = window->width  - decor_left_width - decor_right_width;
+	window_height = window->height - decor_top_height - decor_bottom_height;
+
+	reinit_graphics_window(ctx, window);
+
+	reinit();
+}
 
 void
 term_write_char(
@@ -1195,6 +1214,8 @@ void reinit() {
 	mouse_x = ctx->width / 2;
 	mouse_y = ctx->height / 2;
 
+	draw_fill(ctx, rgba(0,0,0, 0xbb));
+
 	/* A lot of this is probably uneccessary if we do some sort of resize... */
 	term_term_clear();
 	ansi_print("\033[H\033[2J");
@@ -1280,6 +1301,7 @@ int main(int argc, char ** argv) {
 
 		/* Create the window */
 		window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
+		resize_window_callback = resize_callback;
 
 		window_enable_alpha(window);
 

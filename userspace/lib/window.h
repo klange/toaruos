@@ -169,8 +169,11 @@ w_mouse_t *    poll_mouse();
 
 gfx_context_t * init_graphics_window(window_t * window);
 gfx_context_t * init_graphics_window_double_buffer(window_t * window);
+void reinit_graphics_window(gfx_context_t * out, window_t * window);
 
 void win_use_threaded_handler();
 void (*mouse_action_callback)(w_mouse_t *);
+
+void (*resize_window_callback)(window_t *);
 
 #endif

@@ -37,7 +37,8 @@ static window_t * get_window (wid_t wid) {
 	return NULL;
 }
 
-void (*mouse_action_callback)(w_mouse_t *)  = NULL;
+void (*mouse_action_callback)(w_mouse_t *) = NULL;
+void (*resize_window_callback)(window_t *) = NULL;
 
 /* Window Object Management */
 
@@ -99,6 +100,8 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 	char key[1024];
 	SHMKEY_(key, 1024, window);
 
+	fprintf(stderr, "Optaining SHMEM region at %s\n", key);
+
 	size_t size = (width * height * WIN_B);
 	window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
 
@@ -157,22 +160,64 @@ void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_
 		char key[256], keyn[256];
 		SHMKEY(key, 256, window);
 
-		printf("Key = %s\n", key);
+		printf("Current window buffer is %s\n", key);
 
 		/* Create the new one */
 		window->bufid++;
 		SHMKEY(keyn, 256, window);
-
-		printf("nkey = %s\n", keyn);
+		printf("New window buffer will be %s\n", keyn);
 
 		size_t size = (width * height * WIN_B);
-		printf("obtaining new buffer..\n");
-		window->buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
-		printf("copying buffer [%d]...\n", size);
-		memset(window->buffer, 0, size);
-		printf("herping...\n");
+		printf("Required size for new buffer is %d\n", size);
+
+		printf("Obtaining... \n");
+		char * new_buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
+
+		printf("Clearing to zeros...\n");
+		memset(new_buffer, 0x44, size);
+
+		printf("Redirecting compositor-side buffer to new buffer.\n");
+		window->buffer = new_buffer;
+
 		//syscall_shm_release(key);
-		printf("derping...\n");
+	}
+
+	window->x = left;
+	window->y = top;
+	window->width = width;
+	window->height = height;
+}
+
+void resize_window_buffer_client (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
+
+	if (!window) {
+		return;
+	}
+	/* If the window has enlarged, we need to create a new buffer */
+	if ((width * height) > (window->width * window->height)) {
+		/* Release the old buffer */
+		char key[256], keyn[256];
+		SHMKEY_(key, 256, window);
+
+		printf("Current window buffer is %s\n", key);
+
+		/* Create the new one */
+		window->bufid++;
+		SHMKEY_(keyn, 256, window);
+		printf("New window buffer will be %s\n", keyn);
+
+		size_t size = (width * height * WIN_B);
+		printf("Required size for new buffer is %d\n", size);
+
+		printf("Obtaining... \n");
+		char * new_buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
+
+		printf("XXX: Should blit old buffer onto new buffer here!\n");
+
+		printf("Redirecting compositor-side buffer to new buffer.\n");
+		window->buffer = new_buffer;
+
+		//syscall_shm_release(key);
 	}
 
 	window->x = left;
@@ -346,11 +391,15 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 
 		case WE_RESIZED:
 			/* XXX: We need a lock or something to contend the window buffer */
+			fprintf(stderr, "Received WINDOW_RESIZED event\n");
 			window = get_window(evt.wid);
 			if (!window) {
 				fprintf(stderr, "[%d] [window] SEVERE: wins sent WE_RESIZED for window we don't have!\n", getpid());
 			}
-			resize_window_buffer(window, evt.left, evt.top, evt.width, evt.height);
+			resize_window_buffer_client(window, evt.left, evt.top, evt.width, evt.height);
+			if (resize_window_callback) {
+				resize_window_callback(window);
+			}
 			break;
 	}
 

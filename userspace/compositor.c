@@ -28,6 +28,8 @@
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
+#define SINGLE_USER_MODE 0
+
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
 		syscall_yield();
@@ -531,9 +533,14 @@ void process_window_command (int sig) {
 					break;
 
 				case WC_RESIZE:
-					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					resize_window_buffer(get_window(wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
-					send_window_event(pw, WE_RESIZED, &wwt);
+					{
+						read(pw->command_pipe, &wwt, sizeof(w_window_t));
+						window_t * window = get_window(wwt.wid);
+						resize_window_buffer(window, window->x, window->y, wwt.width, wwt.height);
+
+						printf("Sending event.\n");
+						send_window_event(pw, WE_RESIZED, &wwt);
+					}
 					break;
 
 				case WC_DESTROY:
@@ -1101,9 +1108,11 @@ void * process_requests(void * garbage) {
 			}
 #if 1
 			if (packet->buttons & MOUSE_BUTTON_MIDDLE) {
+#if 0
 				printf("middle click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				screenshot_next_frame = 1;
 				printf("Screenshot, plz?\n");
+#endif
 #if 0
 				window_t * focused = focused_window();
 				if (focused) {
@@ -1209,7 +1218,11 @@ int main(int argc, char ** argv) {
 	setenv("DISPLAY", WINS_SERVER_IDENTIFIER, 1);
 
 	if (!fork()) {
+#if SINGLE_USER_MODE
+		char * args[] = {"/bin/gsession", NULL};
+#else
 		char * args[] = {"/bin/glogin", NULL};
+#endif
 		execvp(args[0], args);
 	}
 
