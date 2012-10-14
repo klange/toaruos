@@ -196,9 +196,15 @@ void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i]->blank = 0x0;
 }
 
+void resize_callback(window_t * win) {
+	reinit_graphics_window(ctx, window);
+	display();
+}
+
 int main(int argc, char ** argv) {
 	setup_windowing();
 
+	resize_window_callback = resize_callback;
 	window = window_create(10,10, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
 	ctx = init_graphics_window_double_buffer(window);
 	draw_fill(ctx,rgb(0,0,0));

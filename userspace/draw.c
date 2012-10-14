@@ -18,6 +18,7 @@
 /* XXX TOOLKIT FUNCTIONS */
 
 gfx_context_t * ctx;
+window_t * wina;
 
 /* Active TTK window XXX */
 static window_t * ttk_window = NULL;
@@ -172,6 +173,12 @@ void decors(window_t * win) {
 	render_decorations(win, win->buffer, "Draw!");
 }
 
+void resize_callback(window_t * window) {
+	reinit_graphics_window(ctx, wina);
+	decors(wina);
+	ttk_render();
+}
+
 int main (int argc, char ** argv) {
 	int left = 30;
 	int top  = 30;
@@ -181,8 +188,10 @@ int main (int argc, char ** argv) {
 
 	setup_windowing();
 
+	resize_window_callback = resize_callback;
+
 	/* Do something with a window */
-	window_t * wina = window_create(left, top, width, height);
+	wina = window_create(left, top, width, height);
 	ctx = init_graphics_window(wina);
 	draw_fill(ctx, rgb(255,255,255));
 	init_decorations();

@@ -199,22 +199,14 @@ void resize_window_buffer_client (window_t * window, int16_t left, int16_t top, 
 		char key[256], keyn[256];
 		SHMKEY_(key, 256, window);
 
-		printf("Current window buffer is %s\n", key);
-
 		/* Create the new one */
 		window->bufid++;
 		SHMKEY_(keyn, 256, window);
-		printf("New window buffer will be %s\n", keyn);
 
 		size_t size = (width * height * WIN_B);
-		printf("Required size for new buffer is %d\n", size);
 
-		printf("Obtaining... \n");
 		char * new_buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
 
-		printf("XXX: Should blit old buffer onto new buffer here!\n");
-
-		printf("Redirecting compositor-side buffer to new buffer.\n");
 		window->buffer = new_buffer;
 
 		syscall_shm_release(key);
