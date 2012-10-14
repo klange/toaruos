@@ -846,7 +846,7 @@ _done:
 	shell_command_t func = shell_find(argv[0]);
 
 	if (func) {
-		func(tokenid, argv);
+		return func(tokenid, argv);
 	} else {
 		FILE * file = NULL; //fopen(argv[0], "r");
 		if (!strstr(argv[0],"/")) {
@@ -1031,10 +1031,54 @@ uint32_t shell_cmd_exit(int argc, char * argv[]) {
 	return -1;
 }
 
+uint32_t shell_cmd_set(int argc, char * argv[]) {
+	char * term = getenv("TERM");
+	if (!term || strstr(term, "toaru") != term) {
+		fprintf(stderr, "Unrecognized terminal. These commands are for the とある terminal only.\n");
+		return 1;
+	}
+	if (argc < 2) {
+		fprintf(stderr, "%s: expected argument\n", argv[0]);
+		return 1;
+	}
+
+	if (!strcmp(argv[1], "alpha")) {
+		if (argc < 3) {
+			fprintf(stderr, "%s %s [0 or 1]\n", argv[0], argv[1]);
+			return 1;
+		}
+		int i = atoi(argv[2]);
+		if (i) {
+			printf("\033[2001z");
+		} else {
+			printf("\033[2000z");
+		}
+		fflush(stdout);
+		return 0;
+	} else if (!strcmp(argv[1], "scale")) {
+		if (argc < 3) {
+			fprintf(stderr, "%s %s [floating point size, 1.0 = normal]\n", argv[0], argv[1]);
+			return 1;
+		}
+		printf("\033[1555;%sz", argv[2]);
+		fflush(stdout);
+		return 0;
+	} else if (!strcmp(argv[1], "size")) {
+		if (argc < 4) {
+			fprintf(stderr, "%s %s [width] [height]\n", argv[0], argv[1]);
+			return 1;
+		}
+		printf("\033[3000;%s;%sz", argv[2], argv[3]);
+		fflush(stdout);
+		return 0;
+	}
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd);
 	shell_install_command("history", shell_cmd_history);
 	shell_install_command("export",  shell_cmd_export);
 	shell_install_command("test",    shell_cmd_test);
 	shell_install_command("exit",    shell_cmd_exit);
+	shell_install_command("set",     shell_cmd_set);
 }
