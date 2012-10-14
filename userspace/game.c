@@ -73,6 +73,9 @@ int offset_iter = 0;
 int map_x;
 int map_y;
 
+int raw_x_offset = 0;
+int raw_y_offset = 0;
+
 void render_map(int x, int y) {
 	int i = 0;
 	for (int _y = y - VIEW_SIZE; _y <= y + VIEW_SIZE; ++_y) {
@@ -96,8 +99,8 @@ void render_map(int x, int y) {
 					break;
 			}
 			draw_sprite(ctx, sprites[sprite],
-					decor_left_width + map_x + offset_x * offset_iter + j * CELL_SIZE,
-					decor_top_height + map_y + offset_y * offset_iter + i * CELL_SIZE);
+					decor_left_width + raw_x_offset + map_x + offset_x * offset_iter + j * CELL_SIZE,
+					decor_top_height + raw_y_offset + map_y + offset_y * offset_iter + i * CELL_SIZE);
 			++j;
 		}
 		++i;
@@ -107,7 +110,7 @@ void render_map(int x, int y) {
 
 void display() {
 	render_map(my_x,my_y);
-	draw_sprite(ctx, sprites[124 + direction], decor_left_width + map_x + CELL_SIZE * 4, decor_top_height + map_y + CELL_SIZE * 4);
+	draw_sprite(ctx, sprites[124 + direction], decor_left_width + raw_x_offset + map_x + CELL_SIZE * 4, decor_top_height + raw_y_offset + map_y + CELL_SIZE * 4);
 	render_decorations(window, ctx->backbuffer, "RPG Demo");
 	flip(ctx);
 }
@@ -197,7 +200,15 @@ void init_sprite(int i, char * filename, char * alpha) {
 }
 
 void resize_callback(window_t * win) {
+	int _width  = win->width  - decor_left_width - decor_right_width;
+	int _height = win->height - decor_top_height - decor_bottom_height;
+
+	raw_x_offset = _width / 2  - WINDOW_SIZE;
+	raw_y_offset = _height / 2 - WINDOW_SIZE;
+
 	reinit_graphics_window(ctx, window);
+
+	draw_fill(ctx, rgb(0,0,0));
 	display();
 }
 
