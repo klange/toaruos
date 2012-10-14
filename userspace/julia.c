@@ -62,6 +62,11 @@ int colors[] = {
 	0x980101,
 };
 
+int left   = 40;
+int top    = 40;
+int width  = 300;
+int height = 300;
+
 void julia(int xpt, int ypt) {
 	long double x = xpt * pixcorx + Minx;
 	long double y = Maxy - ypt * pixcory;
@@ -115,11 +120,43 @@ void usage(char * argv[]) {
 			argv[0]);
 }
 
+void redraw() {
+	printf("initer: %f\n", initer);
+	printf("X: %f %f\n", Minx, Maxx);
+	float _x = Maxx - Minx;
+	float _y = _x / width * height;
+	Miny = 0 - _y / 2;
+	Maxy = _y / 2;
+	printf("Y: %f %f\n", Miny, Maxy);
+	printf("conx: %f cony: %f\n", conx, cony);
+
+	render_decorations(window, window->buffer, "Julia Fractals");
+
+	pixcorx = (Maxx - Minx) / width;
+	pixcory = (Maxy - Miny) / height;
+	int j = 0;
+	do {
+		int i = 1;
+		do {
+			julia(i,j);
+			if (lastcolor != newcolor) julia(i-1,j);
+			else if (i > 0) GFX_(i-1,j) = colors[lastcolor];
+			newcolor = lastcolor;
+			i+= 2;
+		} while ( i < width );
+		++j;
+	} while ( j < height );
+}
+
+void resize_callback(window_t * window) {
+	width  = window->width  - decor_left_width - decor_right_width;
+	height = window->height - decor_top_height - decor_bottom_height;
+
+	redraw();
+}
+
+
 int main(int argc, char * argv[]) {
-	int left   = 40;
-	int top    = 40;
-	int width  = 300;
-	int height = 300;
 
 	static struct option long_opts[] = {
 		{"no-repeat", no_argument,    0, 'n'},
@@ -179,35 +216,12 @@ int main(int argc, char * argv[]) {
 	}
 
 	setup_windowing();
+	resize_window_callback = resize_callback;
 
 	window = window_create(left, top, width + decor_width(), height + decor_height());
-	//window_fill(window, rgb(127,127,127));
 	init_decorations();
-	render_decorations(window, window->buffer, "Julia Fractals");
 
-	printf("initer: %f\n", initer);
-	printf("X: %f %f\n", Minx, Maxx);
-	float _x = Maxx - Minx;
-	float _y = _x / width * height;
-	Miny = 0 - _y / 2;
-	Maxy = _y / 2;
-	printf("Y: %f %f\n", Miny, Maxy);
-	printf("conx: %f cony: %f\n", conx, cony);
-
-	pixcorx = (Maxx - Minx) / width;
-	pixcory = (Maxy - Miny) / height;
-	int j = 0;
-	do {
-		int i = 1;
-		do {
-			julia(i,j);
-			if (lastcolor != newcolor) julia(i-1,j);
-			else if (i > 0) GFX_(i-1,j) = colors[lastcolor];
-			newcolor = lastcolor;
-			i+= 2;
-		} while ( i < width );
-		++j;
-	} while ( j < height );
+	redraw();
 
 	int playing = 1;
 	while (playing) {
