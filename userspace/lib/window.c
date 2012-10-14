@@ -179,7 +179,7 @@ void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_
 		printf("Redirecting compositor-side buffer to new buffer.\n");
 		window->buffer = new_buffer;
 
-		//syscall_shm_release(key);
+		syscall_shm_release(key);
 	}
 
 	window->x = left;
@@ -217,7 +217,7 @@ void resize_window_buffer_client (window_t * window, int16_t left, int16_t top, 
 		printf("Redirecting compositor-side buffer to new buffer.\n");
 		window->buffer = new_buffer;
 
-		//syscall_shm_release(key);
+		syscall_shm_release(key);
 	}
 
 	window->x = left;

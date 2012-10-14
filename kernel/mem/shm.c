@@ -198,12 +198,19 @@ void * shm_obtain (char * path, size_t * size) {
 	spin_lock(&bsl);
 	process_t * proc = (process_t *)current_process;
 
+	if (proc->group != 0) {
+		proc = process_from_pid(proc->group);
+	}
+
 	shm_node_t * node = get_node(path, 1); // (if it exists, just get it)
 	assert(node && "shm_node_t not created by get_node");
 	shm_chunk_t * chunk = node->chunk;
 
 	if (chunk == NULL) {
 		/* There's no chunk for that key -- we need to allocate it! */
+
+		debug_print(NOTICE, "Allocating a new shmem chunk for process %d", proc->id);
+
 		if (size == 0) {
 			// The process doesn't want a chunk...?
 			spin_unlock(&bsl);

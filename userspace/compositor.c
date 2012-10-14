@@ -28,7 +28,7 @@
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
-#define SINGLE_USER_MODE 0
+#define SINGLE_USER_MODE 1
 
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
@@ -265,6 +265,10 @@ window_t * moving_window = NULL;
 int32_t    moving_window_l = 0;
 int32_t    moving_window_t = 0;
 
+window_t * resizing_window = NULL;
+int32_t    resizing_window_w = 0;
+int32_t    resizing_window_h = 0;
+
 /* Internal drawing functions */
 
 void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
@@ -427,6 +431,19 @@ void redraw_bounding_box_r(window_t *window, int32_t width, int32_t height, uint
 		draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
 		draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 	}
+}
+
+void draw_box(int32_t x, int32_t y, int32_t w, int32_t h) {
+	int32_t _min_x = max(x, 0);
+	int32_t _min_y = max(y,  0);
+	int32_t _max_x = min(x + w - 1, ctx->width  - 1);
+	int32_t _max_y = min(y + h - 1, ctx->height - 1);
+
+	uint32_t color = rgb(0,255,0);
+	draw_line(ctx, _min_x, _max_x, _min_y, _min_y, color);
+	draw_line(ctx, _min_x, _max_x, _max_y, _max_y, color);
+	draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
+	draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 }
 
 
@@ -935,7 +952,6 @@ void * process_requests(void * garbage) {
 		while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
 			mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
 			int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
-#if 1
 			if (packet->magic != MOUSE_MAGIC) {
 				int r = read(mfd, buf, 1);
 				break;
@@ -954,10 +970,7 @@ void * process_requests(void * garbage) {
 			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_RIGHT)) {
 				_mouse_window = focused_window();
 				if (_mouse_window) {
-					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
-						redraw_region_slow(0,0,ctx->width,ctx->height);
-						/* *sigh* */
-					} else {
+					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
 						_mouse_state = 1;
 						_mouse_init_x = mouse_x;
 						_mouse_init_y = mouse_y;
@@ -970,6 +983,22 @@ void * process_requests(void * garbage) {
 						moving_window_t = _mouse_win_y_p;
 						make_top(_mouse_window);
 						redraw_region_slow(0,0,ctx->width,ctx->height);
+					}
+				}
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE)) {
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
+						_mouse_state = 3;
+						_mouse_init_x = mouse_x;
+						_mouse_init_y = mouse_y;
+						_mouse_win_x  = _mouse_window->x;
+						_mouse_win_y  = _mouse_window->y;
+						resizing_window   = _mouse_window;
+						resizing_window_w = _mouse_window->width;
+						resizing_window_h = _mouse_window->height;
+						make_top(_mouse_window);
+						redraw_region_slow(0,0,ctx->width, ctx->height);
 					}
 				}
 			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT)) {
@@ -1017,10 +1046,8 @@ void * process_requests(void * garbage) {
 					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-					moving_window = _mouse_window;
 					moving_window_l = _mouse_win_x_p;
 					moving_window_t = _mouse_win_y_p;
-					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
 				}
 			} else if (_mouse_state == 2) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
@@ -1050,23 +1077,6 @@ void * process_requests(void * garbage) {
 					}
 
 					printf("Mouse up at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
-#if 0 /* Resizing */
-					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-					if (_mouse_win_x_p < 10) _mouse_win_x_p = 10;
-					if (_mouse_win_y_p < 10) _mouse_win_y_p = 10;
-					printf("resizing window to %d x %d\n", _mouse_win_x_p, _mouse_win_y_p);
-					resize_window_buffer(_mouse_window, _mouse_window->x, _mouse_window->y, _mouse_win_x_p, _mouse_win_y_p);
-					w_window_t tmp;
-					tmp.left = _mouse_window->x;
-					tmp.top  = _mouse_window->y;
-					tmp.wid  = _mouse_window->wid;
-					tmp.width = _mouse_win_x_p;
-					tmp.height = _mouse_win_y_p;
-					send_window_event(_mouse_window->owner, WE_RESIZED, &tmp);
-					redraw_region_slow(0,0,ctx->width,ctx->height);
-					_mouse_state = 0;
-#endif
 				} else {
 					/* Still down */
 
@@ -1095,36 +1105,26 @@ void * process_requests(void * garbage) {
 
 						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 					}
-#if 0
-					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
-					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-					if (_mouse_win_x_p < 10) _mouse_win_x_p = 10;
-					if (_mouse_win_y_p < 10) _mouse_win_y_p = 10;
-					redraw_bounding_box_r(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 1);
-#endif
 				}
 
-			}
-#if 1
-			if (packet->buttons & MOUSE_BUTTON_MIDDLE) {
-#if 0
-				printf("middle click @%dx%d!\n", mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				screenshot_next_frame = 1;
-				printf("Screenshot, plz?\n");
-#endif
-#if 0
-				window_t * focused = focused_window();
-				if (focused) {
-					if (focused->z != 0 && focused->z != 0xFFFF) {
-						free_window(focused);
-					}
-					redraw_region_slow(0,0,ctx->width,ctx->height);
+			} else if (_mouse_state == 3) {
+				int width_diff  = (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+				int height_diff = (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+
+				resizing_window_w = resizing_window->width  + width_diff;
+				resizing_window_h = resizing_window->height + height_diff;
+				if (!(packet->buttons & MOUSE_BUTTON_MIDDLE)) {
+					/* Resize */
+					w_window_t wwt;
+					wwt.wid    = resizing_window->wid;
+					wwt.width  = resizing_window_w;
+					wwt.height = resizing_window_h;
+					resize_window_buffer(resizing_window, resizing_window->x, resizing_window->y, wwt.width, wwt.height);
+					send_window_event(resizing_window->owner, WE_RESIZED, &wwt);
+					resizing_window = NULL;
+					_mouse_state = 0;
 				}
-#endif
 			}
-#endif
-#endif
 			fstat(mfd, &_stat);
 		}
 		fstat(0, &_stat);
@@ -1151,6 +1151,11 @@ void * redraw_thread(void * derp) {
 		redraw_everything_fast();
 		/* Other stuff */
 		redraw_cursor();
+		/* Resizing window outline */
+		if (resizing_window) {
+			draw_box(resizing_window->x, resizing_window->y, resizing_window_w, resizing_window_h);
+		}
+
 		spin_unlock(&am_drawing);
 		flip(ctx);
 		if (screenshot_next_frame) {
