@@ -28,7 +28,7 @@
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
-#define SINGLE_USER_MODE 1
+#define SINGLE_USER_MODE 0
 
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
@@ -433,13 +433,12 @@ void redraw_bounding_box_r(window_t *window, int32_t width, int32_t height, uint
 	}
 }
 
-void draw_box(int32_t x, int32_t y, int32_t w, int32_t h) {
+void draw_box(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	int32_t _min_x = max(x, 0);
 	int32_t _min_y = max(y,  0);
 	int32_t _max_x = min(x + w - 1, ctx->width  - 1);
 	int32_t _max_y = min(y + h - 1, ctx->height - 1);
 
-	uint32_t color = rgb(0,255,0);
 	draw_line(ctx, _min_x, _max_x, _min_y, _min_y, color);
 	draw_line(ctx, _min_x, _max_x, _max_y, _max_y, color);
 	draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
@@ -1153,7 +1152,7 @@ void * redraw_thread(void * derp) {
 		redraw_cursor();
 		/* Resizing window outline */
 		if (resizing_window) {
-			draw_box(resizing_window->x, resizing_window->y, resizing_window_w, resizing_window_h);
+			draw_box(resizing_window->x, resizing_window->y, resizing_window_w, resizing_window_h, rgb(0,128,128));
 		}
 
 		spin_unlock(&am_drawing);
