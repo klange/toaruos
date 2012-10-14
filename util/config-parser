@@ -9,6 +9,7 @@ ENABLE_SERIAL=true
 ENABLE_GRAPHICS=true
 BORDERLESS=true
 SINGLE=false
+DEBUG_SERIAL=false
 
 # Load the config file
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -45,6 +46,10 @@ fi
 
 if [ $SINGLE == true ]; then
     GRAPHICS="$GRAPHICS single"
+fi
+
+if [ $DEBUG_SERIAL == true ]; then
+    GRAPHICS="$GRAPHICS logtoserial=0"
 fi
 
 # Generate the QEMU arguments list
