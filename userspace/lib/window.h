@@ -10,6 +10,7 @@
 
 #include "list.h"
 #include "graphics.h"
+#include "kbd.h"
 
 /* Connection */
 typedef struct {
@@ -90,6 +91,8 @@ typedef struct {
 typedef struct {
 	wid_t    wid;
 	uint16_t key;
+	uint8_t  ret;
+	key_event_t event;
 	uint8_t  command;
 } w_keyboard_t;
 

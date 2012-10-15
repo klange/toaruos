@@ -13,6 +13,8 @@
 
 #define SPECIAL_CASE_STDIO
 
+#define RESERVED 1
+
 /*
  * System calls themselves
  */
@@ -216,31 +218,6 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 
 static int getgraphicsaddress() {
 	return (int)lfb_get_address();
-}
-
-static volatile char kbd_last = 0;
-
-static void kbd_direct_handler(char ch) {
-	kbd_last = ch;
-}
-
-static int kbd_mode(int mode) {
-	if (mode == 0) {
-		if (keyboard_direct_handler) {
-			keyboard_direct_handler = NULL;
-		}
-	} else {
-		keyboard_direct_handler = kbd_direct_handler;
-	}
-	return 0;
-}
-
-static int kbd_get() {
-	/* If we're requesting keyboard input, we better damn well be getting it */
-	IRQ_RES;
-	char x = kbd_last;
-	kbd_last = 0;
-	return (int)x;
 }
 
 static int seek(int fd, int offset, int whence) {
@@ -564,8 +541,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_getpid,
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&getgraphicsaddress,
-	(uintptr_t)&kbd_mode,           /* 12 */
-	(uintptr_t)&kbd_get,
+	(uintptr_t)RESERVED,            /* 12 */
+	(uintptr_t)RESERVED,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,
 	(uintptr_t)&setgraphicsoffset,  /* 16 */
@@ -616,7 +593,12 @@ syscall_handler(
 	if (r->eax >= num_syscalls) {
 		return;
 	}
+
 	uintptr_t location = syscalls[r->eax];
+
+	if (location == 1) {
+		return;
+	}
 
 	/* Update the syscall registers for this process */
 	current_process->syscall_registers = r;

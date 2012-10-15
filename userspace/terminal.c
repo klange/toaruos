@@ -36,6 +36,7 @@ int mk_wcwidth_cjk(wchar_t ucs);
 #include "lib/window.h"
 #include "lib/decorations.h"
 #include "lib/pthread.h"
+#include "lib/kbd.h"
 
 #include "terminal-palette.h"
 #include "terminal-font.h"
@@ -1132,6 +1133,35 @@ void handle_input(char c) {
 	}
 }
 
+void handle_input_s(char * c) {
+	while (*c) {
+		handle_input(*c);
+		c++;
+	}
+}
+
+void key_event(int ret, key_event_t * event) {
+	if (ret) {
+		handle_input(event->key);
+	} else {
+		if (event->action == KEY_ACTION_UP) return;
+		switch (event->keycode) {
+			case KEY_ARROW_UP:
+				handle_input_s("\033[A");
+				break;
+			case KEY_ARROW_DOWN:
+				handle_input_s("\033[B");
+				break;
+			case KEY_ARROW_RIGHT:
+				handle_input_s("\033[C");
+				break;
+			case KEY_ARROW_LEFT:
+				handle_input_s("\033[D");
+				break;
+		}
+	}
+}
+
 void * wait_for_exit(void * garbage) {
 	syscall_wait(child_pid);
 	/* Clean up */
@@ -1412,7 +1442,7 @@ int main(int argc, char ** argv) {
 		pthread_t wait_for_exit_thread;
 		pthread_create(&wait_for_exit_thread, NULL, wait_for_exit, NULL);
 
-		char buf[1024];
+		unsigned char buf[1024];
 		while (1) {
 			struct stat _stat;
 			fstat(mfd, &_stat);
@@ -1427,7 +1457,7 @@ int main(int argc, char ** argv) {
 			if (_windowed) {
 				w_keyboard_t * kbd = poll_keyboard();
 				if (kbd != NULL) {
-					handle_input(kbd->key);
+					key_event(kbd->ret, &kbd->event);
 					free(kbd);
 				}
 			} else {
@@ -1463,9 +1493,11 @@ int main(int argc, char ** argv) {
 fail_mouse:
 				fstat(0, &_stat);
 				if (_stat.st_size) {
-					int r = read(0, buf, min(_stat.st_size, 1024));
-					for (uint32_t i = 0; i < r; ++i) {
-						handle_input(buf[i]);
+					size_t r = read(0, buf, min(_stat.st_size, 1024));
+					key_event_t event;
+					for (size_t i = 0; i < r; ++i) {
+						int ret = kbd_scancode(buf[i], &event);
+						key_event(ret, &event);
 					}
 				}
 			}

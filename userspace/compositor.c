@@ -24,11 +24,12 @@
 #include "lib/graphics.h"
 #include "lib/window.h"
 #include "lib/pthread.h"
+#include "lib/kbd.h"
 
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
-#define SINGLE_USER_MODE 0
+#define SINGLE_USER_MODE 1
 
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
@@ -966,10 +967,11 @@ void * process_requests(void * garbage) {
 			if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width)   * MOUSE_SCALE;
 			if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height) * MOUSE_SCALE;
 			//draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
-			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_RIGHT)) {
+			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
+						fprintf(stderr, "Dragging a window now.\n");
 						_mouse_state = 1;
 						_mouse_init_x = mouse_x;
 						_mouse_init_y = mouse_y;
@@ -984,7 +986,7 @@ void * process_requests(void * garbage) {
 						redraw_region_slow(0,0,ctx->width,ctx->height);
 					}
 				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE)) {
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
@@ -1000,7 +1002,7 @@ void * process_requests(void * garbage) {
 						redraw_region_slow(0,0,ctx->width, ctx->height);
 					}
 				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT)) {
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					_mouse_state = 2; /* Dragging */
@@ -1035,7 +1037,7 @@ void * process_requests(void * garbage) {
 				}
 #endif
 			} else if (_mouse_state == 1) {
-				if (!(packet->buttons & MOUSE_BUTTON_RIGHT)) {
+				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
 					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					moving_window = NULL;
@@ -1131,11 +1133,12 @@ void * process_requests(void * garbage) {
 			int r = read(0, buf, 1);
 			if (r > 0) {
 				w_keyboard_t packet;
+				packet.ret = kbd_scancode(buf[0], &packet.event);
 				window_t * focused = focused_window();
 				if (focused) {
 					packet.wid = focused->wid;
 					packet.command = 0;
-					packet.key = (uint16_t)buf[0];
+					packet.key = packet.ret ? packet.event.key : 0;
 					send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
 				}
 			}
