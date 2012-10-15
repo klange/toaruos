@@ -31,9 +31,6 @@ serial_handler(
 		default:
 			break;
 	}
-	if (keyboard_buffer_handler) {
-		keyboard_buffer_handler(serial);
-	}
 }
 
 void
