@@ -244,7 +244,44 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 				}
 				break;
 			case func:
-				/* XXX */
+				switch (c) {
+					case KEY_SCANCODE_F1:
+						event->keycode = KEY_F1;
+						break;
+					case KEY_SCANCODE_F2:
+						event->keycode = KEY_F2;
+						break;
+					case KEY_SCANCODE_F3:
+						event->keycode = KEY_F3;
+						break;
+					case KEY_SCANCODE_F4:
+						event->keycode = KEY_F4;
+						break;
+					case KEY_SCANCODE_F5:
+						event->keycode = KEY_F5;
+						break;
+					case KEY_SCANCODE_F6:
+						event->keycode = KEY_F6;
+						break;
+					case KEY_SCANCODE_F7:
+						event->keycode = KEY_F7;
+						break;
+					case KEY_SCANCODE_F8:
+						event->keycode = KEY_F8;
+						break;
+					case KEY_SCANCODE_F9:
+						event->keycode = KEY_F9;
+						break;
+					case KEY_SCANCODE_F10:
+						event->keycode = KEY_F10;
+						break;
+					case KEY_SCANCODE_F11:
+						event->keycode = KEY_F11;
+						break;
+					case KEY_SCANCODE_F12:
+						event->keycode = KEY_F12;
+						break;
+				}
 				break;
 			default:
 				break;
