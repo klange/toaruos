@@ -10,6 +10,7 @@
 
 #include "lib/window.h"
 #include "lib/graphics.h"
+#include "lib/shmemfonts.h"
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
@@ -39,8 +40,8 @@ typedef struct {
 
 application_t applications[] = {
 	{"/usr/share/icons/utilities-terminal.png",      "terminal", "Terminal"},
-	{"/usr/share/icons/applications-painting.png",   "draw", "Draw"},
-	{"/usr/share/icons/applications-simulation.png", "game", "RPG Demo"},
+	{"/usr/share/icons/applications-painting.png",   "draw",     "Draw!"},
+	{"/usr/share/icons/applications-simulation.png", "game",     "RPG Demo"},
 	{NULL, NULL, NULL}
 };
 
@@ -113,6 +114,8 @@ int main (int argc, char ** argv) {
 	draw_sprite_scaled(ctx, sprites[0], 0, 0, width, height);
 	flip(ctx);
 
+	init_shmemfonts();
+
 	/* Load Application Shortcuts */
 	uint32_t i = 0;
 	while (1) {
@@ -122,6 +125,12 @@ int main (int argc, char ** argv) {
 		printf("Loading png %s\n", applications[i].icon);
 		init_sprite_png(i+1, applications[i].icon);
 		draw_sprite(ctx, sprites[i+1], ICON_X, ICON_TOP_Y + ICON_SPACING_Y * i);
+
+		int str_w = draw_string_width(applications[i].title) / 2;
+		int str_x = ICON_X + ICON_WIDTH / 2 - str_w;
+		int str_y = ICON_TOP_Y + ICON_SPACING_Y * i + ICON_WIDTH + 14;
+		draw_string(ctx, str_x, str_y, rgb(255,255,255), applications[i].title);
+
 		++i;
 	}
 
