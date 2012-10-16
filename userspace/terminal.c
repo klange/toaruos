@@ -1244,7 +1244,9 @@ void reinit() {
 	mouse_x = ctx->width / 2;
 	mouse_y = ctx->height / 2;
 
-	draw_fill(ctx, rgba(0,0,0, 0xbb));
+	if (!_vga_mode) {
+		draw_fill(ctx, rgba(0,0,0, 0xbb));
+	}
 
 	/* A lot of this is probably uneccessary if we do some sort of resize... */
 	term_term_clear();
