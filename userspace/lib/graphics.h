@@ -59,6 +59,12 @@ uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top);
 void flip(gfx_context_t * ctx);
 void clear_buffer(gfx_context_t * ctx);
 
+gfx_context_t * init_graphics_sprite(sprite_t * sprite);
+sprite_t * create_sprite(size_t width, size_t height, int alpha);
+
+void blur_context(gfx_context_t * _dst, gfx_context_t * _src, double amount);
+void sprite_free(sprite_t * sprite);
+
 void load_sprite(sprite_t * sprite, char * filename);
 int load_sprite_png(sprite_t * sprite, char * file);
 void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y);

@@ -71,6 +71,49 @@ void reinit_graphics_window(gfx_context_t * out, window_t * window) {
 	}
 }
 
+gfx_context_t * init_graphics_sprite(sprite_t * sprite) {
+	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+
+	out->width  = sprite->width;
+	out->height = sprite->height;
+	out->depth  = 32;
+	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
+	out->buffer = (char *)sprite->bitmap;
+	out->backbuffer = out->buffer;
+
+	return out;
+}
+
+sprite_t * create_sprite(size_t width, size_t height, int alpha) {
+	sprite_t * out = malloc(sizeof(sprite_t));
+
+	/*
+	uint16_t width;
+	uint16_t height;
+	uint32_t * bitmap;
+	uint32_t * masks;
+	uint32_t blank;
+	uint8_t  alpha;
+	*/
+
+	out->width  = width;
+	out->height = height;
+	out->bitmap = malloc(sizeof(uint32_t) * out->width * out->height);
+	out->masks  = NULL;
+	out->blank  = 0x00000000;
+	out->alpha  = alpha;
+
+	return out;
+}
+
+void sprite_free(sprite_t * sprite) {
+	if (sprite->masks) {
+		free(sprite->masks);
+	}
+	free(sprite->bitmap);
+	free(sprite);
+}
+
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 	return 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
 }
@@ -96,6 +139,77 @@ uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top) {
 	uint8_t gre = alp ? (int)(_GRE(bottom) * (b) + _GRE(top) * a) / (alp): 0;
 	uint8_t blu = alp ? (int)(_BLU(bottom) * (b) + _BLU(top) * a) / (alp): 0;
 	return rgba(red,gre,blu,alp);
+}
+
+/*
+ * based on the blur.c demo for Cairo
+ * Copyright © 2008 Kristian Høgsberg
+ * Copyright © 2009 Chris Wilson
+ */
+#define ARRAY_LENGTH(a) (sizeof (a) / sizeof (a)[0])
+
+void blur_context(gfx_context_t * _dst, gfx_context_t * _src, double amount) {
+	int width, height;
+	int x, y, z, w, i, j, k;
+	uint32_t *s, *d, a, p;
+	uint8_t * src, * dst;
+	uint8_t kernel[17];
+	const int size = ARRAY_LENGTH(kernel);
+	const int half = size / 2;
+
+	width  = _src->width;
+	height = _src->height;
+
+	src = _src->backbuffer;
+	dst = _dst->backbuffer;
+
+	a = 0;
+	for (i = 0; i < size; ++i) {
+		double f = i - half;
+		a += kernel[i] = exp (- f * f / amount) * 80;
+	}
+
+	for (i = 0; i < height; ++i) {
+		s = (uint32_t *) (src + i * (_src->width * 4));
+		d = (uint32_t *) (dst + i * (_dst->width * 4));
+		for (j = 0; j < width; ++j) {
+			x = y = z = w = 0;
+			for (k = 0; k < size; ++k) {
+				if (j - half + k < 0 || j - half + k >= width)
+					continue;
+				p = s[j - half + k];
+
+				x += ((p >> 24) & 0xFF) * kernel[k];
+				y += ((p >> 16) & 0xFF) * kernel[k];
+				z += ((p >>  8) & 0xFF) * kernel[k];
+				w += ((p >>  0) & 0xFF) * kernel[k];
+			}
+
+			d[j] = (x / a << 24) | (y / a << 16) | (z / a << 8) | w / a;
+		}
+	}
+
+	for (i = 0; i < height; ++i) {
+		s = (uint32_t *) (src + i * (_src->width * 4));
+		d = (uint32_t *) (dst + i * (_dst->width * 4));
+		for (j = 0; j < width; ++j) {
+			x = y = z = w = 0;
+			for (k = 0; k < size; ++k) {
+				if (i - half + k < 0 || i - half + k >= height)
+					continue;
+
+				s = (uint32_t *) (dst + (i - half + k) * (_dst->width * 4));
+				p = s[j];
+
+				x += ((p >> 24) & 0xFF) * kernel[k];
+				y += ((p >> 16) & 0xFF) * kernel[k];
+				z += ((p >>  8) & 0xFF) * kernel[k];
+				w += ((p >>  0) & 0xFF) * kernel[k];
+			}
+
+			d[j] = (x / a << 24) | (y / a << 16) | (z / a << 8) | w / a;
+		}
+	}
 }
 
 void load_sprite(sprite_t * sprite, char * filename) {

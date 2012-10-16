@@ -293,6 +293,29 @@ ToAruOS contains additional software with the following copyright notices:
 
         Latest version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
 
+* The code to perform a Gaussian blur on a graphics context (part of userspace/lib/graphics.c) comes from sample code for Cairo and carries the following license:
+
+        Copyright © 2008 Kristian Høgsberg
+        Copyright © 2009 Chris Wilson
+
+        Permission to use, copy, modify, distribute, and sell this software and its
+        documentation for any purpose is hereby granted without fee, provided that
+        the above copyright notice appear in all copies and that both that copyright
+        notice and this permission notice appear in supporting documentation, and
+        that the name of the copyright holders not be used in advertising or
+        publicity pertaining to distribution of the software without specific,
+        written prior permission.  The copyright holders make no representations
+        about the suitability of this software for any purpose.  It is provided "as
+        is" without express or implied warranty.
+
+        THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+        INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+        EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+        CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+        DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+        TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+        OF THIS SOFTWARE.
+
 * Some icons from the Elementary Icons set are included. These are icons are released under the GPL. You may find a list of authors and contributors alongside the icon files.
 
 * Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html) and [zlib](http://www.zlib.net/) Patches for these software packages are provided under the same license as the package they are for.
