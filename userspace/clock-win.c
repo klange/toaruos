@@ -121,6 +121,12 @@ void draw(int secs) {
 	flip(w_ctx);
 }
 
+void resize_callback(window_t * win) {
+	win_width = win->width;
+	win_height = win->height;
+	reinit_graphics_window(w_ctx, window);
+}
+
 int main (int argc, char ** argv) {
 	setup_windowing();
 
@@ -131,6 +137,8 @@ int main (int argc, char ** argv) {
 
 	win_width = width;
 	win_height = height;
+
+	resize_window_callback = resize_callback;
 
 	/* Do something with a window */
 	window = window_create(left, top, width + decor_width(), height + decor_height());

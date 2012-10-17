@@ -110,7 +110,15 @@ int main (int argc, char ** argv) {
 
 	syscall_signal(2, sig_int);
 
-	init_sprite_png(0, "/usr/share/wallpaper.png");
+	char f_name[512];
+	sprintf(f_name, "%s/.wallpaper.png", getenv("HOME"));
+	FILE * f = fopen(f_name, "r");
+	if (f) {
+		fclose(f);
+		init_sprite_png(0, f_name);
+	} else {
+		init_sprite_png(0, "/usr/share/wallpaper.png");
+	}
 	draw_sprite_scaled(ctx, sprites[0], 0, 0, width, height);
 	flip(ctx);
 
