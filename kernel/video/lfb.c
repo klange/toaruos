@@ -124,6 +124,8 @@ void graphics_install_preset(uint16_t w, uint16_t h) {
 		}
 	}
 
+	debug_print(WARNING, "Failed to locate video memory. This could end poorly.");
+
 mem_found:
 	finalize_graphics(w,h,b);
 
