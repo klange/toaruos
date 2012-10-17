@@ -60,7 +60,7 @@ install: system
 run: system
 	${EMU} ${EMUARGS} -append "vid=qemu hdd"
 kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "optirun vid=qemu hdd"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu hdd"
 vga: system
 	${EMU} ${EMUARGS} -append "vgaterm hdd"
 vga-kvm: system

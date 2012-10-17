@@ -9,6 +9,7 @@
 
 uint32_t BLOCKSIZE = 1024;
 uint32_t CACHEENTRIES = 10240;
+uint32_t PTRS_PER_BLOCK = 256;
 #define SECTORSIZE		512
 #define DISK_PORT		0x1F0
 
@@ -149,18 +150,18 @@ void ext2_set_real_block(ext2_inodetable_t *inode, uint32_t block, uint32_t real
 	if (block < 12) {
 		inode->block[block] = real;
 		return;
-	} else if (block < 12 + BLOCKSIZE / sizeof(uint32_t)) {
+	} else if (block < 12 + PTRS_PER_BLOCK) {
 		uint8_t *tmp = malloc(BLOCKSIZE);
 		ext2_disk_read_block(inode->block[12], tmp);
 		((uint32_t *)tmp)[block - 12] = real;
 		ext2_disk_write_block(inode->block[12], tmp);
 		free(tmp);
 		return;
-	} else if (block < 12 + 256 + 256 * 256) {
+	} else if (block < 12 + PTRS_PER_BLOCK + PTRS_PER_BLOCK * PTRS_PER_BLOCK) {
 		uint32_t a = block - 12;
-		uint32_t b = a - 256;
-		uint32_t c = b / 256;
-		uint32_t d = b - c * 256;
+		uint32_t b = a - PTRS_PER_BLOCK;
+		uint32_t c = b / PTRS_PER_BLOCK;
+		uint32_t d = b - c * PTRS_PER_BLOCK;
 		uint8_t *tmp = malloc(BLOCKSIZE);
 		ext2_disk_read_block(inode->block[13], tmp);
 		uint32_t nblock = ((uint32_t *)tmp)[c];
@@ -169,14 +170,14 @@ void ext2_set_real_block(ext2_inodetable_t *inode, uint32_t block, uint32_t real
 		ext2_disk_write_block(nblock, tmp);
 		free(tmp);
 		return;
-	} else if (block < 12 + 256 + 256 * 256 + 256 * 256 * 256) {
+	} else if (block < 12 + PTRS_PER_BLOCK + PTRS_PER_BLOCK * PTRS_PER_BLOCK + PTRS_PER_BLOCK * PTRS_PER_BLOCK * PTRS_PER_BLOCK) {
 		uint32_t a = block - 12;
-		uint32_t b = a - 256;
-		uint32_t c = b - 256 * 256;
-		uint32_t d = c / (256 * 256);
-		uint32_t e = c - d * 256 * 256;
-		uint32_t f = e / 256;
-		uint32_t g = e - f * 256;
+		uint32_t b = a - PTRS_PER_BLOCK;
+		uint32_t c = b - PTRS_PER_BLOCK * PTRS_PER_BLOCK;
+		uint32_t d = c / (PTRS_PER_BLOCK * PTRS_PER_BLOCK);
+		uint32_t e = c - d * PTRS_PER_BLOCK * PTRS_PER_BLOCK;
+		uint32_t f = e / PTRS_PER_BLOCK;
+		uint32_t g = e - f * PTRS_PER_BLOCK;
 		uint8_t *tmp = malloc(BLOCKSIZE);
 		ext2_disk_read_block(inode->block[14], tmp);
 		uint32_t nblock = ((uint32_t *)tmp)[d];
@@ -198,17 +199,17 @@ void ext2_set_real_block(ext2_inodetable_t *inode, uint32_t block, uint32_t real
 uint32_t ext2_get_real_block(ext2_inodetable_t *inode, uint32_t block) {
 	if (block < 12) {
 		return inode->block[block];
-	} else if (block < 12 + BLOCKSIZE / sizeof(uint32_t)) {
+	} else if (block < 12 + PTRS_PER_BLOCK) {
 		uint8_t *tmp = malloc(BLOCKSIZE);
 		ext2_disk_read_block(inode->block[12], tmp);
 		uint32_t nblock = ((uint32_t *)tmp)[block - 12];
 		free(tmp);
 		return nblock;
-	} else if (block < 12 + 256 + 256 * 256) {
+	} else if (block < 12 + PTRS_PER_BLOCK + PTRS_PER_BLOCK * PTRS_PER_BLOCK) {
 		uint32_t a = block - 12;
-		uint32_t b = a - 256;
-		uint32_t c = b / 256;
-		uint32_t d = b - c * 256;
+		uint32_t b = a - PTRS_PER_BLOCK;
+		uint32_t c = b / PTRS_PER_BLOCK;
+		uint32_t d = b - c * PTRS_PER_BLOCK;
 		uint8_t *tmp = malloc(BLOCKSIZE);
 		ext2_disk_read_block(inode->block[13], tmp);
 		uint32_t nblock = ((uint32_t *)tmp)[c];
@@ -216,14 +217,14 @@ uint32_t ext2_get_real_block(ext2_inodetable_t *inode, uint32_t block) {
 		nblock = ((uint32_t *)tmp)[d];
 		free(tmp);
 		return nblock;
-	} else if (block < 12 + 256 + 256 * 256 + 256 * 256 * 256) {
+	} else if (block < 12 + PTRS_PER_BLOCK + PTRS_PER_BLOCK * PTRS_PER_BLOCK + PTRS_PER_BLOCK * PTRS_PER_BLOCK * PTRS_PER_BLOCK) {
 		uint32_t a = block - 12;
-		uint32_t b = a - 256;
-		uint32_t c = b - 256 * 256;
-		uint32_t d = c / (256 * 256);
-		uint32_t e = c - d * 256 * 256;
-		uint32_t f = e / 256;
-		uint32_t g = e - f * 256;
+		uint32_t b = a - PTRS_PER_BLOCK;
+		uint32_t c = b - PTRS_PER_BLOCK * PTRS_PER_BLOCK;
+		uint32_t d = c / (PTRS_PER_BLOCK * PTRS_PER_BLOCK);
+		uint32_t e = c - d * PTRS_PER_BLOCK * PTRS_PER_BLOCK;
+		uint32_t f = e / PTRS_PER_BLOCK;
+		uint32_t g = e - f * PTRS_PER_BLOCK;
 		uint8_t *tmp = malloc(BLOCKSIZE);
 		ext2_disk_read_block(inode->block[14], tmp);
 		uint32_t nblock = ((uint32_t *)tmp)[d];
@@ -1027,6 +1028,7 @@ void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector) {
 	if (BLOCKSIZE > 2048) {
 		CACHEENTRIES /= 4;
 	}
+	PTRS_PER_BLOCK = BLOCKSIZE / 4;
 	debug_print(NOTICE, "Log block size = %d -> %d", SB->log_block_size, BLOCKSIZE);
 	BGDS = SB->blocks_count / SB->blocks_per_group;
 	if (SB->blocks_per_group * BGDS < SB->blocks_count) {
