@@ -19,6 +19,7 @@ static FT_GlyphSlot slot;
 static FT_UInt      glyph_index;
 static int initialized = 0;
 static float opacity = 1.0;
+static int _font_size = 12;
 
 #define SGFX(CTX,x,y,WIDTH) *((uint32_t *)&CTX[((WIDTH) * (y) + (x)) * 4])
 #define FONT_SIZE 12
@@ -44,6 +45,7 @@ void init_shmemfonts() {
 }
 
 void set_font_size(int size) {
+	_font_size = size;
 	FT_Set_Pixel_Sizes(face, size, size);
 }
 
@@ -116,3 +118,38 @@ void draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) 
 	}
 }
 
+void draw_string_shadow(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string, uint32_t shadow_color, int darkness, int offset_x, int offset_y, double radius) {
+#define OFFSET_X  5
+#define OFFSET_Y  5
+#define WIDTH_PAD 15
+#define HEIGHT_PAD 15
+
+	gfx_context_t * tmp_c, * out_c;
+	sprite_t * tmp_s, * out_s;
+
+	size_t width = draw_string_width(string) + WIDTH_PAD;
+	size_t height = _font_size + HEIGHT_PAD;
+
+	tmp_s = create_sprite(width, height, ALPHA_EMBEDDED);
+	tmp_c = init_graphics_sprite(tmp_s);
+
+	out_s = create_sprite(width, height, ALPHA_EMBEDDED);
+	out_c = init_graphics_sprite(out_s);
+
+	draw_fill(tmp_c, rgba(0,0,0,0));
+	draw_string(tmp_c, OFFSET_X + offset_x, OFFSET_Y + offset_y + _font_size, shadow_color, string);
+
+	blur_context(out_c, tmp_c, radius);
+
+	draw_string(out_c, OFFSET_X, OFFSET_Y + _font_size, fg, string);
+
+	for (int i = 0; i < darkness; ++i) {
+		draw_sprite(ctx, out_s, x - OFFSET_X, y - OFFSET_Y - _font_size);
+	}
+
+	sprite_free(tmp_s);
+	free(tmp_c);
+
+	sprite_free(out_s);
+	free(out_c);
+}

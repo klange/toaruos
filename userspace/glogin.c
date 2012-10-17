@@ -210,14 +210,7 @@ int main (int argc, char ** argv) {
 				/* Redraw the background by memcpy (super speedy) */
 				memcpy(ctx->backbuffer, buf, buf_size);
 
-				set_text_opacity(0.2);
-				for (int y = -fuzz; y <= fuzz; ++y) {
-					for (int x = -fuzz; x <= fuzz; ++x) {
-						draw_string(ctx, wina->width / 2 - x_offset + x, wina->height / 2 + y_offset + y, black, msg);
-					}
-				}
-				set_text_opacity(1.0);
-				draw_string(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg);
+				draw_string_shadow(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg, black, 4, 2, 2, 5.0);
 
 				flip(ctx);
 
@@ -249,14 +242,7 @@ _have_username:
 				/* Redraw the background by memcpy (super speedy) */
 				memcpy(ctx->backbuffer, buf, buf_size);
 
-				set_text_opacity(0.2);
-				for (int y = -fuzz; y <= fuzz; ++y) {
-					for (int x = -fuzz; x <= fuzz; ++x) {
-						draw_string(ctx, wina->width / 2 - x_offset + x, wina->height / 2 + y_offset + y, black, msg);
-					}
-				}
-				set_text_opacity(1.0);
-				draw_string(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg);
+				draw_string_shadow(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg, black, 4, 2, 2, 5.0);
 
 				flip(ctx);
 

@@ -29,7 +29,7 @@
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
-#define SINGLE_USER_MODE 1
+#define SINGLE_USER_MODE 0
 
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {

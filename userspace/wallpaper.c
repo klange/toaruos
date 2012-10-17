@@ -129,7 +129,7 @@ int main (int argc, char ** argv) {
 		int str_w = draw_string_width(applications[i].title) / 2;
 		int str_x = ICON_X + ICON_WIDTH / 2 - str_w;
 		int str_y = ICON_TOP_Y + ICON_SPACING_Y * i + ICON_WIDTH + 14;
-		draw_string(ctx, str_x, str_y, rgb(255,255,255), applications[i].title);
+		draw_string_shadow(ctx, str_x, str_y, rgb(255,255,255), applications[i].title, rgb(0,0,0), 2, 1, 1, 3.0);
 
 		++i;
 	}

@@ -29,10 +29,20 @@ void display() {
 	draw_string(out_c, 19, 19, rgb(255,255,255), input_buffer);
 
 	draw_fill(ctx, rgba(0,0,0,0));
+
 	draw_sprite(ctx, out_s, 0, 0);
-	draw_sprite(ctx, out_s, 0, 0);
-	draw_sprite(ctx, out_s, 0, 0);
-	draw_sprite(ctx, out_s, 0, 0);
+
+	draw_sprite(ctx, out_s, 0, 20);
+	draw_sprite(ctx, out_s, 0, 20);
+
+	draw_sprite(ctx, out_s, 0, 40);
+	draw_sprite(ctx, out_s, 0, 40);
+	draw_sprite(ctx, out_s, 0, 40);
+
+	draw_sprite(ctx, out_s, 0, 60);
+	draw_sprite(ctx, out_s, 0, 60);
+	draw_sprite(ctx, out_s, 0, 60);
+	draw_sprite(ctx, out_s, 0, 60);
 
 	sprite_free(tmp_s);
 	free(tmp_c);
@@ -74,7 +84,7 @@ int main(int argc, char * argv[]) {
 	setup_windowing();
 
 	resize_window_callback = resize_callback;
-	window = window_create(40, 40, 200, 30);
+	window = window_create(40, 40, 200, 120);
 	ctx = init_graphics_window_double_buffer(window);
 
 	window_enable_alpha(window);
