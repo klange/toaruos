@@ -8,6 +8,11 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+if [[ $# -lt 1 ]]; then
+    echo "I need a path to a compiled とあるOS source directory as an argument, try again." 1>&2
+    exit 1
+fi
+
 DISK=toaru-disk.img
 SRCDIR=$1
 BOOT=./boot
