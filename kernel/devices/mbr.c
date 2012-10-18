@@ -9,6 +9,8 @@ mbr_t mbr;
 
 int read_partition_map(int device) {
 
+	ide_init(DISK_PORT);
+
 	ide_read_sector(DISK_PORT, 0, 0, (uint8_t *)&mbr);
 
 	if (mbr.signature[0] == 0x55 && mbr.signature[1] == 0xAA) {
