@@ -1,0 +1,3 @@
+[submodule "image-builder"]
+	path = image-builder
+	url = git@github.com:klange/toaru-create-image
