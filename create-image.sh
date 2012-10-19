@@ -52,7 +52,8 @@ echo "Installing main files."
 cp -r $SRCDIR/hdd/* /mnt/
 
 echo "Installing boot files."
-cp -r $BOOT /mnt/boot
+mkdir -p  /mnt/boots
+cp -r $BOOT/* /mnt/boot/
 
 echo "Installing kernel."
 cp -r $SRCDIR/toaruos-kernel /mnt/boot/
