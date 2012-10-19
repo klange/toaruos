@@ -132,6 +132,9 @@ void redraw() {
 
 	render_decorations(window, window->buffer, "Julia Fractals");
 
+	newcolor  = 0;
+	lastcolor = 0;
+
 	pixcorx = (Maxx - Minx) / width;
 	pixcory = (Maxy - Miny) / height;
 	int j = 0;
