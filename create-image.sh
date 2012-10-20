@@ -52,7 +52,7 @@ echo "Installing main files."
 cp -r $SRCDIR/hdd/* /mnt/
 
 echo "Installing boot files."
-mkdir -p  /mnt/boots
+mkdir -p  /mnt/boot
 cp -r $BOOT/* /mnt/boot/
 
 echo "Installing kernel."
