@@ -311,8 +311,6 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 	cairo_set_source_surface(cr, win, (double)left, (double)top);
 	cairo_paint(cr);
 
-	//blit_window(window, left, top);
-	
 	cairo_surface_destroy(win);
 	cairo_restore(cr);
 }
