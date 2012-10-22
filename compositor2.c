@@ -84,20 +84,6 @@ process_windows_t * get_process_windows (uint32_t pid) {
 	return NULL;
 }
 
-static window_t * get_window (wid_t wid) {
-	foreach (n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		foreach (m, pw->windows) {
-			window_t * w = (window_t *)m->value;
-			if (w->wid == wid) {
-				return w;
-			}
-		}
-	}
-
-	return NULL;
-}
-
 static window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
 	foreach (m, pw->windows) {
 		window_t * w = (window_t *)m->value;
@@ -114,8 +100,6 @@ void init_process_list () {
 	memset(windows, 0x00000000, sizeof(window_t *) * 0x10000);
 }
 
-
-
 int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
 }
@@ -126,33 +110,6 @@ int32_t max(int32_t a, int32_t b) {
 
 uint8_t is_between(int32_t lo, int32_t hi, int32_t val) {
 	if (val >= lo && val < hi) return 1;
-	return 0;
-}
-
-uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
-	uint16_t index = window->z;
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-
-		foreach(node, pw->windows) {
-			window_t * win = (window_t *)node->value;
-			if (win == window)  continue;
-			if (win->z < index) continue;
-			if (is_between(win->x, win->x + win->width, x) && is_between(win->y, win->y + win->height, y)) {
-				return 0;
-			}
-		}
-	}
-	return 1;
-}
-
-uint8_t inline is_top_fast(window_t * window, uint16_t x, uint16_t y) {
-	if (x >= ctx->width || y >= ctx->height) {
-		return 0;
-	}
-	if (window->z == depth_map[x + y * ctx->width]) {
-		return 1;
-	}
 	return 0;
 }
 
@@ -269,30 +226,6 @@ int32_t    resizing_window_h = 0;
 
 /* Internal drawing functions */
 
-void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
-	if (!window) {
-		return;
-	}
-
-	uint16_t _lo_x = max(window->x + x, 0);
-	uint16_t _hi_x = min(window->x + width, ctx->width);
-	uint16_t _lo_y = max(window->y + y, 0);
-	uint16_t _hi_y = min(window->y + height, ctx->height);
-
-	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
-		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
-			/* XXX MAKE THIS FASTER */
-			if (is_top_fast(window, x, y)) {
-				if (TO_WINDOW_OFFSET(x,y) >= window->width * window->height) continue;
-				GFX(ctx,x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
-			}
-		}
-	}
-
-	//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
-	//redraw_cursor();
-}
-
 void window_add (window_t * window) {
 	int z = window->z;
 	while (windows[z]) {
@@ -310,14 +243,6 @@ void unorder_window (window_t * window) {
 	}
 	window->z = 0;
 	return;
-}
-
-void redraw_full_window (window_t * window) {
-	if (!window) {
-		return;
-	}
-
-	redraw_window(window, (uint16_t)0, (uint16_t)0, window->width, window->height);
 }
 
 void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
@@ -583,7 +508,7 @@ void process_window_command (int sig) {
 				case WC_RESIZE:
 					{
 						read(pw->command_pipe, &wwt, sizeof(w_window_t));
-						window_t * window = get_window(wwt.wid);
+						window_t * window = get_window_with_process(pw, wwt.wid);
 						resize_window_buffer(window, window->x, window->y, wwt.width, wwt.height);
 
 						printf("Sending event.\n");
@@ -606,12 +531,10 @@ void process_window_command (int sig) {
 
 				case WC_DAMAGE:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					//redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					break;
 
 				case WC_REDRAW:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					//redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					send_window_event(pw, WE_REDRAWN, &wwt);
 					break;
 
