@@ -420,6 +420,12 @@ switch_task(uint8_t reschedule) {
 			}
 		}
 		fix_signal_stacks();
+
+		/* Restore floating poin state */
+#if 1
+		asm volatile ("frstor %0" : "=m"(current_process->thread.fp_regs));
+#endif
+
 		/* XXX: Signals */
 		if (!current_process->finished) {
 			if (current_process->signal_queue->length > 0) {
@@ -437,6 +443,12 @@ switch_task(uint8_t reschedule) {
 	current_process->thread.eip = eip;
 	current_process->thread.esp = esp;
 	current_process->thread.ebp = ebp;
+
+	/* Save floating point state */
+#if 1
+	asm volatile ("fsave %0" : "=m"(current_process->thread.fp_regs));
+#endif
+
 
 	if (reschedule) {
 		/* And reinsert it into the ready queue */

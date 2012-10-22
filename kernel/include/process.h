@@ -31,6 +31,8 @@ typedef struct thread {
 	uintptr_t  ebp; /* Base Pointer */
 	uintptr_t  eip; /* Instruction Pointer */
 
+	uint8_t    fp_regs[108];
+
 	page_directory_t * page_directory; /* Page Directory */
 } thread_t;
 
