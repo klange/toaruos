@@ -12,6 +12,6 @@ Eventually, Cairo will be included in the standard toolchain.
 
 ## Installation
 
-As with other external-library applications, clone those into your `osdev` repository, build its dependencies (Cairo, Pixman, etc.), run `make` and then `make clean-disk && make` in `osdev`.
+As with other external-library applications, clone this into your `osdev` repository, build its dependencies (Cairo, Pixman, etc.), run `make` and then `make clean-disk && make` in `osdev`.
 
 You'll also need to change `init` so it runs `compositor2` instead of `compositor`.
