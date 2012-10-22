@@ -32,5 +32,6 @@ toolchain/local
 toolchain/build
 .config
 toaru-pdfviewer
+toaru-compositor
 hdd/home/root/*
 hdd/home/local/*
