@@ -13,6 +13,7 @@
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
+window_t * wina;
 
 uint16_t win_width;
 uint16_t win_height;
@@ -48,8 +49,16 @@ void darken(gfx_context_t * ctx) {
 	}
 }
 
+void resize_callback(window_t * window) {
+	win_width  = window->width;
+	win_height = window->height;
+	reinit_graphics_window(ctx, wina);
+	draw_fill(ctx, rgb(0,0,0));
+}
+
 int main (int argc, char ** argv) {
 	setup_windowing();
+	resize_window_callback = resize_callback;
 
 	int width  = 600;
 	int height = 400;
@@ -61,23 +70,14 @@ int main (int argc, char ** argv) {
 
 
 	/* Do something with a window */
-	window_t * wina = window_create(300, 300, width, height);
+	wina = window_create(300, 300, width, height);
 	assert(wina);
 	ctx = init_graphics_window_double_buffer(wina);
 
 	draw_fill(ctx, rgb(0,0,0));
 	flip(ctx);
 
-#if 0
-	printf("Loading background...\n");
-	init_sprite(0, "/usr/share/login-background.bmp", NULL);
-	printf("Background loaded.\n");
-	draw_sprite_scaled(ctx, sprites[0], 0, 0, width, height);
-#endif
-
-#if 1
 	init_sprite(1, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
-#endif
 
 	flip(ctx);
 
@@ -101,7 +101,6 @@ int main (int argc, char ** argv) {
 			goto done;
 			break;
 		}
-		//draw_fill(ctx, rgb(0,0,0));
 		darken(ctx);
 		draw_sprite_scaled(ctx, sprites[1], center_x(sprites[1]->width * herp), center_y(sprites[1]->height * derp), sprites[1]->width * herp, sprites[1]->height * derp);
 		render_decorations(wina, ctx->backbuffer, "Graphics Test");

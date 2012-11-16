@@ -1,10 +1,12 @@
 /*
- * edit
+ * bim
  *
- * A super-simple one-pass file... uh "editor".
- * Takes stdin until a blank line and writes
- * it back to standard out.
+ * Bim is a Bad IMitation of Vim.
+ *
+ * The 'standard' text editor for とあるOS.
+ *
  */
+#define _XOPEN_SOURCE 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
