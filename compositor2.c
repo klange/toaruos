@@ -26,7 +26,8 @@
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
-#define SINGLE_USER_MODE 0
+#define SINGLE_USER_MODE 1
+#define FORCE_UID 1000
 
 void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
@@ -48,7 +49,7 @@ gfx_context_t * ctx;
 
 #define WIN_D 32
 #define WIN_B (WIN_D / 8)
-#define MOUSE_DISCARD_LEVEL 6
+#define MOUSE_DISCARD_LEVEL 10
 
 
 list_t * process_list;
@@ -310,8 +311,8 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 
 	cairo_set_source_surface(cr, win, (double)left, (double)top);
 	cairo_paint(cr);
-
 	cairo_surface_destroy(win);
+
 	cairo_restore(cr);
 }
 
@@ -928,6 +929,32 @@ void * process_requests(void * garbage) {
 					}
 				}
 #endif
+			} else if (_mouse_state == 0) {
+				mouse_discard--;
+				if (mouse_discard < 1) {
+					mouse_discard = MOUSE_DISCARD_LEVEL;
+
+					w_mouse_t _packet;
+					_mouse_window = focused_window();
+					_packet.wid = _mouse_window->wid;
+
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
+
+					_packet.old_x = click_x;
+					_packet.old_y = click_y;
+
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					_packet.new_x = click_x;
+					_packet.new_y = click_y;
+
+					_packet.buttons = packet->buttons;
+					_packet.command = WE_MOUSEMOVE;
+
+					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+				}
 			} else if (_mouse_state == 1) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
 					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
@@ -1117,6 +1144,9 @@ int main(int argc, char ** argv) {
 
 	if (!fork()) {
 #if SINGLE_USER_MODE
+#ifdef FORCE_UID
+		syscall_setuid(FORCE_UID);
+#endif
 		char * args[] = {"/bin/gsession", NULL};
 #else
 		char * args[] = {"/bin/glogin", NULL};
