@@ -515,7 +515,7 @@ uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v) {
 	return rgb(r_RED,r_GRE,r_BLU) & (0xFFFFFF + (int)r_ALP * 0x1000000);
 }
 
-void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
+void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + width,  ctx->width - 1);
