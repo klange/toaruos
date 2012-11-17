@@ -84,7 +84,7 @@ void start_compositor() {
 	int pid = fork();
 	if (!pid) {
 		char * tokens[] = {
-			"/bin/compositor2",
+			"/bin/compositor",
 			NULL
 		};
 		int i = execvp(tokens[0], tokens);
