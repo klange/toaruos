@@ -119,7 +119,18 @@ int main (int argc, char ** argv) {
 	} else {
 		init_sprite_png(0, "/usr/share/wallpaper.png");
 	}
-	draw_sprite_scaled(ctx, sprites[0], 0, 0, width, height);
+
+	float x = (float)width  / (float)sprites[0]->width;
+	float y = (float)height / (float)sprites[0]->height;
+
+	int nh = (int)(x * (float)sprites[0]->height);
+	int nw = (int)(y * (float)sprites[0]->width);;
+
+	if (nw > width) {
+		draw_sprite_scaled(ctx, sprites[0], (width - nw) / 2, 0, nw, height);
+	} else {
+		draw_sprite_scaled(ctx, sprites[0], 0, (height - nh) / 2, width, nh);
+	}
 	flip(ctx);
 
 	init_shmemfonts();
