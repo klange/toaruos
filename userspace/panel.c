@@ -11,6 +11,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+#define PANEL_HEIGHT 28
+
 #include "lib/utf8decode.h"
 
 #include <ft2build.h>
@@ -205,13 +207,13 @@ int main (int argc, char ** argv) {
 	_loadVlgothic();
 
 	/* Create the panel */
-	window_t * panel = window_create(0, 0, width, 24);
+	window_t * panel = window_create(0, 0, width, PANEL_HEIGHT);
 	window_reorder (panel, 0xFFFF);
 	ctx = init_graphics_window_double_buffer(panel);
-	draw_fill(ctx, rgb(0,0,0));
+	draw_fill(ctx, rgba(0,0,0,0));
 	flip(ctx);
 
-	init_sprite(0, "/usr/share/panel.bmp", NULL);
+	init_sprite_png(0, "/usr/share/panel.png");
 	init_sprite_png(1, "/usr/share/icons/panel-shutdown.png");
 
 	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
