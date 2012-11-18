@@ -58,9 +58,9 @@ While とあるOS ships with only its own native software tools, we are working 
 
 Here's what とあるOS looks like:
 
-![Screenshot](http://i.imgur.com/NRUWGl.png)
+![Screenshot](http://i.imgur.com/kOpJ2l.png)
 
-(http://i.imgur.com/NRUWG.png)
+(http://i.imgur.com/kOpJ2.png)
 
 Here's what とあるOS has looked like in the past:
 
