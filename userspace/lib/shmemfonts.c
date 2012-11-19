@@ -14,12 +14,13 @@
 #include "shmemfonts.h"
 
 static FT_Library   library;
-static FT_Face      face; /* perhaps make this an array ? */
+static FT_Face      faces[FONTS_TOTAL]; /* perhaps make this an array ? */
 static FT_GlyphSlot slot;
 static FT_UInt      glyph_index;
 static int initialized = 0;
 static float opacity = 1.0;
 static int _font_size = 12;
+static int selected_face = 0;
 
 #define SGFX(CTX,x,y,WIDTH) *((uint32_t *)&CTX[((WIDTH) * (y) + (x)) * 4])
 #define FONT_SIZE 12
@@ -27,30 +28,46 @@ static int _font_size = 12;
 /*
  * XXX: take font name as an argument / allow multiple fonts
  */
-static void _loadSansSerif() {
+static void _load_font(int i, char * name) {
 	char * font;
 	size_t s = 0;
 	int error;
-	font = (char *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER ".fonts.sans-serif", &s);
-	error = FT_New_Memory_Face(library, font, s, 0, &face);
-	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
+	font = (char *)syscall_shm_obtain(name, &s);
+	error = FT_New_Memory_Face(library, font, s, 0, &faces[i]);
+	error = FT_Set_Pixel_Sizes(faces[i], FONT_SIZE, FONT_SIZE);
+}
+
+static void _load_fonts() {
+	_load_font(FONT_SANS_SERIF,             WINS_SERVER_IDENTIFIER ".fonts.sans-serif");
+	_load_font(FONT_SANS_SERIF_BOLD,        WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bold");
+	_load_font(FONT_SANS_SERIF_ITALIC,      WINS_SERVER_IDENTIFIER ".fonts.sans-serif.italic");
+	_load_font(FONT_SANS_SERIF_BOLD_ITALIC, WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic");
+	_load_font(FONT_MONOSPACE,              WINS_SERVER_IDENTIFIER ".fonts.monospace");
+	_load_font(FONT_MONOSPACE_BOLD,         WINS_SERVER_IDENTIFIER ".fonts.monospace.bold");
+	_load_font(FONT_MONOSPACE_ITALIC,       WINS_SERVER_IDENTIFIER ".fonts.monospace.italic");
+	_load_font(FONT_MONOSPACE_BOLD_ITALIC,  WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic");
 }
 
 void init_shmemfonts() {
 	if (!initialized) {
 		FT_Init_FreeType(&library);
-		_loadSansSerif();
+		_load_fonts();
+		selected_face = FONT_SANS_SERIF;
 		initialized = 1;
 	}
 }
 
 void set_font_size(int size) {
 	_font_size = size;
-	FT_Set_Pixel_Sizes(face, size, size);
+	FT_Set_Pixel_Sizes(faces[selected_face], size, size);
 }
 
 void set_text_opacity(float new_opacity) {
 	opacity = new_opacity;
+}
+
+void set_font_face(int face_num) {
+	selected_face = face_num;
 }
 
 /*
@@ -68,7 +85,7 @@ static void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg, gfx_context
 }
 
 uint32_t draw_string_width(char * string) {
-	slot = face->glyph;
+	slot = faces[selected_face]->glyph;
 	int pen_x = 0, i = 0;
 	int len = strlen(string);
 	int error;
@@ -76,20 +93,20 @@ uint32_t draw_string_width(char * string) {
 	for (i = 0; i < len; ++i) {
 		FT_UInt glyph_index;
 
-		glyph_index = FT_Get_Char_Index( face, string[i]);
-		error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
+		glyph_index = FT_Get_Char_Index( faces[selected_face], string[i]);
+		error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
 		if (error) {
 			printf("Error loading glyph for '%c'\n", string[i]);
 			continue;
 		}
-		slot = (face)->glyph;
+		slot = (faces[selected_face])->glyph;
 		pen_x += slot->advance.x >> 6;
 	}
 	return pen_x;
 }
 
 void draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
-	slot = face->glyph;
+	slot = faces[selected_face]->glyph;
 	int pen_x = x, pen_y = y, i = 0;
 	int len = strlen(string);
 	int error;
@@ -97,15 +114,15 @@ void draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) 
 	for (i = 0; i < len; ++i) {
 		FT_UInt glyph_index;
 
-		glyph_index = FT_Get_Char_Index( face, string[i]);
-		error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
+		glyph_index = FT_Get_Char_Index( faces[selected_face], string[i]);
+		error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
 		if (error) {
 			printf("Error loading glyph for '%c'\n", string[i]);
 			continue;
 		}
-		slot = (face)->glyph;
+		slot = (faces[selected_face])->glyph;
 		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
-			error = FT_Render_Glyph((face)->glyph, FT_RENDER_MODE_NORMAL);
+			error = FT_Render_Glyph((faces[selected_face])->glyph, FT_RENDER_MODE_NORMAL);
 			if (error) {
 				printf("Error rendering glyph for '%c'\n", string[i]);
 				continue;
