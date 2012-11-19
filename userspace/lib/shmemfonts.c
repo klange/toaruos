@@ -12,6 +12,7 @@
 
 #include "graphics.h"
 #include "shmemfonts.h"
+#include "utf8decode.h"
 
 static FT_Library   library;
 static FT_Face      faces[FONTS_TOTAL]; /* perhaps make this an array ? */
@@ -25,6 +26,8 @@ static int selected_face = 0;
 #define SGFX(CTX,x,y,WIDTH) *((uint32_t *)&CTX[((WIDTH) * (y) + (x)) * 4])
 #define FONT_SIZE 12
 
+#define FALLBACK FONT_JAPANESE
+
 /*
  * XXX: take font name as an argument / allow multiple fonts
  */
@@ -37,6 +40,12 @@ static void _load_font(int i, char * name) {
 	error = FT_Set_Pixel_Sizes(faces[i], FONT_SIZE, FONT_SIZE);
 }
 
+static void _load_font_f(int i, char * path) {
+	int error;
+	error = FT_New_Face(library, path, 0, &faces[i]);
+	error = FT_Set_Pixel_Sizes(faces[i], FONT_SIZE, FONT_SIZE);
+}
+
 static void _load_fonts() {
 	_load_font(FONT_SANS_SERIF,             WINS_SERVER_IDENTIFIER ".fonts.sans-serif");
 	_load_font(FONT_SANS_SERIF_BOLD,        WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bold");
@@ -46,6 +55,7 @@ static void _load_fonts() {
 	_load_font(FONT_MONOSPACE_BOLD,         WINS_SERVER_IDENTIFIER ".fonts.monospace.bold");
 	_load_font(FONT_MONOSPACE_ITALIC,       WINS_SERVER_IDENTIFIER ".fonts.monospace.italic");
 	_load_font(FONT_MONOSPACE_BOLD_ITALIC,  WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic");
+	_load_font_f(FONT_JAPANESE, "/usr/share/fonts/VLGothic.ttf");
 }
 
 void init_shmemfonts() {
@@ -58,8 +68,9 @@ void init_shmemfonts() {
 }
 
 void set_font_size(int size) {
-	_font_size = size;
-	FT_Set_Pixel_Sizes(faces[selected_face], size, size);
+	for (int i = 0; i < FONTS_TOTAL; ++i) {
+		FT_Set_Pixel_Sizes(faces[i], size, size);
+	}
 }
 
 void set_text_opacity(float new_opacity) {
@@ -87,19 +98,48 @@ static void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg, gfx_context
 uint32_t draw_string_width(char * string) {
 	slot = faces[selected_face]->glyph;
 	int pen_x = 0, i = 0;
-	int len = strlen(string);
 	int error;
 
-	for (i = 0; i < len; ++i) {
+	uint8_t * s = string;
+
+	uint32_t codepoint;
+	uint32_t state = 0;
+
+	while (*s) {
+		uint16_t o = 0;
+		while (*s) {
+			if (!decode(&state, &codepoint, *s)) {
+				o = (uint16_t)codepoint;
+				s++;
+				goto finished_width;
+			} else if (state == UTF8_REJECT) {
+				state = 0;
+			}
+			s++;
+		}
+
+finished_width:
+		if (!o) continue;
+
 		FT_UInt glyph_index;
 
-		glyph_index = FT_Get_Char_Index( faces[selected_face], string[i]);
-		error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
-		if (error) {
-			printf("Error loading glyph for '%c'\n", string[i]);
-			continue;
+		glyph_index = FT_Get_Char_Index( faces[selected_face], o);
+		if (glyph_index) {
+			error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
+			if (error) {
+				fprintf(stderr, "Error loading glyph for '%d'\n", o);
+				continue;
+			}
+			slot = (faces[selected_face])->glyph;
+		} else {
+			glyph_index = FT_Get_Char_Index( faces[FALLBACK], o);
+			error = FT_Load_Glyph(faces[FALLBACK], glyph_index, FT_LOAD_DEFAULT);
+			if (error) {
+				fprintf(stderr, "Error loading glyph for '%d'\n", o);
+				continue;
+			}
+			slot = (faces[FALLBACK])->glyph;
 		}
-		slot = (faces[selected_face])->glyph;
 		pen_x += slot->advance.x >> 6;
 	}
 	return pen_x;
@@ -108,25 +148,62 @@ uint32_t draw_string_width(char * string) {
 void draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
 	slot = faces[selected_face]->glyph;
 	int pen_x = x, pen_y = y, i = 0;
-	int len = strlen(string);
 	int error;
 
-	for (i = 0; i < len; ++i) {
+	uint8_t * s = string;
+
+	uint32_t codepoint;
+	uint32_t state = 0;
+
+	while (*s) {
+		uint16_t o = 0;
+		while (*s) {
+			if (!decode(&state, &codepoint, *s)) {
+				o = (uint16_t)codepoint;
+				s++;
+				goto finished;
+			} else if (state == UTF8_REJECT) {
+				state = 0;
+			}
+			s++;
+		}
+
+finished:
+		if (!o) continue;
+
 		FT_UInt glyph_index;
 
-		glyph_index = FT_Get_Char_Index( faces[selected_face], string[i]);
-		error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
-		if (error) {
-			printf("Error loading glyph for '%c'\n", string[i]);
-			continue;
-		}
-		slot = (faces[selected_face])->glyph;
-		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
-			error = FT_Render_Glyph((faces[selected_face])->glyph, FT_RENDER_MODE_NORMAL);
+		glyph_index = FT_Get_Char_Index( faces[selected_face], o);
+		if (glyph_index) {
+			error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
 			if (error) {
-				printf("Error rendering glyph for '%c'\n", string[i]);
+				fprintf(stderr, "Error loading glyph for '%d'\n", o);
 				continue;
 			}
+			slot = (faces[selected_face])->glyph;
+			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+				error = FT_Render_Glyph((faces[selected_face])->glyph, FT_RENDER_MODE_NORMAL);
+				if (error) {
+					fprintf(stderr, "Error rendering glyph for '%d'\n", o);
+					continue;
+				}
+			}
+		} else {
+			glyph_index = FT_Get_Char_Index( faces[FALLBACK], o);
+			error = FT_Load_Glyph(faces[FALLBACK], glyph_index, FT_LOAD_DEFAULT);
+			if (error) {
+				fprintf(stderr, "Error loading glyph for '%d'\n", o);
+				continue;
+			}
+			slot = (faces[FALLBACK])->glyph;
+			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+				error = FT_Render_Glyph((faces[FALLBACK])->glyph, FT_RENDER_MODE_NORMAL);
+				if (error) {
+					fprintf(stderr, "Error rendering glyph for '%d'\n", o);
+					continue;
+				}
+			}
+
 		}
 
 		draw_char(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, ctx);

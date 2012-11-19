@@ -21,6 +21,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
+#ifndef UTF_DECODER_H
+#define UTF_DECODER_H
+
 #include <stdint.h>
 
 #define UTF8_ACCEPT 0
@@ -55,4 +58,4 @@ decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
 	return *state;
 }
 
-
+#endif

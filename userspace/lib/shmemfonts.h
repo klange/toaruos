@@ -20,7 +20,8 @@ void set_font_face(int face_num);
 #define FONT_MONOSPACE_BOLD         5
 #define FONT_MONOSPACE_ITALIC       6
 #define FONT_MONOSPACE_BOLD_ITALIC  7
+#define FONT_JAPANESE               8
 
-#define FONTS_TOTAL 8
+#define FONTS_TOTAL 9
 
 #endif
