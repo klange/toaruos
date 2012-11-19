@@ -33,8 +33,7 @@ int border_right   = 6;
 #define TEXT_OFFSET 24
 
 window_t * wina;
-sprite_t * sprites[128];
-sprite_t alpha_tmp;
+sprite_t * sprites[8];
 gfx_context_t * ctx;
 
 int width = 700;

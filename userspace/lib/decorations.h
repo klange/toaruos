@@ -22,7 +22,7 @@ uint32_t decor_right_width;
  * Run me at least once for each window, and any time you may need to
  * redraw them.
  */
-void render_decorations(window_t * window, uint8_t * ctx, char * title);
+void render_decorations(window_t * window, gfx_context_t * ctx, char * title);
 
 /*
  * Run me once to set things up

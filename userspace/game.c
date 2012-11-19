@@ -111,7 +111,7 @@ void render_map(int x, int y) {
 void display() {
 	render_map(my_x,my_y);
 	draw_sprite(ctx, sprites[124 + direction], decor_left_width + raw_x_offset + map_x + CELL_SIZE * 4, decor_top_height + raw_y_offset + map_y + CELL_SIZE * 4);
-	render_decorations(window, ctx->backbuffer, "RPG Demo");
+	render_decorations(window, ctx, "RPG Demo");
 	flip(ctx);
 }
 

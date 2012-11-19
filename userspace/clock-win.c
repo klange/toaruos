@@ -117,7 +117,7 @@ void draw(int secs) {
 		draw_line(w_ctx, decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color);
 	}
 
-	render_decorations(window, w_ctx->backbuffer, "Clock");
+	render_decorations(window, w_ctx, "Clock");
 	flip(w_ctx);
 }
 

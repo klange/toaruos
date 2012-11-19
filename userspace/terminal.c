@@ -599,9 +599,9 @@ void ansi_print(char * c) {
 static void render_decors() {
 	if (_windowed) {
 		if (terminal_title_length) {
-			render_decorations(window, window->buffer, terminal_title);
+			render_decorations(window, ctx, terminal_title);
 		} else {
-			render_decorations(window, window->buffer, "Terminal");
+			render_decorations(window, ctx, "Terminal");
 		}
 	}
 }

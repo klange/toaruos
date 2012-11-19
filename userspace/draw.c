@@ -170,7 +170,7 @@ static void set_thickness_thin(void * button, w_mouse_t * event) {
 }
 
 void decors(window_t * win) {
-	render_decorations(win, win->buffer, "Draw!");
+	render_decorations(win, ctx, "Draw!");
 }
 
 void resize_callback(window_t * window) {

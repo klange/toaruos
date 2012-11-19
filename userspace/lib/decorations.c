@@ -9,10 +9,10 @@
 #include "decorations.h"
 #include "shmemfonts.h"
 
-uint32_t decor_top_height     = 24;
-uint32_t decor_bottom_height  = 1;
-uint32_t decor_left_width     = 1;
-uint32_t decor_right_width    = 1;
+uint32_t decor_top_height     = 33;
+uint32_t decor_bottom_height  = 6;
+uint32_t decor_left_width     = 6;
+uint32_t decor_right_width    = 6;
 
 #define TEXT_OFFSET_X 10
 #define TEXT_OFFSET_Y 16
@@ -20,36 +20,88 @@ uint32_t decor_right_width    = 1;
 #define BORDERCOLOR rgb(60,60,60)
 #define BACKCOLOR rgb(20,20,20)
 #define TEXTCOLOR rgb(255,255,255)
-#define SGFX(CTX,x,y,WIDTH) *((uint32_t *)&CTX[((WIDTH) * (y) + (x)) * 4])
+
+static int u_height = 33;
+static int ul_width = 10;
+static int ur_width = 10;
+static int ml_width = 6;
+static int mr_width = 6;
+static int l_height = 9;
+static int ll_width = 9;
+static int lr_width = 9;
+static int llx_offset = 3;
+static int lly_offset = 3;
+static int lrx_offset = 3;
+static int lry_offset = 3;
+
+static sprite_t * sprites[8];
+
+#define TEXT_OFFSET 24
+
+static void init_sprite_png(int id, char * path) {
+	sprites[id] = malloc(sizeof(sprite_t));
+	load_sprite_png(sprites[id], path);
+}
 
 void init_decorations() {
 	init_shmemfonts();
+
+	init_sprite_png(0, "/usr/share/ttk/ul.png");
+	init_sprite_png(1, "/usr/share/ttk/um.png");
+	init_sprite_png(2, "/usr/share/ttk/ur.png");
+	init_sprite_png(3, "/usr/share/ttk/ml.png");
+	init_sprite_png(4, "/usr/share/ttk/mr.png");
+	init_sprite_png(5, "/usr/share/ttk/ll.png");
+	init_sprite_png(6, "/usr/share/ttk/lm.png");
+	init_sprite_png(7, "/usr/share/ttk/lr.png");
+
 }
 
-void render_decorations(window_t * window, uint8_t * ctx, char * title) {
-	for (uint32_t i = 0; i < window->height; ++i) {
-		SGFX(ctx,0,i,window->width) = BORDERCOLOR;
-		SGFX(ctx,window->width-1,i,window->width) = BORDERCOLOR;
-	}
-	for (uint32_t i = 1; i < decor_top_height; ++i) {
-		for (uint32_t j = 1; j < window->width - 1; ++j) {
-			SGFX(ctx,j,i,window->width) = BACKCOLOR;
+void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
+	int width = window->width;
+	int height = window->height;
+
+	for (int j = 0; j < decor_top_height; ++j) {
+		for (int i = 0; i < width; ++i) {
+			GFX(ctx,i,j) = 0;
 		}
 	}
 
-	/* Fake context for decorations */
-	gfx_context_t fake_context;
-	fake_context.width  = window->width;
-	fake_context.height = window->height;
-	fake_context.depth  = 32;
-	fake_context.backbuffer = ctx;
-
-	draw_string(&fake_context, TEXT_OFFSET_X,TEXT_OFFSET_Y,TEXTCOLOR,title);
-	for (uint32_t i = 0; i < window->width; ++i) {
-		SGFX(ctx,i,0,window->width) = BORDERCOLOR;
-		SGFX(ctx,i,decor_top_height-1,window->width) = BORDERCOLOR;
-		SGFX(ctx,i,window->height-1,window->width) = BORDERCOLOR;
+	for (int j = decor_top_height; j < height - decor_bottom_height; ++j) {
+		for (int i = 0; i < decor_left_width; ++i) {
+			GFX(ctx,i,j) = 0;
+		}
+		for (int i = width - decor_right_width; i < width; ++i) {
+			GFX(ctx,i,j) = 0;
+		}
 	}
+
+	for (int j = height - decor_bottom_height; j < height; ++j) {
+		for (int i = 0; i < width; ++i) {
+			GFX(ctx,i,j) = 0;
+		}
+	}
+
+	draw_sprite(ctx, sprites[0], 0, 0);
+	for (int i = 0; i < width - (ul_width + ur_width); ++i) {
+		draw_sprite(ctx, sprites[1], i + ul_width, 0);
+	}
+	draw_sprite(ctx, sprites[2], width - ur_width, 0);
+	for (int i = 0; i < height - (u_height + l_height); ++i) {
+		draw_sprite(ctx, sprites[3], 0, i + u_height);
+		draw_sprite(ctx, sprites[4], width - mr_width, i + u_height);
+	}
+	draw_sprite(ctx, sprites[5], 0, height - l_height);
+	for (int i = 0; i < width - (ll_width + lr_width); ++i) {
+		draw_sprite(ctx, sprites[6], i + ll_width, height - l_height);
+	}
+	draw_sprite(ctx, sprites[7], width - lr_width, height - l_height);
+
+	set_font_face(FONT_SANS_SERIF_BOLD);
+	set_font_size(12);
+
+	int title_offset = (width / 2) - (draw_string_width(title) / 2);
+	draw_string(ctx, title_offset, TEXT_OFFSET, rgb(226,226,226), title);
 }
 
 uint32_t decor_width() {

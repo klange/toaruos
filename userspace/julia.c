@@ -27,6 +27,7 @@
 
 /* Pointer to graphics memory */
 window_t * window = NULL;
+gfx_context_t * ctx = NULL;
 
 /* Julia fractals elements */
 float conx = -0.74;  /* real part of c */
@@ -130,7 +131,7 @@ void redraw() {
 	printf("Y: %f %f\n", Miny, Maxy);
 	printf("conx: %f cony: %f\n", conx, cony);
 
-	render_decorations(window, window->buffer, "Julia Fractals");
+	render_decorations(window, ctx, "Julia Fractals");
 
 	newcolor  = 0;
 	lastcolor = 0;
@@ -151,10 +152,11 @@ void redraw() {
 	} while ( j < height );
 }
 
-void resize_callback(window_t * window) {
-	width  = window->width  - decor_left_width - decor_right_width;
-	height = window->height - decor_top_height - decor_bottom_height;
+void resize_callback(window_t * win) {
+	width  = win->width  - decor_left_width - decor_right_width;
+	height = win->height - decor_top_height - decor_bottom_height;
 
+	reinit_graphics_window(ctx, window);
 	redraw();
 }
 
@@ -223,6 +225,7 @@ int main(int argc, char * argv[]) {
 
 	window = window_create(left, top, width + decor_width(), height + decor_height());
 	init_decorations();
+	ctx = init_graphics_window(window);
 
 	redraw();
 

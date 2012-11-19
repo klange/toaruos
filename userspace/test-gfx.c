@@ -103,7 +103,7 @@ int main (int argc, char ** argv) {
 		}
 		darken(ctx);
 		draw_sprite_scaled(ctx, sprites[1], center_x(sprites[1]->width * herp), center_y(sprites[1]->height * derp), sprites[1]->width * herp, sprites[1]->height * derp);
-		render_decorations(wina, ctx->backbuffer, "Graphics Test");
+		render_decorations(wina, ctx, "Graphics Test");
 		flip(ctx);
 	}
 done:
