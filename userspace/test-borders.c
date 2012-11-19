@@ -45,7 +45,7 @@ void init_sprite_png(int id, char * path) {
 	load_sprite_png(sprites[id], path);
 }
 
-char * title = "Hello World";
+char * title = "テストアプリケーション Test Application ☃";
 
 void redraw_borders() {
 	draw_sprite(ctx, sprites[0], 0, 0);
