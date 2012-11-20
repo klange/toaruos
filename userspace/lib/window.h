@@ -71,6 +71,7 @@ typedef struct {
 #define WE_RESIZED		0x31 /* Your window has been resized or moved */
 #define WE_DESTROYED	0x32 /* Window has been removed */
 #define WE_REDRAWN		0x34
+#define WE_FOCUSCHG		0x35
 
 #define WE_GROUP_MASK	0xF0
 #define WE_KEY_EVT		0x10 /* Some sort of keyboard event */
@@ -131,6 +132,7 @@ typedef struct {
 	uint16_t z; /* Stack order */
 	uint8_t  use_alpha;
 /* END UNUSED IN CLIENT */
+	uint8_t  focused;
 
 	uint8_t * buffer; /* Window buffer */
 	uint16_t bufid; /* We occasionally replace the buffer; each is uniquely-indexed */
@@ -178,5 +180,7 @@ void win_use_threaded_handler();
 void (*mouse_action_callback)(w_mouse_t *);
 
 void (*resize_window_callback)(window_t *);
+
+void (*focus_changed_callback)(window_t *);
 
 #endif

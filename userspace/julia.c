@@ -160,6 +160,10 @@ void resize_callback(window_t * win) {
 	redraw();
 }
 
+void focus_callback(window_t * win) {
+	redraw();
+}
+
 
 int main(int argc, char * argv[]) {
 
@@ -225,6 +229,8 @@ int main(int argc, char * argv[]) {
 
 	window = window_create(left, top, width + decor_width(), height + decor_height());
 	init_decorations();
+	focus_changed_callback = focus_callback;
+
 	ctx = init_graphics_window(window);
 
 	redraw();

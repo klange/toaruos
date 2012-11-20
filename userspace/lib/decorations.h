@@ -23,6 +23,7 @@ uint32_t decor_right_width;
  * redraw them.
  */
 void render_decorations(window_t * window, gfx_context_t * ctx, char * title);
+void render_decorations_inactive(window_t * window, gfx_context_t * ctx, char * title);
 
 /*
  * Run me once to set things up

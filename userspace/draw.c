@@ -179,6 +179,11 @@ void resize_callback(window_t * window) {
 	ttk_render();
 }
 
+void focus_callback(window_t * window) {
+	decors(wina);
+	ttk_render();
+}
+
 int main (int argc, char ** argv) {
 	int left = 30;
 	int top  = 30;
@@ -189,6 +194,7 @@ int main (int argc, char ** argv) {
 	setup_windowing();
 
 	resize_window_callback = resize_callback;
+	focus_changed_callback = focus_callback;
 
 	/* Do something with a window */
 	wina = window_create(left, top, width, height);
@@ -225,7 +231,7 @@ int main (int argc, char ** argv) {
 	button_thin->fore_color = rgb(255,255,255);
 
 	ttk_button * button_quit = ttk_new_button("X", quit_app);
-	ttk_position((ttk_object *)button_quit, width - 23, 2, 20, 20);
+	ttk_position((ttk_object *)button_quit, width - 33, 12, 20, 20);
 	button_quit->fill_color = rgb(255,0,0);
 	button_quit->fore_color = rgb(255,255,255);
 

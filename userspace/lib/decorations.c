@@ -17,6 +17,8 @@ uint32_t decor_right_width    = 6;
 #define TEXT_OFFSET_X 10
 #define TEXT_OFFSET_Y 16
 
+#define INACTIVE 8
+
 #define BORDERCOLOR rgb(60,60,60)
 #define BACKCOLOR rgb(20,20,20)
 #define TEXTCOLOR rgb(255,255,255)
@@ -34,7 +36,7 @@ static int lly_offset = 3;
 static int lrx_offset = 3;
 static int lry_offset = 3;
 
-static sprite_t * sprites[8];
+static sprite_t * sprites[16];
 
 #define TEXT_OFFSET 24
 
@@ -46,18 +48,27 @@ static void init_sprite_png(int id, char * path) {
 void init_decorations() {
 	init_shmemfonts();
 
-	init_sprite_png(0, "/usr/share/ttk/ul.png");
-	init_sprite_png(1, "/usr/share/ttk/um.png");
-	init_sprite_png(2, "/usr/share/ttk/ur.png");
-	init_sprite_png(3, "/usr/share/ttk/ml.png");
-	init_sprite_png(4, "/usr/share/ttk/mr.png");
-	init_sprite_png(5, "/usr/share/ttk/ll.png");
-	init_sprite_png(6, "/usr/share/ttk/lm.png");
-	init_sprite_png(7, "/usr/share/ttk/lr.png");
+	init_sprite_png(0, "/usr/share/ttk/active/ul.png");
+	init_sprite_png(1, "/usr/share/ttk/active/um.png");
+	init_sprite_png(2, "/usr/share/ttk/active/ur.png");
+	init_sprite_png(3, "/usr/share/ttk/active/ml.png");
+	init_sprite_png(4, "/usr/share/ttk/active/mr.png");
+	init_sprite_png(5, "/usr/share/ttk/active/ll.png");
+	init_sprite_png(6, "/usr/share/ttk/active/lm.png");
+	init_sprite_png(7, "/usr/share/ttk/active/lr.png");
+
+	init_sprite_png(INACTIVE + 0, "/usr/share/ttk/inactive/ul.png");
+	init_sprite_png(INACTIVE + 1, "/usr/share/ttk/inactive/um.png");
+	init_sprite_png(INACTIVE + 2, "/usr/share/ttk/inactive/ur.png");
+	init_sprite_png(INACTIVE + 3, "/usr/share/ttk/inactive/ml.png");
+	init_sprite_png(INACTIVE + 4, "/usr/share/ttk/inactive/mr.png");
+	init_sprite_png(INACTIVE + 5, "/usr/share/ttk/inactive/ll.png");
+	init_sprite_png(INACTIVE + 6, "/usr/share/ttk/inactive/lm.png");
+	init_sprite_png(INACTIVE + 7, "/usr/share/ttk/inactive/lr.png");
 
 }
 
-void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
+void render_decorations_(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 	int width = window->width;
 	int height = window->height;
 
@@ -82,27 +93,44 @@ void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
 		}
 	}
 
-	draw_sprite(ctx, sprites[0], 0, 0);
+	draw_sprite(ctx, sprites[decors_active + 0], 0, 0);
 	for (int i = 0; i < width - (ul_width + ur_width); ++i) {
-		draw_sprite(ctx, sprites[1], i + ul_width, 0);
+		draw_sprite(ctx, sprites[decors_active + 1], i + ul_width, 0);
 	}
-	draw_sprite(ctx, sprites[2], width - ur_width, 0);
+	draw_sprite(ctx, sprites[decors_active + 2], width - ur_width, 0);
 	for (int i = 0; i < height - (u_height + l_height); ++i) {
-		draw_sprite(ctx, sprites[3], 0, i + u_height);
-		draw_sprite(ctx, sprites[4], width - mr_width, i + u_height);
+		draw_sprite(ctx, sprites[decors_active + 3], 0, i + u_height);
+		draw_sprite(ctx, sprites[decors_active + 4], width - mr_width, i + u_height);
 	}
-	draw_sprite(ctx, sprites[5], 0, height - l_height);
+	draw_sprite(ctx, sprites[decors_active + 5], 0, height - l_height);
 	for (int i = 0; i < width - (ll_width + lr_width); ++i) {
-		draw_sprite(ctx, sprites[6], i + ll_width, height - l_height);
+		draw_sprite(ctx, sprites[decors_active + 6], i + ll_width, height - l_height);
 	}
-	draw_sprite(ctx, sprites[7], width - lr_width, height - l_height);
+	draw_sprite(ctx, sprites[decors_active + 7], width - lr_width, height - l_height);
 
 	set_font_face(FONT_SANS_SERIF_BOLD);
 	set_font_size(12);
 
 	int title_offset = (width / 2) - (draw_string_width(title) / 2);
-	draw_string(ctx, title_offset, TEXT_OFFSET, rgb(226,226,226), title);
+	if (decors_active == 0) {
+		draw_string(ctx, title_offset, TEXT_OFFSET, rgb(226,226,226), title);
+	} else {
+		draw_string(ctx, title_offset, TEXT_OFFSET, rgb(147,147,147), title);
+	}
 }
+
+void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
+	if (!window->focused) {
+		render_decorations_(window, ctx, title, INACTIVE);
+	} else {
+		render_decorations_(window, ctx, title, 0);
+	}
+}
+
+void render_decorations_inactive(window_t * window, gfx_context_t * ctx, char * title) {
+	render_decorations_(window, ctx, title, INACTIVE);
+}
+
 
 uint32_t decor_width() {
 	return decor_left_width + decor_right_width;

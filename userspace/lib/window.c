@@ -39,6 +39,7 @@ static window_t * get_window (wid_t wid) {
 
 void (*mouse_action_callback)(w_mouse_t *) = NULL;
 void (*resize_window_callback)(window_t *) = NULL;
+void (*focus_changed_callback)(window_t *) = NULL;
 
 /* Window Object Management */
 
@@ -379,6 +380,14 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 		case WE_NEWWINDOW:
 			window = init_window_client(process_windows, evt.wid, evt.left, evt.top, evt.width, evt.height, 0);
 			wins_last_new = window;
+			break;
+
+		case WE_FOCUSCHG:
+			window = get_window(evt.wid);
+			window->focused = evt.left;
+			if (focus_changed_callback) {
+				focus_changed_callback(window);
+			}
 			break;
 
 		case WE_RESIZED:

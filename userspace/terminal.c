@@ -682,6 +682,10 @@ void resize_callback(window_t * window) {
 	reinit();
 }
 
+void focus_callback(window_t * window) {
+	render_decors();
+}
+
 void
 term_write_char(
 		uint32_t val,
@@ -1334,6 +1338,7 @@ int main(int argc, char ** argv) {
 		/* Create the window */
 		window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
 		resize_window_callback = resize_callback;
+		focus_changed_callback = focus_callback;
 
 		window_enable_alpha(window);
 

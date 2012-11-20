@@ -212,6 +212,10 @@ void resize_callback(window_t * win) {
 	display();
 }
 
+void focus_callback() {
+	display();
+}
+
 int main(int argc, char ** argv) {
 	setup_windowing();
 
@@ -221,6 +225,7 @@ int main(int argc, char ** argv) {
 	draw_fill(ctx,rgb(0,0,0));
 
 	init_decorations();
+	focus_changed_callback = focus_callback;
 
 	map_x = WINDOW_SIZE - (64 * 9) / 2;
 	map_y = WINDOW_SIZE - (64 * 9) / 2;
