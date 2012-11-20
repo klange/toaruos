@@ -212,8 +212,36 @@ void make_top(window_t * window) {
 	reorder_window(window, highest+1);
 }
 
+void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet);
+
+window_t * focused = NULL;
 window_t * focused_window() {
-	return top_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+	if (!focused) {
+		return windows[0];
+	} else {
+		return focused;
+	}
+}
+
+void set_focused_at(int x, int y) {
+	fprintf(stderr, "Changing focused window to whatever is at %d, %d\n", x, y);
+	window_t * n_focused = top_at(x, y);
+	if (n_focused == focused) {
+		return;
+	} else {
+		if (focused) {
+			w_window_t wwt;
+			wwt.wid  = focused->wid;
+			wwt.left = 0;
+			send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
+		}
+		focused = n_focused;
+		w_window_t wwt;
+		wwt.wid  = focused->wid;
+		wwt.left = 1;
+		send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
+		make_top(focused);
+	}
 }
 
 volatile int am_drawing  = 0;
@@ -861,6 +889,7 @@ void * process_requests(void * garbage) {
 			if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height) * MOUSE_SCALE;
 			//draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
@@ -880,6 +909,7 @@ void * process_requests(void * garbage) {
 					}
 				}
 			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
@@ -896,6 +926,7 @@ void * process_requests(void * garbage) {
 					}
 				}
 			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					_mouse_state = 2; /* Dragging */
@@ -935,6 +966,9 @@ void * process_requests(void * garbage) {
 					mouse_discard = MOUSE_DISCARD_LEVEL;
 
 					w_mouse_t _packet;
+					if (packet->buttons) {
+						set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+					}
 					_mouse_window = focused_window();
 					_packet.wid = _mouse_window->wid;
 
