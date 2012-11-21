@@ -18,7 +18,7 @@ pushd build
         mkdir gcc
     fi
     pushd gcc
-        $DIR/tarballs/gcc-4.6.0/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c || bail
+        $DIR/tarballs/gcc-4.6.0/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
         make all-gcc || bail
         make install-gcc || bail
         make all-target-libgcc || bail
@@ -44,6 +44,11 @@ pushd build
         make || bail
         make install || bail
         cp -r $DIR/patches/newlib/include/* $PREFIX/$TARGET/include/
+    popd
+    pushd gcc
+        # build libstdc++
+        make || bail
+        make install || bail
     popd
     if [ ! -d freetype ]; then
         mkdir freetype
