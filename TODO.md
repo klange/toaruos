@@ -1,3 +1,13 @@
+# TODO as of November, 2012
+
+* Integrate Cairo into build toolchain
+  * autogen means extra effort needed
+  * required to ship with new compositor
+* Fix static initializers in C++
+  * The best method for this is probably going to be writing a dynamic loader, so...
+* Write a dynamic loader
+* Pretty much everything below
+
 # TODO for 0.4.0 Distribution Release
 
 * CD support
