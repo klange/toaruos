@@ -257,10 +257,7 @@ int main(int argc, char * argv[]) {
 		syscall_yield();
 	}
 
-	printf("Closing down Julia Fractal Generate\n");
-
 	teardown_windowing();
-	printf("Exiting...\n");
 
 	return 0;
 }

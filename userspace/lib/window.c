@@ -16,7 +16,7 @@
 #include "window.h"
 #include "pthread.h"
 
-FILE *fdopen(int fildes, const char *mode);
+extern FILE *fdopen(int fildes, const char *mode);
 
 #define LOCK(lock) while (__sync_lock_test_and_set(&lock, 0x01)) { syscall_yield(); };
 #define UNLOCK(lock) __sync_lock_release(&lock);
@@ -97,11 +97,10 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 	window->x = x;
 	window->y = y;
 	window->z = index;
+	window->focused = 0;
 
 	char key[1024];
 	SHMKEY_(key, 1024, window);
-
-	fprintf(stderr, "Optaining SHMEM region at %s\n", key);
 
 	size_t size = (width * height * WIN_B);
 	window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
@@ -161,25 +160,14 @@ void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_
 		char key[256], keyn[256];
 		SHMKEY(key, 256, window);
 
-		printf("Current window buffer is %s\n", key);
-
 		/* Create the new one */
 		window->bufid++;
 		SHMKEY(keyn, 256, window);
-		printf("New window buffer will be %s\n", keyn);
 
 		size_t size = (width * height * WIN_B);
-		printf("Required size for new buffer is %d\n", size);
-
-		printf("Obtaining... \n");
 		char * new_buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
-
-		printf("Clearing to zeros...\n");
 		memset(new_buffer, 0x44, size);
-
-		printf("Redirecting compositor-side buffer to new buffer.\n");
 		window->buffer = new_buffer;
-
 		syscall_shm_release(key);
 	}
 
@@ -246,15 +234,6 @@ void wins_send_command (wid_t wid, int16_t left, int16_t top, uint16_t width, ui
 	LOCK(wins_command_lock);
 	wins_command_recvd = 0xFF; // XXX: Will this work?
 
-#if 0
-	if (command == WC_NEWWINDOW) {
-		fprintf(stderr, "> Creating a window. Sending a packet of size %d+%d\n", sizeof(wins_packet_t), sizeof(w_window_t));
-	}
-#endif
-#if 0
-	write(process_windows->command_pipe, &header, sizeof(wins_packet_t));
-	write(process_windows->command_pipe, &packet, sizeof(w_window_t));
-#endif
 	fwrite(&header, sizeof(wins_packet_t), 1, process_windows->command_pipe_file);
 	fwrite(&packet, sizeof(w_window_t),    1, process_windows->command_pipe_file);
 	fflush(process_windows->command_pipe_file);
@@ -392,10 +371,10 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 
 		case WE_RESIZED:
 			/* XXX: We need a lock or something to contend the window buffer */
-			fprintf(stderr, "Received WINDOW_RESIZED event\n");
 			window = get_window(evt.wid);
 			if (!window) {
 				fprintf(stderr, "[%d] [window] SEVERE: wins sent WE_RESIZED for window we don't have!\n", getpid());
+				return;
 			}
 			resize_window_buffer_client(window, evt.left, evt.top, evt.width, evt.height);
 			if (resize_window_callback) {
