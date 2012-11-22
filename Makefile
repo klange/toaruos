@@ -2,7 +2,7 @@ CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
 CFLAGS = -std=c99 -U__STRICT_ANSI__ -O3 -m32 -Wa,--32
 CPPFLAGS = -O3 -m32 -Wa,--32
-EXTRAFLAGS = -g
+EXTRAFLAGS = -s
 
 EXECUTABLES = $(patsubst %.c,../hdd/bin/%,$(wildcard *.c))
 
