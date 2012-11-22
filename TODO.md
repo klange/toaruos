@@ -5,7 +5,7 @@
   * Distribute with Grub
   * CD image generator in-repo
 * User Interface
-  * Graphical Login
+  * ~~Graphical Login~~
   * More applications
 * Stable Harddisk writes
   * Screenshot functionality
@@ -18,20 +18,6 @@
   kernel functions for use by kernel developers.
 * Also include doxygen documentation for included libraries
   (lib/graphics, etc.)
-
-# Keyboard Library
-
-* Capture all key events in kernel
-  * Send all of them through the keyboard device
-  * Include ctrl/alt/shift up/down
-* Do translations in library
-  * shift to key numbers
-  * ctrl/alt to modes
-* Convert to terminal codes in library
-  * For use in terminal, primarily
-* Revamp compositor keyboard events
-  * Focus on complete key events
-  * Add support for modes for ctrl/alt
 
 # TODO for Microkernel Launch (0.5.0?)
 
@@ -79,14 +65,14 @@
 # TODO as of Septemember 2012
 
 ## C++
-* Build with C++ support
+* ~~Build with C++ support~~
 
 ## Terminal Fixes ##
 * Mouse features; mouse support in windowed mode
-* Tab completion in shell (this is mostly a shell-specific thing)
+* ~~Tab completion in shell (this is mostly a shell-specific thing)~~
 
 ## Windowing System ##
-* Graphical Login Manager
+* ~~Graphical Login Manager~~
 * Finish GUI toolkit
 * File manager app
 
@@ -106,7 +92,7 @@
 
 ## Microkernal Readiness
 
-* Deprecate ramdisks
+* ~~Deprecate ramdisks~~ **replaced with new ramdisk module, works better**
   * Haven't used them in development in over a year
   * Not useful anywhere else due to their limiting sizes
 * Implement module execution
@@ -123,10 +109,6 @@
 * Graphics Management Service
 * Compositor as a service?
 * Virtual File System Service
-
-Heh... Consider writing some of these in better languages than C. May a D servicespace?
-
-TODO: Get D working.
 
 ## Old I/O goals
 
