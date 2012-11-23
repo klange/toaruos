@@ -1,8 +1,9 @@
 CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
+STRIP = i686-pc-toaru-strip
 CFLAGS = -std=c99 -U__STRICT_ANSI__ -O3 -m32 -Wa,--32
 CPPFLAGS = -O3 -m32 -Wa,--32
-EXTRAFLAGS = -g
+EXTRAFLAGS = -s
 EXECUTABLES = $(patsubst %.c,%.o,$(wildcard lib/*.c)) $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
 
 BEG = ../util/mk-beg
@@ -40,6 +41,7 @@ clean:
 ${FTARGETS}: $(TARGETDIR)% : %.c ${LOCAL_LIBS}
 	@${BEG} "CC" "$@ $< [w/libs]"
 	@${CC} -flto ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${LOCAL_LIBS} ${LIBM} ${FREETYPE_LIB} ${LIBPNG} ${LIBZ} ${ERRORS}
+	@${STRIP} $@
 	@${END} "CC" "$< [w/libs]"
 
 $(TARGETDIR)%: %.cpp
