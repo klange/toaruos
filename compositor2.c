@@ -26,7 +26,7 @@
 #include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
-#define SINGLE_USER_MODE 1
+#define SINGLE_USER_MODE 0
 #define FORCE_UID 1000
 #define SPRITE_COUNT 2
 #define WIN_D 32
@@ -36,7 +36,7 @@
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
 #define SPRITE_MOUSE 1
-#define WINDOW_LAYERS 0x100000
+#define WINDOW_LAYERS 0x10000
 #define FONT_PATH "/usr/share/fonts/"
 #define FONT(a,b) {WINS_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
 
@@ -275,8 +275,7 @@ window_t * focused_window() {
 	}
 }
 
-void set_focused_at(int x, int y) {
-	window_t * n_focused = top_at(x, y);
+void set_focused_window(window_t * n_focused) {
 	if (n_focused == focused) {
 		return;
 	} else {
@@ -293,6 +292,12 @@ void set_focused_at(int x, int y) {
 		send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
 		make_top(focused);
 	}
+
+}
+
+void set_focused_at(int x, int y) {
+	window_t * n_focused = top_at(x, y);
+	set_focused_window(n_focused);
 }
 
 /* Internal drawing functions */
@@ -369,6 +374,21 @@ void draw_box(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 }
 
+void internal_free_window(window_t * window) {
+	if (window == focused_window()) {
+		if (window->z == 0xFFFF) {
+			focused = NULL;
+			return;
+		}
+		for (int i = window->z; i > 0; --i) {
+			if (windows[i - 1]) {
+				set_focused_window(windows[i - 1]);
+				return;
+			}
+		}
+	}
+}
+
 void process_window_command (int sig) {
 	foreach(n, process_list) {
 		process_windows_t * pw = (process_windows_t *)n->value;
@@ -427,6 +447,7 @@ void process_window_command (int sig) {
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					window_t * win = get_window_with_process(pw, wwt.wid);
 					win->x = 0xFFFF;
+					internal_free_window(win);
 					unorder_window(win);
 					/* Wait until we're done drawing */
 					spin_lock(&am_drawing);
@@ -561,6 +582,11 @@ void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i]->blank = 0x0;
 }
 
+void init_sprite_png(int id, char * path) {
+	sprites[id] = malloc(sizeof(sprite_t));
+	load_sprite_png(sprites[id], path);
+}
+
 int center_x(int x) {
 	return (ctx->width - x) / 2;
 }
@@ -569,16 +595,8 @@ int center_y(int y) {
 	return (ctx->height - y) / 2;
 }
 
-uint32_t gradient_at(uint16_t j) {
-	float x = j * 80;
-	x = x / ctx->height;
-	return rgb(0, 1 * x, 2 * x);
-}
-
 void display() {
-	for (uint16_t j = 0; j < ctx->height; ++j) {
-		draw_line(ctx, 0, ctx->width, j, j, gradient_at(j));
-	}
+	draw_fill(ctx, rgb(0,0,0));
 	draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height));
 	flip(ctx);
 }
@@ -882,7 +900,7 @@ int main(int argc, char ** argv) {
 	init_signal_handlers();
 
 	/* Load sprites */
-	init_sprite(0, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
+	init_sprite_png(0, "/usr/share/logo_login.png");
 	display();
 
 	/* Precache shared memory fonts */
