@@ -24,7 +24,7 @@ uint16_t win_height;
 
 int uid = 0;
 
-#define LOGO_FINAL_OFFSET 52
+#define LOGO_FINAL_OFFSET 100
 
 int checkUserPass(char * user, char * pass) {
 
