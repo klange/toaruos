@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <math.h>
+#include <string.h>
 
 #include "lib/sha2.h"
 #include "lib/window.h"
@@ -22,6 +23,8 @@ uint16_t win_width;
 uint16_t win_height;
 
 int uid = 0;
+
+#define LOGO_FINAL_OFFSET 52
 
 int checkUserPass(char * user, char * pass) {
 
@@ -67,24 +70,14 @@ int center_y(int y) {
 	return (win_height - y) / 2;
 }
 
-void init_sprite(int i, char * filename, char * alpha) {
-	sprites[i] = malloc(sizeof(sprite_t));
-	load_sprite(sprites[i], filename);
-	if (alpha) {
-		sprites[i]->alpha = 1;
-		load_sprite(&alpha_tmp, alpha);
-		sprites[i]->masks = alpha_tmp.bitmap;
-	} else {
-		sprites[i]->alpha = 0;
-	}
-	sprites[i]->blank = 0x0;
+void init_sprite_png(int id, char * path) {
+	sprites[id] = malloc(sizeof(sprite_t));
+	load_sprite_png(sprites[id], path);
 }
 
 #define INPUT_SIZE 1024
-char input_buffer[1024];
-uint32_t input_collected = 0;
-
-int buffer_put(char c) {
+int buffer_put(char * input_buffer, char c) {
+	int input_collected = strlen(input_buffer);
 	if (c == 8) {
 		/* Backspace */
 		if (input_collected > 0) {
@@ -110,17 +103,37 @@ void * process_input(void * arg) {
 	}
 }
 
-uint32_t gradient_at(uint16_t j) {
-	float x = j * 80;
-	x = x / ctx->height;
-	return rgb(0, 1 * x, 2 * x);
+int32_t min(int32_t a, int32_t b) {
+	return (a < b) ? a : b;
 }
 
-void draw_gradient() {
-	for (uint16_t j = 0; j < ctx->height; ++j) {
-		draw_line(ctx, 0, ctx->width, j, j, gradient_at(j));
+int32_t max(int32_t a, int32_t b) {
+	return (a > b) ? a : b;
+}
+
+void draw_box(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	int32_t _min_x = max(x, 0);
+	int32_t _min_y = max(y,  0);
+	int32_t _max_x = min(x + w - 1, ctx->width  - 1);
+	int32_t _max_y = min(y + h - 1, ctx->height - 1);
+
+	for (int i = _min_y; i < _max_y; ++i) {
+		draw_line(ctx, _min_x, _max_x, i, i, color);
 	}
 }
+
+void draw_box_border(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+	int32_t _min_x = max(x, 0);
+	int32_t _min_y = max(y,  0);
+	int32_t _max_x = min(x + w - 1, ctx->width  - 1);
+	int32_t _max_y = min(y + h - 1, ctx->height - 1);
+
+	draw_line(ctx, _min_x, _max_x, _min_y, _min_y, color);
+	draw_line(ctx, _min_x, _max_x, _max_y, _max_y, color);
+	draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
+	draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
+}
+
 
 int main (int argc, char ** argv) {
 	while (1) {
@@ -139,78 +152,95 @@ int main (int argc, char ** argv) {
 		assert(wina);
 		window_reorder (wina, 0); /* Disables movement */
 		ctx = init_graphics_window_double_buffer(wina);
-		draw_gradient();
-		flip(ctx);
+		init_sprite_png(0, "/usr/share/logo_login.png");
 
-		/* Fade in */
+		for (int i = 0; i < LOGO_FINAL_OFFSET; ++i) {
+			draw_fill(ctx, rgb(0,0,0));
+			draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - i);
+			flip(ctx);
+		}
+
 		size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
 		char * buf = malloc(buf_size);
-		uint16_t fade = 0;
-		gfx_context_t fade_ctx;
-		fade_ctx.backbuffer = buf;
-		fade_ctx.width      = wina->width;
-		fade_ctx.height     = wina->height;
-		fade_ctx.depth      = 32;
-		gfx_context_t * fc = &fade_ctx;
-
-		sprites[0] = malloc(sizeof(sprite_t));
-		sprites[0]->alpha = 0;
-		load_sprite_png(sprites[0], "/usr/share/wallpaper.png");
-		draw_sprite_scaled(fc,sprites[0], 0, 0, width, height);
-
-		while (fade < 256) {
-			for (uint32_t y = 0; y < wina->height; y++) {
-				for (uint32_t x = 0; x < wina->width; x++) {
-					GFX(ctx, x, y) = alpha_blend(GFX(ctx, x, y), GFX(fc, x, y), rgb(fade,0,0));
-				}
-			}
-			flip(ctx);
-			fade += 10;
-		}
-
-		fade = 255;
-		for (uint32_t y = 0; y < wina->height; y++) {
-			for (uint32_t x = 0; x < wina->width; x++) {
-				GFX(ctx, x, y) = alpha_blend(GFX(ctx, x, y), GFX(fc, x, y), rgb(fade,0,0));
-			}
-		}
-
-		init_sprite(1, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
-		draw_sprite_scaled(fc, sprites[1], center_x(sprites[1]->width), center_y(sprites[1]->height), sprites[1]->width, sprites[1]->height);
 
 		uint32_t i = 0;
 
 		uint32_t black = rgb(0,0,0);
 		uint32_t white = rgb(255,255,255);
+		uint32_t red   = rgb(240, 20, 20);
 
 		int x_offset = 65;
 		int y_offset = 64;
 
 		int fuzz = 3;
 
-		set_font_size(22);
-
-		char * m_username = "Username: ";
-		char * m_password = "Password: ";
-
-		char msg[1024];
-
-		char username[1024] = {0};
-		char password[1024] = {0};
-
-		input_buffer[0] = '\0';
-		input_collected = 0;
+		char username[INPUT_SIZE] = {0};
+		char password[INPUT_SIZE] = {0};
 
 		uid = 0;
 
+#define BOX_WIDTH  272
+#define BOX_HEIGHT 104
+#define USERNAME_BOX 1
+#define PASSWORD_BOX 2
+#define EXTRA_TEXT_OFFSET 12
+#define TEXTBOX_INTERIOR_LEFT 4
+#define LEFT_OFFSET 80
+		int box_x = center_x(BOX_WIDTH);
+		int box_y = center_y(0) + 8;
+
+		int focus = USERNAME_BOX;
+
+		set_font_size(12);
+
+		int username_label_left = LEFT_OFFSET - 2 - draw_string_width("Username:");
+		int password_label_left = LEFT_OFFSET - 2 - draw_string_width("Password:");
+
+		char password_circles[INPUT_SIZE * 3];
+
+		int show_error = 0;
+
 		while (1) {
+			focus = USERNAME_BOX;
+			memset(username, 0x0, INPUT_SIZE);
+			memset(password, 0x0, INPUT_SIZE);
+			memset(password_circles, 0x0, INPUT_SIZE * 3);
+
 			while (1) {
-				snprintf(msg, 1024, "%s%s", m_username, input_buffer);
 
-				/* Redraw the background by memcpy (super speedy) */
-				memcpy(ctx->backbuffer, buf, buf_size);
+				strcpy(password_circles, "");
+				for (int i = 0; i < strlen(password); ++i) {
+					strcat(password_circles, "●");
+				}
 
-				draw_string_shadow(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg, black, 4, 2, 2, 5.0);
+				/* Redraw the background */
+				draw_fill(ctx, rgb(0,0,0));
+				draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
+
+				/* Draw backdrops */
+				draw_box(ctx, box_x, box_y, BOX_WIDTH, BOX_HEIGHT, rgb(45,45,45));
+				draw_box(ctx, box_x + LEFT_OFFSET, box_y + 32, 168, 16, rgb(255,255,255));
+				draw_box(ctx, box_x + LEFT_OFFSET, box_y + 56, 168, 16, rgb(255,255,255));
+
+				/* Draw labels */
+				draw_string(ctx, box_x + username_label_left, box_y + 32 + EXTRA_TEXT_OFFSET, white, "Username:");
+				draw_string(ctx, box_x + password_label_left, box_y + 56 + EXTRA_TEXT_OFFSET, white, "Password:");
+
+				/* Draw box entries */
+				draw_string(ctx, box_x + LEFT_OFFSET + TEXTBOX_INTERIOR_LEFT, box_y + 32 + EXTRA_TEXT_OFFSET, black, username);
+				draw_string(ctx, box_x + LEFT_OFFSET + TEXTBOX_INTERIOR_LEFT, box_y + 56 + EXTRA_TEXT_OFFSET, black, password_circles);
+
+				if (show_error) {
+					char * error_message = "Incorrect username or password.";
+					
+					draw_string(ctx, box_x + (BOX_WIDTH - draw_string_width(error_message)) / 2, box_y + 8 + EXTRA_TEXT_OFFSET, red, error_message);
+				}
+
+				if (focus == USERNAME_BOX) {
+					draw_box_border(ctx, box_x + LEFT_OFFSET, box_y + 32, 168, 16, rgb(8, 193, 236));
+				} else if (focus == PASSWORD_BOX) {
+					draw_box_border(ctx, box_x + LEFT_OFFSET, box_y + 56, 168, 16, rgb(8, 193, 236));
+				}
 
 				flip(ctx);
 
@@ -221,62 +251,42 @@ int main (int argc, char ** argv) {
 
 				if (kbd->key == '\n') {
 					free(kbd);
-					goto _have_username;
+					if (focus == USERNAME_BOX) {
+						focus = PASSWORD_BOX;
+						continue;
+					} else if (focus == PASSWORD_BOX) {
+						break;
+					}
 				}
 
-				buffer_put(kbd->key);
+				if (kbd->key == '\t') {
+					if (focus == USERNAME_BOX) {
+						focus = PASSWORD_BOX;
+					} else if (focus == PASSWORD_BOX) {
+						focus = USERNAME_BOX;
+					}
+					continue;
+				}
+
+				if (focus == USERNAME_BOX) {
+					buffer_put(username, kbd->key);
+				} else if (focus == PASSWORD_BOX) {
+					buffer_put(password, kbd->key);
+				}
 				free(kbd);
 
 			}
-_have_username:
-
-			input_buffer[input_collected] = '\0';
-			sprintf(username, "%s", input_buffer);
-
-			input_collected = 0;
-			input_buffer[0] = '\0';
-
-			while (1) {
-				snprintf(msg, 1024, "%s", m_password);
-
-				/* Redraw the background by memcpy (super speedy) */
-				memcpy(ctx->backbuffer, buf, buf_size);
-
-				draw_string_shadow(ctx, wina->width / 2 - x_offset, wina->height / 2 + y_offset, white, msg, black, 4, 2, 2, 5.0);
-
-				flip(ctx);
-
-				w_keyboard_t * kbd = NULL;
-				do {
-					kbd = poll_keyboard();
-				} while (!kbd);
-
-				if (kbd->key == '\n') {
-					free(kbd);
-					goto _have_password;
-				}
-
-				buffer_put(kbd->key);
-				free(kbd);
-
-			}
-
-_have_password:
-
-			input_buffer[input_collected] = '\0';
-			sprintf(password, "%s", input_buffer);
-
-			input_collected = 0;
-			input_buffer[0] = '\0';
 
 			uid = checkUserPass(username, password);
 
 			if (uid >= 0) {
 				break;
 			}
+			show_error = 1;
 		}
 
-		memcpy(ctx->backbuffer, buf, buf_size);
+		draw_fill(ctx, rgb(0,0,0));
+		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
 
 		teardown_windowing();
