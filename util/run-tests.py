@@ -3,7 +3,7 @@ import subprocess, sys
 
 q = subprocess.Popen(['qemu-system-i386', '-kernel', 'toaruos-kernel', '-m', '256',
                       '-serial', 'stdio', '-vga', 'std', '-hda', 'toaruos-disk.img',
-                      '-vnc', ':1', '-append', 'vgaterm hdd start=/bin/core-tests'],
+                      '-vnc', ':1', '-append', 'vgaterm hdd start=/bin/core-tests logtoserial=10'],
                       stdout=subprocess.PIPE)
 
 passes   = 0
