@@ -127,36 +127,36 @@
 /*
  * Internal functions.
  */
-static void * __attribute__ ((malloc)) klmalloc(size_t size);
-static void * __attribute__ ((malloc)) klrealloc(void * ptr, size_t size);
-static void * __attribute__ ((malloc)) klcalloc(size_t nmemb, size_t size);
-static void * __attribute__ ((malloc)) klvalloc(size_t size);
+static void * __attribute__ ((malloc)) klmalloc(uintptr_t size);
+static void * __attribute__ ((malloc)) klrealloc(void * ptr, uintptr_t size);
+static void * __attribute__ ((malloc)) klcalloc(uintptr_t nmemb, uintptr_t size);
+static void * __attribute__ ((malloc)) klvalloc(uintptr_t size);
 static void klfree(void * ptr);
 
 static uint8_t volatile lock = 0;
 
-void * __attribute__ ((malloc)) malloc(size_t size) {
+void * __attribute__ ((malloc)) malloc(uintptr_t size) {
 	spin_lock(&lock);
 	void * ret = klmalloc(size);
 	spin_unlock(&lock);
 	return ret;
 }
 
-void * __attribute__ ((malloc)) realloc(void * ptr, size_t size) {
+void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
 	spin_lock(&lock);
 	void * ret = klrealloc(ptr, size);
 	spin_unlock(&lock);
 	return ret;
 }
 
-void * __attribute__ ((malloc)) calloc(size_t nmemb, size_t size) {
+void * __attribute__ ((malloc)) calloc(uintptr_t nmemb, uintptr_t size) {
 	spin_lock(&lock);
 	void * ret = klcalloc(nmemb, size);
 	spin_unlock(&lock);
 	return ret;
 }
 
-void * __attribute__ ((malloc)) valloc(size_t size) {
+void * __attribute__ ((malloc)) valloc(uintptr_t size) {
 	spin_lock(&lock);
 	void * ret = klvalloc(size);
 	spin_unlock(&lock);
@@ -177,14 +177,14 @@ void free(void * ptr) {
 /*
  * Adjust bin size in bin_size call to proper bounds.
  */
-static size_t  __attribute__ ((always_inline, pure)) klmalloc_adjust_bin(size_t bin)
+static uintptr_t  __attribute__ ((always_inline, pure)) klmalloc_adjust_bin(uintptr_t bin)
 {
-	if (bin <= (size_t)SMALLEST_BIN_LOG)
+	if (bin <= (uintptr_t)SMALLEST_BIN_LOG)
 	{
 		return 0;
 	}
 	bin -= SMALLEST_BIN_LOG + 1;
-	if (bin > (size_t)BIG_BIN) {
+	if (bin > (uintptr_t)BIG_BIN) {
 		return BIG_BIN;
 	}
 	return bin;
@@ -194,8 +194,8 @@ static size_t  __attribute__ ((always_inline, pure)) klmalloc_adjust_bin(size_t 
  * Given a size value, find the correct bin
  * to place the requested allocation in.
  */
-static size_t __attribute__ ((always_inline, pure)) klmalloc_bin_size(size_t size) {
-	size_t bin = sizeof(size) * CHAR_BIT - __builtin_clzl(size);
+static uintptr_t __attribute__ ((always_inline, pure)) klmalloc_bin_size(uintptr_t size) {
+	uintptr_t bin = sizeof(size) * CHAR_BIT - __builtin_clzl(size);
 	bin += !!(size & (size - 1));
 	return klmalloc_adjust_bin(bin);
 }
@@ -210,7 +210,7 @@ static size_t __attribute__ ((always_inline, pure)) klmalloc_bin_size(size_t siz
 typedef struct _klmalloc_bin_header {
 	struct _klmalloc_bin_header *  next;	/* Pointer to the next node. */
 	void * head;							/* Head of this bin. */
-	size_t size;							/* Size of this bin, if big; otherwise bin index. */
+	uintptr_t size;							/* Size of this bin, if big; otherwise bin index. */
 	uint32_t bin_magic;
 } klmalloc_bin_header;
 
@@ -222,7 +222,7 @@ typedef struct _klmalloc_bin_header {
 typedef struct _klmalloc_big_bin_header {
 	struct _klmalloc_big_bin_header * next;
 	void * head;
-	size_t size;
+	uintptr_t size;
 	uint32_t bin_magic;
 	struct _klmalloc_big_bin_header * prev;
 	struct _klmalloc_big_bin_header * forward[SKIP_MAX_LEVEL+1];
@@ -330,7 +330,7 @@ static int __attribute__ ((pure, always_inline)) klmalloc_random_level() {
 /*
  * Find best fit for a given value.
  */
-static klmalloc_big_bin_header * klmalloc_skip_list_findbest(size_t search_size) {
+static klmalloc_big_bin_header * klmalloc_skip_list_findbest(uintptr_t search_size) {
 	klmalloc_big_bin_header * node = &klmalloc_big_bins.head;
 	/*
 	 * Loop through the skip list until we hit something > our search value.
@@ -516,6 +516,7 @@ static void * klmalloc_stack_pop(klmalloc_bin_header *header) {
 		assert((uintptr_t)header->head < (uintptr_t)header + header->size);
 	} else {
 		assert((uintptr_t)header->head < (uintptr_t)header + PAGE_SIZE);
+		assert((uintptr_t)header->head > (uintptr_t)header + sizeof(klmalloc_bin_header) - 1);
 	}
 	
 	/*
@@ -523,8 +524,8 @@ static void * klmalloc_stack_pop(klmalloc_bin_header *header) {
 	 * the head to where the old head pointed.
 	 */
 	void *item = header->head;
-	size_t **head = header->head;
-	size_t *next = *head;
+	uintptr_t **head = header->head;
+	uintptr_t *next = *head;
 	header->head = next;
 	return item;
 }
@@ -544,8 +545,8 @@ static void klmalloc_stack_push(klmalloc_bin_header *header, void *ptr) {
 	} else {
 		assert((uintptr_t)ptr < (uintptr_t)header + PAGE_SIZE);
 	}
-	size_t **item = (size_t **)ptr;
-	*item = (size_t *)header->head;
+	uintptr_t **item = (uintptr_t **)ptr;
+	*item = (uintptr_t *)header->head;
 	header->head = item;
 }
 
@@ -563,7 +564,7 @@ static int __attribute__ ((always_inline)) klmalloc_stack_empty(klmalloc_bin_hea
 /* }}} Stack */
 
 /* malloc() {{{ */
-static void * __attribute__ ((malloc)) klmalloc(size_t size) {
+static void * __attribute__ ((malloc)) klmalloc(uintptr_t size) {
 	/*
 	 * C standard implementation:
 	 * If size is zero, we can choose do a number of things.
@@ -606,10 +607,10 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 			 * entry pointing to the next until the end
 			 * which points to NULL.
 			 */
-			size_t adj = SMALLEST_BIN_LOG + bucket_id;
-			size_t i, available = ((PAGE_SIZE - sizeof(klmalloc_bin_header)) >> adj) - 1;
+			uintptr_t adj = SMALLEST_BIN_LOG + bucket_id;
+			uintptr_t i, available = ((PAGE_SIZE - sizeof(klmalloc_bin_header)) >> adj) - 1;
 
-			size_t **base = bin_header->head;
+			uintptr_t **base = bin_header->head;
 			for (i = 0; i < available; ++i) {
 				/*
 				 * Our available memory is made into a stack, with each
@@ -618,12 +619,12 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 				 * of memory from this block, we just pop off a free
 				 * spot and give its address.
 				 */
-				base[i << bucket_id] = (size_t *)&base[(i + 1) << bucket_id];
+				base[i << bucket_id] = (uintptr_t *)&base[(i + 1) << bucket_id];
 			}
 			base[available << bucket_id] = NULL;
 			bin_header->size = bucket_id;
 		}
-		size_t ** item = klmalloc_stack_pop(bin_header);
+		uintptr_t ** item = klmalloc_stack_pop(bin_header);
 		if (klmalloc_stack_empty(bin_header)) {
 			klmalloc_list_decouple(&(klmalloc_bin_head[bucket_id]),bin_header);
 		}
@@ -642,14 +643,14 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 			/*
 			 * Retreive the head of the block.
 			 */
-			size_t ** item = klmalloc_stack_pop((klmalloc_bin_header *)bin_header);
+			uintptr_t ** item = klmalloc_stack_pop((klmalloc_bin_header *)bin_header);
 #if 0
 			/*
 			 * Resize block, if necessary
 			 */
 			assert(bin_header->head == NULL);
-			size_t old_size = bin_header->size;
-			//size_t rsize = size;
+			uintptr_t old_size = bin_header->size;
+			//uintptr_t rsize = size;
 			/*
 			 * Round the requeste size to our full required size.
 			 */
@@ -691,7 +692,7 @@ static void * __attribute__ ((malloc)) klmalloc(size_t size) {
 			/*
 			 * Round requested size to a set of pages, plus the header size.
 			 */
-			size_t pages = (size + sizeof(klmalloc_big_bin_header)) / PAGE_SIZE + 1;
+			uintptr_t pages = (size + sizeof(klmalloc_big_bin_header)) / PAGE_SIZE + 1;
 			bin_header = (klmalloc_big_bin_header*)sbrk(PAGE_SIZE * pages);
 			bin_header->bin_magic = BIN_MAGIC;
 			assert((uintptr_t)bin_header % PAGE_SIZE == 0);
@@ -741,7 +742,7 @@ static void klfree(void *ptr) {
 	 * Get our pointer to the head of this block by
 	 * page aligning it.
 	 */
-	klmalloc_bin_header * header = (klmalloc_bin_header *)((uintptr_t)ptr & (size_t)~PAGE_MASK);
+	klmalloc_bin_header * header = (klmalloc_bin_header *)((uintptr_t)ptr & (uintptr_t)~PAGE_MASK);
 	assert((uintptr_t)header % PAGE_SIZE == 0);
 
 	if (header->bin_magic != BIN_MAGIC)
@@ -753,8 +754,8 @@ static void klfree(void *ptr) {
 	 * available in the bin is stored in this field. It's
 	 * easy to tell which is which, though.
 	 */
-	size_t bucket_id = header->size;
-	if (bucket_id > (size_t)NUM_BINS) {
+	uintptr_t bucket_id = header->size;
+	if (bucket_id > (uintptr_t)NUM_BINS) {
 		bucket_id = BIG_BIN;
 		klmalloc_big_bin_header *bheader = (klmalloc_big_bin_header*)header;
 		
@@ -779,10 +780,10 @@ static void klfree(void *ptr) {
 				 * coalesce it into us to form one larger bin.
 				 */
 
-				size_t old_size = bheader->size;
+				uintptr_t old_size = bheader->size;
 
 				klmalloc_skip_list_delete(next);
-				bheader->size = (size_t)bheader->size + (size_t)sizeof(klmalloc_big_bin_header) + next->size;
+				bheader->size = (uintptr_t)bheader->size + (uintptr_t)sizeof(klmalloc_big_bin_header) + next->size;
 				assert((bheader->size + sizeof(klmalloc_big_bin_header))  % PAGE_SIZE == 0);
 
 				if (next == klmalloc_newest_big) {
@@ -811,10 +812,10 @@ static void klfree(void *ptr) {
 			 */
 			if ((uintptr_t)bheader->prev + (bheader->prev->size + sizeof(klmalloc_big_bin_header)) == (uintptr_t)bheader) {
 
-				size_t old_size = bheader->prev->size;
+				uintptr_t old_size = bheader->prev->size;
 
 				klmalloc_skip_list_delete(bheader->prev);
-				bheader->prev->size = (size_t)bheader->prev->size + (size_t)bheader->size + sizeof(klmalloc_big_bin_header);
+				bheader->prev->size = (uintptr_t)bheader->prev->size + (uintptr_t)bheader->size + sizeof(klmalloc_big_bin_header);
 				assert((bheader->prev->size + sizeof(klmalloc_big_bin_header))  % PAGE_SIZE == 0);
 				klmalloc_skip_list_insert(bheader->prev);
 				if (klmalloc_newest_big == bheader) {
@@ -858,13 +859,13 @@ static void klfree(void *ptr) {
 }
 /* }}} */
 /* valloc() {{{ */
-static void * __attribute__ ((malloc)) klvalloc(size_t size) {
+static void * __attribute__ ((malloc)) klvalloc(uintptr_t size) {
 	/*
 	 * Allocate a page-aligned block.
 	 * XXX: THIS IS HORRIBLY, HORRIBLY WASTEFUL!! ONLY USE THIS
 	 *      IF YOU KNOW WHAT YOU ARE DOING!
 	 */
-	size_t true_size = size + PAGE_SIZE - sizeof(klmalloc_big_bin_header); /* Here we go... */
+	uintptr_t true_size = size + PAGE_SIZE - sizeof(klmalloc_big_bin_header); /* Here we go... */
 	void * result = klmalloc(true_size);
 	void * out = (void *)((uintptr_t)result + (PAGE_SIZE - sizeof(klmalloc_big_bin_header)));
 	assert((uintptr_t)out % PAGE_SIZE == 0);
@@ -872,7 +873,7 @@ static void * __attribute__ ((malloc)) klvalloc(size_t size) {
 }
 /* }}} */
 /* realloc() {{{ */
-static void * __attribute__ ((malloc)) klrealloc(void *ptr, size_t size) {
+static void * __attribute__ ((malloc)) klrealloc(void *ptr, uintptr_t size) {
 	/*
 	 * C standard implementation: When NULL is passed to realloc,
 	 * simply malloc the requested size and return a pointer to that.
@@ -894,17 +895,28 @@ static void * __attribute__ ((malloc)) klrealloc(void *ptr, size_t size) {
 	 * Find the bin for the given pointer
 	 * by aligning it to a page.
 	 */
-	klmalloc_bin_header * header_old = (void *)((uintptr_t)ptr & (size_t)~PAGE_MASK);
-	if (header_old->bin_magic != BIN_MAGIC)
+	klmalloc_bin_header * header_old = (void *)((uintptr_t)ptr & (uintptr_t)~PAGE_MASK);
+	if (header_old->bin_magic != BIN_MAGIC) {
+		assert(0 && "Bad magic on realloc.");
 		return NULL;
+	}
 
+	uintptr_t old_size = header_old->size;
+	if (old_size < (uintptr_t)BIG_BIN) {
+		/*
+		 * If we are copying from a small bin,
+		 * we need to get the size of the bin
+		 * from its id.
+		 */
+		old_size = (1UL << (SMALLEST_BIN_LOG + old_size));
+	}
 
 	/*
 	 * (This will only happen for a big bin, mathematically speaking)
 	 * If we still have room in our bin for the additonal space,
 	 * we don't need to do anything.
 	 */
-	if (header_old->size >= size) {
+	if (old_size >= size) {
 
 		/*
 		 * TODO: Break apart blocks here, which is far more important
@@ -918,15 +930,6 @@ static void * __attribute__ ((malloc)) klrealloc(void *ptr, size_t size) {
 	 */
 	void * newptr = klmalloc(size);
 	if (__builtin_expect(newptr != NULL, 1)) {
-		size_t old_size = header_old->size;
-		if (old_size < (size_t)BIG_BIN) {
-			/*
-			 * If we are copying from a small bin,
-			 * we need to get the size of the bin
-			 * from its id.
-			 */
-			old_size = (1UL << (SMALLEST_BIN_LOG + old_size));
-		}
 
 		/*
 		 * Copy the old value into the new value.
@@ -948,7 +951,7 @@ static void * __attribute__ ((malloc)) klrealloc(void *ptr, size_t size) {
 }
 /* }}} */
 /* calloc() {{{ */
-static void * __attribute__ ((malloc)) klcalloc(size_t nmemb, size_t size) {
+static void * __attribute__ ((malloc)) klcalloc(uintptr_t nmemb, uintptr_t size) {
 	/*
 	 * Allocate memory and zero it before returning
 	 * a pointer to the newly allocated memory.

@@ -183,7 +183,7 @@ void (*ansi_set_csr)(int,int) = NULL;
 int  (*ansi_get_csr_x)(void) = NULL;
 int  (*ansi_get_csr_y)(void) = NULL;
 void (*ansi_set_cell)(int,int,uint16_t) = NULL;
-void (*ansi_cls)(void) = NULL;
+void (*ansi_cls)(int) = NULL;
 
 /* XXX: Needs verification, but I'm pretty sure this never gets called */
 void (*redraw_cursor)(void) = NULL;
@@ -404,7 +404,7 @@ ansi_put(
 						break;
 					case ANSI_SHOW:
 						if (!strcmp(argv[0], "?1049")) {
-							ansi_cls();
+							ansi_cls(2);
 							ansi_set_csr(0,0);
 						}
 						break;
@@ -459,7 +459,11 @@ ansi_put(
 						ansi_set_csr(min(max(atoi(argv[1]), 1), state.width) - 1, min(max(atoi(argv[0]), 1), state.height) - 1);
 						break;
 					case ANSI_ED:
-						ansi_cls();
+						if (argc < 1) {
+							ansi_cls(0);
+						} else {
+							ansi_cls(atoi(argv[0]));
+						}
 						break;
 					case ANSI_EL:
 						{
@@ -567,7 +571,7 @@ ansi_put(
 
 void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char),
 		void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,uint16_t),
-		void (*cls)(void), void (*redraw_csr)(void)) {
+		void (*cls)(int), void (*redraw_csr)(void)) {
 
 	ansi_writer    = writer;
 	ansi_set_color = setcolor;
@@ -1012,15 +1016,35 @@ void term_redraw_cell(int x, int y) {
 	cell_redraw(x,y);
 }
 
-void term_term_clear() {
-	/* Oh dear */
-	csr_x = 0;
-	csr_y = 0;
-	memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(t_cell));
-	if (_windowed) {
-		render_decors();
+void term_term_clear(int i) {
+	if (i == 2) {
+		/* Oh dear */
+		csr_x = 0;
+		csr_y = 0;
+		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(t_cell));
+		if (_windowed) {
+			render_decors();
+		}
+		term_redraw_all();
+	} else if (i == 0) {
+		for (int x = csr_x; x < term_width; ++x) {
+			term_set_cell(x, csr_y, ' ');
+		}
+		for (int y = csr_y + 1; y < term_height; ++y) {
+			for (int x = 0; x < term_width; ++x) {
+				term_set_cell(x, y, ' ');
+			}
+		}
+	} else if (i == 1) {
+		for (int y = 0; y < csr_y; ++y) {
+			for (int x = 0; x < term_width; ++x) {
+				term_set_cell(x, y, ' ');
+			}
+		}
+		for (int x = 0; x < csr_x; ++x) {
+			term_set_cell(x, csr_y, ' ');
+		}
 	}
-	term_redraw_all();
 }
 
 void cat(char * file) {
@@ -1253,7 +1277,6 @@ void reinit() {
 	}
 
 	/* A lot of this is probably uneccessary if we do some sort of resize... */
-	term_term_clear();
 	ansi_print("\033[H\033[2J");
 }
 

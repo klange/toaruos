@@ -24,7 +24,7 @@ LIBM = ${TOOLCHAIN}/lib/libm.a
 LIBZ = ${TOOLCHAIN}/lib/libz.a
 
 TARGETDIR = ../hdd/bin/
-ETARGETS = terminal login compositor view game drawlines glogin julia solver wallpaper panel glock clock-win draw test-gfx threadtest bim blur_test test-borders
+ETARGETS = terminal login compositor view game drawlines glogin julia solver wallpaper panel glock clock-win draw test-gfx threadtest bim blur_test test-borders serial-console
 FTARGETS = $(ETARGETS:%=$(TARGETDIR)%)
 
 LOCAL_LIBS = $(patsubst %.c,%.o,$(wildcard lib/*.c))

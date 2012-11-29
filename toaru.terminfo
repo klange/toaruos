@@ -1,5 +1,5 @@
 toaru|toaruos framebuffer terminal,
-	cols#128, lines#64,
+	cols#128, lines#45,
 	colors#256, it#8, ncv#18, pairs#32767, npc, am,
 	ind=^J, cr=^M, cud1=^J, nel=^J, ht=^I,
 	home=\E[H, clear=\E[H\E[2J,

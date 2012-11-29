@@ -110,13 +110,11 @@ void reap_process(process_t * proc) {
 		release_directory(proc->thread.page_directory);
 		debug_print(INFO, "Going to clear out the file descriptors %d", proc->id);
 		for (uint32_t i = 0; i < proc->fds->length; ++i) {
+			if (proc->fds->entries[i]) {
+				//close_fs(proc->fds->entries[i]);
+				//free(proc->fds->entries[i]);
+			}
 			//close_fs(proc->fds->entries[i]);
-			/* XXX
-			 * We need to actually clean these up, but because
-			 * of the way sharing operates, we're not able to do
-			 * that yet. WE NEED A BETTER WAY TO SHARE FILE DESCRIPTORS!
-			 */
-			//free(proc->fds->entries[i]);
 		}
 		debug_print(INFO, "... and their storage %d", proc->id);
 		free(proc->fds->entries);

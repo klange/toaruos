@@ -31,7 +31,7 @@ void validate(void * ptr) {
  */
 static int print(char * s) {
 	validate((void *)s);
-	serial_string(s);
+	kprintf("%s", s);
 	return 0;
 }
 
@@ -85,7 +85,7 @@ static int write(int fd, char * ptr, int len) {
 	if ((fd == 1 && !current_process->fds->entries[fd]) ||
 		(fd == 2 && !current_process->fds->entries[fd])) {
 		for (uint32_t i = 0; i < (uint32_t)len; ++i) {
-			serial_send(ptr[i]);
+			kprintf("%c", ptr[i]);
 		}
 		return len;
 	}
@@ -449,6 +449,10 @@ static int mousedevice() {
 	return process_append_fd((process_t *)current_process, mouse_pipe);
 }
 
+static int open_serial(int device) {
+	return process_append_fd((process_t *)current_process, serial_device_create(device));
+}
+
 extern int mkdir_fs(char *name, uint16_t permission);
 
 static int sys_mkdir(char * path, uint32_t mode) {
@@ -573,6 +577,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&gettid,
 	(uintptr_t)&yield,
 	(uintptr_t)&system_function,
+	(uintptr_t)&open_serial,        /* 44 */
 	0
 };
 uint32_t num_syscalls;

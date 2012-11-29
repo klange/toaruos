@@ -190,7 +190,7 @@ void close_pipe(fs_node_t * node) {
 
 fs_node_t * make_pipe(size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	pipe_device_t * pipe = malloc(sizeof(fs_node_t));
+	pipe_device_t * pipe = malloc(sizeof(pipe_device_t));
 
 	fnode->inode = 0;
 	fnode->name[0] = '\0';

@@ -128,7 +128,7 @@ void delete_process(process_t * proc) {
 	tree_node_t * entry = proc->tree_entry;
 
 	/* The process must exist in the tree, or the client is at fault */
-	assert(entry && "Attempted to remove a process without a ps-tree entry.");
+	if (!entry) return;
 
 	/* We can not remove the root, which is an error anyway */
 	assert((entry != process_tree->root) && "Attempted to kill init.");
@@ -443,14 +443,13 @@ int wakeup_queue(list_t * queue) {
 		if (!((process_t *)node->value)->finished) {
 			make_process_ready(node->value);
 		}
-		free(node);
 		awoken_processes++;
 	}
 	return awoken_processes;
 }
 
 int sleep_on(list_t * queue) {
-	list_insert(queue, (void *)current_process);
+	list_append(queue, (node_t *)&current_process->sched_node);
 	switch_task(0);
 	return 0;
 }

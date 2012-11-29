@@ -31,7 +31,7 @@ void close_null(fs_node_t * node) {
 }
 
 fs_node_t * null_device_create() {
-	fs_node_t * fnode = malloc(sizeof(fnode));
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	fnode->inode = 0;
 	fnode->name[0] = 'n';
 	fnode->name[1] = 'u';

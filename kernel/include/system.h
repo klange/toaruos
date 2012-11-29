@@ -216,10 +216,19 @@ void free(void *ptr);
 extern void start_shell();
 
 /* Serial */
+#define SERIAL_PORT_A 0x3F8
+#define SERIAL_PORT_B 0x2F8
+#define SERIAL_PORT_C 0x3E8
+#define SERIAL_PORT_D 0x2E8
+
+#define SERIAL_IRQ 4
+
 extern void serial_install();
-extern char serial_recv();
-extern void serial_send(char out);
-extern void serial_string(char * out);
+extern int serial_rcvd(int device);
+extern char serial_recv(int device);
+extern char serial_recv_async(int device);
+extern void serial_send(int device, char out);
+extern void serial_string(int device, char * out);
 
 /* Tasks */
 extern uintptr_t read_eip();

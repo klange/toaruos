@@ -131,7 +131,7 @@ kprintf(
 	va_end(args);
 	/* Print that sucker */
 	if (kprint_to_serial) {
-		serial_string(buf);
+		serial_string(SERIAL_PORT_A,buf);
 	}
 	if (kprint_to_screen) {
 		/*
