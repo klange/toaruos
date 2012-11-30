@@ -700,30 +700,32 @@ term_write_char(
 		uint8_t flags
 		) {
 
+	uint32_t _fg, _bg;
+
 	if (_vga_mode) {
 		if (fg > 15) fg = 7;
 		if (bg > 15) bg = 0;
 		placech(val, x, y, (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4));
 		/* Disable / update cursor? We have our own cursor... */
 	} else if (_use_freetype) {
-		fg = term_colors[fg];
-		bg = term_colors[bg];
-		if (bg == 0x0) {
-			bg |= 0xBB000000;
+		_fg = term_colors[fg];
+		_bg = term_colors[bg];
+		if (bg == DEFAULT_BG) {
+			_bg |= 0xBB000000;
 		} else {
-			bg |= 0xFF000000;
+			_bg |= 0xFF000000;
 		}
-		fg |= 0xFF000000;
+		_fg |= 0xFF000000;
 		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
-				term_set_point(x+j,y+i,bg);
+				term_set_point(x+j,y+i,_bg);
 			}
 		}
 		if (flags & ANSI_WIDE) {
 			for (uint8_t i = 0; i < char_height; ++i) {
 				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
-					term_set_point(x+j,y+i,bg);
+					term_set_point(x+j,y+i,_bg);
 				}
 			}
 		}
@@ -763,28 +765,37 @@ term_write_char(
 			error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
 			if (error) return;
 		}
-		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, bg);
+		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, _fg, _bg);
 
 		if (flags & ANSI_UNDERLINE) {
 			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_offset + 2, fg);
+				term_set_point(x + i, y + char_offset + 2, _fg);
 			}
 		}
 		if (flags & ANSI_CROSS) {
 			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_offset - 5, fg);
+				term_set_point(x + i, y + char_offset - 5, _fg);
 			}
 		}
 	} else {
-		fg = term_colors[fg];
-		bg = term_colors[bg];
+		_fg = term_colors[fg];
+		_bg = term_colors[bg];
+		if (bg == DEFAULT_BG) {
+			_bg |= 0xBB000000;
+		} else {
+			_bg |= 0xFF000000;
+		}
+		_fg |= 0xFF000000;
+		if (val > 128) {
+			val = 4;
+		}
 		uint8_t * c = number_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
 				if (c[i] & (1 << (8-j))) {
-					term_set_point(x+j,y+i,fg);
+					term_set_point(x+j,y+i,_fg);
 				} else {
-					term_set_point(x+j,y+i,bg);
+					term_set_point(x+j,y+i,_bg);
 				}
 			}
 		}
@@ -893,7 +904,6 @@ uint32_t codepoint;
 uint32_t unicode_state = 0;
 
 int is_wide(uint32_t codepoint) {
-	if (codepoint < 256 || !_use_freetype) return 0;
 	return mk_wcwidth_cjk(codepoint) == 2;
 }
 

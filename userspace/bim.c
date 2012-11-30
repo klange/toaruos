@@ -198,7 +198,7 @@ void setup_buffer(buffer_t * env) {
 #define COLOR_CURSOR    15
 #define COLOR_ALT_FG    244
 #define COLOR_ALT_BG    236
-#define COLOR_NUMBER_BG 16
+#define COLOR_NUMBER_BG 232
 #define COLOR_NUMBER_FG 101
 #define COLOR_STATUS_BG 238
 #define COLOR_TABBAR_BG 230
