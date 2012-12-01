@@ -353,7 +353,7 @@ static int send_signal(pid_t process, uint32_t signal) {
 	sig->signum  = signal;
 	memset(&sig->registers_before, 0x00, sizeof(regs_t));
 
-	if (!XXX_slow_process_is_queued(receiver)) {
+	if (!process_is_ready(receiver)) {
 		make_process_ready(receiver);
 	}
 

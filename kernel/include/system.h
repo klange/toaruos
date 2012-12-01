@@ -60,6 +60,8 @@ extern void *memmove(void *restrict dest, const void *restrict src, size_t count
 extern void *memset(void *dest, int val, size_t count);
 extern unsigned short *memsetw(unsigned short *dest, unsigned short val, int count);
 extern uint32_t strlen(const char *str);
+extern char * strdup(const char *str);
+extern char * strcpy(char * dest, const char * src);
 extern int atoi(const char *str);
 extern unsigned char inportb(unsigned short _port);
 extern void outportb(unsigned short _port, unsigned char _data);

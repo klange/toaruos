@@ -42,13 +42,7 @@ void close_serial(fs_node_t * node) {
 fs_node_t * serial_device_create(int device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	fnode->inode = device;
-	fnode->name[0] = 's';
-	fnode->name[1] = 'e';
-	fnode->name[2] = 'r';
-	fnode->name[3] = 'i';
-	fnode->name[4] = 'a';
-	fnode->name[5] = 'l';
-	fnode->name[6] = '\0';
+	strcpy(fnode->name, "serial");
 	fnode->uid = 0;
 	fnode->gid = 0;
 	fnode->flags = 0;

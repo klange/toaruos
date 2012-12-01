@@ -88,6 +88,7 @@ typedef struct process {
 	thread_t      signal_state;
 	char *        signal_kstack;
 	node_t        sched_node;
+	node_t        sleep_node;
 } process_t;
 
 void initialize_process_tree();
@@ -105,7 +106,7 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node);
 process_t * process_from_pid(pid_t pid);
 void delete_process(process_t * proc);
 uint32_t process_move_fd(process_t * proc, int src, int dest);
-int XXX_slow_process_is_queued(process_t * proc);
+int process_is_ready(process_t * proc);
 
 volatile process_t * current_process;
 

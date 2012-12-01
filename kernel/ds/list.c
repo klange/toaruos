@@ -29,6 +29,7 @@ void list_append(list_t * list, node_t * node) {
 	/* Insert a node onto the end of a list */
 	if (!list->tail) {
 		list->head = node;
+		node->prev = NULL;
 	} else {
 		list->tail->next = node;
 		node->prev = list->tail;
@@ -90,6 +91,8 @@ void list_delete(list_t * list, node_t * node) {
 	if (node->next) {
 		node->next->prev = node->prev;
 	}
+	node->prev = NULL;
+	node->next = NULL;
 	list->length--;
 }
 

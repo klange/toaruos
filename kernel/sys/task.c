@@ -97,9 +97,7 @@ void reap_process(process_t * proc) {
 	shm_release_all(proc);
 	free(proc->shm_mappings);
 	debug_print(INFO, "Freeing more mems %d", proc->id);
-	if (proc->name != default_name) {
-		free(proc->name);
-	}
+	free(proc->name);
 	if (proc->signal_kstack) {
 		free(proc->signal_kstack);
 	}
@@ -419,10 +417,8 @@ switch_task(uint8_t reschedule) {
 		}
 		fix_signal_stacks();
 
-		/* Restore floating poin state */
-#if 1
+		/* Restore floating point state */
 		asm volatile ("frstor %0" : "=m"(current_process->thread.fp_regs));
-#endif
 
 		/* XXX: Signals */
 		if (!current_process->finished) {
@@ -483,6 +479,7 @@ switch_next() {
 	}
 
 	if (current_process->finished) {
+		debug_print(WARNING, "Tried to switch to process %d, but it claims it is finished.", current_process->id);
 		switch_next();
 	}
 
@@ -535,14 +532,6 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 	IRQ_OFF;
 	set_kernel_stack(current_process->image.stack);
 
-	/* Push arg, bogus return address onto the new thread's stack */
-#if 0
-	location -= sizeof(uintptr_t);
-	*((uintptr_t *)location) = arg;
-	location -= sizeof(uintptr_t);
-	*((uintptr_t *)location) = THREAD_RETURN;
-#endif
-
 	PUSH(stack, uintptr_t, (uintptr_t)argv);
 	PUSH(stack, int, argc);
 
@@ -592,5 +581,6 @@ void task_exit(int retval) {
  */
 void kexit(int retval) {
 	task_exit(retval);
+	debug_print(CRITICAL, "Process returned from task_exit! Environment is definitely unclean. Stopping.");
 	STOP;
 }

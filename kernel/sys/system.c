@@ -117,6 +117,19 @@ uint32_t strlen(const char *str) {
 	return i;
 }
 
+char * strdup(const char *str) {
+	int len = strlen(str);
+	char * out = malloc(sizeof(char) * (len+1));
+	memcpy(out, str, len+1);
+	return out;
+}
+
+char * strcpy(char * dest, const char * src) {
+	int len = strlen(src);
+	memcpy(dest, src, len+1);
+	return dest;
+}
+
 uint32_t __attribute__ ((pure)) krand() {
 	static uint32_t x = 123456789;
 	static uint32_t y = 362436069;

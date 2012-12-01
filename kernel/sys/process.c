@@ -16,7 +16,6 @@ list_t * process_queue; /* Ready queue */
 list_t * reap_queue;    /* Processes to reap */
 volatile process_t * current_process = NULL;
 
-static uint8_t volatile ready_lock;
 static uint8_t volatile reap_lock;
 static uint8_t volatile tree_lock;
 
@@ -76,9 +75,7 @@ void debug_print_process_tree() {
  * @return A pointer to the next process in the queue.
  */
 process_t * next_ready_process() {
-	spin_lock(&ready_lock);
 	node_t * np = list_dequeue(process_queue);
-	spin_unlock(&ready_lock);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
 	return next;
@@ -100,17 +97,8 @@ process_t * next_reapable_process() {
  * @param proc Process to reinsert
  */
 void make_process_ready(process_t * proc) {
-	spin_lock(&ready_lock);
-
-	foreach(node, process_queue) {
-		if (node->value == proc) {
-			spin_unlock(&ready_lock);
-			return;
-		}
-	}
-
+	if (proc->sched_node.prev != NULL || proc->sched_node.next != NULL) /* Process is already ready, or someone stole our scheduling node. */ return;
 	list_append(process_queue, &proc->sched_node);
-	spin_unlock(&ready_lock);
 }
 
 void make_process_reapable(process_t * proc) {
@@ -159,7 +147,7 @@ process_t * spawn_init() {
 	init->tree_entry = process_tree->root;
 	init->id      = 0;       /* Init is PID 1 */
 	init->group   = 0;
-	init->name    = "init";  /* Um, duh. */
+	init->name    = strdup("init");  /* Um, duh. */
 	init->user    = 0;       /* UID 0 */
 	init->group   = 0;       /* Task group 0 */
 	init->status  = 0;       /* Run status */
@@ -171,9 +159,7 @@ process_t * spawn_init() {
 
 	/* Set the working directory */
 	init->wd_node = clone_fs(fs_root);
-	init->wd_name = malloc(2);
-	init->wd_name[0] = '/';
-	init->wd_name[1] = '\0';
+	init->wd_name = strdup("/");
 
 	/* Heap and stack pointers (and actuals) */
 	init->image.entry       = 0;
@@ -196,8 +182,12 @@ process_t * spawn_init() {
 	init->sched_node.next = NULL;
 	init->sched_node.value = init;
 
+	init->sleep_node.prev = NULL;
+	init->sleep_node.next = NULL;
+	init->sleep_node.value = init;
+
 	/* What the hey, let's also set the description on this one */
-	init->description = "[init]";
+	init->description = strdup("[init]");
 	return init;
 }
 
@@ -243,7 +233,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	debug_print(INFO,"   }");
 	proc->id = get_next_pid(); /* Set its PID */
 	proc->group = proc->id;    /* Set the GID */
-	proc->name = default_name; /* Use the default name */
+	proc->name = strdup(default_name); /* Use the default name */
 	proc->description = NULL;  /* No description */
 
 	/* Copy permissions */
@@ -284,9 +274,7 @@ process_t * spawn_process(volatile process_t * parent) {
 
 	/* As well as the working directory */
 	proc->wd_node = clone_fs(parent->wd_node);
-	proc->wd_name = malloc((strlen(parent->wd_name) + 1) * sizeof(char));
-	assert(proc->wd_name && "Failed to allocate cwd string for new process.");
-	memcpy(proc->wd_name, parent->wd_name, strlen(parent->wd_name) + 1);
+	proc->wd_name = strdup(parent->wd_name);
 
 	/* Zero out the process status */
 	proc->status = 0;
@@ -301,6 +289,10 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->sched_node.prev = NULL;
 	proc->sched_node.next = NULL;
 	proc->sched_node.value = proc;
+
+	proc->sleep_node.prev = NULL;
+	proc->sleep_node.next = NULL;
+	proc->sleep_node.value = proc;
 
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */
@@ -449,16 +441,14 @@ int wakeup_queue(list_t * queue) {
 }
 
 int sleep_on(list_t * queue) {
-	list_append(queue, (node_t *)&current_process->sched_node);
+	assert(current_process->sleep_node.prev == NULL && current_process->sleep_node.next == NULL);
+	list_append(queue, (node_t *)&current_process->sleep_node);
 	switch_task(0);
 	return 0;
 }
 
-int XXX_slow_process_is_queued(process_t * proc) {
-	foreach(node, process_queue) {
-		if (node->value == proc)
-			return 1;
-	}
+int process_is_ready(process_t * proc) {
+	if (proc->sched_node.prev != NULL || proc->sched_node.next != NULL) return 1;
 	return 0;
 }
 
