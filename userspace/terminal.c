@@ -105,6 +105,7 @@ gfx_context_t * ctx;
 volatile int needs_redraw = 1;
 static void render_decors();
 void term_clear();
+void resize_callback(window_t * window);
 
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
@@ -331,7 +332,10 @@ ansi_put(
 											if (argc > 2) {
 												uint16_t win_id = window->bufid;
 												printf("\033[1;32mGoing to resize window with id %d\033[0m\n", window->wid);
-												window_resize(window, window->x, window->y, atoi(argv[1]), atoi(argv[2]));
+												int width = atoi(argv[1]) * char_width + decor_left_width + decor_right_width;
+												int height = atoi(argv[2]) * char_height + decor_top_height + decor_bottom_height;
+												window_resize(window, window->x, window->y, width, height);
+												resize_callback(window);
 											}
 										}
 									default:
