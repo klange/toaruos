@@ -134,8 +134,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	shm_install();		/* Install shared memory */
 
 	keyboard_install();	/* Keyboard interrupt handler */
-
 	mouse_install();	/* Mouse driver */
+	keyboard_reset_ps2();
 
 	if (cmdline) {
 		parse_args(cmdline);

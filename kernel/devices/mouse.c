@@ -20,6 +20,7 @@ int8_t  mouse_byte[3];
 #define MOUSE_BBIT   0x01
 #define MOUSE_WRITE  0xD4
 #define MOUSE_F_BIT  0x20
+#define MOUSE_V_BIT  0x08
 
 fs_node_t * mouse_pipe;
 
@@ -66,6 +67,7 @@ void mouse_handler(struct regs *r) {
 			switch (mouse_cycle) {
 				case 0:
 					mouse_byte[0] = mouse_in;
+					if (!(mouse_in & MOUSE_V_BIT)) return;
 					++mouse_cycle;
 					break;
 				case 1:

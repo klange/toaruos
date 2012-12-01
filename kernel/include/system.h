@@ -146,6 +146,7 @@ extern void timer_wait(int ticks);
 
 /* Keyboard */
 extern void keyboard_install();
+extern void keyboard_reset_ps2();
 extern void keyboard_wait();
 extern void putch(unsigned char c);
 

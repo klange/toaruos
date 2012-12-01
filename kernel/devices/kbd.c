@@ -49,7 +49,6 @@ keyboard_handler(
 	scancode = inportb(KEY_DEVICE);
 	irq_ack(KEYBOARD_IRQ);
 
-
 	putch(scancode);
 
 }
@@ -71,6 +70,13 @@ keyboard_install() {
 	irq_install_handler(KEYBOARD_IRQ, keyboard_handler);
 
 	bfinish(0);
+}
+
+void keyboard_reset_ps2() {
+	uint8_t tmp = inportb(0x61);
+	outportb(0x61, tmp | 0x80);
+	outportb(0x61, tmp & 0x7F);
+	inportb(KEY_DEVICE);
 }
 
 /*
