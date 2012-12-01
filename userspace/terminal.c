@@ -41,6 +41,14 @@ int mk_wcwidth_cjk(wchar_t ucs);
 #include "terminal-palette.h"
 #include "terminal-font.h"
 
+/*
+ * If you're working on updating the terminal's handling of escapes,
+ * switch this option to 1 to have it print an escaped bit of output
+ * to the serial line, so you can examine exactly which codes were
+ * processed.
+ */
+#define DEBUG_TERMINAL_WITH_SERIAL 0
+
 /* A terminal cell represents a single character on screen */
 typedef struct _terminal_cell {
 	uint16_t c;     /* codepoint */
@@ -96,6 +104,7 @@ size_t terminal_title_length = 0;
 gfx_context_t * ctx;
 volatile int needs_redraw = 1;
 static void render_decors();
+void term_clear();
 
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
@@ -145,6 +154,8 @@ volatile int exit_application = 0;
 
 #define ANSI_EXT_IOCTL 'z'  /* These are special escapes only we support */
 
+#define MAX_ARGS 1024
+
 /* Returns the lower of two shorts */
 uint16_t min(uint16_t a, uint16_t b) {
 	return (a < b) ? a : b;
@@ -184,6 +195,7 @@ int  (*ansi_get_csr_x)(void) = NULL;
 int  (*ansi_get_csr_y)(void) = NULL;
 void (*ansi_set_cell)(int,int,uint16_t) = NULL;
 void (*ansi_cls)(int) = NULL;
+void (*ansi_scroll)(int) = NULL;
 
 /* XXX: Needs verification, but I'm pretty sure this never gets called */
 void (*redraw_cursor)(void) = NULL;
@@ -252,7 +264,7 @@ ansi_put(
 				/* Woah, woah, let's see here. */
 				char * pch;  /* tokenizer pointer */
 				char * save; /* strtok_r pointer */
-				char * argv[1024]; /* escape arguments */
+				char * argv[MAX_ARGS]; /* escape arguments */
 				/* Get rid of the front of the buffer */
 				strtok_r(state.buffer,"[",&save);
 				pch = strtok_r(NULL,";",&save);
@@ -261,9 +273,10 @@ ansi_put(
 				while (pch != NULL) {
 					argv[argc] = (char *)pch;
 					++argc;
+					if (argc > MAX_ARGS)
+						break;
 					pch = strtok_r(NULL,";",&save);
 				}
-				argv[argc] = NULL;
 				/* Alright, let's do this */
 				switch (c) {
 					case ANSI_EXT_IOCTL:
@@ -403,9 +416,11 @@ ansi_put(
 						}
 						break;
 					case ANSI_SHOW:
-						if (!strcmp(argv[0], "?1049")) {
-							ansi_cls(2);
-							ansi_set_csr(0,0);
+						if (argc > 0) {
+							if (!strcmp(argv[0], "?1049")) {
+								ansi_cls(2);
+								ansi_set_csr(0,0);
+							}
 						}
 						break;
 					case ANSI_CUF:
@@ -447,16 +462,16 @@ ansi_put(
 					case ANSI_CHA:
 						if (argc < 1) {
 							ansi_set_csr(0,ansi_get_csr_y());
-							break;
+						} else {
+							ansi_set_csr(min(max(atoi(argv[0]), 1), state.width) - 1, ansi_get_csr_y());
 						}
-						ansi_set_csr(min(max(atoi(argv[0]), 1), state.width) - 1, ansi_get_csr_y());
 						break;
 					case ANSI_CUP:
 						if (argc < 2) {
 							ansi_set_csr(0,0);
-							break;
+						} else {
+							ansi_set_csr(min(max(atoi(argv[1]), 1), state.width) - 1, min(max(atoi(argv[0]), 1), state.height) - 1);
 						}
-						ansi_set_csr(min(max(atoi(argv[1]), 1), state.width) - 1, min(max(atoi(argv[0]), 1), state.height) - 1);
 						break;
 					case ANSI_ED:
 						if (argc < 1) {
@@ -493,10 +508,28 @@ ansi_put(
 							input_buffer_stuff(out);
 						}
 						break;
+					case ANSI_SU:
+						{
+							int how_many = 1;
+							if (argc > 0) {
+								how_many = atoi(argv[0]);
+							}
+							ansi_scroll(how_many);
+						}
+						break;
+					case ANSI_SD:
+						{
+							int how_many = 1;
+							if (argc > 0) {
+								how_many = atoi(argv[0]);
+							}
+							ansi_scroll(-how_many);
+						}
+						break;
 					case 'X':
 						{
 							int how_many = 1;
-							if (argc >= 1) {
+							if (argc > 0) {
 								how_many = atoi(argv[0]);
 							}
 							for (int i = 0; i < how_many; ++i) {
@@ -535,7 +568,7 @@ ansi_put(
 				/* Tokenize on semicolons, like we always do */
 				char * pch;  /* tokenizer pointer */
 				char * save; /* strtok_r pointer */
-				char * argv[1024]; /* escape arguments */
+				char * argv[MAX_ARGS]; /* escape arguments */
 				/* Get rid of the front of the buffer */
 				strtok_r(state.buffer,"]",&save);
 				pch = strtok_r(NULL,";",&save);
@@ -544,19 +577,21 @@ ansi_put(
 				while (pch != NULL) {
 					argv[argc] = (char *)pch;
 					++argc;
+					if (argc > MAX_ARGS) break;
 					pch = strtok_r(NULL,";",&save);
 				}
-				argv[argc] = NULL;
 				/* Start testing the first argument for what command to use */
-				if (!strcmp(argv[0], "1")) {
-					if (argc > 1) {
-						int len = min(TERMINAL_TITLE_SIZE, strlen(argv[1])+1);
-						memcpy(terminal_title, argv[1], len);
-						terminal_title[len-1] = '\0';
-						terminal_title_length = len - 1;
-						render_decors();
-					}
-				} /* Currently, no other options */
+				if (argv[0]) {
+					if (!strcmp(argv[0], "1")) {
+						if (argc > 1) {
+							int len = min(TERMINAL_TITLE_SIZE, strlen(argv[1])+1);
+							memcpy(terminal_title, argv[1], len);
+							terminal_title[len-1] = '\0';
+							terminal_title_length = len - 1;
+							render_decors();
+						}
+					} /* Currently, no other options */
+				}
 				/* Clear out the buffer */
 				state.buflen = 0;
 				state.escape = 0;
@@ -571,7 +606,7 @@ ansi_put(
 
 void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char),
 		void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,uint16_t),
-		void (*cls)(int), void (*redraw_csr)(void)) {
+		void (*cls)(int), void (*redraw_csr)(void), void (*scroll_term)(int)) {
 
 	ansi_writer    = writer;
 	ansi_set_color = setcolor;
@@ -581,6 +616,7 @@ void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned cha
 	ansi_set_cell  = setcell;
 	ansi_cls       = cls;
 	redraw_cursor  = redraw_csr;
+	ansi_scroll    = scroll_term;
 
 	/* Terminal Defaults */
 	state.fg     = DEFAULT_FG;    /* Light grey */
@@ -624,21 +660,6 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 	}
 }
 
-static inline void term_set_point_alpha(uint16_t x, uint16_t y, uint32_t color, uint8_t alpha) {
-	if (_windowed) {
-		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color | (alpha * 0x1000000);
-	} else {
-		if (ctx->depth == 32) {
-			GFX(ctx, x,y) = color | 0xFF000000;
-		} else if (ctx->depth == 24) {
-			ctx->backbuffer[((y) * ctx->width + x) * 3 + 2] = _RED(color);
-			ctx->backbuffer[((y) * ctx->width + x) * 3 + 1] = _GRE(color);
-			ctx->backbuffer[((y) * ctx->width + x) * 3 + 0] = _BLU(color);
-		}
-	}
-}
-
-
 /* FreeType text rendering */
 
 FT_Library   library;
@@ -656,7 +677,8 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
-			term_set_point(i,j, alpha_blend(bg, fg, rgb(bitmap->buffer[q * bitmap->width + p],0,0)));
+			uint32_t tmp = (fg & 0xFFFFFF) | 0x1000000 * bitmap->buffer[q * bitmap->width + p];
+			term_set_point(i,j, alpha_blend_rgba(bg, tmp));
 		}
 	}
 }
@@ -729,7 +751,7 @@ term_write_char(
 				}
 			}
 		}
-		if (val < 32) {
+		if (val < 32 || val == ' ') {
 			return;
 		}
 		int pen_x = x;
@@ -870,32 +892,72 @@ void term_redraw_all() {
 	}
 }
 
-void term_term_scroll() {
-	/* Shirt terminal cells one row up */
-	memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), sizeof(t_cell) * term_width * (term_height - 1));
-	/* Reset the "new" row to clean cells */
-	memset((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width * (term_height - 1)), 0x0, sizeof(t_cell) * term_width);
-	if (_vga_mode) {
-		/* In VGA mode, we can very quickly just redraw everything */
-		term_redraw_all();
-	} else {
-		/* In graphical modes, we will shift the graphics buffer up as necessary */
-		uintptr_t dst, src;
-		size_t    siz = char_height * (term_height - 1) * GFX_W(ctx) * GFX_B(ctx);
-		if (_windowed) {
-			/* Windowed mode must take borders into account */
-			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
-			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height)) * GFX_B(ctx);
+void term_scroll(int how_much) {
+	if (how_much >= term_height || -how_much >= term_height) {
+		term_clear();
+		return;
+	}
+	if (how_much == 0) {
+		return;
+	}
+	if (how_much > 0) {
+		/* Shift terminal cells one row up */
+		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), sizeof(t_cell) * term_width * (term_height - how_much));
+		/* Reset the "new" row to clean cells */
+		memset((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width * (term_height - how_much)), 0x0, sizeof(t_cell) * term_width * how_much);
+		if (_vga_mode) {
+			/* In VGA mode, we can very quickly just redraw everything */
+			term_redraw_all();
 		} else {
-			/* While fullscreen mode does not */
-			dst = (uintptr_t)ctx->backbuffer;
-			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height) * GFX_B(ctx);
+			/* In graphical modes, we will shift the graphics buffer up as necessary */
+			uintptr_t dst, src;
+			size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
+			if (_windowed) {
+				/* Windowed mode must take borders into account */
+				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
+				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
+			} else {
+				/* While fullscreen mode does not */
+				dst = (uintptr_t)ctx->backbuffer;
+				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
+			}
+			/* Perform the shift */
+			memmove((void *)dst, (void *)src, siz);
+			/* And redraw the new rows */
+			for (int i = 0; i < how_much; ++i) {
+				for (uint16_t x = 0; x < term_width; ++x) {
+					cell_redraw(x, term_height - how_much);
+				}
+			}
 		}
-		/* Perform the shift */
-		memmove((void *)dst, (void *)src, siz);
-		/* And redraw the new rows */
-		for (uint16_t x = 0; x < term_width; ++x) {
-			cell_redraw(x, term_height - 1);
+	} else {
+		how_much = -how_much;
+		/* Shift terminal cells one row up */
+		memmove((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), term_buffer, sizeof(t_cell) * term_width * (term_height - how_much));
+		/* Reset the "new" row to clean cells */
+		memset(term_buffer, 0x0, sizeof(t_cell) * term_width * how_much);
+		if (_vga_mode) {
+			/* In VGA mode, we can very quickly just redraw everything */
+			term_redraw_all();
+		} else {
+			uintptr_t dst, src;
+			size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
+			if (_windowed) {
+				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
+				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
+			} else {
+				/* While fullscreen mode does not */
+				src = (uintptr_t)ctx->backbuffer;
+				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
+			}
+			/* Perform the shift */
+			memmove((void *)dst, (void *)src, siz);
+			/* And redraw the new rows */
+			for (int i = 0; i < how_much; ++i) {
+				for (uint16_t x = 0; x < term_width; ++x) {
+					cell_redraw(x, i);
+				}
+			}
 		}
 	}
 }
@@ -904,6 +966,7 @@ uint32_t codepoint;
 uint32_t unicode_state = 0;
 
 int is_wide(uint32_t codepoint) {
+	if (codepoint < 256) return 0;
 	return mk_wcwidth_cjk(codepoint) == 2;
 }
 
@@ -915,13 +978,19 @@ void term_write(char c) {
 			c = '?';
 		}
 		if (c == '\n') {
-			for (uint16_t i = csr_x; i < term_width; ++i) {
-				/* I like this behaviour */
-				cell_set(i, csr_y, ' ',current_fg, current_bg, state.flags);
-				cell_redraw(i, csr_y);
-			}
 			csr_x = 0;
 			++csr_y;
+			draw_cursor();
+		} else if (c == '\007') {
+			/* bell */
+			for (int i = 0; i < term_height; ++i) {
+				for (int j = 0; j < term_width; ++j) {
+					cell_redraw_inverted(j, i);
+				}
+			}
+			/* XXX: sleep */
+			for (int i = 0; i < 10; ++i) syscall_yield();
+			term_redraw_all();
 		} else if (c == '\r') {
 			cell_redraw(csr_x,csr_y);
 			csr_x = 0;
@@ -929,10 +998,11 @@ void term_write(char c) {
 			if (csr_x > 0) {
 				--csr_x;
 			}
-			cell_set(csr_x, csr_y, ' ',current_fg, current_bg, state.flags);
 			cell_redraw(csr_x, csr_y);
+			draw_cursor();
 		} else if (c == '\t') {
-			csr_x = (csr_x + 8) & ~(8 - 1);
+			csr_x += (8 - csr_x % 8);
+			draw_cursor();
 		} else {
 			int wide = is_wide(codepoint);
 			uint8_t flags = state.flags;
@@ -958,7 +1028,7 @@ void term_write(char c) {
 			++csr_y;
 		}
 		if (csr_y == term_height) {
-			term_term_scroll();
+			term_scroll(1);
 			csr_y = term_height - 1;
 		}
 	} else if (unicode_state == UTF8_REJECT) {
@@ -972,6 +1042,7 @@ term_set_csr(int x, int y) {
 	cell_redraw(csr_x,csr_y);
 	csr_x = x;
 	csr_y = y;
+	draw_cursor();
 }
 
 int
@@ -1026,7 +1097,7 @@ void term_redraw_cell(int x, int y) {
 	cell_redraw(x,y);
 }
 
-void term_term_clear(int i) {
+void term_clear(int i) {
 	if (i == 2) {
 		/* Oh dear */
 		csr_x = 0;
@@ -1055,28 +1126,6 @@ void term_term_clear(int i) {
 			term_set_cell(x, csr_y, ' ');
 		}
 	}
-}
-
-void cat(char * file) {
-	FILE * f = fopen(file, "rb");
-	if (!f) {
-		ansi_print("Failed to open file, so skipping that part.\n");
-		return;
-	}
-
-	size_t len = 0;
-	fseek(f, 0, SEEK_END);
-	len = ftell(f);
-	fseek(f, 0, SEEK_SET);
-
-	char * buffer = (char *)malloc(sizeof(char) * len);
-	fread(buffer, 1, len, f);
-	fclose(f);
-	for (size_t i = 0; i < len; ++i) {
-		ansi_put(buffer[i]);
-	}
-
-	free(buffer);
 }
 
 char * loadMemFont(char * name, char * ident, size_t * size) {
@@ -1277,7 +1326,7 @@ void reinit() {
 	}
 	/* XXX: Transfer values, cursor location, etc.? */
 	term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
-	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_term_clear, &term_redraw_cursor);
+	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll);
 
 	mouse_x = ctx->width / 2;
 	mouse_y = ctx->height / 2;
@@ -1289,6 +1338,23 @@ void reinit() {
 	/* A lot of this is probably uneccessary if we do some sort of resize... */
 	ansi_print("\033[H\033[2J");
 }
+
+#if DEBUG_TERMINAL_WITH_SERIAL
+DEFN_SYSCALL1(serial,  44, int);
+int serial_fd;
+void serial_put(uint8_t c) {
+	if (c == '\033') {
+		char out[3] = {'\\', 'E', 0};
+		write(serial_fd, out, 2);
+	} else if (c < 32) {
+		char out[5] = {'\\', '0' + ((c / 8) / 8) % 8, '0' + (c / 8) % 8, '0' + c % 8, 0};
+		write(serial_fd, out, 4);
+	} else {
+		char out[2] = {c, 0};
+		write(serial_fd, out, 1);
+	}
+}
+#endif
 
 int main(int argc, char ** argv) {
 
@@ -1359,6 +1425,10 @@ int main(int argc, char ** argv) {
 				break;
 		}
 	}
+
+#if DEBUG_TERMINAL_WITH_SERIAL
+	serial_fd = syscall_serial(0x3F8);
+#endif
 
 	putenv("TERM=toaru");
 
@@ -1546,6 +1616,9 @@ fail_mouse:
 				int r = read(ofd, buf, min(_stat.st_size, 1024));
 				for (uint32_t i = 0; i < r; ++i) {
 					ansi_put(buf[i]);
+#if DEBUG_TERMINAL_WITH_SERIAL
+					serial_put(buf[i]);
+#endif
 				}
 			}
 		}

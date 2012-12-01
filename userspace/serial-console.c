@@ -26,7 +26,6 @@ void *print_serial_stuff(void * garbage) {
 
 		for (int i = 0; i < size; ++i) {
 			char x = buf[i];
-			if (x == 13) continue;
 			fputc(x, stdout);
 		}
 		if (size) fflush(stdout);
