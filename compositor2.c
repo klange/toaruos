@@ -920,6 +920,7 @@ int main(int argc, char ** argv) {
 	setenv("DISPLAY", WINS_SERVER_IDENTIFIER, 1);
 
 	if (!fork()) {
+		syscall_system_function(5,0);
 #if SINGLE_USER_MODE
 #ifdef FORCE_UID
 		syscall_setuid(FORCE_UID);
