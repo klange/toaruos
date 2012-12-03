@@ -441,7 +441,11 @@ int wakeup_queue(list_t * queue) {
 }
 
 int sleep_on(list_t * queue) {
-	assert(current_process->sleep_node.prev == NULL && current_process->sleep_node.next == NULL);
+	if (current_process->sleep_node.prev || current_process->sleep_node.next) {
+		/* uh, we can't sleep right now, we're marked as ready */
+		switch_task(0);
+		return 0;
+	}
 	list_append(queue, (node_t *)&current_process->sleep_node);
 	switch_task(0);
 	return 0;
