@@ -12,13 +12,17 @@
 
 # TODO for 0.4.0 Distribution Release
 
+* User Interface
+  * ~~Graphical Login~~
+  * More applications
+* Working boot on real hardware
+
+# TODO for 0.4.5
+
 * CD support
   * Boot from "CD"
   * Distribute with Grub
   * CD image generator in-repo
-* User Interface
-  * ~~Graphical Login~~
-  * More applications
 * Stable Harddisk writes
   * Screenshot functionality
   * Attempt an installer?
