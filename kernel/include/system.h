@@ -310,6 +310,7 @@ extern uint16_t lfb_resolution_x;
 extern uint16_t lfb_resolution_y;
 extern uint16_t lfb_resolution_b;
 extern uintptr_t lfb_get_address();
+extern uint8_t * lfb_vid_memory;
 
 /* BOCHS / QEMU VBE Driver */
 extern void graphics_install_bochs(uint16_t, uint16_t);

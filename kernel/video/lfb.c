@@ -110,6 +110,16 @@ void graphics_install_preset(uint16_t w, uint16_t h) {
 	herp[0] = 0xA5ADFACE;
 	herp[1] = 0xFAF42943;
 
+	if (lfb_vid_memory) {
+		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + 0xFF0000; i += 0x1000) {
+			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		}
+		if (((uintptr_t *)lfb_vid_memory)[0] == 0xA5ADFACE && ((uintptr_t *)lfb_vid_memory)[1] == 0xFAF42943) {
+			debug_print(INFO, "Was able to locate video memory at 0x%x without dicking around.", lfb_vid_memory);
+			goto mem_found;
+		}
+	}
+
 	for (int i = 2; i < 1000; i += 2) {
 		herp[i]   = 0xFF00FF00;
 		herp[i+1] = 0x00FF00FF;
@@ -125,6 +135,7 @@ void graphics_install_preset(uint16_t w, uint16_t h) {
 		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
 			if (((uintptr_t *)x)[0] == 0xA5ADFACE && ((uintptr_t *)x)[1] == 0xFAF42943) {
 				lfb_vid_memory = (uint8_t *)x;
+				debug_print(INFO, "Had to futz around, but found video memory at 0x%x", lfb_vid_memory);
 				goto mem_found;
 			}
 		}

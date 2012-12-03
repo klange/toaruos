@@ -79,6 +79,10 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		mboot_ptr = mboot;
 		char cmdline_[1024];
 
+		if (mboot_ptr->vbe_mode_info) {
+			lfb_vid_memory = (uint8_t *)((vbe_info_t *)(mboot_ptr->vbe_mode_info))->physbase;
+		}
+
 		size_t len = strlen((char *)mboot_ptr->cmdline);
 		memmove(cmdline_, (char *)mboot_ptr->cmdline, len + 1);
 
@@ -149,7 +153,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 		ext2_ramdisk_mount((uintptr_t)ramdisk);
 	}
-
 
 	if (!fs_root) {
 		kprintf("Nothing to do.\n");
