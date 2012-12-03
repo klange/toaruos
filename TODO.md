@@ -1,5 +1,7 @@
 # TODO as of November, 2012
 
+* force a build run
+
 * Integrate Cairo into build toolchain
   * autogen means extra effort needed
   * required to ship with new compositor
