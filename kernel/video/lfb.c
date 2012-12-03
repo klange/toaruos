@@ -108,6 +108,12 @@ void graphics_install_preset(uint16_t w, uint16_t h) {
 	/* XXX: Massive hack */
 	uint32_t * herp = (uint32_t *)0xA0000;
 	herp[0] = 0xA5ADFACE;
+	herp[1] = 0xFAF42943;
+
+	for (int i = 2; i < 1000; i += 2) {
+		herp[i]   = 0xFF00FF00;
+		herp[i+1] = 0x00FF00FF;
+	}
 
 	for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
 		/* Enable the higher memory */
@@ -117,11 +123,16 @@ void graphics_install_preset(uint16_t w, uint16_t h) {
 
 		/* Go find it */
 		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
-			if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
+			if (((uintptr_t *)x)[0] == 0xA5ADFACE && ((uintptr_t *)x)[1] == 0xFAF42943) {
 				lfb_vid_memory = (uint8_t *)x;
 				goto mem_found;
 			}
 		}
+	}
+
+	for (int i = 2; i < 1000; i += 2) {
+		herp[i]   = 0xFF00FF00;
+		herp[i+1] = 0xFF00FF00;
 	}
 
 	debug_print(WARNING, "Failed to locate video memory. This could end poorly.");
