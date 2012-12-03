@@ -5,6 +5,7 @@
 #include <system.h>
 #include <fs.h>
 #include <pipe.h>
+#include <logging.h>
 
 #define DEBUG_PIPES 0
 

@@ -519,6 +519,16 @@ static int system_function(int fn, char ** args) {
 				kprintf("Setting output to file object in process %d's fd=%d!\n", getpid(), (int)args);
 				kprint_to_file = current_process->fds->entries[(int)args];
 				break;
+			case 5:
+				debug_print(INFO, "replacing process %d's file descriptors with null devices", getpid());
+				fs_node_t * nulldev = null_device_create();
+				while (current_process->fds->length < 3) {
+					process_append_fd((process_t *)current_process, nulldev);
+				}
+				current_process->fds->entries[0] = nulldev;
+				current_process->fds->entries[1] = nulldev;
+				current_process->fds->entries[2] = nulldev;
+				break;
 			default:
 				kprintf("Bad system function %d\n", fn);
 				break;

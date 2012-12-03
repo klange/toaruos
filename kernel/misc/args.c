@@ -78,6 +78,7 @@ parse_args(
 				debug_print(WARNING, "Unrecognized video adapter: %s", argp[1]);
 			}
 		} else if (!strcmp(argp[0],"hdd")) {
+			ide_init(0x1F0);
 			if (argc > 1) {
 				debug_print(INFO, "Scanning disk...");
 				if (read_partition_map(0)) {

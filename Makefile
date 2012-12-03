@@ -69,6 +69,8 @@ term: system
 	${EMU} ${EMUARGS} -append "vid=qemu single hdd"
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single hdd"
+debug: system
+	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu hdd"
 run-config: system
 	util/config-parser | xargs ${EMU}
 

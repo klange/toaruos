@@ -17,13 +17,17 @@ void ide_detect() {
 	
 }
 
+void ata_io_wait(uint16_t bus) {
+	inportb(bus + ATA_REG_ALTSTATUS);
+	inportb(bus + ATA_REG_ALTSTATUS);
+	inportb(bus + ATA_REG_ALTSTATUS);
+	inportb(bus + ATA_REG_ALTSTATUS);
+}
+
 int ata_wait(uint16_t bus, int advanced) {
 	uint8_t status = 0;
 
-	inportb(bus + ATA_REG_ALTSTATUS);
-	inportb(bus + ATA_REG_ALTSTATUS);
-	inportb(bus + ATA_REG_ALTSTATUS);
-	inportb(bus + ATA_REG_ALTSTATUS);
+	ata_io_wait(bus);
 
 	while ((status = inportb(bus + ATA_REG_STATUS)) & ATA_SR_BSY);
 
@@ -38,7 +42,7 @@ int ata_wait(uint16_t bus, int advanced) {
 }
 
 void ata_select(uint16_t bus) {
-	outportb(bus + ATA_REG_HDDEVSEL, 0xB0);
+	outportb(bus + ATA_REG_HDDEVSEL, 0xA0);
 }
 
 void ata_wait_ready(uint16_t bus) {
@@ -46,23 +50,62 @@ void ata_wait_ready(uint16_t bus) {
 }
 
 void ide_init(uint16_t bus) {
+
+	debug_print(NOTICE, "initializing IDE device on bus %d", bus);
+
+	outportb(bus + 1, 1);
+	outportb(bus + 0x306, 0);
+
 	ata_select(bus);
-	ata_wait(bus, 1);
+	ata_io_wait(bus);
+
+	outportb(bus + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+	ata_io_wait(bus);
+
+	int status = inportb(bus + ATA_REG_COMMAND);
+	debug_print(INFO, "status = %x", status);
+
+	ata_wait_ready(bus);
+
+	ata_identify_t device;
+	uint16_t * buf = (uint16_t *)&device;
+
+	for (int i = 0; i < 256; ++i) {
+		buf[i] = inports(bus);
+	}
+
+	uint8_t * ptr = (uint8_t *)&device.model;
+	for (int i = 0; i < 39; i+=2) {
+		uint8_t tmp = ptr[i+1];
+		ptr[i+1] = ptr[i];
+		ptr[i] = tmp;
+	}
+
+	debug_print(NOTICE, "ata device %s", device.model);
+	debug_print(NOTICE, "sectors_48 = %d", (uint32_t)device.sectors_48);
+	debug_print(NOTICE, "sectors_28 = %d", device.sectors_28);
+
+	outportb(bus + ATA_REG_CONTROL, 0x02);
 }
 
 void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 	outportb(bus + ATA_REG_CONTROL, 0x02);
+
 	ata_wait_ready(bus);
 
 	outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slave << 4 | 
 								 (lba & 0x0f000000) >> 24);
-	ata_wait(bus, 0);
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_SECCOUNT0, 1);
 	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+
+	if (ata_wait(bus, 1)) {
+		debug_print(WARNING, "Error during ATA read");
+	}
+
 	int size = 256;
 	inportsm(bus,buf,size);
 	ata_wait(bus, 0);
@@ -70,6 +113,7 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 
 void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 	outportb(bus + ATA_REG_CONTROL, 0x02);
+
 	ata_wait_ready(bus);
 
 	outportb(bus + ATA_REG_HDDEVSEL,  0xe0 | slave << 4 | 
@@ -81,7 +125,7 @@ void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) 
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
-	ata_wait(bus, 1);
+	ata_wait(bus, 0);
 	int size = 256;
 	outportsm(bus,buf,size);
 	outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
