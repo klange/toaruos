@@ -16,10 +16,6 @@
 #include <assert.h>
 #include <sys/stat.h>
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_CACHE_H
-
 #include "lib/list.h"
 #include "lib/graphics.h"
 #include "lib/window.h"
@@ -30,75 +26,73 @@
 #include "../kernel/include/mouse.h"
 
 #define SINGLE_USER_MODE 0
+#define FORCE_UID 1000
+#define SPRITE_COUNT 2
+#define WIN_D 32
+#define WIN_B (WIN_D / 8)
+#define MOUSE_DISCARD_LEVEL 10
+#define MOUSE_SCALE 3
+#define MOUSE_OFFSET_X 26
+#define MOUSE_OFFSET_Y 26
+#define SPRITE_MOUSE 1
+#define WINDOW_LAYERS 0x10000
+#define FONT_PATH "/usr/share/fonts/"
+#define FONT(a,b) {WINS_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
 
-void spin_lock(int volatile * lock) {
+struct font_def {
+	char * identifier;
+	char * path;
+};
+
+/* Non-public bits from window.h */
+extern window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index);
+extern void free_window (window_t * window);
+extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
+extern FILE *fdopen(int fd, const char *mode);
+
+window_t * focused = NULL;
+window_t * windows[WINDOW_LAYERS];
+sprite_t * sprites[SPRITE_COUNT];
+gfx_context_t * ctx;
+list_t * process_list;
+int32_t mouse_x, mouse_y;
+int32_t click_x, click_y;
+uint32_t mouse_discard = 0;
+volatile int am_drawing  = 0;
+window_t * moving_window = NULL;
+int32_t    moving_window_l = 0;
+int32_t    moving_window_t = 0;
+window_t * resizing_window = NULL;
+int32_t    resizing_window_w = 0;
+int32_t    resizing_window_h = 0;
+wid_t volatile _next_wid = 1;
+wins_server_global_t volatile * _request_page;
+int error;
+
+struct font_def fonts[] = {
+	FONT("sans-serif",            "DejaVuSans.ttf"),
+	FONT("sans-serif.bold",       "DejaVuSans-Bold.ttf"),
+	FONT("sans-serif.italic",     "DejaVuSans-Oblique.ttf"),
+	FONT("sans-serif.bolditalic", "DejaVuSans-BoldOblique.ttf"),
+	FONT("monospace",             "DejaVuSansMono.ttf"),
+	FONT("monospace.bold",        "DejaVuSansMono-Bold.ttf"),
+	FONT("monospace.italic",      "DejaVuSansMono-Oblique.ttf"),
+	FONT("monospace.bolditalic",  "DejaVuSansMono-BoldOblique.ttf"),
+	{NULL, NULL}
+};
+
+static void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
 		syscall_yield();
 	}
 }
 
-void spin_unlock(int volatile * lock) {
+static void spin_unlock(int volatile * lock) {
 	__sync_lock_release(lock);
 }
 
-window_t * windows[0x10000];
-
-volatile uint8_t screenshot_next_frame = 0;
-
-sprite_t * sprites[128];
-
-gfx_context_t * ctx;
-
-#define WIN_D 32
-#define WIN_B (WIN_D / 8)
-#define MOUSE_DISCARD_LEVEL 6
-
-
-list_t * process_list;
-
-int32_t mouse_x, mouse_y;
-int32_t click_x, click_y;
-uint32_t mouse_discard = 0;
-#define MOUSE_SCALE 3
-#define MOUSE_OFFSET_X 26
-#define MOUSE_OFFSET_Y 26
-
-void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height);
 void redraw_cursor() {
-	//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
-	draw_sprite(ctx, sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
-}
-
-extern window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index);
-extern void free_window (window_t * window);
-extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
-
-uint16_t * depth_map = NULL;
-uintptr_t * top_map  = NULL;
-
-process_windows_t * get_process_windows (uint32_t pid) {
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		if (pw->pid == pid) {
-			return pw;
-		}
-	}
-
-	return NULL;
-}
-
-static window_t * get_window (wid_t wid) {
-	foreach (n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		foreach (m, pw->windows) {
-			window_t * w = (window_t *)m->value;
-			if (w->wid == wid) {
-				return w;
-			}
-		}
-	}
-
-	return NULL;
+	draw_sprite(ctx, sprites[SPRITE_MOUSE], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 }
 
 static window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
@@ -117,6 +111,50 @@ void init_process_list () {
 	memset(windows, 0x00000000, sizeof(window_t *) * 0x10000);
 }
 
+void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet) {
+	/* Construct the header */
+	wins_packet_t header;
+	header.magic = WINS_MAGIC;
+	header.command_type = event;
+	header.packet_size = sizeof(w_window_t);
+
+	/* Send them */
+	// XXX: we have a race condition here
+	write(pw->event_pipe, &header, sizeof(wins_packet_t));
+	write(pw->event_pipe, packet, sizeof(w_window_t));
+	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	syscall_yield();
+}
+
+void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t packet) {
+	/* Construct the header */
+	wins_packet_t header;
+	header.magic = WINS_MAGIC;
+	header.command_type = event;
+	header.packet_size = sizeof(w_keyboard_t);
+
+	/* Send them */
+	// XXX: we have a race condition here
+	write(pw->event_pipe, &header, sizeof(wins_packet_t));
+	write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
+	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	syscall_yield();
+}
+
+void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet) {
+	/* Construct the header */
+	wins_packet_t header;
+	header.magic = WINS_MAGIC;
+	header.command_type = event;
+	header.packet_size = sizeof(w_mouse_t);
+
+	/* Send them */
+	fwrite(&header, 1, sizeof(wins_packet_t), pw->event_pipe_file);
+	fwrite(packet,  1, sizeof(w_mouse_t),     pw->event_pipe_file);
+	fflush(pw->event_pipe_file);
+	//syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	//syscall_yield();
+}
 
 
 int32_t min(int32_t a, int32_t b) {
@@ -129,33 +167,6 @@ int32_t max(int32_t a, int32_t b) {
 
 uint8_t is_between(int32_t lo, int32_t hi, int32_t val) {
 	if (val >= lo && val < hi) return 1;
-	return 0;
-}
-
-uint8_t is_top(window_t *window, uint16_t x, uint16_t y) {
-	uint16_t index = window->z;
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-
-		foreach(node, pw->windows) {
-			window_t * win = (window_t *)node->value;
-			if (win == window)  continue;
-			if (win->z < index) continue;
-			if (is_between(win->x, win->x + win->width, x) && is_between(win->y, win->y + win->height, y)) {
-				return 0;
-			}
-		}
-	}
-	return 1;
-}
-
-uint8_t inline is_top_fast(window_t * window, uint16_t x, uint16_t y) {
-	if (x >= ctx->width || y >= ctx->height) {
-		return 0;
-	}
-	if (window->z == depth_map[x + y * ctx->width]) {
-		return 1;
-	}
 	return 0;
 }
 
@@ -191,10 +202,8 @@ void rebalance_windows() {
 		if (!windows[j]) break;
 	}
 	if (j == i + 1) {
-		printf("Nothing to reorder.\n");
 		return;
 	} else {
-		printf("Need to reshuffle. One moment.\n");
 		for (j = i; j < 0xFFF8; ++j) {
 			windows[j] = windows[j+1];
 			if (windows[j+1] == NULL) return;
@@ -230,7 +239,6 @@ void reorder_window (window_t * window, uint16_t new_zed) {
 	if (z != new_zed) {
 		rebalance_windows();
 	}
-	printf("Window 0x%x is now at z=%d\n", window, new_zed);
 }
 
 
@@ -253,55 +261,49 @@ void make_top(window_t * window) {
 		}
 	}
 
-	printf("Making top will make this window stack at %d.\n", highest+1);
 	reorder_window(window, highest+1);
 }
 
 window_t * focused_window() {
-	return top_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+	if (!focused) {
+		return windows[0];
+	} else {
+		return focused;
+	}
 }
 
-volatile int am_drawing  = 0;
-window_t * moving_window = NULL;
-int32_t    moving_window_l = 0;
-int32_t    moving_window_t = 0;
+void set_focused_window(window_t * n_focused) {
+	if (n_focused == focused) {
+		return;
+	} else {
+		if (focused) {
+			w_window_t wwt;
+			wwt.wid  = focused->wid;
+			wwt.left = 0;
+			send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
+		}
+		focused = n_focused;
+		w_window_t wwt;
+		wwt.wid  = focused->wid;
+		wwt.left = 1;
+		send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
+		make_top(focused);
+	}
 
-window_t * resizing_window = NULL;
-int32_t    resizing_window_w = 0;
-int32_t    resizing_window_h = 0;
+}
+
+void set_focused_at(int x, int y) {
+	window_t * n_focused = top_at(x, y);
+	set_focused_window(n_focused);
+}
 
 /* Internal drawing functions */
-
-void redraw_window(window_t *window, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
-	if (!window) {
-		return;
-	}
-
-	uint16_t _lo_x = max(window->x + x, 0);
-	uint16_t _hi_x = min(window->x + width, ctx->width);
-	uint16_t _lo_y = max(window->y + y, 0);
-	uint16_t _hi_y = min(window->y + height, ctx->height);
-
-	for (uint16_t y = _lo_y; y < _hi_y; ++y) {
-		for (uint16_t x = _lo_x; x < _hi_x; ++x) {
-			/* XXX MAKE THIS FASTER */
-			if (is_top_fast(window, x, y)) {
-				if (TO_WINDOW_OFFSET(x,y) >= window->width * window->height) continue;
-				GFX(ctx,x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
-			}
-		}
-	}
-
-	//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
-	//redraw_cursor();
-}
 
 void window_add (window_t * window) {
 	int z = window->z;
 	while (windows[z]) {
 		z++;
 	}
-	printf("Assigning depth of %d to window 0x%x\n", z, window);
 	window->z = z;
 	windows[z] = window;
 }
@@ -313,36 +315,6 @@ void unorder_window (window_t * window) {
 	}
 	window->z = 0;
 	return;
-}
-
-void redraw_full_window (window_t * window) {
-	if (!window) {
-		return;
-	}
-
-	redraw_window(window, (uint16_t)0, (uint16_t)0, window->width, window->height);
-}
-
-void redraw_region_slow(int32_t x, int32_t y, int32_t width, int32_t height) {
-	uint16_t _lo_x = max(x, 0);
-	uint16_t _hi_x = min(x + width, ctx->width);
-	uint16_t _lo_y = max(y, 0);
-	uint16_t _hi_y = min(y + height, ctx->height);
-
-	for (uint32_t y = _lo_y; y < _hi_y; ++y) {
-		for (uint32_t x = _lo_x; x < _hi_x; ++x) {
-			window_t * window = top_at(x,y);
-			if (window) {
-				//GFX(ctx,x,y) = ((uint32_t *)window->buffer)[TO_WINDOW_OFFSET(x,y)];
-				depth_map[x + y * ctx->width] = window->z;
-				top_map[x + y * ctx->width]   = (uintptr_t)window;
-			} else {
-				//GFX(ctx,x,y) = (y % 2 ^ x % 2) ? rgb(0,0,0) : rgb(255,255,255);
-				depth_map[x + y * ctx->width] = 0;
-				top_map[x + y * ctx->width]   = 0;
-			}
-		}
-	}
 }
 
 void blit_window(window_t * window, int32_t left, int32_t top) {
@@ -370,7 +342,7 @@ void blit_window(window_t * window, int32_t left, int32_t top) {
 
 }
 
-void redraw_everything_fast() {
+void redraw_windows() {
 	for (uint32_t i = 0; i < 0x10000; ++i) {
 		window_t * window = NULL;
 		if (windows[i]) {
@@ -381,56 +353,6 @@ void redraw_everything_fast() {
 				blit_window(window, window->x, window->y);
 			}
 		}
-	}
-}
-
-void redraw_bounding_box(window_t *window, int32_t left, int32_t top, uint32_t derped) {
-	return;
-	if (!window) {
-		return;
-	}
-
-	int32_t _min_x = max(left, 0);
-	int32_t _min_y = max(top,  0);
-	int32_t _max_x = min(left + window->width  - 1, ctx->width  - 1);
-	int32_t _max_y = min(top  + window->height - 1, ctx->height - 1);
-
-	if (!derped) {
-		redraw_region_slow(_min_x, _min_y, (_max_x - _min_x + 1), 1);
-		redraw_region_slow(_min_x, _max_y, (_max_x - _min_x + 1), 1);
-		redraw_region_slow(_min_x, _min_y, 1, (_max_y - _min_y + 1));
-		redraw_region_slow(_max_x, _min_y, 1, (_max_y - _min_y + 1));
-	} else {
-		uint32_t color = rgb(255,0,0);
-		draw_line(ctx, _min_x, _max_x, _min_y, _min_y, color);
-		draw_line(ctx, _min_x, _max_x, _max_y, _max_y, color);
-		draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
-		draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
-	}
-}
-
-void redraw_bounding_box_r(window_t *window, int32_t width, int32_t height, uint32_t derped) {
-	return;
-	if (!window) {
-		return;
-	}
-
-	int32_t _min_x = max(window->x, 0);
-	int32_t _min_y = max(window->y,  0);
-	int32_t _max_x = min(window->x + width  - 1, ctx->width  - 1);
-	int32_t _max_y = min(window->y + height - 1, ctx->height - 1);
-
-	if (!derped) {
-		redraw_region_slow(_min_x, _min_y, (_max_x - _min_x + 1), 1);
-		redraw_region_slow(_min_x, _max_y, (_max_x - _min_x + 1), 1);
-		redraw_region_slow(_min_x, _min_y, 1, (_max_y - _min_y + 1));
-		redraw_region_slow(_max_x, _min_y, 1, (_max_y - _min_y + 1));
-	} else {
-		uint32_t color = rgb(0,255,0);
-		draw_line(ctx, _min_x, _max_x, _min_y, _min_y, color);
-		draw_line(ctx, _min_x, _max_x, _max_y, _max_y, color);
-		draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
-		draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 	}
 }
 
@@ -446,54 +368,19 @@ void draw_box(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 }
 
-
-wid_t volatile _next_wid = 1;
-
-void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet) {
-	/* Construct the header */
-	wins_packet_t header;
-	header.magic = WINS_MAGIC;
-	header.command_type = event;
-	header.packet_size = sizeof(w_window_t);
-
-	/* Send them */
-	// XXX: we have a race condition here
-	write(pw->event_pipe, &header, sizeof(wins_packet_t));
-	write(pw->event_pipe, packet, sizeof(w_window_t));
-	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
-	syscall_yield();
-}
-
-void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t packet) {
-	/* Construct the header */
-	wins_packet_t header;
-	header.magic = WINS_MAGIC;
-	header.command_type = event;
-	header.packet_size = sizeof(w_keyboard_t);
-
-	/* Send them */
-	// XXX: we have a race condition here
-	write(pw->event_pipe, &header, sizeof(wins_packet_t));
-	write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
-	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
-	syscall_yield();
-}
-
-FILE *fdopen(int fd, const char *mode);
-
-void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet) {
-	/* Construct the header */
-	wins_packet_t header;
-	header.magic = WINS_MAGIC;
-	header.command_type = event;
-	header.packet_size = sizeof(w_mouse_t);
-
-	/* Send them */
-	fwrite(&header, 1, sizeof(wins_packet_t), pw->event_pipe_file);
-	fwrite(packet,  1, sizeof(w_mouse_t),     pw->event_pipe_file);
-	fflush(pw->event_pipe_file);
-	//syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
-	//syscall_yield();
+void internal_free_window(window_t * window) {
+	if (window == focused_window()) {
+		if (window->z == 0xFFFF) {
+			focused = NULL;
+			return;
+		}
+		for (int i = window->z; i > 0; --i) {
+			if (windows[i - 1]) {
+				set_focused_window(windows[i - 1]);
+				return;
+			}
+		}
+	}
 }
 
 void process_window_command (int sig) {
@@ -507,18 +394,12 @@ void process_window_command (int sig) {
 		int max_requests_per_cycle = 1;
 
 		while ((buf.st_size > 0) && (max_requests_per_cycle > 0)) {
-#if 0
-			if (!(buf.st_size > sizeof(wins_packet_t))) {
-				fstat(pw->command_pipe, &buf);
-				continue;
-			}
-#endif
 			w_window_t wwt;
 			wins_packet_t header;
 			int bytes_read = read(pw->command_pipe, &header, sizeof(wins_packet_t));
 
 			while (header.magic != WINS_MAGIC) {
-				printf("Magic is wrong from pid %d, expected 0x%x but got 0x%x [read %d bytes of %d]\n", pw->pid, WINS_MAGIC, header.magic, bytes_read, sizeof(header));
+				fprintf(stderr, "[compositor] Magic is wrong from pid %d, expected 0x%x but got 0x%x [read %d bytes of %d]\n", pw->pid, WINS_MAGIC, header.magic, bytes_read, sizeof(header));
 				max_requests_per_cycle--;
 				goto bad_magic;
 				memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
@@ -530,14 +411,12 @@ void process_window_command (int sig) {
 			switch (header.command_type) {
 				case WC_NEWWINDOW:
 					{
-						printf("[compositor] New window request\n");
 						read(pw->command_pipe, &wwt, sizeof(w_window_t));
 						wwt.wid = _next_wid;
-						window_t * new_window = init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid); //XXX: an actual index
+						window_t * new_window = init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid);
 						window_add(new_window);
 						_next_wid++;
 						send_window_event(pw, WE_NEWWINDOW, &wwt);
-						redraw_region_slow(0,0,ctx->width,ctx->height);
 					}
 					break;
 
@@ -552,10 +431,8 @@ void process_window_command (int sig) {
 				case WC_RESIZE:
 					{
 						read(pw->command_pipe, &wwt, sizeof(w_window_t));
-						window_t * window = get_window(wwt.wid);
+						window_t * window = get_window_with_process(pw, wwt.wid);
 						resize_window_buffer(window, window->x, window->y, wwt.width, wwt.height);
-
-						printf("Sending event.\n");
 						send_window_event(pw, WE_RESIZED, &wwt);
 					}
 					break;
@@ -564,8 +441,8 @@ void process_window_command (int sig) {
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					window_t * win = get_window_with_process(pw, wwt.wid);
 					win->x = 0xFFFF;
+					internal_free_window(win);
 					unorder_window(win);
-					redraw_region_slow(0,0,ctx->width,ctx->height);
 					/* Wait until we're done drawing */
 					spin_lock(&am_drawing);
 					spin_unlock(&am_drawing);
@@ -575,23 +452,20 @@ void process_window_command (int sig) {
 
 				case WC_DAMAGE:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					//redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					break;
 
 				case WC_REDRAW:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					//redraw_window(get_window_with_process(pw, wwt.wid), wwt.left, wwt.top, wwt.width, wwt.height);
 					send_window_event(pw, WE_REDRAWN, &wwt);
 					break;
 
 				case WC_REORDER:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					reorder_window(get_window_with_process(pw, wwt.wid), wwt.left);
-					redraw_region_slow(0,0,ctx->width,ctx->height);
 					break;
 
 				default:
-					printf("[compositor] WARN: Unknown command type %d...\n", header.command_type);
+					fprintf(stderr, "[compositor] WARN: Unknown command type %d...\n", header.command_type);
 					void * nullbuf = malloc(header.packet_size);
 					read(pw->command_pipe, nullbuf, header.packet_size);
 					free(nullbuf);
@@ -605,22 +479,7 @@ bad_magic:
 	syscall_yield();
 }
 
-
-
-
-void waitabit() {
-	int x = time(NULL);
-	while (time(NULL) < x + 1) {
-		syscall_yield();
-	}
-}
-
-
 /* Request page system */
-
-
-wins_server_global_t volatile * _request_page;
-
 void reset_request_system () {
 	_request_page->lock          = 0;
 	_request_page->server_done   = 0;
@@ -641,7 +500,7 @@ void init_request_system () {
 	size_t size = sizeof(wins_server_global_t);
 	_request_page = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, &size);
 	if (!_request_page) {
-		fprintf(stderr, "[wins] Could not get a shm block for its request page! Bailing...");
+		fprintf(stderr, "[compositor] Could not get a shm block for its request page! Bailing...");
 		exit(-1);
 	}
 
@@ -665,6 +524,8 @@ void process_request () {
 		_request_page->server_done = 1;
 
 		list_insert(process_list, pw);
+
+		syscall_yield();
 	}
 
 	if (!_request_page->lock) {
@@ -673,6 +534,7 @@ void process_request () {
 }
 
 void delete_process (process_windows_t * pw) {
+	/* XXX: this is not used anywhere! We need a closing handshake signal. */
 	list_destroy(pw->windows);
 	list_free(pw->windows);
 	free(pw->windows);
@@ -686,9 +548,7 @@ void delete_process (process_windows_t * pw) {
 	free(pw);
 }
 
-
 /* Signals */
-
 void * ignore(void * value) {
 	return NULL;
 }
@@ -701,13 +561,9 @@ void init_signal_handlers () {
 #endif
 }
 
-
 /* Sprite stuff */
-
-
-sprite_t alpha_tmp;
-
 void init_sprite(int i, char * filename, char * alpha) {
+	sprite_t alpha_tmp;
 	sprites[i] = malloc(sizeof(sprite_t));
 	load_sprite(sprites[i], filename);
 	if (alpha) {
@@ -720,6 +576,11 @@ void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i]->blank = 0x0;
 }
 
+void init_sprite_png(int id, char * path) {
+	sprites[id] = malloc(sizeof(sprite_t));
+	load_sprite_png(sprites[id], path);
+}
+
 int center_x(int x) {
 	return (ctx->width - x) / 2;
 }
@@ -728,86 +589,13 @@ int center_y(int y) {
 	return (ctx->height - y) / 2;
 }
 
-static int progress = 0;
-static int progress_width = 0;
-
-#define PROGRESS_WIDTH  120
-#define PROGRESS_HEIGHT 6
-#define PROGRESS_OFFSET 50
-
-void draw_progress() {
-	int x = center_x(PROGRESS_WIDTH);
-	int y = center_y(0);
-	uint32_t color = rgb(0,120,230);
-	uint32_t fill  = rgb(0,70,160);
-	draw_line(ctx, x, x + PROGRESS_WIDTH, y + PROGRESS_OFFSET, y + PROGRESS_OFFSET, color);
-	draw_line(ctx, x, x + PROGRESS_WIDTH, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, color);
-	draw_line(ctx, x, x, y + PROGRESS_OFFSET, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, color);
-	draw_line(ctx, x + PROGRESS_WIDTH, x + PROGRESS_WIDTH, y + PROGRESS_OFFSET, y + PROGRESS_OFFSET + PROGRESS_HEIGHT, color);
-
-	if (progress_width > 0) {
-		int width = ((PROGRESS_WIDTH - 2) * progress) / progress_width;
-		for (int8_t i = 0; i < PROGRESS_HEIGHT - 1; ++i) {
-			draw_line(ctx, x + 1, x + 1 + width, y + PROGRESS_OFFSET + i + 1, y + PROGRESS_OFFSET + i + 1, fill);
-		}
-	}
-
-}
-
-uint32_t gradient_at(uint16_t j) {
-	float x = j * 80;
-	x = x / ctx->height;
-	return rgb(0, 1 * x, 2 * x);
-}
-
 void display() {
-	for (uint16_t j = 0; j < ctx->height; ++j) {
-		draw_line(ctx, 0, ctx->width, j, j, gradient_at(j));
-	}
+	draw_fill(ctx, rgb(0,0,0));
 	draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height));
-	draw_progress();
 	flip(ctx);
 }
 
-
-typedef struct {
-	void (*func)();
-	char * name;
-	int  time;
-} startup_item;
-
-list_t * startup_items;
-
-void add_startup_item(char * name, void (*func)(), int time) {
-	progress_width += time;
-	startup_item * item = malloc(sizeof(startup_item));
-
-	item->name = name;
-	item->func = func;
-	item->time = time;
-
-	list_insert(startup_items, item);
-}
-
-static void test() {
-	/* Do Nothing */
-}
-
-void run_startup_item(startup_item * item) {
-	item->func();
-	progress += item->time;
-}
-
-FT_Library   library;
-FT_Face      face;
-FT_Face      face_bold;
-FT_Face      face_italic;
-FT_Face      face_bold_italic;
-FT_Face      face_extra;
-FT_GlyphSlot slot;
-FT_UInt      glyph_index;
-
-char * loadMemFont(char * ident, char * name, size_t * size) {
+char * precacheMemFont(char * ident, char * name) {
 	FILE * f = fopen(name, "r");
 	size_t s = 0;
 	fseek(f, 0, SEEK_END);
@@ -821,109 +609,16 @@ char * loadMemFont(char * ident, char * name, size_t * size) {
 	fread(font, s, 1, f);
 
 	fclose(f);
-	*size = s;
 	return font;
 }
 
-void _init_freetype() {
-	int error;
-	error = FT_Init_FreeType(&library);
-}
-
-#define FONT_SIZE 13
-#define ACTUALLY_LOAD_FONTS 0
-
-int error;
-
-void _load_dejavu() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif", "/usr/share/fonts/DejaVuSans.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face);
-	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void _load_dejavubold() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bold", "/usr/share/fonts/DejaVuSans-Bold.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face_bold);
-	error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void _load_dejavuitalic() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.italic", "/usr/share/fonts/DejaVuSans-Oblique.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face_italic);
-	error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void _load_dejavubolditalic() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic", "/usr/share/fonts/DejaVuSans-BoldOblique.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
-	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void _load_dejamonovu() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace", "/usr/share/fonts/DejaVuSansMono.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face);
-	error = FT_Set_Pixel_Sizes(face, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void _load_dejamonovubold() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", "/usr/share/fonts/DejaVuSansMono-Bold.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face_bold);
-	error = FT_Set_Pixel_Sizes(face_bold, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void _load_dejamonovuitalic() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", "/usr/share/fonts/DejaVuSansMono-Oblique.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face_italic);
-	error = FT_Set_Pixel_Sizes(face_italic, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void _load_dejamonovubolditalic() {
-	char * font;
-	size_t s;
-	font = loadMemFont(WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", "/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", &s);
-#if ACTUALLY_LOAD_FONTS
-	error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic);
-	error = FT_Set_Pixel_Sizes(face_bold_italic, FONT_SIZE, FONT_SIZE);
-#endif
-}
-
-void init_base_windows () {
-	process_windows_t * pw = malloc(sizeof(process_windows_t));
-	pw->pid = getpid();
-	pw->command_pipe = syscall_mkpipe(); /* nothing in here */
-	pw->event_pipe = syscall_mkpipe(); /* nothing in here */
-	pw->windows = list_create();
-	list_insert(process_list, pw);
-
-	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
+void load_fonts() {
+	int i = 0;
+	while (fonts[i].identifier) {
+		fprintf(stderr, "[compositor] Loading font %s -> %s\n", fonts[i].path, fonts[i].identifier);
+		precacheMemFont(fonts[i].identifier, fonts[i].path);
+		++i;
+	}
 }
 
 void * process_requests(void * garbage) {
@@ -956,7 +651,6 @@ void * process_requests(void * garbage) {
 				int r = read(mfd, buf, 1);
 				break;
 			}
-			//redraw_region_slow(mouse_x / MOUSE_SCALE - 32, mouse_y / MOUSE_SCALE - 32, 64, 64);
 			/* Apply mouse movement */
 			int l;
 			l = 3;
@@ -966,12 +660,11 @@ void * process_requests(void * garbage) {
 			if (mouse_y < 0) mouse_y = 0;
 			if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width)   * MOUSE_SCALE;
 			if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height) * MOUSE_SCALE;
-			//draw_sprite(sprites[3], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
-						fprintf(stderr, "Dragging a window now.\n");
 						_mouse_state = 1;
 						_mouse_init_x = mouse_x;
 						_mouse_init_y = mouse_y;
@@ -983,10 +676,10 @@ void * process_requests(void * garbage) {
 						moving_window_l = _mouse_win_x_p;
 						moving_window_t = _mouse_win_y_p;
 						make_top(_mouse_window);
-						redraw_region_slow(0,0,ctx->width,ctx->height);
 					}
 				}
 			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
@@ -999,10 +692,10 @@ void * process_requests(void * garbage) {
 						resizing_window_w = _mouse_window->width;
 						resizing_window_h = _mouse_window->height;
 						make_top(_mouse_window);
-						redraw_region_slow(0,0,ctx->width, ctx->height);
 					}
 				}
 			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
 					_mouse_state = 2; /* Dragging */
@@ -1015,8 +708,6 @@ void * process_requests(void * garbage) {
 
 					mouse_discard = 1;
 					_mouse_moved = 0;
-
-					printf("Mouse down at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
 				}
 #if 0
 				_mouse_window = focused_window();
@@ -1032,19 +723,45 @@ void * process_requests(void * garbage) {
 						_mouse_win_x_p= _mouse_win_x;
 						_mouse_win_y_p= _mouse_win_y;
 						make_top(_mouse_window);
-						redraw_region_slow(0,0,ctx->width,ctx->height);
 					}
 				}
 #endif
+			} else if (_mouse_state == 0) {
+				mouse_discard--;
+				if (mouse_discard < 1) {
+					mouse_discard = MOUSE_DISCARD_LEVEL;
+
+					w_mouse_t _packet;
+					if (packet->buttons) {
+						set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+					}
+					_mouse_window = focused_window();
+					_packet.wid = _mouse_window->wid;
+
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
+
+					_packet.old_x = click_x;
+					_packet.old_y = click_y;
+
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					_packet.new_x = click_x;
+					_packet.new_y = click_y;
+
+					_packet.buttons = packet->buttons;
+					_packet.command = WE_MOUSEMOVE;
+
+					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+				}
 			} else if (_mouse_state == 1) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
 					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					moving_window = NULL;
-					redraw_region_slow(0,0,ctx->width,ctx->height);
 					_mouse_state = 0;
 				} else {
-					redraw_bounding_box(_mouse_window, _mouse_win_x_p, _mouse_win_y_p, 0);
 					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
 					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 					moving_window_l = _mouse_win_x_p;
@@ -1061,7 +778,6 @@ void * process_requests(void * garbage) {
 					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
 					
 					if (!_mouse_moved) {
-						printf("Finished a click!\n");
 						w_mouse_t _packet;
 						_packet.wid = _mouse_window->wid;
 						_mouse_win_x  = _mouse_window->x;
@@ -1077,7 +793,6 @@ void * process_requests(void * garbage) {
 						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 					}
 
-					printf("Mouse up at @ %d,%d = %d,%d\n", mouse_x, mouse_y, click_x, click_y);
 				} else {
 					/* Still down */
 
@@ -1150,7 +865,7 @@ void * process_requests(void * garbage) {
 void * redraw_thread(void * derp) {
 	while (1) {
 		spin_lock(&am_drawing);
-		redraw_everything_fast();
+		redraw_windows();
 		/* Other stuff */
 		redraw_cursor();
 		/* Resizing window outline */
@@ -1160,15 +875,6 @@ void * redraw_thread(void * derp) {
 
 		spin_unlock(&am_drawing);
 		flip(ctx);
-		if (screenshot_next_frame) {
-			screenshot_next_frame = 0;
-
-			printf("Going for screenshot...\n");
-
-			FILE * screenshot = fopen("/usr/share/screenshot.png", "w");
-			context_to_png(screenshot, ctx);
-			fclose(screenshot);
-		}
 		syscall_yield();
 	}
 }
@@ -1177,9 +883,6 @@ int main(int argc, char ** argv) {
 
 	/* Initialize graphics setup */
 	ctx = init_graphics_fullscreen_double_buffer();
-
-	depth_map = malloc(sizeof(uint16_t)  * ctx->width * ctx->height);
-	top_map   = malloc(sizeof(uintptr_t) * ctx->width * ctx->height);
 
 	/* Initialize the client request system */
 	init_request_system();
@@ -1191,28 +894,14 @@ int main(int argc, char ** argv) {
 	init_signal_handlers();
 
 	/* Load sprites */
-	init_sprite(0, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
+	init_sprite_png(0, "/usr/share/logo_login.png");
 	display();
 
-	/* Count startup items */
-	startup_items = list_create();
-	add_startup_item("Initializing FreeType", _init_freetype, 1);
-	add_startup_item("Loading font: Deja Vu Sans", _load_dejavu, 2);
-	add_startup_item("Loading font: Deja Vu Sans Bold", _load_dejavubold, 2);
-	add_startup_item("Loading font: Deja Vu Sans Oblique", _load_dejavuitalic, 2);
-	add_startup_item("Loading font: Deja Vu Sans Bold+Oblique", _load_dejavubolditalic, 2);
-	add_startup_item("Loading font: Deja Vu Sans Mono", _load_dejamonovu, 2);
-	add_startup_item("Loading font: Deja Vu Sans Mono Bold", _load_dejamonovubold, 2);
-	add_startup_item("Loading font: Deja Vu Sans Mono Oblique", _load_dejamonovuitalic, 2);
-	add_startup_item("Loading font: Deja Vu Sans Mono Bold+Oblique", _load_dejamonovubolditalic, 2);
-
-	foreach(node, startup_items) {
-		run_startup_item((startup_item *)node->value);
-		display();
-	}
+	/* Precache shared memory fonts */
+	load_fonts();
 
 	/* load the mouse cursor */
-	init_sprite(3, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
+	init_sprite(SPRITE_MOUSE, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
 
 	/* Grab the mouse */
 	int mfd = syscall_mousedevice();
@@ -1225,7 +914,11 @@ int main(int argc, char ** argv) {
 	setenv("DISPLAY", WINS_SERVER_IDENTIFIER, 1);
 
 	if (!fork()) {
+		syscall_system_function(5,0);
 #if SINGLE_USER_MODE
+#ifdef FORCE_UID
+		syscall_setuid(FORCE_UID);
+#endif
 		char * args[] = {"/bin/gsession", NULL};
 #else
 		char * args[] = {"/bin/glogin", NULL};
