@@ -1,19 +1,17 @@
 # ToAruOS (とあるOS) #
 ![ToAruOS (logo)](https://github.com/klange/osdev/raw/master/docs/logo.png)
 
-This is a toy OS based on the POSIX standards. The primary goal of the project is for me to learn POSIX from the system side, understanding the design and construction of an operating system on x86 hardware, and build a working implementation of the C standard library. Development of とあるOS was managed by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/) until May, 2012. While the ultimate goal is a microkernel, we currently have a relatively monolithic kernel.
+とあるOS is a hobby operating system based loosely on POSIX. Development began in December of 2010 at the University of Illinois at Urbana-Champaign, was managed for a short time by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/) and, as of May 2012, is once again independently managed. The primary goal of the project is to build a usable operating system and allow its developers to learn the inner workings of various technologies related to that goal.
 
 ### Build Status ###
+
+Automated build tests are run with nearly ever commit through Travis CI. Sometimes builds time out while downloading external resources, so these results are not always accurate.
 
 [![Automated build testing provided by Travis CI.](https://secure.travis-ci.org/klange/osdev.png?branch=master)](http://travis-ci.org/klange/osdev)
 
 ### IRC ###
 
-For discussion, help with building or running the OS, and for up-to-date build verification, please join us in `#toaruos` on Freenode.
-
-## News ##
-
-Full compositing has been enabled. For opaque windows, it is considerably faster than the old rendering methods. This is not the case for transparent windows, which I am working on. Eventually, blitting of transparent windows will be done with SSE instructions, and should be about as fast as non-transparent windows, at which point transparency may become the default.
+For discussion, help with building or running the OS, and for up-to-date build verification, please join us in `#toaruos` on Freenode (`irc.freenode.net`).
 
 ## Features ##
 
@@ -58,12 +56,12 @@ While とあるOS ships with only its own native software tools, we are working 
 
 Here's what とあるOS looks like:
 
-![Screenshot](http://i.imgur.com/kOpJ2l.png)
-
-(http://i.imgur.com/kOpJ2.png)
+![Screenshot](http://i3.minus.com/i2zo4p43c9x1T.png)
+(http://i3.minus.com/i2zo4p43c9x1T.png)
 
 Here's what とあるOS has looked like in the past:
 
+* [Previous primary screenshot](http://i.imgur.com/kOpJ2l.png)
 * [Running a Cairo demo](http://i.imgur.com/DQK7P.png)
 * [With multiple transparent terminals](http://i.imgur.com/K6nPC.png)
 * [A terminal and the native editor](http://i.imgur.com/4SGhd.png)
@@ -95,6 +93,12 @@ While we only officially support QEMU, other environments - including actual har
 
 The default root password is `toor`. There is also a regular user `local` with password `local`. While general system security is lacking, most system-modifying calls to the kernel require root privileges. When booting directly to a graphical terminal, the system will run in single-user mode and automatically log in as root. When running in graphical or VGA-terminal mode, a login screen is presented.
 
+### Cygwin ###
+With some work, とあるOS is also known to build successfully under cygwin. Instructions are forthcoming.
+
+### Prebuilt Images ###
+Our [downloads](https://github.com/klange/osdev/downloads) section contains prebuilt images in the form of VMDK disk images. These disk images should run in VirtualBox, and can be converted to a format suitable for use with QEMU or Bochs. VirtualBox is the preferred environment for non-Linux hosts as it provides hardware virtualization that greatly improves user experience. Be sure to equip your VM with a sufficient amount of RAM (1GB should suffice).
+
 ## Dependencies ##
 
 ### Kernel ###
@@ -107,8 +111,8 @@ You will need `genext2fs` to generate the EXT2 images for the hard disk drive.
 Here are some tutorials we found useful early on:
 
 * [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html)
-* [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/)
-* [Skelix's OS tutorial](http://en.skelix.org/skelixos/)
+* [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/Docs/basickernel.htm)
+* Skelix's OS tutorial (link no longer available)
 
 # Licenses #
 
