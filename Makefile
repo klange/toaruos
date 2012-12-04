@@ -8,11 +8,11 @@ endif
 # Sometimes we just have to use GCC
 GCC = gcc
 # CFLAGS for core components
-CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -g
+CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -g -target i386-pc-linux-gnu
 # CFLAGS for native utils
 NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra -Wno-unused-parameter
 # Linker for core
-LD = ld -m elf_i386
+LD = i686-pc-toaru-ld -m toaru_i386
 YASM = yasm
 # Feel free to be specific, but I'd rather you not be.
 FILESYSTEMS  = $(patsubst %.c,%.o,$(wildcard kernel/fs/*.c))
