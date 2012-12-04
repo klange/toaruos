@@ -90,14 +90,14 @@ int main (int argc, char ** argv) {
 	int left = 30;
 	int top  = 30;
 
-	init_sprite_png(0, "/usr/share/ttk/ul.png");
-	init_sprite_png(1, "/usr/share/ttk/um.png");
-	init_sprite_png(2, "/usr/share/ttk/ur.png");
-	init_sprite_png(3, "/usr/share/ttk/ml.png");
-	init_sprite_png(4, "/usr/share/ttk/mr.png");
-	init_sprite_png(5, "/usr/share/ttk/ll.png");
-	init_sprite_png(6, "/usr/share/ttk/lm.png");
-	init_sprite_png(7, "/usr/share/ttk/lr.png");
+	init_sprite_png(0, "/usr/share/ttk/active/ul.png");
+	init_sprite_png(1, "/usr/share/ttk/active/um.png");
+	init_sprite_png(2, "/usr/share/ttk/active/ur.png");
+	init_sprite_png(3, "/usr/share/ttk/active/ml.png");
+	init_sprite_png(4, "/usr/share/ttk/active/mr.png");
+	init_sprite_png(5, "/usr/share/ttk/active/ll.png");
+	init_sprite_png(6, "/usr/share/ttk/active/lm.png");
+	init_sprite_png(7, "/usr/share/ttk/active/lr.png");
 
 	setup_windowing();
 	resize_window_callback = resize_callback;
