@@ -84,7 +84,6 @@ diff -rupN original/gcc/gengtype.c new/gcc/gengtype.c
 --- original/gcc/gengtype.c
 +++ new/gcc/gengtype.c
 @@ -3594,13 +3594,13 @@ write_field_root (outf_p f, pair_p v, type_p type,
-const char *name,
                   int has_length, struct fileloc *line, const char *if_marked,
                   bool emit_pch, type_p field_type, const char *field_name)
  {
