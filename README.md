@@ -5,7 +5,7 @@
 
 ### Build Status ###
 
-Automated build tests are run with nearly ever commit through Travis CI. Sometimes builds time out while downloading external resources, so these results are not always accurate.
+Automated build tests are run with nearly every commit through Travis CI. Sometimes builds time out while downloading external resources, so these results are not always accurate.
 
 [![Automated build testing provided by Travis CI.](https://secure.travis-ci.org/klange/osdev.png?branch=master)](http://travis-ci.org/klange/osdev)
 
