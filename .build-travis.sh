@@ -6,9 +6,9 @@ sudo apt-get remove kvm-ipxe
 
 # Build the toolchain: (silently)
 pushd toolchain
-./prepare.sh  > /dev/null 2>/dev/null || exit 1
-./install.sh  > /dev/null 2>/dev/null || exit 1
-. activate.sh > /dev/null 2>/dev/null || exit 1
+./prepare.sh  || exit 1
+./install.sh  || exit 1
+. activate.sh || exit 1
 popd
 # Build the userspace tools:
 pushd userspace
