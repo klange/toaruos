@@ -8,7 +8,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 . $DIR/util.sh
 
 function deleteUnusedGCC () {
-    # These directories are not used and are primarily for support of unnecessarily libraries like Java and the testsuite.
+    # If you are running from the non-core GCC, run this function delete the stuff we don't care about
     rm -r $1/boehm-gc $1/gcc/ada $1/gcc/go $1/gcc/java $1/gcc/objc $1/gcc/objcp $1/gcc/testsuite $1/gnattools $1/libada $1/libffi $1/libgo $1/libjava $1/libobjc 
 }
 
@@ -54,7 +54,7 @@ pushd "$DIR" > /dev/null
         patc "libpng" "libpng-1.5.13"
         $INFO "patch" "Patched third-party software."
         $INFO "--" "Running additional bits..."
-        deleteUnusedGCC "gcc-4.6.0"
+        #deleteUnusedGCC "gcc-4.6.0"
         installNewlibStuff "newlib-1.19.0"
     popd > /dev/null
 
