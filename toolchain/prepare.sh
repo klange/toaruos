@@ -25,7 +25,7 @@ pushd "$DIR" > /dev/null
         #grab "mpfr" "http://www.mpfr.org/mpfr-3.0.1" "mpfr-3.0.1.tar.gz"
         #grab "gmp"  "ftp://ftp.gmplib.org/pub/gmp-5.0.1" "gmp-5.0.1.tar.gz"
         grab "binutils" "http://ftp.gnu.org/gnu/binutils" "binutils-2.22.tar.gz"
-        grab "newlib" "ftp://sources.redhat.com/pub/newlib" "newlib-1.19.0.tar.gz"
+        grab "newlib" "https://github.com/downloads/klange/osdev" "newlib-1.19.0.tar.gz"
         grab "freetype" "http://download.savannah.gnu.org/releases/freetype" "freetype-2.4.9.tar.gz"
         grab "zlib" "http://zlib.net" "zlib-1.2.7.tar.gz"
         grab "libpng" "https://github.com/downloads/klange/osdev" "libpng-1.5.13.tar.gz"
