@@ -19,15 +19,4 @@
  */
 #include <multiboot.h>
 
-
-/*
- * Boot Types
- */
-enum BOOTMODE {
-	unknown,
-	mrboots,
-	multiboot
-};
-
-
 #endif /* BOOT_H */

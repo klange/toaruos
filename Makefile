@@ -5,8 +5,6 @@ ifeq ($(CCC_ANALYZE),yes)
 else
 CC = `util/compiler`
 endif
-# Sometimes we just have to use GCC
-GCC = gcc
 # CFLAGS for core components
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -g
 # CFLAGS for native utils
@@ -155,7 +153,7 @@ toaruos-disk.img: hdd userspace/*.c userspace/*.cpp
 
 util/bin/bim: userspace/bim.c
 	@${BEG} "CC" "$<"
-	@${GCC} -std=c99 -posix -m32 -g -o $@ $< userspace/lib/wcwidth.o
+	@${CC} -std=c99 -posix -m32 -g -o $@ $< userspace/lib/wcwidth.c
 	@${END} "CC" "$<"
 
 util/bin/%: util/%.c

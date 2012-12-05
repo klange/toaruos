@@ -68,14 +68,12 @@
  */
 int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	initial_esp = esp;
-	enum BOOTMODE boot_mode = unknown; /* Boot Mode */
 	char * cmdline = NULL;
 	uintptr_t ramdisk_top = 0;
 
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/* Multiboot (GRUB, native QEMU, PXE) */
 		blog("Relocating Multiboot structures...");
-		boot_mode = multiboot;
 		mboot_ptr = mboot;
 		char cmdline_[1024];
 
@@ -106,12 +104,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		memcpy(cmdline, cmdline_, len + 1);
 
 		bfinish(0);
-	} else {
-		/*
-		 * This isn't a multiboot attempt. We were probably loaded by
-		 * Mr. Boots, our (non-existent) dedicated boot loader. Verify this...
-		 */
-		boot_mode = mrboots;
 	}
 
 	/* Initialize core modules */
@@ -155,7 +147,9 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	}
 
 	if (!fs_root) {
-		kprintf("Nothing to do.\n");
+		debug_print(CRITICAL, "There is no file system mounted.");
+		debug_print(CRITICAL, "You have done something wrong;");
+		debug_print(CRITICAL, "Did you forget to mount a hard disk?");
 		while (1) {
 		}
 	}

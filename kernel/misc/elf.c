@@ -71,7 +71,7 @@ exec(
 	}
 
 	/* Load the loadable segments from the binary */
-	for (uintptr_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
+	for (uintptr_t x = 0; x < (uint32_t)header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
 		/* read a section header */
 		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)header + (header->e_shoff + x));
 		if (shdr->sh_addr) {
