@@ -39,7 +39,7 @@ clean:
 	@${ENDRM} "RM" "Cleaned userspace full-toolchain applications."
 
 ${FTARGETS}: $(TARGETDIR)% : %.c ${LOCAL_LIBS}
-	@${BEG} "CC" "$@ $< [w/libs]"
+	@${BEG} "CC" "$< [w/libs]"
 	@${CC} -flto ${CFLAGS} ${EXTRAFLAGS} ${FREETYPE_INC} -o $@ $< ${LOCAL_LIBS} ${LIBM} ${FREETYPE_LIB} ${LIBPNG} ${LIBZ} ${ERRORS}
 	@${STRIP} $@
 	@${END} "CC" "$< [w/libs]"

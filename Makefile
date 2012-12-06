@@ -21,9 +21,8 @@ MISCMODS     = $(patsubst %.c,%.o,$(wildcard kernel/misc/*.c))
 SYSTEM       = $(patsubst %.c,%.o,$(wildcard kernel/sys/*.c))
 DATASTRUCTS  = $(patsubst %.c,%.o,$(wildcard kernel/ds/*.c))
 CPUBITS      = $(patsubst %.c,%.o,$(wildcard kernel/cpu/*.c))
-REALEMU      = $(patsubst %.c,%.o,$(wildcard kernel/v8086/*.c))
 
-SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS} ${REALEMU}
+SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS}
 
 UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386

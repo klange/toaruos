@@ -6,4 +6,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo -n > /tmp/.`whoami`-build-errors
 
 CMD=`cpad "$1" 8 " "`
-echo -e -n "\033[31m${CMD}${2}\033[0m\n"
+echo -e -n "\033[31m${CMD}${2}\033[0m"

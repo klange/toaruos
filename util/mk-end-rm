@@ -4,4 +4,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 . "$DIR/cpad.sh"
 
 CMD=`cpad "$1" 8 " "`
-echo -e -n "\r\033[A\033[1;31m${CMD}${2}\033[0m\033[K\n"
+echo -e -n "\r\033[1;31m${CMD}${2}\033[0m\033[K\n"
