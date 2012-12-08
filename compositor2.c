@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <math.h>
 #include <assert.h>
 #include <sys/stat.h>
 #include <cairo.h>
@@ -39,6 +40,9 @@
 #define WINDOW_LAYERS 0x10000
 #define FONT_PATH "/usr/share/fonts/"
 #define FONT(a,b) {WINS_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
+
+#define MODE_NORMAL 0x001
+#define MODE_SCALE  0x002
 
 struct font_def {
 	char * identifier;
@@ -71,6 +75,9 @@ cairo_surface_t * surface;
 wid_t volatile _next_wid = 1;
 wins_server_global_t volatile * _request_page;
 int error;
+int focus_next_scale = 0;
+
+int management_mode = MODE_NORMAL;
 
 struct font_def fonts[] = {
 	FONT("sans-serif",            "DejaVuSans.ttf"),
@@ -111,7 +118,7 @@ static window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
 
 void init_process_list () {
 	process_list = list_create();
-	memset(windows, 0x00000000, sizeof(window_t *) * 0x10000);
+	memset(windows, 0x00000000, sizeof(window_t *) * WINDOW_LAYERS);
 }
 
 void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet) {
@@ -313,7 +320,7 @@ void window_add (window_t * window) {
 
 void unorder_window (window_t * window) {
 	int z = window->z;
-	if (z < 0x10000 && windows[z]) {
+	if (z < WINDOW_LAYERS && windows[z]) {
 		windows[z] = 0;
 	}
 	window->z = 0;
@@ -339,12 +346,162 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 	cairo_restore(cr);
 }
 
+void redraw_scale_mode() {
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
+	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
+	cr = cairo_create(surface);
+
+	/* Draw background window */
+	if (windows[0]) {
+		blit_window_cairo(windows[0], windows[0]->x, windows[0]->y);
+	}
+
+	/* Draw panel window */
+	if (windows[WINDOW_LAYERS-1]) {
+		blit_window_cairo(windows[WINDOW_LAYERS-1], windows[WINDOW_LAYERS-1]->x, windows[WINDOW_LAYERS-1]->y);
+	}
+
+	/* Fade all of that out */
+	cairo_save(cr);
+	cairo_rectangle(cr, 0, 0, ctx->width, ctx->height);
+	cairo_set_source_rgba(cr, 0, 0, 0, 0.4);
+	cairo_fill(cr);
+	cairo_restore(cr);
+
+	int window_count = 0;
+	for (uint32_t i = 1; i < WINDOW_LAYERS - 1; ++i) {
+		if (windows[i]) {
+			window_count++;
+		}
+	}
+
+	int columns;
+	int rows;
+	switch (window_count) {
+		case 0:
+			management_mode = MODE_NORMAL;
+			goto _finish;
+		case 1:
+			columns = 1;
+			rows = 1;
+			break;
+		case 2:
+			columns = 2;
+			rows = 1;
+			break;
+		case 3:
+			columns = 3;
+			rows = 1;
+			break;
+		case 4:
+			columns = 2;
+			rows = 2;
+			break;
+		case 5:
+			columns = 3;
+			rows = 2;
+			break;
+		default:
+			{
+				double sqr = sqrt((double)window_count);
+				rows = (int)sqr;
+				columns = (window_count) / rows;
+				if (rows * columns < window_count) {
+					columns += 1;
+				}
+			}
+	}
+
+	double cell_height = (double)ctx->height / (double)rows;
+	double cell_width  = (double)ctx->width  / (double)columns;
+
+	int x = 0;
+	int y = 0;
+
+	double last_row_width = cell_width;
+
+	if (columns * rows > window_count) {
+		int remaining = window_count - (rows - 1) * columns;
+		last_row_width = (double)ctx->width / (double)remaining;
+	}
+
+	window_t * n_focus = NULL;
+
+	for (uint32_t i = 1; i < WINDOW_LAYERS - 1; ++i) {
+		if (windows[i]) {
+			window_t * window = windows[i];
+			int w = window->width;
+			int h = window->height;
+
+			int stride = window->width * 4;
+			cairo_surface_t * win = cairo_image_surface_create_for_data(window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
+
+			if (cairo_surface_status(win) != CAIRO_STATUS_SUCCESS) {
+				continue;
+			}
+
+			if (y == rows - 1) {
+				cell_width = last_row_width;
+			}
+
+			cairo_save(cr);
+
+			double y_scale = cell_height / (double)h;
+			double x_scale = cell_width  / (double)w;
+
+			cairo_translate(cr, cell_width * x, cell_height * y);
+			if (x_scale < y_scale) {
+				cairo_translate(cr, 0, (cell_height - h * x_scale) / 2);
+				cairo_scale(cr, x_scale, x_scale);
+			} else {
+				cairo_translate(cr, (cell_width - w * y_scale) / 2, 0);
+				cairo_scale(cr, y_scale, y_scale);
+			}
+			cairo_set_source_surface(cr, win, 0, 0);
+
+			if (mouse_x / MOUSE_SCALE >= x * cell_width &&
+				mouse_x / MOUSE_SCALE < x * cell_width + cell_width &&
+				mouse_y / MOUSE_SCALE >= y * cell_height &&
+				mouse_y / MOUSE_SCALE < y * cell_height + cell_height) {
+				cairo_paint(cr);
+
+				if (focus_next_scale) {
+					n_focus = window;
+					management_mode = MODE_NORMAL;
+				}
+			} else {
+				cairo_paint_with_alpha(cr, 0.7);
+			}
+			cairo_surface_destroy(win);
+
+			cairo_restore(cr);
+
+			x++;
+			if (x == columns) {
+				y++;
+				x = 0;
+			}
+		}
+	}
+
+	if (focus_next_scale) {
+		set_focused_window(n_focus);
+		focus_next_scale = 0;
+	}
+
+_finish:
+	cairo_surface_flush(surface);
+	cairo_destroy(cr);
+	cairo_surface_flush(surface);
+	cairo_surface_destroy(surface);
+}
+
 void redraw_windows() {
 	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
 	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
 	cr = cairo_create(surface);
 
-	for (uint32_t i = 0; i < 0x10000; ++i) {
+	for (uint32_t i = 0; i < WINDOW_LAYERS; ++i) {
 		window_t * window = NULL;
 		if (windows[i]) {
 			window = windows[i];
@@ -627,6 +784,31 @@ void load_fonts() {
 	}
 }
 
+int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
+
+	if (keyboard->event.action != KEY_ACTION_DOWN) return 0;
+
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == 'e')) {
+
+		switch (management_mode) {
+			case MODE_NORMAL:
+				management_mode = MODE_SCALE;
+				break;
+			case MODE_SCALE:
+				management_mode = MODE_NORMAL;
+				break;
+			default:
+				break;
+		}
+
+		return 1;
+	}
+
+	return 0;
+}
+
 void * process_requests(void * garbage) {
 	int mfd = *((int *)garbage);
 
@@ -666,148 +848,89 @@ void * process_requests(void * garbage) {
 			if (mouse_y < 0) mouse_y = 0;
 			if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width)   * MOUSE_SCALE;
 			if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height) * MOUSE_SCALE;
-			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
-				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
-						_mouse_state = 1;
-						_mouse_init_x = mouse_x;
-						_mouse_init_y = mouse_y;
-						_mouse_win_x  = _mouse_window->x;
-						_mouse_win_y  = _mouse_window->y;
-						_mouse_win_x_p = _mouse_win_x;
-						_mouse_win_y_p = _mouse_win_y;
-						moving_window = _mouse_window;
-						moving_window_l = _mouse_win_x_p;
-						moving_window_t = _mouse_win_y_p;
-						make_top(_mouse_window);
-					}
-				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
-				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
-						_mouse_state = 3;
-						_mouse_init_x = mouse_x;
-						_mouse_init_y = mouse_y;
-						_mouse_win_x  = _mouse_window->x;
-						_mouse_win_y  = _mouse_window->y;
-						resizing_window   = _mouse_window;
-						resizing_window_w = _mouse_window->width;
-						resizing_window_h = _mouse_window->height;
-						make_top(_mouse_window);
-					}
-				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
-				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					_mouse_state = 2; /* Dragging */
-					/* In window coordinates, that's... */
-					_mouse_win_x  = _mouse_window->x;
-					_mouse_win_y  = _mouse_window->y;
 
-					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-
-					mouse_discard = 1;
-					_mouse_moved = 0;
+			if (management_mode == MODE_SCALE) {
+				if (packet->buttons & MOUSE_BUTTON_LEFT) {
+					focus_next_scale = 1;
 				}
-#if 0
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
+			} else {
 
-					} else {
-						_mouse_state = 2;
-						_mouse_init_x = mouse_x;
-						_mouse_init_y = mouse_y;
-						_mouse_win_x  = _mouse_window->width;
-						_mouse_win_y  = _mouse_window->height;
-						_mouse_win_x_p= _mouse_win_x;
-						_mouse_win_y_p= _mouse_win_y;
-						make_top(_mouse_window);
-					}
-				}
-#endif
-			} else if (_mouse_state == 0) {
-				mouse_discard--;
-				if (mouse_discard < 1) {
-					mouse_discard = MOUSE_DISCARD_LEVEL;
-
-					w_mouse_t _packet;
-					if (packet->buttons) {
-						set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-					}
+				if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
+					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 					_mouse_window = focused_window();
-					_packet.wid = _mouse_window->wid;
-
-					_mouse_win_x  = _mouse_window->x;
-					_mouse_win_y  = _mouse_window->y;
-
-					_packet.old_x = click_x;
-					_packet.old_y = click_y;
-
-					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-
-					_packet.new_x = click_x;
-					_packet.new_y = click_y;
-
-					_packet.buttons = packet->buttons;
-					_packet.command = WE_MOUSEMOVE;
-
-					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
-				}
-			} else if (_mouse_state == 1) {
-				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
-					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-					moving_window = NULL;
-					_mouse_state = 0;
-				} else {
-					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-					moving_window_l = _mouse_win_x_p;
-					moving_window_t = _mouse_win_y_p;
-				}
-			} else if (_mouse_state == 2) {
-				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
-					/* Released */
-					_mouse_state = 0;
-					_mouse_win_x  = _mouse_window->x;
-					_mouse_win_y  = _mouse_window->y;
-
-					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-					
-					if (!_mouse_moved) {
-						w_mouse_t _packet;
-						_packet.wid = _mouse_window->wid;
+					if (_mouse_window) {
+						if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
+							_mouse_state = 1;
+							_mouse_init_x = mouse_x;
+							_mouse_init_y = mouse_y;
+							_mouse_win_x  = _mouse_window->x;
+							_mouse_win_y  = _mouse_window->y;
+							_mouse_win_x_p = _mouse_win_x;
+							_mouse_win_y_p = _mouse_win_y;
+							moving_window = _mouse_window;
+							moving_window_l = _mouse_win_x_p;
+							moving_window_t = _mouse_win_y_p;
+							make_top(_mouse_window);
+						}
+					}
+				} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
+					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+					_mouse_window = focused_window();
+					if (_mouse_window) {
+						if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
+							_mouse_state = 3;
+							_mouse_init_x = mouse_x;
+							_mouse_init_y = mouse_y;
+							_mouse_win_x  = _mouse_window->x;
+							_mouse_win_y  = _mouse_window->y;
+							resizing_window   = _mouse_window;
+							resizing_window_w = _mouse_window->width;
+							resizing_window_h = _mouse_window->height;
+							make_top(_mouse_window);
+						}
+					}
+				} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
+					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+					_mouse_window = focused_window();
+					if (_mouse_window) {
+						_mouse_state = 2; /* Dragging */
+						/* In window coordinates, that's... */
 						_mouse_win_x  = _mouse_window->x;
 						_mouse_win_y  = _mouse_window->y;
+
 						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
 						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-						_packet.new_x = click_x;
-						_packet.new_y = click_y;
-						_packet.old_x = -1;
-						_packet.old_y = -1;
-						_packet.buttons = packet->buttons;
-						_packet.command = WE_MOUSECLICK;
-						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+
+						mouse_discard = 1;
+						_mouse_moved = 0;
 					}
+#if 0
+					_mouse_window = focused_window();
+					if (_mouse_window) {
+						if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
 
-				} else {
-					/* Still down */
-
-					_mouse_moved = 1;
+						} else {
+							_mouse_state = 2;
+							_mouse_init_x = mouse_x;
+							_mouse_init_y = mouse_y;
+							_mouse_win_x  = _mouse_window->width;
+							_mouse_win_y  = _mouse_window->height;
+							_mouse_win_x_p= _mouse_win_x;
+							_mouse_win_y_p= _mouse_win_y;
+							make_top(_mouse_window);
+						}
+					}
+#endif
+				} else if (_mouse_state == 0) {
 					mouse_discard--;
 					if (mouse_discard < 1) {
 						mouse_discard = MOUSE_DISCARD_LEVEL;
 
 						w_mouse_t _packet;
+						if (packet->buttons) {
+							set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+						}
+						_mouse_window = focused_window();
 						_packet.wid = _mouse_window->wid;
 
 						_mouse_win_x  = _mouse_window->x;
@@ -827,28 +950,97 @@ void * process_requests(void * garbage) {
 
 						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 					}
-				}
+				} else if (_mouse_state == 1) {
+					if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
+						_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+						_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+						moving_window = NULL;
+						_mouse_state = 0;
+					} else {
+						_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+						_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+						moving_window_l = _mouse_win_x_p;
+						moving_window_t = _mouse_win_y_p;
+					}
+				} else if (_mouse_state == 2) {
+					if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
+						/* Released */
+						_mouse_state = 0;
+						_mouse_win_x  = _mouse_window->x;
+						_mouse_win_y  = _mouse_window->y;
 
-			} else if (_mouse_state == 3) {
-				int width_diff  = (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-				int height_diff = (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+						
+						if (!_mouse_moved) {
+							w_mouse_t _packet;
+							_packet.wid = _mouse_window->wid;
+							_mouse_win_x  = _mouse_window->x;
+							_mouse_win_y  = _mouse_window->y;
+							click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+							click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+							_packet.new_x = click_x;
+							_packet.new_y = click_y;
+							_packet.old_x = -1;
+							_packet.old_y = -1;
+							_packet.buttons = packet->buttons;
+							_packet.command = WE_MOUSECLICK;
+							send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+						}
 
-				resizing_window_w = resizing_window->width  + width_diff;
-				resizing_window_h = resizing_window->height + height_diff;
-				if (!(packet->buttons & MOUSE_BUTTON_MIDDLE)) {
-					/* Resize */
-					w_window_t wwt;
-					wwt.wid    = resizing_window->wid;
-					wwt.width  = resizing_window_w;
-					wwt.height = resizing_window_h;
-					resize_window_buffer(resizing_window, resizing_window->x, resizing_window->y, wwt.width, wwt.height);
-					send_window_event(resizing_window->owner, WE_RESIZED, &wwt);
-					resizing_window = NULL;
-					_mouse_state = 0;
+					} else {
+						/* Still down */
+
+						_mouse_moved = 1;
+						mouse_discard--;
+						if (mouse_discard < 1) {
+							mouse_discard = MOUSE_DISCARD_LEVEL;
+
+							w_mouse_t _packet;
+							_packet.wid = _mouse_window->wid;
+
+							_mouse_win_x  = _mouse_window->x;
+							_mouse_win_y  = _mouse_window->y;
+
+							_packet.old_x = click_x;
+							_packet.old_y = click_y;
+
+							click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+							click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+							_packet.new_x = click_x;
+							_packet.new_y = click_y;
+
+							_packet.buttons = packet->buttons;
+							_packet.command = WE_MOUSEMOVE;
+
+							send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+						}
+					}
+
+				} else if (_mouse_state == 3) {
+					int width_diff  = (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+					int height_diff = (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+
+					resizing_window_w = resizing_window->width  + width_diff;
+					resizing_window_h = resizing_window->height + height_diff;
+					if (!(packet->buttons & MOUSE_BUTTON_MIDDLE)) {
+						/* Resize */
+						w_window_t wwt;
+						wwt.wid    = resizing_window->wid;
+						wwt.width  = resizing_window_w;
+						wwt.height = resizing_window_h;
+						resize_window_buffer(resizing_window, resizing_window->x, resizing_window->y, wwt.width, wwt.height);
+						send_window_event(resizing_window->owner, WE_RESIZED, &wwt);
+						resizing_window = NULL;
+						_mouse_state = 0;
+					}
 				}
 			}
 			fstat(mfd, &_stat);
 		}
+		
+		/* Read keyboard */
 		fstat(0, &_stat);
 		if (_stat.st_size) {
 			int r = read(0, buf, 1);
@@ -856,11 +1048,13 @@ void * process_requests(void * garbage) {
 				w_keyboard_t packet;
 				packet.ret = kbd_scancode(buf[0], &packet.event);
 				window_t * focused = focused_window();
-				if (focused) {
-					packet.wid = focused->wid;
-					packet.command = 0;
-					packet.key = packet.ret ? packet.event.key : 0;
-					send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
+				if (!handle_key_press(&packet, focused)) {
+					if (focused) {
+						packet.wid = focused->wid;
+						packet.command = 0;
+						packet.key = packet.ret ? packet.event.key : 0;
+						send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
+					}
 				}
 			}
 		}
@@ -871,7 +1065,13 @@ void * process_requests(void * garbage) {
 void * redraw_thread(void * derp) {
 	while (1) {
 		spin_lock(&am_drawing);
-		redraw_windows();
+		switch (management_mode) {
+			case MODE_SCALE:
+				redraw_scale_mode();
+				break;
+			default:
+				redraw_windows();
+		}
 		/* Other stuff */
 		redraw_cursor();
 		/* Resizing window outline */
