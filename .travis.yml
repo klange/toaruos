@@ -1,4 +1,6 @@
 language: c
+before_install: ./.before_install.sh
+before_script: ./.before_script.sh
 script: ./.build-travis.sh
 notifications:
   irc:
