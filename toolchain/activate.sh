@@ -5,3 +5,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 export PATH="$DIR/local/bin:$PATH"
 export PKG_CONFIG_LIBDIR="$PREFIX/$TARGET/lib/pkgconfig"
+export TOOLCHAIN="$PREFIX/$TARGET"
