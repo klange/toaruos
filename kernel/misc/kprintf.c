@@ -56,7 +56,7 @@ static void print_hex(unsigned int value, unsigned int width, char * buf, int * 
 		j += 0x0F;
 	}
 
-	while (i > n_width) {
+	while (i > (int)n_width) {
 		buf[*ptr] = '0';
 		*ptr += 1;
 		i--;
