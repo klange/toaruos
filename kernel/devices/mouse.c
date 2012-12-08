@@ -9,7 +9,7 @@
 uint8_t mouse_cycle = 0;
 int8_t  mouse_byte[3];
 
-#define PACKETS_IN_PIPE 64
+#define PACKETS_IN_PIPE 1024
 #define DISCARD_POINT 32
 
 #define MOUSE_IRQ 12

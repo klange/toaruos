@@ -363,9 +363,11 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 
 		case WE_FOCUSCHG:
 			window = get_window(evt.wid);
-			window->focused = evt.left;
-			if (focus_changed_callback) {
-				focus_changed_callback(window);
+			if (window) {
+				window->focused = evt.left;
+				if (focus_changed_callback) {
+					focus_changed_callback(window);
+				}
 			}
 			break;
 

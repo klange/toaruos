@@ -208,6 +208,7 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 		switch (key_method[c]) {
 			case norm:
 				{
+					event->keycode = kbd_us[c];
 					if (k_ctrl) {
 						int out = (int)(kbd_us_l2[c] - KEY_CTRL_MASK);
 						if (out < 0 || out > 0x1F) {
@@ -218,7 +219,6 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 					} else {
 						event->key = k_shift ? kbd_us_l2[c] : kbd_us[c];
 					}
-					event->keycode = (unsigned int)event->key;
 				}
 				break;
 			case spec:
