@@ -141,8 +141,8 @@ extern void irq_ack();
 
 /* Timer */
 extern void timer_install();
-extern long timer_ticks;
-extern void timer_wait(int ticks);
+extern unsigned long timer_ticks;
+extern unsigned char timer_subticks;
 
 /* Keyboard */
 extern void keyboard_install();

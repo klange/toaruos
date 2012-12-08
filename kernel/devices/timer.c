@@ -16,6 +16,8 @@
 
 #define TIMER_IRQ 0
 
+#define SUBTICKS_PER_TICK 100
+
 /*
  * Set the phase (in hertz) for the Programmable
  * Interrupt Timer (PIT).
@@ -33,8 +35,8 @@ timer_phase(
 /*
  * Internal timer counters
  */
-long timer_ticks = 0;
-unsigned long ticker = 0;
+unsigned long timer_ticks = 0;
+unsigned char timer_subticks = 0;
 
 /*
  * IRQ handler for when the timer fires
@@ -43,7 +45,10 @@ void
 timer_handler(
 		struct regs *r
 		) {
-	++timer_ticks;
+	if (++timer_subticks == SUBTICKS_PER_TICK) {
+		timer_ticks++;
+		timer_subticks = 0;
+	}
 	irq_ack(TIMER_IRQ);
 	switch_task(1);
 }
@@ -57,19 +62,3 @@ void timer_install() {
 	timer_phase(100); /* 100Hz */
 }
 
-/*
- * Wait until `ticks` calls to the timer
- * handler have happened, then resume execution.
- */
-void
-timer_wait(
-		int ticks
-		) {
-	/* end tick count */
-	long eticks;
-	eticks = (long)timer_ticks + (long)ticks;
-	while(timer_ticks < eticks) {
-		/* Halt for interrupt */
-		IRQS_ON_AND_PAUSE;
-	}
-}

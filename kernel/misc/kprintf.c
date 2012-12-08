@@ -13,39 +13,59 @@
 /*
  * Integer to string
  */
-static void
-parse_num(
-		unsigned int value,
-		unsigned int base,
-		char * buf,
-		int * ptr
-		) {
-	unsigned int n = value / base;
-	int r = value % base;
-	if (r < 0) {
-		r += base;
-		--n;
+static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr ) {
+	unsigned int n_width = 1;
+	unsigned int i = 9;
+	while (value > i && i < UINT32_MAX) {
+		n_width += 1;
+		i *= 10;
+		i += 9;
 	}
-	if (value >= base) {
-		parse_num(n, base, buf, ptr);
+
+	int printed = 0;
+	while (n_width + printed < width) {
+		buf[*ptr] = '0';
+		*ptr += 1;
+		printed += 1;
 	}
-	buf[*ptr] = (r+'0');
-	*ptr = *ptr + 1;
+
+	i = n_width;
+	while (i > 0) {
+		unsigned int n = value / 10;
+		int r = value % 10;
+		buf[*ptr + i - 1] = r + '0';
+		i--;
+		value = n;
+	}
+	*ptr += n_width;
 }
 
 /*
  * Hexadecimal to string
  */
-static void
-parse_hex(
-		unsigned int value,
-		char * buf,
-		int * ptr
-		) {
-	int i = 8;
+static void print_hex(unsigned int value, unsigned int width, char * buf, int * ptr) {
+	int i = width;
+
+	if (i == 0) i = 8;
+
+	unsigned int n_width = 1;
+	unsigned int j = 0x0F;
+	while (value > j && j < UINT32_MAX) {
+		n_width += 1;
+		j *= 0x10;
+		j += 0x0F;
+	}
+
+	while (i > n_width) {
+		buf[*ptr] = '0';
+		*ptr += 1;
+		i--;
+	}
+
+	i = (int)n_width;
 	while (i-- > 0) {
 		buf[*ptr] = "0123456789abcdef"[(value>>(i*4))&0xF];
-		*ptr = *ptr + 1;
+		*ptr += + 1;
 	}
 }
 
@@ -63,8 +83,15 @@ vasprintf(char * buf, const char *fmt, va_list args) {
 			buf[ptr++] = fmt[i];
 			continue;
 		}
+		++i;
+		unsigned int arg_width = 0;
+		while (fmt[i] >= '0' && fmt[i] <= '9') {
+			arg_width *= 10;
+			arg_width += fmt[i] - '0';
+			++i;
+		}
 		/* fmt[i] == '%' */
-		switch (fmt[++i]) {
+		switch (fmt[i]) {
 			case 's': /* String pointer -> String */
 				s = (char *)va_arg(args, char *);
 				while (*s) {
@@ -75,10 +102,10 @@ vasprintf(char * buf, const char *fmt, va_list args) {
 				buf[ptr++] = (char)va_arg(args, int);
 				break;
 			case 'x': /* Hexadecimal number */
-				parse_hex((unsigned long)va_arg(args, unsigned long), buf, &ptr);
+				print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &ptr);
 				break;
 			case 'd': /* Decimal number */
-				parse_num((unsigned long)va_arg(args, unsigned long), 10, buf, &ptr);
+				print_dec((unsigned long)va_arg(args, unsigned long), arg_width, buf, &ptr);
 				break;
 			case '%': /* Escape */
 				buf[ptr++] = '%';

@@ -30,7 +30,7 @@ void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...) {
 		vasprintf(buffer, fmt, args);
 		va_end(args);
 
-		kprintf("[%s:%d] %s\033[0m: %s\n", title, line_no, c_messages[level], buffer);
+		kprintf("[%10d.%2d:%s:%d] %s\033[0m: %s\n", timer_ticks, timer_subticks, title, line_no, c_messages[level], buffer);
 
 	}
 	/* else ignore */
