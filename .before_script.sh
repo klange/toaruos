@@ -5,8 +5,12 @@ unset CC
 
 sudo mkdir -p /home/build/osdev/toolchain
 
+sudo chmod a=rwx /home/build
+sudo chmod a=rwx /home/build/osdev
+sudo chmod a=rwx /home/build/osdev/toolchain
+
 pushd toolchain
-    cp activate.sh /home/build/osdev/toolchain/
+    cp *.sh /home/build/osdev/toolchain/
 popd
 
 pushd /home/build/osdev/toolchain
