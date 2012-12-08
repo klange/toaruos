@@ -35,3 +35,7 @@ toaru|toaruos framebuffer terminal,
 	ri=\E[T,
 	sc=\E[s,
 	rc=\E[u,
+
+toaru-small|toaruos windowed terminal at 80x24,
+	use=toaru,
+	cols#80, lines#24,
