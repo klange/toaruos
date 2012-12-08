@@ -15,8 +15,6 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || ../util/mk-error
 BEGRM = ../util/mk-beg-rm
 ENDRM = ../util/mk-end-rm
 
-TOOLCHAIN= ../toolchain/local/i686-pc-toaru
-
 FREETYPE_INC = -I ${TOOLCHAIN}/include/freetype2/
 FREETYPE_LIB = ${TOOLCHAIN}/lib/libfreetype.a
 LIBPNG = ${TOOLCHAIN}/lib/libpng.a
