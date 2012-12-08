@@ -166,10 +166,9 @@ clone_table(
  */
 void
 tasking_install() {
-	blog("Initializing multitasking...");
 	IRQ_OFF; /* Disable interrupts */
 
-	LOG(NOTICE, "Initializing multitasking");
+	debug_print(NOTICE, "Initializing multitasking");
 
 	/* Initialize the process tree */
 	initialize_process_tree();
@@ -182,7 +181,6 @@ tasking_install() {
 
 	/* Reenable interrupts */
 	IRQ_RES;
-	bfinish(0);
 }
 
 /*

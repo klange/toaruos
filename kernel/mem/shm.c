@@ -16,7 +16,7 @@ tree_t * shm_tree = NULL;
 
 
 void shm_install() {
-	LOG(INFO, "Installing SHM");
+	debug_print(NOTICE, "Installing shared memory layer...");
 	shm_tree = tree_create();
 	tree_set_root(shm_tree, NULL);
 }
@@ -80,7 +80,7 @@ static shm_chunk_t * create_chunk (shm_node_t * parent, size_t size) {
 
 	shm_chunk_t *chunk = malloc(sizeof(shm_chunk_t));
 	if (chunk == NULL) {
-		LOG(ERROR, "[shm] Could not allocate a shm_chunk_t!\n");
+		debug_print(ERROR, "Failed to allocate a shm_chunk_t!");
 		return NULL;
 	}
 
@@ -91,7 +91,7 @@ static shm_chunk_t * create_chunk (shm_node_t * parent, size_t size) {
 	chunk->num_frames = (size / 0x1000) + ((size % 0x1000) ? 1 : 0);
 	chunk->frames = malloc(sizeof(uintptr_t) * chunk->num_frames);
 	if (chunk->frames == NULL) {
-		LOG(ERROR, "[shm] Could not allocate a uintptr_t[%d]!\n", chunk->num_frames);
+		debug_print(ERROR, "Failed to allocate uintptr_t[%d]", chunk->num_frames);
 		free(chunk);
 		return NULL;
 	}
@@ -219,7 +219,7 @@ void * shm_obtain (char * path, size_t * size) {
 
 		chunk = create_chunk(node, *size);
 		if (chunk == NULL) {
-			LOG(ERROR, "[shm] Could not allocate a shm_chunk_t!\n");
+			debug_print(ERROR, "Could not allocate a shm_chunk_t");
 			spin_unlock(&bsl);
 			return NULL;
 		}

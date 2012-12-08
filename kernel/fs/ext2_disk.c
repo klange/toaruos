@@ -1098,7 +1098,7 @@ void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector) {
 	}
 	debug_print(NOTICE, "Root file system is ready.");
 	fs_root = RN;
-	LOG(INFO,"Mounted EXT2 disk, root VFS node is at 0x%x", RN);
+	debug_print(NOTICE, "Mounted EXT2 disk, root VFS node is at 0x%x", RN);
 }
 
 void ext2_disk_forget_superblock() {

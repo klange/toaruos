@@ -88,11 +88,9 @@ irq_gates() {
  */
 void
 irq_install() {
-	blog("Setting up and enabling hardware interrupts...");
 	irq_remap();
 	irq_gates();
 	IRQ_RES;
-	bfinish(0);
 }
 
 void irq_ack(int irq_no) {

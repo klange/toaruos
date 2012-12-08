@@ -47,7 +47,7 @@ uint16_t bochs_current_scroll() {
 
 void
 graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
-	blog("Setting up BOCHS/QEMU graphics controller...");
+	debug_print(NOTICE, "Setting up BOCHS/QEMU graphics controller...");
 	outports(0x1CE, 0x00);
 	uint16_t i = inports(0x1CF);
 	if (i < 0xB0C0 || i > 0xB0C6) {
@@ -96,13 +96,12 @@ graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 
 mem_found:
 	finalize_graphics(resolution_x, resolution_y, PREFERRED_B);
-	bfinish(0);
 }
 
 /* }}} end bochs support */
 
 void graphics_install_preset(uint16_t w, uint16_t h) {
-	blog("Graphics were pre-configured (thanks, bootloader!), locating video memory...");
+	debug_print(NOTICE, "Graphics were pre-configured (thanks, bootloader!), locating video memory...");
 	uint16_t b = 32; /* If you are 24 bit, go away, we really do not support you. */
 
 	/* XXX: Massive hack */
@@ -157,8 +156,6 @@ mem_found:
 			((uint32_t *)lfb_vid_memory)[x + y * w] = 0xFF000000 | (f * 0x10000) | (f * 0x100) | f;
 		}
 	}
-
-	bfinish(0);
 }
 
 

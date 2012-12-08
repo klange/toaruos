@@ -52,11 +52,9 @@ timer_handler(
  * Device installer for the PIT
  */
 void timer_install() {
-	blog("Installing Programmable Interval Timer...");
-	LOG(INFO,"Initializing interval timer");
+	debug_print(NOTICE,"Initializing interval timer");
 	irq_install_handler(TIMER_IRQ, timer_handler);
 	timer_phase(100); /* 100Hz */
-	bfinish(0);
 }
 
 /*

@@ -32,8 +32,7 @@ void serial_enable(int device) {
 
 void
 serial_install() {
-	blog("Installing serial communication driver...");
-	LOG(INFO, "Installing serial communication driver");
+	debug_print(NOTICE, "Installing serial communication driver");
 
 	serial_enable(SERIAL_PORT_A);
 	serial_enable(SERIAL_PORT_B);
@@ -44,7 +43,6 @@ serial_install() {
 	outportb(SERIAL_PORT_A + 1, 0x01);      /* Enable interrupts on receive */
 	outportb(SERIAL_PORT_B + 1, 0x01);      /* Enable interrupts on receive */
 #endif
-	bfinish(0);
 }
 
 int serial_rcvd(int device) {

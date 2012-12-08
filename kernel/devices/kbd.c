@@ -39,8 +39,7 @@ void keyboard_handler(struct regs *r) {
  * pipe device for userspace.
  */
 void keyboard_install() {
-	blog("Initializing PS/2 keyboard driver...");
-	LOG(INFO, "Initializing PS/2 keyboard driver");
+	debug_print(NOTICE, "Initializing PS/2 keyboard driver");
 
 	/* Create a device pipe */
 	keyboard_pipe = make_pipe(128);
@@ -48,8 +47,6 @@ void keyboard_install() {
 
 	/* Install the interrupt handler */
 	irq_install_handler(KEYBOARD_IRQ, keyboard_handler);
-
-	bfinish(0);
 }
 
 void keyboard_reset_ps2() {

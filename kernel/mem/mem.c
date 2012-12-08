@@ -236,7 +236,6 @@ memory_total(){
 
 void
 paging_install(uint32_t memsize) {
-	blog("Setting up memory paging...");
 	nframes = memsize  / 4;
 	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes * 8));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
@@ -264,7 +263,6 @@ paging_install(uint32_t memsize) {
 
 	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(kernel_directory);
-	bfinish(0);
 }
 
 void
@@ -367,9 +365,7 @@ page_fault(
 
 void
 heap_install() {
-	blog("Initializing block allocator...");
 	heap_end = (placement_pointer + 0x1000) & ~0xFFF;
-	bfinish(0);
 }
 
 void *

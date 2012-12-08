@@ -54,11 +54,9 @@ idt_set_gate(
  */
 void
 idt_install() {
-	blog("Setting up Interrupt Descriptor Tables...");
 	idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
 	idtp.base = (uintptr_t)&idt;
 	memset(&idt, 0, sizeof(struct idt_entry) * 256);
 
 	idt_load();
-	bfinish(0);
 }

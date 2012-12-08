@@ -62,7 +62,6 @@ isrs_uninstall_handler(
 
 void
 isrs_install() {
-	blog("Setting up Interrupt Service Routines...");
 	/* Exception Handlers */
 	idt_set_gate(0, (unsigned)_isr0, 0x08, 0x8E);
 	idt_set_gate(1, (unsigned)_isr1, 0x08, 0x8E);
@@ -97,7 +96,6 @@ isrs_install() {
 	idt_set_gate(30, (unsigned)_isr30, 0x08, 0x8E);
 	idt_set_gate(31, (unsigned)_isr31, 0x08, 0x8E);
 	idt_set_gate(SYSCALL_VECTOR, (unsigned)_isr127, 0x08, 0x8E);
-	bfinish(0);
 }
 
 char *exception_messages[] = {

@@ -73,7 +73,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/* Multiboot (GRUB, native QEMU, PXE) */
-		blog("Relocating Multiboot structures...");
+		debug_print(NOTICE, "Relocating Multiboot structures...");
 		mboot_ptr = mboot;
 		char cmdline_[1024];
 
@@ -102,8 +102,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		/* Relocate the command line */
 		cmdline = (char *)kmalloc(len + 1);
 		memcpy(cmdline, cmdline_, len + 1);
-
-		bfinish(0);
 	}
 
 	/* Initialize core modules */
@@ -115,9 +113,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	/* Memory management */
 	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);	/* Paging */
 	heap_install();							/* Kernel heap */
-
-	/* Install the logging module */
-	logging_install();
 
 	/* Hardware drivers */
 	timer_install();	/* PIC driver */

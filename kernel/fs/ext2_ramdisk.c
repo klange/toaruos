@@ -1053,7 +1053,7 @@ void ext2_ramdisk_mount(uint32_t offset) {
 	RN = (fs_node_t *)malloc(sizeof(fs_node_t));
 	assert(ext2_ramdisk_node_root(root_inode, RN));
 	fs_root = RN;
-	LOG(INFO,"Mounted EXT2 ramdisk, root VFS node is at 0x%x", RN);
+	debug_print(NOTICE, "Mounted EXT2 ramdisk, root VFS node is at 0x%x", RN);
 }
 
 void ext2_ramdisk_forget_superblock() {

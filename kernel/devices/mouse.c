@@ -32,7 +32,7 @@ void mouse_wait(uint8_t a_type) {
 				return;
 			}
 		}
-		kprintf("[mouse] timeout\n");
+		debug_print(INFO, "mouse timeout");
 		return;
 	} else {
 		while (--timeout) {
@@ -40,7 +40,7 @@ void mouse_wait(uint8_t a_type) {
 				return;
 			}
 		}
-		kprintf("[mouse] timeout\n");
+		debug_print(INFO, "mouse timeout");
 		return;
 	}
 }
@@ -111,7 +111,7 @@ void mouse_handler(struct regs *r) {
 }
 
 void mouse_install() {
-	LOG(INFO, "Initializing mouse cursor driver");
+	debug_print(NOTICE, "Initializing PS/2 mouse interface");
 	uint8_t status;
 	IRQ_OFF;
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);

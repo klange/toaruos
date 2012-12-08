@@ -79,7 +79,6 @@ gdt_set_gate(
  */
 void
 gdt_install() {
-	blog("Setting up Global Descriptor Tables...");
 	/* GDT pointer and limits */
 	gp.limit = (sizeof(struct gdt_entry) * 6) - 1;
 	gp.base = (unsigned int)&gdt;
@@ -97,7 +96,6 @@ gdt_install() {
 	/* Go go go */
 	gdt_flush();
 	tss_flush();
-	bfinish(0);
 }
 
 /**
