@@ -244,7 +244,7 @@ uint32_t ext2_get_real_block(ext2_inodetable_t *inode, uint32_t block) {
  * Allocate memory for a block in an inode whose inode number is 'no'.
  */
 void ext2_disk_inode_alloc_block(ext2_inodetable_t *inode, uint32_t inode_no, uint32_t block) {
-	kprintf("Allocating block %d for inode #%d\n", block, inode_no);
+	debug_print(NOTICE, "allocating block %d for inode #%d", block, inode_no);
 	uint32_t block_no = 0, block_offset = 0, group = 0;
 	char *bg_buffer = malloc(BLOCKSIZE);
 	for (uint32_t i = 0; i < BGDS; ++i) {
@@ -258,7 +258,7 @@ void ext2_disk_inode_alloc_block(ext2_inodetable_t *inode, uint32_t inode_no, ui
 		}
 	}
 	if (!block_no) {
-		kprintf("[kernel/ext2] No available blocks!\n");
+		debug_print(CRITICAL, "No available blocks!");
 		free(bg_buffer);
 		return;
 	}
@@ -292,7 +292,7 @@ uint32_t ext2_disk_inode_read_block(ext2_inodetable_t *inode, uint32_t no, uint3
 	if (block >= inode->blocks) {
 		/* Invalid block requested, return 0s */
 		memset(buf, 0x00, BLOCKSIZE);
-		kprintf("[kernel/ext2] An invalid inode block [%d] was requested [have %d]\n", block, inode->blocks);
+		debug_print(ERROR, "An invalid inode block [%d] was requested [have %d]", block, inode->blocks);
 		return 0;
 	}
 
@@ -324,7 +324,7 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no
 	// The real work to write to a block of an inode.
 	uint32_t real_block = ext2_get_real_block(inode, block);
 
-	kprintf("Virtual block %d maps to real block %d.\n", block, real_block);
+	debug_print(INFO, "virtual block %d maps to real block %d", block, real_block);
 
 	ext2_disk_write_block(real_block, buf);
 	return real_block;
@@ -334,15 +334,15 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no
  * Create a new, regular, and empty file under directory 'parent'.
  */
 void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
-	
-	kprintf("[kernel/ext2] Creating file.\n");
+
+	debug_print(NOTICE, "Creating file %s", name);
 	uint16_t mode = permission | EXT2_S_IFREG;
 	ext2_inodetable_t *parent_inode = ext2_disk_inode(parent->inode);
 	
 	// Check to make sure no same name in the parent dir
 	fs_node_t *b_exist = finddir_ext2_disk(parent, name);
 	if (b_exist) {
-		kprintf("[kernel/ext2] %s: Already exists\n", name);
+		debug_print(WARNING, "File already exists!");
 		free(b_exist);
 		free(parent_inode);
 		return;
@@ -355,7 +355,7 @@ void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
 	free(parent_inode);
 
 	if (inode == NULL) {
-		kprintf("[kernel/ext2] Failed to create file '%s' (inode allocation failed)?\n", name);
+		debug_print(ERROR, "Failed to create file (inode allocation failed)");
 		return;
 	}
 
@@ -375,7 +375,7 @@ void ext2_mkdir(fs_node_t *parent, char *name, uint16_t permission) {
 	// Check to make sure no same name in the parent dir
 	fs_node_t *b_exist = finddir_ext2_disk(parent, name);
 	if (b_exist) {
-		kprintf("mkdir: %s: Already exists\n", name);
+		debug_print(WARNING, "%s already exists", name);
 		free(b_exist);
 		free(parent_inode);
 		return;
@@ -388,7 +388,7 @@ void ext2_mkdir(fs_node_t *parent, char *name, uint16_t permission) {
 	free(parent_inode);
 
 	if (inode == NULL) {
-		kprintf("mkdir: %s: Cannot be created\n", name);
+		debug_print(ERROR, "Could not create %s", name);
 		return;
 	}
 
@@ -750,7 +750,7 @@ readdir_ext2_disk(fs_node_t *node, uint32_t index) {
  */
 void insertdir_ext2_disk(ext2_inodetable_t *p_node, uint32_t no, uint32_t inode, char *name, uint8_t type) {
 	/* XXX HACK This needs to be seriously fixed up. */
-	kprintf("[kernel/ext2] Request to insert new directory entry at 0x%x#%d->%d '%s' type %d\n", p_node, no, inode, name, type);
+	debug_print(NOTICE, "Request to insert new directory entry at 0x%x#%d->%d '%s' type %d", p_node, no, inode, name, type);
 	assert(p_node->mode & EXT2_S_IFDIR);
 	void *block = malloc(BLOCKSIZE);
 	uint32_t block_nr = 0;
@@ -779,16 +779,16 @@ void insertdir_ext2_disk(ext2_inodetable_t *p_node, uint32_t no, uint32_t inode,
 			block_nr++;
 			dir_offset -= BLOCKSIZE;
 			ext2_disk_inode_read_block(p_node, no, block_nr, block);
-			kprintf("[kernel/ext2] Advancing to next block...\n");
+			debug_print(NOTICE, "Advancing to next block...");
 		}
 	}
 
-	kprintf("[kernel/ext2] Total Offset = %d; block = %d; offset within block = %d\n", total_offset, block_nr, dir_offset);
+	debug_print(NOTICE, "total offset = %d; block = %d; offset within block = %d", total_offset, block_nr, dir_offset);
 
 	// Put the new directory entry at 'dir_offset' in block 'block_nr'.
 	uint32_t size = p_node->size - total_offset;
 	if (dir_offset + size > BLOCKSIZE) {
-		kprintf("\033[1;31m[kernel/ext2] Just a warning: You probably just fucked everything.\033[0m\n");
+		debug_print(WARNING, "Directory entry is beyond first block of directory. This might be bad.");
 	}
 	ext2_dir_t *new_entry = malloc(size);
 
