@@ -974,6 +974,118 @@ int is_wide(uint32_t codepoint) {
 	return mk_wcwidth_cjk(codepoint) == 2;
 }
 
+struct scrollback_row {
+	unsigned short width;
+	t_cell cells[];
+};
+
+#define MAX_SCROLLBACK 10240
+
+list_t * scrollback_list = NULL;
+
+uint32_t scrollback_offset = 0;
+
+void save_scrollback() {
+	/* Save the current top row for scrollback */
+	if (!scrollback_list) {
+		scrollback_list = list_create();
+	}
+	if (scrollback_list->length == MAX_SCROLLBACK) {
+		free(list_dequeue(scrollback_list));
+	}
+
+	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(t_cell) * term_width);
+	row->width = term_width;
+	for (int i = 0; i < term_width; ++i) {
+		t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (i) * sizeof(t_cell));
+		memcpy(&row->cells[i], cell, sizeof(t_cell));
+	}
+
+	list_insert(scrollback_list, row);
+}
+#if 0
+	if (x >= term_width || y >= term_height) return;
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	if (((uint32_t *)cell)[0] == 0x00000000) {
+		term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+	} else {
+		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
+	}
+#endif
+
+void redraw_scrollback() {
+	if (!scrollback_offset) {
+		term_redraw_all();
+		return;
+	}
+	if (scrollback_offset < term_height) {
+		for (int i = scrollback_offset; i < term_height; i++) {
+			int y = i - scrollback_offset;
+			for (int x = 0; x < term_width; ++x) {
+				t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+				if (((uint32_t *)cell)[0] == 0x00000000) {
+					term_write_char(' ', x * char_width, i * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+				} else {
+					term_write_char(cell->c, x * char_width, i * char_height, cell->fg, cell->bg, cell->flags);
+				}
+			}
+		}
+
+		node_t * node = scrollback_list->tail;
+		for (int i = 0; i < scrollback_offset; ++i) {
+			struct scrollback_row * row = (struct scrollback_row *)node->value;
+
+			int y = scrollback_offset - 1 - i;
+			int width = row->width;
+			if (width > term_width) {
+				width = term_width;
+			} else {
+				for (int x = row->width; x < term_width; ++x) {
+					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+				}
+			}
+			for (int x = 0; x < width; ++x) {
+				t_cell * cell = &row->cells[x];
+				if (((uint32_t *)cell)[0] == 0x00000000) {
+					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+				} else {
+					term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
+				}
+			}
+
+			node = node->prev;
+		}
+	} else {
+		node_t * node = scrollback_list->tail;
+		for (int i = 0; i < scrollback_offset - term_height; ++i) {
+			node = node->prev;
+		}
+		for (int i = scrollback_offset - term_height; i < scrollback_offset; ++i) {
+			struct scrollback_row * row = (struct scrollback_row *)node->value;
+
+			int y = scrollback_offset - 1 - i;
+			int width = row->width;
+			if (width > term_width) {
+				width = term_width;
+			} else {
+				for (int x = row->width; x < term_width; ++x) {
+					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+				}
+			}
+			for (int x = 0; x < width; ++x) {
+				t_cell * cell = &row->cells[x];
+				if (((uint32_t *)cell)[0] == 0x00000000) {
+					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+				} else {
+					term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
+				}
+			}
+
+			node = node->prev;
+		}
+	}
+}
+
 void term_write(char c) {
 	cell_redraw(csr_x, csr_y);
 	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
@@ -1032,6 +1144,7 @@ void term_write(char c) {
 			++csr_y;
 		}
 		if (csr_y == term_height) {
+			save_scrollback();
 			term_scroll(1);
 			csr_y = term_height - 1;
 		}
@@ -1248,6 +1361,26 @@ void key_event(int ret, key_event_t * event) {
 				break;
 			case KEY_ARROW_LEFT:
 				handle_input_s("\033[D");
+				break;
+			case KEY_PAGE_UP:
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					int i = 0;
+					while (i < 5 && scrollback_list && scrollback_offset < scrollback_list->length) {
+						scrollback_offset ++;
+						i++;
+					}
+					redraw_scrollback();
+				}
+				break;
+			case KEY_PAGE_DOWN:
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					int i = 0;
+					while (i < 5 && scrollback_list && scrollback_offset != 0) {
+						scrollback_offset -= 1;
+						i++;
+					}
+					redraw_scrollback();
+				}
 				break;
 		}
 	}

@@ -42,6 +42,9 @@
 #define KEY_F11         2011
 #define KEY_F12         2012
 
+#define KEY_PAGE_DOWN   2013
+#define KEY_PAGE_UP     2014
+
 #define KEY_SCANCODE_F1  0x3b
 #define KEY_SCANCODE_F2  0x3c
 #define KEY_SCANCODE_F3  0x3d

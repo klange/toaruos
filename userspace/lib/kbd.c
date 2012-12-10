@@ -12,6 +12,8 @@
 
 int kbd_state = 0;
 
+#define DEBUG_SCANCODES 0
+
 #define KEY_UP_MASK   0x80
 #define KEY_CODE_MASK 0x7F
 #define KEY_CTRL_MASK 0x40
@@ -190,6 +192,20 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 	event->modifiers = 0;
 	event->key       = 0;
 
+#if DEBUG_SCANCODES
+	fprintf(stderr, "[%d] %d\n", kbd_s_state, (int)c);
+#endif
+
+	event->modifiers |= kl_ctrl  ? KEY_MOD_LEFT_CTRL   : 0;
+	event->modifiers |= kl_shift ? KEY_MOD_LEFT_SHIFT  : 0;
+	event->modifiers |= kl_alt   ? KEY_MOD_LEFT_ALT    : 0;
+	event->modifiers |= kl_super ? KEY_MOD_LEFT_SUPER  : 0;
+
+	event->modifiers |= kr_ctrl  ? KEY_MOD_RIGHT_CTRL  : 0;
+	event->modifiers |= kr_shift ? KEY_MOD_RIGHT_SHIFT : 0;
+	event->modifiers |= kr_alt   ? KEY_MOD_RIGHT_ALT   : 0;
+	event->modifiers |= kr_super ? KEY_MOD_RIGHT_SUPER : 0;
+
 	if (!kbd_s_state) {
 		if (c == 0xE0) {
 			kbd_s_state = 1;
@@ -287,16 +303,6 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 				break;
 		}
 
-		event->modifiers |= kl_ctrl  ? KEY_MOD_LEFT_CTRL   : 0;
-		event->modifiers |= kl_shift ? KEY_MOD_LEFT_SHIFT  : 0;
-		event->modifiers |= kl_alt   ? KEY_MOD_LEFT_ALT    : 0;
-		event->modifiers |= kl_super ? KEY_MOD_LEFT_SUPER  : 0;
-
-		event->modifiers |= kr_ctrl  ? KEY_MOD_RIGHT_CTRL  : 0;
-		event->modifiers |= kr_shift ? KEY_MOD_RIGHT_SHIFT : 0;
-		event->modifiers |= kr_alt   ? KEY_MOD_RIGHT_ALT   : 0;
-		event->modifiers |= kr_super ? KEY_MOD_RIGHT_SUPER : 0;
-
 		if (event->key) {
 			return down;
 		}
@@ -344,6 +350,12 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 				break;
 			case 0x4B:
 				event->keycode = KEY_ARROW_LEFT;
+				break;
+			case 0x49:
+				event->keycode = KEY_PAGE_UP;
+				break;
+			case 0x51:
+				event->keycode = KEY_PAGE_DOWN;
 				break;
 			default:
 				break;
