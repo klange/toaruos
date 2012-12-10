@@ -261,6 +261,10 @@ static int stat(int fd, uint32_t st) {
 	f->st_rdev  = 0;
 	f->st_size  = fn->length;
 
+	f->st_atime = fn->atime;
+	f->st_mtime = fn->mtime;
+	f->st_ctime = fn->ctime;
+
 	if (fn->flags & FS_PIPE) {
 		/* Pipes have dynamic sizes */
 		f->st_size = pipe_size(fn);

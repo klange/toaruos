@@ -927,6 +927,12 @@ uint32_t ext2_disk_node_from_file(ext2_inodetable_t *inode, ext2_dir_t *direntry
 	if ((inode->mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
 		fnode->flags |= FS_SYMLINK;
 	}
+
+	fnode->atime   = inode->atime;
+	fnode->mtime   = inode->mtime;
+	fnode->ctime   = inode->ctime;
+	debug_print(INFO, "file a/m/c times are %d/%d/%d", fnode->atime, fnode->mtime, fnode->ctime);
+
 	fnode->read    = read_ext2_disk;
 	fnode->write   = write_ext2_disk;
 	fnode->open    = open_ext2_disk;
@@ -980,6 +986,11 @@ uint32_t ext2_disk_node_root(ext2_inodetable_t *inode, fs_node_t *fnode) {
 	if ((inode->mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
 		fnode->flags |= FS_SYMLINK;
 	}
+
+	fnode->atime   = inode->atime;
+	fnode->mtime   = inode->mtime;
+	fnode->ctime   = inode->ctime;
+
 	fnode->read    = read_ext2_disk;
 	fnode->write   = write_ext2_disk;
 	fnode->open    = open_ext2_disk;

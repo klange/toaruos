@@ -206,6 +206,10 @@ fs_node_t * make_pipe(size_t size) {
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
 
+	fnode->atime = now();
+	fnode->mtime = fnode->atime;
+	fnode->ctime = fnode->atime;
+
 	fnode->inode = (uintptr_t)pipe;
 
 	pipe->buffer    = malloc(size);

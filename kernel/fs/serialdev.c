@@ -1,4 +1,9 @@
-/* Serial device */
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
+ * Serial communication device
+ *
+ */
+
 #include <system.h>
 #include <fs.h>
 
@@ -52,5 +57,10 @@ fs_node_t * serial_device_create(int device) {
 	fnode->close   = close_serial;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+
+	fnode->atime = now();
+	fnode->mtime = fnode->atime;
+	fnode->ctime = fnode->atime;
+
 	return fnode;
 }

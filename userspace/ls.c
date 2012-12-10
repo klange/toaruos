@@ -32,6 +32,8 @@
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
+#define LINE_LEN 4096
+
 /* The program */
 
 int entcmp(const void * c1, const void * c2) {
@@ -72,6 +74,32 @@ void print_entry(const char * filename, const char * srcpath, int colwidth) {
 	}
 }
 
+void print_username(int uid) {
+	FILE * passwd = fopen("/etc/passwd", "r");
+	char line[LINE_LEN];
+
+	while (fgets(line, LINE_LEN, passwd) != NULL) {
+
+		line[strlen(line)-1] = '\0';
+
+		char *p, *tokens[10], *last;
+		int i = 0;
+		for ((p = strtok_r(line, ":", &last)); p;
+				(p = strtok_r(NULL, ":", &last)), i++) {
+			if (i < 511) tokens[i] = p;
+		}
+		tokens[i] = NULL;
+
+		if (atoi(tokens[2]) == uid) {
+			printf("%s", tokens[0]);
+			fclose(passwd);
+			return;
+		}
+	}
+	printf("%d", uid);
+	fclose(passwd);
+}
+
 void print_entry_long(const char * filename, const char * srcpath) {
 	/* Figure out full relpath */
 	char * relpath = malloc(strlen(srcpath) + strlen(filename) + 2);
@@ -94,7 +122,12 @@ void print_entry_long(const char * filename, const char * srcpath) {
 		ansi_color_str = REG_COLOR;
 	}
 
-	printf( (S_ISDIR(statbuf.st_mode))  ? "d" : "-");
+	/* file permissions */
+	if (S_ISLNK(statbuf.st_mode)) {
+		printf("l");
+	} else {
+		printf( (S_ISDIR(statbuf.st_mode))  ? "d" : "-");
+	}
 	printf( (statbuf.st_mode & S_IRUSR) ? "r" : "-");
 	printf( (statbuf.st_mode & S_IWUSR) ? "w" : "-");
 	printf( (statbuf.st_mode & S_IXUSR) ? "x" : "-");
@@ -105,7 +138,20 @@ void print_entry_long(const char * filename, const char * srcpath) {
 	printf( (statbuf.st_mode & S_IWOTH) ? "w" : "-");
 	printf( (statbuf.st_mode & S_IXOTH) ? "x" : "-");
 
-	printf(" %10d ", statbuf.st_size);
+	printf( " - "); /* number of links, not supported */
+
+	print_username(statbuf.st_uid);
+	printf("\t");
+	print_username(statbuf.st_gid);
+	printf("\t");
+
+	printf(" %8d ", statbuf.st_size);
+
+	char time_buf[80];
+	struct tm * timeinfo;
+	timeinfo = localtime(&statbuf.st_mtime);
+	strftime(time_buf, 80, "%b %d  %Y", timeinfo);
+	printf("%s ", time_buf);
 
 	/* Print the file name */
 	printf("\033[%sm%s\033[0m\n", ansi_color_str, filename);
