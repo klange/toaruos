@@ -89,17 +89,14 @@ int main (int argc, char ** argv) {
 		double herp = cos((double)i * 0.01) + 1.5;
 		double derp = sin((double)i * 0.01) + 1.5;
 		char ch = 0;
-		w_keyboard_t * kbd;
-		do {
-			kbd = poll_keyboard();
-			if (kbd != NULL) {
-				ch = kbd->key;
-				free(kbd);
+		w_keyboard_t * kbd = poll_keyboard_async();
+		if (kbd) {
+			ch = kbd->key;
+			free(kbd);
+			if (ch == 'q') {
+				goto done;
+				break;
 			}
-		} while (kbd != NULL);
-		if (ch == 'q') {
-			goto done;
-			break;
 		}
 		darken(ctx);
 		draw_sprite_scaled(ctx, sprites[1], center_x(sprites[1]->width * herp), center_y(sprites[1]->height * derp), sprites[1]->width * herp, sprites[1]->height * derp);

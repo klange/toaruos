@@ -241,13 +241,6 @@ int main (int argc, char ** argv) {
 	ttk_render();
 
 	while (!quit) {
-		w_keyboard_t * kbd = poll_keyboard();
-		if (kbd != NULL) {
-			if (kbd->key == 'q') {
-				break;
-			}
-			free(kbd);
-		}
 		w_mouse_t * mouse = poll_mouse();
 		if (mouse != NULL) {
 			if (mouse->command == WE_MOUSEMOVE && mouse->buttons & MOUSE_BUTTON_LEFT) {
@@ -261,7 +254,6 @@ int main (int argc, char ** argv) {
 			}
 			free(mouse);
 		}
-		syscall_yield();
 	}
 
 	teardown_windowing();

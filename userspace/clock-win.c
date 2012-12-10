@@ -157,7 +157,7 @@ int main (int argc, char ** argv) {
 		char ch = 0;
 		w_keyboard_t * kbd;
 		do {
-			kbd = poll_keyboard();
+			kbd = poll_keyboard_async();
 			if (kbd != NULL) {
 				ch = kbd->key;
 				free(kbd);

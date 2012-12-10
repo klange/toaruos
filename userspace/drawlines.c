@@ -47,10 +47,8 @@ int main (int argc, char ** argv) {
 
 	int exit = 0;
 	while (!exit) {
-		w_keyboard_t * kbd = poll_keyboard();
+		w_keyboard_t * kbd = poll_keyboard_async();
 		if (kbd != NULL) {
-			printf("[drawlines] kbd=0x%x\n", kbd);
-			printf("[drawlines] got key '%c'\n", (char)kbd->key);
 			if (kbd->key == 'q')
 				exit = 1;
 			free(kbd);

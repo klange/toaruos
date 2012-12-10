@@ -238,23 +238,17 @@ int main(int argc, char * argv[]) {
 	int playing = 1;
 	while (playing) {
 		char ch = 0;
-		w_keyboard_t * kbd;
-		do {
-			kbd = poll_keyboard();
-			if (kbd != NULL) {
-				ch = kbd->key;
-				free(kbd);
-			}
-		} while (kbd != NULL);
+		w_keyboard_t * kbd = poll_keyboard();
 
-		switch (ch) {
-			case 'q':
-				playing = 0;
-				break;
-			default:
-				break;
+		if (kbd) {
+			switch (kbd->key) {
+				case 'q':
+					playing = 0;
+					break;
+				default:
+					break;
+			}
 		}
-		syscall_yield();
 	}
 
 	teardown_windowing();

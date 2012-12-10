@@ -1493,6 +1493,67 @@ void serial_put(uint8_t c) {
 }
 #endif
 
+void * handle_incoming(void * garbage) {
+	int mfd = syscall_mousedevice();
+
+	unsigned char buf[1024];
+	while (!exit_application) {
+		struct stat _stat;
+		fstat(mfd, &_stat);
+		if (exit_application) {
+			break;
+		}
+		if (_windowed) {
+			w_keyboard_t * kbd = poll_keyboard();
+			if (kbd != NULL) {
+				key_event(kbd->ret, &kbd->event);
+				free(kbd);
+			}
+		} else {
+			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
+				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
+				int r = read(mfd, buf, sizeof(mouse_device_packet_t));
+				if (packet->magic != MOUSE_MAGIC) {
+					int r = read(mfd, buf, 1);
+					goto fail_mouse;
+				}
+				cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
+				/* Apply mouse movement */
+				int c, l;
+				c = abs(packet->x_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_x += packet->x_difference * l;
+				c = abs(packet->y_difference);
+				l = 0;
+				while (c >>= 1) {
+					l++;
+				}
+				mouse_y -= packet->y_difference * l;
+				if (mouse_x < 0) mouse_x = 0;
+				if (mouse_y < 0) mouse_y = 0;
+				if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width - char_width)   * MOUSE_SCALE;
+				if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height - char_height) * MOUSE_SCALE;
+				cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
+				fstat(mfd, &_stat);
+			}
+fail_mouse:
+			fstat(0, &_stat);
+			if (_stat.st_size) {
+				size_t r = read(0, buf, min(_stat.st_size, 1024));
+				key_event_t event;
+				for (size_t i = 0; i < r; ++i) {
+					int ret = kbd_scancode(buf[i], &event);
+					key_event(ret, &event);
+				}
+			}
+		}
+	}
+	pthread_exit(0);
+}
+
 int main(int argc, char ** argv) {
 
 	_windowed = 1;
@@ -1645,8 +1706,6 @@ int main(int argc, char ** argv) {
 	ofd = syscall_mkpipe();
 	ifd = syscall_mkpipe();
 
-	int mfd = syscall_mousedevice();
-
 	int pid = getpid();
 	uint32_t f = fork();
 
@@ -1689,65 +1748,13 @@ int main(int argc, char ** argv) {
 		pthread_t wait_for_exit_thread;
 		pthread_create(&wait_for_exit_thread, NULL, wait_for_exit, NULL);
 
+		pthread_t handle_incoming_thread;
+		pthread_create(&handle_incoming_thread, NULL, handle_incoming, NULL);
+
 		unsigned char buf[1024];
-		while (1) {
-			struct stat _stat;
-			fstat(mfd, &_stat);
+		struct stat _stat;
+		while (!exit_application) {
 			timer_tick++;
-			if (timer_tick == TIMER_TICK) {
-				timer_tick = 0;
-				flip_cursor();
-			}
-			if (exit_application) {
-				break;
-			}
-			if (_windowed) {
-				w_keyboard_t * kbd = poll_keyboard();
-				if (kbd != NULL) {
-					key_event(kbd->ret, &kbd->event);
-					free(kbd);
-				}
-			} else {
-				while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
-					mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-					int r = read(mfd, buf, sizeof(mouse_device_packet_t));
-					if (packet->magic != MOUSE_MAGIC) {
-						int r = read(mfd, buf, 1);
-						goto fail_mouse;
-					}
-					cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
-					/* Apply mouse movement */
-					int c, l;
-					c = abs(packet->x_difference);
-					l = 0;
-					while (c >>= 1) {
-						l++;
-					}
-					mouse_x += packet->x_difference * l;
-					c = abs(packet->y_difference);
-					l = 0;
-					while (c >>= 1) {
-						l++;
-					}
-					mouse_y -= packet->y_difference * l;
-					if (mouse_x < 0) mouse_x = 0;
-					if (mouse_y < 0) mouse_y = 0;
-					if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width - char_width)   * MOUSE_SCALE;
-					if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height - char_height) * MOUSE_SCALE;
-					cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
-					fstat(mfd, &_stat);
-				}
-fail_mouse:
-				fstat(0, &_stat);
-				if (_stat.st_size) {
-					size_t r = read(0, buf, min(_stat.st_size, 1024));
-					key_event_t event;
-					for (size_t i = 0; i < r; ++i) {
-						int ret = kbd_scancode(buf[i], &event);
-						key_event(ret, &event);
-					}
-				}
-			}
 			fstat(ofd, &_stat);
 			if (_stat.st_size) {
 				int r = read(ofd, buf, min(_stat.st_size, 1024));
@@ -1758,6 +1765,7 @@ fail_mouse:
 #endif
 				}
 			}
+			syscall_yield();
 		}
 
 	}

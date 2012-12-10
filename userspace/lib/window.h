@@ -167,6 +167,7 @@ void window_enable_alpha (window_t * window);
 void window_disable_alpha (window_t * window);
 
 w_keyboard_t * poll_keyboard();
+w_keyboard_t * poll_keyboard_async();
 w_mouse_t *    poll_mouse();
 
 #define TO_WINDOW_OFFSET(x,y) (((x) - window->x) + ((y) - window->y) * window->width)

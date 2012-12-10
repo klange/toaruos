@@ -18,6 +18,10 @@
 
 extern FILE *fdopen(int fildes, const char *mode);
 
+static int event_pipe;
+static int mouse_event_pipe;
+static int gobble_mouse_events = 1;
+
 #define LOCK(lock) while (__sync_lock_test_and_set(&lock, 0x01)) { syscall_yield(); };
 #define UNLOCK(lock) __sync_lock_release(&lock);
 
@@ -295,61 +299,69 @@ void window_disable_alpha (window_t * window) {
 
 /* Event Processing (invoked by signal only) */
 
-uint8_t volatile key_evt_buffer_lock;
-list_t * key_evt_buffer;
+#define MAX_UNREAD_KEY_EVENTS   200
+#define MAX_UNREAD_MOUSE_EVENTS 200
+
+static int kbd_read = 0;
+static int mouse_read = 0;
 
 w_keyboard_t * poll_keyboard () {
 	w_keyboard_t * evt = NULL;
 
-	LOCK(key_evt_buffer_lock);
-	if (key_evt_buffer->length > 0) {
-		node_t * n = list_dequeue(key_evt_buffer);
-		evt = (w_keyboard_t *)n->value;
-		free(n);
+	read(event_pipe, &evt, sizeof(evt));
+	kbd_read--;
+
+	return evt;
+}
+
+w_keyboard_t * poll_keyboard_async() {
+	w_keyboard_t * evt = NULL;
+
+	struct stat _stat;
+	fstat(event_pipe, &_stat);
+	if (_stat.st_size >= sizeof(evt)) {
+		read(event_pipe, &evt, sizeof(evt));
+		kbd_read--;
 	}
-	UNLOCK(key_evt_buffer_lock);
 
 	return evt;
 }
 
 static void process_key_evt (uint8_t command, w_keyboard_t * evt) {
 	/* Push the event onto a buffer for the process to poll */
-	//LOCK(key_evt_buffer_lock);
-	list_insert(key_evt_buffer, evt);
-	//UNLOCK(key_evt_buffer_lock);
+
+	kbd_read++;
+	if (kbd_read > MAX_UNREAD_KEY_EVENTS) {
+		char garbage[sizeof(evt)];
+		read(event_pipe, &garbage, sizeof(evt));
+		kbd_read--;
+	}
+
+	write(event_pipe, &evt, sizeof(evt));
 }
-
-
-uint8_t volatile mouse_evt_buffer_lock;
-list_t * mouse_evt_buffer;
 
 w_mouse_t * poll_mouse () {
 	w_mouse_t * evt = NULL;
 
-	//LOCK(mouse_evt_buffer_lock);
-	if (mouse_evt_buffer->length > 0) {
-		node_t * n = list_dequeue(mouse_evt_buffer);
-		evt = (w_mouse_t *)n->value;
-		free(n);
-	}
-	//UNLOCK(mouse_evt_buffer_lock);
+	read(mouse_event_pipe, &evt, sizeof(evt));
+	mouse_read--;
 
 	return evt;
 }
 
 static void process_mouse_evt (uint8_t command, w_mouse_t * evt) {
 	/* Push the event onto a buffer for the process to poll */
-	//LOCK(mouse_evt_buffer_lock);
-	if (mouse_evt_buffer->length > 5000) {
-		node_t * n = list_dequeue(mouse_evt_buffer);
-		free(n->value);
-		free(n);
+	if (gobble_mouse_events) return; /* om nom nom */
+	mouse_read++;
+	if (mouse_read > MAX_UNREAD_MOUSE_EVENTS) {
+		char garbage[sizeof(evt)];
+		read(mouse_event_pipe, &garbage, sizeof(evt));
+		mouse_read--;
 	}
 	if (mouse_action_callback) {
 		mouse_action_callback(evt);
 	}
-	list_insert(mouse_evt_buffer, evt);
-	//UNLOCK(mouse_evt_buffer_lock);
+	write(mouse_event_pipe, &evt, sizeof(evt));
 }
 
 
@@ -388,64 +400,67 @@ static void process_window_evt (uint8_t command, w_window_t evt) {
 	wins_command_recvd = command;
 }
 
-static void process_evt (int sig) {
-	/* Are there any messages in this process's event pipe? */
-	struct stat buf;
-	if (!process_windows) return;
-	fstat(process_windows->event_pipe, &buf);
+static void process_evt () {
+	/* Wait for and process one event */
 
-	/* Read them all out */
-	while (buf.st_size > 0) {
-		wins_packet_t header;
-		read(process_windows->event_pipe, &header, sizeof(wins_packet_t));
+	wins_packet_t header;
+	read(process_windows->event_pipe, &header, sizeof(wins_packet_t));
 
-		while (header.magic != WINS_MAGIC) {
-			/* REALIGN!! */
-			memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
-			read(process_windows->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
+	while (header.magic != WINS_MAGIC) {
+		/* REALIGN!! */
+		memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
+		read(process_windows->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
+	}
+
+	/* Determine type, read, and dispatch */
+	switch (header.command_type & WE_GROUP_MASK) {
+		case WE_MOUSE_EVT: {
+			w_mouse_t * mevt = malloc(sizeof(w_mouse_t));
+			read(process_windows->event_pipe, mevt, sizeof(w_mouse_t));
+			process_mouse_evt(header.command_type, mevt);
+			break;
 		}
 
-		/* Determine type, read, and dispatch */
-		switch (header.command_type & WE_GROUP_MASK) {
-			case WE_MOUSE_EVT: {
-				w_mouse_t * mevt = malloc(sizeof(w_mouse_t));
-				read(process_windows->event_pipe, mevt, sizeof(w_mouse_t));
-				process_mouse_evt(header.command_type, mevt);
-				break;
-			}
-
-			case WE_KEY_EVT: {
-				w_keyboard_t * kevt = malloc(sizeof(w_keyboard_t));
-				read(process_windows->event_pipe, kevt, sizeof(w_keyboard_t));
-				process_key_evt(header.command_type, kevt);
-				break;
-			}
-
-			case WE_WINDOW_EVT: {
-				w_window_t wevt;
-				read(process_windows->event_pipe, &wevt, sizeof(w_window_t));
-				process_window_evt(header.command_type, wevt);
-				break;
-			}
-
-			default:
-				fprintf(stderr, "[%d] [window] WARN: Received unknown event type %d, 0x%x\n", getpid(), header.command_type, header.packet_size);
-				fstat(process_windows->event_pipe, &buf);
-				char devnull[1];
-				for (uint32_t i = 0; i < buf.st_size; ++i) {
-					read(process_windows->event_pipe, devnull, 1);
-				}
-				break;
+		case WE_KEY_EVT: {
+			w_keyboard_t * kevt = malloc(sizeof(w_keyboard_t));
+			read(process_windows->event_pipe, kevt, sizeof(w_keyboard_t));
+			process_key_evt(header.command_type, kevt);
+			break;
 		}
 
-		fstat(process_windows->event_pipe, &buf);
+		case WE_WINDOW_EVT: {
+			w_window_t wevt;
+			read(process_windows->event_pipe, &wevt, sizeof(w_window_t));
+			process_window_evt(header.command_type, wevt);
+			break;
+		}
+
+		default:
+			fprintf(stderr, "[%d] [window] WARN: Received unknown event type %d, 0x%x\n", getpid(), header.command_type, header.packet_size);
+			struct stat buf;
+			fstat(process_windows->event_pipe, &buf);
+			char devnull[1];
+			for (uint32_t i = 0; i < buf.st_size; ++i) {
+				read(process_windows->event_pipe, devnull, 1);
+			}
+			break;
 	}
 }
 
+static void sig_process_evt(int sig) {
+	if (!process_windows) return;
+	struct stat buf;
+	fstat(process_windows->event_pipe, &buf);
+	do {
+		process_evt();
+		fstat(process_windows->event_pipe, &buf);
+	} while (buf.st_size);
+	wins_packet_t header;
+
+}
+
 void install_signal_handlers () {
-	syscall_signal(SIGWINEVENT, process_evt); // SIGWINEVENT
-	key_evt_buffer = list_create();
-	mouse_evt_buffer = list_create();
+	syscall_signal(SIGWINEVENT, sig_process_evt); // SIGWINEVENT
 }
 
 static void ignore(int sig) {
@@ -454,7 +469,12 @@ static void ignore(int sig) {
 
 void * win_threaded_event_processor(void * garbage) {
 	while (1) {
-		process_evt (0);
+		struct stat buf;
+		fstat(process_windows->event_pipe, &buf);
+		do {
+			process_evt();
+			fstat(process_windows->event_pipe, &buf);
+		} while (buf.st_size);
 		syscall_yield();
 	}
 }
@@ -464,6 +484,7 @@ void win_use_threaded_handler() {
 	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
 	pthread_t event_thread;
 	pthread_create(&event_thread, NULL, win_threaded_event_processor, NULL);
+	gobble_mouse_events = 0;
 }
 
 /* Initial Connection */
@@ -549,6 +570,9 @@ int setup_windowing () {
 	}
 
 	install_signal_handlers();
+
+	event_pipe = syscall_mkpipe();
+	mouse_event_pipe = syscall_mkpipe();
 
 	return wins_connect();
 }
