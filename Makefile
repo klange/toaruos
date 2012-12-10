@@ -40,7 +40,7 @@ ENDRM = util/mk-end-rm
 EMUARGS     = -kernel toaruos-kernel -m 1024 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame -rtc base=localtime
 EMUKVM      = -enable-kvm
 
-.PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core update-version install run docs utils
+.PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core install run docs utils
 .SECONDARY: 
 
 all: .passed system tags
@@ -115,9 +115,6 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
-hdd/bin/%:
-	@cd userspace; make ../$@
-
 ################
 #   Ram disk   #
 ################
@@ -141,7 +138,11 @@ toaruos-initrd: .passed
 hdd:
 	@mkdir hdd
 
-toaruos-disk.img: hdd userspace/*.c userspace/*.cpp
+.userspace-check: userspace/*.c userspace/*.cpp userspace/lib/*.h userspace/lib/*.c
+	@cd userspace && make
+	@touch .userspace-check
+
+toaruos-disk.img: hdd .userspace-check hdd/bin/*
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}
