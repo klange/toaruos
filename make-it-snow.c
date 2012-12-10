@@ -186,7 +186,7 @@ int main(int argc, char * argv[]) {
 	render();
 
 	while (1) {
-		w_keyboard_t * kbd = poll_keyboard();
+		w_keyboard_t * kbd = poll_keyboard_async();
 		if (kbd != NULL) {
 			if (kbd->key == 'q') {
 				break;

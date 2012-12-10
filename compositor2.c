@@ -546,6 +546,16 @@ void internal_free_window(window_t * window) {
 	}
 }
 
+void destroy_window(window_t * win) {
+	win->x = 0xFFFF;
+	internal_free_window(win);
+	unorder_window(win);
+	/* Wait until we're done drawing */
+	spin_lock(&am_drawing);
+	spin_unlock(&am_drawing);
+	free_window(win);
+}
+
 void process_window_command (int sig) {
 	foreach(n, process_list) {
 		process_windows_t * pw = (process_windows_t *)n->value;
@@ -603,13 +613,8 @@ void process_window_command (int sig) {
 				case WC_DESTROY:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
 					window_t * win = get_window_with_process(pw, wwt.wid);
-					win->x = 0xFFFF;
-					internal_free_window(win);
-					unorder_window(win);
-					/* Wait until we're done drawing */
-					spin_lock(&am_drawing);
-					spin_unlock(&am_drawing);
-					free_window(win);
+
+					destroy_window(win);
 					send_window_event(pw, WE_DESTROYED, &wwt);
 					break;
 
@@ -790,6 +795,13 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == KEY_F4)) {
+		/* kill the currently focused window */
+		destroy_window(focused_window());
+	}
+
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 	    (keyboard->event.keycode == 'e')) {
 
 		switch (management_mode) {
@@ -828,109 +840,172 @@ void * process_requests(void * garbage) {
 	int32_t _mouse_win_x_p;
 	int32_t _mouse_win_y_p;
 
-	struct stat _stat;
-	char buf[1024];
+	char buf[sizeof(mouse_device_packet_t)];
 	while (1) {
-		fstat(mfd, &_stat);
-		while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
-			mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-			int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
-			if (packet->magic != MOUSE_MAGIC) {
-				int r = read(mfd, buf, 1);
-				break;
+		mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
+		int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
+		if (packet->magic != MOUSE_MAGIC) {
+			int r = read(mfd, buf, 1);
+			break;
+		}
+		/* Apply mouse movement */
+		int l;
+		l = 3;
+		mouse_x += packet->x_difference * l;
+		mouse_y -= packet->y_difference * l;
+		if (mouse_x < 0) mouse_x = 0;
+		if (mouse_y < 0) mouse_y = 0;
+		if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width)   * MOUSE_SCALE;
+		if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height) * MOUSE_SCALE;
+
+		if (management_mode == MODE_SCALE) {
+			if (packet->buttons & MOUSE_BUTTON_LEFT) {
+				focus_next_scale = 1;
 			}
-			/* Apply mouse movement */
-			int l;
-			l = 3;
-			mouse_x += packet->x_difference * l;
-			mouse_y -= packet->y_difference * l;
-			if (mouse_x < 0) mouse_x = 0;
-			if (mouse_y < 0) mouse_y = 0;
-			if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width)   * MOUSE_SCALE;
-			if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height) * MOUSE_SCALE;
+		} else {
 
-			if (management_mode == MODE_SCALE) {
-				if (packet->buttons & MOUSE_BUTTON_LEFT) {
-					focus_next_scale = 1;
-				}
-			} else {
-
-				if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
-					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-					_mouse_window = focused_window();
-					if (_mouse_window) {
-						if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
-							_mouse_state = 1;
-							_mouse_init_x = mouse_x;
-							_mouse_init_y = mouse_y;
-							_mouse_win_x  = _mouse_window->x;
-							_mouse_win_y  = _mouse_window->y;
-							_mouse_win_x_p = _mouse_win_x;
-							_mouse_win_y_p = _mouse_win_y;
-							moving_window = _mouse_window;
-							moving_window_l = _mouse_win_x_p;
-							moving_window_t = _mouse_win_y_p;
-							make_top(_mouse_window);
-						}
-					}
-				} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
-					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-					_mouse_window = focused_window();
-					if (_mouse_window) {
-						if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
-							_mouse_state = 3;
-							_mouse_init_x = mouse_x;
-							_mouse_init_y = mouse_y;
-							_mouse_win_x  = _mouse_window->x;
-							_mouse_win_y  = _mouse_window->y;
-							resizing_window   = _mouse_window;
-							resizing_window_w = _mouse_window->width;
-							resizing_window_h = _mouse_window->height;
-							make_top(_mouse_window);
-						}
-					}
-				} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
-					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-					_mouse_window = focused_window();
-					if (_mouse_window) {
-						_mouse_state = 2; /* Dragging */
-						/* In window coordinates, that's... */
+			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
+						_mouse_state = 1;
+						_mouse_init_x = mouse_x;
+						_mouse_init_y = mouse_y;
 						_mouse_win_x  = _mouse_window->x;
 						_mouse_win_y  = _mouse_window->y;
+						_mouse_win_x_p = _mouse_win_x;
+						_mouse_win_y_p = _mouse_win_y;
+						moving_window = _mouse_window;
+						moving_window_l = _mouse_win_x_p;
+						moving_window_t = _mouse_win_y_p;
+						make_top(_mouse_window);
+					}
+				}
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
+						_mouse_state = 3;
+						_mouse_init_x = mouse_x;
+						_mouse_init_y = mouse_y;
+						_mouse_win_x  = _mouse_window->x;
+						_mouse_win_y  = _mouse_window->y;
+						resizing_window   = _mouse_window;
+						resizing_window_w = _mouse_window->width;
+						resizing_window_h = _mouse_window->height;
+						make_top(_mouse_window);
+					}
+				}
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
+				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					_mouse_state = 2; /* Dragging */
+					/* In window coordinates, that's... */
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
 
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					mouse_discard = 1;
+					_mouse_moved = 0;
+				}
+#if 0
+				_mouse_window = focused_window();
+				if (_mouse_window) {
+					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
+
+					} else {
+						_mouse_state = 2;
+						_mouse_init_x = mouse_x;
+						_mouse_init_y = mouse_y;
+						_mouse_win_x  = _mouse_window->width;
+						_mouse_win_y  = _mouse_window->height;
+						_mouse_win_x_p= _mouse_win_x;
+						_mouse_win_y_p= _mouse_win_y;
+						make_top(_mouse_window);
+					}
+				}
+#endif
+			} else if (_mouse_state == 0) {
+				mouse_discard--;
+				if (mouse_discard < 1) {
+					mouse_discard = MOUSE_DISCARD_LEVEL;
+
+					w_mouse_t _packet;
+					if (packet->buttons) {
+						set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+					}
+					_mouse_window = focused_window();
+					_packet.wid = _mouse_window->wid;
+
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
+
+					_packet.old_x = click_x;
+					_packet.old_y = click_y;
+
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+
+					_packet.new_x = click_x;
+					_packet.new_y = click_y;
+
+					_packet.buttons = packet->buttons;
+					_packet.command = WE_MOUSEMOVE;
+
+					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+				}
+			} else if (_mouse_state == 1) {
+				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
+					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					moving_window = NULL;
+					_mouse_state = 0;
+				} else {
+					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
+					moving_window_l = _mouse_win_x_p;
+					moving_window_t = _mouse_win_y_p;
+				}
+			} else if (_mouse_state == 2) {
+				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
+					/* Released */
+					_mouse_state = 0;
+					_mouse_win_x  = _mouse_window->x;
+					_mouse_win_y  = _mouse_window->y;
+
+					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
+					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+					
+					if (!_mouse_moved) {
+						w_mouse_t _packet;
+						_packet.wid = _mouse_window->wid;
+						_mouse_win_x  = _mouse_window->x;
+						_mouse_win_y  = _mouse_window->y;
 						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
 						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-
-						mouse_discard = 1;
-						_mouse_moved = 0;
+						_packet.new_x = click_x;
+						_packet.new_y = click_y;
+						_packet.old_x = -1;
+						_packet.old_y = -1;
+						_packet.buttons = packet->buttons;
+						_packet.command = WE_MOUSECLICK;
+						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 					}
-#if 0
-					_mouse_window = focused_window();
-					if (_mouse_window) {
-						if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
 
-						} else {
-							_mouse_state = 2;
-							_mouse_init_x = mouse_x;
-							_mouse_init_y = mouse_y;
-							_mouse_win_x  = _mouse_window->width;
-							_mouse_win_y  = _mouse_window->height;
-							_mouse_win_x_p= _mouse_win_x;
-							_mouse_win_y_p= _mouse_win_y;
-							make_top(_mouse_window);
-						}
-					}
-#endif
-				} else if (_mouse_state == 0) {
+				} else {
+					/* Still down */
+
+					_mouse_moved = 1;
 					mouse_discard--;
 					if (mouse_discard < 1) {
 						mouse_discard = MOUSE_DISCARD_LEVEL;
 
 						w_mouse_t _packet;
-						if (packet->buttons) {
-							set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-						}
-						_mouse_window = focused_window();
 						_packet.wid = _mouse_window->wid;
 
 						_mouse_win_x  = _mouse_window->x;
@@ -950,111 +1025,46 @@ void * process_requests(void * garbage) {
 
 						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 					}
-				} else if (_mouse_state == 1) {
-					if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
-						_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-						_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-						moving_window = NULL;
-						_mouse_state = 0;
-					} else {
-						_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-						_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-						moving_window_l = _mouse_win_x_p;
-						moving_window_t = _mouse_win_y_p;
-					}
-				} else if (_mouse_state == 2) {
-					if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
-						/* Released */
-						_mouse_state = 0;
-						_mouse_win_x  = _mouse_window->x;
-						_mouse_win_y  = _mouse_window->y;
+				}
 
-						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-						
-						if (!_mouse_moved) {
-							w_mouse_t _packet;
-							_packet.wid = _mouse_window->wid;
-							_mouse_win_x  = _mouse_window->x;
-							_mouse_win_y  = _mouse_window->y;
-							click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-							click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-							_packet.new_x = click_x;
-							_packet.new_y = click_y;
-							_packet.old_x = -1;
-							_packet.old_y = -1;
-							_packet.buttons = packet->buttons;
-							_packet.command = WE_MOUSECLICK;
-							send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
-						}
+			} else if (_mouse_state == 3) {
+				int width_diff  = (mouse_x - _mouse_init_x) / MOUSE_SCALE;
+				int height_diff = (mouse_y - _mouse_init_y) / MOUSE_SCALE;
 
-					} else {
-						/* Still down */
-
-						_mouse_moved = 1;
-						mouse_discard--;
-						if (mouse_discard < 1) {
-							mouse_discard = MOUSE_DISCARD_LEVEL;
-
-							w_mouse_t _packet;
-							_packet.wid = _mouse_window->wid;
-
-							_mouse_win_x  = _mouse_window->x;
-							_mouse_win_y  = _mouse_window->y;
-
-							_packet.old_x = click_x;
-							_packet.old_y = click_y;
-
-							click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-							click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-
-							_packet.new_x = click_x;
-							_packet.new_y = click_y;
-
-							_packet.buttons = packet->buttons;
-							_packet.command = WE_MOUSEMOVE;
-
-							send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
-						}
-					}
-
-				} else if (_mouse_state == 3) {
-					int width_diff  = (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-					int height_diff = (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-
-					resizing_window_w = resizing_window->width  + width_diff;
-					resizing_window_h = resizing_window->height + height_diff;
-					if (!(packet->buttons & MOUSE_BUTTON_MIDDLE)) {
-						/* Resize */
-						w_window_t wwt;
-						wwt.wid    = resizing_window->wid;
-						wwt.width  = resizing_window_w;
-						wwt.height = resizing_window_h;
-						resize_window_buffer(resizing_window, resizing_window->x, resizing_window->y, wwt.width, wwt.height);
-						send_window_event(resizing_window->owner, WE_RESIZED, &wwt);
-						resizing_window = NULL;
-						_mouse_state = 0;
-					}
+				resizing_window_w = resizing_window->width  + width_diff;
+				resizing_window_h = resizing_window->height + height_diff;
+				if (!(packet->buttons & MOUSE_BUTTON_MIDDLE)) {
+					/* Resize */
+					w_window_t wwt;
+					wwt.wid    = resizing_window->wid;
+					wwt.width  = resizing_window_w;
+					wwt.height = resizing_window_h;
+					resize_window_buffer(resizing_window, resizing_window->x, resizing_window->y, wwt.width, wwt.height);
+					send_window_event(resizing_window->owner, WE_RESIZED, &wwt);
+					resizing_window = NULL;
+					_mouse_state = 0;
 				}
 			}
-			fstat(mfd, &_stat);
 		}
-		
+	}
+	return NULL;
+}
+
+void * keyboard_input(void * garbage) {
+	char buf[1];
+	while (1) {
 		/* Read keyboard */
-		fstat(0, &_stat);
-		if (_stat.st_size) {
-			int r = read(0, buf, 1);
-			if (r > 0) {
-				w_keyboard_t packet;
-				packet.ret = kbd_scancode(buf[0], &packet.event);
-				window_t * focused = focused_window();
-				if (!handle_key_press(&packet, focused)) {
-					if (focused) {
-						packet.wid = focused->wid;
-						packet.command = 0;
-						packet.key = packet.ret ? packet.event.key : 0;
-						send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
-					}
+		int r = read(0, buf, 1);
+		if (r > 0) {
+			w_keyboard_t packet;
+			packet.ret = kbd_scancode(buf[0], &packet.event);
+			window_t * focused = focused_window();
+			if (!handle_key_press(&packet, focused)) {
+				if (focused) {
+					packet.wid = focused->wid;
+					packet.command = 0;
+					packet.key = packet.ret ? packet.event.key : 0;
+					send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
 				}
 			}
 		}
@@ -1111,8 +1121,11 @@ int main(int argc, char ** argv) {
 
 	/* Grab the mouse */
 	int mfd = syscall_mousedevice();
-	pthread_t input_thread;
-	pthread_create(&input_thread, NULL, process_requests, (void *)&mfd);
+	pthread_t mouse_thread;
+	pthread_create(&mouse_thread, NULL, process_requests, (void *)&mfd);
+
+	pthread_t keyboard_thread;
+	pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
 
 	pthread_t redraw_everything_thread;
 	pthread_create(&redraw_everything_thread, NULL, redraw_thread, NULL);
