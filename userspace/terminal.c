@@ -88,7 +88,7 @@ void reinit(); /* Defined way further down */
 
 /* Cursor bink timer */
 static unsigned int timer_tick = 0;
-#define TIMER_TICK 400000
+#define TIMER_TICK 40
 
 /* Mouse control */
 #define MOUSE_SCALE 6
@@ -1755,6 +1755,11 @@ int main(int argc, char ** argv) {
 		struct stat _stat;
 		while (!exit_application) {
 			timer_tick++;
+			if (timer_tick == (_windowed ? TIMER_TICK * 10 : TIMER_TICK)) {
+				timer_tick = 0;
+				flip_cursor();
+			}
+
 			fstat(ofd, &_stat);
 			if (_stat.st_size) {
 				int r = read(ofd, buf, min(_stat.st_size, 1024));
