@@ -1299,7 +1299,7 @@ int buffer_put(char c) {
 			input_collected--;
 			input_buffer[input_collected] = '\0';
 			if (state.local_echo) {
-				ansi_put(c);
+				ansi_print("\010 \010");
 			}
 		}
 		return 0;
