@@ -223,6 +223,7 @@ int main(int argc, char ** argv) {
 	window = window_create(10,10, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
 	ctx = init_graphics_window_double_buffer(window);
 	draw_fill(ctx,rgb(0,0,0));
+	flip(ctx);
 
 	init_decorations();
 	focus_changed_callback = focus_callback;

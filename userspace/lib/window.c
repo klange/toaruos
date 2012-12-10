@@ -569,10 +569,10 @@ int setup_windowing () {
 		process_windows->windows = list_create();
 	}
 
-	install_signal_handlers();
-
 	event_pipe = syscall_mkpipe();
 	mouse_event_pipe = syscall_mkpipe();
+
+	install_signal_handlers();
 
 	return wins_connect();
 }

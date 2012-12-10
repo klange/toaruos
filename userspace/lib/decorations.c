@@ -68,7 +68,7 @@ void init_decorations() {
 
 }
 
-void render_decorations_(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
+static void render_decorations_(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 	int width = window->width;
 	int height = window->height;
 
@@ -120,6 +120,7 @@ void render_decorations_(window_t * window, gfx_context_t * ctx, char * title, i
 }
 
 void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
+	if (!window) return;
 	if (!window->focused) {
 		render_decorations_(window, ctx, title, INACTIVE);
 	} else {
@@ -128,6 +129,7 @@ void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
 }
 
 void render_decorations_inactive(window_t * window, gfx_context_t * ctx, char * title) {
+	if (!window) return;
 	render_decorations_(window, ctx, title, INACTIVE);
 }
 
