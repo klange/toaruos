@@ -293,11 +293,13 @@ void set_focused_window(window_t * n_focused) {
 			send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
 		}
 		focused = n_focused;
-		w_window_t wwt;
-		wwt.wid  = focused->wid;
-		wwt.left = 1;
-		send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
-		make_top(focused);
+		if (focused) {
+			w_window_t wwt;
+			wwt.wid  = focused->wid;
+			wwt.left = 1;
+			send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
+			make_top(focused);
+		}
 	}
 
 }
