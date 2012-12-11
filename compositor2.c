@@ -299,6 +299,8 @@ void set_focused_window(window_t * n_focused) {
 			wwt.left = 1;
 			send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
 			make_top(focused);
+		} else {
+			focused = windows[0];
 		}
 	}
 

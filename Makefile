@@ -2,7 +2,13 @@ CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
 CFLAGS = -std=c99 -U__STRICT_ANSI__ -O3 -m32 -Wa,--32
 CPPFLAGS = -O3 -m32 -Wa,--32
+ifeq ($(DEBUG_MODE),1)
+STRIP = true
 EXTRAFLAGS = -g
+else
+STRIP = i686-pc-toaru-strip
+EXTRAFLAGS = -s
+endif
 
 EXECUTABLES = $(patsubst %.c,../hdd/bin/%,$(wildcard *.c))
 
@@ -51,5 +57,6 @@ clean:
 ${EXTRA_LIB_TARGETS}: $(TARGETDIR)% : %.c
 	@${BEG} "CC" "$< [w/extra libs]"
 	@${CC} -flto ${CFLAGS} ${EXTRAFLAGS} ${LOCAL_INC} ${EXTRA_LIB_INCLUDES} -o $@ $< ${LOCAL_LIBS} ${EXTRA_LIB_LIBRARIES} ${ERRORS}
+	@${STRIP} $@
 	@${END} "CC" "$< [w/extra libs]"
 
