@@ -32,6 +32,8 @@ int center_y(int y) {
 	return (win_height - y) / 2;
 }
 
+static int event_pipe;
+
 typedef struct {
 	char * icon;
 	char * appname;
@@ -50,6 +52,8 @@ volatile int _continue = 1;
 void sig_int(int sig) {
 	printf("Received shutdown signal in wallpaper!\n");
 	_continue = 0;
+	char buf = '1';
+	write(event_pipe, &buf, 1);
 }
 
 void launch_application(char * app) {
@@ -78,6 +82,8 @@ void wallpaper_check_click(w_mouse_t * evt) {
 					(evt->new_y < ICON_TOP_Y + ICON_SPACING_Y + ICON_SPACING_Y * i)) {
 					printf("Launching application \"%s\"...\n", applications[i].title);
 					next_run_activate = applications[i].appname;
+					char buf = '1';
+					write(event_pipe, &buf, 1);
 				}
 				++i;
 			}
@@ -99,6 +105,8 @@ int main (int argc, char ** argv) {
 
 	win_width = width;
 	win_height = height;
+
+	event_pipe = syscall_mkpipe();
 
 	/* Do something with a window */
 	window_t * wina = window_create(0,0, width, height);
@@ -160,11 +168,12 @@ int main (int argc, char ** argv) {
 	mouse_action_callback = wallpaper_check_click;
 
 	while (_continue) {
+		char buf;
+		read(event_pipe, &buf, 1);
 		if (next_run_activate) {
 			launch_application(next_run_activate);
 			next_run_activate = NULL;
 		}
-		syscall_yield();
 	}
 
 	teardown_windowing();

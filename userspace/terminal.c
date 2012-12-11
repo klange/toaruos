@@ -26,6 +26,8 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
+DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
+
 #include <wchar.h>
 int mk_wcwidth_cjk(wchar_t ucs);
 
@@ -1120,7 +1122,7 @@ void term_write(char c) {
 				}
 			}
 			/* XXX: sleep */
-			for (int i = 0; i < 10; ++i) syscall_yield();
+			syscall_nanosleep(0,10);
 			term_redraw_all();
 		} else if (c == '\r') {
 			cell_redraw(csr_x,csr_y);
