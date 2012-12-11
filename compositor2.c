@@ -517,22 +517,24 @@ void redraw_windows() {
 		}
 	}
 
+	/* Resizing window outline */
+	if (resizing_window) {
+		cairo_save(cr);
+
+		cairo_set_line_width(cr, 3);
+		cairo_set_source_rgba(cr, 0.0, 0.4, 1.0, 0.9);
+		cairo_rectangle(cr, resizing_window->x, resizing_window->y, resizing_window_w, resizing_window_h);
+		cairo_stroke_preserve(cr);
+		cairo_set_source_rgba(cr, 0.33, 0.55, 1.0, 0.5);
+		cairo_fill(cr);
+
+		cairo_restore(cr);
+	}
+
 	cairo_surface_flush(surface);
 	cairo_destroy(cr);
 	cairo_surface_flush(surface);
 	cairo_surface_destroy(surface);
-}
-
-void draw_box(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	int32_t _min_x = max(x, 0);
-	int32_t _min_y = max(y,  0);
-	int32_t _max_x = min(x + w - 1, ctx->width  - 1);
-	int32_t _max_y = min(y + h - 1, ctx->height - 1);
-
-	draw_line(ctx, _min_x, _max_x, _min_y, _min_y, color);
-	draw_line(ctx, _min_x, _max_x, _max_y, _max_y, color);
-	draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
-	draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 }
 
 void internal_free_window(window_t * window) {
@@ -1088,10 +1090,6 @@ void * redraw_thread(void * derp) {
 		}
 		/* Other stuff */
 		redraw_cursor();
-		/* Resizing window outline */
-		if (resizing_window) {
-			draw_box(resizing_window->x, resizing_window->y, resizing_window_w, resizing_window_h, rgb(0,128,128));
-		}
 
 		spin_unlock(&am_drawing);
 		flip(ctx);
