@@ -469,13 +469,7 @@ static void ignore(int sig) {
 
 void * win_threaded_event_processor(void * garbage) {
 	while (1) {
-		struct stat buf;
-		fstat(process_windows->event_pipe, &buf);
-		do {
-			process_evt();
-			fstat(process_windows->event_pipe, &buf);
-		} while (buf.st_size);
-		syscall_yield();
+		process_evt();
 	}
 }
 
