@@ -3,6 +3,7 @@ before_install: ./.before_install.sh
 before_script: ./.before_script.sh
 script: ./.build-travis.sh
 notifications:
+  email: false
   irc:
     channels:
       - "irc.freenode.org#toaruos"
