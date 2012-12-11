@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <math.h>
 #include <time.h>
+#include <syscall.h>
 
 struct timeval {
 	unsigned int tv_sec;
@@ -16,6 +17,8 @@ struct timeval {
 };
 
 #define PI 3.14159265
+
+DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -167,7 +170,7 @@ int main (int argc, char ** argv) {
 			goto done;
 			break;
 		}
-		syscall_yield();
+		syscall_nanosleep(0,50);
 	}
 done:
 

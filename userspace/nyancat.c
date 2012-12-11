@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
+
 char * colors[256] = {NULL};
 char * frame0[] = {
 ",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.,,,,,,,,,,,,,,,,,,,,,,,,,",
@@ -876,9 +878,7 @@ int main(int argc, char ** argv) {
 		if (!frames[i]) {
 			i = 0;
 		}
-		for (uint32_t sleep = 0; sleep < 0x02FFFFFF; ++sleep) {
-			__asm__ __volatile__ ("nop");
-		}
+		syscall_nanosleep(0,10);
 		printf("\033[H");
 	}
 

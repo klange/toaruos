@@ -33,6 +33,8 @@ typedef struct thread {
 
 	uint8_t    fp_regs[108];
 
+	uint8_t    padding[32]; /* I don't know */
+
 	page_directory_t * page_directory; /* Page Directory */
 } thread_t;
 
@@ -91,6 +93,12 @@ typedef struct process {
 	node_t        sleep_node;
 } process_t;
 
+typedef struct {
+	unsigned long end_tick;
+	unsigned long end_subtick;
+	process_t * process;
+} sleeper_t;
+
 void initialize_process_tree();
 process_t * spawn_process(volatile process_t * parent);
 void debug_print_process_tree();
@@ -107,6 +115,9 @@ process_t * process_from_pid(pid_t pid);
 void delete_process(process_t * proc);
 uint32_t process_move_fd(process_t * proc, int src, int dest);
 int process_is_ready(process_t * proc);
+
+void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
+void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
 
 volatile process_t * current_process;
 

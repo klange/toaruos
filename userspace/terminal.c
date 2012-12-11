@@ -49,6 +49,17 @@ int mk_wcwidth_cjk(wchar_t ucs);
  */
 #define DEBUG_TERMINAL_WITH_SERIAL 0
 
+static void spin_lock(int volatile * lock) {
+	while(__sync_lock_test_and_set(lock, 0x01)) {
+		syscall_yield();
+	}
+}
+
+static void spin_unlock(int volatile * lock) {
+	__sync_lock_release(lock);
+}
+
+
 /* A terminal cell represents a single character on screen */
 typedef struct _terminal_cell {
 	uint16_t c;     /* codepoint */
@@ -222,10 +233,7 @@ void ansi_buf_add(char c) {
 	state.buffer[state.buflen] = '\0';
 }
 
-void
-ansi_put(
-		char c
-		) {
+static __inline__ void _ansi_put(char c) {
 	switch (state.escape) {
 		case 0:
 			/* We are not escaped, check for escape character */
@@ -606,6 +614,13 @@ ansi_put(
 			}
 			break;
 	}
+}
+
+volatile int ansi_lock = 0;
+void ansi_put(char c) {
+	spin_lock(&ansi_lock);
+	_ansi_put(c);
+	spin_unlock(&ansi_lock);
 }
 
 void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char),

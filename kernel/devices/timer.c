@@ -4,6 +4,7 @@
  */
 #include <system.h>
 #include <logging.h>
+#include <process.h>
 
 #define PIT_A 0x40
 #define PIT_B 0x41
@@ -50,7 +51,19 @@ timer_handler(
 		timer_subticks = 0;
 	}
 	irq_ack(TIMER_IRQ);
+
+	wakeup_sleepers(timer_ticks, timer_subticks);
 	switch_task(1);
+}
+
+void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds) {
+	if (subseconds + timer_subticks > SUBTICKS_PER_TICK) {
+		*out_seconds    = timer_ticks + seconds + 1;
+		*out_subseconds = (subseconds + timer_subticks) - SUBTICKS_PER_TICK;
+	} else {
+		*out_seconds    = timer_ticks + seconds;
+		*out_subseconds = timer_subticks + subseconds;
+	}
 }
 
 /*

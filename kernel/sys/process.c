@@ -14,6 +14,7 @@
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_queue; /* Ready queue */
 list_t * reap_queue;    /* Processes to reap */
+list_t * sleep_queue;
 volatile process_t * current_process = NULL;
 
 static uint8_t volatile reap_lock;
@@ -29,6 +30,7 @@ void initialize_process_tree() {
 	process_tree = tree_create();
 	process_queue = list_create();
 	reap_queue = list_create();
+	sleep_queue = list_create();
 }
 
 /*
@@ -456,3 +458,40 @@ int process_is_ready(process_t * proc) {
 	return 0;
 }
 
+void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
+	if (sleep_queue->length) {
+		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
+		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
+			process_t * process = proc->process;
+			if (!process_is_ready(process)) {
+				make_process_ready(process);
+			}
+			free(proc);
+			free(list_dequeue(sleep_queue));
+			if (sleep_queue->length) {
+				proc = ((sleeper_t *)sleep_queue->head->value);
+			} else {
+				break;
+			}
+		}
+	}
+}
+
+void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
+	IRQ_OFF;
+	debug_print(INFO, "Sleeping process %d until %d,%d", process->id, seconds, subseconds);
+	node_t * before = NULL;
+	foreach(node, sleep_queue) {
+		sleeper_t * candidate = ((sleeper_t *)node->value);
+		if (candidate->end_tick > seconds || (candidate->end_tick == seconds && candidate->end_subtick > subseconds)) {
+			break;
+		}
+		before = node;
+	}
+	sleeper_t * proc = malloc(sizeof(sleeper_t));
+	proc->process     = process;
+	proc->end_tick    = seconds;
+	proc->end_subtick = subseconds;
+	list_insert_after(sleep_queue, before, proc);
+	IRQ_RES;
+}

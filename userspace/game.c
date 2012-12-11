@@ -254,7 +254,13 @@ int main(int argc, char ** argv) {
 	while (playing) {
 
 		char ch = 0;
-		w_keyboard_t * kbd = poll_keyboard();
+		w_keyboard_t * kbd;
+
+		while (kbd = poll_keyboard_async()) {
+			free(kbd);
+		}
+
+		kbd = poll_keyboard();
 		ch = kbd->key;
 		free(kbd);
 

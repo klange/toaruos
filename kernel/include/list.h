@@ -32,6 +32,9 @@ node_t * list_dequeue(list_t * list);
 list_t * list_copy(list_t * original);
 void list_merge(list_t * target, list_t * source);
 
+void list_append_after(list_t * list, node_t * before, node_t * node);
+void list_insert_after(list_t * list, node_t * before, void * item);
+
 #define foreach(i, list) for (node_t * i = list->head; i != NULL; i = i->next)
 
 #endif

@@ -24,6 +24,8 @@ uint16_t win_width;
 uint16_t win_height;
 gfx_context_t * ctx;
 
+DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
+
 int center_x(int x) {
 	return (win_width - x) / 2;
 }
@@ -140,7 +142,7 @@ int main (int argc, char ** argv) {
 
 			flip(ctx);
 		}
-		syscall_yield();
+		syscall_nanosleep(0,50);
 	}
 
 	teardown_windowing();

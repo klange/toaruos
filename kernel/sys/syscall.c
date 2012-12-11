@@ -541,6 +541,26 @@ static int system_function(int fn, char ** args) {
 	return -1; /* Bad system function or access failure */
 }
 
+static int sleep(unsigned long seconds, unsigned long subseconds) {
+	/* Mark us as asleep until <some time period> */
+	sleep_until((process_t *)current_process, seconds, subseconds);
+
+	/* Switch without adding us to the queue */
+	switch_task(0);
+
+	if (seconds > timer_ticks || (seconds == timer_ticks && subseconds >= timer_subticks)) {
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+static int sleep_rel(unsigned long seconds, unsigned long subseconds) {
+	unsigned long s, ss;
+	relative_time(seconds, subseconds, &s, &ss);
+	return sleep(s, ss);
+}
+
 /*
  * System Call Internals
  */
@@ -592,6 +612,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&yield,
 	(uintptr_t)&system_function,
 	(uintptr_t)&open_serial,        /* 44 */
+	(uintptr_t)&sleep,
+	(uintptr_t)&sleep_rel,
 	0
 };
 uint32_t num_syscalls;

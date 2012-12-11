@@ -47,6 +47,37 @@ void list_insert(list_t * list, void * item) {
 	list_append(list, node);
 }
 
+void list_append_after(list_t * list, node_t * before, node_t * node) {
+	if (!list->tail) {
+		list_append(list, node);
+		return;
+	}
+	if (before == NULL) {
+		node->next = list->head;
+		list->head->prev = node;
+		list->head = node;
+		list->length++;
+		return;
+	}
+	if (before == list->tail) {
+		list->tail = node;
+	} else {
+		before->next->prev = node;
+		node->next = before->next;
+	}
+	node->prev = before;
+	before->next = node;
+	list->length++;
+}
+
+void list_insert_after(list_t * list, node_t * before, void * item) {
+	node_t * node = malloc(sizeof(node_t));
+	node->value = item;
+	node->next  = NULL;
+	node->prev  = NULL;
+	list_append_after(list, before, node);
+}
+
 list_t * list_create() {
 	/* Create a fresh list */
 	list_t * out = malloc(sizeof(list_t));

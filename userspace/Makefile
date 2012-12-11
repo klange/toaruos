@@ -1,9 +1,14 @@
 CC = i686-pc-toaru-gcc
 CPP = i686-pc-toaru-g++
-STRIP = i686-pc-toaru-strip
 CFLAGS = -std=c99 -U__STRICT_ANSI__ -O3 -m32 -Wa,--32
 CPPFLAGS = -O3 -m32 -Wa,--32
+ifeq ($(DEBUG_MODE),1)
+STRIP = true
+EXTRAFLAGS = -g
+else
+STRIP = i686-pc-toaru-strip
 EXTRAFLAGS = -s
+endif
 EXECUTABLES = $(patsubst %.c,%.o,$(wildcard lib/*.c)) $(patsubst %.c,../hdd/bin/%,$(wildcard *.c)) $(patsubst %.cpp,../hdd/bin/%,$(wildcard *.cpp))
 
 BEG = ../util/mk-beg

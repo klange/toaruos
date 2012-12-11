@@ -143,6 +143,7 @@ extern void irq_ack();
 extern void timer_install();
 extern unsigned long timer_ticks;
 extern unsigned char timer_subticks;
+extern void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds);
 
 /* Keyboard */
 extern void keyboard_install();
