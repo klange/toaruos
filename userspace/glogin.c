@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <string.h>
+#include <time.h>
 
 #include "lib/sha2.h"
 #include "lib/window.h"
@@ -23,6 +24,12 @@ uint16_t win_width;
 uint16_t win_height;
 
 int uid = 0;
+
+/* Timing type */
+struct timeval {
+	unsigned int tv_sec;
+	unsigned int tv_usec;
+};
 
 #define LOGO_FINAL_OFFSET 100
 
@@ -136,6 +143,9 @@ void draw_box_border(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32
 
 
 int main (int argc, char ** argv) {
+	init_sprite_png(0, "/usr/share/logo_login.png");
+	init_shmemfonts();
+
 	while (1) {
 		setup_windowing();
 
@@ -145,14 +155,11 @@ int main (int argc, char ** argv) {
 		win_width = width;
 		win_height = height;
 
-		init_shmemfonts();
-
 		/* Do something with a window */
 		window_t * wina = window_create(0,0, width, height);
 		assert(wina);
 		window_reorder (wina, 0); /* Disables movement */
 		ctx = init_graphics_window_double_buffer(wina);
-		init_sprite_png(0, "/usr/share/logo_login.png");
 
 		for (int i = 0; i < LOGO_FINAL_OFFSET; ++i) {
 			draw_fill(ctx, rgb(0,0,0));
@@ -176,6 +183,38 @@ int main (int argc, char ** argv) {
 
 		char username[INPUT_SIZE] = {0};
 		char password[INPUT_SIZE] = {0};
+		char hostname[512];
+
+		{
+			char _hostname[256];
+			syscall_gethostname(_hostname);
+
+			struct tm * timeinfo;
+			struct timeval now;
+			syscall_gettimeofday(&now, NULL); //time(NULL);
+			timeinfo = localtime((time_t *)&now.tv_sec);
+
+			char _date[256];
+			strftime(_date, 256, "%a %B %d %Y", timeinfo);
+
+			sprintf(hostname, "%s // %s", _hostname, _date);
+		}
+
+		char kernel_v[512];
+
+		{
+			char _uname[1024];
+			syscall_kernel_string_XXX(_uname);
+
+			char * os_version = strstr(_uname, " ");
+			os_version++;
+			char * tmp = strstr(os_version, " ");
+			tmp[0] = 0;
+
+			/* UTF-8 Strings FTW! */
+			uint8_t * os_name_ = "とあるOS";
+			uint32_t l = snprintf(kernel_v, 512, "%s %s", os_name_, os_version);
+		}
 
 		uid = 0;
 
@@ -191,10 +230,12 @@ int main (int argc, char ** argv) {
 
 		int focus = USERNAME_BOX;
 
-		set_font_size(12);
+		set_font_size(11);
 
 		int username_label_left = LEFT_OFFSET - 2 - draw_string_width("Username:");
 		int password_label_left = LEFT_OFFSET - 2 - draw_string_width("Password:");
+		int hostname_label_left = width - 10 - draw_string_width(hostname);
+		int kernel_v_label_left = 10;
 
 		char password_circles[INPUT_SIZE * 3];
 
@@ -217,8 +258,11 @@ int main (int argc, char ** argv) {
 				draw_fill(ctx, rgb(0,0,0));
 				draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 
+				draw_string(ctx, hostname_label_left, height - 12, white, hostname);
+				draw_string(ctx, kernel_v_label_left, height - 12, white, kernel_v);
+
 				/* Draw backdrops */
-				draw_box(ctx, box_x, box_y, BOX_WIDTH, BOX_HEIGHT, rgb(45,45,45));
+				draw_box(ctx, box_x, box_y, BOX_WIDTH, BOX_HEIGHT, rgb(20,20,20));
 				draw_box(ctx, box_x + LEFT_OFFSET, box_y + 32, 168, 16, rgb(255,255,255));
 				draw_box(ctx, box_x + LEFT_OFFSET, box_y + 56, 168, 16, rgb(255,255,255));
 
@@ -301,9 +345,8 @@ int main (int argc, char ** argv) {
 		syscall_wait(_session_pid);
 
 		free(buf);
-		free(sprites[0]);
-		free(sprites[1]);
-
+		free(ctx->backbuffer);
+		free(ctx->buffer);
 	}
 
 	return 0;
