@@ -45,30 +45,42 @@ static void init_sprite_png(int id, char * path) {
 	load_sprite_png(sprites[id], path);
 }
 
-void init_decorations() {
-	init_shmemfonts();
+static void (*render_decorations_)(window_t *, gfx_context_t *, char *, int) = NULL;
 
-	init_sprite_png(0, "/usr/share/ttk/active/ul.png");
-	init_sprite_png(1, "/usr/share/ttk/active/um.png");
-	init_sprite_png(2, "/usr/share/ttk/active/ur.png");
-	init_sprite_png(3, "/usr/share/ttk/active/ml.png");
-	init_sprite_png(4, "/usr/share/ttk/active/mr.png");
-	init_sprite_png(5, "/usr/share/ttk/active/ll.png");
-	init_sprite_png(6, "/usr/share/ttk/active/lm.png");
-	init_sprite_png(7, "/usr/share/ttk/active/lr.png");
+static void render_decorations_simple(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
-	init_sprite_png(INACTIVE + 0, "/usr/share/ttk/inactive/ul.png");
-	init_sprite_png(INACTIVE + 1, "/usr/share/ttk/inactive/um.png");
-	init_sprite_png(INACTIVE + 2, "/usr/share/ttk/inactive/ur.png");
-	init_sprite_png(INACTIVE + 3, "/usr/share/ttk/inactive/ml.png");
-	init_sprite_png(INACTIVE + 4, "/usr/share/ttk/inactive/mr.png");
-	init_sprite_png(INACTIVE + 5, "/usr/share/ttk/inactive/ll.png");
-	init_sprite_png(INACTIVE + 6, "/usr/share/ttk/inactive/lm.png");
-	init_sprite_png(INACTIVE + 7, "/usr/share/ttk/inactive/lr.png");
+	for (uint32_t i = 0; i < window->height; ++i) {
+		GFX(ctx, 0, i) = BORDERCOLOR;
+		GFX(ctx, window->width - 1, i) = BORDERCOLOR;
+	}
+
+	for (uint32_t i = 1; i < decor_top_height; ++i) {
+		for (uint32_t j = 1; j < window->width - 1; ++j) {
+			GFX(ctx, j, i) = BACKCOLOR;
+		}
+	}
+
+	draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR, title);
+
+	for (uint32_t i = 0; i < window->width; ++i) {
+		GFX(ctx, i, 0) = BORDERCOLOR;
+		GFX(ctx, i, decor_top_height - 1) = BORDERCOLOR;
+		GFX(ctx, i, window->height - 1) = BORDERCOLOR;
+	}
+
 
 }
 
-static void render_decorations_(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
+static void initialize_simple() {
+	decor_top_height     = 24;
+	decor_bottom_height  = 1;
+	decor_left_width     = 1;
+	decor_right_width    = 1;
+
+	render_decorations_ = render_decorations_simple;
+}
+
+static void render_decorations_fancy(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 	int width = window->width;
 	int height = window->height;
 
@@ -119,6 +131,33 @@ static void render_decorations_(window_t * window, gfx_context_t * ctx, char * t
 	}
 }
 
+static void initialize_fancy() {
+	init_sprite_png(0, "/usr/share/ttk/active/ul.png");
+	init_sprite_png(1, "/usr/share/ttk/active/um.png");
+	init_sprite_png(2, "/usr/share/ttk/active/ur.png");
+	init_sprite_png(3, "/usr/share/ttk/active/ml.png");
+	init_sprite_png(4, "/usr/share/ttk/active/mr.png");
+	init_sprite_png(5, "/usr/share/ttk/active/ll.png");
+	init_sprite_png(6, "/usr/share/ttk/active/lm.png");
+	init_sprite_png(7, "/usr/share/ttk/active/lr.png");
+
+	init_sprite_png(INACTIVE + 0, "/usr/share/ttk/inactive/ul.png");
+	init_sprite_png(INACTIVE + 1, "/usr/share/ttk/inactive/um.png");
+	init_sprite_png(INACTIVE + 2, "/usr/share/ttk/inactive/ur.png");
+	init_sprite_png(INACTIVE + 3, "/usr/share/ttk/inactive/ml.png");
+	init_sprite_png(INACTIVE + 4, "/usr/share/ttk/inactive/mr.png");
+	init_sprite_png(INACTIVE + 5, "/usr/share/ttk/inactive/ll.png");
+	init_sprite_png(INACTIVE + 6, "/usr/share/ttk/inactive/lm.png");
+	init_sprite_png(INACTIVE + 7, "/usr/share/ttk/inactive/lr.png");
+
+	decor_top_height     = 33;
+	decor_bottom_height  = 6;
+	decor_left_width     = 6;
+	decor_right_width    = 6;
+
+	render_decorations_ = render_decorations_fancy;
+}
+
 void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
 	if (!window->focused) {
@@ -133,6 +172,16 @@ void render_decorations_inactive(window_t * window, gfx_context_t * ctx, char * 
 	render_decorations_(window, ctx, title, INACTIVE);
 }
 
+void init_decorations() {
+	init_shmemfonts();
+
+	char * theme = getenv("WM_THEME");
+	if (theme && !strcmp(theme, "simple")) {
+		initialize_simple();
+	} else {
+		initialize_fancy();
+	}
+}
 
 uint32_t decor_width() {
 	return decor_left_width + decor_right_width;

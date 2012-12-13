@@ -81,6 +81,10 @@ void set_font_face(int face_num) {
 	selected_face = face_num;
 }
 
+char * shmem_font_name(int i) {
+	return ((FT_FaceRec *)faces[i])->family_name;
+}
+
 /*
  * Draw a character to a context.
  */

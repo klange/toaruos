@@ -11,6 +11,7 @@ void draw_string_shadow(gfx_context_t * ctx, int x, int y, uint32_t fg, char * s
 void set_font_size(int size);
 void set_text_opacity(float new_opacity);
 void set_font_face(int face_num);
+char * shmem_font_name(int i);
 
 #define FONT_SANS_SERIF             0
 #define FONT_SANS_SERIF_BOLD        1
