@@ -236,7 +236,7 @@ void ansi_buf_add(char c) {
 	state.buffer[state.buflen] = '\0';
 }
 
-static __inline__ void _ansi_put(char c) {
+static void ansi_put(char c) {
 	switch (state.escape) {
 		case 0:
 			/* We are not escaped, check for escape character */
@@ -617,13 +617,6 @@ static __inline__ void _ansi_put(char c) {
 			}
 			break;
 	}
-}
-
-volatile int ansi_lock = 0;
-void ansi_put(char c) {
-	spin_lock(&ansi_lock);
-	_ansi_put(c);
-	spin_unlock(&ansi_lock);
 }
 
 void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char),
@@ -1435,7 +1428,6 @@ void usage(char * argv[]) {
 
 void reinit() {
 	if (_use_freetype) {
-
 		/* Reset font sizes */
 
 		font_size   = 13;
@@ -1483,10 +1475,10 @@ void reinit() {
 		term_height = ctx->height / char_height;
 	}
 	if (term_buffer) {
-		free(term_buffer);
+		term_buffer = realloc(term_buffer, sizeof(t_cell) * term_width * term_height);
+	} else {
+		term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
 	}
-	/* XXX: Transfer values, cursor location, etc.? */
-	term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll);
 
 	mouse_x = ctx->width / 2;
