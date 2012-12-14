@@ -1,5 +1,6 @@
 toaru|toaruos framebuffer terminal,
 	mc5i,
+	xenl,
 	cols#128, lines#45,
 	colors#256, it#8, ncv#18, pairs#32767, npc, am,
 	ind=^J, cr=^M,

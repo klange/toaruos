@@ -96,6 +96,7 @@ uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell 
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _unbuffered    = 0;
 uint8_t  _force_kernel  = 0;
+uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 
 void reinit(); /* Defined way further down */
 
@@ -1111,6 +1112,10 @@ void term_write(char c) {
 			c = '?';
 		}
 		if (c == '\n') {
+			if (csr_x == 0 && _hold_out) {
+				_hold_out = 0;
+				return;
+			}
 			csr_x = 0;
 			++csr_y;
 			draw_cursor();
@@ -1156,7 +1161,9 @@ void term_write(char c) {
 				csr_x++;
 			}
 		}
+		_hold_out = 0;
 		if (csr_x == term_width) {
+			_hold_out = 1;
 			csr_x = 0;
 			++csr_y;
 		}
