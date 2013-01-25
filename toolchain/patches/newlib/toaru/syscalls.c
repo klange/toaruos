@@ -19,6 +19,9 @@
 #include "termios.h"
 #include <bits/dirent.h>
 
+extern void _init();
+extern void _fini();
+
 DEFN_SYSCALL1(exit,  0, int);
 DEFN_SYSCALL1(print, 1, const char *);
 DEFN_SYSCALL3(open,  2, const char *, int, int);
@@ -69,6 +72,7 @@ extern char ** environ;
 // --- Process Control ---
 
 int _exit(int val){
+	_fini();
 	return syscall_exit(val);
 }
 
@@ -386,7 +390,8 @@ void pre_main(int argc, char * argv[]) {
 			break;
 		}
 	}
-	main(argc, argv);
+	_init();
+	_exit(main(argc, argv));
 }
 
 

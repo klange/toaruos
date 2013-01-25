@@ -2,16 +2,14 @@
 BITS 32
 
 section .init
-global  _init
-_init:
-	push ebp
 	; .init goes here
+	pop ebp
+	ret
 
 section .fini
-global  _fini
-_fini:
-	push ebp
 	; .fini goes here
+	pop ebp
+	ret
 
 ; vim:syntax=nasm
 ; vim:noexpandtab

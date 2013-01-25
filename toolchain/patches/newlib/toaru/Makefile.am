@@ -8,7 +8,7 @@ lib_a_SOURCES = syscalls.c
 lib_a_CCASFLAGS = $(AM_CCASFLAGS)
 lib_a_CFLAGS = $(AM_CFLAGS)
 
-all: crt0.o
+all: crt0.o crti.o crtn.o
 
 ACLOCAL_AMFLAGS = -I ../../.. -I ../../../..
 CONFIG_STATUS_DEPENDENCIES = $(newlib_basedir)/configure.host

@@ -12,7 +12,7 @@ diff -rupN original/config.sub new/config.sub
 diff -rupN original/gcc/config/toaru.h new/gcc/config/toaru.h
 --- original/gcc/config/toaru.h	1969-12-31 18:00:00.000000000 -0600
 +++ new/gcc/config/toaru.h	2011-04-24 19:51:58.000000000 -0500
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,17 @@
 +#undef TARGET_OS_CPP_BUILTINS
 +#define TARGET_OS_CPP_BUILTINS() \
 +	do { \
@@ -21,6 +21,12 @@ diff -rupN original/gcc/config/toaru.h new/gcc/config/toaru.h
 +		builtin_assert ("system=toaru"); \
 +		builtin_assert ("system=unix"); \
 +	} while (0);
++
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
++
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
 +
 +#undef TARGET_VERSION
 +#define TARGET_VERSION fprintf(stderr, " (i386 toaru)");
