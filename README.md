@@ -49,8 +49,8 @@ While とあるOS ships with only its own native software tools, we are working 
   * Lua's standalone interpreter has been successfully built and run.
   * Some Lua functionality is currently missing and we are working to solve this.
 * Cairo
-  * Cairo and its dependencies can be built if care is taken to supply the correct configuration settings.
-  * To build pixman, modifications to the `config.h` header must be made to disable global constructors, as these are not currently supported.
+  * Cairo will be included in an forthcoming update to the toolchain.
+  * A new version of the compositor using Cairo for blitting, providing a much smoother and extendable window management experience.
 
 ## Screenshots ##
 
