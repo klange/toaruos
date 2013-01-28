@@ -1,0 +1,7 @@
+derp:
+	@echo "lol"
+
+all: derp
+install: derp
+distclean: derp
+clean: derp

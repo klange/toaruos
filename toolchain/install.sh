@@ -69,9 +69,7 @@ pushd build
         make || bail
         make install || bail
     popd
-    #
     # XXX zlib can not be built in a separate directory
-    #
     pushd ../tarballs/zlib*
         CC=i686-pc-toaru-gcc ./configure --static --prefix=$PREFIX/$TARGET --solo || bail
         make || bail
@@ -82,6 +80,25 @@ pushd build
     fi
     pushd libpng
         $DIR/tarballs/libpng-1.5.13/configure --host=$TARGET --prefix=$PREFIX/$TARGET || bail
+        make || bail
+        make install || bail
+    popd
+    if [ ! -d pixman ]; then
+        mkdir pixman
+    fi
+    pushd pixman
+        $DIR/tarballs/pixman-0.26.2/configure --host=$TARGET --prefix=$PREFIX/$TARGET || bail
+        make || bail
+        make install || bail
+    popd
+    if [ ! -d cairo ]; then
+        mkdir cairo
+    fi
+    pushd cairo
+        $DIR/tarballs/cairo-1.12.2/configure --host=$TARGET --prefix=$PREFIX/$TARGET --enable-ps=no --enable-pdf=no --enable-interpreter=no || bail
+        cp $DIR/patches/cairo-Makefile test/Makefile
+        cp $DIR/patches/cairo-Makefile perf/Makefile
+        echo -e "\n\n#define CAIRO_NO_MUTEX 1" >> config.h
         make || bail
         make install || bail
     popd
