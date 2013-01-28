@@ -48,9 +48,13 @@ While とあるOS ships with only its own native software tools, we are working 
 * Lua
   * Lua's standalone interpreter has been successfully built and run.
   * Some Lua functionality is currently missing and we are working to solve this.
-* Cairo
-  * Cairo will be included in an forthcoming update to the toolchain.
-  * A new version of the compositor using Cairo for blitting, providing a much smoother and extendable window management experience.
+
+The following libraries are built by the build scripts:
+
+* `libpng` - Used extensively by the native graphics library to provide wallpaper and icons.
+* `zlib` - Dependency of `libpng`, but also generally useful.
+* `freetype` - For rendering text
+* `cairo` and `pixman` - For accelerated and managed graphics.
 
 ## Screenshots ##
 
@@ -322,5 +326,5 @@ ToAruOS contains additional software with the following copyright notices:
 
 * Some icons from the Elementary Icons set are included. These are icons are released under the GPL. You may find a list of authors and contributors alongside the icon files.
 
-* Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html) and [zlib](http://www.zlib.net/) Patches for these software packages are provided under the same license as the package they are for.
+* Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html), [zlib](http://www.zlib.net/), and [Cairo](http://www.cairographics.org/). Patches for these software packages are provided under the same license as the package they are for.<F7>
 
