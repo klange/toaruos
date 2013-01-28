@@ -4,6 +4,7 @@ toaruos-disk.img
 *.o
 *.swp
 .userspace-check
+.compositor-check
 bootloader/stage1.bin
 bootloader/stage2.bin
 initrd/boot

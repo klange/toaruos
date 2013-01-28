@@ -142,7 +142,14 @@ hdd:
 	@cd userspace && make
 	@touch .userspace-check
 
-toaruos-disk.img: hdd .userspace-check hdd/bin/*
+toaru-compositor:
+	git submodule --init update
+
+.compositor-check: toaru-compositor toaru-compositor/*.c
+	@cd toaru-compositor && make
+	@touch .compositor-check
+
+toaruos-disk.img: hdd .userspace-check .compositor-check hdd/bin/*
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}
