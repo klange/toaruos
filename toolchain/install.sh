@@ -61,6 +61,8 @@ pushd build
         make || bail
         make install || bail
     popd
+    # Source the activate script, which will enable pkg-config stuff
+    . $DIR/activate.sh
     if [ ! -d freetype ]; then
         mkdir freetype
     fi
