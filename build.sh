@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ -f /etc/lsb-release ]; then
+if [ -f /etc/debian_version ]; then
     sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp-dev qemu autoconf automake texinfo pkg-config
 elif [ -f /etc/fedora-release ]; then
     sudo yum groupinstall 'Development Tools'
@@ -14,7 +14,7 @@ unset PKG_CONFIG_LIBDIR
 pushd toolchain
 ./prepare.sh
 ./install.sh
-. activate.sh
+./activate.sh
 popd
 # Build the userspace tools:
 pushd userspace
