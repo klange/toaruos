@@ -42,7 +42,7 @@ LOCAL_LIBS = $(patsubst %.c,%.o,$(wildcard ../userspace/lib/*.c))
 LOCAL_INC  = -I ../userspace/
 
 TARGETDIR = ../hdd/bin/
-EXTRA_LIB_APPS = compositor2 cairo-demo pixman-demo make-it-snow
+EXTRA_LIB_APPS = compositor2 cairo-demo pixman-demo make-it-snow ttk-demo
 EXTRA_LIB_TARGETS = $(EXTRA_LIB_APPS:%=$(TARGETDIR)%)
 
 .PHONY: all clean
