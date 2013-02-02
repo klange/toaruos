@@ -73,7 +73,7 @@ pushd build
     popd
     # XXX zlib can not be built in a separate directory
     pushd ../tarballs/zlib*
-        CC=i686-pc-toaru-gcc ./configure --static --prefix=$PREFIX/$TARGET --solo || bail
+        CC=i686-pc-toaru-gcc ./configure --static --prefix=$PREFIX/$TARGET || bail
         make || bail
         make install || bail
     popd
