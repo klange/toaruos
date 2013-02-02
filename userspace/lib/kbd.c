@@ -251,6 +251,10 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 						k_shift  = down;
 						kl_shift = down;
 						break;
+					case 0x36:
+						kr_shift = down;
+						k_shift  = down;
+						break;
 					case 0x38:
 						k_alt    = down;
 						kl_alt   = down;
@@ -330,10 +334,6 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 			case 0x1D:
 				kr_ctrl  = down;
 				k_ctrl   = down;
-				break;
-			case 0x36:
-				kr_shift = down;
-				k_shift  = down;
 				break;
 			case 0x38:
 				kr_alt   = down;
