@@ -259,6 +259,36 @@ void _ttk_draw_button_disabled(cairo_t * cr, int x, int y, int width, int height
 	cairo_restore(cr);
 }
 
+#define TTK_MENU_HEIGHT 24
+
+void _ttk_draw_menu(cairo_t * cr, int x, int y, int width) {
+	cairo_save(cr);
+
+	int height = TTK_MENU_HEIGHT;
+	cairo_set_source_rgba(cr, 59.0/255.0, 59.0/255.0, 59.0/255.0, 1);
+	cairo_rectangle(cr, x, y, width, height);
+	cairo_fill(cr);
+
+	{
+		cairo_surface_t * surface = cairo_get_target(cr);
+		gfx_context_t fake_context = {
+			.width = cairo_image_surface_get_width(surface),
+			.height = cairo_image_surface_get_height(surface),
+			.depth = 32,
+			.buffer = NULL,
+			.backbuffer = cairo_image_surface_get_data(surface)
+		};
+
+		set_font_face(FONT_SANS_SERIF);
+		set_font_size(13);
+
+		draw_string(&fake_context, x + 8, y + height - 6, rgb(248,248,248), "File");
+	}
+
+
+	cairo_restore(cr);
+}
+
 void ttk_window_draw(ttk_window_t * window) {
 	draw_fill(window->core_context, rgb(TTK_BACKGROUND_DEFAULT));
 	ttk_redraw_borders(window);
@@ -274,15 +304,17 @@ void ttk_window_draw(ttk_window_t * window) {
 		cairo_surface_t * internal_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, window->width, window->height);
 		cairo_t * cr = cairo_create(internal_surface);
 
-		_ttk_draw_button(cr, 4, 4, window->width - 8, 40);
+		_ttk_draw_menu(cr, 0, 0, window->width);
 
-		_ttk_draw_button(cr, 4, 48 + 4, (window->width / 2) - 8, 40);
-		_ttk_draw_button_hover(cr, 4 + (window->width / 2), 48 + 4, (window->width / 2) - 8, 40);
+		_ttk_draw_button(cr, 4, TTK_MENU_HEIGHT + 4, window->width - 8, 40);
 
-		_ttk_draw_button_select(cr, 4, 2 * 48 + 4, (window->width / 2) - 8, 40);
-		_ttk_draw_button_disabled(cr, 4 + (window->width / 2), 2 * 48 + 4, (window->width / 2) - 8, 40);
+		_ttk_draw_button(cr, 4, TTK_MENU_HEIGHT + 48 + 4, (window->width / 2) - 8, 40);
+		_ttk_draw_button_hover(cr, 4 + (window->width / 2), TTK_MENU_HEIGHT + 48 + 4, (window->width / 2) - 8, 40);
 
-		_ttk_draw_button(cr, 4, 3 * 48 + 4, window->width - 8, window->height - (3 * 48) - 8);
+		_ttk_draw_button_select(cr, 4, TTK_MENU_HEIGHT + 2 * 48 + 4, (window->width / 2) - 8, 40);
+		_ttk_draw_button_disabled(cr, 4 + (window->width / 2), TTK_MENU_HEIGHT + 2 * 48 + 4, (window->width / 2) - 8, 40);
+
+		_ttk_draw_button(cr, 4, TTK_MENU_HEIGHT + 3 * 48 + 4, window->width - 8, window->height - (3 * 48) - TTK_MENU_HEIGHT - 8);
 
 		/* Paint the window's internal surface onto the backbuffer */
 		cairo_set_source_surface(cr_main, internal_surface, (double)window->off_x, (double)window->off_y);
