@@ -81,6 +81,19 @@ class CCompiler(object):
 				libraries.append(dep[1])
 		return includes, libraries
 
+	def run(self):
+		cmd = [self.compiler]
+		cmd.extend(self.arguments)
+		self.notify_start()
+		ret = subprocess.call(cmd)
+		if not '/lib/' in self.filename:
+			subprocess.call(['i686-pc-toaru-strip', self.output_file()])
+		self.notify_done()
+		if ret:
+			print target, ret
+			print cmd
+			raise Exception
+
 	def notify_start(self):
 		subprocess.call(['../util/mk-beg', 'CC', self.filename])
 	def notify_done(self):
@@ -191,13 +204,5 @@ else:
 	else:
 		for target in needs_rebuild:
 			source_obj = sources[outputs_r[target]]
-			cmd = [source_obj.compiler]
-			cmd.extend(source_obj.arguments)
-			source_obj.notify_start()
-			ret = subprocess.call(cmd)
-			source_obj.notify_done()
-			if ret:
-				print target, ret
-				print cmd
-				raise Exception
+			source_obj.run()
 
