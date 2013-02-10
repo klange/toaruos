@@ -142,9 +142,6 @@ hdd:
 	@cd userspace && make
 	@touch .userspace-check
 
-toaru-compositor/*.c:
-	git submodule update --init
-
 .compositor-check: toaru-compositor toaru-compositor/*.c
 	@cd toaru-compositor && make
 	@touch .compositor-check
