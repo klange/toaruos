@@ -1,6 +1,3 @@
 [submodule "image-builder"]
 	path = image-builder
 	url = http://github.com/klange/toaru-create-image
-[submodule "toaru-compositor"]
-	path = toaru-compositor
-	url = http://github.com/klange/toaru-compositor
