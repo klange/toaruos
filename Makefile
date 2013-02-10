@@ -136,14 +136,11 @@ toaruos-initrd: .passed
 # TODO: Install Grub to one of these by pulling newest grub builds
 #       from the Grub2 website.
 
-hdd:
-	@mkdir hdd
-
 .userspace-check: ${USERSPACE}
 	@cd userspace && python build.py
 	@touch .userspace-check
 
-toaruos-disk.img: hdd .userspace-check hdd/bin/*
+toaruos-disk.img: .userspace-check
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}
