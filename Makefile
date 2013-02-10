@@ -23,6 +23,7 @@ DATASTRUCTS  = $(patsubst %.c,%.o,$(wildcard kernel/ds/*.c))
 CPUBITS      = $(patsubst %.c,%.o,$(wildcard kernel/cpu/*.c))
 
 SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS}
+USERSPACE = $(shell find userspace/ -type f -name '*.c') $(shell find userspace/ -type f -name '*.cpp') $(shell find userspace/ -type f -name '*.h')
 
 UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
@@ -138,15 +139,11 @@ toaruos-initrd: .passed
 hdd:
 	@mkdir hdd
 
-.userspace-check: userspace/*.c userspace/*.cpp userspace/lib/*.h userspace/lib/*.c
-	@cd userspace && make
+.userspace-check: ${USERSPACE}
+	@cd userspace && python build.py
 	@touch .userspace-check
 
-.compositor-check: toaru-compositor toaru-compositor/*.c
-	@cd toaru-compositor && make
-	@touch .compositor-check
-
-toaruos-disk.img: hdd .userspace-check .compositor-check hdd/bin/*
+toaruos-disk.img: hdd .userspace-check hdd/bin/*
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -d hdd -q -b 131072 -N 4096 toaruos-disk.img ${ERRORS}

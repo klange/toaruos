@@ -24,9 +24,9 @@
 #endif
 
 #include <wchar.h>
-int mk_wcwidth_cjk(wchar_t ucs);
 
 #include "lib/utf8decode.h"
+#include "lib/wcwidth.h"
 
 #define BLOCK_SIZE 256
 #define ENTER_KEY     '\n'

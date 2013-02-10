@@ -29,8 +29,8 @@
 DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 
 #include <wchar.h>
-int mk_wcwidth_cjk(wchar_t ucs);
 
+#include "lib/wcwidth.h"
 #include "lib/utf8decode.h"
 #include "../kernel/include/mouse.h"
 
