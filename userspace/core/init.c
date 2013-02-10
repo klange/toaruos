@@ -83,12 +83,6 @@ void start_vga_terminal(char * arg) {
 void start_compositor() {
 	int pid = fork();
 	if (!pid) {
-		char * tokens[] = {
-			"/bin/compositor2",
-			NULL
-		};
-		execvp(tokens[0], tokens);
-
 		char * _tokens[] = {
 			"/bin/compositor",
 			NULL
