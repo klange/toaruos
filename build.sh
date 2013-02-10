@@ -16,10 +16,6 @@ pushd toolchain
 ./install.sh
 . activate.sh
 popd
-# Build the userspace tools:
-pushd userspace
-make
-popd
 # Build the kernel
 make system         # to build the kernel
 # XXX: Attempt to boot the kernel with qemu automatically...
