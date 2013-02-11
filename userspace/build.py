@@ -1,8 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-JuJu - An automagical compiler for the とあるOS userspace.
+JuJu - An automagical build tool for the とあるOS userspace.
+
+Run with:
+	python build.py
+
+For information on the build status, run as:
+	python build.py status
+
+To clean build products, use:
+	python build.py clean
+
 """
+
+# TODO: Add support for rebuilding individual targets
 
 import os
 import subprocess
