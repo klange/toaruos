@@ -6,15 +6,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
-#include <cairo.h>
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_CACHE_H
 
-#include "lib/window.h"
-#include "lib/graphics.h"
-#include "lib/decorations.h"
-#include "lib/shmemfonts.h"
+#include "gui/ttk/ttk.h"
 
 /* TTK {{{ */
 
@@ -28,21 +21,6 @@ void cairo_rounded_rectangle(cairo_t * cr, double x, double y, double width, dou
 	cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
 	cairo_close_path(cr);
 }
-
-typedef struct ttk_window {
-	window_t        * core_window;
-	gfx_context_t   * core_context;
-	char            * title;
-	cairo_surface_t * cairo_surface;
-	uint16_t          width; /* internal space */
-	uint16_t          height;
-	uint16_t          off_x; /* decor_left_width */
-	uint16_t          off_y; /* decor_top_height */
-} ttk_window_t;
-
-#define TTK_BACKGROUND_DEFAULT 204,204,204
-#define TTK_DEFAULT_X 300
-#define TTK_DEFAULT_Y 300
 
 list_t * ttk_window_list;
 
@@ -447,11 +425,3 @@ done:
 }
 
 /* }}} end TTK */
-
-int main (int argc, char ** argv) {
-
-	ttk_initialize();
-	ttk_window_t * main_window = ttk_window_new("TTK Demo", 500, 500);
-
-	return ttk_run(main_window);
-}

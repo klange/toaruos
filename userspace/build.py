@@ -41,6 +41,7 @@ class CCompiler(object):
 			'"lib/shmemfonts.h"':  (None, 'lib/shmemfonts.o',  ['"lib/graphics.h"', '<ft2build.h>']),
 			'"lib/wcwidth.h"':     (None, 'lib/wcwidth.o',     []),
 			'"lib/window.h"':      (None, 'lib/window.o',      ['"lib/pthread.h"', '"lib/list.h"']),
+			'"gui/ttk/ttk.h"':     (None, 'gui/ttk/lib/ttk-core.o', ['"lib/decorations.h"', '<cairo.h>', '<math.h>']),
 	}
 
 	def __init__(self, filename):
