@@ -116,7 +116,7 @@ Here are some tutorials we found useful early on:
 
 * [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html)
 * [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/Docs/basickernel.htm)
-* Skelix's OS tutorial (link no longer available)
+* [Skelix's OS tutorial](http://skelix.net/skelixos/index_en.html)
 
 # Licenses #
 
