@@ -24,6 +24,8 @@ if [ "$REPLY" == "n" ] ; then
     exit
 fi
 
+type kpartx >/dev/null 2>&1 || { echo "Trying to install kpartx..."; apt-get install kpartx; }
+
 # Create a 1GiB blank disk image.
 dd if=/dev/zero of=$DISK bs=4096 count=262144
 
@@ -62,5 +64,11 @@ echo "Installing grub."
 grub-install --boot-directory=/mnt/boot /dev/loop1
 
 ./clean-up.sh
+
+if [ -n "$SUDO_USER" ] ; then
+    echo "Reassigning permissions on disk image to $SUDO_USER"
+    chown $SUDO_USER:$SUDO_USER $DISK
+fi
+
 
 echo "Done. You can boot the disk image with qemu now."
