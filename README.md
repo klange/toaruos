@@ -1,11 +1,11 @@
 # ToAruOS (とあるOS) #
 ![ToAruOS (logo)](https://github.com/klange/osdev/raw/master/docs/logo.png)
 
-とあるOS is a hobby operating system based loosely on POSIX. Development began in December of 2010 at the University of Illinois at Urbana-Champaign, was managed for a short time by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/) and, as of May 2012, is once again independently managed. The primary goal of the project is to build a usable operating system and allow its developers to learn the inner workings of various technologies related to that goal.
+とあるOS is a hobby operating system based loosely on POSIX standards. Development began in December of 2010 at the University of Illinois at Urbana-Champaign, was managed for a short time by the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/) and, since May 2012, is independently managed and developed. The primary goal of the project is to build a usable, graphical operating system and to allow its developers to learn the inner workings of various technologies related to that achieving goal.
 
 ### Build Status ###
 
-Automated build tests are run with nearly every commit through Travis CI. Sometimes builds time out while downloading external resources, so these results are not always accurate.
+Automated build tests are run with nearly every commit through Travis CI.
 
 [![Automated build testing provided by Travis CI.](https://secure.travis-ci.org/klange/osdev.png?branch=master)](http://travis-ci.org/klange/osdev)
 
@@ -87,9 +87,9 @@ If you are on Debian/Ubuntu/etc., you can clone the repository and run:
 
     ./build.sh
 
-This will install the required dependencies, build the userspace libraries and toolchain, build the kernel, and give you a working ramdisk and hard disk.
+This will install the required dependencies, build the userspace libraries and toolchain, build the kernel, and give you a hard disk image.
 
-You can then run `make run` or `make kvm` to run QEMU. An additional `make run-config` command is available that allows easy customization of the emulation environment.
+You can then run `make run` or `make kvm` to run QEMU. An additional `make run-config` command is available that allows easy customization of the emulation environment through a config file (`.config`, see `util/config-parser` for available options).
 
 While we only officially support QEMU, other environments - including actual hardware - should work given the appropriate tools. If you are eager to try とあるOS from a real machine, please use GRUB 2 and ensure that you provide the correct graphics payload options. In the future, GRUB 2 configurations will be supported with configuration files and build scripts.
 
@@ -102,6 +102,16 @@ With some work, とあるOS is also known to build successfully under cygwin. In
 
 ### Prebuilt Images ###
 Our [downloads](https://github.com/klange/osdev/downloads) section contains prebuilt images in the form of VMDK disk images. These disk images should run in VirtualBox, and can be converted to a format suitable for use with QEMU or Bochs. VirtualBox is the preferred environment for non-Linux hosts as it provides hardware virtualization that greatly improves user experience. Be sure to equip your VM with a sufficient amount of RAM (1GB should suffice).
+
+If you would like to try to build your own images, you can attempt to use the script in `image-builder`. It should be run as follows:
+
+    sudo ./create-image.sh ../
+
+Root is required as the script makes use of mounting and native partitioning tools on the Linux host to generate a bootable disk image. The final image should be suitable for use in VirtualBox or VMWare after appropriate conversion from the raw byte image. Please note that these scripts are not supported.
+
+## Troubleshooting
+
+If you have any issues at all while attempting to build とあるOS, or you would like help building on an unsupported platform, please join us on IRC (`#toaruos@irc.freenode.net`). Problems encountered while using the build scripts in an unsupported environment will not be considered bugs until thoroughly examined.
 
 ## Dependencies ##
 
@@ -324,7 +334,7 @@ ToAruOS contains additional software with the following copyright notices:
         TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
         OF THIS SOFTWARE.
 
-* Some icons from the Elementary Icons set are included. These are icons are released under the GPL. You may find a list of authors and contributors alongside the icon files.
+* Some icons from the Elementary Icons set are included. These icons are released under the GPL. You may find a list of authors and contributors alongside the icon files. For reference, a copy of the GNU General Public License is available [here](http://www.gnu.org/licenses/gpl.html).
 
 * Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html), [zlib](http://www.zlib.net/), and [Cairo](http://www.cairographics.org/). Patches for these software packages are provided under the same license as the package they are for.<F7>
 
