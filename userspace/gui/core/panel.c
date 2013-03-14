@@ -10,6 +10,7 @@
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/utsname.h>
 
 #define PANEL_HEIGHT 28
 
@@ -23,8 +24,6 @@ sprite_t alpha_tmp;
 uint16_t win_width;
 uint16_t win_height;
 gfx_context_t * ctx;
-
-DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 
 int center_x(int x) {
 	return (win_width - x) / 2;
@@ -107,18 +106,13 @@ int main (int argc, char ** argv) {
 	struct tm * timeinfo;
 	char   buffer[80];
 
-	char _uname[1024];
-	syscall_kernel_string_XXX(_uname);
-
-	char * os_version = strstr(_uname, " ");
-	os_version++;
-	char * tmp = strstr(os_version, " ");
-	tmp[0] = 0;
+	struct utsname u;
+	uname(&u);
 
 	/* UTF-8 Strings FTW! */
 	uint8_t * os_name_ = "とあるOS";
 	uint8_t final[512];
-	uint32_t l = snprintf(final, 512, "%s %s", os_name_, os_version);
+	uint32_t l = snprintf(final, 512, "%s %s", os_name_, u.release);
 
 	syscall_signal(2, sig_int);
 

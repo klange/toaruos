@@ -10,6 +10,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <sys/utsname.h>
+
 #include "lib/sha2.h"
 #include "lib/window.h"
 #include "lib/graphics.h"
@@ -203,17 +205,11 @@ int main (int argc, char ** argv) {
 		char kernel_v[512];
 
 		{
-			char _uname[1024];
-			syscall_kernel_string_XXX(_uname);
-
-			char * os_version = strstr(_uname, " ");
-			os_version++;
-			char * tmp = strstr(os_version, " ");
-			tmp[0] = 0;
-
+			struct utsname u;
+			uname(&u);
 			/* UTF-8 Strings FTW! */
 			uint8_t * os_name_ = "とあるOS";
-			uint32_t l = snprintf(kernel_v, 512, "%s %s", os_name_, os_version);
+			uint32_t l = snprintf(kernel_v, 512, "%s %s", os_name_, u.release);
 		}
 
 		uid = 0;

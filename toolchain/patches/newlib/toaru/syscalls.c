@@ -9,6 +9,7 @@
 #include <sys/times.h>
 #include <sys/errno.h>
 #include <sys/time.h>
+#include <sys/utsname.h>
 #include <stdio.h>
 #include <utime.h>
 
@@ -34,8 +35,8 @@ DEFN_SYSCALL0(fork, 8);
 DEFN_SYSCALL0(getpid, 9);
 DEFN_SYSCALL1(sbrk, 10, int);
 DEFN_SYSCALL0(getgraphicsaddress, 11);
-DEFN_SYSCALL1(kbd_mode, 12, int);
-DEFN_SYSCALL0(kbd_get, 13);
+DEFN_SYSCALL1(uname, 12, void *);
+/* RESERVED syscall 13 */
 DEFN_SYSCALL3(lseek, 14, int, int, int);
 DEFN_SYSCALL2(fstat, 15, int, void *);
 DEFN_SYSCALL1(setgraphicsoffset, 16, int);
@@ -66,6 +67,10 @@ DEFN_SYSCALL1(get_fd, 40, int);
 DEFN_SYSCALL0(gettid, 41);
 DEFN_SYSCALL0(yield, 42);
 DEFN_SYSCALL2(system_function, 43, int, char **);
+DEFN_SYSCALL1(open_serial, 44, int);
+DEFN_SYSCALL2(sleepabs,  45, unsigned long, unsigned long);
+DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
+
 
 extern char ** environ;
 
@@ -99,6 +104,10 @@ int getpid() {
 /* Fork. Duh. */
 int fork(void) {
 	return syscall_fork();
+}
+
+int uname(struct utsname *__name) {
+	return syscall_uname((void *)__name);
 }
 
 
@@ -176,12 +185,6 @@ int stat(const char *file, struct stat *st){
 	return ret;
 }
 
-int unlink(char *name) {
-	fprintf(stderr, "[debug] pid %d unlink(%s);\n", getpid(), name);
-	errno = ENOENT;
-	return -1;
-}
-
 int write(int file, char *ptr, int len) {
 	return syscall_write(file,ptr,len);
 }
@@ -217,61 +220,12 @@ int pipe(int fildes[2]) {
 	return 0;
 }
 
-int  fcntl(int fd, int cmd, ...) {
-	if (cmd == F_GETFD || cmd == F_SETFD) {
-		return 0;
-	}
-	fprintf(stderr, "[user/debug] Unsupported operation [fcntl]\n");
-	/* Not supported */
-	return -1;
-}
-
-mode_t umask(mode_t mask) {
-	fprintf(stderr, "[user/debug] Unsupported operation [umask]\n");
-	/* Not supported */
-	return 0;
-}
-
 char *getwd(char *buf) {
 	return syscall_getcwd(buf, 256);
 }
 
-int chmod(const char *path, mode_t mode) {
-	fprintf(stderr, "[user/debug] Unsupported operation [chmod]\n");
-	/* Not supported */
-	return -1;
-}
-
-int access(const char *pathname, int mode) {
-	fprintf(stderr, "[user/debug] Unsupported operation [access]\n");
-	/* Not supported */
-	return -1;
-}
-
 int lstat(const char *path, struct stat *buf) {
 	return stat(path, buf);
-}
-
-long pathconf(char *path, int name) {
-	fprintf(stderr, "[user/debug] Unsupported operation [pathconf]\n");
-	/* Not supported */
-	return -1;
-}
-
-
-int utime(const char *filename, const struct utimbuf *times) {
-	fprintf(stderr, "[user/debug] Unsupported operation [utime]\n");
-	return -1;
-}
-
-int chown(const char *path, uid_t owner, gid_t group) {
-	fprintf(stderr, "[user/debug] Unsupported operation [chown]\n");
-	return -1;
-}
-
-int rmdir(const char *pathname) {
-	fprintf(stderr, "[user/debug] Unsupported operation [rmdir]\n");
-	return -1;
 }
 
 int mkdir(const char *pathname, mode_t mode) {
@@ -282,13 +236,8 @@ int chdir(const char *path) {
 	return syscall_chdir(path);
 }
 
-char *ttyname(int fd) {
-	errno = ENOTTY;
-	return NULL;
-}
-
 unsigned int sleep(unsigned int seconds) {
-	/* lol go fuck yourself */
+	syscall_nanosleep(seconds, 0);
 	return 0;
 }
 
@@ -327,16 +276,6 @@ int dup2(int oldfd, int newfd) {
 	return syscall_dup2(oldfd, newfd);
 }
 
-unsigned int alarm(unsigned int seconds) {
-	fprintf(stderr, "alarm(%s);\n", seconds);
-	return 0;
-}
-
-clock_t times(struct tms *buf) {
-	fprintf(stderr, "times(...)\n");
-	return -1;
-}
-
 DIR * opendir (const char * dirname) {
 	int fd = open(dirname, O_RDONLY);
 	if (fd == -1) {
@@ -369,11 +308,6 @@ struct dirent * readdir (DIR * dirp) {
 	return &ent;
 }
 
-long sysconf(int name) {
-	fprintf(stderr, "sysconf(%d);\n", name);
-	return -1;
-}
-
 void pre_main(int argc, char * argv[]) {
 	unsigned int x = 0;
 	unsigned int nulls = 0;
@@ -394,6 +328,84 @@ void pre_main(int argc, char * argv[]) {
 	_exit(main(argc, argv));
 }
 
+
+/* XXX Unimplemented functions */
+unsigned int alarm(unsigned int seconds) {
+	fprintf(stderr, "alarm(%s);\n", seconds);
+	return 0;
+}
+
+clock_t times(struct tms *buf) {
+	fprintf(stderr, "times(...)\n");
+	return -1;
+}
+
+
+int  fcntl(int fd, int cmd, ...) {
+	if (cmd == F_GETFD || cmd == F_SETFD) {
+		return 0;
+	}
+	fprintf(stderr, "[user/debug] Unsupported operation [fcntl]\n");
+	/* Not supported */
+	return -1;
+}
+
+mode_t umask(mode_t mask) {
+	fprintf(stderr, "[user/debug] Unsupported operation [umask]\n");
+	/* Not supported */
+	return 0;
+}
+
+int chmod(const char *path, mode_t mode) {
+	fprintf(stderr, "[user/debug] Unsupported operation [chmod]\n");
+	/* Not supported */
+	return -1;
+}
+
+int unlink(char *name) {
+	fprintf(stderr, "[debug] pid %d unlink(%s);\n", getpid(), name);
+	errno = ENOENT;
+	return -1;
+}
+
+int access(const char *pathname, int mode) {
+	fprintf(stderr, "[user/debug] Unsupported operation [access]\n");
+	/* Not supported */
+	return -1;
+}
+
+long pathconf(char *path, int name) {
+	fprintf(stderr, "[user/debug] Unsupported operation [pathconf]\n");
+	/* Not supported */
+	return -1;
+}
+
+
+int utime(const char *filename, const struct utimbuf *times) {
+	fprintf(stderr, "[user/debug] Unsupported operation [utime]\n");
+	return -1;
+}
+
+int chown(const char *path, uid_t owner, gid_t group) {
+	fprintf(stderr, "[user/debug] Unsupported operation [chown]\n");
+	return -1;
+}
+
+int rmdir(const char *pathname) {
+	fprintf(stderr, "[user/debug] Unsupported operation [rmdir]\n");
+	return -1;
+}
+
+
+char *ttyname(int fd) {
+	errno = ENOTTY;
+	return NULL;
+}
+
+long sysconf(int name) {
+	fprintf(stderr, "sysconf(%d);\n", name);
+	return -1;
+}
 
 /* termios */
 speed_t cfgetispeed(const struct termios * tio) {

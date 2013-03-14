@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <syscall.h>
 
-DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
-
 int main(int argc, char ** argv) {
 	int ret = 0;
 

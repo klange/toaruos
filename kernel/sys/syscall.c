@@ -11,9 +11,15 @@
 #include <version.h>
 #include <shm.h>
 
+#include <utsname.h>
+
 #define SPECIAL_CASE_STDIO
 
 #define RESERVED 1
+
+
+static char   hostname[256];
+static size_t hostname_len = 0;
 
 /*
  * System calls themselves
@@ -328,6 +334,28 @@ static int kernel_name_XXX(char * buffer) {
 			__kernel_arch);
 }
 
+static int uname(struct utsname * name) {
+	validate((void *)name);
+	char version_number[256];
+	sprintf(version_number, __kernel_version_format,
+			__kernel_version_major,
+			__kernel_version_minor,
+			__kernel_version_lower,
+			__kernel_version_suffix);
+	char version_string[256];
+	sprintf(version_string, "%s %s %s",
+			__kernel_version_codename,
+			__kernel_build_date,
+			__kernel_build_time);
+	strcpy(name->sysname,  __kernel_name);
+	strcpy(name->nodename, hostname);
+	strcpy(name->release,  version_number);
+	strcpy(name->version,  version_string);
+	strcpy(name->machine,  __kernel_arch);
+	strcpy(name->domainname, "");
+	return 0;
+}
+
 static int send_signal(pid_t process, uint32_t signal) {
 	process_t * receiver = process_from_pid(process);
 
@@ -425,9 +453,6 @@ static char * getcwd(char * buf, size_t size) {
 	memcpy(buf, current_process->wd_name, min(size, strlen(current_process->wd_name) + 1));
 	return buf;
 }
-
-static char   hostname[256];
-static size_t hostname_len = 0;
 
 static int sethostname(char * new_hostname) {
 	if (current_process->user == USER_ROOT_UID) {
@@ -579,7 +604,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_getpid,
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&getgraphicsaddress,
-	(uintptr_t)RESERVED,            /* 12 */
+	(uintptr_t)&uname,              /* 12 */
 	(uintptr_t)RESERVED,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,

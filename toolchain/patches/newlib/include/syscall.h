@@ -60,8 +60,7 @@ DECL_SYSCALL0(fork);
 DECL_SYSCALL0(getpid);
 DECL_SYSCALL1(sbrk, int);
 DECL_SYSCALL0(getgraphicsaddress);
-DECL_SYSCALL1(kbd_mode, int);
-DECL_SYSCALL0(kbd_get);
+DECL_SYSCALL1(uname, void *);
 DECL_SYSCALL3(lseek, int, int, int);
 DECL_SYSCALL2(fstat, int, void *);
 DECL_SYSCALL1(setgraphicsoffset, int);
@@ -92,6 +91,9 @@ DECL_SYSCALL1(get_fd, int);
 DECL_SYSCALL0(gettid);
 DECL_SYSCALL0(yield);
 DECL_SYSCALL2(system_function, int, char **);
+DECL_SYSCALL1(open_serial, int);
+DECL_SYSCALL2(sleepabs, unsigned long, unsigned long);
+DECL_SYSCALL2(nanosleep, unsigned long, unsigned long);
 
 #endif
 /*

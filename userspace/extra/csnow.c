@@ -5,7 +5,6 @@
 
 #ifdef __toaru__
 #include <syscall.h>
-DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 int usleep(useconds_t time) { syscall_nanosleep(0, time / 10000); }
 #else
 #include <sys/ioctl.h>

@@ -26,8 +26,6 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
-DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
-
 #include <wchar.h>
 
 #include "lib/wcwidth.h"

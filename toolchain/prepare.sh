@@ -19,8 +19,8 @@ pushd "$DIR" > /dev/null
     fi
     pushd tarballs > /dev/null
         $INFO "wget" "Pulling source packages..."
-        grab "gcc"  "http://gcc.petsads.us/releases/gcc-4.6.0" "gcc-core-4.6.0.tar.gz"
-        grab "g++"  "http://gcc.petsads.us/releases/gcc-4.6.0" "gcc-g++-4.6.0.tar.gz"
+        grab "gcc"  "http://www.netgull.com/gcc/releases/gcc-4.6.0" "gcc-core-4.6.0.tar.gz"
+        grab "g++"  "http://www.netgull.com/gcc/releases/gcc-4.6.0" "gcc-g++-4.6.0.tar.gz"
         #grab "mpc"  "http://www.multiprecision.org/mpc/download" "mpc-0.9.tar.gz"
         #grab "mpfr" "http://www.mpfr.org/mpfr-3.0.1" "mpfr-3.0.1.tar.gz"
         #grab "gmp"  "ftp://ftp.gmplib.org/pub/gmp-5.0.1" "gmp-5.0.1.tar.gz"

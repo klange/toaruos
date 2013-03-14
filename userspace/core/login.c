@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <time.h>
 
+#include <sys/utsname.h>
+
 #include "lib/sha2.h"
 
 uint32_t child = 0;
@@ -70,11 +72,15 @@ int checkUserPass(char * user, char * pass) {
 
 int main(int argc, char ** argv) {
 
-	/* TODO: uname() */
-	char * _uname = malloc(sizeof(char) * 1024);
-	syscall_kernel_string_XXX(_uname);
+	struct utsname u;
+	uname(&u);
 
-	fprintf(stdout, "\n%s\n\n", _uname);
+	fprintf(stdout, "\n%s %s %s %s\n\n",
+			u.sysname,
+			u.nodename,
+			u.release,
+			u.version
+			);
 
 	syscall_signal(2, sig_int);
 	syscall_signal(11, sig_segv);
