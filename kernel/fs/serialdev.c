@@ -46,6 +46,7 @@ void close_serial(fs_node_t * node) {
 
 fs_node_t * serial_device_create(int device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = device;
 	strcpy(fnode->name, "serial");
 	fnode->uid = 0;
@@ -63,4 +64,20 @@ fs_node_t * serial_device_create(int device) {
 	fnode->ctime = fnode->atime;
 
 	return fnode;
+}
+
+void serial_mount_devices() {
+
+	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A);
+	vfs_mount("/dev/ttyS0", ttyS0);
+
+	fs_node_t * ttyS1 = serial_device_create(SERIAL_PORT_B);
+	vfs_mount("/dev/ttyS1", ttyS1);
+
+	fs_node_t * ttyS2 = serial_device_create(SERIAL_PORT_C);
+	vfs_mount("/dev/ttyS2", ttyS2);
+
+	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D);
+	vfs_mount("/dev/ttyS3", ttyS3);
+
 }

@@ -13,7 +13,6 @@
 #include "lib/pthread.h"
 #include "../kernel/include/signal.h"
 
-DEFN_SYSCALL1(serial,  44, int);
 int fd = 0;
 
 int child_pid = 0;
@@ -35,25 +34,19 @@ void *print_serial_stuff(void * garbage) {
 }
 
 int main(int argc, char ** argv) {
-	int device = 0x2F8;
 	pthread_t receive_thread;
 	pthread_t flush_thread;
+	char * device = argv[1];
 
-	if (argc > 1) {
-		if (!strcmp(argv[1], "com1")) {
-			device = 0x3F8;
-		} else if (!strcmp(argv[1], "com2")) {
-			device = 0x2F8;
-		} else {
-			fprintf(stderr, "Unrecognized com device, try com1 or com2; default is com2.\n");
-			return 1;
-		}
+	if (argc < 1) {
+		device = "/dev/ttyS0";
 	}
 
 	printf("\033[1560z");
 	fflush(stdout);
 
-	fd = syscall_serial(device);
+	fd = syscall_open(device, 0, 0);
+
 	pthread_create(&receive_thread, NULL, print_serial_stuff, NULL);
 
 	while (1) {

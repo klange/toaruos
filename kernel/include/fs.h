@@ -86,6 +86,9 @@ struct stat  {
 extern fs_node_t *fs_root;
 extern fs_node_t * null_device_create();
 extern fs_node_t * serial_device_create(int device);
+extern void serial_mount_devices();
+
+extern fs_node_t * hello_device_create();
 
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -98,5 +101,11 @@ int create_file_fs(char *name, uint16_t permission);
 fs_node_t *kopen(char *filename, uint32_t flags);
 char *canonicalize_path(char *cwd, char *input);
 fs_node_t *clone_fs(fs_node_t * source);
+
+void vfs_install();
+int vfs_mount(char * path, fs_node_t * local_root);
+
+/* Debug purposes only, please */
+void debug_print_vfs_tree();
 
 #endif

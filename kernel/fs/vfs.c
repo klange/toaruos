@@ -9,7 +9,8 @@
 #include <process.h>
 #include <logging.h>
 
-fs_node_t *fs_root = 0;
+tree_t    * fs_tree = NULL; /* File system mountpoint tree */
+fs_node_t * fs_root = NULL; /* Pointer to the root mount fs_node (must be some form of filesystem, even ramdisk) */
 
 /**
  * read_fs: Read a file system node based on its underlying type.
@@ -323,60 +324,188 @@ char *canonicalize_path(char *cwd, char *input) {
 	return output;
 }
 
+struct vfs_entry {
+	char * name;
+	fs_node_t * file; /* Or null */
+};
+
+void vfs_install() {
+	/* Initialize the mountpoint tree */
+	fs_tree = tree_create();
+
+	struct vfs_entry * root = malloc(sizeof(struct vfs_entry));
+
+	root->name = strdup("[root]");
+	root->file = NULL; /* Nothing mounted as root */
+
+	tree_set_root(fs_tree, root);
+}
+
+/**
+ * vfs_mount - Mount a file system to the specified path.
+ *
+ * For example, if we have an EXT2 filesystem with a root node
+ * of ext2_root and we want to mount it to /, we would run
+ * vfs_mount("/", ext2_root); - or, if we have a procfs node,
+ * we could mount that to /dev/procfs. Individual files can also
+ * be mounted.
+ *
+ * Paths here must be absolute.
+ */
+int vfs_mount(char * path, fs_node_t * local_root) {
+	if (!fs_tree) {
+		debug_print(ERROR, "VFS hasn't been initialized, you can't mount things yet!");
+		return 1;
+	}
+	if (!path || path[0] != '/') {
+		debug_print(ERROR, "Path must be absolute for mountpoint.");
+		return 2;
+	}
+
+	int ret_val = 0;
+
+	char * p = strdup(path);
+	char * i = p;
+
+	int path_len   = strlen(p);
+
+	/* Chop the path up */
+	while (i < p + path_len) {
+		if (*i == PATH_SEPARATOR) {
+			*i = '\0';
+		}
+		i++;
+	}
+	/* Clean up */
+	p[path_len] = '\0';
+	i = p + 1;
+
+	/* Root */
+	tree_node_t * root_node = fs_tree->root;
+
+	if (*i == '\0') {
+		/* Special case, we're trying to set the root node */
+		struct vfs_entry * root = (struct vfs_entry *)root_node->value;
+		if (root->file) {
+			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
+			ret_val = 3;
+			goto _vfs_cleanup;
+		}
+		root->file = local_root;
+		/* We also keep a legacy shortcut around for that */
+		fs_root = local_root;
+	} else {
+		tree_node_t * node = root_node;
+		char * at = i;
+		while (1) {
+			if (at >= p + path_len) {
+				break;
+			}
+			int found = 0;
+			debug_print(INFO, "Searching for %s", at);
+			foreach(child, node->children) {
+				tree_node_t * tchild = (tree_node_t *)child->value;
+				struct vfs_entry * ent = (struct vfs_entry *)tchild->value;
+				if (!strcmp(ent->name, at)) {
+					found = 1;
+					node = tchild;
+					break;
+				}
+			}
+			if (!found) {
+				debug_print(INFO, "Did not find %s, making it.", at);
+				struct vfs_entry * ent = malloc(sizeof(struct vfs_entry));
+				ent->name = strdup(at);
+				ent->file = NULL;
+				node = tree_node_insert_child(fs_tree, node, ent);
+			}
+			at = at + strlen(at) + 1;
+		}
+		struct vfs_entry * ent = (struct vfs_entry *)node->value;
+		if (ent->file) {
+			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
+			ret_val = 3;
+			goto _vfs_cleanup;
+		}
+		ent->file = local_root;
+	}
+
+_vfs_cleanup:
+	free(p);
+	return ret_val;
+}
+
+void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
+	/* End recursion on a blank entry */
+	if (!node) return;
+	/* Indent output */
+	for (uint32_t i = 0; i < height; ++i) { kprintf("  "); }
+	/* Get the current process */
+	struct vfs_entry * fnode = (struct vfs_entry *)node->value;
+	/* Print the process name */
+	if (fnode->file) {
+		kprintf("%s → 0x%x (%s)", fnode->name, fnode->file, fnode->file->name);
+	} else {
+		kprintf("%s → (empty)", fnode->name);
+	}
+	/* Linefeed */
+	kprintf("\n");
+	foreach(child, node->children) {
+		/* Recursively print the children */
+		debug_print_vfs_tree_node(child->value, height + 1);
+	}
+}
+
+void debug_print_vfs_tree() {
+	debug_print_vfs_tree_node(fs_tree->root, 0);
+}
+
 /**
  * get_mount_point
  *
  */
-fs_node_t *get_mount_point(char * path, size_t path_depth) {
-#if 0
+fs_node_t *get_mount_point(char * path, size_t path_depth, char **outpath) {
 	size_t depth;
 
-	kprintf("[root]");
 	for (depth = 0; depth <= path_depth; ++depth) {
-		kprintf("%s%c", path, (depth == path_depth) ? '\n' : '/');
 		path += strlen(path) + 1;
 	}
-#endif
 
-#if 0
-	tree_node_t * tnode = from;
-	foreach(node, tnode->children) {
-		tree_node_t * _node = (tree_node_t *)node->value;
-		shm_node_t *  snode = (shm_node_t *)_node->value;
+	/* Last available node */
+	fs_node_t   * last = fs_root;
+	tree_node_t * node = fs_tree->root;
 
-		if (!strcmp(snode->name, pch)) {
-			if (*save == '\0') {
-				return snode;
+	char * at = *outpath;
+
+	while (1) {
+		if (at >= path) {
+			break;
+		}
+		int found = 0;
+		debug_print(INFO, "Searching for %s", at);
+		foreach(child, node->children) {
+			tree_node_t * tchild = (tree_node_t *)child->value;
+			struct vfs_entry * ent = (struct vfs_entry *)tchild->value;
+			if (!strcmp(ent->name, at)) {
+				found = 1;
+				node = tchild;
+				at = at + strlen(at) + 1;
+				if (ent->file) {
+					last = ent->file;
+					*outpath = at;
+				}
+				break;
 			}
-			return _get_node(save, create, _node);
+		}
+		if (!found) {
+			break;
 		}
 	}
-#endif
 
-#if 0
-	for (depth = 0; depth < path_depth; ++depth) {
-		/* Search the active directory for the requested directory */
-		node_next = finddir_fs(node_ptr, path_offset);
-		free(node_ptr);
-		node_ptr = node_next;
-		if (!node_ptr) {
-			/* We failed to find the requested directory */
-			/* XXX: This is where we should be checking other file system mappings */
-			free((void *)path);
-			return NULL;
-		} else if (depth == path_depth - 1) {
-			/* We found the file and are done, open the node */
-			open_fs(node_ptr, 1, 0);
-			free((void *)path);
-			return node_ptr;
-		}
-		/* We are still searching... */
-		path_offset += strlen(path_offset) + 1;
-	}
-#endif
-
-	return fs_root;
+	return last;
 }
+
+
 
 
 
@@ -446,7 +575,12 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	uint32_t depth;
 	fs_node_t *node_ptr = malloc(sizeof(fs_node_t));
 	/* Find the mountpoint for this file */
-	fs_node_t *mount_point = get_mount_point(path, path_depth);
+	fs_node_t *mount_point = get_mount_point(path, path_depth, &path_offset);
+
+	if (path_offset >= path+path_len) {
+		free(path);
+		return mount_point;
+	}
 	/* Set the active directory to the mountpoint */
 	memcpy(node_ptr, mount_point, sizeof(fs_node_t));
 	fs_node_t *node_next = NULL;

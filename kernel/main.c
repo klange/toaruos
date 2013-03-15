@@ -114,6 +114,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);	/* Paging */
 	heap_install();							/* Kernel heap */
 
+	vfs_install();
+
 	/* Hardware drivers */
 	timer_install();	/* PIC driver */
 	serial_install();	/* Serial console */
@@ -131,6 +133,20 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	if (cmdline) {
 		parse_args(cmdline);
 	}
+
+	/*
+	vfs_mount("/foo/bar/baz", fs_root);
+	vfs_mount("/foo/bar/loof", fs_root);
+	vfs_mount("/raz/daz/bar", fs_root);
+	*/
+
+	serial_mount_devices();
+	vfs_mount("/dev/null", null_device_create());
+	vfs_mount("/dev/hello", hello_device_create());
+
+	debug_print_vfs_tree();
+
+	//assert(0);
 
 	if (ramdisk && !fs_root) {
 		kprintf("---- ramdisk[0x%x:0x%x]\n", ramdisk, ramdisk_top);
