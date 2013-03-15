@@ -51,7 +51,7 @@ fs_node_t * serial_device_create(int device) {
 	strcpy(fnode->name, "serial");
 	fnode->uid = 0;
 	fnode->gid = 0;
-	fnode->flags = 0;
+	fnode->flags   = FS_CHARDEVICE;
 	fnode->read    = read_serial;
 	fnode->write   = write_serial;
 	fnode->open    = open_serial;

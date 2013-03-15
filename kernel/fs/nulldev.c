@@ -15,7 +15,7 @@ uint32_t read_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 		return 0;
 	}
 	memset(buffer, 0x00, 1);
-	return 1;
+	return 0;
 }
 
 uint32_t write_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
