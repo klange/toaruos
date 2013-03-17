@@ -26,6 +26,7 @@
 #define MEDIA_COLOR		""
 #define SYM_COLOR		""
 #define BROKEN_COLOR	"1;"
+#define DEVICE_COLOR	"1;33;40"
 
 #define DEFAULT_TERM_WIDTH 80
 #define DEFAULT_TERM_HEIGHT 24
@@ -54,13 +55,16 @@ void print_entry(const char * filename, const char * srcpath, int colwidth) {
 
 	const char * ansi_color_str;
 	if (S_ISDIR(statbuf.st_mode)) {
-		// Directory
+		/* Directory */
 		ansi_color_str = DIR_COLOR;
 	} else if (statbuf.st_mode & 0111) {
-		// Executable
+		/* Executable */
 		ansi_color_str = EXE_COLOR;
+	} else if (S_ISBLK(statbuf.st_mode) || S_ISCHR(statbuf.st_mode)) {
+		/* Device file */
+		ansi_color_str = DEVICE_COLOR;
 	} else {
-		// Something else
+		/* Regular file? */
 		ansi_color_str = REG_COLOR;
 	}
 
@@ -84,8 +88,7 @@ void print_username(int uid) {
 
 		char *p, *tokens[10], *last;
 		int i = 0;
-		for ((p = strtok_r(line, ":", &last)); p;
-				(p = strtok_r(NULL, ":", &last)), i++) {
+		for ((p = strtok_r(line, ":", &last)); p; (p = strtok_r(NULL, ":", &last)), i++) {
 			if (i < 511) tokens[i] = p;
 		}
 		tokens[i] = NULL;
