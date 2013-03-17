@@ -38,13 +38,15 @@ void list_append(list_t * list, node_t * node) {
 	list->length++;
 }
 
-void list_insert(list_t * list, void * item) {
+node_t * list_insert(list_t * list, void * item) {
 	/* Insert an item into a list */
 	node_t * node = malloc(sizeof(node_t));
 	node->value = item;
 	node->next  = NULL;
 	node->prev  = NULL;
 	list_append(list, node);
+
+	return node;
 }
 
 void list_append_after(list_t * list, node_t * before, node_t * node) {
@@ -70,12 +72,13 @@ void list_append_after(list_t * list, node_t * before, node_t * node) {
 	list->length++;
 }
 
-void list_insert_after(list_t * list, node_t * before, void * item) {
+node_t * list_insert_after(list_t * list, node_t * before, void * item) {
 	node_t * node = malloc(sizeof(node_t));
 	node->value = item;
 	node->next  = NULL;
 	node->prev  = NULL;
 	list_append_after(list, before, node);
+	return node;
 }
 
 list_t * list_create() {
@@ -94,6 +97,17 @@ node_t * list_find(list_t * list, void * value) {
 		}
 	}
 	return NULL;
+}
+
+int list_index_of(list_t * list, void * value) {
+	int i = 0;
+	foreach(item, list) {
+		if (item->value == value) {
+			return i;
+		}
+		i++;
+	}
+	return -1; /* not find */
 }
 
 void list_remove(list_t * list, size_t index) {
