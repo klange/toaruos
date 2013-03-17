@@ -605,7 +605,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&getgraphicsaddress,
 	(uintptr_t)&uname,              /* 12 */
-	(uintptr_t)RESERVED,
+	(uintptr_t)&openpty,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,
 	(uintptr_t)&setgraphicsoffset,  /* 16 */

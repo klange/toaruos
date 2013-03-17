@@ -36,7 +36,7 @@ DEFN_SYSCALL0(getpid, 9);
 DEFN_SYSCALL1(sbrk, 10, int);
 DEFN_SYSCALL0(getgraphicsaddress, 11);
 DEFN_SYSCALL1(uname, 12, void *);
-/* RESERVED syscall 13 */
+DEFN_SYSCALL5(openpty, 13, int *, int *, char *, void *, void *);
 DEFN_SYSCALL3(lseek, 14, int, int, int);
 DEFN_SYSCALL2(fstat, 15, int, void *);
 DEFN_SYSCALL1(setgraphicsoffset, 16, int);

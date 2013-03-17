@@ -61,6 +61,7 @@ DECL_SYSCALL0(getpid);
 DECL_SYSCALL1(sbrk, int);
 DECL_SYSCALL0(getgraphicsaddress);
 DECL_SYSCALL1(uname, void *);
+DECL_SYSCALL5(openpty, int *, int *, char *, void *, void *);
 DECL_SYSCALL3(lseek, int, int, int);
 DECL_SYSCALL2(fstat, int, void *);
 DECL_SYSCALL1(setgraphicsoffset, int);

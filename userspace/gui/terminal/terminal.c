@@ -72,6 +72,7 @@ typedef struct _terminal_cell {
  * we read from ofd and write to ifd, so make sure you don't
  * get them backwards. */
 static int ofd, ifd; 
+static int fd_master, fd_slave;
 
 int      scale_fonts    = 0;    /* Whether fonts should be scaled */
 float    font_scaling   = 1.0;  /* How much they should be scaled by */
@@ -217,7 +218,7 @@ void (*redraw_cursor)(void) = NULL;
  * Useful for things like the ANSI DSR command. */
 void input_buffer_stuff(char * str) {
 	size_t s = strlen(str);
-	write(ifd, str, s);
+	write(fd_master, str, s);
 }
 
 /* Write the contents of the buffer, as they were all non-escaped data. */
@@ -1343,10 +1344,10 @@ int buffer_put(char c) {
 
 void handle_input(char c) {
 	if (_unbuffered) {
-		write(ifd, &c, 1);
+		write(fd_master, &c, 1);
 	} else {
 		if (buffer_put(c)) {
-			write(ifd, input_buffer, input_collected);
+			write(fd_master, input_buffer, input_collected);
 			clear_input();
 		}
 	}
@@ -1717,16 +1718,21 @@ int main(int argc, char ** argv) {
 
 	reinit();
 
+	/*
 	ofd = syscall_mkpipe();
 	ifd = syscall_mkpipe();
+	*/
+
+	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
+
 
 	int pid = getpid();
 	uint32_t f = fork();
 
 	if (getpid() != pid) {
-		syscall_dup2(ifd, 0);
-		syscall_dup2(ofd, 1);
-		syscall_dup2(ofd, 2);
+		syscall_dup2(fd_slave, 0);
+		syscall_dup2(fd_slave, 1);
+		syscall_dup2(fd_slave, 2);
 
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};
@@ -1754,7 +1760,7 @@ int main(int argc, char ** argv) {
 
 		if (!_windowed || _force_kernel) {
 			/* Request kernel output to this terminal */
-			syscall_system_function(4, (char **)ofd);
+			syscall_system_function(4, (char **)fd_slave);
 		}
 
 		child_pid = f;
@@ -1774,9 +1780,9 @@ int main(int argc, char ** argv) {
 				flip_cursor();
 			}
 
-			fstat(ofd, &_stat);
+			fstat(fd_master, &_stat);
 			if (_stat.st_size) {
-				int r = read(ofd, buf, min(_stat.st_size, 1024));
+				int r = read(fd_master, buf, min(_stat.st_size, 1024));
 				for (uint32_t i = 0; i < r; ++i) {
 					ansi_put(buf[i]);
 #if DEBUG_TERMINAL_WITH_SERIAL
