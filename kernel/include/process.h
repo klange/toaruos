@@ -13,7 +13,6 @@
 
 typedef signed int    pid_t;
 typedef unsigned int  user_t;
-typedef signed int  group_t;
 typedef unsigned char status_t;
 
 #define USER_ROOT_UID (user_t)0
@@ -72,7 +71,11 @@ typedef struct process {
 	char *        name;              /* Process Name */
 	char *        description;       /* Process description */
 	user_t        user;              /* Effective user */
-	group_t       group;             /* Process scheduling group */
+
+	pid_t         group;             /* Process thread group */
+	pid_t         job;               /* Process job group */
+	pid_t         session;           /* Session group */
+
 	thread_t      thread;            /* Associated task information */
 	tree_node_t * tree_entry;        /* Process Tree Entry */
 	image_t       image;             /* Binary image information */

@@ -47,7 +47,7 @@ void debug_print_process_tree_node(tree_node_t * node, size_t height) {
 	/* Get the current process */
 	process_t * proc = (process_t *)node->value;
 	/* Print the process name */
-	kprintf("[%d] %s", proc->id, proc->name);
+	kprintf("%d.%d %s", proc->group ? proc->group : proc->id, proc->id, proc->name);
 	if (proc->description) {
 		/* And, if it has one, its description */
 		kprintf(" %s", proc->description);
