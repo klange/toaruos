@@ -6,6 +6,7 @@
 
 #include <system.h>
 #include <fs.h>
+#include <logging.h>
 
 uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -19,8 +20,10 @@ uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 	memset(buffer, 0x00, 1);
 	uint32_t collected = 0;
 	while (collected < size) {
-		if (serial_rcvd(node->inode) == 0)
-			return collected;
+		while (!serial_rcvd(node->inode)) {
+			switch_task(1);
+		}
+		debug_print(NOTICE, "Data received from TTY");
 		buffer[collected] = serial_recv(node->inode);
 		collected++;
 	}
