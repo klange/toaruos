@@ -3,14 +3,16 @@
 #include <pipe.h>
 #include <logging.h>
 
+#include <termios.h>
+
 #define TTY_BUFFER_SIZE 512
 
-struct winsize {
-	unsigned short row, col, pix_w, pix_h;
-};
+#define M_ICANON 0x01
+#define M_RAW    0x02
+#define M_RRAW   0x04
 
 typedef struct {
-	uint8_t * buffer;
+	unsigned char * buffer;
 	size_t write_ptr;
 	size_t read_ptr;
 	size_t size;
@@ -19,13 +21,29 @@ typedef struct {
 } ring_buffer_t;
 
 typedef struct pty {
+	/* the PTY number */
 	int            name;
+
+	/* Master and slave endpoints */
 	fs_node_t *    master;
 	fs_node_t *    slave;
+
+	/* term io "window size" struct (width/height) */
 	struct winsize size;
 
+	/* termios data structure */
+	struct termios tios;
+
+	/* directional pipes */
 	ring_buffer_t  in;
 	ring_buffer_t  out;
+
+	/* line discipline modes */
+	unsigned char mode;
+
+	pid_t ct_proc; /* Controlling process (shell) */
+	pid_t fg_proc; /* Foreground process (might also be shell) */
+
 } pty_t;
 
 list_t * pty_list = NULL;
@@ -102,7 +120,11 @@ uint32_t write_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint
 		spin_lock(&pty->in.lock);
 
 		while (ring_buffer_available(&pty->in) > 0 && written < size) {
-			pty->in.buffer[pty->in.write_ptr] = buffer[written];
+			unsigned char c =  buffer[written];
+
+			/* Implement line discipline stuff here */
+
+			pty->in.buffer[pty->in.write_ptr] = c;
 			ring_buffer_increment_write(&pty->in);
 			written++;
 		}
@@ -222,6 +244,7 @@ void pty_install(void) {
 pty_t * pty_new(struct winsize * size) {
 	pty_t * pty = malloc(sizeof(pty_t));
 
+	/* stdin linkage; characters from terminal → PTY slave */
 	pty->in.buffer      = malloc(TTY_BUFFER_SIZE);
 	pty->in.write_ptr   = 0;
 	pty->in.read_ptr    = 0;
@@ -229,6 +252,7 @@ pty_t * pty_new(struct winsize * size) {
 	pty->in.size        = TTY_BUFFER_SIZE;
 	pty->in.wait_queue  = list_create();
 
+	/* stdout linkage; characters from client application → terminal */
 	pty->out.buffer     = malloc(TTY_BUFFER_SIZE);
 	pty->out.write_ptr  = 0;
 	pty->out.read_ptr   = 0;
@@ -236,30 +260,47 @@ pty_t * pty_new(struct winsize * size) {
 	pty->out.wait_queue = list_create();
 	pty->out.size       = TTY_BUFFER_SIZE;
 
+	/* Master endpoint - writes go to stdin, reads come from stdout */
 	pty->master = pty_master_create(pty);
+
+	/* Slave endpoint, reads come from stdin, writes go to stdout */
 	pty->slave  = pty_slave_create(pty);
 
-	list_insert(pty_list, pty);
-	pty->name = list_index_of(pty_list, pty);
+	/* TODO PTY name */
+	pty->name   = 0;
 
 	if (size) {
 		memcpy(&pty->size, size, sizeof(struct winsize));
 	} else {
 		/* Sane defaults */
-		pty->size.row = 25;
-		pty->size.col = 80;
+		pty->size.ws_row = 25;
+		pty->size.ws_col = 80;
 	}
+
+	/* tty mode (cooked, raw, etc.) */
+	pty->mode = M_ICANON;
+
+	/* Controlling and foreground processes are set to 0 by default */
+	pty->ct_proc = 0;
+	pty->fg_proc = 0;
+
 	return pty;
 }
 
 int openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
+	/* We require a place to put these when we are done. */
 	if (!master || !slave) return -1;
+	if (validate_safe(master) || validate_safe(slave)) return -1;
+	if (validate_safe(size)) return -1;
 
+	/* Create a new pseudo terminal */
 	pty_t * pty = pty_new(size);
 
+	/* Append the master and slave to the calling process */
 	*master = process_append_fd((process_t *)current_process, pty->master);
 	*slave  = process_append_fd((process_t *)current_process, pty->slave);
 
+	/* Return success */
 	return 0;
 }
 

@@ -1760,7 +1760,7 @@ int main(int argc, char ** argv) {
 
 		if (!_windowed || _force_kernel) {
 			/* Request kernel output to this terminal */
-			syscall_system_function(4, (char **)fd_slave);
+			//syscall_system_function(4, (char **)fd_slave);
 		}
 
 		child_pid = f;

@@ -102,6 +102,7 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 		return ret;
 	} else {
 		debug_print(WARNING, "Node passed to finddir_fs isn't a directory!");
+		debug_print(WARNING, "node = 0x%x, name = %s", node, name);
 		return (fs_node_t *)NULL;
 	}
 }
@@ -464,7 +465,7 @@ void debug_print_vfs_tree() {
  * get_mount_point
  *
  */
-fs_node_t *get_mount_point(char * path, size_t path_depth, char **outpath) {
+fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath, unsigned int * outdepth) {
 	size_t depth;
 
 	for (depth = 0; depth <= path_depth; ++depth) {
@@ -476,6 +477,8 @@ fs_node_t *get_mount_point(char * path, size_t path_depth, char **outpath) {
 	tree_node_t * node = fs_tree->root;
 
 	char * at = *outpath;
+	int _depth = 1;
+	int _tree_depth = 0;
 
 	while (1) {
 		if (at >= path) {
@@ -491,6 +494,7 @@ fs_node_t *get_mount_point(char * path, size_t path_depth, char **outpath) {
 				node = tchild;
 				at = at + strlen(at) + 1;
 				if (ent->file) {
+					_tree_depth = _depth;
 					last = ent->file;
 					*outpath = at;
 				}
@@ -500,7 +504,10 @@ fs_node_t *get_mount_point(char * path, size_t path_depth, char **outpath) {
 		if (!found) {
 			break;
 		}
+		_depth++;
 	}
+
+	*outdepth = _tree_depth;
 
 	return last;
 }
@@ -572,10 +579,10 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	/*
 	 * Dig through the (real) tree to find the file
 	 */
-	uint32_t depth;
+	uint32_t depth = 0;
 	fs_node_t *node_ptr = malloc(sizeof(fs_node_t));
 	/* Find the mountpoint for this file */
-	fs_node_t *mount_point = get_mount_point(path, path_depth, &path_offset);
+	fs_node_t *mount_point = get_mount_point(path, path_depth, &path_offset, &depth);
 
 	if (path_offset >= path+path_len) {
 		free(path);
@@ -584,7 +591,7 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	/* Set the active directory to the mountpoint */
 	memcpy(node_ptr, mount_point, sizeof(fs_node_t));
 	fs_node_t *node_next = NULL;
-	for (depth = 0; depth < path_depth; ++depth) {
+	for (; depth < path_depth; ++depth) {
 		/* Search the active directory for the requested directory */
 		debug_print(INFO, "... Searching for %s", path_offset);
 		node_next = finddir_fs(node_ptr, path_offset);

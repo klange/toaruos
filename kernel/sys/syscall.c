@@ -26,10 +26,17 @@ static size_t hostname_len = 0;
  */
 
 void validate(void * ptr) {
-	if (ptr && (uintptr_t)ptr < current_process->image.entry) {
+	if (validate_safe(ptr)) {
 		debug_print(ERROR, "SEGFAULT: Invalid pointer passed to syscall. (0x%x < 0x%x)", (uintptr_t)ptr, current_process->image.entry);
 		HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
 	}
+}
+
+int validate_safe(void * ptr) {
+	if (ptr && (uintptr_t)ptr < current_process->image.entry) {
+		return 1;
+	}
+	return 0;
 }
 
 /*

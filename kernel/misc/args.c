@@ -15,6 +15,8 @@
 void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector);
 int read_partition_map(int device);
 
+char * cmdline = NULL;
+
 /**
  * Parse the given arguments to the kernel.
  *
@@ -22,10 +24,12 @@ int read_partition_map(int device);
  */
 void
 parse_args(
-		char * arg /* Arguments */
+		char * _arg /* Arguments */
 		) {
 	/* Sanity check... */
-	if (!arg) { return; }
+	if (!_arg) { return; }
+
+	char * arg = strdup(_arg);
 	char * pch;         /* Tokenizer pointer */
 	char * save;        /* We use the reentrant form of strtok */
 	char * argv[1024];  /* Command tokens (space-separated elements) */

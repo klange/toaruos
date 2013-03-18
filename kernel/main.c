@@ -68,8 +68,9 @@
  */
 int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	initial_esp = esp;
-	char * cmdline = NULL;
 	uintptr_t ramdisk_top = 0;
+	extern char * cmdline;
+
 
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/* Multiboot (GRUB, native QEMU, PXE) */
@@ -143,6 +144,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	serial_mount_devices();
 	vfs_mount("/dev/null", null_device_create());
 	vfs_mount("/dev/hello", hello_device_create());
+
+	vfs_mount("/proc", procfs_create());
 
 	debug_print_vfs_tree();
 

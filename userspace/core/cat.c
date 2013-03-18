@@ -19,7 +19,7 @@ int main(int argc, char ** argv) {
 		if (argc > 1) {
 			fd = fopen(argv[i], "r");
 			if (!fd) {
-				fprintf(stderr, "%s: %s: no such file or directory\n", argv[0], argv[1]);
+				fprintf(stderr, "%s: %s: no such file or directory\n", argv[0], argv[i]);
 				ret = 1;
 				continue;
 			}
@@ -28,39 +28,19 @@ int main(int argc, char ** argv) {
 		struct stat _stat;
 		fstat(fileno(fd), &_stat);
 
-		if (S_ISCHR(_stat.st_mode)) {
-			/* character devices should be read byte by byte until we get a 0 respones */
-
-			while (1) {
-				char buf[2];
-				size_t read = fread(buf, 1, 1, fd);
-				if (!read) {
-					break;
-				}
-				fwrite(buf, 1, read, stdout);
-				fflush(stdout);
-			}
-
-		} else {
-			size_t length;
-
-			fseek(fd, 0, SEEK_END);
-			length = ftell(fd);
-			fseek(fd, 0, SEEK_SET);
-
-			char buf[CHUNK_SIZE];
-			while (length > CHUNK_SIZE) {
-				fread( buf, 1, CHUNK_SIZE, fd);
-				fwrite(buf, 1, CHUNK_SIZE, stdout);
-				fflush(stdout);
-				length -= CHUNK_SIZE;
-			}
-			if (length > 0) {
-				fread( buf, 1, length, fd);
-				fwrite(buf, 1, length, stdout);
-				fflush(stdout);
-			}
+		if (S_ISDIR(_stat.st_mode)) {
+			fprintf(stderr, "%s: %s: Is a directory\n", argv[0], argv[i]);
+			fclose(fd);
+			ret = 1;
+			continue;
 		}
+
+		while (!feof(fd)) {
+			char buf[CHUNK_SIZE];
+			int read = fread(buf, 1, CHUNK_SIZE, fd);
+			fwrite(buf, 1, read, stdout);
+		}
+		fflush(stdout);
 
 		fclose(fd);
 	}
