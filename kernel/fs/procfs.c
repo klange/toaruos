@@ -1,8 +1,17 @@
 #include <system.h>
+#include <logging.h>
 #include <fs.h>
 #include <version.h>
+#include <process.h>
 
 #define PROCFS_STANDARD_ENTRIES 5
+#define PROCFS_PROCDIR_ENTRIES  2
+
+struct procfs_entry {
+	int          id;
+	char *       name;
+	read_type_t  func;
+};
 
 static fs_node_t * procfs_generic_create(char * name, read_type_t read_func) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -21,11 +30,112 @@ static fs_node_t * procfs_generic_create(char * name, read_type_t read_func) {
 	return fnode;
 }
 
-struct procfs_entry {
-	int          id;
-	char *       name;
-	read_type_t  func;
+uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char buf[1024];
+	process_t * proc = process_from_pid(node->inode);
+
+	if (!proc) {
+		/* wat */
+		return 0;
+	}
+
+
+	buf[0] = '\0';
+
+	char *  _buf = buf;
+	char ** args = proc->cmdline;
+	while (*args) {
+		strcpy(_buf, *args);
+		_buf += strlen(_buf);
+		if (*(args+1)) {
+			strcpy(_buf, "\036");
+			_buf += strlen(_buf);
+		}
+		args++;
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	return size;
+}
+
+uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char buf[2048];
+	process_t * proc = process_from_pid(node->inode);
+
+	if (!proc) {
+		/* wat */
+		return 0;
+	}
+
+	char state = process_is_ready(proc) ? 'R' : 'S';
+
+	sprintf(buf,
+			"Name:\t%s\n" /* name */
+			"State:\t%c\n" /* yeah, do this at some point */
+			"Tgid:\t%d\n" /* group ? group : pid */
+			"Pid:\t%d\n" /* pid */
+			"Uid:\t%d\n"
+			, proc->name, state, proc->group ? proc->group : proc->id, proc->id, proc->user);
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	return size;
+}
+
+static struct procfs_entry procdir_entries[] = {
+	{1, "cmdline", proc_cmdline_func},
+	{2, "status",  proc_status_func},
 };
+
+static struct dirent * readdir_procfs_procdir(fs_node_t *node, uint32_t index) {
+	if (index < PROCFS_PROCDIR_ENTRIES) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = procdir_entries[index].id;
+		strcpy(out->name, procdir_entries[index].name);
+		return out;
+	}
+	return NULL;
+}
+
+static fs_node_t * finddir_procfs_procdir(fs_node_t * node, char * name) {
+	if (!name) return NULL;
+
+	for (int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
+		if (!strcmp(name, procdir_entries[i].name)) {
+			fs_node_t * out = procfs_generic_create(procdir_entries[i].name, procdir_entries[i].func);
+			out->inode = node->inode;
+			return out;
+		}
+	}
+
+	return NULL;
+}
+
+
+static fs_node_t * procfs_procdir_create(pid_t pid) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	fnode->inode = pid;
+	sprintf(fnode->name, "%d", pid);
+	fnode->uid = 0;
+	fnode->gid = 0;
+	fnode->flags   = FS_DIRECTORY;
+	fnode->read    = NULL;
+	fnode->write   = NULL;
+	fnode->open    = NULL;
+	fnode->close   = NULL;
+	fnode->readdir = readdir_procfs_procdir;
+	fnode->finddir = finddir_procfs_procdir;
+	return fnode;
+}
 
 uint32_t cpuinfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	return 0;
@@ -94,13 +204,12 @@ uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	return size;
 }
 
-
 static struct procfs_entry std_entries[] = {
-	{0, "cpuinfo", cpuinfo_func},
-	{1, "meminfo", meminfo_func},
-	{2, "uptime",  uptime_func},
-	{3, "cmdline", cmdline_func},
-	{4, "version", version_func},
+	{-1, "cpuinfo", cpuinfo_func},
+	{-2, "meminfo", meminfo_func},
+	{-3, "uptime",  uptime_func},
+	{-4, "cmdline", cmdline_func},
+	{-5, "version", version_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
@@ -111,8 +220,31 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
 		strcpy(out->name, std_entries[index].name);
 		return out;
 	}
-	/* XXX process entries */
-	return NULL;
+	int i = index - PROCFS_STANDARD_ENTRIES + 1;
+
+	debug_print(WARNING, "%d %d %d", i, index, PROCFS_STANDARD_ENTRIES);
+
+	pid_t pid = 0;
+
+	foreach(lnode, process_list) {
+		i--;
+		if (i == 0) {
+			process_t * proc = (process_t *)lnode->value;
+			pid = proc->id;
+			break;
+		}
+	}
+
+	if (pid == 0) {
+		return NULL;
+	}
+
+	struct dirent * out = malloc(sizeof(struct dirent));
+	memset(out, 0x00, sizeof(struct dirent));
+	out->ino  = pid;
+	sprintf(out->name, "%d", pid);
+
+	return out;
 }
 
 static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
@@ -121,7 +253,13 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 
 	if (name[0] >= '0' && name[0] <= '9') {
 		/* XXX process entries */
-		return NULL;
+		pid_t pid = atoi(name);
+		process_t * proc = process_from_pid(pid);
+		if (!proc) {
+			return NULL;
+		}
+		fs_node_t * out = procfs_procdir_create(pid);
+		return out;
 	}
 
 	for (int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {

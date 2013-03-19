@@ -237,7 +237,6 @@ int main (int argc, char * argv[]) {
 	qsort(ents_array, numents, sizeof(struct dirent *), entcmp);
 
 	if (long_mode) {
-		printf("printing listing\n");
 		for (int i = 0; i < numents; i++) {
 			print_entry_long(ents_array[i]->d_name, p);
 		}

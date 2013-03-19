@@ -203,11 +203,12 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 		while (envp[envc]) { ++envc; }
 	}
 	debug_print(INFO, "Allocating space for arguments...");
-	char ** argv_ = malloc(sizeof(char *) * argc);
+	char ** argv_ = malloc(sizeof(char *) * (argc + 1));
 	for (int j = 0; j < argc; ++j) {
 		argv_[j] = malloc((strlen(argv[j]) + 1) * sizeof(char));
 		memcpy(argv_[j], argv[j], strlen(argv[j]) + 1);
 	}
+	argv_[argc] = 0;
 	char ** envp_;
 	if (envp && envc) {
 		envp_ = malloc(sizeof(char *) * (envc + 1));

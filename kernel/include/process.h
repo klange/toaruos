@@ -72,6 +72,8 @@ typedef struct process {
 	char *        description;       /* Process description */
 	user_t        user;              /* Effective user */
 
+	char **       cmdline;
+
 	pid_t         group;             /* Process thread group */
 	pid_t         job;               /* Process job group */
 	pid_t         session;           /* Session group */
@@ -123,5 +125,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
 void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
 
 volatile process_t * current_process;
+
+list_t * process_list;
 
 #endif

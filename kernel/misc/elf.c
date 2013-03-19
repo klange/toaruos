@@ -55,6 +55,8 @@ exec(
 	current_process->name = malloc(strlen(path) + 1);
 	memcpy(current_process->name, path, strlen(path) + 1);
 
+	current_process->cmdline = argv;
+
 	/* Alright, we've read the binary, time to load the loadable sections */
 	/* Verify the magic */
 	if (	header->e_ident[0] != ELFMAG0 ||

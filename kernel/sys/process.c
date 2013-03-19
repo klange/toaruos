@@ -12,6 +12,7 @@
 #include <logging.h>
 
 tree_t * process_tree;  /* Parent->Children tree */
+list_t * process_list;  /* Flat storage */
 list_t * process_queue; /* Ready queue */
 list_t * reap_queue;    /* Processes to reap */
 list_t * sleep_queue;
@@ -28,6 +29,7 @@ char * default_name = "[unnamed]";
  */
 void initialize_process_tree() {
 	process_tree = tree_create();
+	process_list = list_create();
 	process_queue = list_create();
 	reap_queue = list_create();
 	sleep_queue = list_create();
@@ -126,6 +128,7 @@ void delete_process(process_t * proc) {
 	/* Remove the entry. */
 	spin_lock(&tree_lock);
 	tree_remove(process_tree, entry);
+	list_delete(process_list, list_find(process_list, proc));
 	spin_unlock(&tree_lock);
 
 	free(proc);
@@ -150,6 +153,7 @@ process_t * spawn_init() {
 	init->id      = 0;       /* Init is PID 1 */
 	init->group   = 0;
 	init->name    = strdup("init");  /* Um, duh. */
+	init->cmdline = NULL;
 	init->user    = 0;       /* UID 0 */
 	init->group   = 0;       /* Task group 0 */
 	init->status  = 0;       /* Run status */
@@ -237,6 +241,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->group = proc->id;    /* Set the GID */
 	proc->name = strdup(default_name); /* Use the default name */
 	proc->description = NULL;  /* No description */
+	proc->cmdline = parent->cmdline;
 
 	/* Copy permissions */
 	proc->user  = parent->user;
@@ -303,6 +308,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->tree_entry = entry;
 	spin_lock(&tree_lock);
 	tree_node_insert_child_node(process_tree, parent->tree_entry, entry);
+	list_insert(process_list, (void *)proc);
 	spin_unlock(&tree_lock);
 
 	/* Return the new process */
@@ -454,7 +460,7 @@ int sleep_on(list_t * queue) {
 }
 
 int process_is_ready(process_t * proc) {
-	if (proc->sched_node.prev != NULL || proc->sched_node.next != NULL) return 1;
+	if (proc->sched_node.prev != NULL || proc->sched_node.next != NULL || process_queue->head == &proc->sched_node) return 1;
 	return 0;
 }
 
