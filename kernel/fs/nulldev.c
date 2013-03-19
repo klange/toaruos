@@ -44,5 +44,6 @@ fs_node_t * null_device_create() {
 	fnode->close   = close_null;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->ioctl   = NULL;
 	return fnode;
 }

@@ -35,6 +35,7 @@ typedef struct dirent *(*readdir_type_t) (struct fs_node *, uint32_t);
 typedef struct fs_node *(*finddir_type_t) (struct fs_node *, char *name);
 typedef void (*create_type_t) (struct fs_node *, char *name, uint16_t permission);
 typedef void (*mkdir_type_t) (struct fs_node *, char *name, uint16_t permission);
+typedef int (*ioctl_type_t) (struct fs_node *, int request, void * argp);
 
 typedef struct fs_node {
 	char name[256];			// The filename.
@@ -53,6 +54,7 @@ typedef struct fs_node {
 	finddir_type_t finddir;
 	create_type_t create;
 	mkdir_type_t mkdir;
+	ioctl_type_t ioctl;
 	struct fs_node *ptr;	// Used by mountpoints and symlinks.
 	uint32_t offset;
 	int32_t shared_with;
@@ -103,6 +105,7 @@ int create_file_fs(char *name, uint16_t permission);
 fs_node_t *kopen(char *filename, uint32_t flags);
 char *canonicalize_path(char *cwd, char *input);
 fs_node_t *clone_fs(fs_node_t * source);
+int ioctl_fs(fs_node_t *node, int request, void * argp);
 
 void vfs_install();
 int vfs_mount(char * path, fs_node_t * local_root);

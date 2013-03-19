@@ -107,6 +107,23 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 	}
 }
 
+/**
+ * ioctl_fs: Control Device
+ *
+ * @param node    Device node to control
+ * @param request Device-specific request code
+ * @param argp    Depends on `request`
+ * @returns Depends on `request`
+ */
+int ioctl_fs(fs_node_t *node, int request, void * argp) {
+	if (node->ioctl) {
+		return node->ioctl(node, request, argp);
+	} else {
+		return -1; /* TODO Should actually be ENOTTY, but we're bad at error numbers */
+	}
+}
+
+
 /*
  * XXX: The following two function should be replaced with
  *      one function to create children of directory nodes.

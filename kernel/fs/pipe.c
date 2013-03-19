@@ -205,6 +205,7 @@ fs_node_t * make_pipe(size_t size) {
 	fnode->close = close_pipe;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->ioctl   = NULL; /* TODO ioctls for pipes? maybe */
 
 	fnode->atime = now();
 	fnode->mtime = fnode->atime;

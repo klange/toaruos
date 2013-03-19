@@ -61,6 +61,7 @@ fs_node_t * serial_device_create(int device) {
 	fnode->close   = close_serial;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->ioctl   = NULL; /* TODO ioctls for raw serial devices */
 
 	fnode->atime = now();
 	fnode->mtime = fnode->atime;

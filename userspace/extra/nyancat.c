@@ -60,11 +60,14 @@
 #include <setjmp.h>
 #include <getopt.h>
 
+#include <sys/ioctl.h>
+
 #ifndef TIOCGWINSZ
 #include <termios.h>
+#endif
+
 #ifdef ECHO
 #undef ECHO
-#endif
 #endif
 
 #ifndef usleep
@@ -524,16 +527,9 @@ int main(int argc, char ** argv) {
 		}
 
 		/* Also get the number of columns */
-#if 0
 		struct winsize w;
 		ioctl(0, TIOCGWINSZ, &w);
 		terminal_width = w.ws_col;
-#else
-    printf("\033[1003z");
-    fflush(stdout);
-    int height;
-    scanf("%d,%d", &terminal_width, &height);
-#endif
 	}
 
 	/* Convert the entire terminal string to lower case */

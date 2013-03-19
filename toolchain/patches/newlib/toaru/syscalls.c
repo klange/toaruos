@@ -70,6 +70,7 @@ DEFN_SYSCALL2(system_function, 43, int, char **);
 DEFN_SYSCALL1(open_serial, 44, int);
 DEFN_SYSCALL2(sleepabs,  45, unsigned long, unsigned long);
 DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
+DEFN_SYSCALL3(ioctl, 47, int, int, void *);
 
 
 extern char ** environ;
@@ -399,6 +400,10 @@ char *ttyname(int fd) {
 long sysconf(int name) {
 	fprintf(stderr, "sysconf(%d);\n", name);
 	return -1;
+}
+
+int ioctl(int fd, int request, void * argp) {
+	return syscall_ioctl(fd, request, argp);
 }
 
 /* termios */

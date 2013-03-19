@@ -48,6 +48,23 @@ typedef struct pty {
 
 list_t * pty_list = NULL;
 
+int pty_ioctl(pty_t * pty, int request, void * argp) {
+	debug_print(WARNING, "Incoming IOCTL request %d", request);
+	switch (request) {
+		case TIOCSWINSZ:
+			debug_print(WARNING, "Setting!");
+			memcpy(&pty->size, argp, sizeof(struct winsize));
+			/* TODO send sigwinch to fg_prog */
+			return 0;
+		case TIOCGWINSZ:
+			memcpy(argp, &pty->size, sizeof(struct winsize));
+			return 0;
+		default:
+			return -1; /* TODO EINV... something or other */
+	}
+	return -1;
+}
+
 static inline size_t ring_buffer_unread(ring_buffer_t * ring_buffer) {
 	if (ring_buffer->read_ptr == ring_buffer->write_ptr) {
 		return 0;
@@ -195,6 +212,20 @@ void     close_pty_slave(fs_node_t * node) {
 	return;
 }
 
+/*
+ * These are separate functions just in case I ever feel the need to do
+ * things differently in the slave or master.
+ */
+int ioctl_pty_master(fs_node_t * node, int request, void * argp) {
+	pty_t * pty = (pty_t *)node->inode;
+	return pty_ioctl(pty, request, argp);
+}
+
+int ioctl_pty_slave(fs_node_t * node, int request, void * argp) {
+	pty_t * pty = (pty_t *)node->inode;
+	return pty_ioctl(pty, request, argp);
+}
+
 fs_node_t * pty_master_create(pty_t * pty) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -210,6 +241,7 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	fnode->close = close_pty_master;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->ioctl = ioctl_pty_master;
 
 	fnode->inode = (uintptr_t)pty;
 
@@ -231,6 +263,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	fnode->close = close_pty_slave;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->ioctl = ioctl_pty_slave;
 
 	fnode->inode = (uintptr_t)pty;
 

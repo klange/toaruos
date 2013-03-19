@@ -73,6 +73,18 @@ static int read(int fd, char * ptr, int len) {
 	return out;
 }
 
+static int ioctl(int fd, int request, void * argp) {
+	if (fd >= (int)current_process->fds->length || fd < 0) {
+		return -1;
+	}
+	if (current_process->fds->entries[fd] == NULL) {
+		return -1;
+	}
+	validate(argp);
+	fs_node_t * node = current_process->fds->entries[fd];
+	return ioctl_fs(node, request, argp);
+}
+
 static int readdir(int fd, int index, struct dirent * entry) {
 	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
@@ -647,6 +659,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&open_serial,        /* 44 */
 	(uintptr_t)&sleep,
 	(uintptr_t)&sleep_rel,
+	(uintptr_t)&ioctl,
 	0
 };
 uint32_t num_syscalls;

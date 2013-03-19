@@ -939,6 +939,7 @@ uint32_t ext2_disk_node_from_file(ext2_inodetable_t *inode, ext2_dir_t *direntry
 	fnode->close   = close_ext2_disk;
 	fnode->readdir = readdir_ext2_disk;
 	fnode->finddir = finddir_ext2_disk;
+	fnode->ioctl   = NULL;
 	return 1;
 }
 
@@ -997,6 +998,7 @@ uint32_t ext2_disk_node_root(ext2_inodetable_t *inode, fs_node_t *fnode) {
 	fnode->close   = close_ext2_disk;
 	fnode->readdir = readdir_ext2_disk;
 	fnode->finddir = finddir_ext2_disk;
+	fnode->ioctl   = NULL;
 	return 1;
 }
 

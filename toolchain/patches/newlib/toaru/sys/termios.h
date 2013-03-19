@@ -185,6 +185,7 @@ int     tcgetattr(int, struct termios *);
 pid_t   tcgetsid(int);
 int     tcsendbreak(int, int);
 int     tcsetattr(int, int, struct termios *);
+int     ioctl(int, int, void*);
 #endif /* ndef _KERNEL_ */
 
 #endif /* ndef _TERMIOS_H */

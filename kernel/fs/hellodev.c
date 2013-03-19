@@ -50,5 +50,6 @@ fs_node_t * hello_device_create() {
 	fnode->close   = close_hello;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->ioctl   = NULL;
 	return fnode;
 }

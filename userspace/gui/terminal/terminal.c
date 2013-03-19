@@ -21,6 +21,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <getopt.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -68,10 +69,7 @@ typedef struct _terminal_cell {
 	uint8_t  flags; /* other flags */
 } __attribute__((packed)) t_cell;
 
-/* The input and output descriptors for the child process;
- * we read from ofd and write to ifd, so make sure you don't
- * get them backwards. */
-static int ofd, ifd; 
+/* master and slave pty descriptors */
 static int fd_master, fd_slave;
 
 int      scale_fonts    = 0;    /* Whether fonts should be scaled */
@@ -1487,6 +1485,11 @@ void reinit() {
 		draw_fill(ctx, rgba(0,0,0, 0xbb));
 	}
 
+	struct winsize w;
+	w.ws_row = term_height;
+	w.ws_col = term_width;
+	ioctl(fd_master, TIOCSWINSZ, &w);
+
 	/* A lot of this is probably uneccessary if we do some sort of resize... */
 	ansi_print("\033[H\033[2J");
 }
@@ -1716,15 +1719,9 @@ int main(int argc, char ** argv) {
 		setLoaded(4,1);
 	}
 
-	reinit();
-
-	/*
-	ofd = syscall_mkpipe();
-	ifd = syscall_mkpipe();
-	*/
-
 	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
 
+	reinit();
 
 	int pid = getpid();
 	uint32_t f = fork();
