@@ -215,7 +215,7 @@ void (*redraw_cursor)(void) = NULL;
 /* Stuffs a string into the stdin of the terminal's child process
  * Useful for things like the ANSI DSR command. */
 void input_buffer_stuff(char * str) {
-	size_t s = strlen(str);
+	size_t s = strlen(str) + 1;
 	write(fd_master, str, s);
 }
 

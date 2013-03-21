@@ -165,6 +165,8 @@ void     close_pty_master(fs_node_t * node) {
 uint32_t  read_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->inode;
 
+	debug_print(INFO, "tty read at offset=%d, size=%d", offset, size);
+
 	/* Standard pipe read */
 	size_t collected = 0;
 	while (collected == 0) {
@@ -180,6 +182,8 @@ uint32_t  read_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8
 			sleep_on(pty->in.wait_queue);
 		}
 	}
+
+	debug_print(INFO, "} completed");
 
 	return collected;
 }

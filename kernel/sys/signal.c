@@ -5,6 +5,7 @@
 
 #include <system.h>
 #include <signal.h>
+#include <logging.h>
 
 void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 	IRQ_OFF;
@@ -59,6 +60,8 @@ void handle_signal(process_t * proc, signal_t * sig) {
 	if (handler == 1) /* Ignore */ {
 		return;
 	}
+
+	debug_print(NOTICE, "handling signal in process %d (%d)", proc->id, signum);
 
 	uintptr_t stack = 0xFFFF0000;
 	if (proc->syscall_registers->useresp < 0x10000100) {

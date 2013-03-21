@@ -16,6 +16,7 @@ list_t * process_list;  /* Flat storage */
 list_t * process_queue; /* Ready queue */
 list_t * reap_queue;    /* Processes to reap */
 list_t * sleep_queue;
+list_t * recently_reaped;
 volatile process_t * current_process = NULL;
 
 static uint8_t volatile reap_lock;
@@ -33,6 +34,7 @@ void initialize_process_tree() {
 	process_queue = list_create();
 	reap_queue = list_create();
 	sleep_queue = list_create();
+	recently_reaped = list_create();
 }
 
 /*
@@ -106,8 +108,15 @@ void make_process_ready(process_t * proc) {
 }
 
 void make_process_reapable(process_t * proc) {
+	delete_process(proc);
 	spin_lock(&reap_lock);
 	list_insert(reap_queue, (void *)proc);
+	spin_unlock(&reap_lock);
+}
+
+void set_reaped(process_t * proc) {
+	spin_lock(&reap_lock);
+	list_insert(recently_reaped, (void *)proc);
 	spin_unlock(&reap_lock);
 }
 
@@ -130,8 +139,6 @@ void delete_process(process_t * proc) {
 	tree_remove(process_tree, entry);
 	list_delete(process_list, list_find(process_list, proc));
 	spin_unlock(&tree_lock);
-
-	free(proc);
 }
 
 /*
@@ -315,6 +322,14 @@ process_t * spawn_process(volatile process_t * parent) {
 	return proc;
 }
 
+process_t * find_reaped_process(pid_t pid) {
+	foreach(node, recently_reaped) {
+		process_t * proc = node->value;
+		if (proc && proc->id == pid) return proc;
+	}
+	return NULL;
+}
+
 uint8_t process_compare(void * proc_v, void * pid_v) {
 	pid_t pid = (*(pid_t *)pid_v);
 	process_t * proc = (process_t *)proc_v;
@@ -331,8 +346,33 @@ process_t * process_from_pid(pid_t pid) {
 	if (entry) {
 		return (process_t *)entry->value;
 	} else {
+		return find_reaped_process(pid);
+	}
+}
+
+process_t * process_get_first_child_rec(tree_node_t * node, process_t * target) {
+	if (!node) return NULL;
+	process_t * proc = (process_t *)node->value;
+	if (proc == target) {
+		foreach(child, node->children) {
+			debug_print(WARNING, "Found a child: %d", ((process_t *)child->value)->id);
+			return child->value;
+		}
 		return NULL;
 	}
+	foreach(child, node->children) {
+		/* Recursively print the children */
+		process_t * out = process_get_first_child_rec(child->value, target);
+		if (out) return out;
+	}
+	return NULL;
+}
+
+process_t * process_get_first_child(process_t * process) {
+	spin_lock(&tree_lock);
+	process_t * result = process_get_first_child_rec(process_tree->root, process);
+	spin_unlock(&tree_lock);
+	return result;
 }
 
 /*

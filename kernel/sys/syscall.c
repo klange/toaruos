@@ -128,23 +128,28 @@ static int write(int fd, char * ptr, int len) {
 }
 
 static int wait(int child) {
-	if (child < 1) {
+	process_t * volatile child_task;
+	if (child == 0) {
+		debug_print_process_tree();
+		child_task = process_get_first_child(current_process);
+	} else if (child < 1) {
 		debug_print(WARNING, "Process %d requested group wait, which we can not do!", getpid());
 		return 0;
+	} else {
+		child_task = process_from_pid(child);
 	}
-	process_t * volatile child_task = process_from_pid(child);
 	/* If the child task doesn't exist, bail */
 	if (!child_task) {
 		debug_print(WARNING, "Tried to wait for non-existent process");
-		return -1;
+		return 0;
 	}
+	debug_print(NOTICE, "pid=%d waiting on pid=%d", current_process->id, child_task->id);
 	while (child_task->finished == 0) {
 		/* Add us to the wait queue for this child */
 		sleep_on(child_task->wait_queue);
 	}
 	/* Grab the child's return value */
 	int ret = child_task->status;
-	delete_process(child_task);
 	return ret;
 }
 

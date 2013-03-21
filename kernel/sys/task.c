@@ -121,9 +121,7 @@ void reap_process(process_t * proc) {
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	}
 	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
-	// XXX These things are bad!
-	//delete_process(proc);
-	//free((void *)proc);
+	set_reaped(proc);
 }
 
 /*

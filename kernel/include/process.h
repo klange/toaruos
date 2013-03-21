@@ -117,9 +117,11 @@ uint8_t should_reap();
 process_t * next_reapable_process();
 uint32_t process_append_fd(process_t * proc, fs_node_t * node);
 process_t * process_from_pid(pid_t pid);
+process_t * process_get_first_child(process_t * process);
 void delete_process(process_t * proc);
 uint32_t process_move_fd(process_t * proc, int src, int dest);
 int process_is_ready(process_t * proc);
+void set_reaped(process_t * proc);
 
 void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
 void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);

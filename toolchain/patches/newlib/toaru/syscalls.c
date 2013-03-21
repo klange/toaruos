@@ -10,6 +10,7 @@
 #include <sys/errno.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
+#include <sys/termios.h>
 #include <stdio.h>
 #include <utime.h>
 
@@ -17,7 +18,6 @@
 #include <errno.h>
 
 #include "syscall.h"
-#include "termios.h"
 #include <bits/dirent.h>
 
 extern void _init();
@@ -123,15 +123,15 @@ int kill(int pid, int sig) {
 	return -1;
 }
 
-int wait(int *status) {
-	fprintf(stderr, "[debug] pid %d: wait(**)\n", getpid());
-	errno = ECHILD;
-	return -1;
-}
-
 int waitpid(int pid, int *status, int options) {
 	/* XXX: status, options? */
-	return syscall_wait(pid);
+	int x  = syscall_wait(pid);
+	if (status) *status = x;
+	return x;
+}
+
+int wait(int *status) {
+	return waitpid(0, status, 0);
 }
 
 // --- I/O ---
@@ -217,6 +217,10 @@ int pipe(int fildes[2]) {
 
 char *getwd(char *buf) {
 	return syscall_getcwd(buf, 256);
+}
+
+char *getcwd(char *buf, size_t size) {
+	return syscall_getcwd(buf, size);
 }
 
 int lstat(const char *path, struct stat *buf) {
@@ -331,7 +335,7 @@ unsigned int alarm(unsigned int seconds) {
 }
 
 clock_t times(struct tms *buf) {
-	fprintf(stderr, "times(...)\n");
+	/* TODO: times() */
 	return -1;
 }
 
@@ -366,29 +370,29 @@ int unlink(char *name) {
 int access(const char *pathname, int mode) {
 	fprintf(stderr, "[user/debug] Unsupported operation [access]\n");
 	/* Not supported */
-	return -1;
+	return 0;
 }
 
 long pathconf(char *path, int name) {
 	fprintf(stderr, "[user/debug] Unsupported operation [pathconf]\n");
 	/* Not supported */
-	return -1;
+	return 0;
 }
 
 
 int utime(const char *filename, const struct utimbuf *times) {
 	fprintf(stderr, "[user/debug] Unsupported operation [utime]\n");
-	return -1;
+	return 0;
 }
 
 int chown(const char *path, uid_t owner, gid_t group) {
 	fprintf(stderr, "[user/debug] Unsupported operation [chown]\n");
-	return -1;
+	return 0;
 }
 
 int rmdir(const char *pathname) {
 	fprintf(stderr, "[user/debug] Unsupported operation [rmdir]\n");
-	return -1;
+	return 0;
 }
 
 
@@ -398,8 +402,15 @@ char *ttyname(int fd) {
 }
 
 long sysconf(int name) {
-	fprintf(stderr, "sysconf(%d);\n", name);
-	return -1;
+	switch (name) {
+		case 8:
+			return 4096;
+		case 11:
+			return 10000;
+		default:
+			fprintf(stderr, "sysconf(%d);\n", name);
+			return 0;
+	}
 }
 
 int ioctl(int fd, int request, void * argp) {
@@ -416,11 +427,11 @@ speed_t cfgetospeed(const struct termios * tio) {
 
 int cfsetispeed(struct termios * tio, speed_t speed) {
 	/* hahahaha, yeah right */
-	return -1;
+	return 0;
 }
 
 int cfsetospeed(struct termios * tio, speed_t speed) {
-	return -1;
+	return 0;
 }
 
 int tcdrain(int i) {
@@ -455,11 +466,42 @@ int tcsendbreak(int a, int b) {
 
 int tcsetattr(int fd, int actions, struct termios * tio) {
 	fprintf(stderr, "tcsetattr(%d,%d,...)\n", fd, actions);
+
+	fprintf(stderr, "   0x%8x\n", tio->c_cflag);
+	fprintf(stderr, "   0x%8x\n", tio->c_iflag);
+	fprintf(stderr, "   0x%8x\n", tio->c_lflag);
+	fprintf(stderr, "   0x%8x\n", tio->c_oflag);
+
 	return 0;
 }
 
 int fpathconf(char * file, int name) {
 	fprintf(stderr, "fpathconf(%s,%d)\n", file, name);
 	return 0;
+}
+
+int getuid() {
+	return syscall_getuid();
+}
+
+int getgid() {
+	return getuid();
+}
+
+int getpgrp() {
+	/* XXX */
+	return getgid();
+}
+
+int geteuid() {
+	return getuid();
+}
+
+int dup(int oldfd) {
+	return dup2(oldfd, 0);
+}
+
+void sync() {
+	/* LOOOL NOPE */
 }
 
