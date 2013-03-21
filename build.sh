@@ -2,6 +2,8 @@
 
 if [ -f /etc/lsb-release ]; then
     sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp-dev qemu autoconf automake texinfo pkg-config
+elif [ -f /etc/debian_version ]; then
+    sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp3-dev qemu autoconf automake texinfo pkg-config
 elif [ -f /etc/fedora-release ]; then
     sudo yum groupinstall 'Development Tools'
     sudo yum groupinstall 'Development Libraries'
