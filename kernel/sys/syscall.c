@@ -131,7 +131,7 @@ static int wait(int child) {
 	process_t * volatile child_task;
 	if (child == 0) {
 		debug_print_process_tree();
-		child_task = process_get_first_child(current_process);
+		child_task = process_get_first_child((process_t *)current_process);
 	} else if (child < 1) {
 		debug_print(WARNING, "Process %d requested group wait, which we can not do!", getpid());
 		return 0;
