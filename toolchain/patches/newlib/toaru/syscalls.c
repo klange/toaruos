@@ -73,6 +73,8 @@ DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 DEFN_SYSCALL3(ioctl, 47, int, int, void *);
 DEFN_SYSCALL2(access, 48, char *, int);
 
+#define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
+
 
 extern char ** environ;
 
@@ -92,7 +94,7 @@ int execvp(const char *file, char *const argv[]) {
 }
 
 int execv(const char * file, char *const argv[]) {
-	fprintf(stderr, "execv(%s,...);\n", file);
+	DEBUG_STUB("execv(%s,...);\n", file);
 	return syscall_execve(file,argv,environ);
 }
 
@@ -148,7 +150,7 @@ int close(int file) {
 }
 
 int link(char *old, char *new) {
-	fprintf(stderr, "[debug] pid %d: link(%s, %s);\n", getpid(), old, new);
+	DEBUG_STUB("[debug] pid %d: link(%s, %s);\n", getpid(), old, new);
 	errno = EMLINK;
 	return -1;
 }
@@ -276,7 +278,7 @@ char *getlogin(void) {
 }
 
 int dup2(int oldfd, int newfd) {
-	fprintf(stderr, "dup2(%d,%d);\n", oldfd, newfd);
+	DEBUG_STUB("dup2(%d,%d);\n", oldfd, newfd);
 	return syscall_dup2(oldfd, newfd);
 }
 
@@ -335,7 +337,7 @@ void pre_main(int argc, char * argv[]) {
 
 /* XXX Unimplemented functions */
 unsigned int alarm(unsigned int seconds) {
-	fprintf(stderr, "alarm(%s);\n", seconds);
+	DEBUG_STUB("alarm(%s);\n", seconds);
 	return 0;
 }
 
@@ -349,25 +351,25 @@ int  fcntl(int fd, int cmd, ...) {
 	if (cmd == F_GETFD || cmd == F_SETFD) {
 		return 0;
 	}
-	fprintf(stderr, "[user/debug] Unsupported operation [fcntl]\n");
+	DEBUG_STUB("[user/debug] Unsupported operation [fcntl]\n");
 	/* Not supported */
 	return -1;
 }
 
 mode_t umask(mode_t mask) {
-	fprintf(stderr, "[user/debug] Unsupported operation [umask]\n");
+	DEBUG_STUB("[user/debug] Unsupported operation [umask]\n");
 	/* Not supported */
 	return 0;
 }
 
 int chmod(const char *path, mode_t mode) {
-	fprintf(stderr, "[user/debug] Unsupported operation [chmod]\n");
+	DEBUG_STUB("[user/debug] Unsupported operation [chmod]\n");
 	/* Not supported */
 	return -1;
 }
 
 int unlink(char *name) {
-	fprintf(stderr, "[debug] pid %d unlink(%s);\n", getpid(), name);
+	DEBUG_STUB("[debug] pid %d unlink(%s);\n", getpid(), name);
 	errno = ENOENT;
 	return -1;
 }
@@ -377,24 +379,24 @@ int access(const char *pathname, int mode) {
 }
 
 long pathconf(char *path, int name) {
-	fprintf(stderr, "[user/debug] Unsupported operation [pathconf]\n");
+	DEBUG_STUB("[user/debug] Unsupported operation [pathconf]\n");
 	/* Not supported */
 	return 0;
 }
 
 
 int utime(const char *filename, const struct utimbuf *times) {
-	fprintf(stderr, "[user/debug] Unsupported operation [utime]\n");
+	DEBUG_STUB("[user/debug] Unsupported operation [utime]\n");
 	return 0;
 }
 
 int chown(const char *path, uid_t owner, gid_t group) {
-	fprintf(stderr, "[user/debug] Unsupported operation [chown]\n");
+	DEBUG_STUB("[user/debug] Unsupported operation [chown]\n");
 	return 0;
 }
 
 int rmdir(const char *pathname) {
-	fprintf(stderr, "[user/debug] Unsupported operation [rmdir]\n");
+	DEBUG_STUB("[user/debug] Unsupported operation [rmdir]\n");
 	return 0;
 }
 
@@ -411,7 +413,7 @@ long sysconf(int name) {
 		case 11:
 			return 10000;
 		default:
-			fprintf(stderr, "sysconf(%d);\n", name);
+			DEBUG_STUB("sysconf(%d);\n", name);
 			return 0;
 	}
 }
@@ -438,48 +440,48 @@ int cfsetospeed(struct termios * tio, speed_t speed) {
 }
 
 int tcdrain(int i) {
-	fprintf(stderr, "tcdrain(%d)\n", i);
+	DEBUG_STUB("tcdrain(%d)\n", i);
 	return 0;
 }
 
 int tcflow(int a, int b) {
-	fprintf(stderr, "tcflow(%d,%d)\n", a, b);
+	DEBUG_STUB("tcflow(%d,%d)\n", a, b);
 	return 0;
 }
 
 int tcflush(int a, int b) {
-	fprintf(stderr, "tcflow(%d,%d)\n", a, b);
+	DEBUG_STUB("tcflow(%d,%d)\n", a, b);
 	return 0;
 }
 
 int tcgetattr(int fd, struct termios * tio) {
-	fprintf(stderr, "tcgetattr(%d, ...)\n", fd);
+	DEBUG_STUB("tcgetattr(%d, ...)\n", fd);
 	return 0;
 }
 
 pid_t tcgetsid(int fd) {
-	fprintf(stderr, "tcgetsid(%d)\n", fd);
+	DEBUG_STUB("tcgetsid(%d)\n", fd);
 	return getpid();
 }
 
 int tcsendbreak(int a, int b) {
-	fprintf(stderr, "tcsendbreak(%d,%d)\n", a, b);
+	DEBUG_STUB("tcsendbreak(%d,%d)\n", a, b);
 	return 0;
 }
 
 int tcsetattr(int fd, int actions, struct termios * tio) {
-	fprintf(stderr, "tcsetattr(%d,%d,...)\n", fd, actions);
+	DEBUG_STUB( "tcsetattr(%d,%d,...)\n", fd, actions);
 
-	fprintf(stderr, "   0x%8x\n", tio->c_cflag);
-	fprintf(stderr, "   0x%8x\n", tio->c_iflag);
-	fprintf(stderr, "   0x%8x\n", tio->c_lflag);
-	fprintf(stderr, "   0x%8x\n", tio->c_oflag);
+	DEBUG_STUB( "   0x%8x\n", tio->c_cflag);
+	DEBUG_STUB( "   0x%8x\n", tio->c_iflag);
+	DEBUG_STUB( "   0x%8x\n", tio->c_lflag);
+	DEBUG_STUB( "   0x%8x\n", tio->c_oflag);
 
 	return 0;
 }
 
-int fpathconf(char * file, int name) {
-	fprintf(stderr, "fpathconf(%s,%d)\n", file, name);
+int fpathconf(int file, int name) {
+	DEBUG_STUB("fpathconf(%d,%d)\n", file, name);
 	return 0;
 }
 
