@@ -172,6 +172,14 @@ static int open(const char * file, int flags, int mode) {
 	return fd;
 }
 
+static int access(const char * file, int flags) {
+	validate((void *)file);
+	fs_node_t * node = kopen((char *)file, 0);
+	if (!node) return -1;
+	close_fs(node);
+	return 0;
+}
+
 static int close(int fd) {
 	if (fd >= (int)current_process->fds->length || fd < 0) { 
 		return -1;
@@ -296,9 +304,8 @@ static int stat(int fd, uint32_t st) {
 	f->st_mtime = fn->mtime;
 	f->st_ctime = fn->ctime;
 
-	if (fn->flags & FS_PIPE) {
-		/* Pipes have dynamic sizes */
-		f->st_size = pipe_size(fn);
+	if (fn->get_size) {
+		f->st_size = fn->get_size(fn);
 	}
 
 	return 0;
@@ -665,6 +672,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sleep,
 	(uintptr_t)&sleep_rel,
 	(uintptr_t)&ioctl,
+	(uintptr_t)&access,             /* 48 */
 	0
 };
 uint32_t num_syscalls;

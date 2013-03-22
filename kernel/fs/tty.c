@@ -230,6 +230,16 @@ int ioctl_pty_slave(fs_node_t * node, int request, void * argp) {
 	return pty_ioctl(pty, request, argp);
 }
 
+int pty_available_input(fs_node_t * node) {
+	pty_t * pty = (pty_t *)node->inode;
+	return ring_buffer_unread(&pty->in);
+}
+
+int pty_available_output(fs_node_t * node) {
+	pty_t * pty = (pty_t *)node->inode;
+	return ring_buffer_unread(&pty->out);
+}
+
 fs_node_t * pty_master_create(pty_t * pty) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -246,6 +256,7 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
 	fnode->ioctl = ioctl_pty_master;
+	fnode->get_size = pty_available_output;
 
 	fnode->inode = (uintptr_t)pty;
 
@@ -268,6 +279,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
 	fnode->ioctl = ioctl_pty_slave;
+	fnode->get_size = pty_available_input;
 
 	fnode->inode = (uintptr_t)pty;
 

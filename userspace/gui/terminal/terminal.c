@@ -50,6 +50,8 @@
  */
 #define DEBUG_TERMINAL_WITH_SERIAL 0
 
+static int volatile lock = 0;
+
 static void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
 		syscall_yield();
@@ -233,7 +235,15 @@ void ansi_buf_add(char c) {
 	state.buffer[state.buflen] = '\0';
 }
 
+static void _ansi_put(char c);
+
 static void ansi_put(char c) {
+	spin_lock(&lock);
+	_ansi_put(c);
+	spin_unlock(&lock);
+}
+
+static void _ansi_put(char c) {
 	switch (state.escape) {
 		case 0:
 			/* We are not escaped, check for escape character */
@@ -313,7 +323,6 @@ static void ansi_put(char c) {
 										break;
 									case 1555:
 										if (argc > 1) {
-											printf("Setting scaling to %s\n", argv[1]);
 											scale_fonts  = 1;
 											font_scaling = atof(argv[1]);
 											reinit();
@@ -339,7 +348,6 @@ static void ansi_put(char c) {
 										if (_windowed) {
 											if (argc > 2) {
 												uint16_t win_id = window->bufid;
-												printf("\033[1;32mGoing to resize window with id %d\033[0m\n", window->wid);
 												int width = atoi(argv[1]) * char_width + decor_left_width + decor_right_width;
 												int height = atoi(argv[2]) * char_height + decor_top_height + decor_bottom_height;
 												window_resize(window, window->x, window->y, width, height);
@@ -710,8 +718,6 @@ char vga_to_ansi[] = {
 };
 
 void resize_callback(window_t * window) {
-	printf("Resizing.\n");
-
 	window_width  = window->width  - decor_left_width - decor_right_width;
 	window_height = window->height - decor_top_height - decor_bottom_height;
 
@@ -995,6 +1001,7 @@ uint32_t scrollback_offset = 0;
 
 void save_scrollback() {
 	/* Save the current top row for scrollback */
+	return;
 	if (!scrollback_list) {
 		scrollback_list = list_create();
 	}
@@ -1002,7 +1009,7 @@ void save_scrollback() {
 		free(list_dequeue(scrollback_list));
 	}
 
-	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(t_cell) * term_width);
+	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(t_cell) * term_width + 20);
 	row->width = term_width;
 	for (int i = 0; i < term_width; ++i) {
 		t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (i) * sizeof(t_cell));
@@ -1022,6 +1029,7 @@ void save_scrollback() {
 #endif
 
 void redraw_scrollback() {
+	return;
 	if (!scrollback_offset) {
 		term_redraw_all();
 		return;

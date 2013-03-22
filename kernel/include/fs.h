@@ -36,6 +36,7 @@ typedef struct fs_node *(*finddir_type_t) (struct fs_node *, char *name);
 typedef void (*create_type_t) (struct fs_node *, char *name, uint16_t permission);
 typedef void (*mkdir_type_t) (struct fs_node *, char *name, uint16_t permission);
 typedef int (*ioctl_type_t) (struct fs_node *, int request, void * argp);
+typedef int (*get_size_type_t) (struct fs_node *);
 
 typedef struct fs_node {
 	char name[256];			// The filename.
@@ -55,6 +56,7 @@ typedef struct fs_node {
 	create_type_t create;
 	mkdir_type_t mkdir;
 	ioctl_type_t ioctl;
+	get_size_type_t get_size;
 	struct fs_node *ptr;	// Used by mountpoints and symlinks.
 	uint32_t offset;
 	int32_t shared_with;

@@ -71,6 +71,7 @@ DEFN_SYSCALL1(open_serial, 44, int);
 DEFN_SYSCALL2(sleepabs,  45, unsigned long, unsigned long);
 DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 DEFN_SYSCALL3(ioctl, 47, int, int, void *);
+DEFN_SYSCALL2(access, 48, char *, int);
 
 
 extern char ** environ;
@@ -368,9 +369,7 @@ int unlink(char *name) {
 }
 
 int access(const char *pathname, int mode) {
-	fprintf(stderr, "[user/debug] Unsupported operation [access]\n");
-	/* Not supported */
-	return 0;
+	return syscall_access((char *)pathname, mode);
 }
 
 long pathconf(char *path, int name) {

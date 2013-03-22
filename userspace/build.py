@@ -99,8 +99,8 @@ class CCompiler(object):
 		cmd.extend(self.arguments)
 		self.notify_start()
 		ret = subprocess.call(cmd)
-		if not '/lib/' in self.filename:
-			subprocess.call(['i686-pc-toaru-strip', self.output_file()])
+		#if not '/lib/' in self.filename:
+		#	subprocess.call(['i686-pc-toaru-strip', self.output_file()])
 		self.notify_done()
 		if ret:
 			print target, ret
