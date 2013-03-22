@@ -176,9 +176,13 @@ int fstat(int file, struct stat *st) {
 
 int stat(const char *file, struct stat *st){
 	int i = open(file, 0);
-	int ret = fstat(i, st);
-	close(i);
-	return ret;
+	if (i >= 0) {
+		int ret = fstat(i, st);
+		close(i);
+		return ret;
+	} else {
+		return -1;
+	}
 }
 
 int write(int file, char *ptr, int len) {

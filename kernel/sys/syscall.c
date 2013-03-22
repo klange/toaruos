@@ -156,6 +156,7 @@ static int wait(int child) {
 static int open(const char * file, int flags, int mode) {
 	validate((void *)file);
 	fs_node_t * node = kopen((char *)file, 0);
+	debug_print(NOTICE, "Flags opening %s are 0x%x", file, flags);
 	if (!node && (flags & 0x600)) {
 		/* Um, make one */
 		if (!create_file_fs((char *)file, 0777)) {
@@ -174,6 +175,7 @@ static int open(const char * file, int flags, int mode) {
 
 static int access(const char * file, int flags) {
 	validate((void *)file);
+	debug_print(INFO, "access(%s) from pid=%d", file, getpid());
 	fs_node_t * node = kopen((char *)file, 0);
 	if (!node) return -1;
 	close_fs(node);
