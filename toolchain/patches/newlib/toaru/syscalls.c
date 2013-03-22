@@ -13,6 +13,7 @@
 #include <sys/termios.h>
 #include <stdio.h>
 #include <utime.h>
+#include <signal.h>
 
 #include <_ansi.h>
 #include <errno.h>
@@ -480,6 +481,16 @@ int tcsetattr(int fd, int actions, struct termios * tio) {
 	return 0;
 }
 
+int tcsetpgrp(int fd, pid_t pgrp) {
+	DEBUG_STUB("tcsetpgrp(%d,%d);\n", fd, pgrp);
+	return 0;
+}
+
+pid_t tcgetpgrp(int fd) {
+	DEBUG_STUB("tcgetpgrp(%d);\n", fd);
+	return -1;
+}
+
 int fpathconf(int file, int name) {
 	DEBUG_STUB("fpathconf(%d,%d)\n", file, name);
 	return 0;
@@ -502,11 +513,52 @@ int geteuid() {
 	return getuid();
 }
 
+int getegid() {
+	return getgid();
+}
+
+int getgroups(int size, gid_t list[]) {
+	DEBUG_STUB("getgroups(...);\n");
+	return 0;
+}
+
+pid_t wait3(int *status, int options, struct rusage *rusage) {
+	return wait(status);
+}
+
 int dup(int oldfd) {
 	return dup2(oldfd, 0);
 }
 
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
+	DEBUG_STUB("sigprocmask(%d, 0x%x, 0x%x);\n", how, set, oldset);
+	return -1;
+}
+
+int sigsuspend(const sigset_t * mask) {
+	DEBUG_STUB("sigsuspend(0x%x);\n", mask);
+	syscall_yield();
+	return -1;
+}
+
+int setpgid(pid_t pid, pid_t pgid) {
+	DEBUG_STUB("setpgid(%d,%d);\n", pid, pgid);
+	return -1;
+}
+
+int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)  {
+	DEBUG_STUB("sigaction(%d,...);\n", signum);
+
+	return 0;
+}
+
+pid_t getppid() {
+	DEBUG_STUB("getppid()\n");
+	return 0;
+}
+
+
 void sync() {
-	/* LOOOL NOPE */
+	DEBUG_STUB("sync();\n");
 }
 

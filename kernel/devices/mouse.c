@@ -98,7 +98,7 @@ void mouse_handler(struct regs *r) {
 					mouse_cycle = 0;
 
 					mouse_device_packet_t bitbucket;
-					while (pipe_size(mouse_pipe) > (DISCARD_POINT * sizeof(packet))) {
+					while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
 						read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
 					}
 					write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);

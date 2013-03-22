@@ -355,8 +355,8 @@ process_t * process_get_first_child_rec(tree_node_t * node, process_t * target) 
 	process_t * proc = (process_t *)node->value;
 	if (proc == target) {
 		foreach(child, node->children) {
-			debug_print(WARNING, "Found a child: %d", ((process_t *)child->value)->id);
-			return child->value;
+			process_t * cproc = (process_t *)((tree_node_t *)child->value)->value;
+			return cproc;
 		}
 		return NULL;
 	}

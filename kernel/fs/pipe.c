@@ -25,7 +25,7 @@ static inline size_t pipe_unread(pipe_device_t * pipe) {
 	}
 }
 
-size_t pipe_size(fs_node_t * node) {
+int pipe_size(fs_node_t * node) {
 	pipe_device_t * pipe = (pipe_device_t *)node->inode;
 	return pipe_unread(pipe);
 }
