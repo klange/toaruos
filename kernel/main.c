@@ -144,6 +144,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	serial_mount_devices();
 	vfs_mount("/dev/null", null_device_create());
 	vfs_mount("/dev/hello", hello_device_create());
+	vfs_mount("/dev/random", random_device_create());
 
 	vfs_mount("/proc", procfs_create());
 

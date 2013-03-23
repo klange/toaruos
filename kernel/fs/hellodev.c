@@ -16,7 +16,7 @@ uint32_t read_hello(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 	uint32_t s = 0;
 	int d = strlen(hello);
 	while (s < size) {
-		buffer[offset] = hello[offset % d];
+		buffer[s] = hello[offset % d];
 		offset++;
 		s++;
 	}

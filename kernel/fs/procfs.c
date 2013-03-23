@@ -58,7 +58,7 @@ uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 	if (offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf + offset, size);
+	memcpy(buffer, buf, size);
 	return size;
 }
 
@@ -85,7 +85,7 @@ uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8
 	if (offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf + offset, size);
+	memcpy(buffer, buf, size);
 	return size;
 }
 
@@ -151,7 +151,7 @@ uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	if (offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf + offset, size);
+	memcpy(buffer, buf, size);
 	return size;
 }
 
@@ -163,7 +163,7 @@ uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 	if (offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf + offset, size);
+	memcpy(buffer, buf, size);
 	return size;
 }
 
@@ -176,7 +176,7 @@ uint32_t cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	if (offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf + offset, size);
+	memcpy(buffer, buf, size);
 	return size;
 }
 
@@ -200,7 +200,7 @@ uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	if (offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf + offset, size);
+	memcpy(buffer, buf, size);
 	return size;
 }
 
