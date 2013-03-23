@@ -1456,6 +1456,9 @@ void reinit() {
 		FT_Set_Pixel_Sizes(face_extra, font_size, font_size);
 	}
 
+	int old_width  = term_width;
+	int old_height = term_height;
+
 	if (_windowed) {
 		term_width  = window_width  / char_width;
 		term_height = window_height / char_height;
@@ -1480,9 +1483,22 @@ void reinit() {
 		term_height = ctx->height / char_height;
 	}
 	if (term_buffer) {
-		term_buffer = realloc(term_buffer, sizeof(t_cell) * term_width * term_height);
+		t_cell * new_term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
+
+		memset(new_term_buffer, 0x0, sizeof(t_cell) * term_width * term_height);
+		for (int row = 0; row < min(old_height, term_height); ++row) {
+			for (int col = 0; col < min(old_width, term_width); ++col) {
+				t_cell * old_cell = (t_cell *)((uintptr_t)term_buffer + (row * old_width + col) * sizeof(t_cell));
+				t_cell * new_cell = (t_cell *)((uintptr_t)new_term_buffer + (row * term_width + col) * sizeof(t_cell));
+				*new_cell = *old_cell;
+			}
+		}
+		free(term_buffer);
+
+		term_buffer = new_term_buffer;
 	} else {
 		term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
+		memset(term_buffer, 0x0, sizeof(t_cell) * term_width * term_height);
 	}
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll);
 
@@ -1491,6 +1507,8 @@ void reinit() {
 
 	if (!_vga_mode) {
 		draw_fill(ctx, rgba(0,0,0, 0xbb));
+		render_decors();
+		term_redraw_all();
 	}
 
 	struct winsize w;
@@ -1498,8 +1516,6 @@ void reinit() {
 	w.ws_col = term_width;
 	ioctl(fd_master, TIOCSWINSZ, &w);
 
-	/* A lot of this is probably uneccessary if we do some sort of resize... */
-	ansi_print("\033[H\033[2J");
 }
 
 #if DEBUG_TERMINAL_WITH_SERIAL
