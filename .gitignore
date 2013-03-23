@@ -37,3 +37,5 @@ toaru-pdfviewer
 toaru-toolkit
 hdd/home/root/*
 hdd/home/local/*
+hdd/etc/vimrc
+hdd/usr/share/vim
