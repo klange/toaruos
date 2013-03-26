@@ -1,11 +1,36 @@
+# Multiarch / Ports
+
+* Split out x86 / PC-specific bits into new arch/ directories
+* Fix up uses of explicitly sized types where possible
+* x86-64 port
+  * Good for verification of multi-arch readiness
+  * Much easier to develop for than ARM port
+* ARMv6 port is underway
+
+# Cleanup and POSIX expansion
+
+* Rewrite underlying process model
+  * `task`/`process` split should match architecture dependency split
+  * Better allocation management, process tracking
+  * Cleanup is a pain right now - we need to stop eating processes that finish with parents that might want their statuses.
+  * Sleeping, wait queues, and IO polling/select depend on some rewriting
+
+# New EXT2 drivers
+
+* The EXT2 drivers are poorly written, they need a complete rewrite
+* Allow for multiple EXT2 instances
+* Operate on block devices rather than directly with ATA drives
+  * Allows for effortless ramdisk implementation with same code
+  * Will make MMC port a lot easier for RPi
+
 # TODO as of November, 2012
 
 * force a build run
 
-* Integrate Cairo into build toolchain
+* ~~Integrate Cairo into build toolchain~~
   * autogen means extra effort needed
   * required to ship with new compositor
-* Fix static initializers in C++
+* ~~Fix static initializers in C++~~
   * The best method for this is probably going to be writing a dynamic loader, so...
 * Write a dynamic loader
 * Pretty much everything below
@@ -15,7 +40,8 @@
 * User Interface
   * ~~Graphical Login~~
   * More applications
-* Working boot on real hardware
+* ~~Working boot on real hardware~~
+  * Confirmed working on Mini 9 with hard disk boot
 
 # TODO for 0.4.5
 
@@ -26,6 +52,7 @@
 * Stable Harddisk writes
   * Screenshot functionality
   * Attempt an installer?
+  * ATA writes in general seem to be stable, work on EXT2 FS write support
 
 # Doc Revamp
 
@@ -46,9 +73,9 @@
 * Service bindings
   * Essentially, a system call interface to discovering available services.
   * `require_service(...)` system call for usable errors when a service is missing?
-* Deprecate old graphics applications
-  * And rename the windowed versions.
-* Environment variables
+* ~~Deprecate old graphics applications~~
+  * ~~And rename the windowed versions.~~
+* ~~Environment variables~~
   * Support them in general
   * Push things like graphics parameters to environment variables
 * Integrate service-based VFS into C library
@@ -101,10 +128,12 @@
 * Finish GCC port
   * Still missing a few things in the underlying C library
   * Ideally, also want to be able to build natively, so need scripting, build utils, etc.
-* Port ncurses/vim/etc.
+* ~~Port ncurses/vim/etc.~~
+  * This was compleated circa March 2013
   * Native development requires good tools.
   * Also port genext2fs.
-* Directory support needs to be better integrated into the C library still
+* ~~Directory support needs to be better integrated into the C library still~~
+  * `readdir` and family have been integrated
 
 ## Microkernal Readiness
 
@@ -124,6 +153,7 @@
 * PCI Service
 * Graphics Management Service
 * Compositor as a service?
+  * Technically, it already is.
 * Virtual File System Service
 
 ## Old I/O goals
@@ -131,10 +161,12 @@
 ### I/O
 * `/dev` file system
 * `/dev/fbN` and `/dev/ttyN` for virtual framebuffer terminals and graphics
-* `/dev/ttyS0` for serial I/O
+* ~~`/dev/ttyS0` for serial I/O~~
 * SATA read/write drivers (`/dev/sdaN`)
 * `/dev/ramdisk` (read-only)
 * EXT2 drivers should operate on a `/dev/*` file
-* Mounting of `/dev/*` files using a filesystem handler
-* VFS tree
+  * Working on this with new ext2 drivers
+  * Need better block device handling; \*64() operations
+* ~~Mounting of `/dev/*` files using a filesystem handler~~
+* ~~VFS tree~~
 
