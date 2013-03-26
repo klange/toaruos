@@ -13,13 +13,6 @@ uint32_t PTRS_PER_BLOCK = 256;
 #define SECTORSIZE		512
 #define DISK_PORT		0x1F0
 
-typedef struct {
-	uint32_t block_no;
-	uint32_t last_use;
-	uint8_t  dirty;
-	uint8_t *block;
-} ext2_disk_cache_entry_t;
-
 ext2_disk_cache_entry_t *ext2_disk_cache   = NULL;	// LSU block cache
 ext2_superblock_t *ext2_disk_superblock    = NULL;
 ext2_bgdescriptor_t *ext2_disk_root_block  = NULL;

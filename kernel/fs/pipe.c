@@ -26,7 +26,7 @@ static inline size_t pipe_unread(pipe_device_t * pipe) {
 }
 
 int pipe_size(fs_node_t * node) {
-	pipe_device_t * pipe = (pipe_device_t *)node->inode;
+	pipe_device_t * pipe = (pipe_device_t *)node->device;
 	return pipe_unread(pipe);
 }
 
@@ -61,14 +61,14 @@ static inline void pipe_increment_write_by(pipe_device_t * pipe, size_t amount) 
 }
 
 uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	assert(node->inode != 0 && "Attempted to read from a fully-closed pipe.");
+	assert(node->device != 0 && "Attempted to read from a fully-closed pipe.");
 
 	/* Retreive the pipe object associated with this file node */
-	pipe_device_t * pipe = (pipe_device_t *)node->inode;
+	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
 #if DEBUG_PIPES
 	if (pipe->size > 300) { /* Ignore small pipes (ie, keyboard) */
-		kprintf("[debug] Call to read from pipe 0x%x\n", node->inode);
+		kprintf("[debug] Call to read from pipe 0x%x\n", node->device);
 		kprintf("        Unread bytes:    %d\n", pipe_unread(pipe));
 		kprintf("        Total size:      %d\n", pipe->size);
 		kprintf("        Request size:    %d\n", size);
@@ -99,14 +99,14 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 }
 
 uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	assert(node->inode != 0 && "Attempted to write to a fully-closed pipe.");
+	assert(node->device != 0 && "Attempted to write to a fully-closed pipe.");
 
 	/* Retreive the pipe object associated with this file node */
-	pipe_device_t * pipe = (pipe_device_t *)node->inode;
+	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
 #if DEBUG_PIPES
 	if (pipe->size > 300) { /* Ignore small pipes (ie, keyboard) */
-		kprintf("[debug] Call to write to pipe 0x%x\n", node->inode);
+		kprintf("[debug] Call to write to pipe 0x%x\n", node->device);
 		kprintf("        Available space: %d\n", pipe_available(pipe));
 		kprintf("        Total size:      %d\n", pipe->size);
 		kprintf("        Request size:    %d\n", size);
@@ -153,10 +153,10 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 }
 
 void open_pipe(fs_node_t * node, uint8_t read, uint8_t write) {
-	assert(node->inode != 0 && "Attempted to open a fully-closed pipe.");
+	assert(node->device != 0 && "Attempted to open a fully-closed pipe.");
 
 	/* Retreive the pipe object associated with this file node */
-	pipe_device_t * pipe = (pipe_device_t *)node->inode;
+	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
 	/* Add a reference */
 	pipe->refcount++;
@@ -165,10 +165,10 @@ void open_pipe(fs_node_t * node, uint8_t read, uint8_t write) {
 }
 
 void close_pipe(fs_node_t * node) {
-	assert(node->inode != 0 && "Attempted to close an already fully-closed pipe.");
+	assert(node->device != 0 && "Attempted to close an already fully-closed pipe.");
 
 	/* Retreive the pipe object associated with this file node */
-	pipe_device_t * pipe = (pipe_device_t *)node->inode;
+	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
 	/* Drop one reference */
 	pipe->refcount--;
@@ -182,7 +182,7 @@ void close_pipe(fs_node_t * node) {
 		free(pipe->wait_queue);
 		free(pipe);
 		/* And let the creator know there are no more references */
-		node->inode = 0;
+		node->device = 0;
 #endif
 	}
 
@@ -193,7 +193,7 @@ fs_node_t * make_pipe(size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	pipe_device_t * pipe = malloc(sizeof(pipe_device_t));
 
-	fnode->inode = 0;
+	fnode->device = 0;
 	fnode->name[0] = '\0';
 	sprintf(fnode->name, "[pipe]");
 	fnode->uid   = 0;
@@ -212,7 +212,7 @@ fs_node_t * make_pipe(size_t size) {
 	fnode->mtime = fnode->atime;
 	fnode->ctime = fnode->atime;
 
-	fnode->inode = (uintptr_t)pipe;
+	fnode->device = pipe;
 
 	pipe->buffer    = malloc(size);
 	pipe->write_ptr = 0;

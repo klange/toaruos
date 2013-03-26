@@ -77,7 +77,7 @@ static inline size_t ring_buffer_unread(ring_buffer_t * ring_buffer) {
 }
 
 size_t ring_buffer_size(fs_node_t * node) {
-	ring_buffer_t * ring_buffer = (ring_buffer_t *)node->inode;
+	ring_buffer_t * ring_buffer = (ring_buffer_t *)node->device;
 	return ring_buffer_unread(ring_buffer);
 }
 
@@ -109,7 +109,7 @@ static inline void ring_buffer_increment_write(ring_buffer_t * ring_buffer) {
 
 
 uint32_t  read_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 
 	/* Standard pipe read */
 	size_t collected = 0;
@@ -130,7 +130,7 @@ uint32_t  read_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint
 	return collected;
 }
 uint32_t write_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 
 	size_t written = 0;
 	while (written < size) {
@@ -163,7 +163,7 @@ void     close_pty_master(fs_node_t * node) {
 }
 
 uint32_t  read_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 
 	debug_print(INFO, "tty read at offset=%d, size=%d", offset, size);
 
@@ -188,7 +188,7 @@ uint32_t  read_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8
 	return collected;
 }
 uint32_t write_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 
 	size_t written = 0;
 	while (written < size) {
@@ -221,22 +221,22 @@ void     close_pty_slave(fs_node_t * node) {
  * things differently in the slave or master.
  */
 int ioctl_pty_master(fs_node_t * node, int request, void * argp) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 	return pty_ioctl(pty, request, argp);
 }
 
 int ioctl_pty_slave(fs_node_t * node, int request, void * argp) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 	return pty_ioctl(pty, request, argp);
 }
 
 int pty_available_input(fs_node_t * node) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 	return ring_buffer_unread(&pty->in);
 }
 
 int pty_available_output(fs_node_t * node) {
-	pty_t * pty = (pty_t *)node->inode;
+	pty_t * pty = (pty_t *)node->device;
 	return ring_buffer_unread(&pty->out);
 }
 
@@ -258,7 +258,7 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	fnode->ioctl = ioctl_pty_master;
 	fnode->get_size = pty_available_output;
 
-	fnode->inode = (uintptr_t)pty;
+	fnode->device = pty;
 
 	return fnode;
 }
@@ -281,7 +281,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	fnode->ioctl = ioctl_pty_slave;
 	fnode->get_size = pty_available_input;
 
-	fnode->inode = (uintptr_t)pty;
+	fnode->device = pty;
 
 	return fnode;
 }

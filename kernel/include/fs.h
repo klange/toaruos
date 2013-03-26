@@ -39,14 +39,22 @@ typedef int (*ioctl_type_t) (struct fs_node *, int request, void * argp);
 typedef int (*get_size_type_t) (struct fs_node *);
 
 typedef struct fs_node {
-	char name[256];			// The filename.
-	uint32_t mask;			// The permissions mask.
-	uint32_t uid;			// The owning user.
-	uint32_t gid;			// The owning group.
-	uint32_t flags;			// Flags (node type, etc).
-	uint32_t inode;			// Inode number.
-	uint32_t length;		// Size of the file, in byte.
-	uint32_t impl;			// Used to keep track which fs it belongs to.
+	char name[256];         // The filename.
+	void * device;          // Device object (optional)
+	uint32_t mask;          // The permissions mask.
+	uint32_t uid;           // The owning user.
+	uint32_t gid;           // The owning group.
+	uint32_t flags;         // Flags (node type, etc).
+	uint32_t inode;         // Inode number.
+	uint32_t length;        // Size of the file, in byte.
+	uint32_t impl;          // Used to keep track which fs it belongs to.
+
+	/* times */
+	uint32_t atime;         // Accessed
+	uint32_t mtime;         // Modified
+	uint32_t ctime;         // Created
+
+	/* File operations */
 	read_type_t read;
 	write_type_t write;
 	open_type_t open;
@@ -57,17 +65,15 @@ typedef struct fs_node {
 	mkdir_type_t mkdir;
 	ioctl_type_t ioctl;
 	get_size_type_t get_size;
-	struct fs_node *ptr;	// Used by mountpoints and symlinks.
-	uint32_t offset;
-	int32_t shared_with;
-	uint32_t atime;
-	uint32_t mtime;
-	uint32_t ctime;
+
+	struct fs_node *ptr;   // Alias pointer, for symlinks.
+	uint32_t offset;       // Offset for read operations XXX move this to new "file descriptor" entry
+	int32_t shared_with;   // File descriptor sharing XXX 
 } fs_node_t;
 
 struct dirent {
-	uint32_t ino;			// Inode number.
-	char name[256];			// The filename.
+	uint32_t ino;           // Inode number.
+	char name[256];         // The filename.
 };
 
 struct stat  {

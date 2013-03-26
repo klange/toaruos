@@ -15,6 +15,8 @@
 
 #define EXT2_SUPER_MAGIC 0xEF53
 
+#define EXT2_DIRECT_BLOCKS 12
+
 /* Super block struct. */
 struct ext2_superblock {
 	uint32_t inodes_count;
@@ -162,7 +164,16 @@ struct ext2_dir {
 
 typedef struct ext2_dir ext2_dir_t;
 
+typedef struct {
+	uint32_t block_no;
+	uint32_t last_use;
+	uint8_t  dirty;
+	uint8_t *block;
+} ext2_disk_cache_entry_t;
+
 void ext2_ramdisk_mount(uint32_t offset);
+
+typedef int (*ext2_block_io_t) (void *, uint32_t, uint8_t *);
 
 #endif
 

@@ -20,11 +20,11 @@ uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 	memset(buffer, 0x00, 1);
 	uint32_t collected = 0;
 	while (collected < size) {
-		while (!serial_rcvd(node->inode)) {
+		while (!serial_rcvd((int)node->device)) {
 			switch_task(1);
 		}
 		debug_print(NOTICE, "Data received from TTY");
-		buffer[collected] = serial_recv(node->inode);
+		buffer[collected] = serial_recv((int)node->device);
 		collected++;
 	}
 	return collected;
@@ -33,7 +33,7 @@ uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	uint32_t sent = 0;
 	while (sent < size) {
-		serial_send(node->inode, buffer[sent]);
+		serial_send((int)node->device, buffer[sent]);
 		sent++;
 	}
 	return size;
@@ -50,7 +50,7 @@ void close_serial(fs_node_t * node) {
 fs_node_t * serial_device_create(int device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->inode = device;
+	fnode->device= (void *)device;
 	strcpy(fnode->name, "serial");
 	fnode->uid = 0;
 	fnode->gid = 0;
