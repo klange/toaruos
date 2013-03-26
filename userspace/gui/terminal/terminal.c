@@ -314,13 +314,6 @@ static void _ansi_put(char c) {
 										/* Local Echo On */
 										state.local_echo = 1;
 										break;
-									case 1003:
-										{
-											char out[24];
-											sprintf(out, "%d,%d\n", term_width, term_height);
-											input_buffer_stuff(out);
-										}
-										break;
 									case 1555:
 										if (argc > 1) {
 											scale_fonts  = 1;

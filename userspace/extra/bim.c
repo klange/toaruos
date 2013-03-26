@@ -12,11 +12,11 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 
 #ifdef __linux__
 #include <stdio_ext.h>
-#include <sys/ioctl.h>
-#include <termios.h>
 #define BACKSPACE_KEY 0x7F
 #else
 #include <syscall.h>
@@ -511,17 +511,10 @@ void initialize() {
 	buffers_avail = 4;
 	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
 
-#ifdef __linux__
 	struct winsize w;
 	ioctl(0, TIOCGWINSZ, &w);
 	term_width = w.ws_col;
 	term_height = w.ws_row;
-#else
-	printf("\033[1003z");
-	fflush(stdout);
-	scanf("%d,%d", &term_width, &term_height);
-	fpurge(stdin);
-#endif
 	set_unbuffered();
 
 }

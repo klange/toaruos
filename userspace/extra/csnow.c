@@ -2,12 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 
 #ifdef __toaru__
 #include <syscall.h>
 int usleep(useconds_t time) { syscall_nanosleep(0, time / 10000); }
-#else
-#include <sys/ioctl.h>
 #endif
 
 #define MAX_SPEED        2
@@ -43,21 +42,10 @@ screen_t * init_screen() {
 
 	screen_t * screen = malloc(sizeof(screen_t));
 
-#ifdef __toaru__
-	if (strstr(term, "toaru")) {
-		printf("\033[1003z");
-		fflush(stdout);
-		scanf("%d,%d", &screen->width, &screen->height);
-	} else {
-		screen->width  = 80; /* better safe than sorry */
-		screen->height = 24;
-	}
-#else
 	struct winsize w;
 	ioctl(0, TIOCGWINSZ, &w);
 	screen->width  = w.ws_col;
 	screen->height = w.ws_row;
-#endif
 
 	screen->backingstore = malloc(sizeof(char *) * screen->width * screen->height);
 

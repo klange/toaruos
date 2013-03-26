@@ -15,6 +15,8 @@
 #include <syscall.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 
 #include "lib/list.h"
 
@@ -251,9 +253,10 @@ int main (int argc, char * argv[]) {
 		int term_height = DEFAULT_TERM_HEIGHT;
 
 		/* This is a hack to determine the terminal with in a toaru terminal */
-		printf("\033[1003z");
-		fflush(stdout);
-		scanf("%d,%d", &term_width, &term_height);
+		struct winsize w;
+		ioctl(0, TIOCGWINSZ, &w);
+		term_width = w.ws_col;
+		term_height = w.ws_row;
 		term_width -= 1; /* And this just helps clean up our math */
 
 		int col_ext = ent_max_len + MIN_COL_SPACING;
