@@ -4,11 +4,6 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
-#ifdef __toaru__
-#include <syscall.h>
-int usleep(useconds_t time) { syscall_nanosleep(0, time / 10000); }
-#endif
-
 #define MAX_SPEED        2
 #define INITIAL_SNOW     40
 #define INCREMENTAL_SNOW 10

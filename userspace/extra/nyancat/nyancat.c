@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Kevin Lange.  All rights reserved.
+ * Copyright (c) 2011-2013 Kevin Lange.  All rights reserved.
  *
  * Developed by:            Kevin Lange
  *                          http://github.com/klange/nyancat
@@ -70,14 +70,6 @@
 #undef ECHO
 #endif
 
-#ifndef usleep
-#include <syscall.h>
-
-int usleep(useconds_t time) {
-	syscall_nanosleep(0, time / 10000);
-}
-#endif
-
 /*
  * telnet.h contains some #defines for the various
  * commands, escape characters, and modes for telnet.
@@ -90,7 +82,7 @@ int usleep(useconds_t time) {
  * The animation frames are stored separately in
  * this header so they don't clutter the core source
  */
-#include "nyancat-animation.h"
+#include "animation.h"
 
 /*
  * Color palette to use for final output
@@ -440,14 +432,14 @@ int main(int argc, char ** argv) {
 							if (sb[0] == TTYPE) {
 								/* This was a response to the TTYPE command, meaning
 								 * that this should be a terminal type */
-								alarm(0);
+								alarm(2);
 								strcpy(term, &sb[2]);
 								done++;
 							}
 							else if (sb[0] == NAWS) {
 								/* This was a response to the NAWS command, meaning
 								 * that this should be a window size */
-								alarm(0);
+								alarm(2);
 								terminal_width = sb[2];
 								done++;
 							}
@@ -518,6 +510,7 @@ int main(int argc, char ** argv) {
 				}
 			}
 		}
+		alarm(0);
 	} else {
 		/* We are running standalone, retrieve the
 		 * terminal type from the environment. */
@@ -541,7 +534,6 @@ int main(int argc, char ** argv) {
 	if(terminal_width > 80) {
 		terminal_width = 80;
 	}
-
 
 	/* Do our terminal detection */
 	if (strstr(term, "xterm")) {
@@ -574,18 +566,18 @@ int main(int argc, char ** argv) {
 	switch (ttype) {
 		case 1:
 			colors[',']  = "\033[48;5;17m";  /* Blue background */
-			colors['.']  = "\033[48;5;15m";  /* White stars */
-			colors['\''] = "\033[48;5;0m";   /* Black border */
+			colors['.']  = "\033[48;5;231m"; /* White stars */
+			colors['\''] = "\033[48;5;16m";  /* Black border */
 			colors['@']  = "\033[48;5;230m"; /* Tan poptart */
 			colors['$']  = "\033[48;5;175m"; /* Pink poptart */
 			colors['-']  = "\033[48;5;162m"; /* Red poptart */
-			colors['>']  = "\033[48;5;9m";   /* Red rainbow */
-			colors['&']  = "\033[48;5;202m"; /* Orange rainbow */
-			colors['+']  = "\033[48;5;11m";  /* Yellow Rainbow */
-			colors['#']  = "\033[48;5;10m";  /* Green rainbow */
+			colors['>']  = "\033[48;5;196m"; /* Red rainbow */
+			colors['&']  = "\033[48;5;214m"; /* Orange rainbow */
+			colors['+']  = "\033[48;5;226m"; /* Yellow Rainbow */
+			colors['#']  = "\033[48;5;118m"; /* Green rainbow */
 			colors['=']  = "\033[48;5;33m";  /* Light blue rainbow */
 			colors[';']  = "\033[48;5;19m";  /* Dark blue rainbow */
-			colors['*']  = "\033[48;5;8m";   /* Gray cat face */
+			colors['*']  = "\033[48;5;240m"; /* Gray cat face */
 			colors['%']  = "\033[48;5;175m"; /* Pink cheeks */
 			break;
 		case 2:

@@ -86,17 +86,16 @@ int _exit(int val){
 	return syscall_exit(val);
 }
 
-int execve(char *name, char **argv, char **env) {
-	return syscall_execve(name,argv,env);
+int execve(const char *name, char * const argv[], char * const envp[]) {
+	return syscall_execve((char*)name,(char**)argv,(char**)envp);
 }
 
 int execvp(const char *file, char *const argv[]) {
-	return syscall_execve(file,argv,environ);
+	return execve(file,argv,environ);
 }
 
 int execv(const char * file, char *const argv[]) {
-	DEBUG_STUB("execv(%s,...);\n", file);
-	return syscall_execve(file,argv,environ);
+	return execve(file,argv,environ);
 }
 
 /*
@@ -223,12 +222,12 @@ int pipe(int fildes[2]) {
 	return 0;
 }
 
-char *getwd(char *buf) {
-	return syscall_getcwd(buf, 256);
+char *getcwd(char *buf, size_t size) {
+	return (char *)syscall_getcwd(buf, size);
 }
 
-char *getcwd(char *buf, size_t size) {
-	return syscall_getcwd(buf, size);
+char *getwd(char *buf) {
+	return getcwd(buf, 256);
 }
 
 int lstat(const char *path, struct stat *buf) {
@@ -236,17 +235,23 @@ int lstat(const char *path, struct stat *buf) {
 }
 
 int mkdir(const char *pathname, mode_t mode) {
-	return syscall_mkdir(pathname, mode);
+	return syscall_mkdir((char *)pathname, mode);
 }
 
 int chdir(const char *path) {
-	return syscall_chdir(path);
+	return syscall_chdir((char*)path);
 }
 
 unsigned int sleep(unsigned int seconds) {
 	syscall_nanosleep(seconds, 0);
 	return 0;
 }
+
+int usleep(useconds_t usec) {
+	syscall_nanosleep(0, usec / 10000);
+	return 0;
+}
+
 
 char _username[256];
 char *getlogin(void) {
@@ -275,7 +280,7 @@ char *getlogin(void) {
 	}
 	fclose(passwd);
 
-	return &_username;
+	return (char *)&_username;
 }
 
 int dup2(int oldfd, int newfd) {
@@ -289,7 +294,7 @@ DIR * opendir (const char * dirname) {
 		return NULL;
 	}
 
-	DIR * dir = malloc(sizeof(DIR));
+	DIR * dir = (DIR *)malloc(sizeof(DIR));
 	dir->fd = fd;
 	dir->cur_entry = -1;
 	return dir;
@@ -522,7 +527,7 @@ int getgroups(int size, gid_t list[]) {
 	return 0;
 }
 
-pid_t wait3(int *status, int options, struct rusage *rusage) {
+pid_t wait3(int *status, int options, void *rusage) {
 	return wait(status);
 }
 
