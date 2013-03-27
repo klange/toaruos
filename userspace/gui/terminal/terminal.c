@@ -157,7 +157,7 @@ volatile int exit_application = 0;
 #define ANSI_UNDERLINE 0x02
 #define ANSI_ITALIC    0x04
 #define ANSI_EXTRA     0x08 /* Character should use "extra" font (Japanese) */
-#define ANSI_DOUBLEU   0x10
+#define ANSI_SPECBG    0x10
 #define ANSI_OVERLINE  0x20
 #define ANSI_WIDE      0x40 /* Character is double width */
 #define ANSI_CROSS     0x80 /* And that's all I'm going to support */
@@ -376,14 +376,17 @@ static void _ansi_put(char c) {
 							if (arg >= 100 && arg < 110) {
 								/* Bright background */
 								state.bg = 8 + (arg - 100);
+								state.flags |= ANSI_SPECBG;
 							} else if (arg >= 90 && arg < 100) {
 								/* Bright foreground */
 								state.fg = 8 + (arg - 90);
 							} else if (arg >= 40 && arg < 49) {
 								/* Set background */
 								state.bg = arg - 40;
+								state.flags |= ANSI_SPECBG;
 							} else if (arg == 49) {
-								state.bg = 0;
+								state.bg = DEFAULT_BG;
+								state.flags &= ~ANSI_SPECBG;
 							} else if (arg >= 30 && arg < 39) {
 								/* Set Foreground */
 								state.fg = arg - 30;
@@ -405,6 +408,7 @@ static void _ansi_put(char c) {
 									if (atoi(argv[i-1]) == 48) {
 										/* Background to i+1 */
 										state.bg = atoi(argv[i+1]);
+										state.flags |= ANSI_SPECBG;
 									} else if (atoi(argv[i-1]) == 38) {
 										/* Foreground to i+1 */
 										state.fg = atoi(argv[i+1]);
@@ -743,10 +747,10 @@ term_write_char(
 	} else if (_use_freetype) {
 		_fg = term_colors[fg];
 		_bg = term_colors[bg];
-		if (bg == DEFAULT_BG) {
-			_bg |= 0xBB000000;
-		} else {
+		if (flags & ANSI_SPECBG) {
 			_bg |= 0xFF000000;
+		} else {
+			_bg |= 0xBB000000;
 		}
 		_fg |= 0xFF000000;
 		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
@@ -1195,11 +1199,6 @@ term_set_csr_show(uint8_t on) {
 void term_set_colors(uint8_t fg, uint8_t bg) {
 	current_fg = fg;
 	current_bg = bg;
-}
-
-void term_reset_colors() {
-	current_fg = 7;
-	current_bg = 0;
 }
 
 void term_redraw_cursor() {
