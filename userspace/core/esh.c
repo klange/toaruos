@@ -183,15 +183,16 @@ void draw_prompt(int ret) {
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
 
 	/* Print the prompt. */
-	printf("\033[1m[\033[1;33m%s \033[1;32m%s \033[1;31m%s \033[1;34m%s\033[0m ",
-			username, _hostname, date_buffer, time_buffer);
+	printf("\033]1;%s@%s:%s\007", username, _hostname, cwd);
+	printf("\033[400C\033[16D\033[1m\033[38;5;59m[\033[38;5;173m%s \033[38;5;167m%s\033[38;5;59m]\033[1G\033[38;5;221m%s\033[38;5;59m@\033[38;5;81m%s ",
+			date_buffer, time_buffer,
+			username, _hostname);
 	if (ret != 0) {
-		printf("\033[1;31m%d ", ret);
+		printf("\033[38;5;167m%d ", ret);
 	}
 	/* Print the working directory in there, too */
 	syscall_getcwd(cwd, 1024);
-	printf("\033[0m%s\033[1m]\033[0m\n\033[1;32m$\033[0m ", cwd);
-	printf("\033]1;%s@%s:%s\007", username, _hostname, cwd);
+	printf("\033[0m%s\033[1;38;5;47m$\033[0m ", cwd);
 	fflush(stdout);
 }
 
