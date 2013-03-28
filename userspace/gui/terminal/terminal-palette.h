@@ -1,7 +1,10 @@
 /*
  * Terminal palette
  */
-uint32_t term_colors[256] = {
+
+#define PALETTE_COLORS 256
+
+uint32_t term_colors[PALETTE_COLORS] = {
 	/* black  */ 0x2e3436,
 	/* red    */ 0xcc0000,
 	/* green  */ 0x3e9a06,
