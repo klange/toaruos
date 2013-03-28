@@ -1776,7 +1776,7 @@ int main(int argc, char ** argv) {
 				char * tokens[] = {"/bin/login",NULL};
 				int i = execvp(tokens[0], tokens);
 			} else {
-				char * tokens[] = {"/bin/esh",NULL};
+				char * tokens[] = {"/bin/sh",NULL};
 				int i = execvp(tokens[0], tokens);
 			}
 		}

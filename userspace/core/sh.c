@@ -39,6 +39,8 @@ size_t shell_history_offset = 0;
 size_t shell_scroll = 0;
 char   shell_temp[1024];
 
+int    shell_interactive = 1;
+
 int pid; /* Process ID of the shell */
 
 char * shell_history_prev(size_t item);
@@ -820,10 +822,15 @@ _next:
 _done:
 
 		if (quoted) {
-			draw_prompt_c();
-			buffer_size = read_entry_continued(buffer);
-			shell_history_append_line(buffer);
-			continue;
+			if (shell_interactive) {
+				draw_prompt_c();
+				buffer_size = read_entry_continued(buffer);
+				shell_history_append_line(buffer);
+				continue;
+			} else {
+				fprintf(stderr, "Syntax error: Unterminated quoted string.\n");
+				return 127;
+			}
 		}
 
 		if (collected) {
@@ -863,7 +870,7 @@ _done:
 			sprintf(cmd, "%s%s", "/bin/", argv[0]);
 			file = fopen(cmd,"r");
 			if (!file) {
-				printf("Command not found: %s\n", argv[0]);
+				fprintf(stderr, "%s: Command not found\n", argv[0]);
 				free(cmd);
 				return 1;
 			}
@@ -871,7 +878,7 @@ _done:
 		} else {
 			file = fopen(argv[0], "r");
 			if (!file) {
-				printf("Command not found: %s\n", argv[0]);
+				fprintf(stderr, "%s: Command not found\n", argv[0]);
 				free(cmd);
 				return 1;
 			}
@@ -940,6 +947,19 @@ void sort_commands() {
 	}
 }
 
+void show_usage(int argc, char * argv[]) {
+	printf(
+			"Esh: The Experimental Shell\n"
+			"\n"
+			"usage: %s [-lha] [path]\n"
+			"\n"
+			" -c \033[4mcmd\033[0m \033[3mparse and execute cmd\033[0m\n"
+			//-c cmd \033[...
+			" -?     \033[3mshow this help text\033[0m\n"
+			"\n", argv[0]);
+}
+
+
 int main(int argc, char ** argv) {
 
 	int  nowait = 0;
@@ -953,23 +973,26 @@ int main(int argc, char ** argv) {
 	getusername();
 	gethostname();
 
-	FILE * motd = fopen("/etc/motd", "r");
-	if (motd) {
-		size_t s = 0;
-		fseek(motd, 0, SEEK_END);
-		s = ftell(motd);
-		fseek(motd, 0, SEEK_SET);
-		char * m = malloc(sizeof(char) * s);
-		fread(m, s, 1, motd);
-		fwrite(m, s, 1, stdout);
-		fprintf(stdout, "\n");
-		fflush(stdout);
-		free(m);
-	}
-
 	install_commands();
 	add_path_contents();
 	sort_commands();
+
+	if (argc > 1) {
+		int index, c;
+		while ((c = getopt(argc, argv, "c:?")) != -1) {
+			switch (c) {
+				case 'c':
+					shell_interactive = 0;
+					return shell_exec(optarg, strlen(optarg));
+				case '?':
+					show_usage(argc, argv);
+					return 0;
+			}
+		}
+	}
+
+	shell_interactive = 1;
+
 	while (1) {
 		draw_prompt(last_ret);
 		char buffer[LINE_LEN] = {0};

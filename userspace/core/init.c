@@ -37,7 +37,7 @@ void start_terminal(char * arg) {
 	if (!pid) {
 		char * tokens[] = {
 			"/bin/terminal",
-			"-F",
+			"-Fl",
 			arg,
 			NULL
 		};
@@ -53,7 +53,7 @@ void start_terminal_no_freetype(char * arg) {
 	if (!pid) {
 		char * tokens[] = {
 			"/bin/terminal",
-			"-Fkb",
+			"-Fklb",
 			arg,
 			NULL
 		};

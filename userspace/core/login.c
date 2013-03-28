@@ -18,6 +18,8 @@
 
 #include "lib/sha2.h"
 
+#define LINE_LEN 1024
+
 uint32_t child = 0;
 
 void sig_int(int sig) {
@@ -70,17 +72,50 @@ int checkUserPass(char * user, char * pass) {
 
 }
 
+void set_username() {
+	FILE * passwd = fopen("/etc/passwd", "r");
+	char line[LINE_LEN];
+	
+	int uid = syscall_getuid();
+
+	while (fgets(line, LINE_LEN, passwd) != NULL) {
+
+		line[strlen(line)-1] = '\0';
+
+		char *p, *tokens[10], *last;
+		int i = 0;
+		for ((p = strtok_r(line, ":", &last)); p;
+				(p = strtok_r(NULL, ":", &last)), i++) {
+			if (i < 511) tokens[i] = p;
+		}
+		tokens[i] = NULL;
+
+		if (atoi(tokens[2]) == uid) {
+			setenv("USER", tokens[0], 1);
+		}
+	}
+	fclose(passwd);
+}
+
+void set_homedir() {
+	char * user = getenv("USER");
+	if (user) {
+		char path[512];
+		sprintf(path,"/home/%s", user);
+		setenv("HOME",path,1);
+	} else {
+		setenv("HOME","/",1);
+	}
+}
+
+void set_path() {
+	setenv("PATH", "/bin", 0);
+}
+
+
 int main(int argc, char ** argv) {
 
-	struct utsname u;
-	uname(&u);
-
-	fprintf(stdout, "\n%s %s %s %s\n\n",
-			u.sysname,
-			u.nodename,
-			u.release,
-			u.version
-			);
+	system("uname -a");
 
 	syscall_signal(2, sig_int);
 	syscall_signal(11, sig_segv);
@@ -111,13 +146,18 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 
+		system("cat /etc/motd");
+
 		pid_t pid = getpid();
 
 		uint32_t f = fork();
 		if (getpid() != pid) {
 			/* TODO: Read appropriate shell from /etc/passwd */
+			set_username();
+			set_homedir();
+			set_path();
 			char * args[] = {
-				"/bin/esh",
+				"/bin/sh",
 				NULL
 			};
 			syscall_setuid(uid);
