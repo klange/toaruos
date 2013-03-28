@@ -238,6 +238,14 @@ void rline_redraw(rline_context_t * context) {
 	fflush(stdout);
 }
 
+void rline_redraw_clean(rline_context_t * context) {
+	printf("\033[u%s", context->buffer);
+	for (int i = context->offset; i < context->collected; ++i) {
+		printf("\033[D");
+	}
+	fflush(stdout);
+}
+
 size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 	/* Initialize context */
 	rline_context_t context = {
@@ -331,7 +339,7 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 					callbacks->redraw_prompt(&context);
 				}
 				printf("\033[s");
-				rline_redraw(&context);
+				rline_redraw_clean(&context);
 				continue;
 			case '\t':
 				if (callbacks->tab_complete) {
