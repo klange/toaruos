@@ -12,6 +12,23 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
+static inline int32_t min(int32_t a, int32_t b) {
+	return (a < b) ? a : b;
+}
+
+static inline int32_t max(int32_t a, int32_t b) {
+	return (a > b) ? a : b;
+}
+
+static inline uint16_t min16(uint16_t a, uint16_t b) {
+	return (a < b) ? a : b;
+}
+
+static inline uint16_t max16(uint16_t a, uint16_t b) {
+	return (a > b) ? a : b;
+}
+
+
 
 /* Pointer to graphics memory */
 void flip(gfx_context_t * ctx) {
@@ -131,15 +148,33 @@ uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
 	return rgba(red,gre,blu, alp);
 }
 
+#define DONT_USE_FLOAT_FOR_ALPHA 1
+
 uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top) {
-	uint8_t a = _ALP(top);
-	uint8_t b = ((int)_ALP(bottom) * (255 - a)) / 255;
-	uint8_t alp = a + b;
-	uint8_t red = alp ? (int)(_RED(bottom) * (b) + _RED(top) * a) / (alp): 0;
-	uint8_t gre = alp ? (int)(_GRE(bottom) * (b) + _GRE(top) * a) / (alp): 0;
-	uint8_t blu = alp ? (int)(_BLU(bottom) * (b) + _BLU(top) * a) / (alp): 0;
+	if (_ALP(bottom) == 0) return top;
+	if (_ALP(top) == 255) return top;
+	if (_ALP(top) == 0) return bottom;
+#if DONT_USE_FLOAT_FOR_ALPHA
+	uint16_t a = _ALP(top);
+	uint16_t c = 255 - a;
+	uint16_t b = ((int)_ALP(bottom) * c) / 255;
+	uint16_t alp = min16(a + b, 255);
+	uint16_t red = min16((uint32_t)(_RED(bottom) * c + _RED(top) * 255) / 255, 255);
+	uint16_t gre = min16((uint32_t)(_GRE(bottom) * c + _GRE(top) * 255) / 255, 255);
+	uint16_t blu = min16((uint32_t)(_BLU(bottom) * c + _BLU(top) * 255) / 255, 255);
 	return rgba(red,gre,blu,alp);
+#else
+	double a = _ALP(top) / 255.0;
+	double c = 1.0 - a;
+	double b = (_ALP(bottom) / 255.0) * c;
+	double alp = a + b; if (alp > 1.0) alp = 1.0;
+	double red = (_RED(bottom) / 255.0) * c + (_RED(top) / 255.0); if (red > 1.0) red = 1.0;
+	double gre = (_GRE(bottom) / 255.0) * c + (_GRE(top) / 255.0); if (gre > 1.0) gre = 1.0;
+	double blu = (_BLU(bottom) / 255.0) * c + (_BLU(top) / 255.0); if (blu > 1.0) blu = 1.0;
+	return rgba(red * 255, gre * 255, blu * 255, alp * 255);
+#endif
 }
+
 
 uint32_t premultiply(uint32_t color) {
 	uint16_t a = _ALP(color);
@@ -407,14 +442,6 @@ void context_to_png(FILE * file, gfx_context_t * ctx) {
 	return;
 }
 
-
-static inline int32_t min(int32_t a, int32_t b) {
-	return (a < b) ? a : b;
-}
-
-static inline int32_t max(int32_t a, int32_t b) {
-	return (a > b) ? a : b;
-}
 
 void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 	int32_t _left   = max(x, 0);

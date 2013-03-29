@@ -76,4 +76,7 @@ void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 
 void context_to_png(FILE * file, gfx_context_t * ctx);
 
+uint32_t premultiply(uint32_t color);
+
+
 #endif
