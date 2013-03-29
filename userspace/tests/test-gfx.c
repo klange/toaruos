@@ -28,18 +28,11 @@ int center_y(int y) {
 	return (win_height - y) / 2;
 }
 
-void init_sprite(int i, char * filename, char * alpha) {
-	sprites[i] = malloc(sizeof(sprite_t));
-	load_sprite(sprites[i], filename);
-	if (alpha) {
-		sprites[i]->alpha = 1;
-		load_sprite(&alpha_tmp, alpha);
-		sprites[i]->masks = alpha_tmp.bitmap;
-	} else {
-		sprites[i]->alpha = 0;
-	}
-	sprites[i]->blank = 0x0;
+static void init_sprite_png(int id, char * path) {
+	sprites[id] = malloc(sizeof(sprite_t));
+	load_sprite_png(sprites[id], path);
 }
+
 
 void darken(gfx_context_t * ctx) {
 	for (uint16_t y = 0; y < ctx->height; ++y) {
@@ -77,7 +70,7 @@ int main (int argc, char ** argv) {
 	draw_fill(ctx, rgb(0,0,0));
 	flip(ctx);
 
-	init_sprite(1, "/usr/share/bs.bmp", "/usr/share/bs-alpha.bmp");
+	init_sprite_png(1, "/usr/share/logo_login.png");
 
 	flip(ctx);
 

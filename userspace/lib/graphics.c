@@ -141,6 +141,18 @@ uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top) {
 	return rgba(red,gre,blu,alp);
 }
 
+uint32_t premultiply(uint32_t color) {
+	uint16_t a = _ALP(color);
+	uint16_t r = _RED(color);
+	uint16_t g = _GRE(color);
+	uint16_t b = _BLU(color);
+
+	r = r * a / 256;
+	g = g * a / 256;
+	b = b * a / 256;
+	return rgba(r,g,b,a);
+}
+
 /*
  * based on the blur.c demo for Cairo
  * Copyright © 2008 Kristian Høgsberg
@@ -326,7 +338,7 @@ int load_sprite_png(sprite_t * sprite, char * file) {
 			png_byte* row = row_pointers[y];
 			for (x = 0; x < width; ++x) {
 				png_byte * ptr = &(row[x*4]);
-				sprite->bitmap[(y) * width + x] = rgba(ptr[0], ptr[1], ptr[2], ptr[3]);
+				sprite->bitmap[(y) * width + x] = premultiply(rgba(ptr[0], ptr[1], ptr[2], ptr[3]));
 			}
 		}
 
