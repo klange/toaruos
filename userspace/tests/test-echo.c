@@ -18,6 +18,11 @@ int main(int argc, char ** argv) {
 	}
 	printf("\n");
 
+	for (int i = 0; i < 256; i += 3) {
+		printf("\033[48;6;255;0;0;0;m\033[38;6;255;0;0;%dmX\033[0m", i);
+	}
+	printf("\n");
+
 	return 0;
 }
 

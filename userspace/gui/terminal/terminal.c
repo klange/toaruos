@@ -415,7 +415,6 @@ static void _ansi_put(char c) {
 										state.bg = c;
 										state.flags |= ANSI_SPECBG;
 									} else if (atoi(argv[i-1]) == 38) {
-										/* we can't actually use alphas with fg */
 										state.fg = c;
 									}
 									i += 4;
@@ -732,7 +731,9 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
 		for ( i = x, p = 0; i < x_max; i++, p++) {
-			uint32_t tmp = (fg & 0xFFFFFF) | 0x1000000 * bitmap->buffer[q * bitmap->width + p];
+			uint32_t a = _ALP(fg);
+			a = (a * bitmap->buffer[q * bitmap->width + p]) / 255;
+			uint32_t tmp = rgba(_RED(fg),_GRE(fg),_BLU(fg),a);
 			term_set_point(i,j, alpha_blend_rgba(premultiply(bg), premultiply(tmp)));
 		}
 	}
