@@ -95,6 +95,7 @@ struct stat  {
 
 extern fs_node_t *fs_root;
 extern fs_node_t * null_device_create();
+extern fs_node_t * zero_device_create();
 extern fs_node_t * serial_device_create(int device);
 extern fs_node_t * procfs_create();
 extern void serial_mount_devices();

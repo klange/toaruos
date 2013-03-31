@@ -256,6 +256,8 @@ static void _ansi_put(char c) {
 				state.buflen    = 0;
 				ansi_buf_add(c);
 				return;
+			} else if (c == 0) {
+				return;
 			} else {
 				ansi_writer(c);
 			}
