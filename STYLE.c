@@ -21,9 +21,10 @@
  *                 of the function, unless the line would be cumbersome
  *                 in length. Functions should, ideally, be commented
  *                 with a Doxygen-style header, like this one.
- * @param pointer  Pointers should have their *s immediately before the
- *                 identifier, except in the case of...
- * @param string_array String arrays, which are separated.
+ * @param pointer  A pointer, to something; the * is separated from
+ *                 both the type and the identifier, in order to equally
+ *                 annoy both sides of that argument.
+ * @param string_array An array of strings
  * @returns Stuff.
  */
 int function(int argument, void * pointer, char * string_array[]) {
