@@ -115,7 +115,9 @@ void set_path() {
 
 int main(int argc, char ** argv) {
 
+	printf("\n");
 	system("uname -a");
+	printf("\n");
 
 	syscall_signal(2, sig_int);
 	syscall_signal(11, sig_segv);
