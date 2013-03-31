@@ -94,7 +94,7 @@ void julia(int xpt, int ypt) {
 		}
 	}
 	if (k >= initer) {
-		GFX_(xpt,ypt) = 0;
+		GFX_(xpt,ypt) = rgb(0,0,0);
 	} else {
 		GFX_(xpt,ypt) = colors[color];
 	}

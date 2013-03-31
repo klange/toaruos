@@ -334,7 +334,5 @@ ToAruOS contains additional software with the following copyright notices:
         TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
         OF THIS SOFTWARE.
 
-* Some icons from the Elementary Icons set are included. These icons are released under the GPL. You may find a list of authors and contributors alongside the icon files. For reference, a copy of the GNU General Public License is available [here](http://www.gnu.org/licenses/gpl.html).
-
 * Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html), [zlib](http://www.zlib.net/), and [Cairo](http://www.cairographics.org/). Patches for these software packages are provided under the same license as the package they are for.<F7>
 
