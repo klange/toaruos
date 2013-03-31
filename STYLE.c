@@ -27,7 +27,7 @@
  * @param string_array An array of strings
  * @returns Stuff.
  */
-int function(int argument, void * pointer, char * string_array[]) {
+int function(int argument, void *pointer, char * string_array[]) {
 	/* Inline comments should use the classic C-style*/
 	if (condition) {
 		/*
