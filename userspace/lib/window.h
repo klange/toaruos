@@ -130,6 +130,7 @@ typedef struct {
 	int32_t  x; /* X coordinate of upper-left corner */
 	int32_t  y; /* Y coordinate of upper-left corner */
 	uint16_t z; /* Stack order */
+	double   rotation;
 	uint8_t  use_alpha;
 /* END UNUSED IN CLIENT */
 	uint8_t  focused;

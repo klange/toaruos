@@ -22,6 +22,7 @@
  * Macros make verything easier.
  */
 #define GFX(ctx,x,y) *((uint32_t *)&((ctx)->backbuffer)[(GFX_W(ctx) * (y) + (x)) * GFX_B(ctx)])
+#define GFXR(ctx,x,y) *((uint32_t *)&((ctx)->buffer)[(GFX_W(ctx) * (y) + (x)) * GFX_B(ctx)])
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 #define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
 

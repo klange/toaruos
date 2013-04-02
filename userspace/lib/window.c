@@ -64,6 +64,7 @@ window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y,
 	window->x = x;
 	window->y = y;
 	window->z = index;
+	window->rotation = 0.0;
 	window->use_alpha = 0;
 
 	char key[1024];

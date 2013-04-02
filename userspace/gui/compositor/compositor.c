@@ -59,6 +59,7 @@ window_t * focused = NULL;
 window_t * windows[WINDOW_LAYERS];
 sprite_t * sprites[SPRITE_COUNT];
 gfx_context_t * ctx;
+gfx_context_t * select_ctx;
 list_t * process_list;
 int32_t mouse_x, mouse_y;
 int32_t click_x, click_y;
@@ -71,7 +72,9 @@ window_t * resizing_window = NULL;
 int32_t    resizing_window_w = 0;
 int32_t    resizing_window_h = 0;
 cairo_t * cr;
+cairo_t * cs;
 cairo_surface_t * surface;
+cairo_surface_t * selface;
 wid_t volatile _next_wid = 1;
 wins_server_global_t volatile * _request_page;
 int error;
@@ -181,6 +184,25 @@ uint8_t is_between(int32_t lo, int32_t hi, int32_t val) {
 }
 
 window_t * top_at(uint16_t x, uint16_t y) {
+	char buf[512];
+	sprintf(buf, "Looking for top window at %d %d.\n", x, y);
+	syscall_print(buf);
+
+	uint32_t c = GFXR(select_ctx, x, y);
+
+	sprintf(buf, "Select buf contents: 0x%x\n", c);
+	syscall_print(buf);
+
+	unsigned int w = (_GRE(c) << 8) | (_BLU(c));
+	sprintf(buf, "0x%x %x = 0x%x", _GRE(c), _BLU(c), w);
+	syscall_print(buf);
+
+	sprintf(buf, "Window offset %d = %p\n", w, windows[w]);
+	syscall_print(buf);
+
+	return windows[w];
+
+#if 0
 	uint32_t index_top = 0;
 	window_t * window_top = NULL;
 	foreach(n, process_list) {
@@ -200,6 +222,7 @@ window_t * top_at(uint16_t x, uint16_t y) {
 		}
 	}
 	return window_top;
+#endif
 }
 
 void rebalance_windows() {
@@ -342,12 +365,33 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 	assert(win);
 
 	cairo_save(cr);
+	cairo_save(cs);
 
-	cairo_set_source_surface(cr, win, (double)left, (double)top);
+	cairo_translate(cr, left, top);
+	cairo_translate(cs, left, top);
+
+	if (window->z != 0xFFFF && window->z != 0) {
+		cairo_translate(cr, window->width * 0.5, window->height * 0.5);
+		cairo_rotate(cr, window->rotation);
+		cairo_translate(cr, -window->width * 0.5, -window->height * 0.5);
+
+		cairo_translate(cs, window->width * 0.5, window->height * 0.5);
+		cairo_rotate(cs, window->rotation);
+		cairo_translate(cs, -window->width * 0.5, -window->height * 0.5);
+	}
+
+	cairo_set_source_surface(cr, win, 0, 0);
 	cairo_paint(cr);
 	cairo_surface_destroy(win);
 
+	cairo_set_source_rgb(cs, 0, ((window->z & 0xFF00) >> 8) / 255.0, (window->z & 0xFF) / 255.0);
+	cairo_rectangle(cs, 0, 0, window->width, window->height);
+	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
+	cairo_fill(cs);
+
+
 	cairo_restore(cr);
+	cairo_restore(cs);
 }
 
 void redraw_scale_mode() {
@@ -503,7 +547,10 @@ _finish:
 void redraw_windows() {
 	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
 	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
+
+	selface = cairo_image_surface_create_for_data(select_ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
 	cr = cairo_create(surface);
+	cs = cairo_create(selface);
 
 	for (uint32_t i = 0; i < WINDOW_LAYERS; ++i) {
 		window_t * window = NULL;
@@ -533,8 +580,11 @@ void redraw_windows() {
 
 	cairo_surface_flush(surface);
 	cairo_destroy(cr);
-	cairo_surface_flush(surface);
 	cairo_surface_destroy(surface);
+
+	cairo_surface_flush(selface);
+	cairo_destroy(cs);
+	cairo_surface_destroy(selface);
 }
 
 void internal_free_window(window_t * window) {
@@ -808,6 +858,36 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == 'z')) {
+		window_t * win = focused_window();
+		if (win) {
+			win->rotation -= M_PI / 360.0;
+			return 1;
+		}
+	}
+
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == 'x')) {
+		window_t * win = focused_window();
+		if (win) {
+			win->rotation += M_PI / 360.0;
+			return 1;
+		}
+	}
+
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == 'c')) {
+		window_t * win = focused_window();
+		if (win) {
+			win->rotation = 0.0;
+			return 1;
+		}
+	}
+
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 	    (keyboard->event.keycode == 'e')) {
 
 		switch (management_mode) {
@@ -826,6 +906,24 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 
 	return 0;
 }
+
+void device_to_window(window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+	*out_x = x - window->x;
+	*out_y = y - window->y;
+
+	double t_x = *out_x - (window->width / 2);
+	double t_y = *out_y - (window->height / 2);
+
+	double s = sin(-window->rotation);
+	double c = cos(-window->rotation);
+
+	double n_x = t_x * c - t_y * s;
+	double n_y = t_x * s + t_y * c;
+
+	*out_x = (int32_t)n_x + (window->width / 2);
+	*out_y = (int32_t)n_y + (window->height / 2);
+}
+
 
 void * process_requests(void * garbage) {
 	int mfd = *((int *)garbage);
@@ -910,11 +1008,7 @@ void * process_requests(void * garbage) {
 				if (_mouse_window) {
 					_mouse_state = 2; /* Dragging */
 					/* In window coordinates, that's... */
-					_mouse_win_x  = _mouse_window->x;
-					_mouse_win_y  = _mouse_window->y;
-
-					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 
 					mouse_discard = 1;
 					_mouse_moved = 0;
@@ -948,14 +1042,10 @@ void * process_requests(void * garbage) {
 					_mouse_window = focused_window();
 					_packet.wid = _mouse_window->wid;
 
-					_mouse_win_x  = _mouse_window->x;
-					_mouse_win_y  = _mouse_window->y;
-
 					_packet.old_x = click_x;
 					_packet.old_y = click_y;
 
-					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 
 					_packet.new_x = click_x;
 					_packet.new_y = click_y;
@@ -981,19 +1071,11 @@ void * process_requests(void * garbage) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
 					/* Released */
 					_mouse_state = 0;
-					_mouse_win_x  = _mouse_window->x;
-					_mouse_win_y  = _mouse_window->y;
-
-					click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-					click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
-					
+					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 					if (!_mouse_moved) {
 						w_mouse_t _packet;
 						_packet.wid = _mouse_window->wid;
-						_mouse_win_x  = _mouse_window->x;
-						_mouse_win_y  = _mouse_window->y;
-						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+						device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 						_packet.new_x = click_x;
 						_packet.new_y = click_y;
 						_packet.old_x = -1;
@@ -1014,14 +1096,10 @@ void * process_requests(void * garbage) {
 						w_mouse_t _packet;
 						_packet.wid = _mouse_window->wid;
 
-						_mouse_win_x  = _mouse_window->x;
-						_mouse_win_y  = _mouse_window->y;
-
 						_packet.old_x = click_x;
 						_packet.old_y = click_y;
 
-						click_x = mouse_x / MOUSE_SCALE - _mouse_win_x;
-						click_y = mouse_y / MOUSE_SCALE - _mouse_win_y;
+						device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 
 						_packet.new_x = click_x;
 						_packet.new_y = click_y;
@@ -1093,6 +1171,7 @@ void * redraw_thread(void * derp) {
 
 		spin_unlock(&am_drawing);
 		flip(ctx);
+		flip(select_ctx);
 		syscall_yield();
 	}
 }
@@ -1101,6 +1180,15 @@ int main(int argc, char ** argv) {
 
 	/* Initialize graphics setup */
 	ctx = init_graphics_fullscreen_double_buffer();
+
+	/* Initialize the select buffer */
+	select_ctx = malloc(sizeof(gfx_context_t));
+	select_ctx->buffer     = malloc(sizeof(uint32_t) * ctx->width * ctx->height);
+	select_ctx->backbuffer = malloc(sizeof(uint32_t) * ctx->width * ctx->height);
+	select_ctx->width      = ctx->width;
+	select_ctx->height     = ctx->height;
+	select_ctx->size       = ctx->size;
+	select_ctx->depth      = ctx->depth;
 
 	/* Initialize the client request system */
 	init_request_system();
