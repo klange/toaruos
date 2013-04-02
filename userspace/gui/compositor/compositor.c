@@ -398,7 +398,9 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 void redraw_scale_mode() {
 	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
 	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
+	selface = cairo_image_surface_create_for_data(select_ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
 	cr = cairo_create(surface);
+	cs = cairo_create(selface);
 
 	/* Draw background window */
 	if (windows[0]) {
@@ -543,6 +545,10 @@ _finish:
 	cairo_destroy(cr);
 	cairo_surface_flush(surface);
 	cairo_surface_destroy(surface);
+
+	cairo_surface_flush(selface);
+	cairo_destroy(cs);
+	cairo_surface_destroy(selface);
 }
 
 void redraw_windows() {
