@@ -906,9 +906,9 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
 	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
 	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, DEFAULT_BG, DEFAULT_FG, DEFAULT_FLAGS);
+		term_write_char(' ', x * char_width, y * char_height, DEFAULT_BG, DEFAULT_FG, DEFAULT_FLAGS | ANSI_SPECBG);
 	} else {
-		term_write_char(cell->c, x * char_width, y * char_height, cell->bg, cell->fg, cell->flags);
+		term_write_char(cell->c, x * char_width, y * char_height, cell->bg, cell->fg, cell->flags | ANSI_SPECBG);
 	}
 }
 
@@ -1238,7 +1238,7 @@ void flip_cursor() {
 
 void
 term_set_cell(int x, int y, uint16_t c) {
-	cell_set(x, y, c, current_fg, current_bg, 0);
+	cell_set(x, y, c, current_fg, current_bg, state.flags);
 	cell_redraw(x, y);
 }
 
