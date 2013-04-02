@@ -433,7 +433,8 @@ int main(int argc, char ** argv) {
 								/* This was a response to the TTYPE command, meaning
 								 * that this should be a terminal type */
 								alarm(2);
-								strcpy(term, &sb[2]);
+								strncpy(term, &sb[2], 1024);
+								term[1023] = 0;
 								done++;
 							}
 							else if (sb[0] == NAWS) {
@@ -516,7 +517,8 @@ int main(int argc, char ** argv) {
 		 * terminal type from the environment. */
 		char * nterm = getenv("TERM");
 		if (nterm) {
-			strcpy(term, nterm);
+			strncpy(term, nterm, 1024);
+			term[1023] = 0;
 		}
 
 		/* Also get the number of columns */
