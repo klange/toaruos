@@ -279,6 +279,7 @@ static int seek(int fd, int offset, int whence) {
 }
 
 static int stat(int fd, uint32_t st) {
+	validate((void *)st);
 	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}

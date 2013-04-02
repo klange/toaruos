@@ -53,10 +53,12 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 	switch (request) {
 		case TIOCSWINSZ:
 			debug_print(WARNING, "Setting!");
+			validate(argp);
 			memcpy(&pty->size, argp, sizeof(struct winsize));
 			/* TODO send sigwinch to fg_prog */
 			return 0;
 		case TIOCGWINSZ:
+			validate(argp);
 			memcpy(argp, &pty->size, sizeof(struct winsize));
 			return 0;
 		default:
