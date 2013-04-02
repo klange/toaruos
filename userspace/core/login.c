@@ -152,7 +152,7 @@ int main(int argc, char ** argv) {
 
 		pid_t pid = getpid();
 
-		uint32_t f = fork();
+		pid_t f = fork();
 		if (getpid() != pid) {
 			/* TODO: Read appropriate shell from /etc/passwd */
 			set_username();

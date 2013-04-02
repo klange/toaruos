@@ -331,7 +331,7 @@ int main (int argc, char ** argv) {
 
 		teardown_windowing();
 
-		int _session_pid = fork();
+		pid_t _session_pid = fork();
 		if (!_session_pid) {
 			syscall_setuid(uid);
 			char * args[] = {"/bin/gsession", NULL};
