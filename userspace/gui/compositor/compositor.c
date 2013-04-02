@@ -371,13 +371,14 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 	cairo_translate(cs, left, top);
 
 	if (window->z != 0xFFFF && window->z != 0) {
-		cairo_translate(cr, window->width * 0.5, window->height * 0.5);
-		cairo_rotate(cr, window->rotation * M_PI / 360.0);
-		cairo_translate(cr, -window->width * 0.5, -window->height * 0.5);
+		double r = window->rotation * M_PI / 180.0;
+		cairo_translate(cr, (int)( window->width / 2), (int)( window->height / 2));
+		cairo_rotate(cr, r);
+		cairo_translate(cr, (int)(-window->width / 2), (int)(-window->height / 2));
 
-		cairo_translate(cs, window->width * 0.5, window->height * 0.5);
-		cairo_rotate(cs, window->rotation * M_PI / 360.0);
-		cairo_translate(cs, -window->width * 0.5, -window->height * 0.5);
+		cairo_translate(cs, (int)( window->width / 2), (int)( window->height / 2));
+		cairo_rotate(cs, r);
+		cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
 	}
 
 	cairo_set_source_surface(cr, win, 0, 0);
@@ -862,6 +863,7 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 		window_t * win = focused_window();
 		if (win) {
 			win->rotation -= 5;
+			if (win->rotation < 0) win->rotation += 360;
 			return 1;
 		}
 	}
@@ -872,6 +874,7 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 		window_t * win = focused_window();
 		if (win) {
 			win->rotation += 5;
+			if (win->rotation >= 360) win->rotation -= 360;
 			return 1;
 		}
 	}
@@ -914,8 +917,8 @@ void device_to_window(window_t * window, int32_t x, int32_t y, int32_t * out_x, 
 	double t_x = *out_x - (window->width / 2);
 	double t_y = *out_y - (window->height / 2);
 
-	double s = sin(-(window->rotation * M_PI / 360.0));
-	double c = cos(-(window->rotation * M_PI / 360.0));
+	double s = sin(-(window->rotation * M_PI / 180.0));
+	double c = cos(-(window->rotation * M_PI / 180.0));
 
 	double n_x = t_x * c - t_y * s;
 	double n_y = t_x * s + t_y * c;
