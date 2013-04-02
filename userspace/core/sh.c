@@ -468,7 +468,7 @@ void tab_complete_func(rline_context_t * context) {
 				for (int j = 0; j < strlen(context->buffer); ++j) {
 					printf("\010 \010");
 				}
-				printf(match);
+				printf("%s", match);
 				fflush(stdout);
 				memcpy(context->buffer, match, strlen(match) + 1);
 				context->collected = strlen(context->buffer);
