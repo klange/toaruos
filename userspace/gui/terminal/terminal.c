@@ -50,6 +50,8 @@
  */
 #define DEBUG_TERMINAL_WITH_SERIAL 0
 
+#define USE_BELL 0
+
 static int volatile lock = 0;
 
 static void spin_lock(int volatile * lock) {
@@ -1135,6 +1137,7 @@ void term_write(char c) {
 			draw_cursor();
 		} else if (c == '\007') {
 			/* bell */
+#if USE_BELL
 			for (int i = 0; i < term_height; ++i) {
 				for (int j = 0; j < term_width; ++j) {
 					cell_redraw_inverted(j, i);
@@ -1143,6 +1146,7 @@ void term_write(char c) {
 			/* XXX: sleep */
 			syscall_nanosleep(0,10);
 			term_redraw_all();
+#endif
 		} else if (c == '\r') {
 			cell_redraw(csr_x,csr_y);
 			csr_x = 0;
