@@ -35,7 +35,7 @@ The included userspace also provides:
   * Composited window manager
   * Limited widget toolkit
 * Terminal emulator
-  * With general xterm compatibile, support for 256 color palette, etc.
+  * Some xterm compatibility, support for 256 color palette, etc.
   * Anti-aliased text with FreeType
   * General support for UTF-8
 
@@ -63,7 +63,7 @@ Here's what とあるOS looks like:
 
 Here's what とあるOS has looked like in the past:
 
-* [Previous primary screenshot](http://i.imgur.com/kOpJ2l.png)
+* [Old, simple GUI decorationt heme](http://i.imgur.com/kOpJ2.png)
 * [Running a Cairo demo](http://i.imgur.com/DQK7P.png)
 * [With multiple transparent terminals](http://i.imgur.com/K6nPC.png)
 * [A terminal and the native editor](http://i.imgur.com/4SGhd.png)
@@ -81,7 +81,7 @@ Here's what とあるOS has looked like in the past:
 * [Early boot screen testing and some old serial output](http://i.imgur.com/1CMJ0.jpg)
 
 ## Testing it Out ##
-If you are on Debian/Ubuntu/etc., you can clone the repository and run:
+From some Linux hosts (Ubuntu/Debian, Fedora), you can clone the repository and run:
 
     ./build.sh
 
@@ -92,21 +92,21 @@ You can then run `make run` or `make kvm` to run QEMU. An additional `make run-c
 While we only officially support QEMU, other environments - including actual hardware - should work given the appropriate tools. If you are eager to try とあるOS from a real machine, please use GRUB 2 and ensure that you provide the correct graphics payload options. You may find a sample GRUB configuration the `image-builder` directory.
 
 ### User Accounts ###
-
 The default root password is `toor`. There is also a regular user `local` with password `local`. While general system security is lacking, most system-modifying calls to the kernel require root privileges. When booting directly to a graphical terminal, the system will run in single-user mode and automatically log in as root. When running in graphical or VGA-terminal mode, a login screen is presented.
 
 ### Cygwin ###
 With some work, とあるOS is also known to build successfully under cygwin. Instructions are forthcoming.
 
+### Making modifications
+If you have made modifications to the kernel or userspace, `make` will suffice to build a new image and kernel. `build.sh` should only be used once when first cloning. If you have made modifications to the system call bindings for newlib, run `rebuild-newlib.sh` from the `toolchain` directory, then rebuild userspace applications as necessray.
+
 ### Prebuilt Images ###
 Unfortunately, we are no longer able to host prebuilt images through GitHub. We are exploring other options for distributing pre-built images and are also working to provide an ISO distribution.
 
 ### Building an Image for VirtualBox, etc. ###
-
 An experimental, unsupported image building tool that will produce a "production-ready" image, including GRUB 2, is provided in the `image-builder` directory. The script, `create-image.sh`, must be run as root and will produce a 1GB raw disk image which be converted to other formats as needed.
 
 ## Troubleshooting
-
 If you have any issues at all while attempting to build とあるOS, or you would like help building on an unsupported platform, please join us on IRC (`#toaruos@irc.freenode.net`). Problems encountered while using the build scripts in an unsupported environment will not be considered bugs until thoroughly examined.
 
 ## Dependencies ##
@@ -118,7 +118,7 @@ To build the kernel, you will need `yasm`, `clang`, and GNU `ld` (which you undo
 You will need `genext2fs` to generate the EXT2 images for the hard disk drive.
 
 ### Userspace ###
-A toolchain is provided and built from the `build.sh`; this script should be able to install its own dependencies on Ubuntu/Debian and Fedora. Other environments are not supported, but examination for the script should provide a reference point on what packages are necessary.
+A toolchain is provided and can be built through `build.sh`; this script should be able to install its own dependencies on Ubuntu/Debian and Fedora. Other environments are not supported, but examination for the script should provide a reference point on what packages are necessary.
 
 ## References ##
 Here are some tutorials we found useful early on:
@@ -300,7 +300,7 @@ ToAruOS contains additional software with the following copyright notices:
         IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
         CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-* `userspace/lib/wcwidth.c` is an implementation of the `wcwidth()` non-standard C function by Markus Kuhn, it is provided with the following license:
+* `userspace/lib/wcwidth.c` is an implementation of the `wcwidth()` and `wcswidth()` C functions by Markus Kuhn herein used to replace the faulty implementation from newlib; it is provided with the following license:
 
         Markus Kuhn -- 2007-05-26 (Unicode 5.0)
 
@@ -310,7 +310,7 @@ ToAruOS contains additional software with the following copyright notices:
 
         Latest version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
 
-* The code to perform a Gaussian blur on a graphics context (part of `userspace/lib/graphics.c`) comes from sample code for Cairo and carries the following license:
+* The code to perform a Gaussian blur on a graphics context (part of `userspace/lib/graphics.c`) comes from sample code for Cairo and carries the following license, which is forward compatible with the NCSA license:
 
         Copyright © 2008 Kristian Høgsberg
         Copyright © 2009 Chris Wilson
@@ -333,5 +333,5 @@ ToAruOS contains additional software with the following copyright notices:
         TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
         OF THIS SOFTWARE.
 
-* Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html), [zlib](http://www.zlib.net/), and [Cairo](http://www.cairographics.org/). Patches for these software packages are provided under the same license as the package they are for.<F7>
+* Build scripts will retrieve copies of [GCC](http://gcc.gnu.org/), [Newlib](http://sourceware.org/newlib/), [FreeType](http://www.freetype.org/), [libpng](http://www.libpng.org/pub/png/libpng.html), [zlib](http://www.zlib.net/), and [Cairo](http://www.cairographics.org/). Patches for these software packages are provided under the same license as the package they are for.
 
