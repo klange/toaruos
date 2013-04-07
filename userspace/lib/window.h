@@ -185,4 +185,10 @@ void (*resize_window_callback)(window_t *);
 
 void (*focus_changed_callback)(window_t *);
 
+window_t * wins_get_window (wid_t wid);
+void win_sane_events();
+wins_packet_t * get_window_events();
+
+void resize_window_buffer_client (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
+
 #endif

@@ -30,7 +30,9 @@ static int gobble_mouse_events = 1;
 volatile wins_server_global_t * wins_globals = NULL;
 process_windows_t * process_windows = NULL;
 
-static window_t * get_window (wid_t wid) {
+#define get_window wins_get_window
+
+window_t * wins_get_window (wid_t wid) {
 	foreach(n, process_windows->windows) {
 		window_t * w = (window_t *)n->value;
 		if (w->wid == wid) {
@@ -474,13 +476,38 @@ void * win_threaded_event_processor(void * garbage) {
 	}
 }
 
-
 void win_use_threaded_handler() {
 	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
 	pthread_t event_thread;
 	pthread_create(&event_thread, NULL, win_threaded_event_processor, NULL);
 	gobble_mouse_events = 0;
 }
+
+void win_sane_events() {
+	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
+	gobble_mouse_events = 0;
+}
+
+wins_packet_t * get_window_events() {
+	/* Wait for and return one window event; process the core window events, but also return them for reference */
+
+	wins_packet_t header;
+	read(process_windows->event_pipe, &header, sizeof(wins_packet_t));
+
+	while (header.magic != WINS_MAGIC) {
+		/* REALIGN!! */
+		memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
+		read(process_windows->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
+	}
+
+	wins_packet_t * out = malloc(sizeof(wins_packet_t) + header.packet_size);
+	memcpy(out, &header, sizeof(wins_packet_t));
+	read(process_windows->event_pipe, (char *)((uintptr_t)out + sizeof(wins_packet_t)), header.packet_size);
+
+	return out;
+}
+
+
 
 /* Initial Connection */
 
