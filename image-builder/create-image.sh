@@ -16,8 +16,15 @@ fi
 DISK=toaru-disk.img
 SRCDIR=$1
 BOOT=./boot
+SIZE=262144
 
-echo "I will create partitioned, ext2 disk image at $DISK from files in $SRCDIR as well as boot scripts in $BOOT"
+echo "Please select a disk size."
+read -p "[1ml[0m for 1GB, [1ms[0m for 256MB: "
+if [ "$REPLY" == "small" ] ; then
+    SIZE=65536
+fi
+
+echo "I will create partitioned, ext2 disk image of size $SIZE x 4KB at $DISK from files in $SRCDIR as well as boot scripts in $BOOT"
 read -p "Is this correct? (Y/n)"
 if [ "$REPLY" == "n" ] ; then
     echo "Oh, okay, never mind then."
