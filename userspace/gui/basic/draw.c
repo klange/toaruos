@@ -108,7 +108,7 @@ ttk_button * ttk_button_new(char * title, void (*callback)(void *, w_mouse_t *))
 
 	/* Standard */
 	ttk_object * obj = (ttk_object *)out;
-	obj->click_callback = callback;;
+	obj->click_callback = callback;
 	obj->render_func = ttk_render_button;
 	obj->type = TTK_BUTTON_TYPE;
 	obj->x = 0;
@@ -117,6 +117,31 @@ ttk_button * ttk_button_new(char * title, void (*callback)(void *, w_mouse_t *))
 	obj->height = 20;
 
 	list_insert(ttk_objects, obj);
+	return out;
+}
+
+static cairo_surface_t * close_button_sprite;
+void ttk_render_decor_button_close(void * s, cairo_t * cr) {
+	cairo_save(cr);
+	cairo_set_source_rgb(cr, 244.0, 244.0, 244.0);
+
+	double x = ((ttk_object *)s)->x;
+	double y = ((ttk_object *)s)->y;
+
+	cairo_set_source_surface(cr, close_button_sprite, x + 1, y + 1);
+	cairo_paint(cr);
+
+	cairo_restore(cr);
+}
+
+ttk_button * ttk_decor_button_close(void (*callback)(void *, w_mouse_t *)) {
+	if (!close_button_sprite) {
+		close_button_sprite = cairo_image_surface_create_from_png("/usr/share/ttk/common/button-close.png"); /* TTK_PATH ? something less dumb? */
+	}
+	ttk_button * out = ttk_button_new("Close" /* For future tooltips */, callback);
+	((ttk_object *)out)->render_func = ttk_render_decor_button_close;
+	((ttk_object *)out)->width  = 10;
+	((ttk_object *)out)->height = 10;
 	return out;
 }
 
@@ -346,6 +371,12 @@ int main (int argc, char ** argv) {
 	win_sane_events();
 
 	setup_ttk(wina);
+
+	ttk_button * close_button = ttk_decor_button_close(quit_app);
+
+	((ttk_object *)close_button)->x = width - 28;
+	((ttk_object *)close_button)->y = 16;
+
 	button_blue = ttk_button_new("Blue", set_color);
 	ttk_position((ttk_object *)button_blue, decor_left_width + 3, decor_top_height + 3, 100, 20);
 	button_blue->fill_color = rgb(0,0,255);
@@ -371,10 +402,12 @@ int main (int argc, char ** argv) {
 	button_thin->fill_color = rgb(127,127,127);
 	button_thin->fore_color = rgb(255,255,255);
 
+#if 0
 	ttk_button * button_quit = ttk_button_new("X", quit_app);
 	ttk_position((ttk_object *)button_quit, width - 33, 12, 20, 20);
 	button_quit->fill_color = rgb(255,0,0);
 	button_quit->fore_color = rgb(255,255,255);
+#endif
 
 	drawing_surface = ttk_raw_surface_new(width - 30, height - 70);
 	((ttk_object *)drawing_surface)->y = 60;
