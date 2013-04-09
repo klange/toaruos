@@ -50,6 +50,7 @@ pushd build
         rm /tmp/__toaru_crti.o
         cp /tmp/__toaru_crtn.o $TARGET/newlib/libc/sys/crtn.o
         rm /tmp/__toaru_crtn.o
+        echo "" > $DIR/tarballs/newlib-1.19.0/newlib/libc/stdlib/malign.c
         $DIR/tarballs/newlib-1.19.0/configure --target=$TARGET --prefix=$PREFIX || bail
         make || bail
         make install || bail
