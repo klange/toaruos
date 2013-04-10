@@ -507,6 +507,16 @@ wins_packet_t * get_window_events() {
 	return out;
 }
 
+wins_packet_t * get_window_events_async() {
+	struct stat _stat;
+	fstat(process_windows->event_pipe, &_stat);
+	if (_stat.st_size >= sizeof(wins_packet_t)) {
+		return get_window_events();
+	} else {
+		return NULL;
+	}
+}
+
 
 
 /* Initial Connection */
