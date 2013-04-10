@@ -476,7 +476,10 @@ void * win_threaded_event_processor(void * garbage) {
 	}
 }
 
+static int _disabled_sigwinevent = 0;
+
 void win_use_threaded_handler() {
+	_disabled_sigwinevent = 1;
 	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
 	pthread_t event_thread;
 	pthread_create(&event_thread, NULL, win_threaded_event_processor, NULL);
@@ -484,6 +487,7 @@ void win_use_threaded_handler() {
 }
 
 void win_sane_events() {
+	_disabled_sigwinevent = 1;
 	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
 	gobble_mouse_events = 0;
 }
@@ -611,6 +615,9 @@ int setup_windowing () {
 
 void teardown_windowing () {
 	if (process_windows) {
+		if (_disabled_sigwinevent) {
+			syscall_signal(SIGWINEVENT, sig_process_evt); // SIGWINEVENT
+		}
 		window_t * window;
 		node_t   * node;
 		while ((node = list_pop(process_windows->windows)) != NULL) {
