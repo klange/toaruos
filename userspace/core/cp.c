@@ -1,6 +1,8 @@
 /*
  * cp
  */
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <stdio.h>
 
@@ -23,11 +25,19 @@ int main(int argc, char ** argv) {
 	struct stat statbuf;
 	stat(argv[2], &statbuf);
 	if (S_ISDIR(statbuf.st_mode)) {
-		fprintf(stderr, "%s: let's not overwrite a directory: %s\n", argv[0], argv[2]);
-		return 1;
-	}
+		char *filename = strrchr(argv[1], '/');
+		if (!filename) {
+			filename = argv[1];
+		}
 
-	fout = fopen(argv[2], "w");
+		char *target_path = malloc((strlen(argv[2]) + strlen(filename) + 2) * sizeof(char));
+		sprintf(target_path, "%s/%s", argv[2], filename );
+		fout = fopen( target_path, "w" );
+
+		free(target_path);
+	} else {
+		fout = fopen( argv[2], "w" );
+	}
 
 	size_t length;
 
