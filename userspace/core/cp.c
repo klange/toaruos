@@ -1,6 +1,9 @@
 /*
  * cp
  */
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <stdio.h>
 
 #define CHUNK_SIZE 4096
@@ -18,7 +21,23 @@ int main(int argc, char ** argv) {
 		fprintf(stderr, "%s: %s: no such file or directory\n", argv[0], argv[1]);
 		return 1;
 	}
-	fout = fopen(argv[2], "w");
+
+	struct stat statbuf;
+	stat(argv[2], &statbuf);
+	if (S_ISDIR(statbuf.st_mode)) {
+		char *filename = strrchr(argv[1], '/');
+		if (!filename) {
+			filename = argv[1];
+		}
+
+		char *target_path = malloc((strlen(argv[2]) + strlen(filename) + 2) * sizeof(char));
+		sprintf(target_path, "%s/%s", argv[2], filename );
+		fout = fopen( target_path, "w" );
+
+		free(target_path);
+	} else {
+		fout = fopen( argv[2], "w" );
+	}
 
 	size_t length;
 
