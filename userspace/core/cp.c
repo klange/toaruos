@@ -1,6 +1,7 @@
 /*
  * cp
  */
+#include <sys/stat.h>
 #include <stdio.h>
 
 #define CHUNK_SIZE 4096
@@ -18,6 +19,14 @@ int main(int argc, char ** argv) {
 		fprintf(stderr, "%s: %s: no such file or directory\n", argv[0], argv[1]);
 		return 1;
 	}
+
+	struct stat statbuf;
+	stat(argv[2], &statbuf);
+	if (S_ISDIR(statbuf.st_mode)) {
+		fprintf(stderr, "%s: let's not overwrite a directory: %s\n", argv[0], argv[2]);
+		return 1;
+	}
+
 	fout = fopen(argv[2], "w");
 
 	size_t length;
