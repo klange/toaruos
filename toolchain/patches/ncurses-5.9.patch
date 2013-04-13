@@ -1,0 +1,61 @@
+diff -rupN ncurses-5.9/config.sub ncurses.new/config.sub
+--- ncurses-5.9/config.sub	2010-09-10 15:25:58.000000000 -0700
++++ ncurses.new/config.sub	2013-04-12 22:37:42.785340320 -0700
+@@ -1306,6 +1306,7 @@ case $os in
+ 	      | -sym* | -kopensolaris* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+ 	      | -aos* | -aros* \
++	      | -toaru* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -rupN ncurses-5.9/ncurses/tinfo/db_iterator.c ncurses.new/ncurses/tinfo/db_iterator.c
+--- ncurses-5.9/ncurses/tinfo/db_iterator.c	2010-12-25 15:00:25.000000000 -0800
++++ ncurses.new/ncurses/tinfo/db_iterator.c	2013-04-12 22:37:41.749340355 -0700
+@@ -90,7 +90,7 @@ NCURSES_EXPORT(void)
+ _nc_last_db(void)
+ {
+     if (ThisDbList != 0) {
+-	FreeAndNull(ThisDbList);
++	//FreeAndNull(ThisDbList);
+     }
+     ThisDbSize = 0;
+ }
+diff -rupN ncurses-5.9/ncurses/tinfo/lib_termcap.c ncurses.new/ncurses/tinfo/lib_termcap.c
+--- ncurses-5.9/ncurses/tinfo/lib_termcap.c	2010-12-25 11:27:12.000000000 -0800
++++ ncurses.new/ncurses/tinfo/lib_termcap.c	2013-04-12 22:37:41.761340355 -0700
+@@ -166,18 +172,23 @@ NCURSES_SP_NAME(tgetent) (NCURSES_SP_DCL
+ 	if (backspace_if_not_bs != NULL)
+ 	    BC = backspace_if_not_bs;
+ 
++
++#if 0
+ 	if ((FIX_SGR0 = _nc_trim_sgr0(&(TerminalOf(SP_PARM)->type))) != 0) {
+ 	    if (!strcmp(FIX_SGR0, exit_attribute_mode)) {
+ 		if (FIX_SGR0 != exit_attribute_mode) {
++		    fprintf(stderr, "gonna free fix_sgr\n");
+ 		    free(FIX_SGR0);
+ 		}
+ 		FIX_SGR0 = 0;
+ 	    }
+ 	}
++#endif
+ 	LAST_BUF = bufp;
+ 	LAST_USE = TRUE;
+ 
+ 	SetNoPadding(SP_PARM);
++
+ 	(void) NCURSES_SP_NAME(baudrate) (NCURSES_SP_ARG);	/* sets ospeed as a side-effect */
+ 
+ /* LINT_PREPRO
+diff -rupN ncurses-5.9/ncurses/tty/lib_twait.c ncurses.new/ncurses/tty/lib_twait.c
+--- ncurses-5.9/ncurses/tty/lib_twait.c	2010-12-25 15:43:58.000000000 -0800
++++ ncurses.new/ncurses/tty/lib_twait.c	2013-04-12 22:37:41.709340355 -0700
+@@ -52,6 +52,7 @@
+ #undef true
+ #include <OS.h>
+ #endif
++#  include <sys/time.h>
+ 
+ #if USE_FUNC_POLL
+ # if HAVE_SYS_TIME_H
