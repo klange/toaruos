@@ -35,7 +35,7 @@ pushd "$DIR" > /dev/null
         grab "ncurses" "ftp://invisible-island.net/ncurses" "ncurses-5.9.tar.gz"
         grab "vim" "ftp://ftp.vim.org/pub/vim/unix" "vim-7.3.tar.bz2"
         $INFO "wget" "Pulled source packages."
-        rm -rf "binutils-2.22" "freetype-2.4.9" "gcc-4.6.0" "gmp-5.0.1" "libpng-1.5.13" "mpc-0.9" "mpfr-3.0.1" "newlib-1.19.0" "zlib-1.2.7" "pixman-0.28.2"
+        rm -rf "binutils-2.22" "freetype-2.4.9" "gcc-4.6.0" "gmp-5.0.1" "libpng-1.5.13" "mpc-0.9" "mpfr-3.0.1" "newlib-1.19.0" "zlib-1.2.7" "pixman-0.28.2" "Mesa-7.5.2" "ncurses-5.9" "vim73"
         $INFO "tar"  "Decompressing..."
         deco "gcc"  "gcc-core-4.6.0.tar.gz"
         deco "g++"  "gcc-g++-4.6.0.tar.gz"
