@@ -62,7 +62,7 @@ class CCompiler(object):
 			self.arguments.extend(self.libs)
 
 	def dependencies(self):
-		return [os.path.abspath(x) for x in self.libs if x.startswith('lib/')]
+		return [os.path.abspath(x) for x in self.libs if 'lib/' in x and x.endswith('.o')]
 
 	def output_file(self):
 		if '/lib/' in self.filename:
