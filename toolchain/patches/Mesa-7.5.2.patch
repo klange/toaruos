@@ -1,0 +1,12 @@
+diff -rupN original/bin/config.sub new/bin/config.sub
+--- original/bin/config.sub
++++ new/bin/config.sub
+@@ -1263,7 +1263,8 @@ case $os in
+	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
+	      | -kopensolaris* \
+	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+	      | -aos* | -aros* \
++	      | -toaru* \
+	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \

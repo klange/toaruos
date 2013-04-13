@@ -73,7 +73,7 @@ pushd build
         make install || bail
     popd
     # XXX zlib can not be built in a separate directory
-    pushd ../tarballs/zlib*
+    pushd $DIR/tarballs/zlib*
         CC=i686-pc-toaru-gcc ./configure --static --prefix=$PREFIX/$TARGET || bail
         make || bail
         make install || bail
@@ -102,6 +102,12 @@ pushd build
         cp $DIR/patches/cairo-Makefile test/Makefile
         cp $DIR/patches/cairo-Makefile perf/Makefile
         echo -e "\n\n#define CAIRO_NO_MUTEX 1" >> config.h
+        make || bail
+        make install || bail
+    popd
+    # XXX Mesa can not be built from a separate directory (configure script doesn't provide a Makefile)
+    pushd $DIR/tarballs/Mesa-*
+        ./configure --enable-32-bit --host=$TARGET --prefix=$PREFIX/$TARGET  --with-osmesa-bits=8 --with-driver=osmesa --disable-egl --disable-shared --without-x --disable-glw --disable-glut --disable-driglx-direct --disable-gallium || bail
         make || bail
         make install || bail
     popd
