@@ -40,6 +40,7 @@ size_t shell_scroll = 0;
 char   shell_temp[1024];
 
 int    shell_interactive = 1;
+int    shell_force_raw   = 0;
 
 int pid; /* Process ID of the shell */
 
@@ -861,6 +862,8 @@ _done:
 
 	shell_command_t func = shell_find(argv[0]);
 
+	if (shell_force_raw) set_unbuffered();
+
 	if (func) {
 		return func(tokenid, argv);
 	} else {
@@ -1102,6 +1105,12 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 		}
 		printf("\033[3000;%s;%sz", argv[2], argv[3]);
 		fflush(stdout);
+		return 0;
+	} else if (!strcmp(argv[1], "force-raw")) {
+		shell_force_raw = 1;
+		return 0;
+	} else if (!strcmp(argv[1], "no-force-raw")) {
+		shell_force_raw = 0;
 		return 0;
 	}
 }

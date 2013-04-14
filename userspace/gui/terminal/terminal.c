@@ -75,6 +75,7 @@ typedef struct _terminal_cell {
 
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
+static FILE * terminal;
 
 int      scale_fonts    = 0;    /* Whether fonts should be scaled */
 float    font_scaling   = 1.0;  /* How much they should be scaled by */
@@ -686,13 +687,6 @@ void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(uint32_t, ui
 	ansi_set_color(state.fg, state.bg);
 }
 
-void ansi_print(char * c) {
-	uint32_t len = strlen(c);
-	for (uint32_t i = 0; i < len; ++i) {
-		ansi_put(c[i]);
-	}
-}
-
 static void render_decors() {
 	if (_windowed) {
 		if (terminal_title_length) {
@@ -844,10 +838,7 @@ term_write_char(
 			}
 			error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
 			if (error) {
-				char tmp[256];
-				sprintf(tmp, "%d", val);
-				ansi_print("Error loading glyph: ");
-				ansi_print(tmp);
+				fprintf(terminal, "Error loading glyph: %d\n", val);
 			};
 			slot = (*_font)->glyph;
 			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
@@ -1336,7 +1327,8 @@ int buffer_put(char c) {
 			input_collected--;
 			input_buffer[input_collected] = '\0';
 			if (state.local_echo) {
-				ansi_print("\010 \010");
+				fprintf(terminal, "\010 \010");
+				fflush(terminal);
 			}
 		}
 		return 0;
@@ -1350,7 +1342,8 @@ int buffer_put(char c) {
 	}
 	input_buffer[input_collected] = c;
 	if (state.local_echo) {
-		ansi_put(c);
+		fprintf(terminal, "%c", c);
+		fflush(terminal);
 	}
 	if (input_buffer[input_collected] == '\n') {
 		input_collected++;
@@ -1375,9 +1368,13 @@ void handle_input(char c) {
 }
 
 void handle_input_s(char * c) {
-	while (*c) {
-		handle_input(*c);
-		c++;
+	if (_unbuffered) {
+		write(fd_master, c, strlen(c));
+	} else {
+		while (*c) {
+			handle_input(*c);
+			c++;
+		}
 	}
 }
 
@@ -1387,6 +1384,42 @@ void key_event(int ret, key_event_t * event) {
 	} else {
 		if (event->action == KEY_ACTION_UP) return;
 		switch (event->keycode) {
+			case KEY_F1:
+				handle_input_s("\033OP");
+				break;
+			case KEY_F2:
+				handle_input_s("\033OQ");
+				break;
+			case KEY_F3:
+				handle_input_s("\033OR");
+				break;
+			case KEY_F4:
+				handle_input_s("\033OS");
+				break;
+			case KEY_F5:
+				handle_input_s("\033[15~");
+				break;
+			case KEY_F6:
+				handle_input_s("\033[17~");
+				break;
+			case KEY_F7:
+				handle_input_s("\033[18~");
+				break;
+			case KEY_F8:
+				handle_input_s("\033[19~");
+				break;
+			case KEY_F9:
+				handle_input_s("\033[20~");
+				break;
+			case KEY_F10:
+				handle_input_s("\033[21~");
+				break;
+			case KEY_F11:
+				handle_input_s("\033[23~");
+				break;
+			case KEY_F12:
+				handle_input_s("\033[24~");
+				break;
 			case KEY_ARROW_UP:
 				handle_input_s("\033[A");
 				break;
@@ -1407,6 +1440,8 @@ void key_event(int ret, key_event_t * event) {
 						i++;
 					}
 					redraw_scrollback();
+				} else {
+					handle_input_s("\033[5~");
 				}
 				break;
 			case KEY_PAGE_DOWN:
@@ -1417,6 +1452,8 @@ void key_event(int ret, key_event_t * event) {
 						i++;
 					}
 					redraw_scrollback();
+				} else {
+					handle_input_s("\033[6~");
 				}
 				break;
 		}
@@ -1759,6 +1796,8 @@ int main(int argc, char ** argv) {
 	}
 
 	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
+
+	terminal = fdopen(fd_slave, "w");
 
 	reinit();
 
