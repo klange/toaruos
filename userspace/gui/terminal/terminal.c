@@ -1801,6 +1801,8 @@ int main(int argc, char ** argv) {
 
 	reinit();
 
+	fflush(stdin);
+
 	int pid = getpid();
 	uint32_t f = fork();
 

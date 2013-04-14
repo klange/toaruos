@@ -31,6 +31,8 @@ class CCompiler(object):
 			'<pixman.h>':          ('pixman-1', '-lpixman-1',    []),
 			'<GL/osmesa.h>':       (None, '-lOSMesa', []),
 			'<ncurses.h>':         ('ncurses', '-lncurses', []),
+			'<panel.h>':           (None, '-lpanel', ['<ncurses.h>']),
+			'<menu.h>':            (None, '-lmenu', ['<ncurses.h>']),
 			'<mpeg2.h>':           ('mpeg2dec', '-lmpeg2', []),
 			'<mpeg2convert.h>':    (None, '-lmpeg2convert', ['<mpeg2.h>']),
 			'<zlib.h>':            (None, '-lz', ['<math.h>']),
