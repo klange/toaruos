@@ -1,5 +1,4 @@
 # ToAruOS (とあるOS) #
-![ToAruOS (logo)](https://github.com/klange/osdev/raw/master/docs/logo.png)
 
 ![Screenshot](http://i.imgur.com/76EmahO.png)
 [![login](http://i.imgur.com/GzbYtzGm.png)](http://i.imgur.com/GzbYtzG.png) [![terminal](http://i.imgur.com/XsxqLkwm.png)](http://i.imgur.com/XsxqLkw.png)
