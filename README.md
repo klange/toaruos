@@ -2,6 +2,7 @@
 ![ToAruOS (logo)](https://github.com/klange/osdev/raw/master/docs/logo.png)
 
 ![Screenshot](http://i.imgur.com/76EmahO.png)
+[![login](http://i.imgur.com/GzbYtzGm.png)](http://i.imgur.com/GzbYtzG.png) [![terminal](http://i.imgur.com/XsxqLkwm.png)](http://i.imgur.com/XsxqLkw.png)
 
 とあるOS (ToaruOS) is a hobby Unix-like operating system. Development began in December of 2010 at the University of Illinois at Urbana-Champaign and is currently a one-man effort. For a short time, the project was the focus of the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/).
 
