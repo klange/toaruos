@@ -20,14 +20,10 @@ int child_pid = 0;
 void *print_serial_stuff(void * garbage) {
 	child_pid = gettid();
 	while (1) {
-		char buf[1024];
-		size_t size = read(fd, buf, 1024);
-
-		for (int i = 0; i < size; ++i) {
-			char x = buf[i];
-			fputc(x, stdout);
-		}
-		if (size) fflush(stdout);
+		char x;
+		read(fd, &x, 1);
+		fputc(x, stdout);
+		fflush(stdout);
 	}
 
 	pthread_exit(garbage);

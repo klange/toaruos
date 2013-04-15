@@ -23,7 +23,9 @@ uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 		while (!serial_rcvd((int)node->device)) {
 			switch_task(1);
 		}
-		debug_print(NOTICE, "Data received from TTY");
+#if 0
+		debug_print(NOTICE, "Data received from TTY, have %d, need %d", collected+1, size);
+#endif
 		buffer[collected] = serial_recv((int)node->device);
 		collected++;
 	}

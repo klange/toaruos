@@ -23,7 +23,7 @@ void serial_handler_b(struct regs *r) {
 void serial_enable(int device) {
 	outportb(device + 1, 0x00);
 	outportb(device + 3, 0x80); /* Enable divisor mode */
-	outportb(device + 0, 0x03); /* Div Low:  03 Set the port to 38400 bps */
+	outportb(device + 0, 0x01); /* Div Low:  01 Set the port to 115200 bps */
 	outportb(device + 1, 0x00); /* Div High: 00 */
 	outportb(device + 3, 0x03);
 	outportb(device + 2, 0xC7);
