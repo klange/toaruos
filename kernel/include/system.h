@@ -329,8 +329,9 @@ extern uint8_t number_font[][12];
 
 /* Floating Point Unit */
 
-void set_fpu_cw(const uint16_t);
-void enable_fpu();
+void check_restore_fpu();
+void check_save_fpu();
+void auto_fpu();
 
 /* ELF */
 int exec( char *, int, char **, char **);

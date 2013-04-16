@@ -122,7 +122,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	serial_install();	/* Serial console */
 
 	tasking_install();	/* Multi-tasking */
-	enable_fpu();		/* Enable the floating point unit */
+	auto_fpu();
 	syscalls_install();	/* Install the system calls */
 
 	shm_install();		/* Install shared memory */

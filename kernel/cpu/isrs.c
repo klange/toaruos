@@ -42,7 +42,7 @@ extern void _isr30();
 extern void _isr31();
 extern void _isr127();
 
-static irq_handler_t isrs_routines[32] = { NULL };
+static irq_handler_t isrs_routines[256] = { NULL };
 
 void
 isrs_install_handler(
