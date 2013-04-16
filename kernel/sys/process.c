@@ -258,6 +258,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->thread.esp = 0;
 	proc->thread.ebp = 0;
 	proc->thread.eip = 0;
+	proc->thread.fpu_enabled = 0;
 
 	/* Set the process image information from the parent */
 	proc->image.entry       = parent->image.entry;

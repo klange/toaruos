@@ -30,6 +30,7 @@ typedef struct thread {
 	uintptr_t  ebp; /* Base Pointer */
 	uintptr_t  eip; /* Instruction Pointer */
 
+	uint8_t    fpu_enabled;
 	uint8_t    fp_regs[512];
 
 	uint8_t    padding[32]; /* I don't know */

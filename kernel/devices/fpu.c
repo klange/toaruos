@@ -10,7 +10,7 @@
 #include <system.h>
 #include <logging.h>
 
-int _fpu_enabled = 0;
+process_t * fpu_thread = NULL;
 
 /**
  * Set the FPU control word
@@ -29,82 +29,60 @@ set_fpu_cw(const uint16_t cw) {
  * only really operate on 686 machines, we do, so we're not
  * going to bother checking.
  */
-void
-enable_fpu() {
-#if 1
-	size_t cr4;
-	asm volatile ("mov %%cr4, %0" : "=r"(cr4));
-	cr4 |= 0x200;
-	asm volatile ("mov %0, %%cr4" :: "r"(cr4));
-#else
-	size_t t, r;
-	asm volatile ("mov %%cr0, %0" : "=r"(t));
-	t &=  0xFFFFFFFB;
-	t |=  0x2;
-	asm volatile ("mov %0, %%cr0" :: "r"(t));
-	asm volatile ("mov %%cr4, %0" : "=r"(r));
-	r |=  (1 << 9);
-	r |=  (1 << 10);
-	asm volatile ("mov %0, %%cr4" :: "r"(r));
-#endif
-	set_fpu_cw(0x37F);
-	_fpu_enabled = 1;
+void enable_fpu() {
+	asm volatile ("clts");
+	size_t t;
+	asm volatile ("mov %%cr4, %0" : "=r"(t));
+	t |= 3 << 9;
+	asm volatile ("mov %0, %%cr4" :: "r"(t));
 }
 
-void
-disable_fpu() {
-#if 1
-	size_t cr4;
-	asm volatile ("mov %%cr4, %0" : "=r"(cr4));
-	cr4 &= ~(0x200);
-	asm volatile ("mov %0, %%cr4" :: "r"(cr4));
-#else
+void disable_fpu() {
 	size_t t;
 	asm volatile ("mov %%cr0, %0" : "=r"(t));
-	t |= 0x4;
+	t |= 1 << 3;
 	asm volatile ("mov %0, %%cr0" :: "r"(t));
-#endif
-	_fpu_enabled = 0;
 }
 
 uint8_t saves[512] __attribute__((aligned(16)));
 
-void check_restore_fpu() {
-	if (_fpu_enabled) {
-		memcpy(&saves,(uint8_t *)&current_process->thread.fp_regs,512);
-		asm volatile ("fxrstor %0" : "=m"(saves));
-	}
+void restore_fpu(process_t * proc) {
+	memcpy(&saves,(uint8_t *)&proc->thread.fp_regs,512);
+	asm volatile ("fxrstor %0" : "=m"(saves));
+}
+
+void save_fpu(process_t * proc) {
+	asm volatile ("fxsave %0" : "=m"(saves));
+	memcpy((uint8_t *)&proc->thread.fp_regs,&saves,512);
+}
+
+void init_fpu() {
+	asm volatile ("fninit");
+	set_fpu_cw(0x37F);
 }
 
 void invalid_op(struct regs * r) {
-	assert(!_fpu_enabled);
-
-	debug_print(CRITICAL, "Hello world");
-
 	enable_fpu();
-	check_restore_fpu();
+	if (fpu_thread == current_process) {
+		return;
+	}
+	if (fpu_thread) {
+		save_fpu(fpu_thread);
+	}
+	fpu_thread = (process_t *)current_process;
+	if (!fpu_thread->thread.fpu_enabled) {
+		init_fpu();
+		fpu_thread->thread.fpu_enabled = 1;
+		return;
+	}
+	restore_fpu(fpu_thread);
+}
+
+void switch_fpu() {
+	disable_fpu();
 }
 
 void auto_fpu() {
-
-	enable_fpu();
-
-#if 0
-	disable_fpu();
-
 	isrs_install_handler(6, &invalid_op);
 	isrs_install_handler(7, &invalid_op);
-	isrs_install_handler(7, &invalid_op);
-#endif
 }
-
-void check_save_fpu() {
-	if (_fpu_enabled) {
-		asm volatile ("fxsave %0" : "=m"(saves));
-		memcpy((uint8_t *)&current_process->thread.fp_regs,&saves,512);
-#if 0
-		disable_fpu();
-#endif
-	}
-}
-

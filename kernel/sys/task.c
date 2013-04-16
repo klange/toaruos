@@ -413,8 +413,6 @@ switch_task(uint8_t reschedule) {
 		}
 		fix_signal_stacks();
 
-		check_restore_fpu(); /* XXX move this */
-
 		/* XXX: Signals */
 		if (!current_process->finished) {
 			if (current_process->signal_queue->length > 0) {
@@ -434,7 +432,7 @@ switch_task(uint8_t reschedule) {
 	current_process->thread.ebp = ebp;
 
 	/* Save floating point state */
-	check_save_fpu();
+	switch_fpu();
 
 	if (reschedule) {
 		/* And reinsert it into the ready queue */
