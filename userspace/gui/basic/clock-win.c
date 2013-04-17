@@ -10,6 +10,7 @@
 #include <math.h>
 #include <time.h>
 #include <syscall.h>
+#include <cairo.h>
 
 struct timeval {
 	unsigned int tv_sec;
@@ -24,24 +25,12 @@ struct timeval {
 
 #include "lib/window.h"
 #include "lib/graphics.h"
-#include "lib/decorations.h"
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
 
-uint16_t win_width;
-uint16_t win_height;
-
 window_t * window;
 gfx_context_t * w_ctx;
-
-int center_x(int x) {
-	return (win_width - x) / 2;
-}
-
-int center_y(int y) {
-	return (win_height - y) / 2;
-}
 
 void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i] = malloc(sizeof(sprite_t));
@@ -70,17 +59,31 @@ void draw(int secs) {
 	printf("Min:  %d\n", timeinfo->tm_min);
 	printf("Sec:  %d\n", timeinfo->tm_sec);
 #endif
-	draw_fill(w_ctx, rgb(255,255,255));
+	draw_fill(w_ctx, rgba(0,0,0,0));
+
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, w_ctx->width);
+	cairo_surface_t * surface = cairo_image_surface_create_for_data(w_ctx->backbuffer, CAIRO_FORMAT_ARGB32, w_ctx->width, w_ctx->height, stride);
+	cairo_t * cr = cairo_create(surface);
+
+	cairo_set_line_width(cr, 9);
+	cairo_set_source_rgb(cr, 0.0,0.0,0.0);
+	cairo_translate(cr, w_ctx->width / 2, w_ctx->height / 2);
+	cairo_arc(cr, 0, 0, w_ctx->width / 2 - 10, 0, 2 * M_PI);
+	cairo_stroke_preserve(cr);
+	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+	cairo_fill(cr);
+
+	uint16_t win_width = w_ctx->width;
 
 	{
-		int r1 = win_width * 3 / 7;
-		int r2 = win_width / 2;
+		int r1 = win_width * 3 / 7 - 9;
+		int r2 = win_width / 2 - 9;
 		for (int val = 0; val < 12; val += 1) {
 			double _val = (float)val / 12.0;
 			_val *= 2.0 * PI;
 			draw_line(w_ctx,
-					  decor_left_width + win_width / 2 + r1 * sin(_val), decor_left_width + win_width / 2 + r2 * sin(_val),
-			          decor_top_height + win_width / 2 - r1 * cos(_val), decor_top_height + win_width / 2 - r2 * cos(_val), rgb(0,0,0));
+					  win_width / 2 + r1 * sin(_val), win_width / 2 + r2 * sin(_val),
+			          win_width / 2 - r1 * cos(_val), win_width / 2 - r2 * cos(_val), rgb(0,0,0));
 		}
 	}
 	{ /* Hours */
@@ -94,37 +97,39 @@ void draw(int secs) {
 		int left = win_width / 2 + radius * sin(val);
 		int top  = win_width / 2 - radius * cos(val);
 		uint32_t color = rgb(0,0,0);
-		draw_line_thick(w_ctx, decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color, 2);
+		draw_line_thick(w_ctx, win_width / 2, left, win_width / 2, top, color, 2);
 	}
 	{ /* Minutes */
 		double val = timeinfo->tm_min;
 		val += (double)timeinfo->tm_sec / 60.0;
 		val /= 60.0;
 		val *= 2.0 * PI;
-		int radius = win_width * 3 / 7;
+		int radius = win_width * 3 / 7 - 9;
 		int left = win_width / 2 + radius * sin(val);
 		int top  = win_width / 2 - radius * cos(val);
 		uint32_t color = rgb(0,0,0);
-		draw_line_thick(w_ctx, decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color, 1);
+		draw_line_thick(w_ctx, win_width / 2, left, win_width / 2, top, color, 1);
 	}
 	{ /* Seconds */
 		double val = timeinfo->tm_sec;
 		val /= 60.0;
 		val *= 2.0 * PI;
-		int radius = win_width * 3 / 7;
+		int radius = win_width * 3 / 7 - 9;
 		int left = win_width / 2 + radius * sin(val);
 		int top  = win_width / 2 - radius * cos(val);
 		uint32_t color = rgb(255,0,0);
-		draw_line(w_ctx, decor_left_width + win_width / 2, decor_left_width + left, decor_top_height + win_width / 2, decor_top_height + top, color);
+		draw_line(w_ctx, win_width / 2, left, win_width / 2, top, color);
 	}
 
-	render_decorations(window, w_ctx, "Clock");
+	cairo_surface_flush(surface);
+	cairo_destroy(cr);
+	cairo_surface_flush(surface);
+	cairo_surface_destroy(surface);
+
 	flip(w_ctx);
 }
 
 void resize_callback(window_t * win) {
-	win_width = win->width;
-	win_height = win->height;
 	reinit_graphics_window(w_ctx, window);
 }
 
@@ -136,15 +141,11 @@ int main (int argc, char ** argv) {
 	int width  = 200;
 	int height = 200;
 
-	win_width = width;
-	win_height = height;
-
 	resize_window_callback = resize_callback;
 
 	/* Do something with a window */
-	window = window_create(left, top, width + decor_width(), height + decor_height());
+	window = window_create(left, top, width, height);
 	w_ctx = init_graphics_window_double_buffer(window);
-	init_decorations();
 
 	struct timeval now;
 	int last = 0;
