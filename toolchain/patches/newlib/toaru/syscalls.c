@@ -320,7 +320,7 @@ struct dirent * readdir (DIR * dirp) {
 	return &ent;
 }
 
-void pre_main(int argc, char * argv[]) {
+void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
 	unsigned int x = 0;
 	unsigned int nulls = 0;
 	for (x = 0; 1; ++x) {
