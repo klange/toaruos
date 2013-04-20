@@ -59,8 +59,8 @@ pushd build
     popd
     pushd gcc
         # build libstdc++
-        make || bail
-        make install || bail
+        make all-target-libstdc++-v3 || bail
+        make install-target-libstdc++-v3 || bail
     popd
     # Source the activate script, which will enable pkg-config stuff
     . $DIR/activate.sh
