@@ -162,19 +162,6 @@ util/bin/%: util/%.c
 	@${CC} ${NATIVEFLAGS} -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
-################
-#   Userspace  #
-################
-loader/crtbegin.o: loader/crtbegin.s
-	@${BEG} "yasm" "$<"
-	@${YASM} -f elf32 -o $@ $< ${ERRORS}
-	@${END} "yasm" "$<"
-
-hdd/bin/%: loader/%.o loader/crtbegin.o loader/syscall.o
-	@${BEG} "LD" "$<"
-	@${LD} -T loader/link.ld -s -S -o $@ $< ${ERRORS}
-	@${END} "LD" "$<"
-
 ##############
 #    ctags   #
 ##############
@@ -206,7 +193,6 @@ clean-bin:
 
 clean-aux:
 	@${BEGRM} "RM" "Cleaning auxillary files..."
-	@-rm -f loader/*.o
 	@-rm -f util/bin/*
 	@${ENDRM} "RM" "Cleaned auxillary files"
 
