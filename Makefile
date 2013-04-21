@@ -28,7 +28,7 @@ USERSPACE = $(shell find userspace/ -type f -name '*.c') $(shell find userspace/
 UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
 GENEXT = genext2fs
-DISK_SIZE = 262144
+DISK_SIZE = 524288
 DD = dd conv=notrunc
 BEG = util/mk-beg
 END = util/mk-end
