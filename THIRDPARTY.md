@@ -3,7 +3,8 @@
 ToAruOS contains a number of third-party packages under various licenses. Those which are included within this repository are listed below. Some packages are retrieved from their respective sources - licenses for these packages are not included here.
 
 * The CPU detection code provided in `userspace/cpudet.c` carries the following copyright notice, and has been made available by its author for use in other projects:
-  Copyright (c) 2006-2007 -  http://brynet.biz.tm - <brynet@gmail.com>
+
+        Copyright (c) 2006-2007 -  http://brynet.biz.tm - <brynet@gmail.com>
 
 * A copy of the [VL Gothic TrueType font](http://vlgothic.dicey.org/) is included in this repository; VL Gothic is distributed under the following license:
 
