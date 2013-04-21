@@ -420,7 +420,7 @@ long sysconf(int name) {
 			return 10000;
 		default:
 			DEBUG_STUB("sysconf(%d);\n", name);
-			return 0;
+			return -1;
 	}
 }
 
