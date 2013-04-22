@@ -132,6 +132,34 @@ int ioctl_fs(fs_node_t *node, int request, void * argp) {
  */
 
 int create_file_fs(char *name, uint16_t permission) {
+	fs_node_t * parent;
+	char *cwd = (char *)(current_process->wd_name);
+	char *path = canonicalize_path(cwd, name);
+
+	char * parent_path = malloc(strlen(path) + 4);
+	sprintf(parent_path, "%s/..", path);
+
+	char * f_path = path + strlen(path) - 1;
+	while (f_path > path) {
+		if (*f_path == '/') {
+			f_path += 1;
+			break;
+		}
+		f_path--;
+	}
+
+	debug_print(WARNING, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
+
+	parent = kopen(parent_path, 0);
+	free(parent_path);
+
+	if (parent->create) {
+		parent->create(parent, f_path, permission);
+	}
+
+	free(path);
+	free(parent);
+#if 0
 	int32_t i = strlen(name);
 	char *dir_name = malloc(i + 1);
 	memcpy(dir_name, name, i);
@@ -170,10 +198,12 @@ int create_file_fs(char *name, uint16_t permission) {
 
 	free(node);
 	free(dir_name);
+#endif
 	return 0;
 }
 
 int mkdir_fs(char *name, uint16_t permission) {
+#if 0
 	int32_t i = strlen(name);
 	char *dir_name = malloc(i + 1);
 	memcpy(dir_name, name, i);
@@ -212,6 +242,8 @@ int mkdir_fs(char *name, uint16_t permission) {
 
 	free(node);
 	free(dir_name);
+
+#endif
 
 	return 0;
 }
@@ -526,6 +558,11 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
 
 	*outdepth = _tree_depth;
 
+	if (last) {
+		fs_node_t * last_clone = malloc(sizeof(fs_node_t));
+		memcpy(last_clone, last, sizeof(fs_node_t));
+		return last_clone;
+	}
 	return last;
 }
 

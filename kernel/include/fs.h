@@ -98,6 +98,7 @@ extern fs_node_t * null_device_create();
 extern fs_node_t * zero_device_create();
 extern fs_node_t * serial_device_create(int device);
 extern fs_node_t * procfs_create();
+extern fs_node_t * tmpfs_create();
 extern void serial_mount_devices();
 extern int openpty(int * master, int * slave, char * name, void * _ign0, void * size);
 

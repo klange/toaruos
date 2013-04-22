@@ -327,6 +327,8 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no
  * Create a new, regular, and empty file under directory 'parent'.
  */
 void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
+	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
+	return 0;
 
 	debug_print(NOTICE, "Creating file %s", name);
 	uint16_t mode = permission | EXT2_S_IFREG;
@@ -602,6 +604,9 @@ void ext2_disk_write_inode(ext2_inodetable_t *inode, uint32_t index) {
 }
 
 uint32_t write_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
+	return 0;
+
 	ext2_inodetable_t *inode = ext2_disk_inode(node->inode);
 	uint32_t end = offset + size;
 	uint32_t start_block 	= offset / BLOCKSIZE;
