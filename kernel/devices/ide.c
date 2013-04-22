@@ -89,6 +89,8 @@ void ide_init(uint16_t bus) {
 }
 
 void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
+	int errors = 0;
+try_again:
 	outportb(bus + ATA_REG_CONTROL, 0x02);
 
 	ata_wait_ready(bus);
@@ -104,6 +106,12 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 
 	if (ata_wait(bus, 1)) {
 		debug_print(WARNING, "Error during ATA read of lba block %d", lba);
+		errors++;
+		if (errors > 4) {
+			debug_print(WARNING, "-- Too many errors trying to read this block. Bailing.");
+			return 0;
+		}
+		goto try_again;
 	}
 
 	int size = 256;
