@@ -9,7 +9,8 @@
 #include <logging.h>
 #include <signal.h>
 
-#define KERNEL_HEAP_END 0x02000000
+#define KERNEL_HEAP_INIT 0x02000000
+#define KERNEL_HEAP_END  0x20000000
 
 extern void *end;
 uintptr_t placement_pointer = (uintptr_t)&end;
@@ -257,7 +258,7 @@ paging_install(uint32_t memsize) {
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
 
 	/* Kernel Heap Space */
-	for (i = placement_pointer; i < KERNEL_HEAP_END; i += 0x1000) {
+	for (i = placement_pointer; i < KERNEL_HEAP_INIT; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
 	}
 
@@ -379,8 +380,15 @@ sbrk(
 #endif
 	ASSERT((increment % 0x1000 == 0) && "Kernel requested to expand heap by a non-page-multiple value");
 	ASSERT((heap_end % 0x1000 == 0)  && "Kernel heap is not page-aligned!");
-	ASSERT(heap_end + increment <= KERNEL_HEAP_END && "The kernel has attempted to allocate beyond the end of its heap.");
+	ASSERT((heap_end + increment <= KERNEL_HEAP_END - 1) && "The kernel has attempted to allocate beyond the end of its heap.");
 	uintptr_t address = heap_end;
+
+	if (heap_end + increment > KERNEL_HEAP_INIT) {
+		for (uintptr_t i = heap_end; i < heap_end + increment; i += 0x1000) {
+			alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
+		}
+	}
+
 	heap_end += increment;
 	memset((void *)address, 0x0, increment);
 	return (void *)address;

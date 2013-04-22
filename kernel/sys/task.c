@@ -46,7 +46,7 @@ clone_directory(
 			dir->tables[i] = src->tables[i];
 			dir->physical_tables[i] = src->physical_tables[i];
 		} else {
-			if (i * 0x1000 * 1024 < 0x20000000) {
+			if (i * 0x1000 * 1024 < SHM_START) {
 				/* User tables must be cloned */
 				uintptr_t phys;
 				dir->tables[i] = clone_table(src->tables[i], &phys);
@@ -70,7 +70,7 @@ void release_directory(page_directory_t * dir) {
 				continue;
 			}
 			if (kernel_directory->tables[i] != dir->tables[i]) {
-				if (i * 0x1000 * 1024 < 0x20000000) {
+				if (i * 0x1000 * 1024 < SHM_START) {
 					for (uint32_t j = 0; j < 1024; ++j) {
 						if (dir->tables[i]->pages[j].frame) {
 							free_frame(&(dir->tables[i]->pages[j]));

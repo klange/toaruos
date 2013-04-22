@@ -103,7 +103,7 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf) {
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
 
 	if (ata_wait(bus, 1)) {
-		debug_print(WARNING, "Error during ATA read");
+		debug_print(WARNING, "Error during ATA read of lba block %d", lba);
 	}
 
 	int size = 256;

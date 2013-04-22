@@ -7,6 +7,7 @@
 #include <types.h>
 
 #define SHM_PATH_SEPARATOR "."
+#define SHM_START         0xD0010000
 
 /* Types */
 struct shm_node;

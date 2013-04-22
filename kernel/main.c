@@ -93,7 +93,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 				 */
 				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
 				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
-				ramdisk = (char *)0xD0000000; //(char *)kmalloc(module_end - module_start);
+				ramdisk = (char *)0x30000000; //(char *)kmalloc(module_end - module_start);
 				ramdisk_top = (uintptr_t)ramdisk + (module_end - module_start);
 
 				memmove(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */

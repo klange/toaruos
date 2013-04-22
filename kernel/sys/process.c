@@ -10,6 +10,7 @@
 #include <tree.h>
 #include <list.h>
 #include <logging.h>
+#include <shm.h>
 
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_list;  /* Flat storage */
@@ -181,7 +182,7 @@ process_t * spawn_init() {
 	init->image.stack       = initial_esp + 1;
 	init->image.user_stack  = 0;
 	init->image.size        = 0;
-	init->image.shm_heap    = 0x20000000; /* Yeah, a bit of a hack. */
+	init->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
 
 	/* Process is not finished */
 	init->finished = 0;
@@ -269,7 +270,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->image.stack       = (uintptr_t)malloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
 	debug_print(INFO,"    }");
 	proc->image.user_stack  = parent->image.user_stack;
-	proc->image.shm_heap    = 0x20000000; /* Yeah, a bit of a hack. */
+	proc->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
 
 	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
 
