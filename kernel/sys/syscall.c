@@ -155,16 +155,17 @@ static int wait(int child) {
 
 static int open(const char * file, int flags, int mode) {
 	validate((void *)file);
+	debug_print(NOTICE, "open(%s) flags=0x%x; mode=0x%x", file, flags, mode);
 	fs_node_t * node = kopen((char *)file, 0);
-	debug_print(NOTICE, "Flags opening %s are 0x%x", file, flags);
 	if (!node && (flags & 0x600)) {
+		debug_print(NOTICE, "- file does not exist and create was requested.");
 		/* Um, make one */
-		if (!create_file_fs((char *)file, 0777)) {
-			debug_print(NOTICE, "[creat] Creating file!");
+		if (!create_file_fs((char *)file, mode)) {
 			node = kopen((char *)file, 0);
 		}
 	}
 	if (!node) {
+		debug_print(NOTICE, "File does not exist; someone should be setting errno?");
 		return -1;
 	}
 	node->offset = 0;
@@ -175,7 +176,7 @@ static int open(const char * file, int flags, int mode) {
 
 static int access(const char * file, int flags) {
 	validate((void *)file);
-	debug_print(INFO, "access(%s) from pid=%d", file, getpid());
+	debug_print(INFO, "access(%s, 0x%x) from pid=%d", file, flags, getpid());
 	fs_node_t * node = kopen((char *)file, 0);
 	if (!node) return -1;
 	close_fs(node);
@@ -278,13 +279,13 @@ static int seek(int fd, int offset, int whence) {
 	return current_process->fds->entries[fd]->offset;
 }
 
-static int stat(int fd, uint32_t st) {
-	validate((void *)st);
-	if (fd >= (int)current_process->fds->length || fd < 0) {
+static int stat_node(fs_node_t * fn, uintptr_t st) {
+	struct stat * f = (struct stat *)st;
+	if (!fn) {
+		memset(f, 0x00, sizeof(struct stat));
+		debug_print(INFO, "stat: This file doesn't exist");
 		return -1;
 	}
-	fs_node_t * fn = current_process->fds->entries[fd];
-	struct stat * f = (struct stat *)st;
 	f->st_dev   = 0;
 	f->st_ino   = fn->inode;
 
@@ -312,6 +313,27 @@ static int stat(int fd, uint32_t st) {
 	}
 
 	return 0;
+}
+
+static int stat_file(char * file, uintptr_t st) {
+	int result;
+	validate((void *)file);
+	validate((void *)st);
+	fs_node_t * fn = kopen(file, 0);
+	result = stat_node(fn, st);
+	if (fn) {
+		close_fs(fn);
+	}
+	return result;
+}
+
+static int stat(int fd, uintptr_t st) {
+	validate((void *)st);
+	if (fd >= (int)current_process->fds->length || fd < 0) {
+		return -1;
+	}
+	fs_node_t * fn = current_process->fds->entries[fd];
+	return stat_node(fn, st);
 }
 
 static int setgraphicsoffset(int rows) {
@@ -676,6 +698,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sleep_rel,
 	(uintptr_t)&ioctl,
 	(uintptr_t)&access,             /* 48 */
+	(uintptr_t)&stat_file,
 	0
 };
 uint32_t num_syscalls;

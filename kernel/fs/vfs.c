@@ -664,6 +664,7 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 		/* We are still searching... */
 		path_offset += strlen(path_offset) + 1;
 	}
+	debug_print(INFO, "- Not found.");
 	/* We failed to find the requested file, but our loop terminated. */
 	free((void *)path);
 	return NULL;

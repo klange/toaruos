@@ -16,6 +16,9 @@ struct tmpfs_file {
 	size_t pointers;
 	uint32_t flags;
 	char ** blocks;
+	int    mask;
+	int    uid;
+	int    gid;
 };
 
 list_t * tmpfs_files = NULL;
@@ -32,6 +35,9 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 	t->pointers = 2;
 	t->block_count = 0;
 	t->flags = 0;
+	t->mask = 0;
+	t->uid = 0;
+	t->gid = 0;
 	t->blocks = malloc(t->pointers * sizeof(char *));
 	for (size_t i = 0; i < t->pointers; ++i) {
 		t->blocks[i] = NULL;
@@ -152,9 +158,9 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->inode = 0;
 	strcpy(fnode->name, t->name);
 	fnode->device = t;
-	fnode->mask = 0777;
-	fnode->uid = 0;
-	fnode->gid = 0;
+	fnode->mask = t->mask;
+	fnode->uid = t->uid;
+	fnode->gid = t->gid;
 	fnode->flags   = FS_FILE;
 	fnode->read    = read_tmpfs;
 	fnode->write   = write_tmpfs;
@@ -224,7 +230,9 @@ void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 
 	debug_print(NOTICE, "... creating a new file.");
 	struct tmpfs_file * t = tmpfs_file_new(name);
-	t->flags = permission;
+	t->mask = permission;
+	t->uid = current_process->user;
+	t->gid = current_process->user;
 
 	list_insert(tmpfs_files, t);
 }
@@ -234,6 +242,7 @@ fs_node_t * tmpfs_create() {
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
 	strcpy(fnode->name, "tmp");
+	fnode->mask = 0777;
 	fnode->uid = 0;
 	fnode->gid = 0;
 	fnode->flags   = FS_DIRECTORY;

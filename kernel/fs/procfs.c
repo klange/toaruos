@@ -20,6 +20,7 @@ static fs_node_t * procfs_generic_create(char * name, read_type_t read_func) {
 	strcpy(fnode->name, name);
 	fnode->uid = 0;
 	fnode->gid = 0;
+	fnode->mask    = 0555;
 	fnode->flags   = FS_FILE;
 	fnode->read    = read_func;
 	fnode->write   = NULL;
@@ -278,8 +279,9 @@ fs_node_t * procfs_create() {
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
 	strcpy(fnode->name, "proc");
-	fnode->uid = 0;
-	fnode->gid = 0;
+	fnode->mask = 0555;
+	fnode->uid  = 0;
+	fnode->gid  = 0;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->read    = NULL;
 	fnode->write   = NULL;
