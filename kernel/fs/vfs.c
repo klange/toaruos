@@ -74,6 +74,16 @@ void close_fs(fs_node_t *node) {
 }
 
 /**
+ * chmod_fs
+ */
+int chmod_fs(fs_node_t *node, int mode) {
+	if (node->chmod) {
+		return node->chmod(node, mode);
+	}
+	return 0;
+}
+
+/**
  * readdir_fs: Read a directory for the requested index
  *
  * @param node  Directory to read
@@ -159,91 +169,70 @@ int create_file_fs(char *name, uint16_t permission) {
 
 	free(path);
 	free(parent);
-#if 0
-	int32_t i = strlen(name);
-	char *dir_name = malloc(i + 1);
-	memcpy(dir_name, name, i);
-	dir_name[i] = '\0';
-	if (dir_name[i - 1] == '/')
-		dir_name[i - 1] = '\0';
-	if (strlen(dir_name) == 0) {
-		free(dir_name);
-		return 1;
-	}
-	for (i = strlen(dir_name) - 1; i >= 0; i--) {
-		if (dir_name[i] == '/') {
-			dir_name[i] = '\0';
+
+	return 0;
+}
+
+int unlink_fs(char * name) {
+	fs_node_t * parent;
+	char *cwd = (char *)(current_process->wd_name);
+	char *path = canonicalize_path(cwd, name);
+
+	char * parent_path = malloc(strlen(path) + 4);
+	sprintf(parent_path, "%s/..", path);
+
+	char * f_path = path + strlen(path) - 1;
+	while (f_path > path) {
+		if (*f_path == '/') {
+			f_path += 1;
 			break;
 		}
+		f_path--;
 	}
 
-	// get the parent dir node.
-	fs_node_t *node;
-	if (i >= 0) {
-		node = kopen(dir_name, 0);
-	} else {
-		/* XXX This is wrong */
-		node = kopen(".", 0);
+	debug_print(WARNING, "unlinking file %s within %s (hope these strings are good)", f_path, parent_path);
+
+	parent = kopen(parent_path, 0);
+	free(parent_path);
+
+	if (parent->unlink) {
+		parent->unlink(parent, f_path);
 	}
 
-	if (node == NULL) {
-		free(dir_name);
-		return 2;
-	}
+	free(path);
+	free(parent);
 
-	i++;
-	if ((node->flags & FS_DIRECTORY) && node->mkdir) {
-		node->create(node, dir_name + i, permission);
-	}
-
-	free(node);
-	free(dir_name);
-#endif
 	return 0;
 }
 
 int mkdir_fs(char *name, uint16_t permission) {
-#if 0
-	int32_t i = strlen(name);
-	char *dir_name = malloc(i + 1);
-	memcpy(dir_name, name, i);
-	dir_name[i] = '\0';
-	if (dir_name[i - 1] == '/')
-		dir_name[i - 1] = '\0';
-	if (strlen(dir_name) == 0) {
-		free(dir_name);
-		return 1;
-	}
-	for (i = strlen(dir_name) - 1; i >= 0; i--) {
-		if (dir_name[i] == '/') {
-			dir_name[i] = '\0';
+	fs_node_t * parent;
+	char *cwd = (char *)(current_process->wd_name);
+	char *path = canonicalize_path(cwd, name);
+
+	char * parent_path = malloc(strlen(path) + 4);
+	sprintf(parent_path, "%s/..", path);
+
+	char * f_path = path + strlen(path) - 1;
+	while (f_path > path) {
+		if (*f_path == '/') {
+			f_path += 1;
 			break;
 		}
+		f_path--;
 	}
 
-	// get the parent dir node.
-	fs_node_t *node;
-	if (i >= 0) {
-		node = kopen(dir_name, 0);
-	} else {
-		node = kopen(".", 0);
+	debug_print(WARNING, "creating directory %s within %s (hope these strings are good)", f_path, parent_path);
+
+	parent = kopen(parent_path, 0);
+	free(parent_path);
+
+	if (parent->mkdir) {
+		parent->mkdir(parent, f_path, permission);
 	}
 
-	if (node == NULL) {
-		debug_print(WARNING, "mkdir: Directory does not exist");
-		free(dir_name);
-		return 1;
-	}
-
-	i++;
-	if ((node->flags & FS_DIRECTORY) && node->mkdir) {
-		node->mkdir(node, dir_name + i, permission);
-	}
-
-	free(node);
-	free(dir_name);
-
-#endif
+	free(path);
+	free(parent);
 
 	return 0;
 }

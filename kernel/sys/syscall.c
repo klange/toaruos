@@ -225,6 +225,7 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	validate((void *)argv);
 	validate((void *)filename);
 	validate((void *)envp);
+	debug_print(NOTICE, "%d = exec(%s, ...)", current_process->id, filename);
 	int argc = 0, envc = 0;
 	while (argv[argc]) { ++argc; }
 	if (envp) {
@@ -326,6 +327,20 @@ static int stat_file(char * file, uintptr_t st) {
 	}
 	return result;
 }
+
+static int sys_chmod(char * file, int mode) {
+	int result;
+	validate((void *)file);
+	fs_node_t * fn = kopen(file, 0);
+	if (fn) {
+		result = chmod_fs(fn, mode);
+		close_fs(fn);
+		return result;
+	} else {
+		return -1;
+	}
+}
+
 
 static int stat(int fd, uintptr_t st) {
 	validate((void *)st);
@@ -643,6 +658,15 @@ static int sleep_rel(unsigned long seconds, unsigned long subseconds) {
 	return sleep(s, ss);
 }
 
+static int sys_umask(int mode) {
+	current_process->mask = mode & 0777;
+	return 0;
+}
+
+static int sys_unlink(char * file) {
+	return unlink_fs(file);
+}
+
 /*
  * System Call Internals
  */
@@ -699,6 +723,9 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&ioctl,
 	(uintptr_t)&access,             /* 48 */
 	(uintptr_t)&stat_file,
+	(uintptr_t)&sys_chmod,
+	(uintptr_t)&sys_umask,
+	(uintptr_t)&sys_unlink,         /* 52 */
 	0
 };
 uint32_t num_syscalls;

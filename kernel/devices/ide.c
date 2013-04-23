@@ -109,7 +109,7 @@ try_again:
 		errors++;
 		if (errors > 4) {
 			debug_print(WARNING, "-- Too many errors trying to read this block. Bailing.");
-			return 0;
+			return;
 		}
 		goto try_again;
 	}

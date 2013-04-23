@@ -47,6 +47,12 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 	return t;
 }
 
+static void tmpfs_file_free(struct tmpfs_file * t) {
+	for (size_t i = 0; i < t->block_count; ++i) {
+		free(t->blocks[i]);
+	}
+}
+
 static void tmpfs_file_blocks_embiggen(struct tmpfs_file * t) {
 	t->pointers *= 2;
 	debug_print(INFO, "Embiggening file %s to %d blocks", t->name, t->pointers);
@@ -152,6 +158,15 @@ static uint32_t write_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	return size_to_read;
 }
 
+static int chmod_tmpfs(fs_node_t * node, int mode) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+
+	/* XXX permissions */
+	t->mask = mode;
+
+	return 0;
+}
+
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -168,6 +183,7 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->close   = NULL;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->chmod   = chmod_tmpfs;
 	fnode->length  = t->length;
 	return fnode;
 }
@@ -212,6 +228,29 @@ static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
+static void unlink_tmpfs(fs_node_t * node, char * name) {
+	int i = -1, j = 0;
+	spin_lock(&lock);
+
+	foreach(f, tmpfs_files) {
+		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
+		if (!strcmp(name, t->name)) {
+			tmpfs_file_free(t);
+			free(t);
+			i = j;
+			break;
+		}
+		j++;
+	}
+
+	if (i >= 0) {
+		list_remove(tmpfs_files, i);
+	}
+
+	spin_unlock(&lock);
+	return;
+}
+
 void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	if (!name) return;
 
@@ -253,6 +292,7 @@ fs_node_t * tmpfs_create() {
 	fnode->readdir = readdir_tmpfs;
 	fnode->finddir = finddir_tmpfs;
 	fnode->create  = create_tmpfs;
+	fnode->unlink  = unlink_tmpfs;
 
 	tmpfs_files = list_create();
 	return fnode;

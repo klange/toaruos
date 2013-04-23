@@ -75,6 +75,9 @@ DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 DEFN_SYSCALL3(ioctl, 47, int, int, void *);
 DEFN_SYSCALL2(access, 48, char *, int);
 DEFN_SYSCALL2(stat, 49, char *, void *);
+DEFN_SYSCALL2(chmod, 50, char *, mode_t);
+DEFN_SYSCALL1(umask, 51, mode_t);
+DEFN_SYSCALL1(unlink, 52, char *);
 
 #define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
 
@@ -178,8 +181,11 @@ int open(const char *name, int flags, ...) {
 
 	result = syscall_open(name, flags, mode);
 	if (result == -1) {
-		/* XXX get reason */
-		errno = EACCES;
+		if (flags & O_CREAT) {
+			errno = EACCES;
+		} else {
+			errno = ENOENT;
+		}
 	}
 	return result;
 }
@@ -384,21 +390,15 @@ int  fcntl(int fd, int cmd, ...) {
 }
 
 mode_t umask(mode_t mask) {
-	DEBUG_STUB("[user/debug] Unsupported operation [umask]\n");
-	/* Not supported */
-	return 0;
+	return syscall_umask(mask);
 }
 
 int chmod(const char *path, mode_t mode) {
-	DEBUG_STUB("[user/debug] Unsupported operation [chmod]\n");
-	/* Not supported */
-	return -1;
+	return syscall_chmod((char *)path, mode);
 }
 
 int unlink(char *name) {
-	DEBUG_STUB("[debug] pid %d unlink(%s);\n", getpid(), name);
-	errno = ENOENT;
-	return -1;
+	return syscall_unlink(name);
 }
 
 int access(const char *pathname, int mode) {

@@ -163,6 +163,7 @@ process_t * spawn_init() {
 	init->name    = strdup("init");  /* Um, duh. */
 	init->cmdline = NULL;
 	init->user    = 0;       /* UID 0 */
+	init->mask    = 022;     /* umask */
 	init->group   = 0;       /* Task group 0 */
 	init->status  = 0;       /* Run status */
 	init->fds = malloc(sizeof(fd_table_t));
@@ -253,6 +254,9 @@ process_t * spawn_process(volatile process_t * parent) {
 
 	/* Copy permissions */
 	proc->user  = parent->user;
+	proc->mask = parent->mask;
+
+	/* XXX this is wrong? */
 	proc->group = parent->group;
 
 	/* Zero out the ESP/EBP/EIP */

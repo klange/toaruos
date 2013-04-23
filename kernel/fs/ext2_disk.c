@@ -328,7 +328,7 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no
  */
 void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
 	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
-	return 0;
+	return;
 
 	debug_print(NOTICE, "Creating file %s", name);
 	uint16_t mode = permission | EXT2_S_IFREG;

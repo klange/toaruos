@@ -34,9 +34,11 @@ typedef void (*close_type_t) (struct fs_node *);
 typedef struct dirent *(*readdir_type_t) (struct fs_node *, uint32_t);
 typedef struct fs_node *(*finddir_type_t) (struct fs_node *, char *name);
 typedef void (*create_type_t) (struct fs_node *, char *name, uint16_t permission);
+typedef void (*unlink_type_t) (struct fs_node *, char *name);
 typedef void (*mkdir_type_t) (struct fs_node *, char *name, uint16_t permission);
 typedef int (*ioctl_type_t) (struct fs_node *, int request, void * argp);
 typedef int (*get_size_type_t) (struct fs_node *);
+typedef int (*chmod_type_t) (struct fs_node *, int mode);
 
 typedef struct fs_node {
 	char name[256];         // The filename.
@@ -65,6 +67,8 @@ typedef struct fs_node {
 	mkdir_type_t mkdir;
 	ioctl_type_t ioctl;
 	get_size_type_t get_size;
+	chmod_type_t chmod;
+	unlink_type_t unlink;
 
 	struct fs_node *ptr;   // Alias pointer, for symlinks.
 	uint32_t offset;       // Offset for read operations XXX move this to new "file descriptor" entry
@@ -117,6 +121,8 @@ fs_node_t *kopen(char *filename, uint32_t flags);
 char *canonicalize_path(char *cwd, char *input);
 fs_node_t *clone_fs(fs_node_t * source);
 int ioctl_fs(fs_node_t *node, int request, void * argp);
+int chmod_fs(fs_node_t *node, int mode);
+int unlink_fs(char * name);
 
 void vfs_install();
 int vfs_mount(char * path, fs_node_t * local_root);

@@ -72,6 +72,7 @@ typedef struct process {
 	char *        name;              /* Process Name */
 	char *        description;       /* Process description */
 	user_t        user;              /* Effective user */
+	int           mask;              /* Umask */
 
 	char **       cmdline;
 
