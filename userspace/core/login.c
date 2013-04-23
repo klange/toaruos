@@ -155,14 +155,14 @@ int main(int argc, char ** argv) {
 		pid_t f = fork();
 		if (getpid() != pid) {
 			/* TODO: Read appropriate shell from /etc/passwd */
-			set_username();
-			set_homedir();
-			set_path();
 			char * args[] = {
 				"/bin/sh",
 				NULL
 			};
 			syscall_setuid(uid);
+			set_username();
+			set_homedir();
+			set_path();
 			int i = execvp(args[0], args);
 		} else {
 			child = f;
