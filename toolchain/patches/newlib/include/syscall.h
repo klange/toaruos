@@ -96,6 +96,8 @@ DECL_SYSCALL1(open_serial, int);
 DECL_SYSCALL2(sleepabs, unsigned long, unsigned long);
 DECL_SYSCALL2(nanosleep, unsigned long, unsigned long);
 DECL_SYSCALL3(ioctl, int, int, void *);
+DECL_SYSCALL2(access, char *, int);
+DECL_SYSCALL2(stat, char *, void *);
 
 #endif
 /*

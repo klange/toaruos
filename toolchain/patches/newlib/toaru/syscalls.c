@@ -12,6 +12,7 @@
 #include <sys/utsname.h>
 #include <sys/termios.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <utime.h>
 #include <signal.h>
 
@@ -73,6 +74,7 @@ DEFN_SYSCALL2(sleepabs,  45, unsigned long, unsigned long);
 DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 DEFN_SYSCALL3(ioctl, 47, int, int, void *);
 DEFN_SYSCALL2(access, 48, char *, int);
+DEFN_SYSCALL2(stat, 49, char *, void *);
 
 #define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
 
@@ -91,7 +93,14 @@ int execve(const char *name, char * const argv[], char * const envp[]) {
 }
 
 int execvp(const char *file, char *const argv[]) {
-	return execve(file,argv,environ);
+	if (file && (!strstr(file, "/"))) {
+		/* We don't quite understand "$PATH", so... */
+		char buf[1024];
+		snprintf(buf, 1024, "/bin/%s", file);
+		execve(buf, argv, environ);
+	} else {
+		return execve(file,argv,environ);
+	}
 }
 
 int execv(const char * file, char *const argv[]) {
@@ -160,7 +169,19 @@ int lseek(int file, int ptr, int dir) {
 }
 
 int open(const char *name, int flags, ...) {
-	return syscall_open(name,flags, 0);
+	va_list argp;
+	int mode;
+	int result;
+	va_start(argp, flags);
+	if (flags & O_CREAT) mode = va_arg(argp, int);
+	va_end(argp);
+
+	result = syscall_open(name, flags, mode);
+	if (result == -1) {
+		/* XXX get reason */
+		errno = EACCES;
+	}
+	return result;
 }
 
 int read(int file, char *ptr, int len) {
@@ -177,13 +198,13 @@ int fstat(int file, struct stat *st) {
 }
 
 int stat(const char *file, struct stat *st){
-	int i = open(file, 0);
-	if (i >= 0) {
-		int ret = fstat(i, st);
-		close(i);
+	int ret = syscall_stat((char *)file, (uintptr_t)st);
+	if (ret >= 0) {
 		return ret;
 	} else {
-		return -1;
+		errno = ENOENT; /* meh */
+		memset(st, 0x00, sizeof(struct stat));
+		return ret;;
 	}
 }
 
@@ -381,7 +402,11 @@ int unlink(char *name) {
 }
 
 int access(const char *pathname, int mode) {
-	return syscall_access((char *)pathname, mode);
+	int result = syscall_access((char *)pathname, mode);
+	if (result < 0) {
+		errno = ENOENT; /* XXX */
+	}
+	return result;
 }
 
 long pathconf(char *path, int name) {
