@@ -709,7 +709,7 @@ uint32_t read_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t
 }
 
 void
-open_ext2_disk(fs_node_t *node, uint8_t read, uint8_t write) {
+open_ext2_disk(fs_node_t *node, unsigned int flags) {
 	/* Nothing to do here */
 }
 

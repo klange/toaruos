@@ -8,7 +8,7 @@
 
 uint32_t read_random(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_random(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-void open_random(fs_node_t *node, uint8_t read, uint8_t write);
+void open_random(fs_node_t *node, unsigned int flags);
 void close_random(fs_node_t *node);
 
 uint32_t read_random(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -25,7 +25,7 @@ uint32_t write_random(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	return size;
 }
 
-void open_random(fs_node_t * node, uint8_t read, uint8_t write) {
+void open_random(fs_node_t * node, unsigned int flags) {
 	return;
 }
 

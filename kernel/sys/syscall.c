@@ -156,12 +156,12 @@ static int wait(int child) {
 static int open(const char * file, int flags, int mode) {
 	validate((void *)file);
 	debug_print(NOTICE, "open(%s) flags=0x%x; mode=0x%x", file, flags, mode);
-	fs_node_t * node = kopen((char *)file, 0);
-	if (!node && (flags & 0x600)) {
+	fs_node_t * node = kopen((char *)file, flags);
+	if (!node && (flags & O_CREAT)) {
 		debug_print(NOTICE, "- file does not exist and create was requested.");
 		/* Um, make one */
 		if (!create_file_fs((char *)file, mode)) {
-			node = kopen((char *)file, 0);
+			node = kopen((char *)file, flags);
 		}
 	}
 	if (!node) {

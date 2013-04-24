@@ -11,7 +11,7 @@
 
 uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-void open_pipe(fs_node_t *node, uint8_t read, uint8_t write);
+void open_pipe(fs_node_t *node, unsigned int flags);
 void close_pipe(fs_node_t *node);
 
 static inline size_t pipe_unread(pipe_device_t * pipe) {
@@ -152,7 +152,7 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 	return written;
 }
 
-void open_pipe(fs_node_t * node, uint8_t read, uint8_t write) {
+void open_pipe(fs_node_t * node, unsigned int flags) {
 	assert(node->device != 0 && "Attempted to open a fully-closed pipe.");
 
 	/* Retreive the pipe object associated with this file node */

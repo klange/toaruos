@@ -72,7 +72,7 @@ uint32_t write_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint
 	/* XXX process special sequences and implement line discipline */
 	return ring_buffer_write(pty->in, size, buffer);
 }
-void      open_pty_master(fs_node_t * node, uint8_t read, uint8_t write) {
+void      open_pty_master(fs_node_t * node, unsigned int flags) {
 	return;
 }
 void     close_pty_master(fs_node_t * node) {
@@ -89,7 +89,7 @@ uint32_t write_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8
 
 	return ring_buffer_write(pty->out, size, buffer);
 }
-void      open_pty_slave(fs_node_t * node, uint8_t read, uint8_t write) {
+void      open_pty_slave(fs_node_t * node, unsigned int flags) {
 	return;
 }
 void     close_pty_slave(fs_node_t * node) {

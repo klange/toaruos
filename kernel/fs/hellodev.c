@@ -7,7 +7,7 @@
 
 uint32_t read_hello(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_hello(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-void open_hello(fs_node_t *node, uint8_t read, uint8_t write);
+void open_hello(fs_node_t *node, unsigned int flags);
 void close_hello(fs_node_t *node);
 
 char hello[] = "hello world";
@@ -27,7 +27,7 @@ uint32_t write_hello(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 	return size;
 }
 
-void open_hello(fs_node_t * node, uint8_t read, uint8_t write) {
+void open_hello(fs_node_t * node, unsigned int flags) {
 	return;
 }
 

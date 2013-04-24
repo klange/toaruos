@@ -218,6 +218,24 @@ static int chmod_tmpfs(fs_node_t * node, int mode) {
 	return 0;
 }
 
+static void open_tmpfs(fs_node_t * node, unsigned int flags) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+
+	debug_print(WARNING, "---- Opened TMPFS file %s with flags 0x%x ----", t->name, flags);
+
+	if (flags & O_TRUNC) {
+		debug_print(WARNING, "Truncating file %s", t->name);
+		for (size_t i = 0; i < t->block_count; ++i) {
+			free(t->blocks[i]);
+			t->blocks[i] = 0;
+		}
+		t->block_count = 0;
+		t->length = 0;
+	}
+
+	return;
+}
+
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -233,7 +251,7 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->flags   = FS_FILE;
 	fnode->read    = read_tmpfs;
 	fnode->write   = write_tmpfs;
-	fnode->open    = NULL;
+	fnode->open    = open_tmpfs;
 	fnode->close   = NULL;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;

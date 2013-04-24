@@ -52,12 +52,11 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
  * open_fs: Open a file system node.
  *
  * @param node  Node to open
- * @param read  Read permission? (1 = yes)
- * @param write Write permission? (1 = overwrite, 2 = append)
+ * @param flags Same as open, specifies read/write/append/truncate
  */
-void open_fs(fs_node_t *node, uint8_t read, uint8_t write) {
+void open_fs(fs_node_t *node, unsigned int flags) {
 	if (node->open) {
-		node->open(node, read, write);
+		node->open(node, flags);
 	}
 }
 
@@ -646,7 +645,7 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 			return NULL;
 		} else if (depth == path_depth - 1) {
 			/* We found the file and are done, open the node */
-			open_fs(node_ptr, 1, 0);
+			open_fs(node_ptr, flags);
 			free((void *)path);
 			return node_ptr;
 		}
