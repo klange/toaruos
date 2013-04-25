@@ -349,20 +349,6 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 void ide_write_sector_retry(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 
-/* vm86 Helpers */
-typedef uint32_t  FARPTR;
-typedef uintptr_t addr_t;
-#define MK_FP(seg, off)        ((FARPTR) (((uint32_t) (seg) << 16) | (uint16_t) (off)))
-#define FP_SEG(fp)             (((FARPTR) fp) >> 16)
-#define FP_OFF(fp)             (((FARPTR) fp) & 0xffff)
-#define FP_TO_LINEAR(seg, off) ((void*) ((((uint16_t) (seg)) << 4) + ((uint16_t) (off))))
-#define LINEAR_TO_FP(ptr)      (MK_FP(((addr_t) (ptr) - ((addr_t) (ptr) & 0xf)) / 16, ((addr_t)(ptr) & 0xf)))
-
-typedef struct {
-	uint16_t off;
-	uint16_t seg;
-} rm_ptr_t;
-
 /* wakeup queue */
 int wakeup_queue(list_t * queue);
 int sleep_on(list_t * queue);
