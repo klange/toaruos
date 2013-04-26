@@ -39,3 +39,7 @@ hdd/home/root/*
 hdd/home/local/*
 hdd/etc/vimrc
 hdd/usr/share/vim
+hdd/usr/include
+hdd/usr/lib
+hdd/usr/local
+hdd/opt
