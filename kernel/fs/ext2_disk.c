@@ -5,6 +5,7 @@
 #include <fs.h>
 #include <logging.h>
 
+#define DISABLE_EXT2_WRITES 1
 #define EXT2_DEBUG_BLOCK_DESCRIPTORS 1
 
 uint32_t BLOCKSIZE = 1024;
@@ -301,6 +302,10 @@ uint32_t ext2_disk_inode_read_block(ext2_inodetable_t *inode, uint32_t no, uint3
  * @return the actual block number read from.
  */
 uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no, uint32_t block, uint8_t *buf) {
+#if DISABLE_EXT2_WRITES
+	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
+	return 0;
+#endif
 	/* We must allocate blocks up to this point to account for unused space in the middle. */
 	while (block >= inode->blocks) {
 		ext2_disk_inode_alloc_block(inode, inode_no, inode->blocks);
@@ -327,8 +332,10 @@ uint32_t ext2_disk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode_no
  * Create a new, regular, and empty file under directory 'parent'.
  */
 void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
+#if DISABLE_EXT2_WRITES
 	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
 	return;
+#endif
 
 	debug_print(NOTICE, "Creating file %s", name);
 	uint16_t mode = permission | EXT2_S_IFREG;
@@ -604,8 +611,10 @@ void ext2_disk_write_inode(ext2_inodetable_t *inode, uint32_t index) {
 }
 
 uint32_t write_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+#if DISABLE_EXT2_WRITES
 	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
 	return 0;
+#endif
 
 	ext2_inodetable_t *inode = ext2_disk_inode(node->inode);
 	uint32_t end = offset + size;
