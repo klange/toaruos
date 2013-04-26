@@ -150,7 +150,7 @@ struct process_windows {
 	list_t * windows;
 };
 
-volatile wins_server_global_t * wins_globals;
+extern volatile wins_server_global_t * wins_globals;
 
 /* Client Windowing */
 
@@ -179,11 +179,9 @@ gfx_context_t * init_graphics_window_double_buffer(window_t * window);
 void reinit_graphics_window(gfx_context_t * out, window_t * window);
 
 void win_use_threaded_handler();
-void (*mouse_action_callback)(w_mouse_t *);
-
-void (*resize_window_callback)(window_t *);
-
-void (*focus_changed_callback)(window_t *);
+extern void (*mouse_action_callback)(w_mouse_t *);
+extern void (*resize_window_callback)(window_t *);
+extern void (*focus_changed_callback)(window_t *);
 
 window_t * wins_get_window (wid_t wid);
 void win_sane_events();
