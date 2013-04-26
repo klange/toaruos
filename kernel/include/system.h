@@ -361,7 +361,7 @@ typedef struct {
 
 void handle_signal(process_t *, signal_t *);
 
-#define USER_STACK_BOTTOM 0xAFFF0000
+#define USER_STACK_BOTTOM 0xAFF00000
 #define USER_STACK_TOP    0xB0000000
 #define SHM_START         0xB0000000
 
