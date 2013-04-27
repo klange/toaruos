@@ -1338,6 +1338,7 @@ int buffer_put(char c) {
 	}
 	if (c == 3) {
 		syscall_send_signal(child_pid, 2);
+		clear_buffer();
 		return 0;
 	}
 	if (c < 10 || (c > 10 && c < 32) || c > 126) {
