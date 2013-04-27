@@ -1,0 +1,1 @@
+../../toolchain/patches/newlib/toaru/sys/errno_defs.h

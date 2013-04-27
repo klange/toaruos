@@ -3,6 +3,7 @@
 #include <pipe.h>
 #include <logging.h>
 
+#include <ioctl.h>
 #include <termios.h>
 #include <ringbuffer.h>
 
@@ -43,6 +44,14 @@ list_t * pty_list = NULL;
 int pty_ioctl(pty_t * pty, int request, void * argp) {
 	debug_print(WARNING, "Incoming IOCTL request %d", request);
 	switch (request) {
+		case IOCTLDTYPE:
+			/*
+			 * This is a special toaru-specific call to get a simple
+			 * integer that describes the kind of device this is.
+			 * It's more specific than just "character device" or "file",
+			 * but for here we just need to say we're a TTY.
+			 */
+			return IOCTL_DTYPE_TTY;
 		case TIOCSWINSZ:
 			if (!argp) return -1;
 			validate(argp);

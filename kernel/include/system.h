@@ -368,5 +368,6 @@ void handle_signal(process_t *, signal_t *);
 void validate(void * ptr);
 int validate_safe(void * ptr);
 
+#include <errno_defs.h>
 
 #endif

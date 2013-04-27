@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/termios.h>
+#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <utime.h>
@@ -152,8 +153,10 @@ int wait(int *status) {
 // --- I/O ---
 
 int isatty(int fd) {
-	/* XXX: Do the right thing */
-	return (fd < 3);
+	int dtype = ioctl(fd, IOCTLDTYPE, NULL);
+	if (dtype == IOCTL_DTYPE_TTY) return 1;
+	errno = EINVAL;
+	return 0;
 }
 
 
