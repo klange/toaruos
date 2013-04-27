@@ -123,6 +123,8 @@ static void render_decors();
 void term_clear();
 void resize_callback(window_t * window);
 
+void dump_buffer();
+
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
 volatile int exit_application = 0;
@@ -328,6 +330,7 @@ static void _ansi_put(char c) {
 										break;
 									case 1560:
 										_unbuffered = 1;
+										dump_buffer();
 										break;
 									case 1561:
 										_unbuffered = 0;
@@ -1365,6 +1368,11 @@ void handle_input(char c) {
 			clear_input();
 		}
 	}
+}
+
+void dump_buffer() {
+	write(fd_master, input_buffer, input_collected);
+	clear_input();
 }
 
 void handle_input_s(char * c) {
