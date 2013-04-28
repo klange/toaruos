@@ -329,6 +329,7 @@ uint32_t ext2_ramdisk_inode_write_block(ext2_inodetable_t *inode, uint32_t inode
  * Create a new, regular, and empty file under directory 'parent'.
  */
 static void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
+	return;
 	
 	kprintf("[kernel/ext2] Creating file.\n");
 	uint16_t mode = permission | EXT2_S_IFREG;
@@ -363,6 +364,7 @@ static void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
  * Message will be displayed in the terminal for success or failure.
  */
 static void ext2_mkdir(fs_node_t *parent, char *name, uint16_t permission) {
+	return;
 
 	uint16_t mode = permission | EXT2_S_IFDIR;
 	ext2_inodetable_t *parent_inode = ext2_ramdisk_inode(parent->inode);
@@ -583,6 +585,8 @@ ext2_inodetable_t *ext2_ramdisk_inode(uint32_t inode) {
  * Write the 'inode' into the inode table at position 'index'.
  */
 void ext2_ramdisk_write_inode(ext2_inodetable_t *inode, uint32_t index) {
+	return;
+
 	uint32_t group = index / ext2_ramdisk_inodes_per_group;
 	if (group > BGDS) {
 		return;
@@ -602,6 +606,8 @@ void ext2_ramdisk_write_inode(ext2_inodetable_t *inode, uint32_t index) {
 }
 
 uint32_t write_ext2_ramdisk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	return 0;
+
 	ext2_inodetable_t *inode = ext2_ramdisk_inode(node->inode);
 	uint32_t end = offset + size;
 	uint32_t start_block 	= offset / BLOCKSIZE;
@@ -743,6 +749,8 @@ readdir_ext2_ramdisk(fs_node_t *node, uint32_t index) {
  */
 void insertdir_ext2_ramdisk(ext2_inodetable_t *p_node, uint32_t no, uint32_t inode, char *name, uint8_t type) {
 	/* XXX HACK This needs to be seriously fixed up. */
+	return;
+
 	kprintf("[kernel/ext2] Request to insert new directory entry at 0x%x#%d->%d '%s' type %d\n", p_node, no, inode, name, type);
 	assert(p_node->mode & EXT2_S_IFDIR);
 	void *block = malloc(BLOCKSIZE);
