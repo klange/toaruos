@@ -167,9 +167,11 @@ volatile int exit_application = 0;
 #define ANSI_WIDE      0x40 /* Character is double width */
 #define ANSI_CROSS     0x80 /* And that's all I'm going to support */
 
-#define DEFAULT_FG     0x07
-#define DEFAULT_BG     0x10
-#define DEFAULT_FLAGS  0x00
+/* Default color settings */
+#define DEFAULT_FG     0x07 /* Index of default foreground */
+#define DEFAULT_BG     0x10 /* Index of default background */
+#define DEFAULT_FLAGS  0x00 /* Default flags for a cell */
+#define DEFAULT_OPAC   0xF2 /* For background, default transparency */
 
 #define ANSI_EXT_IOCTL 'z'  /* These are special escapes only we support */
 
@@ -787,16 +789,16 @@ term_write_char(
 	} else {
 		if (fg < PALETTE_COLORS) {
 			_fg = term_colors[fg];
-			_fg |= 0xFF000000;
+			_fg |= 0xFF << 24;
 		} else {
 			_fg = fg;
 		}
 		if (bg < PALETTE_COLORS) {
 			_bg = term_colors[bg];
 			if (flags & ANSI_SPECBG) {
-				_bg |= 0xFF000000;
+				_bg |= 0xFF << 24;
 			} else {
-				_bg |= 0xBB000000;
+				_bg |= DEFAULT_OPAC << 24;
 			}
 		} else {
 			_bg = bg;
