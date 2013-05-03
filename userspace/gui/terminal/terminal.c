@@ -1567,7 +1567,7 @@ void reinit() {
 	mouse_y = ctx->height / 2;
 
 	if (!_vga_mode) {
-		draw_fill(ctx, rgba(0,0,0, 0xbb));
+		draw_fill(ctx, rgba(0,0,0, DEFAULT_OPAC));
 		render_decors();
 		term_redraw_all();
 	}
