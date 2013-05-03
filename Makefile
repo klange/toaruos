@@ -29,6 +29,7 @@ UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
 GENEXT = genext2fs
 DISK_SIZE = 524288
+RAMDISK_SIZE = 32786
 DD = dd conv=notrunc
 BEG = util/mk-beg
 END = util/mk-end
@@ -124,9 +125,7 @@ toaruos-initrd: .passed
 	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
-	@#${GENEXT} -d initrd -q -b 20480 toaruos-initrd ${ERRORS}
-	@#${GENEXT} -d initrd -q -b 8192 toaruos-initrd ${ERRORS}
-	@${GENEXT} -d hdd -q -b 81920 toaruos-initrd ${ERRORS}
+	@${GENEXT} -d initrd -q -b ${RAMDISK_SIZE} toaruos-initrd ${ERRORS}
 	@${END} "initrd" "Generated initial RAM disk"
 	@${INFO} "--" "Ramdisk image is ready!"
 
