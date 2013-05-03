@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <math.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 
@@ -51,6 +52,8 @@ void init_sprite_png(int i, char * filename) {
 }
 
 #define FONT_SIZE 14
+#define TIME_LEFT 108
+#define DATE_WIDTH 70
 
 volatile int _continue = 1;
 
@@ -120,23 +123,45 @@ int main (int argc, char ** argv) {
 	win_use_threaded_handler();
 	mouse_action_callback = panel_check_click;
 
+	uint32_t txt_color = rgb(230,230,230);
+	int t = 0;
+
 	while (_continue) {
 		/* Redraw the background by memcpy (super speedy) */
 		memcpy(ctx->backbuffer, buf, buf_size);
-		syscall_gettimeofday(&now, NULL); //time(NULL);
+		gettimeofday(&now, NULL);
 		if (now.tv_sec != last) {
 			last = now.tv_sec;
 			timeinfo = localtime((time_t *)&now.tv_sec);
-			strftime(buffer, 80, "%I:%M:%S %p", timeinfo);
 
-			draw_string(ctx, width - 120, 17, rgb(255,255,255), buffer);
-			draw_string(ctx, 10, 17, rgb(255,255,255), final);
+			strftime(buffer, 80, "%H:%M:%S", timeinfo);
+			set_font_face(FONT_SANS_SERIF_BOLD);
+			set_font_size(16);
+			draw_string(ctx, width - TIME_LEFT, 19, txt_color, buffer);
+
+			strftime(buffer, 80, "%A", timeinfo);
+			set_font_face(FONT_SANS_SERIF);
+			set_font_size(9);
+			t = draw_string_width(buffer);
+			t = (DATE_WIDTH - t) / 2;
+			draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 11, txt_color, buffer);
+
+			strftime(buffer, 80, "%h %e", timeinfo);
+			set_font_face(FONT_SANS_SERIF_BOLD);
+			set_font_size(9);
+			t = draw_string_width(buffer);
+			t = (DATE_WIDTH - t) / 2;
+			draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 21, txt_color, buffer);
+
+			set_font_face(FONT_SANS_SERIF);
+			set_font_size(14);
+			draw_string(ctx, 10, 18, txt_color, final);
 
 			draw_sprite(ctx, sprites[1], win_width - 23, 1); /* Logout button */
 
 			flip(ctx);
 		}
-		syscall_nanosleep(0,50);
+		usleep(500000);
 	}
 
 	teardown_windowing();
