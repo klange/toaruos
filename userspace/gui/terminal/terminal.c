@@ -163,7 +163,7 @@ volatile int exit_application = 0;
 #define ANSI_ITALIC    0x04
 #define ANSI_EXTRA     0x08 /* Character should use "extra" font (Japanese) */
 #define ANSI_SPECBG    0x10
-#define ANSI_OVERLINE  0x20
+#define ANSI_BORDER    0x20
 #define ANSI_WIDE      0x40 /* Character is double width */
 #define ANSI_CROSS     0x80 /* And that's all I'm going to support */
 
@@ -218,7 +218,6 @@ void (*ansi_set_cell)(int,int,uint16_t) = NULL;
 void (*ansi_cls)(int) = NULL;
 void (*ansi_scroll)(int) = NULL;
 
-/* XXX: Needs verification, but I'm pretty sure this never gets called */
 void (*redraw_cursor)(void) = NULL;
 
 /* Stuffs a string into the stdin of the terminal's child process
@@ -818,7 +817,7 @@ term_write_char(
 				}
 			}
 			if (val < 32 || val == ' ') {
-				return;
+				goto _extra_stuff;
 			}
 			int pen_x = x;
 			int pen_y = y + char_offset;
@@ -848,20 +847,12 @@ term_write_char(
 			slot = (*_font)->glyph;
 			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
 				error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
-				if (error) return;
+				if (error) {
+					goto _extra_stuff;
+				}
 			}
 			drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, _fg, _bg);
 
-			if (flags & ANSI_UNDERLINE) {
-				for (uint8_t i = 0; i < char_width; ++i) {
-					term_set_point(x + i, y + char_offset + 2, _fg);
-				}
-			}
-			if (flags & ANSI_CROSS) {
-				for (uint8_t i = 0; i < char_width; ++i) {
-					term_set_point(x + i, y + char_offset - 5, _fg);
-				}
-			}
 		} else {
 			if (val > 128) {
 				val = 4;
@@ -875,6 +866,27 @@ term_write_char(
 						term_set_point(x+j,y+i,_bg);
 					}
 				}
+			}
+		}
+_extra_stuff:
+		if (flags & ANSI_UNDERLINE) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_offset + 2, _fg);
+			}
+		}
+		if (flags & ANSI_CROSS) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_offset - 5, _fg);
+			}
+		}
+		if (flags & ANSI_BORDER) {
+			for (uint8_t i = 0; i < char_height; ++i) {
+				term_set_point(x , y + i, _fg);
+				term_set_point(x + (char_width - 1), y + i, _fg);
+			}
+			for (uint8_t j = 0; j < char_width; ++j) {
+				term_set_point(x + j, y, _fg);
+				term_set_point(x + j, y + (char_height - 1), _fg);
 			}
 		}
 	}
@@ -910,10 +922,28 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	}
 }
 
+static void cell_redraw_box(uint16_t x, uint16_t y) {
+	if (x >= term_width || y >= term_height) return;
+	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	if (((uint32_t *)cell)[0] == 0x00000000) {
+		term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS | ANSI_BORDER);
+	} else {
+		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags | ANSI_BORDER);
+	}
+}
+
+void render_cursor() {
+	if (_windowed && !window->focused) {
+		cell_redraw_box(csr_x, csr_y);
+	} else {
+		cell_redraw_inverted(csr_x, csr_y);
+	}
+}
+
 void draw_cursor() {
 	if (!cursor_on) return;
 	timer_tick = 0;
-	cell_redraw_inverted(csr_x, csr_y);
+	render_cursor();
 }
 
 void term_redraw_all() { 
@@ -1032,15 +1062,6 @@ void save_scrollback() {
 
 	list_insert(scrollback_list, row);
 }
-#if 0
-	if (x >= term_width || y >= term_height) return;
-	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
-	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
-	} else {
-		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
-	}
-#endif
 
 void redraw_scrollback() {
 	return;
@@ -1139,7 +1160,6 @@ void term_write(char c) {
 					cell_redraw_inverted(j, i);
 				}
 			}
-			/* XXX: sleep */
 			syscall_nanosleep(0,10);
 			term_redraw_all();
 #endif
@@ -1231,7 +1251,7 @@ void flip_cursor() {
 	if (cursor_flipped) {
 		cell_redraw(csr_x, csr_y);
 	} else {
-		cell_redraw_inverted(csr_x, csr_y);
+		render_cursor();
 	}
 	cursor_flipped = 1 - cursor_flipped;
 }
@@ -1639,7 +1659,7 @@ void * handle_incoming(void * garbage) {
 				if (mouse_y < 0) mouse_y = 0;
 				if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width - char_width)   * MOUSE_SCALE;
 				if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height - char_height) * MOUSE_SCALE;
-				cell_redraw_inverted(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
+				cell_redraw_box(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
 				fstat(mfd, &_stat);
 			}
 fail_mouse:
