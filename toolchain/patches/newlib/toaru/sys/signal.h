@@ -29,6 +29,9 @@ typedef unsigned long sigset_t;
 #define SIG_BLOCK 1
 #define SIG_UNBLOCK 2
 
+#define sa_handler   _signal_handlers._handler
+#define sa_sigaction _signal_handlers._sigaction
+
 union sigval {
 	int    sival_int;
 	void  *sival_ptr;
@@ -57,14 +60,15 @@ struct sigaction {
 	} _signal_handlers;
 };
 
+#define sigaddset(what,sig)   (*(what) |= (1<<(sig)), 0)
+#define sigdelset(what,sig)   (*(what) &= ~(1<<(sig)), 0)
+#define sigemptyset(what)     (*(what) = 0, 0)
+#define sigfillset(what)      (*(what) = ~(0), 0)
+#define sigismember(what,sig) (((*(what)) & (1<<(sig))) != 0)
+
 int _EXFUN(kill, (pid_t, int));
 int _EXFUN(killpg, (pid_t, int));
 int _EXFUN(sigaction, (int, const struct sigaction *, struct sigaction *));
-int _EXFUN(sigaddset, (sigset_t *, const int));
-int _EXFUN(sigdelset, (sigset_t *, const int));
-int _EXFUN(sigismember, (const sigset_t *, int));
-int _EXFUN(sigfillset, (sigset_t *));
-int _EXFUN(sigemptyset, (sigset_t *));
 int _EXFUN(sigpending, (sigset_t *));
 int _EXFUN(sigsuspend, (const sigset_t *));
 int _EXFUN(sigpause, (int));
