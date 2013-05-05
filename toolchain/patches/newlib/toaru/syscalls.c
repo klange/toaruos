@@ -132,12 +132,23 @@ int uname(struct utsname *__name) {
  * kill -- go out via exit...
  */
 int kill(int pid, int sig) {
-	if(pid == getpid())
-		_exit(sig);
-
-	errno = EINVAL;
-	return -1;
+	if(pid == getpid()) {
+		return _exit(sig);
+	} else {
+		return syscall_send_signal(pid, sig);
+	}
 }
+
+sighandler_t signal(int signum, sighandler_t handler) {
+	return syscall_signal(signum, (void *)handler);
+}
+
+#if 0
+int raise(int sig) {
+	kill(getpid(), sig);
+	return 0;
+}
+#endif
 
 int waitpid(int pid, int *status, int options) {
 	/* XXX: status, options? */
@@ -220,17 +231,6 @@ int stat(const char *file, struct stat *st){
 int write(int file, char *ptr, int len) {
 	return syscall_write(file,ptr,len);
 }
-
-// --- Memory ---
-
-/* _end is set in the linker command file */
-extern caddr_t _end;
-
-#if 0
-#define PAGE_SIZE 4096UL
-#define PAGE_MASK 0xFFFFF000UL
-#define HEAP_ADDR (((unsigned long long)&_end + PAGE_SIZE) & PAGE_MASK)
-#endif
 
 /*
  * sbrk: request a larger heap

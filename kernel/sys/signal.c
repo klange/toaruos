@@ -36,6 +36,46 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 static uint8_t volatile lock;
 static uint8_t volatile lock_b;
 
+char isdeadly[] = {
+	0, /* 0? */
+	1, /* SIGHUP     */
+	1, /* SIGINT     */
+	2, /* SIGQUIT    */
+	2, /* SIGILL     */
+	2, /* SIGTRAP    */
+	2, /* SIGABRT    */
+	2, /* SIGEMT     */
+	2, /* SIGFPE     */
+	1, /* SIGKILL    */
+	2, /* SIGBUS     */
+	2, /* SIGSEGV    */
+	2, /* SIGSYS     */
+	1, /* SIGPIPE    */
+	1, /* SIGALRM    */
+	1, /* SIGTERM    */
+	1, /* SIGUSR1    */
+	1, /* SIGUSR2    */
+	0, /* SIGCHLD    */
+	0, /* SIGPWR     */
+	0, /* SIGWINCH   */
+	0, /* SIGURG     */
+	0, /* SIGPOLL    */
+	3, /* SIGSTOP    */
+	3, /* SIGTSTP    */
+	0, /* SIGCONT    */
+	3, /* SIGTTIN    */
+	3, /* SIGTTOUT   */
+	1, /* SIGVTALRM  */
+	1, /* SIGPROF    */
+	2, /* SIGXCPU    */
+	2, /* SIGXFSZ    */
+	0, /* SIGWAITING */
+	1, /* SIGDIAF    */
+	0, /* SIGHATE    */
+	0, /* SIGWINEVENT*/
+	0, /* SIGCAT     */
+};
+
 void handle_signal(process_t * proc, signal_t * sig) {
 	uintptr_t handler = sig->handler;
 	uintptr_t signum  = sig->signum;
@@ -45,15 +85,22 @@ void handle_signal(process_t * proc, signal_t * sig) {
 		return;
 	}
 
-	if (signum == 0 || signum > NUMSIGNALS) {
+	if (signum == 0 || signum >= NUMSIGNALS) {
 		/* Ignore */
 		return;
 	}
 
 	if (!handler) {
-		kprintf("[debug] Process %d killed by unhandled signal (%d).\n", proc->id, signum);
-		kexit(128 + signum);
-		__builtin_unreachable();
+		char dowhat = isdeadly[signum];
+		if (dowhat == 1 || dowhat == 2) {
+			debug_print(WARNING, "Process %d killed by unhandled signal (%d)", proc->id, signum);
+			kexit(128 + signum);
+			__builtin_unreachable();
+		} else {
+			debug_print(WARNING, "Ignoring signal %d by default in pid %d", signum, proc->id);
+		}
+		/* XXX dowhat == 2: should dump core */
+		/* XXX dowhat == 3: stop */
 		return;
 	}
 

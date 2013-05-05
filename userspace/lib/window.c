@@ -11,7 +11,7 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/stat.h>
-#include "../../kernel/include/signal.h"
+#include <signal.h>
 
 #include "window.h"
 #include "pthread.h"

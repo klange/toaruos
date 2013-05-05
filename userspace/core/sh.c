@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <dirent.h>
+#include <signal.h>
 
 #include "lib/list.h"
 #include "lib/kbd.h"
@@ -201,10 +202,10 @@ void draw_prompt(int ret) {
 
 uint32_t child = 0;
 
-void sig_int(int sig) {
+void sig_pass(int sig) {
 	/* Interrupt handler */
 	if (child) {
-		syscall_send_signal(child, sig);
+		kill(child, sig);
 	} else {
 		fprintf(stderr, "XXX: Clear the buffer and re-render the prompt\n");
 	}
@@ -971,7 +972,8 @@ int main(int argc, char ** argv) {
 
 	pid = getpid();
 
-	syscall_signal(2, sig_int);
+	syscall_signal(SIGINT, sig_pass);
+	syscall_signal(SIGWINCH, sig_pass);
 
 	getusername();
 	gethostname();

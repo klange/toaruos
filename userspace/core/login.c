@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 #include <sys/utsname.h>
 
@@ -22,10 +23,10 @@
 
 uint32_t child = 0;
 
-void sig_int(int sig) {
+void sig_pass(int sig) {
 	/* Pass onto the shell */
 	if (child) {
-		syscall_send_signal(child, sig);
+		kill(child, sig);
 	}
 	/* Else, ignore */
 }
@@ -119,8 +120,9 @@ int main(int argc, char ** argv) {
 	system("uname -a");
 	printf("\n");
 
-	syscall_signal(2, sig_int);
-	syscall_signal(11, sig_segv);
+	syscall_signal(SIGINT, sig_pass);
+	syscall_signal(SIGWINCH, sig_pass);
+	syscall_signal(SIGSEGV, sig_segv);
 
 	while (1) {
 		char * username = malloc(sizeof(char) * 1024);

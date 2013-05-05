@@ -18,6 +18,7 @@
 #include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -326,7 +327,7 @@ static void _ansi_put(char c) {
 										if (argc > 1) {
 											scale_fonts  = 1;
 											font_scaling = atof(argv[1]);
-											reinit();
+											reinit(1);
 										}
 										break;
 									case 1560:
@@ -761,7 +762,7 @@ void resize_callback(window_t * window) {
 
 	reinit_graphics_window(ctx, window);
 
-	reinit();
+	reinit(1);
 }
 
 void focus_callback(window_t * window) {
@@ -1359,7 +1360,7 @@ int buffer_put(char c) {
 		return 0;
 	}
 	if (c == 3) {
-		syscall_send_signal(child_pid, 2);
+		kill(child_pid, SIGINT);
 		return 1;
 	}
 	if (c < 10 || (c > 10 && c < 32) || c > 126) {
@@ -1512,7 +1513,7 @@ void usage(char * argv[]) {
 			argv[0]);
 }
 
-void reinit() {
+void reinit(int send_sig) {
 	if (_use_freetype) {
 		/* Reset font sizes */
 
@@ -1597,6 +1598,9 @@ void reinit() {
 	w.ws_col = term_width;
 	ioctl(fd_master, TIOCSWINSZ, &w);
 
+	if (send_sig) {
+		kill(child_pid, SIGWINCH);
+	}
 }
 
 #if DEBUG_TERMINAL_WITH_SERIAL
@@ -1828,7 +1832,7 @@ int main(int argc, char ** argv) {
 
 	terminal = fdopen(fd_slave, "w");
 
-	reinit();
+	reinit(0);
 
 	fflush(stdin);
 

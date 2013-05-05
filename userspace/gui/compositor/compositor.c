@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <sys/stat.h>
 #include <cairo.h>
+#include <signal.h>
 
 #include "lib/list.h"
 #include "lib/graphics.h"
@@ -24,7 +25,6 @@
 #include "lib/pthread.h"
 #include "lib/kbd.h"
 
-#include "../kernel/include/signal.h"
 #include "../kernel/include/mouse.h"
 
 #define SINGLE_USER_MODE 0
@@ -135,7 +135,7 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * pack
 	// XXX: we have a race condition here
 	write(pw->event_pipe, &header, sizeof(wins_packet_t));
 	write(pw->event_pipe, packet, sizeof(w_window_t));
-	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
 	syscall_yield();
 }
 
@@ -150,7 +150,7 @@ void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t pa
 	// XXX: we have a race condition here
 	write(pw->event_pipe, &header, sizeof(wins_packet_t));
 	write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
-	syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
 	syscall_yield();
 }
 
@@ -165,7 +165,7 @@ void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet
 	fwrite(&header, 1, sizeof(wins_packet_t), pw->event_pipe_file);
 	fwrite(packet,  1, sizeof(w_mouse_t),     pw->event_pipe_file);
 	fflush(pw->event_pipe_file);
-	//syscall_send_signal(pw->pid, SIGWINEVENT); // SIGWINEVENT
+	//kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
 	//syscall_yield();
 }
 

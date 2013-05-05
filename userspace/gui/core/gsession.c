@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <syscall.h>
+#include <signal.h>
 
 #define LINE_LEN 1024
 
@@ -68,7 +69,7 @@ int main(int argc, char * argv[]) {
 
 	printf("Session leader has exited. Sending INT signals to %d.\n", _wallpaper_pid);
 
-	syscall_send_signal(_wallpaper_pid, 2);
+	kill(_wallpaper_pid, SIGINT);
 
 	printf("Waiting on wallpaper.\n");
 	syscall_wait(_wallpaper_pid);
