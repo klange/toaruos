@@ -110,7 +110,7 @@ void set_homedir() {
 }
 
 void set_path() {
-	setenv("PATH", "/bin", 0);
+	setenv("PATH", "/bin:/usr/bin", 0);
 }
 
 

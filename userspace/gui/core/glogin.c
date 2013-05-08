@@ -333,6 +333,7 @@ int main (int argc, char ** argv) {
 
 		pid_t _session_pid = fork();
 		if (!_session_pid) {
+			setenv("PATH", "/bin:/usr/bin", 0);
 			syscall_setuid(uid);
 			char * args[] = {"/bin/gsession", NULL};
 			execvp(args[0], args);
