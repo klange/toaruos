@@ -15,6 +15,12 @@ hdd/boot
 hdd/bin/*
 hdd/etc/hostname
 hdd/lib
+hdd/usr/bin
+hdd/usr/i686-pc-toaru
+hdd/usr/libexec
+hdd/usr/share/info
+hdd/usr/share/locale
+hdd/usr/share/man
 .gdb_history
 bootdisk.img
 util/toaru-toolchain/*
