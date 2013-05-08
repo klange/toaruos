@@ -878,6 +878,10 @@ _done:
 		uint32_t f = fork();
 		if (getpid() != pid) {
 			int i = execvp(cmd, argv);
+			if (i != 0) {
+				fprintf(stderr, "%s: Command not found\n", argv[0]);
+				i = 127; /* Should be set to this anyway... */
+			}
 			return i;
 		} else {
 			int ret_code = 0;
