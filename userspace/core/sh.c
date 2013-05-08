@@ -868,26 +868,6 @@ _done:
 	if (func) {
 		return func(tokenid, argv);
 	} else {
-		FILE * file = NULL; //fopen(argv[0], "r");
-		if (!strstr(argv[0],"/")) {
-			cmd = malloc(sizeof(char) * (strlen(argv[0]) + strlen("/bin/") + 1));
-			sprintf(cmd, "%s%s", "/bin/", argv[0]);
-			file = fopen(cmd,"r");
-			if (!file) {
-				fprintf(stderr, "%s: Command not found\n", argv[0]);
-				free(cmd);
-				return 1;
-			}
-			fclose(file);
-		} else {
-			file = fopen(argv[0], "r");
-			if (!file) {
-				fprintf(stderr, "%s: Command not found\n", argv[0]);
-				free(cmd);
-				return 1;
-			}
-			fclose(file);
-		}
 
 		int nowait = (!strcmp(argv[tokenid-1],"&"));
 		if (nowait) {
