@@ -10,7 +10,7 @@ CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack
 # CFLAGS for native utils
 NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra -Wno-unused-parameter
 # Linker for core
-LD = ld -m elf_i386
+LD = i686-pc-toaru-ld
 YASM = yasm
 # Feel free to be specific, but I'd rather you not be.
 FILESYSTEMS  = $(patsubst %.c,%.o,$(wildcard kernel/fs/*.c))
