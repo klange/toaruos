@@ -10,13 +10,7 @@
 #include <pipe.h>
 #include <version.h>
 #include <shm.h>
-
 #include <utsname.h>
-
-#define SPECIAL_CASE_STDIO
-
-#define RESERVED 1
-
 
 static char   hostname[256];
 static size_t hostname_len = 0;
@@ -140,7 +134,7 @@ static int wait(int child) {
 	}
 	/* If the child task doesn't exist, bail */
 	if (!child_task) {
-		debug_print(WARNING, "Tried to wait for non-existent process");
+		debug_print(WARNING, "Tried to wait for non-existent process %d by pid %d", child, getpid());
 		return 0;
 	}
 	debug_print(NOTICE, "pid=%d waiting on pid=%d", current_process->id, child_task->id);
@@ -670,7 +664,6 @@ static int sys_unlink(char * file) {
 /*
  * System Call Internals
  */
-static void syscall_handler(struct regs * r);
 static uintptr_t syscalls[] = {
 	/* System Call Table */
 	(uintptr_t)&exit,               /* 0 */
@@ -730,48 +723,34 @@ static uintptr_t syscalls[] = {
 };
 uint32_t num_syscalls;
 
-void
-syscalls_install() {
-	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
-	debug_print(NOTICE, "Initializing syscall table with %d functions", num_syscalls);
-	isrs_install_handler(0x7F, &syscall_handler);
-}
+typedef uint32_t (*scall_func)(unsigned int, ...);
 
-void
-syscall_handler(
-		struct regs * r
-		) {
+void syscall_handler(struct regs * r) {
 	if (r->eax >= num_syscalls) {
 		return;
 	}
 
 	uintptr_t location = syscalls[r->eax];
-
-	if (location == 1) {
+	if (!location) {
 		return;
 	}
 
 	/* Update the syscall registers for this process */
 	current_process->syscall_registers = r;
 
-	uint32_t ret;
-	asm volatile (
-			"push %1\n"
-			"push %2\n"
-			"push %3\n"
-			"push %4\n"
-			"push %5\n"
-			"call *%6\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			: "=a" (ret) : "r" (r->edi), "r" (r->esi), "r" (r->edx), "r" (r->ecx), "r" (r->ebx), "r" (location));
+	/* Call the syscall function */
+	scall_func func = (scall_func)location;
+	uint32_t ret = func(r->ebx, r->ecx, r->edx, r->esi, r->edi);
 
-	/* The syscall handler may have moved the register pointer
-	 * (ie, by creating a new stack)
-	 * Update the pointer */
-	r = current_process->syscall_registers;
-	r->eax = ret;
+	if ((current_process->syscall_registers == r) ||
+			(location != (uintptr_t)&fork && location != (uintptr_t)&clone)) {
+		r->eax = ret;
+	}
 }
+
+void syscalls_install() {
+	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
+	debug_print(NOTICE, "Initializing syscall table with %d functions", num_syscalls);
+	isrs_install_handler(0x7F, &syscall_handler);
+}
+

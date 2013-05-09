@@ -193,6 +193,8 @@ fork() {
 	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
+	current_process->syscall_registers->eax = 0;
+
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
 	assert(parent && "Forked from nothing??");
@@ -282,6 +284,8 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	uintptr_t esp, ebp, eip;
 
 	IRQ_OFF;
+
+	current_process->syscall_registers->eax = 0;
 
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
