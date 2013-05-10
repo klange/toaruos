@@ -100,6 +100,7 @@ uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX ser
 uint8_t  _unbuffered    = 0;
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
+uint8_t  _onlcr         = 1;
 
 void reinit(); /* Defined way further down */
 
@@ -322,6 +323,12 @@ static void _ansi_put(char c) {
 									case 1002:
 										/* Local Echo On */
 										state.local_echo = 1;
+										break;
+									case 1003:
+										_onlcr = 0;
+										break;
+									case 1004:
+										_onlcr = 1;
 										break;
 									case 1555:
 										if (argc > 1) {
@@ -1146,11 +1153,13 @@ void term_write(char c) {
 			c = '?';
 		}
 		if (c == '\n') {
-			if (csr_x == 0 && _hold_out) {
-				_hold_out = 0;
-				return;
+			if (_onlcr) {
+				if (csr_x == 0 && _hold_out) {
+					_hold_out = 0;
+					return;
+				}
+				csr_x = 0;
 			}
-			csr_x = 0;
 			++csr_y;
 			draw_cursor();
 		} else if (c == '\007') {
