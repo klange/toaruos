@@ -30,7 +30,6 @@
 
 #include <wchar.h>
 
-#include "lib/wcwidth.h"
 #include "lib/utf8decode.h"
 #include "../kernel/include/mouse.h"
 
@@ -127,6 +126,8 @@ void resize_callback(window_t * window);
 
 void dump_buffer();
 
+wchar_t box_chars[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽├┤┴┬│≤≥";
+
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
 volatile int exit_application = 0;
@@ -136,6 +137,7 @@ volatile int exit_application = 0;
 /* Escape verify */
 #define ANSI_BRACKET '['
 #define ANSI_BRACKET_RIGHT ']'
+#define ANSI_OPEN_PAREN '('
 /* Anything in this range (should) exit escape mode. */
 #define ANSI_LOW    'A'
 #define ANSI_HIGH   'z'
@@ -206,6 +208,7 @@ static struct _ansi_state {
 	uint32_t bg    ;  /* Current background color */
 	uint8_t  flags ;  /* Bright, etc. */
 	uint8_t  escape;  /* Escape status */
+	uint8_t  box;
 	uint8_t  local_echo;
 	uint8_t  buflen;  /* Buffer Length */
 	char     buffer[100];  /* Previous buffer */
@@ -251,6 +254,24 @@ static void ansi_put(char c) {
 	spin_unlock(&lock);
 }
 
+static int to_eight(uint16_t codepoint, uint8_t * out) {
+	memset(out, 0x00, 4);
+
+	if (codepoint < 0x0080) {
+		out[0] = (uint8_t)codepoint;
+	} else if (codepoint < 0x0800) {
+		out[0] = 0xC0 | (codepoint >> 6);
+		out[1] = 0x80 | (codepoint & 0x3F);
+	} else {
+		out[0] = 0xE0 | (codepoint >> 12);
+		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[2] = 0x80 | (codepoint & 0x3F);
+	}
+
+	return strlen(out);
+}
+
+
 static void _ansi_put(char c) {
 	switch (state.escape) {
 		case 0:
@@ -267,7 +288,17 @@ static void _ansi_put(char c) {
 			} else if (c == 0) {
 				return;
 			} else {
-				ansi_writer(c);
+				if (state.box && c >= 'a' && c <= 'z') {
+					char buf[4];
+					char *w = (char *)&buf;
+					to_eight(box_chars[c-'a'], w);
+					while (*w) {
+						ansi_writer(*w);
+						w++;
+					}
+				} else {
+					ansi_writer(c);
+				}
 			}
 			break;
 		case 1:
@@ -277,6 +308,9 @@ static void _ansi_put(char c) {
 				ansi_buf_add(c);
 			} else if (c == ANSI_BRACKET_RIGHT) {
 				state.escape = 3;
+				ansi_buf_add(c);
+			} else if (c == ANSI_OPEN_PAREN) {
+				state.escape = 4;
 				ansi_buf_add(c);
 			} else {
 				/* This isn't a bracket, we're not actually escaped!
@@ -671,6 +705,18 @@ static void _ansi_put(char c) {
 				ansi_buf_add(c);
 			}
 			break;
+		case 4:
+			if (c == '0') {
+				state.box = 1;
+			} else if (c == 'B') {
+				state.box = 0;
+			} else {
+				ansi_dump_buffer();
+				ansi_writer(c);
+			}
+			state.escape = 0;
+			state.buflen = 0;
+			break;
 	}
 }
 
@@ -695,6 +741,7 @@ void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(uint32_t, ui
 	state.width  = w;
 	state.height = y;
 	state.local_echo = 1;
+	state.box    = 0;
 
 	ansi_set_color(state.fg, state.bg);
 }
@@ -1037,7 +1084,7 @@ uint32_t unicode_state = 0;
 
 int is_wide(uint32_t codepoint) {
 	if (codepoint < 256) return 0;
-	return mk_wcwidth_cjk(codepoint) == 2;
+	return wcwidth(codepoint) == 2;
 }
 
 struct scrollback_row {

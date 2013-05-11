@@ -142,16 +142,6 @@ ToAruOS contains a number of third-party packages under various licenses. Those 
         IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
         CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-* `userspace/lib/wcwidth.c` is an implementation of the `wcwidth()` and `wcswidth()` C functions by Markus Kuhn herein used to replace the faulty implementation from newlib; it is provided with the following license:
-
-        Markus Kuhn -- 2007-05-26 (Unicode 5.0)
-
-        Permission to use, copy, modify, and distribute this software
-        for any purpose and without fee is hereby granted. The author
-        disclaims all warranties with regard to this software.
-
-        Latest version: http://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
-
 * The code to perform a Gaussian blur on a graphics context (part of `userspace/lib/graphics.c`) comes from sample code for Cairo and carries the following license, which is forward compatible with the NCSA license:
 
         Copyright © 2008 Kristian Høgsberg
