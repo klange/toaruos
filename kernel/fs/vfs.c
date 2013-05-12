@@ -162,6 +162,11 @@ int create_file_fs(char *name, uint16_t permission) {
 	parent = kopen(parent_path, 0);
 	free(parent_path);
 
+	if (!parent) {
+		free(path);
+		return -1;
+	}
+
 	if (parent->create) {
 		parent->create(parent, f_path, permission);
 	}
@@ -194,6 +199,11 @@ int unlink_fs(char * name) {
 	parent = kopen(parent_path, 0);
 	free(parent_path);
 
+	if (!parent) {
+		free(path);
+		return -1;
+	}
+
 	if (parent->unlink) {
 		parent->unlink(parent, f_path);
 	}
@@ -225,6 +235,11 @@ int mkdir_fs(char *name, uint16_t permission) {
 
 	parent = kopen(parent_path, 0);
 	free(parent_path);
+
+	if (!parent) {
+		free(path);
+		return -1;
+	}
 
 	if (parent->mkdir) {
 		parent->mkdir(parent, f_path, permission);

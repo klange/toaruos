@@ -48,11 +48,15 @@ pushd build || bail
     fi
     mkdir gcc-native
     pushd gcc-native || bail
-        $DIR/tarballs/$GCC/configure --prefix=$VIRTPREFIX --host=$TARGET --target=$TARGET --disable-nls --enable-languages=c --disable-libssp --with-newlib || bail
+        make distclean
+        $DIR/tarballs/$GCC/configure --prefix=$VIRTPREFIX --host=$TARGET --target=$TARGET --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
         make all-gcc || bail
         make DESTDIR=$REALPREFIX install-gcc || bail
         make all-target-libgcc || bail
         make DESTDIR=$REALPREFIX install-target-libgcc || bail
+        touch $PREFIX/$TARGET/include/fenv.h
+        make all-target-libstdc++-v3 || bail
+        make DESTDIR=$REALPREFIX install-target-libstdc++-v3 || bail
     popd
 
     TMP_INCFIX=$REALPREFIX$VIRTPREFIX/lib/gcc/$TARGET/$GCCV/include-fixed
@@ -61,7 +65,7 @@ pushd build || bail
         rm -r "$TMP_INCFIX"
     fi
 
-    pushd $REALPREFIX$VIRTPREFIX || bail
+    pushd $REALPREFIX$VIRTPREFIX/bin || bail
         $TARGET-strip *
     popd
 
