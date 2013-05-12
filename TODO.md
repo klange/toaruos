@@ -43,7 +43,7 @@
 * ~~Working boot on real hardware~~
   * Confirmed working on Mini 9 with hard disk boot
 
-# TODO for 0.4.5
+# TODO for 0.5.0
 
 * CD support
   * Boot from "CD"
@@ -125,9 +125,8 @@
 * Still lacking fast read/write for IDE - needs more DMA!
 
 ## Toolchain
-* Finish GCC port
-  * Still missing a few things in the underlying C library
-  * Ideally, also want to be able to build natively, so need scripting, build utils, etc.
+* ~~Finish GCC port~~
+  * Finished in April/May, 2013
 * ~~Port ncurses/vim/etc.~~
   * This was compleated circa March 2013
   * Native development requires good tools.
