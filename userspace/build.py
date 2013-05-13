@@ -30,6 +30,7 @@ class CCompiler(object):
 			'<ft2build.h>':        ('freetype2', '-lfreetype', []),
 			'<pixman.h>':          ('pixman-1', '-lpixman-1',    []),
 			'<GL/osmesa.h>':       (None, '-lOSMesa', []),
+			'<GL/glu.h>':       (None, '-lGLU', []),
 			'<ncurses.h>':         ('ncurses', '-lncurses', []),
 			'<panel.h>':           (None, '-lpanel', ['<ncurses.h>']),
 			'<menu.h>':            (None, '-lmenu', ['<ncurses.h>']),
