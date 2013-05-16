@@ -206,8 +206,6 @@ void sig_pass(int sig) {
 	/* Interrupt handler */
 	if (child) {
 		kill(child, sig);
-	} else {
-		fprintf(stderr, "XXX: Clear the buffer and re-render the prompt\n");
 	}
 }
 
