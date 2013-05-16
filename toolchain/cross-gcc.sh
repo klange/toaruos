@@ -24,10 +24,10 @@ REALPREFIX=$DIR/../hdd
 if [ ! -d tarballs/$GCC/mpfr ]; then
     mv tarballs/$MPFR tarballs/$GCC/mpfr
 fi
-if [ ! -d tarballs/$GCC/mpc  ]; then
+if [ ! -d tarballs/$GCC/gmp  ]; then
     mv tarballs/$GMP  tarballs/$GCC/gmp
 fi
-if [ ! -d tarballs/$GCC/gmp  ]; then
+if [ ! -d tarballs/$GCC/mpc  ]; then
     mv tarballs/$MPC  tarballs/$GCC/mpc
 fi
 
