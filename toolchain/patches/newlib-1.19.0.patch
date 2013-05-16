@@ -12,17 +12,26 @@ diff -rupN _source/newlib-1.19.0/config.sub newlib-1.19.0/config.sub
 diff -rupN _source/newlib-1.19.0/newlib/configure.host newlib-1.19.0/newlib/configure.host
 --- _source/newlib-1.19.0/newlib/configure.host	2010-12-02 13:30:46.000000000 -0600
 +++ newlib-1.19.0/newlib/configure.host	2011-04-24 20:38:10.000000000 -0500
-@@ -418,6 +418,10 @@ case "${host}" in
+@@ -418,6 +418,9 @@ case "${host}" in
    h8500-*-elf*)
  	sys_dir=h8500hms
  	;;
 +  i[34567]86-*-toaru*)
 +	sys_dir=toaru
-+	newlib_cflags="${newlib_cflags} -DSIGNAL_PROVIDED"
 +	;;
    i[34567]86-*-rdos*)
- 	sys_dir=rdos
- 	newlib_cflags="${newlib_cflags} -DMISSING_SYSCALL_NAMES"
+  sys_dir=rdos
+  newlib_cflags="${newlib_cflags} -DMISSING_SYSCALL_NAMES"
+@@ -543,6 +546,9 @@ esac
+ # THIS TABLE IS ALPHA SORTED.  KEEP IT THAT WAY.
+ 
+ case "${host}" in
++  *-*-toaru)
++	newlib_cflags="${newlib_cflags} -DSIGNAL_PROVIDED"
++	;;
+   *-*-cygwin*)
+  test -z "$cygwin_srcdir" && cygwin_srcdir=`cd ${srcdir}/../winsup/cygwin; pwd`
+  export cygwin_srcdir
 diff -rupN _source/newlib-1.19.0/newlib/libc/include/sys/stat.h newlib-1.19.0/newlib/libc/include/sys/stat.h
 --- _source/newlib-1.19.0/newlib/libc/include/sys/stat.h	2010-08-06 13:26:21.000000000 -0500
 +++ newlib-1.19.0/newlib/libc/include/sys/stat.h	2012-04-23 16:00:11.000000000 -0500
