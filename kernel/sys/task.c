@@ -376,14 +376,6 @@ getpid() {
 	return current_process->id;
 }
 
-void
-switch_from_cross_thread_lock() {
-	if (!process_available()) {
-		IRQS_ON_AND_PAUSE;
-	}
-	switch_task(1);
-}
-
 /*
  * Switch to the next ready task.
  *

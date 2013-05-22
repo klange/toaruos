@@ -88,7 +88,6 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 		}
 		spin_unlock(&pipe->lock);
 		wakeup_queue(pipe->wait_queue);
-		//switch_from_cross_thread_lock();
 		/* Deschedule and switch */
 		if (collected == 0) {
 			sleep_on(pipe->wait_queue);
