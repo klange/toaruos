@@ -1,7 +1,5 @@
 #!/bin/bash
 
-export CLANG_FORCE_COLOR_DIAGNOSTICS=1
-
 if [[ -n `which clang` ]] ; then
 	echo "clang -ccc-host-triple i686-elf"
 elif [[ -n `which i686-pc-toaru-gcc` ]] ; then
