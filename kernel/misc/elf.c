@@ -52,7 +52,13 @@ exec(
 		alloc_frame(get_page(x, 1, current_directory), 0, 1);
 	}
 	Elf32_Header * header = (Elf32_Header *)TMP_ZONE; //(Elf32_Header *)malloc(file->length + 100);
+
+
+	debug_print(NOTICE, "---> Starting load.");
+	IRQ_RES;
 	read_fs(file, 0, file->length, (uint8_t *)header);
+	IRQ_OFF;
+	debug_print(NOTICE, "---> Finished load.");
 
 	current_process->name = malloc(strlen(path) + 1);
 	memcpy(current_process->name, path, strlen(path) + 1);
