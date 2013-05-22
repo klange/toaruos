@@ -44,6 +44,9 @@
 #define MODE_NORMAL 0x001
 #define MODE_SCALE  0x002
 
+int _animation_mode = 0;
+int _animation_frame  = 0;
+
 struct font_def {
 	char * identifier;
 	char * path;
@@ -381,8 +384,22 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 		cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
 	}
 
-	cairo_set_source_surface(cr, win, 0, 0);
-	cairo_paint(cr);
+	if (_animation_mode && window == focused_window()) {
+		double x = 0.75 + ((double)_animation_frame / 256.0) * 0.25;
+
+		int t_x = (window->width * (1.0 - x)) / 2;
+		int t_y = (window->height * (1.0 - x)) / 2;
+
+		cairo_translate(cr, t_x, t_y);
+
+		cairo_scale(cr, x, x);
+		cairo_set_source_surface(cr, win, 0, 0);
+		cairo_paint_with_alpha(cr, (double)_animation_frame / 256.0);
+	} else {
+		cairo_set_source_surface(cr, win, 0, 0);
+		cairo_paint(cr);
+	}
+
 	cairo_surface_destroy(win);
 
 	cairo_set_source_rgb(cs, 0, ((window->z & 0xFF00) >> 8) / 255.0, (window->z & 0xFF) / 255.0);
@@ -852,6 +869,9 @@ void load_fonts() {
 	}
 }
 
+/**
+ * Keybindings
+ */
 int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 
 	if (keyboard->event.action != KEY_ACTION_DOWN) return 0;
@@ -861,6 +881,24 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 	    (keyboard->event.keycode == KEY_F4)) {
 		/* kill the currently focused window */
 		destroy_window(focused_window());
+	}
+
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == 'a')) {
+		/* reset the animation and start from scratch */
+		_animation_mode = 1;
+		_animation_frame  = 0;
+		return 1;
+	}
+
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == 's')) {
+		/* reset the animation and go backwards */
+		_animation_mode = 2;
+		_animation_frame  = 256;
+		return 1;
 	}
 
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
@@ -1174,6 +1212,23 @@ void * redraw_thread(void * derp) {
 				break;
 			default:
 				redraw_windows();
+		}
+		if (_animation_mode == 1) {
+			if (_animation_frame < 256) {
+				_animation_frame += 10;
+				if (_animation_frame > 256) {
+					_animation_mode = 0;
+					_animation_frame = 256;
+				}
+			}
+		} else if (_animation_mode == 2) {
+			if (_animation_frame > 0) {
+				_animation_frame -= 10;
+				if (_animation_frame < 0) {
+					_animation_mode = 3;
+					_animation_frame = 0;
+				}
+			}
 		}
 		/* Other stuff */
 		redraw_cursor();
