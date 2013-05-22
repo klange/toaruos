@@ -63,7 +63,7 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 	t->gid = 0;
 	t->atime = now();
 	t->mtime = t->atime;
-	t->ctime = t->ctime;
+	t->ctime = t->atime;
 	t->blocks = malloc(t->pointers * sizeof(char *));
 	for (size_t i = 0; i < t->pointers; ++i) {
 		t->blocks[i] = NULL;
@@ -84,7 +84,7 @@ static struct tmpfs_dir * tmpfs_dir_new(char * name, struct tmpfs_dir * parent) 
 	d->gid = 0;
 	d->atime = now();
 	d->mtime = d->atime;
-	d->ctime = d->ctime;
+	d->ctime = d->atime;
 	d->files = list_create();
 
 	spin_unlock(&lock);
