@@ -1,5 +1,5 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
- * A device that returns "hello world" when read from.
+ * Provides access to the kernel RNG
  */
 
 #include <system.h>
