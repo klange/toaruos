@@ -102,6 +102,7 @@ uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 uint8_t  _onlcr         = 1;
 
 void reinit(); /* Defined way further down */
+void term_redraw_cursor();
 
 /* Cursor bink timer */
 static unsigned int timer_tick = 0;
@@ -821,6 +822,7 @@ void resize_callback(window_t * window) {
 
 void focus_callback(window_t * window) {
 	render_decors();
+	term_redraw_cursor();
 }
 
 void
