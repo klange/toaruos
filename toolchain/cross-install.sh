@@ -102,6 +102,7 @@ pushd build
         make || bail
         make DESTDIR=$REALPREFIX install || bail
         cp $DIR/../toaru.tic $REALPREFIX/$VIRTPREFIX/share/terminfo/t/toaru
+        cp $DIR/../toaru-vga.tic $REALPREFIX/$VIRTPREFIX/share/terminfo/t/toaru-vga
     popd
     pushd $DIR/tarballs/vim73
         make distclean
