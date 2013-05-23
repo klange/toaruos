@@ -880,7 +880,7 @@ _done:
 				fprintf(stderr, "%s: Command not found\n", argv[0]);
 				i = 127; /* Should be set to this anyway... */
 			}
-			return i;
+			exit(i);
 		} else {
 			int ret_code = 0;
 			if (!nowait) {
