@@ -73,6 +73,8 @@ debug: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu hdd"
 debug-term: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu single hdd"
+debug-vga: system
+	${EMU} ${EMUARGS} -append "logtoserial=0 vgaterm hdd"
 run-config: system
 	util/config-parser | xargs ${EMU}
 

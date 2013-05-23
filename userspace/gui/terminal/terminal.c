@@ -1648,8 +1648,8 @@ void reinit(int send_sig) {
 	if (!_vga_mode) {
 		draw_fill(ctx, rgba(0,0,0, DEFAULT_OPAC));
 		render_decors();
-		term_redraw_all();
 	}
+	term_redraw_all();
 
 	struct winsize w;
 	w.ws_row = term_height;
@@ -1813,7 +1813,11 @@ int main(int argc, char ** argv) {
 	serial_fd = syscall_serial(0x3F8);
 #endif
 
-	putenv("TERM=toaru");
+	if (_vga_mode) {
+		putenv("TERM=toaru-vga");
+	} else {
+		putenv("TERM=toaru");
+	}
 
 	if (_windowed) {
 		/* Initialize the windowing library */
@@ -1893,6 +1897,16 @@ int main(int argc, char ** argv) {
 	reinit(0);
 
 	fflush(stdin);
+
+	if (!_windowed) {
+		struct stat sbuf;
+		fstat(0, &sbuf);
+		if (sbuf.st_size > 0) {
+			char buf[sbuf.st_size];
+			syscall_print("WAAT\n");
+			read(0, buf, sbuf.st_size);
+		}
+	}
 
 	int pid = getpid();
 	uint32_t f = fork();

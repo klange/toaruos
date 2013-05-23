@@ -18,6 +18,9 @@
 #include <dirent.h>
 #include <signal.h>
 
+#include <sys/time.h>
+#include <sys/wait.h>
+
 #include "lib/list.h"
 #include "lib/kbd.h"
 
@@ -127,12 +130,6 @@ void install_commands();
 /* Current working directory */
 char cwd[1024] = {'/',0};
 
-/* Timing type */
-struct timeval {
-	unsigned int tv_sec;
-	unsigned int tv_usec;
-};
-
 /* Username */
 char username[1024];
 
@@ -144,7 +141,7 @@ void getusername() {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
 	
-	int uid = syscall_getuid();
+	int uid = getuid();
 
 	while (fgets(line, LINE_LEN, passwd) != NULL) {
 
@@ -177,7 +174,7 @@ void draw_prompt(int ret) {
 	/* Get the time */
 	struct tm * timeinfo;
 	struct timeval now;
-	syscall_gettimeofday(&now, NULL); //time(NULL);
+	gettimeofday(&now, NULL); //time(NULL);
 	timeinfo = localtime((time_t *)&now.tv_sec);
 
 	/* Format the date and time for prompt display */
@@ -195,7 +192,7 @@ void draw_prompt(int ret) {
 		printf("\033[38;5;167m%d ", ret);
 	}
 	/* Print the working directory in there, too */
-	syscall_getcwd(cwd, 1024);
+	getcwd(cwd, 1024);
 	printf("\033[0m%s\033[1;38;5;47m$\033[0m ", cwd);
 	fflush(stdout);
 }
@@ -209,8 +206,11 @@ void sig_pass(int sig) {
 	}
 }
 
+struct rline_callback;
+
 typedef struct {
 	char *  buffer;
+	struct rline_callback * callbacks;
 	int     collected;
 	int     requested;
 	int     newline;
@@ -221,7 +221,7 @@ typedef struct {
 
 typedef void (*rline_callback_t)(rline_context_t * context);
 
-typedef struct {
+typedef struct rline_callback {
 	rline_callback_t tab_complete;
 	rline_callback_t redraw_prompt;
 	rline_callback_t special_key;
@@ -252,6 +252,7 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 	/* Initialize context */
 	rline_context_t context = {
 		buffer,
+		callbacks,
 		0,
 		buf_size,
 		0,
@@ -448,7 +449,7 @@ void tab_complete_func(rline_context_t * context) {
 				}
 			}
 			fprintf(stderr, "\n");
-			redraw_prompt_func(context);
+			context->callbacks->redraw_prompt(context);
 			rline_redraw(context);
 			return;
 		} else {
@@ -513,7 +514,7 @@ void tab_complete_func(rline_context_t * context) {
 					}
 				}
 				fprintf(stderr, "\n");
-				redraw_prompt_func(context);
+				context->callbacks->redraw_prompt(context);
 				fprintf(stderr, "\033[s");
 				rline_redraw(context);
 				list_free(matches);
@@ -579,7 +580,13 @@ try_rev_search_again:
 				memcpy(context->buffer, match, strlen(match) + 1);
 				context->collected = strlen(match);
 				context->offset = context->collected;
-				printf("\n");
+				if (context->callbacks->redraw_prompt) {
+					fprintf(stderr, "\033[G\033[K");
+					context->callbacks->redraw_prompt(context);
+				}
+				fprintf(stderr, "\033[s");
+				rline_redraw_clean(context);
+				fprintf(stderr, "\n");
 				return;
 			default:
 				if (key_sym < KEY_NORMAL_MAX) {
@@ -885,7 +892,7 @@ _done:
 			int ret_code = 0;
 			if (!nowait) {
 				child = f;
-				ret_code = syscall_wait(f);
+				ret_code = waitpid(f, NULL, 0);
 				child = 0;
 			}
 			free(cmd);
@@ -954,8 +961,8 @@ int main(int argc, char ** argv) {
 
 	pid = getpid();
 
-	syscall_signal(SIGINT, sig_pass);
-	syscall_signal(SIGWINCH, sig_pass);
+	signal(SIGINT, sig_pass);
+	signal(SIGWINCH, sig_pass);
 
 	getusername();
 	gethostname();
