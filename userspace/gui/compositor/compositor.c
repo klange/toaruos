@@ -345,6 +345,9 @@ void window_add (window_t * window) {
 		z++;
 	}
 	window->z = z;
+
+	memset(window->buffer, 0x00, WIN_B * window->width * window->height);
+
 	windows[z] = window;
 }
 
