@@ -8,18 +8,24 @@
  * programs.
  */
 
+#define _XOPEN_SOURCE
+
+#define USE_TERMIOS_BUFFERING 0
+
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 #include <dirent.h>
 #include <signal.h>
+#include <getopt.h>
+#include <termios.h>
 
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <sys/utsname.h>
 
 #include "lib/list.h"
 #include "lib/kbd.h"
@@ -38,9 +44,9 @@ uint32_t shell_commands_len = 0;
 /* We also support history through a circular buffer. */
 #define SHELL_HISTORY_ENTRIES 128
 char * shell_history[SHELL_HISTORY_ENTRIES];
-size_t shell_history_count  = 0;
-size_t shell_history_offset = 0;
-size_t shell_scroll = 0;
+int shell_history_count  = 0;
+int shell_history_offset = 0;
+int shell_scroll = 0;
 char   shell_temp[1024];
 
 int    shell_interactive = 1;
@@ -48,7 +54,7 @@ int    shell_force_raw   = 0;
 
 int pid; /* Process ID of the shell */
 
-char * shell_history_prev(size_t item);
+char * shell_history_prev(int item);
 
 void shell_history_insert(char * str) {
 	if (str[strlen(str)-1] == '\n') {
@@ -85,11 +91,11 @@ void shell_history_append_line(char * str) {
 	}
 }
 
-char * shell_history_get(size_t item) {
+char * shell_history_get(int item) {
 	return shell_history[(item + shell_history_offset) % SHELL_HISTORY_ENTRIES];
 }
 
-char * shell_history_prev(size_t item) {
+char * shell_history_prev(int item) {
 	return shell_history_get(shell_history_count - item);
 }
 
@@ -112,6 +118,20 @@ shell_command_t shell_find(char * str) {
 	return NULL;
 }
 
+#if USE_TERMIOS_BUFFERING
+struct termios old;
+
+void set_unbuffered() {
+	tcgetattr(fileno(stdin), &old);
+	struct termios new = old;
+	new.c_lflag &= (~ICANON & ~ECHO);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+}
+
+void set_buffered() {
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+}
+#else
 void set_unbuffered() {
 	printf("\033[1560z");
 	fflush(stdout);
@@ -121,6 +141,7 @@ void set_buffered() {
 	printf("\033[1561z");
 	fflush(stdout);
 }
+#endif
 
 void install_commands();
 
@@ -137,7 +158,7 @@ char username[1024];
 char _hostname[256];
 
 /* function to update the cached username */
-void getusername() {
+void getuser() {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
 	
@@ -163,10 +184,13 @@ void getusername() {
 }
 
 /* function to update the cached hostname */
-void gethostname() {
-	char buffer[256];
-	size_t len = syscall_gethostname(buffer);
-	memcpy(_hostname, buffer, len);
+void gethost() {
+	struct utsname buf;
+
+	uname(&buf);
+
+	int len = strlen(buf.nodename);
+	memcpy(_hostname, buf.nodename, len+1);
 }
 
 /* Draw the user prompt */
@@ -248,7 +272,7 @@ void rline_redraw_clean(rline_context_t * context) {
 	fflush(stdout);
 }
 
-size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
+int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 	/* Initialize context */
 	rline_context_t context = {
 		buffer,
@@ -543,7 +567,7 @@ void tab_complete_func(rline_context_t * context) {
 
 void reverse_search(rline_context_t * context) {
 	char input[512] = {0};
-	size_t collected = 0;
+	int collected = 0;
 	int start_at = 0;
 	fprintf(stderr, "\033[G\033[s");
 	fflush(stderr);
@@ -620,7 +644,7 @@ void history_previous(rline_context_t * context) {
 	}
 	if (shell_scroll < shell_history_count) {
 		shell_scroll++;
-		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		char * h = shell_history_prev(shell_scroll);
@@ -635,7 +659,7 @@ void history_previous(rline_context_t * context) {
 void history_next(rline_context_t * context) {
 	if (shell_scroll > 1) {
 		shell_scroll--;
-		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		char * h = shell_history_prev(shell_scroll);
@@ -643,7 +667,7 @@ void history_next(rline_context_t * context) {
 		printf("%s", h);
 		fflush(stdout);
 	} else if (shell_scroll == 1) {
-		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		shell_scroll = 0;
@@ -662,31 +686,31 @@ void add_argument(list_t * argv, char * buf) {
 	list_insert(argv, c);
 }
 
-size_t read_entry(char * buffer) {
+int read_entry(char * buffer) {
 	rline_callbacks_t callbacks = {
 		tab_complete_func, redraw_prompt_func, NULL,
 		history_previous, history_next,
 		NULL, NULL, reverse_search
 	};
 	set_unbuffered();
-	size_t buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
 	set_buffered();
 	return buffer_size;
 }
 
-size_t read_entry_continued(char * buffer) {
+int read_entry_continued(char * buffer) {
 	rline_callbacks_t callbacks = {
 		tab_complete_func, redraw_prompt_func_c, NULL,
 		history_previous, history_next,
 		NULL, NULL, reverse_search
 	};
 	set_unbuffered();
-	size_t buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
 	set_buffered();
 	return buffer_size;
 }
 
-inline int variable_char(uint8_t c) {
+int variable_char(uint8_t c) {
 	if (c >= 65 && c <= 90)  return 1;
 	if (c >= 97 && c <= 122) return 1;
 	if (c >= 48 && c <= 57)  return 1;
@@ -694,7 +718,7 @@ inline int variable_char(uint8_t c) {
 	return 0;
 }
 
-int shell_exec(char * buffer, size_t buffer_size) {
+int shell_exec(char * buffer, int buffer_size) {
 
 	/* Read previous history entries */
 	if (buffer[0] == '!') {
@@ -906,7 +930,7 @@ _done:
 			int ret_code = 0;
 			if (!nowait) {
 				child = f;
-				ret_code = waitpid(f, NULL, 0);
+				waitpid(f, &ret_code, 0);
 				child = 0;
 			}
 			free(cmd);
@@ -978,8 +1002,8 @@ int main(int argc, char ** argv) {
 	signal(SIGINT, sig_pass);
 	signal(SIGWINCH, sig_pass);
 
-	getusername();
-	gethostname();
+	getuser();
+	gethost();
 
 	install_commands();
 	add_path_contents();
@@ -1041,7 +1065,7 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
  * history
  */
 uint32_t shell_cmd_history(int argc, char * argv[]) {
-	for (size_t i = 0; i < shell_history_count; ++i) {
+	for (int i = 0; i < shell_history_count; ++i) {
 		printf("%d\t%s\n", i + 1, shell_history_get(i));
 	}
 	return 0;
