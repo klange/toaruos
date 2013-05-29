@@ -336,6 +336,20 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 					fflush(stdout);
 				}
 				continue;
+			case KEY_CTRL_A:
+				while (context.offset > 0) {
+					printf("\033[D");
+					context.offset--;
+				}
+				fflush(stdout);
+				continue;
+			case KEY_CTRL_E:
+				while (context.offset < context.collected) {
+					printf("\033[C");
+					context.offset++;
+				}
+				fflush(stdout);
+				continue;
 			case KEY_CTRL_L: /* ^L: Clear Screen, redraw prompt and buffer */
 				printf("\033[H\033[2J");
 				if (callbacks->redraw_prompt) {
