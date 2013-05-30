@@ -26,6 +26,10 @@ pushd build
     popd
     if [ ! -d newlib ]; then
         mkdir newlib
+    else
+        # Newlib is touchy about reconfigures
+        rm -r newlib
+        mkdir newlib
     fi
     pushd $DIR/tarballs/newlib-1.19.0/newlib/libc/sys
         autoconf || bail

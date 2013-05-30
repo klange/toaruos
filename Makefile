@@ -145,7 +145,7 @@ toaruos-initrd: .passed
 toaruos-disk.img: .userspace-check
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
-	@${GENEXT} -d hdd -q -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
+	@${GENEXT} -B 4096 -d hdd -q -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 

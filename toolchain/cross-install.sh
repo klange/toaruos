@@ -14,6 +14,10 @@ REALPREFIX=$DIR/../hdd
 pushd build
     if [ ! -d newlib-native ]; then
         mkdir newlib-native
+    else
+        # TOUCHY TOUCHY
+        rm -r newlib-native
+        mkdir newlib-native
     fi
     pushd $DIR/tarballs/newlib-1.19.0/newlib/libc/sys
         autoconf || bail
@@ -43,7 +47,9 @@ pushd build
         make || bail
         make DESTDIR=$REALPREFIX install || bail
         cp -r $DIR/patches/newlib/include/* $REALPREFIX/$VIRTPREFIX/include/
-        cp $TARGET/newlib/libc/sys/crt*.o $REALPREFIX/$VIRTPREFIX/lib/
+        cp $TARGET/newlib/libc/sys/crt0.o $REALPREFIX/$VIRTPREFIX/lib/
+        cp $TARGET/newlib/libc/sys/crti.o $REALPREFIX/$VIRTPREFIX/lib/
+        cp $TARGET/newlib/libc/sys/crtn.o $REALPREFIX/$VIRTPREFIX/lib/
     popd
     if [ ! -d freetype-native ]; then
         mkdir freetype-native
