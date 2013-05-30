@@ -8,14 +8,24 @@
  * programs.
  */
 
+#define _XOPEN_SOURCE
+
+#define USE_TERMIOS_BUFFERING 0
+
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 #include <dirent.h>
+#include <signal.h>
+#include <getopt.h>
+#include <termios.h>
+
+#include <sys/time.h>
+#include <sys/wait.h>
+#include <sys/utsname.h>
 
 #include "lib/list.h"
 #include "lib/kbd.h"
@@ -34,9 +44,9 @@ uint32_t shell_commands_len = 0;
 /* We also support history through a circular buffer. */
 #define SHELL_HISTORY_ENTRIES 128
 char * shell_history[SHELL_HISTORY_ENTRIES];
-size_t shell_history_count  = 0;
-size_t shell_history_offset = 0;
-size_t shell_scroll = 0;
+int shell_history_count  = 0;
+int shell_history_offset = 0;
+int shell_scroll = 0;
 char   shell_temp[1024];
 
 int    shell_interactive = 1;
@@ -44,7 +54,7 @@ int    shell_force_raw   = 0;
 
 int pid; /* Process ID of the shell */
 
-char * shell_history_prev(size_t item);
+char * shell_history_prev(int item);
 
 void shell_history_insert(char * str) {
 	if (str[strlen(str)-1] == '\n') {
@@ -81,11 +91,11 @@ void shell_history_append_line(char * str) {
 	}
 }
 
-char * shell_history_get(size_t item) {
+char * shell_history_get(int item) {
 	return shell_history[(item + shell_history_offset) % SHELL_HISTORY_ENTRIES];
 }
 
-char * shell_history_prev(size_t item) {
+char * shell_history_prev(int item) {
 	return shell_history_get(shell_history_count - item);
 }
 
@@ -108,6 +118,20 @@ shell_command_t shell_find(char * str) {
 	return NULL;
 }
 
+#if USE_TERMIOS_BUFFERING
+struct termios old;
+
+void set_unbuffered() {
+	tcgetattr(fileno(stdin), &old);
+	struct termios new = old;
+	new.c_lflag &= (~ICANON & ~ECHO);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+}
+
+void set_buffered() {
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+}
+#else
 void set_unbuffered() {
 	printf("\033[1560z");
 	fflush(stdout);
@@ -117,6 +141,7 @@ void set_buffered() {
 	printf("\033[1561z");
 	fflush(stdout);
 }
+#endif
 
 void install_commands();
 
@@ -126,12 +151,6 @@ void install_commands();
 /* Current working directory */
 char cwd[1024] = {'/',0};
 
-/* Timing type */
-struct timeval {
-	unsigned int tv_sec;
-	unsigned int tv_usec;
-};
-
 /* Username */
 char username[1024];
 
@@ -139,11 +158,11 @@ char username[1024];
 char _hostname[256];
 
 /* function to update the cached username */
-void getusername() {
+void getuser() {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
 	
-	int uid = syscall_getuid();
+	int uid = getuid();
 
 	while (fgets(line, LINE_LEN, passwd) != NULL) {
 
@@ -165,10 +184,13 @@ void getusername() {
 }
 
 /* function to update the cached hostname */
-void gethostname() {
-	char buffer[256];
-	size_t len = syscall_gethostname(buffer);
-	memcpy(_hostname, buffer, len);
+void gethost() {
+	struct utsname buf;
+
+	uname(&buf);
+
+	int len = strlen(buf.nodename);
+	memcpy(_hostname, buf.nodename, len+1);
 }
 
 /* Draw the user prompt */
@@ -176,7 +198,7 @@ void draw_prompt(int ret) {
 	/* Get the time */
 	struct tm * timeinfo;
 	struct timeval now;
-	syscall_gettimeofday(&now, NULL); //time(NULL);
+	gettimeofday(&now, NULL); //time(NULL);
 	timeinfo = localtime((time_t *)&now.tv_sec);
 
 	/* Format the date and time for prompt display */
@@ -194,24 +216,25 @@ void draw_prompt(int ret) {
 		printf("\033[38;5;167m%d ", ret);
 	}
 	/* Print the working directory in there, too */
-	syscall_getcwd(cwd, 1024);
+	getcwd(cwd, 1024);
 	printf("\033[0m%s\033[1;38;5;47m$\033[0m ", cwd);
 	fflush(stdout);
 }
 
 uint32_t child = 0;
 
-void sig_int(int sig) {
+void sig_pass(int sig) {
 	/* Interrupt handler */
 	if (child) {
-		syscall_send_signal(child, sig);
-	} else {
-		fprintf(stderr, "XXX: Clear the buffer and re-render the prompt\n");
+		kill(child, sig);
 	}
 }
 
+struct rline_callback;
+
 typedef struct {
 	char *  buffer;
+	struct rline_callback * callbacks;
 	int     collected;
 	int     requested;
 	int     newline;
@@ -222,7 +245,7 @@ typedef struct {
 
 typedef void (*rline_callback_t)(rline_context_t * context);
 
-typedef struct {
+typedef struct rline_callback {
 	rline_callback_t tab_complete;
 	rline_callback_t redraw_prompt;
 	rline_callback_t special_key;
@@ -249,10 +272,11 @@ void rline_redraw_clean(rline_context_t * context) {
 	fflush(stdout);
 }
 
-size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
+int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 	/* Initialize context */
 	rline_context_t context = {
 		buffer,
+		callbacks,
 		0,
 		buf_size,
 		0,
@@ -335,6 +359,20 @@ size_t rline(char * buffer, size_t buf_size, rline_callbacks_t * callbacks) {
 					}
 					fflush(stdout);
 				}
+				continue;
+			case KEY_CTRL_A:
+				while (context.offset > 0) {
+					printf("\033[D");
+					context.offset--;
+				}
+				fflush(stdout);
+				continue;
+			case KEY_CTRL_E:
+				while (context.offset < context.collected) {
+					printf("\033[C");
+					context.offset++;
+				}
+				fflush(stdout);
 				continue;
 			case KEY_CTRL_L: /* ^L: Clear Screen, redraw prompt and buffer */
 				printf("\033[H\033[2J");
@@ -449,7 +487,7 @@ void tab_complete_func(rline_context_t * context) {
 				}
 			}
 			fprintf(stderr, "\n");
-			redraw_prompt_func(context);
+			context->callbacks->redraw_prompt(context);
 			rline_redraw(context);
 			return;
 		} else {
@@ -514,7 +552,7 @@ void tab_complete_func(rline_context_t * context) {
 					}
 				}
 				fprintf(stderr, "\n");
-				redraw_prompt_func(context);
+				context->callbacks->redraw_prompt(context);
 				fprintf(stderr, "\033[s");
 				rline_redraw(context);
 				list_free(matches);
@@ -529,7 +567,7 @@ void tab_complete_func(rline_context_t * context) {
 
 void reverse_search(rline_context_t * context) {
 	char input[512] = {0};
-	size_t collected = 0;
+	int collected = 0;
 	int start_at = 0;
 	fprintf(stderr, "\033[G\033[s");
 	fflush(stderr);
@@ -580,7 +618,13 @@ try_rev_search_again:
 				memcpy(context->buffer, match, strlen(match) + 1);
 				context->collected = strlen(match);
 				context->offset = context->collected;
-				printf("\n");
+				if (context->callbacks->redraw_prompt) {
+					fprintf(stderr, "\033[G\033[K");
+					context->callbacks->redraw_prompt(context);
+				}
+				fprintf(stderr, "\033[s");
+				rline_redraw_clean(context);
+				fprintf(stderr, "\n");
 				return;
 			default:
 				if (key_sym < KEY_NORMAL_MAX) {
@@ -600,7 +644,7 @@ void history_previous(rline_context_t * context) {
 	}
 	if (shell_scroll < shell_history_count) {
 		shell_scroll++;
-		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		char * h = shell_history_prev(shell_scroll);
@@ -615,7 +659,7 @@ void history_previous(rline_context_t * context) {
 void history_next(rline_context_t * context) {
 	if (shell_scroll > 1) {
 		shell_scroll--;
-		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		char * h = shell_history_prev(shell_scroll);
@@ -623,7 +667,7 @@ void history_next(rline_context_t * context) {
 		printf("%s", h);
 		fflush(stdout);
 	} else if (shell_scroll == 1) {
-		for (size_t i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		shell_scroll = 0;
@@ -642,31 +686,31 @@ void add_argument(list_t * argv, char * buf) {
 	list_insert(argv, c);
 }
 
-size_t read_entry(char * buffer) {
+int read_entry(char * buffer) {
 	rline_callbacks_t callbacks = {
 		tab_complete_func, redraw_prompt_func, NULL,
 		history_previous, history_next,
 		NULL, NULL, reverse_search
 	};
 	set_unbuffered();
-	size_t buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
 	set_buffered();
 	return buffer_size;
 }
 
-size_t read_entry_continued(char * buffer) {
+int read_entry_continued(char * buffer) {
 	rline_callbacks_t callbacks = {
 		tab_complete_func, redraw_prompt_func_c, NULL,
 		history_previous, history_next,
 		NULL, NULL, reverse_search
 	};
 	set_unbuffered();
-	size_t buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
 	set_buffered();
 	return buffer_size;
 }
 
-inline int variable_char(uint8_t c) {
+int variable_char(uint8_t c) {
 	if (c >= 65 && c <= 90)  return 1;
 	if (c >= 97 && c <= 122) return 1;
 	if (c >= 48 && c <= 57)  return 1;
@@ -674,7 +718,7 @@ inline int variable_char(uint8_t c) {
 	return 0;
 }
 
-int shell_exec(char * buffer, size_t buffer_size) {
+int shell_exec(char * buffer, int buffer_size) {
 
 	/* Read previous history entries */
 	if (buffer[0] == '!') {
@@ -867,26 +911,6 @@ _done:
 	if (func) {
 		return func(tokenid, argv);
 	} else {
-		FILE * file = NULL; //fopen(argv[0], "r");
-		if (!strstr(argv[0],"/")) {
-			cmd = malloc(sizeof(char) * (strlen(argv[0]) + strlen("/bin/") + 1));
-			sprintf(cmd, "%s%s", "/bin/", argv[0]);
-			file = fopen(cmd,"r");
-			if (!file) {
-				fprintf(stderr, "%s: Command not found\n", argv[0]);
-				free(cmd);
-				return 1;
-			}
-			fclose(file);
-		} else {
-			file = fopen(argv[0], "r");
-			if (!file) {
-				fprintf(stderr, "%s: Command not found\n", argv[0]);
-				free(cmd);
-				return 1;
-			}
-			fclose(file);
-		}
 
 		int nowait = (!strcmp(argv[tokenid-1],"&"));
 		if (nowait) {
@@ -897,12 +921,16 @@ _done:
 		uint32_t f = fork();
 		if (getpid() != pid) {
 			int i = execvp(cmd, argv);
-			return i;
+			if (i != 0) {
+				fprintf(stderr, "%s: Command not found\n", argv[0]);
+				i = 127; /* Should be set to this anyway... */
+			}
+			exit(i);
 		} else {
 			int ret_code = 0;
 			if (!nowait) {
 				child = f;
-				ret_code = syscall_wait(f);
+				waitpid(f, &ret_code, 0);
 				child = 0;
 			}
 			free(cmd);
@@ -971,10 +999,11 @@ int main(int argc, char ** argv) {
 
 	pid = getpid();
 
-	syscall_signal(2, sig_int);
+	signal(SIGINT, sig_pass);
+	signal(SIGWINCH, sig_pass);
 
-	getusername();
-	gethostname();
+	getuser();
+	gethost();
 
 	install_commands();
 	add_path_contents();
@@ -1036,7 +1065,7 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
  * history
  */
 uint32_t shell_cmd_history(int argc, char * argv[]) {
-	for (size_t i = 0; i < shell_history_count; ++i) {
+	for (int i = 0; i < shell_history_count; ++i) {
 		printf("%d\t%s\n", i + 1, shell_history_get(i));
 	}
 	return 0;
@@ -1112,6 +1141,12 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	} else if (!strcmp(argv[1], "no-force-raw")) {
 		shell_force_raw = 0;
 		return 0;
+	} else if (!strcmp(argv[1], "nlcr")) {
+		printf("\033[1004z");
+		fflush(stdout);
+	} else if (!strcmp(argv[1], "no-nlcr")) {
+		printf("\033[1003z");
+		fflush(stdout);
 	}
 }
 

@@ -4,10 +4,11 @@
 #ifndef SHM_H
 #define SHM_H
 
+#include <system.h>
 #include <types.h>
 
 #define SHM_PATH_SEPARATOR "."
-#define SHM_START         0xD0010000
+#define SHM_START   0xB0000000
 
 /* Types */
 struct shm_node;

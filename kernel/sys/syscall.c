@@ -10,13 +10,7 @@
 #include <pipe.h>
 #include <version.h>
 #include <shm.h>
-
 #include <utsname.h>
-
-#define SPECIAL_CASE_STDIO
-
-#define RESERVED 1
-
 
 static char   hostname[256];
 static size_t hostname_len = 0;
@@ -140,7 +134,7 @@ static int wait(int child) {
 	}
 	/* If the child task doesn't exist, bail */
 	if (!child_task) {
-		debug_print(WARNING, "Tried to wait for non-existent process");
+		debug_print(WARNING, "Tried to wait for non-existent process %d by pid %d", child, getpid());
 		return 0;
 	}
 	debug_print(NOTICE, "pid=%d waiting on pid=%d", current_process->id, child_task->id);
@@ -155,16 +149,17 @@ static int wait(int child) {
 
 static int open(const char * file, int flags, int mode) {
 	validate((void *)file);
-	fs_node_t * node = kopen((char *)file, 0);
-	debug_print(NOTICE, "Flags opening %s are 0x%x", file, flags);
-	if (!node && (flags & 0x600)) {
+	debug_print(NOTICE, "open(%s) flags=0x%x; mode=0x%x", file, flags, mode);
+	fs_node_t * node = kopen((char *)file, flags);
+	if (!node && (flags & O_CREAT)) {
+		debug_print(NOTICE, "- file does not exist and create was requested.");
 		/* Um, make one */
-		if (!create_file_fs((char *)file, 0777)) {
-			debug_print(NOTICE, "[creat] Creating file!");
-			node = kopen((char *)file, 0);
+		if (!create_file_fs((char *)file, mode)) {
+			node = kopen((char *)file, flags);
 		}
 	}
 	if (!node) {
+		debug_print(NOTICE, "File does not exist; someone should be setting errno?");
 		return -1;
 	}
 	node->offset = 0;
@@ -175,7 +170,7 @@ static int open(const char * file, int flags, int mode) {
 
 static int access(const char * file, int flags) {
 	validate((void *)file);
-	debug_print(INFO, "access(%s) from pid=%d", file, getpid());
+	debug_print(INFO, "access(%s, 0x%x) from pid=%d", file, flags, getpid());
 	fs_node_t * node = kopen((char *)file, 0);
 	if (!node) return -1;
 	close_fs(node);
@@ -224,6 +219,7 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	validate((void *)argv);
 	validate((void *)filename);
 	validate((void *)envp);
+	debug_print(NOTICE, "%d = exec(%s, ...)", current_process->id, filename);
 	int argc = 0, envc = 0;
 	while (argv[argc]) { ++argc; }
 	if (envp) {
@@ -278,13 +274,13 @@ static int seek(int fd, int offset, int whence) {
 	return current_process->fds->entries[fd]->offset;
 }
 
-static int stat(int fd, uint32_t st) {
-	validate((void *)st);
-	if (fd >= (int)current_process->fds->length || fd < 0) {
+static int stat_node(fs_node_t * fn, uintptr_t st) {
+	struct stat * f = (struct stat *)st;
+	if (!fn) {
+		memset(f, 0x00, sizeof(struct stat));
+		debug_print(INFO, "stat: This file doesn't exist");
 		return -1;
 	}
-	fs_node_t * fn = current_process->fds->entries[fd];
-	struct stat * f = (struct stat *)st;
 	f->st_dev   = 0;
 	f->st_ino   = fn->inode;
 
@@ -312,6 +308,41 @@ static int stat(int fd, uint32_t st) {
 	}
 
 	return 0;
+}
+
+static int stat_file(char * file, uintptr_t st) {
+	int result;
+	validate((void *)file);
+	validate((void *)st);
+	fs_node_t * fn = kopen(file, 0);
+	result = stat_node(fn, st);
+	if (fn) {
+		close_fs(fn);
+	}
+	return result;
+}
+
+static int sys_chmod(char * file, int mode) {
+	int result;
+	validate((void *)file);
+	fs_node_t * fn = kopen(file, 0);
+	if (fn) {
+		result = chmod_fs(fn, mode);
+		close_fs(fn);
+		return result;
+	} else {
+		return -1;
+	}
+}
+
+
+static int stat(int fd, uintptr_t st) {
+	validate((void *)st);
+	if (fd >= (int)current_process->fds->length || fd < 0) {
+		return -1;
+	}
+	fs_node_t * fn = current_process->fds->entries[fd];
+	return stat_node(fn, st);
 }
 
 static int setgraphicsoffset(int rows) {
@@ -621,10 +652,18 @@ static int sleep_rel(unsigned long seconds, unsigned long subseconds) {
 	return sleep(s, ss);
 }
 
+static int sys_umask(int mode) {
+	current_process->mask = mode & 0777;
+	return 0;
+}
+
+static int sys_unlink(char * file) {
+	return unlink_fs(file);
+}
+
 /*
  * System Call Internals
  */
-static void syscall_handler(struct regs * r);
 static uintptr_t syscalls[] = {
 	/* System Call Table */
 	(uintptr_t)&exit,               /* 0 */
@@ -676,52 +715,42 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sleep_rel,
 	(uintptr_t)&ioctl,
 	(uintptr_t)&access,             /* 48 */
+	(uintptr_t)&stat_file,
+	(uintptr_t)&sys_chmod,
+	(uintptr_t)&sys_umask,
+	(uintptr_t)&sys_unlink,         /* 52 */
 	0
 };
 uint32_t num_syscalls;
 
-void
-syscalls_install() {
-	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
-	debug_print(NOTICE, "Initializing syscall table with %d functions", num_syscalls);
-	isrs_install_handler(0x7F, &syscall_handler);
-}
+typedef uint32_t (*scall_func)(unsigned int, ...);
 
-void
-syscall_handler(
-		struct regs * r
-		) {
+void syscall_handler(struct regs * r) {
 	if (r->eax >= num_syscalls) {
 		return;
 	}
 
 	uintptr_t location = syscalls[r->eax];
-
-	if (location == 1) {
+	if (!location) {
 		return;
 	}
 
 	/* Update the syscall registers for this process */
 	current_process->syscall_registers = r;
 
-	uint32_t ret;
-	asm volatile (
-			"push %1\n"
-			"push %2\n"
-			"push %3\n"
-			"push %4\n"
-			"push %5\n"
-			"call *%6\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			"pop %%ebx\n"
-			: "=a" (ret) : "r" (r->edi), "r" (r->esi), "r" (r->edx), "r" (r->ecx), "r" (r->ebx), "r" (location));
+	/* Call the syscall function */
+	scall_func func = (scall_func)location;
+	uint32_t ret = func(r->ebx, r->ecx, r->edx, r->esi, r->edi);
 
-	/* The syscall handler may have moved the register pointer
-	 * (ie, by creating a new stack)
-	 * Update the pointer */
-	r = current_process->syscall_registers;
-	r->eax = ret;
+	if ((current_process->syscall_registers == r) ||
+			(location != (uintptr_t)&fork && location != (uintptr_t)&clone)) {
+		r->eax = ret;
+	}
 }
+
+void syscalls_install() {
+	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
+	debug_print(NOTICE, "Initializing syscall table with %d functions", num_syscalls);
+	isrs_install_handler(0x7F, &syscall_handler);
+}
+

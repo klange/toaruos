@@ -10,7 +10,7 @@ CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack
 # CFLAGS for native utils
 NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra -Wno-unused-parameter
 # Linker for core
-LD = ld -m elf_i386
+LD = i686-pc-toaru-ld
 YASM = yasm
 # Feel free to be specific, but I'd rather you not be.
 FILESYSTEMS  = $(patsubst %.c,%.o,$(wildcard kernel/fs/*.c))
@@ -29,6 +29,7 @@ UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
 GENEXT = genext2fs
 DISK_SIZE = 524288
+RAMDISK_SIZE = 32786
 DD = dd conv=notrunc
 BEG = util/mk-beg
 END = util/mk-end
@@ -72,6 +73,8 @@ debug: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu hdd"
 debug-term: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu single hdd"
+debug-vga: system
+	${EMU} ${EMUARGS} -append "logtoserial=0 vgaterm hdd"
 run-config: system
 	util/config-parser | xargs ${EMU}
 
@@ -124,9 +127,7 @@ toaruos-initrd: .passed
 	@${BEG} "initrd" "Generating initial RAM disk"
 	@# Get rid of the old one
 	@-rm -f toaruos-initrd
-	@#${GENEXT} -d initrd -q -b 20480 toaruos-initrd ${ERRORS}
-	@#${GENEXT} -d initrd -q -b 8192 toaruos-initrd ${ERRORS}
-	@${GENEXT} -d hdd -q -b 81920 toaruos-initrd ${ERRORS}
+	@${GENEXT} -d initrd -q -b ${RAMDISK_SIZE} toaruos-initrd ${ERRORS}
 	@${END} "initrd" "Generated initial RAM disk"
 	@${INFO} "--" "Ramdisk image is ready!"
 
@@ -144,7 +145,7 @@ toaruos-initrd: .passed
 toaruos-disk.img: .userspace-check
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
-	@${GENEXT} -d hdd -q -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
+	@${GENEXT} -B 4096 -d hdd -q -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 

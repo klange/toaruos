@@ -54,3 +54,7 @@ toaru|toaru terminal,
 	kf11=\E[23~,
 	kf12=\E[24~,
 
+toaru-vga|toaru vga terminal,
+	use=toaru,
+	colors#8,
+

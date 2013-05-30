@@ -13,7 +13,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	FILE * f = fopen(argv[1], "w");
+	FILE * f = fopen(argv[1], "a");
 	fclose(f);
 
 	return 0;

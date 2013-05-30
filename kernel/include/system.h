@@ -29,7 +29,6 @@ extern unsigned int __irq_sem;
 #define IRQ_OFF { asm volatile ("cli"); }
 #define IRQ_RES { asm volatile ("sti"); }
 #define PAUSE   { asm volatile ("hlt"); }
-#define IRQS_ON_AND_PAUSE { asm volatile ("sti\nhlt\ncli"); }
 
 #define STOP while (1) { PAUSE; }
 
@@ -276,7 +275,6 @@ typedef struct tss_entry {
 
 extern void tasking_install();
 extern void switch_task(uint8_t reschedule);
-extern void switch_from_cross_thread_lock();
 extern void switch_next();
 extern uint32_t fork();
 extern uint32_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg);
@@ -349,20 +347,6 @@ void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 void ide_write_sector_retry(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
 
-/* vm86 Helpers */
-typedef uint32_t  FARPTR;
-typedef uintptr_t addr_t;
-#define MK_FP(seg, off)        ((FARPTR) (((uint32_t) (seg) << 16) | (uint16_t) (off)))
-#define FP_SEG(fp)             (((FARPTR) fp) >> 16)
-#define FP_OFF(fp)             (((FARPTR) fp) & 0xffff)
-#define FP_TO_LINEAR(seg, off) ((void*) ((((uint16_t) (seg)) << 4) + ((uint16_t) (off))))
-#define LINEAR_TO_FP(ptr)      (MK_FP(((addr_t) (ptr) - ((addr_t) (ptr) & 0xf)) / 16, ((addr_t)(ptr) & 0xf)))
-
-typedef struct {
-	uint16_t off;
-	uint16_t seg;
-} rm_ptr_t;
-
 /* wakeup queue */
 int wakeup_queue(list_t * queue);
 int sleep_on(list_t * queue);
@@ -375,11 +359,13 @@ typedef struct {
 
 void handle_signal(process_t *, signal_t *);
 
-#define USER_STACK_TOP    0xD0010000
-#define USER_STACK_BOTTOM 0xD0000000
+#define USER_STACK_BOTTOM 0xAFF00000
+#define USER_STACK_TOP    0xB0000000
+#define SHM_START         0xB0000000
 
 void validate(void * ptr);
 int validate_safe(void * ptr);
 
+#include <errno_defs.h>
 
 #endif

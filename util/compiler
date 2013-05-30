@@ -1,9 +1,10 @@
 #!/bin/bash
 
 if [[ -n `which clang` ]] ; then
-	echo "clang -fcolor-diagnostics"
-elif [[ -n `which gcc` ]] ; then
-	echo "gcc"
+	echo "clang -ccc-host-triple i686-elf"
+elif [[ -n `which i686-pc-toaru-gcc` ]] ; then
+	echo "i686-pc-toaru-gcc"
 else
-	echo "cc"
+	echo "Error: No usable compiler found." >&2
+	exit 1
 fi

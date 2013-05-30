@@ -26,7 +26,6 @@
 #include <wchar.h>
 
 #include "lib/utf8decode.h"
-#include "lib/wcwidth.h"
 
 #define BLOCK_SIZE 256
 #define ENTER_KEY     '\n'
@@ -258,7 +257,7 @@ int codepoint_width(uint16_t codepoint) {
 		return 4;
 	}
 	if (codepoint > 256) {
-		return mk_wcwidth_cjk(codepoint);
+		return wcwidth(codepoint);
 	}
 	return 1;
 }

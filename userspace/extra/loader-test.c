@@ -28,8 +28,8 @@ void usage(int argc, char ** argv) {
 	exit(1);
 }
 
-#define   SOURCE        0x02000000
-uintptr_t DESTINATION = 0x03000000;
+#define   SOURCE        0x04000000
+uintptr_t DESTINATION = 0x05000000;
 uintptr_t END  = 0x0;
 size_t    SIZE = 0x0;
 

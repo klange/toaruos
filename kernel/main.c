@@ -71,7 +71,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	uintptr_t ramdisk_top = 0;
 	extern char * cmdline;
 
-
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/* Multiboot (GRUB, native QEMU, PXE) */
 		debug_print(NOTICE, "Relocating Multiboot structures...");
@@ -95,6 +94,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
 				ramdisk = (char *)0x30000000; //(char *)kmalloc(module_end - module_start);
 				ramdisk_top = (uintptr_t)ramdisk + (module_end - module_start);
+				debug_print(INFO, "Ramdisk top = 0x%x", ramdisk_top);
 
 				memmove(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
 			}
@@ -135,12 +135,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		parse_args(cmdline);
 	}
 
-	/*
-	vfs_mount("/foo/bar/baz", fs_root);
-	vfs_mount("/foo/bar/loof", fs_root);
-	vfs_mount("/raz/daz/bar", fs_root);
-	*/
-
 	serial_mount_devices();
 	vfs_mount("/dev/null", null_device_create());
 	vfs_mount("/dev/zero", zero_device_create());
@@ -152,11 +146,9 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	debug_print_vfs_tree();
 
-	//assert(0);
-
 	if (ramdisk && !fs_root) {
-		kprintf("---- ramdisk[0x%x:0x%x]\n", ramdisk, ramdisk_top);
-		for (uintptr_t i = (uintptr_t)ramdisk; i <= (uintptr_t)ramdisk_top; i += 0x1000) {
+		debug_print(NOTICE, "---- ramdisk[0x%x:0x%x]\n", ramdisk, ramdisk_top);
+		for (uintptr_t i = (uintptr_t)ramdisk; i < (uintptr_t)ramdisk_top; i += 0x1000) {
 			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 		}
 

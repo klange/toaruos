@@ -8,7 +8,9 @@
 
 #define KEY_NONE        0
 #define KEY_BACKSPACE   8
+#define KEY_CTRL_A      1
 #define KEY_CTRL_C      3
+#define KEY_CTRL_E      5
 #define KEY_CTRL_L      12
 #define KEY_CTRL_R      18
 #define KEY_ESCAPE      27

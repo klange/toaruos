@@ -109,7 +109,7 @@ try_again:
 		errors++;
 		if (errors > 4) {
 			debug_print(WARNING, "-- Too many errors trying to read this block. Bailing.");
-			return 0;
+			return;
 		}
 		goto try_again;
 	}
@@ -159,5 +159,6 @@ void ide_write_sector_retry(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t *
 		ide_write_sector(bus,slave,lba,buf);
 		ide_read_sector(bus,slave,lba,read_buf);
 	} while (ide_cmp((uint32_t*)buf,(uint32_t*)read_buf,512));
+	free(read_buf);
 	IRQ_RES;
 }

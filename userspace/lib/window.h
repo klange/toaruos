@@ -126,18 +126,33 @@ typedef struct {
 	uint16_t width;  /* Buffer width in pixels */
 	uint16_t height; /* Buffer height in pixels */
 
-/* UNUSED IN CLIENT */
-	int32_t  x; /* X coordinate of upper-left corner */
-	int32_t  y; /* Y coordinate of upper-left corner */
-	uint16_t z; /* Stack order */
-	int16_t  rotation;
-	uint8_t  use_alpha;
-/* END UNUSED IN CLIENT */
-	uint8_t  focused;
-
 	uint8_t * buffer; /* Window buffer */
 	uint16_t bufid; /* We occasionally replace the buffer; each is uniquely-indexed */
+
+	uint8_t  focused;
 } window_t;
+
+/* Just for the server. */
+typedef struct {
+	wid_t wid; /* Window identifier */
+	process_windows_t * owner; /* Owning process (back ptr) */
+
+	uint16_t width;  /* Buffer width in pixels */
+	uint16_t height; /* Buffer height in pixels */
+
+	uint8_t * buffer;
+	uint16_t  bufid;
+
+
+	/* Positioning */
+	int32_t  x;
+	int32_t  y;
+	int32_t  z;
+	/* effects */
+	int16_t  rotation;
+	int      anim_mode;
+	int      anim_start;
+} server_window_t;
 
 struct process_windows {
 	uint32_t pid;
@@ -150,7 +165,7 @@ struct process_windows {
 	list_t * windows;
 };
 
-volatile wins_server_global_t * wins_globals;
+extern volatile wins_server_global_t * wins_globals;
 
 /* Client Windowing */
 
@@ -179,11 +194,9 @@ gfx_context_t * init_graphics_window_double_buffer(window_t * window);
 void reinit_graphics_window(gfx_context_t * out, window_t * window);
 
 void win_use_threaded_handler();
-void (*mouse_action_callback)(w_mouse_t *);
-
-void (*resize_window_callback)(window_t *);
-
-void (*focus_changed_callback)(window_t *);
+extern void (*mouse_action_callback)(w_mouse_t *);
+extern void (*resize_window_callback)(window_t *);
+extern void (*focus_changed_callback)(window_t *);
 
 window_t * wins_get_window (wid_t wid);
 void win_sane_events();

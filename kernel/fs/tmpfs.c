@@ -7,20 +7,46 @@
 /* 1KB */
 #define BLOCKSIZE 1024
 
+#define TMPFS_TYPE_FILE 1
+#define TMPFS_TYPE_DIR  2
+
 static uint8_t volatile lock = 0;
 
 struct tmpfs_file {
 	char * name;
+	int    type;
+	int    mask;
+	int    uid;
+	int    gid;
+	unsigned int atime;
+	unsigned int mtime;
+	unsigned int ctime;
 	size_t length;
 	size_t block_count;
 	size_t pointers;
-	uint32_t flags;
 	char ** blocks;
 };
 
-list_t * tmpfs_files = NULL;
+struct tmpfs_dir;
+
+struct tmpfs_dir {
+	char * name;
+	int    type;
+	int    mask;
+	int    uid;
+	int    gid;
+	unsigned int atime;
+	unsigned int mtime;
+	unsigned int ctime;
+	list_t * files;
+	struct tmpfs_dir * parent;
+};
 
 char empty_block[BLOCKSIZE] = {0};
+
+struct tmpfs_dir * tmpfs_root = NULL;
+
+fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d);
 
 static struct tmpfs_file * tmpfs_file_new(char * name) {
 
@@ -28,10 +54,16 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 
 	struct tmpfs_file * t = malloc(sizeof(struct tmpfs_file));
 	t->name = strdup(name);
+	t->type = TMPFS_TYPE_FILE;
 	t->length = 0;
 	t->pointers = 2;
 	t->block_count = 0;
-	t->flags = 0;
+	t->mask = 0;
+	t->uid = 0;
+	t->gid = 0;
+	t->atime = now();
+	t->mtime = t->atime;
+	t->ctime = t->atime;
 	t->blocks = malloc(t->pointers * sizeof(char *));
 	for (size_t i = 0; i < t->pointers; ++i) {
 		t->blocks[i] = NULL;
@@ -39,6 +71,30 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 
 	spin_unlock(&lock);
 	return t;
+}
+
+static struct tmpfs_dir * tmpfs_dir_new(char * name, struct tmpfs_dir * parent) {
+	spin_lock(&lock);
+
+	struct tmpfs_dir * d = malloc(sizeof(struct tmpfs_dir));
+	d->name = strdup(name);
+	d->type = TMPFS_TYPE_DIR;
+	d->mask = 0;
+	d->uid = 0;
+	d->gid = 0;
+	d->atime = now();
+	d->mtime = d->atime;
+	d->ctime = d->atime;
+	d->files = list_create();
+
+	spin_unlock(&lock);
+	return d;
+}
+
+static void tmpfs_file_free(struct tmpfs_file * t) {
+	for (size_t i = 0; i < t->block_count; ++i) {
+		free(t->blocks[i]);
+	}
 }
 
 static void tmpfs_file_blocks_embiggen(struct tmpfs_file * t) {
@@ -73,6 +129,9 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 
 static uint32_t read_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+
+	t->atime = now();
+
 	uint32_t end;
 	if (offset + size > t->length) {
 		end = t->length;
@@ -112,6 +171,10 @@ static uint32_t read_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uint
 
 static uint32_t write_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+
+	t->atime = now();
+	t->mtime = t->atime;
+
 	uint32_t end;
 	if (offset + size > t->length) {
 		t->length = offset + size;
@@ -146,34 +209,66 @@ static uint32_t write_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	return size_to_read;
 }
 
+static int chmod_tmpfs(fs_node_t * node, int mode) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+
+	/* XXX permissions */
+	t->mask = mode;
+
+	return 0;
+}
+
+static void open_tmpfs(fs_node_t * node, unsigned int flags) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+
+	debug_print(WARNING, "---- Opened TMPFS file %s with flags 0x%x ----", t->name, flags);
+
+	if (flags & O_TRUNC) {
+		debug_print(WARNING, "Truncating file %s", t->name);
+		for (size_t i = 0; i < t->block_count; ++i) {
+			free(t->blocks[i]);
+			t->blocks[i] = 0;
+		}
+		t->block_count = 0;
+		t->length = 0;
+	}
+
+	return;
+}
+
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
 	strcpy(fnode->name, t->name);
 	fnode->device = t;
-	fnode->mask = 0777;
-	fnode->uid = 0;
-	fnode->gid = 0;
+	fnode->mask = t->mask;
+	fnode->uid = t->uid;
+	fnode->gid = t->gid;
+	fnode->atime = t->atime;
+	fnode->ctime = t->ctime;
+	fnode->mtime = t->mtime;
 	fnode->flags   = FS_FILE;
 	fnode->read    = read_tmpfs;
 	fnode->write   = write_tmpfs;
-	fnode->open    = NULL;
+	fnode->open    = open_tmpfs;
 	fnode->close   = NULL;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->chmod   = chmod_tmpfs;
 	fnode->length  = t->length;
 	return fnode;
 }
 
 static struct dirent * readdir_tmpfs(fs_node_t *node, uint32_t index) {
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->device;
 	uint32_t i = 0;
 
 	debug_print(NOTICE, "tmpfs - readdir id=%d", index);
 
-	if (index >= tmpfs_files->length) return NULL;
+	if (index >= d->files->length) return NULL;
 
-	foreach(f, tmpfs_files) {
+	foreach(f, d->files) {
 		if (i == index) {
 			struct tmpfs_file * t = (struct tmpfs_file *)f->value;
 			struct dirent * out = malloc(sizeof(struct dirent));
@@ -191,13 +286,20 @@ static struct dirent * readdir_tmpfs(fs_node_t *node, uint32_t index) {
 static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {
 	if (!name) return NULL;
 
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->device;
+
 	spin_lock(&lock);
 
-	foreach(f, tmpfs_files) {
+	foreach(f, d->files) {
 		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
 		if (!strcmp(name, t->name)) {
 			spin_unlock(&lock);
-			return tmpfs_from_file(t);
+			switch (t->type) {
+				case TMPFS_TYPE_FILE:
+					return tmpfs_from_file(t);
+				case TMPFS_TYPE_DIR:
+					return tmpfs_from_dir((struct tmpfs_dir *)t);
+			}
 		}
 	}
 
@@ -206,13 +308,38 @@ static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
+static void unlink_tmpfs(fs_node_t * node, char * name) {
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->device;
+	int i = -1, j = 0;
+	spin_lock(&lock);
+
+	foreach(f, d->files) {
+		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
+		if (!strcmp(name, t->name)) {
+			tmpfs_file_free(t);
+			free(t);
+			i = j;
+			break;
+		}
+		j++;
+	}
+
+	if (i >= 0) {
+		list_remove(d->files, i);
+	}
+
+	spin_unlock(&lock);
+	return;
+}
+
 void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	if (!name) return;
 
-	debug_print(CRITICAL, "Creating TMPFS file %s", name);
+	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
+	debug_print(CRITICAL, "Creating TMPFS file %s in %s", name, d->name);
 
 	spin_lock(&lock);
-	foreach(f, tmpfs_files) {
+	foreach(f, d->files) {
 		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
 		if (!strcmp(name, t->name)) {
 			spin_unlock(&lock);
@@ -224,18 +351,51 @@ void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 
 	debug_print(NOTICE, "... creating a new file.");
 	struct tmpfs_file * t = tmpfs_file_new(name);
-	t->flags = permission;
+	t->mask = permission;
+	t->uid = current_process->user;
+	t->gid = current_process->user;
 
-	list_insert(tmpfs_files, t);
+	list_insert(d->files, t);
 }
 
-fs_node_t * tmpfs_create() {
+void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
+	if (!name) return;
+
+	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
+	debug_print(CRITICAL, "Creating TMPFS directory %s (in %s)", name, d->name);
+
+	spin_lock(&lock);
+	foreach(f, d->files) {
+		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
+		if (!strcmp(name, t->name)) {
+			spin_unlock(&lock);
+			debug_print(WARNING, "... already exists.");
+			return; /* Already exists */
+		}
+	}
+	spin_unlock(&lock);
+
+	debug_print(NOTICE, "... creating a new directory.");
+	struct tmpfs_dir * out = tmpfs_dir_new(name, d);
+	out->mask = permission;
+	out->uid  = current_process->user;
+	out->gid  = current_process->user;
+
+	list_insert(d->files, out);
+}
+
+fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
 	strcpy(fnode->name, "tmp");
-	fnode->uid = 0;
-	fnode->gid = 0;
+	fnode->mask = d->mask;
+	fnode->uid  = d->uid;
+	fnode->gid  = d->gid;
+	fnode->device  = d;
+	fnode->atime   = d->atime;
+	fnode->mtime   = d->mtime;
+	fnode->ctime   = d->ctime;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->read    = NULL;
 	fnode->write   = NULL;
@@ -244,7 +404,17 @@ fs_node_t * tmpfs_create() {
 	fnode->readdir = readdir_tmpfs;
 	fnode->finddir = finddir_tmpfs;
 	fnode->create  = create_tmpfs;
+	fnode->unlink  = unlink_tmpfs;
+	fnode->mkdir   = mkdir_tmpfs;
 
-	tmpfs_files = list_create();
 	return fnode;
+}
+
+fs_node_t * tmpfs_create() {
+	tmpfs_root = tmpfs_dir_new("tmp", NULL);
+	tmpfs_root->mask = 0777;
+	tmpfs_root->uid  = 0;
+	tmpfs_root->gid  = 0;
+
+	return tmpfs_from_dir(tmpfs_root);
 }

@@ -52,12 +52,11 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
  * open_fs: Open a file system node.
  *
  * @param node  Node to open
- * @param read  Read permission? (1 = yes)
- * @param write Write permission? (1 = overwrite, 2 = append)
+ * @param flags Same as open, specifies read/write/append/truncate
  */
-void open_fs(fs_node_t *node, uint8_t read, uint8_t write) {
+void open_fs(fs_node_t *node, unsigned int flags) {
 	if (node->open) {
-		node->open(node, read, write);
+		node->open(node, flags);
 	}
 }
 
@@ -71,6 +70,16 @@ void close_fs(fs_node_t *node) {
 	if (node->close) {
 		node->close(node);
 	}
+}
+
+/**
+ * chmod_fs
+ */
+int chmod_fs(fs_node_t *node, int mode) {
+	if (node->chmod) {
+		return node->chmod(node, mode);
+	}
+	return 0;
 }
 
 /**
@@ -153,97 +162,91 @@ int create_file_fs(char *name, uint16_t permission) {
 	parent = kopen(parent_path, 0);
 	free(parent_path);
 
+	if (!parent) {
+		free(path);
+		return -1;
+	}
+
 	if (parent->create) {
 		parent->create(parent, f_path, permission);
 	}
 
 	free(path);
 	free(parent);
-#if 0
-	int32_t i = strlen(name);
-	char *dir_name = malloc(i + 1);
-	memcpy(dir_name, name, i);
-	dir_name[i] = '\0';
-	if (dir_name[i - 1] == '/')
-		dir_name[i - 1] = '\0';
-	if (strlen(dir_name) == 0) {
-		free(dir_name);
-		return 1;
-	}
-	for (i = strlen(dir_name) - 1; i >= 0; i--) {
-		if (dir_name[i] == '/') {
-			dir_name[i] = '\0';
+
+	return 0;
+}
+
+int unlink_fs(char * name) {
+	fs_node_t * parent;
+	char *cwd = (char *)(current_process->wd_name);
+	char *path = canonicalize_path(cwd, name);
+
+	char * parent_path = malloc(strlen(path) + 4);
+	sprintf(parent_path, "%s/..", path);
+
+	char * f_path = path + strlen(path) - 1;
+	while (f_path > path) {
+		if (*f_path == '/') {
+			f_path += 1;
 			break;
 		}
+		f_path--;
 	}
 
-	// get the parent dir node.
-	fs_node_t *node;
-	if (i >= 0) {
-		node = kopen(dir_name, 0);
-	} else {
-		/* XXX This is wrong */
-		node = kopen(".", 0);
+	debug_print(WARNING, "unlinking file %s within %s (hope these strings are good)", f_path, parent_path);
+
+	parent = kopen(parent_path, 0);
+	free(parent_path);
+
+	if (!parent) {
+		free(path);
+		return -1;
 	}
 
-	if (node == NULL) {
-		free(dir_name);
-		return 2;
+	if (parent->unlink) {
+		parent->unlink(parent, f_path);
 	}
 
-	i++;
-	if ((node->flags & FS_DIRECTORY) && node->mkdir) {
-		node->create(node, dir_name + i, permission);
-	}
+	free(path);
+	free(parent);
 
-	free(node);
-	free(dir_name);
-#endif
 	return 0;
 }
 
 int mkdir_fs(char *name, uint16_t permission) {
-#if 0
-	int32_t i = strlen(name);
-	char *dir_name = malloc(i + 1);
-	memcpy(dir_name, name, i);
-	dir_name[i] = '\0';
-	if (dir_name[i - 1] == '/')
-		dir_name[i - 1] = '\0';
-	if (strlen(dir_name) == 0) {
-		free(dir_name);
-		return 1;
-	}
-	for (i = strlen(dir_name) - 1; i >= 0; i--) {
-		if (dir_name[i] == '/') {
-			dir_name[i] = '\0';
+	fs_node_t * parent;
+	char *cwd = (char *)(current_process->wd_name);
+	char *path = canonicalize_path(cwd, name);
+
+	char * parent_path = malloc(strlen(path) + 4);
+	sprintf(parent_path, "%s/..", path);
+
+	char * f_path = path + strlen(path) - 1;
+	while (f_path > path) {
+		if (*f_path == '/') {
+			f_path += 1;
 			break;
 		}
+		f_path--;
 	}
 
-	// get the parent dir node.
-	fs_node_t *node;
-	if (i >= 0) {
-		node = kopen(dir_name, 0);
-	} else {
-		node = kopen(".", 0);
+	debug_print(WARNING, "creating directory %s within %s (hope these strings are good)", f_path, parent_path);
+
+	parent = kopen(parent_path, 0);
+	free(parent_path);
+
+	if (!parent) {
+		free(path);
+		return -1;
 	}
 
-	if (node == NULL) {
-		debug_print(WARNING, "mkdir: Directory does not exist");
-		free(dir_name);
-		return 1;
+	if (parent->mkdir) {
+		parent->mkdir(parent, f_path, permission);
 	}
 
-	i++;
-	if ((node->flags & FS_DIRECTORY) && node->mkdir) {
-		node->mkdir(node, dir_name + i, permission);
-	}
-
-	free(node);
-	free(dir_name);
-
-#endif
+	free(path);
+	free(parent);
 
 	return 0;
 }
@@ -657,13 +660,14 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 			return NULL;
 		} else if (depth == path_depth - 1) {
 			/* We found the file and are done, open the node */
-			open_fs(node_ptr, 1, 0);
+			open_fs(node_ptr, flags);
 			free((void *)path);
 			return node_ptr;
 		}
 		/* We are still searching... */
 		path_offset += strlen(path_offset) + 1;
 	}
+	debug_print(INFO, "- Not found.");
 	/* We failed to find the requested file, but our loop terminated. */
 	free((void *)path);
 	return NULL;

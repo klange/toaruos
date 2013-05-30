@@ -245,21 +245,23 @@ paging_install(uint32_t memsize) {
 	kernel_directory = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t),&phys);
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 
-	uint32_t i = 0;
-	while (i < placement_pointer + 0x3000) {
+	for (uintptr_t i = 0; i < placement_pointer + 0x3000; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
-		i += 0x1000;
 	}
 	/* XXX VGA TEXT MODE VIDEO MEMORY EXTENSION */
-	for (uint32_t j = 0xb8000; j < 0xc0000; j += 0x1000) {
+	for (uintptr_t j = 0xb8000; j < 0xc0000; j += 0x1000) {
 		alloc_frame(get_page(j, 1, kernel_directory), 0, 1);
 	}
 	isrs_install_handler(14, page_fault);
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
 
 	/* Kernel Heap Space */
-	for (i = placement_pointer; i < KERNEL_HEAP_INIT; i += 0x1000) {
+	for (uintptr_t i = placement_pointer; i < KERNEL_HEAP_INIT; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
+	}
+	/* And preallocate the page entries for all the rest of the kernel heap as well */
+	for (uintptr_t i = KERNEL_HEAP_INIT; i < KERNEL_HEAP_END; i += 0x1000) {
+		get_page(i, 1, kernel_directory);
 	}
 
 	current_directory = clone_directory(kernel_directory);
@@ -384,9 +386,12 @@ sbrk(
 	uintptr_t address = heap_end;
 
 	if (heap_end + increment > KERNEL_HEAP_INIT) {
+		debug_print(NOTICE, "Hit the end of available kernel heap, going to allocate more (at 0x%x, want to be at 0x%x)", heap_end, heap_end + increment);
 		for (uintptr_t i = heap_end; i < heap_end + increment; i += 0x1000) {
-			alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
+			debug_print(INFO, "Allocating frame at 0x%x...", i);
+			alloc_frame(get_page(i, 0, kernel_directory), 1, 0);
 		}
+		debug_print(INFO, "Done.");
 	}
 
 	heap_end += increment;

@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <syscall.h>
 #include "lib/pthread.h"
-#include "../kernel/include/signal.h"
+#include <signal.h>
 
 int fd = 0;
 
@@ -61,7 +61,7 @@ int main(int argc, char ** argv) {
 					line[i-1] = '\0';
 
 					if (!strcmp(line, "quit")) {
-						syscall_send_signal(child_pid, SIGKILL);
+						kill(child_pid, SIGKILL);
 						printf("Waiting for threads to shut down...\n");
 						syscall_wait(child_pid);
 

@@ -11,7 +11,9 @@
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/termios.h>
+#include <sys/ioctl.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <utime.h>
 #include <signal.h>
 
@@ -73,11 +75,17 @@ DEFN_SYSCALL2(sleepabs,  45, unsigned long, unsigned long);
 DEFN_SYSCALL2(nanosleep,  46, unsigned long, unsigned long);
 DEFN_SYSCALL3(ioctl, 47, int, int, void *);
 DEFN_SYSCALL2(access, 48, char *, int);
+DEFN_SYSCALL2(stat, 49, char *, void *);
+DEFN_SYSCALL2(chmod, 50, char *, mode_t);
+DEFN_SYSCALL1(umask, 51, mode_t);
+DEFN_SYSCALL1(unlink, 52, char *);
 
 #define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
 
 
 extern char ** environ;
+
+#define DEFAULT_PATH ".:/bin:/usr/bin"
 
 // --- Process Control ---
 
@@ -91,7 +99,41 @@ int execve(const char *name, char * const argv[], char * const envp[]) {
 }
 
 int execvp(const char *file, char *const argv[]) {
-	return execve(file,argv,environ);
+	if (file && (!strstr(file, "/"))) {
+		/* We don't quite understand "$PATH", so... */
+		char * path = getenv("PATH");
+		if (!path) {
+			path = DEFAULT_PATH;
+		}
+		char * xpath = strdup(path);
+		int found = 0;
+		char * p, * tokens[10], * last;
+		int i = 0;
+		for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
+			int r;
+			struct stat stat_buf;
+			char * exe = malloc(strlen(p) + strlen(file) + 2);
+			strcpy(exe, p);
+			strcat(exe, "/");
+			strcat(exe, file);
+
+			r = stat(exe, &stat_buf);
+			if (r != 0) {
+				continue;
+			}
+			if (!(stat_buf.st_mode & 0111)) {
+				continue; /* XXX not technically correct; need to test perms */
+			}
+			return execve(exe, argv, environ);
+		}
+		free(xpath);
+		errno = ENOENT;
+		return -1;
+	} else if (file) {
+		return execve(file, argv, environ);
+	}
+	errno = ENOENT;
+	return -1;
 }
 
 int execv(const char * file, char *const argv[]) {
@@ -119,12 +161,23 @@ int uname(struct utsname *__name) {
  * kill -- go out via exit...
  */
 int kill(int pid, int sig) {
-	if(pid == getpid())
-		_exit(sig);
-
-	errno = EINVAL;
-	return -1;
+	if(pid == getpid()) {
+		return _exit(sig);
+	} else {
+		return syscall_send_signal(pid, sig);
+	}
 }
+
+sighandler_t signal(int signum, sighandler_t handler) {
+	return syscall_signal(signum, (void *)handler);
+}
+
+#if 0
+int raise(int sig) {
+	kill(getpid(), sig);
+	return 0;
+}
+#endif
 
 int waitpid(int pid, int *status, int options) {
 	/* XXX: status, options? */
@@ -140,8 +193,10 @@ int wait(int *status) {
 // --- I/O ---
 
 int isatty(int fd) {
-	/* XXX: Do the right thing */
-	return (fd < 3);
+	int dtype = ioctl(fd, IOCTLDTYPE, NULL);
+	if (dtype == IOCTL_DTYPE_TTY) return 1;
+	errno = EINVAL;
+	return 0;
 }
 
 
@@ -160,7 +215,22 @@ int lseek(int file, int ptr, int dir) {
 }
 
 int open(const char *name, int flags, ...) {
-	return syscall_open(name,flags, 0);
+	va_list argp;
+	int mode;
+	int result;
+	va_start(argp, flags);
+	if (flags & O_CREAT) mode = va_arg(argp, int);
+	va_end(argp);
+
+	result = syscall_open(name, flags, mode);
+	if (result == -1) {
+		if (flags & O_CREAT) {
+			errno = EACCES;
+		} else {
+			errno = ENOENT;
+		}
+	}
+	return result;
 }
 
 int read(int file, char *ptr, int len) {
@@ -177,30 +247,19 @@ int fstat(int file, struct stat *st) {
 }
 
 int stat(const char *file, struct stat *st){
-	int i = open(file, 0);
-	if (i >= 0) {
-		int ret = fstat(i, st);
-		close(i);
+	int ret = syscall_stat((char *)file, (uintptr_t)st);
+	if (ret >= 0) {
 		return ret;
 	} else {
-		return -1;
+		errno = ENOENT; /* meh */
+		memset(st, 0x00, sizeof(struct stat));
+		return ret;;
 	}
 }
 
 int write(int file, char *ptr, int len) {
 	return syscall_write(file,ptr,len);
 }
-
-// --- Memory ---
-
-/* _end is set in the linker command file */
-extern caddr_t _end;
-
-#if 0
-#define PAGE_SIZE 4096UL
-#define PAGE_MASK 0xFFFFF000UL
-#define HEAP_ADDR (((unsigned long long)&_end + PAGE_SIZE) & PAGE_MASK)
-#endif
 
 /*
  * sbrk: request a larger heap
@@ -363,25 +422,23 @@ int  fcntl(int fd, int cmd, ...) {
 }
 
 mode_t umask(mode_t mask) {
-	DEBUG_STUB("[user/debug] Unsupported operation [umask]\n");
-	/* Not supported */
-	return 0;
+	return syscall_umask(mask);
 }
 
 int chmod(const char *path, mode_t mode) {
-	DEBUG_STUB("[user/debug] Unsupported operation [chmod]\n");
-	/* Not supported */
-	return -1;
+	return syscall_chmod((char *)path, mode);
 }
 
 int unlink(char *name) {
-	DEBUG_STUB("[debug] pid %d unlink(%s);\n", getpid(), name);
-	errno = ENOENT;
-	return -1;
+	return syscall_unlink(name);
 }
 
 int access(const char *pathname, int mode) {
-	return syscall_access((char *)pathname, mode);
+	int result = syscall_access((char *)pathname, mode);
+	if (result < 0) {
+		errno = ENOENT; /* XXX */
+	}
+	return result;
 }
 
 long pathconf(char *path, int name) {

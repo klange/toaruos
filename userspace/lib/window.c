@@ -11,7 +11,7 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/stat.h>
-#include "../../kernel/include/signal.h"
+#include <signal.h>
 
 #include "window.h"
 #include "pthread.h"
@@ -48,44 +48,6 @@ void (*resize_window_callback)(window_t *) = NULL;
 void (*focus_changed_callback)(window_t *) = NULL;
 
 /* Window Object Management */
-
-window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
-
-	window_t * window = malloc(sizeof(window_t));
-	if (!window) {
-		fprintf(stderr, "[%d] [window] Could not malloc a window_t!", getpid());
-		return NULL;
-	}
-
-	window->owner = pw;
-	window->wid = wid;
-	window->bufid = 0;
-
-	window->width  = width;
-	window->height = height;
-	window->x = x;
-	window->y = y;
-	window->z = index;
-	window->rotation = 0.0;
-	window->use_alpha = 0;
-
-	char key[1024];
-	SHMKEY(key, 1024, window);
-
-	size_t size = (width * height * WIN_B);
-	window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
-
-	if (!window->buffer) {
-		fprintf(stderr, "[%d] [window] Could not create a buffer for a new window for pid %d!", getpid(), pw->pid);
-		free(window);
-		return NULL;
-	}
-
-	list_insert(pw->windows, window);
-
-	return window;
-}
-
 /*XXX ... */
 window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
 
@@ -101,9 +63,6 @@ window_t * init_window_client (process_windows_t * pw, wid_t wid, int32_t x, int
 
 	window->width  = width;
 	window->height = height;
-	window->x = x;
-	window->y = y;
-	window->z = index;
 	window->focused = 0;
 
 	char key[1024];
@@ -139,51 +98,6 @@ void free_window_client (window_t * window) {
 	}
 }
 
-void free_window (window_t * window) {
-	/* Free the window buffer */
-	if (!window) return;
-	char key[256];
-	SHMKEY(key, 256, window);
-	syscall_shm_release(key);
-
-	/* Now, kill the object itself */
-	process_windows_t * pw = window->owner;
-
-	node_t * n = list_find(pw->windows, window);
-	if (n) {
-		list_delete(pw->windows, n);
-		free(n);
-	}
-}
-
-void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
-
-	if (!window) {
-		return;
-	}
-	/* If the window has enlarged, we need to create a new buffer */
-	if ((width * height) > (window->width * window->height)) {
-		/* Release the old buffer */
-		char key[256], keyn[256];
-		SHMKEY(key, 256, window);
-
-		/* Create the new one */
-		window->bufid++;
-		SHMKEY(keyn, 256, window);
-
-		size_t size = (width * height * WIN_B);
-		char * new_buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
-		memset(new_buffer, 0x44, size);
-		window->buffer = new_buffer;
-		syscall_shm_release(key);
-	}
-
-	window->x = left;
-	window->y = top;
-	window->width = width;
-	window->height = height;
-}
-
 void resize_window_buffer_client (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
 
 	if (!window) {
@@ -208,8 +122,6 @@ void resize_window_buffer_client (window_t * window, int16_t left, int16_t top, 
 		syscall_shm_release(key);
 	}
 
-	window->x = left;
-	window->y = top;
 	window->width = width;
 	window->height = height;
 }

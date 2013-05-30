@@ -7,7 +7,7 @@
 
 uint32_t read_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-void open_zero(fs_node_t *node, uint8_t read, uint8_t write);
+void open_zero(fs_node_t *node, unsigned int flags);
 void close_zero(fs_node_t *node);
 
 uint32_t read_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -19,7 +19,7 @@ uint32_t write_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 	return 0;
 }
 
-void open_zero(fs_node_t * node, uint8_t read, uint8_t write) {
+void open_zero(fs_node_t * node, unsigned int flags) {
 	return;
 }
 

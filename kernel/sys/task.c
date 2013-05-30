@@ -193,6 +193,8 @@ fork() {
 	unsigned int magic = TASK_MAGIC;
 	uintptr_t esp, ebp, eip;
 
+	current_process->syscall_registers->eax = 0;
+
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
 	assert(parent && "Forked from nothing??");
@@ -283,6 +285,8 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 
 	IRQ_OFF;
 
+	current_process->syscall_registers->eax = 0;
+
 	/* Make a pointer to the parent process (us) on the stack */
 	process_t * parent = (process_t *)current_process;
 	assert(parent && "Cloned from nothing??");
@@ -370,14 +374,6 @@ uint32_t
 getpid() {
 	/* Fairly self-explanatory. */
 	return current_process->id;
-}
-
-void
-switch_from_cross_thread_lock() {
-	if (!process_available()) {
-		IRQS_ON_AND_PAUSE;
-	}
-	switch_task(1);
 }
 
 /*
