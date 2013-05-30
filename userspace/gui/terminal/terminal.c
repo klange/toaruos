@@ -395,7 +395,7 @@ static void _ansi_put(char c) {
 												uint16_t win_id = window->bufid;
 												int width = atoi(argv[1]) * char_width + decor_left_width + decor_right_width;
 												int height = atoi(argv[2]) * char_height + decor_top_height + decor_bottom_height;
-												window_resize(window, window->x, window->y, width, height);
+												window_resize(window, 0, 0, width, height);
 												resize_callback(window);
 											}
 										}

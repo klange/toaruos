@@ -149,6 +149,7 @@ int main (int argc, char ** argv) {
 	init_shmemfonts();
 
 	while (1) {
+		syscall_print("Setup...\n");
 		setup_windowing();
 
 		int width  = wins_globals->server_width;

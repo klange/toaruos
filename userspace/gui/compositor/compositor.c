@@ -44,8 +44,15 @@
 #define MODE_NORMAL 0x001
 #define MODE_SCALE  0x002
 
-int _animation_mode = 0;
-int _animation_frame  = 0;
+unsigned int tick_count = 0;
+
+int animation_lengths[] = {
+	0,
+	256,
+	256,
+	256,
+	10000,
+};
 
 struct font_def {
 	char * identifier;
@@ -53,25 +60,25 @@ struct font_def {
 };
 
 /* Non-public bits from window.h */
-extern window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index);
-extern void free_window (window_t * window);
-extern void resize_window_buffer (window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height);
 extern FILE *fdopen(int fd, const char *mode);
 
-window_t * focused = NULL;
-window_t * windows[WINDOW_LAYERS];
+void actually_destroy_window(server_window_t * win);
+
+server_window_t * focused = NULL;
+server_window_t * windows[WINDOW_LAYERS];
 sprite_t * sprites[SPRITE_COUNT];
 gfx_context_t * ctx;
 gfx_context_t * select_ctx;
 list_t * process_list;
+list_t * windows_to_clean;
 int32_t mouse_x, mouse_y;
 int32_t click_x, click_y;
 uint32_t mouse_discard = 0;
 volatile int am_drawing  = 0;
-window_t * moving_window = NULL;
+server_window_t * moving_window = NULL;
 int32_t    moving_window_l = 0;
 int32_t    moving_window_t = 0;
-window_t * resizing_window = NULL;
+server_window_t * resizing_window = NULL;
 int32_t    resizing_window_w = 0;
 int32_t    resizing_window_h = 0;
 cairo_t * cr;
@@ -111,9 +118,9 @@ void redraw_cursor() {
 	draw_sprite(ctx, sprites[SPRITE_MOUSE], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 }
 
-static window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
+static server_window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
 	foreach (m, pw->windows) {
-		window_t * w = (window_t *)m->value;
+		server_window_t * w = (server_window_t *)m->value;
 		if (w->wid == wid) {
 			return w;
 		}
@@ -124,7 +131,7 @@ static window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
 
 void init_process_list () {
 	process_list = list_create();
-	memset(windows, 0x00000000, sizeof(window_t *) * WINDOW_LAYERS);
+	memset(windows, 0x00000000, sizeof(server_window_t *) * WINDOW_LAYERS);
 }
 
 void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet) {
@@ -186,7 +193,7 @@ uint8_t is_between(int32_t lo, int32_t hi, int32_t val) {
 	return 0;
 }
 
-window_t * top_at(uint16_t x, uint16_t y) {
+server_window_t * top_at(uint16_t x, uint16_t y) {
 	char buf[512];
 	sprintf(buf, "Looking for top window at %d %d.\n", x, y);
 	syscall_print(buf);
@@ -204,28 +211,6 @@ window_t * top_at(uint16_t x, uint16_t y) {
 	syscall_print(buf);
 
 	return windows[w];
-
-#if 0
-	uint32_t index_top = 0;
-	window_t * window_top = NULL;
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		foreach(node, pw->windows) {
-			window_t * win = (window_t *)node->value;
-			if (is_between(win->x, win->x + win->width, x) && is_between(win->y, win->y + win->height, y)) {
-				if (window_top == NULL) {
-					window_top = win;
-					index_top = win->z;
-				} else {
-					if (win->z < index_top) continue;
-					window_top = win;
-					index_top  = win->z;
-				}
-			}
-		}
-	}
-	return window_top;
-#endif
 }
 
 void rebalance_windows() {
@@ -248,7 +233,7 @@ void rebalance_windows() {
 	}
 }
 
-void reorder_window (window_t * window, uint16_t new_zed) {
+void reorder_window (server_window_t * window, uint16_t new_zed) {
 	if (!window) {
 		return;
 	}
@@ -278,7 +263,7 @@ void reorder_window (window_t * window, uint16_t new_zed) {
 }
 
 
-void make_top(window_t * window) {
+void make_top(server_window_t * window) {
 	uint16_t index = window->z;
 	if (index == 0)  return;
 	if (index == 0xFFFF) return;
@@ -287,7 +272,7 @@ void make_top(window_t * window) {
 	foreach(n, process_list) {
 		process_windows_t * pw = (process_windows_t *)n->value;
 		foreach(node, pw->windows) {
-			window_t * win = (window_t *)node->value;
+			server_window_t * win = (server_window_t *)node->value;
 			if (win == window) continue;
 			if (win->z == 0)   continue;
 			if (win->z == 0xFFFF)  continue;
@@ -300,7 +285,7 @@ void make_top(window_t * window) {
 	reorder_window(window, highest+1);
 }
 
-window_t * focused_window() {
+server_window_t * focused_window() {
 	if (!focused) {
 		return windows[0];
 	} else {
@@ -308,7 +293,7 @@ window_t * focused_window() {
 	}
 }
 
-void set_focused_window(window_t * n_focused) {
+void set_focused_window(server_window_t * n_focused) {
 	if (n_focused == focused) {
 		return;
 	} else {
@@ -333,25 +318,111 @@ void set_focused_window(window_t * n_focused) {
 }
 
 void set_focused_at(int x, int y) {
-	window_t * n_focused = top_at(x, y);
+	server_window_t * n_focused = top_at(x, y);
 	set_focused_window(n_focused);
 }
 
-/* Internal drawing functions */
+server_window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
 
-void window_add (window_t * window) {
+	server_window_t * window = malloc(sizeof(server_window_t));
+	if (!window) {
+		fprintf(stderr, "[%d] [window] Could not malloc a server_window_t!", getpid());
+		return NULL;
+	}
+
+	window->owner = pw;
+	window->wid = wid;
+	window->bufid = 0;
+
+	window->width  = width;
+	window->height = height;
+	window->x = x;
+	window->y = y;
+	window->z = index;
+
+	window->rotation = 0;
+
+	char key[1024];
+	SHMKEY(key, 1024, window);
+
+	size_t size = (width * height * WIN_B);
+	window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+
+	if (!window->buffer) {
+		fprintf(stderr, "[%d] [window] Could not create a buffer for a new window for pid %d!", getpid(), pw->pid);
+		free(window);
+		return NULL;
+	}
+
+	list_insert(pw->windows, window);
+
+	return window;
+}
+
+void free_window (server_window_t * window) {
+	/* Free the window buffer */
+	if (!window) return;
+	char key[256];
+	SHMKEY(key, 256, window);
+	syscall_shm_release(key);
+
+	/* Now, kill the object itself */
+	process_windows_t * pw = window->owner;
+
+	node_t * n = list_find(pw->windows, window);
+	if (n) {
+		list_delete(pw->windows, n);
+		free(n);
+	}
+}
+
+void resize_window_buffer (server_window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
+
+	if (!window) {
+		return;
+	}
+	/* If the window has enlarged, we need to create a new buffer */
+	if ((width * height) > (window->width * window->height)) {
+		/* Release the old buffer */
+		char key[256], keyn[256];
+		SHMKEY(key, 256, window);
+
+		/* Create the new one */
+		window->bufid++;
+		SHMKEY(keyn, 256, window);
+
+		size_t size = (width * height * WIN_B);
+		char * new_buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
+		memset(new_buffer, 0x44, size);
+		window->buffer = new_buffer;
+		syscall_shm_release(key);
+	}
+
+	if (left != 0 && top != 0) {
+		window->x = left;
+		window->y = top;
+	}
+	window->width = width;
+	window->height = height;
+}
+
+
+void window_add (server_window_t * window) {
 	int z = window->z;
 	while (windows[z]) {
 		z++;
 	}
 	window->z = z;
 
+	window->anim_start = tick_count;
+	window->anim_mode  = 1;
+
 	memset(window->buffer, 0x00, WIN_B * window->width * window->height);
 
 	windows[z] = window;
 }
 
-void unorder_window (window_t * window) {
+void unorder_window (server_window_t * window) {
 	int z = window->z;
 	if (z < WINDOW_LAYERS && windows[z]) {
 		windows[z] = 0;
@@ -360,7 +431,7 @@ void unorder_window (window_t * window) {
 	return;
 }
 
-void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
+void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 	int stride = window->width * 4; //cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, window->width);
 	cairo_surface_t * win = cairo_image_surface_create_for_data(window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
 
@@ -387,21 +458,54 @@ void blit_window_cairo(window_t * window, int32_t left, int32_t top) {
 		cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
 	}
 
-	if (_animation_mode && window == focused_window()) {
-		double x = 0.75 + ((double)_animation_frame / 256.0) * 0.25;
+	if (window->anim_mode) {
 
-		int t_x = (window->width * (1.0 - x)) / 2;
-		int t_y = (window->height * (1.0 - x)) / 2;
+		int frame = tick_count - window->anim_start;
+		if (frame >= animation_lengths[window->anim_mode]) {
+			if (window->anim_mode == 1) {
+				window->anim_mode = 0;
+				window->anim_start = 0;
+				goto paint_window;
+			} else if (window->anim_mode == 2) {
+				window->anim_mode = 1;
+				window->anim_start = tick_count;
+			} else if (window->anim_mode == 3) {
+				window->anim_mode = 4;
+				{
+					char buf[512];
+					sprintf(buf, "windows_to_clean = %p\n", windows_to_clean);
+					syscall_print(buf);
+				}
+				list_insert(windows_to_clean, window);
+			}
+		} else {
+			if (window->anim_mode == 4) {
+				goto done_drawing;
+			}
+			if (window->anim_mode == 2) {
+				frame = 255 - frame;
+			}
+			if (window->anim_mode == 3) {
+				frame = 255 - frame;
+			}
+			double x = 0.75 + ((double)frame / 256.0) * 0.25;
 
-		cairo_translate(cr, t_x, t_y);
+			int t_x = (window->width * (1.0 - x)) / 2;
+			int t_y = (window->height * (1.0 - x)) / 2;
 
-		cairo_scale(cr, x, x);
-		cairo_set_source_surface(cr, win, 0, 0);
-		cairo_paint_with_alpha(cr, (double)_animation_frame / 256.0);
+			cairo_translate(cr, t_x, t_y);
+
+			cairo_scale(cr, x, x);
+			cairo_set_source_surface(cr, win, 0, 0);
+			cairo_paint_with_alpha(cr, (double)frame / 256.0);
+		}
 	} else {
+paint_window:
 		cairo_set_source_surface(cr, win, 0, 0);
 		cairo_paint(cr);
 	}
+
+done_drawing:
 
 	cairo_surface_destroy(win);
 
@@ -496,11 +600,11 @@ void redraw_scale_mode() {
 		last_row_width = (double)ctx->width / (double)remaining;
 	}
 
-	window_t * n_focus = NULL;
+	server_window_t * n_focus = NULL;
 
 	for (uint32_t i = 1; i < WINDOW_LAYERS - 1; ++i) {
 		if (windows[i]) {
-			window_t * window = windows[i];
+			server_window_t * window = windows[i];
 			int w = window->width;
 			int h = window->height;
 
@@ -580,7 +684,7 @@ void redraw_windows() {
 	cs = cairo_create(selface);
 
 	for (uint32_t i = 0; i < WINDOW_LAYERS; ++i) {
-		window_t * window = NULL;
+		server_window_t * window = NULL;
 		if (windows[i]) {
 			window = windows[i];
 			if (window == moving_window) {
@@ -614,7 +718,7 @@ void redraw_windows() {
 	cairo_surface_destroy(selface);
 }
 
-void internal_free_window(window_t * window) {
+void internal_free_window(server_window_t * window) {
 	if (window == focused_window()) {
 		if (window->z == 0xFFFF) {
 			focused = NULL;
@@ -629,7 +733,7 @@ void internal_free_window(window_t * window) {
 	}
 }
 
-void destroy_window(window_t * win) {
+void actually_destroy_window(server_window_t * win) {
 	win->x = 0xFFFF;
 	internal_free_window(win);
 	unorder_window(win);
@@ -637,6 +741,11 @@ void destroy_window(window_t * win) {
 	spin_lock(&am_drawing);
 	spin_unlock(&am_drawing);
 	free_window(win);
+}
+
+void destroy_window(server_window_t * win) {
+	win->anim_mode = 3;
+	win->anim_start = tick_count;
 }
 
 void process_window_command (int sig) {
@@ -669,7 +778,7 @@ void process_window_command (int sig) {
 					{
 						read(pw->command_pipe, &wwt, sizeof(w_window_t));
 						wwt.wid = _next_wid;
-						window_t * new_window = init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid);
+						server_window_t * new_window = init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid);
 						window_add(new_window);
 						_next_wid++;
 						send_window_event(pw, WE_NEWWINDOW, &wwt);
@@ -679,15 +788,14 @@ void process_window_command (int sig) {
 				case WC_SET_ALPHA:
 					{
 						read(pw->command_pipe, &wwt, sizeof(w_window_t));
-						window_t * window = get_window_with_process(pw, wwt.wid);
-						window->use_alpha = wwt.left;
+						/* XXX ignored */
 					}
 					break;
 
 				case WC_RESIZE:
 					{
 						read(pw->command_pipe, &wwt, sizeof(w_window_t));
-						window_t * window = get_window_with_process(pw, wwt.wid);
+						server_window_t * window = get_window_with_process(pw, wwt.wid);
 						resize_window_buffer(window, window->x, window->y, wwt.width, wwt.height);
 						send_window_event(pw, WE_RESIZED, &wwt);
 					}
@@ -695,7 +803,7 @@ void process_window_command (int sig) {
 
 				case WC_DESTROY:
 					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					window_t * win = get_window_with_process(pw, wwt.wid);
+					server_window_t * win = get_window_with_process(pw, wwt.wid);
 
 					destroy_window(win);
 					send_window_event(pw, WE_DESTROYED, &wwt);
@@ -875,7 +983,7 @@ void load_fonts() {
 /**
  * Keybindings
  */
-int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
+int handle_key_press(w_keyboard_t * keyboard, server_window_t * window) {
 
 	if (keyboard->event.action != KEY_ACTION_DOWN) return 0;
 
@@ -890,8 +998,9 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 	    (keyboard->event.keycode == 'a')) {
 		/* reset the animation and start from scratch */
-		_animation_mode = 1;
-		_animation_frame  = 0;
+		server_window_t * win = focused_window();
+		win->anim_mode = 1;
+		win->anim_start = tick_count;
 		return 1;
 	}
 
@@ -899,15 +1008,16 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 	    (keyboard->event.keycode == 's')) {
 		/* reset the animation and go backwards */
-		_animation_mode = 2;
-		_animation_frame  = 256;
+		server_window_t * win = focused_window();
+		win->anim_mode = 2;
+		win->anim_start = tick_count;
 		return 1;
 	}
 
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 	    (keyboard->event.keycode == 'z')) {
-		window_t * win = focused_window();
+		server_window_t * win = focused_window();
 		if (win) {
 			win->rotation -= 5;
 			if (win->rotation < 0) win->rotation += 360;
@@ -918,7 +1028,7 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 	    (keyboard->event.keycode == 'x')) {
-		window_t * win = focused_window();
+		server_window_t * win = focused_window();
 		if (win) {
 			win->rotation += 5;
 			if (win->rotation >= 360) win->rotation -= 360;
@@ -929,7 +1039,7 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 	    (keyboard->event.keycode == 'c')) {
-		window_t * win = focused_window();
+		server_window_t * win = focused_window();
 		if (win) {
 			win->rotation = 0;
 			return 1;
@@ -957,7 +1067,7 @@ int handle_key_press(w_keyboard_t * keyboard, window_t * window) {
 	return 0;
 }
 
-void device_to_window(window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+void device_to_window(server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
 	*out_x = x - window->x;
 	*out_y = y - window->y;
 
@@ -984,7 +1094,7 @@ void * process_requests(void * garbage) {
 	click_y = 0;
 
 	uint16_t _mouse_state = 0;
-	window_t * _mouse_window = NULL;
+	server_window_t * _mouse_window = NULL;
 	int32_t _mouse_init_x;
 	int32_t _mouse_init_y;
 	int32_t _mouse_win_x;
@@ -1192,7 +1302,7 @@ void * keyboard_input(void * garbage) {
 		if (r > 0) {
 			w_keyboard_t packet;
 			packet.ret = kbd_scancode(buf[0], &packet.event);
-			window_t * focused = focused_window();
+			server_window_t * focused = focused_window();
 			if (!handle_key_press(&packet, focused)) {
 				if (focused) {
 					packet.wid = focused->wid;
@@ -1216,27 +1326,18 @@ void * redraw_thread(void * derp) {
 			default:
 				redraw_windows();
 		}
-		if (_animation_mode == 1) {
-			if (_animation_frame < 256) {
-				_animation_frame += 10;
-				if (_animation_frame > 256) {
-					_animation_mode = 0;
-					_animation_frame = 256;
-				}
-			}
-		} else if (_animation_mode == 2) {
-			if (_animation_frame > 0) {
-				_animation_frame -= 10;
-				if (_animation_frame < 0) {
-					_animation_mode = 3;
-					_animation_frame = 0;
-				}
-			}
-		}
 		/* Other stuff */
 		redraw_cursor();
-
 		spin_unlock(&am_drawing);
+
+		tick_count += 10;
+		node_t * win;
+		while (windows_to_clean->head) {
+			win = list_pop(windows_to_clean);
+			server_window_t * w = (server_window_t *)win->value;
+			actually_destroy_window(w);
+		}
+
 		flip(ctx);
 		flip(select_ctx);
 		syscall_yield();
@@ -1275,6 +1376,8 @@ int main(int argc, char ** argv) {
 
 	/* load the mouse cursor */
 	init_sprite(SPRITE_MOUSE, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
+
+	windows_to_clean = list_create();
 
 	/* Grab the mouse */
 	int mfd = syscall_mousedevice();
