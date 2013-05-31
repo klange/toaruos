@@ -19,7 +19,6 @@ bootloader/stage2.bin
 hdd/bin/*
 hdd/boot
 hdd/etc/hostname
-hdd/etc/vimrc
 hdd/home/local/*
 hdd/home/root/*
 hdd/lib
