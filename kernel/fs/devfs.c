@@ -37,7 +37,7 @@ uint32_t write_devfs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 
 
 fs_node_t *
-devfs_create_keyboard() {
+devfs_create_keyboard(void) {
 	return NULL;
 }
 

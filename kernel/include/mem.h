@@ -13,7 +13,7 @@ extern uintptr_t heap_end;
 extern void set_frame(uintptr_t frame_addr);
 extern void clear_frame(uintptr_t frame_addr);
 extern uint32_t test_frame(uintptr_t frame_addr);
-extern uint32_t first_frame();
+extern uint32_t first_frame(void);
 
 
 #endif

@@ -130,7 +130,7 @@ char * strcpy(char * dest, const char * src) {
 	return dest;
 }
 
-uint32_t __attribute__ ((pure)) krand() {
+uint32_t __attribute__ ((pure)) krand(void) {
 	static uint32_t x = 123456789;
 	static uint32_t y = 362436069;
 	static uint32_t z = 521288629;

@@ -56,7 +56,7 @@ static uint32_t btos(uint32_t block) {
 static uint8_t volatile lock;
 
 static uint32_t _now = 1;
-static uint32_t ext2_time() {
+static uint32_t ext2_time(void) {
 	return _now++;
 }
 
@@ -992,7 +992,7 @@ uint32_t ext2_ramdisk_node_root(ext2_inodetable_t *inode, fs_node_t *fnode) {
 	return 1;
 }
 
-void ext2_ramdisk_read_superblock() {
+void ext2_ramdisk_read_superblock(void) {
 	kprintf("Volume '%s'\n", SB->volume_name);
 	kprintf("%d inodes\n", SB->inodes_count);
 	kprintf("%d blocks\n", SB->blocks_count);
@@ -1003,7 +1003,7 @@ void ext2_ramdisk_read_superblock() {
 	kprintf("0x%x\n", SB->magic);
 }
 
-void ext2_ramdisk_sync() {
+void ext2_ramdisk_sync(void) {
 	spin_lock(&lock);
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
 		if (DC[i].dirty) {
@@ -1064,7 +1064,7 @@ void ext2_ramdisk_mount(uint32_t offset) {
 	debug_print(NOTICE, "Mounted EXT2 ramdisk, root VFS node is at 0x%x", RN);
 }
 
-void ext2_ramdisk_forget_superblock() {
+void ext2_ramdisk_forget_superblock(void) {
 	free(SB);
 }
 

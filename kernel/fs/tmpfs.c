@@ -410,7 +410,7 @@ fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	return fnode;
 }
 
-fs_node_t * tmpfs_create() {
+fs_node_t * tmpfs_create(void) {
 	tmpfs_root = tmpfs_dir_new("tmp", NULL);
 	tmpfs_root->mask = 0777;
 	tmpfs_root->uid  = 0;

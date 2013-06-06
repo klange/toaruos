@@ -30,8 +30,7 @@ void serial_enable(int device) {
 	outportb(device + 4, 0x0B);
 }
 
-void
-serial_install() {
+void serial_install(void) {
 	debug_print(NOTICE, "Installing serial communication driver");
 
 	serial_enable(SERIAL_PORT_A);

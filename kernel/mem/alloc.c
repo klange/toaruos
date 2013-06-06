@@ -299,7 +299,7 @@ static klmalloc_bin_header * __attribute__ ((always_inline)) klmalloc_list_head(
  * Generate a random value in an appropriate range.
  * This is a xor-shift RNG.
  */
-static uint32_t __attribute__ ((pure)) klmalloc_skip_rand() {
+static uint32_t __attribute__ ((pure)) klmalloc_skip_rand(void) {
 	static uint32_t x = 123456789;
 	static uint32_t y = 362436069;
 	static uint32_t z = 521288629;
@@ -315,7 +315,7 @@ static uint32_t __attribute__ ((pure)) klmalloc_skip_rand() {
 /*
  * Generate a random level for a skip node
  */
-static int __attribute__ ((pure, always_inline)) klmalloc_random_level() {
+static int __attribute__ ((pure, always_inline)) klmalloc_random_level(void) {
 	int level = 0;
 	/*
 	 * Keep trying to check rand() against 50% of its maximum.

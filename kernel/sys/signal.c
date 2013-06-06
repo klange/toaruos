@@ -124,7 +124,7 @@ void handle_signal(process_t * proc, signal_t * sig) {
 
 list_t * rets_from_sig;
 
-void return_from_signal_handler() {
+void return_from_signal_handler(void) {
 #if 0
 	kprintf("[debug] Return From Signal for process %d\n", current_process->id);
 #endif
@@ -140,7 +140,7 @@ void return_from_signal_handler() {
 	switch_next();
 }
 
-void fix_signal_stacks() {
+void fix_signal_stacks(void) {
 	uint8_t redo_me = 0;
 	if (rets_from_sig) {
 		spin_lock(&lock_b);

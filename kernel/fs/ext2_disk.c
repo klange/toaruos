@@ -51,7 +51,7 @@ static uint32_t btos(uint32_t block) {
 static uint8_t volatile lock;
 
 static uint32_t _now = 1;
-static uint32_t ext2_time() {
+static uint32_t ext2_time(void) {
 	return _now++;
 }
 
@@ -986,7 +986,7 @@ uint32_t ext2_disk_node_root(ext2_inodetable_t *inode, fs_node_t *fnode) {
 	return 1;
 }
 
-void ext2_disk_read_superblock() {
+void ext2_disk_read_superblock(void) {
 	debug_print(NOTICE, "Volume '%s'", SB->volume_name);
 	debug_print(NOTICE, "%d inodes", SB->inodes_count);
 	debug_print(NOTICE, "%d blocks", SB->blocks_count);
@@ -998,7 +998,7 @@ void ext2_disk_read_superblock() {
 	debug_print(NOTICE, "feature_incompat = 0x%x", SB->feature_incompat);
 }
 
-void ext2_disk_sync() {
+void ext2_disk_sync(void) {
 	spin_lock(&lock);
 	for (uint32_t i = 0; i < CACHEENTRIES; ++i) {
 		if (DC[i].dirty) {
@@ -1098,7 +1098,7 @@ void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector) {
 	debug_print(NOTICE, "Mounted EXT2 disk, root VFS node is at 0x%x", RN);
 }
 
-void ext2_disk_forget_superblock() {
+void ext2_disk_forget_superblock(void) {
 	free(SB);
 }
 

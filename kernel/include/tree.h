@@ -21,7 +21,7 @@ typedef struct {
 
 typedef uint8_t (*tree_comparator_t) (void *, void *);
 
-tree_t * tree_create();
+tree_t * tree_create(void);
 void tree_set_root(tree_t * tree, void * value);
 void tree_node_destroy(tree_node_t * node);
 void tree_destroy(tree_t * tree);

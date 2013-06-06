@@ -6,7 +6,7 @@
 #include <list.h>
 #include <tree.h>
 
-tree_t * tree_create() {
+tree_t * tree_create(void) {
 	/* Create a new tree */
 	tree_t * out = malloc(sizeof(tree_t));
 	out->nodes  = 0;

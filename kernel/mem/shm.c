@@ -15,7 +15,7 @@ static volatile uint8_t bsl; // big shm lock
 tree_t * shm_tree = NULL;
 
 
-void shm_install() {
+void shm_install(void) {
 	debug_print(NOTICE, "Installing shared memory layer...");
 	shm_tree = tree_create();
 	tree_set_root(shm_tree, NULL);

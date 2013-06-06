@@ -6,7 +6,8 @@ typedef enum {
 	NOTICE,   /* Important, but not bad */
 	WARNING,  /* Not what was expected, but still okay */
 	ERROR,    /* This is bad... */
-	CRITICAL  /* Shit */
+	CRITICAL, /* Shit */
+	INSANE
 } log_type_t;
 
 log_type_t debug_level;

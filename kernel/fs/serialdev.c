@@ -72,7 +72,7 @@ fs_node_t * serial_device_create(int device) {
 	return fnode;
 }
 
-void serial_mount_devices() {
+void serial_mount_devices(void) {
 
 	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A);
 	vfs_mount("/dev/ttyS0", ttyS0);

@@ -52,7 +52,7 @@ void mouse_write(uint8_t write) {
 	outportb(MOUSE_PORT, write);
 }
 
-uint8_t mouse_read() {
+uint8_t mouse_read(void) {
 	mouse_wait(0);
 	char t = inportb(MOUSE_PORT);
 	return t;
@@ -110,7 +110,7 @@ void mouse_handler(struct regs *r) {
 	irq_ack(MOUSE_IRQ);
 }
 
-void mouse_install() {
+void mouse_install(void) {
 	debug_print(NOTICE, "Initializing PS/2 mouse interface");
 	uint8_t status;
 	IRQ_OFF;

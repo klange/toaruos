@@ -44,7 +44,7 @@ extern char * boot_arg_extra; /* Extra data to pass to init */
 
 extern void *sbrk(uintptr_t increment);
 
-extern void tss_flush();
+extern void tss_flush(void);
 
 extern void spin_lock(uint8_t volatile * lock);
 extern void spin_unlock(uint8_t volatile * lock);
@@ -76,36 +76,34 @@ extern size_t lfind(const char * str, const char accept);
 extern size_t rfind(const char * str, const char accept);
 extern size_t strspn(const char * str, const char * accept);
 extern char * strpbrk(const char * str, const char * accept);
-extern uint32_t krand();
+extern uint32_t krand(void);
 extern char * strstr(const char * haystack, const char * needle);
 extern uint8_t startswith(const char * str, const char * accept);
 
 /* VGA driver */
-extern void cls();
+extern void cls(void);
 extern void puts(char *str);
 extern void settextcolor(unsigned char forecolor, unsigned char backcolor);
-extern void resettextcolor();
-extern void brighttextcolor();
-extern void init_video();
+extern void resettextcolor(void);
+extern void brighttextcolor(void);
+extern void init_video(void);
 extern void placech(unsigned char c, int x, int y, int attr);
 extern void writechf(unsigned char c);
 extern void writech(char c);
 extern void place_csr(uint32_t x, uint32_t y);
-extern void store_csr();
-extern void restore_csr();
+extern void store_csr(void);
+extern void restore_csr(void);
 extern void set_serial(int);
 extern void set_csr(int);
 
 /* GDT */
-extern void gdt_install();
-extern void gdt_set_gate(int num, unsigned long base, unsigned long limit, unsigned char access,
-			 unsigned char gran);
+extern void gdt_install(void);
+extern void gdt_set_gate(size_t num, unsigned long base, unsigned long limit, unsigned char access, unsigned char gran);
 extern void set_kernel_stack(uintptr_t stack);
 
 /* IDT */
-extern void idt_install();
-extern void idt_set_gate(unsigned char num, unsigned long base, unsigned short sel,
-			 unsigned char flags);
+extern void idt_install(void);
+extern void idt_set_gate(unsigned char num, void (*base)(void), unsigned short sel, unsigned char flags);
 
 /* Registers */
 struct regs {
@@ -127,31 +125,31 @@ void halt_and_catch_fire(char *error_message, const char *file, int line, struct
 void assert_failed(const char *file, uint32_t line, const char *desc);
 
 /* ISRS */
-extern void isrs_install();
-extern void isrs_install_handler(int isrs, irq_handler_t);
-extern void isrs_uninstall_handler(int isrs);
+extern void isrs_install(void);
+extern void isrs_install_handler(size_t isrs, irq_handler_t);
+extern void isrs_uninstall_handler(size_t isrs);
 
 /* Interrupt Handlers */
-extern void irq_install();
-extern void irq_install_handler(int irq, irq_handler_t);
-extern void irq_uninstall_handler(int irq);
-extern void irq_gates();
-extern void irq_ack();
+extern void irq_install(void);
+extern void irq_install_handler(size_t irq, irq_handler_t);
+extern void irq_uninstall_handler(size_t irq);
+extern void irq_gates(void);
+extern void irq_ack(size_t);
 
 /* Timer */
-extern void timer_install();
+extern void timer_install(void);
 extern unsigned long timer_ticks;
 extern unsigned char timer_subticks;
 extern void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds);
 
 /* Keyboard */
-extern void keyboard_install();
-extern void keyboard_reset_ps2();
-extern void keyboard_wait();
+extern void keyboard_install(void);
+extern void keyboard_reset_ps2(void);
+extern void keyboard_wait(void);
 extern void putch(unsigned char c);
 
 /* Mouse */
-extern void mouse_install();
+extern void mouse_install(void);
 
 /* kprintf */
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
@@ -169,11 +167,11 @@ extern void * kprint_to_file;
 
 extern int    sprintf(char *buf, const char *fmt, ...);
 extern int    kgets(char *buf, int size);
-typedef void (*kgets_redraw_t)();
+typedef void (*kgets_redraw_t)(void);
 extern kgets_redraw_t kgets_redraw_func;
 typedef void (*kgets_tab_complete_t)(char *);
 extern kgets_tab_complete_t kgets_tab_complete_func;
-extern void kgets_redraw_buffer();
+extern void kgets_redraw_buffer(void);
 typedef void (*kgets_special_t)(char *);
 extern kgets_special_t kgets_key_down;
 extern kgets_special_t kgets_key_up;
@@ -199,14 +197,14 @@ extern void switch_page_directory(page_directory_t * new);
 extern page_t *get_page(uintptr_t address, int make, page_directory_t * dir);
 extern void page_fault(struct regs *r);
 extern void dma_frame(page_t * page, int, int, uintptr_t);
-extern void debug_print_directory();
+extern void debug_print_directory(void);
 
-void heap_install();
+void heap_install(void);
 
 void alloc_frame(page_t *page, int is_kernel, int is_writeable);
 void free_frame(page_t *page);
-uintptr_t memory_use();
-uintptr_t memory_total();
+uintptr_t memory_use(void);
+uintptr_t memory_total(void);
 
 /* klmalloc */
 void * __attribute__ ((malloc)) malloc(size_t size);
@@ -216,7 +214,7 @@ void * __attribute__ ((malloc)) valloc(size_t size);
 void free(void *ptr);
 
 /* shell */
-extern void start_shell();
+extern void start_shell(void);
 
 /* Serial */
 #define SERIAL_PORT_A 0x3F8
@@ -226,7 +224,7 @@ extern void start_shell();
 
 #define SERIAL_IRQ 4
 
-extern void serial_install();
+extern void serial_install(void);
 extern int serial_rcvd(int device);
 extern char serial_recv(int device);
 extern char serial_recv_async(int device);
@@ -234,7 +232,7 @@ extern void serial_send(int device, char out);
 extern void serial_string(int device, char * out);
 
 /* Tasks */
-extern uintptr_t read_eip();
+extern uintptr_t read_eip(void);
 extern void copy_page_physical(uint32_t, uint32_t);
 extern page_directory_t * clone_directory(page_directory_t * src);
 extern page_table_t * clone_table(page_table_t * src, uintptr_t * physAddr);
@@ -273,12 +271,12 @@ typedef struct tss_entry {
 	uint16_t	iomap_base;
 } __attribute__ ((packed)) tss_entry_t;
 
-extern void tasking_install();
+extern void tasking_install(void);
 extern void switch_task(uint8_t reschedule);
-extern void switch_next();
-extern uint32_t fork();
+extern void switch_next(void);
+extern uint32_t fork(void);
 extern uint32_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg);
-extern uint32_t getpid();
+extern uint32_t getpid(void);
 extern void enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack);
 
 uintptr_t initial_esp;
@@ -296,11 +294,11 @@ struct timeval {
 };
 
 extern int gettimeofday(struct timeval * t, void * z);
-extern uint32_t now();
+extern uint32_t now(void);
 
 
 /* CPU Detect by Brynet */
-extern int detect_cpu();
+extern int detect_cpu(void);
 
 /* Video Drivers */
 /* Generic (pre-set, 32-bit, linear frame buffer) */
@@ -308,13 +306,13 @@ extern void graphics_install_preset(uint16_t, uint16_t);
 extern uint16_t lfb_resolution_x;
 extern uint16_t lfb_resolution_y;
 extern uint16_t lfb_resolution_b;
-extern uintptr_t lfb_get_address();
+extern uintptr_t lfb_get_address(void);
 extern uint8_t * lfb_vid_memory;
 
 /* BOCHS / QEMU VBE Driver */
 extern void graphics_install_bochs(uint16_t, uint16_t);
 extern void bochs_set_y_offset(uint16_t y);
-extern uint16_t bochs_current_scroll();
+extern uint16_t bochs_current_scroll(void);
 
 /* ANSI Terminal Escape Processor */
 void ansi_put(char c);
@@ -327,15 +325,15 @@ extern uint8_t number_font[][12];
 
 /* Floating Point Unit */
 
-void switch_fpu();
-void auto_fpu();
+void switch_fpu(void);
+void auto_fpu(void);
 
 /* ELF */
 int exec( char *, int, char **, char **);
 int system( char *, int, char **);
 
 /* Sytem Calls */
-void syscalls_install();
+void syscalls_install(void);
 
 /* PCI */
 uint16_t pci_read_word(uint32_t bus, uint32_t slot, uint32_t func, uint16_t offset);

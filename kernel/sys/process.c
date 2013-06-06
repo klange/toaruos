@@ -29,7 +29,7 @@ char * default_name = "[unnamed]";
 /*
  * Initialize the process tree and ready queue.
  */
-void initialize_process_tree() {
+void initialize_process_tree(void) {
 	process_tree = tree_create();
 	process_list = list_create();
 	process_queue = list_create();
@@ -71,7 +71,7 @@ void debug_print_process_tree_node(tree_node_t * node, size_t height) {
 /*
  * Print the process tree to the console.
  */
-void debug_print_process_tree() {
+void debug_print_process_tree(void) {
 	debug_print_process_tree_node(process_tree->root, 0);
 }
 
@@ -81,14 +81,14 @@ void debug_print_process_tree() {
  *
  * @return A pointer to the next process in the queue.
  */
-process_t * next_ready_process() {
+process_t * next_ready_process(void) {
 	node_t * np = list_dequeue(process_queue);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
 	return next;
 }
 
-process_t * next_reapable_process() {
+process_t * next_reapable_process(void) {
 	spin_lock(&reap_lock);
 	node_t * np = list_dequeue(reap_queue);
 	spin_unlock(&reap_lock);
@@ -147,7 +147,7 @@ void delete_process(process_t * proc) {
  *
  * @return A pointer to the new initial process entry
  */
-process_t * spawn_init() {
+process_t * spawn_init(void) {
 	/* We can only do this once. */
 	assert((!process_tree->root) && "Tried to regenerate init!");
 
@@ -211,7 +211,7 @@ process_t * spawn_init() {
  *
  * @return A usable PID for a new process.
  */
-pid_t get_next_pid() {
+pid_t get_next_pid(void) {
 	/* Terribly naïve, I know, but it works for now */
 	static pid_t next = 1;
 	return (next++);
@@ -435,11 +435,11 @@ void set_process_environment(process_t * proc, page_directory_t * directory) {
  *
  * @return 1 if there are processes available, 0 otherwise
  */
-uint8_t process_available() {
+uint8_t process_available(void) {
 	return (process_queue->head != NULL);
 }
 
-uint8_t should_reap() {
+uint8_t should_reap(void) {
 	return (reap_queue->head != NULL);
 }
 

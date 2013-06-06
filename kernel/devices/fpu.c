@@ -29,7 +29,7 @@ set_fpu_cw(const uint16_t cw) {
  * only really operate on 686 machines, we do, so we're not
  * going to bother checking.
  */
-void enable_fpu() {
+void enable_fpu(void) {
 	asm volatile ("clts");
 	size_t t;
 	asm volatile ("mov %%cr4, %0" : "=r"(t));
@@ -37,7 +37,7 @@ void enable_fpu() {
 	asm volatile ("mov %0, %%cr4" :: "r"(t));
 }
 
-void disable_fpu() {
+void disable_fpu(void) {
 	size_t t;
 	asm volatile ("mov %%cr0, %0" : "=r"(t));
 	t |= 1 << 3;
@@ -56,7 +56,7 @@ void save_fpu(process_t * proc) {
 	memcpy((uint8_t *)&proc->thread.fp_regs,&saves,512);
 }
 
-void init_fpu() {
+void init_fpu(void) {
 	asm volatile ("fninit");
 	set_fpu_cw(0x37F);
 }
@@ -78,11 +78,11 @@ void invalid_op(struct regs * r) {
 	restore_fpu(fpu_thread);
 }
 
-void switch_fpu() {
+void switch_fpu(void) {
 	disable_fpu();
 }
 
-void auto_fpu() {
+void auto_fpu(void) {
 	isrs_install_handler(6, &invalid_op);
 	isrs_install_handler(7, &invalid_op);
 }

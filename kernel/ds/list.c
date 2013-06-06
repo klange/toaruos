@@ -81,7 +81,7 @@ node_t * list_insert_after(list_t * list, node_t * before, void * item) {
 	return node;
 }
 
-list_t * list_create() {
+list_t * list_create(void) {
 	/* Create a fresh list */
 	list_t * out = malloc(sizeof(list_t));
 	out->head = NULL;

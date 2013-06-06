@@ -69,7 +69,7 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 /*
  * Device installer for the PIT
  */
-void timer_install() {
+void timer_install(void) {
 	debug_print(NOTICE,"Initializing interval timer");
 	irq_install_handler(TIMER_IRQ, timer_handler);
 	timer_phase(100); /* 100Hz */

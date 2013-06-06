@@ -38,7 +38,7 @@ void keyboard_handler(struct regs *r) {
  * Install the keyboard driver and initialize the
  * pipe device for userspace.
  */
-void keyboard_install() {
+void keyboard_install(void) {
 	debug_print(NOTICE, "Initializing PS/2 keyboard driver");
 
 	/* Create a device pipe */
@@ -49,7 +49,7 @@ void keyboard_install() {
 	irq_install_handler(KEYBOARD_IRQ, keyboard_handler);
 }
 
-void keyboard_reset_ps2() {
+void keyboard_reset_ps2(void) {
 	uint8_t tmp = inportb(0x61);
 	outportb(0x61, tmp | 0x80);
 	outportb(0x61, tmp & 0x7F);
@@ -59,7 +59,7 @@ void keyboard_reset_ps2() {
 /*
  * Wait on the keyboard.
  */
-void keyboard_wait() {
+void keyboard_wait(void) {
 	while(inportb(KEY_PENDING) & 2);
 }
 

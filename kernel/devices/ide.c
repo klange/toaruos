@@ -13,7 +13,7 @@ uint8_t ide_buf[2048] = {0};
 uint8_t ide_irq_invoked = 0;
 uint8_t atapi_packet[12] = {0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-void ide_detect() {
+void ide_detect(void) {
 	
 }
 

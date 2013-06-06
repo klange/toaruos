@@ -126,18 +126,14 @@ clear_frame(
 	frames[index] &= ~(0x1 << offset);
 }
 
-uint32_t
-test_frame(
-		uintptr_t frame_addr
-		) {
+uint32_t test_frame(uintptr_t frame_addr) {
 	uint32_t frame  = frame_addr / 0x1000;
 	uint32_t index  = INDEX_FROM_BIT(frame);
 	uint32_t offset = OFFSET_FROM_BIT(frame);
 	return (frames[index] & (0x1 << offset));
 }
 
-uint32_t
-first_frame() {
+uint32_t first_frame(void) {
 	uint32_t i, j;
 
 	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
@@ -215,8 +211,7 @@ free_frame(
 	}
 }
 
-uintptr_t
-memory_use() {
+uintptr_t memory_use(void ) {
 	uintptr_t ret = 0;
 	uint32_t i, j;
 	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
@@ -268,8 +263,7 @@ paging_install(uint32_t memsize) {
 	switch_page_directory(kernel_directory);
 }
 
-void
-debug_print_directory() {
+void debug_print_directory(void) {
 	debug_print(INFO, " ---- [k:0x%x u:0x%x]", kernel_directory, current_directory);
 	for (uintptr_t i = 0; i < 1024; ++i) {
 		if (!current_directory->tables[i] || (uintptr_t)current_directory->tables[i] == (uintptr_t)0xFFFFFFFF) {
@@ -366,8 +360,7 @@ page_fault(
  */
 
 
-void
-heap_install() {
+void heap_install(void ) {
 	heap_end = (placement_pointer + 0x1000) & ~0xFFF;
 }
 

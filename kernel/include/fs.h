@@ -107,16 +107,16 @@ struct stat  {
 };
 
 extern fs_node_t *fs_root;
-extern fs_node_t * null_device_create();
-extern fs_node_t * zero_device_create();
+extern fs_node_t * null_device_create(void);
+extern fs_node_t * zero_device_create(void);
 extern fs_node_t * serial_device_create(int device);
-extern fs_node_t * procfs_create();
-extern fs_node_t * tmpfs_create();
-extern void serial_mount_devices();
+extern fs_node_t * procfs_create(void);
+extern fs_node_t * tmpfs_create(void);
+extern void serial_mount_devices(void);
 extern int openpty(int * master, int * slave, char * name, void * _ign0, void * size);
 
-extern fs_node_t * hello_device_create();
-extern fs_node_t * random_device_create();
+extern fs_node_t * hello_device_create(void);
+extern fs_node_t * random_device_create(void);
 
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -133,10 +133,10 @@ int ioctl_fs(fs_node_t *node, int request, void * argp);
 int chmod_fs(fs_node_t *node, int mode);
 int unlink_fs(char * name);
 
-void vfs_install();
+void vfs_install(void);
 int vfs_mount(char * path, fs_node_t * local_root);
 
 /* Debug purposes only, please */
-void debug_print_vfs_tree();
+void debug_print_vfs_tree(void);
 
 #endif

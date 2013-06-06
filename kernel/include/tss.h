@@ -3,7 +3,7 @@
 #ifndef _TSS_H
 #define _TSS_H
 
-extern void tss_flush();
+extern void tss_flush(void);
 
 struct tss_entry_s {
 	uintptr_t previous;

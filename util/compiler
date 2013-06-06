@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [[ "x$CROSS_GCC" == "x1" ]] ; then
+    echo "i686-pc-toaru-gcc"
+    exit 0
+fi
+
 if [[ -n `which clang` ]] ; then
 	echo "clang -ccc-host-triple i686-elf"
 elif [[ -n `which i686-pc-toaru-gcc` ]] ; then

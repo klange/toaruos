@@ -16,4 +16,6 @@ char * __kernel_arch;
 char * __kernel_build_date;
 char * __kernel_build_time;
 
+char * __kernel_compiler_version;
+
 #endif

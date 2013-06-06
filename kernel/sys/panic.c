@@ -4,7 +4,7 @@
  */
 #include <system.h>
 
-void kernel_halt() {
+void kernel_halt(void) {
 	kprintf("\n System Halted!\n\n");
 
 	while (1) {

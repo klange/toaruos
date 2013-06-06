@@ -18,7 +18,8 @@ static char * c_messages[] = {
 	"\033[1;35mNOTICE",
 	"\033[1;33mWARNING",
 	"\033[1;31mERROR",
-	"\033[1;37;41mCRITICAL"
+	"\033[1;37;41mCRITICAL",
+	"\033[1;31;44mINSANE"
 };
 
 

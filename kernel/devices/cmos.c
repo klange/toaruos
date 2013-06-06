@@ -140,7 +140,7 @@ gettimeofday(struct timeval * t, void *z) {
 	return 0;
 }
 
-uint32_t now() {
+uint32_t now(void) {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return t.tv_sec;

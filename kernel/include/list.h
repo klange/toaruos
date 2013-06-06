@@ -23,7 +23,7 @@ void list_destroy(list_t * list);
 void list_free(list_t * list);
 void list_append(list_t * list, node_t * item);
 node_t * list_insert(list_t * list, void * item);
-list_t * list_create();
+list_t * list_create(void);
 node_t * list_find(list_t * list, void * value);
 int list_index_of(list_t * list, void * value);
 void list_remove(list_t * list, size_t index);

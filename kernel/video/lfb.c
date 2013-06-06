@@ -28,7 +28,7 @@ static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
 	lfb_resolution_b = b;
 }
 
-uintptr_t lfb_get_address() {
+uintptr_t lfb_get_address(void) {
 	return (uintptr_t)lfb_vid_memory;
 }
 
@@ -41,7 +41,7 @@ void bochs_set_y_offset(uint16_t y) {
 	current_scroll = y;
 }
 
-uint16_t bochs_current_scroll() {
+uint16_t bochs_current_scroll(void) {
 	return current_scroll;
 }
 

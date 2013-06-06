@@ -41,7 +41,7 @@ struct gdt_ptr		gp;
  * (ASM) gdt_flush
  * Reloads the segment registers
  */
-extern void gdt_flush();
+extern void gdt_flush(void);
 
 /**
  * Set a GDT descriptor
@@ -54,7 +54,7 @@ extern void gdt_flush();
  */
 void
 gdt_set_gate(
-		int num,
+		size_t num,
 		unsigned long base,
 		unsigned long limit,
 		unsigned char access,
@@ -78,7 +78,7 @@ gdt_set_gate(
  * Install the kernel's GDTs
  */
 void
-gdt_install() {
+gdt_install(void) {
 	/* GDT pointer and limits */
 	gp.limit = (sizeof(struct gdt_entry) * 6) - 1;
 	gp.base = (unsigned int)&gdt;

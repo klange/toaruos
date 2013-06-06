@@ -6,51 +6,43 @@
 #include <system.h>
 #include <logging.h>
 
-extern void _irq0();
-extern void _irq1();
-extern void _irq2();
-extern void _irq3();
-extern void _irq4();
-extern void _irq5();
-extern void _irq6();
-extern void _irq7();
-extern void _irq8();
-extern void _irq9();
-extern void _irq10();
-extern void _irq11();
-extern void _irq12();
-extern void _irq13();
-extern void _irq14();
-extern void _irq15();
+extern void _irq0(void);
+extern void _irq1(void);
+extern void _irq2(void);
+extern void _irq3(void);
+extern void _irq4(void);
+extern void _irq5(void);
+extern void _irq6(void);
+extern void _irq7(void);
+extern void _irq8(void);
+extern void _irq9(void);
+extern void _irq10(void);
+extern void _irq11(void);
+extern void _irq12(void);
+extern void _irq13(void);
+extern void _irq14(void);
+extern void _irq15(void);
 
 static irq_handler_t irq_routines[16] = { NULL };
 
 /*
  * Install an interupt handler for a hardware device.
  */
-void
-irq_install_handler(
-		int irq,
-		irq_handler_t handler
-		) {
+void irq_install_handler(size_t irq, irq_handler_t handler) {
 	irq_routines[irq] = handler;
 }
 
 /*
  * Remove an interrupt handler for a hardware device.
  */
-void
-irq_uninstall_handler(
-		int irq
-		) {
+void irq_uninstall_handler(size_t irq) {
 	irq_routines[irq] = 0;
 }
 
 /*
  * Remap interrupt handlers
  */
-void
-irq_remap() {
+void irq_remap(void) {
 	outportb(0x20, 0x11);
 	outportb(0xA0, 0x11);
 	outportb(0x21, 0x20);
@@ -63,45 +55,42 @@ irq_remap() {
 	outportb(0xA1, 0x0);
 }
 
-void
-irq_gates() {
-	idt_set_gate(32, (unsigned)_irq0, 0x08, 0x8E);
-	idt_set_gate(33, (unsigned)_irq1, 0x08, 0x8E);
-	idt_set_gate(34, (unsigned)_irq2, 0x08, 0x8E);
-	idt_set_gate(35, (unsigned)_irq3, 0x08, 0x8E);
-	idt_set_gate(36, (unsigned)_irq4, 0x08, 0x8E);
-	idt_set_gate(37, (unsigned)_irq5, 0x08, 0x8E);
-	idt_set_gate(38, (unsigned)_irq6, 0x08, 0x8E);
-	idt_set_gate(39, (unsigned)_irq7, 0x08, 0x8E);
-	idt_set_gate(40, (unsigned)_irq8, 0x08, 0x8E);
-	idt_set_gate(41, (unsigned)_irq9, 0x08, 0x8E);
-	idt_set_gate(42, (unsigned)_irq10, 0x08, 0x8E);
-	idt_set_gate(43, (unsigned)_irq11, 0x08, 0x8E);
-	idt_set_gate(44, (unsigned)_irq12, 0x08, 0x8E);
-	idt_set_gate(45, (unsigned)_irq13, 0x08, 0x8E);
-	idt_set_gate(46, (unsigned)_irq14, 0x08, 0x8E);
-	idt_set_gate(47, (unsigned)_irq15, 0x08, 0x8E);
+void irq_gates(void) {
+	idt_set_gate(32, _irq0, 0x08, 0x8E);
+	idt_set_gate(33, _irq1, 0x08, 0x8E);
+	idt_set_gate(34, _irq2, 0x08, 0x8E);
+	idt_set_gate(35, _irq3, 0x08, 0x8E);
+	idt_set_gate(36, _irq4, 0x08, 0x8E);
+	idt_set_gate(37, _irq5, 0x08, 0x8E);
+	idt_set_gate(38, _irq6, 0x08, 0x8E);
+	idt_set_gate(39, _irq7, 0x08, 0x8E);
+	idt_set_gate(40, _irq8, 0x08, 0x8E);
+	idt_set_gate(41, _irq9, 0x08, 0x8E);
+	idt_set_gate(42, _irq10, 0x08, 0x8E);
+	idt_set_gate(43, _irq11, 0x08, 0x8E);
+	idt_set_gate(44, _irq12, 0x08, 0x8E);
+	idt_set_gate(45, _irq13, 0x08, 0x8E);
+	idt_set_gate(46, _irq14, 0x08, 0x8E);
+	idt_set_gate(47, _irq15, 0x08, 0x8E);
 }
 
 /*
  * Set up interrupt handler for hardware devices.
  */
-void
-irq_install() {
+void irq_install(void) {
 	irq_remap();
 	irq_gates();
 	IRQ_RES;
 }
 
-void irq_ack(int irq_no) {
+void irq_ack(size_t irq_no) {
 	if (irq_no >= 12) {
 		outportb(0xA0, 0x20);
 	}
 	outportb(0x20, 0x20);
 }
 
-void
-irq_handler(struct regs *r) {
+void irq_handler(struct regs *r) {
 	IRQ_OFF;
 	void (*handler)(struct regs *r);
 	if (r->int_no > 47 || r->int_no < 32) {

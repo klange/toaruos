@@ -121,6 +121,7 @@ void reap_process(process_t * proc) {
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	}
 	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
+	debug_print_process_tree();
 	set_reaped(proc);
 }
 
@@ -162,8 +163,7 @@ clone_table(
 /*
  * Install multitasking functionality.
  */
-void
-tasking_install() {
+void tasking_install(void) {
 	IRQ_OFF; /* Disable interrupts */
 
 	debug_print(NOTICE, "Initializing multitasking");
@@ -186,8 +186,7 @@ tasking_install() {
  *
  * @return To the parent: PID of the child; to the child: 0
  */
-uint32_t
-fork() {
+uint32_t fork(void) {
 	IRQ_OFF;
 
 	unsigned int magic = TASK_MAGIC;
@@ -370,8 +369,7 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
  *
  * @return The PID of the current process.
  */
-uint32_t
-getpid() {
+uint32_t getpid(void) {
 	/* Fairly self-explanatory. */
 	return current_process->id;
 }
@@ -444,8 +442,7 @@ switch_task(uint8_t reschedule) {
  *
  * Does not store the ESP/EBP/EIP of the current thread.
  */
-void
-switch_next() {
+void switch_next(void) {
 	uintptr_t esp, ebp, eip;
 	/* Get the next available process */
 	while (!process_available()) {

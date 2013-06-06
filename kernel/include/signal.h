@@ -5,8 +5,8 @@
 #define SIGNAL_H
 
 #include <types.h>
-void return_from_signal_handler();
-void fix_signal_stacks();
+void return_from_signal_handler(void);
+void fix_signal_stacks(void);
 
 #include <signal_defs.h>
 

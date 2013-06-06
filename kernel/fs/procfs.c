@@ -4,7 +4,7 @@
 #include <version.h>
 #include <process.h>
 
-#define PROCFS_STANDARD_ENTRIES 5
+#define PROCFS_STANDARD_ENTRIES 6
 #define PROCFS_PROCDIR_ENTRIES  2
 
 struct procfs_entry {
@@ -205,12 +205,25 @@ uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	return size;
 }
 
+uint32_t compiler_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char buf[1024];
+	sprintf(buf, "%s\n", __kernel_compiler_version);
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf, size);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
-	{-1, "cpuinfo", cpuinfo_func},
-	{-2, "meminfo", meminfo_func},
-	{-3, "uptime",  uptime_func},
-	{-4, "cmdline", cmdline_func},
-	{-5, "version", version_func},
+	{-1, "cpuinfo",  cpuinfo_func},
+	{-2, "meminfo",  meminfo_func},
+	{-3, "uptime",   uptime_func},
+	{-4, "cmdline",  cmdline_func},
+	{-5, "version",  version_func},
+	{-6, "compiler", compiler_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
@@ -274,7 +287,7 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 }
 
 
-fs_node_t * procfs_create() {
+fs_node_t * procfs_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;

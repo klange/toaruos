@@ -26,7 +26,7 @@ void close_null(fs_node_t * node) {
 	return;
 }
 
-fs_node_t * null_device_create() {
+fs_node_t * null_device_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;

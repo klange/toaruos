@@ -200,7 +200,7 @@ static int sys_sbrk(int size) {
 	return ret;
 }
 
-static int sys_getpid() {
+static int sys_getpid(void) {
 	/* The user actually wants the pid of the originating thread (which can be us). */
 	if (current_process->group) {
 		return current_process->group;
@@ -211,7 +211,7 @@ static int sys_getpid() {
 }
 
 /* Actual getpid() */
-static int gettid() {
+static int gettid(void) {
 	return getpid();
 }
 
@@ -253,7 +253,7 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	return -1;
 }
 
-static int getgraphicsaddress() {
+static int getgraphicsaddress(void) {
 	return (int)lfb_get_address();
 }
 
@@ -350,19 +350,19 @@ static int setgraphicsoffset(int rows) {
 	return 0;
 }
 
-static int getgraphicswidth() {
+static int getgraphicswidth(void) {
 	return lfb_resolution_x;
 }
 
-static int getgraphicsheight() {
+static int getgraphicsheight(void) {
 	return lfb_resolution_y;
 }
 
-static int getgraphicsdepth() {
+static int getgraphicsdepth(void) {
 	return lfb_resolution_b;
 }
 
-static int mkpipe() {
+static int mkpipe(void) {
 	fs_node_t * node = make_pipe(4096 * 2);
 	return process_append_fd((process_t *)current_process, node);
 }
@@ -372,7 +372,7 @@ static int dup2(int old, int new) {
 	return new;
 }
 
-static int getuid() {
+static int getuid(void) {
 	return current_process->user;
 }
 
@@ -476,9 +476,9 @@ static void inspect_memory (uintptr_t vaddr) {
 }
 */
 
-extern void ext2_disk_sync();
+extern void ext2_disk_sync(void);
 
-static int reboot() {
+static int reboot(void) {
 	debug_print(NOTICE, "[kernel] Reboot requested from process %d by user #%d", current_process->id, current_process->user);
 	if (current_process->user != USER_ROOT_UID) {
 		return -1;
@@ -539,7 +539,7 @@ static int gethostname(char * buffer) {
 	return hostname_len;
 }
 
-static int mousedevice() {
+static int mousedevice(void) {
 	extern fs_node_t * mouse_pipe;
 	return process_append_fd((process_t *)current_process, mouse_pipe);
 }
@@ -583,7 +583,7 @@ static int get_fd(uintptr_t fn) {
  * Yield the rest of the quantum;
  * useful for busy waiting and other such things
  */
-static int yield() {
+static int yield(void) {
 	switch_task(1);
 	return 1;
 }
@@ -748,7 +748,7 @@ void syscall_handler(struct regs * r) {
 	}
 }
 
-void syscalls_install() {
+void syscalls_install(void) {
 	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
 	debug_print(NOTICE, "Initializing syscall table with %d functions", num_syscalls);
 	isrs_install_handler(0x7F, &syscall_handler);
