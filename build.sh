@@ -1,11 +1,11 @@
 #!/bin/bash
 
 if [ -f /etc/debian_version ]; then
-    sudo apt-get install clang yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp3-dev qemu autoconf automake texinfo pkg-config
+    sudo apt-get install yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp3-dev qemu autoconf automake texinfo pkg-config
 elif [ -f /etc/fedora-release ]; then
     sudo yum groupinstall 'Development Tools'
     sudo yum groupinstall 'Development Libraries'
-    sudo yum install clang yasm mpfr-devel libmpc-devel gmp-devel
+    sudo yum install yasm mpfr-devel libmpc-devel gmp-devel
     echo "Warning: Fedora is unsupported in this script. Be careful!"
     echo "For best results, follow the steps in the script manually."
     echo "(Script will continue in 5 seconds)"

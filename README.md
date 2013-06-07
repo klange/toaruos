@@ -93,14 +93,9 @@ If you have any issues at all while attempting to build とあるOS, or you woul
 
 ## Dependencies ##
 
-### Kernel ###
-To build the kernel, you will need `yasm`, `clang`, and GNU `ld` (which you undoubtedly have if you have `clang` or `gcc`).
-
-### Hard disks ###
-You will need `genext2fs` to generate the EXT2 images for the hard disk drive.
-
-### Userspace ###
 A toolchain is provided and can be built through `build.sh`; this script should be able to install its own dependencies on Ubuntu/Debian and Fedora. Other environments are not supported, but examination for the script should provide a reference point on what packages are necessary.
+
+The build process generally requires `yasm`, a working C compilation environment to build a cross toolchain of GCC and binutils, and `genext2fs` to generate EXT2 disk images from your host's userspace.
 
 ## References ##
 Here are some tutorials we found useful early on:

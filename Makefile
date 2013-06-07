@@ -2,8 +2,10 @@
 # This script will pull either clang (with -fcolor-diagnostics), gcc (with no extra options), or cc
 #
 ifeq ($(CCC_ANALYZE),yes)
+# CC is set by CCC_ANALYZE to clang
+# It is not recommended that you use a kernel built this way
 else
-CC = `util/compiler`
+CC = i686-pc-toaru-gcc
 endif
 # CFLAGS for core components
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -Wstrict-prototypes -g
