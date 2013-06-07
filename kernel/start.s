@@ -84,6 +84,17 @@ idt_load:
 	lidt [idtp]
 	ret
 
+; Return to Userspace (from thread creation)
+global return_to_userspace
+return_to_userspace:
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popa
+	add esp, 8
+	iret
+
 ; Interrupt Service Routines
 %macro ISR_NOERR 1
 	global _isr%1

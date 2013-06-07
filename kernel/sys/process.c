@@ -158,7 +158,7 @@ process_t * spawn_init(void) {
 	/* Set its tree entry pointer so we can keep track
 	 * of the process' entry in the process tree. */
 	init->tree_entry = process_tree->root;
-	init->id      = 0;       /* Init is PID 1 */
+	init->id      = 1;       /* Init is PID 1 */
 	init->group   = 0;
 	init->name    = strdup("init");  /* Um, duh. */
 	init->cmdline = NULL;
@@ -201,8 +201,12 @@ process_t * spawn_init(void) {
 	init->sleep_node.next = NULL;
 	init->sleep_node.value = init;
 
+	set_process_environment(init, current_directory);
+
 	/* What the hey, let's also set the description on this one */
 	init->description = strdup("[init]");
+	list_insert(process_list, (void *)init);
+
 	return init;
 }
 
@@ -213,7 +217,7 @@ process_t * spawn_init(void) {
  */
 pid_t get_next_pid(void) {
 	/* Terribly naïve, I know, but it works for now */
-	static pid_t next = 1;
+	static pid_t next = 2;
 	return (next++);
 }
 

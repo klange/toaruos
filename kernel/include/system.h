@@ -49,6 +49,8 @@ extern void tss_flush(void);
 extern void spin_lock(uint8_t volatile * lock);
 extern void spin_unlock(uint8_t volatile * lock);
 
+extern void return_to_userspace(void);
+
 /* Kernel Main */
 extern int max(int,int);
 extern int min(int,int);

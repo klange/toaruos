@@ -13,6 +13,9 @@
 
 uint32_t next_pid = 0;
 
+#define PUSH(stack, type, item) stack -= sizeof(type); \
+							*((type *) stack) = item
+
 /*
  * Clone a page directory and its contents.
  * (If you do not intend to clone the contents, do it yourself!)
@@ -173,7 +176,9 @@ void tasking_install(void) {
 	/* Spawn the initial process */
 	current_process = spawn_init();
 	/* Initialize the paging environment */
+#if 0
 	set_process_environment((process_t *)current_process, current_directory);
+#endif
 	/* Switch to the kernel directory */
 	switch_page_directory(current_process->thread.page_directory);
 
@@ -189,8 +194,7 @@ void tasking_install(void) {
 uint32_t fork(void) {
 	IRQ_OFF;
 
-	unsigned int magic = TASK_MAGIC;
-	uintptr_t esp, ebp, eip;
+	uintptr_t esp, ebp;
 
 	current_process->syscall_registers->eax = 0;
 
@@ -207,70 +211,52 @@ uint32_t fork(void) {
 	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to clone */
 	set_process_environment(new_proc, directory);
-	/* Read the instruction pointer */
-	eip = read_eip();
 
-	if (current_process == parent) {
-		/* Returned as the parent */
-		/* Verify magic */
-		assert(magic == TASK_MAGIC && "Bad process fork magic (parent)!");
-		/* Collect the stack and base pointers */
-		asm volatile ("mov %%esp, %0" : "=r" (esp));
-		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
-		/* Calculate new ESP and EBP for the child process */
-		if (current_process->image.stack > new_proc->image.stack) {
-			new_proc->thread.esp = esp - (current_process->image.stack - new_proc->image.stack);
-			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
-		} else {
-			new_proc->thread.esp = esp + (new_proc->image.stack - current_process->image.stack);
-			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
-		}
-		/* Copy the kernel stack from this process to new process */
-		memcpy((void *)(new_proc->image.stack - KERNEL_STACK_SIZE), (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+	struct regs r;
+	memcpy(&r, current_process->syscall_registers, sizeof(struct regs));
+	new_proc->syscall_registers = &r;
 
-		/* Move the syscall_registers pointer */
-		uintptr_t o_stack = ((uintptr_t)current_process->image.stack - KERNEL_STACK_SIZE);
-		uintptr_t n_stack = ((uintptr_t)new_proc->image.stack - KERNEL_STACK_SIZE);
-		uintptr_t offset  = ((uintptr_t)current_process->syscall_registers - o_stack);
-		new_proc->syscall_registers = (struct regs *)(n_stack + offset);
+	esp = new_proc->image.stack;
+	ebp = esp;
 
-		/* Set the new process instruction pointer (to the return from read_eip) */
-		new_proc->thread.eip = eip;
+	new_proc->syscall_registers->eax = 0;
 
-		/* Clear page table tie-ins for shared memory mappings */
+	PUSH(esp, struct regs, r);
+
+	new_proc->thread.esp = esp;
+	new_proc->thread.ebp = ebp;
+
+	new_proc->thread.eip = (uintptr_t)&return_to_userspace;
+
+	/* Clear page table tie-ins for shared memory mappings */
 #if 0
-		assert((new_proc->shm_mappings->length == 0) && "Spawned process had shared memory mappings!");
-		foreach (n, current_process->shm_mappings) {
-			shm_mapping_t * mapping = (shm_mapping_t *)n->value;
+	assert((new_proc->shm_mappings->length == 0) && "Spawned process had shared memory mappings!");
+	foreach (n, current_process->shm_mappings) {
+		shm_mapping_t * mapping = (shm_mapping_t *)n->value;
 
-			for (uint32_t i = 0; i < mapping->num_vaddrs; i++) {
-				/* Get the vpage address (it's the same for the cloned directory)... */
-				uintptr_t vpage = mapping->vaddrs[i];
-				assert(!(vpage & 0xFFF) && "shm_mapping_t contained a ptr to the middle of a page (bad)");
+		for (uint32_t i = 0; i < mapping->num_vaddrs; i++) {
+			/* Get the vpage address (it's the same for the cloned directory)... */
+			uintptr_t vpage = mapping->vaddrs[i];
+			assert(!(vpage & 0xFFF) && "shm_mapping_t contained a ptr to the middle of a page (bad)");
 
-				/* ...and from that, the cloned dir's page entry... */
-				page_t * page = get_page(vpage, 0, new_proc->thread.page_directory);
-				assert(test_frame(page->frame * 0x1000) && "ptr wasn't mapped in?");
+			/* ...and from that, the cloned dir's page entry... */
+			page_t * page = get_page(vpage, 0, new_proc->thread.page_directory);
+			assert(test_frame(page->frame * 0x1000) && "ptr wasn't mapped in?");
 
-				/* ...which refers to a bogus frame that we don't want. */
-				clear_frame(page->frame * 0x1000);
-				memset(page, 0, sizeof(page_t));
-			}
+			/* ...which refers to a bogus frame that we don't want. */
+			clear_frame(page->frame * 0x1000);
+			memset(page, 0, sizeof(page_t));
 		}
+	}
 #endif
 
-		/* Add the new process to the ready queue */
-		make_process_ready(new_proc);
+	/* Add the new process to the ready queue */
+	make_process_ready(new_proc);
 
-		IRQ_RES;
+	IRQ_RES;
 
-		/* Return the child PID */
-		return new_proc->id;
-	} else {
-		assert(magic == TASK_MAGIC && "Bad process fork magic (child)!");
-		/* Child fork is complete, return */
-		return 0;
-	}
+	/* Return the child PID */
+	return new_proc->id;
 }
 
 /*
@@ -279,8 +265,7 @@ uint32_t fork(void) {
  */
 uint32_t
 clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
-	unsigned int magic = TASK_MAGIC;
-	uintptr_t esp, ebp, eip;
+	uintptr_t esp, ebp;
 
 	IRQ_OFF;
 
@@ -297,71 +282,53 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	set_process_environment(new_proc, directory);
 	directory->ref_count++;
 	/* Read the instruction pointer */
-	eip = read_eip();
 
-	if (current_process == parent) {
-		/* Returned as the parent */
-		/* Verify magic */
-		assert(magic == TASK_MAGIC && "Bad process fork magic (parent clone)!");
-		/* Collect the stack and base pointers */
-		asm volatile ("mov %%esp, %0" : "=r" (esp));
-		asm volatile ("mov %%ebp, %0" : "=r" (ebp));
-		/* Calculate new ESP and EBP for the child process */
-		if (current_process->image.stack > new_proc->image.stack) {
-			new_proc->thread.esp = esp - (current_process->image.stack - new_proc->image.stack);
-			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
-		} else {
-			new_proc->thread.esp = esp + (new_proc->image.stack - current_process->image.stack);
-			new_proc->thread.ebp = ebp - (current_process->image.stack - new_proc->image.stack);
-		}
-		/* Copy the kernel stack from this process to new process */
-		memcpy((void *)(new_proc->image.stack - KERNEL_STACK_SIZE), (void *)(current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+	struct regs r;
+	memcpy(&r, current_process->syscall_registers, sizeof(struct regs));
+	new_proc->syscall_registers = &r;
 
-		/* Move the syscall_registers pointer */
-		uintptr_t o_stack = ((uintptr_t)current_process->image.stack - KERNEL_STACK_SIZE);
-		uintptr_t n_stack = ((uintptr_t)new_proc->image.stack - KERNEL_STACK_SIZE);
-		uintptr_t offset  = ((uintptr_t)current_process->syscall_registers - o_stack);
-		new_proc->syscall_registers = (struct regs *)(n_stack + offset);
+	esp = new_proc->image.stack;
+	ebp = esp;
 
-		/* Set the gid */
-		if (current_process->group) {
-			new_proc->group = current_process->group;
-		} else {
-			/* We are the session leader */
-			new_proc->group = current_process->id;
-		}
-
-		new_proc->syscall_registers->ebp = new_stack;
-		new_proc->syscall_registers->eip = thread_func;
-
-		/* Push arg, bogus return address onto the new thread's stack */
-		new_stack -= sizeof(uintptr_t);
-		*((uintptr_t *)new_stack) = arg;
-		new_stack -= sizeof(uintptr_t);
-		*((uintptr_t *)new_stack) = THREAD_RETURN;
-
-		/* Set esp, ebp, and eip for the new thread */
-		new_proc->syscall_registers->esp = new_stack;
-		new_proc->syscall_registers->useresp = new_stack;
-
-		free(new_proc->fds);
-		new_proc->fds = current_process->fds;
-		new_proc->fds->refs++;
-
-		/* Set the new process instruction pointer (to the return from read_eip) */
-		new_proc->thread.eip = eip;
-		/* Add the new process to the ready queue */
-		make_process_ready(new_proc);
-
-		IRQ_RES;
-
-		/* Return the child PID */
-		return new_proc->id;
+	/* Set the gid */
+	if (current_process->group) {
+		new_proc->group = current_process->group;
 	} else {
-		assert(magic == TASK_MAGIC && "Bad process clone magic (child clone)!");
-		/* Child fork is complete, return */
-		return 0;
+		/* We are the session leader */
+		new_proc->group = current_process->id;
 	}
+
+	new_proc->syscall_registers->ebp = new_stack;
+	new_proc->syscall_registers->eip = thread_func;
+
+	/* Push arg, bogus return address onto the new thread's stack */
+	new_stack -= sizeof(uintptr_t);
+	*((uintptr_t *)new_stack) = arg;
+	new_stack -= sizeof(uintptr_t);
+	*((uintptr_t *)new_stack) = THREAD_RETURN;
+
+	/* Set esp, ebp, and eip for the new thread */
+	new_proc->syscall_registers->esp = new_stack;
+	new_proc->syscall_registers->useresp = new_stack;
+
+	PUSH(esp, struct regs, r);
+
+	new_proc->thread.esp = esp;
+	new_proc->thread.ebp = ebp;
+
+	free(new_proc->fds);
+	new_proc->fds = current_process->fds;
+	new_proc->fds->refs++;
+
+	new_proc->thread.eip = (uintptr_t)&return_to_userspace;
+
+	/* Add the new process to the ready queue */
+	make_process_ready(new_proc);
+
+	IRQ_RES;
+
+	/* Return the child PID */
+	return new_proc->id;
 }
 
 /*
@@ -498,9 +465,6 @@ void switch_next(void) {
 			: "%ebx", "%esp", "%eax");
 
 }
-
-#define PUSH(stack, type, item) stack -= sizeof(type); \
-							*((type *) stack) = item
 
 /*
  * Enter ring 3 and jump to `location`.

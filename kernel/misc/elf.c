@@ -183,16 +183,13 @@ system(
 		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
 		char ** argv  /* Argument strings (including executable path) */
 	) {
-	int child = fork();
-	if (child == 0) {
-		char * env[] = {NULL};
-		exec(path,argc,argv,env);
-		debug_print(ERROR, "Failed to execute process!");
-		kexit(-1);
-		return -1;
-	} else {
-		switch_next();
-		return -1;
-	}
+	char * env[] = {NULL};
+	set_process_environment((process_t*)current_process, clone_directory(current_directory));
+	current_directory = current_process->thread.page_directory;
+	switch_page_directory(current_directory);
+	exec(path,argc,argv,env);
+	debug_print(ERROR, "Failed to execute process!");
+	kexit(-1);
+	return -1;
 }
 
