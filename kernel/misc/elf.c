@@ -53,7 +53,6 @@ exec(
 	}
 	Elf32_Header * header = (Elf32_Header *)TMP_ZONE; //(Elf32_Header *)malloc(file->length + 100);
 
-
 	debug_print(NOTICE, "---> Starting load.");
 	IRQ_RES;
 	read_fs(file, 0, file->length, (uint8_t *)header);
@@ -183,11 +182,17 @@ system(
 		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
 		char ** argv  /* Argument strings (including executable path) */
 	) {
+	char ** argv_ = malloc(sizeof(char *) * (argc + 1));
+	for (int j = 0; j < argc; ++j) {
+		argv_[j] = malloc((strlen(argv[j]) + 1) * sizeof(char));
+		memcpy(argv_[j], argv[j], strlen(argv[j]) + 1);
+	}
+	argv_[argc] = 0;
 	char * env[] = {NULL};
 	set_process_environment((process_t*)current_process, clone_directory(current_directory));
 	current_directory = current_process->thread.page_directory;
 	switch_page_directory(current_directory);
-	exec(path,argc,argv,env);
+	exec(path,argc,argv_,env);
 	debug_print(ERROR, "Failed to execute process!");
 	kexit(-1);
 	return -1;
