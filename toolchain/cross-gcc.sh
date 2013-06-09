@@ -14,7 +14,7 @@ pushd $DIR
 MPC=mpc-0.9
 GMP=gmp-5.0.1
 MPFR=mpfr-3.0.1
-GCCV=4.6.0
+GCCV=4.6.4
 GCC=gcc-$GCCV
 BINUTILS=binutils-2.22
 

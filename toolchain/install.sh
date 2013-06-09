@@ -18,7 +18,7 @@ pushd build
         mkdir gcc
     fi
     pushd gcc
-        $DIR/tarballs/gcc-4.6.0/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
+        $DIR/tarballs/gcc-4.6.4/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
         make all-gcc || bail
         make install-gcc || bail
         make all-target-libgcc || bail
