@@ -291,11 +291,12 @@ int main (int argc, char ** argv) {
 				} while (!kbd);
 
 				if (kbd->key == '\n') {
-					free(kbd);
 					if (focus == USERNAME_BOX) {
+						free(kbd);
 						focus = PASSWORD_BOX;
 						continue;
 					} else if (focus == PASSWORD_BOX) {
+						free(kbd);
 						break;
 					}
 				}
@@ -306,6 +307,7 @@ int main (int argc, char ** argv) {
 					} else if (focus == PASSWORD_BOX) {
 						focus = USERNAME_BOX;
 					}
+					free(kbd);
 					continue;
 				}
 
@@ -330,6 +332,7 @@ int main (int argc, char ** argv) {
 		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
 
+		DEBUG("Tearing down networking.\n");
 		teardown_windowing();
 
 		pid_t _session_pid = fork();
@@ -340,11 +343,11 @@ int main (int argc, char ** argv) {
 			execvp(args[0], args);
 		}
 
-		syscall_wait(_session_pid);
-
 		free(buf);
 		free(ctx->backbuffer);
-		free(ctx->buffer);
+		free(ctx);
+
+		syscall_wait(_session_pid);
 	}
 
 	return 0;
