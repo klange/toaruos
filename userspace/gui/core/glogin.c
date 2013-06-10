@@ -332,7 +332,6 @@ int main (int argc, char ** argv) {
 		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
 
-		DEBUG("Tearing down networking.\n");
 		teardown_windowing();
 
 		pid_t _session_pid = fork();
