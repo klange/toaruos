@@ -361,6 +361,10 @@ void ext2_create(fs_node_t *parent, char *name, uint16_t permission) {
  * Message will be displayed in the terminal for success or failure.
  */
 void ext2_mkdir(fs_node_t *parent, char *name, uint16_t permission) {
+#if DISABLE_EXT2_WRITES
+	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
+	return;
+#endif
 
 	uint16_t mode = permission | EXT2_S_IFDIR;
 	ext2_inodetable_t *parent_inode = ext2_disk_inode(parent->inode);
@@ -438,6 +442,10 @@ ext2_inodetable_t *ext2_disk_alloc_inode
 	uint16_t mode, 
     uint32_t *inode_no	
 ) {
+#if DISABLE_EXT2_WRITES
+	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
+	return 0;
+#endif
 	if ((parent->mode & EXT2_S_IFDIR) == 0 || name == NULL) {
 		kprintf("[kernel/ext2] No name or bad parent.\n");
 		return NULL;
@@ -580,6 +588,10 @@ ext2_inodetable_t *ext2_disk_inode(uint32_t inode) {
  * Write the 'inode' into the inode table at position 'index'.
  */
 void ext2_disk_write_inode(ext2_inodetable_t *inode, uint32_t index) {
+#if DISABLE_EXT2_WRITES
+	debug_print(WARNING, "Attempt to write to EXT2 device blocked.");
+	return;
+#endif
 	uint32_t group = index / ext2_disk_inodes_per_group;
 	if (group > BGDS) {
 		return;
