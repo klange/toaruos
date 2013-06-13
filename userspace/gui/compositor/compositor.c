@@ -32,7 +32,6 @@
 #define SPRITE_COUNT 2
 #define WIN_D 32
 #define WIN_B (WIN_D / 8)
-#define MOUSE_DISCARD_LEVEL 10
 #define MOUSE_SCALE 3
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
@@ -40,6 +39,7 @@
 #define WINDOW_LAYERS 0x10000
 #define FONT_PATH "/usr/share/fonts/"
 #define FONT(a,b) {WINS_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
+#define BUFFER_SAFE_ZONE 7680
 
 #define MODE_NORMAL 0x001
 #define MODE_SCALE  0x002
@@ -142,11 +142,19 @@ void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * pack
 	header.packet_size = sizeof(w_window_t);
 
 	/* Send them */
-	// XXX: we have a race condition here
-	write(pw->event_pipe, &header, sizeof(wins_packet_t));
-	write(pw->event_pipe, packet, sizeof(w_window_t));
-	kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
-	syscall_yield();
+	struct stat buf;
+	fstat(pw->event_pipe, &buf);
+
+	if (buf.st_size < BUFFER_SAFE_ZONE) {
+		write(pw->event_pipe, &header, sizeof(wins_packet_t));
+		write(pw->event_pipe, packet, sizeof(w_window_t));
+		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
+		syscall_yield();
+	} else {
+		fprintf(stderr, "[compositor] This client (pid=%d) is lagging, we are dropping WINDOW EVENTS!\n", pw->pid);
+		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
+		syscall_yield();
+	}
 }
 
 void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t packet) {
@@ -157,11 +165,19 @@ void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t pa
 	header.packet_size = sizeof(w_keyboard_t);
 
 	/* Send them */
-	// XXX: we have a race condition here
-	write(pw->event_pipe, &header, sizeof(wins_packet_t));
-	write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
-	kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
-	syscall_yield();
+	struct stat buf;
+	fstat(pw->event_pipe, &buf);
+
+	if (buf.st_size < BUFFER_SAFE_ZONE) {
+		write(pw->event_pipe, &header, sizeof(wins_packet_t));
+		write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
+		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
+		syscall_yield();
+	} else {
+		fprintf(stderr, "[compositor] This client (pid=%d) is lagging, we are dropping keyboard packets.\n", pw->pid);
+		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
+		syscall_yield();
+	}
 }
 
 void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet) {
@@ -172,9 +188,16 @@ void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet
 	header.packet_size = sizeof(w_mouse_t);
 
 	/* Send them */
-	fwrite(&header, 1, sizeof(wins_packet_t), pw->event_pipe_file);
-	fwrite(packet,  1, sizeof(w_mouse_t),     pw->event_pipe_file);
-	fflush(pw->event_pipe_file);
+	struct stat buf;
+	fstat(pw->event_pipe, &buf);
+
+	if (buf.st_size < BUFFER_SAFE_ZONE) {
+		fwrite(&header, 1, sizeof(wins_packet_t), pw->event_pipe_file);
+		fwrite(packet,  1, sizeof(w_mouse_t),     pw->event_pipe_file);
+		fflush(pw->event_pipe_file);
+	} else {
+		fprintf(stderr, "[compositor] This client (pid=%d) is lagging, we are dropping mouse packets.\n", pw->pid);
+	}
 	//kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
 	//syscall_yield();
 }
@@ -1191,28 +1214,26 @@ void * process_requests(void * garbage) {
 				}
 #endif
 			} else if (_mouse_state == 0) {
-				mouse_discard--;
-				if (mouse_discard < 1) {
-					mouse_discard = MOUSE_DISCARD_LEVEL;
 
-					w_mouse_t _packet;
-					if (packet->buttons) {
-						set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-					}
-					_mouse_window = focused_window();
-					_packet.wid = _mouse_window->wid;
+				w_mouse_t _packet;
+				if (packet->buttons) {
+					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
+				}
+				_mouse_window = focused_window();
+				_packet.wid = _mouse_window->wid;
 
-					_packet.old_x = click_x;
-					_packet.old_y = click_y;
+				_packet.old_x = click_x;
+				_packet.old_y = click_y;
 
-					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
+				device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 
-					_packet.new_x = click_x;
-					_packet.new_y = click_y;
+				_packet.new_x = click_x;
+				_packet.new_y = click_y;
 
-					_packet.buttons = packet->buttons;
-					_packet.command = WE_MOUSEMOVE;
+				_packet.buttons = packet->buttons;
+				_packet.command = WE_MOUSEMOVE;
 
+				if (_packet.new_x != _packet.old_x || _packet.new_y != _packet.old_y) {
 					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 				}
 			} else if (_mouse_state == 1) {
@@ -1249,24 +1270,21 @@ void * process_requests(void * garbage) {
 					/* Still down */
 
 					_mouse_moved = 1;
-					mouse_discard--;
-					if (mouse_discard < 1) {
-						mouse_discard = MOUSE_DISCARD_LEVEL;
+					w_mouse_t _packet;
+					_packet.wid = _mouse_window->wid;
 
-						w_mouse_t _packet;
-						_packet.wid = _mouse_window->wid;
+					_packet.old_x = click_x;
+					_packet.old_y = click_y;
 
-						_packet.old_x = click_x;
-						_packet.old_y = click_y;
+					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 
-						device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
+					_packet.new_x = click_x;
+					_packet.new_y = click_y;
 
-						_packet.new_x = click_x;
-						_packet.new_y = click_y;
+					_packet.buttons = packet->buttons;
+					_packet.command = WE_MOUSEMOVE;
 
-						_packet.buttons = packet->buttons;
-						_packet.command = WE_MOUSEMOVE;
-
+					if (_packet.new_x != _packet.old_x || _packet.new_y != _packet.old_y) {
 						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
 					}
 				}
