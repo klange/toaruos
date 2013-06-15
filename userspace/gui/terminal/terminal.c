@@ -1468,6 +1468,9 @@ void handle_input_s(char * c) {
 
 void key_event(int ret, key_event_t * event) {
 	if (ret) {
+		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
+			handle_input('\033');
+		}
 		handle_input(event->key);
 	} else {
 		if (event->action == KEY_ACTION_UP) return;
