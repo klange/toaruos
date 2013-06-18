@@ -57,6 +57,9 @@ Additionally, a number of third-party software packages have been ported to ã¨ã
 
 * Lua - Builds as-is
 * MuPDF - See [klange/toaru-pdfviewer](https://github.com/klange/toaru-pdfviewer) (library must be cross compiled)
+* SDL - See [klange/SDL](https://github.com/klange/SDL)
+* `snes9x-sdl` - See [klange/snes9x-sdl](https://github.com/klange/snes9x-sdl)
+* Bochs
 
 ## Screenshots ##
 
