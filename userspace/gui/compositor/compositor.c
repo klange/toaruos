@@ -522,7 +522,7 @@ void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 
 			cairo_scale(cr, x, x);
 			cairo_set_source_surface(cr, win, 0, 0);
-			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_NEAREST);
+			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 			cairo_paint_with_alpha(cr, (double)frame / 256.0);
 		}
 	} else {
@@ -660,7 +660,9 @@ void redraw_scale_mode() {
 			}
 			cairo_set_source_surface(cr, win, 0, 0);
 			if ((x_scale < y_scale && x_scale < 1.0) || (x_scale > y_scale && y_scale < 1.0)) {
-				cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_NEAREST);
+				cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
+			} else {
+				cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_GOOD);
 			}
 
 			if (mouse_x / MOUSE_SCALE >= x * cell_width &&
