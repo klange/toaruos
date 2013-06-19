@@ -41,8 +41,9 @@
 #define FONT(a,b) {WINS_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
 #define BUFFER_SAFE_ZONE 7680
 
-#define MODE_NORMAL 0x001
-#define MODE_SCALE  0x002
+#define MODE_NORMAL        0x001
+#define MODE_SCALE         0x002
+#define MODE_WINDOW_PICKER 0x003
 
 unsigned int tick_count = 0;
 
@@ -89,6 +90,7 @@ wid_t volatile _next_wid = 1;
 wins_server_global_t volatile * _request_page;
 int error;
 int focus_next_scale = 0;
+int window_picker_index = 0;
 
 int management_mode = MODE_NORMAL;
 
@@ -520,6 +522,7 @@ void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 
 			cairo_scale(cr, x, x);
 			cairo_set_source_surface(cr, win, 0, 0);
+			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_NEAREST);
 			cairo_paint_with_alpha(cr, (double)frame / 256.0);
 		}
 	} else {
@@ -656,6 +659,9 @@ void redraw_scale_mode() {
 				cairo_scale(cr, y_scale, y_scale);
 			}
 			cairo_set_source_surface(cr, win, 0, 0);
+			if ((x_scale < y_scale && x_scale < 1.0) || (x_scale > y_scale && y_scale < 1.0)) {
+				cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_NEAREST);
+			}
 
 			if (mouse_x / MOUSE_SCALE >= x * cell_width &&
 				mouse_x / MOUSE_SCALE < x * cell_width + cell_width &&
@@ -739,6 +745,56 @@ void redraw_windows() {
 	cairo_surface_flush(selface);
 	cairo_destroy(cs);
 	cairo_surface_destroy(selface);
+}
+
+void cairo_rounded_rectangle(cairo_t * cr, double x, double y, double width, double height, double radius) {
+	double degrees = M_PI / 180.0;
+
+	cairo_new_sub_path(cr);
+	cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
+	cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
+	cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
+	cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
+	cairo_close_path(cr);
+}
+
+void draw_window_picker() {
+	/* TODO draw window picker */
+	int window_count = 0;
+	for (uint32_t i = 1; i < WINDOW_LAYERS - 1; ++i) {
+		if (windows[i]) {
+			window_count++;
+		}
+	}
+	if (window_count < 2) {
+		fprintf(stderr, "[compositor] Exiting window picker (<2 regular windows)\n");
+		management_mode = MODE_NORMAL;
+		return;
+	}
+	if (window_picker_index >= window_count) {
+		window_picker_index = 0;
+	}
+
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
+	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
+	cr = cairo_create(surface);
+	/* Don't need a select surface, already have one */
+
+	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+
+	int width = 700;
+	int height = 400;
+
+	cairo_rounded_rectangle(cr, (ctx->width - width) / 2, (ctx->height - height) / 2, width, height, 20.0);
+	cairo_set_source_rgba(cr, 44.0/255.0, 71.0/255.0, 91.0/255.0, 29.0/255.0);
+	cairo_set_line_width(cr, 4);
+	cairo_stroke(cr);
+
+	cairo_rounded_rectangle(cr, (ctx->width - width) / 2 + 3, (ctx->height - height) / 2 + 3, width - 6, height - 6, 18.0);
+	cairo_set_source_rgba(cr, 158.0/255.0, 169.0/255.0, 177.0/255.0, 0.9);
+	cairo_fill(cr);
+
 }
 
 void internal_free_window(server_window_t * window) {
@@ -1008,6 +1064,16 @@ void load_fonts() {
  */
 int handle_key_press(w_keyboard_t * keyboard, server_window_t * window) {
 
+	fprintf(stderr, "[compositor] Key event: %x %x %x\n", keyboard->event.action, keyboard->event.keycode, keyboard->event.modifiers);
+
+	if ((management_mode == MODE_WINDOW_PICKER) &&
+	    (keyboard->event.action == KEY_ACTION_UP) &&
+	    (!(keyboard->event.modifiers & KEY_MOD_LEFT_ALT))) {
+		management_mode = MODE_NORMAL;
+		fprintf(stderr, "[compositor] Exiting window picker.\n");
+		return 1;
+	}
+
 	if (keyboard->event.action != KEY_ACTION_DOWN) return 0;
 
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
@@ -1076,16 +1142,35 @@ int handle_key_press(w_keyboard_t * keyboard, server_window_t * window) {
 		switch (management_mode) {
 			case MODE_NORMAL:
 				management_mode = MODE_SCALE;
-				break;
+				return 1;
 			case MODE_SCALE:
 				management_mode = MODE_NORMAL;
-				break;
+				return 1;
 			default:
 				break;
 		}
+	}
 
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_ALT) &&
+	    (keyboard->event.keycode == '\t')) {
+		int direction = (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) ? -1 : 1;
+
+		switch (management_mode) {
+			case MODE_NORMAL:
+				fprintf(stderr, "[compositor] Entering window picker.\n");
+				window_picker_index = 0;
+			case MODE_WINDOW_PICKER:
+				management_mode = MODE_WINDOW_PICKER;
+				break;
+			default:
+				goto _not_valid;
+		}
+		fprintf(stderr, "[compositor] Setting pick window %d\n", direction);
+
+		window_picker_index += direction;
 		return 1;
 	}
+_not_valid:
 
 	return 0;
 }
@@ -1340,6 +1425,10 @@ void * redraw_thread(void * derp) {
 		switch (management_mode) {
 			case MODE_SCALE:
 				redraw_scale_mode();
+				break;
+			case MODE_WINDOW_PICKER:
+				redraw_windows();
+				draw_window_picker();
 				break;
 			default:
 				redraw_windows();
