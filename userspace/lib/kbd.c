@@ -22,6 +22,8 @@ int kbd_state = 0;
 #define spec 0x02
 #define func 0x03
 
+#define SET_UNSET(a,b,c) (a) = (c) ? ((a) | (b)) : ((a) & ~(b))
+
 char key_method[] = {
 	/* 00 */ 0,    spec, norm, norm, norm, norm, norm, norm,
 	/* 08 */ norm, norm, norm, norm, norm, norm, norm, norm,
@@ -246,18 +248,22 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 					case 0x1D:
 						k_ctrl   = down;
 						kl_ctrl  = down;
+						SET_UNSET(event->modifiers, KEY_MOD_LEFT_CTRL, down);
 						break;
 					case 0x2A:
 						k_shift  = down;
 						kl_shift = down;
+						SET_UNSET(event->modifiers, KEY_MOD_LEFT_SHIFT, down);
 						break;
 					case 0x36:
-						kr_shift = down;
 						k_shift  = down;
+						kr_shift = down;
+						SET_UNSET(event->modifiers, KEY_MOD_RIGHT_SHIFT, down);
 						break;
 					case 0x38:
 						k_alt    = down;
 						kl_alt   = down;
+						SET_UNSET(event->modifiers, KEY_MOD_LEFT_ALT, down);
 						break;
 					default:
 						break;
@@ -326,18 +332,22 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 			case 0x5B:
 				k_super  = down;
 				kl_super = down;
+				SET_UNSET(event->modifiers, KEY_MOD_LEFT_SUPER, down);
 				break;
 			case 0x5C:
 				k_super  = down;
 				kr_super = down;
+				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_SUPER, down);
 				break;
 			case 0x1D:
 				kr_ctrl  = down;
 				k_ctrl   = down;
+				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_CTRL, down);
 				break;
 			case 0x38:
 				kr_alt   = down;
 				k_alt    = down;
+				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_ALT, down);
 				break;
 			case 0x48:
 				event->keycode = KEY_ARROW_UP;
