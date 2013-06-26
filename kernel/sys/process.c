@@ -310,6 +310,13 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->signal_queue = list_create();
 	proc->signal_kstack = NULL; /* None yet initialized */
 
+	proc->sender_queue = list_create();
+	proc->receiving_queue = list_create();
+	proc->recv_from = PROC_NO_TASK;
+	proc->send_to = PROC_NO_TASK;
+	proc->msg = NULL;
+	proc->sending_or_receiving = PROC_RUNNING;
+
 	proc->sched_node.prev = NULL;
 	proc->sched_node.next = NULL;
 	proc->sched_node.value = proc;
@@ -496,6 +503,26 @@ int wakeup_queue(list_t * queue) {
 		awoken_processes++;
 	}
 	return awoken_processes;
+}
+
+/* Wake up the first process in queue */
+void wakeup_head(list_t * queue) {
+	if (queue->length > 0) {
+		node_t * node = list_pop(queue);
+		if (!((process_t *)node->value)->finished) {
+			make_process_ready(node->value);
+		}
+	}
+}
+
+void wakeup_process(list_t * queue, pid_t pid) {
+	foreach(proc, queue) {
+		if ((!((process_t *)proc->value)->finished) && (((process_t *)proc->value)->id == pid)) {
+			make_process_ready(proc->value);
+			list_delete(queue, proc);
+			break;
+		}
+	}
 }
 
 int sleep_on(list_t * queue) {

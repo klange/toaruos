@@ -21,6 +21,10 @@ typedef unsigned char uint8_t;
 typedef signed char int8_t;
 typedef unsigned long long uint64_t;
 
+/* Message struct */
+typedef struct message {
+	int 	retval;
+} message_t;
 
 #define CHAR_BIT 8
 #define INT32_MAX 0x7fffffffL

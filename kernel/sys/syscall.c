@@ -661,6 +661,117 @@ static int sys_unlink(char * file) {
 	return unlink_fs(file);
 }
 
+/*****************************************************************************
+ *                                sys_send_msg
+ *****************************************************************************/
+/**
+ * Send a message to the dest proc. If dest is blocked waiting for
+ * the message, copy the message to it and unblock dest. Otherwise the caller
+ * will be blocked and appended to the dest's sending queue.
+ * 
+ * @param dest     To whom the message is sent.
+ * @param message  The message.
+ * 
+ * @return Zero if success.
+ *****************************************************************************/
+static int sys_send_msg(pid_t dest, char * message) {
+	process_t* sender = (process_t *)current_process;
+	process_t* p_dest = process_from_pid(dest); /* proc dest */
+
+	if ((p_dest->sending_or_receiving == PROC_RECEIVING) && /* p_dest is waiting for the msg */
+	    (p_dest->recv_from == sender->id ||
+	     p_dest->recv_from == PROC_ANY)) {		/* p_dest is waiting for msg from ANY process */
+
+		memcpy(p_dest->msg, message, sizeof(message_t));
+		p_dest->msg = 0;
+		p_dest->sending_or_receiving = PROC_RUNNING; /* p_dest has received the msg */
+		p_dest->recv_from = PROC_NO_TASK;
+
+		wakeup_process(p_dest->receiving_queue, dest);
+	}
+	else { /* p_dest is not waiting for the msg */
+		sender->sending_or_receiving = PROC_SENDING;
+		sender->send_to = dest;
+		sender->msg = (message_t *)message;
+
+		sleep_on(p_dest->sender_queue);
+	}
+
+	return 0;
+}
+
+/*****************************************************************************
+ *                                msg_receive
+ *****************************************************************************/
+/**
+ * Try to get a message from the src proc. If src is blocked sending the message, 
+ * copy the message from it and unblock src. Otherwise the caller will be blocked.
+ * 
+ * @param src     From whom the message will be received.
+ * @param message The message ptr to accept the message.
+ * 
+ * @return  Zero if success.
+ *****************************************************************************/
+static int sys_receive_msg(pid_t src, char* message)
+{
+	process_t* receiver = (process_t *)current_process;
+	process_t* from = NULL; /* from which the message will be fetched */
+	int copyok = 0;
+
+	if (src == PROC_ANY) {
+		/* receiver is ready to receive messages from
+		 * ANY proc, we'll check the sending queue and pick the
+		 * first proc in it.
+		 */
+		if (receiver->sender_queue) {
+			node_t * node = list_pop(receiver->sender_queue);
+			from = (process_t *)(node->value);
+
+			copyok = 1;
+		}
+	}
+	else {
+		/* who_wanna_recv wants to receive a message from
+		 * a certain proc: src.
+		 */
+		from = process_from_pid(src);
+
+		if ((from->sending_or_receiving == PROC_SENDING) &&
+		    (from->send_to == receiver->id)) {
+			/* Perfect, src is sending a message to
+			 * receiver.
+			 */
+			copyok = 1;
+		}
+	}
+
+	if (copyok) {
+
+		/* copy the message */
+		memcpy(message, from->msg, sizeof(message_t));
+
+		from->msg = NULL;
+		from->send_to = PROC_NO_TASK;
+		from->sending_or_receiving = PROC_RUNNING;
+		wakeup_process(receiver->sender_queue, from->id);
+	}
+	else {  /* nobody's sending any msg */
+		/* block receiver until someone sends it a message */
+		receiver->sending_or_receiving = PROC_RECEIVING;
+
+		receiver->msg = (message_t*)message;
+
+		if (src == PROC_ANY)
+			receiver->recv_from = PROC_ANY;
+		else
+			receiver->recv_from = from->id;
+
+		sleep_on(receiver->receiving_queue);
+	}
+
+	return 0;
+}
+
 /*
  * System Call Internals
  */
@@ -719,6 +830,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_chmod,
 	(uintptr_t)&sys_umask,
 	(uintptr_t)&sys_unlink,         /* 52 */
+	(uintptr_t)&sys_send_msg,
+	(uintptr_t)&sys_receive_msg,
 	0
 };
 uint32_t num_syscalls;

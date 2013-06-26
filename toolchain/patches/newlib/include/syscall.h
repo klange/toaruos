@@ -98,6 +98,8 @@ DECL_SYSCALL2(nanosleep, unsigned long, unsigned long);
 DECL_SYSCALL3(ioctl, int, int, void *);
 DECL_SYSCALL2(access, char *, int);
 DECL_SYSCALL2(stat, char *, void *);
+DECL_SYSCALL2(send_msg, int, char *);
+DECL_SYSCALL2(receive_msg, int, char *);
 
 #endif
 /*
