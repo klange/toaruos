@@ -350,6 +350,8 @@ void ide_write_sector_retry(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t *
 /* wakeup queue */
 int wakeup_queue(list_t * queue);
 int sleep_on(list_t * queue);
+void wakeup_head(list_t * queue);
+void wakeup_process(list_t * queue, pid_t pid);
 
 typedef struct {
 	uint32_t  signum;

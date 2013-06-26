@@ -98,7 +98,21 @@ typedef struct process {
 	char *        signal_kstack;
 	node_t        sched_node;
 	node_t        sleep_node;
+
+	int 			sending_or_receiving;        /* Is the process sending or receiving a message */
+	int 			send_to;
+	int 			recv_from;                   /* Send to/receive from which process */
+	list_t *		sender_queue;      /* Sender queue */
+	list_t *		receiving_queue;
+	message_t *		msg;
 } process_t;
+
+#define PROC_RUNNING	0
+#define PROC_SENDING	1
+#define PROC_RECEIVING	2
+
+#define PROC_ANY		-1
+#define PROC_NO_TASK	-2
 
 typedef struct {
 	unsigned long end_tick;

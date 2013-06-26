@@ -79,6 +79,8 @@ DEFN_SYSCALL2(stat, 49, char *, void *);
 DEFN_SYSCALL2(chmod, 50, char *, mode_t);
 DEFN_SYSCALL1(umask, 51, mode_t);
 DEFN_SYSCALL1(unlink, 52, char *);
+DEFN_SYSCALL2(send_msg, 53, int, char *);
+DEFN_SYSCALL2(receive_msg, 54, int, char *);
 
 #define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
 
@@ -624,3 +626,10 @@ void sync() {
 	DEBUG_STUB("sync();\n");
 }
 
+int send_msg(int dest, char * message) {
+	return syscall_send_msg(dest, message);
+}
+
+int receive_msg(int src, char * message) {
+	return syscall_receive_msg(src, message);
+}
