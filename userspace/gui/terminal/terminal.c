@@ -1349,21 +1349,6 @@ char * loadMemFont(char * name, char * ident, size_t * size) {
 	return font;
 }
 
-void setLoaded(int i, int yes) {
-	uint32_t color = rgb(255,0,0);
-	if (yes == 1) {
-		color = rgb(0,255,0);
-	}
-	if (yes == 2) {
-		color = rgb(0,0,255);
-	}
-	for (uint32_t j = 0; j < 8; ++j) {
-		for (uint32_t k = 0; k < 8; ++k) {
-			term_set_point(i * 8 + j, k, color);
-		}
-	}
-}
-
 #define INPUT_SIZE 1024
 char input_buffer[INPUT_SIZE];
 int  input_collected = 0;
@@ -1797,35 +1782,19 @@ int main(int argc, char ** argv) {
 		char * font = NULL;
 		size_t s;
 
-		setLoaded(0,0);
-		setLoaded(1,0);
-		setLoaded(2,0);
-		setLoaded(3,0);
-		setLoaded(4,0);
-
-		setLoaded(0,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
-		setLoaded(0,1);
 
-		setLoaded(1,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
-		setLoaded(1,1);
 
-		setLoaded(2,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
-		setLoaded(2,1);
 
-		setLoaded(3,2);
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
-		setLoaded(3,1);
 
-		setLoaded(4,2);
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
-		setLoaded(4,1);
 	}
 
 	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
