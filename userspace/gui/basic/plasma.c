@@ -53,31 +53,21 @@ uint32_t hsv_to_rgb(int h, float s, float v) {
 }
 
 int main (int argc, char ** argv) {
-	char * _windowed = getenv("DISPLAY");
-	if (_windowed) {
-		setup_windowing();
-		resize_window_callback = resize_callback;
+	setup_windowing();
+	resize_window_callback = resize_callback;
 
-		win_width  = 500;
-		win_height = 500;
+	win_width  = 500;
+	win_height = 500;
 
-		init_decorations();
+	init_decorations();
 
-		off_x = decor_left_width;
-		off_y = decor_top_height;
+	off_x = decor_left_width;
+	off_y = decor_top_height;
 
-		/* Do something with a window */
-		wina = window_create(300, 300, win_width + decor_width(), win_height + decor_height());
-		assert(wina);
-		ctx = init_graphics_window_double_buffer(wina);
-	} else {
-		ctx = init_graphics_fullscreen_double_buffer();
-		win_width  = ctx->width;
-		win_height = ctx->height;
-
-		off_x = 0;
-		off_y = 0;
-	}
+	/* Do something with a window */
+	wina = window_create(300, 300, win_width + decor_width(), win_height + decor_height());
+	assert(wina);
+	ctx = init_graphics_window_double_buffer(wina);
 
 	draw_fill(ctx, rgb(0,0,0));
 	redraw_borders();
@@ -92,15 +82,13 @@ int main (int argc, char ** argv) {
 	}
 
 	while (1) {
-		if (_windowed) {
-			w_keyboard_t * kbd = poll_keyboard_async();
-			if (kbd) {
-				char ch = kbd->key;
-				free(kbd);
-				if (ch == 'q') {
-					goto done;
-					break;
-				}
+		w_keyboard_t * kbd = poll_keyboard_async();
+		if (kbd) {
+			char ch = kbd->key;
+			free(kbd);
+			if (ch == 'q') {
+				goto done;
+				break;
 			}
 		}
 
@@ -123,8 +111,6 @@ int main (int argc, char ** argv) {
 	}
 done:
 
-	if (_windowed) {
-		teardown_windowing();
-	}
+	teardown_windowing();
 	return 0;
 }
