@@ -27,8 +27,6 @@
 
 #include "../kernel/include/mouse.h"
 
-#define SINGLE_USER_MODE 0
-#define FORCE_UID 1000
 #define SPRITE_COUNT 2
 #define WIN_D 32
 #define WIN_B (WIN_D / 8)
@@ -1506,15 +1504,12 @@ int main(int argc, char ** argv) {
 
 	if (!fork()) {
 		syscall_system_function(5,0);
-#if SINGLE_USER_MODE
-#ifdef FORCE_UID
-		syscall_setuid(FORCE_UID);
-#endif
-		char * args[] = {"/bin/gsession", NULL};
-#else
-		char * args[] = {"/bin/glogin", NULL};
-#endif
-		execvp(args[0], args);
+		if (argc < 2) {
+			char * args[] = {"/bin/glogin", NULL};
+			execvp(args[0], args);
+		} else {
+			execvp(argv[1], &argv[1]);
+		}
 	}
 
 	/* Sit in a run loop */
