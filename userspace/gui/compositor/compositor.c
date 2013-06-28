@@ -481,6 +481,7 @@ void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 		cairo_translate(cs, (int)( window->width / 2), (int)( window->height / 2));
 		cairo_rotate(cs, r);
 		cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
+		cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 	}
 
 	if (window->anim_mode) {
@@ -773,9 +774,7 @@ void draw_window_picker() {
 		management_mode = MODE_NORMAL;
 		return;
 	}
-	if (window_picker_index >= window_count) {
-		window_picker_index = 0;
-	}
+	window_picker_index = (window_picker_index + window_count) % window_count;
 
 	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
 	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
@@ -785,8 +784,10 @@ void draw_window_picker() {
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
 	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
 
-	int width = 700;
-	int height = 400;
+	/* Draw the background */
+
+	int width = 600;
+	int height = 230;
 
 	cairo_rounded_rectangle(cr, (ctx->width - width) / 2, (ctx->height - height) / 2, width, height, 20.0);
 	cairo_set_source_rgba(cr, 44.0/255.0, 71.0/255.0, 91.0/255.0, 29.0/255.0);
@@ -796,6 +797,8 @@ void draw_window_picker() {
 	cairo_rounded_rectangle(cr, (ctx->width - width) / 2 + 3, (ctx->height - height) / 2 + 3, width - 6, height - 6, 18.0);
 	cairo_set_source_rgba(cr, 158.0/255.0, 169.0/255.0, 177.0/255.0, 0.9);
 	cairo_fill(cr);
+
+	/* Now draw the previous, current, and next window. */
 
 }
 
