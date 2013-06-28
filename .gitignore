@@ -56,3 +56,4 @@ toolchain/tarballs
 util/bin/*
 util/toaru-toolchain
 util/toaru-toolchain/*
+_hdd
