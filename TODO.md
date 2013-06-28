@@ -7,6 +7,13 @@
   * Only sane event path; fix window creation (fix "wait for reply" commands)
   * Better packet structs for events (window.left? ew!)
 
+# Japanese / i18n updates
+* IME
+* Support for multibyte/wide characters in rline and terminal linebuffer
+* JIS keyboard mapping in the compositor (config file???)
+  * Applications shouldn't care.
+  * What to do with with special characters?
+
 # Multiarch / Ports
 
 * Split out x86 / PC-specific bits into new arch/ directories
