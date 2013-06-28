@@ -1,3 +1,12 @@
+# Compositor functionality
+* Alt+Tab keyboard window switching (with previews)
+* Advertise window titles + icons
+* New panel with window list
+* Rewrite client-server protocol
+  * New resize handshake
+  * Only sane event path; fix window creation (fix "wait for reply" commands)
+  * Better packet structs for events (window.left? ew!)
+
 # Multiarch / Ports
 
 * Split out x86 / PC-specific bits into new arch/ directories
