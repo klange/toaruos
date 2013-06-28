@@ -36,6 +36,7 @@ void start_terminal(char * arg) {
 	int pid = fork();
 	if (!pid) {
 		char * tokens[] = {
+			"/bin/compositor",
 			"/bin/terminal",
 			"-Fl",
 			arg,
@@ -52,6 +53,7 @@ void start_terminal_no_freetype(char * arg) {
 	int pid = fork();
 	if (!pid) {
 		char * tokens[] = {
+			"/bin/compositor",
 			"/bin/terminal",
 			"-Fklb",
 			arg,

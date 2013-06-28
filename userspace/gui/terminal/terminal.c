@@ -10,7 +10,6 @@
  *  - Built-in fallback bitmap font
  *  - ANSI escape support
  *  - 256 colors
- *  - [mouse support; incomplete]
  */
 
 #include <stdio.h>
@@ -31,7 +30,6 @@
 #include <wchar.h>
 
 #include "lib/utf8decode.h"
-#include "../kernel/include/mouse.h"
 
 #include "lib/graphics.h"
 #include "lib/window.h"
@@ -93,6 +91,7 @@ uint32_t current_bg     = 0;    /* Current background color */
 uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 window_t * window       = NULL; /* GUI window */
 uint8_t  _windowed      = 0;    /* Whether or not we are running in the GUI enviornment */
+uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 uint8_t  _vga_mode      = 0;    /* Whether or not we are in VGA mode XXX should be combined ^ */
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
@@ -107,11 +106,6 @@ void term_redraw_cursor();
 /* Cursor bink timer */
 static unsigned int timer_tick = 0;
 #define TIMER_TICK 40
-
-/* Mouse control */
-#define MOUSE_SCALE 6
-int32_t mouse_x;
-int32_t mouse_y;
 
 /* Some GUI-only options */
 uint16_t window_width  = 640;
@@ -379,18 +373,8 @@ static void _ansi_put(char c) {
 									case 1561:
 										_unbuffered = 0;
 										break;
-									case 2000:
-										if (_windowed) {
-											window_disable_alpha(window);
-										}
-										break;
-									case 2001:
-										if (_windowed) {
-											window_enable_alpha(window);
-										}
-										break;
 									case 3000:
-										if (_windowed) {
+										if (_windowed && !_fullscreen) {
 											if (argc > 2) {
 												uint16_t win_id = window->bufid;
 												int width = atoi(argv[1]) * char_width + decor_left_width + decor_right_width;
@@ -748,7 +732,7 @@ void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(uint32_t, ui
 }
 
 static void render_decors() {
-	if (_windowed) {
+	if (_windowed && !_fullscreen) {
 		if (terminal_title_length) {
 			render_decorations(window, ctx, terminal_title);
 		} else {
@@ -758,7 +742,7 @@ static void render_decors() {
 }
 
 static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
-	if (_windowed) {
+	if (_windowed && !_fullscreen) {
 		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
 	} else {
 		if (ctx->depth == 32) {
@@ -1031,7 +1015,7 @@ void term_scroll(int how_much) {
 			/* In graphical modes, we will shift the graphics buffer up as necessary */
 			uintptr_t dst, src;
 			size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-			if (_windowed) {
+			if (_windowed && !_fullscreen) {
 				/* Windowed mode must take borders into account */
 				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
 				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
@@ -1061,7 +1045,7 @@ void term_scroll(int how_much) {
 		} else {
 			uintptr_t dst, src;
 			size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-			if (_windowed) {
+			if (_windowed && !_fullscreen) {
 				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
 				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
 			} else {
@@ -1332,7 +1316,7 @@ void term_clear(int i) {
 		csr_x = 0;
 		csr_y = 0;
 		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(t_cell));
-		if (_windowed) {
+		if (_windowed && !_fullscreen) {
 			render_decors();
 		}
 		term_redraw_all();
@@ -1358,24 +1342,11 @@ void term_clear(int i) {
 }
 
 char * loadMemFont(char * name, char * ident, size_t * size) {
-	if (!_windowed) {
-		FILE * f = fopen(name, "r");
-		size_t s = 0;
-		fseek(f, 0, SEEK_END);
-		s = ftell(f);
-		fseek(f, 0, SEEK_SET);
-		char * font = malloc(s);
-		fread(font, s, 1, f);
-		fclose(f);
-		*size = s;
-		return font;
-	} else {
-		size_t s = 0;
-		int error;
-		char * font = (char *)syscall_shm_obtain(ident, &s);
-		*size = s;
-		return font;
-	}
+	size_t s = 0;
+	int error;
+	char * font = (char *)syscall_shm_obtain(ident, &s);
+	*size = s;
+	return font;
 }
 
 void setLoaded(int i, int yes) {
@@ -1509,7 +1480,9 @@ void key_event(int ret, key_event_t * event) {
 				handle_input_s("\033[23~");
 				break;
 			case KEY_F12:
-				handle_input_s("\033[24~");
+				/* XXX This is for testing only */
+				handle_input_s("テスト");
+				//handle_input_s("\033[24~");
 				break;
 			case KEY_ARROW_UP:
 				handle_input_s("\033[A");
@@ -1564,7 +1537,7 @@ void usage(char * argv[]) {
 			"\n"
 			"usage: %s [-b] [-F] [-h]\n"
 			"\n"
-			" -F --fullscreen \033[3mRun in legacy fullscreen mode.\033[0m\n"
+			" -F --fullscreen \033[3mRun in fullscreen (background) mode.\033[0m\n"
 			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -s --scale      \033[3mScale the font in FreeType mode by a given amount.\033[0m\n"
@@ -1606,18 +1579,10 @@ void reinit(int send_sig) {
 		term_width  = window_width  / char_width;
 		term_height = window_height / char_height;
 	} else if (_vga_mode) {
-		if (!ctx) {
-			/* This is only set so that the mouse scaling has only one code-path
-			 * so reallocating this for resizes is pointless as VGA mode will never
-			 * change its sizes. */
-			ctx = malloc(sizeof(gfx_context_t));
-			ctx->width = 800;
-			ctx->height = 250;
-		}
 		/* Set the actual terminal size */
 		term_width  = 80;
 		term_height = 25;
-		/* Set these to fake values, primarily for the mouse again */
+		/* Fake values */
 		char_width  = 1;
 		char_height = 1;
 	} else {
@@ -1644,9 +1609,6 @@ void reinit(int send_sig) {
 		memset(term_buffer, 0x0, sizeof(t_cell) * term_width * term_height);
 	}
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll);
-
-	mouse_x = ctx->width / 2;
-	mouse_y = ctx->height / 2;
 
 	if (!_vga_mode) {
 		draw_fill(ctx, rgba(0,0,0, DEFAULT_OPAC));
@@ -1682,12 +1644,8 @@ void serial_put(uint8_t c) {
 #endif
 
 void * handle_incoming(void * garbage) {
-	int mfd = syscall_mousedevice();
-
 	unsigned char buf[1024];
 	while (!exit_application) {
-		struct stat _stat;
-		fstat(mfd, &_stat);
 		if (exit_application) {
 			break;
 		}
@@ -1698,36 +1656,7 @@ void * handle_incoming(void * garbage) {
 				free(kbd);
 			}
 		} else {
-			while (_stat.st_size >= sizeof(mouse_device_packet_t)) {
-				mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-				int r = read(mfd, buf, sizeof(mouse_device_packet_t));
-				if (packet->magic != MOUSE_MAGIC) {
-					int r = read(mfd, buf, 1);
-					goto fail_mouse;
-				}
-				cell_redraw(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
-				/* Apply mouse movement */
-				int c, l;
-				c = abs(packet->x_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_x += packet->x_difference * l;
-				c = abs(packet->y_difference);
-				l = 0;
-				while (c >>= 1) {
-					l++;
-				}
-				mouse_y -= packet->y_difference * l;
-				if (mouse_x < 0) mouse_x = 0;
-				if (mouse_y < 0) mouse_y = 0;
-				if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width - char_width)   * MOUSE_SCALE;
-				if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height - char_height) * MOUSE_SCALE;
-				cell_redraw_box(((mouse_x / MOUSE_SCALE) * term_width) / ctx->width, ((mouse_y / MOUSE_SCALE) * term_height) / ctx->height);
-				fstat(mfd, &_stat);
-			}
-fail_mouse:
+			struct stat _stat;
 			fstat(0, &_stat);
 			if (_stat.st_size) {
 				size_t r = read(0, buf, min(_stat.st_size, 1024));
@@ -1781,7 +1710,8 @@ int main(int argc, char ** argv) {
 				_windowed = 0;
 				break;
 			case 'F':
-				_windowed = 0;
+				_windowed = 1;
+				_fullscreen = 1;
 				break;
 			case 'b':
 				_use_freetype = 0;
@@ -1826,17 +1756,22 @@ int main(int argc, char ** argv) {
 		/* Initialize the windowing library */
 		setup_windowing();
 
-		int x = 20, y = 20;
+		if (_fullscreen) {
+			window_width  = wins_globals->server_width;
+			window_height = wins_globals->server_height;
+			window = window_create(0,0, window_width, window_height);
+			window_reorder (window, 0); /* Disables movement */
+			window->focused = 1;
+		} else {
+			int x = 40, y = 40;
+			/* Create the window */
+			window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
+			resize_window_callback = resize_callback;
+			focus_changed_callback = focus_callback;
 
-		/* Create the window */
-		window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
-		resize_window_callback = resize_callback;
-		focus_changed_callback = focus_callback;
-
-		window_enable_alpha(window);
-
-		/* Initialize the decoration library */
-		init_decorations();
+			/* Initialize the decoration library */
+			init_decorations();
+		}
 
 		/* Initialize the graphics context */
 		ctx = init_graphics_window(window);
@@ -1851,7 +1786,7 @@ int main(int argc, char ** argv) {
 		outb(15, 0x3D4);
 		outb(temp, 0x3D5);
 	} else {
-		ctx = init_graphics_fullscreen();
+		fprintf(stderr, "Not sure how this happened?\n");
 	}
 
 	if (_use_freetype) {
@@ -1902,11 +1837,11 @@ int main(int argc, char ** argv) {
 	fflush(stdin);
 
 	if (!_windowed) {
+		/* Gobble up anything that was on the keyboard buffer before we started */
 		struct stat sbuf;
 		fstat(0, &sbuf);
 		if (sbuf.st_size > 0) {
 			char buf[sbuf.st_size];
-			syscall_print("WAAT\n");
 			read(0, buf, sbuf.st_size);
 		}
 	}
