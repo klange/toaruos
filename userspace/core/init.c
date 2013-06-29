@@ -70,8 +70,7 @@ void start_vga_terminal(char * arg) {
 	int pid = fork();
 	if (!pid) {
 		char * tokens[] = {
-			"/bin/terminal",
-			"-Vl",
+			"/bin/vga-warning",
 			arg,
 			NULL
 		};
