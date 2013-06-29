@@ -90,9 +90,7 @@ uint32_t current_fg     = 7;    /* Current foreground color */
 uint32_t current_bg     = 0;    /* Current background color */
 uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 window_t * window       = NULL; /* GUI window */
-uint8_t  _windowed      = 0;    /* Whether or not we are running in the GUI enviornment */
 uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
-uint8_t  _vga_mode      = 0;    /* Whether or not we are in VGA mode XXX should be combined ^ */
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _unbuffered    = 0;
@@ -184,11 +182,6 @@ uint16_t min(uint16_t a, uint16_t b) {
 /* Returns the higher of two shorts */
 uint16_t max(uint16_t a, uint16_t b) {
 	return (a > b) ? a : b;
-}
-
-/* Performs low-level port I/O; used for VGA initialization */
-void outb(unsigned char _data, unsigned short _port) {
-	__asm__ __volatile__ ("outb %1, %0" : : "dN" (_port), "a" (_data));
 }
 
 /* State machine status */
@@ -374,7 +367,7 @@ static void _ansi_put(char c) {
 										_unbuffered = 0;
 										break;
 									case 3000:
-										if (_windowed && !_fullscreen) {
+										if (!_fullscreen) {
 											if (argc > 2) {
 												uint16_t win_id = window->bufid;
 												int width = atoi(argv[1]) * char_width + decor_left_width + decor_right_width;
@@ -732,7 +725,7 @@ void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(uint32_t, ui
 }
 
 static void render_decors() {
-	if (_windowed && !_fullscreen) {
+	if (!_fullscreen) {
 		if (terminal_title_length) {
 			render_decorations(window, ctx, terminal_title);
 		} else {
@@ -742,16 +735,10 @@ static void render_decors() {
 }
 
 static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
-	if (_windowed && !_fullscreen) {
+	if (!_fullscreen) {
 		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
 	} else {
-		if (ctx->depth == 32) {
-			GFX(ctx, x,y) = color;
-		} else if (ctx->depth == 24) {
-			ctx->backbuffer[((y) * ctx->width + x) * 3 + 2] = _RED(color);
-			ctx->backbuffer[((y) * ctx->width + x) * 3 + 1] = _GRE(color);
-			ctx->backbuffer[((y) * ctx->width + x) * 3 + 0] = _BLU(color);
-		}
+		GFX(ctx, x,y) = color;
 	}
 }
 
@@ -781,20 +768,6 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	}
 }
 
-unsigned short * textmemptr = (unsigned short *)0xB8000;
-void placech(unsigned char c, int x, int y, int attr) {
-	unsigned short *where;
-	unsigned att = attr << 8;
-	where = textmemptr + (y * 80 + x);
-	*where = c | att;
-}
-
-/* ANSI-to-VGA */
-char vga_to_ansi[] = {
-    0, 4, 2, 6, 1, 5, 3, 7,
-    8,12,10,14, 9,13,11,15
-};
-
 void resize_callback(window_t * window) {
 	window_width  = window->width  - decor_left_width - decor_right_width;
 	window_height = window->height - decor_top_height - decor_bottom_height;
@@ -821,114 +794,107 @@ term_write_char(
 
 	uint32_t _fg, _bg;
 
-	if (_vga_mode) {
-		if (fg > 15) fg = 7;
-		if (bg > 15) bg = 0;
-		placech(val, x, y, (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4));
-		/* Disable / update cursor? We have our own cursor... */
+	if (fg < PALETTE_COLORS) {
+		_fg = term_colors[fg];
+		_fg |= 0xFF << 24;
 	} else {
-		if (fg < PALETTE_COLORS) {
-			_fg = term_colors[fg];
-			_fg |= 0xFF << 24;
+		_fg = fg;
+	}
+	if (bg < PALETTE_COLORS) {
+		_bg = term_colors[bg];
+		if (flags & ANSI_SPECBG) {
+			_bg |= 0xFF << 24;
 		} else {
-			_fg = fg;
+			_bg |= DEFAULT_OPAC << 24;
 		}
-		if (bg < PALETTE_COLORS) {
-			_bg = term_colors[bg];
-			if (flags & ANSI_SPECBG) {
-				_bg |= 0xFF << 24;
-			} else {
-				_bg |= DEFAULT_OPAC << 24;
+	} else {
+		_bg = bg;
+	}
+	if (_use_freetype) {
+		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
+				term_set_point(x+j,y+i,premultiply(_bg));
 			}
-		} else {
-			_bg = bg;
 		}
-		if (_use_freetype) {
-			if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
+		if (flags & ANSI_WIDE) {
 			for (uint8_t i = 0; i < char_height; ++i) {
-				for (uint8_t j = 0; j < char_width; ++j) {
+				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
 					term_set_point(x+j,y+i,premultiply(_bg));
 				}
 			}
-			if (flags & ANSI_WIDE) {
-				for (uint8_t i = 0; i < char_height; ++i) {
-					for (uint8_t j = char_width; j < 2 * char_width; ++j) {
-						term_set_point(x+j,y+i,premultiply(_bg));
-					}
-				}
-			}
-			if (val < 32 || val == ' ') {
+		}
+		if (val < 32 || val == ' ') {
+			goto _extra_stuff;
+		}
+		int pen_x = x;
+		int pen_y = y + char_offset;
+		int error;
+		FT_Face * _font = NULL;
+		
+		if (flags & ANSI_EXTRA) {
+			_font = &face_extra;
+		} else if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
+			_font = &face_bold_italic;
+		} else if (flags & ANSI_ITALIC) {
+			_font = &face_italic;
+		} else if (flags & ANSI_BOLD) {
+			_font = &face_bold;
+		} else {
+			_font = &face;
+		}
+		glyph_index = FT_Get_Char_Index(*_font, val);
+		if (glyph_index == 0) {
+			glyph_index = FT_Get_Char_Index(face_extra, val);
+			_font = &face_extra;
+		}
+		error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
+		if (error) {
+			fprintf(terminal, "Error loading glyph: %d\n", val);
+		};
+		slot = (*_font)->glyph;
+		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+			error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
+			if (error) {
 				goto _extra_stuff;
 			}
-			int pen_x = x;
-			int pen_y = y + char_offset;
-			int error;
-			FT_Face * _font = NULL;
-			
-			if (flags & ANSI_EXTRA) {
-				_font = &face_extra;
-			} else if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
-				_font = &face_bold_italic;
-			} else if (flags & ANSI_ITALIC) {
-				_font = &face_italic;
-			} else if (flags & ANSI_BOLD) {
-				_font = &face_bold;
-			} else {
-				_font = &face;
-			}
-			glyph_index = FT_Get_Char_Index(*_font, val);
-			if (glyph_index == 0) {
-				glyph_index = FT_Get_Char_Index(face_extra, val);
-				_font = &face_extra;
-			}
-			error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
-			if (error) {
-				fprintf(terminal, "Error loading glyph: %d\n", val);
-			};
-			slot = (*_font)->glyph;
-			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
-				error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
-				if (error) {
-					goto _extra_stuff;
-				}
-			}
-			drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, _fg, _bg);
+		}
+		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, _fg, _bg);
 
-		} else {
-			if (val > 128) {
-				val = 4;
-			}
-			uint8_t * c = number_font[val];
-			for (uint8_t i = 0; i < char_height; ++i) {
-				for (uint8_t j = 0; j < char_width; ++j) {
-					if (c[i] & (1 << (8-j))) {
-						term_set_point(x+j,y+i,_fg);
-					} else {
-						term_set_point(x+j,y+i,_bg);
-					}
+	} else {
+		if (val > 128) {
+			val = 4;
+		}
+		uint8_t * c = number_font[val];
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
+				if (c[i] & (1 << (8-j))) {
+					term_set_point(x+j,y+i,_fg);
+				} else {
+					term_set_point(x+j,y+i,_bg);
 				}
 			}
 		}
+	}
 _extra_stuff:
-		if (flags & ANSI_UNDERLINE) {
-			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_offset + 2, _fg);
-			}
+	if (flags & ANSI_UNDERLINE) {
+		for (uint8_t i = 0; i < char_width; ++i) {
+			term_set_point(x + i, y + char_offset + 2, _fg);
 		}
-		if (flags & ANSI_CROSS) {
-			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_offset - 5, _fg);
-			}
+	}
+	if (flags & ANSI_CROSS) {
+		for (uint8_t i = 0; i < char_width; ++i) {
+			term_set_point(x + i, y + char_offset - 5, _fg);
 		}
-		if (flags & ANSI_BORDER) {
-			for (uint8_t i = 0; i < char_height; ++i) {
-				term_set_point(x , y + i, _fg);
-				term_set_point(x + (char_width - 1), y + i, _fg);
-			}
-			for (uint8_t j = 0; j < char_width; ++j) {
-				term_set_point(x + j, y, _fg);
-				term_set_point(x + j, y + (char_height - 1), _fg);
-			}
+	}
+	if (flags & ANSI_BORDER) {
+		for (uint8_t i = 0; i < char_height; ++i) {
+			term_set_point(x , y + i, _fg);
+			term_set_point(x + (char_width - 1), y + i, _fg);
+		}
+		for (uint8_t j = 0; j < char_width; ++j) {
+			term_set_point(x + j, y, _fg);
+			term_set_point(x + j, y + (char_height - 1), _fg);
 		}
 	}
 	needs_redraw = 1;
@@ -974,7 +940,7 @@ static void cell_redraw_box(uint16_t x, uint16_t y) {
 }
 
 void render_cursor() {
-	if (_windowed && !window->focused) {
+	if (!window->focused) {
 		cell_redraw_box(csr_x, csr_y);
 	} else {
 		cell_redraw_inverted(csr_x, csr_y);
@@ -1008,29 +974,24 @@ void term_scroll(int how_much) {
 		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), sizeof(t_cell) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
 		memset((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width * (term_height - how_much)), 0x0, sizeof(t_cell) * term_width * how_much);
-		if (_vga_mode) {
-			/* In VGA mode, we can very quickly just redraw everything */
-			term_redraw_all();
+		/* In graphical modes, we will shift the graphics buffer up as necessary */
+		uintptr_t dst, src;
+		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
+		if (!_fullscreen) {
+			/* Windowed mode must take borders into account */
+			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
+			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
 		} else {
-			/* In graphical modes, we will shift the graphics buffer up as necessary */
-			uintptr_t dst, src;
-			size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-			if (_windowed && !_fullscreen) {
-				/* Windowed mode must take borders into account */
-				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
-				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
-			} else {
-				/* While fullscreen mode does not */
-				dst = (uintptr_t)ctx->backbuffer;
-				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
-			}
-			/* Perform the shift */
-			memmove((void *)dst, (void *)src, siz);
-			/* And redraw the new rows */
-			for (int i = 0; i < how_much; ++i) {
-				for (uint16_t x = 0; x < term_width; ++x) {
-					cell_redraw(x, term_height - how_much);
-				}
+			/* While fullscreen mode does not */
+			dst = (uintptr_t)ctx->backbuffer;
+			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
+		}
+		/* Perform the shift */
+		memmove((void *)dst, (void *)src, siz);
+		/* And redraw the new rows */
+		for (int i = 0; i < how_much; ++i) {
+			for (uint16_t x = 0; x < term_width; ++x) {
+				cell_redraw(x, term_height - how_much);
 			}
 		}
 	} else {
@@ -1039,27 +1000,22 @@ void term_scroll(int how_much) {
 		memmove((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), term_buffer, sizeof(t_cell) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
 		memset(term_buffer, 0x0, sizeof(t_cell) * term_width * how_much);
-		if (_vga_mode) {
-			/* In VGA mode, we can very quickly just redraw everything */
-			term_redraw_all();
+		uintptr_t dst, src;
+		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
+		if (!_fullscreen) {
+			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
+			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
 		} else {
-			uintptr_t dst, src;
-			size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-			if (_windowed && !_fullscreen) {
-				src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
-				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
-			} else {
-				/* While fullscreen mode does not */
-				src = (uintptr_t)ctx->backbuffer;
-				dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
-			}
-			/* Perform the shift */
-			memmove((void *)dst, (void *)src, siz);
-			/* And redraw the new rows */
-			for (int i = 0; i < how_much; ++i) {
-				for (uint16_t x = 0; x < term_width; ++x) {
-					cell_redraw(x, i);
-				}
+			/* While fullscreen mode does not */
+			src = (uintptr_t)ctx->backbuffer;
+			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
+		}
+		/* Perform the shift */
+		memmove((void *)dst, (void *)src, siz);
+		/* And redraw the new rows */
+		for (int i = 0; i < how_much; ++i) {
+			for (uint16_t x = 0; x < term_width; ++x) {
+				cell_redraw(x, i);
 			}
 		}
 	}
@@ -1316,7 +1272,7 @@ void term_clear(int i) {
 		csr_x = 0;
 		csr_y = 0;
 		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(t_cell));
-		if (_windowed && !_fullscreen) {
+		if (!_fullscreen) {
 			render_decors();
 		}
 		term_redraw_all();
@@ -1560,21 +1516,8 @@ void reinit(int send_sig) {
 	int old_width  = term_width;
 	int old_height = term_height;
 
-	if (_windowed) {
-		term_width  = window_width  / char_width;
-		term_height = window_height / char_height;
-	} else if (_vga_mode) {
-		/* Set the actual terminal size */
-		term_width  = 80;
-		term_height = 25;
-		/* Fake values */
-		char_width  = 1;
-		char_height = 1;
-	} else {
-		/* Non-windowed graphical mode */
-		term_width  = ctx->width / char_width;
-		term_height = ctx->height / char_height;
-	}
+	term_width  = window_width  / char_width;
+	term_height = window_height / char_height;
 	if (term_buffer) {
 		t_cell * new_term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
 
@@ -1595,10 +1538,8 @@ void reinit(int send_sig) {
 	}
 	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll);
 
-	if (!_vga_mode) {
-		draw_fill(ctx, rgba(0,0,0, DEFAULT_OPAC));
-		render_decors();
-	}
+	draw_fill(ctx, rgba(0,0,0, DEFAULT_OPAC));
+	render_decors();
 	term_redraw_all();
 
 	struct winsize w;
@@ -1629,28 +1570,14 @@ void serial_put(uint8_t c) {
 #endif
 
 void * handle_incoming(void * garbage) {
-	unsigned char buf[1024];
 	while (!exit_application) {
 		if (exit_application) {
 			break;
 		}
-		if (_windowed) {
-			w_keyboard_t * kbd = poll_keyboard();
-			if (kbd != NULL) {
-				key_event(kbd->ret, &kbd->event);
-				free(kbd);
-			}
-		} else {
-			struct stat _stat;
-			fstat(0, &_stat);
-			if (_stat.st_size) {
-				size_t r = read(0, buf, min(_stat.st_size, 1024));
-				key_event_t event;
-				for (size_t i = 0; i < r; ++i) {
-					int ret = kbd_scancode(buf[i], &event);
-					key_event(ret, &event);
-				}
-			}
+		w_keyboard_t * kbd = poll_keyboard();
+		if (kbd != NULL) {
+			key_event(kbd->ret, &kbd->event);
+			free(kbd);
 		}
 	}
 	pthread_exit(0);
@@ -1658,14 +1585,12 @@ void * handle_incoming(void * garbage) {
 
 int main(int argc, char ** argv) {
 
-	_windowed = 1;
 	_use_freetype = 1;
 	_login_shell = 0;
 
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
 		{"bitmap",     no_argument,       0, 'b'},
-		{"vga",        no_argument,       0, 'V'},
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
 		{"kernel",     no_argument,       0, 'k'},
@@ -1676,7 +1601,7 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhFVlks:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhFlks:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -1689,13 +1614,7 @@ int main(int argc, char ** argv) {
 			case 'l':
 				_login_shell = 1;
 				break;
-			case 'V':
-				_use_freetype = 0;
-				_vga_mode = 1;
-				_windowed = 0;
-				break;
 			case 'F':
-				_windowed = 1;
 				_fullscreen = 1;
 				break;
 			case 'b':
@@ -1731,48 +1650,33 @@ int main(int argc, char ** argv) {
 	serial_fd = syscall_serial(0x3F8);
 #endif
 
-	if (_vga_mode) {
-		putenv("TERM=toaru-vga");
+	putenv("TERM=toaru");
+
+	/* Initialize the windowing library */
+	setup_windowing();
+
+	if (_fullscreen) {
+		window_width  = wins_globals->server_width;
+		window_height = wins_globals->server_height;
+		window = window_create(0,0, window_width, window_height);
+		window_reorder (window, 0); /* Disables movement */
+		window->focused = 1;
 	} else {
-		putenv("TERM=toaru");
+		int x = 40, y = 40;
+		/* Create the window */
+		window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
+		resize_window_callback = resize_callback;
+		focus_changed_callback = focus_callback;
+
+		/* Initialize the decoration library */
+		init_decorations();
 	}
 
-	if (_windowed) {
-		/* Initialize the windowing library */
-		setup_windowing();
+	/* Initialize the graphics context */
+	ctx = init_graphics_window(window);
 
-		if (_fullscreen) {
-			window_width  = wins_globals->server_width;
-			window_height = wins_globals->server_height;
-			window = window_create(0,0, window_width, window_height);
-			window_reorder (window, 0); /* Disables movement */
-			window->focused = 1;
-		} else {
-			int x = 40, y = 40;
-			/* Create the window */
-			window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
-			resize_window_callback = resize_callback;
-			focus_changed_callback = focus_callback;
-
-			/* Initialize the decoration library */
-			init_decorations();
-		}
-
-		/* Initialize the graphics context */
-		ctx = init_graphics_window(window);
-
-		/* Clear to black */
-		draw_fill(ctx, rgb(0,0,0));
-	} else if (_vga_mode) {
-		/* Set some important VGA options */
-		int temp = 0xFFFF;
-		outb(14, 0x3D4);
-		outb(temp >> 8, 0x3D5);
-		outb(15, 0x3D4);
-		outb(temp, 0x3D5);
-	} else {
-		fprintf(stderr, "Not sure how this happened?\n");
-	}
+	/* Clear to black */
+	draw_fill(ctx, rgb(0,0,0));
 
 	if (_use_freetype) {
 		int error;
@@ -1804,16 +1708,6 @@ int main(int argc, char ** argv) {
 	reinit(0);
 
 	fflush(stdin);
-
-	if (!_windowed) {
-		/* Gobble up anything that was on the keyboard buffer before we started */
-		struct stat sbuf;
-		fstat(0, &sbuf);
-		if (sbuf.st_size > 0) {
-			char buf[sbuf.st_size];
-			read(0, buf, sbuf.st_size);
-		}
-	}
 
 	int pid = getpid();
 	uint32_t f = fork();
@@ -1847,7 +1741,7 @@ int main(int argc, char ** argv) {
 		return 1;
 	} else {
 
-		if (!_windowed || _force_kernel) {
+		if (_force_kernel) {
 			/* Request kernel output to this terminal */
 			//syscall_system_function(4, (char **)fd_slave);
 		}
@@ -1864,7 +1758,7 @@ int main(int argc, char ** argv) {
 		struct stat _stat;
 		while (!exit_application) {
 			timer_tick++;
-			if (timer_tick == (_windowed ? TIMER_TICK * 10 : TIMER_TICK)) {
+			if (timer_tick == (TIMER_TICK * 10)) {
 				timer_tick = 0;
 				flip_cursor();
 			}
@@ -1884,9 +1778,7 @@ int main(int argc, char ** argv) {
 
 	}
 
-	if (_windowed) {
-		teardown_windowing();
-	}
+	teardown_windowing();
 
 	return 0;
 }
