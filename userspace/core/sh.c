@@ -1047,18 +1047,19 @@ exit:
 uint32_t shell_cmd_cd(int argc, char * argv[]) {
 	if (argc > 1) {
 		if (chdir(argv[1])) {
-			fprintf(stderr, "%s: could not cd '%s': no such file or directory\n", argv[0], argv[1]);
-			return 1;
+			goto cd_error;
 		} /* else success */
 	} else /* argc < 2 */ {
 		char home_path[512];
 		sprintf(home_path, "/home/%s", username);
 		if (chdir(home_path)) {
-			fprintf(stderr, "%s: could not cd %s': no such file or directory\n", argv[0], argv[1]);
-			return 1;
+			goto cd_error;
 		}
 	}
 	return 0;
+cd_error:
+	fprintf(stderr, "%s: could not cd '%s': no such file or directory\n", argv[0], argv[1]);
+	return 1;
 }
 
 /*
