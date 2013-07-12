@@ -60,6 +60,7 @@ Additionally, a number of third-party software packages have been ported to と�
 * SDL - See [klange/SDL](https://github.com/klange/SDL)
 * `snes9x-sdl` - See [klange/snes9x-sdl](https://github.com/klange/snes9x-sdl)
 * Bochs
+* Python - in progress...
 
 ## Screenshots ##
 
@@ -77,7 +78,7 @@ You can then run `make run` or `make kvm` to run QEMU. An additional `make run-c
 While we only officially support QEMU, other environments - including actual hardware - should work given the appropriate tools. If you are eager to try とあるOS from a real machine, please use GRUB 2 and ensure that you provide the correct graphics payload options. You may find a sample GRUB configuration the `image-builder` directory.
 
 ### User Accounts ###
-The default root password is `toor`. There is also a regular user `local` with password `local`. While general system security is lacking, most system-modifying calls to the kernel require root privileges. When booting directly to a graphical terminal, the system will run in single-user mode and automatically log in as root. When running in graphical or VGA-terminal mode, a login screen is presented.
+The default root password is `toor`. There is also a regular user `local` with password `local`. While general system security is lacking, most system-modifying calls to the kernel require root privileges.
 
 ### Cygwin ###
 With some work, とあるOS is also known to build successfully under cygwin. Instructions are forthcoming.

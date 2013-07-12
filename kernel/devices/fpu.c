@@ -1,11 +1,16 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
- * Tiny FPU enable module.
- * 
- * Part of the ToAruOS Kernel
- * (C) 2011 Kevin Lange ...
- * To whatever possible level this short of a code chunk
- * can be considered copyrightable in your jurisdiction.
+ * FPU and SSE context handling.
+ *
+ * FPU context is kept through context switches,
+ * but the FPU is disabled. When an FPU instruction
+ * is executed, it will trap here and the context
+ * will be saved to its original owner and the context
+ * for the current process will be loaded or the FPU
+ * will be reset for the new process.
+ *
+ * FPU states are per kernel thread.
+ *
  */
 #include <system.h>
 #include <logging.h>
@@ -23,11 +28,7 @@ set_fpu_cw(const uint16_t cw) {
 }
 
 /**
- * Enable the FPU
- *
- * We are assuming that we have one to begin with, but since we
- * only really operate on 686 machines, we do, so we're not
- * going to bother checking.
+ * Enable the FPU and SSE
  */
 void enable_fpu(void) {
 	asm volatile ("clts");
@@ -37,6 +38,9 @@ void enable_fpu(void) {
 	asm volatile ("mov %0, %%cr4" :: "r"(t));
 }
 
+/**
+ * Disable FPU and SSE so it traps to the kernel
+ */
 void disable_fpu(void) {
 	size_t t;
 	asm volatile ("mov %%cr0, %0" : "=r"(t));
@@ -44,44 +48,67 @@ void disable_fpu(void) {
 	asm volatile ("mov %0, %%cr0" :: "r"(t));
 }
 
+/* Temporary aligned buffer for copying around FPU contexts */
 uint8_t saves[512] __attribute__((aligned(16)));
 
+/**
+ * Restore the FPU for a process
+ */
 void restore_fpu(process_t * proc) {
 	memcpy(&saves,(uint8_t *)&proc->thread.fp_regs,512);
 	asm volatile ("fxrstor %0" : "=m"(saves));
 }
 
+/**
+ * Save the FPU for a process
+ */
 void save_fpu(process_t * proc) {
 	asm volatile ("fxsave %0" : "=m"(saves));
 	memcpy((uint8_t *)&proc->thread.fp_regs,&saves,512);
 }
 
+/**
+ * Initialize the FPU
+ */
 void init_fpu(void) {
 	asm volatile ("fninit");
 	set_fpu_cw(0x37F);
 }
 
+/**
+ * Kernel trap for FPU usage when FPU is disabled
+ */
 void invalid_op(struct regs * r) {
+	/* First, turn the FPU on */
 	enable_fpu();
 	if (fpu_thread == current_process) {
+		/* If this is the tread that last used the FPU, do nothing */
 		return;
 	}
 	if (fpu_thread) {
+		/* If there is a thread that was using the FPU, save its state */
 		save_fpu(fpu_thread);
 	}
 	fpu_thread = (process_t *)current_process;
 	if (!fpu_thread->thread.fpu_enabled) {
+		/*
+		 * If the FPU has not been used in this thread previously,
+		 * we need to initialize it.
+		 */
 		init_fpu();
 		fpu_thread->thread.fpu_enabled = 1;
 		return;
 	}
+	/* Otherwise we restore the context for this thread. */
 	restore_fpu(fpu_thread);
 }
 
+/* Called during a context switch; disable the FPU */
 void switch_fpu(void) {
 	disable_fpu();
 }
 
+/* Enable the FPU context handling */
 void auto_fpu(void) {
 	isrs_install_handler(6, &invalid_op);
 	isrs_install_handler(7, &invalid_op);
