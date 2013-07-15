@@ -14,14 +14,14 @@ char * __kernel_version_format = "%d.%d.%d-%s";
 
 /* Version numbers X.Y.Z */
 int    __kernel_version_major = 0;
-int    __kernel_version_minor = 4;
-int    __kernel_version_lower = 99;
+int    __kernel_version_minor = 5;
+int    __kernel_version_lower = 0;
 
 /* Kernel build suffix, which doesn't necessarily
  * mean anything, but can be used to distinguish
  * between different features included while
  * building multiple kernels. */
-char * __kernel_version_suffix   = "dev";
+char * __kernel_version_suffix   = "rel";
 
 /* The release codename.
  *
