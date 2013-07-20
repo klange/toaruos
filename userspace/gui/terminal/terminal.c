@@ -103,7 +103,6 @@ void term_redraw_cursor();
 
 /* Cursor bink timer */
 static unsigned int timer_tick = 0;
-#define TIMER_TICK 40
 
 /* Some GUI-only options */
 uint16_t window_width  = 640;
@@ -1571,14 +1570,24 @@ void serial_put(uint8_t c) {
 
 void * handle_incoming(void * garbage) {
 	while (!exit_application) {
-		if (exit_application) {
-			break;
-		}
 		w_keyboard_t * kbd = poll_keyboard();
 		if (kbd != NULL) {
 			key_event(kbd->ret, &kbd->event);
 			free(kbd);
 		}
+	}
+	pthread_exit(0);
+}
+
+void * blink_cursor(void * garbage) {
+	while (!exit_application) {
+		timer_tick++;
+		if (timer_tick == 3) {
+			timer_tick = 0;
+			flip_cursor();
+			syscall_print("FLIPPING CURSOR\n");
+		}
+		usleep(90000);
 	}
 	pthread_exit(0);
 }
@@ -1754,26 +1763,18 @@ int main(int argc, char ** argv) {
 		pthread_t handle_incoming_thread;
 		pthread_create(&handle_incoming_thread, NULL, handle_incoming, NULL);
 
-		unsigned char buf[1024];
-		struct stat _stat;
-		while (!exit_application) {
-			timer_tick++;
-			if (timer_tick == (TIMER_TICK * 10)) {
-				timer_tick = 0;
-				flip_cursor();
-			}
+		pthread_t cursor_blink_thread;
+		pthread_create(&cursor_blink_thread, NULL, blink_cursor, NULL);
 
-			fstat(fd_master, &_stat);
-			if (_stat.st_size) {
-				int r = read(fd_master, buf, min(_stat.st_size, 1024));
-				for (uint32_t i = 0; i < r; ++i) {
-					ansi_put(buf[i]);
+		unsigned char buf[1024];
+		while (!exit_application) {
+			int r = read(fd_master, buf, 1024);
+			for (uint32_t i = 0; i < r; ++i) {
+				ansi_put(buf[i]);
 #if DEBUG_TERMINAL_WITH_SERIAL
-					serial_put(buf[i]);
+				serial_put(buf[i]);
 #endif
-				}
 			}
-			syscall_yield();
 		}
 
 	}
