@@ -86,7 +86,7 @@ pushd build
         mkdir cairo-native
     fi
     pushd cairo-native
-        $DIR/tarballs/cairo-1.12.2/configure --host=$TARGET --prefix=$VIRTPREFIX --enable-ps=no --enable-pdf=no --enable-interpreter=no || bail
+        $DIR/tarballs/cairo-1.12.2/configure --host=$TARGET --prefix=$VIRTPREFIX --enable-ps=no --enable-pdf=no --enable-interpreter=no --enable-xlib=no || bail
         cp $DIR/patches/cairo-Makefile test/Makefile
         cp $DIR/patches/cairo-Makefile perf/Makefile
         echo -e "\n\n#define CAIRO_NO_MUTEX 1" >> config.h
