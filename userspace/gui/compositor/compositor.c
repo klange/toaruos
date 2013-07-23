@@ -43,6 +43,9 @@
 #define MODE_SCALE         0x002
 #define MODE_WINDOW_PICKER 0x003
 
+#define SCREENSHOT_WHOLE_SCREEN 1
+#define SCREENSHOT_THIS_WINDOW  2
+
 unsigned int tick_count = 0;
 
 int animation_lengths[] = {
@@ -89,6 +92,7 @@ wins_server_global_t volatile * _request_page;
 int error;
 int focus_next_scale = 0;
 int window_picker_index = 0;
+int take_screenshot_now = 0;
 
 int management_mode = MODE_NORMAL;
 
@@ -1154,6 +1158,17 @@ int handle_key_press(w_keyboard_t * keyboard, server_window_t * window) {
 		}
 	}
 
+	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+	    (keyboard->event.keycode == 'p')) {
+		if (keyboard->event.modifiers & KEY_MOD_LEFT_ALT) {
+			take_screenshot_now = SCREENSHOT_THIS_WINDOW;
+		} else {
+			take_screenshot_now = SCREENSHOT_WHOLE_SCREEN;
+		}
+		return 1;
+	}
+
 	if ((keyboard->event.modifiers & KEY_MOD_LEFT_ALT) &&
 	    (keyboard->event.keycode == '\t')) {
 		int direction = (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) ? -1 : 1;
@@ -1422,6 +1437,22 @@ void * keyboard_input(void * garbage) {
 	return NULL;
 }
 
+void take_screenshot(int of_what) {
+	cairo_surface_t * srf;
+	if (of_what == SCREENSHOT_WHOLE_SCREEN) {
+		int stride = ctx->width * 4;
+		srf = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
+	} else if (of_what == SCREENSHOT_THIS_WINDOW) {
+		server_window_t * window = focused_window();
+		if (!window) { return; }
+
+		int stride = window->width * 4;
+		srf = cairo_image_surface_create_for_data(window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
+	}
+	cairo_surface_write_to_png(srf, "/tmp/screenshot.png");
+	cairo_surface_destroy(srf);
+}
+
 void * redraw_thread(void * derp) {
 	while (1) {
 		spin_lock(&am_drawing);
@@ -1438,6 +1469,12 @@ void * redraw_thread(void * derp) {
 		}
 		/* Other stuff */
 		redraw_cursor();
+
+		if (take_screenshot_now) {
+			take_screenshot(take_screenshot_now);
+			take_screenshot_now = 0;
+		}
+
 		spin_unlock(&am_drawing);
 
 		tick_count += 10;
