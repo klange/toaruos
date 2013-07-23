@@ -624,6 +624,36 @@ static int system_function(int fn, char ** args) {
 				current_process->fds->entries[1] = nulldev;
 				current_process->fds->entries[2] = nulldev;
 				break;
+			case 6:
+				debug_print(WARNING, "writing contents of file %s to sdb", args[0]);
+				{
+					fs_node_t * file = kopen((char *)args[0], 0);
+					if (!file) {
+						return -1;
+					}
+					size_t length = file->length;
+					uint8_t * buffer = malloc(length);
+					read_fs(file, 0, length, (uint8_t *)buffer);
+					close_fs(file);
+					debug_print(WARNING, "Finished reading file, going to write it now.\n");
+
+#define DISK_PORT 0x1F0
+					size_t i = 0;
+					for (i = 0; i < length; i += 512) {
+						debug_print(WARNING, "... %d / %d", i, length);
+						ide_write_sector_retry(DISK_PORT, 1, i / 512, (uint8_t *)(&buffer[i]));
+					}
+					if (i < length) {
+						uint8_t * tmp = malloc(512);
+						memset(tmp, 0x00, 512);
+						memcpy(tmp, &buffer[i], length % 512);
+						ide_write_sector_retry(DISK_PORT, 1, i / 512, tmp);
+						free(tmp);
+					}
+
+					free(buffer);
+					return 0;
+				}
 			default:
 				kprintf("Bad system function %d\n", fn);
 				break;
