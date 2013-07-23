@@ -1585,7 +1585,6 @@ void * blink_cursor(void * garbage) {
 		if (timer_tick == 3) {
 			timer_tick = 0;
 			flip_cursor();
-			syscall_print("FLIPPING CURSOR\n");
 		}
 		usleep(90000);
 	}
