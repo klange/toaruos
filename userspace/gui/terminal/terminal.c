@@ -93,10 +93,8 @@ window_t * window       = NULL; /* GUI window */
 uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
-uint8_t  _unbuffered    = 0;
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
-uint8_t  _onlcr         = 1;
 
 void reinit(); /* Defined way further down */
 void term_redraw_cursor();
@@ -196,7 +194,6 @@ static struct _ansi_state {
 	uint8_t  flags ;  /* Bright, etc. */
 	uint8_t  escape;  /* Escape status */
 	uint8_t  box;
-	uint8_t  local_echo;
 	uint8_t  buflen;  /* Buffer Length */
 	char     buffer[100];  /* Previous buffer */
 } state;
@@ -338,18 +335,16 @@ static void _ansi_put(char c) {
 										redraw_cursor();
 										break;
 									case 1001:
-										/* Local Echo Off */
-										state.local_echo = 0;
+										syscall_print("[terminal] legacy app! fix this thing! echo\n");
 										break;
 									case 1002:
-										/* Local Echo On */
-										state.local_echo = 1;
+										syscall_print("[terminal] legacy app! fix this thing! echo\n");
 										break;
 									case 1003:
-										_onlcr = 0;
+										syscall_print("[terminal] legacy app! fix this thing! nl-cr\n");
 										break;
 									case 1004:
-										_onlcr = 1;
+										syscall_print("[terminal] legacy app! fix this thing! nl-cr\n");
 										break;
 									case 1555:
 										if (argc > 1) {
@@ -359,11 +354,10 @@ static void _ansi_put(char c) {
 										}
 										break;
 									case 1560:
-										_unbuffered = 1;
-										dump_buffer();
+										syscall_print("[terminal] legacy app! fix this thing! canon\n");
 										break;
 									case 1561:
-										_unbuffered = 0;
+										syscall_print("[terminal] legacy app! fix this thing! canon\n");
 										break;
 									case 3000:
 										if (!_fullscreen) {
@@ -717,7 +711,6 @@ void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(uint32_t, ui
 	state.flags  = DEFAULT_FLAGS; /* Nothing fancy*/
 	state.width  = w;
 	state.height = y;
-	state.local_echo = 1;
 	state.box    = 0;
 
 	ansi_set_color(state.fg, state.bg);
@@ -1141,13 +1134,6 @@ void term_write(char c) {
 			c = '?';
 		}
 		if (c == '\n') {
-			if (_onlcr) {
-				if (csr_x == 0 && _hold_out) {
-					_hold_out = 0;
-					return;
-				}
-				csr_x = 0;
-			}
 			++csr_y;
 			draw_cursor();
 		} else if (c == '\007') {
@@ -1162,7 +1148,10 @@ void term_write(char c) {
 			term_redraw_all();
 #endif
 		} else if (c == '\r') {
-			cell_redraw(csr_x,csr_y);
+			if (csr_x == 0 && _hold_out) {
+				_hold_out = 0;
+				return;
+			}
 			csr_x = 0;
 		} else if (c == '\b') {
 			if (csr_x > 0) {
@@ -1315,66 +1304,12 @@ void clear_input() {
 
 uint32_t child_pid = 0;
 
-int buffer_put(char c) {
-	if (c == 8) {
-		/* Backspace */
-		if (input_collected > 0) {
-			input_collected--;
-			input_buffer[input_collected] = '\0';
-			if (state.local_echo) {
-				fprintf(terminal, "\010 \010");
-				fflush(terminal);
-			}
-		}
-		return 0;
-	}
-	if (c == 3) {
-		kill(child_pid, SIGINT);
-		return 1;
-	}
-	if (c < 10 || (c > 10 && c < 32) || c > 126) {
-		return 0;
-	}
-	input_buffer[input_collected] = c;
-	if (state.local_echo) {
-		fprintf(terminal, "%c", c);
-		fflush(terminal);
-	}
-	if (input_buffer[input_collected] == '\n') {
-		input_collected++;
-		return 1;
-	}
-	input_collected++;
-	if (input_collected == INPUT_SIZE) {
-		return 1;
-	}
-	return 0;
-}
-
 void handle_input(char c) {
-	if (_unbuffered) {
-		write(fd_master, &c, 1);
-	} else {
-		if (buffer_put(c)) {
-			dump_buffer();
-		}
-	}
-}
-
-void dump_buffer() {
-	write(fd_master, input_buffer, input_collected);
-	clear_input();
+	write(fd_master, &c, 1);
 }
 
 void handle_input_s(char * c) {
-	if (_unbuffered) {
-		write(fd_master, c, strlen(c));
-	} else {
-		while (*c) {
-			handle_input(*c);
-			c++;
-		}
-	}
+	write(fd_master, c, strlen(c));
 }
 
 void key_event(int ret, key_event_t * event) {

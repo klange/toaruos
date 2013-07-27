@@ -210,29 +210,18 @@ uint32_t codepoint_r;
 uint32_t state = 0;
 uint32_t istate = 0;
 
-#ifdef __linux__
 struct termios old;
-#endif
 
 void set_unbuffered() {
-#ifdef __linux__
 	tcgetattr(fileno(stdin), &old);
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO);
 	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
-#else
-	printf("\033[1560z");
-	fflush(stdout);
-#endif
 }
 
 void set_buffered() {
-#ifdef __linux__
-	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-#else
 	printf("\033[1561z");
 	fflush(stdout);
-#endif
 }
 
 int to_eight(uint16_t codepoint, uint8_t * out) {
@@ -459,11 +448,7 @@ void redraw_all() {
 
 void update_title() {
 	char cwd[1024] = {'/',0};
-#ifdef __linux__
 	getcwd(cwd, 1024);
-#else
-	syscall_getcwd(cwd, 1024);
-#endif
 	printf("\033]1;%s%s (%s) - BIM\007", env->file_name, env->modified ? " +" : "", cwd);
 }
 

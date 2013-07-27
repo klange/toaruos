@@ -268,8 +268,8 @@ int flags;
 	c_oflag= termios.c_oflag;
 
 	print_flags(c_oflag, OPOST, TOUTPUT_DEF, "-opost", all);
-#ifdef __minix
 	print_flags(c_oflag, ONLCR, TOUTPUT_DEF, "-onlcr", all);
+#ifdef __minix
 	print_flags(c_oflag, XTABS, TOUTPUT_DEF, "-xtabs", all);
 	print_flags(c_oflag, ONOEOT, TOUTPUT_DEF, "-onoeot", all);
 #endif
@@ -621,7 +621,6 @@ char *opt, *next;
 	termios.c_oflag &= ~OPOST;
 	return 0;
   }
-#ifdef __minix
   if (match(opt, "onlcr")) {
 	termios.c_oflag |= ONLCR;
 	return 0;
@@ -630,6 +629,7 @@ char *opt, *next;
 	termios.c_oflag &= ~ONLCR;
 	return 0;
   }
+#ifdef __minix
 
   if (match(opt, "xtabs")) {
 	termios.c_oflag |= XTABS;

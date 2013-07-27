@@ -140,12 +140,3 @@ diff -rupN vim73/src/os_unix.c vim73.new/src/os_unix.c
  #ifdef FEAT_MZSCHEME
  # include "if_mzsch.h"
  #endif
-@@ -3161,6 +3188,8 @@ mch_settmode(tmode)
- 	/*
- 	 * ~ICRNL enables typing ^V^M
- 	 */
-+	printf("\033[1560z");
-+	fflush(stdout);
- 	tnew.c_iflag &= ~ICRNL;
- 	tnew.c_lflag &= ~(ICANON | ECHO | ISIG | ECHOE
- # if defined(IEXTEN) && !defined(__MINT__)

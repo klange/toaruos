@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+#include <termios.h>
 
 #include <sys/utsname.h>
 
@@ -137,11 +138,20 @@ int main(int argc, char ** argv) {
 		fgets(username, 1024, stdin);
 		username[strlen(username)-1] = '\0';
 
-		fprintf(stdout, "password: \033[1001z");
+		fprintf(stdout, "password: ");
 		fflush(stdout);
+
+		/* Disable echo */
+		struct termios old, new;
+		tcgetattr(fileno(stdin), &old);
+		new = old;
+		new.c_lflag &= (~ECHO);
+		tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+
 		fgets(password, 1024, stdin);
 		password[strlen(password)-1] = '\0';
-		fprintf(stdout, "\033[1002z\n");
+		tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+		fprintf(stdout, "\n");
 
 		int uid = checkUserPass(username, password);
 

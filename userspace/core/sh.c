@@ -10,8 +10,6 @@
 
 #define _XOPEN_SOURCE
 
-#define USE_TERMIOS_BUFFERING 0
-
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -118,7 +116,6 @@ shell_command_t shell_find(char * str) {
 	return NULL;
 }
 
-#if USE_TERMIOS_BUFFERING
 struct termios old;
 
 void set_unbuffered() {
@@ -131,17 +128,6 @@ void set_unbuffered() {
 void set_buffered() {
 	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 }
-#else
-void set_unbuffered() {
-	printf("\033[1560z");
-	fflush(stdout);
-}
-
-void set_buffered() {
-	printf("\033[1561z");
-	fflush(stdout);
-}
-#endif
 
 void install_commands();
 
@@ -1151,6 +1137,11 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	}
 }
 
+uint32_t shell_cmd_test_break(int argc, char * argv[]) {
+	fprintf(stderr, "This is a test.\n");
+	return 0;
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd);
 	shell_install_command("history", shell_cmd_history);
@@ -1158,4 +1149,5 @@ void install_commands() {
 	shell_install_command("test",    shell_cmd_test);
 	shell_install_command("exit",    shell_cmd_exit);
 	shell_install_command("set",     shell_cmd_set);
+	shell_install_command("test-break", shell_cmd_test_break);
 }

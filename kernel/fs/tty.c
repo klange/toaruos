@@ -9,10 +9,6 @@
 
 #define TTY_BUFFER_SIZE 512
 
-#define M_ICANON 0x01
-#define M_RAW    0x02
-#define M_RRAW   0x04
-
 typedef struct pty {
 	/* the PTY number */
 	int            name;
@@ -31,8 +27,8 @@ typedef struct pty {
 	ring_buffer_t * in;
 	ring_buffer_t * out;
 
-	/* line discipline modes */
-	unsigned char mode;
+	char * canon_buffer;
+	size_t canon_bufsize;
 
 	pid_t ct_proc; /* Controlling process (shell) */
 	pid_t fg_proc; /* Foreground process (might also be shell) */
@@ -63,11 +59,43 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			validate(argp);
 			memcpy(argp, &pty->size, sizeof(struct winsize));
 			return 0;
+		case TCGETS:
+			if (!argp) return -1;
+			validate(argp);
+			memcpy(argp, &pty->tios, sizeof(struct termios));
+			return 0;
+		case TCSETS:
+		case TCSETSW:
+		case TCSETSF:
+			if (!argp) return -1;
+			validate(argp);
+			memcpy(&pty->tios, argp, sizeof(struct termios));
+			return 0;
 		default:
 			return -1; /* TODO EINV... something or other */
 	}
 	return -1;
 }
+
+#define IN(character)   ring_buffer_write(pty->in, 1, (uint8_t *)&(character))
+#define OUT(character)  ring_buffer_write(pty->out, 1, (uint8_t *)&(character))
+
+static void output_process(pty_t * pty, uint8_t c) {
+	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
+		uint8_t d = '\r';
+		OUT(d);
+	}
+	OUT(c);
+}
+
+static void input_process(pty_t * pty, uint8_t c) {
+	if (pty->tios.c_lflag & ECHO) {
+		output_process(pty, c);
+	}
+	IN(c);
+}
+
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 uint32_t  read_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
@@ -78,8 +106,12 @@ uint32_t  read_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint
 uint32_t write_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
-	/* XXX process special sequences and implement line discipline */
-	return ring_buffer_write(pty->in, size, buffer);
+	size_t l = 0;
+	for (uint8_t * c = buffer; l < size; ++c, ++l) {
+		input_process(pty, *c);
+	}
+
+	return l;
 }
 void      open_pty_master(fs_node_t * node, unsigned int flags) {
 	return;
@@ -91,12 +123,26 @@ void     close_pty_master(fs_node_t * node) {
 uint32_t  read_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
-	return ring_buffer_read(pty->in, size, buffer);
+	if (pty->tios.c_lflag & ICANON) {
+		return ring_buffer_read(pty->in, size, buffer);
+	} else {
+		if (pty->tios.c_cc[VMIN] == 0) {
+			return ring_buffer_read(pty->in, MIN(size, ring_buffer_unread(pty->in)), buffer);
+		} else {
+			return ring_buffer_read(pty->in, MIN(pty->tios.c_cc[VMIN], size), buffer);
+		}
+	}
 }
+
 uint32_t write_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
-	return ring_buffer_write(pty->out, size, buffer);
+	size_t l = 0;
+	for (uint8_t * c = buffer; l < size; ++c, ++l) {
+		output_process(pty, *c);
+	}
+
+	return l;
 }
 void      open_pty_slave(fs_node_t * node, unsigned int flags) {
 	return;
@@ -203,12 +249,25 @@ pty_t * pty_new(struct winsize * size) {
 		pty->size.ws_col = 80;
 	}
 
-	/* tty mode (cooked, raw, etc.) */
-	pty->mode = M_ICANON;
-
 	/* Controlling and foreground processes are set to 0 by default */
 	pty->ct_proc = 0;
 	pty->fg_proc = 0;
+
+	pty->tios.c_iflag = ICRNL | BRKINT;
+	pty->tios.c_oflag = ONLCR | OPOST;
+	pty->tios.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN;
+	pty->tios.c_cflag = CREAD;
+	pty->tios.c_cc[VEOF]   =  4; /* ^D */
+	pty->tios.c_cc[VEOL]   =  0; /* Not set */
+	pty->tios.c_cc[VERASE] = '\b';
+	pty->tios.c_cc[VINTR]  =  3; /* ^C */
+	pty->tios.c_cc[VKILL]  = 21; /* ^U */
+	pty->tios.c_cc[VMIN]   =  1;
+	pty->tios.c_cc[VQUIT]  = 28; /* ^\ */
+	pty->tios.c_cc[VSTART] = 17; /* ^Q */
+	pty->tios.c_cc[VSTOP]  = 19; /* ^S */
+	pty->tios.c_cc[VSUSP] = 26; /* ^Z */
+	pty->tios.c_cc[VTIME]  =  0;
 
 	return pty;
 }

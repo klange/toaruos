@@ -535,7 +535,6 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 
 void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
 	IRQ_OFF;
-	debug_print(INFO, "Sleeping process %d until %d,%d", process->id, seconds, subseconds);
 	node_t * before = NULL;
 	foreach(node, sleep_queue) {
 		sleeper_t * candidate = ((sleeper_t *)node->value);

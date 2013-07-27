@@ -507,19 +507,12 @@ int tcdrain(int i) {
 	return 0;
 }
 
-int tcflow(int a, int b) {
-	DEBUG_STUB("tcflow(%d,%d)\n", a, b);
-	return 0;
+int tcflow(int fd, int arg) {
+	return ioctl(fd, TCXONC, arg);
 }
 
-int tcflush(int a, int b) {
-	DEBUG_STUB("tcflow(%d,%d)\n", a, b);
-	return 0;
-}
-
-int tcgetattr(int fd, struct termios * tio) {
-	DEBUG_STUB("tcgetattr(%d, ...)\n", fd);
-	return 0;
+int tcflush(int fd, int arg) {
+	return ioctl(fd, TCFLSH, arg);
 }
 
 pid_t tcgetsid(int fd) {
@@ -527,30 +520,35 @@ pid_t tcgetsid(int fd) {
 	return getpid();
 }
 
-int tcsendbreak(int a, int b) {
-	DEBUG_STUB("tcsendbreak(%d,%d)\n", a, b);
-	return 0;
+int tcsendbreak(int fd, int arg) {
+	return ioctl(fd, TCSBRK, arg);
+}
+
+int tcgetattr(int fd, struct termios * tio) {
+	return ioctl(fd, TCGETS, tio);
 }
 
 int tcsetattr(int fd, int actions, struct termios * tio) {
-	DEBUG_STUB( "tcsetattr(%d,%d,...)\n", fd, actions);
-
-	DEBUG_STUB( "   0x%8x\n", tio->c_cflag);
-	DEBUG_STUB( "   0x%8x\n", tio->c_iflag);
-	DEBUG_STUB( "   0x%8x\n", tio->c_lflag);
-	DEBUG_STUB( "   0x%8x\n", tio->c_oflag);
-
-	return 0;
+	switch (actions) {
+		case TCSANOW:
+			return ioctl(fd, TCSETS, tio);
+		case TCSADRAIN:
+			return ioctl(fd, TCSETSW, tio);
+		case TCSAFLUSH:
+			return ioctl(fd, TCSETSF, tio);
+		default:
+			return 0;
+	}
 }
 
 int tcsetpgrp(int fd, pid_t pgrp) {
-	DEBUG_STUB("tcsetpgrp(%d,%d);\n", fd, pgrp);
-	return 0;
+	return ioctl(fd, TIOCSPGRP, &pgrp);
 }
 
 pid_t tcgetpgrp(int fd) {
-	DEBUG_STUB("tcgetpgrp(%d);\n", fd);
-	return -1;
+	pid_t pgrp;
+	ioctl(fd, TIOCGPGRP, &pgrp);
+	return pgrp;
 }
 
 int fpathconf(int file, int name) {
