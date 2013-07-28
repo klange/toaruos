@@ -422,7 +422,7 @@ static int uname(struct utsname * name) {
 	return 0;
 }
 
-static int send_signal(pid_t process, uint32_t signal) {
+int send_signal(pid_t process, uint32_t signal) {
 	process_t * receiver = process_from_pid(process);
 
 	if (!receiver) {

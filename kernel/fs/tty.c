@@ -29,6 +29,7 @@ typedef struct pty {
 
 	char * canon_buffer;
 	size_t canon_bufsize;
+	size_t canon_buflen;
 
 	pid_t ct_proc; /* Controlling process (shell) */
 	pid_t fg_proc; /* Foreground process (might also be shell) */
@@ -36,6 +37,97 @@ typedef struct pty {
 } pty_t;
 
 list_t * pty_list = NULL;
+
+#define IN(character)   ring_buffer_write(pty->in, 1, (uint8_t *)&(character))
+#define OUT(character)  ring_buffer_write(pty->out, 1, (uint8_t *)&(character))
+
+static void dump_input_buffer(pty_t * pty) {
+	char * c = pty->canon_buffer;
+	while (pty->canon_buflen > 0) {
+		IN(*c);
+		pty->canon_buflen--;
+		c++;
+	}
+}
+
+static void output_process(pty_t * pty, uint8_t c) {
+	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
+		uint8_t d = '\r';
+		OUT(d);
+	}
+	OUT(c);
+}
+
+static void input_process(pty_t * pty, uint8_t c) {
+	if (pty->tios.c_lflag & ICANON) {
+		debug_print(INFO, "Processing for character %d in canon mode", c);
+		if (c == pty->tios.c_cc[VKILL]) {
+			while (pty->canon_buflen > 0) {
+				pty->canon_buflen--;
+				pty->canon_buffer[pty->canon_buflen] = '\0';
+				if (pty->tios.c_lflag & ECHO) {
+					output_process(pty, '\010');
+					output_process(pty, ' ');
+					output_process(pty, '\010');
+				}
+			}
+			return;
+		}
+		if (c == pty->tios.c_cc[VERASE]) {
+			/* Backspace */
+			if (pty->canon_buflen > 0) {
+				pty->canon_buflen--;
+				pty->canon_buffer[pty->canon_buflen] = '\0';
+				if (pty->tios.c_lflag & ECHO) {
+					output_process(pty, '\010');
+					output_process(pty, ' ');
+					output_process(pty, '\010');
+				}
+			}
+			return;
+		}
+		if (c == pty->tios.c_cc[VINTR]) {
+			if (pty->tios.c_lflag & ECHO) {
+				output_process(pty, '^');
+				output_process(pty, '@' + c);
+				output_process(pty, '\n');
+			}
+			if (pty->fg_proc) {
+				send_signal(pty->fg_proc, SIGINT);
+			}
+			return;
+		}
+		if (c == pty->tios.c_cc[VQUIT]) {
+			if (pty->tios.c_lflag & ECHO) {
+				output_process(pty, '^');
+				output_process(pty, '@' + c);
+				output_process(pty, '\n');
+			}
+			if (pty->fg_proc) {
+				send_signal(pty->fg_proc, SIGQUIT);
+			}
+			return;
+		}
+		pty->canon_buffer[pty->canon_buflen] = c;
+		if (pty->tios.c_lflag & ECHO) {
+			output_process(pty, c);
+		}
+		if (pty->canon_buffer[pty->canon_buflen] == '\n') {
+			pty->canon_buflen++;
+			dump_input_buffer(pty);
+			return;
+		}
+		if (pty->canon_buflen == pty->canon_bufsize) {
+			dump_input_buffer(pty);
+			return;
+		}
+		pty->canon_buflen++;
+		return;
+	} else if (pty->tios.c_lflag & ECHO) {
+		output_process(pty, c);
+	}
+	IN(c);
+}
 
 int pty_ioctl(pty_t * pty, int request, void * argp) {
 	debug_print(WARNING, "Incoming IOCTL request %d", request);
@@ -64,35 +156,31 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			validate(argp);
 			memcpy(argp, &pty->tios, sizeof(struct termios));
 			return 0;
+		case TIOCSPGRP:
+			if (!argp) return -1;
+			validate(argp);
+			pty->fg_proc = *(pid_t *)argp;
+			return 0;
+		case TIOCGPGRP:
+			if (!argp) return -1;
+			validate(argp);
+			*(pid_t *)argp = pty->fg_proc;
+			return 0;
 		case TCSETS:
 		case TCSETSW:
 		case TCSETSF:
 			if (!argp) return -1;
 			validate(argp);
+			if (!(((struct termios *)argp)->c_lflag & ICANON) && (pty->tios.c_lflag & ICANON)) {
+				/* Switch out of canonical mode, the dump the input buffer */
+
+			}
 			memcpy(&pty->tios, argp, sizeof(struct termios));
 			return 0;
 		default:
 			return -1; /* TODO EINV... something or other */
 	}
 	return -1;
-}
-
-#define IN(character)   ring_buffer_write(pty->in, 1, (uint8_t *)&(character))
-#define OUT(character)  ring_buffer_write(pty->out, 1, (uint8_t *)&(character))
-
-static void output_process(pty_t * pty, uint8_t c) {
-	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
-		uint8_t d = '\r';
-		OUT(d);
-	}
-	OUT(c);
-}
-
-static void input_process(pty_t * pty, uint8_t c) {
-	if (pty->tios.c_lflag & ECHO) {
-		output_process(pty, c);
-	}
-	IN(c);
 }
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -268,6 +356,10 @@ pty_t * pty_new(struct winsize * size) {
 	pty->tios.c_cc[VSTOP]  = 19; /* ^S */
 	pty->tios.c_cc[VSUSP] = 26; /* ^Z */
 	pty->tios.c_cc[VTIME]  =  0;
+
+	pty->canon_buffer  = malloc(TTY_BUFFER_SIZE);
+	pty->canon_bufsize = TTY_BUFFER_SIZE;
+	pty->canon_buflen  = 0;
 
 	return pty;
 }

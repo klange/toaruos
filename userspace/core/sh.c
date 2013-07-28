@@ -913,12 +913,14 @@ _done:
 			}
 			exit(i);
 		} else {
+			tcsetpgrp(0, f);
 			int ret_code = 0;
 			if (!nowait) {
 				child = f;
 				waitpid(f, &ret_code, 0);
 				child = 0;
 			}
+			tcsetpgrp(0, getpid());
 			free(cmd);
 			return ret_code;
 		}
