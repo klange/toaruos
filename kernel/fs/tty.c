@@ -50,6 +50,11 @@ static void dump_input_buffer(pty_t * pty) {
 	}
 }
 
+static void clear_input_buffer(pty_t * pty) {
+	pty->canon_buflen = 0;
+	pty->canon_buffer[0] = '\0';
+}
+
 static void output_process(pty_t * pty, uint8_t c) {
 	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
 		uint8_t d = '\r';
@@ -92,6 +97,7 @@ static void input_process(pty_t * pty, uint8_t c) {
 				output_process(pty, '@' + c);
 				output_process(pty, '\n');
 			}
+			clear_input_buffer(pty);
 			if (pty->fg_proc) {
 				send_signal(pty->fg_proc, SIGINT);
 			}
@@ -103,6 +109,7 @@ static void input_process(pty_t * pty, uint8_t c) {
 				output_process(pty, '@' + c);
 				output_process(pty, '\n');
 			}
+			clear_input_buffer(pty);
 			if (pty->fg_proc) {
 				send_signal(pty->fg_proc, SIGQUIT);
 			}
@@ -173,7 +180,7 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			validate(argp);
 			if (!(((struct termios *)argp)->c_lflag & ICANON) && (pty->tios.c_lflag & ICANON)) {
 				/* Switch out of canonical mode, the dump the input buffer */
-
+				dump_input_buffer(pty);
 			}
 			memcpy(&pty->tios, argp, sizeof(struct termios));
 			return 0;
