@@ -31,7 +31,6 @@ UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
 GENEXT = genext2fs
 DISK_SIZE = 524288
-#DISK_SIZE = 131072
 RAMDISK_SIZE = 32786
 DD = dd conv=notrunc
 BEG = util/mk-beg
@@ -148,7 +147,7 @@ toaruos-initrd: .passed
 toaruos-disk.img: .userspace-check
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
-	@${GENEXT} -B 4096 -d hdd -q -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
+	@${GENEXT} -B 4096 -d hdd -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 

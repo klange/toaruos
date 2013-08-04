@@ -79,6 +79,7 @@ DEFN_SYSCALL2(stat, 49, char *, void *);
 DEFN_SYSCALL2(chmod, 50, char *, mode_t);
 DEFN_SYSCALL1(umask, 51, mode_t);
 DEFN_SYSCALL1(unlink, 52, char *);
+DEFN_SYSCALL3(waitpid, 53, int, int *, int);
 
 #define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
 
@@ -181,13 +182,16 @@ int raise(int sig) {
 
 int waitpid(int pid, int *status, int options) {
 	/* XXX: status, options? */
-	int x  = syscall_wait(pid);
-	if (status) *status = x;
-	return x;
+	int i = syscall_waitpid(pid, status, options);
+	if (i < 0) {
+		errno = -i;
+		return -1;
+	}
+	return i;
 }
 
 int wait(int *status) {
-	return waitpid(0, status, 0);
+	return waitpid(-1, status, 0);
 }
 
 // --- I/O ---
@@ -282,6 +286,7 @@ int pipe(int fildes[2]) {
 }
 
 char *getcwd(char *buf, size_t size) {
+	if (!buf) buf = malloc(size);
 	return (char *)syscall_getcwd(buf, size);
 }
 

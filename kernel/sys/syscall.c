@@ -121,14 +121,57 @@ static int write(int fd, char * ptr, int len) {
 	return out;
 }
 
+static int advanced_wait(int child, int * status, int options) {
+	process_t * volatile child_task;
+	if (child == 0) {
+		debug_print_process_tree();
+		child_task = process_get_first_child((process_t *)current_process);
+	} else if (child == -1) {
+		debug_print(WARNING, "wait(-1) from %d", getpid());
+		child_task = process_get_first_child((process_t *)current_process);
+	} else if (child < 1) {
+		debug_print(WARNING, "Process %d requested group wait, which we can not do! Pretending they asked for a single process (%d)", getpid(), -child);
+		child_task = process_from_pid(-child);
+	} else {
+		child_task = process_from_pid(child);
+	}
+	/* If the child task doesn't exist, bail */
+	if (!child_task) {
+		if (status && !validate_safe(status)) {
+			*status = 0;
+		}
+		debug_print(WARNING, "Tried to wait for non-existent process by pid %d", getpid());
+		return -ECHILD;
+	}
+	debug_print(NOTICE, "pid=%d waiting on pid=%d", current_process->id, child_task->id);
+	while (child_task->finished == 0) {
+		/* Add us to the wait queue for this child */
+		sleep_on(child_task->wait_queue);
+	}
+	/* Grab the child's return value */
+	int ret = child_task->status;
+	if (status && !validate_safe(status)) {
+		*status = ret;
+	}
+	return child_task->id;
+}
+
 static int wait(int child) {
 	process_t * volatile child_task;
 	if (child == 0) {
 		debug_print_process_tree();
 		child_task = process_get_first_child((process_t *)current_process);
+	} else if (child == -1) {
+		debug_print(WARNING, "wait(-1) from %d", getpid());
+		child_task = process_get_first_child((process_t *)current_process);
+		if (child_task) {
+			child = child_task->id;
+		} else {
+			return -1;
+		}
 	} else if (child < 1) {
-		debug_print(WARNING, "Process %d requested group wait, which we can not do!", getpid());
-		return 0;
+		debug_print(WARNING, "Process %d requested group wait, which we can not do! Pretending they asked for a single process (%d)", getpid(), -child);
+		child_task = process_from_pid(-child);
 	} else {
 		child_task = process_from_pid(child);
 	}
@@ -514,7 +557,10 @@ static int chdir(char * newdir) {
 }
 
 static char * getcwd(char * buf, size_t size) {
-	if (!buf) return NULL;
+	if (!buf) {
+		debug_print(WARNING, "getcwd got NULL for buf, investigate");
+		return NULL;
+	}
 	validate((void *)buf);
 	memcpy(buf, current_process->wd_name, min(size, strlen(current_process->wd_name) + 1));
 	return buf;
@@ -749,6 +795,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_chmod,
 	(uintptr_t)&sys_umask,
 	(uintptr_t)&sys_unlink,         /* 52 */
+	(uintptr_t)&advanced_wait,
 	0
 };
 uint32_t num_syscalls;
