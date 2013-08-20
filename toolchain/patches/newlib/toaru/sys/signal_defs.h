@@ -37,5 +37,7 @@
 #define SIGWINEVENT 35 /* Window server event */
 #define SIGCAT      36 /* Everybody loves cats */
 
-#define NUMSIGNALS  37
+#define SIGTTOU     37
+
+#define NUMSIGNALS  38
 #define NSIG        NUMSIGNALS

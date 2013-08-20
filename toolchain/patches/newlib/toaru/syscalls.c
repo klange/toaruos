@@ -162,11 +162,7 @@ int uname(struct utsname *__name) {
  * kill -- go out via exit...
  */
 int kill(int pid, int sig) {
-	if(pid == getpid()) {
-		return _exit(sig);
-	} else {
-		return syscall_send_signal(pid, sig);
-	}
+	return syscall_send_signal(pid, sig);
 }
 
 sighandler_t signal(int signum, sighandler_t handler) {
@@ -612,7 +608,13 @@ int setpgid(pid_t pid, pid_t pgid) {
 }
 
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)  {
-	DEBUG_STUB("sigaction(%d,...);\n", signum);
+
+	sighandler_t old = signal(signum, act->sa_handler);
+	if (oldact) {
+		oldact->sa_handler = old;
+	}
+
+	DEBUG_STUB("sigaction(%d,...,0x%x);\n", signum, act->sa_flags);
 
 	return 0;
 }
