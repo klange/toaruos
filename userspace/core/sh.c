@@ -1130,12 +1130,6 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	} else if (!strcmp(argv[1], "no-force-raw")) {
 		shell_force_raw = 0;
 		return 0;
-	} else if (!strcmp(argv[1], "nlcr")) {
-		printf("\033[1004z");
-		fflush(stdout);
-	} else if (!strcmp(argv[1], "no-nlcr")) {
-		printf("\033[1003z");
-		fflush(stdout);
 	}
 }
 
