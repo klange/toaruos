@@ -167,6 +167,7 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			if (!argp) return -1;
 			validate(argp);
 			pty->fg_proc = *(pid_t *)argp;
+			debug_print(NOTICE, "Setting PTY group to %d", pty->fg_proc);
 			return 0;
 		case TIOCGPGRP:
 			if (!argp) return -1;

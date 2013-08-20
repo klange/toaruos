@@ -78,6 +78,12 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 	}
 #endif
 
+	if (pipe->dead) {
+		debug_print(WARNING, "Pipe is dead?");
+		send_signal(getpid(), SIGPIPE);
+		return 0;
+	}
+
 	size_t collected = 0;
 	while (collected == 0) {
 		spin_lock(&pipe->lock);
@@ -115,6 +121,12 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 		kprintf(" Write: %s\n", buffer);
 	}
 #endif
+
+	if (pipe->dead) {
+		debug_print(WARNING, "Pipe is dead?");
+		send_signal(getpid(), SIGPIPE);
+		return 0;
+	}
 
 	size_t written = 0;
 	while (written < size) {
@@ -219,6 +231,7 @@ fs_node_t * make_pipe(size_t size) {
 	pipe->size      = size;
 	pipe->refcount  = 0;
 	pipe->lock      = 0;
+	pipe->dead      = 0;
 
 	pipe->wait_queue = list_create();
 
