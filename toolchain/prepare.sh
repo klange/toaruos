@@ -28,10 +28,10 @@ pushd "$DIR" > /dev/null
         grab "newlib" "http://b.dakko.us/~klange/mirrors" "newlib-1.19.0.tar.gz" || bail
         grab "freetype" "http://download.savannah.gnu.org/releases/freetype" "freetype-2.4.9.tar.gz" || bail
         grab "zlib" "http://zlib.net" "zlib-1.2.8.tar.gz" || bail
-        grab "libpng" "http://b.dakko.us/~klange/mirrors/" "libpng-1.5.13.tar.gz" || bail
+        grab "libpng" "http://b.dakko.us/~klange/mirrors" "libpng-1.5.13.tar.gz" || bail
         grab "pixman" "http://www.cairographics.org/releases" "pixman-0.26.2.tar.gz" || bail
         grab "cairo" "http://www.cairographics.org/releases" "cairo-1.12.2.tar.xz" || bail
-        grab "mesa" "ftp://ftp.freedesktop.org/pub/mesa/7.5.2" "MesaLib-7.5.2.tar.gz" || bail
+        grab "mesa" "http://b.dakko.us/~klange/mirrors" "MesaLib-7.5.2.tar.gz" || bail
         grab "ncurses" "ftp://invisible-island.net/ncurses" "ncurses-5.9.tar.gz" || bail
         grab "vim" "ftp://ftp.vim.org/pub/vim/unix" "vim-7.3.tar.bz2" || bail
         $INFO "wget" "Pulled source packages."
