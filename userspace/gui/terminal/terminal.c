@@ -1133,7 +1133,24 @@ void term_write(char c) {
 			codepoint = '?';
 			c = '?';
 		}
+		if (c == '\r') {
+			csr_x = 0;
+			return;
+		}
+		if (csr_x == term_width) {
+			csr_x = 0;
+			++csr_y;
+		}
+		if (csr_y == term_height) {
+			save_scrollback();
+			term_scroll(1);
+			csr_y = term_height - 1;
+		}
 		if (c == '\n') {
+			if (csr_x == 0 && _hold_out) {
+				_hold_out = 0;
+				return;
+			}
 			++csr_y;
 			draw_cursor();
 		} else if (c == '\007') {
@@ -1147,12 +1164,6 @@ void term_write(char c) {
 			syscall_nanosleep(0,10);
 			term_redraw_all();
 #endif
-		} else if (c == '\r') {
-			if (csr_x == 0 && _hold_out) {
-				_hold_out = 0;
-				return;
-			}
-			csr_x = 0;
 		} else if (c == '\b') {
 			if (csr_x > 0) {
 				--csr_x;
@@ -1181,17 +1192,6 @@ void term_write(char c) {
 				cell_redraw(csr_x-1,csr_y);
 				csr_x++;
 			}
-		}
-		_hold_out = 0;
-		if (csr_x == term_width) {
-			_hold_out = 1;
-			csr_x = 0;
-			++csr_y;
-		}
-		if (csr_y == term_height) {
-			save_scrollback();
-			term_scroll(1);
-			csr_y = term_height - 1;
 		}
 	} else if (unicode_state == UTF8_REJECT) {
 		unicode_state = 0;
