@@ -760,6 +760,30 @@ void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
 	}
 }
 
+void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
+	int height;
+	bg = premultiply(bg);
+	fg = premultiply(fg);
+	if (c == 0x2580) {
+		uint32_t t = bg;
+		bg = fg;
+		fg = t;
+		c = 0x2584;
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
+				term_set_point(x+j,y+i,bg);
+			}
+		}
+	}
+	c -= 0x2580;
+	height = char_height - ((c * char_height) / 8);
+	for (uint8_t i = height; i < char_height; ++i) {
+		for (uint8_t j = 0; j < char_width; ++j) {
+			term_set_point(x+j, y+i,fg);
+		}
+	}
+}
+
 void resize_callback(window_t * window) {
 	window_width  = window->width  - decor_left_width - decor_right_width;
 	window_height = window->height - decor_top_height - decor_bottom_height;
@@ -817,6 +841,10 @@ term_write_char(
 			}
 		}
 		if (val < 32 || val == ' ') {
+			goto _extra_stuff;
+		}
+		if (val >= 0x2580 && val <= 0x2588) {
+			draw_semi_block(val, x, y, _fg, _bg);
 			goto _extra_stuff;
 		}
 		int pen_x = x;
