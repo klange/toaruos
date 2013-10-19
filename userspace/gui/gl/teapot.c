@@ -416,7 +416,7 @@ void keyboard(unsigned char key, int x, int y)
 			/* Pause / unpause object movement */
 			rotation_paused = !rotation_paused;
 			break;
-		case 27:
+		case 'q':
 			quit = 1;
 			break;
 	}
