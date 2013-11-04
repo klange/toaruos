@@ -53,4 +53,4 @@ if [ $DEBUG_SERIAL == true ]; then
 fi
 
 # Generate the QEMU arguments list
-echo "-kernel toaruos-kernel -m $EMU_MEMORY $ENABLEKVM $FULL_SCREEN $SERIAL -vga std -rtc base=localtime -hda toaruos-disk.img -k en-us $BORDERS -append \"$GRAPHICS hdd\""
+echo "-kernel toaruos-kernel -m $EMU_MEMORY $ENABLEKVM $FULL_SCREEN $SERIAL -vga std -rtc base=localtime -hda toaruos-disk.img -k en-us $BORDERS -append \"$GRAPHICS hdd\" -sdl"
