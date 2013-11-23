@@ -12,6 +12,7 @@
 #include <syscall.h>
 #include "lib/pthread.h"
 #include <signal.h>
+#include <termios.h>
 
 int fd = 0;
 
@@ -29,6 +30,19 @@ void *print_serial_stuff(void * garbage) {
 	pthread_exit(garbage);
 }
 
+struct termios old;
+
+void set_unbuffered() {
+	tcgetattr(fileno(stdin), &old);
+	struct termios new = old;
+	new.c_lflag &= (~ICANON & ~ECHO);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+}
+
+void set_buffered() {
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+}
+
 int main(int argc, char ** argv) {
 	pthread_t receive_thread;
 	pthread_t flush_thread;
@@ -38,8 +52,7 @@ int main(int argc, char ** argv) {
 		device = "/dev/ttyS0";
 	}
 
-	printf("\033[1560z");
-	fflush(stdout);
+	set_unbuffered();
 
 	fd = syscall_open(device, 0, 0);
 
@@ -52,6 +65,7 @@ int main(int argc, char ** argv) {
 			if (x == ']') {
 				while (1) {
 					printf("serial-console>\033[1561z ");
+					set_buffered();
 					fflush(stdout);
 
 					char line[1024];
@@ -68,7 +82,7 @@ int main(int argc, char ** argv) {
 						printf("Exiting.\n");
 						return 0;
 					} else if (!strcmp(line, "continue")) {
-						printf("\033[1560z");
+						set_unbuffered();
 						fflush(stdout);
 						break;
 					}
@@ -82,6 +96,7 @@ int main(int argc, char ** argv) {
 	}
 
 	close(fd);
+	set_buffered();
 	return 0;
 }
 

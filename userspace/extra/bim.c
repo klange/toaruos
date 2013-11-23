@@ -220,8 +220,7 @@ void set_unbuffered() {
 }
 
 void set_buffered() {
-	printf("\033[1561z");
-	fflush(stdout);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 }
 
 int to_eight(uint16_t codepoint, uint8_t * out) {
