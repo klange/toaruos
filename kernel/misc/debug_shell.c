@@ -110,7 +110,7 @@ void divine_size(fs_node_t * dev, int * width, int * height) {
 	char tmp[100];
 	int read = 0;
 	unsigned long start_tick = timer_ticks;
-	fs_printf(dev, "\033[1000;1000H\033[6n\033[H\033[J");
+	fs_printf(dev, "\033[1000;1000H\033[6n\033[H");
 	while (1) {
 		char buf[1];
 		int r = read_fs(dev, 0, 1, (unsigned char *)buf);
@@ -127,9 +127,11 @@ void divine_size(fs_node_t * dev, int * width, int * height) {
 		if (timer_ticks - start_tick >= 2) {
 			*width  = 80;
 			*height = 23;
+			fs_printf(dev, "\033[J");
 			return;
 		}
 	}
+	fs_printf(dev, "\033[J");
 	for (unsigned int i = 0; i < strlen(tmp); i++) {
 		if (tmp[i] == ';') {
 			tmp[i] = '\0';

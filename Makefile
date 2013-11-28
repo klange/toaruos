@@ -81,7 +81,7 @@ debug-vga: system
 headless: system
 	${EMU} ${EMUARGS} -display none -append "vgaterm hdd"
 run-config: system
-	util/config-parser | xargs ${EMU}
+	util/config-parser ${EMU}
 
 test: system
 	python util/run-tests.py 2>/dev/null
