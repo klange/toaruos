@@ -213,6 +213,8 @@ void debug_shell_run(void * data, char * name) {
 			fs_printf(tty, "\n");
 		} else if (!strcmp(argv[0], "setuid")) {
 			current_process->user = atoi(argv[1]);
+		} else {
+			fs_printf(tty, "Unrecognized command: %s\n", argv[0]);
 		}
 
 		free(arg);
