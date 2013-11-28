@@ -90,6 +90,7 @@ typedef struct process {
 	sig_table_t   signals;           /* Signal table */
 	uint8_t       finished;          /* Status indicator */
 	uint8_t       started;
+	uint8_t       running;
 	struct regs * syscall_registers; /* Registers at interrupt */
 	list_t *      wait_queue;
 	list_t *      shm_mappings;      /* Shared memory chunk mappings */
@@ -98,6 +99,7 @@ typedef struct process {
 	char *        signal_kstack;
 	node_t        sched_node;
 	node_t        sleep_node;
+	uint8_t       is_tasklet;
 } process_t;
 
 typedef struct {
@@ -131,5 +133,8 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 volatile process_t * current_process;
 
 list_t * process_list;
+
+typedef void (*tasklet_t) (void *);
+int create_kernel_tasklet(tasklet_t tasklet, char * name);
 
 #endif

@@ -188,6 +188,7 @@ process_t * spawn_init(void) {
 	/* Process is not finished */
 	init->finished = 0;
 	init->started = 1;
+	init->running = 1;
 	init->wait_queue = list_create();
 	init->shm_mappings = list_create();
 	init->signal_queue = list_create();
@@ -200,6 +201,8 @@ process_t * spawn_init(void) {
 	init->sleep_node.prev = NULL;
 	init->sleep_node.next = NULL;
 	init->sleep_node.value = init;
+
+	init->is_tasklet = 0;
 
 	set_process_environment(init, current_directory);
 
@@ -304,6 +307,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->status = 0;
 	proc->finished = 0;
 	proc->started = 0;
+	proc->running = 0;
 	memset(proc->signals.functions, 0x00, sizeof(uintptr_t) * NUMSIGNALS);
 	proc->wait_queue = list_create();
 	proc->shm_mappings = list_create();
@@ -317,6 +321,8 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->sleep_node.prev = NULL;
 	proc->sleep_node.next = NULL;
 	proc->sleep_node.value = proc;
+
+	proc->is_tasklet = 0;
 
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */

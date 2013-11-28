@@ -163,6 +163,8 @@ clone_table(
 	return table;
 }
 
+uintptr_t frozen_stack = 0;
+
 /*
  * Install multitasking functionality.
  */
@@ -181,6 +183,8 @@ void tasking_install(void) {
 #endif
 	/* Switch to the kernel directory */
 	switch_page_directory(current_process->thread.page_directory);
+
+	frozen_stack = (uintptr_t)valloc(KERNEL_STACK_SIZE);
 
 	/* Reenable interrupts */
 	IRQ_RES;
@@ -258,6 +262,51 @@ uint32_t fork(void) {
 	/* Return the child PID */
 	return new_proc->id;
 }
+
+int create_kernel_tasklet(tasklet_t tasklet, char * name) {
+	IRQ_OFF;
+
+	uintptr_t esp, ebp;
+
+	current_process->syscall_registers->eax = 0;
+
+	page_directory_t * directory = kernel_directory;
+	/* Spawn a new process from this one */
+	process_t * new_proc = spawn_process(current_process);
+	assert(new_proc && "Could not allocate a new process!");
+	/* Set the new process' page directory to the original process' */
+	set_process_environment(new_proc, directory);
+	directory->ref_count++;
+	/* Read the instruction pointer */
+
+
+	struct regs r;
+	memcpy(&r, current_process->syscall_registers, sizeof(struct regs));
+	new_proc->syscall_registers = &r;
+
+	esp = new_proc->image.stack;
+	ebp = esp;
+
+	new_proc->syscall_registers->eax = 0;
+	new_proc->is_tasklet = 1;
+	new_proc->name = name;
+
+	PUSH(esp, struct regs, r);
+
+	new_proc->thread.esp = esp;
+	new_proc->thread.ebp = ebp;
+
+	new_proc->thread.eip = (uintptr_t)tasklet;
+
+	/* Add the new process to the ready queue */
+	make_process_ready(new_proc);
+
+	IRQ_RES;
+
+	/* Return the child PID */
+	return new_proc->id;
+}
+
 
 /*
  * clone the current thread and create a new one in the same
@@ -347,15 +396,28 @@ uint32_t getpid(void) {
  * This is called from the interrupt handler for the interval timer to
  * perform standard task switching.
  */
-void
-switch_task(uint8_t reschedule) {
+void switch_task(uint8_t reschedule) {
+	int pause_after = 0;
 	if (!current_process) {
 		/* Tasking is not yet installed. */
 		return;
 	}
 	if (!process_available()) {
 		/* There is no process available in the queue, do not bother switching */
-		return;
+		if (!current_process->running) {
+			while (1) {
+				IRQ_RES;
+				PAUSE;
+			}
+		}
+		if (!reschedule) {
+			pause_after = 1;
+		} else {
+			return;
+		}
+	}
+	if (!current_process->running) {
+		switch_next();
 	}
 
 	/* Collect the current kernel stack and instruction pointers */
@@ -391,6 +453,7 @@ switch_task(uint8_t reschedule) {
 	current_process->thread.eip = eip;
 	current_process->thread.esp = esp;
 	current_process->thread.ebp = ebp;
+	current_process->running = 0;
 
 	/* Save floating point state */
 	switch_fpu();
@@ -398,6 +461,12 @@ switch_task(uint8_t reschedule) {
 	if (reschedule) {
 		/* And reinsert it into the ready queue */
 		make_process_ready((process_t *)current_process);
+	} else if (pause_after) {
+		set_kernel_stack(frozen_stack);
+		while (1) {
+			IRQ_RES;
+			PAUSE;
+		}
 	}
 
 	/* Switch to the next task */
@@ -414,6 +483,8 @@ void switch_next(void) {
 	/* Get the next available process */
 	while (!process_available()) {
 		/* Uh, no. */
+		IRQ_RES;
+		PAUSE;
 		return;
 	}
 	current_process = next_ready_process();
@@ -424,7 +495,7 @@ void switch_next(void) {
 
 	/* Validate */
 	if ((eip < (uintptr_t)&code) || (eip > (uintptr_t)&end)) {
-		debug_print(WARNING, "Skipping broken process %d!", current_process->id);
+		debug_print(WARNING, "Skipping broken process %d! [eip=0x%x <0x%x or >0x%x]", current_process->id, eip, &code, &end);
 		switch_next();
 	}
 
@@ -452,6 +523,8 @@ void switch_next(void) {
 	} else {
 		current_process->started = 1;
 	}
+
+	current_process->running = 1;
 
 	/* Jump, baby, jump */
 	asm volatile (
