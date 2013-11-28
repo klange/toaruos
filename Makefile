@@ -31,6 +31,7 @@ UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
 GENEXT = genext2fs
 DISK_SIZE = 524288
+#DISK_SIZE = 131072
 RAMDISK_SIZE = 32786
 DD = dd conv=notrunc
 BEG = util/mk-beg

@@ -180,13 +180,42 @@ void debug_shell_run(void * data, char * name) {
 		debug_shell_readline(tty, command, 511);
 
 		/* Do something with it */
-		if (!strcmp(command, "shell")) {
+		char * arg = strdup(command);
+		char * pch;         /* Tokenizer pointer */
+		char * save;        /* We use the reentrant form of strtok */
+		char * argv[1024];  /* Command tokens (space-separated elements) */
+		int    tokenid = 0; /* argc, basically */
+
+		/* Tokenize the arguments, splitting at spaces */
+		pch = strtok_r(arg," ",&save);
+		if (!pch) {
+			free(arg);
+			continue;
+		}
+		while (pch != NULL) {
+			argv[tokenid] = (char *)pch;
+			++tokenid;
+			pch = strtok_r(NULL," ",&save);
+		}
+		argv[tokenid] = NULL;
+		/* Tokens are now stored in argv. */
+
+		if (!strcmp(argv[0], "shell")) {
 			int pid = create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", tty);
 			fs_printf(tty, "Shell started with pid = %d\n", pid);
 			process_t * child_task = process_from_pid(pid);
 			sleep_on(child_task->wait_queue);
 			fs_printf(tty, "Shell returned: %d\n", child_task->status);
+		} else if (!strcmp(argv[0], "echo")) {
+			for (int i = 1; i < tokenid; ++i) {
+				fs_printf(tty, "%s ", argv[i]);
+			}
+			fs_printf(tty, "\n");
+		} else if (!strcmp(argv[0], "setuid")) {
+			current_process->user = atoi(argv[1]);
 		}
+
+		free(arg);
 	}
 }
 
