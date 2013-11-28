@@ -134,7 +134,7 @@ volatile process_t * current_process;
 
 list_t * process_list;
 
-typedef void (*tasklet_t) (void *);
-int create_kernel_tasklet(tasklet_t tasklet, char * name);
+typedef void (*tasklet_t) (void *, char *);
+int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);
 
 #endif

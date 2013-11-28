@@ -230,6 +230,8 @@ uint32_t fork(void) {
 	new_proc->thread.esp = esp;
 	new_proc->thread.ebp = ebp;
 
+	new_proc->is_tasklet = parent->is_tasklet;
+
 	new_proc->thread.eip = (uintptr_t)&return_to_userspace;
 
 	/* Clear page table tie-ins for shared memory mappings */
@@ -263,7 +265,7 @@ uint32_t fork(void) {
 	return new_proc->id;
 }
 
-int create_kernel_tasklet(tasklet_t tasklet, char * name) {
+int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
 	IRQ_OFF;
 
 	uintptr_t esp, ebp;
@@ -291,7 +293,9 @@ int create_kernel_tasklet(tasklet_t tasklet, char * name) {
 	new_proc->is_tasklet = 1;
 	new_proc->name = name;
 
-	PUSH(esp, struct regs, r);
+	PUSH(esp, uintptr_t, (uintptr_t)name);
+	PUSH(esp, uintptr_t, (uintptr_t)argp);
+	PUSH(esp, uintptr_t, (uintptr_t)&task_exit);
 
 	new_proc->thread.esp = esp;
 	new_proc->thread.ebp = ebp;
@@ -364,6 +368,8 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 
 	new_proc->thread.esp = esp;
 	new_proc->thread.ebp = ebp;
+
+	new_proc->is_tasklet = parent->is_tasklet;
 
 	free(new_proc->fds);
 	new_proc->fds = current_process->fds;
