@@ -77,6 +77,8 @@ debug-term: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu single hdd"
 debug-vga: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vgaterm hdd"
+headless: system
+	${EMU} ${EMUARGS} -display none -append "vgaterm hdd"
 run-config: system
 	util/config-parser | xargs ${EMU}
 
