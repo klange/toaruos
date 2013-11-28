@@ -119,7 +119,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	/* Hardware drivers */
 	timer_install();	/* PIC driver */
-	serial_install();	/* Serial console */
 
 	tasking_install();	/* Multi-tasking */
 	auto_fpu();

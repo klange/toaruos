@@ -6,7 +6,91 @@
 
 #include <system.h>
 #include <fs.h>
+#include <pipe.h>
 #include <logging.h>
+
+fs_node_t * _serial_port_a = NULL;
+fs_node_t * _serial_port_b = NULL;
+fs_node_t * _serial_port_c = NULL;
+fs_node_t * _serial_port_d = NULL;
+
+fs_node_t ** pipe_for_port(int port) {
+	switch (port) {
+		case SERIAL_PORT_A: return &_serial_port_a;
+		case SERIAL_PORT_B: return &_serial_port_b;
+		case SERIAL_PORT_C: return &_serial_port_c;
+		case SERIAL_PORT_D: return &_serial_port_d;
+	}
+	return NULL;
+}
+
+void serial_handler_ac(struct regs *r) {
+	char serial;
+	int  port = 0;
+	if (inportb(SERIAL_PORT_A+1) & 0x01) {
+		port = SERIAL_PORT_A;
+	} else {
+		port = SERIAL_PORT_C;
+	}
+	serial = serial_recv(port);
+	irq_ack(SERIAL_IRQ_AC);
+	uint8_t buf[] = {serial, 0};
+	write_fs(*pipe_for_port(port), 0, 1, buf);
+}
+
+void serial_handler_bd(struct regs *r) {
+	char serial;
+	int  port = 0;
+	debug_print(NOTICE, "Received something on secondary port");
+	if (inportb(SERIAL_PORT_B+1) & 0x01) {
+		port = SERIAL_PORT_B;
+	} else {
+		port = SERIAL_PORT_D;
+	}
+	serial = serial_recv(port);
+	irq_ack(SERIAL_IRQ_BD);
+	uint8_t buf[] = {serial, 0};
+	write_fs(*pipe_for_port(port), 0, 1, buf);
+}
+
+void serial_enable(int port) {
+	outportb(port + 1, 0x00); /* Disable interrupts */
+	outportb(port + 3, 0x80); /* Enable divisor mode */
+	outportb(port + 0, 0x01); /* Div Low:  01 Set the port to 115200 bps */
+	outportb(port + 1, 0x00); /* Div High: 00 */
+	outportb(port + 3, 0x03); /* Disable divisor mode, set parity */
+	outportb(port + 2, 0xC7); /* Enable FIFO and clear */
+	outportb(port + 4, 0x0B); /* Enable interrupts */
+	outportb(port + 1, 0x01); /* Enable interrupts */
+}
+
+int serial_rcvd(int device) {
+	return inportb(device + 5) & 1;
+}
+
+char serial_recv(int device) {
+	while (serial_rcvd(device) == 0) ;
+	return inportb(device);
+}
+
+char serial_recv_async(int device) {
+	return inportb(device);
+}
+
+int serial_transmit_empty(int device) {
+	return inportb(device + 5) & 0x20;
+}
+
+void serial_send(int device, char out) {
+	while (serial_transmit_empty(device) == 0);
+	outportb(device, out);
+}
+
+void serial_string(int device, char * out) {
+	for (uint32_t i = 0; i < strlen(out); ++i) {
+		serial_send(device, out[i]);
+	}
+}
 
 uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -14,22 +98,7 @@ void open_serial(fs_node_t *node, unsigned int flags);
 void close_serial(fs_node_t *node);
 
 uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	if (size < 1) {
-		return 0;
-	}
-	memset(buffer, 0x00, 1);
-	uint32_t collected = 0;
-	while (collected < size) {
-		while (!serial_rcvd((int)node->device)) {
-			switch_task(1);
-		}
-#if 0
-		debug_print(NOTICE, "Data received from TTY, have %d, need %d", collected+1, size);
-#endif
-		buffer[collected] = serial_recv((int)node->device);
-		collected++;
-	}
-	return collected;
+	return read_fs(*pipe_for_port((int)node->device), offset, size, buffer);
 }
 
 uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -69,6 +138,16 @@ fs_node_t * serial_device_create(int device) {
 	fnode->mtime = fnode->atime;
 	fnode->ctime = fnode->atime;
 
+	serial_enable(device);
+
+	if (device == SERIAL_PORT_A || device == SERIAL_PORT_C) {
+		irq_install_handler(SERIAL_IRQ_AC, serial_handler_ac);
+	} else {
+		irq_install_handler(SERIAL_IRQ_BD, serial_handler_bd);
+	}
+
+	*pipe_for_port(device) = make_pipe(128);
+
 	return fnode;
 }
 
@@ -85,5 +164,4 @@ void serial_mount_devices(void) {
 
 	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D);
 	vfs_mount("/dev/ttyS3", ttyS3);
-
 }

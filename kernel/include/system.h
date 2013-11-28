@@ -224,7 +224,8 @@ extern void start_shell(void);
 #define SERIAL_PORT_C 0x3E8
 #define SERIAL_PORT_D 0x2E8
 
-#define SERIAL_IRQ 4
+#define SERIAL_IRQ_AC 4
+#define SERIAL_IRQ_BD 3
 
 extern void serial_install(void);
 extern int serial_rcvd(int device);
