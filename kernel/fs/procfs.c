@@ -40,6 +40,17 @@ uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 		return 0;
 	}
 
+	if (!proc->cmdline) {
+		sprintf(buf, "%s", proc->name);
+
+		size_t _bsize = strlen(buf);
+		if (offset > _bsize) return 0;
+		if (size > _bsize - offset) size = _bsize - offset;
+
+		memcpy(buffer, buf, size);
+		return size;
+	}
+
 
 	buf[0] = '\0';
 
