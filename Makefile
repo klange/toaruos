@@ -46,11 +46,11 @@ ENDRM = util/mk-end-rm
 EMUARGS     = -sdl -kernel toaruos-kernel -m 1024 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame -rtc base=localtime
 EMUKVM      = -enable-kvm
 
-.PHONY: all system clean clean-once clean-hard clean-soft clean-docs clean-bin clean-aux clean-core install run docs utils
+.PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run utils
 .SECONDARY: 
 
 all: .passed system tags
-aux: utils docs
+aux: utils
 system: .passed toaruos-disk.img toaruos-kernel
 
 install: system
@@ -91,18 +91,6 @@ utils: ${UTILITIES}
 .passed:
 	@util/check-reqs > /dev/null
 	@touch .passed
-
-#################
-# Documentation #
-#################
-docs: docs/core.pdf
-
-docs/core.pdf: docs/*.tex
-	@${BEG} "docs" "Generating documentation..."
-	@pdflatex -draftmode -halt-on-error -output-directory docs/ docs/core.tex > /dev/null ${ERRORS}
-	@makeindex -q docs/*.idx ${ERRORS}
-	@pdflatex -halt-on-error -output-directory docs/ docs/core.tex > /dev/null ${ERRORS}
-	@${END} "docs" "Generated documentation"
 
 ################
 #    Kernel    #
@@ -186,12 +174,6 @@ clean-soft:
 	@-rm -f ${SUBMODULES}
 	@${ENDRM} "RM" "Cleaned modules."
 
-clean-docs:
-	@${BEGRM} "RM" "Cleaning documentation..."
-	@-rm -f docs/*.pdf docs/*.aux docs/*.log docs/*.out
-	@-rm -f docs/*.idx docs/*.ind docs/*.toc docs/*.ilg
-	@${ENDRM} "RM" "Cleaned documentation"
-
 clean-bin:
 	@${BEGRM} "RM" "Cleaning native binaries..."
 	@-rm -f hdd/bin/*
@@ -211,7 +193,7 @@ clean-core:
 clean: clean-soft clean-core
 	@${INFO} "--" "Finished soft cleaning"
 
-clean-hard: clean clean-bin clean-aux clean-docs
+clean-hard: clean clean-bin clean-aux
 	@${INFO} "--" "Finished hard cleaning"
 
 clean-disk:
