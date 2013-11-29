@@ -730,7 +730,7 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 	if (!_fullscreen) {
 		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
 	} else {
-		GFX(ctx, x,y) = color;
+		GFX(ctx, x,y) = alpha_blend_rgba(premultiply(rgba(0,0,0,0xFF)), color);
 	}
 }
 
