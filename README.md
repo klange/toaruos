@@ -64,7 +64,7 @@ Additionally, a number of third-party software packages have been ported to と�
 
 ## Screenshots ##
 
-For a historical look at とあるOS, please see [docs/SCREENSHOTS.md](SCREENSHOTS.md).
+For a historical look at とあるOS, please see [SCREENSHOTS.md](docs/SCREENSHOTS.md).
 
 ## Testing it Out ##
 From some Linux hosts (Ubuntu/Debian, Fedora), you can clone the repository and run:
@@ -142,4 +142,4 @@ This project is released under the terms of the University of Illinois / NCSA Op
 
 ## Third-Party Packages ##
 
-ToAruOS contains a number of third-party packages and software. As the number of third-party packages in the OS has increased drastically, I have moved the licenses to [docs/THIRDPARTY.md](THIRDPARTY.md).
+ToAruOS contains a number of third-party packages and software. As the number of third-party packages in the OS has increased drastically, I have moved the licenses to [THIRDPARTY.md](docs/THIRDPARTY.md).
