@@ -107,8 +107,8 @@ pushd build
         $DIR/tarballs/ncurses-5.9/configure --prefix=$VIRTPREFIX --host=$TARGET --with-terminfo-dirs=/usr/share/terminfo --with-default-terminfo-dir=/usr/share/terminfo --without-tests || bail
         make || bail
         make DESTDIR=$REALPREFIX install || bail
-        cp $DIR/../toaru.tic $REALPREFIX/$VIRTPREFIX/share/terminfo/t/toaru
-        cp $DIR/../toaru-vga.tic $REALPREFIX/$VIRTPREFIX/share/terminfo/t/toaru-vga
+        cp $DIR/../util/toaru.tic $REALPREFIX/$VIRTPREFIX/share/terminfo/t/toaru
+        cp $DIR/../util/toaru-vga.tic $REALPREFIX/$VIRTPREFIX/share/terminfo/t/toaru-vga
     popd
     pushd $DIR/tarballs/vim73
         make distclean
