@@ -1,15 +1,15 @@
-# ToAruOS (とあるOS) #
-
 ![Screenshot](http://i.imgur.com/z1aFy0C.png)
 ![More Screenshots](http://i.imgur.com/g3zclG2.png)
 
-とあるOS (ToaruOS) is a hobby Unix-like operating system. Development began in December of 2010 at the University of Illinois at Urbana-Champaign and is currently a one-man effort. For a short time, the project was the focus of the UIUC [SIGOps](http://www.acm.uiuc.edu/sigops/).
+# ToAruOS (とあるOS) #
 
-Both the kernel and userspace are included in this repository.
+とあるOS (ToAruOS) is a hobby operating system, built mostly from scratch, in development since December of 2010.
 
-## Community
+It was originally developed at the University of Illinois at Urbana-Champaign. For a period of time, it was the development focus of the university's [SIGOps](http://www.acm.uiuc.edu/sigops/) chapter.
 
-### IRC ###
+Both the kernel and core userspace are included in this repository. Third-party sources are downloaded during the build process.
+
+## IRC ##
 
 For discussion, help with building or running the OS, and for up-to-date build verification, please join us in `#toaruos` on Freenode (`irc.freenode.net`).
 
