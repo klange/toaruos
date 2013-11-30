@@ -187,7 +187,7 @@ ToAruOS contains a number of third-party packages under various licenses. Those 
         AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
         CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-* The Curses sample applications provided in `userspace/extra/curses` are by Pradeep Padala. A readme containing a license is provided [in that directory](userspace/extra/curses/README.md).
+* The Curses sample applications provided in `userspace/extra/curses` are by Pradeep Padala. A readme containing a license is provided [in that directory](../userspace/extra/curses/README.md).
 
 * Build scripts will also retrieve copies of the following software and patches to them:
   * [GCC](http://gcc.gnu.org/)
