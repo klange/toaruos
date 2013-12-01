@@ -112,7 +112,7 @@ struct shell_command {
 	char * description;
 };
 
-#define NUM_COMMANDS 4
+#define NUM_COMMANDS 6
 static struct shell_command shell_commands[NUM_COMMANDS];
 
 /*
@@ -143,6 +143,42 @@ static int shell_help(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_cd(fs_node_t * tty, int argc, char * argv[]) {
+	if (argc < 2) {
+		return -1;
+	}
+	char * newdir = argv[1];
+	char * path = canonicalize_path(current_process->wd_name, newdir);
+	fs_node_t * chd = kopen(path, 0);
+	if (chd) {
+		if ((chd->flags & FS_DIRECTORY) == 0) {
+			return -1;
+		}
+		free(current_process->wd_name);
+		current_process->wd_name = malloc(strlen(path) + 1);
+		memcpy(current_process->wd_name, path, strlen(path) + 1);
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
+	/* Okay, we're going to take the working directory... */
+	fs_node_t * wd = kopen(current_process->wd_name, 0);
+	uint32_t index = 0;
+	struct dirent * kentry = readdir_fs(wd, index);
+	while (kentry) {
+		fs_printf(tty, "%s\n", kentry->name);
+
+		index++;
+		kentry = readdir_fs(wd, index);
+	}
+	close_fs(wd);
+	free(wd);
+	return 0;
+}
+
 static struct shell_command shell_commands[NUM_COMMANDS] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -150,6 +186,10 @@ static struct shell_command shell_commands[NUM_COMMANDS] = {
 		"Prints arguments."},
 	{"help",  &shell_help,
 		"Prints a list of possible shell commands and their descriptions."},
+	{"cd",    &shell_cd,
+		"Change current directory."},
+	{"ls",    &shell_ls,
+		"List files in current or other directory."},
 	{NULL, NULL, NULL}
 };
 
