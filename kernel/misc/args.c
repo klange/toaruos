@@ -11,11 +11,12 @@
 #include <system.h>
 #include <logging.h>
 #include <args.h>
+#include <hashmap.h>
 #include <tokenize.h>
 
 char * cmdline = NULL;
 
-list_t * kernel_args_list = NULL;
+hashmap_t * kernel_args_map = NULL;
 
 /**
  * Check if an argument was provided to the kernel. If the argument is
@@ -24,32 +25,18 @@ list_t * kernel_args_list = NULL;
  * so the caller should check whether it is correctly set.
  */
 int args_present(char * karg) {
-	if (!kernel_args_list) return 0; /* derp */
+	if (!kernel_args_map) return 0; /* derp */
 
-	foreach(n, kernel_args_list) {
-		struct kernel_arg * arg = (struct kernel_arg *)n->value;
-		if (!strcmp(arg->name, karg)) {
-			return 1;
-		}
-	}
-
-	return 0;
+	return hashmap_has(kernel_args_map, karg);
 }
 
 /**
  * Return the value associated with an argument provided to the kernel.
  */
 char * args_value(char * karg) {
-	if (!kernel_args_list) return NULL; /* derp */
+	if (!kernel_args_map) return 0; /* derp */
 
-	foreach(n, kernel_args_list) {
-		struct kernel_arg * arg = (struct kernel_arg *)n->value;
-		if (!strcmp(arg->name, karg)) {
-			return arg->value;
-		}
-	}
-
-	return NULL;
+	return hashmap_get(kernel_args_map, karg);
 }
 
 /**
@@ -68,33 +55,32 @@ void args_parse(char * _arg) {
 	/* New let's parse the tokens into the arguments list so we can index by key */
 	/* TODO I really need a dictionary/hashmap implementation */
 
-	if (kernel_args_list) {
-		/* Uh, crap. You've called me already... */
-		list_destroy(kernel_args_list);
-		list_free(kernel_args_list);
+	if (!kernel_args_map) {
+		kernel_args_map = hashmap_create(10);
 	}
-	kernel_args_list = list_create();
 
 	for (int i = 0; i < argc; ++i) {
 		char * c = strdup(argv[i]);
 
-		struct kernel_arg * karg = malloc(sizeof(struct kernel_arg));
-		karg->name = c;
-		karg->value = NULL;
+		char * name;
+		char * value;
+
+		name = c;
+		value = NULL;
 		/* Find the first = and replace it with a null */
 		char * v = c;
 		while (*v) {
 			if (*v == '=') {
 				*v = '\0';
 				v++;
-				karg->value = v;
+				value = v;
 				goto _break;
 			}
 			v++;
 		}
 
 _break:
-		list_insert(kernel_args_list, karg);
+		hashmap_set(kernel_args_map, name, value);
 	}
 
 	free(arg);

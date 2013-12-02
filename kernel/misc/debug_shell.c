@@ -7,6 +7,8 @@
 #include <process.h>
 #include <version.h>
 #include <termios.h>
+#include <tokenize.h>
+#include <hashmap.h>
 
 #include <debug_shell.h>
 
@@ -114,7 +116,7 @@ struct shell_command {
 	char * description;
 };
 
-#define NUM_COMMANDS 6
+#define NUM_COMMANDS 8
 static struct shell_command shell_commands[NUM_COMMANDS];
 
 /*
@@ -181,6 +183,33 @@ static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
+
+	fs_printf(tty, "Creating a hash...\n");
+
+	hashmap_t * map = hashmap_create(2);
+
+	hashmap_set(map, "a", (void *)1);
+	hashmap_set(map, "b", (void *)2);
+	hashmap_set(map, "c", (void *)3);
+
+	fs_printf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
+	fs_printf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
+	fs_printf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
+
+	return 0;
+}
+
+static int shell_log_on(fs_node_t * tty, int argc, char * argv[]) {
+	kprint_to_serial = 1;
+	if (argc < 2) {
+		debug_level = 1;
+	} else {
+		debug_level = atoi(argv[1]);
+	}
+	return 0;
+}
+
 static struct shell_command shell_commands[NUM_COMMANDS] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -192,6 +221,10 @@ static struct shell_command shell_commands[NUM_COMMANDS] = {
 		"Change current directory."},
 	{"ls",    &shell_ls,
 		"List files in current or other directory."},
+	{"test-hash", &shell_test_hash,
+		"Test hashmap functionality."},
+	{"log-on", &shell_log_on,
+		"Enable serial logging."},
 	{NULL, NULL, NULL}
 };
 
@@ -347,6 +380,8 @@ void debug_shell_run(void * data, char * name) {
 		char * arg = strdup(command);
 		char * argv[1024];  /* Command tokens (space-separated elements) */
 		int argc = tokenize(arg, " ", argv);
+
+		if (!argc) continue;
 
 		/* Parse the command string */
 		struct shell_command * sh = &shell_commands[0];
