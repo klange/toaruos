@@ -33,8 +33,10 @@ if [ $ENABLE_SERIAL ]; then
     SERIAL="-serial stdio"
 fi
 
+# This is actually a qemu "quirk" of sorts, double comma inserts an actual comma,
+# but a single comma separates MODULE arguments, so watch out!
 RESPARSED=`echo $RESOLUTION | sed 's/x/,,/'`
-GRAPHICS="vid=qemu=$RESPARSED"
+GRAPHICS="vid=qemu,,$RESPARSED"
 if [ $ENABLE_GRAPHICS == false ]; then
     GRAPHICS="vgaterm"
 fi

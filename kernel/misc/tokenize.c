@@ -1,4 +1,5 @@
 #include <system.h>
+#include <logging.h>
 #include <tokenize.h>
 
 int tokenize(char * str, char * sep, char **buf) {
