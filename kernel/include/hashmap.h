@@ -1,6 +1,8 @@
 #ifndef KL_HASHMAP_H
 #define KL_HASHMAP_H
 
+#include <list.h>
+
 typedef unsigned int (*hashmap_hash_t) (char * key);
 
 typedef struct hashmap_entry {
@@ -20,5 +22,8 @@ void * hashmap_set(hashmap_t * map, char * key, void * value);
 void * hashmap_get(hashmap_t * map, char * key);
 void * hashmap_remove(hashmap_t * map, char * key);
 int hashmap_has(hashmap_t * map, char * key);
+list_t * hashmap_keys(hashmap_t * map);
+list_t * hashmap_values(hashmap_t * map);
+void hashmap_free(hashmap_t * map);
 
 #endif

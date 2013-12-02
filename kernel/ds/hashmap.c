@@ -1,5 +1,6 @@
 #include <system.h>
 #include <logging.h>
+#include <list.h>
 #include <hashmap.h>
 
 static unsigned int hashmap_default_hash(char * key) {
@@ -122,3 +123,42 @@ int hashmap_has(hashmap_t * map, char * key) {
 
 }
 
+list_t * hashmap_keys(hashmap_t * map) {
+	list_t * l = list_create();
+
+	for (unsigned int i = 0; i < map->size; ++i) {
+		hashmap_entry_t * x = map->entries[i];
+		while (x) {
+			list_insert(l, x->key);
+			x = x->next;
+		}
+	}
+
+	return l;
+}
+
+list_t * hashmap_values(hashmap_t * map) {
+	list_t * l = list_create();
+
+	for (unsigned int i = 0; i < map->size; ++i) {
+		hashmap_entry_t * x = map->entries[i];
+		while (x) {
+			list_insert(l, x->value);
+			x = x->next;
+		}
+	}
+
+	return l;
+}
+
+void hashmap_free(hashmap_t * map) {
+	for (unsigned int i = 0; i < map->size; ++i) {
+		hashmap_entry_t * x = map->entries[i], * p;
+		while (x) {
+			p = x;
+			x = x->next;
+			free(p);
+		}
+	}
+	free(map->entries);
+}

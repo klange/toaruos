@@ -116,8 +116,7 @@ struct shell_command {
 	char * description;
 };
 
-#define NUM_COMMANDS 8
-static struct shell_command shell_commands[NUM_COMMANDS];
+hashmap_t * shell_commands_map = NULL;
 
 /*
  * Shell commands
@@ -139,11 +138,18 @@ static int shell_echo(fs_node_t * tty, int argc, char * argv[]) {
 }
 
 static int shell_help(fs_node_t * tty, int argc, char * argv[]) {
-	struct shell_command * sh = &shell_commands[0];
-	while (sh->name) {
-		fs_printf(tty, "%s - %s\n", sh->name, sh->description);
-		sh++;
+	list_t * hash_keys = hashmap_keys(shell_commands_map);
+
+	foreach(_key, hash_keys) {
+		char * key = (char *)_key->value;
+		struct shell_command * c = hashmap_get(shell_commands_map, key);
+
+		fs_printf(tty, "%s - %s\n", c->name, c->description);
 	}
+
+	list_free(hash_keys);
+	free(hash_keys);
+
 	return 0;
 }
 
@@ -197,6 +203,32 @@ static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
 	fs_printf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
 	fs_printf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
 
+	hashmap_set(map, "b", (void *)42);
+
+	fs_printf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
+	fs_printf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
+	fs_printf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
+
+	hashmap_remove(map, "a");
+
+	fs_printf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
+	fs_printf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
+	fs_printf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
+	fs_printf(tty, "map contains a: %s\n", hashmap_has(map, "a") ? "yes" : "no");
+	fs_printf(tty, "map contains b: %s\n", hashmap_has(map, "b") ? "yes" : "no");
+	fs_printf(tty, "map contains c: %s\n", hashmap_has(map, "c") ? "yes" : "no");
+
+	list_t * hash_keys = hashmap_keys(map);
+	foreach(_key, hash_keys) {
+		char * key = (char *)_key->value;
+		fs_printf(tty, "map[%s] = %d\n", key, (int)hashmap_get(map, key));
+	}
+	list_free(hash_keys);
+	free(hash_keys);
+
+	hashmap_free(map);
+	free(map);
+
 	return 0;
 }
 
@@ -210,7 +242,7 @@ static int shell_log_on(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
-static struct shell_command shell_commands[NUM_COMMANDS] = {
+static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
 	{"echo",  &shell_echo,
@@ -362,6 +394,16 @@ void debug_shell_run(void * data, char * name) {
 	/* Set the device to be the actual TTY slave */
 	tty = current_process->fds->entries[slave];
 
+	/* Initialize the shell commands map */
+	if (!shell_commands_map) {
+		shell_commands_map = hashmap_create(10);
+		struct shell_command * sh = &shell_commands[0];
+		while (sh->name) {
+			hashmap_set(shell_commands_map, sh->name, sh);
+			sh++;
+		}
+	}
+
 	int retval = 0;
 
 	while (1) {
@@ -384,15 +426,10 @@ void debug_shell_run(void * data, char * name) {
 		if (!argc) continue;
 
 		/* Parse the command string */
-		struct shell_command * sh = &shell_commands[0];
-		while (sh->name) {
-			if (!strcmp(sh->name, argv[0])) {
-				retval = sh->function(tty, argc, argv);
-				break;
-			}
-			sh++;
-		}
-		if (sh->name == NULL) {
+		struct shell_command * sh = hashmap_get(shell_commands_map, argv[0]);
+		if (sh) {
+			retval = sh->function(tty, argc, argv);
+		} else {
 			fs_printf(tty, "Unrecognized command: %s\n", argv[0]);
 		}
 
