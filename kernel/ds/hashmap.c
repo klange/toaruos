@@ -29,7 +29,6 @@ void * hashmap_set(hashmap_t * map, char * key, void * value) {
 
 	hashmap_entry_t * x = map->entries[hash];
 	if (!x) {
-		debug_print(WARNING, "Inserting without collision: %s (0x%x) hash=%d", key, value, hash);
 		hashmap_entry_t * e = malloc(sizeof(hashmap_entry_t));
 		e->key   = strdup(key);
 		e->value = value;
@@ -37,10 +36,8 @@ void * hashmap_set(hashmap_t * map, char * key, void * value) {
 		map->entries[hash] = e;
 		return NULL;
 	} else {
-		debug_print(WARNING, "Hash collision: %s (0x%x) hash=%d", key, value, hash);
 		hashmap_entry_t * p = NULL;
 		do {
-			debug_print(WARNING, "x: %s:0x%x compared to %s", x->key, x->value, key);
 			if (!strcmp(x->key, key)) {
 				void * out = x->value;
 				x->value = value;
