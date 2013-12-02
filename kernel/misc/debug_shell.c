@@ -8,6 +8,8 @@
 #include <version.h>
 #include <termios.h>
 
+#include <debug_shell.h>
+
 /*
  * This is basically the same as a userspace buffered/unbuffered
  * termio call. These are the same sorts of things I would use in
@@ -343,30 +345,14 @@ void debug_shell_run(void * data, char * name) {
 		debug_shell_readline(tty, command, 511);
 
 		char * arg = strdup(command);
-		char * pch;         /* Tokenizer pointer */
-		char * save;        /* We use the reentrant form of strtok */
 		char * argv[1024];  /* Command tokens (space-separated elements) */
-		int    tokenid = 0; /* argc, basically */
-
-		/* Tokenize the arguments, splitting at spaces */
-		pch = strtok_r(arg," ",&save);
-		if (!pch) {
-			free(arg);
-			continue;
-		}
-		while (pch != NULL) {
-			argv[tokenid] = (char *)pch;
-			++tokenid;
-			pch = strtok_r(NULL," ",&save);
-		}
-		argv[tokenid] = NULL;
-		/* Tokens are now stored in argv. */
+		int argc = tokenize(arg, " ", argv);
 
 		/* Parse the command string */
 		struct shell_command * sh = &shell_commands[0];
 		while (sh->name) {
 			if (!strcmp(sh->name, argv[0])) {
-				retval = sh->function(tty, tokenid, argv);
+				retval = sh->function(tty, argc, argv);
 				break;
 			}
 			sh++;

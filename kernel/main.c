@@ -44,6 +44,7 @@
 #include <logging.h>
 #include <process.h>
 #include <shm.h>
+#include <args.h>
 
 /*
  * kernel entry point
@@ -115,6 +116,10 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);	/* Paging */
 	heap_install();							/* Kernel heap */
 
+	if (cmdline) {
+		args_parse(cmdline);
+	}
+
 	vfs_install();
 
 	/* Hardware drivers */
@@ -130,10 +135,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	mouse_install();	/* Mouse driver */
 	keyboard_reset_ps2();
 
-	if (cmdline) {
-		parse_args(cmdline);
-	}
-
 	serial_mount_devices();
 	vfs_mount("/dev/null", null_device_create());
 	vfs_mount("/dev/zero", zero_device_create());
@@ -145,6 +146,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	vfs_mount("/proc", procfs_create());
 
 	debug_print_vfs_tree();
+
+	legacy_parse_args();
 
 	if (ramdisk && !fs_root) {
 		debug_print(NOTICE, "---- ramdisk[0x%x:0x%x]\n", ramdisk, ramdisk_top);

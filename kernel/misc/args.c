@@ -1,131 +1,103 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
- * Kernel Argument Parser
+ * Kernel Argument Manager
  *
- * Parses arguments passed by, ie, a Multiboot bootloader.
+ * Arguments to the kernel are provided from the bootloader and
+ * provide information such as what mode to pass to init, or what
+ * hard disk partition should be mounted as root.
  *
- * Part of the ToAruOS Kernel.
- * (C) 2011 Kevin Lange
+ * This module provides access 
  */
 #include <system.h>
 #include <logging.h>
-#include <ata.h>
-
-/* XXX: This should be moved */
-void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector);
-int read_partition_map(int device);
+#include <args.h>
+#include <tokenize.h>
 
 char * cmdline = NULL;
+
+list_t * kernel_args_list = NULL;
+
+/**
+ * Check if an argument was provided to the kernel. If the argument is
+ * a simple switch, a response of 1 can be considered "on" for that
+ * argument; otherwise, this just notes that the argument was present,
+ * so the caller should check whether it is correctly set.
+ */
+int args_present(char * karg) {
+	if (!kernel_args_list) return 0; /* derp */
+
+	foreach(n, kernel_args_list) {
+		struct kernel_arg * arg = (struct kernel_arg *)n->value;
+		if (!strcmp(arg->name, karg)) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * Return the value associated with an argument provided to the kernel.
+ */
+char * args_value(char * karg) {
+	if (!kernel_args_list) return NULL; /* derp */
+
+	foreach(n, kernel_args_list) {
+		struct kernel_arg * arg = (struct kernel_arg *)n->value;
+		if (!strcmp(arg->name, karg)) {
+			return arg->value;
+		}
+	}
+
+	return NULL;
+}
 
 /**
  * Parse the given arguments to the kernel.
  *
  * @param arg A string containing all arguments, separated by spaces.
  */
-void
-parse_args(
-		char * _arg /* Arguments */
-		) {
+void args_parse(char * _arg) {
 	/* Sanity check... */
 	if (!_arg) { return; }
 
 	char * arg = strdup(_arg);
-	char * pch;         /* Tokenizer pointer */
-	char * save;        /* We use the reentrant form of strtok */
-	char * argv[1024];  /* Command tokens (space-separated elements) */
-	int    tokenid = 0; /* argc, basically */
+	char * argv[1024];
+	int argc = tokenize(arg, " ", argv);
 
-	/* Tokenize the arguments, splitting at spaces */
-	pch = strtok_r(arg," ",&save);
-	if (!pch) { return; }
-	while (pch != NULL) {
-		argv[tokenid] = (char *)pch;
-		++tokenid;
-		pch = strtok_r(NULL," ",&save);
+	/* New let's parse the tokens into the arguments list so we can index by key */
+	/* TODO I really need a dictionary/hashmap implementation */
+
+	if (kernel_args_list) {
+		/* Uh, crap. You've called me already... */
+		list_destroy(kernel_args_list);
+		list_free(kernel_args_list);
 	}
-	argv[tokenid] = NULL;
-	/* Tokens are now stored in argv. */
+	kernel_args_list = list_create();
 
+	for (int i = 0; i < argc; ++i) {
+		char * c = strdup(argv[i]);
 
-	for (int i = 0; i < tokenid; ++i) {
-		/* Parse each provided argument */
-		char * pch_i;
-		char * save_i;
-		char * argp[1024];
-		int    argc = 0;
-		pch_i = strtok_r(argv[i],"=",&save_i);
-		if (!pch_i) { continue; }
-		while (pch_i != NULL) {
-			argp[argc] = (char *)pch_i;
-			++argc;
-			pch_i = strtok_r(NULL,"=,",&save_i);
+		struct kernel_arg * karg = malloc(sizeof(struct kernel_arg));
+		karg->name = c;
+		karg->value = NULL;
+		/* Find the first = and replace it with a null */
+		char * v = c;
+		while (*v) {
+			if (*v == '=') {
+				*v = '\0';
+				v++;
+				karg->value = v;
+				goto _break;
+			}
+			v++;
 		}
-		argp[argc] = NULL;
 
-		if (!strcmp(argp[0],"vid")) {
-			if (argc < 2) { kprintf("vid=?\n"); continue; }
-			uint16_t x, y;
-			if (argc < 4) {
-				x = 1024;
-				y = 768;
-			} else {
-				x = atoi(argp[2]);
-				y = atoi(argp[3]);
-				debug_print(NOTICE, "Requested display resolution is %dx%d", x, y);
-			}
-			if (!strcmp(argp[1],"qemu")) {
-				/* Bochs / Qemu Video Device */
-				graphics_install_bochs(x,y);
-			} else if (!strcmp(argp[1],"preset")) {
-				graphics_install_preset(x,y);
-			} else {
-				debug_print(WARNING, "Unrecognized video adapter: %s", argp[1]);
-			}
-		} else if (!strcmp(argp[0],"hdd")) {
-			ide_init(0x1F0);
-			if (argc > 1) {
-				debug_print(INFO, "Scanning disk...");
-				if (read_partition_map(0)) {
-					debug_print(ERROR, "Failed to read MBR.");
-					continue;
-				}
-				int partition = atoi(argp[1]);
-				debug_print(NOTICE, "Selected partition %d starts at sector %d", partition, mbr.partitions[partition].lba_first_sector);
-				ext2_disk_mount(mbr.partitions[partition].lba_first_sector,mbr.partitions[partition].sector_count);
-			} else {
-				ext2_disk_mount(0, 0);
-			}
-		} else if (!strcmp(argp[0],"single")) {
-			boot_arg = "--single";
-		} else if (!strcmp(argp[0],"lite")) {
-			boot_arg = "--special";
-		} else if (!strcmp(argp[0],"vgaterm")) {
-			boot_arg = "--vga";
-		} else if (!strcmp(argp[0],"start")) {
-			if (argc < 2) {
-				debug_print(WARNING, "Expected an argument to kernel option `start`. Ignoring.");
-				continue;
-			}
-			boot_arg_extra = argp[1];
-		} else if (!strcmp(argp[0],"logtoserial")) {
-			if (argc > 1) {
-				debug_level = atoi(argp[1]);
-			} else {
-				debug_level = NOTICE; /* INFO is a bit verbose for a default */
-			}
-			kprint_to_serial = 1;
-			debug_print(NOTICE, "Kernel serial logging enabled at level %d.", debug_level);
-		} else if (!strcmp(argp[0],"kernel-term")) {
-			if (argc > 1) {
-				debug_level = atoi(argp[1]);
-			} else {
-				debug_level = NOTICE; /* INFO is a bit verbose for a default */
-			}
-			kprint_to_screen = 1;
-			debug_print(NOTICE, "Kernel serial logging enabled at level %d.", debug_level);
-		} else if (!strcmp(argp[0],"read-mbr")) {
-			read_partition_map(0);
-		}
+_break:
+		list_insert(kernel_args_list, karg);
 	}
+
+	free(arg);
+
 }
 
