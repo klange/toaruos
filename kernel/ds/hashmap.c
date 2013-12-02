@@ -2,12 +2,13 @@
 #include <logging.h>
 #include <hashmap.h>
 
-/* This is a really bad hash */
 static unsigned int hashmap_default_hash(char * key) {
 	unsigned int hash = 0;
-	while (*key) {
-		hash += (unsigned int)(*(char *)key);
-		key++;
+	int c;
+	/* This is the so-called "sdbm" hash. It comes from a piece of
+	 * public domain code from a clone of ndbm. */
+	while ((c = *key++)) {
+		hash = c + (hash << 6) + (hash << 16) - hash;
 	}
 	return hash;
 }
