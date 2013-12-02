@@ -242,6 +242,58 @@ static int shell_log_on(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static void dumb_sort(char * str) {
+	int size = strlen(str);
+	for (int i = 0; i < size-1; ++i) {
+		for (int j = 0; j < size-1; ++j) {
+			if (str[j] > str[j+1]) {
+				char t = str[j+1];
+				str[j+1] = str[j];
+				str[j] = t;
+			}
+		}
+	}
+}
+
+static int shell_anagrams(fs_node_t * tty, int argc, char * argv[]) {
+	hashmap_t * map = hashmap_create(10);
+
+	for (int i = 1; i < argc; ++i) {
+		char * c = strdup(argv[i]);
+		dumb_sort(c);
+
+		list_t * l = hashmap_get(map, c);
+		if (!l) {
+			l = list_create();
+			hashmap_set(map, c, l);
+		}
+		list_insert(l, argv[i]);
+
+		free(c);
+	}
+
+	list_t * values = hashmap_values(map);
+	foreach(val, values) {
+		list_t * x = (list_t *)val->value;
+		fs_printf(tty, "{");
+		foreach(node, x) {
+			fs_printf(tty, "%s", (char *)node->value);
+			if (node->next) {
+				fs_printf(tty, ", ");
+			}
+		}
+		fs_printf(tty, "}%s", (!!val->next) ? ", " : "\n");
+		free(x);
+	}
+	list_free(values);
+	free(values);
+
+	hashmap_free(map);
+	free(map);
+
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -257,6 +309,8 @@ static struct shell_command shell_commands[] = {
 		"Test hashmap functionality."},
 	{"log-on", &shell_log_on,
 		"Enable serial logging."},
+	{"anagrams", &shell_anagrams,
+		"Demo of hashmaps and lists. Give a list of words, get a grouping of anagrams."},
 	{NULL, NULL, NULL}
 };
 

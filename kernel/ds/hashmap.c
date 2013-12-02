@@ -85,6 +85,7 @@ void * hashmap_remove(hashmap_t * map, char * key) {
 		if (!strcmp(x->key, key)) {
 			void * out = x->value;
 			map->entries[hash] = x->next;
+			free(x->key);
 			free(x);
 			return out;
 		} else {
@@ -94,6 +95,7 @@ void * hashmap_remove(hashmap_t * map, char * key) {
 				if (!strcmp(x->key, key)) {
 					void * out = x->value;
 					p->next = x->next;
+					free(x->key);
 					free(x);
 					return out;
 				}
@@ -157,6 +159,7 @@ void hashmap_free(hashmap_t * map) {
 		while (x) {
 			p = x;
 			x = x->next;
+			free(p->key);
 			free(p);
 		}
 	}
