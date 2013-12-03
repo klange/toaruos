@@ -1432,6 +1432,8 @@ void * wait_for_exit(void * garbage) {
 	/* Clean up */
 	exit_application = 1;
 	/* Exit */
+	char exit_message[] = "[Process terminated]\n";
+	write(fd_slave, exit_message, sizeof(exit_message));
 }
 
 void usage(char * argv[]) {
