@@ -2,12 +2,32 @@
 layout: default
 title: とあるOS
 ---
+<div class="ttk_window">
+    <div class="ttk_content">
+        <div class="ttk_title">{{ page.title }}</div>
+        <div class="ttk_body">
+          <p><a href="http://i.imgur.com/g3zclG2.png"><img src="http://i.imgur.com/z1aFy0C.png" width="100%"></a></p>
+          <p><a href="http://i.imgur.com/g3zclG2.png"><img src="http://i.imgur.com/g3zclG2.png" width="100%"></a></p>
 
-<div id="home">
-  <h1>Blog Posts</h1>
-  <ul class="posts">
-    {% for post in site.posts %}
-      <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ post.url }}">{{ post.title }}</a></li>
-    {% endfor %}
-  </ul>
+          <p>とあるOS (ToAruOS) is a hobby operating system, built mostly from scratch, in development since December of 2010.</p>
+
+          <p>It was originally developed at the University of Illinois at Urbana-Champaign. For a period of time, it was the development focus of the university's SIGOps chapter.</p>
+
+          <p>Both the kernel and core userspace are included in this repository. Third-party sources are downloaded during the build process.</p>
+
+        </div>
+    </div>
 </div>
+{% for post in site.posts %}
+<div class="ttk_window">
+    <div class="ttk_content">
+      <div class="ttk_title">{{ post.title }} - {{post.date | date_to_string }}</div>
+        <div class="ttk_body">
+            <div>{{ post.excerpt }}</div>
+            <p>
+              <a href="{{ post.url }}">{{post.date | date_to_string }}</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endfor %}

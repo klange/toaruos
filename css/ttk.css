@@ -1,0 +1,105 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+    background: url(/assets/wallpaper.jpg);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    padding: 0px;
+    margin: 0px;
+    text-align: center;
+    margin-top: 50px;
+}
+
+.base {
+    clear: both;
+    width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+}
+
+.ttk_window {
+    width: 100%;
+}
+
+.ttk_title {
+    width: 100%;
+    position: relative;
+    top: -21px;
+    height: 0px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 12px;
+    text-align: center;
+    font-family: "DejaVu Sans", sans-serif;
+    color: #e1e1e1;
+}
+
+.ttk_content {
+    border-style: solid; border-width: 33px 9px 6px;
+    -moz-border-image: url(/assets/borders.png) 33 9 6 repeat;
+    -webkit-border-image: url(/assets/borders.png) 33 9 6 repeat;
+    -o-border-image: url(/assets/borders.png) 33 9 6 repeat;
+    border-image: url(/assets/borders.png) 33 9 6 fill repeat;
+}
+.ttk_body {
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 15px;
+    color: #000;
+    padding: 6px;
+}
+.ttk_body p {
+    padding-top: 10px;
+}
+
+.ttk_window a {
+    color: #
+    text-decoration: none;
+}
+
+.header a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.header a:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.header {
+    width: 100%;
+    height: 28px;
+    background: url(/assets/panel.png);
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    text-align: left;
+    z-index: 100;
+    clear: both;
+    background-repeat: repeat-x;
+    padding-bottom: 10px;
+}
+.header-title {
+    padding-top: 4px;
+    padding-left: 7px;
+    font-size: 14px;
+    color: #fff;
+    font-family: "DejaVu Sans", sans-serif;
+    float: left;
+}
+.header-link {
+    padding-top: 6px;
+    padding-left: 10px;
+    font-size: 12px;
+    color: #fff;
+    font-family: "DejaVu Sans", sans-serif;
+    float: left;
+}
+
