@@ -137,3 +137,16 @@ body {
     color: #88f;
     text-decoration: underline;
 }
+
+.post_metadata {
+    font-style: italic;
+    border-bottom: 1px solid #999;
+}
+
+.post_metadata_bottom {
+    font-size: 12px;
+    font-style: italic;
+    border-top: 1px solid #999;
+    margin-top: 10px;
+    padding-top: 2px;
+}

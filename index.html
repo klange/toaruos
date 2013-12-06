@@ -21,12 +21,12 @@ title: とあるOS
 {% for post in site.posts %}
 <div class="ttk_window">
     <div class="ttk_content">
-      <div class="ttk_title">{{ post.title }} - {{post.date | date_to_string }}</div>
+      <div class="ttk_title">{{ post.title }}</div>
         <div class="ttk_body">
-            <div>{{ post.excerpt }}</div>
-            <p>
-              <a href="{{ post.url }}">{{post.date | date_to_string }}</a>
-            </p>
+          <div>{{ post.excerpt }}</div>
+          <div class="post_metadata_bottom">
+            Posted on <a href="{{ post.url }}">{{post.date | date: "%B %e, %Y"}}</a>
+          </div>
         </div>
     </div>
 </div>
