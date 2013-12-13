@@ -170,7 +170,7 @@ void outports(unsigned short _port, unsigned short _data) {
 }
 
 unsigned int inportl(unsigned short _port) {
-	unsigned short rv;
+	unsigned int rv;
 	asm volatile ("inl %%dx, %%eax" : "=a" (rv) : "dN" (_port));
 	return rv;
 }

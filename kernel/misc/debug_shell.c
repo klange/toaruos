@@ -9,6 +9,7 @@
 #include <termios.h>
 #include <tokenize.h>
 #include <hashmap.h>
+#include <pci.h>
 
 #include <debug_shell.h>
 
@@ -86,12 +87,6 @@ int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
  */
 void debug_shell_run_sh(void * data, char * name) {
 
-	fs_node_t * tty = (fs_node_t *)data;
-
-	current_process->fds->entries[0] = tty;
-	current_process->fds->entries[1] = tty;
-	current_process->fds->entries[2] = tty;
-
 	char * argv[] = {
 		"/bin/sh",
 		NULL
@@ -122,7 +117,7 @@ hashmap_t * shell_commands_map = NULL;
  * Shell commands
  */
 static int shell_create_userspace_shell(fs_node_t * tty, int argc, char * argv[]) {
-	int pid = create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", tty);
+	int pid = create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", NULL);
 	fs_printf(tty, "Shell started with pid = %d\n", pid);
 	process_t * child_task = process_from_pid(pid);
 	sleep_on(child_task->wait_queue);
@@ -294,6 +289,55 @@ static int shell_anagrams(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+unsigned short pciConfigReadWord (unsigned short bus, unsigned short slot,
+		unsigned short func, unsigned short offset)
+{
+	unsigned long address;
+	unsigned long lbus = (unsigned long)bus;
+	unsigned long lslot = (unsigned long)slot;
+	unsigned long lfunc = (unsigned long)func;
+	unsigned short tmp = 0;
+
+	/* create configuration address as per Figure 1 */
+	address = (unsigned long)((lbus << 16) | (lslot << 11) |
+			(lfunc << 8) | (offset & 0xfc) | ((uint32_t)0x80000000));
+
+	/* write out the address */
+	outportl(0xCF8, address);
+	/* read in the data */
+	/* (offset & 2) * 8) = 0 will choose the fisrt word of the 32 bits register */
+	tmp = (unsigned short)((inportl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
+	return (tmp);
+}
+
+static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid) {
+
+	fs_node_t * tty = current_process->fds->entries[0];
+
+	fs_printf(tty, "%x:%x.%x (%x, %x:%x) %s %s\n",
+			(int)pci_extract_bus(device),
+			(int)pci_extract_slot(device),
+			(int)pci_extract_func(device),
+			(int)pci_find_type(device),
+			vendorid,
+			deviceid,
+			pci_vendor_lookup(vendorid),
+			pci_device_lookup(vendorid,deviceid));
+
+	fs_printf(tty, " BAR0: 0x%x\n", pci_read_field(device, PCI_BAR0, 4));
+	fs_printf(tty, " BAR1: 0x%x\n", pci_read_field(device, PCI_BAR1, 4));
+	fs_printf(tty, " BAR2: 0x%x\n", pci_read_field(device, PCI_BAR2, 4));
+	fs_printf(tty, " BAR3: 0x%x\n", pci_read_field(device, PCI_BAR3, 4));
+	fs_printf(tty, " BAR4: 0x%x\n", pci_read_field(device, PCI_BAR4, 4));
+	fs_printf(tty, " BAR6: 0x%x\n", pci_read_field(device, PCI_BAR5, 4));
+
+}
+
+static int shell_pci(fs_node_t * tty, int argc, char * argv[]) {
+	pci_scan(&scan_hit_list, -1);
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -311,6 +355,8 @@ static struct shell_command shell_commands[] = {
 		"Enable serial logging."},
 	{"anagrams", &shell_anagrams,
 		"Demo of hashmaps and lists. Give a list of words, get a grouping of anagrams."},
+	{"pci", &shell_pci,
+		"PCI stuff"},
 	{NULL, NULL, NULL}
 };
 
@@ -447,6 +493,10 @@ void debug_shell_run(void * data, char * name) {
 
 	/* Set the device to be the actual TTY slave */
 	tty = current_process->fds->entries[slave];
+
+	current_process->fds->entries[0] = tty;
+	current_process->fds->entries[1] = tty;
+	current_process->fds->entries[2] = tty;
 
 	/* Initialize the shell commands map */
 	if (!shell_commands_map) {

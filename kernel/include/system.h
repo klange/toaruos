@@ -201,6 +201,8 @@ extern void page_fault(struct regs *r);
 extern void dma_frame(page_t * page, int, int, uintptr_t);
 extern void debug_print_directory(void);
 
+int debug_shell_start(void);
+
 void heap_install(void);
 
 void alloc_frame(page_t *page, int is_kernel, int is_writeable);

@@ -4,44 +4,103 @@
  */
 
 #include <system.h>
+#include <pci.h>
+#include <pci_list.h>
 
-#define PCI_CONFIG_ADDRESS 0xCF8
-#define PCI_CONFIG_DATA    0xCFC
 
-void pci_install(void) {
-	/* Do nothing */
+
+uint32_t pci_read_field(uint32_t device, int field, int size) {
+	outportl(PCI_ADDRESS_PORT, pci_get_addr(device, field));
+
+	if (size == 4) {
+		uint32_t t = inportl(PCI_VALUE_PORT);
+		return t;
+	} else if (size == 2) {
+		uint16_t t = inports(PCI_VALUE_PORT + (field & 2));
+		return t;
+	} else if (size == 1) {
+		uint8_t t = inportb(PCI_VALUE_PORT + (field & 3));
+		return t;
+	}
+	return 0xFFFF;
 }
 
-/*
- * Read a PCI config value for the given bus/slot/function/offset
- */
-uint16_t
-pci_read_word(
-		uint32_t bus,
-		uint32_t slot,
-		uint32_t func,
-		uint16_t offset
-		) {
-	uint32_t address = (uint32_t)((bus << 16) || (slot << 11) |
-			(func << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
-	outportl(PCI_CONFIG_ADDRESS, address);
-	return (uint16_t)((inportl(PCI_CONFIG_DATA) >> ((offset & 2) * 8)) & 0xFFFF);
+uint16_t pci_find_type(uint32_t dev) {
+	return (pci_read_field(dev, PCI_CLASS, 1) << 8) | pci_read_field(dev, PCI_SUBCLASS, 1);
 }
 
-/*
- * Write a PCI config value for the given bus/slot/function/offset
- */
-void
-pci_write_word(
-		uint32_t bus,
-		uint32_t slot,
-		uint32_t func,
-		uint16_t offset,
-		uint32_t data
-		) {
-	uint32_t address = (uint32_t)((bus << 16) || (slot << 11) |
-			(func << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
-	outportl(PCI_CONFIG_ADDRESS, address);
-	outportl(PCI_CONFIG_DATA, data);
+const char * pci_vendor_lookup(unsigned short vendor_id) {
+	for (unsigned int i = 0; i < PCI_VENTABLE_LEN; ++i) {
+		if (PciVenTable[i].VenId == vendor_id) {
+			return PciVenTable[i].VenFull;
+		}
+	}
+	return "";
+}
+
+const char * pci_device_lookup(unsigned short vendor_id, unsigned short device_id) {
+	for (unsigned int i = 0; i < PCI_DEVTABLE_LEN; ++i) {
+		if (PciDevTable[i].VenId == vendor_id && PciDevTable[i].DevId == device_id) {
+			return PciDevTable[i].ChipDesc;
+		}
+	}
+	return "";
+}
+
+void pci_scan_hit(pci_func_t f, uint32_t dev) {
+	int dev_vend = (int)pci_read_field(dev, PCI_VENDOR_ID, 2);
+	int dev_dvid = (int)pci_read_field(dev, PCI_DEVICE_ID, 2);
+
+	f(dev, dev_vend, dev_dvid);
+}
+
+void pci_scan_func(pci_func_t f, int type, int bus, int slot, int func) {
+	uint32_t dev = pci_box_device(bus, slot, func);
+	if (type == -1 || type == pci_find_type(dev)) {
+		pci_scan_hit(f, dev);
+	}
+	if (pci_find_type(dev) == PCI_TYPE_BRIDGE) {
+		pci_scan_bus(f, type, pci_read_field(dev, PCI_SECONDARY_BUS, 1));
+	}
+}
+
+void pci_scan_slot(pci_func_t f, int type, int bus, int slot) {
+	uint32_t dev = pci_box_device(bus, slot, 0);
+	if (pci_read_field(dev, PCI_VENDOR_ID, 2) == PCI_NONE) {
+		return;
+	}
+	pci_scan_func(f, type, bus, slot, 0);
+	if (!pci_read_field(dev, PCI_HEADER_TYPE, 1)) {
+		return;
+	}
+	for (int func = 1; func < 8; func++) {
+		uint32_t dev = pci_box_device(bus, slot, func);
+		if (pci_read_field(dev, PCI_VENDOR_ID, 2) != PCI_NONE) {
+			pci_scan_func(f, type, bus, slot, func);
+		}
+	}
+}
+
+void pci_scan_bus(pci_func_t f, int type, int bus) {
+	for (int slot = 0; slot < 32; ++slot) {
+		pci_scan_slot(f, type, bus, slot);
+	}
+}
+
+void pci_scan(pci_func_t f, int type) {
+	pci_scan_bus(f, type, 0);
+
+	if (!pci_read_field(0, PCI_HEADER_TYPE, 1)) {
+		return;
+	}
+
+	for (int func = 1; func < 8; ++func) {
+		uint32_t dev = pci_box_device(0, 0, func);
+		if (pci_read_field(dev, PCI_VENDOR_ID, 2) != PCI_NONE) {
+			pci_scan_bus(f, type, func);
+		} else {
+			break;
+		}
+	}
 }
 

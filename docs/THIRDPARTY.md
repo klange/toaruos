@@ -189,6 +189,8 @@ ToAruOS contains a number of third-party packages under various licenses. Those 
 
 * The Curses sample applications provided in `userspace/extra/curses` are by Pradeep Padala. A readme containing a license is provided [in that directory](../userspace/extra/curses/README.md).
 
+* A list of PCI vendor and device names, from [the PCI Database](http://pcidatabase.com), is included in `kernel/include/pci_list.h`.
+
 * Build scripts will also retrieve copies of the following software and patches to them:
   * [GCC](http://gcc.gnu.org/)
   * [Newlib](http://sourceware.org/newlib/)

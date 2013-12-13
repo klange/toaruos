@@ -53,7 +53,6 @@ void args_parse(char * _arg) {
 	int argc = tokenize(arg, " ", argv);
 
 	/* New let's parse the tokens into the arguments list so we can index by key */
-	/* TODO I really need a dictionary/hashmap implementation */
 
 	if (!kernel_args_map) {
 		kernel_args_map = hashmap_create(10);
