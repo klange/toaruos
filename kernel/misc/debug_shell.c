@@ -227,12 +227,20 @@ static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
-static int shell_log_on(fs_node_t * tty, int argc, char * argv[]) {
-	kprint_to_serial = 1;
+static int shell_log(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
-		debug_level = 1;
+		fs_printf(tty, "Log level is currently %d.\n", debug_level);
+		fs_printf(tty, "Serial logging is %s.\n", kprint_to_serial ? "enabled" : "disabled");
+		fs_printf(tty, "Usage: log [on|off] [<level>]\n");
 	} else {
-		debug_level = atoi(argv[1]);
+		if (!strcmp(argv[1], "on")) {
+			kprint_to_serial = 1;
+			if (argc > 2) {
+				debug_level = atoi(argv[2]);
+			}
+		} else if (!strcmp(argv[1], "off")) {
+			kprint_to_serial = 0;
+		}
 	}
 	return 0;
 }
@@ -338,6 +346,15 @@ static int shell_pci(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_uid(fs_node_t * tty, int argc, char * argv[]) {
+	if (argc < 2) {
+		fs_printf(tty, "uid=%d\n", current_process->user);
+	} else {
+		current_process->user = atoi(argv[1]);
+	}
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -351,12 +368,14 @@ static struct shell_command shell_commands[] = {
 		"List files in current or other directory."},
 	{"test-hash", &shell_test_hash,
 		"Test hashmap functionality."},
-	{"log-on", &shell_log_on,
-		"Enable serial logging."},
+	{"log", &shell_log,
+		"Configure serial debug logging."},
 	{"anagrams", &shell_anagrams,
 		"Demo of hashmaps and lists. Give a list of words, get a grouping of anagrams."},
 	{"pci", &shell_pci,
-		"PCI stuff"},
+		"Print PCI devices, as well as their names and BARs."},
+	{"uid", &shell_uid,
+		"Change the effective user id of the shell (useful when running `shell`)."},
 	{NULL, NULL, NULL}
 };
 
