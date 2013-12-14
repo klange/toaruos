@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 /* The Master ELF Header */
-#include "../kernel/include/elf.h"
+#include "../../kernel/include/elf.h"
 
 /**
  * Show usage for the readelf application.

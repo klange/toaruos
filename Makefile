@@ -1,6 +1,4 @@
 # ToAruOS Primary Build Script
-# This script will pull either clang (with -fcolor-diagnostics), gcc (with no extra options), or cc
-#
 ifeq ($(CCC_ANALYZE),yes)
 # CC is set by CCC_ANALYZE to clang
 # It is not recommended that you use a kernel built this way
@@ -9,25 +7,14 @@ CC = i686-pc-toaru-gcc
 endif
 # CFLAGS for core components
 CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -Wstrict-prototypes -g
-# CFLAGS for native utils
-NATIVEFLAGS = -std=c99 -g -pedantic -Wall -Wextra -Wno-unused-parameter
 # Linker for core
 LD = i686-pc-toaru-ld
 YASM = yasm
 # Feel free to be specific, but I'd rather you not be.
-FILESYSTEMS  = $(patsubst %.c,%.o,$(wildcard kernel/fs/*.c))
-VIDEODRIVERS = $(patsubst %.c,%.o,$(wildcard kernel/video/*.c))
-DEVICES      = $(patsubst %.c,%.o,$(wildcard kernel/devices/*.c))
-VIRTUALMEM   = $(patsubst %.c,%.o,$(wildcard kernel/mem/*.c))
-MISCMODS     = $(patsubst %.c,%.o,$(wildcard kernel/misc/*.c))
-SYSTEM       = $(patsubst %.c,%.o,$(wildcard kernel/sys/*.c))
-DATASTRUCTS  = $(patsubst %.c,%.o,$(wildcard kernel/ds/*.c))
-CPUBITS      = $(patsubst %.c,%.o,$(wildcard kernel/cpu/*.c))
+SUBMODULES  = $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
 
-SUBMODULES = ${MODULES} ${FILESYSTEMS} ${VIDEODRIVERS} ${DEVICES} ${VIRTUALMEM} ${MISCMODS} ${SYSTEM} ${DATASTRUCTS} ${CPUBITS}
 USERSPACE = $(shell find userspace/ -type f -name '*.c') $(shell find userspace/ -type f -name '*.cpp') $(shell find userspace/ -type f -name '*.h')
 
-UTILITIES = util/bin/readelf util/bin/typewriter util/bin/bim
 EMU = qemu-system-i386
 GENEXT = genext2fs
 DISK_SIZE = 524288
@@ -46,11 +33,10 @@ ENDRM = util/mk-end-rm
 EMUARGS     = -sdl -kernel toaruos-kernel -m 1024 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame -rtc base=localtime
 EMUKVM      = -enable-kvm
 
-.PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run utils
+.PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run
 .SECONDARY: 
 
 all: .passed system tags
-aux: utils
 system: .passed toaruos-disk.img toaruos-kernel
 
 install: system
@@ -85,8 +71,6 @@ run-config: system
 
 test: system
 	python util/run-tests.py 2>/dev/null
-
-utils: ${UTILITIES}
 
 .passed:
 	@util/check-reqs > /dev/null
@@ -142,20 +126,6 @@ toaruos-disk.img: .userspace-check
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 
-################
-#   Utilities  #
-################
-
-util/bin/bim: userspace/bim.c
-	@${BEG} "CC" "$<"
-	@${CC} -std=c99 -posix -m32 -g -o $@ $< userspace/lib/wcwidth.c
-	@${END} "CC" "$<"
-
-util/bin/%: util/%.c
-	@${BEG} "CC" "$<"
-	@${CC} ${NATIVEFLAGS} -o $@ $< ${ERRORS}
-	@${END} "CC" "$<"
-
 ##############
 #    ctags   #
 ##############
@@ -179,11 +149,6 @@ clean-bin:
 	@-rm -f hdd/bin/*
 	@${ENDRM} "RM" "Cleaned native binaries"
 
-clean-aux:
-	@${BEGRM} "RM" "Cleaning auxillary files..."
-	@-rm -f util/bin/*
-	@${ENDRM} "RM" "Cleaned auxillary files"
-
 clean-core:
 	@${BEGRM} "RM" "Cleaning final output..."
 	@-rm -f toaruos-kernel
@@ -193,7 +158,7 @@ clean-core:
 clean: clean-soft clean-core
 	@${INFO} "--" "Finished soft cleaning"
 
-clean-hard: clean clean-bin clean-aux
+clean-hard: clean clean-bin
 	@${INFO} "--" "Finished hard cleaning"
 
 clean-disk:
