@@ -40,6 +40,7 @@
 #include <system.h>
 #include <boot.h>
 #include <ext2.h>
+#include <pci.h>
 #include <fs.h>
 #include <logging.h>
 #include <process.h>
@@ -116,6 +117,8 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);	/* Paging */
 	heap_install();							/* Kernel heap */
 
+	pci_install();
+
 	if (cmdline) {
 		args_parse(cmdline);
 	}
@@ -136,6 +139,7 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	keyboard_reset_ps2();
 
 	serial_mount_devices();
+
 	vfs_mount("/dev/null", null_device_create());
 	vfs_mount("/dev/zero", zero_device_create());
 	vfs_mount("/dev/hello", hello_device_create());
