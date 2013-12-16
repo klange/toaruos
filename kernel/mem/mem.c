@@ -364,18 +364,10 @@ void heap_install(void ) {
 	heap_end = (placement_pointer + 0x1000) & ~0xFFF;
 }
 
-void *
-sbrk(
-	uintptr_t increment
-    ) {
-#if 0
-	if (current_process) {
-		debug_print(INFO, "sbrk [0x%x]+0x%x pid=%d [%s]", heap_end, increment, getpid(), current_process->name);
-	}
-#endif
-	ASSERT((increment % 0x1000 == 0) && "Kernel requested to expand heap by a non-page-multiple value");
-	ASSERT((heap_end % 0x1000 == 0)  && "Kernel heap is not page-aligned!");
-	ASSERT((heap_end + increment <= KERNEL_HEAP_END - 1) && "The kernel has attempted to allocate beyond the end of its heap.");
+void * sbrk(uintptr_t increment) {
+	assert((increment % 0x1000 == 0) && "Kernel requested to expand heap by a non-page-multiple value");
+	assert((heap_end % 0x1000 == 0)  && "Kernel heap is not page-aligned!");
+	assert((heap_end + increment <= KERNEL_HEAP_END - 1) && "The kernel has attempted to allocate beyond the end of its heap.");
 	uintptr_t address = heap_end;
 
 	if (heap_end + increment > KERNEL_HEAP_INIT) {

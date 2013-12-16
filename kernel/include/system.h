@@ -13,14 +13,6 @@
 #define STR(x) #x
 #define STRSTR(x) STR(x)
 
-/* Binary Literals */
-#define b(x) ((uint8_t)b_(0 ## x ## uL))
-#define b_(x) ((x & 1) | (x >> 2 & 2) | (x >> 4 & 4) | (x >> 6 & 8) | (x >> 8 & 16) | (x >> 10 & 32) | (x >> 12 & 64) | (x >> 14 & 128))
-
-/* Unimportant Kernel Strings */
-#define KERNEL_UNAME "ToAruOS"
-#define KERNEL_VERSION_STRING "0.0.1"
-
 #define asm __asm__
 #define volatile __volatile__
 
@@ -43,8 +35,6 @@ extern char * boot_arg; /* Argument to pass to init */
 extern char * boot_arg_extra; /* Extra data to pass to init */
 
 extern void *sbrk(uintptr_t increment);
-
-extern void tss_flush(void);
 
 extern void spin_lock(uint8_t volatile * lock);
 extern void spin_unlock(uint8_t volatile * lock);
@@ -82,22 +72,6 @@ extern uint32_t krand(void);
 extern char * strstr(const char * haystack, const char * needle);
 extern uint8_t startswith(const char * str, const char * accept);
 
-/* VGA driver */
-extern void cls(void);
-extern void puts(char *str);
-extern void settextcolor(unsigned char forecolor, unsigned char backcolor);
-extern void resettextcolor(void);
-extern void brighttextcolor(void);
-extern void init_video(void);
-extern void placech(unsigned char c, int x, int y, int attr);
-extern void writechf(unsigned char c);
-extern void writech(char c);
-extern void place_csr(uint32_t x, uint32_t y);
-extern void store_csr(void);
-extern void restore_csr(void);
-extern void set_serial(int);
-extern void set_csr(int);
-
 /* GDT */
 extern void gdt_install(void);
 extern void gdt_set_gate(size_t num, unsigned long base, unsigned long limit, unsigned char access, unsigned char gran);
@@ -121,7 +95,6 @@ typedef void (*irq_handler_t) (struct regs *);
 
 /* Panic */
 #define HALT_AND_CATCH_FIRE(mesg, regs) halt_and_catch_fire(mesg, __FILE__, __LINE__, regs)
-#define ASSERT(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
 #define assert(statement) ((statement) ? (void)0 : assert_failed(__FILE__, __LINE__, #statement))
 void halt_and_catch_fire(char *error_message, const char *file, int line, struct regs * regs);
 void assert_failed(const char *file, uint32_t line, const char *desc);
@@ -155,30 +128,13 @@ extern void mouse_install(void);
 
 /* kprintf */
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
-#ifndef EXTREME_KPRINTF_DEBUGGING
 extern int    kprintf(const char *fmt, ...);
-#else
-/* This is really, really extreme */
-extern int    _kprintf(char * file, int line, const char *fmt, ...);
-#define kprintf(...) _kprintf(__FILE__, __LINE__, __VA_ARGS__)
-#endif
 
 extern short  kprint_to_serial;
 extern short  kprint_to_screen;
 extern void * kprint_to_file;
 
 extern int    sprintf(char *buf, const char *fmt, ...);
-extern int    kgets(char *buf, int size);
-typedef void (*kgets_redraw_t)(void);
-extern kgets_redraw_t kgets_redraw_func;
-typedef void (*kgets_tab_complete_t)(char *);
-extern kgets_tab_complete_t kgets_tab_complete_func;
-extern void kgets_redraw_buffer(void);
-typedef void (*kgets_special_t)(char *);
-extern kgets_special_t kgets_key_down;
-extern kgets_special_t kgets_key_up;
-extern kgets_special_t kgets_key_left;
-extern kgets_special_t kgets_key_right;
 
 /* Memory Management */
 extern uintptr_t placement_pointer;
@@ -221,20 +177,12 @@ void free(void *ptr);
 extern void start_shell(void);
 
 /* Serial */
-#define SERIAL_PORT_A 0x3F8
-#define SERIAL_PORT_B 0x2F8
-#define SERIAL_PORT_C 0x3E8
-#define SERIAL_PORT_D 0x2E8
-
-#define SERIAL_IRQ_AC 4
-#define SERIAL_IRQ_BD 3
-
 extern void serial_install(void);
 extern int serial_rcvd(int device);
 extern char serial_recv(int device);
 extern char serial_recv_async(int device);
 extern void serial_send(int device, char out);
-extern void serial_string(int device, char * out);
+extern void serial_string(char * out);
 
 /* Tasks */
 extern uintptr_t read_eip(void);
@@ -245,36 +193,6 @@ extern void move_stack(void *new_stack_start, size_t size);
 extern void kexit(int retval);
 extern void task_exit(int retval);
 extern uint32_t next_pid;
-
-typedef struct tss_entry {
-	uint32_t	prev_tss;
-	uint32_t	esp0;
-	uint32_t	ss0;
-	uint32_t	esp1;
-	uint32_t	ss1;
-	uint32_t	esp2;
-	uint32_t	ss2;
-	uint32_t	cr3;
-	uint32_t	eip;
-	uint32_t	eflags;
-	uint32_t	eax;
-	uint32_t	ecx;
-	uint32_t	edx;
-	uint32_t	ebx;
-	uint32_t	esp;
-	uint32_t	ebp;
-	uint32_t	esi;
-	uint32_t	edi;
-	uint32_t	es;
-	uint32_t	cs;
-	uint32_t	ss;
-	uint32_t	ds;
-	uint32_t	fs;
-	uint32_t	gs;
-	uint32_t	ldt;
-	uint16_t	trap;
-	uint16_t	iomap_base;
-} __attribute__ ((packed)) tss_entry_t;
 
 extern void tasking_install(void);
 extern void switch_task(uint8_t reschedule);
@@ -319,19 +237,9 @@ extern void graphics_install_bochs(uint16_t, uint16_t);
 extern void bochs_set_y_offset(uint16_t y);
 extern uint16_t bochs_current_scroll(void);
 
-/* ANSI Terminal Escape Processor */
-void ansi_put(char c);
-void ansi_print(char * c);
-void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(unsigned char, unsigned char), void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,char), void (*cls)(void), void (*redraw_csr)(void));
-int  ansi_ready;
-void (*redraw_cursor)(void);
-
-extern uint8_t number_font[][12];
-
 /* Floating Point Unit */
-
 void switch_fpu(void);
-void auto_fpu(void);
+void fpu_install(void);
 
 /* ELF */
 int exec( char *, int, char **, char **);

@@ -7,6 +7,7 @@
  */
 #include <system.h>
 #include <logging.h>
+#include <tss.h>
 
 static void write_tss(int32_t, uint16_t, uint32_t);
 tss_entry_t tss_entry;

@@ -47,29 +47,10 @@
 #include <args.h>
 
 /*
- * kernel entry point
- *
- * This is the C entry point for the kernel.
- * It is called by the assembly loader and is passed
- * multiboot information, if available, from the bootloader.
- *
- * The kernel boot process does the following:
- * - Align the dumb allocator's heap pointer
- * - Initialize the x86 descriptor tables (global, interrupts)
- * - Initialize the interrupt handlers (ISRS, IRQ)
- * - Load up the VGA driver.
- * - Initialize the hardware drivers (PIC, keyboard)
- * - Set up paging
- * - Initialize the kernel heap (klmalloc)
- * [Further booting]
- *
- * After booting, the kernel will display its version and dump the
- * multiboot data from the bootloader. It will then proceed to print
- * out the contents of the initial ramdisk image.
+ * multiboot i386 (pc) kernel entry point
  */
 int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	initial_esp = esp;
-	uintptr_t ramdisk_top = 0;
 	extern char * cmdline;
 
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
@@ -85,36 +66,20 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		size_t len = strlen((char *)mboot_ptr->cmdline);
 		memmove(cmdline_, (char *)mboot_ptr->cmdline, len + 1);
 
-		/* Relocate any available modules */
-		if (mboot_ptr->flags & (1 << 3)) {
-			if (mboot_ptr->mods_count > 0) {
-				/*
-				 * Ramdisk image was provided. (hopefully)
-				 */
-				uint32_t module_start = *((uint32_t *) mboot_ptr->mods_addr);		/* Start address */
-				uint32_t module_end = *(uint32_t *) (mboot_ptr->mods_addr + 4);		/* End address */
-				ramdisk = (char *)0x30000000; //(char *)kmalloc(module_end - module_start);
-				ramdisk_top = (uintptr_t)ramdisk + (module_end - module_start);
-				debug_print(INFO, "Ramdisk top = 0x%x", ramdisk_top);
-
-				memmove(ramdisk, (char *)module_start, module_end - module_start);	/* Copy it over. */
-			}
-		}
-
 		/* Relocate the command line */
 		cmdline = (char *)kmalloc(len + 1);
 		memcpy(cmdline, cmdline_, len + 1);
 	}
 
 	/* Initialize core modules */
-	gdt_install();		/* Global descriptor table */
-	idt_install();		/* IDT */
-	isrs_install();		/* Interrupt service requests */
-	irq_install();		/* Hardware interrupt requests */
+	gdt_install();      /* Global descriptor table */
+	idt_install();      /* IDT */
+	isrs_install();     /* Interrupt service requests */
+	irq_install();      /* Hardware interrupt requests */
 
 	/* Memory management */
-	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);	/* Paging */
-	heap_install();							/* Kernel heap */
+	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);
+	heap_install();     /* Kernel heap */
 
 	if (cmdline) {
 		args_parse(cmdline);
@@ -123,16 +88,13 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	vfs_install();
 
 	/* Hardware drivers */
-	timer_install();	/* PIC driver */
-
-	tasking_install();	/* Multi-tasking */
-	auto_fpu();
-	syscalls_install();	/* Install the system calls */
-
-	shm_install();		/* Install shared memory */
-
-	keyboard_install();	/* Keyboard interrupt handler */
-	mouse_install();	/* Mouse driver */
+	timer_install();    /* PIC driver */
+	tasking_install();  /* Multi-tasking */
+	fpu_install();      /* FPU/SSE magic */
+	syscalls_install(); /* Install the system calls */
+	shm_install();      /* Install shared memory */
+	keyboard_install(); /* Keyboard interrupt handler */
+	mouse_install();    /* Mouse driver */
 	keyboard_reset_ps2();
 
 	serial_mount_devices();
@@ -148,15 +110,6 @@ int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	debug_print_vfs_tree();
 
 	legacy_parse_args();
-
-	if (ramdisk && !fs_root) {
-		debug_print(NOTICE, "---- ramdisk[0x%x:0x%x]\n", ramdisk, ramdisk_top);
-		for (uintptr_t i = (uintptr_t)ramdisk; i < (uintptr_t)ramdisk_top; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-		}
-
-		ext2_ramdisk_mount((uintptr_t)ramdisk);
-	}
 
 	if (!fs_root) {
 		debug_print(CRITICAL, "There is no file system mounted.");

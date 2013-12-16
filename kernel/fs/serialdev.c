@@ -9,6 +9,15 @@
 #include <pipe.h>
 #include <logging.h>
 
+#define SERIAL_PORT_A 0x3F8
+#define SERIAL_PORT_B 0x2F8
+#define SERIAL_PORT_C 0x3E8
+#define SERIAL_PORT_D 0x2E8
+
+#define SERIAL_IRQ_AC 4
+#define SERIAL_IRQ_BD 3
+
+
 fs_node_t * _serial_port_a = NULL;
 fs_node_t * _serial_port_b = NULL;
 fs_node_t * _serial_port_c = NULL;
@@ -97,9 +106,9 @@ void serial_send(int device, char out) {
 	outportb(device, out);
 }
 
-void serial_string(int device, char * out) {
+void serial_string(char * out) {
 	for (uint32_t i = 0; i < strlen(out); ++i) {
-		serial_send(device, out[i]);
+		serial_send(SERIAL_PORT_A, out[i]);
 	}
 }
 

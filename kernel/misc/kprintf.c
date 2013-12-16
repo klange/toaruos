@@ -144,7 +144,6 @@ int _off = 0;
  * @param fmt Formatted string to print
  * @param ... Additional arguments to format
  */
-#ifndef EXTREME_KPRINTF_DEBUGGING
 int
 kprintf(
 		const char *fmt,
@@ -158,7 +157,7 @@ kprintf(
 	va_end(args);
 	/* Print that sucker */
 	if (kprint_to_serial) {
-		serial_string(SERIAL_PORT_A,buf);
+		serial_string(buf);
 	}
 	if (kprint_to_screen) {
 		/*
@@ -220,33 +219,6 @@ kprintf(
 	}
 	return out;
 }
-#else
-int
-_kprintf(
-		char * file,
-		int line,
-		const char *fmt,
-		...
-	   ) {
-	char buf[1024] = {-1};
-	va_list args;
-	va_start(args, fmt);
-	int out = vasprintf(buf, fmt, args);
-	/* We're done with our arguments */
-	va_end(args);
-	/* Print that sucker */
-	if (buf[strlen(buf)-1] == '\n') {
-		buf[strlen(buf)-1] = '\0';
-		serial_string(buf);
-		char buf2[1024];
-		sprintf(buf2, " %s:%d\n", file, line);
-		serial_string(buf2);
-	} else {
-		serial_string(buf);
-	}
-	return out;
-}
-#endif
 
 int
 sprintf(

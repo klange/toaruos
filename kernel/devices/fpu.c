@@ -109,7 +109,7 @@ void switch_fpu(void) {
 }
 
 /* Enable the FPU context handling */
-void auto_fpu(void) {
+void fpu_install(void) {
 	isrs_install_handler(6, &invalid_op);
 	isrs_install_handler(7, &invalid_op);
 }
