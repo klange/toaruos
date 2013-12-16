@@ -19,7 +19,6 @@ EMU = qemu-system-i386
 GENEXT = genext2fs
 DISK_SIZE = 524288
 #DISK_SIZE = 131072
-RAMDISK_SIZE = 32786
 DD = dd conv=notrunc
 BEG = util/mk-beg
 END = util/mk-end
@@ -42,7 +41,6 @@ system: .passed toaruos-disk.img toaruos-kernel
 install: system
 	@${BEG} "CP" "Installing to /boot..."
 	@cp toaruos-kernel /boot/toaruos-kernel
-	@cp toaruos-initrd /boot/toaruos-initrd
 	@${END} "CP" "Installed to /boot"
 
 # Various different quick options
@@ -97,23 +95,9 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
-################
-#   Ram disk   #
-################
-toaruos-initrd: .passed
-	@${BEG} "initrd" "Generating initial RAM disk"
-	@# Get rid of the old one
-	@-rm -f toaruos-initrd
-	@${GENEXT} -d initrd -q -b ${RAMDISK_SIZE} toaruos-initrd ${ERRORS}
-	@${END} "initrd" "Generated initial RAM disk"
-	@${INFO} "--" "Ramdisk image is ready!"
-
 ####################
 # Hard Disk Images #
 ####################
-
-# TODO: Install Grub to one of these by pulling newest grub builds
-#       from the Grub2 website.
 
 .userspace-check: ${USERSPACE}
 	@cd userspace && python build.py
@@ -152,7 +136,6 @@ clean-bin:
 clean-core:
 	@${BEGRM} "RM" "Cleaning final output..."
 	@-rm -f toaruos-kernel
-	@-rm -f toaruos-initrd
 	@${ENDRM} "RM" "Cleaned final output"
 
 clean: clean-soft clean-core
