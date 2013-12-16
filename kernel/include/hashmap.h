@@ -3,7 +3,10 @@
 
 #include <list.h>
 
-typedef unsigned int (*hashmap_hash_t) (char * key);
+typedef unsigned int (*hashmap_hash_t) (void * key);
+typedef int (*hashmap_comp_t) (void * a, void * b);
+typedef void (*hashmap_free_t) (void *);
+typedef void * (*hashmap_dupe_t) (void *);
 
 typedef struct hashmap_entry {
 	char * key;
@@ -13,6 +16,10 @@ typedef struct hashmap_entry {
 
 typedef struct hashmap {
 	hashmap_hash_t hash_func;
+	hashmap_comp_t hash_comp;
+	hashmap_dupe_t hash_key_dup;
+	hashmap_free_t hash_key_free;
+	hashmap_free_t hash_val_free;
 	size_t         size;
 	hashmap_entry_t ** entries;
 } hashmap_t;
@@ -25,5 +32,9 @@ int hashmap_has(hashmap_t * map, char * key);
 list_t * hashmap_keys(hashmap_t * map);
 list_t * hashmap_values(hashmap_t * map);
 void hashmap_free(hashmap_t * map);
+
+unsigned int hashmap_string_hash(void * key);
+int hashmap_string_comp(void * a, void * b);
+void * hashmap_string_dupe(void * key);
 
 #endif

@@ -3,8 +3,9 @@
 #include <list.h>
 #include <hashmap.h>
 
-static unsigned int hashmap_default_hash(char * key) {
+unsigned int hashmap_string_hash(void * _key) {
 	unsigned int hash = 0;
+	char * key = (char *)_key;
 	int c;
 	/* This is the so-called "sdbm" hash. It comes from a piece of
 	 * public domain code from a clone of ndbm. */
@@ -14,10 +15,23 @@ static unsigned int hashmap_default_hash(char * key) {
 	return hash;
 }
 
+int hashmap_string_comp(void * a, void * b) {
+	return !strcmp(a,b);
+}
+
+void * hashmap_string_dupe(void * key) {
+	return strdup(key);
+}
+
 hashmap_t * hashmap_create(int size) {
 	hashmap_t * map = malloc(sizeof(hashmap_t));
 
-	map->hash_func = hashmap_default_hash;
+	map->hash_func     = &hashmap_string_hash;
+	map->hash_comp     = &hashmap_string_comp;
+	map->hash_key_dup  = &hashmap_string_dupe;
+	map->hash_key_free = &free;
+	map->hash_val_free = &free;
+
 	map->size = size;
 	map->entries = malloc(sizeof(hashmap_entry_t *) * size);
 	memset(map->entries, 0x00, sizeof(hashmap_entry_t *) * size);
@@ -31,7 +45,7 @@ void * hashmap_set(hashmap_t * map, char * key, void * value) {
 	hashmap_entry_t * x = map->entries[hash];
 	if (!x) {
 		hashmap_entry_t * e = malloc(sizeof(hashmap_entry_t));
-		e->key   = strdup(key);
+		e->key   = map->hash_key_dup(key);
 		e->value = value;
 		e->next = NULL;
 		map->entries[hash] = e;
@@ -39,7 +53,7 @@ void * hashmap_set(hashmap_t * map, char * key, void * value) {
 	} else {
 		hashmap_entry_t * p = NULL;
 		do {
-			if (!strcmp(x->key, key)) {
+			if (map->hash_comp(x->key, key)) {
 				void * out = x->value;
 				x->value = value;
 				return out;
@@ -49,7 +63,7 @@ void * hashmap_set(hashmap_t * map, char * key, void * value) {
 			}
 		} while (x);
 		hashmap_entry_t * e = malloc(sizeof(hashmap_entry_t));
-		e->key   = strdup(key);
+		e->key   = map->hash_key_dup(key);
 		e->value = value;
 		e->next = NULL;
 
@@ -66,7 +80,7 @@ void * hashmap_get(hashmap_t * map, char * key) {
 		return NULL;
 	} else {
 		do {
-			if (!strcmp(x->key, key)) {
+			if (map->hash_comp(x->key, key)) {
 				return x->value;
 			}
 			x = x->next;
@@ -82,21 +96,21 @@ void * hashmap_remove(hashmap_t * map, char * key) {
 	if (!x) {
 		return NULL;
 	} else {
-		if (!strcmp(x->key, key)) {
+		if (map->hash_comp(x->key, key)) {
 			void * out = x->value;
 			map->entries[hash] = x->next;
-			free(x->key);
-			free(x);
+			map->hash_key_free(x->key);
+			map->hash_val_free(x);
 			return out;
 		} else {
 			hashmap_entry_t * p = x;
 			x = x->next;
 			do {
-				if (!strcmp(x->key, key)) {
+				if (map->hash_comp(x->key, key)) {
 					void * out = x->value;
 					p->next = x->next;
-					free(x->key);
-					free(x);
+					map->hash_key_free(x->key);
+					map->hash_val_free(x);
 					return out;
 				}
 				p = x;
@@ -115,7 +129,7 @@ int hashmap_has(hashmap_t * map, char * key) {
 		return 0;
 	} else {
 		do {
-			if (!strcmp(x->key, key)) {
+			if (map->hash_comp(x->key, key)) {
 				return 1;
 			}
 			x = x->next;
@@ -159,8 +173,8 @@ void hashmap_free(hashmap_t * map) {
 		while (x) {
 			p = x;
 			x = x->next;
-			free(p->key);
-			free(p);
+			map->hash_key_free(p->key);
+			map->hash_val_free(p);
 		}
 	}
 	free(map->entries);
