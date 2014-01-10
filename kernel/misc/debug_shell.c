@@ -10,6 +10,7 @@
 #include <tokenize.h>
 #include <hashmap.h>
 #include <pci.h>
+#include <pipe.h>
 
 #include <debug_shell.h>
 
@@ -355,6 +356,91 @@ static int shell_uid(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+typedef struct packet {
+	fs_node_t * client_port; /* client "port"... it's actually the pointer to the pipe for the client. */
+	pid_t       client_pid;  /* the pid of the client is always include because reasons */
+	size_t      size;        /* size of the packet */
+	uint8_t     data[];
+} packet_t;
+
+static void packet_send(fs_node_t * recver, fs_node_t * sender, size_t size, void * data) {
+	size_t p_size = size + sizeof(struct packet);
+	packet_t * p = malloc(p_size);
+	memcpy(p->data, data, size);
+	p->client_port = sender;
+	p->client_pid  = current_process->id;
+	p->size        = size;
+
+	write_fs(recver, 0, p_size, (uint8_t *)p);
+
+	free(p);
+}
+
+static void packet_recv(fs_node_t * socket, packet_t ** out) {
+	packet_t tmp;
+	read_fs(socket, 0, sizeof(struct packet), (uint8_t *)&tmp);
+	*out = malloc(tmp.size + sizeof(struct packet));
+	memcpy(*out, &tmp, sizeof(struct packet));
+	read_fs(socket, 0, tmp.size, (uint8_t *)(*out)->data);
+}
+
+static void tasklet_client(void * data, char * name) {
+	fs_node_t * server_pipe = (fs_node_t *)data;
+	fs_node_t * client_pipe = make_pipe(4096);
+
+	fs_node_t * tty = current_process->fds->entries[0];
+	packet_send(server_pipe, client_pipe, strlen("Hello")+1, "Hello");
+
+	while (1) {
+		packet_t * p;
+		packet_recv(client_pipe, &p);
+		fs_printf(tty, "Client %s Received: %s\n", name, (char *)p->data);
+		if (!strcmp((char*)p->data, "PING")) {
+			packet_send(server_pipe, client_pipe, strlen("PONG")+1, "PONG");
+		}
+		free(p);
+	}
+}
+
+static int shell_server_test(fs_node_t * tty, int argc, char * argv[]) {
+	fs_node_t * socket = make_pipe(4096);
+
+	create_kernel_tasklet(tasklet_client, "ktty-client-1", socket);
+	create_kernel_tasklet(tasklet_client, "ktty-client-2", socket);
+	create_kernel_tasklet(tasklet_client, "ktty-client-3", socket);
+
+	int i = 0;
+	fs_node_t * outputs[3];
+	while (i < 3) {
+		packet_t * p;
+		packet_recv(socket, &p);
+		fs_printf(tty, "Server received %s from %d:%d\n", (char*)p->data, p->client_pid, p->client_port);
+		packet_send(p->client_port, socket, strlen("Welcome!")+1, "Welcome!");
+		outputs[i] = p->client_port;
+		free(p);
+		i++;
+	}
+
+	fs_printf(tty, "Okay, that's everyone, time to send some responses.\n");
+	i = 0;
+	while (i < 3) {
+		packet_send(outputs[i], socket, strlen("PING")+1, "PING");
+		i++;
+	}
+
+	i = 0;
+	while (i < 3) {
+		packet_t * p;
+		packet_recv(socket, &p);
+		fs_printf(tty, "PONG from %d\n", p->client_pid);
+		free(p);
+		i++;
+	}
+
+	fs_printf(tty, "And that's the demo of packet servers.\n");
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -376,6 +462,8 @@ static struct shell_command shell_commands[] = {
 		"Print PCI devices, as well as their names and BARs."},
 	{"uid", &shell_uid,
 		"Change the effective user id of the shell (useful when running `shell`)."},
+	{"server-test", &shell_server_test,
+		"Spawn a packet server and some clients."},
 	{NULL, NULL, NULL}
 };
 
