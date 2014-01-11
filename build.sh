@@ -25,7 +25,7 @@ else
     echo "(If you are on Arch, install: clang yasm genext2fs base-devel wget mpfr mpc gmp qemu autoconf automake texinfo pkg-config)"
     echo ""
     echo "... then comment out the 'exit' below this block of echos in 'build.sh'."
-    exit 1
+    # exit 1
 fi
 # Build the toolchain:
 unset PKG_CONFIG_LIBDIR
