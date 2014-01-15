@@ -402,12 +402,20 @@ static void tasklet_client(void * data, char * name) {
 	}
 }
 
-static int shell_server_test(fs_node_t * tty, int argc, char * argv[]) {
+static int shell_server_running = 0;
+static fs_node_t * shell_server_node = NULL;
+
+static void tasklet_server(void * data, char * name) {
+	fs_node_t * tty = current_process->fds->entries[0];
 	fs_node_t * socket = make_pipe(4096);
+
+	shell_server_node = socket;
 
 	create_kernel_tasklet(tasklet_client, "ktty-client-1", socket);
 	create_kernel_tasklet(tasklet_client, "ktty-client-2", socket);
 	create_kernel_tasklet(tasklet_client, "ktty-client-3", socket);
+
+	fs_printf(tty, "Going to perform a quick demo...\n");
 
 	int i = 0;
 	fs_node_t * outputs[3];
@@ -438,6 +446,50 @@ static int shell_server_test(fs_node_t * tty, int argc, char * argv[]) {
 	}
 
 	fs_printf(tty, "And that's the demo of packet servers.\n");
+	fs_printf(tty, "Now running in echo mode, will respond to all clients with whatever they sent.\n");
+
+	while (1) {
+		packet_t * p;
+		packet_recv(socket, &p);
+		packet_send(p->client_port, socket, p->size, p->data);
+		free(p);
+	}
+}
+
+static int shell_server_test(fs_node_t * tty, int argc, char * argv[]) {
+	if (!shell_server_running) {
+		shell_server_running = 1;
+		create_kernel_tasklet(tasklet_server, "ktty-server", NULL);
+		fs_printf(tty, "Started server.\n");
+	}
+
+	return 0;
+}
+
+static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
+	if (!shell_server_running) {
+		fs_printf(tty, "No server running, won't be able to connect.\n");
+		return 1;
+	}
+	if (argc < 2) {
+		fs_printf(tty, "expected argument\n");
+		return 1;
+	}
+
+	fs_node_t * client_pipe = make_pipe(4096);
+
+	packet_send(shell_server_node, client_pipe, strlen(argv[1])+1, argv[1]);
+
+	while (1) {
+		packet_t * p;
+		packet_recv(client_pipe, &p);
+		fs_printf(tty, "Got response from server: %s\n", (char *)p->data);
+		free(p);
+		break;
+	}
+
+	close_fs(client_pipe);
+
 	return 0;
 }
 
@@ -464,6 +516,8 @@ static struct shell_command shell_commands[] = {
 		"Change the effective user id of the shell (useful when running `shell`)."},
 	{"server-test", &shell_server_test,
 		"Spawn a packet server and some clients."},
+	{"client-test", &shell_client_test,
+		"Communicate with packet server."},
 	{NULL, NULL, NULL}
 };
 
