@@ -68,7 +68,7 @@ run-config: system
 	util/config-parser ${EMU}
 
 test: system
-	python util/run-tests.py 2>/dev/null
+	python2 util/run-tests.py 2>/dev/null
 
 .passed:
 	@util/check-reqs > /dev/null
@@ -100,7 +100,7 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 ####################
 
 .userspace-check: ${USERSPACE}
-	@cd userspace && python build.py
+	@cd userspace && python2 build.py
 	@touch .userspace-check
 
 toaruos-disk.img: .userspace-check
