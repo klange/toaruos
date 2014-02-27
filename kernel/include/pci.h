@@ -21,6 +21,8 @@
 #define PCI_BAR4                 0x20 // 4
 #define PCI_BAR5                 0x24 // 4
 
+#define PCI_INTERRUPT_LINE       0x3C // 1
+
 #define PCI_SECONDARY_BUS        0x09 // 1
 
 #define PCI_HEADER_TYPE_DEVICE  0
