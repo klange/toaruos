@@ -42,11 +42,9 @@ struct tmpfs_dir {
 	struct tmpfs_dir * parent;
 };
 
-char empty_block[BLOCKSIZE] = {0};
-
 struct tmpfs_dir * tmpfs_root = NULL;
 
-fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d);
+static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d);
 
 static struct tmpfs_file * tmpfs_file_new(char * name) {
 
@@ -332,7 +330,7 @@ static void unlink_tmpfs(fs_node_t * node, char * name) {
 	return;
 }
 
-void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
+static void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	if (!name) return;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
@@ -358,7 +356,7 @@ void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	list_insert(d->files, t);
 }
 
-void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
+static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
 	if (!name) return;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
