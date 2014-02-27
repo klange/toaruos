@@ -55,8 +55,8 @@ start:
 	; Disable interrupts
 	cli
 	; Call the C entry
-	extern	main
-	call	main
+	extern	kmain
+	call	kmain
 	jmp		$
 
 

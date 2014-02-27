@@ -636,7 +636,7 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	/*
 	 * Dig through the (real) tree to find the file
 	 */
-	uint32_t depth = 0;
+	unsigned int depth = 0;
 	fs_node_t *node_ptr = malloc(sizeof(fs_node_t));
 	/* Find the mountpoint for this file */
 	fs_node_t *mount_point = get_mount_point(path, path_depth, &path_offset, &depth);

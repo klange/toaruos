@@ -49,7 +49,7 @@
 /*
  * multiboot i386 (pc) kernel entry point
  */
-int main(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
+int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	initial_esp = esp;
 	extern char * cmdline;
 

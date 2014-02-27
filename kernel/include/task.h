@@ -5,13 +5,13 @@
 
 
 typedef struct page {
-	uint32_t present:1;
-	uint32_t rw:1;
-	uint32_t user:1;
-	uint32_t accessed:1;
-	uint32_t dirty:1;
-	uint32_t unused:7;
-	uint32_t frame:20;
+	unsigned int present:1;
+	unsigned int rw:1;
+	unsigned int user:1;
+	unsigned int accessed:1;
+	unsigned int dirty:1;
+	unsigned int unused:7;
+	unsigned int frame:20;
 } __attribute__((packed)) page_t;
 
 typedef struct page_table {
