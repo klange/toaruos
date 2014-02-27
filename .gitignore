@@ -13,6 +13,7 @@
 .gdb_history
 .passed
 .userspace-check
+.disk_size
 bootdisk.img
 bootloader/stage1.bin
 bootloader/stage2.bin

@@ -6,7 +6,7 @@ else
 CC = i686-pc-toaru-gcc
 endif
 # CFLAGS for core components
-CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -fno-stack-protector -nostdinc -ffreestanding -Wno-unused-function -Wno-unused-parameter -Wstrict-prototypes -g
+CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -ffreestanding -Wno-unused-function -Wno-unused-parameter -Wstrict-prototypes -g
 # Linker for core
 LD = i686-pc-toaru-ld
 YASM = yasm
@@ -17,8 +17,7 @@ USERSPACE = $(shell find userspace/ -type f -name '*.c') $(shell find userspace/
 
 EMU = qemu-system-i386
 GENEXT = genext2fs
-DISK_SIZE = 524288
-#DISK_SIZE = 131072
+DISK_SIZE = `util/disk_size.sh`
 DD = dd conv=notrunc
 BEG = util/mk-beg
 END = util/mk-end
@@ -29,7 +28,7 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS     = -sdl -kernel toaruos-kernel -m 1024 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame -rtc base=localtime
+EMUARGS     = -sdl -kernel toaruos-kernel -m 1024 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame -rtc base=localtime -net nic,model=rtl8139 -net user
 EMUKVM      = -enable-kvm
 
 .PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run
@@ -79,7 +78,7 @@ test: system
 ################
 toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES} .passed
 	@${BEG} "LD" "$<"
-	@${LD} -T kernel/link.ld -o toaruos-kernel kernel/*.o ${SUBMODULES} ${ERRORS}
+	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${SUBMODULES} -lgcc ${ERRORS}
 	@${END} "LD" "$<"
 	@${INFO} "--" "Kernel is ready!"
 
