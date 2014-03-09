@@ -10,29 +10,51 @@ CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -ffreestan
 # Linker for core
 LD = i686-pc-toaru-ld
 YASM = yasm
-# Feel free to be specific, but I'd rather you not be.
+
+# All of the core parts of the kernel are built directly.
+# TODO: Modules would be fantastic
 SUBMODULES  = $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
+SUBMODULES += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
 
-USERSPACE = $(shell find userspace/ -type f -name '*.c') $(shell find userspace/ -type f -name '*.cpp') $(shell find userspace/ -type f -name '*.h')
+# We also want to rebuild when a header changes.
+# This is a naive approach, but it works...
+HEADERS     = $(shell find kernel/include/ -type f -name '*.h')
 
-EMU = qemu-system-i386
-GENEXT = genext2fs
-DISK_SIZE = `util/disk_size.sh`
-DD = dd conv=notrunc
+# We'll call out to our userspace build script if we
+# see changes to any of the userspace sources as well.
+USERSPACE  = $(shell find userspace/ -type f -name '*.c')
+USERSPACE += $(shell find userspace/ -type f -name '*.cpp')
+USERSPACE += $(shell find userspace/ -type f -name '*.h')
+
+# Pretty output utilities.
 BEG = util/mk-beg
 END = util/mk-end
 INFO = util/mk-info
 ERRORS = 2>>/tmp/.`whoami`-build-errors || util/mk-error
 ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
-
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-EMUARGS     = -sdl -kernel toaruos-kernel -m 1024 -serial stdio -vga std -hda toaruos-disk.img -k en-us -no-frame -rtc base=localtime -net nic,model=rtl8139 -net user
-EMUKVM      = -enable-kvm
+# Hard disk image generation
+GENEXT = genext2fs
+DISK_SIZE = `util/disk_size.sh`
+DD = dd conv=notrunc
+
+# Emulator settings
+EMU = qemu-system-i386
+EMUARGS  = -sdl -kernel toaruos-kernel -m 1024
+EMUARGS += -serial stdio -vga std
+EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
+EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user
+EMUKVM   = -enable-kvm
 
 .PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run
+
+# Prevents Make from removing intermediary files on failure
 .SECONDARY: 
+
+# Disable built-in rules
+.SUFFIXES: 
 
 all: .passed system tags
 system: .passed toaruos-disk.img toaruos-kernel
@@ -89,7 +111,7 @@ kernel/start.o: kernel/start.s
 
 kernel/sys/version.o: kernel/*/*.c kernel/*.c
 
-%.o: %.c
+%.o: %.c ${HEADERS}
 	@${BEG} "CC" "$<"
 	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
