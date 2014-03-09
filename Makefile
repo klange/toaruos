@@ -1,14 +1,17 @@
 # ToAruOS Primary Build Script
-ifeq ($(CCC_ANALYZE),yes)
-# CC is set by CCC_ANALYZE to clang
-# It is not recommended that you use a kernel built this way
-else
+
+# We always build with our targetted cross-compiler
+ifneq ($(CCC_ANALYZE),yes)
 CC = i686-pc-toaru-gcc
 endif
-# CFLAGS for core components
-CFLAGS = -Wall -Wextra -pedantic -m32 -O0 -std=c99 -finline-functions -ffreestanding -Wno-unused-function -Wno-unused-parameter -Wstrict-prototypes -g
-# Linker for core
-LD = i686-pc-toaru-ld
+
+# Build flags
+CFLAGS  = -g -O0 -std=c99
+CFLAGS += -finline-functions -ffreestanding
+CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
+CFLAGS += -Wstrict-prototypes -pedantic
+
+# We have some pieces of assembly sitting around as well...
 YASM = yasm
 
 # All of the core parts of the kernel are built directly.
@@ -99,9 +102,9 @@ test: system
 #    Kernel    #
 ################
 toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES} .passed
-	@${BEG} "LD" "$<"
+	@${BEG} "CC" "$<"
 	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${SUBMODULES} -lgcc ${ERRORS}
-	@${END} "LD" "$<"
+	@${END} "CC" "$<"
 	@${INFO} "--" "Kernel is ready!"
 
 kernel/start.o: kernel/start.s
