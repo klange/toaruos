@@ -68,7 +68,7 @@ For a historical look at とあるOS, please see [SCREENSHOTS.md](docs/SCREENSHO
 
 ## Testing / Building / Installation ##
 
-Please see [testing.md](docs/testing.md).
+Please see [TESTING.md](docs/TESTING.md).
 
 ## References ##
 Here are some tutorials we found useful early on:
