@@ -609,11 +609,10 @@ static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
 
 fs_node_t * mod_callback_tty = NULL;
 static void mod_callback(char * c) {
-	fs_printf(mod_callback_tty, "Wants to print: 0x%x\n", c);
 	fs_printf(mod_callback_tty, c);
 }
 
-char * special_thing = "hello world, cake is delicious";
+char * special_thing = "I am a string from the kernel.\n";
 
 static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
@@ -715,7 +714,7 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 
 							while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
 								if (!strcmp(k->name, name)) {
-									resolve = k->addr;
+									resolve = (void *)k->addr;
 									break;
 								}
 								k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
@@ -790,7 +789,7 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 						fs_printf(tty, "   REL POINTER: 0x%x\n", ptr);
 						fs_printf(tty, "   REL VALUE:   0x%x\n", *ptr);
 						uintptr_t addend = *ptr;
-						*ptr = addend + hashmap_get(map, name);
+						*ptr = (uintptr_t)(addend + (uintptr_t)hashmap_get(map, name));
 					}
 
 					table++;
@@ -799,32 +798,13 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 		}
 	}
 
+	mod_callback_tty = tty;
+	int (* func)(void (*)(char *)) = (int (*)(void (*)(char *)))((uintptr_t)hashmap_get(map, "b_function"));
+	int ret = func(mod_callback);
+	fs_printf(tty, "returned: %d\n", ret);
+
 	hashmap_free(map);
 	free(map);
-
-#if 1
-	fs_printf(tty, "Locating and running init function...\n");
-	{
-		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
-		while ((uintptr_t)table - ((uintptr_t)target + sym_shdr->sh_offset) < sym_shdr->sh_size) {
-			if (table->st_name) {
-				char * name = (char *)((uintptr_t)symstrtab + table->st_name);
-				if (!strcmp(name, "b_function")) {
-					mod_callback_tty = tty;
-					uintptr_t offset = (uintptr_t)section + table->st_value;
-					fs_printf(tty, "Offset for %s is 0x%x...\n", name, offset);
-#if 1
-					int (* func)(void (*)(char *)) = (int (*)(void (*)(char *)))offset;
-					int ret = func(mod_callback);
-					fs_printf(tty, "returned: %d\n", ret);
-#endif
-				}
-			}
-			table++;
-		}
-	}
-#endif
-
 
 	close_fs(file);
 	return 0;
