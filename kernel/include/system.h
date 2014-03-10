@@ -147,8 +147,8 @@ extern uintptr_t kvmalloc_p(size_t size, uintptr_t * phys);
 
 // Page types moved to task.h
 
-page_directory_t *kernel_directory;
-page_directory_t *current_directory;
+extern page_directory_t *kernel_directory;
+extern page_directory_t *current_directory;
 
 extern void paging_install(uint32_t memsize);
 extern void switch_page_directory(page_directory_t * new);
@@ -202,7 +202,7 @@ extern uint32_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg)
 extern uint32_t getpid(void);
 extern void enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack);
 
-uintptr_t initial_esp;
+extern uintptr_t initial_esp;
 
 /* Kernel Argument Parser */
 extern void parse_args(char * argv);

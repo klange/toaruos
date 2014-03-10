@@ -46,6 +46,8 @@
 #include <shm.h>
 #include <args.h>
 
+uintptr_t initial_esp = 0;
+
 /*
  * multiboot i386 (pc) kernel entry point
  */

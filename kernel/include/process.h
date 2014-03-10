@@ -108,33 +108,32 @@ typedef struct {
 	process_t * process;
 } sleeper_t;
 
-void initialize_process_tree(void);
-process_t * spawn_process(volatile process_t * parent);
-void debug_print_process_tree(void);
-process_t * spawn_init(void);
-void set_process_environment(process_t * proc, page_directory_t * directory);
-void make_process_ready(process_t * proc);
-void make_process_reapable(process_t * proc);
-uint8_t process_available(void);
-process_t * next_ready_process(void);
-uint8_t should_reap(void);
-process_t * next_reapable_process(void);
-uint32_t process_append_fd(process_t * proc, fs_node_t * node);
-process_t * process_from_pid(pid_t pid);
-process_t * process_get_first_child(process_t * process);
-void delete_process(process_t * proc);
-uint32_t process_move_fd(process_t * proc, int src, int dest);
-int process_is_ready(process_t * proc);
-void set_reaped(process_t * proc);
+extern void initialize_process_tree(void);
+extern process_t * spawn_process(volatile process_t * parent);
+extern void debug_print_process_tree(void);
+extern process_t * spawn_init(void);
+extern void set_process_environment(process_t * proc, page_directory_t * directory);
+extern void make_process_ready(process_t * proc);
+extern void make_process_reapable(process_t * proc);
+extern uint8_t process_available(void);
+extern process_t * next_ready_process(void);
+extern uint8_t should_reap(void);
+extern process_t * next_reapable_process(void);
+extern uint32_t process_append_fd(process_t * proc, fs_node_t * node);
+extern process_t * process_from_pid(pid_t pid);
+extern process_t * process_get_first_child(process_t * process);
+extern void delete_process(process_t * proc);
+extern uint32_t process_move_fd(process_t * proc, int src, int dest);
+extern int process_is_ready(process_t * proc);
+extern void set_reaped(process_t * proc);
 
-void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
-void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
+extern void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
+extern void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
 
-volatile process_t * current_process;
-
-list_t * process_list;
+extern volatile process_t * current_process;
+extern list_t * process_list;
 
 typedef void (*tasklet_t) (void *, char *);
-int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);
+extern int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);
 
 #endif

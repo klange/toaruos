@@ -16,6 +16,9 @@ uint32_t next_pid = 0;
 #define PUSH(stack, type, item) stack -= sizeof(type); \
 							*((type *) stack) = item
 
+page_directory_t *kernel_directory;
+page_directory_t *current_directory;
+
 /*
  * Clone a page directory and its contents.
  * (If you do not intend to clone the contents, do it yourself!)
