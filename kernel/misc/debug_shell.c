@@ -12,6 +12,7 @@
 #include <pci.h>
 #include <pipe.h>
 #include <ipv4.h>
+#include <elf.h>
 
 #include <debug_shell.h>
 
@@ -606,6 +607,209 @@ static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+fs_node_t * mod_callback_tty = NULL;
+static void mod_callback(char * c) {
+	fs_printf(mod_callback_tty, "Wants to print: 0x%x\n", c);
+	//fs_printf(mod_callback_tty, c);
+}
+
+char * special_thing = "hello world, cake is delicious";
+
+static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
+	if (argc < 2) {
+		fs_printf(tty, "expected argument\n");
+		return 1;
+	}
+	fs_node_t * file = kopen(argv[1], 0);
+	if (!file) {
+		fs_printf(tty, "Failed to load module: %s\n", argv[1]);
+		return 1;
+	}
+
+	fs_printf(tty, "Attempting to load module %s, size is %d\n", argv[1], file->length);
+
+	Elf32_Header * target = (Elf32_Header *)kvmalloc(file->length);
+	read_fs(file, 0, file->length, (uint8_t *)target);
+
+	if (target->e_ident[0] != ELFMAG0 ||
+		target->e_ident[1] != ELFMAG1 ||
+		target->e_ident[2] != ELFMAG2 ||
+		target->e_ident[3] != ELFMAG3) {
+		fs_printf(tty, "Module loading failed! Not a valid ELF object.\n");
+		goto mod_load_error;
+	}
+
+
+	char * shstrtab;
+	char * symstrtab;
+	Elf32_Shdr * sym_shdr;
+	void * section = NULL;
+	Elf32_Rel * section_rel;
+
+	fs_printf(tty, "Locating header string table...");
+	{
+		unsigned int i = 0;
+		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+			if (i == target->e_shstrndx) {
+				shstrtab = (char *)((uintptr_t)target + shdr->sh_offset);
+			}
+			i++;
+		}
+	}
+	fs_printf(tty, " 0x%x\n", shstrtab);
+
+	fs_printf(tty, "Locating symbol string table...");
+	{
+		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+			if (shdr->sh_type == SHT_STRTAB && (!strcmp((char *)((uintptr_t)shstrtab + shdr->sh_name), ".strtab"))) {
+				symstrtab = (char *)((uintptr_t)target + shdr->sh_offset);
+			}
+		}
+	}
+	fs_printf(tty, " 0x%x\n", symstrtab);
+
+	fs_printf(tty, "Locating data section...");
+	{
+		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+			if (shdr->sh_type == SHT_PROGBITS && (!strcmp((char *)((uintptr_t)shstrtab + shdr->sh_name), ".text"))) {
+				section = (void *)((uintptr_t)target + shdr->sh_offset);
+			}
+		}
+	}
+	fs_printf(tty, " 0x%x\n", section);
+
+	fs_printf(tty, "Locating symbol table...");
+	{
+		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+			if (shdr->sh_type == SHT_SYMTAB) {
+				sym_shdr = shdr;
+			}
+		}
+	}
+	fs_printf(tty, " 0x%x\n", (uintptr_t)sym_shdr->sh_offset);
+
+	fs_printf(tty, "Locating relocation sections:\n");
+	{
+		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+			if (shdr->sh_type == SHT_REL) {
+				section_rel = (void *)((uintptr_t)target + shdr->sh_offset);
+				fs_printf(tty, "%s:\n", (char *)((uintptr_t)shstrtab + shdr->sh_name));
+				fs_printf(tty, "Refers to section header %d\n", shdr->sh_info);
+				Elf32_Rel * table = section_rel;
+				Elf32_Sym * symtable = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
+				while ((uintptr_t)table - ((uintptr_t)target + shdr->sh_offset) < shdr->sh_size) {
+					fs_printf(tty, "0x%x, SYM; %d, TYPE: %d\n", table->r_offset, ELF32_R_SYM(table->r_info), ELF32_R_TYPE(table->r_info));
+					table++;
+				}
+			}
+		}
+	}
+
+	{
+		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
+		while ((uintptr_t)table - ((uintptr_t)target + sym_shdr->sh_offset) < sym_shdr->sh_size) {
+			if (table->st_name) {
+				char * name = (char *)((uintptr_t)symstrtab + table->st_name);
+				fs_printf(tty, "%s: 0x%x\n", name, table->st_value);
+			}
+			table++;
+		}
+	}
+
+#if 1
+	fs_printf(tty, "Locating and running init function...\n");
+	{
+		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
+		while ((uintptr_t)table - ((uintptr_t)target + sym_shdr->sh_offset) < sym_shdr->sh_size) {
+			if (table->st_name) {
+				char * name = (char *)((uintptr_t)symstrtab + table->st_name);
+				if (!strcmp(name, "b_function")) {
+					mod_callback_tty = tty;
+					uintptr_t offset = (uintptr_t)section + table->st_value;
+					fs_printf(tty, "Offset for %s is 0x%x...\n", name, offset);
+#if 0
+					int (* func)(void (*)(char *)) = (int (*)(void (*)(char *)))offset;
+					int ret = func(mod_callback);
+					fs_printf(tty, "returned: %d\n", ret);
+#endif
+				}
+			}
+			table++;
+		}
+	}
+#endif
+
+
+	close_fs(file);
+	return 0;
+
+mod_load_error:
+	close_fs(file);
+	return 1;
+}
+
+static int shell_symbols(fs_node_t * tty, int argc, char * argv[]) {
+	extern char kernel_symbols_start[];
+	extern char kernel_symbols_end[];
+
+	struct ksym {
+		uintptr_t addr;
+		char name[];
+	} * k = (void*)&kernel_symbols_start;
+
+	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
+		fs_printf(tty, "0x%x - %s\n", k->addr, k->name);
+		k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
+	}
+
+	return 0;
+}
+
+static int shell_print(fs_node_t * tty, int argc, char * argv[]) {
+
+	if (argc < 3) {
+		fs_printf(tty, "print format_string symbol_name\n");
+		return 1;
+	}
+
+	char * format = argv[1];
+	char * symbol = argv[2];
+	int deref = 0;
+
+	if (symbol[0] == '*') {
+		symbol = &symbol[1];
+		deref = 1;
+	}
+
+	extern char kernel_symbols_start[];
+	extern char kernel_symbols_end[];
+
+	struct ksym {
+		uintptr_t addr;
+		char name[];
+	} * k = (void*)&kernel_symbols_start;
+
+	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
+		if (!strcmp(symbol, k->name)) {
+			if (deref) {
+				fs_printf(tty, format, k->addr);
+			} else {
+				fs_printf(tty, format, *((uintptr_t *)k->addr));
+			}
+			fs_printf(tty, "\n");
+			break;
+		}
+		k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
+	}
+
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -633,6 +837,12 @@ static struct shell_command shell_commands[] = {
 		"Communicate with packet server."},
 	{"rtl", &shell_rtl,
 		"[debug] rtl8139 initialization."},
+	{"mod", &shell_mod,
+		"[testing] Module loading."},
+	{"symbols", &shell_symbols,
+		"Dump symbol table."},
+	{"print", &shell_print,
+		"[dangerous] Print the value of a symbol using a format string."},
 	{NULL, NULL, NULL}
 };
 

@@ -11,8 +11,9 @@ SECTIONS
 	 */
 	.text phys : AT(phys) {
 		code = .;
-		*(.text)
-		*(.rodata)
+		*(.multiboot*)
+		*(.text*)
+		*(.rodata*)
 		. = ALIGN(4096);
 	}
 	/*
@@ -21,7 +22,9 @@ SECTIONS
 	.data : AT(phys + (data - code))
 	{
 		data = .;
-		*(.data)
+		*(.data*)
+		PROVIDE(kernel_symbols_start = .);
+		PROVIDE(kernel_symbols_end = .);
 		. = ALIGN(4096);
 	}
 	/*
@@ -30,7 +33,7 @@ SECTIONS
 	.bss : AT(phys + (bss - code))
 	{
 		bss = .;
-		*(.bss)
+		*(.bss*)
 		. = ALIGN(4096);
 	}
 	/*

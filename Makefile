@@ -16,8 +16,11 @@ YASM = yasm
 
 # All of the core parts of the kernel are built directly.
 # TODO: Modules would be fantastic
-SUBMODULES  = $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
-SUBMODULES += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
+KERNEL_OBJS  = $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
+KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
+
+# Loadable modules
+MODULES = $(patsubst modules/%.c,hdd/mod/%.ko,$(wildcard modules/*.c))
 
 # We also want to rebuild when a header changes.
 # This is a naive approach, but it works...
@@ -51,7 +54,7 @@ EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
 EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user
 EMUKVM   = -enable-kvm
 
-.PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run
+.PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run test-thing
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY: 
@@ -60,7 +63,7 @@ EMUKVM   = -enable-kvm
 .SUFFIXES: 
 
 all: .passed system tags
-system: .passed toaruos-disk.img toaruos-kernel
+system: .passed toaruos-disk.img toaruos-kernel ${MODULES}
 
 install: system
 	@${BEG} "CP" "Installing to /boot..."
@@ -101,18 +104,31 @@ test: system
 ################
 #    Kernel    #
 ################
-toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o ${SUBMODULES} .passed
+toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o kernel/symbols.o ${KERNEL_OBJS} .passed
 	@${BEG} "CC" "$<"
-	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${SUBMODULES} -lgcc ${ERRORS}
+	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
 	@${END} "CC" "$<"
 	@${INFO} "--" "Kernel is ready!"
 
+kernel/symbols.o: ${KERNEL_OBJS} util/generate_symbols.py
+	@-rm -f kernel/symbols.o
+	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
+	@i686-pc-toaru-nm toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.s
+	@${BEG} "yasm" "kernel/symbols.s"
+	@${YASM} -f elf -o $@ kernel/symbols.s ${ERRORS}
+	@${END} "yasm" "kernel/symbols.s"
+
 kernel/start.o: kernel/start.s
 	@${BEG} "yasm" "$<"
-	@${YASM} -f elf -o kernel/start.o kernel/start.s ${ERRORS}
+	@${YASM} -f elf -o $@ $< ${ERRORS}
 	@${END} "yasm" "$<"
 
 kernel/sys/version.o: kernel/*/*.c kernel/*.c
+
+hdd/mod/%.ko: modules/%.c
+	@${BEG} "CC" "$< [module]"
+	@${CC} -T modules/link.ld -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
+	@${END} "CC" "$< [module]"
 
 %.o: %.c ${HEADERS}
 	@${BEG} "CC" "$<"
@@ -149,7 +165,7 @@ tags: kernel/*/*.c kernel/*.c .userspace-check
 clean-soft:
 	@${BEGRM} "RM" "Cleaning modules..."
 	@-rm -f kernel/*.o
-	@-rm -f ${SUBMODULES}
+	@-rm -f ${KERNEL_OBJS}
 	@${ENDRM} "RM" "Cleaned modules."
 
 clean-bin:

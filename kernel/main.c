@@ -56,7 +56,9 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/* Multiboot (GRUB, native QEMU, PXE) */
 		debug_print(NOTICE, "Relocating Multiboot structures...");
+
 		mboot_ptr = mboot;
+
 		char cmdline_[1024];
 
 		if (mboot_ptr->vbe_mode_info) {

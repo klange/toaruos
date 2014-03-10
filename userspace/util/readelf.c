@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 /* The Master ELF Header */
 #include "../../kernel/include/elf.h"
@@ -35,7 +36,8 @@ int main(int argc, char ** argv) {
 	size_t binary_size;      /**< Size of the file */
 	char * binary_buf;       /**< Buffer to store the binary in memory */
 	Elf32_Header * header;   /**< ELF header */
-	char * string_table;     /**< Room for some string tables */
+	char * string_table;     /**< The section header string table */
+	char * sym_string_table; /**< The symbol string table */
 
 	/* Open the requested binary */
 	binary = fopen(argv[1], "r");
@@ -150,8 +152,6 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	/* Find the (hopefully two) string tables */
-	printf("\033[1mString Tables\033[0m\n");
 	uint32_t i = 0;
 	for (uint32_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
 		if (header->e_shoff + x > binary_size) {
@@ -159,11 +159,44 @@ int main(int argc, char ** argv) {
 			return 1;
 		}
 		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)binary_buf + (header->e_shoff + x));
-		if (i == header->e_shstrndx) {
-			string_table = (char *)((uintptr_t)binary_buf + shdr->sh_offset);
-			printf("Found a string table at 0x%x\n", shdr->sh_offset);
+		if (shdr->sh_type == SHT_STRTAB) {
+			if (i == header->e_shstrndx) {
+				string_table = (char *)((uintptr_t)binary_buf + shdr->sh_offset);
+				printf("Found the section string table at 0x%x\n", shdr->sh_offset);
+			}
 		}
-		++i;
+		i++;
+	}
+
+	/* Find the (hopefully two) string tables */
+	printf("\033[1mString Tables\033[0m\n");
+	for (uint32_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
+		if (header->e_shoff + x > binary_size) {
+			printf("Tried to read beyond the end of the file.\n");
+			return 1;
+		}
+		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)binary_buf + (header->e_shoff + x));
+		if (shdr->sh_type == SHT_STRTAB) {
+			if (!strcmp((char *)((uintptr_t)string_table + shdr->sh_name), ".strtab")) {
+				sym_string_table = (char *)((uintptr_t)binary_buf + shdr->sh_offset);
+				printf("Found the symbol string table at 0x%x\n", shdr->sh_offset);
+			}
+			printf("Displaying string table at 0x%x\n", shdr->sh_offset);
+			char * _string_table = (char *)((uintptr_t)binary_buf + shdr->sh_offset);
+			unsigned int j = 1;
+			int k = 0;
+			printf("%d\n", shdr->sh_size);
+			while (j < shdr->sh_size) {
+				int t = strlen((char *)((uintptr_t)_string_table + j));
+				if (t) {
+					printf("%d [%d] %s\n", k, j, (char *)((uintptr_t)_string_table + j));
+					k++;
+					j += t;
+				} else {
+					j += 1;
+				}
+			}
+		}
 	}
 
 	/* Read the section headers */
@@ -181,6 +214,27 @@ int main(int argc, char ** argv) {
 			printf("It should be loaded at 0x%x.\n", shdr->sh_addr);
 		}
 	}
+
+#if 1
+	printf("\033[1mSymbol Tables\033[0m\n");
+	for (uint32_t x = 0; x < header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
+		if (header->e_shoff + x > binary_size) {
+			printf("Tried to read beyond the end of the file.\n");
+			return 1;
+		}
+		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)binary_buf + (header->e_shoff + x));
+
+		if (shdr->sh_type == SHT_SYMTAB) {
+			printf("Found symbol table: %s\n", (char *)((uintptr_t)string_table + shdr->sh_name));
+
+			Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)binary_buf + (shdr->sh_offset));
+			while ((uintptr_t)table - ((uintptr_t)binary_buf + shdr->sh_offset) < shdr->sh_size) {
+				printf("%s: 0x%x [0x%x]\n", (char *)((uintptr_t)sym_string_table + table->st_name), table->st_value, table->st_size);
+				table++;
+			}
+		}
+	}
+#endif
 
 	return 0;
 }

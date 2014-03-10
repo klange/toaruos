@@ -9,6 +9,7 @@ BITS 32
 ALIGN 4
 
 
+SECTION .multiboot
 mboot:
 	; Multiboot headers:
 	;   Page aligned loading, please
@@ -17,10 +18,12 @@ mboot:
 	MULTIBOOT_MEMORY_INFO	equ 1<<1
 	;   We would really, really like graphics...
 	MULTIBOOT_USE_GFX		equ 1<<2
+	;   ELF data
+	MULTIBOOT_ELF_INFO		equ 1<<5
 	;   We are multiboot compatible!
 	MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002
 	;   Load up those flags.
-	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO | MULTIBOOT_USE_GFX
+	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO | MULTIBOOT_USE_GFX | MULTIBOOT_ELF_INFO
 	;   Checksum the result
 	MULTIBOOT_CHECKSUM		equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
 	; Load the headers into the binary image.
@@ -39,7 +42,7 @@ mboot:
 	dd 32         ; Set me to 32 or else.
 
 
-
+SECTION .text
 ; Some external references.
 extern code, bss, end
 

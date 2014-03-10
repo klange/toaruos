@@ -29,10 +29,10 @@ dump_multiboot(
 	kprintf("cmdlin: 0x%x ",  mboot_ptr->cmdline);
 	kprintf("Mods  : 0x%x ",  mboot_ptr->mods_count);
 	kprintf("Addr  : 0x%x ",  mboot_ptr->mods_addr);
-	kprintf("Syms  : 0x%x\n", mboot_ptr->num);
-	kprintf("Syms  : 0x%x ",  mboot_ptr->size);
-	kprintf("Syms  : 0x%x ",  mboot_ptr->addr);
-	kprintf("Syms  : 0x%x ",  mboot_ptr->shndx);
+	kprintf("ELF n : 0x%x\n", mboot_ptr->num);
+	kprintf("ELF s : 0x%x ",  mboot_ptr->size);
+	kprintf("ELF a : 0x%x ",  mboot_ptr->addr);
+	kprintf("ELF h : 0x%x ",  mboot_ptr->shndx);
 	kprintf("MMap  : 0x%x\n", mboot_ptr->mmap_length);
 	kprintf("Addr  : 0x%x ",  mboot_ptr->mmap_addr);
 	kprintf("Drives: 0x%x ",  mboot_ptr->drives_length);

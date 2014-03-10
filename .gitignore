@@ -8,6 +8,8 @@
 *.pdf
 *.swp
 *.toc
+*.ko
+kernel/symbols.s
 .compositor-check
 .config
 .gdb_history
