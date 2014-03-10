@@ -154,6 +154,30 @@ typedef struct {
 #define ELF32_R_TYPE(i)   ((unsigned char)(i))
 #define ELF32_R_INFO(s,t) (((s) << 8) + (unsigned char)(t))
 
+#define ELF32_ST_BIND(i)   ((i) >> 4)
+#define ELF32_ST_TYPE(i)   ((i) & 0xf)
+#define ELF32_ST_INFO(b,t) (((b) << 4) + ((t) & 0xf))
+
+#define STB_LOCAL  0
+#define STB_GLOBAL 1
+#define STB_WEAK   2
+#define STB_NUM    3
+
+#define STB_LOPROC 13
+#define STB_HIPROC 15
+
+#define STT_NOTYPE  0
+#define STT_OBJECT  1
+#define STT_FUNC    2
+#define STT_SECTION 3
+#define STT_FILE    4
+#define STT_COMMON  5
+#define STT_TLS     6
+#define STT_NUM     7
+
+#define STT_LOPROC  13
+#define STT_HIPROC  15
+
 
 #endif /* _ELF_H*/
 

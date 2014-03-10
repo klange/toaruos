@@ -610,7 +610,7 @@ static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
 fs_node_t * mod_callback_tty = NULL;
 static void mod_callback(char * c) {
 	fs_printf(mod_callback_tty, "Wants to print: 0x%x\n", c);
-	//fs_printf(mod_callback_tty, c);
+	fs_printf(mod_callback_tty, c);
 }
 
 char * special_thing = "hello world, cake is delicious";
@@ -692,6 +692,68 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 	}
 	fs_printf(tty, " 0x%x\n", (uintptr_t)sym_shdr->sh_offset);
 
+	hashmap_t * map = hashmap_create(10);
+
+
+	{
+		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
+		while ((uintptr_t)table - ((uintptr_t)target + sym_shdr->sh_offset) < sym_shdr->sh_size) {
+			if (table->st_name) {
+				if (ELF32_ST_BIND(table->st_info) == STB_GLOBAL) {
+					char * name = (char *)((uintptr_t)symstrtab + table->st_name);
+					if (table->st_shndx == 0) {
+						fs_printf(tty, "%s: Undefined.\n", name);
+						void * resolve = NULL;
+						{
+							extern char kernel_symbols_start[];
+							extern char kernel_symbols_end[];
+
+							struct ksym {
+								uintptr_t addr;
+								char name[];
+							} * k = (void*)&kernel_symbols_start;
+
+							while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
+								if (!strcmp(k->name, name)) {
+									resolve = k->addr;
+									break;
+								}
+								k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
+							}
+						}
+						if (resolve) {
+							fs_printf(tty, "Resolved to: 0x%x\n", resolve);
+							hashmap_set(map, name, resolve);
+						}
+					} else {
+						fs_printf(tty, "%s: 0x%x in section %d\n", name, table->st_value, table->st_shndx);
+						Elf32_Shdr * s = NULL;
+						{
+							int i = 0;
+							for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+								Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+								if (i == table->st_shndx) {
+									s = shdr;
+									break;
+								}
+								i++;
+							}
+						}
+						if (s) {
+							uintptr_t final = (uintptr_t)target + s->sh_offset + table->st_value;
+							fs_printf(tty, "Final location should be: 0x%x\n", final);
+							if (!strcmp(name, "module_name")) {
+								fs_printf(tty, "Here goes nothing: %s\n", final);
+							}
+							hashmap_set(map, name, (void *)final);
+						}
+					}
+				}
+			}
+			table++;
+		}
+	}
+
 	fs_printf(tty, "Locating relocation sections:\n");
 	{
 		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
@@ -704,22 +766,41 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 				Elf32_Sym * symtable = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
 				while ((uintptr_t)table - ((uintptr_t)target + shdr->sh_offset) < shdr->sh_size) {
 					fs_printf(tty, "0x%x, SYM; %d, TYPE: %d\n", table->r_offset, ELF32_R_SYM(table->r_info), ELF32_R_TYPE(table->r_info));
+					Elf32_Sym * sym = &symtable[ELF32_R_SYM(table->r_info)];
+					fs_printf(tty, " this rel section refers to section header: %d\n", shdr->sh_info);
+					Elf32_Shdr * rs = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + shdr->sh_info * target->e_shentsize));
+					fs_printf(tty, " which specifies offset of: 0x%x\n", rs->sh_offset);
+
+					if (ELF32_ST_TYPE(sym->st_info) == STT_SECTION) {
+						Elf32_Shdr * s = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + sym->st_shndx * target->e_shentsize));
+						char * name = (char *)((uintptr_t)shstrtab + s->sh_name);
+						fs_printf(tty, "   Section name: %s\n", name);
+						uintptr_t * ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
+						fs_printf(tty, "   REL POINTER: 0x%x\n", ptr);
+						fs_printf(tty, "   REL VALUE:   0x%x\n", *ptr);
+						uintptr_t addend = *ptr;
+						*ptr = addend + (uintptr_t)target + s->sh_offset;
+					} else {
+						char * name = (char *)((uintptr_t)symstrtab + sym->st_name);
+						fs_printf(tty, "   Symbol name: %s\n", name);
+						fs_printf(tty, "   Symbol addr: 0x%x\n", hashmap_get(map, name));
+
+
+						uintptr_t * ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
+						fs_printf(tty, "   REL POINTER: 0x%x\n", ptr);
+						fs_printf(tty, "   REL VALUE:   0x%x\n", *ptr);
+						uintptr_t addend = *ptr;
+						*ptr = addend + hashmap_get(map, name);
+					}
+
 					table++;
 				}
 			}
 		}
 	}
 
-	{
-		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
-		while ((uintptr_t)table - ((uintptr_t)target + sym_shdr->sh_offset) < sym_shdr->sh_size) {
-			if (table->st_name) {
-				char * name = (char *)((uintptr_t)symstrtab + table->st_name);
-				fs_printf(tty, "%s: 0x%x\n", name, table->st_value);
-			}
-			table++;
-		}
-	}
+	hashmap_free(map);
+	free(map);
 
 #if 1
 	fs_printf(tty, "Locating and running init function...\n");
@@ -732,7 +813,7 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 					mod_callback_tty = tty;
 					uintptr_t offset = (uintptr_t)section + table->st_value;
 					fs_printf(tty, "Offset for %s is 0x%x...\n", name, offset);
-#if 0
+#if 1
 					int (* func)(void (*)(char *)) = (int (*)(void (*)(char *)))offset;
 					int ret = func(mod_callback);
 					fs_printf(tty, "returned: %d\n", ret);
