@@ -770,26 +770,43 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 					Elf32_Shdr * rs = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + shdr->sh_info * target->e_shentsize));
 					fs_printf(tty, " which specifies offset of: 0x%x\n", rs->sh_offset);
 
+					uintptr_t addend = 0;
+					uintptr_t place  = 0;
+					uintptr_t symbol = 0;
+					uintptr_t *ptr   = NULL;
+
 					if (ELF32_ST_TYPE(sym->st_info) == STT_SECTION) {
 						Elf32_Shdr * s = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + sym->st_shndx * target->e_shentsize));
 						char * name = (char *)((uintptr_t)shstrtab + s->sh_name);
 						fs_printf(tty, "   Section name: %s\n", name);
-						uintptr_t * ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
+						ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
 						fs_printf(tty, "   REL POINTER: 0x%x\n", ptr);
 						fs_printf(tty, "   REL VALUE:   0x%x\n", *ptr);
-						uintptr_t addend = *ptr;
-						*ptr = addend + (uintptr_t)target + s->sh_offset;
+						addend = *ptr;
+						place  = (uintptr_t)ptr;
+						symbol = (uintptr_t)target + s->sh_offset;
 					} else {
 						char * name = (char *)((uintptr_t)symstrtab + sym->st_name);
 						fs_printf(tty, "   Symbol name: %s\n", name);
 						fs_printf(tty, "   Symbol addr: 0x%x\n", hashmap_get(map, name));
-
-
-						uintptr_t * ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
+						ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
 						fs_printf(tty, "   REL POINTER: 0x%x\n", ptr);
 						fs_printf(tty, "   REL VALUE:   0x%x\n", *ptr);
-						uintptr_t addend = *ptr;
-						*ptr = (uintptr_t)(addend + (uintptr_t)hashmap_get(map, name));
+						addend = *ptr;
+						place  = (uintptr_t)ptr;
+						symbol = (uintptr_t)hashmap_get(map, name);
+					}
+					switch (ELF32_R_TYPE(table->r_info)) {
+						case 1:
+							*ptr = addend + symbol;
+							break;
+						case 2:
+							*ptr = addend + symbol - place;
+							break;
+						default:
+							fs_printf(tty, "Unsupported relocation type: %d\n", ELF32_R_TYPE(table->r_info));
+							goto mod_load_error;
+							break;
 					}
 
 					table++;

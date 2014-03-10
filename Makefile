@@ -127,7 +127,7 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 
 hdd/mod/%.ko: modules/%.c
 	@${BEG} "CC" "$< [module]"
-	@${CC} -T modules/link.ld -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
+	@${CC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [module]"
 
 %.o: %.c ${HEADERS}
