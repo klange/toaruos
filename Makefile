@@ -56,7 +56,10 @@ EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
 EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user
 EMUKVM   = -enable-kvm
 
-.PHONY: all system clean clean-once clean-hard clean-soft clean-bin clean-aux clean-core install run test-thing
+.PHONY: all system install test
+.PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
+.PHONY: run vga term debug headless run-config
+.PHONY: kvm vga-kvm term-kvm debug-term debug-vga
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY: 
@@ -177,16 +180,15 @@ clean-bin:
 	@-rm -f hdd/bin/*
 	@${ENDRM} "RM" "Cleaned native binaries"
 
+clean-mods:
+	@${BEGRM} "RM" "Cleaning kernel modules..."
+	@-rm -f hdd/mod/*
+	@${ENDRM} "RM" "Cleaned kernel modules"
+
 clean-core:
 	@${BEGRM} "RM" "Cleaning final output..."
 	@-rm -f toaruos-kernel
 	@${ENDRM} "RM" "Cleaned final output"
-
-clean: clean-soft clean-core
-	@${INFO} "--" "Finished soft cleaning"
-
-clean-hard: clean clean-bin
-	@${INFO} "--" "Finished hard cleaning"
 
 clean-disk:
 	@${BEGRM} "RM" "Deleting hard disk image..."
@@ -197,6 +199,13 @@ clean-once:
 	@${BEGRM} "RM" "Cleaning one-time files..."
 	@-rm -f .passed
 	@${ENDRM} "RM" "Cleaned one-time files"
+
+clean: clean-soft clean-core
+	@${INFO} "--" "Finished soft cleaning"
+
+clean-hard: clean clean-bin clean-mods
+	@${INFO} "--" "Finished hard cleaning"
+
 
 # vim:noexpandtab
 # vim:tabstop=4
