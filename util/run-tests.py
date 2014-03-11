@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import subprocess, sys
 
 q = subprocess.Popen(['qemu-system-i386', '-kernel', 'toaruos-kernel', '-m', '256',
