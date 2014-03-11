@@ -143,7 +143,7 @@ hdd/mod/%.ko: modules/%.c ${HEADERS}
 	@cd userspace && python2 build.py
 	@touch .userspace-check
 
-toaruos-disk.img: .userspace-check
+toaruos-disk.img: .userspace-check ${MODULES}
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -B 4096 -d hdd -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
@@ -155,7 +155,7 @@ toaruos-disk.img: .userspace-check
 ##############
 tags: kernel/*/*.c kernel/*.c .userspace-check
 	@${BEG} "ctag" "Generating CTags..."
-	@ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace util
+	@ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace modules util
 	@${END} "ctag" "Generated CTags."
 
 ###############
