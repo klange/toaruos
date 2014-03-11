@@ -639,11 +639,11 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 	}
 
 
-	char * shstrtab;
-	char * symstrtab;
-	Elf32_Shdr * sym_shdr;
+	char * shstrtab = NULL;
+	char * symstrtab = NULL;
+	Elf32_Shdr * sym_shdr = NULL;
 	void * section = NULL;
-	Elf32_Rel * section_rel;
+	Elf32_Rel * section_rel = NULL;
 
 	fs_printf(tty, "Locating header string table...");
 	{
