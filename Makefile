@@ -5,6 +5,8 @@ ifneq ($(CCC_ANALYZE),yes)
 CC = i686-pc-toaru-gcc
 endif
 
+NM = i686-pc-toaru-nm
+
 # Build flags
 CFLAGS  = -g -O0 -std=c99
 CFLAGS += -finline-functions -ffreestanding
@@ -112,8 +114,10 @@ toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o kernel/symbols.o ${K
 
 kernel/symbols.o: ${KERNEL_OBJS} util/generate_symbols.py
 	@-rm -f kernel/symbols.o
+	@${BEG} "nm" "Generating symbol list..."
 	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
-	@i686-pc-toaru-nm toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.s
+	@${NM} toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.s
+	@${END} "nm" "Generated symbol list."
 	@${BEG} "yasm" "kernel/symbols.s"
 	@${YASM} -f elf -o $@ kernel/symbols.s ${ERRORS}
 	@${END} "yasm" "kernel/symbols.s"
