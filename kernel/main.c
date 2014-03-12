@@ -45,6 +45,7 @@
 #include <process.h>
 #include <shm.h>
 #include <args.h>
+#include <module.h>
 
 uintptr_t initial_esp = 0;
 
@@ -97,6 +98,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	fpu_install();      /* FPU/SSE magic */
 	syscalls_install(); /* Install the system calls */
 	shm_install();      /* Install shared memory */
+	modules_install();  /* Modules! */
 	keyboard_install(); /* Keyboard interrupt handler */
 	mouse_install();    /* Mouse driver */
 	keyboard_reset_ps2();

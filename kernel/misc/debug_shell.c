@@ -13,6 +13,7 @@
 #include <pipe.h>
 #include <ipv4.h>
 #include <elf.h>
+#include <module.h>
 
 #include <debug_shell.h>
 
@@ -607,11 +608,6 @@ static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
-fs_node_t * mod_callback_tty = NULL;
-static void mod_callback(char * c) {
-	fs_printf(mod_callback_tty, c);
-}
-
 char * special_thing = "I am a string from the kernel.\n";
 
 static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
@@ -625,210 +621,11 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 		return 1;
 	}
 
-	fs_printf(tty, "Attempting to load module %s, size is %d\n", argv[1], file->length);
+	fs_printf(tty, "Okay, going to load a module!\n");
+	module_defs * mod_info = module_load(argv[1]);
+	fs_printf(tty, "Loaded %s!\n", mod_info->name);
 
-	Elf32_Header * target = (Elf32_Header *)kvmalloc(file->length);
-	read_fs(file, 0, file->length, (uint8_t *)target);
-
-	if (target->e_ident[0] != ELFMAG0 ||
-		target->e_ident[1] != ELFMAG1 ||
-		target->e_ident[2] != ELFMAG2 ||
-		target->e_ident[3] != ELFMAG3) {
-		fs_printf(tty, "Module loading failed! Not a valid ELF object.\n");
-		goto mod_load_error;
-	}
-
-
-	char * shstrtab = NULL;
-	char * symstrtab = NULL;
-	Elf32_Shdr * sym_shdr = NULL;
-	void * section = NULL;
-	Elf32_Rel * section_rel = NULL;
-
-	fs_printf(tty, "Locating header string table...");
-	{
-		unsigned int i = 0;
-		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
-			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
-			if (i == target->e_shstrndx) {
-				shstrtab = (char *)((uintptr_t)target + shdr->sh_offset);
-			}
-			i++;
-		}
-	}
-	fs_printf(tty, " 0x%x\n", shstrtab);
-
-	fs_printf(tty, "Locating symbol string table...");
-	{
-		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
-			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
-			if (shdr->sh_type == SHT_STRTAB && (!strcmp((char *)((uintptr_t)shstrtab + shdr->sh_name), ".strtab"))) {
-				symstrtab = (char *)((uintptr_t)target + shdr->sh_offset);
-			}
-		}
-	}
-	fs_printf(tty, " 0x%x\n", symstrtab);
-
-	fs_printf(tty, "Locating data section...");
-	{
-		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
-			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
-			if (shdr->sh_type == SHT_PROGBITS && (!strcmp((char *)((uintptr_t)shstrtab + shdr->sh_name), ".text"))) {
-				section = (void *)((uintptr_t)target + shdr->sh_offset);
-			}
-		}
-	}
-	fs_printf(tty, " 0x%x\n", section);
-
-	fs_printf(tty, "Locating symbol table...");
-	{
-		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
-			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
-			if (shdr->sh_type == SHT_SYMTAB) {
-				sym_shdr = shdr;
-			}
-		}
-	}
-	fs_printf(tty, " 0x%x\n", (uintptr_t)sym_shdr->sh_offset);
-
-	hashmap_t * map = hashmap_create(10);
-
-
-	{
-		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
-		while ((uintptr_t)table - ((uintptr_t)target + sym_shdr->sh_offset) < sym_shdr->sh_size) {
-			if (table->st_name) {
-				if (ELF32_ST_BIND(table->st_info) == STB_GLOBAL) {
-					char * name = (char *)((uintptr_t)symstrtab + table->st_name);
-					if (table->st_shndx == 0) {
-						fs_printf(tty, "%s: Undefined.\n", name);
-						void * resolve = NULL;
-						{
-							extern char kernel_symbols_start[];
-							extern char kernel_symbols_end[];
-
-							struct ksym {
-								uintptr_t addr;
-								char name[];
-							} * k = (void*)&kernel_symbols_start;
-
-							while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-								if (!strcmp(k->name, name)) {
-									resolve = (void *)k->addr;
-									break;
-								}
-								k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
-							}
-						}
-						if (resolve) {
-							fs_printf(tty, "Resolved to: 0x%x\n", resolve);
-							hashmap_set(map, name, resolve);
-						}
-					} else {
-						fs_printf(tty, "%s: 0x%x in section %d\n", name, table->st_value, table->st_shndx);
-						Elf32_Shdr * s = NULL;
-						{
-							int i = 0;
-							for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
-								Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
-								if (i == table->st_shndx) {
-									s = shdr;
-									break;
-								}
-								i++;
-							}
-						}
-						if (s) {
-							uintptr_t final = (uintptr_t)target + s->sh_offset + table->st_value;
-							fs_printf(tty, "Final location should be: 0x%x\n", final);
-							if (!strcmp(name, "module_name")) {
-								fs_printf(tty, "Here goes nothing: %s\n", final);
-							}
-							hashmap_set(map, name, (void *)final);
-						}
-					}
-				}
-			}
-			table++;
-		}
-	}
-
-	fs_printf(tty, "Locating relocation sections:\n");
-	{
-		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
-			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
-			if (shdr->sh_type == SHT_REL) {
-				section_rel = (void *)((uintptr_t)target + shdr->sh_offset);
-				fs_printf(tty, "%s:\n", (char *)((uintptr_t)shstrtab + shdr->sh_name));
-				fs_printf(tty, "Refers to section header %d\n", shdr->sh_info);
-				Elf32_Rel * table = section_rel;
-				Elf32_Sym * symtable = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
-				while ((uintptr_t)table - ((uintptr_t)target + shdr->sh_offset) < shdr->sh_size) {
-					fs_printf(tty, "0x%x, SYM; %d, TYPE: %d\n", table->r_offset, ELF32_R_SYM(table->r_info), ELF32_R_TYPE(table->r_info));
-					Elf32_Sym * sym = &symtable[ELF32_R_SYM(table->r_info)];
-					fs_printf(tty, " this rel section refers to section header: %d\n", shdr->sh_info);
-					Elf32_Shdr * rs = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + shdr->sh_info * target->e_shentsize));
-					fs_printf(tty, " which specifies offset of: 0x%x\n", rs->sh_offset);
-
-					uintptr_t addend = 0;
-					uintptr_t place  = 0;
-					uintptr_t symbol = 0;
-					uintptr_t *ptr   = NULL;
-
-					if (ELF32_ST_TYPE(sym->st_info) == STT_SECTION) {
-						Elf32_Shdr * s = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + sym->st_shndx * target->e_shentsize));
-						char * name = (char *)((uintptr_t)shstrtab + s->sh_name);
-						fs_printf(tty, "   Section name: %s\n", name);
-						ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
-						fs_printf(tty, "   REL POINTER: 0x%x\n", ptr);
-						fs_printf(tty, "   REL VALUE:   0x%x\n", *ptr);
-						addend = *ptr;
-						place  = (uintptr_t)ptr;
-						symbol = (uintptr_t)target + s->sh_offset;
-					} else {
-						char * name = (char *)((uintptr_t)symstrtab + sym->st_name);
-						fs_printf(tty, "   Symbol name: %s\n", name);
-						fs_printf(tty, "   Symbol addr: 0x%x\n", hashmap_get(map, name));
-						ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
-						fs_printf(tty, "   REL POINTER: 0x%x\n", ptr);
-						fs_printf(tty, "   REL VALUE:   0x%x\n", *ptr);
-						addend = *ptr;
-						place  = (uintptr_t)ptr;
-						symbol = (uintptr_t)hashmap_get(map, name);
-					}
-					switch (ELF32_R_TYPE(table->r_info)) {
-						case 1:
-							*ptr = addend + symbol;
-							break;
-						case 2:
-							*ptr = addend + symbol - place;
-							break;
-						default:
-							fs_printf(tty, "Unsupported relocation type: %d\n", ELF32_R_TYPE(table->r_info));
-							goto mod_load_error;
-							break;
-					}
-
-					table++;
-				}
-			}
-		}
-	}
-
-	mod_callback_tty = tty;
-	int (* func)(void (*)(char *)) = (int (*)(void (*)(char *)))((uintptr_t)hashmap_get(map, "b_function"));
-	int ret = func(mod_callback);
-	fs_printf(tty, "returned: %d\n", ret);
-
-	hashmap_free(map);
-	free(map);
-
-	close_fs(file);
 	return 0;
-
-mod_load_error:
-	close_fs(file);
-	return 1;
 }
 
 static int shell_symbols(fs_node_t * tty, int argc, char * argv[]) {
