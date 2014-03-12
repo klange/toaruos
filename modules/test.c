@@ -8,13 +8,12 @@ extern char * special_thing;
 char test_module_string[] = "I am a char[] in the module.";
 char * test_module_string_ptr = "I am a char * in the module.";
 
-static int a_function(void) {
-	debug_print(WARNING, ("I am a static function in the module."));
+int a_function(void) {
+	debug_print(WARNING, ("I am an exported function in the module."));
 	return 42;
 }
 
-int b_function(void) {
-	debug_print(NOTICE, "I am a global function in a module!");
+static int hello(void) {
 	debug_print(NOTICE, special_thing);
 	a_function();
 	debug_print(NOTICE, test_module_string);
@@ -33,10 +32,10 @@ int b_function(void) {
 	return 25;
 }
 
-int goodbye(void) {
+static int goodbye(void) {
 	debug_print(NOTICE, "Goodbye!");
 	return 0;
 }
 
-MODULE_DEF(test, b_function, goodbye);
+MODULE_DEF(test, hello, goodbye);
 

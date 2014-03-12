@@ -102,7 +102,9 @@ void * module_load(char * filename) {
 					char * name = (char *)((uintptr_t)symstrtab + table->st_name);
 					if (table->st_shndx == 0) {
 						if (!hashmap_get(symboltable, name)) {
-							debug_print(WARNING, "Unresolved symbol in module: %s", name);
+							debug_print(ERROR, "Unresolved symbol in module: %s", name);
+							debug_print(ERROR, "Did you forget to load a dependency?");
+							goto mod_load_error;
 						}
 					} else {
 						Elf32_Shdr * s = NULL;

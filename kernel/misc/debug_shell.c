@@ -623,6 +623,11 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 
 	fs_printf(tty, "Okay, going to load a module!\n");
 	module_defs * mod_info = module_load(argv[1]);
+	if (!mod_info) {
+		fs_printf(tty, "Something went wrong, failed to load module: %s\n", argv[1]);
+		return 1;
+	}
+
 	fs_printf(tty, "Loaded %s!\n", mod_info->name);
 
 	return 0;
