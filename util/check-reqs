@@ -20,15 +20,10 @@ function BAIL {
 
 INFO "Checking for required tools (one-time check)..."
 
-if [ -z `which clang` ] ; then
-    WARN "Missing clang"
-    if [ -z `which gcc` ] ; then
-        WARN "Missing gcc"
-        if [ -z `which cc` ] ; then
-            ERROR "No compiler found"
-            BAIL
-        fi
-    fi
+if [ -z `which cc` ] ; then
+    ERROR "No compiler found"
+    INFO "You will need a compiler to build the cross toolchain, we recommend gcc."
+    BAIL
 fi
 
 if [ -z `which genext2fs` ] ; then
