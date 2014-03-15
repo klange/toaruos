@@ -691,6 +691,16 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_mem_info(fs_node_t * tty, int argc, char * argv[]) {
+	unsigned int total = memory_total();
+	unsigned int free  = total - memory_use();
+	extern uintptr_t heap_end;
+	fs_printf(tty, "Total:    %d kB\n", total);
+	fs_printf(tty, "Free:     %d kB\n", free);
+	fs_printf(tty, "Heap End: 0x%x\n", heap_end);
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -726,6 +736,8 @@ static struct shell_command shell_commands[] = {
 		"[dangerous] Print the value of a symbol using a format string."},
 	{"modules", &shell_modules,
 		"Print names and addresses of all loaded modules."},
+	{"mem_info", &shell_mem_info,
+		"Display various pieces of information kernel and system memory."},
 	{NULL, NULL, NULL}
 };
 
