@@ -15,7 +15,7 @@
 #include <elf.h>
 #include <module.h>
 
-#include <debug_shell.h>
+#include <mod/shell.h>
 
 /*
  * This is basically the same as a userspace buffered/unbuffered
@@ -39,7 +39,7 @@ static void set_buffered(fs_node_t * dev) {
 /*
  * TODO move this to the printf module
  */
-static void fs_printf(fs_node_t * device, char *fmt, ...) {
+void fs_printf(fs_node_t * device, char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	char buffer[1024];
@@ -103,17 +103,6 @@ static void debug_shell_run_sh(void * data, char * name) {
 
 	task_exit(42);
 }
-
-/*
- * We're going to have a list of shell commands.
- * We'll search through it linearly because I don't
- * care to write a hashmap right now. Maybe later.
- */
-struct shell_command {
-	char * name;
-	int (*function) (fs_node_t * tty, int argc, char * argv[]);
-	char * description;
-};
 
 static hashmap_t * shell_commands_map = NULL;
 
@@ -725,6 +714,10 @@ static struct shell_command shell_commands[] = {
 		"[dangerous] Print the value of a symbol using a format string."},
 	{NULL, NULL, NULL}
 };
+
+void debug_shell_install(struct shell_command * sh) {
+	hashmap_set(shell_commands_map, sh->name, sh);
+}
 
 /*
  * A TTY object to pass to the tasklets for handling

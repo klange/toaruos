@@ -3,6 +3,8 @@
 #include <module.h>
 #include <logging.h>
 
+#include <mod/shell.h>
+
 extern char * special_thing;
 
 char test_module_string[] = "I am a char[] in the module.";
@@ -11,6 +13,11 @@ char * test_module_string_ptr = "I am a char * in the module.";
 int a_function(void) {
 	debug_print(WARNING, ("I am an exported function in the module."));
 	return 42;
+}
+
+DEFINE_SHELL_FUNCTION(test_mod, "A function installed by a module!") {
+	fs_printf(tty, "Hello world!\n");
+	return 0;
 }
 
 static int hello(void) {
@@ -28,6 +35,9 @@ static int hello(void) {
 
 	hashmap_free(map);
 	free(map);
+
+	debug_shell_install(&shell_test_mod_desc);
+	BIND_SHELL_FUNCTION(test_mod);
 
 	return 25;
 }
