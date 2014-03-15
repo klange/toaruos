@@ -1,8 +1,8 @@
-#include <types.h>
-#include <hashmap.h>
-
 #ifndef MODULE_H
 #define MODULE_H
+
+#include <types.h>
+#include <hashmap.h>
 
 typedef struct {
     char * name;

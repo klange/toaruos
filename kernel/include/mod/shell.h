@@ -1,7 +1,8 @@
-#include <fs.h>
-
 #ifndef KERNEL_MOD_SHELL_H
 #define KERNEL_MOD_SHELL_H
+
+#include <fs.h>
+
 /*
  * We're going to have a list of shell commands.
  * We'll search through it linearly because I don't
