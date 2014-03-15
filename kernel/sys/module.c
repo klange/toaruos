@@ -209,9 +209,9 @@ void * module_load(char * filename) {
 
 	mod_info->initialize();
 
-	
-
 	debug_print(NOTICE, "Finished loading module %s", mod_info->name);
+
+	hashmap_set(modules, mod_info->name, (void *)mod_info);
 
 	hashmap_free(local_symbols);
 	free(local_symbols);
@@ -253,4 +253,13 @@ void modules_install(void) {
 
 	/* Initialize the module name -> object hashmap */
 	modules = hashmap_create(MODULE_HASHMAP_SIZE);
+}
+
+/* Accessors. */
+hashmap_t * modules_get_list(void) {
+	return modules;
+}
+
+hashmap_t * modules_get_symbols(void) {
+	return symboltable;
 }

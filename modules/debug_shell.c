@@ -679,6 +679,18 @@ static int shell_print(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
+	list_t * hash_keys = hashmap_keys(modules_get_list());
+	foreach(_key, hash_keys) {
+		char * key = (char *)_key->value;
+		module_defs * mod_info = hashmap_get(modules_get_list(), key);
+
+		fs_printf(tty, "%s {.init=0x%x, .fini=0x%x}\n", mod_info->name, mod_info->initialize, mod_info->finalize);
+	}
+
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -712,6 +724,8 @@ static struct shell_command shell_commands[] = {
 		"Dump symbol table."},
 	{"print", &shell_print,
 		"[dangerous] Print the value of a symbol using a format string."},
+	{"modules", &shell_modules,
+		"Print names and addresses of all loaded modules."},
 	{NULL, NULL, NULL}
 };
 

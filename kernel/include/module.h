@@ -27,4 +27,7 @@ extern void modules_install(void);
             .finalize   = &fini \
         }
 
+extern hashmap_t * modules_get_list(void);
+extern hashmap_t * modules_get_symbols(void);
+
 #endif
