@@ -19,21 +19,9 @@ typedef struct {
 extern char kernel_symbols_start[];
 extern char kernel_symbols_end[];
 
-/**
- * Install a module from a file and return
- * a pointer to its module_info structure.
- */
-void * module_load(char * filename) {
-	fs_node_t * file = kopen(filename, 0);
-	if (!file) {
-		debug_print(ERROR, "Failed to load module: %s", filename);
-		return NULL;
-	}
 
-	debug_print(NOTICE, "Attempting to load kernel module: %s", filename);
-
-	Elf32_Header * target = (Elf32_Header *)kvmalloc(file->length);
-	read_fs(file, 0, file->length, (uint8_t *)target);
+void * module_load_direct(void * blob) {
+	Elf32_Header * target = (Elf32_Header *)blob;
 
 	if (target->e_ident[0] != ELFMAG0 ||
 		target->e_ident[1] != ELFMAG1 ||
@@ -216,13 +204,32 @@ void * module_load(char * filename) {
 	hashmap_free(local_symbols);
 	free(local_symbols);
 
-	close_fs(file);
-
 	return mod_info;
 
 mod_load_error:
-	close_fs(file);
 	return NULL;
+}
+
+/**
+ * Install a module from a file and return
+ * a pointer to its module_info structure.
+ */
+void * module_load(char * filename) {
+	fs_node_t * file = kopen(filename, 0);
+	if (!file) {
+		debug_print(ERROR, "Failed to load module: %s", filename);
+		return NULL;
+	}
+
+	debug_print(NOTICE, "Attempting to load kernel module: %s", filename);
+
+	void * blob = (void *)kvmalloc(file->length);
+	read_fs(file, 0, file->length, (uint8_t *)blob);
+
+	void * result = module_load_direct(blob);
+
+	close_fs(file);
+	return result;
 }
 
 /**

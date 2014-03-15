@@ -54,6 +54,7 @@ EMUARGS  = -sdl -kernel toaruos-kernel -m 1024
 EMUARGS += -serial stdio -vga std
 EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
 EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user
+EMUARGS += -initrd hdd/mod/debug_shell.ko
 EMUKVM   = -enable-kvm
 
 .PHONY: all system install test

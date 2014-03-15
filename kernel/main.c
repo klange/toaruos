@@ -56,6 +56,9 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	initial_esp = esp;
 	extern char * cmdline;
 
+	uint32_t mboot_mods_count = 0;
+	uint32_t ** mboot_mods = NULL;
+
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/* Multiboot (GRUB, native QEMU, PXE) */
 		debug_print(NOTICE, "Relocating Multiboot structures...");
@@ -66,6 +69,37 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 		if (mboot_ptr->vbe_mode_info) {
 			lfb_vid_memory = (uint8_t *)((vbe_info_t *)(mboot_ptr->vbe_mode_info))->physbase;
+		}
+
+		kprint_to_serial = 1;
+		debug_level = 1;
+
+		if (mboot_ptr->flags & (1 << 3)) {
+			debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
+			debug_print(NOTICE, "Current kernel heap start point would be 0x%x.", &end);
+			if (mboot_ptr->mods_count > 0) {
+				uintptr_t last_mod = (uintptr_t)&end;
+				uint32_t i;
+				mboot_mods = (uint32_t**)mboot_ptr->mods_addr;
+				mboot_mods_count = mboot_ptr->mods_count;
+				for (i = 0; i < mboot_ptr->mods_count; ++i ) {
+					uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr + sizeof(uint32_t*)*2 * i);
+					uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr + sizeof(uint32_t*)*2 * i + sizeof(uint32_t*));
+					if ((uintptr_t)(mboot_ptr->mods_addr + sizeof(uint32_t*) * 2 * i + sizeof(uint32_t*) * 2) > last_mod) {
+						/* Just in case some silly person put this in *front*... */
+						last_mod = (uintptr_t)(mboot_ptr->mods_addr + sizeof(uint32_t*) * 2 * i + sizeof(uint32_t*) * 2);
+					}
+					debug_print(NOTICE, "Module %d is at 0x%x:0x%x", i, module_start, module_end);
+					if (last_mod < module_end) {
+						last_mod = module_end;
+					}
+				}
+				while (last_mod % 0x1000) {
+					last_mod += 1;
+				}
+				debug_print(NOTICE, "Moving kernel heap start to 0x%x\n", last_mod);
+				kmalloc_startat(last_mod);
+			}
 		}
 
 		size_t len = strlen((char *)mboot_ptr->cmdline);
@@ -128,8 +162,11 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		}
 	}
 
-	/* Start shell instead */
-	module_load("/mod/debug_shell.ko");
+	/* Load modules from bootloader */
+	for (uint32_t i = 0; i < mboot_mods_count; ++i ) {
+		uint32_t module_start = *((uint32_t*)mboot_mods + sizeof(uint32_t*)*2 * i);
+		module_load_direct((void *)(module_start));
+	}
 
 	/* Prepare to run /bin/init */
 	char * argv[] = {

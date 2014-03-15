@@ -16,6 +16,7 @@ typedef struct {
     hashmap_t * symbols;
 } module_data_t;
 
+extern void * module_load_direct(void * blob);
 extern void * module_load(char * filename);
 extern void module_unload(char * name);
 extern void modules_install(void);
