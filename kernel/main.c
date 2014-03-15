@@ -71,9 +71,6 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 			lfb_vid_memory = (uint8_t *)((vbe_info_t *)(mboot_ptr->vbe_mode_info))->physbase;
 		}
 
-		kprint_to_serial = 1;
-		debug_level = 1;
-
 		if (mboot_ptr->flags & (1 << 3)) {
 			debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
 			debug_print(NOTICE, "Current kernel heap start point would be 0x%x.", &end);
