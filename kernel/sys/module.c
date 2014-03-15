@@ -93,6 +93,19 @@ void * module_load(char * filename) {
 		goto mod_load_error;
 	}
 
+	{
+		debug_print(INFO, "Loading sections.");
+		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+			if (shdr->sh_type == SHT_NOBITS) {
+				shdr->sh_addr = (Elf32_Addr)malloc(shdr->sh_size);
+				memset((void *)shdr->sh_addr, 0x00, shdr->sh_size);
+			} else {
+				shdr->sh_addr = (Elf32_Addr)target + shdr->sh_offset;
+			}
+		}
+	}
+
 	hashmap_t * local_symbols = hashmap_create(10);
 	{
 		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
@@ -120,7 +133,7 @@ void * module_load(char * filename) {
 							}
 						}
 						if (s) {
-							uintptr_t final = (uintptr_t)target + s->sh_offset + table->st_value;
+							uintptr_t final = s->sh_addr + table->st_value;
 							hashmap_set(symboltable, name, (void *)final);
 							hashmap_set(local_symbols, name, (void *)final);
 						}
@@ -135,10 +148,10 @@ void * module_load(char * filename) {
 		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
 			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
 			if (shdr->sh_type == SHT_REL) {
-				Elf32_Rel * section_rel = (void *)((uintptr_t)target + shdr->sh_offset);
+				Elf32_Rel * section_rel = (void *)(shdr->sh_addr);
 				Elf32_Rel * table = section_rel;
-				Elf32_Sym * symtable = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
-				while ((uintptr_t)table - ((uintptr_t)target + shdr->sh_offset) < shdr->sh_size) {
+				Elf32_Sym * symtable = (Elf32_Sym *)(sym_shdr->sh_addr);
+				while ((uintptr_t)table - (shdr->sh_addr) < shdr->sh_size) {
 					Elf32_Sym * sym = &symtable[ELF32_R_SYM(table->r_info)];
 					Elf32_Shdr * rs = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + shdr->sh_info * target->e_shentsize));
 
@@ -149,13 +162,13 @@ void * module_load(char * filename) {
 
 					if (ELF32_ST_TYPE(sym->st_info) == STT_SECTION) {
 						Elf32_Shdr * s = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + sym->st_shndx * target->e_shentsize));
-						ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
+						ptr = (uintptr_t *)(table->r_offset + rs->sh_addr);
 						addend = *ptr;
 						place  = (uintptr_t)ptr;
-						symbol = (uintptr_t)target + s->sh_offset;
+						symbol = s->sh_addr;
 					} else {
 						char * name = (char *)((uintptr_t)symstrtab + sym->st_name);
-						ptr = (uintptr_t *)(table->r_offset + (uintptr_t)target + rs->sh_offset);
+						ptr = (uintptr_t *)(table->r_offset + rs->sh_addr);
 						addend = *ptr;
 						place  = (uintptr_t)ptr;
 						symbol = (uintptr_t)hashmap_get(symboltable, name);
@@ -233,6 +246,10 @@ void modules_install(void) {
 		hashmap_set(symboltable, k->name, (void *)k->addr);
 		k = (kernel_symbol_t *)((uintptr_t)k + sizeof(kernel_symbol_t) + strlen(k->name) + 1);
 	}
+
+	/* Also add the kernel_symbol_start and kernel_symbol_end (these were excluded from the generator) */
+	hashmap_set(symboltable, "kernel_symbols_start", &kernel_symbols_start);
+	hashmap_set(symboltable, "kernel_symbols_end",   &kernel_symbols_end);
 
 	/* Initialize the module name -> object hashmap */
 	modules = hashmap_create(MODULE_HASHMAP_SIZE);

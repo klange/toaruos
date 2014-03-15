@@ -503,7 +503,7 @@ void switch_next(void) {
 	ebp = current_process->thread.ebp;
 
 	/* Validate */
-	if ((eip < (uintptr_t)&code) || (eip > (uintptr_t)&end)) {
+	if ((eip < (uintptr_t)&code) || (eip > (uintptr_t)heap_end)) {
 		debug_print(WARNING, "Skipping broken process %d! [eip=0x%x <0x%x or >0x%x]", current_process->id, eip, &code, &end);
 		switch_next();
 	}

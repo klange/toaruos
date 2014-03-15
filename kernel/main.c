@@ -126,7 +126,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	}
 
 	/* Start shell instead */
-	debug_shell_start();
+	module_load("/mod/debug_shell.ko");
 
 	/* Prepare to run /bin/init */
 	char * argv[] = {

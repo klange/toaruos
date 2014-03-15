@@ -25,21 +25,21 @@
  */
 static struct termios old;
 
-void set_unbuffered(fs_node_t * dev) {
+static void set_unbuffered(fs_node_t * dev) {
 	ioctl_fs(dev, TCGETS, &old);
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO);
 	ioctl_fs(dev, TCSETSF, &new);
 }
 
-void set_buffered(fs_node_t * dev) {
+static void set_buffered(fs_node_t * dev) {
 	ioctl_fs(dev, TCSETSF, &old);
 }
 
 /*
  * TODO move this to the printf module
  */
-void fs_printf(fs_node_t * device, char *fmt, ...) {
+static void fs_printf(fs_node_t * device, char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	char buffer[1024];
@@ -56,7 +56,7 @@ void fs_printf(fs_node_t * device, char *fmt, ...) {
  * TODO tabcompletion would be nice
  * TODO history is also nice
  */
-int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
+static int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 	int read = 0;
 	set_unbuffered(dev);
 	while (read < max) {
@@ -89,7 +89,7 @@ int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 /*
  * Tasklet for running a userspace application.
  */
-void debug_shell_run_sh(void * data, char * name) {
+static void debug_shell_run_sh(void * data, char * name) {
 
 	char * argv[] = {
 		"/bin/sh",
@@ -115,7 +115,7 @@ struct shell_command {
 	char * description;
 };
 
-hashmap_t * shell_commands_map = NULL;
+static hashmap_t * shell_commands_map = NULL;
 
 /*
  * Shell commands
@@ -741,7 +741,7 @@ struct tty_o {
 /*
  * These tasklets handle tty-serial interaction.
  */
-void debug_shell_handle_in(void * data, char * name) {
+static void debug_shell_handle_in(void * data, char * name) {
 	struct tty_o * tty = (struct tty_o *)data;
 	while (1) {
 		uint8_t buf[1];
@@ -750,7 +750,7 @@ void debug_shell_handle_in(void * data, char * name) {
 	}
 }
 
-void debug_shell_handle_out(void * data, char * name) {
+static void debug_shell_handle_out(void * data, char * name) {
 	struct tty_o * tty = (struct tty_o *)data;
 	while (1) {
 		uint8_t buf[1];
@@ -770,7 +770,7 @@ void debug_shell_handle_out(void * data, char * name) {
  * TODO with asyncio support, the timeout should actually work.
  *      consider also using an alarm (which I also don't have)
  */
-void divine_size(fs_node_t * dev, int * width, int * height) {
+static void divine_size(fs_node_t * dev, int * width, int * height) {
 	char tmp[100];
 	int read = 0;
 	unsigned long start_tick = timer_ticks;
@@ -822,7 +822,7 @@ void divine_size(fs_node_t * dev, int * width, int * height) {
  * to some internal kernel commands, and (eventually)
  * debugging routines.
  */
-void debug_shell_run(void * data, char * name) {
+static void debug_shell_run(void * data, char * name) {
 	/*
 	 * We will run on the first serial port.
 	 * TODO detect that this failed
@@ -913,3 +913,11 @@ int debug_shell_start(void) {
 
 	return 0;
 }
+
+int debug_shell_stop(void) {
+	debug_print(NOTICE, "Tried to unload debug shell, but debug shell has no real shutdown routine. Don't do that!");
+	return 0;
+}
+
+MODULE_DEF(debugshell, debug_shell_start, debug_shell_stop);
+
