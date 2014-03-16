@@ -139,7 +139,6 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	vfs_mount("/dev/null", null_device_create());
 	vfs_mount("/dev/zero", zero_device_create());
-	vfs_mount("/dev/hello", hello_device_create());
 	vfs_mount("/dev/random", random_device_create());
 	vfs_mount("/tmp", tmpfs_create());
 	vfs_mount("/home/local", tmpfs_create());

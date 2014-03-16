@@ -104,7 +104,7 @@ term: system
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single hdd"
 debug: system
-	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu"
+	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu hdd"
 debug-term: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu single hdd"
 debug-vga: system
