@@ -143,8 +143,10 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	for (unsigned int i = 0; i < mboot_ptr->mods_count; ++i ) {
 		mboot_mod_t * mod = &mboot_mods[i];
 		uint32_t module_start = mod->mod_start;
+		uint32_t module_end = mod->mod_end;
+		size_t   module_size = module_end - module_end;
 		debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start);
-		module_defs * mod_info = (module_defs *)module_load_direct((void *)(module_start));
+		module_defs * mod_info = (module_defs *)module_load_direct((void *)(module_start), module_size);
 		debug_print(NOTICE, "Loaded: %s", mod_info->name);
 	}
 

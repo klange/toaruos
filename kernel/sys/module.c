@@ -20,7 +20,7 @@ extern char kernel_symbols_start[];
 extern char kernel_symbols_end[];
 
 
-void * module_load_direct(void * blob) {
+void * module_load_direct(void * blob, size_t length) {
 	Elf32_Header * target = (Elf32_Header *)blob;
 
 	if (target->e_ident[0] != ELFMAG0 ||
@@ -199,12 +199,21 @@ void * module_load_direct(void * blob) {
 
 	debug_print(NOTICE, "Finished loading module %s", mod_info->name);
 
-	hashmap_set(modules, mod_info->name, (void *)mod_info);
-
+	/* We don't do this anymore
+	 * TODO: Do this in the module unload function
 	hashmap_free(local_symbols);
 	free(local_symbols);
+	*/
 
-	return mod_info;
+	module_data_t * mod_data = malloc(sizeof(module_data_t));
+	mod_data->mod_info = mod_info;
+	mod_data->bin_data = target;
+	mod_data->symbols  = local_symbols;
+	mod_data->end      = (uintptr_t)target + length;
+
+	hashmap_set(modules, mod_info->name, (void *)mod_data);
+
+	return mod_data;
 
 mod_load_error:
 	return NULL;
@@ -226,7 +235,7 @@ void * module_load(char * filename) {
 	void * blob = (void *)kvmalloc(file->length);
 	read_fs(file, 0, file->length, (uint8_t *)blob);
 
-	void * result = module_load_direct(blob);
+	void * result = module_load_direct(blob, file->length);
 
 	close_fs(file);
 	return result;

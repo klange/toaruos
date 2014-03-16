@@ -611,13 +611,13 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 	}
 
 	fs_printf(tty, "Okay, going to load a module!\n");
-	module_defs * mod_info = module_load(argv[1]);
+	module_data_t * mod_info = module_load(argv[1]);
 	if (!mod_info) {
 		fs_printf(tty, "Something went wrong, failed to load module: %s\n", argv[1]);
 		return 1;
 	}
 
-	fs_printf(tty, "Loaded %s!\n", mod_info->name);
+	fs_printf(tty, "Loaded %s at 0x%x\n", mod_info->mod_info->name, mod_info->bin_data);
 
 	return 0;
 }
@@ -683,9 +683,11 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 	list_t * hash_keys = hashmap_keys(modules_get_list());
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
-		module_defs * mod_info = hashmap_get(modules_get_list(), key);
+		module_data_t * mod_info = hashmap_get(modules_get_list(), key);
 
-		fs_printf(tty, "%s {.init=0x%x, .fini=0x%x}\n", mod_info->name, mod_info->initialize, mod_info->finalize);
+		fs_printf(tty, "%s at 0x%x {.init=0x%x, .fini=0x%x}\n",
+				mod_info->mod_info->name, mod_info->bin_data,
+				mod_info->mod_info->initialize, mod_info->mod_info->finalize);
 	}
 
 	return 0;
