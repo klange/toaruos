@@ -11,12 +11,6 @@ int read_partition_map(int device);
 void legacy_parse_args(void) {
 	char * c;
 
-	if ((c = args_value("kernel-term"))) {
-		kprint_to_screen = 1;
-		debug_level = atoi(c);
-		debug_print(NOTICE, "Kernel screen logging enabled at level %d.", debug_level);
-	}
-
 	if ((c = args_value("vid"))) {
 		debug_print(NOTICE, "Video mode requested: %s", c);
 

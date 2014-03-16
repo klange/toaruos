@@ -736,7 +736,7 @@ static struct shell_command shell_commands[] = {
 		"[dangerous] Print the value of a symbol using a format string."},
 	{"modules", &shell_modules,
 		"Print names and addresses of all loaded modules."},
-	{"mem_info", &shell_mem_info,
+	{"meminfo", &shell_mem_info,
 		"Display various pieces of information kernel and system memory."},
 	{NULL, NULL, NULL}
 };

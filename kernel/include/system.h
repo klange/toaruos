@@ -128,12 +128,10 @@ extern void mouse_install(void);
 
 /* kprintf */
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
+extern int    sprintf(char *buf, const char *fmt, ...);
 extern int    kprintf(const char *fmt, ...);
 
-extern short  kprint_to_screen;
 extern void * kprint_to_file;
-
-extern int    sprintf(char *buf, const char *fmt, ...);
 
 /* Memory Management */
 extern uintptr_t placement_pointer;
