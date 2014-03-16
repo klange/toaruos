@@ -421,6 +421,7 @@ static fs_node_t * tmpfs_create(void) {
 
 static int tmpfs_initialize(void) {
 	vfs_mount("/tmp", tmpfs_create());
+	fs_root = tmpfs_create();
 	return 0;
 }
 static int tmpfs_finalize(void) {

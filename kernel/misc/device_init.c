@@ -2,13 +2,13 @@
 #include <logging.h>
 #include <args.h>
 #include <tokenize.h>
-#include <ata.h>
+#include <fs.h>
 
 /* XXX: This should be moved */
-void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector);
-int read_partition_map(int device);
+void ext2_disk_mount(fs_node_t *);
+int read_partition_map(fs_node_t *);
 
-void legacy_parse_args(void) {
+void early_stage_args(void) {
 	char * c;
 
 	if ((c = args_value("vid"))) {
@@ -39,22 +39,6 @@ void legacy_parse_args(void) {
 		free(arg);
 	}
 
-	if (args_present("hdd")) {
-		ide_init(0x1F0);
-		char * c = args_value("hdd");
-		if (!c) {
-			ext2_disk_mount(0,0);
-		} else {
-			if (read_partition_map(0)) {
-				debug_print(ERROR, "Failed to read MBR.");
-			} else {
-				int partition = atoi(c);
-				debug_print(NOTICE, "Selected partition %d starts at sector %d", partition, mbr.partitions[partition].lba_first_sector);
-				ext2_disk_mount(mbr.partitions[partition].lba_first_sector,mbr.partitions[partition].sector_count);
-			}
-		}
-	}
-
 	if (args_present("single")) {
 		boot_arg = "--single";
 	} else if (args_present("lite")) {
@@ -71,7 +55,15 @@ void legacy_parse_args(void) {
 	}
 
 	if (args_present("read-mbr")) {
-		read_partition_map(0);
+		fs_node_t * f = kopen(args_value("root"), 0);
+		read_partition_map(f);
 	}
 }
 
+void late_stage_args(void) {
+	if (args_present("root")) {
+		debug_print(NOTICE, "Selected block device %s...", args_value("root"));
+		fs_node_t * root_block = kopen(args_value("root"), 0);
+		ext2_disk_mount(root_block);
+	}
+}

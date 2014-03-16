@@ -136,7 +136,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	debug_print_vfs_tree();
 
-	legacy_parse_args();
+	early_stage_args();
 
 	/* Load modules from bootloader */
 	debug_print(NOTICE, "%d modules to load", mboot_mods_count);
@@ -147,6 +147,8 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		module_defs * mod_info = (module_defs *)module_load_direct((void *)(module_start));
 		debug_print(NOTICE, "Loaded: %s", mod_info->name);
 	}
+
+	late_stage_args();
 
 	/* Prepare to run /bin/init */
 	char * argv[] = {

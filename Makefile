@@ -73,6 +73,8 @@ EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user
 EMUARGS += $(BOOT_MODULES_X)
 EMUKVM   = -enable-kvm
 
+DISK_ROOT = root=/dev/hda
+
 .PHONY: all system install test
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless run-config
@@ -94,19 +96,19 @@ install: system
 
 # Various different quick options
 run: system
-	${EMU} ${EMUARGS} -append "vid=qemu hdd"
+	${EMU} ${EMUARGS} -append "vid=qemu $(DISK_ROOT)"
 kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu hdd"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu $(DISK_ROOT)"
 vga: system
 	${EMU} ${EMUARGS} -append "vgaterm hdd"
 vga-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vgaterm hdd"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vgaterm $(DISK_ROOT)"
 term: system
-	${EMU} ${EMUARGS} -append "vid=qemu single hdd"
+	${EMU} ${EMUARGS} -append "vid=qemu single $(DISK_ROOT)"
 term-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single hdd"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single $(DISK_ROOT)"
 headless: system
-	${EMU} ${EMUARGS} -display none -append "vgaterm hdd"
+	${EMU} ${EMUARGS} -display none -append "vgaterm $(DISK_ROOT)"
 run-config: system
 	util/config-parser ${EMU}
 

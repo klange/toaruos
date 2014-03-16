@@ -684,19 +684,12 @@ static int system_function(int fn, char ** args) {
 					close_fs(file);
 					debug_print(WARNING, "Finished reading file, going to write it now.\n");
 
-#define DISK_PORT 0x1F0
-					size_t i = 0;
-					for (i = 0; i < length; i += 512) {
-						debug_print(WARNING, "... %d / %d", i, length);
-						ide_write_sector_retry(DISK_PORT, 1, i / 512, (uint8_t *)(&buffer[i]));
+					fs_node_t * f = kopen("/dev/sdb", 0);
+					if (!f) {
+						return 1;
 					}
-					if (i < length) {
-						uint8_t * tmp = malloc(512);
-						memset(tmp, 0x00, 512);
-						memcpy(tmp, &buffer[i], length % 512);
-						ide_write_sector_retry(DISK_PORT, 1, i / 512, tmp);
-						free(tmp);
-					}
+
+					write_fs(f, 0, length, buffer);
 
 					free(buffer);
 					return 0;

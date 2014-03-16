@@ -7,11 +7,9 @@
 
 mbr_t mbr;
 
-int read_partition_map(int device) {
+int read_partition_map(fs_node_t * device) {
 
-	ide_init(DISK_PORT);
-
-	ide_read_sector(DISK_PORT, 0, 0, (uint8_t *)&mbr);
+	read_fs(device, 0, SECTORSIZE, (uint8_t *)&mbr);
 
 	if (mbr.signature[0] == 0x55 && mbr.signature[1] == 0xAA) {
 		debug_print(INFO, "Partition table found.");

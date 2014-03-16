@@ -19,6 +19,9 @@ ext2_superblock_t *ext2_disk_superblock    = NULL;
 ext2_bgdescriptor_t *ext2_disk_root_block  = NULL;
 fs_node_t *ext2_root_fsnode                = NULL;
 
+/* why the hell is all of this... goddamit */
+fs_node_t *ext2_block_device = NULL;
+
 /** Prototypes */
 uint32_t ext2_disk_node_from_file(ext2_inodetable_t *inode, ext2_dir_t *direntry, fs_node_t *fnode);
 ext2_inodetable_t *ext2_disk_inode(uint32_t inode);
@@ -32,8 +35,6 @@ uint32_t read_ext2_disk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t
 uint32_t ext2_disk_inodes_per_group = 0;
 uint32_t ext2_disk_bg_descriptors = 0;		// Total number of block groups
 
-uint32_t ext2_offset = 0;
-
 #define BGDS ext2_disk_bg_descriptors
 #define SB ext2_disk_superblock
 #define BGD ext2_disk_root_block
@@ -44,10 +45,6 @@ uint32_t ext2_offset = 0;
 #define BLOCKBYTE(n) (bg_buffer[((n) >> 3)])
 #define SETBIT(n)    (1 << (((n) % 8)))
 
-static uint32_t btos(uint32_t block) {
-	return ext2_offset + block * (BLOCKSIZE / SECTORSIZE); 
-}
-
 static uint8_t volatile lock;
 
 static uint32_t _now = 1;
@@ -57,9 +54,7 @@ static uint32_t ext2_time(void) {
 
 void ext2_flush_dirty(uint32_t ent_no) {
 	// write out to the disk
-	for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
-		ide_write_sector_retry(DISK_PORT, 0, btos(DC[ent_no].block_no) + i, (uint8_t *)((uint32_t)DC[ent_no].block + SECTORSIZE * i));
-	}
+	write_fs(ext2_block_device, (DC[ent_no].block_no) * BLOCKSIZE, BLOCKSIZE, (uint8_t *)(DC[ent_no].block));
 	DC[ent_no].dirty = 0;
 }
 
@@ -69,9 +64,7 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 
 	if (!DC) {
 		/* There is not disk cache, do a raw read */
-		for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
-			ide_read_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)buf + SECTORSIZE * i));
-		}
+		read_fs(ext2_block_device, block_no * BLOCKSIZE, BLOCKSIZE, (uint8_t *)buf);
 		spin_unlock(&lock);
 		return;
 	}
@@ -92,9 +85,7 @@ void ext2_disk_read_block(uint32_t block_no, uint8_t *buf) {
 		}
 	}
 
-	for (uint32_t i = 0; i < BLOCKSIZE / SECTORSIZE; ++i) {
-		ide_read_sector(DISK_PORT, 0, btos(block_no) + i, (uint8_t *)((uint32_t)(DC[oldest].block) + SECTORSIZE * i));
-	}
+	read_fs(ext2_block_device, block_no * BLOCKSIZE, BLOCKSIZE, (uint8_t *)DC[oldest].block);
 
 	if (DC[oldest].dirty) {
 		ext2_flush_dirty(oldest);
@@ -1020,10 +1011,10 @@ void ext2_disk_sync(void) {
 	spin_unlock(&lock);
 }
 
-void ext2_disk_mount(uint32_t offset_sector, uint32_t max_sector) {
-	debug_print(NOTICE, "Mounting EXT2 partition between sectors [%d:%d].", offset_sector, max_sector);
+void ext2_disk_mount(fs_node_t * block_device) {
+	debug_print(NOTICE, "Mounting ext2 to block device: %s", block_device->name);
 
-	ext2_offset = offset_sector;
+	ext2_block_device = block_device;
 
 	BLOCKSIZE = 1024;
 

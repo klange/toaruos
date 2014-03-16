@@ -171,8 +171,6 @@ typedef struct {
 	uint8_t *block;
 } ext2_disk_cache_entry_t;
 
-void ext2_ramdisk_mount(uint32_t offset);
-
 typedef int (*ext2_block_io_t) (void *, uint32_t, uint8_t *);
 
 #endif
