@@ -48,13 +48,27 @@ GENEXT = genext2fs
 DISK_SIZE = `util/disk_size.sh`
 DD = dd conv=notrunc
 
+# Specify which modules should be included on startup.
+# There are a few modules that are kinda required for a working system
+# such as all of the dependencies needed to mount the root partition.
+# We can also include things like the debug shell...
+BOOT_MODULES := procfs ata debug_shell
+
+# This is kinda silly. We're going to form an -initrd argument..
+# which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
+# for each of the modules listed above in BOOT_MODULES
+COMMA := ,
+EMPTY := 
+SPACE := $(EMPTY) $(EMPTY)
+BOOT_MODULES_X = -initrd "$(subst $(SPACE),$(COMMA),$(foreach mod,$(BOOT_MODULES),hdd/mod/$(mod).ko))"
+
 # Emulator settings
 EMU = qemu-system-i386
 EMUARGS  = -sdl -kernel toaruos-kernel -m 1024
 EMUARGS += -serial stdio -vga std
 EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
 EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user
-EMUARGS += -initrd hdd/mod/debug_shell.ko
+EMUARGS += $(BOOT_MODULES_X)
 EMUKVM   = -enable-kvm
 
 .PHONY: all system install test
@@ -90,7 +104,7 @@ term: system
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single hdd"
 debug: system
-	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu hdd"
+	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu"
 debug-term: system
 	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu single hdd"
 debug-vga: system

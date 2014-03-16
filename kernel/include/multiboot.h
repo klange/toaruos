@@ -72,6 +72,13 @@ typedef struct {
 	uint16_t reserved2;
 } __attribute__ ((packed)) vbe_info_t;
 
+typedef struct {
+	uintptr_t mod_start;
+	uintptr_t mod_end;
+	uintptr_t cmdline;
+	uintptr_t reserved;
+} __attribute__ ((packed)) mboot_mod_t;
+
 struct multiboot *copy_multiboot(struct multiboot *mboot_ptr);
 void dump_multiboot(struct multiboot *mboot_ptr);
 char * ramdisk;

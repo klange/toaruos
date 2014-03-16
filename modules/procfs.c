@@ -3,6 +3,7 @@
 #include <fs.h>
 #include <version.h>
 #include <process.h>
+#include <module.h>
 
 #define PROCFS_STANDARD_ENTRIES 6
 #define PROCFS_PROCDIR_ENTRIES  2
@@ -31,7 +32,7 @@ static fs_node_t * procfs_generic_create(char * name, read_type_t read_func) {
 	return fnode;
 }
 
-uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	process_t * proc = process_from_pid(node->inode);
 
@@ -74,7 +75,7 @@ uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 	return size;
 }
 
-uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[2048];
 	process_t * proc = process_from_pid(node->inode);
 
@@ -149,11 +150,11 @@ static fs_node_t * procfs_procdir_create(pid_t pid) {
 	return fnode;
 }
 
-uint32_t cpuinfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t cpuinfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	return 0;
 }
 
-uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	unsigned int total = memory_total();
 	unsigned int free  = total - memory_use();
@@ -167,7 +168,7 @@ uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	return size;
 }
 
-uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	sprintf(buf, "%d.%2d\n", timer_ticks, timer_subticks);
 
@@ -179,7 +180,7 @@ uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
 	return size;
 }
 
-uint32_t cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	extern char * cmdline;
 	sprintf(buf, "%s\n", cmdline ? cmdline : "");
@@ -192,7 +193,7 @@ uint32_t cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	return size;
 }
 
-uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	char version_number[512];
 	sprintf(version_number, __kernel_version_format,
@@ -216,7 +217,7 @@ uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	return size;
 }
 
-uint32_t compiler_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t compiler_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	sprintf(buf, "%s\n", __kernel_compiler_version);
 
@@ -298,7 +299,7 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 }
 
 
-fs_node_t * procfs_create(void) {
+static fs_node_t * procfs_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
@@ -315,3 +316,17 @@ fs_node_t * procfs_create(void) {
 	fnode->finddir = finddir_procfs_root;
 	return fnode;
 }
+
+int procfs_initialize(void) {
+	/* TODO Move this to some sort of config */
+	vfs_mount("/proc", procfs_create());
+
+	debug_print_vfs_tree();
+	return 0;
+}
+
+int procfs_finalize(void) {
+	return 0;
+}
+
+MODULE_DEF(procfs, procfs_initialize, procfs_finalize);

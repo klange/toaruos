@@ -57,7 +57,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	extern char * cmdline;
 
 	uint32_t mboot_mods_count = 0;
-	uint32_t ** mboot_mods = NULL;
+	mboot_mod_t * mboot_mods = NULL;
 
 	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
 		/* Multiboot (GRUB, native QEMU, PXE) */
@@ -77,14 +77,15 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 			if (mboot_ptr->mods_count > 0) {
 				uintptr_t last_mod = (uintptr_t)&end;
 				uint32_t i;
-				mboot_mods = (uint32_t**)mboot_ptr->mods_addr;
+				mboot_mods = (mboot_mod_t *)mboot_ptr->mods_addr;
 				mboot_mods_count = mboot_ptr->mods_count;
 				for (i = 0; i < mboot_ptr->mods_count; ++i ) {
-					uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr + sizeof(uint32_t*)*2 * i);
-					uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr + sizeof(uint32_t*)*2 * i + sizeof(uint32_t*));
-					if ((uintptr_t)(mboot_ptr->mods_addr + sizeof(uint32_t*) * 2 * i + sizeof(uint32_t*) * 2) > last_mod) {
-						/* Just in case some silly person put this in *front*... */
-						last_mod = (uintptr_t)(mboot_ptr->mods_addr + sizeof(uint32_t*) * 2 * i + sizeof(uint32_t*) * 2);
+					mboot_mod_t * mod = &mboot_mods[i];
+					uint32_t module_start = mod->mod_start;
+					uint32_t module_end   = mod->mod_end;
+					if ((uintptr_t)mod + sizeof(mboot_mod_t) > last_mod) {
+						/* Just in case some silly person put this *behind* the modules... */
+						last_mod = (uintptr_t)mod + sizeof(mboot_mod_t);
 					}
 					debug_print(NOTICE, "Module %d is at 0x%x:0x%x", i, module_start, module_end);
 					if (last_mod < module_end) {
@@ -135,6 +136,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	/* This stuff NEEDS to become modules... */
 	serial_mount_devices();
+
 	vfs_mount("/dev/null", null_device_create());
 	vfs_mount("/dev/zero", zero_device_create());
 	vfs_mount("/dev/hello", hello_device_create());
@@ -142,24 +144,22 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	vfs_mount("/tmp", tmpfs_create());
 	vfs_mount("/home/local", tmpfs_create());
 
-	vfs_mount("/proc", procfs_create());
-
 	debug_print_vfs_tree();
 
 	legacy_parse_args();
 
 	if (!fs_root) {
-		debug_print(CRITICAL, "There is no file system mounted.");
-		debug_print(CRITICAL, "You have done something wrong;");
-		debug_print(CRITICAL, "Did you forget to mount a hard disk?");
-		while (1) {
-		}
+		vfs_mount("/", tmpfs_create());
 	}
 
 	/* Load modules from bootloader */
-	for (uint32_t i = 0; i < mboot_mods_count; ++i ) {
-		uint32_t module_start = *((uint32_t*)mboot_mods + sizeof(uint32_t*)*2 * i);
-		module_load_direct((void *)(module_start));
+	debug_print(NOTICE, "%d modules to load", mboot_mods_count);
+	for (unsigned int i = 0; i < mboot_ptr->mods_count; ++i ) {
+		mboot_mod_t * mod = &mboot_mods[i];
+		uint32_t module_start = mod->mod_start;
+		debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start);
+		module_defs * mod_info = (module_defs *)module_load_direct((void *)(module_start));
+		debug_print(NOTICE, "Loaded: %s", mod_info->name);
 	}
 
 	/* Prepare to run /bin/init */
