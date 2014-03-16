@@ -1704,9 +1704,6 @@ int main(int argc, char ** argv) {
 		unsigned char buf[1024];
 		while (!exit_application) {
 			int r = read(fd_master, buf, 1024);
-			char exit_message[] = "FOO\n";
-			write(fd_slave, exit_message, sizeof(exit_message));
-
 			for (uint32_t i = 0; i < r; ++i) {
 				ansi_put(buf[i]);
 			}
