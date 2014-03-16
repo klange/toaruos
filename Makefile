@@ -8,7 +8,7 @@ endif
 NM = i686-pc-toaru-nm
 
 # Build flags
-CFLAGS  = -g -O2 -std=c99
+CFLAGS  = -O2 -std=c99
 CFLAGS += -finline-functions -ffreestanding
 CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
 CFLAGS += -Wstrict-prototypes -pedantic -fno-omit-frame-pointer
@@ -152,7 +152,7 @@ hdd/mod/%.ko: modules/%.c ${HEADERS}
 
 %.o: %.c ${HEADERS}
 	@${BEG} "CC" "$<"
-	@${CC} ${CFLAGS} -I./kernel/include -c -o $@ $< ${ERRORS}
+	@${CC} ${CFLAGS} -g -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
 ####################
