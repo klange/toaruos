@@ -130,7 +130,6 @@ extern void mouse_install(void);
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
 extern int    kprintf(const char *fmt, ...);
 
-extern short  kprint_to_serial;
 extern short  kprint_to_screen;
 extern void * kprint_to_file;
 
@@ -172,17 +171,6 @@ void * __attribute__ ((malloc)) realloc(void *ptr, size_t size);
 void * __attribute__ ((malloc)) calloc(size_t nmemb, size_t size);
 void * __attribute__ ((malloc)) valloc(size_t size);
 void free(void *ptr);
-
-/* shell */
-extern void start_shell(void);
-
-/* Serial */
-extern void serial_install(void);
-extern int serial_rcvd(int device);
-extern char serial_recv(int device);
-extern char serial_recv_async(int device);
-extern void serial_send(int device, char out);
-extern void serial_string(char * out);
 
 /* Tasks */
 extern uintptr_t read_eip(void);

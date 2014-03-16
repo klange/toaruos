@@ -8,6 +8,7 @@
 #include <fs.h>
 #include <pipe.h>
 #include <logging.h>
+#include <module.h>
 
 #define SERIAL_PORT_A 0x3F8
 #define SERIAL_PORT_B 0x2F8
@@ -17,11 +18,12 @@
 #define SERIAL_IRQ_AC 4
 #define SERIAL_IRQ_BD 3
 
+static char serial_recv(int device);
 
-fs_node_t * _serial_port_a = NULL;
-fs_node_t * _serial_port_b = NULL;
-fs_node_t * _serial_port_c = NULL;
-fs_node_t * _serial_port_d = NULL;
+static fs_node_t * _serial_port_a = NULL;
+static fs_node_t * _serial_port_b = NULL;
+static fs_node_t * _serial_port_c = NULL;
+static fs_node_t * _serial_port_d = NULL;
 
 static uint8_t convert(uint8_t in) {
 	switch (in) {
@@ -34,7 +36,7 @@ static uint8_t convert(uint8_t in) {
 	}
 }
 
-fs_node_t ** pipe_for_port(int port) {
+static fs_node_t ** pipe_for_port(int port) {
 	switch (port) {
 		case SERIAL_PORT_A: return &_serial_port_a;
 		case SERIAL_PORT_B: return &_serial_port_b;
@@ -44,7 +46,7 @@ fs_node_t ** pipe_for_port(int port) {
 	return NULL;
 }
 
-void serial_handler_ac(struct regs *r) {
+static void serial_handler_ac(struct regs *r) {
 	char serial;
 	int  port = 0;
 	if (inportb(SERIAL_PORT_A+1) & 0x01) {
@@ -58,7 +60,7 @@ void serial_handler_ac(struct regs *r) {
 	write_fs(*pipe_for_port(port), 0, 1, buf);
 }
 
-void serial_handler_bd(struct regs *r) {
+static void serial_handler_bd(struct regs *r) {
 	char serial;
 	int  port = 0;
 	debug_print(NOTICE, "Received something on secondary port");
@@ -73,7 +75,7 @@ void serial_handler_bd(struct regs *r) {
 	write_fs(*pipe_for_port(port), 0, 1, buf);
 }
 
-void serial_enable(int port) {
+static void serial_enable(int port) {
 	outportb(port + 1, 0x00); /* Disable interrupts */
 	outportb(port + 3, 0x80); /* Enable divisor mode */
 	outportb(port + 0, 0x01); /* Div Low:  01 Set the port to 115200 bps */
@@ -84,44 +86,40 @@ void serial_enable(int port) {
 	outportb(port + 1, 0x01); /* Enable interrupts */
 }
 
-int serial_rcvd(int device) {
+static int serial_rcvd(int device) {
 	return inportb(device + 5) & 1;
 }
 
-char serial_recv(int device) {
+static char serial_recv(int device) {
 	while (serial_rcvd(device) == 0) ;
 	return inportb(device);
 }
 
-char serial_recv_async(int device) {
-	return inportb(device);
-}
-
-int serial_transmit_empty(int device) {
+static int serial_transmit_empty(int device) {
 	return inportb(device + 5) & 0x20;
 }
 
-void serial_send(int device, char out) {
+static void serial_send(int device, char out) {
 	while (serial_transmit_empty(device) == 0);
 	outportb(device, out);
 }
 
-void serial_string(char * out) {
+static void serial_string(char * out) {
 	for (uint32_t i = 0; i < strlen(out); ++i) {
 		serial_send(SERIAL_PORT_A, out[i]);
 	}
 }
 
-uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-void open_serial(fs_node_t *node, unsigned int flags);
-void close_serial(fs_node_t *node);
+static uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
+static uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
+static void open_serial(fs_node_t *node, unsigned int flags);
+static void close_serial(fs_node_t *node);
 
-uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	return read_fs(*pipe_for_port((int)node->device), offset, size, buffer);
 }
 
-uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	uint32_t sent = 0;
 	while (sent < size) {
 		serial_send((int)node->device, buffer[sent]);
@@ -130,15 +128,15 @@ uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *
 	return size;
 }
 
-void open_serial(fs_node_t * node, unsigned int flags) {
+static void open_serial(fs_node_t * node, unsigned int flags) {
 	return;
 }
 
-void close_serial(fs_node_t * node) {
+static void close_serial(fs_node_t * node) {
 	return;
 }
 
-fs_node_t * serial_device_create(int device) {
+static fs_node_t * serial_device_create(int device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->device= (void *)device;
@@ -171,7 +169,7 @@ fs_node_t * serial_device_create(int device) {
 	return fnode;
 }
 
-void serial_mount_devices(void) {
+static int serial_mount_devices(void) {
 
 	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A);
 	vfs_mount("/dev/ttyS0", ttyS0);
@@ -184,4 +182,12 @@ void serial_mount_devices(void) {
 
 	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D);
 	vfs_mount("/dev/ttyS3", ttyS3);
+
+	return 0;
 }
+
+static int serial_finalize(void) {
+	return 0;
+}
+
+MODULE_DEF(serial, serial_mount_devices, serial_finalize);

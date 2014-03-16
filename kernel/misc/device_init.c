@@ -11,12 +11,6 @@ int read_partition_map(int device);
 void legacy_parse_args(void) {
 	char * c;
 
-	if ((c = args_value("logtoserial"))) {
-		kprint_to_serial = 1;
-		debug_level = atoi(c);
-		debug_print(NOTICE, "Kernel serial logging enabled at level %d.", debug_level);
-	}
-
 	if ((c = args_value("kernel-term"))) {
 		kprint_to_screen = 1;
 		debug_level = atoi(c);

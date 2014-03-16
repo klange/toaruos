@@ -121,7 +121,6 @@ vasprintf(char * buf, const char *fmt, va_list args) {
 
 }
 
-short  kprint_to_serial = 0;
 short  kprint_to_screen = 0;
 void * kprint_to_file   = NULL;
 
@@ -155,10 +154,6 @@ kprintf(
 	int out = vasprintf(buf, fmt, args);
 	/* We're done with our arguments */
 	va_end(args);
-	/* Print that sucker */
-	if (kprint_to_serial) {
-		serial_string(buf);
-	}
 	if (kprint_to_screen) {
 		/*
 		 * VGA output for debugging. This is not nearly as feature-complete as the old

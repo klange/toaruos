@@ -590,10 +590,6 @@ static int mousedevice(void) {
 	return process_append_fd((process_t *)current_process, mouse_pipe);
 }
 
-static int open_serial(int device) {
-	return process_append_fd((process_t *)current_process, serial_device_create(device));
-}
-
 extern int mkdir_fs(char *name, uint16_t permission);
 
 static int sys_mkdir(char * path, uint32_t mode) {
@@ -661,14 +657,7 @@ static int system_function(int fn, char ** args) {
 				kprint_to_file = current_process->fds->entries[(int)args];
 				break;
 			case 5:
-				debug_print(INFO, "replacing process %d's file descriptors with null devices", getpid());
-				fs_node_t * nulldev = null_device_create();
-				while (current_process->fds->length < 3) {
-					process_append_fd((process_t *)current_process, nulldev);
-				}
-				current_process->fds->entries[0] = nulldev;
-				current_process->fds->entries[1] = nulldev;
-				current_process->fds->entries[2] = nulldev;
+				debug_print(ERROR, "this system function has been deprecated", getpid());
 				break;
 			case 6:
 				debug_print(WARNING, "writing contents of file %s to sdb", args[0]);
@@ -786,7 +775,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&gettid,
 	(uintptr_t)&yield,
 	(uintptr_t)&system_function,
-	(uintptr_t)&open_serial,        /* 44 */
+	(uintptr_t)NULL,                /* 44 */
 	(uintptr_t)&sleep,
 	(uintptr_t)&sleep_rel,
 	(uintptr_t)&ioctl,

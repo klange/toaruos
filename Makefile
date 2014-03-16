@@ -52,7 +52,7 @@ DD = dd conv=notrunc
 # There are a few modules that are kinda required for a working system
 # such as all of the dependencies needed to mount the root partition.
 # We can also include things like the debug shell...
-BOOT_MODULES := procfs ata debug_shell
+BOOT_MODULES := zero serial procfs ata debug_shell
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
@@ -73,8 +73,8 @@ EMUKVM   = -enable-kvm
 
 .PHONY: all system install test
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
-.PHONY: run vga term debug headless run-config
-.PHONY: kvm vga-kvm term-kvm debug-term debug-vga
+.PHONY: run vga term headless run-config
+.PHONY: kvm vga-kvm term-kvm
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY: 
@@ -103,12 +103,6 @@ term: system
 	${EMU} ${EMUARGS} -append "vid=qemu single hdd"
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single hdd"
-debug: system
-	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu hdd"
-debug-term: system
-	${EMU} ${EMUARGS} -append "logtoserial=0 vid=qemu single hdd"
-debug-vga: system
-	${EMU} ${EMUARGS} -append "logtoserial=0 vgaterm hdd"
 headless: system
 	${EMU} ${EMUARGS} -display none -append "vgaterm hdd"
 run-config: system

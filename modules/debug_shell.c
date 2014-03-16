@@ -223,16 +223,16 @@ static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
 static int shell_log(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
 		fs_printf(tty, "Log level is currently %d.\n", debug_level);
-		fs_printf(tty, "Serial logging is %s.\n", kprint_to_serial ? "enabled" : "disabled");
+		fs_printf(tty, "Serial logging is %s.\n", !!kprint_to_file ? "enabled" : "disabled");
 		fs_printf(tty, "Usage: log [on|off] [<level>]\n");
 	} else {
 		if (!strcmp(argv[1], "on")) {
-			kprint_to_serial = 1;
+			kprint_to_file = tty;
 			if (argc > 2) {
 				debug_level = atoi(argv[2]);
 			}
 		} else if (!strcmp(argv[1], "off")) {
-			kprint_to_serial = 0;
+			kprint_to_file = NULL;
 		}
 	}
 	return 0;

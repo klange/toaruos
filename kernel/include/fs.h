@@ -107,11 +107,7 @@ struct stat  {
 };
 
 extern fs_node_t *fs_root;
-extern fs_node_t * null_device_create(void);
-extern fs_node_t * zero_device_create(void);
-extern fs_node_t * serial_device_create(int device);
 extern fs_node_t * tmpfs_create(void);
-extern void serial_mount_devices(void);
 extern int openpty(int * master, int * slave, char * name, void * _ign0, void * size);
 
 extern fs_node_t * hello_device_create(void);

@@ -137,7 +137,7 @@ static void input_process(pty_t * pty, uint8_t c) {
 }
 
 int pty_ioctl(pty_t * pty, int request, void * argp) {
-	debug_print(WARNING, "Incoming IOCTL request %d", request);
+	debug_print(INFO, "Incoming IOCTL request %d", request);
 	switch (request) {
 		case IOCTLDTYPE:
 			/*

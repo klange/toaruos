@@ -134,11 +134,6 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	mouse_install();    /* Mouse driver */
 	keyboard_reset_ps2();
 
-	/* This stuff NEEDS to become modules... */
-	serial_mount_devices();
-
-	vfs_mount("/dev/null", null_device_create());
-	vfs_mount("/dev/zero", zero_device_create());
 	vfs_mount("/dev/random", random_device_create());
 	vfs_mount("/tmp", tmpfs_create());
 	vfs_mount("/home/local", tmpfs_create());
