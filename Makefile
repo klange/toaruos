@@ -101,7 +101,7 @@ run: system
 kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu $(DISK_ROOT)"
 vga: system
-	${EMU} ${EMUARGS} -append "vgaterm hdd"
+	${EMU} ${EMUARGS} -append "vgaterm $(DISK_ROOT)"
 vga-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vgaterm $(DISK_ROOT)"
 term: system
