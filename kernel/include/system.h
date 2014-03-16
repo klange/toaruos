@@ -117,15 +117,6 @@ extern unsigned long timer_ticks;
 extern unsigned char timer_subticks;
 extern void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds);
 
-/* Keyboard */
-extern void keyboard_install(void);
-extern void keyboard_reset_ps2(void);
-extern void keyboard_wait(void);
-extern void putch(unsigned char c);
-
-/* Mouse */
-extern void mouse_install(void);
-
 /* kprintf */
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
 extern int    sprintf(char *buf, const char *fmt, ...);

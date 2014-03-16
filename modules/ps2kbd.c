@@ -6,9 +6,7 @@
  * to retreive keyboard events.
  *
  * Part of the ToAruOS Kernel
- * Copyright 2011-2012 Kevin Lange
- *
- * TODO: Move this to a server
+ * Copyright 2011-2014 Kevin Lange
  */
 
 #include <system.h>
@@ -17,15 +15,34 @@
 #include <pipe.h>
 #include <process.h>
 
+#include <module.h>
+
 #define KEY_DEVICE    0x60
 #define KEY_PENDING   0x64
 
 #define KEYBOARD_NOTICES 0
 #define KEYBOARD_IRQ 1
 
-fs_node_t * keyboard_pipe;
+static fs_node_t * keyboard_pipe;
 
-void keyboard_handler(struct regs *r) {
+/*
+ * Add a character to the device buffer.
+ */
+static void putch(unsigned char c) {
+	uint8_t buf[2];
+	buf[0] = c;
+	buf[1] = '\0';
+	write_fs(keyboard_pipe, 0, 1, buf);
+}
+
+/*
+ * Wait on the keyboard.
+ */
+static void keyboard_wait(void) {
+	while(inportb(KEY_PENDING) & 2);
+}
+
+static void keyboard_handler(struct regs *r) {
 	unsigned char scancode;
 	keyboard_wait();
 	scancode = inportb(KEY_DEVICE);
@@ -38,38 +55,31 @@ void keyboard_handler(struct regs *r) {
  * Install the keyboard driver and initialize the
  * pipe device for userspace.
  */
-void keyboard_install(void) {
+static int keyboard_install(void) {
 	debug_print(NOTICE, "Initializing PS/2 keyboard driver");
 
 	/* Create a device pipe */
 	keyboard_pipe = make_pipe(128);
 	current_process->fds->entries[0] = keyboard_pipe;
 
+	vfs_mount("/dev/kbd", keyboard_pipe);
+
 	/* Install the interrupt handler */
 	irq_install_handler(KEYBOARD_IRQ, keyboard_handler);
+
+	return 0;
 }
 
-void keyboard_reset_ps2(void) {
+static void keyboard_reset_ps2(void) {
 	uint8_t tmp = inportb(0x61);
 	outportb(0x61, tmp | 0x80);
 	outportb(0x61, tmp & 0x7F);
 	inportb(KEY_DEVICE);
 }
 
-/*
- * Wait on the keyboard.
- */
-void keyboard_wait(void) {
-	while(inportb(KEY_PENDING) & 2);
+static int keyboard_uninstall(void) {
+	/* TODO */
+	return 0;
 }
 
-/*
- * Add a character to the device buffer.
- */
-void putch(unsigned char c) {
-	uint8_t buf[2];
-	buf[0] = c;
-	buf[1] = '\0';
-	write_fs(keyboard_pipe, 0, 1, buf);
-}
-
+MODULE_DEF(ps2kbd, keyboard_install, keyboard_uninstall);

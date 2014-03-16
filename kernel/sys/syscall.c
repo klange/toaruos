@@ -586,11 +586,6 @@ static int gethostname(char * buffer) {
 	return hostname_len;
 }
 
-static int mousedevice(void) {
-	extern fs_node_t * mouse_pipe;
-	return process_append_fd((process_t *)current_process, mouse_pipe);
-}
-
 extern int mkdir_fs(char *name, uint16_t permission);
 
 static int sys_mkdir(char * path, uint32_t mode) {
@@ -767,7 +762,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&clone,
 	(uintptr_t)&sethostname,
 	(uintptr_t)&gethostname,        /* 32 */
-	(uintptr_t)&mousedevice,
+	(uintptr_t)&RESERVED,
 	(uintptr_t)&sys_mkdir,
 	(uintptr_t)&shm_obtain,
 	(uintptr_t)&shm_release,        /* 36 */

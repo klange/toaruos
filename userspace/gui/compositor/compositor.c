@@ -11,6 +11,7 @@
 #include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
@@ -1527,7 +1528,7 @@ int main(int argc, char ** argv) {
 	windows_to_clean = list_create();
 
 	/* Grab the mouse */
-	int mfd = syscall_mousedevice();
+	int mfd = open("/dev/mouse", O_RDONLY);
 	pthread_t mouse_thread;
 	pthread_create(&mouse_thread, NULL, process_requests, (void *)&mfd);
 

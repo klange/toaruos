@@ -55,6 +55,7 @@ DD = dd conv=notrunc
 BOOT_MODULES := zero random
 BOOT_MODULES += procfs tmpfs ata
 BOOT_MODULES += serial ext2 debug_shell
+BOOT_MODULES += ps2mouse ps2kbd
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."

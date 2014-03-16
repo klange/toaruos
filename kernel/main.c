@@ -129,11 +129,6 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	shm_install();      /* Install shared memory */
 	modules_install();  /* Modules! */
 
-	/* This stuff can probably be made modules once we have better interfaces */
-	keyboard_install(); /* Keyboard interrupt handler */
-	mouse_install();    /* Mouse driver */
-	keyboard_reset_ps2();
-
 	debug_print_vfs_tree();
 
 	early_stage_args();
