@@ -134,17 +134,9 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	mouse_install();    /* Mouse driver */
 	keyboard_reset_ps2();
 
-	vfs_mount("/dev/random", random_device_create());
-	vfs_mount("/tmp", tmpfs_create());
-	vfs_mount("/home/local", tmpfs_create());
-
 	debug_print_vfs_tree();
 
 	legacy_parse_args();
-
-	if (!fs_root) {
-		vfs_mount("/", tmpfs_create());
-	}
 
 	/* Load modules from bootloader */
 	debug_print(NOTICE, "%d modules to load", mboot_mods_count);

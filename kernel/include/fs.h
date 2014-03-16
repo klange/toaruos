@@ -107,11 +107,7 @@ struct stat  {
 };
 
 extern fs_node_t *fs_root;
-extern fs_node_t * tmpfs_create(void);
 extern int openpty(int * master, int * slave, char * name, void * _ign0, void * size);
-
-extern fs_node_t * hello_device_create(void);
-extern fs_node_t * random_device_create(void);
 
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);

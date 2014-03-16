@@ -4,6 +4,8 @@
 #include <version.h>
 #include <process.h>
 
+#include <module.h>
+
 /* 1KB */
 #define BLOCKSIZE 1024
 
@@ -382,7 +384,7 @@ static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
 	list_insert(d->files, out);
 }
 
-fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
+static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
@@ -408,7 +410,7 @@ fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	return fnode;
 }
 
-fs_node_t * tmpfs_create(void) {
+static fs_node_t * tmpfs_create(void) {
 	tmpfs_root = tmpfs_dir_new("tmp", NULL);
 	tmpfs_root->mask = 0777;
 	tmpfs_root->uid  = 0;
@@ -416,3 +418,13 @@ fs_node_t * tmpfs_create(void) {
 
 	return tmpfs_from_dir(tmpfs_root);
 }
+
+static int tmpfs_initialize(void) {
+	vfs_mount("/tmp", tmpfs_create());
+	return 0;
+}
+static int tmpfs_finalize(void) {
+	return 0;
+}
+
+MODULE_DEF(tmpfs, tmpfs_initialize, tmpfs_finalize);

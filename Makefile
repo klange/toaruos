@@ -52,7 +52,7 @@ DD = dd conv=notrunc
 # There are a few modules that are kinda required for a working system
 # such as all of the dependencies needed to mount the root partition.
 # We can also include things like the debug shell...
-BOOT_MODULES := zero serial procfs ata debug_shell
+BOOT_MODULES := zero serial procfs ata tmpfs debug_shell random
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
