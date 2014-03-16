@@ -61,9 +61,5 @@ void early_stage_args(void) {
 }
 
 void late_stage_args(void) {
-	if (args_present("root")) {
-		debug_print(NOTICE, "Selected block device %s...", args_value("root"));
-		fs_node_t * root_block = kopen(args_value("root"), 0);
-		ext2_disk_mount(root_block);
-	}
+	/* Nothing to do here */
 }

@@ -523,15 +523,12 @@ static void inspect_memory (uintptr_t vaddr) {
 }
 */
 
-extern void ext2_disk_sync(void);
-
 static int reboot(void) {
 	debug_print(NOTICE, "[kernel] Reboot requested from process %d by user #%d", current_process->id, current_process->user);
 	if (current_process->user != USER_ROOT_UID) {
 		return -1;
 	} else {
 		debug_print(NOTICE, "[kernel] Good bye!");
-		ext2_disk_sync();
 		/* Goodbye, cruel world */
 		IRQ_OFF;
 		uint8_t out = 0x02;
@@ -653,7 +650,8 @@ static int system_function(int fn, char ** args) {
 				debug_print_process_tree();
 				return 0;
 			case 3:
-				ext2_disk_sync();
+				debug_print(ERROR, "sync is currently unimplemented");
+				//ext2_disk_sync();
 				return 0;
 			case 4:
 				/* Request kernel output to file descriptor in arg0*/

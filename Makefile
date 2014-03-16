@@ -54,7 +54,7 @@ DD = dd conv=notrunc
 # We can also include things like the debug shell...
 BOOT_MODULES := zero random
 BOOT_MODULES += procfs tmpfs ata
-BOOT_MODULES += serial debug_shell
+BOOT_MODULES += serial ext2 debug_shell
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
@@ -185,6 +185,7 @@ tags: kernel/*/*.c kernel/*.c .userspace-check
 clean-soft:
 	@${BEGRM} "RM" "Cleaning modules..."
 	@-rm -f kernel/*.o
+	@-rm -f kernel/*/*.o
 	@-rm -f ${KERNEL_OBJS}
 	@${ENDRM} "RM" "Cleaned modules."
 
