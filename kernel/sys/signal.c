@@ -33,8 +33,8 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 	kprintf("Failed to jump to signal handler!\n");
 }
 
-static uint8_t volatile lock;
-static uint8_t volatile lock_b;
+static uint8_t volatile sig_lock;
+static uint8_t volatile sig_lock_b;
 
 char isdeadly[] = {
 	0, /* 0? */
@@ -133,9 +133,9 @@ void return_from_signal_handler(void) {
 		rets_from_sig = list_create();
 	}
 
-	spin_lock(&lock);
+	spin_lock(&sig_lock);
 	list_insert(rets_from_sig, (process_t *)current_process);
-	spin_unlock(&lock);
+	spin_unlock(&sig_lock);
 
 	switch_next();
 }
@@ -143,11 +143,11 @@ void return_from_signal_handler(void) {
 void fix_signal_stacks(void) {
 	uint8_t redo_me = 0;
 	if (rets_from_sig) {
-		spin_lock(&lock_b);
+		spin_lock(&sig_lock_b);
 		while (rets_from_sig->head) {
-			spin_lock(&lock);
+			spin_lock(&sig_lock);
 			node_t * n = list_dequeue(rets_from_sig);
-			spin_unlock(&lock);
+			spin_unlock(&sig_lock);
 			if (!n) {
 				continue;
 			}
@@ -165,12 +165,12 @@ void fix_signal_stacks(void) {
 			p->signal_kstack = NULL;
 			make_process_ready(p);
 		}
-		spin_unlock(&lock_b);
+		spin_unlock(&sig_lock_b);
 	}
 	if (redo_me) {
-		spin_lock(&lock);
+		spin_lock(&sig_lock);
 		list_insert(rets_from_sig, (process_t *)current_process);
-		spin_unlock(&lock);
+		spin_unlock(&sig_lock);
 		switch_next();
 	}
 }

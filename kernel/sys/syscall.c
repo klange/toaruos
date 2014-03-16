@@ -15,6 +15,10 @@
 static char   hostname[256];
 static size_t hostname_len = 0;
 
+static int RESERVED(void) {
+	return -1;
+}
+
 /*
  * System calls themselves
  */
@@ -657,7 +661,15 @@ static int system_function(int fn, char ** args) {
 				kprint_to_file = current_process->fds->entries[(int)args];
 				break;
 			case 5:
-				debug_print(ERROR, "this system function has been deprecated", getpid());
+				validate((char *)args);
+				debug_print(NOTICE, "Replacing process %d's file descriptors with pointers to %s", (char *)args);
+				fs_node_t * repdev = kopen((char *)args, 0);
+				while (current_process->fds->length < 3) {
+					process_append_fd((process_t *)current_process, repdev);
+				}
+				current_process->fds->entries[0] = repdev;
+				current_process->fds->entries[1] = repdev;
+				current_process->fds->entries[2] = repdev;
 				break;
 			case 6:
 				debug_print(WARNING, "writing contents of file %s to sdb", args[0]);
@@ -775,7 +787,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&gettid,
 	(uintptr_t)&yield,
 	(uintptr_t)&system_function,
-	(uintptr_t)NULL,                /* 44 */
+	(uintptr_t)&RESERVED,           /* 44 */
 	(uintptr_t)&sleep,
 	(uintptr_t)&sleep_rel,
 	(uintptr_t)&ioctl,

@@ -133,42 +133,42 @@ static void * __attribute__ ((malloc)) klcalloc(uintptr_t nmemb, uintptr_t size)
 static void * __attribute__ ((malloc)) klvalloc(uintptr_t size);
 static void klfree(void * ptr);
 
-static uint8_t volatile lock = 0;
+static uint8_t volatile mem_lock = 0;
 
 void * __attribute__ ((malloc)) malloc(uintptr_t size) {
-	spin_lock(&lock);
+	spin_lock(&mem_lock);
 	void * ret = klmalloc(size);
-	spin_unlock(&lock);
+	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
-	spin_lock(&lock);
+	spin_lock(&mem_lock);
 	void * ret = klrealloc(ptr, size);
-	spin_unlock(&lock);
+	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) calloc(uintptr_t nmemb, uintptr_t size) {
-	spin_lock(&lock);
+	spin_lock(&mem_lock);
 	void * ret = klcalloc(nmemb, size);
-	spin_unlock(&lock);
+	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) valloc(uintptr_t size) {
-	spin_lock(&lock);
+	spin_lock(&mem_lock);
 	void * ret = klvalloc(size);
-	spin_unlock(&lock);
+	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void free(void * ptr) {
-	spin_lock(&lock);
+	spin_lock(&mem_lock);
 	if ((uintptr_t)ptr > placement_pointer) {
 		klfree(ptr);
 	}
-	spin_unlock(&lock);
+	spin_unlock(&mem_lock);
 }
 
 

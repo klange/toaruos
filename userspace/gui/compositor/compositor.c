@@ -1540,7 +1540,8 @@ int main(int argc, char ** argv) {
 	setenv("DISPLAY", WINS_SERVER_IDENTIFIER, 1);
 
 	if (!fork()) {
-		syscall_system_function(5,0);
+		char * foo = "/dev/null";
+		syscall_system_function(5,(char **)foo);
 		if (argc < 2) {
 			char * args[] = {"/bin/glogin", NULL};
 			execvp(args[0], args);

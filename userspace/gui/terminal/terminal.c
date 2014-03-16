@@ -40,14 +40,6 @@
 #include "terminal-palette.h"
 #include "terminal-font.h"
 
-/*
- * If you're working on updating the terminal's handling of escapes,
- * switch this option to 1 to have it print an escaped bit of output
- * to the serial line, so you can examine exactly which codes were
- * processed.
- */
-#define DEBUG_TERMINAL_WITH_SERIAL 0
-
 #define USE_BELL 0
 
 static int volatile lock = 0;
@@ -1516,23 +1508,6 @@ void reinit(int send_sig) {
 	}
 }
 
-#if DEBUG_TERMINAL_WITH_SERIAL
-DEFN_SYSCALL1(serial,  44, int);
-int serial_fd;
-void serial_put(uint8_t c) {
-	if (c == '\033') {
-		char out[3] = {'\\', 'E', 0};
-		write(serial_fd, out, 2);
-	} else if (c < 32) {
-		char out[5] = {'\\', '0' + ((c / 8) / 8) % 8, '0' + (c / 8) % 8, '0' + c % 8, 0};
-		write(serial_fd, out, 4);
-	} else {
-		char out[2] = {c, 0};
-		write(serial_fd, out, 1);
-	}
-}
-#endif
-
 void * handle_incoming(void * garbage) {
 	while (!exit_application) {
 		w_keyboard_t * kbd = poll_keyboard();
@@ -1618,10 +1593,6 @@ int main(int argc, char ** argv) {
 				break;
 		}
 	}
-
-#if DEBUG_TERMINAL_WITH_SERIAL
-	serial_fd = syscall_serial(0x3F8);
-#endif
 
 	putenv("TERM=toaru");
 
@@ -1733,11 +1704,11 @@ int main(int argc, char ** argv) {
 		unsigned char buf[1024];
 		while (!exit_application) {
 			int r = read(fd_master, buf, 1024);
+			char exit_message[] = "FOO\n";
+			write(fd_slave, exit_message, sizeof(exit_message));
+
 			for (uint32_t i = 0; i < r; ++i) {
 				ansi_put(buf[i]);
-#if DEBUG_TERMINAL_WITH_SERIAL
-				serial_put(buf[i]);
-#endif
 			}
 		}
 
