@@ -145,6 +145,9 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
 	}
 
+	/* Map /dev to a device mapper */
+	map_vfs_directory("/dev");
+
 	late_stage_args();
 
 	/* Prepare to run /bin/init */

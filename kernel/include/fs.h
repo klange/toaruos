@@ -106,6 +106,11 @@ struct stat  {
 	uint32_t  __unused3;
 };
 
+struct vfs_entry {
+	char * name;
+	fs_node_t * file;
+};
+
 extern fs_node_t *fs_root;
 extern int openpty(int * master, int * slave, char * name, void * _ign0, void * size);
 
@@ -125,9 +130,11 @@ int chmod_fs(fs_node_t *node, int mode);
 int unlink_fs(char * name);
 
 void vfs_install(void);
-int vfs_mount(char * path, fs_node_t * local_root);
+void * vfs_mount(char * path, fs_node_t * local_root);
 
 /* Debug purposes only, please */
 void debug_print_vfs_tree(void);
+
+void map_vfs_directory(char *);
 
 #endif

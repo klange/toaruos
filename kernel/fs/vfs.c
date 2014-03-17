@@ -12,6 +12,51 @@
 tree_t    * fs_tree = NULL; /* File system mountpoint tree */
 fs_node_t * fs_root = NULL; /* Pointer to the root mount fs_node (must be some form of filesystem, even ramdisk) */
 
+
+static struct dirent * readdir_mapper(fs_node_t *node, uint32_t index) {
+	tree_node_t * d = (tree_node_t *)node->device;
+
+	if (index == 0) {
+		struct dirent * dir = malloc(sizeof(struct dirent));
+		strcpy(dir->name, ".");
+		dir->ino = 0;
+		return dir;
+	} else if (index == 1) {
+		struct dirent * dir = malloc(sizeof(struct dirent));
+		strcpy(dir->name, "..");
+		dir->ino = 1;
+		return dir;
+	}
+
+	index -= 2;
+	unsigned int i = 0;
+	foreach(child, d->children) {
+		if (i == index) {
+			/* Recursively print the children */
+			tree_node_t * tchild = (tree_node_t *)child->value;
+			struct vfs_entry * n = (struct vfs_entry *)tchild->value;
+			struct dirent * dir = malloc(sizeof(struct dirent));
+
+			memcpy(&dir->name, n->name, min(256, strlen(n->name)+1));
+			dir->ino = i;
+			return dir;
+		}
+		++i;
+	}
+
+	return NULL;
+}
+
+static fs_node_t * vfs_mapper(void) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	fnode->mask = 0666;
+	fnode->flags   = FS_DIRECTORY;
+	fnode->readdir = readdir_mapper;
+	return fnode;
+}
+
+
 /**
  * read_fs: Read a file system node based on its underlying type.
  *
@@ -377,11 +422,6 @@ char *canonicalize_path(char *cwd, char *input) {
 	return output;
 }
 
-struct vfs_entry {
-	char * name;
-	fs_node_t * file; /* Or null */
-};
-
 void vfs_install(void) {
 	/* Initialize the mountpoint tree */
 	fs_tree = tree_create();
@@ -405,17 +445,17 @@ void vfs_install(void) {
  *
  * Paths here must be absolute.
  */
-int vfs_mount(char * path, fs_node_t * local_root) {
+void * vfs_mount(char * path, fs_node_t * local_root) {
 	if (!fs_tree) {
 		debug_print(ERROR, "VFS hasn't been initialized, you can't mount things yet!");
-		return 1;
+		return NULL;
 	}
 	if (!path || path[0] != '/') {
 		debug_print(ERROR, "Path must be absolute for mountpoint.");
-		return 2;
+		return NULL;
 	}
 
-	int ret_val = 0;
+	tree_node_t * ret_val = NULL;
 
 	char * p = strdup(path);
 	char * i = p;
@@ -441,7 +481,7 @@ int vfs_mount(char * path, fs_node_t * local_root) {
 		struct vfs_entry * root = (struct vfs_entry *)root_node->value;
 		if (root->file) {
 			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
-			ret_val = 3;
+			ret_val = root_node;
 			goto _vfs_cleanup;
 		}
 		root->file = local_root;
@@ -462,6 +502,7 @@ int vfs_mount(char * path, fs_node_t * local_root) {
 				if (!strcmp(ent->name, at)) {
 					found = 1;
 					node = tchild;
+					ret_val = node;
 					break;
 				}
 			}
@@ -477,7 +518,7 @@ int vfs_mount(char * path, fs_node_t * local_root) {
 		struct vfs_entry * ent = (struct vfs_entry *)node->value;
 		if (ent->file) {
 			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
-			ret_val = 3;
+			ret_val = node;
 			goto _vfs_cleanup;
 		}
 		ent->file = local_root;
@@ -487,6 +528,14 @@ _vfs_cleanup:
 	free(p);
 	return ret_val;
 }
+
+void map_vfs_directory(char * c) {
+	fs_node_t * f = vfs_mapper();
+	struct vfs_entry * e = vfs_mount(c, f);
+	strcpy(f->name, e->name);
+	f->device = e;
+}
+
 
 void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
 	/* End recursion on a blank entry */
