@@ -4,10 +4,6 @@
 #include <tokenize.h>
 #include <fs.h>
 
-/* XXX: This should be moved */
-void ext2_disk_mount(fs_node_t *);
-int read_partition_map(fs_node_t *);
-
 void early_stage_args(void) {
 	char * c;
 
@@ -54,10 +50,6 @@ void early_stage_args(void) {
 		}
 	}
 
-	if (args_present("read-mbr")) {
-		fs_node_t * f = kopen(args_value("root"), 0);
-		read_partition_map(f);
-	}
 }
 
 void late_stage_args(void) {

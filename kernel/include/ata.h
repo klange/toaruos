@@ -138,7 +138,6 @@ typedef struct {
 	partition_t partitions[4];
 	uint8_t     signature[2];
 } __attribute__((packed)) mbr_t;
-mbr_t mbr;
 
 
 #endif

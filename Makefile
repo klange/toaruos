@@ -52,9 +52,11 @@ DD = dd conv=notrunc
 # There are a few modules that are kinda required for a working system
 # such as all of the dependencies needed to mount the root partition.
 # We can also include things like the debug shell...
-BOOT_MODULES := zero random
+BOOT_MODULES := zero random serial
 BOOT_MODULES += procfs tmpfs ata
-BOOT_MODULES += serial ext2 debug_shell
+#BOOT_MODULES += dospart
+BOOT_MODULES += ext2
+BOOT_MODULES += debug_shell
 BOOT_MODULES += ps2mouse ps2kbd
 
 # This is kinda silly. We're going to form an -initrd argument..
