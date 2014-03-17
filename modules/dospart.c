@@ -105,11 +105,6 @@ static int read_partition_map(char * name) {
 }
 
 static int dospart_initialize(void) {
-	kprint_to_file = kopen("/dev/ttyS0",0);
-	debug_level = 0;
-
-	debug_print(WARNING, "Hello world!");
-
 	for (char l = 'a'; l < 'z'; ++l) {
 		char name[64];
 		sprintf(name, "/dev/hd%c", l);
