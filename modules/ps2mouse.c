@@ -137,6 +137,8 @@ static int mouse_install(void) {
 	outportb(0x61, tmp & 0x7F);
 	inportb(MOUSE_PORT);
 
+	mouse_pipe->flags = FS_CHARDEVICE;
+
 	vfs_mount("/dev/mouse", mouse_pipe);
 	return 0;
 }
