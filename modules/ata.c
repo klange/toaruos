@@ -11,7 +11,6 @@
 
 /* TODO: Move this to mod/ata.h */
 #include <ata.h>
-#include <fs.h>
 
 static char ata_drive_char = 'a';
 
@@ -26,6 +25,7 @@ struct ata_device {
 #define ATA_SECTOR_SIZE 512
 
 static void ata_device_read_sector(struct ata_device * dev, uint32_t lba, uint8_t * buf);
+static void ata_device_write_sector_retry(struct ata_device * dev, uint32_t lba, uint8_t * buf);
 static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 static void     open_ata(fs_node_t *node, unsigned int flags);
@@ -62,7 +62,7 @@ static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 		start_block++;
 	}
 
-	if ((offset + size)  % ATA_SECTOR_SIZE) {
+	if ((offset + size)  % ATA_SECTOR_SIZE && start_block < end_block) {
 		unsigned int postfix_size = (offset + size) % ATA_SECTOR_SIZE;
 		char * tmp = malloc(ATA_SECTOR_SIZE);
 		ata_device_read_sector(dev, end_block, (uint8_t *)tmp);
@@ -84,6 +84,60 @@ static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 }
 
 static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	struct ata_device * dev = (struct ata_device *)node->device;
+
+	unsigned int start_block = offset / ATA_SECTOR_SIZE;
+	unsigned int end_block = (offset + size - 1) / ATA_SECTOR_SIZE;
+
+	unsigned int x_offset = 0;
+
+	if (offset > dev->identity.sectors_48 * ATA_SECTOR_SIZE) {
+		return 0;
+	}
+
+	if (offset + size > dev->identity.sectors_48 * ATA_SECTOR_SIZE) {
+		unsigned int i = dev->identity.sectors_48 * ATA_SECTOR_SIZE - offset;
+		size = i;
+	}
+
+	if (offset % ATA_SECTOR_SIZE) {
+		unsigned int prefix_size = (ATA_SECTOR_SIZE - (offset % ATA_SECTOR_SIZE));
+
+		char * tmp = malloc(ATA_SECTOR_SIZE);
+		ata_device_read_sector(dev, start_block, (uint8_t *)tmp);
+
+		debug_print(NOTICE, "Writing first block");
+
+		memcpy((void *)((uintptr_t)tmp + (offset % ATA_SECTOR_SIZE)), buffer, prefix_size);
+		ata_device_write_sector_retry(dev, start_block, (uint8_t *)tmp);
+
+		free(tmp);
+		x_offset += prefix_size;
+		start_block++;
+	}
+
+	if ((offset + size)  % ATA_SECTOR_SIZE && start_block < end_block) {
+		unsigned int postfix_size = (offset + size) % ATA_SECTOR_SIZE;
+
+		char * tmp = malloc(ATA_SECTOR_SIZE);
+		ata_device_read_sector(dev, end_block, (uint8_t *)tmp);
+
+		debug_print(NOTICE, "Writing last block");
+
+		memcpy(tmp, (void *)((uintptr_t)buffer + size - postfix_size), postfix_size);
+
+		ata_device_write_sector_retry(dev, end_block, (uint8_t *)tmp);
+
+		free(tmp);
+		end_block--;
+	}
+
+	while (start_block <= end_block) {
+		ata_device_write_sector_retry(dev, start_block, (uint8_t *)((uintptr_t)buffer + x_offset));
+		x_offset += ATA_SECTOR_SIZE;
+		start_block++;
+	}
+
 	return size;
 }
 
@@ -245,6 +299,52 @@ try_again:
 	int size = 256;
 	inportsm(bus,buf,size);
 	ata_wait(dev, 0);
+}
+
+static void ata_device_write_sector(struct ata_device * dev, uint32_t lba, uint8_t * buf) {
+	uint16_t bus = dev->io_base;
+	uint8_t slave = dev->slave;
+
+	outportb(bus + ATA_REG_CONTROL, 0x02);
+
+	ata_wait(dev, 0);
+	outportb(bus + ATA_REG_HDDEVSEL, 0xe0 | slave << 4 | (lba & 0x0f000000) >> 24);
+	ata_wait(dev, 0);
+
+	outportb(bus + ATA_REG_FEATURES, 0x00);
+	outportb(bus + ATA_REG_SECCOUNT0, 0x01);
+	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
+	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
+	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
+	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
+	ata_wait(dev, 0);
+	int size = ATA_SECTOR_SIZE / 2;
+	outportsm(bus,buf,size);
+	outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
+	ata_wait(dev, 0);
+}
+
+static int buffer_compare(uint32_t * ptr1, uint32_t * ptr2, size_t size) {
+	assert(!(size % 4));
+	size_t i = 0;
+	while (i < size) {
+		if (*ptr1 != *ptr2) return 1;
+		ptr1++;
+		ptr2++;
+		i += sizeof(uint32_t);
+	}
+	return 0;
+}
+
+static void ata_device_write_sector_retry(struct ata_device * dev, uint32_t lba, uint8_t * buf) {
+	uint8_t * read_buf = malloc(ATA_SECTOR_SIZE);
+	IRQ_OFF;
+	do {
+		ata_device_write_sector(dev, lba, buf);
+		ata_device_read_sector(dev, lba, read_buf);
+	} while (buffer_compare((uint32_t *)buf, (uint32_t *)read_buf, ATA_SECTOR_SIZE));
+	IRQ_RES;
+	free(read_buf);
 }
 
 static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
