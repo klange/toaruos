@@ -169,7 +169,11 @@ hdd/mod/%.ko: modules/%.c ${HEADERS}
 toaruos-disk.img: .userspace-check ${MODULES}
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
-	@${GENEXT} -B 4096 -d hdd -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
+#	@${GENEXT} -B 4096 -d hdd -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
+	# DD is a much more powerful tool, and in combination with mkfs they use way less
+	# resources.
+	@dd if=/dev/zero of=toaruos-disk.img bs=256M count=4
+	@mkfs.ext2 -jFv toaruos-disk.img
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 
