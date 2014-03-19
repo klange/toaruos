@@ -17,6 +17,8 @@
 
 #include <mod/shell.h>
 
+#define DIVINE_SIZE 1
+
 /*
  * This is basically the same as a userspace buffered/unbuffered
  * termio call. These are the same sorts of things I would use in
@@ -875,7 +877,12 @@ static void debug_shell_run(void * data, char * name) {
 
 	/* Attempt to divine the terminal size. Changing the window size after this will do bad things */
 	int width, height;
+#ifdef DIVINE_SIZE
 	divine_size(tty, &width, &height);
+#else
+	width = 80;
+	height = 24;
+#endif
 
 	size.ws_row = height;
 	size.ws_col = width;

@@ -19,6 +19,20 @@ typedef struct {
 extern char kernel_symbols_start[];
 extern char kernel_symbols_end[];
 
+int module_quickcheck(void * blob) {
+
+	Elf32_Header * target = (Elf32_Header *)blob;
+
+	if (target->e_ident[0] != ELFMAG0 ||
+		target->e_ident[1] != ELFMAG1 ||
+		target->e_ident[2] != ELFMAG2 ||
+		target->e_ident[3] != ELFMAG3) {
+
+		return 0;
+	}
+
+	return 1;
+}
 
 void * module_load_direct(void * blob, size_t length) {
 	Elf32_Header * target = (Elf32_Header *)blob;
@@ -267,7 +281,7 @@ void * module_load(char * filename) {
 	void * result = module_load_direct(blob, file->length);
 
 	if (result == (void *)-1) {
-		debug_print(ERROR, "Failed to load module due to unsatisfied dependency.");
+		debug_print(ERROR, "Error loading module.");
 		free(blob);
 		result = NULL;
 	}

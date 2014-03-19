@@ -49,6 +49,8 @@
 
 uintptr_t initial_esp = 0;
 
+fs_node_t * ramdisk_mount(uintptr_t, size_t);
+
 /*
  * multiboot i386 (pc) kernel entry point
  */
@@ -140,9 +142,16 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		uint32_t module_start = mod->mod_start;
 		uint32_t module_end = mod->mod_end;
 		size_t   module_size = module_end - module_end;
-		debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start, module_end);
-		module_data_t * mod_info = (module_data_t *)module_load_direct((void *)(module_start), module_size);
-		debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
+
+		if (!module_quickcheck((void *)module_start)) {
+			debug_print(NOTICE, "Loading ramdisk: 0x%x:0x%x", module_start, module_end);
+			ramdisk_mount(module_start, module_end-module_start);
+		} else {
+
+			debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start, module_end);
+			module_data_t * mod_info = (module_data_t *)module_load_direct((void *)(module_start), module_size);
+			debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
+		}
 	}
 
 	/* Map /dev to a device mapper */

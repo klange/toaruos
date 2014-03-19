@@ -18,6 +18,8 @@
 #define SERIAL_IRQ_AC 4
 #define SERIAL_IRQ_BD 3
 
+#undef FORCE_DEBUG_OUTPUT_TO_SERIAL
+
 static char serial_recv(int device);
 
 static fs_node_t * _serial_port_a = NULL;
@@ -182,6 +184,12 @@ static int serial_mount_devices(void) {
 
 	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D);
 	vfs_mount("/dev/ttyS3", ttyS3);
+
+#ifdef FORCE_DEBUG_OUTPUT_TO_SERIAL
+	kprint_to_file = ttyS0;
+	debug_level = 1;
+#endif
+
 
 	return 0;
 }

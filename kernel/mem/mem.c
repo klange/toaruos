@@ -11,7 +11,7 @@
 #include <hashmap.h>
 #include <module.h>
 
-#define KERNEL_HEAP_INIT 0x02000000
+#define KERNEL_HEAP_INIT 0x08000000
 #define KERNEL_HEAP_END  0x20000000
 
 extern void *end;

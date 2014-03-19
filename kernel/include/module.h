@@ -19,6 +19,7 @@ typedef struct {
     char * deps;
 } module_data_t;
 
+extern int module_quickcheck(void * blob);
 extern void * module_load_direct(void * blob, size_t size);
 extern void * module_load(char * filename);
 extern void module_unload(char * name);

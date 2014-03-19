@@ -16,6 +16,8 @@ kernel/symbols.s
 .passed
 .userspace-check
 .disk_size
+.ramdisk_size
+ramdisk_source/
 bootdisk.img
 bootloader/stage1.bin
 bootloader/stage2.bin
