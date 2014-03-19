@@ -16,3 +16,4 @@ static int crash_fini(void) {
 }
 
 MODULE_DEF(crash, crash_init, crash_fini);
+MODULE_DEPENDS(debugshell);

@@ -685,9 +685,20 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 		char * key = (char *)_key->value;
 		module_data_t * mod_info = hashmap_get(modules_get_list(), key);
 
-		fs_printf(tty, "%s at 0x%x {.init=0x%x, .fini=0x%x}\n",
+		fs_printf(tty, "%s at 0x%x {.init=0x%x, .fini=0x%x}",
 				mod_info->mod_info->name, mod_info->bin_data,
 				mod_info->mod_info->initialize, mod_info->mod_info->finalize);
+
+		if (mod_info->deps) {
+			unsigned int i = 0;
+			fs_printf(tty, " Deps: ");
+			while (i < mod_info->deps_length) {
+				fs_printf(tty, "%s ", &mod_info->deps[i]);
+				i += strlen(&mod_info->deps[i]) + 1;
+			}
+		}
+
+		fs_printf(tty, "\n");
 	}
 
 	return 0;
@@ -941,4 +952,4 @@ int debug_shell_stop(void) {
 }
 
 MODULE_DEF(debugshell, debug_shell_start, debug_shell_stop);
-
+MODULE_DEPENDS(serial);

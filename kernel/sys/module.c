@@ -30,12 +30,14 @@ void * module_load_direct(void * blob, size_t length) {
 
 		debug_print(ERROR, "Module is not a valid ELF object.");
 
-		goto mod_load_error;
+		goto mod_load_error_unload;
 	}
 
 	char * shstrtab = NULL;
 	char * symstrtab = NULL;
 	Elf32_Shdr * sym_shdr = NULL;
+	char * deps = NULL;
+	size_t deps_length = 0;
 
 	/* TODO: Actually load the ELF somewhere! This is moronic, you're not initializing a BSS! */
 	/*       (and maybe keep the elf header somewhere) */
@@ -52,7 +54,7 @@ void * module_load_direct(void * blob, size_t length) {
 	}
 	if (!shstrtab) {
 		debug_print(ERROR, "Could not locate module section header string table.");
-		goto mod_load_error;
+		goto mod_load_error_unload;
 	}
 
 	{
@@ -65,7 +67,28 @@ void * module_load_direct(void * blob, size_t length) {
 	}
 	if (!shstrtab) {
 		debug_print(ERROR, "Could not locate module symbol string table.");
-		goto mod_load_error;
+		goto mod_load_error_unload;
+	}
+
+	{
+		debug_print(INFO, "Checking dependencies.");
+		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+			if ((!strcmp((char *)((uintptr_t)shstrtab + shdr->sh_name), "moddeps"))) {
+				deps = (char*)((Elf32_Addr)target + shdr->sh_offset);
+				deps_length = shdr->sh_size;
+
+				unsigned int i = 0;
+				while (i < deps_length) {
+					if (strlen(&deps[i]) && !hashmap_get(modules, &deps[i])) {
+						debug_print(ERROR, "   %s - not loaded", &deps[i]);
+						goto mod_load_error_unload;
+					}
+					debug_print(INFO, "   %s", &deps[i]);
+					i += strlen(&deps[i]) + 1;
+				}
+			}
+		}
 	}
 
 	{
@@ -78,7 +101,7 @@ void * module_load_direct(void * blob, size_t length) {
 	}
 	if (!sym_shdr) {
 		debug_print(ERROR, "Could not locate section for symbol table.");
-		goto mod_load_error;
+		goto mod_load_error_unload;
 	}
 
 	{
@@ -104,7 +127,8 @@ void * module_load_direct(void * blob, size_t length) {
 					if (table->st_shndx == 0) {
 						if (!hashmap_get(symboltable, name)) {
 							debug_print(ERROR, "Unresolved symbol in module: %s", name);
-							debug_print(ERROR, "Did you forget to load a dependency?");
+							debug_print(ERROR, "This module is faulty! Verify it specifies all of its");
+							debug_print(ERROR, "dependencies properly with MODULE_DEPENDS.");
 							goto mod_load_error;
 						}
 					} else {
@@ -210,10 +234,15 @@ void * module_load_direct(void * blob, size_t length) {
 	mod_data->bin_data = target;
 	mod_data->symbols  = local_symbols;
 	mod_data->end      = (uintptr_t)target + length;
+	mod_data->deps     = deps;
+	mod_data->deps_length = deps_length;
 
 	hashmap_set(modules, mod_info->name, (void *)mod_data);
 
 	return mod_data;
+
+mod_load_error_unload:
+	return (void *)-1;
 
 mod_load_error:
 	return NULL;
@@ -236,6 +265,12 @@ void * module_load(char * filename) {
 	read_fs(file, 0, file->length, (uint8_t *)blob);
 
 	void * result = module_load_direct(blob, file->length);
+
+	if (result == (void *)-1) {
+		debug_print(ERROR, "Failed to load module due to unsatisfied dependency.");
+		free(blob);
+		result = NULL;
+	}
 
 	close_fs(file);
 	return result;

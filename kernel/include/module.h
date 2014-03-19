@@ -15,6 +15,8 @@ typedef struct {
     void * bin_data;
     hashmap_t * symbols;
     uintptr_t end;
+    size_t deps_length;
+    char * deps;
 } module_data_t;
 
 extern void * module_load_direct(void * blob, size_t size);
@@ -31,5 +33,8 @@ extern void modules_install(void);
 
 extern hashmap_t * modules_get_list(void);
 extern hashmap_t * modules_get_symbols(void);
+
+#define MODULE_DEPENDS(n) \
+    static char _mod_dependency_ ## n [] __attribute__((section("moddeps"), used)) = #n
 
 #endif

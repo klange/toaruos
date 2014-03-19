@@ -48,4 +48,5 @@ static int goodbye(void) {
 }
 
 MODULE_DEF(test, hello, goodbye);
+MODULE_DEPENDS(debugshell);
 

@@ -17,4 +17,5 @@ static int goodbye(void) {
 }
 
 MODULE_DEF(testb, hello, goodbye);
+MODULE_DEPENDS(test);
 
