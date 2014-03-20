@@ -831,14 +831,22 @@ static uint32_t ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t 
 
 static fs_node_t * mount_ext2(fs_node_t * block_device) {
 
+	debug_print(NOTICE, "Mounting ext2 file system...");
 	ext2_fs_t * this = malloc(sizeof(ext2_fs_t));
+
+	memset(this, 0x00, sizeof(ext2_fs_t));
 
 	this->block_device = block_device;
 	this->block_size = 1024;
 
 	SB = malloc(this->block_size);
+
+	debug_print(INFO, "Reading superblock...");
 	read_block(this, 1, (uint8_t *)SB);
-	assert(SB->magic == EXT2_SUPER_MAGIC);
+	if (SB->magic != EXT2_SUPER_MAGIC) {
+		debug_print(ERROR, "... not an EXT2 filesystem?");
+		return NULL;
+	}
 	if (SB->inode_size == 0) {
 		SB->inode_size = 128;
 	}
@@ -847,15 +855,16 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 	if (this->block_size > 2048) {
 		this->cache_entries /= 4;
 	}
+	debug_print(INFO, "bs=%d, cache entries=%d", this->block_size, this->cache_entries);
 	this->pointers_per_block = this->block_size / 4;
-	debug_print(NOTICE, "Log block size = %d -> %d", SB->log_block_size, this->block_size);
+	debug_print(INFO, "Log block size = %d -> %d", SB->log_block_size, this->block_size);
 	BGDS = SB->blocks_count / SB->blocks_per_group;
 	if (SB->blocks_per_group * BGDS < SB->blocks_count) {
 		BGDS += 1;
 	}
 	this->inodes_per_group = SB->inodes_count / BGDS;
 
-	debug_print(NOTICE, "Allocating cache...");
+	debug_print(INFO, "Allocating cache...");
 	DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
 	for (uint32_t i = 0; i < this->cache_entries; ++i) {
 		DC[i].block = malloc(this->block_size);
@@ -863,7 +872,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 			debug_print(INFO, "Allocated cache block #%d", i+1);
 		}
 	}
-	debug_print(NOTICE, "Allocated cache.");
+	debug_print(INFO, "Allocated cache.");
 
 	// load the block group descriptors
 	int bgd_block_span = sizeof(ext2_bgdescriptor_t) * BGDS / this->block_size + 1;
