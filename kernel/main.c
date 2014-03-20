@@ -69,10 +69,6 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 		char cmdline_[1024];
 
-		if (mboot_ptr->vbe_mode_info) {
-			lfb_vid_memory = (uint8_t *)((vbe_info_t *)(mboot_ptr->vbe_mode_info))->physbase;
-		}
-
 		if (mboot_ptr->flags & (1 << 3)) {
 			debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
 			debug_print(NOTICE, "Current kernel heap start point would be 0x%x.", &end);
@@ -131,10 +127,6 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	shm_install();      /* Install shared memory */
 	modules_install();  /* Modules! */
 
-	debug_print_vfs_tree();
-
-	early_stage_args();
-
 	/* Load modules from bootloader */
 	debug_print(NOTICE, "%d modules to load", mboot_mods_count);
 	for (unsigned int i = 0; i < mboot_ptr->mods_count; ++i ) {
@@ -157,13 +149,20 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	/* Map /dev to a device mapper */
 	map_vfs_directory("/dev");
 
-	late_stage_args();
+	if (args_present("start")) {
+		char * c = args_value("start");
+		if (!c) {
+			debug_print(WARNING, "Expected an argument to kernel option `start`. Ignoring.");
+		} else {
+			debug_print(NOTICE, "Got start argument: %s", c);
+			boot_arg = strdup(c);
+		}
+	}
 
 	/* Prepare to run /bin/init */
 	char * argv[] = {
 		"/bin/init",
 		boot_arg,
-		boot_arg_extra,
 		NULL
 	};
 	int argc = 0;

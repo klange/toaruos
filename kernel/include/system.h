@@ -201,18 +201,6 @@ extern uint32_t now(void);
 extern int detect_cpu(void);
 
 /* Video Drivers */
-/* Generic (pre-set, 32-bit, linear frame buffer) */
-extern void graphics_install_preset(uint16_t, uint16_t);
-extern uint16_t lfb_resolution_x;
-extern uint16_t lfb_resolution_y;
-extern uint16_t lfb_resolution_b;
-extern uintptr_t lfb_get_address(void);
-extern uint8_t * lfb_vid_memory;
-
-/* BOCHS / QEMU VBE Driver */
-extern void graphics_install_bochs(uint16_t, uint16_t);
-extern void bochs_set_y_offset(uint16_t y);
-extern uint16_t bochs_current_scroll(void);
 
 /* Floating Point Unit */
 void switch_fpu(void);

@@ -6,8 +6,11 @@
 #include <syscall.h>
 #include <stdint.h>
 #include <math.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
 #include "graphics.h"
 #include "window.h"
+#include "../../kernel/include/video.h"
 
 #define PNG_DEBUG 3
 #include <png.h>
@@ -42,11 +45,19 @@ void clearbuffer(gfx_context_t * ctx) {
 /* Deprecated */
 gfx_context_t * init_graphics_fullscreen() {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
-	out->width  = syscall_getgraphicswidth();
-	out->height = syscall_getgraphicsheight();
-	out->depth  = syscall_getgraphicsdepth();
+
+	int fd = open("/dev/fb0", O_RDONLY);
+	if (fd < 0) {
+		/* oh shit */
+		return NULL;
+	}
+
+	ioctl(fd, IO_VID_WIDTH,  &out->width);
+	ioctl(fd, IO_VID_HEIGHT, &out->height);
+	ioctl(fd, IO_VID_DEPTH,  &out->depth);
+	ioctl(fd, IO_VID_ADDR,   &out->buffer);
+
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
-	out->buffer = (void *)syscall_getgraphicsaddress();
 	out->backbuffer = out->buffer;
 	return out;
 }

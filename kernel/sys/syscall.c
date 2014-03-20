@@ -300,10 +300,6 @@ static int execve(const char * filename, char *const argv[], char *const envp[])
 	return -1;
 }
 
-static int getgraphicsaddress(void) {
-	return (int)lfb_get_address();
-}
-
 static int seek(int fd, int offset, int whence) {
 	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
@@ -390,23 +386,6 @@ static int stat(int fd, uintptr_t st) {
 	}
 	fs_node_t * fn = current_process->fds->entries[fd];
 	return stat_node(fn, st);
-}
-
-static int setgraphicsoffset(int rows) {
-	bochs_set_y_offset(rows);
-	return 0;
-}
-
-static int getgraphicswidth(void) {
-	return lfb_resolution_x;
-}
-
-static int getgraphicsheight(void) {
-	return lfb_resolution_y;
-}
-
-static int getgraphicsdepth(void) {
-	return lfb_resolution_b;
 }
 
 static int mkpipe(void) {
@@ -740,16 +719,16 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&fork,               /* 8 */
 	(uintptr_t)&sys_getpid,
 	(uintptr_t)&sys_sbrk,
-	(uintptr_t)&getgraphicsaddress,
+	(uintptr_t)&RESERVED,
 	(uintptr_t)&uname,              /* 12 */
 	(uintptr_t)&openpty,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,
-	(uintptr_t)&setgraphicsoffset,  /* 16 */
+	(uintptr_t)&RESERVED,           /* 16 */
 	(uintptr_t)&wait,
-	(uintptr_t)&getgraphicswidth,
-	(uintptr_t)&getgraphicsheight,
-	(uintptr_t)&getgraphicsdepth,   /* 20 */
+	(uintptr_t)&RESERVED,
+	(uintptr_t)&RESERVED,
+	(uintptr_t)&RESERVED,           /* 20 */
 	(uintptr_t)&mkpipe,
 	(uintptr_t)&dup2,
 	(uintptr_t)&getuid,

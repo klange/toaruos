@@ -8,45 +8,90 @@
 #include <types.h>
 #include <logging.h>
 #include <pci.h>
+#include <boot.h>
+#include <args.h>
+#include <tokenize.h>
+#include <module.h>
+#include <video.h>
 
 #define PREFERRED_VY 4096
 #define PREFERRED_B 32
+/* Generic (pre-set, 32-bit, linear frame buffer) */
+static void graphics_install_preset(uint16_t, uint16_t);
 
-uint16_t lfb_resolution_x = 0;
-uint16_t lfb_resolution_y = 0;
-uint16_t lfb_resolution_b = 0;
+static uint16_t lfb_resolution_x = 0;
+static uint16_t lfb_resolution_y = 0;
+static uint16_t lfb_resolution_b = 0;
+
+/* BOCHS / QEMU VBE Driver */
+static void graphics_install_bochs(uint16_t, uint16_t);
+static void bochs_set_y_offset(uint16_t y);
+static uint16_t bochs_current_scroll(void);
 
 /*
  * Address of the linear frame buffer.
  * This can move, so it's a pointer instead of
  * #define.
  */
-uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
+static uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
+
+static int ioctl_vid(fs_node_t * node, int request, void * argp) {
+	/* TODO: Make this actually support multiple video devices */
+
+	switch (request) {
+		case IO_VID_WIDTH:
+			validate(argp);
+			*((size_t *)argp) = lfb_resolution_x;
+			return 0;
+		case IO_VID_HEIGHT:
+			validate(argp);
+			*((size_t *)argp) = lfb_resolution_y;
+			return 0;
+		case IO_VID_DEPTH:
+			validate(argp);
+			*((size_t *)argp) = lfb_resolution_b;
+			return 0;
+		case IO_VID_ADDR:
+			validate(argp);
+			*((uintptr_t *)argp) = (uintptr_t)lfb_vid_memory;
+			return 0;
+		default:
+			return -1; /* TODO EINV... something or other */
+	}
+}
+
+static fs_node_t * lfb_video_device_create(void /* TODO */) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	sprintf(fnode->name, "fb0"); /* TODO */
+	fnode->length  = lfb_resolution_x * lfb_resolution_y * (lfb_resolution_b / 8);
+	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->ioctl   = ioctl_vid;
+	return fnode;
+}
 
 static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
 	lfb_resolution_x = x;
 	lfb_resolution_y = y;
 	lfb_resolution_b = b;
-}
-
-uintptr_t lfb_get_address(void) {
-	return (uintptr_t)lfb_vid_memory;
+	fs_node_t * fb_device = lfb_video_device_create();
+	vfs_mount("/dev/fb0", fb_device);
 }
 
 /* Bochs support {{{ */
-uintptr_t current_scroll = 0;
+static uintptr_t current_scroll = 0;
 
-void bochs_set_y_offset(uint16_t y) {
+static void bochs_set_y_offset(uint16_t y) {
 	outports(0x1CE, 0x9);
 	outports(0x1CF, y);
 	current_scroll = y;
 }
 
-uint16_t bochs_current_scroll(void) {
+static uint16_t bochs_current_scroll(void) {
 	return current_scroll;
 }
 
-void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d) {
+static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d) {
 	if (v == 0x1234 && d == 0x1111) {
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
 		if (t > 0) {
@@ -55,8 +100,9 @@ void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d) {
 	}
 }
 
-void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
+static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 	debug_print(NOTICE, "Setting up BOCHS/QEMU graphics controller...");
+
 	outports(0x1CE, 0x00);
 	uint16_t i = inports(0x1CF);
 	if (i < 0xB0C0 || i > 0xB0C6) {
@@ -121,7 +167,7 @@ mem_found:
 
 /* }}} end bochs support */
 
-void graphics_install_preset(uint16_t w, uint16_t h) {
+static void graphics_install_preset(uint16_t w, uint16_t h) {
 	debug_print(NOTICE, "Graphics were pre-configured (thanks, bootloader!), locating video memory...");
 	uint16_t b = 32; /* If you are 24 bit, go away, we really do not support you. */
 
@@ -179,4 +225,46 @@ mem_found:
 	}
 }
 
+static int init(void) {
 
+	if (mboot_ptr->vbe_mode_info) {
+		lfb_vid_memory = (uint8_t *)((vbe_info_t *)(mboot_ptr->vbe_mode_info))->physbase;
+	}
+
+	char * c;
+	if ((c = args_value("vid"))) {
+		debug_print(NOTICE, "Video mode requested: %s", c);
+
+		char * arg = strdup(c);
+		char * argv[10];
+		int argc = tokenize(arg, ",", argv);
+
+		uint16_t x, y;
+		if (argc < 3) {
+			x = 1024;
+			y = 768;
+		} else {
+			x = atoi(argv[1]);
+			y = atoi(argv[2]);
+		}
+
+		if (!strcmp(argv[0], "qemu")) {
+			/* Bochs / Qemu Video Device */
+			graphics_install_bochs(x,y);
+		} else if (!strcmp(argv[0],"preset")) {
+			graphics_install_preset(x,y);
+		} else {
+			debug_print(WARNING, "Unrecognized video adapter: %s", argv[0]);
+		}
+
+		free(arg);
+	}
+
+	return 0;
+}
+
+static int fini(void) {
+	return 0;
+}
+
+MODULE_DEF(lfbvideo, init, fini);

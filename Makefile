@@ -58,6 +58,7 @@ BOOT_MODULES += procfs tmpfs ata
 BOOT_MODULES += ext2
 BOOT_MODULES += debug_shell
 BOOT_MODULES += ps2mouse ps2kbd
+BOOT_MODULES += lfbvideo
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
@@ -103,15 +104,15 @@ run: system
 kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu $(DISK_ROOT)"
 vga: system
-	${EMU} ${EMUARGS} -append "vgaterm $(DISK_ROOT)"
+	${EMU} ${EMUARGS} -append "start=--vga $(DISK_ROOT)"
 vga-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vgaterm $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "start=--vga $(DISK_ROOT)"
 term: system
-	${EMU} ${EMUARGS} -append "vid=qemu single $(DISK_ROOT)"
+	${EMU} ${EMUARGS} -append "vid=qemu start=--single $(DISK_ROOT)"
 term-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu single $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu start=--single $(DISK_ROOT)"
 headless: system
-	${EMU} ${EMUARGS} -display none -append "vgaterm $(DISK_ROOT)"
+	${EMU} ${EMUARGS} -display none -append "start=--vga $(DISK_ROOT)"
 run-config: system
 	util/config-parser ${EMU}
 
