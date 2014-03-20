@@ -819,8 +819,8 @@ static uint32_t ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t 
 	fnode->mtime   = inode->mtime;
 	fnode->ctime   = inode->ctime;
 
-	fnode->read    = NULL; // read_ext2_disk;
-	fnode->write   = NULL; // write_ext2_disk;
+	fnode->read    = read_ext2;
+	fnode->write   = NULL;
 	fnode->open    = open_ext2;
 	fnode->close   = close_ext2;
 	fnode->readdir = readdir_ext2;
