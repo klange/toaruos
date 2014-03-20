@@ -13,8 +13,6 @@
 #define E_NOSPACE   2
 #define E_BADPARENT 3
 
-#if 1
-
 /*
  * EXT2 filesystem object
  */
@@ -883,7 +881,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 		read_block(this, bgd_offset + i, (uint8_t *)((uint32_t)BGD + this->block_size * i));
 	}
 
-#if 1
+#ifdef DEBUG_BLOCK_DESCRIPTORS
 	char * bg_buffer = malloc(this->block_size * sizeof(char));
 	for (uint32_t i = 0; i < BGDS; ++i) {
 		debug_print(INFO, "Block Group Descriptor #%d @ %d", i, bgd_offset + i * SB->blocks_per_group);
@@ -944,22 +942,6 @@ int ext2_finalize(void) {
 
 	return 0;
 }
-
-
-#else
-
-int ext2_initialize(void) {
-
-	return 0;
-}
-
-int ext2_finalize(void) {
-
-	return 0;
-}
-
-#endif
-
 
 MODULE_DEF(ext2, ext2_initialize, ext2_finalize);
 
