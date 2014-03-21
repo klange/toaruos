@@ -1,6 +1,6 @@
 ## Additional Licenses ##
 
-ToAruOS contains a number of third-party packages under various licenses. Those which are included within this repository are listed below. Some packages are retrieved from their respective sources - licenses for these packages are not included here.
+ToAruOS contains a number of third-party packages under various licenses. Those which are included within this repository are listed below. Some packages are retrieved from their respective sources - licenses for these packages are not included here, but should be available from the respective directories in `toolchain/tarballs/`.
 
 * The CPU detection code provided in `userspace/cpudet.c` carries the following copyright notice, and has been made available by its author for use in other projects:
 
