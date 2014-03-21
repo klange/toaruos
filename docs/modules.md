@@ -16,19 +16,21 @@ Modules have access to all exported kernel functions and symbols and use the sam
 
 The following simple creates a simple "hello world" module. It prints "hello world" to the kernel debug log when it is loaded.
 
-    #include <logging.h>
-    #include <module.h>
+```c
+#include <logging.h>
+#include <module.h>
 
-    static int init(void) {
-        debug_print(NOTICE, "hello world");
-        return 0;
-    }
+static int init(void) {
+    debug_print(NOTICE, "hello world");
+    return 0;
+}
 
-    static int fini(void) {
-        return 0;
-    }
+static int fini(void) {
+    return 0;
+}
 
-    MODULE_DEF(hello, init, fini);
+MODULE_DEF(hello, init, fini);
+```
 
 From this example, we can see that a simple module conists of initialization function (`init`), a finish function (`fini`), and a module definition. The details of the implementation of `MODULE_DEF` are unimportant; its first argument is the name of the module, which will be used to identify it to other parts of the module system; the name of the initializer function, which will be run when loaded; and the name of the finishing function, which is run at unload. To obtain the `MODULE_DEF` macro, the `<module.h>` header must be included. We also include `<logging.h>` to get `debug_print`.
 
@@ -36,25 +38,27 @@ From this example, we can see that a simple module conists of initialization fun
 
 We can also use modules to extend other modules. The following example will create a module that adds a new debug shell command: `hello`.
 
-    #include <module.h>
-    #include <mod/shell.h>
+```c
+#include <module.h>
+#include <mod/shell.h>
 
-    DEFINE_SHELL_FUNCTION(hello, "Print 'hello world'") {
-        fs_printf(tty, "hello world\n");
-        return 0;
-    }
+DEFINE_SHELL_FUNCTION(hello, "Print 'hello world'") {
+    fs_printf(tty, "hello world\n");
+    return 0;
+}
 
-    static int init(void) {
-        BIND_SHELL_FUNCTION(hello);
-        return 0;
-    }
+static int init(void) {
+    BIND_SHELL_FUNCTION(hello);
+    return 0;
+}
 
-    static int fini(void) {
-        return 0;
-    }
+static int fini(void) {
+    return 0;
+}
 
-    MODULE_DEF(hello, init, fini);
-    MODULE_DEPENDS(debugshell);
+MODULE_DEF(hello, init, fini);
+MODULE_DEPENDS(debugshell);
+```
 
 The `MODULE_DEPENDS` macro specifies a single dependency of the module - in this case, the `debugshell` module. `DEBUG_SHELL_FUNCTION` and `BIND_SHELL_FUNCTION` macros are provided by `<mod/shell.h>` and allow us to define additional shell functions and bind them. Both macros take the name of the function as their first argument, while the former also takes a description to be listed in the output of the `help` command. Debug shell functions take the following arguments: `fs_node_t * tty, int argc, char * argv[]`. They should return an `int`, with `0` indicating success.
 
