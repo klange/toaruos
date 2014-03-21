@@ -64,11 +64,11 @@ Additionally, a number of third-party software packages have been ported to と�
 
 ## Screenshots ##
 
-For a historical look at とあるOS, please see [SCREENSHOTS.md](docs/SCREENSHOTS.md).
+For a historical look at とあるOS, please see [screenshots.md](docs/screenshots.md).
 
 ## Testing / Building / Installation ##
 
-Please see [TESTING.md](docs/TESTING.md).
+Please see [testing.md](docs/testing.md).
 
 ## References ##
 Here are some tutorials we found useful early on:
@@ -111,4 +111,4 @@ This project is released under the terms of the University of Illinois / NCSA Op
 
 ### Third-Party Packages ###
 
-ToAruOS contains a number of third-party packages and software. As the number of third-party packages in the OS has increased drastically, I have moved the licenses to [THIRDPARTY.md](docs/THIRDPARTY.md).
+ToAruOS contains a number of third-party packages and software. As the number of third-party packages in the OS has increased drastically, I have moved the licenses to [thirdparty.md](docs/thirdparty.md).
