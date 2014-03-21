@@ -1,6 +1,6 @@
 # Testing とあるOS
 
-Before trying とあるOS, keep in mind that it is a *hobby project*, not a professional operating system. Both the build process and the OS itself are prone problems and bugs. If you are not already familiar with systems software and emulators, using とあるOS may prove difficult and annoying. While I do my best to answer questions on IRC, I have a full-time job and other obligations that prevent me from being readily available and I do not put much effort into making the build system generally usable.
+Before trying とあるOS, keep in mind that it is a *hobby project*, not a professional operating system. Both the build process and the OS itself are prone to problems and bugs. If you are not already familiar with systems software and emulators, using とあるOS may prove difficult and annoying. While I do my best to answer questions on IRC, I have a full-time job and other obligations that prevent me from being readily available and I do not put much effort into making the build system generally usable.
 
 ## Requirements ##
 
@@ -13,11 +13,11 @@ On Ubuntu and Debian systems, the automated build scripts will attempt to instal
 
 ## Building ##
 
-Once you have a capable build environment set up and the repository cloned, start by running `./build.sh`. This will either prompt you for your password (using `sudo` to attempt to install a number of development packages) or yell about not knowing what you're on. In the latter case, the script includes a list of packages with both Debian names and Fedora names, and you should attempt to install of them using your distribution's package manager.
+Once you have a capable build environment set up and the repository cloned, start by running `./build.sh`. This will either prompt you for your password (using `sudo` to attempt to install a number of development packages) or yell about not knowing what operating system you're on. In the latter case, the script includes a list of packages with both Debian names and Fedora names, and you should attempt to install all of them using your distribution's package manager.
 
 A complete build with `build.sh` takes about 30 minutes on my hardware, but I have a rather fast Internet connection and a very capable CPU - it could take many hours on less capable hardware.
 
-If the build process fails, your best bet for support is sit on my IRC channel (`#toaruos` on Freenode), post your question, and *wait* for me to eventually answer it (if I can). Leaving after five minutes will not get your question answered. If you are not around when I see your question, I won't even attempt to answer it. Do not attempt to report issues with build scripts as bugs - while some issues may actually be bugs in the scripts, they are usually not.
+If the build process fails, your best bet for support is to sit on my IRC channel (`#toaruos` on Freenode), post your question, and *wait* for me to eventually answer it (if I can). Leaving after five minutes will not get your question answered. If you are not around when I see your question, I won't even attempt to answer it. Do not attempt to report issues with build scripts as bugs - while some issues may actually be bugs in the scripts, they are usually not.
 
 When the first build has completed, you can use `make` instead of `build.sh` for future builds. This will skip rebuilding the entire toolchain. If you're serious about developing, you may need to run `build.sh` in some cases (such as after making changes to the Newlib glue layer), but for most cases it is a waste of time.
 
