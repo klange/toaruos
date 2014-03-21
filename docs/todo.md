@@ -46,9 +46,12 @@
 * ~~Integrate Cairo into build toolchain~~
   * autogen means extra effort needed
   * required to ship with new compositor
+  * this has been done for a while
 * ~~Fix static initializers in C++~~
   * The best method for this is probably going to be writing a dynamic loader, so...
+  * this has been done for a while
 * Write a dynamic loader
+  * as of March 2014, finally starting to work on this
 * Pretty much everything below
 
 # TODO for 0.4.0 Distribution Release
@@ -72,23 +75,26 @@
 
 # Doc Revamp
 
-* Get rid of old, outdated TeX/PDF manual
+* ~~Get rid of old, outdated TeX/PDF manual~~
 * Build a modern doxygen-powered documentation system for
   kernel functions for use by kernel developers.
+  * Tried to do this, doxygen got very angry - might look at it again later?
 * Also include doxygen documentation for included libraries
   (lib/graphics, etc.)
 
 # TODO for Microkernel Launch (0.5.0?)
 
-* Replace ramdisks with ELF service executables
+* ~~Replace ramdisks with ELF service executables~~
   * Boot with multiple modules = boot with multiple services.
   * vfs.srv, for example
+  * replace "services" with "modules" and this is done...
 * VFS as a service.
   * It would be super awesome to write this in a language that is more flexible.
   * Actual file system drivers as separate modules, or what?
 * Service bindings
   * Essentially, a system call interface to discovering available services.
   * `require_service(...)` system call for usable errors when a service is missing?
+    * Do module dependencies count? That's in...
 * ~~Deprecate old graphics applications~~
   * ~~And rename the windowed versions.~~
 * ~~Environment variables~~
@@ -104,11 +110,18 @@
 ## Service Modules (aka "Services")
 
 * `vfs.srv` The virtual file system server. (required to provide file system endpoints)
+  * Keeping as core for now, possibly a module in the new revision? VFS is kinda important...
 * `ext2.srv` Ext2 file system server. (provides `/`)
+  * module
 * `ata.srv` ATA disk access server. (provides `/dev/hd*`)
+  * module
 * `compositor.srv` The window compositing server. (provides shmem regions)
+  * staying in userspace
 * `ps2_hid.srv` The keyboard/mouse server. (provides `/dev/input/ps2/*`)
+  * two modules: `ps2kbd` and `ps2mouse`, and they provide `/dev/kbd` and `/dev/mouse` respectively.
+  * I'll look into the other dev nodes later...
 * `serial.srv` UART serial communication server (provides `/dev/ttyS*`)
+  * module: `serial`
 
 ### Future Servers
 
@@ -116,6 +129,7 @@
 * `proc.srv` Process information server (provides `/dev/proc`; uses lots of kernel bindings)
 * `net.srv` Networking server (provides `/dev/net`)
 * `gfx.srv` Block-access graphics server (provides `/dev/fb*`)
+  * This is a module at the moment; might be abandoning a lot of these service ideas...
 
 ## Things that are not services
 
@@ -136,9 +150,12 @@
 * File manager app
 
 ## Harddisk Drive Extras
-* VFS support is still almost entirely non-existent
+* ~~VFS support is still almost entirely non-existent~~
+  * VFS works pretty nicely.
 * Write support for EXT2 is still sketchy
+  * This is still true as of March 2014 - actually, it's worse, write support is temporarily gone
 * Still lacking fast read/write for IDE - needs more DMA!
+  * Still true in 2014
 
 ## Toolchain
 * ~~Finish GCC port~~
@@ -155,9 +172,12 @@
 * ~~Deprecate ramdisks~~ **replaced with new ramdisk module, works better**
   * Haven't used them in development in over a year
   * Not useful anywhere else due to their limiting sizes
-* Implement module execution
+  * As of March 2014, ramdisks have been reimplemented (again) in an actual ramdisk *module*
+* ~~implement module execution~~
   * Instead of loading a ramdisk, modules should be standard binaries
+    * Actually, both are supported now, so that's done.
   * The binaries will be executed in a new "service mode"
+    * This was isn't going to happen, at least not for kernel modules.
 * Implement "servicespace"
   * Userspace, but at a different ring
   * Special access features, like extended port access
@@ -174,14 +194,20 @@
 ## Old I/O goals
 
 ### I/O
-* `/dev` file system
-* `/dev/fbN` and `/dev/ttyN` for virtual framebuffer terminals and graphics
+* ~~`/dev` file system~~
+* ~~`/dev/fbN` and `/dev/ttyN` for virtual framebuffer terminals and graphics~~
+  * Framebuffers still need work to actually support mapping, but can provide size/address information via `ioctl`.
 * ~~`/dev/ttyS0` for serial I/O~~
 * SATA read/write drivers (`/dev/sdaN`)
-* `/dev/ramdisk` (read-only)
-* EXT2 drivers should operate on a `/dev/*` file
-  * Working on this with new ext2 drivers
-  * Need better block device handling; \*64() operations
+* ~~`/dev/ramdisk` (read-only)~~
+  * Actually in `/dev/ramN` now
+* ~~EXT2 drivers should operate on a `/dev/*` file~~
+  * ~~Working on this with new ext2 drivers~~
+    * The new driver is in the current strawberry head
+  * ~~Need better block device handling; \*64() operations~~
+    * Handled in the block device by doing extra reads, read-before-write operations
 * ~~Mounting of `/dev/*` files using a filesystem handler~~
+  * A workaround is provided for `/dev` so that mounted nodes can be listed
+  * A general solution is being worked on in the new VFS
 * ~~VFS tree~~
 
