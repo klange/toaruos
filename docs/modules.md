@@ -1,6 +1,6 @@
 # Toaru Kernel Modules
 
-とあるOS supports loadable kernel modules since 0.6. Kernel modules are relocatable ELF object files that can be included during the boot process or loaded later, and allow for kernel functionality to be extended without added complexity to the base kernel. Currently, kernel modules are used to support some device drivers (serial, ATA), virtual devices (DOS partitions, procfs, null/zero/random), file systems (ext2), and a kernel debug shell.
+とあるOS supports loadable kernel modules since 0.6. Kernel modules are relocatable ELF object files that can be included during the boot process or loaded later, and allow for kernel functionality to be extended without adding complexity to the base kernel. Currently, kernel modules are used to support some device drivers (serial, ATA), virtual devices (DOS partitions, procfs, null/zero/random), file systems (ext2), and a kernel debug shell.
 
 ## Why Write a Module?
 
@@ -14,7 +14,7 @@ Modules have access to all exported kernel functions and symbols and use the sam
 
 ### Hello World Module
 
-The following simple creates a simple "hello world" module. It prints "hello world" to the kernel debug log when it is loaded.
+The following sample creates a simple "hello world" module. It prints "hello world" to the kernel debug log when it is loaded.
 
 ```c
 #include <logging.h>
