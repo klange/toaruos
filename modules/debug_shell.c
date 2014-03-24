@@ -17,8 +17,6 @@
 
 #include <mod/shell.h>
 
-#define DIVINE_SIZE 1
-
 /*
  * This is basically the same as a userspace buffered/unbuffered
  * termio call. These are the same sorts of things I would use in
@@ -716,6 +714,83 @@ static int shell_mem_info(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+/*
+ * Determine the size of a smart terminal that we don't have direct
+ * termios access to. This is done by sending a cursor-move command
+ * that will put the cursor into the lower right corner and then
+ * requesting the cursor position report. We then read and parse
+ * the position report. In the case where the terminal on the other
+ * end is actually dumb, we end up waiting for some input and
+ * then timing out.
+ * TODO with asyncio support, the timeout should actually work.
+ *      consider also using an alarm (which I also don't have)
+ */
+static void divine_size(fs_node_t * dev, int * width, int * height) {
+	char tmp[100];
+	int read = 0;
+	unsigned long start_tick = timer_ticks;
+	memset(tmp, 0, sizeof(tmp));
+	/* Move cursor, Request position, Reset cursor */
+	set_unbuffered(dev);
+	fs_printf(dev, "\033[1000;1000H\033[6n\033[H");
+	while (1) {
+		char buf[1];
+		int r = read_fs(dev, 0, 1, (unsigned char *)buf);
+		if (r > 0) {
+			if (buf[0] != 'R') {
+				if (read > 1) {
+					tmp[read-2] = buf[0];
+				}
+				read++;
+			} else {
+				break;
+			}
+		}
+		if (timer_ticks - start_tick >= 2) {
+			/*
+			 * We've timed out. This will only be triggered
+			 * when we eventually receive something, though
+			 */
+			*width  = 80;
+			*height = 23;
+			/* Clear and return */
+			fs_printf(dev, "\033[J");
+			return;
+		}
+	}
+	/* Clear */
+	fs_printf(dev, "\033[J");
+	/* Break up the result into two strings */
+
+	for (unsigned int i = 0; i < strlen(tmp); i++) {
+		if (tmp[i] == ';') {
+			tmp[i] = '\0';
+			break;
+		}
+	}
+	char * h = (char *)((uintptr_t)tmp + strlen(tmp)+1);
+	/* And then parse it into numbers */
+	*height = atoi(tmp);
+	*width  = atoi(h);
+}
+
+static int shell_divinesize(fs_node_t * tty, int argc, char * argv[]) {
+	struct winsize size = {0,0,0,0};
+
+	/* Attempt to divine the terminal size. Changing the window size after this will do bad things */
+	int width, height;
+	divine_size(tty, &width, &height);
+
+	fs_printf(tty, "Identified size: %d x %d\n", width, height);
+
+	size.ws_row = height;
+	size.ws_col = width;
+
+	ioctl_fs(tty, TIOCSWINSZ, &size);
+
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -753,6 +828,8 @@ static struct shell_command shell_commands[] = {
 		"Print names and addresses of all loaded modules."},
 	{"meminfo", &shell_mem_info,
 		"Display various pieces of information kernel and system memory."},
+	{"divine-size", &shell_divinesize,
+		"Attempt to automatically set the PTY's size to the size of the current window."},
 	{NULL, NULL, NULL}
 };
 
@@ -794,63 +871,6 @@ static void debug_shell_handle_out(void * data, char * name) {
 }
 
 /*
- * Determine the size of a smart terminal that we don't have direct
- * termios access to. This is done by sending a cursor-move command
- * that will put the cursor into the lower right corner and then
- * requesting the cursor position report. We then read and parse
- * the position report. In the case where the terminal on the other
- * end is actually dumb, we end up waiting for some input and
- * then timing out.
- * TODO with asyncio support, the timeout should actually work.
- *      consider also using an alarm (which I also don't have)
- */
-static void divine_size(fs_node_t * dev, int * width, int * height) {
-	char tmp[100];
-	int read = 0;
-	unsigned long start_tick = timer_ticks;
-	/* Move cursor, Request position, Reset cursor */
-	fs_printf(dev, "\033[1000;1000H\033[6n\033[H");
-	while (1) {
-		char buf[1];
-		int r = read_fs(dev, 0, 1, (unsigned char *)buf);
-		if (r > 0) {
-			if (buf[0] != 'R') {
-				if (read > 1) {
-					tmp[read-2] = buf[0];
-				}
-				read++;
-			} else {
-				break;
-			}
-		}
-		if (timer_ticks - start_tick >= 2) {
-			/*
-			 * We've timed out. This will only be triggered
-			 * when we eventually receive something, though
-			 */
-			*width  = 80;
-			*height = 23;
-			/* Clear and return */
-			fs_printf(dev, "\033[J");
-			return;
-		}
-	}
-	/* Clear */
-	fs_printf(dev, "\033[J");
-	/* Break up the result into two strings */
-	for (unsigned int i = 0; i < strlen(tmp); i++) {
-		if (tmp[i] == ';') {
-			tmp[i] = '\0';
-			break;
-		}
-	}
-	char * h = (char *)((uintptr_t)tmp + strlen(tmp)+1);
-	/* And then parse it into numbers */
-	*height = atoi(tmp);
-	*width  = atoi(h);
-}
-
-/*
  * Tasklet for managing the kernel serial console.
  * This is basically a very simple shell, with access
  * to some internal kernel commands, and (eventually)
@@ -873,22 +893,9 @@ static void debug_shell_run(void * data, char * name) {
 
 	/* We will convert the serial interface into an actual TTY */
 	int master, slave;
-	struct winsize size = {0,0,0,0};
-
-	/* Attempt to divine the terminal size. Changing the window size after this will do bad things */
-	int width, height;
-#ifdef DIVINE_SIZE
-	divine_size(tty, &width, &height);
-#else
-	width = 80;
-	height = 24;
-#endif
-
-	size.ws_row = height;
-	size.ws_col = width;
 
 	/* Convert the serial line into a TTY */
-	openpty(&master, &slave, NULL, NULL, &size);
+	openpty(&master, &slave, NULL, NULL, NULL);
 
 	/* Attach the serial to the TTY interface */
 	struct tty_o _tty = {.node = current_process->fds->entries[master], .tty = tty};
