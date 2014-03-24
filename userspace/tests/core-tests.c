@@ -13,14 +13,10 @@ void notice(char * type, char * fmt, ...) {
 	va_list argp;
 	va_start(argp, fmt);
 	/* core-tests header */
-	syscall_print("core-tests : ");
-	syscall_print(type);
-	syscall_print(" : ");
-	/* end core-tests header */
-	char buffer[1024];
-	vsnprintf(buffer, 1024, fmt, argp);
-	syscall_print(buffer);
-	syscall_print("\n");
+
+	printf("core-tests : %s : ", type);
+	vprintf(fmt, argp);
+	printf("\n");
 }
 
 int main(int argc, char * argv[]) {
