@@ -81,7 +81,7 @@ DISK_ROOT = root=/dev/hda
 
 .PHONY: all system install test
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
-.PHONY: run vga term headless run-config
+.PHONY: run vga term headless
 .PHONY: kvm vga-kvm term-kvm
 
 # Prevents Make from removing intermediary files on failure
@@ -113,8 +113,6 @@ term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu start=--single $(DISK_ROOT)"
 headless: system
 	${EMU} ${EMUARGS} -display none -append "start=--vga $(DISK_ROOT)"
-run-config: system
-	util/config-parser ${EMU}
 
 test: system
 	python2 util/run-tests.py 2>/dev/null
