@@ -14,6 +14,21 @@ typedef struct {
 } term_cell_t;
 
 typedef struct {
+	void (*writer)(char);
+	void (*set_color)(uint32_t, uint32_t);
+	void (*set_csr)(int,int);
+	int  (*get_csr_x)(void);
+	int  (*get_csr_y)(void);
+	void (*set_cell)(int,int,uint16_t);
+	void (*cls)(int);
+	void (*scroll)(int);
+	void (*redraw_cursor)(void);
+	void (*input_buffer_stuff)(char *);
+	void (*set_font_size)(float);
+	void (*set_title)(char *);
+} term_callbacks_t;
+
+typedef struct {
 	uint16_t x;       /* Current cursor location */
 	uint16_t y;       /*    "      "       "     */
 	uint16_t save_x;  /* Last cursor save */
@@ -27,24 +42,9 @@ typedef struct {
 	uint8_t  box;
 	uint8_t  buflen;  /* Buffer Length */
 	char     buffer[TERM_BUF_LEN];  /* Previous buffer */
+	term_callbacks_t * callbacks;
+	int volatile lock;
 } term_state_t;
-
-#if 0
-typedef struct {
-	term_state_t state;
-	void (*writer)(char);
-	void (*set_color)(uint32_t, uint32_t);
-	void (*set_csr)(int,int);
-	int  (*get_csr_x)(void);
-	int  (*get_csr_y)(void);
-	void (*set_cell)(int,int,uint16_t);
-	void (*cls)(int);
-	void (*scroll)(int);
-	void (*redraw_cursor)(void);
-	void (*input_stuff)(char * str);
-} term_emu_t;
-#endif
-
 
 /* Triggers escape mode. */
 #define ANSI_ESCAPE  27
@@ -93,13 +93,7 @@ typedef struct {
 #define TERM_DEFAULT_FLAGS  0x00 /* Default flags for a cell */
 #define TERM_DEFAULT_OPAC   0xF2 /* For background, default transparency */
 
-void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(uint32_t, uint32_t),
-		void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,uint16_t),
-		void (*cls)(int), void (*redraw_csr)(void), void (*scroll_term)(int), void (*stuff)(char *),
-		void (*fontsize)(float), void (*settitle)(char *));
-
-void ansi_put(char c);
-term_state_t * ansi_state();
-
+term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in);
+void ansi_put(term_state_t * s, char c);
 
 #endif /* _TERMEMU_H__ */

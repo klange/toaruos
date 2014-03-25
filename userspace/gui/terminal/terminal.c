@@ -42,6 +42,8 @@
 
 #include "gui/terminal/lib/termemu.h"
 
+#define USE_BELL 0
+
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
 static FILE * terminal;
@@ -66,6 +68,8 @@ uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell 
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
+
+term_state_t * ansi_state = NULL;
 
 void reinit(); /* Defined way further down */
 void term_redraw_cursor();
@@ -611,7 +615,7 @@ void term_write(char c) {
 			draw_cursor();
 		} else {
 			int wide = is_wide(codepoint);
-			uint8_t flags = ansi_state()->flags;
+			uint8_t flags = ansi_state->flags;
 			if (wide && csr_x == term_width - 1) {
 				csr_x = 0;
 				++csr_y;
@@ -623,7 +627,7 @@ void term_write(char c) {
 			cell_redraw(csr_x,csr_y);
 			csr_x++;
 			if (wide && csr_x != term_width) {
-				cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, ansi_state()->flags);
+				cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, ansi_state->flags);
 				cell_redraw(csr_x,csr_y);
 				cell_redraw(csr_x-1,csr_y);
 				csr_x++;
@@ -681,7 +685,7 @@ void flip_cursor() {
 
 void
 term_set_cell(int x, int y, uint16_t c) {
-	cell_set(x, y, c, current_fg, current_bg, ansi_state()->flags);
+	cell_set(x, y, c, current_fg, current_bg, ansi_state->flags);
 	cell_redraw(x, y);
 }
 
@@ -860,6 +864,33 @@ void usage(char * argv[]) {
 			argv[0]);
 }
 
+term_callbacks_t term_callbacks = {
+	/* writer*/
+	&term_write,
+	/* set_color*/
+	term_set_colors,
+	/* set_csr*/
+	term_set_csr,
+	/* get_csr_x*/
+	term_get_csr_x,
+	/* get_csr_y*/
+	term_get_csr_y,
+	/* set_cell*/
+	term_set_cell,
+	/* cls*/
+	term_clear,
+	/* scroll*/
+	term_scroll,
+	/* redraw_cursor*/
+	term_redraw_cursor,
+	/* input_buffer_stuff*/
+	input_buffer_stuff,
+	/* set_font_size*/
+	set_term_font_size,
+	/* set_title*/
+	set_title,
+};
+
 void reinit(int send_sig) {
 	if (_use_freetype) {
 		/* Reset font sizes */
@@ -908,7 +939,8 @@ void reinit(int send_sig) {
 		term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
 		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 	}
-	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll, &input_buffer_stuff, &set_term_font_size, &set_title);
+
+	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);
 
 	draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
 	render_decors();
@@ -1121,7 +1153,7 @@ int main(int argc, char ** argv) {
 		while (!exit_application) {
 			int r = read(fd_master, buf, 1024);
 			for (uint32_t i = 0; i < r; ++i) {
-				ansi_put(buf[i]);
+				ansi_put(ansi_state, buf[i]);
 			}
 		}
 
