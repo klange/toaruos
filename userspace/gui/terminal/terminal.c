@@ -40,28 +40,7 @@
 #include "terminal-palette.h"
 #include "terminal-font.h"
 
-#define USE_BELL 0
-
-static int volatile lock = 0;
-
-static void spin_lock(int volatile * lock) {
-	while(__sync_lock_test_and_set(lock, 0x01)) {
-		syscall_yield();
-	}
-}
-
-static void spin_unlock(int volatile * lock) {
-	__sync_lock_release(lock);
-}
-
-
-/* A terminal cell represents a single character on screen */
-typedef struct _terminal_cell {
-	uint16_t c;     /* codepoint */
-	uint32_t fg;    /* background indexed color */
-	uint32_t bg;    /* foreground indexed color */
-	uint8_t  flags; /* other flags */
-} __attribute__((packed)) t_cell;
+#include "gui/terminal/lib/termemu.h"
 
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
@@ -77,7 +56,7 @@ uint16_t char_height    = 12;   /* Height of a cell in pixels */
 uint16_t char_offset    = 0;    /* Offset of the font within the cell */
 uint16_t csr_x          = 0;    /* Cursor X */
 uint16_t csr_y          = 0;    /* Cursor Y */
-t_cell * term_buffer    = NULL; /* The terminal cell buffer */
+term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
 uint32_t current_fg     = 7;    /* Current foreground color */
 uint32_t current_bg     = 0;    /* Current background color */
 uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
@@ -114,54 +93,11 @@ wchar_t box_chars[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽�
  * we otherwise receive an exit signal */
 volatile int exit_application = 0;
 
-/* Triggers escape mode. */
-#define ANSI_ESCAPE  27
-/* Escape verify */
-#define ANSI_BRACKET '['
-#define ANSI_BRACKET_RIGHT ']'
-#define ANSI_OPEN_PAREN '('
-/* Anything in this range (should) exit escape mode. */
-#define ANSI_LOW    'A'
-#define ANSI_HIGH   'z'
-/* Escape commands */
-#define ANSI_CUU    'A' /* CUrsor Up                  */
-#define ANSI_CUD    'B' /* CUrsor Down                */
-#define ANSI_CUF    'C' /* CUrsor Forward             */
-#define ANSI_CUB    'D' /* CUrsor Back                */
-#define ANSI_CNL    'E' /* Cursor Next Line           */
-#define ANSI_CPL    'F' /* Cursor Previous Line       */
-#define ANSI_CHA    'G' /* Cursor Horizontal Absolute */
-#define ANSI_CUP    'H' /* CUrsor Position            */
-#define ANSI_ED     'J' /* Erase Data                 */
-#define ANSI_EL     'K' /* Erase in Line              */
-#define ANSI_SU     'S' /* Scroll Up                  */
-#define ANSI_SD     'T' /* Scroll Down                */
-#define ANSI_HVP    'f' /* Horizontal & Vertical Pos. XXX: SAME AS CUP */
-#define ANSI_SGR    'm' /* Select Graphic Rendition   */
-#define ANSI_DSR    'n' /* Device Status Report XXX: Push to kgets() buffer? */
-#define ANSI_SCP    's' /* Save Cursor Position       */
-#define ANSI_RCP    'u' /* Restore Cursor Position    */
-#define ANSI_HIDE   'l' /* DECTCEM - Hide Cursor      */
-#define ANSI_SHOW   'h' /* DECTCEM - Show Cursor      */
-/* Display flags */
-#define ANSI_BOLD      0x01
-#define ANSI_UNDERLINE 0x02
-#define ANSI_ITALIC    0x04
-#define ANSI_EXTRA     0x08 /* Character should use "extra" font (Japanese) */
-#define ANSI_SPECBG    0x10
-#define ANSI_BORDER    0x20
-#define ANSI_WIDE      0x40 /* Character is double width */
-#define ANSI_CROSS     0x80 /* And that's all I'm going to support */
-
-/* Default color settings */
-#define DEFAULT_FG     0x07 /* Index of default foreground */
-#define DEFAULT_BG     0x10 /* Index of default background */
-#define DEFAULT_FLAGS  0x00 /* Default flags for a cell */
-#define DEFAULT_OPAC   0xF2 /* For background, default transparency */
-
-#define ANSI_EXT_IOCTL 'z'  /* These are special escapes only we support */
-
-#define MAX_ARGS 1024
+static void set_term_font_size(float s) {
+	scale_fonts  = 1;
+	font_scaling = s;
+	reinit(1);
+}
 
 /* Returns the lower of two shorts */
 uint16_t min(uint16_t a, uint16_t b) {
@@ -173,539 +109,19 @@ uint16_t max(uint16_t a, uint16_t b) {
 	return (a > b) ? a : b;
 }
 
-/* State machine status */
-static struct _ansi_state {
-	uint16_t x     ;  /* Current cursor location */
-	uint16_t y     ;  /*    "      "       "     */
-	uint16_t save_x;
-	uint16_t save_y;
-	uint32_t width ;
-	uint32_t height;
-	uint32_t fg    ;  /* Current foreground color */
-	uint32_t bg    ;  /* Current background color */
-	uint8_t  flags ;  /* Bright, etc. */
-	uint8_t  escape;  /* Escape status */
-	uint8_t  box;
-	uint8_t  buflen;  /* Buffer Length */
-	char     buffer[100];  /* Previous buffer */
-} state;
-
-void (*ansi_writer)(char) = NULL;
-void (*ansi_set_color)(uint32_t, uint32_t) = NULL;
-void (*ansi_set_csr)(int,int) = NULL;
-int  (*ansi_get_csr_x)(void) = NULL;
-int  (*ansi_get_csr_y)(void) = NULL;
-void (*ansi_set_cell)(int,int,uint16_t) = NULL;
-void (*ansi_cls)(int) = NULL;
-void (*ansi_scroll)(int) = NULL;
-
-void (*redraw_cursor)(void) = NULL;
+void set_title(char * c) {
+	int len = min(TERMINAL_TITLE_SIZE, strlen(c)+1);
+	memcpy(terminal_title, c, len);
+	terminal_title[len-1] = '\0';
+	terminal_title_length = len - 1;
+	render_decors();
+}
 
 /* Stuffs a string into the stdin of the terminal's child process
  * Useful for things like the ANSI DSR command. */
 void input_buffer_stuff(char * str) {
 	size_t s = strlen(str) + 1;
 	write(fd_master, str, s);
-}
-
-/* Write the contents of the buffer, as they were all non-escaped data. */
-void ansi_dump_buffer() {
-	for (int i = 0; i < state.buflen; ++i) {
-		ansi_writer(state.buffer[i]);
-	}
-}
-
-/* Add to the internal buffer for the ANSI parser */
-void ansi_buf_add(char c) {
-	state.buffer[state.buflen] = c;
-	state.buflen++;
-	state.buffer[state.buflen] = '\0';
-}
-
-static void _ansi_put(char c);
-
-static void ansi_put(char c) {
-	spin_lock(&lock);
-	_ansi_put(c);
-	spin_unlock(&lock);
-}
-
-static int to_eight(uint16_t codepoint, uint8_t * out) {
-	memset(out, 0x00, 4);
-
-	if (codepoint < 0x0080) {
-		out[0] = (uint8_t)codepoint;
-	} else if (codepoint < 0x0800) {
-		out[0] = 0xC0 | (codepoint >> 6);
-		out[1] = 0x80 | (codepoint & 0x3F);
-	} else {
-		out[0] = 0xE0 | (codepoint >> 12);
-		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[2] = 0x80 | (codepoint & 0x3F);
-	}
-
-	return strlen(out);
-}
-
-
-static void _ansi_put(char c) {
-	switch (state.escape) {
-		case 0:
-			/* We are not escaped, check for escape character */
-			if (c == ANSI_ESCAPE) {
-				/*
-				 * Enable escape mode, setup a buffer,
-				 * fill the buffer, get out of here.
-				 */
-				state.escape    = 1;
-				state.buflen    = 0;
-				ansi_buf_add(c);
-				return;
-			} else if (c == 0) {
-				return;
-			} else {
-				if (state.box && c >= 'a' && c <= 'z') {
-					char buf[4];
-					char *w = (char *)&buf;
-					to_eight(box_chars[c-'a'], w);
-					while (*w) {
-						ansi_writer(*w);
-						w++;
-					}
-				} else {
-					ansi_writer(c);
-				}
-			}
-			break;
-		case 1:
-			/* We're ready for [ */
-			if (c == ANSI_BRACKET) {
-				state.escape = 2;
-				ansi_buf_add(c);
-			} else if (c == ANSI_BRACKET_RIGHT) {
-				state.escape = 3;
-				ansi_buf_add(c);
-			} else if (c == ANSI_OPEN_PAREN) {
-				state.escape = 4;
-				ansi_buf_add(c);
-			} else {
-				/* This isn't a bracket, we're not actually escaped!
-				 * Get out of here! */
-				ansi_dump_buffer();
-				ansi_writer(c);
-				state.escape = 0;
-				state.buflen = 0;
-				return;
-			}
-			break;
-		case 2:
-			if (c >= ANSI_LOW && c <= ANSI_HIGH) {
-				/* Woah, woah, let's see here. */
-				char * pch;  /* tokenizer pointer */
-				char * save; /* strtok_r pointer */
-				char * argv[MAX_ARGS]; /* escape arguments */
-				/* Get rid of the front of the buffer */
-				strtok_r(state.buffer,"[",&save);
-				pch = strtok_r(NULL,";",&save);
-				/* argc = Number of arguments, obviously */
-				int argc = 0;
-				while (pch != NULL) {
-					argv[argc] = (char *)pch;
-					++argc;
-					if (argc > MAX_ARGS)
-						break;
-					pch = strtok_r(NULL,";",&save);
-				}
-				/* Alright, let's do this */
-				switch (c) {
-					case ANSI_EXT_IOCTL:
-						{
-							if (argc > 0) {
-								int arg = atoi(argv[0]);
-								switch (arg) {
-									case 1:
-										redraw_cursor();
-										break;
-									case 1001:
-										syscall_print("[terminal] legacy app! fix this thing! echo\n");
-										break;
-									case 1002:
-										syscall_print("[terminal] legacy app! fix this thing! echo\n");
-										break;
-									case 1003:
-										syscall_print("[terminal] legacy app! fix this thing! nl-cr\n");
-										break;
-									case 1004:
-										syscall_print("[terminal] legacy app! fix this thing! nl-cr\n");
-										break;
-									case 1555:
-										if (argc > 1) {
-											scale_fonts  = 1;
-											font_scaling = atof(argv[1]);
-											reinit(1);
-										}
-										break;
-									case 1560:
-										syscall_print("[terminal] legacy app! fix this thing! canon\n");
-										break;
-									case 1561:
-										syscall_print("[terminal] legacy app! fix this thing! canon\n");
-										break;
-									case 3000:
-										if (!_fullscreen) {
-											if (argc > 2) {
-												uint16_t win_id = window->bufid;
-												int width = atoi(argv[1]) * char_width + decor_left_width + decor_right_width;
-												int height = atoi(argv[2]) * char_height + decor_top_height + decor_bottom_height;
-												window_resize(window, 0, 0, width, height);
-												resize_callback(window);
-											}
-										}
-									default:
-										break;
-								}
-							}
-						}
-						break;
-					case ANSI_SCP:
-						{
-							state.save_x = ansi_get_csr_x();
-							state.save_y = ansi_get_csr_y();
-						}
-						break;
-					case ANSI_RCP:
-						{
-							ansi_set_csr(state.save_x, state.save_y);
-						}
-						break;
-					case ANSI_SGR:
-						/* Set Graphics Rendition */
-						if (argc == 0) {
-							/* Default = 0 */
-							argv[0] = "0";
-							argc    = 1;
-						}
-						for (int i = 0; i < argc; ++i) {
-							int arg = atoi(argv[i]);
-							if (arg >= 100 && arg < 110) {
-								/* Bright background */
-								state.bg = 8 + (arg - 100);
-								state.flags |= ANSI_SPECBG;
-							} else if (arg >= 90 && arg < 100) {
-								/* Bright foreground */
-								state.fg = 8 + (arg - 90);
-							} else if (arg >= 40 && arg < 49) {
-								/* Set background */
-								state.bg = arg - 40;
-								state.flags |= ANSI_SPECBG;
-							} else if (arg == 49) {
-								state.bg = DEFAULT_BG;
-								state.flags &= ~ANSI_SPECBG;
-							} else if (arg >= 30 && arg < 39) {
-								/* Set Foreground */
-								state.fg = arg - 30;
-							} else if (arg == 39) {
-								/* Default Foreground */
-								state.fg = 7;
-							} else if (arg == 9) {
-								/* X-OUT */
-								state.flags |= ANSI_CROSS;
-							} else if (arg == 7) {
-								/* INVERT: Swap foreground / background */
-								uint32_t temp = state.fg;
-								state.fg = state.bg;
-								state.bg = temp;
-							} else if (arg == 6) {
-								/* proprietary RGBA color support */
-								if (i == 0) { break; }
-								if (i < argc) {
-									int r = atoi(argv[i+1]);
-									int g = atoi(argv[i+2]);
-									int b = atoi(argv[i+3]);
-									int a = atoi(argv[i+4]);
-									if (a == 0) a = 1; /* Override a = 0 */
-									uint32_t c = rgba(r,g,b,a);
-									if (atoi(argv[i-1]) == 48) {
-										state.bg = c;
-										state.flags |= ANSI_SPECBG;
-									} else if (atoi(argv[i-1]) == 38) {
-										state.fg = c;
-									}
-									i += 4;
-								}
-							} else if (arg == 5) {
-								/* Supposed to be blink; instead, support X-term 256 colors */
-								if (i == 0) { break; }
-								if (i < argc) {
-									if (atoi(argv[i-1]) == 48) {
-										/* Background to i+1 */
-										state.bg = atoi(argv[i+1]);
-										state.flags |= ANSI_SPECBG;
-									} else if (atoi(argv[i-1]) == 38) {
-										/* Foreground to i+1 */
-										state.fg = atoi(argv[i+1]);
-									}
-									++i;
-								}
-							} else if (arg == 4) {
-								/* UNDERLINE */
-								state.flags |= ANSI_UNDERLINE;
-							} else if (arg == 3) {
-								/* ITALIC: Oblique */
-								state.flags |= ANSI_ITALIC;
-							} else if (arg == 2) {
-								/* Konsole RGB color support */
-								if (i == 0) { break; }
-								if (i < argc - 2) {
-									int r = atoi(argv[i+1]);
-									int g = atoi(argv[i+2]);
-									int b = atoi(argv[i+3]);
-									uint32_t c = rgb(r,g,b);
-									if (atoi(argv[i-1]) == 48) {
-										/* Background to i+1 */
-										state.bg = c;
-										state.flags |= ANSI_SPECBG;
-									} else if (atoi(argv[i-1]) == 38) {
-										/* Foreground to i+1 */
-										state.fg = c;
-									}
-									i += 3;
-								}
-							} else if (arg == 1) {
-								/* BOLD/BRIGHT: Brighten the output color */
-								state.flags |= ANSI_BOLD;
-							} else if (arg == 0) {
-								/* Reset everything */
-								state.fg = DEFAULT_FG;
-								state.bg = DEFAULT_BG;
-								state.flags = DEFAULT_FLAGS;
-							}
-						}
-						break;
-					case ANSI_SHOW:
-						if (argc > 0) {
-							if (!strcmp(argv[0], "?1049")) {
-								ansi_cls(2);
-								ansi_set_csr(0,0);
-							}
-						}
-						break;
-					case ANSI_CUF:
-						{
-							int i = 1;
-							if (argc) {
-								i = atoi(argv[0]);
-							}
-							ansi_set_csr(min(ansi_get_csr_x() + i, state.width - 1), ansi_get_csr_y());
-						}
-						break;
-					case ANSI_CUU:
-						{
-							int i = 1;
-							if (argc) {
-								i = atoi(argv[0]);
-							}
-							ansi_set_csr(ansi_get_csr_x(), max(ansi_get_csr_y() - i, 0));
-						}
-						break;
-					case ANSI_CUD:
-						{
-							int i = 1;
-							if (argc) {
-								i = atoi(argv[0]);
-							}
-							ansi_set_csr(ansi_get_csr_x(), min(ansi_get_csr_y() + i, state.height - 1));
-						}
-						break;
-					case ANSI_CUB:
-						{
-							int i = 1;
-							if (argc) {
-								i = atoi(argv[0]);
-							}
-							ansi_set_csr(max(ansi_get_csr_x() - i,0), ansi_get_csr_y());
-						}
-						break;
-					case ANSI_CHA:
-						if (argc < 1) {
-							ansi_set_csr(0,ansi_get_csr_y());
-						} else {
-							ansi_set_csr(min(max(atoi(argv[0]), 1), state.width) - 1, ansi_get_csr_y());
-						}
-						break;
-					case ANSI_CUP:
-						if (argc < 2) {
-							ansi_set_csr(0,0);
-						} else {
-							ansi_set_csr(min(max(atoi(argv[1]), 1), state.width) - 1, min(max(atoi(argv[0]), 1), state.height) - 1);
-						}
-						break;
-					case ANSI_ED:
-						if (argc < 1) {
-							ansi_cls(0);
-						} else {
-							ansi_cls(atoi(argv[0]));
-						}
-						break;
-					case ANSI_EL:
-						{
-							int what = 0, x = 0, y = 0;
-							if (argc >= 1) {
-								what = atoi(argv[0]);
-							}
-							if (what == 0) {
-								x = ansi_get_csr_x();
-								y = state.width;
-							} else if (what == 1) {
-								x = 0;
-								y = ansi_get_csr_x();
-							} else if (what == 2) {
-								x = 0;
-								y = state.width;
-							}
-							for (int i = x; i < y; ++i) {
-								ansi_set_cell(i, ansi_get_csr_y(), ' ');
-							}
-						}
-						break;
-					case ANSI_DSR:
-						{
-							char out[24];
-							sprintf(out, "\033[%d;%dR", csr_y + 1, csr_x + 1);
-							input_buffer_stuff(out);
-						}
-						break;
-					case ANSI_SU:
-						{
-							int how_many = 1;
-							if (argc > 0) {
-								how_many = atoi(argv[0]);
-							}
-							ansi_scroll(how_many);
-						}
-						break;
-					case ANSI_SD:
-						{
-							int how_many = 1;
-							if (argc > 0) {
-								how_many = atoi(argv[0]);
-							}
-							ansi_scroll(-how_many);
-						}
-						break;
-					case 'X':
-						{
-							int how_many = 1;
-							if (argc > 0) {
-								how_many = atoi(argv[0]);
-							}
-							for (int i = 0; i < how_many; ++i) {
-								ansi_writer(' ');
-							}
-						}
-						break;
-					case 'd':
-						if (argc < 1) {
-							ansi_set_csr(ansi_get_csr_x(), 0);
-						} else {
-							ansi_set_csr(ansi_get_csr_x(), atoi(argv[0]) - 1);
-						}
-						break;
-					default:
-						/* Meh */
-						break;
-				}
-				/* Set the states */
-				if (state.flags & ANSI_BOLD && state.fg < 9) {
-					ansi_set_color(state.fg % 8 + 8, state.bg);
-				} else {
-					ansi_set_color(state.fg, state.bg);
-				}
-				/* Clear out the buffer */
-				state.buflen = 0;
-				state.escape = 0;
-				return;
-			} else {
-				/* Still escaped */
-				ansi_buf_add(c);
-			}
-			break;
-		case 3:
-			if (c == '\007') {
-				/* Tokenize on semicolons, like we always do */
-				char * pch;  /* tokenizer pointer */
-				char * save; /* strtok_r pointer */
-				char * argv[MAX_ARGS]; /* escape arguments */
-				/* Get rid of the front of the buffer */
-				strtok_r(state.buffer,"]",&save);
-				pch = strtok_r(NULL,";",&save);
-				/* argc = Number of arguments, obviously */
-				int argc = 0;
-				while (pch != NULL) {
-					argv[argc] = (char *)pch;
-					++argc;
-					if (argc > MAX_ARGS) break;
-					pch = strtok_r(NULL,";",&save);
-				}
-				/* Start testing the first argument for what command to use */
-				if (argv[0]) {
-					if (!strcmp(argv[0], "1")) {
-						if (argc > 1) {
-							int len = min(TERMINAL_TITLE_SIZE, strlen(argv[1])+1);
-							memcpy(terminal_title, argv[1], len);
-							terminal_title[len-1] = '\0';
-							terminal_title_length = len - 1;
-							render_decors();
-						}
-					} /* Currently, no other options */
-				}
-				/* Clear out the buffer */
-				state.buflen = 0;
-				state.escape = 0;
-				return;
-			} else {
-				/* Still escaped */
-				ansi_buf_add(c);
-			}
-			break;
-		case 4:
-			if (c == '0') {
-				state.box = 1;
-			} else if (c == 'B') {
-				state.box = 0;
-			} else {
-				ansi_dump_buffer();
-				ansi_writer(c);
-			}
-			state.escape = 0;
-			state.buflen = 0;
-			break;
-	}
-}
-
-void ansi_init(void (*writer)(char), int w, int y, void (*setcolor)(uint32_t, uint32_t),
-		void (*setcsr)(int,int), int (*getcsrx)(void), int (*getcsry)(void), void (*setcell)(int,int,uint16_t),
-		void (*cls)(int), void (*redraw_csr)(void), void (*scroll_term)(int)) {
-
-	ansi_writer    = writer;
-	ansi_set_color = setcolor;
-	ansi_set_csr   = setcsr;
-	ansi_get_csr_x = getcsrx;
-	ansi_get_csr_y = getcsry;
-	ansi_set_cell  = setcell;
-	ansi_cls       = cls;
-	redraw_cursor  = redraw_csr;
-	ansi_scroll    = scroll_term;
-
-	/* Terminal Defaults */
-	state.fg     = DEFAULT_FG;    /* Light grey */
-	state.bg     = DEFAULT_BG;    /* Black */
-	state.flags  = DEFAULT_FLAGS; /* Nothing fancy*/
-	state.width  = w;
-	state.height = y;
-	state.box    = 0;
-
-	ansi_set_color(state.fg, state.bg);
 }
 
 static void render_decors() {
@@ -813,7 +229,7 @@ term_write_char(
 		if (flags & ANSI_SPECBG) {
 			_bg |= 0xFF << 24;
 		} else {
-			_bg |= DEFAULT_OPAC << 24;
+			_bg |= TERM_DEFAULT_OPAC << 24;
 		}
 	} else {
 		_bg = bg;
@@ -844,7 +260,7 @@ term_write_char(
 		int error;
 		FT_Face * _font = NULL;
 		
-		if (flags & ANSI_EXTRA) {
+		if (flags & ANSI_ALTFONT) {
 			_font = &face_extra;
 		} else if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
 			_font = &face_bold_italic;
@@ -914,7 +330,7 @@ _extra_stuff:
 
 static void cell_set(uint16_t x, uint16_t y, uint16_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
 	if (x >= term_width || y >= term_height) return;
-	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	cell->c     = c;
 	cell->fg    = fg;
 	cell->bg    = bg;
@@ -923,9 +339,9 @@ static void cell_set(uint16_t x, uint16_t y, uint16_t c, uint32_t fg, uint32_t b
 
 static void cell_redraw(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
-	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 	} else {
 		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
 	}
@@ -933,9 +349,9 @@ static void cell_redraw(uint16_t x, uint16_t y) {
 
 static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
-	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, DEFAULT_BG, DEFAULT_FG, DEFAULT_FLAGS | ANSI_SPECBG);
+		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_BG, TERM_DEFAULT_FG, TERM_DEFAULT_FLAGS | ANSI_SPECBG);
 	} else {
 		term_write_char(cell->c, x * char_width, y * char_height, cell->bg, cell->fg, cell->flags | ANSI_SPECBG);
 	}
@@ -943,9 +359,9 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 
 static void cell_redraw_box(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
-	t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS | ANSI_BORDER);
+		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS | ANSI_BORDER);
 	} else {
 		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags | ANSI_BORDER);
 	}
@@ -983,9 +399,9 @@ void term_scroll(int how_much) {
 	}
 	if (how_much > 0) {
 		/* Shift terminal cells one row up */
-		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), sizeof(t_cell) * term_width * (term_height - how_much));
+		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), sizeof(term_cell_t) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
-		memset((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width * (term_height - how_much)), 0x0, sizeof(t_cell) * term_width * how_much);
+		memset((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * (term_height - how_much)), 0x0, sizeof(term_cell_t) * term_width * how_much);
 		/* In graphical modes, we will shift the graphics buffer up as necessary */
 		uintptr_t dst, src;
 		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
@@ -1009,9 +425,9 @@ void term_scroll(int how_much) {
 	} else {
 		how_much = -how_much;
 		/* Shift terminal cells one row up */
-		memmove((void *)((uintptr_t)term_buffer + sizeof(t_cell) * term_width), term_buffer, sizeof(t_cell) * term_width * (term_height - how_much));
+		memmove((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), term_buffer, sizeof(term_cell_t) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
-		memset(term_buffer, 0x0, sizeof(t_cell) * term_width * how_much);
+		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * how_much);
 		uintptr_t dst, src;
 		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
 		if (!_fullscreen) {
@@ -1043,7 +459,7 @@ int is_wide(uint32_t codepoint) {
 
 struct scrollback_row {
 	unsigned short width;
-	t_cell cells[];
+	term_cell_t cells[];
 };
 
 #define MAX_SCROLLBACK 10240
@@ -1062,11 +478,11 @@ void save_scrollback() {
 		free(list_dequeue(scrollback_list));
 	}
 
-	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(t_cell) * term_width + 20);
+	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(term_cell_t) * term_width + 20);
 	row->width = term_width;
 	for (int i = 0; i < term_width; ++i) {
-		t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (i) * sizeof(t_cell));
-		memcpy(&row->cells[i], cell, sizeof(t_cell));
+		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (i) * sizeof(term_cell_t));
+		memcpy(&row->cells[i], cell, sizeof(term_cell_t));
 	}
 
 	list_insert(scrollback_list, row);
@@ -1082,9 +498,9 @@ void redraw_scrollback() {
 		for (int i = scrollback_offset; i < term_height; i++) {
 			int y = i - scrollback_offset;
 			for (int x = 0; x < term_width; ++x) {
-				t_cell * cell = (t_cell *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(t_cell));
+				term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 				if (((uint32_t *)cell)[0] == 0x00000000) {
-					term_write_char(' ', x * char_width, i * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+					term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 				} else {
 					term_write_char(cell->c, x * char_width, i * char_height, cell->fg, cell->bg, cell->flags);
 				}
@@ -1101,13 +517,13 @@ void redraw_scrollback() {
 				width = term_width;
 			} else {
 				for (int x = row->width; x < term_width; ++x) {
-					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+					term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 				}
 			}
 			for (int x = 0; x < width; ++x) {
-				t_cell * cell = &row->cells[x];
+				term_cell_t * cell = &row->cells[x];
 				if (((uint32_t *)cell)[0] == 0x00000000) {
-					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+					term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 				} else {
 					term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
 				}
@@ -1129,13 +545,13 @@ void redraw_scrollback() {
 				width = term_width;
 			} else {
 				for (int x = row->width; x < term_width; ++x) {
-					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+					term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 				}
 			}
 			for (int x = 0; x < width; ++x) {
-				t_cell * cell = &row->cells[x];
+				term_cell_t * cell = &row->cells[x];
 				if (((uint32_t *)cell)[0] == 0x00000000) {
-					term_write_char(' ', x * char_width, y * char_height, DEFAULT_FG, DEFAULT_BG, DEFAULT_FLAGS);
+					term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 				} else {
 					term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
 				}
@@ -1195,7 +611,7 @@ void term_write(char c) {
 			draw_cursor();
 		} else {
 			int wide = is_wide(codepoint);
-			uint8_t flags = state.flags;
+			uint8_t flags = ansi_state()->flags;
 			if (wide && csr_x == term_width - 1) {
 				csr_x = 0;
 				++csr_y;
@@ -1207,7 +623,7 @@ void term_write(char c) {
 			cell_redraw(csr_x,csr_y);
 			csr_x++;
 			if (wide && csr_x != term_width) {
-				cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, state.flags);
+				cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, ansi_state()->flags);
 				cell_redraw(csr_x,csr_y);
 				cell_redraw(csr_x-1,csr_y);
 				csr_x++;
@@ -1265,7 +681,7 @@ void flip_cursor() {
 
 void
 term_set_cell(int x, int y, uint16_t c) {
-	cell_set(x, y, c, current_fg, current_bg, state.flags);
+	cell_set(x, y, c, current_fg, current_bg, ansi_state()->flags);
 	cell_redraw(x, y);
 }
 
@@ -1279,7 +695,7 @@ void term_clear(int i) {
 		/* Oh dear */
 		csr_x = 0;
 		csr_y = 0;
-		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(t_cell));
+		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(term_cell_t));
 		if (!_fullscreen) {
 			render_decors();
 		}
@@ -1475,13 +891,13 @@ void reinit(int send_sig) {
 	term_width  = window_width  / char_width;
 	term_height = window_height / char_height;
 	if (term_buffer) {
-		t_cell * new_term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
+		term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
 
-		memset(new_term_buffer, 0x0, sizeof(t_cell) * term_width * term_height);
+		memset(new_term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 		for (int row = 0; row < min(old_height, term_height); ++row) {
 			for (int col = 0; col < min(old_width, term_width); ++col) {
-				t_cell * old_cell = (t_cell *)((uintptr_t)term_buffer + (row * old_width + col) * sizeof(t_cell));
-				t_cell * new_cell = (t_cell *)((uintptr_t)new_term_buffer + (row * term_width + col) * sizeof(t_cell));
+				term_cell_t * old_cell = (term_cell_t *)((uintptr_t)term_buffer + (row * old_width + col) * sizeof(term_cell_t));
+				term_cell_t * new_cell = (term_cell_t *)((uintptr_t)new_term_buffer + (row * term_width + col) * sizeof(term_cell_t));
 				*new_cell = *old_cell;
 			}
 		}
@@ -1489,12 +905,12 @@ void reinit(int send_sig) {
 
 		term_buffer = new_term_buffer;
 	} else {
-		term_buffer = malloc(sizeof(t_cell) * term_width * term_height);
-		memset(term_buffer, 0x0, sizeof(t_cell) * term_width * term_height);
+		term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
+		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 	}
-	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll);
+	ansi_init(&term_write, term_width, term_height, &term_set_colors, &term_set_csr, &term_get_csr_x, &term_get_csr_y, &term_set_cell, &term_clear, &term_redraw_cursor, &term_scroll, &input_buffer_stuff, &set_term_font_size, &set_title);
 
-	draw_fill(ctx, rgba(0,0,0, DEFAULT_OPAC));
+	draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
 	render_decors();
 	term_redraw_all();
 
