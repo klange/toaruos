@@ -5,7 +5,12 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include <types.h>
+#ifdef _KERNEL_
+#	include <types.h>
+#else
+#	include <stdint.h>
+#	include <stddef.h>
+#endif
 
 typedef struct node {
 	struct node * next;

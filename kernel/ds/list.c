@@ -2,8 +2,15 @@
  * 
  * General-purpose list implementations.
  */
-#include <system.h>
-#include <list.h>
+
+#include "list.h"
+
+#ifdef _KERNEL_
+#	include <system.h>
+#else
+#	include <stddef.h>
+#	include <stdlib.h>
+#endif
 
 void list_destroy(list_t * list) {
 	/* Free all of the contents of a list */

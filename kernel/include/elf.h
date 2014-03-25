@@ -14,11 +14,7 @@
 #ifdef _KERNEL_
 #	include <types.h>
 #else
-#	ifdef BOOTLOADER
-#		include <types.h>
-#	else
-#		include <stdint.h>
-#	endif
+#	include <stdint.h>
 #endif
 
 /*

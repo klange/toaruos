@@ -2,9 +2,15 @@
  * 
  * General-purpose tree implementation
  */
-#include <system.h>
-#include <list.h>
-#include <tree.h>
+
+#include "tree.h"
+
+#ifdef _KERNEL_
+#	include <system.h>
+#else
+#	include <stddef.h>
+#	include <stdlib.h>
+#endif
 
 tree_t * tree_create(void) {
 	/* Create a new tree */

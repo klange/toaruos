@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "lib/list.h"
 
 /* Width of a line to read for a clause. Clauses should not be too terrible long. */

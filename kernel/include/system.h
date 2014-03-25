@@ -2,7 +2,6 @@
  */
 #ifndef __SYSTEM_H
 #define __SYSTEM_H
-#define _KERNEL_
 #include <types.h>
 #include <fs.h>
 #include <va_list.h>

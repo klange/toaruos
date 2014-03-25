@@ -1,7 +1,5 @@
-#include <system.h>
-#include <logging.h>
-#include <list.h>
-#include <hashmap.h>
+#include "list.h"
+#include "hashmap.h"
 
 unsigned int hashmap_string_hash(void * _key) {
 	unsigned int hash = 0;
