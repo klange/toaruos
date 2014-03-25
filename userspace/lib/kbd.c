@@ -7,7 +7,6 @@
  *   - It translates incoming keys to escape sequences
  */
 
-#include <stdio.h>
 #include "kbd.h"
 
 int kbd_state = 0;
