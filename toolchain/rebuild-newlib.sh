@@ -18,9 +18,13 @@ pushd build
         rm -r newlib
         mkdir newlib
     fi
+    pushd $DIR/tarballs/newlib-1.19.0
+        find -type f -exec sed 's|--cygnus||g;s|cygnus||g' -i {} + || bail
+    popd
     pushd $DIR/tarballs/newlib-1.19.0/newlib/libc/sys
         autoconf || bail
         pushd toaru
+            touch INSTALL NEWS README AUTHORS ChangeLog COPYING || bail
             autoreconf || bail
             yasm -f elf -o crt0.o crt0.s || bail
             yasm -f elf -o crti.o crti.s || bail

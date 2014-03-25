@@ -32,7 +32,6 @@ pushd build
         mkdir newlib
     fi
     pushd $DIR/tarballs/newlib-1.19.0
-        [ -z "$(automake --version | grep -e '1.13.' -e '1.14.')" ] && return
         find -type f -exec sed 's|--cygnus||g;s|cygnus||g' -i {} + || bail
     popd
     pushd $DIR/tarballs/newlib-1.19.0/newlib/libc/sys
