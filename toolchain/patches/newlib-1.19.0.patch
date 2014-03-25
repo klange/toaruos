@@ -27,7 +27,7 @@ diff -rupN _source/newlib-1.19.0/newlib/configure.host newlib-1.19.0/newlib/conf
  
  case "${host}" in
 +  *-*-toaru)
-+	newlib_cflags="${newlib_cflags} -DSIGNAL_PROVIDED -DMISSING_SYSCALL_NAMES"
++	newlib_cflags="${newlib_cflags} -fPIC -DSIGNAL_PROVIDED -DMISSING_SYSCALL_NAMES"
 +	;;
    *-*-cygwin*)
   test -z "$cygwin_srcdir" && cygwin_srcdir=`cd ${srcdir}/../winsup/cygwin; pwd`
