@@ -76,10 +76,19 @@ static int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 				read--;
 				linebuf[read] = 0;
 			}
-			continue;
+		} else if (buf[0] < ' ') {
+			switch (buf[0]) {
+				case 0x0C: /* ^L */
+					/* Should reset display here */
+					break;
+				default:
+					/* do nothing */
+					break;
+			}
+		} else {
+			fs_printf(dev, "%c", buf[0]);
+			read += r;
 		}
-		fs_printf(dev, "%c", buf[0]);
-		read += r;
 	}
 	set_buffered(dev);
 	return read;
