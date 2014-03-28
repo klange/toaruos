@@ -1,4 +1,0 @@
-#!/bin/bash
-
-make clean
-CCC_ANALYZE=yes scan-build make

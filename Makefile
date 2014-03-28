@@ -1,10 +1,7 @@
 # ToAruOS Primary Build Script
 
 # We always build with our targetted cross-compiler
-ifneq ($(CCC_ANALYZE),yes)
 CC = i686-pc-toaru-gcc
-endif
-
 NM = i686-pc-toaru-nm
 
 # Build flags
@@ -112,6 +109,8 @@ term: system
 	${EMU} ${EMUARGS} -append "vid=qemu start=--single $(DISK_ROOT)"
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu start=--single $(DISK_ROOT)"
+term-beta: system
+	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu start=--single-beta logtoserial=1 $(DISK_ROOT)"
 headless: system
 	${EMU} ${EMUARGS} -display none -append "start=--vga $(DISK_ROOT)"
 

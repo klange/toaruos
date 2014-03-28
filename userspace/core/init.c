@@ -32,70 +32,15 @@ void set_hostname() {
 	}
 }
 
-void start_terminal(char * arg) {
+int start_options(char * args[]) {
 	int pid = fork();
 	if (!pid) {
-		char * tokens[] = {
-			"/bin/compositor",
-			"/bin/terminal",
-			"-Fl",
-			arg,
-			NULL
-		};
-		int i = execvp(tokens[0], tokens);
+		int i = execvp(args[0], args);
 		exit(0);
 	} else {
-		syscall_wait(pid);
+		return syscall_wait(pid);
 	}
 }
-
-void start_terminal_no_freetype(char * arg) {
-	int pid = fork();
-	if (!pid) {
-		char * tokens[] = {
-			"/bin/compositor",
-			"/bin/terminal",
-			"-Fklb",
-			arg,
-			NULL
-		};
-		int i = execv(tokens[0], tokens);
-		exit(0);
-	} else {
-		syscall_wait(pid);
-	}
-}
-
-void start_vga_terminal(char * arg) {
-	int pid = fork();
-	if (!pid) {
-		char * tokens[] = {
-			"/bin/vga-warning",
-			arg,
-			NULL
-		};
-		int i = execvp(tokens[0], tokens);
-		exit(0);
-	} else {
-		syscall_wait(pid);
-	}
-}
-
-void start_compositor() {
-	int pid = fork();
-	if (!pid) {
-		char * _tokens[] = {
-			"/bin/compositor",
-			NULL
-		};
-		execvp(_tokens[0], _tokens);
-
-		exit(0);
-	} else {
-		syscall_wait(pid);
-	}
-}
-
 
 int main(int argc, char * argv[]) {
 	/* Hostname */
@@ -106,15 +51,12 @@ int main(int argc, char * argv[]) {
 			args = argv[2];
 		}
 		if (!strcmp(argv[1],"--single")) {
-			start_terminal(args);
-			return 0;
+			return start_options((char *[]){"/bin/compositor","/bin/terminal","-Fl",args,NULL});
+		} else if (!strcmp(argv[1], "--single-beta")) {
+			return start_options((char *[]){"/bin/compositor-beta","/bin/drawlines",args,NULL});
 		} else if (!strcmp(argv[1], "--vga")) {
-			start_vga_terminal(args);
-			return 0;
-		} else if (!strcmp(argv[1], "--special")) {
-			start_terminal_no_freetype(args);
-			return 0;
+			return start_options((char *[]){"/bin/vga-warning",NULL});
 		}
 	}
-	start_compositor();
+	return start_options((char *[]){"/bin/compositor",NULL});
 }
