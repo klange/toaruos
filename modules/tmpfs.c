@@ -5,6 +5,7 @@
 #include <process.h>
 
 #include <module.h>
+#include <mod/tmpfs.h>
 
 /* 1KB */
 #define BLOCKSIZE 1024
@@ -12,37 +13,7 @@
 #define TMPFS_TYPE_FILE 1
 #define TMPFS_TYPE_DIR  2
 
-static uint8_t volatile tmpfs_lock = 0;
-
-struct tmpfs_file {
-	char * name;
-	int    type;
-	int    mask;
-	int    uid;
-	int    gid;
-	unsigned int atime;
-	unsigned int mtime;
-	unsigned int ctime;
-	size_t length;
-	size_t block_count;
-	size_t pointers;
-	char ** blocks;
-};
-
-struct tmpfs_dir;
-
-struct tmpfs_dir {
-	char * name;
-	int    type;
-	int    mask;
-	int    uid;
-	int    gid;
-	unsigned int atime;
-	unsigned int mtime;
-	unsigned int ctime;
-	list_t * files;
-	struct tmpfs_dir * parent;
-};
+uint8_t volatile tmpfs_lock = 0;
 
 struct tmpfs_dir * tmpfs_root = NULL;
 
@@ -410,8 +381,8 @@ static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	return fnode;
 }
 
-static fs_node_t * tmpfs_create(void) {
-	tmpfs_root = tmpfs_dir_new("tmp", NULL);
+fs_node_t * tmpfs_create(char * name) {
+	tmpfs_root = tmpfs_dir_new(name, NULL);
 	tmpfs_root->mask = 0777;
 	tmpfs_root->uid  = 0;
 	tmpfs_root->gid  = 0;
@@ -420,8 +391,8 @@ static fs_node_t * tmpfs_create(void) {
 }
 
 static int tmpfs_initialize(void) {
-	vfs_mount("/tmp", tmpfs_create());
-	fs_root = tmpfs_create();
+	vfs_mount("/tmp", tmpfs_create("tmp"));
+	fs_root = tmpfs_create("/");
 	return 0;
 }
 static int tmpfs_finalize(void) {
