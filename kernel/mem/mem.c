@@ -346,11 +346,6 @@ page_fault(
 
 	if (r->eip < heap_end) {
 		/* find closest symbol */
-		typedef struct {
-			uintptr_t addr;
-			char name[];
-		} kernel_symbol_t;
-
 		char * closest  = NULL;
 		size_t distance = 0xFFFFFFFF;
 		uintptr_t  addr = 0;
