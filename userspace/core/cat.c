@@ -30,7 +30,7 @@ int main(int argc, char ** argv) {
 
 	for (int i = 1; i < argc; ++i) {
 		int fd = open(argv[i], O_RDONLY);
-		if (!fd) {
+		if (fd == -1) {
 			fprintf(stderr, "%s: %s: no such file or directory\n", argv[0], argv[i]);
 			ret = 1;
 			continue;
