@@ -487,7 +487,7 @@ void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 		cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 	}
 
-	if (window->anim_mode) {
+	if (window->anim_mode && (window->z != 0xFFFF && window->z != 0)) {
 
 		int frame = tick_count - window->anim_start;
 		if (frame >= animation_lengths[window->anim_mode]) {
