@@ -1325,21 +1325,23 @@ void * process_requests(void * garbage) {
 					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				}
 				_mouse_window = focused_window();
-				_packet.wid = _mouse_window->wid;
+				if (_mouse_window) {
+					_packet.wid = _mouse_window->wid;
 
-				_packet.old_x = click_x;
-				_packet.old_y = click_y;
+					_packet.old_x = click_x;
+					_packet.old_y = click_y;
 
-				device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
+					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
 
-				_packet.new_x = click_x;
-				_packet.new_y = click_y;
+					_packet.new_x = click_x;
+					_packet.new_y = click_y;
 
-				_packet.buttons = packet->buttons;
-				_packet.command = WE_MOUSEMOVE;
+					_packet.buttons = packet->buttons;
+					_packet.command = WE_MOUSEMOVE;
 
-				if (_packet.new_x != _packet.old_x || _packet.new_y != _packet.old_y) {
-					send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+					if (_packet.new_x != _packet.old_x || _packet.new_y != _packet.old_y) {
+						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+					}
 				}
 			} else if (_mouse_state == 1) {
 				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {

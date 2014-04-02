@@ -104,21 +104,6 @@ int main (int argc, char ** argv) {
 	int width  = wins_globals->server_width;
 	int height = wins_globals->server_height;
 
-	win_width = width;
-	win_height = height;
-
-	event_pipe = syscall_mkpipe();
-
-	/* Do something with a window */
-	window_t * wina = window_create(0,0, width, height);
-	assert(wina);
-	window_reorder (wina, 0);
-	ctx = init_graphics_window_double_buffer(wina);
-	draw_fill(ctx, rgb(127,127,127));
-	flip(ctx);
-
-	syscall_signal(2, sig_int);
-
 	char f_name[512];
 	sprintf(f_name, "%s/.wallpaper.png", getenv("HOME"));
 	FILE * f = fopen(f_name, "r");
@@ -135,11 +120,31 @@ int main (int argc, char ** argv) {
 	int nh = (int)(x * (float)sprites[0]->height);
 	int nw = (int)(y * (float)sprites[0]->width);;
 
+	sprites[1] = create_sprite(width, height, ALPHA_OPAQUE);
+	gfx_context_t * tmp = init_graphics_sprite(sprites[1]);
+
 	if (nw > width) {
-		draw_sprite_scaled(ctx, sprites[0], (width - nw) / 2, 0, nw, height);
+		draw_sprite_scaled(tmp, sprites[0], (width - nw) / 2, 0, nw, height);
 	} else {
-		draw_sprite_scaled(ctx, sprites[0], 0, (height - nh) / 2, width, nh);
+		draw_sprite_scaled(tmp, sprites[0], 0, (height - nh) / 2, width, nh);
 	}
+
+	free(tmp);
+
+	win_width = width;
+	win_height = height;
+
+	event_pipe = syscall_mkpipe();
+
+	/* Do something with a window */
+	window_t * wina = window_create(0,0, width, height);
+	assert(wina);
+	window_reorder (wina, 0);
+	ctx = init_graphics_window_double_buffer(wina);
+	draw_sprite(ctx, sprites[1], 0, 0);
+	flip(ctx);
+
+	syscall_signal(2, sig_int);
 	flip(ctx);
 
 	init_shmemfonts();
