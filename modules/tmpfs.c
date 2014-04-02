@@ -237,6 +237,24 @@ static struct dirent * readdir_tmpfs(fs_node_t *node, uint32_t index) {
 
 	debug_print(NOTICE, "tmpfs - readdir id=%d", index);
 
+	if (index == 0) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, ".");
+		return out;
+	}
+
+	if (index == 1) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, "..");
+		return out;
+	}
+
+	index -= 2;
+
 	if (index >= d->files->length) return NULL;
 
 	foreach(f, d->files) {

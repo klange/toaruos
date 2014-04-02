@@ -108,6 +108,24 @@ static struct procfs_entry procdir_entries[] = {
 };
 
 static struct dirent * readdir_procfs_procdir(fs_node_t *node, uint32_t index) {
+	if (index == 0) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, ".");
+		return out;
+	}
+
+	if (index == 1) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, "..");
+		return out;
+	}
+
+	index -= 2;
+
 	if (index < PROCFS_PROCDIR_ENTRIES) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
@@ -239,6 +257,24 @@ static struct procfs_entry std_entries[] = {
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
+	if (index == 0) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, ".");
+		return out;
+	}
+
+	if (index == 1) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, "..");
+		return out;
+	}
+
+	index -= 2;
+
 	if (index < PROCFS_STANDARD_ENTRIES) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
