@@ -122,6 +122,9 @@ void print_entry_long(const char * filename, const char * srcpath) {
 	} else if (statbuf.st_mode & 0111) {
 		// Executable
 		ansi_color_str = EXE_COLOR;
+	} else if (S_ISBLK(statbuf.st_mode) || S_ISCHR(statbuf.st_mode)) {
+		/* Device file */
+		ansi_color_str = DEVICE_COLOR;
 	} else {
 		// Something else
 		ansi_color_str = REG_COLOR;
