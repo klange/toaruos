@@ -76,9 +76,10 @@ EMUARGS += $(BOOT_MODULES_X)
 EMUKVM   = -enable-kvm
 
 DISK_ROOT = root=/dev/hda
-VID_QEMU  = vid=qemu
+VID_QEMU  = vid=qemu,,1280,,720
 START_VGA = start=--vga
 START_SINGLE = start=--single
+WITH_LOGS = logtoserial=1
 
 .PHONY: all system install test
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
@@ -113,7 +114,7 @@ term: system
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 term-beta: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) start=--single-beta logtoserial=1 $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) start=--single-beta $(WITH_LOGS) $(DISK_ROOT)"
 headless: system
 	${EMU} ${EMUARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
 
