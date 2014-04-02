@@ -487,7 +487,7 @@ void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 		cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 	}
 
-	if (window->anim_mode && (window->z != 0xFFFF && window->z != 0)) {
+	if (window->anim_mode) {
 
 		int frame = tick_count - window->anim_start;
 		if (frame >= animation_lengths[window->anim_mode]) {
@@ -522,9 +522,10 @@ void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 			int t_x = (window->width * (1.0 - x)) / 2;
 			int t_y = (window->height * (1.0 - x)) / 2;
 
-			cairo_translate(cr, t_x, t_y);
-
-			cairo_scale(cr, x, x);
+			if (window->z != 0xFFFF && window->z != 0) {
+				cairo_translate(cr, t_x, t_y);
+				cairo_scale(cr, x, x);
+			}
 			cairo_set_source_surface(cr, win, 0, 0);
 			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 			cairo_paint_with_alpha(cr, (double)frame / 256.0);
