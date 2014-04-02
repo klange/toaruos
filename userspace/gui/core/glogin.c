@@ -143,9 +143,9 @@ void draw_box_border(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32
 	draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 }
 
-
 int main (int argc, char ** argv) {
 	init_sprite_png(0, "/usr/share/logo_login.png");
+	init_sprite_png(1, "/usr/share/wallpaper.png");
 	init_shmemfonts();
 
 	while (1) {
@@ -158,6 +158,36 @@ int main (int argc, char ** argv) {
 		win_width = width;
 		win_height = height;
 
+		if (!sprites[2]) {
+			float x = (float)width  / (float)sprites[1]->width;
+			float y = (float)height / (float)sprites[1]->height;
+
+			int nh = (int)(x * (float)sprites[1]->height);
+			int nw = (int)(y * (float)sprites[1]->width);;
+
+			sprite_t * tmp = create_sprite(width, height, ALPHA_OPAQUE);
+			gfx_context_t * bg_tmp = init_graphics_sprite(tmp);
+
+			sprites[2] = create_sprite(width, height, ALPHA_OPAQUE);
+			gfx_context_t * bg = init_graphics_sprite(sprites[2]);
+
+			if (nw > width) {
+				draw_sprite_scaled(bg_tmp, sprites[1], (width - nw) / 2, 0, nw, height);
+			} else {
+				draw_sprite_scaled(bg_tmp, sprites[1], 0, (height - nh) / 2, width, nh);
+			}
+
+			blur_context_no_vignette(bg, bg_tmp, 80.0);
+			blur_context_no_vignette(bg_tmp, bg, 400.0);
+			blur_context_no_vignette(bg, bg_tmp, 200.0);
+
+			sprite_free(tmp);
+
+			free(bg_tmp);
+			free(bg);
+		}
+
+
 		/* Do something with a window */
 		window_t * wina = window_create(0,0, width, height);
 		assert(wina);
@@ -166,6 +196,7 @@ int main (int argc, char ** argv) {
 
 		for (int i = 0; i < LOGO_FINAL_OFFSET; ++i) {
 			draw_fill(ctx, rgb(0,0,0));
+			draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
 			draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - i);
 			flip(ctx);
 		}
@@ -253,10 +284,12 @@ int main (int argc, char ** argv) {
 
 				/* Redraw the background */
 				draw_fill(ctx, rgb(0,0,0));
+
+				draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
 				draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 
-				draw_string(ctx, hostname_label_left, height - 12, white, hostname);
-				draw_string(ctx, kernel_v_label_left, height - 12, white, kernel_v);
+				draw_string_shadow(ctx, hostname_label_left, height - 12, white, hostname, rgb(0,0,0), 2, 1, 1, 3.0);
+				draw_string_shadow(ctx, kernel_v_label_left, height - 12, white, kernel_v, rgb(0,0,0), 2, 1, 1, 3.0);
 
 				/* Draw backdrops */
 				draw_box(ctx, box_x, box_y, BOX_WIDTH, BOX_HEIGHT, rgb(20,20,20));
@@ -329,6 +362,7 @@ int main (int argc, char ** argv) {
 		}
 
 		draw_fill(ctx, rgb(0,0,0));
+		draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
 		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
 
