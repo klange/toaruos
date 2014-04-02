@@ -76,6 +76,9 @@ EMUARGS += $(BOOT_MODULES_X)
 EMUKVM   = -enable-kvm
 
 DISK_ROOT = root=/dev/hda
+VID_QEMU  = vid=qemu
+START_VGA = start=--vga
+START_SINGLE = start=--single
 
 .PHONY: all system install test
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
@@ -98,21 +101,21 @@ install: system
 
 # Various different quick options
 run: system
-	${EMU} ${EMUARGS} -append "vid=qemu $(DISK_ROOT)"
+	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
 kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(DISK_ROOT)"
 vga: system
-	${EMU} ${EMUARGS} -append "start=--vga $(DISK_ROOT)"
+	${EMU} ${EMUARGS} -append "$(START_VGA) $(DISK_ROOT)"
 vga-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "start=--vga $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(START_VGA) $(DISK_ROOT)"
 term: system
-	${EMU} ${EMUARGS} -append "vid=qemu start=--single $(DISK_ROOT)"
+	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 term-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu start=--single $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 term-beta: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "vid=qemu start=--single-beta logtoserial=1 $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) start=--single-beta logtoserial=1 $(DISK_ROOT)"
 headless: system
-	${EMU} ${EMUARGS} -display none -append "start=--vga $(DISK_ROOT)"
+	${EMU} ${EMUARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
 
 test: system
 	python2 util/run-tests.py 2>/dev/null
