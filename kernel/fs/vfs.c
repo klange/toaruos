@@ -71,7 +71,7 @@ uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffe
 		uint32_t ret = node->read(node, offset, size, buffer);
 		return ret;
 	} else {
-		return 0;
+		return -1;
 	}
 }
 
@@ -89,7 +89,7 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
 		uint32_t ret = node->write(node, offset, size, buffer);
 		return ret;
 	} else {
-		return 0;
+		return -1;
 	}
 }
 
