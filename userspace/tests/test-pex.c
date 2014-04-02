@@ -25,19 +25,20 @@ int main(int argc, char * argv[]) {
 	setbuf(server, NULL);
 	setbuf(client, NULL);
 
-	fprintf(stdout, "[server = %p]\n", server);
-	fprintf(stdout, "[client = %p]\n", client);
+	fprintf(stderr, "[server = %p]\n", server);
+	fprintf(stderr, "[client = %p]\n", client);
 
+	fprintf(stderr, "Client is sending 'Hello World'.\n");
 	fprintf(client, "Hello World!");
 
 	{
 		packet_t * p = malloc(PACKET_SIZE);
 		memset(p, 0x00, PACKET_SIZE);
-		fprintf(stdout, "Reading %d...\n", PACKET_SIZE);
+		fprintf(stderr, "Server is reading up to %d...\n", PACKET_SIZE);
 		size_t size = read(fileno(server), p, PACKET_SIZE);
 
-		fprintf(stdout, "Received a packet of size %d (%d) from client [0x%x]\n", p->size, size, p->source);
-		fprintf(stdout, "Packet contents: %s\n", p->data);
+		fprintf(stderr, "Server received a packet of size %d (%d) from client [0x%x]\n", p->size, size, p->source);
+		fprintf(stderr, "Packet contents: %s\n", p->data);
 		free(p);
 	}
 
@@ -45,6 +46,7 @@ int main(int argc, char * argv[]) {
 		header_t * broadcast = malloc(sizeof(header_t) + MAX_PACKET_SIZE);
 
 		broadcast->target = 0;
+		fprintf(stderr, "Server is sending broadcast response: 'Hello everyone!\\n'\n");
 		size_t size = sprintf(broadcast->data, "Hello everyone!\n") + 1;
 
 		fwrite(broadcast, 1, sizeof(header_t) + size, server);
@@ -53,8 +55,9 @@ int main(int argc, char * argv[]) {
 
 	char out[MAX_PACKET_SIZE];
 	memset(out, 0, MAX_PACKET_SIZE);
+	fprintf(stderr, "Client is reading up to %d...\n", MAX_PACKET_SIZE);
 	size_t size = read(fileno(client), out, MAX_PACKET_SIZE);
-	fprintf(stdout, "Response received from server (size=%d) %s\n", size, out);
+	fprintf(stderr, "Client received response from server (size=%d) %s\n", size, out);
 
 
 	fclose(client);
