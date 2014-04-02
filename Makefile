@@ -57,6 +57,7 @@ BOOT_MODULES += ext2
 BOOT_MODULES += debug_shell
 BOOT_MODULES += ps2mouse ps2kbd
 BOOT_MODULES += lfbvideo
+BOOT_MODULES += packetfs
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
