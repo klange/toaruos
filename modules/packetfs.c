@@ -115,14 +115,17 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 	if (head->target == NULL) {
 		/* Brodcast packet */
 		foreach(f, p->clients) {
-			send_to_client(p, (pex_client_t *)f->value, size - sizeof(header_t), &head->data);
+			debug_print(NOTICE, "Sending to client 0x%x", f->value);
+			send_to_client(p, (pex_client_t *)f->value, size - sizeof(header_t), head->data);
 		}
+		debug_print(NOTICE, "Done broadcasting to clients.\n");
+		return size;
 	} else if (head->target->parent != p) {
 		debug_print(ERROR, "[pex] Invalid packet from server?");
 		return -1;
 	}
 
-	send_to_client(p, head->target, size - sizeof(header_t), &head->data);
+	send_to_client(p, head->target, size - sizeof(header_t), head->data);
 
 	return size;
 }
@@ -138,11 +141,14 @@ static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, ui
 	receive_packet(c->pipe, &packet);
 
 	if (packet->size > size) {
+		debug_print(ERROR, "[pex] Client is not reading enough bytes to hold packet of size %d", packet->size);
 		return -1;
 	}
 
 	memcpy(buffer, &packet->data, packet->size);
 	uint32_t out = packet->size;
+
+	debug_print(NOTICE, "[pex] Client received packet of size %d", packet->size);
 
 	free(packet);
 	return out;
@@ -184,6 +190,8 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 
 		node->read = read_client;
 		node->write = write_client;
+
+		list_insert(t->clients, client);
 
 		/* XXX: Send plumbing message to server for new client connection */
 		debug_print(NOTICE, "[pex] Client connected: %s:0%x", t->name, node->inode);
