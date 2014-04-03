@@ -21,5 +21,6 @@ typedef struct _pipe_device {
 
 fs_node_t * make_pipe(size_t size);
 int pipe_size(fs_node_t * node);
+int pipe_unsize(fs_node_t * node);
 
 #endif

@@ -58,8 +58,14 @@ static void send_to_server(pex_ex_t * p, pex_client_t * c, size_t size, void * d
 	free(packet);
 }
 
-static void send_to_client(pex_ex_t * p, pex_client_t * c, size_t size, void * data) {
+static int send_to_client(pex_ex_t * p, pex_client_t * c, size_t size, void * data) {
 	size_t p_size = size + sizeof(struct packet);
+
+	/* Verify there is space on the client */
+	if (pipe_unsize(c->pipe) < (int)p_size) {
+		return -1;
+	}
+
 	packet_t * packet = malloc(p_size);
 
 	memcpy(packet->data, data, size);
@@ -69,7 +75,7 @@ static void send_to_client(pex_ex_t * p, pex_client_t * c, size_t size, void * d
 	write_fs(c->pipe, 0, p_size, (uint8_t *)packet);
 
 	free(packet);
-
+	return size;
 }
 
 static pex_client_t * create_client(pex_ex_t * p) {
@@ -125,9 +131,7 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 		return -1;
 	}
 
-	send_to_client(p, head->target, size - sizeof(header_t), head->data);
-
-	return size;
+	return send_to_client(p, head->target, size - sizeof(header_t), head->data);
 }
 
 static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {

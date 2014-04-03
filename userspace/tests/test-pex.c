@@ -4,61 +4,51 @@
 #include <stdint.h>
 #include <string.h>
 
-typedef struct packet {
-	uintptr_t source;
-	size_t      size;
-	uint8_t     data[];
-} packet_t;
-#define MAX_PACKET_SIZE 1024
-#define PACKET_SIZE (sizeof(packet_t) + MAX_PACKET_SIZE)
-
-typedef struct server_write_header {
-	uintptr_t target;
-	uint8_t data[];
-} header_t;
+#include "lib/testing.h"
+#include "lib/pex.h"
 
 int main(int argc, char * argv[]) {
-	FILE * server = fopen("/dev/pex/testex", "a+");
-	FILE * client = fopen("/dev/pex/testex", "r+");
+	FILE * server = pex_bind("testex");
+	FILE * client = pex_connect("testex");
 
-	/* Output is unbuffered so we can write packets discreetly */
-	setbuf(server, NULL);
-	setbuf(client, NULL);
+	char * foo = "Hello World!";
+	pex_reply(client, strlen(foo)+1, foo);
 
-	fprintf(stderr, "[server = %p]\n", server);
-	fprintf(stderr, "[client = %p]\n", client);
+	pex_packet_t * p = calloc(PACKET_SIZE, 1);
+	pex_listen(server, p);
 
-	fprintf(stderr, "Client is sending 'Hello World'.\n");
-	fprintf(client, "Hello World!");
+	unsigned int client_id =  p->source;
 
-	{
-		packet_t * p = malloc(PACKET_SIZE);
-		memset(p, 0x00, PACKET_SIZE);
-		fprintf(stderr, "Server is reading up to %d...\n", PACKET_SIZE);
-		size_t size = read(fileno(server), p, PACKET_SIZE);
-
-		fprintf(stderr, "Server received a packet of size %d (%d) from client [0x%x]\n", p->size, size, p->source);
-		fprintf(stderr, "Packet contents: %s\n", p->data);
-		free(p);
+	if (!strcmp("Hello World!", p->data)) {
+		PASS("Client-server message received.");
+	} else {
+		FAIL("Expected message of 'Hello World!', got %s", p->data);
 	}
 
-	{
-		header_t * broadcast = malloc(sizeof(header_t) + MAX_PACKET_SIZE);
+	free(p);
 
-		broadcast->target = 0;
-		fprintf(stderr, "Server is sending broadcast response: 'Hello everyone!\\n'\n");
-		size_t size = sprintf(broadcast->data, "Hello everyone!\n") + 1;
-
-		fwrite(broadcast, 1, sizeof(header_t) + size, server);
-		free(broadcast);
-	}
+	char * foo2 = "Hello everyone!\n";
+	pex_broadcast(server, strlen(foo2)+1, foo2);
 
 	char out[MAX_PACKET_SIZE];
-	memset(out, 0, MAX_PACKET_SIZE);
-	fprintf(stderr, "Client is reading up to %d...\n", MAX_PACKET_SIZE);
-	size_t size = read(fileno(client), out, MAX_PACKET_SIZE);
-	fprintf(stderr, "Client received response from server (size=%d) %s\n", size, out);
+	size_t size = pex_recv(client, out);
+	if (!strcmp("Hello everyone!\n", out)) {
+		PASS("Server broadcast received.");
+	} else {
+		FAIL("Expected message of 'Hello everyone\\n!', got %s", out);
+	}
 
+	char * foo3 = malloc(MAX_PACKET_SIZE);
+	memset(foo3, 0x42, MAX_PACKET_SIZE);
+	for (int i = 0; i < 3; ++i) {
+		size_t size = pex_send(server, client_id, MAX_PACKET_SIZE, foo3);
+		if (size != MAX_PACKET_SIZE) FAIL("Bad packet size (%d)", size);
+		else PASS(".");
+	}
+
+	size_t tmp_size =  pex_send(server, client_id, MAX_PACKET_SIZE, foo3);
+	if (tmp_size != -1) FAIL("Bad packet size (%d)", tmp_size);
+	else PASS("Packet dropped successfully.");
 
 	fclose(client);
 	fclose(server);

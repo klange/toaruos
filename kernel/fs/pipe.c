@@ -42,6 +42,11 @@ static inline size_t pipe_available(pipe_device_t * pipe) {
 	}
 }
 
+int pipe_unsize(fs_node_t * node) {
+	pipe_device_t * pipe = (pipe_device_t *)node->device;
+	return pipe_available(pipe);
+}
+
 static inline void pipe_increment_read(pipe_device_t * pipe) {
 	pipe->read_ptr++;
 	if (pipe->read_ptr == pipe->size) {
