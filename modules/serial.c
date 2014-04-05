@@ -186,7 +186,7 @@ static int serial_mount_devices(void) {
 
 	char * c;
 	if ((c = args_value("logtoserial"))) {
-		kprint_to_file = ttyS0;
+		debug_file = ttyS0;
 		debug_level = atoi(c);
 		debug_print(NOTICE, "Serial logging enabled at level %d.", debug_level);
 	}

@@ -36,19 +36,6 @@ static void set_buffered(fs_node_t * dev) {
 }
 
 /*
- * TODO move this to the printf module
- */
-void fs_printf(fs_node_t * device, char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	char buffer[1024];
-	vasprintf(buffer, fmt, args);
-	va_end(args);
-
-	write_fs(device, 0, strlen(buffer), (uint8_t *)buffer);
-}
-
-/*
  * Quick readline implementation.
  *
  * Most of these TODOs are things I've done already in older code:
@@ -67,12 +54,12 @@ static int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 		}
 		linebuf[read] = buf[0];
 		if (buf[0] == '\n') {
-			fs_printf(dev, "\n");
+			fprintf(dev, "\n");
 			linebuf[read] = 0;
 			break;
 		} else if (buf[0] == 0x08) {
 			if (read > 0) {
-				fs_printf(dev, "\010 \010");
+				fprintf(dev, "\010 \010");
 				read--;
 				linebuf[read] = 0;
 			}
@@ -86,7 +73,7 @@ static int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 					break;
 			}
 		} else {
-			fs_printf(dev, "%c", buf[0]);
+			fprintf(dev, "%c", buf[0]);
 			read += r;
 		}
 	}
@@ -119,7 +106,7 @@ static hashmap_t * shell_commands_map = NULL;
  */
 static int shell_create_userspace_shell(fs_node_t * tty, int argc, char * argv[]) {
 	int pid = create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", NULL);
-	fs_printf(tty, "Shell started with pid = %d\n", pid);
+	fprintf(tty, "Shell started with pid = %d\n", pid);
 	process_t * child_task = process_from_pid(pid);
 	sleep_on(child_task->wait_queue);
 	return child_task->status;
@@ -127,9 +114,9 @@ static int shell_create_userspace_shell(fs_node_t * tty, int argc, char * argv[]
 
 static int shell_echo(fs_node_t * tty, int argc, char * argv[]) {
 	for (int i = 1; i < argc; ++i) {
-		fs_printf(tty, "%s ", argv[i]);
+		fprintf(tty, "%s ", argv[i]);
 	}
-	fs_printf(tty, "\n");
+	fprintf(tty, "\n");
 	return 0;
 }
 
@@ -140,7 +127,7 @@ static int shell_help(fs_node_t * tty, int argc, char * argv[]) {
 		char * key = (char *)_key->value;
 		struct shell_command * c = hashmap_get(shell_commands_map, key);
 
-		fs_printf(tty, "%s - %s\n", c->name, c->description);
+		fprintf(tty, "%s - %s\n", c->name, c->description);
 	}
 
 	list_free(hash_keys);
@@ -175,7 +162,7 @@ static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
 	uint32_t index = 0;
 	struct dirent * kentry = readdir_fs(wd, index);
 	while (kentry) {
-		fs_printf(tty, "%s\n", kentry->name);
+		fprintf(tty, "%s\n", kentry->name);
 
 		index++;
 		kentry = readdir_fs(wd, index);
@@ -187,7 +174,7 @@ static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
 
 static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
 
-	fs_printf(tty, "Creating a hash...\n");
+	fprintf(tty, "Creating a hash...\n");
 
 	hashmap_t * map = hashmap_create(2);
 
@@ -195,29 +182,29 @@ static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
 	hashmap_set(map, "b", (void *)2);
 	hashmap_set(map, "c", (void *)3);
 
-	fs_printf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
-	fs_printf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
-	fs_printf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
+	fprintf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
+	fprintf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
+	fprintf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
 
 	hashmap_set(map, "b", (void *)42);
 
-	fs_printf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
-	fs_printf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
-	fs_printf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
+	fprintf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
+	fprintf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
+	fprintf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
 
 	hashmap_remove(map, "a");
 
-	fs_printf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
-	fs_printf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
-	fs_printf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
-	fs_printf(tty, "map contains a: %s\n", hashmap_has(map, "a") ? "yes" : "no");
-	fs_printf(tty, "map contains b: %s\n", hashmap_has(map, "b") ? "yes" : "no");
-	fs_printf(tty, "map contains c: %s\n", hashmap_has(map, "c") ? "yes" : "no");
+	fprintf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
+	fprintf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
+	fprintf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
+	fprintf(tty, "map contains a: %s\n", hashmap_has(map, "a") ? "yes" : "no");
+	fprintf(tty, "map contains b: %s\n", hashmap_has(map, "b") ? "yes" : "no");
+	fprintf(tty, "map contains c: %s\n", hashmap_has(map, "c") ? "yes" : "no");
 
 	list_t * hash_keys = hashmap_keys(map);
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
-		fs_printf(tty, "map[%s] = %d\n", key, (int)hashmap_get(map, key));
+		fprintf(tty, "map[%s] = %d\n", key, (int)hashmap_get(map, key));
 	}
 	list_free(hash_keys);
 	free(hash_keys);
@@ -230,17 +217,17 @@ static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
 
 static int shell_log(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
-		fs_printf(tty, "Log level is currently %d.\n", debug_level);
-		fs_printf(tty, "Serial logging is %s.\n", !!kprint_to_file ? "enabled" : "disabled");
-		fs_printf(tty, "Usage: log [on|off] [<level>]\n");
+		fprintf(tty, "Log level is currently %d.\n", debug_level);
+		fprintf(tty, "Serial logging is %s.\n", !!debug_file ? "enabled" : "disabled");
+		fprintf(tty, "Usage: log [on|off] [<level>]\n");
 	} else {
 		if (!strcmp(argv[1], "on")) {
-			kprint_to_file = tty;
+			debug_file = tty;
 			if (argc > 2) {
 				debug_level = atoi(argv[2]);
 			}
 		} else if (!strcmp(argv[1], "off")) {
-			kprint_to_file = NULL;
+			debug_file = NULL;
 		}
 	}
 	return 0;
@@ -279,14 +266,14 @@ static int shell_anagrams(fs_node_t * tty, int argc, char * argv[]) {
 	list_t * values = hashmap_values(map);
 	foreach(val, values) {
 		list_t * x = (list_t *)val->value;
-		fs_printf(tty, "{");
+		fprintf(tty, "{");
 		foreach(node, x) {
-			fs_printf(tty, "%s", (char *)node->value);
+			fprintf(tty, "%s", (char *)node->value);
 			if (node->next) {
-				fs_printf(tty, ", ");
+				fprintf(tty, ", ");
 			}
 		}
-		fs_printf(tty, "}%s", (!!val->next) ? ", " : "\n");
+		fprintf(tty, "}%s", (!!val->next) ? ", " : "\n");
 		free(x);
 	}
 	list_free(values);
@@ -302,7 +289,7 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid)
 
 	fs_node_t * tty = current_process->fds->entries[0];
 
-	fs_printf(tty, "%x:%x.%x (%x, %x:%x) %s %s\n",
+	fprintf(tty, "%x:%x.%x (%x, %x:%x) %s %s\n",
 			(int)pci_extract_bus(device),
 			(int)pci_extract_slot(device),
 			(int)pci_extract_func(device),
@@ -312,12 +299,12 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid)
 			pci_vendor_lookup(vendorid),
 			pci_device_lookup(vendorid,deviceid));
 
-	fs_printf(tty, " BAR0: 0x%x\n", pci_read_field(device, PCI_BAR0, 4));
-	fs_printf(tty, " BAR1: 0x%x\n", pci_read_field(device, PCI_BAR1, 4));
-	fs_printf(tty, " BAR2: 0x%x\n", pci_read_field(device, PCI_BAR2, 4));
-	fs_printf(tty, " BAR3: 0x%x\n", pci_read_field(device, PCI_BAR3, 4));
-	fs_printf(tty, " BAR4: 0x%x\n", pci_read_field(device, PCI_BAR4, 4));
-	fs_printf(tty, " BAR6: 0x%x\n", pci_read_field(device, PCI_BAR5, 4));
+	fprintf(tty, " BAR0: 0x%x\n", pci_read_field(device, PCI_BAR0, 4));
+	fprintf(tty, " BAR1: 0x%x\n", pci_read_field(device, PCI_BAR1, 4));
+	fprintf(tty, " BAR2: 0x%x\n", pci_read_field(device, PCI_BAR2, 4));
+	fprintf(tty, " BAR3: 0x%x\n", pci_read_field(device, PCI_BAR3, 4));
+	fprintf(tty, " BAR4: 0x%x\n", pci_read_field(device, PCI_BAR4, 4));
+	fprintf(tty, " BAR6: 0x%x\n", pci_read_field(device, PCI_BAR5, 4));
 
 }
 
@@ -328,7 +315,7 @@ static int shell_pci(fs_node_t * tty, int argc, char * argv[]) {
 
 static int shell_uid(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
-		fs_printf(tty, "uid=%d\n", current_process->user);
+		fprintf(tty, "uid=%d\n", current_process->user);
 	} else {
 		current_process->user = atoi(argv[1]);
 	}
@@ -373,7 +360,7 @@ static void tasklet_client(void * data, char * name) {
 	while (1) {
 		packet_t * p;
 		packet_recv(client_pipe, &p);
-		fs_printf(tty, "Client %s Received: %s\n", name, (char *)p->data);
+		fprintf(tty, "Client %s Received: %s\n", name, (char *)p->data);
 		if (!strcmp((char*)p->data, "PING")) {
 			packet_send(server_pipe, client_pipe, strlen("PONG")+1, "PONG");
 		}
@@ -394,21 +381,21 @@ static void tasklet_server(void * data, char * name) {
 	create_kernel_tasklet(tasklet_client, "ktty-client-2", socket);
 	create_kernel_tasklet(tasklet_client, "ktty-client-3", socket);
 
-	fs_printf(tty, "Going to perform a quick demo...\n");
+	fprintf(tty, "Going to perform a quick demo...\n");
 
 	int i = 0;
 	fs_node_t * outputs[3];
 	while (i < 3) {
 		packet_t * p;
 		packet_recv(socket, &p);
-		fs_printf(tty, "Server received %s from %d:%d\n", (char*)p->data, p->client_pid, p->client_port);
+		fprintf(tty, "Server received %s from %d:%d\n", (char*)p->data, p->client_pid, p->client_port);
 		packet_send(p->client_port, socket, strlen("Welcome!")+1, "Welcome!");
 		outputs[i] = p->client_port;
 		free(p);
 		i++;
 	}
 
-	fs_printf(tty, "Okay, that's everyone, time to send some responses.\n");
+	fprintf(tty, "Okay, that's everyone, time to send some responses.\n");
 	i = 0;
 	while (i < 3) {
 		packet_send(outputs[i], socket, strlen("PING")+1, "PING");
@@ -419,13 +406,13 @@ static void tasklet_server(void * data, char * name) {
 	while (i < 3) {
 		packet_t * p;
 		packet_recv(socket, &p);
-		fs_printf(tty, "PONG from %d\n", p->client_pid);
+		fprintf(tty, "PONG from %d\n", p->client_pid);
 		free(p);
 		i++;
 	}
 
-	fs_printf(tty, "And that's the demo of packet servers.\n");
-	fs_printf(tty, "Now running in echo mode, will respond to all clients with whatever they sent.\n");
+	fprintf(tty, "And that's the demo of packet servers.\n");
+	fprintf(tty, "Now running in echo mode, will respond to all clients with whatever they sent.\n");
 
 	while (1) {
 		packet_t * p;
@@ -439,7 +426,7 @@ static int shell_server_test(fs_node_t * tty, int argc, char * argv[]) {
 	if (!shell_server_running) {
 		shell_server_running = 1;
 		create_kernel_tasklet(tasklet_server, "ktty-server", NULL);
-		fs_printf(tty, "Started server.\n");
+		fprintf(tty, "Started server.\n");
 	}
 
 	return 0;
@@ -447,11 +434,11 @@ static int shell_server_test(fs_node_t * tty, int argc, char * argv[]) {
 
 static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
 	if (!shell_server_running) {
-		fs_printf(tty, "No server running, won't be able to connect.\n");
+		fprintf(tty, "No server running, won't be able to connect.\n");
 		return 1;
 	}
 	if (argc < 2) {
-		fs_printf(tty, "expected argument\n");
+		fprintf(tty, "expected argument\n");
 		return 1;
 	}
 
@@ -462,7 +449,7 @@ static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
 	while (1) {
 		packet_t * p;
 		packet_recv(client_pipe, &p);
-		fs_printf(tty, "Got response from server: %s\n", (char *)p->data);
+		fprintf(tty, "Got response from server: %s\n", (char *)p->data);
 		free(p);
 		break;
 	}
@@ -476,23 +463,23 @@ char * special_thing = "I am a string from the kernel.\n";
 
 static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
-		fs_printf(tty, "expected argument\n");
+		fprintf(tty, "expected argument\n");
 		return 1;
 	}
 	fs_node_t * file = kopen(argv[1], 0);
 	if (!file) {
-		fs_printf(tty, "Failed to load module: %s\n", argv[1]);
+		fprintf(tty, "Failed to load module: %s\n", argv[1]);
 		return 1;
 	}
 
-	fs_printf(tty, "Okay, going to load a module!\n");
+	fprintf(tty, "Okay, going to load a module!\n");
 	module_data_t * mod_info = module_load(argv[1]);
 	if (!mod_info) {
-		fs_printf(tty, "Something went wrong, failed to load module: %s\n", argv[1]);
+		fprintf(tty, "Something went wrong, failed to load module: %s\n", argv[1]);
 		return 1;
 	}
 
-	fs_printf(tty, "Loaded %s at 0x%x\n", mod_info->mod_info->name, mod_info->bin_data);
+	fprintf(tty, "Loaded %s at 0x%x\n", mod_info->mod_info->name, mod_info->bin_data);
 
 	return 0;
 }
@@ -507,7 +494,7 @@ static int shell_symbols(fs_node_t * tty, int argc, char * argv[]) {
 	} * k = (void*)&kernel_symbols_start;
 
 	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-		fs_printf(tty, "0x%x - %s\n", k->addr, k->name);
+		fprintf(tty, "0x%x - %s\n", k->addr, k->name);
 		k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
 	}
 
@@ -517,7 +504,7 @@ static int shell_symbols(fs_node_t * tty, int argc, char * argv[]) {
 static int shell_print(fs_node_t * tty, int argc, char * argv[]) {
 
 	if (argc < 3) {
-		fs_printf(tty, "print format_string symbol_name\n");
+		fprintf(tty, "print format_string symbol_name\n");
 		return 1;
 	}
 
@@ -541,11 +528,11 @@ static int shell_print(fs_node_t * tty, int argc, char * argv[]) {
 	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
 		if (!strcmp(symbol, k->name)) {
 			if (deref) {
-				fs_printf(tty, format, k->addr);
+				fprintf(tty, format, k->addr);
 			} else {
-				fs_printf(tty, format, *((uintptr_t *)k->addr));
+				fprintf(tty, format, *((uintptr_t *)k->addr));
 			}
-			fs_printf(tty, "\n");
+			fprintf(tty, "\n");
 			break;
 		}
 		k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
@@ -560,20 +547,20 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 		char * key = (char *)_key->value;
 		module_data_t * mod_info = hashmap_get(modules_get_list(), key);
 
-		fs_printf(tty, "%s at 0x%x {.init=0x%x, .fini=0x%x}",
+		fprintf(tty, "%s at 0x%x {.init=0x%x, .fini=0x%x}",
 				mod_info->mod_info->name, mod_info->bin_data,
 				mod_info->mod_info->initialize, mod_info->mod_info->finalize);
 
 		if (mod_info->deps) {
 			unsigned int i = 0;
-			fs_printf(tty, " Deps: ");
+			fprintf(tty, " Deps: ");
 			while (i < mod_info->deps_length) {
-				fs_printf(tty, "%s ", &mod_info->deps[i]);
+				fprintf(tty, "%s ", &mod_info->deps[i]);
 				i += strlen(&mod_info->deps[i]) + 1;
 			}
 		}
 
-		fs_printf(tty, "\n");
+		fprintf(tty, "\n");
 	}
 
 	return 0;
@@ -583,9 +570,9 @@ static int shell_mem_info(fs_node_t * tty, int argc, char * argv[]) {
 	unsigned int total = memory_total();
 	unsigned int free  = total - memory_use();
 	extern uintptr_t heap_end;
-	fs_printf(tty, "Total:    %d kB\n", total);
-	fs_printf(tty, "Free:     %d kB\n", free);
-	fs_printf(tty, "Heap End: 0x%x\n", heap_end);
+	fprintf(tty, "Total:    %d kB\n", total);
+	fprintf(tty, "Free:     %d kB\n", free);
+	fprintf(tty, "Heap End: 0x%x\n", heap_end);
 	return 0;
 }
 
@@ -607,7 +594,7 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 	memset(tmp, 0, sizeof(tmp));
 	/* Move cursor, Request position, Reset cursor */
 	set_unbuffered(dev);
-	fs_printf(dev, "\033[1000;1000H\033[6n\033[H");
+	fprintf(dev, "\033[1000;1000H\033[6n\033[H");
 	while (1) {
 		char buf[1];
 		int r = read_fs(dev, 0, 1, (unsigned char *)buf);
@@ -629,12 +616,12 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 			*width  = 80;
 			*height = 23;
 			/* Clear and return */
-			fs_printf(dev, "\033[J");
+			fprintf(dev, "\033[J");
 			return;
 		}
 	}
 	/* Clear */
-	fs_printf(dev, "\033[J");
+	fprintf(dev, "\033[J");
 	/* Break up the result into two strings */
 
 	for (unsigned int i = 0; i < strlen(tmp); i++) {
@@ -656,7 +643,7 @@ static int shell_divinesize(fs_node_t * tty, int argc, char * argv[]) {
 	int width, height;
 	divine_size(tty, &width, &height);
 
-	fs_printf(tty, "Identified size: %d x %d\n", width, height);
+	fprintf(tty, "Identified size: %d x %d\n", width, height);
 
 	size.ws_row = height;
 	size.ws_col = width;
@@ -800,9 +787,9 @@ static void debug_shell_run(void * data, char * name) {
 
 		/* Print out the prompt */
 		if (retval) {
-			fs_printf(tty, "\033[1;34m%s-%s \033[1;31m%d\033[1;34m %s#\033[0m ", __kernel_name, version_number, retval, current_process->wd_name);
+			fprintf(tty, "\033[1;34m%s-%s \033[1;31m%d\033[1;34m %s#\033[0m ", __kernel_name, version_number, retval, current_process->wd_name);
 		} else {
-			fs_printf(tty, "\033[1;34m%s-%s %s#\033[0m ", __kernel_name, version_number, current_process->wd_name);
+			fprintf(tty, "\033[1;34m%s-%s %s#\033[0m ", __kernel_name, version_number, current_process->wd_name);
 		}
 
 		/* Read a line */
@@ -819,7 +806,7 @@ static void debug_shell_run(void * data, char * name) {
 		if (sh) {
 			retval = sh->function(tty, argc, argv);
 		} else {
-			fs_printf(tty, "Unrecognized command: %s\n", argv[0]);
+			fprintf(tty, "Unrecognized command: %s\n", argv[0]);
 		}
 
 		free(arg);

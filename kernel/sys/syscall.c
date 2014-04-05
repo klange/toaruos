@@ -603,7 +603,7 @@ static int system_function(int fn, char ** args) {
 			case 4:
 				/* Request kernel output to file descriptor in arg0*/
 				debug_print(NOTICE, "Setting output to file object in process %d's fd=%d!", getpid(), (int)args);
-				kprint_to_file = current_process->fds->entries[(int)args];
+				debug_file = current_process->fds->entries[(int)args];
 				break;
 			case 5:
 				validate((char *)args);

@@ -16,7 +16,7 @@ int a_function(void) {
 }
 
 DEFINE_SHELL_FUNCTION(test_mod, "A function installed by a module!") {
-	fs_printf(tty, "Hello world!\n");
+	fprintf(tty, "Hello world!\n");
 	return 0;
 }
 

@@ -10,8 +10,9 @@ typedef enum {
 	INSANE
 } log_type_t;
 
-log_type_t debug_level;
-void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...);
+extern log_type_t debug_level;
+extern void * debug_file;
+extern void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...);
 
 #ifndef MODULE_NAME
 #define MODULE_NAME __FILE__

@@ -8,7 +8,7 @@ extern fs_node_t * ext2_fs_mount(char * device, char * mount_path);
 DEFINE_SHELL_FUNCTION(mount, "Mount an ext2 filesystem") {
 
 	if (argc < 3) {
-		fs_printf(tty, "Usage: %s device mount_path", argv[0]);
+		fprintf(tty, "Usage: %s device mount_path", argv[0]);
 		return 1;
 	}
 

@@ -121,8 +121,6 @@ vasprintf(char * buf, const char *fmt, va_list args) {
 
 }
 
-void * kprint_to_file   = NULL;
-
 static unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {
 	unsigned short *where;
@@ -131,39 +129,18 @@ static void placech(unsigned char c, int x, int y, int attr) {
 	*where = c | att;
 }
 
-/**
- * (Kernel) Print a formatted string.
- * %s, %c, %x, %d, %%
- *
- * @param fmt Formatted string to print
- * @param ... Additional arguments to format
- */
-int
-kprintf(
-		const char *fmt,
-		...
-	   ) {
-	char buf[1024] = {-1};
+int fprintf(fs_node_t * device, char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	int out = vasprintf(buf, fmt, args);
-	/* We're done with our arguments */
+	char buffer[1024];
+	vasprintf(buffer, fmt, args);
 	va_end(args);
-	/* Registered output file */
-	if (kprint_to_file) {
-		fs_node_t * node = (fs_node_t *)kprint_to_file;
-		uint32_t out = write_fs(node, node->offset, strlen(buf), (uint8_t *)buf);
-		node->offset += out;
-	}
-	return out;
+
+	return write_fs(device, 0, strlen(buffer), (uint8_t *)buffer);
 }
 
-int
-sprintf(
-		char * buf,
-		const char *fmt,
-		...
-	   ) {
+
+int sprintf(char * buf, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	int out = vasprintf(buf, fmt, args);

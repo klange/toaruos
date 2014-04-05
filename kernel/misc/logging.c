@@ -12,6 +12,8 @@
 #include <va_list.h>
 
 log_type_t debug_level = NOTICE;
+void * debug_file = NULL;
+
 
 static char * c_messages[] = {
 	" \033[1;34mINFO\033[0m:",
@@ -23,7 +25,7 @@ static char * c_messages[] = {
 };
 
 void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...) {
-	if (level >= debug_level) {
+	if (level >= debug_level && debug_file) {
 		va_list args;
 		va_start(args, fmt);
 		char buffer[1024];
@@ -37,7 +39,7 @@ void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...) {
 			type = c_messages[level];
 		}
 
-		kprintf("[%10d.%2d:%s:%d]%s %s\n", timer_ticks, timer_subticks, title, line_no, type, buffer);
+		fprintf(debug_file, "[%10d.%2d:%s:%d]%s %s\n", timer_ticks, timer_subticks, title, line_no, type, buffer);
 
 	}
 	/* else ignore */

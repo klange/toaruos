@@ -15,7 +15,7 @@ DEFINE_SHELL_FUNCTION(testwrite, "Test write") {
 	f = kopen(file, 0);
 
 	if (!f) {
-		fs_printf(tty, "No device: %s\n", file);
+		fprintf(tty, "No device: %s\n", file);
 		return 1;
 	}
 

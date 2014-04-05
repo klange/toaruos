@@ -15,7 +15,6 @@ struct shell_command {
 };
 
 extern void debug_shell_install(struct shell_command * sh);
-extern void fs_printf(fs_node_t * device, char *fmt, ...);
 
 #define DEFINE_SHELL_FUNCTION(n, desc) \
 	static int shell_ ## n (fs_node_t * tty, int argc, char * argv[]); \

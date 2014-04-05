@@ -119,9 +119,7 @@ extern void relative_time(unsigned long seconds, unsigned long subseconds, unsig
 /* kprintf */
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
 extern int    sprintf(char *buf, const char *fmt, ...);
-extern int    kprintf(const char *fmt, ...);
-
-extern void * kprint_to_file;
+extern int    fprintf(fs_node_t * device, char *fmt, ...);
 
 /* Memory Management */
 extern uintptr_t placement_pointer;
