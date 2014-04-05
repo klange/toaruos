@@ -22,7 +22,7 @@ void set_console() {
 
 	if (_stdout < 0) {
 		_stdout = open("/dev/null", O_WRONLY);
-		_stderr = open("/dev/null", O_WRONLY):
+		_stderr = open("/dev/null", O_WRONLY);
 	}
 }
 
