@@ -30,7 +30,7 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 			"iret\n"
 			: : "m"(location), "m"(signum), "r"(stack) : "%ax", "%esp", "%eax");
 
-	kprintf("Failed to jump to signal handler!\n");
+	debug_print(CRITICAL, "Failed to jump to signal handler!");
 }
 
 static uint8_t volatile sig_lock;
@@ -126,7 +126,7 @@ list_t * rets_from_sig;
 
 void return_from_signal_handler(void) {
 #if 0
-	kprintf("[debug] Return From Signal for process %d\n", current_process->id);
+	debug_print(INFO, "Return From Signal for process %d", current_process->id);
 #endif
 
 	if (__builtin_expect(!rets_from_sig, 0)) {

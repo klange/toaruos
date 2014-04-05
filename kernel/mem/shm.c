@@ -102,7 +102,7 @@ static shm_chunk_t * create_chunk (shm_node_t * parent, size_t size) {
 		set_frame(index * 0x1000);
 		chunk->frames[i] = index;
 #if 0
-		kprintf("Using frame #%d for chunk[%d] (name=%s)\n", index, i, parent->name);
+		debug_print(INFO, "Using frame #%d for chunk[%d] (name=%s)", index, i, parent->name);
 #endif
 	}
 
@@ -116,7 +116,7 @@ static int release_chunk (shm_chunk_t * chunk) {
 		/* Does the chunk need to be freed? */
 		if (chunk->ref_count < 1) {
 #if 0
-			kprintf("[shm] Freeing chunk with name %s\n", chunk->parent->name);
+			debug_print(INFO, "Freeing chunk with name %s", chunk->parent->name);
 #endif
 
 			/* First, free the frames used by this chunk */
@@ -175,7 +175,7 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 		mapping->vaddrs[i] = new_vpage;
 
 #if 0
-			kprintf("[kernel] [shm] mapping vaddr 0x%x --> #%d\n", new_vpage, page->frame);
+			debug_print(INFO, "mapping vaddr 0x%x --> #%d", new_vpage, page->frame);
 #endif
 	}
 
@@ -305,48 +305,3 @@ void shm_release_all (process_t * proc) {
 }
 
 
-/* XXX: oh god don't use this */
-
-#if 0
-void shm_debug_frame (uintptr_t vaddr) {
-	uintptr_t vframe = vaddr / 0x1000;
-	uintptr_t pframe, paddr;
-
-	kprintf("[kernel] Inspecting user page 0x%x\n", vframe * 0x1000);
-
-	uintptr_t table_index = vframe / 1024;
-
-	if (!current_directory->tables[table_index]) {
-		kprintf("[kernel] Page does not exist!\n");
-		return;
-	} else {
-
-		// Where is the vaddr pointing to?
-		page_t * page = &current_directory->tables[table_index]->pages[vframe % 1024];
-		pframe = page->frame;
-		paddr = pframe * 0x1000;
-
-		kprintf("[kernel] Refers to physical frame #%d (present=%d rw=%d user=%d accessed=%d dirty=%d)\n", page->frame, page->present, page->rw, page->user, page->accessed, page->dirty);
-
-#if 0
-		// Map the page into kernel memory. Oh god.
-		assert((heap_end % 0x1000 == 0) && "Kernel heap not page-aligned!");
-
-		uintptr_t address = heap_end;
-		heap_end += 0x1000;
-		page_t * kpage = get_page(address, 1, kernel_directory);
-		kpage->frame = pframe;
-		alloc_frame(kpage, 0, 1);
-#endif
-
-		// Read it out...
-#if 0
-		kprintf("[kernel] Data in frame: ");
-		for (int i = 0; i < 0x1000; i++) {
-			kprintf("%c", ((char *)vaddr)[i]);
-		}
-		kprintf("\n");
-#endif
-	}
-}
-#endif

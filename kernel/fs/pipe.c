@@ -73,13 +73,13 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 
 #if DEBUG_PIPES
 	if (pipe->size > 300) { /* Ignore small pipes (ie, keyboard) */
-		kprintf("[debug] Call to read from pipe 0x%x\n", node->device);
-		kprintf("        Unread bytes:    %d\n", pipe_unread(pipe));
-		kprintf("        Total size:      %d\n", pipe->size);
-		kprintf("        Request size:    %d\n", size);
-		kprintf("        Write pointer:   %d\n", pipe->write_ptr);
-		kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
-		kprintf("        Buffer address:  0x%x\n", pipe->buffer);
+		debug_print(INFO, "[debug] Call to read from pipe 0x%x", node->device);
+		debug_print(INFO, "        Unread bytes:    %d", pipe_unread(pipe));
+		debug_print(INFO, "        Total size:      %d", pipe->size);
+		debug_print(INFO, "        Request size:    %d", size);
+		debug_print(INFO, "        Write pointer:   %d", pipe->write_ptr);
+		debug_print(INFO, "        Read  pointer:   %d", pipe->read_ptr);
+		debug_print(INFO, "        Buffer address:  0x%x", pipe->buffer);
 	}
 #endif
 
@@ -116,14 +116,14 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 
 #if DEBUG_PIPES
 	if (pipe->size > 300) { /* Ignore small pipes (ie, keyboard) */
-		kprintf("[debug] Call to write to pipe 0x%x\n", node->device);
-		kprintf("        Available space: %d\n", pipe_available(pipe));
-		kprintf("        Total size:      %d\n", pipe->size);
-		kprintf("        Request size:    %d\n", size);
-		kprintf("        Write pointer:   %d\n", pipe->write_ptr);
-		kprintf("        Read  pointer:   %d\n", pipe->read_ptr);
-		kprintf("        Buffer address:  0x%x\n", pipe->buffer);
-		kprintf(" Write: %s\n", buffer);
+		debug_print(INFO, "[debug] Call to write to pipe 0x%x", node->device);
+		debug_print(INFO, "        Available space: %d", pipe_available(pipe));
+		debug_print(INFO, "        Total size:      %d", pipe->size);
+		debug_print(INFO, "        Request size:    %d", size);
+		debug_print(INFO, "        Write pointer:   %d", pipe->write_ptr);
+		debug_print(INFO, "        Read  pointer:   %d", pipe->read_ptr);
+		debug_print(INFO, "        Buffer address:  0x%x", pipe->buffer);
+		debug_print(INFO, " Write: %s", buffer);
 	}
 #endif
 

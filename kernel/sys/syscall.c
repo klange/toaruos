@@ -612,24 +612,13 @@ static int system_function(int fn, char ** args) {
 	/* System Functions are special debugging system calls */
 	if (current_process->user == USER_ROOT_UID) {
 		switch (fn) {
-			case 1:
-				/* Print memory information */
-				/* Future: /proc/meminfo */
-				kprintf("Memory used:      %d\n", memory_use());
-				kprintf("Memory available: %d\n", memory_total());
-				return 0;
-			case 2:
-				/* Print process tree */
-				/* Future: /proc in general */
-				debug_print_process_tree();
-				return 0;
 			case 3:
 				debug_print(ERROR, "sync is currently unimplemented");
 				//ext2_disk_sync();
 				return 0;
 			case 4:
 				/* Request kernel output to file descriptor in arg0*/
-				kprintf("Setting output to file object in process %d's fd=%d!\n", getpid(), (int)args);
+				debug_print(NOTICE, "Setting output to file object in process %d's fd=%d!", getpid(), (int)args);
 				kprint_to_file = current_process->fds->entries[(int)args];
 				break;
 			case 5:
@@ -654,7 +643,7 @@ static int system_function(int fn, char ** args) {
 					uint8_t * buffer = malloc(length);
 					read_fs(file, 0, length, (uint8_t *)buffer);
 					close_fs(file);
-					debug_print(WARNING, "Finished reading file, going to write it now.\n");
+					debug_print(WARNING, "Finished reading file, going to write it now.");
 
 					fs_node_t * f = kopen("/dev/sdb", 0);
 					if (!f) {
@@ -667,7 +656,7 @@ static int system_function(int fn, char ** args) {
 					return 0;
 				}
 			default:
-				kprintf("Bad system function %d\n", fn);
+				debug_print(ERROR, "Bad system function %d", fn);
 				break;
 		}
 	}

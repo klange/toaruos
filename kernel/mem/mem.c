@@ -149,7 +149,7 @@ uint32_t first_frame(void) {
 		}
 	}
 
-	kprintf("\033[1;37;41mWARNING: System claims to be out of usable memory, which means we probably overwrote the page frames.\033[0m\n");
+	debug_print(CRITICAL, "System claims to be out of usable memory, which means we probably overwrote the page frames.\033[0m");
 
 #if 0
 	signal_t * sig = malloc(sizeof(signal_t));
@@ -341,7 +341,7 @@ page_fault(
 	int reserved = r->err_code & 0x8    ? 1 : 0;
 	int id       = r->err_code & 0x10   ? 1 : 0;
 
-	kprintf("\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d,%d [%s]\033[0m\n",
+	debug_print(ERROR, "\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d,%d [%s]\033[0m",
 			present, rw, user, reserved, id, faulting_address, r->eip, current_process->id, current_process->group, current_process->name);
 
 	if (r->eip < heap_end) {
@@ -370,7 +370,7 @@ page_fault(
 			}
 		}
 
-		kprintf("\033[1;31mClosest symbol to faulting address:\033[0m %s [0x%x]\n", closest, addr);
+		debug_print(ERROR, "\033[1;31mClosest symbol to faulting address:\033[0m %s [0x%x]", closest, addr);
 
 		hash_keys = hashmap_keys(modules_get_list());
 		foreach(_key, hash_keys) {
@@ -378,13 +378,13 @@ page_fault(
 			module_data_t * m = (module_data_t *)hashmap_get(modules_get_list(), key);
 
 			if ((r->eip >= (uintptr_t)m->bin_data) && (r->eip < m->end)) {
-				kprintf("\033[1;31mIn module:\033[0m %s (starts at 0x%x)\n", m->mod_info->name, m->bin_data);
+				debug_print(ERROR, "\033[1;31mIn module:\033[0m %s (starts at 0x%x)", m->mod_info->name, m->bin_data);
 				break;
 			}
 		}
 
 	} else {
-		kprintf("\033[1;31m(In userspace)\033[0m\n");
+		debug_print(ERROR, "\033[1;31m(In userspace)\033[0m");
 	}
 
 #endif

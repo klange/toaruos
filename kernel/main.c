@@ -90,7 +90,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 						last_mod = module_end;
 					}
 				}
-				debug_print(NOTICE, "Moving kernel heap start to 0x%x\n", last_mod);
+				debug_print(NOTICE, "Moving kernel heap start to 0x%x", last_mod);
 				kmalloc_startat(last_mod);
 			}
 		}

@@ -71,7 +71,7 @@ exec(
 			header->e_ident[2] != ELFMAG2 ||
 			header->e_ident[3] != ELFMAG3) {
 		/* What? This isn't an ELF... */
-		kprintf("Fatal: Not a valid ELF executable.\n");
+		debug_print(ERROR, "Not a valid ELF executable.");
 		for (uintptr_t x = TMP_ZONE; x < TMP_ZONE + file->length; x += 0x1000) {
 			free_frame(get_page(x, 0, current_directory));
 		}

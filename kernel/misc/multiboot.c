@@ -3,6 +3,7 @@
  * Multiboot (GRUB) handler
  */
 #include <system.h>
+#include <logging.h>
 #include <multiboot.h>
 
 char * ramdisk = NULL;
@@ -21,51 +22,50 @@ void
 dump_multiboot(
 		struct multiboot *mboot_ptr
 		) {
-	kprintf("MULTIBOOT header at 0x%x:\n", (uintptr_t)mboot_ptr);
-	kprintf("Flags : 0x%x ",  mboot_ptr->flags);
-	kprintf("Mem Lo: 0x%x ",  mboot_ptr->mem_lower);
-	kprintf("Mem Hi: 0x%x ",  mboot_ptr->mem_upper);
-	kprintf("Boot d: 0x%x\n", mboot_ptr->boot_device);
-	kprintf("cmdlin: 0x%x ",  mboot_ptr->cmdline);
-	kprintf("Mods  : 0x%x ",  mboot_ptr->mods_count);
-	kprintf("Addr  : 0x%x ",  mboot_ptr->mods_addr);
-	kprintf("ELF n : 0x%x\n", mboot_ptr->num);
-	kprintf("ELF s : 0x%x ",  mboot_ptr->size);
-	kprintf("ELF a : 0x%x ",  mboot_ptr->addr);
-	kprintf("ELF h : 0x%x ",  mboot_ptr->shndx);
-	kprintf("MMap  : 0x%x\n", mboot_ptr->mmap_length);
-	kprintf("Addr  : 0x%x ",  mboot_ptr->mmap_addr);
-	kprintf("Drives: 0x%x ",  mboot_ptr->drives_length);
-	kprintf("Addr  : 0x%x ",  mboot_ptr->drives_addr);
-	kprintf("Config: 0x%x\n", mboot_ptr->config_table);
-	kprintf("Loader: 0x%x ",  mboot_ptr->boot_loader_name);
-	kprintf("APM   : 0x%x ",  mboot_ptr->apm_table);
-	kprintf("VBE Co: 0x%x ",  mboot_ptr->vbe_control_info);
-	kprintf("VBE Mo: 0x%x\n", mboot_ptr->vbe_mode_info);
-	kprintf("VBE In: 0x%x ",  mboot_ptr->vbe_mode);
-	kprintf("VBE se: 0x%x ",  mboot_ptr->vbe_interface_seg);
-	kprintf("VBE of: 0x%x ",  mboot_ptr->vbe_interface_off);
-	kprintf("VBE le: 0x%x\n", mboot_ptr->vbe_interface_len);
+	debug_print(INFO, "MULTIBOOT header at 0x%x:", (uintptr_t)mboot_ptr);
+	debug_print(INFO, "Flags : 0x%x", mboot_ptr->flags);
+	debug_print(INFO, "Mem Lo: 0x%x", mboot_ptr->mem_lower);
+	debug_print(INFO, "Mem Hi: 0x%x", mboot_ptr->mem_upper);
+	debug_print(INFO, "Boot d: 0x%x", mboot_ptr->boot_device);
+	debug_print(INFO, "cmdlin: 0x%x", mboot_ptr->cmdline);
+	debug_print(INFO, "Mods  : 0x%x", mboot_ptr->mods_count);
+	debug_print(INFO, "Addr  : 0x%x", mboot_ptr->mods_addr);
+	debug_print(INFO, "ELF n : 0x%x", mboot_ptr->num);
+	debug_print(INFO, "ELF s : 0x%x", mboot_ptr->size);
+	debug_print(INFO, "ELF a : 0x%x", mboot_ptr->addr);
+	debug_print(INFO, "ELF h : 0x%x", mboot_ptr->shndx);
+	debug_print(INFO, "MMap  : 0x%x", mboot_ptr->mmap_length);
+	debug_print(INFO, "Addr  : 0x%x", mboot_ptr->mmap_addr);
+	debug_print(INFO, "Drives: 0x%x", mboot_ptr->drives_length);
+	debug_print(INFO, "Addr  : 0x%x", mboot_ptr->drives_addr);
+	debug_print(INFO, "Config: 0x%x", mboot_ptr->config_table);
+	debug_print(INFO, "Loader: 0x%x", mboot_ptr->boot_loader_name);
+	debug_print(INFO, "APM   : 0x%x", mboot_ptr->apm_table);
+	debug_print(INFO, "VBE Co: 0x%x", mboot_ptr->vbe_control_info);
+	debug_print(INFO, "VBE Mo: 0x%x", mboot_ptr->vbe_mode_info);
+	debug_print(INFO, "VBE In: 0x%x", mboot_ptr->vbe_mode);
+	debug_print(INFO, "VBE se: 0x%x", mboot_ptr->vbe_interface_seg);
+	debug_print(INFO, "VBE of: 0x%x", mboot_ptr->vbe_interface_off);
+	debug_print(INFO, "VBE le: 0x%x", mboot_ptr->vbe_interface_len);
 	if (mboot_ptr->flags & (1 << 2)) {
-		kprintf("Started with: %s\n", (char *)mboot_ptr->cmdline);
+		debug_print(INFO, "Started with: %s", (char *)mboot_ptr->cmdline);
 	}
 	if (mboot_ptr->flags & (1 << 9)) {
-		kprintf("Booted from: %s\n", (char *)mboot_ptr->boot_loader_name);
+		debug_print(INFO, "Booted from: %s", (char *)mboot_ptr->boot_loader_name);
 	}
 	if (mboot_ptr->flags & (1 << 0)) {
-		kprintf("%dkB lower memory\n", mboot_ptr->mem_lower);
-		kprintf("%dkB higher memory ", mboot_ptr->mem_upper);
+		debug_print(INFO, "%dkB lower memory", mboot_ptr->mem_lower);
 		int mem_mb = mboot_ptr->mem_upper / 1024;
-		kprintf("(%dMB)\n", mem_mb);
+		debug_print(INFO, "%dkB higher memory (%dMB)", mboot_ptr->mem_upper, mem_mb);
 	}
 	if (mboot_ptr->flags & (1 << 3)) {
-		kprintf("Found %d module(s).\n", mboot_ptr->mods_count);
+		debug_print(INFO, "Found %d module(s).", mboot_ptr->mods_count);
 		if (mboot_ptr->mods_count > 0) {
 			uint32_t i;
 			for (i = 0; i < mboot_ptr->mods_count; ++i ) {
 				uint32_t module_start = *((uint32_t*)mboot_ptr->mods_addr + 8 * i);
 				uint32_t module_end   = *(uint32_t*)(mboot_ptr->mods_addr + 8 * i + 4);
-				kprintf("Module %d is at 0x%x:0x%x\n", i+1, module_start, module_end);
+				debug_print(INFO, "Module %d is at 0x%x:0x%x", i+1, module_start, module_end);
 			}
 		}
 	}
