@@ -163,9 +163,6 @@ exec(
 	current_process->image.heap        = heap; /* heap end */
 	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
 	current_process->image.user_stack  = USER_STACK_TOP;
-	while (current_process->fds->length < 3) {
-		process_append_fd((process_t *)current_process, NULL);
-	}
 
 	current_process->image.start = entry;
 

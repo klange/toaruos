@@ -210,7 +210,7 @@ process_t * spawn_init(void) {
 	init->status  = 0;       /* Run status */
 	init->fds = malloc(sizeof(fd_table_t));
 	init->fds->refs = 1;
-	init->fds->length   = 3;  /* Initialize the file descriptors */
+	init->fds->length   = 0;  /* Initialize the file descriptors */
 	init->fds->capacity = 4;
 	init->fds->entries  = malloc(sizeof(fs_node_t *) * init->fds->capacity);
 

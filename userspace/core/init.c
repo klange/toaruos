@@ -10,9 +10,21 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 #include <syscall.h>
 
 #define DEFAULT_HOSTNAME "toaru-test"
+
+void set_console() {
+	int _stdin  = open("/dev/null", O_RDONLY);
+	int _stdout = open("/dev/ttyS0", O_WRONLY);
+	int _stderr = open("/dev/ttyS0", O_WRONLY);
+
+	if (_stdout < 0) {
+		_stdout = open("/dev/null", O_WRONLY);
+		_stderr = open("/dev/null", O_WRONLY):
+	}
+}
 
 /* Set the hostname to whatever is in /etc/hostname */
 void set_hostname() {
@@ -43,6 +55,8 @@ int start_options(char * args[]) {
 }
 
 int main(int argc, char * argv[]) {
+	/* stdin/out/err */
+	set_console();
 	/* Hostname */
 	set_hostname();
 	if (argc > 1) {

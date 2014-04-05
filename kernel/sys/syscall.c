@@ -38,15 +38,6 @@ int validate_safe(void * ptr) {
 }
 
 /*
- * print something to the debug terminal (serial)
- */
-static int print(char * s) {
-	validate((void *)s);
-	kprintf("%s", s);
-	return 0;
-}
-
-/*
  * Exit the current task.
  * DOES NOT RETURN!
  */
@@ -105,13 +96,6 @@ static int readdir(int fd, int index, struct dirent * entry) {
 }
 
 static int write(int fd, char * ptr, int len) {
-	if ((fd == 1 && !current_process->fds->entries[fd]) ||
-		(fd == 2 && !current_process->fds->entries[fd])) {
-		for (uint32_t i = 0; i < (uint32_t)len; ++i) {
-			kprintf("%c", ptr[i]);
-		}
-		return len;
-	}
 	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}
@@ -698,7 +682,7 @@ static int sys_unlink(char * file) {
 static uintptr_t syscalls[] = {
 	/* System Call Table */
 	(uintptr_t)&exit,               /* 0 */
-	(uintptr_t)&print,
+	(uintptr_t)&RESERVED,
 	(uintptr_t)&open,
 	(uintptr_t)&read,
 	(uintptr_t)&write,              /* 4 */
