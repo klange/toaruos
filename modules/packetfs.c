@@ -88,7 +88,7 @@ static pex_client_t * create_client(pex_ex_t * p) {
 static uint32_t read_server(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	debug_print(WARNING, "[pex] server read(...)");
-	debug_print(NOTICE, "fs_node = 0x%x\n", node);
+	debug_print(NOTICE, "fs_node = 0x%x", node);
 
 	packet_t * packet;
 
@@ -110,7 +110,7 @@ static uint32_t read_server(fs_node_t * node, uint32_t offset, uint32_t size, ui
 static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	debug_print(WARNING, "[pex] server write(...)");
-	debug_print(NOTICE, "fs_node = 0x%x\n", node);
+	debug_print(NOTICE, "fs_node = 0x%x", node);
 
 	header_t * head = (header_t *)buffer;
 
@@ -124,7 +124,7 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 			debug_print(NOTICE, "Sending to client 0x%x", f->value);
 			send_to_client(p, (pex_client_t *)f->value, size - sizeof(header_t), head->data);
 		}
-		debug_print(NOTICE, "Done broadcasting to clients.\n");
+		debug_print(NOTICE, "Done broadcasting to clients.");
 		return size;
 	} else if (head->target->parent != p) {
 		debug_print(ERROR, "[pex] Invalid packet from server?");
@@ -187,7 +187,7 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 		node->read = read_server;
 		node->write = write_server;
 		debug_print(NOTICE, "[pex] Server launched: %s", t->name);
-		debug_print(NOTICE, "fs_node = 0x%x\n", node);
+		debug_print(NOTICE, "fs_node = 0x%x", node);
 	} else if (!(flags & O_CREAT)) {
 		pex_client_t * client = create_client(t);
 		node->inode = (uintptr_t)client;

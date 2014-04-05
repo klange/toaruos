@@ -443,7 +443,7 @@ static unsigned int inode_read_block(ext2_fs_t * this, ext2_inodetable_t * inode
  */
 static unsigned int inode_write_block(ext2_fs_t * this, ext2_inodetable_t * inode, unsigned int inode_no, unsigned int block, uint8_t * buf) {
 	if (block >= inode->blocks) {
-		debug_print(WARNING, "Attempting to write beyond the existing allocated blocks for this inode.\n");
+		debug_print(WARNING, "Attempting to write beyond the existing allocated blocks for this inode.");
 		debug_print(WARNING, "Inode %d, Block %d", inode_no, block);
 	}
 
