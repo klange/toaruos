@@ -2,6 +2,7 @@
 #include <fs.h>
 #include <pipe.h>
 #include <logging.h>
+#include <printf.h>
 
 #include <ioctl.h>
 #include <termios.h>

@@ -3,6 +3,7 @@
  */
 #include <system.h>
 #include <fs.h>
+#include <printf.h>
 #include <logging.h>
 #include <process.h>
 #include <version.h>

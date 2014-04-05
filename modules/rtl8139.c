@@ -1,5 +1,6 @@
 #include <module.h>
 #include <logging.h>
+#include <printf.h>
 #include <pci.h>
 #include <ipv4.h>
 #include <mod/shell.h>

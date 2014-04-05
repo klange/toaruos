@@ -5,6 +5,7 @@
  */
 #include <system.h>
 #include <fs.h>
+#include <printf.h>
 #include <list.h>
 #include <process.h>
 #include <logging.h>

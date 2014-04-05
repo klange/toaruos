@@ -116,11 +116,6 @@ extern unsigned long timer_ticks;
 extern unsigned char timer_subticks;
 extern void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds);
 
-/* kprintf */
-extern size_t vasprintf(char * buf, const char *fmt, va_list args);
-extern int    sprintf(char *buf, const char *fmt, ...);
-extern int    fprintf(fs_node_t * device, char *fmt, ...);
-
 /* Memory Management */
 extern uintptr_t placement_pointer;
 extern void kmalloc_startat(uintptr_t address);
@@ -194,35 +189,20 @@ extern int gettimeofday(struct timeval * t, void * z);
 extern uint32_t now(void);
 
 
-/* CPU Detect by Brynet */
-extern int detect_cpu(void);
-
-/* Video Drivers */
-
 /* Floating Point Unit */
-void switch_fpu(void);
-void fpu_install(void);
+extern void switch_fpu(void);
+extern void fpu_install(void);
 
 /* ELF */
-int exec( char *, int, char **, char **);
-int system( char *, int, char **);
+extern int exec( char *, int, char **, char **);
+extern int system( char *, int, char **);
 
 /* Sytem Calls */
-void syscalls_install(void);
-
-/* PCI */
-uint16_t pci_read_word(uint32_t bus, uint32_t slot, uint32_t func, uint16_t offset);
-void pci_write_word(uint32_t bus, uint32_t slot, uint32_t func, uint16_t offset, uint32_t data);
-
-/* IDE / PATA */
-void ide_init(uint16_t bus);
-void ide_read_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
-void ide_write_sector(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
-void ide_write_sector_retry(uint16_t bus, uint8_t slave, uint32_t lba, uint8_t * buf);
+extern void syscalls_install(void);
 
 /* wakeup queue */
-int wakeup_queue(list_t * queue);
-int sleep_on(list_t * queue);
+extern int wakeup_queue(list_t * queue);
+extern int sleep_on(list_t * queue);
 
 typedef struct {
 	uint32_t  signum;
@@ -230,16 +210,16 @@ typedef struct {
 	regs_t registers_before;
 } signal_t;
 
-void handle_signal(process_t *, signal_t *);
+extern void handle_signal(process_t *, signal_t *);
 
-int send_signal(pid_t process, uint32_t signal);
+extern int send_signal(pid_t process, uint32_t signal);
 
 #define USER_STACK_BOTTOM 0xAFF00000
 #define USER_STACK_TOP    0xB0000000
 #define SHM_START         0xB0000000
 
-void validate(void * ptr);
-int validate_safe(void * ptr);
+extern void validate(void * ptr);
+extern int validate_safe(void * ptr);
 
 #include <errno_defs.h>
 

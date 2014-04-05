@@ -1,6 +1,7 @@
 #include <system.h>
 #include <module.h>
 #include <fs.h>
+#include <printf.h>
 #include <mod/shell.h>
 
 extern fs_node_t * ext2_fs_mount(char * device, char * mount_path);

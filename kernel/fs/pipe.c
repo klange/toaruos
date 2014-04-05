@@ -4,6 +4,7 @@
 
 #include <system.h>
 #include <fs.h>
+#include <printf.h>
 #include <pipe.h>
 #include <logging.h>
 

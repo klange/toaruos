@@ -1,6 +1,7 @@
 #include <system.h>
 #include <logging.h>
 #include <module.h>
+#include <printf.h>
 #include <ata.h>
 
 #define SECTORSIZE      512

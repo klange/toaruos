@@ -11,6 +11,7 @@
 #include <version.h>
 #include <shm.h>
 #include <utsname.h>
+#include <printf.h>
 
 static char   hostname[256];
 static size_t hostname_len = 0;

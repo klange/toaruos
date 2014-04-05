@@ -3,6 +3,7 @@
 #include <fs.h>
 #include <version.h>
 #include <process.h>
+#include <printf.h>
 #include <module.h>
 
 #define PROCFS_STANDARD_ENTRIES 6

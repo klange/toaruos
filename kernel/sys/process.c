@@ -11,6 +11,7 @@
 #include <list.h>
 #include <logging.h>
 #include <shm.h>
+#include <printf.h>
 
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_list;  /* Flat storage */

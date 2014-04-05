@@ -5,6 +5,7 @@
 
 #include <system.h>
 #include <fs.h>
+#include <printf.h>
 #include <types.h>
 #include <logging.h>
 #include <pci.h>

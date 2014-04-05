@@ -8,6 +8,7 @@
 #include <logging.h>
 #include <module.h>
 #include <fs.h>
+#include <printf.h>
 
 /* TODO: Move this to mod/ata.h */
 #include <ata.h>

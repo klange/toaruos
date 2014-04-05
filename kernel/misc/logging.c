@@ -10,6 +10,7 @@
 #include <list.h>
 #include <logging.h>
 #include <va_list.h>
+#include <printf.h>
 
 log_type_t debug_level = NOTICE;
 void * debug_file = NULL;

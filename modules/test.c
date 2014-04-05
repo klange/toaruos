@@ -2,6 +2,7 @@
 #include <hashmap.h>
 #include <module.h>
 #include <logging.h>
+#include <printf.h>
 
 #include <mod/shell.h>
 

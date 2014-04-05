@@ -1,6 +1,7 @@
 #include <system.h>
 #include <module.h>
 #include <fs.h>
+#include <printf.h>
 #include <mod/shell.h>
 
 DEFINE_SHELL_FUNCTION(testwrite, "Test write") {
