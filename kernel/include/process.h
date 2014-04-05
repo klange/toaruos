@@ -112,6 +112,7 @@ extern void initialize_process_tree(void);
 extern process_t * spawn_process(volatile process_t * parent);
 extern void debug_print_process_tree(void);
 extern process_t * spawn_init(void);
+extern process_t * spawn_kidle(void);
 extern void set_process_environment(process_t * proc, page_directory_t * directory);
 extern void make_process_ready(process_t * proc);
 extern void make_process_reapable(process_t * proc);
@@ -131,6 +132,7 @@ extern void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
 extern void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
 
 extern volatile process_t * current_process;
+extern process_t * kernel_idle_task;
 extern list_t * process_list;
 
 typedef void (*tasklet_t) (void *, char *);

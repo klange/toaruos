@@ -19,6 +19,7 @@ list_t * reap_queue;    /* Processes to reap */
 list_t * sleep_queue;
 list_t * recently_reaped;
 volatile process_t * current_process = NULL;
+process_t * kernel_idle_task = NULL;
 
 static uint8_t volatile reap_lock;
 static uint8_t volatile tree_lock;
@@ -82,6 +83,9 @@ void debug_print_process_tree(void) {
  * @return A pointer to the next process in the queue.
  */
 process_t * next_ready_process(void) {
+	if (!process_available()) {
+		return kernel_idle_task;
+	}
 	node_t * np = list_dequeue(process_queue);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
@@ -140,6 +144,38 @@ void delete_process(process_t * proc) {
 	tree_remove(process_tree, entry);
 	list_delete(process_list, list_find(process_list, proc));
 	spin_unlock(&tree_lock);
+}
+
+static void _kidle(void) {
+	while (1) {
+		IRQ_RES;
+		PAUSE;
+	}
+}
+
+/*
+ * Spawn the idle "process".
+ */
+process_t * spawn_kidle(void) {
+	process_t * idle = malloc(sizeof(process_t));
+	memset(idle, 0x00, sizeof(process_t));
+	idle->id = -1;
+	idle->name = strdup("[kidle]");
+	idle->is_tasklet = 1;
+
+	idle->image.stack = (uintptr_t)malloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	idle->thread.eip  = &_kidle;
+	idle->thread.esp  = idle->image.stack;
+	idle->thread.ebp  = idle->image.stack;
+
+	idle->started = 1;
+	idle->running = 1;
+	idle->wait_queue = list_create();
+	idle->shm_mappings = list_create();
+	idle->signal_queue = list_create();
+
+	set_process_environment(idle, current_directory);
+	return idle;
 }
 
 /*

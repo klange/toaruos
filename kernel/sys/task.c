@@ -180,6 +180,7 @@ void tasking_install(void) {
 	initialize_process_tree();
 	/* Spawn the initial process */
 	current_process = spawn_init();
+	kernel_idle_task = spawn_kidle();
 	/* Initialize the paging environment */
 #if 0
 	set_process_environment((process_t *)current_process, current_directory);
@@ -411,20 +412,6 @@ void switch_task(uint8_t reschedule) {
 		/* Tasking is not yet installed. */
 		return;
 	}
-	if (!process_available()) {
-		/* There is no process available in the queue, do not bother switching */
-		if (!current_process->running) {
-			while (1) {
-				IRQ_RES;
-				PAUSE;
-			}
-		}
-		if (!reschedule) {
-			pause_after = 1;
-		} else {
-			return;
-		}
-	}
 	if (!current_process->running) {
 		switch_next();
 	}
@@ -467,7 +454,7 @@ void switch_task(uint8_t reschedule) {
 	/* Save floating point state */
 	switch_fpu();
 
-	if (reschedule) {
+	if (reschedule && current_process != kernel_idle_task) {
 		/* And reinsert it into the ready queue */
 		make_process_ready((process_t *)current_process);
 	} else if (pause_after) {
@@ -490,12 +477,6 @@ void switch_task(uint8_t reschedule) {
 void switch_next(void) {
 	uintptr_t esp, ebp, eip;
 	/* Get the next available process */
-	while (!process_available()) {
-		/* Uh, no. */
-		IRQ_RES;
-		PAUSE;
-		return;
-	}
 	current_process = next_ready_process();
 	/* Retreive the ESP/EBP/EIP */
 	eip = current_process->thread.eip;
