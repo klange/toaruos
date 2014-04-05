@@ -1112,9 +1112,7 @@ int main(int argc, char ** argv) {
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};
 			int i = execvp(tokens[0], tokens);
-			printf("Failed to execute requested startup application `%s`!\n", argv[optind]);
-			printf("Your system is now unusable, and a restart will not be attempted.\n");
-			syscall_print("core-tests : FATAL : Failed to execute requested startup binary.\n");
+			fprintf(stderr, "Failed to launch requested startup application.\n");
 		} else {
 			/*
 			 * TODO: Check the public-readable passwd file to select which shell to run

@@ -222,22 +222,8 @@ uint8_t is_between(int32_t lo, int32_t hi, int32_t val) {
 }
 
 server_window_t * top_at(uint16_t x, uint16_t y) {
-	char buf[512];
-	sprintf(buf, "Looking for top window at %d %d.\n", x, y);
-	syscall_print(buf);
-
 	uint32_t c = GFXR(select_ctx, x, y);
-
-	sprintf(buf, "Select buf contents: 0x%x\n", c);
-	syscall_print(buf);
-
 	unsigned int w = (_GRE(c) << 8) | (_BLU(c));
-	sprintf(buf, "0x%x %x = 0x%x", _GRE(c), _BLU(c), w);
-	syscall_print(buf);
-
-	sprintf(buf, "Window offset %d = %p\n", w, windows[w]);
-	syscall_print(buf);
-
 	return windows[w];
 }
 
@@ -500,11 +486,6 @@ void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
 				window->anim_start = tick_count;
 			} else if (window->anim_mode == 3) {
 				window->anim_mode = 4;
-				{
-					char buf[512];
-					sprintf(buf, "windows_to_clean = %p\n", windows_to_clean);
-					syscall_print(buf);
-				}
 				list_insert(windows_to_clean, window);
 			}
 		} else {
