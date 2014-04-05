@@ -48,21 +48,27 @@ void initialize_process_tree(void) {
 void debug_print_process_tree_node(tree_node_t * node, size_t height) {
 	/* End recursion on a blank entry */
 	if (!node) return;
+	char * tmp = malloc(512);
+	memset(tmp, 0, 512);
+	char * c = tmp;
 	/* Indent output */
-	for (uint32_t i = 0; i < height; ++i) { kprintf("  "); }
+	for (uint32_t i = 0; i < height; ++i) {
+		c += sprintf(c, "  ");
+	}
 	/* Get the current process */
 	process_t * proc = (process_t *)node->value;
 	/* Print the process name */
-	kprintf("%d.%d %s", proc->group ? proc->group : proc->id, proc->id, proc->name);
+	c += sprintf(c, "%d.%d %s", proc->group ? proc->group : proc->id, proc->id, proc->name);
 	if (proc->description) {
 		/* And, if it has one, its description */
-		kprintf(" %s", proc->description);
+		c += sprintf(c, " %s", proc->description);
 	}
 	if (proc->finished) {
-		kprintf(" [zombie]");
+		c += sprintf(c, " [zombie]");
 	}
 	/* Linefeed */
-	kprintf("\n");
+	debug_print(NOTICE, "%s", tmp);
+	free(tmp);
 	foreach(child, node->children) {
 		/* Recursively print the children */
 		debug_print_process_tree_node(child->value, height + 1);
@@ -164,7 +170,7 @@ process_t * spawn_kidle(void) {
 	idle->is_tasklet = 1;
 
 	idle->image.stack = (uintptr_t)malloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	idle->thread.eip  = &_kidle;
+	idle->thread.eip  = (uintptr_t)&_kidle;
 	idle->thread.esp  = idle->image.stack;
 	idle->thread.ebp  = idle->image.stack;
 

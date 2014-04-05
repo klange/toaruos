@@ -540,18 +540,24 @@ void map_vfs_directory(char * c) {
 void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
 	/* End recursion on a blank entry */
 	if (!node) return;
+	char * tmp = malloc(512);
+	memset(tmp, 0, 512);
+	char * c = tmp;
 	/* Indent output */
-	for (uint32_t i = 0; i < height; ++i) { kprintf("  "); }
+	for (uint32_t i = 0; i < height; ++i) {
+		c += sprintf(c, "  ");
+	}
 	/* Get the current process */
 	struct vfs_entry * fnode = (struct vfs_entry *)node->value;
 	/* Print the process name */
 	if (fnode->file) {
-		kprintf("%s → 0x%x (%s)", fnode->name, fnode->file, fnode->file->name);
+		c += sprintf(c, "%s → 0x%x (%s)", fnode->name, fnode->file, fnode->file->name);
 	} else {
-		kprintf("%s → (empty)", fnode->name);
+		c += sprintf(c, "%s → (empty)", fnode->name);
 	}
 	/* Linefeed */
-	kprintf("\n");
+	debug_print(NOTICE, "%s", tmp);
+	free(tmp);
 	foreach(child, node->children) {
 		/* Recursively print the children */
 		debug_print_vfs_tree_node(child->value, height + 1);

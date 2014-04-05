@@ -14,14 +14,13 @@
 log_type_t debug_level = NOTICE;
 
 static char * c_messages[] = {
-	"\033[1;34mINFO",
-	"\033[1;35mNOTICE",
-	"\033[1;33mWARNING",
-	"\033[1;31mERROR",
-	"\033[1;37;41mCRITICAL",
-	"\033[1;31;44mINSANE"
+	" \033[1;34mINFO\033[0m:",
+	" \033[1;35mNOTICE\033[0m:",
+	" \033[1;33mWARNING\033[0m:",
+	" \033[1;31mERROR\033[0m:",
+	" \033[1;37;41mCRITICAL\033[0m:",
+	" \033[1;31;44mINSANE\033[0m:"
 };
-
 
 void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...) {
 	if (level >= debug_level) {
@@ -31,7 +30,14 @@ void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...) {
 		vasprintf(buffer, fmt, args);
 		va_end(args);
 
-		kprintf("[%10d.%2d:%s:%d] %s\033[0m: %s\n", timer_ticks, timer_subticks, title, line_no, c_messages[level], buffer);
+		char * type;
+		if (level > INSANE) {
+			type = "";
+		} else {
+			type = c_messages[level];
+		}
+
+		kprintf("[%10d.%2d:%s:%d]%s %s\n", timer_ticks, timer_subticks, title, line_no, type, buffer);
 
 	}
 	/* else ignore */
