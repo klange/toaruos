@@ -43,10 +43,6 @@ static window_t * _window_create(int x, int y, int w, int h) {
 	win->buffer = malloc(w * h * 4);
 }
 
-static w_keyboard_t * _poll_keyboard(void) {
-	return NULL;
-}
-
 #define LOGO_FINAL_OFFSET 100
 
 int checkUserPass(char * user, char * pass) {
@@ -343,7 +339,16 @@ int main (int argc, char ** argv) {
 
 				w_keyboard_t * kbd = NULL;
 				do {
-					kbd = _poll_keyboard();
+					kbd = NULL;
+					yutani_msg_t * msg = yutani_poll(y);
+					if (msg->type == YUTANI_MSG_KEY_EVENT) {
+						struct yutani_msg_key_event * ke = (void*)msg->data;
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							kbd = malloc(sizeof(w_keyboard_t));
+							kbd->key = ke->event.key;
+						}
+					}
+					free(msg);
 				} while (!kbd);
 
 				if (kbd->key == '\n') {

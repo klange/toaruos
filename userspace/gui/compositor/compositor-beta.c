@@ -27,6 +27,20 @@ int parse_args(int argc, char * argv[]) {
 
 }
 
+typedef struct {
+	yutani_wid_t wid;
+
+	uint32_t width;
+	uint32_t height;
+
+	uint8_t * buffer;
+	uint32_t bufid;/* We occasionally replace the buffer; each is uniquely-indexed */
+
+	uint8_t focused;
+
+	uint32_t owner;
+} server_window_t;
+
 static list_t * windows = NULL;
 
 static int next_buf_id(void) {
@@ -34,13 +48,14 @@ static int next_buf_id(void) {
 	return _next++;
 }
 
-static yutani_window_t * server_window_create(int width, int height) {
-	yutani_window_t * win = malloc(sizeof(yutani_window_t));
+static server_window_t * server_window_create(int width, int height, uint32_t owner) {
+	server_window_t * win = malloc(sizeof(server_window_t));
 
 	if (!windows) {
 		windows = list_create();
 	}
 
+	win->owner = owner;
 	list_insert(windows, win);
 
 	win->width = width;
@@ -55,29 +70,6 @@ static yutani_window_t * server_window_create(int width, int height) {
 	return win;
 }
 
-void * demo_client(void * garbage) {
-	yutani_t * y = yutani_init();
-
-	if (!y) {
-		fprintf(stderr, "[demo-client] Connection to server failed.\n");
-		return NULL;
-	}
-
-	yutani_window_t * w = yutani_window_create(y, 500, 500);
-
-	gfx_context_t * gfx = init_graphics_yutani(w);
-	draw_fill(gfx, rgb(240,100,100));
-
-	fprintf(stderr, "[demo-client] Flipping\n");
-	yutani_msg_t * m = yutani_msg_build_flip();
-	int result = yutani_msg_send(y, m);
-
-	while (1) {
-		char data[MAX_PACKET_SIZE];
-		pex_recv(y->sock, data);
-	}
-}
-
 /**
  * Mouse input thread
  *
@@ -87,13 +79,12 @@ void * demo_client(void * garbage) {
  */
 void * mouse_input(void * garbage) {
 	int mfd = open("/dev/mouse", O_RDONLY);
-	char buf[sizeof(mouse_device_packet_t)];
+	mouse_device_packet_t packet;
 
 	while (1) {
-		mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-		int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
+		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 
-		fprintf(stderr, "[mouse] mouse packet get! %d\n", r);
+		fprintf(stderr, "[mouse] mouse packet get! move %dx%d buttons 0x%x\n", packet.x_difference, packet.y_difference, packet.buttons);
 	}
 }
 
@@ -107,13 +98,16 @@ void * mouse_input(void * garbage) {
 void * keyboard_input(void * garbage) {
 	int kfd = open("/dev/kbd", O_RDONLY);
 
+	yutani_t * y = yutani_init();
+
 	while (1) {
 		char buf[1];
 		int r = read(kfd, buf, 1);
 		if (r > 0) {
 			key_event_t event;
 			kbd_scancode(buf[0], &event);
-			fprintf(stderr, "[keyboard] key get!  %d\n", event.keycode);
+			yutani_msg_t * m = yutani_msg_build_key_event(&event);
+			int result = yutani_msg_send(y, m);
 		}
 	}
 }
@@ -166,7 +160,7 @@ void load_fonts() {
 
 static void redraw_windows(gfx_context_t * framebuffer) {
 	foreach(node, windows) {
-		yutani_window_t * win = (void*)node->value;
+		server_window_t * win = (void*)node->value;
 
 		sprite_t tmp;
 		tmp.width = win->width;
@@ -204,11 +198,6 @@ int main(int argc, char * argv[]) {
 	pthread_t keyboard_thread;
 	pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
 
-#if 0
-	pthread_t demo_client_thread;
-	pthread_create(&demo_client_thread, NULL, demo_client, NULL);
-#endif
-
 #if 1
 	if (!fork()) {
 		fprintf(stderr, "Starting Login...\n");
@@ -225,16 +214,12 @@ int main(int argc, char * argv[]) {
 		pex_packet_t * p = calloc(PACKET_SIZE, 1);
 		pex_listen(server, p);
 
-		fprintf(stderr, "[yutani-server] Received packet from client [%08x] of size %d\n", p->source, p->size);
-
 		yutani_msg_t * m = (yutani_msg_t *)p->data;
 
 		if (m->magic != YUTANI_MSG__MAGIC) {
 			fprintf(stderr, "[yutani-server] Message has bad magic. (Should eject client, but will instead skip this message.) 0x%x\n", m->magic);
 			continue;
 		}
-
-		fprintf(stderr, "[yutani-server] Message type == 0x%08x\n", m->type);
 
 		switch(m->type) {
 			case YUTANI_MSG_HELLO: {
@@ -246,15 +231,21 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_NEW: {
 				struct yutani_msg_window_new * wn = (void *)m->data;
 				fprintf(stderr, "[yutani-server] Client %08x requested a new window (%xx%x).\n", p->source, wn->width, wn->height);
-				yutani_window_t * w = server_window_create(wn->width, wn->height);
+				server_window_t * w = server_window_create(wn->width, wn->height, p->source);
 				yutani_msg_t * response = yutani_msg_build_window_init(w->width, w->height, w->bufid);
 				pex_send(server, p->source, response->size, (char *)response);
 				free(response);
 			} break;
 			case YUTANI_MSG_FLIP: {
-				/* XXX redraw windows */
+				/* XXX take rect parameters / use a window / something */
 				fprintf(stderr, "[yutani-server] Redraw requested.\n");
 				redraw_windows(framebuffer);
+			} break;
+			case YUTANI_MSG_KEY_EVENT: {
+				/* XXX Verify this is from a valid client */
+				if (windows) {
+					pex_send(server, ((server_window_t *)(windows->head->value))->owner, m->size, (char *)m);
+				}
 			} break;
 			default: {
 				fprintf(stderr, "[yutani-server] Unknown type!\n");

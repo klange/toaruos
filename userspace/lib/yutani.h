@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "graphics.h"
+#include "kbd.h"
 
 #define YUTANI_SERVER_IDENTIFIER "sys.compositor"
 #define YUTANI_SHMKEY(buf,sz,win) snprintf(buf, sz, "%s.%d", YUTANI_SERVER_IDENTIFIER, win->bufid);
@@ -43,6 +44,10 @@ struct yutani_msg_window_init {
 	uint32_t bufid;
 };
 
+struct yutani_msg_key_event {
+	key_event_t event;
+};
+
 typedef struct yutani_window {
 	yutani_wid_t wid;
 
@@ -62,22 +67,22 @@ typedef struct yutani_window {
 #define YUTANI_MSG_HELLO        0x00000001
 #define YUTANI_MSG_WINDOW_NEW   0x00000002
 #define YUTANI_MSG_FLIP         0x00000003
+#define YUTANI_MSG_KEY_EVENT    0x00000004
+#define YUTANI_MSG_MOUSE_EVENT  0x00000005
 
 /* Server responses */
 #define YUTANI_MSG_WELCOME      0x00010001
 #define YUTANI_MSG_WINDOW_INIT  0x00010002
 
-/* Device messages */
-#define YUTANI_MSG_KEY_IN       0x00020001
-#define YUTANI_MSG_MOUSE_IN     0x00020002
-
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type);
+yutani_msg_t * yutani_poll(yutani_t * y);
 
 yutani_msg_t * yutani_msg_build_hello(void);
 yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height);
 yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height);
 yutani_msg_t * yutani_msg_build_window_init(uint32_t width, uint32_t height, uint32_t bufid);
 yutani_msg_t * yutani_msg_build_flip(void);
+yutani_msg_t * yutani_msg_build_key_event(key_event_t * event);
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 yutani_t * yutani_context_create(FILE * socket);

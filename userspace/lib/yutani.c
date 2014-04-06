@@ -5,6 +5,7 @@
 #include "yutani.h"
 #include "pex.h"
 #include "graphics.h"
+#include "kbd.h"
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {
@@ -24,6 +25,19 @@ yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 			free(out);
 		}
 	} while (1); /* XXX: (!y->abort) */
+}
+
+yutani_msg_t * yutani_poll(yutani_t * y) {
+	yutani_msg_t * out;
+	size_t size;
+	{
+		char tmp[MAX_PACKET_SIZE];
+		size = pex_recv(y->sock, tmp);
+		out = malloc(size);
+		memcpy(out, tmp, size);
+	}
+
+	return out;
 }
 
 yutani_msg_t * yutani_msg_build_hello(void) {
@@ -93,6 +107,21 @@ yutani_msg_t * yutani_msg_build_window_init(uint32_t width, uint32_t height, uin
 	mw->width = width;
 	mw->height = height;
 	mw->bufid = bufid;
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_key_event(key_event_t * event) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_key_event);
+	yutani_msg_t * msg = malloc(s); /* No extra data for a hello. */
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_KEY_EVENT;
+	msg->size  = s;
+
+	struct yutani_msg_key_event * mw = (void *)msg->data;
+
+	memcpy(&mw->event, event, sizeof(key_event_t));
 
 	return msg;
 }
@@ -178,3 +207,4 @@ gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window) {
 	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
 	return out;
 }
+
