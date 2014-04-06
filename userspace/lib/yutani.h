@@ -89,8 +89,9 @@ yutani_t * yutani_context_create(FILE * socket);
 yutani_t * yutani_init(void);
 yutani_window_t * yutani_window_create(yutani_t * y, int width, int height);
 void yutani_flip(yutani_t * y);
- 
+
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);
+void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
 
 #endif /* _YUTANI_H */

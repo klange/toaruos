@@ -160,6 +160,7 @@ void load_fonts() {
 }
 
 static void redraw_windows(gfx_context_t * framebuffer) {
+	draw_fill(framebuffer, rgb(150,150,240));
 	foreach(node, windows) {
 		server_window_t * win = (void*)node->value;
 
@@ -203,7 +204,7 @@ int main(int argc, char * argv[]) {
 	if (!fork()) {
 		fprintf(stderr, "Starting Login...\n");
 		if (argc < 2) {
-			char * args[] = {"/bin/glogin-beta", NULL};
+			char * args[] = {"/bin/terminal-beta", NULL};
 			execvp(args[0], args);
 		} else {
 			execvp(argv[1], &argv[1]);
