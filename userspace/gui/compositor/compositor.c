@@ -1195,7 +1195,7 @@ void device_to_window(server_window_t * window, int32_t x, int32_t y, int32_t * 
 
 
 void * process_requests(void * garbage) {
-	int mfd = *((int *)garbage);
+	int mfd = open("/dev/mouse", O_RDONLY);
 
 	mouse_x = MOUSE_SCALE * ctx->width / 2;
 	mouse_y = MOUSE_SCALE * ctx->height / 2;
@@ -1401,10 +1401,11 @@ void * process_requests(void * garbage) {
 }
 
 void * keyboard_input(void * garbage) {
+	int kfd = open("/dev/kbd", O_RDONLY);
 	char buf[1];
 	while (1) {
 		/* Read keyboard */
-		int r = read(0, buf, 1);
+		int r = read(kfd, buf, 1);
 		if (r > 0) {
 			w_keyboard_t packet;
 			packet.ret = kbd_scancode(buf[0], &packet.event);
@@ -1512,9 +1513,8 @@ int main(int argc, char ** argv) {
 	windows_to_clean = list_create();
 
 	/* Grab the mouse */
-	int mfd = open("/dev/mouse", O_RDONLY);
 	pthread_t mouse_thread;
-	pthread_create(&mouse_thread, NULL, process_requests, (void *)&mfd);
+	pthread_create(&mouse_thread, NULL, process_requests, NULL);
 
 	pthread_t keyboard_thread;
 	pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
