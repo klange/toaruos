@@ -108,6 +108,7 @@ void * keyboard_input(void * garbage) {
 			kbd_scancode(buf[0], &event);
 			yutani_msg_t * m = yutani_msg_build_key_event(&event);
 			int result = yutani_msg_send(y, m);
+			free(m);
 		}
 	}
 }

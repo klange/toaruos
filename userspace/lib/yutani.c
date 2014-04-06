@@ -168,6 +168,7 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 
 	yutani_msg_t * m = yutani_msg_build_window_new(width, height);
 	int result = yutani_msg_send(y, m);
+	free(m);
 
 	fprintf(stderr, "[yutani-client] Waiting for window response...\n");
 	m = yutani_wait_for(y, YUTANI_MSG_WINDOW_INIT);
@@ -189,6 +190,7 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 void yutani_flip(yutani_t * y) {
 	yutani_msg_t * m = yutani_msg_build_flip();
 	int result = yutani_msg_send(y, m);
+	free(m);
 }
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
