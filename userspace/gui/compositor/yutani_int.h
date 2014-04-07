@@ -44,8 +44,10 @@ typedef struct {
 
 	cairo_surface_t * framebuffer_surface;
 	cairo_surface_t * selectbuffer_surface;
+	cairo_surface_t * real_surface;
 	cairo_t * framebuffer_ctx;
 	cairo_t * selectbuffer_ctx;
+	cairo_t * real_ctx;
 
 	void * select_framebuffer;
 	void * backend_framebuffer;

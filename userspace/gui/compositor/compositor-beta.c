@@ -229,20 +229,24 @@ static void draw_cursor(yutani_globals_t * yg) {
 
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
 	cairo_rectangle(yg->framebuffer_ctx, x, y, w, h);
+	cairo_rectangle(yg->real_ctx, x, y, w, h);
 }
 
 static void save_cairo_states(yutani_globals_t * yg) {
 	cairo_save(yg->framebuffer_ctx);
 	cairo_save(yg->selectbuffer_ctx);
+	cairo_save(yg->real_ctx);
 }
 
 static void restore_cairo_states(yutani_globals_t * yg) {
 	cairo_restore(yg->framebuffer_ctx);
 	cairo_restore(yg->selectbuffer_ctx);
+	cairo_restore(yg->real_ctx);
 }
 
 static void yutani_set_clip(yutani_globals_t * yg) {
 	cairo_clip(yg->framebuffer_ctx);
+	cairo_clip(yg->real_ctx);
 }
 
 static int window_is_top(yutani_globals_t * yg, yutani_server_window_t * window) {
@@ -313,6 +317,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	cairo_surface_destroy(surf);
 
 	/* Paint select buffer */
+	cairo_set_operator(cs, CAIRO_OPERATOR_SOURCE);
 	cairo_set_source_rgb(cs, 0, ((window->z & 0xFF00) >> 8) / 255.0, (window->z & 0xFF) / 255.0);
 	cairo_rectangle(cs, 0, 0, window->width, window->height);
 	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
@@ -332,7 +337,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	/* If the mouse has moved, that counts as damage regions */
 	if ((yg->last_mouse_x != yg->mouse_x) || (yg->last_mouse_y != yg->mouse_y)) {
-		has_updates = 1;
+		has_updates = 2;
 		yutani_add_clip(yg, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
 		yutani_add_clip(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
 	}
@@ -376,8 +381,14 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 */
 		draw_cursor(yg);
 
-		/* Push our changes to the display */
+		cairo_set_operator(yg->real_ctx, CAIRO_OPERATOR_SOURCE);
+		cairo_translate(yg->real_ctx, 0, 0);
+		cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
+		cairo_paint(yg->real_ctx);
+
+#if 0
 		flip(yg->backend_ctx);
+#endif
 	}
 
 	/* Restore the cairo contexts to reset clip regions */
@@ -389,6 +400,8 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, yg->width);
 	yg->framebuffer_surface = cairo_image_surface_create_for_data(
 			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
+	yg->real_surface = cairo_image_surface_create_for_data(
+			yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 
 	yg->select_framebuffer = malloc(YUTANI_BYTE_DEPTH * yg->width * yg->height);
 
@@ -397,6 +410,7 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 
 	yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
 	yg->selectbuffer_ctx = cairo_create(yg->selectbuffer_surface);
+	yg->real_ctx = cairo_create(yg->real_surface);
 
 	yg->update_list = list_create();
 }
