@@ -501,13 +501,13 @@ int main(int argc, char * argv[]) {
 				yg->last_mouse_x = yg->mouse_x;
 				yg->last_mouse_y = yg->mouse_y;
 
-				yg->mouse_x += me->event.x_difference;
-				yg->mouse_y -= me->event.y_difference;
+				yg->mouse_x += me->event.x_difference * 3;
+				yg->mouse_y -= me->event.y_difference * 3;
 
 				if (yg->mouse_x < 0) yg->mouse_x = 0;
 				if (yg->mouse_y < 0) yg->mouse_y = 0;
-				if (yg->mouse_x > (yg->width - 1) * MOUSE_SCALE) yg->mouse_x = (yg->width - 1) * MOUSE_SCALE;
-				if (yg->mouse_y > (yg->height - 1) * MOUSE_SCALE) yg->mouse_y = (yg->height - 1) * MOUSE_SCALE;
+				if (yg->mouse_x > (yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
+				if (yg->mouse_y > (yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
 
 				redraw_windows(yg);
 

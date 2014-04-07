@@ -7,7 +7,7 @@
 #include "lib/hashmap.h"
 #include "lib/graphics.h"
 
-#define MOUSE_SCALE 2
+#define MOUSE_SCALE 3
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
 
