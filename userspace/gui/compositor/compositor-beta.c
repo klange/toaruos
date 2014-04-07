@@ -223,8 +223,8 @@ static void load_fonts(void) {
 	}
 }
 
-static void draw_cursor(yutani_globals_t * yg) {
-	draw_sprite(yg->backend_ctx, &yg->mouse_sprite, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+static void draw_cursor(yutani_globals_t * yg, int x, int y) {
+	draw_sprite(yg->backend_ctx, &yg->mouse_sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 }
 
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
@@ -335,12 +335,19 @@ static void redraw_windows(yutani_globals_t * yg) {
 	save_cairo_states(yg);
 	int has_updates = 0;
 
-	/* If the mouse has moved, that counts as damage regions */
-	if ((yg->last_mouse_x != yg->mouse_x) || (yg->last_mouse_y != yg->mouse_y)) {
+	/* We keep our own temporary mouse coordinates as they may change while we're drawing. */
+	int tmp_mouse_x = yg->mouse_x;
+	int tmp_mouse_y = yg->mouse_y;
+
+	/* If the mouse has moved, that counts as two damage regions */
+	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
 		has_updates = 2;
 		yutani_add_clip(yg, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
-		yutani_add_clip(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
+		yutani_add_clip(yg, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
 	}
+
+	yg->last_mouse_x = tmp_mouse_x;
+	yg->last_mouse_y = tmp_mouse_y;
 
 	/* Calculate damage regions from currently queued updates */
 	while (yg->update_list->length) {
@@ -379,16 +386,17 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * We may also want to draw other compositor elements, like effects, but those
 		 * can also go in the stack order of the windows.
 		 */
-		draw_cursor(yg);
+		draw_cursor(yg, tmp_mouse_x, tmp_mouse_y);
 
+		/*
+		 * Flip the updated areas. This minimizes writes to video memory,
+		 * which is very important on real hardware where these writes are slow.
+		 */
 		cairo_set_operator(yg->real_ctx, CAIRO_OPERATOR_SOURCE);
 		cairo_translate(yg->real_ctx, 0, 0);
 		cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
 		cairo_paint(yg->real_ctx);
 
-#if 0
-		flip(yg->backend_ctx);
-#endif
 	}
 
 	/* Restore the cairo contexts to reset clip regions */
@@ -415,6 +423,26 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 	yg->update_list = list_create();
 }
 
+void * redraw(void * in) {
+	yutani_globals_t * yg = in;
+	while (1) {
+		/*
+		 * Perform whatever redraw work is required.
+		 */
+		redraw_windows(yg);
+
+		/*
+		 * Attempt to run at about 60fps...
+		 * we should actually see how long it took to render so
+		 * we can sleep *less* if it took a long time to render
+		 * this particular frame. We are definitely not
+		 * going to run at 60fps unless there's nothing to do
+		 * (and even then we've wasted cycles checking).
+		 */
+		usleep(16666);
+	}
+}
+
 /**
  * main
  */
@@ -426,7 +454,7 @@ int main(int argc, char * argv[]) {
 	yg->width = yg->backend_ctx->width;
 	yg->height = yg->backend_ctx->height;
 
-	draw_fill(yg->backend_ctx, rgb(150,150,240));
+	draw_fill(yg->backend_ctx, rgb(153,153,153));
 	flip(yg->backend_ctx);
 
 	yg->backend_framebuffer = yg->backend_ctx->backbuffer;
@@ -453,6 +481,9 @@ int main(int argc, char * argv[]) {
 
 	pthread_t keyboard_thread;
 	pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
+
+	pthread_t render_thread;
+	pthread_create(&render_thread, NULL, redraw, yg);
 
 	if (!fork()) {
 		fprintf(stderr, "Starting Login...\n");
@@ -495,7 +526,6 @@ int main(int argc, char * argv[]) {
 				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
 				if (w) {
 					list_insert(yg->update_list, w);
-					redraw_windows(yg);
 				}
 			} break;
 			case YUTANI_MSG_KEY_EVENT: {
@@ -512,9 +542,6 @@ int main(int argc, char * argv[]) {
 				/* XXX Verify this is from a valid device client */
 				struct yutani_msg_mouse_event * me = (void *)m->data;
 
-				yg->last_mouse_x = yg->mouse_x;
-				yg->last_mouse_y = yg->mouse_y;
-
 				yg->mouse_x += me->event.x_difference * 3;
 				yg->mouse_y -= me->event.y_difference * 3;
 
@@ -523,17 +550,14 @@ int main(int argc, char * argv[]) {
 				if (yg->mouse_x > (yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
 				if (yg->mouse_y > (yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
 
-				redraw_windows(yg);
-
 			} break;
 			case YUTANI_MSG_WINDOW_MOVE: {
 				struct yutani_msg_window_move * wm = (void *)m->data;
 				fprintf(stderr, "[yutani-server] %08x wanted to move window %d\n", p->source, wm->wid);
 				yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
-				win->x = wm->x;
-				win->y = wm->y;
 				if (win) {
-					redraw_windows(yg);
+					win->x = wm->x;
+					win->y = wm->y;
 				} else {
 					fprintf(stderr, "[yutani-server] %08x wanted to move window %d, but I can't find it?\n", p->source, wm->wid);
 				}
@@ -547,7 +571,6 @@ int main(int argc, char * argv[]) {
 					list_remove(yg->windows, list_index_of(yg->windows, w));
 					list_insert(yg->update_list, w);
 					unorder_window(yg, w);
-					redraw_windows(yg);
 				}
 			} break;
 			case YUTANI_MSG_WINDOW_STACK: {
@@ -555,7 +578,6 @@ int main(int argc, char * argv[]) {
 				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)ws->wid);
 				if (w) {
 					reorder_window(yg, w, ws->z);
-					redraw_windows(yg);
 				}
 			} break;
 			default: {
