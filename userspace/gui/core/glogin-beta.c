@@ -396,12 +396,13 @@ int main (int argc, char ** argv) {
 		yutani_flip(y, wina);
 
 		//teardown_windowing();
+		yutani_close(y, wina);
 
 		pid_t _session_pid = fork();
 		if (!_session_pid) {
 			setenv("PATH", "/usr/bin:/bin", 0);
 			syscall_setuid(uid);
-			char * args[] = {"/bin/gsession", NULL};
+			char * args[] = {"/bin/terminal-beta", NULL};
 			execvp(args[0], args);
 		}
 

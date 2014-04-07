@@ -376,7 +376,7 @@ int main(int argc, char * argv[]) {
 	if (!fork()) {
 		fprintf(stderr, "Starting Login...\n");
 		if (argc < 2) {
-			char * args[] = {"/bin/terminal-beta", NULL};
+			char * args[] = {"/bin/glogin-beta", NULL};
 			execvp(args[0], args);
 		} else {
 			execvp(argv[1], &argv[1]);
