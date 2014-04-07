@@ -11,9 +11,6 @@
 #define MOUSE_OFFSET_X 26
 #define MOUSE_OFFSET_Y 26
 
-#define YUTANI_ZORDER_TOP    0xFFFF
-#define YUTANI_ZORDER_BOTTOM 0x0000
-
 #define YUTANI_BYTE_DEPTH 4
 
 typedef enum {
@@ -62,6 +59,7 @@ typedef struct {
 
 	list_t * windows;
 	hashmap_t * wids_to_windows;
+	yutani_server_window_t * zlist[0x10000];
 
 	list_t * update_list;
 

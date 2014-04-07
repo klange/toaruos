@@ -65,6 +65,11 @@ struct yutani_msg_key_event {
 	key_event_t event;
 };
 
+struct yutani_msg_window_stack {
+	yutani_wid_t wid;
+	int z;
+};
+
 struct yutani_msg_mouse_event {
 	yutani_wid_t wid;
 	mouse_device_packet_t event;
@@ -95,11 +100,16 @@ typedef struct yutani_window {
 #define YUTANI_MSG_WINDOW_CLOSE 0x00000007
 #define YUTANI_MSG_WINDOW_SHOW  0x00000008
 #define YUTANI_MSG_WINDOW_HIDE  0x00000009
+#define YUTANI_MSG_WINDOW_STACK 0x0000000A
 #define YUTANI_MSG_GOODBYE      0x000000F0
 
 /* Server responses */
 #define YUTANI_MSG_WELCOME      0x00010001
 #define YUTANI_MSG_WINDOW_INIT  0x00010002
+
+#define YUTANI_ZORDER_MAX    0xFFFF
+#define YUTANI_ZORDER_TOP    0xFFFF
+#define YUTANI_ZORDER_BOTTOM 0x0000
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type);
 yutani_msg_t * yutani_poll(yutani_t * y);
@@ -112,6 +122,7 @@ yutani_msg_t * yutani_msg_build_flip(yutani_wid_t);
 yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event);
 yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event);
 yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
+yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 yutani_t * yutani_context_create(FILE * socket);
@@ -120,6 +131,7 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height);
 void yutani_flip(yutani_t * y, yutani_window_t * win);
 void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
 void yutani_close(yutani_t * y, yutani_window_t * win);
+void yutani_set_stack(yutani_t *, yutani_window_t *, int);
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);

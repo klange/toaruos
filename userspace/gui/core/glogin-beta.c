@@ -402,7 +402,7 @@ int main (int argc, char ** argv) {
 		if (!_session_pid) {
 			setenv("PATH", "/usr/bin:/bin", 0);
 			syscall_setuid(uid);
-			char * args[] = {"/bin/terminal-beta", NULL};
+			char * args[] = {"/bin/gsession-beta", NULL};
 			execvp(args[0], args);
 		}
 

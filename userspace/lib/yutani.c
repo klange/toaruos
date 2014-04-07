@@ -181,6 +181,22 @@ yutani_msg_t * yutani_msg_build_window_move(yutani_wid_t wid, int32_t x, int32_t
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_stack);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_STACK;
+	msg->size  = s;
+
+	struct yutani_msg_window_stack * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->z = z;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -255,9 +271,14 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 	free(m);
 }
 
-
 void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y) {
 	yutani_msg_t * m = yutani_msg_build_window_move(window->wid, x, y);
+	int reuslt = yutani_msg_send(yctx, m);
+	free(m);
+}
+
+void yutani_set_stack(yutani_t * yctx, yutani_window_t * window, int z) {
+	yutani_msg_t * m = yutani_msg_build_window_stack(window->wid, z);
 	int reuslt = yutani_msg_send(yctx, m);
 	free(m);
 }

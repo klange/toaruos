@@ -41,6 +41,70 @@ static int next_wid(void) {
 	return _next++;
 }
 
+static void rebalance_windows(yutani_globals_t * yg) {
+	uint32_t i = 1;
+	for (; i < YUTANI_ZORDER_TOP; ++i) {
+		if (!yg->zlist[i]) break;
+	}
+	uint32_t j = i + 1;
+	for (; j < YUTANI_ZORDER_TOP; ++j) {
+		if (!yg->zlist[j]) break;
+	}
+	if (j == i + 1) {
+		return;
+	} else {
+		for (j = i; j < YUTANI_ZORDER_TOP; ++j) {
+			yg->zlist[j] = yg->zlist[j+1];
+			if (yg->zlist[j+1] == NULL) return;
+			yg->zlist[j]->z = j;
+		}
+	}
+}
+
+static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * window, uint16_t new_zed) {
+	if (!window) {
+		return;
+	}
+
+	int z = window->z;
+	window->z = new_zed;
+
+	if (yg->zlist[z] == window) {
+		yg->zlist[z] = NULL;
+	}
+
+	if (new_zed == 0 || new_zed == YUTANI_ZORDER_TOP) {
+		yg->zlist[new_zed] = window;
+		if (z != new_zed) {
+			rebalance_windows(yg);
+		}
+		return;
+	}
+
+	if (yg->zlist[new_zed] != window) {
+		reorder_window(yg, yg->zlist[new_zed], new_zed + 1);
+		yg->zlist[new_zed ] = window;
+	}
+	if (z != new_zed) {
+		rebalance_windows(yg);
+	}
+}
+
+static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
+	if (yg->zlist[w->z] == w) {
+		yg->zlist[w->z] = NULL;
+	}
+	rebalance_windows(yg);
+}
+
+int best_z_option(yutani_globals_t * yg) {
+	for (int i = 1; i < YUTANI_ZORDER_TOP; ++i) {
+		if (!yg->zlist[i]) return i;
+	}
+	return -1;
+}
+
+
 static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner) {
 	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
 
@@ -51,7 +115,8 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 
 	win->x = 0;
 	win->y = 0;
-	win->z = 0;
+	win->z = best_z_option(yg);
+	yg->zlist[win->z] = win;
 	win->width = width;
 	win->height = height;
 	win->bufid = next_buf_id();
@@ -298,9 +363,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * but calculating that may be more trouble than it's worth;
 		 * we also need to render windows in stacking order...
 		 */
-		foreach(node, yg->windows) {
-			yutani_server_window_t * win = (void*)node->value;
-			yutani_blit_window(yg, win, NULL);
+		for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
+			if (yg->zlist[i]) {
+				yutani_blit_window(yg, yg->zlist[i], NULL);
+			}
 		}
 
 		/*
@@ -341,6 +407,7 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 int main(int argc, char * argv[]) {
 
 	yutani_globals_t * yg = malloc(sizeof(yutani_globals_t));
+	memset(yg, 0x00, sizeof(yutani_globals_t));
 	yg->backend_ctx = init_graphics_fullscreen_double_buffer();
 	yg->width = yg->backend_ctx->width;
 	yg->height = yg->backend_ctx->height;
@@ -465,6 +532,15 @@ int main(int argc, char * argv[]) {
 					hashmap_remove(yg->wids_to_windows, (void *)wc->wid);
 					list_remove(yg->windows, list_index_of(yg->windows, w));
 					list_insert(yg->update_list, w);
+					unorder_window(yg, w);
+					redraw_windows(yg);
+				}
+			} break;
+			case YUTANI_MSG_WINDOW_STACK: {
+				struct yutani_msg_window_stack * ws = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)ws->wid);
+				if (w) {
+					reorder_window(yg, w, ws->z);
 					redraw_windows(yg);
 				}
 			} break;
