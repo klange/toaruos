@@ -33,10 +33,11 @@ typedef struct hashmap {
 } hashmap_t;
 
 hashmap_t * hashmap_create(int size);
-void * hashmap_set(hashmap_t * map, char * key, void * value);
-void * hashmap_get(hashmap_t * map, char * key);
-void * hashmap_remove(hashmap_t * map, char * key);
-int hashmap_has(hashmap_t * map, char * key);
+hashmap_t * hashmap_create_int(int size);
+void * hashmap_set(hashmap_t * map, void * key, void * value);
+void * hashmap_get(hashmap_t * map, void * key);
+void * hashmap_remove(hashmap_t * map, void * key);
+int hashmap_has(hashmap_t * map, void * key);
 list_t * hashmap_keys(hashmap_t * map);
 list_t * hashmap_values(hashmap_t * map);
 void hashmap_free(hashmap_t * map);

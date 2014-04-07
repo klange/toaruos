@@ -216,7 +216,7 @@ int main (int argc, char ** argv) {
 			draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
 			draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - i);
 			flip(ctx);
-			yutani_flip(y);
+			yutani_flip(y, wina);
 		}
 
 		size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
@@ -335,7 +335,7 @@ int main (int argc, char ** argv) {
 				}
 
 				flip(ctx);
-				yutani_flip(y);
+				yutani_flip(y, wina);
 
 				w_keyboard_t * kbd = NULL;
 				do {
@@ -393,7 +393,7 @@ int main (int argc, char ** argv) {
 		draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
 		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
-		yutani_flip(y);
+		yutani_flip(y, wina);
 
 		//teardown_windowing();
 

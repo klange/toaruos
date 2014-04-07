@@ -6,6 +6,7 @@
 
 #include "graphics.h"
 #include "kbd.h"
+#include "mouse.h"
 
 #define YUTANI_SERVER_IDENTIFIER "sys.compositor"
 #define YUTANI_SHMKEY(buf,sz,win) snprintf(buf, sz, "%s.%d", YUTANI_SERVER_IDENTIFIER, win->bufid);
@@ -33,19 +34,40 @@ struct yutani_msg_welcome {
 	uint32_t display_height;
 };
 
+struct yutani_msg_flip {
+	yutani_wid_t wid;
+};
+
+struct yutani_msg_window_close {
+	yutani_wid_t wid;
+};
+
 struct yutani_msg_window_new {
 	uint32_t width;
 	uint32_t height;
 };
 
 struct yutani_msg_window_init {
+	yutani_wid_t wid;
 	uint32_t width;
 	uint32_t height;
 	uint32_t bufid;
 };
 
+struct yutani_msg_window_move {
+	yutani_wid_t wid;
+	int32_t x;
+	int32_t y;
+};
+
 struct yutani_msg_key_event {
+	yutani_wid_t wid;
 	key_event_t event;
+};
+
+struct yutani_msg_mouse_event {
+	yutani_wid_t wid;
+	mouse_device_packet_t event;
 };
 
 typedef struct yutani_window {
@@ -69,6 +91,11 @@ typedef struct yutani_window {
 #define YUTANI_MSG_FLIP         0x00000003
 #define YUTANI_MSG_KEY_EVENT    0x00000004
 #define YUTANI_MSG_MOUSE_EVENT  0x00000005
+#define YUTANI_MSG_WINDOW_MOVE  0x00000006
+#define YUTANI_MSG_WINDOW_CLOSE 0x00000007
+#define YUTANI_MSG_WINDOW_SHOW  0x00000008
+#define YUTANI_MSG_WINDOW_HIDE  0x00000009
+#define YUTANI_MSG_GOODBYE      0x000000F0
 
 /* Server responses */
 #define YUTANI_MSG_WELCOME      0x00010001
@@ -80,15 +107,19 @@ yutani_msg_t * yutani_poll(yutani_t * y);
 yutani_msg_t * yutani_msg_build_hello(void);
 yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height);
 yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height);
-yutani_msg_t * yutani_msg_build_window_init(uint32_t width, uint32_t height, uint32_t bufid);
-yutani_msg_t * yutani_msg_build_flip(void);
-yutani_msg_t * yutani_msg_build_key_event(key_event_t * event);
+yutani_msg_t * yutani_msg_build_window_init(yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
+yutani_msg_t * yutani_msg_build_flip(yutani_wid_t);
+yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event);
+yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event);
+yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 yutani_t * yutani_context_create(FILE * socket);
 yutani_t * yutani_init(void);
 yutani_window_t * yutani_window_create(yutani_t * y, int width, int height);
-void yutani_flip(yutani_t * y);
+void yutani_flip(yutani_t * y, yutani_window_t * win);
+void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
+void yutani_close(yutani_t * y, yutani_window_t * win);
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);

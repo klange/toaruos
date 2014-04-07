@@ -21,6 +21,23 @@ void * hashmap_string_dupe(void * key) {
 	return strdup(key);
 }
 
+unsigned int hashmap_int_hash(void * key) {
+	return (unsigned int)key;
+}
+
+int hashmap_int_comp(void * a, void * b) {
+	return (int)a == (int)b;
+}
+
+void * hashmap_int_dupe(void * key) {
+	return key;
+}
+
+static void hashmap_int_free(void * ptr) {
+	return;
+}
+
+
 hashmap_t * hashmap_create(int size) {
 	hashmap_t * map = malloc(sizeof(hashmap_t));
 
@@ -37,7 +54,23 @@ hashmap_t * hashmap_create(int size) {
 	return map;
 }
 
-void * hashmap_set(hashmap_t * map, char * key, void * value) {
+hashmap_t * hashmap_create_int(int size) {
+	hashmap_t * map = malloc(sizeof(hashmap_t));
+
+	map->hash_func     = &hashmap_int_hash;
+	map->hash_comp     = &hashmap_int_comp;
+	map->hash_key_dup  = &hashmap_int_dupe;
+	map->hash_key_free = &hashmap_int_free;
+	map->hash_val_free = &free;
+
+	map->size = size;
+	map->entries = malloc(sizeof(hashmap_entry_t *) * size);
+	memset(map->entries, 0x00, sizeof(hashmap_entry_t *) * size);
+
+	return map;
+}
+
+void * hashmap_set(hashmap_t * map, void * key, void * value) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];
@@ -70,7 +103,7 @@ void * hashmap_set(hashmap_t * map, char * key, void * value) {
 	}
 }
 
-void * hashmap_get(hashmap_t * map, char * key) {
+void * hashmap_get(hashmap_t * map, void * key) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];
@@ -87,7 +120,7 @@ void * hashmap_get(hashmap_t * map, char * key) {
 	}
 }
 
-void * hashmap_remove(hashmap_t * map, char * key) {
+void * hashmap_remove(hashmap_t * map, void * key) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];
@@ -119,7 +152,7 @@ void * hashmap_remove(hashmap_t * map, char * key) {
 	}
 }
 
-int hashmap_has(hashmap_t * map, char * key) {
+int hashmap_has(hashmap_t * map, void * key) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];

@@ -6,6 +6,7 @@
 #include "pex.h"
 #include "graphics.h"
 #include "kbd.h"
+#include "mouse.h"
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {
@@ -42,7 +43,7 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 
 yutani_msg_t * yutani_msg_build_hello(void) {
 	size_t s = sizeof(struct yutani_message);
-	yutani_msg_t * msg = malloc(s); /* No extra data for a hello. */
+	yutani_msg_t * msg = malloc(s);
 
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_HELLO;
@@ -51,20 +52,24 @@ yutani_msg_t * yutani_msg_build_hello(void) {
 	return msg;
 }
 
-yutani_msg_t * yutani_msg_build_flip(void) {
-	size_t s = sizeof(struct yutani_message);
-	yutani_msg_t * msg = malloc(s); /* No extra data for a hello. */
+yutani_msg_t * yutani_msg_build_flip(yutani_wid_t wid) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_flip);
+	yutani_msg_t * msg = malloc(s);
 
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_FLIP;
 	msg->size  = s;
+
+	struct yutani_msg_flip * mw = (void *)msg->data;
+
+	mw->wid = wid;
 
 	return msg;
 }
 
 yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height) {
 	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_welcome);
-	yutani_msg_t * msg = malloc(s); /* No extra data for a hello. */
+	yutani_msg_t * msg = malloc(s);
 
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_WELCOME;
@@ -80,7 +85,7 @@ yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height) {
 
 yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height) {
 	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_new);
-	yutani_msg_t * msg = malloc(s); /* No extra data for a hello. */
+	yutani_msg_t * msg = malloc(s);
 
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_WINDOW_NEW;
@@ -94,9 +99,9 @@ yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height) {
 	return msg;
 }
 
-yutani_msg_t * yutani_msg_build_window_init(uint32_t width, uint32_t height, uint32_t bufid) {
+yutani_msg_t * yutani_msg_build_window_init(yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid) {
 	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_init);
-	yutani_msg_t * msg = malloc(s); /* No extra data for a hello. */
+	yutani_msg_t * msg = malloc(s);
 
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_WINDOW_INIT;
@@ -104,6 +109,7 @@ yutani_msg_t * yutani_msg_build_window_init(uint32_t width, uint32_t height, uin
 
 	struct yutani_msg_window_init * mw = (void *)msg->data;
 
+	mw->wid = wid;
 	mw->width = width;
 	mw->height = height;
 	mw->bufid = bufid;
@@ -111,9 +117,24 @@ yutani_msg_t * yutani_msg_build_window_init(uint32_t width, uint32_t height, uin
 	return msg;
 }
 
-yutani_msg_t * yutani_msg_build_key_event(key_event_t * event) {
+yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_close);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_CLOSE;
+	msg->size  = s;
+
+	struct yutani_msg_flip * mw = (void *)msg->data;
+
+	mw->wid = wid;
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event) {
 	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_key_event);
-	yutani_msg_t * msg = malloc(s); /* No extra data for a hello. */
+	yutani_msg_t * msg = malloc(s);
 
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_KEY_EVENT;
@@ -121,7 +142,41 @@ yutani_msg_t * yutani_msg_build_key_event(key_event_t * event) {
 
 	struct yutani_msg_key_event * mw = (void *)msg->data;
 
+	mw->wid = wid;
 	memcpy(&mw->event, event, sizeof(key_event_t));
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_mouse_event);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_MOUSE_EVENT;
+	msg->size  = s;
+
+	struct yutani_msg_mouse_event * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	memcpy(&mw->event, event, sizeof(mouse_device_packet_t));
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_window_move(yutani_wid_t wid, int32_t x, int32_t y) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_move);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_MOVE;
+	msg->size  = s;
+
+	struct yutani_msg_window_move * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->x = x;
+	mw->y = y;
 
 	return msg;
 }
@@ -178,6 +233,7 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 	win->width = mw->width;
 	win->height = mw->height;
 	win->bufid = mw->bufid;
+	win->wid = mw->wid;
 
 	char key[1024];
 	YUTANI_SHMKEY(key, 1024, win);
@@ -187,9 +243,22 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 	return win;
 }
 
-void yutani_flip(yutani_t * y) {
-	yutani_msg_t * m = yutani_msg_build_flip();
+void yutani_flip(yutani_t * y, yutani_window_t * win) {
+	yutani_msg_t * m = yutani_msg_build_flip(win->wid);
 	int result = yutani_msg_send(y, m);
+	free(m);
+}
+
+void yutani_close(yutani_t * y, yutani_window_t * win) {
+	yutani_msg_t * m = yutani_msg_build_window_close(win->wid);
+	int result = yutani_msg_send(y, m);
+	free(m);
+}
+
+
+void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y) {
+	yutani_msg_t * m = yutani_msg_build_window_move(window->wid, x, y);
+	int reuslt = yutani_msg_send(yctx, m);
 	free(m);
 }
 

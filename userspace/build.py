@@ -43,6 +43,8 @@ class CCompiler(object):
             '"lib/graphics.h"':    (None, 'lib/graphics.o',    ['<png.h>']),
             '"lib/kbd.h"':         (None, 'lib/kbd.o',         []),
             '"lib/list.h"':        (None, 'lib/list.o',        []),
+            '"lib/hashmap.h"':     (None, 'lib/hashmap.o',     ['"lib/list.h"']),
+            '"lib/tree.h"':        (None, 'lib/tree.o',        ['"lib/list.h"']),
             '"lib/testing.h"':     (None, 'lib/testing.o',     []),
             '"lib/pthread.h"':     (None, 'lib/pthread.o',     []),
             '"lib/sha2.h"':        (None, 'lib/sha2.o',        []),

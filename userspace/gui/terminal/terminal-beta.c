@@ -689,7 +689,7 @@ void flip_cursor() {
 	} else {
 		render_cursor();
 	}
-	yutani_flip(yctx);
+	yutani_flip(yctx, window);
 	cursor_flipped = 1 - cursor_flipped;
 }
 
@@ -756,12 +756,12 @@ uint32_t child_pid = 0;
 
 void handle_input(char c) {
 	write(fd_master, &c, 1);
-	yutani_flip(yctx);
+	yutani_flip(yctx, window);
 }
 
 void handle_input_s(char * c) {
 	write(fd_master, c, strlen(c));
-	yutani_flip(yctx);
+	yutani_flip(yctx, window);
 }
 
 void key_event(int ret, key_event_t * event) {
@@ -1081,7 +1081,9 @@ int main(int argc, char ** argv) {
 	ctx = init_graphics_yutani(window);
 
 	/* Clear to black */
-	draw_fill(ctx, rgb(0,0,0));
+	draw_fill(ctx, rgba(0,0,0,0));
+
+	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
 
 	if (_use_freetype) {
 		int error;
@@ -1166,10 +1168,12 @@ int main(int argc, char ** argv) {
 			for (uint32_t i = 0; i < r; ++i) {
 				ansi_put(ansi_state, buf[i]);
 			}
-			yutani_flip(yctx);
+			yutani_flip(yctx, window);
 		}
 
 	}
+
+	yutani_close(yctx, window);
 
 	return 0;
 }
