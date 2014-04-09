@@ -15,7 +15,6 @@ CFLAGS += -D_KERNEL_
 YASM = yasm
 
 # All of the core parts of the kernel are built directly.
-# TODO: Modules would be fantastic
 KERNEL_OBJS  = $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
 
@@ -50,6 +49,7 @@ DD = dd conv=notrunc
 # There are a few modules that are kinda required for a working system
 # such as all of the dependencies needed to mount the root partition.
 # We can also include things like the debug shell...
+# Note that ordering matters - list dependencies first.
 BOOT_MODULES := zero random serial
 BOOT_MODULES += procfs tmpfs ata
 #BOOT_MODULES += dospart
