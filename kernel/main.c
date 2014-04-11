@@ -142,9 +142,12 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 			debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start, module_end);
 			module_data_t * mod_info = (module_data_t *)module_load_direct((void *)(module_start), module_size);
-			debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
+			if (mod_info) {
+				debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
+			}
 		}
 	}
+
 
 	/* Map /dev to a device mapper */
 	map_vfs_directory("/dev");

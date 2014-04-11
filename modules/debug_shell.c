@@ -772,15 +772,6 @@ static void debug_shell_run(void * data, char * name) {
 	current_process->fds->entries[2] = tty;
 
 	/* Initialize the shell commands map */
-	if (!shell_commands_map) {
-		shell_commands_map = hashmap_create(10);
-		struct shell_command * sh = &shell_commands[0];
-		while (sh->name) {
-			hashmap_set(shell_commands_map, sh->name, sh);
-			sh++;
-		}
-	}
-
 	int retval = 0;
 
 	while (1) {
@@ -815,6 +806,14 @@ static void debug_shell_run(void * data, char * name) {
 }
 
 int debug_shell_start(void) {
+	/* Setup shell commands */
+	shell_commands_map = hashmap_create(10);
+	struct shell_command * sh = &shell_commands[0];
+	while (sh->name) {
+		hashmap_set(shell_commands_map, sh->name, sh);
+		sh++;
+	}
+
 	int i = create_kernel_tasklet(debug_shell_run, "[kttydebug]", NULL);
 	debug_print(NOTICE, "Started tasklet with pid=%d", i);
 
