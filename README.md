@@ -41,10 +41,11 @@ Licenses for these tools and libraries can be found [here](docs/thirdparty.md).
 The following external libraries and tools are retrieved during the build process:
 
 * `gcc` and `binutils` - For both a cross-compiler and a native port.
+* `newlib` - C library (development of an in-house C library is planned, but has not yet commenced).
 * `libpng` - Used extensively by the native graphics library to provide wallpaper and icons.
 * `zlib` - Dependency of `libpng`, but also generally useful.
 * `freetype` - For rendering text using TrueType fonts.
-* `cairo` and `pixman` - For accelerated and managed graphics.
+* `cairo` and `pixman` - For CPU-accelerated graphics.
 * `ncurses` - Terminal control library, provides `terminfo`.
 * Mesa - Implementation of OpenGL (only the software rasterizer is available).
 * Vim - Popular text editor.
