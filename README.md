@@ -78,7 +78,7 @@ Here are some tutorials we found useful early on:
 
 This project is released under the terms of the University of Illinois / NCSA Open Source License, an OSI- and FSF-approved, GPL-compatible open source license. The NCSA License is a derivative of the MIT license and the BSD license; it is reproduced here for your convenience:
 
-    Copyright (c) 2011-2013 Kevin Lange.  All rights reserved.
+    Copyright (c) 2011-2014 Kevin Lange.  All rights reserved.
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to
