@@ -28,6 +28,18 @@ The default image provides two user accounts, `root` with password `toor` and `l
 ### Building an Image for VirtualBox, etc. ###
 An experimental, unsupported image building tool that will produce a "production-ready" image, including GRUB 2, is provided in the `util` directory. The script, `create-image.sh`, must be run as root and will produce a 1GB raw disk image which be converted to other formats as needed.
 
+## Running
+
+The Makefile provides a few phony targets which will spin up qemu in various setups. Most of these targets have "regular" and "KVM-enabled" variants:
+
+- `run`/`kvm`: Start a typical desktop session. The system will boot to a graphical login screen.
+- `vga`/`vga-kvm`: (**DEPRECATED**) Boot to a VGA text-mode interface.
+- `term`/`term-kvm`: Start the compositor with a single, full-screen terminal logged in as root.
+- `term-beta`: Starts a beta version of the new compositor (not useful for end-users).
+- `headless`: Start qemu without a graphical interface, allowing for quick use of the serial console.
+
+All modes enable the serial console. This can be disabled by removing `debug_shell` from the default module list (`BOOT_MODULES`) in the Makefile. The serial console provides a kernel-space shell with some debugging commands and can be extended from other modules. A userspace shell can be started with the `shell` command, but will not have a full environment - run `login` to spawn a login prompt from the userspace shell. The serial console is able to determine its width and height with a `divine-size` command, which is useful if you plan on running userspace applications like Vim, otherwise applications will asume a default of 80x24.
+
 ## Troubleshooting
 If you have any issues at all while attempting to build とあるOS, or you would like help building on an unsupported platform, please join us on IRC (`#toaruos@irc.freenode.net`). Problems encountered while using the build scripts in an unsupported environment will not be considered bugs until thoroughly examined.
 

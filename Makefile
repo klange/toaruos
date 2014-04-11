@@ -85,7 +85,7 @@ WITH_LOGS = logtoserial=1
 .PHONY: all system install test toolchain
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless
-.PHONY: kvm vga-kvm term-kvm
+.PHONY: kvm vga-kvm term-kvm headless-kvm
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY: 
@@ -118,6 +118,8 @@ term-beta: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) start=--single-beta logtoserial=3 $(DISK_ROOT)"
 headless: system
 	${EMU} ${EMUARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
+headless-kvm: system
+	${EMU} ${EMUARGS} ${EMUKVM} -display none -append "$(START_VGA) $(DISK_ROOT)"
 
 test: system
 	python2 util/run-tests.py 2>/dev/null
