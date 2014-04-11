@@ -11,7 +11,7 @@ This repository contains the kernel, modules, and core userspace. Some third-par
 
 ## IRC ##
 
-For discussion, help with building or running the OS, and for up-to-date build verification, please join us in `#toaruos` on Freenode (`irc.freenode.net`).
+For help building the kernel and userspace, join us in `#toaruos` on Freenode (`irc.freenode.net`).
 
 ## Features ##
 
