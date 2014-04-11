@@ -92,11 +92,11 @@ static uint16_t bochs_current_scroll(void) {
 	return current_scroll;
 }
 
-static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d) {
+static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	if (v == 0x1234 && d == 0x1111) {
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
 		if (t > 0) {
-			lfb_vid_memory = (uint8_t *)(t & 0xFFFFFFF0);
+			*((uint8_t **)extra) = (uint8_t *)(t & 0xFFFFFFF0);
 		}
 	}
 }
@@ -130,7 +130,7 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x41);
 
-	pci_scan(bochs_scan_pci, -1);
+	pci_scan(bochs_scan_pci, -1, &lfb_vid_memory);
 
 	if (lfb_vid_memory) {
 		/* Enable the higher memory */

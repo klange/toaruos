@@ -37,7 +37,7 @@
 
 #define PCI_NONE 0xFFFF
 
-typedef void (*pci_func_t)(uint32_t device, uint16_t vendor_id, uint16_t device_id);
+typedef void (*pci_func_t)(uint32_t device, uint16_t vendor_id, uint16_t device_id, void * extra);
 
 static inline int pci_extract_bus(uint32_t device) {
 	return (uint8_t)((device >> 16));
@@ -61,11 +61,11 @@ uint32_t pci_read_field(uint32_t device, int field, int size);
 uint16_t pci_find_type(uint32_t dev);
 const char * pci_vendor_lookup(unsigned short vendor_id);
 const char * pci_device_lookup(unsigned short vendor_id, unsigned short device_id);
-void pci_scan_hit(pci_func_t f, uint32_t dev);
-void pci_scan_func(pci_func_t f, int type, int bus, int slot, int func);
-void pci_scan_slot(pci_func_t f, int type, int bus, int slot);
-void pci_scan_bus(pci_func_t f, int type, int bus);
-void pci_scan(pci_func_t f, int type);
+void pci_scan_hit(pci_func_t f, uint32_t dev, void * extra);
+void pci_scan_func(pci_func_t f, int type, int bus, int slot, int func, void * extra);
+void pci_scan_slot(pci_func_t f, int type, int bus, int slot, void * extra);
+void pci_scan_bus(pci_func_t f, int type, int bus, void * extra);
+void pci_scan(pci_func_t f, int type, void * extra);
 
 
 #endif

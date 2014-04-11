@@ -286,9 +286,9 @@ static int shell_anagrams(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
-static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid) {
+static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
 
-	fs_node_t * tty = current_process->fds->entries[0];
+	fs_node_t * tty = extra;
 
 	fprintf(tty, "%2x:%2x.%d (%4x, %4x:%4x) %s %s\n",
 			(int)pci_extract_bus(device),
@@ -310,7 +310,7 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid)
 }
 
 static int shell_pci(fs_node_t * tty, int argc, char * argv[]) {
-	pci_scan(&scan_hit_list, -1);
+	pci_scan(&scan_hit_list, -1, tty);
 	return 0;
 }
 

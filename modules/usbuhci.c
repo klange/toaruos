@@ -6,18 +6,18 @@
 
 static uint32_t hub_device = 0;
 
-static void find_usb_device(uint32_t device, uint16_t vendorid, uint16_t deviceid) {
+static void find_usb_device(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
 	if (pci_find_type(device) == 0xc03) {
 		int prog_if = (int)pci_read_field(device, PCI_PROG_IF, 1);
 		if (prog_if == 0) {
-			hub_device = device;
+			*((uint32_t *)extra)= device;
 		}
 	}
 }
 
 DEFINE_SHELL_FUNCTION(usb, "Enumerate USB devices (UHCI)") {
 
-	pci_scan(&find_usb_device, -1);
+	pci_scan(&find_usb_device, -1, &hub_device);
 
 	if (!hub_device) {
 		fprintf(tty, "Failed to locate a UHCI controller.\n");

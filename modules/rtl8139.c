@@ -7,9 +7,9 @@
 
 static uint32_t rtl_device_pci = 0x00000000;
 
-static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid) {
+static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
 	if ((vendorid == 0x10ec) && (deviceid == 0x8139)) {
-		rtl_device_pci = device;
+		*((uint32_t *)extra) = device;
 	}
 }
 
@@ -139,7 +139,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 static int init(void) {
 	BIND_SHELL_FUNCTION(rtl);
-	pci_scan(&find_rtl, -1);
+	pci_scan(&find_rtl, -1, &rtl_device_pci);
 	if (!rtl_device_pci) {
 		debug_print(ERROR, "No RTL 8139 found?");
 		return 1;
