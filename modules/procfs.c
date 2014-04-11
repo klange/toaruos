@@ -6,8 +6,8 @@
 #include <printf.h>
 #include <module.h>
 
-#define PROCFS_STANDARD_ENTRIES 6
-#define PROCFS_PROCDIR_ENTRIES  2
+#define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
+#define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
 
 struct procfs_entry {
 	int          id;
@@ -140,7 +140,7 @@ static struct dirent * readdir_procfs_procdir(fs_node_t *node, uint32_t index) {
 static fs_node_t * finddir_procfs_procdir(fs_node_t * node, char * name) {
 	if (!name) return NULL;
 
-	for (int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
+	for (unsigned int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
 		if (!strcmp(name, procdir_entries[i].name)) {
 			fs_node_t * out = procfs_generic_create(procdir_entries[i].name, procdir_entries[i].func);
 			out->inode = node->inode;
@@ -325,7 +325,7 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 		return out;
 	}
 
-	for (int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
+	for (unsigned int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
 		if (!strcmp(name, std_entries[i].name)) {
 			fs_node_t * out = procfs_generic_create(std_entries[i].name, std_entries[i].func);
 			return out;
