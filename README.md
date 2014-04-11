@@ -9,13 +9,11 @@ It was originally developed at the University of Illinois at Urbana-Champaign. F
 
 This repository contains the kernel, modules, and core userspace. Some third-party libraries and utilities are required to build a working system - these are automatically retrieved by the build process.
 
-## IRC ##
-
-For help building the kernel and userspace, join us in `#toaruos` on Freenode (`irc.freenode.net`).
-
-## Features ##
+## Kernel ##
 
 The kernel provides a number of features one would expect from a Unix-inspired project, including process and thread support, ELF binary support, runtime-loaded modules, pipes and TTYs, a virtual file system including virtual `/proc` (inspired by Plan9 and Linux) and device files, EXT2 filesystem support, signals, and more.
+
+## Userspace ##
 
 The userspace provides a rich graphical environment with a composited window manager (built on Cairo), a terminal emulator (with support for xterm 256-color modes and Konsole 24-bit color modes, anti-aliased text using FreeType, and general support for some Unicode text), and other graphical demo applications.
 
@@ -59,7 +57,7 @@ In addition to the libraries included in the build process, others have been por
 * Bochs - Should build as-is, but may require modifications.
 * Python - A Python port has been built, but is not yet available.
 
-## Screenshots ##
+### Screenshots ###
 
 For a historical look at とあるOS, please see [screenshots.md](docs/screenshots.md).
 
@@ -67,14 +65,12 @@ For a historical look at とあるOS, please see [screenshots.md](docs/screensho
 
 Please see [testing.md](docs/testing.md).
 
-## References ##
-Here are some tutorials we found useful early on:
+### IRC ###
 
-* [James M's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/index.html)
-* [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/Docs/basickernel.htm)
-* [Skelix's OS tutorial](http://skelix.net/skelixos/index_en.html)
+For help building the kernel and userspace, join us in `#toaruos` on Freenode (`irc.freenode.net`).
 
-## Licenses ##
+
+## License ##
 
 This project is released under the terms of the University of Illinois / NCSA Open Source License, an OSI- and FSF-approved, GPL-compatible open source license. The NCSA License is a derivative of the MIT license and the BSD license; it is reproduced here for your convenience:
 
