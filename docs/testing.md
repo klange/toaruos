@@ -26,7 +26,7 @@ The Makefile also includes some convenience targets for running とあるOS in Q
 The default image provides two user accounts, `root` with password `toor` and `local` with password `local`. The latter is the preferred account: as in any Unix-like system, you should not normally log in as `root`. Some system calls require root-level permissions, but as of writing this documentation filesystem permissions are not implemented.
 
 ### Building an Image for VirtualBox, etc. ###
-An experimental, unsupported image building tool that will produce a "production-ready" image, including GRUB 2, is provided in the `image-builder` directory. The script, `create-image.sh`, must be run as root and will produce a 1GB raw disk image which be converted to other formats as needed.
+An experimental, unsupported image building tool that will produce a "production-ready" image, including GRUB 2, is provided in the `util` directory. The script, `create-image.sh`, must be run as root and will produce a 1GB raw disk image which be converted to other formats as needed.
 
 ## Troubleshooting
 If you have any issues at all while attempting to build とあるOS, or you would like help building on an unsupported platform, please join us on IRC (`#toaruos@irc.freenode.net`). Problems encountered while using the build scripts in an unsupported environment will not be considered bugs until thoroughly examined.
