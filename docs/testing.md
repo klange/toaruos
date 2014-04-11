@@ -13,13 +13,13 @@ On Ubuntu and Debian systems, the automated build scripts will attempt to instal
 
 ## Building ##
 
-Once you have a capable build environment set up and the repository cloned, start by running `./build.sh`. This will either prompt you for your password (using `sudo` to attempt to install a number of development packages) or yell about not knowing what operating system you're on. In the latter case, the script includes a list of packages with both Debian names and Fedora names, and you should attempt to install all of them using your distribution's package manager.
+Once you have a capable build environment set up and the repository cloned, start by running `make toolchain`. This will either prompt you for your password (using `sudo` to attempt to install a number of development packages) or yell about not knowing what operating system you're on. In the latter case, the script includes a list of packages with both Debian names and Fedora names, and you should attempt to install all of them using your distribution's package manager.
 
-A complete build with `build.sh` takes about 30 minutes on my hardware, but I have a rather fast Internet connection and a very capable CPU - it could take many hours on less capable hardware.
+A complete build of the toolchain with `make toolchain` takes about 30 minutes on my hardware, but I have a rather fast Internet connection and a very capable CPU - it could take many hours on less capable hardware.
 
 If the build process fails, your best bet for support is to sit on my IRC channel (`#toaruos` on Freenode), post your question, and *wait* for me to eventually answer it (if I can). Leaving after five minutes will not get your question answered. If you are not around when I see your question, I won't even attempt to answer it. Do not attempt to report issues with build scripts as bugs - while some issues may actually be bugs in the scripts, they are usually not.
 
-When the first build has completed, you can use `make` instead of `build.sh` for future builds. This will skip rebuilding the entire toolchain. If you're serious about developing, you may need to run `build.sh` in some cases (such as after making changes to the Newlib glue layer), but for most cases it is a waste of time.
+After you have the toolchain build has completed, source the toolchain with `. toolchain/activate.sh` and then run `make` to build the kernel and userspace.
 
 The Makefile also includes some convenience targets for running とあるOS in QEMU. The most important of these is `make kvm`, which will attempt to run a fairly standard graphical environment, with KVM acceleration enabled. If you don't have KVM available, you may use `make run`, but expect the GUI to run poorly as it relies rather heavily on the CPU for compositing.
 

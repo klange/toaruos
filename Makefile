@@ -82,7 +82,7 @@ START_VGA = start=--vga
 START_SINGLE = start=--single
 WITH_LOGS = logtoserial=1
 
-.PHONY: all system install test
+.PHONY: all system install test toolchain
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless
 .PHONY: kvm vga-kvm term-kvm
@@ -121,6 +121,9 @@ headless: system
 
 test: system
 	python2 util/run-tests.py 2>/dev/null
+
+toolchain:
+	@cd toolchain; ./toolchain-build.sh
 
 .passed:
 	@util/check-reqs > /dev/null
