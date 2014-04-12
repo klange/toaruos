@@ -54,7 +54,7 @@ static int usage(char * argv[]) {
 /**
  * Parse arguments
  */
-static int parse_args(int argc, char * argv[]) {
+static int parse_args(int argc, char * argv[], int * out) {
 	static struct option long_opts[] = {
 		{"nest",       no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
@@ -87,9 +87,11 @@ static int parse_args(int argc, char * argv[]) {
 				}
 				break;
 			default:
+				fprintf(stderr, "Unrecognized option: %c\n", c);
 				break;
 		}
 	}
+	*out = optind;
 	return 0;
 }
 
@@ -510,7 +512,8 @@ void * redraw(void * in) {
  */
 int main(int argc, char * argv[]) {
 
-	int results = parse_args(argc, argv);
+	int argx = 0;
+	int results = parse_args(argc, argv, &argx);
 	if (results) return results;
 
 	yutani_globals_t * yg = malloc(sizeof(yutani_globals_t));
@@ -558,12 +561,13 @@ int main(int argc, char * argv[]) {
 	pthread_create(&render_thread, NULL, redraw, yg);
 
 	if (!fork()) {
-		fprintf(stderr, "Starting Login...\n");
-		if (argc < 2) {
+		fprintf(stderr, "Have %d args, argx=%d\n", argc, argx);
+		if (argx < argc) {
+			fprintf(stderr, "Starting %s\n", argv[argx]);
+			execvp(argv[argx], &argv[argx]);
+		} else {
 			char * args[] = {"/bin/glogin-beta", NULL};
 			execvp(args[0], args);
-		} else {
-			execvp(argv[1], &argv[1]);
 		}
 	}
 
