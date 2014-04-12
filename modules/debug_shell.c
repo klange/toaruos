@@ -473,7 +473,7 @@ static struct shell_command shell_commands[] = {
 	{"pci", &shell_pci,
 		"Print PCI devices, as well as their names and BARs."},
 	{"uid", &shell_uid,
-		"Change the effective user id of the shell (useful when running `shell`)."},
+		"Change the effective user id of the shell."},
 	{"mod", &shell_mod,
 		"[testing] Module loading."},
 	{"symbols", &shell_symbols,
