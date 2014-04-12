@@ -87,14 +87,13 @@ static pex_client_t * create_client(pex_ex_t * p) {
 
 static uint32_t read_server(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
-	debug_print(WARNING, "[pex] server read(...)");
-	debug_print(NOTICE, "fs_node = 0x%x", node);
+	debug_print(INFO, "[pex] server read(...)");
 
 	packet_t * packet;
 
 	receive_packet(p->server_pipe, &packet);
 
-	debug_print(NOTICE, "Server recevied packet of size %d, was waiting for at most %d", packet->size, size);
+	debug_print(INFO, "Server recevied packet of size %d, was waiting for at most %d", packet->size, size);
 
 	if (packet->size + sizeof(packet_t) > size) {
 		return -1;
@@ -109,8 +108,7 @@ static uint32_t read_server(fs_node_t * node, uint32_t offset, uint32_t size, ui
 
 static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
-	debug_print(WARNING, "[pex] server write(...)");
-	debug_print(NOTICE, "fs_node = 0x%x", node);
+	debug_print(INFO, "[pex] server write(...)");
 
 	header_t * head = (header_t *)buffer;
 
@@ -121,13 +119,13 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 	if (head->target == NULL) {
 		/* Brodcast packet */
 		foreach(f, p->clients) {
-			debug_print(NOTICE, "Sending to client 0x%x", f->value);
+			debug_print(INFO, "Sending to client 0x%x", f->value);
 			send_to_client(p, (pex_client_t *)f->value, size - sizeof(header_t), head->data);
 		}
-		debug_print(NOTICE, "Done broadcasting to clients.");
+		debug_print(INFO, "Done broadcasting to clients.");
 		return size;
 	} else if (head->target->parent != p) {
-		debug_print(ERROR, "[pex] Invalid packet from server?");
+		debug_print(WARNING, "[pex] Invalid packet from server?");
 		return -1;
 	}
 
@@ -138,21 +136,21 @@ static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, ui
 	pex_client_t * c = (pex_client_t *)node->inode;
 	assert(c->parent == node->device);
 
-	debug_print(WARNING, "[pex] client read(...)");
+	debug_print(INFO, "[pex] client read(...)");
 
 	packet_t * packet;
 
 	receive_packet(c->pipe, &packet);
 
 	if (packet->size > size) {
-		debug_print(ERROR, "[pex] Client is not reading enough bytes to hold packet of size %d", packet->size);
+		debug_print(WARNING, "[pex] Client is not reading enough bytes to hold packet of size %d", packet->size);
 		return -1;
 	}
 
 	memcpy(buffer, &packet->data, packet->size);
 	uint32_t out = packet->size;
 
-	debug_print(NOTICE, "[pex] Client received packet of size %d", packet->size);
+	debug_print(INFO, "[pex] Client received packet of size %d", packet->size);
 
 	free(packet);
 	return out;
@@ -162,14 +160,14 @@ static uint32_t write_client(fs_node_t * node, uint32_t offset, uint32_t size, u
 	pex_client_t * c = (pex_client_t *)node->inode;
 	assert(c->parent == node->device);
 
-	debug_print(WARNING, "[pex] client write(...)");
+	debug_print(INFO, "[pex] client write(...)");
 
 	if (size > MAX_PACKET_SIZE) {
-		debug_print(NOTICE, "Size of %d is too big.", size);
+		debug_print(WARNING, "Size of %d is too big.", size);
 		return -1;
 	}
 
-	debug_print(NOTICE, "Sending packet of size %d to parent", size);
+	debug_print(INFO, "Sending packet of size %d to parent", size);
 	send_to_server(c->parent, c, size, buffer);
 
 	return size;
@@ -178,7 +176,7 @@ static uint32_t write_client(fs_node_t * node, uint32_t offset, uint32_t size, u
 static void open_pex(fs_node_t * node, unsigned int flags) {
 	pex_ex_t * t = (pex_ex_t *)(node->device);
 
-	debug_print(WARNING, "Opening packet exchange %s with flags 0x%x", t->name, flags);
+	debug_print(NOTICE, "Opening packet exchange %s with flags 0x%x", t->name, flags);
 
 	if (flags & O_CREAT && t->fresh) {
 		t->fresh = 0;
@@ -186,8 +184,8 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 		/* Set up the server side */
 		node->read = read_server;
 		node->write = write_server;
-		debug_print(NOTICE, "[pex] Server launched: %s", t->name);
-		debug_print(NOTICE, "fs_node = 0x%x", node);
+		debug_print(INFO, "[pex] Server launched: %s", t->name);
+		debug_print(INFO, "fs_node = 0x%x", node);
 	} else if (!(flags & O_CREAT)) {
 		pex_client_t * client = create_client(t);
 		node->inode = (uintptr_t)client;
@@ -198,7 +196,7 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 		list_insert(t->clients, client);
 
 		/* XXX: Send plumbing message to server for new client connection */
-		debug_print(NOTICE, "[pex] Client connected: %s:0%x", t->name, node->inode);
+		debug_print(INFO, "[pex] Client connected: %s:0%x", t->name, node->inode);
 	} else if (flags & O_CREAT && !t->fresh) {
 		/* XXX: You dun goofed */
 	}
@@ -211,7 +209,7 @@ static struct dirent * readdir_packetfs(fs_node_t *node, uint32_t index) {
 	pex_t * p = (pex_t *)node->device;
 	unsigned int i = 0;
 
-	debug_print(WARNING, "[pex] readdir(%d)", index);
+	debug_print(INFO, "[pex] readdir(%d)", index);
 
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
@@ -273,7 +271,7 @@ static fs_node_t * finddir_packetfs(fs_node_t * node, char * name) {
 	if (!name) return NULL;
 	pex_t * p = (pex_t *)node->device;
 
-	debug_print(WARNING, "[pex] finddir(%s)", name);
+	debug_print(INFO, "[pex] finddir(%s)", name);
 
 	spin_lock(&p->lock);
 
@@ -295,7 +293,7 @@ static void create_packetfs(fs_node_t *parent, char *name, uint16_t permission) 
 
 	pex_t * p = (pex_t *)parent->device;
 
-	debug_print(WARNING, "[pex] create(%s)", name);
+	debug_print(NOTICE, "[pex] create(%s)", name);
 
 	spin_lock(&p->lock);
 
@@ -333,7 +331,7 @@ static void unlink_packetfs(fs_node_t *parent, char *name) {
 
 	pex_t * p = (pex_t *)parent->device;
 
-	debug_print(WARNING, "[pex] unlink(%s)", name);
+	debug_print(NOTICE, "[pex] unlink(%s)", name);
 
 	int i = -1, j = 0;
 
