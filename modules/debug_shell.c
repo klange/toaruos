@@ -213,49 +213,6 @@ static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
-static int shell_test_hash(fs_node_t * tty, int argc, char * argv[]) {
-
-	fprintf(tty, "Creating a hash...\n");
-
-	hashmap_t * map = hashmap_create(2);
-
-	hashmap_set(map, "a", (void *)1);
-	hashmap_set(map, "b", (void *)2);
-	hashmap_set(map, "c", (void *)3);
-
-	fprintf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
-	fprintf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
-	fprintf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
-
-	hashmap_set(map, "b", (void *)42);
-
-	fprintf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
-	fprintf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
-	fprintf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
-
-	hashmap_remove(map, "a");
-
-	fprintf(tty, "value at a: %d\n", (int)hashmap_get(map, "a"));
-	fprintf(tty, "value at b: %d\n", (int)hashmap_get(map, "b"));
-	fprintf(tty, "value at c: %d\n", (int)hashmap_get(map, "c"));
-	fprintf(tty, "map contains a: %s\n", hashmap_has(map, "a") ? "yes" : "no");
-	fprintf(tty, "map contains b: %s\n", hashmap_has(map, "b") ? "yes" : "no");
-	fprintf(tty, "map contains c: %s\n", hashmap_has(map, "c") ? "yes" : "no");
-
-	list_t * hash_keys = hashmap_keys(map);
-	foreach(_key, hash_keys) {
-		char * key = (char *)_key->value;
-		fprintf(tty, "map[%s] = %d\n", key, (int)hashmap_get(map, key));
-	}
-	list_free(hash_keys);
-	free(hash_keys);
-
-	hashmap_free(map);
-	free(map);
-
-	return 0;
-}
-
 static int shell_log(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
 		fprintf(tty, "Log level is currently %d.\n", debug_level);
@@ -271,58 +228,6 @@ static int shell_log(fs_node_t * tty, int argc, char * argv[]) {
 			debug_file = NULL;
 		}
 	}
-	return 0;
-}
-
-static void dumb_sort_char(char * str) {
-	int size = strlen(str);
-	for (int i = 0; i < size-1; ++i) {
-		for (int j = 0; j < size-1; ++j) {
-			if (str[j] > str[j+1]) {
-				char t = str[j+1];
-				str[j+1] = str[j];
-				str[j] = t;
-			}
-		}
-	}
-}
-
-static int shell_anagrams(fs_node_t * tty, int argc, char * argv[]) {
-	hashmap_t * map = hashmap_create(10);
-
-	for (int i = 1; i < argc; ++i) {
-		char * c = strdup(argv[i]);
-		dumb_sort_char(c);
-
-		list_t * l = hashmap_get(map, c);
-		if (!l) {
-			l = list_create();
-			hashmap_set(map, c, l);
-		}
-		list_insert(l, argv[i]);
-
-		free(c);
-	}
-
-	list_t * values = hashmap_values(map);
-	foreach(val, values) {
-		list_t * x = (list_t *)val->value;
-		fprintf(tty, "{");
-		foreach(node, x) {
-			fprintf(tty, "%s", (char *)node->value);
-			if (node->next) {
-				fprintf(tty, ", ");
-			}
-		}
-		fprintf(tty, "}%s", (!!val->next) ? ", " : "\n");
-		free(x);
-	}
-	list_free(values);
-	free(values);
-
-	hashmap_free(map);
-	free(map);
-
 	return 0;
 }
 
@@ -360,143 +265,6 @@ static int shell_uid(fs_node_t * tty, int argc, char * argv[]) {
 	} else {
 		current_process->user = atoi(argv[1]);
 	}
-	return 0;
-}
-
-typedef struct packet {
-	fs_node_t * client_port; /* client "port"... it's actually the pointer to the pipe for the client. */
-	pid_t       client_pid;  /* the pid of the client is always include because reasons */
-	size_t      size;        /* size of the packet */
-	uint8_t     data[];
-} packet_t;
-
-static void packet_send(fs_node_t * recver, fs_node_t * sender, size_t size, void * data) {
-	size_t p_size = size + sizeof(struct packet);
-	packet_t * p = malloc(p_size);
-	memcpy(p->data, data, size);
-	p->client_port = sender;
-	p->client_pid  = current_process->id;
-	p->size        = size;
-
-	write_fs(recver, 0, p_size, (uint8_t *)p);
-
-	free(p);
-}
-
-static void packet_recv(fs_node_t * socket, packet_t ** out) {
-	packet_t tmp;
-	read_fs(socket, 0, sizeof(struct packet), (uint8_t *)&tmp);
-	*out = malloc(tmp.size + sizeof(struct packet));
-	memcpy(*out, &tmp, sizeof(struct packet));
-	read_fs(socket, 0, tmp.size, (uint8_t *)(*out)->data);
-}
-
-static void tasklet_client(void * data, char * name) {
-	fs_node_t * server_pipe = (fs_node_t *)data;
-	fs_node_t * client_pipe = make_pipe(4096);
-
-	fs_node_t * tty = current_process->fds->entries[0];
-	packet_send(server_pipe, client_pipe, strlen("Hello")+1, "Hello");
-
-	while (1) {
-		packet_t * p;
-		packet_recv(client_pipe, &p);
-		fprintf(tty, "Client %s Received: %s\n", name, (char *)p->data);
-		if (!strcmp((char*)p->data, "PING")) {
-			packet_send(server_pipe, client_pipe, strlen("PONG")+1, "PONG");
-		}
-		free(p);
-	}
-}
-
-static int shell_server_running = 0;
-static fs_node_t * shell_server_node = NULL;
-
-static void tasklet_server(void * data, char * name) {
-	fs_node_t * tty = current_process->fds->entries[0];
-	fs_node_t * socket = make_pipe(4096);
-
-	shell_server_node = socket;
-
-	create_kernel_tasklet(tasklet_client, "ktty-client-1", socket);
-	create_kernel_tasklet(tasklet_client, "ktty-client-2", socket);
-	create_kernel_tasklet(tasklet_client, "ktty-client-3", socket);
-
-	fprintf(tty, "Going to perform a quick demo...\n");
-
-	int i = 0;
-	fs_node_t * outputs[3];
-	while (i < 3) {
-		packet_t * p;
-		packet_recv(socket, &p);
-		fprintf(tty, "Server received %s from %d:%d\n", (char*)p->data, p->client_pid, p->client_port);
-		packet_send(p->client_port, socket, strlen("Welcome!")+1, "Welcome!");
-		outputs[i] = p->client_port;
-		free(p);
-		i++;
-	}
-
-	fprintf(tty, "Okay, that's everyone, time to send some responses.\n");
-	i = 0;
-	while (i < 3) {
-		packet_send(outputs[i], socket, strlen("PING")+1, "PING");
-		i++;
-	}
-
-	i = 0;
-	while (i < 3) {
-		packet_t * p;
-		packet_recv(socket, &p);
-		fprintf(tty, "PONG from %d\n", p->client_pid);
-		free(p);
-		i++;
-	}
-
-	fprintf(tty, "And that's the demo of packet servers.\n");
-	fprintf(tty, "Now running in echo mode, will respond to all clients with whatever they sent.\n");
-
-	while (1) {
-		packet_t * p;
-		packet_recv(socket, &p);
-		packet_send(p->client_port, socket, p->size, p->data);
-		free(p);
-	}
-}
-
-static int shell_server_test(fs_node_t * tty, int argc, char * argv[]) {
-	if (!shell_server_running) {
-		shell_server_running = 1;
-		create_kernel_tasklet(tasklet_server, "ktty-server", NULL);
-		fprintf(tty, "Started server.\n");
-	}
-
-	return 0;
-}
-
-static int shell_client_test(fs_node_t * tty, int argc, char * argv[]) {
-	if (!shell_server_running) {
-		fprintf(tty, "No server running, won't be able to connect.\n");
-		return 1;
-	}
-	if (argc < 2) {
-		fprintf(tty, "expected argument\n");
-		return 1;
-	}
-
-	fs_node_t * client_pipe = make_pipe(4096);
-
-	packet_send(shell_server_node, client_pipe, strlen(argv[1])+1, argv[1]);
-
-	while (1) {
-		packet_t * p;
-		packet_recv(client_pipe, &p);
-		fprintf(tty, "Got response from server: %s\n", (char *)p->data);
-		free(p);
-		break;
-	}
-
-	close_fs(client_pipe);
-
 	return 0;
 }
 
@@ -607,16 +375,6 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
-static int shell_mem_info(fs_node_t * tty, int argc, char * argv[]) {
-	unsigned int total = memory_total();
-	unsigned int free  = total - memory_use();
-	extern uintptr_t heap_end;
-	fprintf(tty, "Total:    %d kB\n", total);
-	fprintf(tty, "Free:     %d kB\n", free);
-	fprintf(tty, "Heap End: 0x%x\n", heap_end);
-	return 0;
-}
-
 /*
  * Determine the size of a smart terminal that we don't have direct
  * termios access to. This is done by sending a cursor-move command
@@ -710,20 +468,12 @@ static struct shell_command shell_commands[] = {
 		"Change current directory."},
 	{"ls",    &shell_ls,
 		"List files in current or other directory."},
-	{"test-hash", &shell_test_hash,
-		"Test hashmap functionality."},
 	{"log", &shell_log,
 		"Configure serial debug logging."},
-	{"anagrams", &shell_anagrams,
-		"Demo of hashmaps and lists. Give a list of words, get a grouping of anagrams."},
 	{"pci", &shell_pci,
 		"Print PCI devices, as well as their names and BARs."},
 	{"uid", &shell_uid,
 		"Change the effective user id of the shell (useful when running `shell`)."},
-	{"server-test", &shell_server_test,
-		"Spawn a packet server and some clients."},
-	{"client-test", &shell_client_test,
-		"Communicate with packet server."},
 	{"mod", &shell_mod,
 		"[testing] Module loading."},
 	{"symbols", &shell_symbols,
@@ -732,8 +482,6 @@ static struct shell_command shell_commands[] = {
 		"[dangerous] Print the value of a symbol using a format string."},
 	{"modules", &shell_modules,
 		"Print names and addresses of all loaded modules."},
-	{"meminfo", &shell_mem_info,
-		"Display various pieces of information kernel and system memory."},
 	{"divine-size", &shell_divinesize,
 		"Attempt to automatically set the PTY's size to the size of the current window."},
 	{"exit", &shell_exit,
