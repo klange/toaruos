@@ -87,7 +87,6 @@ static int readdir(int fd, int index, struct dirent * entry) {
 
 	struct dirent * kentry = readdir_fs(node, (uint32_t)index);
 	if (!kentry) {
-		free(kentry);
 		return 1;
 	}
 

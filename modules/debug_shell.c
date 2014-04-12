@@ -121,16 +121,55 @@ static int shell_echo(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int dumb_strcmp(void * a, void *b) {
+	return strcmp(a, b);
+}
+
+static void dumb_sort(void ** list, size_t length, int (*compare)(void*,void*)) {
+	for (unsigned int i = 0; i < length-1; ++i) {
+		for (unsigned int j = 0; j < length-1; ++j) {
+			if (compare(list[j], list[j+1]) > 0) {
+				void * t = list[j+1];
+				list[j+1] = list[j];
+				list[j] = t;
+			}
+		}
+	}
+}
+
+static void print_spaces(fs_node_t * tty, int num_spaces) {
+	for (int i = 0; i < num_spaces; ++i) {
+		fprintf(tty, " ");
+	}
+}
+
 static int shell_help(fs_node_t * tty, int argc, char * argv[]) {
 	list_t * hash_keys = hashmap_keys(shell_commands_map);
 
+	char ** keys = malloc(sizeof(char *) * hash_keys->length);
+
+	unsigned int i = 0;
+	unsigned int max_width = 0;
+
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
-		struct shell_command * c = hashmap_get(shell_commands_map, key);
-
-		fprintf(tty, "%s - %s\n", c->name, c->description);
+		keys[i] = key;
+		i++;
+		if (strlen(key) > max_width) {
+			max_width = strlen(key);
+		}
 	}
 
+	dumb_sort((void **)keys, hash_keys->length, &dumb_strcmp);
+
+	for (i = 0; i < hash_keys->length; ++i) {
+		struct shell_command * c = hashmap_get(shell_commands_map, keys[i]);
+		fprintf(tty, "\033[1;32m%s\033[0m ", c->name);
+		print_spaces(tty, max_width- strlen(c->name));
+		fprintf(tty, "- %s\n", c->description);
+	}
+
+	free(keys);
 	list_free(hash_keys);
 	free(hash_keys);
 
@@ -164,6 +203,7 @@ static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
 	struct dirent * kentry = readdir_fs(wd, index);
 	while (kentry) {
 		fprintf(tty, "%s\n", kentry->name);
+		free(kentry);
 
 		index++;
 		kentry = readdir_fs(wd, index);
@@ -234,7 +274,7 @@ static int shell_log(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
-static void dumb_sort(char * str) {
+static void dumb_sort_char(char * str) {
 	int size = strlen(str);
 	for (int i = 0; i < size-1; ++i) {
 		for (int j = 0; j < size-1; ++j) {
@@ -252,7 +292,7 @@ static int shell_anagrams(fs_node_t * tty, int argc, char * argv[]) {
 
 	for (int i = 1; i < argc; ++i) {
 		char * c = strdup(argv[i]);
-		dumb_sort(c);
+		dumb_sort_char(c);
 
 		list_t * l = hashmap_get(map, c);
 		if (!l) {
