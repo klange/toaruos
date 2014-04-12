@@ -694,6 +694,11 @@ static int shell_divinesize(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_exit(fs_node_t * tty, int argc, char * argv[]) {
+	kexit(0);
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -731,6 +736,8 @@ static struct shell_command shell_commands[] = {
 		"Display various pieces of information kernel and system memory."},
 	{"divine-size", &shell_divinesize,
 		"Attempt to automatically set the PTY's size to the size of the current window."},
+	{"exit", &shell_exit,
+		"Quit the shell."},
 	{NULL, NULL, NULL}
 };
 
@@ -771,18 +778,9 @@ static void debug_shell_handle_out(void * data, char * name) {
 	}
 }
 
-/*
- * Tasklet for managing the kernel serial console.
- * This is basically a very simple shell, with access
- * to some internal kernel commands, and (eventually)
- * debugging routines.
- */
-static void debug_shell_run(void * data, char * name) {
-	/*
-	 * We will run on the first serial port.
-	 * TODO detect that this failed
-	 */
-	fs_node_t * tty = kopen("/dev/ttyS0", 0);
+static void debug_shell_actual(void * data, char * name) {
+
+	fs_node_t * tty = (fs_node_t *)data;
 
 	/* Our prompt will include the version number of the current kernel */
 	char version_number[1024];
@@ -791,25 +789,6 @@ static void debug_shell_run(void * data, char * name) {
 			__kernel_version_minor,
 			__kernel_version_lower,
 			__kernel_version_suffix);
-
-	/* We will convert the serial interface into an actual TTY */
-	int master, slave;
-
-	/* Convert the serial line into a TTY */
-	openpty(&master, &slave, NULL, NULL, NULL);
-
-	/* Attach the serial to the TTY interface */
-	struct tty_o _tty = {.node = current_process->fds->entries[master], .tty = tty};
-
-	create_kernel_tasklet(debug_shell_handle_in,  "[kttydebug-in]",  (void *)&_tty);
-	create_kernel_tasklet(debug_shell_handle_out, "[kttydebug-out]", (void *)&_tty);
-
-	/* Set the device to be the actual TTY slave */
-	tty = current_process->fds->entries[slave];
-
-	current_process->fds->entries[0] = tty;
-	current_process->fds->entries[1] = tty;
-	current_process->fds->entries[2] = tty;
 
 	/* Initialize the shell commands map */
 	int retval = 0;
@@ -843,6 +822,42 @@ static void debug_shell_run(void * data, char * name) {
 
 		free(arg);
 	}
+
+}
+
+/*
+ * Tasklet for managing the kernel serial console.
+ * This is basically a very simple shell, with access
+ * to some internal kernel commands, and (eventually)
+ * debugging routines.
+ */
+static void debug_shell_run(void * data, char * name) {
+	/*
+	 * We will run on the first serial port.
+	 * TODO detect that this failed
+	 */
+	fs_node_t * tty = kopen("/dev/ttyS0", 0);
+
+	/* We will convert the serial interface into an actual TTY */
+	int master, slave;
+
+	/* Convert the serial line into a TTY */
+	openpty(&master, &slave, NULL, NULL, NULL);
+
+	/* Attach the serial to the TTY interface */
+	struct tty_o _tty = {.node = current_process->fds->entries[master], .tty = tty};
+
+	create_kernel_tasklet(debug_shell_handle_in,  "[kttydebug-in]",  (void *)&_tty);
+	create_kernel_tasklet(debug_shell_handle_out, "[kttydebug-out]", (void *)&_tty);
+
+	/* Set the device to be the actual TTY slave */
+	tty = current_process->fds->entries[slave];
+
+	current_process->fds->entries[0] = tty;
+	current_process->fds->entries[1] = tty;
+	current_process->fds->entries[2] = tty;
+
+	debug_shell_actual(tty, name);
 }
 
 int debug_shell_start(void) {
@@ -853,6 +868,8 @@ int debug_shell_start(void) {
 		hashmap_set(shell_commands_map, sh->name, sh);
 		sh++;
 	}
+
+	debug_hook = debug_shell_actual;
 
 	int i = create_kernel_tasklet(debug_shell_run, "[kttydebug]", NULL);
 	debug_print(NOTICE, "Started tasklet with pid=%d", i);

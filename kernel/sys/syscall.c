@@ -639,6 +639,15 @@ static int system_function(int fn, char ** args) {
 					free(buffer);
 					return 0;
 				}
+			case 7:
+				debug_print(NOTICE, "Spawning debug hook as child of process %d.", getpid());
+				if (debug_hook) {
+					fs_node_t * tty = current_process->fds->entries[0];
+					int pid = create_kernel_tasklet(debug_hook, "[kttydebug]", tty);
+					return pid;
+				} else {
+					return -1;
+				}
 			default:
 				debug_print(ERROR, "Bad system function %d", fn);
 				break;

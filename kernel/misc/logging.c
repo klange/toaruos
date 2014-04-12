@@ -14,6 +14,7 @@
 
 log_type_t debug_level = NOTICE;
 void * debug_file = NULL;
+void (*debug_hook)(void *, char *) = NULL;
 
 
 static char * c_messages[] = {
