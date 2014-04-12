@@ -356,9 +356,11 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 		char * key = (char *)_key->value;
 		module_data_t * mod_info = hashmap_get(modules_get_list(), key);
 
-		fprintf(tty, "%s at 0x%x {.init=0x%x, .fini=0x%x}",
-				mod_info->mod_info->name, mod_info->bin_data,
-				mod_info->mod_info->initialize, mod_info->mod_info->finalize);
+		fprintf(tty, "0x%x {.init=0x%x, .fini=0x%x} %s",
+				mod_info->bin_data,
+				mod_info->mod_info->initialize,
+				mod_info->mod_info->finalize,
+				mod_info->mod_info->name);
 
 		if (mod_info->deps) {
 			unsigned int i = 0;
