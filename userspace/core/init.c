@@ -69,7 +69,7 @@ int main(int argc, char * argv[]) {
 		} else if (!strcmp(argv[1], "--single-beta")) {
 			return start_options((char *[]){"/bin/compositor-beta",NULL});
 		} else if (!strcmp(argv[1], "--vga")) {
-			return start_options((char *[]){"/bin/vga-warning",NULL});
+			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
 		}
 	}
 	return start_options((char *[]){"/bin/compositor",NULL});
