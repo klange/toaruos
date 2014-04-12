@@ -483,7 +483,7 @@ static struct shell_command shell_commands[] = {
 	{"modules", &shell_modules,
 		"Print names and addresses of all loaded modules."},
 	{"divine-size", &shell_divinesize,
-		"Attempt to automatically set the PTY's size to the size of the current window."},
+		"Attempt to discover TTY size of serial."},
 	{"exit", &shell_exit,
 		"Quit the shell."},
 	{NULL, NULL, NULL}
