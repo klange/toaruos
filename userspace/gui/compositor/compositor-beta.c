@@ -9,6 +9,7 @@
 #include <time.h>
 #include <math.h>
 #include <assert.h>
+#include <getopt.h>
 #include <sys/stat.h>
 
 #include <cairo.h>
@@ -24,11 +25,72 @@
 
 #include "yutani_int.h"
 
+struct {
+	int nested;
+	int nest_width;
+	int nest_height;
+} yutani_options = {
+	.nested = 0,
+	.nest_width = 0,
+	.nest_height = 0
+};
+
+static int usage(char * argv[]) {
+	fprintf(stderr,
+			"Yutani - Window Compositor\n"
+			"\n"
+			"usage: %s [-n [-g WxH]] [-h]\n"
+			"\n"
+			" -n --nested     \033[3mRun in a window.\033[0m\n"
+			" -h --help       \033[3mShow this help message.\033[0m\n"
+			" -g --geometry   \033[3mSet the size of the server framebuffer.\033[0m\n"
+			"\n"
+			"  Yutani is the standard system compositor.\n"
+			"\n",
+			argv[0]);
+	return 1;
+}
+
 /**
  * Parse arguments
  */
-int parse_args(int argc, char * argv[]) {
+static int parse_args(int argc, char * argv[]) {
+	static struct option long_opts[] = {
+		{"nest",       no_argument,       0, 'n'},
+		{"geometry",   required_argument, 0, 'g'},
+		{"help",       no_argument,       0, 'h'},
+		{0,0,0,0}
+	};
 
+	int index, c;
+	while ((c = getopt_long(argc, argv, "hg:n", long_opts, &index)) != -1) {
+		if (!c) {
+			if (long_opts[index].flag == 0) {
+				c = long_opts[index].val;
+			}
+		}
+		switch (c) {
+			case 'h':
+				return usage(argv);
+			case 'n':
+				yutani_options.nested = 1;
+				break;
+			case 'g':
+				{
+					char * c = strstr(optarg, "x");
+					if (c) {
+						*c = '\0';
+						c++;
+						yutani_options.nest_width  = atoi(optarg);
+						yutani_options.nest_height = atoi(c);
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	}
+	return 0;
 }
 
 static int next_buf_id(void) {
@@ -448,9 +510,19 @@ void * redraw(void * in) {
  */
 int main(int argc, char * argv[]) {
 
+	int results = parse_args(argc, argv);
+	if (results) return results;
+
 	yutani_globals_t * yg = malloc(sizeof(yutani_globals_t));
 	memset(yg, 0x00, sizeof(yutani_globals_t));
 	yg->backend_ctx = init_graphics_fullscreen_double_buffer();
+
+	if (!yg->backend_ctx) {
+		free(yg);
+		fprintf(stderr, "%s: Failed to open framebuffer, bailing.\n", argv[0]);
+		return 1;
+	}
+
 	yg->width = yg->backend_ctx->width;
 	yg->height = yg->backend_ctx->height;
 

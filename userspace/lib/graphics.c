@@ -64,6 +64,7 @@ gfx_context_t * init_graphics_fullscreen() {
 
 gfx_context_t * init_graphics_fullscreen_double_buffer() {
 	gfx_context_t * out = init_graphics_fullscreen();
+	if (!out) return NULL;
 	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
 	return out;
 }
