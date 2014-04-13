@@ -1,9 +1,12 @@
 #include <module.h>
+#include <printf.h>
 #include <mod/shell.h>
 
 DEFINE_SHELL_FUNCTION(crash, "Dereference NULL.") {
-	int x = *((int *)0x20000000 );
-	return x;
+	fprintf(tty, "*0x0 = %x\n", *((int *)0x00));
+	*((int *)0x0) = 0x42;
+	fprintf(tty, "*0x0 = %x\n", *((int *)0x00));
+	return 0;
 }
 
 static int crash_init(void) {
