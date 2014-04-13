@@ -369,6 +369,7 @@ page_fault(
 				addr = a;
 			}
 		}
+		free(hash_keys);
 
 		debug_print(ERROR, "\033[1;31mClosest symbol to faulting address:\033[0m %s [0x%x]", closest, addr);
 
@@ -382,6 +383,7 @@ page_fault(
 				break;
 			}
 		}
+		free(hash_keys);
 
 	} else {
 		debug_print(ERROR, "\033[1;31m(In userspace)\033[0m");
