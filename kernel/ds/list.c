@@ -64,11 +64,11 @@ node_t * list_insert(list_t * list, void * item) {
 
 void list_append_after(list_t * list, node_t * before, node_t * node) {
 	assert(!(node->next || node->prev) && "Node is already in a list.");
+	node->owner = list;
 	if (!list->length) {
 		list_append(list, node);
 		return;
 	}
-	node->owner = list;
 	if (before == NULL) {
 		node->next = list->head;
 		node->prev = NULL;
@@ -190,6 +190,9 @@ list_t * list_copy(list_t * original) {
 
 void list_merge(list_t * target, list_t * source) {
 	/* Destructively merges source into target */
+	foreach(node, source) {
+		node->owner = target;
+	}
 	if (target->tail) {
 		target->tail->next = source->head;
 	} else {
