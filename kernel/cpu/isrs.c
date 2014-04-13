@@ -5,7 +5,7 @@
 #include <system.h>
 #include <logging.h>
 
-irq_handler_t isrs_routines[256];
+extern irq_handler_t isrs_routines[256];
 extern void fault_error(struct regs *r);
 
 void fault_handler(struct regs *r) {
