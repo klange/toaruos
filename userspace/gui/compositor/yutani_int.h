@@ -66,6 +66,8 @@ typedef struct {
 	list_t * update_list;
 
 	sprite_t mouse_sprite;
+
+	char * pex_endpoint;
 } yutani_globals_t;
 
 

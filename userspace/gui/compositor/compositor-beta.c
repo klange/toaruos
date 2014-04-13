@@ -429,11 +429,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		yutani_set_clip(yg);
 
-		/* Uh, just really quick, let's clear the display to a color... */
-		cairo_set_source_rgb(yg->framebuffer_ctx, 0.6, 0.6, 0.6);
-		cairo_rectangle(yg->framebuffer_ctx, 0, 0, yg->width, yg->height);
-		cairo_fill(yg->framebuffer_ctx);
-
 		/*
 		 * In theory, we should restrict this to windows within the clip region,
 		 * but calculating that may be more trouble than it's worth;
@@ -529,12 +524,14 @@ int main(int argc, char * argv[]) {
 	yg->width = yg->backend_ctx->width;
 	yg->height = yg->backend_ctx->height;
 
-	draw_fill(yg->backend_ctx, rgb(153,153,153));
+	draw_fill(yg->backend_ctx, rgb(0,0,0));
 	flip(yg->backend_ctx);
 
 	yg->backend_framebuffer = yg->backend_ctx->backbuffer;
+	yg->pex_endpoint = "compositor";
+	setenv("DISPLAY", yg->pex_endpoint, 1);
 
-	FILE * server = pex_bind("compositor");
+	FILE * server = pex_bind(yg->pex_endpoint);
 
 	fprintf(stderr, "[yutani] Loading fonts...\n");
 	load_fonts();

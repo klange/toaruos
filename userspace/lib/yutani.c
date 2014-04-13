@@ -212,7 +212,10 @@ yutani_t * yutani_context_create(FILE * socket) {
 
 yutani_t * yutani_init(void) {
 	/* XXX: Display, etc? */
-	FILE * c = pex_connect("compositor");
+	if (!getenv("DISPLAY")) {
+		return NULL;
+	}
+	FILE * c = pex_connect(getenv("DISPLAY"));
 
 	if (!c) return NULL; /* Connection failed. */
 
