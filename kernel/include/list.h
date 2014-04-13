@@ -10,6 +10,7 @@
 #else
 #	include <stdint.h>
 #	include <stddef.h>
+#	include <assert.h>
 #endif
 
 typedef struct node {
