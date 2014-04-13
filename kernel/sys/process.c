@@ -22,8 +22,11 @@ list_t * recently_reaped;
 volatile process_t * current_process = NULL;
 process_t * kernel_idle_task = NULL;
 
-static uint8_t volatile reap_lock;
-static uint8_t volatile tree_lock;
+static uint8_t volatile reap_lock = 0;
+static uint8_t volatile tree_lock = 0;
+static uint8_t volatile process_queue_lock = 0;
+static uint8_t volatile wait_lock_tmp = 0;
+static uint8_t volatile sleep_lock = 0;
 
 /* Default process name string */
 char * default_name = "[unnamed]";
@@ -93,7 +96,12 @@ process_t * next_ready_process(void) {
 	if (!process_available()) {
 		return kernel_idle_task;
 	}
+	spin_lock(&process_queue_lock);
 	node_t * np = list_dequeue(process_queue);
+	if (process_queue->head == NULL && process_queue->length != 0) {
+		assert(0 && "Ding dong the witch is dead.");
+	}
+	spin_unlock(&process_queue_lock);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
 	return next;
@@ -115,8 +123,21 @@ process_t * next_reapable_process(void) {
  * @param proc Process to reinsert
  */
 void make_process_ready(process_t * proc) {
-	if (proc->sched_node.prev != NULL || proc->sched_node.next != NULL) /* Process is already ready, or someone stole our scheduling node. */ return;
+	if (proc->sleep_node.owner != NULL) {
+		if (proc->sleep_node.owner == process_queue) {
+			return;
+		} else if (proc->sleep_node.owner == (void*)0xFFFFFFFF) {
+			/* XXX can't wake from timed sleep */
+			return;
+		} else {
+			spin_lock(&wait_lock_tmp);
+			list_delete((list_t*)proc->sleep_node.owner, &proc->sleep_node);
+			spin_unlock(&wait_lock_tmp);
+		}
+	}
+	spin_lock(&process_queue_lock);
 	list_append(process_queue, &proc->sched_node);
+	spin_unlock(&process_queue_lock);
 }
 
 void make_process_reapable(process_t * proc) {
@@ -538,7 +559,9 @@ uint32_t process_move_fd(process_t * proc, int src, int dest) {
 int wakeup_queue(list_t * queue) {
 	int awoken_processes = 0;
 	while (queue->length > 0) {
+		spin_lock(&wait_lock_tmp);
 		node_t * node = list_pop(queue);
+		spin_unlock(&wait_lock_tmp);
 		if (!((process_t *)node->value)->finished) {
 			make_process_ready(node->value);
 		}
@@ -547,13 +570,16 @@ int wakeup_queue(list_t * queue) {
 	return awoken_processes;
 }
 
+
 int sleep_on(list_t * queue) {
 	if (current_process->sleep_node.prev || current_process->sleep_node.next) {
 		/* uh, we can't sleep right now, we're marked as ready */
 		switch_task(0);
 		return 0;
 	}
+	spin_lock(&wait_lock_tmp);
 	list_append(queue, (node_t *)&current_process->sleep_node);
+	spin_unlock(&wait_lock_tmp);
 	switch_task(0);
 	return 0;
 }
@@ -563,11 +589,14 @@ int process_is_ready(process_t * proc) {
 	return 0;
 }
 
+
 void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
+	spin_lock(&sleep_lock);
 	if (sleep_queue->length) {
 		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
 		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
 			process_t * process = proc->process;
+			process->sleep_node.owner = NULL;
 			if (!process_is_ready(process)) {
 				make_process_ready(process);
 			}
@@ -580,10 +609,16 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 			}
 		}
 	}
+	spin_unlock(&sleep_lock);
 }
 
 void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
-	IRQ_OFF;
+	if (current_process->sleep_node.prev || current_process->sleep_node.next) {
+		/* Can't sleep, in a queue. */
+		return;
+	}
+	current_process->sleep_node.owner = sleep_queue;
+	spin_lock(&sleep_lock);
 	node_t * before = NULL;
 	foreach(node, sleep_queue) {
 		sleeper_t * candidate = ((sleeper_t *)node->value);
@@ -597,5 +632,5 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	proc->end_tick    = seconds;
 	proc->end_subtick = subseconds;
 	list_insert_after(sleep_queue, before, proc);
-	IRQ_RES;
+	spin_unlock(&sleep_lock);
 }
