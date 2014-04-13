@@ -51,6 +51,22 @@ uintptr_t initial_esp = 0;
 
 fs_node_t * ramdisk_mount(uintptr_t, size_t);
 
+#ifdef EARLY_BOT_LOG
+#define EARLY_LOG_DEVICE 0x3F8
+static uint32_t _early_log_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	for (unsigned int i = 0; i < size; ++i) {
+		outportb(EARLY_LOG_DEVICE, buffer[i]);
+	}
+	return size;
+}
+fs_node_t _early_log = { .write = &_early_log_write };
+#define ENABLE_EARLY_BOOT_LOG(level) do { debug_file = &_early_log; debug_level = (level); } while (0)
+#define DISABLE_EARLY_BOOT_LOG() do { debug_file = NULL; debug_level = NOTICE; } while (0)
+#else
+#define ENABLE_EARLY_BOOT_LOG(level)
+#define DISABLE_EARLY_BOOT_LOG()
+#endif
+
 /*
  * multiboot i386 (pc) kernel entry point
  */
