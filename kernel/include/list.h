@@ -16,6 +16,7 @@ typedef struct node {
 	struct node * next;
 	struct node * prev;
 	void * value;
+	void * owner;
 } __attribute__((packed)) node_t;
 
 typedef struct {

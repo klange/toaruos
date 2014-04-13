@@ -32,15 +32,20 @@ void list_free(list_t * list) {
 }
 
 void list_append(list_t * list, node_t * node) {
+	assert(!(node->next || node->prev) && "Node is already in a list.");
 	node->next = NULL;
 	/* Insert a node onto the end of a list */
-	if (!list->tail) {
+	node->owner = list;
+	if (!list->length) {
 		list->head = node;
+		list->tail = node;
 		node->prev = NULL;
-	} else {
-		list->tail->next = node;
-		node->prev = list->tail;
+		node->next = NULL;
+		list->length++;
+		return;
 	}
+	list->tail->next = node;
+	node->prev = list->tail;
 	list->tail = node;
 	list->length++;
 }
@@ -51,18 +56,22 @@ node_t * list_insert(list_t * list, void * item) {
 	node->value = item;
 	node->next  = NULL;
 	node->prev  = NULL;
+	node->owner = NULL;
 	list_append(list, node);
 
 	return node;
 }
 
 void list_append_after(list_t * list, node_t * before, node_t * node) {
-	if (!list->tail) {
+	assert(!(node->next || node->prev) && "Node is already in a list.");
+	if (!list->length) {
 		list_append(list, node);
 		return;
 	}
+	node->owner = list;
 	if (before == NULL) {
 		node->next = list->head;
+		node->prev = NULL;
 		list->head->prev = node;
 		list->head = node;
 		list->length++;
@@ -84,6 +93,7 @@ node_t * list_insert_after(list_t * list, node_t * before, void * item) {
 	node->value = item;
 	node->next  = NULL;
 	node->prev  = NULL;
+	node->owner = NULL;
 	list_append_after(list, before, node);
 	return node;
 }
@@ -131,6 +141,7 @@ void list_remove(list_t * list, size_t index) {
 
 void list_delete(list_t * list, node_t * node) {
 	/* remove node from the list */
+	assert(node->owner == list && "Tried to remove a list node from a list it does not belong to.");
 	if (node == list->head) {
 		list->head = node->next;
 	}
@@ -145,6 +156,7 @@ void list_delete(list_t * list, node_t * node) {
 	}
 	node->prev = NULL;
 	node->next = NULL;
+	node->owner = NULL;
 	list->length--;
 }
 
@@ -155,14 +167,14 @@ node_t * list_pop(list_t * list) {
 	 * */
 	if (!list->tail) return NULL;
 	node_t * out = list->tail;
-	list_delete(list, list->tail);
+	list_delete(list, out);
 	return out;
 }
 
 node_t * list_dequeue(list_t * list) {
 	if (!list->head) return NULL;
 	node_t * out = list->head;
-	list_delete(list, list->head);
+	list_delete(list, out);
 	return out;
 }
 
