@@ -134,14 +134,14 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	}
 
 	vfs_install();
-
-	/* Hardware drivers */
 	timer_install();    /* PIC driver */
 	tasking_install();  /* Multi-tasking */
 	fpu_install();      /* FPU/SSE magic */
 	syscalls_install(); /* Install the system calls */
 	shm_install();      /* Install shared memory */
 	modules_install();  /* Modules! */
+
+	DISABLE_EARLY_BOOT_LOG();
 
 	/* Load modules from bootloader */
 	debug_print(NOTICE, "%d modules to load", mboot_mods_count);

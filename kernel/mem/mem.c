@@ -11,7 +11,7 @@
 #include <hashmap.h>
 #include <module.h>
 
-#define KERNEL_HEAP_INIT 0x08000000
+#define KERNEL_HEAP_INIT 0x00800000
 #define KERNEL_HEAP_END  0x20000000
 
 extern void *end;
@@ -261,6 +261,7 @@ paging_install(uint32_t memsize) {
 		get_page(i, 1, kernel_directory);
 	}
 
+	debug_print(NOTICE, "Setting directory.");
 	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(kernel_directory);
 }
@@ -341,7 +342,7 @@ page_fault(
 	int reserved = r->err_code & 0x8    ? 1 : 0;
 	int id       = r->err_code & 0x10   ? 1 : 0;
 
-	debug_print(ERROR, "\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip:0x%x pid=%d,%d [%s]\033[0m",
+	debug_print(ERROR, "\033[1;37;41mSegmentation fault. (p:%d,rw:%d,user:%d,res:%d,id:%d) at 0x%x eip: 0x%x pid=%d,%d [%s]\033[0m",
 			present, rw, user, reserved, id, faulting_address, r->eip, current_process->id, current_process->group, current_process->name);
 
 	if (r->eip < heap_end) {
@@ -350,40 +351,42 @@ page_fault(
 		size_t distance = 0xFFFFFFFF;
 		uintptr_t  addr = 0;
 
-		list_t * hash_keys = hashmap_keys(modules_get_symbols());
-		foreach(_key, hash_keys) {
-			char * key = (char *)_key->value;
-			uintptr_t a = (uintptr_t)hashmap_get(modules_get_symbols(), key);
+		if (modules_get_symbols()) {
+			list_t * hash_keys = hashmap_keys(modules_get_symbols());
+			foreach(_key, hash_keys) {
+				char * key = (char *)_key->value;
+				uintptr_t a = (uintptr_t)hashmap_get(modules_get_symbols(), key);
 
-			if (!a) continue;
+				if (!a) continue;
 
-			size_t d;
-			if (a <= r->eip) {
-				d = r->eip - a;
-			} else {
-				d = a - r->eip;
+				size_t d;
+				if (a <= r->eip) {
+					d = r->eip - a;
+				} else {
+					d = a - r->eip;
+				}
+				if (d < distance) {
+					closest = key;
+					distance = d;
+					addr = a;
+				}
 			}
-			if (d < distance) {
-				closest = key;
-				distance = d;
-				addr = a;
+			free(hash_keys);
+
+			debug_print(ERROR, "\033[1;31mClosest symbol to faulting address:\033[0m %s [0x%x]", closest, addr);
+
+			hash_keys = hashmap_keys(modules_get_list());
+			foreach(_key, hash_keys) {
+				char * key = (char *)_key->value;
+				module_data_t * m = (module_data_t *)hashmap_get(modules_get_list(), key);
+
+				if ((r->eip >= (uintptr_t)m->bin_data) && (r->eip < m->end)) {
+					debug_print(ERROR, "\033[1;31mIn module:\033[0m %s (starts at 0x%x)", m->mod_info->name, m->bin_data);
+					break;
+				}
 			}
+			free(hash_keys);
 		}
-		free(hash_keys);
-
-		debug_print(ERROR, "\033[1;31mClosest symbol to faulting address:\033[0m %s [0x%x]", closest, addr);
-
-		hash_keys = hashmap_keys(modules_get_list());
-		foreach(_key, hash_keys) {
-			char * key = (char *)_key->value;
-			module_data_t * m = (module_data_t *)hashmap_get(modules_get_list(), key);
-
-			if ((r->eip >= (uintptr_t)m->bin_data) && (r->eip < m->end)) {
-				debug_print(ERROR, "\033[1;31mIn module:\033[0m %s (starts at 0x%x)", m->mod_info->name, m->bin_data);
-				break;
-			}
-		}
-		free(hash_keys);
 
 	} else {
 		debug_print(ERROR, "\033[1;31m(In userspace)\033[0m");
