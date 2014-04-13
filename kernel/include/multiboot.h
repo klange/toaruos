@@ -79,6 +79,13 @@ typedef struct {
 	uintptr_t reserved;
 } __attribute__ ((packed)) mboot_mod_t;
 
+typedef struct {
+	uint32_t size;
+	uint64_t base_addr;
+	uint64_t length;
+	uint32_t type;
+} __attribute__ ((packed)) mboot_memmap_t;
+
 struct multiboot *copy_multiboot(struct multiboot *mboot_ptr);
 void dump_multiboot(struct multiboot *mboot_ptr);
 char * ramdisk;
