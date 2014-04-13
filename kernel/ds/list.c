@@ -193,6 +193,9 @@ void list_merge(list_t * target, list_t * source) {
 	foreach(node, source) {
 		node->owner = target;
 	}
+	if (source->head) {
+		source->head->prev = target->tail;
+	}
 	if (target->tail) {
 		target->tail->next = source->head;
 	} else {
