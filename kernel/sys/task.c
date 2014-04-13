@@ -407,7 +407,6 @@ uint32_t getpid(void) {
  * perform standard task switching.
  */
 void switch_task(uint8_t reschedule) {
-	int pause_after = 0;
 	if (!current_process) {
 		/* Tasking is not yet installed. */
 		return;
@@ -457,12 +456,6 @@ void switch_task(uint8_t reschedule) {
 	if (reschedule && current_process != kernel_idle_task) {
 		/* And reinsert it into the ready queue */
 		make_process_ready((process_t *)current_process);
-	} else if (pause_after) {
-		set_kernel_stack(frozen_stack);
-		while (1) {
-			IRQ_RES;
-			PAUSE;
-		}
 	}
 
 	/* Switch to the next task */
