@@ -131,6 +131,9 @@ extern page_directory_t *kernel_directory;
 extern page_directory_t *current_directory;
 
 extern void paging_install(uint32_t memsize);
+extern void paging_prestart(void);
+extern void paging_finalize(void);
+extern void paging_mark_system(uint64_t addr);
 extern void switch_page_directory(page_directory_t * new);
 extern page_t *get_page(uintptr_t address, int make, page_directory_t * dir);
 extern void page_fault(struct regs *r);

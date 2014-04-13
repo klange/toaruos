@@ -197,6 +197,7 @@ dma_frame(
 	page->rw      = (is_writeable) ? 1 : 0;
 	page->user    = (is_kernel)    ? 0 : 1;
 	page->frame   = address / 0x1000;
+	set_frame(address);
 }
 
 void
@@ -227,13 +228,11 @@ uintptr_t memory_use(void ) {
 	return ret * 4;
 }
 
-uintptr_t
-memory_total(){
+uintptr_t memory_total(){
 	return nframes * 4;
 }
 
-void
-paging_install(uint32_t memsize) {
+void paging_install(uint32_t memsize) {
 	nframes = memsize  / 4;
 	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes * 8));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
@@ -241,19 +240,34 @@ paging_install(uint32_t memsize) {
 	uintptr_t phys;
 	kernel_directory = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t),&phys);
 	memset(kernel_directory, 0, sizeof(page_directory_t));
+}
 
-	for (uintptr_t i = 0; i < placement_pointer + 0x3000; i += 0x1000) {
-		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
+void paging_mark_system(uint64_t addr) {
+	set_frame(addr);
+}
+
+void paging_finalize(void) {
+	debug_print(INFO, "Placement pointer is at 0x%x", placement_pointer);
+	get_page(0,1,kernel_directory)->present = 0;
+	set_frame(0);
+	for (uintptr_t i = 0x1; i < 0x80000; i += 0x1000) {
+		dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
 	}
-	/* XXX VGA TEXT MODE VIDEO MEMORY EXTENSION */
+	for (uintptr_t i = 0x80000; i < 0x100000; i += 0x1000) {
+		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+	}
+	for (uintptr_t i = 0x100000; i < placement_pointer + 0x3000; i += 0x1000) {
+		dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
+	}
+	debug_print(INFO, "Mapping VGA text-mode directly.");
 	for (uintptr_t j = 0xb8000; j < 0xc0000; j += 0x1000) {
-		alloc_frame(get_page(j, 1, kernel_directory), 0, 1);
+		dma_frame(get_page(j, 1, kernel_directory), 0, 1, j);
 	}
 	isrs_install_handler(14, page_fault);
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
 
 	/* Kernel Heap Space */
-	for (uintptr_t i = placement_pointer; i < KERNEL_HEAP_INIT; i += 0x1000) {
+	for (uintptr_t i = placement_pointer + 0x3000; i < KERNEL_HEAP_INIT; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
 	}
 	/* And preallocate the page entries for all the rest of the kernel heap as well */

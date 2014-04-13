@@ -76,40 +76,64 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 
 	uint32_t mboot_mods_count = 0;
 	mboot_mod_t * mboot_mods = NULL;
+	mboot_ptr = mboot;
 
-	if (mboot_mag == MULTIBOOT_EAX_MAGIC) {
-		/* Multiboot (GRUB, native QEMU, PXE) */
-		debug_print(NOTICE, "Relocating Multiboot structures...");
+	ENABLE_EARLY_BOOT_LOG(0);
 
-		mboot_ptr = mboot;
+	assert(mboot_mag == MULTIBOOT_EAX_MAGIC && "Didn't boot with multiboot, not sure how we got here.");
+	debug_print(NOTICE, "Processing Multiboot information.");
 
-		char cmdline_[1024];
+	/* Initialize core modules */
+	gdt_install();      /* Global descriptor table */
+	idt_install();      /* IDT */
+	isrs_install();     /* Interrupt service requests */
+	irq_install();      /* Hardware interrupt requests */
 
-		if (mboot_ptr->flags & (1 << 3)) {
-			debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
-			debug_print(NOTICE, "Current kernel heap start point would be 0x%x.", &end);
-			if (mboot_ptr->mods_count > 0) {
-				uintptr_t last_mod = (uintptr_t)&end;
-				uint32_t i;
-				mboot_mods = (mboot_mod_t *)mboot_ptr->mods_addr;
-				mboot_mods_count = mboot_ptr->mods_count;
-				for (i = 0; i < mboot_ptr->mods_count; ++i ) {
-					mboot_mod_t * mod = &mboot_mods[i];
-					uint32_t module_start = mod->mod_start;
-					uint32_t module_end   = mod->mod_end;
-					if ((uintptr_t)mod + sizeof(mboot_mod_t) > last_mod) {
-						/* Just in case some silly person put this *behind* the modules... */
-						last_mod = (uintptr_t)mod + sizeof(mboot_mod_t);
-					}
-					debug_print(NOTICE, "Module %d is at 0x%x:0x%x", i, module_start, module_end);
-					if (last_mod < module_end) {
-						last_mod = module_end;
-					}
+	if (mboot_ptr->flags & (1 << 3)) {
+		debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
+		debug_print(NOTICE, "Current kernel heap start point would be 0x%x.", &end);
+		if (mboot_ptr->mods_count > 0) {
+			uintptr_t last_mod = (uintptr_t)&end;
+			uint32_t i;
+			mboot_mods = (mboot_mod_t *)mboot_ptr->mods_addr;
+			mboot_mods_count = mboot_ptr->mods_count;
+			for (i = 0; i < mboot_ptr->mods_count; ++i ) {
+				mboot_mod_t * mod = &mboot_mods[i];
+				uint32_t module_start = mod->mod_start;
+				uint32_t module_end   = mod->mod_end;
+				if ((uintptr_t)mod + sizeof(mboot_mod_t) > last_mod) {
+					/* Just in case some silly person put this *behind* the modules... */
+					last_mod = (uintptr_t)mod + sizeof(mboot_mod_t);
 				}
-				debug_print(NOTICE, "Moving kernel heap start to 0x%x", last_mod);
-				kmalloc_startat(last_mod);
+				debug_print(NOTICE, "Module %d is at 0x%x:0x%x", i, module_start, module_end);
+				if (last_mod < module_end) {
+					last_mod = module_end;
+				}
 			}
+			debug_print(NOTICE, "Moving kernel heap start to 0x%x", last_mod);
+			kmalloc_startat(last_mod);
 		}
+	}
+
+	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);
+	if (mboot_ptr->flags & (1 << 6)) {
+		debug_print(NOTICE, "Parsing memory map.");
+		mboot_memmap_t * mmap = (void *)mboot_ptr->mmap_addr;
+		while ((uintptr_t)mmap < mboot_ptr->mmap_addr + mboot_ptr->mmap_length) {
+			if (mmap->type == 2) {
+				for (unsigned long long int i = 0; i < mmap->length; i += 0x1000) {
+					if (mmap->base_addr + i > 0xFFFFFFFF) break; /* xxx */
+					debug_print(INFO, "Marking 0x%x", (uint32_t)(mmap->base_addr + i));
+					paging_mark_system((mmap->base_addr + i) & 0xFFFFF000);
+				}
+			}
+			mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uintptr_t));
+		}
+	}
+	paging_finalize();
+
+	{
+		char cmdline_[1024];
 
 		size_t len = strlen((char *)mboot_ptr->cmdline);
 		memmove(cmdline_, (char *)mboot_ptr->cmdline, len + 1);
@@ -119,14 +143,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		memcpy(cmdline, cmdline_, len + 1);
 	}
 
-	/* Initialize core modules */
-	gdt_install();      /* Global descriptor table */
-	idt_install();      /* IDT */
-	isrs_install();     /* Interrupt service requests */
-	irq_install();      /* Hardware interrupt requests */
-
 	/* Memory management */
-	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);
 	heap_install();     /* Kernel heap */
 
 	if (cmdline) {
