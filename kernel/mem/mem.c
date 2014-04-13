@@ -197,7 +197,9 @@ dma_frame(
 	page->rw      = (is_writeable) ? 1 : 0;
 	page->user    = (is_kernel)    ? 0 : 1;
 	page->frame   = address / 0x1000;
-	set_frame(address);
+	if (address < nframes * 4 * 0x400) {
+		set_frame(address);
+	}
 }
 
 void
@@ -248,20 +250,24 @@ void paging_mark_system(uint64_t addr) {
 
 void paging_finalize(void) {
 	debug_print(INFO, "Placement pointer is at 0x%x", placement_pointer);
+#if 1
 	get_page(0,1,kernel_directory)->present = 0;
 	set_frame(0);
-	for (uintptr_t i = 0x1; i < 0x80000; i += 0x1000) {
+	for (uintptr_t i = 0x1000; i < 0x80000; i += 0x1000) {
+#else
+	for (uintptr_t i = 0x0; i < 0x80000; i += 0x1000) {
+#endif
 		dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
 	}
 	for (uintptr_t i = 0x80000; i < 0x100000; i += 0x1000) {
-		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
 	}
 	for (uintptr_t i = 0x100000; i < placement_pointer + 0x3000; i += 0x1000) {
 		dma_frame(get_page(i, 1, kernel_directory), 1, 0, i);
 	}
 	debug_print(INFO, "Mapping VGA text-mode directly.");
 	for (uintptr_t j = 0xb8000; j < 0xc0000; j += 0x1000) {
-		dma_frame(get_page(j, 1, kernel_directory), 0, 1, j);
+		dma_frame(get_page(j, 0, kernel_directory), 0, 1, j);
 	}
 	isrs_install_handler(14, page_fault);
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
