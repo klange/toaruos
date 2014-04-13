@@ -573,7 +573,7 @@ int wakeup_queue(list_t * queue) {
 
 
 int sleep_on(list_t * queue) {
-	if (current_process->sleep_node.prev || current_process->sleep_node.next) {
+	if (current_process->sleep_node.owner) {
 		/* uh, we can't sleep right now, we're marked as ready */
 		switch_task(0);
 		return 0;
@@ -614,7 +614,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 }
 
 void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
-	if (current_process->sleep_node.prev || current_process->sleep_node.next) {
+	if (current_process->sleep_node.owner) {
 		/* Can't sleep, sleeping already */
 		return;
 	}
