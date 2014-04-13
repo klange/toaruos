@@ -96,12 +96,7 @@ process_t * next_ready_process(void) {
 	if (!process_available()) {
 		return kernel_idle_task;
 	}
-	spin_lock(&process_queue_lock);
 	node_t * np = list_dequeue(process_queue);
-	if (process_queue->head == NULL && process_queue->length != 0) {
-		assert(0 && "Ding dong the witch is dead.");
-	}
-	spin_unlock(&process_queue_lock);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
 	return next;
