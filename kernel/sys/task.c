@@ -274,7 +274,9 @@ int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
 
 	uintptr_t esp, ebp;
 
-	current_process->syscall_registers->eax = 0;
+	if (current_process->syscall_registers) {
+		current_process->syscall_registers->eax = 0;
+	}
 
 	page_directory_t * directory = kernel_directory;
 	/* Spawn a new process from this one */
@@ -286,14 +288,18 @@ int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
 	/* Read the instruction pointer */
 
 
-	struct regs r;
-	memcpy(&r, current_process->syscall_registers, sizeof(struct regs));
-	new_proc->syscall_registers = &r;
+	if (current_process->syscall_registers) {
+		struct regs r;
+		memcpy(&r, current_process->syscall_registers, sizeof(struct regs));
+		new_proc->syscall_registers = &r;
+	}
 
 	esp = new_proc->image.stack;
 	ebp = esp;
 
-	new_proc->syscall_registers->eax = 0;
+	if (current_process->syscall_registers) {
+		new_proc->syscall_registers->eax = 0;
+	}
 	new_proc->is_tasklet = 1;
 	new_proc->name = name;
 
