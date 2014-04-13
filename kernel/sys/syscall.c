@@ -607,7 +607,7 @@ static int system_function(int fn, char ** args) {
 				break;
 			case 5:
 				validate((char *)args);
-				debug_print(NOTICE, "Replacing process %d's file descriptors with pointers to %s", (char *)args);
+				debug_print(NOTICE, "Replacing process %d's file descriptors with pointers to %s", getpid(), (char *)args);
 				fs_node_t * repdev = kopen((char *)args, 0);
 				while (current_process->fds->length < 3) {
 					process_append_fd((process_t *)current_process, repdev);
