@@ -51,7 +51,7 @@ uintptr_t initial_esp = 0;
 
 fs_node_t * ramdisk_mount(uintptr_t, size_t);
 
-#ifdef EARLY_BOT_LOG
+#ifdef EARLY_BOOT_LOG
 #define EARLY_LOG_DEVICE 0x3F8
 static uint32_t _early_log_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	for (unsigned int i = 0; i < size; ++i) {
@@ -151,8 +151,8 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	}
 
 	vfs_install();
-	timer_install();    /* PIC driver */
 	tasking_install();  /* Multi-tasking */
+	timer_install();    /* PIC driver */
 	fpu_install();      /* FPU/SSE magic */
 	syscalls_install(); /* Install the system calls */
 	shm_install();      /* Install shared memory */
