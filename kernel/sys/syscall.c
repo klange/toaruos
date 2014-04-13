@@ -744,7 +744,6 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_umask,
 	(uintptr_t)&sys_unlink,         /* 52 */
 	(uintptr_t)&advanced_wait,
-	0
 };
 uint32_t num_syscalls;
 
@@ -774,7 +773,7 @@ void syscall_handler(struct regs * r) {
 }
 
 void syscalls_install(void) {
-	for (num_syscalls = 0; syscalls[num_syscalls] != 0; ++num_syscalls);
+	num_syscalls = sizeof(syscalls) / sizeof(uintptr_t);
 	debug_print(NOTICE, "Initializing syscall table with %d functions", num_syscalls);
 	isrs_install_handler(0x7F, &syscall_handler);
 }
