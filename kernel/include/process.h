@@ -99,6 +99,7 @@ typedef struct process {
 	char *        signal_kstack;
 	node_t        sched_node;
 	node_t        sleep_node;
+	node_t *      timed_sleep_node;
 	uint8_t       is_tasklet;
 } process_t;
 

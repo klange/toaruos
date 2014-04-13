@@ -124,11 +124,13 @@ process_t * next_reapable_process(void) {
  */
 void make_process_ready(process_t * proc) {
 	if (proc->sleep_node.owner != NULL) {
-		if (proc->sleep_node.owner == process_queue) {
-			return;
-		} else if (proc->sleep_node.owner == (void*)0xFFFFFFFF) {
+		if (proc->sleep_node.owner == sleep_queue) {
 			/* XXX can't wake from timed sleep */
-			return;
+			assert(proc->timed_sleep_node);
+			spin_lock(&sleep_lock);
+			list_delete(sleep_queue, proc->timed_sleep_node);
+			spin_unlock(&sleep_lock);
+			free(proc->timed_sleep_node->value);
 		} else {
 			spin_lock(&wait_lock_tmp);
 			list_delete((list_t*)proc->sleep_node.owner, &proc->sleep_node);
@@ -266,6 +268,8 @@ process_t * spawn_init(void) {
 	init->sleep_node.next = NULL;
 	init->sleep_node.value = init;
 
+	init->timed_sleep_node = NULL;
+
 	init->is_tasklet = 0;
 
 	set_process_environment(init, current_directory);
@@ -385,6 +389,8 @@ process_t * spawn_process(volatile process_t * parent) {
 	proc->sleep_node.prev = NULL;
 	proc->sleep_node.next = NULL;
 	proc->sleep_node.value = proc;
+
+	proc->timed_sleep_node = NULL;
 
 	proc->is_tasklet = 0;
 
@@ -585,8 +591,7 @@ int sleep_on(list_t * queue) {
 }
 
 int process_is_ready(process_t * proc) {
-	if (proc->sched_node.prev != NULL || proc->sched_node.next != NULL || process_queue->head == &proc->sched_node) return 1;
-	return 0;
+	return (proc->sched_node.owner != NULL);
 }
 
 
@@ -597,6 +602,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
 			process_t * process = proc->process;
 			process->sleep_node.owner = NULL;
+			process->timed_sleep_node = NULL;
 			if (!process_is_ready(process)) {
 				make_process_ready(process);
 			}
@@ -614,10 +620,10 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 
 void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
 	if (current_process->sleep_node.prev || current_process->sleep_node.next) {
-		/* Can't sleep, in a queue. */
+		/* Can't sleep, sleeping already */
 		return;
 	}
-	current_process->sleep_node.owner = sleep_queue;
+	process->sleep_node.owner = sleep_queue;
 	spin_lock(&sleep_lock);
 	node_t * before = NULL;
 	foreach(node, sleep_queue) {
@@ -631,6 +637,6 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	proc->process     = process;
 	proc->end_tick    = seconds;
 	proc->end_subtick = subseconds;
-	list_insert_after(sleep_queue, before, proc);
+	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
 	spin_unlock(&sleep_lock);
 }
