@@ -99,10 +99,10 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 			collected++;
 		}
 		spin_unlock(&pipe->lock);
-		wakeup_queue(pipe->wait_queue);
+		wakeup_queue(pipe->wait_queue_writers);
 		/* Deschedule and switch */
 		if (collected == 0) {
-			sleep_on(pipe->wait_queue);
+			sleep_on(pipe->wait_queue_readers);
 		}
 	}
 
@@ -160,9 +160,9 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 #endif
 
 		spin_unlock(&pipe->lock);
-		wakeup_queue(pipe->wait_queue);
+		wakeup_queue(pipe->wait_queue_readers);
 		if (written < size) {
-			sleep_on(pipe->wait_queue);
+			sleep_on(pipe->wait_queue_writers);
 		}
 	}
 
@@ -239,7 +239,8 @@ fs_node_t * make_pipe(size_t size) {
 	pipe->lock      = 0;
 	pipe->dead      = 0;
 
-	pipe->wait_queue = list_create();
+	pipe->wait_queue_writers = list_create();
+	pipe->wait_queue_readers = list_create();
 
 	return fnode;
 }

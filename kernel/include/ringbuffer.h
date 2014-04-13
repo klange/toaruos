@@ -7,7 +7,8 @@ typedef struct {
 	size_t read_ptr;
 	size_t size;
 	uint8_t volatile lock;
-	list_t * wait_queue;
+	list_t * wait_queue_readers;
+	list_t * wait_queue_writers;
 } ring_buffer_t;
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer);

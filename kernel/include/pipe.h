@@ -15,7 +15,8 @@ typedef struct _pipe_device {
 	size_t size;
 	size_t refcount;
 	uint8_t volatile lock;
-	list_t * wait_queue;
+	list_t * wait_queue_readers;
+	list_t * wait_queue_writers;
 	int dead;
 } pipe_device_t;
 
