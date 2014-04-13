@@ -94,6 +94,9 @@ vasprintf(char * buf, const char *fmt, va_list args) {
 		switch (fmt[i]) {
 			case 's': /* String pointer -> String */
 				s = (char *)va_arg(args, char *);
+				if (s == NULL) {
+					s = "(null)";
+				}
 				while (*s) {
 					buf[ptr++] = *s++;
 				}
