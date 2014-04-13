@@ -26,11 +26,12 @@ static char * c_messages[] = {
 	" \033[1;31;44mINSANE\033[0m:"
 };
 
+static char buffer[1024];
+
 void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...) {
 	if (level >= debug_level && debug_file) {
 		va_list args;
 		va_start(args, fmt);
-		char buffer[1024];
 		vasprintf(buffer, fmt, args);
 		va_end(args);
 
