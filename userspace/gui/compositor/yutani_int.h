@@ -68,6 +68,8 @@ typedef struct {
 	sprite_t mouse_sprite;
 
 	char * pex_endpoint;
+
+	yutani_server_window_t * focused_window;
 } yutani_globals_t;
 
 

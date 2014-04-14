@@ -35,6 +35,12 @@ struct {
 	.nest_height = 0
 };
 
+/* XXX this should be in lib/mouse.h? */
+#define MOUSE_BUTTON_LEFT		0x01
+#define MOUSE_BUTTON_RIGHT		0x02
+#define MOUSE_BUTTON_MIDDLE		0x04
+
+
 static int usage(char * argv[]) {
 	fprintf(stderr,
 			"Yutani - Window Compositor\n"
@@ -159,6 +165,52 @@ static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
 		yg->zlist[w->z] = NULL;
 	}
 	rebalance_windows(yg);
+}
+
+static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
+	unsigned short index = w->z;
+
+	if (index == YUTANI_ZORDER_BOTTOM) return;
+	if (index == YUTANI_ZORDER_TOP) return;
+
+	unsigned short highest = 0;
+
+	for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
+		if (yg->zlist[i]) {
+			yutani_server_window_t * win = yg->zlist[i];
+
+			if (win == w) continue;
+			if (win->z == YUTANI_ZORDER_BOTTOM) continue;
+			if (win->z == YUTANI_ZORDER_TOP) continue;
+			if (highest < win->z) highest = win->z;
+			if (win->z > w->z) continue;
+		}
+	}
+
+	reorder_window(yg, w, highest + 1);
+}
+
+static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w) {
+	if (w == yg->focused_window) {
+		return; /* Already focused */
+	}
+
+	if (yg->focused_window) {
+		/* XXX Send focus change to old focused window */
+	}
+	yg->focused_window = w;
+	if (w) {
+		/* XXX Send focus change to new focused window */
+		make_top(yg, w);
+	} else {
+		/* XXX */
+		yg->focused_window = yg->zlist[0];
+	}
+}
+
+static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
+	if (yg->focused_window) return yg->focused_window;
+	return yg->zlist[0];
 }
 
 int best_z_option(yutani_globals_t * yg) {
@@ -313,6 +365,12 @@ static void yutani_set_clip(yutani_globals_t * yg) {
 	cairo_clip(yg->real_ctx);
 }
 
+yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
+	uint32_t c = ((uint32_t *)yg->select_framebuffer)[(yg->width * y + x)];
+	yutani_wid_t w = (_RED(c) << 16) | (_GRE(c) << 8) | (_BLU(c));
+	return hashmap_get(yg->wids_to_windows, (void *)w);
+}
+
 static int window_is_top(yutani_globals_t * yg, yutani_server_window_t * window) {
 	/* For now, just use simple z-order */
 	return window->z == YUTANI_ZORDER_TOP;
@@ -382,7 +440,11 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 
 	/* Paint select buffer */
 	cairo_set_operator(cs, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgb(cs, 0, ((window->z & 0xFF00) >> 8) / 255.0, (window->z & 0xFF) / 255.0);
+	cairo_set_source_rgb(cs,
+			((window->wid & 0xFF0000) >> 16) / 255.0,
+			((window->wid & 0xFF00) >> 8) / 255.0,
+			((window->wid & 0xFF) >> 0) / 255.0
+	);
 	cairo_rectangle(cs, 0, 0, window->width, window->height);
 	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
 	cairo_fill(cs);
@@ -502,6 +564,16 @@ void * redraw(void * in) {
 	}
 }
 
+static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
+	/* XXX handle focus change, drag, etc. */
+
+	if (me->event.buttons & MOUSE_BUTTON_LEFT) {
+		yutani_server_window_t * n_focused = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+		fprintf(stderr, "[yutani-server] Window at %dx%d is %d (%dx%d)\n", yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, n_focused->wid, n_focused->width, n_focused->height);
+		set_focused_window(yg, n_focused);
+	}
+}
+
 /**
  * main
  */
@@ -604,10 +676,11 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_KEY_EVENT: {
 				/* XXX Verify this is from a valid device client */
 				struct yutani_msg_key_event * ke = (void *)m->data;
-				if (yg->windows->tail) {
+				yutani_server_window_t * focused = get_focused(yg);
+				if (focused) {
 					/* XXX focused window */
-					ke->wid = ((yutani_server_window_t *)(yg->windows->tail->value))->wid;
-					pex_send(server, ((yutani_server_window_t *)(yg->windows->tail->value))->owner, m->size, (char *)m);
+					ke->wid = focused->wid;
+					pex_send(server, focused->owner, m->size, (char *)m);
 					/* XXX key loggers ;) */
 				}
 			} break;
@@ -623,6 +696,8 @@ int main(int argc, char * argv[]) {
 				if (yg->mouse_x > (yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
 				if (yg->mouse_y > (yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
 
+				/* XXX Handle mouse events */
+				handle_mouse_event(yg, me);
 			} break;
 			case YUTANI_MSG_WINDOW_MOVE: {
 				struct yutani_msg_window_move * wm = (void *)m->data;
@@ -644,6 +719,9 @@ int main(int argc, char * argv[]) {
 					list_remove(yg->windows, list_index_of(yg->windows, w));
 					list_insert(yg->update_list, w);
 					unorder_window(yg, w);
+					if (w == yg->focused_window) {
+						yg->focused_window = NULL;
+					}
 				}
 			} break;
 			case YUTANI_MSG_WINDOW_STACK: {

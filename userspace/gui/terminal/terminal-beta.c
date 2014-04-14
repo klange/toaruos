@@ -1067,6 +1067,7 @@ int main(int argc, char ** argv) {
 		window_width = yctx->display_width;
 		window_height = yctx->display_height;
 		window = yutani_window_create(yctx, window_width, window_height);
+		yutani_set_stack(yctx, window, YUTANI_ZORDER_BOTTOM);
 		window->focused = 1;
 	} else {
 		/* Create the window */
