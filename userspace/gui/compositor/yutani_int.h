@@ -70,6 +70,7 @@ typedef struct {
 	char * pex_endpoint;
 
 	yutani_server_window_t * focused_window;
+	FILE * server;
 } yutani_globals_t;
 
 

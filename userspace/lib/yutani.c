@@ -7,6 +7,7 @@
 #include "graphics.h"
 #include "kbd.h"
 #include "mouse.h"
+#include "hashmap.h"
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {
@@ -197,6 +198,22 @@ yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z) {
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_focus_change);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_FOCUS_CHANGE;
+	msg->size  = s;
+
+	struct yutani_msg_window_focus_change * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->focused = focused;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -207,6 +224,7 @@ yutani_t * yutani_context_create(FILE * socket) {
 	out->sock = socket;
 	out->display_width  = 0;
 	out->display_height = 0;
+	out->windows = hashmap_create_int(10);
 	return out;
 }
 
@@ -253,6 +271,9 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 	win->height = mw->height;
 	win->bufid = mw->bufid;
 	win->wid = mw->wid;
+	win->focused = 0;
+
+	hashmap_set(y->windows, (void*)win->wid, win);
 
 	char key[1024];
 	YUTANI_SHMKEY(key, 1024, win);

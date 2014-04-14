@@ -197,10 +197,16 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 
 	if (yg->focused_window) {
 		/* XXX Send focus change to old focused window */
+		yutani_msg_t * response = yutani_msg_build_window_focus_change(yg->focused_window->wid, 0);
+		pex_send(yg->server, yg->focused_window->owner, response->size, (char *)response);
+		free(response);
 	}
 	yg->focused_window = w;
 	if (w) {
 		/* XXX Send focus change to new focused window */
+		yutani_msg_t * response = yutani_msg_build_window_focus_change(w->wid, 1);
+		pex_send(yg->server, w->owner, response->size, (char *)response);
+		free(response);
 		make_top(yg, w);
 	} else {
 		/* XXX */
@@ -604,6 +610,7 @@ int main(int argc, char * argv[]) {
 	setenv("DISPLAY", yg->pex_endpoint, 1);
 
 	FILE * server = pex_bind(yg->pex_endpoint);
+	yg->server = server;
 
 	fprintf(stderr, "[yutani] Loading fonts...\n");
 	load_fonts();

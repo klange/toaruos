@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "hashmap.h"
 #include "graphics.h"
 #include "kbd.h"
 #include "mouse.h"
@@ -20,6 +21,8 @@ typedef struct yutani_context {
 	/* XXX display struct with more information? */
 	size_t display_width;
 	size_t display_height;
+
+	hashmap_t * windows;
 } yutani_t;
 
 typedef struct yutani_message {
@@ -70,6 +73,11 @@ struct yutani_msg_window_stack {
 	int z;
 };
 
+struct yutani_msg_window_focus_change {
+	yutani_wid_t wid;
+	int focused;
+};
+
 struct yutani_msg_mouse_event {
 	yutani_wid_t wid;
 	mouse_device_packet_t event;
@@ -88,24 +96,25 @@ typedef struct yutani_window {
 } yutani_window_t;
 
 /* Magic value */
-#define YUTANI_MSG__MAGIC       0xABAD1DEA
+#define YUTANI_MSG__MAGIC 0xABAD1DEA
 
 /* Client messages */
-#define YUTANI_MSG_HELLO        0x00000001
-#define YUTANI_MSG_WINDOW_NEW   0x00000002
-#define YUTANI_MSG_FLIP         0x00000003
-#define YUTANI_MSG_KEY_EVENT    0x00000004
-#define YUTANI_MSG_MOUSE_EVENT  0x00000005
-#define YUTANI_MSG_WINDOW_MOVE  0x00000006
-#define YUTANI_MSG_WINDOW_CLOSE 0x00000007
-#define YUTANI_MSG_WINDOW_SHOW  0x00000008
-#define YUTANI_MSG_WINDOW_HIDE  0x00000009
-#define YUTANI_MSG_WINDOW_STACK 0x0000000A
-#define YUTANI_MSG_GOODBYE      0x000000F0
+#define YUTANI_MSG_HELLO               0x00000001
+#define YUTANI_MSG_WINDOW_NEW          0x00000002
+#define YUTANI_MSG_FLIP                0x00000003
+#define YUTANI_MSG_KEY_EVENT           0x00000004
+#define YUTANI_MSG_MOUSE_EVENT         0x00000005
+#define YUTANI_MSG_WINDOW_MOVE         0x00000006
+#define YUTANI_MSG_WINDOW_CLOSE        0x00000007
+#define YUTANI_MSG_WINDOW_SHOW         0x00000008
+#define YUTANI_MSG_WINDOW_HIDE         0x00000009
+#define YUTANI_MSG_WINDOW_STACK        0x0000000A
+#define YUTANI_MSG_WINDOW_FOCUS_CHANGE 0x0000000B
+#define YUTANI_MSG_GOODBYE             0x000000F0
 
 /* Server responses */
-#define YUTANI_MSG_WELCOME      0x00010001
-#define YUTANI_MSG_WINDOW_INIT  0x00010002
+#define YUTANI_MSG_WELCOME             0x00010001
+#define YUTANI_MSG_WINDOW_INIT         0x00010002
 
 #define YUTANI_ZORDER_MAX    0xFFFF
 #define YUTANI_ZORDER_TOP    0xFFFF
@@ -123,6 +132,7 @@ yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event)
 yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event);
 yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
 yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
+yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused);
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 yutani_t * yutani_context_create(FILE * socket);

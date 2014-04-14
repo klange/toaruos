@@ -144,6 +144,7 @@ static void render_decors() {
 		} else {
 			render_decorations(&w, ctx, "Terminal");
 		}
+		yutani_flip(yctx, window);
 	}
 }
 
@@ -972,10 +973,26 @@ void * handle_incoming(void * garbage) {
 	while (!exit_application) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
-			if (m->type == YUTANI_MSG_KEY_EVENT) {
-				struct yutani_msg_key_event * ke = (void*)m->data;
-				int ret = (ke->event.action == KEY_ACTION_DOWN) && (ke->event.key);
-				key_event(ret, &ke->event);
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						int ret = (ke->event.action == KEY_ACTION_DOWN) && (ke->event.key);
+						key_event(ret, &ke->event);
+					}
+					break;
+				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					{
+						struct yutani_msg_window_focus_change * wf = (void*)m->data;
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						if (win) {
+							win->focused = wf->focused;
+							render_decors();
+						}
+					}
+					break;
+				default:
+					break;
 			}
 			free(m);
 		}
