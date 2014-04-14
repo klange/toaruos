@@ -64,6 +64,7 @@ typedef struct {
 	yutani_server_window_t * zlist[0x10000];
 
 	list_t * update_list;
+	volatile int update_list_lock;
 
 	sprite_t mouse_sprite;
 
@@ -71,6 +72,17 @@ typedef struct {
 
 	yutani_server_window_t * focused_window;
 	FILE * server;
+
+	int mouse_state;
+	yutani_server_window_t * mouse_window;
+
+	int mouse_win_x;
+	int mouse_win_y;
+	int mouse_win_x_p;
+	int mouse_win_y_p;
+	int mouse_init_x;
+	int mouse_init_y;
+
 } yutani_globals_t;
 
 

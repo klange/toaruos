@@ -35,12 +35,6 @@ struct {
 	.nest_height = 0
 };
 
-/* XXX this should be in lib/mouse.h? */
-#define MOUSE_BUTTON_LEFT		0x01
-#define MOUSE_BUTTON_RIGHT		0x02
-#define MOUSE_BUTTON_MIDDLE		0x04
-
-
 static int usage(char * argv[]) {
 	fprintf(stderr,
 			"Yutani - Window Compositor\n"
@@ -99,6 +93,16 @@ static int parse_args(int argc, char * argv[], int * out) {
 	}
 	*out = optind;
 	return 0;
+}
+
+static void spin_lock(int volatile * lock) {
+	while(__sync_lock_test_and_set(lock, 0x01)) {
+		syscall_yield();
+	}
+}
+
+static void spin_unlock(int volatile * lock) {
+	__sync_lock_release(lock);
 }
 
 static int next_buf_id(void) {
@@ -377,6 +381,11 @@ yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
 	return hashmap_get(yg->wids_to_windows, (void *)w);
 }
 
+static void set_focused_at(yutani_globals_t * yg, int x, int y) {
+	yutani_server_window_t * n_focused = top_at(yg, x, y);
+	set_focused_window(yg, n_focused);
+}
+
 static int window_is_top(yutani_globals_t * yg, yutani_server_window_t * window) {
 	/* For now, just use simple z-order */
 	return window->z == YUTANI_ZORDER_TOP;
@@ -387,12 +396,7 @@ static int window_is_bottom(yutani_globals_t * yg, yutani_server_window_t * wind
 	return window->z == YUTANI_ZORDER_BOTTOM;
 }
 
-static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, yutani_server_window_t * modifiers) {
-
-	/* If there are no modifiers to be set, use the window's existing setup */
-	if (!modifiers) {
-		modifiers = window;
-	}
+static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
 
 	/* Obtain the previously initialized cairo contexts */
 	cairo_t * cr = yg->framebuffer_ctx;
@@ -413,8 +417,8 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	 * Offset the rendering context appropriately for the position of the window
 	 * based on the modifier paramters
 	 */
-	cairo_translate(cr, modifiers->x, modifiers->y);
-	cairo_translate(cs, modifiers->x, modifiers->y);
+	cairo_translate(cr, x, y);
+	cairo_translate(cs, x, y);
 
 	/* Top and bottom windows can not be rotated. */
 	if (!window_is_top(yg, window) && !window_is_bottom(yg, window)) {
@@ -482,15 +486,18 @@ static void redraw_windows(yutani_globals_t * yg) {
 	yg->last_mouse_y = tmp_mouse_y;
 
 	/* Calculate damage regions from currently queued updates */
+	spin_lock(&yg->update_list_lock);
 	while (yg->update_list->length) {
 		node_t * win = list_dequeue(yg->update_list);
-		yutani_server_window_t * window = (yutani_server_window_t *)win->value;
+		yutani_damage_rect_t * rect = (void *)win->value;
 
 		/* We add a clip region for each window in the update queue */
 		has_updates = 1;
-		yutani_add_clip(yg, window->x, window->y, window->width, window->height);
+		yutani_add_clip(yg, rect->x, rect->y, rect->width, rect->height);
+		free(rect);
 		free(win);
 	}
+	spin_unlock(&yg->update_list_lock);
 
 	/* Render */
 	if (has_updates) {
@@ -504,7 +511,11 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 */
 		for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
 			if (yg->zlist[i]) {
-				yutani_blit_window(yg, yg->zlist[i], NULL);
+				if (yg->zlist[i] == yg->mouse_window) {
+					yutani_blit_window(yg, yg->zlist[i], yg->mouse_win_x_p, yg->mouse_win_y_p);
+				} else {
+					yutani_blit_window(yg, yg->zlist[i], yg->zlist[i]->x, yg->zlist[i]->y);
+				}
 			}
 		}
 
@@ -548,6 +559,7 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 	yg->real_ctx = cairo_create(yg->real_surface);
 
 	yg->update_list = list_create();
+	yg->update_list_lock = 0;
 }
 
 void * redraw(void * in) {
@@ -570,13 +582,91 @@ void * redraw(void * in) {
 	}
 }
 
+static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) {
+	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+	rect->x = window->x;
+	rect->y = window->y;
+	rect->width = window->width;
+	rect->height = window->height;
+
+	spin_lock(&yg->update_list_lock);
+	list_insert(yg->update_list, rect);
+	spin_unlock(&yg->update_list_lock);
+}
+
+static void mark_region(yutani_globals_t * yg, int x, int y, int width, int height) {
+	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+	rect->x = x;
+	rect->y = y;
+	rect->width = width;
+	rect->height = height;
+
+	spin_lock(&yg->update_list_lock);
+	list_insert(yg->update_list, rect);
+	spin_unlock(&yg->update_list_lock);
+}
+
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
 	/* XXX handle focus change, drag, etc. */
 
-	if (me->event.buttons & MOUSE_BUTTON_LEFT) {
-		yutani_server_window_t * n_focused = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
-		fprintf(stderr, "[yutani-server] Window at %dx%d is %d (%dx%d)\n", yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, n_focused->wid, n_focused->width, n_focused->height);
-		set_focused_window(yg, n_focused);
+	switch (yg->mouse_state) {
+		case YUTANI_MOUSE_STATE_NORMAL:
+			{
+				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (k_alt)) {
+					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+					yg->mouse_window = get_focused(yg);
+					if (yg->mouse_window) {
+						if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+							yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+							yg->mouse_window = NULL;
+						} else {
+							yg->mouse_state = YUTANI_MOUSE_STATE_MOVING;
+							yg->mouse_init_x = yg->mouse_x;
+							yg->mouse_init_y = yg->mouse_y;
+							yg->mouse_win_x  = yg->mouse_window->x;
+							yg->mouse_win_y  = yg->mouse_window->y;
+							yg->mouse_win_x_p = yg->mouse_win_x;
+							yg->mouse_win_y_p = yg->mouse_win_y;
+							make_top(yg, yg->mouse_window);
+						}
+					}
+				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!k_alt)) {
+					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+				}
+			}
+			break;
+		case YUTANI_MOUSE_STATE_MOVING:
+			{
+				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
+					yg->mouse_window->x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
+					yg->mouse_window->y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
+
+					yg->mouse_window = NULL;
+					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+				} else {
+					int _x_p = yg->mouse_win_x_p;
+					int _y_p = yg->mouse_win_y_p;
+					yg->mouse_win_x_p = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
+					yg->mouse_win_y_p = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
+					mark_window(yg, yg->mouse_window);
+					mark_region(yg, yg->mouse_win_x_p, yg->mouse_win_y_p, yg->mouse_window->width, yg->mouse_window->height);
+					mark_region(yg, _x_p, _y_p, yg->mouse_window->width, yg->mouse_window->height);
+				}
+			}
+			break;
+		case YUTANI_MOUSE_STATE_DRAGGING:
+			{
+
+			}
+			break;
+		case YUTANI_MOUSE_STATE_RESIZING:
+			{
+
+			}
+			break;
+		default:
+			/* XXX ? */
+			break;
 	}
 }
 
@@ -677,7 +767,10 @@ int main(int argc, char * argv[]) {
 				struct yutani_msg_flip * wf = (void *)m->data;
 				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
 				if (w) {
-					list_insert(yg->update_list, w);
+					mark_window(yg, w);
+					if (w == yg->mouse_window) {
+						mark_region(yg, yg->mouse_win_x_p, yg->mouse_win_y_p, yg->mouse_window->width, yg->mouse_window->height);
+					}
 				}
 			} break;
 			case YUTANI_MSG_KEY_EVENT: {
@@ -724,7 +817,7 @@ int main(int argc, char * argv[]) {
 					/* XXX free window */
 					hashmap_remove(yg->wids_to_windows, (void *)wc->wid);
 					list_remove(yg->windows, list_index_of(yg->windows, w));
-					list_insert(yg->update_list, w);
+					mark_window(yg, w);
 					unorder_window(yg, w);
 					if (w == yg->focused_window) {
 						yg->focused_window = NULL;

@@ -120,6 +120,22 @@ typedef struct yutani_window {
 #define YUTANI_ZORDER_TOP    0xFFFF
 #define YUTANI_ZORDER_BOTTOM 0x0000
 
+#define YUTANI_MOUSE_BUTTON_LEFT   0x01
+#define YUTANI_MOUSE_BUTTON_RIGHT  0x02
+#define YUTANI_MOUSE_BUTTON_MIDDLE 0x04
+
+#define YUTANI_MOUSE_STATE_NORMAL     0
+#define YUTANI_MOUSE_STATE_MOVING     1
+#define YUTANI_MOUSE_STATE_DRAGGING   2
+#define YUTANI_MOUSE_STATE_RESIZING   3
+
+typedef struct {
+	int x;
+	int y;
+	unsigned int width;
+	unsigned int height;
+} yutani_damage_rect_t;
+
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type);
 yutani_msg_t * yutani_poll(yutani_t * y);
 
