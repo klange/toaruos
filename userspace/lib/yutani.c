@@ -133,7 +133,7 @@ yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid) {
 	return msg;
 }
 
-yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event) {
+yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event, key_event_state_t * state) {
 	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_key_event);
 	yutani_msg_t * msg = malloc(s);
 
@@ -145,6 +145,7 @@ yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event)
 
 	mw->wid = wid;
 	memcpy(&mw->event, event, sizeof(key_event_t));
+	memcpy(&mw->state, state, sizeof(key_event_state_t));
 
 	return msg;
 }

@@ -542,10 +542,12 @@ void * handle_incoming(void * garbage) {
 	key_event_t event;
 	char c;
 
+	key_event_state_t kbd_state = {0};
+
 	while (!exit_application) {
 		int r = read(kfd, &c, 1);
 		if (r > 0) {
-			int ret = kbd_scancode(c, &event);
+			int ret = kbd_scancode(&kbd_state, c, &event);
 			key_event(ret, &event);
 		}
 	}

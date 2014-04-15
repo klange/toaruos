@@ -94,6 +94,7 @@ int error;
 int focus_next_scale = 0;
 int window_picker_index = 0;
 int take_screenshot_now = 0;
+static key_event_state_t kbd_state = {0};
 
 int management_mode = MODE_NORMAL;
 
@@ -1237,7 +1238,7 @@ void * process_requests(void * garbage) {
 			}
 		} else {
 
-			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && k_alt) {
+			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && kbd_state.k_alt) {
 				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
@@ -1255,7 +1256,7 @@ void * process_requests(void * garbage) {
 						make_top(_mouse_window);
 					}
 				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && k_alt) {
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && kbd_state.k_alt) {
 				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
@@ -1271,7 +1272,7 @@ void * process_requests(void * garbage) {
 						make_top(_mouse_window);
 					}
 				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !k_alt) {
+			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !kbd_state.k_alt) {
 				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
 				_mouse_window = focused_window();
 				if (_mouse_window) {
@@ -1403,12 +1404,13 @@ void * process_requests(void * garbage) {
 void * keyboard_input(void * garbage) {
 	int kfd = open("/dev/kbd", O_RDONLY);
 	char buf[1];
+
 	while (1) {
 		/* Read keyboard */
 		int r = read(kfd, buf, 1);
 		if (r > 0) {
 			w_keyboard_t packet;
-			packet.ret = kbd_scancode(buf[0], &packet.event);
+			packet.ret = kbd_scancode(&kbd_state, buf[0], &packet.event);
 			server_window_t * focused = focused_window();
 			if (!handle_key_press(&packet, focused)) {
 				if (focused) {

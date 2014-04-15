@@ -6,6 +6,7 @@
 #include "lib/list.h"
 #include "lib/hashmap.h"
 #include "lib/graphics.h"
+#include "lib/kbd.h"
 
 #define MOUSE_SCALE 3
 #define MOUSE_OFFSET_X 26
@@ -82,6 +83,8 @@ typedef struct {
 	int mouse_win_y_p;
 	int mouse_init_x;
 	int mouse_init_y;
+
+	key_event_state_t kbd_state;
 
 } yutani_globals_t;
 

@@ -290,13 +290,14 @@ void * keyboard_input(void * garbage) {
 
 	yutani_t * y = yutani_init();
 	key_event_t event;
+	key_event_state_t state = {0};
 
 	while (1) {
 		char buf[1];
 		int r = read(kfd, buf, 1);
 		if (r > 0) {
-			kbd_scancode(buf[0], &event);
-			yutani_msg_t * m = yutani_msg_build_key_event(0, &event);
+			kbd_scancode(&state, buf[0], &event);
+			yutani_msg_t * m = yutani_msg_build_key_event(0, &event, &state);
 			int result = yutani_msg_send(y, m);
 			free(m);
 		}
@@ -423,6 +424,8 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	/* Top and bottom windows can not be rotated. */
 	if (!window_is_top(yg, window) && !window_is_bottom(yg, window)) {
 		/* Calcuate radians from degrees */
+
+		/* XXX Window rotation is disabled until damage rects can take it into account */
 #if 0
 		double r = window->rotation * M_PI / 180.0;
 
@@ -606,13 +609,29 @@ static void mark_region(yutani_globals_t * yg, int x, int y, int width, int heig
 	spin_unlock(&yg->update_list_lock);
 }
 
+static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event * ke) {
+	yutani_server_window_t * focused = get_focused(yg);
+	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
+	if (focused) {
+		yutani_msg_t * response = yutani_msg_build_key_event(focused->wid, &ke->event, &ke->state);
+		pex_send(yg->server, focused->owner, response->size, (char *)response);
+		free(response);
+	}
+}
+
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
-	/* XXX handle focus change, drag, etc. */
+	yg->mouse_x += me->event.x_difference * 3;
+	yg->mouse_y -= me->event.y_difference * 3;
+
+	if (yg->mouse_x < 0) yg->mouse_x = 0;
+	if (yg->mouse_y < 0) yg->mouse_y = 0;
+	if (yg->mouse_x > (yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
+	if (yg->mouse_y > (yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
 
 	switch (yg->mouse_state) {
 		case YUTANI_MOUSE_STATE_NORMAL:
 			{
-				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (k_alt)) {
+				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 					yg->mouse_window = get_focused(yg);
 					if (yg->mouse_window) {
@@ -630,7 +649,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 							make_top(yg, yg->mouse_window);
 						}
 					}
-				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!k_alt)) {
+				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 				}
 			}
@@ -776,27 +795,11 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_KEY_EVENT: {
 				/* XXX Verify this is from a valid device client */
 				struct yutani_msg_key_event * ke = (void *)m->data;
-				yutani_server_window_t * focused = get_focused(yg);
-				if (focused) {
-					/* XXX focused window */
-					ke->wid = focused->wid;
-					pex_send(server, focused->owner, m->size, (char *)m);
-					/* XXX key loggers ;) */
-				}
+				handle_key_event(yg, ke);
 			} break;
 			case YUTANI_MSG_MOUSE_EVENT: {
 				/* XXX Verify this is from a valid device client */
 				struct yutani_msg_mouse_event * me = (void *)m->data;
-
-				yg->mouse_x += me->event.x_difference * 3;
-				yg->mouse_y -= me->event.y_difference * 3;
-
-				if (yg->mouse_x < 0) yg->mouse_x = 0;
-				if (yg->mouse_y < 0) yg->mouse_y = 0;
-				if (yg->mouse_x > (yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
-				if (yg->mouse_y > (yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
-
-				/* XXX Handle mouse events */
 				handle_mouse_event(yg, me);
 			} break;
 			case YUTANI_MSG_WINDOW_MOVE: {

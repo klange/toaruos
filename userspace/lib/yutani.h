@@ -66,6 +66,7 @@ struct yutani_msg_window_move {
 struct yutani_msg_key_event {
 	yutani_wid_t wid;
 	key_event_t event;
+	key_event_state_t state;
 };
 
 struct yutani_msg_window_stack {
@@ -144,7 +145,7 @@ yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height);
 yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height);
 yutani_msg_t * yutani_msg_build_window_init(yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
 yutani_msg_t * yutani_msg_build_flip(yutani_wid_t);
-yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event);
+yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event, key_event_state_t * state);
 yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event);
 yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
 yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);

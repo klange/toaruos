@@ -85,23 +85,27 @@ typedef struct {
 	unsigned char key; /* Key as a raw code, ready for reading, or \0 if it's not a good down strike / was a modifier change / etc/. */
 } key_event_t;
 
-int k_ctrl;
-int k_shift;
-int k_alt;
-int k_super;
+typedef struct {
+	int kbd_state;
+	int kbd_s_state;
 
-int kl_ctrl;
-int kl_shift;
-int kl_alt;
-int kl_super;
+	int k_ctrl;
+	int k_shift;
+	int k_alt;
+	int k_super;
 
-int kr_ctrl;
-int kr_shift;
-int kr_alt;
-int kr_super;
+	int kl_ctrl;
+	int kl_shift;
+	int kl_alt;
+	int kl_super;
 
-kbd_key_t kbd_key(unsigned char c);
-int       kbd_state;
-int kbd_scancode(unsigned char c, key_event_t * event);
+	int kr_ctrl;
+	int kr_shift;
+	int kr_alt;
+	int kr_super;
+} key_event_state_t;
+
+kbd_key_t kbd_key(key_event_state_t * state, unsigned char c);
+int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event);
 
 #endif

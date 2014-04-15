@@ -274,9 +274,11 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 	printf("\033[s");
 	fflush(stdout);
 
+	key_event_state_t kbd_state = {0};
+
 	/* Read keys */
 	while ((context.collected < context.requested) && (!context.newline)) {
-		uint32_t key_sym = kbd_key(fgetc(stdin));
+		uint32_t key_sym = kbd_key(&kbd_state, fgetc(stdin));
 		if (key_sym == KEY_NONE) continue;
 		switch (key_sym) {
 			case KEY_CTRL_C:
@@ -557,6 +559,7 @@ void reverse_search(rline_context_t * context) {
 	int start_at = 0;
 	fprintf(stderr, "\033[G\033[s");
 	fflush(stderr);
+	key_event_state_t kbd_state = {0};
 	while (1) {
 		/* Find matches */
 		char * match = "";
@@ -585,7 +588,8 @@ try_rev_search_again:
 		}
 		fprintf(stderr, "\033[u(reverse-i-search)`%s': %s\033[K", input, match);
 		fflush(stderr);
-		uint32_t key_sym = kbd_key(fgetc(stdin));
+
+		uint32_t key_sym = kbd_key(&kbd_state, fgetc(stdin));
 		switch (key_sym) {
 			case KEY_BACKSPACE:
 				if (collected > 0) {

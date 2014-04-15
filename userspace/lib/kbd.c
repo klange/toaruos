@@ -9,8 +9,6 @@
 
 #include "kbd.h"
 
-int kbd_state = 0;
-
 #define DEBUG_SCANCODES 0
 
 #define KEY_UP_MASK   0x80
@@ -124,12 +122,12 @@ char kbd_us_l2[128] = {
 /*
  * Converts from incoming terminal keys to kbd_keys
  */
-kbd_key_t kbd_key(unsigned char c) {
-	switch (kbd_state) {
+kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
+	switch (state->kbd_state) {
 		case KBD_NORMAL:
 			switch (c) {
 				case 0x1b:
-					kbd_state = KBD_ESC_A;
+					state->kbd_state = KBD_ESC_A;
 					return KEY_NONE;
 				default:
 					return c;
@@ -137,28 +135,28 @@ kbd_key_t kbd_key(unsigned char c) {
 		case KBD_ESC_A:
 			switch (c) {
 				case 0x5b:
-					kbd_state = KBD_ESC_B;
+					state->kbd_state = KBD_ESC_B;
 					return KEY_NONE;
 				default:
-					kbd_state = KBD_NORMAL;
+					state->kbd_state = KBD_NORMAL;
 					return c;
 			}
 		case KBD_ESC_B:
 			switch (c) {
 				case 0x41:
-					kbd_state = KBD_NORMAL;
+					state->kbd_state = KBD_NORMAL;
 					return KEY_ARROW_UP;
 				case 0x42:
-					kbd_state = KBD_NORMAL;
+					state->kbd_state = KBD_NORMAL;
 					return KEY_ARROW_DOWN;
 				case 0x43:
-					kbd_state = KBD_NORMAL;
+					state->kbd_state = KBD_NORMAL;
 					return KEY_ARROW_RIGHT;
 				case 0x44:
-					kbd_state = KBD_NORMAL;
+					state->kbd_state = KBD_NORMAL;
 					return KEY_ARROW_LEFT;
 				default:
-				kbd_state = KBD_NORMAL;
+				state->kbd_state = KBD_NORMAL;
 				return c;
 			}
 		default:
@@ -168,24 +166,7 @@ kbd_key_t kbd_key(unsigned char c) {
 	return KEY_BAD_STATE;
 }
 
-int kbd_s_state = 0;
-
-int k_ctrl  = 0;
-int k_shift = 0;
-int k_alt   = 0;
-int k_super = 0;
-
-int kl_ctrl  = 0;
-int kl_shift = 0;
-int kl_alt   = 0;
-int kl_super = 0;
-
-int kr_ctrl  = 0;
-int kr_shift = 0;
-int kr_alt   = 0;
-int kr_super = 0;
-
-int kbd_scancode(unsigned char c, key_event_t * event) {
+int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event) {
 	/* Convert scancodes to a series of keys */
 
 	event->keycode   = 0;
@@ -194,22 +175,22 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 	event->key       = 0;
 
 #if DEBUG_SCANCODES
-	fprintf(stderr, "[%d] %d\n", kbd_s_state, (int)c);
+	fprintf(stderr, "[%d] %d\n", state->kbd_s_state, (int)c);
 #endif
 
-	event->modifiers |= kl_ctrl  ? KEY_MOD_LEFT_CTRL   : 0;
-	event->modifiers |= kl_shift ? KEY_MOD_LEFT_SHIFT  : 0;
-	event->modifiers |= kl_alt   ? KEY_MOD_LEFT_ALT    : 0;
-	event->modifiers |= kl_super ? KEY_MOD_LEFT_SUPER  : 0;
+	event->modifiers |= state->kl_ctrl  ? KEY_MOD_LEFT_CTRL   : 0;
+	event->modifiers |= state->kl_shift ? KEY_MOD_LEFT_SHIFT  : 0;
+	event->modifiers |= state->kl_alt   ? KEY_MOD_LEFT_ALT    : 0;
+	event->modifiers |= state->kl_super ? KEY_MOD_LEFT_SUPER  : 0;
 
-	event->modifiers |= kr_ctrl  ? KEY_MOD_RIGHT_CTRL  : 0;
-	event->modifiers |= kr_shift ? KEY_MOD_RIGHT_SHIFT : 0;
-	event->modifiers |= kr_alt   ? KEY_MOD_RIGHT_ALT   : 0;
-	event->modifiers |= kr_super ? KEY_MOD_RIGHT_SUPER : 0;
+	event->modifiers |= state->kr_ctrl  ? KEY_MOD_RIGHT_CTRL  : 0;
+	event->modifiers |= state->kr_shift ? KEY_MOD_RIGHT_SHIFT : 0;
+	event->modifiers |= state->kr_alt   ? KEY_MOD_RIGHT_ALT   : 0;
+	event->modifiers |= state->kr_super ? KEY_MOD_RIGHT_SUPER : 0;
 
-	if (!kbd_s_state) {
+	if (!state->kbd_s_state) {
 		if (c == 0xE0) {
-			kbd_s_state = 1;
+			state->kbd_s_state = 1;
 			/* Literally nothing */
 			return 0;
 		}
@@ -226,7 +207,7 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 			case norm:
 				{
 					event->keycode = kbd_us[c];
-					if (k_ctrl) {
+					if (state->k_ctrl) {
 						int out = (int)(kbd_us_l2[c] - KEY_CTRL_MASK);
 						if (out < 0 || out > 0x1F) {
 							event->key = kbd_us[c];
@@ -234,7 +215,7 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 							event->key = out;
 						}
 					} else {
-						event->key = k_shift ? kbd_us_l2[c] : kbd_us[c];
+						event->key = state->k_shift ? kbd_us_l2[c] : kbd_us[c];
 					}
 				}
 				break;
@@ -245,23 +226,23 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 						event->keycode = KEY_ESCAPE;
 						break;
 					case 0x1D:
-						k_ctrl   = down;
-						kl_ctrl  = down;
+						state->k_ctrl   = down;
+						state->kl_ctrl  = down;
 						SET_UNSET(event->modifiers, KEY_MOD_LEFT_CTRL, down);
 						break;
 					case 0x2A:
-						k_shift  = down;
-						kl_shift = down;
+						state->k_shift  = down;
+						state->kl_shift = down;
 						SET_UNSET(event->modifiers, KEY_MOD_LEFT_SHIFT, down);
 						break;
 					case 0x36:
-						k_shift  = down;
-						kr_shift = down;
+						state->k_shift  = down;
+						state->kr_shift = down;
 						SET_UNSET(event->modifiers, KEY_MOD_RIGHT_SHIFT, down);
 						break;
 					case 0x38:
-						k_alt    = down;
-						kl_alt   = down;
+						state->k_alt    = down;
+						state->kl_alt   = down;
 						SET_UNSET(event->modifiers, KEY_MOD_LEFT_ALT, down);
 						break;
 					default:
@@ -317,7 +298,7 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 		}
 
 		return 0;
-	} else if (kbd_s_state == 1) {
+	} else if (state->kbd_s_state == 1) {
 
 		if (c & KEY_UP_MASK) {
 			c ^= KEY_UP_MASK;
@@ -329,23 +310,23 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 		int down = (event->action == KEY_ACTION_DOWN);
 		switch (c) {
 			case 0x5B:
-				k_super  = down;
-				kl_super = down;
+				state->k_super  = down;
+				state->kl_super = down;
 				SET_UNSET(event->modifiers, KEY_MOD_LEFT_SUPER, down);
 				break;
 			case 0x5C:
-				k_super  = down;
-				kr_super = down;
+				state->k_super  = down;
+				state->kr_super = down;
 				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_SUPER, down);
 				break;
 			case 0x1D:
-				kr_ctrl  = down;
-				k_ctrl   = down;
+				state->kr_ctrl  = down;
+				state->k_ctrl   = down;
 				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_CTRL, down);
 				break;
 			case 0x38:
-				kr_alt   = down;
-				k_alt    = down;
+				state->kr_alt   = down;
+				state->k_alt    = down;
 				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_ALT, down);
 				break;
 			case 0x48:
@@ -370,7 +351,7 @@ int kbd_scancode(unsigned char c, key_event_t * event) {
 				break;
 		}
 
-		kbd_s_state = 0;
+		state->kbd_s_state = 0;
 		return 0;
 	}
 	return 0;
