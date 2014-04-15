@@ -32,6 +32,8 @@ static list_t *   ttk_objects = NULL;
 #define TTK_BUTTON_STATE_NORMAL  0
 #define TTK_BUTTON_STATE_DOWN    1
 
+cairo_surface_t * internal_surface;
+
 /*
  * Core TTK GUI object
  */
@@ -334,8 +336,6 @@ void keep_drawing(struct yutani_msg_window_mouse_event * mouse) {
 	int new_y = mouse->new_y - ((ttk_object *)drawing_surface)->y;
 
 	{
-		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, drawing_surface->surface->width);
-		cairo_surface_t * internal_surface = cairo_image_surface_create_for_data(drawing_surface->surface->backbuffer, CAIRO_FORMAT_ARGB32, drawing_surface->surface->width, drawing_surface->surface->height, stride);
 		cairo_t * cr = cairo_create(internal_surface);
 
 		cairo_set_source_rgb(cr, _RED(drawing_color) / 255.0, _GRE(drawing_color) / 255.0, _BLU(drawing_color) / 255.0);
@@ -347,7 +347,27 @@ void keep_drawing(struct yutani_msg_window_mouse_event * mouse) {
 		cairo_stroke(cr);
 
 		cairo_destroy(cr);
-		cairo_surface_destroy(internal_surface);
+	}
+
+	{
+		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, wina->width);
+		cairo_surface_t * core_surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, wina->width, wina->height, stride);
+		cairo_t * cr = cairo_create(core_surface);
+
+		cairo_rectangle(cr, ((ttk_object*)drawing_surface)->x, ((ttk_object*)drawing_surface)->y, ((ttk_object*)drawing_surface)->width, ((ttk_object*)drawing_surface)->height);
+		cairo_clip(cr);
+
+		cairo_set_source_rgb(cr, _RED(drawing_color) / 255.0, _GRE(drawing_color) / 255.0, _BLU(drawing_color) / 255.0);
+		cairo_set_line_width(cr, thickness);
+
+		cairo_move_to(cr, old_x + ((ttk_object*)drawing_surface)->x, old_y + ((ttk_object*)drawing_surface)->y);
+		cairo_line_to(cr, new_x + ((ttk_object*)drawing_surface)->x, new_y + ((ttk_object*)drawing_surface)->y);
+
+		cairo_stroke(cr);
+		cairo_destroy(cr);
+		cairo_surface_destroy(core_surface);
+
+		flip(ctx);
 	}
 
 }
@@ -416,6 +436,9 @@ int main (int argc, char ** argv) {
 	drawing_surface = ttk_raw_surface_new(width - 30, height - 70);
 	((ttk_object *)drawing_surface)->y = 60;
 
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, drawing_surface->surface->width);
+	internal_surface = cairo_image_surface_create_for_data(drawing_surface->surface->backbuffer, CAIRO_FORMAT_ARGB32, drawing_surface->surface->width, drawing_surface->surface->height, stride);
+
 	drawing_color = rgb(255,0,0);
 
 	ttk_render();
@@ -448,6 +471,8 @@ int main (int argc, char ** argv) {
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
 						if (me->command == YUTANI_MOUSE_EVENT_DRAG && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 							keep_drawing(me);
+							yutani_flip(yctx, wina);
+						} else if (me->command == YUTANI_MOUSE_EVENT_RAISE) {
 							ttk_render();
 						} else {
 							ttk_check_click(me);
