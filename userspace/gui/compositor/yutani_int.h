@@ -87,6 +87,9 @@ typedef struct {
 	int mouse_drag_button;
 	int mouse_moved;
 
+	int32_t mouse_click_x;
+	int32_t mouse_click_y;
+
 	key_event_state_t kbd_state;
 
 } yutani_globals_t;

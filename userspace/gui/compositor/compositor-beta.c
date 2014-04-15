@@ -127,6 +127,8 @@ static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t
 	*out_x = x - window->x;
 	*out_y = y - window->y;
 
+	if (!window->rotation) return;
+
 	double t_x = *out_x - (window->width / 2);
 	double t_y = *out_y - (window->height / 2);
 
@@ -771,8 +773,17 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 						}
 					}
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
+					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+					yg->mouse_window = get_focused(yg);
 					yg->mouse_moved = 0;
+					yg->mouse_drag_button = YUTANI_MOUSE_BUTTON_LEFT;
+					device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+					yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_DOWN);
+					pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+					free(response);
+				} else {
+					/* XXX Arbitrary mouse movement, not dragging */
 				}
 			}
 			break;
@@ -792,9 +803,31 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 		case YUTANI_MOUSE_STATE_DRAGGING:
 			{
 				if (!(me->event.buttons & yg->mouse_drag_button)) {
-
+					/* Mouse released */
+					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+					int32_t old_x = yg->mouse_click_x;
+					int32_t old_y = yg->mouse_click_y;
+					device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+					if (!yg->mouse_moved) {
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_CLICK);
+						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+						free(response);
+					} else {
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_RAISE);
+						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+						free(response);
+					}
 				} else {
-					
+					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
+					yg->mouse_moved = 1;
+					int32_t old_x = yg->mouse_click_x;
+					int32_t old_y = yg->mouse_click_y;
+					device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+					if (old_x != yg->mouse_click_x || old_y != yg->mouse_click_y) {
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_DRAG);
+						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+						free(response);
+					}
 				}
 			}
 			break;

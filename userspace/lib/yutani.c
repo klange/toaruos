@@ -215,6 +215,27 @@ yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focuse
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_window_mouse_event(yutani_wid_t wid, int32_t new_x, int32_t new_y, int32_t old_x, int32_t old_y, uint8_t buttons, uint8_t command) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_mouse_event);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_MOUSE_EVENT;
+	msg->size  = s;
+
+	struct yutani_msg_window_mouse_event * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->new_x = new_x;
+	mw->new_y = new_y;
+	mw->old_x = old_x;
+	mw->old_y = old_y;
+	mw->buttons = buttons;
+	mw->command = command;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
