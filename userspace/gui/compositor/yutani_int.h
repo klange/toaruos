@@ -29,13 +29,15 @@ typedef struct {
 	signed long y;
 	unsigned short z;
 
-	uint32_t width;
-	uint32_t height;
+	int32_t width;
+	int32_t height;
 
 	uint8_t * buffer;
 	uint32_t bufid;
 
 	uint32_t owner;
+
+	int16_t  rotation;
 } yutani_server_window_t;
 
 typedef struct {
@@ -79,10 +81,11 @@ typedef struct {
 
 	int mouse_win_x;
 	int mouse_win_y;
-	int mouse_win_x_p;
-	int mouse_win_y_p;
 	int mouse_init_x;
 	int mouse_init_y;
+
+	int mouse_drag_button;
+	int mouse_moved;
 
 	key_event_state_t kbd_state;
 

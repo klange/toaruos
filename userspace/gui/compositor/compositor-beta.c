@@ -95,6 +95,14 @@ static int parse_args(int argc, char * argv[], int * out) {
 	return 0;
 }
 
+int32_t min(int32_t a, int32_t b) {
+	return (a < b) ? a : b;
+}
+
+int32_t max(int32_t a, int32_t b) {
+	return (a > b) ? a : b;
+}
+
 static void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
 		syscall_yield();
@@ -113,6 +121,44 @@ static int next_buf_id(void) {
 static int next_wid(void) {
 	static int _next = 1;
 	return _next++;
+}
+
+static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+	*out_x = x - window->x;
+	*out_y = y - window->y;
+
+	double t_x = *out_x - (window->width / 2);
+	double t_y = *out_y - (window->height / 2);
+
+	double s = sin(-M_PI * (window->rotation/ 180.0));
+	double c = cos(-M_PI * (window->rotation/ 180.0));
+
+	double n_x = t_x * c - t_y * s;
+	double n_y = t_x * s + t_y * c;
+
+	*out_x = (int32_t)n_x + (window->width / 2);
+	*out_y = (int32_t)n_y + (window->height / 2);
+}
+
+static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+
+	if (!window->rotation) {
+		*out_x = window->x + x;
+		*out_y = window->y + y;
+		return;
+	}
+
+	double t_x = x - (window->width / 2);
+	double t_y = y - (window->height / 2);
+
+	double s = sin(M_PI * (window->rotation/ 180.0));
+	double c = cos(M_PI * (window->rotation/ 180.0));
+
+	double n_x = t_x * c - t_y * s;
+	double n_y = t_x * s + t_y * c;
+
+	*out_x = (int32_t)n_x + (window->width / 2) + window->x;
+	*out_y = (int32_t)n_y + (window->height / 2) + window->y;
 }
 
 static void rebalance_windows(yutani_globals_t * yg) {
@@ -246,6 +292,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->width = width;
 	win->height = height;
 	win->bufid = next_buf_id();
+	win->rotation = 0;
 
 	char key[1024];
 	YUTANI_SHMKEY(key, 1024, win);
@@ -426,22 +473,22 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 		/* Calcuate radians from degrees */
 
 		/* XXX Window rotation is disabled until damage rects can take it into account */
-#if 0
-		double r = window->rotation * M_PI / 180.0;
+		if (window->rotation != 0) {
+			double r = M_PI * (((double)window->rotation) / 180.0);
 
-		/* Rotate the render context about the center of the window */
-		cairo_translate(cr, (int)( window->width / 2), (int)( window->height / 2));
-		cairo_rotate(cr, r);
-		cairo_translate(cr, (int)(-window->width / 2), (int)(-window->height / 2));
+			/* Rotate the render context about the center of the window */
+			cairo_translate(cr, (int)( window->width / 2), (int)( (int)window->height / 2));
+			cairo_rotate(cr, r);
+			cairo_translate(cr, (int)(-window->width / 2), (int)(-window->height / 2));
 
-		/* Rotate the selectbuffer context about the center of the window */
-		cairo_translate(cs, (int)( window->width / 2), (int)( window->height / 2));
-		cairo_rotate(cs, r);
-		cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
+			/* Rotate the selectbuffer context about the center of the window */
+			cairo_translate(cs, (int)( window->width / 2), (int)( window->height / 2));
+			cairo_rotate(cs, r);
+			cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
 
-		/* Prefer faster filter when rendering rotated windows */
-		cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
-#endif
+			/* Prefer faster filter when rendering rotated windows */
+			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
+		}
 	}
 
 	/* Paint window */
@@ -465,6 +512,32 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	/* Restore context stack */
 	cairo_restore(cr);
 	cairo_restore(cs);
+
+#ifdef YUTANI_DEBUG_WINDOW_BOUNDS
+	cairo_save(cr);
+
+	int32_t t_x, t_y;
+	int32_t s_x, s_y;
+	int32_t r_x, r_y;
+	int32_t q_x, q_y;
+
+	window_to_device(window, 0, 0, &t_x, &t_y);
+	window_to_device(window, window->width, window->height, &s_x, &s_y);
+	window_to_device(window, 0, window->height, &r_x, &r_y);
+	window_to_device(window, window->width, 0, &q_x, &q_y);
+	cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.7);
+	cairo_set_line_width(cr, 2.0);
+
+	cairo_move_to(cr, t_x, t_y);
+	cairo_line_to(cr, s_x, s_y);
+	cairo_stroke(cr);
+
+	cairo_move_to(cr, r_x, r_y);
+	cairo_line_to(cr, q_x, q_y);
+	cairo_stroke(cr);
+
+	cairo_restore(cr);
+#endif
 
 	return 0;
 }
@@ -514,11 +587,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 */
 		for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
 			if (yg->zlist[i]) {
-				if (yg->zlist[i] == yg->mouse_window) {
-					yutani_blit_window(yg, yg->zlist[i], yg->mouse_win_x_p, yg->mouse_win_y_p);
-				} else {
-					yutani_blit_window(yg, yg->zlist[i], yg->zlist[i]->x, yg->zlist[i]->y);
-				}
+				yutani_blit_window(yg, yg->zlist[i], yg->zlist[i]->x, yg->zlist[i]->y);
 			}
 		}
 
@@ -587,10 +656,36 @@ void * redraw(void * in) {
 
 static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) {
 	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
-	rect->x = window->x;
-	rect->y = window->y;
-	rect->width = window->width;
-	rect->height = window->height;
+
+	if (window->rotation == 0) {
+		rect->x = window->x;
+		rect->y = window->y;
+		rect->width = window->width;
+		rect->height = window->height;
+	} else {
+		int32_t ul_x, ul_y;
+		int32_t ll_x, ll_y;
+		int32_t ur_x, ur_y;
+		int32_t lr_x, lr_y;
+
+		window_to_device(window, 0, 0, &ul_x, &ul_y);
+		window_to_device(window, 0, window->height, &ll_x, &ll_y);
+		window_to_device(window, window->width, 0, &ur_x, &ur_y);
+		window_to_device(window, window->width, window->height, &lr_x, &lr_y);
+
+		/* Calculate bounds */
+
+		int32_t left_bound = min(min(ul_x, ll_x), min(ur_x, lr_x));
+		int32_t top_bound  = min(min(ul_y, ll_y), min(ur_y, lr_y));
+
+		int32_t right_bound = max(max(ul_x, ll_x), max(ur_x, lr_x));
+		int32_t bottom_bound = max(max(ul_y, ll_y), max(ur_y, lr_y));
+
+		rect->x = left_bound;
+		rect->y = top_bound;
+		rect->width = right_bound - left_bound;
+		rect->height = bottom_bound - top_bound;
+	}
 
 	spin_lock(&yg->update_list_lock);
 	list_insert(yg->update_list, rect);
@@ -613,10 +708,38 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	yutani_server_window_t * focused = get_focused(yg);
 	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
 	if (focused) {
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.keycode == 'z')) {
+			mark_window(yg,focused);
+			focused->rotation -= 5;
+			mark_window(yg,focused);
+			return;
+		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.keycode == 'x')) {
+			mark_window(yg,focused);
+			focused->rotation += 5;
+			mark_window(yg,focused);
+			return;
+		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.keycode == 'c')) {
+			mark_window(yg,focused);
+			focused->rotation = 0;
+			mark_window(yg,focused);
+			return;
+		}
+
 		yutani_msg_t * response = yutani_msg_build_key_event(focused->wid, &ke->event, &ke->state);
 		pex_send(yg->server, focused->owner, response->size, (char *)response);
 		free(response);
+
 	}
+
+	/* Other events? */
 }
 
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
@@ -644,38 +767,35 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 							yg->mouse_init_y = yg->mouse_y;
 							yg->mouse_win_x  = yg->mouse_window->x;
 							yg->mouse_win_y  = yg->mouse_window->y;
-							yg->mouse_win_x_p = yg->mouse_win_x;
-							yg->mouse_win_y_p = yg->mouse_win_y;
 							make_top(yg, yg->mouse_window);
 						}
 					}
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+					yg->mouse_moved = 0;
 				}
 			}
 			break;
 		case YUTANI_MOUSE_STATE_MOVING:
 			{
 				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
-					yg->mouse_window->x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
-					yg->mouse_window->y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
-
 					yg->mouse_window = NULL;
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 				} else {
-					int _x_p = yg->mouse_win_x_p;
-					int _y_p = yg->mouse_win_y_p;
-					yg->mouse_win_x_p = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
-					yg->mouse_win_y_p = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
 					mark_window(yg, yg->mouse_window);
-					mark_region(yg, yg->mouse_win_x_p, yg->mouse_win_y_p, yg->mouse_window->width, yg->mouse_window->height);
-					mark_region(yg, _x_p, _y_p, yg->mouse_window->width, yg->mouse_window->height);
+					yg->mouse_window->x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
+					yg->mouse_window->y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
+					mark_window(yg, yg->mouse_window);
 				}
 			}
 			break;
 		case YUTANI_MOUSE_STATE_DRAGGING:
 			{
+				if (!(me->event.buttons & yg->mouse_drag_button)) {
 
+				} else {
+					
+				}
 			}
 			break;
 		case YUTANI_MOUSE_STATE_RESIZING:
@@ -764,6 +884,7 @@ int main(int argc, char * argv[]) {
 
 		if (m->magic != YUTANI_MSG__MAGIC) {
 			fprintf(stderr, "[yutani-server] Message has bad magic. (Should eject client, but will instead skip this message.) 0x%x\n", m->magic);
+			free(p);
 			continue;
 		}
 
@@ -787,9 +908,6 @@ int main(int argc, char * argv[]) {
 				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
 				if (w) {
 					mark_window(yg, w);
-					if (w == yg->mouse_window) {
-						mark_region(yg, yg->mouse_win_x_p, yg->mouse_win_y_p, yg->mouse_window->width, yg->mouse_window->height);
-					}
 				}
 			} break;
 			case YUTANI_MSG_KEY_EVENT: {
