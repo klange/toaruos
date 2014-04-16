@@ -32,8 +32,6 @@ int center_y(int y) {
 	return (win_height - y) / 2;
 }
 
-static int event_pipe;
-
 typedef struct {
 	char * icon;
 	char * appname;
@@ -54,7 +52,6 @@ void sig_int(int sig) {
 	printf("Received shutdown signal in wallpaper!\n");
 	_continue = 0;
 	char buf = '1';
-	write(event_pipe, &buf, 1);
 }
 
 void launch_application(char * app) {
@@ -70,9 +67,8 @@ void launch_application(char * app) {
 
 char * next_run_activate = NULL;
 
-#if 0
-void wallpaper_check_click(w_mouse_t * evt) {
-	if (evt->command == WE_MOUSECLICK) {
+void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
+	if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
 		printf("Click!\n");
 		if (evt->new_x > ICON_X && evt->new_x < ICON_X + ICON_WIDTH) {
 			uint32_t i = 0;
@@ -83,9 +79,7 @@ void wallpaper_check_click(w_mouse_t * evt) {
 				if ((evt->new_y > ICON_TOP_Y + ICON_SPACING_Y * i) &&
 					(evt->new_y < ICON_TOP_Y + ICON_SPACING_Y + ICON_SPACING_Y * i)) {
 					printf("Launching application \"%s\"...\n", applications[i].title);
-					next_run_activate = applications[i].appname;
-					char buf = '1';
-					write(event_pipe, &buf, 1);
+					launch_application(applications[i].appname);
 				}
 				++i;
 			}
@@ -93,7 +87,6 @@ void wallpaper_check_click(w_mouse_t * evt) {
 		}
 	}
 }
-#endif
 
 void init_sprite_png(int i, char * filename) {
 	sprites[i] = malloc(sizeof(sprite_t));
@@ -174,9 +167,8 @@ int main (int argc, char ** argv) {
 	while (1) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
-			if (m->type == YUTANI_MSG_MOUSE_EVENT) {
-				/* Do something */
-
+			if (m->type == YUTANI_MSG_WINDOW_MOUSE_EVENT) {
+				wallpaper_check_click((struct yutani_msg_window_mouse_event *)m->data);
 			}
 			free(m);
 		}
