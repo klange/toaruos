@@ -73,6 +73,11 @@ yutani_t * yctx = NULL;
 
 term_state_t * ansi_state = NULL;
 
+int32_t l_x = -1;
+int32_t l_y = -1;
+int32_t r_x = -1;
+int32_t r_y = -1;
+
 void reinit(); /* Defined way further down */
 void term_redraw_cursor();
 
@@ -86,7 +91,6 @@ uint32_t window_height = 408;
 char   terminal_title[TERMINAL_TITLE_SIZE];
 size_t terminal_title_length = 0;
 gfx_context_t * ctx;
-volatile int needs_redraw = 1;
 static void render_decors();
 void term_clear();
 void resize_callback(yutani_window_t * window);
@@ -98,6 +102,16 @@ wchar_t box_chars[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽�
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
 volatile int exit_application = 0;
+
+static void display_flip(void) {
+	if (l_x >= 0 && l_y >= 0) {
+		yutani_flip_region(yctx, window, l_x, l_y, r_x - l_x, r_y - l_y);
+		l_x = -1;
+		r_x = -1;
+		l_y = -1;
+		r_y = -1;
+	}
+}
 
 static void set_term_font_size(float s) {
 	scale_fonts  = 1;
@@ -138,7 +152,10 @@ static void render_decors() {
 		} else {
 			render_decorations(window, ctx, "Terminal");
 		}
-		yutani_flip(yctx, window);
+		l_x = 0; l_y = 0;
+		r_x = window->width;
+		r_y = window->height;
+		display_flip();
 	}
 }
 
@@ -333,7 +350,17 @@ _extra_stuff:
 			term_set_point(x + j, y + (char_height - 1), _fg);
 		}
 	}
-	needs_redraw = 1;
+
+	if (l_x == -1 || l_x > x) l_x = x;
+	if (l_y == -1 || l_y > y) l_y = y;
+	if (flags & ANSI_WIDE) {
+		if (r_x == -1 || r_x < x + char_width * 2) r_x = x + char_width * 2;
+		if (r_y == -1 || r_y < y + char_height * 2) r_y = y + char_height * 2;
+	} else {
+		if (r_x == -1 || r_x < x + char_width) r_x = x + char_width;
+		if (r_y == -1 || r_y < y + char_height) r_y = y + char_height;
+	}
+
 }
 
 static void cell_set(uint16_t x, uint16_t y, uint16_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
@@ -684,7 +711,7 @@ void flip_cursor() {
 	} else {
 		render_cursor();
 	}
-	yutani_flip(yctx, window);
+	display_flip();
 	cursor_flipped = 1 - cursor_flipped;
 }
 
@@ -751,12 +778,12 @@ uint32_t child_pid = 0;
 
 void handle_input(char c) {
 	write(fd_master, &c, 1);
-	yutani_flip(yctx, window);
+	display_flip();
 }
 
 void handle_input_s(char * c) {
 	write(fd_master, c, strlen(c));
-	yutani_flip(yctx, window);
+	display_flip();
 }
 
 void key_event(int ret, key_event_t * event) {
@@ -1180,7 +1207,7 @@ int main(int argc, char ** argv) {
 			for (uint32_t i = 0; i < r; ++i) {
 				ansi_put(ansi_state, buf[i]);
 			}
-			yutani_flip(yctx, window);
+			display_flip();
 		}
 
 	}
