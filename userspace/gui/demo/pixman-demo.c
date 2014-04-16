@@ -1,19 +1,23 @@
 #include <stdio.h>
 #include <pixman.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 
+static yutani_t * yctx;
+static yutani_window_t * window;
+static gfx_context_t * ctx;
+
 int main(int argc, char * argv[]) {
-	setup_windowing();
 
 #define WIDTH 400
 #define HEIGHT 400
 #define TILE_SIZE 25
 
-	window_t * window = window_create(100,100,WIDTH,HEIGHT);
-	gfx_context_t * ctx = init_graphics_window(window);
-	window_enable_alpha(window);
+	yctx = yutani_init();
+	window = yutani_window_create(yctx,WIDTH,HEIGHT);
+	yutani_window_move(yctx, window, 100, 100);
+	ctx = init_graphics_yutani(window);
 	draw_fill(ctx, rgba(0,0,0,255));
 
 	pixman_image_t *checkerboard;
@@ -76,17 +80,29 @@ int main(int argc, char * argv[]) {
 	uint32_t * buf = pixman_image_get_data(destination);
 	memcpy(ctx->buffer,buf,WIDTH*HEIGHT*4);
 
+	yutani_flip(yctx, window);
+
 	while (1) {
-		w_keyboard_t * kbd = poll_keyboard();
-		if (kbd != NULL) {
-			if (kbd->key == 'q') {
-				break;
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+							free(m);
+							goto done;
+						}
+					}
+					break;
+				default:
+					break;
 			}
-			free(kbd);
 		}
+		free(m);
 	}
 
-	teardown_windowing();
-
+done:
+	yutani_close(yctx, window);
 	return 0;
 }

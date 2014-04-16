@@ -2,11 +2,12 @@
 #include <stdio.h>
 #include <cairo.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 
-window_t * window;
-gfx_context_t * ctx;
+static yutani_t * yctx;
+static yutani_window_t * window;
+static gfx_context_t * ctx;
 
 void render() {
 	draw_fill(ctx, rgba(0,0,0,127));
@@ -38,40 +39,45 @@ void render() {
 	cairo_destroy(cr);
 	cairo_surface_flush(surface);
 	cairo_surface_destroy(surface);
-}
 
-void resize_callback(window_t * win) {
-	reinit_graphics_window(ctx, window);
-	render();
+	yutani_flip(yctx, window);
 }
-
 
 int main(int argc, char * argv[]) {
-	setup_windowing();
 
 	int width  = 500;
 	int height = 500;
 
-	resize_window_callback = resize_callback;
-	window = window_create(100,100,500,500);
-	ctx = init_graphics_window(window);
+	yctx = yutani_init();
+	window = yutani_window_create(yctx,500,500);
+	yutani_window_move(yctx, window, 100, 100);
+	ctx = init_graphics_yutani(window);
 	draw_fill(ctx, rgba(0,0,0,127));
-	window_enable_alpha(window);
 
 	render();
 
 	while (1) {
-		w_keyboard_t * kbd = poll_keyboard();
-		if (kbd != NULL) {
-			if (kbd->key == 'q') {
-				break;
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+							free(m);
+							goto done;
+						}
+					}
+					break;
+				default:
+					break;
 			}
-			free(kbd);
 		}
+		free(m);
 	}
 
-
-	teardown_windowing();
+done:
+	yutani_close(yctx, window);
 
 	return 0;
 }
