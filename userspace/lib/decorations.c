@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 #include "graphics.h"
-#include "window.h"
+#include "yutani.h"
 #include "decorations.h"
 #include "shmemfonts.h"
 
@@ -45,9 +45,9 @@ static void init_sprite_png(int id, char * path) {
 	load_sprite_png(sprites[id], path);
 }
 
-static void (*render_decorations_)(window_t *, gfx_context_t *, char *, int) = NULL;
+static void (*render_decorations_)(yutani_window_t *, gfx_context_t *, char *, int) = NULL;
 
-static void render_decorations_simple(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
+static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
 	for (uint32_t i = 0; i < window->height; ++i) {
 		GFX(ctx, 0, i) = BORDERCOLOR;
@@ -80,7 +80,7 @@ static void initialize_simple() {
 	render_decorations_ = render_decorations_simple;
 }
 
-static void render_decorations_fancy(window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
+static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 	int width = window->width;
 	int height = window->height;
 
@@ -158,7 +158,7 @@ static void initialize_fancy() {
 	render_decorations_ = render_decorations_fancy;
 }
 
-void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
+void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
 	if (!window->focused) {
 		render_decorations_(window, ctx, title, INACTIVE);
@@ -167,7 +167,7 @@ void render_decorations(window_t * window, gfx_context_t * ctx, char * title) {
 	}
 }
 
-void render_decorations_inactive(window_t * window, gfx_context_t * ctx, char * title) {
+void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
 	render_decorations_(window, ctx, title, INACTIVE);
 }

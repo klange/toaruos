@@ -10,6 +10,7 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
+#include "yutani.h"
 #include "graphics.h"
 #include "shmemfonts.h"
 #include "utf8decode.h"
@@ -46,14 +47,14 @@ static void _load_font_f(int i, char * path) {
 }
 
 static void _load_fonts() {
-	_load_font(FONT_SANS_SERIF,             WINS_SERVER_IDENTIFIER ".fonts.sans-serif");
-	_load_font(FONT_SANS_SERIF_BOLD,        WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bold");
-	_load_font(FONT_SANS_SERIF_ITALIC,      WINS_SERVER_IDENTIFIER ".fonts.sans-serif.italic");
-	_load_font(FONT_SANS_SERIF_BOLD_ITALIC, WINS_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic");
-	_load_font(FONT_MONOSPACE,              WINS_SERVER_IDENTIFIER ".fonts.monospace");
-	_load_font(FONT_MONOSPACE_BOLD,         WINS_SERVER_IDENTIFIER ".fonts.monospace.bold");
-	_load_font(FONT_MONOSPACE_ITALIC,       WINS_SERVER_IDENTIFIER ".fonts.monospace.italic");
-	_load_font(FONT_MONOSPACE_BOLD_ITALIC,  WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic");
+	_load_font(FONT_SANS_SERIF,             YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif");
+	_load_font(FONT_SANS_SERIF_BOLD,        YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif.bold");
+	_load_font(FONT_SANS_SERIF_ITALIC,      YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif.italic");
+	_load_font(FONT_SANS_SERIF_BOLD_ITALIC, YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic");
+	_load_font(FONT_MONOSPACE,              YUTANI_SERVER_IDENTIFIER ".fonts.monospace");
+	_load_font(FONT_MONOSPACE_BOLD,         YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bold");
+	_load_font(FONT_MONOSPACE_ITALIC,       YUTANI_SERVER_IDENTIFIER ".fonts.monospace.italic");
+	_load_font(FONT_MONOSPACE_BOLD_ITALIC,  YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bolditalic");
 	_load_font_f(FONT_JAPANESE, "/usr/share/fonts/VLGothic.ttf");
 }
 

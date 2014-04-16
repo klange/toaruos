@@ -8,7 +8,7 @@
 #define DECORATIONS_H
 
 #include "graphics.h"
-#include "window.h"
+#include "yutani.h"
 
 uint32_t decor_top_height;
 uint32_t decor_bottom_height;
@@ -22,8 +22,8 @@ uint32_t decor_right_width;
  * Run me at least once for each window, and any time you may need to
  * redraw them.
  */
-void render_decorations(window_t * window, gfx_context_t * ctx, char * title);
-void render_decorations_inactive(window_t * window, gfx_context_t * ctx, char * title);
+void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title);
+void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title);
 
 /*
  * Run me once to set things up

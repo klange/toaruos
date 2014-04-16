@@ -21,7 +21,7 @@ yutani_window_t * wina;
 yutani_t * yctx;
 
 /* Active TTK window XXX */
-static window_t * ttk_window = NULL;
+static yutani_window_t * ttk_window = NULL;
 
 /* TTK Window's objects XXX */
 static list_t *   ttk_objects = NULL;
@@ -214,7 +214,7 @@ void ttk_render() {
 	ttk_window_t _window;
 	ttk_window_t * window = &_window;
 
-	window_t _wina;
+	yutani_window_t _wina;
 	_wina.buffer = wina->buffer;
 	_wina.width = wina->width;
 	_wina.height = wina->height;
@@ -265,7 +265,7 @@ void ttk_render() {
 	yutani_flip(yctx, wina);
 }
 
-void setup_ttk(window_t * window) {
+void setup_ttk(yutani_window_t * window) {
 	ttk_window = window;
 	ttk_objects = list_create();
 	init_shmemfonts();
@@ -388,7 +388,7 @@ int main (int argc, char ** argv) {
 	draw_fill(ctx, rgb(255,255,255));
 	init_decorations();
 
-	window_t _wina;
+	yutani_window_t _wina;
 	_wina.buffer = wina->buffer;
 	_wina.width = wina->width;
 	_wina.height = wina->height;

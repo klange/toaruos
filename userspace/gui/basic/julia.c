@@ -14,9 +14,11 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/decorations.h"
+
+#define DIRECT_OFFSET(x,y) ((x) + (y) * window->width)
 
 /*
  * Macros make verything easier.
@@ -26,8 +28,9 @@
 #define GFX_(xpt, ypt) ((uint32_t *)window->buffer)[DIRECT_OFFSET(xpt+decor_left_width,ypt+decor_top_height)]
 
 /* Pointer to graphics memory */
-window_t * window = NULL;
-gfx_context_t * ctx = NULL;
+static yutani_t * yctx;
+static yutani_window_t * window = NULL;
+static gfx_context_t * ctx = NULL;
 
 /* Julia fractals elements */
 float conx = -0.74;  /* real part of c */
@@ -150,8 +153,11 @@ void redraw() {
 		} while ( i < width );
 		++j;
 	} while ( j < height );
+
+	yutani_flip(yctx, window);
 }
 
+#if 0
 void resize_callback(window_t * win) {
 	width  = win->width  - decor_left_width - decor_right_width;
 	height = win->height - decor_top_height - decor_bottom_height;
@@ -163,6 +169,7 @@ void resize_callback(window_t * win) {
 void focus_callback(window_t * win) {
 	redraw();
 }
+#endif
 
 
 int main(int argc, char * argv[]) {
@@ -224,34 +231,46 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	setup_windowing();
-	resize_window_callback = resize_callback;
+	yctx = yutani_init();
 
-	window = window_create(left, top, width + decor_width(), height + decor_height());
+	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
+	yutani_window_move(yctx, window, left, top);
 	init_decorations();
-	focus_changed_callback = focus_callback;
 
-	ctx = init_graphics_window(window);
+	ctx = init_graphics_yutani(window);
 
 	redraw();
 
 	int playing = 1;
 	while (playing) {
-		char ch = 0;
-		w_keyboard_t * kbd = poll_keyboard();
-
-		if (kbd) {
-			switch (kbd->key) {
-				case 'q':
-					playing = 0;
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+							playing = 0;
+						}
+					}
 					break;
+				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					{
+						struct yutani_msg_window_focus_change * wf = (void*)m->data;
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						if (win) {
+							win->focused = wf->focused;
+							redraw();
+						}
+					}
 				default:
 					break;
 			}
 		}
+		free(m);
 	}
 
-	teardown_windowing();
+	yutani_close(yctx, window);
 
 	return 0;
 }

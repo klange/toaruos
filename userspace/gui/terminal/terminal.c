@@ -32,7 +32,6 @@
 #include "lib/utf8decode.h"
 
 #include "lib/graphics.h"
-#include "lib/window.h"
 #include "lib/yutani.h"
 #include "lib/decorations.h"
 #include "lib/pthread.h"
@@ -133,16 +132,11 @@ void input_buffer_stuff(char * str) {
 
 static void render_decors() {
 	/* XXX Make the decorations library support Yutani windows */
-	window_t w;
-	w.buffer = window->buffer;
-	w.height = window->height;
-	w.width  = window->width;
-	w.focused = window->focused;
 	if (!_fullscreen) {
 		if (terminal_title_length) {
-			render_decorations(&w, ctx, terminal_title);
+			render_decorations(window, ctx, terminal_title);
 		} else {
-			render_decorations(&w, ctx, "Terminal");
+			render_decorations(window, ctx, "Terminal");
 		}
 		yutani_flip(yctx, window);
 	}
@@ -1111,16 +1105,16 @@ int main(int argc, char ** argv) {
 		char * font = NULL;
 		size_t s;
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bold", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bold", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.italic", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace.italic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", WINS_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
 
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);

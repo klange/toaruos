@@ -11,6 +11,8 @@
 
 /* TTK {{{ */
 
+static yutani_t * yctx;
+
 void cairo_rounded_rectangle(cairo_t * cr, double x, double y, double width, double height, double radius) {
 	double degrees = M_PI / 180.0;
 
@@ -306,8 +308,10 @@ void ttk_window_draw(ttk_window_t * window) {
 	}
 
 	flip(window->core_context);
+	yutani_flip(yctx, window->core_window);
 }
 
+#if 0
 void ttk_resize_callback(window_t * window) {
 	ttk_window_t * window_ttk = NULL;
 
@@ -350,18 +354,12 @@ void ttk_focus_callback(window_t * window) {
 
 	ttk_window_draw(window_ttk);
 }
+#endif
 
 
 void ttk_initialize() {
 	/* Connect to the windowing server */
-	/* TODO handle errors */
-	setup_windowing();
-
-	/* Set up TTK callbacks */
-	resize_window_callback = ttk_resize_callback;
-	focus_changed_callback = ttk_focus_callback;
-
-	/* TODO more callbacks, keyboard, mouse */
+	yctx = yutani_init();
 
 	/* Initialize the decoration library */
 	init_decorations();
@@ -377,10 +375,11 @@ ttk_window_t * ttk_window_new(char * title, uint16_t width, uint16_t height) {
 	new_win->off_x  = decor_left_width;
 	new_win->off_y  = decor_top_height;
 
-	new_win->core_window = window_create(TTK_DEFAULT_X, TTK_DEFAULT_Y, new_win->width + decor_width(), new_win->height + decor_height());
+	new_win->core_window = yutani_window_create(yctx, new_win->width + decor_width(), new_win->height + decor_height());
+	yutani_window_move(yctx, new_win->core_window, TTK_DEFAULT_X, TTK_DEFAULT_Y);
 	assert(new_win->core_window && "Oh dear, I've failed to allocate a new window from the server. This is terrible.");
 
-	new_win->core_context = init_graphics_window_double_buffer(new_win->core_window);
+	new_win->core_context = init_graphics_yutani_double_buffer(new_win->core_window);
 	draw_fill(new_win->core_context, rgb(TTK_BACKGROUND_DEFAULT));
 
 	ttk_window_draw(new_win);
@@ -392,28 +391,25 @@ void ttk_quit() {
 	list_destroy(ttk_window_list);
 	list_free(ttk_window_list);
 	free(ttk_window_list);
-	teardown_windowing();
 }
 
 int ttk_run(ttk_window_t * window) {
 	while (1) {
-
-		char ch = 0;
-		w_keyboard_t * kbd;
-
-		while (kbd = poll_keyboard_async()) {
-			free(kbd);
-		}
-
-		kbd = poll_keyboard();
-		ch = kbd->key;
-		free(kbd);
-
-		switch (ch) {
-			case 'q':
-				goto done;
-			default:
-				break;
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+							goto done;
+						}
+					}
+					break;
+				default:
+					break;
+			}
+			free(m);
 		}
 	}
 

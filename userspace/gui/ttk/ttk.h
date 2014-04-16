@@ -9,13 +9,13 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/decorations.h"
 #include "lib/shmemfonts.h"
 
 typedef struct ttk_window {
-	window_t        * core_window;
+	yutani_window_t        * core_window;
 	gfx_context_t   * core_context;
 	char            * title;
 	cairo_surface_t * cairo_surface;
@@ -37,8 +37,6 @@ void _ttk_draw_button_select(cairo_t * cr, int x, int y, int width, int height, 
 void _ttk_draw_button_disabled(cairo_t * cr, int x, int y, int width, int height);
 void _ttk_draw_menu(cairo_t * cr, int x, int y, int width);
 void ttk_window_draw(ttk_window_t * window);
-void ttk_resize_callback(window_t * window);
-void ttk_focus_callback(window_t * window);
 void ttk_initialize();
 ttk_window_t * ttk_window_new(char * title, uint16_t width, uint16_t height);
 void ttk_quit();

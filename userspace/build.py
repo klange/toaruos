@@ -39,7 +39,7 @@ class CCompiler(object):
             '<zlib.h>':            (None, '-lz', ['<math.h>']),
             '<png.h>':             (None, '-lpng', ['<zlib.h>']),
             '<math.h>':            (None, TOOLCHAIN_PATH + '/lib/libm.a', []),
-            '"lib/decorations.h"': (None, 'lib/decorations.o', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/window.h"']),
+            '"lib/decorations.h"': (None, 'lib/decorations.o', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"']),
             '"lib/graphics.h"':    (None, 'lib/graphics.o',    ['<png.h>']),
             '"lib/kbd.h"':         (None, 'lib/kbd.o',         []),
             '"lib/list.h"':        (None, 'lib/list.o',        []),
@@ -51,7 +51,6 @@ class CCompiler(object):
             '"lib/pex.h"':         (None, 'lib/pex.o',         []),
             '"lib/shmemfonts.h"':  (None, 'lib/shmemfonts.o',  ['"lib/graphics.h"', '<ft2build.h>']),
             '"lib/wcwidth.h"':     (None, 'lib/wcwidth.o',     []),
-            '"lib/window.h"':      (None, 'lib/window.o',      ['"lib/pthread.h"', '"lib/list.h"']),
             '"lib/yutani.h"':      (None, 'lib/yutani.o',      ['"lib/pthread.h"', '"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
             '"gui/ttk/ttk.h"':     (None, 'gui/ttk/lib/ttk-core.o', ['"lib/decorations.h"', '<cairo.h>', '<math.h>']),
             '"gui/terminal/lib/termemu.h"':

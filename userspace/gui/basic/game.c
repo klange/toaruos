@@ -11,14 +11,14 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/decorations.h"
 
-sprite_t * sprites[128];
-window_t * window;
-
-gfx_context_t * ctx;
+static sprite_t * sprites[128];
+static yutani_t * yctx;
+static yutani_window_t * window;
+static gfx_context_t * ctx;
 
 #define WINDOW_SIZE 224
 int out_of_bounds(int x, int y) {
@@ -113,6 +113,7 @@ void display() {
 	draw_sprite(ctx, sprites[124 + direction], decor_left_width + raw_x_offset + map_x + CELL_SIZE * 4, decor_top_height + raw_y_offset + map_y + CELL_SIZE * 4);
 	render_decorations(window, ctx, "RPG Demo");
 	flip(ctx);
+	yutani_flip(yctx, window);
 }
 
 void transition(int nx, int ny) {
@@ -199,6 +200,7 @@ void init_sprite(int i, char * filename, char * alpha) {
 	sprites[i]->blank = 0x0;
 }
 
+#if 0
 void resize_callback(window_t * win) {
 	int _width  = win->width  - decor_left_width - decor_right_width;
 	int _height = win->height - decor_top_height - decor_bottom_height;
@@ -211,22 +213,19 @@ void resize_callback(window_t * win) {
 	draw_fill(ctx, rgb(0,0,0));
 	display();
 }
-
-void focus_callback() {
-	display();
-}
+#endif
 
 int main(int argc, char ** argv) {
-	setup_windowing();
 
-	resize_window_callback = resize_callback;
-	window = window_create(10,10, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
-	ctx = init_graphics_window_double_buffer(window);
+	yctx = yutani_init();
+	window = yutani_window_create(yctx, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
+	yutani_window_move(yctx, window, 10, 10);
+	ctx = init_graphics_yutani_double_buffer(window);
 	draw_fill(ctx,rgb(0,0,0));
 	flip(ctx);
+	yutani_flip(yctx, window);
 
 	init_decorations();
-	focus_changed_callback = focus_callback;
 
 	map_x = WINDOW_SIZE - (64 * 9) / 2;
 	map_y = WINDOW_SIZE - (64 * 9) / 2;
@@ -249,20 +248,36 @@ int main(int argc, char ** argv) {
 
 	display();
 
-
 	int playing = 1;
 	while (playing) {
 
-		char ch = 0;
-		w_keyboard_t * kbd;
+		char ch = '\0';
 
-		while (kbd = poll_keyboard_async()) {
-			free(kbd);
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							ch = ke->event.keycode;
+						}
+					}
+					break;
+				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					{
+						struct yutani_msg_window_focus_change * wf = (void*)m->data;
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						if (win) {
+							win->focused = wf->focused;
+							display();
+						}
+					}
+				default:
+					break;
+			}
 		}
-
-		kbd = poll_keyboard();
-		ch = kbd->key;
-		free(kbd);
+		free(m);
 
 		switch (ch) {
 			case 'q':
@@ -289,7 +304,7 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	teardown_windowing();
+	yutani_close(yctx, window);
 
 	return 0;
 }
