@@ -441,7 +441,7 @@ void * sbrk(uintptr_t increment) {
 	uintptr_t address = heap_end;
 
 	if (heap_end + increment > KERNEL_HEAP_INIT) {
-		debug_print(NOTICE, "Hit the end of available kernel heap, going to allocate more (at 0x%x, want to be at 0x%x)", heap_end, heap_end + increment);
+		debug_print(INFO, "Hit the end of available kernel heap, going to allocate more (at 0x%x, want to be at 0x%x)", heap_end, heap_end + increment);
 		for (uintptr_t i = heap_end; i < heap_end + increment; i += 0x1000) {
 			debug_print(INFO, "Allocating frame at 0x%x...", i);
 			alloc_frame(get_page(i, 0, kernel_directory), 1, 0);
