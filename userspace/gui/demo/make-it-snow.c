@@ -22,19 +22,24 @@
  */
 
 
+#include <syscall.h>
 #include <math.h>
 #include <stdio.h>
 #include <cairo.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
+#include "lib/pthread.h"
 #include "lib/list.h"
 
-window_t * window;
-gfx_context_t * ctx;
-list_t * snowflakes;
+static yutani_t * yctx;
+static yutani_window_t * window;
+static gfx_context_t * ctx;
+static int should_exit = 0;
 
-int width, height;
+static list_t * snowflakes;
+
+static int width, height;
 
 struct snowflake {
 	int x;
@@ -46,10 +51,10 @@ struct snowflake {
 #define item_width 64
 #define item_height 64
 
-int windspeed = 2;
-int gravity   = 5;
+static int windspeed = 2;
+static int gravity   = 5;
 
-struct snowflake * create_snowflake() {
+static struct snowflake * create_snowflake() {
 
 	struct snowflake * item = malloc(sizeof(struct snowflake));
 
@@ -120,7 +125,7 @@ struct snowflake * create_snowflake() {
 	return item;
 }
 
-void render() {
+static void render() {
 	/* Clear window */
 	draw_fill(ctx, rgba(0,0,0,0));
 
@@ -158,46 +163,64 @@ void render() {
 	flip(ctx);
 }
 
-void resize_callback(window_t * win) {
-	reinit_graphics_window(ctx, window);
-	render();
+void * draw_thread(void * garbage) {
+	(void)garbage;
+	while (!should_exit) {
+		render();
+		yutani_flip(yctx, window);
+		syscall_yield();
+	}
+	pthread_exit(0);
 }
 
-
 int main(int argc, char * argv[]) {
-	setup_windowing();
 
-	resize_window_callback = resize_callback;
+	yctx = yutani_init();
 
-	width  = wins_globals->server_width;
-	height = wins_globals->server_height;
+	width  = yctx->display_width;
+	height = yctx->display_height;
 
-	window = window_create(0,0,width,height);
-	ctx = init_graphics_window_double_buffer(window);
+	window = yutani_window_create(yctx,width,height);
+	ctx = init_graphics_yutani_double_buffer(window);
 	draw_fill(ctx, rgba(0,0,0,0));
 	flip(ctx);
-	window_enable_alpha(window);
+	yutani_flip(yctx, window);
 
 	snowflakes = list_create();
 	for (int i = 0; i < 100; ++i) {
 		list_insert(snowflakes, create_snowflake());
 	}
 
-	render();
+	pthread_t thread;
+	pthread_create(&thread, NULL, draw_thread, NULL);
 
-	while (1) {
-		w_keyboard_t * kbd = poll_keyboard_async();
-		if (kbd != NULL) {
-			if (kbd->key == 'q') {
-				break;
+	while (!should_exit) {
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							switch (ke->event.keycode) {
+								case 'q':
+									should_exit = 1;
+									free(m);
+									goto finish;
+							}
+						}
+					}
+					break;
+				default:
+					break;
 			}
-			free(kbd);
+			free(m);
 		}
-		render();
 	}
 
 
-	teardown_windowing();
+finish:
+	yutani_close(yctx, window);
 
 	return 0;
 }
