@@ -5,29 +5,37 @@
  */
 #include <stdlib.h>
 #include <assert.h>
+#include <syscall.h>
+#include <unistd.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
+#include "lib/pthread.h"
 
-int left, top, width, height;
-window_t * wina;
-gfx_context_t * ctx;
+static int left, top, width, height;
 
-int32_t min(int32_t a, int32_t b) {
+static yutani_t * yctx;
+static yutani_window_t * wina;
+static gfx_context_t * ctx;
+static int should_exit = 0;
+
+static int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
 }
 
-int32_t max(int32_t a, int32_t b) {
+static int32_t max(int32_t a, int32_t b) {
 	return (a > b) ? a : b;
 }
 
-void resize_callback(window_t * window) {
-	width  = window->width;
-	height = window->height;
-	reinit_graphics_window(ctx, wina);
-	draw_fill(ctx, rgb(0,0,0));
+void * draw_thread(void * garbage) {
+	(void)garbage;
+	while (!should_exit) {
+		draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
+		yutani_flip(yctx, wina);
+		usleep(16666);
+	}
+	pthread_exit(0);
 }
-
 
 int main (int argc, char ** argv) {
 	left   = 100;
@@ -35,29 +43,36 @@ int main (int argc, char ** argv) {
 	width  = 500;
 	height = 500;
 
-	setup_windowing();
-	resize_window_callback = resize_callback;
+	yctx = yutani_init();
+	wina = yutani_window_create(yctx, width, height);
+	yutani_window_move(yctx, wina, left, top);
 
-	/* Do something with a window */
-	wina = window_create(left, top, width, height);
-	assert(wina);
-
-	ctx = init_graphics_window(wina);
+	ctx = init_graphics_yutani(wina);
 	draw_fill(ctx, rgb(0,0,0));
 
-	int exit = 0;
-	while (!exit) {
-		w_keyboard_t * kbd = poll_keyboard_async();
-		if (kbd != NULL) {
-			if (kbd->key == 'q')
-				exit = 1;
-			free(kbd);
-		}
+	pthread_t thread;
+	pthread_create(&thread, NULL, draw_thread, NULL);
 
-		draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
+	while (!should_exit) {
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+							should_exit = 1;
+							syscall_yield();
+						}
+					}
+					break;
+				default:
+					break;
+			}
+		}
 	}
 
-	teardown_windowing();
+	yutani_close(yctx, wina);
 
 	return 0;
 }
