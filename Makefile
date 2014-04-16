@@ -114,8 +114,6 @@ term: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
-term-beta: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) start=--single-beta logtoserial=3 $(DISK_ROOT)"
 headless: system
 	${EMU} ${EMUARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
 headless-kvm: system
