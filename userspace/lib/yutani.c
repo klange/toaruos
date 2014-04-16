@@ -236,6 +236,25 @@ yutani_msg_t * yutani_msg_build_window_mouse_event(yutani_wid_t wid, int32_t new
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_flip_region(yutani_wid_t wid, int32_t x, int32_t y, int32_t width, int32_t height) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_flip_region);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_FLIP_REGION;
+	msg->size  = s;
+
+	struct yutani_msg_flip_region * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->x = x;
+	mw->y = y;
+	mw->width = width;
+	mw->height = height;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -302,6 +321,12 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 void yutani_flip(yutani_t * y, yutani_window_t * win) {
 	yutani_msg_t * m = yutani_msg_build_flip(win->wid);
 	int result = yutani_msg_send(y, m);
+	free(m);
+}
+
+void yutani_flip_region(yutani_t * yctx, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height) {
+	yutani_msg_t * m = yutani_msg_build_flip_region(win->wid, x, y, width, height);
+	int result = yutani_msg_send(yctx, m);
 	free(m);
 }
 

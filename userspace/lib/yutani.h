@@ -94,6 +94,14 @@ struct yutani_msg_mouse_event {
 	mouse_device_packet_t event;
 };
 
+struct yutani_msg_flip_region {
+	yutani_wid_t wid;
+	int32_t x;
+	int32_t y;
+	int32_t width;
+	int32_t height;
+};
+
 typedef struct yutani_window {
 	yutani_wid_t wid;
 
@@ -122,6 +130,7 @@ typedef struct yutani_window {
 #define YUTANI_MSG_WINDOW_STACK        0x0000000A
 #define YUTANI_MSG_WINDOW_FOCUS_CHANGE 0x0000000B
 #define YUTANI_MSG_WINDOW_MOUSE_EVENT  0x0000000C
+#define YUTANI_MSG_FLIP_REGION         0x0000000D
 #define YUTANI_MSG_GOODBYE             0x000000F0
 
 /* Server responses */
@@ -176,6 +185,7 @@ void yutani_flip(yutani_t * y, yutani_window_t * win);
 void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
 void yutani_close(yutani_t * y, yutani_window_t * win);
 void yutani_set_stack(yutani_t *, yutani_window_t *, int);
+void yutani_flip_region(yutani_t *, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height);
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);

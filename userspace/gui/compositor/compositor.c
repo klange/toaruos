@@ -694,6 +694,45 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) 
 	spin_unlock(&yg->update_list_lock);
 }
 
+static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t * window, int32_t x, int32_t y, int32_t width, int32_t height) {
+	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+
+	if (window->rotation == 0) {
+		rect->x = window->x + x;
+		rect->y = window->y + y;
+		rect->width = width;
+		rect->height = height;
+	} else {
+		int32_t ul_x, ul_y;
+		int32_t ll_x, ll_y;
+		int32_t ur_x, ur_y;
+		int32_t lr_x, lr_y;
+
+		window_to_device(window, x, y, &ul_x, &ul_y);
+		window_to_device(window, x, y + height, &ll_x, &ll_y);
+		window_to_device(window, x + width, y, &ur_x, &ur_y);
+		window_to_device(window, x + width, y + height, &lr_x, &lr_y);
+
+		/* Calculate bounds */
+
+		int32_t left_bound = min(min(ul_x, ll_x), min(ur_x, lr_x));
+		int32_t top_bound  = min(min(ul_y, ll_y), min(ur_y, lr_y));
+
+		int32_t right_bound = max(max(ul_x, ll_x), max(ur_x, lr_x));
+		int32_t bottom_bound = max(max(ul_y, ll_y), max(ur_y, lr_y));
+
+		rect->x = left_bound;
+		rect->y = top_bound;
+		rect->width = right_bound - left_bound;
+		rect->height = bottom_bound - top_bound;
+	}
+
+	spin_lock(&yg->update_list_lock);
+	list_insert(yg->update_list, rect);
+	spin_unlock(&yg->update_list_lock);
+}
+
+
 static void mark_region(yutani_globals_t * yg, int x, int y, int width, int height) {
 	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
 	rect->x = x;
@@ -944,6 +983,13 @@ int main(int argc, char * argv[]) {
 				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
 				if (w) {
 					mark_window(yg, w);
+				}
+			} break;
+			case YUTANI_MSG_FLIP_REGION: {
+				struct yutani_msg_flip_region * wf = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
+				if (w) {
+					mark_window_relative(yg, w, wf->x, wf->y, wf->width, wf->height);
 				}
 			} break;
 			case YUTANI_MSG_KEY_EVENT: {
