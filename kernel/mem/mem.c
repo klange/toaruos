@@ -17,6 +17,7 @@
 extern void *end;
 uintptr_t placement_pointer = (uintptr_t)&end;
 uintptr_t heap_end = (uintptr_t)NULL;
+uintptr_t kernel_heap_alloc_point = KERNEL_HEAP_INIT;
 
 void
 kmalloc_startat(
@@ -272,12 +273,20 @@ void paging_finalize(void) {
 	isrs_install_handler(14, page_fault);
 	kernel_directory->physical_address = (uintptr_t)kernel_directory->physical_tables;
 
+	uintptr_t tmp_heap_start = KERNEL_HEAP_INIT;
+
+	if (tmp_heap_start <= placement_pointer + 0x3000) {
+		debug_print(ERROR, "Foo: 0x%x, 0x%x", tmp_heap_start, placement_pointer + 0x3000);
+		tmp_heap_start = placement_pointer + 0x100000;
+		kernel_heap_alloc_point = tmp_heap_start;
+	}
+
 	/* Kernel Heap Space */
-	for (uintptr_t i = placement_pointer + 0x3000; i < KERNEL_HEAP_INIT; i += 0x1000) {
+	for (uintptr_t i = placement_pointer + 0x3000; i < tmp_heap_start; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 1, 0);
 	}
 	/* And preallocate the page entries for all the rest of the kernel heap as well */
-	for (uintptr_t i = KERNEL_HEAP_INIT; i < KERNEL_HEAP_END; i += 0x1000) {
+	for (uintptr_t i = tmp_heap_start; i < KERNEL_HEAP_END; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}
 
@@ -440,7 +449,7 @@ void * sbrk(uintptr_t increment) {
 	assert((heap_end + increment <= KERNEL_HEAP_END - 1) && "The kernel has attempted to allocate beyond the end of its heap.");
 	uintptr_t address = heap_end;
 
-	if (heap_end + increment > KERNEL_HEAP_INIT) {
+	if (heap_end + increment > kernel_heap_alloc_point) {
 		debug_print(INFO, "Hit the end of available kernel heap, going to allocate more (at 0x%x, want to be at 0x%x)", heap_end, heap_end + increment);
 		for (uintptr_t i = heap_end; i < heap_end + increment; i += 0x1000) {
 			debug_print(INFO, "Allocating frame at 0x%x...", i);
