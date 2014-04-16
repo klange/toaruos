@@ -11,8 +11,9 @@
 #include <GL/osmesa.h>
 #include <GL/glext.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
+#include "lib/pthread.h"
 
 #define PI  3.141592654
 #define TAO 6.28318531
@@ -427,6 +428,21 @@ void mouse(int x, int y) {
 	y_light = (y - (float)(win_height / 2)) / ((float)win_height);
 }
 
+static yutani_t * yctx;
+static yutani_window_t * wina;
+static gfx_context_t * ctx;
+
+void * draw_thread(void * glctx) {
+	while (!quit) {
+		display();
+		flip(ctx);
+		yutani_flip(yctx, wina);
+		syscall_yield();
+	}
+
+	pthread_exit(0);
+}
+
 
 int main(int argc, char** argv) {
 	/* default values */
@@ -466,22 +482,11 @@ int main(int argc, char** argv) {
 
 	printf("Press escape to exit.\n");
 
-	/* Initialize glut */
-#if 0
-	glutInit(&argc, argv);
-	glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-	/* Setup the window */
-	glutInitWindowSize (500, 500); 
-	glutInitWindowPosition (100, 100);
-	glutCreateWindow (argv[0]);
-#endif
-	setup_windowing();
-
-	/* Do something with a window */
-	window_t * wina = window_create(100,100,500,500);
-	gfx_context_t * ctx = init_graphics_window_double_buffer(wina);
+	yctx = yutani_init();
+	wina = yutani_window_create(yctx, 500, 500);
+	yutani_window_move(yctx, wina, 100, 100);
+	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgb(0,0,0));
-	win_sane_events();
 
 	OSMesaContext gl_ctx = OSMesaCreateContext(OSMESA_BGRA, NULL);
 	if (resize(ctx, gl_ctx)) {
@@ -491,55 +496,33 @@ int main(int argc, char** argv) {
 
 	/* Load up the file, set everything else up */
 	init (filename, diffuse, sphere);
-#if 0
-	/* Initialize the GLUT callbacks */
-	glutDisplayFunc(display); 
-	glutReshapeFunc(reshape);
-	glutKeyboardFunc(keyboard);
-	glutPassiveMotionFunc(mouse);
-	/* Let's do this. */
-	glutMainLoop();
-#endif
+
+	/* XXX add a method to query if there are available packets in pex */
+	pthread_t thread;
+	pthread_create(&thread, NULL, draw_thread, NULL);
 
 	while (!quit) {
-		wins_packet_t * event = get_window_events_async();
-		if (event) {
-			switch (event->command_type & WE_GROUP_MASK) {
-				case WE_WINDOW_EVT: {
-					w_window_t * evt = (w_window_t *)((uintptr_t)event + sizeof(wins_packet_t));
-					window_t * window = NULL;
-					switch (event->command_type) {
-						case WE_RESIZED:
-							window = wins_get_window(evt->wid);
-							if (window) {
-								/* Accept resize request */
-								resize_window_buffer_client(window, evt->left, evt->top, evt->width, evt->height);
-								/* Reinitialize core graphics library */
-								reinit_graphics_window(ctx, wina);
-								/* Fix up the GL context as well */
-								resize(ctx, gl_ctx);
-							}
-							break;
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							keyboard(ke->event.keycode, 0, 0);
+						}
 					}
 					break;
-				}
-				case WE_KEY_EVT: {
-					w_keyboard_t * kbd = (w_keyboard_t *)((uintptr_t)event + sizeof(wins_packet_t));
-					keyboard(kbd->event.keycode, 0, 0);
+				default:
 					break;
-				}
 			}
-			free(event);
+			free(m);
 		}
-
-		display();
-		flip(ctx);
-		syscall_yield();
 	}
 
 finish:
 	OSMesaDestroyContext(gl_ctx);
-	teardown_windowing();
+	yutani_close(yctx, wina);
 
 	return 0;
 }

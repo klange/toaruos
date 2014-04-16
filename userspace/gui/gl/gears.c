@@ -265,8 +265,6 @@ static gfx_context_t * ctx;
 static int should_exit = 0;
 
 void * draw_thread(void * glctx) {
-	OSMesaContext gl_ctx = (OSMesaContext)glctx;
-
 	while (!should_exit) {
 		fps();
 		angle += 0.2;
