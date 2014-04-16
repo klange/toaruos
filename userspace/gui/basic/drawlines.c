@@ -70,6 +70,7 @@ int main (int argc, char ** argv) {
 					break;
 			}
 		}
+		free(m);
 	}
 
 	yutani_close(yctx, wina);
