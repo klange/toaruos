@@ -73,8 +73,8 @@ yutani_t * yctx = NULL;
 
 term_state_t * ansi_state = NULL;
 
-int32_t l_x = -1;
-int32_t l_y = -1;
+int32_t l_x = INT32_MAX;
+int32_t l_y = INT32_MAX;
 int32_t r_x = -1;
 int32_t r_y = -1;
 
@@ -104,10 +104,10 @@ wchar_t box_chars[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽�
 volatile int exit_application = 0;
 
 static void display_flip(void) {
-	if (l_x >= 0 && l_y >= 0) {
+	if (l_x != INT32_MAX && l_y != INT32_MAX) {
 		yutani_flip_region(yctx, window, l_x, l_y, r_x - l_x, r_y - l_y);
-		l_x = -1;
-		r_x = -1;
+		l_x = INT32_MAX;
+		r_x = INT32_MAX;
 		l_y = -1;
 		r_y = -1;
 	}
@@ -351,14 +351,15 @@ _extra_stuff:
 		}
 	}
 
-	if (l_x == -1 || l_x > x) l_x = x;
-	if (l_y == -1 || l_y > y) l_y = y;
+	l_x = min(l_x, x);
+	l_y = min(l_y, y);
+
 	if (flags & ANSI_WIDE) {
-		if (r_x == -1 || r_x < x + char_width * 2) r_x = x + char_width * 2;
-		if (r_y == -1 || r_y < y + char_height * 2) r_y = y + char_height * 2;
+		r_x = max(r_x, x + char_width * 2);
+		r_y = max(r_y, y + char_height * 2);
 	} else {
-		if (r_x == -1 || r_x < x + char_width) r_x = x + char_width;
-		if (r_y == -1 || r_y < y + char_height) r_y = y + char_height;
+		r_x = max(r_x, x + char_width);
+		r_y = max(r_y, y + char_height);
 	}
 
 }
