@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include "graphics.h"
-#include "window.h"
 #include "../../kernel/include/video.h"
 
 #define PNG_DEBUG 3
@@ -67,37 +66,6 @@ gfx_context_t * init_graphics_fullscreen_double_buffer() {
 	if (!out) return NULL;
 	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
 	return out;
-}
-
-gfx_context_t * init_graphics_window(window_t * window) {
-	gfx_context_t * out = malloc(sizeof(gfx_context_t));
-	out->width  = window->width;
-	out->height = window->height;
-	out->depth  = 32;
-	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
-	out->buffer = window->buffer;
-	out->backbuffer = out->buffer;
-	return out;
-}
-
-gfx_context_t *  init_graphics_window_double_buffer(window_t * window) {
-	gfx_context_t * out = init_graphics_window(window);
-	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
-	return out;
-}
-
-void reinit_graphics_window(gfx_context_t * out, window_t * window) {
-	out->width  = window->width;
-	out->height = window->height;
-	out->depth  = 32;
-	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
-	if (out->buffer == out->backbuffer) {
-		out->buffer = window->buffer;
-		out->backbuffer = out->buffer;
-	} else {
-		out->buffer = window->buffer;
-		out->backbuffer = realloc(out->backbuffer, sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
-	}
 }
 
 gfx_context_t * init_graphics_sprite(sprite_t * sprite) {

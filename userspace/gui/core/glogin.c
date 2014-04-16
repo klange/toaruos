@@ -16,7 +16,6 @@
 
 #include "lib/sha2.h"
 #include "lib/graphics.h"
-#include "lib/window.h"
 #include "lib/shmemfonts.h"
 #include "lib/kbd.h"
 #include "lib/yutani.h"
@@ -36,14 +35,6 @@ struct timeval {
 	unsigned int tv_sec;
 	unsigned int tv_usec;
 };
-
-static window_t * _window_create(int x, int y, int w, int h) {
-	window_t * win = malloc(sizeof(window_t));
-	win->wid = 0;
-	win->width = w;
-	win->height = h;
-	win->buffer = malloc(w * h * 4);
-}
 
 #define LOGO_FINAL_OFFSET 100
 
@@ -359,47 +350,43 @@ int main (int argc, char ** argv) {
 				flip(ctx);
 				yutani_flip(y, wina);
 
-				w_keyboard_t * kbd = NULL;
+				struct yutani_msg_key_event kbd;
+				int tmp = 0;
 				do {
-					kbd = NULL;
 					yutani_msg_t * msg = yutani_poll(y);
 					if (msg->type == YUTANI_MSG_KEY_EVENT) {
 						struct yutani_msg_key_event * ke = (void*)msg->data;
 						if (ke->event.action == KEY_ACTION_DOWN) {
-							kbd = malloc(sizeof(w_keyboard_t));
-							kbd->key = ke->event.key;
+							memcpy(&kbd, ke, sizeof(struct yutani_msg_key_event));
+							tmp = 1;
 						}
 					}
 					free(msg);
-				} while (!kbd);
+				} while (!tmp);
 
-				if (kbd->key == '\n') {
+				if (kbd.event.keycode == '\n') {
 					if (focus == USERNAME_BOX) {
-						free(kbd);
 						focus = PASSWORD_BOX;
 						continue;
 					} else if (focus == PASSWORD_BOX) {
-						free(kbd);
 						break;
 					}
 				}
 
-				if (kbd->key == '\t') {
+				if (kbd.event.keycode == '\t') {
 					if (focus == USERNAME_BOX) {
 						focus = PASSWORD_BOX;
 					} else if (focus == PASSWORD_BOX) {
 						focus = USERNAME_BOX;
 					}
-					free(kbd);
 					continue;
 				}
 
 				if (focus == USERNAME_BOX) {
-					buffer_put(username, kbd->key);
+					buffer_put(username, kbd.event.keycode);
 				} else if (focus == PASSWORD_BOX) {
-					buffer_put(password, kbd->key);
+					buffer_put(password, kbd.event.keycode);
 				}
-				free(kbd);
 
 			}
 
