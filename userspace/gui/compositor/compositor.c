@@ -1,114 +1,107 @@
-/*
- * Compositor
- * 
- * This is the window compositor application.
- * It serves shared memory regions to clients
- * and renders them to the screen.
- */
-
 #include <stdio.h>
 #include <stdint.h>
 #include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
 #include <assert.h>
+#include <getopt.h>
 #include <sys/stat.h>
+
 #include <cairo.h>
-#include <signal.h>
 
-#include "lib/list.h"
 #include "lib/graphics.h"
-#include "lib/window.h"
 #include "lib/pthread.h"
+#include "lib/mouse.h"
 #include "lib/kbd.h"
+#include "lib/pex.h"
+#include "lib/yutani.h"
+#include "lib/hashmap.h"
+#include "lib/list.h"
 
-#include "../kernel/include/mouse.h"
+#include "yutani_int.h"
 
-#define SPRITE_COUNT 2
-#define WIN_D 32
-#define WIN_B (WIN_D / 8)
-#define MOUSE_SCALE 3
-#define MOUSE_OFFSET_X 26
-#define MOUSE_OFFSET_Y 26
-#define SPRITE_MOUSE 1
-#define WINDOW_LAYERS 0x10000
-#define FONT_PATH "/usr/share/fonts/"
-#define FONT(a,b) {WINS_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
-#define BUFFER_SAFE_ZONE 7680
-
-#define MODE_NORMAL        0x001
-#define MODE_SCALE         0x002
-#define MODE_WINDOW_PICKER 0x003
-
-#define SCREENSHOT_WHOLE_SCREEN 1
-#define SCREENSHOT_THIS_WINDOW  2
-
-unsigned int tick_count = 0;
-
-int animation_lengths[] = {
-	0,
-	256,
-	256,
-	256,
-	10000,
+struct {
+	int nested;
+	int nest_width;
+	int nest_height;
+} yutani_options = {
+	.nested = 0,
+	.nest_width = 0,
+	.nest_height = 0
 };
 
-struct font_def {
-	char * identifier;
-	char * path;
-};
+static int usage(char * argv[]) {
+	fprintf(stderr,
+			"Yutani - Window Compositor\n"
+			"\n"
+			"usage: %s [-n [-g WxH]] [-h]\n"
+			"\n"
+			" -n --nested     \033[3mRun in a window.\033[0m\n"
+			" -h --help       \033[3mShow this help message.\033[0m\n"
+			" -g --geometry   \033[3mSet the size of the server framebuffer.\033[0m\n"
+			"\n"
+			"  Yutani is the standard system compositor.\n"
+			"\n",
+			argv[0]);
+	return 1;
+}
 
-/* Non-public bits from window.h */
-extern FILE *fdopen(int fd, const char *mode);
+/**
+ * Parse arguments
+ */
+static int parse_args(int argc, char * argv[], int * out) {
+	static struct option long_opts[] = {
+		{"nest",       no_argument,       0, 'n'},
+		{"geometry",   required_argument, 0, 'g'},
+		{"help",       no_argument,       0, 'h'},
+		{0,0,0,0}
+	};
 
-void actually_destroy_window(server_window_t * win);
+	int index, c;
+	while ((c = getopt_long(argc, argv, "hg:n", long_opts, &index)) != -1) {
+		if (!c) {
+			if (long_opts[index].flag == 0) {
+				c = long_opts[index].val;
+			}
+		}
+		switch (c) {
+			case 'h':
+				return usage(argv);
+			case 'n':
+				yutani_options.nested = 1;
+				break;
+			case 'g':
+				{
+					char * c = strstr(optarg, "x");
+					if (c) {
+						*c = '\0';
+						c++;
+						yutani_options.nest_width  = atoi(optarg);
+						yutani_options.nest_height = atoi(c);
+					}
+				}
+				break;
+			default:
+				fprintf(stderr, "Unrecognized option: %c\n", c);
+				break;
+		}
+	}
+	*out = optind;
+	return 0;
+}
 
-server_window_t * focused = NULL;
-server_window_t * windows[WINDOW_LAYERS];
-sprite_t * sprites[SPRITE_COUNT];
-gfx_context_t * ctx;
-gfx_context_t * select_ctx;
-list_t * process_list;
-list_t * windows_to_clean;
-int32_t mouse_x, mouse_y;
-int32_t click_x, click_y;
-uint32_t mouse_discard = 0;
-volatile int am_drawing  = 0;
-server_window_t * moving_window = NULL;
-int32_t    moving_window_l = 0;
-int32_t    moving_window_t = 0;
-server_window_t * resizing_window = NULL;
-int32_t    resizing_window_w = 0;
-int32_t    resizing_window_h = 0;
-cairo_t * cr;
-cairo_t * cs;
-cairo_surface_t * surface;
-cairo_surface_t * selface;
-wid_t volatile _next_wid = 1;
-wins_server_global_t volatile * _request_page;
-int error;
-int focus_next_scale = 0;
-int window_picker_index = 0;
-int take_screenshot_now = 0;
-static key_event_state_t kbd_state = {0};
+int32_t min(int32_t a, int32_t b) {
+	return (a < b) ? a : b;
+}
 
-int management_mode = MODE_NORMAL;
-
-struct font_def fonts[] = {
-	FONT("sans-serif",            "DejaVuSans.ttf"),
-	FONT("sans-serif.bold",       "DejaVuSans-Bold.ttf"),
-	FONT("sans-serif.italic",     "DejaVuSans-Oblique.ttf"),
-	FONT("sans-serif.bolditalic", "DejaVuSans-BoldOblique.ttf"),
-	FONT("monospace",             "DejaVuSansMono.ttf"),
-	FONT("monospace.bold",        "DejaVuSansMono-Bold.ttf"),
-	FONT("monospace.italic",      "DejaVuSansMono-Oblique.ttf"),
-	FONT("monospace.bolditalic",  "DejaVuSansMono-BoldOblique.ttf"),
-	{NULL, NULL}
-};
+int32_t max(int32_t a, int32_t b) {
+	return (a > b) ? a : b;
+}
 
 static void spin_lock(int volatile * lock) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
@@ -120,135 +113,77 @@ static void spin_unlock(int volatile * lock) {
 	__sync_lock_release(lock);
 }
 
-void redraw_cursor() {
-	draw_sprite(ctx, sprites[SPRITE_MOUSE], mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+static int next_buf_id(void) {
+	static int _next = 1;
+	return _next++;
 }
 
-static server_window_t * get_window_with_process (process_windows_t * pw, wid_t wid) {
-	foreach (m, pw->windows) {
-		server_window_t * w = (server_window_t *)m->value;
-		if (w->wid == wid) {
-			return w;
-		}
+static int next_wid(void) {
+	static int _next = 1;
+	return _next++;
+}
+
+static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+	*out_x = x - window->x;
+	*out_y = y - window->y;
+
+	if (!window->rotation) return;
+
+	double t_x = *out_x - (window->width / 2);
+	double t_y = *out_y - (window->height / 2);
+
+	double s = sin(-M_PI * (window->rotation/ 180.0));
+	double c = cos(-M_PI * (window->rotation/ 180.0));
+
+	double n_x = t_x * c - t_y * s;
+	double n_y = t_x * s + t_y * c;
+
+	*out_x = (int32_t)n_x + (window->width / 2);
+	*out_y = (int32_t)n_y + (window->height / 2);
+}
+
+static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+
+	if (!window->rotation) {
+		*out_x = window->x + x;
+		*out_y = window->y + y;
+		return;
 	}
 
-	return NULL;
+	double t_x = x - (window->width / 2);
+	double t_y = y - (window->height / 2);
+
+	double s = sin(M_PI * (window->rotation/ 180.0));
+	double c = cos(M_PI * (window->rotation/ 180.0));
+
+	double n_x = t_x * c - t_y * s;
+	double n_y = t_x * s + t_y * c;
+
+	*out_x = (int32_t)n_x + (window->width / 2) + window->x;
+	*out_y = (int32_t)n_y + (window->height / 2) + window->y;
 }
 
-void init_process_list () {
-	process_list = list_create();
-	memset(windows, 0x00000000, sizeof(server_window_t *) * WINDOW_LAYERS);
-}
-
-void send_window_event (process_windows_t * pw, uint8_t event, w_window_t * packet) {
-	/* Construct the header */
-	wins_packet_t header;
-	header.magic = WINS_MAGIC;
-	header.command_type = event;
-	header.packet_size = sizeof(w_window_t);
-
-	/* Send them */
-	struct stat buf;
-	fstat(pw->event_pipe, &buf);
-
-	if (buf.st_size < BUFFER_SAFE_ZONE) {
-		write(pw->event_pipe, &header, sizeof(wins_packet_t));
-		write(pw->event_pipe, packet, sizeof(w_window_t));
-		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
-		syscall_yield();
-	} else {
-		fprintf(stderr, "[compositor] This client (pid=%d) is lagging, we are dropping WINDOW EVENTS!\n", pw->pid);
-		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
-		syscall_yield();
-	}
-}
-
-void send_keyboard_event (process_windows_t * pw, uint8_t event, w_keyboard_t packet) {
-	/* Construct the header */
-	wins_packet_t header;
-	header.magic = WINS_MAGIC;
-	header.command_type = event;
-	header.packet_size = sizeof(w_keyboard_t);
-
-	/* Send them */
-	struct stat buf;
-	fstat(pw->event_pipe, &buf);
-
-	if (buf.st_size < BUFFER_SAFE_ZONE) {
-		write(pw->event_pipe, &header, sizeof(wins_packet_t));
-		write(pw->event_pipe, &packet, sizeof(w_keyboard_t));
-		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
-		syscall_yield();
-	} else {
-		fprintf(stderr, "[compositor] This client (pid=%d) is lagging, we are dropping keyboard packets.\n", pw->pid);
-		kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
-		syscall_yield();
-	}
-}
-
-void send_mouse_event (process_windows_t * pw, uint8_t event, w_mouse_t * packet) {
-	/* Construct the header */
-	wins_packet_t header;
-	header.magic = WINS_MAGIC;
-	header.command_type = event;
-	header.packet_size = sizeof(w_mouse_t);
-
-	/* Send them */
-	struct stat buf;
-	fstat(pw->event_pipe, &buf);
-
-	if (buf.st_size < BUFFER_SAFE_ZONE) {
-		fwrite(&header, 1, sizeof(wins_packet_t), pw->event_pipe_file);
-		fwrite(packet,  1, sizeof(w_mouse_t),     pw->event_pipe_file);
-		fflush(pw->event_pipe_file);
-	} else {
-		fprintf(stderr, "[compositor] This client (pid=%d) is lagging, we are dropping mouse packets.\n", pw->pid);
-	}
-	//kill(pw->pid, SIGWINEVENT); // SIGWINEVENT
-	//syscall_yield();
-}
-
-
-int32_t min(int32_t a, int32_t b) {
-	return (a < b) ? a : b;
-}
-
-int32_t max(int32_t a, int32_t b) {
-	return (a > b) ? a : b;
-}
-
-uint8_t is_between(int32_t lo, int32_t hi, int32_t val) {
-	if (val >= lo && val < hi) return 1;
-	return 0;
-}
-
-server_window_t * top_at(uint16_t x, uint16_t y) {
-	uint32_t c = GFXR(select_ctx, x, y);
-	unsigned int w = (_GRE(c) << 8) | (_BLU(c));
-	return windows[w];
-}
-
-void rebalance_windows() {
+static void rebalance_windows(yutani_globals_t * yg) {
 	uint32_t i = 1;
-	for (; i < 0xFFF8; ++i) {
-		if (!windows[i]) break;
+	for (; i < YUTANI_ZORDER_TOP; ++i) {
+		if (!yg->zlist[i]) break;
 	}
 	uint32_t j = i + 1;
-	for (; j < 0xFFF8; ++j) {
-		if (!windows[j]) break;
+	for (; j < YUTANI_ZORDER_TOP; ++j) {
+		if (!yg->zlist[j]) break;
 	}
 	if (j == i + 1) {
 		return;
 	} else {
-		for (j = i; j < 0xFFF8; ++j) {
-			windows[j] = windows[j+1];
-			if (windows[j+1] == NULL) return;
-			windows[j]->z = j;
+		for (j = i; j < YUTANI_ZORDER_TOP; ++j) {
+			yg->zlist[j] = yg->zlist[j+1];
+			if (yg->zlist[j+1] == NULL) return;
+			yg->zlist[j]->z = j;
 		}
 	}
 }
 
-void reorder_window (server_window_t * window, uint16_t new_zed) {
+static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * window, uint16_t new_zed) {
 	if (!window) {
 		return;
 	}
@@ -256,775 +191,189 @@ void reorder_window (server_window_t * window, uint16_t new_zed) {
 	int z = window->z;
 	window->z = new_zed;
 
-	if (windows[z] == window) {
-		windows[z] = NULL;
+	if (yg->zlist[z] == window) {
+		yg->zlist[z] = NULL;
 	}
 
-	if (new_zed == 0 || new_zed == 0xFFFF) {
-		windows[new_zed] = window;
+	if (new_zed == 0 || new_zed == YUTANI_ZORDER_TOP) {
+		yg->zlist[new_zed] = window;
 		if (z != new_zed) {
-			rebalance_windows();
+			rebalance_windows(yg);
 		}
 		return;
 	}
 
-	if (windows[new_zed] != window) {
-		reorder_window(windows[new_zed], new_zed + 1);
-		windows[new_zed ] = window;
+	if (yg->zlist[new_zed] != window) {
+		reorder_window(yg, yg->zlist[new_zed], new_zed + 1);
+		yg->zlist[new_zed ] = window;
 	}
 	if (z != new_zed) {
-		rebalance_windows();
+		rebalance_windows(yg);
 	}
 }
 
+static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
+	if (yg->zlist[w->z] == w) {
+		yg->zlist[w->z] = NULL;
+	}
+	rebalance_windows(yg);
+}
 
-void make_top(server_window_t * window) {
-	uint16_t index = window->z;
-	if (index == 0)  return;
-	if (index == 0xFFFF) return;
-	uint16_t highest = 0;
+static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
+	unsigned short index = w->z;
 
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-		foreach(node, pw->windows) {
-			server_window_t * win = (server_window_t *)node->value;
-			if (win == window) continue;
-			if (win->z == 0)   continue;
-			if (win->z == 0xFFFF)  continue;
+	if (index == YUTANI_ZORDER_BOTTOM) return;
+	if (index == YUTANI_ZORDER_TOP) return;
+
+	unsigned short highest = 0;
+
+	for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
+		if (yg->zlist[i]) {
+			yutani_server_window_t * win = yg->zlist[i];
+
+			if (win == w) continue;
+			if (win->z == YUTANI_ZORDER_BOTTOM) continue;
+			if (win->z == YUTANI_ZORDER_TOP) continue;
 			if (highest < win->z) highest = win->z;
-			if (win == window) continue;
-			if (win->z > window->z) continue;
+			if (win->z > w->z) continue;
 		}
 	}
 
-	reorder_window(window, highest+1);
+	reorder_window(yg, w, highest + 1);
 }
 
-server_window_t * focused_window() {
-	if (!focused) {
-		return windows[0];
+static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w) {
+	if (w == yg->focused_window) {
+		return; /* Already focused */
+	}
+
+	if (yg->focused_window) {
+		/* XXX Send focus change to old focused window */
+		yutani_msg_t * response = yutani_msg_build_window_focus_change(yg->focused_window->wid, 0);
+		pex_send(yg->server, yg->focused_window->owner, response->size, (char *)response);
+		free(response);
+	}
+	yg->focused_window = w;
+	if (w) {
+		/* XXX Send focus change to new focused window */
+		yutani_msg_t * response = yutani_msg_build_window_focus_change(w->wid, 1);
+		pex_send(yg->server, w->owner, response->size, (char *)response);
+		free(response);
+		make_top(yg, w);
 	} else {
-		return focused;
+		/* XXX */
+		yg->focused_window = yg->zlist[0];
 	}
 }
 
-void set_focused_window(server_window_t * n_focused) {
-	if (n_focused == focused) {
-		return;
-	} else {
-		if (focused) {
-			w_window_t wwt;
-			wwt.wid  = focused->wid;
-			wwt.left = 0;
-			send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
-		}
-		focused = n_focused;
-		if (focused) {
-			w_window_t wwt;
-			wwt.wid  = focused->wid;
-			wwt.left = 1;
-			send_window_event(focused->owner, WE_FOCUSCHG, &wwt);
-			make_top(focused);
-		} else {
-			focused = windows[0];
-		}
-	}
-
+static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
+	if (yg->focused_window) return yg->focused_window;
+	return yg->zlist[0];
 }
 
-void set_focused_at(int x, int y) {
-	server_window_t * n_focused = top_at(x, y);
-	set_focused_window(n_focused);
+int best_z_option(yutani_globals_t * yg) {
+	for (int i = 1; i < YUTANI_ZORDER_TOP; ++i) {
+		if (!yg->zlist[i]) return i;
+	}
+	return -1;
 }
 
-server_window_t * init_window (process_windows_t * pw, wid_t wid, int32_t x, int32_t y, uint16_t width, uint16_t height, uint16_t index) {
 
-	server_window_t * window = malloc(sizeof(server_window_t));
-	if (!window) {
-		fprintf(stderr, "[%d] [window] Could not malloc a server_window_t!", getpid());
-		return NULL;
-	}
+static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner) {
+	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
 
-	window->owner = pw;
-	window->wid = wid;
-	window->bufid = 0;
+	win->wid = next_wid();
+	win->owner = owner;
+	list_insert(yg->windows, win);
+	hashmap_set(yg->wids_to_windows, (void*)win->wid, win);
 
-	window->width  = width;
-	window->height = height;
-	window->x = x;
-	window->y = y;
-	window->z = index;
-
-	window->rotation = 0;
+	win->x = 0;
+	win->y = 0;
+	win->z = best_z_option(yg);
+	yg->zlist[win->z] = win;
+	win->width = width;
+	win->height = height;
+	win->bufid = next_buf_id();
+	win->rotation = 0;
 
 	char key[1024];
-	SHMKEY(key, 1024, window);
+	YUTANI_SHMKEY(key, 1024, win);
 
-	size_t size = (width * height * WIN_B);
-	window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
-
-	if (!window->buffer) {
-		fprintf(stderr, "[%d] [window] Could not create a buffer for a new window for pid %d!", getpid(), pw->pid);
-		free(window);
-		return NULL;
-	}
-
-	list_insert(pw->windows, window);
-
-	return window;
+	size_t size = (width * height * 4);
+	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+	return win;
 }
 
-void free_window (server_window_t * window) {
-	/* Free the window buffer */
-	if (!window) return;
-	char key[256];
-	SHMKEY(key, 256, window);
-	syscall_shm_release(key);
-
-	/* Now, kill the object itself */
-	process_windows_t * pw = window->owner;
-
-	node_t * n = list_find(pw->windows, window);
-	if (n) {
-		list_delete(pw->windows, n);
-		free(n);
-	}
-}
-
-void resize_window_buffer (server_window_t * window, int16_t left, int16_t top, uint16_t width, uint16_t height) {
-
-	if (!window) {
-		return;
-	}
-	/* If the window has enlarged, we need to create a new buffer */
-	if ((width * height) > (window->width * window->height)) {
-		/* Release the old buffer */
-		char key[256], keyn[256];
-		SHMKEY(key, 256, window);
-
-		/* Create the new one */
-		window->bufid++;
-		SHMKEY(keyn, 256, window);
-
-		size_t size = (width * height * WIN_B);
-		char * new_buffer = (uint8_t *)syscall_shm_obtain(keyn, &size);
-		memset(new_buffer, 0x44, size);
-		window->buffer = new_buffer;
-		syscall_shm_release(key);
-	}
-
-	if (left != 0 && top != 0) {
-		window->x = left;
-		window->y = top;
-	}
-	window->width = width;
-	window->height = height;
-}
-
-
-void window_add (server_window_t * window) {
-	int z = window->z;
-	while (windows[z]) {
-		z++;
-	}
-	window->z = z;
-
-	window->anim_start = tick_count;
-	window->anim_mode  = 1;
-
-	memset(window->buffer, 0x00, WIN_B * window->width * window->height);
-
-	windows[z] = window;
-}
-
-void unorder_window (server_window_t * window) {
-	int z = window->z;
-	if (z < WINDOW_LAYERS && windows[z]) {
-		windows[z] = 0;
-	}
-	window->z = 0;
-	return;
-}
-
-void blit_window_cairo(server_window_t * window, int32_t left, int32_t top) {
-	int stride = window->width * 4; //cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, window->width);
-	cairo_surface_t * win = cairo_image_surface_create_for_data(window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
-
-	if (cairo_surface_status(win) != CAIRO_STATUS_SUCCESS) {
-		return;
-	}
-
-	assert(win);
-
-	cairo_save(cr);
-	cairo_save(cs);
-
-	cairo_translate(cr, left, top);
-	cairo_translate(cs, left, top);
-
-	if (window->z != 0xFFFF && window->z != 0) {
-		double r = window->rotation * M_PI / 180.0;
-		cairo_translate(cr, (int)( window->width / 2), (int)( window->height / 2));
-		cairo_rotate(cr, r);
-		cairo_translate(cr, (int)(-window->width / 2), (int)(-window->height / 2));
-
-		cairo_translate(cs, (int)( window->width / 2), (int)( window->height / 2));
-		cairo_rotate(cs, r);
-		cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
-		cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
-	}
-
-	if (window->anim_mode) {
-
-		int frame = tick_count - window->anim_start;
-		if (frame >= animation_lengths[window->anim_mode]) {
-			if (window->anim_mode == 1) {
-				window->anim_mode = 0;
-				window->anim_start = 0;
-				goto paint_window;
-			} else if (window->anim_mode == 2) {
-				window->anim_mode = 1;
-				window->anim_start = tick_count;
-			} else if (window->anim_mode == 3) {
-				window->anim_mode = 4;
-				list_insert(windows_to_clean, window);
-			}
-		} else {
-			if (window->anim_mode == 4) {
-				goto done_drawing;
-			}
-			if (window->anim_mode == 2) {
-				frame = 255 - frame;
-			}
-			if (window->anim_mode == 3) {
-				frame = 255 - frame;
-			}
-			double x = 0.75 + ((double)frame / 256.0) * 0.25;
-
-			int t_x = (window->width * (1.0 - x)) / 2;
-			int t_y = (window->height * (1.0 - x)) / 2;
-
-			if (window->z != 0xFFFF && window->z != 0) {
-				cairo_translate(cr, t_x, t_y);
-				cairo_scale(cr, x, x);
-			}
-			cairo_set_source_surface(cr, win, 0, 0);
-			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
-			cairo_paint_with_alpha(cr, (double)frame / 256.0);
-		}
-	} else {
-paint_window:
-		cairo_set_source_surface(cr, win, 0, 0);
-		cairo_paint(cr);
-	}
-
-done_drawing:
-
-	cairo_surface_destroy(win);
-
-	cairo_set_source_rgb(cs, 0, ((window->z & 0xFF00) >> 8) / 255.0, (window->z & 0xFF) / 255.0);
-	cairo_rectangle(cs, 0, 0, window->width, window->height);
-	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
-	cairo_fill(cs);
-
-
-	cairo_restore(cr);
-	cairo_restore(cs);
-}
-
-void redraw_scale_mode() {
-	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
-	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
-	selface = cairo_image_surface_create_for_data(select_ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
-	cr = cairo_create(surface);
-	cs = cairo_create(selface);
-
-	/* Draw background window */
-	if (windows[0]) {
-		blit_window_cairo(windows[0], windows[0]->x, windows[0]->y);
-	}
-
-	/* Draw panel window */
-	if (windows[WINDOW_LAYERS-1]) {
-		blit_window_cairo(windows[WINDOW_LAYERS-1], windows[WINDOW_LAYERS-1]->x, windows[WINDOW_LAYERS-1]->y);
-	}
-
-	/* Fade all of that out */
-	cairo_save(cr);
-	cairo_rectangle(cr, 0, 0, ctx->width, ctx->height);
-	cairo_set_source_rgba(cr, 0, 0, 0, 0.4);
-	cairo_fill(cr);
-	cairo_restore(cr);
-
-	int window_count = 0;
-	for (uint32_t i = 1; i < WINDOW_LAYERS - 1; ++i) {
-		if (windows[i]) {
-			window_count++;
-		}
-	}
-
-	int columns;
-	int rows;
-	switch (window_count) {
-		case 0:
-			management_mode = MODE_NORMAL;
-			goto _finish;
-		case 1:
-			columns = 1;
-			rows = 1;
-			break;
-		case 2:
-			columns = 2;
-			rows = 1;
-			break;
-		case 3:
-			columns = 3;
-			rows = 1;
-			break;
-		case 4:
-			columns = 2;
-			rows = 2;
-			break;
-		case 5:
-			columns = 3;
-			rows = 2;
-			break;
-		default:
-			{
-				double sqr = sqrt((double)window_count);
-				rows = (int)sqr;
-				columns = (window_count) / rows;
-				if (rows * columns < window_count) {
-					columns += 1;
-				}
-			}
-	}
-
-	double cell_height = (double)ctx->height / (double)rows;
-	double cell_width  = (double)ctx->width  / (double)columns;
-
-	int x = 0;
-	int y = 0;
-
-	double last_row_width = cell_width;
-
-	if (columns * rows > window_count) {
-		int remaining = window_count - (rows - 1) * columns;
-		last_row_width = (double)ctx->width / (double)remaining;
-	}
-
-	server_window_t * n_focus = NULL;
-
-	for (uint32_t i = 1; i < WINDOW_LAYERS - 1; ++i) {
-		if (windows[i]) {
-			server_window_t * window = windows[i];
-			int w = window->width;
-			int h = window->height;
-
-			int stride = window->width * 4;
-			cairo_surface_t * win = cairo_image_surface_create_for_data(window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
-
-			if (cairo_surface_status(win) != CAIRO_STATUS_SUCCESS) {
-				continue;
-			}
-
-			if (y == rows - 1) {
-				cell_width = last_row_width;
-			}
-
-			cairo_save(cr);
-
-			double y_scale = cell_height / (double)h;
-			double x_scale = cell_width  / (double)w;
-
-			cairo_translate(cr, cell_width * x, cell_height * y);
-			if (x_scale < y_scale) {
-				cairo_translate(cr, 0, (cell_height - h * x_scale) / 2);
-				cairo_scale(cr, x_scale, x_scale);
-			} else {
-				cairo_translate(cr, (cell_width - w * y_scale) / 2, 0);
-				cairo_scale(cr, y_scale, y_scale);
-			}
-			cairo_set_source_surface(cr, win, 0, 0);
-			if ((x_scale < y_scale && x_scale < 1.0) || (x_scale > y_scale && y_scale < 1.0)) {
-				cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
-			} else {
-				cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_GOOD);
-			}
-
-			if (mouse_x / MOUSE_SCALE >= x * cell_width &&
-				mouse_x / MOUSE_SCALE < x * cell_width + cell_width &&
-				mouse_y / MOUSE_SCALE >= y * cell_height &&
-				mouse_y / MOUSE_SCALE < y * cell_height + cell_height) {
-				cairo_paint(cr);
-
-				if (focus_next_scale) {
-					n_focus = window;
-					management_mode = MODE_NORMAL;
-				}
-			} else {
-				cairo_paint_with_alpha(cr, 0.7);
-			}
-			cairo_surface_destroy(win);
-
-			cairo_restore(cr);
-
-			x++;
-			if (x == columns) {
-				y++;
-				x = 0;
-			}
-		}
-	}
-
-	if (focus_next_scale) {
-		set_focused_window(n_focus);
-		focus_next_scale = 0;
-	}
-
-_finish:
-	cairo_surface_flush(surface);
-	cairo_destroy(cr);
-	cairo_surface_flush(surface);
-	cairo_surface_destroy(surface);
-
-	cairo_surface_flush(selface);
-	cairo_destroy(cs);
-	cairo_surface_destroy(selface);
-}
-
-void redraw_windows() {
-	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
-	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
-
-	selface = cairo_image_surface_create_for_data(select_ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
-	cr = cairo_create(surface);
-	cs = cairo_create(selface);
-
-	for (uint32_t i = 0; i < WINDOW_LAYERS; ++i) {
-		server_window_t * window = NULL;
-		if (windows[i]) {
-			window = windows[i];
-			if (window == moving_window) {
-				blit_window_cairo(moving_window, moving_window_l, moving_window_t);
-			} else {
-				blit_window_cairo(window, window->x, window->y);
-			}
-		}
-	}
-
-	/* Resizing window outline */
-	if (resizing_window) {
-		cairo_save(cr);
-
-		cairo_set_line_width(cr, 3);
-		cairo_set_source_rgba(cr, 0.0, 0.4, 1.0, 0.9);
-		cairo_rectangle(cr, resizing_window->x, resizing_window->y, resizing_window_w, resizing_window_h);
-		cairo_stroke_preserve(cr);
-		cairo_set_source_rgba(cr, 0.33, 0.55, 1.0, 0.5);
-		cairo_fill(cr);
-
-		cairo_restore(cr);
-	}
-
-	cairo_surface_flush(surface);
-	cairo_destroy(cr);
-	cairo_surface_destroy(surface);
-
-	cairo_surface_flush(selface);
-	cairo_destroy(cs);
-	cairo_surface_destroy(selface);
-}
-
-void cairo_rounded_rectangle(cairo_t * cr, double x, double y, double width, double height, double radius) {
-	double degrees = M_PI / 180.0;
-
-	cairo_new_sub_path(cr);
-	cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
-	cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
-	cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
-	cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
-	cairo_close_path(cr);
-}
-
-void draw_window_picker() {
-	/* TODO draw window picker */
-	int window_count = 0;
-	for (uint32_t i = 1; i < WINDOW_LAYERS - 1; ++i) {
-		if (windows[i]) {
-			window_count++;
-		}
-	}
-	if (window_count < 2) {
-		fprintf(stderr, "[compositor] Exiting window picker (<2 regular windows)\n");
-		management_mode = MODE_NORMAL;
-		return;
-	}
-	window_picker_index = (window_picker_index + window_count) % window_count;
-
-	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width);
-	surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
-	cr = cairo_create(surface);
-	/* Don't need a select surface, already have one */
-
-	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-	cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
-
-	/* Draw the background */
-
-	int width = 600;
-	int height = 230;
-
-	cairo_rounded_rectangle(cr, (ctx->width - width) / 2, (ctx->height - height) / 2, width, height, 20.0);
-	cairo_set_source_rgba(cr, 44.0/255.0, 71.0/255.0, 91.0/255.0, 29.0/255.0);
-	cairo_set_line_width(cr, 4);
-	cairo_stroke(cr);
-
-	cairo_rounded_rectangle(cr, (ctx->width - width) / 2 + 3, (ctx->height - height) / 2 + 3, width - 6, height - 6, 18.0);
-	cairo_set_source_rgba(cr, 158.0/255.0, 169.0/255.0, 177.0/255.0, 0.9);
-	cairo_fill(cr);
-
-	/* Now draw the previous, current, and next window. */
-
-}
-
-void internal_free_window(server_window_t * window) {
-	if (window == focused_window()) {
-		if (window->z == 0xFFFF) {
-			focused = NULL;
-			return;
-		}
-		for (int i = window->z; i > 0; --i) {
-			if (windows[i - 1]) {
-				set_focused_window(windows[i - 1]);
-				return;
-			}
+/**
+ * Mouse input thread
+ *
+ * Reads the kernel mouse device and converts
+ * mouse clicks and movements into event objects
+ * to send to the core compositor.
+ */
+void * mouse_input(void * garbage) {
+	int mfd = open("/dev/mouse", O_RDONLY);
+
+	yutani_t * y = yutani_init();
+	mouse_device_packet_t packet;
+
+	while (1) {
+		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
+		if (r > 0) {
+			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet);
+			int result = yutani_msg_send(y, m);
+			free(m);
 		}
 	}
 }
 
-void actually_destroy_window(server_window_t * win) {
-	win->x = 0xFFFF;
-	internal_free_window(win);
-	unorder_window(win);
-	/* Wait until we're done drawing */
-	spin_lock(&am_drawing);
-	spin_unlock(&am_drawing);
-	free_window(win);
-}
+/**
+ * Keyboard input thread
+ *
+ * Reads the kernel keyboard device and converts
+ * key presses into event objects to send to the
+ * core compositor.
+ */
+void * keyboard_input(void * garbage) {
+	int kfd = open("/dev/kbd", O_RDONLY);
 
-void destroy_window(server_window_t * win) {
-	win->anim_mode = 3;
-	win->anim_start = tick_count;
-}
+	yutani_t * y = yutani_init();
+	key_event_t event;
+	key_event_state_t state = {0};
 
-void process_window_command (int sig) {
-	foreach(n, process_list) {
-		process_windows_t * pw = (process_windows_t *)n->value;
-
-		/* Are there any messages in this process's command pipe? */
-		struct stat buf;
-		fstat(pw->command_pipe, &buf);
-
-		int max_requests_per_cycle = 1;
-
-		while ((buf.st_size > 0) && (max_requests_per_cycle > 0)) {
-			w_window_t wwt;
-			wins_packet_t header;
-			int bytes_read = read(pw->command_pipe, &header, sizeof(wins_packet_t));
-
-			while (header.magic != WINS_MAGIC) {
-				fprintf(stderr, "[compositor] Magic is wrong from pid %d, expected 0x%x but got 0x%x [read %d bytes of %d]\n", pw->pid, WINS_MAGIC, header.magic, bytes_read, sizeof(header));
-				max_requests_per_cycle--;
-				goto bad_magic;
-				memcpy(&header, (void *)((uintptr_t)&header + 1), (sizeof(header) - 1));
-				read(pw->event_pipe, (char *)((uintptr_t)&header + sizeof(header) - 1), 1);
-			}
-
-			max_requests_per_cycle--;
-
-			switch (header.command_type) {
-				case WC_NEWWINDOW:
-					{
-						read(pw->command_pipe, &wwt, sizeof(w_window_t));
-						wwt.wid = _next_wid;
-						server_window_t * new_window = init_window(pw, _next_wid, wwt.left, wwt.top, wwt.width, wwt.height, _next_wid);
-						window_add(new_window);
-						_next_wid++;
-						send_window_event(pw, WE_NEWWINDOW, &wwt);
-					}
-					break;
-
-				case WC_SET_ALPHA:
-					{
-						read(pw->command_pipe, &wwt, sizeof(w_window_t));
-						/* XXX ignored */
-					}
-					break;
-
-				case WC_RESIZE:
-					{
-						read(pw->command_pipe, &wwt, sizeof(w_window_t));
-						server_window_t * window = get_window_with_process(pw, wwt.wid);
-						resize_window_buffer(window, window->x, window->y, wwt.width, wwt.height);
-						send_window_event(pw, WE_RESIZED, &wwt);
-					}
-					break;
-
-				case WC_DESTROY:
-					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					server_window_t * win = get_window_with_process(pw, wwt.wid);
-
-					destroy_window(win);
-					send_window_event(pw, WE_DESTROYED, &wwt);
-					break;
-
-				case WC_DAMAGE:
-					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					break;
-
-				case WC_REDRAW:
-					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					send_window_event(pw, WE_REDRAWN, &wwt);
-					break;
-
-				case WC_REORDER:
-					read(pw->command_pipe, &wwt, sizeof(w_window_t));
-					reorder_window(get_window_with_process(pw, wwt.wid), wwt.left);
-					break;
-
-				default:
-					fprintf(stderr, "[compositor] WARN: Unknown command type %d...\n", header.command_type);
-					void * nullbuf = malloc(header.packet_size);
-					read(pw->command_pipe, nullbuf, header.packet_size);
-					free(nullbuf);
-					break;
-			}
-
-bad_magic:
-			fstat(pw->command_pipe, &buf);
+	while (1) {
+		char buf[1];
+		int r = read(kfd, buf, 1);
+		if (r > 0) {
+			kbd_scancode(&state, buf[0], &event);
+			yutani_msg_t * m = yutani_msg_build_key_event(0, &event, &state);
+			int result = yutani_msg_send(y, m);
+			free(m);
 		}
 	}
-	syscall_yield();
 }
 
-/* Request page system */
-void reset_request_system () {
-	_request_page->lock          = 0;
-	_request_page->server_done   = 0;
-	_request_page->client_done   = 0;
-	_request_page->client_pid    = 0;
-	_request_page->event_pipe    = 0;
-	_request_page->command_pipe  = 0;
+#define FONT_PATH "/usr/share/fonts/"
+#define FONT(a,b) {YUTANI_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
 
-	_request_page->server_pid    = getpid();
-	_request_page->server_width  = ctx->width;
-	_request_page->server_height = ctx->height;
-	_request_page->server_depth  = ctx->depth;
+struct font_def {
+	char * identifier;
+	char * path;
+};
 
-	_request_page->magic         = WINS_MAGIC;
-}
+static struct font_def fonts[] = {
+	FONT("sans-serif",            "DejaVuSans.ttf"),
+	FONT("sans-serif.bold",       "DejaVuSans-Bold.ttf"),
+	FONT("sans-serif.italic",     "DejaVuSans-Oblique.ttf"),
+	FONT("sans-serif.bolditalic", "DejaVuSans-BoldOblique.ttf"),
+	FONT("monospace",             "DejaVuSansMono.ttf"),
+	FONT("monospace.bold",        "DejaVuSansMono-Bold.ttf"),
+	FONT("monospace.italic",      "DejaVuSansMono-Oblique.ttf"),
+	FONT("monospace.bolditalic",  "DejaVuSansMono-BoldOblique.ttf"),
+	{NULL, NULL}
+};
 
-void init_request_system () {
-	size_t size = sizeof(wins_server_global_t);
-	_request_page = (wins_server_global_t *)syscall_shm_obtain(WINS_SERVER_IDENTIFIER, &size);
-	if (!_request_page) {
-		fprintf(stderr, "[compositor] Could not get a shm block for its request page! Bailing...");
-		exit(-1);
-	}
-
-	reset_request_system();
-
-}
-
-void process_request () {
-	fflush(stdout);
-	if (_request_page->client_done) {
-		process_windows_t * pw = malloc(sizeof(process_windows_t));
-		pw->pid = _request_page->client_pid;
-		pw->event_pipe = syscall_mkpipe();
-		pw->event_pipe_file = fdopen(pw->event_pipe, "a");
-		pw->command_pipe = syscall_mkpipe();
-		pw->windows = list_create();
-
-		_request_page->event_pipe = syscall_share_fd(pw->event_pipe, pw->pid);
-		_request_page->command_pipe = syscall_share_fd(pw->command_pipe, pw->pid);
-		_request_page->client_done = 0;
-		_request_page->server_done = 1;
-
-		list_insert(process_list, pw);
-
-		syscall_yield();
-	}
-
-	if (!_request_page->lock) {
-		reset_request_system();
-	}
-}
-
-void delete_process (process_windows_t * pw) {
-	/* XXX: this is not used anywhere! We need a closing handshake signal. */
-	list_destroy(pw->windows);
-	list_free(pw->windows);
-	free(pw->windows);
-
-	close(pw->command_pipe);
-	close(pw->event_pipe);
-
-	node_t * n = list_find(process_list, pw);
-	list_delete(process_list, n);
-	free(n);
-	free(pw);
-}
-
-/* Signals */
-void * ignore(void * value) {
-	return NULL;
-}
-
-void init_signal_handlers () {
-#if 0
-	syscall_signal(SIGWINEVENT, process_window_command); // SIGWINEVENT
-#else
-	syscall_signal(SIGWINEVENT, ignore); // SIGWINEVENT
-#endif
-}
-
-/* Sprite stuff */
-void init_sprite(int i, char * filename, char * alpha) {
-	sprite_t alpha_tmp;
-	sprites[i] = malloc(sizeof(sprite_t));
-	load_sprite(sprites[i], filename);
-	if (alpha) {
-		sprites[i]->alpha = 1;
-		load_sprite(&alpha_tmp, alpha);
-		sprites[i]->masks = alpha_tmp.bitmap;
-	} else {
-		sprites[i]->alpha = 0;
-	}
-	sprites[i]->blank = 0x0;
-}
-
-void init_sprite_png(int id, char * path) {
-	sprites[id] = malloc(sizeof(sprite_t));
-	load_sprite_png(sprites[id], path);
-}
-
-int center_x(int x) {
-	return (ctx->width - x) / 2;
-}
-
-int center_y(int y) {
-	return (ctx->height - y) / 2;
-}
-
-void display() {
-	draw_fill(ctx, rgb(0,0,0));
-	draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height));
-	flip(ctx);
-}
-
-char * precacheMemFont(char * ident, char * name) {
+static char * precache_shmfont(char * ident, char * name) {
 	FILE * f = fopen(name, "r");
 	size_t s = 0;
 	fseek(f, 0, SEEK_END);
@@ -1041,509 +390,607 @@ char * precacheMemFont(char * ident, char * name) {
 	return font;
 }
 
-void load_fonts() {
+static void load_fonts(void) {
 	int i = 0;
 	while (fonts[i].identifier) {
 		fprintf(stderr, "[compositor] Loading font %s -> %s\n", fonts[i].path, fonts[i].identifier);
-		precacheMemFont(fonts[i].identifier, fonts[i].path);
+		precache_shmfont(fonts[i].identifier, fonts[i].path);
 		++i;
 	}
 }
 
-/**
- * Keybindings
- */
-int handle_key_press(w_keyboard_t * keyboard, server_window_t * window) {
+static void draw_cursor(yutani_globals_t * yg, int x, int y) {
+	draw_sprite(yg->backend_ctx, &yg->mouse_sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+}
 
-	fprintf(stderr, "[compositor] Key event: %x %x %x\n", keyboard->event.action, keyboard->event.keycode, keyboard->event.modifiers);
+static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
+	cairo_rectangle(yg->framebuffer_ctx, x, y, w, h);
+	cairo_rectangle(yg->real_ctx, x, y, w, h);
+}
 
-	if ((management_mode == MODE_WINDOW_PICKER) &&
-	    (keyboard->event.action == KEY_ACTION_UP) &&
-	    (!(keyboard->event.modifiers & KEY_MOD_LEFT_ALT))) {
-		management_mode = MODE_NORMAL;
-		fprintf(stderr, "[compositor] Exiting window picker.\n");
-		return 1;
-	}
+static void save_cairo_states(yutani_globals_t * yg) {
+	cairo_save(yg->framebuffer_ctx);
+	cairo_save(yg->selectbuffer_ctx);
+	cairo_save(yg->real_ctx);
+}
 
-	if (keyboard->event.action != KEY_ACTION_DOWN) return 0;
+static void restore_cairo_states(yutani_globals_t * yg) {
+	cairo_restore(yg->framebuffer_ctx);
+	cairo_restore(yg->selectbuffer_ctx);
+	cairo_restore(yg->real_ctx);
+}
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == KEY_F4)) {
-		/* kill the currently focused window */
-		destroy_window(focused_window());
-	}
+static void yutani_set_clip(yutani_globals_t * yg) {
+	cairo_clip(yg->framebuffer_ctx);
+	cairo_clip(yg->real_ctx);
+}
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == 'a')) {
-		/* reset the animation and start from scratch */
-		server_window_t * win = focused_window();
-		win->anim_mode = 1;
-		win->anim_start = tick_count;
-		return 1;
-	}
+yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
+	uint32_t c = ((uint32_t *)yg->select_framebuffer)[(yg->width * y + x)];
+	yutani_wid_t w = (_RED(c) << 16) | (_GRE(c) << 8) | (_BLU(c));
+	return hashmap_get(yg->wids_to_windows, (void *)w);
+}
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == 's')) {
-		/* reset the animation and go backwards */
-		server_window_t * win = focused_window();
-		win->anim_mode = 2;
-		win->anim_start = tick_count;
-		return 1;
-	}
+static void set_focused_at(yutani_globals_t * yg, int x, int y) {
+	yutani_server_window_t * n_focused = top_at(yg, x, y);
+	set_focused_window(yg, n_focused);
+}
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == 'z')) {
-		server_window_t * win = focused_window();
-		if (win) {
-			win->rotation -= 5;
-			if (win->rotation < 0) win->rotation += 360;
-			return 1;
+static int window_is_top(yutani_globals_t * yg, yutani_server_window_t * window) {
+	/* For now, just use simple z-order */
+	return window->z == YUTANI_ZORDER_TOP;
+}
+
+static int window_is_bottom(yutani_globals_t * yg, yutani_server_window_t * window) {
+	/* For now, just use simple z-order */
+	return window->z == YUTANI_ZORDER_BOTTOM;
+}
+
+static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
+
+	/* Obtain the previously initialized cairo contexts */
+	cairo_t * cr = yg->framebuffer_ctx;
+	cairo_t * cs = yg->selectbuffer_ctx;
+
+	/* Window stride is always 4 bytes per pixel... */
+	int stride = window->width * 4;
+
+	/* Initialize a cairo surface object for this window */
+	cairo_surface_t * surf = cairo_image_surface_create_for_data(
+			window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
+
+	/* Save cairo contexts for both rendering and selectbuffer */
+	cairo_save(cr);
+	cairo_save(cs);
+
+	/*
+	 * Offset the rendering context appropriately for the position of the window
+	 * based on the modifier paramters
+	 */
+	cairo_translate(cr, x, y);
+	cairo_translate(cs, x, y);
+
+	/* Top and bottom windows can not be rotated. */
+	if (!window_is_top(yg, window) && !window_is_bottom(yg, window)) {
+		/* Calcuate radians from degrees */
+
+		/* XXX Window rotation is disabled until damage rects can take it into account */
+		if (window->rotation != 0) {
+			double r = M_PI * (((double)window->rotation) / 180.0);
+
+			/* Rotate the render context about the center of the window */
+			cairo_translate(cr, (int)( window->width / 2), (int)( (int)window->height / 2));
+			cairo_rotate(cr, r);
+			cairo_translate(cr, (int)(-window->width / 2), (int)(-window->height / 2));
+
+			/* Rotate the selectbuffer context about the center of the window */
+			cairo_translate(cs, (int)( window->width / 2), (int)( window->height / 2));
+			cairo_rotate(cs, r);
+			cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
+
+			/* Prefer faster filter when rendering rotated windows */
+			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 		}
 	}
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == 'x')) {
-		server_window_t * win = focused_window();
-		if (win) {
-			win->rotation += 5;
-			if (win->rotation >= 360) win->rotation -= 360;
-			return 1;
-		}
-	}
+	/* Paint window */
+	cairo_set_source_surface(cr, surf, 0, 0);
+	cairo_paint(cr);
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == 'c')) {
-		server_window_t * win = focused_window();
-		if (win) {
-			win->rotation = 0;
-			return 1;
-		}
-	}
+	/* Clean up */
+	cairo_surface_destroy(surf);
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == 'e')) {
+	/* Paint select buffer */
+	cairo_set_operator(cs, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_rgb(cs,
+			((window->wid & 0xFF0000) >> 16) / 255.0,
+			((window->wid & 0xFF00) >> 8) / 255.0,
+			((window->wid & 0xFF) >> 0) / 255.0
+	);
+	cairo_rectangle(cs, 0, 0, window->width, window->height);
+	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
+	cairo_fill(cs);
 
-		switch (management_mode) {
-			case MODE_NORMAL:
-				management_mode = MODE_SCALE;
-				return 1;
-			case MODE_SCALE:
-				management_mode = MODE_NORMAL;
-				return 1;
-			default:
-				break;
-		}
-	}
+	/* Restore context stack */
+	cairo_restore(cr);
+	cairo_restore(cs);
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-	    (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-	    (keyboard->event.keycode == 'p')) {
-		if (keyboard->event.modifiers & KEY_MOD_LEFT_ALT) {
-			take_screenshot_now = SCREENSHOT_THIS_WINDOW;
-		} else {
-			take_screenshot_now = SCREENSHOT_WHOLE_SCREEN;
-		}
-		return 1;
-	}
+#ifdef YUTANI_DEBUG_WINDOW_BOUNDS
+	cairo_save(cr);
 
-	if ((keyboard->event.modifiers & KEY_MOD_LEFT_ALT) &&
-	    (keyboard->event.keycode == '\t')) {
-		int direction = (keyboard->event.modifiers & KEY_MOD_LEFT_SHIFT) ? -1 : 1;
+	int32_t t_x, t_y;
+	int32_t s_x, s_y;
+	int32_t r_x, r_y;
+	int32_t q_x, q_y;
 
-		switch (management_mode) {
-			case MODE_NORMAL:
-				fprintf(stderr, "[compositor] Entering window picker.\n");
-				window_picker_index = 0;
-			case MODE_WINDOW_PICKER:
-				management_mode = MODE_WINDOW_PICKER;
-				break;
-			default:
-				goto _not_valid;
-		}
-		fprintf(stderr, "[compositor] Setting pick window %d\n", direction);
+	window_to_device(window, 0, 0, &t_x, &t_y);
+	window_to_device(window, window->width, window->height, &s_x, &s_y);
+	window_to_device(window, 0, window->height, &r_x, &r_y);
+	window_to_device(window, window->width, 0, &q_x, &q_y);
+	cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.7);
+	cairo_set_line_width(cr, 2.0);
 
-		window_picker_index += direction;
-		return 1;
-	}
-_not_valid:
+	cairo_move_to(cr, t_x, t_y);
+	cairo_line_to(cr, s_x, s_y);
+	cairo_stroke(cr);
+
+	cairo_move_to(cr, r_x, r_y);
+	cairo_line_to(cr, q_x, q_y);
+	cairo_stroke(cr);
+
+	cairo_restore(cr);
+#endif
 
 	return 0;
 }
 
-void device_to_window(server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
-	*out_x = x - window->x;
-	*out_y = y - window->y;
+static void redraw_windows(yutani_globals_t * yg) {
+	/* Save the cairo contexts so we can apply clipping */
+	save_cairo_states(yg);
+	int has_updates = 0;
 
-	double t_x = *out_x - (window->width / 2);
-	double t_y = *out_y - (window->height / 2);
+	/* We keep our own temporary mouse coordinates as they may change while we're drawing. */
+	int tmp_mouse_x = yg->mouse_x;
+	int tmp_mouse_y = yg->mouse_y;
 
-	double s = sin(-(window->rotation * M_PI / 180.0));
-	double c = cos(-(window->rotation * M_PI / 180.0));
+	/* If the mouse has moved, that counts as two damage regions */
+	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
+		has_updates = 2;
+		yutani_add_clip(yg, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
+		yutani_add_clip(yg, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
+	}
 
-	double n_x = t_x * c - t_y * s;
-	double n_y = t_x * s + t_y * c;
+	yg->last_mouse_x = tmp_mouse_x;
+	yg->last_mouse_y = tmp_mouse_y;
 
-	*out_x = (int32_t)n_x + (window->width / 2);
-	*out_y = (int32_t)n_y + (window->height / 2);
+	/* Calculate damage regions from currently queued updates */
+	spin_lock(&yg->update_list_lock);
+	while (yg->update_list->length) {
+		node_t * win = list_dequeue(yg->update_list);
+		yutani_damage_rect_t * rect = (void *)win->value;
+
+		/* We add a clip region for each window in the update queue */
+		has_updates = 1;
+		yutani_add_clip(yg, rect->x, rect->y, rect->width, rect->height);
+		free(rect);
+		free(win);
+	}
+	spin_unlock(&yg->update_list_lock);
+
+	/* Render */
+	if (has_updates) {
+
+		yutani_set_clip(yg);
+
+		/*
+		 * In theory, we should restrict this to windows within the clip region,
+		 * but calculating that may be more trouble than it's worth;
+		 * we also need to render windows in stacking order...
+		 */
+		for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
+			if (yg->zlist[i]) {
+				yutani_blit_window(yg, yg->zlist[i], yg->zlist[i]->x, yg->zlist[i]->y);
+			}
+		}
+
+		/*
+		 * Draw the cursor.
+		 * We may also want to draw other compositor elements, like effects, but those
+		 * can also go in the stack order of the windows.
+		 */
+		draw_cursor(yg, tmp_mouse_x, tmp_mouse_y);
+
+		/*
+		 * Flip the updated areas. This minimizes writes to video memory,
+		 * which is very important on real hardware where these writes are slow.
+		 */
+		cairo_set_operator(yg->real_ctx, CAIRO_OPERATOR_SOURCE);
+		cairo_translate(yg->real_ctx, 0, 0);
+		cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
+		cairo_paint(yg->real_ctx);
+
+	}
+
+	/* Restore the cairo contexts to reset clip regions */
+	restore_cairo_states(yg);
 }
 
+void yutani_cairo_init(yutani_globals_t * yg) {
 
-void * process_requests(void * garbage) {
-	int mfd = open("/dev/mouse", O_RDONLY);
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, yg->width);
+	yg->framebuffer_surface = cairo_image_surface_create_for_data(
+			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
+	yg->real_surface = cairo_image_surface_create_for_data(
+			yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 
-	mouse_x = MOUSE_SCALE * ctx->width / 2;
-	mouse_y = MOUSE_SCALE * ctx->height / 2;
-	click_x = 0;
-	click_y = 0;
+	yg->select_framebuffer = malloc(YUTANI_BYTE_DEPTH * yg->width * yg->height);
 
-	uint16_t _mouse_state = 0;
-	server_window_t * _mouse_window = NULL;
-	int32_t _mouse_init_x;
-	int32_t _mouse_init_y;
-	int32_t _mouse_win_x;
-	int32_t _mouse_win_y;
-	int8_t  _mouse_moved = 0;
+	yg->selectbuffer_surface = cairo_image_surface_create_for_data(
+			yg->select_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 
-	int32_t _mouse_win_x_p;
-	int32_t _mouse_win_y_p;
+	yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
+	yg->selectbuffer_ctx = cairo_create(yg->selectbuffer_surface);
+	yg->real_ctx = cairo_create(yg->real_surface);
 
-	char buf[sizeof(mouse_device_packet_t)];
+	yg->update_list = list_create();
+	yg->update_list_lock = 0;
+}
+
+void * redraw(void * in) {
+	yutani_globals_t * yg = in;
 	while (1) {
-		mouse_device_packet_t * packet = (mouse_device_packet_t *)&buf;
-		int r = read(mfd, &buf, sizeof(mouse_device_packet_t));
-		if (packet->magic != MOUSE_MAGIC) {
-			int r = read(mfd, buf, 1);
+		/*
+		 * Perform whatever redraw work is required.
+		 */
+		redraw_windows(yg);
+
+		/*
+		 * Attempt to run at about 60fps...
+		 * we should actually see how long it took to render so
+		 * we can sleep *less* if it took a long time to render
+		 * this particular frame. We are definitely not
+		 * going to run at 60fps unless there's nothing to do
+		 * (and even then we've wasted cycles checking).
+		 */
+		usleep(16666);
+	}
+}
+
+static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) {
+	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+
+	if (window->rotation == 0) {
+		rect->x = window->x;
+		rect->y = window->y;
+		rect->width = window->width;
+		rect->height = window->height;
+	} else {
+		int32_t ul_x, ul_y;
+		int32_t ll_x, ll_y;
+		int32_t ur_x, ur_y;
+		int32_t lr_x, lr_y;
+
+		window_to_device(window, 0, 0, &ul_x, &ul_y);
+		window_to_device(window, 0, window->height, &ll_x, &ll_y);
+		window_to_device(window, window->width, 0, &ur_x, &ur_y);
+		window_to_device(window, window->width, window->height, &lr_x, &lr_y);
+
+		/* Calculate bounds */
+
+		int32_t left_bound = min(min(ul_x, ll_x), min(ur_x, lr_x));
+		int32_t top_bound  = min(min(ul_y, ll_y), min(ur_y, lr_y));
+
+		int32_t right_bound = max(max(ul_x, ll_x), max(ur_x, lr_x));
+		int32_t bottom_bound = max(max(ul_y, ll_y), max(ur_y, lr_y));
+
+		rect->x = left_bound;
+		rect->y = top_bound;
+		rect->width = right_bound - left_bound;
+		rect->height = bottom_bound - top_bound;
+	}
+
+	spin_lock(&yg->update_list_lock);
+	list_insert(yg->update_list, rect);
+	spin_unlock(&yg->update_list_lock);
+}
+
+static void mark_region(yutani_globals_t * yg, int x, int y, int width, int height) {
+	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+	rect->x = x;
+	rect->y = y;
+	rect->width = width;
+	rect->height = height;
+
+	spin_lock(&yg->update_list_lock);
+	list_insert(yg->update_list, rect);
+	spin_unlock(&yg->update_list_lock);
+}
+
+static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event * ke) {
+	yutani_server_window_t * focused = get_focused(yg);
+	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
+	if (focused) {
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.keycode == 'z')) {
+			mark_window(yg,focused);
+			focused->rotation -= 5;
+			mark_window(yg,focused);
+			return;
+		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.keycode == 'x')) {
+			mark_window(yg,focused);
+			focused->rotation += 5;
+			mark_window(yg,focused);
+			return;
+		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.keycode == 'c')) {
+			mark_window(yg,focused);
+			focused->rotation = 0;
+			mark_window(yg,focused);
+			return;
+		}
+
+		yutani_msg_t * response = yutani_msg_build_key_event(focused->wid, &ke->event, &ke->state);
+		pex_send(yg->server, focused->owner, response->size, (char *)response);
+		free(response);
+
+	}
+
+	/* Other events? */
+}
+
+static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
+	yg->mouse_x += me->event.x_difference * 3;
+	yg->mouse_y -= me->event.y_difference * 3;
+
+	if (yg->mouse_x < 0) yg->mouse_x = 0;
+	if (yg->mouse_y < 0) yg->mouse_y = 0;
+	if (yg->mouse_x > (yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
+	if (yg->mouse_y > (yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
+
+	switch (yg->mouse_state) {
+		case YUTANI_MOUSE_STATE_NORMAL:
+			{
+				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
+					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+					yg->mouse_window = get_focused(yg);
+					if (yg->mouse_window) {
+						if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+							yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+							yg->mouse_window = NULL;
+						} else {
+							yg->mouse_state = YUTANI_MOUSE_STATE_MOVING;
+							yg->mouse_init_x = yg->mouse_x;
+							yg->mouse_init_y = yg->mouse_y;
+							yg->mouse_win_x  = yg->mouse_window->x;
+							yg->mouse_win_y  = yg->mouse_window->y;
+							make_top(yg, yg->mouse_window);
+						}
+					}
+				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
+					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
+					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+					yg->mouse_window = get_focused(yg);
+					yg->mouse_moved = 0;
+					yg->mouse_drag_button = YUTANI_MOUSE_BUTTON_LEFT;
+					device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+					yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_DOWN);
+					pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+					free(response);
+				} else {
+					/* XXX Arbitrary mouse movement, not dragging */
+				}
+			}
 			break;
-		}
-		/* Apply mouse movement */
-		int l;
-		l = 3;
-		mouse_x += packet->x_difference * l;
-		mouse_y -= packet->y_difference * l;
-		if (mouse_x < 0) mouse_x = 0;
-		if (mouse_y < 0) mouse_y = 0;
-		if (mouse_x >= ctx->width  * MOUSE_SCALE) mouse_x = (ctx->width)   * MOUSE_SCALE;
-		if (mouse_y >= ctx->height * MOUSE_SCALE) mouse_y = (ctx->height) * MOUSE_SCALE;
-
-		if (management_mode == MODE_SCALE) {
-			if (packet->buttons & MOUSE_BUTTON_LEFT) {
-				focus_next_scale = 1;
+		case YUTANI_MOUSE_STATE_MOVING:
+			{
+				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
+					yg->mouse_window = NULL;
+					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+				} else {
+					mark_window(yg, yg->mouse_window);
+					yg->mouse_window->x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
+					yg->mouse_window->y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
+					mark_window(yg, yg->mouse_window);
+				}
 			}
-		} else {
-
-			if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && kbd_state.k_alt) {
-				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
-						_mouse_state = 1;
-						_mouse_init_x = mouse_x;
-						_mouse_init_y = mouse_y;
-						_mouse_win_x  = _mouse_window->x;
-						_mouse_win_y  = _mouse_window->y;
-						_mouse_win_x_p = _mouse_win_x;
-						_mouse_win_y_p = _mouse_win_y;
-						moving_window = _mouse_window;
-						moving_window_l = _mouse_win_x_p;
-						moving_window_t = _mouse_win_y_p;
-						make_top(_mouse_window);
-					}
-				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_MIDDLE) && kbd_state.k_alt) {
-				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					if (_mouse_window->z != 0 && _mouse_window->z != 0xFFFF) {
-						_mouse_state = 3;
-						_mouse_init_x = mouse_x;
-						_mouse_init_y = mouse_y;
-						_mouse_win_x  = _mouse_window->x;
-						_mouse_win_y  = _mouse_window->y;
-						resizing_window   = _mouse_window;
-						resizing_window_w = _mouse_window->width;
-						resizing_window_h = _mouse_window->height;
-						make_top(_mouse_window);
-					}
-				}
-			} else if (_mouse_state == 0 && (packet->buttons & MOUSE_BUTTON_LEFT) && !kbd_state.k_alt) {
-				set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					_mouse_state = 2; /* Dragging */
-					/* In window coordinates, that's... */
-					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
-
-					mouse_discard = 1;
-					_mouse_moved = 0;
-				}
-#if 0
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					if (_mouse_window->z == 0 || _mouse_window->z == 0xFFFF) {
-
+			break;
+		case YUTANI_MOUSE_STATE_DRAGGING:
+			{
+				if (!(me->event.buttons & yg->mouse_drag_button)) {
+					/* Mouse released */
+					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+					int32_t old_x = yg->mouse_click_x;
+					int32_t old_y = yg->mouse_click_y;
+					device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+					if (!yg->mouse_moved) {
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_CLICK);
+						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+						free(response);
 					} else {
-						_mouse_state = 2;
-						_mouse_init_x = mouse_x;
-						_mouse_init_y = mouse_y;
-						_mouse_win_x  = _mouse_window->width;
-						_mouse_win_y  = _mouse_window->height;
-						_mouse_win_x_p= _mouse_win_x;
-						_mouse_win_y_p= _mouse_win_y;
-						make_top(_mouse_window);
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_RAISE);
+						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+						free(response);
 					}
-				}
-#endif
-			} else if (_mouse_state == 0) {
-
-				w_mouse_t _packet;
-				if (packet->buttons) {
-					set_focused_at(mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE);
-				}
-				_mouse_window = focused_window();
-				if (_mouse_window) {
-					_packet.wid = _mouse_window->wid;
-
-					_packet.old_x = click_x;
-					_packet.old_y = click_y;
-
-					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
-
-					_packet.new_x = click_x;
-					_packet.new_y = click_y;
-
-					_packet.buttons = packet->buttons;
-					_packet.command = WE_MOUSEMOVE;
-
-					if (_packet.new_x != _packet.old_x || _packet.new_y != _packet.old_y) {
-						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
-					}
-				}
-			} else if (_mouse_state == 1) {
-				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
-					_mouse_window->x = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-					_mouse_window->y = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-					moving_window = NULL;
-					_mouse_state = 0;
 				} else {
-					_mouse_win_x_p = _mouse_win_x + (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-					_mouse_win_y_p = _mouse_win_y + (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-					moving_window_l = _mouse_win_x_p;
-					moving_window_t = _mouse_win_y_p;
-				}
-			} else if (_mouse_state == 2) {
-				if (!(packet->buttons & MOUSE_BUTTON_LEFT)) {
-					/* Released */
-					_mouse_state = 0;
-					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
-					if (!_mouse_moved) {
-						w_mouse_t _packet;
-						_packet.wid = _mouse_window->wid;
-						device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
-						_packet.new_x = click_x;
-						_packet.new_y = click_y;
-						_packet.old_x = -1;
-						_packet.old_y = -1;
-						_packet.buttons = packet->buttons;
-						_packet.command = WE_MOUSECLICK;
-						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
+					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
+					yg->mouse_moved = 1;
+					int32_t old_x = yg->mouse_click_x;
+					int32_t old_y = yg->mouse_click_y;
+					device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+					if (old_x != yg->mouse_click_x || old_y != yg->mouse_click_y) {
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_DRAG);
+						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+						free(response);
 					}
-
-				} else {
-					/* Still down */
-
-					_mouse_moved = 1;
-					w_mouse_t _packet;
-					_packet.wid = _mouse_window->wid;
-
-					_packet.old_x = click_x;
-					_packet.old_y = click_y;
-
-					device_to_window(_mouse_window, mouse_x / MOUSE_SCALE, mouse_y / MOUSE_SCALE, &click_x, &click_y);
-
-					_packet.new_x = click_x;
-					_packet.new_y = click_y;
-
-					_packet.buttons = packet->buttons;
-					_packet.command = WE_MOUSEMOVE;
-
-					if (_packet.new_x != _packet.old_x || _packet.new_y != _packet.old_y) {
-						send_mouse_event(_mouse_window->owner, WE_MOUSEMOVE, &_packet);
-					}
-				}
-
-			} else if (_mouse_state == 3) {
-				int width_diff  = (mouse_x - _mouse_init_x) / MOUSE_SCALE;
-				int height_diff = (mouse_y - _mouse_init_y) / MOUSE_SCALE;
-
-				resizing_window_w = resizing_window->width  + width_diff;
-				resizing_window_h = resizing_window->height + height_diff;
-				if (!(packet->buttons & MOUSE_BUTTON_MIDDLE)) {
-					/* Resize */
-					w_window_t wwt;
-					wwt.wid    = resizing_window->wid;
-					wwt.width  = resizing_window_w;
-					wwt.height = resizing_window_h;
-					resize_window_buffer(resizing_window, resizing_window->x, resizing_window->y, wwt.width, wwt.height);
-					send_window_event(resizing_window->owner, WE_RESIZED, &wwt);
-					resizing_window = NULL;
-					_mouse_state = 0;
 				}
 			}
-		}
-	}
-	return NULL;
-}
+			break;
+		case YUTANI_MOUSE_STATE_RESIZING:
+			{
 
-void * keyboard_input(void * garbage) {
-	int kfd = open("/dev/kbd", O_RDONLY);
-	char buf[1];
-
-	while (1) {
-		/* Read keyboard */
-		int r = read(kfd, buf, 1);
-		if (r > 0) {
-			w_keyboard_t packet;
-			packet.ret = kbd_scancode(&kbd_state, buf[0], &packet.event);
-			server_window_t * focused = focused_window();
-			if (!handle_key_press(&packet, focused)) {
-				if (focused) {
-					packet.wid = focused->wid;
-					packet.command = 0;
-					packet.key = packet.ret ? packet.event.key : 0;
-					send_keyboard_event(focused->owner, WE_KEYDOWN, packet);
-				}
 			}
-		}
-	}
-	return NULL;
-}
-
-void take_screenshot(int of_what) {
-	cairo_surface_t * srf;
-	if (of_what == SCREENSHOT_WHOLE_SCREEN) {
-		int stride = ctx->width * 4;
-		srf = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, stride);
-	} else if (of_what == SCREENSHOT_THIS_WINDOW) {
-		server_window_t * window = focused_window();
-		if (!window) { return; }
-
-		int stride = window->width * 4;
-		srf = cairo_image_surface_create_for_data(window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
-	}
-	cairo_surface_write_to_png(srf, "/tmp/screenshot.png");
-	cairo_surface_destroy(srf);
-}
-
-void * redraw_thread(void * derp) {
-	while (1) {
-		spin_lock(&am_drawing);
-		switch (management_mode) {
-			case MODE_SCALE:
-				redraw_scale_mode();
-				break;
-			case MODE_WINDOW_PICKER:
-				redraw_windows();
-				draw_window_picker();
-				break;
-			default:
-				redraw_windows();
-		}
-		/* Other stuff */
-		redraw_cursor();
-
-		if (take_screenshot_now) {
-			take_screenshot(take_screenshot_now);
-			take_screenshot_now = 0;
-		}
-
-		spin_unlock(&am_drawing);
-
-		tick_count += 10;
-		node_t * win;
-		while (windows_to_clean->head) {
-			win = list_pop(windows_to_clean);
-			server_window_t * w = (server_window_t *)win->value;
-			actually_destroy_window(w);
-		}
-
-		flip(ctx);
-		flip(select_ctx);
-		syscall_yield();
+			break;
+		default:
+			/* XXX ? */
+			break;
 	}
 }
 
-int main(int argc, char ** argv) {
+/**
+ * main
+ */
+int main(int argc, char * argv[]) {
 
-	/* Initialize graphics setup */
-	ctx = init_graphics_fullscreen_double_buffer();
+	int argx = 0;
+	int results = parse_args(argc, argv, &argx);
+	if (results) return results;
 
-	/* Initialize the select buffer */
-	select_ctx = malloc(sizeof(gfx_context_t));
-	select_ctx->buffer     = malloc(sizeof(uint32_t) * ctx->width * ctx->height);
-	select_ctx->backbuffer = malloc(sizeof(uint32_t) * ctx->width * ctx->height);
-	select_ctx->width      = ctx->width;
-	select_ctx->height     = ctx->height;
-	select_ctx->size       = ctx->size;
-	select_ctx->depth      = ctx->depth;
+	yutani_globals_t * yg = malloc(sizeof(yutani_globals_t));
+	memset(yg, 0x00, sizeof(yutani_globals_t));
+	yg->backend_ctx = init_graphics_fullscreen_double_buffer();
 
-	/* Initialize the client request system */
-	init_request_system();
+	if (!yg->backend_ctx) {
+		free(yg);
+		fprintf(stderr, "%s: Failed to open framebuffer, bailing.\n", argv[0]);
+		return 1;
+	}
 
-	/* Initialize process list */
-	init_process_list();
+	yg->width = yg->backend_ctx->width;
+	yg->height = yg->backend_ctx->height;
 
-	/* Initialize signal handlers */
-	init_signal_handlers();
+	draw_fill(yg->backend_ctx, rgb(0,0,0));
+	flip(yg->backend_ctx);
 
-	/* Load sprites */
-	init_sprite_png(0, "/usr/share/logo_login.png");
-	display();
+	yg->backend_framebuffer = yg->backend_ctx->backbuffer;
+	yg->pex_endpoint = "compositor";
+	setenv("DISPLAY", yg->pex_endpoint, 1);
 
-	/* Precache shared memory fonts */
+	FILE * server = pex_bind(yg->pex_endpoint);
+	yg->server = server;
+
+	fprintf(stderr, "[yutani] Loading fonts...\n");
 	load_fonts();
+	fprintf(stderr, "[yutani] Done.\n");
 
-	/* load the mouse cursor */
-	init_sprite(SPRITE_MOUSE, "/usr/share/arrow.bmp","/usr/share/arrow_alpha.bmp");
+	load_sprite_png(&yg->mouse_sprite, "/usr/share/arrow.png");
+	yg->last_mouse_x = 0;
+	yg->last_mouse_y = 0;
+	yg->mouse_x = yg->width * MOUSE_SCALE / 2;
+	yg->mouse_y = yg->height * MOUSE_SCALE / 2;
 
-	windows_to_clean = list_create();
+	yg->windows = list_create();
+	yg->wids_to_windows = hashmap_create_int(10);
 
-	/* Grab the mouse */
+	yutani_cairo_init(yg);
+
 	pthread_t mouse_thread;
-	pthread_create(&mouse_thread, NULL, process_requests, NULL);
+	pthread_create(&mouse_thread, NULL, mouse_input, NULL);
 
 	pthread_t keyboard_thread;
 	pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
 
-	pthread_t redraw_everything_thread;
-	pthread_create(&redraw_everything_thread, NULL, redraw_thread, NULL);
-
-	setenv("DISPLAY", WINS_SERVER_IDENTIFIER, 1);
+	pthread_t render_thread;
+	pthread_create(&render_thread, NULL, redraw, yg);
 
 	if (!fork()) {
-		char * foo = "/dev/null";
-		syscall_system_function(5,(char **)foo);
-		if (argc < 2) {
+		fprintf(stderr, "Have %d args, argx=%d\n", argc, argx);
+		if (argx < argc) {
+			fprintf(stderr, "Starting %s\n", argv[argx]);
+			execvp(argv[argx], &argv[argx]);
+		} else {
 			char * args[] = {"/bin/glogin", NULL};
 			execvp(args[0], args);
-		} else {
-			execvp(argv[1], &argv[1]);
 		}
 	}
 
-	/* Sit in a run loop */
 	while (1) {
-		process_request();
-		process_window_command(0);
-		syscall_yield();
+		pex_packet_t * p = calloc(PACKET_SIZE, 1);
+		pex_listen(server, p);
+
+		yutani_msg_t * m = (yutani_msg_t *)p->data;
+
+		if (m->magic != YUTANI_MSG__MAGIC) {
+			fprintf(stderr, "[yutani-server] Message has bad magic. (Should eject client, but will instead skip this message.) 0x%x\n", m->magic);
+			free(p);
+			continue;
+		}
+
+		switch(m->type) {
+			case YUTANI_MSG_HELLO: {
+				fprintf(stderr, "[yutani-server] And hello to you, %08x!\n", p->source);
+				yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
+				pex_send(server, p->source, response->size, (char *)response);
+				free(response);
+			} break;
+			case YUTANI_MSG_WINDOW_NEW: {
+				struct yutani_msg_window_new * wn = (void *)m->data;
+				fprintf(stderr, "[yutani-server] Client %08x requested a new window (%xx%x).\n", p->source, wn->width, wn->height);
+				yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source);
+				yutani_msg_t * response = yutani_msg_build_window_init(w->wid, w->width, w->height, w->bufid);
+				pex_send(server, p->source, response->size, (char *)response);
+				free(response);
+			} break;
+			case YUTANI_MSG_FLIP: {
+				struct yutani_msg_flip * wf = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
+				if (w) {
+					mark_window(yg, w);
+				}
+			} break;
+			case YUTANI_MSG_KEY_EVENT: {
+				/* XXX Verify this is from a valid device client */
+				struct yutani_msg_key_event * ke = (void *)m->data;
+				handle_key_event(yg, ke);
+			} break;
+			case YUTANI_MSG_MOUSE_EVENT: {
+				/* XXX Verify this is from a valid device client */
+				struct yutani_msg_mouse_event * me = (void *)m->data;
+				handle_mouse_event(yg, me);
+			} break;
+			case YUTANI_MSG_WINDOW_MOVE: {
+				struct yutani_msg_window_move * wm = (void *)m->data;
+				fprintf(stderr, "[yutani-server] %08x wanted to move window %d\n", p->source, wm->wid);
+				yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
+				if (win) {
+					win->x = wm->x;
+					win->y = wm->y;
+				} else {
+					fprintf(stderr, "[yutani-server] %08x wanted to move window %d, but I can't find it?\n", p->source, wm->wid);
+				}
+			} break;
+			case YUTANI_MSG_WINDOW_CLOSE: {
+				struct yutani_msg_window_close * wc = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wc->wid);
+				if (w) {
+					/* XXX free window */
+					hashmap_remove(yg->wids_to_windows, (void *)wc->wid);
+					list_remove(yg->windows, list_index_of(yg->windows, w));
+					mark_window(yg, w);
+					unorder_window(yg, w);
+					if (w == yg->focused_window) {
+						yg->focused_window = NULL;
+					}
+				}
+			} break;
+			case YUTANI_MSG_WINDOW_STACK: {
+				struct yutani_msg_window_stack * ws = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)ws->wid);
+				if (w) {
+					reorder_window(yg, w, ws->z);
+				}
+			} break;
+			default: {
+				fprintf(stderr, "[yutani-server] Unknown type!\n");
+			} break;
+		}
+		free(p);
 	}
 
-	// XXX: Better have SIGINT/SIGSTOP handlers
 	return 0;
 }

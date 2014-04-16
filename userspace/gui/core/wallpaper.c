@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <math.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
 
@@ -70,6 +70,7 @@ void launch_application(char * app) {
 
 char * next_run_activate = NULL;
 
+#if 0
 void wallpaper_check_click(w_mouse_t * evt) {
 	if (evt->command == WE_MOUSECLICK) {
 		printf("Click!\n");
@@ -92,6 +93,7 @@ void wallpaper_check_click(w_mouse_t * evt) {
 		}
 	}
 }
+#endif
 
 void init_sprite_png(int i, char * filename) {
 	sprites[i] = malloc(sizeof(sprite_t));
@@ -99,10 +101,10 @@ void init_sprite_png(int i, char * filename) {
 }
 
 int main (int argc, char ** argv) {
-	setup_windowing();
+	yutani_t * yctx = yutani_init();
 
-	int width  = wins_globals->server_width;
-	int height = wins_globals->server_height;
+	int width  = yctx->display_width;
+	int height = yctx->display_height;
 
 	char f_name[512];
 	sprintf(f_name, "%s/.wallpaper.png", getenv("HOME"));
@@ -134,13 +136,12 @@ int main (int argc, char ** argv) {
 	win_width = width;
 	win_height = height;
 
-	event_pipe = syscall_mkpipe();
-
 	/* Do something with a window */
-	window_t * wina = window_create(0,0, width, height);
+	yutani_window_t * wina = yutani_window_create(yctx, width, height);
 	assert(wina);
-	window_reorder (wina, 0);
-	ctx = init_graphics_window_double_buffer(wina);
+	// window_reorder (wina, 0);
+	yutani_set_stack(yctx, wina, YUTANI_ZORDER_BOTTOM);
+	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_sprite(ctx, sprites[1], 0, 0);
 	flip(ctx);
 
@@ -168,21 +169,20 @@ int main (int argc, char ** argv) {
 	}
 
 	flip(ctx);
+	yutani_flip(yctx, wina);
 
-	/* Enable mouse */
-	win_use_threaded_handler();
-	mouse_action_callback = wallpaper_check_click;
+	while (1) {
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			if (m->type == YUTANI_MSG_MOUSE_EVENT) {
+				/* Do something */
 
-	while (_continue) {
-		char buf;
-		read(event_pipe, &buf, 1);
-		if (next_run_activate) {
-			launch_application(next_run_activate);
-			next_run_activate = NULL;
+			}
+			free(m);
 		}
 	}
 
-	teardown_windowing();
+	yutani_close(yctx, wina);
 
 	return 0;
 }

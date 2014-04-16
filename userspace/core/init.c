@@ -65,9 +65,7 @@ int main(int argc, char * argv[]) {
 			args = argv[2];
 		}
 		if (!strcmp(argv[1],"--single")) {
-			return start_options((char *[]){"/bin/compositor-beta","--","/bin/terminal-beta","-Fl",args,NULL});
-		} else if (!strcmp(argv[1], "--single-beta")) {
-			return start_options((char *[]){"/bin/compositor-beta",NULL});
+			return start_options((char *[]){"/bin/compositor","--","/bin/terminal","-Fl",args,NULL});
 		} else if (!strcmp(argv[1], "--vga")) {
 			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
 		}

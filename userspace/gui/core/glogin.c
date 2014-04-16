@@ -10,12 +10,16 @@
 #include <string.h>
 #include <time.h>
 
+#include <cairo.h>
+
 #include <sys/utsname.h>
 
 #include "lib/sha2.h"
-#include "lib/window.h"
 #include "lib/graphics.h"
+#include "lib/window.h"
 #include "lib/shmemfonts.h"
+#include "lib/kbd.h"
+#include "lib/yutani.h"
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
@@ -32,6 +36,14 @@ struct timeval {
 	unsigned int tv_sec;
 	unsigned int tv_usec;
 };
+
+static window_t * _window_create(int x, int y, int w, int h) {
+	window_t * win = malloc(sizeof(window_t));
+	win->wid = 0;
+	win->width = w;
+	win->height = h;
+	win->buffer = malloc(w * h * 4);
+}
 
 #define LOGO_FINAL_OFFSET 100
 
@@ -148,56 +160,85 @@ int main (int argc, char ** argv) {
 	init_sprite_png(1, "/usr/share/wallpaper.png");
 	init_shmemfonts();
 
-	while (1) {
-		setup_windowing();
+	fprintf(stderr, "glogin here, hello world.\n");
 
-		int width  = wins_globals->server_width;
-		int height = wins_globals->server_height;
+	yutani_t * y = yutani_init();
 
-		win_width = width;
-		win_height = height;
+	if (!y) {
+		fprintf(stderr, "[demo-client] Connection to server failed.\n");
+		return 1;
+	}
 
-		if (!sprites[2]) {
-			float x = (float)width  / (float)sprites[1]->width;
-			float y = (float)height / (float)sprites[1]->height;
+	/* Generate surface for background */
+#if 0
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, y->display_width);
+	cairo_surface_t * bg_surf = cairo_image_surface_create_for_data(
 
-			int nh = (int)(x * (float)sprites[1]->height);
-			int nw = (int)(y * (float)sprites[1]->width);;
+	yg->framebuffer_surface = cairo_image_surface_create_for_data(
+			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
+#endif
 
-			sprite_t * tmp = create_sprite(width, height, ALPHA_OPAQUE);
-			gfx_context_t * bg_tmp = init_graphics_sprite(tmp);
+	sprite_t * bg_sprite;
+	cairo_surface_t * bg_surf;
 
-			sprites[2] = create_sprite(width, height, ALPHA_OPAQUE);
-			gfx_context_t * bg = init_graphics_sprite(sprites[2]);
+	int width  = y->display_width;
+	int height = y->display_height;
 
-			if (nw > width) {
-				draw_sprite_scaled(bg_tmp, sprites[1], (width - nw) / 2, 0, nw, height);
-			} else {
-				draw_sprite_scaled(bg_tmp, sprites[1], 0, (height - nh) / 2, width, nh);
-			}
+	win_width = width;
+	win_height = height;
 
-			blur_context_no_vignette(bg, bg_tmp, 80.0);
-			blur_context_no_vignette(bg_tmp, bg, 400.0);
-			blur_context_no_vignette(bg, bg_tmp, 200.0);
+	/* Do something with a window */
+	yutani_window_t * wina = yutani_window_create(y, width, height);
+	assert(wina);
+	yutani_set_stack(y, wina, 0);
+	ctx = init_graphics_yutani_double_buffer(wina);
+	draw_fill(ctx, rgba(0,0,0,0));
+	yutani_flip(y, wina);
 
-			sprite_free(tmp);
+	{
+		float x = (float)width  / (float)sprites[1]->width;
+		float y = (float)height / (float)sprites[1]->height;
 
-			free(bg_tmp);
-			free(bg);
+		int nh = (int)(x * (float)sprites[1]->height);
+		int nw = (int)(y * (float)sprites[1]->width);;
+
+		sprite_t * tmp = create_sprite(width, height, ALPHA_OPAQUE);
+		gfx_context_t * bg_tmp = init_graphics_sprite(tmp);
+
+		bg_sprite = create_sprite(width, height, ALPHA_OPAQUE);
+		gfx_context_t * bg = init_graphics_sprite(bg_sprite);
+
+		if (nw > width) {
+			draw_sprite_scaled(bg_tmp, sprites[1], (width - nw) / 2, 0, nw, height);
+		} else {
+			draw_sprite_scaled(bg_tmp, sprites[1], 0, (height - nh) / 2, width, nh);
 		}
 
+		blur_context_no_vignette(bg, bg_tmp, 80.0);
+		blur_context_no_vignette(bg_tmp, bg, 400.0);
+		blur_context_no_vignette(bg, bg_tmp, 200.0);
 
-		/* Do something with a window */
-		window_t * wina = window_create(0,0, width, height);
-		assert(wina);
-		window_reorder (wina, 0); /* Disables movement */
-		ctx = init_graphics_window_double_buffer(wina);
+		sprite_free(tmp);
+
+		free(bg_tmp);
+		free(bg);
+	}
+
+	bg_surf = cairo_image_surface_create_for_data((void*)bg_sprite->bitmap, CAIRO_FORMAT_ARGB32, bg_sprite->width, bg_sprite->height, cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, bg_sprite->width));
+
+	cairo_surface_t * cs = cairo_image_surface_create_for_data((void*)ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width));
+	cairo_t * cr = cairo_create(cs);
+
+	while (1) {
+
+		yutani_set_stack(y, wina, 0);
 
 		for (int i = 0; i < LOGO_FINAL_OFFSET; ++i) {
 			draw_fill(ctx, rgb(0,0,0));
-			draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
+			draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
 			draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - i);
 			flip(ctx);
+			yutani_flip(y, wina);
 		}
 
 		size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
@@ -284,7 +325,7 @@ int main (int argc, char ** argv) {
 				/* Redraw the background */
 				draw_fill(ctx, rgb(0,0,0));
 
-				draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
+				draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
 				draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 
 				draw_string_shadow(ctx, hostname_label_left, height - 12, white, hostname, rgb(0,0,0), 2, 1, 1, 3.0);
@@ -316,10 +357,20 @@ int main (int argc, char ** argv) {
 				}
 
 				flip(ctx);
+				yutani_flip(y, wina);
 
 				w_keyboard_t * kbd = NULL;
 				do {
-					kbd = poll_keyboard();
+					kbd = NULL;
+					yutani_msg_t * msg = yutani_poll(y);
+					if (msg->type == YUTANI_MSG_KEY_EVENT) {
+						struct yutani_msg_key_event * ke = (void*)msg->data;
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							kbd = malloc(sizeof(w_keyboard_t));
+							kbd->key = ke->event.key;
+						}
+					}
+					free(msg);
 				} while (!kbd);
 
 				if (kbd->key == '\n') {
@@ -361,11 +412,10 @@ int main (int argc, char ** argv) {
 		}
 
 		draw_fill(ctx, rgb(0,0,0));
-		draw_sprite(ctx, sprites[2], center_x(width), center_y(height));
+		draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
 		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
-
-		teardown_windowing();
+		yutani_flip(y, wina);
 
 		pid_t _session_pid = fork();
 		if (!_session_pid) {
@@ -381,6 +431,9 @@ int main (int argc, char ** argv) {
 
 		syscall_wait(_session_pid);
 	}
+
+	yutani_close(y, wina);
+
 
 	return 0;
 }

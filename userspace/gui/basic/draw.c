@@ -1,3 +1,4 @@
+
 /*
  * draw
  *
@@ -9,13 +10,15 @@
  */
 #include <stdlib.h>
 
+#include "lib/yutani.h"
 #include "gui/ttk/ttk.h"
 #include "lib/list.h"
 
 /* XXX TOOLKIT FUNCTIONS */
 
 gfx_context_t * ctx;
-window_t * wina;
+yutani_window_t * wina;
+yutani_t * yctx;
 
 /* Active TTK window XXX */
 static window_t * ttk_window = NULL;
@@ -29,6 +32,8 @@ static list_t *   ttk_objects = NULL;
 #define TTK_BUTTON_STATE_NORMAL  0
 #define TTK_BUTTON_STATE_DOWN    1
 
+cairo_surface_t * internal_surface;
+
 /*
  * Core TTK GUI object
  */
@@ -39,7 +44,7 @@ typedef struct {
 	int32_t  width;  /* Sizes */
 	int32_t  height;
 	void (*render_func)(void *, cairo_t * cr); /* (Internal) function to render the object */
-	void (*click_callback)(void *, w_mouse_t *); /* Callback function for clicking */
+	void (*click_callback)(void *, struct yutani_msg_window_mouse_event *); /* Callback function for clicking */
 } ttk_object;
 
 /* TTK Button */
@@ -100,7 +105,7 @@ void ttk_render_raw_surface(void * s, cairo_t * cr) {
 	}
 }
 
-ttk_button * ttk_button_new(char * title, void (*callback)(void *, w_mouse_t *)) {
+ttk_button * ttk_button_new(char * title, void (*callback)(void *, struct yutani_msg_window_mouse_event *)) {
 	ttk_button * out = malloc(sizeof(ttk_button));
 	out->title = title;
 	out->fill_color   = rgb(100,100,100);
@@ -134,7 +139,7 @@ void ttk_render_decor_button_close(void * s, cairo_t * cr) {
 	cairo_restore(cr);
 }
 
-ttk_button * ttk_decor_button_close(void (*callback)(void *, w_mouse_t *)) {
+ttk_button * ttk_decor_button_close(void (*callback)(void *, struct yutani_msg_window_mouse_event *)) {
 	if (!close_button_sprite) {
 		close_button_sprite = cairo_image_surface_create_from_png("/usr/share/ttk/common/button-close.png"); /* TTK_PATH ? something less dumb? */
 	}
@@ -183,7 +188,7 @@ void ttk_position(ttk_object * obj, int x, int y, int width, int height) {
 	obj->height = height;
 }
 
-int ttk_within(ttk_object * obj, w_mouse_t * evt) {
+int ttk_within(ttk_object * obj, struct yutani_msg_window_mouse_event * evt) {
 	if (evt->new_x >= obj->x && evt->new_x < obj->x + obj->width &&
 		evt->new_y >= obj->y && evt->new_y < obj->y + obj->height) {
 		return 1;
@@ -191,8 +196,8 @@ int ttk_within(ttk_object * obj, w_mouse_t * evt) {
 	return 0;
 }
 
-void ttk_check_click(w_mouse_t * evt) {
-	if (evt->command == WE_MOUSECLICK) {
+void ttk_check_click(struct yutani_msg_window_mouse_event * evt) {
+	if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
 		foreach(node, ttk_objects) {
 			ttk_object * obj = (ttk_object *)node->value;
 			if (ttk_within(obj, evt)) {
@@ -208,8 +213,15 @@ void ttk_render() {
 	/* XXX */
 	ttk_window_t _window;
 	ttk_window_t * window = &_window;
+
+	window_t _wina;
+	_wina.buffer = wina->buffer;
+	_wina.width = wina->width;
+	_wina.height = wina->height;
+	_wina.focused = wina->focused;
+
 	window->core_context = ctx;
-	window->core_window  = wina;
+	window->core_window  = &_wina;
 	window->width        = ctx->width; // - decor_width();
 	window->height       = ctx->height; //- decor_height();
 	window->off_x        = 0; //decor_left_width;
@@ -250,6 +262,7 @@ void ttk_render() {
 	}
 
 	flip(window->core_context);
+	yutani_flip(yctx, wina);
 }
 
 void setup_ttk(window_t * window) {
@@ -270,7 +283,7 @@ ttk_button * button_thin;
 ttk_raw_surface * drawing_surface;
 int thick = 0;
 
-static void set_color(void * button, w_mouse_t * event) {
+static void set_color(void * button, struct yutani_msg_window_mouse_event * event) {
 	ttk_button * self = (ttk_button *)button;
 
 	if (button_blue  != self) button_blue->button_state  = TTK_BUTTON_STATE_NORMAL;
@@ -283,11 +296,11 @@ static void set_color(void * button, w_mouse_t * event) {
 	ttk_render();
 }
 
-static void quit_app(void * button, w_mouse_t * event) {
+static void quit_app(void * button, struct yutani_msg_window_mouse_event * event) {
 	quit = 1;
 }
 
-static void set_thickness_thick(void * button, w_mouse_t * event) {
+static void set_thickness_thick(void * button, struct yutani_msg_window_mouse_event * event) {
 #if 0
 	button_thick->fill_color = rgb(127,127,127);
 	button_thick->fore_color = rgb(255,255,255);
@@ -300,7 +313,7 @@ static void set_thickness_thick(void * button, w_mouse_t * event) {
 	ttk_render();
 }
 
-static void set_thickness_thin(void * button, w_mouse_t * event) {
+static void set_thickness_thin(void * button, struct yutani_msg_window_mouse_event * event) {
 #if 0
 	button_thin->fill_color = rgb(127,127,127);
 	button_thin->fore_color = rgb(255,255,255);
@@ -313,16 +326,7 @@ static void set_thickness_thin(void * button, w_mouse_t * event) {
 	ttk_render();
 }
 
-void resize_callback(window_t * window) {
-	reinit_graphics_window(ctx, wina);
-	ttk_render();
-}
-
-void focus_callback(window_t * window) {
-	ttk_render();
-}
-
-void keep_drawing(w_mouse_t * mouse) { 
+void keep_drawing(struct yutani_msg_window_mouse_event * mouse) { 
 	double thickness = thick ? 2.0 : 0.5;;
 
 	int old_x = mouse->old_x - ((ttk_object *)drawing_surface)->x;
@@ -332,8 +336,6 @@ void keep_drawing(w_mouse_t * mouse) {
 	int new_y = mouse->new_y - ((ttk_object *)drawing_surface)->y;
 
 	{
-		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, drawing_surface->surface->width);
-		cairo_surface_t * internal_surface = cairo_image_surface_create_for_data(drawing_surface->surface->backbuffer, CAIRO_FORMAT_ARGB32, drawing_surface->surface->width, drawing_surface->surface->height, stride);
 		cairo_t * cr = cairo_create(internal_surface);
 
 		cairo_set_source_rgb(cr, _RED(drawing_color) / 255.0, _GRE(drawing_color) / 255.0, _BLU(drawing_color) / 255.0);
@@ -345,7 +347,27 @@ void keep_drawing(w_mouse_t * mouse) {
 		cairo_stroke(cr);
 
 		cairo_destroy(cr);
-		cairo_surface_destroy(internal_surface);
+	}
+
+	{
+		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, wina->width);
+		cairo_surface_t * core_surface = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, wina->width, wina->height, stride);
+		cairo_t * cr = cairo_create(core_surface);
+
+		cairo_rectangle(cr, ((ttk_object*)drawing_surface)->x, ((ttk_object*)drawing_surface)->y, ((ttk_object*)drawing_surface)->width, ((ttk_object*)drawing_surface)->height);
+		cairo_clip(cr);
+
+		cairo_set_source_rgb(cr, _RED(drawing_color) / 255.0, _GRE(drawing_color) / 255.0, _BLU(drawing_color) / 255.0);
+		cairo_set_line_width(cr, thickness);
+
+		cairo_move_to(cr, old_x + ((ttk_object*)drawing_surface)->x, old_y + ((ttk_object*)drawing_surface)->y);
+		cairo_line_to(cr, new_x + ((ttk_object*)drawing_surface)->x, new_y + ((ttk_object*)drawing_surface)->y);
+
+		cairo_stroke(cr);
+		cairo_destroy(cr);
+		cairo_surface_destroy(core_surface);
+
+		flip(ctx);
 	}
 
 }
@@ -357,20 +379,22 @@ int main (int argc, char ** argv) {
 	int width  = 450;
 	int height = 450;
 
-	setup_windowing();
-
-	resize_window_callback = resize_callback;
-	focus_changed_callback = focus_callback;
+	yctx = yutani_init();
 
 	/* Do something with a window */
-	wina = window_create(left, top, width, height);
-	ctx = init_graphics_window_double_buffer(wina);
+	wina = yutani_window_create(yctx, width, height);
+
+	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgb(255,255,255));
 	init_decorations();
 
-	win_sane_events();
+	window_t _wina;
+	_wina.buffer = wina->buffer;
+	_wina.width = wina->width;
+	_wina.height = wina->height;
+	_wina.focused = wina->focused;
 
-	setup_ttk(wina);
+	setup_ttk(&_wina);
 
 	ttk_button * close_button = ttk_decor_button_close(quit_app);
 
@@ -412,65 +436,57 @@ int main (int argc, char ** argv) {
 	drawing_surface = ttk_raw_surface_new(width - 30, height - 70);
 	((ttk_object *)drawing_surface)->y = 60;
 
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, drawing_surface->surface->width);
+	internal_surface = cairo_image_surface_create_for_data(drawing_surface->surface->backbuffer, CAIRO_FORMAT_ARGB32, drawing_surface->surface->width, drawing_surface->surface->height, stride);
+
 	drawing_color = rgb(255,0,0);
 
 	ttk_render();
 
 	while (!quit) {
-		wins_packet_t * event = get_window_events();
-		window_t * window = NULL;
-
-		switch (event->command_type & WE_GROUP_MASK) {
-			case WE_WINDOW_EVT: {
-				w_window_t * evt = (w_window_t *)((uintptr_t)event + sizeof(wins_packet_t));
-				switch (event->command_type) {
-					case WE_FOCUSCHG:
-						window = wins_get_window(evt->wid);
-						if (window) {
-							window->focused = evt->left;
-							focus_changed_callback(window);
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+							quit = 1;
+							break;
 						}
-						break;
-					case WE_RESIZED:
-						window = wins_get_window(evt->wid);
-						if (window) {
-							resize_window_buffer_client(window, evt->left, evt->top, evt->width, evt->height);
-							resize_window_callback(window);
+					}
+					break;
+				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					{
+						struct yutani_msg_window_focus_change * wf = (void*)m->data;
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						if (win) {
+							win->focused = wf->focused;
+							ttk_render();
 						}
-						break;
-				}
-				break;
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DRAG && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							keep_drawing(me);
+							yutani_flip(yctx, wina);
+						} else if (me->command == YUTANI_MOUSE_EVENT_RAISE) {
+							ttk_render();
+						} else {
+							ttk_check_click(me);
+						}
+					}
+					break;
+				default:
+					break;
 			}
-			case WE_MOUSE_EVT: {
-				w_mouse_t * mouse = (w_mouse_t *)((uintptr_t)event + sizeof(wins_packet_t));
-				if (event->command_type == WE_MOUSEMOVE && mouse->buttons & MOUSE_BUTTON_LEFT) {
-					keep_drawing(mouse);
-					ttk_render();
-				} else {
-					ttk_check_click(mouse);
-				}
-				break;
-			}
-			case WE_KEY_EVT: {
-				w_keyboard_t * key = (w_keyboard_t *)((uintptr_t)event + sizeof(wins_packet_t));
-				printf("key event, key=%c\n", key->key);
-				switch (key->key) {
-					case 'q':
-						quit = 1;
-						break;
-				}
-				break;
-			}
-			default: {
-				printf("Incoming window event; command = 0x%x\n", event->command_type);
-				break;
-			}
+			free(m);
 		}
-
-		free(event);
 	}
 
-	teardown_windowing();
+	yutani_close(yctx, wina);
 
 	return 0;
 }

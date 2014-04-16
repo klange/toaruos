@@ -33,6 +33,7 @@
 
 #include "lib/graphics.h"
 #include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/decorations.h"
 #include "lib/pthread.h"
 #include "lib/kbd.h"
@@ -62,12 +63,14 @@ term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
 uint32_t current_fg     = 7;    /* Current foreground color */
 uint32_t current_bg     = 0;    /* Current background color */
 uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
-window_t * window       = NULL; /* GUI window */
 uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
+
+yutani_window_t * window       = NULL; /* GUI window */
+yutani_t * yctx = NULL;
 
 term_state_t * ansi_state = NULL;
 
@@ -78,8 +81,8 @@ void term_redraw_cursor();
 static unsigned int timer_tick = 0;
 
 /* Some GUI-only options */
-uint16_t window_width  = 640;
-uint16_t window_height = 408;
+uint32_t window_width  = 640;
+uint32_t window_height = 408;
 #define TERMINAL_TITLE_SIZE 512
 char   terminal_title[TERMINAL_TITLE_SIZE];
 size_t terminal_title_length = 0;
@@ -87,7 +90,7 @@ gfx_context_t * ctx;
 volatile int needs_redraw = 1;
 static void render_decors();
 void term_clear();
-void resize_callback(window_t * window);
+void resize_callback(yutani_window_t * window);
 
 void dump_buffer();
 
@@ -129,12 +132,19 @@ void input_buffer_stuff(char * str) {
 }
 
 static void render_decors() {
+	/* XXX Make the decorations library support Yutani windows */
+	window_t w;
+	w.buffer = window->buffer;
+	w.height = window->height;
+	w.width  = window->width;
+	w.focused = window->focused;
 	if (!_fullscreen) {
 		if (terminal_title_length) {
-			render_decorations(window, ctx, terminal_title);
+			render_decorations(&w, ctx, terminal_title);
 		} else {
-			render_decorations(window, ctx, "Terminal");
+			render_decorations(&w, ctx, "Terminal");
 		}
+		yutani_flip(yctx, window);
 	}
 }
 
@@ -196,16 +206,16 @@ void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 	}
 }
 
-void resize_callback(window_t * window) {
+void resize_callback(yutani_window_t * window) {
 	window_width  = window->width  - decor_left_width - decor_right_width;
 	window_height = window->height - decor_top_height - decor_bottom_height;
 
-	reinit_graphics_window(ctx, window);
+	reinit_graphics_yutani(ctx, window);
 
 	reinit(1);
 }
 
-void focus_callback(window_t * window) {
+void focus_callback(yutani_window_t * yutani_window) {
 	render_decors();
 	term_redraw_cursor();
 }
@@ -680,6 +690,7 @@ void flip_cursor() {
 	} else {
 		render_cursor();
 	}
+	yutani_flip(yctx, window);
 	cursor_flipped = 1 - cursor_flipped;
 }
 
@@ -746,10 +757,12 @@ uint32_t child_pid = 0;
 
 void handle_input(char c) {
 	write(fd_master, &c, 1);
+	yutani_flip(yctx, window);
 }
 
 void handle_input_s(char * c) {
 	write(fd_master, c, strlen(c));
+	yutani_flip(yctx, window);
 }
 
 void key_event(int ret, key_event_t * event) {
@@ -958,10 +971,30 @@ void reinit(int send_sig) {
 
 void * handle_incoming(void * garbage) {
 	while (!exit_application) {
-		w_keyboard_t * kbd = poll_keyboard();
-		if (kbd != NULL) {
-			key_event(kbd->ret, &kbd->event);
-			free(kbd);
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						int ret = (ke->event.action == KEY_ACTION_DOWN) && (ke->event.key);
+						key_event(ret, &ke->event);
+					}
+					break;
+				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					{
+						struct yutani_msg_window_focus_change * wf = (void*)m->data;
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						if (win) {
+							win->focused = wf->focused;
+							render_decors();
+						}
+					}
+					break;
+				default:
+					break;
+			}
+			free(m);
 		}
 	}
 	pthread_exit(0);
@@ -1045,30 +1078,30 @@ int main(int argc, char ** argv) {
 	putenv("TERM=toaru");
 
 	/* Initialize the windowing library */
-	setup_windowing();
+	yctx = yutani_init();
 
 	if (_fullscreen) {
-		window_width  = wins_globals->server_width;
-		window_height = wins_globals->server_height;
-		window = window_create(0,0, window_width, window_height);
-		window_reorder (window, 0); /* Disables movement */
+		window_width = yctx->display_width;
+		window_height = yctx->display_height;
+		window = yutani_window_create(yctx, window_width, window_height);
+		yutani_set_stack(yctx, window, YUTANI_ZORDER_BOTTOM);
 		window->focused = 1;
 	} else {
-		int x = 40, y = 40;
 		/* Create the window */
-		window = window_create(x,y, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
-		resize_window_callback = resize_callback;
-		focus_changed_callback = focus_callback;
+		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
+		window->focused = 1;
 
 		/* Initialize the decoration library */
 		init_decorations();
 	}
 
 	/* Initialize the graphics context */
-	ctx = init_graphics_window(window);
+	ctx = init_graphics_yutani(window);
 
 	/* Clear to black */
-	draw_fill(ctx, rgb(0,0,0));
+	draw_fill(ctx, rgba(0,0,0,0));
+
+	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
 
 	if (_use_freetype) {
 		int error;
@@ -1153,11 +1186,12 @@ int main(int argc, char ** argv) {
 			for (uint32_t i = 0; i < r; ++i) {
 				ansi_put(ansi_state, buf[i]);
 			}
+			yutani_flip(yctx, window);
 		}
 
 	}
 
-	teardown_windowing();
+	yutani_close(yctx, window);
 
 	return 0;
 }

@@ -15,23 +15,27 @@
 
 #define PANEL_HEIGHT 28
 
-#include "lib/window.h"
+#include "lib/pthread.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
 
-uint16_t win_width;
-uint16_t win_height;
 gfx_context_t * ctx;
+yutani_t * yctx;
+yutani_window_t * panel;
+
+int width;
+int height;
 
 int center_x(int x) {
-	return (win_width - x) / 2;
+	return (width - x) / 2;
 }
 
 int center_y(int y) {
-	return (win_height - y) / 2;
+	return (height - y) / 2;
 }
 
 void init_sprite(int i, char * filename, char * alpha) {
@@ -62,47 +66,23 @@ void sig_int(int sig) {
 	_continue = 0;
 }
 
+#if 0
 void panel_check_click(w_mouse_t * evt) {
 	if (evt->command == WE_MOUSECLICK) {
 		printf("Click!\n");
-		if (evt->new_x >= win_width - 24 ) {
+		if (evt->new_x >= width - 24 ) {
 			printf("Clicked log-out button. Good bye!\n");
 			_continue = 0;
 		}
 	}
 }
+#endif
 
-int main (int argc, char ** argv) {
-	setup_windowing();
 
-	int width  = wins_globals->server_width;
-	int height = wins_globals->server_height;
-
-	win_width = width;
-	win_height = height;
-
-	init_shmemfonts();
-	set_font_size(14);
-
-	/* Create the panel */
-	window_t * panel = window_create(0, 0, width, PANEL_HEIGHT);
-	window_reorder (panel, 0xFFFF);
-	ctx = init_graphics_window_double_buffer(panel);
-	draw_fill(ctx, rgba(0,0,0,0));
-	flip(ctx);
-
-	init_sprite_png(0, "/usr/share/panel.png");
-	init_sprite_png(1, "/usr/share/icons/panel-shutdown.png");
-
-	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
-		draw_sprite(ctx, sprites[0], i, 0);
-	}
-
+void * clock_thread(void * garbage) {
 	size_t buf_size = panel->width * panel->height * sizeof(uint32_t);
 	char * buf = malloc(buf_size);
 	memcpy(buf, ctx->backbuffer, buf_size);
-
-	flip(ctx);
 
 	struct timeval now;
 	int last = 0;
@@ -116,12 +96,6 @@ int main (int argc, char ** argv) {
 	uint8_t * os_name_ = "とあるOS";
 	uint8_t final[512];
 	uint32_t l = snprintf(final, 512, "%s %s", os_name_, u.release);
-
-	syscall_signal(2, sig_int);
-
-	/* Enable mouse */
-	win_use_threaded_handler();
-	mouse_action_callback = panel_check_click;
 
 	uint32_t txt_color = rgb(230,230,230);
 	int t = 0;
@@ -157,14 +131,57 @@ int main (int argc, char ** argv) {
 			set_font_size(14);
 			draw_string(ctx, 10, 18, txt_color, final);
 
-			draw_sprite(ctx, sprites[1], win_width - 23, 1); /* Logout button */
+			draw_sprite(ctx, sprites[1], width - 23, 1); /* Logout button */
 
 			flip(ctx);
+			yutani_flip(yctx, panel);
 		}
 		usleep(500000);
 	}
+}
 
-	teardown_windowing();
+int main (int argc, char ** argv) {
+	yctx = yutani_init();
+
+	width  = yctx->display_width;
+	height = yctx->display_height;
+
+	init_shmemfonts();
+	set_font_size(14);
+
+	/* Create the panel */
+	panel = yutani_window_create(yctx, width, PANEL_HEIGHT);
+	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);
+	ctx = init_graphics_yutani_double_buffer(panel);
+	draw_fill(ctx, rgba(0,0,0,0));
+	flip(ctx);
+	yutani_flip(yctx, panel);
+
+	init_sprite_png(0, "/usr/share/panel.png");
+	init_sprite_png(1, "/usr/share/icons/panel-shutdown.png");
+
+	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
+		draw_sprite(ctx, sprites[0], i, 0);
+	}
+
+	flip(ctx);
+	syscall_signal(2, sig_int);
+
+	pthread_t _clock_thread;
+	pthread_create(&_clock_thread, NULL, clock_thread, NULL);
+
+	while (_continue) {
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			if (m->type == YUTANI_MSG_MOUSE_EVENT) {
+				/* Do something */
+
+			}
+			free(m);
+		}
+	}
+
+	yutani_close(yctx, panel);
 
 	return 0;
 }
