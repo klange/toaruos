@@ -259,20 +259,16 @@ yutani_t * yutani_init(void) {
 
 	if (!c) return NULL; /* Connection failed. */
 
-	fprintf(stderr, "[yutani-client] Sending hello...\n");
 	yutani_t * y = yutani_context_create(c);
 	yutani_msg_t * m = yutani_msg_build_hello();
 	int result = yutani_msg_send(y, m);
 	free(m);
 
-	fprintf(stderr, "[yutani-client] Waiting for welcome...\n");
 	m = yutani_wait_for(y, YUTANI_MSG_WELCOME);
 	struct yutani_msg_welcome * mw = (void *)&m->data;
 	y->display_width = mw->display_width;
 	y->display_height = mw->display_height;
 	free(m);
-
-	fprintf(stderr, "[yutani-client] Received welcome with server size of: %dx%d\n", y->display_width, y->display_height);
 
 	return y;
 }
@@ -284,10 +280,8 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 	int result = yutani_msg_send(y, m);
 	free(m);
 
-	fprintf(stderr, "[yutani-client] Waiting for window response...\n");
 	m = yutani_wait_for(y, YUTANI_MSG_WINDOW_INIT);
 	struct yutani_msg_window_init * mw = (void *)&m->data;
-	fprintf(stderr, "[yutani-client] Received response, buffer ID is %d\n", mw->bufid);
 
 	win->width = mw->width;
 	win->height = mw->height;
