@@ -712,6 +712,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	if (focused) {
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'z')) {
 			mark_window(yg,focused);
 			focused->rotation -= 5;
@@ -720,6 +721,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		}
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'x')) {
 			mark_window(yg,focused);
 			focused->rotation += 5;
@@ -728,6 +730,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		}
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'c')) {
 			mark_window(yg,focused);
 			focused->rotation = 0;
