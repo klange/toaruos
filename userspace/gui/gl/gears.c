@@ -26,8 +26,9 @@
 #include <GL/gl.h>
 #include <GL/osmesa.h>
 
-#include "lib/window.h"
+#include "lib/yutani.h"
 #include "lib/graphics.h"
+#include "lib/pthread.h"
 
 struct timeval {
 	unsigned int tv_sec;
@@ -258,22 +259,38 @@ int resize(gfx_context_t * ctx, OSMesaContext gl_ctx) {
 	return 0;
 }
 
+static yutani_t * yctx;
+static yutani_window_t * wina;
+static gfx_context_t * ctx;
+static int should_exit = 0;
+
+void * draw_thread(void * glctx) {
+	OSMesaContext gl_ctx = (OSMesaContext)glctx;
+
+	while (!should_exit) {
+		fps();
+		angle += 0.2;
+		draw();
+		flip(ctx);
+		yutani_flip(yctx, wina);
+		syscall_yield();
+	}
+
+	pthread_exit(0);
+}
+
 int main (int argc, char ** argv) {
 	int left = 30;
 	int top  = 30;
 
 	int width  = 500;
 	int height = 500;
-	int quit = 0;
 
-
-	setup_windowing();
-
-	/* Do something with a window */
-	window_t * wina = window_create(left, top, width, height);
-	gfx_context_t * ctx = init_graphics_window_double_buffer(wina);
+	yctx = yutani_init();
+	wina = yutani_window_create(yctx, width, height);
+	yutani_window_move(yctx, wina, left, top);
+	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgb(0,0,0));
-	win_sane_events();
 
 	OSMesaContext gl_ctx = OSMesaCreateContext(OSMESA_BGRA, NULL);
 	if (resize(ctx, gl_ctx)) {
@@ -283,63 +300,56 @@ int main (int argc, char ** argv) {
 
 	init();
 
-	while (!quit) {
-		wins_packet_t * event = get_window_events_async();
-		if (event) {
-			switch (event->command_type & WE_GROUP_MASK) {
-				case WE_WINDOW_EVT: {
-					w_window_t * evt = (w_window_t *)((uintptr_t)event + sizeof(wins_packet_t));
-					window_t * window = NULL;
-					switch (event->command_type) {
-						case WE_RESIZED:
-							window = wins_get_window(evt->wid);
-							if (window) {
-								/* Accept resize request */
-								resize_window_buffer_client(window, evt->left, evt->top, evt->width, evt->height);
-								/* Reinitialize core graphics library */
-								reinit_graphics_window(ctx, wina);
-								/* Fix up the GL context as well */
-								resize(ctx, gl_ctx);
-							}
-							break;
-					}
-					break;
-				}
-				case WE_KEY_EVT: {
-					w_keyboard_t * kbd = (w_keyboard_t *)((uintptr_t)event + sizeof(wins_packet_t));
-					switch (kbd->event.keycode) {
-						case 'q':
-							free(event);
-							goto finish;
-						case KEY_ARROW_LEFT:
-							view_roty += 5.0;
-							break;
-						case KEY_ARROW_RIGHT:
-							view_roty -= 5.0;
-							break;
-						case KEY_ARROW_UP:
-							view_rotx += 5.0;
-							break;
-						case KEY_ARROW_DOWN:
-							view_rotx -= 5.0;
-							break;
-					}
-					break;
-				}
-			}
-			free(event);
-		}
+	/* XXX add a method to query if there are available packets in pex */
+	pthread_t thread;
+	pthread_create(&thread, NULL, draw_thread, NULL);
 
-		fps();
-		angle += 0.2;
-		draw();
-		flip(ctx);
-		syscall_yield();
+	while (!should_exit) {
+		yutani_msg_t * m = yutani_poll(yctx);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							switch (ke->event.keycode) {
+								case 'q':
+									should_exit = 1;
+									free(m);
+									goto finish;
+								case KEY_ARROW_LEFT:
+									view_roty += 5.0;
+									break;
+								case KEY_ARROW_RIGHT:
+									view_roty -= 5.0;
+									break;
+								case KEY_ARROW_UP:
+									view_rotx += 5.0;
+									break;
+								case KEY_ARROW_DOWN:
+									view_rotx -= 5.0;
+									break;
+								default:
+									break;
+							}
+						}
+					}
+					break;
+#if 0
+					/* XXX resizing */
+						/* Fix up the GL context as well */
+						resize(ctx, gl_ctx);
+#endif
+				default:
+					break;
+			}
+			free(m);
+		}
 	}
 
 finish:
 	OSMesaDestroyContext(gl_ctx);
-	teardown_windowing();
+	yutani_close(yctx, wina);
 
 	return 0;
 }
