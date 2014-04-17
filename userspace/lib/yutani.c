@@ -29,6 +29,10 @@ yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	} while (1); /* XXX: (!y->abort) */
 }
 
+size_t yutani_query(yutani_t * y) {
+	return pex_query(y->sock);
+}
+
 yutani_msg_t * yutani_poll(yutani_t * y) {
 	yutani_msg_t * out;
 	size_t size;
@@ -40,6 +44,13 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 	}
 
 	return out;
+}
+
+yutani_msg_t * yutani_poll_async(yutani_t * y) {
+	if (yutani_query(y) > 0) {
+		return yutani_poll(y);
+	}
+	return NULL;
 }
 
 yutani_msg_t * yutani_msg_build_hello(void) {

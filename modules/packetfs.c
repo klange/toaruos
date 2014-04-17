@@ -3,6 +3,7 @@
 #include <pipe.h>
 #include <module.h>
 #include <logging.h>
+#include <ioctl.h>
 
 #define MAX_PACKET_SIZE 1024
 
@@ -132,6 +133,17 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 	return send_to_client(p, head->target, size - sizeof(header_t), head->data);
 }
 
+static int ioctl_server(fs_node_t * node, int request, void * argp) {
+	pex_ex_t * p = (pex_ex_t *)node->device;
+
+	switch (request) {
+		case IOCTL_PACKETFS_QUEUED:
+			return pipe_size(p->server_pipe);
+		default:
+			return -1;
+	}
+}
+
 static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	assert(c->parent == node->device);
@@ -173,6 +185,17 @@ static uint32_t write_client(fs_node_t * node, uint32_t offset, uint32_t size, u
 	return size;
 }
 
+static int ioctl_client(fs_node_t * node, int request, void * argp) {
+	pex_client_t * c = (pex_client_t *)node->inode;
+
+	switch (request) {
+		case IOCTL_PACKETFS_QUEUED:
+			return pipe_size(c->pipe);
+		default:
+			return -1;
+	}
+}
+
 static void open_pex(fs_node_t * node, unsigned int flags) {
 	pex_ex_t * t = (pex_ex_t *)(node->device);
 
@@ -184,6 +207,7 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 		/* Set up the server side */
 		node->read = read_server;
 		node->write = write_server;
+		node->ioctl = ioctl_server;
 		debug_print(INFO, "[pex] Server launched: %s", t->name);
 		debug_print(INFO, "fs_node = 0x%x", node);
 	} else if (!(flags & O_CREAT)) {
@@ -192,6 +216,7 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 
 		node->read = read_client;
 		node->write = write_client;
+		node->ioctl = ioctl_client;
 
 		list_insert(t->clients, client);
 

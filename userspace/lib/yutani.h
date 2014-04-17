@@ -164,6 +164,8 @@ typedef struct {
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type);
 yutani_msg_t * yutani_poll(yutani_t * y);
+yutani_msg_t * yutani_poll_async(yutani_t * y);
+size_t yutani_query(yutani_t * y);
 
 yutani_msg_t * yutani_msg_build_hello(void);
 yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height);

@@ -14,6 +14,15 @@ int main(int argc, char * argv[]) {
 	char * foo = "Hello World!";
 	pex_reply(client, strlen(foo)+1, foo);
 
+	size_t query_result;
+
+	query_result = pex_query(server);
+	if (query_result < 1) {
+		FAIL("Expected pex_query to return something > 0, got %d", query_result);
+	} else {
+		PASS(".");
+	}
+
 	pex_packet_t * p = calloc(PACKET_SIZE, 1);
 	pex_listen(server, p);
 
@@ -27,8 +36,29 @@ int main(int argc, char * argv[]) {
 
 	free(p);
 
+	query_result = pex_query(server);
+	if (query_result != 0) {
+		FAIL("Expected pex_query to return 0, got %d", query_result);
+	} else {
+		PASS(".");
+	}
+
+	query_result = pex_query(client);
+	if (query_result != 0) {
+		FAIL("Expected pex_query to return 0, got %d", query_result);
+	} else {
+		PASS(".");
+	}
+
 	char * foo2 = "Hello everyone!\n";
 	pex_broadcast(server, strlen(foo2)+1, foo2);
+
+	query_result = pex_query(client);
+	if (query_result < 1) {
+		FAIL("Expected pex_query to return something > 0, got %d", query_result);
+	} else {
+		PASS(".");
+	}
 
 	char out[MAX_PACKET_SIZE];
 	size_t size = pex_recv(client, out);

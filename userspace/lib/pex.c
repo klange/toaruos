@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 
 #include "pex.h"
 
@@ -51,3 +52,6 @@ FILE * pex_bind(char * target) {
 	return out;
 }
 
+size_t pex_query(FILE * sock) {
+	return ioctl(fileno(sock), IOCTL_PACKETFS_QUEUED, NULL);
+}

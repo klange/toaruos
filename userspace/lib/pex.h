@@ -23,6 +23,7 @@ size_t pex_listen(FILE * sock, pex_packet_t * packet);
 
 size_t pex_reply(FILE * sock, size_t size, char * blob);
 size_t pex_recv(FILE * sock, char * blob);
+size_t pex_query(FILE * sock);
 
 FILE * pex_bind(char * target);
 FILE * pex_connect(char * target);
