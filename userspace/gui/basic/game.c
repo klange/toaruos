@@ -215,6 +215,34 @@ void resize_callback(window_t * win) {
 }
 #endif
 
+char handle_event(yutani_msg_t * m) {
+	if (m) {
+		switch (m->type) {
+			case YUTANI_MSG_KEY_EVENT:
+				{
+					struct yutani_msg_key_event * ke = (void*)m->data;
+					if (ke->event.action == KEY_ACTION_DOWN) {
+						return ke->event.keycode;
+					}
+				}
+				break;
+			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+				{
+					struct yutani_msg_window_focus_change * wf = (void*)m->data;
+					yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+					if (win) {
+						win->focused = wf->focused;
+						display();
+					}
+				}
+			default:
+				break;
+		}
+		free(m);
+	}
+	return 0;
+}
+
 int main(int argc, char ** argv) {
 
 	yctx = yutani_init();
@@ -253,31 +281,14 @@ int main(int argc, char ** argv) {
 
 		char ch = '\0';
 
-		yutani_msg_t * m = yutani_poll(yctx);
-		if (m) {
-			switch (m->type) {
-				case YUTANI_MSG_KEY_EVENT:
-					{
-						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN) {
-							ch = ke->event.keycode;
-						}
-					}
-					break;
-				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
-					{
-						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
-						if (win) {
-							win->focused = wf->focused;
-							display();
-						}
-					}
-				default:
-					break;
-			}
-		}
-		free(m);
+		yutani_msg_t * m = NULL;
+		do {
+			yutani_poll_async(yctx);
+			handle_event(m);
+		} while (m);
+
+		m = yutani_poll(yctx);
+		ch = handle_event(m);
 
 		switch (ch) {
 			case 'q':
