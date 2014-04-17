@@ -295,6 +295,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->height = height;
 	win->bufid = next_buf_id();
 	win->rotation = 0;
+	win->newbufid = 0;
 
 	char key[1024];
 	YUTANI_SHMKEY(key, 1024, win);
@@ -302,6 +303,46 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	size_t size = (width * height * 4);
 	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
 	return win;
+}
+
+static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window_t * win, int width, int height) {
+	/* A client has accepted our offer, let's make a buffer for them */
+	if (win->newbufid) {
+		/* Already in the middle of an accept/done, bail */
+		return win->newbufid;
+	}
+	win->newbufid = next_buf_id();
+
+	{
+		char key[1024];
+		YUTANI_SHMKEY_EXP(key, 1024, win->newbufid);
+
+		size_t size = (width * height * 4);
+		win->newbuffer = (uint8_t *)syscall_shm_obtain(key, &size);
+	}
+
+	return win->newbufid;
+}
+
+static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_window_t * win, int width, int height) {
+	if (!win->newbufid) {
+		return;
+	}
+
+	{
+		char key[1024];
+		YUTANI_SHMKEY_EXP(key, 1024, win->bufid);
+		syscall_shm_release(key);
+	}
+
+	win->width = width;
+	win->height = height;
+
+	win->bufid = win->newbufid;
+	win->newbufid = 0;
+
+	win->buffer = win->newbuffer;
+	win->newbuffer = NULL;
 }
 
 /**
@@ -972,7 +1013,7 @@ int main(int argc, char * argv[]) {
 			} break;
 			case YUTANI_MSG_WINDOW_NEW: {
 				struct yutani_msg_window_new * wn = (void *)m->data;
-				fprintf(stderr, "[yutani-server] Client %08x requested a new window (%xx%x).\n", p->source, wn->width, wn->height);
+				fprintf(stderr, "[yutani-server] Client %08x requested a new window (%dx%d).\n", p->source, wn->width, wn->height);
 				yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source);
 				yutani_msg_t * response = yutani_msg_build_window_init(w->wid, w->width, w->height, w->bufid);
 				pex_send(server, p->source, response->size, (char *)response);
@@ -1032,6 +1073,41 @@ int main(int argc, char * argv[]) {
 				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)ws->wid);
 				if (w) {
 					reorder_window(yg, w, ws->z);
+				}
+			} break;
+			case YUTANI_MSG_RESIZE_REQUEST: {
+				struct yutani_msg_window_resize * wr = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+				if (w) {
+					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
+					pex_send(server, p->source, response->size, (char *)response);
+					free(response);
+				}
+			} break;
+			case YUTANI_MSG_RESIZE_OFFER: {
+				struct yutani_msg_window_resize * wr = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+				if (w) {
+					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
+					pex_send(server, p->source, response->size, (char *)response);
+					free(response);
+				}
+			} break;
+			case YUTANI_MSG_RESIZE_ACCEPT: {
+				struct yutani_msg_window_resize * wr = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+				if (w) {
+					uint32_t newbufid = server_window_resize(yg, w, wr->width, wr->height);
+					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_BUFID, w->wid, wr->width, wr->height, newbufid);
+					pex_send(server, p->source, response->size, (char *)response);
+					free(response);
+				}
+			} break;
+			case YUTANI_MSG_RESIZE_DONE: {
+				struct yutani_msg_window_resize * wr = (void *)m->data;
+				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+				if (w) {
+					server_window_resize_finish(yg, w, wr->width, wr->height);
 				}
 			} break;
 			default: {

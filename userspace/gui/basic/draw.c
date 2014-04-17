@@ -277,6 +277,7 @@ uint16_t quit = 0;
 ttk_button * button_red;
 ttk_button * button_green;
 ttk_button * button_blue;
+ttk_button * close_button;
 
 ttk_button * button_thick;
 ttk_button * button_thin;
@@ -324,6 +325,18 @@ static void set_thickness_thin(void * button, struct yutani_msg_window_mouse_eve
 	button_thick->button_state = TTK_BUTTON_STATE_NORMAL;
 	thick = 0;
 	ttk_render();
+}
+
+static void resize_derp(void * button, struct yutani_msg_window_mouse_event * event) {
+	yutani_window_resize(yctx, wina, 600, 600);
+	yutani_msg_t * m = yutani_wait_for(yctx, YUTANI_MSG_RESIZE_OFFER);
+	struct yutani_msg_window_resize * wr = (void*)m->data;
+	yutani_window_resize_accept(yctx, wina, wr->width, wr->height);
+	reinit_graphics_yutani(ctx, wina);
+	((ttk_object *)close_button)->x = wina->width - 28;
+	ttk_render();
+	yutani_window_resize_done(yctx, wina);
+	yutani_flip(yctx, wina);
 }
 
 void keep_drawing(struct yutani_msg_window_mouse_event * mouse) { 
@@ -396,7 +409,7 @@ int main (int argc, char ** argv) {
 
 	setup_ttk(&_wina);
 
-	ttk_button * close_button = ttk_decor_button_close(quit_app);
+	close_button = ttk_decor_button_close(quit_app);
 
 	((ttk_object *)close_button)->x = width - 28;
 	((ttk_object *)close_button)->y = 16;
@@ -423,6 +436,11 @@ int main (int argc, char ** argv) {
 
 	button_thin = ttk_button_new("Thin", set_thickness_thin);
 	ttk_position((ttk_object *)button_thin, decor_left_width + 362, decor_top_height + 3, 50, 20);
+	button_thin->fill_color = rgb(127,127,127);
+	button_thin->fore_color = rgb(255,255,255);
+
+	button_thin = ttk_button_new("*", resize_derp);
+	ttk_position((ttk_object *)button_thin, decor_left_width + 410, decor_top_height + 3, 20, 20);
 	button_thin->fill_color = rgb(127,127,127);
 	button_thin->fore_color = rgb(255,255,255);
 

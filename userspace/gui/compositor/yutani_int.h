@@ -38,6 +38,9 @@ typedef struct {
 	uint32_t owner;
 
 	int16_t  rotation;
+
+	uint32_t newbufid;
+	uint8_t * newbuffer;
 } yutani_server_window_t;
 
 typedef struct {

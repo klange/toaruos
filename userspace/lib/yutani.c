@@ -8,6 +8,7 @@
 #include "kbd.h"
 #include "mouse.h"
 #include "hashmap.h"
+#include "list.h"
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {
@@ -23,18 +24,26 @@ yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 		if (out->type == type) {
 			return out;
 		} else {
-			/* XXX: Add other messages to a queue to be handled later. */
-			free(out);
+			list_insert(y->queued, out);
 		}
 	} while (1); /* XXX: (!y->abort) */
 }
 
 size_t yutani_query(yutani_t * y) {
+	if (y->queued->length > 0) return 1;
 	return pex_query(y->sock);
 }
 
 yutani_msg_t * yutani_poll(yutani_t * y) {
 	yutani_msg_t * out;
+
+	if (y->queued->length > 0) {
+		node_t * node = list_dequeue(y->queued);
+		out = (yutani_msg_t *)node->value;
+		free(node);
+		return out;
+	}
+
 	size_t size;
 	{
 		char tmp[MAX_PACKET_SIZE];
@@ -266,6 +275,24 @@ yutani_msg_t * yutani_msg_build_flip_region(yutani_wid_t wid, int32_t x, int32_t
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_window_resize(uint32_t type, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_resize);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = type;
+	msg->size  = s;
+
+	struct yutani_msg_window_resize * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->width = width;
+	mw->height = height;
+	mw->bufid = bufid;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -277,6 +304,7 @@ yutani_t * yutani_context_create(FILE * socket) {
 	out->display_width  = 0;
 	out->display_height = 0;
 	out->windows = hashmap_create_int(10);
+	out->queued = list_create();
 	return out;
 }
 
@@ -356,6 +384,62 @@ void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y)
 void yutani_set_stack(yutani_t * yctx, yutani_window_t * window, int z) {
 	yutani_msg_t * m = yutani_msg_build_window_stack(window->wid, z);
 	int reuslt = yutani_msg_send(yctx, m);
+	free(m);
+}
+
+void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
+	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_REQUEST, window->wid, width, height, 0);
+	int result = yutani_msg_send(yctx, m);
+	free(m);
+}
+
+void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
+	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, width, height, 0);
+	int result = yutani_msg_send(yctx, m);
+	free(m);
+}
+
+void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
+	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_ACCEPT, window->wid, width, height, 0);
+	int result = yutani_msg_send(yctx, m);
+	free(m);
+
+	/* Now wait for the new bufid */
+	m = yutani_wait_for(yctx, YUTANI_MSG_RESIZE_BUFID);
+	struct yutani_msg_window_resize * wr = (void*)m->data;
+
+	if (window->wid != wr->wid) {
+		/* I am not sure what to do here. */
+		return;
+	}
+
+	/* Update the window */
+	window->width = wr->width;
+	window->height = wr->height;
+	window->oldbufid = window->bufid;
+	window->bufid = wr->bufid;
+	free(m);
+
+	/* Allocate the buffer */
+	{
+		char key[1024];
+		YUTANI_SHMKEY(key, 1024, window);
+
+		size_t size = (window->width * window->height * 4);
+		window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+	}
+}
+
+void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
+	/* Destroy the old buffer */
+	{
+		char key[1024];
+		YUTANI_SHMKEY_EXP(key, 1024, window->oldbufid);
+		syscall_shm_release(key);
+	}
+
+	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_DONE, window->wid, window->width, window->height, window->bufid);
+	int result = yutani_msg_send(yctx, m);
 	free(m);
 }
 
