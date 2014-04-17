@@ -95,6 +95,10 @@ typedef struct {
 
 	key_event_state_t kbd_state;
 
+	yutani_server_window_t * resizing_window;
+	int32_t resizing_w;
+	int32_t resizing_h;
+
 } yutani_globals_t;
 
 

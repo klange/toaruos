@@ -327,16 +327,21 @@ static void set_thickness_thin(void * button, struct yutani_msg_window_mouse_eve
 	ttk_render();
 }
 
-static void resize_derp(void * button, struct yutani_msg_window_mouse_event * event) {
-	yutani_window_resize(yctx, wina, 600, 600);
-	yutani_msg_t * m = yutani_wait_for(yctx, YUTANI_MSG_RESIZE_OFFER);
-	struct yutani_msg_window_resize * wr = (void*)m->data;
-	yutani_window_resize_accept(yctx, wina, wr->width, wr->height);
+static void resize_finish(int width, int height) {
+	yutani_window_resize_accept(yctx, wina, width, height);
 	reinit_graphics_yutani(ctx, wina);
 	((ttk_object *)close_button)->x = wina->width - 28;
 	ttk_render();
 	yutani_window_resize_done(yctx, wina);
 	yutani_flip(yctx, wina);
+}
+
+static void resize_button(void * button, struct yutani_msg_window_mouse_event * event) {
+	yutani_window_resize(yctx, wina, 600, 600);
+	yutani_msg_t * m = yutani_wait_for(yctx, YUTANI_MSG_RESIZE_OFFER);
+	struct yutani_msg_window_resize * wr = (void*)m->data;
+	resize_finish(wr->width, wr->height);
+	free(m);
 }
 
 void keep_drawing(struct yutani_msg_window_mouse_event * mouse) { 
@@ -439,17 +444,10 @@ int main (int argc, char ** argv) {
 	button_thin->fill_color = rgb(127,127,127);
 	button_thin->fore_color = rgb(255,255,255);
 
-	button_thin = ttk_button_new("*", resize_derp);
-	ttk_position((ttk_object *)button_thin, decor_left_width + 410, decor_top_height + 3, 20, 20);
-	button_thin->fill_color = rgb(127,127,127);
-	button_thin->fore_color = rgb(255,255,255);
-
-#if 0
-	ttk_button * button_quit = ttk_button_new("X", quit_app);
-	ttk_position((ttk_object *)button_quit, width - 33, 12, 20, 20);
-	button_quit->fill_color = rgb(255,0,0);
-	button_quit->fore_color = rgb(255,255,255);
-#endif
+	ttk_button * button_resize = ttk_button_new("*", resize_button);
+	ttk_position((ttk_object *)button_resize, decor_left_width + 410, decor_top_height + 3, 20, 20);
+	button_resize->fill_color = rgb(127,127,127);
+	button_resize->fore_color = rgb(255,255,255);
 
 	drawing_surface = ttk_raw_surface_new(width - 30, height - 70);
 	((ttk_object *)drawing_surface)->y = 60;
@@ -495,6 +493,12 @@ int main (int argc, char ** argv) {
 						} else {
 							ttk_check_click(me);
 						}
+					}
+					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						resize_finish(wr->width, wr->height);
 					}
 					break;
 				default:
