@@ -296,6 +296,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->bufid = next_buf_id();
 	win->rotation = 0;
 	win->newbufid = 0;
+	win->name = NULL;
 
 	char key[1024];
 	YUTANI_SHMKEY(key, 1024, win);
@@ -1044,6 +1045,8 @@ int main(int argc, char * argv[]) {
 	yg->windows = list_create();
 	yg->wids_to_windows = hashmap_create_int(10);
 
+	yg->window_subscribers = list_create();
+
 	yutani_cairo_init(yg);
 
 	pthread_t mouse_thread;
@@ -1079,114 +1082,212 @@ int main(int argc, char * argv[]) {
 		}
 
 		switch(m->type) {
-			case YUTANI_MSG_HELLO: {
-				fprintf(stderr, "[yutani-server] And hello to you, %08x!\n", p->source);
-				yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
-				pex_send(server, p->source, response->size, (char *)response);
-				free(response);
-			} break;
-			case YUTANI_MSG_WINDOW_NEW: {
-				struct yutani_msg_window_new * wn = (void *)m->data;
-				fprintf(stderr, "[yutani-server] Client %08x requested a new window (%dx%d).\n", p->source, wn->width, wn->height);
-				yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source);
-				yutani_msg_t * response = yutani_msg_build_window_init(w->wid, w->width, w->height, w->bufid);
-				pex_send(server, p->source, response->size, (char *)response);
-				free(response);
-			} break;
-			case YUTANI_MSG_FLIP: {
-				struct yutani_msg_flip * wf = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
-				if (w) {
-					mark_window(yg, w);
+			case YUTANI_MSG_HELLO:
+				{
+					fprintf(stderr, "[yutani-server] And hello to you, %08x!\n", p->source);
+					yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
+					pex_send(server, p->source, response->size, (char *)response);
+					free(response);
 				}
-			} break;
-			case YUTANI_MSG_FLIP_REGION: {
-				struct yutani_msg_flip_region * wf = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
-				if (w) {
-					mark_window_relative(yg, w, wf->x, wf->y, wf->width, wf->height);
+				break;
+			case YUTANI_MSG_WINDOW_NEW:
+				{
+					struct yutani_msg_window_new * wn = (void *)m->data;
+					fprintf(stderr, "[yutani-server] Client %08x requested a new window (%dx%d).\n", p->source, wn->width, wn->height);
+					yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source);
+					yutani_msg_t * response = yutani_msg_build_window_init(w->wid, w->width, w->height, w->bufid);
+					pex_send(server, p->source, response->size, (char *)response);
+					free(response);
+
+					response = yutani_msg_build_notify();
+					foreach(node, yg->window_subscribers) {
+						uint32_t subscriber = (uint32_t)node->value;
+						pex_send(server, subscriber, response->size, (char *)response);
+					}
+					free(response);
 				}
-			} break;
-			case YUTANI_MSG_KEY_EVENT: {
-				/* XXX Verify this is from a valid device client */
-				struct yutani_msg_key_event * ke = (void *)m->data;
-				handle_key_event(yg, ke);
-			} break;
-			case YUTANI_MSG_MOUSE_EVENT: {
-				/* XXX Verify this is from a valid device client */
-				struct yutani_msg_mouse_event * me = (void *)m->data;
-				handle_mouse_event(yg, me);
-			} break;
-			case YUTANI_MSG_WINDOW_MOVE: {
-				struct yutani_msg_window_move * wm = (void *)m->data;
-				fprintf(stderr, "[yutani-server] %08x wanted to move window %d\n", p->source, wm->wid);
-				yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
-				if (win) {
-					win->x = wm->x;
-					win->y = wm->y;
-				} else {
-					fprintf(stderr, "[yutani-server] %08x wanted to move window %d, but I can't find it?\n", p->source, wm->wid);
-				}
-			} break;
-			case YUTANI_MSG_WINDOW_CLOSE: {
-				struct yutani_msg_window_close * wc = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wc->wid);
-				if (w) {
-					/* XXX free window */
-					hashmap_remove(yg->wids_to_windows, (void *)wc->wid);
-					list_remove(yg->windows, list_index_of(yg->windows, w));
-					mark_window(yg, w);
-					unorder_window(yg, w);
-					if (w == yg->focused_window) {
-						yg->focused_window = NULL;
+				break;
+			case YUTANI_MSG_FLIP:
+				{
+					struct yutani_msg_flip * wf = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
+					if (w) {
+						mark_window(yg, w);
 					}
 				}
-			} break;
-			case YUTANI_MSG_WINDOW_STACK: {
-				struct yutani_msg_window_stack * ws = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)ws->wid);
-				if (w) {
-					reorder_window(yg, w, ws->z);
+				break;
+			case YUTANI_MSG_FLIP_REGION:
+				{
+					struct yutani_msg_flip_region * wf = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
+					if (w) {
+						mark_window_relative(yg, w, wf->x, wf->y, wf->width, wf->height);
+					}
 				}
-			} break;
-			case YUTANI_MSG_RESIZE_REQUEST: {
-				struct yutani_msg_window_resize * wr = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
-				if (w) {
-					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
+				break;
+			case YUTANI_MSG_KEY_EVENT:
+				{
+					/* XXX Verify this is from a valid device client */
+					struct yutani_msg_key_event * ke = (void *)m->data;
+					handle_key_event(yg, ke);
+				}
+				break;
+			case YUTANI_MSG_MOUSE_EVENT:
+				{
+					/* XXX Verify this is from a valid device client */
+					struct yutani_msg_mouse_event * me = (void *)m->data;
+					handle_mouse_event(yg, me);
+				}
+				break;
+			case YUTANI_MSG_WINDOW_MOVE:
+				{
+					struct yutani_msg_window_move * wm = (void *)m->data;
+					fprintf(stderr, "[yutani-server] %08x wanted to move window %d\n", p->source, wm->wid);
+					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
+					if (win) {
+						win->x = wm->x;
+						win->y = wm->y;
+					} else {
+						fprintf(stderr, "[yutani-server] %08x wanted to move window %d, but I can't find it?\n", p->source, wm->wid);
+					}
+				}
+				break;
+			case YUTANI_MSG_WINDOW_CLOSE:
+				{
+					struct yutani_msg_window_close * wc = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wc->wid);
+					if (w) {
+						/* XXX free window */
+						hashmap_remove(yg->wids_to_windows, (void *)wc->wid);
+						list_remove(yg->windows, list_index_of(yg->windows, w));
+						mark_window(yg, w);
+						unorder_window(yg, w);
+						if (w == yg->focused_window) {
+							yg->focused_window = NULL;
+						}
+						yutani_msg_t * response = yutani_msg_build_notify();
+						foreach(node, yg->window_subscribers) {
+							uint32_t subscriber = (uint32_t)node->value;
+							pex_send(server, subscriber, response->size, (char *)response);
+						}
+						free(response);
+					}
+				}
+				break;
+			case YUTANI_MSG_WINDOW_STACK:
+				{
+					struct yutani_msg_window_stack * ws = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)ws->wid);
+					if (w) {
+						reorder_window(yg, w, ws->z);
+					}
+				}
+				break;
+			case YUTANI_MSG_RESIZE_REQUEST:
+				{
+					struct yutani_msg_window_resize * wr = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					if (w) {
+						yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
+						pex_send(server, p->source, response->size, (char *)response);
+						free(response);
+					}
+				}
+				break;
+			case YUTANI_MSG_RESIZE_OFFER:
+				{
+					struct yutani_msg_window_resize * wr = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					if (w) {
+						yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
+						pex_send(server, p->source, response->size, (char *)response);
+						free(response);
+					}
+				}
+				break;
+			case YUTANI_MSG_RESIZE_ACCEPT:
+				{
+					struct yutani_msg_window_resize * wr = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					if (w) {
+						uint32_t newbufid = server_window_resize(yg, w, wr->width, wr->height);
+						yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_BUFID, w->wid, wr->width, wr->height, newbufid);
+						pex_send(server, p->source, response->size, (char *)response);
+						free(response);
+					}
+				}
+				break;
+			case YUTANI_MSG_RESIZE_DONE:
+				{
+					struct yutani_msg_window_resize * wr = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					if (w) {
+						server_window_resize_finish(yg, w, wr->width, wr->height);
+					}
+				}
+				break;
+			case YUTANI_MSG_QUERY_WINDOWS:
+				{
+					for (unsigned int i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
+						if (yg->zlist[i] && yg->zlist[i]->name) {
+							fprintf(stderr, "[yutani-server] informing client about window %d with name %s\n", yg->zlist[i]->wid, yg->zlist[i]->name);
+							yutani_msg_t * response = yutani_msg_build_window_advertise(yg->zlist[i]->wid, yg->zlist[i]->name);
+							pex_send(server, p->source, response->size, (char *)response);
+							free(response);
+						}
+					}
+					yutani_msg_t * response = yutani_msg_build_window_advertise(0, NULL);
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
 				}
-			} break;
-			case YUTANI_MSG_RESIZE_OFFER: {
-				struct yutani_msg_window_resize * wr = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
-				if (w) {
-					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
-					pex_send(server, p->source, response->size, (char *)response);
-					free(response);
+				break;
+			case YUTANI_MSG_SUBSCRIBE:
+				{
+					foreach(node, yg->window_subscribers) {
+						if ((uint32_t)node->value == p->source) {
+							break;
+						}
+					}
+					list_insert(yg->window_subscribers, (void*)p->source);
 				}
-			} break;
-			case YUTANI_MSG_RESIZE_ACCEPT: {
-				struct yutani_msg_window_resize * wr = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
-				if (w) {
-					uint32_t newbufid = server_window_resize(yg, w, wr->width, wr->height);
-					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_BUFID, w->wid, wr->width, wr->height, newbufid);
-					pex_send(server, p->source, response->size, (char *)response);
-					free(response);
+				break;
+			case YUTANI_MSG_UNSUBSCRIBE:
+				{
+					node_t * node = list_find(yg->window_subscribers, (void*)p->source);
+					if (node) {
+						list_delete(yg->window_subscribers, node);
+					}
 				}
-			} break;
-			case YUTANI_MSG_RESIZE_DONE: {
-				struct yutani_msg_window_resize * wr = (void *)m->data;
-				yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
-				if (w) {
-					server_window_resize_finish(yg, w, wr->width, wr->height);
+				break;
+			case YUTANI_MSG_WINDOW_ADVERTISE:
+				{
+					struct yutani_msg_window_advertise * wa = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					if (w) {
+						if (w->name) {
+							free(w->name);
+						}
+						if (wa->size == 0) {
+							w->name = NULL;
+						} else {
+							char * t = malloc(wa->size+1);
+							memcpy(t, wa->name, wa->size+1);
+							w->name = t;
+						}
+						yutani_msg_t * response = yutani_msg_build_notify();
+						foreach(node, yg->window_subscribers) {
+							uint32_t subscriber = (uint32_t)node->value;
+							pex_send(server, subscriber, response->size, (char *)response);
+						}
+						free(response);
+					}
 				}
-			} break;
-			default: {
-				fprintf(stderr, "[yutani-server] Unknown type!\n");
-			} break;
+				break;
+			default:
+				{
+					fprintf(stderr, "[yutani-server] Unknown type!\n");
+				}
+				break;
 		}
 		free(p);
 	}

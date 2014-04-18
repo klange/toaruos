@@ -293,6 +293,75 @@ yutani_msg_t * yutani_msg_build_window_resize(uint32_t type, yutani_wid_t wid, u
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_window_advertise(yutani_wid_t wid, char * name) {
+	size_t n;
+	if (name) {
+		n = strlen(name) + 1;
+	} else {
+		n = 1;
+	}
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_advertise) + n;
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_ADVERTISE;
+	msg->size  = s;
+
+	struct yutani_msg_window_advertise * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->size = n-1;
+	if (n > 1) {
+		memcpy(mw->name, name, n);
+	}
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_subscribe(void) {
+	size_t s = sizeof(struct yutani_message);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_SUBSCRIBE;
+	msg->size  = s;
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_unsubscribe(void) {
+	size_t s = sizeof(struct yutani_message);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_UNSUBSCRIBE;
+	msg->size  = s;
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_query_windows(void) {
+	size_t s = sizeof(struct yutani_message);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_QUERY_WINDOWS;
+	msg->size  = s;
+
+	return msg;
+}
+
+yutani_msg_t * yutani_msg_build_notify(void) {
+	size_t s = sizeof(struct yutani_message);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_NOTIFY;
+	msg->size  = s;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -440,6 +509,30 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 
 	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_DONE, window->wid, window->width, window->height, window->bufid);
 	int result = yutani_msg_send(yctx, m);
+	free(m);
+}
+
+void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name) {
+	yutani_msg_t * m = yutani_msg_build_window_advertise(window->wid, name);
+	int result = yutani_msg_send(yctx, m);
+	free(m);
+}
+
+void yutani_subscribe_windows(yutani_t * y) {
+	yutani_msg_t * m = yutani_msg_build_subscribe();
+	int result = yutani_msg_send(y, m);
+	free(m);
+}
+
+void yutani_unsubscribe_windows(yutani_t * y) {
+	yutani_msg_t * m = yutani_msg_build_unsubscribe();
+	int result = yutani_msg_send(y, m);
+	free(m);
+}
+
+void yutani_query_windows(yutani_t * y) {
+	yutani_msg_t * m = yutani_msg_build_query_windows();
+	int result = yutani_msg_send(y, m);
 	free(m);
 }
 

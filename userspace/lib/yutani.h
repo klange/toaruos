@@ -112,6 +112,12 @@ struct yutani_msg_window_resize {
 	uint32_t bufid;
 };
 
+struct yutani_msg_window_advertise {
+	yutani_wid_t wid;
+	uint32_t size;
+	char name[];
+};
+
 typedef struct yutani_window {
 	yutani_wid_t wid;
 
@@ -149,6 +155,12 @@ typedef struct yutani_window {
 #define YUTANI_MSG_RESIZE_ACCEPT       0x00000012
 #define YUTANI_MSG_RESIZE_BUFID        0x00000013
 #define YUTANI_MSG_RESIZE_DONE         0x00000014
+
+#define YUTANI_MSG_WINDOW_ADVERTISE    0x00000020
+#define YUTANI_MSG_SUBSCRIBE           0x00000021
+#define YUTANI_MSG_UNSUBSCRIBE         0x00000022
+#define YUTANI_MSG_NOTIFY              0x00000023
+#define YUTANI_MSG_QUERY_WINDOWS       0x00000024
 
 #define YUTANI_MSG_GOODBYE             0x000000F0
 
@@ -198,6 +210,12 @@ yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
 yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused);
 yutani_msg_t * yutani_msg_build_window_mouse_event(yutani_wid_t wid, int32_t new_x, int32_t new_y, int32_t old_x, int32_t old_y, uint8_t buttons, uint8_t command);
 yutani_msg_t * yutani_msg_build_window_resize(uint32_t type, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
+yutani_msg_t * yutani_msg_build_window_advertise(yutani_wid_t wid, char * name);
+yutani_msg_t * yutani_msg_build_subscribe(void);
+yutani_msg_t * yutani_msg_build_unsubscribe(void);
+yutani_msg_t * yutani_msg_build_query(void);
+yutani_msg_t * yutani_msg_build_notify(void);
+
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 yutani_t * yutani_context_create(FILE * socket);
@@ -212,6 +230,11 @@ void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t wi
 void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
 void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
 void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window);
+void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name);
+void yutani_subscribe_windows(yutani_t * y);
+void yutani_unsubscribe_windows(yutani_t * y);
+void yutani_query_windows(yutani_t * y);
+
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);

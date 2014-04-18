@@ -406,13 +406,9 @@ int main (int argc, char ** argv) {
 	draw_fill(ctx, rgb(255,255,255));
 	init_decorations();
 
-	yutani_window_t _wina;
-	_wina.buffer = wina->buffer;
-	_wina.width = wina->width;
-	_wina.height = wina->height;
-	_wina.focused = wina->focused;
+	yutani_window_advertise(yctx, wina, "Draw!");
 
-	setup_ttk(&_wina);
+	setup_ttk(wina);
 
 	close_button = ttk_decor_button_close(quit_app);
 

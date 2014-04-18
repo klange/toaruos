@@ -41,6 +41,8 @@ typedef struct {
 
 	uint32_t newbufid;
 	uint8_t * newbuffer;
+
+	char * name;
 } yutani_server_window_t;
 
 typedef struct {
@@ -98,6 +100,8 @@ typedef struct {
 	yutani_server_window_t * resizing_window;
 	int32_t resizing_w;
 	int32_t resizing_h;
+
+	list_t * window_subscribers;
 
 } yutani_globals_t;
 

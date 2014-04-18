@@ -26,6 +26,8 @@ sprite_t alpha_tmp;
 gfx_context_t * ctx;
 yutani_t * yctx;
 yutani_window_t * panel;
+list_t * window_list;
+volatile int lock;
 
 int width;
 int height;
@@ -36,6 +38,16 @@ int center_x(int x) {
 
 int center_y(int y) {
 	return (height - y) / 2;
+}
+
+static void spin_lock(int volatile * lock) {
+	while(__sync_lock_test_and_set(lock, 0x01)) {
+		syscall_yield();
+	}
+}
+
+static void spin_unlock(int volatile * lock) {
+	__sync_lock_release(lock);
 }
 
 void init_sprite(int i, char * filename, char * alpha) {
@@ -78,8 +90,45 @@ void panel_check_click(w_mouse_t * evt) {
 }
 #endif
 
+void update_window_list(void) {
+	yutani_query_windows(yctx);
+
+	list_t * new_window_list = list_create();
+
+	while (1) {
+		yutani_msg_t * m = yutani_wait_for(yctx, YUTANI_MSG_WINDOW_ADVERTISE);
+		struct yutani_msg_window_advertise * wa = (void*)m->data;
+
+		if (wa->size == 0) {
+			free(m);
+			break;
+		}
+
+		fprintf(stderr, "Window available: %s\n", wa->name);
+
+		char * s = malloc(wa->size + 1);
+		memcpy(s, wa->name, wa->size + 1);
+
+		list_insert(new_window_list, s);
+		free(m);
+	}
+
+	spin_lock(&lock);
+	if (window_list) {
+		list_destroy(window_list);
+		list_free(window_list);
+		free(window_list);
+	}
+	window_list = new_window_list;
+	spin_unlock(&lock);
+}
+
 
 void * clock_thread(void * garbage) {
+	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
+		draw_sprite(ctx, sprites[0], i, 0);
+	}
+
 	size_t buf_size = panel->width * panel->height * sizeof(uint32_t);
 	char * buf = malloc(buf_size);
 	memcpy(buf, ctx->backbuffer, buf_size);
@@ -89,13 +138,10 @@ void * clock_thread(void * garbage) {
 	struct tm * timeinfo;
 	char   buffer[80];
 
+#if 0
 	struct utsname u;
 	uname(&u);
-
-	/* UTF-8 Strings FTW! */
-	uint8_t * os_name_ = "とあるOS";
-	uint8_t final[512];
-	uint32_t l = snprintf(final, 512, "%s %s", os_name_, u.release);
+#endif
 
 	uint32_t txt_color = rgb(230,230,230);
 	int t = 0;
@@ -127,9 +173,23 @@ void * clock_thread(void * garbage) {
 			t = (DATE_WIDTH - t) / 2;
 			draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 21, txt_color, buffer);
 
-			set_font_face(FONT_SANS_SERIF);
+			set_font_face(FONT_SANS_SERIF_BOLD);
 			set_font_size(14);
-			draw_string(ctx, 10, 18, txt_color, final);
+			draw_string(ctx, 10, 18, txt_color, "Applications");
+
+			int i = 0;
+			spin_lock(&lock);
+			if (window_list) {
+				foreach(node, window_list) {
+					char * s = node->value;
+
+					set_font_face(FONT_SANS_SERIF);
+					set_font_size(14);
+					draw_string(ctx, 140 + i, 18, txt_color, s);
+					i += draw_string_width(s) + 20;
+				}
+			}
+			spin_unlock(&lock);
 
 			draw_sprite(ctx, sprites[1], width - 23, 1); /* Logout button */
 
@@ -157,18 +217,19 @@ int main (int argc, char ** argv) {
 	flip(ctx);
 	yutani_flip(yctx, panel);
 
+	window_list = NULL;
+
+	yutani_subscribe_windows(yctx);
+
 	init_sprite_png(0, "/usr/share/panel.png");
 	init_sprite_png(1, "/usr/share/icons/panel-shutdown.png");
 
-	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
-		draw_sprite(ctx, sprites[0], i, 0);
-	}
-
-	flip(ctx);
 	syscall_signal(2, sig_int);
 
 	pthread_t _clock_thread;
 	pthread_create(&_clock_thread, NULL, clock_thread, NULL);
+
+	update_window_list();
 
 	while (_continue) {
 		yutani_msg_t * m = yutani_poll(yctx);
@@ -177,11 +238,15 @@ int main (int argc, char ** argv) {
 				/* Do something */
 
 			}
+			if (m->type == YUTANI_MSG_NOTIFY) {
+				update_window_list();
+			}
 			free(m);
 		}
 	}
 
 	yutani_close(yctx, panel);
+	yutani_unsubscribe_windows(yctx);
 
 	return 0;
 }

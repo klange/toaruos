@@ -149,8 +149,10 @@ static void render_decors() {
 	if (!_fullscreen) {
 		if (terminal_title_length) {
 			render_decorations(window, ctx, terminal_title);
+			yutani_window_advertise(yctx, window, terminal_title);
 		} else {
 			render_decorations(window, ctx, "Terminal");
+			yutani_window_advertise(yctx, window, "Terminal");
 		}
 		l_x = 0; l_y = 0;
 		r_x = window->width;

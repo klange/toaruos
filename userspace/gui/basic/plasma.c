@@ -29,6 +29,7 @@ gfx_context_t * ctx;
 
 void redraw_borders() {
 	render_decorations(wina, ctx, "Graphics Test");
+	yutani_window_advertise(yctx, wina, "Graphics Test");
 }
 
 uint32_t hsv_to_rgb(int h, float s, float v) {
