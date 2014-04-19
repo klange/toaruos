@@ -1145,8 +1145,10 @@ int main(int argc, char * argv[]) {
 					fprintf(stderr, "[yutani-server] %08x wanted to move window %d\n", p->source, wm->wid);
 					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
 					if (win) {
+						mark_window(yg, win);
 						win->x = wm->x;
 						win->y = wm->y;
+						mark_window(yg, win);
 					} else {
 						fprintf(stderr, "[yutani-server] %08x wanted to move window %d, but I can't find it?\n", p->source, wm->wid);
 					}
