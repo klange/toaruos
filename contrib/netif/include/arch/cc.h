@@ -30,10 +30,19 @@ typedef uintptr_t mem_ptr_t;
 #define PACK_STRUCT_BEGIN
 #define PACK_STRUCT_END
 
-#define LWIP_PLATFORM_DIAG(x)  do {debug_print(NOTICE, x);} while(0)
+#define FOOBAR(...) do {debug_print (NOTICE, "", __VA_ARGS__);} while(0)
+#define LWIP_PLATFORM_DIAG(...)  FOOBAR __VA_ARGS__
 #define LWIP_PLATFORM_ASSERT(x) do {debug_print(ERROR, "Assertion \"%s\" failed at line %d in %s\n", \
                                      x, __LINE__, __FILE__); kexit(1); } while(0)
 
+#define LWIP_PLATFORM_BYTESWAP 1
+#define LWIP_PLATFORM_HTONS(x) ( (((u16_t)(x))>>8) | (((x)&0xFF)<<8) )
+#define LWIP_PLATFORM_HTONL(x) ( (((u32_t)(x))>>24) | (((x)&0xFF0000)>>8) \
+                              | (((x)&0xFF00)<<8) | (((x)&0xFF)<<24) )
+
 #define LWIP_RAND() ((u32_t)krand())
+
+extern void * heap_external;
+
 
 #endif /* __ARCH_CC_H__ */
