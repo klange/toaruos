@@ -22,6 +22,14 @@ typedef enum {
 	YUTANI_EFFECT_UNMINIMIZE,
 } yutani_effect;
 
+static int yutani_animation_lengths[] = {
+	0,
+	256,
+	256,
+	0,
+	0,
+};
+
 typedef struct {
 	yutani_wid_t wid;
 
@@ -43,6 +51,9 @@ typedef struct {
 	uint8_t * newbuffer;
 
 	char * name;
+
+	int anim_mode;
+	int anim_start;
 } yutani_server_window_t;
 
 typedef struct {
@@ -103,7 +114,11 @@ typedef struct {
 
 	list_t * window_subscribers;
 
+	int tick_count;
+
 } yutani_globals_t;
 
+static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window);
+static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w);
 
 #endif /* _YUTANI_INTERNAL_H */

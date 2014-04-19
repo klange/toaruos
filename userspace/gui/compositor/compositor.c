@@ -297,6 +297,8 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->rotation = 0;
 	win->newbufid = 0;
 	win->name = NULL;
+	win->anim_mode = YUTANI_EFFECT_FADE_IN;
+	win->anim_start = yg->tick_count;
 
 	char key[1024];
 	YUTANI_SHMKEY(key, 1024, win);
@@ -534,10 +536,51 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 		}
 	}
+	if (window->anim_mode) {
+		int frame = yg->tick_count - window->anim_start;
+		if (frame >= yutani_animation_lengths[window->anim_mode]) {
+			/* XXX handle animation-end things like cleanup of closing windows */
+			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
+				window_actually_close(yg, window);
+				goto draw_finish;
+			}
+			window->anim_mode = 0;
+			window->anim_start = 0;
+			goto draw_window;
+		} else {
+			switch (window->anim_mode) {
+				case YUTANI_EFFECT_FADE_OUT:
+					{
+						frame = 256 - frame;
+					}
+				case YUTANI_EFFECT_FADE_IN:
+					{
+						double x = 0.75 + ((double)frame / 256.0) * 0.25;
+						int t_x = (window->width * (1.0 - x)) / 2;
+						int t_y = (window->height * (1.0 - x)) / 2;
 
-	/* Paint window */
-	cairo_set_source_surface(cr, surf, 0, 0);
-	cairo_paint(cr);
+						if (!window_is_top(yg, window) && !window_is_bottom(yg, window)) {
+							cairo_translate(cr, t_x, t_y);
+							cairo_scale(cr, x, x);
+						}
+
+						cairo_set_source_surface(cr, surf, 0, 0);
+						cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_FAST);
+						cairo_paint_with_alpha(cr, (double)frame/256.0);
+					}
+					break;
+				default:
+					break;
+			}
+		}
+	} else {
+draw_window:
+		/* Paint window */
+		cairo_set_source_surface(cr, surf, 0, 0);
+		cairo_paint(cr);
+	}
+
+draw_finish:
 
 	/* Clean up */
 	cairo_surface_destroy(surf);
@@ -635,6 +678,17 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	yg->last_mouse_x = tmp_mouse_x;
 	yg->last_mouse_y = tmp_mouse_y;
+
+	yg->tick_count += 10;
+
+	for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
+		yutani_server_window_t * w = yg->zlist[i];
+		if (w) {
+			if (w->anim_mode > 0) {
+				mark_window(yg,w);
+			}
+		}
+	}
 
 	/* Calculate damage regions from currently queued updates */
 	spin_lock(&yg->update_list_lock);
@@ -821,6 +875,28 @@ static void mark_region(yutani_globals_t * yg, int x, int y, int width, int heig
 	spin_lock(&yg->update_list_lock);
 	list_insert(yg->update_list, rect);
 	spin_unlock(&yg->update_list_lock);
+}
+
+static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t * w) {
+	w->anim_mode = YUTANI_EFFECT_FADE_OUT;
+	w->anim_start = yg->tick_count;
+}
+
+static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w) {
+	/* XXX free window */
+	hashmap_remove(yg->wids_to_windows, (void *)w->wid);
+	list_remove(yg->windows, list_index_of(yg->windows, w));
+	mark_window(yg, w);
+	unorder_window(yg, w);
+	if (w == yg->focused_window) {
+		yg->focused_window = NULL;
+	}
+	yutani_msg_t * response = yutani_msg_build_notify();
+	foreach(node, yg->window_subscribers) {
+		uint32_t subscriber = (uint32_t)node->value;
+		pex_send(yg->server, subscriber, response->size, (char *)response);
+	}
+	free(response);
 }
 
 static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event * ke) {
@@ -1159,20 +1235,7 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_close * wc = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wc->wid);
 					if (w) {
-						/* XXX free window */
-						hashmap_remove(yg->wids_to_windows, (void *)wc->wid);
-						list_remove(yg->windows, list_index_of(yg->windows, w));
-						mark_window(yg, w);
-						unorder_window(yg, w);
-						if (w == yg->focused_window) {
-							yg->focused_window = NULL;
-						}
-						yutani_msg_t * response = yutani_msg_build_notify();
-						foreach(node, yg->window_subscribers) {
-							uint32_t subscriber = (uint32_t)node->value;
-							pex_send(server, subscriber, response->size, (char *)response);
-						}
-						free(response);
+						window_mark_for_close(yg, w);
 					}
 				}
 				break;
