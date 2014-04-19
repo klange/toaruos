@@ -68,6 +68,8 @@ uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX ser
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 
+static volatile int display_lock = 0;
+
 yutani_window_t * window       = NULL; /* GUI window */
 yutani_t * yctx = NULL;
 
@@ -93,7 +95,6 @@ size_t terminal_title_length = 0;
 gfx_context_t * ctx;
 static void render_decors();
 void term_clear();
-void resize_callback(yutani_window_t * window);
 
 void dump_buffer();
 
@@ -117,6 +118,16 @@ static void set_term_font_size(float s) {
 	scale_fonts  = 1;
 	font_scaling = s;
 	reinit(1);
+}
+
+static void spin_lock(int volatile * lock) {
+	while(__sync_lock_test_and_set(lock, 0x01)) {
+		syscall_yield();
+	}
+}
+
+static void spin_unlock(int volatile * lock) {
+	__sync_lock_release(lock);
 }
 
 /* Returns the lower of two shorts */
@@ -217,15 +228,6 @@ void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 			term_set_point(x+j, y+i,fg);
 		}
 	}
-}
-
-void resize_callback(yutani_window_t * window) {
-	window_width  = window->width  - decor_left_width - decor_right_width;
-	window_height = window->height - decor_top_height - decor_bottom_height;
-
-	reinit_graphics_yutani(ctx, window);
-
-	reinit(1);
 }
 
 void focus_callback(yutani_window_t * yutani_window) {
@@ -780,13 +782,17 @@ void clear_input() {
 uint32_t child_pid = 0;
 
 void handle_input(char c) {
+	spin_lock(&display_lock);
 	write(fd_master, &c, 1);
 	display_flip();
+	spin_unlock(&display_lock);
 }
 
 void handle_input_s(char * c) {
+	spin_lock(&display_lock);
 	write(fd_master, c, strlen(c));
 	display_flip();
+	spin_unlock(&display_lock);
 }
 
 void key_event(int ret, key_event_t * event) {
@@ -952,6 +958,7 @@ void reinit(int send_sig) {
 		FT_Set_Pixel_Sizes(face_bold_italic, font_size, font_size);
 		FT_Set_Pixel_Sizes(face_extra, font_size, font_size);
 	}
+	int i = 0;
 
 	int old_width  = term_width;
 	int old_height = term_height;
@@ -960,6 +967,11 @@ void reinit(int send_sig) {
 	term_height = window_height / char_height;
 	if (term_buffer) {
 		term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
+
+		if (!new_term_buffer) {
+			/* I don't know why this is failing sometimes. This is a bad sign. */
+			new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
+		}
 
 		memset(new_term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 		for (int row = 0; row < min(old_height, term_height); ++row) {
@@ -993,6 +1005,20 @@ void reinit(int send_sig) {
 	}
 }
 
+static void resize_finish(int width, int height) {
+	yutani_window_resize_accept(yctx, window, width, height);
+	window_width  = window->width  - decor_left_width - decor_right_width;
+	window_height = window->height - decor_top_height - decor_bottom_height;
+
+	spin_lock(&display_lock);
+	reinit_graphics_yutani(ctx, window);
+	reinit(1);
+	spin_unlock(&display_lock);
+
+	yutani_window_resize_done(yctx, window);
+	yutani_flip(yctx, window);
+}
+
 void * handle_incoming(void * garbage) {
 	while (!exit_application) {
 		yutani_msg_t * m = yutani_poll(yctx);
@@ -1020,6 +1046,12 @@ void * handle_incoming(void * garbage) {
 						kill(child_pid, SIGKILL);
 					}
 					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						resize_finish(wr->width, wr->height);
+					}
+					break;
 				default:
 					break;
 			}
@@ -1034,7 +1066,9 @@ void * blink_cursor(void * garbage) {
 		timer_tick++;
 		if (timer_tick == 3) {
 			timer_tick = 0;
+			spin_lock(&display_lock);
 			flip_cursor();
+			spin_unlock(&display_lock);
 		}
 		usleep(90000);
 	}
@@ -1212,10 +1246,12 @@ int main(int argc, char ** argv) {
 		unsigned char buf[1024];
 		while (!exit_application) {
 			int r = read(fd_master, buf, 1024);
+			spin_lock(&display_lock);
 			for (uint32_t i = 0; i < r; ++i) {
 				ansi_put(ansi_state, buf[i]);
 			}
 			display_flip();
+			spin_unlock(&display_lock);
 		}
 
 	}
