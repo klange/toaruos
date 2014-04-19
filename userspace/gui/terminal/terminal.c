@@ -1015,6 +1015,11 @@ void * handle_incoming(void * garbage) {
 						}
 					}
 					break;
+				case YUTANI_MSG_SESSION_END:
+					{
+						kill(child_pid, SIGKILL);
+					}
+					break;
 				default:
 					break;
 			}

@@ -413,8 +413,6 @@ int main (int argc, char ** argv) {
 		}
 
 		free(buf);
-		free(ctx->backbuffer);
-		free(ctx);
 
 		syscall_wait(_session_pid);
 	}

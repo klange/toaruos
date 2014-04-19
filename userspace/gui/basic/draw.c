@@ -497,6 +497,9 @@ int main (int argc, char ** argv) {
 						resize_finish(wr->width, wr->height);
 					}
 					break;
+				case YUTANI_MSG_SESSION_END:
+					quit = 1;
+					break;
 				default:
 					break;
 			}

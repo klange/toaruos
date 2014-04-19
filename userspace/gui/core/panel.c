@@ -27,7 +27,11 @@ gfx_context_t * ctx;
 yutani_t * yctx;
 yutani_window_t * panel;
 list_t * window_list;
-volatile int lock;
+volatile int lock = 0;
+volatile int drawlock = 0;
+
+size_t bg_size;
+char * bg_blob;
 
 int width;
 int height;
@@ -78,18 +82,76 @@ void sig_int(int sig) {
 	_continue = 0;
 }
 
-#if 0
-void panel_check_click(w_mouse_t * evt) {
-	if (evt->command == WE_MOUSECLICK) {
+void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
+	if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
 		printf("Click!\n");
 		if (evt->new_x >= width - 24 ) {
-			printf("Clicked log-out button. Good bye!\n");
+			yutani_session_end(yctx);
 			_continue = 0;
 		}
 	}
 }
-#endif
 
+void redraw(void) {
+	spin_lock(&drawlock);
+
+	struct timeval now;
+	int last = 0;
+	struct tm * timeinfo;
+	char   buffer[80];
+
+	uint32_t txt_color = rgb(230,230,230);
+	int t = 0;
+
+	memcpy(ctx->backbuffer, bg_blob, bg_size);
+	gettimeofday(&now, NULL);
+	last = now.tv_sec;
+	timeinfo = localtime((time_t *)&now.tv_sec);
+
+	strftime(buffer, 80, "%H:%M:%S", timeinfo);
+	set_font_face(FONT_SANS_SERIF_BOLD);
+	set_font_size(16);
+	draw_string(ctx, width - TIME_LEFT, 19, txt_color, buffer);
+
+	strftime(buffer, 80, "%A", timeinfo);
+	set_font_face(FONT_SANS_SERIF);
+	set_font_size(9);
+	t = draw_string_width(buffer);
+	t = (DATE_WIDTH - t) / 2;
+	draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 11, txt_color, buffer);
+
+	strftime(buffer, 80, "%h %e", timeinfo);
+	set_font_face(FONT_SANS_SERIF_BOLD);
+	set_font_size(9);
+	t = draw_string_width(buffer);
+	t = (DATE_WIDTH - t) / 2;
+	draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 21, txt_color, buffer);
+
+	set_font_face(FONT_SANS_SERIF_BOLD);
+	set_font_size(14);
+	draw_string(ctx, 10, 18, txt_color, "Applications");
+
+	int i = 0;
+	spin_lock(&lock);
+	if (window_list) {
+		foreach(node, window_list) {
+			char * s = node->value;
+
+			set_font_face(FONT_SANS_SERIF);
+			set_font_size(14);
+			draw_string(ctx, 140 + i, 18, txt_color, s);
+			i += draw_string_width(s) + 20;
+		}
+	}
+	spin_unlock(&lock);
+
+	draw_sprite(ctx, sprites[1], width - 23, 1); /* Logout button */
+
+	flip(ctx);
+	yutani_flip(yctx, panel);
+
+	spin_unlock(&drawlock);
+}
 void update_window_list(void) {
 	yutani_query_windows(yctx);
 
@@ -121,81 +183,14 @@ void update_window_list(void) {
 	}
 	window_list = new_window_list;
 	spin_unlock(&lock);
+
+	redraw();
 }
 
 
 void * clock_thread(void * garbage) {
-	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
-		draw_sprite(ctx, sprites[0], i, 0);
-	}
-
-	size_t buf_size = panel->width * panel->height * sizeof(uint32_t);
-	char * buf = malloc(buf_size);
-	memcpy(buf, ctx->backbuffer, buf_size);
-
-	struct timeval now;
-	int last = 0;
-	struct tm * timeinfo;
-	char   buffer[80];
-
-#if 0
-	struct utsname u;
-	uname(&u);
-#endif
-
-	uint32_t txt_color = rgb(230,230,230);
-	int t = 0;
-
 	while (_continue) {
-		/* Redraw the background by memcpy (super speedy) */
-		memcpy(ctx->backbuffer, buf, buf_size);
-		gettimeofday(&now, NULL);
-		if (now.tv_sec != last) {
-			last = now.tv_sec;
-			timeinfo = localtime((time_t *)&now.tv_sec);
-
-			strftime(buffer, 80, "%H:%M:%S", timeinfo);
-			set_font_face(FONT_SANS_SERIF_BOLD);
-			set_font_size(16);
-			draw_string(ctx, width - TIME_LEFT, 19, txt_color, buffer);
-
-			strftime(buffer, 80, "%A", timeinfo);
-			set_font_face(FONT_SANS_SERIF);
-			set_font_size(9);
-			t = draw_string_width(buffer);
-			t = (DATE_WIDTH - t) / 2;
-			draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 11, txt_color, buffer);
-
-			strftime(buffer, 80, "%h %e", timeinfo);
-			set_font_face(FONT_SANS_SERIF_BOLD);
-			set_font_size(9);
-			t = draw_string_width(buffer);
-			t = (DATE_WIDTH - t) / 2;
-			draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 21, txt_color, buffer);
-
-			set_font_face(FONT_SANS_SERIF_BOLD);
-			set_font_size(14);
-			draw_string(ctx, 10, 18, txt_color, "Applications");
-
-			int i = 0;
-			spin_lock(&lock);
-			if (window_list) {
-				foreach(node, window_list) {
-					char * s = node->value;
-
-					set_font_face(FONT_SANS_SERIF);
-					set_font_size(14);
-					draw_string(ctx, 140 + i, 18, txt_color, s);
-					i += draw_string_width(s) + 20;
-				}
-			}
-			spin_unlock(&lock);
-
-			draw_sprite(ctx, sprites[1], width - 23, 1); /* Logout button */
-
-			flip(ctx);
-			yutani_flip(yctx, panel);
-		}
+		redraw();
 		usleep(500000);
 	}
 }
@@ -226,6 +221,14 @@ int main (int argc, char ** argv) {
 
 	syscall_signal(2, sig_int);
 
+	for (uint32_t i = 0; i < width; i += sprites[0]->width) {
+		draw_sprite(ctx, sprites[0], i, 0);
+	}
+
+	bg_size = panel->width * panel->height * sizeof(uint32_t);
+	bg_blob = malloc(bg_size);
+	memcpy(bg_blob, ctx->backbuffer, bg_size);
+
 	pthread_t _clock_thread;
 	pthread_create(&_clock_thread, NULL, clock_thread, NULL);
 
@@ -234,12 +237,15 @@ int main (int argc, char ** argv) {
 	while (_continue) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
-			if (m->type == YUTANI_MSG_MOUSE_EVENT) {
-				/* Do something */
-
-			}
-			if (m->type == YUTANI_MSG_NOTIFY) {
-				update_window_list();
+			switch (m->type) {
+				case YUTANI_MSG_NOTIFY:
+					update_window_list();
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					panel_check_click((struct yutani_msg_window_mouse_event *)m->data);
+					break;
+				default:
+					break;
 			}
 			free(m);
 		}

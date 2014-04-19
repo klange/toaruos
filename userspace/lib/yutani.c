@@ -362,6 +362,17 @@ yutani_msg_t * yutani_msg_build_notify(void) {
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_session_end(void) {
+	size_t s = sizeof(struct yutani_message);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_SESSION_END;
+	msg->size  = s;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -532,6 +543,12 @@ void yutani_unsubscribe_windows(yutani_t * y) {
 
 void yutani_query_windows(yutani_t * y) {
 	yutani_msg_t * m = yutani_msg_build_query_windows();
+	int result = yutani_msg_send(y, m);
+	free(m);
+}
+
+void yutani_session_end(yutani_t * y) {
+	yutani_msg_t * m = yutani_msg_build_session_end();
 	int result = yutani_msg_send(y, m);
 	free(m);
 }

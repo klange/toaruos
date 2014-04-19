@@ -162,6 +162,8 @@ typedef struct yutani_window {
 #define YUTANI_MSG_NOTIFY              0x00000023
 #define YUTANI_MSG_QUERY_WINDOWS       0x00000024
 
+#define YUTANI_MSG_SESSION_END         0x00000030
+
 #define YUTANI_MSG_GOODBYE             0x000000F0
 
 /* Server responses */
@@ -215,6 +217,7 @@ yutani_msg_t * yutani_msg_build_subscribe(void);
 yutani_msg_t * yutani_msg_build_unsubscribe(void);
 yutani_msg_t * yutani_msg_build_query(void);
 yutani_msg_t * yutani_msg_build_notify(void);
+yutani_msg_t * yutani_msg_build_session_end(void);
 
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
@@ -234,6 +237,7 @@ void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * n
 void yutani_subscribe_windows(yutani_t * y);
 void yutani_unsubscribe_windows(yutani_t * y);
 void yutani_query_windows(yutani_t * y);
+void yutani_session_end(yutani_t * y);
 
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);

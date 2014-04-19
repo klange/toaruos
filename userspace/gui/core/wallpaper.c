@@ -164,11 +164,16 @@ int main (int argc, char ** argv) {
 	flip(ctx);
 	yutani_flip(yctx, wina);
 
-	while (1) {
+	while (_continue) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
-			if (m->type == YUTANI_MSG_WINDOW_MOUSE_EVENT) {
-				wallpaper_check_click((struct yutani_msg_window_mouse_event *)m->data);
+			switch (m->type) {
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					wallpaper_check_click((struct yutani_msg_window_mouse_event *)m->data);
+					break;
+				case YUTANI_MSG_SESSION_END:
+					_continue = 0;
+					break;
 			}
 			free(m);
 		}
