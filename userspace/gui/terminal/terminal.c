@@ -1006,6 +1006,30 @@ void reinit(int send_sig) {
 }
 
 static void resize_finish(int width, int height) {
+	static int resize_attempts = 0;
+
+	int t_window_width  = width  - decor_left_width - decor_right_width;
+	int t_window_height = height - decor_top_height - decor_bottom_height;
+
+	if (t_window_width < char_width * 20 || t_window_height < char_height * 10) {
+		resize_attempts++;
+		int n_width  = decor_left_width + decor_right_width + max(char_width * 20, t_window_width);
+		int n_height = decor_top_height + decor_bottom_height + max(char_height * 10, t_window_height);
+		yutani_window_resize_offer(yctx, window, n_width, n_height);
+		return;
+	}
+
+	if (t_window_width % char_width != 0 || t_window_height % char_height != 0 && resize_attempts < 3) {
+		resize_attempts++;
+		fprintf(stderr, "Rejecting dimensions, rounding to %d x %d (+decors)\n", t_window_width - (char_width - (t_window_width % char_width)), t_window_height - (char_height - (t_window_height % char_height)));
+		int n_width  = decor_left_width + decor_right_width + t_window_width  - (t_window_width  % char_width);
+		int n_height = decor_top_height + decor_bottom_height + t_window_height - (t_window_height % char_height);
+		yutani_window_resize_offer(yctx, window, n_width, n_height);
+		return;
+	}
+
+	resize_attempts = 0;
+
 	yutani_window_resize_accept(yctx, window, width, height);
 	window_width  = window->width  - decor_left_width - decor_right_width;
 	window_height = window->height - decor_top_height - decor_bottom_height;
