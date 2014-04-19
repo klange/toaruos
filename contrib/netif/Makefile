@@ -28,7 +28,9 @@ COREFILES=$(LWIPDIR)/core/mem.c             \
     $(LWIPDIR)/core/tcp_in.c            \
     $(LWIPDIR)/core/tcp_out.c           \
     $(LWIPDIR)/core/udp.c               \
+    $(LWIPDIR)/core/dns.c               \
     $(LWIPDIR)/core/dhcp.c              \
+    $(LWIPDIR)/core/timers.c            \
     $(LWIPDIR)/core/init.c
 
 CORE4FILES=$(LWIPDIR)/core/ipv4/icmp.c \

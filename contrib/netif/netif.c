@@ -2,8 +2,15 @@
 #include <printf.h>
 #include <mod/shell.h>
 
+#include "lwip/init.h"
+
 DEFINE_SHELL_FUNCTION(netif_test, "networking stuff") {
-	fprintf(tty, "herp derp\n");
+	fprintf(tty, "Initializing LWIP...\n");
+
+	lwip_init();
+
+	fprintf(tty, "Hello world?\n");
+
 	return 0;
 }
 
