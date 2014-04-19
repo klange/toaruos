@@ -131,6 +131,8 @@ void * module_load_direct(void * blob, size_t length) {
 		}
 	}
 
+	int undefined = 0;
+
 	hashmap_t * local_symbols = hashmap_create(10);
 	{
 		Elf32_Sym * table = (Elf32_Sym *)((uintptr_t)target + sym_shdr->sh_offset);
@@ -141,9 +143,7 @@ void * module_load_direct(void * blob, size_t length) {
 					if (table->st_shndx == 0) {
 						if (!hashmap_get(symboltable, name)) {
 							debug_print(ERROR, "Unresolved symbol in module: %s", name);
-							debug_print(ERROR, "This module is faulty! Verify it specifies all of its");
-							debug_print(ERROR, "dependencies properly with MODULE_DEPENDS.");
-							goto mod_load_error;
+							undefined = 1;
 						}
 					} else {
 						Elf32_Shdr * s = NULL;
@@ -168,6 +168,11 @@ void * module_load_direct(void * blob, size_t length) {
 			}
 			table++;
 		}
+	}
+	if (undefined) {
+		debug_print(ERROR, "This module is faulty! Verify it specifies all of its");
+		debug_print(ERROR, "dependencies properly with MODULE_DEPENDS.");
+		goto mod_load_error;
 	}
 
 	{
