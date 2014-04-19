@@ -149,13 +149,23 @@ void * module_load_direct(void * blob, size_t length) {
 						Elf32_Shdr * s = NULL;
 						{
 							int i = 0;
+							int set = 0;
 							for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
 								Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
 								if (i == table->st_shndx) {
+									set = 1;
 									s = shdr;
 									break;
 								}
 								i++;
+							}
+							if (!set && table->st_shndx == 65522) {
+								if (!hashmap_get(symboltable, name)) {
+									uintptr_t final = (uintptr_t)target + table->st_value;
+									debug_print(NOTICE, "point %s to 0x%x", name, final);
+									hashmap_set(symboltable, name, (void *)final);
+									hashmap_set(local_symbols, name, (void *)final);
+								}
 							}
 						}
 						if (s) {
@@ -202,6 +212,9 @@ void * module_load_direct(void * blob, size_t length) {
 						ptr = (uintptr_t *)(table->r_offset + rs->sh_addr);
 						addend = *ptr;
 						place  = (uintptr_t)ptr;
+						if (!hashmap_get(symboltable, name)) {
+							debug_print(ERROR, "Wat? Missing symbol %s", name);
+						}
 						symbol = (uintptr_t)hashmap_get(symboltable, name);
 					}
 					switch (ELF32_R_TYPE(table->r_info)) {
