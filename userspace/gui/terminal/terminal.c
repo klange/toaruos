@@ -487,6 +487,7 @@ void term_scroll(int how_much) {
 			}
 		}
 	}
+	yutani_flip(yctx, window);
 }
 
 uint32_t codepoint;
