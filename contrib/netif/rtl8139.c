@@ -5,6 +5,12 @@
 #include <ipv4.h>
 #include <mod/shell.h>
 
+#include "lwip/netif.h"
+#include "lwip/dhcp.h"
+#include "ipv4/lwip/ip.h"
+#include "lwip/tcpip.h"
+#include "netif/etharp.h"
+
 static uint32_t rtl_device_pci = 0x00000000;
 
 static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
@@ -23,6 +29,25 @@ static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void
 #define RTL_PORT_CONFIG  0x52
 
 static uint8_t rtl_rx_buffer[8192+16];
+static struct netif rtl_lwip_netif;
+static ip_addr_t ipaddr, netmask, gw;
+
+err_t rtl_linkoutput(struct netif * netif, struct pbuf * p) {
+	debug_print(NOTICE, "tx %x %x", netif, p);
+	return 0;
+}
+
+err_t rtl_output(struct netif * netif, struct pbuf * p, struct ip_addr* dest) {
+	debug_print(NOTICE, "tx %x %x %x", netif, p, dest);
+	return 0;
+}
+
+err_t rtl_init(struct netif * netif) {
+	debug_print(NOTICE, "rtl init");
+	netif->linkoutput = rtl_linkoutput;
+	netif->output = rtl_output; //etharp_output;
+	return 0;
+}
 
 DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 	if (rtl_device_pci) {
@@ -89,6 +114,42 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Enabling receive and transmit.\n");
 		outportb(rtl_iobase + RTL_PORT_CMD, 0x0C);
 
+		memset(&rtl_lwip_netif, 0, sizeof(struct netif));
+
+		IP4_ADDR(&gw, 0,0,0,0);
+		IP4_ADDR(&ipaddr, 0,0,0,0);
+		IP4_ADDR(&netmask, 0,0,0,0);
+
+		rtl_lwip_netif.hwaddr_len = 6;
+		rtl_lwip_netif.hwaddr[0] = mac[0];
+		rtl_lwip_netif.hwaddr[1] = mac[1];
+		rtl_lwip_netif.hwaddr[2] = mac[2];
+		rtl_lwip_netif.hwaddr[3] = mac[3];
+		rtl_lwip_netif.hwaddr[4] = mac[4];
+		rtl_lwip_netif.hwaddr[5] = mac[5];
+
+		netif_add(&rtl_lwip_netif, &ipaddr, &netmask, &gw, 0, rtl_init, ethernet_input);
+
+		netif_set_default(&rtl_lwip_netif);
+		netif_set_up(&rtl_lwip_netif);
+
+		dhcp_start(&rtl_lwip_netif);
+
+		int mscnt = 0;
+		while (rtl_lwip_netif.ip_addr.addr == 0) {
+			unsigned long s, ss;
+			relative_time(0, DHCP_FINE_TIMER_MSECS / 100, &s, &ss);
+			sleep_until((process_t *)current_process, s, ss);
+			switch_task(0);
+			dhcp_fine_tmr();
+			mscnt += DHCP_FINE_TIMER_MSECS;
+			if (mscnt >= DHCP_COARSE_TIMER_SECS * 1000) {
+				debug_print(NOTICE, "coarse timer");
+				dhcp_coarse_tmr();
+				mscnt = 0;
+			}
+		}
+
 #if 0
 		fprintf(tty, "Going to try to force-send a UDP packet...\n");
 		struct ipv4_packet p;
@@ -153,3 +214,4 @@ static int fini(void) {
 
 MODULE_DEF(rtl8139, init, fini);
 MODULE_DEPENDS(debugshell);
+MODULE_DEPENDS(netif);

@@ -52,7 +52,7 @@ MODULELD = -T ../../modules/link.ld
 
 .PHONY: all clean
 
-all: netif.ko
+all: netif.ko rtl8139.ko
 
 LWIPFILESW=$(wildcard $(LWIPFILES))
 LWIPOBJS=$(LWIPFILESW:.c=.o)
@@ -63,7 +63,10 @@ LWIPOBJS=$(LWIPFILESW:.c=.o)
 netif.ko: ${LWIPOBJS} netif.o
 	${LD} -r -o $@ $^
 
+rtl8139.ko: rtl8139.o
+	${LD} -r -o $@ $^
 
 clean:
 	rm -f netif.ko
+	rm -f rtl8139.ko
 	rm -f ${LWIPOBJS}

@@ -11,6 +11,7 @@
 #include "lwip/ip.h"
 #include "lwip/ip_frag.h"
 #include "lwip/udp.h"
+#include "lwip/dhcp.h"
 #include "lwip/tcp_impl.h"
 
 #include "netif/etharp.h"
@@ -116,16 +117,15 @@ void sys_mbox_free(sys_mbox_t *mbox) {
 	free(*mbox);
 }
 
-static ip_addr_t ipaddr, netmask, gw;
-
 DEFINE_SHELL_FUNCTION(netif_test, "networking stuff") {
 	fprintf(tty, "Initializing LWIP...\n");
 
-	IP4_ADDR(&gw, 192,168,0,1);
-	IP4_ADDR(&ipaddr, 192,168,0,2);
-	IP4_ADDR(&netmask, 255,255,255,0);
-
 	lwip_init();
+
+	unsigned long s, ss;
+	relative_time(0, 200, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
 
 	fprintf(tty, "LWIP is initialized\n");
 
