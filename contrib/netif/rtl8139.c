@@ -49,6 +49,35 @@ err_t rtl_init(struct netif * netif) {
 	return 0;
 }
 
+static void dhcp_thread(void * arg, char * name) {
+	dhcp_start(&rtl_lwip_netif);
+
+	int mscnt = 0;
+	while (rtl_lwip_netif.ip_addr.addr == 0) {
+		unsigned long s, ss;
+		relative_time(0, DHCP_FINE_TIMER_MSECS / 100, &s, &ss);
+		sleep_until((process_t *)current_process, s, ss);
+		switch_task(0);
+		dhcp_fine_tmr();
+		mscnt += DHCP_FINE_TIMER_MSECS;
+		if (mscnt >= DHCP_COARSE_TIMER_SECS * 1000) {
+			debug_print(NOTICE, "coarse timer");
+			dhcp_coarse_tmr();
+			mscnt = 0;
+		}
+	}
+}
+
+static void tcpip_init_done(void * arg) {
+	netif_add(&rtl_lwip_netif, &ipaddr, &netmask, &gw, 0, rtl_init, ethernet_input);
+
+	netif_set_default(&rtl_lwip_netif);
+	netif_set_up(&rtl_lwip_netif);
+
+	create_kernel_tasklet(dhcp_thread, "[[dhcpd]]", NULL);
+}
+
+
 DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 	if (rtl_device_pci) {
 		fprintf(tty, "Located an RTL 8139: 0x%x\n", rtl_device_pci);
@@ -128,27 +157,13 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		rtl_lwip_netif.hwaddr[4] = mac[4];
 		rtl_lwip_netif.hwaddr[5] = mac[5];
 
-		netif_add(&rtl_lwip_netif, &ipaddr, &netmask, &gw, 0, rtl_init, ethernet_input);
+		debug_print(NOTICE, "Going to init stuff.");
+		switch_task(1);
 
-		netif_set_default(&rtl_lwip_netif);
-		netif_set_up(&rtl_lwip_netif);
+		tcpip_init(tcpip_init_done, NULL);
 
-		dhcp_start(&rtl_lwip_netif);
-
-		int mscnt = 0;
-		while (rtl_lwip_netif.ip_addr.addr == 0) {
-			unsigned long s, ss;
-			relative_time(0, DHCP_FINE_TIMER_MSECS / 100, &s, &ss);
-			sleep_until((process_t *)current_process, s, ss);
-			switch_task(0);
-			dhcp_fine_tmr();
-			mscnt += DHCP_FINE_TIMER_MSECS;
-			if (mscnt >= DHCP_COARSE_TIMER_SECS * 1000) {
-				debug_print(NOTICE, "coarse timer");
-				dhcp_coarse_tmr();
-				mscnt = 0;
-			}
-		}
+		debug_print(NOTICE, "okay, stuff should be running in the background now\n");
+		switch_task(1);
 
 #if 0
 		fprintf(tty, "Going to try to force-send a UDP packet...\n");
