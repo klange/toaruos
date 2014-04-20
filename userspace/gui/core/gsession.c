@@ -69,8 +69,6 @@ int main(int argc, char * argv[]) {
 
 	printf("Session leader has exited. Sending INT signals to %d.\n", _wallpaper_pid);
 
-	kill(_wallpaper_pid, SIGINT);
-
 	printf("Waiting on wallpaper.\n");
 	syscall_wait(_wallpaper_pid);
 
