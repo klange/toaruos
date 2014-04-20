@@ -344,7 +344,9 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(key, 1024, oldbufid);
+		spin_lock(&yg->redraw_lock);
 		syscall_shm_release(key);
+		spin_unlock(&yg->redraw_lock);
 	}
 
 	win->buffer = win->newbuffer;
@@ -718,11 +720,13 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * but calculating that may be more trouble than it's worth;
 		 * we also need to render windows in stacking order...
 		 */
+		spin_lock(&yg->redraw_lock);
 		for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
 			if (yg->zlist[i]) {
 				yutani_blit_window(yg, yg->zlist[i], yg->zlist[i]->x, yg->zlist[i]->y);
 			}
 		}
+		spin_unlock(&yg->redraw_lock);
 
 		if (yg->resizing_window) {
 			/* Draw box */
