@@ -105,7 +105,7 @@ install: system
 run: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
 kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(DISK_ROOT)"
 vga: system
 	${EMU} ${EMUARGS} -append "$(START_VGA) $(DISK_ROOT)"
 vga-kvm: system
