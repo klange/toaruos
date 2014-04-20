@@ -130,7 +130,7 @@ void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
 			}
 			/* Within the icon range */
 		}
-	} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE) {
+	} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
 		if (evt->new_x > 0 && evt->new_x < ICON_X + ICON_WIDTH + EXTRA_WIDTH) {
 			uint32_t i = 0;
 			while (1) {
@@ -149,6 +149,8 @@ void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
 		} else {
 			set_focused(-1);
 		}
+	} else if (evt->command == YUTANI_MOUSE_EVENT_LEAVE) {
+		set_focused(-1);
 	}
 }
 

@@ -113,7 +113,7 @@ void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				}
 			}
 		}
-	} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE) {
+	} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
 		if (evt->new_y < PANEL_HEIGHT) {
 			for (int i = 0; i < 18; ++i) {
 				if (icon_lefts[i] == 0) {
@@ -128,6 +128,8 @@ void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 		} else {
 			set_focused(-1);
 		}
+	} else if (evt->command == YUTANI_MOUSE_EVENT_LEAVE) {
+		set_focused(-1);
 	}
 }
 

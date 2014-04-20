@@ -118,6 +118,8 @@ typedef struct {
 
 	volatile int redraw_lock;
 
+	yutani_server_window_t * old_hover_window;
+
 } yutani_globals_t;
 
 static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window);

@@ -1010,10 +1010,36 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					free(response);
 				} else {
 					yg->mouse_window = get_focused(yg);
+					yutani_server_window_t * tmp_window = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 					if (yg->mouse_window) {
-						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
+						int32_t x, y;
+						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
 						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
 						free(response);
+					}
+					if (tmp_window) {
+						int32_t x, y;
+						yutani_msg_t * response;
+						if (tmp_window != yg->old_hover_window) {
+							device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+							response = yutani_msg_build_window_mouse_event(tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_ENTER);
+							pex_send(yg->server, tmp_window->owner, response->size, (char *)response);
+							free(response);
+							if (yg->old_hover_window) {
+								device_to_window(yg->old_hover_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+								response = yutani_msg_build_window_mouse_event(yg->old_hover_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_LEAVE);
+								pex_send(yg->server, yg->old_hover_window->owner, response->size, (char *)response);
+								free(response);
+							}
+							yg->old_hover_window = tmp_window;
+						}
+						if (tmp_window != yg->mouse_window) {
+							device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+							response = yutani_msg_build_window_mouse_event(tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
+							pex_send(yg->server, tmp_window->owner, response->size, (char *)response);
+							free(response);
+						}
 					}
 				}
 			}
@@ -1380,11 +1406,18 @@ int main(int argc, char * argv[]) {
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
 					if (w) {
 						set_focused_window(yg, w);
+						yutani_msg_t * response = yutani_msg_build_notify();
+						foreach(node, yg->window_subscribers) {
+							uint32_t subscriber = (uint32_t)node->value;
+							pex_send(server, subscriber, response->size, (char *)response);
+						}
+						free(response);
 					}
 				}
+				break;
 			default:
 				{
-					fprintf(stderr, "[yutani-server] Unknown type!\n");
+					fprintf(stderr, "[yutani-server] Unknown type: 0x%8x\n", m->type);
 				}
 				break;
 		}

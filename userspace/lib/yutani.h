@@ -194,6 +194,8 @@ typedef struct yutani_window {
 #define YUTANI_MOUSE_EVENT_RAISE 2
 #define YUTANI_MOUSE_EVENT_DOWN  3
 #define YUTANI_MOUSE_EVENT_MOVE  4
+#define YUTANI_MOUSE_EVENT_LEAVE 5
+#define YUTANI_MOUSE_EVENT_ENTER 6
 
 typedef struct {
 	int x;
