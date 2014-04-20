@@ -534,7 +534,6 @@ uint32_t scrollback_offset = 0;
 
 void save_scrollback() {
 	/* Save the current top row for scrollback */
-	return;
 	if (!scrollback_list) {
 		scrollback_list = list_create();
 	}
@@ -553,7 +552,6 @@ void save_scrollback() {
 }
 
 void redraw_scrollback() {
-	return;
 	if (!scrollback_offset) {
 		term_redraw_all();
 		return;
@@ -624,6 +622,7 @@ void redraw_scrollback() {
 			node = node->prev;
 		}
 	}
+	display_flip();
 }
 
 void term_write(char c) {
@@ -735,6 +734,9 @@ void term_redraw_cursor() {
 
 void flip_cursor() {
 	static uint8_t cursor_flipped = 0;
+	if (scrollback_offset != 0) {
+		return; /* Don't flip cursor while drawing scrollback */
+	}
 	if (cursor_flipped) {
 		cell_redraw(csr_x, csr_y);
 	} else {
