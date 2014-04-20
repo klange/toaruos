@@ -125,6 +125,7 @@ void make_process_ready(process_t * proc) {
 			spin_lock(&sleep_lock);
 			list_delete(sleep_queue, proc->timed_sleep_node);
 			spin_unlock(&sleep_lock);
+			proc->sleep_node.owner = NULL;
 			free(proc->timed_sleep_node->value);
 		} else {
 			spin_lock(&wait_lock_tmp);
