@@ -292,7 +292,6 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->x = 0;
 	win->y = 0;
 	win->z = best_z_option(yg);
-	yg->zlist[win->z] = win;
 	win->width = width;
 	win->height = height;
 	win->bufid = next_buf_id();
@@ -308,6 +307,9 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	size_t size = (width * height * 4);
 	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
 	memset(win->buffer, 0, size);
+
+	yg->zlist[win->z] = win;
+
 	return win;
 }
 
