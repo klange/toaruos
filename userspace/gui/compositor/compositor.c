@@ -10,6 +10,7 @@
 #include <math.h>
 #include <assert.h>
 #include <getopt.h>
+#include <errno.h>
 #include <sys/stat.h>
 
 #include <cairo.h>
@@ -34,6 +35,7 @@ struct {
 	.nest_width = 0,
 	.nest_height = 0
 };
+
 
 static int usage(char * argv[]) {
 	fprintf(stderr,
@@ -111,6 +113,28 @@ static void spin_lock(int volatile * lock) {
 
 static void spin_unlock(int volatile * lock) {
 	__sync_lock_release(lock);
+}
+
+static void * _malloc(size_t bytes) {
+	/*
+	 * Workaround an issue in newlib malloc that just happens despise the particular sizes
+	 * of things the terminal happens to allocate.
+	 * TODO: Replace newlib malloc with our malloc... again...
+	 */
+	static volatile int lock = 0;
+	spin_lock(&lock);
+	errno = 0xABAD1DEA;
+	void * out = NULL;
+	int failures = 0;
+	do {
+		if (failures > 5) {
+			spin_unlock(&lock);
+			return NULL;
+		}
+		out = malloc(bytes);
+	} while (out == NULL && errno == 0xABAD1DEA);
+	spin_unlock(&lock);
+	return out;
 }
 
 static int next_buf_id(void) {
@@ -280,7 +304,7 @@ int best_z_option(yutani_globals_t * yg) {
 
 
 static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner) {
-	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
+	yutani_server_window_t * win = _malloc(sizeof(yutani_server_window_t));
 
 	win->wid = next_wid();
 	win->owner = owner;
@@ -430,7 +454,7 @@ static char * precache_shmfont(char * ident, char * name) {
 	fseek(f, 0, SEEK_SET);
 
 	size_t shm_size = s;
-	char * font = (char *)syscall_shm_obtain(ident, &shm_size); //malloc(s);
+	char * font = (char *)syscall_shm_obtain(ident, &shm_size); //_malloc(s);
 	assert((shm_size >= s) && "shm_obtain returned too little memory to load a font into!");
 
 	fread(font, s, 1, f);
@@ -763,7 +787,7 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 	yg->real_surface = cairo_image_surface_create_for_data(
 			yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 
-	yg->select_framebuffer = malloc(YUTANI_BYTE_DEPTH * yg->width * yg->height);
+	yg->select_framebuffer = _malloc(YUTANI_BYTE_DEPTH * yg->width * yg->height);
 
 	yg->selectbuffer_surface = cairo_image_surface_create_for_data(
 			yg->select_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
@@ -797,7 +821,7 @@ void * redraw(void * in) {
 }
 
 static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) {
-	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+	yutani_damage_rect_t * rect = _malloc(sizeof(yutani_damage_rect_t));
 
 	if (window->rotation == 0) {
 		rect->x = window->x;
@@ -835,7 +859,7 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) 
 }
 
 static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t * window, int32_t x, int32_t y, int32_t width, int32_t height) {
-	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+	yutani_damage_rect_t * rect = _malloc(sizeof(yutani_damage_rect_t));
 
 	if (window->rotation == 0) {
 		rect->x = window->x + x;
@@ -874,7 +898,7 @@ static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t *
 
 
 static void mark_region(yutani_globals_t * yg, int x, int y, int width, int height) {
-	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+	yutani_damage_rect_t * rect = _malloc(sizeof(yutani_damage_rect_t));
 	rect->x = x;
 	rect->y = y;
 	rect->width = width;
@@ -1098,7 +1122,7 @@ int main(int argc, char * argv[]) {
 	int results = parse_args(argc, argv, &argx);
 	if (results) return results;
 
-	yutani_globals_t * yg = malloc(sizeof(yutani_globals_t));
+	yutani_globals_t * yg = _malloc(sizeof(yutani_globals_t));
 	memset(yg, 0x00, sizeof(yutani_globals_t));
 	yg->backend_ctx = init_graphics_fullscreen_double_buffer();
 
@@ -1348,7 +1372,7 @@ int main(int argc, char * argv[]) {
 						if (wa->size == 0) {
 							w->name = NULL;
 						} else {
-							char * t = malloc(wa->size+1);
+							char * t = _malloc(wa->size+1);
 							memcpy(t, wa->name, wa->size+1);
 							w->name = t;
 						}
@@ -1372,6 +1396,14 @@ int main(int argc, char * argv[]) {
 					}
 				}
 				break;
+			case YUTANI_MSG_WINDOW_FOCUS:
+				{
+					struct yutani_msg_window_focus * wa = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					if (w) {
+						set_focused_window(yg, w);
+					}
+				}
 			default:
 				{
 					fprintf(stderr, "[yutani-server] Unknown type!\n");

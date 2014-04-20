@@ -71,16 +71,31 @@ void init_sprite_png(int i, char * filename) {
 	load_sprite_png(sprites[i], filename);
 }
 
+void redraw(void);
+
 #define FONT_SIZE 14
 #define TIME_LEFT 108
 #define DATE_WIDTH 70
 
 volatile int _continue = 1;
 
+/* honestly no way we're gonna fit more at the moment... */
+int icon_lefts[20] = {0};
+int icon_wids[20] = {0};
+int focused_app = -1;
+
 void sig_int(int sig) {
 	printf("Received shutdown signal in panel!\n");
 	_continue = 0;
 }
+
+void set_focused(int i) {
+	if (focused_app != i) {
+		focused_app = i;
+		redraw();
+	}
+}
+
 
 void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
@@ -88,6 +103,30 @@ void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 		if (evt->new_x >= width - 24 ) {
 			yutani_session_end(yctx);
 			_continue = 0;
+		} else {
+			for (int i = 0; i < 18; ++i) {
+				if (evt->new_x >= icon_lefts[i] && evt->new_x < icon_lefts[i+1]) {
+					if (icon_wids[i]) {
+						yutani_focus_window(yctx, icon_wids[i]);
+					}
+					break;
+				}
+			}
+		}
+	} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE) {
+		if (evt->new_y < PANEL_HEIGHT) {
+			for (int i = 0; i < 18; ++i) {
+				if (icon_lefts[i] == 0) {
+					set_focused(-1);
+					break;
+				}
+				if (evt->new_x >= icon_lefts[i] && evt->new_x < icon_lefts[i+1]) {
+					set_focused(i);
+					break;
+				}
+			}
+		} else {
+			set_focused(-1);
 		}
 	}
 }
@@ -131,7 +170,7 @@ void redraw(void) {
 	set_font_size(14);
 	draw_string(ctx, 10, 18, txt_color, "Applications");
 
-	int i = 0;
+	int i = 0, j = 0;
 	spin_lock(&lock);
 	if (window_list) {
 		foreach(node, window_list) {
@@ -139,8 +178,20 @@ void redraw(void) {
 
 			set_font_face(FONT_SANS_SERIF);
 			set_font_size(14);
-			draw_string(ctx, 140 + i, 18, txt_color, s);
+			if (j == focused_app) {
+				draw_string(ctx, 140 + i, 18, rgb(142,216,255), s);
+			} else {
+				draw_string(ctx, 140 + i, 18, txt_color, s);
+			}
+			if (j < 18) {
+				icon_lefts[j] = 140 + i;
+				j++;
+			}
 			i += draw_string_width(s) + 20;
+		}
+		if (j < 19) {
+			icon_lefts[j] = 140 + i;
+			icon_lefts[j+1] = 0;
 		}
 	}
 	spin_unlock(&lock);
@@ -152,10 +203,13 @@ void redraw(void) {
 
 	spin_unlock(&drawlock);
 }
+
 void update_window_list(void) {
 	yutani_query_windows(yctx);
 
 	list_t * new_window_list = list_create();
+
+	int i = 0;
 
 	while (1) {
 		yutani_msg_t * m = yutani_wait_for(yctx, YUTANI_MSG_WINDOW_ADVERTISE);
@@ -171,8 +225,15 @@ void update_window_list(void) {
 		char * s = malloc(wa->size + 1);
 		memcpy(s, wa->name, wa->size + 1);
 
+		if (i < 19) {
+			icon_wids[i] = wa->wid;
+			icon_wids[i+1] = 0;
+		}
+
 		list_insert(new_window_list, s);
 		free(m);
+
+		i++;
 	}
 
 	spin_lock(&lock);
@@ -186,7 +247,6 @@ void update_window_list(void) {
 
 	redraw();
 }
-
 
 void * clock_thread(void * garbage) {
 	while (_continue) {

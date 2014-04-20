@@ -118,6 +118,10 @@ struct yutani_msg_window_advertise {
 	char name[];
 };
 
+struct yutani_msg_window_focus {
+	yutani_wid_t wid;
+};
+
 typedef struct yutani_window {
 	yutani_wid_t wid;
 
@@ -156,11 +160,13 @@ typedef struct yutani_window {
 #define YUTANI_MSG_RESIZE_BUFID        0x00000013
 #define YUTANI_MSG_RESIZE_DONE         0x00000014
 
+/* Some session management / de stuff */
 #define YUTANI_MSG_WINDOW_ADVERTISE    0x00000020
 #define YUTANI_MSG_SUBSCRIBE           0x00000021
 #define YUTANI_MSG_UNSUBSCRIBE         0x00000022
 #define YUTANI_MSG_NOTIFY              0x00000023
 #define YUTANI_MSG_QUERY_WINDOWS       0x00000024
+#define YUTANI_MSG_WINDOW_FOCUS        0x00000025
 
 #define YUTANI_MSG_SESSION_END         0x00000030
 
@@ -219,6 +225,7 @@ yutani_msg_t * yutani_msg_build_unsubscribe(void);
 yutani_msg_t * yutani_msg_build_query(void);
 yutani_msg_t * yutani_msg_build_notify(void);
 yutani_msg_t * yutani_msg_build_session_end(void);
+yutani_msg_t * yutani_msg_build_window_focus(yutani_wid_t wid);
 
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
@@ -239,6 +246,7 @@ void yutani_subscribe_windows(yutani_t * y);
 void yutani_unsubscribe_windows(yutani_t * y);
 void yutani_query_windows(yutani_t * y);
 void yutani_session_end(yutani_t * y);
+void yutani_focus_window(yutani_t * y, yutani_wid_t wid);
 
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);
