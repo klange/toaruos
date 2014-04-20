@@ -236,6 +236,7 @@ char handle_event(yutani_msg_t * m) {
 						display();
 					}
 				}
+				break;
 			case YUTANI_MSG_SESSION_END:
 				return 'q';
 			default:
