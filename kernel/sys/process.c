@@ -246,6 +246,7 @@ process_t * spawn_init(void) {
 	init->image.user_stack  = 0;
 	init->image.size        = 0;
 	init->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
+	init->image.lock = 0;
 
 	/* Process is not finished */
 	init->finished = 0;
@@ -346,6 +347,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	debug_print(INFO,"    }");
 	proc->image.user_stack  = parent->image.user_stack;
 	proc->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
+	proc->image.lock = 0;
 
 	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
 
@@ -420,7 +422,7 @@ uint8_t process_compare(void * proc_v, void * pid_v) {
 }
 
 process_t * process_from_pid(pid_t pid) {
-	assert((pid > 0) && "Tried to retreive a process with PID < 0");
+	if (pid < 0) return NULL;
 
 	spin_lock(&tree_lock);
 	tree_node_t * entry = tree_find(process_tree,&pid,process_compare);

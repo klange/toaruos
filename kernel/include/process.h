@@ -48,6 +48,7 @@ typedef struct image {
 	uintptr_t user_stack;  /* User stack */
 	uintptr_t start;
 	uintptr_t shm_heap;
+	volatile uint8_t lock;
 } image_t;
 
 /* Resizable descriptor table */

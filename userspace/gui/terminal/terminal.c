@@ -491,28 +491,6 @@ void term_scroll(int how_much) {
 	yutani_flip(yctx, window);
 }
 
-static void * _malloc(size_t bytes) {
-	/*
-	 * Workaround an issue in newlib malloc that just happens despise the particular sizes
-	 * of things the terminal happens to allocate.
-	 * TODO: Replace newlib malloc with our malloc... again...
-	 */
-	static volatile int lock = 0;
-	spin_lock(&lock);
-	errno = 0xABAD1DEA;
-	void * out = NULL;
-	int failures = 0;
-	do {
-		if (failures > 5) {
-			spin_unlock(&lock);
-			return NULL;
-		}
-		out = malloc(bytes);
-	} while (out == NULL && errno == 0xABAD1DEA);
-	spin_unlock(&lock);
-	return out;
-}
-
 uint32_t codepoint;
 uint32_t unicode_state = 0;
 
@@ -541,7 +519,7 @@ void save_scrollback() {
 		free(list_dequeue(scrollback_list));
 	}
 
-	struct scrollback_row * row = _malloc(sizeof(struct scrollback_row) + sizeof(term_cell_t) * term_width + 20);
+	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(term_cell_t) * term_width + 20);
 	row->width = term_width;
 	for (int i = 0; i < term_width; ++i) {
 		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (i) * sizeof(term_cell_t));
@@ -993,7 +971,7 @@ void reinit(int send_sig) {
 	term_height = window_height / char_height;
 	if (term_buffer) {
 		fprintf(stderr, "reinitalizing...\n");
-		term_cell_t * new_term_buffer = _malloc(sizeof(term_cell_t) * term_width * term_height);
+		term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
 		fprintf(stderr, "new buffer is %x\n", new_term_buffer);
 
 		memset(new_term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
@@ -1008,7 +986,7 @@ void reinit(int send_sig) {
 
 		term_buffer = new_term_buffer;
 	} else {
-		term_buffer = _malloc(sizeof(term_cell_t) * term_width * term_height);
+		term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
 		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 	}
 

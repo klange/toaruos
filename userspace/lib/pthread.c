@@ -3,7 +3,7 @@
 #include <syscall.h>
 #include "pthread.h"
 
-#define PTHREAD_STACK_SIZE 10240
+#define PTHREAD_STACK_SIZE 0x100000
 
 int clone(uintptr_t a,uintptr_t b,void* c) {
 	return syscall_clone(a,b,c);

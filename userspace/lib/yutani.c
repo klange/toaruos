@@ -146,7 +146,7 @@ yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid) {
 	msg->type  = YUTANI_MSG_WINDOW_CLOSE;
 	msg->size  = s;
 
-	struct yutani_msg_flip * mw = (void *)msg->data;
+	struct yutani_msg_window_close * mw = (void *)msg->data;
 
 	mw->wid = wid;
 
@@ -587,7 +587,7 @@ gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
 
 gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window) {
 	gfx_context_t * out = init_graphics_yutani(window);
-	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+	out->backbuffer = malloc(GFX_B(out) * GFX_W(out) * GFX_H(out));
 	return out;
 }
 
@@ -601,7 +601,7 @@ void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window) {
 		out->backbuffer = out->buffer;
 	} else {
 		out->buffer = window->buffer;
-		out->backbuffer = realloc(out->backbuffer, sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+		out->backbuffer = realloc(out->backbuffer, GFX_B(out) * GFX_W(out) * GFX_H(out));
 	}
 }
 
