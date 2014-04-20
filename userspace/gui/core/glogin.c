@@ -224,12 +224,20 @@ int main (int argc, char ** argv) {
 
 		yutani_set_stack(y, wina, 0);
 
-		for (int i = 0; i < LOGO_FINAL_OFFSET; ++i) {
-			draw_fill(ctx, rgb(0,0,0));
-			draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
+		draw_fill(ctx, rgb(0,0,0));
+		draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
+		flip(ctx);
+		yutani_flip(y, wina);
+
+		char * foo = malloc(sizeof(uint32_t) * width * height);
+		memcpy(foo, ctx->backbuffer, sizeof(uint32_t) * width * height);
+
+		for (int i = 0; i < LOGO_FINAL_OFFSET; i += 2) {
+			memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
 			draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - i);
 			flip(ctx);
-			yutani_flip(y, wina);
+			yutani_flip_region(y, wina, center_x(sprites[0]->width), center_y(sprites[0]->height) - i, sprites[0]->width, sprites[0]->height + 5);
+			usleep(10000);
 		}
 
 		size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
@@ -313,10 +321,7 @@ int main (int argc, char ** argv) {
 					strcat(password_circles, "●");
 				}
 
-				/* Redraw the background */
-				draw_fill(ctx, rgb(0,0,0));
-
-				draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
+				memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
 				draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 
 				draw_string_shadow(ctx, hostname_label_left, height - 12, white, hostname, rgb(0,0,0), 2, 1, 1, 3.0);
@@ -398,8 +403,7 @@ int main (int argc, char ** argv) {
 			show_error = 1;
 		}
 
-		draw_fill(ctx, rgb(0,0,0));
-		draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
+		memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
 		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
 		yutani_flip(y, wina);
