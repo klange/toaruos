@@ -416,6 +416,7 @@ int main (int argc, char ** argv) {
 			execvp(args[0], args);
 		}
 
+		free(foo);
 		free(buf);
 
 		syscall_wait(_session_pid);

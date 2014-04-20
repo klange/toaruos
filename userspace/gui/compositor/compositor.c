@@ -333,17 +333,19 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 		return;
 	}
 
-	{
-		char key[1024];
-		YUTANI_SHMKEY_EXP(key, 1024, win->bufid);
-		syscall_shm_release(key);
-	}
+	int oldbufid = win->bufid;
 
 	win->width = width;
 	win->height = height;
 
 	win->bufid = win->newbufid;
 	win->newbufid = 0;
+
+	{
+		char key[1024];
+		YUTANI_SHMKEY_EXP(key, 1024, oldbufid);
+		syscall_shm_release(key);
+	}
 
 	win->buffer = win->newbuffer;
 	win->newbuffer = NULL;
@@ -571,6 +573,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 					}
 					break;
 				default:
+					goto draw_window;
 					break;
 			}
 		}
@@ -1004,6 +1007,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					if (yg->mouse_window) {
 						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
 						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+						free(response);
 					}
 				}
 			}
