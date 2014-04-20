@@ -305,6 +305,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 
 	size_t size = (width * height * 4);
 	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+	memset(win->buffer, 0, size);
 	return win;
 }
 
@@ -999,7 +1000,11 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
 					free(response);
 				} else {
-					/* XXX Arbitrary mouse movement, not dragging */
+					yg->mouse_window = get_focused(yg);
+					if (yg->mouse_window) {
+						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
+						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+					}
 				}
 			}
 			break;
