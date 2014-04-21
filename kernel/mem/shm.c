@@ -163,6 +163,55 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 	mapping->num_vaddrs = chunk->num_frames;
 	mapping->vaddrs = malloc(sizeof(uintptr_t) * mapping->num_vaddrs);
 
+	debug_print(INFO, "want %d bytes, running through mappings...", mapping->num_vaddrs * 0x1000);
+	uintptr_t last_address = SHM_START;
+	foreach(node, proc->shm_mappings) {
+		shm_mapping_t * m = node->value;
+		if (m->vaddrs[0] > last_address) {
+			size_t gap = (uintptr_t)m->vaddrs[0] - last_address;
+			debug_print(INFO, "gap found at 0x%x of size %d", last_address, gap);
+			if (gap >= mapping->num_vaddrs * 0x1000) {
+				debug_print(INFO, "Gap is sufficient, we can insert here.");
+
+				/* Map the gap */
+				for (unsigned int i = 0; i < chunk->num_frames; ++i) {
+					page_t * page = get_page(last_address + i * 0x1000, 1, proc->thread.page_directory);
+					alloc_frame(page, 0, 1);
+					page->frame = chunk->frames[i];
+					mapping->vaddrs[i] = last_address + i * 0x1000;
+				}
+
+				/* Insert us before this node */
+				list_insert_before(proc->shm_mappings, node, mapping);
+
+				return (void *)mapping->vaddrs[0];
+			}
+		}
+		last_address = m->vaddrs[0] + m->num_vaddrs * 0x1000;
+		debug_print(INFO, "[0x%x:0x%x] %s", m->vaddrs[0], last_address, m->chunk->parent->name);
+	}
+	if (proc->image.shm_heap > last_address) {
+		size_t gap = proc->image.shm_heap - last_address;
+		debug_print(INFO, "gap found at 0x%x of size %d", last_address, gap);
+		if (gap >= mapping->num_vaddrs * 0x1000) {
+			debug_print(INFO, "Gap is sufficient, we can insert here.");
+
+			for (unsigned int i = 0; i < chunk->num_frames; ++i) {
+				page_t * page = get_page(last_address + i * 0x1000, 1, proc->thread.page_directory);
+				alloc_frame(page, 0, 1);
+				page->frame = chunk->frames[i];
+				mapping->vaddrs[i] = last_address + i * 0x1000;
+			}
+
+			list_insert(proc->shm_mappings, mapping);
+
+			return (void *)mapping->vaddrs[0];
+		} else {
+			debug_print(INFO, "should be more efficient here - there is space available, but we are not going to use it");
+		}
+	}
+
+
 	for (uint32_t i = 0; i < chunk->num_frames; i++) {
 		uintptr_t new_vpage = proc_sbrk(1, proc);
 		assert(new_vpage % 0x1000 == 0);
@@ -240,6 +289,10 @@ void * shm_obtain (char * path, size_t * size) {
 int shm_release (char * path) {
 	spin_lock(&bsl);
 	process_t * proc = (process_t *)current_process;
+
+	if (proc->group != 0) {
+		proc = process_from_pid(proc->group);
+	}
 
 	/* First, find the right chunk */
 	shm_node_t * _node = get_node(path, 0);

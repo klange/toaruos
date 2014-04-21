@@ -98,6 +98,42 @@ node_t * list_insert_after(list_t * list, node_t * before, void * item) {
 	return node;
 }
 
+void list_append_before(list_t * list, node_t * after, node_t * node) {
+	assert(!(node->next || node->prev) && "Node is already in a list.");
+	node->owner = list;
+	if (!list->length) {
+		list_append(list, node);
+		return;
+	}
+	if (after == NULL) {
+		node->next = NULL;
+		node->prev = list->tail;
+		list->tail->next = node;
+		list->tail = node;
+		list->length++;
+		return;
+	}
+	if (after == list->head) {
+		list->head = node;
+	} else {
+		after->prev->next = node;
+		node->prev = after->prev;
+	}
+	node->next = after;
+	after->prev = node;
+	list->length++;
+}
+
+node_t * list_insert_before(list_t * list, node_t * after, void * item) {
+	node_t * node = malloc(sizeof(node_t));
+	node->value = item;
+	node->next  = NULL;
+	node->prev  = NULL;
+	node->owner = NULL;
+	list_append_before(list, after, node);
+	return node;
+}
+
 list_t * list_create(void) {
 	/* Create a fresh list */
 	list_t * out = malloc(sizeof(list_t));
