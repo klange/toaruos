@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <syscall.h>
+#include <signal.h>
 #include "pthread.h"
 
 #define PTHREAD_STACK_SIZE 0x100000
@@ -18,6 +19,10 @@ int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_rout
 	thread->stack = stack;
 	thread->id = clone(stack_top, (uintptr_t)start_routine, arg);
 	return 0;
+}
+
+int pthread_kill(pthread_t thread, int sig) {
+	return kill(thread.id, sig);
 }
 
 void pthread_exit(void * value) {

@@ -64,6 +64,11 @@ int main(int argc, char * argv[]) {
 		char * args[] = {"/bin/panel", NULL};
 		execvp(args[0], args);
 	}
+	int _toastd_pid = fork();
+	if (!_toastd_pid) {
+		char * args[] = {"/bin/toastd", NULL};
+		execvp(args[0], args);
+	}
 
 	syscall_wait(_panel_pid);
 
