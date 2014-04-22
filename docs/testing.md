@@ -12,8 +12,13 @@ That said, there are a few things you will need before building とあるOS:
 On Ubuntu and Debian systems, the automated build scripts will attempt to install the prerequisite packages for building the toolchain. The toolchain is then used to build a number of libraries for userspace, the userspace itself, and then the kernel. The standard build tools do not create a bootable harddisk image, though a tool is provided to do this if you want to test with an emulator other than qemu.
 
 Also, from the hardware perspective you need to have a bare minimum of the following:
-* **RAM**: At least *3.5GB*.
-* **Hard Drive**: At least *5-6GB* of free space (Mostly needed for the produced image file).
+
+* Virtual Box VM:
+ - **RAM**: At least *3.5GB*.
+ - **Hard Drive**: At least *4GB* of free space (Mostly needed for the produced image file).
+* Ubuntu:
+ - **RAM**: *1-2GB* Depending on the image type you are targeting.
+ - **Hard Drive**: *2-4GB* of free space (Mostly needed for the produced image file).
 
 ## Building ##
 
