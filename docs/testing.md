@@ -13,10 +13,10 @@ On Ubuntu and Debian systems, the automated build scripts will attempt to instal
 
 Also, from the hardware perspective you need to have a bare minimum of the following:
 
-* Virtual Box VM:
+* Virtual Box VM host:
  - **RAM**: At least *3.5GB*.
  - **Hard Drive**: At least *4GB* of free space (Mostly needed for the produced image file).
-* Ubuntu:
+* Ubuntu host:
  - **RAM**: *1-2GB* Depending on the image type you are targeting.
  - **Hard Drive**: *2-4GB* of free space (Mostly needed for the produced image file).
 
