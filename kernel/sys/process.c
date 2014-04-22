@@ -121,12 +121,14 @@ void make_process_ready(process_t * proc) {
 	if (proc->sleep_node.owner != NULL) {
 		if (proc->sleep_node.owner == sleep_queue) {
 			/* XXX can't wake from timed sleep */
-			assert(proc->timed_sleep_node);
-			spin_lock(&sleep_lock);
-			list_delete(sleep_queue, proc->timed_sleep_node);
-			spin_unlock(&sleep_lock);
-			proc->sleep_node.owner = NULL;
-			free(proc->timed_sleep_node->value);
+			if (proc->timed_sleep_node) {
+				spin_lock(&sleep_lock);
+				list_delete(sleep_queue, proc->timed_sleep_node);
+				spin_unlock(&sleep_lock);
+				proc->sleep_node.owner = NULL;
+				free(proc->timed_sleep_node->value);
+			}
+			/* Else: I have no idea what happened. */
 		} else {
 			spin_lock(&wait_lock_tmp);
 			list_delete((list_t*)proc->sleep_node.owner, &proc->sleep_node);
