@@ -15,10 +15,10 @@ Also, from the hardware perspective you need to have a bare minimum of the follo
 
 * Virtual Box VM host:
  - **RAM**: At least *3.5GB*.
- - **Hard Drive**: At least *4GB* of free space (Mostly needed for the produced image file).
+ - **Hard Drive**: At least *6GB* of free space (Mostly needed for the produced image file).
 * Ubuntu host:
  - **RAM**: *1-2GB* Depending on the image type you are targeting.
- - **Hard Drive**: *2-4GB* of free space (Mostly needed for the produced image file).
+ - **Hard Drive**: *6GB* of free space (Mostly needed for the produced image file).
 
 ## Building ##
 
