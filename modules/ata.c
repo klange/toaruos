@@ -298,7 +298,6 @@ static void ata_device_read_sector(struct ata_device * dev, uint32_t lba, uint8_
 				return;
 			}
 
-			// Replaced goto with regular loop.
 			debug_print(WARNING, "Attempt %i", errors);
 			continue;
 		}
