@@ -12,6 +12,8 @@
 /* TTK {{{ */
 
 static yutani_t * yctx;
+/* XXX ttk_app_t ? */
+static hashmap_t * ttk_wids_to_windows;
 
 void cairo_rounded_rectangle(cairo_t * cr, double x, double y, double width, double height, double radius) {
 	double degrees = M_PI / 180.0;
@@ -24,7 +26,6 @@ void cairo_rounded_rectangle(cairo_t * cr, double x, double y, double width, dou
 	cairo_close_path(cr);
 }
 
-list_t * ttk_window_list;
 
 void ttk_redraw_borders(ttk_window_t * window) {
 	render_decorations(window->core_window, window->core_context, window->title);
@@ -311,50 +312,36 @@ void ttk_window_draw(ttk_window_t * window) {
 	yutani_flip(yctx, window->core_window);
 }
 
-#if 0
-void ttk_resize_callback(window_t * window) {
-	ttk_window_t * window_ttk = NULL;
-
-	foreach(node, ttk_window_list) {
-		ttk_window_t * tmp = (ttk_window_t *)node->value;
-		if (window->wid == tmp->core_window->wid) {
-			window_ttk = tmp;
-			break;
-		}
-	}
-
+void ttk_resize_callback(ttk_window_t * window_ttk, int width, int height) {
 	if (!window_ttk) {
 		fprintf(stderr, "[ttk] received window callback for a window not registered with TTK, ignoring.\n");
+		return;
 	}
+
+	yutani_window_resize_accept(yctx, window_ttk->core_window, width, height);
 
 	/* Update window size */
-	window_ttk->width  = window->width  - decor_width();
-	window_ttk->height = window->height - decor_height();
+	window_ttk->width  = width  - decor_width();
+	window_ttk->height = height - decor_height();
 
 	/* Reinitialize graphics context */
-	reinit_graphics_window(window_ttk->core_context, window_ttk->core_window);
+	reinit_graphics_yutani(window_ttk->core_context, window_ttk->core_window);
 
 	ttk_window_draw(window_ttk);
+
+	yutani_window_resize_done(yctx, window_ttk->core_window);
+	yutani_flip(yctx, window_ttk->core_window);
 }
 
-void ttk_focus_callback(window_t * window) {
-	ttk_window_t * window_ttk = NULL;
-
-	foreach(node, ttk_window_list) {
-		ttk_window_t * tmp = (ttk_window_t *)node->value;
-		if (window->wid == tmp->core_window->wid) {
-			window_ttk = tmp;
-			break;
-		}
-	}
-
+void ttk_focus_callback(ttk_window_t * window_ttk, int focused) {
 	if (!window_ttk) {
 		fprintf(stderr, "[ttk] received window callback for a window not registered with TTK, ignoring.\n");
+		return;
 	}
 
+	window_ttk->core_window->focused = focused;
 	ttk_window_draw(window_ttk);
 }
-#endif
 
 
 void ttk_initialize() {
@@ -364,7 +351,7 @@ void ttk_initialize() {
 	/* Initialize the decoration library */
 	init_decorations();
 
-	ttk_window_list = list_create();
+	ttk_wids_to_windows = hashmap_create_int(5); /* wids are ints, ergo... */
 }
 
 ttk_window_t * ttk_window_new(char * title, uint16_t width, uint16_t height) {
@@ -384,13 +371,21 @@ ttk_window_t * ttk_window_new(char * title, uint16_t width, uint16_t height) {
 
 	ttk_window_draw(new_win);
 
-	list_insert(ttk_window_list, new_win);
+	hashmap_set(ttk_wids_to_windows, (void*)new_win->core_window->wid, new_win);
 }
 
 void ttk_quit() {
-	list_destroy(ttk_window_list);
-	list_free(ttk_window_list);
-	free(ttk_window_list);
+	list_t * windows = hashmap_values(ttk_wids_to_windows);
+
+	foreach(node, windows) {
+		ttk_window_t * win = node->value;
+		yutani_close(yctx, win->core_window);
+	}
+
+	list_free(windows);
+	free(windows);
+	hashmap_free(ttk_wids_to_windows);
+	free(ttk_wids_to_windows);
 }
 
 int ttk_run(ttk_window_t * window) {
@@ -404,6 +399,18 @@ int ttk_run(ttk_window_t * window) {
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							goto done;
 						}
+					}
+					break;
+				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					{
+						struct yutani_msg_window_focus_change * fc = (void*)m->data;
+						ttk_focus_callback(hashmap_get(ttk_wids_to_windows, (void*)fc->wid), fc->focused);
+					}
+					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						ttk_resize_callback(hashmap_get(ttk_wids_to_windows, (void*)wr->wid), wr->width, wr->height);
 					}
 					break;
 				default:

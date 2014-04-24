@@ -13,6 +13,7 @@
 #include "lib/graphics.h"
 #include "lib/decorations.h"
 #include "lib/shmemfonts.h"
+#include "lib/hashmap.h"
 
 typedef struct ttk_window {
 	yutani_window_t        * core_window;
