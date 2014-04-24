@@ -14,8 +14,6 @@
 #include <process.h>
 #include <logging.h>
 
-#define TMP_ZONE 0x20000000
-
 /**
  * Load and execute a static ELF binary.
  *
@@ -47,11 +45,7 @@ exec(
 		/* Command not found */
 		return 0;
 	}
-	/* Read in the binary contents */
-	for (uintptr_t x = TMP_ZONE; x < TMP_ZONE + file->length; x += 0x1000) {
-		alloc_frame(get_page(x, 1, current_directory), 0, 1);
-	}
-	Elf32_Header * header = (Elf32_Header *)TMP_ZONE; //(Elf32_Header *)malloc(file->length + 100);
+	Elf32_Header * header = (Elf32_Header *)malloc(file->length + 100);
 
 	debug_print(NOTICE, "---> Starting load.");
 	IRQ_RES;
@@ -72,12 +66,12 @@ exec(
 			header->e_ident[3] != ELFMAG3) {
 		/* What? This isn't an ELF... */
 		debug_print(ERROR, "Not a valid ELF executable.");
-		for (uintptr_t x = TMP_ZONE; x < TMP_ZONE + file->length; x += 0x1000) {
-			free_frame(get_page(x, 0, current_directory));
-		}
+		free(header);
 		close_fs(file);
 		return -1;
 	}
+
+	release_directory_for_exec(current_directory);
 
 	/* Load the loadable segments from the binary */
 	for (uintptr_t x = 0; x < (uint32_t)header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
@@ -111,9 +105,7 @@ exec(
 	uintptr_t entry = (uintptr_t)header->e_entry;
 
 	/* Free the space we used for the ELF headers and files */
-	for (uintptr_t x = TMP_ZONE; x < TMP_ZONE + file->length; x += 0x1000) {
-		free_frame(get_page(x, 0, current_directory));
-	}
+	free(header);
 	close_fs(file);
 
 	for (uintptr_t stack_pointer = USER_STACK_BOTTOM; stack_pointer < USER_STACK_TOP; stack_pointer += 0x1000) {
@@ -162,6 +154,7 @@ exec(
 
 	current_process->image.heap        = heap; /* heap end */
 	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
+	alloc_frame(get_page(current_process->image.heap_actual, 1, current_directory), 0, 1);
 	current_process->image.user_stack  = USER_STACK_TOP;
 
 	current_process->image.start = entry;

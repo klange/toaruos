@@ -90,6 +90,28 @@ void release_directory(page_directory_t * dir) {
 	}
 }
 
+void release_directory_for_exec(page_directory_t * dir) {
+	uint32_t i;
+	/* This better be the only owner of this directory... */
+	for (i = 0; i < 1024; ++i) {
+		if (!dir->tables[i] || (uintptr_t)dir->tables[i] == (uintptr_t)0xFFFFFFFF) {
+			continue;
+		}
+		if (kernel_directory->tables[i] != dir->tables[i]) {
+			if (i * 0x1000 * 1024 < SHM_START) {
+				for (uint32_t j = 0; j < 1024; ++j) {
+					if (dir->tables[i]->pages[j].frame) {
+						free_frame(&(dir->tables[i]->pages[j]));
+					}
+				}
+				free(dir->tables[i]);
+				dir->physical_tables[i] = 0;
+				dir->tables[i] = 0;
+			}
+		}
+	}
+}
+
 extern char * default_name;
 
 void reap_process(process_t * proc) {

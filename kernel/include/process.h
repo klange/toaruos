@@ -140,4 +140,6 @@ extern list_t * process_list;
 typedef void (*tasklet_t) (void *, char *);
 extern int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);
 
+extern void release_directory_for_exec(page_directory_t * dir);
+
 #endif
