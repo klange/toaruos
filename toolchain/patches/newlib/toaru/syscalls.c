@@ -23,6 +23,11 @@
 #include "syscall.h"
 #include <bits/dirent.h>
 
+extern void *malloc(size_t size);
+extern void free(void *ptr);
+extern void *calloc(size_t nmemb, size_t size);
+extern void *realloc(void *ptr, size_t size);
+
 extern void _init();
 extern void _fini();
 
@@ -85,6 +90,8 @@ DEFN_SYSCALL3(waitpid, 53, int, int *, int);
 
 
 extern char ** environ;
+
+int ioctl(int fd, int request, void * argp);
 
 #define DEFAULT_PATH ".:/bin:/usr/bin"
 
@@ -166,7 +173,7 @@ int kill(int pid, int sig) {
 }
 
 sighandler_t signal(int signum, sighandler_t handler) {
-	return syscall_signal(signum, (void *)handler);
+	return (sighandler_t)syscall_signal(signum, (void *)handler);
 }
 
 #if 0
@@ -247,7 +254,7 @@ int fstat(int file, struct stat *st) {
 }
 
 int stat(const char *file, struct stat *st){
-	int ret = syscall_stat((char *)file, (uintptr_t)st);
+	int ret = syscall_stat((char *)file, (void *)st);
 	if (ret >= 0) {
 		return ret;
 	} else {
