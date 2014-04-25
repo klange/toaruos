@@ -214,14 +214,8 @@ void ttk_render() {
 	ttk_window_t _window;
 	ttk_window_t * window = &_window;
 
-	yutani_window_t _wina;
-	_wina.buffer = wina->buffer;
-	_wina.width = wina->width;
-	_wina.height = wina->height;
-	_wina.focused = wina->focused;
-
 	window->core_context = ctx;
-	window->core_window  = &_wina;
+	window->core_window  = ttk_window;
 	window->width        = ctx->width; // - decor_width();
 	window->height       = ctx->height; //- decor_height();
 	window->off_x        = 0; //decor_left_width;
@@ -230,7 +224,6 @@ void ttk_render() {
 
 	draw_fill(ctx, rgb(TTK_BACKGROUND_DEFAULT));
 	ttk_redraw_borders(window);
-
 
 	{
 		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, window->core_window->width);
@@ -403,12 +396,14 @@ int main (int argc, char ** argv) {
 	wina = yutani_window_create(yctx, width, height);
 
 	ctx = init_graphics_yutani_double_buffer(wina);
-	draw_fill(ctx, rgb(255,255,255));
+	draw_fill(ctx, rgba(0,0,0,0));
+
 	init_decorations();
 
 	yutani_window_advertise(yctx, wina, "Draw!");
 
 	setup_ttk(wina);
+
 
 	close_button = ttk_decor_button_close(quit_app);
 
