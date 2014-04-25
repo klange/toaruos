@@ -404,7 +404,6 @@ int main (int argc, char ** argv) {
 		}
 
 		memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
-		draw_sprite(ctx, sprites[0], center_x(sprites[0]->width), center_y(sprites[0]->height) - LOGO_FINAL_OFFSET);
 		flip(ctx);
 		yutani_flip(y, wina);
 
