@@ -164,6 +164,8 @@ uint32_t first_frame(void) {
 	return -1;
 }
 
+static volatile uint8_t frame_alloc_lock = 0;
+
 void
 alloc_frame(
 		page_t *page,
@@ -176,9 +178,11 @@ alloc_frame(
 		page->user    = (is_kernel == 1)    ? 0 : 1;
 		return;
 	} else {
+		spin_lock(&frame_alloc_lock);
 		uint32_t index = first_frame();
 		assert(index != (uint32_t)-1 && "Out of frames.");
 		set_frame(index * 0x1000);
+		spin_unlock(&frame_alloc_lock);
 		page->present = 1;
 		page->rw      = (is_writeable == 1) ? 1 : 0;
 		page->user    = (is_kernel == 1)    ? 0 : 1;

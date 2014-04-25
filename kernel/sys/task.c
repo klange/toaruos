@@ -567,7 +567,7 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 	PUSH(stack, int, argc);
 
 	asm volatile(
-			"mov %3, %%esp\n"
+			"mov %1, %%esp\n"
 			"pushl $0xDECADE21\n"  /* Magic */
 			"mov $0x23, %%ax\n"    /* Segment selector */
 			"mov %%ax, %%ds\n"
@@ -584,7 +584,7 @@ enter_user_jmp(uintptr_t location, int argc, char ** argv, uintptr_t stack) {
 			"pushl $0x1B\n"
 			"pushl %0\n"           /* Push the entry point */
 			"iret\n"
-			: : "m"(location), "r"(argc), "r"(argv), "r"(stack) : "%ax", "%esp", "%eax");
+			: : "m"(location), "r"(stack) : "%ax", "%esp", "%eax");
 }
 
 /*
