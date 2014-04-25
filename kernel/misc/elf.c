@@ -123,6 +123,7 @@ exec(
 	};
 	int auxvc = 0;
 	for (auxvc = 0; auxv[auxvc].id != 0; ++auxvc);
+	auxvc++;
 
 	uintptr_t heap = current_process->image.entry + current_process->image.size;
 	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
