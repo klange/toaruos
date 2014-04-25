@@ -1177,7 +1177,7 @@ int main(int argc, char ** argv) {
 	} else {
 		/* Create the window */
 		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
-		window->focused = 1;
+		window->focused = 0;
 
 		/* Initialize the decoration library */
 		init_decorations();
