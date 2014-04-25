@@ -891,7 +891,7 @@ static void * __attribute__ ((malloc)) klrealloc(void *ptr, uintptr_t size) {
 	 * simply malloc the requested size and return a pointer to that.
 	 */
 	if (__builtin_expect(ptr == NULL, 0))
-		return malloc(size);
+		return klmalloc(size);
 
 	/*
 	 * C standard implementation: For a size of zero, free the
