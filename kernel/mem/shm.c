@@ -102,7 +102,7 @@ static shm_chunk_t * create_chunk (shm_node_t * parent, size_t size) {
 		alloc_frame(&tmp, 0, 0);
 		chunk->frames[i] = tmp.frame;
 #if 0
-		debug_print(INFO, "Using frame #%d for chunk[%d] (name=%s)", index, i, parent->name);
+		debug_print(WARNING, "Using frame 0x%x for chunk[%d] (name=%s)", tmp.frame * 0x1000, i, parent->name);
 #endif
 	}
 
@@ -176,8 +176,8 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 				/* Map the gap */
 				for (unsigned int i = 0; i < chunk->num_frames; ++i) {
 					page_t * page = get_page(last_address + i * 0x1000, 1, proc->thread.page_directory);
-					alloc_frame(page, 0, 1);
 					page->frame = chunk->frames[i];
+					alloc_frame(page, 0, 1);
 					mapping->vaddrs[i] = last_address + i * 0x1000;
 				}
 
@@ -198,8 +198,8 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 
 			for (unsigned int i = 0; i < chunk->num_frames; ++i) {
 				page_t * page = get_page(last_address + i * 0x1000, 1, proc->thread.page_directory);
-				alloc_frame(page, 0, 1);
 				page->frame = chunk->frames[i];
+				alloc_frame(page, 0, 1);
 				mapping->vaddrs[i] = last_address + i * 0x1000;
 			}
 
@@ -219,8 +219,8 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 		page_t * page = get_page(new_vpage, 1, proc->thread.page_directory);
 		assert(page && "Page not allocated by sys_sbrk?");
 
-		alloc_frame(page, 0, 1);
 		page->frame = chunk->frames[i];
+		alloc_frame(page, 0, 1);
 		mapping->vaddrs[i] = new_vpage;
 
 #if 0

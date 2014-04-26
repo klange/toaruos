@@ -138,7 +138,7 @@ extern void switch_page_directory(page_directory_t * new);
 extern page_t *get_page(uintptr_t address, int make, page_directory_t * dir);
 extern void page_fault(struct regs *r);
 extern void dma_frame(page_t * page, int, int, uintptr_t);
-extern void debug_print_directory(void);
+extern void debug_print_directory(page_directory_t *);
 
 int debug_shell_start(void);
 

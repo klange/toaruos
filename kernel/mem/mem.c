@@ -182,11 +182,11 @@ alloc_frame(
 		uint32_t index = first_frame();
 		assert(index != (uint32_t)-1 && "Out of frames.");
 		set_frame(index * 0x1000);
+		page->frame   = index;
 		spin_unlock(&frame_alloc_lock);
 		page->present = 1;
 		page->rw      = (is_writeable == 1) ? 1 : 0;
 		page->user    = (is_kernel == 1)    ? 0 : 1;
-		page->frame   = index;
 	}
 }
 
@@ -299,21 +299,44 @@ void paging_finalize(void) {
 	switch_page_directory(kernel_directory);
 }
 
-void debug_print_directory(void) {
-	debug_print(INFO, " ---- [k:0x%x u:0x%x]", kernel_directory, current_directory);
+uintptr_t map_to_physical(uintptr_t virtual) {
+	uintptr_t remaining = virtual % 0x1000;
+	uintptr_t frame = virtual / 0x1000;
+	uintptr_t table = frame / 1024;
+	uintptr_t subframe = frame % 1024;
+
+	if (current_directory->tables[table]) {
+		page_t * p = &current_directory->tables[table]->pages[subframe];
+		return p->frame * 0x1000 + remaining;
+	} else {
+		return 0;
+	}
+}
+
+void debug_print_directory(page_directory_t * arg) {
+	page_directory_t * current_directory = arg;
+	debug_print(INSANE, " ---- [k:0x%x u:0x%x]", kernel_directory, current_directory);
 	for (uintptr_t i = 0; i < 1024; ++i) {
 		if (!current_directory->tables[i] || (uintptr_t)current_directory->tables[i] == (uintptr_t)0xFFFFFFFF) {
 			continue;
 		}
 		if (kernel_directory->tables[i] == current_directory->tables[i]) {
-			debug_print(INFO, "  0x%x - kern [0x%x/0x%x] 0x%x", current_directory->tables[i], &current_directory->tables[i], &kernel_directory->tables[i], i * 0x1000 * 1024);
-		} else {
-			debug_print(INFO, "  0x%x - user [0x%x] 0x%x [0x%x]", current_directory->tables[i], &current_directory->tables[i], i * 0x1000 * 1024, kernel_directory->tables[i]);
+			debug_print(INSANE, "  0x%x - kern [0x%x/0x%x] 0x%x", current_directory->tables[i], &current_directory->tables[i], &kernel_directory->tables[i], i * 0x1000 * 1024);
 			for (uint16_t j = 0; j < 1024; ++j) {
-#if 0
+#if 1
 				page_t *  p= &current_directory->tables[i]->pages[j];
 				if (p->frame) {
-					debug_print(INFO, "    0x%x - 0x%x %s", p->frame * 0x1000, p->frame * 0x1000 + 0xFFF, p->present ? "[present]" : "");
+					debug_print(INSANE, " k  0x%x 0x%x %s", (i * 1024 + j) * 0x1000, p->frame * 0x1000, p->present ? "[present]" : "");
+				}
+#endif
+			}
+		} else {
+			debug_print(INSANE, "  0x%x - user [0x%x] 0x%x [0x%x]", current_directory->tables[i], &current_directory->tables[i], i * 0x1000 * 1024, kernel_directory->tables[i]);
+			for (uint16_t j = 0; j < 1024; ++j) {
+#if 1
+				page_t *  p= &current_directory->tables[i]->pages[j];
+				if (p->frame) {
+					debug_print(INSANE, "    0x%x 0x%x %s", (i * 1024 + j) * 0x1000, p->frame * 0x1000, p->present ? "[present]" : "");
 				}
 #endif
 			}
