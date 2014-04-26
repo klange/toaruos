@@ -232,6 +232,7 @@ static int sys_sbrk(int size) {
 		proc->image.heap_actual += 0x1000;
 		assert(proc->image.heap_actual % 0x1000 == 0);
 		alloc_frame(get_page(proc->image.heap_actual, 1, current_directory), 0, 1);
+		invalidate_tables_at(proc->image.heap_actual);
 	}
 	spin_unlock(&proc->image.lock);
 	return ret;

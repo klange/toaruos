@@ -178,6 +178,7 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 					page_t * page = get_page(last_address + i * 0x1000, 1, proc->thread.page_directory);
 					page->frame = chunk->frames[i];
 					alloc_frame(page, 0, 1);
+					invalidate_tables_at(last_address + i * 0x1000);
 					mapping->vaddrs[i] = last_address + i * 0x1000;
 				}
 
@@ -200,6 +201,7 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 				page_t * page = get_page(last_address + i * 0x1000, 1, proc->thread.page_directory);
 				page->frame = chunk->frames[i];
 				alloc_frame(page, 0, 1);
+				invalidate_tables_at(last_address + i * 0x1000);
 				mapping->vaddrs[i] = last_address + i * 0x1000;
 			}
 
@@ -221,6 +223,7 @@ static void * map_in (shm_chunk_t * chunk, process_t * proc) {
 
 		page->frame = chunk->frames[i];
 		alloc_frame(page, 0, 1);
+		invalidate_tables_at(new_vpage);
 		mapping->vaddrs[i] = new_vpage;
 
 #if 0
@@ -282,7 +285,7 @@ void * shm_obtain (char * path, size_t * size) {
 	*size = chunk_size(chunk);
 
 	spin_unlock(&bsl);
-	switch_page_directory(proc->thread.page_directory);
+	invalidate_page_tables();
 
 	return vshm_start;
 }
@@ -326,7 +329,7 @@ int shm_release (char * path) {
 
 		memset(page, 0, sizeof(page_t));
 	}
-	switch_page_directory(proc->thread.page_directory);
+	invalidate_page_tables();
 
 	/* Clean up */
 	release_chunk(chunk);

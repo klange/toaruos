@@ -37,10 +37,8 @@ clone_directory(
 	memset(dir, 0, sizeof(page_directory_t));
 	dir->ref_count = 1;
 
-	/* Calculate the physical address offset */
-	uintptr_t offset = (uintptr_t)dir->physical_tables - (uintptr_t)dir;
 	/* And store it... */
-	dir->physical_address = phys + offset;
+	dir->physical_address = phys;
 	uint32_t i;
 	for (i = 0; i < 1024; ++i) {
 		/* Copy each table */
@@ -98,14 +96,14 @@ void release_directory_for_exec(page_directory_t * dir) {
 			continue;
 		}
 		if (kernel_directory->tables[i] != dir->tables[i]) {
-			if (i * 0x1000 * 1024 < SHM_START) {
+			if (i * 0x1000 * 1024 < USER_STACK_BOTTOM) {
 				for (uint32_t j = 0; j < 1024; ++j) {
 					if (dir->tables[i]->pages[j].frame) {
 						free_frame(&(dir->tables[i]->pages[j]));
 					}
 				}
-				free(dir->tables[i]);
 				dir->physical_tables[i] = 0;
+				free(dir->tables[i]);
 				dir->tables[i] = 0;
 			}
 		}

@@ -72,7 +72,7 @@ exec(
 	}
 
 	release_directory_for_exec(current_directory);
-	switch_page_directory(current_directory);
+	invalidate_page_tables();
 
 	/* Load the loadable segments from the binary */
 	for (uintptr_t x = 0; x < (uint32_t)header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
@@ -91,6 +91,7 @@ exec(
 			for (uintptr_t i = 0; i < shdr->sh_size + 0x2000; i += 0x1000) {
 				/* This doesn't care if we already allocated this page */
 				alloc_frame(get_page(shdr->sh_addr + i, 1, current_directory), 0, 1);
+				invalidate_tables_at(shdr->sh_addr + i);
 			}
 			if (shdr->sh_type == SHT_NOBITS) {
 				/* This is the .bss, zero it */
@@ -111,6 +112,7 @@ exec(
 
 	for (uintptr_t stack_pointer = USER_STACK_BOTTOM; stack_pointer < USER_STACK_TOP; stack_pointer += 0x1000) {
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
+		invalidate_tables_at(stack_pointer);
 	}
 
 	/* Collect arguments */
@@ -128,6 +130,7 @@ exec(
 
 	uintptr_t heap = current_process->image.entry + current_process->image.size;
 	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+	invalidate_tables_at(heap);
 	char ** argv_ = (char **)heap;
 	heap += sizeof(char *) * (argc + 1);
 	char ** env_ = (char **)heap;
@@ -137,6 +140,7 @@ exec(
 
 	for (int i = 0; i < argc; ++i) {
 		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+		invalidate_tables_at(heap);
 		argv_[i] = (char *)heap;
 		memcpy((void *)heap, argv[i], strlen(argv[i]) * sizeof(char) + 1);
 		heap += strlen(argv[i]) + 1;
@@ -146,6 +150,7 @@ exec(
 
 	for (int i = 0; i < envc; ++i) {
 		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+		invalidate_tables_at(heap);
 		env_[i] = (char *)heap;
 		memcpy((void *)heap, env[i], strlen(env[i]) * sizeof(char) + 1);
 		heap += strlen(env[i]) + 1;
@@ -157,6 +162,7 @@ exec(
 	current_process->image.heap        = heap; /* heap end */
 	current_process->image.heap_actual = heap + (0x1000 - heap % 0x1000);
 	alloc_frame(get_page(current_process->image.heap_actual, 1, current_directory), 0, 1);
+	invalidate_tables_at(current_process->image.heap_actual);
 	current_process->image.user_stack  = USER_STACK_TOP;
 
 	current_process->image.start = entry;

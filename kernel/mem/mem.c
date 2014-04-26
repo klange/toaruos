@@ -43,8 +43,7 @@ kmalloc_real(
 			address = malloc(size);
 		}
 		if (phys) {
-			page_t *page = get_page((uintptr_t)address, 0, kernel_directory);
-			*phys = page->frame * 0x1000 + ((uintptr_t)address & 0xFFF);
+			*phys = map_to_physical((uintptr_t)address);
 		}
 		return (uintptr_t)address;
 	}
@@ -350,11 +349,27 @@ switch_page_directory(
 		page_directory_t * dir
 		) {
 	current_directory = dir;
-	asm volatile ("mov %0, %%cr3":: "r"(dir->physical_address));
-	uint32_t cr0;
-	asm volatile ("mov %%cr0, %0": "=r"(cr0));
-	cr0 |= 0x80000000;
-	asm volatile ("mov %0, %%cr0":: "r"(cr0));
+	asm volatile (
+			"mov %0, %%cr3\n"
+			"mov %%cr0, %%eax\n"
+			"orl $0x80000000, %%eax\n"
+			"mov %%eax, %%cr0\n"
+			:: "r"(dir->physical_address)
+			: "%eax");
+}
+
+void invalidate_page_tables(void) {
+	asm volatile (
+			"movl %%cr3, %%eax\n"
+			"movl %%eax, %%cr3\n"
+			::: "%eax");
+}
+
+void invalidate_tables_at(uintptr_t addr) {
+	asm volatile (
+			"movl %0,%%eax\n"
+			"invlpg (%%eax)\n"
+			:: "r"(addr) : "%eax");
 }
 
 page_t *
@@ -482,6 +497,7 @@ void * sbrk(uintptr_t increment) {
 			debug_print(INFO, "Allocating frame at 0x%x...", i);
 			alloc_frame(get_page(i, 0, kernel_directory), 1, 0);
 		}
+		invalidate_page_tables();
 		debug_print(INFO, "Done.");
 	}
 
