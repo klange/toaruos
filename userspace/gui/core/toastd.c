@@ -30,7 +30,7 @@ static sprite_t * toast_bg;
 
 #define TOAST_WIDTH  310
 #define TOAST_HEIGHT 110
-#define TOAST_PAD     20
+#define TOAST_PAD      8
 
 typedef struct {
 	int    ttl;
