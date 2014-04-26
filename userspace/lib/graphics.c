@@ -162,9 +162,9 @@ uint32_t premultiply(uint32_t color) {
 	uint16_t g = _GRE(color);
 	uint16_t b = _BLU(color);
 
-	r = r * a / 256;
-	g = g * a / 256;
-	b = b * a / 256;
+	r = r * a / 255;
+	g = g * a / 255;
+	b = b * a / 255;
 	return rgba(r,g,b,a);
 }
 
