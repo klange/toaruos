@@ -72,6 +72,7 @@ exec(
 	}
 
 	release_directory_for_exec(current_directory);
+	switch_page_directory(current_directory);
 
 	/* Load the loadable segments from the binary */
 	for (uintptr_t x = 0; x < (uint32_t)header->e_shentsize * header->e_shnum; x += header->e_shentsize) {

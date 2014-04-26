@@ -282,6 +282,7 @@ void * shm_obtain (char * path, size_t * size) {
 	*size = chunk_size(chunk);
 
 	spin_unlock(&bsl);
+	switch_page_directory(proc->thread.page_directory);
 
 	return vshm_start;
 }
@@ -325,6 +326,7 @@ int shm_release (char * path) {
 
 		memset(page, 0, sizeof(page_t));
 	}
+	switch_page_directory(proc->thread.page_directory);
 
 	/* Clean up */
 	release_chunk(chunk);
