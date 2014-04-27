@@ -4,12 +4,21 @@ Before trying とあるOS, keep in mind that it is a *hobby project*, not a prof
 
 ## Requirements ##
 
-That said, there are a few things you will need before build とあるOS:
+That said, there are a few things you will need before building とあるOS:
 
 * **A capable build environment**: I develop under an Ubuntu derivative. I suggest the most recent *LTS* release of something like Xubuntu. The most recent version of Ubuntu ships with an a version of `automake` that removes a necessary legacy feature, but this can be corrected with a script provided in `toolchain/legacy-automake.sh`. If you are not using Ubuntu and you experience issues with missing packages, I can attempt to help, but provide no warranty of support.
 * **An understanding of Unix build tools**: The build system for とあるOS is a disparate combination of shell scripts, Makefiles, and a bit of Python magic. If you are not already familiar with normal build tools on Unix-like systems, no amount of automation will help you resolve issues.
 
 On Ubuntu and Debian systems, the automated build scripts will attempt to install the prerequisite packages for building the toolchain. The toolchain is then used to build a number of libraries for userspace, the userspace itself, and then the kernel. The standard build tools do not create a bootable harddisk image, though a tool is provided to do this if you want to test with an emulator other than qemu.
+
+Also, from the hardware perspective you need to have a bare minimum of the following:
+
+* Virtual Box VM host:
+ - **RAM**: At least *3.5GB*.
+ - **Hard Drive**: At least *6GB* of free space (Mostly needed for the produced image file).
+* Ubuntu host:
+ - **RAM**: *1-2GB* Depending on the image type you are targeting.
+ - **Hard Drive**: *6GB* of free space (Mostly needed for the produced image file).
 
 ## Building ##
 
