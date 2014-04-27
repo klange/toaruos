@@ -11,6 +11,9 @@ CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
 CFLAGS += -Wstrict-prototypes -pedantic -fno-omit-frame-pointer
 CFLAGS += -D_KERNEL_
 
+# Kernel autoversioning with git sha
+CFLAGS += -DKERNEL_GIT_TAG=`util/make-version`
+
 # We have some pieces of assembly sitting around as well...
 YASM = yasm
 

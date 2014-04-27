@@ -21,7 +21,14 @@ int    __kernel_version_lower = 1;
  * mean anything, but can be used to distinguish
  * between different features included while
  * building multiple kernels. */
-char * __kernel_version_suffix   = "dev";
+#ifdef KERNEL_GIT_TAG
+# define STR(x) #x
+# define STRSTR(x) STR(x)
+# define KERNEL_VERSION_SUFFIX STRSTR(KERNEL_GIT_TAG)
+#else
+# define KERNEL_VERSION_SUFFIX "r"
+#endif
+char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename.
  *
