@@ -16,13 +16,10 @@
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_list;  /* Flat storage */
 list_t * process_queue; /* Ready queue */
-list_t * reap_queue;    /* Processes to reap */
 list_t * sleep_queue;
-list_t * recently_reaped;
 volatile process_t * current_process = NULL;
 process_t * kernel_idle_task = NULL;
 
-static uint8_t volatile reap_lock = 0;
 static uint8_t volatile tree_lock = 0;
 static uint8_t volatile process_queue_lock = 0;
 static uint8_t volatile wait_lock_tmp = 0;
@@ -38,9 +35,7 @@ void initialize_process_tree(void) {
 	process_tree = tree_create();
 	process_list = list_create();
 	process_queue = list_create();
-	reap_queue = list_create();
 	sleep_queue = list_create();
-	recently_reaped = list_create();
 }
 
 /*
@@ -102,16 +97,6 @@ process_t * next_ready_process(void) {
 	return next;
 }
 
-process_t * next_reapable_process(void) {
-	spin_lock(&reap_lock);
-	node_t * np = list_dequeue(reap_queue);
-	spin_unlock(&reap_lock);
-	if (!np) { return NULL; }
-	process_t * next = np->value;
-	free(np);
-	return next;
-}
-
 /*
  * Reinsert a process into the ready queue.
  *
@@ -130,6 +115,7 @@ void make_process_ready(process_t * proc) {
 			}
 			/* Else: I have no idea what happened. */
 		} else {
+			proc->sleep_interrupted = 1;
 			spin_lock(&wait_lock_tmp);
 			list_delete((list_t*)proc->sleep_node.owner, &proc->sleep_node);
 			spin_unlock(&wait_lock_tmp);
@@ -140,18 +126,8 @@ void make_process_ready(process_t * proc) {
 	spin_unlock(&process_queue_lock);
 }
 
-void make_process_reapable(process_t * proc) {
-	delete_process(proc);
-	spin_lock(&reap_lock);
-	list_insert(reap_queue, (void *)proc);
-	spin_unlock(&reap_lock);
-}
 
-void set_reaped(process_t * proc) {
-	spin_lock(&reap_lock);
-	list_insert(recently_reaped, (void *)proc);
-	spin_unlock(&reap_lock);
-}
+extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
 
 /*
  * Delete a process from the process tree
@@ -167,11 +143,20 @@ void delete_process(process_t * proc) {
 	/* We can not remove the root, which is an error anyway */
 	assert((entry != process_tree->root) && "Attempted to kill init.");
 
+	if (process_tree->root == entry) {
+		/* We are init, don't even bother. */
+		return;
+	}
+
 	/* Remove the entry. */
 	spin_lock(&tree_lock);
-	tree_remove(process_tree, entry);
+	/* Reparent everyone below me to init */
+	tree_remove_reparent_root(process_tree, entry);
 	list_delete(process_list, list_find(process_list, proc));
 	spin_unlock(&tree_lock);
+
+	/* Uh... */
+	free(proc);
 }
 
 static void _kidle(void) {
@@ -408,14 +393,6 @@ process_t * spawn_process(volatile process_t * parent) {
 	return proc;
 }
 
-process_t * find_reaped_process(pid_t pid) {
-	foreach(node, recently_reaped) {
-		process_t * proc = node->value;
-		if (proc && proc->id == pid) return proc;
-	}
-	return NULL;
-}
-
 uint8_t process_compare(void * proc_v, void * pid_v) {
 	pid_t pid = (*(pid_t *)pid_v);
 	process_t * proc = (process_t *)proc_v;
@@ -431,32 +408,20 @@ process_t * process_from_pid(pid_t pid) {
 	spin_unlock(&tree_lock);
 	if (entry) {
 		return (process_t *)entry->value;
-	} else {
-		return find_reaped_process(pid);
-	}
-}
-
-process_t * process_get_first_child_rec(tree_node_t * node, process_t * target) {
-	if (!node) return NULL;
-	process_t * proc = (process_t *)node->value;
-	if (proc == target) {
-		foreach(child, node->children) {
-			process_t * cproc = (process_t *)((tree_node_t *)child->value)->value;
-			return cproc;
-		}
-		return NULL;
-	}
-	foreach(child, node->children) {
-		/* Recursively print the children */
-		process_t * out = process_get_first_child_rec(child->value, target);
-		if (out) return out;
 	}
 	return NULL;
 }
 
-process_t * process_get_first_child(process_t * process) {
+process_t * process_get_parent(process_t * process) {
+	process_t * result = NULL;
 	spin_lock(&tree_lock);
-	process_t * result = process_get_first_child_rec(process_tree->root, process);
+
+	tree_node_t * entry = process->tree_entry;
+
+	if (entry->parent) {
+		result = entry->parent->value;
+	}
+
 	spin_unlock(&tree_lock);
 	return result;
 }
@@ -519,10 +484,6 @@ uint8_t process_available(void) {
 	return (process_queue->head != NULL);
 }
 
-uint8_t should_reap(void) {
-	return (reap_queue->head != NULL);
-}
-
 /*
  * Append a file descriptor to a process.
  *
@@ -583,11 +544,12 @@ int sleep_on(list_t * queue) {
 		switch_task(0);
 		return 0;
 	}
+	current_process->sleep_interrupted = 0;
 	spin_lock(&wait_lock_tmp);
 	list_append(queue, (node_t *)&current_process->sleep_node);
 	spin_unlock(&wait_lock_tmp);
 	switch_task(0);
-	return 0;
+	return current_process->sleep_interrupted;
 }
 
 int process_is_ready(process_t * proc) {
@@ -640,3 +602,119 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
 	spin_unlock(&sleep_lock);
 }
+
+void reap_process(process_t * proc) {
+	debug_print(INFO, "Reaping process %d; mem before = %d", proc->id, memory_use());
+	list_free(proc->wait_queue);
+	free(proc->wait_queue);
+	list_free(proc->signal_queue);
+	free(proc->signal_queue);
+	free(proc->wd_name);
+	debug_print(INFO, "Releasing shared memory for %d", proc->id);
+	shm_release_all(proc);
+	free(proc->shm_mappings);
+	debug_print(INFO, "Freeing more mems %d", proc->id);
+	free(proc->name);
+	if (proc->signal_kstack) {
+		free(proc->signal_kstack);
+	}
+	debug_print(INFO, "Dec'ing fds for %d", proc->id);
+	proc->fds->refs--;
+	if (proc->fds->refs == 0) {
+		debug_print(INFO, "Reached 0, all dependencies are closed for %d's file descriptors and page directories", proc->id);
+		release_directory(proc->thread.page_directory);
+		debug_print(INFO, "Going to clear out the file descriptors %d", proc->id);
+		for (uint32_t i = 0; i < proc->fds->length; ++i) {
+			if (proc->fds->entries[i]) {
+				//close_fs(proc->fds->entries[i]);
+				//free(proc->fds->entries[i]);
+			}
+			//close_fs(proc->fds->entries[i]);
+		}
+		debug_print(INFO, "... and their storage %d", proc->id);
+		free(proc->fds->entries);
+		free(proc->fds);
+		debug_print(INFO, "... and the kernel stack (hope this ain't us) %d", proc->id);
+		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
+	}
+	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
+
+	delete_process(proc);
+	debug_print_process_tree();
+}
+
+static int wait_candidate(process_t * parent, int pid, int options, process_t * proc) {
+	(void)options; /* there is only one option that affects candidacy, and we don't support it yet */
+
+	if (!proc) return 0;
+
+	if (pid < -1) {
+		if (proc->group == -pid || proc->id == -pid) return 1;
+	} else if (pid == 0) {
+		/* Matches our group ID */
+		if (proc->group == parent->id) return 1;
+	} else if (pid > 0) {
+		/* Specific pid */
+		if (proc->id == pid) return 1;
+	} else {
+		return 1;
+	}
+	return 0;
+}
+
+int waitpid(int pid, int * status, int options) {
+	process_t * proc = (process_t *)current_process;
+	if (proc->group) {
+		proc = process_from_pid(proc->group);
+	}
+
+	debug_print(NOTICE, "waitpid(%s%d, ..., %d) (from pid=%d.%d)", (pid >= 0) ? "" : "-", (pid >= 0) ? pid : -pid, options, current_process->id, current_process->group);
+
+	do {
+		process_t * candidate = NULL;
+		int has_children = 0;
+
+		/* First, find out if there is anyone to reap */
+		foreach(node, proc->tree_entry->children) {
+			if (!node->value) {
+				continue;
+			}
+			process_t * child = ((tree_node_t *)node->value)->value;
+
+			if (wait_candidate(proc, pid, options, child)) {
+				has_children = 1;
+				if (child->finished) {
+					candidate = child;
+					break;
+				}
+			}
+		}
+
+		if (!has_children) {
+			/* No valid children matching this description */
+			debug_print(NOTICE, "No children matching description.");
+			return -ECHILD;
+		}
+
+		if (candidate) {
+			debug_print(NOTICE, "Candidate found (%x:%d), bailing early.", candidate, candidate->id);
+			if (status) {
+				*status = candidate->status;
+			}
+			int pid = candidate->id;
+			reap_process(candidate);
+			return pid;
+		} else {
+			if (options & 1) {
+				return 0;
+			}
+			debug_print(NOTICE, "Sleeping until queue is done.");
+			/* Wait */
+			if (sleep_on(proc->wait_queue) != 0) {
+				debug_print(NOTICE, "wait() was interrupted");
+				return -EINTR;
+			}
+		}
+	} while (1);
+}
+

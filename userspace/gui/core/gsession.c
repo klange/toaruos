@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <syscall.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 #define LINE_LEN 1024
 
@@ -70,13 +71,12 @@ int main(int argc, char * argv[]) {
 		execvp(args[0], args);
 	}
 
-	syscall_wait(_panel_pid);
+	wait(NULL);
 
-	printf("Session leader has exited. Sending INT signals to %d.\n", _wallpaper_pid);
+	while (1) {
+		int pid = waitpid(-1, NULL, 0);
+		if (pid == -1) break;
+	}
 
-	printf("Waiting on wallpaper.\n");
-	syscall_wait(_wallpaper_pid);
-
-	printf("Session has ended.\n");
-
+	return 0;
 }

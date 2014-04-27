@@ -102,6 +102,7 @@ typedef struct process {
 	node_t        sleep_node;
 	node_t *      timed_sleep_node;
 	uint8_t       is_tasklet;
+	volatile uint8_t sleep_interrupted;
 } process_t;
 
 typedef struct {
@@ -117,18 +118,14 @@ extern process_t * spawn_init(void);
 extern process_t * spawn_kidle(void);
 extern void set_process_environment(process_t * proc, page_directory_t * directory);
 extern void make_process_ready(process_t * proc);
-extern void make_process_reapable(process_t * proc);
 extern uint8_t process_available(void);
 extern process_t * next_ready_process(void);
-extern uint8_t should_reap(void);
-extern process_t * next_reapable_process(void);
 extern uint32_t process_append_fd(process_t * proc, fs_node_t * node);
 extern process_t * process_from_pid(pid_t pid);
-extern process_t * process_get_first_child(process_t * process);
 extern void delete_process(process_t * proc);
+process_t * process_get_parent(process_t * process);
 extern uint32_t process_move_fd(process_t * proc, int src, int dest);
 extern int process_is_ready(process_t * proc);
-extern void set_reaped(process_t * proc);
 
 extern void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
 extern void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
@@ -140,6 +137,10 @@ extern list_t * process_list;
 typedef void (*tasklet_t) (void *, char *);
 extern int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);
 
+extern void release_directory(page_directory_t * dir);
 extern void release_directory_for_exec(page_directory_t * dir);
+
+extern void reap_process(process_t * proc);
+extern int waitpid(int pid, int * status, int options);
 
 #endif

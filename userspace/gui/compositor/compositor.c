@@ -1393,13 +1393,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case YUTANI_MSG_SESSION_END:
 				{
-					for (unsigned int i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
-						if (yg->zlist[i]) {
-							yutani_msg_t * response = yutani_msg_build_session_end();
-							pex_send(server, yg->zlist[i]->owner, response->size, (char *)response);
-							free(response);
-						}
-					}
+					yutani_msg_t * response = yutani_msg_build_session_end();
+					pex_broadcast(server, response->size, (char *)response);
+					free(response);
 				}
 				break;
 			case YUTANI_MSG_WINDOW_FOCUS:

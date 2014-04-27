@@ -122,12 +122,13 @@ static void * toastd_handler(void * garbage) {
 
 	while (!exit_app) {
 		pex_packet_t * p = calloc(PACKET_SIZE, 1);
-		pex_listen(toastd_server, p);
+		if (pex_listen(toastd_server, p) > 0) {
 
-		notification_t * toast = (void *)p->data;
-		add_toast(toast);
+			notification_t * toast = (void *)p->data;
+			add_toast(toast);
 
-		free(p);
+			free(p);
+		}
 	}
 }
 
@@ -197,7 +198,7 @@ int main (int argc, char ** argv) {
 		}
 	}
 
-	pthread_kill(toastd_thread, SIGWINCH);
+	pthread_kill(toastd_thread, SIGINT);
 	pthread_kill(closer_thread, SIGWINCH);
 
 	return 0;

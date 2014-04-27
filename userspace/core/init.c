@@ -12,6 +12,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <syscall.h>
+#include <sys/wait.h>
 
 #define DEFAULT_HOSTNAME "toaru-test"
 
@@ -50,7 +51,10 @@ int start_options(char * args[]) {
 		int i = execvp(args[0], args);
 		exit(0);
 	} else {
-		return syscall_wait(pid);
+		while (1) {
+			int i = wait(NULL);
+			if (i == -1) return 0;
+		}
 	}
 }
 

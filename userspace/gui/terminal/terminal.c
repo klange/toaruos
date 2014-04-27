@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <getopt.h>
 #include <errno.h>
 #include <ft2build.h>
@@ -887,7 +888,7 @@ void key_event(int ret, key_event_t * event) {
 }
 
 void * wait_for_exit(void * garbage) {
-	syscall_wait(child_pid);
+	waitpid(child_pid, NULL, 0);
 	/* Clean up */
 	exit_application = 1;
 	/* Exit */
@@ -1069,6 +1070,7 @@ void * handle_incoming(void * garbage) {
 				case YUTANI_MSG_SESSION_END:
 					{
 						kill(child_pid, SIGKILL);
+						exit_application = 1;
 					}
 					break;
 				case YUTANI_MSG_RESIZE_OFFER:

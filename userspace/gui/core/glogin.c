@@ -13,6 +13,7 @@
 #include <cairo.h>
 
 #include <sys/utsname.h>
+#include <sys/wait.h>
 
 #include "lib/sha2.h"
 #include "lib/graphics.h"
@@ -418,7 +419,7 @@ int main (int argc, char ** argv) {
 		free(foo);
 		free(buf);
 
-		syscall_wait(_session_pid);
+		waitpid(_session_pid, NULL, 0);
 	}
 
 	yutani_close(y, wina);

@@ -112,45 +112,6 @@ void release_directory_for_exec(page_directory_t * dir) {
 
 extern char * default_name;
 
-void reap_process(process_t * proc) {
-	debug_print(INFO, "Reaping process %d; mem before = %d", proc->id, memory_use());
-	list_free(proc->wait_queue);
-	free(proc->wait_queue);
-	list_free(proc->signal_queue);
-	free(proc->signal_queue);
-	free(proc->wd_name);
-	debug_print(INFO, "Releasing shared memory for %d", proc->id);
-	shm_release_all(proc);
-	free(proc->shm_mappings);
-	debug_print(INFO, "Freeing more mems %d", proc->id);
-	free(proc->name);
-	if (proc->signal_kstack) {
-		free(proc->signal_kstack);
-	}
-	debug_print(INFO, "Dec'ing fds for %d", proc->id);
-	proc->fds->refs--;
-	if (proc->fds->refs == 0) {
-		debug_print(INFO, "Reached 0, all dependencies are closed for %d's file descriptors and page directories", proc->id);
-		release_directory(proc->thread.page_directory);
-		debug_print(INFO, "Going to clear out the file descriptors %d", proc->id);
-		for (uint32_t i = 0; i < proc->fds->length; ++i) {
-			if (proc->fds->entries[i]) {
-				//close_fs(proc->fds->entries[i]);
-				//free(proc->fds->entries[i]);
-			}
-			//close_fs(proc->fds->entries[i]);
-		}
-		debug_print(INFO, "... and their storage %d", proc->id);
-		free(proc->fds->entries);
-		free(proc->fds);
-		debug_print(INFO, "... and the kernel stack (hope this ain't us) %d", proc->id);
-		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
-	}
-	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
-	debug_print_process_tree();
-	set_reaped(proc);
-}
-
 /*
  * Clone a page table
  *
@@ -449,12 +410,6 @@ void switch_task(uint8_t reschedule) {
 	if (eip == 0x10000) {
 		/* Returned from EIP after task switch, we have
 		 * finished switching. */
-		while (should_reap()) {
-			process_t * proc = next_reapable_process();
-			if (proc) {
-				reap_process(proc);
-			}
-		}
 		fix_signal_stacks();
 
 		/* XXX: Signals */
@@ -599,9 +554,12 @@ void task_exit(int retval) {
 	}
 	current_process->status   = retval;
 	current_process->finished = 1;
-	debug_print(INFO, "[%d] Waking up %d processes...", getpid(), current_process->wait_queue->length);
-	wakeup_queue(current_process->wait_queue);
-	make_process_reapable((process_t *)current_process);
+	process_t * parent = process_get_parent((process_t *)current_process);
+
+	if (parent) {
+		wakeup_queue(parent->wait_queue);
+	}
+
 	switch_next();
 }
 

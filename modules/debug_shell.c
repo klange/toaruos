@@ -108,9 +108,9 @@ static hashmap_t * shell_commands_map = NULL;
 static int shell_create_userspace_shell(fs_node_t * tty, int argc, char * argv[]) {
 	int pid = create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", NULL);
 	fprintf(tty, "Shell started with pid = %d\n", pid);
-	process_t * child_task = process_from_pid(pid);
-	sleep_on(child_task->wait_queue);
-	return child_task->status;
+	int status;
+	waitpid(pid,&status,0);
+	return status;
 }
 
 static int shell_echo(fs_node_t * tty, int argc, char * argv[]) {

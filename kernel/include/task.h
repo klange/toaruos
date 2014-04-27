@@ -25,5 +25,4 @@ typedef struct page_directory {
 	int32_t ref_count;
 } page_directory_t;
 
-
 #endif

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 int main(int argc, char ** argv) {
 	int quiet = 0;
@@ -28,7 +29,7 @@ int main(int argc, char ** argv) {
 		} else {
 			if (!quiet)
 				printf("Waiting on %d\n", k);
-			syscall_wait(k);
+			waitpid(k, NULL, 0);
 		}
 	}
 	return 0;

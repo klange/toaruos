@@ -152,6 +152,20 @@ void tree_remove(tree_t * tree, tree_node_t * node) {
 	free(node);
 }
 
+void tree_remove_reparent_root(tree_t * tree, tree_node_t * node) {
+	/* Remove this node and move its children into the root children */
+	tree_node_t * parent = node->parent;
+	if (!parent) return;
+	tree->nodes--;
+	list_delete(parent->children, list_find(parent->children, node));
+	foreach(child, node->children) {
+		/* Reassign the parents */
+		((tree_node_t *)child->value)->parent = tree->root;
+	}
+	list_merge(tree->root->children, node->children);
+	free(node);
+}
+
 void tree_break_off(tree_t * tree, tree_node_t * node) {
 	tree_node_t * parent = node->parent;
 	if (!parent) return;

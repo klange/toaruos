@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/wait.h>
 #include "lib/pthread.h"
 
 #define NUM_THREADS 5
@@ -69,7 +70,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	for (int i = 0; i < NUM_THREADS; ++i) {
-		syscall_wait(thread[i].id);
+		waitpid(thread[i].id, NULL, 0);
 	}
 
 	printf("Done. Result of %scomputation was %d %s!!\n",
