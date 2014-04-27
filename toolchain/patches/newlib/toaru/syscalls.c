@@ -616,12 +616,24 @@ int setpgid(pid_t pid, pid_t pgid) {
 
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)  {
 
-	sighandler_t old = signal(signum, act->sa_handler);
+	sighandler_t old;
+
+	if (act) {
+		old = signal(signum, act->sa_handler);
+	} else {
+		/* We don't have a way to query, so we need to set to something, then
+		 * set back to whatever it was... XXX */
+		old = signal(signum, NULL);
+		signal(signum, old);
+	}
+
 	if (oldact) {
 		oldact->sa_handler = old;
 	}
 
-	DEBUG_STUB("sigaction(%d,...,0x%x);\n", signum, act->sa_flags);
+	if (act) {
+		DEBUG_STUB("sigaction(%d,...,0x%x);\n", signum, act->sa_flags);
+	}
 
 	return 0;
 }
