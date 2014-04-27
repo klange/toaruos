@@ -31,6 +31,15 @@ static sprite_t * toast_bg;
 #define TOAST_WIDTH  310
 #define TOAST_HEIGHT 110
 #define TOAST_PAD      8
+#define TOAST_TEXT_X  10
+#define TOAST_HEAD_Y  22
+#define TOAST_BODY_Y  40
+#define TOAST_LINE_HT 14
+#define TOAST_HEAD_S  14
+#define TOAST_BODY_S  12
+
+#define TOAST_OFFSET_X 20
+#define TOAST_OFFSET_Y 30
 
 typedef struct {
 	int    ttl;
@@ -68,19 +77,20 @@ static void add_toast(notification_t * incoming) {
 
 	toast->stack = i;
 
-	yutani_window_move(yctx, toast->window, yctx->display_width - TOAST_WIDTH - 20, 30 + (TOAST_HEIGHT + TOAST_PAD) * i);
+	yutani_window_move(yctx, toast->window, yctx->display_width - TOAST_WIDTH - TOAST_OFFSET_X, TOAST_OFFSET_Y + (TOAST_HEIGHT + TOAST_PAD) * i);
 
 	gfx_context_t * ctx = init_graphics_yutani(toast->window);
 	draw_sprite(ctx, toast_bg, 0, 0);
 
 	set_font_face(FONT_SANS_SERIF_BOLD);
-	set_font_size(14);
-	draw_string(ctx, 20, 22, rgb(255,255,255), toast->title);
+	set_font_size(TOAST_HEAD_S);
+	draw_string(ctx, TOAST_TEXT_X, TOAST_HEAD_Y, rgb(255,255,255), toast->title);
 
 	char * str = toast->content;
 	char * end = toast->content + strlen(toast->content);
 	unsigned int line = 0;
 	while (str) {
+		if (line == 5) break;
 
 		char * next = strstr(str, "\n");
 		if (next) {
@@ -89,8 +99,8 @@ static void add_toast(notification_t * incoming) {
 		}
 
 		set_font_face(FONT_SANS_SERIF);
-		set_font_size(12);
-		draw_string(ctx, 20, 40 + line * 14, rgb(255,255,255), str);
+		set_font_size(TOAST_BODY_S);
+		draw_string(ctx, TOAST_TEXT_X, TOAST_BODY_Y + line * TOAST_LINE_HT, rgb(255,255,255), str);
 
 		str = next;
 		line++;
