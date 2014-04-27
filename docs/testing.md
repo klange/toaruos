@@ -4,7 +4,7 @@ Before trying とあるOS, keep in mind that it is a *hobby project*, not a prof
 
 ## Requirements ##
 
-That said, there are a few things you will need before build とあるOS:
+That said, there are a few things you will need before building とあるOS:
 
 * **A capable build environment**: I develop under an Ubuntu derivative. I suggest the most recent *LTS* release of something like Xubuntu. The most recent version of Ubuntu ships with an a version of `automake` that removes a necessary legacy feature, but this can be corrected with a script provided in `toolchain/legacy-automake.sh`. If you are not using Ubuntu and you experience issues with missing packages, I can attempt to help, but provide no warranty of support.
 * **An understanding of Unix build tools**: The build system for とあるOS is a disparate combination of shell scripts, Makefiles, and a bit of Python magic. If you are not already familiar with normal build tools on Unix-like systems, no amount of automation will help you resolve issues.
