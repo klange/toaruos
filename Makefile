@@ -89,6 +89,7 @@ WITH_LOGS = logtoserial=1
 .PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless
 .PHONY: kvm vga-kvm term-kvm headless-kvm
+.PHONY: debug debug-kvm debug-term debug-term-kvm
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY: 
@@ -109,6 +110,10 @@ run: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
 kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(DISK_ROOT)"
+debug: system
+	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
+debug-kvm: system
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
 vga: system
 	${EMU} ${EMUARGS} -append "$(START_VGA) $(DISK_ROOT)"
 vga-kvm: system
@@ -117,6 +122,10 @@ term: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 term-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
+debug-term: system
+	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
+debug-term-kvm: system
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
 headless: system
 	${EMU} ${EMUARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
 headless-kvm: system
