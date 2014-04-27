@@ -46,14 +46,6 @@ DEFINE_SHELL_FUNCTION(beep, "Beep.") {
 	note(20, 12445);
 	note(20, 10465);
 	note(20, 10465);
-#if 0
-		note(10, 1000);
-		note(10, 800);
-		note(10, 600);
-		note(10, 400);
-		note(10, 200);
-	}
-#endif
 
 	return 0;
 }
@@ -67,5 +59,5 @@ static int fini(void) {
 	return 0;
 }
 
-MODULE_DEF(crash, init, fini);
+MODULE_DEF(pcspkr, init, fini);
 MODULE_DEPENDS(debugshell);

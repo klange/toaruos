@@ -72,7 +72,7 @@ EMU = qemu-system-i386
 EMUARGS  = -sdl -kernel toaruos-kernel -m 1024
 EMUARGS += -serial stdio -vga std
 EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
-EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user
+EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user -soundhw pcspk
 EMUARGS += $(BOOT_MODULES_X)
 EMUKVM   = -enable-kvm
 
