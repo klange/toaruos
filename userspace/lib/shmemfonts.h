@@ -21,7 +21,8 @@ char * shmem_font_name(int i);
 #define FONT_MONOSPACE_ITALIC       6
 #define FONT_MONOSPACE_BOLD_ITALIC  7
 #define FONT_JAPANESE               8
+#define FONT_SYMBOLA                9
 
-#define FONTS_TOTAL 9
+#define FONTS_TOTAL 10
 
 #endif

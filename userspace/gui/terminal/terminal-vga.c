@@ -130,7 +130,7 @@ term_write_char(
 	placech(val, x, y, (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4));
 }
 
-static void cell_set(uint16_t x, uint16_t y, uint16_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
+static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	cell->c     = c;
@@ -219,15 +219,15 @@ void term_scroll(int how_much) {
 	}
 }
 
-uint32_t codepoint;
-uint32_t unicode_state = 0;
-
 int is_wide(uint32_t codepoint) {
 	if (codepoint < 256) return 0;
 	return wcwidth(codepoint) == 2;
 }
 
 void term_write(char c) {
+	static uint32_t codepoint = 0;
+	static uint32_t unicode_state = 0;
+
 	cell_redraw(csr_x, csr_y);
 	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
 		if (codepoint > 0xFFFF) {
@@ -344,7 +344,7 @@ void flip_cursor() {
 }
 
 void
-term_set_cell(int x, int y, uint16_t c) {
+term_set_cell(int x, int y, uint32_t c) {
 	cell_set(x, y, c, current_fg, current_bg, ansi_state->flags);
 	cell_redraw(x, y);
 }

@@ -190,8 +190,9 @@ FT_Face      face_bold;
 FT_Face      face_italic;
 FT_Face      face_bold_italic;
 FT_Face      face_extra;
-FT_GlyphSlot slot;
-FT_UInt      glyph_index;
+FT_Face      face_symbol;
+
+FT_Face * fallbacks[] = {&face_symbol, &face_extra, &face_symbol, NULL};
 
 
 void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
@@ -286,11 +287,15 @@ term_write_char(
 			draw_semi_block(val, x, y, _fg, _bg);
 			goto _extra_stuff;
 		}
+
 		int pen_x = x;
 		int pen_y = y + char_offset;
 		int error;
+
 		FT_Face * _font = NULL;
-		
+		FT_GlyphSlot slot;
+		FT_UInt      glyph_index;
+
 		if (flags & ANSI_ALTFONT) {
 			_font = &face_extra;
 		} else if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
@@ -303,18 +308,24 @@ term_write_char(
 			_font = &face;
 		}
 		glyph_index = FT_Get_Char_Index(*_font, val);
-		if (glyph_index == 0) {
-			glyph_index = FT_Get_Char_Index(face_extra, val);
-			_font = &face_extra;
+		if (!glyph_index) {
+			int i = 0;
+			while (!glyph_index && fallbacks[i]) {
+				_font = fallbacks[i];
+				glyph_index = FT_Get_Char_Index(*_font, val);
+				i++;
+			}
 		}
 		error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
 		if (error) {
 			fprintf(terminal, "Error loading glyph: %d\n", val);
+			fprintf(stderr, "Error loading glyph: %d\n", val);
 		};
 		slot = (*_font)->glyph;
 		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
 			error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
 			if (error) {
+				fprintf(stderr, "Error rendering glyph: %d\n", val);
 				goto _extra_stuff;
 			}
 		}
@@ -370,7 +381,7 @@ _extra_stuff:
 
 }
 
-static void cell_set(uint16_t x, uint16_t y, uint16_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
+static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	cell->c     = c;
@@ -492,9 +503,6 @@ void term_scroll(int how_much) {
 	yutani_flip(yctx, window);
 }
 
-uint32_t codepoint;
-uint32_t unicode_state = 0;
-
 int is_wide(uint32_t codepoint) {
 	if (codepoint < 256) return 0;
 	return wcwidth(codepoint) == 2;
@@ -605,12 +613,14 @@ void redraw_scrollback() {
 }
 
 void term_write(char c) {
+	static uint32_t unicode_state = 0;
+	static uint32_t codepoint = 0;
+
 	cell_redraw(csr_x, csr_y);
+
 	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
-		if (codepoint > 0xFFFF) {
-			codepoint = '?';
-			c = '?';
-		}
+		uint32_t o = codepoint;
+		codepoint = 0;
 		if (c == '\r') {
 			csr_x = 0;
 			return;
@@ -630,6 +640,11 @@ void term_write(char c) {
 				return;
 			}
 			++csr_y;
+			if (csr_y == term_height) {
+				save_scrollback();
+				term_scroll(1);
+				csr_y = term_height - 1;
+			}
 			draw_cursor();
 		} else if (c == '\007') {
 			/* bell */
@@ -652,7 +667,7 @@ void term_write(char c) {
 			csr_x += (8 - csr_x % 8);
 			draw_cursor();
 		} else {
-			int wide = is_wide(codepoint);
+			int wide = is_wide(o);
 			uint8_t flags = ansi_state->flags;
 			if (wide && csr_x == term_width - 1) {
 				csr_x = 0;
@@ -661,7 +676,7 @@ void term_write(char c) {
 			if (wide) {
 				flags = flags | ANSI_WIDE;
 			}
-			cell_set(csr_x,csr_y, codepoint, current_fg, current_bg, flags);
+			cell_set(csr_x,csr_y, o, current_fg, current_bg, flags);
 			cell_redraw(csr_x,csr_y);
 			csr_x++;
 			if (wide && csr_x != term_width) {
@@ -673,6 +688,7 @@ void term_write(char c) {
 		}
 	} else if (unicode_state == UTF8_REJECT) {
 		unicode_state = 0;
+		codepoint = 0;
 	}
 	draw_cursor();
 }
@@ -725,8 +741,7 @@ void flip_cursor() {
 	cursor_flipped = 1 - cursor_flipped;
 }
 
-void
-term_set_cell(int x, int y, uint16_t c) {
+void term_set_cell(int x, int y, uint32_t c) {
 	cell_set(x, y, c, current_fg, current_bg, ansi_state->flags);
 	cell_redraw(x, y);
 }
@@ -965,6 +980,7 @@ void reinit(int send_sig) {
 		FT_Set_Pixel_Sizes(face_italic, font_size, font_size);
 		FT_Set_Pixel_Sizes(face_bold_italic, font_size, font_size);
 		FT_Set_Pixel_Sizes(face_extra, font_size, font_size);
+		FT_Set_Pixel_Sizes(face_symbol, font_size, font_size);
 	}
 	int i = 0;
 
@@ -1204,6 +1220,8 @@ int main(int argc, char ** argv) {
 		char * font = NULL;
 		size_t s;
 
+		/* XXX Use shmemfont library */
+
 		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
 
@@ -1217,6 +1235,8 @@ int main(int argc, char ** argv) {
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
 
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
+
+		error = FT_New_Face(library, "/usr/share/fonts/Symbola.ttf", 0, &face_symbol);
 	}
 
 	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);

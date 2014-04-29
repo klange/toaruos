@@ -48,22 +48,41 @@ static void ansi_buf_add(term_state_t * s, char c) {
 	s->buffer[s->buflen] = '\0';
 }
 
-static int to_eight(uint16_t codepoint, uint8_t * out) {
-	memset(out, 0x00, 4);
+static int to_eight(uint32_t codepoint, uint8_t * out) {
+	memset(out, 0x00, 7);
 
 	if (codepoint < 0x0080) {
 		out[0] = (uint8_t)codepoint;
 	} else if (codepoint < 0x0800) {
 		out[0] = 0xC0 | (codepoint >> 6);
 		out[1] = 0x80 | (codepoint & 0x3F);
-	} else {
+	} else if (codepoint < 0x10000) {
 		out[0] = 0xE0 | (codepoint >> 12);
 		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
 		out[2] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x200000) {
+		out[0] = 0xF0 | (codepoint >> 18);
+		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[3] = 0x80 | ((codepoint) & 0x3F);
+	} else if (codepoint < 0x4000000) {
+		out[0] = 0xF8 | (codepoint >> 24);
+		out[1] = 0x80 | (codepoint >> 18);
+		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[4] = 0x80 | ((codepoint) & 0x3F);
+	} else {
+		out[0] = 0xF8 | (codepoint >> 30);
+		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[5] = 0x80 | ((codepoint) & 0x3F);
 	}
 
 	return strlen(out);
 }
+
 
 static void _ansi_put(term_state_t * s, char c) {
 	term_callbacks_t * callbacks = s->callbacks;
@@ -83,7 +102,7 @@ static void _ansi_put(term_state_t * s, char c) {
 				return;
 			} else {
 				if (s->box && c >= 'a' && c <= 'z') {
-					char buf[4];
+					char buf[7];
 					char *w = (char *)&buf;
 					to_eight(box_chars[c-'a'], w);
 					while (*w) {

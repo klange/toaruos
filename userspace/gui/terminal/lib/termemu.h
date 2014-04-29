@@ -7,10 +7,10 @@
 
 /* A terminal cell represents a single character on screen */
 typedef struct {
-	uint16_t c;     /* codepoint */
-	uint16_t flags; /* other flags */
+	uint32_t c;     /* codepoint */
 	uint32_t fg;    /* background indexed color */
 	uint32_t bg;    /* foreground indexed color */
+	uint32_t flags; /* other flags */
 } term_cell_t;
 
 typedef struct {
@@ -19,7 +19,7 @@ typedef struct {
 	void (*set_csr)(int,int);
 	int  (*get_csr_x)(void);
 	int  (*get_csr_y)(void);
-	void (*set_cell)(int,int,uint16_t);
+	void (*set_cell)(int,int,uint32_t);
 	void (*cls)(int);
 	void (*scroll)(int);
 	void (*redraw_cursor)(void);

@@ -223,18 +223,36 @@ void set_buffered() {
 	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 }
 
-int to_eight(uint16_t codepoint, uint8_t * out) {
-	memset(out, 0x00, 4);
+int to_eight(uint32_t codepoint, uint8_t * out) {
+	memset(out, 0x00, 7);
 
 	if (codepoint < 0x0080) {
 		out[0] = (uint8_t)codepoint;
 	} else if (codepoint < 0x0800) {
 		out[0] = 0xC0 | (codepoint >> 6);
 		out[1] = 0x80 | (codepoint & 0x3F);
-	} else {
+	} else if (codepoint < 0x10000) {
 		out[0] = 0xE0 | (codepoint >> 12);
 		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
 		out[2] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x200000) {
+		out[0] = 0xF0 | (codepoint >> 18);
+		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[3] = 0x80 | ((codepoint) & 0x3F);
+	} else if (codepoint < 0x4000000) {
+		out[0] = 0xF8 | (codepoint >> 24);
+		out[1] = 0x80 | (codepoint >> 18);
+		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[4] = 0x80 | ((codepoint) & 0x3F);
+	} else {
+		out[0] = 0xF8 | (codepoint >> 30);
+		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[5] = 0x80 | ((codepoint) & 0x3F);
 	}
 
 	return strlen(out);
@@ -351,7 +369,7 @@ void render_line(line_t * line, int width, int offset) {
 				printf("<%02x>", c.codepoint);
 				set_colors(COLOR_FG, COLOR_BG);
 			} else {
-				char tmp[4];
+				char tmp[8];
 				to_eight(c.codepoint, tmp);
 				printf("%s", tmp);
 			}

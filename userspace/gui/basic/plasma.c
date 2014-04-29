@@ -28,8 +28,7 @@ uint16_t off_y;
 gfx_context_t * ctx;
 
 void redraw_borders() {
-	render_decorations(wina, ctx, "Graphics Test");
-	yutani_window_advertise(yctx, wina, "Graphics Test");
+	render_decorations(wina, ctx, "🔥 Plasma 🔥");
 }
 
 uint32_t hsv_to_rgb(int h, float s, float v) {
@@ -103,6 +102,8 @@ int main (int argc, char ** argv) {
 	redraw_borders();
 	flip(ctx);
 	yutani_flip(yctx, wina);
+
+	yutani_window_advertise(yctx, wina, "Graphics Test");
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, draw_thread, NULL);
