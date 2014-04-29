@@ -174,3 +174,47 @@ void fix_signal_stacks(void) {
 		switch_next();
 	}
 }
+
+int send_signal(pid_t process, uint32_t signal) {
+	process_t * receiver = process_from_pid(process);
+
+	if (!receiver) {
+		/* Invalid pid */
+		return 1;
+	}
+
+	if (receiver->user != current_process->user && current_process->user != USER_ROOT_UID) {
+		/* No way in hell. */
+		return 1;
+	}
+
+	if (signal > NUMSIGNALS) {
+		/* Invalid signal */
+		return 1;
+	}
+
+	if (receiver->finished) {
+		/* Can't send signals to finished processes */
+		return 1;
+	}
+
+	if (!receiver->signals.functions[signal] && !isdeadly[signal]) {
+		/* If we're blocking a signal and it's not going to kill us, don't deliver it */
+		return 1;
+	}
+
+	/* Append signal to list */
+	signal_t * sig = malloc(sizeof(signal_t));
+	sig->handler = (uintptr_t)receiver->signals.functions[signal];
+	sig->signum  = signal;
+	memset(&sig->registers_before, 0x00, sizeof(regs_t));
+
+	if (!process_is_ready(receiver)) {
+		make_process_ready(receiver);
+	}
+
+	list_insert(receiver->signal_queue, sig);
+
+	return 0;
+}
+
