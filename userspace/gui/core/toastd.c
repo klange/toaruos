@@ -132,7 +132,13 @@ static void * toastd_handler(void * garbage) {
 	}
 }
 
+void sig_pass(int sig) {
+	(void)sig;
+}
+
 static void * closer_handler(void * garbage) {
+	signal(SIGWINCH, sig_pass);
+
 	while (!exit_app) {
 		time_t now = time(NULL);
 
