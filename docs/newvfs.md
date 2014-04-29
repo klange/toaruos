@@ -20,15 +20,30 @@ typedef int (*chmod_type_t) (struct fs_node *, int mode);
 ## Design Goals of the New VFS
 
 1. Large file support from the beginning
-   All 64-bit offsets and sizes.
+
+    All 64-bit offsets and sizes.
+
 2. Cached virtual file objects
-   We currently have "objects that happen to exist from a malloc" and "objects we created from an open() call"...
+
+    We currently have "objects that happen to exist from a malloc" and "objects we created from an open() call"...
+
 3. Reference counting so we can actually close files
-   Specifically, so we can close everything on exit.
+
+    Specifically, so we can close everything on exit.
+
 4. Unix pipes
-   The focus of this rewrite is supporting closing of pipes...
+
+    The focus of this rewrite is supporting closing of pipes...
+
 5. Permissions
-   The current VFS can... uh... store them, but doesn't actually respect them.
+
+    The current VFS can... uh... store them, but doesn't actually respect them.
+
 6. Support for symbolic links
-   Yeah.
+
+    Yeah.
+
+7. Ground-up support for polling / file events.
+
+    Sleep on multiple, etc.
 
