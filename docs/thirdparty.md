@@ -88,6 +88,13 @@ ToAruOS contains a number of third-party packages under various licenses. Those 
         or Bitstream Inc., respectively. For further information, contact:
         fonts at gnome dot org.
 
+* As of April 29, 2014, the Symbola font is provided. There is no license associated with the Symbola font, though the following conditions apply:
+
+        In lieu of a license
+        Fonts in this site are offered free for any use; they may be installed,
+        embedded, opened, edited, modified, regenerated, posted,
+        packaged and redistributed. - George Douros
+
 * The included SHA512 support library (userspace/lib/sha2.{c,h}) is provided under the BSD license as follows:
 
         Copyright (c) 2000-2001, Aaron D. Gifford
