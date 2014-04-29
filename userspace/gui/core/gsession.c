@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <syscall.h>
 #include <signal.h>
+#include <errno.h>
 #include <sys/wait.h>
 
 #define LINE_LEN 1024
@@ -73,10 +74,10 @@ int main(int argc, char * argv[]) {
 
 	wait(NULL);
 
-	while (1) {
-		int pid = waitpid(-1, NULL, 0);
-		if (pid == -1) break;
-	}
+	int pid;
+	do {
+		pid = waitpid(-1, NULL, 0);
+	} while ((pid > 0) || (pid == -1 && errno == EINTR));
 
 	return 0;
 }

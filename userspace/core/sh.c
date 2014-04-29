@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <termios.h>
+#include <errno.h>
 
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -921,7 +922,10 @@ _done:
 			int ret_code = 0;
 			if (!nowait) {
 				child = f;
-				waitpid(f, &ret_code, 0);
+				int pid;
+				do {
+					pid = waitpid(f, &ret_code, 0);
+				} while (pid == -1 && errno == EINTR);
 				child = 0;
 			}
 			tcsetpgrp(0, getpid());

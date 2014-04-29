@@ -15,6 +15,7 @@
 #include <time.h>
 #include <signal.h>
 #include <termios.h>
+#include <errno.h>
 #include <sys/wait.h>
 
 #include <sys/utsname.h>
@@ -179,7 +180,10 @@ int main(int argc, char ** argv) {
 			int i = execvp(args[0], args);
 		} else {
 			child = f;
-			waitpid(f, NULL, 0);
+			int result;
+			do {
+				result = waitpid(f, NULL, 0);
+			} while (result < 0);
 		}
 		child = 0;
 		free(username);

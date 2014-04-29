@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <syscall.h>
 #include <sys/wait.h>
 
@@ -51,10 +52,10 @@ int start_options(char * args[]) {
 		int i = execvp(args[0], args);
 		exit(0);
 	} else {
-		while (1) {
-			int i = wait(NULL);
-			if (i == -1) return 0;
-		}
+		int pid = 0;
+		do {
+			pid = wait(NULL);
+		} while ((pid > 0) || (pid == -1 && errno == EINTR));
 	}
 }
 

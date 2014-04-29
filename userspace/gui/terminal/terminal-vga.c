@@ -16,6 +16,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <getopt.h>
+#include <errno.h>
 
 #include <wchar.h>
 
@@ -478,7 +479,10 @@ void key_event(int ret, key_event_t * event) {
 }
 
 void * wait_for_exit(void * garbage) {
-	waitpid(child_pid, NULL, 0);
+	int pid;
+	do {
+		pid = waitpid(-1, NULL, 0);
+	} while (pid == -1 && errno == EINTR);
 	/* Clean up */
 	exit_application = 1;
 	/* Exit */
