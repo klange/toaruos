@@ -338,23 +338,7 @@ static int setuid(user_t new_uid) {
 	return -1;
 }
 
-static int kernel_name_XXX(char * buffer) {
-	char version_number[1024];
-	sprintf(version_number, __kernel_version_format,
-			__kernel_version_major,
-			__kernel_version_minor,
-			__kernel_version_lower,
-			__kernel_version_suffix);
-	return sprintf(buffer, "%s %s %s %s %s %s",
-			__kernel_name,
-			version_number,
-			__kernel_version_codename,
-			__kernel_build_date,
-			__kernel_build_time,
-			__kernel_arch);
-}
-
-static int uname(struct utsname * name) {
+static int sys_uname(struct utsname * name) {
 	validate((void *)name);
 	char version_number[256];
 	sprintf(version_number, __kernel_version_format,
@@ -459,31 +443,6 @@ extern int mkdir_fs(char *name, uint16_t permission);
 
 static int sys_mkdir(char * path, uint32_t mode) {
 	return mkdir_fs(path, 0777);
-}
-
-/**
- * share_fd: Make a file descriptor available to another process.
- */
-static uintptr_t share_fd(int fd, int pid) {
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return 0;
-	}
-	fs_node_t * fn = current_process->fds->entries[fd];
-	fn->shared_with = pid;
-	return (uintptr_t)fn;
-}
-
-/**
- * get_fd: Retreive a file descriptor (by key == pointer to fs_node_t) from
- *         another proces.
- */
-static int get_fd(uintptr_t fn) {
-	fs_node_t * node = (fs_node_t *)fn;
-	if (node->shared_with == current_process->id || node->shared_with == current_process->group) {
-		return process_append_fd((process_t *)current_process, node);
-	} else {
-		return -1;
-	}
 }
 
 /*
@@ -608,7 +567,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&sys_getpid,
 	(uintptr_t)&sys_sbrk,
 	(uintptr_t)&RESERVED,
-	(uintptr_t)&uname,              /* 12 */
+	(uintptr_t)&sys_uname,          /* 12 */
 	(uintptr_t)&openpty,
 	(uintptr_t)&seek,
 	(uintptr_t)&stat,
@@ -621,7 +580,7 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&dup2,
 	(uintptr_t)&getuid,
 	(uintptr_t)&setuid,             /* 24 */
-	(uintptr_t)&kernel_name_XXX,
+	(uintptr_t)&RESERVED,
 	(uintptr_t)&reboot,
 	(uintptr_t)&readdir,
 	(uintptr_t)&chdir,              /* 28 */
@@ -635,8 +594,8 @@ static uintptr_t syscalls[] = {
 	(uintptr_t)&shm_release,        /* 36 */
 	(uintptr_t)&send_signal,
 	(uintptr_t)&sys_signal,
-	(uintptr_t)&share_fd,
-	(uintptr_t)&get_fd,             /* 40 */
+	(uintptr_t)&RESERVED,
+	(uintptr_t)&RESERVED,           /* 40 */
 	(uintptr_t)&gettid,
 	(uintptr_t)&yield,
 	(uintptr_t)&system_function,
