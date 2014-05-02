@@ -15,7 +15,7 @@ while test $# -gt 0; do
     esac
 done
 
-if [[ "$INSTALL_PACKAGES" == "false" ]] ; then
+if [[ "$INSTALL_PACKAGES" == "true" ]] ; then
 
     echo "I am going to install some system packages. I will probably need you to provide a password."
     echo "If you don't want to do this and you're sure you have all of the required system packages, then interrupt the password prompt and run this script again with -q."
