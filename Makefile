@@ -36,12 +36,12 @@ USER_BINFLAGS =
 
 # Userspace binaries and libraries
 USER_CFILES   = $(shell find userspace -not -wholename '*/lib/*' -name '*.c')
-USER_CXXFILES = $(shell find userspace -not -wholename '*/lib/*' -name '*.cpp')
+USER_CXXFILES = $(shell find userspace -not -wholename '*/lib/*' -name '*.c++')
 USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
 
 # Userspace output files (so we can define metatargets)
 USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.cpp,hdd/bin/%,$(notdir ${file})))
+USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,%.o,${file}))
 
 # Pretty output utilities.
@@ -206,11 +206,11 @@ $(foreach file,$(USER_CFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/bin/%
 # Binaries from C++ sources
 define user-cxx-rule
 $1: $2 $(shell util/auto-dep.py --deps $2)
-	@${BEG} "CXX" "$$<"
+	@${BEG} "C++" "$$<"
 	@${CXX} -o $$@ $(USER_CXXFLAGS) $(USER_BINFLAGS) $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) ${ERRORS}
-	@${END} "CXX" "$$<"
+	@${END} "C++" "$$<"
 endef
-$(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.cpp,hdd/bin/%,$(notdir ${file})),${file})))
+$(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.c++,hdd/bin/%,$(notdir ${file})),${file})))
 
 ####################
 # Hard Disk Images #
