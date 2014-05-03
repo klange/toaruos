@@ -659,7 +659,8 @@ static int (*syscalls[])() = {
 	[SYS_UNLINK]       = sys_unlink,
 	[SYS_WAITPID]      = sys_waitpid,
 };
-uint32_t num_syscalls;
+
+uint32_t num_syscalls = sizeof(syscalls) / sizeof(int (*)());
 
 typedef uint32_t (*scall_func)(unsigned int, ...);
 
@@ -687,7 +688,6 @@ void syscall_handler(struct regs * r) {
 }
 
 void syscalls_install(void) {
-	num_syscalls = sizeof(syscalls) / sizeof(uintptr_t);
 	debug_print(NOTICE, "Initializing syscall table with %d functions", num_syscalls);
 	isrs_install_handler(0x7F, &syscall_handler);
 }
