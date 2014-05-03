@@ -457,6 +457,8 @@ page_fault(
 				}
 			}
 			free(hash_keys);
+
+			debug_print(ERROR, "User EIP: 0x%x", current_process->syscall_registers->eip);
 		}
 
 	} else {
