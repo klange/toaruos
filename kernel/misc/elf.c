@@ -139,21 +139,27 @@ exec(
 	heap += sizeof(Elf32_auxv) * (auxvc);
 
 	for (int i = 0; i < argc; ++i) {
-		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+		size_t size = strlen(argv[i]) * sizeof(char) + 1;
+		for (uintptr_t x = heap; x < heap + size + 0x1000; x += 0x1000) {
+			alloc_frame(get_page(x, 1, current_directory), 0, 1);
+		}
 		invalidate_tables_at(heap);
 		argv_[i] = (char *)heap;
-		memcpy((void *)heap, argv[i], strlen(argv[i]) * sizeof(char) + 1);
-		heap += strlen(argv[i]) + 1;
+		memcpy((void *)heap, argv[i], size);
+		heap += size;
 	}
 	/* Don't forget the NULL at the end of that... */
 	argv_[argc] = 0;
 
 	for (int i = 0; i < envc; ++i) {
-		alloc_frame(get_page(heap, 1, current_directory), 0, 1);
+		size_t size = strlen(env[i]) * sizeof(char) + 1;
+		for (uintptr_t x = heap; x < heap + size + 0x1000; x += 0x1000) {
+			alloc_frame(get_page(x, 1, current_directory), 0, 1);
+		}
 		invalidate_tables_at(heap);
 		env_[i] = (char *)heap;
-		memcpy((void *)heap, env[i], strlen(env[i]) * sizeof(char) + 1);
-		heap += strlen(env[i]) + 1;
+		memcpy((void *)heap, env[i], size);
+		heap += size;
 	}
 	env_[envc] = 0;
 
