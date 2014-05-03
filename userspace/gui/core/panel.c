@@ -19,6 +19,7 @@
 #include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
+#include "lib/hashmap.h"
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
@@ -29,6 +30,8 @@ yutani_window_t * panel;
 list_t * window_list;
 volatile int lock = 0;
 volatile int drawlock = 0;
+
+hashmap_t * icon_cache;
 
 size_t bg_size;
 char * bg_blob;
@@ -187,21 +190,41 @@ void redraw(void) {
 			char * s = ad->name;
 
 			set_font_face(FONT_SANS_SERIF);
-			set_font_size(14);
+			set_font_size(13);
+
+			int w = 26 + draw_string_width(s) + 20;
+
+			if (ad->flags & 1) {
+				/* This is the focused window */
+				for (int y = 0; y < 24; ++y) {
+					for (int x = 135 + i; x < 135 + i + w - 10; ++x) {
+						GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), premultiply(rgba(72, 167, 255, ((24-y)*160)/24)));
+					}
+				}
+			}
+
+			sprite_t * icon = hashmap_get(icon_cache, ad->icon);
+			if (!icon) {
+				/* XXX try to find it */
+				icon = hashmap_get(icon_cache, "generic");
+			}
+
+			draw_sprite_scaled(ctx, icon, 140 + i, 0, 24, 24);
+
 			if (j == focused_app) {
-				draw_string(ctx, 140 + i, 18, rgb(142,216,255), s);
+				draw_string(ctx, 140 + i + 26, 18, rgb(142,216,255), s);
 			} else {
 				if (ad->flags & 1) {
-					draw_string(ctx, 140 + i, 18, rgb(255,0,0), s);
+					draw_string(ctx, 140 + i + 26, 18, rgb(255,255,255), s);
 				} else {
-					draw_string(ctx, 140 + i, 18, txt_color, s);
+					draw_string(ctx, 140 + i + 26, 18, txt_color, s);
 				}
 			}
 			if (j < 18) {
 				icon_lefts[j] = 140 + i;
 				j++;
 			}
-			i += draw_string_width(s) + 20;
+			i += w;
 		}
 		if (j < 19) {
 			icon_lefts[j] = 140 + i;
@@ -295,6 +318,25 @@ int main (int argc, char ** argv) {
 	yutani_flip(yctx, panel);
 
 	window_list = NULL;
+	icon_cache = hashmap_create(10);
+
+	{
+		sprite_t * app_icon = malloc(sizeof(sprite_t));
+		load_sprite_png(app_icon, "/usr/share/icons/24/applications-generic.png");
+		hashmap_set(icon_cache, "generic", app_icon);
+	}
+
+	{
+		sprite_t * app_icon = malloc(sizeof(sprite_t));
+		load_sprite_png(app_icon, "/usr/share/icons/24/utilities-terminal.png");
+		hashmap_set(icon_cache, "utilities-terminal", app_icon);
+	}
+
+	{
+		sprite_t * app_icon = malloc(sizeof(sprite_t));
+		load_sprite_png(app_icon, "/usr/share/icons/24/applications-painting.png");
+		hashmap_set(icon_cache, "applications-painting", app_icon);
+	}
 
 	yutani_subscribe_windows(yctx);
 

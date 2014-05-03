@@ -400,7 +400,7 @@ int main (int argc, char ** argv) {
 
 	init_decorations();
 
-	yutani_window_advertise(yctx, wina, "Draw!");
+	yutani_window_advertise_icon(yctx, wina, "Draw!", "applications-painting");
 
 	setup_ttk(wina);
 

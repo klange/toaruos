@@ -162,10 +162,10 @@ static void render_decors() {
 	if (!_fullscreen) {
 		if (terminal_title_length) {
 			render_decorations(window, ctx, terminal_title);
-			yutani_window_advertise(yctx, window, terminal_title);
+			yutani_window_advertise_icon(yctx, window, terminal_title, "utilities-terminal");
 		} else {
 			render_decorations(window, ctx, "Terminal");
-			yutani_window_advertise(yctx, window, "Terminal");
+			yutani_window_advertise_icon(yctx, window, "Terminal", "utilities-terminal");
 		}
 		l_x = 0; l_y = 0;
 		r_x = window->width;

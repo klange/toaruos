@@ -47,10 +47,10 @@ typedef struct {
 } application_t;
 
 application_t applications[] = {
-	{"/usr/share/icons/utilities-terminal.png",      "terminal", "Terminal"},
-	{"/usr/share/icons/applications-painting.png",   "draw",     "Draw!"},
-	{"/usr/share/icons/applications-simulation.png", "game",     "RPG Demo"},
-	{"/usr/share/icons/julia.png",                   "julia",    "Julia Fractals"},
+	{"/usr/share/icons/48/utilities-terminal.png",      "terminal", "Terminal"},
+	{"/usr/share/icons/48/applications-painting.png",   "draw",     "Draw!"},
+	{"/usr/share/icons/48/applications-simulation.png", "game",     "RPG Demo"},
+	{"/usr/share/icons/48/julia.png",                   "julia",    "Julia Fractals"},
 	{NULL, NULL, NULL}
 };
 
