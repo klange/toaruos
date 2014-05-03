@@ -32,6 +32,16 @@ static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8
 static void     open_ata(fs_node_t *node, unsigned int flags);
 static void     close_ata(fs_node_t *node);
 
+static size_t ata_max_offset(struct ata_device * dev) {
+	size_t sectors = dev->identity.sectors_48;
+	if (!sectors) {
+		/* Fall back to sectors_28 */
+		sectors = dev->identity.sectors_28;
+	}
+
+	return sectors * ATA_SECTOR_SIZE;
+}
+
 static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 
 	struct ata_device * dev = (struct ata_device *)node->device;
@@ -41,12 +51,12 @@ static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 
 	unsigned int x_offset = 0;
 
-	if (offset > dev->identity.sectors_48 * ATA_SECTOR_SIZE) {
+	if (offset > ata_max_offset(dev)) {
 		return 0;
 	}
 
-	if (offset + size > dev->identity.sectors_48 * ATA_SECTOR_SIZE) {
-		unsigned int i = dev->identity.sectors_48 * ATA_SECTOR_SIZE - offset;
+	if (offset + size > ata_max_offset(dev)) {
+		unsigned int i = ata_max_offset(dev) - offset;
 		size = i;
 	}
 
@@ -92,12 +102,12 @@ static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8
 
 	unsigned int x_offset = 0;
 
-	if (offset > dev->identity.sectors_48 * ATA_SECTOR_SIZE) {
+	if (offset > ata_max_offset(dev)) {
 		return 0;
 	}
 
-	if (offset + size > dev->identity.sectors_48 * ATA_SECTOR_SIZE) {
-		unsigned int i = dev->identity.sectors_48 * ATA_SECTOR_SIZE - offset;
+	if (offset + size > ata_max_offset(dev)) {
+		unsigned int i = ata_max_offset(dev) - offset;
 		size = i;
 	}
 
@@ -158,7 +168,7 @@ static fs_node_t * ata_device_create(struct ata_device * device) {
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;
-	fnode->length  = device->identity.sectors_48 * ATA_SECTOR_SIZE; /* TODO */
+	fnode->length  = ata_max_offset(device); /* TODO */
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_ata;
 	fnode->write   = write_ata;
