@@ -290,6 +290,8 @@ int main (int argc, char ** argv) {
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgb(0,0,0));
 
+	yutani_window_advertise_icon(yctx, wina, "Mesa Gears", "gears");
+
 	OSMesaContext gl_ctx = OSMesaCreateContext(OSMESA_BGRA, NULL);
 	if (resize(ctx, gl_ctx)) {
 		fprintf(stderr, "%s: Something bad happened.\n", argv[0]);

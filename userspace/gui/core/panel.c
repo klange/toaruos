@@ -143,6 +143,44 @@ void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	}
 }
 
+static char * icon_directories[] = {
+	"/usr/share/icons/24",
+	"/usr/share/icons/48",
+	"/usr/share/icons",
+	NULL
+};
+
+static sprite_t * icon_get(char * name) {
+
+	if (!strcmp(name,"")) {
+		return hashmap_get(icon_cache, "generic");
+	}
+
+	sprite_t * icon = hashmap_get(icon_cache, name);
+
+	if (!icon) {
+		/* See if we can find an icon by that name in any of our known icon directories */
+		int i = 0;
+		char path[100];
+		while (icon_directories[i]) {
+			sprintf(path, "%s/%s.png", icon_directories[i], name);
+			fprintf(stderr, "Checking %s for icon\n", path);
+			if (access(path, R_OK) == 0) {
+				icon = malloc(sizeof(sprite_t));
+				load_sprite_png(icon, path);
+				hashmap_set(icon_cache, name, icon);
+				return icon;
+			}
+			i++;
+		}
+
+		icon = hashmap_get(icon_cache, "generic");
+		hashmap_set(icon_cache, name, icon);
+	}
+
+	return icon;
+}
+
 void redraw(void) {
 	spin_lock(&drawlock);
 
@@ -203,11 +241,7 @@ void redraw(void) {
 				}
 			}
 
-			sprite_t * icon = hashmap_get(icon_cache, ad->icon);
-			if (!icon) {
-				/* XXX try to find it */
-				icon = hashmap_get(icon_cache, "generic");
-			}
+			sprite_t * icon = icon_get(ad->icon);
 
 			if (icon->width == 24) {
 				draw_sprite(ctx, icon, 140 + i, 0);
