@@ -3,6 +3,7 @@
 # We always build with our targetted cross-compiler
 CC = i686-pc-toaru-gcc
 NM = i686-pc-toaru-nm
+CXX= i686-pc-toaru-g++
 
 # Build flags
 CFLAGS  = -O2 -std=c99
@@ -28,11 +29,20 @@ MODULES = $(patsubst modules/%.c,hdd/mod/%.ko,$(wildcard modules/*.c))
 # This is a naive approach, but it works...
 HEADERS     = $(shell find kernel/include/ -type f -name '*.h')
 
-# We'll call out to our userspace build script if we
-# see changes to any of the userspace sources as well.
-USERSPACE  = $(shell find userspace/ -type f -name '*.c')
-USERSPACE += $(shell find userspace/ -type f -name '*.cpp')
-USERSPACE += $(shell find userspace/ -type f -name '*.h')
+# Userspace build flags
+USER_CFLAGS   = -O3 -m32 -Wa,--32 -g -Iuserspace -std=c99 -U__STRICT_ANSI__
+USER_CXXFLAGS = -O3 -m32 -Wa,--32 -g -Iuserspace
+USER_BINFLAGS = 
+
+# Userspace binaries and libraries
+USER_CFILES   = $(shell find userspace -not -wholename '*/lib/*' -name '*.c')
+USER_CXXFILES = $(shell find userspace -not -wholename '*/lib/*' -name '*.cpp')
+USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
+
+# Userspace output files (so we can define metatargets)
+USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
+USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.cpp,hdd/bin/%,$(notdir ${file})))
+USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,%.o,${file}))
 
 # Pretty output utilities.
 BEG = util/mk-beg
@@ -85,8 +95,8 @@ START_VGA = start=--vga
 START_SINGLE = start=--single
 WITH_LOGS = logtoserial=1
 
-.PHONY: all system install test toolchain
-.PHONY: clean clean-soft clean-hard clean-bin clean-mods clean-core clean-disk clean-once
+.PHONY: all system install test toolchain userspace modules
+.PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless
 .PHONY: kvm vga-kvm term-kvm headless-kvm
 .PHONY: debug debug-kvm debug-term debug-term-kvm
@@ -97,8 +107,10 @@ WITH_LOGS = logtoserial=1
 # Disable built-in rules
 .SUFFIXES: 
 
-all: .passed system tags
-system: .passed toaruos-disk.img toaruos-kernel ${MODULES}
+all: .passed system tags userspace
+system: .passed toaruos-disk.img toaruos-kernel modules
+userspace: ${USERSPACE}
+modules: ${MODULES}
 
 install: system
 	@${BEG} "CP" "Installing to /boot..."
@@ -177,15 +189,39 @@ kernel/%.o: kernel/%.c ${HEADERS}
 	@${CC} ${CFLAGS} -g -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
+#############
+# Userspace #
+#############
+
+# Libraries
+userspace/%.o: userspace/%.c
+	@${BEG} "CC" "$<"
+	@${CC} ${USER_CFLAGS} $(shell util/auto-dep.py --cflags $<) -c -o $@ $< ${ERRORS}
+	@${END} "CC" "$<"
+
+# Binaries from C sources
+define user-c-rule
+$1: $2 $(shell util/auto-dep.py --deps $2)
+	@${BEG} "CC" "$$<"
+	@${CC} -o $$@ $(USER_CFLAGS) $(USER_BINFLAGS) $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) ${ERRORS}
+	@${END} "CC" "$$<"
+endef
+$(foreach file,$(USER_CFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/bin/%,$(notdir ${file})),${file})))
+
+# Binaries from C++ sources
+define user-cxx-rule
+$1: $2 $(shell util/auto-dep.py --deps $2)
+	@${BEG} "CXX" "$$<"
+	@${CXX} -o $$@ $(USER_CXXFLAGS) $(USER_BINFLAGS) $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) ${ERRORS}
+	@${END} "CXX" "$$<"
+endef
+$(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.cpp,hdd/bin/%,$(notdir ${file})),${file})))
+
 ####################
 # Hard Disk Images #
 ####################
 
-.userspace-check: ${USERSPACE}
-	@cd userspace && python2 build.py
-	@touch .userspace-check
-
-toaruos-disk.img: .userspace-check ${MODULES}
+toaruos-disk.img: ${USERSPACE} ${MODULES}
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -B 4096 -d hdd -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
@@ -195,7 +231,7 @@ toaruos-disk.img: .userspace-check ${MODULES}
 ##############
 #    ctags   #
 ##############
-tags: kernel/*/*.c kernel/*.c .userspace-check
+tags: kernel/*/*.c kernel/*.c userspace/*.c
 	@${BEG} "ctag" "Generating CTags..."
 	@ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace modules util
 	@${END} "ctag" "Generated CTags."
@@ -209,12 +245,12 @@ clean-soft:
 	@-rm -f kernel/*.o
 	@-rm -f kernel/*/*.o
 	@-rm -f ${KERNEL_OBJS}
-	@${ENDRM} "RM" "Cleaned modules."
+	@${ENDRM} "RM" "Cleaned modules"
 
-clean-bin:
-	@${BEGRM} "RM" "Cleaning native binaries..."
-	@-rm -f hdd/bin/*
-	@${ENDRM} "RM" "Cleaned native binaries"
+clean-user:
+	@${BEGRM} "RM" "Cleaning userspace products..."
+	@-rm -f ${USERSPACE}
+	@${ENDRM} "RM" "Cleaned userspace products"
 
 clean-mods:
 	@${BEGRM} "RM" "Cleaning kernel modules..."
@@ -239,7 +275,7 @@ clean-once:
 clean: clean-soft clean-core
 	@${INFO} "--" "Finished soft cleaning"
 
-clean-hard: clean clean-bin clean-mods
+clean-hard: clean clean-user clean-mods
 	@${INFO} "--" "Finished hard cleaning"
 
 
