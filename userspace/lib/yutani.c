@@ -540,7 +540,7 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 
 void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name) {
 
-	uint32_t flags = window->focused; /* And possibly other things later */
+	uint32_t flags = 0; /* currently, no client flags */
 	uint16_t offsets[5] = {0,0,0,0,0};
 	uint32_t length = 0;
 	char * strings;
@@ -565,7 +565,7 @@ void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * n
 
 void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, char * name, char * icon) {
 
-	uint32_t flags = window->focused; /* And possibly other things later */
+	uint32_t flags = window->focused; /* currently no client flags */
 	uint16_t offsets[5] = {0,0,0,0,0};
 	uint32_t length = strlen(name) + strlen(icon) + 2;
 	char * strings = malloc(length);

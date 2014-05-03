@@ -266,6 +266,8 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 		/* XXX */
 		yg->focused_window = yg->zlist[0];
 	}
+
+	notify_subscribers(yg);
 }
 
 static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
@@ -911,6 +913,19 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 		yg->focused_window = NULL;
 	}
 	yutani_msg_t * response = yutani_msg_build_notify();
+	notify_subscribers(yg);
+}
+
+static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
+	uint32_t flags = win->client_flags;
+	if (win == yg->focused_window) {
+		flags |= 1;
+	}
+	return flags;
+}
+
+static void notify_subscribers(yutani_globals_t * yg) {
+	yutani_msg_t * response = yutani_msg_build_notify();
 	foreach(node, yg->window_subscribers) {
 		uint32_t subscriber = (uint32_t)node->value;
 		pex_send(yg->server, subscriber, response->size, (char *)response);
@@ -1225,12 +1240,7 @@ int main(int argc, char * argv[]) {
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
 
-					response = yutani_msg_build_notify();
-					foreach(node, yg->window_subscribers) {
-						uint32_t subscriber = (uint32_t)node->value;
-						pex_send(server, subscriber, response->size, (char *)response);
-					}
-					free(response);
+					notify_subscribers(yg);
 				}
 				break;
 			case YUTANI_MSG_FLIP:
@@ -1346,7 +1356,7 @@ int main(int argc, char * argv[]) {
 					for (unsigned int i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
 						if (yg->zlist[i] && yg->zlist[i]->client_length) {
 							yutani_server_window_t * win = yg->zlist[i];
-							yutani_msg_t * response = yutani_msg_build_window_advertise(win->wid, win->client_flags, win->client_offsets, win->client_length, win->client_strings);
+							yutani_msg_t * response = yutani_msg_build_window_advertise(win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
 							pex_send(server, p->source, response->size, (char *)response);
 							free(response);
 						}
@@ -1390,12 +1400,7 @@ int main(int argc, char * argv[]) {
 						w->client_strings = malloc(wa->size);
 						memcpy(w->client_strings, wa->strings, wa->size);
 
-						yutani_msg_t * response = yutani_msg_build_notify();
-						foreach(node, yg->window_subscribers) {
-							uint32_t subscriber = (uint32_t)node->value;
-							pex_send(server, subscriber, response->size, (char *)response);
-						}
-						free(response);
+						notify_subscribers(yg);
 					}
 				}
 				break;
@@ -1412,12 +1417,6 @@ int main(int argc, char * argv[]) {
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
 					if (w) {
 						set_focused_window(yg, w);
-						yutani_msg_t * response = yutani_msg_build_notify();
-						foreach(node, yg->window_subscribers) {
-							uint32_t subscriber = (uint32_t)node->value;
-							pex_send(server, subscriber, response->size, (char *)response);
-						}
-						free(response);
 					}
 				}
 				break;

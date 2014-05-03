@@ -84,6 +84,13 @@ int icon_lefts[20] = {0};
 int icon_wids[20] = {0};
 int focused_app = -1;
 
+struct window_ad {
+	uint32_t flags;
+	char * name;
+	char * icon;
+	char * strings;
+};
+
 void sig_int(int sig) {
 	printf("Received shutdown signal in panel!\n");
 	_continue = 0;
@@ -176,14 +183,19 @@ void redraw(void) {
 	spin_lock(&lock);
 	if (window_list) {
 		foreach(node, window_list) {
-			char * s = node->value;
+			struct window_ad * ad = node->value;
+			char * s = ad->name;
 
 			set_font_face(FONT_SANS_SERIF);
 			set_font_size(14);
 			if (j == focused_app) {
 				draw_string(ctx, 140 + i, 18, rgb(142,216,255), s);
 			} else {
-				draw_string(ctx, 140 + i, 18, txt_color, s);
+				if (ad->flags & 1) {
+					draw_string(ctx, 140 + i, 18, rgb(255,0,0), s);
+				} else {
+					draw_string(ctx, 140 + i, 18, txt_color, s);
+				}
 			}
 			if (j < 18) {
 				icon_lefts[j] = 140 + i;
@@ -218,24 +230,25 @@ void update_window_list(void) {
 		struct yutani_msg_window_advertise * wa = (void*)m->data;
 
 		if (wa->size == 0) {
-			fprintf(stderr, "End of window lost.\n");
 			free(m);
 			break;
 		}
-
-		fprintf(stderr, "Window available: %s\n", wa->strings);
 
 		if (i < 19) {
 			icon_wids[i] = wa->wid;
 			icon_wids[i+1] = 0;
 		}
 
+		struct window_ad * ad = malloc(sizeof(struct window_ad));
+
 		char * s = malloc(wa->size);
 		memcpy(s, wa->strings, wa->size);
-		char * name = &s[wa->offsets[0]];
-		char * icon = &s[wa->offsets[1]];
+		ad->name = &s[wa->offsets[0]];
+		ad->icon = &s[wa->offsets[1]];
+		ad->strings = s;
+		ad->flags = wa->flags;
 
-		list_insert(new_window_list, name);
+		list_insert(new_window_list, ad);
 		free(m);
 
 		i++;
@@ -243,7 +256,11 @@ void update_window_list(void) {
 
 	spin_lock(&lock);
 	if (window_list) {
-		list_destroy(window_list);
+		foreach(node, window_list) {
+			struct window_ad * ad = (void*)node->value;
+			free(ad->strings);
+			free(ad);
+		}
 		list_free(window_list);
 		free(window_list);
 	}
