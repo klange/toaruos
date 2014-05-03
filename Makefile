@@ -8,7 +8,7 @@ NM = i686-pc-toaru-nm
 CFLAGS  = -O2 -std=c99
 CFLAGS += -finline-functions -ffreestanding
 CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
-CFLAGS += -Wstrict-prototypes -pedantic -fno-omit-frame-pointer
+CFLAGS += -pedantic -fno-omit-frame-pointer
 CFLAGS += -D_KERNEL_
 
 # Kernel autoversioning with git sha
