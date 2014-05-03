@@ -844,7 +844,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 	debug_print(INFO, "Reading superblock...");
 	read_block(this, 1, (uint8_t *)SB);
 	if (SB->magic != EXT2_SUPER_MAGIC) {
-		debug_print(ERROR, "... not an EXT2 filesystem?");
+		debug_print(ERROR, "... not an EXT2 filesystem? (magic didn't match, got 0x%x)", SB->magic);
 		return NULL;
 	}
 	if (SB->inode_size == 0) {
