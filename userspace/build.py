@@ -51,7 +51,7 @@ class CCompiler(object):
             '"lib/pex.h"':         (None, 'lib/pex.o',         []),
             '"lib/shmemfonts.h"':  (None, 'lib/shmemfonts.o',  ['"lib/graphics.h"', '<ft2build.h>']),
             '"lib/wcwidth.h"':     (None, 'lib/wcwidth.o',     []),
-            '"lib/yutani.h"':      (None, 'lib/yutani.o',      ['"lib/pthread.h"', '"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
+            '"lib/yutani.h"':      (None, 'lib/yutani.o',      ['"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
             '"gui/ttk/ttk.h"':     (None, 'gui/ttk/lib/ttk-core.o', ['"lib/decorations.h"', '"lib/hashmap.h"',  '<cairo.h>', '<math.h>']),
             '"gui/terminal/lib/termemu.h"':
                                    (None, 'gui/terminal/lib/termemu.o', []),
