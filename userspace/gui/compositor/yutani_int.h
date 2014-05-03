@@ -50,7 +50,10 @@ typedef struct {
 	uint32_t newbufid;
 	uint8_t * newbuffer;
 
-	char * name;
+	uint32_t client_flags;
+	uint16_t client_offsets[5];
+	uint32_t client_length;
+	char *   client_strings;
 
 	int anim_mode;
 	int anim_start;

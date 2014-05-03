@@ -297,7 +297,14 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->bufid = next_buf_id();
 	win->rotation = 0;
 	win->newbufid = 0;
-	win->name = NULL;
+	win->client_flags   = 0;
+	win->client_offsets[0] = 0;
+	win->client_offsets[1] = 0;
+	win->client_offsets[2] = 0;
+	win->client_offsets[3] = 0;
+	win->client_offsets[4] = 0;
+	win->client_length  = 0;
+	win->client_strings = NULL;
 	win->anim_mode = YUTANI_EFFECT_FADE_IN;
 	win->anim_start = yg->tick_count;
 
@@ -1337,14 +1344,14 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_QUERY_WINDOWS:
 				{
 					for (unsigned int i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
-						if (yg->zlist[i] && yg->zlist[i]->name) {
-							fprintf(stderr, "[yutani-server] informing client about window %d with name %s\n", yg->zlist[i]->wid, yg->zlist[i]->name);
-							yutani_msg_t * response = yutani_msg_build_window_advertise(yg->zlist[i]->wid, yg->zlist[i]->name);
+						if (yg->zlist[i] && yg->zlist[i]->client_length) {
+							yutani_server_window_t * win = yg->zlist[i];
+							yutani_msg_t * response = yutani_msg_build_window_advertise(win->wid, win->client_flags, win->client_offsets, win->client_length, win->client_strings);
 							pex_send(server, p->source, response->size, (char *)response);
 							free(response);
 						}
 					}
-					yutani_msg_t * response = yutani_msg_build_window_advertise(0, NULL);
+					yutani_msg_t * response = yutani_msg_build_window_advertise(0, 0, NULL, 0, NULL);
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
 				}
@@ -1372,16 +1379,17 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_advertise * wa = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
 					if (w) {
-						if (w->name) {
-							free(w->name);
+						if (w->client_strings) free(w->client_strings);
+
+						for (int i = 0; i < 5; ++i) {
+							w->client_offsets[i] = wa->offsets[i];
 						}
-						if (wa->size == 0) {
-							w->name = NULL;
-						} else {
-							char * t = malloc(wa->size+1);
-							memcpy(t, wa->name, wa->size+1);
-							w->name = t;
-						}
+
+						w->client_flags   = wa->flags;
+						w->client_length  = wa->size;
+						w->client_strings = malloc(wa->size);
+						memcpy(w->client_strings, wa->strings, wa->size);
+
 						yutani_msg_t * response = yutani_msg_build_notify();
 						foreach(node, yg->window_subscribers) {
 							uint32_t subscriber = (uint32_t)node->value;

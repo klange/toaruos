@@ -114,8 +114,10 @@ struct yutani_msg_window_resize {
 
 struct yutani_msg_window_advertise {
 	yutani_wid_t wid;
+	uint32_t flags; /* Types, focused, etc. */
+	uint16_t offsets[5]; /* Name, Icon, and three reserved slots */
 	uint32_t size;
-	char name[];
+	char strings[];
 };
 
 struct yutani_msg_window_focus {
@@ -221,7 +223,7 @@ yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
 yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused);
 yutani_msg_t * yutani_msg_build_window_mouse_event(yutani_wid_t wid, int32_t new_x, int32_t new_y, int32_t old_x, int32_t old_y, uint8_t buttons, uint8_t command);
 yutani_msg_t * yutani_msg_build_window_resize(uint32_t type, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
-yutani_msg_t * yutani_msg_build_window_advertise(yutani_wid_t wid, char * name);
+yutani_msg_t * yutani_msg_build_window_advertise(yutani_wid_t wid, uint32_t flags, uint16_t * offsets, size_t length, char * data);
 yutani_msg_t * yutani_msg_build_subscribe(void);
 yutani_msg_t * yutani_msg_build_unsubscribe(void);
 yutani_msg_t * yutani_msg_build_query(void);
@@ -244,6 +246,7 @@ void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint3
 void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
 void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window);
 void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name);
+void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, char * name, char * icon);
 void yutani_subscribe_windows(yutani_t * y);
 void yutani_unsubscribe_windows(yutani_t * y);
 void yutani_query_windows(yutani_t * y);

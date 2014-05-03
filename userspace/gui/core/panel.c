@@ -218,21 +218,24 @@ void update_window_list(void) {
 		struct yutani_msg_window_advertise * wa = (void*)m->data;
 
 		if (wa->size == 0) {
+			fprintf(stderr, "End of window lost.\n");
 			free(m);
 			break;
 		}
 
-		fprintf(stderr, "Window available: %s\n", wa->name);
-
-		char * s = malloc(wa->size + 1);
-		memcpy(s, wa->name, wa->size + 1);
+		fprintf(stderr, "Window available: %s\n", wa->strings);
 
 		if (i < 19) {
 			icon_wids[i] = wa->wid;
 			icon_wids[i+1] = 0;
 		}
 
-		list_insert(new_window_list, s);
+		char * s = malloc(wa->size);
+		memcpy(s, wa->strings, wa->size);
+		char * name = &s[wa->offsets[0]];
+		char * icon = &s[wa->offsets[1]];
+
+		list_insert(new_window_list, name);
 		free(m);
 
 		i++;
