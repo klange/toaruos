@@ -122,8 +122,7 @@ uint32_t secs_of_month(int months, int year) {
 	return days * 86400;
 }
 
-int
-gettimeofday(struct timeval * t, void *z) {
+int gettimeofday(struct timeval * t, void *z) {
 	uint16_t values[128];
 	cmos_dump(values);
 

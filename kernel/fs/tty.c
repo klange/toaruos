@@ -373,21 +373,11 @@ pty_t * pty_new(struct winsize * size) {
 	return pty;
 }
 
-int openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
-	/* We require a place to put these when we are done. */
-	if (!master || !slave) return -1;
-	if (validate_safe(master) || validate_safe(slave)) return -1;
-	if (validate_safe(size)) return -1;
-
-	/* Create a new pseudo terminal */
+int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave) {
 	pty_t * pty = pty_new(size);
 
-	/* Append the master and slave to the calling process */
-	*master = process_append_fd((process_t *)current_process, pty->master);
-	*slave  = process_append_fd((process_t *)current_process, pty->slave);
+	*fs_master = pty->master;
+	*fs_slave  = pty->slave;
 
-	/* Return success */
 	return 0;
 }
-
-
