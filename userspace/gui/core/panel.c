@@ -209,7 +209,11 @@ void redraw(void) {
 				icon = hashmap_get(icon_cache, "generic");
 			}
 
-			draw_sprite_scaled(ctx, icon, 140 + i, 0, 24, 24);
+			if (icon->width == 24) {
+				draw_sprite(ctx, icon, 140 + i, 0);
+			} else {
+				draw_sprite_scaled(ctx, icon, 140 + i, 0, 24, 24);
+			}
 
 			if (j == focused_app) {
 				draw_string(ctx, 140 + i + 26, 18, rgb(142,216,255), s);
