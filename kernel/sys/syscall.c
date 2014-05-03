@@ -589,8 +589,6 @@ static int sys_gettimeofday(struct timeval * tv, void * tz) {
 	return gettimeofday(tv, tz);
 }
 
-extern int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave);
-
 static int sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
 	if (!master || !slave) return -1;

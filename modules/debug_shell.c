@@ -588,20 +588,19 @@ static void debug_shell_run(void * data, char * name) {
 	 */
 	fs_node_t * tty = kopen("/dev/ttyS0", 0);
 
-	/* We will convert the serial interface into an actual TTY */
-	int master, slave;
+	fs_node_t * fs_master;
+	fs_node_t * fs_slave;
 
-	/* Convert the serial line into a TTY */
-	openpty(&master, &slave, NULL, NULL, NULL);
+	pty_create(NULL, &fs_master, &fs_slave);
 
 	/* Attach the serial to the TTY interface */
-	struct tty_o _tty = {.node = current_process->fds->entries[master], .tty = tty};
+	struct tty_o _tty = {.node = fs_master, .tty = tty};
 
 	create_kernel_tasklet(debug_shell_handle_in,  "[kttydebug-in]",  (void *)&_tty);
 	create_kernel_tasklet(debug_shell_handle_out, "[kttydebug-out]", (void *)&_tty);
 
 	/* Set the device to be the actual TTY slave */
-	tty = current_process->fds->entries[slave];
+	tty = fs_slave;
 
 	current_process->fds->entries[0] = tty;
 	current_process->fds->entries[1] = tty;
