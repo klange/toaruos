@@ -112,7 +112,6 @@ void display() {
 	render_map(my_x,my_y);
 	draw_sprite(ctx, sprites[124 + direction], decor_left_width + raw_x_offset + map_x + CELL_SIZE * 4, decor_top_height + raw_y_offset + map_y + CELL_SIZE * 4);
 	render_decorations(window, ctx, "RPG Demo");
-	yutani_window_advertise(yctx, window, "RPG Demo");
 	flip(ctx);
 	yutani_flip(yctx, window);
 }
@@ -256,6 +255,8 @@ int main(int argc, char ** argv) {
 	draw_fill(ctx,rgb(0,0,0));
 	flip(ctx);
 	yutani_flip(yctx, window);
+
+	yutani_window_advertise(yctx, window, "RPG Demo");
 
 	init_decorations();
 
