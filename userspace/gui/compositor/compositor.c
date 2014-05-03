@@ -964,6 +964,34 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			mark_window(yg,focused);
 			return;
 		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+			(ke->event.keycode == KEY_F10)) {
+
+			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+
+				int panel_h = 0;
+				yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
+				if (panel) {
+					panel_h = panel->height;
+				}
+				int w = yg->width;
+				int h = yg->height - panel_h;
+
+				/* Calculate, move, etc. */
+				mark_window(yg, focused);
+				focused->x = 0;
+				focused->y = panel_h;
+				mark_window(yg, focused);
+
+				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, focused->wid, w, h, 0);
+				pex_send(yg->server, focused->owner, response->size, (char *)response);
+				free(response);
+				return;
+			}
+
+		}
+
 
 		yutani_msg_t * response = yutani_msg_build_key_event(focused->wid, &ke->event, &ke->state);
 		pex_send(yg->server, focused->owner, response->size, (char *)response);

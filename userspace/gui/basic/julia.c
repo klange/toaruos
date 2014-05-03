@@ -153,23 +153,20 @@ void redraw() {
 		} while ( i < width );
 		++j;
 	} while ( j < height );
+}
 
+void resize_finish(int w, int h) {
+	yutani_window_resize_accept(yctx, window, w, h);
+	reinit_graphics_yutani(ctx, window);
+
+	width  = w - decor_left_width - decor_right_width;
+	height = h - decor_top_height - decor_bottom_height;
+
+	redraw();
+
+	yutani_window_resize_done(yctx, window);
 	yutani_flip(yctx, window);
 }
-
-#if 0
-void resize_callback(window_t * win) {
-	width  = win->width  - decor_left_width - decor_right_width;
-	height = win->height - decor_top_height - decor_bottom_height;
-
-	reinit_graphics_window(ctx, window);
-	redraw();
-}
-
-void focus_callback(window_t * win) {
-	redraw();
-}
-#endif
 
 
 int main(int argc, char * argv[]) {
@@ -240,6 +237,7 @@ int main(int argc, char * argv[]) {
 	ctx = init_graphics_yutani(window);
 
 	redraw();
+	yutani_flip(yctx, window);
 
 	int playing = 1;
 	while (playing) {
@@ -261,8 +259,16 @@ int main(int argc, char * argv[]) {
 						if (win) {
 							win->focused = wf->focused;
 							redraw();
+							yutani_flip(yctx, window);
 						}
 					}
+					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						resize_finish(wr->width, wr->height);
+					}
+					break;
 				default:
 					break;
 			}
