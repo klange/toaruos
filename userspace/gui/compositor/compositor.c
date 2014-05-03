@@ -907,11 +907,21 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 	/* XXX free window */
 	hashmap_remove(yg->wids_to_windows, (void *)w->wid);
 	list_remove(yg->windows, list_index_of(yg->windows, w));
-	mark_window(yg, w);
 	unorder_window(yg, w);
+	mark_window(yg, w);
 	if (w == yg->focused_window) {
 		yg->focused_window = NULL;
 	}
+
+	{
+		char key[1024];
+		YUTANI_SHMKEY_EXP(key, 1024, w->bufid);
+		/* We actually call this from the render thread, so we already have the lock. */
+		//spin_lock(&yg->redraw_lock);
+		syscall_shm_release(key);
+		//spin_unlock(&yg->redraw_lock);
+	}
+
 	yutani_msg_t * response = yutani_msg_build_notify();
 	notify_subscribers(yg);
 }
