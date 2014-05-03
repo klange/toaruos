@@ -245,8 +245,6 @@ static size_t chunk_size (shm_chunk_t * chunk) {
 
 
 void * shm_obtain (char * path, size_t * size) {
-	validate(path);
-	validate(size);
 	spin_lock(&bsl);
 	process_t * proc = (process_t *)current_process;
 
