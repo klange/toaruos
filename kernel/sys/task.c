@@ -219,28 +219,6 @@ uint32_t fork(void) {
 
 	new_proc->thread.eip = (uintptr_t)&return_to_userspace;
 
-	/* Clear page table tie-ins for shared memory mappings */
-#if 0
-	assert((new_proc->shm_mappings->length == 0) && "Spawned process had shared memory mappings!");
-	foreach (n, current_process->shm_mappings) {
-		shm_mapping_t * mapping = (shm_mapping_t *)n->value;
-
-		for (uint32_t i = 0; i < mapping->num_vaddrs; i++) {
-			/* Get the vpage address (it's the same for the cloned directory)... */
-			uintptr_t vpage = mapping->vaddrs[i];
-			assert(!(vpage & 0xFFF) && "shm_mapping_t contained a ptr to the middle of a page (bad)");
-
-			/* ...and from that, the cloned dir's page entry... */
-			page_t * page = get_page(vpage, 0, new_proc->thread.page_directory);
-			assert(test_frame(page->frame * 0x1000) && "ptr wasn't mapped in?");
-
-			/* ...which refers to a bogus frame that we don't want. */
-			clear_frame(page->frame * 0x1000);
-			memset(page, 0, sizeof(page_t));
-		}
-	}
-#endif
-
 	/* Add the new process to the ready queue */
 	make_process_ready(new_proc);
 
