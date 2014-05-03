@@ -172,7 +172,7 @@ hdd/mod/%.ko: modules/%.c ${HEADERS}
 	@${CC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [module]"
 
-%.o: %.c ${HEADERS}
+kernel/%.o: kernel/%.c ${HEADERS}
 	@${BEG} "CC" "$<"
 	@${CC} ${CFLAGS} -g -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
