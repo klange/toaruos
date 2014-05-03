@@ -112,11 +112,6 @@ system: .passed toaruos-disk.img toaruos-kernel modules
 userspace: ${USERSPACE}
 modules: ${MODULES}
 
-install: system
-	@${BEG} "CP" "Installing to /boot..."
-	@cp toaruos-kernel /boot/toaruos-kernel
-	@${END} "CP" "Installed to /boot"
-
 # Various different quick options
 run: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
