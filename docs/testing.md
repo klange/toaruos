@@ -49,7 +49,7 @@ An experimental, unsupported image building tool that will produce a "production
 The Makefile provides a few phony targets which will spin up qemu in various setups. Most of these targets have "regular" and "KVM-enabled" variants:
 
 - `run`/`kvm`: Start a typical desktop session. The system will boot to a graphical login screen.
-- `vga`/`vga-kvm`: (**DEPRECATED**) Boot to a VGA text-mode interface.
+- `vga`/`vga-kvm`: Boot to a VGA text-mode interface.
 - `term`/`term-kvm`: Start the compositor with a single, full-screen terminal logged in as root.
 - `term-beta`: Starts a beta version of the new compositor (not useful for end-users).
 - `headless`: Start qemu without a graphical interface, allowing for quick use of the serial console.
