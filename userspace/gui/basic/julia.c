@@ -234,6 +234,8 @@ int main(int argc, char * argv[]) {
 	yutani_window_move(yctx, window, left, top);
 	init_decorations();
 
+	yutani_window_advertise_icon(yctx, window, "Julia Fractals", "julia");
+
 	ctx = init_graphics_yutani(window);
 
 	redraw();

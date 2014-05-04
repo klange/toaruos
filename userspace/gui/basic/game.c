@@ -256,7 +256,7 @@ int main(int argc, char ** argv) {
 	flip(ctx);
 	yutani_flip(yctx, window);
 
-	yutani_window_advertise(yctx, window, "RPG Demo");
+	yutani_window_advertise_icon(yctx, window, "RPG Demo", "applications-simulation");
 
 	init_decorations();
 
