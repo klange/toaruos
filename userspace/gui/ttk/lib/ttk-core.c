@@ -366,6 +366,9 @@ ttk_window_t * ttk_window_new(char * title, uint16_t width, uint16_t height) {
 	yutani_window_move(yctx, new_win->core_window, TTK_DEFAULT_X, TTK_DEFAULT_Y);
 	assert(new_win->core_window && "Oh dear, I've failed to allocate a new window from the server. This is terrible.");
 
+	/* XXX icon; also need to do this if we change the title later */
+	yutani_window_advertise(yctx, new_win->core_window, new_win->title);
+
 	new_win->core_context = init_graphics_yutani_double_buffer(new_win->core_window);
 	draw_fill(new_win->core_context, rgb(TTK_BACKGROUND_DEFAULT));
 
