@@ -226,9 +226,9 @@ toaruos-disk.img: ${USERSPACE} ${MODULES}
 ##############
 #    ctags   #
 ##############
-tags: kernel/*/*.c kernel/*.c userspace/**/*.c
+tags: kernel/*/*.c kernel/*.c userspace/**/*.c modules/*.c
 	@${BEG} "ctag" "Generating CTags..."
-	@-ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace modules util
+	@-ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace modules util ${ERRORS}
 	@${END} "ctag" "Generated CTags."
 
 ###############
