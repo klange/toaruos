@@ -442,7 +442,7 @@ int main (int argc, char ** argv) {
 	sprite_logout = malloc(sizeof(sprite_t));
 
 	load_sprite_png(sprite_panel,  "/usr/share/panel.png");
-	load_sprite_png(sprite_logout, "/usr/share/icons-shutdown.png");
+	load_sprite_png(sprite_logout, "/usr/share/icons/panel-shutdown.png");
 
 	/* Draw the background */
 	for (uint32_t i = 0; i < width; i += sprite_panel->width) {
