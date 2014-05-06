@@ -88,6 +88,7 @@ int icon_wids[20] = {0};
 int focused_app = -1;
 
 struct window_ad {
+	yutani_wid_t wid;
 	uint32_t flags;
 	char * name;
 	char * icon;
@@ -308,8 +309,24 @@ void update_window_list(void) {
 		ad->icon = &s[wa->offsets[1]];
 		ad->strings = s;
 		ad->flags = wa->flags;
+		ad->wid = wa->wid;
 
-		list_insert(new_window_list, ad);
+		node_t * next = NULL;
+
+		foreach(node, new_window_list) {
+			struct window_ad * n = node->value;
+
+			if (n->wid > ad->wid) {
+				next = node;
+				break;
+			}
+		}
+
+		if (next) {
+			list_insert_before(new_window_list, next, ad);
+		} else {
+			list_insert(new_window_list, ad);
+		}
 		free(m);
 
 		i++;
