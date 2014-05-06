@@ -288,7 +288,7 @@ static void redraw(void) {
 	spin_unlock(&lock);
 
 	/* Draw the logout button; XXX This should probably have some sort of focus hilight */
-	draw_sprite(ctx, sprite_panel, width - 23, 1); /* Logout button */
+	draw_sprite(ctx, sprite_logout, width - 23, 1); /* Logout button */
 
 	/* Flip */
 	flip(ctx);
