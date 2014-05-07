@@ -174,28 +174,14 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			}
 		}
 
-		rtl_rx_buffer = (uint8_t *)kvmalloc(0x3000);
-
-		/* This is a terrible hack, we need to be able to allocate
-		 * linear pages from, say, sbrk or similar.... */
-		dma_frame(get_page((uintptr_t)rtl_rx_buffer + 0x0000, 1, current_directory), 1, 0, 0x20000000);
-		dma_frame(get_page((uintptr_t)rtl_rx_buffer + 0x1000, 1, current_directory), 1, 0, 0x20001000);
-		dma_frame(get_page((uintptr_t)rtl_rx_buffer + 0x2000, 1, current_directory), 1, 0, 0x20002000);
-
-		/* Also map them in the kernel directory */
-		dma_frame(get_page((uintptr_t)rtl_rx_buffer + 0x0000, 1, kernel_directory), 1, 0, 0x20000000);
-		dma_frame(get_page((uintptr_t)rtl_rx_buffer + 0x1000, 1, kernel_directory), 1, 0, 0x20001000);
-		dma_frame(get_page((uintptr_t)rtl_rx_buffer + 0x2000, 1, kernel_directory), 1, 0, 0x20002000);
-
+		rtl_rx_buffer = (uint8_t *)kvmalloc_p(0x3000, &rtl_rx_phys);
 		memset(rtl_rx_buffer, 0x00, 0x3000);
 
-		rtl_rx_phys   = 0x20000000;
-
 		fprintf(tty, "Buffers:\n");
-		fprintf(tty, "   rx 0x%x [phys 0x%x:0x%x]\n", rtl_rx_buffer, rtl_rx_phys, map_to_physical((uintptr_t)rtl_rx_buffer));
+		fprintf(tty, "   rx 0x%x [phys 0x%x and 0x%x and 0x%x]\n", rtl_rx_buffer, rtl_rx_phys, map_to_physical((uintptr_t)rtl_rx_buffer + 0x1000), map_to_physical((uintptr_t)rtl_rx_buffer + 0x2000));
 
 		for (int i = 0; i < 4; ++i) {
-			fprintf(tty, "   tx 0x%x [phys 0x%x:0x%x]\n", rtl_tx_buffer[i], rtl_tx_phys[i], map_to_physical((uintptr_t)rtl_tx_buffer[i]));
+			fprintf(tty, "   tx 0x%x [phys 0x%x]\n", rtl_tx_buffer[i], rtl_tx_phys[i]);
 		}
 
 		fprintf(tty, "Initializing receive buffer.\n");

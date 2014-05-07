@@ -19,6 +19,9 @@ uintptr_t placement_pointer = (uintptr_t)&end;
 uintptr_t heap_end = (uintptr_t)NULL;
 uintptr_t kernel_heap_alloc_point = KERNEL_HEAP_INIT;
 
+static volatile uint8_t frame_alloc_lock = 0;
+uint32_t first_n_frames(int n);
+
 void
 kmalloc_startat(
 		uintptr_t address
@@ -43,6 +46,23 @@ kmalloc_real(
 			address = malloc(size);
 		}
 		if (phys) {
+			if (align && size > 0x1000) {
+				for (uintptr_t i = (uintptr_t)address; i < (uintptr_t)address + size; i += 0x1000) {
+					clear_frame(map_to_physical(i));
+				}
+				/* XXX This is going to get touchy... */
+				spin_lock(&frame_alloc_lock);
+				uint32_t index = first_n_frames((size + 0xFFF) / 0x1000);
+				if (index == 0xFFFFFFFF) {
+					return 0;
+				}
+				for (unsigned int i = 0; i < (size + 0xFFF) / 0x1000; ++i) {
+					set_frame((index + i) * 0x1000);
+					page_t * page = get_page((uintptr_t)address + (i * 0x1000),0,kernel_directory);
+					page->frame = index + i;
+				}
+				spin_unlock(&frame_alloc_lock);
+			}
 			*phys = map_to_physical((uintptr_t)address);
 		}
 		return (uintptr_t)address;
@@ -135,6 +155,21 @@ uint32_t test_frame(uintptr_t frame_addr) {
 	return (frames[index] & (0x1 << offset));
 }
 
+uint32_t first_n_frames(int n) {
+	for (uint32_t i = 0; i < nframes * 0x1000; i += 0x1000) {
+		int bad = 0;
+		for (int j = 0; j < n; ++j) {
+			if (test_frame(i + 0x1000 * j)) {
+				bad = j+1;
+			}
+		}
+		if (!bad) {
+			return i / 0x1000;
+		}
+	}
+	return 0xFFFFFFFF;
+}
+
 uint32_t first_frame(void) {
 	uint32_t i, j;
 
@@ -162,8 +197,6 @@ uint32_t first_frame(void) {
 
 	return -1;
 }
-
-static volatile uint8_t frame_alloc_lock = 0;
 
 void
 alloc_frame(
