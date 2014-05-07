@@ -264,19 +264,22 @@ int main(int argc, char ** argv) {
 	map_y = WINDOW_SIZE - (64 * 9) / 2;
 
 	printf("Loading sprites...\n");
-	init_sprite(0, "/etc/game/0.bmp", NULL);
-	init_sprite(1, "/etc/game/1.bmp", NULL);
-	init_sprite(2, "/etc/game/2.bmp", NULL);
-	init_sprite(3, "/etc/game/3.bmp", NULL);
-	init_sprite(4, "/etc/game/4.bmp", NULL);
-	init_sprite(5, "/etc/game/5.bmp", NULL);
-	init_sprite(6, "/etc/game/6.bmp", NULL);
-	init_sprite(7, "/etc/game/7.bmp", NULL);
-	init_sprite(124, "/etc/game/remilia.bmp", NULL);
-	init_sprite(125, "/etc/game/remilia_r.bmp", NULL);
-	init_sprite(126, "/etc/game/remilia_l.bmp", NULL);
-	init_sprite(127, "/etc/game/remilia_f.bmp", NULL);
-	load_map("/etc/game/map");
+
+#define GAME_PATH "/usr/share/game/"
+
+	init_sprite(0, GAME_PATH "0.bmp", NULL);
+	init_sprite(1, GAME_PATH "1.bmp", NULL);
+	init_sprite(2, GAME_PATH "2.bmp", NULL);
+	init_sprite(3, GAME_PATH "3.bmp", NULL);
+	init_sprite(4, GAME_PATH "4.bmp", NULL);
+	init_sprite(5, GAME_PATH "5.bmp", NULL);
+	init_sprite(6, GAME_PATH "6.bmp", NULL);
+	init_sprite(7, GAME_PATH "7.bmp", NULL);
+	init_sprite(124, GAME_PATH "remilia.bmp", NULL);
+	init_sprite(125, GAME_PATH "remilia_r.bmp", NULL);
+	init_sprite(126, GAME_PATH "remilia_l.bmp", NULL);
+	init_sprite(127, GAME_PATH "remilia_f.bmp", NULL);
+	load_map(GAME_PATH "map");
 	printf("%d x %d\n", map.width, map.height);
 
 	display();
