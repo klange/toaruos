@@ -38,6 +38,7 @@ static uintptr_t rtl_rx_phys;
 static uintptr_t rtl_tx_phys[4];
 
 static uint32_t cur_rx = 0;
+static int dirty_tx = 0;
 
 static uint8_t _dhcp_packet[] = {
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0x08, 0x00, 0x45, 0x00,
@@ -101,12 +102,15 @@ static void rtl_irq_handler(struct regs *r) {
 			cur_rx = (cur_rx + rx_size + 4 + 3) & ~3;
 			outports(rtl_iobase + RTL_PORT_RXPTR, cur_rx - 16);
 		}
+		debug_print(NOTICE, "done processing receive");
 	}
 
 	if (status & 0x08 || status & 0x04) {
 		debug_print(NOTICE,"tx response");
-		unsigned int i = inportl(rtl_iobase + RTL_PORT_TXSTAT);
+		unsigned int i = inportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * dirty_tx);
 		debug_print(NOTICE, "Other bits: 0x%x; status=0x%x", i, status);
+		dirty_tx++;
+		if (dirty_tx == 5) dirty_tx = 0;
 	}
 }
 
@@ -195,7 +199,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			0x20   | /* Rx underrun */
 			0x10   | /* Rx overflow */
 			0x08   | /* Tx error */
-			//0x04   | /* Tx okay */
+			0x04   | /* Tx okay */
 			0x02   | /* Rx error */
 			0x01     /* Rx okay */
 		); /* TOK, ROK */
@@ -223,20 +227,6 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		outportl(rtl_iobase + RTL_PORT_TXBUF, rtl_tx_phys[0]);
 		outportl(rtl_iobase + RTL_PORT_TXSTAT, sizeof(_dhcp_packet));
 
-#if 0
-		fprintf(tty, "Going to send a packet. I hope\n");
-		memcpy(rtl_tx_buffer[1], _dhcp_packet, sizeof(_dhcp_packet));
-
-		outportl(rtl_iobase + RTL_PORT_TXBUF+4, rtl_tx_phys[1]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT+4, sizeof(_dhcp_packet));
-
-		fprintf(tty, "Going to send a packet. I hope\n");
-		memcpy(rtl_tx_buffer[2], _dhcp_packet, sizeof(_dhcp_packet));
-
-		outportl(rtl_iobase + RTL_PORT_TXBUF+8, rtl_tx_phys[2]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT+8, sizeof(_dhcp_packet));
-#endif
-
 		{
 			unsigned long s, ss;
 			relative_time(0, 100, &s, &ss);
@@ -252,6 +242,22 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 				rtl_rx_buffer[0x3B+4],
 				rtl_rx_buffer[0x3C+4],
 				rtl_rx_buffer[0x3D+4]);
+
+		fprintf(tty, "Going to send a packet. I hope\n");
+		memcpy(rtl_tx_buffer[1], _dhcp_packet, sizeof(_dhcp_packet));
+
+		outportl(rtl_iobase + RTL_PORT_TXBUF+4, rtl_tx_phys[1]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT+4, sizeof(_dhcp_packet));
+
+		{
+			unsigned long s, ss;
+			relative_time(0, 100, &s, &ss);
+			sleep_until((process_t *)current_process, s, ss);
+			switch_task(0);
+
+			fprintf(tty, "Awoken from sleep, checking receive buffer: 0x%x\n", &rtl_rx_buffer[0]);
+		}
+
 
 #if 0
 		fprintf(tty, "Going to try to force-send a UDP packet...\n");
