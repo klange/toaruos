@@ -84,7 +84,7 @@ void irq_install(void) {
 }
 
 void irq_ack(size_t irq_no) {
-	if (irq_no >= 12) {
+	if (irq_no >= 8) {
 		outportb(0xA0, 0x20);
 	}
 	outportb(0x20, 0x20);
