@@ -32,10 +32,10 @@ static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void
 static int rtl_irq = 0;
 static uint32_t rtl_iobase = 0;
 static uint8_t * rtl_rx_buffer;
-static uint8_t * rtl_tx_buffer[4];
+static uint8_t * rtl_tx_buffer[5];
 
 static uintptr_t rtl_rx_phys;
-static uintptr_t rtl_tx_phys[4];
+static uintptr_t rtl_tx_phys[5];
 
 static uint32_t cur_rx = 0;
 static int dirty_tx = 0;
@@ -171,7 +171,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		fprintf(tty, "Done resetting RTL8139.\n");
 
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < 5; ++i) {
 			rtl_tx_buffer[i] = (void*)kvmalloc_p(0x1000, &rtl_tx_phys[i]);
 			for (int j = 0; j < 60; ++j) {
 				rtl_tx_buffer[i][j] = 0xF0;
@@ -184,7 +184,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Buffers:\n");
 		fprintf(tty, "   rx 0x%x [phys 0x%x and 0x%x and 0x%x]\n", rtl_rx_buffer, rtl_rx_phys, map_to_physical((uintptr_t)rtl_rx_buffer + 0x1000), map_to_physical((uintptr_t)rtl_rx_buffer + 0x2000));
 
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < 5; ++i) {
 			fprintf(tty, "   tx 0x%x [phys 0x%x]\n", rtl_tx_buffer[i], rtl_tx_phys[i]);
 		}
 
@@ -222,7 +222,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Resetting rx stats\n");
 		outportl(rtl_iobase + RTL_PORT_RXMISS, 0);
 
-		fprintf(tty, "Going to send a packet. I hope\n");
+		fprintf(tty, "Sending DHCP discover\n");
 		memcpy(rtl_tx_buffer[0], _dhcp_packet, sizeof(_dhcp_packet));
 		outportl(rtl_iobase + RTL_PORT_TXBUF, rtl_tx_phys[0]);
 		outportl(rtl_iobase + RTL_PORT_TXSTAT, sizeof(_dhcp_packet));
@@ -243,7 +243,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 				rtl_rx_buffer[0x3C+4],
 				rtl_rx_buffer[0x3D+4]);
 
-		fprintf(tty, "Going to send a packet. I hope\n");
+		fprintf(tty, "Resending DHCP discover (todo: replace this with a DHCP request)\n");
 		memcpy(rtl_tx_buffer[1], _dhcp_packet, sizeof(_dhcp_packet));
 
 		outportl(rtl_iobase + RTL_PORT_TXBUF+4, rtl_tx_phys[1]);
