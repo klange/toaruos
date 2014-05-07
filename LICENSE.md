@@ -4,6 +4,13 @@ This project is released under the terms of the University of Illinois / NCSA Op
 
     Copyright (c) 2011-2014 Kevin Lange.  All rights reserved.
 
+                              Dedicated to the memory of
+                                   Dennis Ritchie
+                                      1941-2011
+
+    Developed by: ToAruOS Kernel Development Team
+                  http://toaruos.org
+
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to
     deal with the Software without restriction, including without limitation the
