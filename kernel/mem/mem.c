@@ -46,7 +46,8 @@ kmalloc_real(
 			address = malloc(size);
 		}
 		if (phys) {
-			if (align && size > 0x1000) {
+			if (align && size >= 0x3000) {
+				debug_print(NOTICE, "Requested large aligned alloc of size 0x%x", size);
 				for (uintptr_t i = (uintptr_t)address; i < (uintptr_t)address + size; i += 0x1000) {
 					clear_frame(map_to_physical(i));
 				}
