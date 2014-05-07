@@ -4,7 +4,12 @@
 import os
 import sys
 
-TOOLCHAIN_PATH = os.environ['TOOLCHAIN']
+try:
+    TOOLCHAIN_PATH = os.environ['TOOLCHAIN']
+except KeyError:
+    # This is not good, but we need to let it happen for the make file
+    TOOLCHAIN_PATH = ""
+
 class Classifier(object):
 
     dependency_hints = {
