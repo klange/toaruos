@@ -3,6 +3,7 @@
 #include <printf.h>
 #include <pci.h>
 #include <mem.h>
+#include <list.h>
 #include <ipv4.h>
 #include <mod/shell.h>
 
@@ -34,11 +35,15 @@ static uint32_t rtl_iobase = 0;
 static uint8_t * rtl_rx_buffer;
 static uint8_t * rtl_tx_buffer[5];
 
+static uint8_t * last_packet = NULL;
+
 static uintptr_t rtl_rx_phys;
 static uintptr_t rtl_tx_phys[5];
 
 static uint32_t cur_rx = 0;
 static int dirty_tx = 0;
+
+static list_t * rx_wait;
 
 static uint8_t _dhcp_packet[] = {
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0x08, 0x00, 0x45, 0x00,
@@ -59,6 +64,14 @@ static uint8_t _dhcp_packet[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x82, 0x53, 0x63, 0x35, 0x01, 0x01, 0xFF
+};
+
+static uint8_t _dns_packet[] = {
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x52, 0x54, 0x00, 0x12, 0x34, 0x56, 0x08, 0x00, 0x45, 0x00,
+	0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x40, 0x11, 0x62, 0xA5, 0x0A, 0x00, 0x02, 0x0F, 0x0A, 0x00,
+	0x02, 0x03, 0x00, 0x35, 0x00, 0x35, 0x00, 0x22, 0x9E, 0x77, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x64, 0x61, 0x6B, 0x6B, 0x6F, 0x02, 0x75, 0x73, 0x00,
+	0x00, 0x01, 0x00, 0x01
 };
 
 static void rtl_irq_handler(struct regs *r) {
@@ -89,6 +102,7 @@ static void rtl_irq_handler(struct regs *r) {
 				debug_print(WARNING, "rx error :(");
 			} else {
 				uint8_t * buf_8 = (uint8_t *)&(buf_start[1]);
+				last_packet = buf_8;
 
 
 				debug_print(NOTICE, "Some bytes from this packet: %2x%2x%2x%2x",
@@ -103,6 +117,7 @@ static void rtl_irq_handler(struct regs *r) {
 			outports(rtl_iobase + RTL_PORT_RXPTR, cur_rx - 16);
 		}
 		debug_print(NOTICE, "done processing receive");
+		wakeup_queue(rx_wait);
 	}
 
 	if (status & 0x08 || status & 0x04) {
@@ -151,6 +166,8 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		}
 
 		fprintf(tty, "RTL iobase: 0x%x\n", rtl_iobase);
+
+		rx_wait = list_create();
 
 		fprintf(tty, "Determining mac address...\n");
 
@@ -227,37 +244,34 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		outportl(rtl_iobase + RTL_PORT_TXBUF, rtl_tx_phys[0]);
 		outportl(rtl_iobase + RTL_PORT_TXSTAT, sizeof(_dhcp_packet));
 
-		{
-			unsigned long s, ss;
-			relative_time(0, 100, &s, &ss);
-			sleep_until((process_t *)current_process, s, ss);
-			switch_task(0);
+		sleep_on(rx_wait);
 
-			fprintf(tty, "Awoken from sleep, checking receive buffer: 0x%x\n", &rtl_rx_buffer[0]);
-		}
+		fprintf(tty, "Awoken from sleep, checking receive buffer: %2x %2x %2x %2x\n",
+			last_packet[0], last_packet[1], last_packet[2], last_packet[3]);
 
 		/* Okay, going to evaluate some things */
-		fprintf(tty, "If I'm right, DHCP wants to assign us %d.%d.%d.%d\n",
-				rtl_rx_buffer[0x3A+4],
-				rtl_rx_buffer[0x3B+4],
-				rtl_rx_buffer[0x3C+4],
-				rtl_rx_buffer[0x3D+4]);
+		fprintf(tty, "DHCP Offer:  %d.%d.%d.%d\n",
+				last_packet[0x3A],
+				last_packet[0x3B],
+				last_packet[0x3C],
+				last_packet[0x3D]);
 
-		fprintf(tty, "Resending DHCP discover (todo: replace this with a DHCP request)\n");
-		memcpy(rtl_tx_buffer[1], _dhcp_packet, sizeof(_dhcp_packet));
+		fprintf(tty, "Sending DNS query...\n");
+		memcpy(rtl_tx_buffer[1], _dns_packet, sizeof(_dns_packet));
 
 		outportl(rtl_iobase + RTL_PORT_TXBUF+4, rtl_tx_phys[1]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT+4, sizeof(_dhcp_packet));
+		outportl(rtl_iobase + RTL_PORT_TXSTAT+4, sizeof(_dns_packet));
 
-		{
-			unsigned long s, ss;
-			relative_time(0, 100, &s, &ss);
-			sleep_until((process_t *)current_process, s, ss);
-			switch_task(0);
+		sleep_on(rx_wait);
 
-			fprintf(tty, "Awoken from sleep, checking receive buffer: 0x%x\n", &rtl_rx_buffer[0]);
-		}
+		fprintf(tty, "Awoken from sleep, checking receive buffer: %2x %2x %2x %2x\n",
+			last_packet[0], last_packet[1], last_packet[2], last_packet[3]);
 
+		fprintf(tty, "dakko.us. = %d.%d.%d.%d\n",
+				last_packet[0x50],
+				last_packet[0x51],
+				last_packet[0x52],
+				last_packet[0x53]);
 
 #if 0
 		fprintf(tty, "Going to try to force-send a UDP packet...\n");
