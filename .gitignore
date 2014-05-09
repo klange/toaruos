@@ -67,3 +67,4 @@ util/toaru-toolchain
 util/toaru-toolchain/*
 _hdd
 qemu-vlan0.pcap
+contrib

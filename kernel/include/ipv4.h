@@ -17,11 +17,6 @@ struct ipv4_packet {
 } __attribute__ ((packed));
 
 struct udp_packet {
-	uint32_t source;
-	uint32_t destination;
-	uint8_t  zeroes;
-	uint8_t  protocol;
-	uint8_t  udp_length;
 	uint16_t source_port;
 	uint16_t destination_port;
 	uint16_t length;

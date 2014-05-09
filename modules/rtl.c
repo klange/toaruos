@@ -7,6 +7,11 @@
 #include <ipv4.h>
 #include <mod/shell.h>
 
+#define htonl(l)  ( (((l) & 0xFF) << 24) | (((l) & 0xFF00) << 8) | (((l) & 0xFF0000) >> 8) | (((l) & 0xFF000000) >> 24))
+#define htons(s)  ( (((s) & 0xFF) << 8) | (((s) & 0xFF00) >> 8) )
+#define ntohl(l)  htonl(l)
+#define ntohs(s)  htons(s)
+
 static uint32_t rtl_device_pci = 0x00000000;
 
 static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
@@ -80,11 +85,8 @@ static void rtl_irq_handler(struct regs *r) {
 
 	irq_ack(rtl_irq);
 
-	debug_print(NOTICE, "herp a derp");
-
 	if (status & 0x01 || status & 0x02) {
 		/* Receive */
-		debug_print(NOTICE, "rx response");
 		while((inportb(rtl_iobase + RTL_PORT_CMD) & 0x01) == 0) {
 			int offset = cur_rx % 0x2000;
 
@@ -103,27 +105,17 @@ static void rtl_irq_handler(struct regs *r) {
 			} else {
 				uint8_t * buf_8 = (uint8_t *)&(buf_start[1]);
 				last_packet = buf_8;
-
-
-				debug_print(NOTICE, "Some bytes from this packet: %2x%2x%2x%2x",
-						buf_8[0],
-						buf_8[1],
-						buf_8[2],
-						buf_8[3]);
-
 			}
 
 			cur_rx = (cur_rx + rx_size + 4 + 3) & ~3;
 			outports(rtl_iobase + RTL_PORT_RXPTR, cur_rx - 16);
 		}
-		debug_print(NOTICE, "done processing receive");
 		wakeup_queue(rx_wait);
 	}
 
 	if (status & 0x08 || status & 0x04) {
-		debug_print(NOTICE,"tx response");
 		unsigned int i = inportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * dirty_tx);
-		debug_print(NOTICE, "Other bits: 0x%x; status=0x%x", i, status);
+		(void)i;
 		dirty_tx++;
 		if (dirty_tx == 5) dirty_tx = 0;
 	}
@@ -249,12 +241,42 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Awoken from sleep, checking receive buffer: %2x %2x %2x %2x\n",
 			last_packet[0], last_packet[1], last_packet[2], last_packet[3]);
 
-		/* Okay, going to evaluate some things */
-		fprintf(tty, "DHCP Offer:  %d.%d.%d.%d\n",
-				last_packet[0x3A],
-				last_packet[0x3B],
-				last_packet[0x3C],
-				last_packet[0x3D]);
+		{
+			struct ipv4_packet * ipv4 = (struct ipv4_packet *)&last_packet[0x0E];
+			uint32_t src_addr = ntohl(ipv4->source);
+			uint32_t dst_addr = ntohl(ipv4->destination);
+			uint16_t length   = ntohs(ipv4->length);
+
+			fprintf(tty, "IP packet [%d.%d.%d.%d → %d.%d.%d.%d] length=%d bytes\n",
+					(src_addr & 0xFF000000) >> 24,
+					(src_addr & 0xFF0000) >> 16,
+					(src_addr & 0xFF00) >> 8,
+					(src_addr & 0xFF),
+					(dst_addr & 0xFF000000) >> 24,
+					(dst_addr & 0xFF0000) >> 16,
+					(dst_addr & 0xFF00) >> 8,
+					(dst_addr & 0xFF),
+					length);
+
+			struct udp_packet * udp = (struct udp_packet *)&last_packet[0x22];
+			uint16_t src_port = ntohs(udp->source_port);
+			uint16_t dst_port = ntohs(udp->destination_port);
+			uint16_t udp_len  = ntohs(udp->length);
+
+			fprintf(tty, "UDP [%d → %d] length=%d bytes\n",
+					src_port, dst_port, udp_len);
+		}
+
+		{
+			struct dhcp_packet * dhcp = (struct dhcp_packet *)&last_packet[0x2A];
+			uint32_t yiaddr = ntohl(dhcp->yiaddr);
+
+			fprintf(tty,  "DHCP Offer: %d.%d.%d.%d\n",
+					(yiaddr & 0xFF000000) >> 24,
+					(yiaddr & 0xFF0000) >> 16,
+					(yiaddr & 0xFF00) >> 8,
+					(yiaddr & 0xFF));
+		}
 
 		fprintf(tty, "Sending DNS query...\n");
 		memcpy(rtl_tx_buffer[1], _dns_packet, sizeof(_dns_packet));
@@ -267,53 +289,38 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Awoken from sleep, checking receive buffer: %2x %2x %2x %2x\n",
 			last_packet[0], last_packet[1], last_packet[2], last_packet[3]);
 
+		{
+			struct ipv4_packet * ipv4 = (struct ipv4_packet *)&last_packet[0x0E];
+			uint32_t src_addr = ntohl(ipv4->source);
+			uint32_t dst_addr = ntohl(ipv4->destination);
+			uint16_t length   = ntohs(ipv4->length);
+
+			fprintf(tty, "IP packet [%d.%d.%d.%d → %d.%d.%d.%d] length=%d bytes\n",
+					(src_addr & 0xFF000000) >> 24,
+					(src_addr & 0xFF0000) >> 16,
+					(src_addr & 0xFF00) >> 8,
+					(src_addr & 0xFF),
+					(dst_addr & 0xFF000000) >> 24,
+					(dst_addr & 0xFF0000) >> 16,
+					(dst_addr & 0xFF00) >> 8,
+					(dst_addr & 0xFF),
+					length);
+
+			struct udp_packet * udp = (struct udp_packet *)&last_packet[0x22];
+			uint16_t src_port = ntohs(udp->source_port);
+			uint16_t dst_port = ntohs(udp->destination_port);
+			uint16_t udp_len  = ntohs(udp->length);
+
+			fprintf(tty, "UDP [%d → %d] length=%d bytes\n",
+					src_port, dst_port, udp_len);
+		}
+
+
 		fprintf(tty, "dakko.us. = %d.%d.%d.%d\n",
 				last_packet[0x50],
 				last_packet[0x51],
 				last_packet[0x52],
 				last_packet[0x53]);
-
-#if 0
-		fprintf(tty, "Going to try to force-send a UDP packet...\n");
-		struct ipv4_packet p;
-		p.version_ihl = (4 << 4) & (5 << 0); /* IPv4, no options */
-		p.dscp_ecn = 0; /* nope nope nope */
-		p.length = sizeof(struct ipv4_packet) + sizeof(struct udp_packet) + sizeof(struct dhcp_packet);
-		p.ident = 0;
-		p.flags_fragment = 0;
-		p.ttl = 0xFF;
-		p.protocol = 17;
-		p.checksum = 0; /* calculate this later */
-		p.source = 0x00000000; /* 0.0.0.0 */
-		p.destination = 0xFFFFFFFF; /* 255.255.255.255 */
-
-		uint16_t * packet = (uint16_t *)&p;
-		uint32_t total = 0;
-		for (int i = 0; i < 10; ++i) {
-			total += packet[i];
-			if (total & 0x80000000) {
-				total = (total & 0xFFFF) + (total >> 16);
-			}
-		}
-
-		while (total >> 16) {
-			total = (total & 0xFFFF) + (total >> 16);
-		}
-
-		p.checksum = ~total;
-
-		struct udp_packet u;
-		u.source = p.source;
-		u.destination = p.destination;
-		u.zeroes = 0;
-		u.protocol = p.protocol;
-		u.udp_length = p.length;
-		u.source_port = 68;
-		u.destination_port = 67;
-		u.length = sizeof(struct dhcp_packet);
-		u.checksum = 0;
-#endif
-
 
 	} else {
 		return -1;
