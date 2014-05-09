@@ -1,0 +1,49 @@
+
+# Start qemu
+spawn qemu-system-i386 -kernel toaruos-kernel -m 512 -serial stdio -hda toaruos-disk.img -k en-us -rtc base=localtime -net nic,model=rtl8139 -net user --initrd "hdd/mod/zero.ko,hdd/mod/random.ko,hdd/mod/serial.ko,hdd/mod/procfs.ko,hdd/mod/tmpfs.ko,hdd/mod/ata.ko,hdd/mod/ext2.ko,hdd/mod/debug_shell.ko,hdd/mod/ps2mouse.ko,hdd/mod/ps2kbd.ko,hdd/mod/lfbvideo.ko,hdd/mod/packetfs.ko" -display none -append "start=--vga root=/dev/hda" -no-reboot
+
+set send_slow { 1 0.001 }
+
+expect "toaru-"
+
+sleep 0.1
+
+send -s "shell\n"
+expect "toaru-test"
+
+send -s "export PATH=/bin:/usr/bin\n"
+expect "toaru-test"
+
+send -s "uname -a\n"
+expect "strawberry"
+expect "toaru-test"
+
+send -s "ls /dev\n"
+expect "mouse"
+expect "toaru-test"
+
+send -s "cat /proc/meminfo\n"
+expect "MemTotal"
+expect "toaru-test"
+
+send -s "cd /tmp\n"
+expect "toaru-test"
+
+send -s "test-write test.c \"#include <stdio.h>\nint main(int argc, char * argv[]) {\n    printf(\\\"Hello world!\\n\\\");\n    return 0;\n}\n\"\n"
+expect "wrote 99 bytes"
+expect "toaru-test"
+
+send -s "cat test.c\n"
+expect "Hello"
+expect "toaru-test"
+
+send -s "gcc -o test test.c\n"
+expect "toaru-test"
+
+send -s "./test\n"
+expect "Hello world"
+expect "toaru-test"
+
+# And halt
+send -s "reboot\n"
+expect "eof"
