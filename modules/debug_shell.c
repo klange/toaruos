@@ -605,6 +605,7 @@ static void debug_shell_run(void * data, char * name) {
 	current_process->fds->entries[0] = tty;
 	current_process->fds->entries[1] = tty;
 	current_process->fds->entries[2] = tty;
+	current_process->fds->length = 3;
 
 	debug_shell_actual(tty, name);
 }
