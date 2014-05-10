@@ -9,8 +9,14 @@ DEFINE_SHELL_FUNCTION(crash, "Dereference NULL.") {
 	return 0;
 }
 
+DEFINE_SHELL_FUNCTION(assert_false, "assert(0)") {
+	assert(0);
+	return 0;
+}
+
 static int crash_init(void) {
 	BIND_SHELL_FUNCTION(crash);
+	BIND_SHELL_FUNCTION(assert_false);
 	return 0;
 }
 
