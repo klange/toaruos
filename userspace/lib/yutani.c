@@ -485,6 +485,16 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 	yutani_msg_t * m = yutani_msg_build_window_close(win->wid);
 	int result = yutani_msg_send(y, m);
 	free(m);
+
+	/* Now destroy our end of the window */
+	{
+		char key[1024];
+		YUTANI_SHMKEY_EXP(key, 1024, win->bufid);
+		syscall_shm_release(key);
+	}
+
+	hashmap_remove(y->windows, (void*)win->wid);
+	free(win);
 }
 
 void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y) {

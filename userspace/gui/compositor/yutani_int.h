@@ -125,6 +125,8 @@ typedef struct {
 
 	hashmap_t * key_binds;
 
+	list_t * windows_to_remove;
+
 } yutani_globals_t;
 
 struct key_bind {

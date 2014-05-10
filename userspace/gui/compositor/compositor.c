@@ -559,7 +559,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 		if (frame >= yutani_animation_lengths[window->anim_mode]) {
 			/* XXX handle animation-end things like cleanup of closing windows */
 			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
-				window_actually_close(yg, window);
+				list_insert(yg->windows_to_remove, window);
 				goto draw_finish;
 			}
 			window->anim_mode = 0;
@@ -599,11 +599,6 @@ draw_window:
 		cairo_paint(cr);
 	}
 
-draw_finish:
-
-	/* Clean up */
-	cairo_surface_destroy(surf);
-
 	/* Paint select buffer */
 	cairo_set_operator(cs, CAIRO_OPERATOR_SOURCE);
 	cairo_set_source_rgb(cs,
@@ -614,6 +609,12 @@ draw_finish:
 	cairo_rectangle(cs, 0, 0, window->width, window->height);
 	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
 	cairo_fill(cs);
+
+draw_finish:
+
+	/* Clean up */
+	cairo_surface_destroy(surf);
+
 
 	/* Restore context stack */
 	cairo_restore(cr);
@@ -728,6 +729,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		yutani_set_clip(yg);
 
+		yg->windows_to_remove = list_create();
+
 		/*
 		 * In theory, we should restrict this to windows within the clip region,
 		 * but calculating that may be more trouble than it's worth;
@@ -761,6 +764,15 @@ static void redraw_windows(yutani_globals_t * yg) {
 		cairo_translate(yg->real_ctx, 0, 0);
 		cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
 		cairo_paint(yg->real_ctx);
+
+		while (yg->windows_to_remove->head) {
+			node_t * node = list_pop(yg->windows_to_remove);
+
+			window_actually_close(yg, node->value);
+
+			free(node);
+		}
+		free(yg->windows_to_remove);
 
 	}
 
@@ -1004,6 +1016,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	}
 
 	uint32_t key_code = ((ke->event.modifiers << 24) | (ke->event.keycode));
+	fprintf(stderr, "[yutani-server] Checking binding table for 0x%x\n", key_code);
 	if (hashmap_has(yg->key_binds, (void*)key_code)) {
 		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
 

@@ -36,6 +36,8 @@
 static gfx_context_t * ctx;
 static yutani_t * yctx;
 static yutani_window_t * panel;
+static gfx_context_t * actx;
+static yutani_window_t * alttab;
 static list_t * window_list = NULL;
 static volatile int lock = 0;
 static volatile int drawlock = 0;
@@ -51,6 +53,11 @@ static int height;
 static sprite_t * sprite_panel;
 static sprite_t * sprite_logout;
 
+#define ALTTAB_WIDTH  250
+#define ALTTAB_HEIGHT 70
+#define ALTTAB_BACKGROUND premultiply(rgba(0,0,0,150))
+#define ALTTAB_OFFSET 10
+
 static int center_x(int x) {
 	return (width - x) / 2;
 }
@@ -59,15 +66,17 @@ static int center_y(int y) {
 	return (height - y) / 2;
 }
 
+static int center_x_a(int x) {
+	return (ALTTAB_WIDTH - x) / 2;
+}
+
+static int center_y_a(int y) {
+	return (ALTTAB_HEIGHT - y) / 2;
+}
+
 static void redraw(void);
 
 static volatile int _continue = 1;
-
-/* XXX Stores some quick access information about the window list */
-static int icon_lefts[20] = {0};
-static int icon_wids[20] = {0};
-static int focused_app = -1;
-static int active_window = -1;
 
 struct window_ad {
 	yutani_wid_t wid;
@@ -76,6 +85,19 @@ struct window_ad {
 	char * icon;
 	char * strings;
 };
+
+/* XXX Stores some quick access information about the window list */
+static int icon_lefts[20] = {0};
+static int icon_wids[20] = {0};
+static int focused_app = -1;
+
+static int wids_by_z[20] = {0};
+static int active_window = -1;
+static int was_tabbing = 0;
+static int new_focused = -1;
+static struct window_ad * ads_by_z[20] = {NULL};
+
+static sprite_t * icon_get(char * name);
 
 /* Handle SIGINT by telling other threads (clock) to shut down */
 static void sig_int(int sig) {
@@ -138,6 +160,33 @@ static void launch_application(char * app) {
 	}
 }
 
+static void redraw_alttab(void) {
+	/* Draw the background, right now just a dark semi-transparent box */
+	draw_fill(actx, ALTTAB_BACKGROUND);
+
+	if (ads_by_z[new_focused]) {
+		struct window_ad * ad = ads_by_z[new_focused];
+
+		sprite_t * icon = icon_get(ad->icon);
+
+		/* Draw it, scaled if necessary */
+		if (icon->width == 24) {
+			draw_sprite(actx, icon, center_x_a(24), ALTTAB_OFFSET);
+		} else {
+			draw_sprite_scaled(actx, icon, center_x_a(24), ALTTAB_OFFSET, 24, 24);
+		}
+
+		set_font_face(FONT_SANS_SERIF_BOLD);
+		set_font_size(14);
+		int t = draw_string_width(ad->name);
+
+		draw_string(actx, center_x_a(t), 24+ALTTAB_OFFSET+16, rgb(255,255,255), ad->name);
+	}
+
+	flip(actx);
+	yutani_flip(yctx, alttab);
+}
+
 static void handle_key_event(struct yutani_msg_key_event * ke) {
 	if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 		(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
@@ -147,28 +196,58 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		launch_application("terminal");
 	}
 
+	if ((was_tabbing) && (ke->event.keycode == 0) &&
+		(ke->event.modifiers == 0) && (ke->event.action == KEY_ACTION_UP)) {
+
+		fprintf(stderr, "[panel] Stopping focus new_focused = %d\n", new_focused);
+
+		yutani_focus_window(yctx, wids_by_z[new_focused]);
+		was_tabbing = 0;
+		new_focused = -1;
+
+		free(actx->backbuffer);
+		free(actx);
+
+		yutani_close(yctx, alttab);
+
+		return;
+	}
+
 	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 		(ke->event.keycode == '\t') &&
 		(ke->event.action == KEY_ACTION_DOWN)) {
 
-		int direction = (ke->event.modifiers & KEY_MOD_LEFT_SHIFT) ? -1 : 1;
+		int direction = (ke->event.modifiers & KEY_MOD_LEFT_SHIFT) ? 1 : -1;
 
-		int new_focused = active_window + direction;
+		if (was_tabbing) {
+			new_focused = new_focused + direction;
+		} else {
+			new_focused = active_window + direction;
+			/* Create tab window */
+			alttab = yutani_window_create(yctx, ALTTAB_WIDTH, ALTTAB_HEIGHT);
+
+			/* And move it to the top layer */
+			yutani_window_move(yctx, alttab, center_x(ALTTAB_WIDTH), center_y(ALTTAB_HEIGHT));
+
+			/* Initialize graphics context against the window */
+			actx = init_graphics_yutani_double_buffer(alttab);
+		}
+
 		if (new_focused < 0) {
 			new_focused = 0;
 			for (int i = 0; i < 18; i++) {
-				if (icon_wids[i+1] == 0) {
+				if (wids_by_z[i+1] == 0) {
 					new_focused = i;
 					break;
 				}
 			}
-		}
-		if (icon_wids[new_focused] == 0) {
+		} else if (wids_by_z[new_focused] == 0) {
 			new_focused = 0;
 		}
 
-		yutani_focus_window(yctx, icon_wids[new_focused]);
+		was_tabbing = 1;
 
+		redraw_alttab();
 	}
 
 }
@@ -346,6 +425,7 @@ static void update_window_list(void) {
 
 	list_t * new_window_list = list_create();
 
+	int i = 0;
 	while (1) {
 		/* We wait for a series of WINDOW_ADVERTISE messsages */
 		yutani_msg_t * m = yutani_wait_for(yctx, YUTANI_MSG_WINDOW_ADVERTISE);
@@ -368,6 +448,12 @@ static void update_window_list(void) {
 		ad->flags = wa->flags;
 		ad->wid = wa->wid;
 
+		wids_by_z[i] = ad->wid;
+		ads_by_z[i] = ad;
+		i++;
+		wids_by_z[i] = 0;
+		ads_by_z[i] = NULL;
+
 		node_t * next = NULL;
 
 		/* And insert it, ordered by wid, into the window list */
@@ -387,9 +473,9 @@ static void update_window_list(void) {
 		}
 		free(m);
 	}
+	active_window = i-1;
 
-	int i = 0;
-	int new_active_window = 0;
+	i = 0;
 	/*
 	 * Update each of the wid entries in our array so we can map
 	 * clicks to window focus events for each window
@@ -399,13 +485,9 @@ static void update_window_list(void) {
 		if (i < 19) {
 			icon_wids[i] = ad->wid;
 			icon_wids[i+1] = 0;
-			if (ad->flags & 1) {
-				new_active_window = i;
-			}
 		}
 		i++;
 	}
-	active_window = new_active_window;
 
 	/* Then free up the old list and replace it with the new list */
 	spin_lock(&lock);
@@ -524,6 +606,9 @@ int main (int argc, char ** argv) {
 	/* Alt+Tab */
 	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT | KEY_MOD_LEFT_SHIFT, YUTANI_BIND_STEAL);
+
+	/* This lets us receive all just-modifier key releases */
+	yutani_key_bind(yctx, 0, 0, YUTANI_BIND_PASSTHROUGH);
 
 	while (_continue) {
 		/* Respond to Yutani events */
