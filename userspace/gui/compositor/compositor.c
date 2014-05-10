@@ -1016,7 +1016,6 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	}
 
 	uint32_t key_code = ((ke->event.modifiers << 24) | (ke->event.keycode));
-	fprintf(stderr, "[yutani-server] Checking binding table for 0x%x\n", key_code);
 	if (hashmap_has(yg->key_binds, (void*)key_code)) {
 		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
 
