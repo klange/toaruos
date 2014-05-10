@@ -110,8 +110,8 @@ static void display_flip(void) {
 	if (l_x != INT32_MAX && l_y != INT32_MAX) {
 		yutani_flip_region(yctx, window, l_x, l_y, r_x - l_x, r_y - l_y);
 		l_x = INT32_MAX;
-		r_x = INT32_MAX;
-		l_y = -1;
+		l_y = INT32_MAX;
+		r_x = -1;
 		r_y = -1;
 	}
 }
@@ -133,12 +133,12 @@ static void spin_unlock(int volatile * lock) {
 }
 
 /* Returns the lower of two shorts */
-uint16_t min(uint16_t a, uint16_t b) {
+int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
 }
 
 /* Returns the higher of two shorts */
-uint16_t max(uint16_t a, uint16_t b) {
+int32_t max(int32_t a, int32_t b) {
 	return (a > b) ? a : b;
 }
 
@@ -368,17 +368,29 @@ _extra_stuff:
 		}
 	}
 
-	l_x = min(l_x, x);
-	l_y = min(l_y, y);
+	if (!_fullscreen) {
+		l_x = min(l_x, decor_left_width + x);
+		l_y = min(l_y, decor_top_height + y);
 
-	if (flags & ANSI_WIDE) {
-		r_x = max(r_x, x + char_width * 2);
-		r_y = max(r_y, y + char_height * 2);
+		if (flags & ANSI_WIDE) {
+			r_x = max(r_x, decor_left_width + x + char_width * 2);
+			r_y = max(r_y, decor_top_height + y + char_height * 2);
+		} else {
+			r_x = max(r_x, decor_left_width + x + char_width);
+			r_y = max(r_y, decor_top_height + y + char_height);
+		}
 	} else {
-		r_x = max(r_x, x + char_width);
-		r_y = max(r_y, y + char_height);
-	}
+		l_x = min(l_x, x);
+		l_y = min(l_y, y);
 
+		if (flags & ANSI_WIDE) {
+			r_x = max(r_x, x + char_width * 2);
+			r_y = max(r_y, y + char_height * 2);
+		} else {
+			r_x = max(r_x, x + char_width);
+			r_y = max(r_y, y + char_height);
+		}
+	}
 }
 
 static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
