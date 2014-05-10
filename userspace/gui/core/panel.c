@@ -67,6 +67,7 @@ static volatile int _continue = 1;
 static int icon_lefts[20] = {0};
 static int icon_wids[20] = {0};
 static int focused_app = -1;
+static int active_window = -1;
 
 struct window_ad {
 	yutani_wid_t wid;
@@ -127,6 +128,49 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 		/* Mouse left panel window */
 		set_focused(-1);
 	}
+}
+
+static void launch_application(char * app) {
+	if (!fork()) {
+		char * args[] = {app, NULL};
+		execvp(args[0], args);
+		exit(1);
+	}
+}
+
+static void handle_key_event(struct yutani_msg_key_event * ke) {
+	if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+		(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+		(ke->event.keycode == 't') &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+
+		launch_application("terminal");
+	}
+
+	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+		(ke->event.keycode == '\t') &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+
+		int direction = (ke->event.modifiers & KEY_MOD_LEFT_SHIFT) ? -1 : 1;
+
+		int new_focused = active_window + direction;
+		if (new_focused < 0) {
+			new_focused = 0;
+			for (int i = 0; i < 18; i++) {
+				if (icon_wids[i+1] == 0) {
+					new_focused = i;
+					break;
+				}
+			}
+		}
+		if (icon_wids[new_focused] == 0) {
+			new_focused = 0;
+		}
+
+		yutani_focus_window(yctx, icon_wids[new_focused]);
+
+	}
+
 }
 
 /* Default search paths for icons, in order of preference */
@@ -345,6 +389,7 @@ static void update_window_list(void) {
 	}
 
 	int i = 0;
+	int new_active_window = 0;
 	/*
 	 * Update each of the wid entries in our array so we can map
 	 * clicks to window focus events for each window
@@ -354,9 +399,13 @@ static void update_window_list(void) {
 		if (i < 19) {
 			icon_wids[i] = ad->wid;
 			icon_wids[i+1] = 0;
+			if (ad->flags & 1) {
+				new_active_window = i;
+			}
 		}
 		i++;
 	}
+	active_window = new_active_window;
 
 	/* Then free up the old list and replace it with the new list */
 	spin_lock(&lock);
@@ -467,6 +516,15 @@ int main (int argc, char ** argv) {
 	/* Ask compositor for window list */
 	update_window_list();
 
+	/* Key bindings */
+
+	/* Launch terminal */
+	yutani_key_bind(yctx, 't', KEY_MOD_LEFT_CTRL | KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
+	/* Alt+Tab */
+	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT | KEY_MOD_LEFT_SHIFT, YUTANI_BIND_STEAL);
+
 	while (_continue) {
 		/* Respond to Yutani events */
 		yutani_msg_t * m = yutani_poll(yctx);
@@ -479,6 +537,9 @@ int main (int argc, char ** argv) {
 				/* Mouse movement / click */
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					panel_check_click((struct yutani_msg_window_mouse_event *)m->data);
+					break;
+				case YUTANI_MSG_KEY_EVENT:
+					handle_key_event((struct yutani_msg_key_event *)m->data);
 					break;
 				default:
 					break;

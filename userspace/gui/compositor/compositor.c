@@ -1001,15 +1001,45 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			}
 
 		}
+	}
 
+	uint32_t key_code = ((ke->event.modifiers << 24) | (ke->event.keycode));
+	if (hashmap_has(yg->key_binds, (void*)key_code)) {
+		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
+
+		yutani_msg_t * response = yutani_msg_build_key_event(focused ? focused->wid : -1, &ke->event, &ke->state);
+		pex_send(yg->server, bind->owner, response->size, (char *)response);
+		free(response);
+
+		if (bind->response == YUTANI_BIND_STEAL) {
+			return;
+		}
+	}
+
+	if (focused) {
 
 		yutani_msg_t * response = yutani_msg_build_key_event(focused->wid, &ke->event, &ke->state);
 		pex_send(yg->server, focused->owner, response->size, (char *)response);
 		free(response);
 
 	}
+}
 
-	/* Other events? */
+static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req, unsigned int owner) {
+	uint32_t key_code = (((uint8_t)req->modifiers << 24) | ((uint32_t)req->key & 0xFFFFFF));
+	struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
+
+	if (!bind) {
+		bind = malloc(sizeof(struct key_bind));
+
+		bind->owner = owner;
+		bind->response = req->response;
+
+		hashmap_set(yg->key_binds, (void*)key_code, bind);
+	} else {
+		bind->owner = owner;
+		bind->response = req->response;
+	}
 }
 
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
@@ -1223,6 +1253,7 @@ int main(int argc, char * argv[]) {
 
 	yg->windows = list_create();
 	yg->wids_to_windows = hashmap_create_int(10);
+	yg->key_binds = hashmap_create_int(10);
 
 	yg->window_subscribers = list_create();
 
@@ -1456,6 +1487,12 @@ int main(int argc, char * argv[]) {
 					if (w) {
 						set_focused_window(yg, w);
 					}
+				}
+				break;
+			case YUTANI_MSG_KEY_BIND:
+				{
+					struct yutani_msg_key_bind * wa = (void *)m->data;
+					add_key_bind(yg, wa, p->source);
 				}
 				break;
 			default:

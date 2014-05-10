@@ -124,6 +124,12 @@ struct yutani_msg_window_focus {
 	yutani_wid_t wid;
 };
 
+struct yutani_msg_key_bind {
+	kbd_key_t key;
+	kbd_mod_t modifiers;
+	int response;
+};
+
 typedef struct yutani_window {
 	yutani_wid_t wid;
 
@@ -172,6 +178,8 @@ typedef struct yutani_window {
 
 #define YUTANI_MSG_SESSION_END         0x00000030
 
+#define YUTANI_MSG_KEY_BIND            0x00000040
+
 #define YUTANI_MSG_GOODBYE             0x000000F0
 
 /* Server responses */
@@ -198,6 +206,9 @@ typedef struct yutani_window {
 #define YUTANI_MOUSE_EVENT_MOVE  4
 #define YUTANI_MOUSE_EVENT_LEAVE 5
 #define YUTANI_MOUSE_EVENT_ENTER 6
+
+#define YUTANI_BIND_PASSTHROUGH 0
+#define YUTANI_BIND_STEAL       1
 
 typedef struct {
 	int x;
@@ -230,6 +241,7 @@ yutani_msg_t * yutani_msg_build_query(void);
 yutani_msg_t * yutani_msg_build_notify(void);
 yutani_msg_t * yutani_msg_build_session_end(void);
 yutani_msg_t * yutani_msg_build_window_focus(yutani_wid_t wid);
+yutani_msg_t * yutani_msg_build_key_bind(kbd_key_t key, kbd_mod_t mod, int response);
 
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
@@ -252,6 +264,7 @@ void yutani_unsubscribe_windows(yutani_t * y);
 void yutani_query_windows(yutani_t * y);
 void yutani_session_end(yutani_t * y);
 void yutani_focus_window(yutani_t * y, yutani_wid_t wid);
+void yutani_key_bind(yutani_t * yctx, kbd_key_t key, kbd_mod_t mod, int response);
 
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);

@@ -123,7 +123,14 @@ typedef struct {
 
 	yutani_server_window_t * old_hover_window;
 
+	hashmap_t * key_binds;
+
 } yutani_globals_t;
+
+struct key_bind {
+	unsigned int owner;
+	int response;
+};
 
 static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window);
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w);

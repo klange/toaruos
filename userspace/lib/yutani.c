@@ -388,6 +388,23 @@ yutani_msg_t * yutani_msg_build_window_focus(yutani_wid_t wid) {
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_key_bind(kbd_key_t key, kbd_mod_t mod, int response) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_key_bind);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_KEY_BIND;
+	msg->size  = s;
+
+	struct yutani_msg_key_bind * mw = (void *)msg->data;
+
+	mw->key = key;
+	mw->modifiers = mod;
+	mw->response = response;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -617,6 +634,12 @@ void yutani_session_end(yutani_t * y) {
 
 void yutani_focus_window(yutani_t * yctx, yutani_wid_t wid) {
 	yutani_msg_t * m = yutani_msg_build_window_focus(wid);
+	int result = yutani_msg_send(yctx, m);
+	free(m);
+}
+
+void yutani_key_bind(yutani_t * yctx, kbd_key_t key, kbd_mod_t mod, int response) {
+	yutani_msg_t * m = yutani_msg_build_key_bind(key,mod,response);
 	int result = yutani_msg_send(yctx, m);
 	free(m);
 }
