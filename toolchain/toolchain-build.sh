@@ -8,6 +8,7 @@ while test $# -gt 0; do
     case "$1" in
         -q|--quick)
             INSTALL_PACKAGES=false
+            break
             ;;
         *)
             break
