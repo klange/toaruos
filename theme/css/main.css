@@ -1,0 +1,311 @@
+/*
+Colors :
+- #40403F
+- #4D4D4C
+- #7F7F7E
+- #E5E5E3
+- #F0F0F0
+*/
+
+/* Imports */
+
+@import url("pygment.css");
+
+
+/* Latout */
+
+article,
+figcaption,
+figure,
+footer,
+header,
+nav,
+section,
+time {
+  display: block;
+}
+
+html {
+  font-size: 100%;
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  line-height: 150%;
+  text-align: left;
+  color: #4D4D4C;
+  padding: 0;
+  min-width: 740px;
+}
+
+header {
+  background-color: #40403F;
+  height: 50px;
+  line-height: 50px;
+  padding: 0 1em;
+}
+
+.wrapper {
+  display: table;
+  width: 100%;
+}
+
+.content {
+  display: table-cell;
+  border-left: 1px solid #d6d6d6;
+  border-right: 1px dotted #D6D6D6;
+  padding: 0 20px 1em 20px;
+}
+
+.sidebar {
+  display: table-cell;
+  width: 25%;
+  border-right: 1px solid #d6d6d6;
+  padding: 0 20px 1em 20px;
+}
+
+footer {
+  border-top: 1px dotted #D6D6D6;
+  line-height: 30px;
+  padding: 0 1em;
+  font-size: 0.8em;
+}
+
+
+/* Header */
+
+header a {
+  color: #E5E5E3;
+  border-bottom: none;
+}
+
+header a.title {
+  font-size: 1.25em;
+}
+
+header .feeds {
+  float: right;
+  text-align: right;
+  width: 25%;
+  height: 41px;
+  padding-top: 9px;
+}
+
+header .feeds a {
+  display: block;
+  float: right;
+  padding-right: 5px;
+  width: 40px;
+}
+
+header .feeds a:hover,
+header .feeds a:active {
+  border-bottom: none;
+}
+
+header .pages {
+  float: right;
+}
+
+header .pages a {
+  font-size: 1.1em;
+}
+
+
+/* Sidebar */
+
+
+/* Titles */
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Source Sans Pro",sans-serif;
+    font-weight: 400;
+    text-shadow: 0.1em 0.1em 0.1em #EFEFEF;
+    line-height: 125%;
+}
+
+h1 {
+  font-size: 2em;
+  margin: 0.67em 0;
+  padding: 0.7em 0 0.3em;
+}
+
+h1 a {
+  color: inherit;
+  border-bottom: none;
+}
+
+
+/* Texts */
+
+p {
+  margin: 0.8em 0 0.5em;
+}
+
+a {
+  text-decoration: none;
+  border-bottom: 1px dotted #4D4D4C;
+  color: #4D4D4C;
+}
+
+a:hover, a:active {
+  text-decoration: none;
+  border-bottom: 1px dotted #4271AE;
+  color: #4271AE;
+}
+
+.literal {
+  font-size: 0.9em;
+  border: 1px solid #F0F0F0;
+  padding: 0px 5px;
+}
+
+pre {
+  font-family: 'Source Code Pro',monospace;
+  background: none repeat scroll 0 0 #F0F0F0;
+  border-radius: 2px;
+  font-size: 0.9em;
+  font-style: normal;
+  letter-spacing: 0.015em;
+  line-height: 130%;
+  padding: 0.7em;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+hr {
+  margin: 40px 5% 60px 5%;
+  color: #d6d6d6;
+  box-shadow: 0.1em 0.1em 0.1em #EFEFEF;
+  border-radius: 5px;
+}
+
+
+/* Article */
+
+article.summary {
+  margin-bottom: 40px;
+  clear: both;
+}
+
+article.summary > div {
+  margin-left: 28%;
+}
+
+article.full .metadata,
+article.summary .metadata {
+  padding: 1%;  
+  border: 1px dotted #EFEFEF;
+  box-shadow: 0.1em 0.1em 0.1em #EFEFEF;
+  font-style: italic;
+}
+
+article.full .metadata {
+  width: 25%;
+  float: right;
+  margin: 0 0 2% 1%;
+}
+
+article.summary .metadata {
+  width: 23%;
+  float: left;
+  margin: 0 1% 2% 0 ;
+}
+
+.metadata p {
+  margin: 0;
+}
+
+/* Listings */
+
+ol.archive li {
+  margin: 8px 0;
+}
+
+ol.archive li time,
+ol.archive li .tags
+ {
+  line-height: 140%;
+  font-size: 0.8em;
+  margin: 0;
+}
+
+
+/* Social */
+
+.social {
+  list-style-type: none;
+  padding-left: 20px;
+}
+
+.social li {
+  clear: both;
+}
+
+.social a {}
+
+.social i { 
+  float: left;
+  margin-right: 3px;
+  padding-top: 4px;
+}
+.social a[href*='twitter.com'] + i:before {content: url('../images/icons/twitter-18px.png'); }
+.social a[href*='linkedin.com'] + i:before {content: url('../images/icons/linkedin-18px.png'); }
+.social a[href*='github.com'] + i:before {content: url('../images/icons/github-18px.png'); }
+.social a[href*='google.com'] + i:before {content: url('../images/icons/google-18px.png'); }
+.social a[href*='delicious.com']:before {content: url('../images/icons/delicious-18px.png'); }
+.social a[href*='digg.com']:before {content: url('../images/icons/digg-18px.png'); }
+.social a[href*='facebook.com']:before {content: url('../images/icons/facebook-18px.png'); }
+.social a[href*='stackoverflow.com']:before {content: url('../images/icons/stackoverfow-18px.png'); }
+.social a[href*='rss.xml']:before {content: url('../images/icons/feed-18px.png'); }
+.social a[href*='atom.xml']:before {content: url('../images/icons/feed-18px.png'); }
+
+
+/* Tag cloud */
+
+ul.tagcloud {
+  list-style: none;
+  padding: 0;
+  width: 50%;
+  margin: 0 auto;
+  line-height: 200%;
+}
+
+ul.tagcloud li {
+    display: inline-block;
+}
+
+li.tag-1 { font-size: 175%; margin: 0 1em; }
+li.tag-2 { font-size: 150%; margin: 0 1em; }
+li.tag-3 { font-size: 125%; margin: 0 1em; }
+li.tag-4 { font-size: 110%; margin: 0 1em; }
+
+/* Pagination */
+
+.pagination {
+  width: 100px;
+  margin: 1em auto;
+}
+
+/* Responsive */
+
+@media (min-width: 1280px) {
+  body {
+    margin: 0 16%;
+  }
+}
+
+@media (max-width: 1280px) {
+  body {
+    margin: 0 12%;
+  }
+}
+
+@media (max-width: 979px) {
+  body {
+    margin: 0 4%;
+  }
+}
+
