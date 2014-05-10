@@ -32,6 +32,10 @@ void assert_failed(const char *file, uint32_t line, const char *desc) {
 	debug_print(INSANE, "Line: %d", line);
 	debug_print(INSANE, "System Halted!");
 
+	if (debug_video_crash) {
+		debug_video_crash("Kernel assertion failed.");
+	}
+
 	while (1) {
 		IRQ_OFF;
 		PAUSE;

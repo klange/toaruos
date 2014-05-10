@@ -61,6 +61,32 @@ static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 	}
 }
 
+#define _RED(color) ((color & 0x00FF0000) / 0x10000)
+#define _GRE(color) ((color & 0x0000FF00) / 0x100)
+#define _BLU(color) ((color & 0x000000FF) / 0x1)
+#define _ALP(color) ((color & 0xFF000000) / 0x1000000)
+static void lfb_video_panic(char * panic_message) {
+	/* Desaturate the display */
+	uint32_t * disp = (uint32_t *)lfb_vid_memory;
+	for (int y = 0; y < lfb_resolution_y; y++) {
+		for (int x = 0; x < lfb_resolution_x; x++) {
+			uint32_t * cell = &disp[y * lfb_resolution_x + x];
+
+			int r = _RED(*cell);
+			int g = _GRE(*cell);
+			int b = _BLU(*cell);
+
+			int l = 30 * r + 60 * g + 10 * b;
+			r = (l - r) / 100;
+			g = (l - g) / 100;
+			b = (l - b) / 100;
+
+			*cell = 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
+		}
+	}
+
+}
+
 static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -77,6 +103,7 @@ static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
 	lfb_resolution_b = b;
 	fs_node_t * fb_device = lfb_video_device_create();
 	vfs_mount("/dev/fb0", fb_device);
+	debug_video_crash = lfb_video_panic;
 }
 
 /* Bochs support {{{ */
