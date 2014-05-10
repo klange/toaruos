@@ -9,7 +9,7 @@ pushd build
         mkdir binutils
     fi
     pushd binutils
-        $DIR/tarballs/binutils-2.22/configure --target=$TARGET --prefix=$PREFIX || bail
+        $DIR/tarballs/binutils-2.22/configure --target=$TARGET --prefix=$PREFIX --disable-werror || bail
         make || bail
         make install || bail
     popd
