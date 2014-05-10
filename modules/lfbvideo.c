@@ -61,6 +61,16 @@ static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 	}
 }
 
+static int vignette_at(int x, int y) {
+	int amount = 0;
+	int level = 100;
+	if (x < level) amount += (level - x);
+	if (x > lfb_resolution_x - level) amount += (level - (lfb_resolution_x - x));
+	if (y < level) amount += (level - y);
+	if (y > lfb_resolution_y - level) amount += (level - (lfb_resolution_y - y));
+	return amount;
+}
+
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
 #define _GRE(color) ((color & 0x0000FF00) / 0x100)
 #define _BLU(color) ((color & 0x000000FF) / 0x1)
@@ -76,12 +86,21 @@ static void lfb_video_panic(char * panic_message) {
 			int g = _GRE(*cell);
 			int b = _BLU(*cell);
 
-			int l = 30 * r + 60 * g + 10 * b;
-			r = (l - r) / 100;
-			g = (l - g) / 100;
-			b = (l - b) / 100;
+			int l = 3 * r + 6 * g + 1 * b;
+			r = (l) / 10;
+			g = (l) / 10;
+			b = (l) / 10;
 
-			*cell = 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
+			r = r > 255 ? 255 : r;
+			g = g > 255 ? 255 : g;
+			b = b > 255 ? 255 : b;
+
+			int amount = vignette_at(x,y);
+			r = (r - amount < 0) ? 0 : r - amount;
+			g = (g - amount < 0) ? 0 : g - amount;
+			b = (b - amount < 0) ? 0 : b - amount;
+
+			*cell = 0xFF000000 + ((0xFF & r) * 0x10000) + ((0xFF & g) * 0x100) + ((0xFF & b) * 0x1); 
 		}
 	}
 
