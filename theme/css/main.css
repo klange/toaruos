@@ -218,6 +218,17 @@ article.summary .metadata {
   margin: 0;
 }
 
+article img {
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  border-radius: 10px;
+  border: solid 1px rgba(150, 150, 150, 1);
+  padding: 5px;
+  box-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+}
+
 /* Listings */
 
 ol.archive li {

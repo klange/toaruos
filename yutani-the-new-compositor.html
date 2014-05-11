@@ -2,9 +2,12 @@
 <html lang="">	
 <head>
 	<meta charset="utf-8"/>
-	<title>とあるOS</title>	
+	<title>Yutani: The new compositor - とあるOS</title>	
 	<meta name="author" content="Kevin Lange">
 	
+
+	<meta name="description" content="Overview of the development of Yutani, とあるOS's new compositor.">
+
 
 	<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
 	<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
@@ -30,12 +33,18 @@
 	  <div class="wrapper">
 
 		  <div role="main" class="content">
-
-
-
-      <article>
-        <h1><a href="http://toaruos.org/yutani-the-new-compositor.html">Yutani: The new compositor</a></h1>
-        <p>In developing とあるOS, I've had a consistent focus on UI. Since early 2012, the OS has had a compositing window server, which was hacked together in roughly a week for a hackathon and presented at UIUC's Engineering Open House. Over the past two years, a number of improvements have been made to the compositor, including a rewrite of the graphics layer to use Cairo and the addition of animations. All the while, the compositor suffered from some major preformance issues, partly due to the overall design of the protocol, but mostly due to inabilities of the underlying kernel. Replacing the compositor with a new one, built from scratch with a well-designed API and a focus on performance had been an idea I had floating around in the back of my mind for quite a while, but it was not until April that I finally moved forward in implementing it.</p>
+	<article class="full">
+			
+		<h1>Yutani: The new compositor</h1>
+		
+<div class="metadata">
+  <time datetime="2014-05-10T16:45:00" pubdate>Sat 10 May 2014</time>
+    <address class="vcard author">
+      by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
+    </address>
+  in <a href="http://toaruos.org/category/misc.html">misc</a>
+<p class="tags">tagged <a href="http://toaruos.org/tag/yutani.html">yutani</a>, <a href="http://toaruos.org/tag/gui.html">gui</a></p></div>		
+		<p>In developing とあるOS, I've had a consistent focus on UI. Since early 2012, the OS has had a compositing window server, which was hacked together in roughly a week for a hackathon and presented at UIUC's Engineering Open House. Over the past two years, a number of improvements have been made to the compositor, including a rewrite of the graphics layer to use Cairo and the addition of animations. All the while, the compositor suffered from some major preformance issues, partly due to the overall design of the protocol, but mostly due to inabilities of the underlying kernel. Replacing the compositor with a new one, built from scratch with a well-designed API and a focus on performance had been an idea I had floating around in the back of my mind for quite a while, but it was not until April that I finally moved forward in implementing it.</p>
 <p>For those unfamiliar, とあるOS looked something like this in March:</p>
 <p><a href="http://i.imgur.com/CsFIScB.png"><img alt="Screenshot circa March 2014" src="http://i.imgur.com/CsFIScB.png" /></a></p>
 <p>Make note of the framerate the gears application is running at. I believe the last screenshot I have of the old compositor is most likely this one from April 1st:</p>
@@ -62,30 +71,15 @@
 <p>The newest feature added to Yutani is support for global key bindings. An app, such as the panel, can request to steal or intercept specific key sequences, which allows for global bindings like Ctrl+Alt+T to open a terminal. This was further extended to support having the terminal manage Alt+Tab to switch windows.</p>
 <p><a href="https://www.youtube.com/watch?v=Ez8e1CIC1W4"><img alt="Alt-Tab capture from YouTube video" src="http://i.imgur.com/E40lAjr.png" /></a></p>
 <p><em>(That last screenshot links to a video of Alt-Tab in action.)</em></p>
-<p>There's still a lot of things that can be added to Yutani. For now, I'm going to take a break from UI improvements to work on something a bit more useful: a network stack.</p>
-      </article>
+<p>There's still a lot of things that can be added to Yutani. For now, I'm going to take a break from UI improvements to work on something a bit more useful: a network stack.</p>	
 
-      <hr />
+	</article>
 
-        <div>
-          <h3>Last posts</h3>
-          <ol class="archive">
-    
+    <p>
+	<a href="https://twitter.com/share" class="twitter-share-button" data-via="" data-lang="en" data-size="large" data-related="">Tweet</a>
+	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+	</p>
 
-
-      <li>
-<a href="http://toaruos.org/hello-world-again.html" rel="bookmark" title="Permalink to Hello World (Again)">Hello World (Again)</a>
-  <time datetime="2014-05-10T00:08:00" pubdate>Sat 10 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/test-post-please-ignore.html" rel="bookmark" title="Permalink to Test Post Please Ignore">Test Post Please Ignore</a>
-  <time datetime="2014-05-09T23:50:00" pubdate>Fri 09 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-          </ol>
-        </div>
 
 		  </div>	
 		  
@@ -94,7 +88,7 @@
 	        <nav>
 	          <h2>Categories</h2>
 	          <ul>
-	              <li ><a href="http://toaruos.org/category/misc.html">misc</a></li>
+	              <li class="active"><a href="http://toaruos.org/category/misc.html">misc</a></li>
 	          </ul>
 	        </nav>
 
