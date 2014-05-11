@@ -187,6 +187,11 @@ uint32_t first_frame(void) {
 
 	debug_print(CRITICAL, "System claims to be out of usable memory, which means we probably overwrote the page frames.\033[0m");
 
+	if (debug_video_crash) {
+		char * msgs[] = {"Out of memory.", NULL};
+		debug_video_crash(msgs);
+	}
+
 #if 0
 	signal_t * sig = malloc(sizeof(signal_t));
 	sig->handler = current_process->signals.functions[SIGSEGV];
