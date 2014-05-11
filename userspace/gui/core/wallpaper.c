@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <math.h>
+#include <sys/wait.h>
 
 #include "lib/yutani.h"
 #include "lib/graphics.h"
@@ -211,6 +212,7 @@ int main (int argc, char ** argv) {
 
 	while (_continue) {
 		yutani_msg_t * m = yutani_poll(yctx);
+		waitpid(-1, NULL, WNOHANG);
 		if (m) {
 			switch (m->type) {
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:

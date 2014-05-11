@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
+#include <sys/wait.h>
 
 /* TODO: Move all of the configurable rendering
  * parameters up here */
@@ -515,6 +516,7 @@ static void * clock_thread(void * garbage) {
 	 * so we can't just bail out of a yutani poll and redraw...
 	 */
 	while (_continue) {
+		waitpid(-1, NULL, WNOHANG);
 		redraw();
 		usleep(500000);
 	}
