@@ -15,7 +15,7 @@
 log_type_t debug_level = NOTICE;
 void * debug_file = NULL;
 void (*debug_hook)(void *, char *) = NULL;
-void (*debug_video_crash)(char *) = NULL;
+void (*debug_video_crash)(char **) = NULL;
 
 static char * c_messages[] = {
 	" \033[1;34mINFO\033[0m:",

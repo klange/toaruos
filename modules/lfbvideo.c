@@ -15,6 +15,8 @@
 #include <module.h>
 #include <video.h>
 
+#include "../userspace/gui/terminal/terminal-font.h"
+
 #define PREFERRED_VY 4096
 #define PREFERRED_B 32
 /* Generic (pre-set, 32-bit, linear frame buffer) */
@@ -71,11 +73,34 @@ static int vignette_at(int x, int y) {
 	return amount;
 }
 
+#define char_height 12
+#define char_width  8
+
+static void set_point(int x, int y, uint32_t value) {
+	uint32_t * disp = (uint32_t *)lfb_vid_memory;
+	uint32_t * cell = &disp[y * lfb_resolution_x + x];
+	*cell = value;
+}
+
+static void write_char(int x, int y, int val, uint32_t color) {
+	if (val > 128) {
+		val = 4;
+	}
+	uint8_t * c = number_font[val];
+	for (uint8_t i = 0; i < char_height; ++i) {
+		for (uint8_t j = 0; j < char_width; ++j) {
+			if (c[i] & (1 << (8-j))) {
+				set_point(x+j,y+i,color);
+			}
+		}
+	}
+}
+
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
 #define _GRE(color) ((color & 0x0000FF00) / 0x100)
 #define _BLU(color) ((color & 0x000000FF) / 0x1)
 #define _ALP(color) ((color & 0xFF000000) / 0x1000000)
-static void lfb_video_panic(char * panic_message) {
+static void lfb_video_panic(char ** msgs) {
 	/* Desaturate the display */
 	uint32_t * disp = (uint32_t *)lfb_vid_memory;
 	for (int y = 0; y < lfb_resolution_y; y++) {
@@ -102,6 +127,20 @@ static void lfb_video_panic(char * panic_message) {
 
 			*cell = 0xFF000000 + ((0xFF & r) * 0x10000) + ((0xFF & g) * 0x100) + ((0xFF & b) * 0x1); 
 		}
+	}
+
+	/* Now print the message, divided on line feeds, into the center of the screen */
+	int num_entries = 0;
+	for (char ** m = msgs; *m; m++, num_entries++);
+	int y = (lfb_resolution_y - (num_entries * char_height)) / 2;
+	for (char ** message = msgs; *message; message++) {
+		int x = (lfb_resolution_x - (strlen(*message) * char_width)) / 2;
+		for (char * c = *message; *c; c++) {
+			write_char(x+1, y+1, *c, 0xFF000000);
+			write_char(x, y, *c, 0xFFFF0000);
+			x += char_width;
+		}
+		y += char_height;
 	}
 
 }

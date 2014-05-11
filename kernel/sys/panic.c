@@ -4,6 +4,7 @@
  */
 #include <system.h>
 #include <logging.h>
+#include <printf.h>
 
 void halt_and_catch_fire(char * error_message, const char * file, int line, struct regs * regs) {
 	IRQ_OFF;
@@ -33,7 +34,13 @@ void assert_failed(const char *file, uint32_t line, const char *desc) {
 	debug_print(INSANE, "System Halted!");
 
 	if (debug_video_crash) {
-		debug_video_crash("Kernel assertion failed.");
+		char msg[4][100];
+		sprintf(msg[0], "Kernel Assertion Failed: %s", desc);
+		sprintf(msg[1], "File: %s", file);
+		sprintf(msg[2], "Line: %d", line);
+		sprintf(msg[3], "System Halted!");
+		char * msgs[] = {msg[0], msg[1], msg[2], msg[3], NULL};
+		debug_video_crash(msgs);
 	}
 
 	while (1) {

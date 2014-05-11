@@ -14,7 +14,7 @@ extern log_type_t debug_level;
 extern void * debug_file;
 extern void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...);
 extern void (*debug_hook)(void *, char *);
-extern void (*debug_video_crash)(char *);
+extern void (*debug_video_crash)(char **);
 
 #ifndef MODULE_NAME
 #define MODULE_NAME __FILE__
