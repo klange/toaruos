@@ -16,6 +16,8 @@ while test $# -gt 0; do
     esac
 done
 
+unset CC
+
 if [[ "$INSTALL_PACKAGES" == "true" ]] ; then
 
     echo "I am going to install some system packages. I will probably need you to provide a password."
