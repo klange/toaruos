@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo apt-get install expect exuberant-ctags
+
 make toolchain
 
 . toolchain/activate.sh
