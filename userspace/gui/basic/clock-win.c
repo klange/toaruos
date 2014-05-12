@@ -9,14 +9,9 @@
 #include <assert.h>
 #include <math.h>
 #include <time.h>
-#include <syscall.h>
 #include <cairo.h>
 #include <unistd.h>
-
-struct timeval {
-	unsigned int tv_sec;
-	unsigned int tv_usec;
-};
+#include <sys/time.h>
 
 #define PI 3.14159265
 
@@ -117,7 +112,7 @@ void * clock_thread(void * garbage) {
 	int last = 0;
 
 	while (!should_exit) {
-		syscall_gettimeofday(&now, NULL); //time(NULL);
+		gettimeofday(&now, NULL); //time(NULL);
 		if (now.tv_sec != last) {
 			last = now.tv_sec;
 			draw(last);

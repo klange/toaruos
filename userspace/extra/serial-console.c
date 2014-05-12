@@ -12,6 +12,7 @@
 #include <syscall.h>
 #include <signal.h>
 #include <termios.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 
 #include "lib/pthread.h"
@@ -56,7 +57,7 @@ int main(int argc, char ** argv) {
 
 	set_unbuffered();
 
-	fd = syscall_open(device, 0, 0);
+	fd = open(device, 0, 0);
 
 	pthread_create(&receive_thread, NULL, print_serial_stuff, NULL);
 

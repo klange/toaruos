@@ -3,8 +3,8 @@
  * Who Am I?
  *
  */
+#include <unistd.h>
 #include <stdio.h>
-#include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -14,7 +14,7 @@ int main(int argc, char ** argv) {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
 	
-	int uid = syscall_getuid();
+	int uid = getuid();
 
 	while (fgets(line, LINE_LEN, passwd) != NULL) {
 

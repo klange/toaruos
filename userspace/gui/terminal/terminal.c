@@ -1263,9 +1263,9 @@ int main(int argc, char ** argv) {
 	uint32_t f = fork();
 
 	if (getpid() != pid) {
-		syscall_dup2(fd_slave, 0);
-		syscall_dup2(fd_slave, 1);
-		syscall_dup2(fd_slave, 2);
+		dup2(fd_slave, 0);
+		dup2(fd_slave, 1);
+		dup2(fd_slave, 2);
 
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};

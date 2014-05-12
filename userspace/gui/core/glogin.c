@@ -14,6 +14,7 @@
 
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include "lib/sha2.h"
 #include "lib/graphics.h"
@@ -30,12 +31,6 @@ uint16_t win_width;
 uint16_t win_height;
 
 int uid = 0;
-
-/* Timing type */
-struct timeval {
-	unsigned int tv_sec;
-	unsigned int tv_usec;
-};
 
 #define LOGO_FINAL_OFFSET 100
 
@@ -265,7 +260,7 @@ int main (int argc, char ** argv) {
 
 			struct tm * timeinfo;
 			struct timeval now;
-			syscall_gettimeofday(&now, NULL); //time(NULL);
+			gettimeofday(&now, NULL); //time(NULL);
 			timeinfo = localtime((time_t *)&now.tv_sec);
 
 			char _date[256];

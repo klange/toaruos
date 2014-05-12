@@ -12,7 +12,7 @@ void set_username() {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
 	
-	int uid = syscall_getuid();
+	int uid = getuid();
 
 	while (fgets(line, LINE_LEN, passwd) != NULL) {
 

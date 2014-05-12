@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <syscall.h>
 
 void sig_int(int sig) {
@@ -16,7 +17,7 @@ void sig_int(int sig) {
 }
 
 void main(int argc, char * argv[]) {
-	syscall_signal(2, sig_int);
+	signal(SIGINT, sig_int);
 
 	char * password_a = malloc(sizeof(char) * 1024);
 	char * password_b = malloc(sizeof(char) * 1024);

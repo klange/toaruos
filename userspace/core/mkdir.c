@@ -5,8 +5,10 @@
  * Create a directory.
  */
 #include <stdio.h>
-#include <syscall.h>
 #include <stdint.h>
+
+#include <sys/stat.h>
+#include <sys/types.h>
 
 int main(int argc, char ** argv) {
 	if (argc < 2) {
@@ -14,7 +16,7 @@ int main(int argc, char ** argv) {
 		return 1;
 	}
 
-	syscall_mkdir(argv[1], 0x00);
+	mkdir(argv[1], 0x00);
 
 	return 0;
 }

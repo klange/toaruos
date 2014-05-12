@@ -382,14 +382,6 @@ void term_clear(int i) {
 	}
 }
 
-char * loadMemFont(char * name, char * ident, size_t * size) {
-	size_t s = 0;
-	int error;
-	char * font = (char *)syscall_shm_obtain(ident, &s);
-	*size = s;
-	return font;
-}
-
 #define INPUT_SIZE 1024
 char input_buffer[INPUT_SIZE];
 int  input_collected = 0;
@@ -618,9 +610,9 @@ int main(int argc, char ** argv) {
 	uint32_t f = fork();
 
 	if (getpid() != pid) {
-		syscall_dup2(fd_slave, 0);
-		syscall_dup2(fd_slave, 1);
-		syscall_dup2(fd_slave, 2);
+		dup2(fd_slave, 0);
+		dup2(fd_slave, 1);
+		dup2(fd_slave, 2);
 
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};

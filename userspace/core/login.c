@@ -80,7 +80,7 @@ void set_username() {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
 	
-	int uid = syscall_getuid();
+	int uid = getuid();
 
 	while (fgets(line, LINE_LEN, passwd) != NULL) {
 
@@ -123,9 +123,9 @@ int main(int argc, char ** argv) {
 	system("uname -a");
 	printf("\n");
 
-	syscall_signal(SIGINT, sig_pass);
-	syscall_signal(SIGWINCH, sig_pass);
-	syscall_signal(SIGSEGV, sig_segv);
+	signal(SIGINT, sig_pass);
+	signal(SIGWINCH, sig_pass);
+	signal(SIGSEGV, sig_segv);
 
 	while (1) {
 		char * username = malloc(sizeof(char) * 1024);

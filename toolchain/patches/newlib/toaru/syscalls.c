@@ -351,7 +351,6 @@ char *getlogin(void) {
 }
 
 int dup2(int oldfd, int newfd) {
-	DEBUG_STUB("dup2(%d,%d);\n", oldfd, newfd);
 	return syscall_dup2(oldfd, newfd);
 }
 

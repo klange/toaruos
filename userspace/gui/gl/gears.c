@@ -23,6 +23,8 @@
 #include <math.h>
 #include <syscall.h>
 
+#include <sys/time.h>
+
 #include <GL/gl.h>
 #include <GL/osmesa.h>
 
@@ -30,22 +32,17 @@
 #include "lib/graphics.h"
 #include "lib/pthread.h"
 
-struct timeval {
-	unsigned int tv_sec;
-	unsigned int tv_usec;
-};
-
 static unsigned int frames = 0;
 static unsigned int start_time = 0;
 
 void fps() {
 	struct timeval now;
-	syscall_gettimeofday(&now, NULL); //time(NULL);
+	gettimeofday(&now, NULL); //time(NULL);
 	frames++;
 	if (!start_time) {
 		start_time = now.tv_sec;
 	} else if (now.tv_sec - start_time >= 5) {
-		syscall_gettimeofday(&now, NULL); //time(NULL);
+		gettimeofday(&now, NULL); //time(NULL);
 		GLfloat seconds = now.tv_sec - start_time;
 		GLfloat fps = frames / seconds;
 		printf("%d frames in %3.1f seconds = %6.3f FPS\n", frames, seconds, fps);
