@@ -146,7 +146,7 @@ headless-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -display none -append "$(START_VGA) $(DISK_ROOT)"
 
 test: system
-	python2 util/run-tests.py 2>/dev/null
+	expect util/test.exp
 
 toolchain:
 	@cd toolchain; ./toolchain-build.sh

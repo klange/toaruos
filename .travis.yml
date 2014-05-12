@@ -1,0 +1,9 @@
+language: c
+script: ./util/build-travis.sh
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.org#toaruos"
+    use_notice: true
+    skip_join: true
+
