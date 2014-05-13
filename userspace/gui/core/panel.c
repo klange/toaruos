@@ -12,6 +12,7 @@
  */
 #include <stdlib.h>
 #include <assert.h>
+#include <limits.h>
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
@@ -20,19 +21,41 @@
 #include <sys/utsname.h>
 #include <sys/wait.h>
 
-/* TODO: Move all of the configurable rendering
- * parameters up here */
-#define PANEL_HEIGHT 28
-#define FONT_SIZE 14
-#define TIME_LEFT 108
-#define DATE_WIDTH 70
-
 #include "lib/pthread.h"
 #include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
 #include "lib/hashmap.h"
 #include "lib/spinlock.h"
+
+#define PANEL_HEIGHT 28
+#define FONT_SIZE 14
+#define TIME_LEFT 108
+#define DATE_WIDTH 70
+
+#define ICON_SIZE 24
+#define GRADIENT_HEIGHT 24
+#define APP_OFFSET 140
+#define TEXT_Y_OFFSET 18
+#define ICON_PADDING 2
+#define MAX_TEXT_WIDTH 120
+#define MIN_TEXT_WIDTH 50
+
+#define HILIGHT_COLOR rgb(142,216,255)
+#define FOCUS_COLOR   rgb(255,255,255)
+#define TEXT_COLOR    rgb(230,230,230)
+
+#define GRADIENT_AT(y) premultiply(rgba(72, 167, 255, ((24-(y))*160)/24))
+
+#define ALTTAB_WIDTH  250
+#define ALTTAB_HEIGHT 70
+#define ALTTAB_BACKGROUND premultiply(rgba(0,0,0,150))
+#define ALTTAB_OFFSET 10
+
+#define MAX_WINDOW_COUNT 100
+
+#define TOTAL_CELL_WIDTH (ICON_SIZE + ICON_PADDING * 2 + title_width)
+#define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING)
 
 static gfx_context_t * ctx;
 static yutani_t * yctx;
@@ -53,11 +76,6 @@ static int height;
 
 static sprite_t * sprite_panel;
 static sprite_t * sprite_logout;
-
-#define ALTTAB_WIDTH  250
-#define ALTTAB_HEIGHT 70
-#define ALTTAB_BACKGROUND premultiply(rgba(0,0,0,150))
-#define ALTTAB_OFFSET 10
 
 static int center_x(int x) {
 	return (width - x) / 2;
@@ -85,18 +103,20 @@ struct window_ad {
 	char * name;
 	char * icon;
 	char * strings;
+	int left;
 };
 
-/* XXX Stores some quick access information about the window list */
-static int icon_lefts[20] = {0};
-static int icon_wids[20] = {0};
-static int focused_app = -1;
+/* Windows, indexed by list order */
+static struct window_ad * ads_by_l[MAX_WINDOW_COUNT+1] = {NULL};
+/* Windows, indexed by z-order */
+static struct window_ad * ads_by_z[MAX_WINDOW_COUNT+1] = {NULL};
 
-static int wids_by_z[20] = {0};
+static int focused_app = -1;
 static int active_window = -1;
 static int was_tabbing = 0;
 static int new_focused = -1;
-static struct window_ad * ads_by_z[20] = {NULL};
+
+static int title_width = 0;
 
 static sprite_t * icon_get(char * name);
 
@@ -122,11 +142,10 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			yutani_session_end(yctx);
 			_continue = 0;
 		} else {
-			for (int i = 0; i < 18; ++i) {
-				if (evt->new_x >= icon_lefts[i] && evt->new_x < icon_lefts[i+1]) {
-					if (icon_wids[i]) {
-						yutani_focus_window(yctx, icon_wids[i]);
-					}
+			for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
+				if (ads_by_l[i] == NULL) break;
+				if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
+					yutani_focus_window(yctx, ads_by_l[i]->wid);
 					break;
 				}
 			}
@@ -134,12 +153,12 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
 		/* Movement, or mouse entered window */
 		if (evt->new_y < PANEL_HEIGHT) {
-			for (int i = 0; i < 18; ++i) {
-				if (icon_lefts[i] == 0) {
+			for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
+				if (ads_by_l[i] == NULL) {
 					set_focused(-1);
 					break;
 				}
-				if (evt->new_x >= icon_lefts[i] && evt->new_x < icon_lefts[i+1]) {
+				if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
 					set_focused(i);
 					break;
 				}
@@ -202,7 +221,9 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 
 		fprintf(stderr, "[panel] Stopping focus new_focused = %d\n", new_focused);
 
-		yutani_focus_window(yctx, wids_by_z[new_focused]);
+		struct window_ad * ad = ads_by_z[new_focused];
+
+		yutani_focus_window(yctx, ad->wid);
 		was_tabbing = 0;
 		new_focused = -1;
 
@@ -237,12 +258,12 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		if (new_focused < 0) {
 			new_focused = 0;
 			for (int i = 0; i < 18; i++) {
-				if (wids_by_z[i+1] == 0) {
+				if (ads_by_z[i+1] == NULL) {
 					new_focused = i;
 					break;
 				}
 			}
-		} else if (wids_by_z[new_focused] == 0) {
+		} else if (ads_by_z[new_focused] == NULL) {
 			new_focused = 0;
 		}
 
@@ -311,7 +332,7 @@ static void redraw(void) {
 	struct tm * timeinfo;
 	char   buffer[80];
 
-	uint32_t txt_color = rgb(230,230,230);
+	uint32_t txt_color = TEXT_COLOR;
 	int t = 0;
 
 	/* Redraw the background */
@@ -355,19 +376,44 @@ static void redraw(void) {
 	if (window_list) {
 		foreach(node, window_list) {
 			struct window_ad * ad = node->value;
-			char * s = ad->name;
+			char * s = "";
+			char tmp_title[50];
+			int w = ICON_SIZE + ICON_PADDING * 2;
+
+			if (APP_OFFSET + i + w > LEFT_BOUND) {
+				break;
+			}
 
 			set_font_face(FONT_SANS_SERIF);
 			set_font_size(13);
 
-			int w = 26 + draw_string_width(s) + 20;
+			if (title_width > MIN_TEXT_WIDTH) {
+
+				memset(tmp_title, 0x0, 50);
+				int t_l = strlen(ad->name);
+				if (t_l > 45) {
+					t_l = 45;
+				}
+				strncpy(tmp_title, ad->name, t_l);
+
+				while (draw_string_width(tmp_title) > title_width - ICON_PADDING) {
+					t_l--;
+					tmp_title[t_l] = '.';
+					tmp_title[t_l+1] = '.';
+					tmp_title[t_l+2] = '.';
+					tmp_title[t_l+3] = '\0';
+				}
+				w += title_width;
+
+				s = tmp_title;
+			}
 
 			/* Hilight the focused window */
 			if (ad->flags & 1) {
 				/* This is the focused window */
-				for (int y = 0; y < 24; ++y) {
-					for (int x = 135 + i; x < 135 + i + w - 10; ++x) {
-						GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), premultiply(rgba(72, 167, 255, ((24-y)*160)/24)));
+				for (int y = 0; y < GRADIENT_HEIGHT; ++y) {
+					for (int x = APP_OFFSET + i; x < APP_OFFSET + i + w; ++x) {
+						GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), GRADIENT_AT(y));
 					}
 				}
 			}
@@ -376,37 +422,35 @@ static void redraw(void) {
 			sprite_t * icon = icon_get(ad->icon);
 
 			/* Draw it, scaled if necessary */
-			if (icon->width == 24) {
-				draw_sprite(ctx, icon, 140 + i, 0);
+			if (icon->width == ICON_SIZE) {
+				draw_sprite(ctx, icon, APP_OFFSET + i + ICON_PADDING, 0);
 			} else {
-				draw_sprite_scaled(ctx, icon, 140 + i, 0, 24, 24);
+				draw_sprite_scaled(ctx, icon, APP_OFFSET + i + ICON_PADDING, 0, ICON_SIZE, ICON_SIZE);
 			}
 
-			/* Then draw the window title, with appropriate color */
-			if (j == focused_app) {
-				/* Current hilighted - title should be a light blue */
-				draw_string(ctx, 140 + i + 26, 18, rgb(142,216,255), s);
-			} else {
-				if (ad->flags & 1) {
-					/* Top window should be white */
-					draw_string(ctx, 140 + i + 26, 18, rgb(255,255,255), s);
+			if (title_width > MIN_TEXT_WIDTH) {
+				/* Then draw the window title, with appropriate color */
+				if (j == focused_app) {
+					/* Current hilighted - title should be a light blue */
+					draw_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET, HILIGHT_COLOR, s);
 				} else {
-					/* Otherwise, off white */
-					draw_string(ctx, 140 + i + 26, 18, txt_color, s);
+					if (ad->flags & 1) {
+						/* Top window should be white */
+						draw_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET, FOCUS_COLOR, s);
+					} else {
+						/* Otherwise, off white */
+						draw_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET, txt_color, s);
+					}
 				}
 			}
 
 			/* XXX This keeps track of how far left each window list item is
 			 * so we can map clicks up in the mouse callback. */
-			if (j < 18) {
-				icon_lefts[j] = 140 + i;
-				j++;
+			if (j < MAX_WINDOW_COUNT) {
+				ads_by_l[j]->left = APP_OFFSET + i;
 			}
+			j++;
 			i += w;
-		}
-		if (j < 19) {
-			icon_lefts[j] = 140 + i;
-			icon_lefts[j+1] = 0;
 		}
 	}
 	spin_unlock(&lock);
@@ -449,10 +493,8 @@ static void update_window_list(void) {
 		ad->flags = wa->flags;
 		ad->wid = wa->wid;
 
-		wids_by_z[i] = ad->wid;
 		ads_by_z[i] = ad;
 		i++;
-		wids_by_z[i] = 0;
 		ads_by_z[i] = NULL;
 
 		node_t * next = NULL;
@@ -483,15 +525,34 @@ static void update_window_list(void) {
 	 */
 	foreach(node, new_window_list) {
 		struct window_ad * ad = node->value;
-		if (i < 19) {
-			icon_wids[i] = ad->wid;
-			icon_wids[i+1] = 0;
+		if (i < MAX_WINDOW_COUNT) {
+			ads_by_l[i] = ad;
+			ads_by_l[i+1] = NULL;
 		}
 		i++;
 	}
 
 	/* Then free up the old list and replace it with the new list */
 	spin_lock(&lock);
+
+	if (new_window_list->length) {
+		int tmp = LEFT_BOUND;
+		tmp -= APP_OFFSET;
+		tmp -= new_window_list->length * (ICON_SIZE + ICON_PADDING * 2);
+		if (tmp < 0) {
+			title_width = 0;
+		} else {
+			title_width = tmp / new_window_list->length;
+			if (title_width > MAX_TEXT_WIDTH) {
+				title_width = MAX_TEXT_WIDTH;
+			}
+			if (title_width < MIN_TEXT_WIDTH) {
+				title_width = 0;
+			}
+		}
+	} else {
+		title_width = 0;
+	}
 	if (window_list) {
 		foreach(node, window_list) {
 			struct window_ad * ad = (void*)node->value;
