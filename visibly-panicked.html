@@ -49,7 +49,7 @@
 <p><a href="http://i.imgur.com/Q8cce5d.png"><img alt="Assertion failed - login" src="http://i.imgur.com/Q8cce5d.png" /></a></p>
 <p><a href="http://i.imgur.com/QyDAOxO.png"><img alt="Assertion failed - desktop" src="http://i.imgur.com/QyDAOxO.png" /></a></p>
 <p><a href="http://i.imgur.com/Mjj6886.png"><img alt="Out of memory" src="http://i.imgur.com/Mjj6886.png" /></a></p>
-<p>The panic handler first outputs to the debug log (if set) and then calls out to the video driver to have it display a visual indicator of failure. The video driver can take an array of messages to display, which are usually <code>sprintf</code>'d into the kernel stack by the calling fault handler. With this particular setup, the video driver desaturates the dispaly to grayscal, adds a (crude) vignette effect, and then displas the fault message in the center of the screen using an embedded bitmap font.</p>	
+<p>The panic handler first outputs to the debug log (if set) and then calls out to the video driver to have it display a visual indicator of failure. The video driver can take an array of messages to display, which are usually <code>sprintf</code>'d into the kernel stack by the calling fault handler. With this particular setup, the video driver desaturates the dispaly to grayscale, adds a (crude) vignette effect, and then displas the fault message in the center of the screen using an embedded bitmap font.</p>	
 
 	</article>
 
