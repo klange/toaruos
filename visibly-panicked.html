@@ -2,9 +2,12 @@
 <html lang="">	
 <head>
 	<meta charset="utf-8"/>
-	<title>とあるOS</title>	
+	<title>Visibly Panicked - とあるOS</title>	
 	<meta name="author" content="Kevin Lange">
 	
+
+	<meta name="description" content="New panick screens for graphical outputs">
+
 
 	<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
 	<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
@@ -30,46 +33,31 @@
 	  <div class="wrapper">
 
 		  <div role="main" class="content">
-
-
-
-      <article>
-        <h1><a href="http://toaruos.org/visibly-panicked.html">Visibly Panicked</a></h1>
-        <p>Panic screens are an important part of any OS - they allow you to see not only that you've made a mistake, but often why and how. The panic screen in Windows is particularly infamous, and helpful to some subset of engineers, though not very shiny. OS X has a rather neat, but ultimately not very useful panic screen involving an embedded image in the kernel.</p>
+	<article class="full">
+			
+		<h1>Visibly Panicked</h1>
+		
+<div class="metadata">
+  <time datetime="2014-05-12T20:20:00" pubdate>Mon 12 May 2014</time>
+    <address class="vcard author">
+      by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
+    </address>
+  in <a href="http://toaruos.org/category/misc.html">misc</a>
+<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>		
+		<p>Panic screens are an important part of any OS - they allow you to see not only that you've made a mistake, but often why and how. The panic screen in Windows is particularly infamous, and helpful to some subset of engineers, though not very shiny. OS X has a rather neat, but ultimately not very useful panic screen involving an embedded image in the kernel.</p>
 <p>とあるOS has mostly had debug output like kernel panics written to a serial log. Since I'm usually working in the GUI and often have the logs completely disabled, it made sense to add a new panic format. To that end, I was inspired by a popular video game series, and made these new panic screens:</p>
 <p><a href="http://i.imgur.com/Q8cce5d.png"><img alt="Assertion failed - login" src="http://i.imgur.com/Q8cce5d.png" /></a></p>
 <p><a href="http://i.imgur.com/QyDAOxO.png"><img alt="Assertion failed - desktop" src="http://i.imgur.com/QyDAOxO.png" /></a></p>
 <p><a href="http://i.imgur.com/Mjj6886.png"><img alt="Out of memory" src="http://i.imgur.com/Mjj6886.png" /></a></p>
-<p>The panic handler first outputs to the debug log (if set) and then calls out to the video driver to have it display a visual indicator of failure. The video driver can take an array of messages to display, which are usually <code>sprintf</code>'d into the kernel stack by the calling fault handler. With this particular setup, the video driver desaturates the dispaly to grayscal, adds a (crude) vignette effect, and then displas the fault message in the center of the screen using an embedded bitmap font.</p>
-      </article>
+<p>The panic handler first outputs to the debug log (if set) and then calls out to the video driver to have it display a visual indicator of failure. The video driver can take an array of messages to display, which are usually <code>sprintf</code>'d into the kernel stack by the calling fault handler. With this particular setup, the video driver desaturates the dispaly to grayscal, adds a (crude) vignette effect, and then displas the fault message in the center of the screen using an embedded bitmap font.</p>	
 
-      <hr />
+	</article>
 
-        <div>
-          <h3>Last posts</h3>
-          <ol class="archive">
-    
+    <p>
+	<a href="https://twitter.com/share" class="twitter-share-button" data-via="" data-lang="en" data-size="large" data-related="">Tweet</a>
+	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+	</p>
 
-
-      <li>
-<a href="http://toaruos.org/yutani-the-new-compositor.html" rel="bookmark" title="Permalink to Yutani: The new compositor">Yutani: The new compositor</a>
-  <time datetime="2014-05-10T16:45:00" pubdate>Sat 10 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/yutani.html">yutani</a><a href="http://toaruos.org/tag/gui.html">gui</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/hello-world-again.html" rel="bookmark" title="Permalink to Hello World (Again)">Hello World (Again)</a>
-  <time datetime="2014-05-10T00:08:00" pubdate>Sat 10 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/test-post-please-ignore.html" rel="bookmark" title="Permalink to Test Post Please Ignore">Test Post Please Ignore</a>
-  <time datetime="2014-05-09T23:50:00" pubdate>Fri 09 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-          </ol>
-        </div>
 
 		  </div>	
 		  
@@ -78,7 +66,7 @@
 	        <nav>
 	          <h2>Categories</h2>
 	          <ul>
-	              <li ><a href="http://toaruos.org/category/misc.html">misc</a></li>
+	              <li class="active"><a href="http://toaruos.org/category/misc.html">misc</a></li>
 	          </ul>
 	        </nav>
 
