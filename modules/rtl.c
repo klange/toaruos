@@ -202,26 +202,9 @@ static size_t write_dhcp_packet(uint8_t * buffer) {
 	return offset;
 }
 
-static size_t write_dns_packet(uint8_t * buffer) {
+static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries) {
 	size_t offset = 0;
-	size_t payload_size = sizeof(struct dns_packet);
-
-	uint8_t queries[] = {
-#if 0
-		7,'n','y','a','n','c','a','t',
-		5,'d','a','k','k','o',
-		2,'u','s',
-#else
-		3,'i','r','c',
-		8,'f','r','e','e','n','o','d','e',
-		3,'n','e','t',
-#endif
-		0,
-		0x00, 0x01, /* A */
-		0x00, 0x01, /* IN */
-	};
-
-	payload_size += sizeof(queries);
+	size_t payload_size = sizeof(struct dns_packet) + queries_len;
 
 	/* Then, let's write an ethernet frame */
 	struct ethernet_packet eth_out = {
@@ -286,8 +269,8 @@ static size_t write_dns_packet(uint8_t * buffer) {
 	memcpy(&buffer[offset], &dns_out, sizeof(struct dns_packet));
 	offset += sizeof(struct dns_packet);
 
-	memcpy(&buffer[offset], &queries, sizeof(queries));
-	offset += sizeof(queries);
+	memcpy(&buffer[offset], queries, queries_len);
+	offset += queries_len;
 
 	return offset;
 }
@@ -314,6 +297,90 @@ static size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t of
 		}
 	}
 
+}
+
+static void parse_dns_response(fs_node_t * tty, void * last_packet) {
+	struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+	uint16_t eth_type = ntohs(eth->type);
+
+	fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
+			eth->source[0], eth->source[1], eth->source[2],
+			eth->source[3], eth->source[4], eth->source[5],
+			eth->destination[0], eth->destination[1], eth->destination[2],
+			eth->destination[3], eth->destination[4], eth->destination[5],
+			eth_type);
+
+	struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
+	uint32_t src_addr = ntohl(ipv4->source);
+	uint32_t dst_addr = ntohl(ipv4->destination);
+	uint16_t length   = ntohs(ipv4->length);
+
+	char src_ip[16];
+	char dst_ip[16];
+
+	ip_ntoa(src_addr, src_ip);
+	ip_ntoa(dst_addr, dst_ip);
+
+	fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
+			src_ip, dst_ip, length);
+
+	struct udp_packet * udp = (struct udp_packet *)ipv4->payload;
+	uint16_t src_port = ntohs(udp->source_port);
+	uint16_t dst_port = ntohs(udp->destination_port);
+	uint16_t udp_len  = ntohs(udp->length);
+
+	fprintf(tty, "UDP [%d → %d] length=%d bytes\n",
+			src_port, dst_port, udp_len);
+
+	struct dns_packet * dns = (struct dns_packet *)udp->payload;
+	uint16_t dns_questions = ntohs(dns->questions);
+	uint16_t dns_answers   = ntohs(dns->answers);
+	fprintf(tty, "DNS - %d queries, %d answers\n",
+			dns_questions, dns_answers);
+
+	fprintf(tty, "Queries:\n");
+	int offset = sizeof(struct dns_packet);
+	int queries = 0;
+	uint8_t * bytes = (uint8_t *)dns;
+	while (queries < dns_questions) {
+		offset = print_dns_name(tty, dns, offset);
+		uint16_t * d = (uint16_t *)&bytes[offset];
+		fprintf(tty, " - Type: %4x %4x\n", ntohs(d[0]), ntohs(d[1]));
+		offset += 4;
+		queries++;
+	}
+
+	fprintf(tty, "Answers:\n");
+	int answers = 0;
+	while (answers < dns_answers) {
+		offset = print_dns_name(tty, dns, offset);
+		uint16_t * d = (uint16_t *)&bytes[offset];
+		fprintf(tty, " - Type: %4x %4x; ", ntohs(d[0]), ntohs(d[1]));
+		offset += 4;
+		uint32_t * t = (uint32_t *)&bytes[offset];
+		fprintf(tty, "TTL: %d; ", ntohl(t[0]));
+		offset += 4;
+		uint16_t * l = (uint16_t *)&bytes[offset];
+		int _l = ntohs(l[0]);
+		fprintf(tty, "len: %d; ", _l);
+		offset += 2;
+		if (_l == 4) {
+			uint32_t * i = (uint32_t *)&bytes[offset];
+			char ip[16];
+			ip_ntoa(ntohl(i[0]), ip);
+			fprintf(tty, " Address: %s\n", ip);
+		} else {
+			if (ntohs(d[0]) == 5) {
+				fprintf(tty, "CNAME: ");
+				print_dns_name(tty, dns, offset);
+				fprintf(tty, "\n");
+			} else {
+				fprintf(tty, "dunno\n");
+			}
+		}
+		offset += _l;
+		answers++;
+	}
 }
 
 static void rtl_irq_handler(struct regs *r) {
@@ -526,7 +593,16 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		{
 			fprintf(tty, "Sending DNS query...\n");
-			size_t packet_size = write_dns_packet(rtl_tx_buffer[next_tx]);
+			uint8_t queries[] = {
+				3,'i','r','c',
+				8,'f','r','e','e','n','o','d','e',
+				3,'n','e','t',
+				0,
+				0x00, 0x01, /* A */
+				0x00, 0x01, /* IN */
+			};
+
+			size_t packet_size = write_dns_packet(rtl_tx_buffer[next_tx], sizeof(queries), queries);
 
 			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
 			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
@@ -538,90 +614,32 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		}
 
 		sleep_on(rx_wait);
+		parse_dns_response(tty, last_packet);
 
 		{
-			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
-			uint16_t eth_type = ntohs(eth->type);
+			fprintf(tty, "Sending DNS query...\n");
+			uint8_t queries[] = {
+				7,'n','y','a','n','c','a','t',
+				5,'d','a','k','k','o',
+				2,'u','s',
+				0,
+				0x00, 0x01, /* A */
+				0x00, 0x01, /* IN */
+			};
 
-			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
-					eth->source[0], eth->source[1], eth->source[2],
-					eth->source[3], eth->source[4], eth->source[5],
-					eth->destination[0], eth->destination[1], eth->destination[2],
-					eth->destination[3], eth->destination[4], eth->destination[5],
-					eth_type);
+			size_t packet_size = write_dns_packet(rtl_tx_buffer[next_tx], sizeof(queries), queries);
 
-			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
-			uint32_t src_addr = ntohl(ipv4->source);
-			uint32_t dst_addr = ntohl(ipv4->destination);
-			uint16_t length   = ntohs(ipv4->length);
+			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
 
-			char src_ip[16];
-			char dst_ip[16];
-
-			ip_ntoa(src_addr, src_ip);
-			ip_ntoa(dst_addr, dst_ip);
-
-			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
-					src_ip, dst_ip, length);
-
-			struct udp_packet * udp = (struct udp_packet *)ipv4->payload;
-			uint16_t src_port = ntohs(udp->source_port);
-			uint16_t dst_port = ntohs(udp->destination_port);
-			uint16_t udp_len  = ntohs(udp->length);
-
-			fprintf(tty, "UDP [%d → %d] length=%d bytes\n",
-					src_port, dst_port, udp_len);
-
-			struct dns_packet * dns = (struct dns_packet *)udp->payload;
-			uint16_t dns_questions = ntohs(dns->questions);
-			uint16_t dns_answers   = ntohs(dns->answers);
-			fprintf(tty, "DNS - %d queries, %d answers\n",
-					dns_questions, dns_answers);
-
-			fprintf(tty, "Queries:\n");
-			int offset = sizeof(struct dns_packet);
-			int queries = 0;
-			uint8_t * bytes = (uint8_t *)dns;
-			while (queries < dns_questions) {
-				offset = print_dns_name(tty, dns, offset);
-				uint16_t * d = (uint16_t *)&bytes[offset];
-				fprintf(tty, " - Type: %4x %4x\n", ntohs(d[0]), ntohs(d[1]));
-				offset += 4;
-				queries++;
-			}
-
-			fprintf(tty, "Answers:\n");
-			int answers = 0;
-			while (answers < dns_answers) {
-				offset = print_dns_name(tty, dns, offset);
-				uint16_t * d = (uint16_t *)&bytes[offset];
-				fprintf(tty, " - Type: %4x %4x; ", ntohs(d[0]), ntohs(d[1]));
-				offset += 4;
-				uint32_t * t = (uint32_t *)&bytes[offset];
-				fprintf(tty, "TTL: %d; ", ntohl(t[0]));
-				offset += 4;
-				uint16_t * l = (uint16_t *)&bytes[offset];
-				int _l = ntohs(l[0]);
-				fprintf(tty, "len: %d; ", _l);
-				offset += 2;
-				if (_l == 4) {
-					uint32_t * i = (uint32_t *)&bytes[offset];
-					char ip[16];
-					ip_ntoa(ntohl(i[0]), ip);
-					fprintf(tty, " Address: %s\n", ip);
-				} else {
-					if (ntohs(d[0]) == 5) {
-						fprintf(tty, "CNAME: ");
-						print_dns_name(tty, dns, offset);
-						fprintf(tty, "\n");
-					} else {
-						fprintf(tty, "dunno\n");
-					}
-				}
-				offset += _l;
-				answers++;
+			next_tx++;
+			if (next_tx == 4) {
+				next_tx = 0;
 			}
 		}
+
+		sleep_on(rx_wait);
+		parse_dns_response(tty, last_packet);
 
 	} else {
 		return -1;
