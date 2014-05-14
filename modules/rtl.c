@@ -207,9 +207,15 @@ static size_t write_dns_packet(uint8_t * buffer) {
 	size_t payload_size = sizeof(struct dns_packet);
 
 	uint8_t queries[] = {
+#if 0
 		7,'n','y','a','n','c','a','t',
 		5,'d','a','k','k','o',
 		2,'u','s',
+#else
+		3,'i','r','c',
+		8,'f','r','e','e','n','o','d','e',
+		3,'n','e','t',
+#endif
 		0,
 		0x00, 0x01, /* A */
 		0x00, 0x01, /* IN */
@@ -284,6 +290,30 @@ static size_t write_dns_packet(uint8_t * buffer) {
 	offset += sizeof(queries);
 
 	return offset;
+}
+
+static size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset) {
+	uint8_t * bytes = (uint8_t *)dns;
+	while (1) {
+		uint8_t c = bytes[offset];
+		if (c == 0) {
+			offset++;
+			return offset;
+		} else if (c >= 0xC0) {
+			uint16_t ref = ((c - 0xC0) << 8) + bytes[offset+1];
+			print_dns_name(tty, dns, ref);
+			offset++;
+			offset++;
+			return offset;
+		} else {
+			for (int i = 0; i < c; ++i) {
+				fprintf(tty,"%c",bytes[offset+1+i]);
+			}
+			fprintf(tty,".");
+			offset += c + 1;
+		}
+	}
+
 }
 
 static void rtl_irq_handler(struct regs *r) {
@@ -435,12 +465,19 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Resetting rx stats\n");
 		outportl(rtl_iobase + RTL_PORT_RXMISS, 0);
 
+		int next_tx = 0;
+
 		{
 			fprintf(tty, "Sending DHCP discover\n");
-			size_t packet_size = write_dhcp_packet(rtl_tx_buffer[0]);
+			size_t packet_size = write_dhcp_packet(rtl_tx_buffer[next_tx]);
 
-			outportl(rtl_iobase + RTL_PORT_TXBUF, rtl_tx_phys[0]);
-			outportl(rtl_iobase + RTL_PORT_TXSTAT, packet_size);
+			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
+
+			next_tx++;
+			if (next_tx == 4) {
+				next_tx = 0;
+			}
 		}
 
 		sleep_on(rx_wait);
@@ -489,10 +526,15 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		{
 			fprintf(tty, "Sending DNS query...\n");
-			size_t packet_size = write_dns_packet(rtl_tx_buffer[1]);
+			size_t packet_size = write_dns_packet(rtl_tx_buffer[next_tx]);
 
-			outportl(rtl_iobase + RTL_PORT_TXBUF+4, rtl_tx_phys[1]);
-			outportl(rtl_iobase + RTL_PORT_TXSTAT+4, packet_size);
+			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
+
+			next_tx++;
+			if (next_tx == 4) {
+				next_tx = 0;
+			}
 		}
 
 		sleep_on(rx_wait);
@@ -537,81 +579,48 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 					dns_questions, dns_answers);
 
 			fprintf(tty, "Queries:\n");
-			int offset = 0;
+			int offset = sizeof(struct dns_packet);
 			int queries = 0;
+			uint8_t * bytes = (uint8_t *)dns;
 			while (queries < dns_questions) {
-				uint8_t c = dns->data[offset];
-				if (c == 0) {
-					offset += 1;
-					uint16_t * d = (uint16_t *)&dns->data[offset];
-					fprintf(tty, " - Type: %4x %4x\n", ntohs(d[0]), ntohs(d[1]));
-					offset += 4;
-					queries++;
-				} else if (c >= 0xC0) {
-					uint16_t ref = ((c - 0xC0) << 8) + dns->data[offset+1];
-					uint8_t * r = &((uint8_t *)dns)[ref];
-					fprintf(tty,"[ref] ");
-					for (int i = 0; i < r[0]; ++i) {
-						fprintf(tty,"%c",r[1+i]);
-					}
-					offset += 2;
-				} else {
-					for (int i = 0; i < c; ++i) {
-						fprintf(tty,"%c",dns->data[offset+1+i]);
-					}
-					fprintf(tty,".");
-					offset += c + 1;
-				}
+				offset = print_dns_name(tty, dns, offset);
+				uint16_t * d = (uint16_t *)&bytes[offset];
+				fprintf(tty, " - Type: %4x %4x\n", ntohs(d[0]), ntohs(d[1]));
+				offset += 4;
+				queries++;
 			}
 
 			fprintf(tty, "Answers:\n");
 			int answers = 0;
 			while (answers < dns_answers) {
-				uint8_t c = dns->data[offset];
-				if (c == 0) {
-					offset += 1;
-					uint16_t * d = (uint16_t *)&dns->data[offset];
-					fprintf(tty, " - Type: %4x %4x; ", ntohs(d[0]), ntohs(d[1]));
-					offset += 4;
-					uint32_t * t = (uint32_t *)&dns->data[offset];
-					fprintf(tty, "TTL = %d", ntohl(t[0]));
-					offset += 4;
-					uint16_t * l = (uint16_t *)&dns->data[offset];
-					int _l = ntohs(l[0]);
-					fprintf(tty, "len = %d", _l);
-					offset += 2;
-					if (_l == 4) {
-						uint32_t * i = (uint32_t *)&dns->data[offset];
-						char ip[16];
-						ip_ntoa(ntohl(i[0]), ip);
-						fprintf(tty, " = %s\n", ip);
+				offset = print_dns_name(tty, dns, offset);
+				uint16_t * d = (uint16_t *)&bytes[offset];
+				fprintf(tty, " - Type: %4x %4x; ", ntohs(d[0]), ntohs(d[1]));
+				offset += 4;
+				uint32_t * t = (uint32_t *)&bytes[offset];
+				fprintf(tty, "TTL: %d; ", ntohl(t[0]));
+				offset += 4;
+				uint16_t * l = (uint16_t *)&bytes[offset];
+				int _l = ntohs(l[0]);
+				fprintf(tty, "len: %d; ", _l);
+				offset += 2;
+				if (_l == 4) {
+					uint32_t * i = (uint32_t *)&bytes[offset];
+					char ip[16];
+					ip_ntoa(ntohl(i[0]), ip);
+					fprintf(tty, " Address: %s\n", ip);
+				} else {
+					if (ntohs(d[0]) == 5) {
+						fprintf(tty, "CNAME: ");
+						print_dns_name(tty, dns, offset);
+						fprintf(tty, "\n");
 					} else {
 						fprintf(tty, "dunno\n");
 					}
-					offset += _l;
-					answers++;
-				} else if (c >= 0xC0) {
-					uint16_t ref = ((c - 0xC0) << 8) + dns->data[offset+1];
-					uint8_t * r = &((uint8_t *)dns)[ref];
-					int j = 0;
-					while (r[j] != 0) {
-						for (int i = 0; i < r[j]; ++i) {
-							fprintf(tty,"%c",r[j+i+1]);
-						}
-						fprintf(tty, ".");
-						j += r[j] + 1;
-					}
-					offset += 1;
-					dns->data[offset] = 0;
-				} else {
-					for (int i = 0; i < c; ++i) {
-						fprintf(tty,"%c",dns->data[offset+1+i]);
-					}
-					fprintf(tty,".");
-					offset += c + 1;
 				}
+				offset += _l;
+				answers++;
 			}
-
 		}
 
 	} else {
