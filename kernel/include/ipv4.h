@@ -48,7 +48,7 @@ struct dhcp_packet {
 	uint32_t siaddr;
 	uint32_t giaddr;
 
-	uint8_t  chaddr[32];
+	uint8_t  chaddr[16];
 
 	uint8_t sname[64];
 	uint8_t file[128];
