@@ -369,6 +369,9 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		rx_wait = list_create();
 
 		fprintf(tty, "Determining mac address...\n");
+		for (int i = 0; i < 6; ++i) {
+			mac[i] = inports(rtl_iobase + RTL_PORT_MAC + i);
+		}
 
 		fprintf(tty, "%2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
