@@ -3,6 +3,13 @@
 
 #include <system.h>
 
+struct ethernet_packet {
+	uint8_t destination[6];
+	uint8_t source[6];
+	uint16_t type;
+	uint8_t payload[];
+} __attribute__((packed));
+
 struct ipv4_packet {
 	uint8_t  version_ihl;
 	uint8_t  dscp_ecn;
@@ -14,6 +21,7 @@ struct ipv4_packet {
 	uint16_t checksum;
 	uint32_t source;
 	uint32_t destination;
+	uint8_t  payload[];
 } __attribute__ ((packed));
 
 struct udp_packet {
@@ -21,10 +29,10 @@ struct udp_packet {
 	uint16_t destination_port;
 	uint16_t length;
 	uint16_t checksum;
+	uint8_t  payload[];
 } __attribute__ ((packed));
 
 struct dhcp_packet {
-
 	uint8_t op;
 	uint8_t htype;
 	uint8_t hlen;
@@ -40,18 +48,25 @@ struct dhcp_packet {
 	uint32_t siaddr;
 	uint32_t giaddr;
 
-	uint32_t chaddr0;
-	uint32_t chaddr1;
-	uint32_t chaddr2;
-	uint32_t chaddr3;
+	uint8_t  chaddr[32];
 
 	uint8_t sname[64];
 	uint8_t file[128];
 
 	uint32_t magic;
 
-
-
+	uint8_t  options[];
 } __attribute__ ((packed));
+
+struct dns_packet {
+	uint16_t qid;
+	uint16_t flags;
+	uint16_t questions;
+	uint16_t answers;
+	uint16_t authorities;
+	uint16_t additional;
+	uint8_t data[];
+} __attribute__ ((packed));
+
 
 #endif

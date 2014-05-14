@@ -39,6 +39,7 @@ static int rtl_irq = 0;
 static uint32_t rtl_iobase = 0;
 static uint8_t * rtl_rx_buffer;
 static uint8_t * rtl_tx_buffer[5];
+static uint8_t mac[6];
 
 static uint8_t * last_packet = NULL;
 
@@ -50,34 +51,203 @@ static int dirty_tx = 0;
 
 static list_t * rx_wait;
 
-static uint8_t _dhcp_packet[] = {
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0x08, 0x00, 0x45, 0x00,
-	0x01, 0x10, 0x00, 0x01, 0x00, 0x00, 0x40, 0x11, 0x79, 0xDD, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF,
-	0xFF, 0xFF, 0x00, 0x44, 0x00, 0x43, 0x00, 0xFC, 0x81, 0xCC, 0x01, 0x01, 0x06, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x52, 0x54, 0x00, 0x12, 0x34, 0x56, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x82, 0x53, 0x63, 0x35, 0x01, 0x01, 0xFF
-};
+#define BROADCAST_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+#define IPV4_PROT_UDP 17
+#define DHCP_MAGIC 0x63825363
 
-static uint8_t _dns_packet[] = {
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x52, 0x54, 0x00, 0x12, 0x34, 0x56, 0x08, 0x00, 0x45, 0x00,
-	0x00, 0x36, 0x00, 0x01, 0x00, 0x00, 0x40, 0x11, 0x62, 0xA5, 0x0A, 0x00, 0x02, 0x0F, 0x0A, 0x00,
-	0x02, 0x03, 0x00, 0x35, 0x00, 0x35, 0x00, 0x22, 0x9E, 0x77, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x64, 0x61, 0x6B, 0x6B, 0x6F, 0x02, 0x75, 0x73, 0x00,
-	0x00, 0x01, 0x00, 0x01
-};
+uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
+	uint32_t sum = 0;
+	uint16_t * s = (uint16_t *)p;
+
+	/* TODO: Checksums for options? */
+	for (int i = 0; i < 10; ++i) {
+		sum += ntohs(s[i]);
+	}
+
+	if (sum > 0xFFFF) {
+		sum = (sum >> 16) + (sum & 0xFFFF);
+	}
+
+	return ~(sum & 0xFFFF) & 0xFFFF;
+}
+
+static size_t write_dhcp_packet(uint8_t * buffer) {
+	size_t offset = 0;
+	size_t payload_size = sizeof(struct dhcp_packet);
+
+	/* First, let's figure out how big this is supposed to be... */
+
+	uint8_t dhcp_options[] = {
+		53, /* Message type */
+		1,  /* Length: 1 */
+		1,  /* Discover */
+		255, /* END */
+	};
+
+	payload_size += sizeof(dhcp_options);
+
+	/* Then, let's write an ethernet frame */
+	struct ethernet_packet eth_out = {
+		.source = { mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] },
+		.destination = BROADCAST_MAC,
+		.type = htons(0x0800),
+	};
+
+	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
+	offset += sizeof(struct ethernet_packet);
+
+	/* Prepare the IPv4 header */
+	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct udp_packet) + payload_size);
+	uint16_t _ident  = htons(1);
+
+	struct ipv4_packet ipv4_out = {
+		.version_ihl = ((0x4 << 4) | (0x5 << 0)), /* 4 = ipv4, 5 = no options */
+		.dscp_ecn = 0, /* not setting either of those */
+		.length = _length,
+		.ident = _ident,
+		.flags_fragment = 0,
+		.ttl = 0x40,
+		.protocol = IPV4_PROT_UDP,
+		.checksum = 0, /* fill this in later */
+		.source = 0,
+		.destination = 0xFFFFFFFF, /* XXX need macros for this */
+	};
+
+	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
+	ipv4_out.checksum = htons(checksum);
+
+	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
+	offset += sizeof(struct ipv4_packet);
+
+	uint16_t _udp_source = htons(68);
+	uint16_t _udp_destination = htons(67);
+	uint16_t _udp_length = htons(sizeof(struct udp_packet) + payload_size);
+
+	/* Now let's build a UDP packet */
+	struct udp_packet udp_out = {
+		.source_port = _udp_source,
+		.destination_port = _udp_destination,
+		.length = _udp_length,
+		.checksum = 0,
+	};
+
+	/* XXX calculate checksum here */
+
+	memcpy(&buffer[offset], &udp_out, sizeof(struct udp_packet));
+	offset += sizeof(struct udp_packet);
+
+	/* BOOTP headers */
+	struct dhcp_packet bootp_out = {
+		.op = 1,
+		.htype = 1,
+		.hlen = 6, /* mac address... */
+		.hops = 0,
+		.xid = htonl(0x1337), /* transaction id */
+		.secs = 0,
+		.flags = 0,
+
+		.ciaddr = 0x000000,
+		.yiaddr = 0x000000,
+		.siaddr = 0x000000,
+		.giaddr = 0x000000,
+
+		.chaddr = {mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], 0x00},
+		.sname = {0},
+		.file = {0},
+		.magic = htonl(DHCP_MAGIC),
+	};
+
+	memcpy(&buffer[offset], &bootp_out, sizeof(struct dhcp_packet));
+	offset += sizeof(struct dhcp_packet);
+
+	memcpy(&buffer[offset], &dhcp_options, sizeof(dhcp_options));
+	offset += sizeof(dhcp_options);
+
+	return offset;
+}
+
+static size_t write_dns_packet(uint8_t * buffer) {
+	size_t offset = 0;
+	size_t payload_size = sizeof(struct dns_packet);
+
+	uint8_t queries[] = {
+		5,'d','a','k','k','o',
+		2,'u','s',
+		0,
+		0x00, 0x01, /* A */
+		0x00, 0x01, /* IN */
+	};
+
+	payload_size += sizeof(queries);
+
+	/* Then, let's write an ethernet frame */
+	struct ethernet_packet eth_out = {
+		.source = { mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] },
+		.destination = BROADCAST_MAC,
+		.type = htons(0x0800),
+	};
+
+	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
+	offset += sizeof(struct ethernet_packet);
+
+	/* Prepare the IPv4 header */
+	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct udp_packet) + payload_size);
+	uint16_t _ident  = htons(1);
+
+	struct ipv4_packet ipv4_out = {
+		.version_ihl = ((0x4 << 4) | (0x5 << 0)), /* 4 = ipv4, 5 = no options */
+		.dscp_ecn = 0, /* not setting either of those */
+		.length = _length,
+		.ident = _ident,
+		.flags_fragment = 0,
+		.ttl = 0x40,
+		.protocol = IPV4_PROT_UDP,
+		.checksum = 0, /* fill this in later */
+		.source = htonl(0x0a00020f),
+		.destination = htonl(0x0a000203),
+	};
+
+	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
+	ipv4_out.checksum = htons(checksum);
+
+	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
+	offset += sizeof(struct ipv4_packet);
+
+	uint16_t _udp_source = htons(50053); /* Use an ephemeral port */
+	uint16_t _udp_destination = htons(53);
+	uint16_t _udp_length = htons(sizeof(struct udp_packet) + payload_size);
+
+	/* Now let's build a UDP packet */
+	struct udp_packet udp_out = {
+		.source_port = _udp_source,
+		.destination_port = _udp_destination,
+		.length = _udp_length,
+		.checksum = 0,
+	};
+
+	/* XXX calculate checksum here */
+
+	memcpy(&buffer[offset], &udp_out, sizeof(struct udp_packet));
+	offset += sizeof(struct udp_packet);
+
+	/* DNS header */
+	struct dns_packet dns_out = {
+		.qid = htons(0),
+		.flags = htons(0x0100), /* Standard query */
+		.questions = htons(1), /* 1 question */
+		.answers = htons(0),
+		.authorities = htons(0),
+		.additional = htons(0),
+	};
+
+	memcpy(&buffer[offset], &dns_out, sizeof(struct dns_packet));
+	offset += sizeof(struct dns_packet);
+
+	memcpy(&buffer[offset], &queries, sizeof(queries));
+	offset += sizeof(queries);
+
+	return offset;
+}
 
 static void rtl_irq_handler(struct regs *r) {
 	uint16_t status = inports(rtl_iobase + RTL_PORT_ISR);
@@ -163,12 +333,6 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		fprintf(tty, "Determining mac address...\n");
 
-		uint8_t mac[6];
-		for (int i = 0; i < 6; ++i) {
-			mac[i] = inports(rtl_iobase + RTL_PORT_MAC + i);
-			_dhcp_packet[6+i] = mac[i];
-		}
-
 		fprintf(tty, "%2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
 		fprintf(tty, "Enabling RTL8139.\n");
@@ -231,18 +395,29 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Resetting rx stats\n");
 		outportl(rtl_iobase + RTL_PORT_RXMISS, 0);
 
-		fprintf(tty, "Sending DHCP discover\n");
-		memcpy(rtl_tx_buffer[0], _dhcp_packet, sizeof(_dhcp_packet));
-		outportl(rtl_iobase + RTL_PORT_TXBUF, rtl_tx_phys[0]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT, sizeof(_dhcp_packet));
+		{
+			fprintf(tty, "Sending DHCP discover\n");
+			size_t packet_size = write_dhcp_packet(rtl_tx_buffer[0]);
+
+			outportl(rtl_iobase + RTL_PORT_TXBUF, rtl_tx_phys[0]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT, packet_size);
+		}
 
 		sleep_on(rx_wait);
 
-		fprintf(tty, "Awoken from sleep, checking receive buffer: %2x %2x %2x %2x\n",
-			last_packet[0], last_packet[1], last_packet[2], last_packet[3]);
-
 		{
-			struct ipv4_packet * ipv4 = (struct ipv4_packet *)&last_packet[0x0E];
+			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+			uint16_t eth_type = ntohs(eth->type);
+
+			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
+					eth->source[0], eth->source[1], eth->source[2],
+					eth->source[3], eth->source[4], eth->source[5],
+					eth->destination[0], eth->destination[1], eth->destination[2],
+					eth->destination[3], eth->destination[4], eth->destination[5],
+					eth_type);
+
+
+			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
 			uint32_t src_addr = ntohl(ipv4->source);
 			uint32_t dst_addr = ntohl(ipv4->destination);
 			uint16_t length   = ntohs(ipv4->length);
@@ -258,17 +433,15 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 					(dst_addr & 0xFF),
 					length);
 
-			struct udp_packet * udp = (struct udp_packet *)&last_packet[0x22];
+			struct udp_packet * udp = (struct udp_packet *)ipv4->payload;;
 			uint16_t src_port = ntohs(udp->source_port);
 			uint16_t dst_port = ntohs(udp->destination_port);
 			uint16_t udp_len  = ntohs(udp->length);
 
 			fprintf(tty, "UDP [%d → %d] length=%d bytes\n",
 					src_port, dst_port, udp_len);
-		}
 
-		{
-			struct dhcp_packet * dhcp = (struct dhcp_packet *)&last_packet[0x2A];
+			struct dhcp_packet * dhcp = (struct dhcp_packet *)udp->payload;
 			uint32_t yiaddr = ntohl(dhcp->yiaddr);
 
 			fprintf(tty,  "DHCP Offer: %d.%d.%d.%d\n",
@@ -278,19 +451,28 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 					(yiaddr & 0xFF));
 		}
 
-		fprintf(tty, "Sending DNS query...\n");
-		memcpy(rtl_tx_buffer[1], _dns_packet, sizeof(_dns_packet));
+		{
+			fprintf(tty, "Sending DNS query...\n");
+			size_t packet_size = write_dns_packet(rtl_tx_buffer[1]);
 
-		outportl(rtl_iobase + RTL_PORT_TXBUF+4, rtl_tx_phys[1]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT+4, sizeof(_dns_packet));
+			outportl(rtl_iobase + RTL_PORT_TXBUF+4, rtl_tx_phys[1]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT+4, packet_size);
+		}
 
 		sleep_on(rx_wait);
 
-		fprintf(tty, "Awoken from sleep, checking receive buffer: %2x %2x %2x %2x\n",
-			last_packet[0], last_packet[1], last_packet[2], last_packet[3]);
-
 		{
-			struct ipv4_packet * ipv4 = (struct ipv4_packet *)&last_packet[0x0E];
+			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+			uint16_t eth_type = ntohs(eth->type);
+
+			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
+					eth->source[0], eth->source[1], eth->source[2],
+					eth->source[3], eth->source[4], eth->source[5],
+					eth->destination[0], eth->destination[1], eth->destination[2],
+					eth->destination[3], eth->destination[4], eth->destination[5],
+					eth_type);
+
+			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
 			uint32_t src_addr = ntohl(ipv4->source);
 			uint32_t dst_addr = ntohl(ipv4->destination);
 			uint16_t length   = ntohs(ipv4->length);
