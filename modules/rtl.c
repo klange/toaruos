@@ -53,7 +53,32 @@ static list_t * rx_wait;
 
 #define BROADCAST_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define IPV4_PROT_UDP 17
+#define IPV4_PROT_TCP 6
 #define DHCP_MAGIC 0x63825363
+
+struct tcp_header {
+	uint16_t source_port;
+	uint16_t destination_port;
+
+	uint32_t seq_number;
+	uint32_t ack_number;
+
+	uint16_t flags;
+	uint16_t window_size;
+	uint16_t checksum;
+	uint16_t urgent;
+
+	uint8_t  payload[];
+} __attribute__((packed));
+
+struct tcp_check_header {
+	uint32_t source;
+	uint32_t destination;
+	uint8_t  zeros;
+	uint8_t  protocol;
+	uint16_t tcp_len;
+	uint8_t  tcp_header[];
+};
 
 uint32_t ip_aton(const char * in) {
 	char ip[16];
@@ -105,6 +130,96 @@ uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
 	}
 
 	return ~(sum & 0xFFFF) & 0xFFFF;
+}
+
+uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header * h) {
+	uint32_t sum = 0;
+	uint16_t * s = (uint16_t *)p;
+
+	/* TODO: Checksums for options? */
+	for (int i = 0; i < 6; ++i) {
+		sum += ntohs(s[i]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+	}
+
+	s = (uint16_t *)h;
+	for (int i = 0; i < 10; ++i) {
+		sum += ntohs(s[i]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+	}
+
+	return ~(sum & 0xFFFF) & 0xFFFF;
+}
+
+#define TCP_FLAGS_SIN (1 << 1)
+#define DATA_OFFSET_5 (0x5 << 12)
+
+static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t payload_size) {
+	size_t offset = 0;
+
+	/* Then, let's write an ethernet frame */
+	struct ethernet_packet eth_out = {
+		.source = { mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] },
+		.destination = BROADCAST_MAC,
+		.type = htons(0x0800),
+	};
+
+	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
+	offset += sizeof(struct ethernet_packet);
+
+	/* Prepare the IPv4 header */
+	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + payload_size);
+	uint16_t _ident  = htons(1);
+
+	struct ipv4_packet ipv4_out = {
+		.version_ihl = ((0x4 << 4) | (0x5 << 0)), /* 4 = ipv4, 5 = no options */
+		.dscp_ecn = 0, /* not setting either of those */
+		.length = _length,
+		.ident = _ident,
+		.flags_fragment = 0,
+		.ttl = 0x40,
+		.protocol = IPV4_PROT_TCP,
+		.checksum = 0, /* fill this in later */
+		.source = htonl(ip_aton("10.0.2.15")),
+		.destination = htonl(ip_aton("37.48.83.75")),
+	};
+
+	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
+	ipv4_out.checksum = htons(checksum);
+
+	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
+	offset += sizeof(struct ipv4_packet);
+
+	struct tcp_header tcp = {
+		.source_port = htons(56667), /* Ephemeral port */
+		.destination_port = htons(6667), /* IRC */
+		.seq_number = htonl(1),
+		.ack_number = 0,
+		.flags = htons(TCP_FLAGS_SIN | DATA_OFFSET_5),
+		.window_size = htons(1024),
+		.checksum = 0,
+		.urgent = 0,
+	};
+
+	struct tcp_check_header check_hd = {
+		.source = ipv4_out.source,
+		.destination = ipv4_out.destination,
+		.zeros = 0,
+		.protocol = 6,
+		.tcp_len = htons(sizeof(tcp)),
+	};
+
+	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp);
+	tcp.checksum = htons(t);
+
+	memcpy(&buffer[offset], &tcp, sizeof(struct tcp_header));
+	offset += sizeof(struct tcp_header);
+
+	return offset;
 }
 
 static size_t write_dhcp_packet(uint8_t * buffer) {
@@ -640,6 +755,49 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		sleep_on(rx_wait);
 		parse_dns_response(tty, last_packet);
+
+		{
+			fprintf(tty, "Sending TCP syn\n");
+			uint8_t payload[] = { 0 };
+			size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 0);
+
+			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
+
+			next_tx++;
+			if (next_tx == 4) {
+				next_tx = 0;
+			}
+		}
+
+		sleep_on(rx_wait);
+
+		{
+			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+			uint16_t eth_type = ntohs(eth->type);
+
+			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
+					eth->source[0], eth->source[1], eth->source[2],
+					eth->source[3], eth->source[4], eth->source[5],
+					eth->destination[0], eth->destination[1], eth->destination[2],
+					eth->destination[3], eth->destination[4], eth->destination[5],
+					eth_type);
+
+
+			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
+			uint32_t src_addr = ntohl(ipv4->source);
+			uint32_t dst_addr = ntohl(ipv4->destination);
+			uint16_t length   = ntohs(ipv4->length);
+
+			char src_ip[16];
+			char dst_ip[16];
+
+			ip_ntoa(src_addr, src_ip);
+			ip_ntoa(dst_addr, dst_ip);
+
+			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
+					src_ip, dst_ip, length);
+		}
 
 	} else {
 		return -1;
