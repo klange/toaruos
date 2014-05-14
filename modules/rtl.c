@@ -55,6 +55,42 @@ static list_t * rx_wait;
 #define IPV4_PROT_UDP 17
 #define DHCP_MAGIC 0x63825363
 
+uint32_t ip_aton(const char * in) {
+	char ip[16];
+	char * c = ip;
+	int out[4];
+	char * i;
+	memcpy(ip, in, strlen(in) < 15 ? strlen(in) + 1 : 15);
+	ip[15] = '\0';
+
+	i = (char *)lfind(c, '.');
+	*i = '\0';
+	out[0] = atoi(c);
+	c += strlen(c) + 1;
+
+	i = (char *)lfind(c, '.');
+	*i = '\0';
+	out[1] = atoi(c);
+	c += strlen(c) + 1;
+
+	i = (char *)lfind(c, '.');
+	*i = '\0';
+	out[2] = atoi(c);
+	c += strlen(c) + 1;
+
+	out[3] = atoi(c);
+
+	return ((out[0] << 24) | (out[1] << 16) | (out[2] << 8) | (out[3]));
+}
+
+void ip_ntoa(uint32_t src_addr, char * out) {
+	sprintf(out, "%d.%d.%d.%d",
+		(src_addr & 0xFF000000) >> 24,
+		(src_addr & 0xFF0000) >> 16,
+		(src_addr & 0xFF00) >> 8,
+		(src_addr & 0xFF));
+}
+
 uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
 	uint32_t sum = 0;
 	uint16_t * s = (uint16_t *)p;
@@ -109,8 +145,8 @@ static size_t write_dhcp_packet(uint8_t * buffer) {
 		.ttl = 0x40,
 		.protocol = IPV4_PROT_UDP,
 		.checksum = 0, /* fill this in later */
-		.source = 0,
-		.destination = 0xFFFFFFFF, /* XXX need macros for this */
+		.source = htonl(ip_aton("0.0.0.0")),
+		.destination = htonl(ip_aton("255.255.255.255")), /* XXX need macros for this */
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -203,8 +239,8 @@ static size_t write_dns_packet(uint8_t * buffer) {
 		.ttl = 0x40,
 		.protocol = IPV4_PROT_UDP,
 		.checksum = 0, /* fill this in later */
-		.source = htonl(0x0a00020f),
-		.destination = htonl(0x0a000203),
+		.source = htonl(ip_aton("10.0.2.15")),
+		.destination = htonl(ip_aton("10.0.2.3")),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -422,16 +458,14 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			uint32_t dst_addr = ntohl(ipv4->destination);
 			uint16_t length   = ntohs(ipv4->length);
 
-			fprintf(tty, "IP packet [%d.%d.%d.%d → %d.%d.%d.%d] length=%d bytes\n",
-					(src_addr & 0xFF000000) >> 24,
-					(src_addr & 0xFF0000) >> 16,
-					(src_addr & 0xFF00) >> 8,
-					(src_addr & 0xFF),
-					(dst_addr & 0xFF000000) >> 24,
-					(dst_addr & 0xFF0000) >> 16,
-					(dst_addr & 0xFF00) >> 8,
-					(dst_addr & 0xFF),
-					length);
+			char src_ip[16];
+			char dst_ip[16];
+
+			ip_ntoa(src_addr, src_ip);
+			ip_ntoa(dst_addr, dst_ip);
+
+			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
+					src_ip, dst_ip, length);
 
 			struct udp_packet * udp = (struct udp_packet *)ipv4->payload;;
 			uint16_t src_port = ntohs(udp->source_port);
@@ -444,11 +478,9 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			struct dhcp_packet * dhcp = (struct dhcp_packet *)udp->payload;
 			uint32_t yiaddr = ntohl(dhcp->yiaddr);
 
-			fprintf(tty,  "DHCP Offer: %d.%d.%d.%d\n",
-					(yiaddr & 0xFF000000) >> 24,
-					(yiaddr & 0xFF0000) >> 16,
-					(yiaddr & 0xFF00) >> 8,
-					(yiaddr & 0xFF));
+			char yiaddr_ip[16];
+			ip_ntoa(yiaddr, yiaddr_ip);
+			fprintf(tty,  "DHCP Offer: %s\n", yiaddr_ip);
 		}
 
 		{
@@ -477,16 +509,14 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			uint32_t dst_addr = ntohl(ipv4->destination);
 			uint16_t length   = ntohs(ipv4->length);
 
-			fprintf(tty, "IP packet [%d.%d.%d.%d → %d.%d.%d.%d] length=%d bytes\n",
-					(src_addr & 0xFF000000) >> 24,
-					(src_addr & 0xFF0000) >> 16,
-					(src_addr & 0xFF00) >> 8,
-					(src_addr & 0xFF),
-					(dst_addr & 0xFF000000) >> 24,
-					(dst_addr & 0xFF0000) >> 16,
-					(dst_addr & 0xFF00) >> 8,
-					(dst_addr & 0xFF),
-					length);
+			char src_ip[16];
+			char dst_ip[16];
+
+			ip_ntoa(src_addr, src_ip);
+			ip_ntoa(dst_addr, dst_ip);
+
+			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
+					src_ip, dst_ip, length);
 
 			struct udp_packet * udp = (struct udp_packet *)&last_packet[0x22];
 			uint16_t src_port = ntohs(udp->source_port);
@@ -496,7 +526,6 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			fprintf(tty, "UDP [%d → %d] length=%d bytes\n",
 					src_port, dst_port, udp_len);
 		}
-
 
 		fprintf(tty, "dakko.us. = %d.%d.%d.%d\n",
 				last_packet[0x50],
