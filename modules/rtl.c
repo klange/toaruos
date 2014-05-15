@@ -155,10 +155,13 @@ uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header *
 	return ~(sum & 0xFFFF) & 0xFFFF;
 }
 
-#define TCP_FLAGS_SIN (1 << 1)
+#define TCP_FLAGS_SYN (1 << 1)
+#define TCP_FLAGS_ACK (1 << 4)
 #define DATA_OFFSET_5 (0x5 << 12)
 
-static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t payload_size) {
+static uint32_t seq_no = 0xff0000;
+static uint32_t ack_no = 0;
+static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t payload_size, uint16_t flags) {
 	size_t offset = 0;
 
 	/* Then, let's write an ethernet frame */
@@ -197,13 +200,15 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 	struct tcp_header tcp = {
 		.source_port = htons(56667), /* Ephemeral port */
 		.destination_port = htons(6667), /* IRC */
-		.seq_number = htonl(1),
-		.ack_number = 0,
-		.flags = htons(TCP_FLAGS_SIN | DATA_OFFSET_5),
+		.seq_number = htonl(seq_no),
+		.ack_number = htonl(ack_no),
+		.flags = htons(flags),
 		.window_size = htons(1024),
 		.checksum = 0,
 		.urgent = 0,
 	};
+
+	seq_no += 1;
 
 	struct tcp_check_header check_hd = {
 		.source = ipv4_out.source,
@@ -759,7 +764,54 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		{
 			fprintf(tty, "Sending TCP syn\n");
 			uint8_t payload[] = { 0 };
-			size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 0);
+			size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 0, (TCP_FLAGS_SYN | DATA_OFFSET_5));
+
+			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
+
+			next_tx++;
+			if (next_tx == 4) {
+				next_tx = 0;
+			}
+		}
+
+		sleep_on(rx_wait);
+
+		{
+			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+			uint16_t eth_type = ntohs(eth->type);
+
+			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
+					eth->source[0], eth->source[1], eth->source[2],
+					eth->source[3], eth->source[4], eth->source[5],
+					eth->destination[0], eth->destination[1], eth->destination[2],
+					eth->destination[3], eth->destination[4], eth->destination[5],
+					eth_type);
+
+
+			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
+			uint32_t src_addr = ntohl(ipv4->source);
+			uint32_t dst_addr = ntohl(ipv4->destination);
+			uint16_t length   = ntohs(ipv4->length);
+
+			char src_ip[16];
+			char dst_ip[16];
+
+			ip_ntoa(src_addr, src_ip);
+			ip_ntoa(dst_addr, dst_ip);
+
+			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
+					src_ip, dst_ip, length);
+
+			struct tcp_header * tcp = (struct tcp_header *)ipv4->payload;
+
+			ack_no = ntohl(tcp->seq_number) + 1;
+		}
+
+		{
+			fprintf(tty, "Sending TCP ack\n");
+			uint8_t payload[] = { 0 };
+			size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
 
 			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
 			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
