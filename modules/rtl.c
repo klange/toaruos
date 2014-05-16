@@ -154,7 +154,7 @@ uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header *
 	}
 
 	s = (uint16_t *)d;
-	for (int i = 0; i < d_words; ++i) {
+	for (unsigned int i = 0; i < d_words; ++i) {
 		sum += ntohs(s[i]);
 		if (sum > 0xFFFF) {
 			sum = (sum >> 16) + (sum & 0xFFFF);
@@ -197,8 +197,9 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.protocol = IPV4_PROT_TCP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(ip_aton("10.0.2.15")),
-		.destination = htonl(ip_aton("37.48.83.75")),
-		//.destination = htonl(ip_aton("204.28.125.145")),
+		//.destination = htonl(ip_aton("37.48.83.75")),
+		.destination = htonl(ip_aton("204.28.125.145")),
+		//.destination = htonl(ip_aton("192.168.1.145")),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -226,7 +227,12 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.tcp_len = htons(sizeof(tcp)+payload_size),
 	};
 
-	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, payload_size / 2);
+	uint16_t dwords = payload_size / 2;
+	if (dwords * 2 != payload_size) {
+		dwords++;
+	}
+
+	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, dwords);
 	tcp.checksum = htons(t);
 
 	memcpy(&buffer[offset], &tcp, sizeof(struct tcp_header));
@@ -556,6 +562,19 @@ static void rtl_irq_handler(struct regs *r) {
 	}
 }
 
+static volatile uint8_t _lock;
+static int next_tx_buf(void) {
+	int out;
+	spin_lock(&_lock);
+	out = next_tx;
+	next_tx++;
+	if (next_tx == 4) {
+		next_tx = 0;
+	}
+	spin_unlock(&_lock);
+	return out;
+}
+
 static void rtl_netd(void * data, char * name) {
 	fs_node_t * tty = data;
 
@@ -570,15 +589,11 @@ static void rtl_netd(void * data, char * name) {
 			0x00, 0x01, /* IN */
 		};
 
-		size_t packet_size = write_dns_packet(rtl_tx_buffer[next_tx], sizeof(queries), queries);
+		int my_tx = next_tx_buf();
+		size_t packet_size = write_dns_packet(rtl_tx_buffer[my_tx], sizeof(queries), queries);
 
-		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
-
-		next_tx++;
-		if (next_tx == 4) {
-			next_tx = 0;
-		}
+		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 	}
 
 	sleep_on(rx_wait);
@@ -595,15 +610,11 @@ static void rtl_netd(void * data, char * name) {
 			0x00, 0x01, /* IN */
 		};
 
-		size_t packet_size = write_dns_packet(rtl_tx_buffer[next_tx], sizeof(queries), queries);
+		int my_tx = next_tx_buf();
+		size_t packet_size = write_dns_packet(rtl_tx_buffer[my_tx], sizeof(queries), queries);
 
-		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
-
-		next_tx++;
-		if (next_tx == 4) {
-			next_tx = 0;
-		}
+		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 	}
 
 	sleep_on(rx_wait);
@@ -611,16 +622,12 @@ static void rtl_netd(void * data, char * name) {
 
 	{
 		fprintf(tty, "Sending TCP syn\n");
+		int my_tx = next_tx_buf();
 		uint8_t payload[] = { 0 };
-		size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 0, (TCP_FLAGS_SYN | DATA_OFFSET_5));
+		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_SYN | DATA_OFFSET_5));
 
-		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
-
-		next_tx++;
-		if (next_tx == 4) {
-			next_tx = 0;
-		}
+		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 	}
 
 	sleep_on(rx_wait);
@@ -658,16 +665,12 @@ static void rtl_netd(void * data, char * name) {
 	}
 	{
 		fprintf(tty, "Sending TCP ack\n");
+		int my_tx = next_tx_buf();
 		uint8_t payload[] = { 0 };
-		size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
 
-		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
-
-		next_tx++;
-		if (next_tx == 4) {
-			next_tx = 0;
-		}
+		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 	}
 
 
@@ -714,34 +717,44 @@ static void rtl_netd(void * data, char * name) {
 
 		{
 			fprintf(tty, "Sending TCP ack\n");
+			int my_tx = next_tx_buf();
 			uint8_t payload[] = { 0 };
-			size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+			size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
 
-			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
-			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
-
-			next_tx++;
-			if (next_tx == 4) {
-				next_tx = 0;
-			}
+			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 		}
 
 	}
 }
 
 DEFINE_SHELL_FUNCTION(irc, "irc test") {
-	{
-		uint8_t payload[] = "NICK toarutest\r\nUSER toaru 0 * :Toaru Test\r\nJOIN #osdev\r\nPRIVMSG #osdev :suck it bitches\r\nPART #osdev\r\nQUIT\r\n\0\0\0\0\0";
-		size_t packet_size = write_tcp_packet(rtl_tx_buffer[next_tx], payload, 2*(sizeof(payload)/2)-6, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+	char * payloads[] = {
+		"NICK toarutest\r\nUSER toaru 0 * :Toaru Test\r\nJOIN #levchins\r\n\0\0\0",
+		"PRIVMSG #levchins :99 bottles of beer on the wall\r\n\0\0",
+		"PRIVMSG #levchins :99 bottles of beer\r\n\0\0",
+		"PRIVMSG #levchins :Take one down\r\n\0\0",
+		"PRIVMSG #levchins :pass it around\r\n\0\0",
+		"PRIVMSG #levchins :98 bottles of beer on the wall\r\n\0\0",
+		"PART #levchins :Thank you, and good night!\r\n\0\0",
+		"QUIT\r\n\0\0",
+	};
+	for (unsigned int i = 0; i < sizeof(payloads) / sizeof(uint8_t *); ++i) {
+		int my_tx = next_tx_buf();
+		fprintf(tty, "IRC Sending payloads[%d]: %s\n", i, payloads[i]);
+		int l = strlen(payloads[i]);
+		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payloads[i], l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
 
-		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * next_tx, packet_size);
+		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 
-		next_tx++;
-		if (next_tx == 4) {
-			next_tx = 0;
-		}
+		unsigned long s, ss;
+		relative_time(0, 500, &s, &ss);
+		sleep_until((process_t *)current_process, s, ss);
+		switch_task(0);
 	}
+
+	return 0;
 }
 DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 	if (rtl_device_pci) {
@@ -908,7 +921,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		fprintf(tty, "Card is configured, going to start worker thread now.\n");
 
-		int pid = create_kernel_tasklet(rtl_netd, "[netd]", tty);
+		create_kernel_tasklet(rtl_netd, "[netd]", tty);
 
 	} else {
 		return -1;
