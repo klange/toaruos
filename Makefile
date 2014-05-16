@@ -114,8 +114,8 @@ WITH_LOGS = logtoserial=1
 # Disable built-in rules
 .SUFFIXES: 
 
-all: .passed system tags userspace
-system: .passed toaruos-disk.img toaruos-kernel modules
+all: system tags userspace
+system: toaruos-disk.img toaruos-kernel modules
 userspace: ${USERSPACE}
 modules: ${MODULES}
 
@@ -151,14 +151,10 @@ test: system
 toolchain:
 	@cd toolchain; ./toolchain-build.sh
 
-.passed:
-	@util/check-reqs > /dev/null
-	@touch .passed
-
 ################
 #    Kernel    #
 ################
-toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o kernel/symbols.o ${KERNEL_OBJS} .passed
+toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o kernel/symbols.o ${KERNEL_OBJS}
 	@${BEG} "CC" "$<"
 	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
 	@${END} "CC" "$<"
@@ -268,11 +264,6 @@ clean-disk:
 	@${BEGRM} "RM" "Deleting hard disk image..."
 	@-rm -f toaruos-disk.img
 	@${ENDRM} "RM" "Deleted hard disk image"
-
-clean-once:
-	@${BEGRM} "RM" "Cleaning one-time files..."
-	@-rm -f .passed
-	@${ENDRM} "RM" "Cleaned one-time files"
 
 clean: clean-soft clean-core
 	@${INFO} "--" "Finished soft cleaning"
