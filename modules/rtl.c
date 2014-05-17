@@ -758,29 +758,57 @@ DEFINE_SHELL_FUNCTION(irc_test, "irc test") {
 	return 0;
 }
 
-DEFINE_SHELL_FUNCTION(irc, "irc sender") {
+static char irc_payload[512];
 
-	char payload[512];
+static void irc_send(char * payload) {
+	int my_tx = next_tx_buf();
+	int l = strlen(payload);
+	size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payload, l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+
+	outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+	outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+}
+
+DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
+	if (argc < 2) {
+		fprintf(tty, "Specify a username\n");
+		return 1;
+	}
+
+	char * nick = argv[1];
+
+	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0:%s\r\n", nick);
+	irc_send(irc_payload);
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
+
+	if (argc < 2) {
+		fprintf(tty, "Specify a channel.\n");
+		return 1;
+	}
+
+	char * channel = argv[1];
+
+	sprintf(irc_payload, "JOIN %s\r\n", channel);
+	irc_send(irc_payload);
 
 	while (1) {
-		fprintf(tty, "> ");
-		debug_shell_readline(tty, payload, 509);
+		fprintf(tty, "%s> ", channel);
+		char input[400];
+		int c = debug_shell_readline(tty, input, 400);
+		input[c] = '\0';
 
-		if (!strcmp(payload, "exit")) {
+		if (!strcmp(input, "/part")) {
+			sprintf(irc_payload, "PART %s\r\n", channel);
+			irc_send(irc_payload);
 			break;
 		}
 
-		int i = strlen(payload);
-		payload[i]   = '\r';
-		payload[i+1] = '\n';
-		payload[i+2] = '\0';
-
-		int my_tx = next_tx_buf();
-		int l = strlen(payload);
-		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payload, l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
-
-		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+		sprintf(irc_payload, "PRIVMSG %s :%s\r\n", channel, input);
+		irc_send(irc_payload);
 	}
 
 	return 0;
@@ -964,7 +992,8 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 static int init(void) {
 	BIND_SHELL_FUNCTION(rtl);
 	BIND_SHELL_FUNCTION(irc_test);
-	BIND_SHELL_FUNCTION(irc);
+	BIND_SHELL_FUNCTION(irc_init);
+	BIND_SHELL_FUNCTION(irc_join);
 	pci_scan(&find_rtl, -1, &rtl_device_pci);
 	if (!rtl_device_pci) {
 		debug_print(ERROR, "No RTL 8139 found?");
