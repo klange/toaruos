@@ -15,6 +15,7 @@ struct shell_command {
 };
 
 extern void debug_shell_install(struct shell_command * sh);
+extern int debug_shell_readline(fs_node_t * dev, char * linebuf, int max);
 
 #define DEFINE_SHELL_FUNCTION(n, desc) \
 	static int shell_ ## n (fs_node_t * tty, int argc, char * argv[]); \

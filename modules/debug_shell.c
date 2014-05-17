@@ -43,7 +43,7 @@ static void set_buffered(fs_node_t * dev) {
  * TODO tabcompletion would be nice
  * TODO history is also nice
  */
-static int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
+int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 	int read = 0;
 	set_unbuffered(dev);
 	while (read < max) {

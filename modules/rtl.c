@@ -197,8 +197,8 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.protocol = IPV4_PROT_TCP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(ip_aton("10.0.2.15")),
-		//.destination = htonl(ip_aton("37.48.83.75")),
-		.destination = htonl(ip_aton("204.28.125.145")),
+		.destination = htonl(ip_aton("37.48.83.75")),
+		//.destination = htonl(ip_aton("204.28.125.145")),
 		//.destination = htonl(ip_aton("192.168.1.145")),
 	};
 
@@ -680,6 +680,7 @@ static void rtl_netd(void * data, char * name) {
 
 		{
 			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+#if 0
 			uint16_t eth_type = ntohs(eth->type);
 
 			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
@@ -688,9 +689,11 @@ static void rtl_netd(void * data, char * name) {
 					eth->destination[0], eth->destination[1], eth->destination[2],
 					eth->destination[3], eth->destination[4], eth->destination[5],
 					eth_type);
+#endif
 
 
 			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
+#if 0
 			uint32_t src_addr = ntohl(ipv4->source);
 			uint32_t dst_addr = ntohl(ipv4->destination);
 			uint16_t length   = ntohs(ipv4->length);
@@ -703,6 +706,7 @@ static void rtl_netd(void * data, char * name) {
 
 			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
 					src_ip, dst_ip, length);
+#endif
 
 			struct tcp_header * tcp = (struct tcp_header *)ipv4->payload;
 
@@ -711,12 +715,10 @@ static void rtl_netd(void * data, char * name) {
 			seq_no = ntohl(tcp->ack_number);
 			ack_no = ntohl(tcp->seq_number) + l__;
 
-			fprintf(tty, "TCP contents:\n");
 			write_fs(tty, 0, ntohs(ipv4->length)-sizeof(struct ipv4_packet)-sizeof(struct tcp_header), tcp->payload);
 		}
 
 		{
-			fprintf(tty, "Sending TCP ack\n");
 			int my_tx = next_tx_buf();
 			uint8_t payload[] = { 0 };
 			size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
@@ -728,7 +730,7 @@ static void rtl_netd(void * data, char * name) {
 	}
 }
 
-DEFINE_SHELL_FUNCTION(irc, "irc test") {
+DEFINE_SHELL_FUNCTION(irc_test, "irc test") {
 	char * payloads[] = {
 		"NICK toarutest\r\nUSER toaru 0 * :Toaru Test\r\nJOIN #levchins\r\n\0\0\0",
 		"PRIVMSG #levchins :99 bottles of beer on the wall\r\n\0\0",
@@ -741,7 +743,6 @@ DEFINE_SHELL_FUNCTION(irc, "irc test") {
 	};
 	for (unsigned int i = 0; i < sizeof(payloads) / sizeof(uint8_t *); ++i) {
 		int my_tx = next_tx_buf();
-		fprintf(tty, "IRC Sending payloads[%d]: %s\n", i, payloads[i]);
 		int l = strlen(payloads[i]);
 		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payloads[i], l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
 
@@ -756,6 +757,35 @@ DEFINE_SHELL_FUNCTION(irc, "irc test") {
 
 	return 0;
 }
+
+DEFINE_SHELL_FUNCTION(irc, "irc sender") {
+
+	char payload[512];
+
+	while (1) {
+		fprintf(tty, "> ");
+		debug_shell_readline(tty, payload, 509);
+
+		if (!strcmp(payload, "exit")) {
+			break;
+		}
+
+		int i = strlen(payload);
+		payload[i]   = '\r';
+		payload[i+1] = '\n';
+		payload[i+2] = '\0';
+
+		int my_tx = next_tx_buf();
+		int l = strlen(payload);
+		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payload, l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+
+		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+	}
+
+	return 0;
+}
+
 DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 	if (rtl_device_pci) {
 		fprintf(tty, "Located an RTL 8139: 0x%x\n", rtl_device_pci);
@@ -933,6 +963,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 static int init(void) {
 	BIND_SHELL_FUNCTION(rtl);
+	BIND_SHELL_FUNCTION(irc_test);
 	BIND_SHELL_FUNCTION(irc);
 	pci_scan(&find_rtl, -1, &rtl_device_pci);
 	if (!rtl_device_pci) {
