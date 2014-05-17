@@ -777,7 +777,7 @@ DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
 
 	char * nick = argv[1];
 
-	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0:%s\r\n", nick);
+	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0 :%s\r\n", nick, nick, nick);
 	irc_send(irc_payload);
 
 	return 0;
