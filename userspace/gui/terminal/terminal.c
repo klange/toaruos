@@ -1003,9 +1003,7 @@ void reinit(int send_sig) {
 	term_width  = window_width  / char_width;
 	term_height = window_height / char_height;
 	if (term_buffer) {
-		fprintf(stderr, "reinitalizing...\n");
 		term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
-		fprintf(stderr, "new buffer is %x\n", new_term_buffer);
 
 		memset(new_term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 		for (int row = 0; row < min(old_height, term_height); ++row) {
@@ -1055,7 +1053,6 @@ static void resize_finish(int width, int height) {
 
 	if (!_free_size && (t_window_width % char_width != 0 || t_window_height % char_height != 0 && resize_attempts < 3)) {
 		resize_attempts++;
-		fprintf(stderr, "Rejecting dimensions, rounding to %d x %d (+decors)\n", t_window_width - (char_width - (t_window_width % char_width)), t_window_height - (char_height - (t_window_height % char_height)));
 		int n_width  = decor_left_width + decor_right_width + t_window_width  - (t_window_width  % char_width);
 		int n_height = decor_top_height + decor_bottom_height + t_window_height - (t_window_height % char_height);
 		yutani_window_resize_offer(yctx, window, n_width, n_height);
