@@ -1054,6 +1054,46 @@ static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req
 	}
 }
 
+static void mouse_start_drag(yutani_globals_t * yg) {
+	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+	yg->mouse_window = get_focused(yg);
+	if (yg->mouse_window) {
+		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+			yg->mouse_window = NULL;
+		} else {
+			yg->mouse_state = YUTANI_MOUSE_STATE_MOVING;
+			yg->mouse_init_x = yg->mouse_x;
+			yg->mouse_init_y = yg->mouse_y;
+			yg->mouse_win_x  = yg->mouse_window->x;
+			yg->mouse_win_y  = yg->mouse_window->y;
+			make_top(yg, yg->mouse_window);
+		}
+	}
+}
+
+static void mouse_start_resize(yutani_globals_t * yg) {
+	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+	yg->mouse_window = get_focused(yg);
+	if (yg->mouse_window) {
+		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+			yg->mouse_window = NULL;
+		} else {
+			fprintf(stderr, "[yutani-server] resize starting for wid=%d\n", yg->mouse_window -> wid);
+			yg->mouse_state = YUTANI_MOUSE_STATE_RESIZING;
+			yg->mouse_init_x = yg->mouse_x;
+			yg->mouse_init_y = yg->mouse_y;
+			yg->mouse_win_x  = yg->mouse_window->x;
+			yg->mouse_win_y  = yg->mouse_window->y;
+			yg->resizing_window = yg->mouse_window;
+			yg->resizing_w = yg->mouse_window->width;
+			yg->resizing_h = yg->mouse_window->height;
+			make_top(yg, yg->mouse_window);
+		}
+	}
+}
+
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
 	yg->mouse_x += me->event.x_difference * 3;
 	yg->mouse_y -= me->event.y_difference * 3;
@@ -1067,41 +1107,9 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 		case YUTANI_MOUSE_STATE_NORMAL:
 			{
 				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
-					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
-					yg->mouse_window = get_focused(yg);
-					if (yg->mouse_window) {
-						if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
-							yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
-							yg->mouse_window = NULL;
-						} else {
-							yg->mouse_state = YUTANI_MOUSE_STATE_MOVING;
-							yg->mouse_init_x = yg->mouse_x;
-							yg->mouse_init_y = yg->mouse_y;
-							yg->mouse_win_x  = yg->mouse_window->x;
-							yg->mouse_win_y  = yg->mouse_window->y;
-							make_top(yg, yg->mouse_window);
-						}
-					}
+					mouse_start_drag(yg);
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && (yg->kbd_state.k_alt)) {
-					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
-					yg->mouse_window = get_focused(yg);
-					if (yg->mouse_window) {
-						if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
-							yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
-							yg->mouse_window = NULL;
-						} else {
-							fprintf(stderr, "[yutani-server] resize starting for wid=%d\n", yg->mouse_window -> wid);
-							yg->mouse_state = YUTANI_MOUSE_STATE_RESIZING;
-							yg->mouse_init_x = yg->mouse_x;
-							yg->mouse_init_y = yg->mouse_y;
-							yg->mouse_win_x  = yg->mouse_window->x;
-							yg->mouse_win_y  = yg->mouse_window->y;
-							yg->resizing_window = yg->mouse_window;
-							yg->resizing_w = yg->mouse_window->width;
-							yg->resizing_h = yg->mouse_window->height;
-							make_top(yg, yg->mouse_window);
-						}
-					}
+					mouse_start_resize(yg);
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
 					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
@@ -1505,6 +1513,16 @@ int main(int argc, char * argv[]) {
 				{
 					struct yutani_msg_key_bind * wa = (void *)m->data;
 					add_key_bind(yg, wa, p->source);
+				}
+				break;
+			case YUTANI_MSG_WINDOW_DRAG_START:
+				{
+					struct yutani_msg_window_drag_start * wa = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					if (w) {
+						/* Start dragging */
+						mouse_start_drag(yg);
+					}
 				}
 				break;
 			default:

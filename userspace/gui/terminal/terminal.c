@@ -1110,6 +1110,18 @@ void * handle_incoming(void * garbage) {
 						resize_finish(wr->width, wr->height);
 					}
 					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							if (!_fullscreen) {
+								if (me->new_y < decor_top_height) {
+									yutani_window_drag_start(yctx, window);
+								}
+							}
+						}
+					}
+					break;
 				default:
 					break;
 			}
