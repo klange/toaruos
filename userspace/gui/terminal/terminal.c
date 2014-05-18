@@ -69,6 +69,7 @@ uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell 
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
+uint8_t  _free_size     = 0;    /* Disable rounding when resized */
 
 static volatile int display_lock = 0;
 
@@ -1052,7 +1053,7 @@ static void resize_finish(int width, int height) {
 		return;
 	}
 
-	if (t_window_width % char_width != 0 || t_window_height % char_height != 0 && resize_attempts < 3) {
+	if (!_free_size && (t_window_width % char_width != 0 || t_window_height % char_height != 0 && resize_attempts < 3)) {
 		resize_attempts++;
 		fprintf(stderr, "Rejecting dimensions, rounding to %d x %d (+decors)\n", t_window_width - (char_width - (t_window_width % char_width)), t_window_height - (char_height - (t_window_height % char_height)));
 		int n_width  = decor_left_width + decor_right_width + t_window_width  - (t_window_width  % char_width);
@@ -1156,6 +1157,7 @@ int main(int argc, char ** argv) {
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
 		{"kernel",     no_argument,       0, 'k'},
+		{"freesize",   no_argument,       0, 'x'},
 		{"scale",      required_argument, 0, 's'},
 		{"geometry",   required_argument, 0, 'g'},
 		{0,0,0,0}
@@ -1163,7 +1165,7 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhFlks:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxFlks:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -1172,6 +1174,9 @@ int main(int argc, char ** argv) {
 		switch (c) {
 			case 'k':
 				_force_kernel = 1;
+				break;
+			case 'x':
+				_free_size = 1;
 				break;
 			case 'l':
 				_login_shell = 1;
