@@ -348,6 +348,8 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 
 	int oldbufid = win->bufid;
 
+	mark_window(yg, win);
+
 	win->width = width;
 	win->height = height;
 
@@ -364,6 +366,8 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 
 	win->buffer = win->newbuffer;
 	win->newbuffer = NULL;
+
+	mark_window(yg, win);
 }
 
 /**
@@ -1011,7 +1015,56 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 				free(response);
 				return;
 			}
+		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
+			(ke->event.keycode == KEY_ARROW_LEFT)) {
 
+			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+				int panel_h = 0;
+				yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
+				if (panel) {
+					panel_h = panel->height;
+				}
+				int w = yg->width / 2;
+				int h = yg->height - panel_h;
+
+				/* Calculate, move, etc. */
+				mark_window(yg, focused);
+				focused->x = 0;
+				focused->y = panel_h;
+				mark_window(yg, focused);
+
+				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, focused->wid, w, h, 0);
+				pex_send(yg->server, focused->owner, response->size, (char *)response);
+				free(response);
+				return;
+			}
+		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
+			(ke->event.keycode == KEY_ARROW_RIGHT)) {
+
+			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+				int panel_h = 0;
+				yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
+				if (panel) {
+					panel_h = panel->height;
+				}
+				int w = yg->width / 2;
+				int h = yg->height - panel_h;
+
+				/* Calculate, move, etc. */
+				mark_window(yg, focused);
+				focused->x = w;
+				focused->y = panel_h;
+				mark_window(yg, focused);
+
+				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, focused->wid, w, h, 0);
+				pex_send(yg->server, focused->owner, response->size, (char *)response);
+				free(response);
+				return;
+			}
 		}
 	}
 

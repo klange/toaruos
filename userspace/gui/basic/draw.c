@@ -208,7 +208,7 @@ void ttk_check_click(struct yutani_msg_window_mouse_event * evt) {
 		}
 	} else if (evt->command == YUTANI_MOUSE_EVENT_DOWN) {
 		fprintf(stderr, "Mouse down: %d, %d\n", evt->new_x, evt->new_y);
-		if (evt->new_y < decor_top_height) {
+		if (evt->new_y < decor_top_height && evt->new_x < (wina->width - 28)) {
 			yutani_window_drag_start(yctx, wina);
 		}
 	}
