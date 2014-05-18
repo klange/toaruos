@@ -416,6 +416,19 @@ int ttk_run(ttk_window_t * window) {
 						ttk_resize_callback(hashmap_get(ttk_wids_to_windows, (void*)wr->wid), wr->width, wr->height);
 					}
 					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							ttk_window_t * win = hashmap_get(ttk_wids_to_windows, (void*)me->wid);
+							if (win) {
+								if (me->new_y < decor_top_height) {
+									yutani_window_drag_start(yctx, win->core_window);
+								}
+							}
+						}
+					}
+					break;
 				default:
 					break;
 			}

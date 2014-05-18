@@ -236,6 +236,16 @@ char handle_event(yutani_msg_t * m) {
 					}
 				}
 				break;
+			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+				{
+					struct yutani_msg_window_mouse_event * me = (void*)m->data;
+					if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+						if (me->new_y < decor_top_height) {
+							yutani_window_drag_start(yctx, window);
+						}
+					}
+				}
+				break;
 			case YUTANI_MSG_SESSION_END:
 				return 'q';
 			default:
@@ -291,7 +301,7 @@ int main(int argc, char ** argv) {
 
 		yutani_msg_t * m = NULL;
 		do {
-			yutani_poll_async(yctx);
+			m = yutani_poll_async(yctx);
 			handle_event(m);
 		} while (m);
 

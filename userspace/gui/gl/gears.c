@@ -332,6 +332,14 @@ int main (int argc, char ** argv) {
 						}
 					}
 					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							yutani_window_drag_start(yctx, wina);
+						}
+					}
+					break;
 #if 0
 					/* XXX resizing */
 						/* Fix up the GL context as well */

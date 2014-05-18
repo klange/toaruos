@@ -81,11 +81,22 @@ void * draw_thread(void * garbage) {
 	}
 }
 
+void resize_finish(int w, int h) {
+	yutani_window_resize_accept(yctx, wina, w, h);
+	reinit_graphics_yutani(ctx, wina);
+
+	win_width  = w;
+	win_height = h;
+
+	yutani_window_resize_done(yctx, wina);
+	yutani_flip(yctx, wina);
+}
+
 int main (int argc, char ** argv) {
 	yctx = yutani_init();
 
-	win_width  = 500;
-	win_height = 500;
+	win_width  = 100;
+	win_height = 100;
 
 	init_decorations();
 
@@ -131,6 +142,22 @@ int main (int argc, char ** argv) {
 					break;
 				case YUTANI_MSG_SESSION_END:
 					should_exit = 1;
+					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						resize_finish(wr->width, wr->height);
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							if (me->new_y < decor_top_height) {
+								yutani_window_drag_start(yctx, wina);
+							}
+						}
+					}
 					break;
 				default:
 					break;
