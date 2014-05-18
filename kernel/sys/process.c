@@ -668,7 +668,7 @@ int waitpid(int pid, int * status, int options) {
 		proc = process_from_pid(proc->group);
 	}
 
-	debug_print(NOTICE, "waitpid(%s%d, ..., %d) (from pid=%d.%d)", (pid >= 0) ? "" : "-", (pid >= 0) ? pid : -pid, options, current_process->id, current_process->group);
+	debug_print(INFO, "waitpid(%s%d, ..., %d) (from pid=%d.%d)", (pid >= 0) ? "" : "-", (pid >= 0) ? pid : -pid, options, current_process->id, current_process->group);
 
 	do {
 		process_t * candidate = NULL;
@@ -692,12 +692,12 @@ int waitpid(int pid, int * status, int options) {
 
 		if (!has_children) {
 			/* No valid children matching this description */
-			debug_print(NOTICE, "No children matching description.");
+			debug_print(INFO, "No children matching description.");
 			return -ECHILD;
 		}
 
 		if (candidate) {
-			debug_print(NOTICE, "Candidate found (%x:%d), bailing early.", candidate, candidate->id);
+			debug_print(INFO, "Candidate found (%x:%d), bailing early.", candidate, candidate->id);
 			if (status) {
 				*status = candidate->status;
 			}
@@ -708,10 +708,10 @@ int waitpid(int pid, int * status, int options) {
 			if (options & 1) {
 				return 0;
 			}
-			debug_print(NOTICE, "Sleeping until queue is done.");
+			debug_print(INFO, "Sleeping until queue is done.");
 			/* Wait */
 			if (sleep_on(proc->wait_queue) != 0) {
-				debug_print(NOTICE, "wait() was interrupted");
+				debug_print(INFO, "wait() was interrupted");
 				return -EINTR;
 			}
 		}
