@@ -7,11 +7,6 @@
 #include <ipv4.h>
 #include <mod/shell.h>
 
-#define htonl(l)  ( (((l) & 0xFF) << 24) | (((l) & 0xFF00) << 8) | (((l) & 0xFF0000) >> 8) | (((l) & 0xFF000000) >> 24))
-#define htons(s)  ( (((s) & 0xFF) << 8) | (((s) & 0xFF00) >> 8) )
-#define ntohl(l)  htonl((l))
-#define ntohs(s)  htons((s))
-
 static uint32_t rtl_device_pci = 0x00000000;
 
 static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
@@ -52,124 +47,9 @@ static int next_tx = 0;
 
 static list_t * rx_wait;
 
-#define BROADCAST_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
-#define IPV4_PROT_UDP 17
-#define IPV4_PROT_TCP 6
-#define DHCP_MAGIC 0x63825363
-
-struct tcp_header {
-	uint16_t source_port;
-	uint16_t destination_port;
-
-	uint32_t seq_number;
-	uint32_t ack_number;
-
-	uint16_t flags;
-	uint16_t window_size;
-	uint16_t checksum;
-	uint16_t urgent;
-
-	uint8_t  payload[];
-} __attribute__((packed));
-
-struct tcp_check_header {
-	uint32_t source;
-	uint32_t destination;
-	uint8_t  zeros;
-	uint8_t  protocol;
-	uint16_t tcp_len;
-	uint8_t  tcp_header[];
-};
-
-uint32_t ip_aton(const char * in) {
-	char ip[16];
-	char * c = ip;
-	int out[4];
-	char * i;
-	memcpy(ip, in, strlen(in) < 15 ? strlen(in) + 1 : 15);
-	ip[15] = '\0';
-
-	i = (char *)lfind(c, '.');
-	*i = '\0';
-	out[0] = atoi(c);
-	c += strlen(c) + 1;
-
-	i = (char *)lfind(c, '.');
-	*i = '\0';
-	out[1] = atoi(c);
-	c += strlen(c) + 1;
-
-	i = (char *)lfind(c, '.');
-	*i = '\0';
-	out[2] = atoi(c);
-	c += strlen(c) + 1;
-
-	out[3] = atoi(c);
-
-	return ((out[0] << 24) | (out[1] << 16) | (out[2] << 8) | (out[3]));
-}
-
-void ip_ntoa(uint32_t src_addr, char * out) {
-	sprintf(out, "%d.%d.%d.%d",
-		(src_addr & 0xFF000000) >> 24,
-		(src_addr & 0xFF0000) >> 16,
-		(src_addr & 0xFF00) >> 8,
-		(src_addr & 0xFF));
-}
-
-uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
-	uint32_t sum = 0;
-	uint16_t * s = (uint16_t *)p;
-
-	/* TODO: Checksums for options? */
-	for (int i = 0; i < 10; ++i) {
-		sum += ntohs(s[i]);
-	}
-
-	if (sum > 0xFFFF) {
-		sum = (sum >> 16) + (sum & 0xFFFF);
-	}
-
-	return ~(sum & 0xFFFF) & 0xFFFF;
-}
-
-uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header * h, void * d, size_t d_words) {
-	uint32_t sum = 0;
-	uint16_t * s = (uint16_t *)p;
-
-	/* TODO: Checksums for options? */
-	for (int i = 0; i < 6; ++i) {
-		sum += ntohs(s[i]);
-		if (sum > 0xFFFF) {
-			sum = (sum >> 16) + (sum & 0xFFFF);
-		}
-	}
-
-	s = (uint16_t *)h;
-	for (int i = 0; i < 10; ++i) {
-		sum += ntohs(s[i]);
-		if (sum > 0xFFFF) {
-			sum = (sum >> 16) + (sum & 0xFFFF);
-		}
-	}
-
-	s = (uint16_t *)d;
-	for (unsigned int i = 0; i < d_words; ++i) {
-		sum += ntohs(s[i]);
-		if (sum > 0xFFFF) {
-			sum = (sum >> 16) + (sum & 0xFFFF);
-		}
-	}
-
-	return ~(sum & 0xFFFF) & 0xFFFF;
-}
-
-#define TCP_FLAGS_SYN (1 << 1)
-#define TCP_FLAGS_ACK (1 << 4)
-#define DATA_OFFSET_5 (0x5 << 12)
-
 static uint32_t seq_no = 0xff0000;
 static uint32_t ack_no = 0x0;
+
 static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t payload_size, uint16_t flags) {
 	size_t offset = 0;
 
@@ -285,7 +165,7 @@ static size_t write_dhcp_packet(uint8_t * buffer) {
 		.protocol = IPV4_PROT_UDP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(ip_aton("0.0.0.0")),
-		.destination = htonl(ip_aton("255.255.255.255")), /* XXX need macros for this */
+		.destination = htonl(ip_aton("255.255.255.255")),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -993,8 +873,6 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 	return 0;
 }
 
-
-
 static int init(void) {
 	BIND_SHELL_FUNCTION(rtl);
 	BIND_SHELL_FUNCTION(irc_test);
@@ -1014,3 +892,4 @@ static int fini(void) {
 
 MODULE_DEF(rtl, init, fini);
 MODULE_DEPENDS(debugshell);
+MODULE_DEPENDS(net);
