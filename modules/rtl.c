@@ -200,6 +200,7 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.destination = htonl(ip_aton("37.48.83.75")),
 		//.destination = htonl(ip_aton("204.28.125.145")),
 		//.destination = htonl(ip_aton("192.168.1.145")),
+		//.destination = htonl(ip_aton("107.170.207.248")),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -211,10 +212,11 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 	struct tcp_header tcp = {
 		.source_port = htons(56667), /* Ephemeral port */
 		.destination_port = htons(6667), /* IRC */
+		//.destination_port = htons(23),
 		.seq_number = htonl(seq_no),
 		.ack_number = flags & (TCP_FLAGS_ACK) ? htonl(ack_no) : 0,
 		.flags = htons(flags),
-		.window_size = htons(1024),
+		.window_size = htons(1800),
 		.checksum = 0,
 		.urgent = 0,
 	};
@@ -712,10 +714,14 @@ static void rtl_netd(void * data, char * name) {
 
 			uint32_t l__ = ntohs(ipv4->length) - sizeof(struct tcp_header) - sizeof(struct ipv4_packet);
 
-			seq_no = ntohl(tcp->ack_number);
+			if (ntohs(tcp->flags) & TCP_FLAGS_ACK) {
+				seq_no = ntohl(tcp->ack_number);
+			}
 			ack_no = ntohl(tcp->seq_number) + l__;
 
-			write_fs(tty, 0, ntohs(ipv4->length)-sizeof(struct ipv4_packet)-sizeof(struct tcp_header), tcp->payload);
+			if (l__ < 0xFFFF) {
+				write_fs(tty, 0, l__, tcp->payload);
+			}
 		}
 
 		{
