@@ -24,34 +24,37 @@ static void note(int length, int freq) {
 
 }
 
-DEFINE_SHELL_FUNCTION(beep, "Beep.") {
-	fprintf(tty, "beep\n");
+struct spkr {
+	int length;
+	int frequency;
+};
 
-	note(20, 15680);
-	note(10, 11747);
-	note(10, 12445);
-	note(20, 13969);
-	note(10, 12445);
-	note(10, 11747);
-	note(20, 10465);
-	note(10, 10465);
-	note(10, 12445);
-	note(20, 15680);
-	note(10, 13969);
-	note(10, 12445);
-	note(30, 11747);
-	note(10, 12445);
-	note(20, 13969);
-	note(20, 15680);
-	note(20, 12445);
-	note(20, 10465);
-	note(20, 10465);
+static uint32_t write_spkr(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	if (!size % (sizeof(struct spkr))) {
+		return 0;
+	}
 
-	return 0;
+	struct spkr * s = (struct spkr *)buffer;
+	while ((uintptr_t)s < (uintptr_t)buffer + size) {
+		note(s->length, s->frequency);
+		s++;
+	}
+
+	return (uintptr_t)s - (uintptr_t)buffer;
+}
+
+static fs_node_t * spkr_device_create(void) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	sprintf(fnode->name, "spkr");
+	fnode->flags   = FS_CHARDEVICE;
+	fnode->write   = write_spkr;
+	return fnode;
 }
 
 static int init(void) {
-	BIND_SHELL_FUNCTION(beep);
+	fs_node_t * node = spkr_device_create();
+	vfs_mount("/dev/spkr", node);
 	return 0;
 }
 
