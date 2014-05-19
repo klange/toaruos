@@ -28,6 +28,7 @@ void set_username() {
 
 		if (atoi(tokens[2]) == uid) {
 			setenv("USER", tokens[0], 1);
+			setenv("WM_THEME", tokens[7], 1);
 		}
 	}
 	fclose(passwd);
