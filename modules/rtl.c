@@ -50,6 +50,19 @@ static list_t * rx_wait;
 static uint32_t seq_no = 0xff0000;
 static uint32_t ack_no = 0x0;
 
+static volatile uint8_t _lock;
+static int next_tx_buf(void) {
+	int out;
+	spin_lock(&_lock);
+	out = next_tx;
+	next_tx++;
+	if (next_tx == 4) {
+		next_tx = 0;
+	}
+	spin_unlock(&_lock);
+	return out;
+}
+
 static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t payload_size, uint16_t flags) {
 	size_t offset = 0;
 
@@ -294,6 +307,101 @@ static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * q
 	return offset;
 }
 
+static char irc_input[400] = {'\0'};
+static char irc_prompt[100] = {'\0'};
+static char irc_nick[32] = {'\0'};
+static char irc_payload[512];
+
+static void irc_send(char * payload) {
+	int my_tx = next_tx_buf();
+	int l = strlen(payload);
+	size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payload, l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+
+	outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+	outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+}
+
+static void handle_irc_packet(fs_node_t * tty, size_t size, uint8_t * packet) {
+	char * c = (char *)packet;
+
+	while ((uintptr_t)c < (uintptr_t)packet + size) {
+		char * e = strstr(c, "\r\n");
+
+		if ((uintptr_t)e > (uintptr_t)packet + size) {
+			break;
+		}
+
+		if (!e) {
+			/* XXX */
+			c[size-1] = '\0';
+			fprintf(tty, "\r\033[36m%s\033[0m\033[K\n", c);
+			goto prompt_;
+		}
+
+		e[0] = '\0';
+
+		if (startswith(c, "PING")) {
+			char tmp[100];
+			char * t = strstr(c, ":");
+			sprintf(tmp, "PONG %s\r\n", t);
+			irc_send(tmp);
+			goto prompt_;
+		}
+
+		char * user;
+		char * command;
+		char * channel;
+		char * message;
+		
+		user = c;
+
+		command = strstr(user, " ");
+		if (!command) {
+			fprintf(tty, "\r\033[36m%s\033[0m\033[K\n", user);
+			goto prompt_;
+		}
+		command[0] = '\0';
+		command++;
+
+		channel = strstr(command, " ");
+		if (!channel) {
+			fprintf(tty, "\r\033[36m%s %s\033[0m\033[K\n", user, command);
+			goto prompt_;
+		}
+		channel[0] = '\0';
+		channel++;
+
+		if (!strcmp(command, "PRIVMSG")) {
+			message = strstr(channel, " ");
+			if (!message) {
+				fprintf(tty, "\r\033[36m%s %s\033[0m\033[K\n", user, command, channel);
+				goto prompt_;
+			}
+			message[0] = '\0';
+			message++;
+			if (message[0] == ':') { message++; }
+			if (user[0] == ':') { user++; }
+			char * t = strstr(user, "!");
+			if (t) { t[0] = '\0'; }
+			t = strstr(user, "@");
+			if (t) { t[0] = '\0'; }
+			fprintf(tty, "\r<\033[32m%s\033[0m:\033[34m%s\033[0m> %s\033[K\n", user, channel, message);
+		} else {
+			fprintf(tty, "\r\033[36m%s %s %s\033[0m\033[K\n", user, command, channel);
+		}
+
+prompt_:
+		/* Redraw prompt */
+		fprintf(tty, "%s", irc_prompt);
+		fprintf(tty, "%s", irc_input);
+
+		if (!e) break;
+
+		c = e + 2;
+	}
+
+}
+
 static size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset) {
 	uint8_t * bytes = (uint8_t *)dns;
 	while (1) {
@@ -444,19 +552,6 @@ static void rtl_irq_handler(struct regs *r) {
 	}
 }
 
-static volatile uint8_t _lock;
-static int next_tx_buf(void) {
-	int out;
-	spin_lock(&_lock);
-	out = next_tx;
-	next_tx++;
-	if (next_tx == 4) {
-		next_tx = 0;
-	}
-	spin_unlock(&_lock);
-	return out;
-}
-
 static void rtl_netd(void * data, char * name) {
 	fs_node_t * tty = data;
 
@@ -600,7 +695,12 @@ static void rtl_netd(void * data, char * name) {
 			ack_no = ntohl(tcp->seq_number) + l__;
 
 			if (l__ < 0xFFFF) {
-				write_fs(tty, 0, l__, tcp->payload);
+				if (ntohs(tcp->source_port) == 6667) {
+					/* Handle IRC */
+					handle_irc_packet(tty, l__, tcp->payload);
+				} else {
+					write_fs(tty, 0, l__, tcp->payload);
+				}
 			}
 		}
 
@@ -644,26 +744,15 @@ DEFINE_SHELL_FUNCTION(irc_test, "irc test") {
 	return 0;
 }
 
-static char irc_payload[512];
-
-static void irc_send(char * payload) {
-	int my_tx = next_tx_buf();
-	int l = strlen(payload);
-	size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payload, l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
-
-	outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
-	outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
-}
-
 DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
 	if (argc < 2) {
 		fprintf(tty, "Specify a username\n");
 		return 1;
 	}
 
-	char * nick = argv[1];
+	memcpy(irc_nick, argv[1], strlen(argv[1])+1);
 
-	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0 :%s\r\n", nick, nick, nick);
+	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0 :%s\r\n", irc_nick, irc_nick, irc_nick);
 	irc_send(irc_payload);
 
 	return 0;
@@ -681,21 +770,33 @@ DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 	sprintf(irc_payload, "JOIN %s\r\n", channel);
 	irc_send(irc_payload);
 
-	while (1) {
-		fprintf(tty, "%s> ", channel);
-		char input[400];
-		int c = debug_shell_readline(tty, input, 400);
-		input[c] = '\0';
+	sprintf(irc_prompt, "\r<\033[35m%s\033[0m:\033[34m%s\033[0m> ", irc_nick, channel);
 
-		if (!strcmp(input, "/part")) {
+	while (1) {
+		fprintf(tty, irc_prompt);
+		int c = debug_shell_readline(tty, irc_input, 400);
+		irc_input[c] = '\0';
+
+		if (startswith(irc_input, "/part")) {
 			sprintf(irc_payload, "PART %s\r\n", channel);
 			irc_send(irc_payload);
 			break;
 		}
 
-		sprintf(irc_payload, "PRIVMSG %s :%s\r\n", channel, input);
-		irc_send(irc_payload);
+		if (startswith(irc_input, "/me ")) {
+			char * m = strstr(irc_input, " ");
+			m++;
+			sprintf(irc_payload, "PRIVMSG %s :\1ACTION %s\1\r\n", channel, m);
+			irc_send(irc_payload);
+		} else {
+			sprintf(irc_payload, "PRIVMSG %s :%s\r\n", channel, irc_input);
+			irc_send(irc_payload);
+		}
+
+		memset(irc_input, 0x00, sizeof(irc_input));
 	}
+	memset(irc_prompt, 0x00, sizeof(irc_prompt));
+	memset(irc_input, 0x00, sizeof(irc_input));
 
 	return 0;
 }
