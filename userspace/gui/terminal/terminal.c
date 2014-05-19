@@ -65,6 +65,7 @@ uint32_t current_fg     = 7;    /* Current foreground color */
 uint32_t current_bg     = 0;    /* Current background color */
 uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
+uint8_t  _no_frame      = 0;    /* Whether to disable decorations or not */
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _force_kernel  = 0;
@@ -160,26 +161,25 @@ void input_buffer_stuff(char * str) {
 
 static void render_decors() {
 	/* XXX Make the decorations library support Yutani windows */
-	if (!_fullscreen) {
-		if (terminal_title_length) {
-			render_decorations(window, ctx, terminal_title);
-			yutani_window_advertise_icon(yctx, window, terminal_title, "utilities-terminal");
-		} else {
-			render_decorations(window, ctx, "Terminal");
-			yutani_window_advertise_icon(yctx, window, "Terminal", "utilities-terminal");
-		}
-		l_x = 0; l_y = 0;
-		r_x = window->width;
-		r_y = window->height;
-		display_flip();
+	if (_fullscreen) return;
+	if (!_no_frame) {
+		render_decorations(window, ctx, terminal_title_length ? terminal_title : "Terminal");
 	}
+	yutani_window_advertise_icon(yctx, window, terminal_title_length ? terminal_title : "Terminal", "utilities-terminal");
+	l_x = 0; l_y = 0;
+	r_x = window->width;
+	r_y = window->height;
+	display_flip();
 }
 
 static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
-	if (!_fullscreen) {
+	if (_fullscreen) {
+		color = alpha_blend_rgba(premultiply(rgba(0,0,0,0xFF)), color);
+	}
+	if (!_no_frame) {
 		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
 	} else {
-		GFX(ctx, x,y) = alpha_blend_rgba(premultiply(rgba(0,0,0,0xFF)), color);
+		GFX(ctx, x,y) = color;
 	}
 }
 
@@ -369,7 +369,7 @@ _extra_stuff:
 		}
 	}
 
-	if (!_fullscreen) {
+	if (!_no_frame) {
 		l_x = min(l_x, decor_left_width + x);
 		l_y = min(l_y, decor_top_height + y);
 
@@ -471,12 +471,12 @@ void term_scroll(int how_much) {
 		/* In graphical modes, we will shift the graphics buffer up as necessary */
 		uintptr_t dst, src;
 		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-		if (!_fullscreen) {
-			/* Windowed mode must take borders into account */
+		if (!_no_frame) {
+			/* Must include decorations */
 			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
 			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
 		} else {
-			/* While fullscreen mode does not */
+			/* Can skip decorations */
 			dst = (uintptr_t)ctx->backbuffer;
 			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
 		}
@@ -496,11 +496,10 @@ void term_scroll(int how_much) {
 		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * how_much);
 		uintptr_t dst, src;
 		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-		if (!_fullscreen) {
+		if (!_no_frame) {
 			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
 			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
 		} else {
-			/* While fullscreen mode does not */
 			src = (uintptr_t)ctx->backbuffer;
 			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
 		}
@@ -770,7 +769,7 @@ void term_clear(int i) {
 		csr_x = 0;
 		csr_y = 0;
 		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(term_cell_t));
-		if (!_fullscreen) {
+		if (!_no_frame) {
 			render_decors();
 		}
 		term_redraw_all();
@@ -938,6 +937,7 @@ void usage(char * argv[]) {
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -s --scale      \033[3mScale the font in FreeType mode by a given amount.\033[0m\n"
 			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
+			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
@@ -1041,21 +1041,29 @@ void reinit(int send_sig) {
 static void resize_finish(int width, int height) {
 	static int resize_attempts = 0;
 
-	int t_window_width  = width  - decor_left_width - decor_right_width;
-	int t_window_height = height - decor_top_height - decor_bottom_height;
+	int extra_x = 0;
+	int extra_y = 0;
+
+	if (!_no_frame) {
+		extra_x = decor_width();
+		extra_y = decor_height();
+	}
+
+	int t_window_width  = width  - extra_x;
+	int t_window_height = height - extra_y;
 
 	if (t_window_width < char_width * 20 || t_window_height < char_height * 10) {
 		resize_attempts++;
-		int n_width  = decor_left_width + decor_right_width + max(char_width * 20, t_window_width);
-		int n_height = decor_top_height + decor_bottom_height + max(char_height * 10, t_window_height);
+		int n_width  = extra_x + max(char_width * 20, t_window_width);
+		int n_height = extra_y + max(char_height * 10, t_window_height);
 		yutani_window_resize_offer(yctx, window, n_width, n_height);
 		return;
 	}
 
 	if (!_free_size && (t_window_width % char_width != 0 || t_window_height % char_height != 0 && resize_attempts < 3)) {
 		resize_attempts++;
-		int n_width  = decor_left_width + decor_right_width + t_window_width  - (t_window_width  % char_width);
-		int n_height = decor_top_height + decor_bottom_height + t_window_height - (t_window_height % char_height);
+		int n_width  = extra_x + t_window_width  - (t_window_width  % char_width);
+		int n_height = extra_y + t_window_height - (t_window_height % char_height);
 		yutani_window_resize_offer(yctx, window, n_width, n_height);
 		return;
 	}
@@ -1063,8 +1071,8 @@ static void resize_finish(int width, int height) {
 	resize_attempts = 0;
 
 	yutani_window_resize_accept(yctx, window, width, height);
-	window_width  = window->width  - decor_left_width - decor_right_width;
-	window_height = window->height - decor_top_height - decor_bottom_height;
+	window_width  = window->width  - extra_x;
+	window_height = window->height - extra_y;
 
 	spin_lock(&display_lock);
 	reinit_graphics_yutani(ctx, window);
@@ -1113,7 +1121,7 @@ void * handle_incoming(void * garbage) {
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-							if (!_fullscreen) {
+							if (!_no_frame) {
 								if (me->new_y < decor_top_height) {
 									yutani_window_drag_start(yctx, window);
 								}
@@ -1156,6 +1164,7 @@ int main(int argc, char ** argv) {
 		{"help",       no_argument,       0, 'h'},
 		{"kernel",     no_argument,       0, 'k'},
 		{"grid",       no_argument,       0, 'x'},
+		{"no-frame",   no_argument,       0, 'n'},
 		{"scale",      required_argument, 0, 's'},
 		{"geometry",   required_argument, 0, 'g'},
 		{0,0,0,0}
@@ -1163,7 +1172,7 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxFlks:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxnFlks:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -1179,8 +1188,12 @@ int main(int argc, char ** argv) {
 			case 'l':
 				_login_shell = 1;
 				break;
+			case 'n':
+				_no_frame = 1;
+				break;
 			case 'F':
 				_fullscreen = 1;
+				_no_frame = 1;
 				break;
 			case 'b':
 				_use_freetype = 0;
@@ -1219,16 +1232,20 @@ int main(int argc, char ** argv) {
 	if (_fullscreen) {
 		window_width = yctx->display_width;
 		window_height = yctx->display_height;
+	}
+
+	if (_no_frame) {
 		window = yutani_window_create(yctx, window_width, window_height);
+	} else {
+		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
+		init_decorations();
+	}
+
+	if (_fullscreen) {
 		yutani_set_stack(yctx, window, YUTANI_ZORDER_BOTTOM);
 		window->focused = 1;
 	} else {
-		/* Create the window */
-		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
 		window->focused = 0;
-
-		/* Initialize the decoration library */
-		init_decorations();
 	}
 
 	/* Initialize the graphics context */
