@@ -69,7 +69,7 @@ uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell 
 uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
-uint8_t  _free_size     = 0;    /* Disable rounding when resized */
+uint8_t  _free_size     = 1;    /* Disable rounding when resized */
 
 static volatile int display_lock = 0;
 
@@ -937,6 +937,7 @@ void usage(char * argv[]) {
 			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -s --scale      \033[3mScale the font in FreeType mode by a given amount.\033[0m\n"
+			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
@@ -1154,7 +1155,7 @@ int main(int argc, char ** argv) {
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
 		{"kernel",     no_argument,       0, 'k'},
-		{"freesize",   no_argument,       0, 'x'},
+		{"grid",       no_argument,       0, 'x'},
 		{"scale",      required_argument, 0, 's'},
 		{"geometry",   required_argument, 0, 'g'},
 		{0,0,0,0}
@@ -1173,7 +1174,7 @@ int main(int argc, char ** argv) {
 				_force_kernel = 1;
 				break;
 			case 'x':
-				_free_size = 1;
+				_free_size = 0;
 				break;
 			case 'l':
 				_login_shell = 1;
