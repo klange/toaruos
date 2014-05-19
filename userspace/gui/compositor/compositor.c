@@ -959,6 +959,28 @@ static void notify_subscribers(yutani_globals_t * yg) {
 	free(response);
 }
 
+static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window,  int width_div, int height_div, int x, int y) {
+	int panel_h = 0;
+	yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
+	if (panel) {
+		panel_h = panel->height;
+	}
+
+	int w = yg->width / width_div;
+	int h = (yg->height - panel_h) / height_div;
+
+	/* Calculate, move, etc. */
+	mark_window(yg, window);
+	window->x = w * x;
+	window->y = panel_h + h * y;
+	mark_window(yg, window);
+
+	yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0);
+	pex_send(yg->server, window->owner, response->size, (char *)response);
+	free(response);
+	return;
+}
+
 static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event * ke) {
 	yutani_server_window_t * focused = get_focused(yg);
 	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
@@ -993,77 +1015,64 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 			(ke->event.keycode == KEY_F10)) {
-
 			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
-
-				int panel_h = 0;
-				yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
-				if (panel) {
-					panel_h = panel->height;
-				}
-				int w = yg->width;
-				int h = yg->height - panel_h;
-
-				/* Calculate, move, etc. */
-				mark_window(yg, focused);
-				focused->x = 0;
-				focused->y = panel_h;
-				mark_window(yg, focused);
-
-				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, focused->wid, w, h, 0);
-				pex_send(yg->server, focused->owner, response->size, (char *)response);
-				free(response);
+				window_tile(yg, focused, 1, 1, 0, 0);
 				return;
 			}
 		}
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
-			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
-			(ke->event.keycode == KEY_ARROW_LEFT)) {
-
-			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
-				int panel_h = 0;
-				yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
-				if (panel) {
-					panel_h = panel->height;
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER)) {
+			if ((ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+				(ke->event.keycode == KEY_ARROW_LEFT)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 2, 2, 0, 0);
+					return;
 				}
-				int w = yg->width / 2;
-				int h = yg->height - panel_h;
-
-				/* Calculate, move, etc. */
-				mark_window(yg, focused);
-				focused->x = 0;
-				focused->y = panel_h;
-				mark_window(yg, focused);
-
-				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, focused->wid, w, h, 0);
-				pex_send(yg->server, focused->owner, response->size, (char *)response);
-				free(response);
-				return;
 			}
-		}
-		if ((ke->event.action == KEY_ACTION_DOWN) &&
-			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
-			(ke->event.keycode == KEY_ARROW_RIGHT)) {
-
-			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
-				int panel_h = 0;
-				yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
-				if (panel) {
-					panel_h = panel->height;
+			if ((ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+				(ke->event.keycode == KEY_ARROW_RIGHT)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 2, 2, 1, 0);
+					return;
 				}
-				int w = yg->width / 2;
-				int h = yg->height - panel_h;
-
-				/* Calculate, move, etc. */
-				mark_window(yg, focused);
-				focused->x = w;
-				focused->y = panel_h;
-				mark_window(yg, focused);
-
-				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, focused->wid, w, h, 0);
-				pex_send(yg->server, focused->owner, response->size, (char *)response);
-				free(response);
-				return;
+			}
+			if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+				(ke->event.keycode == KEY_ARROW_LEFT)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 2, 2, 0, 1);
+					return;
+				}
+			}
+			if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+				(ke->event.keycode == KEY_ARROW_RIGHT)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 2, 2, 1, 1);
+					return;
+				}
+			}
+			if ((ke->event.keycode == KEY_ARROW_LEFT)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 2, 1, 0, 0);
+					return;
+				}
+			}
+			if ((ke->event.keycode == KEY_ARROW_RIGHT)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 2, 1, 1, 0);
+					return;
+				}
+			}
+			if ((ke->event.keycode == KEY_ARROW_UP)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 1, 2, 0, 0);
+					return;
+				}
+			}
+			if ((ke->event.keycode == KEY_ARROW_DOWN)) {
+				if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+					window_tile(yg, focused, 1, 2, 0, 1);
+					return;
+				}
 			}
 		}
 	}
