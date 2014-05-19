@@ -9,20 +9,11 @@
 #include <syscall.h>
 
 #include "lib/graphics.h"
+#include "lib/spinlock.h"
 
 #define MAX_ARGS 1024
 
 static wchar_t box_chars[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽├┤┴┬│≤≥";
-
-static void spin_lock(int volatile * lock) {
-	while(__sync_lock_test_and_set(lock, 0x01)) {
-		syscall_yield();
-	}
-}
-
-static void spin_unlock(int volatile * lock) {
-	__sync_lock_release(lock);
-}
 
 /* Returns the lower of two shorts */
 static uint16_t min(uint16_t a, uint16_t b) {

@@ -23,6 +23,7 @@
 #include "lib/yutani.h"
 #include "lib/hashmap.h"
 #include "lib/list.h"
+#include "lib/spinlock.h"
 
 #include "yutani_int.h"
 
@@ -103,16 +104,6 @@ int32_t min(int32_t a, int32_t b) {
 
 int32_t max(int32_t a, int32_t b) {
 	return (a > b) ? a : b;
-}
-
-static void spin_lock(int volatile * lock) {
-	while(__sync_lock_test_and_set(lock, 0x01)) {
-		syscall_yield();
-	}
-}
-
-static void spin_unlock(int volatile * lock) {
-	__sync_lock_release(lock);
 }
 
 static int next_buf_id(void) {
