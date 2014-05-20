@@ -223,6 +223,8 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 
 		struct window_ad * ad = ads_by_z[new_focused];
 
+		if (!ad) return;
+
 		yutani_focus_window(yctx, ad->wid);
 		was_tabbing = 0;
 		new_focused = -1;
@@ -241,6 +243,8 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 
 		int direction = (ke->event.modifiers & KEY_MOD_LEFT_SHIFT) ? 1 : -1;
 
+		if (window_list->length < 1) return;
+
 		if (was_tabbing) {
 			new_focused = new_focused + direction;
 		} else {
@@ -257,7 +261,7 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 
 		if (new_focused < 0) {
 			new_focused = 0;
-			for (int i = 0; i < 18; i++) {
+			for (int i = 0; i < MAX_WINDOW_COUNT; i++) {
 				if (ads_by_z[i+1] == NULL) {
 					new_focused = i;
 					break;
