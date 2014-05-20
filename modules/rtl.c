@@ -311,6 +311,7 @@ static char irc_input[400] = {'\0'};
 static char irc_prompt[100] = {'\0'};
 static char irc_nick[32] = {'\0'};
 static char irc_payload[512];
+static volatile uint8_t irc_tty_lock = 0;
 
 static void irc_send(char * payload) {
 	int my_tx = next_tx_buf();
@@ -330,6 +331,7 @@ static void handle_irc_packet(fs_node_t * tty, size_t size, uint8_t * packet) {
 		if ((uintptr_t)e > (uintptr_t)packet + size) {
 			break;
 		}
+		spin_lock(&irc_tty_lock);
 
 		if (!e) {
 			/* XXX */
@@ -385,7 +387,17 @@ static void handle_irc_packet(fs_node_t * tty, size_t size, uint8_t * packet) {
 			if (t) { t[0] = '\0'; }
 			t = strstr(user, "@");
 			if (t) { t[0] = '\0'; }
-			fprintf(tty, "\r<\033[32m%s\033[0m:\033[34m%s\033[0m> %s\033[K\n", user, channel, message);
+			uint16_t hr, min, sec;
+			get_time(&hr, &min, &sec);
+
+			if (startswith(message, "\001ACTION ")) {
+				message = message + 8;
+				char * x = strstr(message, "\001");
+				if (x) *x = '\0';
+				fprintf(tty, "\r%2d:%2d:%2d * \033[32m%s\033[0m:\033[34m%s\033[0m %s\033[K\n", hr, min, sec, user, channel, message);
+			} else {
+				fprintf(tty, "\r%2d:%2d:%2d \033[90m<\033[32m%s\033[0m:\033[34m%s\033[90m>\033[0m %s\033[K\n", hr, min, sec, user, channel, message);
+			}
 		} else {
 			fprintf(tty, "\r\033[36m%s %s %s\033[0m\033[K\n", user, command, channel);
 		}
@@ -394,6 +406,8 @@ prompt_:
 		/* Redraw prompt */
 		fprintf(tty, "%s", irc_prompt);
 		fprintf(tty, "%s", irc_input);
+
+		spin_unlock(&irc_tty_lock);
 
 		if (!e) break;
 
@@ -657,34 +671,7 @@ static void rtl_netd(void * data, char * name) {
 
 		{
 			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
-#if 0
-			uint16_t eth_type = ntohs(eth->type);
-
-			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
-					eth->source[0], eth->source[1], eth->source[2],
-					eth->source[3], eth->source[4], eth->source[5],
-					eth->destination[0], eth->destination[1], eth->destination[2],
-					eth->destination[3], eth->destination[4], eth->destination[5],
-					eth_type);
-#endif
-
-
 			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
-#if 0
-			uint32_t src_addr = ntohl(ipv4->source);
-			uint32_t dst_addr = ntohl(ipv4->destination);
-			uint16_t length   = ntohs(ipv4->length);
-
-			char src_ip[16];
-			char dst_ip[16];
-
-			ip_ntoa(src_addr, src_ip);
-			ip_ntoa(dst_addr, dst_ip);
-
-			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
-					src_ip, dst_ip, length);
-#endif
-
 			struct tcp_header * tcp = (struct tcp_header *)ipv4->payload;
 
 			uint32_t l__ = ntohs(ipv4->length) - sizeof(struct tcp_header) - sizeof(struct ipv4_packet);
@@ -715,6 +702,50 @@ static void rtl_netd(void * data, char * name) {
 
 	}
 }
+
+static int irc_readline(fs_node_t * dev, char * linebuf, int max) {
+	int read = 0;
+	tty_set_unbuffered(dev);
+	while (read < max) {
+		uint8_t buf[1];
+		int r = read_fs(dev, 0, 1, (unsigned char *)buf);
+		if (!r) {
+			debug_print(WARNING, "Read nothing?");
+			continue;
+		}
+		spin_lock(&irc_tty_lock);
+		linebuf[read] = buf[0];
+		if (buf[0] == '\n') {
+			linebuf[read] = 0;
+			spin_unlock(&irc_tty_lock);
+			break;
+		} else if (buf[0] == 0x08) {
+			if (read > 0) {
+				fprintf(dev, "\010 \010");
+				read--;
+				linebuf[read] = 0;
+			}
+		} else if (buf[0] < ' ') {
+			switch (buf[0]) {
+				case 0x0C: /* ^L */
+					/* Should reset display here */
+					spin_unlock(&irc_tty_lock);
+					break;
+				default:
+					/* do nothing */
+					spin_unlock(&irc_tty_lock);
+					break;
+			}
+		} else {
+			fprintf(dev, "%c", buf[0]);
+			read += r;
+		}
+		spin_unlock(&irc_tty_lock);
+	}
+	tty_set_buffered(dev);
+	return read;
+}
+
 
 DEFINE_SHELL_FUNCTION(irc_test, "irc test") {
 	char * payloads[] = {
@@ -770,30 +801,42 @@ DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 	sprintf(irc_payload, "JOIN %s\r\n", channel);
 	irc_send(irc_payload);
 
-	sprintf(irc_prompt, "\r<\033[35m%s\033[0m:\033[34m%s\033[0m> ", irc_nick, channel);
+	sprintf(irc_prompt, "\r[%s] ", irc_nick, channel);
 
 	while (1) {
 		fprintf(tty, irc_prompt);
-		int c = debug_shell_readline(tty, irc_input, 400);
+		int c = irc_readline(tty, irc_input, 400);
+
+		spin_lock(&irc_tty_lock);
+
 		irc_input[c] = '\0';
 
 		if (startswith(irc_input, "/part")) {
+			fprintf(tty, "\n");
 			sprintf(irc_payload, "PART %s\r\n", channel);
 			irc_send(irc_payload);
+			spin_unlock(&irc_tty_lock);
 			break;
 		}
 
 		if (startswith(irc_input, "/me ")) {
 			char * m = strstr(irc_input, " ");
 			m++;
+			uint16_t hr, min, sec;
+			get_time(&hr, &min, &sec);
+			fprintf(tty, "\r%2d:%2d:%2d * \033[35m%s\033[0m:\033[34m%s\033[0m %s\n\033[K", hr, min, sec, irc_nick, channel, m);
 			sprintf(irc_payload, "PRIVMSG %s :\1ACTION %s\1\r\n", channel, m);
 			irc_send(irc_payload);
 		} else {
+			uint16_t hr, min, sec;
+			get_time(&hr, &min, &sec);
+			fprintf(tty, "\r%2d:%2d:%2d \033[90m<\033[35m%s\033[0m:\033[34m%s\033[90m>\033[0m %s\n\033[K", hr, min, sec, irc_nick, channel, irc_input);
 			sprintf(irc_payload, "PRIVMSG %s :%s\r\n", channel, irc_input);
 			irc_send(irc_payload);
 		}
 
 		memset(irc_input, 0x00, sizeof(irc_input));
+		spin_unlock(&irc_tty_lock);
 	}
 	memset(irc_prompt, 0x00, sizeof(irc_prompt));
 	memset(irc_input, 0x00, sizeof(irc_input));

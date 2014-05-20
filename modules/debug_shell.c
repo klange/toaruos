@@ -25,14 +25,14 @@
  */
 static struct termios old;
 
-static void set_unbuffered(fs_node_t * dev) {
+void tty_set_unbuffered(fs_node_t * dev) {
 	ioctl_fs(dev, TCGETS, &old);
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO);
 	ioctl_fs(dev, TCSETSF, &new);
 }
 
-static void set_buffered(fs_node_t * dev) {
+void tty_set_buffered(fs_node_t * dev) {
 	ioctl_fs(dev, TCSETSF, &old);
 }
 
@@ -45,7 +45,7 @@ static void set_buffered(fs_node_t * dev) {
  */
 int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 	int read = 0;
-	set_unbuffered(dev);
+	tty_set_unbuffered(dev);
 	while (read < max) {
 		uint8_t buf[1];
 		int r = read_fs(dev, 0, 1, (unsigned char *)buf);
@@ -78,7 +78,7 @@ int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 			read += r;
 		}
 	}
-	set_buffered(dev);
+	tty_set_buffered(dev);
 	return read;
 }
 
@@ -394,7 +394,7 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 	unsigned long start_tick = timer_ticks;
 	memset(tmp, 0, sizeof(tmp));
 	/* Move cursor, Request position, Reset cursor */
-	set_unbuffered(dev);
+	tty_set_unbuffered(dev);
 	fprintf(dev, "\033[1000;1000H\033[6n\033[H");
 	while (1) {
 		char buf[1];
