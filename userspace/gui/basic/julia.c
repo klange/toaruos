@@ -281,6 +281,9 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
+				case YUTANI_MSG_SESSION_END:
+					playing = 0;
+					break;
 				default:
 					break;
 			}

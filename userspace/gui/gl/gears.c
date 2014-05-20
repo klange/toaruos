@@ -340,6 +340,9 @@ int main (int argc, char ** argv) {
 						}
 					}
 					break;
+				case YUTANI_MSG_SESSION_END:
+					should_exit = 1;
+					break;
 #if 0
 					/* XXX resizing */
 						/* Fix up the GL context as well */

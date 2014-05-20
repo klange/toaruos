@@ -95,6 +95,8 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
+				case YUTANI_MSG_SESSION_END:
+					goto done;
 				default:
 					break;
 			}
