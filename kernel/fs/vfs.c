@@ -643,6 +643,7 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 
 	if (path_offset >= path+path_len) {
 		free(path);
+		free(node_ptr);
 		return mount_point;
 	}
 	/* Set the active directory to the mountpoint */
