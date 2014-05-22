@@ -166,11 +166,11 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		mboot_mod_t * mod = &mboot_mods[i];
 		uint32_t module_start = mod->mod_start;
 		uint32_t module_end = mod->mod_end;
-		size_t   module_size = module_end - module_end;
+		size_t   module_size = module_end - module_start;
 
 		if (!module_quickcheck((void *)module_start)) {
 			debug_print(NOTICE, "Loading ramdisk: 0x%x:0x%x", module_start, module_end);
-			ramdisk_mount(module_start, module_end-module_start);
+			ramdisk_mount(module_start, module_size);
 		} else {
 
 			debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start, module_end);
