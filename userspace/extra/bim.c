@@ -567,7 +567,7 @@ void open_file(char * file) {
 
 	if (!f) {
 		char buf[1024];
-		snprintf(buf, 1204, "Could not open %s", file);
+		snprintf(buf, 1024, "Could not open %s", file);
 		render_error(buf);
 		return;
 	}
