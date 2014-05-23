@@ -801,7 +801,7 @@ DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 	sprintf(irc_payload, "JOIN %s\r\n", channel);
 	irc_send(irc_payload);
 
-	sprintf(irc_prompt, "\r[%s] ", irc_nick, channel);
+	sprintf(irc_prompt, "\r[%s] ", channel);
 
 	while (1) {
 		fprintf(tty, irc_prompt);
