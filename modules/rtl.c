@@ -376,7 +376,7 @@ static void handle_irc_packet(fs_node_t * tty, size_t size, uint8_t * packet) {
 		if (!strcmp(command, "PRIVMSG")) {
 			message = strstr(channel, " ");
 			if (!message) {
-				fprintf(tty, "\r\033[36m%s %s\033[0m\033[K\n", user, command, channel);
+				fprintf(tty, "\r\033[36m%s %s %s\033[0m\033[K\n", user, command, channel);
 				goto prompt_;
 			}
 			message[0] = '\0';
