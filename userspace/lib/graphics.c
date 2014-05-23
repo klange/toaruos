@@ -359,6 +359,8 @@ void load_sprite(sprite_t * sprite, char * filename) {
 		}
 		i += row_width;
 	}
+
+	fclose(image);
 	free(bufferb);
 }
 
