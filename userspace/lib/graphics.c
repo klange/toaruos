@@ -48,6 +48,7 @@ gfx_context_t * init_graphics_fullscreen() {
 	int fd = open("/dev/fb0", O_RDONLY);
 	if (fd < 0) {
 		/* oh shit */
+		free(out);
 		return NULL;
 	}
 
@@ -380,12 +381,14 @@ int load_sprite_png(sprite_t * sprite, char * file) {
 	}
 	fread(header, 1, 8, fp);
 	if (png_sig_cmp(header, 0, 8)) {
+		fclose(fp);
 		printf("Oh dear. Bad signature.\n");
 		return 1;
 	}
 
 	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 	if (!png_ptr) {
+		fclose(fp);
 		printf("Oh dear. Couldn't make a read struct.\n");
 		return 1;
 	}
