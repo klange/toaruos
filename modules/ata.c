@@ -283,28 +283,37 @@ static void ata_device_read_sector(struct ata_device * dev, uint32_t lba, uint8_
 	uint16_t bus = dev->io_base;
 	uint8_t slave = dev->slave;
 
+	int flag = 0;
 	int errors = 0;
-try_again:
-	outportb(bus + ATA_REG_CONTROL, 0x02);
 
-	ata_wait(dev, 0);
+	while(flag == 0) {
+		outportb(bus + ATA_REG_CONTROL, 0x02);
 
-	outportb(bus + ATA_REG_HDDEVSEL, 0xe0 | slave << 4 | (lba & 0x0f000000) >> 24);
-	outportb(bus + ATA_REG_FEATURES, 0x00);
-	outportb(bus + ATA_REG_SECCOUNT0, 1);
-	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
-	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
-	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
-	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+		ata_wait(dev, 0);
 
-	if (ata_wait(dev, 1)) {
-		debug_print(WARNING, "Error during ATA read of lba block %d", lba);
-		errors++;
-		if (errors > 4) {
-			debug_print(WARNING, "-- Too many errors trying to read this block. Bailing.");
-			return;
+		outportb(bus + ATA_REG_HDDEVSEL, 0xe0 | slave << 4 | (lba & 0x0f000000) >> 24);
+		outportb(bus + ATA_REG_FEATURES, 0x00);
+		outportb(bus + ATA_REG_SECCOUNT0, 1);
+		outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
+		outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
+		outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
+		outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+
+		if (ata_wait(dev, 1)) {
+			debug_print(WARNING, "Error during ATA read of lba block %d", lba);
+			errors++;
+
+			if (errors > 4) {
+				debug_print(WARNING, "-- Too many errors trying to read this block. Bailing.");
+				return;
+			}
+
+			debug_print(WARNING, "Attempt %i", errors);
+			continue;
 		}
-		goto try_again;
+		else {
+			flag = 1;
+		}
 	}
 
 	int size = 256;
