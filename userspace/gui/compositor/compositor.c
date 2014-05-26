@@ -1360,6 +1360,7 @@ int main(int argc, char * argv[]) {
 	if (yutani_options.nested) {
 		yg->host_context = yutani_init();
 		yg->host_window = yutani_window_create(yg->host_context, yutani_options.nest_width, yutani_options.nest_height);
+		yutani_window_move(yg->host_context, yg->host_window, 50, 50);
 		yg->backend_ctx = init_graphics_yutani_double_buffer(yg->host_window);
 	} else {
 		yg->backend_ctx = init_graphics_fullscreen_double_buffer();
