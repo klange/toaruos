@@ -108,7 +108,6 @@ exec(
 
 	/* Free the space we used for the ELF headers and files */
 	free(header);
-	close_fs(file);
 
 	for (uintptr_t stack_pointer = USER_STACK_BOTTOM; stack_pointer < USER_STACK_TOP; stack_pointer += 0x1000) {
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
@@ -172,6 +171,14 @@ exec(
 	current_process->image.user_stack  = USER_STACK_TOP;
 
 	current_process->image.start = entry;
+
+	/* XXX setuid */
+	if (file->mask & 0x800) {
+		debug_print(WARNING, "setuid binary executed [%s, uid:%d]", file->name, file->uid);
+		current_process->user = file->uid;
+	}
+
+	close_fs(file);
 
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, USER_STACK_TOP);

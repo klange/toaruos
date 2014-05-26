@@ -220,10 +220,10 @@ $(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.c++,hdd
 # Hard Disk Images #
 ####################
 
-toaruos-disk.img: ${USERSPACE} ${MODULES}
+toaruos-disk.img: ${USERSPACE} ${MODULES} util/devtable
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
-	@${GENEXT} -B 4096 -d hdd -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
+	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 

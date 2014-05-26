@@ -133,6 +133,8 @@ void print_entry_long(const char * filename, const char * srcpath) {
 	/* file permissions */
 	if (S_ISLNK(statbuf.st_mode)) {
 		printf("l");
+	} else if (statbuf.st_mode & S_ISUID) {
+		printf("s");
 	} else {
 		printf( (S_ISDIR(statbuf.st_mode))  ? "d" : "-");
 	}
