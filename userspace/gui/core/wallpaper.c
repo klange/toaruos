@@ -12,9 +12,7 @@
 #include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
-
-sprite_t * sprites[128];
-sprite_t alpha_tmp;
+#include "lib/hashmap.h"
 
 #define ICON_X         24
 #define ICON_TOP_Y     40
@@ -22,57 +20,104 @@ sprite_t alpha_tmp;
 #define ICON_WIDTH     48
 #define EXTRA_WIDTH    24
 
-uint16_t win_width;
-uint16_t win_height;
-yutani_t * yctx;
-yutani_window_t * wina;
-gfx_context_t * ctx;
+static uint16_t win_width;
+static uint16_t win_height;
+static yutani_t * yctx;
+static yutani_window_t * wina;
+static gfx_context_t * ctx;
+static sprite_t * wallpaper;
+static hashmap_t * icon_cache;
 
-int center_x(int x) {
+static int center_x(int x) {
 	return (win_width - x) / 2;
 }
 
-int center_y(int y) {
+static int center_y(int y) {
 	return (win_height - y) / 2;
-}
-
-void init_sprite_png(int i, char * filename) {
-	sprites[i] = malloc(sizeof(sprite_t));
-	load_sprite_png(sprites[i], filename);
 }
 
 typedef struct {
 	char * icon;
 	char * appname;
 	char * title;
+	sprite_t * icon_sprite;
 } application_t;
 
-application_t applications[] = {
-	{"/usr/share/icons/48/utilities-terminal.png",      "terminal", "Terminal"},
-	{"/usr/share/icons/48/applications-painting.png",   "draw",     "Draw!"},
-	{"/usr/share/icons/48/applications-simulation.png", "game",     "RPG Demo"},
-	{"/usr/share/icons/48/julia.png",                   "julia",    "Julia Fractals"},
-	{NULL, NULL, NULL}
+#if 0
+static application_t applications[] = {
+	{"utilities-terminal", "terminal", "Terminal", NULL},
+	{"applications-painting", "draw", "Draw!", NULL},
+	{"applications-simulation", "game", "RPG Demo", NULL},
+	{"julia", "julia", "Julia Fractals", NULL},
+	{NULL, NULL, NULL, NULL},
+};
+#else
+static application_t * applications = NULL;
+#endif
+
+static volatile int _continue = 1;
+
+/* Default search paths for icons, in order of preference */
+static char * icon_directories[] = {
+	"/usr/share/icons/48",
+	"/usr/share/icons/24",
+	"/usr/share/icons",
+	NULL
 };
 
-volatile int _continue = 1;
+/*
+ * Get an icon from the cache, or if it is not in the cache,
+ * load it - or cache the generic icon if we can not find an
+ * appropriate matching icon on the filesystem.
+ */
+static sprite_t * icon_get(char * name) {
+
+	if (!strcmp(name,"")) {
+		/* If a window doesn't have an icon set, return the generic icon */
+		return hashmap_get(icon_cache, "generic");
+	}
+
+	/* Check the icon cache */
+	sprite_t * icon = hashmap_get(icon_cache, name);
+
+	if (!icon) {
+		/* We don't have an icon cached for this identifier, try search */
+		int i = 0;
+		char path[100];
+		while (icon_directories[i]) {
+			/* Check each path... */
+			sprintf(path, "%s/%s.png", icon_directories[i], name);
+			fprintf(stderr, "Checking %s for icon\n", path);
+			if (access(path, R_OK) == 0) {
+				/* And if we find one, cache it */
+				icon = malloc(sizeof(sprite_t));
+				load_sprite_png(icon, path);
+				hashmap_set(icon_cache, name, icon);
+				return icon;
+			}
+			i++;
+		}
+
+		/* If we've exhausted our search paths, just return the generic icon */
+		icon = hashmap_get(icon_cache, "generic");
+		hashmap_set(icon_cache, name, icon);
+	}
+
+	/* We have an icon, return it */
+	return icon;
+}
+
 
 void launch_application(char * app) {
-	if (!fork()) {
-		char name[512];
-		sprintf(name, "/bin/%s", app);
-		printf("Starting %s\n", name);
-		char * args[] = {name, NULL};
-		execvp(args[0], args);
-		exit(1);
-	}
+	printf("Starting %s\n", app);
+	system(app);
 }
 
 char * next_run_activate = NULL;
 int focused_app = -1;
 
-void redraw_apps(void) {
-	draw_sprite(ctx, sprites[1], 0, 0);
+static void redraw_apps(void) {
+	draw_sprite(ctx, wallpaper, 0, 0);
 
 	/* Load Application Shortcuts */
 	uint32_t i = 0;
@@ -80,7 +125,7 @@ void redraw_apps(void) {
 		if (!applications[i].icon) {
 			break;
 		}
-		draw_sprite(ctx, sprites[i+2], ICON_X, ICON_TOP_Y + ICON_SPACING_Y * i);
+		draw_sprite(ctx, applications[i].icon_sprite, ICON_X, ICON_TOP_Y + ICON_SPACING_Y * i);
 
 		uint32_t color = rgb(255,255,255);
 
@@ -99,7 +144,7 @@ void redraw_apps(void) {
 	flip(ctx);
 }
 
-void set_focused(int i) {
+static void set_focused(int i) {
 	if (focused_app != i) {
 		int old_focused = focused_app;
 		focused_app = i;
@@ -113,7 +158,7 @@ void set_focused(int i) {
 	}
 }
 
-void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
+static void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
 		printf("Click!\n");
 		if (evt->new_x > ICON_X && evt->new_x < ICON_X + ICON_WIDTH) {
@@ -155,45 +200,119 @@ void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
 	}
 }
 
+static void read_applications(FILE * f) {
+	if (!f) {
+		/* No applications? */
+		applications = malloc(sizeof(application_t));
+		applications[0].icon = NULL;
+		return;
+	}
+	char line[2048];
+
+	int count = 0;
+
+	while (fgets(line, 2048, f) != NULL) {
+		if (strstr(line, "#") == line) continue;
+
+		char * icon = line;
+		char * name = strstr(icon,","); name++;
+		char * title = strstr(name, ","); title++;
+
+		if (!name || !title) {
+			continue; /* invalid */
+		}
+
+		count++;
+	}
+
+	fseek(f, 0, SEEK_SET);
+	applications = malloc(sizeof(application_t) * (count + 1));
+	memset(&applications[count], 0x00, sizeof(application_t));
+
+	int i = 0;
+	while (fgets(line, 2048, f) != NULL) {
+		if (strstr(line, "#") == line) continue;
+
+		char * icon = line;
+		char * name = strstr(icon,","); name++;
+		char * title = strstr(name, ","); title++;
+
+		if (!name || !title) {
+			continue; /* invalid */
+		}
+
+		name[-1] = '\0';
+		title[-1] = '\0';
+
+		char * tmp = strstr(title, "\n");
+		if (tmp) *tmp = '\0';
+
+		fprintf(stderr, "Icon: %s %s %s\n", icon, name, title);
+
+		applications[i].icon = strdup(icon);
+		applications[i].appname = strdup(name);
+		applications[i].title = strdup(title);
+
+		i++;
+	}
+
+	fclose(f);
+}
+
 int main (int argc, char ** argv) {
 	yctx = yutani_init();
 
 	int width  = yctx->display_width;
 	int height = yctx->display_height;
 
+	sprite_t * wallpaper_tmp = malloc(sizeof(sprite_t));
+
 	char f_name[512];
 	sprintf(f_name, "%s/.wallpaper.png", getenv("HOME"));
 	FILE * f = fopen(f_name, "r");
 	if (f) {
 		fclose(f);
-		init_sprite_png(0, f_name);
+		load_sprite_png(wallpaper_tmp, f_name);
 	} else {
-		init_sprite_png(0, "/usr/share/wallpaper.png");
+		load_sprite_png(wallpaper_tmp, "/usr/share/wallpaper.png");
 	}
 
+	/* Initialize hashmap for icon cache */
+	icon_cache = hashmap_create(10);
+
+	{ /* Generic fallback icon */
+		sprite_t * app_icon = malloc(sizeof(sprite_t));
+		load_sprite_png(app_icon, "/usr/share/icons/48/applications-generic.png");
+		hashmap_set(icon_cache, "generic", app_icon);
+	}
+
+	sprintf(f_name, "%s/.desktop", getenv("HOME"));
+	f = fopen(f_name, "r");
+	if (!f) {
+		f = fopen("/etc/default.desktop", "r");
+	}
+	read_applications(f);
+
+	/* Load applications */
 	uint32_t i = 0;
-	while (1) {
-		if (!applications[i].icon) {
-			break;
-		}
-		printf("Loading png %s\n", applications[i].icon);
-		init_sprite_png(i+2, applications[i].icon);
+	while (applications[i].icon) {
+		applications[i].icon_sprite = icon_get(applications[i].icon);
 		++i;
 	}
 
-	float x = (float)width  / (float)sprites[0]->width;
-	float y = (float)height / (float)sprites[0]->height;
+	float x = (float)width  / (float)wallpaper_tmp->width;
+	float y = (float)height / (float)wallpaper_tmp->height;
 
-	int nh = (int)(x * (float)sprites[0]->height);
-	int nw = (int)(y * (float)sprites[0]->width);;
+	int nh = (int)(x * (float)wallpaper_tmp->height);
+	int nw = (int)(y * (float)wallpaper_tmp->width);;
 
-	sprites[1] = create_sprite(width, height, ALPHA_OPAQUE);
-	gfx_context_t * tmp = init_graphics_sprite(sprites[1]);
+	wallpaper = create_sprite(width, height, ALPHA_OPAQUE);
+	gfx_context_t * tmp = init_graphics_sprite(wallpaper);
 
 	if (nw > width) {
-		draw_sprite_scaled(tmp, sprites[0], (width - nw) / 2, 0, nw, height);
+		draw_sprite_scaled(tmp, wallpaper_tmp, (width - nw) / 2, 0, nw, height);
 	} else {
-		draw_sprite_scaled(tmp, sprites[0], 0, (height - nh) / 2, width, nh);
+		draw_sprite_scaled(tmp, wallpaper_tmp, 0, (height - nh) / 2, width, nh);
 	}
 
 	free(tmp);
