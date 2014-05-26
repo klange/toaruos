@@ -33,8 +33,8 @@ struct {
 	int nest_height;
 } yutani_options = {
 	.nested = 0,
-	.nest_width = 0,
-	.nest_height = 0
+	.nest_width = 640,
+	.nest_height = 480,
 };
 
 
@@ -302,7 +302,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->anim_start = yg->tick_count;
 
 	char key[1024];
-	YUTANI_SHMKEY(key, 1024, win);
+	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
 
 	size_t size = (width * height * 4);
 	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
@@ -323,7 +323,7 @@ static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window
 
 	{
 		char key[1024];
-		YUTANI_SHMKEY_EXP(key, 1024, win->newbufid);
+		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, win->newbufid);
 
 		size_t size = (width * height * 4);
 		win->newbuffer = (uint8_t *)syscall_shm_obtain(key, &size);
@@ -349,7 +349,7 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 
 	{
 		char key[1024];
-		YUTANI_SHMKEY_EXP(key, 1024, oldbufid);
+		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, oldbufid);
 		spin_lock(&yg->redraw_lock);
 		syscall_shm_release(key);
 		spin_unlock(&yg->redraw_lock);
@@ -359,6 +359,55 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 	win->newbuffer = NULL;
 
 	mark_window(yg, win);
+}
+
+/**
+ * Nested Yutani input thread
+ *
+ * Handles keyboard and mouse events, as well as
+ * other Yutani events from the nested window.
+ */
+void * nested_input(void * _yg) {
+
+	yutani_globals_t * yg = _yg;
+
+	yutani_t * y = yutani_init();
+
+	while (1) {
+		yutani_msg_t * m = yutani_poll(yg->host_context);
+		if (m) {
+			switch (m->type) {
+				case YUTANI_MSG_KEY_EVENT:
+					{
+						struct yutani_msg_key_event * ke = (void*)m->data;
+						yutani_msg_t * m_ = yutani_msg_build_key_event(0, &ke->event, &ke->state);
+						int result = yutani_msg_send(y, m_);
+						free(m_);
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						mouse_device_packet_t packet;
+
+						packet.buttons = me->buttons;
+						packet.x_difference = me->new_x;
+						packet.y_difference = me->new_y;
+
+						yutani_msg_t * m_ = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
+						int result = yutani_msg_send(y, m_);
+						free(m_);
+					}
+					break;
+				case YUTANI_MSG_SESSION_END:
+					fprintf(stderr, "[yutani-nested] Host session ended. Should exit.\n");
+					break;
+				default:
+					break;
+			}
+		}
+		free(m);
+	}
 }
 
 /**
@@ -377,7 +426,7 @@ void * mouse_input(void * garbage) {
 	while (1) {
 		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 		if (r > 0) {
-			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet);
+			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_RELATIVE);
 			int result = yutani_msg_send(y, m);
 			free(m);
 		}
@@ -411,7 +460,7 @@ void * keyboard_input(void * garbage) {
 }
 
 #define FONT_PATH "/usr/share/fonts/"
-#define FONT(a,b) {YUTANI_SERVER_IDENTIFIER ".fonts." a, FONT_PATH b}
+#define FONT(a,b) {a, FONT_PATH b}
 
 struct font_def {
 	char * identifier;
@@ -447,11 +496,13 @@ static char * precache_shmfont(char * ident, char * name) {
 	return font;
 }
 
-static void load_fonts(void) {
+static void load_fonts(yutani_globals_t * yg) {
 	int i = 0;
 	while (fonts[i].identifier) {
-		fprintf(stderr, "[compositor] Loading font %s -> %s\n", fonts[i].path, fonts[i].identifier);
-		precache_shmfont(fonts[i].identifier, fonts[i].path);
+		char tmp[100];
+		snprintf(tmp, 100, "sys.%s.fonts.%s", yg->server_ident, fonts[i].identifier);
+		fprintf(stderr, "[compositor] Loading font %s -> %s\n", fonts[i].path, tmp);
+		precache_shmfont(tmp, fonts[i].path);
 		++i;
 	}
 }
@@ -744,21 +795,28 @@ static void redraw_windows(yutani_globals_t * yg) {
 			draw_resizing_box(yg);
 		}
 
-		/*
-		 * Draw the cursor.
-		 * We may also want to draw other compositor elements, like effects, but those
-		 * can also go in the stack order of the windows.
-		 */
-		draw_cursor(yg, tmp_mouse_x, tmp_mouse_y);
+		if (yutani_options.nested) {
+			flip(yg->backend_ctx);
+			/* XXX We can do a better job with this... */
+			yutani_flip(yg->host_context, yg->host_window);
+		} else {
 
-		/*
-		 * Flip the updated areas. This minimizes writes to video memory,
-		 * which is very important on real hardware where these writes are slow.
-		 */
-		cairo_set_operator(yg->real_ctx, CAIRO_OPERATOR_SOURCE);
-		cairo_translate(yg->real_ctx, 0, 0);
-		cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
-		cairo_paint(yg->real_ctx);
+			/*
+			 * Draw the cursor.
+			 * We may also want to draw other compositor elements, like effects, but those
+			 * can also go in the stack order of the windows.
+			 */
+			draw_cursor(yg, tmp_mouse_x, tmp_mouse_y);
+
+			/*
+			 * Flip the updated areas. This minimizes writes to video memory,
+			 * which is very important on real hardware where these writes are slow.
+			 */
+			cairo_set_operator(yg->real_ctx, CAIRO_OPERATOR_SOURCE);
+			cairo_translate(yg->real_ctx, 0, 0);
+			cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
+			cairo_paint(yg->real_ctx);
+		}
 
 		while (yg->windows_to_remove->head) {
 			node_t * node = list_pop(yg->windows_to_remove);
@@ -922,7 +980,7 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 
 	{
 		char key[1024];
-		YUTANI_SHMKEY_EXP(key, 1024, w->bufid);
+		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, w->bufid);
 		/* We actually call this from the render thread, so we already have the lock. */
 		//spin_lock(&yg->redraw_lock);
 		syscall_shm_release(key);
@@ -1148,8 +1206,13 @@ static void mouse_start_resize(yutani_globals_t * yg) {
 }
 
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
-	yg->mouse_x += me->event.x_difference * 3;
-	yg->mouse_y -= me->event.y_difference * 3;
+	if (me->type == YUTANI_MOUSE_EVENT_TYPE_RELATIVE) {
+		yg->mouse_x += me->event.x_difference * 3;
+		yg->mouse_y -= me->event.y_difference * 3;
+	} else if (me->type == YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE) {
+		yg->mouse_x = me->event.x_difference * 3;
+		yg->mouse_y = me->event.y_difference * 3;
+	}
 
 	if (yg->mouse_x < 0) yg->mouse_x = 0;
 	if (yg->mouse_y < 0) yg->mouse_y = 0;
@@ -1293,7 +1356,14 @@ int main(int argc, char * argv[]) {
 
 	yutani_globals_t * yg = malloc(sizeof(yutani_globals_t));
 	memset(yg, 0x00, sizeof(yutani_globals_t));
-	yg->backend_ctx = init_graphics_fullscreen_double_buffer();
+
+	if (yutani_options.nested) {
+		yg->host_context = yutani_init();
+		yg->host_window = yutani_window_create(yg->host_context, yutani_options.nest_width, yutani_options.nest_height);
+		yg->backend_ctx = init_graphics_yutani_double_buffer(yg->host_window);
+	} else {
+		yg->backend_ctx = init_graphics_fullscreen_double_buffer();
+	}
 
 	if (!yg->backend_ctx) {
 		free(yg);
@@ -1308,14 +1378,22 @@ int main(int argc, char * argv[]) {
 	flip(yg->backend_ctx);
 
 	yg->backend_framebuffer = yg->backend_ctx->backbuffer;
-	yg->pex_endpoint = "compositor";
-	setenv("DISPLAY", yg->pex_endpoint, 1);
 
-	FILE * server = pex_bind(yg->pex_endpoint);
+	if (yutani_options.nested) {
+		char * name = malloc(sizeof(char) * 64);
+		snprintf(name, 64, "compositor-nest-%d", getpid());
+		yg->server_ident = name;
+	} else {
+		/* XXX check if this already exists? */
+		yg->server_ident = "compositor";
+	}
+	setenv("DISPLAY", yg->server_ident, 1);
+
+	FILE * server = pex_bind(yg->server_ident);
 	yg->server = server;
 
 	fprintf(stderr, "[yutani] Loading fonts...\n");
-	load_fonts();
+	load_fonts(yg);
 	fprintf(stderr, "[yutani] Done.\n");
 
 	load_sprite_png(&yg->mouse_sprite, "/usr/share/arrow.png");
@@ -1333,12 +1411,19 @@ int main(int argc, char * argv[]) {
 	yutani_cairo_init(yg);
 
 	pthread_t mouse_thread;
-	pthread_create(&mouse_thread, NULL, mouse_input, NULL);
-
 	pthread_t keyboard_thread;
-	pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
-
 	pthread_t render_thread;
+	pthread_t nested_thread;
+
+	if (yutani_options.nested) {
+		/* Nested Yutani-Yutani mouse+keyboard */
+		pthread_create(&nested_thread, NULL, nested_input, yg);
+	} else {
+		/* Toaru mouse+keyboard driver */
+		pthread_create(&mouse_thread, NULL, mouse_input, NULL);
+		pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
+	}
+
 	pthread_create(&render_thread, NULL, redraw, yg);
 
 	if (!fork()) {

@@ -35,7 +35,10 @@ static void _load_font(int i, char * name) {
 	char * font;
 	size_t s = 0;
 	int error;
-	font = (char *)syscall_shm_obtain(name, &s);
+	char tmp[100];
+	snprintf(tmp, 100, "sys.%s%s", getenv("DISPLAY"), name);
+
+	font = (char *)syscall_shm_obtain(tmp, &s);
 	error = FT_New_Memory_Face(library, font, s, 0, &faces[i]);
 	error = FT_Set_Pixel_Sizes(faces[i], FONT_SIZE, FONT_SIZE);
 }
@@ -47,14 +50,14 @@ static void _load_font_f(int i, char * path) {
 }
 
 static void _load_fonts() {
-	_load_font(FONT_SANS_SERIF,             YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif");
-	_load_font(FONT_SANS_SERIF_BOLD,        YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif.bold");
-	_load_font(FONT_SANS_SERIF_ITALIC,      YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif.italic");
-	_load_font(FONT_SANS_SERIF_BOLD_ITALIC, YUTANI_SERVER_IDENTIFIER ".fonts.sans-serif.bolditalic");
-	_load_font(FONT_MONOSPACE,              YUTANI_SERVER_IDENTIFIER ".fonts.monospace");
-	_load_font(FONT_MONOSPACE_BOLD,         YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bold");
-	_load_font(FONT_MONOSPACE_ITALIC,       YUTANI_SERVER_IDENTIFIER ".fonts.monospace.italic");
-	_load_font(FONT_MONOSPACE_BOLD_ITALIC,  YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bolditalic");
+	_load_font(FONT_SANS_SERIF,             ".fonts.sans-serif");
+	_load_font(FONT_SANS_SERIF_BOLD,        ".fonts.sans-serif.bold");
+	_load_font(FONT_SANS_SERIF_ITALIC,      ".fonts.sans-serif.italic");
+	_load_font(FONT_SANS_SERIF_BOLD_ITALIC, ".fonts.sans-serif.bolditalic");
+	_load_font(FONT_MONOSPACE,              ".fonts.monospace");
+	_load_font(FONT_MONOSPACE_BOLD,         ".fonts.monospace.bold");
+	_load_font(FONT_MONOSPACE_ITALIC,       ".fonts.monospace.italic");
+	_load_font(FONT_MONOSPACE_BOLD_ITALIC,  ".fonts.monospace.bolditalic");
 	_load_font_f(FONT_JAPANESE, "/usr/share/fonts/VLGothic.ttf");
 	_load_font_f(FONT_SYMBOLA, "/usr/share/fonts/Symbola.ttf");
 }

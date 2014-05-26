@@ -90,7 +90,7 @@ typedef struct {
 
 	sprite_t mouse_sprite;
 
-	char * pex_endpoint;
+	char * server_ident;
 
 	yutani_server_window_t * focused_window;
 	FILE * server;
@@ -126,6 +126,9 @@ typedef struct {
 	hashmap_t * key_binds;
 
 	list_t * windows_to_remove;
+
+	yutani_t * host_context;
+	yutani_window_t * host_window;
 
 } yutani_globals_t;
 

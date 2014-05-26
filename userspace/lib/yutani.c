@@ -170,7 +170,7 @@ yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event,
 	return msg;
 }
 
-yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event) {
+yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event, int32_t type) {
 	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_mouse_event);
 	yutani_msg_t * msg = malloc(s);
 
@@ -182,6 +182,7 @@ yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packe
 
 	mw->wid = wid;
 	memcpy(&mw->event, event, sizeof(mouse_device_packet_t));
+	mw->type = type;
 
 	return msg;
 }
@@ -440,7 +441,9 @@ yutani_t * yutani_init(void) {
 	if (!getenv("DISPLAY")) {
 		return NULL;
 	}
-	FILE * c = pex_connect(getenv("DISPLAY"));
+
+	char * server_name = getenv("DISPLAY");
+	FILE * c = pex_connect(server_name);
 
 	if (!c) return NULL; /* Connection failed. */
 
@@ -453,6 +456,7 @@ yutani_t * yutani_init(void) {
 	struct yutani_msg_welcome * mw = (void *)&m->data;
 	y->display_width = mw->display_width;
 	y->display_height = mw->display_height;
+	y->server_ident = server_name;
 	free(m);
 
 	return y;
@@ -477,7 +481,7 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 	hashmap_set(y->windows, (void*)win->wid, win);
 
 	char key[1024];
-	YUTANI_SHMKEY(key, 1024, win);
+	YUTANI_SHMKEY(y->server_ident, key, 1024, win);
 
 	size_t size = (width * height * 4);
 	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
@@ -504,7 +508,7 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 	/* Now destroy our end of the window */
 	{
 		char key[1024];
-		YUTANI_SHMKEY_EXP(key, 1024, win->bufid);
+		YUTANI_SHMKEY_EXP(y->server_ident, key, 1024, win->bufid);
 		syscall_shm_release(key);
 	}
 
@@ -560,7 +564,7 @@ void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint
 	/* Allocate the buffer */
 	{
 		char key[1024];
-		YUTANI_SHMKEY(key, 1024, window);
+		YUTANI_SHMKEY(yctx->server_ident, key, 1024, window);
 
 		size_t size = (window->width * window->height * 4);
 		window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
@@ -571,7 +575,7 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 	/* Destroy the old buffer */
 	{
 		char key[1024];
-		YUTANI_SHMKEY_EXP(key, 1024, window->oldbufid);
+		YUTANI_SHMKEY_EXP(yctx->server_ident, key, 1024, window->oldbufid);
 		syscall_shm_release(key);
 	}
 

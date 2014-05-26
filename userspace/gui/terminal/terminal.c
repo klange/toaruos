@@ -788,7 +788,10 @@ void term_clear(int i) {
 char * loadMemFont(char * name, char * ident, size_t * size) {
 	size_t s = 0;
 	int error;
-	char * font = (char *)syscall_shm_obtain(ident, &s);
+	char tmp[100];
+	snprintf(tmp, 100, "sys.%s.fonts.%s", yctx->server_ident, ident);
+
+	char * font = (char *)syscall_shm_obtain(tmp, &s);
 	*size = s;
 	return font;
 }
@@ -1257,16 +1260,16 @@ int main(int argc, char ** argv) {
 
 		/* XXX Use shmemfont library */
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf",  "monospace", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bold", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf",  "monospace.bold", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace.italic", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf",  "monospace.italic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
 
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf", YUTANI_SERVER_IDENTIFIER ".fonts.monospace.bolditalic", &s);
+		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf",  "monospace.bolditalic", &s);
 		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
 
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);

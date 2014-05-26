@@ -9,8 +9,8 @@ typedef enum {
 
 typedef struct {
 	uint32_t magic;
-	int8_t x_difference;
-	int8_t y_difference;
+	int32_t x_difference;
+	int32_t y_difference;
 	mouse_click_t buttons;
 } mouse_device_packet_t;
 

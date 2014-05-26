@@ -10,9 +10,8 @@
 #include "mouse.h"
 #include "list.h"
 
-#define YUTANI_SERVER_IDENTIFIER "sys.compositor"
-#define YUTANI_SHMKEY(buf,sz,win) snprintf(buf, sz, "%s.%d", YUTANI_SERVER_IDENTIFIER, win->bufid);
-#define YUTANI_SHMKEY_EXP(buf,sz,bufid) snprintf(buf, sz, "%s.%d", YUTANI_SERVER_IDENTIFIER, bufid);
+#define YUTANI_SHMKEY(server_ident,buf,sz,win) snprintf(buf, sz, "sys.%s.%d", server_ident, win->bufid);
+#define YUTANI_SHMKEY_EXP(server_ident,buf,sz,bufid) snprintf(buf, sz, "sys.%s.%d", server_ident, bufid);
 
 typedef unsigned int yutani_wid_t;
 
@@ -26,6 +25,8 @@ typedef struct yutani_context {
 
 	hashmap_t * windows;
 	list_t * queued;
+
+	char * server_ident;
 } yutani_t;
 
 typedef struct yutani_message {
@@ -95,6 +96,7 @@ struct yutani_msg_window_mouse_event {
 struct yutani_msg_mouse_event {
 	yutani_wid_t wid;
 	mouse_device_packet_t event;
+	int32_t type;
 };
 
 struct yutani_msg_flip_region {
@@ -212,6 +214,9 @@ typedef struct yutani_window {
 #define YUTANI_MOUSE_EVENT_LEAVE 5
 #define YUTANI_MOUSE_EVENT_ENTER 6
 
+#define YUTANI_MOUSE_EVENT_TYPE_RELATIVE 0
+#define YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE 1
+
 #define YUTANI_BIND_PASSTHROUGH 0
 #define YUTANI_BIND_STEAL       1
 
@@ -233,7 +238,7 @@ yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height);
 yutani_msg_t * yutani_msg_build_window_init(yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
 yutani_msg_t * yutani_msg_build_flip(yutani_wid_t);
 yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event, key_event_state_t * state);
-yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event);
+yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event, int32_t type);
 yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
 yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
 yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused);
