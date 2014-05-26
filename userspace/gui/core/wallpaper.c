@@ -109,8 +109,12 @@ static sprite_t * icon_get(char * name) {
 
 
 void launch_application(char * app) {
-	printf("Starting %s\n", app);
-	system(app);
+	if (!fork()) {
+		printf("Starting %s\n", app);
+		char * args[] = {"/bin/sh", "-c", app, NULL};
+		execvp(args[0], args);
+		exit(1);
+	}
 }
 
 char * next_run_activate = NULL;
