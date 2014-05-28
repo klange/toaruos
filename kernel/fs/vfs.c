@@ -726,18 +726,14 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	 * Dig through the (real) tree to find the file
 	 */
 	unsigned int depth = 0;
-	fs_node_t *node_ptr = malloc(sizeof(fs_node_t));
 	/* Find the mountpoint for this file */
-	fs_node_t *mount_point = get_mount_point(path, path_depth, &path_offset, &depth);
+	fs_node_t *node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
 
 	if (path_offset >= path+path_len) {
 		free(path);
-		free(node_ptr);
-		open_fs(mount_point, flags);
-		return mount_point;
+		open_fs(node_ptr, flags);
+		return node_ptr;
 	}
-	/* Set the active directory to the mountpoint */
-	memcpy(node_ptr, mount_point, sizeof(fs_node_t));
 	fs_node_t *node_next = NULL;
 	for (; depth < path_depth; ++depth) {
 		/* Search the active directory for the requested directory */
