@@ -10,7 +10,7 @@
 #define ROOT_UID 0
 
 int main(int argc, char * argv[]) {
-	if (argc < 2) {
+	if ((argc > 1 && argv[1][0] == '-') || (argc < 2)) {
 		char tmp[256];
 		syscall_gethostname(tmp);
 		printf("%s\n", tmp);
