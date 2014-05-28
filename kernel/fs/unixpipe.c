@@ -44,15 +44,11 @@ static uint32_t write_unixpipe(fs_node_t * node, uint32_t offset, uint32_t size,
 
 	while (written < size) {
 		if (self->read_closed) {
-			debug_print(WARNING, "read end is closed!");
-
-#if 0
 			/* SIGPIPE to current process */
 			signal_t * sig = malloc(sizeof(signal_t));
 			sig->handler = current_process->signals.functions[SIGPIPE];
 			sig->signum  = SIGPIPE;
 			handle_signal((process_t *)current_process, sig);
-#endif
 
 			return written;
 		}
