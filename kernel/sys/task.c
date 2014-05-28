@@ -530,8 +530,8 @@ void task_exit(int retval) {
 		switch_next();
 		return;
 	}
-	current_process->status   = retval;
-	current_process->finished = 1;
+	cleanup_process((process_t *)current_process, retval);
+
 	process_t * parent = process_get_parent((process_t *)current_process);
 
 	if (parent) {

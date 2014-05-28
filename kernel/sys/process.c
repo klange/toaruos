@@ -626,8 +626,10 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	spin_unlock(&sleep_lock);
 }
 
-void reap_process(process_t * proc) {
-	debug_print(INFO, "Reaping process %d; mem before = %d", proc->id, memory_use());
+void cleanup_process(process_t * proc, int retval) {
+	proc->status   = retval;
+	proc->finished = 1;
+
 	list_free(proc->wait_queue);
 	free(proc->wait_queue);
 	list_free(proc->signal_queue);
@@ -637,7 +639,6 @@ void reap_process(process_t * proc) {
 	shm_release_all(proc);
 	free(proc->shm_mappings);
 	debug_print(INFO, "Freeing more mems %d", proc->id);
-	free(proc->name);
 	if (proc->signal_kstack) {
 		free(proc->signal_kstack);
 	}
@@ -659,6 +660,11 @@ void reap_process(process_t * proc) {
 		debug_print(INFO, "... and the kernel stack (hope this ain't us) %d", proc->id);
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	}
+}
+
+void reap_process(process_t * proc) {
+	debug_print(INFO, "Reaping process %d; mem before = %d", proc->id, memory_use());
+	free(proc->name);
 	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
 
 	delete_process(proc);

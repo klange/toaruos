@@ -98,6 +98,8 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
 	}
 }
 
+volatile uint8_t tmp_refcount_lock = 0;
+
 /**
  * open_fs: Open a file system node.
  *
@@ -109,7 +111,9 @@ void open_fs(fs_node_t *node, unsigned int flags) {
 	if (!node) return;
 
 	if (node->refcount >= 0) {
+		spin_lock(&tmp_refcount_lock);
 		node->refcount++;
+		spin_unlock(&tmp_refcount_lock);
 	}
 
 	if (node->open) {
@@ -130,6 +134,7 @@ void close_fs(fs_node_t *node) {
 		return;
 	}
 
+	spin_lock(&tmp_refcount_lock);
 	node->refcount--;
 	if (node->refcount == 0) {
 		debug_print(NOTICE, "Node refcount [%s] is now 0: %d", node->name, node->refcount);
@@ -140,6 +145,7 @@ void close_fs(fs_node_t *node) {
 
 		free(node);
 	}
+	spin_unlock(&tmp_refcount_lock);
 }
 
 /**
@@ -331,7 +337,9 @@ fs_node_t *clone_fs(fs_node_t *source) {
 	if (!source) return NULL;
 
 	if (source->refcount >= 0) {
+		spin_lock(&tmp_refcount_lock);
 		source->refcount++;
+		spin_unlock(&tmp_refcount_lock);
 	}
 
 	return source;

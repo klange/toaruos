@@ -140,6 +140,7 @@ extern int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);
 extern void release_directory(page_directory_t * dir);
 extern void release_directory_for_exec(page_directory_t * dir);
 
+extern void cleanup_process(process_t * proc, int retval);
 extern void reap_process(process_t * proc);
 extern int waitpid(int pid, int * status, int options);
 
