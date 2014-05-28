@@ -30,8 +30,8 @@
 #define BROKEN_COLOR	"1;"
 #define DEVICE_COLOR	"1;33;40"
 
-#define DEFAULT_TERM_WIDTH 80
-#define DEFAULT_TERM_HEIGHT 24
+#define DEFAULT_TERM_WIDTH 0
+#define DEFAULT_TERM_HEIGHT 0
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -257,12 +257,13 @@ int main (int argc, char * argv[]) {
 		int term_width = DEFAULT_TERM_WIDTH;
 		int term_height = DEFAULT_TERM_HEIGHT;
 
-		/* This is a hack to determine the terminal with in a toaru terminal */
-		struct winsize w;
-		ioctl(0, TIOCGWINSZ, &w);
-		term_width = w.ws_col;
-		term_height = w.ws_row;
-		term_width -= 1; /* And this just helps clean up our math */
+		if (isatty(1)) {
+			struct winsize w;
+			ioctl(1, TIOCGWINSZ, &w);
+			term_width = w.ws_col;
+			term_height = w.ws_row;
+			term_width -= 1; /* And this just helps clean up our math */
+		}
 
 		int col_ext = ent_max_len + MIN_COL_SPACING;
 		int cols = ((term_width - ent_max_len) / col_ext) + 1;

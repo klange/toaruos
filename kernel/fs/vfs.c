@@ -68,6 +68,8 @@ static fs_node_t * vfs_mapper(void) {
  * @returns Bytes read
  */
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	if (!node) return -1;
+
 	if (node->read) {
 		uint32_t ret = node->read(node, offset, size, buffer);
 		return ret;
@@ -86,6 +88,8 @@ uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffe
  * @returns Bytes written
  */
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	if (!node) return -1;
+
 	if (node->write) {
 		uint32_t ret = node->write(node, offset, size, buffer);
 		return ret;
@@ -101,6 +105,13 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
  * @param flags Same as open, specifies read/write/append/truncate
  */
 void open_fs(fs_node_t *node, unsigned int flags) {
+
+	if (!node) return;
+
+	if (node->refcount >= 0) {
+		node->refcount++;
+	}
+
 	if (node->open) {
 		node->open(node, flags);
 	}
@@ -113,8 +124,21 @@ void open_fs(fs_node_t *node, unsigned int flags) {
  */
 void close_fs(fs_node_t *node) {
 	assert(node != fs_root && "Attempted to close the filesystem root. kablooey");
-	if (node->close) {
-		node->close(node);
+
+	if (!node) {
+		debug_print(WARNING, "Double close? This isn't an fs_node.");
+		return;
+	}
+
+	node->refcount--;
+	if (node->refcount == 0) {
+		debug_print(NOTICE, "Node refcount [%s] is now 0: %d", node->name, node->refcount);
+
+		if (node->close) {
+			node->close(node);
+		}
+
+		free(node);
 	}
 }
 
@@ -136,6 +160,8 @@ int chmod_fs(fs_node_t *node, int mode) {
  * @returns A dirent object.
  */
 struct dirent *readdir_fs(fs_node_t *node, uint32_t index) {
+	if (!node) return NULL;
+
 	if ((node->flags & FS_DIRECTORY) && node->readdir) {
 		struct dirent *ret = node->readdir(node, index);
 		return ret;
@@ -152,6 +178,8 @@ struct dirent *readdir_fs(fs_node_t *node, uint32_t index) {
  * @returns An fs_node that the caller can free
  */
 fs_node_t *finddir_fs(fs_node_t *node, char *name) {
+	if (!node) return NULL;
+
 	if ((node->flags & FS_DIRECTORY) && node->finddir) {
 		fs_node_t *ret = node->finddir(node, name);
 		return ret;
@@ -171,6 +199,8 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
  * @returns Depends on `request`
  */
 int ioctl_fs(fs_node_t *node, int request, void * argp) {
+	if (!node) return -1;
+
 	if (node->ioctl) {
 		return node->ioctl(node, request, argp);
 	} else {
@@ -298,12 +328,13 @@ int mkdir_fs(char *name, uint16_t permission) {
 }
 
 fs_node_t *clone_fs(fs_node_t *source) {
-	if (!source) {
-		return NULL;
+	if (!source) return NULL;
+
+	if (source->refcount >= 0) {
+		source->refcount++;
 	}
-	fs_node_t *n = malloc(sizeof(fs_node_t));
-	memcpy(n, source, sizeof(fs_node_t));
-	return n;
+
+	return source;
 }
 
 /**
@@ -664,6 +695,8 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 		/* Free the path */
 		free(path);
 
+		open_fs(root_clone, flags);
+
 		/* And return the clone */
 		return root_clone;
 	}
@@ -700,6 +733,7 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	if (path_offset >= path+path_len) {
 		free(path);
 		free(node_ptr);
+		open_fs(mount_point, flags);
 		return mount_point;
 	}
 	/* Set the active directory to the mountpoint */

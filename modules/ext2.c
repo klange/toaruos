@@ -605,6 +605,7 @@ static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
 		return NULL;
 	}
 	fs_node_t *outnode = malloc(sizeof(fs_node_t));
+	memset(outnode, 0, sizeof(fs_node_t));
 
 	inode = read_inode(this, direntry->inode);
 

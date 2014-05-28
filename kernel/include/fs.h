@@ -81,7 +81,7 @@ typedef struct fs_node {
 
 	struct fs_node *ptr;   /* Alias pointer, for symlinks. */
 	uint32_t offset;       /* Offset for read operations XXX move this to new "file descriptor" entry */
-	int32_t shared_with;   /* File descriptor sharing XXX */
+	int32_t refcount;
 } fs_node_t;
 
 struct dirent {
@@ -136,5 +136,7 @@ void * vfs_mount(char * path, fs_node_t * local_root);
 void debug_print_vfs_tree(void);
 
 void map_vfs_directory(char *);
+
+int make_unix_pipe(fs_node_t ** pipes);
 
 #endif

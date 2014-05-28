@@ -207,6 +207,7 @@ extern void syscalls_install(void);
 
 /* wakeup queue */
 extern int wakeup_queue(list_t * queue);
+extern int wakeup_queue_interrupted(list_t * queue);
 extern int sleep_on(list_t * queue);
 
 typedef struct {

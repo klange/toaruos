@@ -85,6 +85,7 @@ DEFN_SYSCALL2(chmod, 50, char *, mode_t);
 DEFN_SYSCALL1(umask, 51, mode_t);
 DEFN_SYSCALL1(unlink, 52, char *);
 DEFN_SYSCALL3(waitpid, 53, int, int *, int);
+DEFN_SYSCALL1(pipe, 54, int *);
 
 #define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
 
@@ -282,10 +283,12 @@ int gettimeofday(struct timeval *p, void *z){
 }
 
 int pipe(int fildes[2]) {
-	int fd = syscall_mkpipe();
-	fildes[0] = fd;
-	fildes[1] = fd;
-	return 0;
+	int ret = syscall_pipe((int *)fildes);
+	if (ret < 0) {
+		errno = -ret;
+		return -1;
+	}
+	return ret;
 }
 
 char *getcwd(char *buf, size_t size) {

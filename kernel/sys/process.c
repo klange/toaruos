@@ -492,6 +492,14 @@ uint8_t process_available(void) {
  * @return The actual fd, for use in userspace
  */
 uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
+	/* Fill gaps */
+	for (unsigned int i = 0; i < proc->fds->length; ++i) {
+		if (!proc->fds->entries[i]) {
+			proc->fds->entries[i] = node;
+			return i;
+		}
+	}
+	/* No gaps, expand */
 	if (proc->fds->length == proc->fds->capacity) {
 		proc->fds->capacity *= 2;
 		proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
@@ -514,12 +522,11 @@ uint32_t process_move_fd(process_t * proc, int src, int dest) {
 	if ((size_t)src > proc->fds->length || (size_t)dest > proc->fds->length) {
 		return -1;
 	}
-#if 0
 	if (proc->fds->entries[dest] != proc->fds->entries[src]) {
-		close_fs(proc->fds->entries[src]);
+		close_fs(proc->fds->entries[dest]);
+		proc->fds->entries[dest] = proc->fds->entries[src];
+		open_fs(proc->fds->entries[dest], 0);
 	}
-#endif
-	proc->fds->entries[dest] = proc->fds->entries[src];
 	return dest;
 }
 
@@ -531,6 +538,22 @@ int wakeup_queue(list_t * queue) {
 		spin_unlock(&wait_lock_tmp);
 		if (!((process_t *)node->value)->finished) {
 			make_process_ready(node->value);
+		}
+		awoken_processes++;
+	}
+	return awoken_processes;
+}
+
+int wakeup_queue_interrupted(list_t * queue) {
+	int awoken_processes = 0;
+	while (queue->length > 0) {
+		spin_lock(&wait_lock_tmp);
+		node_t * node = list_pop(queue);
+		spin_unlock(&wait_lock_tmp);
+		if (!((process_t *)node->value)->finished) {
+			process_t * proc = node->value;
+			proc->sleep_interrupted = 1;
+			make_process_ready(proc);
 		}
 		awoken_processes++;
 	}
@@ -626,10 +649,9 @@ void reap_process(process_t * proc) {
 		debug_print(INFO, "Going to clear out the file descriptors %d", proc->id);
 		for (uint32_t i = 0; i < proc->fds->length; ++i) {
 			if (proc->fds->entries[i]) {
-				//close_fs(proc->fds->entries[i]);
-				//free(proc->fds->entries[i]);
+				close_fs(proc->fds->entries[i]);
+				proc->fds->entries[i] = NULL;
 			}
-			//close_fs(proc->fds->entries[i]);
 		}
 		debug_print(INFO, "... and their storage %d", proc->id);
 		free(proc->fds->entries);

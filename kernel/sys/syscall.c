@@ -151,6 +151,7 @@ static int sys_close(int fd) {
 		return -1;
 	}
 	close_fs(current_process->fds->entries[fd]);
+	current_process->fds->entries[fd] = NULL;
 	return 0;
 }
 
@@ -319,6 +320,7 @@ static int sys_stat(int fd, uintptr_t st) {
 
 static int sys_mkpipe(void) {
 	fs_node_t * node = make_pipe(4096 * 2);
+	open_fs(node, 0);
 	return process_append_fd((process_t *)current_process, node);
 }
 
@@ -605,7 +607,26 @@ static int sys_openpty(int * master, int * slave, char * name, void * _ign0, voi
 	*master = process_append_fd((process_t *)current_process, fs_master);
 	*slave  = process_append_fd((process_t *)current_process, fs_slave);
 
+	open_fs(fs_master, 0);
+	open_fs(fs_slave, 0);
+
 	/* Return success */
+	return 0;
+}
+
+static int sys_pipe(int pipes[2]) {
+	if (validate_safe(pipes)) return -EFAULT;
+
+	fs_node_t * outpipes[2];
+
+	make_unix_pipe(outpipes);
+
+	open_fs(outpipes[0], 0);
+	open_fs(outpipes[1], 0);
+
+	pipes[0] = process_append_fd((process_t *)current_process, outpipes[0]);
+	pipes[1] = process_append_fd((process_t *)current_process, outpipes[1]);
+
 	return 0;
 }
 
@@ -656,6 +677,7 @@ static int (*syscalls[])() = {
 	[SYS_UMASK]        = sys_umask,
 	[SYS_UNLINK]       = sys_unlink,
 	[SYS_WAITPID]      = sys_waitpid,
+	[SYS_PIPE]         = sys_pipe,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(int (*)());

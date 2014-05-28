@@ -9,6 +9,7 @@ typedef struct {
 	uint8_t volatile lock;
 	list_t * wait_queue_readers;
 	list_t * wait_queue_writers;
+	int internal_stop;
 } ring_buffer_t;
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer);
@@ -18,5 +19,7 @@ size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buff
 size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer);
 
 ring_buffer_t * ring_buffer_create(size_t size);
+void ring_buffer_destroy(ring_buffer_t * ring_buffer);
+void ring_buffer_interrupt(ring_buffer_t * ring_buffer);
 
 #endif

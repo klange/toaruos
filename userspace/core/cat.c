@@ -9,16 +9,17 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 #define CHUNK_SIZE 4096
 
 void doit(int fd) {
 	while (1) {
 		char buf[CHUNK_SIZE];
-		int r = read(fd, buf, CHUNK_SIZE);
+		memset(buf, 0, CHUNK_SIZE);
+		ssize_t r = read(fd, buf, CHUNK_SIZE);
 		if (!r) return;
-		fwrite(buf, 1, r, stdout);
-		fflush(stdout);
+		write(STDOUT_FILENO, buf, r);
 	}
 }
 

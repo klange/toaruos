@@ -40,3 +40,4 @@
 #define SYS_UMASK 51
 #define SYS_UNLINK 52
 #define SYS_WAITPID 53
+#define SYS_PIPE 54

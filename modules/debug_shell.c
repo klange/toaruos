@@ -512,6 +512,7 @@ struct tty_o {
  */
 static void debug_shell_handle_in(void * data, char * name) {
 	struct tty_o * tty = (struct tty_o *)data;
+
 	while (1) {
 		uint8_t buf[1];
 		int r = read_fs(tty->tty, 0, 1, (unsigned char *)buf);
@@ -521,6 +522,7 @@ static void debug_shell_handle_in(void * data, char * name) {
 
 static void debug_shell_handle_out(void * data, char * name) {
 	struct tty_o * tty = (struct tty_o *)data;
+
 	while (1) {
 		uint8_t buf[1];
 		int r = read_fs(tty->node, 0, 1, (unsigned char *)buf);
@@ -601,6 +603,9 @@ static void debug_shell_run(void * data, char * name) {
 
 	/* Set the device to be the actual TTY slave */
 	tty = fs_slave;
+
+	fs_master->refcount = -1;
+	fs_slave->refcount = -1;
 
 	current_process->fds->entries[0] = tty;
 	current_process->fds->entries[1] = tty;
