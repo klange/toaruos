@@ -213,7 +213,7 @@ static void close_client(fs_node_t * node) {
 	spin_lock(&p->lock);
 
 	node_t * n = list_find(p->clients, c);
-	if (n) {
+	if (n && n->owner == p->clients) {
 		list_delete(p->clients, n);
 		free(n);
 	}
