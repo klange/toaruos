@@ -130,6 +130,8 @@ typedef struct {
 	yutani_t * host_context;
 	yutani_window_t * host_window;
 
+	hashmap_t * clients_to_windows;
+
 } yutani_globals_t;
 
 struct key_bind {

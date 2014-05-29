@@ -76,7 +76,8 @@ static shm_node_t * get_node (char * shm_path, int create) {
 
 
 static shm_chunk_t * create_chunk (shm_node_t * parent, size_t size) {
-	assert((size > 0) && "Size supplied to create_chunk() was zero!");
+	debug_print(WARNING, "Size supplied to create_chunk was 0");
+	if (!size) return NULL;
 
 	shm_chunk_t *chunk = malloc(sizeof(shm_chunk_t));
 	if (chunk == NULL) {

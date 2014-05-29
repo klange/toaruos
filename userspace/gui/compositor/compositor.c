@@ -117,6 +117,7 @@ static int next_wid(void) {
 }
 
 static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+	if (!window) return;
 	*out_x = x - window->x;
 	*out_y = y - window->y;
 
@@ -281,6 +282,14 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->owner = owner;
 	list_insert(yg->windows, win);
 	hashmap_set(yg->wids_to_windows, (void*)win->wid, win);
+
+	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)owner);
+	if (!client_list) {
+		fprintf(stderr, "[yutani-server] Window creation from new client: %x\n", owner);
+		client_list = list_create();
+		hashmap_set(yg->clients_to_windows, (void *)owner, client_list);
+	}
+	list_insert(client_list, win);
 
 	win->x = 0;
 	win->y = 0;
@@ -968,6 +977,21 @@ static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t 
 	w->anim_start = yg->tick_count;
 }
 
+static void window_remove_from_client(yutani_globals_t * yg, yutani_server_window_t * w) {
+	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)w->owner);
+	if (client_list) {
+		node_t * n = list_find(client_list, w);
+		if (n) {
+			list_delete(client_list, n);
+			free(n);
+		}
+		if (client_list->length == 0) {
+			free(client_list);
+			hashmap_remove(yg->clients_to_windows, (void *)w->owner);
+		}
+	}
+}
+
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w) {
 	/* XXX free window */
 	hashmap_remove(yg->wids_to_windows, (void *)w->wid);
@@ -1406,6 +1430,7 @@ int main(int argc, char * argv[]) {
 	yg->windows = list_create();
 	yg->wids_to_windows = hashmap_create_int(10);
 	yg->key_binds = hashmap_create_int(10);
+	yg->clients_to_windows = hashmap_create_int(10);
 
 	yg->window_subscribers = list_create();
 
@@ -1443,6 +1468,26 @@ int main(int argc, char * argv[]) {
 		pex_listen(server, p);
 
 		yutani_msg_t * m = (yutani_msg_t *)p->data;
+
+		if (p->size == 0) {
+			/* Connection closed for client */
+			fprintf(stderr, "[yutani-server] Connection closed for client  %x\n", p->source);
+
+			list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)p->source);
+			if (client_list) {
+				foreach(node, client_list) {
+					yutani_server_window_t * win = node->value;
+					fprintf(stderr, "[yutani-server] Killing window %d\n", win->wid);
+					window_mark_for_close(yg, win);
+				}
+				hashmap_remove(yg->clients_to_windows, (void *)p->source);
+				list_free(client_list);
+				free(client_list);
+			}
+
+			free(p);
+			continue;
+		}
 
 		if (m->magic != YUTANI_MSG__MAGIC) {
 			fprintf(stderr, "[yutani-server] Message has bad magic. (Should eject client, but will instead skip this message.) 0x%x\n", m->magic);
@@ -1524,6 +1569,7 @@ int main(int argc, char * argv[]) {
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wc->wid);
 					if (w) {
 						window_mark_for_close(yg, w);
+						window_remove_from_client(yg, w);
 					}
 				}
 				break;

@@ -43,16 +43,22 @@ static void receive_packet(fs_node_t * socket, packet_t ** out) {
 	read_fs(socket, 0, sizeof(struct packet), (uint8_t *)&tmp);
 	*out = malloc(tmp.size + sizeof(struct packet));
 	memcpy(*out, &tmp, sizeof(struct packet));
-	read_fs(socket, 0, tmp.size, (uint8_t *)(*out)->data);
+
+	if (tmp.size) {
+		read_fs(socket, 0, tmp.size, (uint8_t *)(*out)->data);
+	}
 }
 
 static void send_to_server(pex_ex_t * p, pex_client_t * c, size_t size, void * data) {
 	size_t p_size = size + sizeof(struct packet);
 	packet_t * packet = malloc(p_size);
 
-	memcpy(packet->data, data, size);
 	packet->source = c;
 	packet->size = size;
+
+	if (size) {
+		memcpy(packet->data, data, size);
+	}
 
 	write_fs(p->server_pipe, 0, p_size, (uint8_t *)packet);
 
@@ -119,10 +125,12 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 
 	if (head->target == NULL) {
 		/* Brodcast packet */
+		spin_lock(&p->lock);
 		foreach(f, p->clients) {
 			debug_print(INFO, "Sending to client 0x%x", f->value);
 			send_to_client(p, (pex_client_t *)f->value, size - sizeof(header_t), head->data);
 		}
+		spin_unlock(&p->lock);
 		debug_print(INFO, "Done broadcasting to clients.");
 		return size;
 	} else if (head->target->parent != p) {
@@ -196,6 +204,29 @@ static int ioctl_client(fs_node_t * node, int request, void * argp) {
 	}
 }
 
+static void close_client(fs_node_t * node) {
+	pex_client_t * c = (pex_client_t *)node->inode;
+	pex_ex_t * p = c->parent;
+
+	debug_print(WARNING, "Closing packetfs client: 0x%x:0x%x", p, c);
+
+	spin_lock(&p->lock);
+
+	node_t * n = list_find(p->clients, c);
+	if (n) {
+		list_delete(p->clients, n);
+		free(n);
+	}
+
+	spin_unlock(&p->lock);
+
+	char tmp[1];
+
+	send_to_server(p, c, 0, tmp);
+
+	free(c);
+}
+
 static void open_pex(fs_node_t * node, unsigned int flags) {
 	pex_ex_t * t = (pex_ex_t *)(node->device);
 
@@ -205,18 +236,19 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 		t->fresh = 0;
 		node->inode = 0;
 		/* Set up the server side */
-		node->read = read_server;
-		node->write = write_server;
-		node->ioctl = ioctl_server;
+		node->read   = read_server;
+		node->write  = write_server;
+		node->ioctl  = ioctl_server;
 		debug_print(INFO, "[pex] Server launched: %s", t->name);
 		debug_print(INFO, "fs_node = 0x%x", node);
 	} else if (!(flags & O_CREAT)) {
 		pex_client_t * client = create_client(t);
 		node->inode = (uintptr_t)client;
 
-		node->read = read_client;
+		node->read  = read_client;
 		node->write = write_client;
 		node->ioctl = ioctl_client;
+		node->close = close_client;
 
 		list_insert(t->clients, client);
 
@@ -287,8 +319,8 @@ static fs_node_t * file_from_pex(pex_ex_t * pex) {
 	fnode->device  = pex;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->open    = open_pex;
-	fnode->read = read_server;
-	fnode->write = write_server;
+	fnode->read    = read_server;
+	fnode->write   = write_server;
 	return fnode;
 }
 

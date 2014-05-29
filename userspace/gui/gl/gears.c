@@ -256,25 +256,12 @@ int resize(gfx_context_t * ctx, OSMesaContext gl_ctx) {
 	return 0;
 }
 
-static yutani_t * yctx;
-static yutani_window_t * wina;
-static gfx_context_t * ctx;
-static int should_exit = 0;
-
-void * draw_thread(void * glctx) {
-	while (!should_exit) {
-		fps();
-		angle += 0.2;
-		draw();
-		flip(ctx);
-		yutani_flip(yctx, wina);
-		syscall_yield();
-	}
-
-	pthread_exit(0);
-}
-
 int main (int argc, char ** argv) {
+	static yutani_t * yctx;
+	static yutani_window_t * wina;
+	static gfx_context_t * ctx;
+	static int should_exit = 0;
+
 	int left = 30;
 	int top  = 30;
 
@@ -297,12 +284,8 @@ int main (int argc, char ** argv) {
 
 	init();
 
-	/* XXX add a method to query if there are available packets in pex */
-	pthread_t thread;
-	pthread_create(&thread, NULL, draw_thread, NULL);
-
 	while (!should_exit) {
-		yutani_msg_t * m = yutani_poll(yctx);
+		yutani_msg_t * m = yutani_poll_async(yctx);
 		if (m) {
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
@@ -353,6 +336,12 @@ int main (int argc, char ** argv) {
 			}
 			free(m);
 		}
+		fps();
+		angle += 0.2;
+		draw();
+		flip(ctx);
+		yutani_flip(yctx, wina);
+		syscall_yield();
 	}
 
 finish:
