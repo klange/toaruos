@@ -36,6 +36,13 @@ void tty_set_buffered(fs_node_t * dev) {
 	ioctl_fs(dev, TCSETSF, &old);
 }
 
+void tty_set_vintr(fs_node_t * dev, char vintr) {
+	struct termios tmp;
+	ioctl_fs(dev, TCGETS, &tmp);
+	tmp.c_cc[VINTR] = vintr;
+	ioctl_fs(dev, TCSETSF, &tmp);
+}
+
 /*
  * Quick readline implementation.
  *
@@ -66,6 +73,13 @@ int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 			}
 		} else if (buf[0] < ' ') {
 			switch (buf[0]) {
+				case 0x04:
+					if (read == 0) {
+						fprintf(dev, "exit\n");
+						sprintf(linebuf, "exit");
+						return strlen(linebuf);
+					}
+					break;
 				case 0x0C: /* ^L */
 					/* Should reset display here */
 					break;
@@ -611,6 +625,15 @@ static void debug_shell_run(void * data, char * name) {
 	current_process->fds->entries[1] = tty;
 	current_process->fds->entries[2] = tty;
 	current_process->fds->length = 3;
+
+	tty_set_vintr(tty, 0x02);
+
+	fprintf(tty, "\n\n"
+			"Serial debug console started.\n"
+			"Type `help` for a list of commands.\n"
+			"To access a userspace shell, type `shell`.\n"
+			"Use ^B to send SIGINT instead of ^C.\n"
+			"\n");
 
 	debug_shell_actual(tty, name);
 }
