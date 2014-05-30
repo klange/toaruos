@@ -29,6 +29,8 @@
 #include "lib/list.h"
 #include "lib/kbd.h"
 
+#define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
+
 /* A shell command is like a C program */
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
 
@@ -744,7 +746,6 @@ int shell_exec(char * buffer, int buffer_size) {
 
 	char quoted = 0;
 	char backtick = 0;
-	int _argc = 0;
 	char buffer_[512] = {0};
 	int collected = 0;
 
@@ -835,6 +836,11 @@ int shell_exec(char * buffer, int buffer_size) {
 						goto _done;
 					}
 					goto _just_add;
+				case '|':
+					if (!quoted && !backtick && !collected) {
+						collected = sprintf(buffer_, "%s", PIPE_TOKEN);
+						goto _new_arg;
+					}
 				default:
 					if (backtick) {
 						buffer_[collected] = '\\';
@@ -855,7 +861,6 @@ _new_arg:
 				add_argument(args, buffer_);
 				buffer_[0] = '\0';
 				collected = 0;
-				_argc++;
 			}
 
 _next:
@@ -884,13 +889,27 @@ _done:
 		break;
 	}
 
+	int cmdi = 0;
+	char ** arg_starts[100] = { &argv[0], NULL };
+	int argcs[100] = {0};
+
 	int i = 0;
 	foreach(node, args) {
 		char * c = node->value;
 
+		if (!strcmp(c, PIPE_TOKEN)) {
+			argv[i] = 0;
+			i++;
+			cmdi++;
+			arg_starts[cmdi] = &argv[i];
+			continue;
+		}
+
 		argv[i] = c;
 		i++;
+		argcs[cmdi]++;
 	}
+	argv[i] = NULL;
 
 	if (i == 0) {
 		return 0;
@@ -898,16 +917,79 @@ _done:
 
 	list_free(args);
 
-	argv[i] = NULL;
-	char * cmd = argv[0];
+	char * cmd = *arg_starts[0];
 	tokenid = i;
 
-	shell_command_t func = shell_find(argv[0]);
+	if (cmdi > 0) {
+		int last_output[2];
+		pipe(last_output);
+		uint32_t f = fork();
+		if (!f) {
+			dup2(last_output[1], STDOUT_FILENO);
+			close(last_output[0]);
+			int i = execvp(*arg_starts[0], arg_starts[0]);
+			if (i != 0) {
+				fprintf(stderr, "%s: Command not found\n", *arg_starts[0]);
+				i = 127; /* Should be set to this anyway... */
+			}
+			exit(i);
+		}
+
+		for (int j = 1; j < cmdi; ++j) {
+			int tmp_out[2];
+			pipe(tmp_out);
+			if (!fork()) {
+				dup2(tmp_out[1], STDOUT_FILENO);
+				dup2(last_output[0], STDIN_FILENO);
+				close(tmp_out[0]);
+				close(last_output[1]);
+				int i = execvp(*arg_starts[j], arg_starts[j]);
+				if (i != 0) {
+					fprintf(stderr, "%s: Command not found\n", *arg_starts[j]);
+					i = 127; /* Should be set to this anyway... */
+				}
+				exit(i);
+			}
+			close(last_output[0]);
+			close(last_output[1]);
+			last_output[0] = tmp_out[0];
+			last_output[1] = tmp_out[1];
+		}
+
+		if (!fork()) {
+			dup2(last_output[0], STDIN_FILENO);
+			close(last_output[1]);
+			int i = execvp(*arg_starts[cmdi], arg_starts[cmdi]);
+			if (i != 0) {
+				fprintf(stderr, "%s: Command not found\n", *arg_starts[cmdi]);
+				i = 127; /* Should be set to this anyway... */
+			}
+			exit(i);
+		}
+		close(last_output[0]);
+		close(last_output[1]);
+
+		/* Now execute the last piece and wait on all of them */
+
+		tcsetpgrp(STDIN_FILENO, f);
+		int ret_code = 0;
+		child = f;
+		int pid;
+		do {
+			pid = waitpid(-1, &ret_code, 0);
+		} while (pid != -1 || (pid == -1 && errno != ECHILD));
+		child = 0;
+		tcsetpgrp(STDIN_FILENO, getpid());
+		free(cmd);
+		return ret_code;
+	}
+
+	shell_command_t func = shell_find(cmd);
 
 	if (shell_force_raw) set_unbuffered();
 
 	if (func) {
-		return func(tokenid, argv);
+		return func(argcs[0], arg_starts[0]);
 	} else {
 
 		int nowait = (!strcmp(argv[tokenid-1],"&"));
@@ -920,7 +1002,7 @@ _done:
 		if (getpid() != pid) {
 			int i = execvp(cmd, argv);
 			if (i != 0) {
-				fprintf(stderr, "%s: Command not found\n", argv[0]);
+				fprintf(stderr, "%s: Command not found\n", cmd);
 				i = 127; /* Should be set to this anyway... */
 			}
 			exit(i);
