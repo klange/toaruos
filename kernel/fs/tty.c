@@ -117,8 +117,11 @@ static void input_process(pty_t * pty, uint8_t c) {
 			return;
 		}
 		if (c == pty->tios.c_cc[VEOF]) {
-			clear_input_buffer(pty);
-			ring_buffer_interrupt(pty->in);
+			if (pty->canon_buflen) {
+				dump_input_buffer(pty);
+			} else {
+				ring_buffer_interrupt(pty->in);
+			}
 			return;
 		}
 		pty->canon_buffer[pty->canon_buflen] = c;

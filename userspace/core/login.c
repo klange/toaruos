@@ -137,7 +137,14 @@ int main(int argc, char ** argv) {
 
 		fprintf(stdout, "%s login: ", _hostname);
 		fflush(stdout);
-		fgets(username, 1024, stdin);
+		char * r = fgets(username, 1024, stdin);
+		if (!r) {
+			clearerr(stdin);
+			fprintf(stderr, "\n");
+			sleep(2);
+			fprintf(stderr, "\nLogin failed.\n");
+			continue;
+		}
 		username[strlen(username)-1] = '\0';
 
 		fprintf(stdout, "password: ");
@@ -150,7 +157,15 @@ int main(int argc, char ** argv) {
 		new.c_lflag &= (~ECHO);
 		tcsetattr(fileno(stdin), TCSAFLUSH, &new);
 
-		fgets(password, 1024, stdin);
+		r = fgets(password, 1024, stdin);
+		if (!r) {
+			clearerr(stdin);
+			tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+			fprintf(stderr, "\n");
+			sleep(2);
+			fprintf(stderr, "\nLogin failed.\n");
+			continue;
+		}
 		password[strlen(password)-1] = '\0';
 		tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 		fprintf(stdout, "\n");
@@ -158,6 +173,7 @@ int main(int argc, char ** argv) {
 		int uid = checkUserPass(username, password);
 
 		if (uid < 0) {
+			sleep(2);
 			fprintf(stdout, "\nLogin failed.\n");
 			continue;
 		}
