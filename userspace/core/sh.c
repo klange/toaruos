@@ -286,6 +286,13 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				printf("^C\n");
 				context.buffer[0] = '\0';
 				return 0;
+			case KEY_CTRL_D:
+				if (context.collected == 0) {
+					printf("exit\n");
+					sprintf(context.buffer, "exit\n");
+					return strlen(context.buffer);
+				}
+				continue;
 			case KEY_CTRL_R:
 				if (callbacks->rev_search) {
 					callbacks->rev_search(&context);
