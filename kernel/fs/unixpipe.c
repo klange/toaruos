@@ -32,6 +32,9 @@ static uint32_t read_unixpipe(fs_node_t * node, uint32_t offset, uint32_t size, 
 			return read;
 		}
 		size_t r = ring_buffer_read(self->buffer, 1, buffer+read);
+		if (r && *((char *)(buffer + read)) == '\n') {
+			return read+r;
+		}
 		read += r;
 	}
 

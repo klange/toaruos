@@ -116,6 +116,16 @@ static void input_process(pty_t * pty, uint8_t c) {
 			}
 			return;
 		}
+		if (c == pty->tios.c_cc[VEOF]) {
+			if (pty->tios.c_lflag & ECHO) {
+				output_process(pty, '^');
+				output_process(pty, '@' + c);
+				output_process(pty, '\n');
+			}
+			clear_input_buffer(pty);
+			ring_buffer_interrupt(pty->in);
+			return;
+		}
 		pty->canon_buffer[pty->canon_buflen] = c;
 		if (pty->tios.c_lflag & ECHO) {
 			output_process(pty, c);
@@ -123,10 +133,12 @@ static void input_process(pty_t * pty, uint8_t c) {
 		if (pty->canon_buffer[pty->canon_buflen] == '\n') {
 			pty->canon_buflen++;
 			dump_input_buffer(pty);
+			ring_buffer_interrupt(pty->in);
 			return;
 		}
 		if (pty->canon_buflen == pty->canon_bufsize) {
 			dump_input_buffer(pty);
+			ring_buffer_interrupt(pty->in);
 			return;
 		}
 		pty->canon_buflen++;
