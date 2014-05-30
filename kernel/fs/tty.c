@@ -117,11 +117,6 @@ static void input_process(pty_t * pty, uint8_t c) {
 			return;
 		}
 		if (c == pty->tios.c_cc[VEOF]) {
-			if (pty->tios.c_lflag & ECHO) {
-				output_process(pty, '^');
-				output_process(pty, '@' + c);
-				output_process(pty, '\n');
-			}
 			clear_input_buffer(pty);
 			ring_buffer_interrupt(pty->in);
 			return;
