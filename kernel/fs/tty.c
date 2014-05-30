@@ -133,12 +133,10 @@ static void input_process(pty_t * pty, uint8_t c) {
 		if (pty->canon_buffer[pty->canon_buflen] == '\n') {
 			pty->canon_buflen++;
 			dump_input_buffer(pty);
-			ring_buffer_interrupt(pty->in);
 			return;
 		}
 		if (pty->canon_buflen == pty->canon_bufsize) {
 			dump_input_buffer(pty);
-			ring_buffer_interrupt(pty->in);
 			return;
 		}
 		pty->canon_buflen++;
