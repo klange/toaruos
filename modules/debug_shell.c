@@ -468,6 +468,17 @@ static int shell_divinesize(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_fix_mouse(fs_node_t * tty, int argc, char * argv[]) {
+
+	fs_node_t * mouse = kopen("/dev/mouse", 0);
+	if (mouse) {
+		ioctl_fs(mouse, 1, NULL);
+		close_fs(mouse);
+	}
+
+	return 0;
+}
+
 static int shell_exit(fs_node_t * tty, int argc, char * argv[]) {
 	kexit(0);
 	return 0;
@@ -500,6 +511,8 @@ static struct shell_command shell_commands[] = {
 		"Print names and addresses of all loaded modules."},
 	{"divine-size", &shell_divinesize,
 		"Attempt to discover TTY size of serial."},
+	{"fix-mouse", &shell_fix_mouse,
+		"Attempt to reset mouse device."},
 	{"exit", &shell_exit,
 		"Quit the shell."},
 	{NULL, NULL, NULL}

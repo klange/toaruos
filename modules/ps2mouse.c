@@ -110,6 +110,12 @@ static void mouse_handler(struct regs *r) {
 	irq_ack(MOUSE_IRQ);
 }
 
+static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
+	if (request == 1) {
+		mouse_cycle = 0;
+	}
+}
+
 static int mouse_install(void) {
 	debug_print(NOTICE, "Initializing PS/2 mouse interface");
 	uint8_t status;
@@ -138,6 +144,7 @@ static int mouse_install(void) {
 	inportb(MOUSE_PORT);
 
 	mouse_pipe->flags = FS_CHARDEVICE;
+	mouse_pipe->ioctl = ioctl_mouse;
 
 	vfs_mount("/dev/mouse", mouse_pipe);
 	return 0;
