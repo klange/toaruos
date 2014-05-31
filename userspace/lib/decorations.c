@@ -20,8 +20,10 @@ uint32_t decor_right_width    = 6;
 #define INACTIVE 8
 
 #define BORDERCOLOR rgb(60,60,60)
+#define BORDERCOLOR_INACTIVE rgb(30,30,30)
 #define BACKCOLOR rgb(20,20,20)
-#define TEXTCOLOR rgb(255,255,255)
+#define TEXTCOLOR rgb(230,230,230)
+#define TEXTCOLOR_INACTIVE rgb(140,140,140)
 
 static int u_height = 33;
 static int ul_width = 10;
@@ -49,9 +51,14 @@ static void (*render_decorations_)(yutani_window_t *, gfx_context_t *, char *, i
 
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
+	uint32_t color = BORDERCOLOR;
+	if (decors_active == INACTIVE) {
+		color = BORDERCOLOR_INACTIVE;
+	}
+
 	for (uint32_t i = 0; i < window->height; ++i) {
-		GFX(ctx, 0, i) = BORDERCOLOR;
-		GFX(ctx, window->width - 1, i) = BORDERCOLOR;
+		GFX(ctx, 0, i) = color;
+		GFX(ctx, window->width - 1, i) = color;
 	}
 
 	for (uint32_t i = 1; i < decor_top_height; ++i) {
@@ -60,12 +67,16 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 		}
 	}
 
-	draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR, title);
+	if (decors_active == INACTIVE) {
+		draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR_INACTIVE, title);
+	} else {
+		draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR, title);
+	}
 
 	for (uint32_t i = 0; i < window->width; ++i) {
-		GFX(ctx, i, 0) = BORDERCOLOR;
-		GFX(ctx, i, decor_top_height - 1) = BORDERCOLOR;
-		GFX(ctx, i, window->height - 1) = BORDERCOLOR;
+		GFX(ctx, i, 0) = color;
+		GFX(ctx, i, decor_top_height - 1) = color;
+		GFX(ctx, i, window->height - 1) = color;
 	}
 
 
