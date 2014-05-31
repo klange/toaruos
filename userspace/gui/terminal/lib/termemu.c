@@ -34,6 +34,7 @@ static void ansi_dump_buffer(term_state_t * s) {
 
 /* Add to the internal buffer for the ANSI parser */
 static void ansi_buf_add(term_state_t * s, char c) {
+	if (s->buflen >= TERM_BUF_LEN-1) return;
 	s->buffer[s->buflen] = c;
 	s->buflen++;
 	s->buffer[s->buflen] = '\0';
