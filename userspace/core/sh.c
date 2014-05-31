@@ -559,7 +559,6 @@ void tab_complete_func(rline_context_t * context) {
 		}
 	} else {
 		/* XXX Should complete to file names here */
-		fprintf(stderr, "%d\n", argc);
 	}
 }
 
