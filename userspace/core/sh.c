@@ -718,6 +718,24 @@ int variable_char(uint8_t c) {
 	return 0;
 }
 
+void run_cmd(char ** args) {
+	int i = execvp(*args, args);
+	shell_command_t func = shell_find(*args);
+	if (func) {
+		int argc = 0;
+		while (args[argc]) {
+			argc++;
+		}
+		i = func(argc, args);
+	} else {
+		if (i != 0) {
+			fprintf(stderr, "%s: Command not found\n", *args);
+			i = 127;
+		}
+	}
+	exit(i);
+}
+
 int shell_exec(char * buffer, int buffer_size) {
 
 	/* Read previous history entries */
@@ -920,19 +938,23 @@ _done:
 	char * cmd = *arg_starts[0];
 	tokenid = i;
 
+	unsigned int child_pid;
+
+	int nowait = (!strcmp(argv[tokenid-1],"&"));
+	if (nowait) {
+		argv[tokenid-1] = NULL;
+	}
+
+	if (shell_force_raw) set_unbuffered();
+
 	if (cmdi > 0) {
 		int last_output[2];
 		pipe(last_output);
-		uint32_t f = fork();
-		if (!f) {
+		child_pid = fork();
+		if (!child_pid) {
 			dup2(last_output[1], STDOUT_FILENO);
 			close(last_output[0]);
-			int i = execvp(*arg_starts[0], arg_starts[0]);
-			if (i != 0) {
-				fprintf(stderr, "%s: Command not found\n", *arg_starts[0]);
-				i = 127; /* Should be set to this anyway... */
-			}
-			exit(i);
+			run_cmd(arg_starts[0]);
 		}
 
 		for (int j = 1; j < cmdi; ++j) {
@@ -943,12 +965,7 @@ _done:
 				dup2(last_output[0], STDIN_FILENO);
 				close(tmp_out[0]);
 				close(last_output[1]);
-				int i = execvp(*arg_starts[j], arg_starts[j]);
-				if (i != 0) {
-					fprintf(stderr, "%s: Command not found\n", *arg_starts[j]);
-					i = 127; /* Should be set to this anyway... */
-				}
-				exit(i);
+				run_cmd(arg_starts[j]);
 			}
 			close(last_output[0]);
 			close(last_output[1]);
@@ -959,69 +976,37 @@ _done:
 		if (!fork()) {
 			dup2(last_output[0], STDIN_FILENO);
 			close(last_output[1]);
-			int i = execvp(*arg_starts[cmdi], arg_starts[cmdi]);
-			if (i != 0) {
-				fprintf(stderr, "%s: Command not found\n", *arg_starts[cmdi]);
-				i = 127; /* Should be set to this anyway... */
-			}
-			exit(i);
+			run_cmd(arg_starts[cmdi]);
 		}
 		close(last_output[0]);
 		close(last_output[1]);
 
 		/* Now execute the last piece and wait on all of them */
+	} else {
+		shell_command_t func = shell_find(*arg_starts[0]);
+		if (func) {
+			return func(argcs[0], arg_starts[0]);
+		} else {
+			child_pid = fork();
+			if (!child_pid) {
+				run_cmd(arg_starts[0]);
+			}
+		}
+	}
 
-		tcsetpgrp(STDIN_FILENO, f);
-		int ret_code = 0;
-		child = f;
+	tcsetpgrp(STDIN_FILENO, child_pid);
+	int ret_code = 0;
+	if (!nowait) {
+		child = child_pid;
 		int pid;
 		do {
 			pid = waitpid(-1, &ret_code, 0);
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		child = 0;
-		tcsetpgrp(STDIN_FILENO, getpid());
-		free(cmd);
-		return ret_code;
 	}
-
-	shell_command_t func = shell_find(cmd);
-
-	if (shell_force_raw) set_unbuffered();
-
-	if (func) {
-		return func(argcs[0], arg_starts[0]);
-	} else {
-
-		int nowait = (!strcmp(argv[tokenid-1],"&"));
-		if (nowait) {
-			argv[tokenid-1] = NULL;
-		}
-
-
-		uint32_t f = fork();
-		if (getpid() != pid) {
-			int i = execvp(cmd, argv);
-			if (i != 0) {
-				fprintf(stderr, "%s: Command not found\n", cmd);
-				i = 127; /* Should be set to this anyway... */
-			}
-			exit(i);
-		} else {
-			tcsetpgrp(0, f);
-			int ret_code = 0;
-			if (!nowait) {
-				child = f;
-				int pid;
-				do {
-					pid = waitpid(f, &ret_code, 0);
-				} while (pid == -1 && errno == EINTR);
-				child = 0;
-			}
-			tcsetpgrp(0, getpid());
-			free(cmd);
-			return ret_code;
-		}
-	}
+	tcsetpgrp(STDIN_FILENO, getpid());
+	free(cmd);
+	return ret_code;
 }
 
 void add_path_contents() {
