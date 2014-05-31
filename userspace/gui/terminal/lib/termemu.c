@@ -460,6 +460,13 @@ static void _ansi_put(term_state_t * s, char c) {
 				return;
 			} else {
 				/* Still escaped */
+				if (c == '\n' || s->buflen > 256) {
+					ansi_dump_buffer(s);
+					callbacks->writer(c);
+					s->buflen = 0;
+					s->escape = 0;
+					return;
+				}
 				ansi_buf_add(s, c);
 			}
 			break;
