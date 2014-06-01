@@ -329,6 +329,7 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 		int r = 0;
 		int g = 0;
 		int b = 0;
+		int a = 0;
 		for (int x = -half_radius; x < w; x++) {
 			int old_p = x - half_radius - 1;
 			if (old_p >= 0)
@@ -338,6 +339,7 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 					r -= _RED(col);
 					g -= _GRE(col);
 					b -= _BLU(col);
+					a -= _ALP(col);
 				}
 				hits--;
 			}
@@ -349,12 +351,13 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 					r += _RED(col);
 					g += _GRE(col);
 					b += _BLU(col);
+					a += _ALP(col);
 				}
 				hits++;
 			}
 
 			if (x >= 0) {
-				out_color[x] = rgba(r / hits, g / hits, b / hits, 255);
+				out_color[x] = rgba(r / hits, g / hits, b / hits, a / hits);
 			}
 		}
 
@@ -383,6 +386,7 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 		int r = 0;
 		int g = 0;
 		int b = 0;
+		int a = 0;
 		int index = -half_radius * w + x;
 		for (int y = -half_radius; y < h; y++) {
 			int old_p = y - half_radius - 1;
@@ -392,6 +396,7 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 					r -= _RED(col);
 					g -= _GRE(col);
 					b -= _BLU(col);
+					a -= _ALP(col);
 				}
 				hits--;
 			}
@@ -404,12 +409,13 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 					r += _RED(col);
 					g += _GRE(col);
 					b += _BLU(col);
+					a += _ALP(col);
 				}
 				hits++;
 			}
 
 			if (y >= 0) {
-				out_color[y] = rgba(r / hits, g / hits, b / hits, 255);
+				out_color[y] = rgba(r / hits, g / hits, b / hits, a / hits);
 			}
 
 			index += w;
