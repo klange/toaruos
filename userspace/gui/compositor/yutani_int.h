@@ -57,6 +57,8 @@ typedef struct {
 
 	int anim_mode;
 	int anim_start;
+
+	cairo_surface_t * window_shape;
 } yutani_server_window_t;
 
 typedef struct {
@@ -131,6 +133,9 @@ typedef struct {
 	yutani_window_t * host_window;
 
 	hashmap_t * clients_to_windows;
+
+	int debug_bounds;
+	int debug_shapes;
 
 } yutani_globals_t;
 

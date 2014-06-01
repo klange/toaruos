@@ -341,6 +341,12 @@ int main (int argc, char ** argv) {
 		draw();
 		flip(ctx);
 		yutani_flip(yctx, wina);
+		static int i = 0;
+		if (i % 100 == 0) {
+			yutani_window_update_shape(yctx, wina, 1);
+			i = 0;
+		}
+		i++;
 		syscall_yield();
 	}
 

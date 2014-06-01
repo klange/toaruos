@@ -136,6 +136,11 @@ struct yutani_msg_window_drag_start {
 	yutani_wid_t wid;
 };
 
+struct yutani_msg_window_update_shape {
+	yutani_wid_t wid;
+	int set_shape;
+};
+
 typedef struct yutani_window {
 	yutani_wid_t wid;
 
@@ -186,6 +191,8 @@ typedef struct yutani_window {
 #define YUTANI_MSG_SESSION_END         0x00000030
 
 #define YUTANI_MSG_KEY_BIND            0x00000040
+
+#define YUTANI_MSG_WINDOW_UPDATE_SHAPE 0x00000050
 
 #define YUTANI_MSG_GOODBYE             0x000000F0
 
@@ -253,6 +260,7 @@ yutani_msg_t * yutani_msg_build_session_end(void);
 yutani_msg_t * yutani_msg_build_window_focus(yutani_wid_t wid);
 yutani_msg_t * yutani_msg_build_key_bind(kbd_key_t key, kbd_mod_t mod, int response);
 yutani_msg_t * yutani_msg_build_window_drag_start(yutani_wid_t wid);
+yutani_msg_t * yutani_msg_build_window_update_shape(yutani_wid_t wid, int set_shape);
 
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
@@ -277,6 +285,7 @@ void yutani_session_end(yutani_t * y);
 void yutani_focus_window(yutani_t * y, yutani_wid_t wid);
 void yutani_key_bind(yutani_t * yctx, kbd_key_t key, kbd_mod_t mod, int response);
 void yutani_window_drag_start(yutani_t * yctx, yutani_window_t * window);
+void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window, int set_shape);
 
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);

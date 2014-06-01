@@ -27,6 +27,9 @@
 
 #include "yutani_int.h"
 
+#define YUTANI_DEBUG_WINDOW_BOUNDS 1
+#define YUTANI_DEBUG_WINDOW_SHAPES 1
+
 struct {
 	int nested;
 	int nest_width;
@@ -309,6 +312,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->client_strings = NULL;
 	win->anim_mode = YUTANI_EFFECT_FADE_IN;
 	win->anim_start = yg->tick_count;
+	win->window_shape = NULL;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
@@ -320,6 +324,33 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	yg->zlist[win->z] = win;
 
 	return win;
+}
+
+static void server_window_update_shape(yutani_globals_t * yg, yutani_server_window_t * window, int set) {
+	cairo_surface_t * t = NULL;
+	if (set) {
+		int stride = window->width * 4;
+		cairo_surface_t * surf = cairo_image_surface_create_for_data(
+				window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
+		t = cairo_image_surface_create(CAIRO_FORMAT_A1,
+				cairo_image_surface_get_width(surf),
+				cairo_image_surface_get_height(surf));
+		cairo_t * tr = cairo_create(t);
+		cairo_set_source_surface(tr, surf, 0.0, 0.0);
+		cairo_paint(tr);
+		cairo_surface_flush(t);
+		cairo_destroy(tr);
+		cairo_surface_destroy(surf);
+	}
+
+	if (window->window_shape) {
+		spin_lock(&yg->redraw_lock);
+		cairo_surface_destroy(window->window_shape);
+		window->window_shape = t;
+		spin_unlock(&yg->redraw_lock);
+	} else {
+		window->window_shape = t;
+	}
 }
 
 static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window_t * win, int width, int height) {
@@ -563,6 +594,27 @@ static int window_is_bottom(yutani_globals_t * yg, yutani_server_window_t * wind
 	return window->z == YUTANI_ZORDER_BOTTOM;
 }
 
+static uint32_t color_for_wid(yutani_wid_t wid) {
+	static uint32_t colors[] = {
+		0xFF19aeff,
+		0xFFff4141,
+		0xFFffff3e,
+		0xFFff6600,
+		0xFF9ade00,
+		0xFFd76cff,
+		0xFF364e59,
+		0xFF0084c8,
+		0xFFdc0000,
+		0xFFff9900,
+		0xFF009100,
+		0xFFba00ff,
+		0xFFb88100,
+		0xFF9eabb0
+	};
+	int i = wid % (sizeof(colors) / sizeof(uint32_t));
+	return colors[i];
+}
+
 static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
 
 	/* Obtain the previously initialized cairo contexts */
@@ -650,20 +702,43 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	} else {
 draw_window:
 		/* Paint window */
+#if YUTANI_DEBUG_WINDOW_SHAPES
+		if (yg->debug_shapes) {
+			cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+			uint32_t x = color_for_wid(window->wid);
+			cairo_set_source_rgb(cr,
+					_RED(x) / 255.0,
+					_GRE(x) / 255.0,
+					_BLU(x) / 255.0
+			);
+			if (window->window_shape) {
+				cairo_mask_surface(cr, window->window_shape, 0, 0);
+			} else {
+				cairo_rectangle(cr, 0, 0, window->width, window->height);
+				cairo_fill(cr);
+			}
+		} else {
+#endif
 		cairo_set_source_surface(cr, surf, 0, 0);
 		cairo_paint(cr);
+#if YUTANI_DEBUG_WINDOW_SHAPES
+		}
+#endif
 	}
 
 	/* Paint select buffer */
-	cairo_set_operator(cs, CAIRO_OPERATOR_SOURCE);
+	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
 	cairo_set_source_rgb(cs,
 			((window->wid & 0xFF0000) >> 16) / 255.0,
 			((window->wid & 0xFF00) >> 8) / 255.0,
 			((window->wid & 0xFF) >> 0) / 255.0
 	);
-	cairo_rectangle(cs, 0, 0, window->width, window->height);
-	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
-	cairo_fill(cs);
+	if (window->window_shape) {
+		cairo_mask_surface(cs, window->window_shape, 0, 0);
+	} else {
+		cairo_rectangle(cs, 0, 0, window->width, window->height);
+		cairo_fill(cs);
+	}
 
 draw_finish:
 
@@ -675,30 +750,32 @@ draw_finish:
 	cairo_restore(cr);
 	cairo_restore(cs);
 
-#ifdef YUTANI_DEBUG_WINDOW_BOUNDS
-	cairo_save(cr);
+#if YUTANI_DEBUG_WINDOW_BOUNDS
+	if (yg->debug_bounds) {
+		cairo_save(cr);
 
-	int32_t t_x, t_y;
-	int32_t s_x, s_y;
-	int32_t r_x, r_y;
-	int32_t q_x, q_y;
+		int32_t t_x, t_y;
+		int32_t s_x, s_y;
+		int32_t r_x, r_y;
+		int32_t q_x, q_y;
 
-	window_to_device(window, 0, 0, &t_x, &t_y);
-	window_to_device(window, window->width, window->height, &s_x, &s_y);
-	window_to_device(window, 0, window->height, &r_x, &r_y);
-	window_to_device(window, window->width, 0, &q_x, &q_y);
-	cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.7);
-	cairo_set_line_width(cr, 2.0);
+		window_to_device(window, 0, 0, &t_x, &t_y);
+		window_to_device(window, window->width, window->height, &s_x, &s_y);
+		window_to_device(window, 0, window->height, &r_x, &r_y);
+		window_to_device(window, window->width, 0, &q_x, &q_y);
+		cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.7);
+		cairo_set_line_width(cr, 2.0);
 
-	cairo_move_to(cr, t_x, t_y);
-	cairo_line_to(cr, s_x, s_y);
-	cairo_stroke(cr);
+		cairo_move_to(cr, t_x, t_y);
+		cairo_line_to(cr, s_x, s_y);
+		cairo_stroke(cr);
 
-	cairo_move_to(cr, r_x, r_y);
-	cairo_line_to(cr, q_x, q_y);
-	cairo_stroke(cr);
+		cairo_move_to(cr, r_x, r_y);
+		cairo_line_to(cr, q_x, q_y);
+		cairo_stroke(cr);
 
-	cairo_restore(cr);
+		cairo_restore(cr);
+	}
 #endif
 
 	return 0;
@@ -1093,6 +1170,24 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 				return;
 			}
 		}
+#if YUTANI_DEBUG_WINDOW_SHAPES
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+			(ke->event.keycode == 'v')) {
+			yg->debug_shapes = (1-yg->debug_shapes);
+			return;
+		}
+#endif
+#if YUTANI_DEBUG_WINDOW_BOUNDS
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+			(ke->event.keycode == 'b')) {
+			yg->debug_bounds = (1-yg->debug_bounds);
+			return;
+		}
+#endif
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SUPER)) {
 			if ((ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
@@ -1707,6 +1802,16 @@ int main(int argc, char * argv[]) {
 					if (w) {
 						/* Start dragging */
 						mouse_start_drag(yg);
+					}
+				}
+				break;
+			case YUTANI_MSG_WINDOW_UPDATE_SHAPE:
+				{
+					struct yutani_msg_window_update_shape * wa = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					if (w) {
+						/* Start dragging */
+						server_window_update_shape(yg, w, wa->set_shape);
 					}
 				}
 				break;
