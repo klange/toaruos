@@ -47,5 +47,6 @@ void list_append_before(list_t * list, node_t * after, node_t * node);
 node_t * list_insert_before(list_t * list, node_t * after, void * item);
 
 #define foreach(i, list) for (node_t * i = list->head; i != NULL; i = i->next)
+#define foreachr(i, list) for (node_t * i = list->tail; i != NULL; i = i->prev)
 
 #endif
