@@ -702,14 +702,17 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	} else {
 draw_window:
 		/* Paint window */
+		cairo_set_source_surface(cr, surf, 0, 0);
+		cairo_paint(cr);
 #if YUTANI_DEBUG_WINDOW_SHAPES
 		if (yg->debug_shapes) {
 			cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 			uint32_t x = color_for_wid(window->wid);
-			cairo_set_source_rgb(cr,
+			cairo_set_source_rgba(cr,
 					_RED(x) / 255.0,
 					_GRE(x) / 255.0,
-					_BLU(x) / 255.0
+					_BLU(x) / 255.0,
+					0.7
 			);
 			if (window->window_shape) {
 				cairo_mask_surface(cr, window->window_shape, 0, 0);
@@ -717,11 +720,6 @@ draw_window:
 				cairo_rectangle(cr, 0, 0, window->width, window->height);
 				cairo_fill(cr);
 			}
-		} else {
-#endif
-		cairo_set_source_surface(cr, surf, 0, 0);
-		cairo_paint(cr);
-#if YUTANI_DEBUG_WINDOW_SHAPES
 		}
 #endif
 	}
@@ -763,16 +761,20 @@ draw_finish:
 		window_to_device(window, window->width, window->height, &s_x, &s_y);
 		window_to_device(window, 0, window->height, &r_x, &r_y);
 		window_to_device(window, window->width, 0, &q_x, &q_y);
-		cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.7);
-		cairo_set_line_width(cr, 2.0);
+
+		uint32_t x = color_for_wid(window->wid);
+		cairo_set_source_rgba(cr,
+				_RED(x) / 255.0,
+				_GRE(x) / 255.0,
+				_BLU(x) / 255.0,
+				0.7
+		);
 
 		cairo_move_to(cr, t_x, t_y);
+		cairo_line_to(cr, r_x, r_y);
 		cairo_line_to(cr, s_x, s_y);
-		cairo_stroke(cr);
-
-		cairo_move_to(cr, r_x, r_y);
 		cairo_line_to(cr, q_x, q_y);
-		cairo_stroke(cr);
+		cairo_fill(cr);
 
 		cairo_restore(cr);
 	}
