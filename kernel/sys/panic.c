@@ -34,7 +34,7 @@ void assert_failed(const char *file, uint32_t line, const char *desc) {
 	debug_print(INSANE, "System Halted!");
 
 	if (debug_video_crash) {
-		char msg[4][100];
+		char msg[4][256];
 		sprintf(msg[0], "Kernel Assertion Failed: %s", desc);
 		sprintf(msg[1], "File: %s", file);
 		sprintf(msg[2], "Line: %d", line);
