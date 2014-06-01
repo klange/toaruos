@@ -160,24 +160,22 @@ static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t
 	*out_y = (int32_t)n_y + (window->height / 2) + window->y;
 }
 
-static void rebalance_windows(yutani_globals_t * yg) {
-	uint32_t i = 1;
-	for (; i < YUTANI_ZORDER_TOP; ++i) {
-		if (!yg->zlist[i]) break;
-	}
-	uint32_t j = i + 1;
-	for (; j < YUTANI_ZORDER_TOP; ++j) {
-		if (!yg->zlist[j]) break;
-	}
-	if (j == i + 1) {
+static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
+	unsigned short index = w->z;
+	w->z = -1;
+	if (index == YUTANI_ZORDER_BOTTOM) {
+		yg->bottom_z = NULL;
 		return;
-	} else {
-		for (j = i; j < YUTANI_ZORDER_TOP; ++j) {
-			yg->zlist[j] = yg->zlist[j+1];
-			if (yg->zlist[j+1] == NULL) return;
-			yg->zlist[j]->z = j;
-		}
 	}
+	if (index == YUTANI_ZORDER_TOP) {
+		yg->top_z = NULL;
+		return;
+	}
+
+	node_t * n = list_find(yg->mid_zs, w);
+	if (!n) return;
+	list_delete(yg->mid_zs, n);
+	free(n);
 }
 
 static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * window, uint16_t new_zed) {
@@ -186,34 +184,38 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 	}
 
 	int z = window->z;
+	spin_lock(&yg->redraw_lock);
+	unorder_window(yg, window);
+	spin_unlock(&yg->redraw_lock);
+
 	window->z = new_zed;
 
-	if (yg->zlist[z] == window) {
-		yg->zlist[z] = NULL;
-	}
-
-	if (new_zed == 0 || new_zed == YUTANI_ZORDER_TOP) {
-		yg->zlist[new_zed] = window;
-		if (z != new_zed) {
-			rebalance_windows(yg);
-		}
+	if (new_zed != YUTANI_ZORDER_TOP && new_zed != YUTANI_ZORDER_BOTTOM) {
+		spin_lock(&yg->redraw_lock);
+		list_insert(yg->mid_zs, window);
+		spin_unlock(&yg->redraw_lock);
 		return;
 	}
 
-	if (yg->zlist[new_zed] != window) {
-		reorder_window(yg, yg->zlist[new_zed], new_zed + 1);
-		yg->zlist[new_zed ] = window;
+	if (new_zed == YUTANI_ZORDER_TOP) {
+		if (yg->top_z) {
+			spin_lock(&yg->redraw_lock);
+			unorder_window(yg, yg->top_z);
+			spin_unlock(&yg->redraw_lock);
+		}
+		yg->top_z = window;
+		return;
 	}
-	if (z != new_zed) {
-		rebalance_windows(yg);
-	}
-}
 
-static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
-	if (yg->zlist[w->z] == w) {
-		yg->zlist[w->z] = NULL;
+	if (new_zed == YUTANI_ZORDER_BOTTOM) {
+		if (yg->bottom_z) {
+			spin_lock(&yg->redraw_lock);
+			unorder_window(yg, yg->bottom_z);
+			spin_unlock(&yg->redraw_lock);
+		}
+		yg->bottom_z = window;
+		return;
 	}
-	rebalance_windows(yg);
 }
 
 static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
@@ -222,21 +224,11 @@ static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
 	if (index == YUTANI_ZORDER_BOTTOM) return;
 	if (index == YUTANI_ZORDER_TOP) return;
 
-	unsigned short highest = 0;
+	node_t * n = list_find(yg->mid_zs, w);
+	if (!n) return; /* wat */
 
-	for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
-		if (yg->zlist[i]) {
-			yutani_server_window_t * win = yg->zlist[i];
-
-			if (win == w) continue;
-			if (win->z == YUTANI_ZORDER_BOTTOM) continue;
-			if (win->z == YUTANI_ZORDER_TOP) continue;
-			if (highest < win->z) highest = win->z;
-			if (win->z > w->z) continue;
-		}
-	}
-
-	reorder_window(yg, w, highest + 1);
+	list_delete(yg->mid_zs, n);
+	list_append(yg->mid_zs, n);
 }
 
 static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w) {
@@ -259,7 +251,7 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 		make_top(yg, w);
 	} else {
 		/* XXX */
-		yg->focused_window = yg->zlist[0];
+		yg->focused_window = yg->bottom_z;
 	}
 
 	notify_subscribers(yg);
@@ -267,16 +259,8 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 
 static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
 	if (yg->focused_window) return yg->focused_window;
-	return yg->zlist[0];
+	return yg->bottom_z;
 }
-
-int best_z_option(yutani_globals_t * yg) {
-	for (int i = 1; i < YUTANI_ZORDER_TOP; ++i) {
-		if (!yg->zlist[i]) return i;
-	}
-	return -1;
-}
-
 
 static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner) {
 	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
@@ -296,7 +280,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 
 	win->x = 0;
 	win->y = 0;
-	win->z = best_z_option(yg);
+	win->z = 1;
 	win->width = width;
 	win->height = height;
 	win->bufid = next_buf_id();
@@ -312,7 +296,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->client_strings = NULL;
 	win->anim_mode = YUTANI_EFFECT_FADE_IN;
 	win->anim_start = yg->tick_count;
-	win->window_shape = NULL;
+	win->alpha_threshold = 0;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
@@ -321,36 +305,13 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
 	memset(win->buffer, 0, size);
 
-	yg->zlist[win->z] = win;
+	list_insert(yg->mid_zs, win);
 
 	return win;
 }
 
 static void server_window_update_shape(yutani_globals_t * yg, yutani_server_window_t * window, int set) {
-	cairo_surface_t * t = NULL;
-	if (set) {
-		int stride = window->width * 4;
-		cairo_surface_t * surf = cairo_image_surface_create_for_data(
-				window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
-		t = cairo_image_surface_create(CAIRO_FORMAT_A1,
-				cairo_image_surface_get_width(surf),
-				cairo_image_surface_get_height(surf));
-		cairo_t * tr = cairo_create(t);
-		cairo_set_source_surface(tr, surf, 0.0, 0.0);
-		cairo_paint(tr);
-		cairo_surface_flush(t);
-		cairo_destroy(tr);
-		cairo_surface_destroy(surf);
-	}
-
-	if (window->window_shape) {
-		spin_lock(&yg->redraw_lock);
-		cairo_surface_destroy(window->window_shape);
-		window->window_shape = t;
-		spin_unlock(&yg->redraw_lock);
-	} else {
-		window->window_shape = t;
-	}
+	window->alpha_threshold = set;
 }
 
 static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window_t * win, int width, int height) {
@@ -558,13 +519,11 @@ static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w,
 
 static void save_cairo_states(yutani_globals_t * yg) {
 	cairo_save(yg->framebuffer_ctx);
-	cairo_save(yg->selectbuffer_ctx);
 	cairo_save(yg->real_ctx);
 }
 
 static void restore_cairo_states(yutani_globals_t * yg) {
 	cairo_restore(yg->framebuffer_ctx);
-	cairo_restore(yg->selectbuffer_ctx);
 	cairo_restore(yg->real_ctx);
 }
 
@@ -573,10 +532,27 @@ static void yutani_set_clip(yutani_globals_t * yg) {
 	cairo_clip(yg->real_ctx);
 }
 
+yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_server_window_t * w, uint16_t x, uint16_t y){
+	if (!w) return NULL;
+	int32_t _x = -1, _y = -1;
+	device_to_window(w, x, y, &_x, &_y);
+	if (_x < 0 || _x >= w->width || _y < 0 || _y >= w->height) return NULL;
+	uint32_t c = ((uint32_t *)w->buffer)[(w->width * _y + _x)];
+	uint8_t a = _ALP(c);
+	if (a >= w->alpha_threshold) {
+		return w;
+	}
+	return NULL;
+}
+
 yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
-	uint32_t c = ((uint32_t *)yg->select_framebuffer)[(yg->width * y + x)];
-	yutani_wid_t w = (_RED(c) << 16) | (_GRE(c) << 8) | (_BLU(c));
-	return hashmap_get(yg->wids_to_windows, (void *)w);
+	if (check_top_at(yg, yg->top_z, x, y)) return yg->top_z;
+	foreachr(node, yg->mid_zs) {
+		yutani_server_window_t * w = node->value;
+		if (check_top_at(yg, w, x, y)) return w;
+	}
+	if (check_top_at(yg, yg->bottom_z, x, y)) return yg->bottom_z;
+	return NULL;
 }
 
 static void set_focused_at(yutani_globals_t * yg, int x, int y) {
@@ -619,7 +595,6 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 
 	/* Obtain the previously initialized cairo contexts */
 	cairo_t * cr = yg->framebuffer_ctx;
-	cairo_t * cs = yg->selectbuffer_ctx;
 
 	/* Window stride is always 4 bytes per pixel... */
 	int stride = window->width * 4;
@@ -628,16 +603,14 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	cairo_surface_t * surf = cairo_image_surface_create_for_data(
 			window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
 
-	/* Save cairo contexts for both rendering and selectbuffer */
+	/* Save cairo context */
 	cairo_save(cr);
-	cairo_save(cs);
 
 	/*
 	 * Offset the rendering context appropriately for the position of the window
 	 * based on the modifier paramters
 	 */
 	cairo_translate(cr, x, y);
-	cairo_translate(cs, x, y);
 
 	/* Top and bottom windows can not be rotated. */
 	if (!window_is_top(yg, window) && !window_is_bottom(yg, window)) {
@@ -651,11 +624,6 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 			cairo_translate(cr, (int)( window->width / 2), (int)( (int)window->height / 2));
 			cairo_rotate(cr, r);
 			cairo_translate(cr, (int)(-window->width / 2), (int)(-window->height / 2));
-
-			/* Rotate the selectbuffer context about the center of the window */
-			cairo_translate(cs, (int)( window->width / 2), (int)( window->height / 2));
-			cairo_rotate(cs, r);
-			cairo_translate(cs, (int)(-window->width / 2), (int)(-window->height / 2));
 
 			/* Prefer faster filter when rendering rotated windows */
 			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
@@ -704,44 +672,6 @@ draw_window:
 		/* Paint window */
 		cairo_set_source_surface(cr, surf, 0, 0);
 		cairo_paint(cr);
-#if YUTANI_DEBUG_WINDOW_SHAPES
-		if (yg->debug_shapes) {
-			cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
-			uint32_t x = color_for_wid(window->wid);
-			cairo_set_source_rgba(cr,
-					_RED(x) / 255.0,
-					_GRE(x) / 255.0,
-					_BLU(x) / 255.0,
-					0.7
-			);
-			if (window->window_shape) {
-				cairo_pattern_t * tmp = cairo_pattern_create_for_surface(window->window_shape);
-				cairo_pattern_set_filter(tmp, CAIRO_FILTER_FAST);
-				cairo_mask(cr, tmp);
-				cairo_pattern_destroy(tmp);
-			} else {
-				cairo_rectangle(cr, 0, 0, window->width, window->height);
-				cairo_fill(cr);
-			}
-		}
-#endif
-	}
-
-	/* Paint select buffer */
-	cairo_set_antialias(cs, CAIRO_ANTIALIAS_NONE);
-	cairo_set_source_rgb(cs,
-			((window->wid & 0xFF0000) >> 16) / 255.0,
-			((window->wid & 0xFF00) >> 8) / 255.0,
-			((window->wid & 0xFF) >> 0) / 255.0
-	);
-	if (window->window_shape) {
-		cairo_pattern_t * tmp = cairo_pattern_create_for_surface(window->window_shape);
-		cairo_pattern_set_filter(tmp, CAIRO_FILTER_FAST);
-		cairo_mask(cs, tmp);
-		cairo_pattern_destroy(tmp);
-	} else {
-		cairo_rectangle(cs, 0, 0, window->width, window->height);
-		cairo_fill(cs);
 	}
 
 draw_finish:
@@ -752,7 +682,6 @@ draw_finish:
 
 	/* Restore context stack */
 	cairo_restore(cr);
-	cairo_restore(cs);
 
 #if YUTANI_DEBUG_WINDOW_BOUNDS
 	if (yg->debug_bounds) {
@@ -841,13 +770,11 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	yg->tick_count += 10;
 
-	for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
-		yutani_server_window_t * w = yg->zlist[i];
-		if (w) {
-			if (w->anim_mode > 0) {
-				mark_window(yg,w);
-			}
-		}
+	if (yg->bottom_z && yg->bottom_z->anim_mode) mark_window(yg, yg->bottom_z);
+	if (yg->top_z && yg->top_z->anim_mode) mark_window(yg, yg->top_z);
+	foreach (node, yg->mid_zs) {
+		yutani_server_window_t * w = node->value;
+		if (w && w->anim_mode) mark_window(yg, w);
 	}
 
 	/* Calculate damage regions from currently queued updates */
@@ -877,17 +804,34 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * we also need to render windows in stacking order...
 		 */
 		spin_lock(&yg->redraw_lock);
-		for (unsigned int  i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
-			if (yg->zlist[i]) {
-				yutani_blit_window(yg, yg->zlist[i], yg->zlist[i]->x, yg->zlist[i]->y);
-			}
+		if (yg->bottom_z) yutani_blit_window(yg, yg->bottom_z, yg->bottom_z->x, yg->bottom_z->y);
+		foreach (node, yg->mid_zs) {
+			yutani_server_window_t * w = node->value;
+			if (w) yutani_blit_window(yg, w, w->x, w->y);
 		}
+		if (yg->top_z) yutani_blit_window(yg, yg->top_z, yg->top_z->x, yg->top_z->y);
 		spin_unlock(&yg->redraw_lock);
 
 		if (yg->resizing_window) {
 			/* Draw box */
 			draw_resizing_box(yg);
 		}
+	
+#if YUTANI_DEBUG_WINDOW_SHAPES
+#define WINDOW_SHAPE_VIEWER_SIZE 20
+		if (yg->debug_shapes) {
+			int _ly = max(0,tmp_mouse_y/MOUSE_SCALE - WINDOW_SHAPE_VIEWER_SIZE);
+			int _hy = min(yg->height,tmp_mouse_y/MOUSE_SCALE + WINDOW_SHAPE_VIEWER_SIZE);
+			int _lx = max(0,tmp_mouse_x/MOUSE_SCALE - 20);
+			int _hx = min(yg->width,tmp_mouse_x/MOUSE_SCALE + WINDOW_SHAPE_VIEWER_SIZE);
+			for (int y = _ly; y < _hy; ++y) {
+				for (int x = _lx; x < _hx; ++x) {
+					yutani_server_window_t * w = top_at(yg, x, y);
+					if (w) { GFX(yg->backend_ctx, x, y) = color_for_wid(w->wid); }
+				}
+			}
+		}
+#endif
 
 		if (yutani_options.nested) {
 			flip(yg->backend_ctx);
@@ -935,13 +879,7 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 	yg->real_surface = cairo_image_surface_create_for_data(
 			yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 
-	yg->select_framebuffer = malloc(YUTANI_BYTE_DEPTH * yg->width * yg->height);
-
-	yg->selectbuffer_surface = cairo_image_surface_create_for_data(
-			yg->select_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
-
 	yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
-	yg->selectbuffer_ctx = cairo_create(yg->selectbuffer_surface);
 	yg->real_ctx = cairo_create(yg->real_surface);
 
 	yg->update_list = list_create();
@@ -1081,7 +1019,9 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 	/* XXX free window */
 	hashmap_remove(yg->wids_to_windows, (void *)w->wid);
 	list_remove(yg->windows, list_index_of(yg->windows, w));
+	spin_lock(&yg->redraw_lock);
 	unorder_window(yg, w);
+	spin_unlock(&yg->redraw_lock);
 	mark_window(yg, w);
 	if (w == yg->focused_window) {
 		yg->focused_window = NULL;
@@ -1108,6 +1048,14 @@ static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
 	return flags;
 }
 
+static void yutani_query_result(yutani_globals_t * yg, uint32_t dest, yutani_server_window_t * win) {
+	if (win && win->client_length) {
+		yutani_msg_t * response = yutani_msg_build_window_advertise(win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
+		pex_send(yg->server, dest, response->size, (char *)response);
+		free(response);
+	}
+}
+
 static void notify_subscribers(yutani_globals_t * yg) {
 	yutani_msg_t * response = yutani_msg_build_notify();
 	foreach(node, yg->window_subscribers) {
@@ -1119,7 +1067,7 @@ static void notify_subscribers(yutani_globals_t * yg) {
 
 static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window,  int width_div, int height_div, int x, int y) {
 	int panel_h = 0;
-	yutani_server_window_t * panel = yg->zlist[YUTANI_ZORDER_TOP];
+	yutani_server_window_t * panel = yg->top_z;
 	if (panel) {
 		panel_h = panel->height;
 	}
@@ -1534,6 +1482,7 @@ int main(int argc, char * argv[]) {
 	yg->wids_to_windows = hashmap_create_int(10);
 	yg->key_binds = hashmap_create_int(10);
 	yg->clients_to_windows = hashmap_create_int(10);
+	yg->mid_zs = list_create();
 
 	yg->window_subscribers = list_create();
 
@@ -1730,14 +1679,11 @@ int main(int argc, char * argv[]) {
 				break;
 			case YUTANI_MSG_QUERY_WINDOWS:
 				{
-					for (unsigned int i = 0; i <= YUTANI_ZORDER_MAX; ++i) {
-						if (yg->zlist[i] && yg->zlist[i]->client_length) {
-							yutani_server_window_t * win = yg->zlist[i];
-							yutani_msg_t * response = yutani_msg_build_window_advertise(win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
-							pex_send(server, p->source, response->size, (char *)response);
-							free(response);
-						}
+					yutani_query_result(yg, p->source, yg->bottom_z);
+					foreach (node, yg->mid_zs) {
+						yutani_query_result(yg, p->source, node->value);
 					}
+					yutani_query_result(yg, p->source, yg->top_z);
 					yutani_msg_t * response = yutani_msg_build_window_advertise(0, 0, NULL, 0, NULL);
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);

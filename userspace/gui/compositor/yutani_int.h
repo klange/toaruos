@@ -58,7 +58,7 @@ typedef struct {
 	int anim_mode;
 	int anim_start;
 
-	cairo_surface_t * window_shape;
+	int alpha_threshold;
 } yutani_server_window_t;
 
 typedef struct {
@@ -67,13 +67,10 @@ typedef struct {
 	unsigned int height;
 
 	cairo_surface_t * framebuffer_surface;
-	cairo_surface_t * selectbuffer_surface;
 	cairo_surface_t * real_surface;
 	cairo_t * framebuffer_ctx;
-	cairo_t * selectbuffer_ctx;
 	cairo_t * real_ctx;
 
-	void * select_framebuffer;
 	void * backend_framebuffer;
 	gfx_context_t * backend_ctx;
 
@@ -85,7 +82,10 @@ typedef struct {
 
 	list_t * windows;
 	hashmap_t * wids_to_windows;
-	yutani_server_window_t * zlist[0x10000];
+
+	yutani_server_window_t * bottom_z;
+	list_t * mid_zs;
+	yutani_server_window_t * top_z;
 
 	list_t * update_list;
 	volatile int update_list_lock;

@@ -200,19 +200,54 @@ typedef struct yutani_window {
 #define YUTANI_MSG_WELCOME             0x00010001
 #define YUTANI_MSG_WINDOW_INIT         0x00010002
 
+/*
+ * YUTANI_ZORDER
+ *
+ * Specifies which stack set a window should appear in.
+ */
 #define YUTANI_ZORDER_MAX    0xFFFF
 #define YUTANI_ZORDER_TOP    0xFFFF
 #define YUTANI_ZORDER_BOTTOM 0x0000
 
+/*
+ * YUTANI_MOUSE_BUTTON
+ *
+ * Button specifiers. Multiple specifiers may be set.
+ */
 #define YUTANI_MOUSE_BUTTON_LEFT   0x01
 #define YUTANI_MOUSE_BUTTON_RIGHT  0x02
 #define YUTANI_MOUSE_BUTTON_MIDDLE 0x04
 
+/*
+ * YUTANI_MOUSE_STATE
+ *
+ * The mouse has for effective states internally:
+ *
+ * NORMAL: The mouse is performing normally.
+ * MOVING: The mouse is engaged in moving a window.
+ * DRAGGING: The mouse is down and sending drag events.
+ * RESIZING: The mouse is engaged in resizing a window.
+ */
 #define YUTANI_MOUSE_STATE_NORMAL     0
 #define YUTANI_MOUSE_STATE_MOVING     1
 #define YUTANI_MOUSE_STATE_DRAGGING   2
 #define YUTANI_MOUSE_STATE_RESIZING   3
 
+/*
+ * YUTANI_MOUSE_EVENT
+ *
+ * Mouse events have different types.
+ *
+ * Most of these should be self-explanatory.
+ *
+ * CLICK: A down-up click has occured.
+ * DRAG: The mouse is down and moving.
+ * RAISE: A mouse button was released.
+ * DOWN: A mouse button has been pressed.
+ * MOVE: The mouse has moved without a mouse button pressed.
+ * LEAVE: The mouse has left the given window.
+ * ENTER: The mouse has entered the given window.
+ */
 #define YUTANI_MOUSE_EVENT_CLICK 0
 #define YUTANI_MOUSE_EVENT_DRAG  1
 #define YUTANI_MOUSE_EVENT_RAISE 2
@@ -221,11 +256,46 @@ typedef struct yutani_window {
 #define YUTANI_MOUSE_EVENT_LEAVE 5
 #define YUTANI_MOUSE_EVENT_ENTER 6
 
+/*
+ * YUTANI_MOUSE_EVENT_TYPE
+ *
+ * (For mouse drivers)
+ *
+ * RELATIVE: Mouse positions are relative to the previous reported location.
+ * ABSOLUTE: Mouse positions are in absolute coordinates.
+ */
 #define YUTANI_MOUSE_EVENT_TYPE_RELATIVE 0
 #define YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE 1
 
+/*
+ * YUTANI_BIND
+ *
+ * Used to control keyboard binding modes.
+ *
+ * PASSTHROUGH: The key event will continue to the window that would have normally received.
+ * STEAL: The key event will not be passed to the next window and is stolen by the bound window.
+ */
 #define YUTANI_BIND_PASSTHROUGH 0
 #define YUTANI_BIND_STEAL       1
+
+/*
+ * YUTANI_SHAPE_THRESHOLD
+ *
+ * Used with yutani_window_update_shape to set the alpha threshold for window shaping.
+ * All windows are shaped based on their transparency (alpha channel). The default
+ * mode is NONE - meaning the alpha channel is ignored.
+ *
+ * NONE:  The window is always clickable, regardless of alpha transparency.
+ * CLEAR: Only completely clear (alpha = 0) regions will pass through.
+ * HALF:  Threshold of 50% - alpha values below 127 will pass through. Good for most cases.
+ * ANY:   Any amount of alpha transparency will pass through - only fully opaque regions are kept.
+ * PASSTHROUGH: All clicks pass through. Useful for tooltips / overlays.
+ */
+#define YUTANI_SHAPE_THRESHOLD_NONE        0
+#define YUTANI_SHAPE_THRESHOLD_CLEAR       1
+#define YUTANI_SHAPE_THRESHOLD_HALF        127
+#define YUTANI_SHAPE_THRESHOLD_ANY         255
+#define YUTANI_SHAPE_THRESHOLD_PASSTHROUGH 256
 
 typedef struct {
 	int x;
