@@ -257,10 +257,12 @@ int resize(gfx_context_t * ctx, OSMesaContext gl_ctx) {
 }
 
 int main (int argc, char ** argv) {
-	static yutani_t * yctx;
-	static yutani_window_t * wina;
-	static gfx_context_t * ctx;
-	static int should_exit = 0;
+	yutani_t * yctx;
+	yutani_window_t * wina;
+	gfx_context_t * ctx;
+	int should_exit = 0;
+	int blur = 0;
+	int stopped = 0;
 
 	int left = 30;
 	int top  = 30;
@@ -297,6 +299,12 @@ int main (int argc, char ** argv) {
 									should_exit = 1;
 									free(m);
 									goto finish;
+								case 'b':
+									blur = (1-blur);
+									break;
+								case 's':
+									stopped = (1-stopped);
+									break;
 								case KEY_ARROW_LEFT:
 									view_roty += 5.0;
 									break;
@@ -334,6 +342,7 @@ int main (int argc, char ** argv) {
 						resize(ctx, gl_ctx);
 						draw();
 						yutani_window_resize_done(yctx, wina);
+						flip(ctx);
 						yutani_flip(yctx, wina);
 						yutani_window_update_shape(yctx, wina, 1);
 						/* Reset statistics */
@@ -346,8 +355,13 @@ int main (int argc, char ** argv) {
 			free(m);
 		}
 		fps();
-		angle += 0.2;
+		if (!stopped) {
+			angle += 0.2;
+		}
 		draw();
+		if (blur) {
+			blur_context_box(ctx, 20);
+		}
 		flip(ctx);
 		yutani_flip(yctx, wina);
 		static int i = 0;
