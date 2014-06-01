@@ -113,7 +113,9 @@ static void mouse_handler(struct regs *r) {
 static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 	if (request == 1) {
 		mouse_cycle = 0;
+		return 0;
 	}
+	return -1;
 }
 
 static int mouse_install(void) {
