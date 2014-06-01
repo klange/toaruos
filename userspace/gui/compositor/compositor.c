@@ -715,7 +715,10 @@ draw_window:
 					0.7
 			);
 			if (window->window_shape) {
-				cairo_mask_surface(cr, window->window_shape, 0, 0);
+				cairo_pattern_t * tmp = cairo_pattern_create_for_surface(window->window_shape);
+				cairo_pattern_set_filter(tmp, CAIRO_FILTER_FAST);
+				cairo_mask(cr, tmp);
+				cairo_pattern_destroy(tmp);
 			} else {
 				cairo_rectangle(cr, 0, 0, window->width, window->height);
 				cairo_fill(cr);
@@ -732,7 +735,10 @@ draw_window:
 			((window->wid & 0xFF) >> 0) / 255.0
 	);
 	if (window->window_shape) {
-		cairo_mask_surface(cs, window->window_shape, 0, 0);
+		cairo_pattern_t * tmp = cairo_pattern_create_for_surface(window->window_shape);
+		cairo_pattern_set_filter(tmp, CAIRO_FILTER_FAST);
+		cairo_mask(cs, tmp);
+		cairo_pattern_destroy(tmp);
 	} else {
 		cairo_rectangle(cs, 0, 0, window->width, window->height);
 		cairo_fill(cs);
