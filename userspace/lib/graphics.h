@@ -65,6 +65,7 @@ sprite_t * create_sprite(size_t width, size_t height, int alpha);
 
 void blur_context(gfx_context_t * _dst, gfx_context_t * _src, double amount);
 void blur_context_no_vignette(gfx_context_t * _dst, gfx_context_t * _src, double amount);
+void blur_context_box(gfx_context_t * _src, int radius);
 void sprite_free(sprite_t * sprite);
 
 void load_sprite(sprite_t * sprite, char * filename);

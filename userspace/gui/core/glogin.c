@@ -157,14 +157,6 @@ int main (int argc, char ** argv) {
 	}
 
 	/* Generate surface for background */
-#if 0
-	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, y->display_width);
-	cairo_surface_t * bg_surf = cairo_image_surface_create_for_data(
-
-	yg->framebuffer_surface = cairo_image_surface_create_for_data(
-			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
-#endif
-
 	sprite_t * bg_sprite;
 	cairo_surface_t * bg_surf;
 
@@ -189,25 +181,20 @@ int main (int argc, char ** argv) {
 		int nh = (int)(x * (float)sprites[1]->height);
 		int nw = (int)(y * (float)sprites[1]->width);;
 
-		sprite_t * tmp = create_sprite(width, height, ALPHA_OPAQUE);
-		gfx_context_t * bg_tmp = init_graphics_sprite(tmp);
-
 		bg_sprite = create_sprite(width, height, ALPHA_OPAQUE);
 		gfx_context_t * bg = init_graphics_sprite(bg_sprite);
 
 		if (nw > width) {
-			draw_sprite_scaled(bg_tmp, sprites[1], (width - nw) / 2, 0, nw, height);
+			draw_sprite_scaled(bg, sprites[1], (width - nw) / 2, 0, nw, height);
 		} else {
-			draw_sprite_scaled(bg_tmp, sprites[1], 0, (height - nh) / 2, width, nh);
+			draw_sprite_scaled(bg, sprites[1], 0, (height - nh) / 2, width, nh);
 		}
 
-		blur_context_no_vignette(bg, bg_tmp, 80.0);
-		blur_context_no_vignette(bg_tmp, bg, 400.0);
-		blur_context_no_vignette(bg, bg_tmp, 200.0);
+		/* Three box blurs = good enough approximation of a guassian, but faster*/
+		blur_context_box(bg, 20);
+		blur_context_box(bg, 20);
+		blur_context_box(bg, 20);
 
-		sprite_free(tmp);
-
-		free(bg_tmp);
 		free(bg);
 	}
 

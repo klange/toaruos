@@ -312,6 +312,122 @@ void blur_context_no_vignette(gfx_context_t * _dst, gfx_context_t * _src, double
 	}
 }
 
+static int clamp(int a, int l, int h) {
+	return a < l ? l : (a > h ? h : a);
+}
+
+static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
+	uint32_t * p = (uint32_t *)_src->backbuffer;
+	int w = _src->width;
+	int h = _src->height;
+	int half_radius = radius / 2;
+	int index = 0;
+	uint32_t * out_color = calloc(sizeof(uint32_t), w);
+
+	for (int y = 0; y < h; y++) {
+		int hits = 0;
+		int r = 0;
+		int g = 0;
+		int b = 0;
+		for (int x = -half_radius; x < w; x++) {
+			int old_p = x - half_radius - 1;
+			if (old_p >= 0)
+			{
+				uint32_t col = p[clamp(index + old_p, 0, w*h-1)];
+				if (col) {
+					r -= _RED(col);
+					g -= _GRE(col);
+					b -= _BLU(col);
+				}
+				hits--;
+			}
+
+			int newPixel = x + half_radius;
+			if (newPixel < w) {
+				int col = p[clamp(index + newPixel, 0, w*h-1)];
+				if (col != 0) {
+					r += _RED(col);
+					g += _GRE(col);
+					b += _BLU(col);
+				}
+				hits++;
+			}
+
+			if (x >= 0) {
+				out_color[x] = rgba(r / hits, g / hits, b / hits, 255);
+			}
+		}
+
+		for (int x = 0; x < w; x++) {
+			p[index + x] = out_color[x];
+		}
+
+		index += w;
+	}
+
+	free(out_color);
+}
+
+static void _box_blur_vertical(gfx_context_t * _src, int radius) {
+	uint32_t * p = (uint32_t *)_src->backbuffer;
+	int w = _src->width;
+	int h = _src->height;
+	int half_radius = radius / 2;
+
+	uint32_t * out_color = calloc(sizeof(uint32_t), h);
+	int old_offset = -(half_radius + 1) * w;
+	int new_offset = (half_radius) * w;
+
+	for (int x = 0; x < w; x++) {
+		int hits = 0;
+		int r = 0;
+		int g = 0;
+		int b = 0;
+		int index = -half_radius * w + x;
+		for (int y = -half_radius; y < h; y++) {
+			int old_p = y - half_radius - 1;
+			if (old_p >= 0) {
+				uint32_t col = p[clamp(index + old_offset, 0, w*h-1)];
+				if (col != 0) {
+					r -= _RED(col);
+					g -= _GRE(col);
+					b -= _BLU(col);
+				}
+				hits--;
+			}
+
+			int newPixel = y + half_radius;
+			if (newPixel < h) {
+				uint32_t col = p[clamp(index + new_offset, 0, w*h-1)];
+				if (col != 0)
+				{
+					r += _RED(col);
+					g += _GRE(col);
+					b += _BLU(col);
+				}
+				hits++;
+			}
+
+			if (y >= 0) {
+				out_color[y] = rgba(r / hits, g / hits, b / hits, 255);
+			}
+
+			index += w;
+		}
+
+		for (int y = 0; y < h; y++) {
+			p[y * w + x] = out_color[y];
+		}
+	}
+
+	free(out_color);
+}
+
+void blur_context_box(gfx_context_t * _src, int radius) {
+	_box_blur_horizontal(_src,radius);
+	_box_blur_vertical(_src,radius);
+}
+
 void load_sprite(sprite_t * sprite, char * filename) {
 	/* Open the requested binary */
 	FILE * image = fopen(filename, "r");
