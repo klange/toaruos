@@ -326,11 +326,20 @@ int main (int argc, char ** argv) {
 				case YUTANI_MSG_SESSION_END:
 					should_exit = 1;
 					break;
-#if 0
-					/* XXX resizing */
-						/* Fix up the GL context as well */
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						yutani_window_resize_accept(yctx, wina, wr->width, wr->height);
+						reinit_graphics_yutani(ctx, wina);
 						resize(ctx, gl_ctx);
-#endif
+						draw();
+						yutani_window_resize_done(yctx, wina);
+						yutani_flip(yctx, wina);
+						yutani_window_update_shape(yctx, wina, 1);
+						/* Reset statistics */
+						frames = 0;
+						start_time = 0;
+					}
 				default:
 					break;
 			}
