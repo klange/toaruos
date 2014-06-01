@@ -154,7 +154,10 @@ static int ioctl_server(fs_node_t * node, int request, void * argp) {
 
 static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
-	assert(c->parent == node->device);
+	if (c->parent != node->device) {
+		debug_print(WARNING, "[pex] Invalid device endpoint on client read?");
+		return -1;
+	}
 
 	debug_print(INFO, "[pex] client read(...)");
 
@@ -178,7 +181,10 @@ static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, ui
 
 static uint32_t write_client(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
-	assert(c->parent == node->device);
+	if (c->parent != node->device) {
+		debug_print(WARNING, "[pex] Invalid device endpoint on client write?");
+		return -1;
+	}
 
 	debug_print(INFO, "[pex] client write(...)");
 
