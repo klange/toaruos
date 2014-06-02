@@ -189,18 +189,18 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 	char script[strlen(path)+1];
 	memcpy(script, path, strlen(path)+1);
 
-	char * args[argc+(arg ? 4 : 3)];
+	unsigned int nargc = argc + (arg ? 2 : 1);
+	char * args[nargc];
 	args[0] = cmd;
 	args[1] = arg ? arg : script;
 	args[2] = arg ? script : NULL;
 	args[4] = NULL;
 
 	int j = arg ? 3 : 2;
-	for (int i = 0; i < argc + 1; ++i, ++j) {
+	for (int i = 1; i < argc; ++i, ++j) {
 		args[j] = argv[i];
 	}
 	args[j] = NULL;
-	unsigned int nargc = argc + (arg ? 2 : 1);
 
 	return exec(cmd, nargc, args, env);
 }
