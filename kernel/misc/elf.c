@@ -14,37 +14,7 @@
 #include <process.h>
 #include <logging.h>
 
-/**
- * Load and execute a static ELF binary.
- *
- * We make one assumption on the location the binary expects to be loaded
- * at: that it be outside of the kernel memory space.
- *
- * Arguments are passed to the stack of the user application so that they
- * can be read properly.
- *
- * TODO: Environment variables should be loaded somewhere.
- *
- * HACK: ELF verification isn't complete.
- *
- * @param path Path to the executable to attempt to execute.
- * @param argc Number of arguments (because I'm not counting for you)
- * @param argv Pointer to a string of arguments
- */
-int
-exec(
-		char *  path, /* Path to the executable to run */
-		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
-		char ** argv, /* Argument strings (including executable path) */
-		char ** env   /* Environmen variables */
-	) {
-
-	/* Open the file */
-	fs_node_t * file = kopen(path,0);
-	if (!file) {
-		/* Command not found */
-		return 0;
-	}
+int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env) {
 	Elf32_Header * header = (Elf32_Header *)malloc(file->length + 100);
 
 	debug_print(NOTICE, "---> Starting load.");
@@ -186,6 +156,116 @@ exec(
 	/* We should never reach this code */
 	return -1;
 }
+
+int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** env) {
+	/* Read MAX_LINE... */
+	char tmp[100];
+	read_fs(file, 0, 100, (unsigned char *)tmp);
+	char * space_or_linefeed = strpbrk(tmp, " \n");
+	close_fs(file);
+
+	if (!space_or_linefeed) {
+		debug_print(WARNING, "No space or linefeed found.");
+		return -ENOEXEC;
+	}
+
+	*space_or_linefeed = '\0';
+
+	char * cmd = (char *)&tmp[2];
+	char * arg = NULL;
+
+	if (*space_or_linefeed == ' ') {
+		/* Oh lovely, an argument */
+		space_or_linefeed++;
+		arg = space_or_linefeed;
+		space_or_linefeed = strpbrk(tmp, "\n");
+		if (!space_or_linefeed) {
+			debug_print(WARNING, "Argument exceeded maximum length");
+			return -ENOEXEC;
+		}
+		*space_or_linefeed = '\0';
+	}
+
+	char script[strlen(path)+1];
+	memcpy(script, path, strlen(path)+1);
+
+	char * args[argc+(arg ? 4 : 3)];
+	args[0] = cmd;
+	args[1] = arg ? arg : script;
+	args[2] = arg ? script : NULL;
+	args[4] = NULL;
+
+	int j = arg ? 3 : 2;
+	for (int i = 0; i < argc + 1; ++i, ++j) {
+		args[j] = argv[i];
+	}
+	args[j] = NULL;
+	unsigned int nargc = argc + (arg ? 2 : 1);
+
+	return exec(cmd, nargc, args, env);
+}
+
+/* Consider exposing this and making it a list so it can be extended ... */
+typedef int (*exec_func)(char * path, fs_node_t * file, int argc, char ** argv, char ** env);
+typedef struct {
+	exec_func func;
+	unsigned char bytes[4];
+	unsigned int  match;
+	char * name;
+} exec_def_t;
+
+exec_def_t fmts[] = {
+	{exec_elf, {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3}, 4, "ELF"},
+	{exec_shebang, {'#', '!', 0, 0}, 2, "#!"},
+};
+
+static int matches(unsigned char * a, unsigned char * b, unsigned int len) {
+	for (unsigned int i = 0; i < len; ++i) {
+		if (a[i] != b[i]) return 0;
+	}
+	return 1;
+}
+
+/**
+ * Load an execute a binary.
+ *
+ * This determines the binary type (eg., ELF binary, she-bang script, etc.)
+ * and then calls the appropriate underlying exec function.
+ *
+ * @param path Path to the executable to attempt to execute.
+ * @param argc Number of arguments (because I'm not counting for you)
+ * @param argv Pointer to a string of arguments
+ */
+int exec(
+		char *  path, /* Path to the executable to run */
+		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
+		char ** argv, /* Argument strings (including executable path) */
+		char ** env   /* Environmen variables */
+	) {
+	/* Open the file */
+	fs_node_t * file = kopen(path,0);
+	if (!file) {
+		/* Command not found */
+		return -ENOENT;
+	}
+
+	/* Read four bytes of the file */
+	unsigned char head[4];
+	read_fs(file, 0, 4, head);
+
+	debug_print(WARNING, "First four bytes: %c%c%c%c", head[0], head[1], head[2], head[3]);
+
+	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
+		if (matches(fmts[i].bytes, head, fmts[i].match)) {
+			debug_print(WARNING, "Matched executor: %s", fmts[i].name);
+			return fmts[i].func(path, file, argc, argv, env);
+		}
+	}
+
+	debug_print(WARNING, "Exec failed?");
+	return -ENOEXEC;
+}
+
 
 int
 system(
