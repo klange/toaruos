@@ -160,31 +160,28 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** env) {
 	/* Read MAX_LINE... */
 	char tmp[100];
-	read_fs(file, 0, 100, (unsigned char *)tmp);
-	char * space_or_linefeed = strpbrk(tmp, " \n");
-	close_fs(file);
+	read_fs(file, 0, 100, (unsigned char *)tmp); close_fs(file);
+	char * cmd = (char *)&tmp[2];
+	char * space_or_linefeed = strpbrk(cmd, " \n");
+	char * arg = NULL;
 
 	if (!space_or_linefeed) {
 		debug_print(WARNING, "No space or linefeed found.");
 		return -ENOEXEC;
 	}
 
-	*space_or_linefeed = '\0';
-
-	char * cmd = (char *)&tmp[2];
-	char * arg = NULL;
-
 	if (*space_or_linefeed == ' ') {
 		/* Oh lovely, an argument */
+		*space_or_linefeed = '\0';
 		space_or_linefeed++;
 		arg = space_or_linefeed;
-		space_or_linefeed = strpbrk(tmp, "\n");
+		space_or_linefeed = strpbrk(space_or_linefeed, "\n");
 		if (!space_or_linefeed) {
 			debug_print(WARNING, "Argument exceeded maximum length");
 			return -ENOEXEC;
 		}
-		*space_or_linefeed = '\0';
 	}
+	*space_or_linefeed = '\0';
 
 	char script[strlen(path)+1];
 	memcpy(script, path, strlen(path)+1);
@@ -194,13 +191,17 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 	args[0] = cmd;
 	args[1] = arg ? arg : script;
 	args[2] = arg ? script : NULL;
-	args[4] = NULL;
+	args[3] = NULL;
 
 	int j = arg ? 3 : 2;
 	for (int i = 1; i < argc; ++i, ++j) {
 		args[j] = argv[i];
 	}
 	args[j] = NULL;
+
+	for (int i = 0; i < nargc; ++i) {
+		debug_print(WARNING, "[%d] %s", i, args[i]);
+	}
 
 	return exec(cmd, nargc, args, env);
 }
