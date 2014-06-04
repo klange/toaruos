@@ -566,6 +566,10 @@ int fpathconf(int file, int name) {
 	return 0;
 }
 
+int setuid(uid_t uid) {
+	return syscall_setuid(uid);
+}
+
 int getuid() {
 	return syscall_getuid();
 }
