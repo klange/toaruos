@@ -199,10 +199,6 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 	}
 	args[j] = NULL;
 
-	for (int i = 0; i < nargc; ++i) {
-		debug_print(WARNING, "[%d] %s", i, args[i]);
-	}
-
 	return exec(cmd, nargc, args, env);
 }
 
