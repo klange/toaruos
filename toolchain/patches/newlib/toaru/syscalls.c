@@ -604,6 +604,10 @@ int dup(int oldfd) {
 	return dup2(oldfd, 0);
 }
 
+int sched_yield(void) {
+	return syscall_yield();
+}
+
 int sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
 	DEBUG_STUB("sigprocmask(%d, 0x%x, 0x%x);\n", how, set, oldset);
 	return -1;
