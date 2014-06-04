@@ -87,7 +87,7 @@ DEFN_SYSCALL1(unlink, 52, char *);
 DEFN_SYSCALL3(waitpid, 53, int, int *, int);
 DEFN_SYSCALL1(pipe, 54, int *);
 
-#define DEBUG_STUB(...) { char buf[512]; sprintf(buf, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); syscall_print(buf); sprintf(buf, __VA_ARGS__); syscall_print(buf); }
+#define DEBUG_STUB(...) { fprintf(stderr, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); fprintf(stderr, __VA_ARGS__); }
 
 
 extern char ** environ;
