@@ -189,7 +189,7 @@ int main(int argc, char ** argv) {
 				"/bin/sh",
 				NULL
 			};
-			syscall_setuid(uid);
+			setuid(uid);
 			set_username();
 			set_homedir();
 			set_path();
