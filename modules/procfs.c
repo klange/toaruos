@@ -79,6 +79,7 @@ static uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t siz
 static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[2048];
 	process_t * proc = process_from_pid(node->inode);
+	process_t * parent = process_get_parent(proc);
 
 	if (!proc) {
 		/* wat */
@@ -92,8 +93,15 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"State:\t%c\n" /* yeah, do this at some point */
 			"Tgid:\t%d\n" /* group ? group : pid */
 			"Pid:\t%d\n" /* pid */
+			"PPid:\t%d\n" /* parent pid */
 			"Uid:\t%d\n"
-			, proc->name, state, proc->group ? proc->group : proc->id, proc->id, proc->user);
+			,
+			proc->name,
+			state,
+			proc->group ? proc->group : proc->id,
+			proc->id,
+			parent ? parent->id : 0,
+			proc->user);
 
 	size_t _bsize = strlen(buf);
 	if (offset > _bsize) return 0;
