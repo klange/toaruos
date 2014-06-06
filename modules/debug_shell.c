@@ -201,6 +201,7 @@ static int shell_cd(fs_node_t * tty, int argc, char * argv[]) {
 		if ((chd->flags & FS_DIRECTORY) == 0) {
 			return -1;
 		}
+		close_fs(chd);
 		free(current_process->wd_name);
 		current_process->wd_name = malloc(strlen(path) + 1);
 		memcpy(current_process->wd_name, path, strlen(path) + 1);
