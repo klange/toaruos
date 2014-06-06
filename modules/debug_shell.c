@@ -433,6 +433,7 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 			*height = 23;
 			/* Clear and return */
 			fprintf(dev, "\033[J");
+			tty_set_buffered(dev);
 			return;
 		}
 	}
@@ -450,6 +451,7 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 	/* And then parse it into numbers */
 	*height = atoi(tmp);
 	*width  = atoi(h);
+	tty_set_buffered(dev);
 }
 
 static int shell_divinesize(fs_node_t * tty, int argc, char * argv[]) {
