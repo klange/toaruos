@@ -6,7 +6,6 @@
  */
 
 
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,8 +14,11 @@
 #include <syscall.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <sys/ioctl.h>
 #include <termios.h>
+
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 
 #include "lib/list.h"
 
@@ -29,6 +31,7 @@
 #define SYM_COLOR		""
 #define BROKEN_COLOR	"1;"
 #define DEVICE_COLOR	"1;33;40"
+#define SETUID_COLOR	"37;41"
 
 #define DEFAULT_TERM_WIDTH 0
 #define DEFAULT_TERM_HEIGHT 0
@@ -39,6 +42,7 @@
 
 static int human_readable = 0;
 static int stdout_is_tty = 1;
+static int this_year = 0;
 
 int entcmp(const void * c1, const void * c2) {
 	struct dirent * d1 = *(struct dirent **)c1;
@@ -85,9 +89,10 @@ void print_entry(const char * filename, const char * srcpath, int colwidth) {
 	}
 }
 
-void print_username(int uid) {
+int print_username(char * _out, int uid) {
 	FILE * passwd = fopen("/etc/passwd", "r");
 	char line[LINE_LEN];
+	int out;
 
 	while (fgets(line, LINE_LEN, passwd) != NULL) {
 
@@ -101,31 +106,62 @@ void print_username(int uid) {
 		tokens[i] = NULL;
 
 		if (atoi(tokens[2]) == uid) {
-			printf("%s", tokens[0]);
+			out = sprintf(_out, "%s", tokens[0]);
 			fclose(passwd);
-			return;
+			return out;
 		}
 	}
-	printf("%d", uid);
+	out = sprintf(_out, "%d", uid);
 	fclose(passwd);
+	return out;
 }
 
-void print_human_readable_size(size_t s) {
-	printf(" ");
+int print_human_readable_size(char * _out, size_t s) {
 	if (s >= 1<<20) {
 		size_t t = s / (1 << 20);
-		printf("%5d.%1dM", t, (s - t * (1 << 20)) / ((1 << 20) / 10));
+		return sprintf(_out, "%d.%1dM", t, (s - t * (1 << 20)) / ((1 << 20) / 10));
 	} else if (s >= 1<<10) {
 		size_t t = s / (1 << 10);
-		printf("%5d.%1dK", t, (s - t * (1 << 10)) / ((1 << 10) / 10));
+		return sprintf(_out, "%d.%1dK", t, (s - t * (1 << 10)) / ((1 << 10) / 10));
 	} else {
-		printf("%8d", s);
+		return sprintf(_out, "%d", s);
 	}
-
-	printf(" ");
 }
 
-void print_entry_long(const char * filename, const char * srcpath) {
+void update_column_widths(int * widths, const char * filename, const char * srcpath) {
+	char * relpath = malloc(strlen(srcpath) + strlen(filename) + 2);
+	sprintf(relpath, "%s/%s", srcpath, filename);
+
+	/* Classify file */
+	struct stat statbuf;
+	stat(relpath, &statbuf);
+	free(relpath);
+
+	char tmp[256];
+	int n;
+
+	/* Links */
+	n = sprintf(tmp, "%d", statbuf.st_nlink);
+	if (n > widths[0]) widths[0] = n;
+
+	/* User */
+	n = print_username(tmp, statbuf.st_uid);
+	if (n > widths[1]) widths[1] = n;
+
+	/* Group */
+	n = print_username(tmp, statbuf.st_gid);
+	if (n > widths[2]) widths[2] = n;
+
+	/* File size */
+	if (human_readable) {
+		n = print_human_readable_size(tmp, statbuf.st_size);
+	} else {
+		n = sprintf(tmp, "%d", statbuf.st_size);
+	}
+	if (n > widths[3]) widths[3] = n;
+}
+
+void print_entry_long(int * widths, const char * filename, const char * srcpath) {
 	/* Figure out full relpath */
 	char * relpath = malloc(strlen(srcpath) + strlen(filename) + 2);
 	sprintf(relpath, "%s/%s", srcpath, filename);
@@ -139,6 +175,8 @@ void print_entry_long(const char * filename, const char * srcpath) {
 	if (S_ISDIR(statbuf.st_mode)) {
 		// Directory
 		ansi_color_str = DIR_COLOR;
+	} else if (statbuf.st_mode & S_ISUID) {
+		ansi_color_str = SETUID_COLOR;
 	} else if (statbuf.st_mode & 0111) {
 		// Executable
 		ansi_color_str = EXE_COLOR;
@@ -168,28 +206,38 @@ void print_entry_long(const char * filename, const char * srcpath) {
 	printf( (statbuf.st_mode & S_IWOTH) ? "w" : "-");
 	printf( (statbuf.st_mode & S_IXOTH) ? "x" : "-");
 
-	printf( " - "); /* number of links, not supported */
+	printf( " %*d ", widths[0], statbuf.st_nlink); /* number of links, not supported */
 
-	print_username(statbuf.st_uid);
-	printf("\t");
-	print_username(statbuf.st_gid);
-	printf("\t");
+	char tmp[100];
+	print_username(tmp, statbuf.st_uid);
+	printf("%-*s ", widths[1], tmp);
+	print_username(tmp, statbuf.st_gid);
+	printf("%-*s ", widths[2], tmp);
 
 	if (human_readable) {
-		print_human_readable_size(statbuf.st_size);
+		print_human_readable_size(tmp, statbuf.st_size);
+		printf("%*s ", widths[3], tmp);
 	} else {
-		printf(" %8d ", statbuf.st_size);
+		printf("%*d ", widths[3], statbuf.st_size);
 	}
 
 	char time_buf[80];
-	struct tm * timeinfo;
-	timeinfo = localtime(&statbuf.st_mtime);
-	strftime(time_buf, 80, "%b %d  %Y", timeinfo);
+	struct tm * timeinfo = localtime(&statbuf.st_mtime);
+	if (timeinfo->tm_year == this_year) {
+		strftime(time_buf, 80, "%b %d %H:%M", timeinfo);
+	} else {
+		strftime(time_buf, 80, "%b %d  %Y", timeinfo);
+	}
 	printf("%s ", time_buf);
 
 	/* Print the file name */
-	printf("\033[%sm%s\033[0m\n", ansi_color_str, filename);
+	if (stdout_is_tty) {
+		printf("\033[%sm%s\033[0m", ansi_color_str, filename);
+	} else {
+		printf("%s", filename);
+	}
 
+	printf("\n");
 }
 
 void show_usage(int argc, char * argv[]) {
@@ -274,8 +322,17 @@ int main (int argc, char * argv[]) {
 	qsort(ents_array, numents, sizeof(struct dirent *), entcmp);
 
 	if (long_mode) {
+		int widths[4] = {0,0,0,0};
+		struct tm * timeinfo;
+		struct timeval now;
+		gettimeofday(&now, NULL); //time(NULL);
+		timeinfo = localtime((time_t *)&now.tv_sec);
+		this_year = timeinfo->tm_year;
 		for (int i = 0; i < numents; i++) {
-			print_entry_long(ents_array[i]->d_name, p);
+			update_column_widths(widths, ents_array[i]->d_name, p);
+		}
+		for (int i = 0; i < numents; i++) {
+			print_entry_long(widths, ents_array[i]->d_name, p);
 		}
 	} else {
 		/* Determine the gridding dimensions */
