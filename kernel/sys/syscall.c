@@ -266,7 +266,7 @@ static int stat_node(fs_node_t * fn, uintptr_t st) {
 	if (fn->flags & FS_SYMLINK)     { flags |= _IFLNK; }
 
 	f->st_mode  = fn->mask | flags;
-	f->st_nlink = 0;
+	f->st_nlink = 1;
 	f->st_uid   = fn->uid;
 	f->st_gid   = fn->gid;
 	f->st_rdev  = 0;
