@@ -97,7 +97,7 @@ int main (int argc, char * argv[]) {
 		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
 			p_t * proc = build_entry(ent);
 
-			if (proc->ppid == 0) {
+			if (proc->ppid == 0 && proc->pid == 1) {
 				tree_set_root(procs, proc);
 			} else {
 				tree_node_t * parent = tree_find(procs,(void *)proc->ppid,find_pid);
