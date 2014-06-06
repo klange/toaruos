@@ -206,7 +206,7 @@ void draw_prompt(int ret) {
 	}
 	/* Print the working directory in there, too */
 	getcwd(cwd, 1024);
-	printf("\033[0m%s\033[1;38;5;47m$\033[0m ", cwd);
+	printf("\033[0m%s%s\033[0m ", cwd, getuid() == 0 ? "\033[1;38;5;196m#" : "\033[1;38;5;47m$");
 	fflush(stdout);
 }
 
