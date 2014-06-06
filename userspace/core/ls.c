@@ -37,7 +37,8 @@
 
 #define LINE_LEN 4096
 
-/* The program */
+static int human_readable = 0;
+static int stdout_is_tty = 1;
 
 int entcmp(const void * c1, const void * c2) {
 	struct dirent * d1 = *(struct dirent **)c1;
@@ -72,7 +73,11 @@ void print_entry(const char * filename, const char * srcpath, int colwidth) {
 
 
 	/* Print the file name */
-	printf("\033[%sm%s\033[0m", ansi_color_str, filename);
+	if (stdout_is_tty) {
+		printf("\033[%sm%s\033[0m", ansi_color_str, filename);
+	} else {
+		printf("%s", filename);
+	}
 
 	/* Pad the rest of the column */
 	for (int rem = colwidth - strlen(filename); rem > 0; rem--) {
@@ -103,6 +108,21 @@ void print_username(int uid) {
 	}
 	printf("%d", uid);
 	fclose(passwd);
+}
+
+void print_human_readable_size(size_t s) {
+	printf(" ");
+	if (s >= 1<<20) {
+		size_t t = s / (1 << 20);
+		printf("%5d.%1dM", t, (s - t * (1 << 20)) / ((1 << 20) / 10));
+	} else if (s >= 1<<10) {
+		size_t t = s / (1 << 10);
+		printf("%5d.%1dK", t, (s - t * (1 << 10)) / ((1 << 10) / 10));
+	} else {
+		printf("%8d", s);
+	}
+
+	printf(" ");
 }
 
 void print_entry_long(const char * filename, const char * srcpath) {
@@ -155,7 +175,11 @@ void print_entry_long(const char * filename, const char * srcpath) {
 	print_username(statbuf.st_gid);
 	printf("\t");
 
-	printf(" %8d ", statbuf.st_size);
+	if (human_readable) {
+		print_human_readable_size(statbuf.st_size);
+	} else {
+		printf(" %8d ", statbuf.st_size);
+	}
 
 	char time_buf[80];
 	struct tm * timeinfo;
@@ -176,6 +200,7 @@ void show_usage(int argc, char * argv[]) {
 			"\n"
 			" -a     \033[3mlist all files (including . files)\033[0m\n"
 			" -l     \033[3muse a long listing format\033[0m\n"
+			" -h     \033[3mhuman-readable file sizes\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
 }
@@ -190,10 +215,13 @@ int main (int argc, char * argv[]) {
 
 	if (argc > 1) {
 		int index, c;
-		while ((c = getopt(argc, argv, "al?")) != -1) {
+		while ((c = getopt(argc, argv, "ahl?")) != -1) {
 			switch (c) {
 				case 'a':
 					show_hidden = 1;
+					break;
+				case 'h':
+					human_readable = 1;
 					break;
 				case 'l':
 					long_mode = 1;
@@ -208,6 +236,8 @@ int main (int argc, char * argv[]) {
 			p = argv[optind];
 		}
 	}
+
+	stdout_is_tty = isatty(STDOUT_FILENO);
 
 	/* Open the directory */
 	DIR * dirp = opendir(p);
@@ -257,7 +287,7 @@ int main (int argc, char * argv[]) {
 		int term_width = DEFAULT_TERM_WIDTH;
 		int term_height = DEFAULT_TERM_HEIGHT;
 
-		if (isatty(1)) {
+		if (stdout_is_tty) {
 			struct winsize w;
 			ioctl(1, TIOCGWINSZ, &w);
 			term_width = w.ws_col;
