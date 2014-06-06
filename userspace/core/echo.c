@@ -63,5 +63,7 @@ int main(int argc, char ** argv) {
 	if (use_newline) {
 		printf("\n");
 	}
+
+	fflush(stdout);
 	return 0;
 }
