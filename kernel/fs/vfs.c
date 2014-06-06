@@ -328,7 +328,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 	}
 
 	free(path);
-	free(parent);
+	close_fs(parent);
 
 	return 0;
 }

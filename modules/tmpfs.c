@@ -344,7 +344,9 @@ static void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	t->uid = current_process->user;
 	t->gid = current_process->user;
 
+	spin_lock(&tmpfs_lock);
 	list_insert(d->files, t);
+	spin_unlock(&tmpfs_lock);
 }
 
 static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
@@ -370,7 +372,9 @@ static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
 	out->uid  = current_process->user;
 	out->gid  = current_process->user;
 
+	spin_lock(&tmpfs_lock);
 	list_insert(d->files, out);
+	spin_unlock(&tmpfs_lock);
 }
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
