@@ -190,14 +190,17 @@ void print_entry_long(int * widths, const char * filename, const char * srcpath)
 
 	/* file permissions */
 	if (S_ISLNK(statbuf.st_mode))       { printf("l"); }
-	else if (statbuf.st_mode & S_ISUID) { printf("s"); }
 	else if (S_ISCHR(statbuf.st_mode))  { printf("c"); }
 	else if (S_ISBLK(statbuf.st_mode))  { printf("b"); }
 	else if (S_ISDIR(statbuf.st_mode))  { printf("d"); }
 	else { printf("-"); }
 	printf( (statbuf.st_mode & S_IRUSR) ? "r" : "-");
 	printf( (statbuf.st_mode & S_IWUSR) ? "w" : "-");
-	printf( (statbuf.st_mode & S_IXUSR) ? "x" : "-");
+	if (statbuf.st_mode & S_ISUID) {
+		printf("s");
+	} else {
+		printf( (statbuf.st_mode & S_IXUSR) ? "x" : "-");
+	}
 	printf( (statbuf.st_mode & S_IRGRP) ? "r" : "-");
 	printf( (statbuf.st_mode & S_IWGRP) ? "w" : "-");
 	printf( (statbuf.st_mode & S_IXGRP) ? "x" : "-");
