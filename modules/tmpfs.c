@@ -228,6 +228,7 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->finddir = NULL;
 	fnode->chmod   = chmod_tmpfs;
 	fnode->length  = t->length;
+	fnode->nlink   = 1;
 	return fnode;
 }
 
@@ -399,6 +400,7 @@ static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fnode->create  = create_tmpfs;
 	fnode->unlink  = unlink_tmpfs;
 	fnode->mkdir   = mkdir_tmpfs;
+	fnode->nlink   = 1; /* should be "number of children that are directories + 1" */
 
 	return fnode;
 }

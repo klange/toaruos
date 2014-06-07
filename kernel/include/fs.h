@@ -82,6 +82,7 @@ typedef struct fs_node {
 	struct fs_node *ptr;   /* Alias pointer, for symlinks. */
 	uint32_t offset;       /* Offset for read operations XXX move this to new "file descriptor" entry */
 	int32_t refcount;
+	uint32_t nlink;
 } fs_node_t;
 
 struct dirent {

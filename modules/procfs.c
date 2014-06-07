@@ -174,6 +174,7 @@ static fs_node_t * procfs_procdir_create(pid_t pid) {
 	fnode->close   = NULL;
 	fnode->readdir = readdir_procfs_procdir;
 	fnode->finddir = finddir_procfs_procdir;
+	fnode->nlink   = 1;
 	return fnode;
 }
 
@@ -359,6 +360,7 @@ static fs_node_t * procfs_create(void) {
 	fnode->close   = NULL;
 	fnode->readdir = readdir_procfs_root;
 	fnode->finddir = finddir_procfs_root;
+	fnode->nlink   = 1;
 	return fnode;
 }
 

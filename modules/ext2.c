@@ -733,6 +733,7 @@ static uint32_t node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_
 	fnode->gid = inode->gid;
 	fnode->length = inode->size;
 	fnode->mask = inode->mode & 0xFFF;
+	fnode->nlink = inode->links_count;
 	/* File Flags */
 	fnode->flags = 0;
 	if ((inode->mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
@@ -787,6 +788,7 @@ static uint32_t ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t 
 	fnode->gid = inode->gid;
 	fnode->length = inode->size;
 	fnode->mask = inode->mode & 0xFFF;
+	fnode->nlink = inode->links_count;
 	/* File Flags */
 	fnode->flags = 0;
 	if ((inode->mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
