@@ -54,7 +54,7 @@ uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
 	return ~(sum & 0xFFFF) & 0xFFFF;
 }
 
-uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header * h, void * d, size_t d_words) {
+uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header * h, void * d, size_t payload_size) {
 	uint32_t sum = 0;
 	uint16_t * s = (uint16_t *)p;
 
@@ -74,9 +74,25 @@ uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header *
 		}
 	}
 
+	uint16_t d_words = payload_size / 2;
+
 	s = (uint16_t *)d;
 	for (unsigned int i = 0; i < d_words; ++i) {
 		sum += ntohs(s[i]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+	}
+
+	if (d_words * 2 != payload_size) {
+		uint8_t * t = (uint8_t *)d;
+		uint8_t tmp[2];
+		tmp[0] = t[d_words * sizeof(uint16_t)];
+		tmp[1] = 0;
+
+		uint16_t * f = (uint16_t *)tmp;
+
+		sum += ntohs(f[0]);
 		if (sum > 0xFFFF) {
 			sum = (sum >> 16) + (sum & 0xFFFF);
 		}

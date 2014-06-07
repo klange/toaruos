@@ -4,6 +4,7 @@
 #include <pci.h>
 #include <mem.h>
 #include <list.h>
+#include <pipe.h>
 #include <ipv4.h>
 #include <mod/shell.h>
 
@@ -47,6 +48,8 @@ static int next_tx = 0;
 
 static list_t * rx_wait;
 
+static fs_node_t * irc_socket;
+
 static uint32_t seq_no = 0xff0000;
 static uint32_t ack_no = 0x0;
 
@@ -61,6 +64,81 @@ static int next_tx_buf(void) {
 	}
 	spin_unlock(&_lock);
 	return out;
+}
+
+struct netif {
+	void *extra;
+	void (*write_packet)(struct sized_blob * payload);
+	uint8_t hwaddr[6];
+	uint32_t source;
+};
+
+static size_t build_tcp_packet(uint8_t * buffer, struct netif * netif, struct tcp_socket * socket, struct sized_blob * payload, uint16_t flags) {
+	size_t offset = 0;
+
+	struct ethernet_packet eth_out = {
+		.source = { netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2],
+			netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5] },
+		.destination = { socket->mac[0], socket->mac[1], socket->mac[2],
+			socket->mac[3], socket->mac[4], socket->mac[5] },
+		.type = htons(0x0800),
+	};
+
+	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
+	offset += sizeof(struct ethernet_packet);
+
+	/* Prepare the IPv4 header */
+	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + payload->size);
+	uint16_t _ident  = htons(1);
+
+	struct ipv4_packet ipv4_out = {
+		.version_ihl = ((0x4 << 4) | (0x5 << 0)), /* 4 = ipv4, 5 = no options */
+		.dscp_ecn = 0, /* not setting either of those */
+		.length = _length,
+		.ident = _ident,
+		.flags_fragment = 0,
+		.ttl = 0x40, /* ... */
+		.protocol = IPV4_PROT_TCP,
+		.checksum = 0, /* fill this in later */
+		.source = htonl(netif->source),
+		.destination = htonl(socket->ip),
+	};
+
+	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
+	ipv4_out.checksum = htons(checksum);
+
+	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
+	offset += sizeof(struct ipv4_packet);
+
+	struct tcp_header tcp = {
+		.source_port = htons(socket->port_recv), /* Ephemeral port */
+		.destination_port = htons(socket->port_dest), /* IRC */
+		.seq_number = htonl(socket->seq_no),
+		.ack_number = flags & (TCP_FLAGS_ACK) ? htonl(socket->ack_no) : 0,
+		.flags = htons(flags),
+		.window_size = htons(1800),
+		.checksum = 0,
+		.urgent = 0,
+	};
+
+	struct tcp_check_header check_hd = {
+		.source = ipv4_out.source,
+		.destination = ipv4_out.destination,
+		.zeros = 0,
+		.protocol = 6,
+		.tcp_len = htons(sizeof(tcp)+payload->size),
+	};
+
+	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, payload->size);
+	tcp.checksum = htons(t);
+
+	memcpy(&buffer[offset], &tcp, sizeof(struct tcp_header));
+	offset += sizeof(struct tcp_header);
+
+	memcpy(&buffer[offset], payload, payload->size);
+	offset += payload->size;
+
+	return offset;
 }
 
 static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t payload_size, uint16_t flags) {
@@ -122,12 +200,7 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.tcp_len = htons(sizeof(tcp)+payload_size),
 	};
 
-	uint16_t dwords = payload_size / 2;
-	if (dwords * 2 != payload_size) {
-		dwords++;
-	}
-
-	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, dwords);
+	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, payload_size);
 	tcp.checksum = htons(t);
 
 	memcpy(&buffer[offset], &tcp, sizeof(struct tcp_header));
@@ -312,6 +385,7 @@ static char irc_prompt[100] = {'\0'};
 static char irc_nick[32] = {'\0'};
 static char irc_payload[512];
 static volatile uint8_t irc_tty_lock = 0;
+//static struct netif rtl_netif;
 
 static void irc_send(char * payload) {
 	int my_tx = next_tx_buf();
@@ -412,6 +486,38 @@ prompt_:
 		if (!e) break;
 
 		c = e + 2;
+	}
+}
+
+static char * fgets(char * buf, int size, fs_node_t * stream) {
+	char * x = buf;
+	int collected = 0;
+
+	while (collected < size) {
+		int r = read_fs(stream, 0, 1, (unsigned char *)x);
+		collected += r;
+
+		if (r == -1) return NULL;
+		if (!r) break;
+		if (*x == '\n') break;
+
+		x += r;
+	}
+
+	x++;
+	*x = '\0';
+	return buf;
+}
+
+static void rtl_ircd(void * data, char * name) {
+	fs_node_t * tty = data;
+	char * buf = malloc(4096);
+
+	while (1) {
+		fgets(buf, 4096, irc_socket);
+		size_t len = strlen(buf);
+
+		handle_irc_packet(tty, len, (unsigned char *)buf);
 	}
 
 }
@@ -664,6 +770,8 @@ static void rtl_netd(void * data, char * name) {
 		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 	}
 
+	irc_socket = make_pipe(4096);
+	vfs_mount("/dev/net_irc", irc_socket);
 
 	while (1) {
 
@@ -682,9 +790,9 @@ static void rtl_netd(void * data, char * name) {
 			ack_no = ntohl(tcp->seq_number) + l__;
 
 			if (l__ < 0xFFFF) {
+				/* Look up source port in table of sockets */
 				if (ntohs(tcp->source_port) == 6667) {
-					/* Handle IRC */
-					handle_irc_packet(tty, l__, tcp->payload);
+					write_fs(irc_socket, 0, l__, tcp->payload);
 				} else {
 					write_fs(tty, 0, l__, tcp->payload);
 				}
@@ -1010,6 +1118,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Card is configured, going to start worker thread now.\n");
 
 		create_kernel_tasklet(rtl_netd, "[netd]", tty);
+		create_kernel_tasklet(rtl_ircd, "[ircd]", tty);
 
 	} else {
 		return -1;
