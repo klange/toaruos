@@ -252,6 +252,10 @@ void term_write(char c) {
 				return;
 			}
 			++csr_y;
+			if (csr_y == term_height) {
+				term_scroll(1);
+				csr_y = term_height - 1;
+			}
 			draw_cursor();
 		} else if (c == '\007') {
 			/* bell */
