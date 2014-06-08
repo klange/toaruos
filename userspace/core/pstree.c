@@ -21,6 +21,7 @@
 typedef struct process {
 	int pid;
 	int ppid;
+	int tgid;
 	char name[100];
 } p_t;
 
@@ -44,9 +45,17 @@ p_t * build_entry(struct dirent * dent) {
 			sscanf(line, "%s %d", &buf, &proc->pid);
 		} else if (strstr(line, "PPid:") == line) {
 			sscanf(line, "%s %d", &buf, &proc->ppid);
+		} else if (strstr(line, "Tgid:") == line) {
+			sscanf(line, "%s %d", &buf, &proc->tgid);
 		} else if (strstr(line, "Name:") == line) {
 			sscanf(line, "%s %s", &buf, &proc->name);
 		}
+	}
+
+	if (proc->tgid != proc->pid) {
+		char tmp[100] = {0};
+		sprintf(tmp, "{%s}", proc->name);
+		memcpy(proc->name, tmp, strlen(tmp)+1);
 	}
 
 	fclose(f);
@@ -61,26 +70,55 @@ uint8_t find_pid(void * proc_v, void * pid_v) {
 	return (uint8_t)(p->pid == i);
 }
 
-void print_process_tree_node(tree_node_t * node, size_t height) {
-	/* End recursion on a blank entry */
-	if (!node) return;
-	char * tmp = malloc(512);
-	memset(tmp, 0, 512);
-	char * c = tmp;
-	/* Indent output */
-	for (uint32_t i = 0; i < height; ++i) {
-		c += sprintf(c, "  ");
-	}
-	/* Get the current process */
+void print_process_tree_node(tree_node_t * node, size_t depth, int indented, int more, char lines[]) {
+
 	p_t * proc = node->value;
-	/* Print the process name */
-	c += sprintf(c, "%s", proc->name);
-	/* Linefeed */
-	printf("%s\n", tmp);
-	free(tmp);
-	foreach(child, node->children) {
-		/* Recursively print the children */
-		print_process_tree_node(child->value, height + 1);
+
+	for (int i = 0; i < strlen(proc->name)+3; ++i) {
+		lines[depth+i] = 0;
+	}
+
+	if (!indented && depth) {
+		if (more) {
+			printf("─┬─");
+			lines[depth+1] = 1;
+		} else {
+			printf("───");
+		}
+		depth += 3;
+	} else if (depth) {
+		for (int i = 0; i < depth; ++i) {
+			if (lines[i]) {
+				printf("│");
+			} else {
+				printf(" ");
+			}
+		}
+		if (more) {
+			printf(" ├─");
+			lines[depth+1] = 1;
+		} else {
+			printf(" └─");
+		}
+		depth += 3;
+	}
+
+	printf(proc->name);
+
+	if (!node->children->length) {
+		printf("\n");
+	} else {
+		depth += strlen(proc->name);
+
+		int t = 0;
+		foreach(child, node->children) {
+			/* Recursively print the children */
+			print_process_tree_node(child->value, depth, !!(t++), ((t+1)!=node->children->length), lines);
+		}
+	}
+
+	for (int i = 0; i < strlen(proc->name)+3; ++i) {
+		lines[depth+i] = 0;
 	}
 }
 
@@ -110,7 +148,8 @@ int main (int argc, char * argv[]) {
 	}
 	closedir(dirp);
 
-	print_process_tree_node(procs->root, 0);
+	char lines[500] = {0};
+	print_process_tree_node(procs->root, 0, 0, 0, lines);
 
 	return 0;
 }
