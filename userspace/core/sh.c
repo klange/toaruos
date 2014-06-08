@@ -200,14 +200,6 @@ void draw_prompt(int ret) {
 	char time_buffer[80];
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
 
-	/* Print the prompt. */
-	printf("\033]1;%s@%s:%s\007", username, _hostname, cwd);
-	printf("\033[s\033[400C\033[16D\033[1m\033[38;5;59m[\033[38;5;173m%s \033[38;5;167m%s\033[38;5;59m]\033[u\033[38;5;221m%s\033[38;5;59m@\033[38;5;81m%s ",
-			date_buffer, time_buffer,
-			username, _hostname);
-	if (ret != 0) {
-		printf("\033[38;5;167m%d ", ret);
-	}
 	/* Print the working directory in there, too */
 	getcwd(cwd, 512);
 	char _cwd[512];
@@ -219,6 +211,15 @@ void draw_prompt(int ret) {
 		if (*c == '/' || *c == 0) {
 			sprintf(_cwd, "~%s", c);
 		}
+	}
+
+	/* Print the prompt. */
+	printf("\033]1;%s@%s:%s\007", username, _hostname, _cwd);
+	printf("\033[s\033[400C\033[16D\033[1m\033[38;5;59m[\033[38;5;173m%s \033[38;5;167m%s\033[38;5;59m]\033[u\033[38;5;221m%s\033[38;5;59m@\033[38;5;81m%s ",
+			date_buffer, time_buffer,
+			username, _hostname);
+	if (ret != 0) {
+		printf("\033[38;5;167m%d ", ret);
 	}
 
 	printf("\033[0m%s%s\033[0m ", _cwd, getuid() == 0 ? "\033[1;38;5;196m#" : "\033[1;38;5;47m$");
