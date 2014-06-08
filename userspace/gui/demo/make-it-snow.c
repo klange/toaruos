@@ -1,6 +1,8 @@
 /*
- * Based on the Wayland/Weston drag and drop demo:
- * Copyright © 2010 Kristian Høgsberg
+ * This is a port of some code from a Wayland drag-drop demo.
+ *
+ * Copyright (C) 2010 Kristian Høgsberg
+ * Copyright (C) 2013-2014 Kevin Lange
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that

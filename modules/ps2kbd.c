@@ -1,12 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/* This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2011-2014 Kevin Lange
  *
  * Low-level keyboard interrupt driver.
  *
  * Creates a device file (keyboard_pipe) that can be read
  * to retreive keyboard events.
  *
- * Part of the ToAruOS Kernel
- * Copyright 2011-2014 Kevin Lange
  */
 
 #include <system.h>

@@ -1,6 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/* This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2012-2014 Kevin Lange
  *
- * Graphics library
+ * Guassian context blurring:
+ * Copyright (C) 2008 Kristian Høgsberg
+ * Copyright (C) 2009 Chris Wilson
+ *
+ * Generic Graphics library for ToaruOS
  */
 
 #include <syscall.h>
@@ -169,11 +175,6 @@ uint32_t premultiply(uint32_t color) {
 	return rgba(r,g,b,a);
 }
 
-/*
- * based on the blur.c demo for Cairo
- * Copyright © 2008 Kristian Høgsberg
- * Copyright © 2009 Chris Wilson
- */
 #define ARRAY_LENGTH(a) (sizeof (a) / sizeof (a)[0])
 
 void blur_context(gfx_context_t * _dst, gfx_context_t * _src, double amount) {
