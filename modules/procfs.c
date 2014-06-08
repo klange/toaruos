@@ -87,6 +87,16 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 	}
 
 	char state = process_is_ready(proc) ? 'R' : 'S';
+	char * name = proc->name + strlen(proc->name) - 1;
+
+	while (1) {
+		if (*name == '/') {
+			name++;
+			break;
+		}
+		if (name == proc->name) break;
+		name--;
+	}
 
 	sprintf(buf,
 			"Name:\t%s\n" /* name */
@@ -96,7 +106,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"PPid:\t%d\n" /* parent pid */
 			"Uid:\t%d\n"
 			,
-			proc->name,
+			name,
 			state,
 			proc->group ? proc->group : proc->id,
 			proc->id,
