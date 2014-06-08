@@ -25,6 +25,7 @@
 #include "lib/kbd.h"
 #include "lib/graphics.h"
 
+#include "gui/terminal/vga-palette.h"
 #include "gui/terminal/lib/termemu.h"
 
 #define USE_BELL 0
@@ -122,11 +123,15 @@ term_write_char(
 		uint32_t bg,
 		uint8_t flags
 		) {
-	if (fg > 16) fg = TERM_DEFAULT_FG;
-	if (bg > 16) bg = TERM_DEFAULT_BG;
+	if (val > 128) val = ununicode(val);
+	if (fg > 16) {
+		fg = vga_colors[fg];
+	}
+	if (bg > 16) {
+		bg = vga_colors[bg];
+	}
 	if (fg == 16) fg = 0;
 	if (bg == 16) bg = 0;
-	if (val > 128) val = ununicode(val);
 	placech(val, x, y, (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4));
 }
 
