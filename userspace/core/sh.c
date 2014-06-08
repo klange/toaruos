@@ -1237,11 +1237,6 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	}
 }
 
-uint32_t shell_cmd_test_break(int argc, char * argv[]) {
-	fprintf(stderr, "This is a test.\n");
-	return 0;
-}
-
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd);
 	shell_install_command("history", shell_cmd_history);
@@ -1249,5 +1244,4 @@ void install_commands() {
 	shell_install_command("test",    shell_cmd_test);
 	shell_install_command("exit",    shell_cmd_exit);
 	shell_install_command("set",     shell_cmd_set);
-	shell_install_command("test-break", shell_cmd_test_break);
 }
