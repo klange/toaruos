@@ -3,8 +3,6 @@
  * Copyright (C) 2011-2014 Kevin Lange
  * Copyright (C) 2014 Lioncash
  * Copyright (C) 2012 Tianyi Wang
- */
-/* vim: shiftwidth=4 tabstop=4 noexpandtab
  *
  * Virtual File System
  *
