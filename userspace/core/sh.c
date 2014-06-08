@@ -1,8 +1,8 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2014 Kevin Lange
- */
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  * E-Shell
  *
  * This is the "experimental shell". It provides
@@ -209,8 +209,19 @@ void draw_prompt(int ret) {
 		printf("\033[38;5;167m%d ", ret);
 	}
 	/* Print the working directory in there, too */
-	getcwd(cwd, 1024);
-	printf("\033[0m%s%s\033[0m ", cwd, getuid() == 0 ? "\033[1;38;5;196m#" : "\033[1;38;5;47m$");
+	getcwd(cwd, 512);
+	char _cwd[512];
+	strncpy(_cwd, cwd, 512);
+
+	char * home = getenv("HOME");
+	if (home && strstr(cwd, home) == cwd) {
+		char * c = cwd + strlen(home);
+		if (*c == '/' || *c == 0) {
+			sprintf(_cwd, "~%s", c);
+		}
+	}
+
+	printf("\033[0m%s%s\033[0m ", _cwd, getuid() == 0 ? "\033[1;38;5;196m#" : "\033[1;38;5;47m$");
 	fflush(stdout);
 }
 
@@ -1123,10 +1134,17 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
 			goto cd_error;
 		} /* else success */
 	} else /* argc < 2 */ {
-		char home_path[512];
-		sprintf(home_path, "/home/%s", username);
-		if (chdir(home_path)) {
-			goto cd_error;
+		char * home = getenv("HOME");
+		if (home) {
+			if (chdir(home)) {
+				goto cd_error;
+			}
+		} else {
+			char home_path[512];
+			sprintf(home_path, "/home/%s", username);
+			if (chdir(home_path)) {
+				goto cd_error;
+			}
 		}
 	}
 	return 0;
