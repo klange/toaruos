@@ -102,7 +102,7 @@ int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 static void debug_shell_run_sh(void * data, char * name) {
 
 	char * argv[] = {
-		"/bin/sh",
+		data,
 		NULL
 	};
 	int argc = 0;
@@ -120,11 +120,20 @@ static hashmap_t * shell_commands_map = NULL;
  * Shell commands
  */
 static int shell_create_userspace_shell(fs_node_t * tty, int argc, char * argv[]) {
-	int pid = create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", NULL);
+	int pid = create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", "/bin/sh");
 	fprintf(tty, "Shell started with pid = %d\n", pid);
 	int status;
 	waitpid(pid,&status,0);
 	return status;
+}
+
+static int shell_replace_login(fs_node_t * tty, int argc, char * argv[]) {
+	/* We need to fork to get a clean task space */
+	create_kernel_tasklet(debug_shell_run_sh, "[[k-sh]]", "/bin/login");
+	/* Then exit the shell process */
+	task_exit(0);
+	/* unreachable */
+	return 0;
 }
 
 static int shell_echo(fs_node_t * tty, int argc, char * argv[]) {
@@ -489,6 +498,8 @@ static int shell_exit(fs_node_t * tty, int argc, char * argv[]) {
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
+	{"login", &shell_replace_login,
+		"Replace the debug shell with /bin/login."},
 	{"echo",  &shell_echo,
 		"Prints arguments."},
 	{"help",  &shell_help,
