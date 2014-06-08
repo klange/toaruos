@@ -438,7 +438,7 @@ int main (int argc, char * argv[]) {
 		}
 
 		for (int i = first_directory; i < index; ++i) {
-			if ((i != 0) && (i != index-1)) {
+			if (i != 0) {
 				printf("\n");
 			}
 			display_dir(file_arr[i]->name);
