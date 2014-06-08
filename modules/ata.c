@@ -1,10 +1,8 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
-*/
-/* This file is part of ToaruOS and is released under the terms
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
- */
-/*
+  *
  * ATA Disk Driver
  *
  * Provides raw block access to an (Parallel) ATA drive.
