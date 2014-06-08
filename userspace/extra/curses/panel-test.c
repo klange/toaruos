@@ -1,3 +1,6 @@
+/*
+    Copyright © 2001 by Pradeep Padala.
+*/
 #include <panel.h>
 #include <string.h>
 
