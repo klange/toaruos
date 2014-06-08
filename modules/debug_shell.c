@@ -286,23 +286,23 @@ char * special_thing = "I am a string from the kernel.\n";
 
 static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
-		fprintf(tty, "expected argument\n");
+		fprintf(tty, "%s: expected argument\n", argv[0]);
 		return 1;
 	}
 	fs_node_t * file = kopen(argv[1], 0);
 	if (!file) {
-		fprintf(tty, "Failed to load module: %s\n", argv[1]);
+		fprintf(tty, "%s: Error loading module '%s': File not found\n", argv[0], argv[1]);
 		return 1;
 	}
+	close_fs(file);
 
-	fprintf(tty, "Okay, going to load a module!\n");
 	module_data_t * mod_info = module_load(argv[1]);
 	if (!mod_info) {
-		fprintf(tty, "Something went wrong, failed to load module: %s\n", argv[1]);
+		fprintf(tty, "%s: Error loading module '%s'\n", argv[0], argv[1]);
 		return 1;
 	}
 
-	fprintf(tty, "Loaded %s at 0x%x\n", mod_info->mod_info->name, mod_info->bin_data);
+	fprintf(tty, "Module '%s' loaded at 0x%x\n", mod_info->mod_info->name, mod_info->bin_data);
 
 	return 0;
 }
