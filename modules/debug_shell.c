@@ -224,7 +224,6 @@ static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
 		kentry = readdir_fs(wd, index);
 	}
 	close_fs(wd);
-	free(wd);
 	return 0;
 }
 
