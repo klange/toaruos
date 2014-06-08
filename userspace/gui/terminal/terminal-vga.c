@@ -174,7 +174,7 @@ uint32_t ununicode(uint32_t c) {
 		}
 		w++;
 	}
-	return '?';
+	return 4;
 }
 
 void
@@ -304,10 +304,6 @@ void term_write(char c) {
 
 	cell_redraw(csr_x, csr_y);
 	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
-		if (codepoint > 0xFFFF) {
-			codepoint = '?';
-			c = '?';
-		}
 		if (c == '\r') {
 			csr_x = 0;
 			return;
