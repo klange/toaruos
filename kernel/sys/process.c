@@ -307,7 +307,7 @@ process_t * spawn_process(volatile process_t * parent) {
 	debug_print(INFO,"   }");
 	proc->id = get_next_pid(); /* Set its PID */
 	proc->group = proc->id;    /* Set the GID */
-	proc->name = strdup(default_name); /* Use the default name */
+	proc->name = strdup(parent->name); /* Use the default name */
 	proc->description = NULL;  /* No description */
 	proc->cmdline = parent->cmdline;
 
