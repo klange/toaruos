@@ -64,6 +64,65 @@ void dump_buffer();
 wchar_t box_chars_in[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽├┤┴┬│≤≥";
 wchar_t box_chars_out[] =  {176,0,0,0,0,248,241,0,0,217,191,218,192,197,0,0,250,0,0,195,180,193,194,179,243,242};
 
+static int color_distance(uint32_t a, uint32_t b) {
+	int a_r = (a & 0xFF0000) >> 16;
+	int a_g = (a & 0xFF00) >> 8;
+	int a_b = (a & 0xFF);
+
+	int b_r = (b & 0xFF0000) >> 16;
+	int b_g = (b & 0xFF00) >> 8;
+	int b_b = (b & 0xFF);
+
+	int distance = 0;
+	distance += abs(a_r - b_r) * 3;
+	distance += abs(a_g - b_g) * 6;
+	distance += abs(a_b - b_b) * 10;
+
+	return distance;
+}
+
+static uint32_t vga_base_colors[] = {
+	0x000000,
+	0xAA0000,
+	0x00AA00,
+	0xAA5500,
+	0x0000AA,
+	0xAA00AA,
+	0x00AAAA,
+	0xAAAAAA,
+	0x555555,
+	0xFF5555,
+	0x55AA55,
+	0xFFFF55,
+	0x5555FF,
+	0xFF55FF,
+	0x55FFFF,
+	0xFFFFFF,
+};
+
+static int is_gray(uint32_t a) {
+	int a_r = (a & 0xFF0000) >> 16;
+	int a_g = (a & 0xFF00) >> 8;
+	int a_b = (a & 0xFF);
+
+	return (a_r == a_g && a_g == a_b);
+}
+
+static int best_match(uint32_t a) {
+	int best_distance = INT32_MAX;
+	int best_index = 0;
+	for (int j = 0; j < 16; ++j) {
+		if (is_gray(a) && !is_gray(vga_base_colors[j]));
+		int distance = color_distance(a, vga_base_colors[j]);
+		if (distance < best_distance) {
+			best_index = j;
+			best_distance = distance;
+		}
+	}
+	return best_index;
+}
+
+
 volatile int exit_application = 0;
 
 static void set_term_font_size(float s) {
@@ -124,6 +183,12 @@ term_write_char(
 		uint8_t flags
 		) {
 	if (val > 128) val = ununicode(val);
+	if (fg > 256) {
+		fg = best_match(fg);
+	}
+	if (bg > 256) {
+		bg = best_match(bg);
+	}
 	if (fg > 16) {
 		fg = vga_colors[fg];
 	}

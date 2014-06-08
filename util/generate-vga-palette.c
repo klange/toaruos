@@ -24,7 +24,7 @@ static int color_distance(uint32_t a, uint32_t b) {
 	return distance;
 }
 
-static uint32_t vga_colors[] = {
+static uint32_t vga_base_colors[] = {
 	0x000000,
 	0xAA0000,
 	0x00AA00,
@@ -61,14 +61,14 @@ int main(int argc, char * argv[]) {
 		int best_distance = INT32_MAX;
 		int best_index = 0;
 		for (int j = 0; j < 16; ++j) {
-			if (is_gray(term_colors[i]) && !is_gray(vga_colors[j]));
-			int distance = color_distance(term_colors[i], vga_colors[j]);
+			if (is_gray(term_colors[i]) && !is_gray(vga_base_colors[j]));
+			int distance = color_distance(term_colors[i], vga_base_colors[j]);
 			if (distance < best_distance) {
 				best_index = j;
 				best_distance = distance;
 			}
 		}
-		printf("\t0x%x, /* #%06x -> #%06x */\n", best_index, term_colors[i], vga_colors[best_index]);
+		printf("\t0x%x, /* #%06x -> #%06x */\n", best_index, term_colors[i], vga_base_colors[best_index]);
 	}
 	printf("};\n");
 	return 0;
