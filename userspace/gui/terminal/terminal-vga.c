@@ -66,7 +66,7 @@ void term_clear();
 void dump_buffer();
 
 wchar_t box_chars_in[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽├┤┴┬│≤≥";
-wchar_t box_chars_out[] =  {176,0,0,0,0,248,241,0,0,217,191,218,192,197,0,0,250,0,0,195,180,193,194,179,243,242};
+wchar_t box_chars_out[] =  {176,0,0,0,0,248,241,0,0,217,191,218,192,197,196,196,196,196,196,195,180,193,194,179,243,242};
 
 static int color_distance(uint32_t a, uint32_t b) {
 	int a_r = (a & 0xFF0000) >> 16;
