@@ -3,7 +3,9 @@
  * The ToAruOS kernel is released under the terms of the
  * University of Illinois / NCSA License.
  *
- * Copyright (c) 2011-2014 Kevin Lange.  All rights reserved.
+ * Copyright (C) 2011-2014 Kevin Lange.  All rights reserved.
+ * Copyright (C) 2012 Markus Schober
+ * Copyright (C) 2014 Lioncash
  *
  *                           Dedicated to the memory of
  *                                Dennis Ritchie
