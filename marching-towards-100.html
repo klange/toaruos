@@ -2,9 +2,12 @@
 <html lang="">	
 <head>
 	<meta charset="utf-8"/>
-	<title>とあるOS</title>	
+	<title>Marching Towards 1.0.0 - とあるOS</title>	
 	<meta name="author" content="Kevin Lange">
 	
+
+	<meta name="description" content="Various updates before I go on vacation">
+
 
 	<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
 	<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
@@ -30,12 +33,18 @@
 	  <div class="wrapper">
 
 		  <div role="main" class="content">
-
-
-
-      <article>
-        <h1><a href="http://toaruos.org/marching-towards-100.html">Marching Towards 1.0.0</a></h1>
-        <p>I'm heading to Tokyo again in under a week, as I routinely do. Before I leave, I wanted get a blog post out covering my recent work on improving "quality of life" in ToaruOS - cleaning up the little nits here and there that have been annoying me and those brave enough to try things out for themselves.</p>
+	<article class="full">
+			
+		<h1>Marching Towards 1.0.0</h1>
+		
+<div class="metadata">
+  <time datetime="2014-06-08T00:20:00" pubdate>Sun 08 June 2014</time>
+    <address class="vcard author">
+      by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
+    </address>
+  in <a href="http://toaruos.org/category/misc.html">misc</a>
+<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>		
+		<p>I'm heading to Tokyo again in under a week, as I routinely do. Before I leave, I wanted get a blog post out covering my recent work on improving "quality of life" in ToaruOS - cleaning up the little nits here and there that have been annoying me and those brave enough to try things out for themselves.</p>
 <h2>Tiling</h2>
 <p>Yutani's window manager is a stacking window manager, but like with Compiz's grid plugin I wanted to implement some simple tyling for "everyday" situations like throwing up terminals with quarter/half splits. This is accomplished with a move and resize, triggered by a keybinding in the compositor. The tiling looks really nice in combination with my older decoration theme, which I've updated to indicate focus.</p>
 <p><a href="http://i.imgur.com/3fZvBvo.png"><img alt="Tiled windows" src="http://i.imgur.com/3fZvBvo.png" /></a></p>
@@ -66,42 +75,15 @@
 <p><a href="http://i.imgur.com/XeW990L.png"><img alt="cat /usr/share/color-test" src="http://i.imgur.com/XeW990L.png" /></a></p>
 <p><code>pstree</code> also looks nice with some Unicode-to-VGA mappings for line-drawing characters:</p>
 <p><a href="http://i.imgur.com/cezN0wE.png"><img alt="pstree in VGA text-mode" src="http://i.imgur.com/cezN0wE.png" /></a></p>
-<p>I don't know if I'll be able to get much work done over the next week, and I'm sure my Github activity streak will be broken while I'm in Japan. There's still a lot of work to be done for the network stack stack, which is a major blocker to a "1.0.0" release.</p>
-      </article>
+<p>I don't know if I'll be able to get much work done over the next week, and I'm sure my Github activity streak will be broken while I'm in Japan. There's still a lot of work to be done for the network stack stack, which is a major blocker to a "1.0.0" release.</p>	
 
-      <hr />
+	</article>
 
-        <div>
-          <h3>Last posts</h3>
-          <ol class="archive">
-    
+    <p>
+	<a href="https://twitter.com/share" class="twitter-share-button" data-via="" data-lang="en" data-size="large" data-related="">Tweet</a>
+	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+	</p>
 
-
-      <li>
-<a href="http://toaruos.org/visibly-panicked.html" rel="bookmark" title="Permalink to Visibly Panicked">Visibly Panicked</a>
-  <time datetime="2014-05-12T20:20:00" pubdate>Mon 12 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/yutani-the-new-compositor.html" rel="bookmark" title="Permalink to Yutani: The new compositor">Yutani: The new compositor</a>
-  <time datetime="2014-05-10T16:45:00" pubdate>Sat 10 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/yutani.html">yutani</a><a href="http://toaruos.org/tag/gui.html">gui</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/hello-world-again.html" rel="bookmark" title="Permalink to Hello World (Again)">Hello World (Again)</a>
-  <time datetime="2014-05-10T00:08:00" pubdate>Sat 10 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/test-post-please-ignore.html" rel="bookmark" title="Permalink to Test Post Please Ignore">Test Post Please Ignore</a>
-  <time datetime="2014-05-09T23:50:00" pubdate>Fri 09 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-          </ol>
-        </div>
 
 		  </div>	
 		  
@@ -110,7 +92,7 @@
 	        <nav>
 	          <h2>Categories</h2>
 	          <ul>
-	              <li ><a href="http://toaruos.org/category/misc.html">misc</a></li>
+	              <li class="active"><a href="http://toaruos.org/category/misc.html">misc</a></li>
 	          </ul>
 	        </nav>
 
