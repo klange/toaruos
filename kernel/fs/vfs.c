@@ -110,6 +110,12 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
 
 volatile uint8_t tmp_refcount_lock = 0;
 
+void vfs_lock(fs_node_t * node) {
+	spin_lock(&tmp_refcount_lock);
+	node->refcount = -1;
+	spin_unlock(&tmp_refcount_lock);
+}
+
 /**
  * open_fs: Open a file system node.
  *
@@ -143,6 +149,8 @@ void close_fs(fs_node_t *node) {
 		debug_print(WARNING, "Double close? This isn't an fs_node.");
 		return;
 	}
+
+	if (node->refcount == -1) return;
 
 	spin_lock(&tmp_refcount_lock);
 	node->refcount--;
@@ -506,9 +514,13 @@ int vfs_mount_type(char * type, char * arg, char * mountpoint) {
 
 	vfs_mount(mountpoint, n);
 
+	debug_print(NOTICE, "Mounted %s[%s] to %s: 0x%x", type, arg, mountpoint, n);
+	debug_print_vfs_tree();
+
 	return 0;
 }
 
+volatile uint8_t tmp_vfs_lock = 0;
 /**
  * vfs_mount - Mount a file system to the specified path.
  *
@@ -529,6 +541,10 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 		debug_print(ERROR, "Path must be absolute for mountpoint.");
 		return NULL;
 	}
+
+	spin_lock(&tmp_vfs_lock);
+
+	local_root->refcount = -1;
 
 	tree_node_t * ret_val = NULL;
 
@@ -556,12 +572,11 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 		struct vfs_entry * root = (struct vfs_entry *)root_node->value;
 		if (root->file) {
 			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
-			ret_val = root_node;
-			goto _vfs_cleanup;
 		}
 		root->file = local_root;
 		/* We also keep a legacy shortcut around for that */
 		fs_root = local_root;
+		ret_val = root_node;
 	} else {
 		tree_node_t * node = root_node;
 		char * at = i;
@@ -570,7 +585,7 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 				break;
 			}
 			int found = 0;
-			debug_print(INFO, "Searching for %s", at);
+			debug_print(NOTICE, "Searching for %s", at);
 			foreach(child, node->children) {
 				tree_node_t * tchild = (tree_node_t *)child->value;
 				struct vfs_entry * ent = (struct vfs_entry *)tchild->value;
@@ -582,7 +597,7 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 				}
 			}
 			if (!found) {
-				debug_print(INFO, "Did not find %s, making it.", at);
+				debug_print(NOTICE, "Did not find %s, making it.", at);
 				struct vfs_entry * ent = malloc(sizeof(struct vfs_entry));
 				ent->name = strdup(at);
 				ent->file = NULL;
@@ -593,14 +608,14 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 		struct vfs_entry * ent = (struct vfs_entry *)node->value;
 		if (ent->file) {
 			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
-			ret_val = node;
-			goto _vfs_cleanup;
 		}
 		ent->file = local_root;
+		ret_val = node;
 	}
 
 _vfs_cleanup:
 	free(p);
+	spin_unlock(&tmp_vfs_lock);
 	return ret_val;
 }
 

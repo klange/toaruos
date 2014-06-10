@@ -135,6 +135,7 @@ void * vfs_mount(char * path, fs_node_t * local_root);
 typedef fs_node_t * (*vfs_mount_callback)(char * arg, char * mount_point);
 int vfs_register(char * name, vfs_mount_callback callback);
 int vfs_mount_type(char * type, char * arg, char * mountpoint);
+void vfs_lock(fs_node_t * node);
 
 /* Debug purposes only, please */
 void debug_print_vfs_tree(void);

@@ -59,6 +59,8 @@ static void close_part(fs_node_t * node) {
 
 static fs_node_t * dospart_device_create(int i, fs_node_t * dev, partition_t * part) {
 
+	vfs_lock(dev);
+
 	struct dos_partition_entry * device = malloc(sizeof(struct dos_partition_entry));
 	memcpy(&device->partition, part, sizeof(partition_t));
 	device->device = dev;

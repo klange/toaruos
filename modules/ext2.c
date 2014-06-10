@@ -808,6 +808,14 @@ static uint32_t ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t 
 	} else {
 		debug_print(CRITICAL, "Root doesn't appear to be a directory.");
 		debug_print(CRITICAL, "This is probably very, very wrong.");
+
+		debug_print(ERROR, "Other useful information:");
+		debug_print(ERROR, "%d", inode->uid);
+		debug_print(ERROR, "%d", inode->gid);
+		debug_print(ERROR, "%d", inode->size);
+		debug_print(ERROR, "%d", inode->mode);
+		debug_print(ERROR, "%d", inode->links_count);
+
 		return 0;
 	}
 	if ((inode->mode & EXT2_S_IFBLK) == EXT2_S_IFBLK) {
@@ -846,6 +854,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 
 	this->block_device = block_device;
 	this->block_size = 1024;
+	vfs_lock(this->block_device);
 
 	SB = malloc(this->block_size);
 
@@ -875,6 +884,9 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 	debug_print(INFO, "Allocating cache...");
 	DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
 	for (uint32_t i = 0; i < this->cache_entries; ++i) {
+		DC[i].block_no = 0;
+		DC[i].dirty = 0;
+		DC[i].last_use = 0;
 		DC[i].block = malloc(this->block_size);
 		if (i % 128 == 0) {
 			debug_print(INFO, "Allocated cache block #%d", i+1);
@@ -930,9 +942,8 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 	ext2_inodetable_t *root_inode = read_inode(this, 2);
 	RN = (fs_node_t *)malloc(sizeof(fs_node_t));
 	if (!ext2_root(this, root_inode, RN)) {
-		debug_print(NOTICE, "Oh dear...");
+		return NULL;
 	}
-	debug_print(NOTICE, "Root file system is ready.");
 	debug_print(NOTICE, "Mounted EXT2 disk, root VFS node is at 0x%x", RN);
 	return RN;
 }
