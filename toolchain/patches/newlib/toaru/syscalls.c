@@ -23,6 +23,8 @@
 #include "syscall.h"
 #include <bits/dirent.h>
 
+#include <syscall_nums.h>
+
 extern void *malloc(size_t size);
 extern void free(void *ptr);
 extern void *calloc(size_t nmemb, size_t size);
@@ -86,6 +88,7 @@ DEFN_SYSCALL1(umask, 51, mode_t);
 DEFN_SYSCALL1(unlink, 52, char *);
 DEFN_SYSCALL3(waitpid, 53, int, int *, int);
 DEFN_SYSCALL1(pipe, 54, int *);
+DEFN_SYSCALL5(mount, SYS_MOUNT, char *, char *, char *, unsigned long, void *);
 
 #define DEBUG_STUB(...) { fprintf(stderr, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); fprintf(stderr, __VA_ARGS__); }
 
@@ -656,5 +659,16 @@ pid_t getppid() {
 
 void sync() {
 	DEBUG_STUB("sync();\n");
+}
+
+int mount(char * source, char * target, char * type, unsigned long flags, void * data) {
+	int r = syscall_mount(source, target, type, flags, data);
+
+	if (r < 0) {
+		errno = -r;
+		return -1;
+	}
+
+	return r;
 }
 

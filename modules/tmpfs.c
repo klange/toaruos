@@ -419,9 +419,18 @@ fs_node_t * tmpfs_create(char * name) {
 	return tmpfs_from_dir(tmpfs_root);
 }
 
+fs_node_t * tmpfs_mount(char * device, char * mount_path) {
+	fs_node_t * fs = tmpfs_create(device);
+	return fs;
+}
+
 static int tmpfs_initialize(void) {
+
 	vfs_mount("/tmp", tmpfs_create("tmp"));
-	fs_root = tmpfs_create("/");
+	vfs_mount("/var", tmpfs_create("var"));
+
+	vfs_register("tmpfs", tmpfs_mount);
+
 	return 0;
 }
 static int tmpfs_finalize(void) {

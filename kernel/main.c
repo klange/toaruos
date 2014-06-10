@@ -183,9 +183,12 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		}
 	}
 
-
 	/* Map /dev to a device mapper */
 	map_vfs_directory("/dev");
+
+	if (args_present("root")) {
+		vfs_mount_type("ext2", "/dev/hda", "/");
+	}
 
 	if (args_present("start")) {
 		char * c = args_value("start");
@@ -195,6 +198,12 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 			debug_print(NOTICE, "Got start argument: %s", c);
 			boot_arg = strdup(c);
 		}
+	}
+
+	if (!fs_root) {
+		debug_print(CRITICAL, "No root filesystem is mounted. Skipping init.");
+		map_vfs_directory("/");
+		switch_task(0);
 	}
 
 	/* Prepare to run /bin/init */

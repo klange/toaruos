@@ -71,7 +71,6 @@ static void output_process(pty_t * pty, uint8_t c) {
 
 static void input_process(pty_t * pty, uint8_t c) {
 	if (pty->tios.c_lflag & ICANON) {
-		debug_print(INFO, "Processing for character %d in canon mode", c);
 		if (c == pty->tios.c_cc[VKILL]) {
 			while (pty->canon_buflen > 0) {
 				pty->canon_buflen--;
@@ -151,7 +150,6 @@ static void input_process(pty_t * pty, uint8_t c) {
 }
 
 int pty_ioctl(pty_t * pty, int request, void * argp) {
-	debug_print(INFO, "Incoming IOCTL request %d", request);
 	switch (request) {
 		case IOCTLDTYPE:
 			/*
@@ -200,9 +198,8 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			memcpy(&pty->tios, argp, sizeof(struct termios));
 			return 0;
 		default:
-			return -1; /* TODO EINV... something or other */
+			return -EINVAL;
 	}
-	return -1;
 }
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))

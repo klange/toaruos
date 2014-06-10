@@ -939,18 +939,17 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 
 fs_node_t * ext2_fs_mount(char * device, char * mount_path) {
 	fs_node_t * dev = kopen(device, 0);
-	if (!dev) return NULL;
+	if (!dev) {
+		debug_print(ERROR, "failed to open %s", device);
+		return NULL;
+	}
 	fs_node_t * fs = mount_ext2(dev);
-	if (!fs) return NULL;
-	vfs_mount(mount_path, fs);
 	return fs;
 }
 
 int ext2_initialize(void) {
 
-	if (args_present("root")) {
-		ext2_fs_mount(args_value("root"), "/");
-	}
+	vfs_register("ext2", ext2_fs_mount);
 
 	return 0;
 }

@@ -205,14 +205,14 @@ static int shell_help(fs_node_t * tty, int argc, char * argv[]) {
 
 static int shell_cd(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
-		return -1;
+		return 1;
 	}
 	char * newdir = argv[1];
 	char * path = canonicalize_path(current_process->wd_name, newdir);
 	fs_node_t * chd = kopen(path, 0);
 	if (chd) {
 		if ((chd->flags & FS_DIRECTORY) == 0) {
-			return -1;
+			return 1;
 		}
 		close_fs(chd);
 		free(current_process->wd_name);
@@ -220,7 +220,7 @@ static int shell_cd(fs_node_t * tty, int argc, char * argv[]) {
 		memcpy(current_process->wd_name, path, strlen(path) + 1);
 		return 0;
 	} else {
-		return -1;
+		return 1;
 	}
 }
 
@@ -494,6 +494,15 @@ static int shell_fix_mouse(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_mount(fs_node_t * tty, int argc, char * argv[]) {
+	if (argc < 4) {
+		fprintf(tty, "Usage: %s type device mountpoint\n", argv[0]);
+		return 1;
+	}
+
+	return -vfs_mount_type(argv[1], argv[2], argv[3]);
+}
+
 static int shell_exit(fs_node_t * tty, int argc, char * argv[]) {
 	kexit(0);
 	return 0;
@@ -530,6 +539,8 @@ static struct shell_command shell_commands[] = {
 		"Attempt to discover TTY size of serial."},
 	{"fix-mouse", &shell_fix_mouse,
 		"Attempt to reset mouse device."},
+	{"mount", &shell_mount,
+		"Mount a filesystemp."},
 	{"exit", &shell_exit,
 		"Quit the shell."},
 	{NULL, NULL, NULL}

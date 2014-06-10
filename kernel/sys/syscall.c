@@ -634,6 +634,23 @@ static int sys_pipe(int pipes[2]) {
 	return 0;
 }
 
+static int sys_mount(char * arg, char * mountpoint, char * type, unsigned long flags, void * data) {
+
+	if (validate_safe(arg) || validate_safe(mountpoint) || validate_safe(type)) {
+		return -EFAULT;
+	}
+
+	if (current_process->user != USER_ROOT_UID) {
+		return -EPERM;
+	}
+
+	/* I may or may not start using these eventually. */
+	(void)flags;
+	(void)data;
+
+	return vfs_mount_type(type, arg, mountpoint);
+}
+
 /*
  * System Call Internals
  */
@@ -682,6 +699,7 @@ static int (*syscalls[])() = {
 	[SYS_UNLINK]       = sys_unlink,
 	[SYS_WAITPID]      = sys_waitpid,
 	[SYS_PIPE]         = sys_pipe,
+	[SYS_MOUNT]        = sys_mount,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(int (*)());

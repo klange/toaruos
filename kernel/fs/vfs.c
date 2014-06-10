@@ -14,13 +14,18 @@
 #include <list.h>
 #include <process.h>
 #include <logging.h>
+#include <hashmap.h>
 
 tree_t    * fs_tree = NULL; /* File system mountpoint tree */
 fs_node_t * fs_root = NULL; /* Pointer to the root mount fs_node (must be some form of filesystem, even ramdisk) */
 
+hashmap_t * fs_types = NULL;
+
 
 static struct dirent * readdir_mapper(fs_node_t *node, uint32_t index) {
 	tree_node_t * d = (tree_node_t *)node->device;
+
+	if (!d) return NULL;
 
 	if (index == 0) {
 		struct dirent * dir = malloc(sizeof(struct dirent));
@@ -477,6 +482,31 @@ void vfs_install(void) {
 	root->file = NULL; /* Nothing mounted as root */
 
 	tree_set_root(fs_tree, root);
+
+	fs_types = hashmap_create(5);
+}
+
+int vfs_register(char * name, vfs_mount_callback callback) {
+	if (hashmap_get(fs_types, name)) return 1;
+	hashmap_set(fs_types, name, (void *)(uintptr_t)callback);
+	return 0;
+}
+
+int vfs_mount_type(char * type, char * arg, char * mountpoint) {
+
+	vfs_mount_callback t = (vfs_mount_callback)(uintptr_t)hashmap_get(fs_types, type);
+	if (!t) {
+		debug_print(WARNING, "Unknown filesystem type: %s", type);
+		return -ENODEV;
+	}
+
+	fs_node_t * n = t(arg, mountpoint);
+
+	if (!n) return -EINVAL;
+
+	vfs_mount(mountpoint, n);
+
+	return 0;
 }
 
 /**
@@ -577,8 +607,11 @@ _vfs_cleanup:
 void map_vfs_directory(char * c) {
 	fs_node_t * f = vfs_mapper();
 	struct vfs_entry * e = vfs_mount(c, f);
-	strcpy(f->name, e->name);
-	f->device = e;
+	if (!strcmp(c, "/")) {
+		f->device = fs_tree->root;
+	} else {
+		f->device = e;
+	}
 }
 
 
@@ -686,7 +719,7 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
  */
 fs_node_t *kopen(char *filename, uint32_t flags) {
 	/* Simple sanity checks that we actually have a file system */
-	if (!fs_root || !filename) {
+	if (!filename) {
 		return NULL;
 	}
 
@@ -741,6 +774,8 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	unsigned int depth = 0;
 	/* Find the mountpoint for this file */
 	fs_node_t *node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
+
+	if (!node_ptr) return NULL;
 
 	if (path_offset >= path+path_len) {
 		free(path);
