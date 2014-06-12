@@ -1,4 +1,13 @@
+cairo-demo,cairo-demo,Cairo Demo
+clock,clock-win,Clock
+applications-painting,draw,Draw!
+julia,julia,Julia Fractals
+gears,gears,Gears
+teapot,teapot,GL Teapot
+drawlines,drawlines,Lines
+snow,make-it-snow,Make it Snow
+pixman-demo,pixman-demo,Pixman Demo
+plasma,plasma,Plasma
+applications-simulation,game,RPG Demo
 utilities-terminal,terminal,Terminal
 ttk-demo,ttk-demo,TTK Demo
-gears,gears,Gears
-julia,julia,Julia Fractals
