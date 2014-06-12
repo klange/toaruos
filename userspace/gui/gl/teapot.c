@@ -1,9 +1,8 @@
 /* This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2014 Kevin Lange
- */
-/*
- * GL teapot
+ *
+ * GL teapot with shaders.
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -491,6 +490,7 @@ int main(int argc, char** argv) {
 	yutani_window_move(yctx, wina, 100, 100);
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgb(0,0,0));
+	yutani_window_update_shape(yctx, wina, YUTANI_SHAPE_THRESHOLD_HALF);
 
 	OSMesaContext gl_ctx = OSMesaCreateContext(OSMESA_BGRA, NULL);
 	if (resize(ctx, gl_ctx)) {

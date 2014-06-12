@@ -137,6 +137,7 @@ int main (int argc, char ** argv) {
 	window = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, window, left, top);
 	w_ctx = init_graphics_yutani_double_buffer(window);
+	yutani_window_update_shape(yctx, window, YUTANI_SHAPE_THRESHOLD_CLEAR);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, clock_thread, NULL);
@@ -168,3 +169,4 @@ done:
 
 	return 0;
 }
+

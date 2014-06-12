@@ -275,6 +275,7 @@ int main (int argc, char ** argv) {
 	yutani_window_move(yctx, wina, left, top);
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgb(0,0,0));
+	yutani_window_update_shape(yctx, wina, YUTANI_SHAPE_THRESHOLD_HALF);
 
 	yutani_window_advertise_icon(yctx, wina, "Mesa Gears", "gears");
 
@@ -364,12 +365,6 @@ int main (int argc, char ** argv) {
 		}
 		flip(ctx);
 		yutani_flip(yctx, wina);
-		static int i = 0;
-		if (i % 100 == 0) {
-			yutani_window_update_shape(yctx, wina, YUTANI_SHAPE_THRESHOLD_HALF);
-			i = 0;
-		}
-		i++;
 		syscall_yield();
 	}
 
