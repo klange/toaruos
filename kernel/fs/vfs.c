@@ -613,7 +613,6 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 		ret_val = node;
 	}
 
-_vfs_cleanup:
 	free(p);
 	spin_unlock(&tmp_vfs_lock);
 	return ret_val;
