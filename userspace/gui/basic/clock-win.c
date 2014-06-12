@@ -21,7 +21,6 @@
 
 #include "lib/yutani.h"
 #include "lib/graphics.h"
-#include "lib/pthread.h"
 
 static yutani_t * yctx;
 static yutani_window_t * window;
@@ -109,24 +108,6 @@ static void draw(int secs) {
 	yutani_flip(yctx, window);
 }
 
-void * clock_thread(void * garbage) {
-	(void)garbage;
-
-	struct timeval now;
-	int last = 0;
-
-	while (!should_exit) {
-		gettimeofday(&now, NULL); //time(NULL);
-		if (now.tv_sec != last) {
-			last = now.tv_sec;
-			draw(last);
-		}
-		usleep(1000000);
-	}
-
-	pthread_exit(0);
-}
-
 int main (int argc, char ** argv) {
 	int left   = 100;
 	int top    = 100;
@@ -139,11 +120,8 @@ int main (int argc, char ** argv) {
 	w_ctx = init_graphics_yutani_double_buffer(window);
 	yutani_window_update_shape(yctx, window, YUTANI_SHAPE_THRESHOLD_CLEAR);
 
-	pthread_t thread;
-	pthread_create(&thread, NULL, clock_thread, NULL);
-
 	while (!should_exit) {
-		yutani_msg_t * m = yutani_poll(yctx);
+		yutani_msg_t * m = yutani_poll_async(yctx);
 		if (m) {
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
@@ -161,6 +139,17 @@ int main (int argc, char ** argv) {
 					break;
 			}
 			free(m);
+		}
+		struct timeval now;
+		int last = 0;
+
+		while (!should_exit) {
+			gettimeofday(&now, NULL); //time(NULL);
+			if (now.tv_sec != last) {
+				last = now.tv_sec;
+				draw(last);
+			}
+			usleep(100000);
 		}
 	}
 done:
