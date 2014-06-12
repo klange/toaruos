@@ -1,8 +1,8 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2014 Kevin Lange
- */
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ *
  *
  * Yutani Panel
  *
@@ -61,11 +61,25 @@
 #define TOTAL_CELL_WIDTH (ICON_SIZE + ICON_PADDING * 2 + title_width)
 #define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING)
 
-static gfx_context_t * ctx;
+#define APPMENU_WIDTH  240
+#define APPMENU_HEIGHT 240
+#define APPMENU_BACKGROUND rgb(255,255,255)
+#define APPMENU_HIGHLIGHT rgb(50,50,200)
+#define APPMENU_ITEM_HEIGHT 24
+
 static yutani_t * yctx;
-static yutani_window_t * panel;
-static gfx_context_t * actx;
-static yutani_window_t * alttab;
+
+static gfx_context_t * ctx = NULL;
+static yutani_window_t * panel = NULL;
+
+static gfx_context_t * actx = NULL;
+static yutani_window_t * alttab = NULL;
+
+static gfx_context_t * bctx = NULL;
+static yutani_window_t * appmenu = NULL;
+
+static int appmenu_item = -1;
+
 static list_t * window_list = NULL;
 static volatile int lock = 0;
 static volatile int drawlock = 0;
@@ -110,6 +124,15 @@ struct window_ad {
 	int left;
 };
 
+typedef struct {
+	char * icon;
+	char * appname;
+	char * title;
+} application_t;
+
+static int appmenu_items_count = 0;
+static application_t * applications = NULL;
+
 /* Windows, indexed by list order */
 static struct window_ad * ads_by_l[MAX_WINDOW_COUNT+1] = {NULL};
 /* Windows, indexed by z-order */
@@ -123,11 +146,21 @@ static int new_focused = -1;
 static int title_width = 0;
 
 static sprite_t * icon_get(char * name);
+static void redraw_appmenu(int item);
 
 /* Handle SIGINT by telling other threads (clock) to shut down */
 static void sig_int(int sig) {
 	printf("Received shutdown signal in panel!\n");
 	_continue = 0;
+}
+
+static void launch_application(char * app) {
+	if (!fork()) {
+		printf("Starting %s\n", app);
+		char * args[] = {"/bin/sh", "-c", app, NULL};
+		execvp(args[0], args);
+		exit(1);
+	}
 }
 
 /* Update the hover-focus window */
@@ -140,48 +173,91 @@ static void set_focused(int i) {
 
 /* Callback for mouse events */
 static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
-	if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
-		/* Up-down click */
-		if (evt->new_x >= width - 24 ) {
-			yutani_session_end(yctx);
-			_continue = 0;
-		} else {
-			for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
-				if (ads_by_l[i] == NULL) break;
-				if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
-					yutani_focus_window(yctx, ads_by_l[i]->wid);
-					break;
+	if (evt->wid == panel->wid) {
+		if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
+			/* Up-down click */
+			if (evt->new_x >= width - 24 ) {
+				yutani_session_end(yctx);
+				_continue = 0;
+			} else if (evt->new_x < APP_OFFSET) {
+				if (!appmenu) {
+					appmenu = yutani_window_create(yctx, APPMENU_WIDTH, APPMENU_ITEM_HEIGHT * appmenu_items_count);
+					yutani_window_move(yctx, appmenu, 0, PANEL_HEIGHT);
+					bctx = init_graphics_yutani_double_buffer(appmenu);
+					redraw_appmenu(-1);
+					yutani_focus_window(yctx, appmenu->wid);
+				} else {
+					/* ??? */
+				}
+			} else {
+				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
+					if (ads_by_l[i] == NULL) break;
+					if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
+						yutani_focus_window(yctx, ads_by_l[i]->wid);
+						break;
+					}
 				}
 			}
-		}
-	} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
-		/* Movement, or mouse entered window */
-		if (evt->new_y < PANEL_HEIGHT) {
-			for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
-				if (ads_by_l[i] == NULL) {
-					set_focused(-1);
-					break;
+		} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
+			/* Movement, or mouse entered window */
+			if (evt->new_y < PANEL_HEIGHT) {
+				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
+					if (ads_by_l[i] == NULL) {
+						set_focused(-1);
+						break;
+					}
+					if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
+						set_focused(i);
+						break;
+					}
 				}
-				if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
-					set_focused(i);
-					break;
-				}
+			} else {
+				set_focused(-1);
 			}
-		} else {
+		} else if (evt->command == YUTANI_MOUSE_EVENT_LEAVE) {
+			/* Mouse left panel window */
 			set_focused(-1);
 		}
-	} else if (evt->command == YUTANI_MOUSE_EVENT_LEAVE) {
-		/* Mouse left panel window */
-		set_focused(-1);
+	} else {
+		if (appmenu && evt->wid == appmenu->wid) {
+			/* Do stuff */
+			if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
+				if (evt->new_x >= 0 && evt->new_x < appmenu->width && evt->new_y >= 0 && evt->new_y < appmenu->height) {
+					int item = evt->new_y / APPMENU_ITEM_HEIGHT;
+					launch_application(applications[item].appname);
+					yutani_close(yctx, appmenu);
+					appmenu = NULL;
+					free(bctx->backbuffer);
+					free(bctx);
+				}
+			} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
+				if (evt->new_x >= 0 && evt->new_x < appmenu->width && evt->new_y >= 0 && evt->new_y < appmenu->height) {
+					int item = evt->new_y / APPMENU_ITEM_HEIGHT;
+					if (item != appmenu_item) {
+						appmenu_item = item;
+						redraw_appmenu(appmenu_item);
+					}
+				}
+			} else if (evt->command == YUTANI_MOUSE_EVENT_LEAVE) {
+				if (-1 != appmenu_item) {
+					appmenu_item = -1;
+					redraw_appmenu(appmenu_item);
+				}
+			}
+		}
 	}
 }
 
-static void launch_application(char * app) {
-	if (!fork()) {
-		char * args[] = {app, NULL};
-		execvp(args[0], args);
-		exit(1);
+static void handle_focus_event(struct yutani_msg_window_focus_change * wf) {
+
+	if (appmenu && wf->wid == appmenu->wid  && wf->focused == 0) {
+		/* Close */
+		yutani_close(yctx, appmenu);
+		appmenu = NULL;
+		free(bctx->backbuffer);
+		free(bctx);
 	}
+
 }
 
 static void redraw_alttab(void) {
@@ -330,6 +406,97 @@ static sprite_t * icon_get(char * name) {
 
 	/* We have an icon, return it */
 	return icon;
+}
+
+static void read_applications(FILE * f) {
+	if (!f) {
+		/* No applications? */
+		applications = malloc(sizeof(application_t));
+		applications[0].icon = NULL;
+		return;
+	}
+	char line[2048];
+
+	int count = 0;
+
+	while (fgets(line, 2048, f) != NULL) {
+		if (strstr(line, "#") == line) continue;
+
+		char * icon = line;
+		char * name = strstr(icon,","); name++;
+		char * title = strstr(name, ","); title++;
+
+		if (!name || !title) {
+			continue; /* invalid */
+		}
+
+		count++;
+	}
+
+	fseek(f, 0, SEEK_SET);
+	applications = malloc(sizeof(application_t) * (count + 1));
+	memset(&applications[count], 0x00, sizeof(application_t));
+
+	appmenu_items_count = count;
+
+	int i = 0;
+	while (fgets(line, 2048, f) != NULL) {
+		if (strstr(line, "#") == line) continue;
+
+		char * icon = line;
+		char * name = strstr(icon,","); name++;
+		char * title = strstr(name, ","); title++;
+
+		if (!name || !title) {
+			continue; /* invalid */
+		}
+
+		name[-1] = '\0';
+		title[-1] = '\0';
+
+		char * tmp = strstr(title, "\n");
+		if (tmp) *tmp = '\0';
+
+		fprintf(stderr, "Icon: %s %s %s\n", icon, name, title);
+
+		applications[i].icon = strdup(icon);
+		applications[i].appname = strdup(name);
+		applications[i].title = strdup(title);
+
+		i++;
+	}
+
+	fclose(f);
+}
+
+static void redraw_appmenu(int item) {
+	draw_fill(bctx, APPMENU_BACKGROUND);
+	if (item != -1) {
+		for (int i = 0; i < APPMENU_ITEM_HEIGHT; ++i) {
+			draw_line(bctx, 0, APPMENU_WIDTH, APPMENU_ITEM_HEIGHT * item + i, APPMENU_ITEM_HEIGHT * item + i, APPMENU_HIGHLIGHT);
+		}
+	}
+	spin_lock(&drawlock);
+	for (int i = 0; i < appmenu_items_count; ++i) {
+		set_font_face(FONT_SANS_SERIF);
+		set_font_size(12);
+
+		sprite_t * icon = icon_get(applications[i].icon);
+
+		/* Draw it, scaled if necessary */
+		if (icon->width == 24) {
+			draw_sprite(bctx, icon, 2, APPMENU_ITEM_HEIGHT * i);
+		} else {
+			draw_sprite_scaled(bctx, icon, 2, APPMENU_ITEM_HEIGHT * i, 24, 24);
+		}
+
+		uint32_t color = (i == item) ? rgb(255,255,255) : rgb(0,0,0);
+
+		draw_string(bctx, 30, 18 + APPMENU_ITEM_HEIGHT * i, color, applications[i].title);
+	}
+	spin_unlock(&drawlock);
+	flip(bctx);
+	yutani_flip(yctx, appmenu);
 }
 
 static void redraw(void) {
@@ -620,6 +787,16 @@ int main (int argc, char ** argv) {
 	/* Initialize hashmap for icon cache */
 	icon_cache = hashmap_create(10);
 
+	{
+		char f_name[256];
+		sprintf(f_name, "%s/.menu.desktop", getenv("HOME"));
+		FILE * f = fopen(f_name, "r");
+		if (!f) {
+			f = fopen("/etc/menu.desktop", "r");
+		}
+		read_applications(f);
+	}
+
 	/* Preload some common icons */
 	{ /* Generic fallback icon */
 		sprite_t * app_icon = malloc(sizeof(sprite_t));
@@ -696,6 +873,9 @@ int main (int argc, char ** argv) {
 					break;
 				case YUTANI_MSG_KEY_EVENT:
 					handle_key_event((struct yutani_msg_key_event *)m->data);
+					break;
+				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					handle_focus_event((struct yutani_msg_window_focus_change *)m->data);
 					break;
 				default:
 					break;

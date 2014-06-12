@@ -1,8 +1,7 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2014 Kevin Lange
- */
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * Wallpaper renderer.
  *
@@ -47,17 +46,7 @@ typedef struct {
 	sprite_t * icon_sprite;
 } application_t;
 
-#if 0
-static application_t applications[] = {
-	{"utilities-terminal", "terminal", "Terminal", NULL},
-	{"applications-painting", "draw", "Draw!", NULL},
-	{"applications-simulation", "game", "RPG Demo", NULL},
-	{"julia", "julia", "Julia Fractals", NULL},
-	{NULL, NULL, NULL, NULL},
-};
-#else
 static application_t * applications = NULL;
-#endif
 
 static volatile int _continue = 1;
 
@@ -111,8 +100,7 @@ static sprite_t * icon_get(char * name) {
 	return icon;
 }
 
-
-void launch_application(char * app) {
+static void launch_application(char * app) {
 	if (!fork()) {
 		printf("Starting %s\n", app);
 		char * args[] = {"/bin/sh", "-c", app, NULL};
