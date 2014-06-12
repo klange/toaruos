@@ -129,12 +129,13 @@ int main (int argc, char ** argv) {
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							should_exit = 1;
+							goto done;
 						}
 					}
 					break;
 				case YUTANI_MSG_SESSION_END:
 					should_exit = 1;
-					break;
+					goto done;
 				default:
 					break;
 			}
@@ -143,14 +144,12 @@ int main (int argc, char ** argv) {
 		struct timeval now;
 		int last = 0;
 
-		while (!should_exit) {
-			gettimeofday(&now, NULL); //time(NULL);
-			if (now.tv_sec != last) {
-				last = now.tv_sec;
-				draw(last);
-			}
-			usleep(100000);
+		gettimeofday(&now, NULL); //time(NULL);
+		if (now.tv_sec != last) {
+			last = now.tv_sec;
+			draw(last);
 		}
+		usleep(10000);
 	}
 done:
 
