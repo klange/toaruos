@@ -61,8 +61,9 @@
 #define TOTAL_CELL_WIDTH (ICON_SIZE + ICON_PADDING * 2 + title_width)
 #define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING)
 
-#define APPMENU_WIDTH  240
-#define APPMENU_HEIGHT 240
+#define APPMENU_WIDTH  200
+#define APPMENU_PAD_RIGHT 1
+#define APPMENU_PAD_BOTTOM 1
 #define APPMENU_BACKGROUND rgb(255,255,255)
 #define APPMENU_HIGHLIGHT rgb(50,50,200)
 #define APPMENU_ITEM_HEIGHT 24
@@ -181,7 +182,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				_continue = 0;
 			} else if (evt->new_x < APP_OFFSET) {
 				if (!appmenu) {
-					appmenu = yutani_window_create(yctx, APPMENU_WIDTH, APPMENU_ITEM_HEIGHT * appmenu_items_count);
+					appmenu = yutani_window_create(yctx, APPMENU_WIDTH + APPMENU_PAD_RIGHT, APPMENU_ITEM_HEIGHT * appmenu_items_count + APPMENU_PAD_BOTTOM);
 					yutani_window_move(yctx, appmenu, 0, PANEL_HEIGHT);
 					bctx = init_graphics_yutani_double_buffer(appmenu);
 					redraw_appmenu(-1);
@@ -476,6 +477,8 @@ static void redraw_appmenu(int item) {
 			draw_line(bctx, 0, APPMENU_WIDTH, APPMENU_ITEM_HEIGHT * item + i, APPMENU_ITEM_HEIGHT * item + i, APPMENU_HIGHLIGHT);
 		}
 	}
+	draw_line(bctx, APPMENU_WIDTH, APPMENU_WIDTH, 0, APPMENU_ITEM_HEIGHT * appmenu_items_count, rgb(0,0,0));
+	draw_line(bctx, 0, APPMENU_WIDTH, APPMENU_ITEM_HEIGHT * appmenu_items_count, APPMENU_ITEM_HEIGHT * appmenu_items_count, rgb(0,0,0));
 	spin_lock(&drawlock);
 	for (int i = 0; i < appmenu_items_count; ++i) {
 		set_font_face(FONT_SANS_SERIF);
@@ -543,7 +546,7 @@ static void redraw(void) {
 	/* TODO: Future applications menu */
 	set_font_face(FONT_SANS_SERIF_BOLD);
 	set_font_size(14);
-	draw_string(ctx, 10, 18, txt_color, "Applications");
+	draw_string(ctx, 10, 18, appmenu ? HILIGHT_COLOR : txt_color, "Applications");
 
 	/* Now draw the window list */
 	int i = 0, j = 0;
