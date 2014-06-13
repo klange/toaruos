@@ -483,7 +483,7 @@ int main(int argc, char** argv) {
 		filename = argv[index];
 	}
 
-	printf("Press escape to exit.\n");
+	printf("Press q to exit.\n");
 
 	yctx = yutani_init();
 	wina = yutani_window_create(yctx, 500, 500);
