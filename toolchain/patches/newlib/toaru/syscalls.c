@@ -90,7 +90,23 @@ DEFN_SYSCALL3(waitpid, 53, int, int *, int);
 DEFN_SYSCALL1(pipe, 54, int *);
 DEFN_SYSCALL5(mount, SYS_MOUNT, char *, char *, char *, unsigned long, void *);
 
-#define DEBUG_STUB(...) { fprintf(stderr, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); fprintf(stderr, __VA_ARGS__); }
+static int toaru_debug_stubs_enabled(void) {
+	static int checked = 0;
+	static int enabled = 0;
+	if (!checked) {
+		char * t = getenv("TOARU_DEBUG_STUBS");
+		checked = 1;
+		if (t && !strcmp(t,"1")) {
+			enabled = 1;
+		}
+	}
+	return enabled;
+}
+
+#define DEBUG_STUB(...) \
+	if (toaru_debug_stubs_enabled()) { \
+		fprintf(stderr, "\033[1;32mUserspace Debug\033[0m pid%d ", getpid()); fprintf(stderr, __VA_ARGS__); \
+	}
 
 
 extern char ** environ;
