@@ -389,7 +389,6 @@ static sprite_t * icon_get(char * name) {
 		while (icon_directories[i]) {
 			/* Check each path... */
 			sprintf(path, "%s/%s.png", icon_directories[i], name);
-			fprintf(stderr, "Checking %s for icon\n", path);
 			if (access(path, R_OK) == 0) {
 				/* And if we find one, cache it */
 				icon = malloc(sizeof(sprite_t));
@@ -457,8 +456,6 @@ static void read_applications(FILE * f) {
 
 		char * tmp = strstr(title, "\n");
 		if (tmp) *tmp = '\0';
-
-		fprintf(stderr, "Icon: %s %s %s\n", icon, name, title);
 
 		applications[i].icon = strdup(icon);
 		applications[i].appname = strdup(name);
