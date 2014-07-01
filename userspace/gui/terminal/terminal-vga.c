@@ -60,7 +60,7 @@ void term_redraw_cursor();
 /* Cursor bink timer */
 static unsigned int timer_tick = 0;
 
-void term_clear();
+void term_clear(int);
 
 void dump_buffer();
 
@@ -270,7 +270,7 @@ void term_redraw_all() {
 
 void term_scroll(int how_much) {
 	if (how_much >= term_height || -how_much >= term_height) {
-		term_clear();
+		term_clear(2);
 		return;
 	}
 	if (how_much == 0) {
