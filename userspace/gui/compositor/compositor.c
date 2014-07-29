@@ -44,7 +44,9 @@ struct {
 	.nest_height = 480,
 };
 
-
+/**
+ * Print usage information.
+ */
 static int usage(char * argv[]) {
 	fprintf(stderr,
 			"Yutani - Window Compositor\n"
@@ -123,6 +125,9 @@ static int next_wid(void) {
 	return _next++;
 }
 
+/**
+ * Translate and transform coordinate from screen-relative to window-relative.
+ */
 static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
 	if (!window) return;
 	*out_x = x - window->x;
@@ -143,6 +148,9 @@ static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t
 	*out_y = (int32_t)n_y + (window->height / 2);
 }
 
+/**
+ * Translate and transform coordinate from window-relative to screen-relative.
+ */
 static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
 
 	if (!window->rotation) {
@@ -164,6 +172,9 @@ static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t
 	*out_y = (int32_t)n_y + (window->height / 2) + window->y;
 }
 
+/**
+ * Remove a window from the z stack.
+ */
 static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
 	unsigned short index = w->z;
 	w->z = -1;
@@ -182,6 +193,9 @@ static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
 	free(n);
 }
 
+/**
+ * Move a window to a new stack order.
+ */
 static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * window, uint16_t new_zed) {
 	if (!window) {
 		return;
@@ -222,6 +236,9 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 	}
 }
 
+/**
+ * Move a window to the top of the basic z stack, if valid.
+ */
 static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
 	unsigned short index = w->z;
 
@@ -235,37 +252,58 @@ static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
 	list_append(yg->mid_zs, n);
 }
 
+/**
+ * Set a window as the focused window.
+ *
+ * Currently, we only support one focused window.
+ * In the future, we should support multiple windows as "focused" to account
+ * for multiple "seats" on a single display.
+ */
 static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w) {
 	if (w == yg->focused_window) {
 		return; /* Already focused */
 	}
 
 	if (yg->focused_window) {
-		/* XXX Send focus change to old focused window */
+		/* Send focus change to old focused window */
 		yutani_msg_t * response = yutani_msg_build_window_focus_change(yg->focused_window->wid, 0);
 		pex_send(yg->server, yg->focused_window->owner, response->size, (char *)response);
 		free(response);
 	}
 	yg->focused_window = w;
 	if (w) {
-		/* XXX Send focus change to new focused window */
+		/* Send focus change to new focused window */
 		yutani_msg_t * response = yutani_msg_build_window_focus_change(w->wid, 1);
 		pex_send(yg->server, w->owner, response->size, (char *)response);
 		free(response);
 		make_top(yg, w);
 	} else {
-		/* XXX */
+		/*
+		 * There is no window to focus (we're unsetting focus);
+		 * default to the bottom window (background)
+		 */
 		yg->focused_window = yg->bottom_z;
 	}
 
+	/* Notify all subscribers of window changes */
 	notify_subscribers(yg);
 }
 
+/**
+ * Get the focused window.
+ *
+ * In case there is no focused window, we return the bottom window.
+ */
 static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
 	if (yg->focused_window) return yg->focused_window;
 	return yg->bottom_z;
 }
 
+/**
+ * Create a server window object.
+ *
+ * Initializes a window of the particular size for a given client.
+ */
 static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner) {
 	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
 
@@ -314,10 +352,31 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	return win;
 }
 
+/**
+ * Update the shape threshold for a window.
+ *
+ * A shaping threshold is a byte representing the minimum
+ * required alpha for a window to be considered "solid".
+ * Eg., a value of 0 says all windows are solid, while a value of
+ * 1 requires a window to have at least some opacity to it,
+ * and a value of 255 requires fully opaque pixels.
+ *
+ * Not actually stored as a byte, so a value over 255 can be used.
+ * This results in a window that passes through all clicks.
+ */
 static void server_window_update_shape(yutani_globals_t * yg, yutani_server_window_t * window, int set) {
 	window->alpha_threshold = set;
 }
 
+/**
+ * Start resizing a window.
+ *
+ * Resizing a multi-stage process.
+ * The client and server agree on a size and the server prepares a buffer.
+ * The client then needs to accept the resize, fill the buffer, and then
+ * inform the server that it is ready, at which point we'll swap the
+ * buffer we are rendering from.
+ */
 static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window_t * win, int width, int height) {
 	/* A client has accepted our offer, let's make a buffer for them */
 	if (win->newbufid) {
@@ -337,6 +396,12 @@ static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window
 	return win->newbufid;
 }
 
+/**
+ * Finish the resize process.
+ *
+ * We delete the unlink the old buffer and then swap the pointers
+ * for the new buffer.
+ */
 static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_window_t * win, int width, int height) {
 	if (!win->newbufid) {
 		return;
@@ -484,6 +549,15 @@ static struct font_def fonts[] = {
 	{NULL, NULL}
 };
 
+/**
+ * Preload a font into the font cache.
+ *
+ * TODO This should probably be moved out of the compositor,
+ *      perhaps into a generic resource cache daemon. This
+ *      is mostly kept this way for legacy reasons - the old
+ *      compositor did it, but it was also using some of the
+ *      fonts for internal rendering. We don't draw any text.
+ */
 static char * precache_shmfont(char * ident, char * name) {
 	FILE * f = fopen(name, "r");
 	size_t s = 0;
@@ -492,7 +566,7 @@ static char * precache_shmfont(char * ident, char * name) {
 	fseek(f, 0, SEEK_SET);
 
 	size_t shm_size = s;
-	char * font = (char *)syscall_shm_obtain(ident, &shm_size); //malloc(s);
+	char * font = (char *)syscall_shm_obtain(ident, &shm_size);
 	assert((shm_size >= s) && "shm_obtain returned too little memory to load a font into!");
 
 	fread(font, s, 1, f);
@@ -501,41 +575,71 @@ static char * precache_shmfont(char * ident, char * name) {
 	return font;
 }
 
+/**
+ * Load all of the fonts into the cache.
+ */
 static void load_fonts(yutani_globals_t * yg) {
 	int i = 0;
 	while (fonts[i].identifier) {
 		char tmp[100];
 		snprintf(tmp, 100, "sys.%s.fonts.%s", yg->server_ident, fonts[i].identifier);
-		fprintf(stderr, "[compositor] Loading font %s -> %s\n", fonts[i].path, tmp);
+		fprintf(stderr, "[yutani-server] Loading font %s -> %s\n", fonts[i].path, tmp);
 		precache_shmfont(tmp, fonts[i].path);
 		++i;
 	}
 }
 
+/**
+ * Draw the cursor sprite.
+ *
+ * TODO This should probably use Cairo's PNG functionality, or something
+ *      else other than our own rendering tools...
+ */
 static void draw_cursor(yutani_globals_t * yg, int x, int y) {
 	draw_sprite(yg->backend_ctx, &yg->mouse_sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 }
 
+/**
+ * Add a clip region from a rectangle.
+ */
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
 	cairo_rectangle(yg->framebuffer_ctx, x, y, w, h);
 	cairo_rectangle(yg->real_ctx, x, y, w, h);
 }
 
+/**
+ * Save cairo states for the framebuffers to the stack.
+ */
 static void save_cairo_states(yutani_globals_t * yg) {
 	cairo_save(yg->framebuffer_ctx);
 	cairo_save(yg->real_ctx);
 }
 
+/**
+ * Pop previous framebuffer cairo states.
+ */
 static void restore_cairo_states(yutani_globals_t * yg) {
 	cairo_restore(yg->framebuffer_ctx);
 	cairo_restore(yg->real_ctx);
 }
 
+/**
+ * Apply the clips we built earlier.
+ */
 static void yutani_set_clip(yutani_globals_t * yg) {
 	cairo_clip(yg->framebuffer_ctx);
 	cairo_clip(yg->real_ctx);
 }
 
+/**
+ * Determine if a window has a solid pixel at a given screen-space coordinate.
+ *
+ * This is where we evaluate alpha thresholds. We only do this underneath
+ * the cursor, and only when we move the cursor. It's reasonably fast
+ * in those circumstances, but shouldn't be used for large regions. We
+ * do have one debug method that indicates the top window in a box
+ * around the cursor, but it is relatively slow.
+ */
 yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_server_window_t * w, uint16_t x, uint16_t y){
 	if (!w) return NULL;
 	int32_t _x = -1, _y = -1;
@@ -549,6 +653,14 @@ yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_server_windo
 	return NULL;
 }
 
+/**
+ * Find the window that is at the top at a particular screen-space coordinate.
+ *
+ * This walks through each window from top to bottom (foreachr - reverse foreach)
+ * until it finds one with a pixel at this coordinate. Again, we only call this
+ * at the cursor coordinates, and it is not particularly fast, so don't use it
+ * anywhere that needs to hit a lot of coordinates.
+ */
 yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
 	if (check_top_at(yg, yg->top_z, x, y)) return yg->top_z;
 	foreachr(node, yg->mid_zs) {
@@ -559,11 +671,24 @@ yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
 	return NULL;
 }
 
+/**
+ * Get the window at a coordinate and focus it.
+ *
+ * See the docs for the proceeding functions, but added to this
+ * focusing windows is also not particular fast as the reshuffle
+ * is complicated.
+ */
 static void set_focused_at(yutani_globals_t * yg, int x, int y) {
 	yutani_server_window_t * n_focused = top_at(yg, x, y);
 	set_focused_window(yg, n_focused);
 }
 
+/*
+ * Convenience functions for checking if a window is in the top/bottom stack.
+ *
+ * In the future, these single-item "stacks" will be replaced with dedicated stacks
+ * so we can have multiple background windows and multiple panels / always-top windows.
+ */
 static int window_is_top(yutani_globals_t * yg, yutani_server_window_t * window) {
 	/* For now, just use simple z-order */
 	return window->z == YUTANI_ZORDER_TOP;
@@ -574,6 +699,11 @@ static int window_is_bottom(yutani_globals_t * yg, yutani_server_window_t * wind
 	return window->z == YUTANI_ZORDER_BOTTOM;
 }
 
+/**
+ * Get a color for a wid for debugging.
+ *
+ * Makes a pretty rainbow pattern.
+ */
 static uint32_t color_for_wid(yutani_wid_t wid) {
 	static uint32_t colors[] = {
 		0xFF19aeff,
@@ -595,6 +725,12 @@ static uint32_t color_for_wid(yutani_wid_t wid) {
 	return colors[i];
 }
 
+/**
+ * Blit a window to the framebuffer.
+ *
+ * Applies transformations (rotation, animations) and then renders
+ * the window with Cairo.
+ */
 static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
 
 	/* Obtain the previously initialized cairo contexts */
@@ -688,6 +824,11 @@ draw_finish:
 	cairo_restore(cr);
 
 #if YUTANI_DEBUG_WINDOW_BOUNDS
+	/*
+	 * If window bound debugging is enabled, we also draw a box
+	 * representing the rectangular (possibly rotated) boundary
+	 * for a window texture.
+	 */
 	if (yg->debug_bounds) {
 		cairo_save(cr);
 
@@ -722,6 +863,11 @@ draw_finish:
 	return 0;
 }
 
+/**
+ * Draw the bounding box for a resizing window.
+ *
+ * This also takes into account rotation of the window.
+ */
 static void draw_resizing_box(yutani_globals_t * yg) {
 	cairo_t * cr = yg->framebuffer_ctx;
 	cairo_save(cr);
@@ -753,6 +899,11 @@ static void draw_resizing_box(yutani_globals_t * yg) {
 
 }
 
+/**
+ * Redraw all windows, as well as the mouse cursor.
+ *
+ * This is the main redraw function.
+ */
 static void redraw_windows(yutani_globals_t * yg) {
 	/* Save the cairo contexts so we can apply clipping */
 	save_cairo_states(yg);
@@ -820,9 +971,13 @@ static void redraw_windows(yutani_globals_t * yg) {
 			/* Draw box */
 			draw_resizing_box(yg);
 		}
-	
+
 #if YUTANI_DEBUG_WINDOW_SHAPES
 #define WINDOW_SHAPE_VIEWER_SIZE 20
+		/*
+		 * Debugging window shapes: draw a box around the mouse cursor
+		 * showing which window is at the top and will accept mouse events.
+		 */
 		if (yg->debug_shapes) {
 			int _ly = max(0,tmp_mouse_y/MOUSE_SCALE - WINDOW_SHAPE_VIEWER_SIZE);
 			int _hy = min(yg->height,tmp_mouse_y/MOUSE_SCALE + WINDOW_SHAPE_VIEWER_SIZE);
@@ -839,7 +994,12 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		if (yutani_options.nested) {
 			flip(yg->backend_ctx);
-			/* XXX We can do a better job with this... */
+			/*
+			 * We should be able to flip only the places we need to flip, but
+			 * instead we're going to flip the whole thing.
+			 *
+			 * TODO: Do a better job of this.
+			 */
 			yutani_flip(yg->host_context, yg->host_window);
 		} else {
 
@@ -860,6 +1020,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 			cairo_paint(yg->real_ctx);
 		}
 
+		/*
+		 * If any windows were marked for removal,
+		 * then remove them.
+		 */
 		while (yg->windows_to_remove->head) {
 			node_t * node = list_pop(yg->windows_to_remove);
 
@@ -875,6 +1039,9 @@ static void redraw_windows(yutani_globals_t * yg) {
 	restore_cairo_states(yg);
 }
 
+/**
+ * Initialize cairo contexts and surfaces for the framebuffers.
+ */
 void yutani_cairo_init(yutani_globals_t * yg) {
 
 	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, yg->width);
@@ -890,6 +1057,12 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 	yg->update_list_lock = 0;
 }
 
+/**
+ * Redraw thread.
+ *
+ * Calls the redraw functions in a loop, with some
+ * additional yielding and sleeping.
+ */
 void * redraw(void * in) {
 	yutani_globals_t * yg = in;
 	while (1) {
@@ -910,44 +1083,12 @@ void * redraw(void * in) {
 	}
 }
 
-static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) {
-	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
-
-	if (window->rotation == 0) {
-		rect->x = window->x;
-		rect->y = window->y;
-		rect->width = window->width;
-		rect->height = window->height;
-	} else {
-		int32_t ul_x, ul_y;
-		int32_t ll_x, ll_y;
-		int32_t ur_x, ur_y;
-		int32_t lr_x, lr_y;
-
-		window_to_device(window, 0, 0, &ul_x, &ul_y);
-		window_to_device(window, 0, window->height, &ll_x, &ll_y);
-		window_to_device(window, window->width, 0, &ur_x, &ur_y);
-		window_to_device(window, window->width, window->height, &lr_x, &lr_y);
-
-		/* Calculate bounds */
-
-		int32_t left_bound = min(min(ul_x, ll_x), min(ur_x, lr_x));
-		int32_t top_bound  = min(min(ul_y, ll_y), min(ur_y, lr_y));
-
-		int32_t right_bound = max(max(ul_x, ll_x), max(ur_x, lr_x));
-		int32_t bottom_bound = max(max(ul_y, ll_y), max(ur_y, lr_y));
-
-		rect->x = left_bound;
-		rect->y = top_bound;
-		rect->width = right_bound - left_bound;
-		rect->height = bottom_bound - top_bound;
-	}
-
-	spin_lock(&yg->update_list_lock);
-	list_insert(yg->update_list, rect);
-	spin_unlock(&yg->update_list_lock);
-}
-
+/**
+ * Mark a region within a window as damaged.
+ *
+ * If the window is rotated, we calculate the minimum rectangle that covers
+ * the whole region specified and then mark that.
+ */
 static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t * window, int32_t x, int32_t y, int32_t width, int32_t height) {
 	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
 
@@ -986,24 +1127,24 @@ static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t *
 	spin_unlock(&yg->update_list_lock);
 }
 
-
-static void mark_region(yutani_globals_t * yg, int x, int y, int width, int height) {
-	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
-	rect->x = x;
-	rect->y = y;
-	rect->width = width;
-	rect->height = height;
-
-	spin_lock(&yg->update_list_lock);
-	list_insert(yg->update_list, rect);
-	spin_unlock(&yg->update_list_lock);
+/**
+ * (Convenience function) Mark a whole a window as damaged.
+ */
+static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) {
+	mark_window_relative(yg, window, 0, 0, window->width, window->height);
 }
 
+/**
+ * Set a window as closed. It will be removed after rendering has completed.
+ */
 static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t * w) {
 	w->anim_mode = YUTANI_EFFECT_FADE_OUT;
 	w->anim_start = yg->tick_count;
 }
 
+/**
+ * Remove a window from its owner's child set.
+ */
 static void window_remove_from_client(yutani_globals_t * yg, yutani_server_window_t * w) {
 	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)w->owner);
 	if (client_list) {
@@ -1019,14 +1160,23 @@ static void window_remove_from_client(yutani_globals_t * yg, yutani_server_windo
 	}
 }
 
+/**
+ * Actually remove a window and free the associated resources.
+ */
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w) {
-	/* XXX free window */
+	/* Remove from the wid -> window mapping */
 	hashmap_remove(yg->wids_to_windows, (void *)w->wid);
+
+	/* Remove from the general list of windows. */
 	list_remove(yg->windows, list_index_of(yg->windows, w));
-	spin_lock(&yg->redraw_lock);
+
+	/* Unstack the window */
 	unorder_window(yg, w);
-	spin_unlock(&yg->redraw_lock);
+
+	/* Mark the region where the window was */
 	mark_window(yg, w);
+
+	/* And if it was focused, unfocus it. */
 	if (w == yg->focused_window) {
 		yg->focused_window = NULL;
 	}
@@ -1034,16 +1184,25 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, w->bufid);
-		/* We actually call this from the render thread, so we already have the lock. */
-		//spin_lock(&yg->redraw_lock);
+
+		/*
+		 * Normally we would acquire a lock before doing this, but the render
+		 * thread holds that lock already and we are only called from the
+		 * render thread, so we don't bother.
+		 */
 		syscall_shm_release(key);
-		//spin_unlock(&yg->redraw_lock);
 	}
 
+	/* Notify subscribers that there are changes to windows */
 	yutani_msg_t * response = yutani_msg_build_notify();
 	notify_subscribers(yg);
 }
 
+/**
+ * Generate flags for client advertisements.
+ *
+ * Currently, we only have one flag (focused).
+ */
 static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
 	uint32_t flags = win->client_flags;
 	if (win == yg->focused_window) {
@@ -1052,6 +1211,9 @@ static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
 	return flags;
 }
 
+/**
+ * Send a result for a window query.
+ */
 static void yutani_query_result(yutani_globals_t * yg, uint32_t dest, yutani_server_window_t * win) {
 	if (win && win->client_length) {
 		yutani_msg_t * response = yutani_msg_build_window_advertise(win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
@@ -1060,6 +1222,9 @@ static void yutani_query_result(yutani_globals_t * yg, uint32_t dest, yutani_ser
 	}
 }
 
+/**
+ * Send a notice to all subscribed clients that windows have updated.
+ */
 static void notify_subscribers(yutani_globals_t * yg) {
 	yutani_msg_t * response = yutani_msg_build_notify();
 	foreach(node, yg->window_subscribers) {
@@ -1069,6 +1234,12 @@ static void notify_subscribers(yutani_globals_t * yg) {
 	free(response);
 }
 
+/**
+ * Move and resize a window to fit a particular tiling pattern.
+ *
+ * x and y are 0-based
+ * width_div and height_div are the number of cells in each dimension
+ */
 static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window,  int width_div, int height_div, int x, int y) {
 	int panel_h = 0;
 	yutani_server_window_t * panel = yg->top_z;
@@ -1091,6 +1262,12 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 	return;
 }
 
+/**
+ * Process a key event.
+ *
+ * These are mostly compositor shortcuts and bindings.
+ * We also process key bindings for other applications.
+ */
 static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event * ke) {
 	yutani_server_window_t * focused = get_focused(yg);
 	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
@@ -1148,6 +1325,10 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			return;
 		}
 #endif
+		/*
+		 * Tiling hooks.
+		 * These are based on the compiz grid plugin.
+		 */
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SUPER)) {
 			if ((ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
@@ -1205,6 +1386,9 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		}
 	}
 
+	/*
+	 * External bindings registered by clients.
+	 */
 	uint32_t key_code = ((ke->event.modifiers << 24) | (ke->event.keycode));
 	if (hashmap_has(yg->key_binds, (void*)key_code)) {
 		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
@@ -1214,10 +1398,12 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		free(response);
 
 		if (bind->response == YUTANI_BIND_STEAL) {
+			/* If this keybinding was registered as "steal", we'll stop here. */
 			return;
 		}
 	}
 
+	/* Finally, send the key to the focused client. */
 	if (focused) {
 
 		yutani_msg_t * response = yutani_msg_build_key_event(focused->wid, &ke->event, &ke->state);
@@ -1227,6 +1413,12 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	}
 }
 
+/**
+ * Register a new keybinding.
+ *
+ * req - bind message
+ * owner - client to assign the binding to
+ */
 static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req, unsigned int owner) {
 	uint32_t key_code = (((uint8_t)req->modifiers << 24) | ((uint32_t)req->key & 0xFFFFFF));
 	struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
@@ -1509,9 +1701,8 @@ int main(int argc, char * argv[]) {
 	pthread_create(&render_thread, NULL, redraw, yg);
 
 	if (!fork()) {
-		fprintf(stderr, "Have %d args, argx=%d\n", argc, argx);
 		if (argx < argc) {
-			fprintf(stderr, "Starting %s\n", argv[argx]);
+			fprintf(stderr, "[yutani-server] Starting alternate startup app: %s\n", argv[argx]);
 			execvp(argv[argx], &argv[argx]);
 		} else {
 			char * args[] = {"/bin/glogin", NULL};
