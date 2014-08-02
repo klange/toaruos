@@ -129,31 +129,6 @@ ttk_button * ttk_button_new(char * title, void (*callback)(void *, struct yutani
 	return out;
 }
 
-static cairo_surface_t * close_button_sprite;
-void ttk_render_decor_button_close(void * s, cairo_t * cr) {
-	cairo_save(cr);
-	cairo_set_source_rgb(cr, 244.0, 244.0, 244.0);
-
-	double x = ((ttk_object *)s)->x;
-	double y = ((ttk_object *)s)->y;
-
-	cairo_set_source_surface(cr, close_button_sprite, x + 1, y + 1);
-	cairo_paint(cr);
-
-	cairo_restore(cr);
-}
-
-ttk_button * ttk_decor_button_close(void (*callback)(void *, struct yutani_msg_window_mouse_event *)) {
-	if (!close_button_sprite) {
-		close_button_sprite = cairo_image_surface_create_from_png("/usr/share/ttk/common/button-close.png"); /* TTK_PATH ? something less dumb? */
-	}
-	ttk_button * out = ttk_button_new("Close" /* For future tooltips */, callback);
-	((ttk_object *)out)->render_func = ttk_render_decor_button_close;
-	((ttk_object *)out)->width  = 10;
-	((ttk_object *)out)->height = 10;
-	return out;
-}
-
 ttk_raw_surface * ttk_raw_surface_new(int width, int height) {
 	ttk_raw_surface * out = malloc(sizeof(ttk_raw_surface));
 
@@ -212,9 +187,6 @@ void ttk_check_click(struct yutani_msg_window_mouse_event * evt) {
 		}
 	} else if (evt->command == YUTANI_MOUSE_EVENT_DOWN) {
 		fprintf(stderr, "Mouse down: %d, %d\n", evt->new_x, evt->new_y);
-		if (evt->new_y < decor_top_height && evt->new_x < (wina->width - 28)) {
-			yutani_window_drag_start(yctx, wina);
-		}
 	}
 }
 
@@ -279,7 +251,6 @@ uint16_t quit = 0;
 ttk_button * button_red;
 ttk_button * button_green;
 ttk_button * button_blue;
-ttk_button * close_button;
 
 ttk_button * button_thick;
 ttk_button * button_thin;
@@ -297,10 +268,6 @@ static void set_color(void * button, struct yutani_msg_window_mouse_event * even
 	drawing_color = self->fill_color;
 
 	ttk_render();
-}
-
-static void quit_app(void * button, struct yutani_msg_window_mouse_event * event) {
-	quit = 1;
 }
 
 static void set_thickness_thick(void * button, struct yutani_msg_window_mouse_event * event) {
@@ -332,7 +299,6 @@ static void set_thickness_thin(void * button, struct yutani_msg_window_mouse_eve
 static void resize_finish(int width, int height) {
 	yutani_window_resize_accept(yctx, wina, width, height);
 	reinit_graphics_yutani(ctx, wina);
-	((ttk_object *)close_button)->x = wina->width - 28;
 	ttk_render();
 	yutani_window_resize_done(yctx, wina);
 	yutani_flip(yctx, wina);
@@ -414,11 +380,6 @@ int main (int argc, char ** argv) {
 	setup_ttk(wina);
 
 
-	close_button = ttk_decor_button_close(quit_app);
-
-	((ttk_object *)close_button)->x = width - 28;
-	((ttk_object *)close_button)->y = 16;
-
 	button_blue = ttk_button_new("Blue", set_color);
 	ttk_position((ttk_object *)button_blue, decor_left_width + 3, decor_top_height + 3, 100, 20);
 	button_blue->fill_color = rgb(0,0,255);
@@ -485,6 +446,10 @@ int main (int argc, char ** argv) {
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (decor_handle_event(yctx, m) == DECOR_CLOSE) {
+							quit = 1;
+							break;
+						}
 						if (me->command == YUTANI_MOUSE_EVENT_DRAG && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 							keep_drawing(me);
 							yutani_flip(yctx, wina);

@@ -21,13 +21,15 @@ uint32_t decor_right_width    = 6;
 #define TEXT_OFFSET_X 10
 #define TEXT_OFFSET_Y 16
 
-#define INACTIVE 8
+#define INACTIVE 9
 
 #define BORDERCOLOR rgb(60,60,60)
 #define BORDERCOLOR_INACTIVE rgb(30,30,30)
 #define BACKCOLOR rgb(20,20,20)
 #define TEXTCOLOR rgb(230,230,230)
 #define TEXTCOLOR_INACTIVE rgb(140,140,140)
+
+#define TTK_FANCY_PATH "/usr/share/ttk/"
 
 static int u_height = 33;
 static int ul_width = 10;
@@ -42,7 +44,7 @@ static int lly_offset = 3;
 static int lrx_offset = 3;
 static int lry_offset = 3;
 
-static sprite_t * sprites[16];
+static sprite_t * sprites[20];
 
 #define TEXT_OFFSET 24
 
@@ -52,6 +54,11 @@ static void init_sprite_png(int id, char * path) {
 }
 
 static void (*render_decorations_)(yutani_window_t *, gfx_context_t *, char *, int) = NULL;
+static int  (*check_button_press)(yutani_window_t *, int x, int y) = NULL;
+
+static void (*callback_close)(yutani_window_t *) = NULL;
+static void (*callback_resize)(yutani_window_t *) = NULL;
+
 
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
@@ -82,8 +89,10 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 		GFX(ctx, i, decor_top_height - 1) = color;
 		GFX(ctx, i, window->height - 1) = color;
 	}
+}
 
-
+static int check_button_press_simple(yutani_window_t * window, int x, int y) {
+	return 0; /* no buttons in simple mode */
 }
 
 static void initialize_simple() {
@@ -93,6 +102,7 @@ static void initialize_simple() {
 	decor_right_width    = 1;
 
 	render_decorations_ = render_decorations_simple;
+	check_button_press  = check_button_press_simple;
 }
 
 static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
@@ -144,26 +154,40 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	} else {
 		draw_string(ctx, title_offset, TEXT_OFFSET, rgb(147,147,147), title);
 	}
+
+	/* Buttons */
+	draw_sprite(ctx, sprites[decors_active + 8], width - 28, 16);
+}
+
+static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
+	if (x >= window->width - 28 && x <= window->width - 18 &&
+		y >= 16 && y <= 26) {
+		return DECOR_CLOSE;
+	}
+
+	return 0;
 }
 
 static void initialize_fancy() {
-	init_sprite_png(0, "/usr/share/ttk/active/ul.png");
-	init_sprite_png(1, "/usr/share/ttk/active/um.png");
-	init_sprite_png(2, "/usr/share/ttk/active/ur.png");
-	init_sprite_png(3, "/usr/share/ttk/active/ml.png");
-	init_sprite_png(4, "/usr/share/ttk/active/mr.png");
-	init_sprite_png(5, "/usr/share/ttk/active/ll.png");
-	init_sprite_png(6, "/usr/share/ttk/active/lm.png");
-	init_sprite_png(7, "/usr/share/ttk/active/lr.png");
+	init_sprite_png(0, TTK_FANCY_PATH "active/ul.png");
+	init_sprite_png(1, TTK_FANCY_PATH "active/um.png");
+	init_sprite_png(2, TTK_FANCY_PATH "active/ur.png");
+	init_sprite_png(3, TTK_FANCY_PATH "active/ml.png");
+	init_sprite_png(4, TTK_FANCY_PATH "active/mr.png");
+	init_sprite_png(5, TTK_FANCY_PATH "active/ll.png");
+	init_sprite_png(6, TTK_FANCY_PATH "active/lm.png");
+	init_sprite_png(7, TTK_FANCY_PATH "active/lr.png");
+	init_sprite_png(8, TTK_FANCY_PATH "active/button-close.png");
 
-	init_sprite_png(INACTIVE + 0, "/usr/share/ttk/inactive/ul.png");
-	init_sprite_png(INACTIVE + 1, "/usr/share/ttk/inactive/um.png");
-	init_sprite_png(INACTIVE + 2, "/usr/share/ttk/inactive/ur.png");
-	init_sprite_png(INACTIVE + 3, "/usr/share/ttk/inactive/ml.png");
-	init_sprite_png(INACTIVE + 4, "/usr/share/ttk/inactive/mr.png");
-	init_sprite_png(INACTIVE + 5, "/usr/share/ttk/inactive/ll.png");
-	init_sprite_png(INACTIVE + 6, "/usr/share/ttk/inactive/lm.png");
-	init_sprite_png(INACTIVE + 7, "/usr/share/ttk/inactive/lr.png");
+	init_sprite_png(INACTIVE + 0, TTK_FANCY_PATH "inactive/ul.png");
+	init_sprite_png(INACTIVE + 1, TTK_FANCY_PATH "inactive/um.png");
+	init_sprite_png(INACTIVE + 2, TTK_FANCY_PATH "inactive/ur.png");
+	init_sprite_png(INACTIVE + 3, TTK_FANCY_PATH "inactive/ml.png");
+	init_sprite_png(INACTIVE + 4, TTK_FANCY_PATH "inactive/mr.png");
+	init_sprite_png(INACTIVE + 5, TTK_FANCY_PATH "inactive/ll.png");
+	init_sprite_png(INACTIVE + 6, TTK_FANCY_PATH "inactive/lm.png");
+	init_sprite_png(INACTIVE + 7, TTK_FANCY_PATH "inactive/lr.png");
+	init_sprite_png(INACTIVE + 8, TTK_FANCY_PATH "inactive/button-close.png");
 
 	decor_top_height     = 33;
 	decor_bottom_height  = 6;
@@ -171,6 +195,7 @@ static void initialize_fancy() {
 	decor_right_width    = 6;
 
 	render_decorations_ = render_decorations_fancy;
+	check_button_press  = check_button_press_fancy;
 }
 
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
@@ -206,4 +231,49 @@ uint32_t decor_height() {
 	return decor_top_height + decor_bottom_height;
 }
 
+void decor_set_close_callback(void (*callback)(yutani_window_t *)) {
+	callback_close = callback;
+}
 
+void decor_set_resize_callback(void (*callback)(yutani_window_t *)) {
+	callback_resize = callback;
+}
+
+int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
+	if (m) {
+		switch (m->type) {
+			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+				{
+					struct yutani_msg_window_mouse_event * me = (void*)m->data;
+					if (me->new_y < decor_top_height) {
+						yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
+						if (window) {
+							int button = check_button_press(window, me->new_x, me->new_y);
+							if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+								if (!button) {
+									yutani_window_drag_start(yctx, window);
+									return DECOR_OTHER;
+								}
+							}
+							if (me->command == YUTANI_MOUSE_EVENT_CLICK) {
+								/* Determine if we clicked on a button */
+								switch (button) {
+									case DECOR_CLOSE:
+										if (callback_close) callback_close(window);
+										break;
+									case DECOR_RESIZE:
+										if (callback_resize) callback_resize(window);
+										break;
+									default:
+										break;
+								}
+								return button;
+							}
+						}
+					}
+				}
+				break;
+		}
+	}
+	return 0;
+}

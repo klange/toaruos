@@ -154,13 +154,8 @@ int main (int argc, char ** argv) {
 					}
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-					{
-						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-							if (me->new_y < decor_top_height) {
-								yutani_window_drag_start(yctx, wina);
-							}
-						}
+					if (decor_handle_event(yctx, m) == DECOR_CLOSE) {
+						should_exit = 1;
 					}
 					break;
 				default:
