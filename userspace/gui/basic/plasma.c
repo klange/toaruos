@@ -16,6 +16,7 @@
 #include "lib/graphics.h"
 #include "lib/decorations.h"
 #include "lib/pthread.h"
+#include "lib/spinlock.h"
 
 #define dist(a,b,c,d) sqrt((double)(((a) - (c)) * ((a) - (c)) + ((b) - (d)) * ((b) - (d))))
 
@@ -28,6 +29,8 @@ uint16_t win_height;
 
 uint16_t off_x;
 uint16_t off_y;
+
+static int volatile draw_lock = 0;
 
 gfx_context_t * ctx;
 
@@ -69,6 +72,7 @@ void * draw_thread(void * garbage) {
 		int w = win_width;
 		int h = win_height;
 
+		spin_lock(&draw_lock);
 		for (int x = 0; x < win_width; ++x) {
 			for (int y = 0; y < win_height; ++y) {
 				double value = sin(dist(x + time, y, 128.0, 128.0) / 8.0)
@@ -81,6 +85,7 @@ void * draw_thread(void * garbage) {
 		redraw_borders();
 		flip(ctx);
 		yutani_flip(yctx, wina);
+		spin_unlock(&draw_lock);
 		syscall_yield();
 	}
 }
@@ -89,11 +94,10 @@ void resize_finish(int w, int h) {
 	yutani_window_resize_accept(yctx, wina, w, h);
 	reinit_graphics_yutani(ctx, wina);
 
-	win_width  = w;
-	win_height = h;
+	win_width  = w - decor_width();
+	win_height = h - decor_height();
 
 	yutani_window_resize_done(yctx, wina);
-	yutani_flip(yctx, wina);
 }
 
 int main (int argc, char ** argv) {
@@ -150,7 +154,9 @@ int main (int argc, char ** argv) {
 				case YUTANI_MSG_RESIZE_OFFER:
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;
+						spin_lock(&draw_lock);
 						resize_finish(wr->width, wr->height);
+						spin_unlock(&draw_lock);
 					}
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
