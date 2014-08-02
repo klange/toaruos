@@ -128,6 +128,12 @@ static void * toastd_handler(void * garbage) {
 		pex_packet_t * p = calloc(PACKET_SIZE, 1);
 		if (pex_listen(toastd_server, p) > 0) {
 
+			if (p->size == 0) {
+				/* Connection closed notification */
+				free(p);
+				continue;
+			}
+
 			notification_t * toast = (void *)p->data;
 			add_toast(toast);
 
