@@ -865,9 +865,15 @@ void key_event(int ret, key_event_t * event) {
 				handle_input_s("\033[23~");
 				break;
 			case KEY_F12:
-				/* XXX This is for testing only */
-				handle_input_s("テスト");
-				//handle_input_s("\033[24~");
+				/* Toggle decorations */
+				if (!_fullscreen) {
+					spin_lock(&display_lock);
+					_no_frame = !_no_frame;
+					window_width = window->width - decor_width() * (!_no_frame);
+					window_height = window->height - decor_height() * (!_no_frame);
+					reinit(1);
+					spin_unlock(&display_lock);
+				}
 				break;
 			case KEY_ARROW_UP:
 				handle_input_s("\033[A");
