@@ -519,8 +519,10 @@ static void rtl_ircd(void * data, char * name) {
 	char * buf = malloc(4096);
 
 	while (1) {
-		fgets(buf, 4096, irc_socket);
+		char * result = fgets(buf, 4095, irc_socket);
+		if (!result) continue;
 		size_t len = strlen(buf);
+		if (!len) continue;
 
 		handle_irc_packet(tty, len, (unsigned char *)buf);
 	}
@@ -777,6 +779,8 @@ static void rtl_netd(void * data, char * name) {
 
 	irc_socket = make_pipe(4096);
 	vfs_mount("/dev/net_irc", irc_socket);
+
+	create_kernel_tasklet(rtl_ircd, "[ircd]", tty);
 
 	while (1) {
 
@@ -1123,7 +1127,6 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Card is configured, going to start worker thread now.\n");
 
 		create_kernel_tasklet(rtl_netd, "[netd]", tty);
-		create_kernel_tasklet(rtl_ircd, "[ircd]", tty);
 
 	} else {
 		return -1;
