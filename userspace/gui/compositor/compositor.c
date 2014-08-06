@@ -731,10 +731,10 @@ static uint32_t color_for_wid(yutani_wid_t wid) {
  * Applies transformations (rotation, animations) and then renders
  * the window with Cairo.
  */
-static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
+static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_server_window_t * window, int x, int y) {
 
 	/* Obtain the previously initialized cairo contexts */
-	cairo_t * cr = yg->framebuffer_ctx;
+	cairo_t * cr = ctx;
 
 	/* Window stride is always 4 bytes per pixel... */
 	int stride = window->width * 4;
@@ -900,6 +900,55 @@ static void draw_resizing_box(yutani_globals_t * yg) {
 }
 
 /**
+ * Blit all windows into the given context.
+ *
+ * This is called for rendering and for screenshots.
+ */
+static void yutani_blit_windows(yutani_globals_t * yg, cairo_t * ctx) {
+	if (yg->bottom_z) yutani_blit_window(yg, ctx, yg->bottom_z, yg->bottom_z->x, yg->bottom_z->y);
+	foreach (node, yg->mid_zs) {
+		yutani_server_window_t * w = node->value;
+		if (w) yutani_blit_window(yg, ctx, w, w->x, w->y);
+	}
+	if (yg->top_z) yutani_blit_window(yg, ctx, yg->top_z, yg->top_z->x, yg->top_z->y);
+}
+
+/**
+ * Take a screenshot
+ */
+static void yutani_screenshot(yutani_globals_t * yg) {
+	int target_width;
+	int target_height;
+	void * target_data;
+
+	switch (yg->screenshot_frame) {
+		case YUTANI_SCREENSHOT_FULL:
+			target_width = yg->width;
+			target_height = yg->height;
+			target_data = yg->backend_framebuffer;
+			break;
+		case YUTANI_SCREENSHOT_WINDOW:
+			if (!yg->focused_window) goto screenshot_done;
+			target_width = yg->focused_window->width;
+			target_height = yg->focused_window->height;
+			target_data = yg->focused_window->buffer;
+			break;
+		default:
+			/* ??? */
+			goto screenshot_done;
+	}
+
+	cairo_surface_t * s = cairo_image_surface_create_for_data(target_data, CAIRO_FORMAT_ARGB32, target_width, target_height, target_width * 4);
+
+	cairo_surface_write_to_png(s, "/tmp/screenshot.png");
+
+	cairo_surface_destroy(s);
+
+screenshot_done:
+	yg->screenshot_frame = 0;
+}
+
+/**
  * Redraw all windows, as well as the mouse cursor.
  *
  * This is the main redraw function.
@@ -959,12 +1008,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * we also need to render windows in stacking order...
 		 */
 		spin_lock(&yg->redraw_lock);
-		if (yg->bottom_z) yutani_blit_window(yg, yg->bottom_z, yg->bottom_z->x, yg->bottom_z->y);
-		foreach (node, yg->mid_zs) {
-			yutani_server_window_t * w = node->value;
-			if (w) yutani_blit_window(yg, w, w->x, w->y);
-		}
-		if (yg->top_z) yutani_blit_window(yg, yg->top_z, yg->top_z->x, yg->top_z->y);
+		yutani_blit_windows(yg, yg->framebuffer_ctx);
 		spin_unlock(&yg->redraw_lock);
 
 		if (yg->resizing_window) {
@@ -1033,6 +1077,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 		}
 		free(yg->windows_to_remove);
 
+	}
+
+	if (yg->screenshot_frame) {
+		yutani_screenshot(yg);
 	}
 
 	/* Restore the cairo contexts to reset clip regions */
@@ -1382,6 +1430,16 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 					window_tile(yg, focused, 1, 2, 0, 1);
 					return;
 				}
+			}
+			if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+				(ke->event.keycode == 's')) {
+				yg->screenshot_frame = YUTANI_SCREENSHOT_FULL;
+				return;
+			}
+			if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+				(ke->event.keycode == 'w')) {
+				yg->screenshot_frame = YUTANI_SCREENSHOT_WINDOW;
+				return;
 			}
 		}
 	}

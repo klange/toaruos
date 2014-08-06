@@ -14,6 +14,9 @@
 
 #define YUTANI_BYTE_DEPTH 4
 
+#define YUTANI_SCREENSHOT_FULL 1
+#define YUTANI_SCREENSHOT_WINDOW 2
+
 typedef enum {
 	YUTANI_EFFECT_NONE,
 	YUTANI_EFFECT_FADE_IN,
@@ -136,6 +139,8 @@ typedef struct {
 
 	int debug_bounds;
 	int debug_shapes;
+
+	int screenshot_frame;
 
 } yutani_globals_t;
 
