@@ -187,7 +187,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	map_vfs_directory("/dev");
 
 	if (args_present("root")) {
-		vfs_mount_type("ext2", "/dev/hda", "/");
+		vfs_mount_type("ext2", args_value("root"), "/");
 	}
 
 	if (args_present("start")) {
