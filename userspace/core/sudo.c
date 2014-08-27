@@ -1,8 +1,7 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
- */
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
  * sudo
  *
@@ -19,50 +18,11 @@
 #include <termios.h>
 #include <errno.h>
 #include <sys/wait.h>
-
 #include <sys/utsname.h>
 
-#include "lib/sha2.h"
-
-#define LINE_LEN 1024
+#include "lib/toaru_auth.h"
 
 uint32_t child = 0;
-
-int checkUserPass(char * user, char * pass) {
-
-	/* Generate SHA512 */
-	char hash[SHA512_DIGEST_STRING_LENGTH];
-	SHA512_Data(pass, strlen(pass), hash);
-
-	/* Open up /etc/master.passwd */
-
-	FILE * passwd = fopen("/etc/master.passwd", "r");
-	char line[2048];
-
-	while (fgets(line, 2048, passwd) != NULL) {
-
-		line[strlen(line)-1] = '\0';
-
-		char *p, *tokens[4], *last;
-		int i = 0;
-		for ((p = strtok_r(line, ":", &last)); p;
-				(p = strtok_r(NULL, ":", &last)), i++) {
-			if (i < 511) tokens[i] = p;
-		}
-		tokens[i] = NULL;
-		
-		if (strcmp(tokens[0],user) != 0) {
-			continue;
-		}
-		if (!strcmp(tokens[1],hash)) {
-			fclose(passwd);
-			return atoi(tokens[2]);
-		}
-		}
-	fclose(passwd);
-	return -1;
-
-}
 
 void usage(int argc, char * argv[]) {
 	fprintf(stderr, "usage: %s [command]\n", argv[0]);
@@ -101,7 +61,7 @@ int main(int argc, char ** argv) {
 		tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 		fprintf(stdout, "\n");
 
-		int uid = checkUserPass(username, password);
+		int uid = toaru_auth_check_pass(username, password);
 
 		if (uid < 0) {
 			fails++;

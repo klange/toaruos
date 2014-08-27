@@ -152,28 +152,12 @@ char _hostname[256];
 
 /* function to update the cached username */
 void getuser() {
-	FILE * passwd = fopen("/etc/passwd", "r");
-	char line[LINE_LEN];
-	
-	int uid = getuid();
-
-	while (fgets(line, LINE_LEN, passwd) != NULL) {
-
-		line[strlen(line)-1] = '\0';
-
-		char *p, *tokens[10], *last;
-		int i = 0;
-		for ((p = strtok_r(line, ":", &last)); p;
-				(p = strtok_r(NULL, ":", &last)), i++) {
-			if (i < 511) tokens[i] = p;
-		}
-		tokens[i] = NULL;
-
-		if (atoi(tokens[2]) == uid) {
-			memcpy(username, tokens[0], strlen(tokens[0]) + 1);
-		}
+	char * tmp = getenv("USER");
+	if (tmp) {
+		strcpy(username, tmp);
+	} else {
+		sprintf(username, "%d", getuid());
 	}
-	fclose(passwd);
 }
 
 /* function to update the cached hostname */

@@ -1304,9 +1304,6 @@ int main(int argc, char ** argv) {
 			int i = execvp(tokens[0], tokens);
 			fprintf(stderr, "Failed to launch requested startup application.\n");
 		} else {
-			/*
-			 * TODO: Check the public-readable passwd file to select which shell to run
-			 */
 			if (_login_shell) {
 				char * tokens[] = {"/bin/login",NULL};
 				int i = execvp(tokens[0], tokens);
