@@ -26,6 +26,7 @@ class Classifier(object):
         '<zlib.h>':            (None, '-lz', ['<math.h>']),
         '<png.h>':             (None, '-lpng', ['<zlib.h>']),
         # Toaru Standard Library
+        '"lib/toaru_auth.h"':  (None, 'userspace/lib/toaru_auth.o',  ['"lib/sha2.h"']),
         '"lib/kbd.h"':         (None, 'userspace/lib/kbd.o',         []),
         '"lib/list.h"':        (None, 'userspace/lib/list.o',        []),
         '"lib/hashmap.h"':     (None, 'userspace/lib/hashmap.o',     ['"lib/list.h"']),

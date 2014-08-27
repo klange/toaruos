@@ -20,11 +20,11 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 
-#include "lib/sha2.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
 #include "lib/kbd.h"
 #include "lib/yutani.h"
+#include "lib/toaru_auth.h"
 
 sprite_t * sprites[128];
 sprite_t alpha_tmp;
@@ -37,42 +37,6 @@ uint16_t win_height;
 int uid = 0;
 
 #define LOGO_FINAL_OFFSET 100
-
-int checkUserPass(char * user, char * pass) {
-
-	/* Generate SHA512 */
-	char hash[SHA512_DIGEST_STRING_LENGTH];
-	SHA512_Data(pass, strlen(pass), hash);
-
-	/* Open up /etc/master.passwd */
-
-	FILE * passwd = fopen("/etc/master.passwd", "r");
-	char line[2048];
-
-	while (fgets(line, 2048, passwd) != NULL) {
-
-		line[strlen(line)-1] = '\0';
-
-		char *p, *tokens[4], *last;
-		int i = 0;
-		for ((p = strtok_r(line, ":", &last)); p;
-				(p = strtok_r(NULL, ":", &last)), i++) {
-			if (i < 511) tokens[i] = p;
-		}
-		tokens[i] = NULL;
-		
-		if (strcmp(tokens[0],user) != 0) {
-			continue;
-		}
-		if (!strcmp(tokens[1],hash)) {
-			fclose(passwd);
-			return atoi(tokens[2]);
-		}
-		}
-	fclose(passwd);
-	return -1;
-
-}
 
 int center_x(int x) {
 	return (win_width - x) / 2;
@@ -382,7 +346,7 @@ int main (int argc, char ** argv) {
 
 			}
 
-			uid = checkUserPass(username, password);
+			uid = toaru_auth_check_pass(username, password);
 
 			if (uid >= 0) {
 				break;
@@ -396,8 +360,8 @@ int main (int argc, char ** argv) {
 
 		pid_t _session_pid = fork();
 		if (!_session_pid) {
-			setenv("PATH", "/usr/bin:/bin", 0);
 			setuid(uid);
+			toaru_auth_set_vars();
 			char * args[] = {"/bin/gsession", NULL};
 			execvp(args[0], args);
 		}

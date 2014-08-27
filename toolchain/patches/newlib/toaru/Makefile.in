@@ -245,6 +245,9 @@ lib_a-klmalloc.o: klmalloc.c
 lib_a-klmalloc.obj: klmalloc.c
 	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-klmalloc.obj `if test -f 'klmalloc.c'; then $(CYGPATH_W) 'klmalloc.c'; else $(CYGPATH_W) '$(srcdir)/klmalloc.c'; fi`
 
+lib_a-pwent.obj: pwent.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-pwent.obj `if test -f 'pwent.c'; then $(CYGPATH_W) 'pwent.c'; else $(CYGPATH_W) '$(srcdir)/pwent.c'; fi`
+
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
 	unique=`for i in $$list; do \
