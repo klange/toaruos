@@ -699,7 +699,9 @@ int main(int argc, char ** argv) {
 				char * tokens[] = {"/bin/login",NULL};
 				int i = execvp(tokens[0], tokens);
 			} else {
-				char * tokens[] = {"/bin/sh",NULL};
+				char * shell = getenv("SHELL");
+				if (!shell) shell = "/bin/sh"; /* fallback */
+				char * tokens[] = {shell,NULL};
 				int i = execvp(tokens[0], tokens);
 			}
 		}
