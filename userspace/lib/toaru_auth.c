@@ -56,8 +56,9 @@ void toaru_auth_set_vars(void) {
 		setenv("SHELL", strdup(p->pw_shell), 1);
 		setenv("WM_THEME", strdup(p->pw_comment), 1);
 	}
-	setenv("PATH", "/usr/bin:/bin", 0);
-
 	endpwent();
+
+	setenv("PATH", "/usr/bin:/bin", 0);
+	chdir(getenv("HOME"));
 }
 
