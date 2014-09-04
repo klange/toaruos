@@ -133,6 +133,8 @@ vga: system
 	${EMU} ${EMUARGS} -append "$(START_VGA) $(DISK_ROOT)"
 vga-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "$(START_VGA) $(DISK_ROOT)"
+debug-vga: system
+	${EMU} ${EMUARGS} -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
 term: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 term-kvm: system
