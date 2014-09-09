@@ -184,8 +184,9 @@ FT_Face      face_italic;
 FT_Face      face_bold_italic;
 FT_Face      face_extra;
 FT_Face      face_symbol;
+FT_Face      face_variable;
 
-FT_Face * fallbacks[] = {&face_symbol, &face_extra, &face_symbol, NULL};
+FT_Face * fallbacks[] = {&face_variable, &face_symbol, &face_extra, &face_symbol, NULL};
 
 
 void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
@@ -301,6 +302,7 @@ term_write_char(
 			_font = &face;
 		}
 		glyph_index = FT_Get_Char_Index(*_font, val);
+
 		if (!glyph_index) {
 			int i = 0;
 			while (!glyph_index && fallbacks[i]) {
@@ -996,6 +998,7 @@ void reinit(int send_sig) {
 		FT_Set_Pixel_Sizes(face_bold_italic, font_size, font_size);
 		FT_Set_Pixel_Sizes(face_extra, font_size, font_size);
 		FT_Set_Pixel_Sizes(face_symbol, font_size, font_size);
+		FT_Set_Pixel_Sizes(face_variable, font_size, font_size);
 	}
 	int i = 0;
 
@@ -1281,6 +1284,10 @@ int main(int argc, char ** argv) {
 		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
 
 		error = FT_New_Face(library, "/usr/share/fonts/Symbola.ttf", 0, &face_symbol);
+
+		font = loadMemFont("/usr/share/fonts/DejaVuSans.ttf",  "sans-serif", &s);
+		error = FT_New_Memory_Face(library, font, s, 0, &face_variable); if (error) return 1;
+
 	}
 
 	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
