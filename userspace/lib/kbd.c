@@ -232,21 +232,25 @@ int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event
 					case 0x1D:
 						state->k_ctrl   = down;
 						state->kl_ctrl  = down;
+						event->keycode  = KEY_LEFT_CTRL;
 						SET_UNSET(event->modifiers, KEY_MOD_LEFT_CTRL, down);
 						break;
 					case 0x2A:
 						state->k_shift  = down;
 						state->kl_shift = down;
+						event->keycode  = KEY_LEFT_SHIFT;
 						SET_UNSET(event->modifiers, KEY_MOD_LEFT_SHIFT, down);
 						break;
 					case 0x36:
 						state->k_shift  = down;
 						state->kr_shift = down;
+						event->keycode  = KEY_RIGHT_SHIFT;
 						SET_UNSET(event->modifiers, KEY_MOD_RIGHT_SHIFT, down);
 						break;
 					case 0x38:
 						state->k_alt    = down;
 						state->kl_alt   = down;
+						event->keycode  = KEY_LEFT_ALT;
 						SET_UNSET(event->modifiers, KEY_MOD_LEFT_ALT, down);
 						break;
 					default:
@@ -316,21 +320,25 @@ int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event
 			case 0x5B:
 				state->k_super  = down;
 				state->kl_super = down;
+				event->keycode  = KEY_LEFT_SUPER;
 				SET_UNSET(event->modifiers, KEY_MOD_LEFT_SUPER, down);
 				break;
 			case 0x5C:
 				state->k_super  = down;
 				state->kr_super = down;
+				event->keycode  = KEY_RIGHT_SUPER;
 				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_SUPER, down);
 				break;
 			case 0x1D:
 				state->kr_ctrl  = down;
 				state->k_ctrl   = down;
+				event->keycode  = KEY_RIGHT_CTRL;
 				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_CTRL, down);
 				break;
 			case 0x38:
 				state->kr_alt   = down;
 				state->k_alt    = down;
+				event->keycode  = KEY_RIGHT_ALT;
 				SET_UNSET(event->modifiers, KEY_MOD_RIGHT_ALT, down);
 				break;
 			case 0x48:
