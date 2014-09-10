@@ -9,9 +9,9 @@
 
 watchdog_pid=$!
 
-sudo apt-get update
-sudo apt-get install expect exuberant-ctags # >/dev/null 2>/dev/null
-make toolchain # >/dev/null 2>/dev/null
+sudo apt-get update >/dev/null 2>/dev/null
+sudo apt-get install expect exuberant-ctags >/dev/null 2>/dev/null
+make toolchain >/dev/null 2>/dev/null
 
 kill $!
 
