@@ -142,7 +142,7 @@ pushd build
     if $BUILD_ZLIB; then
         # XXX zlib can not be built in a separate directory
         pushd $DIR/tarballs/zlib*
-            CC=i686-pc-toaru-gcc ./configure --static --prefix=$PREFIX/$TARGET || bail
+            CC=i686-pc-toaru-gcc ./configure --static --prefix=$VIRTPREFIX || bail
             make || bail
             make DESTDIR=$TOARU_SYSROOT install || bail
         popd
