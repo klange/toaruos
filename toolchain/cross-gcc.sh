@@ -45,27 +45,27 @@ pushd build || bail
         make || bail
         make DESTDIR=$REALPREFIX install || bail
     popd
-    #if [ -d gcc-native ]; then
-    #    rm -rf gcc-native
-    #fi
-    #mkdir gcc-native
-    #pushd gcc-native || bail
-    #    make distclean
-    #    $DIR/tarballs/$GCC/configure --prefix=$VIRTPREFIX --host=$TARGET --target=$TARGET --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
-    #    make DESTDIR=$REALPREFIX all-gcc || bail
-    #    make DESTDIR=$REALPREFIX install-gcc || bail
-    #    make DESTDIR=$REALPREFIX all-target-libgcc || bail
-    #    make DESTDIR=$REALPREFIX install-target-libgcc || bail
-    #    touch $TOARU_SYSROOT/usr/include/fenv.h
-    #    make DESTDIR=$REALPREFIX all-target-libstdc++-v3 || bail
-    #    make DESTDIR=$REALPREFIX install-target-libstdc++-v3 || bail
-    #popd
+    if [ -d gcc-native ]; then
+        rm -rf gcc-native
+    fi
+    mkdir gcc-native
+    pushd gcc-native || bail
+        make distclean
+        $DIR/tarballs/$GCC/configure --prefix=$VIRTPREFIX --host=$TARGET --target=$TARGET --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
+        make DESTDIR=$REALPREFIX all-gcc || bail
+        make DESTDIR=$REALPREFIX install-gcc || bail
+        make DESTDIR=$REALPREFIX all-target-libgcc || bail
+        make DESTDIR=$REALPREFIX install-target-libgcc || bail
+        touch $TOARU_SYSROOT/usr/include/fenv.h
+        make DESTDIR=$REALPREFIX all-target-libstdc++-v3 || bail
+        make DESTDIR=$REALPREFIX install-target-libstdc++-v3 || bail
+    popd
 
-    #TMP_INCFIX=$REALPREFIX$VIRTPREFIX/lib/gcc/$TARGET/$GCCV/include-fixed
+    TMP_INCFIX=$REALPREFIX$VIRTPREFIX/lib/gcc/$TARGET/$GCCV/include-fixed
 
-    #if [ -d $TMP_INCFIX ]; then
-    #    rm -r "$TMP_INCFIX"
-    #fi
+    if [ -d $TMP_INCFIX ]; then
+        rm -r "$TMP_INCFIX"
+    fi
 
     pushd $REALPREFIX$VIRTPREFIX/bin || bail
         $TARGET-strip *
