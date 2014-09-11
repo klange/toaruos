@@ -19,7 +19,7 @@ GCC=gcc-$GCCV
 BINUTILS=binutils-2.22
 
 VIRTPREFIX=/usr
-REALPREFIX=$DIR/../hdd
+REALPREFIX=$TOARU_SYSROOT
 
 if [ ! -d tarballs/$GCC/mpfr ]; then
     mv tarballs/$MPFR tarballs/$GCC/mpfr
@@ -33,6 +33,8 @@ fi
 
 # Actual build process
 
+echo "Building GCC for native installation targetting $TARGET, installed into $TOARU_SYSROOT$VIRTPREFIX"
+
 pushd build || bail
     if [ -d binutils-native ]; then
         rm -rf binutils-native
@@ -43,27 +45,27 @@ pushd build || bail
         make || bail
         make DESTDIR=$REALPREFIX install || bail
     popd
-    if [ -d gcc-native ]; then
-        rm -rf gcc-native
-    fi
-    mkdir gcc-native
-    pushd gcc-native || bail
-        make distclean
-        $DIR/tarballs/$GCC/configure --prefix=$VIRTPREFIX --host=$TARGET --target=$TARGET --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
-        make all-gcc || bail
-        make DESTDIR=$REALPREFIX install-gcc || bail
-        make all-target-libgcc || bail
-        make DESTDIR=$REALPREFIX install-target-libgcc || bail
-        touch $PREFIX/$TARGET/include/fenv.h
-        make all-target-libstdc++-v3 || bail
-        make DESTDIR=$REALPREFIX install-target-libstdc++-v3 || bail
-    popd
+    #if [ -d gcc-native ]; then
+    #    rm -rf gcc-native
+    #fi
+    #mkdir gcc-native
+    #pushd gcc-native || bail
+    #    make distclean
+    #    $DIR/tarballs/$GCC/configure --prefix=$VIRTPREFIX --host=$TARGET --target=$TARGET --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
+    #    make DESTDIR=$REALPREFIX all-gcc || bail
+    #    make DESTDIR=$REALPREFIX install-gcc || bail
+    #    make DESTDIR=$REALPREFIX all-target-libgcc || bail
+    #    make DESTDIR=$REALPREFIX install-target-libgcc || bail
+    #    touch $TOARU_SYSROOT/usr/include/fenv.h
+    #    make DESTDIR=$REALPREFIX all-target-libstdc++-v3 || bail
+    #    make DESTDIR=$REALPREFIX install-target-libstdc++-v3 || bail
+    #popd
 
-    TMP_INCFIX=$REALPREFIX$VIRTPREFIX/lib/gcc/$TARGET/$GCCV/include-fixed
+    #TMP_INCFIX=$REALPREFIX$VIRTPREFIX/lib/gcc/$TARGET/$GCCV/include-fixed
 
-    if [ -d $TMP_INCFIX ]; then
-        rm -r "$TMP_INCFIX"
-    fi
+    #if [ -d $TMP_INCFIX ]; then
+    #    rm -r "$TMP_INCFIX"
+    #fi
 
     pushd $REALPREFIX$VIRTPREFIX/bin || bail
         $TARGET-strip *
