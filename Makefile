@@ -10,6 +10,7 @@ endif
 CC = i686-pc-toaru-gcc
 NM = i686-pc-toaru-nm
 CXX= i686-pc-toaru-g++
+AR = i686-pc-toaru-ar
 
 # Build flags
 CFLAGS  = -O2 -std=c99
@@ -49,6 +50,8 @@ USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
 USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,%.o,${file}))
+
+CORE_LIBS = $(patsubst %.c,%.o,$(wildcard userspace/lib/*.c))
 
 # Pretty output utilities.
 BEG = util/mk-beg
@@ -217,6 +220,13 @@ $1: $2 $(shell util/auto-dep.py --deps $2)
 	@${END} "C++" "$$<"
 endef
 $(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.c++,hdd/bin/%,$(notdir ${file})),${file})))
+
+hdd/usr/lib/libtoaru.a: ${CORE_LIBS}
+	@${BEG} "AR" "$@"
+	@${AR} rcs $@ ${CORE_LIBS}
+	@mkdir -p hdd/usr/include/toaru
+	@cp userspace/lib/*.h hdd/usr/include/toaru/
+	@${END} "AR" "$@"
 
 ####################
 # Hard Disk Images #
