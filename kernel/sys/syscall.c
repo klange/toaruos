@@ -406,8 +406,10 @@ static int sys_chdir(char * newdir) {
 	fs_node_t * chd = kopen(path, 0);
 	if (chd) {
 		if ((chd->flags & FS_DIRECTORY) == 0) {
+			close_fs(chd);
 			return -1;
 		}
+		close_fs(chd);
 		free(current_process->wd_name);
 		current_process->wd_name = malloc(strlen(path) + 1);
 		memcpy(current_process->wd_name, path, strlen(path) + 1);
