@@ -297,7 +297,7 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		launch_application("terminal");
 	}
 
-	if ((was_tabbing) && (ke->event.keycode == 0) &&
+	if ((was_tabbing) && (ke->event.keycode == 0 || ke->event.keycode == KEY_LEFT_ALT) &&
 		(ke->event.modifiers == 0) && (ke->event.action == KEY_ACTION_UP)) {
 
 		fprintf(stderr, "[panel] Stopping focus new_focused = %d\n", new_focused);
@@ -333,7 +333,7 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 			/* Create tab window */
 			alttab = yutani_window_create(yctx, ALTTAB_WIDTH, ALTTAB_HEIGHT);
 
-			/* And move it to the top layer */
+			/* Center window */
 			yutani_window_move(yctx, alttab, center_x(ALTTAB_WIDTH), center_y(ALTTAB_HEIGHT));
 
 			/* Initialize graphics context against the window */
@@ -856,7 +856,7 @@ int main (int argc, char ** argv) {
 	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT | KEY_MOD_LEFT_SHIFT, YUTANI_BIND_STEAL);
 
 	/* This lets us receive all just-modifier key releases */
-	yutani_key_bind(yctx, 0, 0, YUTANI_BIND_PASSTHROUGH);
+	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
 
 	while (_continue) {
 		/* Respond to Yutani events */
