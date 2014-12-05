@@ -43,7 +43,8 @@ cat fdisk.conf | fdisk $DISK
 echo "Done partition."
 
 # Here's where we need to be root.
-losetup /dev/loop1 toaru-disk.img
+LOOPDEV=`losetup -f`
+losetup $LOOPDEV $DISK
 
 IMAGE_SIZE=`wc -c < $DISK`
 IMAGE_SIZE_SECTORS=`expr $IMAGE_SIZE / 512`
@@ -68,9 +69,13 @@ echo "Installing kernel."
 cp -r $SRCDIR/toaruos-kernel /mnt/boot/
 
 echo "Installing grub."
-grub-install --boot-directory=/mnt/boot /dev/loop1
+grub-install --boot-directory=/mnt/boot $LOOPDEV
 
-./clean-up.sh
+echo "Cleaning up"
+umount /mnt
+kpartx -d /dev/mapper/hda
+dmsetup remove hda
+losetup -d $LOOPDEV
 
 if [ -n "$SUDO_USER" ] ; then
     echo "Reassigning permissions on disk image to $SUDO_USER"
