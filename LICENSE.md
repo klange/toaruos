@@ -161,10 +161,6 @@ ToAruOS contains a number of third-party packages under various licenses. Those 
         OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
         SUCH DAMAGE.
 
-* The DMZ mouse cursor theme is licensed under the Creative Commons Attribution-ShareAlike 3.0 license with the following copyright notice:
-
-        Copyright © 2007-2010 Novell, Inc.
-
 * Bjoern Hoehrmann's super-simple UTF8 decoder is included for use in userspace applications and is provided under the following license:
 
         Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
