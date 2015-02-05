@@ -10,7 +10,6 @@
 #include <ata.h>
 
 #define SECTORSIZE      512
-#define DISK_PORT       0x1F0
 
 static mbr_t mbr;
 

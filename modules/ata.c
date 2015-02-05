@@ -193,13 +193,23 @@ static void ata_io_wait(struct ata_device * dev) {
 	inportb(dev->io_base + ATA_REG_ALTSTATUS);
 }
 
+static int ata_status_wait(struct ata_device * dev, int timeout) {
+	int status;
+	if (timeout > 0) {
+		int i = 0;
+		while ((status = inportb(dev->io_base + ATA_REG_STATUS)) & ATA_SR_BSY && (i < timeout)) i++;
+	} else {
+		while ((status = inportb(dev->io_base + ATA_REG_STATUS)) & ATA_SR_BSY);
+	}
+	return status;
+}
 
 static int ata_wait(struct ata_device * dev, int advanced) {
 	uint8_t status = 0;
 
 	ata_io_wait(dev);
 
-	while ((status = inportb(dev->io_base + ATA_REG_STATUS)) & ATA_SR_BSY);
+	status = ata_status_wait(dev, -1);
 
 	if (advanced) {
 		status = inportb(dev->io_base + ATA_REG_STATUS);
@@ -213,6 +223,7 @@ static int ata_wait(struct ata_device * dev, int advanced) {
 
 static void ata_soft_reset(struct ata_device * dev) {
 	outportb(dev->control, 0x04);
+	ata_io_wait(dev);
 	outportb(dev->control, 0x00);
 }
 
@@ -256,8 +267,10 @@ static void ata_device_init(struct ata_device * dev) {
 
 static int ata_device_detect(struct ata_device * dev) {
 	ata_soft_reset(dev);
+	ata_io_wait(dev);
 	outportb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
 	ata_io_wait(dev);
+	ata_status_wait(dev, 10000);
 
 	unsigned char cl = inportb(dev->io_base + ATA_REG_LBA1); /* CYL_LO */
 	unsigned char ch = inportb(dev->io_base + ATA_REG_LBA2); /* CYL_HI */
