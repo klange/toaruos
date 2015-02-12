@@ -508,6 +508,30 @@ static int shell_exit(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_ext2_debug(fs_node_t * tty, int argc, char * argv[]) {
+
+	fs_node_t * node = kopen("/", 0);
+
+	hashmap_t * symtable = modules_get_symbols();
+
+	if (sizeof(void *) != sizeof(void (*)())) {
+		fprintf(tty, "This is odd - function pointer size and object pointer size differ.\n");
+		return 1;
+	}
+
+	void * func_p = hashmap_get(symtable, "ext2_debug_check_inode_table");
+	void (*func)(void *, fs_node_t *);
+	memcpy(&func, &func_p, sizeof(void *));
+
+	if (func != NULL) {
+		func(node->device, tty);
+		return 0;
+	} else {
+		fprintf(tty, "Couldn't locate symbol; is the ext2 module loaded?\n");
+		return 1;
+	}
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -543,6 +567,8 @@ static struct shell_command shell_commands[] = {
 		"Mount a filesystemp."},
 	{"exit", &shell_exit,
 		"Quit the shell."},
+	{"ext2-debug", &shell_ext2_debug,
+		"[debug] ext2 stuff - only call this if the ext2 driver is loaded"},
 	{NULL, NULL, NULL}
 };
 

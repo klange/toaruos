@@ -159,7 +159,7 @@ struct ext2_dir {
 	uint16_t rec_len;
 	uint8_t name_len;
 	uint8_t file_type;
-	char name;		/* Actually a set of characters, at most 255 bytes */
+	char name[];		/* Actually a set of characters, at most 255 bytes */
 } __attribute__ ((packed));
 
 typedef struct ext2_dir ext2_dir_t;
