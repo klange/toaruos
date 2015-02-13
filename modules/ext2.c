@@ -531,6 +531,12 @@ static int allocate_inode_block(ext2_fs_t * this, ext2_inodetable_t * inode, uns
 
 	unsigned int t = (block + 1) * (this->block_size / 512);
 	if (inode->blocks < t) {
+		debug_print(NOTICE, "Setting inode->blocks to %d = (%d fs blocks)", t, t / (this->block_size / 512));
+		if (t == 496) {
+			debug_print(WARNING, "Oh hello, this is a breakpoint of sorts.");
+			debug_print(WARNING, "block = %d -> %d", block, block_no);
+			debug_print(WARNING, "block+1 = %d -> %d", block+1, get_block_number(this, inode, block+1));
+		}
 		inode->blocks = t;
 	}
 	write_inode(this, inode, inode_no);
@@ -913,6 +919,8 @@ static int chmod_ext2(fs_node_t * node, int mode) {
 
 	write_inode(this, inode, node->inode);
 
+	ext2_sync(this);
+
 	return 0;
 }
 
@@ -1022,7 +1030,7 @@ static ext2_dir_t * direntry_ext2(ext2_fs_t * this, ext2_inodetable_t * inode, u
 	while (total_offset < inode->size && dir_index <= index) {
 		ext2_dir_t *d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
 
-		if (dir_index == index) {
+		if (d_ent->inode != 0 && dir_index == index) {
 			ext2_dir_t *out = malloc(d_ent->rec_len);
 			memcpy(out, d_ent, d_ent->rec_len);
 			free(block);
@@ -1031,7 +1039,10 @@ static ext2_dir_t * direntry_ext2(ext2_fs_t * this, ext2_inodetable_t * inode, u
 
 		dir_offset += d_ent->rec_len;
 		total_offset += d_ent->rec_len;
-		dir_index++;
+
+		if (d_ent->inode) {
+			dir_index++;
+		}
 
 		if (dir_offset >= this->block_size) {
 			block_nr++;
@@ -1068,7 +1079,7 @@ static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
 		}
 		ext2_dir_t *d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
 		
-		if (strlen(name) != d_ent->name_len) {
+		if (d_ent->inode == 0 || strlen(name) != d_ent->name_len) {
 			dir_offset += d_ent->rec_len;
 			total_offset += d_ent->rec_len;
 
@@ -1107,6 +1118,61 @@ static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
 	free(inode);
 	free(block);
 	return outnode;
+}
+
+static void unlink_ext2(fs_node_t * node, char * name) {
+	/* XXX this is a very bad implementation */
+	ext2_fs_t * this = (ext2_fs_t *)node->device;
+
+	ext2_inodetable_t *inode = read_inode(this,node->inode);
+	assert(inode->mode & EXT2_S_IFDIR);
+	uint8_t * block = malloc(this->block_size);
+	ext2_dir_t *direntry = NULL;
+	uint8_t block_nr = 0;
+	inode_read_block(this, inode, block_nr, block);
+	uint32_t dir_offset = 0;
+	uint32_t total_offset = 0;
+
+	while (total_offset < inode->size) {
+		if (dir_offset >= this->block_size) {
+			block_nr++;
+			dir_offset -= this->block_size;
+			inode_read_block(this, inode, block_nr, block);
+		}
+		ext2_dir_t *d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
+		
+		if (d_ent->inode == 0 || strlen(name) != d_ent->name_len) {
+			dir_offset += d_ent->rec_len;
+			total_offset += d_ent->rec_len;
+
+			continue;
+		}
+
+		char *dname = malloc(sizeof(char) * (d_ent->name_len + 1));
+		memcpy(dname, &(d_ent->name), d_ent->name_len);
+		dname[d_ent->name_len] = '\0';
+		if (!strcmp(dname, name)) {
+			free(dname);
+			direntry = d_ent;
+			break;
+		}
+		free(dname);
+
+		dir_offset += d_ent->rec_len;
+		total_offset += d_ent->rec_len;
+	}
+	free(inode);
+	if (!direntry) {
+		free(block);
+		return;
+	}
+
+	direntry->inode = 0;
+
+	inode_write_block(this, inode, node->inode, block_nr, block);
+	free(block);
+
+	ext2_sync(this);
 }
 
 
@@ -1233,7 +1299,14 @@ static uint32_t write_ext2(fs_node_t *node, uint32_t offset, uint32_t size, uint
 }
 
 static void open_ext2(fs_node_t *node, unsigned int flags) {
-	/* Nothing to do here */
+	ext2_fs_t * this = node->device;
+
+	if (flags & O_TRUNC) {
+		/* Uh, herp */
+		ext2_inodetable_t * inode = read_inode(this,node->inode);
+		inode->size = 0;
+		write_inode(this, inode, node->inode);
+	}
 }
 
 static void close_ext2(fs_node_t *node) {
@@ -1297,6 +1370,7 @@ static uint32_t node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_
 		fnode->mkdir   = mkdir_ext2;
 		fnode->readdir = readdir_ext2;
 		fnode->finddir = finddir_ext2;
+		fnode->unlink  = unlink_ext2;
 		fnode->write   = NULL;
 	}
 	if ((inode->mode & EXT2_S_IFBLK) == EXT2_S_IFBLK) {
@@ -1388,6 +1462,7 @@ static uint32_t ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t 
 	fnode->ioctl   = NULL;
 	fnode->create  = create_ext2;
 	fnode->mkdir   = mkdir_ext2;
+	fnode->unlink  = unlink_ext2;
 	return 1;
 }
 
