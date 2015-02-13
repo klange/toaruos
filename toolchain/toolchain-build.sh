@@ -56,12 +56,7 @@ fi
 if [ -z "$(genext2fs --help 2>&1 | grep -- "block-size")" ]; then
     echo -e "\033[1;31mHold up!\033[0m"
     echo "Your genext2fs does not support the -B (--block-size) argument."
-    echo "You need to build your own genext2fs with the patch described"
-    echo "in this mailing list post:"
-    echo
-    echo "    http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=562999"
-    echo
-    echo "You can get genext2fs sources from sourceforge:"
+    echo "You can build a copy from the CVS HEAD which supports this:"
     echo
     echo "    http://genext2fs.sourceforge.net/"
     echo
