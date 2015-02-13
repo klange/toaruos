@@ -792,11 +792,8 @@ static void mkdir_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 	inode->dir_acl = 0;
 
 	/* File mode */
-	/* TODO: Use the mask from `permission` */
-	inode->mode = EXT2_S_IFDIR
-		| EXT2_S_IRUSR | EXT2_S_IWUSR | EXT2_S_IXUSR
-		| EXT2_S_IRGRP | EXT2_S_IWGRP | EXT2_S_IXGRP
-		| EXT2_S_IROTH | EXT2_S_IXOTH;
+	inode->mode = EXT2_S_IFDIR;
+	inode->mode |= 0xFFF & permission;
 
 	/* Write the osd blocks to 0 */
 	memset(inode->osd2, 0x00, sizeof(inode->osd2));
@@ -889,10 +886,8 @@ static void create_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 
 	/* File mode */
 	/* TODO: Use the mask from `permission` */
-	inode->mode = EXT2_S_IFREG
-		| EXT2_S_IRUSR | EXT2_S_IWUSR
-		| EXT2_S_IRGRP | EXT2_S_IWGRP
-		| EXT2_S_IROTH;
+	inode->mode = EXT2_S_IFREG;
+	inode->mode |= 0xFFF & permission;
 
 	/* Write the osd blocks to 0 */
 	memset(inode->osd2, 0x00, sizeof(inode->osd2));
@@ -907,6 +902,18 @@ static void create_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 
 	ext2_sync(this);
 
+}
+
+static int chmod_ext2(fs_node_t * node, int mode) {
+	ext2_fs_t * this = node->device;
+
+	ext2_inodetable_t * inode = read_inode(this,node->inode);
+
+	inode->mode = (inode->mode & 0xFFFFF000) | mode;
+
+	write_inode(this, inode, node->inode);
+
+	return 0;
 }
 
 void ext2_debug_check_inode_table(ext2_fs_t * this, fs_node_t * tty) {
@@ -1310,6 +1317,7 @@ static uint32_t node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_
 	fnode->ctime   = inode->ctime;
 	debug_print(INFO, "file a/m/c times are %d/%d/%d", fnode->atime, fnode->mtime, fnode->ctime);
 
+	fnode->chmod   = chmod_ext2;
 	fnode->open    = open_ext2;
 	fnode->close   = close_ext2;
 	fnode->ioctl   = NULL;
@@ -1372,6 +1380,7 @@ static uint32_t ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t 
 	fnode->flags |= FS_DIRECTORY;
 	fnode->read    = NULL;
 	fnode->write   = NULL;
+	fnode->chmod   = chmod_ext2;
 	fnode->open    = open_ext2;
 	fnode->close   = close_ext2;
 	fnode->readdir = readdir_ext2;
