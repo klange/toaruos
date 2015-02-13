@@ -346,7 +346,7 @@ static unsigned int set_block_number(ext2_fs_t * this, ext2_inodetable_t * inode
 			unsigned int block_no = allocate_block(this);
 			if (!block_no) goto no_space_free;
 			((uint32_t *)tmp)[d] = block_no;
-			write_block(this, inode->block[EXT2_DIRECT_BLOCKS + 1], (uint8_t *)tmp);
+			write_block(this, inode->block[EXT2_DIRECT_BLOCKS + 2], (uint8_t *)tmp);
 		}
 
 		uint32_t nblock = ((uint32_t *)tmp)[d];
@@ -356,7 +356,7 @@ static unsigned int set_block_number(ext2_fs_t * this, ext2_inodetable_t * inode
 			unsigned int block_no = allocate_block(this);
 			if (!block_no) goto no_space_free;
 			((uint32_t *)tmp)[f] = block_no;
-			write_block(this, inode->block[EXT2_DIRECT_BLOCKS + 1], (uint8_t *)tmp);
+			write_block(this, nblock, (uint8_t *)tmp);
 		}
 
 		nblock = ((uint32_t *)tmp)[f];
@@ -549,9 +549,9 @@ static int allocate_inode_block(ext2_fs_t * this, ext2_inodetable_t * inode, uns
  */
 static unsigned int inode_read_block(ext2_fs_t * this, ext2_inodetable_t * inode, unsigned int block, uint8_t * buf) {
 
-	if (block >= inode->blocks) {
+	if (block >= inode->blocks / (this->block_size / 512)) {
 		memset(buf, 0x00, this->block_size);
-		debug_print(CRITICAL, "Tried to read an invalid block. Asked for %d, but inode only has %d!", block, inode->blocks);
+		debug_print(CRITICAL, "Tried to read an invalid block. Asked for %d, but inode only has %d!", block, inode->blocks / (this->block_size / 512));
 		return 0;
 	}
 
@@ -565,7 +565,7 @@ static unsigned int inode_read_block(ext2_fs_t * this, ext2_inodetable_t * inode
  * ext2->inode_write_block
  */
 static unsigned int inode_write_block(ext2_fs_t * this, ext2_inodetable_t * inode, unsigned int inode_no, unsigned int block, uint8_t * buf) {
-	if (block >= inode->blocks) {
+	if (block >= inode->blocks / (this->block_size / 512)) {
 		debug_print(WARNING, "Attempting to write beyond the existing allocated blocks for this inode.");
 		debug_print(WARNING, "Inode %d, Block %d", inode_no, block);
 	}
