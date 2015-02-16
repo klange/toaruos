@@ -532,11 +532,6 @@ static int allocate_inode_block(ext2_fs_t * this, ext2_inodetable_t * inode, uns
 	unsigned int t = (block + 1) * (this->block_size / 512);
 	if (inode->blocks < t) {
 		debug_print(NOTICE, "Setting inode->blocks to %d = (%d fs blocks)", t, t / (this->block_size / 512));
-		if (t == 496) {
-			debug_print(WARNING, "Oh hello, this is a breakpoint of sorts.");
-			debug_print(WARNING, "block = %d -> %d", block, block_no);
-			debug_print(WARNING, "block+1 = %d -> %d", block+1, get_block_number(this, inode, block+1));
-		}
 		inode->blocks = t;
 	}
 	write_inode(this, inode, inode_no);
@@ -922,98 +917,6 @@ static int chmod_ext2(fs_node_t * node, int mode) {
 	ext2_sync(this);
 
 	return 0;
-}
-
-void ext2_debug_check_inode_table(ext2_fs_t * this, fs_node_t * tty) {
-	fprintf(tty, "Hello world!\n");
-
-	/* Let's find out some information about this filesystem */
-
-#if 0
-	fprintf(tty, "There %d Block Group Descriptors\n", BGDS);
-	fprintf(tty, "Let's examine them...\n");
-
-	for (unsigned int i = 0; i < BGDS; ++i) {
-		fprintf(tty, " BGD #%d\n", i);
-		fprintf(tty, "  %d free inodes.\n", BGD[i].free_inodes_count);
-		fprintf(tty, "  block %d has the inode table.\n", BGD[i].inode_table);
-
-		uint32_t group = i;
-		uint32_t start = group * this->inodes_per_group + 1;
-		fprintf(tty, "  inodes in this group start at #%d\n", start);
-		fprintf(tty, "  and should end at #%d\n", start + this->inodes_per_group - 1);
-
-		fprintf(tty, "  block #%d has the inode bitmap\n", BGD[i].inode_bitmap);
-
-		uint8_t bg_buffer[this->block_size];
-		read_block(this, BGD[i].inode_bitmap, bg_buffer);
-
-		for (unsigned int j = 0; j < this->inodes_per_group; ++j) {
-			fprintf(tty, "%c", BLOCKBIT(j) ? 'X' : '.');
-		}
-		fprintf(tty, "\n");
-	}
-#endif
-
-	fs_node_t * t = kopen("/opt", 0);
-
-	unsigned int inode_no = allocate_inode(this);
-	ext2_inodetable_t * inode = read_inode(this,inode_no);
-
-	/* Set the access and creation times to now */
-	inode->atime = now();
-	inode->ctime = inode->atime;
-	inode->mtime = inode->atime;
-	inode->dtime = 0; /* This inode was never deleted */
-
-	/* Empty the file */
-	memset(inode->block, 0x00, sizeof(inode->block));
-	inode->blocks = 0;
-	inode->size = 0; /* empty */
-
-	/* Assign it to root */
-	inode->uid = 0; /* user */
-	inode->gid = 0;
-
-	/* misc */
-	inode->faddr = 0;
-	inode->links_count = 1; /* We're going to make it in a minute */
-	inode->flags = 0;
-	inode->osd1 = 0;
-	inode->generation = 0;
-	inode->file_acl = 0;
-	inode->dir_acl = 0;
-
-	/* File mode */
-	inode->mode = EXT2_S_IFREG | EXT2_S_IRUSR | EXT2_S_IWUSR;
-
-	/* Write the osd blocks to 0 */
-	memset(inode->osd2, 0x00, sizeof(inode->osd2));
-
-	/* Write out inode changes */
-	write_inode(this, inode, inode_no);
-
-	char t_name[30];
-	sprintf(t_name, "test-%d", now());
-
-	create_entry(t, t_name, inode_no);
-
-	/* Okay, now let's make the file have some stuff in it */
-	char * foo = "hello world\ncake is delicious\n";
-	inode->size = strlen(foo);
-	write_inode(this, inode, inode_no);
-
-	uint8_t * tmp = malloc(this->block_size);
-	memset(tmp, 0x00, this->block_size);
-	memcpy(tmp, foo, strlen(foo));
-
-	inode_write_block(this, inode, inode_no, 0, tmp);
-
-	free(inode);
-	free(tmp);
-
-	ext2_sync(this);
-
 }
 
 /**
