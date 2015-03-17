@@ -66,7 +66,7 @@ int main(int argc, char ** argv) {
 		if (uid < 0) {
 			fails++;
 			if (fails == 3) {
-				fprintf(stderr, "%s: %d incorrect password attempts\n", argv[0]);
+				fprintf(stderr, "%s: %d incorrect password attempts\n", argv[0], fails);
 				break;
 			}
 			fprintf(stderr, "Sorry, try again.\n");
