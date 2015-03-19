@@ -1,5 +1,5 @@
-![Screenshot](http://i.imgur.com/kGfILDP.png)
-![More Screenshots](http://i.imgur.com/y7LiF2m.png)
+![Screenshot](http://i.imgur.com/mNoGjLD.png)
+![More Screenshots](http://i.imgur.com/sD9QBph.png)
 
 # ToAruOS (とあるOS) #
 
@@ -26,8 +26,7 @@ Some third-party software is provided within this repository:
 * `cpudet`, a `cpuid` parser.
 * VL Gothic, a Japanese TrueType font.
 * DejaVu, a series of popular, free TrueType fonts.
-* A SHA512 hash library, used in the login applications to provide naïve hashed password support.
-* The popular DMZ CC By-SA mouse cursor theme from Novell.
+* A SHA512 hash library
 * `utf8decode.h`, UTF8 decoding tools.
 * A port of `glxgears`.
 * Various Curses examples by Pradeep Padala.
@@ -52,9 +51,9 @@ In addition to the libraries included in the build process, others have been por
 
 * Lua - Builds as-is
 * MuPDF - See [klange/toaru-pdfviewer](https://github.com/klange/toaru-pdfviewer) (library must be cross compiled)
-* SDL - See [klange/SDL](https://github.com/klange/SDL)
+* SDL - See [klange/SDL](https://github.com/klange/SDL) (this port is outdated and not compatible with the current windowing system)
 * `snes9x-sdl` - See [klange/snes9x-sdl](https://github.com/klange/snes9x-sdl)
-* Bochs - Should build as-is, but may require modifications.
+* Bochs - Should build as-is, but may require modifications. (Depends on SDL)
 * Python - A Python port has been built, but is not yet available.
 
 ### Screenshots ###
