@@ -51,8 +51,9 @@ In addition to the libraries included in the build process, others have been por
 
 * Lua - Builds as-is
 * MuPDF - See [klange/toaru-pdfviewer](https://github.com/klange/toaru-pdfviewer) (library must be cross compiled)
-* SDL - See [klange/SDL](https://github.com/klange/SDL) (this port is outdated and not compatible with the current windowing system)
-* `snes9x-sdl` - See [klange/snes9x-sdl](https://github.com/klange/snes9x-sdl)
+* SDL - See [klange/SDL](https://github.com/klange/SDL) - Run all sorts of graphical things.
+* `snes9x-sdl` - See [klange/snes9x-sdl](https://github.com/klange/snes9x-sdl) - Play SNES games!
+* `prboom` - See [klange/prboom](https://github.com/klange/prboom) - Play DooM!
 * Bochs - Should build as-is, but may require modifications. (Depends on SDL)
 * Python - A Python port has been built, but is not yet available.
 
