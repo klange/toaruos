@@ -42,21 +42,16 @@ cat fdisk.conf | fdisk $DISK
 
 echo "Done partition."
 
+
 # Here's where we need to be root.
 LOOPDEV=`losetup -f`
 losetup $LOOPDEV $DISK
 
-IMAGE_SIZE=`wc -c < $DISK`
-IMAGE_SIZE_SECTORS=`expr $IMAGE_SIZE / 512`
-MAPPER_LINE="0 $IMAGE_SIZE_SECTORS linear 7:1 0"
+kpartx -av $DISK
 
-echo "$MAPPER_LINE" | dmsetup create hda
+mkfs.ext2 /dev/mapper/loop1p1
 
-kpartx -a /dev/mapper/hda
-
-mkfs.ext2 /dev/mapper/hda1
-
-mount /dev/mapper/hda1 /mnt
+mount /dev/mapper/loop1p1 /mnt
 
 echo "Installing main files."
 cp -r $SRCDIR/hdd/* /mnt/
@@ -73,8 +68,7 @@ grub-install --boot-directory=/mnt/boot $LOOPDEV
 
 echo "Cleaning up"
 umount /mnt
-kpartx -d /dev/mapper/hda
-dmsetup remove hda
+kpartx -d /dev/mapper/loop1p1
 losetup -d $LOOPDEV
 
 if [ -n "$SUDO_USER" ] ; then
