@@ -399,9 +399,9 @@ int main (int argc, char * argv[]) {
 				printf("ls: cannot access %s: No such file or directory\n", p);
 				free(f);
 				out = 2;
+			} else {
+				list_insert(files, f);
 			}
-
-			list_insert(files, f);
 
 			optind++;
 			if (optind >= argc) p = NULL;
