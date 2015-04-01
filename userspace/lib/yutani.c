@@ -655,6 +655,7 @@ void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, cha
 	yutani_msg_t * m = yutani_msg_build_window_advertise(window->wid, flags, offsets, length, strings);
 	int result = yutani_msg_send(yctx, m);
 	free(m);
+	free(strings);
 }
 
 void yutani_subscribe_windows(yutani_t * y) {
