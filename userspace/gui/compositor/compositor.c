@@ -1722,9 +1722,9 @@ int main(int argc, char * argv[]) {
 	FILE * server = pex_bind(yg->server_ident);
 	yg->server = server;
 
-	fprintf(stderr, "[yutani] Loading fonts...\n");
+	fprintf(stderr, "[yutani-server] Loading fonts...\n");
 	load_fonts(yg);
-	fprintf(stderr, "[yutani] Done.\n");
+	fprintf(stderr, "[yutani-server] Done.\n");
 
 	load_sprite_png(&yg->mouse_sprite, "/usr/share/arrow.png");
 	yg->last_mouse_x = 0;
