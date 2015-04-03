@@ -80,7 +80,6 @@ static sprite_t * icon_get(char * name) {
 		while (icon_directories[i]) {
 			/* Check each path... */
 			sprintf(path, "%s/%s.png", icon_directories[i], name);
-			fprintf(stderr, "Checking %s for icon\n", path);
 			if (access(path, R_OK) == 0) {
 				/* And if we find one, cache it */
 				icon = malloc(sizeof(sprite_t));
@@ -102,7 +101,6 @@ static sprite_t * icon_get(char * name) {
 
 static void launch_application(char * app) {
 	if (!fork()) {
-		printf("Starting %s\n", app);
 		char * args[] = {"/bin/sh", "-c", app, NULL};
 		execvp(args[0], args);
 		exit(1);
@@ -156,7 +154,6 @@ static void set_focused(int i) {
 
 static void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
-		printf("Click!\n");
 		if (evt->new_x > ICON_X && evt->new_x < ICON_X + ICON_WIDTH) {
 			uint32_t i = 0;
 			while (1) {
@@ -165,7 +162,6 @@ static void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
 				}
 				if ((evt->new_y > ICON_TOP_Y + ICON_SPACING_Y * i) &&
 					(evt->new_y < ICON_TOP_Y + ICON_SPACING_Y + ICON_SPACING_Y * i)) {
-					printf("Launching application \"%s\"...\n", applications[i].title);
 					launch_application(applications[i].appname);
 				}
 				++i;
@@ -242,8 +238,6 @@ static void read_applications(FILE * f) {
 
 		char * tmp = strstr(title, "\n");
 		if (tmp) *tmp = '\0';
-
-		fprintf(stderr, "Icon: %s %s %s\n", icon, name, title);
 
 		applications[i].icon = strdup(icon);
 		applications[i].appname = strdup(name);
