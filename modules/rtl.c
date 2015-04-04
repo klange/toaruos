@@ -36,6 +36,10 @@ static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void
 #define RTL_PORT_RXMISS  0x4C
 #define RTL_PORT_CONFIG  0x52
 
+static void net_handler_enqueue(void * buffer);
+static list_t * net_queue = NULL;
+static volatile uint8_t net_queue_lock = 0;
+
 static int rtl_irq = 0;
 static uint32_t rtl_iobase = 0;
 static uint8_t * rtl_rx_buffer;
@@ -173,10 +177,13 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.protocol = IPV4_PROT_TCP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(ip_aton("10.0.2.15")),
-		.destination = htonl(ip_aton("37.48.83.75")),
-		//.destination = htonl(ip_aton("204.28.125.145")),
-		//.destination = htonl(ip_aton("192.168.1.145")),
-		//.destination = htonl(ip_aton("107.170.207.248")),
+		.destination = htonl(ip_aton("37.48.83.75")), /* Freenode */
+		//.destination = htonl(ip_aton("204.28.125.145")), /* Dakko */
+		//.destination = htonl(ip_aton("192.168.1.145")), /* (host machine) */
+		//.destination = htonl(ip_aton("107.170.207.248")), /* nyancat.dakko.us */
+		//.destination = htonl(ip_aton("94.142.241.111")), /* towel (star wars) */
+		//.destination = htonl(ip_aton("173.255.206.39")), /* osdev.org */
+
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -186,9 +193,10 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 	offset += sizeof(struct ipv4_packet);
 
 	struct tcp_header tcp = {
-		.source_port = htons(56667), /* Ephemeral port */
+		.source_port = htons(56668), /* Ephemeral port */
 		.destination_port = htons(6667), /* IRC */
-		//.destination_port = htons(23),
+		//.destination_port = htons(23), /* Telnet */
+		//.destination_port = htons(80), /* HTTP */
 		.seq_number = htonl(seq_no),
 		.ack_number = flags & (TCP_FLAGS_ACK) ? htonl(ack_no) : 0,
 		.flags = htons(flags),
@@ -396,6 +404,7 @@ static void irc_send(char * payload) {
 	int my_tx = next_tx_buf();
 	int l = strlen(payload);
 	size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payload, l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+	seq_no += l;
 
 	outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
 	outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
@@ -527,6 +536,96 @@ static void rtl_ircd(void * data, char * name) {
 		handle_irc_packet(tty, len, (unsigned char *)buf);
 	}
 
+}
+
+static fs_node_t * _atty = NULL;
+
+static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
+
+	size_t data_length = length - sizeof(struct tcp_header);
+
+	/* Find socket */
+
+	/* r-next */
+	if (seq_no != ntohl(tcp->ack_number)) return;
+
+	int flags = ntohs(tcp->flags);
+
+	if ((flags & TCP_FLAGS_ACK) && !data_length) return;
+
+	ack_no = ntohl(tcp->seq_number) + data_length;
+
+	/* XXX socket port verification? */
+	if (ntohs(tcp->source_port) == 6667) {
+
+		write_fs(irc_socket, 0, data_length, tcp->payload);
+
+	} else if (ntohs(tcp->source_port) == 23) {
+		write_fs(_atty, 0, data_length, tcp->payload);
+	} else if (ntohs(tcp->source_port) == 80) {
+		write_fs(_atty, 0, data_length, tcp->payload);
+	}
+
+	{
+		/* Send ACK */
+		int my_tx = next_tx_buf();
+		uint8_t payload[] = { 0 };
+		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+
+		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+	}
+
+}
+
+static void net_handle_ipv4(struct ipv4_packet * ipv4) {
+
+	struct tcp_header * tcp = (struct tcp_header *)ipv4->payload;
+
+	net_handle_tcp(tcp, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
+
+}
+
+static struct ethernet_packet * net_receive(void) {
+	while (!net_queue->length) {
+		sleep_on(rx_wait);
+	}
+	spin_lock(&net_queue_lock);
+	node_t * n = list_dequeue(net_queue);
+	struct ethernet_packet * eth = (struct ethernet_packet *)n->value;
+	free(n);
+	spin_unlock(&net_queue_lock);
+
+	return eth;
+}
+
+static void net_handler(void * data, char * name) {
+	/* Network Packet Handler*/
+
+	while (1) {
+		struct ethernet_packet * eth = net_receive();
+
+		switch (ntohs(eth->type)) {
+			case ETHERNET_TYPE_IPV4:
+				net_handle_ipv4((struct ipv4_packet *)eth->payload);
+				break;
+			case ETHERNET_TYPE_ARP:
+				// net_handle_arp(eth);
+				break;
+		}
+
+		free(eth);
+	}
+}
+
+static void net_handler_enqueue(void * buffer) {
+	/* XXX size? source? */
+
+	spin_lock(&net_queue_lock);
+
+	list_insert(net_queue, buffer);
+
+	spin_unlock(&net_queue_lock);
 }
 
 static size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset) {
@@ -661,8 +760,21 @@ static void rtl_irq_handler(struct regs *r) {
 			if (rx_status & (0x0020 | 0x0010 | 0x0004 | 0x0002)) {
 				debug_print(WARNING, "rx error :(");
 			} else {
+				debug_print(INFO, "net net net");
 				uint8_t * buf_8 = (uint8_t *)&(buf_start[1]);
-				last_packet = buf_8;
+
+				last_packet = malloc(rx_size);
+
+				uintptr_t packet_end = (uintptr_t)buf_8 + rx_size;
+				if (packet_end > (uintptr_t)rtl_rx_buffer + 0x2000) {
+					size_t s = ((uintptr_t)rtl_rx_buffer + 0x2000) - (uintptr_t)buf_8;
+					memcpy(last_packet, buf_8, s);
+					memcpy((void *)((uintptr_t)last_packet + s), rtl_rx_buffer, rx_size - s);
+				} else {
+					memcpy(last_packet, buf_8, rx_size);
+				}
+
+				net_handler_enqueue(last_packet);
 			}
 
 			cur_rx = (cur_rx + rx_size + 4 + 3) & ~3;
@@ -682,12 +794,17 @@ static void rtl_irq_handler(struct regs *r) {
 static void rtl_netd(void * data, char * name) {
 	fs_node_t * tty = data;
 
+#if 0
 	{
 		fprintf(tty, "Sending DNS query...\n");
 		uint8_t queries[] = {
-			3,'i','r','c',
-			8,'f','r','e','e','n','o','d','e',
-			3,'n','e','t',
+			//3,'i','r','c',
+			//8,'f','r','e','e','n','o','d','e',
+			//3,'n','e','t',
+			7,'m','o','t','s','u','g','o',
+			3,'u','c','c',
+			3,'a','s','n',
+			2,'a','u',
 			0,
 			0x00, 0x01, /* A */
 			0x00, 0x01, /* IN */
@@ -723,6 +840,9 @@ static void rtl_netd(void * data, char * name) {
 
 	sleep_on(rx_wait);
 	parse_dns_response(tty, last_packet);
+#endif
+
+	seq_no = krand();
 
 	{
 		fprintf(tty, "Sending TCP syn\n");
@@ -732,12 +852,13 @@ static void rtl_netd(void * data, char * name) {
 
 		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
 		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+
+		seq_no += 1;
+		ack_no = 0;
 	}
 
-	sleep_on(rx_wait);
-
 	{
-		struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+		struct ethernet_packet * eth = net_receive();
 		uint16_t eth_type = ntohs(eth->type);
 
 		fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
@@ -764,9 +885,18 @@ static void rtl_netd(void * data, char * name) {
 
 		struct tcp_header * tcp = (struct tcp_header *)ipv4->payload;
 
+		if (seq_no != ntohl(tcp->ack_number)) {
+			fprintf(tty, "[eth] Expected ack number of 0x%x, got 0x%x\n",
+					seq_no,
+					ntohl(tcp->ack_number));
+			fprintf(tty, "[eth] Bailing...\n");
+			return;
+		}
+
 		ack_no = ntohl(tcp->seq_number) + 1;
-		seq_no = ntohl(tcp->ack_number);
+		free(eth);
 	}
+
 	{
 		fprintf(tty, "Sending TCP ack\n");
 		int my_tx = next_tx_buf();
@@ -777,50 +907,30 @@ static void rtl_netd(void * data, char * name) {
 		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 	}
 
+	fprintf(tty, "[eth] s-next=0x%x, r-next=0x%x\n", seq_no, ack_no);
+
+#if 0
+
+	{
+		irc_send(
+			"GET / HTTP/1.1\r\n"
+			"Host: forum.osdev.org\r\n"
+			"Cookie: phpbb3_9i66l_u=11616; phpbb3_9i66l_k=ebe8e4f9892d97ab; phpbb3_9i66l_sid=d99d2e26e2a503fdfbe13e9b794dae23\r\n"
+			"\r\n");
+	}
+#endif
+
 	irc_socket = make_pipe(4096);
 	vfs_mount("/dev/net_irc", irc_socket);
 
 	create_kernel_tasklet(rtl_ircd, "[ircd]", tty);
 
-	while (1) {
+	_atty = tty;
+	create_kernel_tasklet(net_handler, "[eth]", tty);
 
-		sleep_on(rx_wait);
-
-		{
-			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
-			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
-			struct tcp_header * tcp = (struct tcp_header *)ipv4->payload;
-
-			uint32_t l__ = ntohs(ipv4->length) - sizeof(struct tcp_header) - sizeof(struct ipv4_packet);
-
-			if (ntohs(tcp->flags) & TCP_FLAGS_ACK) {
-				seq_no = ntohl(tcp->ack_number);
-			}
-			ack_no = ntohl(tcp->seq_number) + l__;
-
-			if (l__ < 0xFFFF) {
-				/* Look up source port in table of sockets */
-				if (ntohs(tcp->source_port) == 6667) {
-					write_fs(irc_socket, 0, l__, tcp->payload);
-				} else {
-					write_fs(tty, 0, l__, tcp->payload);
-				}
-			}
-		}
-
-		{
-			int my_tx = next_tx_buf();
-			uint8_t payload[] = { 0 };
-			size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
-
-			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
-			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
-		}
-
-	}
 }
 
-static int irc_readline(fs_node_t * dev, char * linebuf, int max) {
+static int tty_readline(fs_node_t * dev, char * linebuf, int max) {
 	int read = 0;
 	tty_set_unbuffered(dev);
 	while (read < max) {
@@ -880,6 +990,8 @@ DEFINE_SHELL_FUNCTION(irc_test, "irc test") {
 		int l = strlen(payloads[i]);
 		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], (uint8_t *)payloads[i], l, (TCP_FLAGS_ACK | DATA_OFFSET_5));
 
+		seq_no += l;
+
 		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
 		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
 
@@ -922,7 +1034,7 @@ DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 
 	while (1) {
 		fprintf(tty, irc_prompt);
-		int c = irc_readline(tty, irc_input, 400);
+		int c = tty_readline(tty, irc_input, 400);
 
 		spin_lock(&irc_tty_lock);
 
@@ -957,6 +1069,105 @@ DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 	}
 	memset(irc_prompt, 0x00, sizeof(irc_prompt));
 	memset(irc_input, 0x00, sizeof(irc_input));
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(http, "Open a prompt to send HTTP commands.") {
+	char tmp[100];
+	char * payload = malloc(10000);
+
+	while (1) {
+		fprintf(tty, "http> ");
+		int c = tty_readline(tty, tmp, 100);
+
+		if (startswith(tmp, "/quit")) {
+			break;
+		} else if (startswith(tmp, "get ")) {
+			char * m = strstr(tmp, " ");
+			m++;
+
+			sprintf(payload,
+				"GET %s HTTP/1.1\r\n"
+				"Host: %s\r\n"
+				"Cookie: phpbb3_9i66l_u=11616; phpbb3_9i66l_k=ebe8e4f9892d97ab; phpbb3_9i66l_sid=d99d2e26e2a503fdfbe13e9b794dae23\r\n"
+				"\r\n", m, "forum.osdev.org");
+
+			irc_send(payload);
+		} else if (startswith(tmp, "post")) {
+
+			/* /posting.php?mode=post&f=7 */
+
+			char * content = 
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"subject\"\r\n"
+"\r\n"
+"test post please ignore\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"addbbcode20\"\r\n"
+"\r\n"
+"100\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"helpbox\"\r\n"
+"\r\n"
+"Tip: Styles can be applied quickly to selected text.\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"message\"\r\n"
+"\r\n"
+"test post please ignore\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"attach_sig\"\r\n"
+"\r\n"
+"on\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"post\"\r\n"
+"\r\n"
+"Submit\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"fileupload\"; filename=\"\"\r\n"
+"Content-Type: application/octet-stream\r\n"
+"\r\n"
+"\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"filecomment\"\r\n"
+"\r\n"
+"\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"lastclick\"\r\n"
+"\r\n"
+"1424062664\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"creation_time\"\r\n"
+"\r\n"
+"1424062664\r\n"
+"-----------------------------2611311029845263341299213952\r\n"
+"Content-Disposition: form-data; name=\"form_token\"\r\n"
+"\r\n"
+"3fdbc52648cb6f50b72df5bbd5e145bc333cfc0e\r\n"
+"-----------------------------2611311029845263341299213952--\r\n";
+
+			sprintf(payload,
+				"POST %s HTTP/1.1\r\n"
+				"Host: %s\r\n"
+				"Cookie: phpbb3_9i66l_u=11616; phpbb3_9i66l_k=ebe8e4f9892d97ab; phpbb3_9i66l_sid=d99d2e26e2a503fdfbe13e9b794dae23\r\n"
+				"Referer: http://forum.osdev.org/posting.php?mode=post&f=7\r\n"
+				"User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:35.0) Gecko/20100101 Firefox/35.0\r\n"
+
+				"Content-Type: multipart/form-data; boundary=---------------------------2611311029845263341299213952\r\n"
+				"Content-Length: %d\r\n"
+				"\r\n"
+				"%s",
+				"/posting.php?mode=post&f=7&sid=d99d2e26e2a503fdfbe13e9b794dae23",
+				"forum.osdev.org",
+				strlen(content),
+				content);
+
+			irc_send(payload);
+
+
+		}
+
+	}
 
 	return 0;
 }
@@ -1067,6 +1278,9 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Resetting rx stats\n");
 		outportl(rtl_iobase + RTL_PORT_RXMISS, 0);
 
+		net_queue = list_create();
+
+#if 1
 		{
 			fprintf(tty, "Sending DHCP discover\n");
 			size_t packet_size = write_dhcp_packet(rtl_tx_buffer[next_tx]);
@@ -1080,10 +1294,8 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			}
 		}
 
-		sleep_on(rx_wait);
-
 		{
-			struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
+			struct ethernet_packet * eth = net_receive();
 			uint16_t eth_type = ntohs(eth->type);
 
 			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
@@ -1122,7 +1334,11 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			char yiaddr_ip[16];
 			ip_ntoa(yiaddr, yiaddr_ip);
 			fprintf(tty,  "DHCP Offer: %s\n", yiaddr_ip);
+
+			free(eth);
 		}
+
+#endif
 
 		fprintf(tty, "Card is configured, going to start worker thread now.\n");
 
@@ -1139,6 +1355,7 @@ static int init(void) {
 	BIND_SHELL_FUNCTION(irc_test);
 	BIND_SHELL_FUNCTION(irc_init);
 	BIND_SHELL_FUNCTION(irc_join);
+	BIND_SHELL_FUNCTION(http);
 	pci_scan(&find_rtl, -1, &rtl_device_pci);
 	if (!rtl_device_pci) {
 		debug_print(ERROR, "No RTL 8139 found?");
