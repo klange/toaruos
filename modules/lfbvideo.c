@@ -181,7 +181,8 @@ static uint16_t bochs_current_scroll(void) {
 }
 
 static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
-	if (v == 0x1234 && d == 0x1111) {
+	if ((v == 0x1234 && d == 0x1111) ||
+	    (v == 0x80EE && d == 0xBEEF)) {
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
 		if (t > 0) {
 			*((uint8_t **)extra) = (uint8_t *)(t & 0xFFFFFFF0);
