@@ -104,8 +104,14 @@ struct tcp_check_header {
 #define DHCP_MAGIC 0x63825363
 
 #define TCP_FLAGS_SYN (1 << 1)
+#define TCP_FLAGS_RES (1 << 2)
+#define TCP_FLAGS_PSH (1 << 3)
 #define TCP_FLAGS_ACK (1 << 4)
+#define TCP_FLAGS_URG (1 << 5)
 #define DATA_OFFSET_5 (0x5 << 12)
+
+#define ETHERNET_TYPE_IPV4 0x0800
+#define ETHERNET_TYPE_ARP  0x0806
 
 extern uint32_t ip_aton(const char * in);
 extern void ip_ntoa(uint32_t src_addr, char * out);
