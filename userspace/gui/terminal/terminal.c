@@ -738,7 +738,7 @@ void flip_cursor() {
 	if (scrollback_offset != 0) {
 		return; /* Don't flip cursor while drawing scrollback */
 	}
-	if (cursor_flipped) {
+	if (window->focused && cursor_flipped) {
 		cell_redraw(csr_x, csr_y);
 	} else {
 		render_cursor();
