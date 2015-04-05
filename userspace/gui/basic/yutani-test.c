@@ -149,6 +149,12 @@ int main (int argc, char ** argv) {
 						fprintf(stderr, "Focus Change (wid=%d) %s\n", fc->wid, fc->focused ? "on" : "off");
 					}
 					break;
+				case YUTANI_MSG_WINDOW_MOVE:
+					{
+						struct yutani_msg_window_move * wm = (void*)m->data;
+						fprintf(stderr, "Window Moved (wid=%d) %d, %d\n", wm->wid, wm->x, wm->y);
+					}
+					break;
 				case YUTANI_MSG_RESIZE_OFFER:
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;

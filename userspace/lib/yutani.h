@@ -316,6 +316,7 @@ yutani_msg_t * yutani_msg_build_window_init(yutani_wid_t wid, uint32_t width, ui
 yutani_msg_t * yutani_msg_build_flip(yutani_wid_t);
 yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event, key_event_state_t * state);
 yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event, int32_t type);
+yutani_msg_t * yutani_msg_build_window_move(yutani_wid_t wid, int32_t x, int32_t y);
 yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
 yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
 yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused);

@@ -1282,6 +1282,16 @@ static void notify_subscribers(yutani_globals_t * yg) {
 	free(response);
 }
 
+static void window_move(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
+	mark_window(yg, window);
+	window->x = x;
+	window->y = y;
+	mark_window(yg, window);
+
+	yutani_msg_t * response = yutani_msg_build_window_move(window->wid, x, y);
+	pex_send(yg->server, window->owner, response->size, (char *)response);
+}
+
 /**
  * Move and resize a window to fit a particular tiling pattern.
  *
@@ -1299,10 +1309,7 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 	int h = (yg->height - panel_h) / height_div;
 
 	/* Calculate, move, etc. */
-	mark_window(yg, window);
-	window->x = w * x;
-	window->y = panel_h + h * y;
-	mark_window(yg, window);
+	window_move(yg, window, w * x, panel_h + h * y);
 
 	yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
@@ -1607,10 +1614,10 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->mouse_window = NULL;
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 				} else {
-					mark_window(yg, yg->mouse_window);
-					yg->mouse_window->x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
-					yg->mouse_window->y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
-					mark_window(yg, yg->mouse_window);
+					int x, y;
+					x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
+					y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
+					window_move(yg, yg->mouse_window, x, y);
 				}
 			}
 			break;
@@ -1859,10 +1866,7 @@ int main(int argc, char * argv[]) {
 					fprintf(stderr, "[yutani-server] %08x wanted to move window %d\n", p->source, wm->wid);
 					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
 					if (win) {
-						mark_window(yg, win);
-						win->x = wm->x;
-						win->y = wm->y;
-						mark_window(yg, win);
+						window_move(yg, win, wm->x, wm->y);
 					} else {
 						fprintf(stderr, "[yutani-server] %08x wanted to move window %d, but I can't find it?\n", p->source, wm->wid);
 					}
