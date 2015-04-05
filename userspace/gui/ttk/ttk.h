@@ -24,6 +24,9 @@ typedef struct ttk_window {
 	uint16_t          height;
 	uint16_t          off_x; /* decor_left_width */
 	uint16_t          off_y; /* decor_top_height */
+
+	int32_t           x;
+	int32_t           y;
 } ttk_window_t;
 
 #define TTK_BACKGROUND_DEFAULT 204,204,204

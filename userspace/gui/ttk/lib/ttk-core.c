@@ -316,6 +316,18 @@ void ttk_window_draw(ttk_window_t * window) {
 	yutani_flip(yctx, window->core_window);
 }
 
+void ttk_move_callback(ttk_window_t * window_ttk, int x, int y) {
+	if (!window_ttk) {
+		return;
+	}
+
+	/* XXX Do we want to do things with the old position? */
+
+	window_ttk->x = x;
+	window_ttk->y = y;
+
+}
+
 void ttk_resize_callback(ttk_window_t * window_ttk, int width, int height) {
 	if (!window_ttk) {
 		fprintf(stderr, "[ttk] received window callback for a window not registered with TTK, ignoring.\n");
@@ -418,6 +430,12 @@ int ttk_run(ttk_window_t * window) {
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						ttk_resize_callback(hashmap_get(ttk_wids_to_windows, (void*)wr->wid), wr->width, wr->height);
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOVE:
+					{
+						struct yutani_msg_window_move * wm = (void*)m->data;
+						ttk_move_callback(hashmap_get(ttk_wids_to_windows, (void*)wm->wid), wm->x, wm->y);
 					}
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
