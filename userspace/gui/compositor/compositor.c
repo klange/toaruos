@@ -339,6 +339,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->anim_mode = YUTANI_EFFECT_FADE_IN;
 	win->anim_start = yg->tick_count;
 	win->alpha_threshold = 0;
+	win->show_mouse = 1;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
@@ -1052,7 +1053,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 * We may also want to draw other compositor elements, like effects, but those
 			 * can also go in the stack order of the windows.
 			 */
-			draw_cursor(yg, tmp_mouse_x, tmp_mouse_y);
+			yutani_server_window_t * tmp_window = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+			if (!tmp_window || tmp_window->show_mouse) {
+				draw_cursor(yg, tmp_mouse_x, tmp_mouse_y);
+			}
 
 			/*
 			 * Flip the updated areas. This minimizes writes to video memory,
@@ -1543,11 +1547,11 @@ static void mouse_start_resize(yutani_globals_t * yg) {
 
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
 	if (me->type == YUTANI_MOUSE_EVENT_TYPE_RELATIVE) {
-		yg->mouse_x += me->event.x_difference * 3;
-		yg->mouse_y -= me->event.y_difference * 3;
+		yg->mouse_x += me->event.x_difference * MOUSE_SCALE;
+		yg->mouse_y -= me->event.y_difference * MOUSE_SCALE;
 	} else if (me->type == YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE) {
-		yg->mouse_x = me->event.x_difference * 3;
-		yg->mouse_y = me->event.y_difference * 3;
+		yg->mouse_x = me->event.x_difference * MOUSE_SCALE;
+		yg->mouse_y = me->event.y_difference * MOUSE_SCALE;
 	}
 
 	if (yg->mouse_x < 0) yg->mouse_x = 0;
@@ -2021,11 +2025,43 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_update_shape * wa = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
 					if (w) {
-						/* Start dragging */
+						/* Set shape parameter */
 						server_window_update_shape(yg, w, wa->set_shape);
 					}
 				}
 				break;
+			case YUTANI_MSG_WINDOW_WARP_MOUSE:
+				{
+					struct yutani_msg_window_warp_mouse * wa = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					if (w) {
+						if (yg->focused_window == w) {
+							int32_t x, y;
+							window_to_device(w, wa->x, wa->y, &x, &y);
+
+							struct yutani_msg_mouse_event me;
+							me.event.x_difference = x;
+							me.event.y_difference = y;
+							me.event.buttons = 0;
+							me.type = YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE;
+							me.wid = wa->wid;
+
+							handle_mouse_event(yg, &me);
+						}
+					}
+				}
+				break;
+			case YUTANI_MSG_WINDOW_SHOW_MOUSE:
+				{
+					struct yutani_msg_window_show_mouse * wa = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					if (w) {
+						w->show_mouse = wa->show_mouse;
+						if (yg->focused_window == w) {
+							yutani_add_clip(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
+						}
+					}
+				}
 			default:
 				{
 					fprintf(stderr, "[yutani-server] Unknown type: 0x%8x\n", m->type);

@@ -62,6 +62,7 @@ typedef struct {
 	int anim_start;
 
 	int alpha_threshold;
+	int show_mouse;
 } yutani_server_window_t;
 
 typedef struct {

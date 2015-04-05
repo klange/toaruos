@@ -94,6 +94,8 @@ void redraw(void) {
 }
 
 int main (int argc, char ** argv) {
+	int show_cursor = 1;
+
 	left   = 100;
 	top    = 100;
 	width  = 500;
@@ -125,6 +127,11 @@ int main (int argc, char ** argv) {
 							ke->event.keycode,
 							modifiers(ke->event.modifiers),
 							ke->event.key, ke->event.key);
+
+						if (ke->event.key == 'm' && ke->event.action == KEY_ACTION_DOWN) {
+							show_cursor = !show_cursor;
+							yutani_window_show_mouse(yctx, wina, show_cursor);
+						}
 					}
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
