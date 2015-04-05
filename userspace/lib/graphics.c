@@ -754,3 +754,20 @@ void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 		}
 	}
 }
+
+void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha) {
+	int32_t _left   = max(x, 0);
+	int32_t _top    = max(y, 0);
+	int32_t _right  = min(x + width,  ctx->width - 1);
+	int32_t _bottom = min(y + height, ctx->height - 1);
+	for (uint16_t _y = 0; _y < height; ++_y) {
+		for (uint16_t _x = 0; _x < width; ++_x) {
+			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+				continue;
+			uint32_t n_color = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
+			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
+			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+		}
+	}
+}
+

@@ -110,7 +110,7 @@ static void launch_application(char * app) {
 char * next_run_activate = NULL;
 int focused_app = -1;
 
-static void redraw_apps(void) {
+static void redraw_apps(int should_flip) {
 	draw_sprite(ctx, wallpaper, 0, 0);
 
 	/* Load Application Shortcuts */
@@ -135,14 +135,16 @@ static void redraw_apps(void) {
 		++i;
 	}
 
-	flip(ctx);
+	if (should_flip) {
+		flip(ctx);
+	}
 }
 
 static void set_focused(int i) {
 	if (focused_app != i) {
 		int old_focused = focused_app;
 		focused_app = i;
-		redraw_apps();
+		redraw_apps(1);
 		if (old_focused >= 0) {
 			yutani_flip_region(yctx, wina, 0, ICON_TOP_Y + ICON_SPACING_Y * old_focused, ICON_WIDTH + 2 * EXTRA_WIDTH, ICON_SPACING_Y);
 		}
@@ -150,6 +152,35 @@ static void set_focused(int i) {
 			yutani_flip_region(yctx, wina, 0, ICON_TOP_Y + ICON_SPACING_Y * focused_app, ICON_WIDTH + 2 * EXTRA_WIDTH, ICON_SPACING_Y);
 		}
 	}
+}
+
+void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
+
+#define ANIMATION_TICKS 50
+#define SCALE_MAX 2.0f
+static void play_animation(int i) {
+	sprite_t * sprite = applications[i].icon_sprite;
+
+	int x = ICON_X;
+	int y = ICON_TOP_Y + ICON_SPACING_Y * i;
+
+	for (int tick = 0; tick < ANIMATION_TICKS; tick++) {
+		float percent = (float)tick / (float)ANIMATION_TICKS;
+		float scale = 1.0f + (SCALE_MAX - 1.0f) * percent;
+		float opacity = 1.0f - 1.0f * percent;
+
+		int offset_x = sprite->width / 2 - scale * (sprite->width / 2);
+		int offset_y = sprite->height / 2 - scale * (sprite->height / 2);
+
+		redraw_apps(0);
+		draw_sprite_scaled_alpha(ctx, sprite, x + offset_x, y + offset_y, sprite->width * scale, sprite->height * scale, opacity);
+		flip(ctx);
+		yutani_flip_region(yctx, wina, 0, y - sprite->height, x + sprite->width * 2, y + sprite->height * 2);
+
+	}
+
+	redraw_apps(1);
+	yutani_flip_region(yctx, wina, 0, y - sprite->height, x + sprite->width * 2, y + sprite->height * 2);
 }
 
 static void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
@@ -163,6 +194,7 @@ static void wallpaper_check_click(struct yutani_msg_window_mouse_event * evt) {
 				if ((evt->new_y > ICON_TOP_Y + ICON_SPACING_Y * i) &&
 					(evt->new_y < ICON_TOP_Y + ICON_SPACING_Y + ICON_SPACING_Y * i)) {
 					launch_application(applications[i].appname);
+					play_animation(i);
 				}
 				++i;
 			}
@@ -316,7 +348,7 @@ int main (int argc, char ** argv) {
 	ctx = init_graphics_yutani_double_buffer(wina);
 	init_shmemfonts();
 
-	redraw_apps();
+	redraw_apps(1);
 	yutani_flip(yctx, wina);
 
 	while (_continue) {
