@@ -280,6 +280,7 @@ static struct procfs_entry std_entries[] = {
 	{-4, "cmdline",  cmdline_func},
 	{-5, "version",  version_func},
 	{-6, "compiler", compiler_func},
+	{-7, "self",     NULL},          /* Specially handled in finddir_procfs_root */
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
@@ -347,6 +348,10 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 			return NULL;
 		}
 		fs_node_t * out = procfs_procdir_create(pid);
+		return out;
+	}
+	if (!strcmp(name, "self")) {
+		fs_node_t * out = procfs_procdir_create(current_process->id);
 		return out;
 	}
 
