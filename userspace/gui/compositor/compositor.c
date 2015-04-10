@@ -1242,7 +1242,6 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 	}
 
 	/* Notify subscribers that there are changes to windows */
-	yutani_msg_t * response = yutani_msg_build_notify();
 	notify_subscribers(yg);
 }
 
