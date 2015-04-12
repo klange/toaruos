@@ -1,6 +1,7 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2014 Kevin Lange
+ * Copyright (C) 2013-2015 Kevin Lange
  */
 /*
  * glogin
@@ -55,7 +56,7 @@ static int BOX_COLOR_R=0;
 static int BOX_COLOR_G=0;
 static int BOX_COLOR_B=0;
 static int BOX_COLOR_A=127;
-static char * WALLPAPER = "/usr/share/wallpaper.png";
+static char * WALLPAPER = "/usr/share/wallpapers/southbay.png";
 static char * LOGO = "/usr/share/logo_login.png";
 
 #define TEXTBOX_INTERIOR_LEFT 4

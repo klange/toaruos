@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2014 Kevin Lange
+ * Copyright (C) 2013-2015 Kevin Lange
  *
  * Wallpaper renderer.
  *
@@ -16,6 +16,9 @@
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
 #include "lib/hashmap.h"
+#include "lib/confreader.h"
+
+#define DEFAULT_WALLPAPER "/usr/share/wallpapers/southbay.png"
 
 #define ICON_X         24
 #define ICON_TOP_Y     40
@@ -290,14 +293,13 @@ int main (int argc, char ** argv) {
 	sprite_t * wallpaper_tmp = malloc(sizeof(sprite_t));
 
 	char f_name[512];
-	sprintf(f_name, "%s/.wallpaper.png", getenv("HOME"));
-	FILE * f = fopen(f_name, "r");
-	if (f) {
-		fclose(f);
-		load_sprite_png(wallpaper_tmp, f_name);
-	} else {
-		load_sprite_png(wallpaper_tmp, "/usr/share/wallpaper.png");
-	}
+
+	sprintf(f_name, "%s/.desktop.conf", getenv("HOME"));
+	confreader_t * conf = confreader_load(f_name);
+
+	load_sprite_png(wallpaper_tmp, confreader_getd(conf, "", "wallpaper", DEFAULT_WALLPAPER));
+
+	confreader_free(conf);
 
 	/* Initialize hashmap for icon cache */
 	icon_cache = hashmap_create(10);
@@ -309,7 +311,7 @@ int main (int argc, char ** argv) {
 	}
 
 	sprintf(f_name, "%s/.desktop", getenv("HOME"));
-	f = fopen(f_name, "r");
+	FILE * f = fopen(f_name, "r");
 	if (!f) {
 		f = fopen("/etc/default.desktop", "r");
 	}
