@@ -38,6 +38,7 @@ class Classifier(object):
         '"lib/graphics.h"':    (None, 'userspace/lib/graphics.o',    ['<png.h>']),
         '"lib/shmemfonts.h"':  (None, 'userspace/lib/shmemfonts.o',  ['"lib/graphics.h"', '<ft2build.h>']),
         '"lib/rline.h"':       (None, 'userspace/lib/rline.o',       ['"lib/kbd.h"']),
+        '"lib/confreader.h"':  (None, 'userspace/lib/confreader.o',  ['"lib/hashmap.h"']),
         # Yutani Libraries
         '"lib/yutani.h"':      (None, 'userspace/lib/yutani.o',      ['"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
         '"lib/decorations.h"': (None, 'userspace/lib/decorations.o', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"']),

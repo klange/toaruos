@@ -25,6 +25,7 @@
 #include "lib/kbd.h"
 #include "lib/yutani.h"
 #include "lib/toaru_auth.h"
+#include "lib/confreader.h"
 
 #include "gui/ttk/ttk.h"
 
@@ -37,14 +38,28 @@ uint16_t win_height;
 
 int uid = 0;
 
-#define LOGO_FINAL_OFFSET 100
-#define BOX_WIDTH  272
-#define BOX_HEIGHT 104
 #define USERNAME_BOX 1
 #define PASSWORD_BOX 2
-#define EXTRA_TEXT_OFFSET 15
+
+static int LOGO_FINAL_OFFSET = 100;
+static int BOX_WIDTH = 272;
+static int BOX_HEIGHT = 104;
+static int BOX_ROUNDNESS = 4;
+static int CENTER_BOX_X=1;
+static int CENTER_BOX_Y=1;
+static int BOX_LEFT=-1;
+static int BOX_RIGHT=-1;
+static int BOX_TOP=-1;
+static int BOX_BOTTOM=-1;
+static int BOX_COLOR_R=0;
+static int BOX_COLOR_G=0;
+static int BOX_COLOR_B=0;
+static int BOX_COLOR_A=127;
+static char * WALLPAPER = "/usr/share/wallpaper.png";
+static char * LOGO = "/usr/share/logo_login.png";
+
 #define TEXTBOX_INTERIOR_LEFT 4
-#define LEFT_OFFSET 84
+#define EXTRA_TEXT_OFFSET 15
 
 int center_x(int x) {
 	return (win_width - x) / 2;
@@ -197,8 +212,8 @@ void draw_text_box(cairo_t * cr, struct text_box * tb) {
 void draw_login_container(cairo_t * cr, struct login_container * lc) {
 
 	/* Draw rounded rectangle */
-	cairo_rounded_rectangle(cr, lc->x, lc->y, lc->width, lc->height, 4.0);
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.75);
+	cairo_rounded_rectangle(cr, lc->x, lc->y, lc->width, lc->height, (float)BOX_ROUNDNESS);
+	cairo_set_source_rgba(cr, (float)(BOX_COLOR_R)/255.0, (float)(BOX_COLOR_G)/255.0, (float)(BOX_COLOR_B)/255.0, (float)(BOX_COLOR_A)/255.0);
 	cairo_fill(cr);
 
 	/* Draw labels */
@@ -215,7 +230,6 @@ void draw_login_container(cairo_t * cr, struct login_container * lc) {
 }
 
 int main (int argc, char ** argv) {
-	load_sprite_png(&logo, "/usr/share/logo_login.png");
 	init_shmemfonts();
 
 	yutani_t * y = yutani_init();
@@ -224,6 +238,36 @@ int main (int argc, char ** argv) {
 		fprintf(stderr, "[glogin] Connection to server failed.\n");
 		return 1;
 	}
+
+	/* Load config */
+	{
+		confreader_t * conf = confreader_load("/etc/glogin.conf");
+
+		LOGO_FINAL_OFFSET = confreader_intd(conf, "style", "logo_padding", LOGO_FINAL_OFFSET);
+		BOX_WIDTH = confreader_intd(conf, "style", "box_width", BOX_WIDTH);
+		BOX_HEIGHT = confreader_intd(conf, "style", "box_height", BOX_HEIGHT);
+		BOX_ROUNDNESS = confreader_intd(conf, "style", "box_roundness", BOX_ROUNDNESS);
+		CENTER_BOX_X = confreader_intd(conf, "style", "center_box_x", CENTER_BOX_X);
+		CENTER_BOX_Y = confreader_intd(conf, "style", "center_box_y", CENTER_BOX_Y);
+		BOX_LEFT = confreader_intd(conf, "style", "box_left", BOX_LEFT);
+		BOX_RIGHT = confreader_intd(conf, "style", "box_right", BOX_RIGHT);
+		BOX_TOP = confreader_intd(conf, "style", "box_top", BOX_TOP);
+		BOX_BOTTOM = confreader_intd(conf, "style", "box_bottom", BOX_BOTTOM);
+		BOX_COLOR_R = confreader_intd(conf, "style", "box_color_r", BOX_COLOR_R);
+		BOX_COLOR_G = confreader_intd(conf, "style", "box_color_g", BOX_COLOR_G);
+		BOX_COLOR_B = confreader_intd(conf, "style", "box_color_b", BOX_COLOR_B);
+		BOX_COLOR_A = confreader_intd(conf, "style", "box_color_a", BOX_COLOR_A);
+
+		WALLPAPER = confreader_getd(conf, "image", "wallpaper", WALLPAPER);
+		LOGO = confreader_getd(conf, "image", "logo", LOGO);
+
+
+
+
+		confreader_free(conf);
+	}
+
+	load_sprite_png(&logo, LOGO);
 
 	/* Generate surface for background */
 	sprite_t * bg_sprite;
@@ -247,7 +291,7 @@ int main (int argc, char ** argv) {
 
 	{
 		sprite_t * wallpaper = malloc(sizeof(sprite_t));
-		load_sprite_png(wallpaper, "/usr/share/wallpaper.png");
+		load_sprite_png(wallpaper, WALLPAPER);
 
 		float x = (float)width  / (float)wallpaper->width;
 		float y = (float)height / (float)wallpaper->height;
@@ -338,8 +382,22 @@ int main (int argc, char ** argv) {
 
 		uid = 0;
 
-		int box_x = center_x(BOX_WIDTH);
-		int box_y = center_y(0) + 8;
+		int box_x, box_y;
+
+		if (CENTER_BOX_X) {
+			box_x = center_x(BOX_WIDTH);
+		} else if (BOX_LEFT == -1) {
+			box_x = win_width - BOX_RIGHT - BOX_WIDTH;
+		} else {
+			box_x = BOX_LEFT;
+		}
+		if (CENTER_BOX_Y) {
+			box_y = center_y(0) + 8;
+		} else if (BOX_TOP == -1) {
+			box_y = win_width - BOX_BOTTOM - BOX_HEIGHT;
+		} else {
+			box_y = BOX_TOP;
+		}
 
 		int focus = 0;
 
