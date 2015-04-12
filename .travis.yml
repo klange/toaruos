@@ -4,6 +4,6 @@ notifications:
   irc:
     channels:
       - "irc.freenode.org#toaruos"
-    use_notice: true
+    use_notice: false
     skip_join: true
 
