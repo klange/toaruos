@@ -108,3 +108,35 @@ void irq_handler(struct regs *r) {
 	}
 	IRQ_RES;
 }
+
+static int _irq_sem = 0;
+void irq_off(void) {
+	uint32_t eflags;
+	asm volatile(
+		"pushf\n"
+		"pop %0\n"
+		"cli"
+		: "=r" (eflags));
+
+	if (eflags & (1 << 9)) {
+		_irq_sem = 1;
+	} else {
+		_irq_sem++;
+	}
+}
+
+void irq_res(void) {
+	if (_irq_sem == 0) {
+		asm volatile ("sti");
+		return;
+	}
+	_irq_sem--;
+	if (_irq_sem == 0) {
+		asm volatile ("sti");
+	}
+}
+
+void irq_on(void) {
+	_irq_sem = 0;
+	asm volatile ("sti");
+}

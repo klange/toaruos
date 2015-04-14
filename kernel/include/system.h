@@ -17,8 +17,13 @@
 
 extern unsigned int __irq_sem;
 
-#define IRQ_OFF { asm volatile ("cli"); }
-#define IRQ_RES { asm volatile ("sti"); }
+void irq_off(void);
+void irq_res(void);
+void irq_on(void);
+
+#define IRQ_OFF irq_off()
+#define IRQ_RES irq_res()
+#define IRQ_ON  irq_on()
 #define PAUSE   { asm volatile ("hlt"); }
 
 #define STOP while (1) { PAUSE; }

@@ -111,9 +111,11 @@ void make_process_ready(process_t * proc) {
 		if (proc->sleep_node.owner == sleep_queue) {
 			/* XXX can't wake from timed sleep */
 			if (proc->timed_sleep_node) {
+				IRQ_OFF;
 				spin_lock(&sleep_lock);
 				list_delete(sleep_queue, proc->timed_sleep_node);
 				spin_unlock(&sleep_lock);
+				IRQ_RES;
 				proc->sleep_node.owner = NULL;
 				free(proc->timed_sleep_node->value);
 			}
@@ -165,7 +167,7 @@ void delete_process(process_t * proc) {
 
 static void _kidle(void) {
 	while (1) {
-		IRQ_RES;
+		IRQ_ON;
 		PAUSE;
 	}
 }
@@ -585,6 +587,7 @@ int process_is_ready(process_t * proc) {
 
 
 void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
+	IRQ_OFF;
 	spin_lock(&sleep_lock);
 	if (sleep_queue->length) {
 		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
@@ -605,6 +608,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 		}
 	}
 	spin_unlock(&sleep_lock);
+	IRQ_RES;
 }
 
 void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
@@ -613,6 +617,8 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 		return;
 	}
 	process->sleep_node.owner = sleep_queue;
+
+	IRQ_OFF;
 	spin_lock(&sleep_lock);
 	node_t * before = NULL;
 	foreach(node, sleep_queue) {
@@ -628,6 +634,7 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	proc->end_subtick = subseconds;
 	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
 	spin_unlock(&sleep_lock);
+	IRQ_RES;
 }
 
 void cleanup_process(process_t * proc, int retval) {
