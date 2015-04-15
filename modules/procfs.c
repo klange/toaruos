@@ -214,7 +214,7 @@ static uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 
 static uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
-	sprintf(buf, "%d.%2d\n", timer_ticks, timer_subticks);
+	sprintf(buf, "%d.%3d\n", timer_ticks, timer_subticks);
 
 	size_t _bsize = strlen(buf);
 	if (offset > _bsize) return 0;

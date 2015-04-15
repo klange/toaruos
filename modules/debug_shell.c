@@ -404,6 +404,37 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_rdtsc(fs_node_t * tty, int argc, char * argv[]) {
+	uint64_t x;
+	asm volatile (".byte 0x0f, 0x31" : "=A" (x));
+
+	fprintf(tty, "0x%x%x\n", (uint32_t)(x >> 32), (uint32_t)(x & 0xFFFFFFFF));
+
+	return 0;
+}
+
+static int shell_mhz(fs_node_t * tty, int argc, char * argv[]) {
+
+	uint64_t x, y;
+
+	asm volatile (".byte 0x0f, 0x31" : "=A" (x));
+
+	unsigned long s, ss;
+	relative_time(1, 0, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+
+	asm volatile (".byte 0x0f, 0x31" : "=A" (y));
+
+	uint64_t diff = y - x;
+	uint32_t f = diff >> 15;
+	uint32_t mhz = f / 30;
+
+	fprintf(tty, "%d MHz\n", mhz);
+
+	return 0;
+}
+
 /*
  * Determine the size of a smart terminal that we don't have direct
  * termios access to. This is done by sending a cursor-move command
@@ -541,6 +572,10 @@ static struct shell_command shell_commands[] = {
 		"Attempt to reset mouse device."},
 	{"mount", &shell_mount,
 		"Mount a filesystemp."},
+	{"rdtsc", &shell_rdtsc,
+		"Read the TSC, if available."},
+	{"mhz", &shell_mhz,
+		"Use TSC to determine clock speed."},
 	{"exit", &shell_exit,
 		"Quit the shell."},
 	{NULL, NULL, NULL}

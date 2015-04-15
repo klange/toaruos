@@ -123,7 +123,9 @@ uint32_t secs_of_month(int months, int year) {
 	return days * 86400;
 }
 
-int gettimeofday(struct timeval * t, void *z) {
+uint32_t boot_time = 0;
+
+uint32_t read_cmos(void) {
 	uint16_t values[128];
 	cmos_dump(values);
 
@@ -135,8 +137,12 @@ int gettimeofday(struct timeval * t, void *z) {
 					(from_bcd(values[2])) * 60 +
 					from_bcd(values[0]) +
 					0;
-	t->tv_sec = time;
-	t->tv_usec = 0;
+	return time;
+}
+
+int gettimeofday(struct timeval * t, void *z) {
+	t->tv_sec = boot_time + timer_ticks + timer_drift;
+	t->tv_usec = timer_subticks * 1000;
 	return 0;
 }
 

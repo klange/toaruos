@@ -45,7 +45,7 @@ void _debug_print(char * title, int line_no, log_type_t level, char *fmt, ...) {
 			type = c_messages[level];
 		}
 
-		fprintf(debug_file, "[%10d.%2d:%s:%d]%s %s\n", timer_ticks, timer_subticks, title, line_no, type, buffer);
+		fprintf(debug_file, "[%10d.%3d:%s:%d]%s %s\n", timer_ticks, timer_subticks, title, line_no, type, buffer);
 
 	}
 	/* else ignore */

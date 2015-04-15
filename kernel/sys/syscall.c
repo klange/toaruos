@@ -545,7 +545,7 @@ static int sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
 
 static int sys_sleep(unsigned long seconds, unsigned long subseconds) {
 	unsigned long s, ss;
-	relative_time(seconds, subseconds, &s, &ss);
+	relative_time(seconds, subseconds * 10, &s, &ss);
 	return sys_sleepabs(s, ss);
 }
 

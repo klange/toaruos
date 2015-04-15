@@ -118,7 +118,8 @@ extern void irq_ack(size_t);
 /* Timer */
 extern void timer_install(void);
 extern unsigned long timer_ticks;
-extern unsigned char timer_subticks;
+extern unsigned long timer_subticks;
+extern signed long timer_drift;
 extern void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds);
 
 /* Memory Management */
@@ -189,6 +190,8 @@ extern void parse_args(char * argv);
 /* CMOS */
 extern void get_time(uint16_t * hours, uint16_t * minutes, uint16_t * seconds);
 extern void get_date(uint16_t * month, uint16_t * day);
+extern uint32_t boot_time;
+extern uint32_t read_cmos(void);
 
 struct timeval {
 	uint32_t tv_sec;
