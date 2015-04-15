@@ -59,7 +59,7 @@ typedef struct {
 	char *   client_strings;
 
 	int anim_mode;
-	int anim_start;
+	uint32_t anim_start;
 
 	int alpha_threshold;
 	int show_mouse;
@@ -123,7 +123,7 @@ typedef struct {
 
 	list_t * window_subscribers;
 
-	int tick_count;
+	uint32_t start_time;
 
 	volatile int redraw_lock;
 
@@ -142,6 +142,8 @@ typedef struct {
 	int debug_shapes;
 
 	int screenshot_frame;
+
+	uint32_t start_subtime;
 
 } yutani_globals_t;
 

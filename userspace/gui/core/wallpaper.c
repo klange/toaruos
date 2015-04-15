@@ -10,7 +10,9 @@
 #include <assert.h>
 #include <unistd.h>
 #include <math.h>
+#include <time.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include "lib/yutani.h"
 #include "lib/graphics.h"
@@ -159,15 +161,34 @@ static void set_focused(int i) {
 
 void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
 
-#define ANIMATION_TICKS 50
+#define ANIMATION_TICKS 500
 #define SCALE_MAX 2.0f
 static void play_animation(int i) {
+
+	struct timeval start;
+	gettimeofday(&start, NULL);
+
 	sprite_t * sprite = applications[i].icon_sprite;
 
 	int x = ICON_X;
 	int y = ICON_TOP_Y + ICON_SPACING_Y * i;
 
-	for (int tick = 0; tick < ANIMATION_TICKS; tick++) {
+	while (1) {
+		uint32_t tick;
+		struct timeval t;
+		gettimeofday(&t, NULL);
+
+		uint32_t sec_diff = t.tv_sec - start.tv_sec;
+		uint32_t usec_diff = t.tv_usec - start.tv_usec;
+
+		if (t.tv_usec < start.tv_usec) {
+			sec_diff -= 1;
+			usec_diff = (1000000 + t.tv_usec) - start.tv_usec;
+		}
+
+		tick = (uint32_t)(sec_diff * 1000 + usec_diff / 1000);
+		if (tick > ANIMATION_TICKS) break;
+
 		float percent = (float)tick / (float)ANIMATION_TICKS;
 		float scale = 1.0f + (SCALE_MAX - 1.0f) * percent;
 		float opacity = 1.0f - 1.0f * percent;

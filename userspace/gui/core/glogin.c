@@ -230,6 +230,12 @@ void draw_login_container(cairo_t * cr, struct login_container * lc) {
 
 }
 
+#define _app_name "glogin"
+#define TRACE(msg,...) do { \
+	struct timeval t; gettimeofday(&t, NULL); \
+	fprintf(stderr, "%06d.%06d [" _app_name "] %s:%05d - " msg "\n", t.tv_sec, t.tv_usec, __FILE__, __LINE__, ##__VA_ARGS__); \
+} while (0)
+
 int main (int argc, char ** argv) {
 	init_shmemfonts();
 
@@ -262,13 +268,14 @@ int main (int argc, char ** argv) {
 		WALLPAPER = confreader_getd(conf, "image", "wallpaper", WALLPAPER);
 		LOGO = confreader_getd(conf, "image", "logo", LOGO);
 
-
-
-
 		confreader_free(conf);
+
+		TRACE("Loading complete");
 	}
 
+	TRACE("Loading logo...");
 	load_sprite_png(&logo, LOGO);
+	TRACE("... done.");
 
 	/* Generate surface for background */
 	sprite_t * bg_sprite;
@@ -280,16 +287,19 @@ int main (int argc, char ** argv) {
 	win_height = height;
 
 	/* Do something with a window */
+	TRACE("Connecting to window server...");
 	yutani_window_t * wina = yutani_window_create(y, width, height);
 	assert(wina);
 	yutani_set_stack(y, wina, 0);
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgba(0,0,0,255));
 	yutani_flip(y, wina);
+	TRACE("... done.");
 
 	cairo_surface_t * cs = cairo_image_surface_create_for_data((void*)ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width));
 	cairo_t * cr = cairo_create(cs);
 
+	TRACE("Loading wallpaper...");
 	{
 		sprite_t * wallpaper = malloc(sizeof(sprite_t));
 		load_sprite_png(wallpaper, WALLPAPER);
@@ -317,6 +327,7 @@ int main (int argc, char ** argv) {
 		free(bg);
 		free(wallpaper);
 	}
+	TRACE("... done.");
 
 	while (1) {
 
@@ -331,13 +342,36 @@ int main (int argc, char ** argv) {
 		char * foo = malloc(sizeof(uint32_t) * width * height);
 		memcpy(foo, ctx->backbuffer, sizeof(uint32_t) * width * height);
 
-		for (int i = 0; i < LOGO_FINAL_OFFSET; i += 2) {
-			memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
-			draw_sprite(ctx, &logo, center_x(logo.width), center_y(logo.height) - i);
-			flip(ctx);
-			yutani_flip_region(y, wina, center_x(logo.width), center_y(logo.height) - i, logo.width, logo.height + 5);
-			usleep(10000);
+		TRACE("Begin animation.");
+		{
+			struct timeval start;
+			gettimeofday(&start, NULL);
+
+			while (1) {
+				uint32_t tick;
+				struct timeval t;
+				gettimeofday(&t, NULL);
+
+				uint32_t sec_diff = t.tv_sec - start.tv_sec;
+				uint32_t usec_diff = t.tv_usec - start.tv_usec;
+
+				if (t.tv_usec < start.tv_usec) {
+					sec_diff -= 1;
+					usec_diff = (1000000 + t.tv_usec) - start.tv_usec;
+				}
+
+				tick = (uint32_t)(sec_diff * 1000 + usec_diff / 1000);
+				int i = (float)LOGO_FINAL_OFFSET * (float)tick / 700.0f;
+				if (i >= LOGO_FINAL_OFFSET) break;
+
+				memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
+				draw_sprite(ctx, &logo, center_x(logo.width), center_y(logo.height) - i);
+				flip(ctx);
+				yutani_flip_region(y, wina, center_x(logo.width), center_y(logo.height) - i, logo.width, logo.height + 5);
+				usleep(10000);
+			}
 		}
+		TRACE("End animation.");
 
 		size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
 		char * buf = malloc(buf_size);
@@ -447,6 +481,7 @@ int main (int argc, char ** argv) {
 				struct yutani_msg_key_event kbd;
 				struct yutani_msg_window_mouse_event mou;
 				int msg_type = 0;
+collect_events:
 				do {
 					yutani_msg_t * msg = yutani_poll(y);
 					switch (msg->type) {
@@ -533,8 +568,9 @@ int main (int argc, char ** argv) {
 							continue;
 						}
 
+					} else {
+						goto collect_events;
 					}
-
 				}
 
 			}

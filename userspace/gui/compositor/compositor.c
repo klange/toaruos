@@ -16,6 +16,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include <cairo.h>
 
@@ -123,6 +124,29 @@ static int next_buf_id(void) {
 static int next_wid(void) {
 	static int _next = 1;
 	return _next++;
+}
+
+static uint32_t yutani_current_time(yutani_globals_t * yg) {
+	struct timeval t;
+	gettimeofday(&t, NULL);
+
+	uint32_t sec_diff = t.tv_sec - yg->start_time;
+	uint32_t usec_diff = t.tv_usec - yg->start_subtime;
+
+	if (t.tv_usec < yg->start_subtime) {
+		sec_diff -= 1;
+		usec_diff = (1000000 + t.tv_usec) - yg->start_subtime;
+	}
+
+	return (uint32_t)(sec_diff * 1000 + usec_diff / 1000);
+}
+
+static uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time) {
+
+	uint32_t now = yutani_current_time(yg);
+	uint32_t diff = now - start_time; /* Milliseconds */
+
+	return diff / 2;
 }
 
 /**
@@ -337,7 +361,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->client_length  = 0;
 	win->client_strings = NULL;
 	win->anim_mode = YUTANI_EFFECT_FADE_IN;
-	win->anim_start = yg->tick_count;
+	win->anim_start = yutani_current_time(yg);
 	win->alpha_threshold = 0;
 	win->show_mouse = 1;
 
@@ -771,7 +795,7 @@ static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_serve
 		}
 	}
 	if (window->anim_mode) {
-		int frame = yg->tick_count - window->anim_start;
+		int frame = yutani_time_since(yg, window->anim_start);
 		if (frame >= yutani_animation_lengths[window->anim_mode]) {
 			/* XXX handle animation-end things like cleanup of closing windows */
 			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
@@ -785,11 +809,12 @@ static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_serve
 			switch (window->anim_mode) {
 				case YUTANI_EFFECT_FADE_OUT:
 					{
-						frame = 256 - frame;
+						frame = yutani_animation_lengths[window->anim_mode] - frame;
 					}
 				case YUTANI_EFFECT_FADE_IN:
 					{
-						double x = 0.75 + ((double)frame / 256.0) * 0.25;
+						double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
+						double x = 0.75 + time_diff * 0.25;
 						int t_x = (window->width * (1.0 - x)) / 2;
 						int t_y = (window->height * (1.0 - x)) / 2;
 
@@ -800,7 +825,7 @@ static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_serve
 
 						cairo_set_source_surface(cr, surf, 0, 0);
 						cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_FAST);
-						cairo_paint_with_alpha(cr, (double)frame/256.0);
+						cairo_paint_with_alpha(cr, time_diff);
 					}
 					break;
 				default:
@@ -972,8 +997,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	yg->last_mouse_x = tmp_mouse_x;
 	yg->last_mouse_y = tmp_mouse_y;
-
-	yg->tick_count += 10;
 
 	if (yg->bottom_z && yg->bottom_z->anim_mode) mark_window(yg, yg->bottom_z);
 	if (yg->top_z && yg->top_z->anim_mode) mark_window(yg, yg->top_z);
@@ -1191,7 +1214,7 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) 
  */
 static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t * w) {
 	w->anim_mode = YUTANI_EFFECT_FADE_OUT;
-	w->anim_start = yg->tick_count;
+	w->anim_start = yutani_current_time(yg);
 }
 
 /**
@@ -1709,6 +1732,13 @@ int main(int argc, char * argv[]) {
 		free(yg);
 		fprintf(stderr, "%s: Failed to open framebuffer, bailing.\n", argv[0]);
 		return 1;
+	}
+
+	{
+		struct timeval t;
+		gettimeofday(&t, NULL);
+		yg->start_time = t.tv_sec;
+		yg->start_subtime = t.tv_usec;
 	}
 
 	yg->width = yg->backend_ctx->width;
