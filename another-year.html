@@ -2,9 +2,12 @@
 <html lang="">	
 <head>
 	<meta charset="utf-8"/>
-	<title>とあるOS</title>	
+	<title>Another Year - とあるOS</title>	
 	<meta name="author" content="Kevin Lange">
 	
+
+	<meta name="description" content="Kernel updates, and lots of exciting ports.">
+
 
 	<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
 	<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
@@ -30,12 +33,18 @@
 	  <div class="wrapper">
 
 		  <div role="main" class="content">
-
-
-
-      <article>
-        <h1><a href="http://toaruos.org/another-year.html">Another Year</a></h1>
-        <p>It's been nearly a year since I last posted an update, but in that year there's been a solid bit of development activitiy.</p>
+	<article class="full">
+			
+		<h1>Another Year</h1>
+		
+<div class="metadata">
+  <time datetime="2015-04-20T19:50:00" pubdate>Mon 20 April 2015</time>
+    <address class="vcard author">
+      by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
+    </address>
+  in <a href="http://toaruos.org/category/misc.html">misc</a>
+<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>		
+		<p>It's been nearly a year since I last posted an update, but in that year there's been a solid bit of development activitiy.</p>
 <h2>EXT2 drivers</h2>
 <p>If you've been following ToaruOS for a while, you may know that we had some write support for ext2 a very long time ago, but it was kind of broken and unstable. The good news is, that support is back, and it's notably more stable than it was. The bad news is it's still not done, and there are some known bugs and edge cases to work through.</p>
 <h2>More Network Work</h2>
@@ -53,48 +62,15 @@
 <p>The new timing interface has been adopted for use in animations on the desktop, so if you're running under software emulation in Bochs or QEMU, you should notice that animations are no longer abysmally slow (they'll just have low framerates). This was helpful with adding new animations to the wallpaper when loading applications, but is also used in the compositor and login screen.</p>
 <p><a href="http://i.imgur.com/F2dRiwY.png"><img alt="Timing resulted in an increased framerate in Gears" src="http://i.imgur.com/F2dRiwY.png" /></a></p>
 <h2>What's New in Yutani</h2>
-<p>Yutani got a number of updates as well, mostly driven by the SDL and Quake ports. Yutani now supports cursor warping and hiding, and will inform clients when a window is moved. A client application, <code>yutani-test</code>, has been added for debugging - it works a bit like <code>xev</code>.</p>
-      </article>
+<p>Yutani got a number of updates as well, mostly driven by the SDL and Quake ports. Yutani now supports cursor warping and hiding, and will inform clients when a window is moved. A client application, <code>yutani-test</code>, has been added for debugging - it works a bit like <code>xev</code>.</p>	
 
-      <hr />
+	</article>
 
-        <div>
-          <h3>Last posts</h3>
-          <ol class="archive">
-    
+    <p>
+	<a href="https://twitter.com/share" class="twitter-share-button" data-via="" data-lang="en" data-size="large" data-related="">Tweet</a>
+	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+	</p>
 
-
-      <li>
-<a href="http://toaruos.org/marching-towards-100.html" rel="bookmark" title="Permalink to Marching Towards 1.0.0">Marching Towards 1.0.0</a>
-  <time datetime="2014-06-08T00:20:00" pubdate>Sun 08 June 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/visibly-panicked.html" rel="bookmark" title="Permalink to Visibly Panicked">Visibly Panicked</a>
-  <time datetime="2014-05-12T20:20:00" pubdate>Mon 12 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/yutani-the-new-compositor.html" rel="bookmark" title="Permalink to Yutani: The new compositor">Yutani: The new compositor</a>
-  <time datetime="2014-05-10T16:45:00" pubdate>Sat 10 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/yutani.html">yutani</a><a href="http://toaruos.org/tag/gui.html">gui</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/hello-world-again.html" rel="bookmark" title="Permalink to Hello World (Again)">Hello World (Again)</a>
-  <time datetime="2014-05-10T00:08:00" pubdate>Sat 10 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-
-      <li>
-<a href="http://toaruos.org/test-post-please-ignore.html" rel="bookmark" title="Permalink to Test Post Please Ignore">Test Post Please Ignore</a>
-  <time datetime="2014-05-09T23:50:00" pubdate>Fri 09 May 2014</time>
-<p class="tags">tags: <a href="http://toaruos.org/tag/meta.html">meta</a><a href="http://toaruos.org/tag/blog.html">blog</a></p></a>      </li>
-
-          </ol>
-        </div>
 
 		  </div>	
 		  
@@ -103,7 +79,7 @@
 	        <nav>
 	          <h2>Categories</h2>
 	          <ul>
-	              <li ><a href="http://toaruos.org/category/misc.html">misc</a></li>
+	              <li class="active"><a href="http://toaruos.org/category/misc.html">misc</a></li>
 	          </ul>
 	        </nav>
 
