@@ -1006,7 +1006,19 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	} else if (!strcmp(argv[1], "no-force-raw")) {
 		shell_force_raw = 0;
 		return 0;
+	} else if (!strcmp(argv[1], "--help")) {
+		fprintf(stderr, "Available arguments:\n"
+		                "  alpha - alpha transparency enabled / disabled\n"
+		                "  scale - font scaling\n"
+		                "  size - terminal width/height in characters\n"
+		                "  force-raw - sets terminal to raw mode before commands\n"
+		                "  no-force-raw - disables forced raw mode\n"
+		);
+		return 0;
 	}
+
+	fprintf(stderr, "%s: unrecognized argument\n", argv[0]);
+	return 1;
 }
 
 void install_commands() {
