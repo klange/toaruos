@@ -290,6 +290,21 @@ static void _ansi_put(term_state_t * s, char c) {
 							if (!strcmp(argv[0], "?1049")) {
 								callbacks->cls(2);
 								callbacks->set_csr(0,0);
+							} else if (!strcmp(argv[0], "?1000")) {
+								s->mouse_on = 1;
+							} else if (!strcmp(argv[0], "?1002")) {
+								s->mouse_on = 2;
+							}
+						}
+						break;
+					case ANSI_HIDE:
+						if (argc > 0) {
+							if (!strcmp(argv[0], "?1049")) {
+								/* TODO: Unimplemented */
+							} else if (!strcmp(argv[0], "?1000")) {
+								s->mouse_on = 0;
+							} else if (!strcmp(argv[0], "?1002")) {
+								s->mouse_on = 0;
 							}
 						}
 						break;
@@ -512,6 +527,7 @@ term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * call
 	s->box    = 0;
 	s->callbacks = callbacks_in;
 	s->callbacks->set_color(s->fg, s->bg);
+	s->mouse_on = 0;
 
 	return s;
 }

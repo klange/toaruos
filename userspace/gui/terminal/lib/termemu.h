@@ -44,6 +44,7 @@ typedef struct {
 	char     buffer[TERM_BUF_LEN];  /* Previous buffer */
 	term_callbacks_t * callbacks;
 	int volatile lock;
+	uint8_t  mouse_on;
 } term_state_t;
 
 /* Triggers escape mode. */

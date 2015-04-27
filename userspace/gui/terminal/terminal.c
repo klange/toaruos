@@ -76,6 +76,10 @@ uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 uint8_t  _free_size     = 1;    /* Disable rounding when resized */
 
+int      last_mouse_x   = -1;
+int      last_mouse_y   = -1;
+int      button_state   = 0;
+
 static volatile int display_lock = 0;
 
 yutani_window_t * window       = NULL; /* GUI window */
@@ -1087,6 +1091,12 @@ static void resize_finish(int width, int height) {
 	yutani_flip(yctx, window);
 }
 
+void mouse_event(int button, int x, int y) {
+	char buf[7];
+	sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
+	handle_input_s(buf);
+}
+
 void * handle_incoming(void * garbage) {
 	while (!exit_application) {
 		yutani_msg_t * m = yutani_poll(yctx);
@@ -1128,6 +1138,40 @@ void * handle_incoming(void * garbage) {
 							if (decor_handle_event(yctx, m) == DECOR_CLOSE) {
 								kill(child_pid, SIGKILL);
 								exit_application = 1;
+								break;
+							}
+						}
+						/* Map Cursor Action */
+						if (ansi_state->mouse_on) {
+							int new_x = me->new_x;
+							int new_y = me->new_y;
+							if (!_no_frame) {
+								new_x -= decor_left_width;
+								new_y -= decor_top_height;
+							}
+							/* Convert from coordinate to cell positon */
+							new_x /= char_width;
+							new_y /= char_height;
+
+							if (me->buttons != button_state) {
+								/* Figure out what changed */
+								if (me->buttons & YUTANI_MOUSE_BUTTON_LEFT && !(button_state & YUTANI_MOUSE_BUTTON_LEFT)) mouse_event(0, new_x, new_y);
+								if (me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE && !(button_state & YUTANI_MOUSE_BUTTON_MIDDLE)) mouse_event(1, new_x, new_y);
+								if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT && !(button_state & YUTANI_MOUSE_BUTTON_RIGHT)) mouse_event(2, new_x, new_y);
+								if (!(me->buttons & YUTANI_MOUSE_BUTTON_LEFT) && button_state & YUTANI_MOUSE_BUTTON_LEFT) mouse_event(3, new_x, new_y);
+								if (!(me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && button_state & YUTANI_MOUSE_BUTTON_MIDDLE) mouse_event(3, new_x, new_y);
+								if (!(me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) && button_state & YUTANI_MOUSE_BUTTON_RIGHT) mouse_event(3, new_x, new_y);
+								last_mouse_x = new_x;
+								last_mouse_y = new_y;
+								button_state = me->buttons;
+							} else if (ansi_state->mouse_on == 2) {
+								/* Report motion for pressed buttons */
+								if (last_mouse_x == new_x && last_mouse_y == new_y) break;
+								if (button_state & YUTANI_MOUSE_BUTTON_LEFT) mouse_event(32, new_x, new_y);
+								if (button_state & YUTANI_MOUSE_BUTTON_MIDDLE) mouse_event(33, new_x, new_y);
+								if (button_state & YUTANI_MOUSE_BUTTON_RIGHT) mouse_event(34, new_x, new_y);
+								last_mouse_x = new_x;
+								last_mouse_y = new_y;
 							}
 						}
 					}
