@@ -51,11 +51,13 @@ char * modifiers(unsigned int m) {
 }
 
 char * mouse_buttons(unsigned char button) {
-	static char out[] = "...";
+	static char out[] = "....";
 
 	if (button & YUTANI_MOUSE_BUTTON_LEFT)   out[0] = 'l'; else out[0] = '.';
 	if (button & YUTANI_MOUSE_BUTTON_MIDDLE) out[1] = 'm'; else out[1] = '.';
 	if (button & YUTANI_MOUSE_BUTTON_RIGHT)  out[2] = 'r'; else out[2] = '.';
+	if (button & YUTANI_MOUSE_SCROLL_UP)     out[3] = 'u'; else \
+	if (button & YUTANI_MOUSE_SCROLL_DOWN)   out[3] = 'd'; else out[3] = '.';
 
 	return out;
 }

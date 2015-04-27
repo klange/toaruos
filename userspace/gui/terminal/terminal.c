@@ -1030,7 +1030,10 @@ void reinit(int send_sig) {
 		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 	}
 
+	int old_mouse_state = 0;
+	if (ansi_state) old_mouse_state = ansi_state->mouse_on;
 	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);
+	ansi_state->mouse_on = old_mouse_state;
 
 	draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
 	render_decors();
@@ -1152,6 +1155,12 @@ void * handle_incoming(void * garbage) {
 							/* Convert from coordinate to cell positon */
 							new_x /= char_width;
 							new_y /= char_height;
+
+							if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
+								mouse_event(32+32, new_x, new_y);
+							} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
+								mouse_event(32+32+1, new_x, new_y);
+							}
 
 							if (me->buttons != button_state) {
 								/* Figure out what changed */

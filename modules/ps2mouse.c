@@ -13,7 +13,7 @@
 #include <mouse.h>
 
 static uint8_t mouse_cycle = 0;
-static int8_t  mouse_byte[3];
+static int8_t  mouse_byte[4];
 
 #define PACKETS_IN_PIPE 1024
 #define DISCARD_POINT 32
@@ -27,6 +27,12 @@ static int8_t  mouse_byte[3];
 #define MOUSE_WRITE  0xD4
 #define MOUSE_F_BIT  0x20
 #define MOUSE_V_BIT  0x08
+
+#define MOUSE_DEFAULT 0
+#define MOUSE_SCROLLWHEEL 1
+#define MOUSE_BUTTONS 2
+
+static int8_t mouse_mode = MOUSE_DEFAULT;
 
 static fs_node_t * mouse_pipe;
 
@@ -81,34 +87,51 @@ static void mouse_handler(struct regs *r) {
 					break;
 				case 2:
 					mouse_byte[2] = mouse_in;
-					/* We now have a full mouse packet ready to use */
-					if (mouse_byte[0] & 0x80 || mouse_byte[0] & 0x40) {
-						/* x/y overflow? bad packet! */
+					if (mouse_mode == MOUSE_SCROLLWHEEL || mouse_mode == MOUSE_BUTTONS) {
+						++mouse_cycle;
 						break;
 					}
-					mouse_device_packet_t packet;
-					packet.magic = MOUSE_MAGIC;
-					packet.x_difference = mouse_byte[1];
-					packet.y_difference = mouse_byte[2];
-					packet.buttons = 0;
-					if (mouse_byte[0] & 0x01) {
-						packet.buttons |= LEFT_CLICK;
-					}
-					if (mouse_byte[0] & 0x02) {
-						packet.buttons |= RIGHT_CLICK;
-					}
-					if (mouse_byte[0] & 0x04) {
-						packet.buttons |= MIDDLE_CLICK;
-					}
-					mouse_cycle = 0;
-
-					mouse_device_packet_t bitbucket;
-					while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
-						read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
-					}
-					write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
-					break;
+					goto finish_packet;
+				case 3:
+					mouse_byte[3] = mouse_in;
+					goto finish_packet;
 			}
+			continue;
+finish_packet:
+			mouse_cycle = 0;
+			/* We now have a full mouse packet ready to use */
+			if (mouse_byte[0] & 0x80 || mouse_byte[0] & 0x40) {
+				/* x/y overflow? bad packet! */
+				continue;
+			}
+			mouse_device_packet_t packet;
+			packet.magic = MOUSE_MAGIC;
+			packet.x_difference = mouse_byte[1];
+			packet.y_difference = mouse_byte[2];
+			packet.buttons = 0;
+			if (mouse_byte[0] & 0x01) {
+				packet.buttons |= LEFT_CLICK;
+			}
+			if (mouse_byte[0] & 0x02) {
+				packet.buttons |= RIGHT_CLICK;
+			}
+			if (mouse_byte[0] & 0x04) {
+				packet.buttons |= MIDDLE_CLICK;
+			}
+
+			if (mouse_mode == MOUSE_SCROLLWHEEL && mouse_byte[3]) {
+				if (mouse_byte[3] > 0) {
+					packet.buttons |= MOUSE_SCROLL_DOWN;
+				} else if (mouse_byte[3] < 0) {
+					packet.buttons |= MOUSE_SCROLL_UP;
+				}
+			}
+
+			mouse_device_packet_t bitbucket;
+			while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
+				read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
+			}
+			write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 		}
 		status = inportb(MOUSE_STATUS);
 	}
@@ -125,7 +148,7 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 
 static int mouse_install(void) {
 	debug_print(NOTICE, "Initializing PS/2 mouse interface");
-	uint8_t status;
+	uint8_t status, result;
 	IRQ_OFF;
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_wait(1);
@@ -142,6 +165,30 @@ static int mouse_install(void) {
 	mouse_read();
 	mouse_write(0xF4);
 	mouse_read();
+	mouse_write(0xF2);
+	mouse_read();
+	result = mouse_read();
+	/* Try to enable scroll wheel (but not buttons) */
+	mouse_write(0xF3);
+	mouse_read();
+	mouse_write(200);
+	mouse_read();
+	mouse_write(0xF3);
+	mouse_read();
+	mouse_write(100);
+	mouse_read();
+	mouse_write(0xF3);
+	mouse_read();
+	mouse_write(80);
+	mouse_read();
+	mouse_write(0xF2);
+	mouse_read();
+	result = mouse_read();
+	if (result == 3) {
+		mouse_mode = MOUSE_SCROLLWHEEL;
+	}
+
+
 	IRQ_RES;
 	irq_install_handler(MOUSE_IRQ, mouse_handler);
 
