@@ -173,6 +173,10 @@ uint32_t ununicode(uint32_t c) {
 		}
 		w++;
 	}
+	switch (c) {
+		case L'»': return 175;
+		case L'·': return 250;
+	}
 	return 4;
 }
 
