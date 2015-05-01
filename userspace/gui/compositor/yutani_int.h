@@ -27,8 +27,8 @@ typedef enum {
 
 static int yutani_animation_lengths[] = {
 	0,
-	256,
-	256,
+	200,
+	200,
 	0,
 	0,
 };

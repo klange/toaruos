@@ -146,7 +146,7 @@ static uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time) {
 	uint32_t now = yutani_current_time(yg);
 	uint32_t diff = now - start_time; /* Milliseconds */
 
-	return diff / 2;
+	return diff;
 }
 
 /**
