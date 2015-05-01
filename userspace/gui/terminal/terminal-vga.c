@@ -285,6 +285,11 @@ void term_scroll(int how_much) {
 		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), sizeof(term_cell_t) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
 		memset((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * (term_height - how_much)), 0x0, sizeof(term_cell_t) * term_width * how_much);
+		for (int i = 0; i < how_much; ++i) {
+			for (uint16_t x = 0; x < term_width; ++x) {
+				cell_set(x,term_height - how_much,' ', current_fg, current_bg, ansi_state->flags);
+			}
+		}
 		term_redraw_all();
 	} else {
 		how_much = -how_much;

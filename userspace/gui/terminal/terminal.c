@@ -483,6 +483,7 @@ void term_scroll(int how_much) {
 		/* And redraw the new rows */
 		for (int i = 0; i < how_much; ++i) {
 			for (uint16_t x = 0; x < term_width; ++x) {
+				cell_set(x,term_height - how_much,' ', current_fg, current_bg, ansi_state->flags);
 				cell_redraw(x, term_height - how_much);
 			}
 		}
