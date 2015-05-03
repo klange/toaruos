@@ -58,8 +58,11 @@ static volatile int _continue = 1;
 /* Default search paths for icons, in order of preference */
 static char * icon_directories[] = {
 	"/usr/share/icons/48",
+	"/usr/share/icons/external/48",
 	"/usr/share/icons/24",
+	"/usr/share/icons/external/24",
 	"/usr/share/icons",
+	"/usr/share/icons/external",
 	NULL
 };
 

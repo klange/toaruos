@@ -362,8 +362,11 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 /* Default search paths for icons, in order of preference */
 static char * icon_directories[] = {
 	"/usr/share/icons/24",
+	"/usr/share/icons/external/24",
 	"/usr/share/icons/48",
+	"/usr/share/icons/external/48",
 	"/usr/share/icons",
+	"/usr/share/icons/external",
 	NULL
 };
 

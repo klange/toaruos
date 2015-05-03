@@ -50,6 +50,7 @@ hdd/usr/share/man
 hdd/usr/share/tabset
 hdd/usr/share/terminfo
 hdd/usr/share/vim
+hdd/usr/share/icons/external
 initrd
 initrd/bin/*
 initrd/boot
