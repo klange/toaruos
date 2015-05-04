@@ -15,7 +15,7 @@ AR = i686-pc-toaru-ar
 # Build flags
 CFLAGS  = -O2 -std=c99
 CFLAGS += -finline-functions -ffreestanding
-CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
+CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format
 CFLAGS += -pedantic -fno-omit-frame-pointer
 CFLAGS += -D_KERNEL_
 
@@ -81,6 +81,7 @@ BOOT_MODULES += ps2mouse ps2kbd
 BOOT_MODULES += lfbvideo
 BOOT_MODULES += packetfs
 BOOT_MODULES += pcspkr
+BOOT_MODULES += net rtl
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
@@ -96,7 +97,7 @@ EMUARGS  = -sdl -kernel toaruos-kernel -m 1024
 EMUARGS += -serial stdio -vga std
 EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
 EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user -soundhw pcspk
-EMUARGS += -net dump -no-kvm-irqchip 
+EMUARGS += -net dump -no-kvm-irqchip
 EMUARGS += $(BOOT_MODULES_X)
 EMUKVM   = -enable-kvm
 
@@ -162,14 +163,14 @@ toolchain:
 ################
 toaruos-kernel: kernel/start.o kernel/link.ld kernel/main.o kernel/symbols.o ${KERNEL_OBJS}
 	@${BEG} "CC" "$<"
-	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
+	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
 	@${END} "CC" "$<"
 	@${INFO} "--" "Kernel is ready!"
 
 kernel/symbols.o: ${KERNEL_OBJS} util/generate_symbols.py
 	@-rm -f kernel/symbols.o
 	@${BEG} "nm" "Generating symbol list..."
-	@${CC} -T kernel/link.ld -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
+	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
 	@${NM} toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.s
 	@${END} "nm" "Generated symbol list."
 	@${BEG} "yasm" "kernel/symbols.s"
@@ -190,7 +191,7 @@ hdd/mod/%.ko: modules/%.c ${HEADERS}
 
 kernel/%.o: kernel/%.c ${HEADERS}
 	@${BEG} "CC" "$<"
-	@${CC} ${CFLAGS} -g -I./kernel/include -c -o $@ $< ${ERRORS}
+	@${CC} ${CFLAGS} -nostdlib -g -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
 #############
@@ -232,7 +233,7 @@ hdd/usr/lib/libtoaru.a: ${CORE_LIBS}
 # Hard Disk Images #
 ####################
 
-toaruos-disk.img: ${USERSPACE} ${MODULES} util/devtable
+toaruos-disk.img: ${USERSPACE} util/devtable
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
