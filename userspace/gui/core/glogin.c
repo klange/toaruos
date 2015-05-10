@@ -586,6 +586,7 @@ collect_events:
 		memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
 		flip(ctx);
 		yutani_flip(y, wina);
+		syscall_yield();
 
 		pid_t _session_pid = fork();
 		if (!_session_pid) {
