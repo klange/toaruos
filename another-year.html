@@ -1,113 +1,134 @@
 <!doctype html>
-<html lang="">	
-<head>
-	<meta charset="utf-8"/>
-	<title>Another Year - とあるOS</title>	
-	<meta name="author" content="Kevin Lange">
-	
-
+<html lang="">
+	<head>
+		<meta charset="utf-8"/>
+		<title>Another Year - とあるOS</title>	
+		<meta name="author" content="Kevin Lange">
 	<meta name="description" content="Kernel updates, and lots of exciting ports.">
 
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:creator" content="@kevinlange">
+	<meta name="twitter:title" content="Another Year">
+	<meta name="twitter:description" content="Kernel updates, and lots of exciting ports.">
+		<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
+		<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
+		<link href="http://toaruos.org/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="とあるOS Atom Feed" />
+	</head>
+	<body>
+		<div id="menu">
+			<div class="applications">Applications</div>
+			<div class="panel-entry active"><a href="http://toaruos.org"><img src="http://toaruos.org/theme/images/terminal-24.png"/><div>Blog Posts</div></a></div>
+				<div class="panel-entry "><a href="http://toaruos.org/pages/about.html"><img src="http://toaruos.org/theme/images/terminal-24.png"/><div>About</div></a></div>
+			<div class="logout"><img src="http://toaruos.org/theme/images/logout.png"/></div>
+			<div class="clock">
+				<div class="date">Sunday<br><b>May 10</b></div>
+				<div class="time">13:22:18</div>
+			</div>
+		</div>
 
-	<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
-	<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
-		
+		<div class="content-pad"></div>
 
-    <link href="http://toaruos.org/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="とあるOS Atom Feed" />
-</head>
-	
-<body>
-
-    <div class="container">
-	  
-	  <header role="banner">
-	    <div class="feeds">
-	        <a href="http://toaruos.org/feeds/all.atom.xml" rel="alternate"><img src="/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
-	    </div>
-	      <nav class="pages">
-			  <a href="http://toaruos.org/pages/about.html">About</a>
-	      </nav>
-		<a href="http://toaruos.org/" class="title">とあるOS</a>
-      </header>
-	
-	  <div class="wrapper">
-
-		  <div role="main" class="content">
-	<article class="full">
-			
-		<h1>Another Year</h1>
-		
+		<div role="main" class="main_content">
+	<div class="window-pad">
+		<div class="window">
+			<div class="title">Another Year<div class="close"></div></div>
+			<div class="content terminal">
+				<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+				<span style="float: right; color: #5f5f5f;"><b>[<span style="color: #d7875f;">04/20</span> <span style="color: #d75f5f">19:50:00</span>]</b>&nbsp;</span>
+				stat <a href="http://toaruos.org/another-year.html">another-year.html</a>
 <div class="metadata">
   <time datetime="2015-04-20T19:50:00" pubdate>Mon 20 April 2015</time>
     <address class="vcard author">
       by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
     </address>
   in <a href="http://toaruos.org/category/misc.html">misc</a>
-<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>		
-		<p>It's been nearly a year since I last posted an update, but in that year there's been a solid bit of development activitiy.</p>
+<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>				<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+				<span style="float: right; color: #5f5f5f;"><b>[<span style="color: #d7875f;">04/20</span> <span style="color: #d75f5f">19:50:00</span>]</b>&nbsp;</span>
+				cat <a href="http://toaruos.org/another-year.html">another-year.html</a>
+				<p>It's been nearly a year since I last posted an update, but in that year there's been a solid bit of development activitiy.</p>
 <h2>EXT2 drivers</h2>
 <p>If you've been following ToaruOS for a while, you may know that we had some write support for ext2 a very long time ago, but it was kind of broken and unstable. The good news is, that support is back, and it's notably more stable than it was. The bad news is it's still not done, and there are some known bugs and edge cases to work through.</p>
 <h2>More Network Work</h2>
 <p>The kernel networking support has been vastly improved, though it's still not ready for prime time and still not available from userspace. I'm actually working on this right now, toying with some ideas for exposing the network stack through the VFS. Hopefully, we should have some nice demos like a telnet client and an IRC client in the coming months.</p>
-<p><a href="http://i.imgur.com/duIsLh7.png"><img alt="Networking, Star Wars" src="http://i.imgur.com/duIsLh7.png" /></a></p>
+<h3><em>Networking and star wars</em> <a href="http://i.imgur.com/duIsLh7.png"><img alt="Networking, Star Wars" src="http://i.imgur.com/duIsLh7.png" /></a></h3>
+<h4></h4>
 <h2>Login Screen Redesign</h2>
-<p><a href="http://i.imgur.com/x0mJouI.png"><img alt="New login screen" src="http://i.imgur.com/x0mJouI.png" /></a></p>
+<h3><em>New Login Screen</em> <a href="http://i.imgur.com/x0mJouI.png"><img alt="New login screen" src="http://i.imgur.com/x0mJouI.png" /></a></h3>
+<h4></h4>
 <p>There have actually been two redesigns of the login screen since the last blog post - one was to use a blurred wallpaper for the background, the other was a more extensive redesign of the widgets. This was a fun little project to make use of Cairo. We're also loading a bunch of configuration information (including the logo, positions of various things, what wallpaper to use for the login screen) from a config file, so you can change settings on the fly, without needing to rebuild.</p>
 <p>Those config files are also in use for the desktop wallpaper, per-user, so you can change your wallpaper without having to copy files around. We've started shipping all of the in-house wallpapers from older revisions, as well as a few new ones over the past year.</p>
 <h2>Doom and Quake</h2>
 <p>The SDL port has been rejuvinated, targeting Yutani instead of the old compositor, and now we have working Doom and Quake ports. The Doom engine is prboom, with sdlquake for Quake.</p>
-<p><a href="http://i.imgur.com/i5O8Vcl.png"><img alt="Quake" src="http://i.imgur.com/i5O8Vcl.png" /></a></p>
+<h3><em>Quake</em> <a href="http://i.imgur.com/i5O8Vcl.png"><img alt="Quake" src="http://i.imgur.com/i5O8Vcl.png" /></a></h3>
+<h4></h4>
 <h2>New Timing Interface</h2>
 <p>The kernel timing APIs have been updated. <code>gettimeofday()</code> now uses an internal clock rather than always calling the RTC. This means there is some apparent drift, which we try to account for every so often, but it also means accurate timing information is available when you needed it. Additionally, the kernel tick rate has been increased to 1000Hz, or 1ms per click, so we're also more accurate. This affects the multitasking quanta time, as well as the resolution for the uptime information in <code>/proc/uptime</code>.</p>
 <p>The new timing interface has been adopted for use in animations on the desktop, so if you're running under software emulation in Bochs or QEMU, you should notice that animations are no longer abysmally slow (they'll just have low framerates). This was helpful with adding new animations to the wallpaper when loading applications, but is also used in the compositor and login screen.</p>
-<p><a href="http://i.imgur.com/F2dRiwY.png"><img alt="Timing resulted in an increased framerate in Gears" src="http://i.imgur.com/F2dRiwY.png" /></a></p>
+<h3><em>Faster Gears</em> <a href="http://i.imgur.com/F2dRiwY.png"><img alt="Timing resulted in an increased framerate in Gears" src="http://i.imgur.com/F2dRiwY.png" /></a></h3>
+<h4></h4>
 <h2>What's New in Yutani</h2>
-<p>Yutani got a number of updates as well, mostly driven by the SDL and Quake ports. Yutani now supports cursor warping and hiding, and will inform clients when a window is moved. A client application, <code>yutani-test</code>, has been added for debugging - it works a bit like <code>xev</code>.</p>	
-
-	</article>
-
-    <p>
-	<a href="https://twitter.com/share" class="twitter-share-button" data-via="" data-lang="en" data-size="large" data-related="">Tweet</a>
-	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
-	</p>
-
-
-		  </div>	
-		  
-		  <div class="sidebar">
-
-	        <nav>
-	          <h2>Categories</h2>
-	          <ul>
-	              <li class="active"><a href="http://toaruos.org/category/misc.html">misc</a></li>
-	          </ul>
-	        </nav>
-
-
-
-		  </div>
-
-	  </div>
-
-      <footer>
-		<p role="contentinfo">
-		  © 2011-2014 Kevin Lange
-    	</p>
-
-	  </footer>	
-
+<p>Yutani got a number of updates as well, mostly driven by the SDL and Quake ports. Yutani now supports cursor warping and hiding, and will inform clients when a window is moved. A client application, <code>yutani-test</code>, has been added for debugging - it works a bit like <code>xev</code>.</p>
+				&nbsp;
+			</div>
+		</div>
 	</div>
-	
-    <script>
-      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-	 (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-	   m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-	     })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
-      ga('create', 'UA-27453972-4', 'toaruos.org');
-	ga('send', 'pageview');
+		</div>
 
-    </script>
+		<div class="sidebar">
+			<div class="window-pad">
+				<div class="window">
+					<div class="title">Categories<div class="close"></div></div>
+					<div class="content terminal">
+						<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+						ls /category
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/category/misc.html">misc</a>
+						<br>&nbsp;
+					</div>
+				</div>
+			</div>
+			<div class="window-pad">
+				<div class="window">
+					<div class="title">Tags<div class="close"></div></div>
+					<div class="content terminal">
+						<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+						ls /tag
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/blog.html">blog</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/kernel.html">kernel</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/yutani.html">yutani</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/meta.html">meta</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/gui.html">gui</a>
+						<br>&nbsp;
+					</div>
+				</div>
+			</div>
 
-</body>
+			<div class="window-pad">
+				<div class="window">
+					<div class="title">About<div class="close"></div></div>
+						<div class="content other">
+							<div style="padding: 10px;">
+								<img src="http://i.imgur.com/6m7bj9m.png" style="border-radius: 20px;"><br>
+								© 2011-2015 Kevin Lange<br>
+								<a href="https://twitter.com/kevinlange">@kevinlange</a><br>
+								<a href="https://github.com/klange">github.com/klange</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="content-pad">&nbsp;</div>
+
+		<script>
+			(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+			(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+			m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+			})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+			ga('create', 'UA-27453972-4', 'toaruos.org');
+			ga('send', 'pageview');
+		</script>
+	</body>
 </html>

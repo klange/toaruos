@@ -1,126 +1,154 @@
 <!doctype html>
-<html lang="">	
-<head>
-	<meta charset="utf-8"/>
-	<title>Marching Towards 1.0.0 - とあるOS</title>	
-	<meta name="author" content="Kevin Lange">
-	
-
+<html lang="">
+	<head>
+		<meta charset="utf-8"/>
+		<title>Marching Towards 1.0.0 - とあるOS</title>	
+		<meta name="author" content="Kevin Lange">
 	<meta name="description" content="Various updates before I go on vacation">
 
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:creator" content="@kevinlange">
+	<meta name="twitter:title" content="Marching Towards 1.0.0">
+	<meta name="twitter:description" content="Various updates before I go on vacation">
+		<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
+		<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
+		<link href="http://toaruos.org/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="とあるOS Atom Feed" />
+	</head>
+	<body>
+		<div id="menu">
+			<div class="applications">Applications</div>
+			<div class="panel-entry active"><a href="http://toaruos.org"><img src="http://toaruos.org/theme/images/terminal-24.png"/><div>Blog Posts</div></a></div>
+				<div class="panel-entry "><a href="http://toaruos.org/pages/about.html"><img src="http://toaruos.org/theme/images/terminal-24.png"/><div>About</div></a></div>
+			<div class="logout"><img src="http://toaruos.org/theme/images/logout.png"/></div>
+			<div class="clock">
+				<div class="date">Sunday<br><b>May 10</b></div>
+				<div class="time">13:22:18</div>
+			</div>
+		</div>
 
-	<link rel="top" href="#" /><link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,300italic,400italic,600italic|Source+Code+Pro' rel='stylesheet' type='text/css'></link>
-	<link rel="stylesheet" href="http://toaruos.org/theme/css/main.css" type="text/css" />
-		
+		<div class="content-pad"></div>
 
-    <link href="http://toaruos.org/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="とあるOS Atom Feed" />
-</head>
-	
-<body>
-
-    <div class="container">
-	  
-	  <header role="banner">
-	    <div class="feeds">
-	        <a href="http://toaruos.org/feeds/all.atom.xml" rel="alternate"><img src="/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
-	    </div>
-	      <nav class="pages">
-			  <a href="http://toaruos.org/pages/about.html">About</a>
-	      </nav>
-		<a href="http://toaruos.org/" class="title">とあるOS</a>
-      </header>
-	
-	  <div class="wrapper">
-
-		  <div role="main" class="content">
-	<article class="full">
-			
-		<h1>Marching Towards 1.0.0</h1>
-		
+		<div role="main" class="main_content">
+	<div class="window-pad">
+		<div class="window">
+			<div class="title">Marching Towards 1.0.0<div class="close"></div></div>
+			<div class="content terminal">
+				<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+				<span style="float: right; color: #5f5f5f;"><b>[<span style="color: #d7875f;">06/08</span> <span style="color: #d75f5f">00:20:00</span>]</b>&nbsp;</span>
+				stat <a href="http://toaruos.org/marching-towards-100.html">marching-towards-100.html</a>
 <div class="metadata">
   <time datetime="2014-06-08T00:20:00" pubdate>Sun 08 June 2014</time>
     <address class="vcard author">
       by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
     </address>
   in <a href="http://toaruos.org/category/misc.html">misc</a>
-<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>		
-		<p>I'm heading to Tokyo again in under a week, as I routinely do. Before I leave, I wanted get a blog post out covering my recent work on improving "quality of life" in ToaruOS - cleaning up the little nits here and there that have been annoying me and those brave enough to try things out for themselves.</p>
+<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>				<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+				<span style="float: right; color: #5f5f5f;"><b>[<span style="color: #d7875f;">06/08</span> <span style="color: #d75f5f">00:20:00</span>]</b>&nbsp;</span>
+				cat <a href="http://toaruos.org/marching-towards-100.html">marching-towards-100.html</a>
+				<p>I'm heading to Tokyo again in under a week, as I routinely do. Before I leave, I wanted get a blog post out covering my recent work on improving "quality of life" in ToaruOS - cleaning up the little nits here and there that have been annoying me and those brave enough to try things out for themselves.</p>
 <h2>Tiling</h2>
 <p>Yutani's window manager is a stacking window manager, but like with Compiz's grid plugin I wanted to implement some simple tiling for "everyday" situations like throwing up terminals with quarter/half splits. This is accomplished with a move and resize, triggered by a keybinding in the compositor. The tiling looks really nice in combination with my older decoration theme, which I've updated to indicate focus.</p>
-<p><a href="http://i.imgur.com/3fZvBvo.png"><img alt="Tiled windows" src="http://i.imgur.com/3fZvBvo.png" /></a></p>
+<h3><em>Tiled windows</em> <a href="http://i.imgur.com/3fZvBvo.png"><img alt="Tiled windows" src="http://i.imgur.com/3fZvBvo.png" /></a></h3>
+<h4></h4>
 <h2>Display Server Nesting</h2>
 <p>When I first started working on Yutani, I had in the back of my mind the idea that it should be nestable. Since Yutani operates against a "graphics context" provided by my generic graphics library, and since that same library is used for windowed applications running within Yutani, getting Yutani to run as a client of itself wasn't too far-fetched, but it did require some quick changes here and there.</p>
-<p><a href="http://i.imgur.com/nhnH1ew.png"><img alt="Nested Yutani" src="http://i.imgur.com/nhnH1ew.png" /></a></p>
+<h3><em>Nested Yutani</em> <a href="http://i.imgur.com/nhnH1ew.png"><img alt="Nested Yutani" src="http://i.imgur.com/nhnH1ew.png" /></a></h3>
+<h4></h4>
 <h2>Window Shaping</h2>
 <p>Yutani inhereted a system for tracking clicks from its older brother called "selection buffers" (also referred to as "click buffers" or "picking buffers"). Selection buffers provide a way to give constant-time lookup by coordinates in a rendered surface, but eat a lot of memory and can be slow to generate. It took me longer than I care to admit to come to conclusion that selection buffers were <em>not</em> the right way to go moving forward in Yutani, but I eventually came to my senses and replaced my selection buffers with a slower, but much more useful, click-time lookup. Combining this with some (application-controlled) thresholding on window alpha channels allowed for a quick and easy implementation of window shaping: allowing a window's "shape" in the compositor to reflect its contents.</p>
 <p>This is most noticable in the Gears application: Previously, the gears window was a large, mostly transparent box, and any click in that box was delivered to the gears application. With the selection buffer, rectangles were drawn to represent the application windows, so we could at least track rotation, but we could not track the finer details of the gears.</p>
-<p><a href="http://i.imgur.com/RP2mY5Q.png"><img alt="Boxes" src="http://i.imgur.com/RP2mY5Q.png" /></a></p>
+<h3><em>Boxes</em> <a href="http://i.imgur.com/RP2mY5Q.png"><img alt="Boxes" src="http://i.imgur.com/RP2mY5Q.png" /></a></h3>
+<h4></h4>
 <p>Using the new method, we can now make clicks on the "not gears" map through to the wallpaper below. This screenshot is actually from a transitionary phase where selection buffers were still in use, but demonstrates the window shaping quite well:</p>
-<p><a href="http://i.imgur.com/Ef32dh5.png"><img alt="Gears" src="http://i.imgur.com/Ef32dh5.png" /></a></p>
+<h3><em>Gears</em> <a href="http://i.imgur.com/Ef32dh5.png"><img alt="Gears" src="http://i.imgur.com/Ef32dh5.png" /></a></h3>
+<h4></h4>
 <p>The shaping of windows is only calculated under the mouse cursor, but we can view the results of this shaping with a debug tool (might want to click on this one):</p>
-<p><a href="http://i.imgur.com/2ZPyE8k.png"><img alt="Debugging window shapes" src="http://i.imgur.com/2ZPyE8k.png" /></a></p>
+<h3><em>Window Shapes</em> <a href="http://i.imgur.com/2ZPyE8k.png"><img alt="Debugging window shapes" src="http://i.imgur.com/2ZPyE8k.png" /></a></h3>
+<h4></h4>
 <h2>Unix Pipes</h2>
 <p>Toaru's kernel has supported a sort of IPC that I've been calling "pipes" for a very long time now. These pipes were fundamental in the operation of the old compositor, and are still used these days internally for some drivers that require buffering (keyboard, mouse). That said, these were definitely not <em>Unix</em> pipes, and trying to get things like Bash working with them was a nightmare. Adding proper Unix pipes allowed me to finally have a working Bash - including assigning output to variables. I've also implemented pipes in my own shell.</p>
-<p><a href="http://i.imgur.com/9y43ERE.png"><img alt="Pipes" src="http://i.imgur.com/9y43ERE.png" /></a></p>
+<h3><em>Pipes</em> <a href="http://i.imgur.com/9y43ERE.png"><img alt="Pipes" src="http://i.imgur.com/9y43ERE.png" /></a></h3>
+<h4></h4>
 <h2>Shebangs</h2>
 <p>Shebangs are those lines you see at the tops of scripts that look like <code>#!/bin/foo</code> - they tell the kernel's binary loader to take this file and pass its name as an argument to another executable, and they allow scripts like shell scripts and Python files to be executed directly, rather than having to call the interpreter.</p>
-<p><a href="http://i.imgur.com/t3ELorx.png"><img alt="Shebangs" src="http://i.imgur.com/t3ELorx.png" /></a></p>
+<h3><em>Shebangs</em> <a href="http://i.imgur.com/t3ELorx.png"><img alt="Shebangs" src="http://i.imgur.com/t3ELorx.png" /></a></h3>
+<h4></h4>
 <h2><code>pstree</code> and <code>ls</code></h2>
 <p>A tool I really like on Linux is <code>pstree</code>, which shows a visual representation of how the process tree looks (what processes are children of other processes, etc.). Implementing my own <code>pstree</code> required adding some functionality to <code>procfs</code> to support parent PIDs. I've also put some work into making <code>ls</code> more like the GNU version, supporting multiple arguments, human-readable file sizes, and minimizing column widths.</p>
-<p><a href="http://i.imgur.com/StAAwXs.png"><img alt="pstree and ls" src="http://i.imgur.com/StAAwXs.png" /></a></p>
+<h3><em>pstree and ls</em> <a href="http://i.imgur.com/StAAwXs.png"><img alt="pstree and ls" src="http://i.imgur.com/StAAwXs.png" /></a></h3>
+<h4></h4>
 <h2>VGA terminal improvements</h2>
 <p>The last thing on our list for today is some improvements to the VGA terminal. I fixed a notable bug in line wrapping and also added color mappings from the 256-color palette, and from arbitrary 24-bit and 32-bit colors. Now the prompt looks nice and colorful again in VGA text mode:</p>
-<p><a href="http://i.imgur.com/pzy2AIQ.png"><img alt="VGA text-mode" src="http://i.imgur.com/pzy2AIQ.png" /></a></p>
+<h3><em>VGA text-mode</em> <a href="http://i.imgur.com/pzy2AIQ.png"><img alt="VGA text-mode" src="http://i.imgur.com/pzy2AIQ.png" /></a></h3>
+<h4></h4>
 <p>And we can <code>cat /usr/share/color-test</code>:</p>
-<p><a href="http://i.imgur.com/XeW990L.png"><img alt="cat /usr/share/color-test" src="http://i.imgur.com/XeW990L.png" /></a></p>
+<h3><em>color-test</em> <a href="http://i.imgur.com/XeW990L.png"><img alt="cat /usr/share/color-test" src="http://i.imgur.com/XeW990L.png" /></a></h3>
+<h4></h4>
 <p><code>pstree</code> also looks nice with some Unicode-to-VGA mappings for line-drawing characters:</p>
-<p><a href="http://i.imgur.com/cezN0wE.png"><img alt="pstree in VGA text-mode" src="http://i.imgur.com/cezN0wE.png" /></a></p>
-<p>I don't know if I'll be able to get much work done over the next week, and I'm sure my Github activity streak will be broken while I'm in Japan. There's still a lot of work to be done for the network stack, which is a major blocker to a "1.0.0" release.</p>	
-
-	</article>
-
-    <p>
-	<a href="https://twitter.com/share" class="twitter-share-button" data-via="" data-lang="en" data-size="large" data-related="">Tweet</a>
-	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
-	</p>
-
-
-		  </div>	
-		  
-		  <div class="sidebar">
-
-	        <nav>
-	          <h2>Categories</h2>
-	          <ul>
-	              <li class="active"><a href="http://toaruos.org/category/misc.html">misc</a></li>
-	          </ul>
-	        </nav>
-
-
-
-		  </div>
-
-	  </div>
-
-      <footer>
-		<p role="contentinfo">
-		  © 2011-2014 Kevin Lange
-    	</p>
-
-	  </footer>	
-
+<h3><em>pstree VGA</em> <a href="http://i.imgur.com/cezN0wE.png"><img alt="pstree in VGA text-mode" src="http://i.imgur.com/cezN0wE.png" /></a></h3>
+<h4></h4>
+<p>I don't know if I'll be able to get much work done over the next week, and I'm sure my Github activity streak will be broken while I'm in Japan. There's still a lot of work to be done for the network stack, which is a major blocker to a "1.0.0" release.</p>
+				&nbsp;
+			</div>
+		</div>
 	</div>
-	
-    <script>
-      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-	 (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-	   m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-	     })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
-      ga('create', 'UA-27453972-4', 'toaruos.org');
-	ga('send', 'pageview');
+		</div>
 
-    </script>
+		<div class="sidebar">
+			<div class="window-pad">
+				<div class="window">
+					<div class="title">Categories<div class="close"></div></div>
+					<div class="content terminal">
+						<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+						ls /category
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/category/misc.html">misc</a>
+						<br>&nbsp;
+					</div>
+				</div>
+			</div>
+			<div class="window-pad">
+				<div class="window">
+					<div class="title">Tags<div class="close"></div></div>
+					<div class="content terminal">
+						<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
+						ls /tag
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/blog.html">blog</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/kernel.html">kernel</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/yutani.html">yutani</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/meta.html">meta</a>
+						<br><a style="color: #729FCF; font-weight: bold;" href="http://toaruos.org/tag/gui.html">gui</a>
+						<br>&nbsp;
+					</div>
+				</div>
+			</div>
 
-</body>
+			<div class="window-pad">
+				<div class="window">
+					<div class="title">About<div class="close"></div></div>
+						<div class="content other">
+							<div style="padding: 10px;">
+								<img src="http://i.imgur.com/6m7bj9m.png" style="border-radius: 20px;"><br>
+								© 2011-2015 Kevin Lange<br>
+								<a href="https://twitter.com/kevinlange">@kevinlange</a><br>
+								<a href="https://github.com/klange">github.com/klange</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="content-pad">&nbsp;</div>
+
+		<script>
+			(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+			(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+			m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+			})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+			ga('create', 'UA-27453972-4', 'toaruos.org');
+			ga('send', 'pageview');
+		</script>
+	</body>
 </html>
