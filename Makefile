@@ -81,6 +81,7 @@ BOOT_MODULES += ps2mouse ps2kbd
 BOOT_MODULES += lfbvideo
 BOOT_MODULES += packetfs
 BOOT_MODULES += pcspkr
+BOOT_MODULES += ac97
 BOOT_MODULES += net rtl
 
 # This is kinda silly. We're going to form an -initrd argument..
@@ -96,7 +97,7 @@ EMU = qemu-system-i386
 EMUARGS  = -sdl -kernel toaruos-kernel -m 1024
 EMUARGS += -serial stdio -vga std
 EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
-EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user -soundhw pcspk
+EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user -soundhw pcspk,ac97
 EMUARGS += -net dump -no-kvm-irqchip
 EMUARGS += $(BOOT_MODULES_X)
 EMUKVM   = -enable-kvm
