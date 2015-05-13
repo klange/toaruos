@@ -112,6 +112,7 @@ extern void isrs_uninstall_handler(size_t isrs);
 extern void irq_install(void);
 extern void irq_install_handler(size_t irq, irq_handler_t);
 extern void irq_uninstall_handler(size_t irq);
+extern int irq_is_handler_free(size_t irq);
 extern void irq_gates(void);
 extern void irq_ack(size_t);
 
