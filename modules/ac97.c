@@ -233,13 +233,13 @@ static void irq_handler(struct regs * regs) {
 
 static int init(void) {
 	debug_print(NOTICE, "Initializing AC97");
-	BIND_SHELL_FUNCTION(ac97_status);
-	BIND_SHELL_FUNCTION(ac97_play);
-	BIND_SHELL_FUNCTION(ac97_stop);
 	pci_scan(&find_ac97, -1, &_device);
 	if (!_device.pci_device) {
 		return 1;
 	}
+	BIND_SHELL_FUNCTION(ac97_status);
+	BIND_SHELL_FUNCTION(ac97_play);
+	BIND_SHELL_FUNCTION(ac97_stop);
 	_device.nabmbar = pci_read_field(_device.pci_device, AC97_NABMBAR, 2) & ((uint32_t) -1) << 1;
 	_device.nambar = pci_read_field(_device.pci_device, PCI_BAR0, 4) & ((uint32_t) -1) << 1;
 	_device.irq = pci_read_field(_device.pci_device, PCI_INTERRUPT_LINE, 1);
