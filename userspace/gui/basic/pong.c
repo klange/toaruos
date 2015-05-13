@@ -24,6 +24,8 @@
 #include "lib/graphics.h"
 #include "lib/pthread.h"
 
+#define GAME_PATH "/usr/share/pong"
+
 #define PADDLE_WIDTH  50
 #define PADDLE_HEIGHT 300
 #define BALL_SIZE     50
@@ -38,6 +40,7 @@ struct object {
 	int height;
 	double vel_x;
 	double vel_y;
+	sprite_t sprite;
 };
 
 static yutani_window_t * paddle_left;
@@ -105,9 +108,13 @@ static int colliding(struct object * a, struct object * b) {
 
 
 void redraw(void) {
-	draw_fill(paddle_left_ctx, rgb(255,0,0));
-	draw_fill(paddle_right_ctx, rgb(0,255,0));
-	draw_fill(ball_ctx, rgb(0,0,255));
+	draw_fill(paddle_left_ctx, rgba(0,0,0,0));
+	draw_fill(paddle_right_ctx, rgba(0,0,0,0));
+	draw_fill(ball_ctx, rgba(0,0,0,0));
+
+	draw_sprite(paddle_left_ctx, &left.sprite, 0, 0);
+	draw_sprite(paddle_right_ctx, &right.sprite, 0, 0);
+	draw_sprite(ball_ctx, &ball.sprite, 0, 0);
 
 	yutani_flip(yctx, paddle_left);
 	yutani_flip(yctx, paddle_right);
@@ -217,6 +224,10 @@ int main (int argc, char ** argv) {
 
 	ball.vel_y = ((double)rand() / RAND_MAX) * 6.0 - 3.0;
 	ball.vel_x = -10.0;
+
+	load_sprite_png(&left.sprite, GAME_PATH "/paddle-red.png");
+	load_sprite_png(&right.sprite,GAME_PATH "/paddle-blue.png");
+	load_sprite_png(&ball.sprite, GAME_PATH "/ball.png");
 
 	redraw();
 	update_left();
