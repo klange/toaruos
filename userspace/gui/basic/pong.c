@@ -2,10 +2,18 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2015 Kevin Lange
  *
- * Yutani Test Tool
+ * Window Manager Pong
  *
- * Kinda like xev: Pops up a window and displays events in a
- * human-readable format.
+ * Play pong where the paddles and ball are all windows.
+ * Use the WM bindings to drag the left paddle to play.
+ * Press `q` to quit.
+ *
+ * Rendering updates are all done by the compositor, while the game
+ * only renders to the windows once at start up.
+ *
+ * Window movement tracking keeps the game logic aware of the paddle
+ * position, and window moves for the ball and other paddle keep
+ * things in the right place visually.
  *
  */
 #include <stdlib.h>
