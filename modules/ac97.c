@@ -1,4 +1,8 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2015 Michael Gerow
+ * Copyright (C) 2015 Kevin Lange
  *
  * Driver for the Intel AC'97.
  *
@@ -112,50 +116,87 @@ DEFINE_SHELL_FUNCTION(ac97_status, "[debug] AC'97 status values") {
 	return 0;
 }
 
-/*
- * A stereo sample of a 440hz sine wave biased 50% to the right. It is sampled
- * at 48KHz with 16-bit samples and interleaved. Technically you'll get some
- * distortion copying this sample multiple times since the ends don't really
- * line up, but it's good enough for testing purposes.
- */
-unsigned char sample_440[] = {
-  0x0f, 0x00, 0x1f, 0x00, 0xe0, 0x02, 0xc0, 0x05, 0xfb, 0x05, 0xf2, 0x0b,
-  0xb7, 0x08, 0x74, 0x11, 0xc3, 0x0b, 0x81, 0x17, 0x7d, 0x0e, 0x00, 0x1d,
-  0x61, 0x11, 0xbc, 0x22, 0x13, 0x14, 0x28, 0x28, 0xc3, 0x16, 0x86, 0x2d,
-  0x61, 0x19, 0xc3, 0x32, 0xde, 0x1b, 0xbb, 0x37, 0x55, 0x1e, 0xac, 0x3c,
-  0x9f, 0x20, 0x38, 0x41, 0xdd, 0x22, 0xc2, 0x45, 0xf2, 0x24, 0xdd, 0x49,
-  0xf1, 0x26, 0xe5, 0x4d, 0xc6, 0x28, 0x8e, 0x51, 0x81, 0x2a, 0xfc, 0x54,
-  0x11, 0x2c, 0x2a, 0x58, 0x7f, 0x2d, 0xf7, 0x5a, 0xc8, 0x2e, 0x93, 0x5d,
-  0xe2, 0x2f, 0xc4, 0x5f, 0xdf, 0x30, 0xbc, 0x61, 0xa5, 0x31, 0x4d, 0x63,
-  0x4d, 0x32, 0x98, 0x64, 0xc2, 0x32, 0x87, 0x65, 0x10, 0x33, 0x1c, 0x66,
-  0x33, 0x33, 0x69, 0x66, 0x26, 0x33, 0x4a, 0x66, 0xf5, 0x32, 0xe9, 0x65,
-  0x8e, 0x32, 0x21, 0x65, 0x0a, 0x32, 0x0e, 0x64, 0x4d, 0x31, 0xa1, 0x62,
-  0x74, 0x30, 0xdf, 0x60, 0x66, 0x2f, 0xd2, 0x5e, 0x35, 0x2e, 0x6a, 0x5c,
-  0xe0, 0x2c, 0xbe, 0x59, 0x5e, 0x2b, 0xbe, 0x56, 0xbe, 0x29, 0x77, 0x53,
-  0xf3, 0x27, 0xed, 0x4f, 0x0e, 0x26, 0x16, 0x4c, 0x02, 0x24, 0x0a, 0x48,
-  0xdd, 0x21, 0xb5, 0x43, 0x98, 0x1f, 0x32, 0x3f, 0x37, 0x1d, 0x6f, 0x3a,
-  0xc2, 0x1a, 0x82, 0x35, 0x31, 0x18, 0x63, 0x30, 0x8e, 0x15, 0x1d, 0x2b,
-  0xda, 0x12, 0xb3, 0x25, 0x12, 0x10, 0x27, 0x20, 0x43, 0x0d, 0x80, 0x1a,
-  0x5f, 0x0a, 0xc5, 0x14, 0x7e, 0x07, 0xf5, 0x0e, 0x89, 0x04, 0x1a, 0x09,
-  0xa0, 0x01, 0x39, 0x03, 0xa5, 0xfe, 0x50, 0xfd, 0xbb, 0xfb, 0x6f, 0xf7,
-  0xc6, 0xf8, 0x94, 0xf1, 0xe3, 0xf5, 0xbf, 0xeb, 0x02, 0xf3, 0x09, 0xe6,
-  0x2c, 0xf0, 0x56, 0xe0, 0x6a, 0xed, 0xd1, 0xda, 0xac, 0xea, 0x5e, 0xd5,
-  0x0e, 0xe8, 0x16, 0xd0
-};
+static list_t * next_buffers_mutex = NULL;
+static uint8_t sample_tmp[0x1000] = {1};
+static size_t offset = 0;
+static fs_node_t * file = NULL;
+static int last_finish = 0;
+static int last_playback_pid = 0;
+static void do_write(size_t buffers) {
+	for (size_t j = buffers; j < buffers + AC97_BDL_LEN / 2; j++) {
+		for (size_t k = 0; k < AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]); k += 0x1000) {
+			int read = read_fs(file, offset, 0x1000, sample_tmp);
+			debug_print(INFO, "Writing buffer %d from offset 0x%x, read 0x%x", j, offset, read);
+			for (size_t i = 0; i < 0x1000; i++) {
+				((uint8_t *)_device.bufs[j])[i+k] = sample_tmp[i];
+			}
+			offset += 0x1000;
+		}
+	}
+}
 
-DEFINE_SHELL_FUNCTION(ac97_noise, "[debug] AC'97 noise test (it's loud and annoying)") {
-	for (size_t i = 0; i < AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]); i++) {
-		((uint8_t *)_device.bufs[0])[i] = sample_440[i % N_ELEMENTS(sample_440)];
+static void playback_tasklet(void * data, char * name) {
+	file = kopen((char*)data, 0);
+	free(data);
+	offset = 0;
+	last_finish = 0;
+
+	if (!next_buffers_mutex) {
+		next_buffers_mutex = list_create();
 	}
-	for (size_t i = 1; i < AC97_BDL_LEN; i++) {
-		memcpy(_device.bufs[i], _device.bufs[0],
-		       AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]));
-	}
+
+	do_write(0);
+	do_write(16);
 	_device.lvi = AC97_BDL_LEN - 1;
 	outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
-	/* Set it to run! */
 	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) | AC97_X_CR_RPBM);
 
+	while (offset < file->length) {
+		sleep_on(next_buffers_mutex);
+		if (offset >= file->length) break;
+		do_write(0);
+		sleep_on(next_buffers_mutex);
+		if (offset >= file->length) break;
+		do_write(16);
+	}
+
+	debug_print(NOTICE, "Playback is done.");
+	close_fs(file);
+	file = NULL;
+
+	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
+	outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
+
+	task_exit(0);
+}
+
+DEFINE_SHELL_FUNCTION(ac97_play, "[debug] Play back a file") {
+	if (file) {
+		fprintf(tty, "Something is already playing, use ac97_stop first.\n");
+		return 1;
+	}
+	char * fname = "/opt/examples/decorator_full.wav";
+	if (argc > 1) {
+		fname = argv[1];
+	}
+
+	last_playback_pid = create_kernel_tasklet(playback_tasklet, "[[ac97]]", strdup(fname));
+	fprintf(tty, "Started playback thread, pid = %d\n", last_playback_pid);
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(ac97_stop, "[debug] Stop playback") {
+	if (!file) {
+		fprintf(tty, "Not playing anything?");
+		return 1;
+	}
+	offset = file->length;
+	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
+	outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
+	wakeup_queue(next_buffers_mutex);
+	int status;
+	waitpid(last_playback_pid, &status, 0);
 	return 0;
 }
 
@@ -170,11 +211,15 @@ static void irq_handler(struct regs * regs) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
 		debug_print(NOTICE, "Last valid buffer completion interrupt handled");
 	} else if (sr & AC97_X_SR_BCIS) {
-		if (_device.lvi == AC97_BDL_LEN - 1) {
-			_device.lvi = AC97_BDL_LEN / 2;
+		debug_print(NOTICE, "Buffer completion interrupt status start...");
+		if (!last_finish || last_finish == 2) {
+			_device.lvi = AC97_BDL_LEN / 2 - 1;
+			last_finish = 1;
 		} else {
 			_device.lvi = AC97_BDL_LEN - 1;
+			last_finish = 2;
 		}
+		wakeup_queue(next_buffers_mutex);
 		outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
 		debug_print(NOTICE, "Buffer completion interrupt status handled");
@@ -189,7 +234,8 @@ static void irq_handler(struct regs * regs) {
 static int init(void) {
 	debug_print(NOTICE, "Initializing AC97");
 	BIND_SHELL_FUNCTION(ac97_status);
-	BIND_SHELL_FUNCTION(ac97_noise);
+	BIND_SHELL_FUNCTION(ac97_play);
+	BIND_SHELL_FUNCTION(ac97_stop);
 	pci_scan(&find_ac97, -1, &_device);
 	if (!_device.pci_device) {
 		return 1;
