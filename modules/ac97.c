@@ -258,7 +258,7 @@ static int init(void) {
 	/* Enable bus mastering and disable memory mapped space */
 	pci_write_field(_device.pci_device, PCI_COMMAND, 2, 0x5);
 	/* Put ourselves at a reasonable volume. */
-	uint16_t volume = 0x4F | (0x4F << 8);
+	uint16_t volume = 0x03 | (0x03 << 8);
 	outports(_device.nambar + AC97_MASTER_VOLUME, volume);
 	outports(_device.nambar + AC97_PCM_OUT_VOLUME, volume);
 
