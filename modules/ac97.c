@@ -138,6 +138,7 @@ static void do_write(size_t buffers) {
 static void playback_tasklet(void * data, char * name) {
 	file = kopen((char*)data, 0);
 	free(data);
+	if (!file) task_exit(1);
 	offset = 0;
 	last_finish = 0;
 
