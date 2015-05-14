@@ -76,6 +76,7 @@ typedef struct {
 	uint8_t lvi;                    /* The currently set last valid index */
 	ac97_bdl_entry_t * bdl;         /* Buffer descriptor list */
 	uint16_t * bufs[AC97_BDL_LEN];  /* Virtual addresses for buffers in BDL */
+	uint32_t bdl_p;
 } ac97_device_t;
 
 static ac97_device_t _device;
@@ -134,6 +135,11 @@ static void do_write(size_t buffers) {
 		}
 	}
 }
+static void do_clear(size_t buffers) {
+	for (size_t j = buffers; j < buffers + AC97_BDL_LEN / 2; j++) {
+		memset((uint8_t *)_device.bufs[j], 0x00, AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]));
+	}
+}
 
 static void playback_tasklet(void * data, char * name) {
 	file = kopen((char*)data, 0);
@@ -141,10 +147,6 @@ static void playback_tasklet(void * data, char * name) {
 	if (!file) task_exit(1);
 	offset = 0;
 	last_finish = 0;
-
-	if (!next_buffers_mutex) {
-		next_buffers_mutex = list_create();
-	}
 
 	do_write(0);
 	do_write(16);
@@ -188,21 +190,28 @@ DEFINE_SHELL_FUNCTION(ac97_play, "[debug] Play back a file") {
 }
 
 static void stop_playback(void) {
+	last_finish = 0;
 	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
 	outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
 }
 
 DEFINE_SHELL_FUNCTION(ac97_stop, "[debug] Stop playback") {
-	if (!file) {
-		fprintf(tty, "Not playing anything?");
-		return 1;
+	int f = 0;
+	stop_playback();
+	if (file) {
+		offset = file->length;
+		f = 1;
 	}
-	offset = file->length;
 	wakeup_queue(next_buffers_mutex);
-	int status;
-	waitpid(last_playback_pid, &status, 0);
+	if (f) {
+		int status;
+		waitpid(last_playback_pid, &status, 0);
+	}
 	return 0;
 }
+
+static list_t * first_buffer_available = NULL;
+static list_t * second_buffer_available = NULL;
 
 static void irq_handler(struct regs * regs) {
 	debug_print(NOTICE, "AC97 IRQ called");
@@ -215,12 +224,18 @@ static void irq_handler(struct regs * regs) {
 	} else if (sr & AC97_X_SR_BCIS) {
 		debug_print(NOTICE, "Buffer completion interrupt status start...");
 		if (!last_finish || last_finish == 2) {
+			do_clear(0);
 			_device.lvi = AC97_BDL_LEN / 2 - 1;
 			last_finish = 1;
+			wakeup_queue(first_buffer_available);
 		} else if (last_finish == 1) {
+			do_clear(AC97_BDL_LEN / 2);
 			_device.lvi = AC97_BDL_LEN - 1;
 			last_finish = 2;
+			wakeup_queue(second_buffer_available);
 		} else if (last_finish == 3) {
+			do_clear(0);
+			do_clear(AC97_BDL_LEN / 2);
 			stop_playback();
 		}
 		wakeup_queue(next_buffers_mutex);
@@ -234,6 +249,92 @@ static void irq_handler(struct regs * regs) {
 
 	irq_ack(_device.irq);
 }
+
+static uint32_t cycle = 0;
+static size_t get_buffer_for_offset(size_t offset) {
+	return (offset / (AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]))) % AC97_BDL_LEN;
+}
+static size_t offset_in_buffer(size_t offset) {
+	return offset % (AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]));
+}
+static int start_on_next = 0;
+static uint32_t write_ac97(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	debug_print(NOTICE, "Writing 0x%x...", size);
+	size_t written = 0;
+	while (written < size) {
+		size_t j = get_buffer_for_offset(cycle);
+		size_t k = offset_in_buffer(cycle);
+
+#if 1
+		if (k == 0) {
+			if (j == 0) {
+				if (start_on_next == 1) {
+				} else {
+					if (start_on_next == 2) {
+						outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) | AC97_X_CR_RR);
+						_device.lvi = AC97_BDL_LEN - 1;
+						outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
+		outportl(_device.nabmbar + AC97_PO_BDBAR, _device.bdl_p);
+						outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) | AC97_X_CR_RPBM);
+						start_on_next = 0;
+					}
+					sleep_on(first_buffer_available);
+				}
+			} else if (j == AC97_BDL_LEN / 2) {
+				if (start_on_next == 1) {
+					start_on_next = 2;
+				} else {
+					sleep_on(second_buffer_available);
+				}
+			}
+		}
+#endif
+
+		debug_print(NOTICE, "Writing buffer %d starting at %d", j, k);
+		size_t x = 0;
+		while (written < size && (written == 0 || offset_in_buffer(cycle) != 0)) {
+			((uint8_t *)_device.bufs[j])[k+x] = buffer[written];
+			written++;
+			cycle++;
+			x++;
+		}
+	}
+
+
+	return written;
+}
+
+static int ioctl_ac97(fs_node_t * node, int request, void * argp) {
+	switch (request) {
+		case 0xf00:
+			return 0;
+		case 0xf01:
+			last_finish = 0;
+			cycle = 0;
+			start_on_next = 1;
+			outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
+			do_clear(0);
+			do_clear(16);
+			return 0;
+		case 0xf02:
+			stop_playback();
+			return 0;
+		default:
+			return -1;
+	}
+}
+
+
+static fs_node_t * ac97_device_create(void) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	sprintf(fnode->name, "dsp");
+	fnode->flags   = FS_CHARDEVICE;
+	fnode->ioctl   = ioctl_ac97;
+	fnode->write   = write_ac97;
+	return fnode;
+}
+
 
 static int init(void) {
 	debug_print(NOTICE, "Initializing AC97");
@@ -263,8 +364,7 @@ static int init(void) {
 	outports(_device.nambar + AC97_PCM_OUT_VOLUME, volume);
 
 	/* Allocate our BDL and our buffers */
-	uint32_t bdl_p;
-	_device.bdl = (void *)kmalloc_p(AC97_BDL_LEN * sizeof(*_device.bdl), &bdl_p);
+	_device.bdl = (void *)kmalloc_p(AC97_BDL_LEN * sizeof(*_device.bdl), &_device.bdl_p);
 	memset(_device.bdl, 0, AC97_BDL_LEN * sizeof(*_device.bdl));
 	for (int i = 0; i < AC97_BDL_LEN; i++) {
 		_device.bufs[i] = (uint16_t *)kmalloc_p(AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]),
@@ -276,7 +376,14 @@ static int init(void) {
 	_device.bdl[AC97_BDL_LEN / 2].cl |= AC97_CL_IOC;
 	_device.bdl[AC97_BDL_LEN - 1].cl |= AC97_CL_IOC;
 	/* Tell the ac97 where our BDL is */
-	outportl(_device.nabmbar + AC97_PO_BDBAR, bdl_p);
+	outportl(_device.nabmbar + AC97_PO_BDBAR, _device.bdl_p);
+
+	next_buffers_mutex = list_create();
+	first_buffer_available = list_create();
+	second_buffer_available = list_create();
+
+	fs_node_t * dsp_node = ac97_device_create();
+	vfs_mount("/dev/dsp", dsp_node);
 
 	debug_print(NOTICE, "AC97 initialized successfully");
 
