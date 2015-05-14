@@ -164,10 +164,18 @@ void * module_load_direct(void * blob, size_t length) {
 								}
 								i++;
 							}
+							/*
+							 * Common symbols
+							 * If we were a proper linker, we'd look at a bunch of objects
+							 * to find out if one of them defined this, but instead we have
+							 * a strict hierarchy of symbol resolution, so we know that an
+							 * undefined common symbol at this point should be immediately
+							 * allocated and zeroed.
+							 */
 							if (!set && table->st_shndx == 65522) {
 								if (!hashmap_get(symboltable, name)) {
-									uintptr_t final = (uintptr_t)target + table->st_value;
-									debug_print(NOTICE, "point %s to 0x%x", name, final);
+									void * final = calloc(1, table->st_value);
+									debug_print(NOTICE, "point %s to 0x%x", name, (uintptr_t)final);
 									hashmap_set(symboltable, name, (void *)final);
 									hashmap_set(local_symbols, name, (void *)final);
 								}
