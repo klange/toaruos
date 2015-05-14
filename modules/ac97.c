@@ -164,8 +164,7 @@ static void playback_tasklet(void * data, char * name) {
 	close_fs(file);
 	file = NULL;
 
-	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
-	outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
+	last_finish = 3;
 
 	task_exit(0);
 }
@@ -180,10 +179,16 @@ DEFINE_SHELL_FUNCTION(ac97_play, "[debug] Play back a file") {
 		fname = argv[1];
 	}
 
+	fprintf(tty, "Playing %s\n", fname);
 	last_playback_pid = create_kernel_tasklet(playback_tasklet, "[[ac97]]", strdup(fname));
 	fprintf(tty, "Started playback thread, pid = %d\n", last_playback_pid);
 
 	return 0;
+}
+
+static void stop_playback(void) {
+	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
+	outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
 }
 
 DEFINE_SHELL_FUNCTION(ac97_stop, "[debug] Stop playback") {
@@ -192,8 +197,6 @@ DEFINE_SHELL_FUNCTION(ac97_stop, "[debug] Stop playback") {
 		return 1;
 	}
 	offset = file->length;
-	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
-	outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
 	wakeup_queue(next_buffers_mutex);
 	int status;
 	waitpid(last_playback_pid, &status, 0);
@@ -206,18 +209,18 @@ static void irq_handler(struct regs * regs) {
 	debug_print(NOTICE, "sr: 0x%04x", sr);
 	if (sr & AC97_X_SR_LVBCI) {
 		/* Stop playing */
-		outportb(_device.nabmbar + AC97_PO_CR,
-				 inportb(_device.nabmbar + AC97_PO_CR) & ~AC97_X_CR_RPBM);
-		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
+		stop_playback();
 		debug_print(NOTICE, "Last valid buffer completion interrupt handled");
 	} else if (sr & AC97_X_SR_BCIS) {
 		debug_print(NOTICE, "Buffer completion interrupt status start...");
 		if (!last_finish || last_finish == 2) {
 			_device.lvi = AC97_BDL_LEN / 2 - 1;
 			last_finish = 1;
-		} else {
+		} else if (last_finish == 1) {
 			_device.lvi = AC97_BDL_LEN - 1;
 			last_finish = 2;
+		} else if (last_finish == 3) {
+			stop_playback();
 		}
 		wakeup_queue(next_buffers_mutex);
 		outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
