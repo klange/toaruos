@@ -143,7 +143,12 @@ static void irq_handler(struct regs * regs) {
 		debug_print(NOTICE, "Last valid buffer completion interrupt handled");
 	} else if (sr & AC97_X_SR_BCIS) {
 		debug_print(NOTICE, "Buffer completion interrupt status start...");
+
+		snd_request_buf(&_snd, AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]), (uint8_t *)_device.bufs[_device.lvi]);
+		_device.lvi = (_device.lvi + 1) % AC97_BDL_LEN;
+#if 0
 		size_t start;
+
 		if (_device.lvi == AC97_BDL_LEN / 2 - 1) {
 			_device.lvi = AC97_BDL_LEN - 1;
 			start = AC97_BDL_LEN / 2;
@@ -152,9 +157,10 @@ static void irq_handler(struct regs * regs) {
 			start = 0;
 		}
 
-		for (int i = start; i <= _device.lvi; i++) {
+		for (int i = start; i < _device.lvi; i++) {
 			snd_request_buf(&_snd, AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]), (uint8_t *)_device.bufs[i]);
 		}
+#endif
 		outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
 		debug_print(NOTICE, "Buffer completion interrupt status handled");
@@ -199,14 +205,14 @@ static int init(void) {
 												&_device.bdl[i].pointer);
 		memset(_device.bufs[i], 0, AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]));
 		AC97_CL_SET_LENGTH(_device.bdl[i].cl, AC97_BDL_BUFFER_LEN);
+		/* Set all buffers to interrupt */
+		_device.bdl[i].cl |= AC97_CL_IOC;
+
 	}
-	/* Set the midway buffer and the last buffer to interrupt */
-	_device.bdl[AC97_BDL_LEN / 2 - 1].cl |= AC97_CL_IOC;
-	_device.bdl[AC97_BDL_LEN - 1].cl |= AC97_CL_IOC;
 	/* Tell the ac97 where our BDL is */
 	outportl(_device.nabmbar + AC97_PO_BDBAR, _device.bdl_p);
 	/* Set the LVI to be the last index */
-	_device.lvi = AC97_BDL_LEN - 1;
+	_device.lvi = 2;
 	outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
 
 	snd_register(&_snd);
