@@ -80,6 +80,7 @@ BOOT_MODULES += debug_shell
 BOOT_MODULES += ps2mouse ps2kbd
 BOOT_MODULES += lfbvideo
 BOOT_MODULES += packetfs
+BOOT_MODULES += snd
 BOOT_MODULES += pcspkr
 BOOT_MODULES += ac97
 BOOT_MODULES += net rtl
