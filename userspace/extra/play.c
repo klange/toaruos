@@ -24,7 +24,6 @@ int main(int argc, char * argv[]) {
 	}
 
 	char buf[0x1000];
-	ioctl(spkr, 0xf01, NULL);
 	while (read(song, buf, sizeof(buf))) {
 		write(spkr, buf, sizeof(buf));
 	}
