@@ -1,69 +1,69 @@
 ![Screenshot](http://i.imgur.com/5fpgP1q.png)
 ![More Screenshots](http://i.imgur.com/Eu10iwj.png)
 
-# ToAruOS (とあるOS) #
+# ToaruOS (とあるOS) #
 
-とあるOS (ToAruOS) is a hobby kernel and supporting userspace, built mostly from scratch, in development since December of 2010.
+とあるOS (ToaruOS) is a hobby kernel and supporting userspace, built mostly from scratch, in development since December of 2010.
 
-It was originally developed at the University of Illinois at Urbana-Champaign. For a period of time, it was the development focus of the university's [SIGOps](http://www.acm.uiuc.edu/sigops/) chapter.
+This repository contains the kernel, modules, and core userspace. Some third-party libraries and utilities are required to build a working system.
 
-This repository contains the kernel, modules, and core userspace. Some third-party libraries and utilities are required to build a working system - these are automatically retrieved by the build process.
+## History
+
+ToaruOS started as a side project at the University of Illinois at Urbana-Champaign. For several months in late 2011 and early 2012, the University's [SIGOps](http://www.acm.uiuc.edu/sigops/) chapter managed development efforts focused on building the original compositing GUI. Since then, the project has mostly been a one-man effort with a handful of third party contributions.
 
 ## Kernel ##
 
-The kernel provides a number of features one would expect from a Unix-inspired project, including process and thread support, ELF binary support, runtime-loaded modules, pipes and TTYs, a virtual file system including virtual `/proc` (inspired by Plan9 and Linux) and device files, EXT2 filesystem support, signals, and more.
+The Toaru kernel provides a basic Unix-like environment. The kernel uses a hybrid modular architecture, with loadable modules providing most device driver support. The core kernel includes support for Unix pipes and TTYs, a virtual file system, multitasking, ELF binary support, and various core platform features on x86 systems.
+
+Modules provide support for disk drives, ext2 filesystems, serial, keyboards and mice, a `/proc` filesystem similar to the one found in Linux, as well as an expanding collcetion of other device drivers.
 
 ## Userspace ##
 
-The userspace provides a rich graphical environment with a composited window manager (built on Cairo), a terminal emulator (with support for xterm 256-color modes and Konsole 24-bit color modes, anti-aliased text using FreeType, and general support for some Unicode text), and other graphical demo applications.
+ToaruOS's userspace is focused on a rich graphical environment, backed by an in-house compositing window manager. ToaruOS's terminal emulator supports xterm-compatible 256-color modes, as well as Konsole 24-bit color modes and anti-aliased text with based Unicode support. Several graphical demos are provided, alongside a number of command-line applications. A port of SDL targetting the native graphical environment is also available.
 
 ### Third-Party Software ###
 
-The userspace depends on a number of third-party libraries which are outside of the development scope of the project, as well as the `newlib` C library (though development of an in-house C library is planned).
+The userspace depends on a number of third-party libraries which are outside of the development scope of the project. Additionally, several third-party applications and libraries have been integrated into ToaruOS's core userspace, or otherwise ported to ToaruOS.
 
-Some third-party software is provided within this repository:
+Package |   | Description
+------- | ---- | -----------
+cpudet| *(included)* | `cpuid` parser
+DejaVu Sans | *(included)* | Popular, free TrueType font series
+VL Gothic | *(included)* | Free Japanese TrueType font
+`sha2.c` | *(included)* | SHA512 hash library
+`utf8decode.h` | *(included)* | UTF8 decoding tools
+glxgears | *(included)* | Popular OpenGL demo
+curses-hello | *(included)* | Curses demos
+`pci_list.h` | *(included)* | PCI vendor and device names
+2048  | *(included)*    | Terminal implementation of a popular strategy game
+gcc   | \*   | Compiler suite.
+newlib| \*   | C library
+libpng| \*   | PNG graphics library
+zlib  | \*   | `gzip` compression library
+FreeType` | \* | TrueType font parser
+Cairo | \*   | CPU-accelerated pixel-pushing and vector graphics
+ncurses | \* | Terminal UI library and `terminfo` provider
+Mesa | \* | Software OpenGL implementation
+Vim | \* | Popular text editor
+Lua  |  [link](http://www.lua.org/) | Interpreted programming language
+MuPDF | [link](https://github.com/klange/toaru-pdfviewer) | PDF viewer (requires complex library cross-compilation)
+SDL | [link](https://github.com/klange/SDL) | Cross-platform graphics library
+Snes9X | [link](https://github.com/klange/snes9x-sdl) | SNES emulator
+PrBoom` | [link](https://github.com/klange/prboom) | DooM engine
+Bochs | [link](http://bochs.sourceforge.net/) | Software x86 PC emulator
+Python | (TBD) | Interpreted programming language
 
-* `cpudet`, a `cpuid` parser.
-* VL Gothic, a Japanese TrueType font.
-* DejaVu, a series of popular, free TrueType fonts.
-* A SHA512 hash library
-* `utf8decode.h`, UTF8 decoding tools.
-* A port of `glxgears`.
-* Various Curses examples by Pradeep Padala.
-* A list of PCI vendor and device names.
-* A terminal implementation of the game "2048".
+\* These tools and libraries are retrieved by the build process and included by default. Some of them are dependencies for the core userspace.
 
-Licenses for these tools and libraries can be found [here](LICENSE.md).
+License for the included third-party tools and libraries can be found [here](LICENSE.md).
 
-The following external libraries and tools are retrieved during the build process:
+## Community ##
 
-* `gcc` and `binutils` - For both a cross-compiler and a native port.
-* `newlib` - C library (development of an in-house C library is planned, but has not yet commenced).
-* `libpng` - Used extensively by the native graphics library to provide wallpaper and icons.
-* `zlib` - Dependency of `libpng`, but also generally useful.
-* `freetype` - For rendering text using TrueType fonts.
-* `cairo` and `pixman` - For CPU-accelerated graphics.
-* `ncurses` - Terminal control library, provides `terminfo`.
-* Mesa - Implementation of OpenGL (only the software rasterizer is available).
-* Vim - Popular text editor.
+### Wiki ###
 
-In addition to the libraries included in the build process, others have been ported or successfully built for とある:
+For additional screenshots, see [Screenshots](https://github.com/klange/toaruos/wiki/Screenshots).
 
-* Lua - Builds as-is
-* MuPDF - See [klange/toaru-pdfviewer](https://github.com/klange/toaru-pdfviewer) (library must be cross compiled)
-* SDL - See [klange/SDL](https://github.com/klange/SDL) - Run all sorts of graphical things.
-* `snes9x-sdl` - See [klange/snes9x-sdl](https://github.com/klange/snes9x-sdl) - Play SNES games!
-* `prboom` - See [klange/prboom](https://github.com/klange/prboom) - Play DooM!
-* Bochs - Should build as-is, but may require modifications. (Depends on SDL)
-* Python - A Python port has been built, but is not yet available.
-
-### Screenshots ###
-
-For additional screenshots, please see [the wiki](https://github.com/klange/toaruos/wiki/Screenshots).
-
-## Testing / Building / Installation ##
-
-Please see [Testing and Building](https://github.com/klange/toaruos/wiki/Testing-and-Building) on the wiki.
+For instructions on building, see [Testing and Building](https://github.com/klange/toaruos/wiki/Testing-and-Building).
 
 ### IRC ###
 
