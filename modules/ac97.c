@@ -134,6 +134,7 @@ DEFINE_SHELL_FUNCTION(ac97_status, "[debug] AC'97 status values") {
 	return 0;
 }
 
+#define DIVISION 128
 static void irq_handler(struct regs * regs) {
 	debug_print(NOTICE, "AC97 IRQ called");
 	uint16_t sr = inports(_device.nabmbar + AC97_PO_SR);
@@ -144,23 +145,12 @@ static void irq_handler(struct regs * regs) {
 	} else if (sr & AC97_X_SR_BCIS) {
 		debug_print(NOTICE, "Buffer completion interrupt status start...");
 
-		snd_request_buf(&_snd, AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]), (uint8_t *)_device.bufs[_device.lvi]);
+		size_t f = (_device.lvi + 2) % AC97_BDL_LEN;
+		for (size_t i = 0; i < AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]); i += DIVISION) {
+			snd_request_buf(&_snd, DIVISION, (uint8_t *)_device.bufs[f] + i);
+			switch_task(1);
+		}
 		_device.lvi = (_device.lvi + 1) % AC97_BDL_LEN;
-#if 0
-		size_t start;
-
-		if (_device.lvi == AC97_BDL_LEN / 2 - 1) {
-			_device.lvi = AC97_BDL_LEN - 1;
-			start = AC97_BDL_LEN / 2;
-		} else {
-			_device.lvi = AC97_BDL_LEN / 2 - 1;
-			start = 0;
-		}
-
-		for (int i = start; i < _device.lvi; i++) {
-			snd_request_buf(&_snd, AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]), (uint8_t *)_device.bufs[i]);
-		}
-#endif
 		outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
 		debug_print(NOTICE, "Buffer completion interrupt status handled");
