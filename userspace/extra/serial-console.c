@@ -1,14 +1,12 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2014 Kevin Lange
- */
-/*
- * cat
  *
- * Concatenates files together to standard output.
- * In a supporting terminal, you can then pipe
- * standard out to another file or other useful
- * things like that.
+ * serial console
+ *
+ * Runs a dumb console on a serial port or something similar.
+ *
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,8 +104,3 @@ int main(int argc, char ** argv) {
 	return 0;
 }
 
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- * vim:shiftwidth=4
- */
