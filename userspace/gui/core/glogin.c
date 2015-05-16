@@ -30,14 +30,14 @@
 
 #include "gui/ttk/ttk.h"
 
-sprite_t logo;
+static sprite_t logo;
 
-gfx_context_t * ctx;
+static gfx_context_t * ctx;
 
-uint16_t win_width;
-uint16_t win_height;
+static uint16_t win_width;
+static uint16_t win_height;
 
-int uid = 0;
+static int uid = 0;
 
 #define USERNAME_BOX 1
 #define PASSWORD_BOX 2
@@ -91,37 +91,6 @@ int buffer_put(char * input_buffer, char c) {
 		return 1;
 	}
 	return 0;
-}
-
-int32_t min(int32_t a, int32_t b) {
-	return (a < b) ? a : b;
-}
-
-int32_t max(int32_t a, int32_t b) {
-	return (a > b) ? a : b;
-}
-
-void draw_box(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	int32_t _min_x = max(x, 0);
-	int32_t _min_y = max(y,  0);
-	int32_t _max_x = min(x + w - 1, ctx->width  - 1);
-	int32_t _max_y = min(y + h - 1, ctx->height - 1);
-
-	for (int i = _min_y; i < _max_y; ++i) {
-		draw_line(ctx, _min_x, _max_x, i, i, color);
-	}
-}
-
-void draw_box_border(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-	int32_t _min_x = max(x, 0);
-	int32_t _min_y = max(y,  0);
-	int32_t _max_x = min(x + w - 1, ctx->width  - 1);
-	int32_t _max_y = min(y + h - 1, ctx->height - 1);
-
-	draw_line(ctx, _min_x, _max_x, _min_y, _min_y, color);
-	draw_line(ctx, _min_x, _max_x, _max_y, _max_y, color);
-	draw_line(ctx, _min_x, _min_x, _min_y, _max_y, color);
-	draw_line(ctx, _max_x, _max_x, _min_y, _max_y, color);
 }
 
 struct text_box {
