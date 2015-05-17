@@ -86,11 +86,34 @@ typedef struct {
 } ac97_device_t;
 
 static ac97_device_t _device;
+
+#define AC97_KNOB_PCM_OUT (SND_KNOB_VENDOR + 0)
+
+static snd_knob_t _knobs[] = {
+	{
+		"Master",
+		SND_KNOB_MASTER
+	},
+	{
+		"PCM Out",
+		SND_KNOB_VENDOR + 0
+	}
+};
+
+static int ac97_mixer_read(uint32_t knob_id, uint32_t *val);
+static int ac97_mixer_write(uint32_t knob_id, uint32_t val);
+
 static snd_device_t _snd = {
 	AC97_SND_NAME,
 	&_device,
 	AC97_PLAYBACK_SPEED,
 	AC97_PLAYBACK_FORMAT,
+
+	_knobs,
+	N_ELEMENTS(_knobs),
+
+	ac97_mixer_read,
+	ac97_mixer_write,
 };
 
 /* 
@@ -153,6 +176,58 @@ static void irq_handler(struct regs * regs) {
 	}
 
 	irq_ack(_device.irq);
+}
+
+/* Currently we just assume right and left are the same */
+static int ac97_mixer_read(uint32_t knob_id, uint32_t *val) {
+	switch (knob_id) {
+		case SND_KNOB_MASTER:
+			/* 6 bit value */
+			*val = (inports(_device.nambar + AC97_MASTER_VOLUME) & 0x3f) << (sizeof(*val) * 8 - 6);
+			*val = ~*val;
+			*val &= 0x3f << (sizeof(*val) * 8 - 6);
+			break;
+		case AC97_KNOB_PCM_OUT:
+			/* 5 bit value */
+			*val = (inports(_device.nambar + AC97_PCM_OUT_VOLUME) & 0x1f) << (sizeof(*val) * 8 - 5);
+			*val = ~*val;
+			*val &= 0x1f << (sizeof(*val) * 8 - 5);
+			break;
+
+		default:
+			return -1;
+	}
+
+	return 0;
+}
+
+static int ac97_mixer_write(uint32_t knob_id, uint32_t val) {
+	switch (knob_id) {
+		case SND_KNOB_MASTER: {
+			/* 0 is the highest volume */
+			val = ~val;
+			/* 6 bit value */
+			val >>= (sizeof(val) * 8 - 6);
+			uint16_t encoded = val | (val << 8);
+			outports(_device.nambar + AC97_MASTER_VOLUME, encoded);
+			break;
+		}
+
+		case AC97_KNOB_PCM_OUT: {
+			/* 0 is the highest volume */
+			val = ~val;
+			/* 5 bit value */
+			val >>= (sizeof(val) * 8 - 5);
+			uint16_t encoded = val | (val << 8);
+			outports(_device.nambar + AC97_PCM_OUT_VOLUME, encoded);
+			break;
+		}
+
+		default:
+			return -1;
+	}
+
+	return 0;
 }
 
 static int init(void) {

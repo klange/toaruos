@@ -4,7 +4,7 @@
 /* The format isn't really used for anything right now */
 #define SND_FORMAT_L16SLE 0  /* Linear 16-bit signed little endian */
 
-#include <lib/snd.h>
+#include <mod/sound.h>
 #include <logging.h>
 #include <system.h>
 
