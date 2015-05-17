@@ -136,15 +136,10 @@ DEFINE_SHELL_FUNCTION(ac97_status, "[debug] AC'97 status values") {
 
 #define DIVISION 128
 static void irq_handler(struct regs * regs) {
-	debug_print(NOTICE, "AC97 IRQ called");
 	uint16_t sr = inports(_device.nabmbar + AC97_PO_SR);
-	debug_print(NOTICE, "sr: 0x%04x", sr);
 	if (sr & AC97_X_SR_LVBCI) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
-		debug_print(NOTICE, "Last valid buffer completion interrupt handled");
 	} else if (sr & AC97_X_SR_BCIS) {
-		debug_print(NOTICE, "Buffer completion interrupt status start...");
-
 		size_t f = (_device.lvi + 2) % AC97_BDL_LEN;
 		for (size_t i = 0; i < AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]); i += DIVISION) {
 			snd_request_buf(&_snd, DIVISION, (uint8_t *)_device.bufs[f] + i);
@@ -153,10 +148,8 @@ static void irq_handler(struct regs * regs) {
 		_device.lvi = (_device.lvi + 1) % AC97_BDL_LEN;
 		outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
-		debug_print(NOTICE, "Buffer completion interrupt status handled");
 	} else if (sr & AC97_X_SR_FIFOE) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_FIFOE);
-		debug_print(NOTICE, "FIFO error handled");
 	}
 
 	irq_ack(_device.irq);

@@ -107,7 +107,6 @@ static void snd_close(fs_node_t * node) {
 int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 	static uint8_t tmp_buf[0x100];
 
-	debug_print(NOTICE, "[snd] got request for %d bytes from %s", size, device->name);
 	memset(buffer, 0, size);
 
 	spin_lock(&_buffers_lock);
