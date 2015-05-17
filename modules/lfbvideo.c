@@ -253,7 +253,7 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 
 mem_found:
 	if (lfb_vid_memory + 4 * resolution_x * resolution_y > lfb_vid_memory + 0xFF0000) {
-		for (uintptr_t i = lfb_vid_memory + 0xFF1000; i <= lfb_vid_memory + 4 * resolution_x * resolution_y; i += 0x1000) {
+		for (uintptr_t i = (uintptr_t)lfb_vid_memory + 0xFF1000; i <= (uintptr_t)lfb_vid_memory + 4 * resolution_x * resolution_y; i += 0x1000) {
 			debug_print(WARNING, "Also mapping 0x%x", i);
 			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 		}
