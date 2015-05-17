@@ -14,6 +14,7 @@
 #include <mod/snd.h>
 
 #include <list.h>
+#include <mod/shell.h>
 #include <module.h>
 #include <ringbuffer.h>
 #include <system.h>
@@ -140,8 +141,41 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 	return size;
 }
 
+static snd_device_t * snd_main_device() {
+	spin_lock(&_devices_lock);
+	foreach(node, &_devices) {
+		spin_unlock(&_devices_lock);
+		return node->value;
+	}
+
+	spin_unlock(&_devices_lock);
+	return NULL;
+}
+
+DEFINE_SHELL_FUNCTION(snd_full, "[debug] turn snd master to full") {
+	snd_main_device()->mixer_write(SND_KNOB_MASTER, UINT32_MAX);
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(snd_half, "[debug] turn snd master to half") {
+	snd_main_device()->mixer_write(SND_KNOB_MASTER, UINT32_MAX / 2);
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(snd_off, "[debug] turn snd master to lowest volume") {
+	snd_main_device()->mixer_write(SND_KNOB_MASTER, 0);
+
+	return 0;
+}
+
 static int init(void) {
 	vfs_mount("/dev/dsp", &_main_fnode);
+
+	BIND_SHELL_FUNCTION(snd_full);
+	BIND_SHELL_FUNCTION(snd_half);
+	BIND_SHELL_FUNCTION(snd_off);
 	return 0;
 }
 
