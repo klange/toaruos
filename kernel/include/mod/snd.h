@@ -27,6 +27,8 @@ typedef struct snd_device {
 	uint32_t num_knobs;
 	int (*mixer_read)(uint32_t knob_id, uint32_t *val);
 	int (*mixer_write)(uint32_t knob_id, uint32_t val);
+
+	uint32_t id;
 } snd_device_t;
 
 /*

@@ -104,16 +104,16 @@ static int ac97_mixer_read(uint32_t knob_id, uint32_t *val);
 static int ac97_mixer_write(uint32_t knob_id, uint32_t val);
 
 static snd_device_t _snd = {
-	AC97_SND_NAME,
-	&_device,
-	AC97_PLAYBACK_SPEED,
-	AC97_PLAYBACK_FORMAT,
+	.name            = AC97_SND_NAME,
+	.device          = &_device,
+	.playback_speed  = AC97_PLAYBACK_SPEED,
+	.playback_format = AC97_PLAYBACK_FORMAT,
 
-	_knobs,
-	N_ELEMENTS(_knobs),
+	.knobs     = _knobs,
+	.num_knobs = N_ELEMENTS(_knobs),
 
-	ac97_mixer_read,
-	ac97_mixer_write,
+	.mixer_read  = ac97_mixer_read,
+	.mixer_write = ac97_mixer_write,
 };
 
 /* 
