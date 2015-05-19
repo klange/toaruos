@@ -20,6 +20,7 @@
 
 /* Utility macros */
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 #define SND_BUF_SIZE 0x1000
 
@@ -105,7 +106,7 @@ static void snd_close(fs_node_t * node) {
 }
 
 int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
-	static uint8_t tmp_buf[0x100];
+	static int16_t tmp_buf[0x100];
 
 	memset(buffer, 0, size);
 
@@ -113,25 +114,23 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 	foreach(buf_node, &_buffers) {
 		ring_buffer_t * buf = buf_node->value;
 		/* ~0x3 is to ensure we don't read partial samples or just a single channel */
-		size_t read_size = MIN(ring_buffer_unread(buf) & ~0x3, size);
-		size_t bytes_left = read_size;
-		uint8_t * adding_ptr = buffer;
+		size_t bytes_left = MIN(ring_buffer_unread(buf) & ~0x3, size);
+		int16_t * adding_ptr = (int16_t *) buffer;
 		while (bytes_left) {
 			size_t this_read_size = MIN(bytes_left, sizeof(tmp_buf));
-			ring_buffer_read(buf, this_read_size, tmp_buf);
-			int16_t * ducking_ptr = (int16_t *)tmp_buf;
+			ring_buffer_read(buf, this_read_size, (uint8_t *)tmp_buf);
 			/*
 			 * Reduce the sample by a half so that multiple sources won't immediately
 			 * cause awful clipping. This is kind of a hack since it would probably be
 			 * better to just use some kind of compressor.
 			 */
-			for (size_t i = 0; i < sizeof(tmp_buf) / sizeof(*ducking_ptr); i++) {
-				ducking_ptr[i] /= 2;
+			for (size_t i = 0; i < N_ELEMENTS(tmp_buf); i++) {
+				tmp_buf[i] /= 2;
 			}
-			for (size_t i = 0; i < this_read_size; i++) {
+			for (size_t i = 0; i < this_read_size / sizeof(*adding_ptr); i++) {
 				adding_ptr[i] += tmp_buf[i];
 			}
-			adding_ptr += this_read_size;
+			adding_ptr += this_read_size / sizeof(*adding_ptr);
 			bytes_left -= this_read_size;
 		}
 	}
