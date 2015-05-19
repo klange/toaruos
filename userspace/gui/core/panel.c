@@ -191,8 +191,8 @@ static void set_focused(int i) {
 #define VOLUME_DEVICE_ID 0
 #define VOLUME_KNOB_ID   0
 static uint32_t volume_level = 0;
+static int mixer = -1;
 static void update_volume_level(void) {
-	static int mixer = -1;
 	if (mixer == -1) {
 		mixer = open("/dev/mixer", O_RDONLY);
 	}
@@ -203,6 +203,30 @@ static void update_volume_level(void) {
 
 	ioctl(mixer, SND_MIXER_READ_KNOB, &value);
 	volume_level = value.val;
+}
+static void volume_raise(void) {
+	if (volume_level > 0xE0000000) volume_level = 0xF0000000;
+	else volume_level += 0x10000000;
+
+	snd_knob_value_t value = {0};
+	value.device = VOLUME_DEVICE_ID; /* TODO configure this somewhere */
+	value.id     = VOLUME_KNOB_ID;   /* TODO this too */
+	value.val    = volume_level;
+
+	ioctl(mixer, SND_MIXER_WRITE_KNOB, &value);
+	redraw();
+}
+static void volume_lower(void) {
+	if (volume_level < 0x20000000) volume_level = 0x0;
+	else volume_level -= 0x10000000;
+
+	snd_knob_value_t value = {0};
+	value.device = VOLUME_DEVICE_ID; /* TODO configure this somewhere */
+	value.id     = VOLUME_KNOB_ID;   /* TODO this too */
+	value.val    = volume_level;
+
+	ioctl(mixer, SND_MIXER_WRITE_KNOB, &value);
+	redraw();
 }
 
 /* Callback for mouse events */
@@ -257,7 +281,13 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			else if (evt->buttons & YUTANI_MOUSE_SCROLL_DOWN) scroll_direction = 1;
 
 			if (scroll_direction) {
-				if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
+				if (evt->new_x > WIDGET_POSITION(1) && evt->new_y < WIDGET_POSITION(0)) {
+					if (scroll_direction == 1) {
+						volume_lower();
+					} else if (scroll_direction == -1) {
+						volume_raise();
+					}
+				} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 					if (scroll_direction != 0) {
 						struct window_ad * last = window_list->tail ? window_list->tail->value : NULL;
 						int focus_next = 0;
