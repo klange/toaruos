@@ -19,11 +19,14 @@
 #include <limits.h>
 #include <math.h>
 #include <time.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
 
 #include "lib/pthread.h"
 #include "lib/yutani.h"
@@ -31,6 +34,7 @@
 #include "lib/shmemfonts.h"
 #include "lib/hashmap.h"
 #include "lib/spinlock.h"
+#include "lib/sound.h"
 
 #define PANEL_HEIGHT 28
 #define FONT_SIZE 14
@@ -59,7 +63,7 @@
 #define MAX_WINDOW_COUNT 100
 
 #define TOTAL_CELL_WIDTH (ICON_SIZE + ICON_PADDING * 2 + title_width)
-#define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING)
+#define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING - widgets_width)
 
 #define APPMENU_WIDTH  200
 #define APPMENU_PAD_RIGHT 1
@@ -67,6 +71,10 @@
 #define APPMENU_BACKGROUND premultiply(rgba(255,255,255,240))
 #define APPMENU_HIGHLIGHT rgb(50,50,200)
 #define APPMENU_ITEM_HEIGHT 24
+
+#define WIDGET_WIDTH 24
+#define WIDGET_RIGHT (width - TIME_LEFT - DATE_WIDTH)
+#define WIDGET_POSITION(i) (WIDGET_RIGHT - WIDGET_WIDTH * (i+1))
 
 static yutani_t * yctx;
 
@@ -93,8 +101,16 @@ static char * bg_blob;
 static int width;
 static int height;
 
+static int widgets_width = 0;
+static int widgets_volume_enabled = 0;
+
 static sprite_t * sprite_panel;
 static sprite_t * sprite_logout;
+
+static sprite_t * sprite_volume_mute;
+static sprite_t * sprite_volume_low;
+static sprite_t * sprite_volume_med;
+static sprite_t * sprite_volume_high;
 
 static int center_x(int x) {
 	return (width - x) / 2;
@@ -172,6 +188,23 @@ static void set_focused(int i) {
 	}
 }
 
+#define VOLUME_DEVICE_ID 0
+#define VOLUME_KNOB_ID   0
+static uint32_t volume_level = 0;
+static void update_volume_level(void) {
+	static int mixer = -1;
+	if (mixer == -1) {
+		mixer = open("/dev/mixer", O_RDONLY);
+	}
+
+	snd_knob_value_t value = {0};
+	value.device = VOLUME_DEVICE_ID; /* TODO configure this somewhere */
+	value.id     = VOLUME_KNOB_ID;   /* TODO this too */
+
+	ioctl(mixer, SND_MIXER_READ_KNOB, &value);
+	volume_level = value.val;
+}
+
 /* Callback for mouse events */
 static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->wid == panel->wid) {
@@ -190,7 +223,10 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				} else {
 					/* ??? */
 				}
-			} else {
+			} else if (evt->new_x > WIDGET_POSITION(1) && evt->new_x < WIDGET_POSITION(0)) {
+				/* TODO: More generic widget click handling */
+				/* TODO: Show the volume manager */
+			} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
 					if (ads_by_l[i] == NULL) break;
 					if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
@@ -214,6 +250,41 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				}
 			} else {
 				set_focused(-1);
+			}
+
+			int scroll_direction = 0;
+			if (evt->buttons & YUTANI_MOUSE_SCROLL_UP) scroll_direction = -1;
+			else if (evt->buttons & YUTANI_MOUSE_SCROLL_DOWN) scroll_direction = 1;
+
+			if (scroll_direction) {
+				if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
+					if (scroll_direction != 0) {
+						struct window_ad * last = window_list->tail ? window_list->tail->value : NULL;
+						int focus_next = 0;
+						foreach(node, window_list) {
+							struct window_ad * ad = node->value;
+							if (focus_next) {
+								yutani_focus_window(yctx, ad->wid);
+								return;
+							}
+							if (ad->flags & 1) {
+								if (scroll_direction == -1) {
+									yutani_focus_window(yctx, last->wid);
+									return;
+								}
+								if (scroll_direction == 1) {
+									focus_next = 1;
+								}
+							}
+							last = ad;
+						}
+						if (focus_next && window_list->head) {
+							struct window_ad * ad = window_list->head->value;
+							yutani_focus_window(yctx, ad->wid);
+							return;
+						}
+					}
+				}
 			}
 		} else if (evt->command == YUTANI_MOUSE_EVENT_LEAVE) {
 			/* Mouse left panel window */
@@ -543,10 +614,25 @@ static void redraw(void) {
 	t = (DATE_WIDTH - t) / 2;
 	draw_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 21, txt_color, buffer);
 
-	/* TODO: Future applications menu */
+	/* Applications menu */
 	set_font_face(FONT_SANS_SERIF_BOLD);
 	set_font_size(14);
 	draw_string(ctx, 10, 18, appmenu ? HILIGHT_COLOR : txt_color, "Applications");
+
+	/* Draw each widget */
+	/* - Volume */
+	/* TODO: Get actual volume levels, and cache them somewhere */
+	if (widgets_volume_enabled) {
+		if (volume_level < 10) {
+			draw_sprite(ctx, sprite_volume_mute, WIDGET_POSITION(0), 0);
+		} else if (volume_level < 0x547ae147) {
+			draw_sprite(ctx, sprite_volume_low, WIDGET_POSITION(0), 0);
+		} else if (volume_level < 0xa8f5c28e) {
+			draw_sprite(ctx, sprite_volume_med, WIDGET_POSITION(0), 0);
+		} else {
+			draw_sprite(ctx, sprite_volume_high, WIDGET_POSITION(0), 0);
+		}
+	}
 
 	/* Now draw the window list */
 	int i = 0, j = 0;
@@ -756,6 +842,7 @@ static void * clock_thread(void * garbage) {
 	 */
 	while (_continue) {
 		waitpid(-1, NULL, WNOHANG);
+		update_volume_level();
 		redraw();
 		usleep(500000);
 	}
@@ -825,6 +912,21 @@ int main (int argc, char ** argv) {
 
 	load_sprite_png(sprite_panel,  "/usr/share/panel.png");
 	load_sprite_png(sprite_logout, "/usr/share/icons/panel-shutdown.png");
+
+	struct stat stat_tmp;
+	if (!stat("/dev/dsp",&stat_tmp)) {
+		widgets_volume_enabled = 1;
+		widgets_width += WIDGET_WIDTH;
+		sprite_volume_mute = malloc(sizeof(sprite_t));
+		sprite_volume_low  = malloc(sizeof(sprite_t));
+		sprite_volume_med  = malloc(sizeof(sprite_t));
+		sprite_volume_high = malloc(sizeof(sprite_t));
+		load_sprite_png(sprite_volume_mute, "/usr/share/icons/24/volume-mute.png");
+		load_sprite_png(sprite_volume_low,  "/usr/share/icons/24/volume-low.png");
+		load_sprite_png(sprite_volume_med,  "/usr/share/icons/24/volume-medium.png");
+		load_sprite_png(sprite_volume_high, "/usr/share/icons/24/volume-full.png");
+		/* XXX store current volume */
+	}
 
 	/* Draw the background */
 	for (uint32_t i = 0; i < width; i += sprite_panel->width) {

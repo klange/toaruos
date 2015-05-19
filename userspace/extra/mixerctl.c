@@ -5,11 +5,12 @@
  */
 
 #include <fcntl.h>
-#include <lib/sound.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#include "lib/sound.h"
 
 static const char usage[] =
 "Usage  %s [-d device_id] -l\n"
