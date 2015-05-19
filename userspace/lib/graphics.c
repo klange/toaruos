@@ -502,20 +502,17 @@ int load_sprite_png(sprite_t * sprite, char * file) {
 
 	FILE *fp = fopen(file, "rb");
 	if (!fp) {
-		printf("Oh dear. Failed to open wallpaper file.\n");
 		return 1;
 	}
 	fread(header, 1, 8, fp);
 	if (png_sig_cmp(header, 0, 8)) {
 		fclose(fp);
-		printf("Oh dear. Bad signature.\n");
 		return 1;
 	}
 
 	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 	if (!png_ptr) {
 		fclose(fp);
-		printf("Oh dear. Couldn't make a read struct.\n");
 		return 1;
 	}
 	info_ptr = png_create_info_struct(png_ptr);
