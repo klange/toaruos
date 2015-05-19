@@ -246,7 +246,12 @@ static int shell_log(fs_node_t * tty, int argc, char * argv[]) {
 		fprintf(tty, "Serial logging is %s.\n", !!debug_file ? "enabled" : "disabled");
 		fprintf(tty, "Usage: log [on|off] [<level>]\n");
 	} else {
-		if (!strcmp(argv[1], "on")) {
+		if (!strcmp(argv[1], "direct")) {
+			debug_file = kopen("/dev/ttyS0", 0);
+			if (argc > 2) {
+				debug_level = atoi(argv[2]);
+			}
+		} else if (!strcmp(argv[1], "on")) {
 			debug_file = tty;
 			if (argc > 2) {
 				debug_level = atoi(argv[2]);
