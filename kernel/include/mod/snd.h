@@ -4,14 +4,31 @@
 /* The format isn't really used for anything right now */
 #define SND_FORMAT_L16SLE 0  /* Linear 16-bit signed little endian */
 
+#include <mod/sound.h>
 #include <logging.h>
 #include <system.h>
+
+#define SND_KNOB_VENDOR 1024
+
+typedef uint16_t snd_mixer_enum_t;
+
+typedef struct snd_knob {
+	char name[SND_KNOB_NAME_SIZE];
+	uint32_t id;
+} snd_knob_t;
 
 typedef struct snd_device {
 	char name[256];            /* Name of the device. */
 	void * device;             /* Private data for the device. May be NULL. */
 	uint32_t playback_speed;   /* Playback speed in Hz */
 	uint32_t playback_format;  /* Playback format (SND_FORMAT_*) */
+
+	snd_knob_t *knobs;
+	uint32_t num_knobs;
+	int (*mixer_read)(uint32_t knob_id, uint32_t *val);
+	int (*mixer_write)(uint32_t knob_id, uint32_t val);
+
+	uint32_t id;
 } snd_device_t;
 
 /*

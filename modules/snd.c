@@ -13,7 +13,9 @@
 
 #include <mod/snd.h>
 
+#include <errno_defs.h>
 #include <list.h>
+#include <mod/shell.h>
 #include <module.h>
 #include <ringbuffer.h>
 #include <system.h>
@@ -24,30 +26,43 @@
 
 #define SND_BUF_SIZE 0x1000
 
-static uint32_t snd_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static int snd_ioctl(fs_node_t * node, int request, void * argp);
-static void snd_open(fs_node_t * node, unsigned int flags);
-static void snd_close(fs_node_t * node);
+static uint32_t snd_dsp_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer);
+static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp);
+static void snd_dsp_open(fs_node_t * node, unsigned int flags);
+static void snd_dsp_close(fs_node_t * node);
+
+static int snd_mixer_ioctl(fs_node_t * node, int request, void * argp);
+static void snd_mixer_open(fs_node_t * node, unsigned int flags);
+static void snd_mixer_close(fs_node_t * node);
 
 static uint8_t  _devices_lock;
 static list_t _devices; 
-static fs_node_t _main_fnode = {
+static fs_node_t _dsp_fnode = {
 	.name   = "dsp",
 	.device = &_devices,
 	.flags  = FS_CHARDEVICE,
-	.ioctl  = snd_ioctl,
-	.write  = snd_write,
-	.open   = snd_open,
-	.close  = snd_close,
+	.ioctl  = snd_dsp_ioctl,
+	.write  = snd_dsp_write,
+	.open   = snd_dsp_open,
+	.close  = snd_dsp_close,
+};
+static fs_node_t _mixer_fnode = {
+	.name  = "mixer",
+	.ioctl = snd_mixer_ioctl,
+	.open  = snd_mixer_open,
+	.close = snd_mixer_close,
 };
 static uint8_t _buffers_lock;
 static list_t _buffers;
+static uint32_t _next_device_id = SND_DEVICE_MAIN;
 
 int snd_register(snd_device_t * device) {
 	int rv = 0;
 
 	debug_print(WARNING, "[snd] _devices lock: %d", _devices_lock);
 	spin_lock(&_devices_lock);
+	device->id = _next_device_id;
+	_next_device_id++;
 	if (list_find(&_devices, device)) {
 		debug_print(WARNING, "[snd] attempt to register duplicate %s", device->name);
 		rv = -1;
@@ -78,16 +93,16 @@ snd_unregister_cleanup:
 	return rv;
 }
 
-static uint32_t snd_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t snd_dsp_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	return ring_buffer_write(node->device, size, buffer);
 }
 
-static int snd_ioctl(fs_node_t * node, int request, void * argp) {
+static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp) {
 	/* Potentially use this to set sample rates in the future */
 	return -1;
 }
 
-static void snd_open(fs_node_t * node, unsigned int flags) {
+static void snd_dsp_open(fs_node_t * node, unsigned int flags) {
 	/* 
 	 * XXX(gerow): A process could take the memory of the entire system by opening
 	 * too many of these...
@@ -99,10 +114,84 @@ static void snd_open(fs_node_t * node, unsigned int flags) {
 	spin_unlock(&_buffers_lock);
 }
 
-static void snd_close(fs_node_t * node) {
+static void snd_dsp_close(fs_node_t * node) {
 	spin_lock(&_buffers_lock);
 	list_delete(&_buffers, list_find(&_buffers, node->device));
 	spin_unlock(&_buffers_lock);
+}
+
+static snd_device_t * snd_device_by_id(uint32_t device_id) {
+	spin_lock(&_devices_lock);
+	snd_device_t * out = NULL;
+	snd_device_t * cur = NULL;
+
+	foreach(node, &_devices) {
+		cur = node->value;
+		if (cur->id == device_id) {
+			out = cur;
+		}
+	}
+	spin_unlock(&_devices_lock);
+
+	return out;
+}
+
+static int snd_mixer_ioctl(fs_node_t * node, int request, void * argp) {
+	switch (request) {
+		case SND_MIXER_GET_KNOBS: {
+			snd_knob_list_t * list = argp;
+			snd_device_t * device = snd_device_by_id(list->device);
+			if (!device) {
+				return -EINVAL;
+			}
+			list->num = device->num_knobs;
+			for (uint32_t i = 0; i < device->num_knobs; i++) {
+				list->ids[i] = device->knobs[i].id;
+			}
+			return 0;
+		}
+		case SND_MIXER_GET_KNOB_INFO: {
+			snd_knob_info_t * info = argp;
+			snd_device_t * device = snd_device_by_id(info->device);
+			if (!device) {
+				return -EINVAL;
+			}
+			for (uint32_t i = 0; i < device->num_knobs; i++) {
+				if (device->knobs[i].id == info->id) {
+					memcpy(info->name, device->knobs[i].name, sizeof(info->name));
+					return 0;
+				}
+			}
+			return -EINVAL;
+		}
+		case SND_MIXER_READ_KNOB: {
+			snd_knob_value_t * value = argp;
+			snd_device_t * device = snd_device_by_id(value->device);
+			if (!device) {
+				return -EINVAL;
+			}
+			return device->mixer_read(value->id, &value->val);
+		}
+		case SND_MIXER_WRITE_KNOB: {
+			snd_knob_value_t * value = argp;
+			snd_device_t * device = snd_device_by_id(value->device);
+			if (!device) {
+				return -EINVAL;
+			}
+			return device->mixer_write(value->id, value->val);
+		}
+		default: {
+			return -EINVAL;
+		}
+	}
+}
+
+static void snd_mixer_open(fs_node_t * node, unsigned int flags) {
+	return;
+}
+
+static void snd_mixer_close(fs_node_t * node) {
+	return;
 }
 
 int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
@@ -139,8 +228,42 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 	return size;
 }
 
+static snd_device_t * snd_main_device() {
+	spin_lock(&_devices_lock);
+	foreach(node, &_devices) {
+		spin_unlock(&_devices_lock);
+		return node->value;
+	}
+
+	spin_unlock(&_devices_lock);
+	return NULL;
+}
+
+DEFINE_SHELL_FUNCTION(snd_full, "[debug] turn snd master to full") {
+	snd_main_device()->mixer_write(SND_KNOB_MASTER, UINT32_MAX);
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(snd_half, "[debug] turn snd master to half") {
+	snd_main_device()->mixer_write(SND_KNOB_MASTER, UINT32_MAX / 2);
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(snd_off, "[debug] turn snd master to lowest volume") {
+	snd_main_device()->mixer_write(SND_KNOB_MASTER, 0);
+
+	return 0;
+}
+
 static int init(void) {
-	vfs_mount("/dev/dsp", &_main_fnode);
+	vfs_mount("/dev/dsp", &_dsp_fnode);
+	vfs_mount("/dev/mixer", &_mixer_fnode);
+
+	BIND_SHELL_FUNCTION(snd_full);
+	BIND_SHELL_FUNCTION(snd_half);
+	BIND_SHELL_FUNCTION(snd_off);
 	return 0;
 }
 
