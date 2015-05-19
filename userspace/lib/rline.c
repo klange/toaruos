@@ -66,11 +66,13 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				}
 				continue;
 			case KEY_ARROW_UP:
+			case KEY_CTRL_P:
 				if (callbacks->key_up) {
 					callbacks->key_up(&context);
 				}
 				continue;
 			case KEY_ARROW_DOWN:
+			case KEY_CTRL_N:
 				if (callbacks->key_down) {
 					callbacks->key_down(&context);
 				}
