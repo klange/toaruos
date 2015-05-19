@@ -96,6 +96,7 @@ struct regs {
 typedef struct regs regs_t;
 
 typedef void (*irq_handler_t) (struct regs *);
+typedef int (*irq_handler_chain_t) (struct regs *);
 
 /* Panic */
 #define HALT_AND_CATCH_FIRE(mesg, regs) halt_and_catch_fire(mesg, __FILE__, __LINE__, regs)
@@ -110,7 +111,7 @@ extern void isrs_uninstall_handler(size_t isrs);
 
 /* Interrupt Handlers */
 extern void irq_install(void);
-extern void irq_install_handler(size_t irq, irq_handler_t);
+extern void irq_install_handler(size_t irq, irq_handler_chain_t);
 extern void irq_uninstall_handler(size_t irq);
 extern int irq_is_handler_free(size_t irq);
 extern void irq_gates(void);

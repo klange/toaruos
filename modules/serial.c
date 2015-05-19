@@ -50,7 +50,7 @@ static fs_node_t ** pipe_for_port(int port) {
 	return NULL;
 }
 
-static void serial_handler_ac(struct regs *r) {
+static int serial_handler_ac(struct regs *r) {
 	char serial;
 	int  port = 0;
 	if (inportb(SERIAL_PORT_A+1) & 0x01) {
@@ -62,9 +62,10 @@ static void serial_handler_ac(struct regs *r) {
 	irq_ack(SERIAL_IRQ_AC);
 	uint8_t buf[] = {convert(serial), 0};
 	write_fs(*pipe_for_port(port), 0, 1, buf);
+	return 1;
 }
 
-static void serial_handler_bd(struct regs *r) {
+static int serial_handler_bd(struct regs *r) {
 	char serial;
 	int  port = 0;
 	debug_print(NOTICE, "Received something on secondary port");
@@ -77,6 +78,7 @@ static void serial_handler_bd(struct regs *r) {
 	irq_ack(SERIAL_IRQ_BD);
 	uint8_t buf[] = {convert(serial), 0};
 	write_fs(*pipe_for_port(port), 0, 1, buf);
+	return 1;
 }
 
 static void serial_enable(int port) {

@@ -135,7 +135,7 @@ DEFINE_SHELL_FUNCTION(ac97_status, "[debug] AC'97 status values") {
 }
 
 #define DIVISION 128
-static void irq_handler(struct regs * regs) {
+static int irq_handler(struct regs * regs) {
 	uint16_t sr = inports(_device.nabmbar + AC97_PO_SR);
 	if (sr & AC97_X_SR_LVBCI) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
@@ -150,9 +150,12 @@ static void irq_handler(struct regs * regs) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
 	} else if (sr & AC97_X_SR_FIFOE) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_FIFOE);
+	} else {
+		return 0;
 	}
 
 	irq_ack(_device.irq);
+	return 1;
 }
 
 static int init(void) {
@@ -165,10 +168,6 @@ static int init(void) {
 	_device.nabmbar = pci_read_field(_device.pci_device, AC97_NABMBAR, 2) & ((uint32_t) -1) << 1;
 	_device.nambar = pci_read_field(_device.pci_device, PCI_BAR0, 4) & ((uint32_t) -1) << 1;
 	_device.irq = pci_read_field(_device.pci_device, PCI_INTERRUPT_LINE, 1);
-	if (!irq_is_handler_free(_device.irq)) {
-		debug_print(ERROR, "AC97 IRQ conflict: IRQ %d already in use", _device.irq);
-		return 1;
-	}
 	irq_install_handler(_device.irq, irq_handler);
 	/* Enable all matter of interrupts */
 	outportb(_device.nabmbar + AC97_PO_CR, AC97_X_CR_FEIE | AC97_X_CR_IOCE);

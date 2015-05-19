@@ -26,12 +26,27 @@ extern void _irq13(void);
 extern void _irq14(void);
 extern void _irq15(void);
 
-static irq_handler_t irq_routines[16] = { NULL };
+static irq_handler_chain_t irq_routines[16] = { NULL };
+static irq_handler_chain_t irq_routines_a[16] = { NULL };
+static irq_handler_chain_t irq_routines_b[16] = { NULL };
+static irq_handler_chain_t irq_routines_c[16] = { NULL };
 
 /*
  * Install an interupt handler for a hardware device.
  */
-void irq_install_handler(size_t irq, irq_handler_t handler) {
+void irq_install_handler(size_t irq, irq_handler_chain_t handler) {
+	if (irq_routines[irq]) {
+		if (irq_routines_a[irq]) {
+			if (irq_routines_b[irq]) {
+				irq_routines_c[irq] = handler;
+				return;
+			}
+			irq_routines_b[irq] = handler;
+			return;
+		}
+		irq_routines_a[irq] = handler;
+		return;
+	}
 	irq_routines[irq] = handler;
 }
 
@@ -39,16 +54,10 @@ void irq_install_handler(size_t irq, irq_handler_t handler) {
  * Remove an interrupt handler for a hardware device.
  */
 void irq_uninstall_handler(size_t irq) {
-	irq_routines[irq] = 0;
-}
-
-/*
- * Check to see if an interrupt handler is occupied.
- *
- * The proper solution here would probably be to have shared IRQs.
- */
-int irq_is_handler_free(size_t irq) {
-	return !irq_routines[irq];
+	irq_routines[irq] = NULL;
+	irq_routines_a[irq] = NULL;
+	irq_routines_b[irq] = NULL;
+	irq_routines_c[irq] = NULL;
 }
 
 /*
@@ -104,17 +113,16 @@ void irq_ack(size_t irq_no) {
 
 void irq_handler(struct regs *r) {
 	IRQ_OFF;
-	void (*handler)(struct regs *r);
 	if (r->int_no > 47 || r->int_no < 32) {
-		handler = NULL;
-	} else {
-		handler = irq_routines[r->int_no - 32];
+		IRQ_RES;
+		return;
 	}
-	if (handler) {
-		handler(r);
-	} else {
-		irq_ack(r->int_no - 32);
-	}
+	if (irq_routines  [r->int_no - 32] && irq_routines  [r->int_no - 32](r)) goto _done;
+	if (irq_routines_a[r->int_no - 32] && irq_routines_a[r->int_no - 32](r)) goto _done;
+	if (irq_routines_b[r->int_no - 32] && irq_routines_b[r->int_no - 32](r)) goto _done;
+	if (irq_routines_c[r->int_no - 32] && irq_routines_c[r->int_no - 32](r)) goto _done;
+	irq_ack(r->int_no - 32);
+_done:
 	IRQ_RES;
 }
 

@@ -34,13 +34,14 @@ static void keyboard_wait(void) {
 /*
  * Keyboard interrupt callback
  */
-static void keyboard_handler(struct regs *r) {
+static int keyboard_handler(struct regs *r) {
 	unsigned char scancode;
 	keyboard_wait();
 	scancode = inportb(KEY_DEVICE);
 	irq_ack(KEY_IRQ);
 
 	write_fs(keyboard_pipe, 0, 1, (uint8_t []){scancode});
+	return 1;
 }
 
 /*

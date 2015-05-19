@@ -50,10 +50,7 @@ static int behind = 0;
 /*
  * IRQ handler for when the timer fires
  */
-void
-timer_handler(
-		struct regs *r
-		) {
+int timer_handler(struct regs *r) {
 	if (++timer_subticks == SUBTICKS_PER_TICK || (behind && ++timer_subticks == SUBTICKS_PER_TICK)) {
 		timer_ticks++;
 		timer_subticks = 0;
@@ -68,6 +65,7 @@ timer_handler(
 
 	wakeup_sleepers(timer_ticks, timer_subticks);
 	switch_task(1);
+	return 1;
 }
 
 void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds) {

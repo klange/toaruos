@@ -177,8 +177,8 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.protocol = IPV4_PROT_TCP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(ip_aton("10.0.2.15")),
-		.destination = htonl(ip_aton("37.48.83.75")), /* Freenode */
-		//.destination = htonl(ip_aton("204.28.125.145")), /* Dakko */
+		//.destination = htonl(ip_aton("185.30.166.35")), /* Freenode */
+		.destination = htonl(ip_aton("104.131.140.26")), /* Dakko */
 		//.destination = htonl(ip_aton("192.168.1.145")), /* (host machine) */
 		//.destination = htonl(ip_aton("107.170.207.248")), /* nyancat.dakko.us */
 		//.destination = htonl(ip_aton("94.142.241.111")), /* towel (star wars) */
@@ -539,50 +539,81 @@ static void rtl_ircd(void * data, char * name) {
 }
 
 static fs_node_t * _atty = NULL;
+static hashmap_t * _tcp_sockets = NULL;
+static hashmap_t * _udp_sockets = NULL;
 
 static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 
 	size_t data_length = length - sizeof(struct tcp_header);
 
 	/* Find socket */
+	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->source_port))) {
 
-	/* r-next */
-	if (seq_no != ntohl(tcp->ack_number)) return;
+	} else {
 
-	int flags = ntohs(tcp->flags);
+		/* r-next */
+		if (seq_no != ntohl(tcp->ack_number)) return;
 
-	if ((flags & TCP_FLAGS_ACK) && !data_length) return;
+		int flags = ntohs(tcp->flags);
 
-	ack_no = ntohl(tcp->seq_number) + data_length;
+		if ((flags & TCP_FLAGS_ACK) && !data_length) return;
 
-	/* XXX socket port verification? */
-	if (ntohs(tcp->source_port) == 6667) {
+		ack_no = ntohl(tcp->seq_number) + data_length;
 
-		write_fs(irc_socket, 0, data_length, tcp->payload);
+		/* XXX socket port verification? */
+		if (ntohs(tcp->source_port) == 6667) {
 
-	} else if (ntohs(tcp->source_port) == 23) {
-		write_fs(_atty, 0, data_length, tcp->payload);
-	} else if (ntohs(tcp->source_port) == 80) {
-		write_fs(_atty, 0, data_length, tcp->payload);
+			write_fs(irc_socket, 0, data_length, tcp->payload);
+
+		} else if (ntohs(tcp->source_port) == 23) {
+			write_fs(_atty, 0, data_length, tcp->payload);
+		} else if (ntohs(tcp->source_port) == 80) {
+			write_fs(_atty, 0, data_length, tcp->payload);
+		}
+
+
+_foo:
+		{
+			/* Send ACK */
+			int my_tx = next_tx_buf();
+			uint8_t payload[] = { 0 };
+			size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+
+			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+			outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+		}
+
 	}
 
-	{
-		/* Send ACK */
-		int my_tx = next_tx_buf();
-		uint8_t payload[] = { 0 };
-		size_t packet_size = write_tcp_packet(rtl_tx_buffer[my_tx], payload, 0, (TCP_FLAGS_ACK | DATA_OFFSET_5));
+}
 
-		outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
-		outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, packet_size);
+static void net_handle_udp(struct udp_packet * udp, size_t length) {
+
+	size_t data_length = length - sizeof(struct tcp_header);
+
+	/* Find socket */
+	if (hashmap_has(_udp_sockets, (void *)ntohs(udp->source_port))) {
+		/* Do the thing */
+
+	} else {
+		/* ??? */
 	}
 
 }
 
 static void net_handle_ipv4(struct ipv4_packet * ipv4) {
 
-	struct tcp_header * tcp = (struct tcp_header *)ipv4->payload;
-
-	net_handle_tcp(tcp, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
+	switch (ipv4->protocol) {
+		case IPV4_PROT_TCP:
+			net_handle_tcp((struct tcp_header *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
+			break;
+		case IPV4_PROT_UDP:
+			net_handle_udp((struct udp_packet *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
+			break;
+		default:
+			/* XXX */
+			break;
+	}
 
 }
 
@@ -605,6 +636,8 @@ static void net_handler(void * data, char * name) {
 	while (1) {
 		struct ethernet_packet * eth = net_receive();
 
+		if (!eth) continue;
+
 		switch (ntohs(eth->type)) {
 			case ETHERNET_TYPE_IPV4:
 				net_handle_ipv4((struct ipv4_packet *)eth->payload);
@@ -626,30 +659,6 @@ static void net_handler_enqueue(void * buffer) {
 	list_insert(net_queue, buffer);
 
 	spin_unlock(&net_queue_lock);
-}
-
-static size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset) {
-	uint8_t * bytes = (uint8_t *)dns;
-	while (1) {
-		uint8_t c = bytes[offset];
-		if (c == 0) {
-			offset++;
-			return offset;
-		} else if (c >= 0xC0) {
-			uint16_t ref = ((c - 0xC0) << 8) + bytes[offset+1];
-			print_dns_name(tty, dns, ref);
-			offset++;
-			offset++;
-			return offset;
-		} else {
-			for (int i = 0; i < c; ++i) {
-				fprintf(tty,"%c",bytes[offset+1+i]);
-			}
-			fprintf(tty,".");
-			offset += c + 1;
-		}
-	}
-
 }
 
 static void parse_dns_response(fs_node_t * tty, void * last_packet) {
@@ -736,8 +745,11 @@ static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 	}
 }
 
-static void rtl_irq_handler(struct regs *r) {
+static int rtl_irq_handler(struct regs *r) {
 	uint16_t status = inports(rtl_iobase + RTL_PORT_ISR);
+	if (!status) {
+		return 0;
+	}
 	outports(rtl_iobase + RTL_PORT_ISR, status);
 
 	irq_ack(rtl_irq);
@@ -760,7 +772,6 @@ static void rtl_irq_handler(struct regs *r) {
 			if (rx_status & (0x0020 | 0x0010 | 0x0004 | 0x0002)) {
 				debug_print(WARNING, "rx error :(");
 			} else {
-				debug_print(INFO, "net net net");
 				uint8_t * buf_8 = (uint8_t *)&(buf_start[1]);
 
 				last_packet = malloc(rx_size);
@@ -789,6 +800,8 @@ static void rtl_irq_handler(struct regs *r) {
 		dirty_tx++;
 		if (dirty_tx == 5) dirty_tx = 0;
 	}
+
+	return 1;
 }
 
 static void rtl_netd(void * data, char * name) {
@@ -798,13 +811,9 @@ static void rtl_netd(void * data, char * name) {
 	{
 		fprintf(tty, "Sending DNS query...\n");
 		uint8_t queries[] = {
-			//3,'i','r','c',
-			//8,'f','r','e','e','n','o','d','e',
-			//3,'n','e','t',
-			7,'m','o','t','s','u','g','o',
-			3,'u','c','c',
-			3,'a','s','n',
-			2,'a','u',
+			3,'i','r','c',
+			8,'f','r','e','e','n','o','d','e',
+			3,'n','e','t',
 			0,
 			0x00, 0x01, /* A */
 			0x00, 0x01, /* IN */
@@ -819,6 +828,9 @@ static void rtl_netd(void * data, char * name) {
 
 	sleep_on(rx_wait);
 	parse_dns_response(tty, last_packet);
+#endif
+
+#if 0
 
 	{
 		fprintf(tty, "Sending DNS query...\n");
@@ -926,6 +938,7 @@ static void rtl_netd(void * data, char * name) {
 	create_kernel_tasklet(rtl_ircd, "[ircd]", tty);
 
 	_atty = tty;
+	_tcp_sockets = hashmap_create_int(255);
 	create_kernel_tasklet(net_handler, "[eth]", tty);
 
 }
@@ -1013,6 +1026,7 @@ DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
 	memcpy(irc_nick, argv[1], strlen(argv[1])+1);
 
 	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0 :%s\r\n", irc_nick, irc_nick, irc_nick);
+
 	irc_send(irc_payload);
 
 	return 0;
@@ -1079,7 +1093,7 @@ DEFINE_SHELL_FUNCTION(http, "Open a prompt to send HTTP commands.") {
 
 	while (1) {
 		fprintf(tty, "http> ");
-		int c = tty_readline(tty, tmp, 100);
+		tty_readline(tty, tmp, 100);
 
 		if (startswith(tmp, "/quit")) {
 			break;
@@ -1190,6 +1204,8 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		rtl_irq = pci_read_field(rtl_device_pci, PCI_INTERRUPT_LINE, 1);
 
+_irq_found:
+		rtl_irq = pci_read_field(rtl_device_pci, PCI_INTERRUPT_LINE, 1);
 		fprintf(tty, "Interrupt Line: %x\n", rtl_irq);
 		irq_install_handler(rtl_irq, rtl_irq_handler);
 

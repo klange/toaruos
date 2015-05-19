@@ -70,7 +70,7 @@ static uint8_t mouse_read(void) {
 	return t;
 }
 
-static void mouse_handler(struct regs *r) {
+static int mouse_handler(struct regs *r) {
 	uint8_t status = inportb(MOUSE_STATUS);
 	while (status & MOUSE_BBIT) {
 		int8_t mouse_in = inportb(MOUSE_PORT);
@@ -78,7 +78,7 @@ static void mouse_handler(struct regs *r) {
 			switch (mouse_cycle) {
 				case 0:
 					mouse_byte[0] = mouse_in;
-					if (!(mouse_in & MOUSE_V_BIT)) return;
+					if (!(mouse_in & MOUSE_V_BIT)) {irq_ack(MOUSE_IRQ); return 1; }
 					++mouse_cycle;
 					break;
 				case 1:
@@ -136,6 +136,7 @@ finish_packet:
 		status = inportb(MOUSE_STATUS);
 	}
 	irq_ack(MOUSE_IRQ);
+	return 1;
 }
 
 static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
