@@ -328,10 +328,8 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	new_proc->syscall_registers->eip = thread_func;
 
 	/* Push arg, bogus return address onto the new thread's stack */
-	new_stack -= sizeof(uintptr_t);
-	*((uintptr_t *)new_stack) = arg;
-	new_stack -= sizeof(uintptr_t);
-	*((uintptr_t *)new_stack) = THREAD_RETURN;
+	PUSH(new_stack, uintptr_t, arg);
+	PUSH(new_stack, uintptr_t, THREAD_RETURN);
 
 	/* Set esp, ebp, and eip for the new thread */
 	new_proc->syscall_registers->esp = new_stack;

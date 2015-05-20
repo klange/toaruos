@@ -21,14 +21,6 @@
 static char   hostname[256];
 static size_t hostname_len = 0;
 
-static int RESERVED(void) {
-	return -1;
-}
-
-/*
- * System calls themselves
- */
-
 #define FD_INRANGE(FD) \
 	((FD) < (int)current_process->fds->length && (FD) >= 0)
 #define FD_ENTRY(FD) \
