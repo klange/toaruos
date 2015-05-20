@@ -151,7 +151,7 @@ static int sys_access(const char * file, int flags) {
 }
 
 static int sys_close(int fd) {
-	if (fd >= (int)current_process->fds->length || fd < 0) { 
+	if (fd >= (int)current_process->fds->length || fd < 0) {
 		return -1;
 	}
 	close_fs(current_process->fds->entries[fd]);
@@ -202,9 +202,15 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 	validate((void *)envp);
 	debug_print(NOTICE, "%d = exec(%s, ...)", current_process->id, filename);
 	int argc = 0, envc = 0;
-	while (argv[argc]) { ++argc; }
+	while (argv[argc]) {
+		validate((void *)argv[argc]);
+		++argc;
+	}
 	if (envp) {
-		while (envp[envc]) { ++envc; }
+		while (envp[envc]) {
+			validate((void *)argv[argc]);
+			++envc;
+		}
 	}
 	debug_print(INFO, "Allocating space for arguments...");
 	char ** argv_ = malloc(sizeof(char *) * (argc + 1));
@@ -253,6 +259,7 @@ static int sys_seek(int fd, int offset, int whence) {
 
 static int stat_node(fs_node_t * fn, uintptr_t st) {
 	struct stat * f = (struct stat *)st;
+	validate((void *)f);
 	if (!fn) {
 		memset(f, 0x00, sizeof(struct stat));
 		debug_print(INFO, "stat: This file doesn't exist");
@@ -402,6 +409,7 @@ static int sys_reboot(void) {
 }
 
 static int sys_chdir(char * newdir) {
+	validate((void *)newdir);
 	char * path = canonicalize_path(current_process->wd_name, newdir);
 	fs_node_t * chd = kopen(path, 0);
 	if (chd) {
@@ -443,6 +451,7 @@ static int sys_sethostname(char * new_hostname) {
 }
 
 static int sys_gethostname(char * buffer) {
+	validate((void *)buffer);
 	memcpy(buffer, hostname, hostname_len);
 	return hostname_len;
 }
@@ -555,6 +564,7 @@ static int sys_umask(int mode) {
 }
 
 static int sys_unlink(char * file) {
+	validate((void *)file);
 	return unlink_fs(file);
 }
 
