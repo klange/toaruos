@@ -31,7 +31,7 @@ struct idt_ptr {
 struct idt_entry idt[256];
 struct idt_ptr idtp;
 
-extern void idt_load(unsigned int);
+extern void idt_load(uintptr_t);
 
 /*
  * idt_set_gate
@@ -59,5 +59,5 @@ void idt_install(void) {
 	idtp.base = (uintptr_t)&idt;
 	memset(&idt, 0, sizeof(struct idt_entry) * 256);
 
-	idt_load((unsigned int)&idtp);
+	idt_load((uintptr_t)&idtp);
 }

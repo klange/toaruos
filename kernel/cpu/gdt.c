@@ -43,7 +43,7 @@ struct gdt_ptr		gp;
  * (ASM) gdt_flush
  * Reloads the segment registers
  */
-extern void gdt_flush(unsigned int);
+extern void gdt_flush(uintptr_t);
 
 /**
  * Set a GDT descriptor
@@ -83,7 +83,7 @@ void
 gdt_install(void) {
 	/* GDT pointer and limits */
 	gp.limit = (sizeof(struct gdt_entry) * 6) - 1;
-	gp.base = (unsigned int)&gdt;
+	gp.base = (uintptr_t)&gdt;
 	/* NULL */
 	gdt_set_gate(0, 0, 0, 0, 0);
 	/* Code segment */
@@ -96,7 +96,7 @@ gdt_install(void) {
 	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
 	write_tss(5, 0x10, 0x0);
 	/* Go go go */
-	gdt_flush((unsigned int)&gp);
+	gdt_flush((uintptr_t)&gp);
 	tss_flush();
 }
 

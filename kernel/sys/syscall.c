@@ -656,6 +656,7 @@ static int sys_pipe(int pipes[2]) {
 }
 
 static int sys_mount(char * arg, char * mountpoint, char * type, unsigned long flags, void * data) {
+	/* TODO: Make use of flags and data from mount command. */
 	(void)flags;
 	(void)data;
 
