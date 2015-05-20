@@ -85,7 +85,11 @@ extern void set_kernel_stack(uintptr_t stack);
 extern void idt_install(void);
 extern void idt_set_gate(unsigned char num, void (*base)(void), unsigned short sel, unsigned char flags);
 
-/* Registers */
+/* Registers
+ *
+ * Note: if the order of these changes, sys/task.S must be changed to use
+ * the correct offsets as well.
+ */
 struct regs {
 	unsigned int gs, fs, es, ds;
 	unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;

@@ -1,11 +1,13 @@
 .section .text
 .align 4
 
+/* Disable paging mask */
+.set dp, 0x7FFFFFFF
+/* Enable paging mask */
+.set ep, 0x80000000
+
 .global copy_page_physical
 .type copy_page_physical, @function
-
-.set dp, 0x7FFFFFFF
-.set ep, 0x80000000
 
 copy_page_physical:
     /* Preserve contents of EBX */
