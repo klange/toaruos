@@ -30,29 +30,28 @@ static int RESERVED(void) {
  */
 
 #define FD_INRANGE(FD) \
-	((FD) < (int)current_process->fds->length && (FD) > 0)
+	((FD) < (int)current_process->fds->length && (FD) >= 0)
 #define FD_ENTRY(FD) \
 	(current_process->fds->entries[(FD)])
 #define FD_CHECK(FD) \
 	(FD_INRANGE(FD) && FD_ENTRY(FD))
 
 #define PTR_INRANGE(PTR) \
-	(!(PTR) || (uintptr_t)(PTR) >= current_process->image.entry)
+	((uintptr_t)(PTR) > current_process->image.entry)
 #define PTR_VALIDATE(PTR) \
 	ptr_validate((void *)(PTR), __func__)
 
 static void ptr_validate(void * ptr, const char * syscall) {
-	if (PTR_INRANGE(ptr))
-		return;
-	debug_print(ERROR, "SEGFAULT: invalid pointer passed to %s. (0x%x < 0x%x)",
-		syscall, (uintptr_t)ptr, current_process->image.entry);
-	HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
+	if (ptr && !PTR_INRANGE(ptr)) {
+		debug_print(ERROR, "SEGFAULT: invalid pointer passed to %s. (0x%x < 0x%x)",
+			syscall, (uintptr_t)ptr, current_process->image.entry);
+		HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
+	}
 }
 
 void validate(void * ptr) {
 	ptr_validate(ptr, "syscall");
 }
-
 
 /*
  * Exit the current task.
@@ -110,9 +109,10 @@ static int sys_write(int fd, char * ptr, int len) {
 }
 
 static int sys_waitpid(int pid, int * status, int options) {
-	if (PTR_INRANGE(status))
-		return waitpid(pid, status, options);
-	return -EINVAL;
+	if (status && !PTR_INRANGE(status)) {
+		return -EINVAL;
+	}
+	return waitpid(pid, status, options);
 }
 
 static int sys_open(const char * file, int flags, int mode) {
@@ -585,10 +585,9 @@ static int sys_fork(void) {
 }
 
 static int sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
-	if (PTR_INRANGE(new_stack) && PTR_INRANGE(thread_func)) {
-		return (int)clone(new_stack, thread_func, arg);
-	}
-	return -1;
+	if (!new_stack || !PTR_INRANGE(new_stack)) return -1;
+	if (!thread_func || !PTR_INRANGE(thread_func)) return -1;
+	return (int)clone(new_stack, thread_func, arg);
 }
 
 static int sys_shm_obtain(char * path, size_t * size) {
@@ -618,41 +617,42 @@ static int sys_gettimeofday(struct timeval * tv, void * tz) {
 static int sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
 	if (!master || !slave) return -1;
+	if (master && !PTR_INRANGE(master)) return -1;
+	if (slave && !PTR_INRANGE(slave)) return -1;
+	if (size && !PTR_INRANGE(size)) return -1;
 
-	if (PTR_INRANGE(master) && PTR_INRANGE(slave) && PTR_INRANGE(size)) {
-		/* Create a new pseudo terminal */
-		fs_node_t * fs_master;
-		fs_node_t * fs_slave;
+	/* Create a new pseudo terminal */
+	fs_node_t * fs_master;
+	fs_node_t * fs_slave;
 
-		pty_create(size, &fs_master, &fs_slave);
+	pty_create(size, &fs_master, &fs_slave);
 
-		/* Append the master and slave to the calling process */
-		*master = process_append_fd((process_t *)current_process, fs_master);
-		*slave  = process_append_fd((process_t *)current_process, fs_slave);
+	/* Append the master and slave to the calling process */
+	*master = process_append_fd((process_t *)current_process, fs_master);
+	*slave  = process_append_fd((process_t *)current_process, fs_slave);
 
-		open_fs(fs_master, 0);
-		open_fs(fs_slave, 0);
+	open_fs(fs_master, 0);
+	open_fs(fs_slave, 0);
 
-		/* Return success */
-		return 0;
-	}
-	return -1;
+	/* Return success */
+	return 0;
 }
 
 static int sys_pipe(int pipes[2]) {
-	if (PTR_INRANGE(pipes)) {
-		fs_node_t * outpipes[2];
-
-		make_unix_pipe(outpipes);
-
-		open_fs(outpipes[0], 0);
-		open_fs(outpipes[1], 0);
-
-		pipes[0] = process_append_fd((process_t *)current_process, outpipes[0]);
-		pipes[1] = process_append_fd((process_t *)current_process, outpipes[1]);
-		return 0;
+	if (pipes && !PTR_INRANGE(pipes)) {
+		return -EFAULT;
 	}
-	return -EFAULT;
+
+	fs_node_t * outpipes[2];
+
+	make_unix_pipe(outpipes);
+
+	open_fs(outpipes[0], 0);
+	open_fs(outpipes[1], 0);
+
+	pipes[0] = process_append_fd((process_t *)current_process, outpipes[0]);
+	pipes[1] = process_append_fd((process_t *)current_process, outpipes[1]);
+	return 0;
 }
 
 static int sys_mount(char * arg, char * mountpoint, char * type, unsigned long flags, void * data) {
@@ -660,8 +660,9 @@ static int sys_mount(char * arg, char * mountpoint, char * type, unsigned long f
 	(void)flags;
 	(void)data;
 
-	if (current_process->user != USER_ROOT_UID)
+	if (current_process->user != USER_ROOT_UID) {
 		return -EPERM;
+	}
 
 	if (PTR_INRANGE(arg) && PTR_INRANGE(mountpoint) && PTR_INRANGE(type)) {
 		return vfs_mount_type(type, arg, mountpoint);
@@ -670,9 +671,6 @@ static int sys_mount(char * arg, char * mountpoint, char * type, unsigned long f
 	return -EFAULT;
 }
 
-/*
- * System Call Internals
- */
 static int (*syscalls[])() = {
 	/* System Call Table */
 	[SYS_EXT]          = sys_exit,
@@ -721,7 +719,7 @@ static int (*syscalls[])() = {
 	[SYS_MOUNT]        = sys_mount,
 };
 
-uint32_t num_syscalls = sizeof(syscalls) / sizeof(int (*)());
+uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);
 
 typedef uint32_t (*scall_func)(unsigned int, ...);
 
