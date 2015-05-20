@@ -2,6 +2,7 @@
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2015 Dale Weiler
  *
  * Interrupt Requests
  *
@@ -26,43 +27,41 @@ extern void _irq13(void);
 extern void _irq14(void);
 extern void _irq15(void);
 
-static irq_handler_chain_t irq_routines[16] = { NULL };
-static irq_handler_chain_t irq_routines_a[16] = { NULL };
-static irq_handler_chain_t irq_routines_b[16] = { NULL };
-static irq_handler_chain_t irq_routines_c[16] = { NULL };
+static void (*irqs[])(void) = {
+	_irq0, _irq1, _irq2,  _irq3,  _irq4,  _irq5,  _irq6,  _irq7,
+	_irq8, _irq9, _irq10, _irq11, _irq12, _irq13, _irq14, _irq15
+};
 
-/*
- * Install an interupt handler for a hardware device.
- */
+#define IRQ_CHAIN_SIZE (sizeof(irqs)/sizeof(*irqs))
+#define IRQ_CHAIN_DEPTH 4
+
+#define SYNC_CLI() asm volatile("cli")
+#define SYNC_STI() asm volatile("sti")
+
+static irq_handler_chain_t irq_routines[IRQ_CHAIN_SIZE * IRQ_CHAIN_DEPTH] = { NULL };
+
 void irq_install_handler(size_t irq, irq_handler_chain_t handler) {
-	if (irq_routines[irq]) {
-		if (irq_routines_a[irq]) {
-			if (irq_routines_b[irq]) {
-				irq_routines_c[irq] = handler;
-				return;
-			}
-			irq_routines_b[irq] = handler;
-			return;
-		}
-		irq_routines_a[irq] = handler;
-		return;
+	/* Disable interrupts when changing handlers */
+	SYNC_CLI();
+	for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
+		if (irq_routines[i * IRQ_CHAIN_SIZE + irq])
+			continue;
+		irq_routines[i * IRQ_CHAIN_SIZE + irq] = handler;
+		break;
 	}
-	irq_routines[irq] = handler;
+	SYNC_STI();
 }
 
-/*
- * Remove an interrupt handler for a hardware device.
- */
+
 void irq_uninstall_handler(size_t irq) {
-	irq_routines[irq] = NULL;
-	irq_routines_a[irq] = NULL;
-	irq_routines_b[irq] = NULL;
-	irq_routines_c[irq] = NULL;
+	/* Disable interrupts when changing handlers */
+	SYNC_CLI();
+	for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++)
+		irq_routines[i * IRQ_CHAIN_SIZE + irq] = NULL;
+	SYNC_STI();
 }
 
-/*
- * Remap interrupt handlers
- */
+
 void irq_remap(void) {
 	outportb(0x20, 0x11);
 	outportb(0xA0, 0x11);
@@ -76,34 +75,17 @@ void irq_remap(void) {
 	outportb(0xA1, 0x0);
 }
 
-void irq_gates(void) {
-	idt_set_gate(32, _irq0, 0x08, 0x8E);
-	idt_set_gate(33, _irq1, 0x08, 0x8E);
-	idt_set_gate(34, _irq2, 0x08, 0x8E);
-	idt_set_gate(35, _irq3, 0x08, 0x8E);
-	idt_set_gate(36, _irq4, 0x08, 0x8E);
-	idt_set_gate(37, _irq5, 0x08, 0x8E);
-	idt_set_gate(38, _irq6, 0x08, 0x8E);
-	idt_set_gate(39, _irq7, 0x08, 0x8E);
-	idt_set_gate(40, _irq8, 0x08, 0x8E);
-	idt_set_gate(41, _irq9, 0x08, 0x8E);
-	idt_set_gate(42, _irq10, 0x08, 0x8E);
-	idt_set_gate(43, _irq11, 0x08, 0x8E);
-	idt_set_gate(44, _irq12, 0x08, 0x8E);
-	idt_set_gate(45, _irq13, 0x08, 0x8E);
-	idt_set_gate(46, _irq14, 0x08, 0x8E);
-	idt_set_gate(47, _irq15, 0x08, 0x8E);
+static void irq_setup_gates(void) {
+	for (size_t i = 0; i < IRQ_CHAIN_SIZE; i++)
+		idt_set_gate(32 + i, irqs[i], 0x08, 0x8E);
 }
 
-/*
- * Set up interrupt handler for hardware devices.
- */
 void irq_install(void) {
 	irq_remap();
-	irq_gates();
-	IRQ_RES;
+	irq_setup_gates();
 }
 
+/* TODO: Clean up everything below */
 void irq_ack(size_t irq_no) {
 	if (irq_no >= 8) {
 		outportb(0xA0, 0x20);
@@ -117,10 +99,12 @@ void irq_handler(struct regs *r) {
 		IRQ_RES;
 		return;
 	}
-	if (irq_routines  [r->int_no - 32] && irq_routines  [r->int_no - 32](r)) goto _done;
-	if (irq_routines_a[r->int_no - 32] && irq_routines_a[r->int_no - 32](r)) goto _done;
-	if (irq_routines_b[r->int_no - 32] && irq_routines_b[r->int_no - 32](r)) goto _done;
-	if (irq_routines_c[r->int_no - 32] && irq_routines_c[r->int_no - 32](r)) goto _done;
+	for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
+		irq_handler_chain_t handler = irq_routines[i * IRQ_CHAIN_SIZE + (r->int_no - 32)];
+		if (handler && handler(r)) {
+			goto _done;
+		}
+	}
 	irq_ack(r->int_no - 32);
 _done:
 	IRQ_RES;

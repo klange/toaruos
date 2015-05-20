@@ -78,12 +78,12 @@ extern uint8_t startswith(const char * str, const char * accept);
 
 /* GDT */
 extern void gdt_install(void);
-extern void gdt_set_gate(size_t num, unsigned long base, unsigned long limit, unsigned char access, unsigned char gran);
+extern void gdt_set_gate(uint8_t num, uint64_t base, uint64_t limit, uint8_t access, uint8_t gran);
 extern void set_kernel_stack(uintptr_t stack);
 
 /* IDT */
 extern void idt_install(void);
-extern void idt_set_gate(unsigned char num, void (*base)(void), unsigned short sel, unsigned char flags);
+extern void idt_set_gate(uint8_t num, void (*base)(void), uint16_t sel, uint8_t flags);
 
 /* Registers
  *

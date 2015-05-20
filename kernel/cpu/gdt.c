@@ -2,6 +2,7 @@
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2011-2013 Kevin Lange
+ * Copyright (C) 2015 Dale Weiler
  *
  * Global Descriptor Tables module
  *
@@ -10,134 +11,92 @@
 #include <logging.h>
 #include <tss.h>
 
-static void write_tss(int32_t, uint16_t, uint32_t);
-tss_entry_t tss_entry;
-
-/*
- * Global Descriptor Table Entry
- */
-struct gdt_entry {
+typedef struct {
 	/* Limits */
-	unsigned short limit_low;
+	uint16_t limit_low;
 	/* Segment address */
-	unsigned short base_low;
-	unsigned char base_middle;
+	uint16_t base_low;
+	uint8_t base_middle;
 	/* Access modes */
-	unsigned char access;
-	unsigned char granularity;
-	unsigned char base_high;
-} __attribute__((packed));
+	uint8_t access;
+	uint8_t granularity;
+	uint8_t base_high;
+} __attribute__((packed)) gdt_entry_t;
 
-/*
- * GDT pointer
- */
-struct gdt_ptr {
-	unsigned short limit;
-	unsigned int base;
-} __attribute__((packed));
+typedef struct {
+	uint16_t limit;
+	uintptr_t base;
+} __attribute__((packed)) gdt_pointer_t;
 
-struct gdt_entry	gdt[6];
-struct gdt_ptr		gp;
+/* In the future we may need to put a lock on the access of this */
+static struct {
+    gdt_entry_t entries[6];
+    gdt_pointer_t pointer;
+    tss_entry_t tss;
+} gdt __attribute__((used));
 
-/**
- * (ASM) gdt_flush
- * Reloads the segment registers
- */
 extern void gdt_flush(uintptr_t);
 
-/**
- * Set a GDT descriptor
- *
- * @param num The number for the descriptor to set.
- * @param base Base address
- * @param limit Limit
- * @param access Access permissions
- * @param gran Granularity
- */
-void
-gdt_set_gate(
-		size_t num,
-		unsigned long base,
-		unsigned long limit,
-		unsigned char access,
-		unsigned char gran
-		) {
+#define ENTRY(X) (gdt.entries[(X)])
+
+void gdt_set_gate(uint8_t num, uint64_t base, uint64_t limit, uint8_t access, uint8_t gran) {
 	/* Base Address */
-	gdt[num].base_low =		(base & 0xFFFF);
-	gdt[num].base_middle =	(base >> 16) & 0xFF;
-	gdt[num].base_high =	(base >> 24) & 0xFF;
+	ENTRY(num).base_low = (base & 0xFFFF);
+	ENTRY(num).base_middle = (base >> 16) & 0xFF;
+	ENTRY(num).base_high = (base >> 24) & 0xFF;
 	/* Limits */
-	gdt[num].limit_low =	(limit & 0xFFFF);
-	gdt[num].granularity =	(limit >> 16) & 0X0F;
+	ENTRY(num).limit_low = (limit & 0xFFFF);
+	ENTRY(num).granularity = (limit >> 16) & 0X0F;
 	/* Granularity */
-	gdt[num].granularity |= (gran & 0xF0);
+	ENTRY(num).granularity |= (gran & 0xF0);
 	/* Access flags */
-	gdt[num].access = access;
+	ENTRY(num).access = access;
 }
 
-/*
- * gdt_install
- * Install the kernel's GDTs
- */
-void
-gdt_install(void) {
-	/* GDT pointer and limits */
-	gp.limit = (sizeof(struct gdt_entry) * 6) - 1;
-	gp.base = (uintptr_t)&gdt;
-	/* NULL */
-	gdt_set_gate(0, 0, 0, 0, 0);
-	/* Code segment */
-	gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);
-	/* Data segment */
-	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
-	/* User code */
-	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);
-	/* User data */
-	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
+static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0);
+
+void gdt_install(void) {
+	gdt_pointer_t *gdtp = &gdt.pointer;
+	gdtp->limit = sizeof gdt.entries - 1;
+	gdtp->base = (uintptr_t)&ENTRY(0);
+
+	gdt_set_gate(0, 0, 0, 0, 0);                /* NULL segment */
+	gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); /* Code segment */
+	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); /* Data segment */
+	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); /* User code */
+	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); /* User data */
+
 	write_tss(5, 0x10, 0x0);
+
 	/* Go go go */
-	gdt_flush((uintptr_t)&gp);
+	gdt_flush((uintptr_t)gdtp);
 	tss_flush();
 }
 
-/**
- * Write a TSS (we only do this once)
- */
-static void
-write_tss(
-		int32_t num,
-		uint16_t ss0,
-		uint32_t esp0
-		) {
-	uintptr_t base  = (uintptr_t)&tss_entry;
-	uintptr_t limit = base + sizeof(tss_entry);
+static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0) {
+	tss_entry_t *tss = &gdt.tss;
+	uintptr_t base = (uintptr_t)tss;
+	uintptr_t limit = base + sizeof *tss;
 
 	/* Add the TSS descriptor to the GDT */
 	gdt_set_gate(num, base, limit, 0xE9, 0x00);
 
-	memset(&tss_entry, 0x0, sizeof(tss_entry));
+	memset(tss, 0x0, sizeof *tss);
 
-	tss_entry.ss0    = ss0;
-	tss_entry.esp0   = esp0;
-	/* Zero out the descriptors */
-	tss_entry.cs     = 0x0b;
-	tss_entry.ss     =
-		tss_entry.ds =
-		tss_entry.es =
-		tss_entry.fs =
-		tss_entry.gs = 0x13;
-	tss_entry.iomap_base = sizeof(tss_entry);
+	tss->ss0 = ss0;
+	tss->esp0 = esp0;
+	tss->cs = 0x0b;
+	tss->ss = 0x13;
+	tss->ds = 0x13;
+	tss->es = 0x13;
+	tss->fs = 0x13;
+	tss->gs = 0x13;
+
+	tss->iomap_base = sizeof *tss;
 }
 
-/**
- * Set the kernel stack.
- *
- * @param stack Pointer to a the stack pointer for the kernel.
- */
-void
-set_kernel_stack(
-		uintptr_t stack
-		) {
-	tss_entry.esp0 = stack;
+void set_kernel_stack(uintptr_t stack) {
+	/* Set the kernel stack */
+	gdt.tss.esp0 = stack;
 }
 

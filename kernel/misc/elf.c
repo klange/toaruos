@@ -86,7 +86,7 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 	/* Collect arguments */
 	int envc = 0;
 	for (envc = 0; env[envc] != NULL; ++envc);
-	
+
 	/* Format auxv */
 	Elf32_auxv auxv[] = {
 		{256, 0xDEADBEEF},
