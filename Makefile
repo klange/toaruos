@@ -29,7 +29,7 @@ CFLAGS += -DKERNEL_GIT_TAG=`util/make-version`
 YASM = yasm
 
 # All of the core parts of the kernel are built directly.
-KERNEL_OBJS  = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*/*.S)))
+KERNEL_OBJS = $(patsubst %.c,%.o,$(wildcard kernel/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
 
@@ -164,20 +164,23 @@ test: system
 toolchain:
 	@cd toolchain; ./toolchain-build.sh
 
-ASM_OBJS = kernel/boot.o kernel/gdt.o kernel/idt.o kernel/irq.o kernel/isr.o kernel/task.o kernel/tss.o kernel/user.o
+# boot.omust be first
+KERNEL_ASMOBJS = kernel/boot.o
+KERNEL_ASMOBJS += $(filter-out kernel/boot.o kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
+
 ################
 #    Kernel    #
 ################
-toaruos-kernel: ${ASM_OBJS} kernel/link.ld kernel/main.o kernel/symbols.o ${KERNEL_OBJS}
+toaruos-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	@${BEG} "CC" "$<"
-	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
+	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc ${ERRORS}
 	@${END} "CC" "$<"
 	@${INFO} "--" "Kernel is ready!"
 
-kernel/symbols.o: ${KERNEL_OBJS} util/generate_symbols.py
+kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 	@-rm -f kernel/symbols.o
 	@${BEG} "NM" "Generating symbol list..."
-	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel kernel/*.o ${KERNEL_OBJS} -lgcc ${ERRORS}
+	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc ${ERRORS}
 	@${NM} toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.S
 	@${END} "NM" "Generated symbol list."
 	@${BEG} "AS" "kernel/symbols.S"
