@@ -29,99 +29,94 @@ static int RESERVED(void) {
  * System calls themselves
  */
 
-void validate(void * ptr) {
-	if (validate_safe(ptr)) {
-		debug_print(ERROR, "SEGFAULT: Invalid pointer passed to syscall. (0x%x < 0x%x)", (uintptr_t)ptr, current_process->image.entry);
-		HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
-	}
+#define FD_INRANGE(FD) \
+	((FD) < (int)current_process->fds->length && (FD) > 0)
+#define FD_ENTRY(FD) \
+	(current_process->fds->entries[(FD)])
+#define FD_CHECK(FD) \
+	(FD_INRANGE(FD) && FD_ENTRY(FD))
+
+#define PTR_INRANGE(PTR) \
+	(!(PTR) || (uintptr_t)(PTR) >= current_process->image.entry)
+#define PTR_VALIDATE(PTR) \
+	ptr_validate((void *)(PTR), __func__)
+
+static void ptr_validate(void * ptr, const char * syscall) {
+	if (PTR_INRANGE(ptr))
+		return;
+	debug_print(ERROR, "SEGFAULT: invalid pointer passed to %s. (0x%x < 0x%x)",
+		syscall, (uintptr_t)ptr, current_process->image.entry);
+	HALT_AND_CATCH_FIRE("Segmentation fault", NULL);
 }
 
-int validate_safe(void * ptr) {
-	if (ptr && (uintptr_t)ptr < current_process->image.entry) {
-		return 1;
-	}
-	return 0;
+void validate(void * ptr) {
+	ptr_validate(ptr, "syscall");
 }
+
 
 /*
  * Exit the current task.
  * DOES NOT RETURN!
  */
-static int sys_exit(int retval) {
+static int __attribute__((noreturn)) sys_exit(int retval) {
 	/* Deschedule the current task */
 	task_exit(retval);
-	while (1) { };
-	return retval;
+	for (;;) ;
 }
 
 static int sys_read(int fd, char * ptr, int len) {
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return -1;
+	if (FD_CHECK(fd)) {
+		PTR_VALIDATE(ptr);
+		fs_node_t * node = FD_ENTRY(fd);
+		uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
+		node->offset += out;
+		return (int)out;
 	}
-	if (current_process->fds->entries[fd] == NULL) {
-		return -1;
-	}
-	validate(ptr);
-	fs_node_t * node = current_process->fds->entries[fd];
-	uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
-	node->offset += out;
-	return out;
+	return -1;
 }
 
 static int sys_ioctl(int fd, int request, void * argp) {
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return -1;
+	if (FD_CHECK(fd)) {
+		PTR_VALIDATE(argp);
+		return ioctl_fs(FD_ENTRY(fd), request, argp);
 	}
-	if (current_process->fds->entries[fd] == NULL) {
-		return -1;
-	}
-	validate(argp);
-	fs_node_t * node = current_process->fds->entries[fd];
-	return ioctl_fs(node, request, argp);
+	return -1;
 }
 
 static int sys_readdir(int fd, int index, struct dirent * entry) {
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return -1;
+	if (FD_CHECK(fd)) {
+		PTR_VALIDATE(entry);
+		struct dirent * kentry = readdir_fs(FD_ENTRY(fd), (uint32_t)index);
+		if (kentry) {
+			memcpy(entry, kentry, sizeof *entry);
+			free(kentry);
+			return 0;
+		} else {
+			return 1;
+		}
 	}
-	if (current_process->fds->entries[fd] == NULL) {
-		return -1;
-	}
-	validate(entry);
-	fs_node_t * node = current_process->fds->entries[fd];
-
-	struct dirent * kentry = readdir_fs(node, (uint32_t)index);
-	if (!kentry) {
-		return 1;
-	}
-
-	memcpy(entry, kentry, sizeof(struct dirent));
-	free(kentry);
-	return 0;
+	return -1;
 }
 
 static int sys_write(int fd, char * ptr, int len) {
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return -1;
+	if (FD_CHECK(fd)) {
+		PTR_VALIDATE(ptr);
+		fs_node_t * node = FD_ENTRY(fd);
+		uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
+		node->offset += out;
+		return out;
 	}
-	if (current_process->fds->entries[fd] == NULL) {
-		return -1;
-	}
-	validate(ptr);
-	fs_node_t * node = current_process->fds->entries[fd];
-	uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
-	node->offset += out;
-	return out;
+	return -1;
 }
 
 static int sys_waitpid(int pid, int * status, int options) {
-	if (status && validate_safe(status)) return -EINVAL;
-
-	return waitpid(pid, status, options);
+	if (PTR_INRANGE(status))
+		return waitpid(pid, status, options);
+	return -EINVAL;
 }
 
 static int sys_open(const char * file, int flags, int mode) {
-	validate((void *)file);
+	PTR_VALIDATE(file);
 	debug_print(NOTICE, "open(%s) flags=0x%x; mode=0x%x", file, flags, mode);
 	fs_node_t * node = kopen((char *)file, flags);
 	if (!node && (flags & O_CREAT)) {
@@ -142,7 +137,7 @@ static int sys_open(const char * file, int flags, int mode) {
 }
 
 static int sys_access(const char * file, int flags) {
-	validate((void *)file);
+	PTR_VALIDATE(file);
 	debug_print(INFO, "access(%s, 0x%x) from pid=%d", file, flags, getpid());
 	fs_node_t * node = kopen((char *)file, 0);
 	if (!node) return -1;
@@ -151,12 +146,12 @@ static int sys_access(const char * file, int flags) {
 }
 
 static int sys_close(int fd) {
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return -1;
+	if (FD_CHECK(fd)) {
+		close_fs(FD_ENTRY(fd));
+		FD_ENTRY(fd) = NULL;
+		return 0;
 	}
-	close_fs(current_process->fds->entries[fd]);
-	current_process->fds->entries[fd] = NULL;
-	return 0;
+	return -1;
 }
 
 static int sys_sbrk(int size) {
@@ -197,21 +192,26 @@ static int sys_gettid(void) {
 }
 
 static int sys_execve(const char * filename, char *const argv[], char *const envp[]) {
-	validate((void *)argv);
-	validate((void *)filename);
-	validate((void *)envp);
+	PTR_VALIDATE(argv);
+	PTR_VALIDATE(filename);
+	PTR_VALIDATE(envp);
+
 	debug_print(NOTICE, "%d = exec(%s, ...)", current_process->id, filename);
-	int argc = 0, envc = 0;
+
+	int argc = 0;
+	int envc = 0;
 	while (argv[argc]) {
-		validate((void *)argv[argc]);
+		PTR_VALIDATE(argv[argc]);
 		++argc;
 	}
+
 	if (envp) {
 		while (envp[envc]) {
-			validate((void *)argv[argc]);
+			PTR_VALIDATE(envp[envc]);
 			++envc;
 		}
 	}
+
 	debug_print(INFO, "Allocating space for arguments...");
 	char ** argv_ = malloc(sizeof(char *) * (argc + 1));
 	for (int j = 0; j < argc; ++j) {
@@ -241,25 +241,32 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 }
 
 static int sys_seek(int fd, int offset, int whence) {
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return -1;
+	if (FD_CHECK(fd)) {
+		if (fd < 3) {
+			return 0;
+		}
+		switch (whence) {
+			case 0:
+				FD_ENTRY(fd)->offset = offset;
+				break;
+			case 1:
+				FD_ENTRY(fd)->offset += offset;
+				break;
+			case 2:
+				FD_ENTRY(fd)->offset = FD_ENTRY(fd)->length + offset;
+				break;
+		}
+		return FD_ENTRY(fd)->offset;
 	}
-	if (fd < 3) {
-		return 0;
-	}
-	if (whence == 0) {
-		current_process->fds->entries[fd]->offset = offset;
-	} else if (whence == 1) {
-		current_process->fds->entries[fd]->offset += offset;
-	} else if (whence == 2) {
-		current_process->fds->entries[fd]->offset = current_process->fds->entries[fd]->length + offset;
-	}
-	return current_process->fds->entries[fd]->offset;
+	return -1;
 }
 
 static int stat_node(fs_node_t * fn, uintptr_t st) {
 	struct stat * f = (struct stat *)st;
-	validate((void *)f);
+
+	PTR_VALIDATE(fn);
+	PTR_VALIDATE(f);
+
 	if (!fn) {
 		memset(f, 0x00, sizeof(struct stat));
 		debug_print(INFO, "stat: This file doesn't exist");
@@ -296,8 +303,8 @@ static int stat_node(fs_node_t * fn, uintptr_t st) {
 
 static int sys_statf(char * file, uintptr_t st) {
 	int result;
-	validate((void *)file);
-	validate((void *)st);
+	PTR_VALIDATE(file);
+	PTR_VALIDATE(st);
 	fs_node_t * fn = kopen(file, 0);
 	result = stat_node(fn, st);
 	if (fn) {
@@ -308,7 +315,7 @@ static int sys_statf(char * file, uintptr_t st) {
 
 static int sys_chmod(char * file, int mode) {
 	int result;
-	validate((void *)file);
+	PTR_VALIDATE(file);
 	fs_node_t * fn = kopen(file, 0);
 	if (fn) {
 		result = chmod_fs(fn, mode);
@@ -321,12 +328,11 @@ static int sys_chmod(char * file, int mode) {
 
 
 static int sys_stat(int fd, uintptr_t st) {
-	validate((void *)st);
-	if (fd >= (int)current_process->fds->length || fd < 0) {
-		return -1;
+	PTR_VALIDATE(st);
+	if (FD_CHECK(fd)) {
+		return stat_node(FD_ENTRY(fd), st);
 	}
-	fs_node_t * fn = current_process->fds->entries[fd];
-	return stat_node(fn, st);
+	return -1;
 }
 
 static int sys_mkpipe(void) {
@@ -353,7 +359,7 @@ static int sys_setuid(user_t new_uid) {
 }
 
 static int sys_uname(struct utsname * name) {
-	validate((void *)name);
+	PTR_VALIDATE(name);
 	char version_number[256];
 	sprintf(version_number, __kernel_version_format,
 			__kernel_version_major,
@@ -409,7 +415,7 @@ static int sys_reboot(void) {
 }
 
 static int sys_chdir(char * newdir) {
-	validate((void *)newdir);
+	PTR_VALIDATE(newdir);
 	char * path = canonicalize_path(current_process->wd_name, newdir);
 	fs_node_t * chd = kopen(path, 0);
 	if (chd) {
@@ -428,16 +434,16 @@ static int sys_chdir(char * newdir) {
 }
 
 static int sys_getcwd(char * buf, size_t size) {
-	if (!buf) {
-		return 0;
+	if (buf) {
+		PTR_VALIDATE(buf);
+		return (int)memcpy(buf, current_process->wd_name, min(size, strlen(current_process->wd_name) + 1));
 	}
-	validate((void *)buf);
-	memcpy(buf, current_process->wd_name, min(size, strlen(current_process->wd_name) + 1));
-	return (int)buf;
+	return 0;
 }
 
 static int sys_sethostname(char * new_hostname) {
 	if (current_process->user == USER_ROOT_UID) {
+		PTR_VALIDATE(new_hostname);
 		size_t len = strlen(new_hostname) + 1;
 		if (len > 256) {
 			return 1;
@@ -451,7 +457,7 @@ static int sys_sethostname(char * new_hostname) {
 }
 
 static int sys_gethostname(char * buffer) {
-	validate((void *)buffer);
+	PTR_VALIDATE(buffer);
 	memcpy(buffer, hostname, hostname_len);
 	return hostname_len;
 }
@@ -488,19 +494,26 @@ static int sys_sysfunc(int fn, char ** args) {
 				debug_file = current_process->fds->entries[(int)args];
 				break;
 			case 5:
-				validate((char *)args);
-				debug_print(NOTICE, "Replacing process %d's file descriptors with pointers to %s", getpid(), (char *)args);
-				fs_node_t * repdev = kopen((char *)args, 0);
-				while (current_process->fds->length < 3) {
-					process_append_fd((process_t *)current_process, repdev);
+				{
+					char *arg;
+					PTR_VALIDATE(args);
+					for (arg = args[0]; arg; arg++)
+						PTR_VALIDATE(arg);
+					debug_print(NOTICE, "Replacing process %d's file descriptors with pointers to %s", getpid(), (char *)args);
+					fs_node_t * repdev = kopen((char *)args, 0);
+					while (current_process->fds->length < 3) {
+						process_append_fd((process_t *)current_process, repdev);
+					}
+					FD_ENTRY(0) = repdev;
+					FD_ENTRY(1) = repdev;
+					FD_ENTRY(2) = repdev;
 				}
-				current_process->fds->entries[0] = repdev;
-				current_process->fds->entries[1] = repdev;
-				current_process->fds->entries[2] = repdev;
 				break;
 			case 6:
 				debug_print(WARNING, "writing contents of file %s to sdb", args[0]);
 				{
+					PTR_VALIDATE(args);
+					PTR_VALIDATE(args[0]);
 					fs_node_t * file = kopen((char *)args[0], 0);
 					if (!file) {
 						return -1;
@@ -524,9 +537,8 @@ static int sys_sysfunc(int fn, char ** args) {
 			case 7:
 				debug_print(NOTICE, "Spawning debug hook as child of process %d.", getpid());
 				if (debug_hook) {
-					fs_node_t * tty = current_process->fds->entries[0];
-					int pid = create_kernel_tasklet(debug_hook, "[kttydebug]", tty);
-					return pid;
+					fs_node_t * tty = FD_ENTRY(0);
+					return create_kernel_tasklet(debug_hook, "[kttydebug]", tty);
 				} else {
 					return -1;
 				}
@@ -564,7 +576,7 @@ static int sys_umask(int mode) {
 }
 
 static int sys_unlink(char * file) {
-	validate((void *)file);
+	PTR_VALIDATE(file);
 	return unlink_fs(file);
 }
 
@@ -573,25 +585,21 @@ static int sys_fork(void) {
 }
 
 static int sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
-	if (!new_stack || validate_safe((void*)new_stack)) {
-		return -1;
+	if (PTR_INRANGE(new_stack) && PTR_INRANGE(thread_func)) {
+		return (int)clone(new_stack, thread_func, arg);
 	}
-	if (!thread_func || validate_safe((void*)thread_func)) {
-		return -1;
-	}
-
-	return (int)clone(new_stack, thread_func, arg);
+	return -1;
 }
 
 static int sys_shm_obtain(char * path, size_t * size) {
-	validate(path);
-	validate(size);
+	PTR_VALIDATE(path);
+	PTR_VALIDATE(size);
 
 	return (int)shm_obtain(path, size);
 }
 
 static int sys_shm_release(char * path) {
-	validate(path);
+	PTR_VALIDATE(path);
 
 	return shm_release(path);
 }
@@ -601,8 +609,8 @@ static int sys_kill(pid_t process, uint32_t signal) {
 }
 
 static int sys_gettimeofday(struct timeval * tv, void * tz) {
-	validate(tv);
-	validate(tz);
+	PTR_VALIDATE(tv);
+	PTR_VALIDATE(tz);
 
 	return gettimeofday(tv, tz);
 }
@@ -610,57 +618,55 @@ static int sys_gettimeofday(struct timeval * tv, void * tz) {
 static int sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
 	if (!master || !slave) return -1;
-	if (validate_safe(master) || validate_safe(slave)) return -1;
-	if (validate_safe(size)) return -1;
 
-	/* Create a new pseudo terminal */
-	fs_node_t * fs_master;
-	fs_node_t * fs_slave;
+	if (PTR_INRANGE(master) && PTR_INRANGE(slave) && PTR_INRANGE(size)) {
+		/* Create a new pseudo terminal */
+		fs_node_t * fs_master;
+		fs_node_t * fs_slave;
 
-	pty_create(size, &fs_master, &fs_slave);
+		pty_create(size, &fs_master, &fs_slave);
 
-	/* Append the master and slave to the calling process */
-	*master = process_append_fd((process_t *)current_process, fs_master);
-	*slave  = process_append_fd((process_t *)current_process, fs_slave);
+		/* Append the master and slave to the calling process */
+		*master = process_append_fd((process_t *)current_process, fs_master);
+		*slave  = process_append_fd((process_t *)current_process, fs_slave);
 
-	open_fs(fs_master, 0);
-	open_fs(fs_slave, 0);
+		open_fs(fs_master, 0);
+		open_fs(fs_slave, 0);
 
-	/* Return success */
-	return 0;
+		/* Return success */
+		return 0;
+	}
+	return -1;
 }
 
 static int sys_pipe(int pipes[2]) {
-	if (validate_safe(pipes)) return -EFAULT;
+	if (PTR_INRANGE(pipes)) {
+		fs_node_t * outpipes[2];
 
-	fs_node_t * outpipes[2];
+		make_unix_pipe(outpipes);
 
-	make_unix_pipe(outpipes);
+		open_fs(outpipes[0], 0);
+		open_fs(outpipes[1], 0);
 
-	open_fs(outpipes[0], 0);
-	open_fs(outpipes[1], 0);
-
-	pipes[0] = process_append_fd((process_t *)current_process, outpipes[0]);
-	pipes[1] = process_append_fd((process_t *)current_process, outpipes[1]);
-
-	return 0;
+		pipes[0] = process_append_fd((process_t *)current_process, outpipes[0]);
+		pipes[1] = process_append_fd((process_t *)current_process, outpipes[1]);
+		return 0;
+	}
+	return -EFAULT;
 }
 
 static int sys_mount(char * arg, char * mountpoint, char * type, unsigned long flags, void * data) {
-
-	if (validate_safe(arg) || validate_safe(mountpoint) || validate_safe(type)) {
-		return -EFAULT;
-	}
-
-	if (current_process->user != USER_ROOT_UID) {
-		return -EPERM;
-	}
-
-	/* I may or may not start using these eventually. */
 	(void)flags;
 	(void)data;
 
-	return vfs_mount_type(type, arg, mountpoint);
+	if (current_process->user != USER_ROOT_UID)
+		return -EPERM;
+
+	if (PTR_INRANGE(arg) && PTR_INRANGE(mountpoint) && PTR_INRANGE(type)) {
+		return vfs_mount_type(type, arg, mountpoint);
+	}
+
+	return -EFAULT;
 }
 
 /*

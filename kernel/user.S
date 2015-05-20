@@ -12,14 +12,6 @@ return_to_userspace:
     add $8, %esp
     iret
 
-/* Read EIP */
-.global read_eip
-.type read_eip, @function
-
-read_eip:
-    mov (%esp), %eax
-    ret
-
 /* Enter userspace (ring3) */
 .global enter_userspace
 .type enter_userspace, @function
@@ -41,12 +33,15 @@ enter_userspace:
     mov %eax, %es
     mov %eax, %fs
     mov %eax, %gs
+    /* %ss is handled by iret */
 
-    /* Stack */
+    /* Store stack address in %eax */
     mov %esp, %eax
 
-    /* Segmenet selector */
+    /* Data segmenet with bottom 2 bits set for ring3 */
     pushl $0x23
+
+    /* Push the stack address */
     pushl %eax
 
     /* Push flags and fix interrupt flag */

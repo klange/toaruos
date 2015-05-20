@@ -482,7 +482,6 @@ void switch_next(void) {
 			"jmp *%%ebx"
 			: : "r" (eip), "r" (esp), "r" (ebp), "r" (current_directory->physical_address)
 			: "%ebx", "%esp", "%eax");
-
 }
 
 extern void enter_userspace(uintptr_t location, uintptr_t stack);

@@ -54,3 +54,11 @@ copy_page_physical:
     /* Restore EBX */
     pop %ebx
     ret
+
+/* Read EIP */
+.global read_eip
+.type read_eip, @function
+
+read_eip:
+    mov (%esp), %eax
+    ret
