@@ -3,46 +3,43 @@
  */
 OUTPUT_FORMAT(elf32-i386)
 ENTRY(start)
-phys = 0x00100000;
+
 SECTIONS
 {
-	/*
-	 * Actual code
-	 */
-	.text phys : AT(phys) {
+	. = 1M;
+	phys = .;
+
+	.text BLOCK(4K) : ALIGN(4K)
+	{
 		code = .;
-		*(.multiboot*)
-		*(.text*)
-		*(.rodata*)
-		. = ALIGN(4096);
+		*(.multiboot)
+		*(.text)
 	}
-	/*
-	 * Kernel data
-	 */
-	.data : AT(phys + (data - code))
+
+	.rodata BLOCK(4K) : ALIGN(4K)
+	{
+		*(.rodata)
+	}
+
+	.data BLOCK(4K) : ALIGN(4K)
 	{
 		data = .;
-		*(.data*)
+		*(.data)
+		*(.symbols)
 		PROVIDE(kernel_symbols_start = .);
 		PROVIDE(kernel_symbols_end = .);
-		. = ALIGN(4096);
 	}
-	/*
-	 * Statically defined, uninitialized values
-	 */
-	.bss : AT(phys + (bss - code))
+
+	.bss BLOCK(4K) : ALIGN(4K)
 	{
 		bss = .;
-		*(.bss*)
-		. = ALIGN(4096);
+		*(COMMON)
+		*(.bss)
+		*(.stack)
 	}
-	/*
-	 * End of kernel.
-	 */
+
 	end = .;
-	/*
-	 * Get rid of unnecessary GCC bits.
-	 */
+
 	/DISCARD/ :
 	{
 		*(.comment)

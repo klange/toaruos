@@ -10,7 +10,7 @@
 *.swn
 *.toc
 *.ko
-kernel/symbols.s
+kernel/symbols.S
 .compositor-check
 .config
 .gdb_history

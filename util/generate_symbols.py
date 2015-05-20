@@ -4,32 +4,37 @@
 	Generate a symbol table from nm output.
 """
 
-import fileinput
+import sys
 
-def formatLine(line):
-    _, _, name = line.strip().split(" ")
-    if name == "abs":
-        # abs is a keyword, so we'll just pretend we don't have that
-        return
-    if name == "kernel_symbols_start" or name == "kernel_symbols_end":
-        # we also don't want to include ourselves...
-        return
-    zeroes = ", 0" # * (1 + 4 - ((len(name) + 1) % 4))
-    print """
-    extern %s
-    dd %s
-    db '%s'%s""" % (name, name, name, zeroes)
+# Write extern + type
+def extern(name):
+    print ".extern %s" % (name)
+    print ".type %s, @function" % (name)
+    print ""
 
+# Write an entry
+def entry(name):
+    print ".long %s" % (name)
+    print ".asciz \"%s\"" % (name)
+    print ""
 
-print "SECTION .symbols"
+ignore = [ "abs", "kernel_symbols_start", "kernel_symbols_end" ]
+lines = [ x.strip().split(" ")[2] for x in sys.stdin.readlines() if x not in ignore ]
 
-print "global kernel_symbols_start"
+# Generate the assembly
+print ".section .symbols"
+print ""
+for name in lines:
+    extern(name)
+
+print ".global kernel_symbols_start"
 print "kernel_symbols_start:"
-for line in fileinput.input():
-    formatLine(line)
+print ""
+for name in lines:
+    entry(name)
 
-print "global kernel_symbols_end"
-print "kernel_symbols_end: ;"
+print ".global kernel_symbols_end"
+print "kernel_symbols_end:"
 
 
 

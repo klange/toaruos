@@ -43,7 +43,7 @@ struct gdt_ptr		gp;
  * (ASM) gdt_flush
  * Reloads the segment registers
  */
-extern void gdt_flush(void);
+extern void gdt_flush(unsigned int);
 
 /**
  * Set a GDT descriptor
@@ -96,7 +96,7 @@ gdt_install(void) {
 	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
 	write_tss(5, 0x10, 0x0);
 	/* Go go go */
-	gdt_flush();
+	gdt_flush((unsigned int)&gp);
 	tss_flush();
 }
 
