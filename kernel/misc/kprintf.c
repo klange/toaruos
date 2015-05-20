@@ -75,55 +75,57 @@ static void print_hex(unsigned int value, unsigned int width, char * buf, int * 
 /*
  * vasprintf()
  */
-size_t
-vasprintf(char * buf, const char *fmt, va_list args) {
+size_t vasprintf(char * buf, const char * fmt, va_list args) {
 	int i = 0;
-	char *s;
-	int ptr = 0;
-	int len = strlen(fmt);
-	for ( ; i < len && fmt[i]; ++i) {
-		if (fmt[i] != '%') {
-			buf[ptr++] = fmt[i];
+	char * s;
+	char * b = buf;
+	for (const char *f = fmt; *f; f++) {
+		if (*f != '%') {
+			*b++ = *f;
 			continue;
 		}
-		++i;
+		++f;
 		unsigned int arg_width = 0;
-		while (fmt[i] >= '0' && fmt[i] <= '9') {
+		while (*f >= '0' && *f <= '9') {
 			arg_width *= 10;
-			arg_width += fmt[i] - '0';
-			++i;
+			arg_width += *f - '0';
+			++f;
 		}
 		/* fmt[i] == '%' */
-		switch (fmt[i]) {
+		switch (*f) {
 			case 's': /* String pointer -> String */
 				s = (char *)va_arg(args, char *);
 				if (s == NULL) {
 					s = "(null)";
 				}
 				while (*s) {
-					buf[ptr++] = *s++;
+					*b++ = *s++;
 				}
 				break;
 			case 'c': /* Single character */
-				buf[ptr++] = (char)va_arg(args, int);
+				*b++ = (char)va_arg(args, int);
 				break;
 			case 'x': /* Hexadecimal number */
-				print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &ptr);
+				i = b - buf;
+				print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+				b = buf + i;
 				break;
 			case 'd': /* Decimal number */
-				print_dec((unsigned long)va_arg(args, unsigned long), arg_width, buf, &ptr);
+				i = b - buf;
+				print_dec((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+				b = buf + i;
 				break;
 			case '%': /* Escape */
-				buf[ptr++] = '%';
+				*b++ = '%';
 				break;
 			default: /* Nothing at all, just dump it */
-				buf[ptr++] = fmt[i];
+				*b++ = *f;
 				break;
 		}
 	}
 	/* Ensure the buffer ends in a null */
-	buf[ptr] = '\0';
-	return ptr;
+	*b = '\0';
+	return b - buf;
 
 }
 
