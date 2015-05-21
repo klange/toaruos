@@ -15,15 +15,15 @@
 #define asm __asm__
 #define volatile __volatile__
 
-extern unsigned int __irq_sem;
+//extern unsigned int __irq_sem;
 
-void irq_off(void);
-void irq_res(void);
-void irq_on(void);
+void int_disable(void);
+void int_resume(void);
+void int_enable(void);
 
-#define IRQ_OFF irq_off()
-#define IRQ_RES irq_res()
-#define IRQ_ON  irq_on()
+#define IRQ_OFF int_disable()
+#define IRQ_RES int_resume()
+#define IRQ_ON  int_enable()
 #define PAUSE   { asm volatile ("hlt"); }
 
 #define STOP while (1) { PAUSE; }

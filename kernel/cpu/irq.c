@@ -10,6 +10,71 @@
 #include <system.h>
 #include <logging.h>
 
+/* Programmable interrupt controller */
+#define PIC1           0x20
+#define PIC1_COMMAND   PIC1
+#define PIC1_OFFSET    0x20
+#define PIC1_DATA      (PIC1+1)
+
+#define PIC2           0xA0
+#define PIC2_COMMAND   PIC2
+#define PIC2_OFFSET    0x28
+#define PIC2_DATA      (PIC2+1)
+
+#define PIC_EOI        0x20
+
+#define ICW1_ICW4      0x01
+#define ICW1_INIT      0x10
+
+#define PIC_WAIT() \
+	do { \
+		/* Port 0x80 is used for 'checkpoints' during POST */ \
+		asm volatile("outb %%al, $0x80" : : "a"(0)); \
+	} while (0)
+
+/* Interrupts */
+static volatile int sync_depth = 0;
+
+#define SYNC_CLI() asm volatile("cli")
+#define SYNC_STI() asm volatile("sti")
+
+void int_disable(void) {
+	/* Check if interrupts are enabled */
+	uint32_t flags;
+	asm volatile("pushf\n\t"
+	             "pop %%eax\n\t"
+	             "movl %%eax, %0\n\t"
+	             : "=r"(flags)
+	             :
+	             : "%eax");
+
+	/* Disable interrupts */
+	SYNC_CLI();
+
+	/* If interrupts were enabled, then this is the first call depth */
+	if (flags & (1 << 9)) {
+		sync_depth = 1;
+	} else {
+		/* Otherwise there is now an additional call depth */
+		sync_depth++;
+	}
+}
+
+void int_resume(void) {
+	/* If there is one or no call depths, reenable interrupts */
+	if (sync_depth == 0 || sync_depth == 1) {
+		SYNC_STI();
+	} else {
+		sync_depth--;
+	}
+}
+
+void int_enable(void) {
+	sync_depth = 0;
+	SYNC_STI();
+}
+
+/* Interrupt Requests */
 extern void _irq0(void);
 extern void _irq1(void);
 extern void _irq2(void);
@@ -35,9 +100,6 @@ static void (*irqs[])(void) = {
 #define IRQ_CHAIN_SIZE (sizeof(irqs)/sizeof(*irqs))
 #define IRQ_CHAIN_DEPTH 4
 
-#define SYNC_CLI() asm volatile("cli")
-#define SYNC_STI() asm volatile("sti")
-
 static irq_handler_chain_t irq_routines[IRQ_CHAIN_SIZE * IRQ_CHAIN_DEPTH] = { NULL };
 
 void irq_install_handler(size_t irq, irq_handler_chain_t handler) {
@@ -52,7 +114,6 @@ void irq_install_handler(size_t irq, irq_handler_chain_t handler) {
 	SYNC_STI();
 }
 
-
 void irq_uninstall_handler(size_t irq) {
 	/* Disable interrupts when changing handlers */
 	SYNC_CLI();
@@ -61,18 +122,26 @@ void irq_uninstall_handler(size_t irq) {
 	SYNC_STI();
 }
 
+static void irq_remap(void) {
+	/* Send EOI on each PIC just in case the boot loader messed up */
+	outportb(PIC1_COMMAND, PIC_EOI); PIC_WAIT();
+	outportb(PIC2_COMMAND, PIC_EOI); PIC_WAIT();
 
-void irq_remap(void) {
-	outportb(0x20, 0x11);
-	outportb(0xA0, 0x11);
-	outportb(0x21, 0x20);
-	outportb(0xA1, 0x28);
-	outportb(0x21, 0x04);
-	outportb(0xA1, 0x02);
-	outportb(0x21, 0x01);
-	outportb(0xA1, 0x01);
-	outportb(0x21, 0x0);
-	outportb(0xA1, 0x0);
+	/* Cascade initialization */
+	outportb(PIC1_COMMAND, ICW1_INIT|ICW1_ICW4); PIC_WAIT();
+	outportb(PIC2_COMMAND, ICW1_INIT|ICW1_ICW4); PIC_WAIT();
+
+	/* Remap */
+	outportb(PIC1_DATA, PIC1_OFFSET); PIC_WAIT();
+	outportb(PIC2_DATA, PIC2_OFFSET); PIC_WAIT();
+
+	/* Cascade identity with slave PIC at IRQ2 */
+	outportb(PIC1_DATA, 0x04); PIC_WAIT();
+	outportb(PIC2_DATA, 0x02); PIC_WAIT();
+
+	/* Request 8086 mode on each PIC */
+	outportb(PIC1_DATA, 0x01); PIC_WAIT();
+	outportb(PIC2_DATA, 0x01); PIC_WAIT();
 }
 
 static void irq_setup_gates(void) {
@@ -85,59 +154,25 @@ void irq_install(void) {
 	irq_setup_gates();
 }
 
-/* TODO: Clean up everything below */
 void irq_ack(size_t irq_no) {
 	if (irq_no >= 8) {
-		outportb(0xA0, 0x20);
+		outportb(PIC2_COMMAND, PIC_EOI);
 	}
-	outportb(0x20, 0x20);
+	outportb(PIC1_COMMAND, PIC_EOI);
 }
 
 void irq_handler(struct regs *r) {
-	IRQ_OFF;
-	if (r->int_no > 47 || r->int_no < 32) {
-		IRQ_RES;
-		return;
-	}
-	for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
-		irq_handler_chain_t handler = irq_routines[i * IRQ_CHAIN_SIZE + (r->int_no - 32)];
-		if (handler && handler(r)) {
-			goto _done;
+	/* Disable interrupts when handling */
+	SYNC_CLI();
+	if (r->int_no <= 47 && r->int_no >= 32) {
+		for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
+			irq_handler_chain_t handler = irq_routines[i * IRQ_CHAIN_SIZE + (r->int_no - 32)];
+			if (handler && handler(r)) {
+				goto done;
+			}
 		}
+		irq_ack(r->int_no - 32);
 	}
-	irq_ack(r->int_no - 32);
-_done:
-	IRQ_RES;
-}
-
-static int _irq_sem = 0;
-void irq_off(void) {
-	uint32_t eflags;
-	asm volatile(
-		"pushf\n"
-		"pop %0\n"
-		"cli"
-		: "=r" (eflags));
-
-	if (eflags & (1 << 9)) {
-		_irq_sem = 1;
-	} else {
-		_irq_sem++;
-	}
-}
-
-void irq_res(void) {
-	if (_irq_sem == 0) {
-		asm volatile ("sti");
-		return;
-	}
-	_irq_sem--;
-	if (_irq_sem == 0) {
-		asm volatile ("sti");
-	}
-}
-
-void irq_on(void) {
-	_irq_sem = 0;
-	asm volatile ("sti");
+done:
+	SYNC_STI();
 }
