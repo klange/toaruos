@@ -48,11 +48,9 @@ irq_common:
     mov %ax, %gs
 
     /* Call interrupt handler */
-    mov %esp, %eax
-    push %eax
-    mov $irq_handler, %eax
-    call *%eax
-    pop %eax
+    push %esp
+    call irq_handler
+    add $4, %esp
 
     /* Restore segment registers */
     pop %gs

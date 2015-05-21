@@ -28,8 +28,11 @@
 
 #define PIC_WAIT() \
 	do { \
-		/* Port 0x80 is used for 'checkpoints' during POST */ \
-		asm volatile("outb %%al, $0x80" : : "a"(0)); \
+		/* May be fragile */ \
+		asm volatile("jmp 1f\n\t" \
+		             "1:\n\t" \
+		             "    jmp 2f\n\t" \
+		             "2:"); \
 	} while (0)
 
 /* Interrupts */
@@ -123,10 +126,6 @@ void irq_uninstall_handler(size_t irq) {
 }
 
 static void irq_remap(void) {
-	/* Send EOI on each PIC just in case the boot loader messed up */
-	outportb(PIC1_COMMAND, PIC_EOI); PIC_WAIT();
-	outportb(PIC2_COMMAND, PIC_EOI); PIC_WAIT();
-
 	/* Cascade initialization */
 	outportb(PIC1_COMMAND, ICW1_INIT|ICW1_ICW4); PIC_WAIT();
 	outportb(PIC2_COMMAND, ICW1_INIT|ICW1_ICW4); PIC_WAIT();
@@ -163,7 +162,7 @@ void irq_ack(size_t irq_no) {
 
 void irq_handler(struct regs *r) {
 	/* Disable interrupts when handling */
-	SYNC_CLI();
+	int_disable();
 	if (r->int_no <= 47 && r->int_no >= 32) {
 		for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
 			irq_handler_chain_t handler = irq_routines[i * IRQ_CHAIN_SIZE + (r->int_no - 32)];
@@ -174,5 +173,5 @@ void irq_handler(struct regs *r) {
 		irq_ack(r->int_no - 32);
 	}
 done:
-	SYNC_STI();
+	int_resume();
 }

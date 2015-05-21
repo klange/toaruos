@@ -72,11 +72,9 @@ isr_common:
     mov %ax, %gs
 
     /* Call fault handler */
-    mov %esp, %eax
-    push %eax
-    mov $fault_handler, %eax
-    call *%eax
-    pop %eax
+    push %esp
+    call fault_handler
+    add $4, %esp
 
     /* Restore segment registers */
     pop %gs

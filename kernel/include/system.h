@@ -15,8 +15,6 @@
 #define asm __asm__
 #define volatile __volatile__
 
-//extern unsigned int __irq_sem;
-
 void int_disable(void);
 void int_resume(void);
 void int_enable(void);
