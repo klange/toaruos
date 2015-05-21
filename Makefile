@@ -165,8 +165,7 @@ toolchain:
 	@cd toolchain; ./toolchain-build.sh
 
 # boot.omust be first
-KERNEL_ASMOBJS = kernel/boot.o
-KERNEL_ASMOBJS += $(filter-out kernel/boot.o kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
+KERNEL_ASMOBJS += $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
 
 ################
 #    Kernel    #
