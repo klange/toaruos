@@ -202,8 +202,6 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 	}
 }
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
 uint32_t  read_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 

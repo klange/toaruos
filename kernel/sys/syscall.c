@@ -428,7 +428,8 @@ static int sys_chdir(char * newdir) {
 static int sys_getcwd(char * buf, size_t size) {
 	if (buf) {
 		PTR_VALIDATE(buf);
-		return (int)memcpy(buf, current_process->wd_name, min(size, strlen(current_process->wd_name) + 1));
+		size_t len = strlen(current_process->wd_name) + 1;
+		return (int)memcpy(buf, current_process->wd_name, MIN(size, len));
 	}
 	return 0;
 }

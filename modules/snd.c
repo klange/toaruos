@@ -21,7 +21,6 @@
 #include <system.h>
 
 /* Utility macros */
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 #define SND_BUF_SIZE 0x1000
@@ -36,7 +35,7 @@ static void snd_mixer_open(fs_node_t * node, unsigned int flags);
 static void snd_mixer_close(fs_node_t * node);
 
 static uint8_t  _devices_lock;
-static list_t _devices; 
+static list_t _devices;
 static fs_node_t _dsp_fnode = {
 	.name   = "dsp",
 	.device = &_devices,
@@ -103,7 +102,7 @@ static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp) {
 }
 
 static void snd_dsp_open(fs_node_t * node, unsigned int flags) {
-	/* 
+	/*
 	 * XXX(gerow): A process could take the memory of the entire system by opening
 	 * too many of these...
 	 */

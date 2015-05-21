@@ -8,6 +8,7 @@
 #include <list.h>
 #include <task.h>
 #include <process.h>
+#include <libc.h>
 
 #define STR(x) #x
 #define STRSTR(x) STR(x)
@@ -44,18 +45,8 @@ extern void spin_unlock(uint8_t volatile * lock);
 extern void return_to_userspace(void);
 
 /* Kernel Main */
-extern int max(int,int);
-extern int min(int,int);
-extern int abs(int);
-extern void swap(int *, int *);
-extern void *memcpy(void *restrict dest, const void *restrict src, size_t count);
-extern void *memmove(void *restrict dest, const void *restrict src, size_t count);
-extern void *memset(void *dest, int val, size_t count);
 extern unsigned short *memsetw(unsigned short *dest, unsigned short val, int count);
-extern uint32_t strlen(const char *str);
-extern char * strdup(const char *str);
-extern char * strcpy(char * dest, const char * src);
-extern int atoi(const char *str);
+
 extern unsigned char inportb(unsigned short _port);
 extern void outportb(unsigned short _port, unsigned char _data);
 extern unsigned short inports(unsigned short _port);
@@ -64,14 +55,13 @@ extern unsigned int inportl(unsigned short _port);
 extern void outportl(unsigned short _port, unsigned int _data);
 extern void outportsm(unsigned short port, unsigned char * data, unsigned long size);
 extern void inportsm(unsigned short port, unsigned char * data, unsigned long size);
-extern int strcmp(const char *a, const char *b);
-extern char * strtok_r(char * str, const char * delim, char ** saveptr);
+
+
 extern size_t lfind(const char * str, const char accept);
 extern size_t rfind(const char * str, const char accept);
-extern size_t strspn(const char * str, const char * accept);
-extern char * strpbrk(const char * str, const char * accept);
+
 extern uint32_t krand(void);
-extern char * strstr(const char * haystack, const char * needle);
+
 extern uint8_t startswith(const char * str, const char * accept);
 
 /* GDT */

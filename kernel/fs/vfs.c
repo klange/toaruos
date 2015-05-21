@@ -48,7 +48,8 @@ static struct dirent * readdir_mapper(fs_node_t *node, uint32_t index) {
 			struct vfs_entry * n = (struct vfs_entry *)tchild->value;
 			struct dirent * dir = malloc(sizeof(struct dirent));
 
-			memcpy(&dir->name, n->name, min(256, strlen(n->name)+1));
+			size_t len = strlen(n->name) + 1;
+			memcpy(&dir->name, n->name, MIN(256, len));
 			dir->ino = i;
 			return dir;
 		}
