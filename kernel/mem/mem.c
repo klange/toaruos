@@ -60,6 +60,7 @@ kmalloc_real(
 				spin_lock(frame_alloc_lock);
 				uint32_t index = first_n_frames((size + 0xFFF) / 0x1000);
 				if (index == 0xFFFFFFFF) {
+					spin_unlock(frame_alloc_lock);
 					return 0;
 				}
 				for (unsigned int i = 0; i < (size + 0xFFF) / 0x1000; ++i) {

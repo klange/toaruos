@@ -3,7 +3,6 @@
 
 #include <types.h>
 
-
 typedef struct page {
 	unsigned int present:1;
 	unsigned int rw:1;

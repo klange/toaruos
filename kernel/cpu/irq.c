@@ -81,7 +81,7 @@ void int_enable(void) {
 
 /* Interrupt Requests */
 #define IRQ_CHAIN_SIZE  16
-#define IRQ_CHAIN_DEPTH	4
+#define IRQ_CHAIN_DEPTH 4
 
 static void (*irqs[IRQ_CHAIN_SIZE])(void);
 static irq_handler_chain_t irq_routines[IRQ_CHAIN_SIZE * IRQ_CHAIN_DEPTH] = { NULL };

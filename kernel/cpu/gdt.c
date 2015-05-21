@@ -74,7 +74,7 @@ void gdt_install(void) {
 }
 
 static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0) {
-	tss_entry_t *tss = &gdt.tss;
+	tss_entry_t * tss = &gdt.tss;
 	uintptr_t base = (uintptr_t)tss;
 	uintptr_t limit = base + sizeof *tss;
 
