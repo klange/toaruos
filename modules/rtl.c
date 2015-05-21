@@ -13,6 +13,9 @@
 #include <ipv4.h>
 #include <mod/shell.h>
 
+/* XXX move this to ipv4? */
+extern size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset);
+
 static uint32_t rtl_device_pci = 0x00000000;
 
 static void find_rtl(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
@@ -571,8 +574,6 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			write_fs(_atty, 0, data_length, tcp->payload);
 		}
 
-
-_foo:
 		{
 			/* Send ACK */
 			int my_tx = next_tx_buf();
@@ -589,7 +590,7 @@ _foo:
 
 static void net_handle_udp(struct udp_packet * udp, size_t length) {
 
-	size_t data_length = length - sizeof(struct tcp_header);
+	// size_t data_length = length - sizeof(struct tcp_header);
 
 	/* Find socket */
 	if (hashmap_has(_udp_sockets, (void *)ntohs(udp->source_port))) {
@@ -1032,6 +1033,46 @@ DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
 	return 0;
 }
 
+static char * log_channel = NULL;
+
+static uint32_t irc_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	sprintf(irc_payload, "PRIVMSG %s :%s\r\n", log_channel, buffer);
+	irc_send(irc_payload);
+	return size;
+}
+
+static fs_node_t _irc_log_fnode = {
+	.name  = "irc_log",
+	.write  = irc_write,
+};
+
+DEFINE_SHELL_FUNCTION(irc_log, "spew debug log to irc") {
+
+	if (argc < 2) {
+		fprintf(tty, "Need a channel to log to.\n");
+		return 1;
+	}
+
+	if (!strlen(irc_nick)) {
+		fprintf(tty, "Did you run irc_init?\n");
+		return 1;
+	}
+
+	fprintf(tty, "May the gods have mercy on your soul.\n");
+
+	log_channel = strdup(argv[1]);
+
+	sprintf(irc_payload, "JOIN %s\r\n", log_channel);
+	irc_send(irc_payload);
+
+	debug_file = &_irc_log_fnode;
+	if (argc > 2) {
+		debug_level = atoi(argv[2]);
+	}
+
+	return 0;
+}
+
 DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 
 	if (argc < 2) {
@@ -1203,9 +1244,6 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		}
 
 		rtl_irq = pci_read_field(rtl_device_pci, PCI_INTERRUPT_LINE, 1);
-
-_irq_found:
-		rtl_irq = pci_read_field(rtl_device_pci, PCI_INTERRUPT_LINE, 1);
 		fprintf(tty, "Interrupt Line: %x\n", rtl_irq);
 		irq_install_handler(rtl_irq, rtl_irq_handler);
 
@@ -1371,6 +1409,7 @@ static int init(void) {
 	BIND_SHELL_FUNCTION(irc_test);
 	BIND_SHELL_FUNCTION(irc_init);
 	BIND_SHELL_FUNCTION(irc_join);
+	BIND_SHELL_FUNCTION(irc_log);
 	BIND_SHELL_FUNCTION(http);
 	pci_scan(&find_rtl, -1, &rtl_device_pci);
 	if (!rtl_device_pci) {
