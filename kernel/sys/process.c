@@ -3,6 +3,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2011-2014 Kevin Lange
  * Copyright (C) 2012 Markus Schober
+ * Copyright (C) 2015 Dale Weiler
  *
  * Processes
  *
@@ -13,6 +14,7 @@
 #include <process.h>
 #include <tree.h>
 #include <list.h>
+#include <bitset.h>
 #include <logging.h>
 #include <shm.h>
 #include <printf.h>
@@ -24,15 +26,12 @@ list_t * sleep_queue;
 volatile process_t * current_process = NULL;
 process_t * kernel_idle_task = NULL;
 
-//static uint8_t volatile tree_lock = 0;
-//static uint8_t volatile process_queue_lock = 0;
-//static uint8_t volatile wait_lock_tmp = 0;
-//static uint8_t volatile sleep_lock = 0;
-
 static spin_lock_t tree_lock = { 0 };
 static spin_lock_t process_queue_lock = { 0 };
 static spin_lock_t wait_lock_tmp = { 0 };
 static spin_lock_t sleep_lock = { 0 };
+
+static bitset_t pid_set;
 
 /* Default process name string */
 char * default_name = "[unnamed]";
@@ -45,6 +44,12 @@ void initialize_process_tree(void) {
 	process_list = list_create();
 	process_queue = list_create();
 	sleep_queue = list_create();
+
+	/* Start off with enough bits for 64 processes */
+	bitset_init(&pid_set, 64 / 8);
+	/* First two bits are set by default */
+	bitset_set(&pid_set, 0);
+	bitset_set(&pid_set, 1);
 }
 
 /*
@@ -166,6 +171,8 @@ void delete_process(process_t * proc) {
 	list_delete(process_list, list_find(process_list, proc));
 	spin_unlock(tree_lock);
 
+	bitset_clear(&pid_set, proc->id);
+
 	/* Uh... */
 	free(proc);
 }
@@ -283,9 +290,14 @@ process_t * spawn_init(void) {
  * @return A usable PID for a new process.
  */
 pid_t get_next_pid(void) {
-	/* Terribly naïve, I know, but it works for now */
-	static pid_t next = 2;
-	return (next++);
+	int index = bitset_ffub(&pid_set);
+	if (index == -1) {
+		int next = pid_set.size * 8;
+		bitset_set(&pid_set, next);
+		return next;
+	}
+	bitset_set(&pid_set, index);
+	return index;
 }
 
 /*
