@@ -97,13 +97,13 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 
 	size_t collected = 0;
 	while (collected == 0) {
-		spin_lock(&pipe->lock_read);
+		spin_lock(pipe->lock_read);
 		while (pipe_unread(pipe) > 0 && collected < size) {
 			buffer[collected] = pipe->buffer[pipe->read_ptr];
 			pipe_increment_read(pipe);
 			collected++;
 		}
-		spin_unlock(&pipe->lock_read);
+		spin_unlock(pipe->lock_read);
 		wakeup_queue(pipe->wait_queue_writers);
 		/* Deschedule and switch */
 		if (collected == 0) {
@@ -141,7 +141,7 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 
 	size_t written = 0;
 	while (written < size) {
-		spin_lock(&pipe->lock_write);
+		spin_lock(pipe->lock_write);
 
 #if 0
 		size_t available = 0;
@@ -164,7 +164,7 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 		}
 #endif
 
-		spin_unlock(&pipe->lock_write);
+		spin_unlock(pipe->lock_write);
 		wakeup_queue(pipe->wait_queue_readers);
 		if (written < size) {
 			sleep_on(pipe->wait_queue_writers);
@@ -242,9 +242,10 @@ fs_node_t * make_pipe(size_t size) {
 	pipe->read_ptr  = 0;
 	pipe->size      = size;
 	pipe->refcount  = 0;
-	pipe->lock_read = 0;
-	pipe->lock_write= 0;
 	pipe->dead      = 0;
+
+	spin_init(pipe->lock_read);
+	spin_init(pipe->lock_write);
 
 	pipe->wait_queue_writers = list_create();
 	pipe->wait_queue_readers = list_create();

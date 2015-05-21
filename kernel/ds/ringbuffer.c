@@ -51,13 +51,13 @@ static inline void ring_buffer_increment_write(ring_buffer_t * ring_buffer) {
 size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
 	size_t collected = 0;
 	while (collected == 0) {
-		spin_lock(&ring_buffer->lock);
+		spin_lock(ring_buffer->lock);
 		while (ring_buffer_unread(ring_buffer) > 0 && collected < size) {
 			buffer[collected] = ring_buffer->buffer[ring_buffer->read_ptr];
 			ring_buffer_increment_read(ring_buffer);
 			collected++;
 		}
-		spin_unlock(&ring_buffer->lock);
+		spin_unlock(ring_buffer->lock);
 		wakeup_queue(ring_buffer->wait_queue_writers);
 		if (collected == 0) {
 			if (sleep_on(ring_buffer->wait_queue_readers) && ring_buffer->internal_stop) {
@@ -73,7 +73,7 @@ size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buff
 size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
 	size_t written = 0;
 	while (written < size) {
-		spin_lock(&ring_buffer->lock);
+		spin_lock(ring_buffer->lock);
 
 		while (ring_buffer_available(ring_buffer) > 0 && written < size) {
 			ring_buffer->buffer[ring_buffer->write_ptr] = buffer[written];
@@ -81,7 +81,7 @@ size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 			written++;
 		}
 
-		spin_unlock(&ring_buffer->lock);
+		spin_unlock(ring_buffer->lock);
 		wakeup_queue(ring_buffer->wait_queue_readers);
 		if (written < size) {
 			if (sleep_on(ring_buffer->wait_queue_writers) && ring_buffer->internal_stop) {
@@ -101,8 +101,9 @@ ring_buffer_t * ring_buffer_create(size_t size) {
 	out->buffer     = malloc(size);
 	out->write_ptr  = 0;
 	out->read_ptr   = 0;
-	out->lock       = 0;
 	out->size       = size;
+
+	spin_init(out->lock);
 
 	out->internal_stop = 0;
 

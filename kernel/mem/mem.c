@@ -23,7 +23,8 @@ uintptr_t placement_pointer = (uintptr_t)&end;
 uintptr_t heap_end = (uintptr_t)NULL;
 uintptr_t kernel_heap_alloc_point = KERNEL_HEAP_INIT;
 
-static volatile uint8_t frame_alloc_lock = 0;
+//static volatile uint8_t frame_alloc_lock = 0;
+static spin_lock_t frame_alloc_lock = { 0 };
 uint32_t first_n_frames(int n);
 
 void
@@ -56,9 +57,10 @@ kmalloc_real(
 					clear_frame(map_to_physical(i));
 				}
 				/* XXX This is going to get touchy... */
-				spin_lock(&frame_alloc_lock);
+				spin_lock(frame_alloc_lock);
 				uint32_t index = first_n_frames((size + 0xFFF) / 0x1000);
 				if (index == 0xFFFFFFFF) {
+					spin_unlock(frame_alloc_lock);
 					return 0;
 				}
 				for (unsigned int i = 0; i < (size + 0xFFF) / 0x1000; ++i) {
@@ -66,7 +68,7 @@ kmalloc_real(
 					page_t * page = get_page((uintptr_t)address + (i * 0x1000),0,kernel_directory);
 					page->frame = index + i;
 				}
-				spin_unlock(&frame_alloc_lock);
+				spin_unlock(frame_alloc_lock);
 			}
 			*phys = map_to_physical((uintptr_t)address);
 		}
@@ -220,12 +222,12 @@ alloc_frame(
 		page->user    = (is_kernel == 1)    ? 0 : 1;
 		return;
 	} else {
-		spin_lock(&frame_alloc_lock);
+		spin_lock(frame_alloc_lock);
 		uint32_t index = first_frame();
 		assert(index != (uint32_t)-1 && "Out of frames.");
 		set_frame(index * 0x1000);
 		page->frame   = index;
-		spin_unlock(&frame_alloc_lock);
+		spin_unlock(frame_alloc_lock);
 		page->present = 1;
 		page->rw      = (is_writeable == 1) ? 1 : 0;
 		page->user    = (is_kernel == 1)    ? 0 : 1;

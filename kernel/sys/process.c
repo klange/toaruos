@@ -3,6 +3,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2011-2014 Kevin Lange
  * Copyright (C) 2012 Markus Schober
+ * Copyright (C) 2015 Dale Weiler
  *
  * Processes
  *
@@ -13,6 +14,7 @@
 #include <process.h>
 #include <tree.h>
 #include <list.h>
+#include <bitset.h>
 #include <logging.h>
 #include <shm.h>
 #include <printf.h>
@@ -24,10 +26,12 @@ list_t * sleep_queue;
 volatile process_t * current_process = NULL;
 process_t * kernel_idle_task = NULL;
 
-static uint8_t volatile tree_lock = 0;
-static uint8_t volatile process_queue_lock = 0;
-static uint8_t volatile wait_lock_tmp = 0;
-static uint8_t volatile sleep_lock = 0;
+static spin_lock_t tree_lock = { 0 };
+static spin_lock_t process_queue_lock = { 0 };
+static spin_lock_t wait_lock_tmp = { 0 };
+static spin_lock_t sleep_lock = { 0 };
+
+static bitset_t pid_set;
 
 /* Default process name string */
 char * default_name = "[unnamed]";
@@ -40,6 +44,12 @@ void initialize_process_tree(void) {
 	process_list = list_create();
 	process_queue = list_create();
 	sleep_queue = list_create();
+
+	/* Start off with enough bits for 64 processes */
+	bitset_init(&pid_set, 64 / 8);
+	/* First two bits are set by default */
+	bitset_set(&pid_set, 0);
+	bitset_set(&pid_set, 1);
 }
 
 /*
@@ -112,9 +122,9 @@ void make_process_ready(process_t * proc) {
 			/* XXX can't wake from timed sleep */
 			if (proc->timed_sleep_node) {
 				IRQ_OFF;
-				spin_lock(&sleep_lock);
+				spin_lock(sleep_lock);
 				list_delete(sleep_queue, proc->timed_sleep_node);
-				spin_unlock(&sleep_lock);
+				spin_unlock(sleep_lock);
 				IRQ_RES;
 				proc->sleep_node.owner = NULL;
 				free(proc->timed_sleep_node->value);
@@ -122,14 +132,14 @@ void make_process_ready(process_t * proc) {
 			/* Else: I have no idea what happened. */
 		} else {
 			proc->sleep_interrupted = 1;
-			spin_lock(&wait_lock_tmp);
+			spin_lock(wait_lock_tmp);
 			list_delete((list_t*)proc->sleep_node.owner, &proc->sleep_node);
-			spin_unlock(&wait_lock_tmp);
+			spin_unlock(wait_lock_tmp);
 		}
 	}
-	spin_lock(&process_queue_lock);
+	spin_lock(process_queue_lock);
 	list_append(process_queue, &proc->sched_node);
-	spin_unlock(&process_queue_lock);
+	spin_unlock(process_queue_lock);
 }
 
 
@@ -155,11 +165,13 @@ void delete_process(process_t * proc) {
 	}
 
 	/* Remove the entry. */
-	spin_lock(&tree_lock);
+	spin_lock(tree_lock);
 	/* Reparent everyone below me to init */
 	tree_remove_reparent_root(process_tree, entry);
 	list_delete(process_list, list_find(process_list, proc));
-	spin_unlock(&tree_lock);
+	spin_unlock(tree_lock);
+
+	bitset_clear(&pid_set, proc->id);
 
 	/* Uh... */
 	free(proc);
@@ -239,7 +251,8 @@ process_t * spawn_init(void) {
 	init->image.user_stack  = 0;
 	init->image.size        = 0;
 	init->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
-	init->image.lock = 0;
+
+	spin_init(init->image.lock);
 
 	/* Process is not finished */
 	init->finished = 0;
@@ -277,9 +290,14 @@ process_t * spawn_init(void) {
  * @return A usable PID for a new process.
  */
 pid_t get_next_pid(void) {
-	/* Terribly naïve, I know, but it works for now */
-	static pid_t next = 2;
-	return (next++);
+	int index = bitset_ffub(&pid_set);
+	if (index == -1) {
+		int next = pid_set.size * 8;
+		bitset_set(&pid_set, next);
+		return next;
+	}
+	bitset_set(&pid_set, index);
+	return index;
 }
 
 /*
@@ -291,11 +309,11 @@ void process_disown(process_t * proc) {
 	/* Find the process in the tree */
 	tree_node_t * entry = proc->tree_entry;
 	/* Break it of from its current parent */
-	spin_lock(&tree_lock);
+	spin_lock(tree_lock);
 	tree_break_off(process_tree, entry);
 	/* And insert it back elsewhere */
 	tree_node_insert_child_node(process_tree, process_tree->root, entry);
-	spin_unlock(&tree_lock);
+	spin_unlock(tree_lock);
 }
 
 /*
@@ -340,7 +358,8 @@ process_t * spawn_process(volatile process_t * parent) {
 	debug_print(INFO,"    }");
 	proc->image.user_stack  = parent->image.user_stack;
 	proc->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
-	proc->image.lock = 0;
+
+	spin_init(proc->image.lock);
 
 	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
 
@@ -390,10 +409,10 @@ process_t * spawn_process(volatile process_t * parent) {
 	tree_node_t * entry = tree_node_create(proc);
 	assert(entry && "Failed to allocate a process tree node for new process.");
 	proc->tree_entry = entry;
-	spin_lock(&tree_lock);
+	spin_lock(tree_lock);
 	tree_node_insert_child_node(process_tree, parent->tree_entry, entry);
 	list_insert(process_list, (void *)proc);
-	spin_unlock(&tree_lock);
+	spin_unlock(tree_lock);
 
 	/* Return the new process */
 	return proc;
@@ -409,9 +428,9 @@ uint8_t process_compare(void * proc_v, void * pid_v) {
 process_t * process_from_pid(pid_t pid) {
 	if (pid < 0) return NULL;
 
-	spin_lock(&tree_lock);
+	spin_lock(tree_lock);
 	tree_node_t * entry = tree_find(process_tree,&pid,process_compare);
-	spin_unlock(&tree_lock);
+	spin_unlock(tree_lock);
 	if (entry) {
 		return (process_t *)entry->value;
 	}
@@ -420,7 +439,7 @@ process_t * process_from_pid(pid_t pid) {
 
 process_t * process_get_parent(process_t * process) {
 	process_t * result = NULL;
-	spin_lock(&tree_lock);
+	spin_lock(tree_lock);
 
 	tree_node_t * entry = process->tree_entry;
 
@@ -428,7 +447,7 @@ process_t * process_get_parent(process_t * process) {
 		result = entry->parent->value;
 	}
 
-	spin_unlock(&tree_lock);
+	spin_unlock(tree_lock);
 	return result;
 }
 
@@ -539,9 +558,9 @@ uint32_t process_move_fd(process_t * proc, int src, int dest) {
 int wakeup_queue(list_t * queue) {
 	int awoken_processes = 0;
 	while (queue->length > 0) {
-		spin_lock(&wait_lock_tmp);
+		spin_lock(wait_lock_tmp);
 		node_t * node = list_pop(queue);
-		spin_unlock(&wait_lock_tmp);
+		spin_unlock(wait_lock_tmp);
 		if (!((process_t *)node->value)->finished) {
 			make_process_ready(node->value);
 		}
@@ -553,9 +572,9 @@ int wakeup_queue(list_t * queue) {
 int wakeup_queue_interrupted(list_t * queue) {
 	int awoken_processes = 0;
 	while (queue->length > 0) {
-		spin_lock(&wait_lock_tmp);
+		spin_lock(wait_lock_tmp);
 		node_t * node = list_pop(queue);
-		spin_unlock(&wait_lock_tmp);
+		spin_unlock(wait_lock_tmp);
 		if (!((process_t *)node->value)->finished) {
 			process_t * proc = node->value;
 			proc->sleep_interrupted = 1;
@@ -574,9 +593,9 @@ int sleep_on(list_t * queue) {
 		return 0;
 	}
 	current_process->sleep_interrupted = 0;
-	spin_lock(&wait_lock_tmp);
+	spin_lock(wait_lock_tmp);
 	list_append(queue, (node_t *)&current_process->sleep_node);
-	spin_unlock(&wait_lock_tmp);
+	spin_unlock(wait_lock_tmp);
 	switch_task(0);
 	return current_process->sleep_interrupted;
 }
@@ -588,7 +607,7 @@ int process_is_ready(process_t * proc) {
 
 void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 	IRQ_OFF;
-	spin_lock(&sleep_lock);
+	spin_lock(sleep_lock);
 	if (sleep_queue->length) {
 		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
 		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
@@ -607,7 +626,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 			}
 		}
 	}
-	spin_unlock(&sleep_lock);
+	spin_unlock(sleep_lock);
 	IRQ_RES;
 }
 
@@ -619,7 +638,7 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	process->sleep_node.owner = sleep_queue;
 
 	IRQ_OFF;
-	spin_lock(&sleep_lock);
+	spin_lock(sleep_lock);
 	node_t * before = NULL;
 	foreach(node, sleep_queue) {
 		sleeper_t * candidate = ((sleeper_t *)node->value);
@@ -633,7 +652,7 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	proc->end_tick    = seconds;
 	proc->end_subtick = subseconds;
 	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
-	spin_unlock(&sleep_lock);
+	spin_unlock(sleep_lock);
 	IRQ_RES;
 }
 

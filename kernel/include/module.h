@@ -19,6 +19,8 @@ typedef struct {
     char * deps;
 } module_data_t;
 
+void (* symbol_find(const char * name))(void);
+
 extern int module_quickcheck(void * blob);
 extern void * module_load_direct(void * blob, size_t size);
 extern void * module_load(char * filename);

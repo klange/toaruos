@@ -15,13 +15,13 @@
 typedef struct packet_manager {
 	/* uh, nothing, lol */
 	list_t * exchanges;
-	volatile uint8_t lock;
+	spin_lock_t lock;
 } pex_t;
 
 typedef struct packet_exchange {
 	char * name;
 	char fresh;
-	volatile uint8_t lock;
+	spin_lock_t lock;
 	fs_node_t * server_pipe;
 	list_t * clients;
 } pex_ex_t;
@@ -130,12 +130,12 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 
 	if (head->target == NULL) {
 		/* Brodcast packet */
-		spin_lock(&p->lock);
+		spin_lock(p->lock);
 		foreach(f, p->clients) {
 			debug_print(INFO, "Sending to client 0x%x", f->value);
 			send_to_client(p, (pex_client_t *)f->value, size - sizeof(header_t), head->data);
 		}
-		spin_unlock(&p->lock);
+		spin_unlock(p->lock);
 		debug_print(INFO, "Done broadcasting to clients.");
 		return size;
 	} else if (head->target->parent != p) {
@@ -221,7 +221,7 @@ static void close_client(fs_node_t * node) {
 
 	debug_print(WARNING, "Closing packetfs client: 0x%x:0x%x", p, c);
 
-	spin_lock(&p->lock);
+	spin_lock(p->lock);
 
 	node_t * n = list_find(p->clients, c);
 	if (n && n->owner == p->clients) {
@@ -229,7 +229,7 @@ static void close_client(fs_node_t * node) {
 		free(n);
 	}
 
-	spin_unlock(&p->lock);
+	spin_unlock(p->lock);
 
 	char tmp[1];
 
@@ -301,11 +301,11 @@ static struct dirent * readdir_packetfs(fs_node_t *node, uint32_t index) {
 		return NULL;
 	}
 
-	spin_lock(&p->lock);
+	spin_lock(p->lock);
 
 	foreach(f, p->exchanges) {
 		if (i == index) {
-			spin_unlock(&p->lock);
+			spin_unlock(p->lock);
 			pex_ex_t * t = (pex_ex_t *)f->value;
 			struct dirent * out = malloc(sizeof(struct dirent));
 			memset(out, 0x00, sizeof(struct dirent));
@@ -317,7 +317,7 @@ static struct dirent * readdir_packetfs(fs_node_t *node, uint32_t index) {
 		}
 	}
 
-	spin_unlock(&p->lock);
+	spin_unlock(p->lock);
 
 	return NULL;
 }
@@ -341,17 +341,17 @@ static fs_node_t * finddir_packetfs(fs_node_t * node, char * name) {
 
 	debug_print(INFO, "[pex] finddir(%s)", name);
 
-	spin_lock(&p->lock);
+	spin_lock(p->lock);
 
 	foreach(f, p->exchanges) {
 		pex_ex_t * t = (pex_ex_t *)f->value;
 		if (!strcmp(name, t->name)) {
-			spin_unlock(&p->lock);
+			spin_unlock(p->lock);
 			return file_from_pex(t);
 		}
 	}
 
-	spin_unlock(&p->lock);
+	spin_unlock(p->lock);
 
 	return NULL;
 }
@@ -363,12 +363,12 @@ static void create_packetfs(fs_node_t *parent, char *name, uint16_t permission) 
 
 	debug_print(NOTICE, "[pex] create(%s)", name);
 
-	spin_lock(&p->lock);
+	spin_lock(p->lock);
 
 	foreach(f, p->exchanges) {
 		pex_ex_t * t = (pex_ex_t *)f->value;
 		if (!strcmp(name, t->name)) {
-			spin_unlock(&p->lock);
+			spin_unlock(p->lock);
 			/* Already exists */
 			return;
 		}
@@ -379,14 +379,15 @@ static void create_packetfs(fs_node_t *parent, char *name, uint16_t permission) 
 
 	new_exchange->name = strdup(name);
 	new_exchange->fresh = 1;
-	new_exchange->lock = 0;
 	new_exchange->clients = list_create();
 	new_exchange->server_pipe = make_pipe(4096);
+
+	spin_init(new_exchange->lock);
 	/* XXX Create exchange server pipe */
 
 	list_insert(p->exchanges, new_exchange);
 
-	spin_unlock(&p->lock);
+	spin_unlock(p->lock);
 
 }
 
@@ -403,7 +404,7 @@ static void unlink_packetfs(fs_node_t *parent, char *name) {
 
 	int i = -1, j = 0;
 
-	spin_lock(&p->lock);
+	spin_lock(p->lock);
 
 	foreach(f, p->exchanges) {
 		pex_ex_t * t = (pex_ex_t *)f->value;
@@ -419,13 +420,15 @@ static void unlink_packetfs(fs_node_t *parent, char *name) {
 		list_remove(p->exchanges, i);
 	}
 
-	spin_unlock(&p->lock);
+	spin_unlock(p->lock);
 }
 
 static fs_node_t * packetfs_manager(void) {
 	pex_t * pex = malloc(sizeof(pex_t));
 	pex->exchanges = list_create();
-	pex->lock = 0;
+
+	spin_init(pex->lock);
+
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;

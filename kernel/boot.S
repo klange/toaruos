@@ -41,8 +41,11 @@ stack_top:
 start:
     /* Setup our stack */
     mov $stack_top, %esp
-    pushl %esp
 
+    /* Make sure our stack is 16-byte aligned */
+    and $-16, %esp
+
+    pushl %esp
     pushl %eax /* Multiboot header magic */
     pushl %ebx /* Multiboot header pointer */
 

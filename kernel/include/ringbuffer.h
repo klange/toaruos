@@ -6,7 +6,7 @@ typedef struct {
 	size_t write_ptr;
 	size_t read_ptr;
 	size_t size;
-	uint8_t volatile lock;
+	volatile int lock[2];
 	list_t * wait_queue_readers;
 	list_t * wait_queue_writers;
 	int internal_stop;

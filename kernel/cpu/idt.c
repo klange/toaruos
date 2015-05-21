@@ -44,7 +44,7 @@ void idt_set_gate(uint8_t num, idt_gate_t base, uint16_t sel, uint8_t flags) {
 }
 
 void idt_install(void) {
-	idt_pointer_t *idtp = &idt.pointer;
+	idt_pointer_t * idtp = &idt.pointer;
 	idtp->limit = sizeof idt.entries - 1;
 	idtp->base = (uintptr_t)&ENTRY(0);
 	memset(&ENTRY(0), 0, sizeof idt.entries);

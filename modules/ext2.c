@@ -38,7 +38,7 @@ typedef struct {
 	unsigned int              cache_entries;       /* Size of ->disk_cache */
 	unsigned int              cache_time;          /* "timer" that increments with each cache read/write */
 
-	uint8_t volatile          lock;                /* Synchronization lock point */
+	spin_lock_t               lock;                /* Synchronization lock point */
 
 	uint8_t                   bgd_block_span;
 	uint8_t                   bgd_offset;
@@ -120,14 +120,14 @@ static int read_block(ext2_fs_t * this, unsigned int block_no, uint8_t * buf) {
 	}
 
 	/* This operation requires the filesystem lock to be obtained */
-	spin_lock(&this->lock);
+	spin_lock(this->lock);
 
 	/* We can make reads without a cache in place. */
 	if (!DC) {
 		/* In such cases, we read directly from the block device */
 		read_fs(this->block_device, block_no * this->block_size, this->block_size, (uint8_t *)buf);
 		/* We are done, release the lock */
-		spin_unlock(&this->lock);
+		spin_unlock(this->lock);
 		/* And return SUCCESS */
 		return E_SUCCESS;
 	}
@@ -145,7 +145,7 @@ static int read_block(ext2_fs_t * this, unsigned int block_no, uint8_t * buf) {
 			/* Read the block */
 			memcpy(buf, DC[i].block, this->block_size);
 			/* Release the lock */
-			spin_unlock(&this->lock);
+			spin_unlock(this->lock);
 			/* Success! */
 			return E_SUCCESS;
 		}
@@ -178,7 +178,7 @@ static int read_block(ext2_fs_t * this, unsigned int block_no, uint8_t * buf) {
 	DC[oldest].dirty = 0;
 
 	/* Release the lock */
-	spin_unlock(&this->lock);
+	spin_unlock(this->lock);
 
 	/* And return success */
 	return E_SUCCESS;
@@ -199,7 +199,7 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 	}
 
 	/* This operation requires the filesystem lock */
-	spin_lock(&this->lock);
+	spin_lock(this->lock);
 
 	/* Find the entry in the cache */
 	int oldest = -1;
@@ -210,7 +210,7 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 			DC[i].last_use = get_cache_time(this);
 			DC[i].dirty = 1;
 			memcpy(DC[i].block, buf, this->block_size);
-			spin_unlock(&this->lock);
+			spin_unlock(this->lock);
 			return E_SUCCESS;
 		}
 		if (DC[i].last_use < oldest_age) {
@@ -233,7 +233,7 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 	DC[oldest].dirty = 1;
 
 	/* Release the lock */
-	spin_unlock(&this->lock);
+	spin_unlock(this->lock);
 
 	/* We're done. */
 	return E_SUCCESS;
@@ -241,7 +241,7 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 
 static unsigned int ext2_sync(ext2_fs_t * this) {
 	/* This operation requires the filesystem lock */
-	spin_lock(&this->lock);
+	spin_lock(this->lock);
 
 	/* Flush each cache entry. */
 	for (unsigned int i = 0; i < this->cache_entries; ++i) {
@@ -251,7 +251,7 @@ static unsigned int ext2_sync(ext2_fs_t * this) {
 	}
 
 	/* Release the lock */
-	spin_unlock(&this->lock);
+	spin_unlock(this->lock);
 
 	return 0;
 }
@@ -450,7 +450,7 @@ static int write_inode(ext2_fs_t * this, ext2_inodetable_t *inode, uint32_t inde
 	if (group > BGDS) {
 		return E_BADBLOCK;
 	}
-	
+
 	uint32_t inode_table_block = BGD[group].inode_table;
 	index -= group * this->inodes_per_group;
 	uint32_t block_offset = ((index - 1) * this->inode_size) / this->block_size;
@@ -953,7 +953,7 @@ static ext2_dir_t * direntry_ext2(ext2_fs_t * this, ext2_inodetable_t * inode, u
 			inode_read_block(this, inode, block_nr, block);
 		}
 	}
-	
+
 	free(block);
 	return NULL;
 }
@@ -981,7 +981,7 @@ static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
 			inode_read_block(this, inode, block_nr, block);
 		}
 		ext2_dir_t *d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
-		
+
 		if (d_ent->inode == 0 || strlen(name) != d_ent->name_len) {
 			dir_offset += d_ent->rec_len;
 			total_offset += d_ent->rec_len;
@@ -1043,7 +1043,7 @@ static void unlink_ext2(fs_node_t * node, char * name) {
 			inode_read_block(this, inode, block_nr, block);
 		}
 		ext2_dir_t *d_ent = (ext2_dir_t *)((uintptr_t)block + dir_offset);
-		
+
 		if (d_ent->inode == 0 || strlen(name) != d_ent->name_len) {
 			dir_offset += d_ent->rec_len;
 			total_offset += d_ent->rec_len;
@@ -1439,7 +1439,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 	char * bg_buffer = malloc(this->block_size * sizeof(char));
 	for (uint32_t i = 0; i < BGDS; ++i) {
 		debug_print(INFO, "Block Group Descriptor #%d @ %d", i, this->bgd_offset + i * SB->blocks_per_group);
-		debug_print(INFO, "\tBlock Bitmap @ %d", BGD[i].block_bitmap); { 
+		debug_print(INFO, "\tBlock Bitmap @ %d", BGD[i].block_bitmap); {
 			debug_print(INFO, "\t\tExamining block bitmap at %d", BGD[i].block_bitmap);
 			read_block(this, BGD[i].block_bitmap, (uint8_t *)bg_buffer);
 			uint32_t j = 0;
