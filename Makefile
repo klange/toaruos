@@ -262,11 +262,11 @@ tags: kernel/*/*.c kernel/*.c userspace/**/*.c modules/*.c
 ###############
 
 clean-soft:
-	@${BEGRM} "RM" "Cleaning modules..."
+	@${BEGRM} "RM" "Cleaning kernel objects..."
 	@-rm -f kernel/*.o
 	@-rm -f kernel/*/*.o
 	@-rm -f ${KERNEL_OBJS}
-	@${ENDRM} "RM" "Cleaned modules"
+	@${ENDRM} "RM" "Cleaned kernel objects"
 
 clean-user:
 	@${BEGRM} "RM" "Cleaning userspace products..."
