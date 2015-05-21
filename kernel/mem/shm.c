@@ -15,7 +15,8 @@
 #include <list.h>
 
 
-static volatile uint8_t bsl; // big shm lock
+//static volatile uint8_t bsl; // big shm lock
+static spin_lock_t bsl; // big shm lock
 tree_t * shm_tree = NULL;
 
 
@@ -250,7 +251,7 @@ static size_t chunk_size (shm_chunk_t * chunk) {
 
 
 void * shm_obtain (char * path, size_t * size) {
-	spin_lock(&bsl);
+	spin_lock(bsl);
 	process_t * proc = (process_t *)current_process;
 
 	if (proc->group != 0) {
@@ -268,14 +269,14 @@ void * shm_obtain (char * path, size_t * size) {
 
 		if (size == 0) {
 			// The process doesn't want a chunk...?
-			spin_unlock(&bsl);
+			spin_unlock(bsl);
 			return NULL;
 		}
 
 		chunk = create_chunk(node, *size);
 		if (chunk == NULL) {
 			debug_print(ERROR, "Could not allocate a shm_chunk_t");
-			spin_unlock(&bsl);
+			spin_unlock(bsl);
 			return NULL;
 		}
 
@@ -287,14 +288,14 @@ void * shm_obtain (char * path, size_t * size) {
 	void * vshm_start = map_in(chunk, proc);
 	*size = chunk_size(chunk);
 
-	spin_unlock(&bsl);
+	spin_unlock(bsl);
 	invalidate_page_tables();
 
 	return vshm_start;
 }
 
 int shm_release (char * path) {
-	spin_lock(&bsl);
+	spin_lock(bsl);
 	process_t * proc = (process_t *)current_process;
 
 	if (proc->group != 0) {
@@ -304,7 +305,7 @@ int shm_release (char * path) {
 	/* First, find the right chunk */
 	shm_node_t * _node = get_node(path, 0);
 	if (!_node) {
-		spin_unlock(&bsl);
+		spin_unlock(bsl);
 		return 1;
 	}
 	shm_chunk_t * chunk = _node->chunk;
@@ -319,7 +320,7 @@ int shm_release (char * path) {
 		}
 	}
 	if (node == NULL) {
-		spin_unlock(&bsl);
+		spin_unlock(bsl);
 		return 1;
 	}
 
@@ -340,14 +341,14 @@ int shm_release (char * path) {
 	free(node);
 	free(mapping);
 
-	spin_unlock(&bsl);
+	spin_unlock(bsl);
 	return 0;
 }
 
 /* This function should only be called if the process's address space
  * is about to be destroyed -- chunks will not be unmounted therefrom ! */
 void shm_release_all (process_t * proc) {
-	spin_lock(&bsl);
+	spin_lock(bsl);
 
 	node_t * node;
 	while ((node = list_pop(proc->shm_mappings)) != NULL) {
@@ -362,7 +363,7 @@ void shm_release_all (process_t * proc) {
 	proc->shm_mappings->head = proc->shm_mappings->tail = NULL;
 	proc->shm_mappings->length = 0;
 
-	spin_unlock(&bsl);
+	spin_unlock(bsl);
 }
 
 

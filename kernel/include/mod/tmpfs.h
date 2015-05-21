@@ -3,7 +3,6 @@
 #include <fs.h>
 
 fs_node_t * tmpfs_create(char * name);
-uint8_t volatile tmpfs_lock;
 
 struct tmpfs_file {
 	char * name;

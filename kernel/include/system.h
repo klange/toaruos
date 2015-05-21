@@ -39,8 +39,11 @@ extern char * boot_arg_extra; /* Extra data to pass to init */
 
 extern void *sbrk(uintptr_t increment);
 
-extern void spin_lock(uint8_t volatile * lock);
-extern void spin_unlock(uint8_t volatile * lock);
+/* spin.c */
+typedef volatile int spin_lock_t[2];
+extern void spin_init(spin_lock_t lock);
+extern void spin_lock(spin_lock_t lock);
+extern void spin_unlock(spin_lock_t lock);
 
 extern void return_to_userspace(void);
 

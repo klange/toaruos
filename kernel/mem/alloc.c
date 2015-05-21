@@ -133,42 +133,42 @@ static void * __attribute__ ((malloc)) klcalloc(uintptr_t nmemb, uintptr_t size)
 static void * __attribute__ ((malloc)) klvalloc(uintptr_t size);
 static void klfree(void * ptr);
 
-static uint8_t volatile mem_lock = 0;
+static spin_lock_t mem_lock =  { 0 };
 
 void * __attribute__ ((malloc)) malloc(uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(mem_lock);
 	void * ret = klmalloc(size);
-	spin_unlock(&mem_lock);
+	spin_unlock(mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(mem_lock);
 	void * ret = klrealloc(ptr, size);
-	spin_unlock(&mem_lock);
+	spin_unlock(mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) calloc(uintptr_t nmemb, uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(mem_lock);
 	void * ret = klcalloc(nmemb, size);
-	spin_unlock(&mem_lock);
+	spin_unlock(mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) valloc(uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(mem_lock);
 	void * ret = klvalloc(size);
-	spin_unlock(&mem_lock);
+	spin_unlock(mem_lock);
 	return ret;
 }
 
 void free(void * ptr) {
-	spin_lock(&mem_lock);
+	spin_lock(mem_lock);
 	if ((uintptr_t)ptr > placement_pointer) {
 		klfree(ptr);
 	}
-	spin_unlock(&mem_lock);
+	spin_unlock(mem_lock);
 }
 
 
@@ -518,7 +518,7 @@ static void * klmalloc_stack_pop(klmalloc_bin_header *header) {
 		assert((uintptr_t)header->head < (uintptr_t)header + PAGE_SIZE);
 		assert((uintptr_t)header->head > (uintptr_t)header + sizeof(klmalloc_bin_header) - 1);
 	}
-	
+
 	/*
 	 * Remove the current head and point
 	 * the head to where the old head pointed.
@@ -758,7 +758,7 @@ static void klfree(void *ptr) {
 	if (bucket_id > (uintptr_t)NUM_BINS) {
 		bucket_id = BIG_BIN;
 		klmalloc_big_bin_header *bheader = (klmalloc_big_bin_header*)header;
-		
+
 		assert(bheader);
 		assert(bheader->head == NULL);
 		assert((bheader->size + sizeof(klmalloc_big_bin_header)) % PAGE_SIZE == 0);
@@ -955,7 +955,7 @@ static void * __attribute__ ((malloc)) klcalloc(uintptr_t nmemb, uintptr_t size)
 	/*
 	 * Allocate memory and zero it before returning
 	 * a pointer to the newly allocated memory.
-	 * 
+	 *
 	 * Implemented by way of a simple malloc followed
 	 * by a memset to 0x00 across the length of the
 	 * requested memory chunk.

@@ -8,16 +8,6 @@
  */
 #include <system.h>
 
-void spin_lock(uint8_t volatile * lock) {
-	while(__sync_lock_test_and_set(lock, 0x01)) {
-		switch_task(1);
-	}
-}
-
-void spin_unlock(uint8_t volatile * lock) {
-	__sync_lock_release(lock);
-}
-
 char * boot_arg = NULL;
 char * boot_arg_extra = NULL;
 

@@ -151,7 +151,7 @@ static int sys_sbrk(int size) {
 	if (proc->group != 0) {
 		proc = process_from_pid(proc->group);
 	}
-	spin_lock(&proc->image.lock);
+	spin_lock(proc->image.lock);
 	uintptr_t ret = proc->image.heap;
 	uintptr_t i_ret = ret;
 	while (ret % 0x1000) {
@@ -164,7 +164,7 @@ static int sys_sbrk(int size) {
 		alloc_frame(get_page(proc->image.heap_actual, 1, current_directory), 0, 1);
 		invalidate_tables_at(proc->image.heap_actual);
 	}
-	spin_unlock(&proc->image.lock);
+	spin_unlock(proc->image.lock);
 	return ret;
 }
 

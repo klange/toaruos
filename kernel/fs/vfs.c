@@ -109,12 +109,13 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
 	}
 }
 
-volatile uint8_t tmp_refcount_lock = 0;
+//volatile uint8_t tmp_refcount_lock = 0;
+static spin_lock_t tmp_refcount_lock = { 0 };
 
 void vfs_lock(fs_node_t * node) {
-	spin_lock(&tmp_refcount_lock);
+	spin_lock(tmp_refcount_lock);
 	node->refcount = -1;
-	spin_unlock(&tmp_refcount_lock);
+	spin_unlock(tmp_refcount_lock);
 }
 
 /**
@@ -128,9 +129,9 @@ void open_fs(fs_node_t *node, unsigned int flags) {
 	if (!node) return;
 
 	if (node->refcount >= 0) {
-		spin_lock(&tmp_refcount_lock);
+		spin_lock(tmp_refcount_lock);
 		node->refcount++;
-		spin_unlock(&tmp_refcount_lock);
+		spin_unlock(tmp_refcount_lock);
 	}
 
 	if (node->open) {
@@ -153,7 +154,7 @@ void close_fs(fs_node_t *node) {
 
 	if (node->refcount == -1) return;
 
-	spin_lock(&tmp_refcount_lock);
+	spin_lock(tmp_refcount_lock);
 	node->refcount--;
 	if (node->refcount == 0) {
 		debug_print(NOTICE, "Node refcount [%s] is now 0: %d", node->name, node->refcount);
@@ -164,7 +165,7 @@ void close_fs(fs_node_t *node) {
 
 		free(node);
 	}
-	spin_unlock(&tmp_refcount_lock);
+	spin_unlock(tmp_refcount_lock);
 }
 
 /**
@@ -356,9 +357,9 @@ fs_node_t *clone_fs(fs_node_t *source) {
 	if (!source) return NULL;
 
 	if (source->refcount >= 0) {
-		spin_lock(&tmp_refcount_lock);
+		spin_lock(tmp_refcount_lock);
 		source->refcount++;
-		spin_unlock(&tmp_refcount_lock);
+		spin_unlock(tmp_refcount_lock);
 	}
 
 	return source;
@@ -521,7 +522,8 @@ int vfs_mount_type(char * type, char * arg, char * mountpoint) {
 	return 0;
 }
 
-volatile uint8_t tmp_vfs_lock = 0;
+//volatile uint8_t tmp_vfs_lock = 0;
+static spin_lock_t tmp_vfs_lock = { 0 };
 /**
  * vfs_mount - Mount a file system to the specified path.
  *
@@ -543,7 +545,7 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 		return NULL;
 	}
 
-	spin_lock(&tmp_vfs_lock);
+	spin_lock(tmp_vfs_lock);
 
 	local_root->refcount = -1;
 
@@ -615,7 +617,7 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 	}
 
 	free(p);
-	spin_unlock(&tmp_vfs_lock);
+	spin_unlock(tmp_vfs_lock);
 	return ret_val;
 }
 

@@ -34,7 +34,8 @@ static int snd_mixer_ioctl(fs_node_t * node, int request, void * argp);
 static void snd_mixer_open(fs_node_t * node, unsigned int flags);
 static void snd_mixer_close(fs_node_t * node);
 
-static uint8_t  _devices_lock;
+static spin_lock_t _devices_lock;
+
 static list_t _devices;
 static fs_node_t _dsp_fnode = {
 	.name   = "dsp",
@@ -51,7 +52,7 @@ static fs_node_t _mixer_fnode = {
 	.open  = snd_mixer_open,
 	.close = snd_mixer_close,
 };
-static uint8_t _buffers_lock;
+static spin_lock_t _buffers_lock;
 static list_t _buffers;
 static uint32_t _next_device_id = SND_DEVICE_MAIN;
 
@@ -59,7 +60,7 @@ int snd_register(snd_device_t * device) {
 	int rv = 0;
 
 	debug_print(WARNING, "[snd] _devices lock: %d", _devices_lock);
-	spin_lock(&_devices_lock);
+	spin_lock(_devices_lock);
 	device->id = _next_device_id;
 	_next_device_id++;
 	if (list_find(&_devices, device)) {
@@ -71,7 +72,7 @@ int snd_register(snd_device_t * device) {
 	debug_print(NOTICE, "[snd] %s registered", device->name);
 
 snd_register_cleanup:
-	spin_unlock(&_devices_lock);
+	spin_unlock(_devices_lock);
 	return rv;
 }
 
@@ -88,7 +89,7 @@ int snd_unregister(snd_device_t * device) {
 	debug_print(NOTICE, "[snd] %s unregistered", device->name);
 
 snd_unregister_cleanup:
-	spin_unlock(&_devices_lock);
+	spin_unlock(_devices_lock);
 	return rv;
 }
 
@@ -108,19 +109,19 @@ static void snd_dsp_open(fs_node_t * node, unsigned int flags) {
 	 */
 	/* Allocate a buffer for the node and keep a reference for ourselves */
 	node->device = ring_buffer_create(SND_BUF_SIZE);
-	spin_lock(&_buffers_lock);
+	spin_lock(_buffers_lock);
 	list_insert(&_buffers, node->device);
-	spin_unlock(&_buffers_lock);
+	spin_unlock(_buffers_lock);
 }
 
 static void snd_dsp_close(fs_node_t * node) {
-	spin_lock(&_buffers_lock);
+	spin_lock(_buffers_lock);
 	list_delete(&_buffers, list_find(&_buffers, node->device));
-	spin_unlock(&_buffers_lock);
+	spin_unlock(_buffers_lock);
 }
 
 static snd_device_t * snd_device_by_id(uint32_t device_id) {
-	spin_lock(&_devices_lock);
+	spin_lock(_devices_lock);
 	snd_device_t * out = NULL;
 	snd_device_t * cur = NULL;
 
@@ -130,7 +131,7 @@ static snd_device_t * snd_device_by_id(uint32_t device_id) {
 			out = cur;
 		}
 	}
-	spin_unlock(&_devices_lock);
+	spin_unlock(_devices_lock);
 
 	return out;
 }
@@ -198,7 +199,7 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 
 	memset(buffer, 0, size);
 
-	spin_lock(&_buffers_lock);
+	spin_lock(_buffers_lock);
 	foreach(buf_node, &_buffers) {
 		ring_buffer_t * buf = buf_node->value;
 		/* ~0x3 is to ensure we don't read partial samples or just a single channel */
@@ -222,19 +223,19 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 			bytes_left -= this_read_size;
 		}
 	}
-	spin_unlock(&_buffers_lock);
+	spin_unlock(_buffers_lock);
 
 	return size;
 }
 
 static snd_device_t * snd_main_device() {
-	spin_lock(&_devices_lock);
+	spin_lock(_devices_lock);
 	foreach(node, &_devices) {
-		spin_unlock(&_devices_lock);
+		spin_unlock(_devices_lock);
 		return node->value;
 	}
 
-	spin_unlock(&_devices_lock);
+	spin_unlock(_devices_lock);
 	return NULL;
 }
 
