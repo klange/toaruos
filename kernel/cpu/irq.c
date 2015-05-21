@@ -9,6 +9,8 @@
  */
 #include <system.h>
 #include <logging.h>
+#include <module.h>
+#include <printf.h>
 
 /* Programmable interrupt controller */
 #define PIC1           0x20
@@ -78,31 +80,10 @@ void int_enable(void) {
 }
 
 /* Interrupt Requests */
-extern void _irq0(void);
-extern void _irq1(void);
-extern void _irq2(void);
-extern void _irq3(void);
-extern void _irq4(void);
-extern void _irq5(void);
-extern void _irq6(void);
-extern void _irq7(void);
-extern void _irq8(void);
-extern void _irq9(void);
-extern void _irq10(void);
-extern void _irq11(void);
-extern void _irq12(void);
-extern void _irq13(void);
-extern void _irq14(void);
-extern void _irq15(void);
+#define IRQ_CHAIN_SIZE  16
+#define IRQ_CHAIN_DEPTH	4
 
-static void (*irqs[])(void) = {
-	_irq0, _irq1, _irq2,  _irq3,  _irq4,  _irq5,  _irq6,  _irq7,
-	_irq8, _irq9, _irq10, _irq11, _irq12, _irq13, _irq14, _irq15
-};
-
-#define IRQ_CHAIN_SIZE (sizeof(irqs)/sizeof(*irqs))
-#define IRQ_CHAIN_DEPTH 4
-
+static void (*irqs[IRQ_CHAIN_SIZE])(void);
 static irq_handler_chain_t irq_routines[IRQ_CHAIN_SIZE * IRQ_CHAIN_DEPTH] = { NULL };
 
 void irq_install_handler(size_t irq, irq_handler_chain_t handler) {
@@ -144,11 +125,17 @@ static void irq_remap(void) {
 }
 
 static void irq_setup_gates(void) {
-	for (size_t i = 0; i < IRQ_CHAIN_SIZE; i++)
+	for (size_t i = 0; i < IRQ_CHAIN_SIZE; i++) {
 		idt_set_gate(32 + i, irqs[i], 0x08, 0x8E);
+	}
 }
 
 void irq_install(void) {
+	char buffer[16];
+	for (int i = 0; i < IRQ_CHAIN_SIZE; i++) {
+		sprintf(buffer, "_irq%d", i);
+		irqs[i] = symbol_find(buffer);
+	}
 	irq_remap();
 	irq_setup_gates();
 }
