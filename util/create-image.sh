@@ -64,7 +64,7 @@ echo "Installing kernel."
 cp -r $SRCDIR/toaruos-kernel /mnt/boot/
 
 echo "Installing grub."
-grub-install --boot-directory=/mnt/boot $LOOPDEV
+grub-install --target=i386-pc --boot-directory=/mnt/boot $LOOPDEV
 
 echo "Cleaning up"
 umount /mnt
