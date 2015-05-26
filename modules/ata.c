@@ -281,8 +281,9 @@ static int ata_device_detect(struct ata_device * dev) {
 		/* Nothing here */
 		return 0;
 	}
-	if (cl == 0x00 && ch == 0x00) {
-		/* Parallel ATA device */
+	if ((cl == 0x00 && ch == 0x00) ||
+	    (cl == 0x3C && ch == 0xC3)) {
+		/* Parallel ATA device, or emulated SATA */
 
 		char devname[64];
 		sprintf((char *)&devname, "/dev/hd%c", ata_drive_char);
