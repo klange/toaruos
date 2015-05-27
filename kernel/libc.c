@@ -19,18 +19,18 @@
  ((A)[(size_t)(B)/(8*sizeof *(A))] OP (size_t)1<<((size_t)(B)%(8*sizeof *(A))))
 
 void * memcpy(void * restrict dest, const void * restrict src, size_t n) {
-	asm volatile("cld; rep movsb"
-	            :
+	asm volatile("rep movsb"
+	            : "=c"((int){0})
 	            : "D"(dest), "S"(src), "c"(n)
-	            : "cc", "memory");
+	            : "flags", "memory");
 	return dest;
 }
 
 void * memset(void * dest, int c, size_t n) {
-	asm volatile("cld; rep stosb"
-	             :
+	asm volatile("rep stosb"
+	             : "=c"((int){0})
 	             : "D"(dest), "a"(c), "c"(n)
-	             : "cc", "memory");
+	             : "flags", "memory");
 	return dest;
 }
 
