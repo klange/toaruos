@@ -116,6 +116,24 @@ void release_directory_for_exec(page_directory_t * dir) {
 
 extern char * default_name;
 
+static void _copy_page_physical(uintptr_t physical_source, uintptr_t physical_destination) {
+	uint8_t * temp_space = (uint8_t*)kvmalloc(4096 * 2);
+	uintptr_t src_tmp = map_to_physical((uintptr_t)temp_space);
+	uintptr_t dst_tmp = map_to_physical((uintptr_t)temp_space + 4096);
+
+	dma_frame(get_page((uintptr_t)temp_space, 0, kernel_directory), 0, 1, physical_source);
+	dma_frame(get_page((uintptr_t)temp_space + 4096, 0, kernel_directory), 0, 1, physical_destination);
+	invalidate_page_tables();
+
+	memcpy(temp_space + 4096, temp_space, 4096);
+
+	dma_frame(get_page((uintptr_t)temp_space, 0, kernel_directory), 0, 1, src_tmp);
+	dma_frame(get_page((uintptr_t)temp_space + 4096, 0, kernel_directory), 0, 1, dst_tmp);
+	invalidate_page_tables();
+
+	free(temp_space);
+}
+
 /*
  * Clone a page table
  *
@@ -146,7 +164,7 @@ clone_table(
 		if (src->pages[i].accessed)	table->pages[i].accessed = 1;
 		if (src->pages[i].dirty)	table->pages[i].dirty = 1;
 		/* Copy the contents of the page from the old table to the new one */
-		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
+		_copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
 	}
 	return table;
 }
@@ -185,8 +203,6 @@ void tasking_install(void) {
  * @return To the parent: PID of the child; to the child: 0
  */
 uint32_t fork(void) {
-	IRQ_OFF;
-
 	uintptr_t esp, ebp;
 
 	current_process->syscall_registers->eax = 0;
@@ -226,15 +242,11 @@ uint32_t fork(void) {
 	/* Add the new process to the ready queue */
 	make_process_ready(new_proc);
 
-	IRQ_RES;
-
 	/* Return the child PID */
 	return new_proc->id;
 }
 
 int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
-	IRQ_OFF;
-
 	uintptr_t esp, ebp;
 
 	if (current_process->syscall_registers) {
@@ -278,8 +290,6 @@ int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
 	/* Add the new process to the ready queue */
 	make_process_ready(new_proc);
 
-	IRQ_RES;
-
 	/* Return the child PID */
 	return new_proc->id;
 }
@@ -292,8 +302,6 @@ int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
 uint32_t
 clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	uintptr_t esp, ebp;
-
-	IRQ_OFF;
 
 	current_process->syscall_registers->eax = 0;
 
@@ -350,8 +358,6 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 
 	/* Add the new process to the ready queue */
 	make_process_ready(new_proc);
-
-	IRQ_RES;
 
 	/* Return the child PID */
 	return new_proc->id;
