@@ -30,6 +30,9 @@
 #include "lib/list.h"
 #include "lib/spinlock.h"
 
+#include "lib/trace.h"
+#define TRACE_APP_NAME "yutani"
+
 #include "yutani_int.h"
 
 #define YUTANI_DEBUG_WINDOW_BOUNDS 1
@@ -338,7 +341,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 
 	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)owner);
 	if (!client_list) {
-		fprintf(stderr, "[yutani-server] Window creation from new client: %x\n", owner);
+		TRACE("Window creation from new client: %x", owner);
 		client_list = list_create();
 		hashmap_set(yg->clients_to_windows, (void *)owner, client_list);
 	}
@@ -495,7 +498,7 @@ void * nested_input(void * _yg) {
 					}
 					break;
 				case YUTANI_MSG_SESSION_END:
-					fprintf(stderr, "[yutani-nested] Host session ended. Should exit.\n");
+					TRACE("Host session ended. Should exit.");
 					break;
 				default:
 					break;
@@ -608,7 +611,7 @@ static void load_fonts(yutani_globals_t * yg) {
 	while (fonts[i].identifier) {
 		char tmp[100];
 		snprintf(tmp, 100, "sys.%s.fonts.%s", yg->server_ident, fonts[i].identifier);
-		fprintf(stderr, "[yutani-server] Loading font %s -> %s\n", fonts[i].path, tmp);
+		TRACE("Loading font %s -> %s", fonts[i].path, tmp);
 		precache_shmfont(tmp, fonts[i].path);
 		++i;
 	}
@@ -1553,7 +1556,7 @@ static void mouse_start_resize(yutani_globals_t * yg) {
 			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 			yg->mouse_window = NULL;
 		} else {
-			fprintf(stderr, "[yutani-server] resize starting for wid=%d\n", yg->mouse_window -> wid);
+			TRACE("resize starting for wid=%d", yg->mouse_window -> wid);
 			yg->mouse_state = YUTANI_MOUSE_STATE_RESIZING;
 			yg->mouse_init_x = yg->mouse_x;
 			yg->mouse_init_y = yg->mouse_y;
@@ -1691,7 +1694,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				mark_window_relative(yg, yg->mouse_window, -2, -2, yg->resizing_w + 10, yg->resizing_h + 10);
 
 				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE)) {
-					fprintf(stderr, "[yutani-server] resize complete, now %d x %d\n", yg->resizing_w, yg->resizing_h);
+					TRACE("resize complete, now %d x %d", yg->resizing_w, yg->resizing_h);
 					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->resizing_window->wid, yg->resizing_w, yg->resizing_h, 0);
 					pex_send(yg->server, yg->resizing_window->owner, response->size, (char *)response);
 					free(response);
@@ -1730,7 +1733,7 @@ int main(int argc, char * argv[]) {
 
 	if (!yg->backend_ctx) {
 		free(yg);
-		fprintf(stderr, "%s: Failed to open framebuffer, bailing.\n", argv[0]);
+		TRACE("Failed to open framebuffer, bailing.");
 		return 1;
 	}
 
@@ -1762,9 +1765,9 @@ int main(int argc, char * argv[]) {
 	FILE * server = pex_bind(yg->server_ident);
 	yg->server = server;
 
-	fprintf(stderr, "[yutani-server] Loading fonts...\n");
+	TRACE("Loading fonts...");
 	load_fonts(yg);
-	fprintf(stderr, "[yutani-server] Done.\n");
+	TRACE("Done.");
 
 	load_sprite_png(&yg->mouse_sprite, "/usr/share/arrow.png");
 	yg->last_mouse_x = 0;
@@ -1800,7 +1803,7 @@ int main(int argc, char * argv[]) {
 
 	if (!fork()) {
 		if (argx < argc) {
-			fprintf(stderr, "[yutani-server] Starting alternate startup app: %s\n", argv[argx]);
+			TRACE("Starting alternate startup app: %s", argv[argx]);
 			execvp(argv[argx], &argv[argx]);
 		} else {
 			char * args[] = {"/bin/glogin", NULL};
@@ -1816,13 +1819,13 @@ int main(int argc, char * argv[]) {
 
 		if (p->size == 0) {
 			/* Connection closed for client */
-			fprintf(stderr, "[yutani-server] Connection closed for client  %x\n", p->source);
+			TRACE("Connection closed for client  %x", p->source);
 
 			list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)p->source);
 			if (client_list) {
 				foreach(node, client_list) {
 					yutani_server_window_t * win = node->value;
-					fprintf(stderr, "[yutani-server] Killing window %d\n", win->wid);
+					TRACE("Killing window %d", win->wid);
 					window_mark_for_close(yg, win);
 				}
 				hashmap_remove(yg->clients_to_windows, (void *)p->source);
@@ -1835,7 +1838,7 @@ int main(int argc, char * argv[]) {
 		}
 
 		if (m->magic != YUTANI_MSG__MAGIC) {
-			fprintf(stderr, "[yutani-server] Message has bad magic. (Should eject client, but will instead skip this message.) 0x%x\n", m->magic);
+			TRACE("Message has bad magic. (Should eject client, but will instead skip this message.) 0x%x", m->magic);
 			free(p);
 			continue;
 		}
@@ -1843,7 +1846,7 @@ int main(int argc, char * argv[]) {
 		switch(m->type) {
 			case YUTANI_MSG_HELLO:
 				{
-					fprintf(stderr, "[yutani-server] And hello to you, %08x!\n", p->source);
+					TRACE("And hello to you, %08x!", p->source);
 					yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
@@ -1852,7 +1855,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_NEW:
 				{
 					struct yutani_msg_window_new * wn = (void *)m->data;
-					fprintf(stderr, "[yutani-server] Client %08x requested a new window (%dx%d).\n", p->source, wn->width, wn->height);
+					TRACE("Client %08x requested a new window (%dx%d).", p->source, wn->width, wn->height);
 					yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source);
 					yutani_msg_t * response = yutani_msg_build_window_init(w->wid, w->width, w->height, w->bufid);
 					pex_send(server, p->source, response->size, (char *)response);
@@ -1896,12 +1899,12 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_MOVE:
 				{
 					struct yutani_msg_window_move * wm = (void *)m->data;
-					fprintf(stderr, "[yutani-server] %08x wanted to move window %d\n", p->source, wm->wid);
+					TRACE("%08x wanted to move window %d", p->source, wm->wid);
 					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
 					if (win) {
 						window_move(yg, win, wm->x, wm->y);
 					} else {
-						fprintf(stderr, "[yutani-server] %08x wanted to move window %d, but I can't find it?\n", p->source, wm->wid);
+						TRACE("%08x wanted to move window %d, but I can't find it?", p->source, wm->wid);
 					}
 				}
 				break;
@@ -2093,7 +2096,7 @@ int main(int argc, char * argv[]) {
 				}
 			default:
 				{
-					fprintf(stderr, "[yutani-server] Unknown type: 0x%8x\n", m->type);
+					TRACE("Unknown type: 0x%8x", m->type);
 				}
 				break;
 		}

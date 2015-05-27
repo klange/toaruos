@@ -30,6 +30,9 @@
 
 #include "gui/ttk/ttk.h"
 
+#include "lib/trace.h"
+#define TRACE_APP_NAME "glogin"
+
 static sprite_t logo;
 
 static gfx_context_t * ctx;
@@ -198,12 +201,6 @@ void draw_login_container(cairo_t * cr, struct login_container * lc) {
 	draw_text_box(cr, lc->password_box);
 
 }
-
-#define _app_name "glogin"
-#define TRACE(msg,...) do { \
-	struct timeval t; gettimeofday(&t, NULL); \
-	fprintf(stderr, "%06d.%06d [" _app_name "] %s:%05d - " msg "\n", t.tv_sec, t.tv_usec, __FILE__, __LINE__, ##__VA_ARGS__); \
-} while (0)
 
 int main (int argc, char ** argv) {
 	init_shmemfonts();
