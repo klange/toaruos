@@ -17,8 +17,9 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 	Elf32_Header * header = (Elf32_Header *)malloc(file->length + 100);
 
 	debug_print(NOTICE, "---> Starting load.");
-	IRQ_RES;
+	IRQ_ON;
 	read_fs(file, 0, file->length, (uint8_t *)header);
+	IRQ_OFF;
 	debug_print(NOTICE, "---> Finished load.");
 
 	current_process->name = malloc(strlen(path) + 1);
