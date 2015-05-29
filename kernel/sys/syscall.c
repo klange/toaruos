@@ -256,7 +256,6 @@ static int sys_seek(int fd, int offset, int whence) {
 static int stat_node(fs_node_t * fn, uintptr_t st) {
 	struct stat * f = (struct stat *)st;
 
-	PTR_VALIDATE(fn);
 	PTR_VALIDATE(f);
 
 	if (!fn) {

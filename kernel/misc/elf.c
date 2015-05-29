@@ -43,12 +43,15 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 	release_directory_for_exec(current_directory);
 	invalidate_page_tables();
 
+	current_process->image.entry = 0xFFFFFFFF;
+
 	/* Load the loadable segments from the binary */
 	for (uintptr_t x = 0; x < (uint32_t)header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
 		/* read a section header */
 		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)header + (header->e_shoff + x));
 		if (shdr->sh_addr) {
 			/* If this is a loadable section, load it up. */
+			if (shdr->sh_addr == 0) continue; /* skip sections that try to load to 0 */
 			if (shdr->sh_addr < current_process->image.entry) {
 				/* If this is the lowest entry point, store it for memory reasons */
 				current_process->image.entry = shdr->sh_addr;
