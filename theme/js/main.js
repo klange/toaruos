@@ -4,7 +4,7 @@
 function updateTime() {
 	var now = moment();
 	$("div.clock>.date").html(now.format("dddd") + "<br><b>" + now.format("MMM DD") + "</b>");
-	$("div.clock>.time").html(now.format("HH:MM:ss"));
+	$("div.clock>.time").html(now.format("HH:mm:ss"));
 }
 
 /**
