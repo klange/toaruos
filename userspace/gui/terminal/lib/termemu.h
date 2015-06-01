@@ -1,7 +1,11 @@
 #ifndef _TERMEMU_H__
 #define _TERMEMU_H__
 
+#ifdef _KERNEL_
+# include <types.h>
+#else
 #include <stdint.h>
+#endif
 
 #define TERM_BUF_LEN 128
 

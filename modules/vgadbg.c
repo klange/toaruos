@@ -174,6 +174,17 @@ static void tasklet(void * data, char * name) {
 	write_string("Now let's debug the primary PATA drive:\n");
 	debug_ata_primary();
 
+	reset();
+	write_string("Here's /\n");
+	fg = 6;
+	list_files("/");
+	reset();
+
+	write_string("Here's /home");
+	fg = 6;
+	list_files("/home");
+	reset();
+
 }
 
 static int vgadbg_init(void) {

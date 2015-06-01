@@ -8,12 +8,24 @@
 
 #include "termemu.h"
 
+#ifdef _KERNEL_
+# include <system.h>
+# include <types.h>
+# include <logging.h>
+static void _spin_lock(volatile int * foo) { return; }
+static void _spin_unlock(volatile int * foo) { return; }
+# define rgba(r,g,b,a) (((uint32_t)a * 0x1000000) + ((uint32_t)r * 0x10000) + ((uint32_t)g * 0x100) + ((uint32_t)b * 0x1))
+# define rgb(r,g,b) rgba(r,g,b,0xFF)
+#else
 #include <stdlib.h>
 #include <math.h>
 #include <syscall.h>
-
-#include "lib/graphics.h"
 #include "lib/spinlock.h"
+#include "lib/graphics.h"
+#define _spin_lock spin_lock
+#define _spin_unlock spin_unlock
+#endif
+
 
 #define MAX_ARGS 1024
 
@@ -44,11 +56,11 @@ static void ansi_buf_add(term_state_t * s, char c) {
 	s->buffer[s->buflen] = '\0';
 }
 
-static int to_eight(uint32_t codepoint, uint8_t * out) {
+static int to_eight(uint32_t codepoint, char * out) {
 	memset(out, 0x00, 7);
 
 	if (codepoint < 0x0080) {
-		out[0] = (uint8_t)codepoint;
+		out[0] = (char)codepoint;
 	} else if (codepoint < 0x0800) {
 		out[0] = 0xC0 | (codepoint >> 6);
 		out[1] = 0x80 | (codepoint & 0x3F);
@@ -159,11 +171,13 @@ static void _ansi_put(term_state_t * s, char c) {
 									case 1:
 										callbacks->redraw_cursor();
 										break;
+#ifndef _KERNEL_
 									case 1555:
 										if (argc > 1) {
 											callbacks->set_font_size(atof(argv[1]));
 										}
 										break;
+#endif
 									default:
 										break;
 								}
@@ -389,7 +403,7 @@ static void _ansi_put(term_state_t * s, char c) {
 					case ANSI_DSR:
 						{
 							char out[24];
-							sprintf(out, "\033[%d;%dR", callbacks->get_csr_y + 1, callbacks->get_csr_x + 1);
+							sprintf(out, "\033[%d;%dR", callbacks->get_csr_y() + 1, callbacks->get_csr_x() + 1);
 							callbacks->input_buffer_stuff(out);
 						}
 						break;
@@ -479,7 +493,7 @@ static void _ansi_put(term_state_t * s, char c) {
 				return;
 			} else {
 				/* Still escaped */
-				if (c == '\n' || s->buflen > 256) {
+				if (c == '\n' || s->buflen == 255) {
 					ansi_dump_buffer(s);
 					callbacks->writer(c);
 					s->buflen = 0;
@@ -505,9 +519,9 @@ static void _ansi_put(term_state_t * s, char c) {
 }
 
 void ansi_put(term_state_t * s, char c) {
-	spin_lock(&s->lock);
+	_spin_lock(&s->lock);
 	_ansi_put(s, c);
-	spin_unlock(&s->lock);
+	_spin_unlock(&s->lock);
 }
 
 term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in) {
