@@ -11,6 +11,7 @@
 #include <pipe.h>
 #include <module.h>
 #include <mouse.h>
+#include <args.h>
 
 static uint8_t mouse_cycle = 0;
 static int8_t  mouse_byte[4];
@@ -78,7 +79,7 @@ static int mouse_handler(struct regs *r) {
 			switch (mouse_cycle) {
 				case 0:
 					mouse_byte[0] = mouse_in;
-					if (!(mouse_in & MOUSE_V_BIT)) {irq_ack(MOUSE_IRQ); return 1; }
+					if (!(mouse_in & MOUSE_V_BIT)) { goto read_next; }
 					++mouse_cycle;
 					break;
 				case 1:
@@ -96,14 +97,14 @@ static int mouse_handler(struct regs *r) {
 					mouse_byte[3] = mouse_in;
 					goto finish_packet;
 			}
-			continue;
+			goto read_next;
 finish_packet:
 			mouse_cycle = 0;
-			/* We now have a full mouse packet ready to use */
 			if (mouse_byte[0] & 0x80 || mouse_byte[0] & 0x40) {
 				/* x/y overflow? bad packet! */
-				continue;
+				goto read_next;
 			}
+			/* We now have a full mouse packet ready to use */
 			mouse_device_packet_t packet;
 			packet.magic = MOUSE_MAGIC;
 			packet.x_difference = mouse_byte[1];
@@ -133,6 +134,7 @@ finish_packet:
 			}
 			write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 		}
+read_next:
 		status = inportb(MOUSE_STATUS);
 	}
 	irq_ack(MOUSE_IRQ);
@@ -166,32 +168,33 @@ static int mouse_install(void) {
 	mouse_read();
 	mouse_write(0xF4);
 	mouse_read();
-	mouse_write(0xF2);
-	mouse_read();
-	result = mouse_read();
 	/* Try to enable scroll wheel (but not buttons) */
-	mouse_write(0xF3);
-	mouse_read();
-	mouse_write(200);
-	mouse_read();
-	mouse_write(0xF3);
-	mouse_read();
-	mouse_write(100);
-	mouse_read();
-	mouse_write(0xF3);
-	mouse_read();
-	mouse_write(80);
-	mouse_read();
-	mouse_write(0xF2);
-	mouse_read();
-	result = mouse_read();
-	if (result == 3) {
-		mouse_mode = MOUSE_SCROLLWHEEL;
+	if (!args_present("nomousescroll")) {
+		mouse_write(0xF2);
+		mouse_read();
+		result = mouse_read();
+		mouse_write(0xF3);
+		mouse_read();
+		mouse_write(200);
+		mouse_read();
+		mouse_write(0xF3);
+		mouse_read();
+		mouse_write(100);
+		mouse_read();
+		mouse_write(0xF3);
+		mouse_read();
+		mouse_write(80);
+		mouse_read();
+		mouse_write(0xF2);
+		mouse_read();
+		result = mouse_read();
+		if (result == 3) {
+			mouse_mode = MOUSE_SCROLLWHEEL;
+		}
 	}
 
-
-	IRQ_RES;
 	irq_install_handler(MOUSE_IRQ, mouse_handler);
+	IRQ_RES;
 
 	uint8_t tmp = inportb(0x61);
 	outportb(0x61, tmp | 0x80);
