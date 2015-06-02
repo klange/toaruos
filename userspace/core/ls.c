@@ -84,6 +84,9 @@ static void print_entry(struct tfile * file, int colwidth) {
 	if (S_ISDIR(file->statbuf.st_mode)) {
 		/* Directory */
 		ansi_color_str = DIR_COLOR;
+	} else if (file->statbuf.st_mode & S_ISUID) {
+		/* setuid - sudo, etc. */
+		ansi_color_str = SETUID_COLOR;
 	} else if (file->statbuf.st_mode & 0111) {
 		/* Executable */
 		ansi_color_str = EXE_COLOR;
@@ -165,18 +168,19 @@ static void update_column_widths(int * widths, struct tfile * file) {
 static void print_entry_long(int * widths, struct tfile * file) {
 	const char * ansi_color_str;
 	if (S_ISDIR(file->statbuf.st_mode)) {
-		// Directory
+		/* Directory */
 		ansi_color_str = DIR_COLOR;
 	} else if (file->statbuf.st_mode & S_ISUID) {
+		/* setuid - sudo, etc. */
 		ansi_color_str = SETUID_COLOR;
 	} else if (file->statbuf.st_mode & 0111) {
-		// Executable
+		/* Executable */
 		ansi_color_str = EXE_COLOR;
 	} else if (S_ISBLK(file->statbuf.st_mode) || S_ISCHR(file->statbuf.st_mode)) {
 		/* Device file */
 		ansi_color_str = DEVICE_COLOR;
 	} else {
-		// Something else
+		/* Regular file */
 		ansi_color_str = REG_COLOR;
 	}
 
