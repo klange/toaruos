@@ -286,7 +286,7 @@ uintptr_t memory_total(){
 void paging_install(uint32_t memsize) {
 	nframes = memsize  / 4;
 	frames  = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes * 8));
-	memset(frames, 0, INDEX_FROM_BIT(nframes));
+	memset(frames, 0, INDEX_FROM_BIT(nframes * 8));
 
 	uintptr_t phys;
 	kernel_directory = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t),&phys);
