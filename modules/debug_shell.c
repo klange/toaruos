@@ -627,6 +627,7 @@ static void debug_shell_handle_out(void * data, char * name) {
 
 static void debug_shell_actual(void * data, char * name) {
 
+	current_process->image.entry = 0;
 	fs_node_t * tty = (fs_node_t *)data;
 
 	/* Our prompt will include the version number of the current kernel */
