@@ -39,6 +39,7 @@ int main(int argc, char * argv[]) {
 	spkr = open("/dev/spkr", O_WRONLY);
 	if (spkr == -1) {
 		fprintf(stderr, "%s: could not open speaker\n", argv[0]);
+		return 1;
 	}
 
 	set_unbuffered();
