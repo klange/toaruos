@@ -43,6 +43,8 @@ typedef struct {
 	uint8_t                   bgd_block_span;
 	uint8_t                   bgd_offset;
 	unsigned int              inode_size;
+
+	uint8_t *                 cache_data;
 } ext2_fs_t;
 
 /*
@@ -1408,11 +1410,12 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 
 	debug_print(INFO, "Allocating cache...");
 	DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
+	this->cache_data = calloc(this->block_size, this->cache_entries);
 	for (uint32_t i = 0; i < this->cache_entries; ++i) {
 		DC[i].block_no = 0;
 		DC[i].dirty = 0;
 		DC[i].last_use = 0;
-		DC[i].block = malloc(this->block_size);
+		DC[i].block = this->cache_data + i * this->block_size;
 		if (i % 128 == 0) {
 			debug_print(INFO, "Allocated cache block #%d", i+1);
 		}
