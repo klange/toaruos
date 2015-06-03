@@ -203,6 +203,12 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 	/* This operation requires the filesystem lock */
 	spin_lock(this->lock);
 
+	if (!DC) {
+		write_fs(this->block_device, block_no * this->block_size, this->block_size, buf);
+		spin_unlock(this->lock);
+		return E_SUCCESS;
+	}
+
 	/* Find the entry in the cache */
 	int oldest = -1;
 	unsigned int oldest_age = UINT32_MAX;
@@ -1408,19 +1414,24 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 	}
 	this->inodes_per_group = SB->inodes_count / BGDS;
 
-	debug_print(INFO, "Allocating cache...");
-	DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
-	this->cache_data = calloc(this->block_size, this->cache_entries);
-	for (uint32_t i = 0; i < this->cache_entries; ++i) {
-		DC[i].block_no = 0;
-		DC[i].dirty = 0;
-		DC[i].last_use = 0;
-		DC[i].block = this->cache_data + i * this->block_size;
-		if (i % 128 == 0) {
-			debug_print(INFO, "Allocated cache block #%d", i+1);
+	if (!args_present("noext2cache")) {
+		debug_print(INFO, "Allocating cache...");
+		DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
+		this->cache_data = calloc(this->block_size, this->cache_entries);
+		for (uint32_t i = 0; i < this->cache_entries; ++i) {
+			DC[i].block_no = 0;
+			DC[i].dirty = 0;
+			DC[i].last_use = 0;
+			DC[i].block = this->cache_data + i * this->block_size;
+			if (i % 128 == 0) {
+				debug_print(INFO, "Allocated cache block #%d", i+1);
+			}
 		}
+		debug_print(INFO, "Allocated cache.");
+	} else {
+		DC = NULL;
+		debug_print(NOTICE, "ext2 cache is disabled (noext2cache)");
 	}
-	debug_print(INFO, "Allocated cache.");
 
 	// load the block group descriptors
 	this->bgd_block_span = sizeof(ext2_bgdescriptor_t) * BGDS / this->block_size + 1;
