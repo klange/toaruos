@@ -139,10 +139,12 @@ void
 set_frame(
 		uintptr_t frame_addr
 		) {
-	uint32_t frame  = frame_addr / 0x1000;
-	uint32_t index  = INDEX_FROM_BIT(frame);
-	uint32_t offset = OFFSET_FROM_BIT(frame);
-	frames[index] |= (0x1 << offset);
+	if (frame_addr < nframes * 4 * 0x400) {
+		uint32_t frame  = frame_addr / 0x1000;
+		uint32_t index  = INDEX_FROM_BIT(frame);
+		uint32_t offset = OFFSET_FROM_BIT(frame);
+		frames[index] |= (0x1 << offset);
+	}
 }
 
 void
@@ -246,9 +248,7 @@ dma_frame(
 	page->rw      = (is_writeable) ? 1 : 0;
 	page->user    = (is_kernel)    ? 0 : 1;
 	page->frame   = address / 0x1000;
-	if (address < nframes * 4 * 0x400) {
-		set_frame(address);
-	}
+	set_frame(address);
 }
 
 void

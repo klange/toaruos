@@ -39,8 +39,8 @@ static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8
 static void     open_ata(fs_node_t *node, unsigned int flags);
 static void     close_ata(fs_node_t *node);
 
-static size_t ata_max_offset(struct ata_device * dev) {
-	size_t sectors = dev->identity.sectors_48;
+static uint64_t ata_max_offset(struct ata_device * dev) {
+	uint64_t sectors = dev->identity.sectors_48;
 	if (!sectors) {
 		/* Fall back to sectors_28 */
 		sectors = dev->identity.sectors_28;
