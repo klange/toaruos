@@ -16,6 +16,9 @@
 #include <logging.h>
 #include <hashmap.h>
 
+#define MAX_SYMLINK_DEPTH 8
+#define MAX_SYMLINK_SIZE 4096
+
 tree_t    * fs_tree = NULL; /* File system mountpoint tree */
 fs_node_t * fs_root = NULL; /* Pointer to the root mount fs_node (must be some form of filesystem, even ramdisk) */
 
@@ -364,6 +367,54 @@ fs_node_t *clone_fs(fs_node_t *source) {
 
 	return source;
 }
+
+int symlink_fs(char * target, char * name) {
+	fs_node_t * parent;
+	char *cwd = (char *)(current_process->wd_name);
+	char *path = canonicalize_path(cwd, name);
+
+	char * parent_path = malloc(strlen(path) + 4);
+	sprintf(parent_path, "%s/..", path);
+
+	char * f_path = path + strlen(path) - 1;
+	while (f_path > path) {
+		if (*f_path == '/') {
+			f_path += 1;
+			break;
+		}
+		f_path--;
+	}
+
+	debug_print(WARNING, "creating symlink %s within %s", f_path, parent_path);
+
+	parent = kopen(parent_path, 0);
+	free(parent_path);
+
+	if (!parent) {
+		free(path);
+		return -1;
+	}
+
+	if (parent->symlink) {
+		parent->symlink(parent, target, f_path);
+	}
+
+	free(path);
+	close_fs(parent);
+
+	return 0;
+}
+
+int readlink_fs(fs_node_t *node, char * buf, uint32_t size) {
+	if (!node) return -1;
+
+	if (node->readlink) {
+		return node->readlink(node, buf, size);
+	} else {
+		return -1;
+	}
+}
+
 
 /**
  * canonicalize_path: Canonicalize a path.
@@ -721,31 +772,14 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
 
 
 
-
-
-/**
- * kopen: Open a file by name.
- *
- * Explore the file system tree to find the appropriate node for
- * for a given path. The path can be relative to the working directory
- * and will be canonicalized by the kernel.
- *
- * @param filename Filename to open
- * @param flags    Flag bits for read/write mode.
- * @returns A file system node element that the caller can free.
- */
-fs_node_t *kopen(char *filename, uint32_t flags) {
+fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, char *relative_to) {
 	/* Simple sanity checks that we actually have a file system */
 	if (!filename) {
 		return NULL;
 	}
 
-	debug_print(INFO, "kopen(%s)", filename);
-
-	/* Reference the current working directory */
-	char *cwd = (char *)(current_process->wd_name);
 	/* Canonicalize the (potentially relative) path... */
-	char *path = canonicalize_path(cwd, filename);
+	char *path = canonicalize_path(relative_to, filename);
 	/* And store the length once to save recalculations */
 	size_t path_len = strlen(path);
 
@@ -791,6 +825,8 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	unsigned int depth = 0;
 	/* Find the mountpoint for this file */
 	fs_node_t *node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
+	debug_print(CRITICAL, "path_offset: %s", path_offset);
+	debug_print(CRITICAL, "depth: %d", depth);
 
 	if (!node_ptr) return NULL;
 
@@ -804,13 +840,80 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 		/* Search the active directory for the requested directory */
 		debug_print(INFO, "... Searching for %s", path_offset);
 		node_next = finddir_fs(node_ptr, path_offset);
-		free(node_ptr);
+		close_fs(node_ptr);
 		node_ptr = node_next;
 		if (!node_ptr) {
 			/* We failed to find the requested directory */
 			free((void *)path);
 			return NULL;
-		} else if (depth == path_depth - 1) {
+		}
+		/* 
+		 * This test is a little complicated, but we basically always resolve symlinks in the
+		 * of a path (like /home/symlink/file) even if O_NOFOLLOW and O_PATH are set. If we are
+		 * on the leaf of the path then we will look at those flags and act accordingly
+		 */
+		if ((node_ptr->flags & FS_SYMLINK) &&
+				!((flags & O_NOFOLLOW) && (flags & O_PATH) && depth == path_depth - 1)) {
+			/* This ensures we don't return a path when NOFOLLOW is requested but PATH
+			 * isn't passed.
+			 */
+			debug_print(CRITICAL, "resolving symlink at %s", node_ptr->name);
+			if ((flags & O_NOFOLLOW) && depth == path_depth - 1) {
+				/* TODO(gerow): should probably be setting errno from this */
+				debug_print(NOTICE, "Refusing to follow final entry for open with O_NOFOLLOW for %s.", node_ptr->name);
+				free((void *)path);
+				close_fs(node_ptr);
+				return NULL;
+			}
+			if (symlink_depth >= MAX_SYMLINK_DEPTH) {
+				/* TODO(gerow): should probably be setting errno from this */
+				debug_print(WARNING, "Reached max symlink depth on %s.", node_ptr->name);
+				free((void *)path);
+				close_fs(node_ptr);
+				return NULL;
+			}
+			/* 
+			 * This may actually be big enough that we wouldn't want to allocate it on
+			 * the stack, especially considering this function is called recursively
+			 */
+			char symlink_buf[MAX_SYMLINK_SIZE];
+			int len = node_ptr->readlink(node_ptr, symlink_buf, sizeof(symlink_buf));
+			if (len < 0) {
+				/* TODO(gerow): should probably be setting errno from this */
+				debug_print(WARNING, "Got error %d from symlink for %s.", len, node_ptr->name);
+				free((void *)path);
+				close_fs(node_ptr);
+				return NULL;
+			}
+			if (symlink_buf[len - 1] != '\0') {
+				/* TODO(gerow): should probably be setting errno from this */
+				debug_print(WARNING, "readlink for %s doesn't end in a null pointer. That's weird...", len, node_ptr->name);
+				free((void *)path);
+				close_fs(node_ptr);
+				return NULL;
+			}
+			fs_node_t * old_node_ptr = node_ptr;
+			/* Rebuild our path up to this point. This is hella hacky. */
+			char * relpath = malloc(path_len + 1);
+			char * ptr = relpath;
+			memcpy(relpath, path, path_len + 1);
+			for (unsigned int i = 0; i < depth; i++) {
+				while(*ptr != '\0') {
+					ptr++;
+				}
+				*ptr = PATH_SEPARATOR;
+			}
+			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth + 1, relpath);
+			free(relpath);
+			close_fs(old_node_ptr);
+			if (!node_ptr) {
+				/* Dangling symlink? */
+				debug_print(WARNING, "Failed to open symlink path %s. Perhaps it's a dangling symlink?", symlink_buf);
+				free((void *)path);
+				return NULL;
+			}
+		}
+		if (depth == path_depth - 1) {
 			/* We found the file and are done, open the node */
 			open_fs(node_ptr, flags);
 			free((void *)path);
@@ -823,5 +926,22 @@ fs_node_t *kopen(char *filename, uint32_t flags) {
 	/* We failed to find the requested file, but our loop terminated. */
 	free((void *)path);
 	return NULL;
+}
+
+/**
+ * kopen: Open a file by name.
+ *
+ * Explore the file system tree to find the appropriate node for
+ * for a given path. The path can be relative to the working directory
+ * and will be canonicalized by the kernel.
+ *
+ * @param filename Filename to open
+ * @param flags    Flag bits for read/write mode.
+ * @returns A file system node element that the caller can free.
+ */
+fs_node_t *kopen(char *filename, uint32_t flags) {
+	debug_print(NOTICE, "kopen(%s)", filename);
+
+	return kopen_recur(filename, flags, 0, (char *)(current_process->wd_name));
 }
 
