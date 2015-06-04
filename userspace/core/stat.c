@@ -28,7 +28,7 @@ int main(int argc, char ** argv) {
 	fclose(fd);
 
 	struct stat _stat;
-	stat(argv[1], &_stat);
+	lstat(argv[1], &_stat);
 
 	printf("0x%x bytes\n", _stat.st_size);
 
@@ -36,6 +36,8 @@ int main(int argc, char ** argv) {
 		printf("Is a directory.\n");
 	} else if (S_ISFIFO(_stat.st_mode)) {
 		printf("Is a pipe.\n");
+	} else if (S_ISLNK(_stat.st_mode)) {
+		printf("Is a symlink.\n");
 	} else if (_stat.st_mode & 0111) {
 		printf("Is executable.\n");
 	}
