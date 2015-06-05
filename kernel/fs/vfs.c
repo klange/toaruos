@@ -385,7 +385,7 @@ int symlink_fs(char * target, char * name) {
 		f_path--;
 	}
 
-	debug_print(WARNING, "creating symlink %s within %s", f_path, parent_path);
+	debug_print(NOTICE, "creating symlink %s within %s", f_path, parent_path);
 
 	parent = kopen(parent_path, 0);
 	free(parent_path);
@@ -825,8 +825,8 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 	unsigned int depth = 0;
 	/* Find the mountpoint for this file */
 	fs_node_t *node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
-	debug_print(CRITICAL, "path_offset: %s", path_offset);
-	debug_print(CRITICAL, "depth: %d", depth);
+	debug_print(INFO, "path_offset: %s", path_offset);
+	debug_print(INFO, "depth: %d", depth);
 
 	if (!node_ptr) return NULL;
 
@@ -857,7 +857,7 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 			/* This ensures we don't return a path when NOFOLLOW is requested but PATH
 			 * isn't passed.
 			 */
-			debug_print(CRITICAL, "resolving symlink at %s", node_ptr->name);
+			debug_print(NOTICE, "resolving symlink at %s", node_ptr->name);
 			if ((flags & O_NOFOLLOW) && depth == path_depth - 1) {
 				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(NOTICE, "Refusing to follow final entry for open with O_NOFOLLOW for %s.", node_ptr->name);
