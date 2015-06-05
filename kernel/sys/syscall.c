@@ -663,6 +663,38 @@ static int sys_mount(char * arg, char * mountpoint, char * type, unsigned long f
 	return -EFAULT;
 }
 
+static int sys_symlink(char * target, char * name) {
+	PTR_VALIDATE(target);
+	PTR_VALIDATE(name);
+	return symlink_fs(target, name);
+}
+
+static int sys_readlink(const char * file, char * ptr, int len) {
+	PTR_VALIDATE(file);
+	fs_node_t * node = kopen((char *) file, O_PATH | O_NOFOLLOW);
+	if (!node) {
+		return -ENOENT;
+	}
+	int rv = readlink_fs(node, ptr, len);
+	close_fs(node);
+	return rv;
+}
+
+static int sys_lstat(char * file, uintptr_t st) {
+	int result;
+	PTR_VALIDATE(file);
+	PTR_VALIDATE(st);
+	fs_node_t * fn = kopen(file, O_PATH | O_NOFOLLOW);
+	result = stat_node(fn, st);
+	if (fn) {
+		close_fs(fn);
+	}
+	return result;
+}
+
+/*
+ * System Call Internals
+ */
 static int (*syscalls[])() = {
 	/* System Call Table */
 	[SYS_EXT]          = sys_exit,
@@ -709,6 +741,9 @@ static int (*syscalls[])() = {
 	[SYS_WAITPID]      = sys_waitpid,
 	[SYS_PIPE]         = sys_pipe,
 	[SYS_MOUNT]        = sys_mount,
+	[SYS_SYMLINK]      = sys_symlink,
+	[SYS_READLINK]     = sys_readlink,
+	[SYS_LSTAT]        = sys_lstat,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);

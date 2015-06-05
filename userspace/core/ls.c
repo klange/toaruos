@@ -31,6 +31,7 @@
 
 #define EXE_COLOR		"1;32"
 #define DIR_COLOR		"1;34"
+#define SYMLINK_COLOR	"1;36"
 #define REG_COLOR		"0"
 #define MEDIA_COLOR		""
 #define SYM_COLOR		""
@@ -84,6 +85,9 @@ static void print_entry(struct tfile * file, int colwidth) {
 	if (S_ISDIR(file->statbuf.st_mode)) {
 		/* Directory */
 		ansi_color_str = DIR_COLOR;
+	} else if (S_ISLNK(file->statbuf.st_mode)) {
+		/* Symbolic Link */
+		ansi_color_str = SYMLINK_COLOR;
 	} else if (file->statbuf.st_mode & S_ISUID) {
 		/* setuid - sudo, etc. */
 		ansi_color_str = SETUID_COLOR;
@@ -310,7 +314,7 @@ static int display_dir(char * p) {
 
 			char tmp[strlen(p)+strlen(ent->d_name)+1];
 			sprintf(tmp, "%s/%s", p, ent->d_name);
-			int t = stat(tmp, &f->statbuf);
+			int t = lstat(tmp, &f->statbuf);
 
 			list_insert(ents_list, (void *)f);
 		}
