@@ -143,10 +143,7 @@ struct ext2_inodetable {
 	uint32_t blocks;
 	uint32_t flags;
 	uint32_t osd1;
-	union {
-		uint32_t block[15];
-		char symlink[60];
-	};
+	uint32_t block[15];
 	uint32_t generation;
 	uint32_t file_acl;
 	uint32_t dir_acl;
@@ -155,7 +152,6 @@ struct ext2_inodetable {
 } __attribute__ ((packed));
 
 typedef struct ext2_inodetable ext2_inodetable_t;
-_Static_assert(sizeof(ext2_inodetable_t) == 128, "assert ext2_inodetable_t is 128 bytes");
 
 /* Represents directory entry on disk. */
 struct ext2_dir {

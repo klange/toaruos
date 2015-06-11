@@ -885,9 +885,9 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 				close_fs(node_ptr);
 				return NULL;
 			}
-			if (symlink_buf[len - 1] != '\0') {
+			if (symlink_buf[len] != '\0') {
 				/* TODO(gerow): should probably be setting errno from this */
-				debug_print(WARNING, "readlink for %s doesn't end in a null pointer. That's weird...", len, node_ptr->name);
+				debug_print(WARNING, "readlink for %s doesn't end in a null pointer. That's weird...", node_ptr->name);
 				free((void *)path);
 				close_fs(node_ptr);
 				return NULL;

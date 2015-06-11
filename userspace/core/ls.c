@@ -174,6 +174,9 @@ static void print_entry_long(int * widths, struct tfile * file) {
 	if (S_ISDIR(file->statbuf.st_mode)) {
 		/* Directory */
 		ansi_color_str = DIR_COLOR;
+	} else if (S_ISLNK(file->statbuf.st_mode)) {
+		/* Symbolic Link */
+		ansi_color_str = SYMLINK_COLOR;
 	} else if (file->statbuf.st_mode & S_ISUID) {
 		/* setuid - sudo, etc. */
 		ansi_color_str = SETUID_COLOR;

@@ -15,20 +15,27 @@
 #include <sys/time.h>
 
 int main(int argc, char ** argv) {
+	int dereference = 0;
 	if (argc < 2) {
 		fprintf(stderr,"%s: expected argument\n", argv[0]);
 		return 1;
 	}
 
-	FILE * fd = stdin;
-	fd = fopen(argv[1], "r");
-	if (!fd) {
-		return 1;
+	char * file = argv[1];
+
+	if (argc > 2) {
+		if (!strcmp(argv[1],"-L")) {
+			dereference = 1;
+		}
+		file = argv[2];
 	}
-	fclose(fd);
 
 	struct stat _stat;
-	lstat(argv[1], &_stat);
+	if (dereference) {
+		if (stat(file, &_stat) < 0) return 1;
+	} else {
+		if (lstat(file, &_stat) < 0) return 1;
+	}
 
 	printf("0x%x bytes\n", _stat.st_size);
 

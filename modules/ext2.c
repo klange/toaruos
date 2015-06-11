@@ -19,6 +19,9 @@
 #define E_NOSPACE   2
 #define E_BADPARENT 3
 
+#undef _symlink
+#define _symlink(inode) ((char *)(inode)->block)
+
 /*
  * EXT2 filesystem object
  */
@@ -1303,9 +1306,9 @@ static void symlink_ext2(fs_node_t * parent, char * target, char * name) {
 	memset(inode->osd2, 0x00, sizeof(inode->osd2));
 
 	size_t target_len = strlen(target) + 1;
-	int embedded = target_len < sizeof(inode->symlink);
+	int embedded = target_len < 60; // sizeof(_symlink(inode));
 	if (embedded) {
-		memcpy(inode->symlink, target, target_len);
+		memcpy(_symlink(inode), target, target_len);
 		inode->size = target_len;
 	}
 
@@ -1329,11 +1332,14 @@ static int readlink_ext2(fs_node_t * node, char * buf, size_t size) {
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 	ext2_inodetable_t * inode = read_inode(this, node->inode);
 	int read_size = inode->size < size ? inode->size : size;
-	if (inode->size > sizeof(inode->symlink)) {
+	if (inode->size > 60) { //sizeof(_symlink(inode))) {
 		read_ext2(node, 0, read_size, (uint8_t *)buf);
 	} else {
-		memcpy(buf, inode->symlink, read_size);
+		memcpy(buf, _symlink(inode), read_size);
 	}
+
+	/* Believe it or not, we actually aren't supposed to include the nul in the length. */
+	buf[read_size] = '\0';
 
 	free(inode);
 	return read_size;
