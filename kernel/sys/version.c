@@ -17,8 +17,8 @@ char * __kernel_version_format = "%d.%d.%d-%s";
 
 /* Version numbers X.Y.Z */
 int    __kernel_version_major = 0;
-int    __kernel_version_minor = 10;
-int    __kernel_version_lower = 1;
+int    __kernel_version_minor = 11;
+int    __kernel_version_lower = 0;
 
 /* Kernel build suffix, which doesn't necessarily
  * mean anything, but can be used to distinguish
