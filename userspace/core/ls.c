@@ -59,7 +59,31 @@ static int term_height = DEFAULT_TERM_HEIGHT;
 struct tfile {
 	char * name;
 	struct stat statbuf;
+	char * link;
+	struct stat statbufl;
 };
+
+static const char * color_str(struct stat * sb) {
+	if (S_ISDIR(sb->st_mode)) {
+		/* Directory */
+		return DIR_COLOR;
+	} else if (S_ISLNK(sb->st_mode)) {
+		/* Symbolic Link */
+		return SYMLINK_COLOR;
+	} else if (sb->st_mode & S_ISUID) {
+		/* setuid - sudo, etc. */
+		return SETUID_COLOR;
+	} else if (sb->st_mode & 0111) {
+		/* Executable */
+		return EXE_COLOR;
+	} else if (S_ISBLK(sb->st_mode) || S_ISCHR(sb->st_mode)) {
+		/* Device file */
+		return DEVICE_COLOR;
+	} else {
+		/* Regular file */
+		return REG_COLOR;
+	}
+}
 
 static int filecmp(const void * c1, const void * c2) {
 	const struct tfile * d1 = *(const struct tfile **)c1;
@@ -81,27 +105,7 @@ static int filecmp_notypesort(const void * c1, const void * c2) {
 }
 
 static void print_entry(struct tfile * file, int colwidth) {
-	const char * ansi_color_str;
-	if (S_ISDIR(file->statbuf.st_mode)) {
-		/* Directory */
-		ansi_color_str = DIR_COLOR;
-	} else if (S_ISLNK(file->statbuf.st_mode)) {
-		/* Symbolic Link */
-		ansi_color_str = SYMLINK_COLOR;
-	} else if (file->statbuf.st_mode & S_ISUID) {
-		/* setuid - sudo, etc. */
-		ansi_color_str = SETUID_COLOR;
-	} else if (file->statbuf.st_mode & 0111) {
-		/* Executable */
-		ansi_color_str = EXE_COLOR;
-	} else if (S_ISBLK(file->statbuf.st_mode) || S_ISCHR(file->statbuf.st_mode)) {
-		/* Device file */
-		ansi_color_str = DEVICE_COLOR;
-	} else {
-		/* Regular file? */
-		ansi_color_str = REG_COLOR;
-	}
-
+	const char * ansi_color_str = color_str(&file->statbuf);
 
 	/* Print the file name */
 	if (stdout_is_tty) {
@@ -170,26 +174,7 @@ static void update_column_widths(int * widths, struct tfile * file) {
 }
 
 static void print_entry_long(int * widths, struct tfile * file) {
-	const char * ansi_color_str;
-	if (S_ISDIR(file->statbuf.st_mode)) {
-		/* Directory */
-		ansi_color_str = DIR_COLOR;
-	} else if (S_ISLNK(file->statbuf.st_mode)) {
-		/* Symbolic Link */
-		ansi_color_str = SYMLINK_COLOR;
-	} else if (file->statbuf.st_mode & S_ISUID) {
-		/* setuid - sudo, etc. */
-		ansi_color_str = SETUID_COLOR;
-	} else if (file->statbuf.st_mode & 0111) {
-		/* Executable */
-		ansi_color_str = EXE_COLOR;
-	} else if (S_ISBLK(file->statbuf.st_mode) || S_ISCHR(file->statbuf.st_mode)) {
-		/* Device file */
-		ansi_color_str = DEVICE_COLOR;
-	} else {
-		/* Regular file */
-		ansi_color_str = REG_COLOR;
-	}
+	const char * ansi_color_str = color_str(&file->statbuf);
 
 	/* file permissions */
 	if (S_ISLNK(file->statbuf.st_mode))       { printf("l"); }
@@ -238,8 +223,15 @@ static void print_entry_long(int * widths, struct tfile * file) {
 	/* Print the file name */
 	if (stdout_is_tty) {
 		printf("\033[%sm%s\033[0m", ansi_color_str, file->name);
+		if (S_ISLNK(file->statbuf.st_mode)) {
+			const char * s = color_str(&file->statbufl);
+			printf(" -> \033[%sm%s\033[0m", s, file->link);
+		}
 	} else {
 		printf("%s", file->name);
+		if (S_ISLNK(file->statbuf.st_mode)) {
+			printf(" -> %s", file->link);
+		}
 	}
 
 	printf("\n");
@@ -318,6 +310,11 @@ static int display_dir(char * p) {
 			char tmp[strlen(p)+strlen(ent->d_name)+1];
 			sprintf(tmp, "%s/%s", p, ent->d_name);
 			int t = lstat(tmp, &f->statbuf);
+			if (S_ISLNK(f->statbuf.st_mode)) {
+				stat(tmp, &f->statbufl);
+				f->link = malloc(4096);
+				readlink(tmp, f->link, 4096);
+			}
 
 			list_insert(ents_list, (void *)f);
 		}
