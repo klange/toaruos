@@ -12,7 +12,6 @@
 #include <sys/utsname.h>
 
 #include "lib/graphics.h"
-#include "lib/yutani.h"
 
 #include "gui/terminal/lib/termemu.h"
 #include "toaru_logo.h"
@@ -20,33 +19,48 @@
 #define NUM_DATA_LINES 30
 
 char data_lines[NUM_DATA_LINES][100];
+const char * prog_lines[NUM_DATA_LINES] = {NULL};
 
 #define C_A "\033[34;1m"
 #define C_O "\033[0m"
+
+void print_thing(int j) {
+	printf("\033[0m  %s", data_lines[j]);
+	fflush(stdout);
+	if (prog_lines[j]) {
+		system(prog_lines[j]);
+	} else {
+		printf("\n");
+	}
+}
 
 int main(int argc, char * argv[]) {
 
 	/* Prepare data */
 	char * user = getenv("USER");
 	char * wm_theme = getenv("WM_THEME");
-	struct utsname buf;
-	uname(&buf);
-	yutani_t * yctx = yutani_init();
 
 	int i = 0;
-	sprintf(data_lines[i++], C_A "%s" C_O "@" C_A "%s", user, buf.nodename);
+	prog_lines[i] = "hostname";
+	sprintf(data_lines[i++], C_A "%s" C_O "@" C_A, user);
 	sprintf(data_lines[i++], C_A "OS: " C_O "ToaruOS");
-	sprintf(data_lines[i++], C_A "Kernel: " C_O "%s %s", buf.sysname, buf.release);
-	sprintf(data_lines[i++], C_A "Uptime: " C_O "(query /proc/uptime)");
+	prog_lines[i] = "uname -sr";
+	sprintf(data_lines[i++], C_A "Kernel: " C_O);
+	prog_lines[i] = "uptime -p";
+	sprintf(data_lines[i++], C_A "Uptime: " C_O);
 	//sprintf(data_lines[i++], C_A "Packages: " C_O "(hell if I know!)");
-	sprintf(data_lines[i++], C_A "Shell: " C_O "esh %s", buf.release);
-	sprintf(data_lines[i++], C_A "Resolution: " C_O "%dx%d", yctx->display_width, yctx->display_height);
+	prog_lines[i] = "sh -v";
+	sprintf(data_lines[i++], C_A "Shell: " C_O);
+	prog_lines[i] = "yutani-query -r";
+	sprintf(data_lines[i++], C_A "Resolution: " C_O);
 	sprintf(data_lines[i++], C_A "WM: " C_O "Yutani");
 	sprintf(data_lines[i++], C_A "WM Theme: " C_O "%s", wm_theme);
-	sprintf(data_lines[i++], C_A "Font: " C_O "DejaVu Sans Mono");
+	prog_lines[i] = "yutani-query -m";
+	sprintf(data_lines[i++], C_A "Font: " C_O);
 	//sprintf(data_lines[i++], C_A "CPU: " C_O "(query cpudet)");
 	//sprintf(data_lines[i++], C_A "GPU: " C_O "(hell if I know!)");
-	sprintf(data_lines[i++], C_A "RAM: " C_O "(query /proc/meminfo)");
+	prog_lines[i] = "free -ut";
+	sprintf(data_lines[i++], C_A "RAM: " C_O);
 
 	int j = 0;
 	for (unsigned int y = 0; y < gimp_image.height; y += 2) {
@@ -81,7 +95,7 @@ int main(int argc, char * argv[]) {
 
 		}
 		if (j < i) {
-			printf("\033[0m  %s\n", data_lines[j]);
+			print_thing(j);
 			j++;
 		} else {
 			printf("\033[0m\n");
@@ -92,7 +106,7 @@ int main(int argc, char * argv[]) {
 		for (int x = 0; x < gimp_image.width; x++) {
 			printf(" ");
 		}
-		printf("\033[0m  %s\n", data_lines[j]);
+		print_thing(j);
 		j++;
 	}
 }
