@@ -835,6 +835,10 @@ void sort_commands() {
 	}
 }
 
+void show_version(void) {
+	printf("esh 0.11.0 - experimental shell\n");
+}
+
 void show_usage(int argc, char * argv[]) {
 	printf(
 			"Esh: The Experimental Shell\n"
@@ -843,6 +847,7 @@ void show_usage(int argc, char * argv[]) {
 			"\n"
 			" -c \033[4mcmd\033[0m \033[3mparse and execute cmd\033[0m\n"
 			//-c cmd \033[...
+			" -v     \033[3mshow version information\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
 }
@@ -868,11 +873,14 @@ int main(int argc, char ** argv) {
 
 	if (argc > 1) {
 		int index, c;
-		while ((c = getopt(argc, argv, "c:?")) != -1) {
+		while ((c = getopt(argc, argv, "c:v?")) != -1) {
 			switch (c) {
 				case 'c':
 					shell_interactive = 0;
 					return shell_exec(optarg, strlen(optarg));
+				case 'v':
+					show_version();
+					return 0;
 				case '?':
 					show_usage(argc, argv);
 					return 0;
