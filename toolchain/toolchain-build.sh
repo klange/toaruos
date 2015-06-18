@@ -45,7 +45,9 @@ if [[ "$INSTALL_PACKAGES" == "true" ]] ; then
         echo "  - qemu"
         echo "  - texinfo"
         echo "  - pkg-config"
-        echo "(If you are on Arch, install: clang yasm genext2fs base-devel wget mpfr mpc gmp qemu autoconf automake texinfo pkg-config)"
+        echo "  - git"
+        echo "  - ctags"
+        echo "(If you are on Arch, install: clang yasm genext2fs base-devel wget mpfr mpc gmp qemu autoconf automake texinfo pkg-config git ctags)"
         echo ""
         echo "... then run this script (toolchain/toolchain-build.sh) again with the -q flag."
         exit 1
