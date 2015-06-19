@@ -20,9 +20,11 @@ if [[ $TOOLCHAIN/ = $PWD/* ]]; then
 	exit 1
 fi
 
+BLACKLIST='userspace/tests/* userspace/gui/gl/teapot.c'
+
 # Rebuild
 echo "Rebuilding..."
-rm userspace/tests/*
+rm $BLACKLIST
 touch -d tomorrow toaruos-disk.img
 make
 i686-pc-toaru-strip hdd/bin/*
@@ -31,6 +33,20 @@ echo "Cloning CD source directory..."
 rm -rf cdrom
 cp -r util/cdrom cdrom
 mv hdd/mod cdrom/mod
+
+cat > hdd/home/local/.menu.desktop <<EOF
+clock,clock-win,Clock
+applications-painting,draw,Draw!
+julia,julia,Julia Fractals
+gears,gears,Gears
+drawlines,drawlines,Lines
+snow,make-it-snow,Make it Snow
+pixman-demo,pixman-demo,Pixman Demo
+plasma,plasma,Plasma
+applications-simulation,game,RPG Demo
+utilities-terminal,terminal,Terminal
+ttk-demo,ttk-demo,TTK Demo
+EOF
 
 echo "Generating ramdisk..."
 genext2fs -B 4096 -d hdd -D util/devtable -U -b 16384 -N 1024 cdrom/ramdisk.img
@@ -44,4 +60,4 @@ grub-mkrescue -d /usr/lib/grub/i386-pc -o toaruos.iso cdrom
 echo "Restoring modules directory to hdd/mod..."
 mv cdrom/mod hdd/mod
 rm -r cdrom
-git co userspace/tests/
+git checkout $BLACKLIST

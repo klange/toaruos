@@ -91,7 +91,7 @@ void _ttk_draw_button(cairo_t * cr, int x, int y, int width, int height, char * 
 	cairo_restore(cr);
 }
 
-void _ttk_draw_button_hover(cairo_t * cr, int x, int y, int width, int height) {
+void _ttk_draw_button_hover(cairo_t * cr, int x, int y, int width, int height, char * title) {
 	cairo_save(cr);
 
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
@@ -140,7 +140,6 @@ void _ttk_draw_button_hover(cairo_t * cr, int x, int y, int width, int height) {
 		set_font_face(FONT_SANS_SERIF);
 		set_font_size(13);
 
-		char * title = "Button with Hover Highlight";
 		int str_width = draw_string_width(title);
 		draw_string(&fake_context, (width - str_width) / 2 + x, y + (height) / 2 + 4, rgb(49,49,49), title);
 	}
@@ -185,7 +184,7 @@ void _ttk_draw_button_select(cairo_t * cr, int x, int y, int width, int height, 
 	
 }
 
-void _ttk_draw_button_disabled(cairo_t * cr, int x, int y, int width, int height) {
+void _ttk_draw_button_disabled(cairo_t * cr, int x, int y, int width, int height, char * title) {
 	cairo_save(cr);
 
 	cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
@@ -234,7 +233,6 @@ void _ttk_draw_button_disabled(cairo_t * cr, int x, int y, int width, int height
 		set_font_face(FONT_SANS_SERIF);
 		set_font_size(13);
 
-		char * title = "Disabled Button";
 		int str_width = draw_string_width(title);
 		draw_string(&fake_context, (width - str_width) / 2 + x, y + (height) / 2 + 4, rgb(100,100,100), title);
 	}
@@ -292,10 +290,10 @@ void ttk_window_draw(ttk_window_t * window) {
 		_ttk_draw_button(cr, 4, TTK_MENU_HEIGHT + 4, window->width - 8, 40, "Regular Button");
 
 		_ttk_draw_button(cr, 4, TTK_MENU_HEIGHT + 48 + 4, (window->width / 2) - 8, 40, "Regular Button");
-		_ttk_draw_button_hover(cr, 4 + (window->width / 2), TTK_MENU_HEIGHT + 48 + 4, (window->width / 2) - 8, 40);
+		_ttk_draw_button_hover(cr, 4 + (window->width / 2), TTK_MENU_HEIGHT + 48 + 4, (window->width / 2) - 8, 40, "Hover Button");
 
 		_ttk_draw_button_select(cr, 4, TTK_MENU_HEIGHT + 2 * 48 + 4, (window->width / 2) - 8, 40, "Selected");
-		_ttk_draw_button_disabled(cr, 4 + (window->width / 2), TTK_MENU_HEIGHT + 2 * 48 + 4, (window->width / 2) - 8, 40);
+		_ttk_draw_button_disabled(cr, 4 + (window->width / 2), TTK_MENU_HEIGHT + 2 * 48 + 4, (window->width / 2) - 8, 40, "Disabled Button");
 
 		_ttk_draw_button(cr, 4, TTK_MENU_HEIGHT + 3 * 48 + 4, window->width - 8, window->height - (3 * 48) - TTK_MENU_HEIGHT - 8, "Regular Button");
 
