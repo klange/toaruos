@@ -113,7 +113,7 @@ START_VGA = start=--vga
 START_SINGLE = start=--single
 WITH_LOGS = logtoserial=1
 
-.PHONY: all system install test toolchain userspace modules
+.PHONY: all system install test toolchain userspace modules cdrom toaruos.iso
 .PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless
 .PHONY: kvm vga-kvm term-kvm headless-kvm
@@ -247,6 +247,15 @@ toaruos-disk.img: ${USERSPACE} util/devtable
 	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
+
+#########
+# cdrom #
+#########
+
+cdrom: toaruos.iso
+
+toaruos.iso: 
+	util/make-cdrom.sh
 
 ##############
 #    ctags   #
