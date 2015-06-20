@@ -1305,8 +1305,8 @@ static void symlink_ext2(fs_node_t * parent, char * target, char * name) {
 	/* Write the osd blocks to 0 */
 	memset(inode->osd2, 0x00, sizeof(inode->osd2));
 
-	size_t target_len = strlen(target) + 1;
-	int embedded = target_len < 60; // sizeof(_symlink(inode));
+	size_t target_len = strlen(target);
+	int embedded = target_len <= 60; // sizeof(_symlink(inode));
 	if (embedded) {
 		memcpy(_symlink(inode), target, target_len);
 		inode->size = target_len;
