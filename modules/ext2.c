@@ -1339,7 +1339,9 @@ static int readlink_ext2(fs_node_t * node, char * buf, size_t size) {
 	}
 
 	/* Believe it or not, we actually aren't supposed to include the nul in the length. */
-	buf[read_size] = '\0';
+	if (read_size < size) {
+		buf[read_size] = '\0';
+	}
 
 	free(inode);
 	return read_size;
