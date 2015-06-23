@@ -104,7 +104,20 @@ static void redraw(void) {
 			draw_centered_label(120+234,12, "of the NCSA/University of Illinois license.");
 			draw_next_button(0);
 			break;
+		case 1:
+			draw_logo();
+			draw_centered_label(100+70,12,"If you wish to exit the tutorial at any time, you can");
+			draw_centered_label(100+88,12,"click the × in the upper right corner of this window.");
+			draw_next_button(0);
+			break;
+		case 2:
+			draw_logo();
+			draw_centered_label(100+70,12,"Congratulations!");
+			draw_centered_label(100+88,12,"You've finished the tutorial!");
+			draw_next_button(1);
+			break;
 		default:
+			exit(0);
 			break;
 	}
 
@@ -112,12 +125,31 @@ static void redraw(void) {
 	flip(ctx_wizard);
 	yutani_flip(yctx, win_hints);
 	yutani_flip(yctx, win_wizard);
-
 }
 
+static void do_click_callback(void) {
+	current_frame += 1;
+	redraw();
+}
+
+static int previous_buttons = 0;
 static void do_mouse_stuff(struct yutani_msg_window_mouse_event * me) {
 	if (button_focused == 2) {
 		/* See if we released and are still inside. */
+		if (me->command == YUTANI_MOUSE_EVENT_RAISE || me->command == YUTANI_MOUSE_EVENT_CLICK) {
+			if (!(me->buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
+				if (me->new_x > center_win_x(button_width)
+				    && me->new_x < center_win_x(button_width) + button_width
+				    && me->new_y > 400
+				    && me->new_y < 400 + button_height) {
+					button_focused = 1;
+					do_click_callback();
+				} else {
+					button_focused = 0;
+					redraw();
+				}
+			}
+		}
 	} else {
 		if (me->new_x > center_win_x(button_width)
 			&& me->new_x < center_win_x(button_width) + button_width
@@ -127,6 +159,10 @@ static void do_mouse_stuff(struct yutani_msg_window_mouse_event * me) {
 				button_focused = 1;
 				redraw();
 			}
+			if (me->command == YUTANI_MOUSE_EVENT_DOWN && (me->buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
+				button_focused = 2;
+				redraw();
+			}
 		} else {
 			if (button_focused) {
 				button_focused = 0;
@@ -134,6 +170,7 @@ static void do_mouse_stuff(struct yutani_msg_window_mouse_event * me) {
 			}
 		}
 	}
+	previous_buttons = me->buttons;
 }
 
 int main(int argc, char * argv[]) {
