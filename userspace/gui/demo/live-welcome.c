@@ -174,6 +174,8 @@ int main(int argc, char * argv[]) {
 	surface_wizard = cairo_image_surface_create_for_data(ctx_wizard->backbuffer, CAIRO_FORMAT_ARGB32, win_wizard->width, win_wizard->height, stride);
 	cr_wizard = cairo_create(surface_wizard);
 
+	yutani_window_advertise_icon(yctx, win_wizard, "Welcome Tutorial", "live-welcome");
+
 	redraw();
 
 	yutani_focus_window(yctx, win_wizard->wid);

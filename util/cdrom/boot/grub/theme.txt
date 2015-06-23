@@ -1,0 +1,74 @@
+title-text: "ToaruOS Bootable CD"
+title-color: "white"
+message-color: "white"
+message-bg-color: "black"
+desktop-image: "/wallpaper.png"
+desktop-color: "#000000"
+
++ label {
+    text="Select a boot option or wait for the timeout."
+    width = 100%
+    top = 10%
+    align = center
+    color = #fff
+}
+
++ label {
+    top = 40%
+    width = 100%
+    align = center
+    color = #fff
+    text = "Requires a PS/2 keyboard + mouse and at least 256MB of RAM."
+}
++ label {
+    top = 43%
+    width = 100%
+    align = center
+    color = #fff
+    text = "Use alt+mouse1 to drag windows, alt+f10 to fullscreen."
+}
++ label {
+    top = 46%
+    width = 100%
+    align = center
+    color = #fff
+    text = "The default user is 'local' with password 'local'."
+}
++ label {
+    top = 49%
+    width = 100%
+    align = center
+    color = #fff
+    text = "If video fails, your GPU may not support the necessary 1024x768x32bpp mode."
+}
++ label {
+    top = 60%
+    width = 100%
+    align = center
+    color = #fff
+    text = "http://toaruos.org | https://github.com/klange/toaruos"
+}
+
++ boot_menu {
+    left = 10%
+    width = 85%
+    height = 55%
+    top = 15%
+    item_color = "white"
+    selected_item_color = "blue"
+    item_height = 13
+    item_padding = 10
+    item_spacing = 10
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 15%
+    width = 70%
+    top = 73%
+    height = 12
+    show_text = true
+    text_color = "255, 255, 255"
+    text = "@TIMEOUT_NOTIFICATION_LONG@"
+}
+
