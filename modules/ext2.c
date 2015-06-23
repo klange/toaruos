@@ -1331,7 +1331,7 @@ static void symlink_ext2(fs_node_t * parent, char * target, char * name) {
 static int readlink_ext2(fs_node_t * node, char * buf, size_t size) {
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 	ext2_inodetable_t * inode = read_inode(this, node->inode);
-	int read_size = inode->size < size ? inode->size : size;
+	size_t read_size = inode->size < size ? inode->size : size;
 	if (inode->size > 60) { //sizeof(_symlink(inode))) {
 		read_ext2(node, 0, read_size, (uint8_t *)buf);
 	} else {
