@@ -50,6 +50,11 @@ int module_quickcheck(void * blob) {
 		target->e_ident[2] != ELFMAG2 ||
 		target->e_ident[3] != ELFMAG3) {
 
+		char * head = (char *)blob;
+		if (head[0] == 'P' && head[1] == 'A' && head[2] == 'C' && head[3] == 'K') {
+			return 2;
+		}
+
 		return 0;
 	}
 

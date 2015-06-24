@@ -69,6 +69,11 @@ fs_node_t _early_log = { .write = &_early_log_write };
 #define DISABLE_EARLY_BOOT_LOG()
 #endif
 
+struct pack_header {
+	char     head[4];
+	uint32_t region_size;
+};
+
 /*
  * multiboot i386 (pc) kernel entry point
  */
@@ -170,16 +175,33 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		uint32_t module_end = mod->mod_end;
 		size_t   module_size = module_end - module_start;
 
-		if (!module_quickcheck((void *)module_start)) {
-			debug_print(NOTICE, "Loading ramdisk: 0x%x:0x%x", module_start, module_end);
-			ramdisk_mount(module_start, module_size);
-		} else {
-
+		int check_result = module_quickcheck((void *)module_start);
+		if (check_result == 1) {
 			debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start, module_end);
 			module_data_t * mod_info = (module_data_t *)module_load_direct((void *)(module_start), module_size);
 			if (mod_info) {
 				debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
 			}
+		} else if (check_result == 2) {
+			/* Mod pack */
+			debug_print(NOTICE, "Loading modpack. %x", module_start);
+			struct pack_header * pack_header = (struct pack_header *)module_start;
+			while (pack_header->region_size) {
+				void * start = (void *)((uintptr_t)pack_header + 4096);
+				int result = module_quickcheck(start);
+				if (result != 1) {
+					debug_print(WARNING, "Not actually a module?! %x", start);
+				}
+				module_data_t * mod_info = (module_data_t *)module_load_direct(start, pack_header->region_size);
+				if (mod_info) {
+					debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
+				}
+				pack_header = (struct pack_header *)((uintptr_t)start + pack_header->region_size);
+			}
+			debug_print(NOTICE, "Done with modpack.");
+		} else {
+			debug_print(NOTICE, "Loading ramdisk: 0x%x:0x%x", module_start, module_end);
+			ramdisk_mount(module_start, module_size);
 		}
 	}
 
