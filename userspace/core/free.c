@@ -12,7 +12,7 @@ void show_usage(int argc, char * argv[]) {
 	printf(
 			"free - show available memory\n"
 			"\n"
-			"usage: %s [-p]\n"
+			"usage: %s [-utk?]\n"
 			"\n"
 			" -u     \033[3mshow used instead of free\033[0m\n"
 			" -t     \033[3minclude a total\033[0m\n"
