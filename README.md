@@ -15,7 +15,7 @@ ToaruOS started as a side project at the University of Illinois at Urbana-Champa
 
 The Toaru kernel provides a basic Unix-like environment. The kernel uses a hybrid modular architecture, with loadable modules providing most device driver support. The core kernel includes support for Unix pipes and TTYs, a virtual file system, multitasking, ELF binary support, and various core platform features on x86 systems.
 
-Modules provide support for disk drives, ext2 filesystems, serial, keyboards and mice, a `/proc` filesystem similar to the one found in Linux, as well as an expanding collcetion of other device drivers.
+Modules provide support for disk drives, ext2 filesystems, serial, keyboards and mice, a `/proc` filesystem similar to the one found in Linux, as well as an expanding collection of other device drivers.
 
 ## Userspace ##
 
