@@ -45,3 +45,4 @@
 #define SYS_SYMLINK 56
 #define SYS_READLINK 57
 #define SYS_LSTAT 58
+#define SYS_FCHDIR 59

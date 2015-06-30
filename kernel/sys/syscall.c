@@ -406,14 +406,14 @@ static int sys_reboot(void) {
 	return 0;
 }
 
-static int sys_chdir(char * newdir) {
-	PTR_VALIDATE(newdir);
+/* Skips ptr validation to allow fchdir to use this function */
+static int do_chdir(char * newdir) {
 	char * path = canonicalize_path(current_process->wd_name, newdir);
 	fs_node_t * chd = kopen(path, 0);
 	if (chd) {
 		if ((chd->flags & FS_DIRECTORY) == 0) {
 			close_fs(chd);
-			return -1;
+			return -ENOTDIR;
 		}
 		close_fs(chd);
 		free(current_process->wd_name);
@@ -421,8 +421,21 @@ static int sys_chdir(char * newdir) {
 		memcpy(current_process->wd_name, path, strlen(path) + 1);
 		return 0;
 	} else {
-		return -1;
+		return -ENOENT;
 	}
+}
+
+static int sys_chdir(char * newdir) {
+	PTR_VALIDATE(newdir);
+	return do_chdir(newdir);
+}
+
+static int sys_fchdir(int fd) {
+	if (!FD_CHECK(fd)) {
+		return -EBADF;
+	}
+	fs_node_t * node = FD_ENTRY(fd);
+	return do_chdir(node->path);
 }
 
 static int sys_getcwd(char * buf, size_t size) {
@@ -769,6 +782,7 @@ static int (*syscalls[])() = {
 	[SYS_SYMLINK]      = sys_symlink,
 	[SYS_READLINK]     = sys_readlink,
 	[SYS_LSTAT]        = sys_lstat,
+	[SYS_FCHDIR]       = sys_fchdir,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);
