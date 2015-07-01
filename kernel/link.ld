@@ -28,6 +28,8 @@ SECTIONS
 		*(.symbols)
 		PROVIDE(kernel_symbols_start = .);
 		PROVIDE(kernel_symbols_end = .);
+		*(.extra_files)
+		PROVIDE(bss_start = .);
 	}
 
 	.bss BLOCK(4K) : ALIGN(4K)

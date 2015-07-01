@@ -74,3 +74,5 @@ contrib
 cdrom
 toaruos.iso
 modpack.kop
+ramdisk.img
+toaruos-kernel.bin

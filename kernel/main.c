@@ -74,6 +74,14 @@ struct pack_header {
 	uint32_t region_size;
 };
 
+#define EMBEDDED_STARTFILES
+#ifdef EMBEDDED_STARTFILES
+extern void * embedded_packfile;
+extern void * embedded_ramdisk_start;
+extern void * embedded_ramdisk_end;
+#define FALLBACK_CMDLINE "root=/dev/ram0 vid=qemu,1024,768 start=--xsession"
+#endif
+
 /*
  * multiboot i386 (pc) kernel entry point
  */
@@ -95,6 +103,19 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	idt_install();      /* IDT */
 	isrs_install();     /* Interrupt service requests */
 	irq_install();      /* Hardware interrupt requests */
+
+	debug_print(NOTICE, "Packfile starts at: 0x%x", (void *)&embedded_packfile);
+	debug_print(NOTICE, "Ramdisk starts at:  0x%x", (void *)&embedded_ramdisk_start);
+	debug_print(NOTICE, "Ramdisk ends at:    0x%x", (void *)&embedded_ramdisk_end);
+
+#ifdef EMBEDDED_STARTFILES
+	uintptr_t heap_point = (uintptr_t)&end;
+	while (heap_point & 0xFFF) {
+		heap_point += 1;
+	}
+	debug_print(NOTICE, "Moving kernel heap start to 0x%x", heap_point);
+	kmalloc_startat(heap_point);
+#endif
 
 	if (mboot_ptr->flags & (1 << 3)) {
 		debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
@@ -164,6 +185,30 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	syscalls_install(); /* Install the system calls */
 	shm_install();      /* Install shared memory */
 	modules_install();  /* Modules! */
+
+#ifdef EMBEDDED_STARTFILES
+	args_parse(FALLBACK_CMDLINE);
+	debug_print(NOTICE, "Going to install modules now?");
+	struct pack_header * pack_header = (struct pack_header *)&embedded_packfile;
+	while (pack_header->region_size) {
+		debug_print(NOTICE, "...");
+		void * start = (void *)((uintptr_t)pack_header + 4096);
+		int result = module_quickcheck(start);
+		if (result != 1) {
+			debug_print(WARNING, "Not actually a module?! %x", start);
+		}
+		module_data_t * mod_info = (module_data_t *)module_load_direct(start, pack_header->region_size);
+		if (mod_info) {
+			debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
+		} else {
+			debug_print(NOTICE, "module load failed?");
+		}
+		pack_header = (struct pack_header *)((uintptr_t)start + pack_header->region_size);
+	}
+	debug_print(NOTICE, "Disabling log and installing ramdisk...");
+
+	ramdisk_mount((uintptr_t)&embedded_ramdisk_start, (uintptr_t)&embedded_ramdisk_end);
+#endif
 
 	DISABLE_EARLY_BOOT_LOG();
 
