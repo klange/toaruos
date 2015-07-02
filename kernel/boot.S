@@ -35,6 +35,7 @@ stack_bottom:
 stack_top:
 
 .section .extra_files
+.ifdef EMBEDDED_STARTFILES
 .global embedded_packfile
 .type embedded_packfile, @function
     .align 4096
@@ -50,6 +51,7 @@ embedded_ramdisk_start:
     .incbin "ramdisk.img"
 embedded_ramdisk_end:
     .byte 0
+.endif
 
 .section .text
 

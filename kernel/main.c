@@ -74,12 +74,10 @@ struct pack_header {
 	uint32_t region_size;
 };
 
-#define EMBEDDED_STARTFILES
 #ifdef EMBEDDED_STARTFILES
 extern void * embedded_packfile;
 extern void * embedded_ramdisk_start;
 extern void * embedded_ramdisk_end;
-#define FALLBACK_CMDLINE "root=/dev/ram0 vid=qemu,1024,768 start=--xsession"
 #endif
 
 /*
@@ -104,11 +102,11 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	isrs_install();     /* Interrupt service requests */
 	irq_install();      /* Hardware interrupt requests */
 
+#ifdef EMBEDDED_STARTFILES
 	debug_print(NOTICE, "Packfile starts at: 0x%x", (void *)&embedded_packfile);
 	debug_print(NOTICE, "Ramdisk starts at:  0x%x", (void *)&embedded_ramdisk_start);
 	debug_print(NOTICE, "Ramdisk ends at:    0x%x", (void *)&embedded_ramdisk_end);
 
-#ifdef EMBEDDED_STARTFILES
 	uintptr_t heap_point = (uintptr_t)&end;
 	while (heap_point & 0xFFF) {
 		heap_point += 1;

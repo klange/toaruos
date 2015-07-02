@@ -22,6 +22,14 @@ CFLAGS += -D_KERNEL_
 
 ASFLAGS = --32
 
+# Embed modules and ramdisk.
+# This is for very special circumstances, you probably don't want it.
+# It embeds a modpack (modpack.kop) and a ramdisk (ramdisk.img) into
+# the kernel and overrides the start arguments.
+#CFLAGS  += -DEMBEDDED_STARTFILES
+#CFLAGS  += -DFALLBACK_CMDLINE='"root=/dev/ram0 vid=qemu,1024,768 start=--xsession"'
+#ASFLAGS += --defsym EMBEDDED_STARTFILES=1
+
 # Kernel autoversioning with git sha
 CFLAGS += -DKERNEL_GIT_TAG=`util/make-version`
 
@@ -174,6 +182,9 @@ toaruos-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc ${ERRORS}
 	@${END} "CC" "$<"
 	@${INFO} "--" "Kernel is ready!"
+
+toaruos-kernel.bin: toaruos-kernel
+	objcopy -O binary $< $@
 
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 	@-rm -f kernel/symbols.o
