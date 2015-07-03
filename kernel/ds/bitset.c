@@ -11,7 +11,7 @@
 
 #define iom \
 	size_t index  = bit >> 3; \
-	bit = bit >> index; \
+	bit = bit - index * 8; \
 	size_t offset = bit & 7; \
 	size_t mask   = 1 << offset;
 
