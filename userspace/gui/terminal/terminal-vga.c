@@ -619,6 +619,14 @@ void * handle_incoming(void * garbage) {
 
 	key_event_state_t kbd_state = {0};
 
+	/* Prune any keyboard input we got before the terminal started. */
+	struct stat s;
+	fstat(kfd, &s);
+	for (int i = 0; i < s.st_size; i++) {
+		char tmp[1];
+		read(kfd, tmp, 1);
+	}
+
 	while (!exit_application) {
 		int r = read(kfd, &c, 1);
 		if (r > 0) {
