@@ -78,6 +78,7 @@ int main(int argc, char ** argv) {
 
 		/* XXX: There are other things that can cause an exec to fail. */
 		fprintf(stderr, "%s: %s: command not found\n", argv[0], args[0]);
+		return 1;
 	}
 
 	return 1;
