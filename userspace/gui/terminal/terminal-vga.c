@@ -251,11 +251,7 @@ void outb(unsigned char _data, unsigned short _port) {
 }
 
 void render_cursor() {
-	unsigned int tmp = csr_y * 80 + csr_x;
-	outb(14, 0x3D4);
-	outb(tmp >> 8, 0x3D5);
-	outb(15, 0x3D4);
-	outb(tmp, 0x3D5);
+	cell_redraw_inverted(csr_x, csr_y);
 }
 
 void draw_cursor() {
