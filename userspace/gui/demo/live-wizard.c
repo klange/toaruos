@@ -105,10 +105,23 @@ static void redraw(void) {
 		case 1:
 			draw_logo();
 			draw_centered_label(100+70,12,"If you wish to exit the tutorial at any time, you can");
-			draw_centered_label(100+88,12,"click the × in the upper right corner of this window.");
+			draw_centered_label(100+84,12,"click the × in the upper right corner of this window.");
 			draw_next_button(0);
 			break;
 		case 2:
+			draw_logo();
+			draw_centered_label(100+70, 12,"As a reminder, とあるOS is a hobby project with few developers.");
+			draw_centered_label(100+84, 12,"As such, do not expect things to work perfectly, or in some cases,");
+			draw_centered_label(100+98, 12,"at all, as the kernel and drivers are very much \"work-in-progress\".");
+			draw_next_button(0);
+			break;
+		case 3:
+			draw_logo();
+			draw_centered_label(100+70, 12,"This tutorial itself is still a work-in-progress,");
+			draw_centered_label(100+84, 12,"so there's nothing else to see.");
+			draw_next_button(0);
+			break;
+		case 4:
 			draw_logo();
 			draw_centered_label(100+70,12,"Congratulations!");
 			draw_centered_label(100+88,12,"You've finished the tutorial!");
