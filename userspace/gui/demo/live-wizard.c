@@ -19,10 +19,8 @@
 #include "lib/decorations.h"
 #include "gui/ttk/ttk.h"
 
-#include "lib/toaru_auth.h"
-
 #include "lib/trace.h"
-#define TRACE_APP_NAME "live-welcome"
+#define TRACE_APP_NAME "live-wizard"
 
 static yutani_t * yctx;
 
@@ -174,18 +172,6 @@ static void do_mouse_stuff(struct yutani_msg_window_mouse_event * me) {
 }
 
 int main(int argc, char * argv[]) {
-	/* Starts a graphical session and then spins waiting for a kill (logout) signal */
-
-	TRACE("Starting session manager and launching demo...");
-
-	int _session_pid = fork();
-	if (!_session_pid) {
-		setuid(1000);
-		toaru_auth_set_vars();
-		char * args[] = {"/bin/gsession", NULL};
-		execvp(args[0], args);
-		TRACE("gsession start failed?");
-	}
 
 	TRACE("Opening some windows...");
 	yctx = yutani_init();
