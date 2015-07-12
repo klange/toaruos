@@ -42,6 +42,13 @@ desktop-color: "#000000"
     text = "If video fails, your GPU may not support the necessary 1024x768x32bpp mode."
 }
 + label {
+    top = 57%
+    width = 100%
+    align = center
+    color = #fff
+    text = "ToaruOS is free software, released under the NCSA/University of Illinois License"
+}
++ label {
     top = 60%
     width = 100%
     align = center
