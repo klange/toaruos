@@ -23,7 +23,7 @@ fi
 BLACKLIST='userspace/tests/* userspace/gui/gl/teapot.c'
 
 # Rebuild
-echo "Rebuilding..."
+echo "Rebuilding... (ignore warnings about time skew, this is intentional)"
 rm $BLACKLIST
 touch -d tomorrow toaruos-disk.img
 make
