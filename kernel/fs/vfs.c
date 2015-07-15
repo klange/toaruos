@@ -165,6 +165,9 @@ void close_fs(fs_node_t *node) {
 		if (node->close) {
 			node->close(node);
 		}
+		if (node->path) {
+			free(node->path);
+		}
 
 		free(node);
 	}
@@ -780,13 +783,7 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
 }
 
 static void fs_node_fill_path(fs_node_t * node, char * filename, char * relative_to) {
-	char * unfettered_path = canonicalize_path(relative_to, filename);
-	if (strlen(unfettered_path) > sizeof(node->path) - 1) {
-		debug_print(WARNING, "Path %s is too long to fill fs_node path value", unfettered_path);
-	} else {
-		strcpy(node->path, unfettered_path);
-	}
-	free(unfettered_path);
+	node->path = canonicalize_path(relative_to, filename);
 }
 
 fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, char *relative_to) {
