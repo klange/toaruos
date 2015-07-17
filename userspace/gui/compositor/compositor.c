@@ -37,6 +37,8 @@
 
 #define YUTANI_DEBUG_WINDOW_BOUNDS 1
 #define YUTANI_DEBUG_WINDOW_SHAPES 1
+#define YUTANI_RESIZE_RIGHT 0
+#define YUTANI_INCOMING_MOUSE_SCALE * 3
 
 struct {
 	int nested;
@@ -367,11 +369,15 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->anim_start = yutani_current_time(yg);
 	win->alpha_threshold = 0;
 	win->show_mouse = 1;
+	win->tiled = 0;
+	win->untiled_width = 0;
+	win->untiled_height = 0;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
 
 	size_t size = (width * height * 4);
+
 	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
 	memset(win->buffer, 0, size);
 
@@ -906,10 +912,10 @@ static void draw_resizing_box(yutani_globals_t * yg) {
 	int32_t r_x, r_y;
 	int32_t q_x, q_y;
 
-	window_to_device(yg->resizing_window, 0, 0, &t_x, &t_y);
-	window_to_device(yg->resizing_window, yg->resizing_w, yg->resizing_h, &s_x, &s_y);
-	window_to_device(yg->resizing_window, 0, yg->resizing_h, &r_x, &r_y);
-	window_to_device(yg->resizing_window, yg->resizing_w, 0, &q_x, &q_y);
+	window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y, &t_x, &t_y);
+	window_to_device(yg->resizing_window, yg->resizing_offset_x + yg->resizing_w, yg->resizing_offset_y + yg->resizing_h, &s_x, &s_y);
+	window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y + yg->resizing_h, &r_x, &r_y);
+	window_to_device(yg->resizing_window, yg->resizing_offset_x + yg->resizing_w, yg->resizing_offset_y, &q_x, &q_y);
 	cairo_set_line_width(cr, 2.0);
 
 	cairo_move_to(cr, t_x, t_y);
@@ -1334,6 +1340,12 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 		panel_h = panel->height;
 	}
 
+	if (!window->tiled) {
+		window->untiled_width = window->width;
+		window->untiled_height = window->height;
+		window->tiled = 1;
+	}
+
 	int w = yg->width / width_div;
 	int h = (yg->height - panel_h) / height_div;
 
@@ -1538,6 +1550,13 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 			yg->mouse_window = NULL;
 		} else {
+			if (yg->mouse_window->tiled) {
+				/* Untile it */
+				yg->mouse_window->tiled = 0;
+				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->mouse_window->wid, yg->mouse_window->untiled_width, yg->mouse_window->untiled_height, 0);
+				pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+				free(response);
+			}
 			yg->mouse_state = YUTANI_MOUSE_STATE_MOVING;
 			yg->mouse_init_x = yg->mouse_x;
 			yg->mouse_init_y = yg->mouse_y;
@@ -1548,11 +1567,12 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 	}
 }
 
-static void mouse_start_resize(yutani_globals_t * yg) {
+static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t direction) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
 	if (yg->mouse_window) {
 		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+			/* Prevent resizing panel and wallpaper */
 			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 			yg->mouse_window = NULL;
 		} else {
@@ -1565,6 +1585,41 @@ static void mouse_start_resize(yutani_globals_t * yg) {
 			yg->resizing_window = yg->mouse_window;
 			yg->resizing_w = yg->mouse_window->width;
 			yg->resizing_h = yg->mouse_window->height;
+
+			if (direction == SCALE_AUTO) {
+				/* Determine the best direction to scale in based on simple 9-cell system. */
+				int32_t x, y;
+				device_to_window(yg->resizing_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+
+				int h_d = 0;
+				int v_d = 0;
+
+				if (y <= yg->resizing_h / 3) {
+					v_d = -1;
+				} else if (y >= (yg->resizing_h / 3) * 2) {
+					v_d = 1;
+				}
+				if (x <= yg->resizing_w / 3) {
+					h_d = -1;
+				} else if (x >= (yg->resizing_w / 3) * 2) {
+					h_d = 1;
+				}
+
+				/* Fall back */
+				if (h_d ==  0 && v_d ==  0) direction = SCALE_DOWN_RIGHT;
+
+				else if (h_d ==  1 && v_d ==  1) direction = SCALE_DOWN_RIGHT;
+				else if (h_d ==  1 && v_d == -1) direction = SCALE_UP_RIGHT;
+				else if (h_d == -1 && v_d ==  1) direction = SCALE_DOWN_LEFT;
+				else if (h_d == -1 && v_d == -1) direction = SCALE_UP_LEFT;
+
+				else if (h_d ==  1 && v_d ==  0) direction = SCALE_RIGHT;
+				else if (h_d == -1 && v_d ==  0) direction = SCALE_LEFT;
+				else if (h_d ==  0 && v_d ==  1) direction = SCALE_DOWN;
+				else if (h_d ==  0 && v_d == -1) direction = SCALE_UP;
+			}
+
+			yg->resizing_direction = direction;
 			make_top(yg, yg->mouse_window);
 		}
 	}
@@ -1572,8 +1627,13 @@ static void mouse_start_resize(yutani_globals_t * yg) {
 
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
 	if (me->type == YUTANI_MOUSE_EVENT_TYPE_RELATIVE) {
-		yg->mouse_x += me->event.x_difference * MOUSE_SCALE;
-		yg->mouse_y -= me->event.y_difference * MOUSE_SCALE;
+		/*
+		 * DON'T COMMIT THIS
+		 * If you see and you're not me, you have permission to laugh at me for this
+		 * and bring it up at random for the next year.
+		 */
+		yg->mouse_x += me->event.x_difference YUTANI_INCOMING_MOUSE_SCALE;
+		yg->mouse_y -= me->event.y_difference YUTANI_INCOMING_MOUSE_SCALE;
 	} else if (me->type == YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE) {
 		yg->mouse_x = me->event.x_difference * MOUSE_SCALE;
 		yg->mouse_y = me->event.y_difference * MOUSE_SCALE;
@@ -1589,8 +1649,15 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 			{
 				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
 					mouse_start_drag(yg);
+#if YUTANI_RESIZE_RIGHT
+				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT) && (yg->kbd_state.k_alt)) {
+					yg->resizing_button = YUTANI_MOUSE_BUTTON_RIGHT;
+					mouse_start_resize(yg, SCALE_AUTO);
+#else
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && (yg->kbd_state.k_alt)) {
-					mouse_start_resize(yg);
+					yg->resizing_button = YUTANI_MOUSE_BUTTON_MIDDLE;
+					mouse_start_resize(yg, SCALE_AUTO);
+#endif
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
 					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
@@ -1643,6 +1710,12 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->mouse_window = NULL;
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 				} else {
+					if (yg->mouse_y / MOUSE_SCALE < 2) {
+						window_tile(yg, yg->mouse_window, 1, 1, 0, 0);
+						yg->mouse_window = NULL;
+						yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+						break;
+					}
 					int x, y;
 					x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
 					y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
@@ -1686,15 +1759,62 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				int width_diff  = (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
 				int height_diff = (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
 
-				mark_window_relative(yg, yg->mouse_window, -2, -2, yg->resizing_w + 10, yg->resizing_h + 10);
+				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 2, yg->resizing_offset_y - 2, yg->resizing_w + 10, yg->resizing_h + 10);
+
+				if (yg->resizing_direction == SCALE_UP || yg->resizing_direction == SCALE_DOWN) {
+					width_diff = 0;
+					yg->resizing_offset_x = 0;
+				}
+
+				if (yg->resizing_direction == SCALE_LEFT || yg->resizing_direction == SCALE_RIGHT) {
+					height_diff = 0;
+					yg->resizing_offset_y = 0;
+				}
+
+				if (yg->resizing_direction == SCALE_LEFT ||
+				    yg->resizing_direction == SCALE_UP_LEFT ||
+				    yg->resizing_direction == SCALE_DOWN_LEFT) {
+					yg->resizing_offset_x = width_diff;
+					width_diff = -width_diff;
+				} else if (yg->resizing_direction == SCALE_RIGHT ||
+				           yg->resizing_direction == SCALE_UP_RIGHT ||
+				           yg->resizing_direction == SCALE_DOWN_RIGHT) {
+					yg->resizing_offset_x = 0;
+				}
+
+				if (yg->resizing_direction == SCALE_UP ||
+				    yg->resizing_direction == SCALE_UP_LEFT ||
+				    yg->resizing_direction == SCALE_UP_RIGHT) {
+					yg->resizing_offset_y = height_diff;
+					height_diff = -height_diff;
+				} else if (yg->resizing_direction == SCALE_DOWN ||
+				           yg->resizing_direction == SCALE_DOWN_LEFT ||
+				           yg->resizing_direction == SCALE_DOWN_RIGHT) {
+					yg->resizing_offset_y = 0;
+				}
 
 				yg->resizing_w = yg->resizing_window->width + width_diff;
 				yg->resizing_h = yg->resizing_window->height + height_diff;
 
-				mark_window_relative(yg, yg->mouse_window, -2, -2, yg->resizing_w + 10, yg->resizing_h + 10);
+				/* Enforce logical boundaries */
+				if (yg->resizing_w < 0) {
+					yg->resizing_w = 0;
+				}
+				if (yg->resizing_h < 0) {
+					yg->resizing_h = 0;
+				}
+				if (yg->resizing_offset_x > yg->resizing_window->width) {
+					yg->resizing_offset_x = yg->resizing_window->width;
+				}
+				if (yg->resizing_offset_y > yg->resizing_window->height) {
+					yg->resizing_offset_y = yg->resizing_window->height;
+				}
 
-				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE)) {
+				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 2, yg->resizing_offset_y - 2, yg->resizing_w + 10, yg->resizing_h + 10);
+
+				if (!(me->event.buttons & yg->resizing_button)) {
 					TRACE("resize complete, now %d x %d", yg->resizing_w, yg->resizing_h);
+					window_move(yg, yg->resizing_window, yg->resizing_window->x + yg->resizing_offset_x, yg->resizing_window->y + yg->resizing_offset_y);
 					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->resizing_window->wid, yg->resizing_w, yg->resizing_h, 0);
 					pex_send(yg->server, yg->resizing_window->owner, response->size, (char *)response);
 					free(response);
@@ -2094,6 +2214,20 @@ int main(int argc, char * argv[]) {
 						}
 					}
 				}
+				break;
+			case YUTANI_MSG_WINDOW_RESIZE_START:
+				{
+					struct yutani_msg_window_resize_start * wa = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					if (w) {
+						if (yg->focused_window == w && !yg->resizing_window) {
+							yg->resizing_window = w;
+							yg->resizing_button = YUTANI_MOUSE_BUTTON_LEFT; /* XXX Uh, what if we used something else */
+							mouse_start_resize(yg, wa->direction);
+						}
+					}
+				}
+				break;
 			default:
 				{
 					TRACE("Unknown type: 0x%8x", m->type);

@@ -15,6 +15,22 @@
 
 typedef unsigned int yutani_wid_t;
 
+typedef enum {
+	SCALE_AUTO,
+
+	SCALE_UP,
+	SCALE_DOWN,
+	SCALE_LEFT,
+	SCALE_RIGHT,
+
+	SCALE_UP_LEFT,
+	SCALE_UP_RIGHT,
+	SCALE_DOWN_LEFT,
+	SCALE_DOWN_RIGHT,
+
+	SCALE_NONE,
+} yutani_scale_direction_t;
+
 typedef struct yutani_context {
 	FILE * sock;
 
@@ -152,6 +168,12 @@ struct yutani_msg_window_show_mouse {
 	int32_t show_mouse;
 };
 
+struct yutani_msg_window_resize_start {
+	yutani_wid_t wid;
+	yutani_scale_direction_t direction;
+};
+
+
 typedef struct yutani_window {
 	yutani_wid_t wid;
 
@@ -200,6 +222,7 @@ typedef struct yutani_window {
 #define YUTANI_MSG_WINDOW_DRAG_START   0x00000026
 #define YUTANI_MSG_WINDOW_WARP_MOUSE   0x00000027
 #define YUTANI_MSG_WINDOW_SHOW_MOUSE   0x00000028
+#define YUTANI_MSG_WINDOW_RESIZE_START 0x00000029
 
 #define YUTANI_MSG_SESSION_END         0x00000030
 
@@ -349,6 +372,7 @@ yutani_msg_t * yutani_msg_build_window_drag_start(yutani_wid_t wid);
 yutani_msg_t * yutani_msg_build_window_update_shape(yutani_wid_t wid, int set_shape);
 yutani_msg_t * yutani_msg_build_window_warp_mouse(yutani_wid_t wid, int32_t x, int32_t y);
 yutani_msg_t * yutani_msg_build_window_show_mouse(yutani_wid_t wid, int32_t show_mouse);
+yutani_msg_t * yutani_msg_build_window_resize_start(yutani_wid_t wid, yutani_scale_direction_t direction);
 
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
@@ -376,6 +400,7 @@ void yutani_window_drag_start(yutani_t * yctx, yutani_window_t * window);
 void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window, int set_shape);
 void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t x, int32_t y);
 void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse);
+void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction);
 
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window);

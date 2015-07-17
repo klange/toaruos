@@ -63,6 +63,10 @@ typedef struct {
 
 	int alpha_threshold;
 	int show_mouse;
+
+	int tiled;
+	int32_t untiled_width;
+	int32_t untiled_height;
 } yutani_server_window_t;
 
 typedef struct {
@@ -144,6 +148,11 @@ typedef struct {
 	int screenshot_frame;
 
 	uint32_t start_subtime;
+
+	yutani_scale_direction_t resizing_direction;
+	int32_t resizing_offset_x;
+	int32_t resizing_offset_y;
+	int resizing_button;
 
 } yutani_globals_t;
 

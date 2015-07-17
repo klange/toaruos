@@ -239,36 +239,72 @@ void decor_set_resize_callback(void (*callback)(yutani_window_t *)) {
 	callback_resize = callback;
 }
 
+static int within_decors(yutani_window_t * window, int x, int y) {
+	if ((x <= decor_left_width || x >= window->width - decor_right_width) && (x > 0 && x < window->width)) return 1;
+	if ((y <= decor_top_height || y >= window->height - decor_bottom_height) && (y > 0 && y < window->width)) return 1;
+	return 0;
+}
+
+#define LEFT_SIDE (me->new_x <= decor_left_width)
+#define RIGHT_SIDE (me->new_x >= window->width - decor_right_width)
+#define TOP_SIDE (me->new_y <= decor_top_height)
+#define BOTTOM_SIDE (me->new_y >= window->height - decor_bottom_height)
+
 int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 	if (m) {
 		switch (m->type) {
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
-					if (me->new_y < decor_top_height) {
-						yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
-						if (window) {
-							int button = check_button_press(window, me->new_x, me->new_y);
-							if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-								if (!button) {
+					yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
+					if (!window) return 0;
+					if (within_decors(window, me->new_x, me->new_y)) {
+						int button = check_button_press(window, me->new_x, me->new_y);
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							if (!button) {
+								/* Resize edges */
+								yutani_scale_direction_t resize_direction = SCALE_NONE;
+								if (LEFT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
+									resize_direction = SCALE_LEFT;
+								} else if (RIGHT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
+									resize_direction = SCALE_RIGHT;
+								} else if (BOTTOM_SIDE && !LEFT_SIDE && !RIGHT_SIDE) {
+									resize_direction = SCALE_DOWN;
+								} else if (BOTTOM_SIDE && LEFT_SIDE) {
+									resize_direction = SCALE_DOWN_LEFT;
+								} else if (BOTTOM_SIDE && RIGHT_SIDE) {
+									resize_direction = SCALE_DOWN_RIGHT;
+								} else if (TOP_SIDE && LEFT_SIDE) {
+									resize_direction = SCALE_UP_LEFT;
+								} else if (TOP_SIDE && RIGHT_SIDE) {
+									resize_direction = SCALE_UP_RIGHT;
+								} else if (TOP_SIDE && (me->new_y < 5)) {
+									resize_direction = SCALE_UP;
+								}
+
+								if (resize_direction != SCALE_NONE) {
+									yutani_window_resize_start(yctx, window, resize_direction);
+								}
+
+								if (me->new_y < decor_top_height && resize_direction == SCALE_NONE) {
 									yutani_window_drag_start(yctx, window);
-									return DECOR_OTHER;
 								}
+								return DECOR_OTHER;
 							}
-							if (me->command == YUTANI_MOUSE_EVENT_CLICK) {
-								/* Determine if we clicked on a button */
-								switch (button) {
-									case DECOR_CLOSE:
-										if (callback_close) callback_close(window);
-										break;
-									case DECOR_RESIZE:
-										if (callback_resize) callback_resize(window);
-										break;
-									default:
-										break;
-								}
-								return button;
+						}
+						if (me->command == YUTANI_MOUSE_EVENT_CLICK) {
+							/* Determine if we clicked on a button */
+							switch (button) {
+								case DECOR_CLOSE:
+									if (callback_close) callback_close(window);
+									break;
+								case DECOR_RESIZE:
+									if (callback_resize) callback_resize(window);
+									break;
+								default:
+									break;
 							}
+							return button;
 						}
 					}
 				}
