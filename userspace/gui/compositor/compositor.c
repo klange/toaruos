@@ -1403,6 +1403,16 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 				return;
 			}
 		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+			(ke->event.keycode == KEY_F4)) {
+			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+				yutani_msg_t * response = yutani_msg_build_session_end();
+				pex_send(yg->server, focused->owner, response->size, (char *)response);
+				free(response);
+				return;
+			}
+		}
 #if YUTANI_DEBUG_WINDOW_SHAPES
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
