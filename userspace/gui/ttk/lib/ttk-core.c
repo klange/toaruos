@@ -450,6 +450,8 @@ int ttk_run(ttk_window_t * window) {
 						}
 					}
 					break;
+				case YUTANI_MSG_SESSION_END:
+					goto done;
 				default:
 					break;
 			}

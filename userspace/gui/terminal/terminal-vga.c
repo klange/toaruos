@@ -64,8 +64,8 @@ void term_clear();
 
 void dump_buffer();
 
-wchar_t box_chars_in[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽├┤┴┬│≤≥";
-wchar_t box_chars_out[] =  {176,0,0,0,0,248,241,0,0,217,191,218,192,197,196,196,196,196,196,195,180,193,194,179,243,242};
+wchar_t box_chars_in[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽├┤┴┬│≤≥▄";
+wchar_t box_chars_out[] =  {176,0,0,0,0,248,241,0,0,217,191,218,192,197,196,196,196,196,196,195,180,193,194,179,243,242,220};
 
 static int color_distance(uint32_t a, uint32_t b) {
 	int a_r = (a & 0xFF0000) >> 16;
@@ -251,11 +251,7 @@ void outb(unsigned char _data, unsigned short _port) {
 }
 
 void render_cursor() {
-	unsigned int tmp = csr_y * 80 + csr_x;
-	outb(14, 0x3D4);
-	outb(tmp >> 8, 0x3D5);
-	outb(15, 0x3D4);
-	outb(tmp, 0x3D5);
+	cell_redraw_inverted(csr_x, csr_y);
 }
 
 void draw_cursor() {
@@ -622,6 +618,14 @@ void * handle_incoming(void * garbage) {
 	char c;
 
 	key_event_state_t kbd_state = {0};
+
+	/* Prune any keyboard input we got before the terminal started. */
+	struct stat s;
+	fstat(kfd, &s);
+	for (int i = 0; i < s.st_size; i++) {
+		char tmp[1];
+		read(kfd, tmp, 1);
+	}
 
 	while (!exit_application) {
 		int r = read(kfd, &c, 1);

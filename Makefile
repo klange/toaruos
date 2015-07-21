@@ -119,6 +119,7 @@ DISK_ROOT = root=/dev/hda
 VID_QEMU  = vid=qemu,,1280,,720
 START_VGA = start=--vga
 START_SINGLE = start=--single
+START_LIVE = start=live-welcome
 WITH_LOGS = logtoserial=1
 
 .PHONY: all system install test toolchain userspace modules cdrom toaruos.iso
@@ -165,6 +166,10 @@ headless: system
 	${EMU} ${EMUARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
 headless-kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -display none -append "$(START_VGA) $(DISK_ROOT)"
+live: system
+	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
+live-kvm: system
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
 
 test: system
 	expect util/test.exp

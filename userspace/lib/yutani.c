@@ -474,6 +474,22 @@ yutani_msg_t * yutani_msg_build_window_show_mouse(yutani_wid_t wid, int32_t show
 	return msg;
 }
 
+yutani_msg_t * yutani_msg_build_window_resize_start(yutani_wid_t wid, yutani_scale_direction_t direction) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_resize_start);
+	yutani_msg_t * msg = malloc(s);
+
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_RESIZE_START;
+	msg->size  = s;
+
+	struct yutani_msg_window_resize_start * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->direction = direction;
+
+	return msg;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -750,6 +766,13 @@ void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t
 	int result = yutani_msg_send(yctx, m);
 	free(m);
 }
+
+void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction) {
+	yutani_msg_t * m = yutani_msg_build_window_resize_start(window->wid, direction);
+	int result = yutani_msg_send(yctx, m);
+	free(m);
+}
+
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));

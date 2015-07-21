@@ -19,10 +19,8 @@
 #include "lib/decorations.h"
 #include "gui/ttk/ttk.h"
 
-#include "lib/toaru_auth.h"
-
 #include "lib/trace.h"
-#define TRACE_APP_NAME "live-welcome"
+#define TRACE_APP_NAME "live-wizard"
 
 static yutani_t * yctx;
 
@@ -107,10 +105,23 @@ static void redraw(void) {
 		case 1:
 			draw_logo();
 			draw_centered_label(100+70,12,"If you wish to exit the tutorial at any time, you can");
-			draw_centered_label(100+88,12,"click the × in the upper right corner of this window.");
+			draw_centered_label(100+84,12,"click the × in the upper right corner of this window.");
 			draw_next_button(0);
 			break;
 		case 2:
+			draw_logo();
+			draw_centered_label(100+70, 12,"As a reminder, とあるOS is a hobby project with few developers.");
+			draw_centered_label(100+84, 12,"As such, do not expect things to work perfectly, or in some cases,");
+			draw_centered_label(100+98, 12,"at all, as the kernel and drivers are very much \"work-in-progress\".");
+			draw_next_button(0);
+			break;
+		case 3:
+			draw_logo();
+			draw_centered_label(100+70, 12,"This tutorial itself is still a work-in-progress,");
+			draw_centered_label(100+84, 12,"so there's nothing else to see.");
+			draw_next_button(0);
+			break;
+		case 4:
 			draw_logo();
 			draw_centered_label(100+70,12,"Congratulations!");
 			draw_centered_label(100+88,12,"You've finished the tutorial!");
@@ -174,18 +185,6 @@ static void do_mouse_stuff(struct yutani_msg_window_mouse_event * me) {
 }
 
 int main(int argc, char * argv[]) {
-	/* Starts a graphical session and then spins waiting for a kill (logout) signal */
-
-	TRACE("Starting session manager and launching demo...");
-
-	int _session_pid = fork();
-	if (!_session_pid) {
-		setuid(1000);
-		toaru_auth_set_vars();
-		char * args[] = {"/bin/gsession", NULL};
-		execvp(args[0], args);
-		TRACE("gsession start failed?");
-	}
 
 	TRACE("Opening some windows...");
 	yctx = yutani_init();

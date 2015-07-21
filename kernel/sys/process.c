@@ -37,6 +37,12 @@ static bitset_t pid_set;
 char * default_name = "[unnamed]";
 
 /*
+ * This makes a nice 4096-byte bitmap. It also happens
+ * to be pid_max on 32-bit Linux, so that's kinda nice.
+ */
+#define MAX_PID 32768
+
+/*
  * Initialize the process tree and ready queue.
  */
 void initialize_process_tree(void) {
@@ -46,7 +52,7 @@ void initialize_process_tree(void) {
 	sleep_queue = list_create();
 
 	/* Start off with enough bits for 64 processes */
-	bitset_init(&pid_set, 64 / 8);
+	bitset_init(&pid_set, MAX_PID / 8);
 	/* First two bits are set by default */
 	bitset_set(&pid_set, 0);
 	bitset_set(&pid_set, 1);
@@ -289,15 +295,24 @@ process_t * spawn_init(void) {
  *
  * @return A usable PID for a new process.
  */
+static int _next_pid = 2;
 pid_t get_next_pid(void) {
-	int index = bitset_ffub(&pid_set);
-	if (index == -1) {
-		int next = pid_set.size * 8;
-		bitset_set(&pid_set, next);
-		return next;
+	if (_next_pid > MAX_PID) {
+		int index = bitset_ffub(&pid_set);
+		/*
+		 * Honestly, we don't have the memory to really risk reaching
+		 * the point where we have MAX_PID processes running
+		 * concurrently, so this assertion should be "safe enough".
+		 */
+		assert(index != -1);
+		bitset_set(&pid_set, index);
+		return index;
 	}
-	bitset_set(&pid_set, index);
-	return index;
+	int pid = _next_pid;
+	_next_pid++;
+	assert(!bitset_test(&pid_set, pid) && "Next PID already allocated?");
+	bitset_set(&pid_set, pid);
+	return pid;
 }
 
 /*

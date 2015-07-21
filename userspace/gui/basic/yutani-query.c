@@ -20,10 +20,6 @@ void show_usage(int argc, char * argv[]) {
 }
 
 int show_resolution(void) {
-	if (!yctx) {
-		printf("(not connected)\n");
-		return 1;
-	}
 	printf("%dx%d\n", yctx->display_width, yctx->display_height);
 	return 0;
 }
@@ -36,6 +32,10 @@ int show_fontname(int font) {
 
 int main(int argc, char * argv[]) {
 	yctx = yutani_init();
+	if (!yctx) {
+		printf("(not connected)\n");
+		return 1;
+	}
 	if (argc > 1) {
 		int index, c;
 		while ((c = getopt(argc, argv, "rfm?")) != -1) {
