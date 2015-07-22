@@ -3,7 +3,12 @@
 &lt;p&gt;This is a pre-relase, not a final CD. The tutorial is woefully incomplete, and there are many bugs and incomplete features.&lt;/p&gt;
 &lt;h3&gt;&lt;em&gt;Live CD&lt;/em&gt; &lt;a href="http://i.imgur.com/b1a0WAS.png"&gt;&lt;img alt="Live CD" src="http://i.imgur.com/b1a0WAS.png" /&gt;&lt;/a&gt;&lt;/h3&gt;
 &lt;h4&gt;&lt;/h4&gt;
-&lt;p&gt;The full requirements for running the CD are as follows:&lt;/p&gt;</summary><category term="kernel"></category></entry><entry><title>Another Year</title><link href="http://toaruos.org/another-year.html" rel="alternate"></link><updated>2015-04-20T19:50:00Z</updated><author><name>Kevin Lange</name></author><id>tag:toaruos.org,2015-04-20:another-year.html</id><summary type="html">&lt;p&gt;It's been nearly a year since I last posted an update, but in that year there's been a solid bit of development activitiy.&lt;/p&gt;
+&lt;p&gt;The full requirements for running the CD are as follows:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;PS/2 keyboard and mouse.&lt;/li&gt;
+&lt;li&gt;256 MB of RAM (1GB+ preferred).&lt;/li&gt;
+&lt;li&gt;Display capable of providing 1024x768x32bpp display mode via VBE.&lt;/li&gt;
+&lt;/ul&gt;</summary><category term="kernel"></category></entry><entry><title>Another Year</title><link href="http://toaruos.org/another-year.html" rel="alternate"></link><updated>2015-04-20T19:50:00Z</updated><author><name>Kevin Lange</name></author><id>tag:toaruos.org,2015-04-20:another-year.html</id><summary type="html">&lt;p&gt;It's been nearly a year since I last posted an update, but in that year there's been a solid bit of development activitiy.&lt;/p&gt;
 &lt;h2&gt;EXT2 drivers&lt;/h2&gt;
 &lt;p&gt;If you've been following ToaruOS for a while, you may know that we had some write support for ext2 a very long time ago, but it was kind of broken and unstable. The good news is, that support is back, and it's notably more stable than it was. The bad news is it's still not done, and there are some known bugs and edge cases to work through.&lt;/p&gt;
 &lt;h2&gt;More Network Work&lt;/h2&gt;
