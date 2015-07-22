@@ -28,35 +28,14 @@
 		<div role="main" class="main_content">
 		<div class="window-pad">
 			<div class="window">
-				<div class="title">Another Year<div class="close"></div></div>
-				<div class="content terminal">
-					<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
-					<span style="float: right; color: #5f5f5f;"><b>[<span style="color: #d7875f;">04/20</span> <span style="color: #d75f5f">19:50:00</span>]</b>&nbsp;</span>
-					cat <a href="http://toaruos.org/another-year.html">another-year.html</a>
-					<p>It's been nearly a year since I last posted an update, but in that year there's been a solid bit of development activitiy.</p>
-<h2>EXT2 drivers</h2>
-<p>If you've been following ToaruOS for a while, you may know that we had some write support for ext2 a very long time ago, but it was kind of broken and unstable. The good news is, that support is back, and it's notably more stable than it was. The bad news is it's still not done, and there are some known bugs and edge cases to work through.</p>
-<h2>More Network Work</h2>
-<p>The kernel networking support has been vastly improved, though it's still not ready for prime time and still not available from userspace. I'm actually working on this right now, toying with some ideas for exposing the network stack through the VFS. Hopefully, we should have some nice demos like a telnet client and an IRC client in the coming months.</p>
-<h3><em>Networking and star wars</em> <a href="http://i.imgur.com/duIsLh7.png"><img alt="Networking, Star Wars" src="http://i.imgur.com/duIsLh7.png" /></a></h3>
+				<div class="title">0.11.1 Live CD<div class="close"></div></div>
+				<div class="content article">
+					<p>The first Live CD pre-release of ToaruOS is now available <a href="https://github.com/klange/toaruos/releases/tag/v0.11.1-livecd">on our Github releases page</a>. This Live CD comes with a ramdisk installation of ToaruOS 0.11.1 (kernel tagged <code>d0518b1</code>). The filesystem in the CD includes a full base image of the OS, minus test binaries, and boots to a work-in-progress tutorial.</p>
+<p>This is a pre-relase, not a final CD. The tutorial is woefully incomplete, and there are many bugs and incomplete features.</p>
+<h3><em>Live CD</em> <a href="http://i.imgur.com/b1a0WAS.png"><img alt="Live CD" src="http://i.imgur.com/b1a0WAS.png" /></a></h3>
 <h4></h4>
-<h2>Login Screen Redesign</h2>
-<h3><em>New Login Screen</em> <a href="http://i.imgur.com/x0mJouI.png"><img alt="New login screen" src="http://i.imgur.com/x0mJouI.png" /></a></h3>
-<h4></h4>
-<p>There have actually been two redesigns of the login screen since the last blog post - one was to use a blurred wallpaper for the background, the other was a more extensive redesign of the widgets. This was a fun little project to make use of Cairo. We're also loading a bunch of configuration information (including the logo, positions of various things, what wallpaper to use for the login screen) from a config file, so you can change settings on the fly, without needing to rebuild.</p>
-<p>Those config files are also in use for the desktop wallpaper, per-user, so you can change your wallpaper without having to copy files around. We've started shipping all of the in-house wallpapers from older revisions, as well as a few new ones over the past year.</p>
-<h2>Doom and Quake</h2>
-<p>The SDL port has been rejuvinated, targeting Yutani instead of the old compositor, and now we have working Doom and Quake ports. The Doom engine is prboom, with sdlquake for Quake.</p>
-<h3><em>Quake</em> <a href="http://i.imgur.com/i5O8Vcl.png"><img alt="Quake" src="http://i.imgur.com/i5O8Vcl.png" /></a></h3>
-<h4></h4>
-<h2>New Timing Interface</h2>
-<p>The kernel timing APIs have been updated. <code>gettimeofday()</code> now uses an internal clock rather than always calling the RTC. This means there is some apparent drift, which we try to account for every so often, but it also means accurate timing information is available when you needed it. Additionally, the kernel tick rate has been increased to 1000Hz, or 1ms per click, so we're also more accurate. This affects the multitasking quanta time, as well as the resolution for the uptime information in <code>/proc/uptime</code>.</p>
-<p>The new timing interface has been adopted for use in animations on the desktop, so if you're running under software emulation in Bochs or QEMU, you should notice that animations are no longer abysmally slow (they'll just have low framerates). This was helpful with adding new animations to the wallpaper when loading applications, but is also used in the compositor and login screen.</p>
-<h3><em>Faster Gears</em> <a href="http://i.imgur.com/F2dRiwY.png"><img alt="Timing resulted in an increased framerate in Gears" src="http://i.imgur.com/F2dRiwY.png" /></a></h3>
-<h4></h4>
-<h2>What's New in Yutani</h2>
-<p>Yutani got a number of updates as well, mostly driven by the SDL and Quake ports. Yutani now supports cursor warping and hiding, and will inform clients when a window is moved. A client application, <code>yutani-test</code>, has been added for debugging - it works a bit like <code>xev</code>.</p>
-					&nbsp;
+<p>The full requirements for running the CD are as follows:</p>
+					<i><a href="http://toaruos.org/0111-live-cd.html">Continue reading...</a></i>
 				</div>
 			</div>
 		</div>
@@ -68,6 +47,15 @@
 					ls -l
 					<table>
 
+<tr>
+  <td>-rw-rw-r--</td>
+  <td>1</td>
+  <td>kevin-lange</td>
+  <td>users</td>
+  <td>3841</td>
+  <td>Apr 20  2015</td>
+  <td><a href="http://toaruos.org/another-year.html" rel="bookmark" title="Permalink to Another Year">another-year.html</a></td>
+</tr>
 <tr>
   <td>-rw-rw-r--</td>
   <td>1</td>
@@ -103,16 +91,13 @@
   <td>275</td>
   <td>May 10  2014</td>
   <td><a href="http://toaruos.org/hello-world-again.html" rel="bookmark" title="Permalink to Hello World (Again)">hello-world-again.html</a></td>
-</tr>
-<tr>
-  <td>-rw-rw-r--</td>
-  <td>1</td>
-  <td>kevin-lange</td>
-  <td>users</td>
-  <td>42</td>
-  <td>May 09  2014</td>
-  <td><a href="http://toaruos.org/test-post-please-ignore.html" rel="bookmark" title="Permalink to Test Post Please Ignore">test-post-please-ignore.html</a></td>
 </tr>					</table>
+					&nbsp;
+				</div>
+			</div>
+		</div>
+
+					</table>
 					&nbsp;
 				</div>
 			</div>

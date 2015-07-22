@@ -224,6 +224,25 @@ a {
 .window>.content.other a {
 	color: #305fe5;
 }
+.window>.content.article {
+	background-color: #cccccc;
+	color: rgb(0,0,0);
+	padding: 10px;
+}
+.window>.content.article p {
+	margin: 5px;
+}
+.window>.content.article h1 {
+	margin: 5px;
+	margin-top: 10px;
+}
+.window>.content.article h2 {
+	margin: 5px;
+	margin-top: 10px;
+}
+.window>.content.article a {
+	color: #305fe5;
+}
 .window-inline {
 	padding: 20px;
 	padding-right: 0px;
@@ -233,10 +252,11 @@ a {
 	clear: both;
 }
 
-.window>.content.terminal>h3 {
+.window>.content.article>h3 {
 	margin: 0px;
 	margin-left: 20px;
 	margin-bottom: 10px;
+	margin-top: 10px;
 	padding: 0px;
 	border-style: solid;
 	border-width: 28px 3px 1px;
@@ -258,7 +278,7 @@ a {
 	display: block;
 	font-family: "DejaVu Sans", sans-serif;
 }
-.window>.content.terminal>h3:hover {
+.window>.content.article>h3:hover {
 	-webkit-box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.75);
 	-moz-box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.75);
 	box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.75);
@@ -267,7 +287,7 @@ a {
 	-o-border-image: url(../images/active-window.png) 28 3 1 stretch;
 	border-image: url(../images/active-window.png) 28 3 1 stretch;
 }
-.window>.content.terminal>h3>em {
+.window>.content.article>h3>em {
 	display: block;
 	margin-top: -20px;
 	position: relative;
@@ -282,10 +302,10 @@ a {
 	line-height: 12px;
 	font-style: normal;
 }
-.window>.content.terminal>h3:hover>em {
+.window>.content.article>h3:hover>em {
 	color: rgb(230,230,230);
 }
-.window>.content.terminal>h3>a {
+.window>.content.article>h3>a {
 	margin-left: -2px;
 	margin-right: -2px;
 	display: block;
@@ -293,11 +313,11 @@ a {
 	background-color: #cccccc;
 	font-size: 0px;
 }
-.window>.content.terminal>h3>a>img {
+.window>.content.article>h3>a>img {
 	display: block;
 	width: 100%;
 }
-.window>.content.terminal>h4 {
+.window>.content.article>h4 {
 	clear: left;
 }
 

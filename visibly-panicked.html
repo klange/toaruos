@@ -35,19 +35,7 @@
 	<div class="window-pad">
 		<div class="window">
 			<div class="title">Visibly Panicked<div class="close"></div></div>
-			<div class="content terminal">
-				<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
-				<span style="float: right; color: #5f5f5f;"><b>[<span style="color: #d7875f;">05/12</span> <span style="color: #d75f5f">20:20:00</span>]</b>&nbsp;</span>
-				stat <a href="http://toaruos.org/visibly-panicked.html">visibly-panicked.html</a>
-<div class="metadata">
-  <time datetime="2014-05-12T20:20:00" pubdate>Mon 12 May 2014</time>
-    <address class="vcard author">
-      by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
-    </address>
-  in <a href="http://toaruos.org/category/misc.html">misc</a>
-<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>				<span style="color: #ffd75f"><b>local</b></span><span style="color: #5f5f5f">@</span><span style="color: #5fd7ff"><b>toaruos.org</b></span> ~<span style="color: #00ff5f;"><b>$</b> </span>
-				<span style="float: right; color: #5f5f5f;"><b>[<span style="color: #d7875f;">05/12</span> <span style="color: #d75f5f">20:20:00</span>]</b>&nbsp;</span>
-				cat <a href="http://toaruos.org/visibly-panicked.html">visibly-panicked.html</a>
+			<div class="content article">
 				<p>Panic screens are an important part of any OS - they allow you to see not only that you've made a mistake, but often why and how. The panic screen in Windows is particularly infamous, and helpful to some subset of engineers, though not very shiny. OS X has a rather neat, but ultimately not very useful panic screen involving an embedded image in the kernel.</p>
 <p>とあるOS has mostly had debug output like kernel panics written to a serial log. Since I'm usually working in the GUI and often have the logs completely disabled, it made sense to add a new panic format. To that end, I was inspired by a popular video game series, and made these new panic screens:</p>
 <h3><em>login</em> <a href="http://i.imgur.com/Q8cce5d.png"><img alt="Assertion failed - login" src="http://i.imgur.com/Q8cce5d.png" /></a></h3>
@@ -55,7 +43,6 @@
 <h3><em>OOM</em> <a href="http://i.imgur.com/Mjj6886.png"><img alt="Out of memory" src="http://i.imgur.com/Mjj6886.png" /></a></h3>
 <h4></h4>
 <p>The panic handler first outputs to the debug log (if set) and then calls out to the video driver to have it display a visual indicator of failure. The video driver can take an array of messages to display, which are usually <code>sprintf</code>'d into the kernel stack by the calling fault handler. With this particular setup, the video driver desaturates the dispaly to grayscale, adds a (crude) vignette effect, and then displas the fault message in the center of the screen using an embedded bitmap font.</p>
-				&nbsp;
 			</div>
 		</div>
 	</div>
@@ -63,6 +50,21 @@
 		</div>
 
 		<div class="sidebar">
+	<div class="window-pad">
+		<div class="window">
+			<div class="title">Information<div class="close"></div></div>
+			<div class="content terminal">
+				<a href="http://toaruos.org/visibly-panicked.html">visibly-panicked.html</a>
+<div class="metadata">
+  <time datetime="2014-05-12T20:20:00" pubdate>Mon 12 May 2014</time>
+    <address class="vcard author">
+      by <a class="url fn" href="http://toaruos.org/author/kevin-lange.html">Kevin Lange</a>
+    </address>
+  in <a href="http://toaruos.org/category/misc.html">misc</a>
+<p class="tags">tagged <a href="http://toaruos.org/tag/kernel.html">kernel</a></p></div>				&nbsp;
+			</div>
+		</div>
+	</div>
 			<div class="window-pad">
 				<div class="window">
 					<div class="title">Categories<div class="close"></div></div>
