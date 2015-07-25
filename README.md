@@ -1,5 +1,5 @@
-![Screenshot](http://i.imgur.com/5fpgP1q.png)
-![More Screenshots](http://i.imgur.com/Eu10iwj.png)
+![Screenshot](http://i.imgur.com/oeGNxX7.png)
+![More Screenshots](http://i.imgur.com/mogzwiO.png)
 
 # ToaruOS (とあるOS) #
 
