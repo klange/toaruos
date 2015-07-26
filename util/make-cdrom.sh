@@ -50,6 +50,7 @@ EOF
 
 echo "Generating ramdisk..."
 genext2fs -B 4096 -d hdd -D util/devtable -U -b 16384 -N 1024 cdrom/ramdisk.img
+gzip cdrom/ramdisk.img
 
 echo "Installing kernel..."
 cp toaruos-kernel cdrom/kernel
