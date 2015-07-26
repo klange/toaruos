@@ -1134,9 +1134,7 @@ static uint32_t read_ext2(fs_node_t *node, uint32_t offset, uint32_t size, uint8
 	uint32_t end_block    = end / this->block_size;
 	uint32_t end_size     = end - end_block * this->block_size;
 	uint32_t size_to_read = end - offset;
-	if (end_size == 0) {
-		end_block--;
-	}
+
 	uint8_t * buf = malloc(this->block_size);
 	if (start_block == end_block) {
 		inode_read_block(this, inode, start_block, buf);
@@ -1153,8 +1151,10 @@ static uint32_t read_ext2(fs_node_t *node, uint32_t offset, uint32_t size, uint8
 				memcpy(buffer + this->block_size * blocks_read - (offset % this->block_size), buf, this->block_size);
 			}
 		}
-		inode_read_block(this, inode, end_block, buf);
-		memcpy(buffer + this->block_size * blocks_read - (offset % this->block_size), buf, end_size);
+		if (end_size) {
+			inode_read_block(this, inode, end_block, buf);
+			memcpy(buffer + this->block_size * blocks_read - (offset % this->block_size), buf, end_size);
+		}
 	}
 	free(inode);
 	free(buf);
@@ -1172,9 +1172,6 @@ static uint32_t write_inode_buffer(ext2_fs_t * this, ext2_inodetable_t * inode, 
 	uint32_t end_block    = end / this->block_size;
 	uint32_t end_size     = end - end_block * this->block_size;
 	uint32_t size_to_read = end - offset;
-	if (end_size == 0) {
-		end_block--;
-	}
 	uint8_t * buf = malloc(this->block_size);
 	if (start_block == end_block) {
 		inode_read_block(this, inode, start_block, buf);
@@ -1200,9 +1197,11 @@ static uint32_t write_inode_buffer(ext2_fs_t * this, ext2_inodetable_t * inode, 
 				}
 			}
 		}
-		inode_read_block(this, inode, end_block, buf);
-		memcpy(buf, buffer + this->block_size * blocks_read - (offset % this->block_size), end_size);
-		inode_write_block(this, inode, inode_number, end_block, buf);
+		if (end_size) {
+			inode_read_block(this, inode, end_block, buf);
+			memcpy(buf, buffer + this->block_size * blocks_read - (offset % this->block_size), end_size);
+			inode_write_block(this, inode, inode_number, end_block, buf);
+		}
 	}
 	free(buf);
 	return size_to_read;
