@@ -1,5 +1,26 @@
 language: c
 script: ./util/build-travis.sh
+cache:
+  - apt
+  - directories:
+    - toolchain/build
+    - hdd/usr/bin
+    - hdd/usr/i686-pc-toaru
+    - hdd/usr/include
+    - hdd/usr/lib
+    - hdd/usr/libexec
+    - hdd/usr/local
+    - hdd/usr/man
+    - hdd/usr/share/aclocal
+    - hdd/usr/share/games
+    - hdd/usr/share/gcc-4.6.*
+    - hdd/usr/share/gtk-doc
+    - hdd/usr/share/info
+    - hdd/usr/share/locale
+    - hdd/usr/share/man
+    - hdd/usr/share/tabset
+    - hdd/usr/share/terminfo
+    - hdd/usr/share/vim
 notifications:
   irc:
     channels:
