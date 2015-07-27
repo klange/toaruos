@@ -14,42 +14,42 @@ desktop-color: "#000000"
 }
 
 + label {
-    top = 40%
+    top = 60%
     width = 100%
     align = center
     color = #fff
     text = "Requires a PS/2 keyboard + mouse and at least 256MB of RAM."
 }
 + label {
-    top = 43%
+    top = 63%
     width = 100%
     align = center
     color = #fff
     text = "Use alt+mouse1 to drag windows, alt+f10 to fullscreen."
 }
 + label {
-    top = 46%
+    top = 66%
     width = 100%
     align = center
     color = #fff
     text = "The default user is 'local' with password 'local'."
 }
 + label {
-    top = 49%
+    top = 69%
     width = 100%
     align = center
     color = #fff
     text = "If video fails, your GPU may not support the necessary 1024x768x32bpp mode."
 }
 + label {
-    top = 57%
+    top = 77%
     width = 100%
     align = center
     color = #fff
     text = "ToaruOS is free software, released under the NCSA/University of Illinois License"
 }
 + label {
-    top = 60%
+    top = 80%
     width = 100%
     align = center
     color = #fff
@@ -72,7 +72,7 @@ desktop-color: "#000000"
     id = "__timeout__"
     left = 15%
     width = 70%
-    top = 73%
+    top = 90%
     height = 12
     show_text = true
     text_color = "255, 255, 255"
