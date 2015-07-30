@@ -8,7 +8,7 @@
 #include <hashmap.h>
 #include <ipv4.h>
 #include <printf.h>
- #include <mod/rtl.h>
+#include <mod/net.h>
 
 static hashmap_t * dns_cache;
 
@@ -22,14 +22,18 @@ static uint8_t mac[6];
 static hashmap_t *_tcp_sockets = NULL;
 static hashmap_t *_udp_sockets = NULL;
 
-struct netif {
-	void *extra;
-	void (*write_packet)(struct sized_blob * payload);
-	uint8_t hwaddr[6];
-	uint32_t source;
-};
+static list_t * net_init_wait;
 
 static struct netif _netif;
+
+void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func) {
+	_netif.get_mac = mac_func;
+	_netif.get_packet = get_func;
+	_netif.send_packet = send_func;
+	memcpy(_netif.hwaddr, _netif.get_mac(), sizeof(_netif.hwaddr));
+
+	wakeup_queue(net_init_wait);
+}
 
 uint32_t ip_aton(const char * in) {
 	char ip[16];
@@ -577,7 +581,7 @@ static int net_send_ether(struct tcp_socket *socket, struct netif* netif, uint16
 		memcpy(eth->payload, payload, payload_size);
 	}
 
-	rtl_enqueue(eth);
+	netif->send_packet((uint8_t*)eth, sizeof(struct ethernet_packet) + payload_size);
 
 	return 1; // yolo
 }
@@ -708,7 +712,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 		{
 			/* Send ACK */
 			uint8_t payload[] = { 0 };
-			rtl_send_packet(payload, 0);
+			_netif.send_packet(payload, 0); // Super wrong
 		}
 	}
 }
@@ -744,7 +748,7 @@ static void net_handle_ipv4(struct ipv4_packet * ipv4) {
 }
 
 static struct ethernet_packet * net_receive(void) {
-	struct ethernet_packet * eth = (struct ethernet_packet *)rtl_dequeue();
+	struct ethernet_packet * eth = _netif.get_packet();
 
 	return eth;
 }
@@ -753,10 +757,16 @@ void net_handler(void * data, char * name) {
 	/* Network Packet Handler*/
 
 	_netif.extra = NULL;
-	_netif.write_packet = NULL;
-	memcpy(_netif.hwaddr, rtl_get_mac(), sizeof(_netif.hwaddr));
+	_netif.get_mac = NULL;
+	_netif.get_packet = NULL;
+	_netif.send_packet = NULL;
+
 	// TODO: THIS MUST BE CHANGED
 	_netif.source = 0x0a0a0a0a; // "10.10.10.10"
+
+	net_init_wait = list_create();
+
+	sleep_on(net_init_wait);
 
 	_tcp_sockets = hashmap_create_int(0xFF);
 	_udp_sockets = hashmap_create_int(0xFF);
@@ -779,10 +789,10 @@ void net_handler(void * data, char * name) {
 	}
 }
 
-static void net_handler_enqueue(void * buffer) {
-	/* XXX size? source? */
-	rtl_enqueue(buffer);
-}
+// static void net_handler_enqueue(void * buffer) {
+// 	/* XXX size? source? */
+// 	rtl_enqueue(buffer);
+// }
 
 static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 	struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;

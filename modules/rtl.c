@@ -226,14 +226,6 @@ static void rtl_ircd(void * data, char * name) {
 	}
 }
 
-void rtl_send_packet(uint8_t* payload, size_t payload_size) {
-	int my_tx = next_tx_buf();
-	memcpy(rtl_tx_buffer[my_tx], payload, payload_size);
-
-	outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
-	outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, payload_size);
-}
-
 void* rtl_dequeue() {
 	while (!net_queue->length) {
 		sleep_on(rx_wait);
@@ -253,6 +245,22 @@ void rtl_enqueue(void * buffer) {
 	spin_lock(net_queue_lock);
 	list_insert(net_queue, buffer);
 	spin_unlock(net_queue_lock);
+}
+
+uint8_t* rtl_get_mac() {
+	return mac;
+}
+
+void rtl_send_packet(uint8_t* payload, size_t payload_size) {
+	int my_tx = next_tx_buf();
+	memcpy(rtl_tx_buffer[my_tx], payload, payload_size);
+
+	outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * my_tx, rtl_tx_phys[my_tx]);
+	outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, payload_size);
+}
+
+struct ethernet_header* rtl_get_packet(void) {
+	return (struct ethernet_header*)rtl_dequeue();
 }
 
 static int rtl_irq_handler(struct regs *r) {
@@ -312,10 +320,6 @@ static int rtl_irq_handler(struct regs *r) {
 	}
 
 	return 1;
-}
-
-uint8_t* rtl_get_mac() {
-	return mac;
 }
 
 static void rtl_netd(void * data, char * name) {
@@ -454,6 +458,7 @@ static void rtl_netd(void * data, char * name) {
 	_atty = tty;
 
 	create_kernel_tasklet(net_handler, "[eth]", tty);
+	init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
 }
 
 static int tty_readline(fs_node_t * dev, char * linebuf, int max) {
@@ -908,7 +913,6 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Card is configured, going to start worker thread now.\n");
 
 		create_kernel_tasklet(rtl_netd, "[netd]", tty);
-
 	} else {
 		return -1;
 	}
