@@ -75,6 +75,9 @@ struct tcp_header {
 	uint32_t seq_number;
 	uint32_t ack_number;
 
+	uint8_t data_off:4,
+			reserved:4;
+
 	uint16_t flags;
 	uint16_t window_size;
 	uint16_t checksum;
@@ -132,6 +135,22 @@ struct tcp_socket {
 struct sized_blob {
 	size_t  size;
 	uint8_t blob[];
+};
+
+struct in_addr {
+	unsigned long s_addr;          // load with inet_pton()
+};
+
+struct sockaddr {
+	uint16_t 	sa_family;
+	char 		sa_data[14];
+};
+
+struct sockaddr_in {
+	short			sin_family;   // e.g. AF_INET, AF_INET6
+	unsigned short	sin_port;     // e.g. htons(3490)
+	struct in_addr	sin_addr;     // see struct in_addr, below
+	char			sin_zero[8];  // zero this if you want to
 };
 
 #endif
