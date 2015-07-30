@@ -747,8 +747,8 @@ static void net_handle_ipv4(struct ipv4_packet * ipv4) {
 
 }
 
-static struct ethernet_packet * net_receive(void) {
-	struct ethernet_packet * eth = _netif.get_packet();
+static struct ethernet_packet* net_receive(void) {
+	struct ethernet_packet *eth = _netif.get_packet();
 
 	return eth;
 }

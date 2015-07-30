@@ -259,8 +259,8 @@ void rtl_send_packet(uint8_t* payload, size_t payload_size) {
 	outportl(rtl_iobase + RTL_PORT_TXSTAT + 4 * my_tx, payload_size);
 }
 
-struct ethernet_header* rtl_get_packet(void) {
-	return (struct ethernet_header*)rtl_dequeue();
+struct ethernet_packet* rtl_get_packet(void) {
+	return (struct ethernet_packet*)rtl_dequeue();
 }
 
 static int rtl_irq_handler(struct regs *r) {
