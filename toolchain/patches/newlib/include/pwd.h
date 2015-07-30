@@ -13,6 +13,7 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
 #include <sys/types.h>
 
 struct passwd {
