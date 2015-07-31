@@ -617,7 +617,9 @@ static int net_send_ip(struct tcp_socket *socket, int proto, void* payload, uint
 		};
 
 		struct tcp_header* tcp_hdr =(struct tcp_header*)payload;
-		size_t orig_payload_size = payload_size - sizeof(struct tcp_header) - ((tcp_hdr->data_off - 5) * 4);
+		// Note: Data offset is in upper 4 bits of flags field. Shift and subtract 5 since that is the min TCP size.
+		//       If the value is more than 5, multiply by 4 because this field is specified in number of words
+		size_t orig_payload_size = payload_size - sizeof(struct tcp_header) - (((tcp_hdr->flags >> 12) - 5) * 4);
 		calculate_tcp_checksum(&check_hd, tcp_hdr, tcp_hdr->payload, orig_payload_size);
 	}
 

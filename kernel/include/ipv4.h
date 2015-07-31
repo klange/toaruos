@@ -75,9 +75,6 @@ struct tcp_header {
 	uint32_t seq_number;
 	uint32_t ack_number;
 
-	uint8_t data_off:4,
-			reserved:4;
-
 	uint16_t flags;
 	uint16_t window_size;
 	uint16_t checksum;
