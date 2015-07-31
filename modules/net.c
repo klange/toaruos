@@ -410,7 +410,7 @@ static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload
 		// If only SYN set, expected ACK will be 1 despite no payload
 		socket->proto_sock.tcp_socket.seq_no += 1;
 	} else {
-
+		socket->proto_sock.tcp_socket.seq_no += payload_size;
 	}
 
 	if (payload) {
@@ -485,6 +485,11 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->destination_port))) {
 		struct socket *socket = hashmap_get(_tcp_sockets, (void *)ntohs(tcp->destination_port));
 
+		if (socket->proto_sock.tcp_socket.seq_no != socket->proto_sock.tcp_socket.ack_no) {
+			// Drop packet
+			return;
+		}
+
 		if ((htons(tcp->flags) & TCP_FLAGS_SYN) && (htons(tcp->flags) & TCP_FLAGS_ACK)) {
 			fprintf(_atty, "net_handle_tcp: data_length: %d\n",  data_length);
 			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
@@ -517,7 +522,10 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 				fprintf(_atty, "net_handle_tcp: adding 1 to ack\n");
 				socket->proto_sock.tcp_socket.ack_no += 1;
 			}
+
 			fprintf(_atty, "net_handle_tcp: set ack: %d\n",  socket->proto_sock.tcp_socket.ack_no);
+			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + tcpdata->payload_size;
+			fprintf(_atty, "net_handle_tcp: new ack: %d\n",  socket->proto_sock.tcp_socket.ack_no);
 
 			spin_lock(socket->packet_queue_lock);
 			list_insert(socket->packet_queue, tcpdata);
@@ -526,27 +534,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			wakeup_queue(socket->packet_wait);
 		}
 	} else {
-
-		/* r-next */
-		if (seq_no != ntohl(tcp->ack_number)) return;
-
-		int flags = ntohs(tcp->flags);
-
-		if ((flags & TCP_FLAGS_ACK) && !data_length) return;
-
-		ack_no = ntohl(tcp->seq_number) + data_length;
-
-		/* XXX socket port verification? */
-		if (ntohs(tcp->source_port) == 6667) {
-
-			write_fs(irc_socket, 0, data_length, tcp->payload);
-		}
-
-		{
-			/* Send ACK */
-			uint8_t payload[] = { 0 };
-			_netif.send_packet(payload, 0); // Super wrong
-		}
+		fpritnf(_atty, "net_handle_tcp: Received packet not associated with a socket!\n");
 	}
 	fprintf(_atty, "net_handle_tcp: RETURN\n");
 }
@@ -616,32 +604,9 @@ static int net_connect(struct socket* socket) {
 
 	ret = net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
 	// fprintf(_atty, "net_connect:sent tcp SYN: %d\n", ret);
-	
+
 	// Race condition here - if net_handle_tcp runs and connects before this sleep
 	sleep_on(socket->proto_sock.tcp_socket.is_connected);
-
-	// fprintf(_atty, "net_connect: run the receive handler to 'capture' the SYN-ACK\n");
-	// struct ethernet_packet * eth = net_receive();
-	// switch (ntohs(eth->type)) {
-	// 	case ETHERNET_TYPE_IPV4:
-	// 		fprintf(_atty, "net_connect: Handle ipv4()\n");
-	// 		net_handle_ipv4((struct ipv4_packet *)eth->payload);
-	// 		fprintf(_atty, "net_connect: Back from Handle ipv4()\n");
-	// 		break;
-	// 	case ETHERNET_TYPE_ARP:
-	// 		// net_handle_arp(eth);
-	// 		break;
-	// }
-	// fprintf(_atty, "net_connect: Free the eth buffer\n");
-	// free(eth);
-	// uint8_t buffer[1024];
-	// fprintf(_atty, "net_connect: Call to recv shit\n");
-	// ret = net_recv(socket, buffer, 1024);
-
-	// fprintf(_atty, "net_connect: Received data with len: %d\n", ret);
-
-	// ret = net_send_tcp(socket, TCP_FLAGS_ACK, NULL, 0);
-	// fprintf(_atty, "net_connect:sent tcp ACK: %d\n", ret);
 
 	return 1;
 }
