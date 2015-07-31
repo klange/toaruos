@@ -25,4 +25,5 @@ extern struct socket* net_open(uint32_t type);
 extern int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int flags);
 extern size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len);
 extern int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port);
+extern int net_close(struct socket* socket);
 #endif
