@@ -406,7 +406,7 @@ static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload
 	tcp->checksum = 0; // Fill in later
 	tcp->urgent = 0;
 
-	if (flags == TCP_FLAGS_SYN) {
+	if ((flags & 0xff) == TCP_FLAGS_SYN) {
 		// If only SYN set, expected ACK will be 1 despite no payload
 		socket->proto_sock.tcp_socket.seq_no += 1;
 	} else {
@@ -427,6 +427,11 @@ struct socket* net_open(uint32_t type) {
 	sock->sock_type = type;
 
 	return sock;
+}
+
+int net_close(struct socket* socket) {
+	// socket->is_connected;
+	return 1;
 }
 
 int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int flags) {
@@ -493,16 +498,26 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 		}
 
 		if ((htons(tcp->flags) & TCP_FLAGS_SYN) && (htons(tcp->flags) & TCP_FLAGS_ACK)) {
-			fprintf(_atty, "net_handle_tcp: data_length: %d\n",  data_length);
+			fprintf(_atty, "net_handle_tcp: SYN-ACK data_length: %d\n",  data_length);
 			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
 			net_send_tcp(socket, TCP_FLAGS_ACK, NULL, 0);
 			wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
+		}
+		else if (htons(tcp->flags) & TCP_FLAGS_RES)
+		{
+			fprintf(_atty, "net_handle_tcp: Received RST - socket closing\n");
+			net_close(socket);
+			return;
 		}
 		else 
 		{
 			// Store a copy of the layer 5 data for a userspace recv() call
 			tcpdata_t *tcpdata = malloc(sizeof(tcpdata_t));
 			tcpdata->payload_size = length - TCP_HEADER_LENGTH_FLIPPED(tcp);
+
+			if (tcpdata->payload_size == 0) {
+				return;
+			}
 
 			fprintf(_atty, "net_handle_tcp: payload length: %d\n",  length);
 			fprintf(_atty, "net_handle_tcp: tcp flags hdr len: %d\n",  TCP_HEADER_LENGTH(tcp));
@@ -580,8 +595,6 @@ static struct ethernet_packet* net_receive(void) {
 }
 
 int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
-	int ret;
-
 	if (socket->sock_type == SOCK_DGRAM) {
 		// Can't connect UDP
 		return -1;
