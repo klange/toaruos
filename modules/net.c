@@ -485,8 +485,10 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->destination_port))) {
 		struct socket *socket = hashmap_get(_tcp_sockets, (void *)ntohs(tcp->destination_port));
 
-		if (socket->proto_sock.tcp_socket.seq_no != socket->proto_sock.tcp_socket.ack_no) {
+		if (socket->proto_sock.tcp_socket.seq_no != ntohl(tcp->ack_number)) {
 			// Drop packet
+			fprintf(_atty, "Dropping packet. Expected ack: %d | Got ack: %d\n",
+					socket->proto_sock.tcp_socket.seq_no, ntohl(tcp->ack_number));
 			return;
 		}
 
@@ -618,6 +620,7 @@ DEFINE_SHELL_FUNCTION(conn, "Do connection") {
 	struct socket* socket = net_open(SOCK_STREAM);
 
 	fprintf(_atty, "conn: Make connection\n");
+	// ret = net_connect(socket, ip_aton("192.168.134.129"), 12345);
 	ret = net_connect(socket, ip_aton("10.255.50.206"), 12345);
 
 	fprintf(_atty, "conn: connection ret: %d\n", ret);
