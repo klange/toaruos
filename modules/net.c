@@ -13,10 +13,10 @@
 
 static hashmap_t * dns_cache;
 
-static fs_node_t * irc_socket;
+// static fs_node_t * irc_socket;
 
-static uint32_t seq_no = 0xff0000;
-static uint32_t ack_no = 0x0;
+// static uint32_t seq_no = 0xff0000;
+// static uint32_t ack_no = 0x0;
 
 static uint8_t mac[6];
 
@@ -534,7 +534,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			wakeup_queue(socket->packet_wait);
 		}
 	} else {
-		fpritnf(_atty, "net_handle_tcp: Received packet not associated with a socket!\n");
+		fprintf(_atty, "net_handle_tcp: Received packet not associated with a socket!\n");
 	}
 	fprintf(_atty, "net_handle_tcp: RETURN\n");
 }
@@ -578,7 +578,7 @@ static struct ethernet_packet* net_receive(void) {
 }
 
 static int net_connect(struct socket* socket) {
-	int ret;
+	// int ret;
 
 	if (socket->sock_type == SOCK_DGRAM) {
 		// Can't connect UDP
@@ -602,7 +602,7 @@ static int net_connect(struct socket* socket) {
 
 	hashmap_set(_tcp_sockets, (void*)socket->port_recv, socket);
 
-	ret = net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
+	net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
 	// fprintf(_atty, "net_connect:sent tcp SYN: %d\n", ret);
 
 	// Race condition here - if net_handle_tcp runs and connects before this sleep
