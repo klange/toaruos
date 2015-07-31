@@ -12,7 +12,7 @@
 #include <pipe.h>
 #include <ipv4.h>
 #include <mod/shell.h>
- #include <mod/net.h>
+#include <mod/net.h>
 
 /* XXX move this to ipv4? */
 extern size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset);
@@ -450,15 +450,21 @@ static void rtl_netd(void * data, char * name) {
 	}
 #endif
 
-	irc_socket = make_pipe(4096);
-	vfs_mount("/dev/net_irc", irc_socket);
+	// irc_socket = make_pipe(4096);
+	// vfs_mount("/dev/net_irc", irc_socket);
 
-	create_kernel_tasklet(rtl_ircd, "[ircd]", tty);
+	// create_kernel_tasklet(rtl_ircd, "[ircd]", tty);
+
+
 
 	_atty = tty;
 
-	create_kernel_tasklet(net_handler, "[eth]", tty);
+	fprintf(tty, "rtl_netd: Initializing netif functions\n");
+
 	init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
+	create_kernel_tasklet(net_handler, "[eth]", tty);
+
+	fprintf(tty, "rtl_netd: net_handler has been started\n");
 }
 
 static int tty_readline(fs_node_t * dev, char * linebuf, int max) {
@@ -913,6 +919,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		fprintf(tty, "Card is configured, going to start worker thread now.\n");
 
 		create_kernel_tasklet(rtl_netd, "[netd]", tty);
+		fprintf(tty, "Back from starting the worker thread.\n");
 	} else {
 		return -1;
 	}

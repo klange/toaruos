@@ -22,7 +22,7 @@ static uint8_t mac[6];
 static hashmap_t *_tcp_sockets = NULL;
 static hashmap_t *_udp_sockets = NULL;
 
-static list_t * net_init_wait;
+static fs_node_t *_atty = NULL;
 
 static struct netif _netif;
 
@@ -31,8 +31,6 @@ void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_pack
 	_netif.get_packet = get_func;
 	_netif.send_packet = send_func;
 	memcpy(_netif.hwaddr, _netif.get_mac(), sizeof(_netif.hwaddr));
-
-	wakeup_queue(net_init_wait);
 }
 
 uint32_t ip_aton(const char * in) {
@@ -260,76 +258,9 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
-static size_t build_tcp_packet(uint8_t * buffer, struct netif * netif, struct tcp_socket * socket, struct sized_blob * payload, uint16_t flags) {
+static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries) {
 	size_t offset = 0;
-
-	struct ethernet_packet eth_out = {
-		.source = { netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2],
-			netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5] },
-		.destination = { socket->mac[0], socket->mac[1], socket->mac[2],
-			socket->mac[3], socket->mac[4], socket->mac[5] },
-		.type = htons(0x0800),
-	};
-
-	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
-	offset += sizeof(struct ethernet_packet);
-
-	/* Prepare the IPv4 header */
-	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + payload->size);
-	uint16_t _ident  = htons(1);
-
-	struct ipv4_packet ipv4_out = {
-		.version_ihl = ((0x4 << 4) | (0x5 << 0)), /* 4 = ipv4, 5 = no options */
-		.dscp_ecn = 0, /* not setting either of those */
-		.length = _length,
-		.ident = _ident,
-		.flags_fragment = 0,
-		.ttl = 0x40, /* ... */
-		.protocol = IPV4_PROT_TCP,
-		.checksum = 0, /* fill this in later */
-		.source = htonl(netif->source),
-		.destination = htonl(socket->ip),
-	};
-
-	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
-	ipv4_out.checksum = htons(checksum);
-
-	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
-	offset += sizeof(struct ipv4_packet);
-
-	struct tcp_header tcp = {
-		.source_port = htons(socket->port_recv), /* Ephemeral port */
-		.destination_port = htons(socket->port_dest), /* IRC */
-		.seq_number = htonl(socket->seq_no),
-		.ack_number = flags & (TCP_FLAGS_ACK) ? htonl(socket->ack_no) : 0,
-		.flags = htons(flags),
-		.window_size = htons(1800),
-		.checksum = 0,
-		.urgent = 0,
-	};
-
-	struct tcp_check_header check_hd = {
-		.source = ipv4_out.source,
-		.destination = ipv4_out.destination,
-		.zeros = 0,
-		.protocol = 6,
-		.tcp_len = htons(sizeof(tcp)+payload->size),
-	};
-
-	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, payload->size);
-	tcp.checksum = htons(t);
-
-	memcpy(&buffer[offset], &tcp, sizeof(struct tcp_header));
-	offset += sizeof(struct tcp_header);
-
-	memcpy(&buffer[offset], payload, payload->size);
-	offset += payload->size;
-
-	return offset;
-}
-
-static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t payload_size, uint16_t flags) {
-	size_t offset = 0;
+	size_t payload_size = sizeof(struct dns_packet) + queries_len;
 
 	/* Then, let's write an ethernet frame */
 	struct ethernet_packet eth_out = {
@@ -342,7 +273,7 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 	offset += sizeof(struct ethernet_packet);
 
 	/* Prepare the IPv4 header */
-	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + payload_size);
+	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct udp_packet) + payload_size);
 	uint16_t _ident  = htons(1);
 
 	struct ipv4_packet ipv4_out = {
@@ -352,16 +283,10 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 		.ident = _ident,
 		.flags_fragment = 0,
 		.ttl = 0x40,
-		.protocol = IPV4_PROT_TCP,
+		.protocol = IPV4_PROT_UDP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(ip_aton("10.0.2.15")),
-		//.destination = htonl(ip_aton("185.30.166.35")), /* Freenode */
-		.destination = htonl(ip_aton("104.131.140.26")), /* Dakko */
-		//.destination = htonl(ip_aton("192.168.1.145")), /* (host machine) */
-		//.destination = htonl(ip_aton("107.170.207.248")), /* nyancat.dakko.us */
-		//.destination = htonl(ip_aton("94.142.241.111")), /* towel (star wars) */
-		//.destination = htonl(ip_aton("173.255.206.39")), /* osdev.org */
-
+		.destination = htonl(ip_aton("10.0.2.3")),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -370,37 +295,316 @@ static size_t write_tcp_packet(uint8_t * buffer, uint8_t * payload, size_t paylo
 	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
 	offset += sizeof(struct ipv4_packet);
 
-	struct tcp_header tcp = {
-		.source_port = htons(56668), /* Ephemeral port */
-		.destination_port = htons(6667), /* IRC */
-		//.destination_port = htons(23), /* Telnet */
-		//.destination_port = htons(80), /* HTTP */
-		.seq_number = htonl(seq_no),
-		.ack_number = flags & (TCP_FLAGS_ACK) ? htonl(ack_no) : 0,
-		.flags = htons(flags),
-		.window_size = htons(1800),
+	uint16_t _udp_source = htons(50053); /* Use an ephemeral port */
+	uint16_t _udp_destination = htons(53);
+	uint16_t _udp_length = htons(sizeof(struct udp_packet) + payload_size);
+
+	/* Now let's build a UDP packet */
+	struct udp_packet udp_out = {
+		.source_port = _udp_source,
+		.destination_port = _udp_destination,
+		.length = _udp_length,
 		.checksum = 0,
-		.urgent = 0,
 	};
 
-	struct tcp_check_header check_hd = {
-		.source = ipv4_out.source,
-		.destination = ipv4_out.destination,
-		.zeros = 0,
-		.protocol = 6,
-		.tcp_len = htons(sizeof(tcp)+payload_size),
+	/* XXX calculate checksum here */
+
+	memcpy(&buffer[offset], &udp_out, sizeof(struct udp_packet));
+	offset += sizeof(struct udp_packet);
+
+	/* DNS header */
+	struct dns_packet dns_out = {
+		.qid = htons(0),
+		.flags = htons(0x0100), /* Standard query */
+		.questions = htons(1), /* 1 question */
+		.answers = htons(0),
+		.authorities = htons(0),
+		.additional = htons(0),
 	};
 
-	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, payload_size);
-	tcp.checksum = htons(t);
+	memcpy(&buffer[offset], &dns_out, sizeof(struct dns_packet));
+	offset += sizeof(struct dns_packet);
 
-	memcpy(&buffer[offset], &tcp, sizeof(struct tcp_header));
-	offset += sizeof(struct tcp_header);
-
-	memcpy(&buffer[offset], payload, payload_size);
-	offset += payload_size;
+	memcpy(&buffer[offset], queries, queries_len);
+	offset += queries_len;
 
 	return offset;
+}
+
+static int net_send_ether(struct socket *socket, struct netif* netif, uint16_t ether_type, void* payload, uint32_t payload_size) {
+	struct ethernet_packet *eth = malloc(sizeof(struct ethernet_packet) + payload_size);
+	memcpy(eth->source, netif->hwaddr, sizeof(eth->source));
+	memset(eth->destination, 0xFF, sizeof(eth->destination));
+	eth->type = htons(ether_type);
+
+	if (payload_size) {
+		memcpy(eth->payload, payload, payload_size);
+	}
+
+	netif->send_packet((uint8_t*)eth, sizeof(struct ethernet_packet) + payload_size);
+
+	return 1; // yolo
+}
+
+static int net_send_ip(struct socket *socket, int proto, void* payload, uint32_t payload_size) {
+	struct ipv4_packet *ipv4 = malloc(sizeof(struct ipv4_packet) + payload_size);
+
+	uint16_t _length = htons(sizeof(struct ipv4_packet) + payload_size);
+	uint16_t _ident  = htons(1);
+
+	ipv4->version_ihl = ((0x4 << 4) | (0x5 << 0)); /* 4 = ipv4, 5 = no options */
+	ipv4->dscp_ecn = 0; /* not setting either of those */
+	ipv4->length = _length;
+	ipv4->ident = _ident;
+	ipv4->flags_fragment = 0;
+	ipv4->ttl = 0x40;
+	ipv4->protocol = proto;
+	ipv4->checksum = 0; // Fill in later */
+	ipv4->source = htonl(ip_aton("10.0.2.15")),
+	ipv4->destination = htonl(socket->ip);
+
+	uint16_t checksum = calculate_ipv4_checksum(ipv4);
+	ipv4->checksum = htons(checksum);
+
+	if (proto == IPV4_PROT_TCP) {
+		// Need to calculate TCP checksum
+		struct tcp_check_header check_hd = {
+			.source = ipv4->source,
+			.destination = ipv4->destination,
+			.zeros = 0,
+			.protocol = 6,
+			.tcp_len = htons(payload_size),
+		};
+
+		fprintf(_atty, "net_send_ip: Payload size: %d\n", payload_size);
+		struct tcp_header* tcp_hdr = (struct tcp_header*)payload;
+		fprintf(_atty, "net_send_ip: Header len htons: %d\n", TCP_HEADER_LENGTH_FLIPPED(tcp_hdr));
+		size_t orig_payload_size = payload_size - TCP_HEADER_LENGTH_FLIPPED(tcp_hdr);
+
+		uint16_t chk = calculate_tcp_checksum(&check_hd, tcp_hdr, tcp_hdr->payload, orig_payload_size);
+		tcp_hdr->checksum = htons(chk);
+	}
+
+	if (payload) {
+		memcpy(ipv4->payload, payload, payload_size);
+	}
+
+	// TODO: netif should not be a global thing. But the route should be looked up here and a netif object created/returned
+	return net_send_ether(socket, &_netif, ETHERNET_TYPE_IPV4, ipv4, sizeof(struct ipv4_packet) + payload_size);
+}
+
+static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload, uint32_t payload_size) {
+	struct tcp_header *tcp = malloc(sizeof(struct tcp_header) + payload_size);
+
+	tcp->source_port = htons(socket->port_recv);
+	tcp->destination_port = htons(socket->port_dest);
+	tcp->seq_number = htonl(socket->proto_sock.tcp_socket.seq_no);
+	tcp->ack_number = flags & (TCP_FLAGS_ACK) ? htonl(socket->proto_sock.tcp_socket.ack_no) : 0;
+	tcp->flags = htons(0x5000 ^ (flags & 0xFF));
+	tcp->window_size = htons(1800);
+	tcp->checksum = 0; // Fill in later
+	tcp->urgent = 0;
+
+	if (flags == TCP_FLAGS_SYN) {
+		// If only SYN set, expected ACK will be 1 despite no payload
+		socket->proto_sock.tcp_socket.seq_no += 1;
+	} else {
+
+	}
+
+	if (payload) {
+		memcpy(tcp->payload, payload, payload_size);
+	}
+
+	return net_send_ip(socket, IPV4_PROT_TCP, tcp, sizeof(struct tcp_header) + payload_size);
+}
+
+static struct socket* net_open(uint32_t type) {
+	// This is a socket() call
+	struct socket *sock = malloc(sizeof(struct socket));
+	memset(sock, 0, sizeof(struct socket));
+	sock->sock_type = type;
+
+	return sock;
+}
+
+static int net_connect(struct socket* socket) {
+	if (socket->sock_type == SOCK_DGRAM) {
+		// Can't connect UDP
+		return -1;
+	}
+
+	memset(socket->mac, 0, sizeof(socket->mac)); // idk
+	socket->port_recv = next_ephemeral_port();
+	socket->proto_sock.tcp_socket.seq_no = 0;
+	socket->proto_sock.tcp_socket.ack_no = 0;
+	socket->proto_sock.tcp_socket.status = 0;
+
+	socket->packet_queue = list_create();
+	socket->packet_wait = list_create();
+
+	socket->ip = ip_aton("192.168.134.129");
+	socket->port_dest = 12345;
+
+	hashmap_set(_tcp_sockets, (void*)socket->port_recv, socket);
+
+	return net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
+}
+
+static int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int flags) {
+	return net_send_tcp(socket, TCP_FLAGS_ACK | TCP_FLAGS_PSH, payload, payload_size);
+}
+
+static size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
+	tcpdata_t *tcpdata = NULL;
+	node_t *node = NULL;
+
+	spin_lock(socket->packet_queue_lock);
+	do {
+		if (socket->packet_queue->length > 0) {
+			node = list_dequeue(socket->packet_queue);
+			break;
+		} else {
+			spin_unlock(socket->packet_queue_lock);
+			sleep_on(socket->packet_wait);
+			spin_lock(socket->packet_queue_lock);
+		}
+	} while (1);
+	spin_unlock(socket->packet_queue_lock);
+
+	tcpdata = node->value;
+
+	memcpy(buffer, tcpdata->payload, len);
+
+	free(node->value);
+	free(node);
+
+	return tcpdata->payload_size;
+}
+
+static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
+
+	size_t data_length = length - sizeof(struct tcp_header);
+
+	/* Find socket */
+	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->source_port))) {
+		struct socket *socket = hashmap_get(_tcp_sockets, (void *)ntohs(tcp->source_port));
+
+		// Store a copy of the layer 5 data for a userspace recv() call
+		tcpdata_t *tcpdata = malloc(sizeof(tcpdata_t));
+
+		tcpdata->payload_size = length - TCP_HEADER_LENGTH(tcp);
+		tcpdata->payload = malloc(tcpdata->payload_size);
+		memcpy(tcpdata->payload, tcp->payload, tcpdata->payload_size);
+		
+
+		spin_lock(socket->packet_queue_lock);
+		list_insert(socket->packet_queue, tcpdata);
+		spin_unlock(socket->packet_queue_lock);
+
+		wakeup_queue(socket->packet_wait);
+	} else {
+
+		/* r-next */
+		if (seq_no != ntohl(tcp->ack_number)) return;
+
+		int flags = ntohs(tcp->flags);
+
+		if ((flags & TCP_FLAGS_ACK) && !data_length) return;
+
+		ack_no = ntohl(tcp->seq_number) + data_length;
+
+		/* XXX socket port verification? */
+		if (ntohs(tcp->source_port) == 6667) {
+
+			write_fs(irc_socket, 0, data_length, tcp->payload);
+		}
+
+		{
+			/* Send ACK */
+			uint8_t payload[] = { 0 };
+			_netif.send_packet(payload, 0); // Super wrong
+		}
+	}
+}
+
+static void net_handle_udp(struct udp_packet * udp, size_t length) {
+
+	// size_t data_length = length - sizeof(struct tcp_header);
+
+	/* Find socket */
+	if (hashmap_has(_udp_sockets, (void *)ntohs(udp->source_port))) {
+		/* Do the thing */
+
+	} else {
+		/* ??? */
+	}
+
+}
+
+static void net_handle_ipv4(struct ipv4_packet * ipv4) {
+
+	switch (ipv4->protocol) {
+		case IPV4_PROT_TCP:
+			net_handle_tcp((struct tcp_header *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
+			break;
+		case IPV4_PROT_UDP:
+			net_handle_udp((struct udp_packet *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
+			break;
+		default:
+			/* XXX */
+			break;
+	}
+
+}
+
+static struct ethernet_packet* net_receive(void) {
+	struct ethernet_packet *eth = _netif.get_packet();
+
+	return eth;
+}
+
+void net_handler(void * data, char * name) {
+	/* Network Packet Handler*/
+	fs_node_t * tty = data;
+	_atty = tty;
+
+	fprintf(tty, "net_handler: ENTER\n");
+
+	_netif.extra = NULL;
+
+	// TODO: THIS MUST BE CHANGED
+	_netif.source = 0x0a0a0a0a; // "10.10.10.10"
+
+	_tcp_sockets = hashmap_create_int(0xFF);
+	_udp_sockets = hashmap_create_int(0xFF);
+
+	fprintf(tty, "net_handler: About to get socket\n");
+
+	struct socket* socket = net_open(SOCK_STREAM);
+
+	fprintf(tty, "net_handler: About to send connect()\n");
+
+	int ret = net_connect(socket);
+
+	fprintf(tty, "net_handler: return from connect(): %d\n", ret);
+
+	// while (1) {
+	// 	struct ethernet_packet * eth = net_receive();
+
+	// 	if (!eth) continue;
+
+	// 	switch (ntohs(eth->type)) {
+	// 		case ETHERNET_TYPE_IPV4:
+	// 			net_handle_ipv4((struct ipv4_packet *)eth->payload);
+	// 			break;
+	// 		case ETHERNET_TYPE_ARP:
+	// 			// net_handle_arp(eth);
+	// 			break;
+	// 	}
+
+	// 	free(eth);
+	// }
 }
 
 size_t write_dhcp_packet(uint8_t * buffer) {
@@ -497,304 +701,6 @@ size_t write_dhcp_packet(uint8_t * buffer) {
 
 	return offset;
 }
-
-static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries) {
-	size_t offset = 0;
-	size_t payload_size = sizeof(struct dns_packet) + queries_len;
-
-	/* Then, let's write an ethernet frame */
-	struct ethernet_packet eth_out = {
-		.source = { mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] },
-		.destination = BROADCAST_MAC,
-		.type = htons(0x0800),
-	};
-
-	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
-	offset += sizeof(struct ethernet_packet);
-
-	/* Prepare the IPv4 header */
-	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct udp_packet) + payload_size);
-	uint16_t _ident  = htons(1);
-
-	struct ipv4_packet ipv4_out = {
-		.version_ihl = ((0x4 << 4) | (0x5 << 0)), /* 4 = ipv4, 5 = no options */
-		.dscp_ecn = 0, /* not setting either of those */
-		.length = _length,
-		.ident = _ident,
-		.flags_fragment = 0,
-		.ttl = 0x40,
-		.protocol = IPV4_PROT_UDP,
-		.checksum = 0, /* fill this in later */
-		.source = htonl(ip_aton("10.0.2.15")),
-		.destination = htonl(ip_aton("10.0.2.3")),
-	};
-
-	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
-	ipv4_out.checksum = htons(checksum);
-
-	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
-	offset += sizeof(struct ipv4_packet);
-
-	uint16_t _udp_source = htons(50053); /* Use an ephemeral port */
-	uint16_t _udp_destination = htons(53);
-	uint16_t _udp_length = htons(sizeof(struct udp_packet) + payload_size);
-
-	/* Now let's build a UDP packet */
-	struct udp_packet udp_out = {
-		.source_port = _udp_source,
-		.destination_port = _udp_destination,
-		.length = _udp_length,
-		.checksum = 0,
-	};
-
-	/* XXX calculate checksum here */
-
-	memcpy(&buffer[offset], &udp_out, sizeof(struct udp_packet));
-	offset += sizeof(struct udp_packet);
-
-	/* DNS header */
-	struct dns_packet dns_out = {
-		.qid = htons(0),
-		.flags = htons(0x0100), /* Standard query */
-		.questions = htons(1), /* 1 question */
-		.answers = htons(0),
-		.authorities = htons(0),
-		.additional = htons(0),
-	};
-
-	memcpy(&buffer[offset], &dns_out, sizeof(struct dns_packet));
-	offset += sizeof(struct dns_packet);
-
-	memcpy(&buffer[offset], queries, queries_len);
-	offset += queries_len;
-
-	return offset;
-}
-
-static int net_send_ether(struct tcp_socket *socket, struct netif* netif, uint16_t ether_type, void* payload, uint32_t payload_size) {
-	struct ethernet_packet *eth = malloc(sizeof(struct ethernet_packet) + payload_size);
-	memcpy(eth->source, netif->hwaddr, sizeof(eth->source));
-	memset(eth->destination, 0xFF, sizeof(eth->destination));
-	eth->type = htons(ether_type);
-
-	if (payload_size) {
-		memcpy(eth->payload, payload, payload_size);
-	}
-
-	netif->send_packet((uint8_t*)eth, sizeof(struct ethernet_packet) + payload_size);
-
-	return 1; // yolo
-}
-
-static int net_send_ip(struct tcp_socket *socket, int proto, void* payload, uint32_t payload_size) {
-	struct ipv4_packet *ipv4 = malloc(sizeof(struct ipv4_packet) + payload_size);
-
-	uint16_t _length = htons(sizeof(struct ipv4_packet) + payload_size);
-	uint16_t _ident  = htons(1);
-
-	ipv4->version_ihl = ((0x4 << 4) | (0x5 << 0)); /* 4 = ipv4, 5 = no options */
-	ipv4->dscp_ecn = 0; /* not setting either of those */
-	ipv4->length = _length;
-	ipv4->ident = _ident;
-	ipv4->flags_fragment = 0;
-	ipv4->ttl = 0x40;
-	ipv4->protocol = proto;
-	ipv4->checksum = 0; // Fill in later */
-	ipv4->source = htonl(ip_aton("10.10.10.10")),
-	ipv4->destination = htonl(socket->ip);
-
-	uint16_t checksum = calculate_ipv4_checksum(ipv4);
-	ipv4->checksum = checksum;
-
-	if (proto == IPV4_PROT_TCP) {
-		// Need to calculate TCP checksum
-		struct tcp_check_header check_hd = {
-			.source = ipv4->source,
-			.destination = ipv4->destination,
-			.zeros = 0,
-			.protocol = 6,
-			.tcp_len = htons(payload_size),
-		};
-
-		struct tcp_header* tcp_hdr =(struct tcp_header*)payload;
-		// Note: Data offset is in upper 4 bits of flags field. Shift and subtract 5 since that is the min TCP size.
-		//       If the value is more than 5, multiply by 4 because this field is specified in number of words
-		size_t orig_payload_size = payload_size - sizeof(struct tcp_header) - (((tcp_hdr->flags >> 12) - 5) * 4);
-		calculate_tcp_checksum(&check_hd, tcp_hdr, tcp_hdr->payload, orig_payload_size);
-	}
-
-	if (payload) {
-		memcpy(ipv4->payload, payload, payload_size);
-	}
-
-	// TODO: netif should not be a global thing. But the route should be looked up here and a netif object created/returned
-	return net_send_ether(socket, &_netif, ETHERNET_TYPE_IPV4, ipv4, sizeof(struct ipv4_packet) + payload_size);
-}
-
-static int net_send_tcp(struct tcp_socket *socket, uint16_t flags, uint8_t * payload, uint32_t payload_size) {
-	struct tcp_header *tcp = malloc(sizeof(struct tcp_header) + payload_size);
-
-	if (flags == TCP_FLAGS_SYN) {
-		// If only SYN set, this is a new connection
-		tcp->source_port = htons(socket->port_recv);
-		tcp->destination_port = htons(socket->port_dest);
-		tcp->seq_number = htonl(socket->seq_no);
-		tcp->ack_number = flags & (TCP_FLAGS_ACK) ? htonl(socket->ack_no) : 0;
-		tcp->flags = htons(flags);
-		tcp->window_size = htons(1800);
-		tcp->checksum = 0; // Fill in later
-		tcp->urgent = 0;
-	}
-
-	if (payload) {
-		memcpy(tcp->payload, payload, payload_size);
-	}
-
-	return net_send_ip(socket, IPV4_PROT_TCP, tcp, sizeof(struct tcp_header) + payload_size);
-}
-
-static int net_connect(int socket, struct sockaddr_in* s_addr) {
-	
-	struct tcp_socket *tsock = malloc(sizeof(struct tcp_socket));
-
-	tsock->ip = s_addr->sin_addr.s_addr;
-	memset(tsock->mac, 0, sizeof(tsock->mac)); // idk
-	tsock->port_dest = s_addr->sin_port;
-	tsock->port_recv = next_ephemeral_port();
-	tsock->seq_no = 0;
-	tsock->ack_no = 0;
-	tsock->status = 0;
-
-	hashmap_set(_tcp_sockets, (void*)(int)next_ephemeral_port(), tsock);
-
-	return net_send_tcp(tsock, TCP_FLAGS_SYN, NULL, 0);
-/*
-	struct tcp_check_header check_hd = {
-		.source = ipv4_out.source,
-		.destination = ipv4_out.destination,
-		.zeros = 0,
-		.protocol = 6,
-		.tcp_len = htons(sizeof(tcp)+payload->size),
-	};
-
-	uint16_t t = calculate_tcp_checksum(&check_hd, &tcp, payload, payload->size);
-	tcp.checksum = htons(t);
-
-	memcpy(&buffer[offset], &tcp, sizeof(struct tcp_header));
-
-	uint8_t payload[] = { 0 }; 
-	build_tcp_packet(payload, )
-*/
-}
-
-static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
-
-	size_t data_length = length - sizeof(struct tcp_header);
-
-	/* Find socket */
-	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->source_port))) {
-
-	} else {
-
-		/* r-next */
-		if (seq_no != ntohl(tcp->ack_number)) return;
-
-		int flags = ntohs(tcp->flags);
-
-		if ((flags & TCP_FLAGS_ACK) && !data_length) return;
-
-		ack_no = ntohl(tcp->seq_number) + data_length;
-
-		/* XXX socket port verification? */
-		if (ntohs(tcp->source_port) == 6667) {
-
-			write_fs(irc_socket, 0, data_length, tcp->payload);
-		}
-
-		{
-			/* Send ACK */
-			uint8_t payload[] = { 0 };
-			_netif.send_packet(payload, 0); // Super wrong
-		}
-	}
-}
-
-static void net_handle_udp(struct udp_packet * udp, size_t length) {
-
-	// size_t data_length = length - sizeof(struct tcp_header);
-
-	/* Find socket */
-	if (hashmap_has(_udp_sockets, (void *)ntohs(udp->source_port))) {
-		/* Do the thing */
-
-	} else {
-		/* ??? */
-	}
-
-}
-
-static void net_handle_ipv4(struct ipv4_packet * ipv4) {
-
-	switch (ipv4->protocol) {
-		case IPV4_PROT_TCP:
-			net_handle_tcp((struct tcp_header *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
-			break;
-		case IPV4_PROT_UDP:
-			net_handle_udp((struct udp_packet *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
-			break;
-		default:
-			/* XXX */
-			break;
-	}
-
-}
-
-static struct ethernet_packet* net_receive(void) {
-	struct ethernet_packet *eth = _netif.get_packet();
-
-	return eth;
-}
-
-void net_handler(void * data, char * name) {
-	/* Network Packet Handler*/
-
-	_netif.extra = NULL;
-	_netif.get_mac = NULL;
-	_netif.get_packet = NULL;
-	_netif.send_packet = NULL;
-
-	// TODO: THIS MUST BE CHANGED
-	_netif.source = 0x0a0a0a0a; // "10.10.10.10"
-
-	net_init_wait = list_create();
-
-	sleep_on(net_init_wait);
-
-	_tcp_sockets = hashmap_create_int(0xFF);
-	_udp_sockets = hashmap_create_int(0xFF);
-
-	while (1) {
-		struct ethernet_packet * eth = net_receive();
-
-		if (!eth) continue;
-
-		switch (ntohs(eth->type)) {
-			case ETHERNET_TYPE_IPV4:
-				net_handle_ipv4((struct ipv4_packet *)eth->payload);
-				break;
-			case ETHERNET_TYPE_ARP:
-				// net_handle_arp(eth);
-				break;
-		}
-
-		free(eth);
-	}
-}
-
-// static void net_handler_enqueue(void * buffer) {
-// 	/* XXX size? source? */
-// 	rtl_enqueue(buffer);
-// }
 
 static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 	struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
