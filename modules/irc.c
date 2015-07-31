@@ -17,9 +17,11 @@ static char read_a_byte(struct socket * stream) {
 	static char * foo = NULL;
 	static char * read_ptr = NULL;
 	static int have_bytes = 0;
-	if (!foo) foo = malloc(2048);
+	if (!foo) foo = malloc(4096);
 	while (!have_bytes) {
-		have_bytes = net_recv(stream, (uint8_t *)foo, 2048);
+		memset(foo, 0x00, 4096);
+		have_bytes = net_recv(stream, (uint8_t *)foo, 4096);
+		debug_print(WARNING, "Received %d bytes...", have_bytes);
 		read_ptr = foo;
 	}
 
@@ -200,9 +202,7 @@ static void ircd(void * data, char * name) {
 	char * buf = malloc(4096);
 
 	while (1) {
-		fprintf(tty, "[irc] Receiving...\n");
 		char * result = fgets(buf, 4095, irc_socket);
-		fprintf(tty, "[irc] result = %s\n", result);
 		if (!result) continue;
 		size_t len = strlen(buf);
 		if (!len) continue;
@@ -295,10 +295,36 @@ DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 	return 0;
 }
 
+DEFINE_SHELL_FUNCTION(http, "lol butts") {
+	struct socket * s = net_open(SOCK_STREAM);
+	net_connect(s, ip_aton("104.16.56.23"), 80);
+
+	char * buf = "GET /version HTTP/1.0\r\n"
+	             "User-Agent: curl/7.35.0\r\n"
+	             "Host: www.yelp.com\r\n"
+	             "Accept: */*\r\n"
+	             "\r\n";
+
+	net_send(s, buf, strlen(buf), 0);
+
+	char * foo = malloc(4096);
+	memset(foo, 0, 4096);
+
+	size_t size = 0;
+	while (!size) {
+		size = net_recv(s, foo, 4096);
+		fprintf(tty, "Received response from server of size %d: %s\n", size, foo);
+	}
+	free(foo);
+
+	return 0;
+}
+
 static int init(void) {
 	BIND_SHELL_FUNCTION(irc_init);
 	BIND_SHELL_FUNCTION(irc_nick);
 	BIND_SHELL_FUNCTION(irc_join);
+	BIND_SHELL_FUNCTION(http);
 
 	return 0;
 }
