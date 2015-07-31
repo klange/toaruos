@@ -213,8 +213,22 @@ static void ircd(void * data, char * name) {
 
 DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
 	/* TODO set up IRC socket */
+
+	if (irc_socket) {
+		fprintf(tty, "There is already an active IRC connection.\n");
+		fprintf(tty, "This module doesn't support more than one connection.\n");
+		return 0;
+	}
+
 	irc_socket = net_open(SOCK_STREAM);
-	net_connect(irc_socket, ip_aton("10.255.50.206"), 1025);
+
+	if (argc < 2) {
+		net_connect(irc_socket, ip_aton("10.255.50.206"), 1025);
+	} else if (argc < 3) {
+		net_connect(irc_socket, ip_aton(argv[1]), 6667);
+	} else {
+		net_connect(irc_socket, ip_aton(argv[1]), atoi(argv[2]));
+	}
 
 	fprintf(tty, "[irc] Socket is at 0x%x\n", irc_socket);
 
