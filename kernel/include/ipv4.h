@@ -127,9 +127,9 @@ extern uint16_t calculate_ipv4_checksum(struct ipv4_packet * p);
 uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header * h, void * d, size_t d_words);
 
 struct tcp_socket {
+	list_t* is_connected;
 	uint32_t seq_no;
 	uint32_t ack_no;
-
 	int status;
 };
 

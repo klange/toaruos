@@ -9,6 +9,7 @@
 #include <ipv4.h>
 #include <printf.h>
 #include <mod/net.h>
+#include <mod/shell.h>
 
 static hashmap_t * dns_cache;
 
@@ -428,29 +429,6 @@ static struct socket* net_open(uint32_t type) {
 	return sock;
 }
 
-static int net_connect(struct socket* socket) {
-	if (socket->sock_type == SOCK_DGRAM) {
-		// Can't connect UDP
-		return -1;
-	}
-
-	memset(socket->mac, 0, sizeof(socket->mac)); // idk
-	socket->port_recv = next_ephemeral_port();
-	socket->proto_sock.tcp_socket.seq_no = 0;
-	socket->proto_sock.tcp_socket.ack_no = 0;
-	socket->proto_sock.tcp_socket.status = 0;
-
-	socket->packet_queue = list_create();
-	socket->packet_wait = list_create();
-
-	socket->ip = ip_aton("192.168.134.129");
-	socket->port_dest = 12345;
-
-	hashmap_set(_tcp_sockets, (void*)socket->port_recv, socket);
-
-	return net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
-}
-
 static int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int flags) {
 	return net_send_tcp(socket, TCP_FLAGS_ACK | TCP_FLAGS_PSH, payload, payload_size);
 }
@@ -458,51 +436,95 @@ static int net_send(struct socket* socket, uint8_t* payload, size_t payload_size
 static size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 	tcpdata_t *tcpdata = NULL;
 	node_t *node = NULL;
-
+	fprintf(_atty, "net_recv: ENTER\n");
 	spin_lock(socket->packet_queue_lock);
+	fprintf(_atty, "net_recv: Got lock\n");
 	do {
+		fprintf(_atty, "net_recv: check length: %d\n", socket->packet_queue->length);
 		if (socket->packet_queue->length > 0) {
+			fprintf(_atty, "net_recv: Packet in recv queue\n");
 			node = list_dequeue(socket->packet_queue);
 			break;
 		} else {
+			fprintf(_atty, "net_recv: Aint got nothin, go to sleep son.\n");
 			spin_unlock(socket->packet_queue_lock);
 			sleep_on(socket->packet_wait);
 			spin_lock(socket->packet_queue_lock);
+			fprintf(_atty, "net_recv: Annnnnnd we're back\n");
 		}
 	} while (1);
+	fprintf(_atty, "net_recv: About to unlock\n");
 	spin_unlock(socket->packet_queue_lock);
+
 
 	tcpdata = node->value;
 
-	memcpy(buffer, tcpdata->payload, len);
+	fprintf(_atty, "net_recv: Got packet with len: %d\n", tcpdata->payload_size);
+
+	if (tcpdata->payload != 0) {
+		memcpy(buffer, tcpdata->payload, len);
+	}
+
+	fprintf(_atty, "net_recv: About to free the node value\n");
 
 	free(node->value);
+
+	fprintf(_atty, "net_recv: About to free the node\n");
 	free(node);
 
 	return tcpdata->payload_size;
 }
 
 static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
+	fprintf(_atty, "net_handle_tcp: ENTER\n");
 
-	size_t data_length = length - sizeof(struct tcp_header);
+	size_t data_length = length - TCP_HEADER_LENGTH_FLIPPED(tcp);
 
+	fprintf(_atty, "net_handle_tcp: Got src port: %d | dst port: %d\n",  ntohs(tcp->source_port), ntohs(tcp->destination_port));
 	/* Find socket */
-	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->source_port))) {
-		struct socket *socket = hashmap_get(_tcp_sockets, (void *)ntohs(tcp->source_port));
+	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->destination_port))) {
+		struct socket *socket = hashmap_get(_tcp_sockets, (void *)ntohs(tcp->destination_port));
 
-		// Store a copy of the layer 5 data for a userspace recv() call
-		tcpdata_t *tcpdata = malloc(sizeof(tcpdata_t));
+		if ((htons(tcp->flags) & TCP_FLAGS_SYN) && (htons(tcp->flags) & TCP_FLAGS_ACK)) {
+			fprintf(_atty, "net_handle_tcp: data_length: %d\n",  data_length);
+			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
+			net_send_tcp(socket, TCP_FLAGS_ACK, NULL, 0);
+			wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
+		}
+		else 
+		{
+			// Store a copy of the layer 5 data for a userspace recv() call
+			tcpdata_t *tcpdata = malloc(sizeof(tcpdata_t));
+			tcpdata->payload_size = length - TCP_HEADER_LENGTH_FLIPPED(tcp);
 
-		tcpdata->payload_size = length - TCP_HEADER_LENGTH(tcp);
-		tcpdata->payload = malloc(tcpdata->payload_size);
-		memcpy(tcpdata->payload, tcp->payload, tcpdata->payload_size);
-		
+			fprintf(_atty, "net_handle_tcp: payload length: %d\n",  length);
+			fprintf(_atty, "net_handle_tcp: tcp flags hdr len: %d\n",  TCP_HEADER_LENGTH(tcp));
+			fprintf(_atty, "net_handle_tcp: flipped tcp flags hdr len: %d\n",  TCP_HEADER_LENGTH_FLIPPED(tcp));
+			fprintf(_atty, "net_handle_tcp: tcpdata->payload_size: %d\n", tcpdata->payload_size);
 
-		spin_lock(socket->packet_queue_lock);
-		list_insert(socket->packet_queue, tcpdata);
-		spin_unlock(socket->packet_queue_lock);
+			if (tcpdata->payload_size > 0) {
+				tcpdata->payload = malloc(tcpdata->payload_size);
+				memcpy(tcpdata->payload, tcp->payload, tcpdata->payload_size);
+			} else {
+				tcpdata->payload = NULL;
+			}
 
-		wakeup_queue(socket->packet_wait);
+			fprintf(_atty, "net_handle_tcp: data_length: %d\n",  data_length);
+			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length;
+
+			fprintf(_atty, "net_handle_tcp: set ack: %d\n",  socket->proto_sock.tcp_socket.ack_no);
+			if ((htons(tcp->flags) & TCP_FLAGS_SYN) && (htons(tcp->flags) & TCP_FLAGS_ACK) && data_length == 0) {
+				fprintf(_atty, "net_handle_tcp: adding 1 to ack\n");
+				socket->proto_sock.tcp_socket.ack_no += 1;
+			}
+			fprintf(_atty, "net_handle_tcp: set ack: %d\n",  socket->proto_sock.tcp_socket.ack_no);
+
+			spin_lock(socket->packet_queue_lock);
+			list_insert(socket->packet_queue, tcpdata);
+			spin_unlock(socket->packet_queue_lock);
+
+			wakeup_queue(socket->packet_wait);
+		}
 	} else {
 
 		/* r-next */
@@ -526,6 +548,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			_netif.send_packet(payload, 0); // Super wrong
 		}
 	}
+	fprintf(_atty, "net_handle_tcp: RETURN\n");
 }
 
 static void net_handle_udp(struct udp_packet * udp, size_t length) {
@@ -543,9 +566,10 @@ static void net_handle_udp(struct udp_packet * udp, size_t length) {
 }
 
 static void net_handle_ipv4(struct ipv4_packet * ipv4) {
-
+	fprintf(_atty, "net_handle_ipv4: ENTER\n");
 	switch (ipv4->protocol) {
 		case IPV4_PROT_TCP:
+			fprintf(_atty, "net_handle_ipv4: about to handle TCP packet\n");
 			net_handle_tcp((struct tcp_header *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
 			break;
 		case IPV4_PROT_UDP:
@@ -555,6 +579,7 @@ static void net_handle_ipv4(struct ipv4_packet * ipv4) {
 			/* XXX */
 			break;
 	}
+	fprintf(_atty, "net_handle_ipv4: RETURN\n");
 
 }
 
@@ -564,10 +589,82 @@ static struct ethernet_packet* net_receive(void) {
 	return eth;
 }
 
+static int net_connect(struct socket* socket) {
+	int ret;
+
+	if (socket->sock_type == SOCK_DGRAM) {
+		// Can't connect UDP
+		return -1;
+	}
+
+	memset(socket->mac, 0, sizeof(socket->mac)); // idk
+	socket->port_recv = next_ephemeral_port();
+	socket->proto_sock.tcp_socket.is_connected = list_create();
+	socket->proto_sock.tcp_socket.seq_no = 0;
+	socket->proto_sock.tcp_socket.ack_no = 0;
+	socket->proto_sock.tcp_socket.status = 0;
+
+	socket->packet_queue = list_create();
+	socket->packet_wait = list_create();
+
+	socket->ip = ip_aton("192.168.134.129");
+	socket->port_dest = 12345;
+
+	fprintf(_atty, "net_connect: using ephemeral port: %d\n", (void*)socket->port_recv);
+
+	hashmap_set(_tcp_sockets, (void*)socket->port_recv, socket);
+
+	ret = net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
+	// fprintf(_atty, "net_connect:sent tcp SYN: %d\n", ret);
+	
+	// Race condition here - if net_handle_tcp runs and connects before this sleep
+	sleep_on(socket->proto_sock.tcp_socket.is_connected);
+
+	// fprintf(_atty, "net_connect: run the receive handler to 'capture' the SYN-ACK\n");
+	// struct ethernet_packet * eth = net_receive();
+	// switch (ntohs(eth->type)) {
+	// 	case ETHERNET_TYPE_IPV4:
+	// 		fprintf(_atty, "net_connect: Handle ipv4()\n");
+	// 		net_handle_ipv4((struct ipv4_packet *)eth->payload);
+	// 		fprintf(_atty, "net_connect: Back from Handle ipv4()\n");
+	// 		break;
+	// 	case ETHERNET_TYPE_ARP:
+	// 		// net_handle_arp(eth);
+	// 		break;
+	// }
+	// fprintf(_atty, "net_connect: Free the eth buffer\n");
+	// free(eth);
+	// uint8_t buffer[1024];
+	// fprintf(_atty, "net_connect: Call to recv shit\n");
+	// ret = net_recv(socket, buffer, 1024);
+
+	// fprintf(_atty, "net_connect: Received data with len: %d\n", ret);
+
+	// ret = net_send_tcp(socket, TCP_FLAGS_ACK, NULL, 0);
+	// fprintf(_atty, "net_connect:sent tcp ACK: %d\n", ret);
+
+	return 1;
+}
+
+DEFINE_SHELL_FUNCTION(conn, "Do connection") {
+	int ret;
+
+	fprintf(_atty, "conn: Get socket\n");
+	struct socket* socket = net_open(SOCK_STREAM);
+
+	fprintf(_atty, "conn: Make connection\n");
+	ret = net_connect(socket);
+
+	fprintf(_atty, "conn: connection ret: %d\n", ret);
+
+	return 0;
+}
+
 void net_handler(void * data, char * name) {
 	/* Network Packet Handler*/
 	fs_node_t * tty = data;
 	_atty = tty;
+	// char *words = "ello govna";
 
 	fprintf(tty, "net_handler: ENTER\n");
 
@@ -579,32 +676,36 @@ void net_handler(void * data, char * name) {
 	_tcp_sockets = hashmap_create_int(0xFF);
 	_udp_sockets = hashmap_create_int(0xFF);
 
-	fprintf(tty, "net_handler: About to get socket\n");
+	// fprintf(tty, "net_handler: About to get socket\n");
 
-	struct socket* socket = net_open(SOCK_STREAM);
+	// struct socket* socket = net_open(SOCK_STREAM);
 
-	fprintf(tty, "net_handler: About to send connect()\n");
+	// fprintf(tty, "net_handler: About to send connect()\n");
 
-	int ret = net_connect(socket);
+	// int ret = net_connect(socket);
+	// fprintf(tty, "net_handler: return from connect(): %d\n", ret);
 
-	fprintf(tty, "net_handler: return from connect(): %d\n", ret);
+	// ret = net_send(socket, (uint8_t*)words, 11, 0);
+	// fprintf(tty, "net_handler: return from net_send(): %d\n", ret);
 
-	// while (1) {
-	// 	struct ethernet_packet * eth = net_receive();
 
-	// 	if (!eth) continue;
 
-	// 	switch (ntohs(eth->type)) {
-	// 		case ETHERNET_TYPE_IPV4:
-	// 			net_handle_ipv4((struct ipv4_packet *)eth->payload);
-	// 			break;
-	// 		case ETHERNET_TYPE_ARP:
-	// 			// net_handle_arp(eth);
-	// 			break;
-	// 	}
+	while (1) {
+		struct ethernet_packet * eth = net_receive();
 
-	// 	free(eth);
-	// }
+		if (!eth) continue;
+
+		switch (ntohs(eth->type)) {
+			case ETHERNET_TYPE_IPV4:
+				net_handle_ipv4((struct ipv4_packet *)eth->payload);
+				break;
+			case ETHERNET_TYPE_ARP:
+				// net_handle_arp(eth);
+				break;
+		}
+
+		free(eth);
+	}
 }
 
 size_t write_dhcp_packet(uint8_t * buffer) {
@@ -800,6 +901,8 @@ static fs_node_t * netfs_create(void) {
 }
 
 static int init(void) {
+	BIND_SHELL_FUNCTION(conn);
+
 	dns_cache = hashmap_create(10);
 
 	hashmap_set(dns_cache, "dakko.us", strdup("104.131.140.26"));
@@ -815,3 +918,4 @@ static int fini(void) {
 }
 
 MODULE_DEF(net, init, fini);
+MODULE_DEPENDS(debugshell);
