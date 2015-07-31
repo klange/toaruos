@@ -290,14 +290,6 @@ static void rtl_netd(void * data, char * name) {
 	fprintf(tty, "[eth] s-next=0x%x, r-next=0x%x\n", seq_no, ack_no);
 #endif
 
-	_atty = tty;
-
-	fprintf(tty, "rtl_netd: Initializing netif functions\n");
-
-	init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
-	create_kernel_tasklet(net_handler, "[eth]", tty);
-
-	fprintf(tty, "rtl_netd: net_handler has been started\n");
 }
 
 DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
@@ -469,7 +461,13 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 		fprintf(tty, "Card is configured, going to start worker thread now.\n");
 
-		create_kernel_tasklet(rtl_netd, "[netd]", tty);
+		_atty = tty;
+
+		fprintf(tty, "Initializing netif functions\n");
+
+		init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
+		create_kernel_tasklet(net_handler, "[eth]", tty);
+
 		fprintf(tty, "Back from starting the worker thread.\n");
 	} else {
 		return -1;
