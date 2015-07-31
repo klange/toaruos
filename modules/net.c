@@ -199,16 +199,57 @@ static int is_ip(char * name) {
 	return 1;
 }
 
+static char read_a_byte(struct socket * stream) {
+	static char * foo = NULL;
+	static char * read_ptr = NULL;
+	static int have_bytes = 0;
+	if (!foo) foo = malloc(4096);
+	while (!have_bytes) {
+		memset(foo, 0x00, 4096);
+		have_bytes = net_recv(stream, (uint8_t *)foo, 4096);
+		debug_print(WARNING, "Received %d bytes...", have_bytes);
+		read_ptr = foo;
+	}
+
+	char ret = *read_ptr;
+
+	have_bytes -= 1;
+	read_ptr++;
+
+	return ret;
+}
+
+
+static char * fgets(char * buf, int size, struct socket * stream) {
+	char * x = buf;
+	int collected = 0;
+
+	while (collected < size) {
+
+		*x = read_a_byte(stream);
+
+		collected++;
+
+		if (*x == '\n') break;
+
+		x++;
+	}
+
+	x++;
+	*x = '\0';
+	return buf;
+}
+
 static uint32_t socket_read(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	/* Sleep until we have something to receive */
-	return 0;
+	fgets(buffer, size, node->device);
+	return strlen(buffer);
 }
 static uint32_t socket_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	/* Add the packet to the appropriate interface queue and send it off. */
 
-	/* What other things (routing) should we be doing here? Or do we do those somewhere else? */
-	/* Whatever... */
-	return 0;
+	net_send((struct socket *)node->device, buffer, size, 0);
+	return size;
 }
 
 uint16_t next_ephemeral_port(void) {
@@ -245,18 +286,33 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	/* Should essentially find anything. */
 	debug_print(WARNING, "Need to look up domain or check if is IP: %s", name);
 	/* Block until lookup is complete */
+	uint32_t ip = 0;
 	if (is_ip(name)) {
 		debug_print(WARNING, "   IP: %x", ip_aton(name));
+		ip = ip_aton(name);
 	} else {
 		if (hashmap_has(dns_cache, name)) {
-			uint32_t ip = ip_aton(hashmap_get(dns_cache, name));
+			ip = ip_aton(hashmap_get(dns_cache, name));
 			debug_print(WARNING, "   In Cache: %s → %x", name, ip);
 		} else {
 			debug_print(WARNING, "   Still needs look up.");
+			return NULL;
 		}
 	}
 
-	return NULL;
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	fnode->inode = 0;
+	strcpy(fnode->name, name);
+	fnode->mask = 0555;
+	fnode->flags   = FS_CHARDEVICE;
+	fnode->read    = socket_read;
+	fnode->write   = socket_write;
+	fnode->device  = (void *)net_open(SOCK_STREAM);
+
+	net_connect((struct socket *)fnode->device, ip, 80);
+
+	return fnode;
 }
 
 static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries) {
