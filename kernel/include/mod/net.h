@@ -21,4 +21,8 @@ extern void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, se
 extern void net_handler(void * data, char * name);
 extern size_t write_dhcp_packet(uint8_t * buffer);
 
+extern struct socket* net_open(uint32_t type);
+extern int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int flags);
+extern size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len);
+extern int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port);
 #endif

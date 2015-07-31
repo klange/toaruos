@@ -5,28 +5,46 @@
 #include <mod/net.h>
 #include <ipv4.h>
 
-static fs_node_t * irc_socket;
-
 static spin_lock_t irc_tty_lock = { 0 };
 
 static char irc_input[400] = {'\0'};
 static char irc_prompt[100] = {'\0'};
 static char irc_nick[32] = {'\0'};
 static char irc_payload[512];
+static struct socket * irc_socket = NULL;
 
-static char * fgets(char * buf, int size, fs_node_t * stream) {
+static char read_a_byte(struct socket * stream) {
+	static char * foo = NULL;
+	static char * read_ptr = NULL;
+	static int have_bytes = 0;
+	if (!foo) foo = malloc(2048);
+	while (!have_bytes) {
+		have_bytes = net_recv(stream, (uint8_t *)foo, 2048);
+		read_ptr = foo;
+	}
+
+	char ret = *read_ptr;
+
+	have_bytes -= 1;
+	read_ptr++;
+
+	return ret;
+}
+
+
+static char * fgets(char * buf, int size, struct socket * stream) {
 	char * x = buf;
 	int collected = 0;
 
 	while (collected < size) {
-		int r = read_fs(stream, 0, 1, (unsigned char *)x);
-		collected += r;
 
-		if (r == -1) return NULL;
-		if (!r) break;
+		*x = read_a_byte(stream);
+
+		collected++;
+
 		if (*x == '\n') break;
 
-		x += r;
+		x++;
 	}
 
 	x++;
@@ -36,6 +54,7 @@ static char * fgets(char * buf, int size, fs_node_t * stream) {
 
 static void irc_send(char * payload) {
 	/* Uh, stuff */
+	net_send(irc_socket, (uint8_t *)payload, strlen(payload), 0);
 }
 
 static int tty_readline(fs_node_t * dev, char * linebuf, int max) {
@@ -181,7 +200,9 @@ static void ircd(void * data, char * name) {
 	char * buf = malloc(4096);
 
 	while (1) {
+		fprintf(tty, "[irc] Receiving...\n");
 		char * result = fgets(buf, 4095, irc_socket);
+		fprintf(tty, "[irc] result = %s\n", result);
 		if (!result) continue;
 		size_t len = strlen(buf);
 		if (!len) continue;
@@ -191,19 +212,33 @@ static void ircd(void * data, char * name) {
 }
 
 DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
+	/* TODO set up IRC socket */
+	irc_socket = net_open(SOCK_STREAM);
+	net_connect(irc_socket, ip_aton("10.255.50.206"), 1025);
+
+	fprintf(tty, "[irc] Socket is at 0x%x\n", irc_socket);
+
+	/* TODO set up IRC daemon */
+	create_kernel_tasklet(ircd, "[ircd]", tty);
+
+	return 0;
+}
+
+DEFINE_SHELL_FUNCTION(irc_nick, "irc nick") {
 	if (argc < 2) {
 		fprintf(tty, "Specify a username\n");
 		return 1;
 	}
 
+	fprintf(tty, "[irc] Sending name...\n");
 	memcpy(irc_nick, argv[1], strlen(argv[1])+1);
 
-	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0 :%s\r\n", irc_nick, irc_nick, irc_nick);
-
+	sprintf(irc_payload, "NICK %s\r\nUSER %s * 0 :%s\r\n"
+			"PASS %s:%s\r\n", irc_nick, irc_nick, irc_nick, irc_nick, "Mqlsfanpra");
 	irc_send(irc_payload);
-
 	return 0;
 }
+
 
 DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 
@@ -262,6 +297,7 @@ DEFINE_SHELL_FUNCTION(irc_join, "irc channel tool") {
 
 static int init(void) {
 	BIND_SHELL_FUNCTION(irc_init);
+	BIND_SHELL_FUNCTION(irc_nick);
 	BIND_SHELL_FUNCTION(irc_join);
 
 	return 0;

@@ -420,7 +420,7 @@ static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload
 	return net_send_ip(socket, IPV4_PROT_TCP, tcp, sizeof(struct tcp_header) + payload_size);
 }
 
-static struct socket* net_open(uint32_t type) {
+struct socket* net_open(uint32_t type) {
 	// This is a socket() call
 	struct socket *sock = malloc(sizeof(struct socket));
 	memset(sock, 0, sizeof(struct socket));
@@ -429,11 +429,11 @@ static struct socket* net_open(uint32_t type) {
 	return sock;
 }
 
-static int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int flags) {
+int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int flags) {
 	return net_send_tcp(socket, TCP_FLAGS_ACK | TCP_FLAGS_PSH, payload, payload_size);
 }
 
-static size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
+size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 	tcpdata_t *tcpdata = NULL;
 	node_t *node = NULL;
 	fprintf(_atty, "net_recv: ENTER\n");
@@ -462,7 +462,7 @@ static size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 	fprintf(_atty, "net_recv: Got packet with len: %d\n", tcpdata->payload_size);
 
 	if (tcpdata->payload != 0) {
-		memcpy(buffer, tcpdata->payload, len);
+		memcpy(buffer, tcpdata->payload, len < tcpdata->payload_size ? len : tcpdata->payload_size);
 	}
 
 	fprintf(_atty, "net_recv: About to free the node value\n");
@@ -589,7 +589,7 @@ static struct ethernet_packet* net_receive(void) {
 	return eth;
 }
 
-static int net_connect(struct socket* socket) {
+int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 	int ret;
 
 	if (socket->sock_type == SOCK_DGRAM) {
@@ -607,8 +607,8 @@ static int net_connect(struct socket* socket) {
 	socket->packet_queue = list_create();
 	socket->packet_wait = list_create();
 
-	socket->ip = ip_aton("192.168.134.129");
-	socket->port_dest = 12345;
+	socket->ip = dest_ip; //ip_aton("10.255.50.206");
+	socket->port_dest = dest_port; //12345;
 
 	fprintf(_atty, "net_connect: using ephemeral port: %d\n", (void*)socket->port_recv);
 
@@ -653,7 +653,7 @@ DEFINE_SHELL_FUNCTION(conn, "Do connection") {
 	struct socket* socket = net_open(SOCK_STREAM);
 
 	fprintf(_atty, "conn: Make connection\n");
-	ret = net_connect(socket);
+	ret = net_connect(socket, ip_aton("10.255.50.206"), 12345);
 
 	fprintf(_atty, "conn: connection ret: %d\n", ret);
 
