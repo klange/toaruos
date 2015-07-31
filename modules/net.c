@@ -377,9 +377,9 @@ static int net_send_ip(struct socket *socket, int proto, void* payload, uint32_t
 			.tcp_len = htons(payload_size),
 		};
 
-		// fprintf(_atty, "net_send_ip: Payload size: %d\n", payload_size);
+		// debug_print(WARNING, "net_send_ip: Payload size: %d\n", payload_size);
 		struct tcp_header* tcp_hdr = (struct tcp_header*)payload;
-		// fprintf(_atty, "net_send_ip: Header len htons: %d\n", TCP_HEADER_LENGTH_FLIPPED(tcp_hdr));
+		// debug_print(WARNING, "net_send_ip: Header len htons: %d\n", TCP_HEADER_LENGTH_FLIPPED(tcp_hdr));
 		size_t orig_payload_size = payload_size - TCP_HEADER_LENGTH_FLIPPED(tcp_hdr);
 
 		uint16_t chk = calculate_tcp_checksum(&check_hd, tcp_hdr, tcp_hdr->payload, orig_payload_size);
@@ -479,7 +479,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 
 		if (socket->proto_sock.tcp_socket.seq_no != ntohl(tcp->ack_number)) {
 			// Drop packet
-			fprintf(_atty, "Dropping packet. Expected ack: %d | Got ack: %d\n",
+			debug_print(WARNING, "Dropping packet. Expected ack: %d | Got ack: %d\n",
 					socket->proto_sock.tcp_socket.seq_no, ntohl(tcp->ack_number));
 			return;
 		}
@@ -491,7 +491,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 		}
 		else if (htons(tcp->flags) & TCP_FLAGS_RES)
 		{
-			fprintf(_atty, "net_handle_tcp: Received RST - socket closing\n");
+			debug_print(WARNING, "net_handle_tcp: Received RST - socket closing\n");
 			net_close(socket);
 			return;
 		}
@@ -505,9 +505,9 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 				return;
 			}
 
-			// fprintf(_atty, "net_handle_tcp: payload length: %d\n",  length);
-			// fprintf(_atty, "net_handle_tcp: flipped tcp flags hdr len: %d\n",  TCP_HEADER_LENGTH_FLIPPED(tcp));
-			// fprintf(_atty, "net_handle_tcp: tcpdata->payload_size: %d\n", tcpdata->payload_size);
+			// debug_print(WARNING, "net_handle_tcp: payload length: %d\n",  length);
+			// debug_print(WARNING, "net_handle_tcp: flipped tcp flags hdr len: %d\n",  TCP_HEADER_LENGTH_FLIPPED(tcp));
+			// debug_print(WARNING, "net_handle_tcp: tcpdata->payload_size: %d\n", tcpdata->payload_size);
 
 			if (tcpdata->payload_size > 0) {
 				tcpdata->payload = malloc(tcpdata->payload_size);
@@ -534,7 +534,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			wakeup_queue(socket->packet_wait);
 		}
 	} else {
-		fprintf(_atty, "net_handle_tcp: Received packet not associated with a socket!\n");
+		debug_print(WARNING, "net_handle_tcp: Received packet not associated with a socket!\n");
 	}
 }
 
@@ -553,7 +553,7 @@ static void net_handle_udp(struct udp_packet * udp, size_t length) {
 }
 
 static void net_handle_ipv4(struct ipv4_packet * ipv4) {
-	fprintf(_atty, "net_handle_ipv4: ENTER\n");
+	debug_print(WARNING, "net_handle_ipv4: ENTER\n");
 	switch (ipv4->protocol) {
 		case IPV4_PROT_TCP:
 			net_handle_tcp((struct tcp_header *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
@@ -592,12 +592,12 @@ int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 	socket->ip = dest_ip; //ip_aton("10.255.50.206");
 	socket->port_dest = dest_port; //12345;
 
-	fprintf(_atty, "net_connect: using ephemeral port: %d\n", (void*)socket->port_recv);
+	debug_print(WARNING, "net_connect: using ephemeral port: %d\n", (void*)socket->port_recv);
 
 	hashmap_set(_tcp_sockets, (void*)socket->port_recv, socket);
 
 	net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
-	// fprintf(_atty, "net_connect:sent tcp SYN: %d\n", ret);
+	// debug_print(WARNING, "net_connect:sent tcp SYN: %d\n", ret);
 
 	// Race condition here - if net_handle_tcp runs and connects before this sleep
 	sleep_on(socket->proto_sock.tcp_socket.is_connected);
@@ -608,14 +608,14 @@ int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 DEFINE_SHELL_FUNCTION(conn, "Do connection") {
 	int ret;
 
-	fprintf(_atty, "conn: Get socket\n");
+	debug_print(WARNING, "conn: Get socket\n");
 	struct socket* socket = net_open(SOCK_STREAM);
 
-	fprintf(_atty, "conn: Make connection\n");
+	debug_print(WARNING, "conn: Make connection\n");
 	ret = net_connect(socket, ip_aton("192.168.134.129"), 12345);
 	// ret = net_connect(socket, ip_aton("10.255.50.206"), 12345);
 
-	fprintf(_atty, "conn: connection ret: %d\n", ret);
+	debug_print(WARNING, "conn: connection ret: %d\n", ret);
 
 	return 0;
 }
