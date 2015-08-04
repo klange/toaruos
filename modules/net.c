@@ -939,6 +939,7 @@ static int init(void) {
 	dns_cache = hashmap_create(10);
 
 	hashmap_set(dns_cache, "dakko.us", strdup("104.131.140.26"));
+	hashmap_set(dns_cache, "www.toaruos.org", strdup("23.235.47.133"));
 
 	/* /dev/net/{domain|ip}/{protocol}/{port} */
 	vfs_mount("/dev/net", netfs_create());
