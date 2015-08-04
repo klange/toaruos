@@ -242,8 +242,8 @@ static char * fgets(char * buf, int size, struct socket * stream) {
 
 static uint32_t socket_read(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	/* Sleep until we have something to receive */
-	fgets(buffer, size, node->device);
-	return strlen(buffer);
+	fgets((char *)buffer, size, node->device);
+	return strlen((char *)buffer);
 }
 static uint32_t socket_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	/* Add the packet to the appropriate interface queue and send it off. */

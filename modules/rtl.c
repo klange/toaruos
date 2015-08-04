@@ -172,10 +172,10 @@ static int rtl_irq_handler(struct regs *r) {
 	return 1;
 }
 
+#if 0
 static void rtl_netd(void * data, char * name) {
 	fs_node_t * tty = data;
 
-#if 0
 	{
 		fprintf(tty, "Sending DNS query...\n");
 		uint8_t queries[] = {
@@ -196,9 +196,6 @@ static void rtl_netd(void * data, char * name) {
 
 	sleep_on(rx_wait);
 	parse_dns_response(tty, last_packet);
-#endif
-
-#if 0
 
 	{
 		fprintf(tty, "Sending DNS query...\n");
@@ -220,8 +217,7 @@ static void rtl_netd(void * data, char * name) {
 
 	sleep_on(rx_wait);
 	parse_dns_response(tty, last_packet);
-#endif
-#if 0
+
 	seq_no = krand();
 
 	{
@@ -288,9 +284,9 @@ static void rtl_netd(void * data, char * name) {
 	}
 
 	fprintf(tty, "[eth] s-next=0x%x, r-next=0x%x\n", seq_no, ack_no);
-#endif
 
 }
+#endif
 
 DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 	if (rtl_device_pci) {

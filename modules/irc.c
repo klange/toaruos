@@ -223,7 +223,7 @@ DEFINE_SHELL_FUNCTION(irc_init, "irc connector") {
 	irc_socket = net_open(SOCK_STREAM);
 
 	if (argc < 2) {
-		net_connect(irc_socket, ip_aton("10.255.50.206"), 1025);
+		net_connect(irc_socket, ip_aton("104.131.140.26"), 6667);
 	} else if (argc < 3) {
 		net_connect(irc_socket, ip_aton(argv[1]), 6667);
 	} else {
@@ -319,14 +319,14 @@ DEFINE_SHELL_FUNCTION(http, "lol butts") {
 	             "Accept: */*\r\n"
 	             "\r\n";
 
-	net_send(s, buf, strlen(buf), 0);
+	net_send(s, (uint8_t*)buf, strlen(buf), 0);
 
 	char * foo = malloc(4096);
 	memset(foo, 0, 4096);
 
 	size_t size = 0;
 	while (!size) {
-		size = net_recv(s, foo, 4096);
+		size = net_recv(s, (uint8_t*)foo, 4096);
 		fprintf(tty, "Received response from server of size %d: %s\n", size, foo);
 	}
 	free(foo);
