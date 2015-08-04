@@ -100,8 +100,11 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 	auxvc++;
 
 	uintptr_t heap = current_process->image.entry + current_process->image.size;
-	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
-	invalidate_tables_at(heap);
+	for (uintptr_t i = current_process->image.entry; i <= heap; i += 0x1000) {
+		/* This doesn't care if we already allocated this page */
+		alloc_frame(get_page(i, 1, current_directory), 0, 1);
+		invalidate_tables_at(i);
+	}
 	char ** argv_ = (char **)heap;
 	heap += sizeof(char *) * (argc + 1);
 	char ** env_ = (char **)heap;
