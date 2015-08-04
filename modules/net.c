@@ -13,11 +13,6 @@
 
 static hashmap_t * dns_cache;
 
-// static fs_node_t * irc_socket;
-
-// static uint32_t seq_no = 0xff0000;
-// static uint32_t ack_no = 0x0;
-
 static uint8_t mac[6];
 
 static hashmap_t *_tcp_sockets = NULL;
@@ -199,7 +194,7 @@ static int is_ip(char * name) {
 	return 1;
 }
 
-static char read_a_byte(struct socket * stream) {
+static char read_a_byte(struct socket * stream, int * status) {
 	static char * foo = NULL;
 	static char * read_ptr = NULL;
 	static int have_bytes = 0;
@@ -207,6 +202,10 @@ static char read_a_byte(struct socket * stream) {
 	while (!have_bytes) {
 		memset(foo, 0x00, 4096);
 		have_bytes = net_recv(stream, (uint8_t *)foo, 4096);
+		if (have_bytes == 0) {
+			*status = 1;
+			return 0;
+		}
 		debug_print(WARNING, "Received %d bytes...", have_bytes);
 		read_ptr = foo;
 	}
@@ -226,7 +225,13 @@ static char * fgets(char * buf, int size, struct socket * stream) {
 
 	while (collected < size) {
 
-		*x = read_a_byte(stream);
+		int status = 0;
+
+		*x = read_a_byte(stream, &status);
+
+		if (status == 1) {
+			return buf;
+		}
 
 		collected++;
 
@@ -487,6 +492,8 @@ struct socket* net_open(uint32_t type) {
 
 int net_close(struct socket* socket) {
 	// socket->is_connected;
+	socket->status = 1; /* Disconnected */
+	wakeup_queue(socket->packet_wait);
 	return 1;
 }
 
@@ -503,6 +510,10 @@ size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 			node = list_dequeue(socket->packet_queue);
 			break;
 		} else {
+			if (socket->status == 1) {
+				return 0;
+				spin_unlock(socket->packet_queue_lock);
+			}
 			spin_unlock(socket->packet_queue_lock);
 			sleep_on(socket->packet_wait);
 			spin_lock(socket->packet_queue_lock);
@@ -544,15 +555,21 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
 			net_send_tcp(socket, TCP_FLAGS_ACK, NULL, 0);
 			wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
-		}
-		else if (htons(tcp->flags) & TCP_FLAGS_RES)
-		{
+		} else if (htons(tcp->flags) & TCP_FLAGS_RES) {
+			/* Reset doesn't necessarily mean close. */
 			debug_print(WARNING, "net_handle_tcp: Received RST - socket closing\n");
 			net_close(socket);
 			return;
 		}
-		else
-		{
+		else if (htons(tcp->flags) & TCP_FLAGS_FIN) {
+			/* We should make sure we finish sending before closing. */
+			debug_print(WARNING, "net_handle_tcp: Received FIN - socket closing with SYNACK\n");
+			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
+			net_send_tcp(socket, TCP_FLAGS_ACK | TCP_FLAGS_FIN, NULL, 0);
+			wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
+			net_close(socket);
+			return;
+		} else {
 			// Store a copy of the layer 5 data for a userspace recv() call
 			tcpdata_t *tcpdata = malloc(sizeof(tcpdata_t));
 			tcpdata->payload_size = length - TCP_HEADER_LENGTH_FLIPPED(tcp);

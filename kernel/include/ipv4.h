@@ -111,11 +111,15 @@ struct tcp_check_header {
 #define IPV4_PROT_TCP 6
 #define DHCP_MAGIC 0x63825363
 
+#define TCP_FLAGS_FIN (1 << 0)
 #define TCP_FLAGS_SYN (1 << 1)
 #define TCP_FLAGS_RES (1 << 2)
 #define TCP_FLAGS_PSH (1 << 3)
 #define TCP_FLAGS_ACK (1 << 4)
 #define TCP_FLAGS_URG (1 << 5)
+#define TCP_FLAGS_ECE (1 << 6)
+#define TCP_FLAGS_CWR (1 << 7)
+#define TCP_FLAGS_NS  (1 << 8)
 #define DATA_OFFSET_5 (0x5 << 12)
 
 #define ETHERNET_TYPE_IPV4 0x0800
@@ -145,6 +149,7 @@ struct socket {
 	list_t* packet_queue;
 	spin_lock_t packet_queue_lock;
 	list_t* packet_wait;
+	int32_t status;
 	uint32_t sock_type;
 	union {
 		struct tcp_socket tcp_socket;
