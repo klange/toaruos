@@ -94,7 +94,6 @@ int main(int argc, char * argv[]) {
 
 	load_sprite_png(&image, argv[1]);
 
-	TRACE("Opening some windows...");
 	yctx = yutani_init();
 
 	init_decorations();
