@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <getopt.h>
 
 #include "lib/http_parser.h"
 
@@ -10,6 +11,12 @@ struct http_req {
 	char domain[SIZE];
 	char path[SIZE];
 };
+
+struct {
+	int show_headers;
+	const char * output_file;
+	FILE * out;
+} fetch_options = {0};
 
 void parse_url(char * d, struct http_req * r) {
 	if (strstr(d, "http://") == d) {
@@ -33,30 +40,61 @@ void parse_url(char * d, struct http_req * r) {
 }
 
 int callback_header_field (http_parser *p, const char *buf, size_t len) {
-	fprintf(stderr, "Header field: %.*s\n", len, buf);
+	if (fetch_options.show_headers) {
+		fprintf(stderr, "Header field: %.*s\n", len, buf);
+	}
 	return 0;
 }
 
 int callback_header_value (http_parser *p, const char *buf, size_t len) {
-	fprintf(stderr, "Header value: %.*s\n", len, buf);
+	if (fetch_options.show_headers) {
+		fprintf(stderr, "Header value: %.*s\n", len, buf);
+	}
 	return 0;
 }
 
 int callback_body (http_parser *p, const char *buf, size_t len) {
-	fwrite(buf, 1, len, stdout);
+	fwrite(buf, 1, len, fetch_options.out);
 	return 0;
+}
+
+int usage(char * argv[]) {
+	fprintf(stderr, "Usage: %s [-h] [-o file] url\n", argv[0]);
+	return 1;
 }
 
 
 int main(int argc, char * argv[]) {
 
-	if (argc < 2) return 1;
+	int opt;
+
+	while ((opt = getopt(argc, argv, "?ho:")) != -1) {
+		switch (opt) {
+			case '?':
+				return usage(argv);
+			case 'h':
+				fetch_options.show_headers = 1;
+				break;
+			case 'o':
+				fetch_options.output_file = optarg;
+				break;
+		}
+	}
+
+	if (optind >= argc) {
+		return usage(argv);
+	}
 
 	struct http_req my_req;
-	parse_url(argv[1], &my_req);
+	parse_url(argv[optind], &my_req);
 
 	char file[100];
 	sprintf(file, "/dev/net/%s", my_req.domain);
+
+	fetch_options.out = stdout;
+	if (fetch_options.output_file) {
+		fetch_options.out = fopen(fetch_options.output_file, "w");
+	}
 
 	FILE * f = fopen(file,"r+");
 
@@ -88,7 +126,7 @@ int main(int argc, char * argv[]) {
 		http_parser_execute(&parser, &settings, buf, r);
 	}
 
-	fflush(stdout);
+	fflush(fetch_options.out);
 
 	return 0;
 }
