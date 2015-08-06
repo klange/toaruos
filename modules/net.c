@@ -247,8 +247,12 @@ static char * fgets(char * buf, int size, struct socket * stream) {
 
 static uint32_t socket_read(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	/* Sleep until we have something to receive */
+#if 0
 	fgets((char *)buffer, size, node->device);
 	return strlen((char *)buffer);
+#else
+	return net_recv(node->device, buffer, size);
+#endif
 }
 static uint32_t socket_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	/* Add the packet to the appropriate interface queue and send it off. */
@@ -504,36 +508,64 @@ int net_send(struct socket* socket, uint8_t* payload, size_t payload_size, int f
 size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 	tcpdata_t *tcpdata = NULL;
 	node_t *node = NULL;
-	spin_lock(socket->packet_queue_lock);
+
+	debug_print(WARNING, "0x%x [socket]", socket);
+
+	size_t offset = 0;
+	size_t size_to_read = 0;
+
 	do {
-		if (socket->packet_queue->length > 0) {
-			node = list_dequeue(socket->packet_queue);
-			break;
-		} else {
-			if (socket->status == 1) {
-				return 0;
+
+	if (socket->bytes_available) {
+		tcpdata = socket->current_packet;
+	} else {
+		spin_lock(socket->packet_queue_lock);
+		do {
+			if (socket->packet_queue->length > 0) {
+				node = list_dequeue(socket->packet_queue);
 				spin_unlock(socket->packet_queue_lock);
+				break;
+			} else {
+				if (socket->status == 1) {
+					spin_unlock(socket->packet_queue_lock);
+					debug_print(WARNING, "Socket closed, done reading.");
+					return 0;
+				}
+				spin_unlock(socket->packet_queue_lock);
+				sleep_on(socket->packet_wait);
+				spin_lock(socket->packet_queue_lock);
 			}
-			spin_unlock(socket->packet_queue_lock);
-			sleep_on(socket->packet_wait);
-			spin_lock(socket->packet_queue_lock);
-		}
-	} while (1);
-	spin_unlock(socket->packet_queue_lock);
+		} while (1);
 
+		tcpdata = node->value;
+		socket->bytes_available = tcpdata->payload_size;
+		socket->bytes_read = 0;
+		free(node);
+	}
 
-	tcpdata = node->value;
+	size_to_read = MIN(len, offset + socket->bytes_available);
 
 	if (tcpdata->payload != 0) {
-		memcpy(buffer, tcpdata->payload, len < tcpdata->payload_size ? len : tcpdata->payload_size);
+		memcpy(buffer + offset, tcpdata->payload + socket->bytes_read, size_to_read);
+	}
+
+	offset += size_to_read;
+
+	if (size_to_read < socket->bytes_available) {
+		socket->bytes_available = socket->bytes_available - size_to_read;
+		socket->bytes_read = size_to_read;
+		socket->current_packet = tcpdata;
+	} else {
+		socket->bytes_available = 0;
+		socket->current_packet = NULL;
+		free(tcpdata);
 	}
 
 
-	free(node->value);
+	} while (!size_to_read);
 
-	free(node);
 
-	return tcpdata->payload_size;
+	return size_to_read;
 }
 
 static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
@@ -546,7 +578,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 
 		if (socket->proto_sock.tcp_socket.seq_no != ntohl(tcp->ack_number)) {
 			// Drop packet
-			debug_print(WARNING, "Dropping packet. Expected ack: %d | Got ack: %d\n",
+			debug_print(WARNING, "Dropping packet. Expected ack: %d | Got ack: %d",
 					socket->proto_sock.tcp_socket.seq_no, ntohl(tcp->ack_number));
 			return;
 		}
@@ -557,16 +589,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
 		} else if (htons(tcp->flags) & TCP_FLAGS_RES) {
 			/* Reset doesn't necessarily mean close. */
-			debug_print(WARNING, "net_handle_tcp: Received RST - socket closing\n");
-			net_close(socket);
-			return;
-		}
-		else if (htons(tcp->flags) & TCP_FLAGS_FIN) {
-			/* We should make sure we finish sending before closing. */
-			debug_print(WARNING, "net_handle_tcp: Received FIN - socket closing with SYNACK\n");
-			socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
-			net_send_tcp(socket, TCP_FLAGS_ACK | TCP_FLAGS_FIN, NULL, 0);
-			wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
+			debug_print(WARNING, "net_handle_tcp: Received RST - socket closing");
 			net_close(socket);
 			return;
 		} else {
@@ -575,6 +598,14 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			tcpdata->payload_size = length - TCP_HEADER_LENGTH_FLIPPED(tcp);
 
 			if (tcpdata->payload_size == 0) {
+				if (htons(tcp->flags) & TCP_FLAGS_FIN) {
+					/* We should make sure we finish sending before closing. */
+					debug_print(WARNING, "net_handle_tcp: Received FIN - socket closing with SYNACK");
+					socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
+					net_send_tcp(socket, TCP_FLAGS_ACK | TCP_FLAGS_FIN, NULL, 0);
+					wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
+					net_close(socket);
+				}
 				return;
 			}
 
@@ -605,9 +636,18 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			net_send_tcp(socket, TCP_FLAGS_ACK, NULL, 0);
 
 			wakeup_queue(socket->packet_wait);
+
+			if (htons(tcp->flags) & TCP_FLAGS_FIN) {
+				/* We should make sure we finish sending before closing. */
+				debug_print(WARNING, "net_handle_tcp: Received FIN - socket closing with SYNACK");
+				socket->proto_sock.tcp_socket.ack_no = ntohl(tcp->seq_number) + data_length + 1;
+				net_send_tcp(socket, TCP_FLAGS_ACK | TCP_FLAGS_FIN, NULL, 0);
+				wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
+				net_close(socket);
+			}
 		}
 	} else {
-		debug_print(WARNING, "net_handle_tcp: Received packet not associated with a socket!\n");
+		debug_print(WARNING, "net_handle_tcp: Received packet not associated with a socket!");
 	}
 }
 
@@ -626,7 +666,7 @@ static void net_handle_udp(struct udp_packet * udp, size_t length) {
 }
 
 static void net_handle_ipv4(struct ipv4_packet * ipv4) {
-	debug_print(WARNING, "net_handle_ipv4: ENTER\n");
+	debug_print(WARNING, "net_handle_ipv4: ENTER");
 	switch (ipv4->protocol) {
 		case IPV4_PROT_TCP:
 			net_handle_tcp((struct tcp_header *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
@@ -665,12 +705,12 @@ int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 	socket->ip = dest_ip; //ip_aton("10.255.50.206");
 	socket->port_dest = dest_port; //12345;
 
-	debug_print(WARNING, "net_connect: using ephemeral port: %d\n", (void*)socket->port_recv);
+	debug_print(WARNING, "net_connect: using ephemeral port: %d", (void*)socket->port_recv);
 
 	hashmap_set(_tcp_sockets, (void*)socket->port_recv, socket);
 
 	net_send_tcp(socket, TCP_FLAGS_SYN, NULL, 0);
-	// debug_print(WARNING, "net_connect:sent tcp SYN: %d\n", ret);
+	// debug_print(WARNING, "net_connect:sent tcp SYN: %d", ret);
 
 	// Race condition here - if net_handle_tcp runs and connects before this sleep
 	sleep_on(socket->proto_sock.tcp_socket.is_connected);
@@ -681,14 +721,14 @@ int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 DEFINE_SHELL_FUNCTION(conn, "Do connection") {
 	int ret;
 
-	debug_print(WARNING, "conn: Get socket\n");
+	debug_print(WARNING, "conn: Get socket");
 	struct socket* socket = net_open(SOCK_STREAM);
 
-	debug_print(WARNING, "conn: Make connection\n");
+	debug_print(WARNING, "conn: Make connection");
 	ret = net_connect(socket, ip_aton("192.168.134.129"), 12345);
 	// ret = net_connect(socket, ip_aton("10.255.50.206"), 12345);
 
-	debug_print(WARNING, "conn: connection ret: %d\n", ret);
+	debug_print(WARNING, "conn: connection ret: %d", ret);
 
 	return 0;
 }

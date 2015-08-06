@@ -150,6 +150,9 @@ struct socket {
 	spin_lock_t packet_queue_lock;
 	list_t* packet_wait;
 	int32_t status;
+	size_t bytes_available;
+	size_t bytes_read;
+	void * current_packet;
 	uint32_t sock_type;
 	union {
 		struct tcp_socket tcp_socket;

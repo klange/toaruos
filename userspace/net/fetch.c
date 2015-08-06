@@ -56,11 +56,13 @@ int main(int argc, char * argv[]) {
 		"\r\n", my_req.path, my_req.domain);
 
 	while (!feof(f)) {
-		char buf[4096];
+		char buf[10];
 		memset(buf, 0, sizeof(buf));
-		fgets(buf, 4096, f);
-		fprintf(stdout, "%s", buf);
+		size_t r = fread(buf, 1, 10, f);
+		fwrite(buf, 1, r, stdout);
 	}
+
+	fflush(stdout);
 
 	return 0;
 }
