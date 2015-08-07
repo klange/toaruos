@@ -8,6 +8,8 @@ sleep 0.1
 
 expect "toaru-"
 
+sleep 1
+
 send -s "shell\n"
 expect "toaru-test"
 
