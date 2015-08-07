@@ -295,6 +295,16 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	/* Should essentially find anything. */
 	debug_print(WARNING, "Need to look up domain or check if is IP: %s", name);
 	/* Block until lookup is complete */
+
+	int port = 80;
+	char * colon;
+	if (colon = strstr(name, ":")) {
+		/* Port numbers */
+		*colon = '\0';
+		colon++;
+		port = atoi(colon);
+	}
+
 	uint32_t ip = 0;
 	if (is_ip(name)) {
 		debug_print(WARNING, "   IP: %x", ip_aton(name));
@@ -319,7 +329,7 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	fnode->write   = socket_write;
 	fnode->device  = (void *)net_open(SOCK_STREAM);
 
-	net_connect((struct socket *)fnode->device, ip, 80);
+	net_connect((struct socket *)fnode->device, ip, port);
 
 	return fnode;
 }
