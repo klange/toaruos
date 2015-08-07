@@ -120,9 +120,6 @@ static uint32_t read_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uint
 	uint32_t end_size     = end - end_block * BLOCKSIZE;
 	uint32_t size_to_read = end - offset;
 	if (start_block == end_block && offset == end) return 0;
-	if (end_size == 0) {
-		end_block--;
-	}
 	if (start_block == end_block) {
 		void *buf = tmpfs_file_getset_block(t, start_block, 0);
 		memcpy(buffer, (uint8_t *)(((uint32_t)buf) + (offset % BLOCKSIZE)), size_to_read);
@@ -139,8 +136,10 @@ static uint32_t read_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uint
 				memcpy(buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), buf, BLOCKSIZE);
 			}
 		}
-		void *buf = tmpfs_file_getset_block(t, end_block, 0);
-		memcpy(buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), buf, end_size);
+		if (end_size) {
+			void *buf = tmpfs_file_getset_block(t, end_block, 0);
+			memcpy(buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), buf, end_size);
+		}
 	}
 	return size_to_read;
 }
@@ -160,9 +159,6 @@ static uint32_t write_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	uint32_t end_block    = end / BLOCKSIZE;
 	uint32_t end_size     = end - end_block * BLOCKSIZE;
 	uint32_t size_to_read = end - offset;
-	if (end_size == 0) {
-		end_block--;
-	}
 	if (start_block == end_block) {
 		void *buf = tmpfs_file_getset_block(t, start_block, 1);
 		memcpy((uint8_t *)(((uint32_t)buf) + (offset % BLOCKSIZE)), buffer, size_to_read);
@@ -179,8 +175,10 @@ static uint32_t write_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uin
 				memcpy(buf, buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), BLOCKSIZE);
 			}
 		}
-		void *buf = tmpfs_file_getset_block(t, end_block, 1);
-		memcpy(buf, buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), end_size);
+		if (end_size) {
+			void *buf = tmpfs_file_getset_block(t, end_block, 1);
+			memcpy(buf, buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), end_size);
+		}
 	}
 	return size_to_read;
 }
