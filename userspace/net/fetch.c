@@ -15,6 +15,7 @@ struct http_req {
 struct {
 	int show_headers;
 	const char * output_file;
+	const char * cookie;
 	FILE * out;
 } fetch_options = {0};
 
@@ -59,7 +60,7 @@ int callback_body (http_parser *p, const char *buf, size_t len) {
 }
 
 int usage(char * argv[]) {
-	fprintf(stderr, "Usage: %s [-h] [-o file] url\n", argv[0]);
+	fprintf(stderr, "Usage: %s [-h] [-c cookie] [-o file] url\n", argv[0]);
 	return 1;
 }
 
@@ -68,10 +69,13 @@ int main(int argc, char * argv[]) {
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "?ho:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:ho:")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
+			case 'c':
+				fetch_options.cookie = optarg;
+				break;
 			case 'h':
 				fetch_options.show_headers = 1;
 				break;
@@ -103,12 +107,23 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	fprintf(f,
-		"GET /%s HTTP/1.0\r\n"
-		"User-Agent: curl/7.35.0\r\n"
-		"Host: %s\r\n"
-		"Accept: */*\r\n"
-		"\r\n", my_req.path, my_req.domain);
+	if (fetch_options.cookie) {
+		fprintf(f,
+			"GET /%s HTTP/1.0\r\n"
+			"User-Agent: curl/7.35.0\r\n"
+			"Host: %s\r\n"
+			"Accept: */*\r\n"
+			"Cookie: %s\r\n"
+			"\r\n", my_req.path, my_req.domain, fetch_options.cookie);
+
+	} else {
+		fprintf(f,
+			"GET /%s HTTP/1.0\r\n"
+			"User-Agent: curl/7.35.0\r\n"
+			"Host: %s\r\n"
+			"Accept: */*\r\n"
+			"\r\n", my_req.path, my_req.domain);
+	}
 
 	http_parser_settings settings;
 	memset(&settings, 0, sizeof(settings));
