@@ -9,6 +9,7 @@
  *
  */
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <syscall.h>
@@ -25,10 +26,11 @@ int child_pid = 0;
 
 void *print_serial_stuff(void * garbage) {
 	child_pid = gettid();
+
 	while (1) {
-		char x;
-		read(fd, &x, 1);
-		fputc(x, stdout);
+		char buf[1024];
+		size_t r = read(fd, buf, 1024);
+		fwrite(buf, 1, r, stdout);
 		fflush(stdout);
 	}
 
