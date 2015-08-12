@@ -298,7 +298,7 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 
 	int port = 80;
 	char * colon;
-	if (colon = strstr(name, ":")) {
+	if ((colon = strstr(name, ":"))) {
 		/* Port numbers */
 		*colon = '\0';
 		colon++;
