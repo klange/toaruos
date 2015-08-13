@@ -12,36 +12,18 @@
 #include <locale.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
+
 
 #include <ncurses.h>
 
-#ifdef __toaru__
 #include "lib/pthread.h"
-#else
-#include <pthread.h>
-#include <sched.h>
-#endif
+#include "lib/spinlock.h"
 
 #define _ITALIC "\033[3m"
 #define _END    "\033[0m\n"
 
 #define VERSION_STRING "0.1.0"
-
-#ifndef spin_lock
-static void spin_lock(int volatile * lock) {
-	while(__sync_lock_test_and_set(lock, 0x01)) {
-#ifdef __toaru__
-		syscall_yield();
-#else
-		sched_yield();
-#endif
-	}
-}
-
-static void spin_unlock(int volatile * lock) {
-	__sync_lock_release(lock);
-}
-#endif
 
 static char * nick = "toaru-user";
 static char * host = NULL;
@@ -56,6 +38,7 @@ static WINDOW * status_win;
 static WINDOW * input_win;
 
 static FILE * sock;
+static FILE * sockb;
 
 static volatile int c_lock;
 
@@ -116,7 +99,8 @@ void handle(char * line) {
 		if (strstr(c, "PING") == c) {
 			char tmp[100];
 			char * t = strstr(c, ":");
-			WRITE("PONG %s\r\n", t);
+			fprintf(sock, "PONG %s\r\n", t);
+			fflush(sock);
 			goto next;
 		}
 
@@ -181,11 +165,11 @@ next:
 
 void * irc_read_thread(void * garbage) {
 
-	char line[1024];
+	char * line = malloc(1024);
 
 	while (1) {
 		memset(line, 0, 1024);
-		fgets(line, 1024, sock);
+		fgets(line, 1024, sockb);
 		handle(line);
 	}
 
@@ -249,16 +233,14 @@ int main(int argc, char * argv[]) {
 
 	char tmphost[512];
 	sprintf(tmphost, "/dev/net/%s:%d", host, port);
-#ifdef __toaru__
-	sock = fopen(tmphost, "r+");
+	int sockfd = open(tmphost, O_RDWR);
+	sock = fdopen(sockfd, "w");
+	sockb = fdopen(sockfd, "r");
 
 	if (!sock) {
 		fprintf(stderr, "%s: Connection failed or network not available.\n", argv[0]);
 		return 1;
 	}
-#else
-	sock = fopen("/tmp/irc-pipe", "r+");
-#endif
 
 	main_win = initscr();
 	assume_default_colors(-1,-1);
@@ -297,11 +279,13 @@ int main(int argc, char * argv[]) {
 	fprintf(sock, "NICK %s\r\nUSER %s * 0 :%s\r\n", nick, nick, nick);
 	fflush(sock);
 
+	char * buf = malloc(1024);
+
 	while (1) {
 		spin_lock(&c_lock);
 		wmove(input_win, 0, 0);
 		wprintw(input_win, "[%s] ", channel ? channel : "(none)");
-		char buf[1024];
+		memset(buf, 0, sizeof(buf));
 		spin_unlock(&c_lock);
 		wgetstr(input_win, buf);
 		do_thing(buf);
