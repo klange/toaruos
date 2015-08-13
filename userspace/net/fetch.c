@@ -1,3 +1,11 @@
+/* vim: ts=4 sw=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2015 Kevin Lange
+ *
+ * fetch - Retreive documents from HTTP servers.
+ *
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
