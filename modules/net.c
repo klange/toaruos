@@ -993,6 +993,8 @@ static int init(void) {
 	hashmap_set(dns_cache, "www.yelp.com", strdup("104.16.57.23"));
 	hashmap_set(dns_cache, "s3-media2.fl.yelpcdn.com", strdup("199.27.79.175"));
 	hashmap_set(dns_cache, "forum.osdev.org", strdup("173.255.206.39"));
+	hashmap_set(dns_cache, "wolfgun.puckipedia.com", strdup("104.47.147.203"));
+	hashmap_set(dns_cache, "irc.freenode.net", strdup("91.217.189.42"));
 
 	/* /dev/net/{domain|ip}/{protocol}/{port} */
 	vfs_mount("/dev/net", netfs_create());
