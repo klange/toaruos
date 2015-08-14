@@ -74,3 +74,5 @@ contrib
 cdrom
 toaruos.iso
 modpack.kop
+.vagrant
+Vagrantfile
