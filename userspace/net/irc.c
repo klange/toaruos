@@ -270,7 +270,8 @@ int main(int argc, char * argv[]) {
 	wprintw(body_win, " For help, type /help.\n");
 
 	/* Update status */
-	mvwaddstr(status_win, 0, 0, " [Cake]");
+	wmove(status_win, 0, 0);
+	wprintw(status_win, "[%s] ", nick);
 
 	refresh_all();
 
