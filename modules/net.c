@@ -9,7 +9,6 @@
 #include <ipv4.h>
 #include <printf.h>
 #include <mod/net.h>
-#include <mod/shell.h>
 
 static hashmap_t * dns_cache;
 
@@ -17,8 +16,6 @@ static uint8_t mac[6];
 
 static hashmap_t *_tcp_sockets = NULL;
 static hashmap_t *_udp_sockets = NULL;
-
-static fs_node_t *_atty = NULL;
 
 static struct netif _netif;
 
@@ -728,50 +725,14 @@ int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 	return 1;
 }
 
-DEFINE_SHELL_FUNCTION(conn, "Do connection") {
-	int ret;
-
-	debug_print(WARNING, "conn: Get socket");
-	struct socket* socket = net_open(SOCK_STREAM);
-
-	debug_print(WARNING, "conn: Make connection");
-	ret = net_connect(socket, ip_aton("192.168.134.129"), 12345);
-	// ret = net_connect(socket, ip_aton("10.255.50.206"), 12345);
-
-	debug_print(WARNING, "conn: connection ret: %d", ret);
-
-	return 0;
-}
-
 void net_handler(void * data, char * name) {
 	/* Network Packet Handler*/
-	fs_node_t * tty = data;
-	_atty = tty;
-	// char *words = "ello govna";
-
-	fprintf(tty, "net_handler: ENTER\n");
-
 	_netif.extra = NULL;
 
-	// TODO: THIS MUST BE CHANGED
 	_netif.source = 0x0a0a0a0a; // "10.10.10.10"
 
 	_tcp_sockets = hashmap_create_int(0xFF);
 	_udp_sockets = hashmap_create_int(0xFF);
-
-	// fprintf(tty, "net_handler: About to get socket\n");
-
-	// struct socket* socket = net_open(SOCK_STREAM);
-
-	// fprintf(tty, "net_handler: About to send connect()\n");
-
-	// int ret = net_connect(socket);
-	// fprintf(tty, "net_handler: return from connect(): %d\n", ret);
-
-	// ret = net_send(socket, (uint8_t*)words, 11, 0);
-	// fprintf(tty, "net_handler: return from net_send(): %d\n", ret);
-
-
 
 	while (1) {
 		struct ethernet_packet * eth = net_receive();
@@ -984,8 +945,6 @@ static fs_node_t * netfs_create(void) {
 }
 
 static int init(void) {
-	BIND_SHELL_FUNCTION(conn);
-
 	dns_cache = hashmap_create(10);
 
 	hashmap_set(dns_cache, "dakko.us", strdup("104.131.140.26"));
@@ -1007,4 +966,3 @@ static int fini(void) {
 }
 
 MODULE_DEF(net, init, fini);
-MODULE_DEPENDS(debugshell);

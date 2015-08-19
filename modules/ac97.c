@@ -12,7 +12,6 @@
 #include <logging.h>
 #include <mem.h>
 #include <module.h>
-#include <mod/shell.h>
 #include <mod/snd.h>
 #include <printf.h>
 #include <pci.h>
@@ -131,32 +130,6 @@ static void find_ac97(uint32_t device, uint16_t vendorid, uint16_t deviceid, voi
 
 }
 
-DEFINE_SHELL_FUNCTION(ac97_status, "[debug] AC'97 status values") {
-	if (!_device.pci_device) {
-		fprintf(tty, "No AC'97 device found.\n");
-		return 1;
-	}
-	fprintf(tty, "AC'97 audio device is at 0x%x.\n", _device.pci_device);
-	size_t irq = pci_read_field(_device.pci_device, PCI_INTERRUPT_LINE, 1);
-	fprintf(tty, "IRQ: %d\n", irq);
-	uint16_t command_register = pci_read_field(_device.pci_device, PCI_COMMAND, 2);
-	fprintf(tty, "COMMAND: 0x%04x\n", command_register);
-	fprintf(tty, "NABMBAR: 0x%04x\n", pci_read_field(_device.pci_device, AC97_NABMBAR, 2));
-	fprintf(tty, "PO_BDBAR: 0x%08x\n", inportl(_device.nabmbar + AC97_PO_BDBAR));
-	if (_device.bdl) {
-		for (int i = 0; i < AC97_BDL_LEN; i++) {
-			fprintf(tty, "bdl[%d].pointer: 0x%x\n", i, _device.bdl[i].pointer);
-			fprintf(tty, "bdl[%d].cl: 0x%x\n", i, _device.bdl[i].cl);
-		}
-	}
-	fprintf(tty, "PO_CIV: %d\n", inportb(_device.nabmbar + AC97_PO_CIV));
-	fprintf(tty, "PO_PICB: 0x%04x\n", inportb(_device.nabmbar + AC97_PO_PICB));
-	fprintf(tty, "PO_CR: 0x%02x\n", inportb(_device.nabmbar + AC97_PO_CR));
-	fprintf(tty, "PO_LVI: 0x%02x\n", inportb(_device.nabmbar + AC97_PO_LVI));
-
-	return 0;
-}
-
 #define DIVISION 128
 static int irq_handler(struct regs * regs) {
 	uint16_t sr = inports(_device.nabmbar + AC97_PO_SR);
@@ -239,7 +212,6 @@ static int init(void) {
 	if (!_device.pci_device) {
 		return 1;
 	}
-	BIND_SHELL_FUNCTION(ac97_status);
 	_device.nabmbar = pci_read_field(_device.pci_device, AC97_NABMBAR, 2) & ((uint32_t) -1) << 1;
 	_device.nambar = pci_read_field(_device.pci_device, PCI_BAR0, 4) & ((uint32_t) -1) << 1;
 	_device.irq = pci_read_field(_device.pci_device, PCI_INTERRUPT_LINE, 1);
@@ -292,5 +264,4 @@ static int fini(void) {
 }
 
 MODULE_DEF(ac97, init, fini);
-MODULE_DEPENDS(debugshell);
 MODULE_DEPENDS(snd);

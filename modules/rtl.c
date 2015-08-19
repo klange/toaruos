@@ -11,7 +11,6 @@
 #include <list.h>
 #include <pipe.h>
 #include <ipv4.h>
-#include <mod/shell.h>
 #include <mod/net.h>
 
 /* XXX move this to ipv4? */
@@ -60,8 +59,6 @@ static int dirty_tx = 0;
 static int next_tx = 0;
 
 static list_t * rx_wait;
-
-static fs_node_t *_atty = NULL;
 
 static spin_lock_t _lock;
 static int next_tx_buf(void) {
@@ -288,59 +285,59 @@ static void rtl_netd(void * data, char * name) {
 }
 #endif
 
-DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
+int init_rtl(void) {
 	if (rtl_device_pci) {
-		fprintf(tty, "Located an RTL 8139: 0x%x\n", rtl_device_pci);
+		debug_print(NOTICE, "Located an RTL 8139: 0x%x\n", rtl_device_pci);
 
 		uint16_t command_reg = pci_read_field(rtl_device_pci, PCI_COMMAND, 4);
-		fprintf(tty, "COMMAND register before: 0x%4x\n", command_reg);
+		debug_print(NOTICE, "COMMAND register before: 0x%4x\n", command_reg);
 		if (command_reg & (1 << 2)) {
-			fprintf(tty, "Bus mastering already enabled.\n");
+			debug_print(NOTICE, "Bus mastering already enabled.\n");
 		} else {
 			command_reg |= (1 << 2); /* bit 2 */
-			fprintf(tty, "COMMAND register after:  0x%4x\n", command_reg);
+			debug_print(NOTICE, "COMMAND register after:  0x%4x\n", command_reg);
 			pci_write_field(rtl_device_pci, PCI_COMMAND, 4, command_reg);
 			command_reg = pci_read_field(rtl_device_pci, PCI_COMMAND, 4);
-			fprintf(tty, "COMMAND register after:  0x%4x\n", command_reg);
+			debug_print(NOTICE, "COMMAND register after:  0x%4x\n", command_reg);
 		}
 
 		rtl_irq = pci_read_field(rtl_device_pci, PCI_INTERRUPT_LINE, 1);
-		fprintf(tty, "Interrupt Line: %x\n", rtl_irq);
+		debug_print(NOTICE, "Interrupt Line: %x\n", rtl_irq);
 		irq_install_handler(rtl_irq, rtl_irq_handler);
 
 		uint32_t rtl_bar0 = pci_read_field(rtl_device_pci, PCI_BAR0, 4);
 		uint32_t rtl_bar1 = pci_read_field(rtl_device_pci, PCI_BAR1, 4);
 
-		fprintf(tty, "BAR0: 0x%8x\n", rtl_bar0);
-		fprintf(tty, "BAR1: 0x%8x\n", rtl_bar1);
+		debug_print(NOTICE, "BAR0: 0x%8x\n", rtl_bar0);
+		debug_print(NOTICE, "BAR1: 0x%8x\n", rtl_bar1);
 
 		rtl_iobase = 0x00000000;
 
 		if (rtl_bar0 & 0x00000001) {
 			rtl_iobase = rtl_bar0 & 0xFFFFFFFC;
 		} else {
-			fprintf(tty, "This doesn't seem right! RTL8139 should be using an I/O BAR; this looks like a memory bar.");
+			debug_print(NOTICE, "This doesn't seem right! RTL8139 should be using an I/O BAR; this looks like a memory bar.");
 		}
 
-		fprintf(tty, "RTL iobase: 0x%x\n", rtl_iobase);
+		debug_print(NOTICE, "RTL iobase: 0x%x\n", rtl_iobase);
 
 		rx_wait = list_create();
 
-		fprintf(tty, "Determining mac address...\n");
+		debug_print(NOTICE, "Determining mac address...\n");
 		for (int i = 0; i < 6; ++i) {
 			mac[i] = inports(rtl_iobase + RTL_PORT_MAC + i);
 		}
 
-		fprintf(tty, "%2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		debug_print(NOTICE, "%2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-		fprintf(tty, "Enabling RTL8139.\n");
+		debug_print(NOTICE, "Enabling RTL8139.\n");
 		outportb(rtl_iobase + RTL_PORT_CONFIG, 0x0);
 
-		fprintf(tty, "Resetting RTL8139.\n");
+		debug_print(NOTICE, "Resetting RTL8139.\n");
 		outportb(rtl_iobase + RTL_PORT_CMD, 0x10);
 		while ((inportb(rtl_iobase + 0x37) & 0x10) != 0) { }
 
-		fprintf(tty, "Done resetting RTL8139.\n");
+		debug_print(NOTICE, "Done resetting RTL8139.\n");
 
 		for (int i = 0; i < 5; ++i) {
 			rtl_tx_buffer[i] = (void*)kvmalloc_p(0x1000, &rtl_tx_phys[i]);
@@ -352,17 +349,17 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 		rtl_rx_buffer = (uint8_t *)kvmalloc_p(0x3000, &rtl_rx_phys);
 		memset(rtl_rx_buffer, 0x00, 0x3000);
 
-		fprintf(tty, "Buffers:\n");
-		fprintf(tty, "   rx 0x%x [phys 0x%x and 0x%x and 0x%x]\n", rtl_rx_buffer, rtl_rx_phys, map_to_physical((uintptr_t)rtl_rx_buffer + 0x1000), map_to_physical((uintptr_t)rtl_rx_buffer + 0x2000));
+		debug_print(NOTICE, "Buffers:\n");
+		debug_print(NOTICE, "   rx 0x%x [phys 0x%x and 0x%x and 0x%x]\n", rtl_rx_buffer, rtl_rx_phys, map_to_physical((uintptr_t)rtl_rx_buffer + 0x1000), map_to_physical((uintptr_t)rtl_rx_buffer + 0x2000));
 
 		for (int i = 0; i < 5; ++i) {
-			fprintf(tty, "   tx 0x%x [phys 0x%x]\n", rtl_tx_buffer[i], rtl_tx_phys[i]);
+			debug_print(NOTICE, "   tx 0x%x [phys 0x%x]\n", rtl_tx_buffer[i], rtl_tx_phys[i]);
 		}
 
-		fprintf(tty, "Initializing receive buffer.\n");
+		debug_print(NOTICE, "Initializing receive buffer.\n");
 		outportl(rtl_iobase + RTL_PORT_RBSTART, rtl_rx_phys);
 
-		fprintf(tty, "Enabling IRQs.\n");
+		debug_print(NOTICE, "Enabling IRQs.\n");
 		outports(rtl_iobase + RTL_PORT_IMR,
 			0x8000 | /* PCI error */
 			0x4000 | /* PCS timeout */
@@ -375,29 +372,29 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			0x01     /* Rx okay */
 		); /* TOK, ROK */
 
-		fprintf(tty, "Configuring transmit\n");
+		debug_print(NOTICE, "Configuring transmit\n");
 		outportl(rtl_iobase + RTL_PORT_TCR,
 			0
 		);
 
-		fprintf(tty, "Configuring receive buffer.\n");
+		debug_print(NOTICE, "Configuring receive buffer.\n");
 		outportl(rtl_iobase + RTL_PORT_RCR,
 			(0)       | /* 8K receive */
 			0x08      | /* broadcast */
 			0x01        /* all physical */
 		);
 
-		fprintf(tty, "Enabling receive and transmit.\n");
+		debug_print(NOTICE, "Enabling receive and transmit.\n");
 		outportb(rtl_iobase + RTL_PORT_CMD, 0x08 | 0x04);
 
-		fprintf(tty, "Resetting rx stats\n");
+		debug_print(NOTICE, "Resetting rx stats\n");
 		outportl(rtl_iobase + RTL_PORT_RXMISS, 0);
 
 		net_queue = list_create();
 
 #if 1
 		{
-			fprintf(tty, "Sending DHCP discover\n");
+			debug_print(NOTICE, "Sending DHCP discover\n");
 			size_t packet_size = write_dhcp_packet(rtl_tx_buffer[next_tx]);
 
 			outportl(rtl_iobase + RTL_PORT_TXBUF + 4 * next_tx, rtl_tx_phys[next_tx]);
@@ -413,7 +410,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			struct ethernet_packet * eth = (struct ethernet_packet *)rtl_dequeue();
 			uint16_t eth_type = ntohs(eth->type);
 
-			fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
+			debug_print(NOTICE, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
 					eth->source[0], eth->source[1], eth->source[2],
 					eth->source[3], eth->source[4], eth->source[5],
 					eth->destination[0], eth->destination[1], eth->destination[2],
@@ -432,7 +429,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			ip_ntoa(src_addr, src_ip);
 			ip_ntoa(dst_addr, dst_ip);
 
-			fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
+			debug_print(NOTICE, "IP packet [%s → %s] length=%d bytes\n",
 					src_ip, dst_ip, length);
 
 			struct udp_packet * udp = (struct udp_packet *)ipv4->payload;;
@@ -440,7 +437,7 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 			uint16_t dst_port = ntohs(udp->destination_port);
 			uint16_t udp_len  = ntohs(udp->length);
 
-			fprintf(tty, "UDP [%d → %d] length=%d bytes\n",
+			debug_print(NOTICE, "UDP [%d → %d] length=%d bytes\n",
 					src_port, dst_port, udp_len);
 
 			struct dhcp_packet * dhcp = (struct dhcp_packet *)udp->payload;
@@ -448,23 +445,21 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 
 			char yiaddr_ip[16];
 			ip_ntoa(yiaddr, yiaddr_ip);
-			fprintf(tty,  "DHCP Offer: %s\n", yiaddr_ip);
+			debug_print(NOTICE,  "DHCP Offer: %s\n", yiaddr_ip);
 
 			free(eth);
 		}
 
 #endif
 
-		fprintf(tty, "Card is configured, going to start worker thread now.\n");
+		debug_print(NOTICE, "Card is configured, going to start worker thread now.\n");
 
-		_atty = tty;
-
-		fprintf(tty, "Initializing netif functions\n");
+		debug_print(NOTICE, "Initializing netif functions\n");
 
 		init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
-		create_kernel_tasklet(net_handler, "[eth]", tty);
+		create_kernel_tasklet(net_handler, "[eth]", NULL);
 
-		fprintf(tty, "Back from starting the worker thread.\n");
+		debug_print(NOTICE, "Back from starting the worker thread.\n");
 	} else {
 		return -1;
 	}
@@ -472,13 +467,12 @@ DEFINE_SHELL_FUNCTION(rtl, "rtl8139 experiments") {
 }
 
 static int init(void) {
-	BIND_SHELL_FUNCTION(rtl);
-
 	pci_scan(&find_rtl, -1, &rtl_device_pci);
 	if (!rtl_device_pci) {
 		debug_print(ERROR, "No RTL 8139 found?");
 		return 1;
 	}
+	init_rtl();
 	return 0;
 }
 
@@ -487,5 +481,4 @@ static int fini(void) {
 }
 
 MODULE_DEF(rtl, init, fini);
-MODULE_DEPENDS(debugshell);
 MODULE_DEPENDS(net);

@@ -15,7 +15,6 @@
 
 #include <errno_defs.h>
 #include <list.h>
-#include <mod/shell.h>
 #include <module.h>
 #include <ringbuffer.h>
 #include <system.h>
@@ -239,6 +238,8 @@ static snd_device_t * snd_main_device() {
 	return NULL;
 }
 
+#if 0
+#include <mod/shell.h>
 DEFINE_SHELL_FUNCTION(snd_full, "[debug] turn snd master to full") {
 	snd_main_device()->mixer_write(SND_KNOB_MASTER, UINT32_MAX);
 
@@ -256,14 +257,17 @@ DEFINE_SHELL_FUNCTION(snd_off, "[debug] turn snd master to lowest volume") {
 
 	return 0;
 }
+#endif
 
 static int init(void) {
 	vfs_mount("/dev/dsp", &_dsp_fnode);
 	vfs_mount("/dev/mixer", &_mixer_fnode);
 
+#if 0
 	BIND_SHELL_FUNCTION(snd_full);
 	BIND_SHELL_FUNCTION(snd_half);
 	BIND_SHELL_FUNCTION(snd_off);
+#endif
 	return 0;
 }
 
@@ -273,4 +277,6 @@ static int fini(void) {
 }
 
 MODULE_DEF(snd, init, fini);
+#if 0
 MODULE_DEPENDS(debugshell);
+#endif
