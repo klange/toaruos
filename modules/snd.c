@@ -47,6 +47,7 @@ static fs_node_t _dsp_fnode = {
 };
 static fs_node_t _mixer_fnode = {
 	.name  = "mixer",
+	.flags  = FS_CHARDEVICE,
 	.ioctl = snd_mixer_ioctl,
 	.open  = snd_mixer_open,
 	.close = snd_mixer_close,
