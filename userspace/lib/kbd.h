@@ -5,6 +5,8 @@
 #define KBD_ESC_A  1
 #define KBD_ESC_B  2
 #define KBD_FUNC   3
+#define KBD_ESC_O  4
+#define KBD_ESC_EXT 5
 
 #define KEY_NONE        0
 #define KEY_BACKSPACE   8
@@ -68,6 +70,11 @@
 #define KEY_PAGE_DOWN   2013
 #define KEY_PAGE_UP     2014
 
+#define KEY_HOME        2015
+#define KEY_END         2016
+#define KEY_DEL         2017
+#define KEY_INSERT      2018
+
 #define KEY_SCANCODE_F1  0x3b
 #define KEY_SCANCODE_F2  0x3c
 #define KEY_SCANCODE_F3  0x3d
@@ -124,6 +131,8 @@ typedef struct {
 	int kr_shift;
 	int kr_alt;
 	int kr_super;
+
+	int kbd_esc_buf;
 } key_event_state_t;
 
 kbd_key_t kbd_key(key_event_state_t * state, unsigned char c);

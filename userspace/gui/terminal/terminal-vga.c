@@ -484,6 +484,11 @@ void key_event(int ret, key_event_t * event) {
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
 			handle_input('\033');
 		}
+		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
+		    event->key == '\t') {
+			handle_input_s("\033[Z");
+			return;
+		}
 		handle_input(event->key);
 	} else {
 		if (event->action == KEY_ACTION_UP) return;
@@ -543,6 +548,15 @@ void key_event(int ret, key_event_t * event) {
 				break;
 			case KEY_PAGE_DOWN:
 				handle_input_s("\033[6~");
+				break;
+			case KEY_HOME:
+				handle_input_s("\033OH");
+				break;
+			case KEY_END:
+				handle_input_s("\033OF");
+				break;
+			case KEY_DEL:
+				handle_input_s("\033[3~");
 				break;
 		}
 	}

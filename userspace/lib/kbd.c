@@ -141,6 +141,21 @@ kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
 				case 0x5b:
 					state->kbd_state = KBD_ESC_B;
 					return KEY_NONE;
+				case 'O':
+					state->kbd_state = KBD_ESC_O;
+					return KEY_NONE;
+				default:
+					state->kbd_state = KBD_NORMAL;
+					return c;
+			}
+		case KBD_ESC_O:
+			switch (c) {
+				case 'H':
+					state->kbd_state = KBD_NORMAL;
+					return KEY_HOME;
+				case 'F':
+					state->kbd_state = KBD_NORMAL;
+					return KEY_END;
 				default:
 					state->kbd_state = KBD_NORMAL;
 					return c;
@@ -159,10 +174,41 @@ kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
 				case 0x44:
 					state->kbd_state = KBD_NORMAL;
 					return KEY_ARROW_LEFT;
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+					state->kbd_esc_buf = c;
+					state->kbd_state = KBD_ESC_EXT;
+					return KEY_NONE;
 				default:
-				state->kbd_state = KBD_NORMAL;
-				return c;
+					state->kbd_state = KBD_NORMAL;
+					return c;
 			}
+		case KBD_ESC_EXT:
+			switch (c) {
+				case '~':
+					switch (state->kbd_esc_buf) {
+						case '2':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_INSERT;
+						case '3':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_DEL;
+						case '5':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_PAGE_UP;
+						case '6':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_PAGE_DOWN;
+						default:
+							return c;
+					}
+				default:
+					return c;
+			}
+
 		default:
 			return KEY_BAD_STATE;
 	}
@@ -347,17 +393,29 @@ int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event
 			case 0x4D:
 				event->keycode = KEY_ARROW_RIGHT;
 				break;
-			case 0x50:
-				event->keycode = KEY_ARROW_DOWN;
-				break;
-			case 0x4B:
-				event->keycode = KEY_ARROW_LEFT;
+			case 0x47:
+				event->keycode = KEY_HOME;
 				break;
 			case 0x49:
 				event->keycode = KEY_PAGE_UP;
 				break;
+			case 0x4B:
+				event->keycode = KEY_ARROW_LEFT;
+				break;
+			case 0x4F:
+				event->keycode = KEY_END;
+				break;
+			case 0x50:
+				event->keycode = KEY_ARROW_DOWN;
+				break;
 			case 0x51:
 				event->keycode = KEY_PAGE_DOWN;
+				break;
+			case 0x52:
+				event->keycode = KEY_INSERT;
+				break;
+			case 0x53:
+				event->keycode = KEY_DEL;
 				break;
 			default:
 				break;

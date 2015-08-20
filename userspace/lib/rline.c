@@ -99,6 +99,38 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 					}
 				}
 				continue;
+			case KEY_HOME:
+				while (context.offset > 0) {
+					printf("\033[D");
+					context.offset--;
+				}
+				fflush(stdout);
+				continue;
+			case KEY_END:
+				while (context.offset < context.collected) {
+					printf("\033[C");
+					context.offset++;
+				}
+				fflush(stdout);
+				continue;
+			case KEY_DEL:
+				if (context.collected) {
+					if (context.offset == context.collected) {
+						continue;
+					}
+					int remaining = context.collected - context.offset;
+					for (int i = 1; i < remaining; ++i) {
+						printf("%c", context.buffer[context.offset + i]);
+						context.buffer[context.offset + i - 1] = context.buffer[context.offset + i];
+					}
+					printf(" ");
+					for (int i = 0; i < remaining; ++i) {
+						printf("\033[D");
+					}
+					context.collected--;
+					fflush(stdout);
+				}
+				continue;
 			case KEY_BACKSPACE:
 				if (context.collected) {
 					if (!context.offset) {
