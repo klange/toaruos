@@ -52,13 +52,6 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				printf("^C\n");
 				context.buffer[0] = '\0';
 				return 0;
-			case KEY_CTRL_D:
-				if (context.collected == 0) {
-					printf("exit\n");
-					sprintf(context.buffer, "exit\n");
-					return strlen(context.buffer);
-				}
-				continue;
 			case KEY_CTRL_R:
 				if (callbacks->rev_search) {
 					callbacks->rev_search(&context);
@@ -99,6 +92,7 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 					}
 				}
 				continue;
+			case KEY_CTRL_A:
 			case KEY_HOME:
 				while (context.offset > 0) {
 					printf("\033[D");
@@ -106,6 +100,7 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				}
 				fflush(stdout);
 				continue;
+			case KEY_CTRL_E:
 			case KEY_END:
 				while (context.offset < context.collected) {
 					printf("\033[C");
@@ -113,6 +108,13 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				}
 				fflush(stdout);
 				continue;
+			case KEY_CTRL_D:
+				if (context.collected == 0) {
+					printf("exit\n");
+					sprintf(context.buffer, "exit\n");
+					return strlen(context.buffer);
+				}
+				/* Intentional fallthrough */
 			case KEY_DEL:
 				if (context.collected) {
 					if (context.offset == context.collected) {
@@ -155,20 +157,6 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 					}
 					fflush(stdout);
 				}
-				continue;
-			case KEY_CTRL_A:
-				while (context.offset > 0) {
-					printf("\033[D");
-					context.offset--;
-				}
-				fflush(stdout);
-				continue;
-			case KEY_CTRL_E:
-				while (context.offset < context.collected) {
-					printf("\033[C");
-					context.offset++;
-				}
-				fflush(stdout);
 				continue;
 			case KEY_CTRL_L: /* ^L: Clear Screen, redraw prompt and buffer */
 				printf("\033[H\033[2J");
