@@ -54,7 +54,6 @@ typedef int (*readlink_type_t) (struct fs_node *, char * buf, size_t size);
 
 typedef struct fs_node {
 	char name[256];         /* The filename. */
-	char * path;            /* The path the node was opened at. */
 	void * device;          /* Device object (optional) */
 	uint32_t mask;          /* The permissions mask. */
 	uint32_t uid;           /* The owning user. */
@@ -90,6 +89,7 @@ typedef struct fs_node {
 	uint32_t offset;       /* Offset for read operations XXX move this to new "file descriptor" entry */
 	int32_t refcount;
 	uint32_t nlink;
+	char * path;            /* The path the node was opened at. */
 } fs_node_t;
 
 struct dirent {
