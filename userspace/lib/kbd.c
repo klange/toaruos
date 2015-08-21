@@ -258,7 +258,11 @@ int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event
 				{
 					event->keycode = kbd_us[c];
 					if (state->k_ctrl) {
-						int out = (int)(kbd_us_l2[c] - KEY_CTRL_MASK);
+						int s = kbd_us[c];
+						if (s >= 'a' && s <= 'z') s -= 'a' - 'A';
+						if (s == '-') s = '_';
+						if (s == '`') s = '@';
+						int out = (int)(s - KEY_CTRL_MASK);
 						if (out < 0 || out > 0x1F) {
 							event->key = kbd_us[c];
 						} else {
