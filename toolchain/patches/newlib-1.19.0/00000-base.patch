@@ -1,6 +1,6 @@
-diff -rupN _source/config.sub newlib-1.19.0/config.sub
---- _source/config.sub	2010-06-01 17:53:40.000000000 +0000
-+++ newlib-1.19.0/config.sub	2015-07-01 07:12:59.000000000 +0000
+diff -rupN _source/newlib-1.19.0/config.sub newlib-1.19.0/config.sub
+--- _source/newlib-1.19.0/config.sub	2010-06-01 12:53:40.000000000 -0500
++++ newlib-1.19.0/config.sub	2011-04-24 20:37:12.000000000 -0500
 @@ -1298,6 +1298,7 @@ case $os in
  	      | -sym* | -kopensolaris* \
  	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
@@ -9,9 +9,9 @@ diff -rupN _source/config.sub newlib-1.19.0/config.sub
  	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
  	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
  	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
-diff -rupN _source/newlib/configure.host newlib-1.19.0/newlib/configure.host
---- _source/newlib/configure.host	2010-12-02 19:30:46.000000000 +0000
-+++ newlib-1.19.0/newlib/configure.host	2015-07-01 07:12:59.000000000 +0000
+diff -rupN _source/newlib-1.19.0/newlib/configure.host newlib-1.19.0/newlib/configure.host
+--- _source/newlib-1.19.0/newlib/configure.host	2010-12-02 13:30:46.000000000 -0600
++++ newlib-1.19.0/newlib/configure.host	2011-04-24 20:38:10.000000000 -0500
 @@ -418,6 +418,9 @@ case "${host}" in
    h8500-*-elf*)
  	sys_dir=h8500hms
@@ -20,8 +20,8 @@ diff -rupN _source/newlib/configure.host newlib-1.19.0/newlib/configure.host
 +	sys_dir=toaru
 +	;;
    i[34567]86-*-rdos*)
- 	sys_dir=rdos
- 	newlib_cflags="${newlib_cflags} -DMISSING_SYSCALL_NAMES"
+  sys_dir=rdos
+  newlib_cflags="${newlib_cflags} -DMISSING_SYSCALL_NAMES"
 @@ -543,6 +546,9 @@ esac
  # THIS TABLE IS ALPHA SORTED.  KEEP IT THAT WAY.
  
@@ -30,11 +30,11 @@ diff -rupN _source/newlib/configure.host newlib-1.19.0/newlib/configure.host
 +	newlib_cflags="${newlib_cflags} -fPIC -DSIGNAL_PROVIDED -DMISSING_SYSCALL_NAMES -DMALLOC_PROVIDED"
 +	;;
    *-*-cygwin*)
- 	test -z "$cygwin_srcdir" && cygwin_srcdir=`cd ${srcdir}/../winsup/cygwin; pwd`
- 	export cygwin_srcdir
-diff -rupN _source/newlib/libc/include/sys/stat.h newlib-1.19.0/newlib/libc/include/sys/stat.h
---- _source/newlib/libc/include/sys/stat.h	2010-08-06 18:26:21.000000000 +0000
-+++ newlib-1.19.0/newlib/libc/include/sys/stat.h	2015-07-01 07:12:59.000000000 +0000
+  test -z "$cygwin_srcdir" && cygwin_srcdir=`cd ${srcdir}/../winsup/cygwin; pwd`
+  export cygwin_srcdir
+diff -rupN _source/newlib-1.19.0/newlib/libc/include/sys/stat.h newlib-1.19.0/newlib/libc/include/sys/stat.h
+--- _source/newlib-1.19.0/newlib/libc/include/sys/stat.h	2010-08-06 13:26:21.000000000 -0500
++++ newlib-1.19.0/newlib/libc/include/sys/stat.h	2012-04-23 16:00:11.000000000 -0500
 @@ -150,8 +150,8 @@ int	_EXFUN(mkfifo,( const char *__path,
  int	_EXFUN(stat,( const char *__path, struct stat *__sbuf ));
  mode_t	_EXFUN(umask,( mode_t __mask ));
@@ -45,22 +45,9 @@ diff -rupN _source/newlib/libc/include/sys/stat.h newlib-1.19.0/newlib/libc/incl
  int	_EXFUN(mknod,( const char *__path, mode_t __mode, dev_t __dev ));
  #endif
  
-diff -rupN _source/newlib/libc/include/sys/unistd.h newlib-1.19.0/newlib/libc/include/sys/unistd.h
---- _source/newlib/libc/include/sys/unistd.h	2010-10-08 15:28:49.000000000 +0000
-+++ newlib-1.19.0/newlib/libc/include/sys/unistd.h	2015-07-01 07:16:16.000000000 +0000
-@@ -53,9 +53,7 @@ int     _EXFUN(execvp, (const char *__fi
- int     _EXFUN(execvpe, (const char *__file, char * const __argv[], char * const __envp[] ));
- int	_EXFUN(faccessat, (int __dirfd, const char *__path, int __mode, int __flags));
- #endif
--#if defined(__CYGWIN__) || defined(__rtems__) || defined(__SPU__)
- int     _EXFUN(fchdir, (int __fildes));
--#endif
- int     _EXFUN(fchmod, (int __fildes, mode_t __mode ));
- #if !defined(__INSIDE_CYGWIN__)
- int     _EXFUN(fchown, (int __fildes, uid_t __owner, gid_t __group ));
-diff -rupN _source/newlib/libc/include/sys/utime.h newlib-1.19.0/newlib/libc/include/sys/utime.h
---- _source/newlib/libc/include/sys/utime.h	2000-02-17 19:39:46.000000000 +0000
-+++ newlib-1.19.0/newlib/libc/include/sys/utime.h	2015-07-01 07:12:59.000000000 +0000
+diff -rupN _source/newlib-1.19.0/newlib/libc/include/sys/utime.h newlib-1.19.0/newlib/libc/include/sys/utime.h
+--- _source/newlib-1.19.0/newlib/libc/include/sys/utime.h	2000-02-17 13:39:46.000000000 -0600
++++ newlib-1.19.0/newlib/libc/include/sys/utime.h	2012-04-23 16:01:17.000000000 -0500
 @@ -15,6 +15,8 @@ struct utimbuf
    time_t modtime; 
  };
@@ -70,9 +57,9 @@ diff -rupN _source/newlib/libc/include/sys/utime.h newlib-1.19.0/newlib/libc/inc
  #ifdef __cplusplus
  };
  #endif
-diff -rupN _source/newlib/libc/stdio/fseek.c newlib-1.19.0/newlib/libc/stdio/fseek.c
---- _source/newlib/libc/stdio/fseek.c	2009-12-17 19:43:43.000000000 +0000
-+++ newlib-1.19.0/newlib/libc/stdio/fseek.c	2015-07-01 07:12:59.000000000 +0000
+diff -rupN _source/newlib-1.19.0/newlib/libc/stdio/fseek.c newlib-1.19.0/newlib/libc/stdio/fseek.c
+--- _source/newlib-1.19.0/newlib/libc/stdio/fseek.c	2009-12-17 13:43:43.000000000 -0600
++++ newlib-1.19.0/newlib/libc/stdio/fseek.c	2011-04-29 19:33:10.000000000 -0500
 @@ -160,210 +160,6 @@ _DEFUN(_fseek_r, (ptr, fp, offset, whenc
        return EOF;
      }
@@ -284,9 +271,9 @@ diff -rupN _source/newlib/libc/stdio/fseek.c newlib-1.19.0/newlib/libc/stdio/fse
  dumb:
    if (_fflush_r (ptr, fp)
        || seekfn (ptr, fp->_cookie, offset, whence) == POS_ERR)
-diff -rupN _source/newlib/libc/stdlib/mallocr.c newlib-1.19.0/newlib/libc/stdlib/mallocr.c
---- _source/newlib/libc/stdlib/mallocr.c	2010-05-31 19:15:41.000000000 +0000
-+++ newlib-1.19.0/newlib/libc/stdlib/mallocr.c	2015-07-01 07:12:59.000000000 +0000
+diff -rupN _source/newlib-1.19.0/newlib/libc/stdlib/mallocr.c newlib-1.19.0/newlib/libc/stdlib/mallocr.c
+--- _source/newlib-1.19.0/newlib/libc/stdlib/mallocr.c	2010-05-31 14:15:41.000000000 -0500
++++ newlib-1.19.0/newlib/libc/stdlib/mallocr.c	2011-04-30 21:28:46.000000000 -0500
 @@ -609,8 +609,11 @@ do {
    operating system immediately after a free().
  */
@@ -300,9 +287,9 @@ diff -rupN _source/newlib/libc/stdlib/mallocr.c newlib-1.19.0/newlib/libc/stdlib
  #endif
  
  /*
-diff -rupN _source/newlib/libc/sys/configure newlib-1.19.0/newlib/libc/sys/configure
---- _source/newlib/libc/sys/configure	2010-12-16 21:59:03.000000000 +0000
-+++ newlib-1.19.0/newlib/libc/sys/configure	2015-07-01 07:12:59.000000000 +0000
+diff -rupN _source/newlib-1.19.0/newlib/libc/sys/configure newlib-1.19.0/newlib/libc/sys/configure
+--- _source/newlib-1.19.0/newlib/libc/sys/configure	2010-12-16 15:59:03.000000000 -0600
++++ newlib-1.19.0/newlib/libc/sys/configure	2011-04-24 20:39:58.000000000 -0500
 @@ -798,6 +798,7 @@ sysvi386
  sysvnecv70
  tic80
@@ -311,7 +298,7 @@ diff -rupN _source/newlib/libc/sys/configure newlib-1.19.0/newlib/libc/sys/confi
  z8ksim'
  
  # Initialize some variables set by options.
-@@ -11820,6 +11821,8 @@ subdirs="$subdirs a29khif"
+@@ -11820,6 +11827,8 @@ subdirs="$subdirs a29khif"
   ;;
  	w65) subdirs="$subdirs w65"
   ;;
@@ -320,9 +307,9 @@ diff -rupN _source/newlib/libc/sys/configure newlib-1.19.0/newlib/libc/sys/confi
  	z8ksim) subdirs="$subdirs z8ksim"
   ;;
    esac;
-diff -rupN _source/newlib/libc/sys/configure.in newlib-1.19.0/newlib/libc/sys/configure.in
---- _source/newlib/libc/sys/configure.in	2010-02-24 20:59:55.000000000 +0000
-+++ newlib-1.19.0/newlib/libc/sys/configure.in	2015-07-01 07:12:59.000000000 +0000
+diff -rupN _source/newlib-1.19.0/newlib/libc/sys/configure.in newlib-1.19.0/newlib/libc/sys/configure.in
+--- _source/newlib-1.19.0/newlib/libc/sys/configure.in	2010-02-24 14:59:55.000000000 -0600
++++ newlib-1.19.0/newlib/libc/sys/configure.in	2011-04-24 20:37:33.000000000 -0500
 @@ -45,6 +45,7 @@ if test -n "${sys_dir}"; then
  	sysvnecv70) AC_CONFIG_SUBDIRS(sysvnecv70) ;;
  	tic80) AC_CONFIG_SUBDIRS(tic80) ;;

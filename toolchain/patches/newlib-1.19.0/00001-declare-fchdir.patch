@@ -1,0 +1,13 @@
+diff -rupN _source/newlib/libc/include/sys/unistd.h newlib-1.19.0/newlib/libc/include/sys/unistd.h
+--- _source/newlib/libc/include/sys/unistd.h	2010-10-08 15:28:49.000000000 +0000
++++ newlib-1.19.0/newlib/libc/include/sys/unistd.h	2015-07-01 07:16:16.000000000 +0000
+@@ -53,9 +53,7 @@ int     _EXFUN(execvp, (const char *__fi
+ int     _EXFUN(execvpe, (const char *__file, char * const __argv[], char * const __envp[] ));
+ int	_EXFUN(faccessat, (int __dirfd, const char *__path, int __mode, int __flags));
+ #endif
+-#if defined(__CYGWIN__) || defined(__rtems__) || defined(__SPU__)
+ int     _EXFUN(fchdir, (int __fildes));
+-#endif
+ int     _EXFUN(fchmod, (int __fildes, mode_t __mode ));
+ #if !defined(__INSIDE_CYGWIN__)
+ int     _EXFUN(fchown, (int __fildes, uid_t __owner, gid_t __group ));

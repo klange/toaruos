@@ -24,6 +24,14 @@ function patc () {
     $BEG "patch" "Patching $1..."
     pushd "$2" > /dev/null
     patch -p1 < $DIR/patches/$2.patch > /dev/null
+    if [ -d "../../patches/$2" ]; then
+        for patchfile in $DIR/patches/$2/*.patch; do
+            $INFO "patch" "Applying $(echo $patchfile | rev | cut -d/ -f1 | rev)"
+            patch -p1 < $patchfile > /dev/null
+        done
+    else
+        patch -p1 < $DIR/patches/$2.patch > /dev/null
+    fi
     popd > /dev/null
     $END "patch" "$1"
 }
