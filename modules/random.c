@@ -61,6 +61,7 @@ static fs_node_t * random_device_create(void) {
 
 static int random_initialize(void) {
 	vfs_mount("/dev/random", random_device_create());
+	vfs_mount("/dev/urandom", random_device_create());
 	return 0;
 }
 
