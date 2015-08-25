@@ -76,3 +76,8 @@ toaruos.iso
 modpack.kop
 .vagrant
 Vagrantfile
+hdd/usr/etc
+hdd/usr/share/doc
+hdd/usr/share/fontconfig
+hdd/usr/share/xml
+
