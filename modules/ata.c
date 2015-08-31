@@ -404,6 +404,7 @@ try_again:
 	/* set read */
 	outportb(dev->bar4, 0x08);
 
+	IRQ_ON;
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if (!(status & ATA_SR_BSY)) break;
@@ -434,13 +435,13 @@ try_again:
 		int status = inportb(dev->bar4 + 0x02);
 		int dstatus = inportb(dev->io_base + ATA_REG_STATUS);
 		if (!(status & 0x04)) {
-			//switch_task(1);
 			continue;
 		}
 		if (!(dstatus & ATA_SR_BSY)) {
 			break;
 		}
 	}
+	IRQ_OFF;
 
 #if 0
 	if (ata_wait(dev, 1)) {
@@ -455,8 +456,10 @@ try_again:
 	}
 #endif
 
-	/* Okay, check the shit... */
+	/* Copy from DMA buffer to output buffer. */
 	memcpy(buf, dev->dma_start, 512);
+
+	/* Inform device we are done. */
 	outportb(dev->bar4 + 0x2, inportb(dev->bar4 + 0x02) | 0x04 | 0x02);
 
 #if 0
@@ -517,11 +520,6 @@ static void ata_device_write_sector_retry(struct ata_device * dev, uint32_t lba,
 
 static int ata_initialize(void) {
 	/* Detect drives and mount them */
-
-#if 0
-	debug_file = kopen("/dev/ttyS0", 0);
-	debug_level = 1;
-#endif
 
 	/* Locate ATA device via PCI */
 	pci_scan(&find_ata_pci, -1, &ata_pci);
