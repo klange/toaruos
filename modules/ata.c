@@ -14,17 +14,43 @@
 #include <fs.h>
 #include <printf.h>
 
+#include <pci.h>
+
 /* TODO: Move this to mod/ata.h */
 #include <ata.h>
 
 static char ata_drive_char = 'a';
+static uint32_t ata_pci = 0x00000000;
+
+/* 8086:7010 */
+static void find_ata_pci(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
+	if ((vendorid == 0x8086) && (deviceid == 0x7010)) {
+		*((uint32_t *)extra) = device;
+	}
+}
+
+typedef struct {
+	uintptr_t offset;
+	uint16_t bytes;
+	uint16_t last;
+} prdt_t;
 
 struct ata_device {
 	int io_base;
 	int control;
 	int slave;
 	ata_identify_t identity;
+	prdt_t * dma_prdt;
+	uintptr_t dma_prdt_phys;
+	uint8_t * dma_start;
+	uintptr_t dma_start_phys;
+	uint32_t bar4;
 };
+
+static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
+static struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x3F6, .slave = 1};
+static struct ata_device ata_secondary_master = {.io_base = 0x170, .control = 0x376, .slave = 0};
+static struct ata_device ata_secondary_slave  = {.io_base = 0x170, .control = 0x376, .slave = 1};
 
 //static volatile uint8_t ata_lock = 0;
 static spin_lock_t ata_lock = { 0 };
@@ -228,6 +254,17 @@ static void ata_soft_reset(struct ata_device * dev) {
 	outportb(dev->control, 0x00);
 }
 
+static int ata_irq_handler(struct regs *r) {
+	uint8_t i = inportb(ata_primary_master.io_base + ATA_REG_STATUS);
+	irq_ack(14);
+	return 1;
+}
+
+static int ata_irq_handler_s(struct regs *r) {
+	inportb(ata_secondary_master.io_base + ATA_REG_STATUS);
+	return 1;
+}
+
 static void ata_device_init(struct ata_device * dev) {
 
 	debug_print(NOTICE, "Initializing IDE device on bus %d", dev->io_base);
@@ -263,7 +300,49 @@ static void ata_device_init(struct ata_device * dev) {
 	debug_print(NOTICE, "Sectors (48): %d", (uint32_t)dev->identity.sectors_48);
 	debug_print(NOTICE, "Sectors (24): %d", dev->identity.sectors_28);
 
-	outportb(dev->io_base + ATA_REG_CONTROL, 0x02);
+	debug_print(NOTICE, "Setting up DMA...");
+	dev->dma_prdt  = (void *)kvmalloc_p(sizeof(prdt_t) * 1, &dev->dma_prdt_phys);
+	dev->dma_start = (void *)kvmalloc_p(4096, &dev->dma_start_phys);
+
+	debug_print(NOTICE, "Putting prdt    at 0x%x (0x%x phys)", dev->dma_prdt, dev->dma_prdt_phys);
+	debug_print(NOTICE, "Putting prdt[0] at 0x%x (0x%x phys)", dev->dma_start, dev->dma_start_phys);
+
+	dev->dma_prdt[0].offset = dev->dma_start_phys;
+	dev->dma_prdt[0].bytes = 512;
+	dev->dma_prdt[0].last = 0x8000;
+
+	debug_print(NOTICE, "ATA PCI device ID: 0x%x", ata_pci);
+
+	uint16_t command_reg = pci_read_field(ata_pci, PCI_COMMAND, 4);
+	debug_print(NOTICE, "COMMAND register before: 0x%4x", command_reg);
+	if (command_reg & (1 << 2)) {
+		debug_print(NOTICE, "Bus mastering already enabled.");
+	} else {
+		command_reg |= (1 << 2); /* bit 2 */
+		debug_print(NOTICE, "Enabling bus mastering...");
+		pci_write_field(ata_pci, PCI_COMMAND, 4, command_reg);
+		command_reg = pci_read_field(ata_pci, PCI_COMMAND, 4);
+		debug_print(NOTICE, "COMMAND register after: 0x%4x", command_reg);
+	}
+
+	dev->bar4 = pci_read_field(ata_pci, PCI_BAR4, 4);
+	debug_print(NOTICE, "BAR4: 0x%x", dev->bar4);
+
+	if (dev->bar4 & 0x00000001) {
+		dev->bar4 = dev->bar4 & 0xFFFFFFFC;
+	} else {
+		debug_print(WARNING, "? ATA bus master registers are /usually/ I/O ports.\n");
+		return; /* No DMA because we're not sure what to do here */
+	}
+
+#if 0
+	pci_write_field(ata_pci, PCI_INTERRUPT_LINE, 1, 0xFE);
+	if (pci_read_field(ata_pci, PCI_INTERRUPT_LINE, 1) == 0xFE) {
+		/* needs assignment */
+		pci_write_field(ata_pci, PCI_INTERRUPT_LINE, 1, 14);
+	}
+#endif
+
 }
 
 static int ata_device_detect(struct ata_device * dev) {
@@ -306,20 +385,64 @@ static void ata_device_read_sector(struct ata_device * dev, uint32_t lba, uint8_
 
 	spin_lock(ata_lock);
 
+#if 0
 	int errors = 0;
 try_again:
-	outportb(bus + ATA_REG_CONTROL, 0x02);
+#endif
 
 	ata_wait(dev, 0);
 
+	/* Stop */
+	outportb(dev->bar4, 0x00);
+
+	/* Set the PRDT */
+	outportl(dev->bar4 + 0x04, dev->dma_prdt_phys);
+
+	/* Enable error, irq status */
+	outportb(dev->bar4 + 0x2, inportb(dev->bar4 + 0x02) | 0x04 | 0x02);
+
+	/* set read */
+	outportb(dev->bar4, 0x08);
+
+	while (1) {
+		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+		if (!(status & ATA_SR_BSY)) break;
+	}
+
+	outportb(bus + ATA_REG_CONTROL, 0x00);
 	outportb(bus + ATA_REG_HDDEVSEL, 0xe0 | slave << 4 | (lba & 0x0f000000) >> 24);
+	ata_io_wait(dev);
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_SECCOUNT0, 1);
 	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
-	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+	//outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+#if 1
+	while (1) {
+		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
+	}
+#endif
+	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_DMA);
 
+	ata_io_wait(dev);
+
+	outportb(dev->bar4, 0x08 | 0x01);
+
+	while (1) {
+		int status = inportb(dev->bar4 + 0x02);
+		int dstatus = inportb(dev->io_base + ATA_REG_STATUS);
+		if (!(status & 0x04)) {
+			//switch_task(1);
+			continue;
+		}
+		if (!(dstatus & ATA_SR_BSY)) {
+			break;
+		}
+	}
+
+#if 0
 	if (ata_wait(dev, 1)) {
 		debug_print(WARNING, "Error during ATA read of lba block %d", lba);
 		errors++;
@@ -330,10 +453,18 @@ try_again:
 		}
 		goto try_again;
 	}
+#endif
 
+	/* Okay, check the shit... */
+	memcpy(buf, dev->dma_start, 512);
+	outportb(dev->bar4 + 0x2, inportb(dev->bar4 + 0x02) | 0x04 | 0x02);
+
+#if 0
 	int size = 256;
 	inportsm(bus,buf,size);
 	ata_wait(dev, 0);
+	outportb(bus + ATA_REG_CONTROL, 0x02);
+#endif
 	spin_unlock(ata_lock);
 }
 
@@ -377,23 +508,28 @@ static int buffer_compare(uint32_t * ptr1, uint32_t * ptr2, size_t size) {
 
 static void ata_device_write_sector_retry(struct ata_device * dev, uint32_t lba, uint8_t * buf) {
 	uint8_t * read_buf = malloc(ATA_SECTOR_SIZE);
-	IRQ_OFF;
 	do {
 		ata_device_write_sector(dev, lba, buf);
 		ata_device_read_sector(dev, lba, read_buf);
 	} while (buffer_compare((uint32_t *)buf, (uint32_t *)read_buf, ATA_SECTOR_SIZE));
-	IRQ_RES;
 	free(read_buf);
 }
 
-static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
-static struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x3F6, .slave = 1};
-static struct ata_device ata_secondary_master = {.io_base = 0x170, .control = 0x376, .slave = 0};
-static struct ata_device ata_secondary_slave  = {.io_base = 0x170, .control = 0x376, .slave = 1};
-
-
 static int ata_initialize(void) {
 	/* Detect drives and mount them */
+
+#if 0
+	debug_file = kopen("/dev/ttyS0", 0);
+	debug_level = 1;
+#endif
+
+	/* Locate ATA device via PCI */
+	pci_scan(&find_ata_pci, -1, &ata_pci);
+
+	irq_install_handler(14, ata_irq_handler);
+#if 0
+	irq_install_handler(15, ata_irq_handler_s);
+#endif
 
 	ata_device_detect(&ata_primary_master);
 	ata_device_detect(&ata_primary_slave);
