@@ -662,6 +662,22 @@ static void yutani_set_clip(yutani_globals_t * yg) {
 }
 
 /**
+ * Mark a screen region as damaged.
+ */
+static void mark_screen(yutani_globals_t * yg, int32_t x, int32_t y, int32_t width, int32_t height) {
+	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+
+	rect->x = x;
+	rect->y = y;
+	rect->width = width;
+	rect->height = height;
+
+	spin_lock(&yg->update_list_lock);
+	list_insert(yg->update_list, rect);
+	spin_unlock(&yg->update_list_lock);
+}
+
+/**
  * Draw the cursor sprite.
  *
  * TODO This should probably use Cairo's PNG functionality, or something
@@ -701,7 +717,7 @@ static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
 		}
 	}
 	if (sprite != previous) {
-		yutani_add_clip(yg, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+		mark_screen(yg, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 		previous = sprite;
 	}
 	draw_sprite(yg->backend_ctx, sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
@@ -1614,6 +1630,7 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 			yg->mouse_init_y = yg->mouse_y;
 			yg->mouse_win_x  = yg->mouse_window->x;
 			yg->mouse_win_y  = yg->mouse_window->y;
+			mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 			make_top(yg, yg->mouse_window);
 		}
 	}
@@ -1762,6 +1779,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
 					yg->mouse_window = NULL;
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+					mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 				} else {
 					if (yg->mouse_y / MOUSE_SCALE < 2) {
 						window_tile(yg, yg->mouse_window, 1, 1, 0, 0);
@@ -2277,7 +2295,7 @@ int main(int argc, char * argv[]) {
 							w->show_mouse = wa->show_mouse;
 						}
 						if (yg->focused_window == w) {
-							yutani_add_clip(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+							mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 						}
 					}
 				}
