@@ -255,7 +255,7 @@ static void ata_soft_reset(struct ata_device * dev) {
 }
 
 static int ata_irq_handler(struct regs *r) {
-	uint8_t i = inportb(ata_primary_master.io_base + ATA_REG_STATUS);
+	inportb(ata_primary_master.io_base + ATA_REG_STATUS);
 	irq_ack(14);
 	return 1;
 }
