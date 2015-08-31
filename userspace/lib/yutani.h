@@ -335,6 +335,36 @@ typedef struct yutani_window {
 #define YUTANI_SHAPE_THRESHOLD_ANY         255
 #define YUTANI_SHAPE_THRESHOLD_PASSTHROUGH 256
 
+/*
+ * YUTANI_CURSOR_TYPE
+ *
+ * Used with SHOW_MOUSE to set the cursor type for this window.
+ * Note that modifications made to the cursor will only display
+ * while it the current window is active and that cursor settings
+ * are per-window, not per-application.
+ *
+ * HIDE:              Disable the mouse cursor. Useful for games.
+ * NORMAL:            The normal arrow cursor.
+ * DRAG:              A 4-directional arrow.
+ * RESIZE_VERTICAL:   An up-down arrow / resize indicator.
+ * RESIZE_HORIZONTAL: A left-right arrow / resize indicator.
+ * RESIZE_UP_DOWN:    A diagonal ＼-shaped arrow.
+ * RESIZE_DOWN_UP:    A diagonal ／-shaped arrow.
+ *
+ * RESET: If the cursor was previously hidden, hide it again.
+ *        Otherwise, show the normal cursor. Allows for decorator
+ *        to set resize cursors without having to know if a window
+ *        had set the default mode to HIDE.
+ */
+#define YUTANI_CURSOR_TYPE_RESET            -1
+#define YUTANI_CURSOR_TYPE_HIDE              0
+#define YUTANI_CURSOR_TYPE_NORMAL            1
+#define YUTANI_CURSOR_TYPE_DRAG              2
+#define YUTANI_CURSOR_TYPE_RESIZE_VERTICAL   3
+#define YUTANI_CURSOR_TYPE_RESIZE_HORIZONTAL 4
+#define YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN    5
+#define YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP    6
+
 typedef struct {
 	int x;
 	int y;

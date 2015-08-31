@@ -67,6 +67,8 @@ typedef struct {
 	int tiled;
 	int32_t untiled_width;
 	int32_t untiled_height;
+
+	int default_mouse;
 } yutani_server_window_t;
 
 typedef struct {
@@ -153,6 +155,14 @@ typedef struct {
 	int32_t resizing_offset_x;
 	int32_t resizing_offset_y;
 	int resizing_button;
+
+	sprite_t mouse_sprite_drag;
+	sprite_t mouse_sprite_resize_v;
+	sprite_t mouse_sprite_resize_h;
+	sprite_t mouse_sprite_resize_da;
+	sprite_t mouse_sprite_resize_db;
+
+	int current_cursor;
 
 } yutani_globals_t;
 

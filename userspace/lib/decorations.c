@@ -250,6 +250,30 @@ static int within_decors(yutani_window_t * window, int x, int y) {
 #define TOP_SIDE (me->new_y <= decor_top_height)
 #define BOTTOM_SIDE (me->new_y >= window->height - decor_bottom_height)
 
+static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_mouse_event * me, yutani_window_t * window) {
+	yutani_scale_direction_t resize_direction = SCALE_NONE;
+	if (LEFT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
+		resize_direction = SCALE_LEFT;
+	} else if (RIGHT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
+		resize_direction = SCALE_RIGHT;
+	} else if (BOTTOM_SIDE && !LEFT_SIDE && !RIGHT_SIDE) {
+		resize_direction = SCALE_DOWN;
+	} else if (BOTTOM_SIDE && LEFT_SIDE) {
+		resize_direction = SCALE_DOWN_LEFT;
+	} else if (BOTTOM_SIDE && RIGHT_SIDE) {
+		resize_direction = SCALE_DOWN_RIGHT;
+	} else if (TOP_SIDE && LEFT_SIDE) {
+		resize_direction = SCALE_UP_LEFT;
+	} else if (TOP_SIDE && RIGHT_SIDE) {
+		resize_direction = SCALE_UP_RIGHT;
+	} else if (TOP_SIDE && (me->new_y < 5)) {
+		resize_direction = SCALE_UP;
+	}
+	return resize_direction;
+}
+
+static int old_resize_direction = SCALE_NONE;
+
 int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 	if (m) {
 		switch (m->type) {
@@ -263,24 +287,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 							if (!button) {
 								/* Resize edges */
-								yutani_scale_direction_t resize_direction = SCALE_NONE;
-								if (LEFT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
-									resize_direction = SCALE_LEFT;
-								} else if (RIGHT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
-									resize_direction = SCALE_RIGHT;
-								} else if (BOTTOM_SIDE && !LEFT_SIDE && !RIGHT_SIDE) {
-									resize_direction = SCALE_DOWN;
-								} else if (BOTTOM_SIDE && LEFT_SIDE) {
-									resize_direction = SCALE_DOWN_LEFT;
-								} else if (BOTTOM_SIDE && RIGHT_SIDE) {
-									resize_direction = SCALE_DOWN_RIGHT;
-								} else if (TOP_SIDE && LEFT_SIDE) {
-									resize_direction = SCALE_UP_LEFT;
-								} else if (TOP_SIDE && RIGHT_SIDE) {
-									resize_direction = SCALE_UP_RIGHT;
-								} else if (TOP_SIDE && (me->new_y < 5)) {
-									resize_direction = SCALE_UP;
-								}
+								yutani_scale_direction_t resize_direction = check_resize_direction(me, window);
 
 								if (resize_direction != SCALE_NONE) {
 									yutani_window_resize_start(yctx, window, resize_direction);
@@ -290,6 +297,37 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 									yutani_window_drag_start(yctx, window);
 								}
 								return DECOR_OTHER;
+							}
+						}
+						if (me->command == YUTANI_MOUSE_EVENT_MOVE) {
+							if (!button) {
+								/* Resize edges */
+								yutani_scale_direction_t resize_direction = check_resize_direction(me, window);
+								if (resize_direction != old_resize_direction) {
+									if (resize_direction == SCALE_NONE) {
+										yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
+									} else {
+										switch (resize_direction) {
+											case SCALE_UP:
+											case SCALE_DOWN:
+												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_VERTICAL);
+												break;
+											case SCALE_LEFT:
+											case SCALE_RIGHT:
+												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_HORIZONTAL);
+												break;
+											case SCALE_DOWN_RIGHT:
+											case SCALE_UP_LEFT:
+												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN);
+												break;
+											case SCALE_DOWN_LEFT:
+											case SCALE_UP_RIGHT:
+												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP);
+												break;
+										}
+									}
+									old_resize_direction = resize_direction;
+								}
 							}
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_CLICK) {
@@ -305,6 +343,11 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 									break;
 							}
 							return button;
+						}
+					} else {
+						if (old_resize_direction != SCALE_NONE) {
+							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
+							old_resize_direction = 0;
 						}
 					}
 				}

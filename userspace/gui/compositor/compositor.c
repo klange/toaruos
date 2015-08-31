@@ -40,6 +40,9 @@
 #define YUTANI_RESIZE_RIGHT 0
 #define YUTANI_INCOMING_MOUSE_SCALE * 3
 
+#define MOUSE_WIDTH 64
+#define MOUSE_HEIGHT 64
+
 struct {
 	int nested;
 	int nest_width;
@@ -372,6 +375,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->tiled = 0;
 	win->untiled_width = 0;
 	win->untiled_height = 0;
+	win->default_mouse = 1;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
@@ -445,22 +449,24 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 
 	mark_window(yg, win);
 
+	spin_lock(&yg->redraw_lock);
+
 	win->width = width;
 	win->height = height;
 
 	win->bufid = win->newbufid;
+	win->buffer = win->newbuffer;
+
+	win->newbuffer = NULL;
 	win->newbufid = 0;
 
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, oldbufid);
-		spin_lock(&yg->redraw_lock);
 		syscall_shm_release(key);
-		spin_unlock(&yg->redraw_lock);
 	}
 
-	win->buffer = win->newbuffer;
-	win->newbuffer = NULL;
+	spin_unlock(&yg->redraw_lock);
 
 	mark_window(yg, win);
 }
@@ -624,16 +630,6 @@ static void load_fonts(yutani_globals_t * yg) {
 }
 
 /**
- * Draw the cursor sprite.
- *
- * TODO This should probably use Cairo's PNG functionality, or something
- *      else other than our own rendering tools...
- */
-static void draw_cursor(yutani_globals_t * yg, int x, int y) {
-	draw_sprite(yg->backend_ctx, &yg->mouse_sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
-}
-
-/**
  * Add a clip region from a rectangle.
  */
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
@@ -663,6 +659,52 @@ static void restore_cairo_states(yutani_globals_t * yg) {
 static void yutani_set_clip(yutani_globals_t * yg) {
 	cairo_clip(yg->framebuffer_ctx);
 	cairo_clip(yg->real_ctx);
+}
+
+/**
+ * Draw the cursor sprite.
+ *
+ * TODO This should probably use Cairo's PNG functionality, or something
+ *      else other than our own rendering tools...
+ */
+static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
+	sprite_t * sprite = &yg->mouse_sprite;
+	static sprite_t * previous = NULL;
+	if (yg->resizing_window) {
+		switch (yg->resizing_direction) {
+			case SCALE_UP:
+			case SCALE_DOWN:
+				sprite = &yg->mouse_sprite_resize_v;
+				break;
+			case SCALE_LEFT:
+			case SCALE_RIGHT:
+				sprite = &yg->mouse_sprite_resize_h;
+				break;
+			case SCALE_DOWN_RIGHT:
+			case SCALE_UP_LEFT:
+				sprite = &yg->mouse_sprite_resize_da;
+				break;
+			case SCALE_DOWN_LEFT:
+			case SCALE_UP_RIGHT:
+				sprite = &yg->mouse_sprite_resize_db;
+				break;
+		}
+	} else if (yg->mouse_state == YUTANI_MOUSE_STATE_MOVING) {
+		sprite = &yg->mouse_sprite_drag;
+	} else {
+		switch (cursor) {
+			case YUTANI_CURSOR_TYPE_DRAG:              sprite = &yg->mouse_sprite_drag; break;
+			case YUTANI_CURSOR_TYPE_RESIZE_VERTICAL:   sprite = &yg->mouse_sprite_resize_v; break;
+			case YUTANI_CURSOR_TYPE_RESIZE_HORIZONTAL: sprite = &yg->mouse_sprite_resize_h; break;
+			case YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN:    sprite = &yg->mouse_sprite_resize_da; break;
+			case YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP:    sprite = &yg->mouse_sprite_resize_db; break;
+		}
+	}
+	if (sprite != previous) {
+		yutani_add_clip(yg, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+		previous = sprite;
+	}
+	draw_sprite(yg->backend_ctx, sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 }
 
 /**
@@ -1000,8 +1042,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 	/* If the mouse has moved, that counts as two damage regions */
 	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
 		has_updates = 2;
-		yutani_add_clip(yg, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
-		yutani_add_clip(yg, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
+		yutani_add_clip(yg, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+		yutani_add_clip(yg, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 	}
 
 	yg->last_mouse_x = tmp_mouse_x;
@@ -1042,7 +1084,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 */
 		spin_lock(&yg->redraw_lock);
 		yutani_blit_windows(yg, yg->framebuffer_ctx);
-		spin_unlock(&yg->redraw_lock);
 
 		if (yg->resizing_window) {
 			/* Draw box */
@@ -1087,7 +1128,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 */
 			yutani_server_window_t * tmp_window = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 			if (!tmp_window || tmp_window->show_mouse) {
-				draw_cursor(yg, tmp_mouse_x, tmp_mouse_y);
+				draw_cursor(yg, tmp_mouse_x, tmp_mouse_y, tmp_window ? tmp_window->show_mouse : 1);
 			}
 
 			/*
@@ -1099,6 +1140,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 			cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
 			cairo_paint(yg->real_ctx);
 		}
+		spin_unlock(&yg->redraw_lock);
 
 		/*
 		 * If any windows were marked for removal,
@@ -1631,6 +1673,7 @@ static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t d
 
 			yg->resizing_direction = direction;
 			make_top(yg, yg->mouse_window);
+			mark_window(yg, yg->mouse_window);
 		}
 	}
 }
@@ -1899,7 +1942,14 @@ int main(int argc, char * argv[]) {
 	load_fonts(yg);
 	TRACE("Done.");
 
-	load_sprite_png(&yg->mouse_sprite, "/usr/share/arrow.png");
+	load_sprite_png(&yg->mouse_sprite, "/usr/share/cursor/normal.png");
+
+	load_sprite_png(&yg->mouse_sprite_drag, "/usr/share/cursor/drag.png");
+	load_sprite_png(&yg->mouse_sprite_resize_v, "/usr/share/cursor/resize-vertical.png");
+	load_sprite_png(&yg->mouse_sprite_resize_h, "/usr/share/cursor/resize-horizontal.png");
+	load_sprite_png(&yg->mouse_sprite_resize_da, "/usr/share/cursor/resize-uldr.png");
+	load_sprite_png(&yg->mouse_sprite_resize_db, "/usr/share/cursor/resize-dlur.png");
+
 	yg->last_mouse_x = 0;
 	yg->last_mouse_y = 0;
 	yg->mouse_x = yg->width * MOUSE_SCALE / 2;
@@ -2218,9 +2268,16 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_show_mouse * wa = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
 					if (w) {
-						w->show_mouse = wa->show_mouse;
+						if (wa->show_mouse == -1) {
+							w->show_mouse = w->default_mouse;
+						} else if (wa->show_mouse < 2) {
+							w->default_mouse = wa->show_mouse;
+							w->show_mouse = wa->show_mouse;
+						} else {
+							w->show_mouse = wa->show_mouse;
+						}
 						if (yg->focused_window == w) {
-							yutani_add_clip(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, 64, 64);
+							yutani_add_clip(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 						}
 					}
 				}
