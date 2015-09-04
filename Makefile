@@ -87,7 +87,7 @@ BOOT_MODULES += packetfs
 BOOT_MODULES += snd
 BOOT_MODULES += pcspkr
 BOOT_MODULES += ac97
-BOOT_MODULES += net rtl irc
+BOOT_MODULES += net rtl
 
 # This is kinda silly. We're going to form an -initrd argument..
 # which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
