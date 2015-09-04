@@ -706,6 +706,13 @@ int main(int argc, char ** argv) {
 
 	fflush(stdin);
 
+	/* This should remove the hardware cursor. */
+	outb(14, 0x3D4);
+	outb(0xFF, 0x3D5);
+	outb(15, 0x3D4);
+	outb(0xFF, 0x3D5);
+
+
 	int pid = getpid();
 	uint32_t f = fork();
 
