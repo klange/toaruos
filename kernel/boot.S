@@ -20,9 +20,9 @@
 
 /* Request linear graphics mode */
 .long 0x00000000
-.byte 0
-.byte 0
-.byte 32
+.long 0
+.long 0
+.long 32
 
 /* .stack resides in .bss */
 .section .stack, "aw", @nobits
