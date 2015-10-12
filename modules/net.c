@@ -948,7 +948,8 @@ static int init(void) {
 	dns_cache = hashmap_create(10);
 
 	hashmap_set(dns_cache, "dakko.us", strdup("104.131.140.26"));
-	hashmap_set(dns_cache, "www.toaruos.org", strdup("23.235.47.133"));
+	hashmap_set(dns_cache, "toaruos.org", strdup("104.131.140.26"));
+	hashmap_set(dns_cache, "www.toaruos.org", strdup("104.131.140.26"));
 	hashmap_set(dns_cache, "www.yelp.com", strdup("104.16.57.23"));
 	hashmap_set(dns_cache, "s3-media2.fl.yelpcdn.com", strdup("199.27.79.175"));
 	hashmap_set(dns_cache, "forum.osdev.org", strdup("173.255.206.39"));
