@@ -20,7 +20,7 @@
 #include "lib/hashmap.h"
 #include "lib/confreader.h"
 
-#define DEFAULT_WALLPAPER "/usr/share/wallpapers/southbay.png"
+#define DEFAULT_WALLPAPER "/usr/share/wallpapers/yosemite.png"
 
 #define ICON_X         24
 #define ICON_TOP_Y     40
