@@ -162,6 +162,26 @@ static int new_focused = -1;
 
 static int title_width = 0;
 
+static void toggle_hide_panel(void) {
+	static int panel_hidden = 0;
+
+	if (panel_hidden) {
+		/* Unhide the panel */
+		for (int i = PANEL_HEIGHT-1; i >= 0; i--) {
+			yutani_window_move(yctx, panel, 0, -i);
+			usleep(10000);
+		}
+		panel_hidden = 0;
+	} else {
+		/* Hide the panel */
+		for (int i = 1; i <= PANEL_HEIGHT-1; i++) {
+			yutani_window_move(yctx, panel, 0, -i);
+			usleep(10000);
+		}
+		panel_hidden = 1;
+	}
+}
+
 static sprite_t * icon_get(char * name);
 static void redraw_appmenu(int item);
 
@@ -396,6 +416,13 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		(ke->event.action == KEY_ACTION_DOWN)) {
 
 		launch_application("terminal");
+	}
+
+	if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+		(ke->event.keycode == KEY_F11) &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+		fprintf(stderr, "[panel] Toggling visibility.\n");
+		toggle_hide_panel();
 	}
 
 	if ((was_tabbing) && (ke->event.keycode == 0 || ke->event.keycode == KEY_LEFT_ALT) &&
@@ -989,6 +1016,8 @@ int main (int argc, char ** argv) {
 	/* Alt+Tab */
 	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT | KEY_MOD_LEFT_SHIFT, YUTANI_BIND_STEAL);
+
+	yutani_key_bind(yctx, KEY_F11, KEY_MOD_LEFT_CTRL, YUTANI_BIND_STEAL);
 
 	/* This lets us receive all just-modifier key releases */
 	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);

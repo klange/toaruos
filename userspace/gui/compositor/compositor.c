@@ -1396,6 +1396,9 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 	yutani_server_window_t * panel = yg->top_z;
 	if (panel) {
 		panel_h = panel->height;
+		if (panel->y < 1) {
+			panel_h += panel->y; /* We can move the panel up to "hide" it. */
+		}
 	}
 
 	if (!window->tiled) {
