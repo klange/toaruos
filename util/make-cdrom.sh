@@ -20,11 +20,11 @@ if [[ $TOOLCHAIN/ = $PWD/* ]]; then
 	exit 1
 fi
 
-BLACKLIST='userspace/tests/* userspace/gui/gl/teapot.c'
+BLACKLIST="userspace/tests/* userspace/gui/gl/teapot.c hdd/usr/share/wallpapers/{grandcanyon,paris,southbay,yokohama}.png"
 
 # Rebuild
 echo "Rebuilding... (ignore warnings about time skew, this is intentional)"
-rm $BLACKLIST
+eval rm $BLACKLIST
 touch -d tomorrow toaruos-disk.img
 make
 i686-pc-toaru-strip hdd/bin/*
@@ -61,4 +61,4 @@ grub-mkrescue -d /usr/lib/grub/i386-pc -o toaruos.iso cdrom
 echo "Restoring modules directory to hdd/mod..."
 mv cdrom/mod hdd/mod
 rm -r cdrom
-git checkout $BLACKLIST
+eval git checkout $BLACKLIST
