@@ -199,7 +199,7 @@ uint32_t fork(void) {
 	assert(directory && "Could not allocate a new page directory!");
 	/* Spawn a new process from this one */
 	debug_print(INFO,"\033[1;32mALLOC {\033[0m");
-	process_t * new_proc = spawn_process(current_process);
+	process_t * new_proc = spawn_process(current_process, 0);
 	debug_print(INFO,"\033[1;32m}\033[0m");
 	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to clone */
@@ -243,7 +243,7 @@ int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
 
 	page_directory_t * directory = kernel_directory;
 	/* Spawn a new process from this one */
-	process_t * new_proc = spawn_process(current_process);
+	process_t * new_proc = spawn_process(current_process, 0);
 	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to the original process' */
 	set_process_environment(new_proc, directory);
@@ -302,7 +302,7 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	assert(parent && "Cloned from nothing??");
 	page_directory_t * directory = current_directory;
 	/* Spawn a new process from this one */
-	process_t * new_proc = spawn_process(current_process);
+	process_t * new_proc = spawn_process(current_process, 1);
 	assert(new_proc && "Could not allocate a new process!");
 	/* Set the new process' page directory to the original process' */
 	set_process_environment(new_proc, directory);
@@ -341,10 +341,6 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	new_proc->thread.ebp = ebp;
 
 	new_proc->is_tasklet = parent->is_tasklet;
-
-	free(new_proc->fds);
-	new_proc->fds = current_process->fds;
-	new_proc->fds->refs++;
 
 	new_proc->thread.eip = (uintptr_t)&return_to_userspace;
 

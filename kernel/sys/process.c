@@ -337,7 +337,7 @@ void process_disown(process_t * proc) {
  * @param parent The parent process to spawn the new one off of.
  * @return A pointer to the new process.
  */
-process_t * spawn_process(volatile process_t * parent) {
+process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 	assert(process_tree->root && "Attempted to spawn a process without init.");
 
 	/* Allocate a new process */
@@ -379,18 +379,23 @@ process_t * spawn_process(volatile process_t * parent) {
 	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
 
 	/* Clone the file descriptors from the original process */
-	proc->fds = malloc(sizeof(fd_table_t));
-	proc->fds->refs     = 1;
-	proc->fds->length   = parent->fds->length;
-	proc->fds->capacity = parent->fds->capacity;
-	debug_print(INFO,"    fds / files {");
-	proc->fds->entries  = malloc(sizeof(fs_node_t *) * proc->fds->capacity);
-	assert(proc->fds->entries && "Failed to allocate file descriptor table for new process.");
-	debug_print(INFO,"    ---");
-	for (uint32_t i = 0; i < parent->fds->length; ++i) {
-		proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
+	if (reuse_fds) {
+		proc->fds = parent->fds;
+		proc->fds->refs++;
+	} else {
+		proc->fds = malloc(sizeof(fd_table_t));
+		proc->fds->refs     = 1;
+		proc->fds->length   = parent->fds->length;
+		proc->fds->capacity = parent->fds->capacity;
+		debug_print(INFO,"    fds / files {");
+		proc->fds->entries  = malloc(sizeof(fs_node_t *) * proc->fds->capacity);
+		assert(proc->fds->entries && "Failed to allocate file descriptor table for new process.");
+		debug_print(INFO,"    ---");
+		for (uint32_t i = 0; i < parent->fds->length; ++i) {
+			proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
+		}
+		debug_print(INFO,"    }");
 	}
-	debug_print(INFO,"    }");
 
 	/* As well as the working directory */
 	proc->wd_node = clone_fs(parent->wd_node);

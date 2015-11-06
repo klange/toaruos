@@ -112,7 +112,7 @@ typedef struct {
 } sleeper_t;
 
 extern void initialize_process_tree(void);
-extern process_t * spawn_process(volatile process_t * parent);
+extern process_t * spawn_process(volatile process_t * parent, int reuse_fds);
 extern void debug_print_process_tree(void);
 extern process_t * spawn_init(void);
 extern process_t * spawn_kidle(void);
