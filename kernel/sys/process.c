@@ -687,11 +687,13 @@ void cleanup_process(process_t * proc, int retval) {
 	if (proc->signal_kstack) {
 		free(proc->signal_kstack);
 	}
+
+	release_directory(proc->thread.page_directory);
+
 	debug_print(INFO, "Dec'ing fds for %d", proc->id);
 	proc->fds->refs--;
 	if (proc->fds->refs == 0) {
 		debug_print(INFO, "Reached 0, all dependencies are closed for %d's file descriptors and page directories", proc->id);
-		release_directory(proc->thread.page_directory);
 		debug_print(INFO, "Going to clear out the file descriptors %d", proc->id);
 		for (uint32_t i = 0; i < proc->fds->length; ++i) {
 			if (proc->fds->entries[i]) {
