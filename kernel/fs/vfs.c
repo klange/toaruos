@@ -840,7 +840,7 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 		/* Search the active directory for the requested directory */
 		debug_print(INFO, "... Searching for %s", path_offset);
 		node_next = finddir_fs(node_ptr, path_offset);
-		close_fs(node_ptr);
+		free(node_ptr); /* Always a clone or an unopened thing */
 		node_ptr = node_next;
 		if (!node_ptr) {
 			/* We failed to find the requested directory */
@@ -862,14 +862,14 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(NOTICE, "Refusing to follow final entry for open with O_NOFOLLOW for %s.", node_ptr->name);
 				free((void *)path);
-				close_fs(node_ptr);
+				free(node_ptr);
 				return NULL;
 			}
 			if (symlink_depth >= MAX_SYMLINK_DEPTH) {
 				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(WARNING, "Reached max symlink depth on %s.", node_ptr->name);
 				free((void *)path);
-				close_fs(node_ptr);
+				free(node_ptr);
 				return NULL;
 			}
 			/* 
@@ -882,14 +882,14 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(WARNING, "Got error %d from symlink for %s.", len, node_ptr->name);
 				free((void *)path);
-				close_fs(node_ptr);
+				free(node_ptr);
 				return NULL;
 			}
 			if (symlink_buf[len] != '\0') {
 				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(WARNING, "readlink for %s doesn't end in a null pointer. That's weird...", node_ptr->name);
 				free((void *)path);
-				close_fs(node_ptr);
+				free(node_ptr);
 				return NULL;
 			}
 			fs_node_t * old_node_ptr = node_ptr;
@@ -905,7 +905,7 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 			}
 			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth + 1, relpath);
 			free(relpath);
-			close_fs(old_node_ptr);
+			free(old_node_ptr);
 			if (!node_ptr) {
 				/* Dangling symlink? */
 				debug_print(WARNING, "Failed to open symlink path %s. Perhaps it's a dangling symlink?", symlink_buf);
