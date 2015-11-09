@@ -955,6 +955,7 @@ static int init(void) {
 	hashmap_set(dns_cache, "forum.osdev.org", strdup("173.255.206.39"));
 	hashmap_set(dns_cache, "wolfgun.puckipedia.com", strdup("104.47.147.203"));
 	hashmap_set(dns_cache, "irc.freenode.net", strdup("91.217.189.42"));
+	hashmap_set(dns_cache, "i.imgur.com", strdup("23.235.47.193"));
 
 	/* /dev/net/{domain|ip}/{protocol}/{port} */
 	vfs_mount("/dev/net", netfs_create());
