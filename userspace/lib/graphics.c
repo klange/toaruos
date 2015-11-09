@@ -752,6 +752,23 @@ void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 	}
 }
 
+void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha) {
+	int32_t _left   = max(x, 0);
+	int32_t _top    = max(y, 0);
+	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
+	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
+	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+				continue;
+			uint32_t n_color = SPRITE(sprite, _x, _y);
+			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
+			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+		}
+	}
+}
+
+
 void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);

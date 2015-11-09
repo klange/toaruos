@@ -77,6 +77,7 @@ void draw_fill(gfx_context_t * ctx, uint32_t color);
 
 void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height);
 void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
+void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha);
 
 void context_to_png(FILE * file, gfx_context_t * ctx);
 
