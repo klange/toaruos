@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 
@@ -20,6 +21,9 @@
 #include "lib/hashmap.h"
 #include "lib/confreader.h"
 
+#include "lib/trace.h"
+#define TRACE_APP_NAME "wallpaper"
+
 #define DEFAULT_WALLPAPER "/usr/share/wallpapers/yosemite.png"
 
 #define ICON_X         24
@@ -28,20 +32,23 @@
 #define ICON_WIDTH     48
 #define EXTRA_WIDTH    24
 
-static uint16_t win_width;
-static uint16_t win_height;
+static int width;
+static int height;
 static yutani_t * yctx;
 static yutani_window_t * wina;
 static gfx_context_t * ctx;
 static sprite_t * wallpaper;
 static hashmap_t * icon_cache;
 
+static char f_name[512];
+
+
 static int center_x(int x) {
-	return (win_width - x) / 2;
+	return (width - x) / 2;
 }
 
 static int center_y(int y) {
-	return (win_height - y) / 2;
+	return (height - y) / 2;
 }
 
 typedef struct {
@@ -118,9 +125,7 @@ static void launch_application(char * app) {
 char * next_run_activate = NULL;
 int focused_app = -1;
 
-static void redraw_apps(int should_flip) {
-	draw_sprite(ctx, wallpaper, 0, 0);
-
+static void redraw_apps_x(int should_flip) {
 	/* Load Application Shortcuts */
 	uint32_t i = 0;
 	while (1) {
@@ -148,6 +153,11 @@ static void redraw_apps(int should_flip) {
 	}
 }
 
+static void redraw_apps(int should_flip) {
+	draw_sprite(ctx, wallpaper, 0, 0);
+	redraw_apps_x(should_flip);
+}
+
 static void set_focused(int i) {
 	if (focused_app != i) {
 		int old_focused = focused_app;
@@ -161,8 +171,6 @@ static void set_focused(int i) {
 		}
 	}
 }
-
-void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
 
 #define ANIMATION_TICKS 500
 #define SCALE_MAX 2.0f
@@ -308,22 +316,85 @@ static void read_applications(FILE * f) {
 	fclose(f);
 }
 
-int main (int argc, char ** argv) {
-	yctx = yutani_init();
+sprite_t * load_wallpaper(void) {
+	sprite_t * o_wallpaper = NULL;
 
-	int width  = yctx->display_width;
-	int height = yctx->display_height;
-
-	sprite_t * wallpaper_tmp = malloc(sizeof(sprite_t));
-
-	char f_name[512];
+	sprite_t * wallpaper_tmp = calloc(1,sizeof(sprite_t));
 
 	sprintf(f_name, "%s/.desktop.conf", getenv("HOME"));
+
 	confreader_t * conf = confreader_load(f_name);
 
 	load_sprite_png(wallpaper_tmp, confreader_getd(conf, "", "wallpaper", DEFAULT_WALLPAPER));
 
 	confreader_free(conf);
+
+	float x = (float)width  / (float)wallpaper_tmp->width;
+	float y = (float)height / (float)wallpaper_tmp->height;
+
+	int nh = (int)(x * (float)wallpaper_tmp->height);
+	int nw = (int)(y * (float)wallpaper_tmp->width);;
+
+	o_wallpaper = create_sprite(width, height, ALPHA_OPAQUE);
+
+	gfx_context_t * tmp = init_graphics_sprite(o_wallpaper);
+
+	if (nw > width) {
+		draw_sprite_scaled(tmp, wallpaper_tmp, (width - nw) / 2, 0, nw, height);
+	} else {
+		draw_sprite_scaled(tmp, wallpaper_tmp, 0, (height - nh) / 2, width, nh);
+	}
+
+	free(tmp);
+
+	sprite_free(wallpaper_tmp);
+
+	return o_wallpaper;
+}
+
+void sig_usr(int sig) {
+	sprite_t * new_wallpaper = load_wallpaper();
+
+	struct timeval start;
+	gettimeofday(&start, NULL);
+
+	while (1) {
+		uint32_t tick;
+		struct timeval t;
+		gettimeofday(&t, NULL);
+
+		uint32_t sec_diff = t.tv_sec - start.tv_sec;
+		uint32_t usec_diff = t.tv_usec - start.tv_usec;
+
+		if (t.tv_usec < start.tv_usec) {
+			sec_diff -= 1;
+			usec_diff = (1000000 + t.tv_usec) - start.tv_usec;
+		}
+
+		tick = (uint32_t)(sec_diff * 1000 + usec_diff / 1000);
+		if (tick > ANIMATION_TICKS) break;
+
+		float percent = (float)tick / (float)ANIMATION_TICKS;
+
+		draw_sprite(ctx, wallpaper, 0, 0);
+		draw_sprite_alpha(ctx, new_wallpaper, 0, 0, percent);
+		redraw_apps_x(1);
+		yutani_flip(yctx, wina);
+	}
+
+	free(wallpaper);
+	wallpaper = new_wallpaper;
+	draw_sprite(ctx, wallpaper, 0, 0);
+	redraw_apps_x(1);
+
+	yutani_flip(yctx, wina);
+}
+
+int main (int argc, char ** argv) {
+	yctx = yutani_init();
+
+	width  = yctx->display_width;
+	height = yctx->display_height;
 
 	/* Initialize hashmap for icon cache */
 	icon_cache = hashmap_create(10);
@@ -348,25 +419,7 @@ int main (int argc, char ** argv) {
 		++i;
 	}
 
-	float x = (float)width  / (float)wallpaper_tmp->width;
-	float y = (float)height / (float)wallpaper_tmp->height;
-
-	int nh = (int)(x * (float)wallpaper_tmp->height);
-	int nw = (int)(y * (float)wallpaper_tmp->width);;
-
-	wallpaper = create_sprite(width, height, ALPHA_OPAQUE);
-	gfx_context_t * tmp = init_graphics_sprite(wallpaper);
-
-	if (nw > width) {
-		draw_sprite_scaled(tmp, wallpaper_tmp, (width - nw) / 2, 0, nw, height);
-	} else {
-		draw_sprite_scaled(tmp, wallpaper_tmp, 0, (height - nh) / 2, width, nh);
-	}
-
-	free(tmp);
-
-	win_width = width;
-	win_height = height;
+	wallpaper = load_wallpaper();
 
 	wina = yutani_window_create(yctx, width, height);
 	assert(wina);
@@ -376,6 +429,9 @@ int main (int argc, char ** argv) {
 
 	redraw_apps(1);
 	yutani_flip(yctx, wina);
+
+	/* Set SIGUSR1 to reload wallpaper. */
+	signal(SIGUSR1, sig_usr);
 
 	while (_continue) {
 		yutani_msg_t * m = yutani_poll(yctx);
