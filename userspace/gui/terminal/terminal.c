@@ -888,16 +888,64 @@ void key_event(int ret, key_event_t * event) {
 				}
 				break;
 			case KEY_ARROW_UP:
-				handle_input_s("\033[A");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[6A");
+				} else if (event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[5A");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[4A");
+				} else if (event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[3A");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					handle_input_s("\033[2A");
+				} else {
+					handle_input_s("\033[A");
+				}
 				break;
 			case KEY_ARROW_DOWN:
-				handle_input_s("\033[B");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[6B");
+				} else if (event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[5B");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[4B");
+				} else if (event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[3B");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					handle_input_s("\033[2B");
+				} else {
+					handle_input_s("\033[B");
+				}
 				break;
 			case KEY_ARROW_RIGHT:
-				handle_input_s("\033[C");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[6C");
+				} else if (event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[5C");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[4C");
+				} else if (event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[3C");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					handle_input_s("\033[2C");
+				} else {
+					handle_input_s("\033[C");
+				}
 				break;
 			case KEY_ARROW_LEFT:
-				handle_input_s("\033[D");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[6D");
+				} else if (event->modifiers & KEY_MOD_LEFT_CTRL) {
+					handle_input_s("\033[5D");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT && event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[4D");
+				} else if (event->modifiers & KEY_MOD_LEFT_ALT) {
+					handle_input_s("\033[3D");
+				} else if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					handle_input_s("\033[2D");
+				} else {
+					handle_input_s("\033[D");
+				}
 				break;
 			case KEY_PAGE_UP:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {

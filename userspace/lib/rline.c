@@ -70,6 +70,33 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 					callbacks->key_down(&context);
 				}
 				continue;
+			case KEY_CTRL_ARROW_RIGHT:
+				while (context.offset < context.collected && context.buffer[context.offset] == ' ') {
+					context.offset++;
+					printf("\033[C");
+				}
+				while (context.offset < context.collected) {
+					context.offset++;
+					printf("\033[C");
+					if (context.buffer[context.offset] == ' ') break;
+				}
+				fflush(stdout);
+				continue;
+			case KEY_CTRL_ARROW_LEFT:
+				if (context.offset == 0) continue;
+				context.offset--;
+				printf("\033[D");
+				while (context.offset && context.buffer[context.offset] == ' ') {
+					context.offset--;
+					printf("\033[D");
+				}
+				while (context.offset > 0) {
+					if (context.buffer[context.offset-1] == ' ') break;
+					context.offset--;
+					printf("\033[D");
+				}
+				fflush(stdout);
+				continue;
 			case KEY_ARROW_RIGHT:
 				if (callbacks->key_right) {
 					callbacks->key_right(&context);

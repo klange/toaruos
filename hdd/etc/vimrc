@@ -375,7 +375,7 @@ elseif (&term !~ "cons")
    map! <C-?> <BS>
 endif
 
-if (&term =~ "^xterm")
+if ((&term =~ "^xterm") || (&term == "toaru"))
    map  <C-[>[H <Home>
    map! <C-[>[H <Home>
    map  <C-[>[F <End>

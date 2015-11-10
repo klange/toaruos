@@ -205,6 +205,54 @@ kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
 						default:
 							return c;
 					}
+				case 'A':
+					switch (state->kbd_esc_buf) {
+						case '2':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_SHIFT_ARROW_UP;
+						case '5':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_CTRL_ARROW_UP;
+						/* Other modifier states? */
+						default:
+							return c;
+					}
+				case 'B':
+					switch (state->kbd_esc_buf) {
+						case '2':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_SHIFT_ARROW_DOWN;
+						case '5':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_CTRL_ARROW_DOWN;
+						/* Other modifier states? */
+						default:
+							return c;
+					}
+				case 'C':
+					switch (state->kbd_esc_buf) {
+						case '2':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_SHIFT_ARROW_RIGHT;
+						case '5':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_CTRL_ARROW_RIGHT;
+						/* Other modifier states? */
+						default:
+							return c;
+					}
+				case 'D':
+					switch (state->kbd_esc_buf) {
+						case '2':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_SHIFT_ARROW_LEFT;
+						case '5':
+							state->kbd_state = KBD_NORMAL;
+							return KEY_CTRL_ARROW_LEFT;
+						/* Other modifier states? */
+						default:
+							return c;
+					}
 				default:
 					return c;
 			}
