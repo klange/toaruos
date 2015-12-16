@@ -32,7 +32,7 @@ pushd "$DIR" > /dev/null
         grab "pixman" "http://www.cairographics.org/releases" "pixman-0.26.2.tar.gz" || bail
         grab "cairo" "http://www.cairographics.org/releases" "cairo-1.12.2.tar.xz" || bail
         grab "mesa" "http://b.dakko.us/~klange/mirrors" "MesaLib-7.5.2.tar.gz" || bail
-        grab "ncurses" "ftp://invisible-island.net/ncurses" "ncurses-5.9.tar.gz" || bail
+        grab "ncurses" "http://b.dakko.us/~klange/mirrors" "ncurses-5.9.tar.gz" || bail
         grab "vim" "ftp://ftp.vim.org/pub/vim/unix" "vim-7.3.tar.bz2" || bail
         $INFO "wget" "Pulled source packages."
         rm -rf "binutils-2.22" "freetype-2.4.9" "gcc-4.6.4" "gmp-5.0.1" "libpng-1.5.13" "mpc-0.9" "mpfr-3.0.1" "newlib-1.19.0" "zlib-1.2.7" "pixman-0.28.2" "Mesa-7.5.2" "ncurses-5.9" "vim73"
