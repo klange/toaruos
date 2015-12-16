@@ -18,6 +18,7 @@ addons:
       - texinfo
       - pkg-config
       - git
+      - expect
 cache:
   - apt
   - directories:
