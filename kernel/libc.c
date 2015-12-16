@@ -432,7 +432,6 @@ int atoi(const char * s) {
 	return neg ? n : -n;
 }
 
-/* Non-standard broken strtok_r */
 char * strtok_r(char * str, const char * delim, char ** saveptr) {
 	char * token;
 	if (str == NULL) {
