@@ -4,8 +4,6 @@ COOKIE=".2015-12-15-testing2.cookie"
 
 unset CC
 
-env
-
 if [ ! -e "toolchain/local/$COOKIE" ]; then
     echo "=== Cleaning any preexisting stuff... ==="
     rm -fr toolchain/build
@@ -36,5 +34,7 @@ fi
 . toolchain/activate.sh
 
 make
+
+echo "=== Running test suite. ==="
 
 expect util/test-travis.exp
