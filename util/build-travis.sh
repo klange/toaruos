@@ -1,23 +1,17 @@
 #!/bin/bash
 
-(
-    while [ 1 == 1 ]; do
-        echo "..."
-        sleep 1m
-    done
-) &
-
-watchdog_pid=$!
-
-sudo apt-get update >/dev/null 2>/dev/null
-sudo apt-get install expect exuberant-ctags >/dev/null 2>/dev/null
-
 if [ ! -d "hdd/usr/lib" ]; then
-    make toolchain >/dev/null 2>/dev/null
+    echo "=== Begin Toolchain Build ==="
+    pushd toolchain
+        unset PKG_CONFIG_LIBDIR
+        ./prepare.sh
+        ./install.sh
+        . activate.sh
+    popd
+    echo "=== End Toolchain Build ==="
+else
+    echo "=== Toolchain was cached. ==="
 fi
-
-
-kill $!
 
 . toolchain/activate.sh
 

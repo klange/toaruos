@@ -1,5 +1,24 @@
 language: c
 script: ./util/build-travis.sh
+sudo: false
+addons:
+  apt:
+    packages:
+      - exuberant-ctags
+      - yasm
+      - genext2fs
+      - build-essential
+      - wget
+      - libmpfr-dev
+      - libmpc-dev
+      - libgmp3-dev
+      - qemu
+      - autoconf
+      - automake
+      - texinfo
+      - pkg-config
+      - git
+      - ctags
 cache:
   - apt
   - directories:
