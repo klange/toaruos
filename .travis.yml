@@ -18,11 +18,10 @@ addons:
       - texinfo
       - pkg-config
       - git
-      - ctags
 cache:
   - apt
   - directories:
-    - toolchain/build
+    - toolchain/local
     - hdd/usr/bin
     - hdd/usr/i686-pc-toaru
     - hdd/usr/include

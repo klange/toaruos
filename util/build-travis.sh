@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! -d "hdd/usr/lib" ]; then
+if [ ! -a "toolchain/local/bin/i686-pc-toaru-gcc" ]; then
     echo "=== Begin Toolchain Build ==="
     pushd toolchain
         unset PKG_CONFIG_LIBDIR
