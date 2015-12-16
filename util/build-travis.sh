@@ -1,6 +1,10 @@
 #!/bin/bash
 
-COOKIE=".2015-12-15-testing.cookie"
+COOKIE=".2015-12-15-testing2.cookie"
+
+unset CC
+
+env
 
 if [ ! -a "toolchain/local/$COOKIE" ]; then
     echo "=== Cleaning any preexisting stuff... ==="
