@@ -4,9 +4,9 @@ COOKIE=".2015-12-15-testing.cookie"
 
 if [ ! -a "toolchain/local/$COOKIE" ]; then
     echo "=== Cleaning any preexisting stuff... ==="
-    rm -f toolchain/build
-    rm -f toolchain/local
-    rm -f toolchain/tarballs/!(*.tar*)
+    rm -fr toolchain/build
+    rm -fr toolchain/local
+    rm -fr toolchain/tarballs/*
     echo "=== Starting watchdog ==="
     (
         while [ 1 == 1 ]; do
