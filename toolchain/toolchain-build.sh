@@ -36,8 +36,8 @@ if [[ "$INSTALL_PACKAGES" == "true" ]] ; then
     else
         echo "You are on an entirely unsupported system, please ensure you have the following packages:"
         echo "  - essential development packages for your platform (C headers, etc.)"
-        echo "  - development headers for mpfr, mpc, and gmp"
-        echo "  - clang / LLVM"
+        echo "  - development headers for mpfr, libmpc, and gmp"
+        echo "  - gcc"
         echo "  - YASM"
         echo "  - genext2fs"
         echo "  - autoconf/automake"
@@ -47,7 +47,7 @@ if [[ "$INSTALL_PACKAGES" == "true" ]] ; then
         echo "  - pkg-config"
         echo "  - git"
         echo "  - ctags"
-        echo "(If you are on Arch, install: clang yasm genext2fs base-devel wget mpfr mpc gmp qemu autoconf automake texinfo pkg-config git ctags)"
+        echo "(If you are on Arch, install: gcc yasm genext2fs base-devel wget mpfr libmpc gmp qemu autoconf automake texinfo pkg-config git ctags)"
         echo ""
         echo "... then run this script (toolchain/toolchain-build.sh) again with the -q flag."
         exit 1
