@@ -6,7 +6,7 @@ unset CC
 
 env
 
-if [ ! -a "toolchain/local/$COOKIE" ]; then
+if [ ! -e "toolchain/local/$COOKIE" ]; then
     echo "=== Cleaning any preexisting stuff... ==="
     rm -fr toolchain/build
     rm -fr toolchain/local
