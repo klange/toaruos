@@ -49,9 +49,9 @@ losetup $LOOPDEV $DISK
 
 kpartx -av $DISK
 
-mkfs.ext2 /dev/mapper/loop1p1
+mkfs.ext2 /dev/mapper/${LOOPDEV}p1
 
-mount /dev/mapper/loop1p1 /mnt
+mount /dev/mapper/${LOOPDEV}p1 /mnt
 
 echo "Installing main files."
 cp -r $SRCDIR/hdd/* /mnt/
@@ -68,7 +68,7 @@ grub-install --target=i386-pc --boot-directory=/mnt/boot $LOOPDEV
 
 echo "Cleaning up"
 umount /mnt
-kpartx -d /dev/mapper/loop1p1
+kpartx -d /dev/mapper/${LOOPDEV}p1
 losetup -d $LOOPDEV
 
 if [ -n "$SUDO_USER" ] ; then
