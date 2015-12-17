@@ -44,14 +44,27 @@ echo "Done partition."
 
 
 # Here's where we need to be root.
-LOOPDEV=`losetup -f`
-losetup $LOOPDEV $DISK
+LOOPRAW=`losetup -f`
+losetup $LOOPRAW $DISK
+TMP=`kpartx -av $DISK`
+TMP2=${TMP/add map /}
+LOOP=${TMP2%%p1 *}
+LOOPDEV=/dev/${LOOP}
+LOOPMAP=/dev/mapper/${LOOP}p1
 
-kpartx -av $DISK
+if [ ! -e $LOOPDEV ] ; then
+    echo "Bailing! $LOOPDEV is not valid"
+    exit
+fi
 
-mkfs.ext2 /dev/mapper/${LOOPDEV}p1
+if [ ! -e $LOOPMAP ] ; then
+    echo "Bailing! $LOOPMAP is not valid"
+    exit
+fi
 
-mount /dev/mapper/${LOOPDEV}p1 /mnt
+mkfs.ext2 ${LOOPMAP}
+
+mount ${LOOPMAP} /mnt
 
 echo "Installing main files."
 cp -r $SRCDIR/hdd/* /mnt/
@@ -64,12 +77,13 @@ echo "Installing kernel."
 cp -r $SRCDIR/toaruos-kernel /mnt/boot/
 
 echo "Installing grub."
-grub-install --target=i386-pc --boot-directory=/mnt/boot $LOOPDEV
+grub-install --target=i386-pc --boot-directory=/mnt/boot $LOOPRAW
 
 echo "Cleaning up"
 umount /mnt
-kpartx -d /dev/mapper/${LOOPDEV}p1
-losetup -d $LOOPDEV
+kpartx -d ${LOOPMAP}
+losetup -d ${LOOPDEV}
+losetup -d ${LOOPRAW}
 
 if [ -n "$SUDO_USER" ] ; then
     echo "Reassigning permissions on disk image to $SUDO_USER"
