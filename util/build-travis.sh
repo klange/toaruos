@@ -38,3 +38,13 @@ make
 echo "=== Running test suite. ==="
 
 expect util/test-travis.exp
+
+echo "=== Building Live CD ==="
+
+git clone . cdrom
+pushd cdrom
+    make cdrom
+    ls -lha toaruos.iso
+    mkdir out
+    cp toaruos.iso out/latest.iso
+popd # cdrom
