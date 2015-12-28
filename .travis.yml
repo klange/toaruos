@@ -1,7 +1,6 @@
 language: c
 script: ./util/build-travis.sh
 sudo: false
-depth: 0
 addons:
   apt:
     packages:

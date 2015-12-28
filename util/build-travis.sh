@@ -4,6 +4,8 @@ COOKIE=".2015-12-15-testing2.cookie"
 
 unset CC
 
+git fetch --unshallow
+
 if [ ! -e "toolchain/local/$COOKIE" ]; then
     echo "=== Cleaning any preexisting stuff... ==="
     rm -fr toolchain/build
