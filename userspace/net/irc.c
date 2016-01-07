@@ -100,6 +100,7 @@ int irc_color_to_pair(int fg, int bg) {
 		case 15: _fg = COLOR_WHITE; break;
 	}
 	switch (bg) {
+		case -1: _bg = 0; break;
 		case 0: _bg = COLOR_WHITE; break;
 		case 1: _bg = COLOR_BLACK; break;
 		case 2: _bg = COLOR_BLUE; break;
@@ -348,13 +349,13 @@ void * irc_read_thread(void * garbage) {
 void do_thing(char * thing) {
 	if (!strcmp(thing, "/help")) {
 		WRITE("[help] Herp derp you asked for help, silly you, there is none!\n");
-	} else if (!strcmp(thing, "/quit") || strstr(thing,"/quit") == thing) {
+	} else if (!strcmp(thing, "/quit") || strstr(thing,"/quit ") == thing) {
 		char * m = strstr(thing, " "); if (m) m++;
 		endwin();
 		fprintf(sock,"QUIT :%s\r\n", m ? m : "http://toaruos.org/");
 		fflush(sock);
 		exit(0);
-	} else if (!strcmp(thing, "/part") || strstr(thing,"/part") == thing) {
+	} else if (!strcmp(thing, "/part") || strstr(thing,"/part ") == thing) {
 		char * m = strstr(thing, " "); if (m) m++;
 		fprintf(sock,"PART %s%s%s\r\n",channel,m?" :":"",m?m:"");
 		fflush(sock);
@@ -415,8 +416,6 @@ int main(int argc, char * argv[]) {
 
 	int c;
 
-	printf("sizeof(chtype) = %d\n", sizeof(chtype));
-
 	while ((c = getopt(argc, argv, "hp:n:")) != -1) {
 		switch (c) {
 
@@ -458,15 +457,16 @@ int main(int argc, char * argv[]) {
 	use_default_colors();
 	assume_default_colors(-1,-1);
 
-	for (int fg = 1; fg < 16; ++fg) {
-		init_pair(fg, fg, -1);
-	}
-
-	for (int bg = 0; bg < 16; ++bg) {
+	for (int bg = 1; bg < 16; ++bg) {
 		for (int fg = 1; fg < 16; ++fg) {
 			init_pair(COLOR_TO_PAIR(fg,bg), fg, bg);
 		}
 	}
+
+	for (int fg = 1; fg < 16; ++fg) {
+		init_pair(fg, fg, -1);
+	}
+
 
 	int w, h;
 	getmaxyx(main_win, h, w);
