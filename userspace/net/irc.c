@@ -15,8 +15,10 @@
 #include <time.h>
 #include <fcntl.h>
 
-
 #include <ncurses.h>
+#ifndef A_ITALIC
+#define A_ITALIC A_REVERSE
+#endif
 
 #include "lib/pthread.h"
 #include "lib/spinlock.h"
@@ -41,6 +43,9 @@ static WINDOW * input_win;
 
 static FILE * sock;
 static FILE * sockb;
+
+#define TIME_FMT "%02d:%02d:%02d"
+#define TIME_ARGS hr, min, sec
 
 static volatile int c_lock;
 
@@ -136,6 +141,7 @@ void WRITE(const char *fmt, ...) {
 
 	int last_color = 0xFFFFFFFF;
 	int bold_on = 0;
+	int italic_on = 0;
 
 	va_list args;
 	va_start(args, fmt);
@@ -205,6 +211,17 @@ void WRITE(const char *fmt, ...) {
 			c++;
 			continue;
 		}
+		if (*c == 0x16) {
+			if (italic_on) {
+				wattroff(body_win, A_ITALIC);
+				italic_on = 0;
+			} else {
+				wattron(body_win, A_ITALIC);
+				italic_on = 1;
+			}
+			c++;
+			continue;
+		}
 		if (*c == 0x0f) {
 			if (last_color != 0xFFFFFFFF) {
 				wattroff(body_win, COLOR_PAIR(last_color));
@@ -221,6 +238,7 @@ void WRITE(const char *fmt, ...) {
 	}
 	wattroff(body_win, COLOR_PAIR(last_color));
 	wattroff(body_win, A_BOLD);
+	wattroff(body_win, A_ITALIC);
 	free(tmp);
 	wrefresh(body_win);
 	spin_unlock(&c_lock);
@@ -275,6 +293,7 @@ void handle(char * line) {
 		char * message;
 
 		user = c;
+		if (user[0] == ':') { user++; }
 
 		command = strstr(user, " ");
 		if (!command) {
@@ -292,48 +311,62 @@ void handle(char * line) {
 		channel[0] = '\0';
 		channel++;
 
-		if (!strcmp(command, "PRIVMSG")) {
-			message = strstr(channel, " ");
-			if (!message) {
-				WRITE("%s %s %s\n", user, command, channel);
-				goto next;
-			}
+		message = strstr(channel, " ");
+		if (message) {
 			message[0] = '\0';
 			message++;
 			if (message[0] == ':') { message++; }
-			if (user[0] == ':') { user++; }
+		}
+
+		int hr, min, sec;
+		get_time(&hr, &min, &sec);
+
+		if (!strcmp(command, "PRIVMSG")) {
+			if (!message) continue;
 			char * t = strstr(user, "!");
 			if (t) { t[0] = '\0'; }
 			t = strstr(user, "@");
 			if (t) { t[0] = '\0'; }
-			int hr, min, sec;
-			get_time(&hr, &min, &sec);
 
 			if (strstr(message, "\001ACTION ") == message) {
 				message = message + 8;
 				char * x = strstr(message, "\001");
 				if (x) *x = '\0';
-				WRITE("%02d:%02d:%02d * %s %s\n", hr, min, sec, user, message);
+				WRITE(TIME_FMT " * %d%s %s\n", TIME_ARGS, user_color(user), user, message);
 			} else {
-				WRITE("%02d:%02d:%02d <%d%s> %s\n", hr, min, sec, user_color(user), user, message);
+				WRITE(TIME_FMT " 14<%d%s14> %s\n", TIME_ARGS, user_color(user), user, message);
 			}
 		} else if (!strcmp(command, "332")) {
-			message = strstr(channel, " ");
 			if (!message) {
-				WRITE("%s %s %s\n", user, command, channel);
-				goto next;
+				continue;
 			}
-			message[0] = '\0';
-			message++;
-			if (message[0] == ':') { message++; }
-
 			spin_lock(&c_lock);
 			wmove(topic_win, 0, 0);
 			wprintw(topic_win, " %s", message);
 			wrefresh(topic_win);
 			spin_unlock(&c_lock);
+		} else if (!strcmp(command, "JOIN")) {
+			char * t = strstr(user, "!");
+			if (t) { t[0] = '\0'; }
+			t = strstr(user, "@");
+			if (t) { t[0] = '\0'; }
+			if (channel[0] == ':') { channel++; }
+
+			WRITE(TIME_FMT " 12-!12-11 %s has joined %s\n", TIME_ARGS, user, channel);
+		} else if (!strcmp(command, "PART")) {
+			char * t = strstr(user, "!");
+			if (t) { t[0] = '\0'; }
+			t = strstr(user, "@");
+			if (t) { t[0] = '\0'; }
+			if (channel[0] == ':') { channel++; }
+
+			WRITE(TIME_FMT " 12-!12-10 %s has left %s\n", TIME_ARGS, user, channel);
+		} else if (!strcmp(command,"372")) {
+			WRITE(TIME_FMT " 14%s %s\n", TIME_ARGS, user, message ? message : "");
+		} else if (!strcmp(command,"376")) {
+			WRITE(TIME_FMT " 14%s (end of MOTD)\n", TIME_ARGS, user);
 		} else {
-			WRITE("%s %s %s\n", user, command, channel);
+			WRITE(TIME_FMT " 10%s %s %s %s\n", TIME_ARGS, user, command, channel, message ? message : "");
 		}
 
 
@@ -375,6 +408,14 @@ void do_thing(char * thing) {
 		fprintf(sock, "JOIN %s\r\n", m);
 		fflush(sock);
 		channel = strdup(m);
+	} else if (strstr(thing, "/me ") == thing) {
+		char * m = strstr(thing, " ");
+		m++;
+		int hr, min, sec;
+		get_time(&hr, &min, &sec);
+		WRITE("%02d:%02d:%02d * %s %s\n", hr, min, sec, nick, m);
+		fprintf(sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, m);
+		fflush(sock);
 	} else if (strlen(thing) > 0 && thing[0] == '/') {
 		WRITE("[system] Unknown command: %s\n", thing);
 	} else if (strlen(thing) > 0) {
@@ -383,7 +424,7 @@ void do_thing(char * thing) {
 		} else {
 			int hr, min, sec;
 			get_time(&hr, &min, &sec);
-			WRITE("%02d:%02d:%02d <%s> %s\n", hr, min, sec, nick, thing);
+			WRITE("%02d:%02d:%02d 14<%s14> %s\n", hr, min, sec, nick, thing);
 			fprintf(sock, "PRIVMSG %s :%s\r\n", channel, thing);
 			fflush(sock);
 		}
