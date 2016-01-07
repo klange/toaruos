@@ -26,9 +26,6 @@
 
 #define VERSION_STRING "0.2.0"
 
-#define COLOR_TO_PAIR(fg, bg) ((fg) + (bg) * 16)
-
-
 static char * nick = "toaru-user";
 static char * host = NULL;
 static unsigned short port = 6667;
@@ -80,43 +77,55 @@ int user_color(char * user) {
 int irc_color_to_pair(int fg, int bg) {
 	int _fg = 0;
 	int _bg = 0;
-	fg = fg % 16;
-	switch (fg) {
-		case 0: _fg = COLOR_WHITE; break;
-		case 1: _fg = COLOR_BLACK; break;
-		case 2: _fg = COLOR_BLUE; break;
-		case 3: _fg = COLOR_GREEN; break;
-		case 4: _fg = COLOR_RED; break;
-		case 5: _fg = COLOR_RED; break;
-		case 6: _fg = COLOR_MAGENTA; break;
-		case 7: _fg = COLOR_YELLOW; break;
-		case 8: _fg = COLOR_YELLOW; break;
-		case 9: _fg = COLOR_GREEN; break;
-		case 10: _fg = COLOR_CYAN; break;
-		case 11: _fg = COLOR_CYAN; break;
-		case 12: _fg = COLOR_BLUE; break;
-		case 13: _fg = COLOR_RED; break;
-		case 14: _fg = COLOR_WHITE; break;
-		case 15: _fg = COLOR_WHITE; break;
+	if (fg == -1) {
+		if (bg == -1) {
+			_fg = 0;
+		} else {
+			_fg = COLOR_WHITE;
+		}
+	} else {
+		fg = fg % 16;
+		switch (fg) {
+			case 0: _fg = COLOR_WHITE + 8; break;
+			case 1: _fg = COLOR_BLACK; break;
+			case 2: _fg = COLOR_BLUE; break;
+			case 3: _fg = COLOR_GREEN; break;
+			case 4: _fg = COLOR_RED + 8; break;
+			case 5: _fg = COLOR_RED; break;
+			case 6: _fg = COLOR_MAGENTA; break;
+			case 7: _fg = COLOR_YELLOW; break;
+			case 8: _fg = COLOR_YELLOW + 8; break;
+			case 9: _fg = COLOR_GREEN + 8; break;
+			case 10: _fg = COLOR_CYAN; break;
+			case 11: _fg = COLOR_CYAN + 8; break;
+			case 12: _fg = COLOR_BLUE + 8; break;
+			case 13: _fg = COLOR_MAGENTA + 8; break;
+			case 14: _fg = COLOR_BLACK + 8; break;
+			case 15: _fg = COLOR_WHITE; break;
+		}
 	}
-	switch (bg) {
-		case -1: _bg = 0; break;
-		case 0: _bg = COLOR_WHITE; break;
-		case 1: _bg = COLOR_BLACK; break;
-		case 2: _bg = COLOR_BLUE; break;
-		case 3: _bg = COLOR_GREEN; break;
-		case 4: _bg = COLOR_RED; break;
-		case 5: _bg = COLOR_RED; break;
-		case 6: _bg = COLOR_MAGENTA; break;
-		case 7: _bg = COLOR_YELLOW; break;
-		case 8: _bg = COLOR_YELLOW; break;
-		case 9: _bg = COLOR_GREEN; break;
-		case 10: _bg = COLOR_CYAN; break;
-		case 11: _bg = COLOR_CYAN; break;
-		case 12: _bg = COLOR_BLUE; break;
-		case 13: _bg = COLOR_RED; break;
-		case 14: _bg = COLOR_WHITE; break;
-		case 15: _bg = COLOR_WHITE; break;
+	if (bg == -1) {
+		_bg = 0;
+	} else {
+		bg = bg % 16;
+		switch (bg) {
+			case 0: _bg = COLOR_WHITE + 8; break;
+			case 1: _bg = COLOR_BLACK; break;
+			case 2: _bg = COLOR_BLUE; break;
+			case 3: _bg = COLOR_GREEN; break;
+			case 4: _bg = COLOR_RED + 8; break;
+			case 5: _bg = COLOR_RED; break;
+			case 6: _bg = COLOR_MAGENTA; break;
+			case 7: _bg = COLOR_YELLOW; break;
+			case 8: _bg = COLOR_YELLOW + 8; break;
+			case 9: _bg = COLOR_GREEN + 8; break;
+			case 10: _bg = COLOR_CYAN; break;
+			case 11: _bg = COLOR_CYAN + 8; break;
+			case 12: _bg = COLOR_BLUE + 8; break;
+			case 13: _bg = COLOR_MAGENTA + 8; break;
+			case 14: _bg = COLOR_BLACK + 8; break;
+			case 15: _bg = COLOR_WHITE; break;
+		}
 	}
 	return _fg + _bg * 16;
 }
@@ -164,7 +173,7 @@ void WRITE(const char *fmt, ...) {
 				c++;
 			}
 			if (*c == ',') {
-				c++;\
+				c++;
 				if (*c >= '0' && *c <= '9') {
 					j = (*c - '0');
 					c++;
@@ -458,8 +467,8 @@ int main(int argc, char * argv[]) {
 	assume_default_colors(-1,-1);
 
 	for (int bg = 1; bg < 16; ++bg) {
-		for (int fg = 1; fg < 16; ++fg) {
-			init_pair(COLOR_TO_PAIR(fg,bg), fg, bg);
+		for (int fg = 0; fg < 16; ++fg) {
+			init_pair(fg+bg*16, fg, bg);
 		}
 	}
 
