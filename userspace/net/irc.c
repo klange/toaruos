@@ -244,6 +244,16 @@ void WRITE(const char *fmt, ...) {
 	spin_unlock(&c_lock);
 }
 
+void redraw_status(void) {
+
+	spin_lock(&c_lock);
+	wclear(status_win);
+	wmove(status_win, 0, 0);
+	wprintw(status_win, "[%s] ", nick);
+	spin_unlock(&c_lock);
+
+}
+
 void refresh_all(void) {
 
 	wrefresh(topic_win);
@@ -408,6 +418,15 @@ void do_thing(char * thing) {
 		fprintf(sock, "JOIN %s\r\n", m);
 		fflush(sock);
 		channel = strdup(m);
+	} else if (strstr(thing, "/nick ") == thing) {
+		char * m = strstr(thing, " ");
+		m++;
+		fprintf(sock, "NICK %s\r\n", m);
+		fflush(sock);
+		/* We should totally free that, but whatever. */
+		nick = strdup(m);
+		redraw_status();
+		refresh_all();
 	} else if (strstr(thing, "/me ") == thing) {
 		char * m = strstr(thing, " ");
 		m++;
@@ -415,6 +434,11 @@ void do_thing(char * thing) {
 		get_time(&hr, &min, &sec);
 		WRITE("%02d:%02d:%02d * %s %s\n", hr, min, sec, nick, m);
 		fprintf(sock, "PRIVMSG %s :\001ACTION %s\001\r\n", channel, m);
+		fflush(sock);
+	} else if (strstr(thing, "/quote ") == thing) {
+		char * m = strstr(thing, " ");
+		m++;
+		fprintf(sock, "%s\r\n", m);
 		fflush(sock);
 	} else if (strlen(thing) > 0 && thing[0] == '/') {
 		WRITE("[system] Unknown command: %s\n", thing);
