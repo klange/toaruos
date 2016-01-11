@@ -34,6 +34,9 @@ rm -rf cdrom
 cp -r util/cdrom cdrom
 mv hdd/mod cdrom/mod
 
+mkdir -p hdd/usr/share/terminfo/t
+cp util/toaru.tic hdd/usr/share/terminfo/t/toaru
+
 cat > hdd/home/local/.menu.desktop <<EOF
 clock,clock-win,Clock
 applications-painting,draw,Draw!
