@@ -18,6 +18,16 @@
  * and regular decimal integers. */
 #define from_bcd(val)  ((val / 16) * 10 + (val & 0xf))
 
+enum cmos_values
+{
+	CMOS_SECOND = 0,
+	CMOS_MINUTE = 2,
+	CMOS_HOUR = 4,
+	CMOS_DAY = 7,
+	CMOS_MONTH = 8,
+	CMOS_YEAR = 9
+};
+
 void
 cmos_dump(
 		uint16_t * values
@@ -27,6 +37,12 @@ cmos_dump(
 		outportb(0x70, index);
 		values[index] = inportb(0x71);
 	}
+}
+
+int is_update_in_progress(void)
+{
+	outportb(0x70, 0x0a);
+	return inportb(0x71) & 0x80;
 }
 
 /**
@@ -127,7 +143,26 @@ uint32_t boot_time = 0;
 
 uint32_t read_cmos(void) {
 	uint16_t values[128];
+	uint16_t old_values[128];
+
+	while (is_update_in_progress())
+		;
+
 	cmos_dump(values);
+
+	do
+	{
+		memcpy(old_values, values, 128);
+		while (is_update_in_progress())
+			;
+
+		cmos_dump(values);
+	} while ((old_values[CMOS_SECOND] != values[CMOS_SECOND]) ||
+		 (old_values[CMOS_MINUTE] != values[CMOS_MINUTE]) ||
+		 (old_values[CMOS_HOUR] != values[CMOS_HOUR])     ||
+		 (old_values[CMOS_DAY] != values[CMOS_DAY])       ||
+		 (old_values[CMOS_MONTH] != values[CMOS_MONTH])   ||
+		 (old_values[CMOS_YEAR] != values[CMOS_YEAR]));
 
 	/* Math Time */
 	uint32_t time = secs_of_years(from_bcd(values[9]) - 1) +
