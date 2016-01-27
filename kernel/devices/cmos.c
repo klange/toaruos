@@ -18,7 +18,10 @@
  * and regular decimal integers. */
 #define from_bcd(val)  ((val / 16) * 10 + (val & 0xf))
 
-enum cmos_values
+#define	CMOS_ADDRESS     0x70
+#define	CMOS_DATA        0x71
+
+enum
 {
 	CMOS_SECOND = 0,
 	CMOS_MINUTE = 2,
@@ -34,15 +37,15 @@ cmos_dump(
 		) {
 	uint16_t index;
 	for (index = 0; index < 128; ++index) {
-		outportb(0x70, index);
-		values[index] = inportb(0x71);
+		outportb(CMOS_ADDRESS, index);
+		values[index] = inportb(CMOS_DATA);
 	}
 }
 
 int is_update_in_progress(void)
 {
-	outportb(0x70, 0x0a);
-	return inportb(0x71) & 0x80;
+	outportb(CMOS_ADDRESS, 0x0a);
+	return inportb(CMOS_DATA) & 0x80;
 }
 
 /**
@@ -59,8 +62,8 @@ get_date(
 	uint16_t values[128]; /* CMOS dump */
 	cmos_dump(values);
 
-	*month = from_bcd(values[8]);
-	*day   = from_bcd(values[7]);
+	*month = from_bcd(values[CMOS_MONTH]);
+	*day   = from_bcd(values[CMOS_DAY]);
 }
 
 /**
@@ -79,9 +82,9 @@ get_time(
 	uint16_t values[128]; /* CMOS dump */
 	cmos_dump(values);
 
-	*hours   = from_bcd(values[4]);
-	*minutes = from_bcd(values[2]);
-	*seconds = from_bcd(values[0]);
+	*hours   = from_bcd(values[CMOS_HOUR]);
+	*minutes = from_bcd(values[CMOS_MINUTE]);
+	*seconds = from_bcd(values[CMOS_SECOND]);
 }
 
 uint32_t secs_of_years(int years) {
@@ -165,13 +168,15 @@ uint32_t read_cmos(void) {
 		 (old_values[CMOS_YEAR] != values[CMOS_YEAR]));
 
 	/* Math Time */
-	uint32_t time = secs_of_years(from_bcd(values[9]) - 1) +
-					secs_of_month(from_bcd(values[8]) - 1, from_bcd(values[9])) + 
-					(from_bcd(values[7]) - 1) * 86400 +
-					(from_bcd(values[4])) * 3600 +
-					(from_bcd(values[2])) * 60 +
-					from_bcd(values[0]) +
-					0;
+	uint32_t time =
+	  secs_of_years(from_bcd(values[CMOS_YEAR]) - 1) +
+	  secs_of_month(from_bcd(values[CMOS_MONTH]) - 1,
+			from_bcd(values[CMOS_YEAR])) +
+	  (from_bcd(values[CMOS_DAY]) - 1) * 86400 +
+	  (from_bcd(values[CMOS_HOUR])) * 3600 +
+	  (from_bcd(values[CMOS_MINUTE])) * 60 +
+	  from_bcd(values[CMOS_SECOND]) + 0;
+
 	return time;
 }
 
