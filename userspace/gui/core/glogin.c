@@ -202,6 +202,28 @@ void draw_login_container(cairo_t * cr, struct login_container * lc) {
 
 }
 
+/**
+ * Get hostname information updated with the current time.
+ *
+ * @param hostname
+ */
+static void get_updated_hostname_with_time_info(char hostname[]) {
+	// get hostname
+	char _hostname[256];
+	syscall_gethostname(_hostname);
+
+	// get current time
+	struct tm * timeinfo;
+	struct timeval now;
+	gettimeofday(&now, NULL); //time(NULL);
+	timeinfo = localtime((time_t *)&now.tv_sec);
+
+	// format the hostname info
+	char _date[256];
+	strftime(_date, 256, "%a %B %d %Y", timeinfo);
+	sprintf(hostname, "%s // %s", _hostname, _date);
+}
+
 int main (int argc, char ** argv) {
 	init_shmemfonts();
 
@@ -361,20 +383,8 @@ redo_everything:
 		char password[INPUT_SIZE] = {0};
 		char hostname[512];
 
-		{
-			char _hostname[256];
-			syscall_gethostname(_hostname);
-
-			struct tm * timeinfo;
-			struct timeval now;
-			gettimeofday(&now, NULL); //time(NULL);
-			timeinfo = localtime((time_t *)&now.tv_sec);
-
-			char _date[256];
-			strftime(_date, 256, "%a %B %d %Y", timeinfo);
-
-			sprintf(hostname, "%s // %s", _hostname, _date);
-		}
+		// we do it here to calculate the final string position
+		get_updated_hostname_with_time_info(hostname);
 
 		char kernel_v[512];
 
@@ -425,6 +435,9 @@ redo_everything:
 			memset(password, 0x0, INPUT_SIZE);
 
 			while (1) {
+
+				// update time info
+				get_updated_hostname_with_time_info(hostname);
 
 				memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
 				draw_sprite(ctx, &logo, center_x(logo.width), center_y(logo.height) - LOGO_FINAL_OFFSET);
