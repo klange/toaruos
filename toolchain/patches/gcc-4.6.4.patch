@@ -89,6 +89,32 @@ diff -rupN original/libstdc++-v3/crossconfig.m4 new/libstdc++-v3/crossconfig.m4
    *-vxworks)
      AC_DEFINE(HAVE_ACOSF)
      AC_DEFINE(HAVE_ASINF)
+diff -rupN a/gcc/cp/cfns.gperf b/gcc/cp/cfns.gperf
+--- a/gcc/cp/cfns.gperf
++++ b/gcc/cp/cfns.gperf
+@@ -22,6 +22,9 @@ __inline
+ static unsigned int hash (const char *, unsigned int);
+ #ifdef __GNUC__
+ __inline
++#ifdef __GNUC_STDC_INLINE__
++__attribute__ ((__gnu_inline__))
++#endif
+ #endif
+ const char * libc_name_p (const char *, unsigned int);
+ %}
+diff -rupN a/gcc/cp/cfns.h b/gcc/cp/cfns.h
+--- a/gcc/cp/cfns.h
++++ b/gcc/cp/cfns.h
+@@ -53,6 +53,9 @@ __inline
+ static unsigned int hash (const char *, unsigned int);
+ #ifdef __GNUC__
+ __inline
++#ifdef __GNUC_STDC_INLINE__
++__attribute__ ((__gnu_inline__))
++#endif
+ #endif
+ const char * libc_name_p (const char *, unsigned int);
+ /* maximum key range = 391, duplicates = 0 */
 diff -rupN original/gcc/gengtype.c new/gcc/gengtype.c
 --- original/gcc/gengtype.c
 +++ new/gcc/gengtype.c
