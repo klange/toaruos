@@ -19,6 +19,7 @@ addons:
       - pkg-config
       - git
       - expect
+      - gperf
 cache:
   - apt
   - directories:

@@ -107,3 +107,29 @@ diff -rupN original/gcc/gengtype.c new/gcc/gengtype.c
 
        newv = *v;
        newv.type = field_type;
+diff -rupN original/gcc/cp/cfns.h new/gcc/cp/cfns.h
+--- original/gcc/cp/cfns.h
++++ new/gcc/cp/cfns.h
+@@ -53,6 +53,9 @@ __inline
+ static unsigned int hash (const char *, unsigned int);
+ #ifdef __GNUC__
+  __inline
++#ifdef __GNUC_STDC_INLINE__
++__attribute__ ((__gnu_inline__))
++#endif
+ #endif
+ const char * libc_name_p (const char *, unsigned int);
+ /* maximum key range = 391, duplicates = 0 */
+diff -rupN original/gcc/cp/cfns.gperf new/gcc/cp/cfns.gperf
+--- original/gcc/cp/cfns.gperf
++++ new/gcc/cp/cfns.gperf
+@@ -22,6 +22,9 @@ __inline
+ static unsigned int hash (const char *, unsigned int);
+ #ifdef __GNUC__
+ __inline
++#ifdef __GNUC_STDC_INLINE__
++__attribute__ ((__gnu_inline__))
++#endif
+ #endif
+ const char * libc_name_p (const char *, unsigned int);
+ %}

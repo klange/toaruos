@@ -24,7 +24,7 @@ if [[ "$INSTALL_PACKAGES" == "true" ]] ; then
     echo "If you don't want to do this and you're sure you have all of the required system packages, then interrupt the password prompt and run this script again with -q."
 
     if [ -f /etc/debian_version ]; then
-        sudo apt-get install yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp3-dev qemu autoconf automake texinfo pkg-config git ctags
+        sudo apt-get install yasm genext2fs build-essential wget libmpfr-dev libmpc-dev libgmp3-dev qemu autoconf automake texinfo pkg-config git ctags gperf
     elif [ -f /etc/fedora-release ]; then
         sudo yum groupinstall 'Development Tools'
         sudo yum groupinstall 'Development Libraries'
