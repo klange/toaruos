@@ -321,6 +321,70 @@ mem_found:
 	}
 }
 
+#define SVGA_IO_BASE (vmware_io)
+#define SVGA_IO_MUL 1
+#define SVGA_INDEX_PORT 0
+#define SVGA_VALUE_PORT 1
+
+#define SVGA_REG_ID 0
+#define SVGA_REG_ENABLE 1
+#define SVGA_REG_WIDTH 2
+#define SVGA_REG_HEIGHT 3
+#define SVGA_REG_BITS_PER_PIXEL 7
+#define SVGA_REG_FB_START 13
+
+static uint32_t vmware_io = 0;
+
+static void vmware_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
+	if ((v == 0x15ad && d == 0x0405)) {
+		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
+		if (t > 0) {
+			*((uint8_t **)extra) = (uint8_t *)(t & 0xFFFFFFF0);
+		}
+	}
+}
+
+static void vmware_write(int reg, int value) {
+	outportl(SVGA_IO_MUL * SVGA_INDEX_PORT + SVGA_IO_BASE, reg);
+	outportl(SVGA_IO_MUL * SVGA_VALUE_PORT + SVGA_IO_BASE, value);
+}
+
+static uint32_t vmware_read(int reg) {
+	outportl(SVGA_IO_MUL * SVGA_INDEX_PORT + SVGA_IO_BASE, reg);
+	return inportl(SVGA_IO_MUL * SVGA_VALUE_PORT + SVGA_IO_BASE);
+}
+
+static void graphics_install_vmware(uint16_t w, uint16_t h) {
+	debug_print(WARNING, "Please note that the `vmware` display driver is experimental.");
+	pci_scan(vmware_scan_pci, -1, &vmware_io);
+
+	if (!vmware_io) {
+		debug_print(ERROR, "No vmware device found?");
+		return;
+	} else {
+		debug_print(WARNING, "vmware io base: 0x%x", vmware_io);
+	}
+
+	vmware_write(SVGA_REG_ID, 0);
+	vmware_write(SVGA_REG_WIDTH, w);
+	vmware_write(SVGA_REG_HEIGHT, h);
+	vmware_write(SVGA_REG_BITS_PER_PIXEL, 32);
+	vmware_write(SVGA_REG_ENABLE, 1);
+
+	uint32_t fb_addr = vmware_read(SVGA_REG_FB_START);
+	debug_print(WARNING, "vmware fb address: 0x%x", fb_addr);
+
+	lfb_vid_memory = (uint8_t *)fb_addr;
+
+	uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
+	for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
+		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+	}
+
+	finalize_graphics(w,h,32);
+}
+
+
 static int init(void) {
 
 	if (mboot_ptr->vbe_mode_info) {
@@ -349,6 +413,8 @@ static int init(void) {
 			graphics_install_bochs(x,y);
 		} else if (!strcmp(argv[0],"preset")) {
 			graphics_install_preset(x,y);
+		} else if (!strcmp(argv[0],"vmware")) {
+			graphics_install_vmware(x,y);
 		} else {
 			debug_print(WARNING, "Unrecognized video adapter: %s", argv[0]);
 		}
