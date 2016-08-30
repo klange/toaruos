@@ -527,6 +527,7 @@ void * nested_input(void * _yg) {
  * mouse clicks and movements into event objects
  * to send to the core compositor.
  */
+static uint32_t last_mouse_buttons = 0;
 void * mouse_input(void * garbage) {
 	int mfd = open("/dev/mouse", O_RDONLY);
 
@@ -536,7 +537,27 @@ void * mouse_input(void * garbage) {
 	while (1) {
 		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 		if (r > 0) {
+			last_mouse_buttons = packet.buttons;
 			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_RELATIVE);
+			int result = yutani_msg_send(y, m);
+			free(m);
+		}
+	}
+}
+
+void * mouse_input_abs(void * garbage) {
+	int mfd = open("/dev/absmouse", O_RDONLY);
+
+	if (mfd == -1) return 0;
+
+	yutani_t * y = yutani_init();
+	mouse_device_packet_t packet;
+
+	while (1) {
+		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
+		if (r > 0) {
+			packet.buttons = last_mouse_buttons;
+			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 			int result = yutani_msg_send(y, m);
 			free(m);
 		}
@@ -1179,6 +1200,39 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	/* Restore the cairo contexts to reset clip regions */
 	restore_cairo_states(yg);
+
+	if (yg->resize_on_next) {
+		spin_lock(&yg->redraw_lock);
+
+		cairo_destroy(yg->framebuffer_ctx);
+		cairo_destroy(yg->real_ctx);
+		cairo_surface_destroy(yg->framebuffer_surface);
+		cairo_surface_destroy(yg->real_surface);
+
+		reinit_graphics_fullscreen(yg->backend_ctx);
+		yg->width = yg->backend_ctx->width;
+		yg->height = yg->backend_ctx->height;
+		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
+
+		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, yg->width);
+		yg->framebuffer_surface = cairo_image_surface_create_for_data(
+				yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
+		yg->real_surface = cairo_image_surface_create_for_data(
+				yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
+
+		yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
+		yg->real_ctx = cairo_create(yg->real_surface);
+
+		yg->resize_on_next = 0;
+		mark_screen(yg, 0, 0, yg->width, yg->height);
+
+		yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
+		pex_broadcast(yg->server, response->size, (char *)response);
+		free(response);
+
+		spin_unlock(&yg->redraw_lock);
+	}
+
 }
 
 /**
@@ -1904,6 +1958,13 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 	}
 }
 
+static yutani_globals_t * _static_yg;
+static void yutani_display_resize_handle(int signum) {
+	(void)signum;
+	TRACE("Display change request, one moment.");
+	_static_yg->resize_on_next = 1;
+}
+
 /**
  * main
  */
@@ -1922,6 +1983,8 @@ int main(int argc, char * argv[]) {
 		yutani_window_move(yg->host_context, yg->host_window, 50, 50);
 		yg->backend_ctx = init_graphics_yutani_double_buffer(yg->host_window);
 	} else {
+		_static_yg = yg;
+		signal(SIGWINEVENT, yutani_display_resize_handle);
 		yg->backend_ctx = init_graphics_fullscreen_double_buffer();
 	}
 
@@ -1987,6 +2050,7 @@ int main(int argc, char * argv[]) {
 	yutani_cairo_init(yg);
 
 	pthread_t mouse_thread;
+	pthread_t absmouse_thread;
 	pthread_t keyboard_thread;
 	pthread_t render_thread;
 	pthread_t nested_thread;
@@ -1997,6 +2061,7 @@ int main(int argc, char * argv[]) {
 	} else {
 		/* Toaru mouse+keyboard driver */
 		pthread_create(&mouse_thread, NULL, mouse_input, NULL);
+		pthread_create(&absmouse_thread, NULL, mouse_input_abs, NULL);
 		pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
 	}
 

@@ -48,20 +48,24 @@ void clearbuffer(gfx_context_t * ctx) {
 }
 
 /* Deprecated */
+static int framebuffer_fd = 0;
 gfx_context_t * init_graphics_fullscreen() {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
 
-	int fd = open("/dev/fb0", O_RDONLY);
-	if (fd < 0) {
+	if (!framebuffer_fd) {
+		framebuffer_fd = open("/dev/fb0", O_RDONLY);
+	}
+	if (framebuffer_fd < 0) {
 		/* oh shit */
 		free(out);
 		return NULL;
 	}
 
-	ioctl(fd, IO_VID_WIDTH,  &out->width);
-	ioctl(fd, IO_VID_HEIGHT, &out->height);
-	ioctl(fd, IO_VID_DEPTH,  &out->depth);
-	ioctl(fd, IO_VID_ADDR,   &out->buffer);
+	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
+	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
+	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
+	ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
+	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
 
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
 	out->backbuffer = out->buffer;
@@ -73,6 +77,24 @@ gfx_context_t * init_graphics_fullscreen_double_buffer() {
 	if (!out) return NULL;
 	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
 	return out;
+}
+
+void reinit_graphics_fullscreen(gfx_context_t * out) {
+
+	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
+	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
+	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
+
+	out->size = GFX_H(out) * GFX_W(out) * GFX_B(out);
+
+	if (out->buffer != out->backbuffer) {
+		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
+		out->backbuffer = realloc(out->backbuffer, sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+	} else {
+		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
+		out->backbuffer = out->buffer;
+	}
+
 }
 
 gfx_context_t * init_graphics_sprite(sprite_t * sprite) {

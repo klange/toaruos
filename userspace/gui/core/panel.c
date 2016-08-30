@@ -905,6 +905,28 @@ static void * clock_thread(void * garbage) {
 	}
 }
 
+static void resize_finish(int xwidth, int xheight) {
+	width = xwidth;
+	height = xheight;
+	yutani_window_resize_accept(yctx, panel, width, height);
+
+	reinit_graphics_yutani(ctx, panel);
+	yutani_window_resize_done(yctx, panel);
+
+	/* Draw the background */
+	draw_fill(ctx, rgba(0,0,0,0));
+	for (uint32_t i = 0; i < width; i += sprite_panel->width) {
+		draw_sprite(ctx, sprite_panel, i, 0);
+	}
+
+	/* Copy the prerendered background so we can redraw it quickly */
+	bg_size = panel->width * panel->height * sizeof(uint32_t);
+	bg_blob = realloc(bg_blob, bg_size);
+	memcpy(bg_blob, ctx->backbuffer, bg_size);
+
+	redraw();
+}
+
 int main (int argc, char ** argv) {
 	/* Connect to window server */
 	yctx = yutani_init();
@@ -1040,6 +1062,18 @@ int main (int argc, char ** argv) {
 					break;
 				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 					handle_focus_event((struct yutani_msg_window_focus_change *)m->data);
+					break;
+				case YUTANI_MSG_WELCOME:
+					{
+						struct yutani_msg_welcome * mw = (void*)m->data;
+						yutani_window_resize(yctx, panel, mw->display_width, PANEL_HEIGHT);
+					}
+					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						resize_finish(wr->width, wr->height);
+					}
 					break;
 				default:
 					break;

@@ -390,6 +390,24 @@ void sig_usr(int sig) {
 	yutani_flip(yctx, wina);
 }
 
+static void resize_finish(int xwidth, int xheight) {
+	width = xwidth;
+	height = xheight;
+	yutani_window_resize_accept(yctx, wina, width, height);
+
+	sprite_t * new_wallpaper = load_wallpaper();
+	free(wallpaper);
+	wallpaper = new_wallpaper;
+
+	reinit_graphics_yutani(ctx, wina);
+	yutani_window_resize_done(yctx, wina);
+
+	draw_sprite(ctx, wallpaper, 0, 0);
+	redraw_apps_x(1);
+	yutani_flip(yctx, wina);
+}
+
+
 int main (int argc, char ** argv) {
 	yctx = yutani_init();
 
@@ -440,6 +458,18 @@ int main (int argc, char ** argv) {
 			switch (m->type) {
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					wallpaper_check_click((struct yutani_msg_window_mouse_event *)m->data);
+					break;
+				case YUTANI_MSG_WELCOME:
+					{
+						struct yutani_msg_welcome * mw = (void*)m->data;
+						yutani_window_resize(yctx, wina, mw->display_width, mw->display_height);
+					}
+					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						resize_finish(wr->width, wr->height);
+					}
 					break;
 				case YUTANI_MSG_SESSION_END:
 					_continue = 0;

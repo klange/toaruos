@@ -46,6 +46,7 @@ typedef struct context {
 
 gfx_context_t * init_graphics_fullscreen();
 gfx_context_t * init_graphics_fullscreen_double_buffer();
+void reinit_graphics_fullscreen(gfx_context_t * ctx);
 
 #define ALPHA_OPAQUE   0
 #define ALPHA_MASK     1

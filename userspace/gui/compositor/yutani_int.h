@@ -163,6 +163,7 @@ typedef struct {
 	sprite_t mouse_sprite_resize_db;
 
 	int current_cursor;
+	int resize_on_next;
 
 } yutani_globals_t;
 
