@@ -384,6 +384,25 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 	finalize_graphics(w,h,32);
 }
 
+struct disp_mode {
+	int16_t x;
+	int16_t y;
+	int set;
+};
+
+static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
+	struct disp_mode * mode = extra;
+	if (mode->set) return;
+	if ((v == 0x1234 && d == 0x1111) ||
+	    (v == 0x80EE && d == 0xBEEF)) {
+		mode->set = 1;
+		graphics_install_bochs(mode->x, mode->y);
+	} else if ((v == 0x15ad && d == 0x0405)) {
+		mode->set = 1;
+		graphics_install_vmware(mode->x, mode->y);
+	}
+}
+
 
 static int init(void) {
 
@@ -408,7 +427,15 @@ static int init(void) {
 			y = atoi(argv[2]);
 		}
 
-		if (!strcmp(argv[0], "qemu")) {
+		if (!strcmp(argv[0], "auto")) {
+			/* Attempt autodetection */
+			debug_print(WARNING, "Autodetect is in beta, this may not work.");
+			struct disp_mode mode = {x,y,0};
+			pci_scan(auto_scan_pci, -1, &mode);
+			if (!mode.set) {
+				graphics_install_preset(x,y);
+			}
+		} else if (!strcmp(argv[0], "qemu")) {
 			/* Bochs / Qemu Video Device */
 			graphics_install_bochs(x,y);
 		} else if (!strcmp(argv[0],"preset")) {
