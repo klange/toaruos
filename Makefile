@@ -83,6 +83,7 @@ BOOT_MODULES += ext2
 BOOT_MODULES += debug_shell
 BOOT_MODULES += ps2mouse ps2kbd
 BOOT_MODULES += lfbvideo
+BOOT_MODULES += vidset
 BOOT_MODULES += packetfs
 BOOT_MODULES += snd
 BOOT_MODULES += pcspkr
