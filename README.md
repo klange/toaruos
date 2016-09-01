@@ -3,11 +3,23 @@
 
 # ToaruOS (とあるOS) #
 
-とあるOS (ToaruOS) is a hobby kernel and supporting userspace, built mostly from scratch, in development since December of 2010.
+とあるOS (ToaruOS) is a hobby operating system built mostly from scratch, including both a kernel and userspace.
 
-This repository contains the kernel, modules, and core userspace. Some third-party libraries and utilities are required to build a working system.
+This repository contains the kernel, modules, and core userspace applications and libraries. Some third-party libraries and utilities are required to build a working system.
 
-## History
+## Build Instructions ##
+
+Please ensure you are running [a supported environment](https://github.com/klange/toaruos/wiki/Testing-and-Building#requirements) before continuing.
+
+Start by building a toolchain:
+
+    make toolchain
+
+You may be prompted to enter your password for `sudo` to install required packages. The toolchain build scripts will then build several dependencies for building ToaruOS such as a GCC cross compiler and a few libraries used by the userspace. This may take around thirty minutes to an hour to complete, depending on your hardware. Once it is done, verify there were no errors and then follow the instructions provided to continue with the build.
+
+If you experience issues, please join our [IRC channel](#irc) for help.
+
+## History ##
 
 ToaruOS started as a side project at the University of Illinois at Urbana-Champaign. For several months in late 2011 and early 2012, the University's [SIGOps](http://www.acm.uiuc.edu/sigops/) chapter managed development efforts focused on building the original compositing GUI. Since then, the project has mostly been a one-man effort with a handful of third party contributions.
 
