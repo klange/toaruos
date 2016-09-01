@@ -17,7 +17,7 @@ char * __kernel_version_format = "%d.%d.%d-%s";
 
 /* Version numbers X.Y.Z */
 int    __kernel_version_major = 0;
-int    __kernel_version_minor = 13;
+int    __kernel_version_minor = 14;
 int    __kernel_version_lower = 0;
 
 /* Kernel build suffix, which doesn't necessarily
@@ -34,7 +34,7 @@ int    __kernel_version_lower = 0;
 char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename. */
-char * __kernel_version_codename = "mikoto";
+char * __kernel_version_codename = "kuroko";
 
 /* Build architecture (should probably not be
  * here as a string, but rather some sort of
