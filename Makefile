@@ -118,7 +118,7 @@ WITH_LOGS = logtoserial=1
 .PHONY: all system install test toolchain userspace modules cdrom toaruos.iso cdrom-big toaruos-big.iso
 .PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless
-.PHONY: kvm vga-kvm term-kvm headless-kvm
+.PHONY: kvm vga-kvm term-kvm headless-kvm quick
 .PHONY: debug debug-kvm debug-term debug-term-kvm
 
 # Prevents Make from removing intermediary files on failure
@@ -137,6 +137,8 @@ run: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
 kvm: system
 	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(DISK_ROOT)"
+quick: system
+	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(DISK_ROOT) start=quick-launch"
 debug: system
 	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
 debug-kvm: system
