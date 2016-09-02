@@ -1711,6 +1711,8 @@ static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t d
 			yg->resizing_window = yg->mouse_window;
 			yg->resizing_w = yg->mouse_window->width;
 			yg->resizing_h = yg->mouse_window->height;
+			yg->resizing_offset_x = 0;
+			yg->resizing_offset_y = 0;
 
 			if (direction == SCALE_AUTO) {
 				/* Determine the best direction to scale in based on simple 9-cell system. */
@@ -1747,7 +1749,7 @@ static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t d
 
 			yg->resizing_direction = direction;
 			make_top(yg, yg->mouse_window);
-			mark_window(yg, yg->mouse_window);
+			mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 10, yg->resizing_offset_y - 10, yg->resizing_w + 10, yg->resizing_h + 10);
 		}
 	}
 }
@@ -1894,7 +1896,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				int width_diff  = (relative_x - relative_init_x);
 				int height_diff = (relative_y - relative_init_y);
 
-				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 2, yg->resizing_offset_y - 2, yg->resizing_w + 10, yg->resizing_h + 10);
+				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 10, yg->resizing_offset_y - 10, yg->resizing_w + 10, yg->resizing_h + 10);
 
 				if (yg->resizing_direction == SCALE_UP || yg->resizing_direction == SCALE_DOWN) {
 					width_diff = 0;
@@ -1945,7 +1947,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->resizing_offset_y = yg->resizing_window->height;
 				}
 
-				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 2, yg->resizing_offset_y - 2, yg->resizing_w + 10, yg->resizing_h + 10);
+				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 10, yg->resizing_offset_y - 10, yg->resizing_w + 10, yg->resizing_h + 10);
 
 				if (!(me->event.buttons & yg->resizing_button)) {
 					int32_t x, y;
