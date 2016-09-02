@@ -73,6 +73,7 @@ qemu-vlan0.pcap
 contrib
 cdrom
 toaruos.iso
+toaruos-big.iso
 modpack.kop
 .vagrant
 Vagrantfile

@@ -115,7 +115,7 @@ START_SINGLE = start=--single
 START_LIVE = start=live-welcome
 WITH_LOGS = logtoserial=1
 
-.PHONY: all system install test toolchain userspace modules cdrom toaruos.iso
+.PHONY: all system install test toolchain userspace modules cdrom toaruos.iso cdrom-big toaruos-big.iso
 .PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless
 .PHONY: kvm vga-kvm term-kvm headless-kvm
@@ -260,8 +260,13 @@ toaruos-disk.img: ${USERSPACE} util/devtable
 
 cdrom: toaruos.iso
 
+cdrom-big: toaruos-big.iso
+
 toaruos.iso: 
 	util/make-cdrom.sh
+
+toaruos-big.iso: 
+	util/make-cdrom-big.sh
 
 ##############
 #    ctags   #
