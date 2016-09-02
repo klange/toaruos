@@ -382,7 +382,7 @@ void sig_usr(int sig) {
 		yutani_flip(yctx, wina);
 	}
 
-	free(wallpaper);
+	sprite_free(wallpaper);
 	wallpaper = new_wallpaper;
 	draw_sprite(ctx, wallpaper, 0, 0);
 	redraw_apps_x(1);
@@ -396,7 +396,7 @@ static void resize_finish(int xwidth, int xheight) {
 	yutani_window_resize_accept(yctx, wina, width, height);
 
 	sprite_t * new_wallpaper = load_wallpaper();
-	free(wallpaper);
+	sprite_free(wallpaper);
 	wallpaper = new_wallpaper;
 
 	reinit_graphics_yutani(ctx, wina);
