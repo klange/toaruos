@@ -270,6 +270,7 @@ typedef struct yutani_window {
 #define YUTANI_MOUSE_STATE_MOVING     1
 #define YUTANI_MOUSE_STATE_DRAGGING   2
 #define YUTANI_MOUSE_STATE_RESIZING   3
+#define YUTANI_MOUSE_STATE_ROTATING   4
 
 /*
  * YUTANI_MOUSE_EVENT

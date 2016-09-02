@@ -1693,6 +1693,21 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 	}
 }
 
+static void mouse_start_rotate(yutani_globals_t * yg) {
+	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+	yg->mouse_window = get_focused(yg);
+	if (yg->mouse_window) {
+		yg->mouse_state = YUTANI_MOUSE_STATE_ROTATING;
+		yg->mouse_init_x = yg->mouse_x;
+		yg->mouse_init_y = yg->mouse_y;
+		int32_t x_diff = yg->mouse_x / MOUSE_SCALE - (yg->mouse_window->x + yg->mouse_window->width / 2);
+		int32_t y_diff = yg->mouse_y / MOUSE_SCALE - (yg->mouse_window->y + yg->mouse_window->height / 2);
+		int new_r = atan2(x_diff, y_diff) * 180.0 / (-M_PI);
+		yg->mouse_init_r = yg->mouse_window->rotation - new_r;
+		make_top(yg, yg->mouse_window);
+	}
+}
+
 static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t direction) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
@@ -1778,15 +1793,11 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 			{
 				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
 					mouse_start_drag(yg);
-#if YUTANI_RESIZE_RIGHT
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT) && (yg->kbd_state.k_alt)) {
-					yg->resizing_button = YUTANI_MOUSE_BUTTON_RIGHT;
-					mouse_start_resize(yg, SCALE_AUTO);
-#else
+					mouse_start_rotate(yg);
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && (yg->kbd_state.k_alt)) {
 					yg->resizing_button = YUTANI_MOUSE_BUTTON_MIDDLE;
 					mouse_start_resize(yg, SCALE_AUTO);
-#endif
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
 					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
@@ -1850,6 +1861,23 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
 					y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
 					window_move(yg, yg->mouse_window, x, y);
+				}
+			}
+			break;
+		case YUTANI_MOUSE_STATE_ROTATING:
+			{
+				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT)) {
+					yg->mouse_window = NULL;
+					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+					mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+				} else {
+					/* Calculate rotation and make relative to initial rotation */
+					int32_t x_diff = yg->mouse_x / MOUSE_SCALE - (yg->mouse_window->x + yg->mouse_window->width / 2);
+					int32_t y_diff = yg->mouse_y / MOUSE_SCALE - (yg->mouse_window->y + yg->mouse_window->height / 2);
+					int new_r = atan2(x_diff, y_diff) * 180.0 / (-M_PI);
+					mark_window(yg, yg->mouse_window);
+					yg->mouse_window->rotation = new_r + yg->mouse_init_r;
+					mark_window(yg, yg->mouse_window);
 				}
 			}
 			break;

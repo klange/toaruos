@@ -114,6 +114,7 @@ typedef struct {
 	int mouse_win_y;
 	int mouse_init_x;
 	int mouse_init_y;
+	int mouse_init_r;
 
 	int mouse_drag_button;
 	int mouse_moved;
