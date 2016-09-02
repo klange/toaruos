@@ -1884,8 +1884,15 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 			break;
 		case YUTANI_MOUSE_STATE_RESIZING:
 			{
-				int width_diff  = (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
-				int height_diff = (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
+
+				int32_t relative_x, relative_y;
+				int32_t relative_init_x, relative_init_y;
+
+				device_to_window(yg->resizing_window, yg->mouse_init_x / MOUSE_SCALE, yg->mouse_init_y / MOUSE_SCALE, &relative_init_x, &relative_init_y);
+				device_to_window(yg->resizing_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &relative_x, &relative_y);
+
+				int width_diff  = (relative_x - relative_init_x);
+				int height_diff = (relative_y - relative_init_y);
 
 				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 2, yg->resizing_offset_y - 2, yg->resizing_w + 10, yg->resizing_h + 10);
 
@@ -1941,8 +1948,19 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 2, yg->resizing_offset_y - 2, yg->resizing_w + 10, yg->resizing_h + 10);
 
 				if (!(me->event.buttons & yg->resizing_button)) {
+					int32_t x, y;
+					if (yg->resizing_window->rotation) {
+						/* If the window is rotated, we need to move the center to be where the new center should be, but x/y are based on the unrotated upper left corner. */
+						/* The center always moves by one-half the resize dimensions */
+						int32_t center_x, center_y;
+						window_to_device(yg->resizing_window, yg->resizing_offset_x + yg->resizing_w / 2, yg->resizing_offset_y + yg->resizing_h / 2, &center_x, &center_y);
+						x = center_x - yg->resizing_w / 2;
+						y = center_y - yg->resizing_h / 2;
+					} else {
+						window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y, &x, &y);
+					}
 					TRACE("resize complete, now %d x %d", yg->resizing_w, yg->resizing_h);
-					window_move(yg, yg->resizing_window, yg->resizing_window->x + yg->resizing_offset_x, yg->resizing_window->y + yg->resizing_offset_y);
+					window_move(yg, yg->resizing_window, x,y);
 					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->resizing_window->wid, yg->resizing_w, yg->resizing_h, 0);
 					pex_send(yg->server, yg->resizing_window->owner, response->size, (char *)response);
 					free(response);
