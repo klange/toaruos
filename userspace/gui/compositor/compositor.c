@@ -1697,6 +1697,12 @@ static void mouse_start_rotate(yutani_globals_t * yg) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
 	if (yg->mouse_window) {
+		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+			/* Prevent rotating panel and wallpaper */
+			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+			yg->mouse_window = NULL;
+			return;
+		}
 		yg->mouse_state = YUTANI_MOUSE_STATE_ROTATING;
 		yg->mouse_init_x = yg->mouse_x;
 		yg->mouse_init_y = yg->mouse_y;
