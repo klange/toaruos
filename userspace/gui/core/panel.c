@@ -906,16 +906,14 @@ static void * clock_thread(void * garbage) {
 }
 
 static void resize_finish(int xwidth, int xheight) {
-	width = xwidth;
-	height = xheight;
-	yutani_window_resize_accept(yctx, panel, width, height);
+	yutani_window_resize_accept(yctx, panel, xwidth, xheight);
 
 	reinit_graphics_yutani(ctx, panel);
 	yutani_window_resize_done(yctx, panel);
 
 	/* Draw the background */
 	draw_fill(ctx, rgba(0,0,0,0));
-	for (uint32_t i = 0; i < width; i += sprite_panel->width) {
+	for (uint32_t i = 0; i < xwidth; i += sprite_panel->width) {
 		draw_sprite(ctx, sprite_panel, i, 0);
 	}
 
@@ -1066,6 +1064,8 @@ int main (int argc, char ** argv) {
 				case YUTANI_MSG_WELCOME:
 					{
 						struct yutani_msg_welcome * mw = (void*)m->data;
+						width = mw->display_width;
+						height = mw->display_height;
 						yutani_window_resize(yctx, panel, mw->display_width, PANEL_HEIGHT);
 					}
 					break;
