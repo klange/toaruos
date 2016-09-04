@@ -12,8 +12,6 @@
 
 static hashmap_t * dns_cache;
 
-static uint8_t mac[6];
-
 static hashmap_t *_tcp_sockets = NULL;
 static hashmap_t *_udp_sockets = NULL;
 
@@ -337,7 +335,8 @@ static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * q
 
 	/* Then, let's write an ethernet frame */
 	struct ethernet_packet eth_out = {
-		.source = { mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] },
+		.source = { _netif.hwaddr[0], _netif.hwaddr[1], _netif.hwaddr[2],
+		            _netif.hwaddr[3], _netif.hwaddr[4], _netif.hwaddr[5] },
 		.destination = BROADCAST_MAC,
 		.type = htons(0x0800),
 	};
@@ -769,7 +768,8 @@ size_t write_dhcp_packet(uint8_t * buffer) {
 
 	/* Then, let's write an ethernet frame */
 	struct ethernet_packet eth_out = {
-		.source = { mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] },
+		.source = { _netif.hwaddr[0], _netif.hwaddr[1], _netif.hwaddr[2],
+		            _netif.hwaddr[3], _netif.hwaddr[4], _netif.hwaddr[5] },
 		.destination = BROADCAST_MAC,
 		.type = htons(0x0800),
 	};
@@ -832,7 +832,8 @@ size_t write_dhcp_packet(uint8_t * buffer) {
 		.siaddr = 0x000000,
 		.giaddr = 0x000000,
 
-		.chaddr = {mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], 0x00},
+		.chaddr = { _netif.hwaddr[0], _netif.hwaddr[1], _netif.hwaddr[2],
+		            _netif.hwaddr[3], _netif.hwaddr[4], _netif.hwaddr[5] },
 		.sname = {0},
 		.file = {0},
 		.magic = htonl(DHCP_MAGIC),

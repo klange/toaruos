@@ -392,6 +392,9 @@ int init_rtl(void) {
 
 		net_queue = list_create();
 
+		debug_print(NOTICE, "Initializing netif functions\n");
+		init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
+	
 #if 1
 		{
 			debug_print(NOTICE, "Sending DHCP discover\n");
@@ -454,9 +457,6 @@ int init_rtl(void) {
 
 		debug_print(NOTICE, "Card is configured, going to start worker thread now.\n");
 
-		debug_print(NOTICE, "Initializing netif functions\n");
-
-		init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
 		create_kernel_tasklet(net_handler, "[eth]", NULL);
 
 		debug_print(NOTICE, "Back from starting the worker thread.\n");
