@@ -415,6 +415,8 @@ static int net_send_ether(struct socket *socket, struct netif* netif, uint16_t e
 
 	netif->send_packet((uint8_t*)eth, sizeof(struct ethernet_packet) + payload_size);
 
+	free(eth);
+
 	return 1; // yolo
 }
 
@@ -459,10 +461,13 @@ static int net_send_ip(struct socket *socket, int proto, void* payload, uint32_t
 
 	if (payload) {
 		memcpy(ipv4->payload, payload, payload_size);
+		free(payload);
 	}
 
 	// TODO: netif should not be a global thing. But the route should be looked up here and a netif object created/returned
-	return net_send_ether(socket, &_netif, ETHERNET_TYPE_IPV4, ipv4, sizeof(struct ipv4_packet) + payload_size);
+	int out = net_send_ether(socket, &_netif, ETHERNET_TYPE_IPV4, ipv4, sizeof(struct ipv4_packet) + payload_size);
+	free(ipv4);
+	return out;
 }
 
 static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload, uint32_t payload_size) {
