@@ -108,7 +108,7 @@ static int next_rx_index(int current_rx_index) {
 static void init_descriptor(int index, int is_tx) {
 	uint8_t * de_table = is_tx ? pcnet_tx_de_start : pcnet_rx_de_start;
 
-	memset(&de_table[index * PCNET_DE_SIZE], PCNET_DE_SIZE, 0);
+	memset(&de_table[index * PCNET_DE_SIZE], 0, PCNET_DE_SIZE);
 
 	uint32_t buf_addr = is_tx ? pcnet_tx_phys : pcnet_rx_phys;
 	*(uint32_t *)&de_table[index * PCNET_DE_SIZE] = buf_addr + index * PCNET_BUFFER_SIZE;
