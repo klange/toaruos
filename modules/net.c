@@ -520,7 +520,7 @@ size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 	tcpdata_t *tcpdata = NULL;
 	node_t *node = NULL;
 
-	debug_print(WARNING, "0x%x [socket]", socket);
+	debug_print(INFO, "0x%x [socket]", socket);
 
 	size_t offset = 0;
 	size_t size_to_read = 0;
@@ -569,6 +569,7 @@ size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 	} else {
 		socket->bytes_available = 0;
 		socket->current_packet = NULL;
+		free(tcpdata->payload);
 		free(tcpdata);
 	}
 
@@ -617,6 +618,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 					wakeup_queue(socket->proto_sock.tcp_socket.is_connected);
 					net_close(socket);
 				}
+				free(tcpdata);
 				return;
 			}
 
@@ -677,7 +679,7 @@ static void net_handle_udp(struct udp_packet * udp, size_t length) {
 }
 
 static void net_handle_ipv4(struct ipv4_packet * ipv4) {
-	debug_print(WARNING, "net_handle_ipv4: ENTER");
+	debug_print(INFO, "net_handle_ipv4: ENTER");
 	switch (ipv4->protocol) {
 		case IPV4_PROT_TCP:
 			net_handle_tcp((struct tcp_header *)ipv4->payload, ntohs(ipv4->length) - sizeof(struct ipv4_packet));
