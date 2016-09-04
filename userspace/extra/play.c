@@ -4,6 +4,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -11,7 +12,12 @@
 
 int main(int argc, char * argv[]) {
 	int spkr = open("/dev/dsp", O_WRONLY);
-	int song = open(argv[1], O_RDONLY);
+	int song;
+	if (!strcmp(argv[1], "-")) {
+		song = STDIN_FILENO;
+	} else {
+		song = open(argv[1], O_RDONLY);
+	}
 
 	if (spkr == -1) {
 		fprintf(stderr, "no dsp\n");
@@ -24,8 +30,9 @@ int main(int argc, char * argv[]) {
 	}
 
 	char buf[0x1000];
-	while (read(song, buf, sizeof(buf))) {
-		write(spkr, buf, sizeof(buf));
+	int r;
+	while (r = read(song, buf, sizeof(buf))) {
+		write(spkr, buf, r);
 	}
 	return 0;
 }
