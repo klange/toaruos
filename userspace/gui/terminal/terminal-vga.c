@@ -246,10 +246,6 @@ static void cell_redraw_box(uint16_t x, uint16_t y) {
 	}
 }
 
-void outb(unsigned char _data, unsigned short _port) {
-	__asm__ __volatile__ ("outb %1, %0" : : "dN" (_port), "a" (_data));
-}
-
 void render_cursor() {
 	cell_redraw_inverted(csr_x, csr_y);
 }
@@ -706,12 +702,7 @@ int main(int argc, char ** argv) {
 
 	fflush(stdin);
 
-	/* This should remove the hardware cursor. */
-	outb(14, 0x3D4);
-	outb(0xFF, 0x3D5);
-	outb(15, 0x3D4);
-	outb(0xFF, 0x3D5);
-
+	system("cursor-off"); /* Might GPF */
 
 	int pid = getpid();
 	uint32_t f = fork();

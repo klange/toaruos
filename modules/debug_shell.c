@@ -544,6 +544,14 @@ static int shell_exit(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static int shell_cursor_off(fs_node_t * tty, int argc, char * argv[]) {
+	outportb(0x3D4, 14);
+	outportb(0x3D5, 0xFF);
+	outportb(0x3D4, 15);
+	outportb(0x3D5, 0xFF);
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -581,6 +589,8 @@ static struct shell_command shell_commands[] = {
 		"Read the TSC, if available."},
 	{"mhz", &shell_mhz,
 		"Use TSC to determine clock speed."},
+	{"cursor-off", &shell_cursor_off,
+		"Disable VGA text mode cursor."},
 	{"exit", &shell_exit,
 		"Quit the shell."},
 	{NULL, NULL, NULL}
