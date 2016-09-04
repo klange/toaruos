@@ -171,58 +171,6 @@ static void pcnet_send_packet(uint8_t* payload, size_t payload_size) {
 	pcnet_tx_buffer_id = next_tx_index(pcnet_tx_buffer_id);
 }
 
-static void placeholder_dhcp(void) {
-	debug_print(NOTICE, "Sending DHCP discover\n");
-	void * tmp = malloc(PCNET_BUFFER_SIZE);
-	size_t packet_size = write_dhcp_packet(tmp);
-	pcnet_send_packet(tmp, packet_size);
-
-		{
-			struct ethernet_packet * eth = (struct ethernet_packet *)dequeue_packet();
-			uint16_t eth_type = ntohs(eth->type);
-
-			debug_print(NOTICE, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
-					eth->source[0], eth->source[1], eth->source[2],
-					eth->source[3], eth->source[4], eth->source[5],
-					eth->destination[0], eth->destination[1], eth->destination[2],
-					eth->destination[3], eth->destination[4], eth->destination[5],
-					eth_type);
-
-
-			struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
-			uint32_t src_addr = ntohl(ipv4->source);
-			uint32_t dst_addr = ntohl(ipv4->destination);
-			uint16_t length   = ntohs(ipv4->length);
-
-			char src_ip[16];
-			char dst_ip[16];
-
-			ip_ntoa(src_addr, src_ip);
-			ip_ntoa(dst_addr, dst_ip);
-
-			debug_print(NOTICE, "IP packet [%s → %s] length=%d bytes\n",
-					src_ip, dst_ip, length);
-
-			struct udp_packet * udp = (struct udp_packet *)ipv4->payload;;
-			uint16_t src_port = ntohs(udp->source_port);
-			uint16_t dst_port = ntohs(udp->destination_port);
-			uint16_t udp_len  = ntohs(udp->length);
-
-			debug_print(NOTICE, "UDP [%d → %d] length=%d bytes\n",
-					src_port, dst_port, udp_len);
-
-			struct dhcp_packet * dhcp = (struct dhcp_packet *)udp->payload;
-			uint32_t yiaddr = ntohl(dhcp->yiaddr);
-
-			char yiaddr_ip[16];
-			ip_ntoa(yiaddr, yiaddr_ip);
-			debug_print(NOTICE,  "DHCP Offer: %s\n", yiaddr_ip);
-
-			free(eth);
-		}
-
-}
-
 static int pcnet_irq_handler(struct regs *r) {
 	while (driver_owns(pcnet_rx_de_start, pcnet_rx_buffer_id)) {
 		uint16_t plen = *(uint16_t *)&pcnet_rx_de_start[pcnet_rx_buffer_id * PCNET_DE_SIZE + 8];
@@ -391,9 +339,6 @@ static void pcnet_init(void * data, char * name) {
 	debug_print(NOTICE, "Card start.");
 
 	init_netif_funcs(pcnet_get_mac, dequeue_packet, pcnet_send_packet);
-
-	placeholder_dhcp();
-
 	create_kernel_tasklet(net_handler, "[eth]", NULL);
 
 }
