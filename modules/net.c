@@ -13,6 +13,7 @@
 
 static hashmap_t * dns_cache;
 static list_t * dns_waiters = NULL;
+static uint32_t _dns_server;
 
 static hashmap_t *_tcp_sockets = NULL;
 static hashmap_t *_udp_sockets = NULL;
@@ -424,7 +425,7 @@ static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * q
 		.protocol = IPV4_PROT_UDP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(_netif.source),
-		.destination = htonl(ip_aton("10.0.2.3")),
+		.destination = htonl(_dns_server),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -860,6 +861,32 @@ static void placeholder_dhcp(void) {
 
 		_netif.source = yiaddr;
 
+		debug_print(NOTICE,"  Scanning offer for DNS servers...");
+
+		size_t i = sizeof(struct dhcp_packet);
+		size_t j = 0;
+		while (i < length) {
+			uint8_t type = dhcp->options[j];
+			uint8_t len  = dhcp->options[j+1];
+			uint8_t * data = &dhcp->options[j+2];
+
+			debug_print(NOTICE,"    type=%d, len=%d", type, len);
+			if (type == 255) {
+				break;
+			} else if (type == 6) {
+				/* DNS Server! */
+				uint32_t dnsaddr = ntohl(*(uint32_t *)data);
+				char ip[16];
+				ip_ntoa(dnsaddr, ip);
+				debug_print(NOTICE, "Found one: %s", ip);
+				_dns_server = dnsaddr;
+			}
+
+			j += 2 + len;
+			i += 2 + len;
+		}
+
+
 		free(eth);
 	}
 
@@ -868,6 +895,8 @@ static void placeholder_dhcp(void) {
 void net_handler(void * data, char * name) {
 	/* Network Packet Handler*/
 	_netif.extra = NULL;
+
+	_dns_server = ip_aton("10.0.2.3");
 
 	placeholder_dhcp();
 
