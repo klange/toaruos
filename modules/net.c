@@ -12,6 +12,7 @@
 #include <mod/net.h>
 
 static hashmap_t * dns_cache;
+static list_t * dns_waiters = NULL;
 
 static hashmap_t *_tcp_sockets = NULL;
 static hashmap_t *_udp_sockets = NULL;
@@ -146,6 +147,35 @@ static struct dirent * readdir_netfs(fs_node_t *node, uint32_t index) {
 
 	index -= 2;
 	return NULL;
+}
+
+size_t dns_name_to_normal_name(struct dns_packet * dns, size_t offset, char * buf) {
+	uint8_t * bytes = (uint8_t *)dns;
+	size_t i = 0;
+
+	while (1) {
+		uint8_t c = bytes[offset];
+		if (c == 0) break;
+		if (c >= 0xC0) {
+			uint16_t ref = ((c - 0xC0) << 8) + bytes[offset+1];
+			i += dns_name_to_normal_name(dns, ref, &buf[i]);
+			return i;
+		}
+		offset++;
+
+		for (size_t j = 0; j < c; j++) {
+			buf[i] = bytes[offset];
+			i++;
+			offset++;
+		}
+		buf[i] = '.';
+		i++;
+		buf[i] = '\0';
+	}
+	if (i == 0) return 0;
+
+	buf[i-1] = '\0';
+	return i-1;
 }
 
 size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset) {
@@ -319,8 +349,11 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 			queries[0] = '\0';
 			char * subs[10]; /* 10 is probably not the best number. */
 			int argc = tokenize(xname, ".", subs);
+			int n = 0;
 			for (int i = 0; i < argc; ++i) {
-				sprintf(queries, "%c%s", strlen(subs[i]), subs[i]);
+				debug_print(WARNING, "dns [%d]%s", strlen(subs[i]), subs[i]);
+				sprintf(&queries[n], "%c%s", strlen(subs[i]), subs[i]);
+				n += strlen(&queries[n]);
 			}
 			int c = strlen(queries) + 1;
 			queries[c+0] = 0x00;
@@ -330,15 +363,20 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 			free(xname);
 
 			void * tmp = malloc(1024);
-			size_t packet_size = write_dns_packet(tmp, strlen(queries) + 4, (uint8_t *)queries);
+			size_t packet_size = write_dns_packet(tmp, c + 4, (uint8_t *)queries);
 			free(queries);
 
 			_netif.send_packet(tmp, packet_size);
 			free(tmp);
 
 			/* wait for response */
-
-			return NULL;
+			sleep_on(dns_waiters);
+			if (hashmap_has(dns_cache, name)) {
+				ip = ip_aton(hashmap_get(dns_cache, name));
+				debug_print(WARNING, "   Now in cache: %s → %x", name, ip);
+			} else {
+				return NULL;
+			}
 		}
 	}
 
@@ -386,7 +424,7 @@ static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * q
 		.protocol = IPV4_PROT_UDP,
 		.checksum = 0, /* fill this in later */
 		.source = htonl(_netif.source),
-		.destination = htonl(ip_aton("192.167.1.1")),
+		.destination = htonl(ip_aton("10.0.2.3")),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -700,10 +738,12 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 static void net_handle_udp(struct udp_packet * udp, size_t length) {
 
 	// size_t data_length = length - sizeof(struct tcp_header);
+	debug_print(WARNING, "UDP response!");
 
 	/* Short-circuit DNS */
-	if (ntohs(udp->source_port) == 50053) {
-		parse_dns_response(debug_file, udp->payload);
+	if (ntohs(udp->source_port) == 53) {
+		debug_print(WARNING, "UDP response to DNS query!");
+		parse_dns_response(debug_file, udp);
 		return;
 	}
 
@@ -831,6 +871,8 @@ void net_handler(void * data, char * name) {
 
 	placeholder_dhcp();
 
+	dns_waiters = list_create();
+
 	_tcp_sockets = hashmap_create_int(0xFF);
 	_udp_sockets = hashmap_create_int(0xFF);
 
@@ -950,31 +992,7 @@ size_t write_dhcp_packet(uint8_t * buffer) {
 }
 
 static void parse_dns_response(fs_node_t * tty, void * last_packet) {
-	struct ethernet_packet * eth = (struct ethernet_packet *)last_packet;
-	uint16_t eth_type = ntohs(eth->type);
-
-	fprintf(tty, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
-			eth->source[0], eth->source[1], eth->source[2],
-			eth->source[3], eth->source[4], eth->source[5],
-			eth->destination[0], eth->destination[1], eth->destination[2],
-			eth->destination[3], eth->destination[4], eth->destination[5],
-			eth_type);
-
-	struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
-	uint32_t src_addr = ntohl(ipv4->source);
-	uint32_t dst_addr = ntohl(ipv4->destination);
-	uint16_t length   = ntohs(ipv4->length);
-
-	char src_ip[16];
-	char dst_ip[16];
-
-	ip_ntoa(src_addr, src_ip);
-	ip_ntoa(dst_addr, dst_ip);
-
-	fprintf(tty, "IP packet [%s → %s] length=%d bytes\n",
-			src_ip, dst_ip, length);
-
-	struct udp_packet * udp = (struct udp_packet *)ipv4->payload;
+	struct udp_packet * udp = (struct udp_packet *)last_packet;
 	uint16_t src_port = ntohs(udp->source_port);
 	uint16_t dst_port = ntohs(udp->destination_port);
 	uint16_t udp_len  = ntohs(udp->length);
@@ -1003,6 +1021,9 @@ static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 	fprintf(tty, "Answers:\n");
 	int answers = 0;
 	while (answers < dns_answers) {
+		char buf[1024];
+		size_t ret = dns_name_to_normal_name(dns, offset, buf);
+		debug_print(WARNING, "%d - %s", ret, buf);
 		offset = print_dns_name(tty, dns, offset);
 		uint16_t * d = (uint16_t *)&bytes[offset];
 		fprintf(tty, " - Type: %4x %4x; ", ntohs(d[0]), ntohs(d[1]));
@@ -1019,6 +1040,10 @@ static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 			char ip[16];
 			ip_ntoa(ntohl(i[0]), ip);
 			fprintf(tty, " Address: %s\n", ip);
+			debug_print(NOTICE, "Domain [%s] maps to [%s]", buf, ip);
+			if (!hashmap_has(dns_cache, buf)) {
+				hashmap_set(dns_cache, buf, strdup(ip));
+			}
 		} else {
 			if (ntohs(d[0]) == 5) {
 				fprintf(tty, "CNAME: ");
@@ -1031,6 +1056,8 @@ static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 		offset += _l;
 		answers++;
 	}
+
+	wakeup_queue(dns_waiters);
 }
 
 static fs_node_t * netfs_create(void) {
