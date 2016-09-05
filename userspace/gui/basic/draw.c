@@ -369,6 +369,7 @@ int main (int argc, char ** argv) {
 
 	/* Do something with a window */
 	wina = yutani_window_create(yctx, width, height);
+	yutani_window_move(yctx, wina, 100, 100);
 
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgba(0,0,0,0));
