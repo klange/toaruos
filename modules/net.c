@@ -8,12 +8,16 @@
 #include <hashmap.h>
 #include <ipv4.h>
 #include <printf.h>
+#include <tokenize.h>
 #include <mod/net.h>
 
 static hashmap_t * dns_cache;
 
 static hashmap_t *_tcp_sockets = NULL;
 static hashmap_t *_udp_sockets = NULL;
+
+static void parse_dns_response(fs_node_t * tty, void * last_packet);
+static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries);
 
 static struct netif _netif;
 
@@ -310,6 +314,30 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 			debug_print(WARNING, "   In Cache: %s → %x", name, ip);
 		} else {
 			debug_print(WARNING, "   Still needs look up.");
+			char * xname = strdup(name);
+			char * queries = malloc(1024);
+			queries[0] = '\0';
+			char * subs[10]; /* 10 is probably not the best number. */
+			int argc = tokenize(xname, ".", subs);
+			for (int i = 0; i < argc; ++i) {
+				sprintf(queries, "%c%s", strlen(subs[i]), subs[i]);
+			}
+			int c = strlen(queries) + 1;
+			queries[c+0] = 0x00;
+			queries[c+1] = 0x01; /* A */
+			queries[c+2] = 0x00;
+			queries[c+3] = 0x01; /* IN */
+			free(xname);
+
+			void * tmp = malloc(1024);
+			size_t packet_size = write_dns_packet(tmp, strlen(queries) + 4, (uint8_t *)queries);
+			free(queries);
+
+			_netif.send_packet(tmp, packet_size);
+			free(tmp);
+
+			/* wait for response */
+
 			return NULL;
 		}
 	}
@@ -357,8 +385,8 @@ static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * q
 		.ttl = 0x40,
 		.protocol = IPV4_PROT_UDP,
 		.checksum = 0, /* fill this in later */
-		.source = htonl(ip_aton("10.0.2.15")),
-		.destination = htonl(ip_aton("10.0.2.3")),
+		.source = htonl(_netif.source),
+		.destination = htonl(ip_aton("192.167.1.1")),
 	};
 
 	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
@@ -434,7 +462,7 @@ static int net_send_ip(struct socket *socket, int proto, void* payload, uint32_t
 	ipv4->ttl = 0x40;
 	ipv4->protocol = proto;
 	ipv4->checksum = 0; // Fill in later */
-	ipv4->source = htonl(ip_aton("10.0.2.15")),
+	ipv4->source = htonl(_netif.source),
 	ipv4->destination = htonl(socket->ip);
 
 	uint16_t checksum = calculate_ipv4_checksum(ipv4);
@@ -588,6 +616,11 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->destination_port))) {
 		struct socket *socket = hashmap_get(_tcp_sockets, (void *)ntohs(tcp->destination_port));
 
+		if (socket->status == 1) {
+			debug_print(ERROR, "Socket is closed, but still receiving packets. Should send FIN. socket=0x%x", socket);
+			return;
+		}
+
 		if (socket->proto_sock.tcp_socket.seq_no != ntohl(tcp->ack_number)) {
 			// Drop packet
 			debug_print(WARNING, "Dropping packet. Expected ack: %d | Got ack: %d",
@@ -667,6 +700,12 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 static void net_handle_udp(struct udp_packet * udp, size_t length) {
 
 	// size_t data_length = length - sizeof(struct tcp_header);
+
+	/* Short-circuit DNS */
+	if (ntohs(udp->source_port) == 50053) {
+		parse_dns_response(debug_file, udp->payload);
+		return;
+	}
 
 	/* Find socket */
 	if (hashmap_has(_udp_sockets, (void *)ntohs(udp->source_port))) {
