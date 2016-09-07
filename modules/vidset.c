@@ -36,7 +36,7 @@ static int goodbye(void) {
 	return 0;
 }
 
-MODULE_DEF(test, hello, goodbye);
+MODULE_DEF(vidset, hello, goodbye);
 MODULE_DEPENDS(debugshell);
 MODULE_DEPENDS(lfbvideo);
 
