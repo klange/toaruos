@@ -408,4 +408,4 @@ static int ata_finalize(void) {
 	return 0;
 }
 
-MODULE_DEF(ata, ata_initialize, ata_finalize);
+MODULE_DEF(ata_legacy, ata_initialize, ata_finalize);
