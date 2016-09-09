@@ -168,10 +168,16 @@ static void pcnet_send_packet(uint8_t* payload, size_t payload_size) {
 
 	pcnet_tx_de_start[pcnet_tx_buffer_id * PCNET_DE_SIZE + 7] |= 0x80;
 
+	write_csr32(0, read_csr32(0) | (1 << 3));
+
 	pcnet_tx_buffer_id = next_tx_index(pcnet_tx_buffer_id);
 }
 
 static int pcnet_irq_handler(struct regs *r) {
+
+	write_csr32(0, read_csr32(0) | 0x0400);
+	irq_ack(pcnet_irq);
+
 	while (driver_owns(pcnet_rx_de_start, pcnet_rx_buffer_id)) {
 		uint16_t plen = *(uint16_t *)&pcnet_rx_de_start[pcnet_rx_buffer_id * PCNET_DE_SIZE + 8];
 
@@ -179,18 +185,13 @@ static int pcnet_irq_handler(struct regs *r) {
 
 		void * packet = malloc(plen);
 		memcpy(packet, pbuf, plen);
+		pcnet_rx_de_start[pcnet_rx_buffer_id * PCNET_DE_SIZE + 7] = 0x80;
 
 		enqueue_packet(packet);
 
-		pcnet_rx_de_start[pcnet_rx_buffer_id * PCNET_DE_SIZE + 7] = 0x80;
-
 		pcnet_rx_buffer_id = next_rx_index(pcnet_rx_buffer_id);
 	}
-
 	wakeup_queue(rx_wait);
-
-	write_csr32(0, read_csr32(0) | 0x0400);
-	irq_ack(pcnet_irq);
 
 	return 1;
 }
@@ -260,9 +261,9 @@ static void pcnet_init(void * data, char * name) {
 	debug_print(WARNING, "phys: 0x%x, virt: 0x%x", pcnet_buffer_phys, pcnet_buffer_virt);
 
 	pcnet_rx_de_start = pcnet_buffer_virt + 28;
-	pcnet_tx_de_start = pcnet_rx_de_start + 32*16;
-	pcnet_rx_start    = pcnet_tx_de_start + 8*16;
-	pcnet_tx_start    = pcnet_rx_start + 32 * 1548;
+	pcnet_tx_de_start = pcnet_rx_de_start + PCNET_RX_COUNT * PCNET_DE_SIZE;
+	pcnet_rx_start    = pcnet_tx_de_start + PCNET_TX_COUNT * PCNET_DE_SIZE;
+	pcnet_tx_start    = pcnet_rx_start + PCNET_RX_COUNT * PCNET_BUFFER_SIZE;
 
 	pcnet_rx_de_phys  = virt_to_phys(pcnet_rx_de_start);
 	pcnet_tx_de_phys  = virt_to_phys(pcnet_tx_de_start);
@@ -321,7 +322,7 @@ static void pcnet_init(void * data, char * name) {
 	csr3 |= (1 << 9);
 	csr3 |= (1 << 8);
 	write_csr32(3, csr3); /* Disable interrupt on init */
-	write_csr32(4, read_csr32(4) | (1 << 1)); /* pad */
+	write_csr32(4, read_csr32(4) | (1 << 1) | (1 << 12) | (1 << 14)); /* pad */
 
 	write_csr32(0, read_csr32(0) | (1 << 0) | (1 << 6)); /* do it */
 
