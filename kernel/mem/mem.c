@@ -67,6 +67,8 @@ kmalloc_real(
 					set_frame((index + i) * 0x1000);
 					page_t * page = get_page((uintptr_t)address + (i * 0x1000),0,kernel_directory);
 					page->frame = index + i;
+					page->writethrough = 1;
+					page->cachedisable = 1;
 				}
 				spin_unlock(frame_alloc_lock);
 			}

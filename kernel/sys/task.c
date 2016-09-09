@@ -143,8 +143,8 @@ clone_table(
 		if (src->pages[i].present)	table->pages[i].present = 1;
 		if (src->pages[i].rw)		table->pages[i].rw = 1;
 		if (src->pages[i].user)		table->pages[i].user = 1;
-		if (src->pages[i].accessed)	table->pages[i].accessed = 1;
-		if (src->pages[i].dirty)	table->pages[i].dirty = 1;
+		if (src->pages[i].writethrough)	table->pages[i].writethrough = 1;
+		if (src->pages[i].cachedisable)	table->pages[i].cachedisable = 1;
 		/* Copy the contents of the page from the old table to the new one */
 		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
 	}
