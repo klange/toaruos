@@ -406,6 +406,7 @@ void do_thing(char * thing) {
 		endwin();
 		fprintf(sock,"QUIT :%s\r\n", m ? m : "http://toaruos.org/");
 		fflush(sock);
+		pthread_kill(read_thread, SIGQUIT);
 		exit(0);
 	} else if (!strcmp(thing, "/part") || strstr(thing,"/part ") == thing) {
 		char * m = strstr(thing, " "); if (m) m++;
