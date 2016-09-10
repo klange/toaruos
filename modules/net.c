@@ -545,7 +545,7 @@ static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload
 	tcp->seq_number = htonl(socket->proto_sock.tcp_socket.seq_no);
 	tcp->ack_number = flags & (TCP_FLAGS_ACK) ? htonl(socket->proto_sock.tcp_socket.ack_no) : 0;
 	tcp->flags = htons(0x5000 ^ (flags & 0xFF));
-	tcp->window_size = htons(1800);
+	tcp->window_size = htons(1548-54);
 	tcp->checksum = 0; // Fill in later
 	tcp->urgent = 0;
 
