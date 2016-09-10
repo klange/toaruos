@@ -248,9 +248,7 @@ int main (int argc, char ** argv) {
 
 	int width  = y->display_width;
 	int height = y->display_height;
-
-	win_width = width;
-	win_height = height;
+	int skip_animation = 0;
 
 	/* Do something with a window */
 	TRACE("Connecting to window server...");
@@ -262,8 +260,14 @@ int main (int argc, char ** argv) {
 	yutani_flip(y, wina);
 	TRACE("... done.");
 
+
+redo_everything:
+	win_width = width;
+	win_height = height;
+
 	cairo_surface_t * cs = cairo_image_surface_create_for_data((void*)ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width));
 	cairo_t * cr = cairo_create(cs);
+
 
 	TRACE("Loading wallpaper...");
 	{
@@ -309,7 +313,7 @@ int main (int argc, char ** argv) {
 		memcpy(foo, ctx->backbuffer, sizeof(uint32_t) * width * height);
 
 		TRACE("Begin animation.");
-		{
+		if (!skip_animation) {
 			struct timeval start;
 			gettimeofday(&start, NULL);
 
@@ -338,6 +342,7 @@ int main (int argc, char ** argv) {
 			}
 		}
 		TRACE("End animation.");
+		skip_animation = 0;
 
 		size_t buf_size = wina->width * wina->height * sizeof(uint32_t);
 		char * buf = malloc(buf_size);
@@ -465,6 +470,29 @@ collect_events:
 								struct yutani_msg_window_mouse_event * me = (void*)msg->data;
 								memcpy(&mou, me, sizeof(struct yutani_msg_mouse_event));
 								msg_type = 2;
+							}
+							break;
+						case YUTANI_MSG_WELCOME:
+							{
+								struct yutani_msg_welcome * mw = (void*)msg->data;
+								yutani_window_resize(y, wina, mw->display_width, mw->display_height);
+							}
+							break;
+						case YUTANI_MSG_RESIZE_OFFER:
+							{
+								struct yutani_msg_window_resize * wr = (void*)msg->data;
+								width = wr->width;
+								height = wr->height;
+								yutani_window_resize_accept(y, wina, width, height);
+								reinit_graphics_yutani(ctx, wina);
+								yutani_window_resize_done(y, wina);
+
+								sprite_free(bg_sprite);
+								cairo_destroy(cr);
+								cairo_surface_destroy(cs);
+
+								skip_animation = 1;
+								goto redo_everything;
 							}
 							break;
 					}
