@@ -509,6 +509,14 @@ void * nested_input(void * _yg) {
 						free(m_);
 					}
 					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						TRACE("Resize request from host compositor for size %dx%d", wr->width, wr->height);
+						yutani_window_resize_accept(yg->host_context, yg->host_window, wr->width, wr->height);
+						yg->resize_on_next = 1;
+					}
+					break;
 				case YUTANI_MSG_SESSION_END:
 					TRACE("Host session ended. Should exit.");
 					break;
@@ -1209,7 +1217,12 @@ static void redraw_windows(yutani_globals_t * yg) {
 		cairo_surface_destroy(yg->framebuffer_surface);
 		cairo_surface_destroy(yg->real_surface);
 
-		reinit_graphics_fullscreen(yg->backend_ctx);
+		if (!yutani_options.nested) {
+			reinit_graphics_fullscreen(yg->backend_ctx);
+		} else {
+			reinit_graphics_yutani(yg->backend_ctx, yg->host_window);
+			yutani_window_resize_done(yg->host_context, yg->host_window);
+		}
 		yg->width = yg->backend_ctx->width;
 		yg->height = yg->backend_ctx->height;
 		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
