@@ -43,6 +43,8 @@
 #define MOUSE_WIDTH 64
 #define MOUSE_HEIGHT 64
 
+#define UNTILE_SENSITIVITY (MOUSE_SCALE * 5)
+
 struct {
 	int nested;
 	int nest_width;
@@ -1688,15 +1690,6 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 			yg->mouse_window = NULL;
 		} else {
-			if (yg->mouse_window->tiled) {
-				/* Untile it */
-				yg->mouse_window->tiled = 0;
-				/* Move the window in such a way as to center the x coordinates based on the new width */
-				window_move(yg, yg->mouse_window, yg->mouse_x / MOUSE_SCALE - yg->mouse_window->untiled_width / 2, yg->mouse_y / MOUSE_SCALE - yg->mouse_window->untiled_height / 2);
-				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->mouse_window->wid, yg->mouse_window->untiled_width, yg->mouse_window->untiled_height, 0);
-				pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
-				free(response);
-			}
 			yg->mouse_state = YUTANI_MOUSE_STATE_MOVING;
 			yg->mouse_init_x = yg->mouse_x;
 			yg->mouse_init_y = yg->mouse_y;
@@ -1878,10 +1871,31 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 						yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 						break;
 					}
-					int x, y;
-					x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
-					y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
-					window_move(yg, yg->mouse_window, x, y);
+					if (yg->mouse_window->tiled) {
+						if ((yg->mouse_x - yg->mouse_init_x > UNTILE_SENSITIVITY) || (yg->mouse_y -yg->mouse_init_y > UNTILE_SENSITIVITY)) {
+					/* Untile it */
+							yg->mouse_window->tiled = 0;
+							/* Position the window such that it's representative of where it was, percentage-wise, in the untiled window */
+							float percent_x = (float)(yg->mouse_x / MOUSE_SCALE - yg->mouse_window->x) / (float)yg->mouse_window->width;
+							float percent_y = (float)(yg->mouse_y / MOUSE_SCALE - yg->mouse_window->y) / (float)yg->mouse_window->height;
+							window_move(yg, yg->mouse_window,
+							            yg->mouse_x / MOUSE_SCALE - yg->mouse_window->untiled_width * percent_x,
+							            yg->mouse_y / MOUSE_SCALE - yg->mouse_window->untiled_height * percent_y);
+							yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->mouse_window->wid, yg->mouse_window->untiled_width, yg->mouse_window->untiled_height, 0);
+							pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
+							free(response);
+							/* reset init_x / init_y */
+							yg->mouse_init_x = yg->mouse_x;
+							yg->mouse_init_y = yg->mouse_y;
+							yg->mouse_win_x  = yg->mouse_window->x;
+							yg->mouse_win_y  = yg->mouse_window->y;
+						}
+					} else {
+						int x, y;
+						x = yg->mouse_win_x + (yg->mouse_x - yg->mouse_init_x) / MOUSE_SCALE;
+						y = yg->mouse_win_y + (yg->mouse_y - yg->mouse_init_y) / MOUSE_SCALE;
+						window_move(yg, yg->mouse_window, x, y);
+					}
 				}
 			}
 			break;
