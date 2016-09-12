@@ -1692,7 +1692,7 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 				/* Untile it */
 				yg->mouse_window->tiled = 0;
 				/* Move the window in such a way as to center the x coordinates based on the new width */
-				window_move(yg, yg->mouse_window, yg->mouse_x / MOUSE_SCALE - yg->mouse_window->untiled_width / 2, yg->mouse_window->y);
+				window_move(yg, yg->mouse_window, yg->mouse_x / MOUSE_SCALE - yg->mouse_window->untiled_width / 2, yg->mouse_y / MOUSE_SCALE - yg->mouse_window->untiled_height / 2);
 				yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->mouse_window->wid, yg->mouse_window->untiled_width, yg->mouse_window->untiled_height, 0);
 				pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
 				free(response);
