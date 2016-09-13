@@ -67,6 +67,7 @@ void pci_scan_func(pci_func_t f, int type, int bus, int slot, int func, void * e
 		pci_scan_hit(f, dev, extra);
 	}
 	if (pci_find_type(dev) == PCI_TYPE_BRIDGE) {
+		return;
 		pci_scan_bus(f, type, pci_read_field(dev, PCI_SECONDARY_BUS, 1), extra);
 	}
 }
@@ -97,7 +98,8 @@ void pci_scan_bus(pci_func_t f, int type, int bus, void * extra) {
 void pci_scan(pci_func_t f, int type, void * extra) {
 	pci_scan_bus(f, type, 0, extra);
 
-	if (!pci_read_field(0, PCI_HEADER_TYPE, 1)) {
+	if ((pci_read_field(0, PCI_HEADER_TYPE, 1) & 0x80) == 0) {
+		pci_scan_bus(f,type,0,extra);
 		return;
 	}
 
