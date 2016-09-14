@@ -2248,7 +2248,11 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_MOVE:
 				{
 					struct yutani_msg_window_move * wm = (void *)m->data;
-					TRACE("%08x wanted to move window %d", p->source, wm->wid);
+					TRACE("%08x wanted to move window %d to %d, %d", p->source, wm->wid, (int)wm->x, (int)wm->y);
+					if (wm->x > yg->width + 100 || wm->x < -100 || wm->y > yg->height + 100 || wm->y < -100) {
+						TRACE("Refusing to move window to these coordinates.");
+						break;
+					}
 					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
 					if (win) {
 						window_move(yg, win, wm->x, wm->y);
