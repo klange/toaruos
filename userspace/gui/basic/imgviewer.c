@@ -17,7 +17,6 @@
 #include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/decorations.h"
-#include "gui/ttk/ttk.h"
 
 #include "lib/trace.h"
 #define TRACE_APP_NAME "image-viewer"
@@ -27,46 +26,18 @@ static yutani_t * yctx;
 static yutani_window_t * win;
 static gfx_context_t * ctx;
 
-static cairo_surface_t * surface_win;
-
-static cairo_t * cr_win;
-
 static int should_exit = 0;
 
 static int center_x(int x) {
-	return (yctx->display_width - x) / 2;
+	return ((int)yctx->display_width - x) / 2;
 }
 
 static int center_y(int y) {
-	return (yctx->display_height - y) / 2;
+	return ((int)yctx->display_height - y) / 2;
 }
 
 static int center_win_x(int x) {
 	return (win->width - x) / 2;
-}
-
-static int button_width = 100;
-static int button_height = 32;
-static int button_focused = 0;
-static void draw_next_button(int is_exit) {
-	if (button_focused == 1) {
-		/* hover */
-		_ttk_draw_button_hover(cr_win, center_win_x(button_width), 400, button_width, button_height, is_exit ? "Exit" : "Next");
-	} else if (button_focused == 2) {
-		/* Down */
-		_ttk_draw_button_select(cr_win, center_win_x(button_width), 400, button_width, button_height, is_exit ? "Exit" : "Next");
-	} else {
-		/* Something else? */
-		_ttk_draw_button(cr_win, center_win_x(button_width), 400, button_width, button_height, is_exit ? "Exit" : "Next");
-	}
-}
-
-static void draw_centered_label(int y, int size, char * label) {
-	set_font_face(FONT_SANS_SERIF);
-	set_font_size(size);
-
-	int x = center_win_x(draw_string_width(label));
-	draw_string(ctx, x, y, rgb(0,0,0), label);
 }
 
 static sprite_t image;
@@ -76,7 +47,6 @@ static void draw_image(void) {
 }
 
 static void redraw(void) {
-	draw_fill(ctx, rgb(TTK_BACKGROUND_DEFAULT));
 	render_decorations(win, ctx, file_name);
 	draw_image();
 	flip(ctx);
@@ -98,15 +68,9 @@ int main(int argc, char * argv[]) {
 
 	init_decorations();
 
-	win = yutani_window_create(yctx, image.width + decor_width(), image.height + decor_height());
-	yutani_window_move(yctx, win, center_x(image.width + decor_width()), center_y(image.height + decor_height()));
+	win = yutani_window_create(yctx, image.width + (int)decor_width(), image.height + decor_height());
+	yutani_window_move(yctx, win, center_x(image.width + (int)decor_width()), center_y(image.height + decor_height()));
 	ctx = init_graphics_yutani_double_buffer(win);
-
-	int stride;
-
-	stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, win->width);
-	surface_win = cairo_image_surface_create_for_data(ctx->backbuffer, CAIRO_FORMAT_ARGB32, win->width, win->height, stride);
-	cr_win = cairo_create(surface_win);
 
 	yutani_window_advertise_icon(yctx, win, "Image Viewer", "image-viewer");
 
