@@ -24,10 +24,6 @@ static char ata_drive_char = 'a';
 static int  cdrom_number = 0;
 static uint32_t ata_pci = 0x00000000;
 static list_t * atapi_waiter;
-static list_t * atapi_queue;
-static list_t * atapi_client;
-static list_t * atapi_available;
-static spin_lock_t atapi_job_lock = { 0 };
 static int atapi_in_progress = 0;
 
 typedef union {
@@ -698,115 +694,74 @@ try_again:
 	spin_unlock(ata_lock);
 }
 
-struct atapi_job {
-	struct ata_device * dev;
-	uint32_t lba;
-	uint8_t * buf;
-	int done;
-};
-
-static void atapi_processor(void * data, char * name) {
-	while (1) {
-		while (!atapi_queue->length) {
-			sleep_on(atapi_available);
-		}
-
-		spin_lock(atapi_job_lock);
-		node_t * n = list_dequeue(atapi_queue);
-		struct atapi_job * value = (struct atapi_job*)n->value;
-		free(n);
-		spin_unlock(atapi_job_lock);
-
-		struct ata_device * dev = value->dev;
-		uint32_t lba = value->lba;
-		uint8_t * buf = value->buf;
-
-		uint16_t bus = dev->io_base;
-		spin_lock(ata_lock);
-
-		outportb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
-		ata_io_wait(dev);
-
-		outportb(bus + ATA_REG_FEATURES, 0x00);
-		outportb(bus + ATA_REG_LBA1, dev->atapi_sector_size & 0xFF);
-		outportb(bus + ATA_REG_LBA2, dev->atapi_sector_size >> 8);
-		outportb(bus + ATA_REG_COMMAND, ATA_CMD_PACKET);
-
-		/* poll */
-		while (1) {
-			uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
-			if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
-			if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
-		}
-
-		atapi_in_progress = 1;
-
-
-		atapi_command_t command;
-		command.command_bytes[0] = 0xA8;
-		command.command_bytes[1] = 0;
-		command.command_bytes[2] = (lba >> 0x18) & 0xFF;
-		command.command_bytes[3] = (lba >> 0x10) & 0xFF;
-		command.command_bytes[4] = (lba >> 0x08) & 0xFF;
-		command.command_bytes[5] = (lba >> 0x00) & 0xFF;
-		command.command_bytes[6] = 0;
-		command.command_bytes[7] = 0;
-		command.command_bytes[8] = 0; /* bit 0 = PMI (0, last sector) */
-		command.command_bytes[9] = 1; /* control */
-		command.command_bytes[10] = 0;
-		command.command_bytes[11] = 0;
-
-		for (int i = 0; i < 6; ++i) {
-			outports(bus, command.command_words[i]);
-		}
-
-		/* Wait */
-		sleep_on(atapi_waiter);
-
-		uint16_t size_to_read = inportb(bus + ATA_REG_LBA2) << 8;
-		size_to_read = size_to_read | inportb(bus + ATA_REG_LBA1);
-
-
-		inportsm(bus,buf,size_to_read/2);
-
-		atapi_in_progress = 0;
-		value->done = 1;
-		wakeup_queue(atapi_client);
-
-	atapi_error_on_read_setup:
-
-		spin_unlock(ata_lock);
-	}
-
-}
-
 static void ata_device_read_sector_atapi(struct ata_device * dev, uint32_t lba, uint8_t * buf) {
 
 	if (!dev->is_atapi) return;
 
-	uint8_t * tmp = malloc(dev->atapi_sector_size);
+	uint16_t bus = dev->io_base;
+	spin_lock(ata_lock);
 
-	struct atapi_job job = {
-		.dev = dev,
-		.lba = lba,
-		.buf = tmp,
-		.done = 0
-	};
+	outportb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
+	ata_io_wait(dev);
 
-	spin_lock(atapi_job_lock);
-	list_insert(atapi_queue, &job);
-	spin_unlock(atapi_job_lock);
+	outportb(bus + ATA_REG_FEATURES, 0x00);
+	outportb(bus + ATA_REG_LBA1, dev->atapi_sector_size & 0xFF);
+	outportb(bus + ATA_REG_LBA2, dev->atapi_sector_size >> 8);
+	outportb(bus + ATA_REG_COMMAND, ATA_CMD_PACKET);
 
-	wakeup_queue(atapi_available);
-
+	/* poll */
 	while (1) {
-		sleep_on(atapi_client);
-		if (job.done) break;
+		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
+		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
 	}
 
-	memcpy(buf, tmp, dev->atapi_sector_size);
-	free(tmp);
+	atapi_in_progress = 1;
 
+
+	atapi_command_t command;
+	command.command_bytes[0] = 0xA8;
+	command.command_bytes[1] = 0;
+	command.command_bytes[2] = (lba >> 0x18) & 0xFF;
+	command.command_bytes[3] = (lba >> 0x10) & 0xFF;
+	command.command_bytes[4] = (lba >> 0x08) & 0xFF;
+	command.command_bytes[5] = (lba >> 0x00) & 0xFF;
+	command.command_bytes[6] = 0;
+	command.command_bytes[7] = 0;
+	command.command_bytes[8] = 0; /* bit 0 = PMI (0, last sector) */
+	command.command_bytes[9] = 1; /* control */
+	command.command_bytes[10] = 0;
+	command.command_bytes[11] = 0;
+
+	for (int i = 0; i < 6; ++i) {
+		outports(bus, command.command_words[i]);
+	}
+
+	/* Wait */
+	sleep_on(atapi_waiter);
+
+	atapi_in_progress = 0;
+
+	while (1) {
+		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
+		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
+	}
+
+	uint16_t size_to_read = inportb(bus + ATA_REG_LBA2) << 8;
+	size_to_read = size_to_read | inportb(bus + ATA_REG_LBA1);
+
+
+	inportsm(bus,buf,size_to_read/2);
+
+	while (1) {
+		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
+		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
+	}
+
+atapi_error_on_read_setup:
+	spin_unlock(ata_lock);
 
 }
 
@@ -867,10 +822,6 @@ static int ata_initialize(void) {
 	irq_install_handler(15, ata_irq_handler_s);
 
 	atapi_waiter = list_create();
-	atapi_queue = list_create();
-	atapi_client = list_create();
-	atapi_available = list_create();
-	create_kernel_tasklet(atapi_processor, "[atapi]", NULL);
 
 	ata_device_detect(&ata_primary_master);
 	ata_device_detect(&ata_primary_slave);
