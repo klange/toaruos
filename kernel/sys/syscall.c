@@ -284,6 +284,7 @@ static int stat_node(fs_node_t * fn, uintptr_t st) {
 	f->st_atime = fn->atime;
 	f->st_mtime = fn->mtime;
 	f->st_ctime = fn->ctime;
+	f->st_blksize = 512; /* whatever */
 
 	if (fn->get_size) {
 		f->st_size = fn->get_size(fn);
@@ -333,8 +334,7 @@ static int sys_mkpipe(void) {
 }
 
 static int sys_dup2(int old, int new) {
-	process_move_fd((process_t *)current_process, old, new);
-	return new;
+	return process_move_fd((process_t *)current_process, old, new);
 }
 
 static int sys_getuid(void) {
@@ -534,10 +534,18 @@ static int sys_sysfunc(int fn, char ** args) {
 				} else {
 					return -1;
 				}
-			default:
-				debug_print(ERROR, "Bad system function %d", fn);
-				break;
 		}
+	}
+	switch (fn) {
+		case 8:
+			PTR_VALIDATE(args);
+			debug_print(WARNING, "0x%x 0x%x 0x%x 0x%x", args[0], args[1], args[2], args[3]);
+			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3]);
+			return 0;
+			break;
+		default:
+			debug_print(ERROR, "Bad system function %d", fn);
+			break;
 	}
 	return -1; /* Bad system function or access failure */
 }
@@ -750,6 +758,8 @@ uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);
 
 typedef uint32_t (*scall_func)(unsigned int, ...);
 
+pid_t trace_pid = 0;
+
 void syscall_handler(struct regs * r) {
 	if (r->eax >= num_syscalls) {
 		return;
@@ -762,6 +772,10 @@ void syscall_handler(struct regs * r) {
 
 	/* Update the syscall registers for this process */
 	current_process->syscall_registers = r;
+
+	if (trace_pid && current_process->id == trace_pid) {
+		debug_print(WARNING, "[syscall trace] %d (0x%x) 0x%x 0x%x 0x%x 0x%x 0x%x", r->eax, location, r->ebx, r->ecx, r->edx, r->esi, r->edi);
+	}
 
 	/* Call the syscall function */
 	scall_func func = (scall_func)location;

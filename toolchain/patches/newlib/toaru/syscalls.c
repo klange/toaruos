@@ -630,7 +630,7 @@ pid_t wait3(int *status, int options, void *rusage) {
 }
 
 int dup(int oldfd) {
-	return dup2(oldfd, 0);
+	return dup2(oldfd, -1);
 }
 
 int sched_yield(void) {

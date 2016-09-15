@@ -552,6 +552,12 @@ static int shell_cursor_off(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+extern pid_t trace_pid;
+static int shell_debug_pid(fs_node_t * tty, int argc, char * argv[]) {
+	trace_pid = atoi(argv[1]);
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -575,6 +581,8 @@ static struct shell_command shell_commands[] = {
 		"[testing] Module loading."},
 	{"symbols", &shell_symbols,
 		"Dump symbol table."},
+	{"debug_pid", &shell_debug_pid,
+		"Set pid to trace syscalls for."},
 	{"print", &shell_print,
 		"[dangerous] Print the value of a symbol using a format string."},
 	{"modules", &shell_modules,

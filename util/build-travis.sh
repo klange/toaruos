@@ -1,6 +1,6 @@
 #!/bin/bash
 
-COOKIE=".2015-12-15-testing2.cookie"
+COOKIE=".2016-09-15-fix_dup.cookie"
 
 unset CC
 

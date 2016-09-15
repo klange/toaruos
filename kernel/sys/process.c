@@ -564,8 +564,11 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
  * @return The destination file descriptor, -1 on failure
  */
 uint32_t process_move_fd(process_t * proc, int src, int dest) {
-	if ((size_t)src > proc->fds->length || (size_t)dest > proc->fds->length) {
+	if ((size_t)src > proc->fds->length || (dest != -1 && (size_t)dest > proc->fds->length)) {
 		return -1;
+	}
+	if (dest == -1) {
+		dest = process_append_fd(proc, NULL);
 	}
 	if (proc->fds->entries[dest] != proc->fds->entries[src]) {
 		close_fs(proc->fds->entries[dest]);

@@ -111,6 +111,8 @@ struct stat  {
 	uint32_t  __unused2;
 	uint32_t  st_ctime;
 	uint32_t  __unused3;
+	uint32_t  st_blksize;
+	uint32_t  st_blocks;
 };
 
 struct vfs_entry {
