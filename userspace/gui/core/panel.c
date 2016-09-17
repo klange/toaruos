@@ -911,6 +911,8 @@ static void resize_finish(int xwidth, int xheight) {
 	reinit_graphics_yutani(ctx, panel);
 	yutani_window_resize_done(yctx, panel);
 
+	width = xwidth;
+
 	/* Draw the background */
 	draw_fill(ctx, rgba(0,0,0,0));
 	for (uint32_t i = 0; i < xwidth; i += sprite_panel->width) {
@@ -922,6 +924,7 @@ static void resize_finish(int xwidth, int xheight) {
 	bg_blob = realloc(bg_blob, bg_size);
 	memcpy(bg_blob, ctx->backbuffer, bg_size);
 
+	update_window_list();
 	redraw();
 }
 
