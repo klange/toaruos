@@ -327,6 +327,13 @@ int mkdir_fs(char *name, uint16_t permission) {
 	char * parent_path = malloc(strlen(path) + 4);
 	sprintf(parent_path, "%s/..", path);
 
+	fs_node_t * this = kopen(path, 0);
+	if (this) {
+		debug_print(ERROR, "Tried to mkdir a dir that already exists? (%s)", path);
+		close_fs(this);
+		return -EEXIST;
+	}
+
 	char * f_path = path + strlen(path) - 1;
 	while (f_path > path) {
 		if (*f_path == '/') {
