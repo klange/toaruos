@@ -82,6 +82,27 @@ static void draw_logo(void) {
 	draw_sprite(ctx_wizard, &logo, center_win_x(logo.width), 50);
 }
 
+static void draw_arrow(int x, int y, int angle) {
+
+	cairo_save(cr_hints);
+
+	cairo_surface_t * arrow = cairo_image_surface_create_from_png("/usr/share/wizard-arrow.png");
+	int w, h;
+	w = cairo_image_surface_get_width(arrow);
+	h = cairo_image_surface_get_height(arrow);
+
+	cairo_translate(cr_hints, x, y);
+
+	cairo_rotate(cr_hints, (double)angle * M_PI / 179.0);
+	cairo_translate(cr_hints, -w, -h/2);
+
+	cairo_set_source_surface(cr_hints, arrow, 0, 0);
+	cairo_paint(cr_hints);
+	cairo_surface_destroy(arrow);
+	cairo_restore(cr_hints);
+
+}
+
 static void redraw(void) {
 	draw_fill(ctx_hints, premultiply(rgba(0,0,0,100)));
 	draw_fill(ctx_wizard, rgb(TTK_BACKGROUND_DEFAULT));
@@ -104,6 +125,7 @@ static void redraw(void) {
 			break;
 		case 1:
 			draw_logo();
+			draw_arrow(center_x(640) + 620, center_y(480) - 5, 90);
 			draw_centered_label(100+70,12,"If you wish to exit the tutorial at any time, you can");
 			draw_centered_label(100+84,12,"click the × in the upper right corner of this window.");
 			draw_next_button(0);
@@ -116,15 +138,28 @@ static void redraw(void) {
 			draw_next_button(0);
 			break;
 		case 3:
-			draw_logo();
-			draw_centered_label(100+70, 12,"This tutorial itself is still a work-in-progress,");
-			draw_centered_label(100+84, 12,"so there's nothing else to see.");
+			draw_arrow(110, 120, -135);
+
+			cairo_save(cr_hints);
+			cairo_set_operator(cr_hints, CAIRO_OPERATOR_SOURCE);
+			cairo_set_source_rgba(cr_hints, 0.0, 0.0, 0.0, 0.0);
+			cairo_translate(cr_hints, 48.5, 72.5);
+			cairo_arc(cr_hints, 0, 0, 50, 0, 2 * M_PI);
+			cairo_fill(cr_hints);
+			cairo_restore(cr_hints);
+
+			draw_centered_label(100+10, 12,"とあるOS aims to provide a Unix-like environment.");
+			draw_centered_label(100+24, 12,"You can find familiar command-line tools by opening a terminal.");
+			draw_centered_label(100+38, 12,"Application shortcuts on the desktop are opened with a single click.");
+			draw_centered_label(100+52, 12,"You can also find more graphical applications in the Applications menu.");
 			draw_next_button(0);
 			break;
 		case 4:
 			draw_logo();
-			draw_centered_label(100+70,12,"Congratulations!");
-			draw_centered_label(100+88,12,"You've finished the tutorial!");
+			draw_centered_label(100+70,12,"That's it for now!");
+			draw_centered_label(100+88,12,"You've finished the tutorial.");
+			draw_centered_label(100+102,12,"More guides will be added to this tutorial in the future, but that's");
+			draw_centered_label(100+116,12,"all for now. Press 'Exit' to close the tutorial.");
 			draw_next_button(1);
 			break;
 		default:
