@@ -2,7 +2,7 @@
 
 This project is released under the terms of the University of Illinois / NCSA Open Source License, an OSI- and FSF-approved, GPL-compatible open source license. The NCSA License is a derivative of the MIT license and the BSD license; it is reproduced here for your convenience:
 
-    Copyright (c) 2011-2015 Kevin Lange.  All rights reserved.
+    Copyright (c) 2011-2016 Kevin Lange.  All rights reserved.
 
                               Dedicated to the memory of
                                    Dennis Ritchie
