@@ -46,8 +46,27 @@ static void draw_image(void) {
 	draw_sprite(ctx, &image, decor_left_width, decor_top_height);
 }
 
+static void draw_checkerboard(void) {
+	static uint32_t colors[2];
+	colors[0] = rgb(128,128,128);
+	colors[1] = rgb(200,200,200);
+	for (int j = 0; j < image.height; j++) {
+		for (int i = 0; i < image.width; i++) {
+			int color = 0;
+			if (i % 24 < 12) {
+				color = (1 - color);
+			}
+			if (j % 24 < 12) {
+				color = (1 - color);
+			}
+			GFX(ctx,(i+decor_left_width),(j+decor_top_height)) = colors[color];
+		}
+	}
+}
+
 static void redraw(void) {
 	render_decorations(win, ctx, file_name);
+	draw_checkerboard();
 	draw_image();
 	flip(ctx);
 	yutani_flip(yctx, win);
