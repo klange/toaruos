@@ -42,10 +42,16 @@ int main (int argc, char * argv[]) {
 		fprintf(stderr, "Can't cat-img to a non-terminal.\n");
 		exit(1);
 	}
+	int i = 1;
+	int no_newline = 0;
+	if (!strcmp(argv[1],"-n")) {
+		i++;
+		no_newline = 1;
+	}
 	int w, h;
 	get_cell_sizes(&w, &h);
 	sprite_t image;
-	load_sprite_png(&image, argv[1]);
+	load_sprite_png(&image, argv[i]);
 
 	int width_in_cells = image.width / w;
 	if (image.width % w) width_in_cells++;
@@ -75,7 +81,9 @@ int main (int argc, char * argv[]) {
 			free(tmp);
 			fflush(stdout);
 		}
-		printf("\r\n");
+		if (y != height_in_cells - 1 || !no_newline) {
+			printf("\r\n");
+		}
 	}
 
 	unraw_output();
