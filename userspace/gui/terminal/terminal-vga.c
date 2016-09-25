@@ -581,6 +581,9 @@ void usage(char * argv[]) {
 			argv[0]);
 }
 
+int unsupported_int(void) { return 0; }
+void unsupported(int x, int y, char * data) { }
+
 term_callbacks_t term_callbacks = {
 	/* writer*/
 	&term_write,
@@ -606,6 +609,9 @@ term_callbacks_t term_callbacks = {
 	&set_term_font_size,
 	/* set_title*/
 	&set_title,
+	unsupported,
+	unsupported_int,
+	unsupported_int,
 };
 
 void reinit(int send_sig) {

@@ -107,6 +107,7 @@ size_t terminal_title_length = 0;
 gfx_context_t * ctx;
 static void render_decors();
 void term_clear();
+void flush_unused_images(void);
 
 void dump_buffer();
 
@@ -392,7 +393,7 @@ _extra_stuff:
 	}
 }
 
-static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
+static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint32_t flags) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	cell->c     = c;
@@ -401,9 +402,20 @@ static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t b
 	cell->flags = flags;
 }
 
+static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
+	uint32_t * data = (uint32_t *)cell->fg;
+	for (uint32_t yy = 0; yy < char_height; ++yy) {
+		for (uint32_t xx = 0; xx < char_width; ++xx) {
+			term_set_point(x * char_width + xx, y * char_height + yy, *data);
+			data++;
+		}
+	}
+}
+
 static void cell_redraw(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+	if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,y,cell); return; }
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 	} else {
@@ -414,6 +426,7 @@ static void cell_redraw(uint16_t x, uint16_t y) {
 static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+	if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,y,cell); return; }
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_BG, TERM_DEFAULT_FG, TERM_DEFAULT_FLAGS | ANSI_SPECBG);
 	} else {
@@ -424,6 +437,7 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 static void cell_redraw_box(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+	if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,y,cell); return; }
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS | ANSI_BORDER);
 	} else {
@@ -511,6 +525,7 @@ void term_scroll(int how_much) {
 			}
 		}
 	}
+	flush_unused_images();
 	yutani_flip(yctx, window);
 }
 
@@ -559,6 +574,7 @@ void redraw_scrollback() {
 			int y = i - scrollback_offset;
 			for (int x = 0; x < term_width; ++x) {
 				term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+				if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,i,cell); continue; }
 				if (((uint32_t *)cell)[0] == 0x00000000) {
 					term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 				} else {
@@ -704,26 +720,65 @@ void term_write(char c) {
 	draw_cursor();
 }
 
-void
-term_set_csr(int x, int y) {
+void term_set_csr(int x, int y) {
 	cell_redraw(csr_x,csr_y);
 	csr_x = x;
 	csr_y = y;
 	draw_cursor();
 }
 
-int
-term_get_csr_x() {
+int term_get_csr_x(void) {
 	return csr_x;
 }
 
-int
-term_get_csr_y() {
+int term_get_csr_y(void) {
 	return csr_y;
 }
 
-void
-term_set_csr_show(uint8_t on) {
+static list_t * images_list = NULL;
+
+void term_set_cell_contents(int x, int y, char * data) {
+	if (!images_list) {
+		images_list = list_create();
+	}
+	char * cell_data = malloc(char_width * char_height * sizeof(uint32_t));
+	memcpy(cell_data, data, char_width * char_height * sizeof(uint32_t));
+	list_insert(images_list, cell_data);
+	cell_set(x, y, ' ', (uint32_t)cell_data, 0, ANSI_EXT_IMG);
+	return;
+}
+
+void flush_unused_images(void) {
+	if (!images_list) return;
+
+	list_t * tmp = list_create();
+	for (int y = 0; y < term_height; ++y) {
+		for (int x = 0; x < term_width; ++x) {
+			term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+			if (cell->flags & ANSI_EXT_IMG) {
+				list_insert(tmp, (void *)cell->fg);
+			}
+		}
+	}
+	foreach(node, images_list) {
+		if (!list_find(tmp, node->value)) {
+			free(node->value);
+		}
+	}
+
+	list_free(images_list);
+	images_list = tmp;
+}
+
+int term_get_cell_width(void) {
+	return char_width;
+}
+
+int term_get_cell_height(void) {
+	return char_height;
+}
+
+void term_set_csr_show(uint8_t on) {
 	cursor_on = on;
 }
 
@@ -791,6 +846,7 @@ void term_clear(int i) {
 			term_set_cell(x, csr_y, ' ');
 		}
 	}
+	flush_unused_images();
 }
 
 char * loadMemFont(char * name, char * ident, size_t * size) {
@@ -1042,6 +1098,9 @@ term_callbacks_t term_callbacks = {
 	set_term_font_size,
 	/* set_title*/
 	set_title,
+	term_set_cell_contents,
+	term_get_cell_width,
+	term_get_cell_height,
 };
 
 void reinit(int send_sig) {

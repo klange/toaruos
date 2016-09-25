@@ -133,6 +133,9 @@ static void _ansi_put(term_state_t * s, char c) {
 			} else if (c == ANSI_OPEN_PAREN) {
 				s->escape = 4;
 				ansi_buf_add(s, c);
+			} else if (c == 'T') {
+				s->escape = 5;
+				ansi_buf_add(s, c);
 			} else {
 				/* This isn't a bracket, we're not actually escaped!
 				 * Get out of here! */
@@ -514,6 +517,37 @@ static void _ansi_put(term_state_t * s, char c) {
 			}
 			s->escape = 0;
 			s->buflen = 0;
+			break;
+		case 5:
+			if (c == 'q') {
+				char out[24];
+				sprintf(out, "\033T%d;%dq", callbacks->get_cell_width(), callbacks->get_cell_height());
+				callbacks->input_buffer_stuff(out);
+				s->escape = 0;
+				s->buflen = 0;
+			} else if (c == 's') {
+				s->img_collected = 0;
+				s->escape = 6;
+				s->img_size = sizeof(uint32_t) * callbacks->get_cell_width() * callbacks->get_cell_height();
+				if (!s->img_data) {
+					s->img_data = malloc(s->img_size);
+				}
+				memset(s->img_data, 0x00, s->img_size);
+			} else {
+				ansi_dump_buffer(s);
+				callbacks->writer(c);
+				s->escape = 0;
+				s->buflen = 0;
+			}
+			break;
+		case 6:
+			s->img_data[s->img_collected++] = c;
+			if (s->img_collected == s->img_size) {
+				callbacks->set_cell_contents(callbacks->get_csr_x(), callbacks->get_csr_y(), s->img_data);
+				callbacks->set_csr(min(callbacks->get_csr_x() + 1, s->width - 1), callbacks->get_csr_y());
+				s->escape = 0;
+				s->buflen = 0;
+			}
 			break;
 	}
 }
