@@ -60,6 +60,7 @@ int main (int argc, char * argv[]) {
 	if (image.height % h) height_in_cells++;
 
 	raw_output();
+	printf("\033[?25l");
 
 	for (int y = 0; y < height_in_cells; y++) {
 		for (int x = 0; x < width_in_cells; x++) {
@@ -86,7 +87,9 @@ int main (int argc, char * argv[]) {
 		}
 	}
 
+	printf("\033[?25h");
 	unraw_output();
+	fflush(stdout);
 
 	return 0;
 }
