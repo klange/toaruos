@@ -18,6 +18,8 @@
 #include <system.h>
 #include <logging.h>
 
+#define NO_LAZY_FPU
+
 process_t * fpu_thread = NULL;
 
 /**
@@ -36,9 +38,15 @@ set_fpu_cw(const uint16_t cw) {
 void enable_fpu(void) {
 	asm volatile ("clts");
 	size_t t;
+	asm volatile ("mov %%cr0, %0" : "=r"(t));
+	t &= ~(1 << 2);
+	t |= (1 << 1);
+	asm volatile ("mov %0, %%cr0" :: "r"(t));
+
 	asm volatile ("mov %%cr4, %0" : "=r"(t));
 	t |= 3 << 9;
 	asm volatile ("mov %0, %%cr4" :: "r"(t));
+
 }
 
 /**
@@ -59,14 +67,14 @@ uint8_t saves[512] __attribute__((aligned(16)));
  */
 void restore_fpu(process_t * proc) {
 	memcpy(&saves,(uint8_t *)&proc->thread.fp_regs,512);
-	asm volatile ("fxrstor %0" : "=m"(saves));
+	asm volatile ("fxrstor (%0)" :: "r"(saves));
 }
 
 /**
  * Save the FPU for a process
  */
 void save_fpu(process_t * proc) {
-	asm volatile ("fxsave %0" : "=m"(saves));
+	asm volatile ("fxsave (%0)" :: "r"(saves));
 	memcpy((uint8_t *)&proc->thread.fp_regs,&saves,512);
 }
 
@@ -75,7 +83,6 @@ void save_fpu(process_t * proc) {
  */
 void init_fpu(void) {
 	asm volatile ("fninit");
-	set_fpu_cw(0x37F);
 }
 
 /**
@@ -85,7 +92,7 @@ void invalid_op(struct regs * r) {
 	/* First, turn the FPU on */
 	enable_fpu();
 	if (fpu_thread == current_process) {
-		/* If this is the tread that last used the FPU, do nothing */
+		/* If this is the thread that last used the FPU, do nothing */
 		return;
 	}
 	if (fpu_thread) {
@@ -108,11 +115,28 @@ void invalid_op(struct regs * r) {
 
 /* Called during a context switch; disable the FPU */
 void switch_fpu(void) {
+#ifdef NO_LAZY_FPU
+	save_fpu((process_t *)current_process);
+#else
 	disable_fpu();
+#endif
+}
+
+void unswitch_fpu(void) {
+#ifdef NO_LAZY_FPU
+	restore_fpu((process_t *)current_process);
+#endif
 }
 
 /* Enable the FPU context handling */
 void fpu_install(void) {
-	isrs_install_handler(6, &invalid_op);
+#ifdef NO_LAZY_FPU
+	enable_fpu();
+	init_fpu();
+	save_fpu((void*)current_process);
+#else
+	enable_fpu();
+	disable_fpu();
 	isrs_install_handler(7, &invalid_op);
+#endif
 }

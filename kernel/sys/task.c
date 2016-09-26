@@ -432,6 +432,7 @@ void switch_next(void) {
 	eip = current_process->thread.eip;
 	esp = current_process->thread.esp;
 	ebp = current_process->thread.ebp;
+	unswitch_fpu();
 
 	/* Validate */
 	if ((eip < (uintptr_t)&code) || (eip > (uintptr_t)heap_end)) {

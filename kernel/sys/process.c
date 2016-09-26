@@ -362,6 +362,7 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 	proc->thread.ebp = 0;
 	proc->thread.eip = 0;
 	proc->thread.fpu_enabled = 0;
+	memcpy((void*)proc->thread.fp_regs, (void*)parent->thread.fp_regs, 512);
 
 	/* Set the process image information from the parent */
 	proc->image.entry       = parent->image.entry;

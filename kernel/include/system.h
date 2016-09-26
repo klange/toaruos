@@ -201,6 +201,7 @@ extern uint32_t now(void);
 
 /* Floating Point Unit */
 extern void switch_fpu(void);
+extern void unswitch_fpu(void);
 extern void fpu_install(void);
 
 /* ELF */
