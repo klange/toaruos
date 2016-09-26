@@ -373,26 +373,22 @@ void term_write(char c) {
 	draw_cursor();
 }
 
-void
-term_set_csr(int x, int y) {
+void term_set_csr(int x, int y) {
 	cell_redraw(csr_x,csr_y);
 	csr_x = x;
 	csr_y = y;
 	draw_cursor();
 }
 
-int
-term_get_csr_x() {
+int term_get_csr_x() {
 	return csr_x;
 }
 
-int
-term_get_csr_y() {
+int term_get_csr_y() {
 	return csr_y;
 }
 
-void
-term_set_csr_show(uint8_t on) {
+void term_set_csr_show(int on) {
 	cursor_on = on;
 }
 
@@ -417,8 +413,7 @@ void flip_cursor() {
 	cursor_flipped = 1 - cursor_flipped;
 }
 
-void
-term_set_cell(int x, int y, uint32_t c) {
+void term_set_cell(int x, int y, uint32_t c) {
 	cell_set(x, y, c, current_fg, current_bg, ansi_state->flags);
 	cell_redraw(x, y);
 }
@@ -585,33 +580,22 @@ int unsupported_int(void) { return 0; }
 void unsupported(int x, int y, char * data) { }
 
 term_callbacks_t term_callbacks = {
-	/* writer*/
-	&term_write,
-	/* set_color*/
-	&term_set_colors,
-	/* set_csr*/
-	&term_set_csr,
-	/* get_csr_x*/
-	&term_get_csr_x,
-	/* get_csr_y*/
-	&term_get_csr_y,
-	/* set_cell*/
-	&term_set_cell,
-	/* cls*/
-	&term_clear,
-	/* scroll*/
-	&term_scroll,
-	/* redraw_cursor*/
-	&term_redraw_cursor,
-	/* input_buffer_stuff*/
-	&input_buffer_stuff,
-	/* set_font_size*/
-	&set_term_font_size,
-	/* set_title*/
-	&set_title,
+	term_write,
+	term_set_colors,
+	term_set_csr,
+	term_get_csr_x,
+	term_get_csr_y,
+	term_set_cell,
+	term_clear,
+	term_scroll,
+	term_redraw_cursor,
+	input_buffer_stuff,
+	set_term_font_size,
+	set_title,
 	unsupported,
 	unsupported_int,
 	unsupported_int,
+	term_set_csr_show,
 };
 
 void reinit(int send_sig) {

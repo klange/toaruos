@@ -778,7 +778,7 @@ int term_get_cell_height(void) {
 	return char_height;
 }
 
-void term_set_csr_show(uint8_t on) {
+void term_set_csr_show(int on) {
 	cursor_on = on;
 }
 
@@ -1074,33 +1074,22 @@ void usage(char * argv[]) {
 }
 
 term_callbacks_t term_callbacks = {
-	/* writer*/
 	&term_write,
-	/* set_color*/
 	term_set_colors,
-	/* set_csr*/
 	term_set_csr,
-	/* get_csr_x*/
 	term_get_csr_x,
-	/* get_csr_y*/
 	term_get_csr_y,
-	/* set_cell*/
 	term_set_cell,
-	/* cls*/
 	term_clear,
-	/* scroll*/
 	term_scroll,
-	/* redraw_cursor*/
 	term_redraw_cursor,
-	/* input_buffer_stuff*/
 	input_buffer_stuff,
-	/* set_font_size*/
 	set_term_font_size,
-	/* set_title*/
 	set_title,
 	term_set_cell_contents,
 	term_get_cell_width,
 	term_get_cell_height,
+	term_set_csr_show,
 };
 
 void reinit(int send_sig) {
