@@ -275,7 +275,7 @@ static fs_node_t * atapi_device_create(struct ata_device * device) {
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;
-	fnode->length  = 0; /* TODO */
+	fnode->length  = atapi_max_offset(device);
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_atapi;
 	fnode->write   = NULL; /* no write support */
@@ -586,12 +586,11 @@ static int ata_device_detect(struct ata_device * dev) {
 		char devname[64];
 		sprintf((char *)&devname, "/dev/cdrom%d", cdrom_number);
 
+		atapi_device_init(dev);
 		fs_node_t * node = atapi_device_create(dev);
 		vfs_mount(devname, node);
 
 		cdrom_number++;
-
-		atapi_device_init(dev);
 
 		return 2;
 	}
