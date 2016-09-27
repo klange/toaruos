@@ -103,7 +103,7 @@ static int term_get_csr_y() {
 	return cur_y;
 }
 
-static void term_set_csr_show(uint8_t on) {
+static void term_set_csr_show(int on) {
 	return;
 }
 
@@ -132,31 +132,26 @@ static void term_clear(int i) {
 	memset(textmemptr, 0x00, sizeof(unsigned short) * 80 * 25);
 }
 
+int unsupported_int(void) { return 0; }
+void unsupported(int x, int y, char * data) { }
+
 term_callbacks_t term_callbacks = {
-	/* writer*/
-	&term_write,
-	/* set_color*/
-	&term_set_colors,
-	/* set_csr*/
-	&term_set_csr,
-	/* get_csr_x*/
-	&term_get_csr_x,
-	/* get_csr_y*/
-	&term_get_csr_y,
-	/* set_cell*/
-	&term_set_cell,
-	/* cls*/
-	&term_clear,
-	/* scroll*/
-	&term_scroll,
-	/* redraw_cursor*/
-	&term_redraw_cursor,
-	/* input_buffer_stuff*/
-	&input_buffer_stuff,
-	/* set_font_size*/
-	&set_term_font_size,
-	/* set_title*/
-	&set_title,
+	term_write,
+	term_set_colors,
+	term_set_csr,
+	term_get_csr_x,
+	term_get_csr_y,
+	term_set_cell,
+	term_clear,
+	term_scroll,
+	term_redraw_cursor,
+	input_buffer_stuff,
+	set_term_font_size,
+	set_title,
+	unsupported,
+	unsupported_int,
+	unsupported_int,
+	term_set_csr_show,
 };
 
 
