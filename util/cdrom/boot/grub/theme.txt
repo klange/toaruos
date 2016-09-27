@@ -14,32 +14,11 @@ desktop-color: "#000000"
 }
 
 + label {
-    top = 60%
-    width = 100%
-    align = center
-    color = #fff
-    text = "Requires a PS/2 keyboard + mouse and at least 256MB of RAM."
-}
-+ label {
-    top = 63%
-    width = 100%
-    align = center
-    color = #fff
-    text = "Use alt+mouse1 to drag windows, alt+f10 to fullscreen."
-}
-+ label {
     top = 66%
     width = 100%
     align = center
     color = #fff
     text = "The default user is 'local' with password 'local'."
-}
-+ label {
-    top = 69%
-    width = 100%
-    align = center
-    color = #fff
-    text = "If video fails, your GPU may not support the necessary 1024x768x32bpp mode."
 }
 + label {
     top = 77%
@@ -62,10 +41,10 @@ desktop-color: "#000000"
     height = 55%
     top = 15%
     item_color = "white"
-    selected_item_color = "blue"
-    item_height = 13
+    selected_item_color = "#77b7ff"
+    item_height = 17
     item_padding = 10
-    item_spacing = 10
+    item_spacing = 6
 }
 
 + progress_bar {
@@ -77,5 +56,6 @@ desktop-color: "#000000"
     show_text = true
     text_color = "255, 255, 255"
     text = "@TIMEOUT_NOTIFICATION_LONG@"
+    fg_color = "119, 183, 255"
 }
 
