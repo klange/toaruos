@@ -98,7 +98,7 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 			return NULL;
 		}
 	}
-	debug_print(WARNING, "Using block %d->0x%x (of %d) on file %s", blockid, t->blocks[blockid], t->block_count, t->name);
+	debug_print(INFO, "Using block %d->0x%x (of %d) on file %s", blockid, t->blocks[blockid], t->block_count, t->name);
 	return t->blocks[blockid];
 }
 
