@@ -25,6 +25,23 @@ void rline_redraw_clean(rline_context_t * context) {
 	fflush(stdout);
 }
 
+/**
+ * Insert characters at the current cursor offset.
+ */
+void rline_insert(rline_context_t * context, const char * what) {
+	size_t insertion_length = strlen(what);
+
+	if (context->collected + insertion_length > context->requested) {
+		insertion_length = context->requested - context->collected;
+	}
+
+	/* Move */
+	memmove(&context->buffer[context->offset + insertion_length], &context->buffer[context->offset], context->collected - context->offset);
+	memcpy(&context->buffer[context->offset], what, insertion_length);
+	context->collected += insertion_length;
+	context->offset += insertion_length;
+}
+
 int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 	/* Initialize context */
 	rline_context_t context = {
@@ -47,6 +64,7 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 	while ((context.collected < context.requested) && (!context.newline)) {
 		uint32_t key_sym = kbd_key(&kbd_state, fgetc(stdin));
 		if (key_sym == KEY_NONE) continue;
+		if (key_sym != '\t') context.tabbed = 0;
 		switch (key_sym) {
 			case KEY_CTRL_C:
 				printf("^C\n");

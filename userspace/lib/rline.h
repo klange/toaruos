@@ -29,6 +29,7 @@ typedef struct rline_callback {
 
 void rline_redraw(rline_context_t * context);
 void rline_redraw_clean(rline_context_t * context);
+void rline_insert(rline_context_t * context, const char * what);
 int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks);
 
 #endif /* _RLINE_H */

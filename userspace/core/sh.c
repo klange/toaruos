@@ -29,6 +29,7 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
 
 #include "lib/list.h"
 #include "lib/kbd.h"
@@ -232,122 +233,162 @@ void redraw_prompt_func_c(rline_context_t * context) {
 	draw_prompt_c();
 }
 
-void tab_complete_func(rline_context_t * context) {
-	char buf[1024];
-	char * pch;
-	char * cmd;
-	char * save;
+void tab_complete_func(rline_context_t * c) {
+	char * dup = malloc(LINE_LEN);
+	
+	memcpy(dup, c->buffer, LINE_LEN);
 
-	memcpy(buf, context->buffer, 1024);
-
-	pch = strtok_r(buf, " ", &save);
-	cmd = pch;
-
-	char * argv[1024];
+	char *pch, *cmd, *save;
+	char *argv[1024];
 	int argc = 0;
+	int cursor = 0;
 
-	if (!cmd) {
+	pch = strtok_r(dup, " ", &save);
+
+	if (!pch) {
 		argv[0] = "";
-		argc = 1;
-	} else {
-		while (pch != NULL) {
-			argv[argc] = (char *)pch;
-			++argc;
-			pch = strtok_r(NULL, " ", &save);
-		}
+		argc = 0;
 	}
 
+	while (pch != NULL) {
+		if (pch - dup <= c->offset) cursor = argc;
+		argv[argc] = pch;
+		++argc;
+		pch = strtok_r(NULL, " ", &save);
+	}
 	argv[argc] = NULL;
 
-	if (argc < 2) {
-		if (context->buffer[strlen(context->buffer) - 1] == ' ' || argc == 0) {
-			if (!context->tabbed) {
-				context->tabbed = 1;
-				return;
+	if (c->offset && c->buffer[c->offset-1] == ' ' && argc) {
+		cursor++;
+	}
+
+	char * word = argv[cursor];
+	int word_offset = word ? (c->offset - (argv[cursor] - dup)) : 0;
+
+	char * prefix = malloc(word_offset + 1);
+	if (word) memcpy(prefix, word, word_offset);
+	prefix[word_offset] = '\0';
+
+	/* Complete file path */
+	list_t * matches = list_create();
+	char * match = NULL;
+	int free_matches = 0;
+	int no_space_if_only = 0;
+	if (cursor == 0 && !strchr(prefix,'/')) {
+		/* Complete binary name */
+		for (int i = 0; i < shell_commands_len; ++i) {
+			if (strstr(shell_commands[i], prefix) == shell_commands[i]) {
+				list_insert(matches, shell_commands[i]);
+				match = shell_commands[i];
 			}
-			fprintf(stderr, "\n");
-			for (int i = 0; i < shell_commands_len; ++i) {
-				fprintf(stderr, "%s", shell_commands[i]);
-				if (i < shell_commands_len - 1) {
+		}
+	} else {
+		free_matches = 1;
+		char * tmp = strdup(prefix);
+		char * last_slash = strrchr(tmp, '/');
+		DIR * dirp;
+		char * compare = prefix;
+		if (last_slash) {
+			*last_slash = '\0';
+			word = word + (last_slash - tmp) + 1;
+			word_offset = word_offset - (last_slash - tmp + 1);
+			compare = word;
+			if (last_slash == tmp) {
+				dirp = opendir("/");
+			} else {
+				dirp = opendir(tmp);
+			}
+		} else {
+			dirp = opendir(".");
+		}
+
+		if (!dirp) {
+			free(tmp);
+			goto finish_tab;
+		}
+
+		struct dirent * ent = readdir(dirp);
+		while (ent != NULL) {
+			if (ent->d_name[0] != '.') {
+				if (!word || strstr(ent->d_name, compare) == ent->d_name) {
+					/* stat it */
+					char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
+					sprintf(x,"%s/%s",tmp,ent->d_name);
+					struct stat statbuf;
+					int t = lstat(x, &statbuf);
+					char * s;
+					if (S_ISDIR(statbuf.st_mode)) {
+						s = malloc(strlen(ent->d_name) + 2);
+						sprintf(s,"%s/", ent->d_name);
+						no_space_if_only = 1;
+					} else {
+						s = strdup(ent->d_name);
+					}
+					list_insert(matches, s);
+					match = s;
+				}
+			}
+			ent = readdir(dirp);
+		}
+		closedir(dirp);
+
+		free(tmp);
+	}
+	if (matches->length == 1) {
+		/* Insert */
+		rline_insert(c, &match[word_offset]);
+		if (word && word_offset == strlen(word) && !no_space_if_only) {
+			rline_insert(c, " ");
+		}
+		rline_redraw(c);
+	} else if (matches->length > 1) {
+		if (!c->tabbed) {
+			/* see if there is a minimum subset we can fill in */
+			size_t j = word_offset;
+			do {
+				char d = match[j];
+				int diff = 0;
+				foreach(node, matches) {
+					char * match = (char *)node->value;
+					if (match[j] != d || match[j] == '\0') diff = 1;
+				}
+				if (diff) break;
+				j++;
+			} while (j < c->requested);
+			if (j > word_offset) {
+				char * tmp = strdup(match);
+				tmp[j] = '\0';
+				rline_insert(c, &tmp[word_offset]);
+				rline_redraw(c);
+				free(tmp);
+			} else {
+				c->tabbed = 1;
+			}
+		} else {
+			/* Print matches */
+			fprintf(stderr,"\n");
+			size_t j = 0;
+			foreach(node, matches) {
+				char * match = (char *)node->value;
+				fprintf(stderr, "%s", match);
+				++j;
+				if (j < matches->length) {
 					fprintf(stderr, ", ");
 				}
 			}
-			fprintf(stderr, "\n");
-			context->callbacks->redraw_prompt(context);
-			rline_redraw(context);
-			return;
-		} else {
-			int j = 0;
-			list_t * matches = list_create();
-			char * match = NULL;
-			for (int i = 0; i < shell_commands_len; ++i) {
-				if (strstr(shell_commands[i], argv[0]) == shell_commands[i]) {
-					list_insert(matches, shell_commands[i]);
-					match = shell_commands[i];
-				}
-			}
-			if (matches->length == 0) {
-				list_free(matches);
-				return;
-			} else if (matches->length == 1) {
-				for (int j = 0; j < strlen(context->buffer); ++j) {
-					printf("\010 \010");
-				}
-				printf("%s", match);
-				fflush(stdout);
-				memcpy(context->buffer, match, strlen(match) + 1);
-				context->collected = strlen(context->buffer);
-				context->offset = context->collected;
-				list_free(matches);
-				return;
-			} else  {
-				if (!context->tabbed) {
-					context->tabbed = 1;
-					list_free(matches);
-					return;
-				}
-				j = matches->length;
-				char tmp[1024];
-				memcpy(tmp, argv[0], strlen(argv[0])+1);
-				while (j == matches->length) {
-					j = 0;
-					int x = strlen(tmp);
-					tmp[x] = match[x];
-					tmp[x+1] = '\0';
-					node_t * node;
-					foreach(node, matches) {
-						char * match = (char *)node->value;
-						if (strstr(match, tmp) == match) {
-							j++;
-						}
-					}
-				}
-				tmp[strlen(tmp)-1] = '\0';
-				memcpy(context->buffer, tmp, strlen(tmp) + 1);
-				context->collected = strlen(context->buffer);
-				context->offset = context->collected;
-				j = 0;
-				fprintf(stderr, "\n");
-				node_t * node;
-				foreach(node, matches) {
-					char * match = (char *)node->value;
-					fprintf(stderr, "%s", match);
-					++j;
-					if (j < matches->length) {
-						fprintf(stderr, ", ");
-					}
-				}
-				fprintf(stderr, "\n");
-				context->callbacks->redraw_prompt(context);
-				fprintf(stderr, "\033[s");
-				rline_redraw(context);
-				list_free(matches);
-				return;
-			}
+			fprintf(stderr,"\n");
+			c->callbacks->redraw_prompt(c);
+			fprintf(stderr, "\033[s");
+			rline_redraw(c);
 		}
-	} else {
-		/* XXX Should complete to file names here */
 	}
+
+finish_tab:
+	if (free_matches) list_destroy(matches);
+	list_free(matches);
+	free(prefix);
+	free(dup);
+
 }
 
 void reverse_search(rline_context_t * context) {
