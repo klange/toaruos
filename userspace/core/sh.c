@@ -311,11 +311,15 @@ void tab_complete_func(rline_context_t * c) {
 		while (ent != NULL) {
 			if (ent->d_name[0] != '.') {
 				if (!word || strstr(ent->d_name, compare) == ent->d_name) {
-					/* stat it */
-					char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
-					sprintf(x,"%s/%s",tmp,ent->d_name);
 					struct stat statbuf;
-					int t = lstat(x, &statbuf);
+					/* stat it */
+					if (last_slash) {
+						char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
+						sprintf(x,"%s/%s",tmp,ent->d_name);
+						int t = lstat(x, &statbuf);
+					} else {
+						int t = lstat(ent->d_name, &statbuf);
+					}
 					char * s;
 					if (S_ISDIR(statbuf.st_mode)) {
 						s = malloc(strlen(ent->d_name) + 2);
