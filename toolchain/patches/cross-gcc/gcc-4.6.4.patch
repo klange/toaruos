@@ -1,0 +1,109 @@
+diff -rupN original/config.sub new/config.sub
+--- original/config.sub	2010-05-25 08:22:07.000000000 -0500
++++ new/config.sub	2011-04-24 19:55:22.000000000 -0500
+@@ -1298,6 +1298,7 @@ case $os in
+ 	      | -sym* | -kopensolaris* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+ 	      | -aos* | -aros* \
++	      | -toaru* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -rupN original/gcc/config/toaru.h new/gcc/config/toaru.h
+--- original/gcc/config/toaru.h	1969-12-31 18:00:00.000000000 -0600
++++ new/gcc/config/toaru.h	2011-04-24 19:51:58.000000000 -0500
+@@ -0,0 +1,20 @@
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS() \
++	do { \
++		builtin_define_std ("toaru"); \
++		builtin_define_std ("unix"); \
++		builtin_assert ("system=toaru"); \
++		builtin_assert ("system=unix"); \
++	} while (0);
++
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "%{!shared: %{!pg:crt0.o%s}} crti.o%s %{!shared:crtbegin.o%s}"
++
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "%{!shared:crtend.o%s} crtn.o%s"
++
++#undef LINK_SPEC
++#define LINK_SPEC "%{shared:-shared} %{!shared: %{!static: %{rdynamic:-export-dynamic} %{!dynamic-linker:-dynamic-linker /lib/ld.so}}}"
++
++#undef TARGET_VERSION
++#define TARGET_VERSION fprintf(stderr, " (i386 toaru)");
+diff -rupN original/gcc/config.gcc new/gcc/config.gcc
+--- original/gcc/config.gcc	2011-03-14 01:05:29.000000000 -0500
++++ new/gcc/config.gcc	2011-04-24 20:04:11.000000000 -0500
+@@ -694,6 +694,12 @@ case ${target} in
+     *) echo 'Unknown thread configuration for VxWorks'; exit 1 ;;
+   esac
+   ;;
++*-*-toaru*)
++  extra_parts="crtbegin.o crtend.o"
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  ;;
+ *-*-elf)
+   # Assume that newlib is being used and so __cxa_atexit is provided.
+   default_use_cxa_atexit=yes
+@@ -1190,6 +1196,11 @@ hppa[12]*-*-hpux11*)
+ 		dwarf2=no
+ 	fi
+ 	;;
++i[34567]86-*-toaru*)
++	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h toaru.h"
++	tmake_file="${tmake_file} i386/t-i386elf t-svr4 i386/t-crtstuff"
++	use_fixproto=yes
++	;;
+ i[34567]86-*-darwin*)
+ 	need_64bit_hwint=yes
+ 	need_64bit_isa=yes
+diff -rupN original/libgcc/config.host new/libgcc/config.host
+--- original/libgcc/config.host	2011-03-14 01:06:23.000000000 -0500
++++ new/libgcc/config.host	2011-04-24 20:00:50.000000000 -0500
+@@ -345,6 +345,8 @@ x86_64-*-mingw*)
+ 	;;
+ i[34567]86-*-interix3*)
+ 	;;
++i[34567]86-*-toaru*)
++	;;
+ ia64*-*-elf*)
+ 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
+ 	tmake_file="ia64/t-ia64"
+diff -rupN original/libstdc++-v3/crossconfig.m4 new/libstdc++-v3/crossconfig.m4
+--- original/libstdc++-v3/crossconfig.m4	2011-02-04 01:26:57.000000000 -0600
++++ new/libstdc++-v3/crossconfig.m4	2011-04-24 19:56:16.000000000 -0500
+@@ -249,6 +249,12 @@ case "${host}" in
+       AC_DEFINE(HAVE_ISNANL)
+     fi
+     ;;
++  *-toaru*)
++    AC_CHECK_HEADERS([sys/types.h local.h float.h])
++    GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
++    GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
+   *-vxworks)
+     AC_DEFINE(HAVE_ACOSF)
+     AC_DEFINE(HAVE_ASINF)
+diff -rupN original/gcc/gengtype.c new/gcc/gengtype.c
+--- original/gcc/gengtype.c
++++ new/gcc/gengtype.c
+@@ -3594,13 +3594,13 @@ write_field_root (outf_p f, pair_p v, type_p type,
+                  int has_length, struct fileloc *line, const char *if_marked,
+                  bool emit_pch, type_p field_type, const char *field_name)
+ {
++  struct pair newv;
+   /* If the field reference is relative to V, rather than to some
+      subcomponent of V, we can mark any subarrays with a single stride.
+      We're effectively treating the field as a global variable in its
+      own right.  */
+   if (v && type == v->type)
+     {
+-      struct pair newv;
+
+       newv = *v;
+       newv.type = field_type;

@@ -23,7 +23,7 @@ function deco () {
 function patc () {
     $BEG "patch" "Patching $1..."
     pushd "$2" > /dev/null
-    patch -p1 < ../../patches/$2.patch > /dev/null
+    patch -p1 < $DIR/patches/$2.patch > /dev/null
     popd > /dev/null
     $END "patch" "$1"
 }

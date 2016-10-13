@@ -15,11 +15,20 @@ MPC=mpc-0.9
 GMP=gmp-5.0.1
 MPFR=mpfr-3.0.1
 GCCV=4.6.4
-GCC=gcc-$GCCV
+GCC=cross-gcc/gcc-$GCCV
 BINUTILS=binutils-2.22
 
 VIRTPREFIX=/usr
 REALPREFIX=$TOARU_SYSROOT
+
+pushd tarballs > /dev/null
+    if [ ! -d "cross-gcc" ]; then
+        mkdir "cross-gcc"
+    fi
+    deco "gcc"  "gcc-core-4.6.4.tar.gz -C cross-gcc" || bail
+    deco "g++"  "gcc-g++-4.6.4.tar.gz -C cross-gcc" || bail
+    patc "gcc"  "cross-gcc/gcc-4.6.4" || bail
+popd
 
 if [ ! -d tarballs/$GCC/mpfr ]; then
     mv tarballs/$MPFR tarballs/$GCC/mpfr
