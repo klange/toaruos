@@ -414,6 +414,15 @@ int main (int argc, char ** argv) {
 	width  = yctx->display_width;
 	height = yctx->display_height;
 
+	wina = yutani_window_create(yctx, width, height);
+	assert(wina);
+	yutani_set_stack(yctx, wina, YUTANI_ZORDER_BOTTOM);
+	ctx = init_graphics_yutani_double_buffer(wina);
+
+	draw_fill(ctx, rgb(0,0,0));
+	flip(ctx);
+	yutani_flip(yctx, wina);
+
 	/* Initialize hashmap for icon cache */
 	icon_cache = hashmap_create(10);
 
@@ -439,10 +448,6 @@ int main (int argc, char ** argv) {
 
 	wallpaper = load_wallpaper();
 
-	wina = yutani_window_create(yctx, width, height);
-	assert(wina);
-	yutani_set_stack(yctx, wina, YUTANI_ZORDER_BOTTOM);
-	ctx = init_graphics_yutani_double_buffer(wina);
 	init_shmemfonts();
 
 	redraw_apps(1);
