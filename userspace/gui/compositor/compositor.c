@@ -1482,6 +1482,13 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 	/* Calculate, move, etc. */
 	window_move(yg, window, w * x, panel_h + h * y);
 
+	if (x == width_div - 1) {
+		w = yg->width - w * x;
+	}
+	if (y == height_div - 1) {
+		h = (yg->height - panel_h) - h * y;
+	}
+
 	yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
 	free(response);
