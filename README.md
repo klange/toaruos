@@ -80,5 +80,3 @@ For instructions on building, see [Testing and Building](https://github.com/klan
 ### IRC ###
 
 For help building the kernel and userspace, join us in `#toaruos` on Freenode (`irc.freenode.net`).
-
-
