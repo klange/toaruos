@@ -24,7 +24,7 @@
 #include "lib/trace.h"
 #define TRACE_APP_NAME "wallpaper"
 
-#define DEFAULT_WALLPAPER "/usr/share/wallpapers/yosemite.png"
+#define DEFAULT_WALLPAPER "/usr/share/wallpapers/default"
 
 #define ICON_X         24
 #define ICON_TOP_Y     40
