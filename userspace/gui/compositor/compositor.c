@@ -1879,7 +1879,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 						break;
 					}
 					if (yg->mouse_window->tiled) {
-						if ((yg->mouse_x - yg->mouse_init_x > UNTILE_SENSITIVITY) || (yg->mouse_y -yg->mouse_init_y > UNTILE_SENSITIVITY)) {
+						if ((abs(yg->mouse_x - yg->mouse_init_x) > UNTILE_SENSITIVITY) || (abs(yg->mouse_y - yg->mouse_init_y) > UNTILE_SENSITIVITY)) {
 					/* Untile it */
 							yg->mouse_window->tiled = 0;
 							/* Position the window such that it's representative of where it was, percentage-wise, in the untiled window */
