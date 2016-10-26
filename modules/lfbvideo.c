@@ -220,9 +220,22 @@ static void res_change_bochs(uint16_t x, uint16_t y) {
 	/* Set Y resolution to 768 */
 	outports(0x1CE, 0x02);
 	outports(0x1CF, y);
+	/* Set bpp to 32 */
+	outports(0x1CE, 0x03);
+	outports(0x1CF, PREFERRED_B);
+	/* Set Virtual Height to stuff */
+	outports(0x1CE, 0x07);
+	outports(0x1CF, PREFERRED_VY);
 	/* Turn it back on */
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x41);
+
+	/* Read X to see if it's something else */
+	outports(0x1CE, 0x01);
+	uint16_t new_x = inports(0x1CF);
+	if (x != new_x) {
+		x = new_x;
+	}
 
 	lfb_resolution_x = x;
 	lfb_resolution_y = y;
@@ -239,24 +252,8 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 	}
 	outports(0x1CF, 0xB0C4);
 	i = inports(0x1CF);
-	/* Disable VBE */
-	outports(0x1CE, 0x04);
-	outports(0x1CF, 0x00);
-	/* Set X resolution to 1024 */
-	outports(0x1CE, 0x01);
-	outports(0x1CF, resolution_x);
-	/* Set Y resolution to 768 */
-	outports(0x1CE, 0x02);
-	outports(0x1CF, resolution_y);
-	/* Set bpp to 32 */
-	outports(0x1CE, 0x03);
-	outports(0x1CF, PREFERRED_B);
-	/* Set Virtual Height to stuff */
-	outports(0x1CE, 0x07);
-	outports(0x1CF, PREFERRED_VY);
-	/* Re-enable VBE */
-	outports(0x1CE, 0x04);
-	outports(0x1CF, 0x41);
+	res_change_bochs(resolution_x, resolution_y);
+	resolution_x = lfb_resolution_x; /* may have changed */
 
 	pci_scan(bochs_scan_pci, -1, &lfb_vid_memory);
 
