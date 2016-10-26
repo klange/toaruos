@@ -16,6 +16,7 @@
 #include <shm.h>
 #include <utsname.h>
 #include <printf.h>
+#include <module.h>
 #include <syscall_nums.h>
 
 static char   hostname[256];
@@ -533,6 +534,22 @@ static int sys_sysfunc(int fn, char ** args) {
 					return create_kernel_tasklet(debug_hook, "[kttydebug]", tty);
 				} else {
 					return -1;
+				}
+			case 8:
+				debug_print(NOTICE, "Loading module %s.", args[0]);
+				{
+					/* Check file existence */
+					fs_node_t * file = kopen(args[0], 0);
+					if (!file) {
+						return 1;
+					}
+					close_fs(file);
+
+					module_data_t * mod_info = module_load(args[0]);
+					if (!mod_info) {
+						return 2;
+					}
+					return 0;
 				}
 		}
 	}
