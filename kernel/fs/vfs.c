@@ -331,6 +331,8 @@ int mkdir_fs(char *name, uint16_t permission) {
 	if (this) {
 		debug_print(ERROR, "Tried to mkdir a dir that already exists? (%s)", path);
 		close_fs(this);
+		free(path);
+		free(parent_path);
 		return -EEXIST;
 	}
 
