@@ -245,6 +245,11 @@ hdd/usr/lib/libtoaru.a: ${CORE_LIBS}
 	@cp userspace/lib/*.h hdd/usr/include/toaru/
 	@${END} "AR" "$@"
 
+hdd/usr/lib/libnetwork.a: userspace/lib/network.o
+	@${BEG} "AR" "$@"
+	@${AR} rcs $@ ${CORE_LIBS}
+	@${END} "AR" "$@"
+
 ####################
 # Hard Disk Images #
 ####################
