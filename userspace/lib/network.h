@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AF_INET 1
 #define AF_UNSPEC 0
 
@@ -96,5 +100,9 @@ int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TOARU_SYS_SOCKET_H */

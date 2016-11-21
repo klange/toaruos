@@ -317,32 +317,16 @@ fs_node_t * socket_ipv4_tcp_create(uint32_t dest, uint16_t target_port, uint16_t
 
 }
 
-
-/* TODO: socket_close - TCP close; UDP... just clean us up */
-/* TODO: socket_open - idk, whatever */
-
-static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
-	/* Should essentially find anything. */
-	debug_print(WARNING, "Need to look up domain or check if is IP: %s", name);
-	/* Block until lookup is complete */
-
-	int port = 80;
-	char * colon;
-	if ((colon = strstr(name, ":"))) {
-		/* Port numbers */
-		*colon = '\0';
-		colon++;
-		port = atoi(colon);
-	}
-
-	uint32_t ip = 0;
+static int gethost(char * name, uint32_t * ip) {
 	if (is_ip(name)) {
 		debug_print(WARNING, "   IP: %x", ip_aton(name));
-		ip = ip_aton(name);
+		*ip = ip_aton(name);
+		return 0;
 	} else {
 		if (hashmap_has(dns_cache, name)) {
-			ip = ip_aton(hashmap_get(dns_cache, name));
+			*ip = ip_aton(hashmap_get(dns_cache, name));
 			debug_print(WARNING, "   In Cache: %s → %x", name, ip);
+			return 0;
 		} else {
 			debug_print(WARNING, "   Still needs look up.");
 			char * xname = strdup(name);
@@ -373,13 +357,36 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 			/* wait for response */
 			sleep_on(dns_waiters);
 			if (hashmap_has(dns_cache, name)) {
-				ip = ip_aton(hashmap_get(dns_cache, name));
+				*ip = ip_aton(hashmap_get(dns_cache, name));
 				debug_print(WARNING, "   Now in cache: %s → %x", name, ip);
+				return 0;
 			} else {
-				return NULL;
+				return 1;
 			}
 		}
 	}
+}
+
+
+/* TODO: socket_close - TCP close; UDP... just clean us up */
+/* TODO: socket_open - idk, whatever */
+
+static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
+	/* Should essentially find anything. */
+	debug_print(WARNING, "Need to look up domain or check if is IP: %s", name);
+	/* Block until lookup is complete */
+
+	int port = 80;
+	char * colon;
+	if ((colon = strstr(name, ":"))) {
+		/* Port numbers */
+		*colon = '\0';
+		colon++;
+		port = atoi(colon);
+	}
+
+	uint32_t ip = 0;
+	if (gethost(name, &ip)) return NULL;
 
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -394,6 +401,21 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	net_connect((struct socket *)fnode->device, ip, port);
 
 	return fnode;
+}
+
+static int ioctl_netfs(fs_node_t * node, int request, void * argp) {
+	switch (request) {
+		case 0x5000: {
+			/* */
+			debug_print(INFO, "DNS query from userspace");
+			void ** x = (void **)argp;
+			char * host = x[0];
+			uint32_t * ip = x[1];
+			/* TODO: Validate */
+			return gethost(host, ip);
+		}
+	}
+	return 0;
 }
 
 static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries) {
@@ -1098,6 +1120,7 @@ static fs_node_t * netfs_create(void) {
 	fnode->flags   = FS_DIRECTORY;
 	fnode->readdir = readdir_netfs;
 	fnode->finddir = finddir_netfs;
+	fnode->ioctl   = ioctl_netfs;
 	fnode->nlink   = 1;
 	return fnode;
 }

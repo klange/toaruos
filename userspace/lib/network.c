@@ -5,16 +5,36 @@
  */
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 
 #include "network.h"
 
-static struct hostent _out_host;
+static struct hostent _out_host = {0};
+static struct in_addr * _out_host_vector[2] = {NULL, NULL};
+static struct in_addr * _out_host_aliases[1] = {NULL};
+static uint32_t _out_addr;
 
 #define UNIMPLEMENTED fprintf(stderr, "[libnetwork] Unimplemented: %s\n", __FUNCTION__)
 
 struct hostent * gethostbyname(const char * name) {
-	UNIMPLEMENTED;
-	return NULL;
+	if (_out_host.h_name) free(_out_host.h_name);
+	_out_host.h_name = strdup(name);
+	int fd = open("/dev/net",O_RDONLY);
+	void * args[2] = {(void *)name,&_out_addr};
+	int ret = ioctl(fd, 0x5000, args);
+	close(fd);
+	if (ret) return NULL;
+
+	_out_host_vector[0] = (struct in_addr *)&_out_addr;
+	_out_host.h_aliases = (char **)&_out_host_aliases;
+	_out_host.h_addrtype = AF_INET;
+	_out_host.h_addr_list = (char**)_out_host_vector;
+	_out_host.h_length = sizeof(uint32_t);
+	return &_out_host;
 }
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
