@@ -80,8 +80,10 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 
 	if (decors_active == INACTIVE) {
 		draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR_INACTIVE, title);
+		draw_string(ctx, window->width - 20, TEXT_OFFSET_Y, TEXTCOLOR_INACTIVE, "✕");
 	} else {
 		draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR, title);
+		draw_string(ctx, window->width - 20, TEXT_OFFSET_Y, TEXTCOLOR, "✕");
 	}
 
 	for (uint32_t i = 0; i < window->width; ++i) {
@@ -92,7 +94,11 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 }
 
 static int check_button_press_simple(yutani_window_t * window, int x, int y) {
-	return 0; /* no buttons in simple mode */
+	if (x >= window->width - 20 && x <= window->width - 2 && y >= 2) {
+		return DECOR_CLOSE;
+	}
+
+	return 0;
 }
 
 static void initialize_simple() {
