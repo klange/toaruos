@@ -22,6 +22,9 @@
 #include "lib/trace.h"
 #define TRACE_APP_NAME "live-wizard"
 
+#define WIZARD_WIDTH  640
+#define WIZARD_HEIGHT 480
+
 static yutani_t * yctx;
 
 static yutani_window_t * win_hints;
@@ -40,11 +43,11 @@ static int should_exit = 0;
 static int current_frame = 0;
 
 static int center_x(int x) {
-	return (yctx->display_width - x) / 2;
+	return ((int)yctx->display_width - x) / 2;
 }
 
 static int center_y(int y) {
-	return (yctx->display_height - y) / 2;
+	return ((int)yctx->display_height - y) / 2;
 }
 
 static int center_win_x(int x) {
@@ -125,7 +128,7 @@ static void redraw(void) {
 			break;
 		case 1:
 			draw_logo();
-			draw_arrow(center_x(640) + 620, center_y(480) - 5, 90);
+			draw_arrow(center_x(WIZARD_WIDTH) + 620, center_y(WIZARD_HEIGHT) - 5, 90);
 			draw_centered_label(100+70,12,"If you wish to exit the tutorial at any time, you can");
 			draw_centered_label(100+84,12,"click the × in the upper right corner of this window.");
 			draw_next_button(0);
@@ -219,6 +222,25 @@ static void do_mouse_stuff(struct yutani_msg_window_mouse_event * me) {
 	previous_buttons = me->buttons;
 }
 
+static void resize_finish(int xwidth, int xheight) {
+	yutani_window_resize_accept(yctx, win_hints, xwidth, xheight);
+
+	cairo_destroy(cr_hints);
+	cairo_surface_destroy(surface_hints);
+
+	reinit_graphics_yutani(ctx_hints, win_hints);
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, win_hints->width);
+	surface_hints = cairo_image_surface_create_for_data(ctx_hints->backbuffer, CAIRO_FORMAT_ARGB32, win_hints->width, win_hints->height, stride);
+	cr_hints = cairo_create(surface_hints);
+
+	yutani_window_resize_done(yctx, win_hints);
+
+	/* Re-center the wizard */
+	yutani_window_move(yctx, win_wizard, center_x(WIZARD_WIDTH), center_y(WIZARD_HEIGHT));
+
+	redraw();
+}
+
 int main(int argc, char * argv[]) {
 
 	TRACE("Opening some windows...");
@@ -231,8 +253,8 @@ int main(int argc, char * argv[]) {
 	yutani_window_update_shape(yctx, win_hints, YUTANI_SHAPE_THRESHOLD_CLEAR);
 	ctx_hints = init_graphics_yutani_double_buffer(win_hints);
 
-	win_wizard = yutani_window_create(yctx, 640, 480);
-	yutani_window_move(yctx, win_wizard, center_x(640), center_y(480));
+	win_wizard = yutani_window_create(yctx, WIZARD_WIDTH, WIZARD_HEIGHT);
+	yutani_window_move(yctx, win_wizard, center_x(WIZARD_WIDTH), center_y(WIZARD_HEIGHT));
 	ctx_wizard = init_graphics_yutani_double_buffer(win_wizard);
 
 	int stride;
@@ -283,7 +305,30 @@ int main(int argc, char * argv[]) {
 								/* force us back to 0,0 */
 								yutani_window_move(yctx, win_hints, 0, 0);
 							}
+						} else if (wm->wid == win_wizard->wid) {
+							if (wm->x != center_x(WIZARD_WIDTH) || wm->y != center_y(WIZARD_HEIGHT)) {
+								yutani_window_move(yctx, win_wizard, center_x(WIZARD_WIDTH), center_y(WIZARD_HEIGHT));
+							}
 						}
+					}
+					break;
+				case YUTANI_MSG_WELCOME:
+					{
+						struct yutani_msg_welcome * mw = (void*)m->data;
+
+						fprintf(stderr, "ct display_width: %d\ndisplay_height: %d\n", yctx->display_width, yctx->display_height);
+						fprintf(stderr, "mw display_width: %d\ndisplay_height: %d\n", mw->display_width, mw->display_height);
+						yutani_window_resize(yctx, win_hints, mw->display_width, mw->display_height);
+					}
+					break;
+				case YUTANI_MSG_RESIZE_OFFER:
+					{
+						/* When we request a resize from the display-size-changed, we need
+						 * to respond to the offer we'll get from the server to finish it */
+						struct yutani_msg_window_resize * wr = (void*)m->data;
+						if (wr->wid == win_hints->wid) {
+							resize_finish(wr->width, wr->height);
+						} /* Else, ignore resize offers for the main window */
 					}
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
