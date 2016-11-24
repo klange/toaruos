@@ -57,7 +57,7 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 	}
 
 	if (out->type == YUTANI_MSG_WELCOME) {
-		struct yutani_msg_welcome * mw = (void *)out;
+		struct yutani_msg_welcome * mw = (void *)out->data;
 		y->display_width = mw->display_width;
 		y->display_height = mw->display_height;
 	}
