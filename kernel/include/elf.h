@@ -89,6 +89,7 @@ typedef struct {
 	Elf32_Addr p_vaddr;
 	Elf32_Addr p_paddr;
 	Elf32_Word p_filesz;
+	Elf32_Word p_memsz;
 	Elf32_Word p_flags;
 	Elf32_Word p_align;
 } Elf32_Phdr;
