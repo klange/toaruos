@@ -560,6 +560,29 @@ static int sys_sysfunc(int fn, char ** args) {
 			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3]);
 			return 0;
 			break;
+
+		/* The following functions are here to support the loader and are probably bad. */
+		case 9:
+			{
+				process_t * proc = (process_t *)current_process;
+				if (proc->group != 0) {
+					proc = process_from_pid(proc->group);
+				}
+				spin_lock(proc->image.lock);
+				/* Set new heap start */
+				proc->image.heap = (uintptr_t)args[0];
+				proc->image.heap_actual = proc->image.heap & 0xFFFFF000;
+				assert(proc->image.heap_actual % 0x1000 == 0);
+				alloc_frame(get_page(proc->image.heap_actual, 1, current_directory), 0, 1);
+				invalidate_tables_at(proc->image.heap_actual);
+				while (proc->image.heap > proc->image.heap_actual) {
+					proc->image.heap_actual += 0x1000;
+					alloc_frame(get_page(proc->image.heap_actual, 1, current_directory), 0, 1);
+					invalidate_tables_at(proc->image.heap_actual);
+				}
+				spin_unlock(proc->image.lock);
+				return 0;
+			}
 		default:
 			debug_print(ERROR, "Bad system function %d", fn);
 			break;
