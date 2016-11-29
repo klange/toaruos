@@ -5,7 +5,7 @@ AR=i686-pc-toaru-ar
 all: ld.so libdemo.so demo
 
 ld.so: linker.c link.ld
-	i686-pc-toaru-gcc -std=c99 -o ld.so -Os -T link.ld linker.c
+	i686-pc-toaru-gcc -std=c99 -U__STRICT_ANSI__ -o ld.so -Os -T link.ld linker.c
 
 demo: demo.c
 	i686-pc-toaru-gcc -o demo demo.c -L. -ldemo
@@ -18,7 +18,7 @@ libc.so:
 	# init and fini don't belong in our shared object
 	${AR} d libc.a lib_a-init.o
 	${AR} d libc.a lib_a-fini.o
-	# Kill reentrant make crap
+	# Remove references to newlib's reentrant malloc
 	${AR} d libc.a lib_a-calloc.o
 	${AR} d libc.a lib_a-callocr.o
 	${AR} d libc.a lib_a-cfreer.o
