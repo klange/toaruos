@@ -139,6 +139,15 @@ typedef struct {
 	Elf32_Word r_info;
 } Elf32_Rel;
 
+typedef struct {
+	Elf32_Sword d_tag;
+	union {
+		Elf32_Word      d_val;
+		Elf32_Addr      d_ptr;
+		Elf32_Off       d_off;
+	} d_un;
+} Elf32_Dyn;
+
 /* sh_type values */
 #define SHT_NONE     0
 #define SHT_PROGBITS 1
