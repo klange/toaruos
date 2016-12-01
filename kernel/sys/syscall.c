@@ -583,6 +583,32 @@ static int sys_sysfunc(int fn, char ** args) {
 				spin_unlock(proc->image.lock);
 				return 0;
 			}
+		case 10:
+			{
+				/* Load pages to fit region. */
+				uintptr_t address = (uintptr_t)args[0];
+				size_t size = (size_t)args[1];
+				/* TODO: Other arguments for read/write? */
+
+				if (address & 0xFFF) {
+					size += address & 0xFFF;
+					address &= 0xFFFFF000;
+				}
+
+				process_t * proc = (process_t *)current_process;
+				if (proc->group != 0) {
+					proc = process_from_pid(proc->group);
+				}
+
+				spin_lock(proc->image.lock);
+				for (size_t x = 0; x < size; x += 0x1000) {
+					alloc_frame(get_page(address + x, 1, current_directory), 0, 1);
+					invalidate_tables_at(address + x);
+				}
+				spin_unlock(proc->image.lock);
+
+				return 0;
+			}
 		default:
 			debug_print(ERROR, "Bad system function %d", fn);
 			break;
