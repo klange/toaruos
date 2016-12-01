@@ -8,6 +8,10 @@
 
 #define TRACE_APP_NAME "ld.so"
 
+#define TRACE_LD(...) do { if (__trace_ld) { TRACE(__VA_ARGS__); } } while (0)
+
+static int __trace_ld = 0;
+
 #include "../kernel/include/elf.h"
 #include "../userspace/lib/trace.h"
 
@@ -18,300 +22,425 @@ typedef int (*entry_point_t)(int, char *[], char**);
 
 extern char end[];
 
-struct elf_object {
+static hashmap_t * dumb_symbol_table;
+static hashmap_t * glob_dat;
+
+typedef struct elf_object {
 	FILE * file;
+
+	/* Full copy of the header. */
 	Elf32_Header header;
-};
 
+	/* Pointers to loaded stuff */
+	char * string_table;
 
-struct reloc {
-	uintptr_t addr;
-	uintptr_t replacement;
-};
+	char * dyn_string_table;
+	size_t dyn_string_table_size;
 
-int return_butts() {
-	return 1234;
+	Elf32_Sym * dyn_symbol_table;
+	size_t dyn_symbol_table_size;
+
+	Elf32_Dyn * dynamic;
+	Elf32_Word * dyn_hash;
+
+	void (*init)(void);
+
+	uintptr_t base;
+
+	list_t * dependencies;
+
+} elf_t;
+
+static elf_t * open_object(const char * path) {
+
+	FILE * f = fopen(path, "r");
+
+	if (!f) {
+		return NULL;
+	}
+
+	elf_t * object = calloc(1, sizeof(elf_t));
+
+	if (!object) {
+		return NULL;
+	}
+
+	object->file = f;
+
+	size_t r = fread(&object->header, sizeof(Elf32_Header), 1, object->file);
+
+	if (!r) {
+		free(object);
+		return NULL;
+	}
+
+	if (object->header.e_ident[0] != ELFMAG0 ||
+	    object->header.e_ident[1] != ELFMAG1 ||
+	    object->header.e_ident[2] != ELFMAG2 ||
+	    object->header.e_ident[3] != ELFMAG3) {
+
+		free(object);
+		return NULL;
+	}
+
+	object->dependencies = list_create();
+
+	return object;
 }
 
-int main(int argc, char * argv[]) {
-	TRACE("Linker end address is %p", &end);
-	TRACE("Linking main object: %s", argv[1]);
+static size_t object_calculate_size(elf_t * object) {
 
-	struct elf_object main;
-
-	main.file = fopen(argv[1],"r");
-
-	size_t r = fread(&main.header, sizeof(Elf32_Header), 1, main.file);
-	TRACE("ELF header from main object read");
-
-	if (main.header.e_ident[0] != ELFMAG0 ||
-		main.header.e_ident[1] != ELFMAG1 ||
-		main.header.e_ident[2] != ELFMAG2 ||
-		main.header.e_ident[3] != ELFMAG3) {
-		TRACE("Bad header?");
-		return 1;
-	}
-
-	switch (main.header.e_type) {
-		case ET_EXEC:
-			TRACE("ELF executable; continuing to load.");
-			break;
-		case ET_NONE:
-		case ET_REL:
-		case ET_DYN:
-		case ET_CORE:
-			TRACE("ELF file, but not an executable.");
-		default:
-			TRACE("Not an ELF executable. Bailing!");
-			return 1;
-	}
-
-	if (main.header.e_machine != EM_386) {
-		TRACE("ELF object has wrong machine type; expected EM_386.");
-		return 1;
-	}
-
-	TRACE("main entry point is at %p", main.header.e_entry);
-
-	TRACE("program headers are at %p", main.header.e_phoff);
-	TRACE("program headers are 0x%x bytes", main.header.e_phentsize);
-	TRACE("there are %d program headers", main.header.e_phnum);
-
-	char * string_table = NULL;
-	char * dyn_string_table = NULL;
-	Elf32_Sym * dyn_symbol_table = NULL;
-
-	uintptr_t latest_heap = (uintptr_t)sbrk(0);
+	uintptr_t base_addr = 0xFFFFFFFF;
+	uintptr_t end_addr  = 0x0;
 
 	{
-
 		size_t headers = 0;
-		Elf32_Phdr *phdr = alloca(main.header.e_phentsize);
-		while (headers < main.header.e_phnum) {
-			fseek(main.file, main.header.e_phoff + main.header.e_phentsize * headers, SEEK_SET);
-			fread(phdr, main.header.e_phentsize, 1, main.file);
+		while (headers < object->header.e_phnum) {
+			Elf32_Phdr phdr;
 
-			/* Print the header type */
-			switch (phdr->p_type) {
+			fseek(object->file, object->header.e_phoff + object->header.e_phentsize * headers, SEEK_SET);
+			fread(&phdr, object->header.e_phentsize, 1, object->file);
+
+			switch (phdr.p_type) {
 				case PT_LOAD:
-#if 1
-					TRACE("[Loadable Segment]");
-					TRACE("  offse: 0x%x", phdr->p_offset);
-					TRACE("  vaddr: 0x%x", phdr->p_vaddr);
-					TRACE("  paddr: 0x%x", phdr->p_paddr);
-					TRACE("  files: 0x%x", phdr->p_filesz);
-					TRACE("  memsz: 0x%x", phdr->p_memsz);
-					TRACE("  align: 0x%x", phdr->p_align);
-#endif
-					/* Load section */
 					{
-						/* Replace this with some sort of mmap */
-						uintptr_t current_heap = (uintptr_t)sbrk(0);
-						char * args[] = {(char*)phdr->p_vaddr};
-						syscall_system_function(9, args);
-						uintptr_t s = (uintptr_t)sbrk(phdr->p_memsz) + phdr->p_memsz;
-						if (s > latest_heap) {
-							latest_heap = s;
-							while (latest_heap % 0x1000) latest_heap++;
+						if (phdr.p_vaddr < base_addr) {
+							base_addr = phdr.p_vaddr;
 						}
-						fseek(main.file, phdr->p_offset, SEEK_SET);
-						fread((void*)phdr->p_vaddr, phdr->p_filesz, 1, main.file);
-						size_t read = phdr->p_filesz;
-						while (read < phdr->p_memsz) {
-							*(char *)(phdr->p_vaddr + read) = 0;
-							read++;
-						}
-
-						/* Return the heap to its proper location */
-						{
-							char * args[] = {(char*)current_heap};
-							TRACE("Returning heap to 0x%x", current_heap);
-							syscall_system_function(9, args);
+						if (phdr.p_memsz + phdr.p_vaddr > end_addr) {
+							end_addr = phdr.p_memsz + phdr.p_vaddr;
 						}
 					}
 					break;
-#if 1
-				case PT_DYNAMIC:
-					TRACE("[Dynamic Loading Information]");
-					break;
-				case PT_INTERP:
-					TRACE("[Interpreter Path]");
-					break;
 				default:
-					TRACE("[Unused Segement]");
 					break;
-#endif
 			}
 
 			headers++;
 		}
-		free(phdr);
 	}
 
+	if (base_addr == 0xFFFFFFFF) return 0;
+	return end_addr - base_addr;
+}
+
+static uintptr_t object_load(elf_t * object, uintptr_t base) {
+
+	uintptr_t end_addr = 0x0;
+
+	object->base = base;
+
+	/* Load object */
 	{
-		TRACE("Scanning for string table...");
-		Elf32_Shdr * shdr = alloca(main.header.e_shentsize);
+		size_t headers = 0;
+		while (headers < object->header.e_phnum) {
+			Elf32_Phdr phdr;
+
+			fseek(object->file, object->header.e_phoff + object->header.e_phentsize * headers, SEEK_SET);
+			fread(&phdr, object->header.e_phentsize, 1, object->file);
+
+			switch (phdr.p_type) {
+				case PT_LOAD:
+					{
+						char * args[] = {(char *)(base + phdr.p_vaddr), (char *)phdr.p_memsz};
+						syscall_system_function(10, args);
+						fseek(object->file, phdr.p_offset, SEEK_SET);
+						fread((void *)(base + phdr.p_vaddr), phdr.p_filesz, 1, object->file);
+						size_t r = phdr.p_filesz;
+						while (r < phdr.p_memsz) {
+							*(char *)(phdr.p_vaddr + base + r) = 0;
+							r++;
+						}
+
+						if (end_addr < phdr.p_vaddr + base + phdr.p_memsz) {
+							end_addr = phdr.p_vaddr + base + phdr.p_memsz;
+						}
+					}
+					break;
+				case PT_DYNAMIC:
+					{
+						object->dynamic = (Elf32_Dyn *)(base + phdr.p_vaddr);
+					}
+					break;
+				default:
+					break;
+			}
+
+			headers++;
+		}
+	}
+
+	return end_addr;
+}
+
+static int object_postload(elf_t * object) {
+
+	/* Load section string table */
+	{
+		Elf32_Shdr shdr;
+		fseek(object->file, object->header.e_shoff + object->header.e_shentsize * object->header.e_shstrndx, SEEK_SET);
+		fread(&shdr, object->header.e_shentsize, 1, object->file);
+		object->string_table = malloc(shdr.sh_size);
+		fseek(object->file, shdr.sh_offset, SEEK_SET);
+		fread(object->string_table, shdr.sh_size, 1, object->file);
+	}
+
+	if (object->dynamic) {
+		Elf32_Dyn * table;
+
+		/* Locate string table */
+		table = object->dynamic;
+		while (table->d_tag) {
+			switch (table->d_tag) {
+				case 4:
+					object->dyn_hash = (Elf32_Word *)(object->base + table->d_un.d_ptr);
+					object->dyn_symbol_table_size = object->dyn_hash[1];
+					break;
+				case 5: /* Dynamic String Table */
+					object->dyn_string_table = (char *)(object->base + table->d_un.d_ptr);
+					break;
+				case 6: /* Dynamic Symbol Table */
+					object->dyn_symbol_table = (Elf32_Sym *)(object->base + table->d_un.d_ptr);
+					break;
+				case 10: /* Size of string table */
+					object->dyn_string_table_size = table->d_un.d_val;
+					break;
+				case 12:
+					object->init = (void (*)(void))(table->d_un.d_ptr + object->base);
+					break;
+			}
+			table++;
+		}
+
+		table = object->dynamic;
+		while (table->d_tag) {
+			switch (table->d_tag) {
+				case 1:
+					list_insert(object->dependencies, object->dyn_string_table + table->d_un.d_val);
+					break;
+			}
+			table++;
+		}
+	}
+
+	return 0;
+}
+
+static int need_symbol_for_type(unsigned char type) {
+	switch(type) {
+		case 1:
+		case 5:
+		case 6:
+		case 7:
+			return 1;
+		default:
+			return 0;
+	}
+}
+
+
+static int object_relocate(elf_t * object) {
+	if (object->dyn_symbol_table) {
+		Elf32_Sym * table = object->dyn_symbol_table;
 		size_t i = 0;
-		for (uintptr_t x = 0 ; x < main.header.e_shentsize * main.header.e_shnum; x += main.header.e_shentsize) {
-			fseek(main.file, main.header.e_shoff + x, SEEK_SET);
-			fread(shdr, main.header.e_shentsize, 1, main.file);
-			if (shdr->sh_type == SHT_STRTAB) {
-				if (i == main.header.e_shstrndx) {
-					TRACE("Found section string table, copying somewhere safe.");
-					string_table = malloc(shdr->sh_size);
-					fseek(main.file, shdr->sh_offset, SEEK_SET);
-					fread(string_table, shdr->sh_size, 1, main.file);
+		while (i < object->dyn_symbol_table_size) {
+			char * symname = (char *)((uintptr_t)object->dyn_string_table + table->st_name);
+			if (!hashmap_has(dumb_symbol_table, symname)) {
+				if (table->st_shndx) {
+					hashmap_set(dumb_symbol_table, symname, (void*)(table->st_value + object->base));
+				}
+			} else {
+				if (table->st_shndx) {
+					table->st_value = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 				}
 			}
+			table++;
 			i++;
 		}
 	}
 
-	if (!string_table) {
-		TRACE("no section string table?");
+	size_t i = 0;
+	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
+		Elf32_Shdr shdr;
+		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
+		fread(&shdr, object->header.e_shentsize, 1, object->file);
+
+		if (shdr.sh_type == 9) {
+			Elf32_Rel * table = (Elf32_Rel *)(shdr.sh_addr + object->base);
+			while ((uintptr_t)table - ((uintptr_t)shdr.sh_addr + object->base) < shdr.sh_size) {
+				unsigned int  symbol = ELF32_R_SYM(table->r_info);
+				unsigned char type = ELF32_R_TYPE(table->r_info);
+				Elf32_Sym * sym = &object->dyn_symbol_table[symbol];
+
+				char * symname;
+				uintptr_t x = sym->st_value + object->base;
+				if ((sym->st_shndx == 0) && need_symbol_for_type(type) || (type == 5)) {
+					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
+					if (hashmap_has(dumb_symbol_table, symname)) {
+						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
+					} else {
+						fprintf(stderr, "Symbol not found: %s\n", symname);
+						x = 0x0;
+					}
+				}
+
+				/* Relocations, symbol lookups, etc. */
+				switch (type) {
+					case 6: /* GLOB_DAT */
+						if (hashmap_has(glob_dat, symname)) {
+							x = (uintptr_t)hashmap_get(glob_dat, symname);
+						}
+					case 7: /* JUMP_SLOT */
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+					case 1: /* 32 */
+						x += *((ssize_t *)(table->r_offset + object->base));
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+					case 2: /* PC32 */
+						x += *((ssize_t *)(table->r_offset + object->base));
+						x -= (table->r_offset + object->base);
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+					case 8: /* RELATIVE */
+						x = object->base;
+						x += *((ssize_t *)(table->r_offset + object->base));
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+					case 5: /* COPY */
+						memcpy((void *)(table->r_offset + object->base), (void *)x, sym->st_size);
+						break;
+					default:
+						TRACE_LD("Unknown relocation type: %d", type);
+				}
+
+				table++;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static void object_find_copy_relocations(elf_t * object) {
+	size_t i = 0;
+	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
+		Elf32_Shdr shdr;
+		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
+		fread(&shdr, object->header.e_shentsize, 1, object->file);
+
+		if (shdr.sh_type == 9) {
+			Elf32_Rel * table = (Elf32_Rel *)(shdr.sh_addr + object->base);
+			while ((uintptr_t)table - ((uintptr_t)shdr.sh_addr + object->base) < shdr.sh_size) {
+				unsigned char type = ELF32_R_TYPE(table->r_info);
+				if (type == 5) {
+					unsigned int  symbol = ELF32_R_SYM(table->r_info);
+					Elf32_Sym * sym = &object->dyn_symbol_table[symbol];
+					char * symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
+					hashmap_set(glob_dat, symname, (void *)table->r_offset);
+				}
+				table++;
+			}
+		}
+	}
+
+}
+
+static void * object_find_symbol(elf_t * object, const char * symbol_name) {
+	if (!object->dyn_symbol_table) return NULL;
+
+	Elf32_Sym * table = object->dyn_symbol_table;
+	size_t i = 0;
+	while (i < object->dyn_symbol_table_size) {
+		if (!strcmp(symbol_name, (char *)((uintptr_t)object->dyn_string_table + table->st_name))) {
+			return (void *)(table->st_value + object->base);
+		}
+		table++;
+		i++;
+	}
+
+	return NULL;
+}
+
+
+static struct {
+	const char * name;
+	void * symbol;
+} ld_builtin_exports[] = {
+	{"_dl_open_object", open_object},
+	{NULL, NULL}
+};
+
+int main(int argc, char * argv[]) {
+
+	char * trace_ld_env = getenv("LD_DEBUG");
+	if (trace_ld_env && (!strcmp(trace_ld_env,"1") || !strcmp(trace_ld_env,"yes"))) {
+		__trace_ld = 1;
+	}
+
+	dumb_symbol_table = hashmap_create(10);
+	glob_dat = hashmap_create(10);
+
+	elf_t * main_obj = open_object(argv[1]);
+
+	if (!main_obj) {
+		fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], argv[1]);
 		return 1;
 	}
 
-	{
-		TRACE("Scanning for dynamic string table...");
-		Elf32_Shdr * shdr = alloca(main.header.e_shentsize);
-		size_t i = 0;
-		for (uintptr_t x = 0 ; x < main.header.e_shentsize * main.header.e_shnum; x += main.header.e_shentsize) {
-			fseek(main.file, main.header.e_shoff + x, SEEK_SET);
-			fread(shdr, main.header.e_shentsize, 1, main.file);
-			if (shdr->sh_type == SHT_STRTAB) {
-				if (!strcmp((char *)((uintptr_t)string_table + shdr->sh_name), ".dynstr")) {
-					TRACE("Found symbol string table. It is loaded at 0x%x, storing that for later.", shdr->sh_addr);
-					dyn_string_table = (char *)shdr->sh_addr;
-				}
-			}
-			i++;
+	size_t main_size = object_calculate_size(main_obj);
+	uintptr_t end_addr = object_load(main_obj, 0x0);
+	object_postload(main_obj);
+
+	object_find_copy_relocations(main_obj);
+
+	hashmap_t * libs = hashmap_create(10);
+
+	TRACE_LD("Loading dependencies.");
+	node_t * item;
+	while (item = list_pop(main_obj->dependencies)) {
+		while (end_addr & 0xFFF) {
+			end_addr++;
 		}
-	}
 
-	{
-		TRACE("Scanning for dynamic symbol table...");
-		Elf32_Shdr * shdr = alloca(main.header.e_shentsize);
-		size_t i = 0;
-		for (uintptr_t x = 0 ; x < main.header.e_shentsize * main.header.e_shnum; x += main.header.e_shentsize) {
-			fseek(main.file, main.header.e_shoff + x, SEEK_SET);
-			fread(shdr, main.header.e_shentsize, 1, main.file);
-			if (shdr->sh_type == 11) { /* TODO constant */
-				if (!strcmp((char *)((uintptr_t)string_table + shdr->sh_name), ".dynsym")) {
-					TRACE("Found dynamic symbol table. It is loaded at 0x%x, storing that for later.", shdr->sh_addr);
-					Elf32_Sym * table = (Elf32_Sym *)(shdr->sh_addr);
-					dyn_symbol_table = table;
-					while ((uintptr_t)table - ((uintptr_t)shdr->sh_addr) < shdr->sh_size) {
-						TRACE("%s: 0x%x [0x%x]", (char *)((uintptr_t)dyn_string_table + table->st_name), table->st_value, table->st_size);
-						table++;
-					}
-				}
-			}
-			i++;
+		char * lib_name = item->value;
+		if (!strcmp(lib_name, "libg.so")) goto nope;
+		elf_t * lib = open_object(lib_name);
+		if (!lib) {
+			fprintf(stderr, "Failed to load dependency '%s'.\n", lib_name);
+			return 1;
 		}
+		hashmap_set(libs, lib_name, lib);
+
+		TRACE_LD("Loading %s at 0x%x", lib_name, end_addr);
+		end_addr = object_load(lib, end_addr);
+		object_postload(lib);
+		TRACE_LD("Relocating %s", lib_name);
+		object_relocate(lib);
+
+		fclose(lib->file);
+
+		/* Execute init */
+		lib->init();
+
+nope:
+		free(item);
 	}
 
-	if (!dyn_symbol_table) {
-		TRACE("WARNING: No dynamic symbol table found?");
-	}
-
-	list_t * stuff_to_load = list_create();
-
-	{
-		TRACE("Scanning for dynamic section...");
-		Elf32_Shdr * shdr = alloca(main.header.e_shentsize);
-		size_t i = 0;
-		for (uintptr_t x = 0 ; x < main.header.e_shentsize * main.header.e_shnum; x += main.header.e_shentsize) {
-			fseek(main.file, main.header.e_shoff + x, SEEK_SET);
-			fread(shdr, main.header.e_shentsize, 1, main.file);
-			if (shdr->sh_type == 6) { /* TODO constant */
-				TRACE("Found dynamic section. Loaded at 0x%x.", shdr->sh_addr);
-				Elf32_Dyn * table = (Elf32_Dyn *)(shdr->sh_addr);
-				while ((uintptr_t)table - ((uintptr_t)shdr->sh_addr) < shdr->sh_size) {
-					if (!table->d_tag) break;
-					switch (table->d_tag) {
-						case 1:
-							TRACE("NEEDED - %s", dyn_string_table + table->d_un.d_val);
-							list_insert(stuff_to_load, dyn_string_table + table->d_un.d_val);
-							break;
-						case 5:
-							TRACE("STRTAB - 0x%x", table->d_un.d_ptr);
-							break;
-						case 6:
-							TRACE("STRTAB - 0x%x", table->d_un.d_ptr);
-							break;
-						case 12:
-							TRACE("INIT   - 0x%x", table->d_un.d_ptr);
-							break;
-						case 13:
-							TRACE("INIT   - 0x%x", table->d_un.d_ptr);
-							break;
-						default:
-							TRACE("%d - 0x%x", table->d_tag, table->d_un);
-					}
-					table++;
-				}
-			}
-			i++;
-		}
+	TRACE_LD("Relocating main object");
+	object_relocate(main_obj);
+	TRACE_LD("Placing heap at end");
+	while (end_addr & 0xFFF) {
+		end_addr++;
 	}
 
 	{
-		TRACE("Need to load:");
-		foreach(item, stuff_to_load) {
-			TRACE(" - %s", item->value);
-		}
-	}
-
-	{
-		TRACE("Searching for REL sections to resolve.");
-		Elf32_Shdr * shdr = alloca(main.header.e_shentsize);
-		size_t i = 0;
-		for (uintptr_t x = 0 ; x < main.header.e_shentsize * main.header.e_shnum; x += main.header.e_shentsize) {
-			fseek(main.file, main.header.e_shoff + x, SEEK_SET);
-			fread(shdr, main.header.e_shentsize, 1, main.file);
-			if (shdr->sh_type == 9) { /* TODO constant */
-				Elf32_Rel * table = (Elf32_Rel *)(shdr->sh_addr);
-				while ((uintptr_t)table - ((uintptr_t)shdr->sh_addr) < shdr->sh_size) {
-					unsigned int  symbol = ELF32_R_SYM(table->r_info);
-					unsigned char type = ELF32_R_TYPE(table->r_info);
-					Elf32_Sym * sym = &dyn_symbol_table[symbol];
-					TRACE("offset[0x%x] = %d %d (%s)", table->r_offset, symbol, type, dyn_string_table + sym->st_name);
-					if (type == 6) {
-						/* blob dat, memcpy size of symbol */
-						memcpy((void *)table->r_offset, &sym->st_value, sizeof(uintptr_t));
-					} else if (type == 7) {
-						if (!strcmp(dyn_string_table + sym->st_name, "return_42") ) {
-							/* lol */
-							uintptr_t x = (uintptr_t)&return_butts;
-							memcpy((void *)table->r_offset, &x, sizeof(x));
-						}
-					}
-					table++;
-				}
-			}
-			i++;
-		}
-	}
-
-	{
-		TRACE("Examining all section headers...");
-		Elf32_Shdr * shdr = alloca(main.header.e_shentsize);
-		for (uintptr_t x = 0 ; x < main.header.e_shentsize * main.header.e_shnum; x += main.header.e_shentsize) {
-			fseek(main.file, main.header.e_shoff + x, SEEK_SET);
-			fread(shdr, main.header.e_shentsize, 1, main.file);
-
-			TRACE("[%d] %s at offset 0x%x of size 0x%x", shdr->sh_type, (char *)((uintptr_t)string_table + shdr->sh_name), shdr->sh_offset, shdr->sh_size);
-		}
-	}
-
-	/* Place the heap at the end */
-	{
-		TRACE("Returning heap to 0x%x", latest_heap);
-		char * args[] = {(char*)latest_heap};
+		char * args[] = {(char*)end_addr};
 		syscall_system_function(9, args);
 	}
-	entry_point_t entry = (entry_point_t)main.header.e_entry;
+	TRACE_LD("Jumping to entry point");
+
+	entry_point_t entry = (entry_point_t)main_obj->header.e_entry;
 	entry(argc-1,argv+1,environ);
 
 	return 0;

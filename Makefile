@@ -5,10 +5,13 @@ AR=i686-pc-toaru-ar
 all: ld.so libdemo.so demo
 
 ld.so: linker.c link.ld
-	i686-pc-toaru-gcc -std=c99 -U__STRICT_ANSI__ -o ld.so -Os -T link.ld linker.c
+	i686-pc-toaru-gcc -static -std=c99 -g -U__STRICT_ANSI__ -o ld.so -Os -T link.ld linker.c
 
 demo: demo.c
-	i686-pc-toaru-gcc -o demo demo.c -L. -ldemo
+	i686-pc-toaru-gcc -o demo -g demo.c -L. -ldemo
+
+demob: demob.c
+	i686-pc-toaru-gcc -o demob demob.c -L.
 
 libdemo.so: libdemo.c
 	i686-pc-toaru-gcc -shared -fPIC -Wl,-soname,libdemo.so -o libdemo.so libdemo.c
@@ -38,6 +41,7 @@ libc.so:
 
 go: all
 	cp demo ../hdd/bin/ld-demo
+	cp demob ../hdd/bin/ld-demob
 	cp libdemo.so ../hdd/bin/libdemo.so
 	cp libc.so ../hdd/bin/libc.so
 	cp ld.so ../hdd/bin/ld.so
