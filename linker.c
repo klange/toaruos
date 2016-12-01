@@ -229,6 +229,7 @@ static int object_postload(elf_t * object) {
 static int need_symbol_for_type(unsigned char type) {
 	switch(type) {
 		case 1:
+		case 2:
 		case 5:
 		case 6:
 		case 7:
