@@ -47,12 +47,13 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 			/* Find interpreter? */
 			debug_print(WARNING, "Dynamic executable");
 
-			unsigned int nargc = argc + 1;
+			unsigned int nargc = argc + 3;
 			char * args[nargc];
 			args[0] = "ld.so";
-			args[1] = strdup(current_process->name);
-			int j = 2;
-			for (int i = 1; i < argc; ++i, ++j) {
+			args[1] = "-e";
+			args[2] = strdup(current_process->name);
+			int j = 3;
+			for (int i = 0; i < argc; ++i, ++j) {
 				args[j] = argv[i];
 			}
 			args[j] = NULL;
