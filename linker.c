@@ -44,6 +44,8 @@ typedef struct elf_object {
 	Elf32_Word * dyn_hash;
 
 	void (*init)(void);
+	void (**ctors)(void);
+	size_t ctors_size;
 
 	uintptr_t base;
 
@@ -223,6 +225,18 @@ static int object_postload(elf_t * object) {
 		}
 	}
 
+	size_t i = 0;
+	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
+		Elf32_Shdr shdr;
+		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
+		fread(&shdr, object->header.e_shentsize, 1, object->file);
+
+		if (!strcmp((char *)((uintptr_t)object->string_table + shdr.sh_name), ".ctors")) {
+			object->ctors = (void *)(shdr.sh_addr + object->base);
+			object->ctors_size = shdr.sh_size;
+		}
+	}
+
 	return 0;
 }
 
@@ -252,7 +266,7 @@ static int object_relocate(elf_t * object) {
 				}
 			} else {
 				if (table->st_shndx) {
-					table->st_value = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
+					//table->st_value = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 				}
 			}
 			table++;
@@ -273,10 +287,12 @@ static int object_relocate(elf_t * object) {
 				unsigned char type = ELF32_R_TYPE(table->r_info);
 				Elf32_Sym * sym = &object->dyn_symbol_table[symbol];
 
-				char * symname;
+				char * symname = NULL;
 				uintptr_t x = sym->st_value + object->base;
-				if ((sym->st_shndx == 0) && need_symbol_for_type(type) || (type == 5)) {
+				if (need_symbol_for_type(type) || (type == 5)) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
+				}
+				if ((sym->st_shndx == 0) && need_symbol_for_type(type) || (type == 5)) {
 					if (hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 					} else {
@@ -397,6 +413,9 @@ int main(int argc, char * argv[]) {
 
 	hashmap_t * libs = hashmap_create(10);
 
+	list_t * ctor_libs = list_create();
+	list_t * init_libs = list_create();
+
 	TRACE_LD("Loading dependencies.");
 	node_t * item;
 	while (item = list_pop(main_obj->dependencies)) {
@@ -421,8 +440,13 @@ int main(int argc, char * argv[]) {
 
 		fclose(lib->file);
 
-		/* Execute init */
-		lib->init();
+		/* Execute constructors */
+		if (lib->ctors) {
+			list_insert(ctor_libs, lib);
+		}
+		if (lib->init) {
+			list_insert(init_libs, lib);
+		}
 
 nope:
 		free(item);
@@ -434,6 +458,28 @@ nope:
 	while (end_addr & 0xFFF) {
 		end_addr++;
 	}
+
+	char * ld_no_ctors = getenv("LD_DISABLE_CTORS");
+	if (ld_no_ctors && (!strcmp(ld_no_ctors,"1") || !strcmp(ld_no_ctors,"yes"))) {
+		TRACE_LD("skipping ctors because LD_DISABLE_CTORS was set");
+	} else {
+		foreach(node, ctor_libs) {
+			elf_t * lib = node->value;
+			if (lib->ctors) {
+				TRACE_LD("Executing ctors...");
+				for (size_t i = 0; i < lib->ctors_size; i += sizeof(uintptr_t)) {
+					TRACE_LD(" 0x%x()", lib->ctors[i]);
+					lib->ctors[i]();
+				}
+			}
+		}
+	}
+
+	foreach(node, init_libs) {
+		elf_t * lib = node->value;
+		lib->init();
+	}
+
 
 	{
 		char * args[] = {(char*)end_addr};
