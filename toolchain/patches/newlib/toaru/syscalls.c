@@ -92,6 +92,7 @@ DEFN_SYSCALL5(mount, SYS_MOUNT, char *, char *, char *, unsigned long, void *);
 DEFN_SYSCALL2(symlink, SYS_SYMLINK, char *, char *);
 DEFN_SYSCALL3(readlink, SYS_READLINK, char *, char *, int);
 DEFN_SYSCALL2(lstat, SYS_LSTAT, char *, void *);
+DEFN_SYSCALL1(fchdir, SYS_FCHDIR, int);
 
 static int toaru_debug_stubs_enabled(void) {
 	static int checked = 0;
@@ -711,6 +712,17 @@ int symlink(char * target, char * name) {
 
 int readlink(char * name, char * buf, size_t len) {
 	int r = syscall_readlink(name, buf, len);
+
+	if (r < 0) {
+		errno = -r;
+		return -1;
+	}
+
+	return r;
+}
+
+int fchdir(int filedes) {
+	int r = syscall_fchdir(filedes);
 
 	if (r < 0) {
 		errno = -r;

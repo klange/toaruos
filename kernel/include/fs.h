@@ -89,6 +89,7 @@ typedef struct fs_node {
 	uint32_t offset;       /* Offset for read operations XXX move this to new "file descriptor" entry */
 	int32_t refcount;
 	uint32_t nlink;
+	char * path;            /* The path the node was opened at. */
 } fs_node_t;
 
 struct dirent {
