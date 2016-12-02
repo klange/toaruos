@@ -5,6 +5,7 @@
 #include <alloca.h>
 #include <unistd.h>
 #include <syscall.h>
+#include <sys/stat.h>
 
 #define TRACE_APP_NAME "ld.so"
 
@@ -53,9 +54,46 @@ typedef struct elf_object {
 
 } elf_t;
 
+static char * find_lib(const char * file) {
+
+	if (file[0] == '/') return strdup(file);
+
+	char * path = getenv("LD_LIBRARY_PATH");
+	if (!path) {
+		path = "/usr/lib:/lib";
+	}
+	char * xpath = strdup(path);
+	int found = 0;
+	char * p, * tokens[10], * last;
+	int i = 0;
+	for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
+		int r;
+		struct stat stat_buf;
+		char * exe = malloc(strlen(p) + strlen(file) + 2);
+		strcpy(exe, p);
+		strcat(exe, "/");
+		strcat(exe, file);
+
+		r = stat(exe, &stat_buf);
+		if (r != 0) {
+			free(exe);
+			continue;
+		}
+		return exe;
+	}
+	free(xpath);
+
+	return NULL;
+}
+
 static elf_t * open_object(const char * path) {
 
-	FILE * f = fopen(path, "r");
+	const char * file = find_lib(path);
+	if (!file) return NULL;
+
+	FILE * f = fopen(file, "r");
+
+	free(file);
 
 	if (!f) {
 		return NULL;
