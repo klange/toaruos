@@ -40,10 +40,36 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 		return -1;
 	}
 
+	/* See if it's a dyn */
+
 	release_directory_for_exec(current_directory);
 	invalidate_page_tables();
 
 	current_process->image.entry = 0xFFFFFFFF;
+
+	for (uintptr_t x = 0; x < (uint32_t)header->e_phentsize * header->e_phnum; x += header->e_phentsize) {
+		Elf32_Phdr * phdr = (Elf32_Phdr *)((uintptr_t)header + (header->e_phoff + x));
+		if (phdr->p_type == PT_DYNAMIC) {
+			/* Dynamic! */
+			free(header);
+			close_fs(file);
+			/* Find interpreter? */
+
+			debug_print(WARNING, "Dynamic executable");
+
+			unsigned int nargc = argc + 1;
+			char * args[nargc];
+			args[0] = "ld.so";
+			args[1] = strdup(current_process->name);
+			int j = 2;
+			for (int i = 1; i < argc; ++i, ++j) {
+				args[j] = argv[i];
+			}
+			args[j] = NULL;
+
+			return exec("/lib/ld.so", nargc, args, env);
+		}
+	}
 
 	/* Load the loadable segments from the binary */
 	for (uintptr_t x = 0; x < (uint32_t)header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
