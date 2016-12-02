@@ -13,48 +13,38 @@
 #include <process.h>
 #include <logging.h>
 
-int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env) {
-	Elf32_Header * header = (Elf32_Header *)malloc(file->length + 100);
+int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env, int interp) {
+	Elf32_Header header;
 
-	debug_print(NOTICE, "---> Starting load.");
-	IRQ_RES;
-	read_fs(file, 0, file->length, (uint8_t *)header);
-	IRQ_OFF;
-	debug_print(NOTICE, "---> Finished load.");
+	read_fs(file, 0, sizeof(Elf32_Header), (uint8_t *)&header);
 
-	current_process->name = malloc(strlen(path) + 1);
-	memcpy(current_process->name, path, strlen(path) + 1);
-
-	current_process->cmdline = argv;
-
-	/* Alright, we've read the binary, time to load the loadable sections */
-	/* Verify the magic */
-	if (	header->e_ident[0] != ELFMAG0 ||
-			header->e_ident[1] != ELFMAG1 ||
-			header->e_ident[2] != ELFMAG2 ||
-			header->e_ident[3] != ELFMAG3) {
-		/* What? This isn't an ELF... */
+	if (header.e_ident[0] != ELFMAG0 ||
+	    header.e_ident[1] != ELFMAG1 ||
+	    header.e_ident[2] != ELFMAG2 ||
+	    header.e_ident[3] != ELFMAG3) {
 		debug_print(ERROR, "Not a valid ELF executable.");
-		free(header);
 		close_fs(file);
 		return -1;
 	}
 
-	/* See if it's a dyn */
+	if (!interp) {
+		current_process->name = strdup(path);
+		current_process->cmdline = argv;
+	}
 
-	release_directory_for_exec(current_directory);
-	invalidate_page_tables();
+	if (file->mask & 0x800) {
+		debug_print(WARNING, "setuid binary executed [%s, uid:%d]", file->name, file->uid);
+		current_process->user = file->uid;
+	}
 
-	current_process->image.entry = 0xFFFFFFFF;
-
-	for (uintptr_t x = 0; x < (uint32_t)header->e_phentsize * header->e_phnum; x += header->e_phentsize) {
-		Elf32_Phdr * phdr = (Elf32_Phdr *)((uintptr_t)header + (header->e_phoff + x));
-		if (phdr->p_type == PT_DYNAMIC) {
-			/* Dynamic! */
-			free(header);
+	for (uintptr_t x = 0; x < (uint32_t)header.e_phentsize * header.e_phnum; x += header.e_phentsize) {
+		Elf32_Phdr phdr;
+		read_fs(file, header.e_phoff + x, sizeof(Elf32_Phdr), (uint8_t *)&phdr);
+		if (phdr.p_type == PT_DYNAMIC) {
+			/* Dynamic */
 			close_fs(file);
-			/* Find interpreter? */
 
+			/* Find interpreter? */
 			debug_print(WARNING, "Dynamic executable");
 
 			unsigned int nargc = argc + 1;
@@ -67,45 +57,58 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 			}
 			args[j] = NULL;
 
-			return exec("/lib/ld.so", nargc, args, env);
+			fs_node_t * file = kopen("/lib/ld.so",0);
+			if (!file) return -1;
+
+			return exec_elf(NULL, file, nargc, args, env, 1);
 		}
 	}
 
-	/* Load the loadable segments from the binary */
-	for (uintptr_t x = 0; x < (uint32_t)header->e_shentsize * header->e_shnum; x += header->e_shentsize) {
-		/* read a section header */
-		Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)header + (header->e_shoff + x));
-		if (shdr->sh_addr) {
-			/* If this is a loadable section, load it up. */
-			if (shdr->sh_addr == 0) continue; /* skip sections that try to load to 0 */
-			if (shdr->sh_addr < current_process->image.entry) {
-				/* If this is the lowest entry point, store it for memory reasons */
-				current_process->image.entry = shdr->sh_addr;
+	uintptr_t entry = (uintptr_t)header.e_entry;
+	uintptr_t base_addr = 0xFFFFFFFF;
+	uintptr_t end_addr  = 0x0;
+
+	for (uintptr_t x = 0; x < (uint32_t)header.e_phentsize * header.e_phnum; x += header.e_phentsize) {
+		Elf32_Phdr phdr;
+		read_fs(file, header.e_phoff + x, sizeof(Elf32_Phdr), (uint8_t *)&phdr);
+		if (phdr.p_type == PT_LOAD) {
+			if (phdr.p_vaddr < base_addr) {
+				base_addr = phdr.p_vaddr;
 			}
-			if (shdr->sh_addr + shdr->sh_size - current_process->image.entry > current_process->image.size) {
-				/* We also store the total size of the memory region used by the application */
-				current_process->image.size = shdr->sh_addr + shdr->sh_size - current_process->image.entry;
+			if (phdr.p_memsz + phdr.p_vaddr > end_addr) {
+				end_addr = phdr.p_memsz + phdr.p_vaddr;
 			}
-			for (uintptr_t i = 0; i < shdr->sh_size + 0x2000; i += 0x1000) {
+		}
+	}
+
+	current_process->image.entry = base_addr;
+	current_process->image.size  = end_addr - base_addr;
+
+	release_directory_for_exec(current_directory);
+	invalidate_page_tables();
+
+
+	for (uintptr_t x = 0; x < (uint32_t)header.e_phentsize * header.e_phnum; x += header.e_phentsize) {
+		Elf32_Phdr phdr;
+		read_fs(file, header.e_phoff + x, sizeof(Elf32_Phdr), (uint8_t *)&phdr);
+		if (phdr.p_type == PT_LOAD) {
+			for (uintptr_t i = phdr.p_vaddr; i < phdr.p_vaddr + phdr.p_memsz; i += 0x1000) {
 				/* This doesn't care if we already allocated this page */
-				alloc_frame(get_page(shdr->sh_addr + i, 1, current_directory), 0, 1);
-				invalidate_tables_at(shdr->sh_addr + i);
+				alloc_frame(get_page(i, 1, current_directory), 0, 1);
+				invalidate_tables_at(i);
 			}
-			if (shdr->sh_type == SHT_NOBITS) {
-				/* This is the .bss, zero it */
-				memset((void *)(shdr->sh_addr), 0x0, shdr->sh_size);
-			} else {
-				/* Copy the section into memory */
-				memcpy((void *)(shdr->sh_addr), (void *)((uintptr_t)header + shdr->sh_offset), shdr->sh_size);
+			IRQ_RES;
+			read_fs(file, phdr.p_offset, phdr.p_filesz, (uint8_t *)phdr.p_vaddr);
+			IRQ_OFF;
+			size_t r = phdr.p_filesz;
+			while (r < phdr.p_memsz) {
+				*(char *)(phdr.p_vaddr + r) = 0;
+				r++;
 			}
 		}
 	}
 
-	/* Store the entry point to the code segment */
-	uintptr_t entry = (uintptr_t)header->e_entry;
-
-	/* Free the space we used for the ELF headers and files */
-	free(header);
+	close_fs(file);
 
 	for (uintptr_t stack_pointer = USER_STACK_BOTTOM; stack_pointer < USER_STACK_TOP; stack_pointer += 0x1000) {
 		alloc_frame(get_page(stack_pointer, 1, current_directory), 0, 1);
@@ -126,6 +129,7 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 	auxvc++;
 
 	uintptr_t heap = current_process->image.entry + current_process->image.size;
+	while (heap & 0xFFF) heap++;
 	alloc_frame(get_page(heap, 1, current_directory), 0, 1);
 	invalidate_tables_at(heap);
 	char ** argv_ = (char **)heap;
@@ -170,14 +174,6 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 
 	current_process->image.start = entry;
 
-	/* XXX setuid */
-	if (file->mask & 0x800) {
-		debug_print(WARNING, "setuid binary executed [%s, uid:%d]", file->name, file->uid);
-		current_process->user = file->uid;
-	}
-
-	close_fs(file);
-
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, USER_STACK_TOP);
 
@@ -185,7 +181,7 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env)
 	return -1;
 }
 
-int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** env) {
+int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** env, int interp) {
 	/* Read MAX_LINE... */
 	char tmp[100];
 	read_fs(file, 0, 100, (unsigned char *)tmp); close_fs(file);
@@ -231,7 +227,7 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 }
 
 /* Consider exposing this and making it a list so it can be extended ... */
-typedef int (*exec_func)(char * path, fs_node_t * file, int argc, char ** argv, char ** env);
+typedef int (*exec_func)(char * path, fs_node_t * file, int argc, char ** argv, char ** env, int interp);
 typedef struct {
 	exec_func func;
 	unsigned char bytes[4];
@@ -283,7 +279,7 @@ int exec(
 	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
 		if (matches(fmts[i].bytes, head, fmts[i].match)) {
 			debug_print(WARNING, "Matched executor: %s", fmts[i].name);
-			return fmts[i].func(path, file, argc, argv, env);
+			return fmts[i].func(path, file, argc, argv, env, 0);
 		}
 	}
 
