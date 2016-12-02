@@ -56,7 +56,7 @@ typedef struct elf_object {
 
 static char * find_lib(const char * file) {
 
-	if (file[0] == '/') return strdup(file);
+	if (strchr(file, '/')) return strdup(file);
 
 	char * path = getenv("LD_LIBRARY_PATH");
 	if (!path) {
@@ -88,7 +88,7 @@ static char * find_lib(const char * file) {
 
 static elf_t * open_object(const char * path) {
 
-	const char * file = find_lib(path);
+	char * file = find_lib(path);
 	if (!file) return NULL;
 
 	FILE * f = fopen(file, "r");
@@ -428,6 +428,14 @@ static struct {
 
 int main(int argc, char * argv[]) {
 
+	char * file = argv[1];
+	size_t arg_offset = 1;
+
+	if (!strcmp(argv[1], "-e")) {
+		arg_offset = 3;
+		file = argv[2];
+	}
+
 	char * trace_ld_env = getenv("LD_DEBUG");
 	if (trace_ld_env && (!strcmp(trace_ld_env,"1") || !strcmp(trace_ld_env,"yes"))) {
 		__trace_ld = 1;
@@ -436,10 +444,10 @@ int main(int argc, char * argv[]) {
 	dumb_symbol_table = hashmap_create(10);
 	glob_dat = hashmap_create(10);
 
-	elf_t * main_obj = open_object(argv[1]);
+	elf_t * main_obj = open_object(file);
 
 	if (!main_obj) {
-		fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], argv[1]);
+		fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], file);
 		return 1;
 	}
 
@@ -526,7 +534,7 @@ nope:
 	TRACE_LD("Jumping to entry point");
 
 	entry_point_t entry = (entry_point_t)main_obj->header.e_entry;
-	entry(argc-1,argv+1,environ);
+	entry(argc-arg_offset,argv+arg_offset,environ);
 
 	return 0;
 }
