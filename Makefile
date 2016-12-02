@@ -42,9 +42,11 @@ libc.so:
 go: all
 	cp demo ../hdd/bin/ld-demo
 	cp demob ../hdd/bin/ld-demob
-	cp libdemo.so ../hdd/bin/libdemo.so
-	cp libc.so ../hdd/bin/libc.so
-	cp ld.so ../hdd/bin/ld.so
+	mkdir -p ../hdd/usr/lib
+	cp libdemo.so ../hdd/usr/lib/libdemo.so
+	cp libc.so ../hdd/usr/lib/libc.so
+	mkdir -p ../hdd/lib
+	cp ld.so ../hdd/lib/ld.so
 
 cd: go
 	cd ..; make cdrom
