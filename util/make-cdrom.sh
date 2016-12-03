@@ -20,7 +20,7 @@ if [[ $TOOLCHAIN/ = $PWD/* ]]; then
 	exit 1
 fi
 
-BLACKLIST="userspace/tests/* userspace/gui/gl/teapot.c userspace/gui/basic/select-wallpaper.c hdd/usr/share/wallpapers/{grandcanyon,paris,southbay,yokohama,yosemite}.png"
+BLACKLIST="userspace/tests/* hdd/usr/share/wallpapers/{grandcanyon,paris,southbay,yokohama,yosemite}.png"
 
 # Rebuild
 echo "Rebuilding... (ignore warnings about time skew, this is intentional)"

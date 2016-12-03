@@ -14,8 +14,9 @@
 #include FT_FREETYPE_H
 #include FT_CACHE_H
 
-#include "yutani.h"
-#include "graphics.h"
+#include "lib/yutani.h"
+#include "lib/graphics.h"
+
 #include "shmemfonts.h"
 #include "utf8decode.h"
 

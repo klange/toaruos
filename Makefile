@@ -41,19 +41,23 @@ MODULES = $(patsubst modules/%.c,hdd/mod/%.ko,$(wildcard modules/*.c))
 HEADERS     = $(shell find kernel/include/ -type f -name '*.h')
 
 # Userspace build flags
-USER_CFLAGS   = -O3 -m32 -Wa,--32 -g -Iuserspace -std=c99 -U__STRICT_ANSI__
+USER_CFLAGS   = -O3 -m32 -Wa,--32 -g -Iuserspace -std=c99 -U__STRICT_ANSI__ -Lhdd/usr/lib
 USER_CXXFLAGS = -O3 -m32 -Wa,--32 -g -Iuserspace
 USER_BINFLAGS =
 
 # Userspace binaries and libraries
-USER_CFILES   = $(shell find userspace -not -wholename '*/lib/*' -name '*.c')
+USER_CFILES   = $(filter-out userspace/core/init.c,$(shell find userspace -not -wholename '*/lib/*' -not -wholename '*.static.*' -name '*.c'))
 USER_CXXFILES = $(shell find userspace -not -wholename '*/lib/*' -name '*.c++')
 USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
+
+LIBC=hdd/usr/lib/libc.so
 
 # Userspace output files (so we can define metatargets)
 USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,%.o,${file}))
+USERSPACE += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
+USERSPACE += $(LIBC) hdd/bin/init
+#USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,%.o,${file}))
 
 CORE_LIBS = $(patsubst %.c,%.o,$(wildcard userspace/lib/*.c))
 
@@ -214,26 +218,35 @@ kernel/%.o: kernel/%.c ${HEADERS}
 # Userspace #
 #############
 
+# Init must be built static at the moment.
+hdd/bin/init: userspace/core/init.c
+	@${BEG} "CC" "$< (static)"
+	@${CC} -o $@ -static -Wl,-static $(USER_CFLAGS) $(USER_BINFLAGS) $< ${ERRORS}
+	@${END} "CC" "$< (static)"
+
 # Libraries
-userspace/%.o: userspace/%.c
-	@${BEG} "CC" "$<"
-	@${CC} ${USER_CFLAGS} $(shell util/auto-dep.py --cflags $<) -c -o $@ $< ${ERRORS}
-	@${END} "CC" "$<"
+define user-c-rule
+$1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
+	@${BEG} "CCSO" "$$<"
+	@${CC} -o $$@ $(USER_CFLAGS) -shared -fPIC $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
+	@${END} "CCSO" "$$<"
+endef
+$(foreach file,$(USER_LIBFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})),${file})))
 
 # Binaries from C sources
 define user-c-rule
-$1: $2 $(shell util/auto-dep.py --deps $2)
+$1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
 	@${BEG} "CC" "$$<"
-	@${CC} -o $$@ $(USER_CFLAGS) $(USER_BINFLAGS) $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) ${ERRORS}
+	@${CC} -o $$@ $(USER_CFLAGS) $(USER_BINFLAGS) -fPIE $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
 	@${END} "CC" "$$<"
 endef
 $(foreach file,$(USER_CFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/bin/%,$(notdir ${file})),${file})))
 
 # Binaries from C++ sources
 define user-cxx-rule
-$1: $2 $(shell util/auto-dep.py --deps $2)
+$1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
 	@${BEG} "C++" "$$<"
-	@${CXX} -o $$@ $(USER_CXXFLAGS) $(USER_BINFLAGS) $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) ${ERRORS}
+	@${CXX} -o $$@ $(USER_CXXFLAGS) $(USER_BINFLAGS) -static -Wl,-static $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
 	@${END} "C++" "$$<"
 endef
 $(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.c++,hdd/bin/%,$(notdir ${file})),${file})))
@@ -249,6 +262,32 @@ hdd/usr/lib/libnetwork.a: userspace/lib/network.o
 	@${BEG} "AR" "$@"
 	@${AR} rcs $@ ${CORE_LIBS}
 	@${END} "AR" "$@"
+
+# Bad implementations of shared libraries
+hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a
+	cd linker; make libc.so
+	cp linker/libc.so hdd/usr/lib/
+
+hdd/lib/ld.so: ${TOOLCHAIN}/lib/linker.c
+	cd linker; make ld.so
+	mkdir -p hdd/lib
+	cp linker/ld.so hdd/lib/
+
+define basic-so-wrapper
+hdd/usr/lib/lib$(1).so: ${TOOLCHAIN}/lib/lib$(1).a
+	@${BEG} "SO" "$$@"
+	@${CC} -shared -Wl,-soname,lib$(1).so -o hdd/usr/lib/lib$(1).so -Lhdd/usr/lib -Wl,--whole-archive ${TOOLCHAIN}/lib/lib$(1).a -Wl,--no-whole-archive $2
+	@${END} "SO" "$$@"
+endef
+
+$(eval $(call basic-so-wrapper,m,))
+$(eval $(call basic-so-wrapper,z,))
+$(eval $(call basic-so-wrapper,ncurses,))
+$(eval $(call basic-so-wrapper,panel,-lncurses))
+$(eval $(call basic-so-wrapper,png15,-lz))
+$(eval $(call basic-so-wrapper,pixman-1,-lm))
+$(eval $(call basic-so-wrapper,cairo,-lpixman-1 -lpng15 -lfreetype))
+$(eval $(call basic-so-wrapper,freetype,-lz))
 
 ####################
 # Hard Disk Images #

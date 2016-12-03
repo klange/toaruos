@@ -11,7 +11,11 @@
 #include <assert.h>
 #include <math.h>
 
-#include "gui/ttk/ttk.h"
+#include <cairo.h>
+
+#include "lib/decorations.h"
+
+#include "../ttk.h"
 
 /* TTK {{{ */
 

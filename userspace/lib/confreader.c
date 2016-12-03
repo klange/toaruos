@@ -14,7 +14,8 @@
 #include <stdio.h>
 
 #include "confreader.h"
-#include "hashmap.h"
+
+#include "lib/hashmap.h"
 
 static void free_hashmap(void * h) {
 	hashmap_free(h);

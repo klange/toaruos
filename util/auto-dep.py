@@ -10,13 +10,15 @@ except KeyError:
     # This is not good, but we need to let it happen for the make file
     TOOLCHAIN_PATH = ""
 
+force_static = ("OSMesa","GLU")
+
 class Classifier(object):
 
     dependency_hints = {
         # Core libraries
         '<math.h>':            (None, '-lm', []),
-        '<cairo.h>':           ('cairo', '-lcairo', ['<ft2build.h>', '<pixman.h>']),
-        '<ft2build.h>':        ('freetype2', '-lfreetype', []),
+        '<cairo.h>':           ('cairo', '-lcairo', ['<ft2build.h>', '<pixman.h>', '<png.h>']),
+        '<ft2build.h>':        ('freetype2', '-lfreetype', ['<zlib.h>']),
         '<pixman.h>':          ('pixman-1', '-lpixman-1', ['<math.h>']),
         '<GL/osmesa.h>':       (None, '-lOSMesa', []),
         '<GL/glu.h>':          (None, '-lGLU', []),
@@ -24,29 +26,29 @@ class Classifier(object):
         '<panel.h>':           (None, '-lpanel', ['<ncurses.h>']),
         '<menu.h>':            (None, '-lmenu', ['<ncurses.h>']),
         '<zlib.h>':            (None, '-lz', ['<math.h>']),
-        '<png.h>':             (None, '-lpng', ['<zlib.h>']),
+        '<png.h>':             (None, '-lpng15', ['<zlib.h>']),
         # Toaru Standard Library
-        '"lib/toaru_auth.h"':  (None, 'userspace/lib/toaru_auth.o',  ['"lib/sha2.h"']),
-        '"lib/kbd.h"':         (None, 'userspace/lib/kbd.o',         []),
-        '"lib/list.h"':        (None, 'userspace/lib/list.o',        []),
-        '"lib/hashmap.h"':     (None, 'userspace/lib/hashmap.o',     ['"lib/list.h"']),
-        '"lib/tree.h"':        (None, 'userspace/lib/tree.o',        ['"lib/list.h"']),
-        '"lib/testing.h"':     (None, 'userspace/lib/testing.o',     []),
-        '"lib/pthread.h"':     (None, 'userspace/lib/pthread.o',     []),
-        '"lib/sha2.h"':        (None, 'userspace/lib/sha2.o',        []),
-        '"lib/pex.h"':         (None, 'userspace/lib/pex.o',         []),
-        '"lib/graphics.h"':    (None, 'userspace/lib/graphics.o',    ['<png.h>']),
-        '"lib/shmemfonts.h"':  (None, 'userspace/lib/shmemfonts.o',  ['"lib/graphics.h"', '<ft2build.h>']),
-        '"lib/rline.h"':       (None, 'userspace/lib/rline.o',       ['"lib/kbd.h"']),
-        '"lib/confreader.h"':  (None, 'userspace/lib/confreader.o',  ['"lib/hashmap.h"']),
-        '"lib/network.h"':     (None, 'userspace/lib/network.o',     []),
-        '"lib/http_parser.h"': (None, 'userspace/lib/http_parser.o', []),
+        '<toaru.h>':           (None, '-ltoaru', ['<png.h>','<ft2build.h>','<cairo.h>']),
+        '"lib/toaru_auth.h"':  (None, '-ltoaru-toaru_auth',  ['"lib/sha2.h"']),
+        '"lib/kbd.h"':         (None, '-ltoaru-kbd',         []),
+        '"lib/list.h"':        (None, '-ltoaru-list',        []),
+        '"lib/hashmap.h"':     (None, '-ltoaru-hashmap',     ['"lib/list.h"']),
+        '"lib/tree.h"':        (None, '-ltoaru-tree',        ['"lib/list.h"']),
+        '"lib/testing.h"':     (None, '-ltoaru-testing',     []),
+        '"lib/pthread.h"':     (None, '-ltoaru-pthread',     []),
+        '"lib/sha2.h"':        (None, '-ltoaru-sha2',        []),
+        '"lib/pex.h"':         (None, '-ltoaru-pex',         []),
+        '"lib/graphics.h"':    (None, '-ltoaru-graphics',    ['<png.h>']),
+        '"lib/shmemfonts.h"':  (None, '-ltoaru-shmemfonts',  ['"lib/graphics.h"', '<ft2build.h>']),
+        '"lib/rline.h"':       (None, '-ltoaru-rline',       ['"lib/kbd.h"']),
+        '"lib/confreader.h"':  (None, '-ltoaru-confreader',  ['"lib/hashmap.h"']),
+        '"lib/network.h"':     (None, '-ltoaru-network',     []),
+        '"lib/http_parser.h"': (None, '-ltoaru-http_parser', []),
         # Yutani Libraries
-        '"lib/yutani.h"':      (None, 'userspace/lib/yutani.o',      ['"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
-        '"lib/decorations.h"': (None, 'userspace/lib/decorations.o', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"']),
-        '"gui/ttk/ttk.h"':     (None, 'userspace/gui/ttk/lib/ttk-core.o', ['"lib/decorations.h"', '"lib/hashmap.h"',  '<cairo.h>', '<math.h>']),
-        '"gui/terminal/lib/termemu.h"':
-                               (None, 'userspace/gui/terminal/lib/termemu.o', []),
+        '"lib/yutani.h"':      (None, '-ltoaru-yutani',      ['"lib/kbd.h"', '"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
+        '"lib/decorations.h"': (None, '-ltoaru-decorations', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"']),
+        '"gui/ttk/ttk.h"':     (None, '-ltoaru-ttk', ['"lib/decorations.h"', '"lib/hashmap.h"',  '<cairo.h>', '<math.h>']),
+        '"gui/terminal/lib/termemu.h"': (None, '-ltoaru-termemu', ['"lib/graphics.h"']),
     }
 
     def __init__(self, filename):
@@ -103,7 +105,10 @@ def todep(name):
     """Convert a library name to an archive path or object file name."""
     if name.startswith("-l"):
         name = name.replace("-l","",1)
-        return "%s/lib%s.a" % (TOOLCHAIN_PATH + '/lib', name)
+        if name in force_static:
+            return "%s/lib%s.a" % (TOOLCHAIN_PATH + '/lib', name)
+        else:
+            return "%s/lib%s.so" % ('hdd/usr/lib', name)
     else:
         return name
 

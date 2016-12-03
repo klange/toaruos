@@ -7,12 +7,13 @@
 #include <syscall.h>
 
 #include "yutani.h"
-#include "pex.h"
-#include "graphics.h"
-#include "kbd.h"
 #include "mouse.h"
-#include "hashmap.h"
-#include "list.h"
+
+#include "lib/pex.h"
+#include "lib/graphics.h"
+#include "lib/kbd.h"
+#include "lib/hashmap.h"
+#include "lib/list.h"
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {

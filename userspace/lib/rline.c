@@ -6,7 +6,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "kbd.h"
+#include "lib/kbd.h"
+
 #include "rline.h"
 
 void rline_redraw(rline_context_t * context) {

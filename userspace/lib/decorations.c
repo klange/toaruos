@@ -8,10 +8,11 @@
  */
 
 #include <stdint.h>
-#include "graphics.h"
-#include "yutani.h"
+#include "lib/graphics.h"
+#include "lib/yutani.h"
+#include "lib/shmemfonts.h"
+
 #include "decorations.h"
-#include "shmemfonts.h"
 
 uint32_t decor_top_height     = 33;
 uint32_t decor_bottom_height  = 6;
