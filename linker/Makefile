@@ -2,19 +2,19 @@ CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
 
 .PHONY: all go
-all: ld.so libdemo.so demo
+all: ld.so libdemo.so demo demob libc.so
 
 ld.so: linker.c link.ld
 	i686-pc-toaru-gcc -static -Wl,-static -std=c99 -g -U__STRICT_ANSI__ -o ld.so -Os -T link.ld linker.c
 
-demo: demo.c
-	i686-pc-toaru-gcc -o demo -g demo.c -L. -ldemo
+demo: demo.c libc.so libdemo.so
+	i686-pc-toaru-gcc -o demo -g demo.c -L. -ldemo -lc
 
-demob: demob.c
-	i686-pc-toaru-gcc -o demob demob.c -L.
+demob: demob.c libc.so
+	i686-pc-toaru-gcc -o demob demob.c -L. -lc
 
-libdemo.so: libdemo.c
-	i686-pc-toaru-gcc -shared -fPIC -Wl,-soname,libdemo.so -o libdemo.so libdemo.c
+libdemo.so: libdemo.c libc.so
+	i686-pc-toaru-gcc -shared -fPIC -Wl,-soname,libdemo.so -o libdemo.so libdemo.c -lc
 
 libc.so:
 	cp ${TOARU_SYSROOT}/usr/lib/libc.a libc.a
