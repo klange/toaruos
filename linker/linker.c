@@ -526,6 +526,9 @@ nope:
 		lib->init();
 	}
 
+	if (main_obj->init) {
+		main_obj->init();
+	}
 
 	{
 		char * args[] = {(char*)end_addr};
