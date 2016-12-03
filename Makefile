@@ -5,7 +5,7 @@ AR=i686-pc-toaru-ar
 all: ld.so libdemo.so demo
 
 ld.so: linker.c link.ld
-	i686-pc-toaru-gcc -static -std=c99 -g -U__STRICT_ANSI__ -o ld.so -Os -T link.ld linker.c
+	i686-pc-toaru-gcc -static -Wl,-static -std=c99 -g -U__STRICT_ANSI__ -o ld.so -Os -T link.ld linker.c
 
 demo: demo.c
 	i686-pc-toaru-gcc -o demo -g demo.c -L. -ldemo
