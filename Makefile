@@ -266,6 +266,7 @@ hdd/usr/lib/libnetwork.a: userspace/lib/network.o
 # Bad implementations of shared libraries
 hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a
 	cd linker; make libc.so
+	mkdir -p hdd/usr/lib
 	cp linker/libc.so hdd/usr/lib/
 
 hdd/lib/ld.so: ${TOOLCHAIN}/lib/linker.c
