@@ -38,7 +38,13 @@ int do_intel(void);
 int do_amd(void);
 void printregs(int eax, int ebx, int ecx, int edx);
 
+#if defined(__PIC__)
+#define cpuid(in, a, b, c, d) asm("xchg{l} {%%}ebx, %k1 \n cpuid \n xchg{l} {%%}ebx, %k1" \
+		: "=a" (a), "=&r" (b), "=c" (c), "=d" (d) : "0" (in))
+#else
 #define cpuid(in, a, b, c, d) asm("cpuid": "=a" (a), "=b" (b), "=c" (c), "=d" (d) : "a" (in));
+#endif
+
 
 /* Simply call this function detect_cpu(); */
 int main(void) { /* or main() if your trying to port this as an independant application */
