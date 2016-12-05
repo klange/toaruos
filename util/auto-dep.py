@@ -47,7 +47,7 @@ class Classifier(object):
         '"lib/dlfcn.h"':       (None, '-ltoaru-dlfcn',       []),
         # Yutani Libraries
         '"lib/yutani.h"':      (None, '-ltoaru-yutani',      ['"lib/kbd.h"', '"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
-        '"lib/decorations.h"': (None, '-ltoaru-decorations', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"']),
+        '"lib/decorations.h"': (None, '-ltoaru-decorations', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"','"lib/dlfcn.h"']),
         '"gui/ttk/ttk.h"':     (None, '-ltoaru-ttk', ['"lib/decorations.h"', '"lib/hashmap.h"',  '<cairo.h>', '<math.h>']),
         '"gui/terminal/lib/termemu.h"': (None, '-ltoaru-termemu', ['"lib/graphics.h"']),
     }

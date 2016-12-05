@@ -11,6 +11,7 @@
 #include "lib/graphics.h"
 #include "lib/yutani.h"
 #include "lib/shmemfonts.h"
+#include "lib/dlfcn.h"
 
 #include "decorations.h"
 
@@ -30,36 +31,11 @@ uint32_t decor_right_width    = 6;
 #define TEXTCOLOR rgb(230,230,230)
 #define TEXTCOLOR_INACTIVE rgb(140,140,140)
 
-#define TTK_FANCY_PATH "/usr/share/ttk/"
-
-static int u_height = 33;
-static int ul_width = 10;
-static int ur_width = 10;
-static int ml_width = 6;
-static int mr_width = 6;
-static int l_height = 9;
-static int ll_width = 9;
-static int lr_width = 9;
-static int llx_offset = 3;
-static int lly_offset = 3;
-static int lrx_offset = 3;
-static int lry_offset = 3;
-
-static sprite_t * sprites[20];
-
-#define TEXT_OFFSET 24
-
-static void init_sprite_png(int id, char * path) {
-	sprites[id] = malloc(sizeof(sprite_t));
-	load_sprite_png(sprites[id], path);
-}
-
-static void (*render_decorations_)(yutani_window_t *, gfx_context_t *, char *, int) = NULL;
-static int  (*check_button_press)(yutani_window_t *, int x, int y) = NULL;
+void (*decor_render_decorations)(yutani_window_t *, gfx_context_t *, char *, int) = NULL;
+int  (*decor_check_button_press)(yutani_window_t *, int x, int y) = NULL;
 
 static void (*callback_close)(yutani_window_t *) = NULL;
 static void (*callback_resize)(yutani_window_t *) = NULL;
-
 
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
@@ -108,125 +84,47 @@ static void initialize_simple() {
 	decor_left_width     = 1;
 	decor_right_width    = 1;
 
-	render_decorations_ = render_decorations_simple;
-	check_button_press  = check_button_press_simple;
-}
-
-static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
-	int width = window->width;
-	int height = window->height;
-
-	for (int j = 0; j < decor_top_height; ++j) {
-		for (int i = 0; i < width; ++i) {
-			GFX(ctx,i,j) = 0;
-		}
-	}
-
-	for (int j = decor_top_height; j < height - decor_bottom_height; ++j) {
-		for (int i = 0; i < decor_left_width; ++i) {
-			GFX(ctx,i,j) = 0;
-		}
-		for (int i = width - decor_right_width; i < width; ++i) {
-			GFX(ctx,i,j) = 0;
-		}
-	}
-
-	for (int j = height - decor_bottom_height; j < height; ++j) {
-		for (int i = 0; i < width; ++i) {
-			GFX(ctx,i,j) = 0;
-		}
-	}
-
-	draw_sprite(ctx, sprites[decors_active + 0], 0, 0);
-	for (int i = 0; i < width - (ul_width + ur_width); ++i) {
-		draw_sprite(ctx, sprites[decors_active + 1], i + ul_width, 0);
-	}
-	draw_sprite(ctx, sprites[decors_active + 2], width - ur_width, 0);
-	for (int i = 0; i < height - (u_height + l_height); ++i) {
-		draw_sprite(ctx, sprites[decors_active + 3], 0, i + u_height);
-		draw_sprite(ctx, sprites[decors_active + 4], width - mr_width, i + u_height);
-	}
-	draw_sprite(ctx, sprites[decors_active + 5], 0, height - l_height);
-	for (int i = 0; i < width - (ll_width + lr_width); ++i) {
-		draw_sprite(ctx, sprites[decors_active + 6], i + ll_width, height - l_height);
-	}
-	draw_sprite(ctx, sprites[decors_active + 7], width - lr_width, height - l_height);
-
-	set_font_face(FONT_SANS_SERIF_BOLD);
-	set_font_size(12);
-
-	int title_offset = (width / 2) - (draw_string_width(title) / 2);
-	if (decors_active == 0) {
-		draw_string(ctx, title_offset, TEXT_OFFSET, rgb(226,226,226), title);
-	} else {
-		draw_string(ctx, title_offset, TEXT_OFFSET, rgb(147,147,147), title);
-	}
-
-	/* Buttons */
-	draw_sprite(ctx, sprites[decors_active + 8], width - 28, 16);
-}
-
-static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
-	if (x >= window->width - 28 && x <= window->width - 18 &&
-		y >= 16 && y <= 26) {
-		return DECOR_CLOSE;
-	}
-
-	return 0;
-}
-
-static void initialize_fancy() {
-	init_sprite_png(0, TTK_FANCY_PATH "active/ul.png");
-	init_sprite_png(1, TTK_FANCY_PATH "active/um.png");
-	init_sprite_png(2, TTK_FANCY_PATH "active/ur.png");
-	init_sprite_png(3, TTK_FANCY_PATH "active/ml.png");
-	init_sprite_png(4, TTK_FANCY_PATH "active/mr.png");
-	init_sprite_png(5, TTK_FANCY_PATH "active/ll.png");
-	init_sprite_png(6, TTK_FANCY_PATH "active/lm.png");
-	init_sprite_png(7, TTK_FANCY_PATH "active/lr.png");
-	init_sprite_png(8, TTK_FANCY_PATH "active/button-close.png");
-
-	init_sprite_png(INACTIVE + 0, TTK_FANCY_PATH "inactive/ul.png");
-	init_sprite_png(INACTIVE + 1, TTK_FANCY_PATH "inactive/um.png");
-	init_sprite_png(INACTIVE + 2, TTK_FANCY_PATH "inactive/ur.png");
-	init_sprite_png(INACTIVE + 3, TTK_FANCY_PATH "inactive/ml.png");
-	init_sprite_png(INACTIVE + 4, TTK_FANCY_PATH "inactive/mr.png");
-	init_sprite_png(INACTIVE + 5, TTK_FANCY_PATH "inactive/ll.png");
-	init_sprite_png(INACTIVE + 6, TTK_FANCY_PATH "inactive/lm.png");
-	init_sprite_png(INACTIVE + 7, TTK_FANCY_PATH "inactive/lr.png");
-	init_sprite_png(INACTIVE + 8, TTK_FANCY_PATH "inactive/button-close.png");
-
-	decor_top_height     = 33;
-	decor_bottom_height  = 6;
-	decor_left_width     = 6;
-	decor_right_width    = 6;
-
-	render_decorations_ = render_decorations_fancy;
-	check_button_press  = check_button_press_fancy;
+	decor_render_decorations = render_decorations_simple;
+	decor_check_button_press = check_button_press_simple;
 }
 
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
 	if (!window->focused) {
-		render_decorations_(window, ctx, title, INACTIVE);
+		decor_render_decorations(window, ctx, title, INACTIVE);
 	} else {
-		render_decorations_(window, ctx, title, 0);
+		decor_render_decorations(window, ctx, title, 0);
 	}
 }
 
 void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
-	render_decorations_(window, ctx, title, INACTIVE);
+	decor_render_decorations(window, ctx, title, INACTIVE);
 }
 
 void init_decorations() {
 	init_shmemfonts();
 
 	char * theme = getenv("WM_THEME");
-	if (theme && !strcmp(theme, "simple")) {
+	if (!theme || !strcmp(theme, "simple")) {
 		initialize_simple();
 	} else {
-		initialize_fancy();
+		char lib_name[100];
+		sprintf(lib_name, "libtoaru-decor-%s.so", theme);
+		void * theme_lib = dlopen(lib_name, 0);
+		if (!theme_lib) {
+			goto _theme_error;
+		}
+		void (*theme_init)(void) = dlsym(theme_lib, "decor_init");
+		if (!theme_init) {
+			goto _theme_error;
+		}
+		theme_init();
+		return;
+
+_theme_error:
+			fprintf(stderr, "decorations: could not load theme `%s`: %s\n", theme, dlerror());
+			initialize_simple();
 	}
 }
 
@@ -290,7 +188,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 					yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
 					if (!window) return 0;
 					if (within_decors(window, me->new_x, me->new_y)) {
-						int button = check_button_press(window, me->new_x, me->new_y);
+						int button = decor_check_button_press(window, me->new_x, me->new_y);
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 							if (!button) {
 								/* Resize edges */

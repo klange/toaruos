@@ -26,6 +26,12 @@ extern void render_decorations(yutani_window_t * window, gfx_context_t * ctx, ch
 extern void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title);
 
 /*
+ * Used by decoration libraries to set callbacks
+ */
+extern void (*decor_render_decorations)(yutani_window_t *, gfx_context_t *, char *, int);
+extern int  (*decor_check_button_press)(yutani_window_t *, int x, int y);
+
+/*
  * Run me once to set things up
  */
 extern void init_decorations();
