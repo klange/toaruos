@@ -30,7 +30,7 @@
 #define TRACE_APP_NAME "select-wallpaper"
 #define LINE_LEN 4096
 
-#define DEFAULT_WALLPAPER "/usr/share/wallpapers/yosemite.png"
+#define DEFAULT_WALLPAPER "/usr/share/wallpapers/default"
 
 static yutani_t * yctx;
 
@@ -100,17 +100,19 @@ static void redraw(void) {
 	/* Draw the current tutorial frame */
 	render_decorations(win, ctx, "Select Desktop Background");
 
-	if (loading) {
-		set_font_face(FONT_SANS_SERIF);
-		set_font_size(12);
+	set_font_face(FONT_SANS_SERIF);
+	set_font_size(12);
 
+	if (loading) {
 		char * label = "Loading...";
 		int y = 200;
 		int x = center_win_x(draw_string_width(label));
 		draw_string(ctx, x, y, rgb(0,0,0), label);
-
 	} else {
 		draw_sprite(ctx, wallpaper_sprite, center_win_x(wallpaper_sprite->width), 80);
+		int y = 80-20;
+		int x = center_win_x(draw_string_width(selected_path));
+		draw_string(ctx, x, y, rgb(0,0,0), selected_path);
 	}
 
 	draw_buttons();
@@ -330,15 +332,14 @@ static void button_next(struct button * this) {
 	redraw();
 }
 
-static void discover_wallpapers(void) {
-	wallpapers = list_create();
-
-	DIR * dirp = opendir("/usr/share/wallpapers");
+static void discover_directory(char * dir) {
+	DIR * dirp = opendir(dir);
+	if (!dirp) return;
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
-		if (ent->d_name[0] != '.') {
+		if (ent->d_name[0] != '.' && strcmp(ent->d_name, "default")) {
 			char tmp[256];
-			snprintf(tmp, 256, "/usr/share/wallpapers/%s", ent->d_name);
+			snprintf(tmp, 256, "%s/%s", dir, ent->d_name);
 
 			struct wallpaper * this = malloc(sizeof(struct wallpaper));
 
@@ -350,7 +351,13 @@ static void discover_wallpapers(void) {
 		ent = readdir(dirp);
 	}
 	closedir(dirp);
+}
 
+static void discover_wallpapers(void) {
+	wallpapers = list_create();
+
+	discover_directory("/usr/share/wallpapers");
+	discover_directory("/tmp/wallpapers");
 
 	TRACE("Found %d wallpaper%s.", wallpapers->length, wallpapers->length == 1 ? "" : "s");
 
