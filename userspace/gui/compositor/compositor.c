@@ -2217,6 +2217,8 @@ int main(int argc, char * argv[]) {
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
 
+					set_focused_window(yg, w);
+
 					notify_subscribers(yg);
 				}
 				break;
