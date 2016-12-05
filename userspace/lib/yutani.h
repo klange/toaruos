@@ -70,6 +70,12 @@ struct yutani_msg_window_new {
 	uint32_t height;
 };
 
+struct yutani_msg_window_new_flags {
+	uint32_t width;
+	uint32_t height;
+	uint32_t flags;
+};
+
 struct yutani_msg_window_init {
 	yutani_wid_t wid;
 	uint32_t width;
@@ -205,6 +211,7 @@ typedef struct yutani_window {
 #define YUTANI_MSG_WINDOW_FOCUS_CHANGE 0x0000000B
 #define YUTANI_MSG_WINDOW_MOUSE_EVENT  0x0000000C
 #define YUTANI_MSG_FLIP_REGION         0x0000000D
+#define YUTANI_MSG_WINDOW_NEW_FLAGS    0x0000000E
 
 #define YUTANI_MSG_RESIZE_REQUEST      0x00000010
 #define YUTANI_MSG_RESIZE_OFFER        0x00000011
@@ -366,6 +373,14 @@ typedef struct yutani_window {
 #define YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN    5
 #define YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP    6
 
+/*
+ * YUTANI_WINDOW_FLAG
+ *
+ * Flags for new windows describing how the window
+ * should be created.
+ */
+#define YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS   (1 << 0)
+
 typedef struct {
 	int x;
 	int y;
@@ -373,69 +388,71 @@ typedef struct {
 	unsigned int height;
 } yutani_damage_rect_t;
 
-yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type);
-yutani_msg_t * yutani_poll(yutani_t * y);
-yutani_msg_t * yutani_poll_async(yutani_t * y);
-size_t yutani_query(yutani_t * y);
+extern yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type);
+extern yutani_msg_t * yutani_poll(yutani_t * y);
+extern yutani_msg_t * yutani_poll_async(yutani_t * y);
+extern size_t yutani_query(yutani_t * y);
 
-yutani_msg_t * yutani_msg_build_hello(void);
-yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height);
-yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height);
-yutani_msg_t * yutani_msg_build_window_init(yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
-yutani_msg_t * yutani_msg_build_flip(yutani_wid_t);
-yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event, key_event_state_t * state);
-yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event, int32_t type);
-yutani_msg_t * yutani_msg_build_window_move(yutani_wid_t wid, int32_t x, int32_t y);
-yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
-yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
-yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused);
-yutani_msg_t * yutani_msg_build_window_mouse_event(yutani_wid_t wid, int32_t new_x, int32_t new_y, int32_t old_x, int32_t old_y, uint8_t buttons, uint8_t command);
-yutani_msg_t * yutani_msg_build_window_resize(uint32_t type, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
-yutani_msg_t * yutani_msg_build_window_advertise(yutani_wid_t wid, uint32_t flags, uint16_t * offsets, size_t length, char * data);
-yutani_msg_t * yutani_msg_build_subscribe(void);
-yutani_msg_t * yutani_msg_build_unsubscribe(void);
-yutani_msg_t * yutani_msg_build_query(void);
-yutani_msg_t * yutani_msg_build_notify(void);
-yutani_msg_t * yutani_msg_build_session_end(void);
-yutani_msg_t * yutani_msg_build_window_focus(yutani_wid_t wid);
-yutani_msg_t * yutani_msg_build_key_bind(kbd_key_t key, kbd_mod_t mod, int response);
-yutani_msg_t * yutani_msg_build_window_drag_start(yutani_wid_t wid);
-yutani_msg_t * yutani_msg_build_window_update_shape(yutani_wid_t wid, int set_shape);
-yutani_msg_t * yutani_msg_build_window_warp_mouse(yutani_wid_t wid, int32_t x, int32_t y);
-yutani_msg_t * yutani_msg_build_window_show_mouse(yutani_wid_t wid, int32_t show_mouse);
-yutani_msg_t * yutani_msg_build_window_resize_start(yutani_wid_t wid, yutani_scale_direction_t direction);
-
-
-int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
-yutani_t * yutani_context_create(FILE * socket);
-yutani_t * yutani_init(void);
-yutani_window_t * yutani_window_create(yutani_t * y, int width, int height);
-void yutani_flip(yutani_t * y, yutani_window_t * win);
-void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
-void yutani_close(yutani_t * y, yutani_window_t * win);
-void yutani_set_stack(yutani_t *, yutani_window_t *, int);
-void yutani_flip_region(yutani_t *, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height);
-void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
-void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
-void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
-void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window);
-void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name);
-void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, char * name, char * icon);
-void yutani_subscribe_windows(yutani_t * y);
-void yutani_unsubscribe_windows(yutani_t * y);
-void yutani_query_windows(yutani_t * y);
-void yutani_session_end(yutani_t * y);
-void yutani_focus_window(yutani_t * y, yutani_wid_t wid);
-void yutani_key_bind(yutani_t * yctx, kbd_key_t key, kbd_mod_t mod, int response);
-void yutani_window_drag_start(yutani_t * yctx, yutani_window_t * window);
-void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window, int set_shape);
-void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t x, int32_t y);
-void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse);
-void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction);
+extern yutani_msg_t * yutani_msg_build_hello(void);
+extern yutani_msg_t * yutani_msg_build_welcome(uint32_t width, uint32_t height);
+extern yutani_msg_t * yutani_msg_build_window_new(uint32_t width, uint32_t height);
+extern yutani_msg_t * yutani_msg_build_window_new_flags(uint32_t width, uint32_t height, uint32_t flags);
+extern yutani_msg_t * yutani_msg_build_window_init(yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
+extern yutani_msg_t * yutani_msg_build_flip(yutani_wid_t);
+extern yutani_msg_t * yutani_msg_build_key_event(yutani_wid_t wid, key_event_t * event, key_event_state_t * state);
+extern yutani_msg_t * yutani_msg_build_mouse_event(yutani_wid_t wid, mouse_device_packet_t * event, int32_t type);
+extern yutani_msg_t * yutani_msg_build_window_move(yutani_wid_t wid, int32_t x, int32_t y);
+extern yutani_msg_t * yutani_msg_build_window_close(yutani_wid_t wid);
+extern yutani_msg_t * yutani_msg_build_window_stack(yutani_wid_t wid, int z);
+extern yutani_msg_t * yutani_msg_build_window_focus_change(yutani_wid_t wid, int focused);
+extern yutani_msg_t * yutani_msg_build_window_mouse_event(yutani_wid_t wid, int32_t new_x, int32_t new_y, int32_t old_x, int32_t old_y, uint8_t buttons, uint8_t command);
+extern yutani_msg_t * yutani_msg_build_window_resize(uint32_t type, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
+extern yutani_msg_t * yutani_msg_build_window_advertise(yutani_wid_t wid, uint32_t flags, uint16_t * offsets, size_t length, char * data);
+extern yutani_msg_t * yutani_msg_build_subscribe(void);
+extern yutani_msg_t * yutani_msg_build_unsubscribe(void);
+extern yutani_msg_t * yutani_msg_build_query(void);
+extern yutani_msg_t * yutani_msg_build_notify(void);
+extern yutani_msg_t * yutani_msg_build_session_end(void);
+extern yutani_msg_t * yutani_msg_build_window_focus(yutani_wid_t wid);
+extern yutani_msg_t * yutani_msg_build_key_bind(kbd_key_t key, kbd_mod_t mod, int response);
+extern yutani_msg_t * yutani_msg_build_window_drag_start(yutani_wid_t wid);
+extern yutani_msg_t * yutani_msg_build_window_update_shape(yutani_wid_t wid, int set_shape);
+extern yutani_msg_t * yutani_msg_build_window_warp_mouse(yutani_wid_t wid, int32_t x, int32_t y);
+extern yutani_msg_t * yutani_msg_build_window_show_mouse(yutani_wid_t wid, int32_t show_mouse);
+extern yutani_msg_t * yutani_msg_build_window_resize_start(yutani_wid_t wid, yutani_scale_direction_t direction);
 
 
-gfx_context_t * init_graphics_yutani(yutani_window_t * window);
-gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);
-void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
+extern int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
+extern yutani_t * yutani_context_create(FILE * socket);
+extern yutani_t * yutani_init(void);
+extern yutani_window_t * yutani_window_create(yutani_t * y, int width, int height);
+extern yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height, uint32_t flags);
+extern void yutani_flip(yutani_t * y, yutani_window_t * win);
+extern void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
+extern void yutani_close(yutani_t * y, yutani_window_t * win);
+extern void yutani_set_stack(yutani_t *, yutani_window_t *, int);
+extern void yutani_flip_region(yutani_t *, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height);
+extern void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
+extern void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
+extern void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height);
+extern void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window);
+extern void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name);
+extern void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, char * name, char * icon);
+extern void yutani_subscribe_windows(yutani_t * y);
+extern void yutani_unsubscribe_windows(yutani_t * y);
+extern void yutani_query_windows(yutani_t * y);
+extern void yutani_session_end(yutani_t * y);
+extern void yutani_focus_window(yutani_t * y, yutani_wid_t wid);
+extern void yutani_key_bind(yutani_t * yctx, kbd_key_t key, kbd_mod_t mod, int response);
+extern void yutani_window_drag_start(yutani_t * yctx, yutani_window_t * window);
+extern void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window, int set_shape);
+extern void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t x, int32_t y);
+extern void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse);
+extern void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction);
+
+
+extern gfx_context_t * init_graphics_yutani(yutani_window_t * window);
+extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);
+extern void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
 
 #endif /* _YUTANI_H */

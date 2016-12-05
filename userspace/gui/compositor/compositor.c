@@ -338,7 +338,7 @@ static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
  *
  * Initializes a window of the particular size for a given client.
  */
-static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner) {
+static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner, uint32_t flags) {
 	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
 
 	win->wid = next_wid();
@@ -378,6 +378,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->untiled_width = 0;
 	win->untiled_height = 0;
 	win->default_mouse = 1;
+	win->server_flags = flags;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
@@ -2209,15 +2210,18 @@ int main(int argc, char * argv[]) {
 				}
 				break;
 			case YUTANI_MSG_WINDOW_NEW:
+			case YUTANI_MSG_WINDOW_NEW_FLAGS:
 				{
-					struct yutani_msg_window_new * wn = (void *)m->data;
+					struct yutani_msg_window_new_flags * wn = (void *)m->data;
 					TRACE("Client %08x requested a new window (%dx%d).", p->source, wn->width, wn->height);
-					yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source);
+					yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source, m->type != YUTANI_MSG_WINDOW_NEW ? wn->flags : 0);
 					yutani_msg_t * response = yutani_msg_build_window_init(w->wid, w->width, w->height, w->bufid);
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
 
-					set_focused_window(yg, w);
+					if (!w->server_flags & YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS) {
+						set_focused_window(yg, w);
+					}
 
 					notify_subscribers(yg);
 				}

@@ -69,6 +69,7 @@ typedef struct {
 	int32_t untiled_height;
 
 	int default_mouse;
+	uint32_t server_flags;
 } yutani_server_window_t;
 
 typedef struct {
