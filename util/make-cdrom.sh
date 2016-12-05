@@ -26,7 +26,7 @@ BLACKLIST="userspace/tests/* hdd/usr/share/wallpapers/{grandcanyon,paris,southba
 echo "Rebuilding... (ignore warnings about time skew, this is intentional)"
 eval rm $BLACKLIST
 touch -d tomorrow toaruos-disk.img
-make
+make STRIP_LIBS=1
 i686-pc-toaru-strip hdd/bin/*
 
 echo "Cloning CD source directory..."
