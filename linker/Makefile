@@ -39,27 +39,3 @@ libc.so:
 	${CC} -shared -o libc.so -Wl,--whole-archive libc.a -Wl,--no-whole-archive
 	rm libc.a
 
-go: all
-	cp demo ../hdd/bin/ld-demo
-	cp demob ../hdd/bin/ld-demob
-	mkdir -p ../hdd/usr/lib
-	cp libdemo.so ../hdd/usr/lib/libdemo.so
-	cp libc.so ../hdd/usr/lib/libc.so
-	mkdir -p ../hdd/lib
-	cp ld.so ../hdd/lib/ld.so
-
-cd: go
-	cd ..; make cdrom
-	-VBoxManage controlvm "ToaruOS Live CD" poweroff
-	sleep 0.2
-	-VBoxManage startvm "ToaruOS Live CD"
-	sleep 3
-	-VBoxManage controlvm "ToaruOS Live CD" keyboardputscancode 1c 9c
-	sleep 2
-	-VBoxManage controlvm "ToaruOS Live CD" keyboardputscancode 38 3e be b8 1d 38 14 94 b8 9d
-	sleep 0.5
-	-VBoxManage controlvm "ToaruOS Live CD" keyboardputscancode 38 0f 8f b8
-	sleep 0.2
-	-VBoxManage controlvm "ToaruOS Live CD" keyboardputscancode 38 44 c4 b8
-
-
