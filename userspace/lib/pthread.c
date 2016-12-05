@@ -36,5 +36,7 @@ void pthread_exit(void * value) {
 	free(stack);
 	/* XXX: Return value!? */
 #endif
-	__asm__ ("jmp 0xFFFFB00F"); /* Force thread exit */
+	uintptr_t magic_exit_target = 0xFFFFB00F;
+	void (*magic_exit_func)(void) = (void *)magic_exit_target;
+	magic_exit_func();
 }
