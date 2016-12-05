@@ -401,8 +401,13 @@ static void object_find_copy_relocations(elf_t * object) {
 
 }
 
+static char * last_error = NULL;
+
 static void * object_find_symbol(elf_t * object, const char * symbol_name) {
-	if (!object->dyn_symbol_table) return NULL;
+	if (!object->dyn_symbol_table) {
+		last_error = "lib does not have a symbol table";
+		return NULL;
+	}
 
 	Elf32_Sym * table = object->dyn_symbol_table;
 	size_t i = 0;
@@ -414,6 +419,7 @@ static void * object_find_symbol(elf_t * object, const char * symbol_name) {
 		i++;
 	}
 
+	last_error = "symbol not found in library";
 	return NULL;
 }
 
@@ -422,6 +428,11 @@ static void * dlopen_ld(const char * filename, int flags) {
 	TRACE_LD("dlopen(%s,0x%x)", filename, flags);
 
 	elf_t * lib = open_object(filename);
+
+	if (!lib) {
+		last_error = "could not open library (not found, or other failure)";
+		return NULL;
+	}
 
 	size_t lib_size = object_calculate_size(lib);
 
@@ -460,7 +471,9 @@ static int dlclose_ld(elf_t * lib) {
 
 static char * dlerror_ld(void) {
 	/* TODO actually do this */
-	return NULL;
+	char * this_error = last_error;
+	last_error = NULL;
+	return this_error;
 }
 
 typedef struct {
