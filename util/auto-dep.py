@@ -44,6 +44,7 @@ class Classifier(object):
         '"lib/confreader.h"':  (None, '-ltoaru-confreader',  ['"lib/hashmap.h"']),
         '"lib/network.h"':     (None, '-ltoaru-network',     []),
         '"lib/http_parser.h"': (None, '-ltoaru-http_parser', []),
+        '"lib/dlfcn.h"':       (None, '-ltoaru-dlfcn',       []),
         # Yutani Libraries
         '"lib/yutani.h"':      (None, '-ltoaru-yutani',      ['"lib/kbd.h"', '"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
         '"lib/decorations.h"': (None, '-ltoaru-decorations', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"']),

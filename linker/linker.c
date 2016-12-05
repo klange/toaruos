@@ -417,13 +417,62 @@ static void * object_find_symbol(elf_t * object, const char * symbol_name) {
 	return NULL;
 }
 
+static void * dlopen_ld(const char * filename, int flags) {
+	(void)flags; /* TODO */
+	TRACE_LD("dlopen(%s,0x%x)", filename, flags);
 
-static struct {
-	const char * name;
+	elf_t * lib = open_object(filename);
+
+	size_t lib_size = object_calculate_size(lib);
+
+	if (lib_size < 4096) {
+		lib_size = 4096;
+	}
+
+	uintptr_t load_addr = (uintptr_t)malloc(lib_size);
+	object_load(lib, load_addr);
+
+	object_postload(lib);
+	TRACE_LD("Relocating %s", filename);
+	object_relocate(lib);
+
+	fclose(lib->file);
+
+	if (lib->ctors) {
+		for (size_t i = 0; i < lib->ctors_size; i += sizeof(uintptr_t)) {
+			TRACE_LD(" 0x%x()", lib->ctors[i]);
+			lib->ctors[i]();
+		}
+	}
+
+	if (lib->init) {
+		lib->init();
+	}
+
+	return (void *)lib;
+}
+
+static int dlclose_ld(elf_t * lib) {
+	/* TODO close dependencies? Make sure nothing references this. */
+	free((void *)lib->base);
+	return 0;
+}
+
+static char * dlerror_ld(void) {
+	/* TODO actually do this */
+	return NULL;
+}
+
+typedef struct {
+	char * name;
 	void * symbol;
-} ld_builtin_exports[] = {
-	{"_dl_open_object", open_object},
-	{NULL, NULL}
+} ld_exports_t;
+ld_exports_t ld_builtin_exports[] = {
+	{"dlopen", dlopen_ld},
+	{"dlsym", object_find_symbol},
+	{"dlclose", dlclose_ld},
+	{"dlerror", dlerror_ld},
+	{NULL, NULL},
 };
 
 int main(int argc, char * argv[]) {
@@ -443,6 +492,12 @@ int main(int argc, char * argv[]) {
 
 	dumb_symbol_table = hashmap_create(10);
 	glob_dat = hashmap_create(10);
+
+	ld_exports_t * ex = ld_builtin_exports;
+	while (ex->name) {
+		hashmap_set(dumb_symbol_table, ex->name, ex->symbol);
+		ex++;
+	}
 
 	elf_t * main_obj = open_object(file);
 
