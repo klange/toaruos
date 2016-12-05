@@ -119,6 +119,7 @@ int main (int argc, char ** argv) {
 	yutani_window_move(yctx, window, left, top);
 	w_ctx = init_graphics_yutani_double_buffer(window);
 	yutani_window_update_shape(yctx, window, YUTANI_SHAPE_THRESHOLD_CLEAR);
+	yutani_window_advertise_icon(yctx, window, "Clock", "clock");
 
 	while (!should_exit) {
 		yutani_msg_t * m = yutani_poll_async(yctx);
@@ -130,6 +131,14 @@ int main (int argc, char ** argv) {
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							should_exit = 1;
 							goto done;
+						}
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							yutani_window_drag_start(yctx, window);
 						}
 					}
 					break;
@@ -149,7 +158,7 @@ int main (int argc, char ** argv) {
 			last = now.tv_sec;
 			draw(last);
 		}
-		usleep(10000);
+		usleep(100);
 	}
 done:
 

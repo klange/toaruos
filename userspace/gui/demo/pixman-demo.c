@@ -24,6 +24,8 @@ int main(int argc, char * argv[]) {
 	ctx = init_graphics_yutani(window);
 	draw_fill(ctx, rgba(0,0,0,255));
 
+	yutani_window_advertise_icon(yctx, window, "pixman Demo", "pixman-demo");
+
 	pixman_image_t *checkerboard;
 	pixman_image_t *destination;
 #define D2F(d) (pixman_double_to_fixed(d))
@@ -96,6 +98,14 @@ int main(int argc, char * argv[]) {
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							free(m);
 							goto done;
+						}
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							yutani_window_drag_start(yctx, window);
 						}
 					}
 					break;

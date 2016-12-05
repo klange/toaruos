@@ -50,6 +50,7 @@ int main (int argc, char ** argv) {
 	yctx = yutani_init();
 	wina = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, wina, left, top);
+	yutani_window_advertise_icon(yctx, wina, "drawlines", "drawlines");
 
 	ctx = init_graphics_yutani(wina);
 	draw_fill(ctx, rgb(0,0,0));
@@ -67,6 +68,14 @@ int main (int argc, char ** argv) {
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							should_exit = 1;
 							syscall_yield();
+						}
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							yutani_window_drag_start(yctx, wina);
 						}
 					}
 					break;

@@ -259,7 +259,7 @@ int main(int argc, char ** argv) {
 
 	yctx = yutani_init();
 	window = yutani_window_create(yctx, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
-	yutani_window_move(yctx, window, 10, 10);
+	yutani_window_move(yctx, window, 100, 100);
 	ctx = init_graphics_yutani_double_buffer(window);
 	draw_fill(ctx,rgb(0,0,0));
 	flip(ctx);
