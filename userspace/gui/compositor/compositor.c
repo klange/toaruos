@@ -1390,7 +1390,11 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 
 	/* And if it was focused, unfocus it. */
 	if (w == yg->focused_window) {
+		/* find the top z-ordered window */
 		yg->focused_window = NULL;
+		if (yg->mid_zs->tail && yg->mid_zs->tail->value) {
+			set_focused_window(yg, yg->mid_zs->tail->value);
+		}
 	}
 
 	{
