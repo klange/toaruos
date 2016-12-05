@@ -414,7 +414,7 @@ int main (int argc, char ** argv) {
 	width  = yctx->display_width;
 	height = yctx->display_height;
 
-	wina = yutani_window_create(yctx, width, height);
+	wina = yutani_window_create_flags(yctx, width, height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
 	assert(wina);
 	yutani_set_stack(yctx, wina, YUTANI_ZORDER_BOTTOM);
 	ctx = init_graphics_yutani_double_buffer(wina);

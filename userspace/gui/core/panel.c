@@ -941,7 +941,7 @@ int main (int argc, char ** argv) {
 	set_font_size(14);
 
 	/* Create the panel window */
-	panel = yutani_window_create(yctx, width, PANEL_HEIGHT);
+	panel = yutani_window_create_flags(yctx, width, PANEL_HEIGHT, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
 
 	/* And move it to the top layer */
 	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);
