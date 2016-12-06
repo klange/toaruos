@@ -230,7 +230,7 @@ define user-c-rule
 $1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
 	@${BEG} "CCSO" "$$<"
 	@${CC} -o $$@ $(USER_CFLAGS) -shared -fPIC $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
-	@if [ "x$(STRIP_LIBS)" -eq "x1" ]; then i686-pc-toaru-strip $$@; fi
+	@if [ "x$(STRIP_LIBS)" = "x1" ]; then i686-pc-toaru-strip $$@; fi
 	@${END} "CCSO" "$$<"
 endef
 $(foreach file,$(USER_LIBFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})),${file})))
@@ -280,7 +280,7 @@ define basic-so-wrapper
 hdd/usr/lib/lib$(1).so: ${TOOLCHAIN}/lib/lib$(1).a
 	@${BEG} "SO" "$$@"
 	@${CC} -shared -Wl,-soname,lib$(1).so -o hdd/usr/lib/lib$(1).so -Lhdd/usr/lib -Wl,--whole-archive ${TOOLCHAIN}/lib/lib$(1).a -Wl,--no-whole-archive $2
-	@if [ "x$(STRIP_LIBS)" -eq "x1" ]; then i686-pc-toaru-strip $$@; fi
+	@if [ "x$(STRIP_LIBS)" = "x1" ]; then i686-pc-toaru-strip $$@; fi
 	@${END} "SO" "$$@"
 endef
 
