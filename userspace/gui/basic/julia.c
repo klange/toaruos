@@ -237,10 +237,10 @@ int main(int argc, char * argv[]) {
 	}
 
 	yctx = yutani_init();
+	init_decorations();
 
 	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
 	yutani_window_move(yctx, window, left, top);
-	init_decorations();
 
 	yutani_window_advertise_icon(yctx, window, "Julia Fractals", "julia");
 
