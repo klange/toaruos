@@ -248,12 +248,14 @@ int main(int argc, char * argv[]) {
 
 	init_decorations();
 
-	win_hints = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
+	win_hints = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height,
+			YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_DISALLOW_DRAG | YUTANI_WINDOW_FLAG_DISALLOW_RESIZE);
 	yutani_window_move(yctx, win_hints, 0, 0);
 	yutani_window_update_shape(yctx, win_hints, YUTANI_SHAPE_THRESHOLD_CLEAR);
 	ctx_hints = init_graphics_yutani_double_buffer(win_hints);
 
-	win_wizard = yutani_window_create(yctx, WIZARD_WIDTH, WIZARD_HEIGHT);
+	win_wizard = yutani_window_create_flags(yctx, WIZARD_WIDTH, WIZARD_HEIGHT,
+			YUTANI_WINDOW_FLAG_DISALLOW_DRAG | YUTANI_WINDOW_FLAG_DISALLOW_RESIZE);
 	yutani_window_move(yctx, win_wizard, center_x(WIZARD_WIDTH), center_y(WIZARD_HEIGHT));
 	ctx_wizard = init_graphics_yutani_double_buffer(win_wizard);
 

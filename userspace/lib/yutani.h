@@ -380,6 +380,8 @@ typedef struct yutani_window {
  * should be created.
  */
 #define YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS   (1 << 0)
+#define YUTANI_WINDOW_FLAG_DISALLOW_DRAG    (1 << 1)
+#define YUTANI_WINDOW_FLAG_DISALLOW_RESIZE  (1 << 2)
 
 typedef struct {
 	int x;

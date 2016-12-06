@@ -1698,7 +1698,8 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
 	if (yg->mouse_window) {
-		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP
+		    || yg->mouse_window->server_flags & YUTANI_WINDOW_FLAG_DISALLOW_DRAG) {
 			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 			yg->mouse_window = NULL;
 		} else {
@@ -1738,10 +1739,12 @@ static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t d
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
 	if (yg->mouse_window) {
-		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP) {
+		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP
+		    || yg->mouse_window->server_flags & YUTANI_WINDOW_FLAG_DISALLOW_RESIZE) {
 			/* Prevent resizing panel and wallpaper */
 			yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 			yg->mouse_window = NULL;
+			yg->resizing_window = NULL;
 		} else {
 			TRACE("resize starting for wid=%d", yg->mouse_window -> wid);
 			yg->mouse_state = YUTANI_MOUSE_STATE_RESIZING;
