@@ -31,7 +31,7 @@ Modules provide support for disk drives, ext2 filesystems, serial, keyboards and
 
 ## Userspace ##
 
-ToaruOS's userspace is focused on a rich graphical environment, backed by an in-house compositing window manager. ToaruOS's terminal emulator supports xterm-compatible 256-color modes, as well as Konsole 24-bit color modes and anti-aliased text with basic Unicode support. Several graphical demos are provided, alongside a number of command-line applications. A port of SDL targetting the native graphical environment is also available.
+ToaruOS's userspace is focused on a rich graphical environment, backed by an in-house compositing window manager. ToaruOS's terminal emulator supports xterm-compatible 256-color modes, as well as Konsole 24-bit color modes and anti-aliased text with basic Unicode support. Programs binaries are dynamically linked. Several graphical demos are provided, alongside a number of command-line applications. A port of SDL targetting the native graphical environment is also available.
 
 ### Third-Party Software ###
 
