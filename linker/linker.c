@@ -25,6 +25,7 @@ extern char end[];
 
 static hashmap_t * dumb_symbol_table;
 static hashmap_t * glob_dat;
+static hashmap_t * objects_map;
 
 typedef struct elf_object {
 	FILE * file;
@@ -51,6 +52,8 @@ typedef struct elf_object {
 	uintptr_t base;
 
 	list_t * dependencies;
+
+	int loaded;
 
 } elf_t;
 
@@ -88,6 +91,12 @@ static char * find_lib(const char * file) {
 
 static elf_t * open_object(const char * path) {
 
+	if (hashmap_has(objects_map, (void*)path)) {
+		elf_t * object = hashmap_get(objects_map, (void*)path);
+		object->loaded = 1;
+		return object;
+	}
+
 	char * file = find_lib(path);
 	if (!file) return NULL;
 
@@ -100,6 +109,7 @@ static elf_t * open_object(const char * path) {
 	}
 
 	elf_t * object = calloc(1, sizeof(elf_t));
+	hashmap_set(objects_map, (void*)path, object);
 
 	if (!object) {
 		return NULL;
@@ -423,11 +433,8 @@ static void * object_find_symbol(elf_t * object, const char * symbol_name) {
 	return NULL;
 }
 
-static void * dlopen_ld(const char * filename, int flags) {
-	(void)flags; /* TODO */
-	TRACE_LD("dlopen(%s,0x%x)", filename, flags);
-
-	elf_t * lib = open_object(filename);
+static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
+	(void)flags;
 
 	if (!lib) {
 		last_error = "could not open library (not found, or other failure)";
@@ -444,6 +451,24 @@ static void * dlopen_ld(const char * filename, int flags) {
 	object_load(lib, load_addr);
 
 	object_postload(lib);
+
+	node_t * item;
+	while (item = list_pop(lib->dependencies)) {
+
+		elf_t * lib = open_object(item->value);
+
+		if (!lib) {
+			free((void *)load_addr);
+			last_error = "Failed to load a dependency.";
+			return NULL;
+		}
+
+		if (!lib->loaded) {
+			do_actual_load(item->value, lib, 0);
+		}
+
+	}
+
 	TRACE_LD("Relocating %s", filename);
 	object_relocate(lib);
 
@@ -461,6 +486,16 @@ static void * dlopen_ld(const char * filename, int flags) {
 	}
 
 	return (void *)lib;
+
+}
+
+static void * dlopen_ld(const char * filename, int flags) {
+	TRACE_LD("dlopen(%s,0x%x)", filename, flags);
+
+	elf_t * lib = open_object(filename);
+
+	return do_actual_load(filename, lib, flags);
+
 }
 
 static int dlclose_ld(elf_t * lib) {
@@ -505,6 +540,7 @@ int main(int argc, char * argv[]) {
 
 	dumb_symbol_table = hashmap_create(10);
 	glob_dat = hashmap_create(10);
+	objects_map = hashmap_create(10);
 
 	ld_exports_t * ex = ld_builtin_exports;
 	while (ex->name) {
