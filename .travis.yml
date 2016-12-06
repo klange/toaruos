@@ -1,52 +1,59 @@
 language: c
-script: ./util/build-travis.sh
+script: "./util/build-travis.sh"
 sudo: false
 addons:
   apt:
     packages:
-      - exuberant-ctags
-      - yasm
-      - genext2fs
-      - build-essential
-      - wget
-      - libmpfr-dev
-      - libmpc-dev
-      - libgmp3-dev
-      - qemu
-      - autoconf
-      - automake
-      - texinfo
-      - pkg-config
-      - git
-      - expect
-      - gperf
-      - grub-pc-bin
-      - xorriso
+    - exuberant-ctags
+    - yasm
+    - genext2fs
+    - build-essential
+    - wget
+    - libmpfr-dev
+    - libmpc-dev
+    - libgmp3-dev
+    - qemu
+    - autoconf
+    - automake
+    - texinfo
+    - pkg-config
+    - git
+    - expect
+    - gperf
+    - grub-pc-bin
+    - xorriso
 cache:
-  - apt
-  - directories:
-    - toolchain/local
-    - hdd/usr/bin
-    - hdd/usr/i686-pc-toaru
-    - hdd/usr/include
-    - hdd/usr/lib
-    - hdd/usr/libexec
-    - hdd/usr/local
-    - hdd/usr/man
-    - hdd/usr/share/aclocal
-    - hdd/usr/share/games
-    - hdd/usr/share/gcc-4.6.*
-    - hdd/usr/share/gtk-doc
-    - hdd/usr/share/info
-    - hdd/usr/share/locale
-    - hdd/usr/share/man
-    - hdd/usr/share/tabset
-    - hdd/usr/share/terminfo
-    - hdd/usr/share/vim
+- apt
+- directories:
+  - toolchain/local
+  - hdd/usr/bin
+  - hdd/usr/i686-pc-toaru
+  - hdd/usr/include
+  - hdd/usr/lib
+  - hdd/usr/libexec
+  - hdd/usr/local
+  - hdd/usr/man
+  - hdd/usr/share/aclocal
+  - hdd/usr/share/games
+  - hdd/usr/share/gcc-4.6.*
+  - hdd/usr/share/gtk-doc
+  - hdd/usr/share/info
+  - hdd/usr/share/locale
+  - hdd/usr/share/man
+  - hdd/usr/share/tabset
+  - hdd/usr/share/terminfo
+  - hdd/usr/share/vim
 notifications:
   irc:
     channels:
-      - "irc.freenode.org#toaruos"
+    - irc.freenode.org#toaruos
     use_notice: false
     skip_join: true
-
+deploy:
+  provider: releases
+  api_key:
+    secure: Lcs5kHe9HAwcVLdm8c0FkAb77U9yzUQdI5PmTU1AnFyHtrPmW1+9d6HeYSPLHm+cPAUdWKqouJNKW7s76Sqhz+4IDcwro7VkbV/fd9NFQCOf9Jb5QScmCZndmYVQUiUmy/7wVqGdy+vatKEsnngctT7aVVhJ5SrWoCPmcttUez8=
+  file: _cdsource/toaruos.iso
+  skip_cleanup: true
+  on:
+    tags: true
