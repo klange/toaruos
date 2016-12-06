@@ -55,5 +55,6 @@ deploy:
     secure: Lcs5kHe9HAwcVLdm8c0FkAb77U9yzUQdI5PmTU1AnFyHtrPmW1+9d6HeYSPLHm+cPAUdWKqouJNKW7s76Sqhz+4IDcwro7VkbV/fd9NFQCOf9Jb5QScmCZndmYVQUiUmy/7wVqGdy+vatKEsnngctT7aVVhJ5SrWoCPmcttUez8=
   file: _cdsource/toaruos.iso
   skip_cleanup: true
+  overwrite: true
   on:
     tags: true
