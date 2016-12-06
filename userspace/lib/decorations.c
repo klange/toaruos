@@ -23,8 +23,6 @@ uint32_t decor_right_width    = 6;
 #define TEXT_OFFSET_X 10
 #define TEXT_OFFSET_Y 16
 
-#define INACTIVE 9
-
 #define BORDERCOLOR rgb(60,60,60)
 #define BORDERCOLOR_INACTIVE rgb(30,30,30)
 #define BACKCOLOR rgb(20,20,20)
@@ -40,7 +38,7 @@ static void (*callback_resize)(yutani_window_t *) = NULL;
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
 	uint32_t color = BORDERCOLOR;
-	if (decors_active == INACTIVE) {
+	if (decors_active == DECOR_INACTIVE) {
 		color = BORDERCOLOR_INACTIVE;
 	}
 
@@ -55,7 +53,7 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 		}
 	}
 
-	if (decors_active == INACTIVE) {
+	if (decors_active == DECOR_INACTIVE) {
 		draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR_INACTIVE, title);
 		draw_string(ctx, window->width - 20, TEXT_OFFSET_Y, TEXTCOLOR_INACTIVE, "✕");
 	} else {
@@ -91,21 +89,26 @@ static void initialize_simple() {
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
 	if (!window->focused) {
-		decor_render_decorations(window, ctx, title, INACTIVE);
+		decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
 	} else {
-		decor_render_decorations(window, ctx, title, 0);
+		decor_render_decorations(window, ctx, title, DECOR_ACTIVE);
 	}
 }
 
 void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
-	decor_render_decorations(window, ctx, title, INACTIVE);
+	decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
 }
 
 void init_decorations() {
 	init_shmemfonts();
 
-	char * theme = getenv("WM_THEME");
+	char * theme = strdup(getenv("WM_THEME"));
+	char * options = strchr(theme,',');
+	if (options) {
+		*options = '\0';
+		options++;
+	}
 	if (!theme || !strcmp(theme, "simple")) {
 		initialize_simple();
 	} else {
@@ -115,11 +118,11 @@ void init_decorations() {
 		if (!theme_lib) {
 			goto _theme_error;
 		}
-		void (*theme_init)(void) = dlsym(theme_lib, "decor_init");
+		void (*theme_init)(char *) = dlsym(theme_lib, "decor_init");
 		if (!theme_init) {
 			goto _theme_error;
 		}
-		theme_init();
+		theme_init(options);
 		return;
 
 _theme_error:

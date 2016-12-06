@@ -50,4 +50,7 @@ extern void decor_set_resize_callback(void (*callback)(yutani_window_t *));
 #define DECOR_CLOSE  2
 #define DECOR_RESIZE 3
 
+#define DECOR_ACTIVE   0
+#define DECOR_INACTIVE 1
+
 #endif /* DECORATION_H */

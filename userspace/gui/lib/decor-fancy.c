@@ -56,6 +56,8 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 		}
 	}
 
+	if (decors_active == DECOR_INACTIVE) decors_active = INACTIVE;
+
 	draw_sprite(ctx, sprites[decors_active + 0], 0, 0);
 	for (int i = 0; i < width - (ul_width + ur_width); ++i) {
 		draw_sprite(ctx, sprites[decors_active + 1], i + ul_width, 0);
