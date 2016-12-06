@@ -20,6 +20,8 @@ addons:
       - git
       - expect
       - gperf
+      - grub-pc-bin
+      - xorriso
 cache:
   - apt
   - directories:

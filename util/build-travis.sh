@@ -33,9 +33,19 @@ fi
 
 . toolchain/activate.sh
 
-make
+make || exit 1
 
 echo "=== Running test suite. ==="
 
-expect util/test-travis.exp
+expect util/test-travis.exp || exit 1
+
+echo "=== Building live CD ==="
+
+git clone . _cdsource || exit 1
+
+cd _cdsource
+
+make cdrom || exit 1
+
+echo "=== Done. ==="
 
