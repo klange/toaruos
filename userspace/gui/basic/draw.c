@@ -145,8 +145,8 @@ ttk_raw_surface * ttk_raw_surface_new(int width, int height) {
 
 	obj->width = width;
 	obj->height = height;
-	obj->x = 10;
-	obj->y = 10;
+	obj->x = decor_left_width + 4;
+	obj->y = decor_top_height + 4;
 
 	obj->click_callback = NULL;
 	obj->type = TTK_RAW_SURFACE_TYPE;
@@ -367,14 +367,14 @@ int main (int argc, char ** argv) {
 
 	yctx = yutani_init();
 
+	init_decorations();
+
 	/* Do something with a window */
-	wina = yutani_window_create(yctx, width, height);
+	wina = yutani_window_create(yctx, width + decor_width(), height+decor_height());
 	yutani_window_move(yctx, wina, 100, 100);
 
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgba(0,0,0,0));
-
-	init_decorations();
 
 	yutani_window_advertise_icon(yctx, wina, "Draw!", "applications-painting");
 
@@ -412,7 +412,7 @@ int main (int argc, char ** argv) {
 	button_resize->fore_color = rgb(255,255,255);
 
 	drawing_surface = ttk_raw_surface_new(width - 30, height - 70);
-	((ttk_object *)drawing_surface)->y = 60;
+	((ttk_object *)drawing_surface)->y += 19;
 
 	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, drawing_surface->surface->width);
 	internal_surface = cairo_image_surface_create_for_data(drawing_surface->surface->backbuffer, CAIRO_FORMAT_ARGB32, drawing_surface->surface->width, drawing_surface->surface->height, stride);
