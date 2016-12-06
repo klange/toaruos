@@ -41,6 +41,8 @@ expect util/test-travis.exp || exit 1
 
 echo "=== Building live CD ==="
 
+git fetch --unshallow
+
 git clone . _cdsource || exit 1
 
 cd _cdsource
