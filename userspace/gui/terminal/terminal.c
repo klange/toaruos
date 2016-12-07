@@ -1032,10 +1032,20 @@ void key_event(int ret, key_event_t * event) {
 				}
 				break;
 			case KEY_HOME:
-				handle_input_s("\033OH");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					scrollback_offset = scrollback_list->length;
+					redraw_scrollback();
+				} else {
+					handle_input_s("\033OH");
+				}
 				break;
 			case KEY_END:
-				handle_input_s("\033OF");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					scrollback_offset = 0;
+					redraw_scrollback();
+				} else {
+					handle_input_s("\033OF");
+				}
 				break;
 			case KEY_DEL:
 				handle_input_s("\033[3~");
