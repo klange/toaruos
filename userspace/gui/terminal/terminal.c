@@ -1411,8 +1411,8 @@ int main(int argc, char ** argv) {
 	if (_no_frame) {
 		window = yutani_window_create(yctx, window_width, window_height);
 	} else {
-		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
 		init_decorations();
+		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
 	}
 
 	if (_fullscreen) {
