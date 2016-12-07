@@ -258,7 +258,10 @@ char handle_event(yutani_msg_t * m) {
 int main(int argc, char ** argv) {
 
 	yctx = yutani_init();
-	window = yutani_window_create(yctx, 2 * WINDOW_SIZE, 2 * WINDOW_SIZE);
+
+	init_decorations();
+
+	window = yutani_window_create(yctx, 2 * WINDOW_SIZE + decor_width(), 2 * WINDOW_SIZE + decor_height());
 	yutani_window_move(yctx, window, 100, 100);
 	ctx = init_graphics_yutani_double_buffer(window);
 	draw_fill(ctx,rgb(0,0,0));
@@ -266,8 +269,6 @@ int main(int argc, char ** argv) {
 	yutani_flip(yctx, window);
 
 	yutani_window_advertise_icon(yctx, window, "RPG Demo", "applications-simulation");
-
-	init_decorations();
 
 	map_x = WINDOW_SIZE - (64 * 9) / 2;
 	map_y = WINDOW_SIZE - (64 * 9) / 2;
