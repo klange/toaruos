@@ -1010,7 +1010,7 @@ void key_event(int ret, key_event_t * event) {
 			case KEY_PAGE_UP:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
 					int i = 0;
-					while (i < 5 && scrollback_list && scrollback_offset < scrollback_list->length) {
+					while (i < term_height/2 && scrollback_list && scrollback_offset < scrollback_list->length) {
 						scrollback_offset ++;
 						i++;
 					}
@@ -1022,7 +1022,7 @@ void key_event(int ret, key_event_t * event) {
 			case KEY_PAGE_DOWN:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
 					int i = 0;
-					while (i < 5 && scrollback_list && scrollback_offset != 0) {
+					while (i < term_height/2 && scrollback_list && scrollback_offset != 0) {
 						scrollback_offset -= 1;
 						i++;
 					}
