@@ -63,7 +63,7 @@ if grep precise /etc/lsb-release; then
 	# Hack for travis build hosts (old grub-mkrescue, no -d)
 	grub-mkrescue -o toaruos.iso cdrom
 else
-	grub-mkrescue -d /usr/lib/grub/i386-pc -o toaruos.iso cdrom
+	grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o toaruos.iso cdrom
 fi
 
 echo "Restoring modules directory to hdd/mod..."
