@@ -32,7 +32,10 @@ i686-pc-toaru-strip hdd/bin/*
 echo "Cloning CD source directory..."
 rm -rf cdrom
 cp -r util/cdrom cdrom
-mv hdd/mod cdrom/mod
+mv hdd/mod _mod_tmp
+mkdir cdrom/mod
+cp _mod_tmp/* cdrom/mod/
+xz cdrom/mod/*
 
 mkdir -p hdd/usr/share/terminfo/t
 cp util/toaru.tic hdd/usr/share/terminfo/t/toaru
@@ -43,15 +46,16 @@ EOF
 
 echo "Generating ramdisk..."
 genext2fs -B 4096 -d hdd -D util/devtable -U -b 65536 -N 1024 cdrom/ramdisk.img
-gzip cdrom/ramdisk.img
+xz cdrom/ramdisk.img
 
 echo "Installing kernel..."
 cp toaruos-kernel cdrom/kernel
+xz cdrom/kernel
 
 echo "Building ISO..."
-grub-mkrescue -d /usr/lib/grub/i386-pc -o toaruos-big.iso cdrom
+grub-mkrescue -d /usr/lib/grub/i386-pc -o toaruos-big.iso --compress=xz cdrom
 
 echo "Restoring modules directory to hdd/mod..."
-mv cdrom/mod hdd/mod
+mv _mod_tmp hdd/mod
 rm -r cdrom
 eval git checkout $BLACKLIST
