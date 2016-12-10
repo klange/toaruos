@@ -557,7 +557,7 @@ static int sys_sysfunc(int fn, char ** args) {
 		case 8:
 			PTR_VALIDATE(args);
 			debug_print(WARNING, "0x%x 0x%x 0x%x 0x%x", args[0], args[1], args[2], args[3]);
-			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3]);
+			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3] ? args[3] : "(null)");
 			return 0;
 			break;
 
