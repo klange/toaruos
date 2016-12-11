@@ -58,6 +58,7 @@ initrd/boot
 initrd/etc
 tags
 toaru-pdfviewer
+toaru-python
 toaru-toolkit
 toaruos-disk.img
 toaruos-initrd
