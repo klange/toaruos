@@ -35,6 +35,8 @@ fi
 
 echo "=== Trying to build Python. ==="
 
+make hdd/usr/lib/libc.so
+make hdd/usr/lib/libm.so
 make hdd/usr/lib/libtoaru-dlfcn.so
 
 toolchain/install-python.sh
