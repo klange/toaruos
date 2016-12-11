@@ -10,6 +10,8 @@ if [ ! -d toaru-python ]; then
 	git clone https://github.com/klange/cpython toaru-python
 fi
 
+cp userspace/lib/dlfcn.h hdd/usr/include/dlfcn.h
+
 pushd toaru-python || exit 1
 	echo "Configuring..."
 

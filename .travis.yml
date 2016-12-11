@@ -22,6 +22,7 @@ addons:
     - gperf
     - grub-pc-bin
     - xorriso
+    - python3
 cache:
 - apt
 - directories:
