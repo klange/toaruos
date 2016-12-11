@@ -27,6 +27,7 @@ class Classifier(object):
         '<menu.h>':            (None, '-lmenu', ['<ncurses.h>']),
         '<zlib.h>':            (None, '-lz', ['<math.h>']),
         '<png.h>':             (None, '-lpng15', ['<zlib.h>']),
+        '<Python.h>':          ('../python/include/python3.6m', '-lpython3.6m', ['<math.h>']),
         # Toaru Standard Library
         '<toaru.h>':           (None, '-ltoaru', ['<png.h>','<ft2build.h>','<cairo.h>']),
         '"lib/toaru_auth.h"':  (None, '-ltoaru-toaru_auth',  ['"lib/sha2.h"']),
