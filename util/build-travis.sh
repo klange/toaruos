@@ -33,7 +33,16 @@ fi
 
 . toolchain/activate.sh
 
+echo "=== Trying to build Python. ==="
+
+make hdd/usr/lib/libtoaru-dlfcn.so
+
+toolchain/install-python.sh
+
+echo "=== Returning to normal build ==="
+
 make || exit 1
+
 
 echo "=== Running test suite. ==="
 
