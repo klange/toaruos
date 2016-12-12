@@ -1,6 +1,8 @@
 #ifndef _DLFCN_H
 #define _DLFCN_H
 
+#define RTLD_LAZY 0
+#define RTLD_NOW  1
 
 
 extern void * dlopen(const char *, int);
