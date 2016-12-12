@@ -334,7 +334,7 @@ static unsigned int set_block_number(ext2_fs_t * this, ext2_inodetable_t * inode
 
 		free(tmp);
 		return E_SUCCESS;
-	} else if (iblock < EXT2_DIRECT_BLOCKS + p + p * p + p) {
+	} else if (iblock < EXT2_DIRECT_BLOCKS + p + p * p * p) {
 		a = iblock - EXT2_DIRECT_BLOCKS;
 		b = a - p;
 		c = b - p * p;
@@ -428,7 +428,7 @@ static unsigned int get_block_number(ext2_fs_t * this, ext2_inodetable_t * inode
 		unsigned int out = ((uint32_t  *)tmp)[d];
 		free(tmp);
 		return out;
-	} else if (iblock < EXT2_DIRECT_BLOCKS + p + p * p + p) {
+	} else if (iblock < EXT2_DIRECT_BLOCKS + p + p * p * p) {
 		a = iblock - EXT2_DIRECT_BLOCKS;
 		b = a - p;
 		c = b - p * p;
