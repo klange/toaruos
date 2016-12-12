@@ -57,13 +57,13 @@ Cairo | \*   | CPU-accelerated pixel-pushing and vector graphics
 ncurses | \* | Terminal UI library and `terminfo` provider
 Mesa | \* | Software OpenGL implementation
 Vim | \* | Popular text editor
+Python | [link](https://github.com/klange/cpython) | Interpreted programming language, 3.6
 Lua  |  [link](http://www.lua.org/) | Interpreted programming language
 MuPDF | [link](https://github.com/klange/toaru-pdfviewer) | PDF viewer (requires complex library cross-compilation)
 SDL | [link](https://github.com/klange/SDL) | Cross-platform graphics library
 Snes9X | [link](https://github.com/klange/snes9x-sdl) | SNES emulator
 PrBoom | [link](https://github.com/klange/prboom) | DooM engine
 Bochs | [link](http://bochs.sourceforge.net/) | Software x86 PC emulator
-Python | (TBD) | Interpreted programming language
 
 \* These tools and libraries are retrieved by the build process and included by default. Some of them are dependencies for the core userspace.
 
