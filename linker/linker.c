@@ -57,6 +57,8 @@ typedef struct elf_object {
 
 } elf_t;
 
+static elf_t * _main_obj = NULL;
+
 static char * find_lib(const char * file) {
 
 	if (strchr(file, '/')) return strdup(file);
@@ -90,6 +92,11 @@ static char * find_lib(const char * file) {
 }
 
 static elf_t * open_object(const char * path) {
+
+	if (!path) {
+		_main_obj->loaded = 1;
+		return _main_obj;
+	}
 
 	if (hashmap_has(objects_map, (void*)path)) {
 		elf_t * object = hashmap_get(objects_map, (void*)path);
@@ -341,7 +348,7 @@ static int object_relocate(elf_t * object) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
 				}
 				if ((sym->st_shndx == 0) && need_symbol_for_type(type) || (type == 5)) {
-					if (hashmap_has(dumb_symbol_table, symname)) {
+					if (symname && hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 					} else {
 						fprintf(stderr, "Symbol not found: %s\n", symname);
@@ -352,7 +359,7 @@ static int object_relocate(elf_t * object) {
 				/* Relocations, symbol lookups, etc. */
 				switch (type) {
 					case 6: /* GLOB_DAT */
-						if (hashmap_has(glob_dat, symname)) {
+						if (symname && hashmap_has(glob_dat, symname)) {
 							x = (uintptr_t)hashmap_get(glob_dat, symname);
 						}
 					case 7: /* JUMP_SLOT */
@@ -494,6 +501,10 @@ static void * dlopen_ld(const char * filename, int flags) {
 
 	elf_t * lib = open_object(filename);
 
+	if (lib->loaded) {
+		return lib;
+	}
+
 	return do_actual_load(filename, lib, flags);
 
 }
@@ -549,6 +560,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	elf_t * main_obj = open_object(file);
+	_main_obj = main_obj;
 
 	if (!main_obj) {
 		fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], file);
