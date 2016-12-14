@@ -16,7 +16,7 @@ demob: demob.c libc.so
 libdemo.so: libdemo.c libc.so
 	i686-pc-toaru-gcc -shared -fPIC -Wl,-soname,libdemo.so -o libdemo.so libdemo.c -lc
 
-libc.so:
+libc.so: ${TOARU_SYSROOT}/usr/lib/libc.a
 	cp ${TOARU_SYSROOT}/usr/lib/libc.a libc.a
 	# init and fini don't belong in our shared object
 	${AR} d libc.a lib_a-init.o
