@@ -107,7 +107,7 @@ pushd build
             cp /tmp/__toaru_crtn.o $TARGET/newlib/libc/sys/crtn.o
             rm /tmp/__toaru_crtn.o
             echo "" > $DIR/tarballs/newlib-1.19.0/newlib/libc/stdlib/malign.c
-            $DIR/tarballs/newlib-1.19.0/configure --target=$TARGET --prefix=$VIRTPREFIX || bail
+            $DIR/tarballs/newlib-1.19.0/configure --target=$TARGET --prefix=$VIRTPREFIX --enable-newlib-io-c99-formats || bail
             # Fix the damned tooldir
             sed -s 's/prefix}\/i686-pc-toaru/prefix}/' Makefile > Makefile.tmp
             mv Makefile.tmp Makefile
