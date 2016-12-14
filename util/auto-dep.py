@@ -108,11 +108,11 @@ def todep(name):
     if name.startswith("-l"):
         name = name.replace("-l","",1)
         if name in force_static:
-            return "%s/lib%s.a" % (TOOLCHAIN_PATH + '/lib', name)
+            return (False, "%s/lib%s.a" % (TOOLCHAIN_PATH + '/lib', name))
         else:
-            return "%s/lib%s.so" % ('hdd/usr/lib', name)
+            return (True, "%s/lib%s.so" % ('hdd/usr/lib', name))
     else:
-        return name
+        return (False, name)
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -128,4 +128,7 @@ if __name__ == "__main__":
     elif command == "--libs":
         print " ".join([x for x in c.libs])
     elif command == "--deps":
-        print " ".join([todep(x) for x in c.libs])
+        results = [todep(x) for x in c.libs]
+        normal = [x[1] for x in results if not x[0]]
+        order_only = [x[1] for x in results if x[0]]
+        print " ".join(normal) + " | " + " ".join(order_only)
