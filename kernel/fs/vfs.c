@@ -25,6 +25,24 @@ fs_node_t * fs_root = NULL; /* Pointer to the root mount fs_node (must be some f
 hashmap_t * fs_types = NULL;
 
 
+int has_permission(fs_node_t * node, int permission_bit) {
+	if (!node) return 0;
+
+	uint32_t permissions = node->mask;
+
+	uint8_t user_perm  = (permissions >> 6) & 07;
+	//uint8_t group_perm = (permissions >> 3) & 07;
+	uint8_t other_perm = (permissions) & 07;
+
+	if (current_process->user == node->uid) {
+		return (permission_bit & user_perm);
+		/* TODO group permissions? */
+	} else {
+		return (permission_bit & other_perm);
+	}
+
+}
+
 static struct dirent * readdir_mapper(fs_node_t *node, uint32_t index) {
 	tree_node_t * d = (tree_node_t *)node->device;
 
@@ -270,6 +288,10 @@ int create_file_fs(char *name, uint16_t permission) {
 	if (!parent) {
 		free(path);
 		return -1;
+	}
+
+	if (!has_permission(parent, 02)) {
+		return -EACCES;
 	}
 
 	if (parent->create) {

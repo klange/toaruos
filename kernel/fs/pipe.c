@@ -221,6 +221,7 @@ fs_node_t * make_pipe(size_t size) {
 	sprintf(fnode->name, "[pipe]");
 	fnode->uid   = 0;
 	fnode->gid   = 0;
+	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
 	fnode->read  = read_pipe;
 	fnode->write = write_pipe;

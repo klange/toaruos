@@ -123,6 +123,7 @@ struct vfs_entry {
 extern fs_node_t *fs_root;
 extern int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave);
 
+int has_permission(fs_node_t *node, int permission_bit);
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 void open_fs(fs_node_t *node, unsigned int flags);

@@ -392,7 +392,7 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
 	strcpy(fnode->name, name);
-	fnode->mask = 0555;
+	fnode->mask = 0666;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->read    = socket_read;
 	fnode->write   = socket_write;

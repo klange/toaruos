@@ -160,6 +160,7 @@ static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	sprintf(fnode->name, "fb0"); /* TODO */
 	fnode->length  = lfb_resolution_x * lfb_resolution_y * (lfb_resolution_b / 8);
 	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->mask    = 0660;
 	fnode->ioctl   = ioctl_vid;
 	return fnode;
 }

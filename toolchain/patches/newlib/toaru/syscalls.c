@@ -259,6 +259,8 @@ int open(const char *name, int flags, ...) {
 		} else {
 			errno = ENOENT;
 		}
+	} else if (result < 0) {
+		errno = -result;
 	}
 	return result;
 }

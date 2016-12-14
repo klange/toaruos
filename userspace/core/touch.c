@@ -18,6 +18,10 @@ int main(int argc, char * argv[]) {
 	}
 
 	FILE * f = fopen(argv[1], "a");
+	if (!f) {
+		perror(argv[0]);
+		return 1;
+	}
 	fclose(f);
 
 	return 0;

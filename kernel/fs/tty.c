@@ -288,6 +288,7 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	sprintf(fnode->name, "pty master");
 	fnode->uid   = 0;
 	fnode->gid   = 0;
+	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
 	fnode->read  =  read_pty_master;
 	fnode->write = write_pty_master;
@@ -311,6 +312,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	sprintf(fnode->name, "pty slave");
 	fnode->uid   = 0;
 	fnode->gid   = 0;
+	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
 	fnode->read  =  read_pty_slave;
 	fnode->write = write_pty_slave;

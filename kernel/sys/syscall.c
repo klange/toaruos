@@ -59,6 +59,7 @@ static int __attribute__((noreturn)) sys_exit(int retval) {
 static int sys_read(int fd, char * ptr, int len) {
 	if (FD_CHECK(fd)) {
 		PTR_VALIDATE(ptr);
+
 		fs_node_t * node = FD_ENTRY(fd);
 		uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
 		node->offset += out;
@@ -94,6 +95,10 @@ static int sys_write(int fd, char * ptr, int len) {
 	if (FD_CHECK(fd)) {
 		PTR_VALIDATE(ptr);
 		fs_node_t * node = FD_ENTRY(fd);
+		if (!has_permission(node, 02)) {
+			debug_print(WARNING, "access denied (write, fd=%d)", fd);
+			return -EACCES;
+		}
 		uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
 		node->offset += out;
 		return out;
@@ -112,11 +117,27 @@ static int sys_open(const char * file, int flags, int mode) {
 	PTR_VALIDATE(file);
 	debug_print(NOTICE, "open(%s) flags=0x%x; mode=0x%x", file, flags, mode);
 	fs_node_t * node = kopen((char *)file, flags);
+
+	if (node && !has_permission(node, 04)) {
+		debug_print(WARNING, "access denied (read, sys_open, file=%s)", file);
+		return -EACCES;
+	}
+	if (node && ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY))) {
+		if (!has_permission(node, 02)) {
+			debug_print(WARNING, "access denied (write, sys_open, file=%s)", file);
+			return -EACCES;
+		}
+	}
+
 	if (!node && (flags & O_CREAT)) {
+		/* TODO check directory permissions */
 		debug_print(NOTICE, "- file does not exist and create was requested.");
 		/* Um, make one */
-		if (!create_file_fs((char *)file, mode)) {
+		int result = create_file_fs((char *)file, mode);
+		if (!result) {
 			node = kopen((char *)file, flags);
+		} else {
+			return result;
 		}
 	}
 	if (!node) {

@@ -47,6 +47,7 @@ static fs_node_t * random_device_create(void) {
 	strcpy(fnode->name, "random");
 	fnode->uid = 0;
 	fnode->gid = 0;
+	fnode->mask = 0444;
 	fnode->length  = 1024;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->read    = read_random;

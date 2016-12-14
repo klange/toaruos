@@ -328,6 +328,7 @@ static fs_node_t * file_from_pex(pex_ex_t * pex) {
 	fnode->inode = 0;
 	strcpy(fnode->name, pex->name);
 	fnode->device  = pex;
+	fnode->mask    = 0666;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->open    = open_pex;
 	fnode->read    = read_server;
@@ -434,6 +435,7 @@ static fs_node_t * packetfs_manager(void) {
 	fnode->inode = 0;
 	strcpy(fnode->name, "pex");
 	fnode->device  = pex;
+	fnode->mask    = 0777;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->readdir = readdir_packetfs;
 	fnode->finddir = finddir_packetfs;

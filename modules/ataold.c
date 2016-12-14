@@ -175,6 +175,7 @@ static fs_node_t * ata_device_create(struct ata_device * device) {
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;
+	fnode->mask    = 0660;
 	fnode->length  = ata_max_offset(device); /* TODO */
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_ata;

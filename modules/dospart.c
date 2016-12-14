@@ -71,6 +71,7 @@ static fs_node_t * dospart_device_create(int i, fs_node_t * dev, partition_t * p
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;
+	fnode->mask    = 0660;
 	fnode->length  = device->partition.sector_count * SECTORSIZE; /* TODO */
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_part;
