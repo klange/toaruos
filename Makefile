@@ -183,9 +183,9 @@ KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard ker
 #    Kernel    #
 ################
 toaruos-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
-	@${BEG} "CC" "$<"
+	@${BEG} "CC" "$@"
 	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc ${ERRORS}
-	@${END} "CC" "$<"
+	@${END} "CC" "$@"
 	@${INFO} "--" "Kernel is ready!"
 
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
@@ -265,16 +265,43 @@ hdd/usr/lib/libnetwork.a: userspace/lib/network.o
 	@${AR} rcs $@ ${CORE_LIBS}
 	@${END} "AR" "$@"
 
-# Bad implementations of shared libraries
-hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a
-	cd linker; make libc.so
-	mkdir -p hdd/usr/lib
-	cp linker/libc.so hdd/usr/lib/
+hdd/usr/lib:
+	@mkidr -p hdd/usr/lib
 
-hdd/lib/ld.so: linker/linker.c
-	cd linker; make ld.so
-	mkdir -p hdd/lib
-	cp linker/ld.so hdd/lib/
+# Bad implementations of shared libraries
+hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a | hdd/usr/lib
+	@${BEG} "SO" "$@"
+	@cp ${TOARU_SYSROOT}/usr/lib/libc.a libc.a
+	@# init and fini don't belong in our shared object
+	@${AR} d libc.a lib_a-init.o
+	@${AR} d libc.a lib_a-fini.o
+	@# Remove references to newlib's reentrant malloc
+	@${AR} d libc.a lib_a-calloc.o
+	@${AR} d libc.a lib_a-callocr.o
+	@${AR} d libc.a lib_a-cfreer.o
+	@${AR} d libc.a lib_a-freer.o
+	@${AR} d libc.a lib_a-malignr.o
+	@${AR} d libc.a lib_a-mallinfor.o
+	@${AR} d libc.a lib_a-mallocr.o
+	@${AR} d libc.a lib_a-malloptr.o
+	@${AR} d libc.a lib_a-mallstatsr.o
+	@${AR} d libc.a lib_a-msizer.o
+	@${AR} d libc.a lib_a-pvallocr.o
+	@${AR} d libc.a lib_a-realloc.o
+	@${AR} d libc.a lib_a-reallocr.o
+	@${AR} d libc.a lib_a-vallocr.o
+	@${CC} -shared -o $@ -Wl,--whole-archive libc.a -Wl,--no-whole-archive ${ERRORS}
+	@rm libc.a
+	@${END} "SO" "$@"
+
+
+hdd/lib:
+	@mkdir -p hdd/lib
+
+hdd/lib/ld.so: linker/linker.c | hdd/lib
+	@${BEG} "CC" "$<"
+	@${CC} -static -Wl,-static -std=c99 -g -U__STRICT_ANSI__ -o $@ -Os -T linker/link.ld $< ${ERRORS}
+	@${END} "CC" "$<"
 
 define basic-so-wrapper
 hdd/usr/lib/lib$(1).so: ${TOOLCHAIN}/lib/lib$(1).a
