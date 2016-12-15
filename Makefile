@@ -266,7 +266,7 @@ hdd/usr/lib/libnetwork.a: userspace/lib/network.o
 	@${END} "AR" "$@"
 
 hdd/usr/lib:
-	@mkidr -p hdd/usr/lib
+	@mkdir -p hdd/usr/lib
 
 # Bad implementations of shared libraries
 hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a | hdd/usr/lib
