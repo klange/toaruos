@@ -374,7 +374,7 @@ BLACKLIST += hdd/usr/share/wallpapers/southbay.png
 BLACKLIST += hdd/usr/share/wallpapers/yokohama.png
 BLACKLIST += hdd/usr/share/wallpapers/yosemite.png
 
-_cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom
+_cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod
 	@${BEG} "hdd" "Generating a ramdisk image..."
 	@rm -f $(filter-out ${NONTEST},${USERSPACE})
 	@rm -f ${BLACKLIST}
@@ -385,7 +385,7 @@ _cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/sh
 _cdrom/ramdisk.img.gz: _cdrom/ramdisk.img
 	@gzip $<
 
-toaruos.iso: _cdrom/ramdisk.img.gz _cdrom/kernel _cdrom/mod
+toaruos.iso: _cdrom/ramdisk.img.gz _cdrom/kernel
 	@${BEG} "ISO" "Building a CD image"
 	@if grep precise /etc/lsb-release; then grub-mkrescue -o $@ _cdrom; else grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ _cdrom -- -quiet 2> /dev/null; fi
 	@${END} "ISO" "Building a CD image"
