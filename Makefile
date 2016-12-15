@@ -291,6 +291,7 @@ hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a | hdd/usr/lib
 	@${AR} d libc.a lib_a-reallocr.o
 	@${AR} d libc.a lib_a-vallocr.o
 	@${CC} -shared -o $@ -Wl,--whole-archive libc.a -Wl,--no-whole-archive ${ERRORS}
+	@if [ "x$(STRIP_LIBS)" = "x1" ]; then i686-pc-toaru-strip $@; fi
 	@rm libc.a
 	@${END} "SO" "$@"
 
