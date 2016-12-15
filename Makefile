@@ -12,6 +12,7 @@ NM = i686-pc-toaru-nm
 CXX= i686-pc-toaru-g++
 AR = i686-pc-toaru-ar
 AS = i686-pc-toaru-as
+STRIP = i686-pc-toaru-strip
 
 # Build flags
 CFLAGS  = -O2 -std=c99
@@ -19,6 +20,8 @@ CFLAGS += -finline-functions -ffreestanding
 CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format
 CFLAGS += -pedantic -fno-omit-frame-pointer
 CFLAGS += -D_KERNEL_
+
+STRIP_LIBS = 1
 
 ASFLAGS = --32
 
@@ -53,12 +56,20 @@ USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
 LIBC=hdd/usr/lib/libc.so
 
 # Userspace output files (so we can define metatargets)
+NONTEST_C   = $(foreach f,$(USER_CFILES),$(if $(findstring /tests/,$f),,$f))
+NONTEST_CXX = $(foreach f,$(USER_CXXFILES),$(if $(findstring /tests/,$f),,$f))
+
+NONTEST  = $(foreach file,$(NONTEST_C),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
+NONTEST += $(foreach file,$(NONTEST_CXX),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
+NONTEST += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
+NONTEST += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
+NONTEST += $(LIBC) hdd/bin/init hdd/lib/ld.so
+
 USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
 USERSPACE += $(LIBC) hdd/bin/init hdd/lib/ld.so
-#USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,%.o,${file}))
 
 CORE_LIBS = $(patsubst %.c,%.o,$(wildcard userspace/lib/*.c))
 
@@ -200,7 +211,10 @@ kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 
 kernel/sys/version.o: kernel/*/*.c kernel/*.c
 
-hdd/mod/%.ko: modules/%.c ${HEADERS}
+hdd/mod:
+	@mkdir -p hdd/mod
+
+hdd/mod/%.ko: modules/%.c ${HEADERS} | hdd/mod
 	@${BEG} "CC" "$< [module]"
 	@${CC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [module]"
@@ -230,7 +244,7 @@ define user-c-rule
 $1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
 	@${BEG} "CCSO" "$$<"
 	@${CC} -o $$@ $(USER_CFLAGS) -shared -fPIC $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
-	@if [ "x$(STRIP_LIBS)" = "x1" ]; then i686-pc-toaru-strip $$@; fi
+	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $$@; fi
 	@${END} "CCSO" "$$<"
 endef
 $(foreach file,$(USER_LIBFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})),${file})))
@@ -291,7 +305,7 @@ hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a | hdd/usr/lib
 	@${AR} d libc.a lib_a-reallocr.o
 	@${AR} d libc.a lib_a-vallocr.o
 	@${CC} -shared -o $@ -Wl,--whole-archive libc.a -Wl,--no-whole-archive ${ERRORS}
-	@if [ "x$(STRIP_LIBS)" = "x1" ]; then i686-pc-toaru-strip $@; fi
+	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $@; fi
 	@rm libc.a
 	@${END} "SO" "$@"
 
@@ -308,7 +322,7 @@ define basic-so-wrapper
 hdd/usr/lib/lib$(1).so: ${TOOLCHAIN}/lib/lib$(1).a
 	@${BEG} "SO" "$$@"
 	@${CC} -shared -Wl,-soname,lib$(1).so -o hdd/usr/lib/lib$(1).so -Lhdd/usr/lib -Wl,--whole-archive ${TOOLCHAIN}/lib/lib$(1).a -Wl,--no-whole-archive $2
-	@if [ "x$(STRIP_LIBS)" = "x1" ]; then i686-pc-toaru-strip $$@; fi
+	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $$@; fi
 	@${END} "SO" "$$@"
 endef
 
@@ -338,13 +352,47 @@ toaruos-disk.img: ${USERSPACE} util/devtable
 
 cdrom: toaruos.iso
 
-cdrom-big: toaruos-big.iso
+hdd/usr/share/terminfo/t/toaru: util/toaru.tic
+	@mkdir -p hdd/usr/share/terminfo/t
+	@cp $< $@
 
-toaruos.iso: 
-	util/make-cdrom.sh
+FORCE:
 
-toaruos-big.iso: 
-	util/make-cdrom-big.sh
+_cdrom: FORCE
+	@-rm -rf _cdrom
+	@cp -r util/cdrom _cdrom
+
+_cdrom/mod: modules _cdrom
+	@mv hdd/mod $@
+
+_cdrom/kernel: toaruos-kernel _cdrom
+	@cp $< $@
+
+BLACKLIST  = hdd/usr/share/wallpapers/grandcanyon.png
+BLACKLIST += hdd/usr/share/wallpapers/paris.png
+BLACKLIST += hdd/usr/share/wallpapers/southbay.png
+BLACKLIST += hdd/usr/share/wallpapers/yokohama.png
+BLACKLIST += hdd/usr/share/wallpapers/yosemite.png
+
+_cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom
+	@${BEG} "hdd" "Generating a ramdisk image..."
+	@rm -f $(filter-out ${NONTEST},${USERSPACE})
+	@rm -f ${BLACKLIST}
+	@${STRIP} hdd/bin/*
+	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 16384 -N 2048 $@
+	@${END} "hdd" "Generated ramdisk image"
+
+_cdrom/ramdisk.img.gz: _cdrom/ramdisk.img
+	@gzip $<
+
+toaruos.iso: _cdrom/ramdisk.img.gz _cdrom/kernel _cdrom/mod
+	@${BEG} "ISO" "Building a CD image"
+	@if grep precise /etc/lsb-release; then grub-mkrescue -o $@ _cdrom; else grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ _cdrom -- -quiet 2> /dev/null; fi
+	@${END} "ISO" "Building a CD image"
+	@git checkout hdd/usr/share/wallpapers
+	@mv _cdrom/mod hdd/mod
+	@rm -r _cdrom
+	@${INFO} "--" "CD generated"
 
 ##############
 #    ctags   #
