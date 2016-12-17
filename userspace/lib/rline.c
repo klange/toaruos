@@ -5,10 +5,27 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
+#include <termios.h>
 
 #include "lib/kbd.h"
 
 #include "rline.h"
+
+
+static struct termios old;
+
+static void set_unbuffered() {
+	tcgetattr(fileno(stdin), &old);
+	struct termios new = old;
+	new.c_lflag &= (~ICANON & ~ECHO);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+}
+
+static void set_buffered() {
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+}
+
 
 void rline_redraw(rline_context_t * context) {
 	printf("\033[u%s\033[K", context->buffer);
@@ -25,6 +42,174 @@ void rline_redraw_clean(rline_context_t * context) {
 	}
 	fflush(stdout);
 }
+
+char * rline_history[RLINE_HISTORY_ENTRIES];
+int rline_history_count  = 0;
+int rline_history_offset = 0;
+int rline_scroll = 0;
+char * rline_exit_string = "exit\n";
+
+static char rline_temp[1024];
+
+void rline_history_insert(char * str) {
+	if (str[strlen(str)-1] == '\n') {
+		str[strlen(str)-1] = '\0';
+	}
+	if (rline_history_count) {
+		if (!strcmp(str, rline_history_prev(1))) {
+			free(str);
+			return;
+		}
+	}
+	if (rline_history_count == RLINE_HISTORY_ENTRIES) {
+		free(rline_history[rline_history_offset]);
+		rline_history[rline_history_offset] = str;
+		rline_history_offset = (rline_history_offset + 1) % RLINE_HISTORY_ENTRIES;
+	} else {
+		rline_history[rline_history_count] = str;
+		rline_history_count++;
+	}
+}
+
+void rline_history_append_line(char * str) {
+	if (rline_history_count) {
+		char ** s = &rline_history[(rline_history_count - 1 + rline_history_offset) % RLINE_HISTORY_ENTRIES];
+		char * c = malloc(strlen(*s) + strlen(str) + 2);
+		sprintf(c, "%s\n%s", *s, str);
+		if (c[strlen(c)-1] == '\n') {
+			c[strlen(c)-1] = '\0';
+		}
+		free(*s);
+		*s = c;
+	} else {
+		/* wat */
+	}
+}
+
+char * rline_history_get(int item) {
+	return rline_history[(item + rline_history_offset) % RLINE_HISTORY_ENTRIES];
+}
+
+char * rline_history_prev(int item) {
+	return rline_history_get(rline_history_count - item);
+}
+
+static void rline_reverse_search(rline_context_t * context) {
+	char input[512] = {0};
+	int collected = 0;
+	int start_at = 0;
+	fprintf(stderr, "\033[G\033[s");
+	fflush(stderr);
+	key_event_state_t kbd_state = {0};
+	while (1) {
+		/* Find matches */
+		char * match = "";
+		int match_index = 0;
+try_rev_search_again:
+		if (collected) {
+			for (int i = start_at; i < rline_history_count; i++) {
+				char * c = rline_history_prev(i+1);
+				if (strstr(c, input)) {
+					match = c;
+					match_index = i;
+					break;
+				}
+			}
+			if (!strcmp(match,"")) {
+				if (start_at) {
+					start_at = 0;
+					goto try_rev_search_again;
+				}
+				collected--;
+				input[collected] = '\0';
+				if (collected) {
+					goto try_rev_search_again;
+				}
+			}
+		}
+		fprintf(stderr, "\033[u(reverse-i-search)`%s': %s\033[K", input, match);
+		fflush(stderr);
+
+		uint32_t key_sym = kbd_key(&kbd_state, fgetc(stdin));
+		switch (key_sym) {
+			case KEY_BACKSPACE:
+				if (collected > 0) {
+					collected--;
+					input[collected] = '\0';
+					start_at = 0;
+				}
+				break;
+			case KEY_CTRL_C:
+				printf("^C\n");
+				return;
+			case KEY_CTRL_R:
+				start_at = match_index + 1;
+				break;
+			case '\n':
+				memcpy(context->buffer, match, strlen(match) + 1);
+				context->collected = strlen(match);
+				context->offset = context->collected;
+				if (context->callbacks->redraw_prompt) {
+					fprintf(stderr, "\033[G\033[K");
+					context->callbacks->redraw_prompt(context);
+				}
+				fprintf(stderr, "\033[s");
+				rline_redraw_clean(context);
+				fprintf(stderr, "\n");
+				return;
+			default:
+				if (key_sym < KEY_NORMAL_MAX) {
+					input[collected] = (char)key_sym;
+					collected++;
+					input[collected] = '\0';
+					start_at = 0;
+				}
+				break;
+		}
+	}
+}
+
+static void history_previous(rline_context_t * context) {
+	if (rline_scroll == 0) {
+		memcpy(rline_temp, context->buffer, strlen(context->buffer) + 1);
+	}
+	if (rline_scroll < rline_history_count) {
+		rline_scroll++;
+		for (int i = 0; i < strlen(context->buffer); ++i) {
+			printf("\010 \010");
+		}
+		char * h = rline_history_prev(rline_scroll);
+		memcpy(context->buffer, h, strlen(h) + 1);
+		printf("\033[u%s\033[K", h);
+		fflush(stdout);
+	}
+	context->collected = strlen(context->buffer);
+	context->offset = context->collected;
+}
+
+static void history_next(rline_context_t * context) {
+	if (rline_scroll > 1) {
+		rline_scroll--;
+		for (int i = 0; i < strlen(context->buffer); ++i) {
+			printf("\010 \010");
+		}
+		char * h = rline_history_prev(rline_scroll);
+		memcpy(context->buffer, h, strlen(h) + 1);
+		printf("%s", h);
+		fflush(stdout);
+	} else if (rline_scroll == 1) {
+		for (int i = 0; i < strlen(context->buffer); ++i) {
+			printf("\010 \010");
+		}
+		rline_scroll = 0;
+		memcpy(context->buffer, rline_temp, strlen(rline_temp) + 1);
+		printf("\033[u%s\033[K", context->buffer);
+		fflush(stdout);
+	}
+	context->collected = strlen(context->buffer);
+	context->offset = context->collected;
+}
+
 
 /**
  * Insert characters at the current cursor offset.
@@ -56,6 +241,8 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 		0,
 	};
 
+	set_unbuffered();
+
 	printf("\033[s");
 	fflush(stdout);
 
@@ -70,23 +257,30 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 			case KEY_CTRL_C:
 				printf("^C\n");
 				context.buffer[0] = '\0';
+				set_buffered();
 				return 0;
 			case KEY_CTRL_R:
 				if (callbacks->rev_search) {
 					callbacks->rev_search(&context);
-					return context.collected;
+				} else {
+					rline_reverse_search(&context);
 				}
-				continue;
+				set_buffered();
+				return context.collected;
 			case KEY_ARROW_UP:
 			case KEY_CTRL_P:
 				if (callbacks->key_up) {
 					callbacks->key_up(&context);
+				} else {
+					history_previous(&context);
 				}
 				continue;
 			case KEY_ARROW_DOWN:
 			case KEY_CTRL_N:
 				if (callbacks->key_down) {
 					callbacks->key_down(&context);
+				} else {
+					history_next(&context);
 				}
 				continue;
 			case KEY_CTRL_ARROW_RIGHT:
@@ -156,8 +350,9 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				continue;
 			case KEY_CTRL_D:
 				if (context.collected == 0) {
-					printf("exit\n");
+					printf(rline_exit_string);
 					sprintf(context.buffer, "exit\n");
+					set_buffered();
 					return strlen(context.buffer);
 				}
 				/* Intentional fallthrough */
@@ -293,5 +488,6 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 
 	/* Cap that with a null */
 	context.buffer[context.collected] = '\0';
+	set_buffered();
 	return context.collected;
 }

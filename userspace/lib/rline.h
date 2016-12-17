@@ -32,5 +32,17 @@ void rline_redraw_clean(rline_context_t * context);
 void rline_insert(rline_context_t * context, const char * what);
 int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks);
 
+void rline_history_insert(char * str);
+void rline_history_append_line(char * str);
+char * rline_history_get(int item);
+char * rline_history_prev(int item);
+
+#define RLINE_HISTORY_ENTRIES 128
+extern char * rline_history[RLINE_HISTORY_ENTRIES];
+extern int rline_history_count;
+extern int rline_history_offset;
+extern int rline_scroll;
+extern char * rline_exit_string;
+
 #endif /* _RLINE_H */
 

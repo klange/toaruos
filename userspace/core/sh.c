@@ -48,63 +48,9 @@ shell_command_t shell_pointers[SHELL_COMMANDS]; /* Command functions */
 /* This is the number of actual commands installed */
 uint32_t shell_commands_len = 0;
 
-/* We also support history through a circular buffer. */
-#define SHELL_HISTORY_ENTRIES 128
-char * shell_history[SHELL_HISTORY_ENTRIES];
-int shell_history_count  = 0;
-int shell_history_offset = 0;
-int shell_scroll = 0;
-char   shell_temp[1024];
-
 int    shell_interactive = 1;
-int    shell_force_raw   = 0;
 
 int pid; /* Process ID of the shell */
-
-char * shell_history_prev(int item);
-
-void shell_history_insert(char * str) {
-	if (str[strlen(str)-1] == '\n') {
-		str[strlen(str)-1] = '\0';
-	}
-	if (shell_history_count) {
-		if (!strcmp(str, shell_history_prev(1))) {
-			free(str);
-			return;
-		}
-	}
-	if (shell_history_count == SHELL_HISTORY_ENTRIES) {
-		free(shell_history[shell_history_offset]);
-		shell_history[shell_history_offset] = str;
-		shell_history_offset = (shell_history_offset + 1) % SHELL_HISTORY_ENTRIES;
-	} else {
-		shell_history[shell_history_count] = str;
-		shell_history_count++;
-	}
-}
-
-void shell_history_append_line(char * str) {
-	if (shell_history_count) {
-		char ** s = &shell_history[(shell_history_count - 1 + shell_history_offset) % SHELL_HISTORY_ENTRIES];
-		char * c = malloc(strlen(*s) + strlen(str) + 2);
-		sprintf(c, "%s\n%s", *s, str);
-		if (c[strlen(c)-1] == '\n') {
-			c[strlen(c)-1] = '\0';
-		}
-		free(*s);
-		*s = c;
-	} else {
-		/* wat */
-	}
-}
-
-char * shell_history_get(int item) {
-	return shell_history[(item + shell_history_offset) % SHELL_HISTORY_ENTRIES];
-}
-
-char * shell_history_prev(int item) {
-	return shell_history_get(shell_history_count - item);
-}
 
 void shell_install_command(char * name, shell_command_t func) {
 	if (shell_commands_len == SHELL_COMMANDS) {
@@ -123,19 +69,6 @@ shell_command_t shell_find(char * str) {
 		}
 	}
 	return NULL;
-}
-
-struct termios old;
-
-void set_unbuffered() {
-	tcgetattr(fileno(stdin), &old);
-	struct termios new = old;
-	new.c_lflag &= (~ICANON & ~ECHO);
-	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
-}
-
-void set_buffered() {
-	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 }
 
 void install_commands();
@@ -395,122 +328,6 @@ finish_tab:
 
 }
 
-void reverse_search(rline_context_t * context) {
-	char input[512] = {0};
-	int collected = 0;
-	int start_at = 0;
-	fprintf(stderr, "\033[G\033[s");
-	fflush(stderr);
-	key_event_state_t kbd_state = {0};
-	while (1) {
-		/* Find matches */
-		char * match = "";
-		int match_index = 0;
-try_rev_search_again:
-		if (collected) {
-			for (int i = start_at; i < shell_history_count; i++) {
-				char * c = shell_history_prev(i+1);
-				if (strstr(c, input)) {
-					match = c;
-					match_index = i;
-					break;
-				}
-			}
-			if (!strcmp(match,"")) {
-				if (start_at) {
-					start_at = 0;
-					goto try_rev_search_again;
-				}
-				collected--;
-				input[collected] = '\0';
-				if (collected) {
-					goto try_rev_search_again;
-				}
-			}
-		}
-		fprintf(stderr, "\033[u(reverse-i-search)`%s': %s\033[K", input, match);
-		fflush(stderr);
-
-		uint32_t key_sym = kbd_key(&kbd_state, fgetc(stdin));
-		switch (key_sym) {
-			case KEY_BACKSPACE:
-				if (collected > 0) {
-					collected--;
-					input[collected] = '\0';
-					start_at = 0;
-				}
-				break;
-			case KEY_CTRL_C:
-				printf("^C\n");
-				return;
-			case KEY_CTRL_R:
-				start_at = match_index + 1;
-				break;
-			case '\n':
-				memcpy(context->buffer, match, strlen(match) + 1);
-				context->collected = strlen(match);
-				context->offset = context->collected;
-				if (context->callbacks->redraw_prompt) {
-					fprintf(stderr, "\033[G\033[K");
-					context->callbacks->redraw_prompt(context);
-				}
-				fprintf(stderr, "\033[s");
-				rline_redraw_clean(context);
-				fprintf(stderr, "\n");
-				return;
-			default:
-				if (key_sym < KEY_NORMAL_MAX) {
-					input[collected] = (char)key_sym;
-					collected++;
-					input[collected] = '\0';
-					start_at = 0;
-				}
-				break;
-		}
-	}
-}
-
-void history_previous(rline_context_t * context) {
-	if (shell_scroll == 0) {
-		memcpy(shell_temp, context->buffer, strlen(context->buffer) + 1);
-	}
-	if (shell_scroll < shell_history_count) {
-		shell_scroll++;
-		for (int i = 0; i < strlen(context->buffer); ++i) {
-			printf("\010 \010");
-		}
-		char * h = shell_history_prev(shell_scroll);
-		memcpy(context->buffer, h, strlen(h) + 1);
-		printf("\033[u%s\033[K", h);
-		fflush(stdout);
-	}
-	context->collected = strlen(context->buffer);
-	context->offset = context->collected;
-}
-
-void history_next(rline_context_t * context) {
-	if (shell_scroll > 1) {
-		shell_scroll--;
-		for (int i = 0; i < strlen(context->buffer); ++i) {
-			printf("\010 \010");
-		}
-		char * h = shell_history_prev(shell_scroll);
-		memcpy(context->buffer, h, strlen(h) + 1);
-		printf("%s", h);
-		fflush(stdout);
-	} else if (shell_scroll == 1) {
-		for (int i = 0; i < strlen(context->buffer); ++i) {
-			printf("\010 \010");
-		}
-		shell_scroll = 0;
-		memcpy(context->buffer, shell_temp, strlen(shell_temp) + 1);
-		printf("\033[u%s\033[K", context->buffer);
-		fflush(stdout);
-	}
-	context->collected = strlen(context->buffer);
-	context->offset = context->collected;
-}
-
 void add_argument(list_t * argv, char * buf) {
 	char * c = malloc(strlen(buf) + 1);
 	memcpy(c, buf, strlen(buf) + 1);
@@ -521,24 +338,18 @@ void add_argument(list_t * argv, char * buf) {
 int read_entry(char * buffer) {
 	rline_callbacks_t callbacks = {
 		tab_complete_func, redraw_prompt_func, NULL,
-		history_previous, history_next,
-		NULL, NULL, reverse_search
+		NULL, NULL, NULL, NULL, NULL
 	};
-	set_unbuffered();
 	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
-	set_buffered();
 	return buffer_size;
 }
 
 int read_entry_continued(char * buffer) {
 	rline_callbacks_t callbacks = {
 		tab_complete_func, redraw_prompt_func_c, NULL,
-		history_previous, history_next,
-		NULL, NULL, reverse_search
+		NULL, NULL, NULL, NULL, NULL
 	};
-	set_unbuffered();
 	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
-	set_buffered();
 	return buffer_size;
 }
 
@@ -572,9 +383,9 @@ int shell_exec(char * buffer, int buffer_size) {
 
 	/* Read previous history entries */
 	if (buffer[0] == '!') {
-		uint32_t x = atoi((char *)((uintptr_t)buffer + 1));
-		if (x <= shell_history_count) {
-			buffer = shell_history_get(x - 1);
+		int x = atoi((char *)((uintptr_t)buffer + 1));
+		if (x > 0 && x <= rline_history_count) {
+			buffer = rline_history_get(x - 1);
 			buffer_size = strlen(buffer);
 		} else {
 			fprintf(stderr, "esh: !%d: event not found\n", x);
@@ -586,7 +397,7 @@ int shell_exec(char * buffer, int buffer_size) {
 	memcpy(history, buffer, strlen(buffer) + 1);
 
 	if (buffer[0] != ' ' && buffer[0] != '\n') {
-		shell_history_insert(history);
+		rline_history_insert(history);
 	} else {
 		free(history);
 	}
@@ -723,7 +534,7 @@ _done:
 			if (shell_interactive) {
 				draw_prompt_c();
 				buffer_size = read_entry_continued(buffer);
-				shell_history_append_line(buffer);
+				rline_history_append_line(buffer);
 				continue;
 			} else {
 				fprintf(stderr, "Syntax error: Unterminated quoted string.\n");
@@ -776,8 +587,6 @@ _done:
 	if (nowait) {
 		argv[tokenid-1] = NULL;
 	}
-
-	if (shell_force_raw) set_unbuffered();
 
 	if (cmdi > 0) {
 		int last_output[2];
@@ -942,7 +751,7 @@ int main(int argc, char ** argv) {
 
 		buffer_size = read_entry(buffer);
 		last_ret = shell_exec(buffer, buffer_size);
-		shell_scroll = 0;
+		rline_scroll = 0;
 
 	}
 
@@ -983,8 +792,8 @@ cd_error:
  * history
  */
 uint32_t shell_cmd_history(int argc, char * argv[]) {
-	for (int i = 0; i < shell_history_count; ++i) {
-		printf("%d\t%s\n", i + 1, shell_history_get(i));
+	for (int i = 0; i < rline_history_count; ++i) {
+		printf("%d\t%s\n", i + 1, rline_history_get(i));
 	}
 	return 0;
 }
@@ -1052,12 +861,6 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 		}
 		printf("\033[3000;%s;%sz", argv[2], argv[3]);
 		fflush(stdout);
-		return 0;
-	} else if (!strcmp(argv[1], "force-raw")) {
-		shell_force_raw = 1;
-		return 0;
-	} else if (!strcmp(argv[1], "no-force-raw")) {
-		shell_force_raw = 0;
 		return 0;
 	} else if (!strcmp(argv[1], "--help")) {
 		fprintf(stderr, "Available arguments:\n"
