@@ -64,7 +64,8 @@ static void add_toast(notification_t * incoming) {
 
 	spin_lock(&notification_lock);
 
-	toast->window = yutani_window_create_flags(yctx, TOAST_WIDTH, TOAST_HEIGHT, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
+	toast->window = yutani_window_create_flags(yctx, TOAST_WIDTH, TOAST_HEIGHT,
+			YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_DISALLOW_DRAG | YUTANI_WINDOW_FLAG_DISALLOW_RESIZE);
 
 	/* Find best location */
 	int i = 0, hit_something = 1;
