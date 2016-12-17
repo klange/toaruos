@@ -24,6 +24,8 @@
 
 #define LINE_LEN 4096
 
+static int show_all = 0;
+
 void print_username(int uid) {
 	struct passwd * p = getpwuid(uid);
 
@@ -42,7 +44,8 @@ void print_entry(struct dirent * dent) {
 	int read = 1;
 	char line[LINE_LEN];
 
-	int pid, uid;
+	int pid, uid, tgid;
+	char name[100];
 
 	snprintf(tmp, 256, "/proc/%s/status", dent->d_name);
 	f = fopen(tmp, "r");
@@ -52,13 +55,28 @@ void print_entry(struct dirent * dent) {
 			sscanf(line, "%s %d", &buf, &pid);
 		} else if (strstr(line, "Uid:") == line) {
 			sscanf(line, "%s %d", &buf, &uid);
+		} else if (strstr(line, "Tgid:") == line) {
+			sscanf(line, "%s %d", &buf, &tgid);
+		} else if (strstr(line, "Name:") == line) {
+			sscanf(line, "%s %s", &buf, &name);
 		}
 	}
 
 	fclose(f);
 
+	if ((tgid != pid) && !show_all) {
+		/* Skip threads */
+		return;
+	}
+
 	print_username(uid);
-	printf(" %5d ", pid);
+	if (show_all) {
+		printf("%5d.%-5d", tgid, pid);
+	} else {
+		printf(" %5d", pid);
+	}
+
+	printf(" ");
 
 	snprintf(tmp, 256, "/proc/%s/cmdline", dent->d_name);
 	f = fopen(tmp, "r");
@@ -73,7 +91,11 @@ void print_entry(struct dirent * dent) {
 		}
 	}
 
-	printf("%s\n", buf);
+	if (tgid != pid) {
+		printf("{%s}\n", buf);
+	} else {
+		printf("%s\n", buf);
+	}
 }
 
 void show_usage(int argc, char * argv[]) {
@@ -90,7 +112,6 @@ void show_usage(int argc, char * argv[]) {
 int main (int argc, char * argv[]) {
 
 	/* Parse arguments */
-	int show_all = 0;
 
 	if (argc > 1) {
 		int index, c;
