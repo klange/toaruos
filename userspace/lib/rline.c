@@ -376,10 +376,14 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				continue;
 			case KEY_BACKSPACE:
 				if (context.collected) {
+					int should_redraw = 0;
 					if (!context.offset) {
 						continue;
 					}
 					printf("\010 \010");
+					if (context.buffer[context.offset-1] == '\t') {
+						should_redraw = 1;
+					}
 					if (context.offset != context.collected) {
 						int remaining = context.collected - context.offset;
 						for (int i = 0; i < remaining; ++i) {
@@ -395,6 +399,9 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 					} else {
 						context.buffer[--context.collected] = '\0';
 						context.offset--;
+					}
+					if (should_redraw) {
+						rline_redraw_clean(&context);
 					}
 					fflush(stdout);
 				}
