@@ -500,3 +500,34 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 	set_buffered();
 	return context.collected;
 }
+
+
+static char * last_prompt = NULL;
+static void redraw_prompt(rline_context_t * c) {
+	(void)c;
+	printf("%s", last_prompt);
+	fflush(stdout);
+	return;
+}
+static void insert_tab(rline_context_t * c) {
+	rline_insert(c, "\t");
+	rline_redraw_clean(c);
+}
+
+void * rline_for_python(void * _stdin, void * _stdout, char * prompt) {
+	last_prompt = prompt;
+
+	rline_callbacks_t callbacks = {
+		insert_tab, redraw_prompt, NULL,
+		NULL, NULL, NULL, NULL, NULL
+	};
+
+
+	redraw_prompt(NULL);
+	char * buf = malloc(1024);
+	memset(buf, 0, 1024);
+	rline(buf, 1024, &callbacks);
+	rline_history_insert(strdup(buf));
+
+	return buf;
+}
