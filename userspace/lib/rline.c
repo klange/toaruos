@@ -351,7 +351,7 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 			case KEY_CTRL_D:
 				if (context.collected == 0) {
 					printf(rline_exit_string);
-					sprintf(context.buffer, "exit\n");
+					sprintf(context.buffer, rline_exit_string);
 					set_buffered();
 					return strlen(context.buffer);
 				}
@@ -401,6 +401,8 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				continue;
 			case KEY_CTRL_L: /* ^L: Clear Screen, redraw prompt and buffer */
 				printf("\033[H\033[2J");
+				fflush(stdout);
+				/* Flush before yielding control to potentially foreign environment. */
 				if (callbacks->redraw_prompt) {
 					callbacks->redraw_prompt(&context);
 				}
