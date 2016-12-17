@@ -3,7 +3,7 @@
 
 # ToaruOS (とあるOS) #
 
-とあるOS (ToaruOS) is a hobby operating system built mostly from scratch, including both a kernel and userspace.
+This is a fork of ToaruOS. とあるOS (ToaruOS) is a hobby operating system built mostly from scratch, including both a kernel and userspace.
 
 This repository contains the kernel, modules, and core userspace applications and libraries. Some third-party libraries and utilities are required to build a working system.
 
