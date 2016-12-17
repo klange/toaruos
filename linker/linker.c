@@ -472,6 +472,7 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 
 		if (!lib->loaded) {
 			do_actual_load(item->value, lib, 0);
+			TRACE_LD("Loaded %s at 0x%x", item->value, lib->base);
 		}
 
 	}
@@ -505,8 +506,9 @@ static void * dlopen_ld(const char * filename, int flags) {
 		return lib;
 	}
 
-	return do_actual_load(filename, lib, flags);
-
+	void * ret = do_actual_load(filename, lib, flags);
+	TRACE_LD("Loaded %s at 0x%x", filename, lib->base);
+	return ret;
 }
 
 static int dlclose_ld(elf_t * lib) {
