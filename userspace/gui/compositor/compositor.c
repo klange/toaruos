@@ -917,7 +917,8 @@ static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_serve
 						int t_x = (window->width * (1.0 - x)) / 2;
 						int t_y = (window->height * (1.0 - x)) / 2;
 
-						if (!window_is_top(yg, window) && !window_is_bottom(yg, window)) {
+						if (!window_is_top(yg, window) && !window_is_bottom(yg, window) &&
+							!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
 							cairo_translate(cr, t_x, t_y);
 							cairo_scale(cr, x, x);
 						}

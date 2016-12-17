@@ -259,7 +259,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				_continue = 0;
 			} else if (evt->new_x < APP_OFFSET) {
 				if (!appmenu) {
-					appmenu = yutani_window_create(yctx, APPMENU_WIDTH + APPMENU_PAD_RIGHT, APPMENU_ITEM_HEIGHT * appmenu_items_count + APPMENU_PAD_BOTTOM);
+					appmenu = yutani_window_create_flags(yctx, APPMENU_WIDTH + APPMENU_PAD_RIGHT, APPMENU_ITEM_HEIGHT * appmenu_items_count + APPMENU_PAD_BOTTOM, YUTANI_WINDOW_FLAG_ALT_ANIMATION);
 					yutani_window_move(yctx, appmenu, 0, PANEL_HEIGHT);
 					bctx = init_graphics_yutani_double_buffer(appmenu);
 					redraw_appmenu(-1);
