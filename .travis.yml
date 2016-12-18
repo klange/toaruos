@@ -46,7 +46,7 @@ cache:
 notifications:
   irc:
     channels:
-    - irc.freenode.org#toaruos
+      - secure: "YIH2do6BypI1ZiXONyldvW/xt8O2j/PDb3sPzGUwJql08pItH3t3MPN3JHtKEBU7+/yFB58HbA2C8B1gu/oAGs2tqMCFYiapVUYYv5CudvMt+XkBzxgKRFwPcvPtz+lAjVbIM0SXDdlrfjczDGKPnEvCYBIu+ZYlz8dgn5DEVX8="
     use_notice: false
     skip_join: true
 deploy:
