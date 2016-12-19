@@ -567,7 +567,7 @@ void * mouse_input_abs(void * garbage) {
 	while (1) {
 		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 		if (r > 0) {
-			packet.buttons = last_mouse_buttons;
+			packet.buttons = last_mouse_buttons & 0xF;
 			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 			int result = yutani_msg_send(y, m);
 			free(m);
