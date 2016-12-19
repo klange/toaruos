@@ -351,7 +351,7 @@ static int object_relocate(elf_t * object) {
 					if (symname && hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 					} else {
-						fprintf(stderr, "Symbol not found: %s\n", symname);
+						TRACE_LD("Symbol not found: %s", symname);
 						x = 0x0;
 					}
 				}
