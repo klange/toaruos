@@ -44,6 +44,7 @@ typedef uint32_t(*shell_command_t) (int argc, char ** argv);
 #define SHELL_COMMANDS 512
 char * shell_commands[SHELL_COMMANDS];          /* Command names */
 shell_command_t shell_pointers[SHELL_COMMANDS]; /* Command functions */
+char * shell_descript[SHELL_COMMANDS];          /* Command descriptions */
 
 /* This is the number of actual commands installed */
 uint32_t shell_commands_len = 0;
@@ -52,13 +53,14 @@ int    shell_interactive = 1;
 
 int pid; /* Process ID of the shell */
 
-void shell_install_command(char * name, shell_command_t func) {
+void shell_install_command(char * name, shell_command_t func, char * desc) {
 	if (shell_commands_len == SHELL_COMMANDS) {
 		fprintf(stderr, "Ran out of space for static shell commands. The maximum number of commands is %d\n", SHELL_COMMANDS);
 		return;
 	}
 	shell_commands[shell_commands_len] = name;
 	shell_pointers[shell_commands_len] = func;
+	shell_descript[shell_commands_len] = desc;
 	shell_commands_len++;
 }
 
@@ -419,7 +421,12 @@ int shell_exec(char * buffer, int buffer_size) {
 		while (*p) {
 			switch (*p) {
 				case '$':
-					if (quoted != '\'') {
+					if (quoted == '\'') {
+						goto _just_add;
+					} else {
+						if (backtick) {
+							goto _just_add;
+						}
 						p++;
 						char var[100];
 						int  coll = 0;
@@ -453,7 +460,6 @@ int shell_exec(char * buffer, int buffer_size) {
 						}
 						continue;
 					}
-					goto _next;
 				case '\"':
 					if (quoted == '\"') {
 						if (backtick) {
@@ -479,6 +485,9 @@ int shell_exec(char * buffer, int buffer_size) {
 					}
 					goto _just_add;
 				case '\\':
+					if (quoted == '\'') {
+						goto _just_add;
+					}
 					if (backtick) {
 						goto _just_add;
 					}
@@ -650,15 +659,15 @@ _done:
 	return ret_code;
 }
 
-void add_path_contents() {
-	DIR * dirp = opendir("/bin");
+void add_path_contents(char * path) {
+	DIR * dirp = opendir(path);
 
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
 		if (ent->d_name[0] != '.') {
 			char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
 			memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
-			shell_install_command(s, NULL);
+			shell_install_command(s, NULL, NULL);
 		}
 
 		ent = readdir(dirp);
@@ -670,6 +679,7 @@ void add_path_contents() {
 struct command {
 	char * string;
 	void * func;
+	char * desc;
 };
 
 static int comp_shell_commands(const void *p1, const void *p2) {
@@ -681,11 +691,13 @@ void sort_commands() {
 	for (int i = 0; i < shell_commands_len; ++i) {
 		commands[i].string = shell_commands[i];
 		commands[i].func   = shell_pointers[i];
+		commands[i].desc   = shell_descript[i];
 	}
 	qsort(&commands, shell_commands_len, sizeof(struct command), comp_shell_commands);
 	for (int i = 0; i < shell_commands_len; ++i) {
 		shell_commands[i] = commands[i].string;
 		shell_pointers[i] = commands[i].func;
+		shell_descript[i] = commands[i].desc;
 	}
 }
 
@@ -722,7 +734,8 @@ int main(int argc, char ** argv) {
 	gethost();
 
 	install_commands();
-	add_path_contents();
+	add_path_contents("/bin");
+	add_path_contents("/usr/bin");
 	sort_commands();
 
 	if (argc > 1) {
@@ -798,14 +811,6 @@ uint32_t shell_cmd_history(int argc, char * argv[]) {
 	return 0;
 }
 
-uint32_t shell_cmd_test(int argc, char * argv[]) {
-	printf("%d arguments.\n", argc);
-	for (int i = 0; i < argc; ++i) {
-		printf("%d -> %s\n", i, argv[i]);
-	}
-	return argc;
-}
-
 uint32_t shell_cmd_export(int argc, char * argv[]) {
 	if (argc > 1) {
 		putenv(argv[1]);
@@ -877,11 +882,25 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	return 1;
 }
 
+uint32_t shell_cmd_help(int argc, char * argv[]) {
+	show_version();
+
+	printf("\nThis shell is not POSIX-compliant, please be careful.\n\n");
+
+	printf("Built-in commands:\n");
+	for (uint32_t i = 0; i < shell_commands_len; ++i) {
+		if (!shell_descript[i]) continue;
+		printf(" %-20s - %s\n", shell_commands[i], shell_descript[i]);
+	}
+
+	return 0;
+}
+
 void install_commands() {
-	shell_install_command("cd",      shell_cmd_cd);
-	shell_install_command("history", shell_cmd_history);
-	shell_install_command("export",  shell_cmd_export);
-	shell_install_command("test",    shell_cmd_test);
-	shell_install_command("exit",    shell_cmd_exit);
-	shell_install_command("set",     shell_cmd_set);
+	shell_install_command("cd",      shell_cmd_cd, "change directory");
+	shell_install_command("exit",    shell_cmd_exit, "exit the shell");
+	shell_install_command("export",  shell_cmd_export, "set environment variables");
+	shell_install_command("help",    shell_cmd_help, "display this help text");
+	shell_install_command("history", shell_cmd_history, "list command history");
+	shell_install_command("set",     shell_cmd_set, "enable special terminal options");
 }
