@@ -17,6 +17,7 @@
 
 #define TMPFS_TYPE_FILE 1
 #define TMPFS_TYPE_DIR  2
+#define TMPFS_TYPE_LINK 3
 
 static spin_lock_t tmpfs_lock = { 0 };
 
@@ -49,6 +50,51 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 	return t;
 }
 
+static void symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
+	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
+	debug_print(CRITICAL, "Creating TMPFS file %s in %s", name, d->name);
+
+	spin_lock(tmpfs_lock);
+	foreach(f, d->files) {
+		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
+		if (!strcmp(name, t->name)) {
+			spin_unlock(tmpfs_lock);
+			debug_print(WARNING, "... already exists.");
+			return; /* Already exists */
+		}
+	}
+	spin_unlock(tmpfs_lock);
+
+	debug_print(NOTICE, "... creating a new file (symlink).");
+	struct tmpfs_file * t = tmpfs_file_new(name);
+	t->type = TMPFS_TYPE_LINK;
+	debug_print(NOTICE, "symlink target is [%s]", target);
+	t->target = strdup(target);
+
+	spin_lock(tmpfs_lock);
+	list_insert(d->files, t);
+	spin_unlock(tmpfs_lock);
+}
+
+static int readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+	if (t->type != TMPFS_TYPE_LINK) {
+		debug_print(WARNING, "Not a symlink? Very confused!");
+		return -1;
+	}
+
+	if (size < strlen(t->target) + 1) {
+		debug_print(WARNING, "Requested read size was only %d, need %d.", size, strlen(t->target)+1);
+		memcpy(buf, t->target, size);
+		buf[size] = '\0';
+		return size-1;
+	} else {
+		debug_print(WARNING, "Reading link target is [%s]", t->target);
+		memcpy(buf, t->target, strlen(t->target) + 1);
+		return strlen(t->target);
+	}
+}
+
 static struct tmpfs_dir * tmpfs_dir_new(char * name, struct tmpfs_dir * parent) {
 	spin_lock(tmpfs_lock);
 
@@ -68,6 +114,10 @@ static struct tmpfs_dir * tmpfs_dir_new(char * name, struct tmpfs_dir * parent) 
 }
 
 static void tmpfs_file_free(struct tmpfs_file * t) {
+	if (t->type == TMPFS_TYPE_LINK) {
+		debug_print(ERROR, "uh, what");
+		free(t->target);
+	}
 	for (size_t i = 0; i < t->block_count; ++i) {
 		free(t->blocks[i]);
 	}
@@ -235,6 +285,19 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	return fnode;
 }
 
+static fs_node_t * tmpfs_from_link(struct tmpfs_file * t) {
+	fs_node_t * fnode = tmpfs_from_file(t);
+	fnode->flags   |= FS_SYMLINK;
+	fnode->readlink = readlink_tmpfs;
+	fnode->read     = NULL;
+	fnode->write    = NULL;
+	fnode->create   = NULL;
+	fnode->mkdir    = NULL;
+	fnode->readdir  = NULL;
+	fnode->finddir  = NULL;
+	return fnode;
+}
+
 static struct dirent * readdir_tmpfs(fs_node_t *node, uint32_t index) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->device;
 	uint32_t i = 0;
@@ -290,6 +353,8 @@ static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {
 			switch (t->type) {
 				case TMPFS_TYPE_FILE:
 					return tmpfs_from_file(t);
+				case TMPFS_TYPE_LINK:
+					return tmpfs_from_link(t);
 				case TMPFS_TYPE_DIR:
 					return tmpfs_from_dir((struct tmpfs_dir *)t);
 			}
@@ -405,6 +470,7 @@ static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fnode->unlink  = unlink_tmpfs;
 	fnode->mkdir   = mkdir_tmpfs;
 	fnode->nlink   = 1; /* should be "number of children that are directories + 1" */
+	fnode->symlink = symlink_tmpfs;
 
 	return fnode;
 }

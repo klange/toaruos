@@ -17,6 +17,7 @@ struct tmpfs_file {
 	size_t block_count;
 	size_t pointers;
 	char ** blocks;
+	char * target;
 };
 
 struct tmpfs_dir;
