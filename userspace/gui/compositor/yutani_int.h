@@ -70,6 +70,8 @@ typedef struct {
 
 	int default_mouse;
 	uint32_t server_flags;
+
+	int opacity;
 } yutani_server_window_t;
 
 typedef struct {

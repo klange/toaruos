@@ -379,6 +379,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->untiled_height = 0;
 	win->default_mouse = 1;
 	win->server_flags = flags;
+	win->opacity = 255;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
@@ -937,7 +938,11 @@ static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_serve
 draw_window:
 		/* Paint window */
 		cairo_set_source_surface(cr, surf, 0, 0);
-		cairo_paint(cr);
+		if (window->opacity != 255) {
+			cairo_paint_with_alpha(cr, (float)(window->opacity)/255.0);
+		} else {
+			cairo_paint(cr);
+		}
 	}
 
 draw_finish:
@@ -1695,6 +1700,22 @@ static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req
 	}
 }
 
+static void adjust_window_opacity(yutani_globals_t * yg, int direction) {
+	yutani_server_window_t * window = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+
+	if (window) {
+		window->opacity += direction;
+		if (window->opacity < 0) {
+			window->opacity = 0;
+		}
+		if (window->opacity > 255) {
+			window->opacity = 255;
+		}
+		mark_window(yg, window);
+	}
+
+}
+
 static void mouse_start_drag(yutani_globals_t * yg) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
@@ -1823,6 +1844,10 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 			{
 				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
 					mouse_start_drag(yg);
+				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_UP) && (yg->kbd_state.k_alt)) {
+					adjust_window_opacity(yg, 8);
+				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_DOWN) && (yg->kbd_state.k_alt)) {
+					adjust_window_opacity(yg, -8);
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT) && (yg->kbd_state.k_alt)) {
 					mouse_start_rotate(yg);
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && (yg->kbd_state.k_alt)) {
