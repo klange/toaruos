@@ -1703,7 +1703,7 @@ static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req
 static void adjust_window_opacity(yutani_globals_t * yg, int direction) {
 	yutani_server_window_t * window = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 
-	if (window) {
+	if (window && window->z != YUTANI_ZORDER_BOTTOM) {
 		window->opacity += direction;
 		if (window->opacity < 0) {
 			window->opacity = 0;
