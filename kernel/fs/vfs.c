@@ -908,7 +908,7 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 			 * the stack, especially considering this function is called recursively
 			 */
 			char symlink_buf[MAX_SYMLINK_SIZE];
-			int len = node_ptr->readlink(node_ptr, symlink_buf, sizeof(symlink_buf));
+			int len = readlink_fs(node_ptr, symlink_buf, sizeof(symlink_buf));
 			if (len < 0) {
 				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(WARNING, "Got error %d from symlink for %s.", len, node_ptr->name);
