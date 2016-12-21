@@ -98,15 +98,18 @@ static void rline_reverse_search(rline_context_t * context) {
 	char input[512] = {0};
 	int collected = 0;
 	int start_at = 0;
+	int changed = 0;
 	fprintf(stderr, "\033[G\033[s");
 	fflush(stderr);
 	key_event_state_t kbd_state = {0};
+	char * match = "";
+	int match_index = 0;
 	while (1) {
 		/* Find matches */
-		char * match = "";
-		int match_index = 0;
 try_rev_search_again:
-		if (collected) {
+		if (collected && changed) {
+			match = "";
+			match_index = 0;
 			for (int i = start_at; i < rline_history_count; i++) {
 				char * c = rline_history_prev(i+1);
 				if (strstr(c, input)) {
@@ -129,14 +132,18 @@ try_rev_search_again:
 		}
 		fprintf(stderr, "\033[u(reverse-i-search)`%s': %s\033[K", input, match);
 		fflush(stderr);
+		changed = 0;
 
 		uint32_t key_sym = kbd_key(&kbd_state, fgetc(stdin));
 		switch (key_sym) {
+			case KEY_NONE:
+				break;
 			case KEY_BACKSPACE:
 				if (collected > 0) {
 					collected--;
 					input[collected] = '\0';
 					start_at = 0;
+					changed = 1;
 				}
 				break;
 			case KEY_CTRL_C:
@@ -144,7 +151,12 @@ try_rev_search_again:
 				return;
 			case KEY_CTRL_R:
 				start_at = match_index + 1;
+				changed = 1;
 				break;
+			case KEY_ESCAPE:
+			case KEY_ARROW_LEFT:
+			case KEY_ARROW_RIGHT:
+				context->cancel = 1;
 			case '\n':
 				memcpy(context->buffer, match, strlen(match) + 1);
 				context->collected = strlen(match);
@@ -155,7 +167,9 @@ try_rev_search_again:
 				}
 				fprintf(stderr, "\033[s");
 				rline_redraw_clean(context);
-				fprintf(stderr, "\n");
+				if (key_sym == '\n') {
+					fprintf(stderr, "\n");
+				}
 				return;
 			default:
 				if (key_sym < KEY_NORMAL_MAX) {
@@ -163,6 +177,7 @@ try_rev_search_again:
 					collected++;
 					input[collected] = '\0';
 					start_at = 0;
+					changed = 1;
 				}
 				break;
 		}
@@ -265,8 +280,13 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				} else {
 					rline_reverse_search(&context);
 				}
-				set_buffered();
-				return context.collected;
+				if (context.cancel) {
+					context.cancel = 0;
+					continue;
+				} else {
+					set_buffered();
+					return context.collected;
+				}
 			case KEY_ARROW_UP:
 			case KEY_CTRL_P:
 				if (callbacks->key_up) {
@@ -346,6 +366,11 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 					printf("\033[C");
 					context.offset++;
 				}
+				fflush(stdout);
+				continue;
+			case KEY_CTRL_K:
+				context.collected = context.offset;
+				printf("\033[K");
 				fflush(stdout);
 				continue;
 			case KEY_CTRL_D:
