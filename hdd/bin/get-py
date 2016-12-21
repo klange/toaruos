@@ -85,7 +85,7 @@ for name in packages_to_install:
         install_packages.append(name)
 
 def install_file(file,source):
-    print(f"- Retreiving file {file[0]}","and checking hash" if file[2] else "")
+    print(f"- Retrieving file {file[0]}","and checking hash" if file[2] else "")
     fetch_file(file[0],file[1],file[2],source)
 
 def run_install_step(step):
