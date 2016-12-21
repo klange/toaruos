@@ -378,7 +378,7 @@ _cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/sh
 	@${BEG} "hdd" "Generating a ramdisk image..."
 	@rm -f $(filter-out ${NONTEST},${USERSPACE})
 	@rm -f ${BLACKLIST}
-	@${STRIP} hdd/bin/*
+	@${STRIP} ${NONTEST}
 	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 16384 -N 2048 $@
 	@${END} "hdd" "Generated ramdisk image"
 
