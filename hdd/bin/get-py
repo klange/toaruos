@@ -102,6 +102,9 @@ def run_install_step(step):
         print(f"- Making {step[1]} executable")
         current = os.stat(step[1]).st_mode
         os.chmod(step[1],current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    elif step[0] == 'ungz':
+        print(f"- Decompressing {step[1]}")
+        subprocess.call(['ungz',step[1]])
     else:
         print("Unknown step:",step)
 
