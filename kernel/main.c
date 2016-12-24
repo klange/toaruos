@@ -209,7 +209,11 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	map_vfs_directory("/dev");
 
 	if (args_present("root")) {
-		vfs_mount_type("ext2", args_value("root"), "/");
+		char * root_type = "ext2";
+		if (args_present("root_type")) {
+			root_type = args_value("root_type");
+		}
+		vfs_mount_type(root_type, args_value("root"), "/");
 	}
 
 	if (args_present("start")) {
@@ -223,14 +227,17 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	}
 
 	if (!fs_root) {
-		debug_print(CRITICAL, "No root filesystem is mounted. Skipping init.");
 		map_vfs_directory("/");
-		switch_task(0);
+	}
+
+	char * boot_app = "/bin/init";
+	if (args_present("init")) {
+		boot_app = args_value("init");
 	}
 
 	/* Prepare to run /bin/init */
 	char * argv[] = {
-		"/bin/init",
+		boot_app,
 		boot_arg,
 		NULL
 	};
@@ -239,6 +246,9 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		argc++;
 	}
 	system(argv[0], argc, argv); /* Run init */
+
+	debug_print(CRITICAL, "init failed");
+	switch_task(0);
 
 	return 0;
 }

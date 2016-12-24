@@ -44,21 +44,28 @@ void (* symbol_find(const char * name))(void) {
 int module_quickcheck(void * blob) {
 
 	Elf32_Header * target = (Elf32_Header *)blob;
+	char * head = (char *)blob;
 
 	if (target->e_ident[0] != ELFMAG0 ||
 		target->e_ident[1] != ELFMAG1 ||
 		target->e_ident[2] != ELFMAG2 ||
 		target->e_ident[3] != ELFMAG3) {
 
-		char * head = (char *)blob;
-		if (head[0] == 'P' && head[1] == 'A' && head[2] == 'C' && head[3] == 'K') {
-			return 2;
-		}
+		goto _maybe_pack;
+	}
 
-		return 0;
+	if (target->e_type != ET_REL) {
+		goto _maybe_pack;
 	}
 
 	return 1;
+
+_maybe_pack:
+	if (head[0] == 'P' && head[1] == 'A' && head[2] == 'C' && head[3] == 'K') {
+		return 2;
+	}
+
+	return 0;
 }
 
 void * module_load_direct(void * blob, size_t length) {
