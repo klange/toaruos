@@ -586,6 +586,8 @@ int load_sprite_png(sprite_t * sprite, char * file) {
 	}
 	free(row_pointers);
 
+	png_destroy_read_struct(&png_ptr,&info_ptr,NULL);
+
 	return 0;
 }
 
