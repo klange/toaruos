@@ -317,7 +317,8 @@ static void read_applications(FILE * f) {
 }
 
 sprite_t * load_wallpaper(void) {
-	sprite_t * o_wallpaper = NULL;
+	sprite_t * o_wallpaper = create_sprite(width, height, ALPHA_OPAQUE);
+	gfx_context_t * tmp = init_graphics_sprite(o_wallpaper);
 
 	sprite_t * wallpaper_tmp = calloc(1,sizeof(sprite_t));
 
@@ -334,10 +335,6 @@ sprite_t * load_wallpaper(void) {
 
 	int nh = (int)(x * (float)wallpaper_tmp->height);
 	int nw = (int)(y * (float)wallpaper_tmp->width);;
-
-	o_wallpaper = create_sprite(width, height, ALPHA_OPAQUE);
-
-	gfx_context_t * tmp = init_graphics_sprite(o_wallpaper);
 
 	if (nw > width) {
 		draw_sprite_scaled(tmp, wallpaper_tmp, (width - nw) / 2, 0, nw, height);
@@ -395,8 +392,8 @@ static void resize_finish(int xwidth, int xheight) {
 	height = xheight;
 	yutani_window_resize_accept(yctx, wina, width, height);
 
-	sprite_t * new_wallpaper = load_wallpaper();
 	sprite_free(wallpaper);
+	sprite_t * new_wallpaper = load_wallpaper();
 	wallpaper = new_wallpaper;
 
 	reinit_graphics_yutani(ctx, wina);
