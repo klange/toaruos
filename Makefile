@@ -14,6 +14,13 @@ AR = i686-pc-toaru-ar
 AS = i686-pc-toaru-as
 STRIP = i686-pc-toaru-strip
 
+KCC = i686-elf-gcc
+KNM = i686-elf-nm
+KCXX= i686-elf-g++
+KAR = i686-elf-ar
+KAS = i686-elf-as
+KSTRIP = i686-elf-strip
+
 # Build flags
 CFLAGS  = -O2 -std=c99
 CFLAGS += -finline-functions -ffreestanding
@@ -195,18 +202,18 @@ KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard ker
 ################
 toaruos-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	@${BEG} "CC" "$@"
-	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc ${ERRORS}
+	@${KCC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc ${ERRORS}
 	@${END} "CC" "$@"
 	@${INFO} "--" "Kernel is ready!"
 
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 	@-rm -f kernel/symbols.o
 	@${BEG} "NM" "Generating symbol list..."
-	@${CC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc ${ERRORS}
-	@${NM} toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.S
+	@${KCC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc ${ERRORS}
+	@${KNM} toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.S
 	@${END} "NM" "Generated symbol list."
 	@${BEG} "AS" "kernel/symbols.S"
-	@${AS} ${ASFLAGS} kernel/symbols.S -o $@ ${ERRORS}
+	@${KAS} ${ASFLAGS} kernel/symbols.S -o $@ ${ERRORS}
 	@${END} "AS" "kernel/symbols.S"
 
 kernel/sys/version.o: kernel/*/*.c kernel/*.c
@@ -216,17 +223,17 @@ hdd/mod:
 
 hdd/mod/%.ko: modules/%.c ${HEADERS} | hdd/mod
 	@${BEG} "CC" "$< [module]"
-	@${CC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
+	@${KCC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [module]"
 
 kernel/%.o: kernel/%.S
 	@${BEG} "AS" "$<"
-	@${AS} ${ASFLAGS} $< -o $@ ${ERRORS}
+	@${KAS} ${ASFLAGS} $< -o $@ ${ERRORS}
 	@${END} "AS" "$<"
 
 kernel/%.o: kernel/%.c ${HEADERS}
 	@${BEG} "CC" "$<"
-	@${CC} ${CFLAGS} -nostdlib -g -I./kernel/include -c -o $@ $< ${ERRORS}
+	@${KCC} ${CFLAGS} -nostdlib -g -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
 
 #############
@@ -287,24 +294,26 @@ hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a | hdd/usr/lib
 	@${BEG} "SO" "$@"
 	@cp ${TOARU_SYSROOT}/usr/lib/libc.a libc.a
 	@# init and fini don't belong in our shared object
-	@${AR} d libc.a lib_a-init.o
-	@${AR} d libc.a lib_a-fini.o
+	@ar d libc.a lib_a-init.o
+	@ar d libc.a lib_a-fini.o
 	@# Remove references to newlib's reentrant malloc
-	@${AR} d libc.a lib_a-calloc.o
-	@${AR} d libc.a lib_a-callocr.o
-	@${AR} d libc.a lib_a-cfreer.o
-	@${AR} d libc.a lib_a-freer.o
-	@${AR} d libc.a lib_a-malignr.o
-	@${AR} d libc.a lib_a-mallinfor.o
-	@${AR} d libc.a lib_a-mallocr.o
-	@${AR} d libc.a lib_a-malloptr.o
-	@${AR} d libc.a lib_a-mallstatsr.o
-	@${AR} d libc.a lib_a-msizer.o
-	@${AR} d libc.a lib_a-pvallocr.o
-	@${AR} d libc.a lib_a-realloc.o
-	@${AR} d libc.a lib_a-reallocr.o
-	@${AR} d libc.a lib_a-vallocr.o
-	@${CC} -shared -o $@ -Wl,--whole-archive libc.a -Wl,--no-whole-archive ${ERRORS}
+	@ar d libc.a lib_a-callocr.o
+	@ar d libc.a lib_a-cfreer.o
+	@ar d libc.a lib_a-freer.o
+	@ar d libc.a lib_a-malignr.o
+	@ar d libc.a lib_a-mallinfor.o
+	@ar d libc.a lib_a-mallocr.o
+	@ar d libc.a lib_a-malloptr.o
+	@ar d libc.a lib_a-msizer.o
+	@ar d libc.a lib_a-mallstatsr.o
+	@ar d libc.a lib_a-pvallocr.o
+	@ar d libc.a lib_a-vallocr.o
+	@ar d libc.a lib_a-reallocr.o
+	@ar d libc.a lib_a-realloc.o
+	@ar d libc.a lib_a-calloc.o
+	@ar d libc.a lib_a-reallo.o
+	@${CC} -shared -o libc.so -Wl,--whole-archive libc.a -Wl,--no-whole-archive ${ERRORS}
+	@mv libc.so hdd/usr/lib/libc.so
 	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $@; fi
 	@rm libc.a
 	@${END} "SO" "$@"
@@ -321,11 +330,13 @@ hdd/lib/ld.so: linker/linker.c | hdd/lib
 define basic-so-wrapper
 hdd/usr/lib/lib$(1).so: ${TOOLCHAIN}/lib/lib$(1).a
 	@${BEG} "SO" "$$@"
-	@${CC} -shared -Wl,-soname,lib$(1).so -o hdd/usr/lib/lib$(1).so -Lhdd/usr/lib -Wl,--whole-archive ${TOOLCHAIN}/lib/lib$(1).a -Wl,--no-whole-archive $2
+	@${CC} -shared -Wl,-soname,lib$(1).so -o lib$(1).so -Lhdd/usr/lib -Wl,--whole-archive ${TOOLCHAIN}/lib/lib$(1).a -Wl,--no-whole-archive $2 -lgcc
+	@mv lib$(1).so hdd/usr/lib/lib$(1).so
 	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $$@; fi
 	@${END} "SO" "$$@"
 endef
 
+$(eval $(call basic-so-wrapper,gcc,))
 $(eval $(call basic-so-wrapper,m,))
 $(eval $(call basic-so-wrapper,z,))
 $(eval $(call basic-so-wrapper,ncurses,))

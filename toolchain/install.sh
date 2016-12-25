@@ -46,8 +46,18 @@ pushd build
         unset PKG_CONFIG_LIBDIR
 
         pushd binutils
-            $DIR/tarballs/binutils-2.22/configure --target=$TARGET --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --disable-werror || bail
-            make || bail
+            $DIR/tarballs/binutils-2.27/configure --target=$TARGET --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --disable-werror || bail
+            make -j || bail
+            make install || bail
+        popd
+
+        if [ ! -d binutils-elf ]; then
+            mkdir binutils-elf
+        fi
+
+        pushd binutils-elf
+            $DIR/tarballs/binutils-2.27/configure --target=i686-elf --prefix=$PREFIX  --disable-werror || bail
+            make -j || bail
             make install || bail
         popd
     fi
@@ -61,11 +71,20 @@ pushd build
         unset PKG_CONFIG_LIBDIR
 
         pushd gcc
-            $DIR/tarballs/gcc-4.6.4/configure --target=$TARGET --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --with-build-sysroot=$TOARU_SYSROOT --with-native-system-header-dir=$TOARU_SYSROOT --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || bail
-            make all-gcc || bail
-            make install-gcc || bail
-            make all-target-libgcc || bail
-            make install-target-libgcc || bail
+            $DIR/tarballs/gcc-6.3.0/configure --target=i686-pc-toaru --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --disable-nls --enable-languages=c,c++,go --disable-libssp --with-newlib || baiol
+            make -j all-gcc all-target-libgcc || bail
+            make install-gcc install-target-libgcc || bail
+        popd
+
+        if [ -d gcc-elf ]; then
+            rm -rf gcc-elf
+        fi
+        mkdir gcc-elf
+
+        pushd gcc-elf
+            $DIR/tarballs/gcc-6.3.0/configure --target=i686-elf --prefix=$PREFIX --disable-nls --enable-languages=c --disable-libssp --without-headers || baiol
+            make -j all-gcc all-target-libgcc || bail
+            make install-gcc install-target-libgcc || bail
         popd
     fi
 
@@ -111,7 +130,7 @@ pushd build
             # Fix the damned tooldir
             sed -s 's/prefix}\/i686-pc-toaru/prefix}/' Makefile > Makefile.tmp
             mv Makefile.tmp Makefile
-            make || bail
+            make -j || bail
             make DESTDIR=$TOARU_SYSROOT install || bail
             cp -r $DIR/patches/newlib/include/* $TOARU_SYSROOT/$VIRTPREFIX/include/
             cp $TARGET/newlib/libc/sys/crt0.o $TOARU_SYSROOT/$VIRTPREFIX/lib/
@@ -123,7 +142,7 @@ pushd build
     if $BUILD_LIBSTDCPP; then
         pushd gcc
             # build libstdc++
-            make all-target-libstdc++-v3 || bail
+            make -j all-target-libstdc++-v3 || bail
             make install-target-libstdc++-v3 || bail
         popd
     fi
@@ -198,7 +217,7 @@ pushd build
             mkdir ncurses
         fi
         pushd ncurses
-            $DIR/tarballs/ncurses-5.9/configure --prefix=$VIRTPREFIX --host=$TARGET --with-terminfo-dirs=/usr/share/terminfo --with-default-terminfo-dir=/usr/share/terminfo --without-tests || bail
+            CPPFLAGS="-P" $DIR/tarballs/ncurses-5.9/configure --prefix=$VIRTPREFIX --host=$TARGET --with-terminfo-dirs=/usr/share/terminfo --with-default-terminfo-dir=/usr/share/terminfo --without-tests || bail
             make || bail
             make DESTDIR=$TOARU_SYSROOT install || bail
             cp $DIR/../util/toaru.tic $TOARU_SYSROOT/$VIRTPREFIX/share/terminfo/t/toaru

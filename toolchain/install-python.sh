@@ -11,6 +11,7 @@ if [ ! -d toaru-python ]; then
 fi
 
 echo "Installing dlfcn.h..."
+mkdir -p hdd/usr/include
 cp userspace/lib/dlfcn.h hdd/usr/include/
 
 pushd toaru-python || exit 1

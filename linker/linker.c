@@ -48,6 +48,8 @@ typedef struct elf_object {
 	void (*init)(void);
 	void (**ctors)(void);
 	size_t ctors_size;
+	void (**init_array)(void);
+	size_t init_array_size;
 
 	uintptr_t base;
 
@@ -290,6 +292,11 @@ static int object_postload(elf_t * object) {
 			object->ctors = (void *)(shdr.sh_addr + object->base);
 			object->ctors_size = shdr.sh_size;
 		}
+
+		if (!strcmp((char *)((uintptr_t)object->string_table + shdr.sh_name), ".init_array")) {
+			object->init_array = (void *)(shdr.sh_addr + object->base);
+			object->init_array_size = shdr.sh_size;
+		}
 	}
 
 	return 0;
@@ -489,6 +496,13 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 		}
 	}
 
+	if (lib->init_array) {
+		for (size_t i = 0; i < lib->init_array_size; i += sizeof(uintptr_t)) {
+			TRACE_LD(" 0x%x()", lib->init_array[i]);
+			lib->init_array[i]();
+		}
+	}
+
 	if (lib->init) {
 		lib->init();
 	}
@@ -577,6 +591,10 @@ int main(int argc, char * argv[]) {
 
 	hashmap_t * libs = hashmap_create(10);
 
+	while (end_addr & 0xFFF) {
+		end_addr++;
+	}
+
 	list_t * ctor_libs = list_create();
 	list_t * init_libs = list_create();
 
@@ -605,7 +623,7 @@ int main(int argc, char * argv[]) {
 		fclose(lib->file);
 
 		/* Execute constructors */
-		if (lib->ctors) {
+		if (lib->ctors || lib->init_array) {
 			list_insert(ctor_libs, lib);
 		}
 		if (lib->init) {
@@ -634,6 +652,13 @@ nope:
 				for (size_t i = 0; i < lib->ctors_size; i += sizeof(uintptr_t)) {
 					TRACE_LD(" 0x%x()", lib->ctors[i]);
 					lib->ctors[i]();
+				}
+			}
+			if (lib->init_array) {
+				TRACE_LD("Executing init_array...");
+				for (size_t i = 0; i < lib->init_array_size; i += sizeof(uintptr_t)) {
+					TRACE_LD(" 0x%x()", lib->init_array[i]);
+					lib->init_array[i]();
 				}
 			}
 		}

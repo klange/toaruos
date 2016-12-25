@@ -14,6 +14,10 @@
 #include <pwd.h>
 #include "lib/sha2.h"
 
+#ifndef fgetpwent
+extern struct passwd *fgetpwent(FILE *stream);
+#endif
+
 #define MASTER_PASSWD "/etc/master.passwd"
 
 int toaru_auth_check_pass(char * user, char * pass) {
