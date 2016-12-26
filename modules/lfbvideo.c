@@ -244,6 +244,7 @@ static void res_change_bochs(uint16_t x, uint16_t y) {
 
 
 static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
+	uint32_t vid_memsize;
 	debug_print(NOTICE, "Setting up BOCHS/QEMU graphics controller...");
 
 	outports(0x1CE, 0x00);
@@ -291,11 +292,16 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 	}
 
 mem_found:
-	if (lfb_vid_memory + 4 * resolution_x * resolution_y > lfb_vid_memory + 0xFF0000) {
-		for (uintptr_t i = (uintptr_t)lfb_vid_memory + 0xFF1000; i <= (uintptr_t)lfb_vid_memory + 4 * resolution_x * resolution_y; i += 0x1000) {
-			debug_print(WARNING, "Also mapping 0x%x", i);
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-		}
+	outports(0x1CE, 0x0a);
+	i = inports(0x1CF);
+	if (i > 1) {
+		vid_memsize = (uint32_t)i * 64 * 1024;
+	} else {
+		vid_memsize = inportl(0x1CF);
+	}
+	debug_print(WARNING, "Video memory size is 0x%x", vid_memsize);
+	for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + vid_memsize; i += 0x1000) {
+		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 	}
 	finalize_graphics(resolution_x, resolution_y, PREFERRED_B);
 }
@@ -352,12 +358,6 @@ static void graphics_install_preset(uint16_t w, uint16_t h) {
 mem_found:
 	finalize_graphics(w,h,b);
 
-	for (uint16_t y = 0; y < h; y++) {
-		for (uint16_t x = 0; x < w; x++) {
-			uint8_t f = y % 255;
-			((uint32_t *)lfb_vid_memory)[x + y * w] = 0xFF000000 | (f * 0x10000) | (f * 0x100) | f;
-		}
-	}
 }
 
 #define SVGA_IO_BASE (vmware_io)
@@ -403,6 +403,7 @@ static void vmware_set_mode(uint16_t w, uint16_t h) {
 
 	lfb_resolution_x = w;
 	lfb_resolution_y = h;
+
 }
 
 static void graphics_install_vmware(uint16_t w, uint16_t h) {
@@ -427,10 +428,14 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 	uint32_t fb_addr = vmware_read(SVGA_REG_FB_START);
 	debug_print(WARNING, "vmware fb address: 0x%x", fb_addr);
 
+	uint32_t fb_size = vmware_read(16);
+
+	debug_print(WARNING, "vmware fb size: 0x%x", fb_size);
+
 	lfb_vid_memory = (uint8_t *)fb_addr;
 
 	uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
-	for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
+	for (uintptr_t i = fb_offset; i <= fb_offset + fb_size; i += 0x1000) {
 		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 	}
 
