@@ -33,7 +33,7 @@ void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_pack
 uint32_t ip_aton(const char * in) {
 	char ip[16];
 	char * c = ip;
-	int out[4];
+	uint32_t out[4];
 	char * i;
 	memcpy(ip, in, strlen(in) < 15 ? strlen(in) + 1 : 15);
 	ip[15] = '\0';

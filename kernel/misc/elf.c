@@ -48,7 +48,7 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 			debug_print(WARNING, "Dynamic executable");
 
 			unsigned int nargc = argc + 3;
-			char * args[nargc];
+			char * args[nargc+1];
 			args[0] = "ld.so";
 			args[1] = "-e";
 			args[2] = strdup(current_process->name);
@@ -212,7 +212,7 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 	memcpy(script, path, strlen(path)+1);
 
 	unsigned int nargc = argc + (arg ? 2 : 1);
-	char * args[nargc];
+	char * args[nargc + 1];
 	args[0] = cmd;
 	args[1] = arg ? arg : script;
 	args[2] = arg ? script : NULL;

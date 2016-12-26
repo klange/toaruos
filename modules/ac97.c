@@ -38,8 +38,8 @@
 #define AC97_BDL_BUFFER_LEN       0x1000                /* Length of buffer in BDL */
 #define AC97_CL_GET_LENGTH(cl)    ((cl) & 0xFFFF)       /* Decode length from cl */
 #define AC97_CL_SET_LENGTH(cl, v) ((cl) = (v) & 0xFFFF) /* Encode length to cl */
-#define AC97_CL_BUP               (1 << 30)             /* Buffer underrun policy in cl */
-#define AC97_CL_IOC               (1 << 31)             /* Interrupt on completion flag in cl */
+#define AC97_CL_BUP               ((uint32_t)1 << 30)             /* Buffer underrun policy in cl */
+#define AC97_CL_IOC               ((uint32_t)1 << 31)             /* Interrupt on completion flag in cl */
 
 /* PCM out control register flags */
 #define AC97_X_CR_RPBM  (1 << 0)  /* Run/pause bus master */
@@ -161,7 +161,7 @@ static int ac97_mixer_read(uint32_t knob_id, uint32_t *val) {
 			/* 6 bit value */
 			*val = (inports(_device.nambar + AC97_MASTER_VOLUME) & 0x3f) << (sizeof(*val) * 8 - 6);
 			*val = ~*val;
-			*val &= 0x3f << (sizeof(*val) * 8 - 6);
+			*val &= (uint32_t)0x3f << (sizeof(*val) * 8 - 6);
 			break;
 		case AC97_KNOB_PCM_OUT:
 			/* 5 bit value */

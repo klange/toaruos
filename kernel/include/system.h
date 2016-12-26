@@ -10,6 +10,8 @@
 #include <process.h>
 #include <libc.h>
 
+#define ASSUME(cond) __extension__ ({ if (!(cond)) { __builtin_unreachable(); } })
+
 #define STR(x) #x
 #define STRSTR(x) STR(x)
 

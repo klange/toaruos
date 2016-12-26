@@ -47,7 +47,7 @@ static fs_node_t ** pipe_for_port(int port) {
 		case SERIAL_PORT_C: return &_serial_port_c;
 		case SERIAL_PORT_D: return &_serial_port_d;
 	}
-	return NULL;
+	__builtin_unreachable();
 }
 
 static int serial_handler_ac(struct regs *r) {

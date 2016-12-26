@@ -66,6 +66,7 @@ kmalloc_real(
 				for (unsigned int i = 0; i < (size + 0xFFF) / 0x1000; ++i) {
 					set_frame((index + i) * 0x1000);
 					page_t * page = get_page((uintptr_t)address + (i * 0x1000),0,kernel_directory);
+					ASSUME(page != NULL);
 					page->frame = index + i;
 					page->writethrough = 1;
 					page->cachedisable = 1;
@@ -145,7 +146,7 @@ set_frame(
 		uint32_t frame  = frame_addr / 0x1000;
 		uint32_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
-		frames[index] |= (0x1 << offset);
+		frames[index] |= ((uint32_t)0x1 << offset);
 	}
 }
 
@@ -156,14 +157,14 @@ clear_frame(
 	uint32_t frame  = frame_addr / 0x1000;
 	uint32_t index  = INDEX_FROM_BIT(frame);
 	uint32_t offset = OFFSET_FROM_BIT(frame);
-	frames[index] &= ~(0x1 << offset);
+	frames[index] &= ~((uint32_t)0x1 << offset);
 }
 
 uint32_t test_frame(uintptr_t frame_addr) {
 	uint32_t frame  = frame_addr / 0x1000;
 	uint32_t index  = INDEX_FROM_BIT(frame);
 	uint32_t offset = OFFSET_FROM_BIT(frame);
-	return (frames[index] & (0x1 << offset));
+	return (frames[index] & ((uint32_t)0x1 << offset));
 }
 
 uint32_t first_n_frames(int n) {
@@ -187,7 +188,7 @@ uint32_t first_frame(void) {
 	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
 		if (frames[i] != 0xFFFFFFFF) {
 			for (j = 0; j < 32; ++j) {
-				uint32_t testFrame = 0x1 << j;
+				uint32_t testFrame = (uint32_t)0x1 << j;
 				if (!(frames[i] & testFrame)) {
 					return i * 0x20 + j;
 				}
@@ -220,6 +221,7 @@ alloc_frame(
 		int is_kernel,
 		int is_writeable
 		) {
+	ASSUME(page != NULL);
 	if (page->frame != 0) {
 		page->present = 1;
 		page->rw      = (is_writeable == 1) ? 1 : 0;
@@ -245,6 +247,7 @@ dma_frame(
 		int is_writeable,
 		uintptr_t address
 		) {
+	ASSUME(page != NULL);
 	/* Page this address directly */
 	page->present = 1;
 	page->rw      = (is_writeable) ? 1 : 0;
@@ -272,7 +275,7 @@ uintptr_t memory_use(void ) {
 	uint32_t i, j;
 	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
 		for (j = 0; j < 32; ++j) {
-			uint32_t testFrame = 0x1 << j;
+			uint32_t testFrame = (uint32_t)0x1 << j;
 			if (frames[i] & testFrame) {
 				ret++;
 			}
@@ -432,6 +435,7 @@ get_page(
 	} else if(make) {
 		uint32_t temp;
 		dir->tables[table_index] = (page_table_t *)kvmalloc_p(sizeof(page_table_t), (uintptr_t *)(&temp));
+		ASSUME(dir->tables[table_index] != NULL);
 		memset(dir->tables[table_index], 0, sizeof(page_table_t));
 		dir->physical_tables[table_index] = temp | 0x7; /* Present, R/w, User */
 		return &dir->tables[table_index]->pages[address % 1024];
@@ -443,6 +447,7 @@ get_page(
 void
 page_fault(
 		struct regs *r)  {
+	ASSUME(r != NULL);
 	uint32_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
@@ -544,7 +549,9 @@ void * sbrk(uintptr_t increment) {
 		debug_print(INFO, "Hit the end of available kernel heap, going to allocate more (at 0x%x, want to be at 0x%x)", heap_end, heap_end + increment);
 		for (uintptr_t i = heap_end; i < heap_end + increment; i += 0x1000) {
 			debug_print(INFO, "Allocating frame at 0x%x...", i);
-			alloc_frame(get_page(i, 0, kernel_directory), 1, 0);
+			page_t * page = get_page(i, 0, kernel_directory);
+			assert(page && "Kernel heap allocation fault.");
+			alloc_frame(page, 1, 0);
 		}
 		invalidate_page_tables();
 		debug_print(INFO, "Done.");
