@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "This script is currently not functioning. Please check back later."
+exit 1
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 . $DIR/config.sh
