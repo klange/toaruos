@@ -1,6 +1,6 @@
 #!/bin/bash
 
-COOKIE=".2016-12-03-dynamic.cookie"
+COOKIE=".2016-12-25-gcc-6-3.cookie"
 
 unset CC
 
