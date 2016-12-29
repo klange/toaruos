@@ -133,7 +133,8 @@ run-cdrom: toaruos.iso
 # Run VirtualBox
 virtualbox: system
 	util/run-virtualbox.sh
-virtualbox-cdrom: system
+virtualbox-cdrom: toaruos.iso
+	util/run-virtualbox-cdrom.sh
 
 # Run the test suite
 test: system
