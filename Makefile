@@ -1,84 +1,14 @@
-# ToAruOS Primary Build Script
+# ToaruOS Build Scripts
 ifneq ($(MAKECMDGOALS),toolchain)
  ifeq ($(TOOLCHAIN),)
-  $(error No toolchain available and you did not ask to build it. Did you forget to source the toolchain config?)
+  $(error util/helpful-toolchain-error.sh)
+ else
+  $(shell util/cache-toolchain.sh)
  endif
 endif
 
-
-# We always build with our targetted cross-compiler
-CC = i686-pc-toaru-gcc
-NM = i686-pc-toaru-nm
-CXX= i686-pc-toaru-g++
-AR = i686-pc-toaru-ar
-AS = i686-pc-toaru-as
-STRIP = i686-pc-toaru-strip
-
-KCC = i686-elf-gcc
-KNM = i686-elf-nm
-KCXX= i686-elf-g++
-KAR = i686-elf-ar
-KAS = i686-elf-as
-KSTRIP = i686-elf-strip
-
-# Build flags
-CFLAGS  = -O2 -std=c99
-CFLAGS += -finline-functions -ffreestanding
-CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format
-CFLAGS += -pedantic -fno-omit-frame-pointer
-CFLAGS += -D_KERNEL_
-
-STRIP_LIBS = 1
-
-ASFLAGS = --32
-
-# Kernel autoversioning with git sha
-CFLAGS += -DKERNEL_GIT_TAG=`util/make-version`
-
-# We have some pieces of assembly sitting around as well...
-YASM = yasm
-
-# All of the core parts of the kernel are built directly.
-KERNEL_OBJS = $(patsubst %.c,%.o,$(wildcard kernel/*.c))
-KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
-KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
-
-# Loadable modules
-MODULES = $(patsubst modules/%.c,hdd/mod/%.ko,$(wildcard modules/*.c))
-
-# We also want to rebuild when a header changes.
-# This is a naive approach, but it works...
-HEADERS     = $(shell find kernel/include/ -type f -name '*.h')
-
-# Userspace build flags
-USER_CFLAGS   = -O3 -m32 -Wa,--32 -g -Iuserspace -std=c99 -U__STRICT_ANSI__ -Lhdd/usr/lib
-USER_CXXFLAGS = -O3 -m32 -Wa,--32 -g -Iuserspace
-USER_BINFLAGS =
-
-# Userspace binaries and libraries
-USER_CFILES   = $(filter-out userspace/core/init.c,$(shell find userspace -not -wholename '*/lib/*' -not -wholename '*.static.*' -name '*.c'))
-USER_CXXFILES = $(shell find userspace -not -wholename '*/lib/*' -name '*.c++')
-USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
-
-LIBC=hdd/usr/lib/libc.so
-
-# Userspace output files (so we can define metatargets)
-NONTEST_C   = $(foreach f,$(USER_CFILES),$(if $(findstring /tests/,$f),,$f))
-NONTEST_CXX = $(foreach f,$(USER_CXXFILES),$(if $(findstring /tests/,$f),,$f))
-
-NONTEST  = $(foreach file,$(NONTEST_C),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
-NONTEST += $(foreach file,$(NONTEST_CXX),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
-NONTEST += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
-NONTEST += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
-NONTEST += $(LIBC) hdd/bin/init hdd/lib/ld.so
-
-USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
-USERSPACE += $(LIBC) hdd/bin/init hdd/lib/ld.so
-
-CORE_LIBS = $(patsubst %.c,%.o,$(wildcard userspace/lib/*.c))
+KERNEL_TARGET=i686-elf
+USER_TARGET=i686-pc-toaru
 
 # Pretty output utilities.
 BEG = util/mk-beg
@@ -89,10 +19,30 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
 BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
-# Hard disk image generation
-GENEXT = genext2fs
-DISK_SIZE = `util/disk_size.sh`
-DD = dd conv=notrunc
+# Rules start here.
+.PHONY: all system install test toolchain userspace modules cdrom cdrom-big
+.PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
+.PHONY: run vga term headless quick
+.PHONY: debug debug-vga debug-term
+.PHONY: virtualbox virtualbox-cdrom run-cdrom
+
+# Prevents Make from removing intermediary files on failure
+.SECONDARY:
+
+# Disable built-in rules
+.SUFFIXES:
+
+all: $(shell util/detect-make-all.sh)
+system: toaruos-disk.img toaruos-kernel modules
+userspace: ${USERSPACE}
+modules: ${MODULES}
+
+toolchain:
+	@cd toolchain; ./toolchain-build.sh
+
+###########################
+# Emulator Pseudo-targets #
+###########################
 
 # Specify which modules should be included on startup.
 # There are a few modules that are kinda required for a working system
@@ -121,16 +71,34 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 BOOT_MODULES_X = -initrd "$(subst $(SPACE),$(COMMA),$(foreach mod,$(BOOT_MODULES),hdd/mod/$(mod).ko))"
 
-# Emulator settings
+# QEMU Configuration
 EMU = qemu-system-i386
-EMUARGS  = -sdl -kernel toaruos-kernel -m 1024
-EMUARGS += -serial stdio -vga std
-EMUARGS += -hda toaruos-disk.img -k en-us -no-frame
-EMUARGS += -rtc base=localtime -net nic,model=rtl8139 -net user -soundhw pcspk,ac97
-EMUARGS += -net dump -no-kvm-irqchip
-EMUARGS += $(BOOT_MODULES_X)
-EMUKVM   = -enable-kvm
 
+# Force the SDL backend with no frame and English (US) keyboard.
+EMUARGS  = -sdl -no-frame -k en-us
+# 1GB of RAM
+EMUARGS += -m 1024
+# Serial debug output to stdio (kernel console)
+EMUARGS += -serial stdio
+# Bochs VBE display device
+EMUARGS += -vga std
+# Realtime clock based on localtime (we don't NTP or support timezone configs yet)
+EMUARGS += -rtc base=localtime
+# Network hardware: RTL8139, usermode network emulation.
+EMUARGS += -net nic,model=rtl8139 -net user
+# Enable TCP dumps for monitoring.
+EMUARGS += -net dump
+# Sound hardware: Intel AC'97, PC beeper
+EMUARGS += -soundhw pcspk,ac97
+# Enable KVM if available, or fall back to TCG
+EMUARGS += -M accel=kvm:tcg
+
+# For development images, load the kernel, modules, hard disk.
+EMUKARGS  = -kernel toaruos-kernel
+EMUKARGS += $(BOOT_MODULES_X)
+EMUKARGS += -hda toaruos-disk.img
+
+# These arguments are passed to the kernel command line.
 DISK_ROOT = root=/dev/hda
 VID_QEMU  = vid=qemu,,1280,,720
 START_VGA = start=--vga
@@ -138,68 +106,69 @@ START_SINGLE = start=--single
 START_LIVE = start=live-welcome
 WITH_LOGS = logtoserial=1
 
-.PHONY: all system install test toolchain userspace modules cdrom toaruos.iso cdrom-big toaruos-big.iso
-.PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
-.PHONY: run vga term headless
-.PHONY: kvm vga-kvm term-kvm headless-kvm quick
-.PHONY: debug debug-kvm debug-term debug-term-kvm
-
-# Prevents Make from removing intermediary files on failure
-.SECONDARY:
-
-# Disable built-in rules
-.SUFFIXES:
-
-all: system tags userspace
-system: toaruos-disk.img toaruos-kernel modules
-userspace: ${USERSPACE}
-modules: ${MODULES}
-
 # Various different quick options
 run: system
-	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
 quick: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(DISK_ROOT) start=quick-launch"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT) start=quick-launch"
 debug: system
-	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
-debug-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
 vga: system
-	${EMU} ${EMUARGS} -append "$(START_VGA) $(DISK_ROOT)"
-vga-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(START_VGA) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(START_VGA) $(DISK_ROOT)"
 debug-vga: system
-	${EMU} ${EMUARGS} -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
 term: system
-	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
-term-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 debug-term: system
-	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
-debug-term-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
 headless: system
-	${EMU} ${EMUARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
-headless-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -display none -append "$(START_VGA) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
 live: system
-	${EMU} ${EMUARGS} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
-live-kvm: system
-	${EMU} ${EMUARGS} ${EMUKVM} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
+	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
 
+# Run the cdrom
+run-cdrom: toaruos.iso
+	${EMU} ${EMUARGS} -cdrom toaruos.iso
+
+# Run VirtualBox
+virtualbox: system
+	util/run-virtualbox.sh
+virtualbox-cdrom: system
+
+# Run the test suite
 test: system
 	expect util/test.exp
-
-toolchain:
-	@cd toolchain; ./toolchain-build.sh
-
-KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
 
 ################
 #    Kernel    #
 ################
+
+# Kernel build flags
+CFLAGS  = -O2 -std=c99
+CFLAGS += -finline-functions -ffreestanding
+CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format
+CFLAGS += -pedantic -fno-omit-frame-pointer
+CFLAGS += -D_KERNEL_
+ASFLAGS = --32
+
+# Build kernel with bare elf toolchain
+KCC = $(KERNEL_TARGET)-gcc
+KNM = $(KERNEL_TARGET)-nm
+KCXX= $(KERNEL_TARGET)-g++
+KAR = $(KERNEL_TARGET)-ar
+KAS = $(KERNEL_TARGET)-as
+KSTRIP = $(KERNEL_TARGET)-strip
+
+# Kernel autoversioning with git sha
+CFLAGS += -DKERNEL_GIT_TAG=`util/make-version`
+
+# All of the core parts of the kernel are built directly.
+KERNEL_OBJS = $(patsubst %.c,%.o,$(wildcard kernel/*.c))
+KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
+KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
+
+KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
+
 toaruos-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	@${BEG} "CC" "$@"
 	@${KCC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc ${ERRORS}
@@ -221,6 +190,13 @@ kernel/sys/version.o: kernel/*/*.c kernel/*.c
 hdd/mod:
 	@mkdir -p hdd/mod
 
+# Loadable modules
+MODULES = $(patsubst modules/%.c,hdd/mod/%.ko,$(wildcard modules/*.c))
+
+# We also want to rebuild when a header changes.
+# This is a naive approach, but it works...
+HEADERS = $(shell find kernel/include/ -type f -name '*.h')
+
 hdd/mod/%.ko: modules/%.c ${HEADERS} | hdd/mod
 	@${BEG} "CC" "$< [module]"
 	@${KCC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
@@ -239,6 +215,45 @@ kernel/%.o: kernel/%.c ${HEADERS}
 #############
 # Userspace #
 #############
+
+# Userspace build flags
+USER_CFLAGS   = -O3 -m32 -Wa,--32 -g -Iuserspace -std=c99 -U__STRICT_ANSI__ -Lhdd/usr/lib
+USER_CXXFLAGS = -O3 -m32 -Wa,--32 -g -Iuserspace
+USER_BINFLAGS =
+STRIP_LIBS = 1
+
+# We always build with our targetted cross-compiler
+CC = $(USER_TARGET)-gcc
+NM = $(USER_TARGET)-nm
+CXX= $(USER_TARGET)-g++
+AR = $(USER_TARGET)-ar
+AS = $(USER_TARGET)-as
+STRIP = $(USER_TARGET)-strip
+
+# Userspace binaries and libraries
+USER_CFILES   = $(filter-out userspace/core/init.c,$(shell find userspace -not -wholename '*/lib/*' -not -wholename '*.static.*' -name '*.c'))
+USER_CXXFILES = $(shell find userspace -not -wholename '*/lib/*' -name '*.c++')
+USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
+
+LIBC=hdd/usr/lib/libc.so
+
+# Userspace output files (so we can define metatargets)
+NONTEST_C   = $(foreach f,$(USER_CFILES),$(if $(findstring /tests/,$f),,$f))
+NONTEST_CXX = $(foreach f,$(USER_CXXFILES),$(if $(findstring /tests/,$f),,$f))
+
+NONTEST  = $(foreach file,$(NONTEST_C),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
+NONTEST += $(foreach file,$(NONTEST_CXX),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
+NONTEST += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
+NONTEST += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
+NONTEST += $(LIBC) hdd/bin/init hdd/lib/ld.so
+
+USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
+USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
+USERSPACE += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
+USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
+USERSPACE += $(LIBC) hdd/bin/init hdd/lib/ld.so
+
+CORE_LIBS = $(patsubst %.c,%.o,$(wildcard userspace/lib/*.c))
 
 # Init must be built static at the moment.
 hdd/bin/init: userspace/core/init.c
@@ -350,6 +365,10 @@ $(eval $(call basic-so-wrapper,freetype,-lz))
 # Hard Disk Images #
 ####################
 
+# Hard disk image generation
+GENEXT = genext2fs
+DISK_SIZE = `util/disk_size.sh`
+
 toaruos-disk.img: ${USERSPACE} util/devtable
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
@@ -357,9 +376,9 @@ toaruos-disk.img: ${USERSPACE} util/devtable
 	@${END} "hdd" "Generated Hard Disk image"
 	@${INFO} "--" "Hard disk image is ready!"
 
-#########
-# cdrom #
-#########
+#############
+# CD Images #
+#############
 
 cdrom: toaruos.iso
 

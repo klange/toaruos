@@ -19,6 +19,7 @@ kernel/symbols.S
 .userspace-check
 .disk_size
 .ramdisk_size
+.toolchain
 tmp/
 ramdisk_source/
 util/*.img
