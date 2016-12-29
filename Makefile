@@ -20,7 +20,7 @@ BEGRM = util/mk-beg-rm
 ENDRM = util/mk-end-rm
 
 # Rules start here.
-.PHONY: all system install test toolchain userspace modules cdrom cdrom-big
+.PHONY: all system install test toolchain userspace modules cdrom fix-cd
 .PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
 .PHONY: run vga term headless quick
 .PHONY: debug debug-vga debug-term
@@ -416,14 +416,25 @@ _cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/sh
 _cdrom/ramdisk.img.gz: _cdrom/ramdisk.img
 	@gzip $<
 
+define fixup-cd
+	@git checkout hdd/usr/share/wallpapers
+	@mv _cdrom/mod hdd/mod
+	@rm -r _cdrom
+endef
+
 toaruos.iso: _cdrom/ramdisk.img.gz _cdrom/kernel
 	@${BEG} "ISO" "Building a CD image"
 	@if grep precise /etc/lsb-release; then grub-mkrescue -o $@ _cdrom; else grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ _cdrom -- -quiet 2> /dev/null; fi
 	@${END} "ISO" "Building a CD image"
-	@git checkout hdd/usr/share/wallpapers
-	@mv _cdrom/mod hdd/mod
-	@rm -r _cdrom
+	$(call fixup-cd)
 	@${INFO} "--" "CD generated"
+
+netboot.img.gz: _cdrom/ramdisk.img.gz
+	cp _cdrom/ramdisk.img.gz netboot.img.gz
+	$(call fixup-cd)
+
+fix-cd:
+	$(call fixup-cd)
 
 ##############
 #    ctags   #
