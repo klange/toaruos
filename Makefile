@@ -1,7 +1,7 @@
 # ToaruOS Build Scripts
 ifneq ($(MAKECMDGOALS),toolchain)
  ifeq ($(TOOLCHAIN),)
-  $(error util/helpful-toolchain-error.sh)
+  $(error $(shell util/helpful-toolchain-error.sh))
  else
   $(shell util/cache-toolchain.sh)
  endif
