@@ -893,6 +893,20 @@ static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_serve
 			/* Prefer faster filter when rendering rotated windows */
 			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
 		}
+
+		if (window == yg->resizing_window) {
+			double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
+			double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
+			if (x_scale < 0.00001) {
+				x_scale = 0.00001;
+			}
+			if (y_scale < 0.00001) {
+				y_scale = 0.00001;
+			}
+			cairo_translate(cr, (int)yg->resizing_offset_x, (int)yg->resizing_offset_y);
+			cairo_scale(cr, x_scale, y_scale);
+		}
+
 	}
 	if (window->anim_mode) {
 		int frame = yutani_time_since(yg, window->anim_start);
@@ -992,42 +1006,6 @@ draw_finish:
 #endif
 
 	return 0;
-}
-
-/**
- * Draw the bounding box for a resizing window.
- *
- * This also takes into account rotation of the window.
- */
-static void draw_resizing_box(yutani_globals_t * yg) {
-	cairo_t * cr = yg->framebuffer_ctx;
-	cairo_save(cr);
-
-	int32_t t_x, t_y;
-	int32_t s_x, s_y;
-	int32_t r_x, r_y;
-	int32_t q_x, q_y;
-
-	window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y, &t_x, &t_y);
-	window_to_device(yg->resizing_window, yg->resizing_offset_x + yg->resizing_w, yg->resizing_offset_y + yg->resizing_h, &s_x, &s_y);
-	window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y + yg->resizing_h, &r_x, &r_y);
-	window_to_device(yg->resizing_window, yg->resizing_offset_x + yg->resizing_w, yg->resizing_offset_y, &q_x, &q_y);
-	cairo_set_line_width(cr, 2.0);
-
-	cairo_move_to(cr, t_x, t_y);
-	cairo_line_to(cr, q_x, q_y);
-	cairo_line_to(cr, s_x, s_y);
-	cairo_line_to(cr, r_x, r_y);
-	cairo_line_to(cr, t_x, t_y);
-	cairo_close_path(cr);
-	cairo_stroke_preserve(cr);
-	cairo_set_source_rgba(cr, 0.33, 0.55, 1.0, 0.5);
-	cairo_fill(cr);
-	cairo_set_source_rgba(cr, 0.0, 0.4, 1.0, 0.9);
-	cairo_stroke(cr);
-
-	cairo_restore(cr);
-
 }
 
 /**
@@ -1138,11 +1116,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 */
 		spin_lock(&yg->redraw_lock);
 		yutani_blit_windows(yg, yg->framebuffer_ctx);
-
-		if (yg->resizing_window) {
-			/* Draw box */
-			draw_resizing_box(yg);
-		}
 
 #if YUTANI_DEBUG_WINDOW_SHAPES
 #define WINDOW_SHAPE_VIEWER_SIZE 20
@@ -2038,11 +2011,11 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				yg->resizing_h = yg->resizing_window->height + height_diff;
 
 				/* Enforce logical boundaries */
-				if (yg->resizing_w < 0) {
-					yg->resizing_w = 0;
+				if (yg->resizing_w < 1) {
+					yg->resizing_w = 1;
 				}
-				if (yg->resizing_h < 0) {
-					yg->resizing_h = 0;
+				if (yg->resizing_h < 1) {
+					yg->resizing_h = 1;
 				}
 				if (yg->resizing_offset_x > yg->resizing_window->width) {
 					yg->resizing_offset_x = yg->resizing_window->width;
