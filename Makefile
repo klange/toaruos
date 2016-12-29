@@ -369,7 +369,7 @@ hdd/usr/share/terminfo/t/toaru: util/toaru.tic
 
 FORCE:
 
-_cdrom: FORCE
+_cdrom: FORCE | ${NONTEST} toaruos-kernel
 	@-rm -rf _cdrom
 	@cp -r util/cdrom _cdrom
 
@@ -386,12 +386,12 @@ BLACKLIST += hdd/usr/share/wallpapers/yokohama.png
 BLACKLIST += hdd/usr/share/wallpapers/yosemite.png
 
 _cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod
-	@${BEG} "hdd" "Generating a ramdisk image..."
+	@${BEG} "ext" "Generating a ramdisk image..."
 	@rm -f $(filter-out ${NONTEST},${USERSPACE})
 	@rm -f ${BLACKLIST}
 	@${STRIP} ${NONTEST}
 	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 16384 -N 2048 $@
-	@${END} "hdd" "Generated ramdisk image"
+	@${END} "ext" "Generated ramdisk image"
 
 _cdrom/ramdisk.img.gz: _cdrom/ramdisk.img
 	@gzip $<
