@@ -27,7 +27,7 @@
 /* .stack resides in .bss */
 .section .stack, "aw", @nobits
 stack_bottom:
-.skip 16384 /* 16KiB */
+.skip 32768 /* 32KiB */
 stack_top:
 
 .section .text
