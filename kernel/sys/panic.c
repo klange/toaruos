@@ -8,6 +8,7 @@
 #include <system.h>
 #include <logging.h>
 #include <printf.h>
+#include <module.h>
 
 void halt_and_catch_fire(char * error_message, const char * file, int line, struct regs * regs) {
 	IRQ_OFF;
@@ -29,12 +30,61 @@ void halt_and_catch_fire(char * error_message, const char * file, int line, stru
 	kexit(1);
 }
 
+char * probable_function_name(uintptr_t ip, uintptr_t * out_addr) {
+	char * closest  = NULL;
+	size_t distance = 0xFFFFFFFF;
+	uintptr_t  addr = 0;
+
+	if (modules_get_symbols()) {
+		list_t * hash_keys = hashmap_keys(modules_get_symbols());
+		foreach(_key, hash_keys) {
+			char * key = (char *)_key->value;
+			uintptr_t a = (uintptr_t)hashmap_get(modules_get_symbols(), key);
+
+			if (!a) continue;
+
+			size_t d = 0xFFFFFFFF;
+			if (a <= ip) {
+				d = ip - a;
+			}
+			if (d < distance) {
+				closest = key;
+				distance = d;
+				addr = a;
+			}
+		}
+		free(hash_keys);
+
+	}
+	*out_addr = addr;
+	return closest;
+}
+
 void assert_failed(const char *file, uint32_t line, const char *desc) {
 	IRQ_OFF;
 	debug_print(INSANE, "Kernel Assertion Failed: %s", desc);
 	debug_print(INSANE, "File: %s", file);
 	debug_print(INSANE, "Line: %d", line);
 	debug_print(INSANE, "System Halted!");
+
+#if 1
+	unsigned int * ebp = (unsigned int *)(&file - 2);
+
+	debug_print(INSANE, "Stack trace:");
+
+	for (unsigned int frame = 0; frame < 20; ++frame) {
+		unsigned int eip = ebp[1];
+		if (eip == 0) break;
+		ebp = (unsigned int *)(ebp[0]);
+		unsigned int * args = &ebp[2];
+		(void)args;
+		uintptr_t addr;
+		char * func = probable_function_name(eip, &addr);
+		debug_print(INSANE, "    0x%x (%s+%d)\n", eip, func, eip-addr);
+	}
+
+
+#endif
 
 	if (debug_video_crash) {
 		char msg[4][256];
