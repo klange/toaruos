@@ -1795,11 +1795,6 @@ static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t d
 
 static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_event * me)  {
 	if (me->type == YUTANI_MOUSE_EVENT_TYPE_RELATIVE) {
-		/*
-		 * DON'T COMMIT THIS
-		 * If you see and you're not me, you have permission to laugh at me for this
-		 * and bring it up at random for the next year.
-		 */
 		yg->mouse_x += me->event.x_difference YUTANI_INCOMING_MOUSE_SCALE;
 		yg->mouse_y -= me->event.y_difference YUTANI_INCOMING_MOUSE_SCALE;
 	} else if (me->type == YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE) {
