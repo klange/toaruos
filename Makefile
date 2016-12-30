@@ -108,23 +108,23 @@ WITH_LOGS = logtoserial=1
 
 # Various different quick options
 run: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
 quick: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT) start=quick-launch"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT) start=quick-launch"
 debug: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
 vga: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(START_VGA) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(START_VGA) $(DISK_ROOT)"
 debug-vga: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
 term: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 debug-term: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
 headless: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
 live: system
-	${EMU} ${EMURAGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
 
 # Run the cdrom
 run-cdrom: toaruos.iso
