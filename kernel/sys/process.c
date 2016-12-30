@@ -111,6 +111,13 @@ process_t * next_ready_process(void) {
 	if (!process_available()) {
 		return kernel_idle_task;
 	}
+	if (process_queue->head->owner != process_queue) {
+		debug_print(ERROR, "Erroneous process located in process queue: node 0x%x has owner 0x%x, but process_queue is 0x%x", process_queue->head, process_queue->head->owner, process_queue);
+
+		process_t * proc = process_queue->head->value;
+
+		debug_print(ERROR, "PID associated with this node is %d", proc->id);
+	}
 	node_t * np = list_dequeue(process_queue);
 	assert(np && "Ready queue is empty.");
 	process_t * next = np->value;
@@ -142,6 +149,11 @@ void make_process_ready(process_t * proc) {
 			list_delete((list_t*)proc->sleep_node.owner, &proc->sleep_node);
 			spin_unlock(wait_lock_tmp);
 		}
+	}
+	if (proc->sched_node.owner) {
+		debug_print(WARNING, "Can't make process ready without removing from owner list: %d", proc->id);
+		debug_print(WARNING, "  (This is a bug) Current owner list is 0x%x (ready queue is 0x%x)", proc->sched_node.owner, process_queue);
+		return;
 	}
 	spin_lock(process_queue_lock);
 	list_append(process_queue, &proc->sched_node);
