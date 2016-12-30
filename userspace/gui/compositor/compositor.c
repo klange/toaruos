@@ -1283,6 +1283,23 @@ void * redraw(void * in) {
 static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t * window, int32_t x, int32_t y, int32_t width, int32_t height) {
 	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
 
+	if (window == yg->resizing_window) {
+		double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
+		double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
+
+		x *= x_scale;
+		x += yg->resizing_offset_x - 1;
+
+		y *= y_scale;
+		y += yg->resizing_offset_y - 1;
+
+		width *= x_scale;
+		height *= y_scale;
+
+		width += 2;
+		height += 2;
+	}
+
 	if (window->rotation == 0) {
 		rect->x = window->x + x;
 		rect->y = window->y + y;
@@ -1788,7 +1805,7 @@ static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t d
 
 			yg->resizing_direction = direction;
 			make_top(yg, yg->mouse_window);
-			mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 10, yg->resizing_offset_y - 10, yg->resizing_w + 20, yg->resizing_h + 20);
+			mark_window(yg, yg->resizing_window);
 		}
 	}
 }
@@ -1968,7 +1985,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				int width_diff  = (relative_x - relative_init_x);
 				int height_diff = (relative_y - relative_init_y);
 
-				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 10, yg->resizing_offset_y - 10, yg->resizing_w + 20, yg->resizing_h + 20);
+				mark_window(yg, yg->resizing_window);
 
 				if (yg->resizing_direction == SCALE_UP || yg->resizing_direction == SCALE_DOWN) {
 					width_diff = 0;
@@ -2019,7 +2036,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->resizing_offset_y = yg->resizing_window->height;
 				}
 
-				mark_window_relative(yg, yg->resizing_window, yg->resizing_offset_x - 10, yg->resizing_offset_y - 10, yg->resizing_w + 20, yg->resizing_h + 20);
+				mark_window(yg, yg->resizing_window);
 
 				if (!(me->event.buttons & yg->resizing_button)) {
 					int32_t x, y;
