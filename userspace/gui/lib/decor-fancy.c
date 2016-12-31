@@ -76,12 +76,28 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	set_font_face(FONT_SANS_SERIF_BOLD);
 	set_font_size(12);
 
-	int title_offset = (width / 2) - (draw_string_width(title) / 2);
-	if (decors_active == 0) {
-		draw_string(ctx, title_offset, TEXT_OFFSET, rgb(226,226,226), title);
-	} else {
-		draw_string(ctx, title_offset, TEXT_OFFSET, rgb(147,147,147), title);
+	char * tmp_title = strdup(title);
+	int t_l = strlen(tmp_title);
+
+#define EXTRA_SPACE 40
+
+	if (draw_string_width(tmp_title) + EXTRA_SPACE > width) {
+		while (t_l >= 0 && (draw_string_width(tmp_title) + EXTRA_SPACE > width)) {
+			tmp_title[t_l] = '\0';
+			t_l--;
+		}
 	}
+
+	if (strlen(tmp_title)) {
+		int title_offset = (width / 2) - (draw_string_width(tmp_title) / 2);
+		if (decors_active == 0) {
+			draw_string(ctx, title_offset, TEXT_OFFSET, rgb(226,226,226), tmp_title);
+		} else {
+			draw_string(ctx, title_offset, TEXT_OFFSET, rgb(147,147,147), tmp_title);
+		}
+	}
+
+	free(tmp_title);
 
 	/* Buttons */
 	draw_sprite(ctx, sprites[decors_active + 8], width - 28, 16);
