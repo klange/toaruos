@@ -768,7 +768,9 @@ static void redraw(void) {
 			/* XXX This keeps track of how far left each window list item is
 			 * so we can map clicks up in the mouse callback. */
 			if (j < MAX_WINDOW_COUNT) {
-				ads_by_l[j]->left = APP_OFFSET + i;
+				if (ads_by_l[j]) {
+					ads_by_l[j]->left = APP_OFFSET + i;
+				}
 			}
 			j++;
 			i += w;
