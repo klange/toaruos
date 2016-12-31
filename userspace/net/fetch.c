@@ -10,10 +10,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <time.h>
+#include <termios.h>
 
 #include "lib/http_parser.h"
 
 #define SIZE 512
+#define BOUNDARY "------ToaruOSFetchUploadBoundary"
 
 struct http_req {
 	char domain[SIZE];
@@ -25,6 +28,9 @@ struct {
 	const char * output_file;
 	const char * cookie;
 	FILE * out;
+	int prompt_password;
+	const char * upload_file;
+	char * password;
 } fetch_options = {0};
 
 void parse_url(char * d, struct http_req * r) {
@@ -72,12 +78,28 @@ int usage(char * argv[]) {
 	return 1;
 }
 
+int collect_password(char * password) {
+	fprintf(stdout, "Password for upload: ");
+	fflush(stdout);
+
+	/* Disable echo */
+	struct termios old, new;
+	tcgetattr(fileno(stdin), &old);
+	new = old;
+	new.c_lflag &= (~ECHO);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+
+	fgets(password, 1024, stdin);
+	password[strlen(password)-1] = '\0';
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+	fprintf(stdout, "\n");
+}
 
 int main(int argc, char * argv[]) {
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "?c:ho:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:ho:pu:")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
@@ -89,6 +111,12 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'o':
 				fetch_options.output_file = optarg;
+				break;
+			case 'u':
+				fetch_options.upload_file = optarg;
+				break;
+			case 'p':
+				fetch_options.prompt_password = 1;
 				break;
 		}
 	}
@@ -115,7 +143,69 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	if (fetch_options.cookie) {
+	if (fetch_options.prompt_password) {
+		fetch_options.password = malloc(100);
+		collect_password(fetch_options.password);
+	}
+
+	if (fetch_options.upload_file) {
+		FILE * in_file = fopen(fetch_options.upload_file, "r");
+
+		srand(time(NULL));
+		int boundary_fuzz = rand();
+		char tmp[512];
+
+		size_t out_size = 0;
+		if (fetch_options.password) {
+			out_size += sprintf(tmp,
+				"--" BOUNDARY "%08x\r\n"
+				"Content-Disposition: form-data; name=\"password\"\r\n"
+				"\r\n"
+				"%s\r\n",boundary_fuzz, fetch_options.password);
+		}
+
+		out_size += strlen("--" BOUNDARY "00000000\r\n"
+				"Content-Disposition: form-data; name=\"file\"; filename=\"\"\r\n"
+				"Content-Type: application/octet-stream\r\n"
+				"\r\n"
+				/* Data goes here */
+				"\r\n"
+				"--" BOUNDARY "00000000" "--\r\n");
+
+		out_size += strlen(fetch_options.upload_file);
+
+		fseek(in_file, 0, SEEK_END);
+		out_size += ftell(in_file);
+		fseek(in_file, 0, SEEK_SET);
+
+		fprintf(f,
+			"POST /%s HTTP/1.0\r\n"
+			"User-Agent: curl/7.35.0\r\n"
+			"Host: %s\r\n"
+			"Accept: */*\r\n"
+			"Content-Length: %d\r\n"
+			"Content-Type: multipart/form-data; boundary=" BOUNDARY "%08x\r\n"
+			"\r\n", my_req.path, my_req.domain, out_size, boundary_fuzz);
+
+		fprintf(f,"%s",tmp);
+		fprintf(f,
+				"--" BOUNDARY "%08x\r\n"
+				"Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n"
+				"Content-Type: application/octet-stream\r\n"
+				"\r\n", boundary_fuzz, fetch_options.upload_file);
+
+		while (!feof(in_file)) {
+			char buf[1024];
+			size_t r = fread(buf, 1, 1024, in_file);
+			fwrite(buf, 1, r, f);
+		}
+
+		fclose(in_file);
+
+		fprintf(f,"\r\n--" BOUNDARY "%08x--\r\n", boundary_fuzz);
+		fflush(f);
+
+	} else if (fetch_options.cookie) {
 		fprintf(f,
 			"GET /%s HTTP/1.0\r\n"
 			"User-Agent: curl/7.35.0\r\n"
