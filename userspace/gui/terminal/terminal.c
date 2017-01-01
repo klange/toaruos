@@ -62,8 +62,8 @@ uint16_t font_size      = 13;   /* Font size according to Freetype */
 uint16_t char_width     = 8;    /* Width of a cell in pixels */
 uint16_t char_height    = 12;   /* Height of a cell in pixels */
 uint16_t char_offset    = 0;    /* Offset of the font within the cell */
-uint16_t csr_x          = 0;    /* Cursor X */
-uint16_t csr_y          = 0;    /* Cursor Y */
+int      csr_x          = 0;    /* Cursor X */
+int      csr_y          = 0;    /* Cursor Y */
 term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
 uint32_t current_fg     = 7;    /* Current foreground color */
 uint32_t current_bg     = 0;    /* Current background color */
@@ -656,6 +656,8 @@ void term_write(char c) {
 			csr_x = 0;
 			return;
 		}
+		if (csr_x < 0) csr_x = 0;
+		if (csr_y < 0) csr_y = 0;
 		if (csr_x == term_width) {
 			csr_x = 0;
 			++csr_y;
@@ -1151,13 +1153,19 @@ void reinit(int send_sig) {
 		term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
 
 		memset(new_term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
+
+		int offset = 0;
+		if (term_height < old_height) {
+			offset = old_height - term_height;
+		}
 		for (int row = 0; row < min(old_height, term_height); ++row) {
 			for (int col = 0; col < min(old_width, term_width); ++col) {
-				term_cell_t * old_cell = (term_cell_t *)((uintptr_t)term_buffer + (row * old_width + col) * sizeof(term_cell_t));
+				term_cell_t * old_cell = (term_cell_t *)((uintptr_t)term_buffer + ((row + offset) * old_width + col) * sizeof(term_cell_t));
 				term_cell_t * new_cell = (term_cell_t *)((uintptr_t)new_term_buffer + (row * term_width + col) * sizeof(term_cell_t));
 				*new_cell = *old_cell;
 			}
 		}
+		csr_y -= offset;
 		free(term_buffer);
 
 		term_buffer = new_term_buffer;
