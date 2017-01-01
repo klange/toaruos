@@ -889,6 +889,24 @@ void handle_input_s(char * c) {
 	spin_unlock(&display_lock);
 }
 
+void scroll_up(int amount) {
+	int i = 0;
+	while (i < amount && scrollback_list && scrollback_offset < scrollback_list->length) {
+		scrollback_offset ++;
+		i++;
+	}
+	redraw_scrollback();
+}
+
+void scroll_down(int amount) {
+	int i = 0;
+	while (i < amount && scrollback_list && scrollback_offset != 0) {
+		scrollback_offset -= 1;
+		i++;
+	}
+	redraw_scrollback();
+}
+
 void key_event(int ret, key_event_t * event) {
 	if (ret) {
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
@@ -1009,24 +1027,14 @@ void key_event(int ret, key_event_t * event) {
 				break;
 			case KEY_PAGE_UP:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
-					int i = 0;
-					while (i < term_height/2 && scrollback_list && scrollback_offset < scrollback_list->length) {
-						scrollback_offset ++;
-						i++;
-					}
-					redraw_scrollback();
+					scroll_up(term_height/2);
 				} else {
 					handle_input_s("\033[5~");
 				}
 				break;
 			case KEY_PAGE_DOWN:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
-					int i = 0;
-					while (i < term_height/2 && scrollback_list && scrollback_offset != 0) {
-						scrollback_offset -= 1;
-						i++;
-					}
-					redraw_scrollback();
+					scroll_down(term_height/2);
 				} else {
 					handle_input_s("\033[6~");
 				}
@@ -1309,6 +1317,12 @@ void * handle_incoming(void * garbage) {
 								if (button_state & YUTANI_MOUSE_BUTTON_RIGHT) mouse_event(34, new_x, new_y);
 								last_mouse_x = new_x;
 								last_mouse_y = new_y;
+							}
+						} else {
+							if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
+								scroll_up(5);
+							} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
+								scroll_down(5);
 							}
 						}
 					}
