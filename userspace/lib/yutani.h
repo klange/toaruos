@@ -179,6 +179,10 @@ struct yutani_msg_window_resize_start {
 	yutani_scale_direction_t direction;
 };
 
+struct yutani_msg_timer_request {
+	uint32_t precision;
+	uint32_t flags;
+};
 
 typedef struct yutani_window {
 	yutani_wid_t wid;
@@ -238,6 +242,10 @@ typedef struct yutani_window {
 #define YUTANI_MSG_WINDOW_UPDATE_SHAPE 0x00000050
 
 #define YUTANI_MSG_GOODBYE             0x000000F0
+
+/* Timing Event Requests */
+#define YUTANI_MSG_TIMER_REQUEST       0x00000100
+#define YUTANI_MSG_TIMER_TICK          0x00000101
 
 /* Server responses */
 #define YUTANI_MSG_WELCOME             0x00010001
@@ -423,6 +431,8 @@ extern yutani_msg_t * yutani_msg_build_window_update_shape(yutani_wid_t wid, int
 extern yutani_msg_t * yutani_msg_build_window_warp_mouse(yutani_wid_t wid, int32_t x, int32_t y);
 extern yutani_msg_t * yutani_msg_build_window_show_mouse(yutani_wid_t wid, int32_t show_mouse);
 extern yutani_msg_t * yutani_msg_build_window_resize_start(yutani_wid_t wid, yutani_scale_direction_t direction);
+extern yutani_msg_t * yutani_msg_build_timer_request(uint32_t precision, uint32_t flags);
+extern yutani_msg_t * yutani_msg_build_timer_tick(void);
 
 
 extern int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
@@ -452,6 +462,7 @@ extern void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window
 extern void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t x, int32_t y);
 extern void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse);
 extern void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction);
+extern void yutani_timer_request(yutani_t * yctx, uint32_t precision, uint32_t flags);
 
 
 extern gfx_context_t * init_graphics_yutani(yutani_window_t * window);

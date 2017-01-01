@@ -931,6 +931,8 @@ static void resize_finish(int xwidth, int xheight) {
 }
 
 int main (int argc, char ** argv) {
+	int tick = 0;
+
 	/* Connect to window server */
 	yctx = yutani_init();
 
@@ -1024,8 +1026,12 @@ int main (int argc, char ** argv) {
 	signal(SIGINT, sig_int);
 
 	/* Start clock thread XXX need timeouts in yutani calls */
+#if 0
 	pthread_t _clock_thread;
 	pthread_create(&_clock_thread, NULL, clock_thread, NULL);
+#endif
+
+	yutani_timer_request(yctx, 0, 0);
 
 	/* Subscribe to window updates */
 	yutani_subscribe_windows(yctx);
@@ -1080,6 +1086,16 @@ int main (int argc, char ** argv) {
 						resize_finish(wr->width, wr->height);
 					}
 					break;
+				case YUTANI_MSG_TIMER_TICK:
+					{
+						tick++;
+						if (tick == 10) {
+							waitpid(-1, NULL, WNOHANG);
+							update_volume_level();
+							redraw();
+							tick = 0;
+						}
+					}
 				default:
 					break;
 			}

@@ -49,6 +49,7 @@
 #include "gui/terminal/lib/termemu.h"
 
 #define USE_BELL 0
+#define CURSOR_BLINK_TIME 10
 
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
@@ -1245,6 +1246,9 @@ void mouse_event(int button, int x, int y) {
 }
 
 void * handle_incoming(void * garbage) {
+
+	yutani_timer_request(yctx, 0, 0);
+
 	while (!exit_application) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
@@ -1335,25 +1339,21 @@ void * handle_incoming(void * garbage) {
 						}
 					}
 					break;
+				case YUTANI_MSG_TIMER_TICK:
+					{
+						timer_tick++;
+						if (timer_tick == CURSOR_BLINK_TIME) {
+							timer_tick = 0;
+							spin_lock(&display_lock);
+							flip_cursor();
+							spin_unlock(&display_lock);
+						}
+					}
 				default:
 					break;
 			}
 			free(m);
 		}
-	}
-	pthread_exit(0);
-}
-
-void * blink_cursor(void * garbage) {
-	while (!exit_application) {
-		timer_tick++;
-		if (timer_tick == 3) {
-			timer_tick = 0;
-			spin_lock(&display_lock);
-			flip_cursor();
-			spin_unlock(&display_lock);
-		}
-		usleep(90000);
 	}
 	pthread_exit(0);
 }
@@ -1542,9 +1542,6 @@ int main(int argc, char ** argv) {
 
 		pthread_t handle_incoming_thread;
 		pthread_create(&handle_incoming_thread, NULL, handle_incoming, NULL);
-
-		pthread_t cursor_blink_thread;
-		pthread_create(&cursor_blink_thread, NULL, blink_cursor, NULL);
 
 		unsigned char buf[1024];
 		while (!exit_application) {

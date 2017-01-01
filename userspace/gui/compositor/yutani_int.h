@@ -169,6 +169,9 @@ typedef struct {
 	int current_cursor;
 	int resize_on_next;
 
+	uint32_t timer_precison;
+	list_t * timer_subscribers;
+
 } yutani_globals_t;
 
 struct key_bind {
