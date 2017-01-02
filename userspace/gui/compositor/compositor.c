@@ -311,6 +311,7 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 		pex_send(yg->server, w->owner, response->size, (char *)response);
 		free(response);
 		make_top(yg, w);
+		mark_window(yg, w);
 	} else {
 		/*
 		 * There is no window to focus (we're unsetting focus);
