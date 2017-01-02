@@ -1292,6 +1292,9 @@ void * handle_incoming(void * garbage) {
 								break;
 							}
 						}
+						if (me->new_x < 0 || me->new_x >= window_width || me->new_y < 0 || me->new_y >= window_height) {
+							break;
+						}
 						/* Map Cursor Action */
 						if (ansi_state->mouse_on) {
 							int new_x = me->new_x;
