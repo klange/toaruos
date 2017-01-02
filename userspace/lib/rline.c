@@ -553,6 +553,7 @@ void * rline_for_python(void * _stdin, void * _stdout, char * prompt) {
 	memset(buf, 0, 1024);
 	rline(buf, 1024, &callbacks);
 	rline_history_insert(strdup(buf));
+	rline_scroll = 0;
 
 	return buf;
 }
