@@ -930,6 +930,11 @@ static void resize_finish(int xwidth, int xheight) {
 	redraw();
 }
 
+static void sig_usr2(int sig) {
+	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);
+	yutani_flip(yctx, panel);
+}
+
 int main (int argc, char ** argv) {
 	int tick = 0;
 
@@ -1024,6 +1029,7 @@ int main (int argc, char ** argv) {
 
 	/* Catch SIGINT */
 	signal(SIGINT, sig_int);
+	signal(SIGUSR2, sig_usr2);
 
 	/* Start clock thread XXX need timeouts in yutani calls */
 #if 0

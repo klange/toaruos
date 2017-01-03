@@ -349,6 +349,11 @@ sprite_t * load_wallpaper(void) {
 	return o_wallpaper;
 }
 
+void sig_usr2(int sig) {
+	yutani_set_stack(yctx, wina, YUTANI_ZORDER_BOTTOM);
+	yutani_flip(yctx, wina);
+}
+
 void sig_usr(int sig) {
 	sprite_t * new_wallpaper = load_wallpaper();
 
@@ -452,6 +457,7 @@ int main (int argc, char ** argv) {
 
 	/* Set SIGUSR1 to reload wallpaper. */
 	signal(SIGUSR1, sig_usr);
+	signal(SIGUSR2, sig_usr2);
 
 	while (_continue) {
 		yutani_msg_t * m = yutani_poll(yctx);
