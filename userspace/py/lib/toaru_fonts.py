@@ -28,6 +28,10 @@ class Font(object):
         self.font_number = font_number
         self.font_size = font_size
         self.font_color = font_color
+        self.shadow = None
+
+    def set_shadow(self, shadow):
+        self.shadow = shadow
 
     def _use(self):
         _lib.set_font_face(self.font_number)
@@ -39,6 +43,8 @@ class Font(object):
         return _lib.draw_string_width(string)
 
     def write(self, ctx, x, y, string, shadow=None):
+        if self.shadow:
+            shadow = self.shadow
         self._use()
         foreground = self.font_color
         string = string.encode('utf-8')
