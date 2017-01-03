@@ -238,6 +238,13 @@ USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
 
 LIBC=hdd/usr/lib/libc.so
 
+# PYthon sources
+PYTHON_LIBS = $(shell find userspace -wholename '*/lib/*' -name '*.py')
+PYTHON_BINS = $(shell find userspace -wholename '*/bin/*' -name '*.py')
+
+PYTHON_FILES  = $(foreach file,$(PYTHON_LIBS),$(patsubst %.py,hdd/usr/python/lib/python3.6/%.py,$(notdir ${file})))
+PYTHON_FILES += $(foreach file,$(PYTHON_BINS),$(patsubst %.py,hdd/bin/%.py,$(notdir ${file})))
+
 # Userspace output files (so we can define metatargets)
 NONTEST_C   = $(foreach f,$(USER_CFILES),$(if $(findstring /tests/,$f),,$f))
 NONTEST_CXX = $(foreach f,$(USER_CXXFILES),$(if $(findstring /tests/,$f),,$f))
@@ -253,8 +260,6 @@ USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir
 USERSPACE += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
 USERSPACE += $(LIBC) hdd/bin/init hdd/lib/ld.so
-
-CORE_LIBS = $(patsubst %.c,%.o,$(wildcard userspace/lib/*.c))
 
 # Init must be built static at the moment.
 hdd/bin/init: userspace/core/init.c
@@ -289,18 +294,6 @@ $1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
 	@${END} "C++" "$$<"
 endef
 $(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.c++,hdd/bin/%,$(notdir ${file})),${file})))
-
-hdd/usr/lib/libtoaru.a: ${CORE_LIBS}
-	@${BEG} "AR" "$@"
-	@${AR} rcs $@ ${CORE_LIBS}
-	@mkdir -p hdd/usr/include/toaru
-	@cp userspace/lib/*.h hdd/usr/include/toaru/
-	@${END} "AR" "$@"
-
-hdd/usr/lib/libnetwork.a: userspace/lib/network.o
-	@${BEG} "AR" "$@"
-	@${AR} rcs $@ ${CORE_LIBS}
-	@${END} "AR" "$@"
 
 hdd/usr/lib:
 	@mkdir -p hdd/usr/lib
@@ -362,6 +355,17 @@ $(eval $(call basic-so-wrapper,pixman-1,-lm))
 $(eval $(call basic-so-wrapper,cairo,-lpixman-1 -lpng15 -lfreetype))
 $(eval $(call basic-so-wrapper,freetype,-lz))
 
+# Python parts of userspace
+
+hdd/usr/python/lib/python3.6:
+	@mkdir -p $@
+
+hdd/bin/%.py: userspace/py/bin/%.py
+	@cp $< $@
+
+hdd/usr/python/lib/python3.6/%.py: userspace/py/lib/%.py hdd/usr/python/lib/python3.6
+	@cp $< $@
+
 ####################
 # Hard Disk Images #
 ####################
@@ -370,7 +374,7 @@ $(eval $(call basic-so-wrapper,freetype,-lz))
 GENEXT = genext2fs
 DISK_SIZE = `util/disk_size.sh`
 
-toaruos-disk.img: ${USERSPACE} util/devtable
+toaruos-disk.img: ${USERSPACE} util/devtable ${PYTHON_FILES}
 	@${BEG} "hdd" "Generating a Hard Disk image..."
 	@-rm -f toaruos-disk.img
 	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
@@ -405,7 +409,7 @@ BLACKLIST += hdd/usr/share/wallpapers/southbay.png
 BLACKLIST += hdd/usr/share/wallpapers/yokohama.png
 BLACKLIST += hdd/usr/share/wallpapers/yosemite.png
 
-_cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod
+_cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod ${PYTHON_FILES}
 	@${BEG} "ext" "Generating a ramdisk image..."
 	@rm -f $(filter-out ${NONTEST},${USERSPACE})
 	@rm -f ${BLACKLIST}
