@@ -584,7 +584,7 @@ void * timer_tick(void * _server) {
 
 	yutani_msg_t * m = yutani_msg_build_timer_tick();
 	while (1) {
-		usleep(100000); /* XXX timer precision */
+		usleep(20000); /* XXX timer precision */
 		yutani_msg_send(y, m);
 	}
 }
