@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <getopt.h>
 #include <errno.h>
 #include <ft2build.h>
@@ -49,7 +50,6 @@
 #include "gui/terminal/lib/termemu.h"
 
 #define USE_BELL 0
-#define CURSOR_BLINK_TIME 10
 
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
@@ -81,6 +81,8 @@ int      last_mouse_x   = -1;
 int      last_mouse_y   = -1;
 int      button_state   = 0;
 
+uint64_t mouse_ticks = 0;
+
 static volatile int display_lock = 0;
 
 yutani_window_t * window       = NULL; /* GUI window */
@@ -95,9 +97,6 @@ int32_t r_y = -1;
 
 void reinit(); /* Defined way further down */
 void term_redraw_cursor();
-
-/* Cursor bink timer */
-static unsigned int timer_tick = 0;
 
 /* Some GUI-only options */
 uint32_t window_width  = 640;
@@ -115,6 +114,13 @@ void dump_buffer();
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
 volatile int exit_application = 0;
+
+static uint64_t get_ticks(void) {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+
+	return (uint64_t)now.tv_sec * 1000000LL + (uint64_t)now.tv_usec;
+}
 
 static void display_flip(void) {
 	if (l_x != INT32_MAX && l_y != INT32_MAX) {
@@ -460,7 +466,7 @@ void render_cursor() {
 
 void draw_cursor() {
 	if (!cursor_on) return;
-	timer_tick = 0;
+	mouse_ticks = get_ticks();
 	render_cursor();
 }
 
@@ -1344,9 +1350,9 @@ void * handle_incoming(void * garbage) {
 					break;
 				case YUTANI_MSG_TIMER_TICK:
 					{
-						timer_tick++;
-						if (timer_tick == CURSOR_BLINK_TIME) {
-							timer_tick = 0;
+						uint64_t ticks = get_ticks();
+						if (ticks > mouse_ticks + 600000LL) {
+							mouse_ticks = ticks;
 							spin_lock(&display_lock);
 							flip_cursor();
 							spin_unlock(&display_lock);

@@ -1059,6 +1059,8 @@ int main (int argc, char ** argv) {
 	/* This lets us receive all just-modifier key releases */
 	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
 
+	unsigned int last_tick = 0;
+
 	while (_continue) {
 		/* Respond to Yutani events */
 		yutani_msg_t * m = yutani_poll(yctx);
@@ -1094,8 +1096,10 @@ int main (int argc, char ** argv) {
 					break;
 				case YUTANI_MSG_TIMER_TICK:
 					{
-						tick++;
-						if (tick == 10) {
+						struct timeval now;
+						gettimeofday(&now, NULL);
+						if (now.tv_sec != last_tick) {
+							last_tick = now.tv_sec;
 							waitpid(-1, NULL, WNOHANG);
 							update_volume_level();
 							redraw();
