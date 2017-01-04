@@ -227,6 +227,15 @@ static void _ansi_put(term_state_t * s, char c) {
 							} else if (arg == 39) {
 								/* Default Foreground */
 								s->fg = 7;
+							} else if (arg == 24) {
+								/* Underline off */
+								s->flags &= ~ANSI_UNDERLINE;
+							} else if (arg == 23) {
+								/* Oblique off */
+								s->flags &= ~ANSI_ITALIC;
+							} else if (arg == 21 || arg == 22) {
+								/* Bold off */
+								s->flags &= ~ANSI_BOLD;
 							} else if (arg == 9) {
 								/* X-OUT */
 								s->flags |= ANSI_CROSS;
