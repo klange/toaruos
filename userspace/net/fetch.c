@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <time.h>
+#include <sys/time.h>
 #include <termios.h>
 
 #include "lib/http_parser.h"
@@ -31,6 +32,12 @@ struct {
 	int prompt_password;
 	const char * upload_file;
 	char * password;
+	int show_progress;
+	int next_is_content_length;
+	size_t content_length;
+	size_t size;
+	struct timeval start;
+	int calculate_output;
 } fetch_options = {0};
 
 void parse_url(char * d, struct http_req * r) {
@@ -54,9 +61,48 @@ void parse_url(char * d, struct http_req * r) {
 	}
 }
 
+#define BAR_WIDTH 20
+#define bar_perc "||||||||||||||||||||"
+#define bar_spac "                    "
+void print_progress(void) {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	fprintf(stderr,"\033[G%6dkB",fetch_options.size/1024);
+	if (fetch_options.content_length) {
+		int percent = (fetch_options.size * BAR_WIDTH) / (fetch_options.content_length);
+		fprintf(stderr," / %6dkB [%.*s%.*s]", fetch_options.content_length/1024, percent,bar_perc,BAR_WIDTH-percent,bar_spac);
+	}
+
+	double timediff = (double)(now.tv_sec - fetch_options.start.tv_sec) + (double)(now.tv_usec - fetch_options.start.tv_usec)/1000000.0;
+	if (timediff > 0.0) {
+		double rate = (double)(fetch_options.size) / timediff;
+		double s = rate/(1024.0) * 8.0;
+		if (s > 1024.0) {
+			fprintf(stderr," %.2f mbps", s/1024.0);
+		} else {
+			fprintf(stderr," %.2f kbps", s);
+		}
+
+		if (fetch_options.content_length) {
+			if (rate > 0.0) {
+				double remaining = (double)(fetch_options.content_length - fetch_options.size) / rate;
+
+				fprintf(stderr," (%.2f sec remaining)", remaining);
+			}
+		}
+	}
+	fprintf(stderr,"\033[K");
+	fflush(stderr);
+}
+
 int callback_header_field (http_parser *p, const char *buf, size_t len) {
 	if (fetch_options.show_headers) {
 		fprintf(stderr, "Header field: %.*s\n", len, buf);
+	}
+	if (!strncmp(buf,"Content-Length",len)) {
+		fetch_options.next_is_content_length = 1;
+	} else {
+		fetch_options.next_is_content_length = 0;
 	}
 	return 0;
 }
@@ -65,11 +111,21 @@ int callback_header_value (http_parser *p, const char *buf, size_t len) {
 	if (fetch_options.show_headers) {
 		fprintf(stderr, "Header value: %.*s\n", len, buf);
 	}
+	if (fetch_options.next_is_content_length) {
+		char tmp[len+1];
+		memcpy(tmp,buf,len);
+		tmp[len] = '\0';
+		fetch_options.content_length = atoi(tmp);
+	}
 	return 0;
 }
 
 int callback_body (http_parser *p, const char *buf, size_t len) {
 	fwrite(buf, 1, len, fetch_options.out);
+	fetch_options.size += len;
+	if (fetch_options.show_progress) {
+		print_progress();
+	}
 	return 0;
 }
 
@@ -99,10 +155,13 @@ int main(int argc, char * argv[]) {
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "?c:ho:pu:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:ho:Opu:v")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
+			case 'O':
+				fetch_options.calculate_output = 1;
+				break;
 			case 'c':
 				fetch_options.cookie = optarg;
 				break;
@@ -114,6 +173,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'u':
 				fetch_options.upload_file = optarg;
+				break;
+			case 'v':
+				fetch_options.show_progress = 1;
 				break;
 			case 'p':
 				fetch_options.prompt_password = 1;
@@ -130,6 +192,15 @@ int main(int argc, char * argv[]) {
 
 	char file[100];
 	sprintf(file, "/dev/net/%s", my_req.domain);
+
+	if (fetch_options.calculate_output) {
+		char * tmp = strdup(my_req.path);
+		char * x = strrchr(tmp,'/');
+		if (x) {
+			tmp = x + 1;
+		}
+		fetch_options.output_file = tmp;
+	}
 
 	fetch_options.out = stdout;
 	if (fetch_options.output_file) {
@@ -232,14 +303,19 @@ int main(int argc, char * argv[]) {
 	http_parser parser;
 	http_parser_init(&parser, HTTP_RESPONSE);
 
+	gettimeofday(&fetch_options.start, NULL);
 	while (!feof(f)) {
-		char buf[1024];
+		char buf[10240];
 		memset(buf, 0, sizeof(buf));
-		size_t r = fread(buf, 1, 1024, f);
+		size_t r = fread(buf, 1, 10240, f);
 		http_parser_execute(&parser, &settings, buf, r);
 	}
 
 	fflush(fetch_options.out);
+
+	if (fetch_options.show_progress) {
+		fprintf(stderr,"\n");
+	}
 
 	return 0;
 }
