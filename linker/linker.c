@@ -290,12 +290,12 @@ static int object_postload(elf_t * object) {
 
 		if (!strcmp((char *)((uintptr_t)object->string_table + shdr.sh_name), ".ctors")) {
 			object->ctors = (void *)(shdr.sh_addr + object->base);
-			object->ctors_size = shdr.sh_size;
+			object->ctors_size = shdr.sh_size / sizeof(uintptr_t);
 		}
 
 		if (!strcmp((char *)((uintptr_t)object->string_table + shdr.sh_name), ".init_array")) {
 			object->init_array = (void *)(shdr.sh_addr + object->base);
-			object->init_array_size = shdr.sh_size;
+			object->init_array_size = shdr.sh_size / sizeof(uintptr_t);
 		}
 	}
 
@@ -490,14 +490,14 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 	fclose(lib->file);
 
 	if (lib->ctors) {
-		for (size_t i = 0; i < lib->ctors_size; i += sizeof(uintptr_t)) {
+		for (size_t i = 0; i < lib->ctors_size; i++) {
 			TRACE_LD(" 0x%x()", lib->ctors[i]);
 			lib->ctors[i]();
 		}
 	}
 
 	if (lib->init_array) {
-		for (size_t i = 0; i < lib->init_array_size; i += sizeof(uintptr_t)) {
+		for (size_t i = 0; i < lib->init_array_size; i++) {
 			TRACE_LD(" 0x%x()", lib->init_array[i]);
 			lib->init_array[i]();
 		}
@@ -649,14 +649,14 @@ nope:
 			elf_t * lib = node->value;
 			if (lib->ctors) {
 				TRACE_LD("Executing ctors...");
-				for (size_t i = 0; i < lib->ctors_size; i += sizeof(uintptr_t)) {
+				for (size_t i = 0; i < lib->ctors_size; i++) {
 					TRACE_LD(" 0x%x()", lib->ctors[i]);
 					lib->ctors[i]();
 				}
 			}
 			if (lib->init_array) {
 				TRACE_LD("Executing init_array...");
-				for (size_t i = 0; i < lib->init_array_size; i += sizeof(uintptr_t)) {
+				for (size_t i = 0; i < lib->init_array_size; i++) {
 					TRACE_LD(" 0x%x()", lib->init_array[i]);
 					lib->init_array[i]();
 				}
@@ -667,6 +667,13 @@ nope:
 	foreach(node, init_libs) {
 		elf_t * lib = node->value;
 		lib->init();
+	}
+
+	if (main_obj->init_array) {
+		for (size_t i = 0; i < main_obj->init_array_size; i++) {
+			TRACE_LD(" 0x%x()", main_obj->init_array[i]);
+			main_obj->init_array[i]();
+		}
 	}
 
 	if (main_obj->init) {
