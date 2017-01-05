@@ -22,7 +22,11 @@ def compare_version(left,right):
 def fetch_file(path, output, check=False, url=url):
     loop = 0
     while loop < 3:
-        subprocess.call(['fetch','-o',output,f'{url}/{path}'])
+        args = ['fetch','-o',output]
+        if check:
+            args.append('-v')
+        args.append(f'{url}/{path}')
+        subprocess.call(args)
         if check:
             s = hashlib.sha512()
             with open(output,'rb') as f:
