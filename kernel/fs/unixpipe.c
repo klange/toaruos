@@ -105,8 +105,8 @@ int make_unix_pipe(fs_node_t ** pipes) {
 	sprintf(pipes[0]->name, "[pipe:read]");
 	sprintf(pipes[1]->name, "[pipe:write]");
 
-	pipes[0]->flags = 0666;
-	pipes[1]->flags = 0666;
+	pipes[0]->mask = 0666;
+	pipes[1]->mask = 0666;
 
 	pipes[0]->flags = FS_PIPE;
 	pipes[1]->flags = FS_PIPE;
