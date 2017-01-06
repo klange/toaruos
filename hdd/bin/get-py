@@ -103,7 +103,7 @@ def run_install_step(step):
     if step[0] == 'ln':
         print(f"- Linking {step[2]} -> {step[1]}")
         if not dryrun:
-            subprocess.call(['ln','-s',step[1],step[2]])
+            os.symlink(step[1],step[2])
     elif step[0] == 'tmpfs':
         print(f"- Mounting tmpfs at {step[1]}")
         if not dryrun:
