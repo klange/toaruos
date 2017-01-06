@@ -40,7 +40,6 @@
 #include "lib/graphics.h"
 #include "lib/yutani.h"
 #include "lib/decorations.h"
-#include "lib/pthread.h"
 #include "lib/kbd.h"
 #include "lib/spinlock.h"
 

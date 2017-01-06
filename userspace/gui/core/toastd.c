@@ -18,7 +18,6 @@
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
 #include "lib/pex.h"
-#include "lib/pthread.h"
 
 #include "lib/toastd.h"
 
@@ -160,9 +159,6 @@ int main (int argc, char ** argv) {
 	load_sprite_png(toast_bg, "/usr/share/ttk/toast/default.png");
 
 	init_shmemfonts();
-
-	pthread_t closer_thread;
-	pthread_create(&closer_thread, NULL, closer_handler, NULL);
 
 	setenv("TOASTD", TOASTD_NAME, 1);
 	toastd_server = pex_bind(TOASTD_NAME);
