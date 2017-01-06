@@ -19,6 +19,7 @@ typedef struct _pipe_device {
 	list_t * wait_queue_readers;
 	list_t * wait_queue_writers;
 	int dead;
+	list_t * alert_waiters;
 } pipe_device_t;
 
 fs_node_t * make_pipe(size_t size);

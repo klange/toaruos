@@ -814,3 +814,59 @@ int waitpid(int pid, int * status, int options) {
 	} while (1);
 }
 
+int process_wait_nodes(process_t * process,fs_node_t * nodes[]) {
+	assert(!process->node_waits && "Tried to wait on nodes while already waiting on nodes.");
+	assert(nodes[0] && "Empty wait list.");
+
+	fs_node_t ** n = nodes;
+	int index = 0;
+	do {
+		int result = selectcheck_fs(*n);
+		if (result < 0) {
+			debug_print(NOTICE, "An invalid descriptor was specified: %d (0x%x)", index, *n);
+			return -1;
+		}
+		if (result == 0) {
+			return index;
+		}
+		n++;
+		index++;
+	} while (*n);
+
+	n = nodes;
+	process->node_waits = list_create();
+	do {
+		if (selectwait_fs(*n, process) < 0) {
+			debug_print(NOTICE, "Bad selectwait? 0x%x", *n);
+		}
+		n++;
+	} while (*n);
+
+	process->awoken_index = -1;
+	/* Wait. */
+	switch_task(0);
+
+	return process->awoken_index;
+}
+
+int process_alert_node(process_t * process, fs_node_t * fs_node) {
+	if (!process->node_waits) {
+		return 0; /* Possibly already returned. Wait for another call. */
+	}
+
+	int index = 0;
+	foreach(node, process->node_waits) {
+		if (fsnode_matches(fs_node, node->value)) {
+			process->awoken_index = index;
+			list_free(process->node_waits);
+			free(process->node_waits);
+			process->node_waits = NULL;
+			make_process_ready(process);
+			return 0;
+		}
+		index++;
+	}
+
+	return -1;
+}
+

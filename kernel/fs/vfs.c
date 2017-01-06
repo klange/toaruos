@@ -89,6 +89,41 @@ static fs_node_t * vfs_mapper(void) {
 	return fnode;
 }
 
+/**
+ * selectcheck_fs: Check if a read from this file would block.
+ */
+int selectcheck_fs(fs_node_t * node) {
+	if (!node) return -1;
+
+	if (node->selectcheck) {
+		return node->selectcheck(node);
+	}
+
+	return -1;
+}
+
+/**
+ * selectwait_fs: Inform a node that it should alert the current_process.
+ */
+int selectwait_fs(fs_node_t * node, void * process) {
+	if (!node) return -1;
+
+	if (node->selectwait) {
+		return node->selectwait(node, process);
+	}
+
+	return -1;
+}
+
+/**
+ * fsnode_matches: Compare a node internally against a magic value to determine if the value belongs to that node.
+ */
+int fsnode_matches(fs_node_t * node, void * value) {
+	if (!node) return 0;
+	if (!node->match) return 0;
+	return node->match(node, value);
+}
+
 
 /**
  * read_fs: Read a file system node based on its underlying type.

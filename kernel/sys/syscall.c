@@ -787,6 +787,22 @@ static int sys_lstat(char * file, uintptr_t st) {
 	return result;
 }
 
+static int sys_fswait(int c, int fds[]) {
+	PTR_VALIDATE(fds);
+	for (int i = 0; i < c; ++i) {
+		if (!FD_CHECK(fds[i])) return -1;
+	}
+	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
+	for (int i = 0; i < c; ++i) {
+		nodes[i] = FD_ENTRY(fds[i]);
+	}
+	nodes[c] = NULL;
+
+	int result = process_wait_nodes((process_t *)current_process, nodes);
+	free(nodes);
+	return result;
+}
+
 /*
  * System Call Internals
  */
@@ -839,6 +855,7 @@ static int (*syscalls[])() = {
 	[SYS_SYMLINK]      = sys_symlink,
 	[SYS_READLINK]     = sys_readlink,
 	[SYS_LSTAT]        = sys_lstat,
+	[SYS_FSWAIT]       = sys_fswait,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);

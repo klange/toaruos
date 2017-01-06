@@ -476,106 +476,10 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 	mark_window(yg, win);
 }
 
-/**
- * Nested Yutani input thread
- *
- * Handles keyboard and mouse events, as well as
- * other Yutani events from the nested window.
- */
-void * nested_input(void * _yg) {
-
-	yutani_globals_t * yg = _yg;
-
-	yutani_t * y = yutani_init();
-
-	while (1) {
-		yutani_msg_t * m = yutani_poll(yg->host_context);
-		if (m) {
-			switch (m->type) {
-				case YUTANI_MSG_KEY_EVENT:
-					{
-						struct yutani_msg_key_event * ke = (void*)m->data;
-						yutani_msg_t * m_ = yutani_msg_build_key_event(0, &ke->event, &ke->state);
-						int result = yutani_msg_send(y, m_);
-						free(m_);
-					}
-					break;
-				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-					{
-						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						mouse_device_packet_t packet;
-
-						packet.buttons = me->buttons;
-						packet.x_difference = me->new_x;
-						packet.y_difference = me->new_y;
-
-						yutani_msg_t * m_ = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
-						int result = yutani_msg_send(y, m_);
-						free(m_);
-					}
-					break;
-				case YUTANI_MSG_RESIZE_OFFER:
-					{
-						struct yutani_msg_window_resize * wr = (void*)m->data;
-						TRACE("Resize request from host compositor for size %dx%d", wr->width, wr->height);
-						yutani_window_resize_accept(yg->host_context, yg->host_window, wr->width, wr->height);
-						yg->resize_on_next = 1;
-					}
-					break;
-				case YUTANI_MSG_SESSION_END:
-					TRACE("Host session ended. Should exit.");
-					break;
-				default:
-					break;
-			}
-		}
-		free(m);
-	}
-}
-
-/**
- * Mouse input thread
- *
- * Reads the kernel mouse device and converts
- * mouse clicks and movements into event objects
- * to send to the core compositor.
- */
-static uint32_t last_mouse_buttons = 0;
-void * mouse_input(void * garbage) {
-	int mfd = open("/dev/mouse", O_RDONLY);
-
-	yutani_t * y = yutani_init();
-	mouse_device_packet_t packet;
-
-	while (1) {
-		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
-		if (r > 0) {
-			last_mouse_buttons = packet.buttons;
-			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_RELATIVE);
-			int result = yutani_msg_send(y, m);
-			free(m);
-		}
-	}
-}
-
-void * mouse_input_abs(void * garbage) {
-	int mfd = open("/dev/absmouse", O_RDONLY);
-
-	if (mfd == -1) return 0;
-
-	yutani_t * y = yutani_init();
-	mouse_device_packet_t packet;
-
-	while (1) {
-		int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
-		if (r > 0) {
-			packet.buttons = last_mouse_buttons & 0xF;
-			yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
-			int result = yutani_msg_send(y, m);
-			free(m);
-		}
-	}
-}
+#ifndef syscall_fswait
+/* TODO: This isn't in our newlib syscall bindings yet. */
+DEFN_SYSCALL2(fswait,59,int,int*);
+#endif
 
 void * timer_tick(void * _server) {
 	(void)_server;
@@ -586,32 +490,6 @@ void * timer_tick(void * _server) {
 	while (1) {
 		usleep(20000); /* XXX timer precision */
 		yutani_msg_send(y, m);
-	}
-}
-
-/**
- * Keyboard input thread
- *
- * Reads the kernel keyboard device and converts
- * key presses into event objects to send to the
- * core compositor.
- */
-void * keyboard_input(void * garbage) {
-	int kfd = open("/dev/kbd", O_RDONLY);
-
-	yutani_t * y = yutani_init();
-	key_event_t event;
-	key_event_state_t state = {0};
-
-	while (1) {
-		char buf[1];
-		int r = read(kfd, buf, 1);
-		if (r > 0) {
-			kbd_scancode(&state, buf[0], &event);
-			yutani_msg_t * m = yutani_msg_build_key_event(0, &event, &state);
-			int result = yutani_msg_send(y, m);
-			free(m);
-		}
 	}
 }
 
@@ -2109,6 +1987,7 @@ int main(int argc, char * argv[]) {
 		yg->host_context = yutani_init();
 		yg->host_window = yutani_window_create(yg->host_context, yutani_options.nest_width, yutani_options.nest_height);
 		yutani_window_move(yg->host_context, yg->host_window, 50, 50);
+		yutani_window_advertise_icon(yg->host_context, yg->host_window, "Compositor", "compositor");
 		yg->backend_ctx = init_graphics_yutani_double_buffer(yg->host_window);
 	} else {
 		_static_yg = yg;
@@ -2178,22 +2057,8 @@ int main(int argc, char * argv[]) {
 
 	yutani_cairo_init(yg);
 
-	pthread_t mouse_thread;
-	pthread_t absmouse_thread;
-	pthread_t keyboard_thread;
 	pthread_t render_thread;
-	pthread_t nested_thread;
 	pthread_t timer_thread;
-
-	if (yutani_options.nested) {
-		/* Nested Yutani-Yutani mouse+keyboard */
-		pthread_create(&nested_thread, NULL, nested_input, yg);
-	} else {
-		/* Toaru mouse+keyboard driver */
-		pthread_create(&mouse_thread, NULL, mouse_input, NULL);
-		pthread_create(&absmouse_thread, NULL, mouse_input_abs, NULL);
-		pthread_create(&keyboard_thread, NULL, keyboard_input, NULL);
-	}
 
 	pthread_create(&render_thread, NULL, redraw, yg);
 	pthread_create(&timer_thread, NULL, timer_tick, yg);
@@ -2208,7 +2073,108 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
+	int fds[4], mfd, kfd, amfd;
+	mouse_device_packet_t packet;
+	key_event_t event;
+	key_event_state_t state = {0};
+	uint32_t last_mouse_buttons = 0;
+
+	fds[0] = fileno(server);
+
+	if (yutani_options.nested) {
+		fds[1] = fileno(yg->host_context->sock);
+	} else {
+		mfd = open("/dev/mouse", O_RDONLY);
+		kfd = open("/dev/kbd", O_RDONLY);
+		amfd = open("/dev/absmouse", O_RDONLY);
+
+		fds[1] = mfd;
+		fds[2] = kfd;
+		fds[3] = amfd;
+	}
+
 	while (1) {
+		if (yutani_options.nested) {
+			int index = syscall_fswait(2, fds);
+
+			if (index == 1) {
+				yutani_msg_t * m = yutani_poll(yg->host_context);
+				if (m) {
+					switch (m->type) {
+						case YUTANI_MSG_KEY_EVENT:
+							{
+								struct yutani_msg_key_event * ke = (void*)m->data;
+								yutani_msg_t * m_ = yutani_msg_build_key_event(0, &ke->event, &ke->state);
+								handle_key_event(yg, (struct yutani_msg_key_event *)m_->data);
+								free(m_);
+							}
+							break;
+						case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+							{
+								struct yutani_msg_window_mouse_event * me = (void*)m->data;
+								mouse_device_packet_t packet;
+
+								packet.buttons = me->buttons;
+								packet.x_difference = me->new_x;
+								packet.y_difference = me->new_y;
+
+								yutani_msg_t * m_ = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
+								handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m_->data);
+								free(m_);
+							}
+							break;
+						case YUTANI_MSG_RESIZE_OFFER:
+							{
+								struct yutani_msg_window_resize * wr = (void*)m->data;
+								TRACE("Resize request from host compositor for size %dx%d", wr->width, wr->height);
+								yutani_window_resize_accept(yg->host_context, yg->host_window, wr->width, wr->height);
+								yg->resize_on_next = 1;
+							}
+							break;
+						case YUTANI_MSG_SESSION_END:
+							TRACE("Host session ended. Should exit.");
+							break;
+						default:
+							break;
+					}
+				}
+				free(m);
+				continue;
+			}
+		} else {
+			int index = syscall_fswait(amfd == -1 ? 3 : 4, fds);
+
+			if (index == 2) {
+				char buf[1];
+				int r = read(kfd, buf, 1);
+				if (r > 0) {
+					kbd_scancode(&state, buf[0], &event);
+					yutani_msg_t * m = yutani_msg_build_key_event(0, &event, &state);
+					handle_key_event(yg, (struct yutani_msg_key_event *)m->data);
+					free(m);
+				}
+				continue;
+			} else if (index == 1) {
+				int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
+				if (r > 0) {
+					last_mouse_buttons = packet.buttons;
+					yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_RELATIVE);
+					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
+					free(m);
+				}
+				continue;
+			} else if (index == 3) {
+				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
+				if (r > 0) {
+					packet.buttons = last_mouse_buttons & 0xF;
+					yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
+					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
+					free(m);
+				}
+				continue;
+			}
+		}
+
 		pex_packet_t * p = calloc(PACKET_SIZE, 1);
 		pex_listen(server, p);
 

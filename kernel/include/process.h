@@ -103,6 +103,8 @@ typedef struct process {
 	node_t *      timed_sleep_node;
 	uint8_t       is_tasklet;
 	volatile uint8_t sleep_interrupted;
+	list_t *      node_waits;
+	int           awoken_index;
 } process_t;
 
 typedef struct {
@@ -133,6 +135,9 @@ extern void sleep_until(process_t * process, unsigned long seconds, unsigned lon
 extern volatile process_t * current_process;
 extern process_t * kernel_idle_task;
 extern list_t * process_list;
+
+extern int process_wait_nodes(process_t * process,fs_node_t * nodes[]);
+extern int process_alert_node(process_t * process, fs_node_t * fs_node);
 
 typedef void (*tasklet_t) (void *, char *);
 extern int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);
