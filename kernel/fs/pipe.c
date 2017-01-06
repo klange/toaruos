@@ -71,17 +71,14 @@ static inline void pipe_increment_write_by(pipe_device_t * pipe, size_t amount) 
 	pipe->write_ptr = (pipe->write_ptr + amount) % pipe->size;
 }
 
-static void pipe_alert_waiters(fs_node_t * fs_node) {
-	pipe_device_t * pipe = (pipe_device_t *)fs_node->device;
-
+static void pipe_alert_waiters(pipe_device_t * pipe) {
 	if (pipe->alert_waiters) {
 		while (pipe->alert_waiters->head) {
 			node_t * node = list_dequeue(pipe->alert_waiters);
 			process_t * p = node->value;
-			process_alert_node(p, fs_node);
+			process_alert_node(p, pipe);
 			free(node);
 		}
-
 	}
 }
 
@@ -180,7 +177,7 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 
 		spin_unlock(pipe->lock_write);
 		wakeup_queue(pipe->wait_queue_readers);
-		pipe_alert_waiters(node);
+		pipe_alert_waiters(pipe);
 		if (written < size) {
 			sleep_on(pipe->wait_queue_writers);
 		}
@@ -249,11 +246,6 @@ static int pipe_wait(fs_node_t * node, void * process) {
 	return 0;
 }
 
-static int pipe_match(fs_node_t * node, void * value) {
-	pipe_device_t * pipe = (pipe_device_t *)node->device;
-	return pipe == value;
-}
-
 fs_node_t * make_pipe(size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	pipe_device_t * pipe = malloc(sizeof(pipe_device_t));
@@ -278,7 +270,6 @@ fs_node_t * make_pipe(size_t size) {
 
 	fnode->selectcheck = pipe_check;
 	fnode->selectwait  = pipe_wait;
-	fnode->match       = pipe_match;
 
 	fnode->atime = now();
 	fnode->mtime = fnode->atime;

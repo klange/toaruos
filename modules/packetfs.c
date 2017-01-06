@@ -238,10 +238,6 @@ static void close_client(fs_node_t * node) {
 	free(c);
 }
 
-static int match_server(fs_node_t * node, void * value) {
-	pex_ex_t * p = (pex_ex_t *)node->device;
-	return fsnode_matches(p->server_pipe,value);
-}
 static int wait_server(fs_node_t * node, void * process) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	return selectwait_fs(p->server_pipe, process);
@@ -251,10 +247,6 @@ static int check_server(fs_node_t * node) {
 	return selectcheck_fs(p->server_pipe);
 }
 
-static int match_client(fs_node_t * node, void * value) {
-	pex_client_t * c = (pex_client_t *)node->inode;
-	return fsnode_matches(c->pipe, value);
-}
 static int wait_client(fs_node_t * node, void * process) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	return selectwait_fs(c->pipe, process);
@@ -278,7 +270,6 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 		node->ioctl  = ioctl_server;
 		node->selectcheck = check_server;
 		node->selectwait  = wait_server;
-		node->match       = match_server;
 		debug_print(INFO, "[pex] Server launched: %s", t->name);
 		debug_print(INFO, "fs_node = 0x%x", node);
 	} else if (!(flags & O_CREAT)) {
@@ -292,7 +283,6 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 
 		node->selectcheck = check_client;
 		node->selectwait  = wait_client;
-		node->match       = match_client;
 
 		list_insert(t->clients, client);
 

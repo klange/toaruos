@@ -116,16 +116,6 @@ int selectwait_fs(fs_node_t * node, void * process) {
 }
 
 /**
- * fsnode_matches: Compare a node internally against a magic value to determine if the value belongs to that node.
- */
-int fsnode_matches(fs_node_t * node, void * value) {
-	if (!node) return 0;
-	if (!node->match) return 0;
-	return node->match(node, value);
-}
-
-
-/**
  * read_fs: Read a file system node based on its underlying type.
  *
  * @param node    Node to read

@@ -137,7 +137,7 @@ extern process_t * kernel_idle_task;
 extern list_t * process_list;
 
 extern int process_wait_nodes(process_t * process,fs_node_t * nodes[]);
-extern int process_alert_node(process_t * process, fs_node_t * fs_node);
+extern int process_alert_node(process_t * process, void * value);
 
 typedef void (*tasklet_t) (void *, char *);
 extern int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);

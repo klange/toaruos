@@ -849,14 +849,14 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[]) {
 	return process->awoken_index;
 }
 
-int process_alert_node(process_t * process, fs_node_t * fs_node) {
+int process_alert_node(process_t * process, void * value) {
 	if (!process->node_waits) {
 		return 0; /* Possibly already returned. Wait for another call. */
 	}
 
 	int index = 0;
 	foreach(node, process->node_waits) {
-		if (fsnode_matches(fs_node, node->value)) {
+		if (value == node->value) {
 			process->awoken_index = index;
 			list_free(process->node_waits);
 			free(process->node_waits);

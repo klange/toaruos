@@ -53,7 +53,6 @@ typedef void (*symlink_type_t) (struct fs_node *, char * name, char * value);
 typedef int (*readlink_type_t) (struct fs_node *, char * buf, size_t size);
 typedef int (*selectcheck_type_t) (struct fs_node *);
 typedef int (*selectwait_type_t) (struct fs_node *, void * process);
-typedef int (*match_type_t) (struct fs_node *, void * value);
 
 typedef struct fs_node {
 	char name[256];         /* The filename. */
@@ -95,7 +94,6 @@ typedef struct fs_node {
 
 	selectcheck_type_t selectcheck;
 	selectwait_type_t selectwait;
-	match_type_t match;
 } fs_node_t;
 
 struct dirent {
@@ -149,7 +147,6 @@ int symlink_fs(char * value, char * name);
 int readlink_fs(fs_node_t * node, char * buf, size_t size);
 int selectcheck_fs(fs_node_t * node);
 int selectwait_fs(fs_node_t * node, void * process);
-int fsnode_matches(fs_node_t * node, void * value);
 
 void vfs_install(void);
 void * vfs_mount(char * path, fs_node_t * local_root);
