@@ -1,8 +1,7 @@
-/* This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
- */
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2014-2017 Kevin Lange
  *
  * Toast (Notification) Daemon
  *
@@ -13,20 +12,19 @@
 #include <math.h>
 #include <signal.h>
 #include <time.h>
+#include <syscall.h>
 
 #include "lib/yutani.h"
 #include "lib/graphics.h"
 #include "lib/shmemfonts.h"
 #include "lib/pex.h"
 #include "lib/pthread.h"
-#include "lib/spinlock.h"
 
 #include "lib/toastd.h"
 
 static yutani_t * yctx;
 static list_t * notifications;
 static FILE * toastd_server;
-static int notification_lock = 0;
 static int exit_app = 0;
 static sprite_t * toast_bg;
 
@@ -45,6 +43,11 @@ static sprite_t * toast_bg;
 #define TOAST_OFFSET_X 20
 #define TOAST_OFFSET_Y 30
 
+#ifndef syscall_fswait
+/* TODO: This isn't in our newlib syscall bindings yet. */
+DEFN_SYSCALL2(fswait,59,int,int*);
+#endif
+
 typedef struct {
 	int    ttl;
 	char * title;
@@ -61,8 +64,6 @@ static void add_toast(notification_t * incoming) {
 	toast->content = strdup(incoming->strings + 1 + strlen(incoming->strings));
 
 	fprintf(stderr, "ttl=%d, title=\"%s\" content=\"%s\"\n", toast->ttl, toast->title, toast->content);
-
-	spin_lock(&notification_lock);
 
 	toast->window = yutani_window_create_flags(yctx, TOAST_WIDTH, TOAST_HEIGHT,
 			YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_DISALLOW_DRAG | YUTANI_WINDOW_FLAG_DISALLOW_RESIZE);
@@ -115,8 +116,6 @@ static void add_toast(notification_t * incoming) {
 	yutani_flip(yctx, toast->window);
 
 	list_insert(notifications, toast);
-
-	spin_unlock(&notification_lock);
 }
 
 static void * toastd_handler(void * garbage) {
@@ -143,48 +142,13 @@ static void * toastd_handler(void * garbage) {
 	}
 }
 
-void sig_pass(int sig) {
-	(void)sig;
-}
-
 static void * closer_handler(void * garbage) {
-	signal(SIGWINCH, sig_pass);
 
 	while (!exit_app) {
-		time_t now = time(NULL);
-
-		spin_lock(&notification_lock);
-
-		list_t * tmp = list_create();
-
-		foreach(node, notifications) {
-			notification_int_t * toast = node->value;
-			if (toast->window && toast->ttl <= now) {
-				yutani_close(yctx, toast->window);
-				free(toast->title);
-				free(toast->content);
-				list_insert(tmp, node);
-			}
-		}
-
-		foreach(node, tmp) {
-			list_delete(notifications, node->value);
-		}
-		list_free(tmp);
-		free(tmp);
-		spin_unlock(&notification_lock);
 
 		usleep(500000);
 	}
 
-	foreach(node, notifications) {
-		notification_int_t * toast = node->value;
-
-		if (toast->window) {
-			yutani_close(yctx, toast->window);
-		}
-
-	}
 }
 
 int main (int argc, char ** argv) {
@@ -197,26 +161,82 @@ int main (int argc, char ** argv) {
 
 	init_shmemfonts();
 
-	pthread_t toastd_thread;
-	pthread_create(&toastd_thread, NULL, toastd_handler, NULL);
-
 	pthread_t closer_thread;
 	pthread_create(&closer_thread, NULL, closer_handler, NULL);
 
+	setenv("TOASTD", TOASTD_NAME, 1);
+	toastd_server = pex_bind(TOASTD_NAME);
+
+	int fds[2] = {fileno(yctx->sock), fileno(toastd_server)};
+
+	time_t last_tick = 0;
+
+	yutani_timer_request(yctx, 0, 0);
+
 	while (!exit_app) {
-		yutani_msg_t * m = yutani_poll(yctx);
-		if (m) {
-			switch (m->type) {
-				case YUTANI_MSG_SESSION_END:
-					exit_app = 1;
-					break;
+
+		int index = syscall_fswait(2,fds);
+
+		if (index == 1) {
+			pex_packet_t * p = calloc(PACKET_SIZE, 1);
+			if (pex_listen(toastd_server, p) > 0) {
+
+				if (p->size == 0) {
+					/* Connection closed notification */
+					free(p);
+					continue;
+				}
+
+				notification_t * toast = (void *)p->data;
+				add_toast(toast);
+
+				free(p);
 			}
-			free(m);
+		} else if (index == 0) {
+			yutani_msg_t * m = yutani_poll(yctx);
+			if (m) {
+				switch (m->type) {
+					case YUTANI_MSG_SESSION_END:
+						exit_app = 1;
+						break;
+					case YUTANI_MSG_TIMER_TICK:
+						{
+							time_t now = time(NULL);
+							if (now == last_tick) break;
+
+							last_tick = now;
+
+							list_t * tmp = list_create();
+
+							foreach(node, notifications) {
+								notification_int_t * toast = node->value;
+								if (toast->window && toast->ttl <= now) {
+									yutani_close(yctx, toast->window);
+									free(toast->title);
+									free(toast->content);
+									list_insert(tmp, node);
+								}
+							}
+
+							foreach(node, tmp) {
+								list_delete(notifications, node->value);
+							}
+							list_free(tmp);
+							free(tmp);
+						}
+						break;
+				}
+				free(m);
+			}
 		}
 	}
 
-	pthread_kill(toastd_thread, SIGINT);
-	pthread_kill(closer_thread, SIGWINCH);
+	foreach(node, notifications) {
+		notification_int_t * toast = node->value;
+		if (toast->window) {
+			yutani_close(yctx, toast->window);
+		}
+	}
 
 	return 0;
 }
