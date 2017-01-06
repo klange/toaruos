@@ -823,7 +823,7 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[]) {
 	do {
 		int result = selectcheck_fs(*n);
 		if (result < 0) {
-			debug_print(NOTICE, "An invalid descriptor was specified: %d (0x%x)", index, *n);
+			debug_print(NOTICE, "An invalid descriptor was specified: %d (0x%x) (pid=%d)", index, *n, current_process->id);
 			return -1;
 		}
 		if (result == 0) {

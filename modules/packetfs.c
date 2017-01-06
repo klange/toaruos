@@ -139,7 +139,7 @@ static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, u
 		debug_print(INFO, "Done broadcasting to clients.");
 		return size;
 	} else if (head->target->parent != p) {
-		debug_print(WARNING, "[pex] Invalid packet from server?");
+		debug_print(WARNING, "[pex] Invalid packet from server? (pid=%d)", current_process->id);
 		return -1;
 	}
 
