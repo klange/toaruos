@@ -397,7 +397,7 @@ _cdrom: FORCE | ${NONTEST} toaruos-kernel
 	@-rm -rf _cdrom
 	@cp -r util/cdrom _cdrom
 
-_cdrom/mod: modules _cdrom
+_cdrom/mod: ${MODULES} _cdrom
 	@mv hdd/mod $@
 
 _cdrom/kernel: toaruos-kernel _cdrom
