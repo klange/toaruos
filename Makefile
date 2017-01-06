@@ -33,9 +33,6 @@ ENDRM = util/mk-end-rm
 .SUFFIXES:
 
 all: $(shell util/detect-make-all.sh)
-system: toaruos-disk.img toaruos-kernel modules
-userspace: ${USERSPACE}
-modules: ${MODULES}
 
 toolchain:
 	@cd toolchain; ./toolchain-build.sh
@@ -203,6 +200,8 @@ hdd/mod/%.ko: modules/%.c ${HEADERS} | hdd/mod
 	@${KCC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$< [module]"
 
+modules: ${MODULES}
+
 kernel/%.o: kernel/%.S
 	@${BEG} "AS" "$<"
 	@${KAS} ${ASFLAGS} $< -o $@ ${ERRORS}
@@ -212,6 +211,8 @@ kernel/%.o: kernel/%.c ${HEADERS}
 	@${BEG} "CC" "$<"
 	@${KCC} ${CFLAGS} -nostdlib -g -I./kernel/include -c -o $@ $< ${ERRORS}
 	@${END} "CC" "$<"
+
+system: toaruos-disk.img toaruos-kernel ${MODULES}
 
 #############
 # Userspace #
@@ -260,6 +261,8 @@ USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir
 USERSPACE += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
 USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
 USERSPACE += $(LIBC) hdd/bin/init hdd/lib/ld.so
+
+userspace: ${USERSPACE}
 
 # Init must be built static at the moment.
 hdd/bin/init: userspace/core/init.c
