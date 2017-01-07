@@ -273,6 +273,12 @@ class WindowStackOrder(object):
     ZORDER_TOP    = 0xFFFF
     ZORDER_BOTTOM = 0x0000
 
+class WindowFlag(object):
+    FLAG_NO_STEAL_FOCUS  = (1 << 0)
+    FLAG_DISALLOW_DRAG   = (1 << 1)
+    FLAG_DISALLOW_RESIZE = (1 << 2)
+    FLAG_ALT_ANIMATION   = (1 << 3)
+
 class Window(object):
     """Yutani Window object."""
     class _yutani_window_t(Structure):
