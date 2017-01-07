@@ -117,24 +117,24 @@ diff -rupN vim73/src/os_unix.c vim73.new/src/os_unix.c
 +#define POLLHUP     0x0010    /* Hung up */
 +#define POLLNVAL    0x0020    /* Invalid request: fd not open */
 +
-+struct pollfd {
-+    int fd;           /* file descriptor */
-+    short events;     /* requested events */
-+    short revents;    /* returned events */
-+};
-+
++struct pollfd { int fd; short events; short revents; };
++#ifndef syscall_fswait
++#include <syscall.h>
++DEFN_SYSCALL3(fswait2,60,int,int*,int);
++#endif
 +int poll(struct pollfd * ufds, long nfds, int timeout) {
-+    int fds = 0;
-+    int i = 0;
-+    for (i = 0; i < nfds; ++i) {
-+	int fd = ufds[i].fd;
-+	struct stat _stat;
-+	fstat(fd, &_stat);
-+	if (_stat.st_size) {
-+	    fds++;
++	if (nfds > 1) { fprintf(stderr, "Unexpectedly waiting on multiple file descriptors?\n"); }
++	if (nfds > 0) {
++		int fds[] = {ufds[0].fd};
++		if (timeout == -1) { fflush(stderr); timeout = 100; }
++		int index = syscall_fswait2(1, fds, timeout);
++		if (index == 0) return 1;
++		if (index < 0) return 0;
++		return 0;
++	} else {
++		if (timeout > 0) { usleep(1000 * timeout); }
++		return 0;
 +	}
-+    }
-+    return fds;
 +}
 +
  #ifdef FEAT_MZSCHEME
