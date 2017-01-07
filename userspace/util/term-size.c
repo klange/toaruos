@@ -8,9 +8,7 @@
 
 int main(int argc, char * argv[]) {
 	struct winsize w;
-	int width, height;
 	ioctl(0, TIOCGWINSZ, &w);
-	width = w.ws_col;
-	height = w.ws_row;
-	printf("Terminal is %dx%d\n", width, height);
+	printf("Terminal is %dx%d (%d px x %d px)\n", w.ws_col, w.ws_row, w.ws_xpixel, w.ws_ypixel);
+	return 0;
 }

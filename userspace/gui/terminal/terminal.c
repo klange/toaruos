@@ -1194,6 +1194,8 @@ void reinit(int send_sig) {
 	struct winsize w;
 	w.ws_row = term_height;
 	w.ws_col = term_width;
+	w.ws_xpixel = term_width * char_width;
+	w.ws_ypixel = term_height * char_height;
 	ioctl(fd_master, TIOCSWINSZ, &w);
 
 	if (send_sig) {

@@ -12,15 +12,10 @@
 #include "gui/terminal/lib/termemu.h"
 
 void get_cell_sizes(int * w, int * h) {
-	struct termios old;
-	tcgetattr(fileno(stdin), &old);
-	struct termios new = old;
-	new.c_lflag &= (~ICANON & ~ECHO);
-	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
-	printf("\033Tq");
-	fflush(stdout);
-	scanf("\033T%d;%dq", w, h);
-	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+	struct winsize wsz;
+	ioctl(0, TIOCGWINSZ, &wsz);
+	*w = wsz.ws_xpixel / wsz.ws_col;
+	*h = wsz.ws_ypixel / wsz.ws_row;
 }
 
 void raw_output(void) {
