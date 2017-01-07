@@ -409,6 +409,7 @@ static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t b
 }
 
 static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
+	if (x >= term_width || y >= term_height) return;
 	uint32_t * data = (uint32_t *)cell->fg;
 	for (uint32_t yy = 0; yy < char_height; ++yy) {
 		for (uint32_t xx = 0; xx < char_width; ++xx) {
