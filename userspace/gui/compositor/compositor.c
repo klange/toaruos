@@ -2225,7 +2225,7 @@ int main(int argc, char * argv[]) {
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
 
-					if (!w->server_flags & YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS) {
+					if (!(w->server_flags & YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS)) {
 						set_focused_window(yg, w);
 					}
 
