@@ -364,6 +364,7 @@ class Window(object):
     def close(self):
         """Close the window."""
         yutani_lib.yutani_close(yutani_ctx._ptr, self._ptr)
+        yutani_lib.release_graphics_yutani(self._gfx)
 
     def move(self, x, y):
         """Move the window to the requested location."""

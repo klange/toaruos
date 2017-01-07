@@ -867,3 +867,9 @@ void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window) {
 	}
 }
 
+void release_graphics_yutani(gfx_context_t * gfx) {
+	if (gfx->backbuffer != gfx->buffer) {
+		free(gfx->backbuffer);
+	}
+	free(gfx);
+}

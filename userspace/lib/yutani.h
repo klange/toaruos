@@ -468,5 +468,6 @@ extern void yutani_timer_request(yutani_t * yctx, uint32_t precision, uint32_t f
 extern gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);
 extern void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
+extern void release_graphics_yutani(gfx_context_t * gfx);
 
 #endif /* _YUTANI_H */
