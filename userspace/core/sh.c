@@ -36,6 +36,7 @@
 #include "lib/rline.h"
 
 #define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
+#define STAR_TOKEN "\xFF\xFFSTAR\xFF\xFF"
 
 /* A shell command is like a C program */
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
@@ -413,6 +414,7 @@ int shell_exec(char * buffer, int buffer_size) {
 	int collected = 0;
 
 	list_t * args = list_create();
+	int have_star = 0;
 
 	while (1) {
 
@@ -484,6 +486,19 @@ int shell_exec(char * buffer, int buffer_size) {
 						goto _next;
 					}
 					goto _just_add;
+				case '*':
+					if (quoted) {
+						goto _just_add;
+					}
+					if (backtick) {
+						goto _just_add;
+					}
+					if (have_star) {
+						goto _just_add; /* TODO multiple globs */
+					}
+					have_star = 1;
+					collected += sprintf(&buffer_[collected], STAR_TOKEN);
+					goto _next;
 				case '\\':
 					if (quoted == '\'') {
 						goto _just_add;
@@ -530,6 +545,7 @@ _new_arg:
 			if (collected) {
 				add_argument(args, buffer_);
 				buffer_[0] = '\0';
+				have_star = 0;
 				collected = 0;
 			}
 
@@ -575,9 +591,78 @@ _done:
 			continue;
 		}
 
-		argv[i] = c;
-		i++;
-		argcs[cmdi]++;
+		char * glob = strstr(c, STAR_TOKEN);
+		if (glob) {
+			/* Globbing */
+			glob[0] = '\0';
+			glob[1] = '\0';
+
+			char * before = c;
+			char * after = &glob[8];
+
+			int has_before = !!strlen(before);
+			int has_after = !!strlen(after);
+
+			if (!has_before || !strchr(before,'/')) {
+				/* read current directory, add all */
+				DIR * dirp = opendir(".");
+
+				int before_i = i;
+				struct dirent * ent = readdir(dirp);
+				while (ent != NULL) {
+					if (ent->d_name[0] != '.') {
+						char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
+						memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
+
+						char * t = s;
+
+						if (has_before) {
+							if (strstr(s,before) != s) {
+								goto _nope;
+							}
+							t = &s[strlen(before)];
+						}
+						if (has_after) {
+							if (strlen(t) >= strlen(after)) {
+								if (!strcmp(after,&t[strlen(t)-strlen(after)])) {
+									argv[i] = s;
+									i++;
+									argcs[cmdi]++;
+								}
+							}
+						} else {
+							argv[i] = s;
+							i++;
+							argcs[cmdi]++;
+						}
+					}
+_nope:
+					ent = readdir(dirp);
+				}
+				closedir(dirp);
+
+				if (before_i == i) {
+					/* no matches */
+					glob[0] = '*';
+					memmove(&glob[1], after, strlen(after)+1);
+					argv[i] = c;
+					i++;
+					argcs[cmdi]++;
+				} else {
+					free(c);
+				}
+			} else {
+				/* directory globs not supported */
+				glob[0] = '*';
+				argv[i] = c;
+				i++;
+				argcs[cmdi]++;
+			}
+		} else {
+			argv[i] = c;
+			i++;
+			argcs[cmdi]++;
+		}
 	}
 	argv[i] = NULL;
 
