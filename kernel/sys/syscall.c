@@ -798,7 +798,23 @@ static int sys_fswait(int c, int fds[]) {
 	}
 	nodes[c] = NULL;
 
-	int result = process_wait_nodes((process_t *)current_process, nodes);
+	int result = process_wait_nodes((process_t *)current_process, nodes, -1);
+	free(nodes);
+	return result;
+}
+
+static int sys_fswait_timeout(int c, int fds[], int timeout) {
+	PTR_VALIDATE(fds);
+	for (int i = 0; i < c; ++i) {
+		if (!FD_CHECK(fds[i])) return -1;
+	}
+	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
+	for (int i = 0; i < c; ++i) {
+		nodes[i] = FD_ENTRY(fds[i]);
+	}
+	nodes[c] = NULL;
+
+	int result = process_wait_nodes((process_t *)current_process, nodes, timeout);
 	free(nodes);
 	return result;
 }
@@ -856,6 +872,7 @@ static int (*syscalls[])() = {
 	[SYS_READLINK]     = sys_readlink,
 	[SYS_LSTAT]        = sys_lstat,
 	[SYS_FSWAIT]       = sys_fswait,
+	[SYS_FSWAIT2]      = sys_fswait_timeout,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);

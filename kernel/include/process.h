@@ -111,6 +111,7 @@ typedef struct {
 	unsigned long end_tick;
 	unsigned long end_subtick;
 	process_t * process;
+	int is_fswait;
 } sleeper_t;
 
 extern void initialize_process_tree(void);
@@ -136,8 +137,9 @@ extern volatile process_t * current_process;
 extern process_t * kernel_idle_task;
 extern list_t * process_list;
 
-extern int process_wait_nodes(process_t * process,fs_node_t * nodes[]);
+extern int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout);
 extern int process_alert_node(process_t * process, void * value);
+extern int process_awaken_from_fswait(process_t * process, int index);
 
 typedef void (*tasklet_t) (void *, char *);
 extern int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp);

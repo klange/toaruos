@@ -647,11 +647,16 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 	if (sleep_queue->length) {
 		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
 		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
-			process_t * process = proc->process;
-			process->sleep_node.owner = NULL;
-			process->timed_sleep_node = NULL;
-			if (!process_is_ready(process)) {
-				make_process_ready(process);
+
+			if (proc->is_fswait) {
+				process_alert_node(proc->process,proc);
+			} else {
+				process_t * process = proc->process;
+				process->sleep_node.owner = NULL;
+				process->timed_sleep_node = NULL;
+				if (!process_is_ready(process)) {
+					make_process_ready(process);
+				}
 			}
 			free(proc);
 			free(list_dequeue(sleep_queue));
@@ -687,6 +692,7 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	proc->process     = process;
 	proc->end_tick    = seconds;
 	proc->end_subtick = subseconds;
+	proc->is_fswait = 0;
 	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
 	spin_unlock(sleep_lock);
 	IRQ_RES;
@@ -814,39 +820,82 @@ int waitpid(int pid, int * status, int options) {
 	} while (1);
 }
 
-int process_wait_nodes(process_t * process,fs_node_t * nodes[]) {
+int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 	assert(!process->node_waits && "Tried to wait on nodes while already waiting on nodes.");
-	assert(nodes[0] && "Empty wait list.");
 
 	fs_node_t ** n = nodes;
 	int index = 0;
-	do {
-		int result = selectcheck_fs(*n);
-		if (result < 0) {
-			debug_print(NOTICE, "An invalid descriptor was specified: %d (0x%x) (pid=%d)", index, *n, current_process->id);
-			return -1;
-		}
-		if (result == 0) {
-			return index;
-		}
-		n++;
-		index++;
-	} while (*n);
+	if (*n) {
+		do {
+			int result = selectcheck_fs(*n);
+			if (result < 0) {
+				debug_print(NOTICE, "An invalid descriptor was specified: %d (0x%x) (pid=%d)", index, *n, current_process->id);
+				return -1;
+			}
+			if (result == 0) {
+				return index;
+			}
+			n++;
+			index++;
+		} while (*n);
+	}
+
+	if (timeout == 0) {
+		return -2;
+	}
 
 	n = nodes;
+
 	process->node_waits = list_create();
-	do {
-		if (selectwait_fs(*n, process) < 0) {
-			debug_print(NOTICE, "Bad selectwait? 0x%x", *n);
+	if (*n) {
+		do {
+			if (selectwait_fs(*n, process) < 0) {
+				debug_print(NOTICE, "Bad selectwait? 0x%x", *n);
+			}
+			n++;
+		} while (*n);
+	}
+
+	if (timeout > 0) {
+		debug_print(NOTICE, "fswait with a timeout of %d (pid=%d)", timeout, current_process->id);
+		unsigned long s, ss;
+		relative_time(0, timeout, &s, &ss);
+
+		IRQ_OFF;
+		spin_lock(sleep_lock);
+		node_t * before = NULL;
+		foreach(node, sleep_queue) {
+			sleeper_t * candidate = ((sleeper_t *)node->value);
+			if (candidate->end_tick > s || (candidate->end_tick == s && candidate->end_subtick > ss)) {
+				break;
+			}
+			before = node;
 		}
-		n++;
-	} while (*n);
+		sleeper_t * proc = malloc(sizeof(sleeper_t));
+		proc->process     = process;
+		proc->end_tick    = s;
+		proc->end_subtick = ss;
+		proc->is_fswait = 1;
+		list_insert(((process_t *)process)->node_waits, proc);
+		list_insert_after(sleep_queue, before, proc);
+		spin_unlock(sleep_lock);
+		IRQ_RES;
+	}
 
 	process->awoken_index = -1;
 	/* Wait. */
 	switch_task(0);
 
 	return process->awoken_index;
+}
+
+int process_awaken_from_fswait(process_t * process, int index) {
+	process->awoken_index = index;
+	list_free(process->node_waits);
+	free(process->node_waits);
+	process->node_waits = NULL;
+	make_process_ready(process);
+	return 0;
 }
 
 int process_alert_node(process_t * process, void * value) {
@@ -857,12 +906,7 @@ int process_alert_node(process_t * process, void * value) {
 	int index = 0;
 	foreach(node, process->node_waits) {
 		if (value == node->value) {
-			process->awoken_index = index;
-			list_free(process->node_waits);
-			free(process->node_waits);
-			process->node_waits = NULL;
-			make_process_ready(process);
-			return 0;
+			return process_awaken_from_fswait(process, index);
 		}
 		index++;
 	}
