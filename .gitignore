@@ -60,6 +60,7 @@ initrd/etc
 tags
 toaru-pdfviewer
 toaru-python
+pycairo
 toaru-toolkit
 toaruos-disk.img
 toaruos-initrd
