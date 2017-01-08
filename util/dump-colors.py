@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 for i in range(256):
-    print str(i) + "\t\x1b[48;5;" + str(i) + "m   \x1b[0m"
+    print(str(i) + "\t\x1b[48;5;" + str(i) + "m   \x1b[0m")

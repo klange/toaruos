@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
+# coding: utf-8
 
 import os
 import sys
@@ -85,11 +85,11 @@ class Classifier(object):
         """Calculate include and library dependencies."""
         lines = []
         depends = []
-        with open(self.filename) as f:
+        with open(self.filename,'r') as f:
             lines = f.readlines()
         for l in lines:
             if l.startswith('#include'):
-                depends.extend([k for k in self.dependency_hints.keys() if l.startswith('#include ' + k)])
+                depends.extend([k for k in list(self.dependency_hints.keys()) if l.startswith('#include ' + k)])
         depends = self._calculate([], depends)
         depends = self._sort(depends)
         includes  = []
@@ -116,7 +116,7 @@ def todep(name):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print "usage: util/auto-dep.py command filename"
+        print("usage: util/auto-dep.py command filename")
         exit(1)
     command  = sys.argv[1]
     filename = sys.argv[2]
@@ -124,11 +124,11 @@ if __name__ == "__main__":
     c = Classifier(filename)
 
     if command == "--cflags":
-        print " ".join([x for x in c.includes])
+        print(" ".join([x for x in c.includes]))
     elif command == "--libs":
-        print " ".join([x for x in c.libs])
+        print(" ".join([x for x in c.libs]))
     elif command == "--deps":
         results = [todep(x) for x in c.libs]
         normal = [x[1] for x in results if not x[0]]
         order_only = [x[1] for x in results if x[0]]
-        print " ".join(normal) + " | " + " ".join(order_only)
+        print(" ".join(normal) + " | " + " ".join(order_only))

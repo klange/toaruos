@@ -177,7 +177,7 @@ kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 	@-rm -f kernel/symbols.o
 	@${BEG} "NM" "Generating symbol list..."
 	@${KCC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc ${ERRORS}
-	@${KNM} toaruos-kernel -g | python2 util/generate_symbols.py > kernel/symbols.S
+	@${KNM} toaruos-kernel -g | util/generate_symbols.py > kernel/symbols.S
 	@${END} "NM" "Generated symbol list."
 	@${BEG} "AS" "kernel/symbols.S"
 	@${KAS} ${ASFLAGS} kernel/symbols.S -o $@ ${ERRORS}
