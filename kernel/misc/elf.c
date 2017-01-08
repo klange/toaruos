@@ -170,6 +170,14 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 
 	current_process->image.start = entry;
 
+	/* Close all fds >= 3 */
+	for (unsigned int i = 3; i < current_process->fds->length; ++i) {
+		if (current_process->fds->entries[i]) {
+			close_fs(current_process->fds->entries[i]);
+			current_process->fds->entries[i] = NULL;
+		}
+	}
+
 	/* Go go go */
 	enter_user_jmp(entry, argc, argv_, USER_STACK_TOP);
 
