@@ -806,6 +806,12 @@ void yutani_window_drag_start(yutani_t * yctx, yutani_window_t * window) {
 	free(m);
 }
 
+void yutani_window_drag_start_wid(yutani_t * yctx, yutani_wid_t wid) {
+	yutani_msg_t * m = yutani_msg_build_window_drag_start(wid);
+	int result = yutani_msg_send(yctx, m);
+	free(m);
+}
+
 void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window, int set_shape) {
 	yutani_msg_t * m = yutani_msg_build_window_update_shape(window->wid, set_shape);
 	int result = yutani_msg_send(yctx, m);

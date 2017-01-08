@@ -1609,9 +1609,13 @@ static void adjust_window_opacity(yutani_globals_t * yg, int direction) {
 
 }
 
-static void mouse_start_drag(yutani_globals_t * yg) {
+static void mouse_start_drag(yutani_globals_t * yg, yutani_server_window_t * w) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
-	yg->mouse_window = get_focused(yg);
+	if (!w) {
+		yg->mouse_window = get_focused(yg);
+	} else {
+		yg->mouse_window = w;
+	}
 	if (yg->mouse_window) {
 		if (yg->mouse_window->z == YUTANI_ZORDER_BOTTOM || yg->mouse_window->z == YUTANI_ZORDER_TOP
 		    || yg->mouse_window->server_flags & YUTANI_WINDOW_FLAG_DISALLOW_DRAG) {
@@ -1623,6 +1627,7 @@ static void mouse_start_drag(yutani_globals_t * yg) {
 			yg->mouse_init_y = yg->mouse_y;
 			yg->mouse_win_x  = yg->mouse_window->x;
 			yg->mouse_win_y  = yg->mouse_window->y;
+			yg->mouse_drag_button = yg->last_mouse_buttons;
 			mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 			make_top(yg, yg->mouse_window);
 		}
@@ -1731,7 +1736,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 		case YUTANI_MOUSE_STATE_NORMAL:
 			{
 				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
-					mouse_start_drag(yg);
+					mouse_start_drag(yg, NULL);
 				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_UP) && (yg->kbd_state.k_alt)) {
 					adjust_window_opacity(yg, 8);
 				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_DOWN) && (yg->kbd_state.k_alt)) {
@@ -1791,7 +1796,9 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 			break;
 		case YUTANI_MOUSE_STATE_MOVING:
 			{
-				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
+				int button_down = (me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT);
+				int drag_stop = yg->mouse_drag_button != 0 ? (!button_down) : (button_down);
+				if (drag_stop) {
 					yg->mouse_window = NULL;
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 					mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
@@ -2067,6 +2074,8 @@ int main(int argc, char * argv[]) {
 	yg->window_subscribers = list_create();
 	yg->timer_subscribers = list_create();
 
+	yg->last_mouse_buttons = 0;
+
 	yutani_cairo_init(yg);
 
 	pthread_t render_thread;
@@ -2089,7 +2098,6 @@ int main(int argc, char * argv[]) {
 	mouse_device_packet_t packet;
 	key_event_t event;
 	key_event_state_t state = {0};
-	uint32_t last_mouse_buttons = 0;
 
 	fds[0] = fileno(server);
 
@@ -2169,7 +2177,7 @@ int main(int argc, char * argv[]) {
 			} else if (index == 1) {
 				int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
-					last_mouse_buttons = packet.buttons;
+					yg->last_mouse_buttons = packet.buttons;
 					yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_RELATIVE);
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
 					free(m);
@@ -2178,7 +2186,7 @@ int main(int argc, char * argv[]) {
 			} else if (index == 3) {
 				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
-					packet.buttons = last_mouse_buttons & 0xF;
+					packet.buttons = yg->last_mouse_buttons & 0xF;
 					yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
 					free(m);
@@ -2432,7 +2440,7 @@ int main(int argc, char * argv[]) {
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
 					if (w) {
 						/* Start dragging */
-						mouse_start_drag(yg);
+						mouse_start_drag(yg, w);
 					}
 				}
 				break;

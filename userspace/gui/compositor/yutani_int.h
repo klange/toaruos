@@ -172,6 +172,7 @@ typedef struct {
 	uint32_t timer_precison;
 	list_t * timer_subscribers;
 
+	uint32_t last_mouse_buttons;
 } yutani_globals_t;
 
 struct key_bind {
