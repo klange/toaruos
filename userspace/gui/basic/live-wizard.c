@@ -146,7 +146,7 @@ static void redraw(void) {
 			cairo_save(cr_hints);
 			cairo_set_operator(cr_hints, CAIRO_OPERATOR_SOURCE);
 			cairo_set_source_rgba(cr_hints, 0.0, 0.0, 0.0, 0.0);
-			cairo_translate(cr_hints, 48.5, 72.5);
+			cairo_translate(cr_hints, 70.5, 80.5);
 			cairo_arc(cr_hints, 0, 0, 50, 0, 2 * M_PI);
 			cairo_fill(cr_hints);
 			cairo_restore(cr_hints);

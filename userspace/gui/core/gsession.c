@@ -17,14 +17,9 @@
 int main(int argc, char * argv[]) {
 	/* Starts a graphical session and then spins waiting for a kill (logout) signal */
 
-	int _wallpaper_pid = fork();
-	if (!_wallpaper_pid) {
-		char * args[] = {"/bin/wallpaper", NULL};
-		execvp(args[0], args);
-	}
 	int _panel_pid = fork();
 	if (!_panel_pid) {
-		char * args[] = {"/bin/panel", NULL};
+		char * args[] = {"/bin/panel.py", NULL};
 		execvp(args[0], args);
 	}
 	int _toastd_pid = fork();
