@@ -10,6 +10,9 @@ yutani_lib = None
 yutani_gfx_lib = None
 yutani_ctx = None
 
+def usleep(microseconds):
+    CDLL('libc.so').usleep(microseconds)
+
 class Message(object):
     """A generic event message from the Yutani server."""
     class _yutani_msg_t(Structure):
@@ -98,6 +101,101 @@ class MessageWelcome(MessageEx):
             ('display_width', c_uint32),
             ('display_height', c_uint32),
         ]
+
+class Keycode(object):
+    """Keycodes."""
+    NONE        = 0
+    BACKSPACE   = 8
+    CTRL_A      = 1
+    CTRL_B      = 2
+    CTRL_C      = 3
+    CTRL_D      = 4
+    CTRL_E      = 5
+    CTRL_F      = 6
+    CTRL_G      = 7
+    CTRL_H      = 8
+    CTRL_I      = 9
+    CTRL_J      = 10
+    CTRL_K      = 11
+    CTRL_L      = 12
+    CTRL_M      = 13
+    CTRL_N      = 14
+    CTRL_O      = 15
+    CTRL_P      = 16
+    CTRL_Q      = 17
+    CTRL_R      = 18
+    CTRL_S      = 19
+    CTRL_T      = 20
+    CTRL_U      = 21
+    CTRL_V      = 22
+    CTRL_W      = 23
+    CTRL_X      = 24
+    CTRL_Y      = 25
+    CTRL_Z      = 26
+    ESCAPE      = 27
+    NORMAL_MAX  = 256
+    ARROW_UP    = 257
+    ARROW_DOWN  = 258
+    ARROW_RIGHT = 259
+    ARROW_LEFT  = 260
+    BAD_STATE   = -1
+
+    CTRL_ARROW_UP    = 261
+    CTRL_ARROW_DOWN  = 262
+    CTRL_ARROW_RIGHT = 263
+    CTRL_ARROW_LEFT  = 264
+
+    SHIFT_ARROW_UP    = 265
+    SHIFT_ARROW_DOWN  = 266
+    SHIFT_ARROW_RIGHT = 267
+    SHIFT_ARROW_LEFT  = 268
+
+    LEFT_CTRL   = 1001
+    LEFT_SHIFT  = 1002
+    LEFT_ALT    = 1003
+    LEFT_SUPER  = 1004
+
+    RIGHT_CTRL  = 1011
+    RIGHT_SHIFT = 1012
+    RIGHT_ALT   = 1013
+    RIGHT_SUPER = 1014
+
+    F1          = 2001
+    F2          = 2002
+    F3          = 2003
+    F4          = 2004
+    F5          = 2005
+    F6          = 2006
+    F7          = 2007
+    F8          = 2008
+    F9          = 2009
+    F10         = 2010
+    F11         = 2011
+    F12         = 2012
+
+    PAGE_DOWN   = 2013
+    PAGE_UP     = 2014
+
+    HOME        = 2015
+    END         = 2016
+    DEL         = 2017
+    INSERT      = 2018
+
+class Modifier(object):
+    """Modifier key flags."""
+    MOD_LEFT_CTRL   = 0x01
+    MOD_LEFT_SHIFT  = 0x02
+    MOD_LEFT_ALT    = 0x04
+    MOD_LEFT_SUPER  = 0x08
+    MOD_RIGHT_CTRL  = 0x10
+    MOD_RIGHT_SHIFT = 0x20
+    MOD_RIGHT_ALT   = 0x40
+    MOD_RIGHT_SUPER = 0x80
+
+class KeyAction(object):
+    """Keyboard action (up or down)"""
+    ACTION_DOWN = 1
+    ACTION_UP = 2
 
 class MessageKeyEvent(MessageEx):
     """Message containing key event information."""
@@ -235,32 +333,44 @@ class Yutani(object):
 
     def subscribe(self):
         """Subscribe to window information changes."""
-        yutani_lib.yutani_subscribe_windows(yutani_ctx._ptr)
+        yutani_lib.yutani_subscribe_windows(self._ptr)
 
     def unsubscribe(self):
         """Unsubscribe from window information changes."""
-        yutani_lib.yutani_unsubscribe_windows(yutani_ctx._ptr)
+        yutani_lib.yutani_unsubscribe_windows(self._ptr)
 
     def query_windows(self):
         """Request a window subsription list."""
-        yutani_lib.yutani_query_windows(yutani_ctx._ptr)
+        yutani_lib.yutani_query_windows(self._ptr)
 
     def timer_request(self, precision=0, flags=0):
         """Request timer tick messages."""
-        yutani_lib.yutani_timer_request(yutani_ctx._ptr, precision, flags)
+        yutani_lib.yutani_timer_request(self._ptr, precision, flags)
 
     def focus_window(self, wid):
         """Request that the server change the focused window to the window with the specified wid."""
-        yutani_lib.yutani_focus_window(yutani_ctx._ptr, wid)
+        yutani_lib.yutani_focus_window(self._ptr, wid)
 
     def session_end(self):
         """Request the end of the user session."""
-        yutani_lib.yutani_session_end(yutani_ctx._ptr)
+        yutani_lib.yutani_session_end(self._ptr)
+
+    def key_bind(self, keycode, modifiers, flags):
+        """Set global key binding."""
+        yutani_lib.yutani_key_bind(self._ptr, keycode, modifiers, flags)
 
 
+class KeybindFlag(object):
+    """Flags for global key bindings."""
+    BIND_PASSTHROUGH = 0 # The key bind should be received by other clients.
+    BIND_STEAL       = 1 # The key bind should stop after being processed here.
 
 class WindowShape(object):
     """Window shaping modes for Window.update_shape."""
+    # These are actually values representing the minimum required
+    # alpha value for a pixel to be registered as part of the given window.
+    # 256 is more than the maximum alpha value, so all clicks will pass through.
+    # 0 will catch every pixel, even if it is entirely transparent.
     THRESHOLD_NONE        = 0
     THRESHOLD_CLEAR       = 1
     THRESHOLD_HALF        = 127
@@ -274,10 +384,40 @@ class WindowStackOrder(object):
     ZORDER_BOTTOM = 0x0000
 
 class WindowFlag(object):
-    FLAG_NO_STEAL_FOCUS  = (1 << 0)
-    FLAG_DISALLOW_DRAG   = (1 << 1)
-    FLAG_DISALLOW_RESIZE = (1 << 2)
-    FLAG_ALT_ANIMATION   = (1 << 3)
+    """Flags for window creation."""
+    FLAG_NO_STEAL_FOCUS  = (1 << 0) # Don't steal focus on window creation.
+    FLAG_DISALLOW_DRAG   = (1 << 1) # Don't allow this window to be dragged.
+    FLAG_DISALLOW_RESIZE = (1 << 2) # Don't allow this window to be resized.
+    FLAG_ALT_ANIMATION   = (1 << 3) # Use the alternate animation when mapping and unmapping.
+
+class MouseButton(object):
+    """Mouse button flags."""
+    BUTTON_LEFT   = 0x01
+    BUTTON_RIGHT  = 0x02
+    BUTTON_MIDDLE = 0x04
+    SCROLL_UP     = 0x10
+    SCROLL_DOWN   = 0x20
+
+class MouseEvent(object):
+    """Mouse event types."""
+    CLICK = 0
+    DRAG  = 1
+    RAISE = 2
+    DOWN  = 3
+    MOVE  = 4
+    LEAVE = 5
+    ENTER = 6
+
+class CursorType(object):
+    """Cursor types for show_mouse."""
+    RESET             = -1
+    HIDE              = 0
+    NORMAL            = 1
+    DRAG              = 2
+    RESIZE_VERTICAL   = 3
+    RESIZE_HORIZONTAL = 4
+    RESIZE_UP_DOWN    = 5
+    RESIZE_DOWN_UP    = 6
 
 class Window(object):
     """Yutani Window object."""
