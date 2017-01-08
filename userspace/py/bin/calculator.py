@@ -127,7 +127,7 @@ class CalculatorWindow(yutani.Window):
     base_height = 200
 
     def __init__(self, decorator):
-        super(CalculatorWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Calculator", doublebuffer=True)
+        super(CalculatorWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Calculator", icon="calculator", doublebuffer=True)
         self.move(100,100)
         self.decorator = decorator
 
