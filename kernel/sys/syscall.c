@@ -248,6 +248,8 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 	debug_print(INFO,"Releasing all shmem regions...");
 	shm_release_all((process_t *)current_process);
 
+	current_process->cmdline = argv_;
+
 	debug_print(INFO,"Executing...");
 	/* Discard envp */
 	exec((char *)filename, argc, (char **)argv_, (char **)envp_);

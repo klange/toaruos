@@ -27,11 +27,6 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 		return -1;
 	}
 
-	if (!interp) {
-		current_process->name = strdup(path);
-		current_process->cmdline = argv;
-	}
-
 	if (file->mask & 0x800) {
 		debug_print(WARNING, "setuid binary executed [%s, uid:%d]", file->name, file->uid);
 		current_process->user = file->uid;
@@ -277,6 +272,8 @@ int exec(
 
 	debug_print(WARNING, "First four bytes: %c%c%c%c", head[0], head[1], head[2], head[3]);
 
+	current_process->name = strdup(path);
+
 	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
 		if (matches(fmts[i].bytes, head, fmts[i].match)) {
 			debug_print(WARNING, "Matched executor: %s", fmts[i].name);
@@ -305,6 +302,9 @@ system(
 	set_process_environment((process_t*)current_process, clone_directory(current_directory));
 	current_directory = current_process->thread.page_directory;
 	switch_page_directory(current_directory);
+
+	current_process->cmdline = argv_;
+
 	exec(path,argc,argv_,env);
 	debug_print(ERROR, "Failed to execute process!");
 	kexit(-1);
