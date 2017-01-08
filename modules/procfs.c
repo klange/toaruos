@@ -110,13 +110,28 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"Pid:\t%d\n" /* pid */
 			"PPid:\t%d\n" /* parent pid */
 			"Uid:\t%d\n"
+			"Ueip:\t0x%x\n"
+			"SCid:\t%d\n"
+			"SC0:\t0x%x\n"
+			"SC1:\t0x%x\n"
+			"SC2:\t0x%x\n"
+			"SC3:\t0x%x\n"
+			"SC4:\t0x%x\n"
 			,
 			name,
 			state,
 			proc->group ? proc->group : proc->id,
 			proc->id,
 			parent ? parent->id : 0,
-			proc->user);
+			proc->user,
+			proc->syscall_registers ? proc->syscall_registers->eip : 0,
+			proc->syscall_registers ? proc->syscall_registers->eax : 0,
+			proc->syscall_registers ? proc->syscall_registers->ebx : 0,
+			proc->syscall_registers ? proc->syscall_registers->ecx : 0,
+			proc->syscall_registers ? proc->syscall_registers->edx : 0,
+			proc->syscall_registers ? proc->syscall_registers->esi : 0,
+			proc->syscall_registers ? proc->syscall_registers->edi : 0
+			);
 
 	size_t _bsize = strlen(buf);
 	if (offset > _bsize) return 0;
