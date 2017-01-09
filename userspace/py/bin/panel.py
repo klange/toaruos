@@ -569,7 +569,7 @@ class ApplicationsMenuWidget(BaseWidget):
                 MenuEntryAction("Clock Widget","clock",menu_callback,"clock-win"),
                 MenuEntryAction("File Browser","file-browser",menu_callback,"file_browser.py"),
                 MenuEntryAction("Terminal","utilities-terminal",menu_callback,"terminal"),
-                MenuEntryAction("Vim","vim",menu_callback,"terminal vim"),
+                MenuEntryAction("Vim","vim",menu_callback,"terminal vim-install-or-run.py"),
             ]),
             MenuEntrySubmenu("Demos",[
                 MenuEntrySubmenu("Cairo",[
