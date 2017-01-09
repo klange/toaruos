@@ -10,7 +10,7 @@ except KeyError:
     # This is not good, but we need to let it happen for the make file
     TOOLCHAIN_PATH = ""
 
-force_static = ("OSMesa","GLU")
+force_static = ["GLU"]
 
 class Classifier(object):
 
@@ -21,7 +21,7 @@ class Classifier(object):
         '<ft2build.h>':        ('freetype2', '-lfreetype', ['<zlib.h>']),
         '<pixman.h>':          ('pixman-1', '-lpixman-1', ['<math.h>']),
         '<GL/osmesa.h>':       (None, '-lOSMesa', []),
-        '<GL/glu.h>':          (None, '-lGLU', []),
+        '<GL/glu.h>':          (None, '-lGLU', ['<GL/osmesa.h>']),
         '<ncurses.h>':         ('ncurses', '-lncurses', []),
         '<panel.h>':           (None, '-lpanel', ['<ncurses.h>']),
         '<menu.h>':            (None, '-lmenu', ['<ncurses.h>']),
