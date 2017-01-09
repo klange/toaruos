@@ -9,6 +9,9 @@ import stat
 
 url = 'http://toaruos.org'
 
+MANIFEST_PATH = '/tmp/.manifest.json'
+INSTALLED_PATH = '/tmp/.installed.json'
+
 if not os.getuid() == 0:
     print(f"{sys.argv[0]}: must be root")
     sys.exit(1)
@@ -41,13 +44,13 @@ def fetch_file(path, output, check=False, url=url):
                     continue
         break
 
-fetch_file('manifest.json','/tmp/manifest.json')
+fetch_file('manifest.json',MANIFEST_PATH)
 
-with open('/tmp/manifest.json') as f:
+with open(MANIFEST_PATH) as f:
     manifest = json.load(f)
 
 try:
-    with open('/tmp/installed.json') as f:
+    with open(INSTALLED_PATH) as f:
         installed_packages = json.load(f)
 except:
     installed_packages = {}
@@ -121,6 +124,10 @@ def run_install_step(step):
         print(f"- Decompressing {step[1]}")
         if not dryrun:
             subprocess.call(['ungz',step[1]])
+    elif step[0] == 'mkdir':
+        print(f"- Creating directory {step[1]}")
+        if not dryrun:
+            os.mkdir(step[1])
     else:
         print("Unknown step:",step)
 
@@ -158,5 +165,5 @@ if not upgrade_packages and not install_packages:
     print(f"{sys.argv[0]}: up to date")
 
 if not dryrun:
-    with open('/tmp/installed.json','w') as f:
+    with open(INSTALLED_PATH,'w') as f:
         json.dump(installed_packages, f)
