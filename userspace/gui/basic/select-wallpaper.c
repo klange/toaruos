@@ -123,44 +123,13 @@ static void redraw(void) {
 
 static int find_wallpaper_pid(void) {
 
-	DIR * dirp = opendir("/proc");
+	FILE * f = fopen("/tmp/.wallpaper.pid","r");
 	int out_pid = 0;
-
-	/* Read the entries in the directory */
-	list_t * ents_list = list_create();
-
-	struct dirent * ent = readdir(dirp);
-	while (ent != NULL) {
-		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
-			char tmp[256], buf[4096], name[128];
-			FILE * f;
-			int read = 1;
-			char line[LINE_LEN];
-
-			snprintf(tmp, 256, "/proc/%s/status", ent->d_name);
-			f = fopen(tmp, "r");
-
-			while (fgets(line, LINE_LEN, f) != NULL) {
-				if (strstr(line, "Name:") == line) {
-					sscanf(line, "%s %s", &buf, &name);
-					if (!strcmp(name, "wallpaper")) {
-						out_pid = atoi(ent->d_name);
-						break;
-					}
-				}
-			}
-
-			fclose(f);
-
-			if (out_pid) break;
-		}
-
-		ent = readdir(dirp);
+	if (f) {
+		fscanf(f, "%d",&out_pid);
 	}
-	closedir(dirp);
 
 	return out_pid;
-
 }
 
 sprite_t * load_wallpaper(char * file) {
@@ -304,7 +273,7 @@ static void button_prev(struct button * this) {
 	} else {
 		selected_wallpaper = selected_wallpaper->prev;
 		if (!selected_wallpaper) {
-			selected_wallpaper = wallpapers->head;
+			selected_wallpaper = wallpapers->tail;
 		}
 	}
 

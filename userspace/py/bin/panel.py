@@ -8,10 +8,12 @@ on providing a more easily extended widget system. Each element of the panel is
 a widget object which can independently draw and receive mouse events.
 
 """
+import configparser
 import math
+import os
+import signal
 import sys
 import time
-import os
 
 import cairo
 
@@ -148,7 +150,7 @@ class LogOutWidget(BaseWidget):
         self.hilighted = False
 
     def mouse_action(self, msg):
-        if msg.command == 0:
+        if msg.command == yutani.MouseEvent.CLICK:
             yctx.session_end()
         return False
 
@@ -211,7 +213,7 @@ class VolumeWidget(BaseWidget):
         self.set_volume()
 
     def mouse_action(self, msg):
-        if msg.command == 0:
+        if msg.command == yutani.MouseEvent.CLICK:
             if self.muted:
                 self.muted = False
                 self.volume = self.previous_volume
@@ -223,10 +225,10 @@ class VolumeWidget(BaseWidget):
                 self.set_volume()
             return True
         else:
-            if msg.buttons & yutani.MouseButton.SCROLL_UP: # Scroll up (TODO: Put these somewhere useful)
+            if msg.buttons & yutani.MouseButton.SCROLL_UP:
                 self.volume_up()
                 return True
-            elif msg.buttons & yutani.MouseButton.SCROLL_DOWN: # Scroll down (TODO: Put these somwhere useful)
+            elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
                 self.volume_down()
                 return True
 
@@ -295,7 +297,7 @@ class WindowListWidget(BaseWidget):
         previously_hovered = self.hovered
         if hovered_index < len(windows):
             self.hovered = windows[hovered_index].wid
-            if msg.command == 0:
+            if msg.command == yutani.MouseEvent.CLICK:
                 yctx.focus_window(self.hovered)
             elif msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                 if not menus:
@@ -339,7 +341,6 @@ class MenuEntryAction(object):
         self.hilight = False
         self.window = None
         self.gradient = cairo.LinearGradient(0,0,0,self.height-2)
-        # TODO actual gradient for this
         self.gradient.add_color_stop_rgba(0.0,*self.hilight_gradient_top,1.0)
         self.gradient.add_color_stop_rgba(1.0,*self.hilight_gradient_bottom,1.0)
 
@@ -386,7 +387,7 @@ class MenuEntryAction(object):
         self.tr.draw(window)
 
     def mouse_action(self, msg):
-        if msg.command == 0: # click (TODO: SERIOUSLY, add this into the yutani library)
+        if msg.command == yutani.MouseEvent.CLICK:
             if self.action:
                 self.action(self.data) # Probably like launch_app("terminal")
                 self.focus_leave()
@@ -588,7 +589,10 @@ class ApplicationsMenuWidget(BaseWidget):
                 MenuEntryAction("RPG Demo","applications-simulation",menu_callback,"game"),
             ]),
             MenuEntrySubmenu("Graphics",[
-                MenuEntryAction("Draw!","applications-painting",menu_callback,"draw")
+                MenuEntryAction("Draw!","applications-painting",menu_callback,"draw"),
+            ]),
+            MenuEntrySubmenu("Settings",[
+                MenuEntryAction("Select Wallpaper","select-wallpaper",menu_callback,"select-wallpaper"),
             ]),
             MenuEntryDivider(),
             MenuEntryAction("Help","help",menu_callback,"help-browser"),
@@ -607,7 +611,7 @@ class ApplicationsMenuWidget(BaseWidget):
         self.font.font_color = self.color
 
     def mouse_action(self,msg):
-        if msg.command == 0:
+        if msg.command == yutani.MouseEvent.CLICK:
             menu = MenuWindow(self.menu_entries,(0,PANEL_HEIGHT))
 
 
@@ -776,11 +780,13 @@ class WallpaperIcon(object):
         self.hilighted = False
 
     def mouse_action(self, msg):
-        if msg.command == 0:
+        if msg.command == yutani.MouseEvent.CLICK:
             self.action(self)
 
 class WallpaperWindow(yutani.Window):
     """Manages the desktop wallpaper window."""
+
+    fallback = '/usr/share/wallpapers/default'
 
     def __init__(self):
         w = yutani.yutani_ctx._ptr.contents.display_width
@@ -791,10 +797,16 @@ class WallpaperWindow(yutani.Window):
         self.set_stack(yutani.WindowStackOrder.ZORDER_BOTTOM)
 
         # TODO get the user's selected wallpaper
-        self.background = self.load_wallpaper('/usr/share/wallpapers/default')
+        self.background = self.load_wallpaper()
         self.icons = self.load_icons()
         self.focused_icon = None
         self.animations = {}
+        self.x = 0 # For clipping
+        self.y = 0
+
+    def animate_new(self):
+        self.new_background = self.load_wallpaper()
+        self.animations[self] = time.time()
 
     def add_animation(self, icon):
         self.animations[icon] = time.time()
@@ -804,6 +816,8 @@ class WallpaperWindow(yutani.Window):
         self.draw(self.animations.keys())
         ditch = []
         for icon in self.animations:
+            if icon == self:
+                continue
             if tick - self.animations[icon] > 0.5:
                 ditch.append(icon)
         for icon in ditch:
@@ -831,7 +845,18 @@ class WallpaperWindow(yutani.Window):
 
         return out
 
-    def load_wallpaper(self, path):
+    def load_wallpaper(self, path=None):
+        if not path:
+            home = os.environ['HOME']
+            conf = f'{home}/.desktop.conf'
+            if not os.path.exists(conf):
+                path = self.fallback
+            else:
+                with open(conf,'r') as f:
+                    conf_str = '[desktop]\n' + f.read()
+                c = configparser.ConfigParser()
+                c.read_string(conf_str)
+                path = c['desktop'].get('wallpaper',self.fallback)
         return cairo.ImageSurface.create_from_png(path)
 
     def finish_resize(self, msg):
@@ -874,7 +899,35 @@ class WallpaperWindow(yutani.Window):
         ctx.paint()
         ctx.restore()
 
+
         ctx.set_operator(cairo.OPERATOR_OVER)
+        clear_animation = False
+
+        if self in self.animations:
+            ctx.save()
+            x = self.width / self.new_background.get_width()
+            y = self.height / self.new_background.get_height()
+
+            nh = int(x * self.new_background.get_height())
+            nw = int(y * self.new_background.get_width())
+
+            if (nw > self.width):
+                ctx.translate((self.width - nw) / 2, 0)
+                ctx.scale(y,y)
+            else:
+                ctx.translate(0,(self.height - nh) / 2)
+                ctx.scale(x,x)
+
+            ctx.set_source_surface(self.new_background,0,0)
+            diff = time.time()-self.animations[self]
+            if diff >= 1.0:
+                self.background = self.new_background
+                clear_animation = True
+                ctx.paint()
+            else:
+                ctx.paint_with_alpha(diff/1.0)
+
+            ctx.restore()
 
         offset_x = 20
         offset_y = 50
@@ -886,10 +939,12 @@ class WallpaperWindow(yutani.Window):
                 last_width = 0
             if icon.width > last_width:
                 last_width = icon.width
-            if not clips or icon in clips or icon in self.animations:
+            if not clips or icon in clips or icon in self.animations or self in self.animations:
                 icon.draw(self,(offset_x,offset_y),ctx,time.time()-self.animations[icon] if icon in self.animations else False)
             offset_y += icon.height
 
+        if clear_animation:
+            del self.animations[self]
 
         self.flip()
 
@@ -1015,6 +1070,10 @@ def finish_alt_tab(msg):
 
     alttab.close()
 
+def reload_wallpaper(signum, frame):
+    """Respond to SIGUSR1 by reloading the wallpaper."""
+    wallpaper.animate_new()
+
 def alt_tab(msg):
     """When Alt+Tab or Alt+Shift+Tab are pressed, call this to set the active alt-tab window."""
     global tabbing, new_focused, alttab
@@ -1086,6 +1145,10 @@ if __name__ == '__main__':
     current_time = int(time.time())
 
     panel.draw()
+
+    signal.signal(signal.SIGUSR1, reload_wallpaper)
+    with open('/tmp/.wallpaper.pid','w') as f:
+        f.write(str(os.getpid())+'\n')
 
     while 1:
         # Poll for events.
