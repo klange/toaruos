@@ -98,10 +98,12 @@ static void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg, gfx_context
 	int x_max = x + bitmap->width;
 	int y_max = y + bitmap->rows;
 	for (j = y, q = 0; j < y_max; j++, q++) {
+		if (j < 0 || j >= ctx->height) continue;
 		for ( i = x, p = 0; i < x_max; i++, p++) {
 			uint32_t a = _ALP(fg);
 			a = (a * bitmap->buffer[q * bitmap->width + p]) / 255;
 			uint32_t tmp = premultiply(rgba(_RED(fg),_GRE(fg),_BLU(fg),a));
+			if (i < 0 || i >= ctx->width) continue;
 			SGFX(ctx->backbuffer,i,j,ctx->width) = alpha_blend_rgba(SGFX(ctx->backbuffer,i,j,ctx->width),tmp);
 		}
 	}
