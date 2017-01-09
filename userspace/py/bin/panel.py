@@ -595,7 +595,7 @@ class ApplicationsMenuWidget(BaseWidget):
                 MenuEntryAction("Select Wallpaper","select-wallpaper",menu_callback,"select-wallpaper"),
             ]),
             MenuEntryDivider(),
-            MenuEntryAction("Help","help",menu_callback,"help-browser"),
+            MenuEntryAction("Help","help",menu_callback,"help-browser.py"),
             MenuEntryAction("About ToaruOS","star",menu_callback,"about-applet.py"),
             MenuEntryAction("Log Out","exit",logout_callback,""),
         ]
