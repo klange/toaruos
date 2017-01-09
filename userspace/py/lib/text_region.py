@@ -8,10 +8,14 @@ class TextUnit(object):
         self.unit_type = unit_type
         self.font = font
         self.width = font.width(self.string)
+        self.extra = {}
 
     def set_font(self, font):
         self.font = font
         self.width = font.width(self.string)
+
+    def set_extra(self, key, data):
+        self.extra[key] = data
 
     def __repr__(self):
         return "(" + self.string + "," + str(self.unit_type) + "," + str(self.width) + ")"
@@ -174,6 +178,8 @@ class TextRegion(object):
                 self.tag_stack = []
                 self.current_font = f
                 self.units = []
+                self.link_stack = []
+                self.current_link = None
 
             def handle_starttag(self, tag, attrs):
                 def make_bold(n):
@@ -208,6 +214,24 @@ class TextRegion(object):
                 elif tag == "mono":
                     self.font_stack.append(self.current_font)
                     self.current_font = toaru_fonts.Font(make_monospace(self.current_font.font_number),self.current_font.font_size,self.current_font.font_color)
+                elif tag == "link":
+                    target = None
+                    for attr in attrs:
+                        if attr[0] == "target":
+                            target = attr[1]
+                    self.link_stack.append(self.current_link)
+                    self.current_link = target
+                    self.font_stack.append(self.current_font)
+                    self.current_font = toaru_fonts.Font(self.current_font.font_number,self.current_font.font_size,0xFF0000FF)
+                elif tag == "h1":
+                    self.font_stack.append(self.current_font)
+                    self.current_font = toaru_fonts.Font(make_bold(self.current_font.font_number),20)
+                elif tag == "h2":
+                    self.font_stack.append(self.current_font)
+                    self.current_font = toaru_fonts.Font(make_bold(self.current_font.font_number),18)
+                elif tag == "h3":
+                    self.font_stack.append(self.current_font)
+                    self.current_font = toaru_fonts.Font(make_bold(self.current_font.font_number),16)
                 else:
                     pass
 
@@ -216,11 +240,16 @@ class TextRegion(object):
                     print(f"unclosed tag {self.tag_stack[-1]} when closing tag {tag}")
                 else:
                     self.tag_stack.pop()
-                    if tag in ["b","i","color","mono"]:
+                    if tag in ["b","i","color","mono","link","h1","h2","h3"]:
                         self.current_font = self.font_stack.pop()
+                    if tag in ["link"]:
+                        self.current_link = self.link_stack.pop()
 
             def handle_data(self, data):
                 units = tr.units_from_text(data, self.current_font)
+                if self.current_link:
+                    for u in units:
+                        u.set_extra('link',self.current_link)
                 self.units.extend(units)
 
         parser = RichTextParser()
