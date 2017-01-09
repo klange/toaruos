@@ -248,8 +248,6 @@ class CalculatorWindow(yutani.Window):
         """Accept a resize."""
         self.resize_accept(msg.width, msg.height)
         self.reinit()
-        self.int_width = msg.width - self.decorator.width()
-        self.int_height = msg.height - self.decorator.height()
         self.draw()
         self.resize_done()
         self.flip()
