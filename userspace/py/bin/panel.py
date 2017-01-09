@@ -597,7 +597,7 @@ class ApplicationsMenuWidget(BaseWidget):
             MenuEntryDivider(),
             MenuEntryAction("Help","help",menu_callback,"help-browser"),
             MenuEntryAction("About ToaruOS","star",menu_callback,"about-applet.py"),
-            MenuEntryAction("Log Out","log-out",logout_callback,""),
+            MenuEntryAction("Log Out","exit",logout_callback,""),
         ]
 
     def draw(self, window, offset, remaining, ctx):
