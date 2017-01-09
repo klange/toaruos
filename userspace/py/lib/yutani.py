@@ -419,6 +419,24 @@ class CursorType(object):
     RESIZE_UP_DOWN    = 5
     RESIZE_DOWN_UP    = 6
 
+class GraphicsBuffer(object):
+    """Generic buffer for rendering."""
+
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+        self._sprite = yutani_gfx_lib.create_sprite(width,height,2)
+        self._gfx = cast(yutani_gfx_lib.init_graphics_sprite(self._sprite),POINTER(Window._gfx_context_t))
+
+    def get_cairo_surface(self):
+        return Window.get_cairo_surface(self)
+
+    def destroy(self):
+        yutani_gfx_lib.sprite_free(self._sprite)
+        CDLL('libc.so').free(self._gfx)
+
+
 class Window(object):
     """Yutani Window object."""
     class _yutani_window_t(Structure):
