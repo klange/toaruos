@@ -6,7 +6,7 @@ import os
 import subprocess
 
 def run_vim():
-    subprocess.call(["vim"])
+    os.execvp('vim',['vim'])
 
 def install_vim():
     subprocess.call(["sudo","get-py","vim"])
