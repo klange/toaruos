@@ -2,6 +2,7 @@
 """
 'About ToaruOS' applet
 """
+import os
 import sys
 
 import cairo
@@ -9,6 +10,13 @@ import cairo
 import yutani
 import text_region
 import toaru_fonts
+
+def version():
+    """Get a release from uname without a git short sha."""
+    release = os.uname().release
+    if '-' in release:
+        return release[:release.index('-')]
+    return release
 
 class AboutAppletWindow(yutani.Window):
 
@@ -25,7 +33,7 @@ class AboutAppletWindow(yutani.Window):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, 0xFF000000)
         self.tr = text_region.TextRegion(0,0,self.base_width-30,self.base_height-self.text_offset,font=self.font)
         self.tr.set_alignment(2)
-        self.tr.set_richtext("<b>ToaruOS</b>\n© 2011-2017 Kevin Lange, et al.\n\nToaruOS is free software released under the NCSA/University of Illinois license.\n\n<color 0x0000FF>http://toaruos.org\nhttps://github.com/klange/toaruos</color>")
+        self.tr.set_richtext(f"<b>ToaruOS {version()}</b>\n© 2011-2017 Kevin Lange, et al.\n\nToaruOS is free software released under the NCSA/University of Illinois license.\n\n<color 0x0000FF>http://toaruos.org\nhttps://github.com/klange/toaruos</color>")
 
     def draw(self):
         surface = self.get_cairo_surface()
