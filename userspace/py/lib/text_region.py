@@ -1,5 +1,9 @@
 import unicodedata
 from html.parser import HTMLParser
+import math
+import os
+
+import cairo
 import toaru_fonts
 
 class TextUnit(object):
@@ -7,7 +11,7 @@ class TextUnit(object):
         self.string = string
         self.unit_type = unit_type
         self.font = font
-        self.width = font.width(self.string)
+        self.width = font.width(self.string) if font else 0
         self.extra = {}
         self.tag_group = None
 
@@ -16,8 +20,9 @@ class TextUnit(object):
         self.tag_group.append(self)
 
     def set_font(self, font):
+        if self.unit_type == 4: return
         self.font = font
-        self.width = font.width(self.string)
+        self.width = font.width(self.string) if font else 0
 
     def set_extra(self, key, data):
         self.extra[key] = data
@@ -43,6 +48,7 @@ class TextRegion(object):
         self.scroll = 0
         self.ellipsis = ""
         self.one_line = False
+        self.base_dir = ""
 
     def set_alignment(self, align):
         self.align = align
@@ -69,6 +75,15 @@ class TextRegion(object):
                 unit = self.text_units[i]
             if unit.unit_type == 3:
                 self.lines.append(current_units)
+                current_units = []
+                current_width = 0
+                i += 1
+                continue
+            if unit.unit_type == 4:
+                if current_units:
+                    self.lines.append(current_units)
+                    i += 1
+                self.lines.append([unit])
                 current_units = []
                 current_width = 0
                 i += 1
@@ -239,6 +254,26 @@ class TextRegion(object):
                 elif tag == "h3":
                     self.font_stack.append(self.current_font)
                     self.current_font = toaru_fonts.Font(make_bold(self.current_font.font_number),16)
+                elif tag == "img":
+                    target = None
+                    for attr in attrs:
+                        if attr[0] == "src":
+                            target = attr[1]
+                    if target and not target.startswith('/'):
+                        target = tr.base_dir + target
+                    if target and os.path.exists(target):
+                        img = cairo.ImageSurface.create_from_png(target)
+                        chop = math.ceil(img.get_height() / tr.line_height)
+                        group = []
+                        for i in range(chop):
+                            u = TextUnit("",4,self.current_font)
+                            u.set_extra('img',img)
+                            u.set_extra('offset',i * tr.line_height)
+                            if self.current_link:
+                                u.set_extra('link',self.current_link)
+                            u.set_tag_group(group)
+                            u.width = img.get_width()
+                            self.units.append(u)
                 else:
                     pass
 
@@ -322,6 +357,8 @@ class TextRegion(object):
                 top_align = self.height - len(self.lines) * self.line_height
             elif self.valign == 2: # middle
                 top_align = int((self.height - len(self.lines) * self.line_height) / 2)
+        su = context.get_cairo_surface() if 'get_cairo_surface' in dir(context) else None
+        cr = cairo.Context(su) if su else None
         for line in self.lines[self.scroll:]:
             if current_height > self.height:
                 break
@@ -331,6 +368,15 @@ class TextRegion(object):
             elif self.align == 2: # center
                 left_align = int((self.width - sum([u.width for u in line])) / 2)
             for unit in line:
-                unit.font.write(context, self.x + left_align, self.y + current_height + top_align, unit.string)
+                if unit.unit_type == 4:
+                    cr.save()
+                    extra = 3
+                    cr.translate(self.x + left_align, self.y + current_height + top_align)
+                    cr.rectangle(0,-self.line_height+extra,unit.extra['img'].get_width(),self.line_height)
+                    cr.set_source_surface(unit.extra['img'],0,-unit.extra['offset']-self.line_height+extra)
+                    cr.fill()
+                    cr.restore()
+                elif unit.font:
+                    unit.font.write(context, self.x + left_align, self.y + current_height + top_align, unit.string)
                 left_align += unit.width
             current_height += self.line_height
