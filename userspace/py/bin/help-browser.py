@@ -136,6 +136,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         if not self.tr:
             self.tr = text_region.TextRegion(pad,0,surface.get_width()-pad*2,surface.get_height())
             self.tr.set_line_height(18)
+            self.tr.base_dir = '/usr/share/help/'
             self.tr.set_richtext(self.get_help_text())
         elif self.size_changed:
             self.size_changed = False
