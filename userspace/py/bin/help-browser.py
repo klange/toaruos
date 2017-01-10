@@ -32,6 +32,7 @@ class HelpBrowserWindow(yutani.Window):
         self.special = {}
         self.special['contents'] = self.special_contents
         self.special['demo'] = self.special_demo
+        self.down_text = None
 
     def get_title(self, document):
         if document.startswith("special:"):
@@ -182,14 +183,49 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             self.text_offset -= self.tr.line_height
         self.update_text_buffer()
 
+    def text_under_cursor(self, msg):
+        """Get the text unit under the cursor."""
+        x = msg.new_x - self.decorator.left_width()
+        y = msg.new_y - self.decorator.top_height() + self.text_offset
+        return self.tr.click(x,y)
+
     def mouse_event(self, msg):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
             window.close()
             sys.exit(0)
-        if msg.command == yutani.MouseEvent.CLICK:
-            e = self.tr.click(msg.new_x-self.decorator.left_width(),msg.new_y-self.decorator.top_height()+self.text_offset)
-            if e and 'link' in e.extra:
+        if msg.command == yutani.MouseEvent.DOWN:
+            e = self.text_under_cursor(msg)
+            r = False
+            if self.down_text and e != self.down_text:
+                for u in self.down_text.tag_group:
+                    u.set_font(self.down_font[u])
+                del self.down_font
+                self.down_text = None
+                self.update_text_buffer()
+                r = True
+            if e and 'link' in e.extra and e.tag_group:
+                self.down_font = {}
+                for u in e.tag_group:
+                    new_font = toaru_fonts.Font(u.font.font_number,u.font.font_size,0xFFFF0000)
+                    self.down_font[u] = u.font
+                    u.set_font(new_font)
+                self.update_text_buffer()
+                r = True
+                self.down_text = e
+            else:
+                self.down_text = None
+            return r
+        if msg.command == yutani.MouseEvent.CLICK or msg.command == yutani.MouseEvent.RAISE:
+            e = self.text_under_cursor(msg)
+            if self.down_text and e == self.down_text:
                 self.navigate(e.extra['link'])
+                return True
+            elif self.down_text:
+                for u in self.down_text.tag_group:
+                    u.set_font(self.down_font[u])
+                del self.down_font
+                self.down_text = None
+                self.update_text_buffer()
                 return True
         if msg.buttons & yutani.MouseButton.SCROLL_UP:
             self.scroll(-30)

@@ -9,6 +9,11 @@ class TextUnit(object):
         self.font = font
         self.width = font.width(self.string)
         self.extra = {}
+        self.tag_group = None
+
+    def set_tag_group(self, tag_group):
+        self.tag_group = tag_group
+        self.tag_group.append(self)
 
     def set_font(self, font):
         self.font = font
@@ -180,6 +185,7 @@ class TextRegion(object):
                 self.units = []
                 self.link_stack = []
                 self.current_link = None
+                self.tag_group = None
 
             def handle_starttag(self, tag, attrs):
                 def make_bold(n):
@@ -219,6 +225,7 @@ class TextRegion(object):
                     for attr in attrs:
                         if attr[0] == "target":
                             target = attr[1]
+                    self.tag_group = []
                     self.link_stack.append(self.current_link)
                     self.current_link = target
                     self.font_stack.append(self.current_font)
@@ -244,12 +251,16 @@ class TextRegion(object):
                         self.current_font = self.font_stack.pop()
                     if tag in ["link"]:
                         self.current_link = self.link_stack.pop()
+                        self.tag_group = None
 
             def handle_data(self, data):
                 units = tr.units_from_text(data, self.current_font)
                 if self.current_link:
                     for u in units:
                         u.set_extra('link',self.current_link)
+                if self.tag_group is not None:
+                    for u in units:
+                        u.set_tag_group(self.tag_group)
                 self.units.extend(units)
 
         parser = RichTextParser()
