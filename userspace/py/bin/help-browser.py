@@ -162,6 +162,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
 
     def finish_resize(self, msg):
         """Accept a resize."""
+        if msg.width < 100 or msg.height < 100:
+            self.resize_offer(max(msg.width,100),max(msg.height,100))
+            return
+
         self.resize_accept(msg.width, msg.height)
         self.reinit()
         self.size_changed = True
@@ -179,6 +183,12 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
                 self.scroll_offset -= 1
                 self.text_offset += self.tr.line_height
         while self.text_offset >= self.tr.line_height:
+            n = (len(self.tr.lines)-self.tr.visible_lines())+4
+            n = n if n >= 0 else 0
+            if self.scroll_offset >= n:
+                self.scroll_offset = n
+                self.text_offset = 0
+                break
             self.scroll_offset += 1
             self.text_offset -= self.tr.line_height
         self.update_text_buffer()
