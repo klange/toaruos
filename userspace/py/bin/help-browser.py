@@ -121,10 +121,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         self.update_text_buffer()
 
     def update_text_buffer(self):
-        if self.text_buffer:
-            self.text_buffer.destroy()
-
-        self.text_buffer = yutani.GraphicsBuffer(self.width - self.decorator.width(),self.height-self.decorator.height()+80)
+        if self.size_changed or not self.text_buffer:
+            if self.text_buffer:
+                self.text_buffer.destroy()
+            self.text_buffer = yutani.GraphicsBuffer(self.width - self.decorator.width(),self.height-self.decorator.height()+80)
         surface = self.text_buffer.get_cairo_surface()
         ctx = cairo.Context(surface)
         ctx.rectangle(0,0,surface.get_width(),surface.get_height())
@@ -183,14 +183,13 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
                 self.scroll_offset -= 1
                 self.text_offset += self.tr.line_height
         while self.text_offset >= self.tr.line_height:
-            n = (len(self.tr.lines)-self.tr.visible_lines())+4
-            n = n if n >= 0 else 0
-            if self.scroll_offset >= n:
-                self.scroll_offset = n
-                self.text_offset = 0
-                break
             self.scroll_offset += 1
             self.text_offset -= self.tr.line_height
+        n = (len(self.tr.lines)-self.tr.visible_lines())+4
+        n = n if n >= 0 else 0
+        if self.scroll_offset >= n:
+            self.scroll_offset = n
+            self.text_offset = 0
         self.update_text_buffer()
 
     def text_under_cursor(self, msg):
@@ -251,6 +250,12 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         if msg.event.keycode == yutani.Keycode.HOME:
             self.text_offset = 0
             self.scroll_offset = 0
+            self.update_text_buffer()
+            return True
+        elif msg.event.keycode == yutani.Keycode.END:
+            n = (len(self.tr.lines)-self.tr.visible_lines())+4
+            self.scroll_offset = n if n >= 0 else 0
+            self.text_offset = 0
             self.update_text_buffer()
             return True
         elif msg.event.keycode == yutani.Keycode.PAGE_UP:
