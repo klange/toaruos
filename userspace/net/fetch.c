@@ -13,6 +13,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include "lib/http_parser.h"
 
@@ -38,6 +39,7 @@ struct {
 	size_t size;
 	struct timeval start;
 	int calculate_output;
+	int slow_upload;
 } fetch_options = {0};
 
 void parse_url(char * d, struct http_req * r) {
@@ -155,7 +157,7 @@ int main(int argc, char * argv[]) {
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "?c:ho:Opu:v")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:ho:Opu:vs:")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
@@ -179,6 +181,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'p':
 				fetch_options.prompt_password = 1;
+				break;
+			case 's':
+				fetch_options.slow_upload = atoi(optarg);
 				break;
 		}
 	}
@@ -269,6 +274,9 @@ int main(int argc, char * argv[]) {
 			char buf[1024];
 			size_t r = fread(buf, 1, 1024, in_file);
 			fwrite(buf, 1, r, f);
+			if (fetch_options.slow_upload) {
+				usleep(1000 * fetch_options.slow_upload); /* TODO fix terrible network stack; hopefully this ensures we send stuff right. */
+			}
 		}
 
 		fclose(in_file);
