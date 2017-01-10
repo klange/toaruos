@@ -69,8 +69,9 @@ class HelpBrowserWindow(yutani.Window):
                 d = directory.replace('/usr/share/help/','')
                 output += "\n<h3>" + d.title() + "</h3>\n\n"
                 for k in files:
-                    k = d + '/' + k
-                    output += f"➤ <link target=\"{k}\">{self.get_title(k)}</link>\n"
+                    if k.endswith('.trt'):
+                        k = d + '/' + k
+                        output += f"➤ <link target=\"{k}\">{self.get_title(k)}</link>\n"
         return output
 
     def special_demo(self):
