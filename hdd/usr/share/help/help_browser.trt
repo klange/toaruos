@@ -40,3 +40,11 @@ You can also format <b>bold</b> and <i>italic</i> text as well combinations of <
 
 Images may be relative to the documentation root directory (<mono>/usr/share/help</mono>) or absolute paths.
 
+Images look like this:
+<mono>
+    &lt;img src="/usr/share/logo_login.png"&gt;&lt/img&gt;
+</mono>
+<img src="/usr/share/logo_login.png"></img>
+You can also make links out of images, like this:
+<link target="special:contents"><img src="/usr/share/icons/48/help.png"></img></link>
+

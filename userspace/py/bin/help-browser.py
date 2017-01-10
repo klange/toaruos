@@ -209,7 +209,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             r = False
             if self.down_text and e != self.down_text:
                 for u in self.down_text.tag_group:
-                    u.set_font(self.down_font[u])
+                    if u.unit_type == 4:
+                        u.set_extra('hilight',False)
+                    else:
+                        u.set_font(self.down_font[u])
                 del self.down_font
                 self.down_text = None
                 self.update_text_buffer()
@@ -217,9 +220,12 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             if e and 'link' in e.extra and e.tag_group:
                 self.down_font = {}
                 for u in e.tag_group:
-                    new_font = toaru_fonts.Font(u.font.font_number,u.font.font_size,0xFFFF0000)
-                    self.down_font[u] = u.font
-                    u.set_font(new_font)
+                    if u.unit_type == 4:
+                        u.set_extra('hilight',True)
+                    else:
+                        new_font = toaru_fonts.Font(u.font.font_number,u.font.font_size,0xFFFF0000)
+                        self.down_font[u] = u.font
+                        u.set_font(new_font)
                 self.update_text_buffer()
                 r = True
                 self.down_text = e
@@ -233,7 +239,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
                 return True
             elif self.down_text:
                 for u in self.down_text.tag_group:
-                    u.set_font(self.down_font[u])
+                    if u.unit_type == 4:
+                        u.set_extra('hilight',False)
+                    else:
+                        u.set_font(self.down_font[u])
                 del self.down_font
                 self.down_text = None
                 self.update_text_buffer()

@@ -372,6 +372,10 @@ class TextRegion(object):
                     cr.save()
                     extra = 3
                     cr.translate(self.x + left_align, self.y + current_height + top_align)
+                    if 'hilight' in unit.extra and unit.extra['hilight']:
+                        cr.rectangle(0,-self.line_height+extra,unit.extra['img'].get_width(),self.line_height)
+                        cr.set_source_rgb(1,0,0)
+                        cr.fill()
                     cr.rectangle(0,-self.line_height+extra,unit.extra['img'].get_width(),self.line_height)
                     cr.set_source_surface(unit.extra['img'],0,-unit.extra['offset']-self.line_height+extra)
                     cr.fill()
