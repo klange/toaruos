@@ -1,0 +1,42 @@
+
+<h1>Help Browser</h1>
+
+<img src="/usr/share/icons/48/help.png"></img>
+The <i>Help Browser</i> provides rich text documentation for ToaruOS. Documentation is written in a markup language similar to HTML, but with some notable differences due to nature of the rendering engine. This markup language supports three heading levels, bold, italic, and colored text, links to other help documents, and images. Whitespace is generally significant and line feeds in a source document will be rendered as such in the final document. Text is expected to be encoded in UTF-8, and the renderer will select between several fallback fonts to find characters if they are not in the base font. This same rendering engine is used to display labels and button text in most applications in ToaruOS, so these formatting hints can be applied if you are writing your own applications.
+
+<h2>Oddities and Differences from HTML</h2>
+
+The most important difference between the documentation markup language and HTML is the name of the link tag. Link tags are called <mono>&lt;link&gt;</mono>. They accept a <mono>target</mono> parameter with the target of the link.
+
+Another significant difference is that images appear on lines by themselves.
+
+All lines have the same line height. In this help browser, the default is <mono>18</mono>.
+
+<h2>Examples</h2>
+
+This document itself may serve as an example. It can be found in <mono>/usr/share/help/help_browser.trt</mono>.
+
+<h3>Headings</h3>
+
+There are three levels of heading tags available:
+<mono>
+    &lt;h1&gt;H1&lt;/h1&gt;
+    &lt;h2&gt;H2&lt;/h2&gt;
+    &lt;h3&gt;H3&lt;/h3&gt;
+</mono>
+These headings will produce text as follows:
+<h1>H1</h1>
+<h2>H2</h2>
+<h3>H3</h3>
+
+<h3>Formatting</h3>
+
+You can also format <b>bold</b> and <i>italic</i> text as well combinations of <b><i>bold and italic</i></b> and <color 0x00FF00>different colors</color>
+<mono>
+    You can also format &lt;b&gt;bold&lt;/b&gt; and &lt;i&gt;italic&lt;/i&gt; text as well combinations of &lt;b&gt;&lt;i&gt;bold and italic&lt;/i&gt;&lt;/b&gt; and &lt;color 0x00FF00&gt;different colors&lt;/color&gt;
+</mono>
+
+<h3>Images</h3>
+
+Images may be relative to the documentation root directory (<mono>/usr/share/help</mono>) or absolute paths.
+
