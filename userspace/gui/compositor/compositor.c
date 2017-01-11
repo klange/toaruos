@@ -1341,9 +1341,25 @@ static void yutani_query_result(yutani_globals_t * yg, uint32_t dest, yutani_ser
  */
 static void notify_subscribers(yutani_globals_t * yg) {
 	yutani_msg_t * response = yutani_msg_build_notify();
+	list_t * remove = NULL;
 	foreach(node, yg->window_subscribers) {
 		uint32_t subscriber = (uint32_t)node->value;
-		pex_send(yg->server, subscriber, response->size, (char *)response);
+		if (!hashmap_has(yg->clients_to_windows, (void *)subscriber)) {
+			if (!remove) {
+				remove = list_create();
+			}
+			list_insert(remove, node);
+		} else {
+			pex_send(yg->server, subscriber, response->size, (char *)response);
+		}
+	}
+	if (remove) {
+		while (remove->length) {
+			node_t * n = list_pop(remove);
+			list_delete(yg->window_subscribers, n->value);
+			free(n);
+		}
+		free(remove);
 	}
 	free(response);
 }
@@ -2533,9 +2549,26 @@ int main(int argc, char * argv[]) {
 				{
 					/* Send timer ticks to requesters */
 					yutani_msg_t * response = yutani_msg_build_timer_tick();
+					list_t * remove = NULL;
 					foreach(node, yg->timer_subscribers) {
 						uint32_t subscriber = (uint32_t)node->value;
-						pex_send(yg->server, subscriber, response->size, (char *)response);
+
+						if (!hashmap_has(yg->clients_to_windows, (void *)subscriber)) {
+							if (!remove) {
+								remove = list_create();
+							}
+							list_insert(remove, node);
+						} else {
+							pex_send(yg->server, subscriber, response->size, (char *)response);
+						}
+					}
+					if (remove) {
+						while (remove->length) {
+							node_t * n = list_pop(remove);
+							list_delete(yg->timer_subscribers, n->value);
+							free(n);
+						}
+						free(remove);
 					}
 					free(response);
 				}
