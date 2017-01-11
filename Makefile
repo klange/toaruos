@@ -293,7 +293,7 @@ $(foreach file,$(USER_CFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/bin/%
 define user-cxx-rule
 $1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
 	@${BEG} "C++" "$$<"
-	@${CXX} -o $$@ $(USER_CXXFLAGS) $(USER_BINFLAGS) -static -Wl,-static $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
+	@${CXX} -o $$@ $(USER_CXXFLAGS) $(USER_BINFLAGS) $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
 	@${END} "C++" "$$<"
 endef
 $(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.c++,hdd/bin/%,$(notdir ${file})),${file})))
