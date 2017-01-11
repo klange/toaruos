@@ -9,6 +9,7 @@ a widget object which can independently draw and receive mouse events.
 
 """
 import configparser
+import html
 import math
 import os
 import signal
@@ -565,38 +566,38 @@ class ApplicationsMenuWidget(BaseWidget):
         self.tr.set_text("Applications")
         self.menu_entries = [
             MenuEntrySubmenu("Accesories",[
-                MenuEntryAction("Calculator","calculator",menu_callback,"calculator.py"),
-                MenuEntryAction("Clock Widget","clock",menu_callback,"clock-win"),
-                MenuEntryAction("File Browser","file-browser",menu_callback,"file_browser.py"),
-                MenuEntryAction("Terminal","utilities-terminal",menu_callback,"terminal"),
-                MenuEntryAction("Vim","vim",menu_callback,"terminal vim-install-or-run.py"),
+                MenuEntryAction("Calculator","calculator",launch_app,"calculator.py"),
+                MenuEntryAction("Clock Widget","clock",launch_app,"clock-win"),
+                MenuEntryAction("File Browser","file-browser",launch_app,"file_browser.py"),
+                MenuEntryAction("Terminal","utilities-terminal",launch_app,"terminal"),
+                MenuEntryAction("Vim","vim",launch_app,"terminal vim-install-or-run.py"),
             ]),
             MenuEntrySubmenu("Demos",[
                 MenuEntrySubmenu("Cairo",[
-                    MenuEntryAction("Cairo Demo","cairo-demo",menu_callback,"cairo-demo"),
-                    MenuEntryAction("Cairo Snow","snow",menu_callback,"make-it-snow"),
-                    MenuEntryAction("Pixman Demo","pixman-demo",menu_callback,"pixman-demo"),
+                    MenuEntryAction("Cairo Demo","cairo-demo",launch_app,"cairo-demo"),
+                    MenuEntryAction("Cairo Snow","snow",launch_app,"make-it-snow"),
+                    MenuEntryAction("Pixman Demo","pixman-demo",launch_app,"pixman-demo"),
                 ]),
                 MenuEntrySubmenu("Mesa (swrast)",[
-                    MenuEntryAction("Gears","gears",menu_callback,"gears"),
-                    MenuEntryAction("Teapot","teapot",menu_callback,"teapot"),
+                    MenuEntryAction("Gears","gears",launch_app,"gears"),
+                    MenuEntryAction("Teapot","teapot",launch_app,"teapot"),
                 ]),
-                MenuEntryAction("Draw Lines","drawlines",menu_callback,"drawlines"),
-                MenuEntryAction("Julia Fractals","julia",menu_callback,"julia"),
-                MenuEntryAction("Plasma","plasma",menu_callback,"plasma"),
+                MenuEntryAction("Draw Lines","drawlines",launch_app,"drawlines"),
+                MenuEntryAction("Julia Fractals","julia",launch_app,"julia"),
+                MenuEntryAction("Plasma","plasma",launch_app,"plasma"),
             ]),
             MenuEntrySubmenu("Games",[
-                MenuEntryAction("RPG Demo","applications-simulation",menu_callback,"game"),
+                MenuEntryAction("RPG Demo","applications-simulation",launch_app,"game"),
             ]),
             MenuEntrySubmenu("Graphics",[
-                MenuEntryAction("Draw!","applications-painting",menu_callback,"draw"),
+                MenuEntryAction("Draw!","applications-painting",launch_app,"draw"),
             ]),
             MenuEntrySubmenu("Settings",[
-                MenuEntryAction("Select Wallpaper","select-wallpaper",menu_callback,"select-wallpaper"),
+                MenuEntryAction("Select Wallpaper","select-wallpaper",launch_app,"select-wallpaper"),
             ]),
             MenuEntryDivider(),
-            MenuEntryAction("Help","help",menu_callback,"help-browser.py"),
-            MenuEntryAction("About ToaruOS","star",menu_callback,"about-applet.py"),
+            MenuEntryAction("Help","help",launch_app,"help-browser.py"),
+            MenuEntryAction("About ToaruOS","star",launch_app,"about-applet.py"),
             MenuEntryAction("Log Out","exit",logout_callback,""),
         ]
 
@@ -1012,16 +1013,6 @@ class AlttabWindow(yutani.Window):
         ctx.set_source_rgba(0,0,0,0)
         ctx.fill()
 
-        def rounded_rectangle(ctx,x,y,w,h,r):
-            degrees = math.pi / 180
-            ctx.new_sub_path()
-
-            ctx.arc(x + w - r, y + r, r, -90 * degrees, 0 * degrees)
-            ctx.arc(x + w - r, y + h - r, r, 0 * degrees, 90 * degrees)
-            ctx.arc(x + r, y + h - r, r, 90 * degrees, 180 * degrees)
-            ctx.arc(x + r, y + r, r, 180 * degrees, 270 * degrees)
-            ctx.close_path()
-
         ctx.set_operator(cairo.OPERATOR_OVER)
         rounded_rectangle(ctx,0,0,self.width,self.height,10)
         ctx.set_source_rgba(0,0,0,0.7)
@@ -1051,9 +1042,142 @@ class AlttabWindow(yutani.Window):
 
         self.flip()
 
-def menu_callback(item):
+class ApplicationRunnerWindow(yutani.Window):
+    """Displays the currently selected window for Alt-Tab switching."""
+
+    icon_width = 48
+    color = 0xFFE6E6E6
+
+    def __init__(self):
+        super(ApplicationRunnerWindow,self).__init__(400,115,doublebuffer=True)
+        w = yutani.yutani_ctx._ptr.contents.display_width
+        h = yutani.yutani_ctx._ptr.contents.display_height
+        self.move(int((w-self.width)/2),int((h-self.height)/2))
+        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF_BOLD, 16, self.color)
+        self.data = ""
+        self.complete = ""
+        self.completed = False
+        self.bins = []
+        for d in os.environ.get("PATH").split(":"):
+            if os.path.exists(d):
+                self.bins.extend(os.listdir(d))
+
+    def close(self):
+        global app_runner
+        app_runner = None
+        super(ApplicationRunnerWindow,self).close()
+
+    def try_complete(self):
+        if not self.data:
+            self.complete = ""
+            self.completed = False
+            return
+        for b in self.bins:
+            if b.startswith(self.data):
+                self.complete = b[len(self.data):]
+                self.completed = True
+                return
+        self.completed = False
+        self.complete = ""
+
+    def key_action(self, msg):
+        if not msg.event.action == yutani.KeyAction.ACTION_DOWN:
+            return
+        if msg.event.keycode == yutani.Keycode.ESCAPE:
+            self.close()
+            return
+        if msg.event.keycode == yutani.Keycode.DEL:
+            self.complete = ""
+            self.completed = False
+            self.draw()
+            return
+        if msg.event.key == b'\x00':
+            return
+        if msg.event.key == b'\n':
+            if self.data:
+                launch_app(self.data + self.complete, terminal=bool(msg.event.modifiers & yutani.Modifier.MOD_LEFT_SHIFT))
+            self.close()
+            return
+        if msg.event.key == b'\b':
+            if self.data:
+                self.data = self.data[:-1]
+                self.try_complete()
+        else:
+            self.data += msg.event.key.decode('utf-8')
+            self.try_complete()
+        self.draw()
+
+    def match_icon(self):
+        icons = {
+            "calculator.py": "calculator",
+            "clock-win": "clock",
+            "file_browser.py": "file-browser",
+            "make-it-snow": "snow",
+            "game": "applications-simulation",
+            "draw": "applications-painting",
+            "about-applet.py": "star",
+            "help-browser.py": "help",
+            "terminal": "utilities-terminal",
+        }
+        if self.data+self.complete in icons:
+            return get_icon(icons[self.data+self.complete],self.icon_width) # Odd names
+        elif self.completed:
+            return get_icon(self.data+self.complete,self.icon_width) # Fallback
+        return None
+
+    def draw(self):
+        surface = self.get_cairo_surface()
+        ctx = cairo.Context(surface)
+
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
+        ctx.rectangle(0,0,self.width,self.height)
+        ctx.set_source_rgba(0,0,0,0)
+        ctx.fill()
+
+        ctx.set_operator(cairo.OPERATOR_OVER)
+        rounded_rectangle(ctx,0,0,self.width,self.height,10)
+        ctx.set_source_rgba(0,0,0,0.7)
+        ctx.fill()
+
+        icon = self.match_icon()
+        if icon:
+
+            ctx.save()
+            ctx.translate(20,20)
+            if icon.get_width() != self.icon_width:
+                ctx.scale(self.icon_width/icon.get_width(),self.icon_width/icon.get_width())
+            ctx.set_source_surface(icon,0,0)
+            ctx.paint()
+            ctx.restore()
+
+        font = self.font
+        tr = text_region.TextRegion(0,20,self.width,30,font=font)
+        tr.set_one_line()
+        tr.set_ellipsis()
+        tr.set_alignment(2)
+        tr.set_richtext(html.escape(self.data) + '<color 0x888888>' + html.escape(self.complete) + '</color>')
+        tr.draw(self)
+
+
+        self.flip()
+
+
+def rounded_rectangle(ctx,x,y,w,h,r):
+    degrees = math.pi / 180
+    ctx.new_sub_path()
+
+    ctx.arc(x + w - r, y + r, r, -90 * degrees, 0 * degrees)
+    ctx.arc(x + w - r, y + h - r, r, 0 * degrees, 90 * degrees)
+    ctx.arc(x + r, y + h - r, r, 90 * degrees, 180 * degrees)
+    ctx.arc(x + r, y + r, r, 180 * degrees, 270 * degrees)
+    ctx.close_path()
+
+def launch_app(item,terminal=False):
     """Launch an application in the background."""
-    os.spawnvp(os.P_NOWAIT,'/bin/sh',['/bin/sh','-c',item])
+    if terminal:
+        os.spawnvp(os.P_NOWAIT,'/bin/terminal',['terminal',item])
+    else:
+        os.spawnvp(os.P_NOWAIT,'/bin/sh',['/bin/sh','-c',item])
 
 def logout_callback(item):
     """Request the active session be stopped."""
@@ -1104,6 +1228,8 @@ if __name__ == '__main__':
     wallpaper = WallpaperWindow()
     wallpaper.draw()
 
+    app_runner = None
+
     menus = {}
     hovered_menu = None
 
@@ -1118,6 +1244,9 @@ if __name__ == '__main__':
 
     # Show terminal
     yctx.key_bind(ord('t'), yutani.Modifier.MOD_LEFT_CTRL | yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
+
+    # Application runner
+    yctx.key_bind(yutani.Keycode.F2, yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
 
     # Hide/show panel
     yctx.key_bind(yutani.Keycode.F11, yutani.Modifier.MOD_LEFT_CTRL, yutani.KeybindFlag.BIND_STEAL)
@@ -1175,12 +1304,21 @@ if __name__ == '__main__':
             if wallpaper.animations:
                 wallpaper.animate()
         elif msg.type == yutani.Message.MSG_KEY_EVENT:
+            if app_runner and msg.wid == app_runner.wid:
+                app_runner.key_action(msg)
+                continue
+            if not app_runner and \
+                (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
+                (msg.event.keycode == yutani.Keycode.F2) and \
+                (msg.event.action == yutani.KeyAction.ACTION_DOWN):
+                app_runner = ApplicationRunnerWindow()
+                app_runner.draw()
             # Ctrl-Alt-T: Open Terminal
             if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_CTRL) and \
                 (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
                 (msg.event.keycode == ord('t')) and \
                 (msg.event.action == yutani.KeyAction.ACTION_DOWN):
-                menu_callback('terminal')
+                launch_app('terminal')
             # Ctrl-F11: Toggle visibility of panel
             if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_CTRL) and \
                 (msg.event.keycode == yutani.Keycode.F11) and \
