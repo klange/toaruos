@@ -1220,6 +1220,10 @@ def alt_tab(msg):
     tabbing = True
     alttab.draw()
 
+def reset_zorder(signum, frame):
+    wallpaper.set_stack(yutani.WindowStackOrder.ZORDER_BOTTOM)
+    panel.set_stack(yutani.WindowStackOrder.ZORDER_TOP)
+
 if __name__ == '__main__':
     yctx = yutani.Yutani()
 
@@ -1279,6 +1283,8 @@ if __name__ == '__main__':
     signal.signal(signal.SIGUSR1, reload_wallpaper)
     with open('/tmp/.wallpaper.pid','w') as f:
         f.write(str(os.getpid())+'\n')
+
+    signal.signal(signal.SIGUSR2, reset_zorder)
 
     while 1:
         # Poll for events.
