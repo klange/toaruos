@@ -1119,10 +1119,11 @@ class ApplicationRunnerWindow(yutani.Window):
             "help-browser.py": "help",
             "terminal": "utilities-terminal",
         }
-        if self.data+self.complete in icons:
-            return get_icon(icons[self.data+self.complete],self.icon_width) # Odd names
+        x = (self.data+self.complete).split(" ")[0]
+        if x in icons:
+            return get_icon(icons[x],self.icon_width) # Odd names
         elif self.completed:
-            return get_icon(self.data+self.complete,self.icon_width) # Fallback
+            return get_icon(x,self.icon_width) # Fallback
         return None
 
     def draw(self):
