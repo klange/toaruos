@@ -148,7 +148,7 @@ void decor_set_resize_callback(void (*callback)(yutani_window_t *)) {
 
 static int within_decors(yutani_window_t * window, int x, int y) {
 	if ((x <= decor_left_width || x >= window->width - decor_right_width) && (x > 0 && x < window->width)) return 1;
-	if ((y <= decor_top_height || y >= window->height - decor_bottom_height) && (y > 0 && y < window->width)) return 1;
+	if ((y <= decor_top_height || y >= window->height - decor_bottom_height) && (y > 0 && y < window->height)) return 1;
 	return 0;
 }
 
