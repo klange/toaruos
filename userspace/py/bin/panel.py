@@ -1072,7 +1072,7 @@ class ApplicationRunnerWindow(yutani.Window):
             self.complete = ""
             self.completed = False
             return
-        for b in self.bins:
+        for b in sorted(self.bins):
             if b.startswith(self.data):
                 self.complete = b[len(self.data):]
                 self.completed = True
