@@ -360,11 +360,6 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	hashmap_set(yg->wids_to_windows, (void*)win->wid, win);
 
 	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)owner);
-	if (!client_list) {
-		TRACE("Window creation from new client: %x", owner);
-		client_list = list_create();
-		hashmap_set(yg->clients_to_windows, (void *)owner, client_list);
-	}
 	list_insert(client_list, win);
 
 	win->x = 0;
@@ -2246,6 +2241,12 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_HELLO:
 				{
 					TRACE("And hello to you, %08x!", p->source);
+					list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)p->source);
+					if (!client_list) {
+						TRACE("Client is new: %x", p->source);
+						client_list = list_create();
+						hashmap_set(yg->clients_to_windows, (void *)p->source, client_list);
+					}
 					yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
 					pex_send(server, p->source, response->size, (char *)response);
 					free(response);
