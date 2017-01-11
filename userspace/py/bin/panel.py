@@ -1220,9 +1220,27 @@ def alt_tab(msg):
     tabbing = True
     alttab.draw()
 
+def set_binds():
+
+    # Show terminal
+    yctx.key_bind(ord('t'), yutani.Modifier.MOD_LEFT_CTRL | yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
+
+    # Application runner
+    yctx.key_bind(yutani.Keycode.F2, yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
+
+    # Hide/show panel
+    yctx.key_bind(yutani.Keycode.F11, yutani.Modifier.MOD_LEFT_CTRL, yutani.KeybindFlag.BIND_STEAL)
+
+    # Alt-tab forward and backward
+    yctx.key_bind(ord("\t"), yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
+    yctx.key_bind(ord("\t"), yutani.Modifier.MOD_LEFT_ALT | yutani.Modifier.MOD_LEFT_SHIFT, yutani.KeybindFlag.BIND_STEAL)
+    # Release alt
+    yctx.key_bind(yutani.Keycode.LEFT_ALT, 0, yutani.KeybindFlag.BIND_PASSTHROUGH)
+
 def reset_zorder(signum, frame):
     wallpaper.set_stack(yutani.WindowStackOrder.ZORDER_BOTTOM)
     panel.set_stack(yutani.WindowStackOrder.ZORDER_TOP)
+    set_binds()
 
 if __name__ == '__main__':
     yctx = yutani.Yutani()
@@ -1247,20 +1265,7 @@ if __name__ == '__main__':
     yctx.timer_request(0,0)
     yctx.subscribe()
 
-    # Show terminal
-    yctx.key_bind(ord('t'), yutani.Modifier.MOD_LEFT_CTRL | yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
-
-    # Application runner
-    yctx.key_bind(yutani.Keycode.F2, yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
-
-    # Hide/show panel
-    yctx.key_bind(yutani.Keycode.F11, yutani.Modifier.MOD_LEFT_CTRL, yutani.KeybindFlag.BIND_STEAL)
-
-    # Alt-tab forward and backward
-    yctx.key_bind(ord("\t"), yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
-    yctx.key_bind(ord("\t"), yutani.Modifier.MOD_LEFT_ALT | yutani.Modifier.MOD_LEFT_SHIFT, yutani.KeybindFlag.BIND_STEAL)
-    # Release alt
-    yctx.key_bind(yutani.Keycode.LEFT_ALT, 0, yutani.KeybindFlag.BIND_PASSTHROUGH)
+    set_binds()
 
     def update_window_list():
         yctx.query_windows()
