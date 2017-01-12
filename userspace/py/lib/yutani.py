@@ -290,6 +290,15 @@ class MessageWindowAdvertisement(MessageEx):
     def icon(self):
         return string_at(addressof(self.strings) + self.offsets[1]).decode('utf-8')
 
+class MessageWindowMove(MessageEx):
+    """Message received when a window has moved containing its new coordinates."""
+    type_val = Message.MSG_WINDOW_MOVE
+    class data_struct(Structure):
+        _fields_ = [
+            ('wid', c_uint32),
+            ('x', c_int32),
+            ('y', c_int32),
+        ]
 
 class Yutani(object):
     """Base Yutani communication class. Must be initialized to start a connection."""
