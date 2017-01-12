@@ -947,7 +947,7 @@ def alt_tab(msg):
     if tabbing:
         new_focused = new_focused + direction
     else:
-        new_focused = active_window + direction
+        new_focused = len(windows_zorder) - 1 + direction
         alttab = AlttabWindow()
 
     if new_focused < 0:
@@ -999,7 +999,6 @@ if __name__ == '__main__':
     tabbing = False
     alttab = None
     new_focused = -1
-    active_window = 0
 
     yctx.timer_request(0,0)
     yctx.subscribe()
