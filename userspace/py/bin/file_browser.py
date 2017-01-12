@@ -126,6 +126,7 @@ class FileBrowserWindow(yutani.Window):
 
         self.files = sorted([File(os.path.join(path,f), self) for f in os.listdir(path)], key=lambda x: x.sortkey)
         self.scroll_y = 0
+        self.hilighted = None
         self.redraw_buf()
 
     def redraw_buf(self,icons=None):
