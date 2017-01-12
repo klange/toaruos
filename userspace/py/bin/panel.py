@@ -22,43 +22,10 @@ import yutani
 import text_region
 import toaru_fonts
 
+from menu_bar import MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
+from icon_cache import get_icon
+
 PANEL_HEIGHT=28
-
-icon_directories = {
-    24: [
-        "/usr/share/icons/24",
-        "/usr/share/icons/external/24",
-        "/usr/share/icons/48",
-        "/usr/share/icons/external/48",
-        "/usr/share/icons",
-        "/usr/share/icons/external",
-    ],
-    48: [
-        "/usr/share/icons/48",
-        "/usr/share/icons/external/48",
-        "/usr/share/icons",
-        "/usr/share/icons/external",
-        "/usr/share/icons/24",
-        "/usr/share/icons/external/24",
-    ],
-}
-
-icon_cache = {24:{},48:{}}
-def get_icon(name,size=24):
-    """Find an icon in the icon cache or fetch it if possible."""
-    if not name:
-        return get_icon("applications-generic",size)
-
-    if not name in icon_cache[size]:
-        for directory in icon_directories[size]:
-            path = f"{directory}/{name}.png"
-            if os.access(path,os.R_OK):
-                icon = cairo.ImageSurface.create_from_png(f"{directory}/{name}.png")
-                icon_cache[size][name] = icon
-                return icon
-        return get_icon("applications-generic",size)
-    else:
-        return icon_cache[size][name]
 
 class BaseWidget(object):
     """Base class for a panel widget."""
@@ -256,6 +223,7 @@ class WindowListWidget(BaseWidget):
         global windows
         if not len(windows):
             return
+        self.window = window
         self.offset = offset
         available_width = remaining - offset
         self.unit_width = min(int(available_width / len(windows)),150)
@@ -301,7 +269,7 @@ class WindowListWidget(BaseWidget):
             if msg.command == yutani.MouseEvent.CLICK:
                 yctx.focus_window(self.hovered)
             elif msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
-                if not menus:
+                if not self.window.menus:
                     def move_window(window):
                         yutani.yutani_lib.yutani_window_drag_start_wid(yutani.yutani_ctx._ptr,window)
                     #def close_window(window):
@@ -310,246 +278,11 @@ class WindowListWidget(BaseWidget):
                         MenuEntryAction("Move",None,move_window,self.hovered),
                         #MenuEntryAction("Close",None,close_window,self.hovered)
                     ]
-                    menu = MenuWindow(menu_entries,(msg.new_x+self.offset,PANEL_HEIGHT))
+                    menu = MenuWindow(menu_entries,(msg.new_x+self.offset,PANEL_HEIGHT),root=self.window)
         else:
             self.hovered = None
         return self.hovered != previously_hovered
 
-
-class MenuEntryAction(object):
-    """Menu entry class for describing a menu entry with an action."""
-
-    # This should be calculated from the space necessary for the icon,
-    # but we're going to be lazy for now and just assume they're all this big.
-    height = 20
-
-    hilight_border_top = (54/255,128/255,205/255)
-    hilight_gradient_top = (93/255,163/255,236/255)
-    hilight_gradient_bottom = (56/255,137/255,220/55)
-    hilight_border_bottom = (47/255,106/255,167/255)
-
-    def __init__(self, title, icon, action=None, data=None):
-        self.title = title
-        self.icon = get_icon(icon) if icon else None
-        self.action = action
-        self.data = data
-        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,13,0xFF000000)
-        self.font_hilight = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,13,0xFFFFFFFF)
-        self.width = self.font.width(self.title) + 50 # Arbitrary bit of extra space.
-        # Fit width to hold title?
-        self.tr = text_region.TextRegion(0,0,self.width - 22, 20, self.font)
-        self.tr.set_text(title)
-        self.hilight = False
-        self.window = None
-        self.gradient = cairo.LinearGradient(0,0,0,self.height-2)
-        self.gradient.add_color_stop_rgba(0.0,*self.hilight_gradient_top,1.0)
-        self.gradient.add_color_stop_rgba(1.0,*self.hilight_gradient_bottom,1.0)
-
-    def focus_enter(self):
-        if self.window and self.window.child:
-            self.window.child.definitely_close()
-        self.tr.set_font(self.font_hilight)
-        self.tr.set_text(self.title)
-        self.hilight = True
-
-    def focus_leave(self):
-        self.tr.set_font(self.font)
-        self.tr.set_text(self.title)
-        self.hilight = False
-
-    def draw(self, window, offset, ctx):
-        # Here, offset = y offset, not x like in panel widgets
-        # eventually, this all needs to be made generic with containers and calculated window coordinates...
-        # but for now, as always, we're being lazy
-        self.window = window
-        self.offset = offset
-        if self.hilight:
-            ctx.rectangle(1,offset,window.width-2,1)
-            ctx.set_source_rgb(*self.hilight_border_top)
-            ctx.fill()
-            ctx.rectangle(1,offset+self.height-1,window.width-2,1)
-            ctx.set_source_rgb(*self.hilight_border_bottom)
-            ctx.fill()
-            ctx.save()
-            ctx.translate(0,offset+1)
-            ctx.rectangle(1,0,window.width-2,self.height-2)
-            ctx.set_source(self.gradient)
-            ctx.fill()
-            ctx.restore()
-        if self.icon:
-            ctx.save()
-            ctx.translate(4,offset+2)
-            if self.icon.get_width != 16:
-                ctx.scale(16/self.icon.get_width(),16/self.icon.get_width())
-            ctx.set_source_surface(self.icon,0,0)
-            ctx.paint()
-            ctx.restore()
-        self.tr.move(22,offset+2)
-        self.tr.draw(window)
-
-    def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
-            if self.action:
-                self.action(self.data) # Probably like launch_app("terminal")
-                self.focus_leave()
-                hovered_menu = None
-                m = [m for m in menus.values()]
-                for k in m:
-                    k.definitely_close()
-
-        return False
-
-class MenuEntrySubmenu(MenuEntryAction):
-    """A menu entry which opens a nested submenu."""
-
-    def __init__(self, title, entries):
-        super(MenuEntrySubmenu,self).__init__(title,"folder",None,None)
-        self.entries = entries
-
-    def focus_enter(self):
-        self.tr.set_font(self.font_hilight)
-        self.tr.set_text(self.title)
-        self.hilight = True
-        if self.window:
-            menu = MenuWindow(self.entries, (self.window.x + self.window.width - 2, self.window.y + self.offset - self.window.top_height), self.window)
-
-    def mouse_action(self, msg):
-        return False
-
-class MenuEntryDivider(object):
-    """A visible separator between menu entries. Does nothing."""
-
-    height = 6
-    width = 0
-
-    def draw(self, window, offset, ctx):
-        self.window = window
-        ctx.rectangle(2,offset+3,window.width-4,1)
-        ctx.set_source_rgb(0.7,0.7,0.7)
-        ctx.fill()
-        ctx.rectangle(2,offset+4,window.width-5,1)
-        ctx.set_source_rgb(0.98,0.98,0.98)
-        ctx.fill()
-
-    def focus_enter(self):
-        if self.window and self.window.child:
-            self.window.child.definitely_close()
-        pass
-
-    def focus_leave(self):
-        pass
-
-    def mouse_action(self,msg):
-        return False
-
-class MenuWindow(yutani.Window):
-    """Nested menu window."""
-
-    # These should be part of some theming functionality, but for now we'll
-    # just embed them here in the MenuWindow class.
-    top_height = 4
-    bottom_height = 4
-    base_background = (239/255,238/255,232/255)
-    base_border = (109/255,111/255,112/255)
-
-    def __init__(self, entries, origin=(0,0), parent=None):
-        self.parent = parent
-        if self.parent:
-            self.parent.child = self
-        self.entries = entries
-        required_width = max([e.width for e in entries])
-        required_height = sum([e.height for e in entries]) + self.top_height + self.bottom_height
-        flags = yutani.WindowFlag.FLAG_ALT_ANIMATION
-        super(MenuWindow, self).__init__(required_width,required_height,doublebuffer=True,flags=flags)
-        self.move(*origin)
-        self.focused_widget = None
-        self.child = None
-        self.x, self.y = origin
-        self.closed = False
-        menus[self.wid] = self
-        self.draw()
-
-    def draw(self):
-        surface = self.get_cairo_surface()
-        ctx = cairo.Context(surface)
-
-        ctx.set_operator(cairo.OPERATOR_SOURCE)
-        ctx.rectangle(0,0,self.width,self.height)
-        ctx.set_line_width(2)
-        ctx.set_source_rgb(*self.base_background)
-        ctx.fill_preserve()
-        ctx.set_source_rgb(*self.base_border)
-        ctx.stroke()
-        ctx.set_operator(cairo.OPERATOR_OVER)
-
-        offset = self.top_height
-        for entry in self.entries:
-            entry.draw(self,offset,ctx)
-            offset += entry.height
-
-
-        self.flip()
-
-    def mouse_action(self, msg):
-        if msg.new_y < self.top_height or msg.new_y >= self.height - self.bottom_height or \
-            msg.new_x < 0 or msg.new_x >= self.width:
-            if self.focused_widget:
-                self.focused_widget.focus_leave()
-                self.focused_widget = None
-                self.draw()
-            return
-        # We must have focused something
-        x = (msg.new_y - self.top_height)
-        offset = 0
-        new_widget = None
-        for entry in self.entries:
-            if x >= offset and x < offset + entry.height:
-                new_widget = entry
-                break
-            offset += entry.height
-
-        redraw = False
-        if new_widget:
-            if self.focused_widget != new_widget:
-                if self.focused_widget:
-                    self.focused_widget.focus_leave()
-                new_widget.focus_enter()
-                self.focused_widget = new_widget
-                redraw = True
-            if new_widget.mouse_action(msg):
-                redraw = True
-        if redraw:
-            self.draw()
-
-    def has_eventual_child(self, child):
-        """Does this menu have the given menu as a child, or a child of a child, etc.?"""
-        if child is self: return True
-        if not self.child: return False
-        return self.child.has_eventual_child(child)
-
-
-    def definitely_close(self):
-        """Close this menu and all of its submenus."""
-        if self.child:
-            self.child.definitely_close()
-            self.child = None
-        if self.closed:
-            return
-        self.closed = True
-        wid = self.wid
-        self.close()
-        del menus[wid]
-
-    def leave_menu(self):
-        """Focus has left this menu. If it is not a parent of the currently active menu, close it."""
-        global hovered_menu
-        if self.has_eventual_child(hovered_menu):
-            pass
-        else:
-            m = [m for m in menus.values()]
-            for k in m:
-                if not hovered_menu or (k is not hovered_menu.child and not k.has_eventual_child(hovered_menu)):
-                    k.definitely_close()
 
 class ApplicationsMenuWidget(BaseWidget):
     """Provides a menu of applications to launch."""
@@ -568,7 +301,7 @@ class ApplicationsMenuWidget(BaseWidget):
             MenuEntrySubmenu("Accesories",[
                 MenuEntryAction("Calculator","calculator",launch_app,"calculator.py"),
                 MenuEntryAction("Clock Widget","clock",launch_app,"clock-win"),
-                MenuEntryAction("File Browser","file-browser",launch_app,"file_browser.py"),
+                MenuEntryAction("File Browser","folder",launch_app,"file_browser.py"),
                 MenuEntryAction("Terminal","utilities-terminal",launch_app,"terminal"),
                 MenuEntryAction("Vim","vim",launch_app,"terminal vim-install-or-run.py"),
             ]),
@@ -602,6 +335,7 @@ class ApplicationsMenuWidget(BaseWidget):
         ]
 
     def draw(self, window, offset, remaining, ctx):
+        self.window = window
         self.tr.move(offset+self.text_x_offset,self.text_y_offset)
         self.tr.draw(window)
 
@@ -611,11 +345,12 @@ class ApplicationsMenuWidget(BaseWidget):
     def focus_leave(self):
         self.font.font_color = self.color
 
+    def activate(self):
+        menu = MenuWindow(self.menu_entries,(0,PANEL_HEIGHT),root=self.window)
+
     def mouse_action(self,msg):
         if msg.command == yutani.MouseEvent.CLICK:
-            menu = MenuWindow(self.menu_entries,(0,PANEL_HEIGHT))
-
-
+            self.activate()
 
 class PanelWindow(yutani.Window):
     """The panel itself."""
@@ -627,6 +362,9 @@ class PanelWindow(yutani.Window):
         self.move(0,0)
         self.set_stack(yutani.WindowStackOrder.ZORDER_TOP)
         self.focused_widget = None
+
+        self.menus = {}
+        self.hovered_menu = None
 
         # Panel background
         self.background = cairo.ImageSurface.create_from_png('/usr/share/panel.png')
@@ -1228,6 +966,9 @@ def set_binds():
     # Application runner
     yctx.key_bind(yutani.Keycode.F2, yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
 
+    # Menu
+    yctx.key_bind(yutani.Keycode.F1, yutani.Modifier.MOD_LEFT_ALT, yutani.KeybindFlag.BIND_STEAL)
+
     # Hide/show panel
     yctx.key_bind(yutani.Keycode.F11, yutani.Modifier.MOD_LEFT_CTRL, yutani.KeybindFlag.BIND_STEAL)
 
@@ -1245,16 +986,14 @@ def reset_zorder(signum, frame):
 if __name__ == '__main__':
     yctx = yutani.Yutani()
 
-    widgets = [ApplicationsMenuWidget(),WindowListWidget(),VolumeWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
+    appmenu = ApplicationsMenuWidget()
+    widgets = [appmenu,WindowListWidget(),VolumeWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
     panel = PanelWindow(widgets)
 
     wallpaper = WallpaperWindow()
     wallpaper.draw()
 
     app_runner = None
-
-    menus = {}
-    hovered_menu = None
 
     # Tabbing
     tabbing = False
@@ -1325,6 +1064,11 @@ if __name__ == '__main__':
                 (msg.event.action == yutani.KeyAction.ACTION_DOWN):
                 app_runner = ApplicationRunnerWindow()
                 app_runner.draw()
+            if not panel.menus and \
+                (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
+                (msg.event.keycode == yutani.Keycode.F1) and \
+                (msg.event.action == yutani.KeyAction.ACTION_DOWN):
+                appmenu.activate()
             # Ctrl-Alt-T: Open Terminal
             if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_CTRL) and \
                 (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
@@ -1345,6 +1089,8 @@ if __name__ == '__main__':
                 (msg.event.keycode == ord("\t")) and \
                 (msg.event.action == yutani.KeyAction.ACTION_DOWN):
                 alt_tab(msg)
+            if msg.wid in panel.menus:
+                panel.menus[msg.wid].keyboard_event(msg)
         elif msg.type == yutani.Message.MSG_WELCOME:
             # Display size has changed.
             panel.resize(msg.display_width, PANEL_HEIGHT)
@@ -1360,14 +1106,14 @@ if __name__ == '__main__':
                 panel.mouse_action(msg)
             elif msg.wid == wallpaper.wid:
                 wallpaper.mouse_action(msg)
-            if msg.wid in menus:
-                m = menus[msg.wid]
+            if msg.wid in panel.menus:
+                m = panel.menus[msg.wid]
                 if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
-                    hovered_menu = m
-                elif hovered_menu == m:
-                    hovered_menu = None
+                    panel.hovered_menu = m
+                elif panel.hovered_menu == m:
+                    panel.hovered_menu = None
                 m.mouse_action(msg)
         elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-            if msg.wid in menus and msg.focused == 0:
-                menus[msg.wid].leave_menu()
+            if msg.wid in panel.menus and msg.focused == 0:
+                panel.menus[msg.wid].leave_menu()
 
