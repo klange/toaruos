@@ -4,12 +4,18 @@ Help Documentation Browser
 """
 import os
 import sys
+import subprocess
 
 import cairo
 
 import yutani
 import toaru_fonts
 import text_region
+
+from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
+
+version = "0.1.0"
+_description = f"<b>Help Browser {version}</b>\n© 2017 Kevin Lange\n\nRich text help document viewer.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 class HelpBrowserWindow(yutani.Window):
 
@@ -27,12 +33,46 @@ class HelpBrowserWindow(yutani.Window):
         self.scroll_offset = 0
         self.tr = None
         self.size_changed = False
-        self.update_text_buffer()
 
         self.special = {}
         self.special['contents'] = self.special_contents
         self.special['demo'] = self.special_demo
         self.down_text = None
+
+        def print_derp(derp):
+            print("derp!")
+        def exit_app(action):
+            menus = [x for x in self.menus.values()]
+            for x in menus:
+                x.definitely_close()
+            self.close()
+            sys.exit(0)
+        def about_window(action):
+            subprocess.Popen(["about-applet.py","About Help Browser","help","/usr/share/icons/48/help.png",_description])
+        menus = [
+            ("File", [
+                #MenuEntryAction("Open...",None,print_derp,None),
+                #MenuEntryDivider(),
+                MenuEntryAction("Exit","exit",exit_app,None),
+            ]),
+            ("Go", [
+                MenuEntryAction("Home",None,self.go_page,"0_index.trt"),
+                MenuEntryAction("Topics",None,self.go_page,"special:contents"),
+                MenuEntryAction("Back",None,self.go_back,None),
+            ]),
+            ("Help", [
+                MenuEntryAction("Contents","help",self.go_page,"help_browser.trt"),
+                MenuEntryDivider(),
+                MenuEntryAction("About Help Browser","star",about_window,None),
+            ]),
+        ]
+
+        self.menubar = MenuBarWidget(self,menus)
+
+        self.menus = {}
+        self.hovered_menu = None
+
+        self.update_text_buffer()
 
     def get_title(self, document):
         if document.startswith("special:"):
@@ -104,28 +144,20 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
 
 """
 
-    def get_help_text(self):
-        output  = f"<b><link target=\"{self.last_topic}\">Back</link>"
-        output += f" | <link target=\"0_index.trt\">Home</link>"
-        output += f" | <link target=\"special:contents\">Contents</link>"
-        output += f" | <i>{self.current_topic}</i>: {self.get_title(self.current_topic)}"
-        output += f"</b>\n"
-        output += self.get_document_text() + "\n\n" + output
-        return output
-
     def navigate(self, target):
         self.last_topic = self.current_topic
         self.current_topic = target
         self.text_offset = 0
         self.scroll_offset = 0
-        self.tr.set_richtext(self.get_help_text())
+        self.tr.set_richtext(self.get_document_text())
         self.update_text_buffer()
+        self.set_title(f"{self.get_title(self.current_topic)} - Help Browser","help")
 
     def update_text_buffer(self):
         if self.size_changed or not self.text_buffer:
             if self.text_buffer:
                 self.text_buffer.destroy()
-            self.text_buffer = yutani.GraphicsBuffer(self.width - self.decorator.width(),self.height-self.decorator.height()+80)
+            self.text_buffer = yutani.GraphicsBuffer(self.width - self.decorator.width(),self.height-self.decorator.height()+80-self.menubar.height)
         surface = self.text_buffer.get_cairo_surface()
         ctx = cairo.Context(surface)
         ctx.rectangle(0,0,surface.get_width(),surface.get_height())
@@ -137,7 +169,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             self.tr = text_region.TextRegion(pad,0,surface.get_width()-pad*2,surface.get_height())
             self.tr.set_line_height(18)
             self.tr.base_dir = '/usr/share/help/'
-            self.tr.set_richtext(self.get_help_text())
+            self.tr.set_richtext(self.get_document_text())
         elif self.size_changed:
             self.size_changed = False
             self.tr.resize(surface.get_width()-pad*2,surface.get_height()-pad*2)
@@ -156,9 +188,14 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         ctx.set_source_rgb(204/255,204/255,204/255)
         ctx.fill()
 
+        ctx.save()
+        ctx.translate(0,self.menubar.height)
         text = self.text_buffer.get_cairo_surface()
         ctx.set_source_surface(text,0,-self.text_offset)
         ctx.paint()
+        ctx.restore()
+
+        self.menubar.draw(ctx,0,0,WIDTH)
 
         self.decorator.render(self)
 
@@ -197,13 +234,39 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
     def text_under_cursor(self, msg):
         """Get the text unit under the cursor."""
         x = msg.new_x - self.decorator.left_width()
-        y = msg.new_y - self.decorator.top_height() + self.text_offset
+        y = msg.new_y - self.decorator.top_height() + self.text_offset - self.menubar.height
         return self.tr.click(x,y)
+
+
+    def go_page(self, action):
+        """Navigate to a page."""
+        self.navigate(action)
+        self.draw()
+        self.flip()
+
+    def go_back(self,action):
+        """Go back."""
+        if self.last_topic:
+            self.navigate(self.last_topic)
+        self.draw()
+        self.flip()
 
     def mouse_event(self, msg):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
             window.close()
             sys.exit(0)
+        x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
+        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        if x >= 0 and x < w and y >= 0 and y < self.menubar.height:
+            self.menubar.mouse_event(msg, x, y)
+
+        if x >= 0 and x < w and y >= self.menubar.height and y < h:
+            if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
+                if not self.menus:
+                    menu_entries = [
+                        MenuEntryAction("Back",None,self.go_back,None),
+                    ]
+                    menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
         if msg.command == yutani.MouseEvent.DOWN:
             e = self.text_under_cursor(msg)
             r = False
@@ -302,17 +365,40 @@ if __name__ == '__main__':
                 if window.keyboard_event(msg):
                     window.draw()
                     window.flip()
+            elif msg.wid in window.menus:
+                window.menus[msg.wid].keyboard_event(msg)
         elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
             if msg.wid == window.wid:
-                window.focused = msg.focused
+                if msg.focused == 0 and window.menus:
+                    window.focused = 1
+                else:
+                    window.focused = msg.focused
                 window.draw()
                 window.flip()
+            elif msg.wid in window.menus and msg.focused == 0:
+                window.menus[msg.wid].leave_menu()
+                if not window.menus and window.focused:
+                    window.focused = 0
+                    window.draw()
+                    window.flip()
         elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            window.finish_resize(msg)
+            if msg.wid == window.wid:
+                window.finish_resize(msg)
+        elif msg.type == yutani.Message.MSG_WINDOW_MOVE:
+            if msg.wid == window.wid:
+                window.x = msg.x
+                window.y = msg.y
         elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
             if msg.wid == window.wid:
                 if window.mouse_event(msg):
                     window.draw()
                     window.flip()
+            elif msg.wid in window.menus:
+                m = window.menus[msg.wid]
+                if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
+                    window.hovered_menu = m
+                elif window.hovered_menu == m:
+                    window.hovered_menu = None
+                m.mouse_action(msg)
 
 
