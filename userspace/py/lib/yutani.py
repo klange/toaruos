@@ -320,6 +320,7 @@ class Yutani(object):
         yutani_gfx_lib = CDLL("libtoaru-graphics.so")
         self._ptr = cast(yutani_lib.yutani_init(), POINTER(self._yutani_t))
         yutani_ctx = self
+        self._fileno = CDLL('libc.so').fileno(self._ptr.contents.sock)
 
     def poll(self, sync=True):
         """Poll for an event message."""
@@ -368,6 +369,9 @@ class Yutani(object):
         """Set global key binding."""
         yutani_lib.yutani_key_bind(self._ptr, keycode, modifiers, flags)
 
+    def fileno(self):
+        """Act file-like and return our file descriptor number."""
+        return self._fileno
 
 class KeybindFlag(object):
     """Flags for global key bindings."""
