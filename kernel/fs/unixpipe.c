@@ -93,6 +93,21 @@ static void close_write_pipe(fs_node_t * node) {
 	}
 }
 
+static int check_pipe(fs_node_t * node) {
+	struct unix_pipe * self = node->device;
+	if (ring_buffer_unread(self->buffer) > 0) {
+		return 0;
+	}
+	return 1;
+}
+
+static int wait_pipe(fs_node_t * node, void * process) {
+	struct unix_pipe * self = node->device;
+	ring_buffer_select_wait(self->buffer, process);
+	return 0;
+}
+
+
 int make_unix_pipe(fs_node_t ** pipes) {
 	size_t size = UNIX_PIPE_BUFFER;
 
@@ -116,6 +131,10 @@ int make_unix_pipe(fs_node_t ** pipes) {
 
 	pipes[0]->close = close_read_pipe;
 	pipes[1]->close = close_write_pipe;
+
+	/* Read end can wait */
+	pipes[0]->selectcheck = check_pipe;
+	pipes[0]->selectwait = wait_pipe;
 
 	struct unix_pipe * internals = malloc(sizeof(struct unix_pipe));
 	internals->read_end = pipes[0];
