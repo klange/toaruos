@@ -27,7 +27,7 @@ int main(int argc, char * argv[]) {
 		setuid(1000);
 		toaru_auth_set_vars();
 
-		char * args[] = {"/bin/live-wizard", NULL};
+		char * args[] = {"/bin/wizard.py", NULL};
 		execvp(args[0], args);
 		TRACE("wizard start failed?");
 	}
