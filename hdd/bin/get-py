@@ -22,14 +22,22 @@ def compare_version(left,right):
     if left[0] == right[0] and left[1] == right[1] and left[2] > right[2]: return True
     return False
 
-def fetch_file(path, output, check=False, url=url):
+def fetch_file(path, output, check=False, url=url, gui=False):
     loop = 0
     while loop < 3:
-        args = ['fetch','-o',output]
-        if check:
-            args.append('-v')
-        args.append(f'{url}/{path}')
-        subprocess.call(args)
+        if gui:
+            args = ['fetch', '-m', '-o', output]
+            args.append(f'{url}/{path}')
+            fetch = subprocess.Popen(args, stdout=subprocess.PIPE)
+            progress = subprocess.Popen(['progress-bar.py',f"Fetching {path}..."], stdin=fetch.stdout)
+            fetch.stdout.close()
+            progress.wait()
+        else:
+            args = ['fetch','-o',output]
+            if check:
+                args.append('-v')
+            args.append(f'{url}/{path}')
+            subprocess.call(args)
         if check:
             s = hashlib.sha512()
             with open(output,'rb') as f:
@@ -100,7 +108,7 @@ for name in packages_to_install:
 def install_file(file,source):
     print(f"- Retrieving file {file[0]}","and checking hash" if file[2] else "")
     if not dryrun:
-        fetch_file(file[0],file[1],file[2],source)
+        fetch_file(file[0],file[1],file[2],source,"--gui" in sys.argv)
 
 def run_install_step(step):
     if step[0] == 'ln':
