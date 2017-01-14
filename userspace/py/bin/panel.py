@@ -297,38 +297,63 @@ class ApplicationsMenuWidget(BaseWidget):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF_BOLD, 14, self.color)
         self.tr   = text_region.TextRegion(0,0,self.width-self.text_x_offset*2,PANEL_HEIGHT-self.text_y_offset,font=self.font)
         self.tr.set_text("Applications")
+
+        self.reinit_menus()
+
+    def extra(self, name):
+        if not os.path.exists(f'/usr/share/menus/{name}'):
+            return []
+        else:
+            out = []
+            for icon in os.listdir(f'/usr/share/menus/{name}'):
+                with open(f'/usr/share/menus/{name}/{icon}','r') as f:
+                    icon,command,title = f.read().strip().split(',')
+                    out.append(MenuEntryAction(title,icon,launch_app,command))
+            return out
+
+    def reinit_menus(self):
+        accessories = [
+            MenuEntryAction("Calculator","calculator",launch_app,"calculator.py"),
+            MenuEntryAction("Clock Widget","clock",launch_app,"clock-win"),
+            MenuEntryAction("File Browser","folder",launch_app,"file_browser.py"),
+            MenuEntryAction("Terminal","utilities-terminal",launch_app,"terminal"),
+        ]
+        accessories.extend(self.extra('accessories'))
+        demos = [
+            MenuEntrySubmenu("Cairo",[
+                MenuEntryAction("Cairo Demo","cairo-demo",launch_app,"cairo-demo"),
+                MenuEntryAction("Cairo Snow","snow",launch_app,"make-it-snow"),
+                MenuEntryAction("Pixman Demo","pixman-demo",launch_app,"pixman-demo"),
+            ]),
+            MenuEntrySubmenu("Mesa (swrast)",[
+                MenuEntryAction("Gears","gears",launch_app,"gears"),
+                MenuEntryAction("Teapot","teapot",launch_app,"teapot"),
+            ]),
+            MenuEntryAction("Draw Lines","drawlines",launch_app,"drawlines"),
+            MenuEntryAction("Julia Fractals","julia",launch_app,"julia"),
+            MenuEntryAction("Plasma","plasma",launch_app,"plasma"),
+        ]
+        demos.extend(self.extra('demos'))
+        games = [
+            MenuEntryAction("RPG Demo","applications-simulation",launch_app,"game"),
+        ]
+        games.extend(self.extra('games'))
+        graphics = [
+            MenuEntryAction("Draw!","applications-painting",launch_app,"draw"),
+        ]
+        graphics.extend(self.extra('graphics'))
+        settings = [
+            MenuEntryAction("Package Manager","package",launch_app,"gsudo package_manager.py"),
+            MenuEntryAction("Select Wallpaper","select-wallpaper",launch_app,"select-wallpaper"),
+        ]
+        settings.extend(self.extra('settings'))
+
         self.menu_entries = [
-            MenuEntrySubmenu("Accesories",[
-                MenuEntryAction("Calculator","calculator",launch_app,"calculator.py"),
-                MenuEntryAction("Clock Widget","clock",launch_app,"clock-win"),
-                MenuEntryAction("File Browser","folder",launch_app,"file_browser.py"),
-                MenuEntryAction("Terminal","utilities-terminal",launch_app,"terminal"),
-                MenuEntryAction("Vim","vim",launch_app,"terminal vim-install-or-run.py"),
-            ]),
-            MenuEntrySubmenu("Demos",[
-                MenuEntrySubmenu("Cairo",[
-                    MenuEntryAction("Cairo Demo","cairo-demo",launch_app,"cairo-demo"),
-                    MenuEntryAction("Cairo Snow","snow",launch_app,"make-it-snow"),
-                    MenuEntryAction("Pixman Demo","pixman-demo",launch_app,"pixman-demo"),
-                ]),
-                MenuEntrySubmenu("Mesa (swrast)",[
-                    MenuEntryAction("Gears","gears",launch_app,"gears"),
-                    MenuEntryAction("Teapot","teapot",launch_app,"teapot"),
-                ]),
-                MenuEntryAction("Draw Lines","drawlines",launch_app,"drawlines"),
-                MenuEntryAction("Julia Fractals","julia",launch_app,"julia"),
-                MenuEntryAction("Plasma","plasma",launch_app,"plasma"),
-            ]),
-            MenuEntrySubmenu("Games",[
-                MenuEntryAction("RPG Demo","applications-simulation",launch_app,"game"),
-            ]),
-            MenuEntrySubmenu("Graphics",[
-                MenuEntryAction("Draw!","applications-painting",launch_app,"draw"),
-            ]),
-            MenuEntrySubmenu("Settings",[
-                MenuEntryAction("Package Manager","package",launch_app,"gsudo package_manager.py"),
-                MenuEntryAction("Select Wallpaper","select-wallpaper",launch_app,"select-wallpaper"),
-            ]),
+            MenuEntrySubmenu("Accessories",accessories),
+            MenuEntrySubmenu("Demos",demos),
+            MenuEntrySubmenu("Games",games),
+            MenuEntrySubmenu("Graphics",graphics),
+            MenuEntrySubmenu("Settings",settings),
             MenuEntryDivider(),
             MenuEntryAction("Help","help",launch_app,"help-browser.py"),
             MenuEntryAction("About ToaruOS","star",launch_app,"about-applet.py"),
@@ -937,6 +962,7 @@ def finish_alt_tab(msg):
 def reload_wallpaper(signum, frame):
     """Respond to SIGUSR1 by reloading the wallpaper."""
     wallpaper.animate_new()
+    appmenu.reinit_menus()
 
 def alt_tab(msg):
     """When Alt+Tab or Alt+Shift+Tab are pressed, call this to set the active alt-tab window."""

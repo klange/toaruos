@@ -2,6 +2,7 @@
 Library for managing get-py packages.
 """
 import json
+import signal
 import subprocess
 import sys
 import hashlib
@@ -73,6 +74,24 @@ def install_file(file,source):
     if not dryrun:
         fetch_file(file[0],file[1],file[2],source,is_gui)
 
+def install_icon(steps):
+    if not os.path.exists('/usr/share/icons/external'):
+        subprocess.call(['mount','tmpfs','x','/usr/share/icons/external'])
+    if not os.path.exists('/usr/share/menus'):
+        subprocess.call(['mount','tmpfs','x','/usr/share/menus'])
+    if not steps[2] in ['accessories','games','demo','graphics','settings']:
+        return
+    if not os.path.exists(f'/usr/share/menus/{steps[2]}'):
+        os.mkdir(f'/usr/share/menus/{steps[2]}')
+    fetch_file(steps[3],f'/usr/share/icons/external/{steps[4]}.png')
+    with open(f'/usr/share/menus/{steps[2]}/{steps[4]}.desktop','w') as f:
+        f.write(f"{steps[4]},{steps[5]},{steps[1]}\n")
+    pid = None
+    with open('/tmp/.wallpaper.pid','r') as f:
+        pid = int(f.read().strip())
+    if pid:
+        os.kill(pid, signal.SIGUSR1)
+
 def run_install_step(step):
     if step[0] == 'ln':
         print(f"- Linking {step[2]} -> {step[1]}")
@@ -98,7 +117,12 @@ def run_install_step(step):
     elif step[0] == 'mkdir':
         print(f"- Creating directory {step[1]}")
         if not dryrun:
-            os.mkdir(step[1])
+            if not os.path.exists(step[1]):
+                os.mkdir(step[1])
+    elif step[0] == 'menu':
+        print(f"- Installing shortcut {step[1]} in {step[2]}")
+        if not dryrun:
+            install_icon(step)
     else:
         print("Unknown step:",step)
 
