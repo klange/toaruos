@@ -6,6 +6,17 @@ import os
 import cairo
 import toaru_fonts
 
+_emoji_available = os.path.exists('/usr/share/emoji')
+
+if _emoji_available:
+    _emoji_values = [int(x.replace('.png',''),16) for x in os.listdir('/usr/share/emoji') if x.endswith('.png') and not '-' in x]
+
+_emoji_table = {}
+def get_emoji(emoji):
+    if not emoji in _emoji_table:
+        _emoji_table[emoji] = cairo.ImageSurface.create_from_png('/usr/share/emoji/' + hex(ord(emoji)).replace('0x','')+'.png')
+    return _emoji_table[emoji]
+
 class TextUnit(object):
     def __init__(self, string, unit_type, font):
         self.string = string
@@ -14,13 +25,20 @@ class TextUnit(object):
         self.width = font.width(self.string) if font else 0
         self.extra = {}
         self.tag_group = None
+        if self.unit_type == 2 and _emoji_available:
+            if ord(self.string) > 0x1000 and ord(self.string) in _emoji_values:
+                self.extra['emoji'] = True
+                self.extra['img'] = get_emoji(self.string)
+                self.extra['offset'] = font.font_size
+                self.string = ""
+                self.width = font.font_size
 
     def set_tag_group(self, tag_group):
         self.tag_group = tag_group
         self.tag_group.append(self)
 
     def set_font(self, font):
-        if self.unit_type == 4: return
+        if 'img' in self.extra: return
         self.font = font
         self.width = font.width(self.string) if font else 0
 
@@ -140,6 +158,8 @@ class TextRegion(object):
             font = self.font
 
         def char_width(char):
+            if _emoji_available and ord(char) in _emoji_values:
+                return 2
             x = unicodedata.east_asian_width(char)
             if x == 'Na': return 1
             if x == 'N': return 1
@@ -378,6 +398,17 @@ class TextRegion(object):
                         cr.fill()
                     cr.rectangle(0,-self.line_height+extra,unit.extra['img'].get_width(),self.line_height)
                     cr.set_source_surface(unit.extra['img'],0,-unit.extra['offset']-self.line_height+extra)
+                    cr.fill()
+                    cr.restore()
+                elif unit.unit_type == 2 and 'emoji' in unit.extra:
+                    cr.save()
+                    extra = 3
+                    cr.translate(self.x + left_align, self.y + current_height + top_align -self.line_height+extra)
+                    if unit.extra['img'].get_height() > self.line_height - 3:
+                        scale = (self.line_height - 3) / unit.extra['img'].get_height()
+                        cr.scale(scale,scale)
+                    cr.rectangle(0,0,unit.extra['img'].get_width(),unit.extra['img'].get_height())
+                    cr.set_source_surface(unit.extra['img'],0,0)
                     cr.fill()
                     cr.restore()
                 elif unit.font:
