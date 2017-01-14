@@ -224,7 +224,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         while self.text_offset >= self.tr.line_height:
             self.scroll_offset += 1
             self.text_offset -= self.tr.line_height
-        n = (len(self.tr.lines)-self.tr.visible_lines())+4
+        n = (len(self.tr.lines)-self.tr.visible_lines())+5
         n = n if n >= 0 else 0
         if self.scroll_offset >= n:
             self.scroll_offset = n
@@ -327,7 +327,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             self.update_text_buffer()
             return True
         elif msg.event.keycode == yutani.Keycode.END:
-            n = (len(self.tr.lines)-self.tr.visible_lines())+4
+            n = (len(self.tr.lines)-self.tr.visible_lines())+5
             self.scroll_offset = n if n >= 0 else 0
             self.text_offset = 0
             self.update_text_buffer()
