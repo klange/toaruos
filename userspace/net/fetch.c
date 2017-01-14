@@ -40,6 +40,7 @@ struct {
 	struct timeval start;
 	int calculate_output;
 	int slow_upload;
+	int machine_readable;
 } fetch_options = {0};
 
 void parse_url(char * d, struct http_req * r) {
@@ -128,6 +129,9 @@ int callback_body (http_parser *p, const char *buf, size_t len) {
 	if (fetch_options.show_progress) {
 		print_progress();
 	}
+	if (fetch_options.machine_readable && fetch_options.content_length) {
+		fprintf(stdout,"%d %d\n",fetch_options.size, fetch_options.content_length);
+	}
 	return 0;
 }
 
@@ -157,7 +161,7 @@ int main(int argc, char * argv[]) {
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "?c:ho:Opu:vs:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:hmo:Opu:vs:")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
@@ -178,6 +182,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'v':
 				fetch_options.show_progress = 1;
+				break;
+			case 'm':
+				fetch_options.machine_readable = 1;
 				break;
 			case 'p':
 				fetch_options.prompt_password = 1;
@@ -323,6 +330,10 @@ int main(int argc, char * argv[]) {
 
 	if (fetch_options.show_progress) {
 		fprintf(stderr,"\n");
+	}
+
+	if (fetch_options.machine_readable) {
+		fprintf(stdout,"done\n");
 	}
 
 	return 0;
