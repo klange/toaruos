@@ -185,6 +185,7 @@ class WizardWindow(yutani.Window):
             else:
                 if self.hover_widget == self.button:
                     self.button.focus_leave()
+                    self.hover_widget = None
                     redraw = True
 
         if redraw:
