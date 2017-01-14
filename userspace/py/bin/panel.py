@@ -326,6 +326,7 @@ class ApplicationsMenuWidget(BaseWidget):
                 MenuEntryAction("Draw!","applications-painting",launch_app,"draw"),
             ]),
             MenuEntrySubmenu("Settings",[
+                MenuEntryAction("Package Manager","package",launch_app,"gsudo package_manager.py"),
                 MenuEntryAction("Select Wallpaper","select-wallpaper",launch_app,"select-wallpaper"),
             ]),
             MenuEntryDivider(),
