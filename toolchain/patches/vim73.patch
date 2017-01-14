@@ -118,10 +118,10 @@ diff -rupN vim73/src/os_unix.c vim73.new/src/os_unix.c
 +#define POLLNVAL    0x0020    /* Invalid request: fd not open */
 +
 +struct pollfd { int fd; short events; short revents; };
-+#ifndef syscall_fswait
++
++ /* fswait define used to be here */
 +#include <syscall.h>
-+DEFN_SYSCALL3(fswait2,60,int,int*,int);
-+#endif
++
 +int poll(struct pollfd * ufds, long nfds, int timeout) {
 +	if (nfds > 1) { fprintf(stderr, "Unexpectedly waiting on multiple file descriptors?\n"); }
 +	if (nfds > 0) {

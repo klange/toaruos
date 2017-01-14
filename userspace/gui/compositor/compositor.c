@@ -483,11 +483,6 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 	mark_window(yg, win);
 }
 
-#ifndef syscall_fswait
-/* TODO: This isn't in our newlib syscall bindings yet. */
-DEFN_SYSCALL2(fswait,59,int,int*);
-#endif
-
 void * timer_tick(void * _server) {
 	(void)_server;
 	//yutani_globals_t * yg = _server;

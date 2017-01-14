@@ -1366,12 +1366,6 @@ void * handle_incoming(void) {
 	}
 }
 
-#ifndef syscall_fswait
-/* TODO: This isn't in our newlib syscall bindings yet. */
-DEFN_SYSCALL2(fswait,59,int,int*);
-#endif
-
-
 int main(int argc, char ** argv) {
 
 	_use_freetype = 1;

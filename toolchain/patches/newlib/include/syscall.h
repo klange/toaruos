@@ -108,6 +108,8 @@ DECL_SYSCALL2(nanosleep, unsigned long, unsigned long);
 DECL_SYSCALL3(ioctl, int, int, void *);
 DECL_SYSCALL2(access, char *, int);
 DECL_SYSCALL2(stat, char *, void *);
+DECL_SYSCALL2(fswait,int,int*);
+DECL_SYSCALL3(fswait2,int,int*,int);
 
 #endif
 /*

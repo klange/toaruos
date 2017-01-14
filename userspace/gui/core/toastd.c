@@ -42,11 +42,6 @@ static sprite_t * toast_bg;
 #define TOAST_OFFSET_X 20
 #define TOAST_OFFSET_Y 30
 
-#ifndef syscall_fswait
-/* TODO: This isn't in our newlib syscall bindings yet. */
-DEFN_SYSCALL2(fswait,59,int,int*);
-#endif
-
 typedef struct {
 	int    ttl;
 	char * title;
