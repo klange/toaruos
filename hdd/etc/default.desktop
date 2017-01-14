@@ -1,2 +1,3 @@
 utilities-terminal,terminal,Terminal
 folder,file_browser.py $HOME,Documents
+package,gsudo package_manager.py,Packages
