@@ -21,6 +21,11 @@ from icon_cache import get_icon
 version = "0.1.0"
 _description = f"<b>Package Manager {version}</b>\n© 2017 Kevin Lange\n\nBrowse and install software packages.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
+hilight_border_top = (54/255,128/255,205/255)
+hilight_gradient_top = (93/255,163/255,236/255)
+hilight_gradient_bottom = (56/255,137/255,220/55)
+hilight_border_bottom = (47/255,106/255,167/255)
+
 def install(name):
     toaru_package.process_package(name)
     toaru_package.calculate_upgrades()
@@ -156,10 +161,28 @@ class PackageManagerWindow(yutani.Window):
         for f in self.packages:
             f.y = offset_y
             if not clips or f in clips:
-                tr = text_region.TextRegion(30,offset_y+4,w,20)
+                tr = text_region.TextRegion(4,offset_y+4,w-4,20)
                 if f.hilight:
-                    tr.font.font_color = 0xFF0000FF
+                    gradient = cairo.LinearGradient(0,0,0,18)
+                    gradient.add_color_stop_rgba(0.0,*hilight_gradient_top,1.0)
+                    gradient.add_color_stop_rgba(1.0,*hilight_gradient_bottom,1.0)
+                    ctx.rectangle(0,offset_y+4,w,1)
+                    ctx.set_source_rgb(*hilight_border_top)
+                    ctx.fill()
+                    ctx.rectangle(0,offset_y+4+20-1,w,1)
+                    ctx.set_source_rgb(*hilight_border_bottom)
+                    ctx.fill()
+                    ctx.save()
+                    ctx.translate(0,offset_y+4+1)
+                    ctx.rectangle(0,0,w,20-2)
+                    ctx.set_source(gradient)
+                    ctx.fill()
+                    ctx.restore()
+                    tr.font.font_color = 0xFFFFFFFF
                 else:
+                    ctx.rectangle(0,offset_y+4,w,20)
+                    ctx.set_source_rgb(1,1,1)
+                    ctx.fill()
                     tr.font.font_color = 0xFF000000
                 tr.set_richtext(f.text)
                 tr.set_one_line()
