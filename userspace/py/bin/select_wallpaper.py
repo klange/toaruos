@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """
-Calculator for ToaruOS
+'Select Wallpaper' app
 """
 import configparser
 import os
