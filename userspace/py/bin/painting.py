@@ -181,13 +181,16 @@ class PaintingWindow(yutani.Window):
         if not (msg.buttons & yutani.MouseButton.BUTTON_LEFT):
             self.was_drawing = False
 
-        if msg.command == yutani.MouseEvent.DRAG and msg.buttons & yutani.MouseButton.BUTTON_LEFT:
+        if (msg.command == yutani.MouseEvent.DRAG or msg.command == yutani.MouseEvent.DOWN) and msg.buttons & yutani.MouseButton.BUTTON_LEFT:
             self.was_drawing = True
             self.draw_ctx.set_line_cap(cairo.LINE_CAP_ROUND)
             self.draw_ctx.set_line_join(cairo.LINE_JOIN_ROUND)
             self.draw_ctx.set_source_rgb(*self.color())
             self.draw_ctx.set_line_width(self.line_width)
-            self.draw_ctx.move_to(0.5+msg.old_x - self.decorator.left_width(), 0.5+msg.old_y - self.decorator.top_height() - self.menubar.height);
+            if msg.command == yutani.MouseEvent.DOWN:
+                self.draw_ctx.move_to(0.5+msg.new_x - self.decorator.left_width(), 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height);
+            else:
+                self.draw_ctx.move_to(0.5+msg.old_x - self.decorator.left_width(), 0.5+msg.old_y - self.decorator.top_height() - self.menubar.height);
             self.draw_ctx.line_to(0.5+msg.new_x - self.decorator.left_width(), 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height);
             self.draw_ctx.stroke()
 
