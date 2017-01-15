@@ -87,7 +87,7 @@ class PackageManagerWindow(yutani.Window):
     base_width = 400
     base_height = 300
 
-    def __init__(self, decorator, path):
+    def __init__(self, decorator):
         super(PackageManagerWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Package Manager", icon="package", doublebuffer=True)
         self.move(100,100)
         self.x = 100
@@ -116,9 +116,6 @@ class PackageManagerWindow(yutani.Window):
         ]
 
         self.menubar = MenuBarWidget(self,menus)
-
-        self.hover_widget = None
-        self.down_button = None
 
         self.menus = {}
         self.hovered_menu = None
@@ -315,7 +312,7 @@ if __name__ == '__main__':
     yutani.Yutani()
     d = yutani.Decor()
 
-    window = PackageManagerWindow(d,'/' if len(sys.argv) < 2 else sys.argv[1])
+    window = PackageManagerWindow(d)
     window.draw()
 
     while 1:
