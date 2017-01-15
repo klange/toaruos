@@ -344,7 +344,7 @@ class ApplicationsMenuWidget(BaseWidget):
         graphics.extend(self.extra('graphics'))
         settings = [
             MenuEntryAction("Package Manager","package",launch_app,"gsudo package_manager.py"),
-            MenuEntryAction("Select Wallpaper","select-wallpaper",launch_app,"select-wallpaper"),
+            MenuEntryAction("Select Wallpaper","select-wallpaper",launch_app,"select_wallpaper.py"),
         ]
         settings.extend(self.extra('settings'))
 
