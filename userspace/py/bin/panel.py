@@ -339,7 +339,7 @@ class ApplicationsMenuWidget(BaseWidget):
         ]
         games.extend(self.extra('games'))
         graphics = [
-            MenuEntryAction("Draw!","applications-painting",launch_app,"draw"),
+            MenuEntryAction("ToaruPaint","applications-painting",launch_app,"painting.py"),
         ]
         graphics.extend(self.extra('graphics'))
         settings = [
