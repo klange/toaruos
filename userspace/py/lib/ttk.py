@@ -5,13 +5,6 @@ import yutani
 decorations = None
 _windows = {}
 
-ttk_lib = None
-
-def init_ttk():
-    global ttk_lib
-    from ctypes import CDLL
-    ttk_lib = CDLL("libtoaru-ttk.so")
-
 def rgb(r,g,b):
     return yutani.yutani_gfx_lib.rgb(r,g,b)
 
@@ -93,8 +86,6 @@ def main():
                     break
                 else:
                     pass
-
-init_ttk()
 
 if __name__ == '__main__':
     w = Window()
