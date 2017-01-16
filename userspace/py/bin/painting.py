@@ -163,10 +163,11 @@ class PaintingWindow(yutani.Window):
             if x >= 0 and x < w and y >= self.menubar.height and y < h:
                 if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                     if not self.menus:
-                        menu_entries = [
-                            MenuEntryAction("Up",None,self.go_up,None),
-                        ]
-                        menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
+                        pass # No context menu at the moment.
+                        #menu_entries = [
+                        #    MenuEntryAction("Up",None,self.go_up,None),
+                        #]
+                        #menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
                     return
 
             if y < 0: return
