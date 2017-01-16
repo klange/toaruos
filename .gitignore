@@ -63,6 +63,7 @@ toaru-python
 pycairo
 toaru-toolkit
 toaruos-disk.img
+netboot.img.gz
 toaruos-initrd
 toaruos-kernel
 toolchain/build
