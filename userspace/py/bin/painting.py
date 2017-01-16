@@ -143,6 +143,14 @@ class PaintingWindow(yutani.Window):
         self.resize_done()
         self.flip()
 
+    def get_color(self,x,y):
+        c = self.buf.get_value(x,y)
+        a = (c >> 24) & 0xFF
+        r = (c >> 16) & 0xFF
+        g = (c >> 8)  & 0xFF
+        b = (c) & 0xFF
+        return (r,g,b)
+
     def mouse_event(self, msg):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
             window.close()
@@ -162,6 +170,8 @@ class PaintingWindow(yutani.Window):
 
             if x >= 0 and x < w and y >= self.menubar.height and y < h:
                 if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
+                    if self.picker:
+                        self.picker.set_color(*self.get_color(x,y-self.menubar.height))
                     if not self.menus:
                         pass # No context menu at the moment.
                         #menu_entries = [

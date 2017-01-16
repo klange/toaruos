@@ -30,6 +30,14 @@ def point_inside(pt, v1, v2, v3):
     c = s(pt,v3,v1)
     return (a < 0) == (b < 0) == (c < 0)
 
+def dist3(a,b):
+    return math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2)
+
+def frange(x,y,jump):
+    while x < y:
+        yield x
+        x += jump
+
 class ColorPickerWindow(yutani.Window):
 
     base_width = 200
@@ -72,6 +80,40 @@ class ColorPickerWindow(yutani.Window):
 
         self.down_in_circle = False
         self.down_in_triangle = False
+
+    def set_color(self,r,g,b):
+        return 
+        """
+        color = (r/255,g/255,b/255)
+        h,s,v = colorsys.rgb_to_hsv(*color)
+        self.hue = h * (2 * math.pi)
+        self.angle = -self.hue
+
+        white_distance = dist3((1,1,1),color)
+        black_distance = dist3((0,0,0),color)
+        full_distance  = dist3(colorsys.hsv_to_rgb(self.hue/(2*math.pi),1.0,1.0),color)
+
+        print(white_distance,black_distance,full_distance)
+
+        self.draw()
+        """
+
+    def calculate_color(self):
+        dit_x,dit_y = math.cos(math.radians(self.dit_th)+self.angle)*self.dit_r,math.sin(math.radians(self.dit_th)+self.angle)*self.dit_r
+
+        dit = dit_x,dit_y
+        sat_p = closest_point(dit,self.v1,self.v2)
+        exp_p = closest_point(dit,self.v1,self.v3)
+        m_exp = closest_point(self.v2,self.v1,self.v3)
+        m_sat = closest_point(self.v3,self.v1,self.v2)
+        white_amount = dist(sat_p,dit)/dist(m_sat,self.v3)
+        mix_amount = dist(exp_p,dit)/dist(m_exp,self.v2)
+        r,g,b = colorsys.hsv_to_rgb(self.hue/(2*math.pi),1.0,1.0)
+        _r = white_amount * 1.0 + mix_amount * r
+        _g = white_amount * 1.0 + mix_amount * g
+        _b = white_amount * 1.0 + mix_amount * b
+
+        return (_r,_g,_b), dit
 
     def draw(self):
         surface = self.get_cairo_surface()
@@ -123,28 +165,18 @@ class ColorPickerWindow(yutani.Window):
         ctx.set_source_rgb(0,0,0)
         ctx.stroke()
 
-        dit_x,dit_y = math.cos(math.radians(self.dit_th)+self.angle)*self.dit_r,math.sin(math.radians(self.dit_th)+self.angle)*self.dit_r
 
+
+        self.color, dit = self.calculate_color()
+
+        ctx.arc(-0.85,-0.85,0.1,0,2*math.pi)
+        ctx.set_source_rgb(*self.color)
+        ctx.fill()
         ctx.set_line_width(0.02)
-        ctx.arc(dit_x,dit_y,0.05,0,2*math.pi)
+        ctx.arc(*dit,0.05,0,2*math.pi)
         ctx.set_source_rgb(0,0,0)
         ctx.stroke()
 
-        dit = dit_x,dit_y
-        sat_p = closest_point(dit,self.v1,self.v2)
-        exp_p = closest_point(dit,self.v1,self.v3)
-        m_exp = closest_point(self.v2,self.v1,self.v3)
-        m_sat = closest_point(self.v3,self.v1,self.v2)
-        white_amount = dist(sat_p,dit)/dist(m_sat,self.v3)
-        mix_amount = dist(exp_p,dit)/dist(m_exp,self.v2)
-        r,g,b = colorsys.hsv_to_rgb(self.hue/(2*math.pi),1.0,1.0)
-        _r = white_amount * 1.0 + mix_amount * r
-        _g = white_amount * 1.0 + mix_amount * g
-        _b = white_amount * 1.0 + mix_amount * b
-        self.color = (_r,_g,_b)
-        ctx.arc(-0.85,-0.85,0.1,0,2*math.pi)
-        ctx.set_source_rgb(_r,_g,_b)
-        ctx.fill()
 
         self.decorator.render(self)
         self.flip()

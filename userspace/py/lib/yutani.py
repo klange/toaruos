@@ -445,6 +445,9 @@ class GraphicsBuffer(object):
     def get_cairo_surface(self):
         return Window.get_cairo_surface(self)
 
+    def get_value(self,x,y):
+        return cast(self._gfx.contents.backbuffer,POINTER(c_uint32))[self.width * y + x]
+
     def destroy(self):
         yutani_gfx_lib.sprite_free(self._sprite)
         CDLL('libc.so').free(self._gfx)
