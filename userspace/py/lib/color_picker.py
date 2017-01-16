@@ -183,9 +183,9 @@ class ColorPickerWindow(yutani.Window):
 
     def resize_finish(self,msg):
         """Accept a resize."""
-        WIDTH, HEIGHT = msg.width - d.width(), msg.height - d.height()
+        WIDTH, HEIGHT = msg.width - self.decorator.width(), msg.height - self.decorator.height()
         if WIDTH != HEIGHT:
-            self.resize_offer(WIDTH+d.width(),WIDTH+d.height())
+            self.resize_offer(WIDTH+self.decorator.width(),WIDTH+self.decorator.height())
             return
         self.resize_accept(msg.width, msg.height)
         self.reinit()
