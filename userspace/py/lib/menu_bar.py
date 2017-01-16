@@ -141,8 +141,8 @@ class MenuEntryAction(object):
 class MenuEntrySubmenu(MenuEntryAction):
     """A menu entry which opens a nested submenu."""
 
-    def __init__(self, title, entries):
-        super(MenuEntrySubmenu,self).__init__(title,"folder",None,None)
+    def __init__(self, title, entries, icon="folder"):
+        super(MenuEntrySubmenu,self).__init__(title,icon,None,None)
         self.entries = entries
 
     def focus_enter(self,keyboard=False):
