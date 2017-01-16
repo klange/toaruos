@@ -196,7 +196,7 @@ class PaintingWindow(yutani.Window):
             if x >= 0 and x < w and y >= self.menubar.height and y < h:
                 if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                     if self.picker:
-                        _x,_y = x-offset_x,y-self.menubar.height-offset_y
+                        _x,_y = x-self.offset_x,y-self.menubar.height-self.offset_y
                         if _x >= 0 and _x < self.surface.get_width() and _y >= 0 and _y < self.surface.get_height():
                             self.picker.set_color(*self.get_color(_x,_y))
                     if not self.menus:
