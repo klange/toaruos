@@ -54,6 +54,16 @@ class PaintingWindow(yutani.Window):
             self.last_color = self.picker.color
             self.picker = None
 
+        def new_surface(action):
+            # TODO: prompt for size
+            if self.buf:
+                self.buf.destroy()
+            self.new_buffer(*action)
+            self.draw()
+
+        def save_file(action):
+            self.surface.write_to_png('/tmp/painting.png')
+
         def select_color(action):
             if self.picker:
                 return
@@ -63,6 +73,13 @@ class PaintingWindow(yutani.Window):
 
         menus = [
             ("File", [
+                MenuEntrySubmenu("New",[
+                    MenuEntryAction("500×500","new",new_surface,(500,500)),
+                    MenuEntryAction("800×600","new",new_surface,(800,600)),
+                ],icon=None),
+                #MenuEntryAction("Open","new",open_file,None),
+                MenuEntryAction("Save","save",save_file,None),
+                MenuEntryDivider(),
                 MenuEntryAction("Exit","exit",exit_app,None),
             ]),
             ("Tools", [
@@ -80,18 +97,24 @@ class PaintingWindow(yutani.Window):
         self.menus = {}
         self.hovered_menu = None
 
-        self.buf = yutani.GraphicsBuffer(500,500)
+        self.new_buffer(500,500)
+
+        self.hilighted = None
+        self.was_drawing = False
+        self.line_width = 2.0
+        self.curs_x = None
+        self.curs_y = None
+        self.moving = False
+
+    def new_buffer(self,w,h):
+        self.buf = yutani.GraphicsBuffer(w,h)
         self.surface = self.buf.get_cairo_surface()
         self.draw_ctx = cairo.Context(self.surface)
         self.draw_ctx.rectangle(0,0,self.surface.get_width(),self.surface.get_height())
         self.draw_ctx.set_source_rgb(1,1,1)
         self.draw_ctx.fill()
-
-        self.hilighted = None
-        self.was_drawing = False
-        self.line_width = 1.0
-        self.curs_x = None
-        self.curs_y = None
+        self.offset_x = int((self.width-self.decorator.width()-self.buf.width)/2)
+        self.offset_y = int((self.height-self.decorator.height()-self.buf.height-self.menubar.height)/2)
 
     def color(self):
         if self.picker:
@@ -112,7 +135,7 @@ class PaintingWindow(yutani.Window):
 
         ctx.save()
         ctx.translate(0,self.menubar.height)
-        ctx.set_source_surface(self.surface,0,0)
+        ctx.set_source_surface(self.surface,self.offset_x,self.offset_y)
         ctx.paint()
 
         if not self.curs_x is None:
@@ -139,6 +162,8 @@ class PaintingWindow(yutani.Window):
             return
         self.resize_accept(msg.width, msg.height)
         self.reinit()
+        self.offset_x = int((self.width-self.decorator.width()-self.buf.width)/2)
+        self.offset_y = int((self.height-self.decorator.height()-self.buf.height-self.menubar.height)/2)
         self.draw()
         self.resize_done()
         self.flip()
@@ -171,7 +196,9 @@ class PaintingWindow(yutani.Window):
             if x >= 0 and x < w and y >= self.menubar.height and y < h:
                 if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                     if self.picker:
-                        self.picker.set_color(*self.get_color(x,y-self.menubar.height))
+                        _x,_y = x-offset_x,y-self.menubar.height-offset_y
+                        if _x >= 0 and _x < self.surface.get_width() and _y >= 0 and _y < self.surface.get_height():
+                            self.picker.set_color(*self.get_color(_x,_y))
                     if not self.menus:
                         pass # No context menu at the moment.
                         #menu_entries = [
@@ -192,6 +219,16 @@ class PaintingWindow(yutani.Window):
         if not (msg.buttons & yutani.MouseButton.BUTTON_LEFT):
             self.was_drawing = False
 
+        if (msg.buttons & yutani.MouseButton.BUTTON_MIDDLE):
+            if not self.moving:
+                self.initial = msg.new_x, msg.new_y
+                self.initial_off = self.offset_x, self.offset_y
+                self.moving = True
+            self.offset_x = self.initial_off[0] + msg.new_x - self.initial[0]
+            self.offset_y = self.initial_off[1] + msg.new_y - self.initial[1]
+        else:
+            self.moving = False
+
         if (msg.command == yutani.MouseEvent.DRAG or msg.command == yutani.MouseEvent.DOWN) and msg.buttons & yutani.MouseButton.BUTTON_LEFT:
             self.was_drawing = True
             self.draw_ctx.set_line_cap(cairo.LINE_CAP_ROUND)
@@ -199,10 +236,10 @@ class PaintingWindow(yutani.Window):
             self.draw_ctx.set_source_rgb(*self.color())
             self.draw_ctx.set_line_width(self.line_width)
             if msg.command == yutani.MouseEvent.DOWN:
-                self.draw_ctx.move_to(0.5+msg.new_x - self.decorator.left_width(), 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height);
+                self.draw_ctx.move_to(0.5+msg.new_x - self.decorator.left_width() - self.offset_x, 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height - self.offset_y);
             else:
-                self.draw_ctx.move_to(0.5+msg.old_x - self.decorator.left_width(), 0.5+msg.old_y - self.decorator.top_height() - self.menubar.height);
-            self.draw_ctx.line_to(0.5+msg.new_x - self.decorator.left_width(), 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height);
+                self.draw_ctx.move_to(0.5+msg.old_x - self.decorator.left_width() - self.offset_x, 0.5+msg.old_y - self.decorator.top_height() - self.menubar.height - self.offset_y);
+            self.draw_ctx.line_to(0.5+msg.new_x - self.decorator.left_width() - self.offset_x, 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height - self.offset_y);
             self.draw_ctx.stroke()
 
 
