@@ -114,19 +114,28 @@ class PaintingWindow(yutani.Window):
     def load_buffer(self,path):
         s = cairo.ImageSurface.create_from_png(path)
 
-        self.new_buffer(s.get_width(),s.get_height())
+        self.init_buffer(s.get_width(),s.get_height())
+        self.draw_ctx.save()
+        self.draw_ctx.set_operator(cairo.OPERATOR_SOURCE)
+        self.draw_ctx.rectangle(0,0,self.surface.get_width(),self.surface.get_height())
+        self.draw_ctx.set_source_rgba(0,0,0,0)
+        self.draw_ctx.fill()
+        self.draw_ctx.restore()
         self.draw_ctx.set_source_surface(s,0,0)
         self.draw_ctx.paint()
 
-    def new_buffer(self,w,h):
+    def init_buffer(self,w,h):
         self.buf = yutani.GraphicsBuffer(w,h)
         self.surface = self.buf.get_cairo_surface()
         self.draw_ctx = cairo.Context(self.surface)
+        self.offset_x = int((self.width-self.decorator.width()-self.buf.width)/2)
+        self.offset_y = int((self.height-self.decorator.height()-self.buf.height-self.menubar.height)/2)
+
+    def new_buffer(self,w,h):
+        self.init_buffer(w,h)
         self.draw_ctx.rectangle(0,0,self.surface.get_width(),self.surface.get_height())
         self.draw_ctx.set_source_rgb(1,1,1)
         self.draw_ctx.fill()
-        self.offset_x = int((self.width-self.decorator.width()-self.buf.width)/2)
-        self.offset_y = int((self.height-self.decorator.height()-self.buf.height-self.menubar.height)/2)
 
     def color(self):
         if self.picker:
