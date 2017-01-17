@@ -287,7 +287,7 @@ static int stat_node(fs_node_t * fn, uintptr_t st) {
 		debug_print(INFO, "stat: This file doesn't exist");
 		return -1;
 	}
-	f->st_dev   = 0;
+	f->st_dev   = (uint16_t)(((uint32_t)fn->device & 0xFFFF0) >> 8);
 	f->st_ino   = fn->inode;
 
 	uint32_t flags = 0;

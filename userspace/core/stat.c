@@ -51,6 +51,8 @@ int main(int argc, char ** argv) {
 
 	struct stat * f = &_stat;
 
+	printf("st_dev   0x%x %d\n", (uint32_t)f->st_dev   , sizeof(f->st_dev  ));
+	printf("st_ino   0x%x %d\n", (uint32_t)f->st_ino   , sizeof(f->st_ino  ));
 	printf("st_mode  0x%x %d\n", (uint32_t)f->st_mode  , sizeof(f->st_mode  ));
 	printf("st_nlink 0x%x %d\n", (uint32_t)f->st_nlink , sizeof(f->st_nlink ));
 	printf("st_uid   0x%x %d\n", (uint32_t)f->st_uid   , sizeof(f->st_uid   ));
