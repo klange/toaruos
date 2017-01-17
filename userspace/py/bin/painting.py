@@ -72,6 +72,14 @@ class PaintingWindow(yutani.Window):
                 self.picker = ColorPickerWindow(self.decorator, close_picker)
                 self.picker.draw()
 
+        def clear_everything(action):
+            self.draw_ctx.save()
+            self.draw_ctx.set_operator(cairo.OPERATOR_SOURCE)
+            self.draw_ctx.rectangle(0,0,self.surface.get_width(),self.surface.get_height())
+            self.draw_ctx.set_source_rgba(0,0,0,0)
+            self.draw_ctx.fill()
+            self.draw_ctx.restore()
+
         menus = [
             ("File", [
                 MenuEntrySubmenu("New",[
@@ -85,6 +93,7 @@ class PaintingWindow(yutani.Window):
             ]),
             ("Tools", [
                 MenuEntryAction("Color",None,select_color,None),
+                MenuEntryAction("Clear Everything",None,clear_everything,None),
             ]),
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
@@ -143,6 +152,17 @@ class PaintingWindow(yutani.Window):
         else:
             return self.last_color
 
+    def checkerboard(self,size):
+        s = cairo.ImageSurface(cairo.FORMAT_ARGB32,size,size)
+        c = cairo.Context(s)
+        c.set_source_rgb(128/255,128/255,128/255)
+        c.paint()
+        c.set_source_rgb(200/255,200/255,200/255)
+        c.rectangle(size/2,0,size/2,size/2)
+        c.rectangle(0,size/2,size/2,size/2)
+        c.fill()
+        return s
+
     def draw(self):
         surface = self.get_cairo_surface()
 
@@ -150,9 +170,12 @@ class PaintingWindow(yutani.Window):
 
         ctx = cairo.Context(surface)
         ctx.translate(self.decorator.left_width(), self.decorator.top_height())
-        ctx.rectangle(0,0,WIDTH,HEIGHT)
-        ctx.set_source_rgb(0.5,0.5,0.5)
-        ctx.fill()
+        ctx.save()
+        ctx.set_source_surface(self.checkerboard(24),0,0)
+        ctx.get_source().set_filter(cairo.FILTER_NEAREST)
+        ctx.get_source().set_extend(cairo.EXTEND_REPEAT)
+        ctx.paint()
+        ctx.restore()
 
         ctx.save()
         ctx.translate(0,self.menubar.height)
