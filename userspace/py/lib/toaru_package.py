@@ -87,8 +87,10 @@ def install_icon(steps):
     with open(f'/usr/share/menus/{steps[2]}/{steps[4]}.desktop','w') as f:
         f.write(f"{steps[4]},{steps[5]},{steps[1]}\n")
     pid = None
-    with open('/tmp/.wallpaper.pid','r') as f:
-        pid = int(f.read().strip())
+
+    if os.path.exists('/tmp/.wallpaper.pid'):
+        with open('/tmp/.wallpaper.pid','r') as f:
+            pid = int(f.read().strip())
     if pid:
         os.kill(pid, signal.SIGUSR1)
 
