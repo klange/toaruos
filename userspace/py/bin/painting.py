@@ -28,7 +28,7 @@ class PaintingWindow(yutani.Window):
     base_width = 600
     base_height = 600
 
-    def __init__(self, decorator):
+    def __init__(self, decorator, path):
         super(PaintingWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="ToaruPaint", icon="applications-painting", doublebuffer=True)
         self.move(100,100)
         self.x = 100
@@ -97,7 +97,10 @@ class PaintingWindow(yutani.Window):
         self.menus = {}
         self.hovered_menu = None
 
-        self.new_buffer(500,500)
+        if not path:
+            self.new_buffer(500,500)
+        else:
+            self.load_buffer(path)
 
         self.hilighted = None
         self.was_drawing = False
@@ -105,6 +108,13 @@ class PaintingWindow(yutani.Window):
         self.curs_x = None
         self.curs_y = None
         self.moving = False
+
+    def load_buffer(self,path):
+        s = cairo.ImageSurface.create_from_png(path)
+
+        self.new_buffer(s.get_width(),s.get_height())
+        self.draw_ctx.set_source_surface(s,0,0)
+        self.draw_ctx.paint()
 
     def new_buffer(self,w,h):
         self.buf = yutani.GraphicsBuffer(w,h)
@@ -258,7 +268,7 @@ if __name__ == '__main__':
     yutani.Yutani()
     d = yutani.Decor()
 
-    window = PaintingWindow(d)
+    window = PaintingWindow(d,sys.argv[1] if len(sys.argv) > 1 else None)
     window.draw()
 
     while 1:
