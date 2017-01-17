@@ -36,6 +36,7 @@ class PaintingWindow(yutani.Window):
         self.decorator = decorator
         self.picker = None
         self.last_color = (0,0,0)
+        self.modifiers = None
 
         def exit_app(action):
             menus = [x for x in self.menus.values()]
@@ -108,6 +109,7 @@ class PaintingWindow(yutani.Window):
         self.curs_x = None
         self.curs_y = None
         self.moving = False
+        self.scale = 1.0
 
     def load_buffer(self,path):
         s = cairo.ImageSurface.create_from_png(path)
@@ -145,19 +147,26 @@ class PaintingWindow(yutani.Window):
 
         ctx.save()
         ctx.translate(0,self.menubar.height)
-        ctx.set_source_surface(self.surface,self.offset_x,self.offset_y)
+
+        ctx.save()
+        ctx.scale(self.scale,self.scale)
+        ctx.set_source_surface(self.surface,self.offset_x/self.scale,self.offset_y/self.scale)
+        ctx.get_source().set_filter(cairo.FILTER_FAST)
         ctx.paint()
 
         if not self.curs_x is None:
-            ctx.arc(self.curs_x,self.curs_y,self.line_width/2,0,2*math.pi)
-            ctx.set_line_width(0.5)
+            if self.scale < 1.0:
+                ctx.set_line_width(0.5/self.scale)
+            else:
+                ctx.set_line_width(0.5)
+            ctx.arc(self.curs_x/self.scale,self.curs_y/self.scale,self.line_width/2,0,2*math.pi)
             ctx.set_source_rgba(0,0,0,0.7)
             ctx.stroke()
-            ctx.arc(self.curs_x,self.curs_y,self.line_width/2-0.5,0,2*math.pi)
-            ctx.set_line_width(0.5)
+            ctx.arc(self.curs_x/self.scale,self.curs_y/self.scale,self.line_width/2-0.5,0,2*math.pi)
             ctx.set_source_rgba(1,1,1,0.7)
             ctx.stroke()
 
+        ctx.restore()
         ctx.restore()
 
         self.menubar.draw(ctx,0,0,WIDTH)
@@ -219,10 +228,19 @@ class PaintingWindow(yutani.Window):
 
             if y < 0: return
 
-        if msg.buttons & yutani.MouseButton.SCROLL_UP:
-            self.line_width *= 1.2
-        elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
-            self.line_width /= 1.2
+        if not self.modifiers:
+            if msg.buttons & yutani.MouseButton.SCROLL_UP:
+                self.line_width *= 1.2
+            elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
+                self.line_width /= 1.2
+        elif self.modifiers & yutani.Modifier.MOD_LEFT_CTRL:
+            if msg.buttons & yutani.MouseButton.SCROLL_UP:
+                self.scale += 0.1
+            elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
+                self.scale -= 0.1
+                if self.scale < 0.1:
+                    self.scale = 0.1
+
 
         redraw = False
 
@@ -245,11 +263,16 @@ class PaintingWindow(yutani.Window):
             self.draw_ctx.set_line_join(cairo.LINE_JOIN_ROUND)
             self.draw_ctx.set_source_rgb(*self.color())
             self.draw_ctx.set_line_width(self.line_width)
+            x_1 = 0.5 + (msg.new_x - self.decorator.left_width() - self.offset_x) / self.scale
+            y_1 = 0.5 + (msg.new_y - self.decorator.top_height() - self.offset_y - self.menubar.height) / self.scale
             if msg.command == yutani.MouseEvent.DOWN:
-                self.draw_ctx.move_to(0.5+msg.new_x - self.decorator.left_width() - self.offset_x, 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height - self.offset_y);
+                x_0 = x_1
+                y_0 = y_1
             else:
-                self.draw_ctx.move_to(0.5+msg.old_x - self.decorator.left_width() - self.offset_x, 0.5+msg.old_y - self.decorator.top_height() - self.menubar.height - self.offset_y);
-            self.draw_ctx.line_to(0.5+msg.new_x - self.decorator.left_width() - self.offset_x, 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height - self.offset_y);
+                x_0 = 0.5 + (msg.old_x - self.decorator.left_width() - self.offset_x) / self.scale
+                y_0 = 0.5 + (msg.old_y - self.decorator.top_height() - self.offset_y - self.menubar.height) / self.scale
+            self.draw_ctx.move_to(x_0,y_0)
+            self.draw_ctx.line_to(x_1,y_1)
             self.draw_ctx.stroke()
 
 
@@ -258,6 +281,7 @@ class PaintingWindow(yutani.Window):
         self.draw()
 
     def keyboard_event(self, msg):
+        self.modifiers = msg.event.modifiers
         if msg.event.action != yutani.KeyAction.ACTION_DOWN:
             return # Ignore anything that isn't a key down.
         if msg.event.key == b"q":

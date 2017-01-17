@@ -56,7 +56,7 @@ class File(object):
         elif self.is_executable:
             subprocess.Popen([self.path])
         elif self.name.endswith('.png'):
-            subprocess.Popen(['imgviewer',self.path])
+            subprocess.Popen(['painting.py',self.path])
         elif self.name.endswith('.pdf') and os.path.exists('/usr/bin/pdfviewer'):
             subprocess.Popen(['pdfviewer',self.path])
         # Nothing to do.
