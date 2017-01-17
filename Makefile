@@ -446,9 +446,9 @@ fix-cd:
 ##############
 #    ctags   #
 ##############
-tags: kernel/*/*.c kernel/*.c userspace/**/*.c modules/*.c
+tags: kernel/*/*.c kernel/*.c userspace/**/*.c modules/*.c linker/*.c
 	@${BEG} "ctag" "Generating CTags..."
-	@-ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace modules util ${ERRORS}
+	@-ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace modules util linker ${ERRORS}
 	@${END} "ctag" "Generated CTags."
 
 ###############
