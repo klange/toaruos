@@ -79,7 +79,13 @@ class MinesWindow(yutani.Window):
         self.decorator = decorator
 
         def new_game(action):
-            def mine_func(button):
+            def mine_func(b):
+                button = b
+                if self.first_click:
+                    while button.is_mine or button.mines:
+                        new_game(None)
+                        button = self.buttons[button.row][button.col]
+                    self.first_click = False
                 if button.is_mine:
                     self.tr.set_text("You lose.")
                     for row in self.buttons:
@@ -100,6 +106,7 @@ class MinesWindow(yutani.Window):
 
             self.field_size = 9
             self.mine_count = 10
+            self.first_click = True
             self.tr.set_text(f"There are {self.mine_count} mines.")
 
             self.mines = []
@@ -174,7 +181,6 @@ class MinesWindow(yutani.Window):
 
         self.menus = {}
         self.hovered_menu = None
-        self.first_click = True
         self.modifiers = 0
 
         new_game(None)
