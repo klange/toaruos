@@ -276,6 +276,16 @@ int main (int argc, char ** argv) {
 						}
 					}
 					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							if (me->wid == paddle_left->wid) {
+								yutani_window_drag_start(yctx, paddle_left);
+							}
+						}
+					}
+					break;
 				case YUTANI_MSG_SESSION_END:
 					should_exit = 1;
 					break;

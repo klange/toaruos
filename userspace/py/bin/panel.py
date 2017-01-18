@@ -360,6 +360,7 @@ class ApplicationsMenuWidget(BaseWidget):
         demos.extend(self.extra('demos'))
         games = [
             MenuEntryAction("RPG Demo","applications-simulation",launch_app,"game"),
+            MenuEntryAction("WM Pong","pong",launch_app,"pong"),
         ]
         games.extend(self.extra('games'))
         graphics = [
