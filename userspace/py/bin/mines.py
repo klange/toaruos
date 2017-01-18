@@ -153,7 +153,7 @@ class MinesWindow(yutani.Window):
             subprocess.Popen(["help-browser.py","mines.trt"])
         menus = [
             ("File", [
-                MenuEntrySubmenu("New Game…",[
+                MenuEntrySubmenu("New Game...",[
                     MenuEntryAction("9×9, 10 mines",None,new_game,(9,10)),
                     MenuEntryAction("16×16, 40 mines",None,new_game,(16,40)),
                     MenuEntryAction("20×20, 90 mines",None,new_game,(20,90)),
