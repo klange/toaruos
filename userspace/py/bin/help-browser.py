@@ -136,7 +136,8 @@ This is normal text. <b>This is bold text.</b> <i>This is italic text.</i> <b><i
             if os.path.exists(path):
                 with open(path,'r') as f:
                     return f.read()
-        return f"""<b>Document Not Found</b>
+        return f"""
+<h1>Document Not Found</h1>
 
 Uh oh, looks like the help document you tried to open ({self.current_topic}) wasn't available. Do you want to <link target=\"{self.last_topic}\">go back</link> or <link target=\"0_index.trt\">return to the index</link>?
 

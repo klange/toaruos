@@ -87,6 +87,8 @@ class MinesWindow(yutani.Window):
                         new_game(action)
                         button = self.buttons[button.row][button.col]
                     self.first_click = False
+                if button.flagged:
+                    return
                 if button.is_mine:
                     self.tr.set_text("You lose.")
                     for row in self.buttons:
@@ -104,6 +106,7 @@ class MinesWindow(yutani.Window):
                                 b.reveal()
                                 if b.mines == 0:
                                     n.extend([x for x in check_neighbor_buttons(b.row,b.col) if not x.revealed and not x in n])
+                            self.check_win()
 
             self.field_size, self.mine_count = action
             self.first_click = True
@@ -189,8 +192,20 @@ class MinesWindow(yutani.Window):
 
         new_game((9,10))
 
+    def check_win(self):
+        buttons = []
+        for row in self.buttons:
+            buttons.extend(row)
+        n_flagged = len([x for x in buttons if x.flagged and not x.revealed])
+        n_revealed = len([x for x in buttons if x.revealed])
+        if n_flagged == self.mine_count and n_revealed + n_flagged == self.field_size ** 2:
+            self.tr.set_text("You win!")
+            for b in buttons:
+                b.reveal()
+
     def flag(self,button):
         button.set_flagged()
+        self.check_win()
         self.draw()
 
     def draw(self):
