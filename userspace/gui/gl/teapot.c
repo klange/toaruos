@@ -492,6 +492,8 @@ int main(int argc, char** argv) {
 	draw_fill(ctx, rgb(0,0,0));
 	yutani_window_update_shape(yctx, wina, YUTANI_SHAPE_THRESHOLD_HALF);
 
+	yutani_window_advertise_icon(yctx, wina, "GL Teapot", "teapot");
+
 	OSMesaContext gl_ctx = OSMesaCreateContext(OSMESA_BGRA, NULL);
 	if (resize(ctx, gl_ctx)) {
 		fprintf(stderr, "%s: Something bad happened.\n", argv[0]);
@@ -514,6 +516,14 @@ int main(int argc, char** argv) {
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN) {
 							keyboard(ke->event.keycode, 0, 0);
+						}
+					}
+					break;
+				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							yutani_window_drag_start(yctx, wina);
 						}
 					}
 					break;
