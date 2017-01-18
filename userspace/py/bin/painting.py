@@ -20,8 +20,9 @@ from color_picker import ColorPickerWindow
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
 
+app_name = "ToaruPaint"
 version = "0.1.0"
-_description = f"<b>ToaruPaint {version}</b>\n© 2017 Kevin Lange\n\nDraw stuff, maybe.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nDraw stuff, maybe.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 class PaintingWindow(yutani.Window):
 
@@ -29,7 +30,7 @@ class PaintingWindow(yutani.Window):
     base_height = 600
 
     def __init__(self, decorator, path):
-        super(PaintingWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="ToaruPaint", icon="applications-painting", doublebuffer=True)
+        super(PaintingWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="applications-painting", doublebuffer=True)
         self.move(100,100)
         self.x = 100
         self.y = 100
@@ -46,7 +47,7 @@ class PaintingWindow(yutani.Window):
             sys.exit(0)
 
         def about_window(action):
-            subprocess.Popen(["about-applet.py","About ToaruPaint","applications-painting","/usr/share/icons/48/applications-painting.png",_description])
+            subprocess.Popen(["about-applet.py",f"About {app_name}","applications-painting","/usr/share/icons/48/applications-painting.png",_description])
 
         def help_browser(action):
             subprocess.Popen(["help-browser.py","painting.trt"])
@@ -65,7 +66,7 @@ class PaintingWindow(yutani.Window):
         def save_file(action):
             self.modified = False
             path = '/tmp/painting.png'
-            self.set_title(f'{os.path.basename(path)} - ToaruPaint')
+            self.set_title(f'{os.path.basename(path)} - {app_name}',self.icon)
             self.surface.write_to_png(path)
 
         def select_color(action):
@@ -101,7 +102,7 @@ class PaintingWindow(yutani.Window):
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
                 MenuEntryDivider(),
-                MenuEntryAction("About ToaruPaint","star",about_window,None),
+                MenuEntryAction(f"About {app_name}","star",about_window,None),
             ]),
         ]
 
@@ -125,7 +126,7 @@ class PaintingWindow(yutani.Window):
         self.modified = False
 
     def load_buffer(self,path):
-        self.set_title(f'{os.path.basename(path)} - ToaruPaint')
+        self.set_title(f'{os.path.basename(path)} - {app_name}',self.icon)
         s = cairo.ImageSurface.create_from_png(path)
 
         self.init_buffer(s.get_width(),s.get_height())
@@ -148,7 +149,7 @@ class PaintingWindow(yutani.Window):
 
     def new_buffer(self,w,h):
         self.init_buffer(w,h)
-        self.set_title('Untitled - ToaruPaint')
+        self.set_title(f'Untitled - {app_name}', self.icon)
         self.draw_ctx.rectangle(0,0,self.surface.get_width(),self.surface.get_height())
         self.draw_ctx.set_source_rgb(1,1,1)
         self.draw_ctx.fill()
@@ -315,7 +316,7 @@ class PaintingWindow(yutani.Window):
             self.draw_ctx.stroke()
             if not self.modified:
                 self.modified = True
-                self.set_title("*" + self.title)
+                self.set_title("*" + self.title, self.icon)
 
 
 
