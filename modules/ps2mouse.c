@@ -135,7 +135,7 @@ finish_packet:
 			write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 		}
 read_next:
-		status = inportb(MOUSE_STATUS);
+		status = 0; // inportb(MOUSE_STATUS);
 	}
 	irq_ack(MOUSE_IRQ);
 	return 1;
