@@ -207,14 +207,21 @@ class WindowListWidget(BaseWidget):
     text_y_offset = 5
     color = 0xFFE6E6E6
     hilight = 0xFF8ED8FF
-    icon_width = 24
+    icon_width = 48
 
     def __init__(self):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, self.color)
+        self.font.set_shadow((0xFF000000, 2, 1, 1, 3.0))
         self.font_hilight = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, self.hilight)
+        self.font_hilight.set_shadow((0xFF000000, 2, 1, 1, 3.0))
         self.gradient = cairo.LinearGradient(0,0,0,PANEL_HEIGHT)
         self.gradient.add_color_stop_rgba(0.0,72/255,167/255,255/255,0.7)
         self.gradient.add_color_stop_rgba(1.0,72/255,167/255,255/255,0.0)
+
+        self.divider = cairo.LinearGradient(0,0,0,PANEL_HEIGHT)
+        self.divider.add_color_stop_rgba(0.1,1,1,1,0.0)
+        self.divider.add_color_stop_rgba(0.5,1,1,1,1.0)
+        self.divider.add_color_stop_rgba(0.9,1,1,1,0.0)
         self.hovered = None
         self.unit_width = None
         self.offset = 0
@@ -227,33 +234,50 @@ class WindowListWidget(BaseWidget):
         self.offset = offset
         available_width = remaining - offset
         self.unit_width = min(int(available_width / len(windows)),150)
+        icon_width = self.icon_width
         if self.unit_width < 50:
-            self.unit_width = 28
+            self.unit_width = 32
+            icon_width = 24
+
+        i = 0 
         for w in windows:
             if w.flags & 1:
                 ctx.set_source(self.gradient)
-                ctx.rectangle(offset,0,self.unit_width,PANEL_HEIGHT)
+                ctx.rectangle(offset+4,0,self.unit_width-4,PANEL_HEIGHT)
                 ctx.fill()
-            icon = get_icon(w.icon)
+            icon = get_icon(w.icon, icon_width)
 
             ctx.save()
-            ctx.translate(offset+2,0)
-            if icon.get_width() != self.icon_width:
-                ctx.scale(self.icon_width/icon.get_width(),self.icon_width/icon.get_width())
+            ctx.translate(offset + self.unit_width - icon_width - 2,0)
+            ctx.rectangle(0,0,icon_width + 4,PANEL_HEIGHT-2)
+            ctx.clip()
+            if icon.get_width() != icon_width:
+                ctx.scale(icon_width/icon.get_width(),icon_width/icon.get_width())
             ctx.set_source_surface(icon,0,0)
-            ctx.paint()
+            if self.unit_width < 48:
+                ctx.paint()
+            else:
+                ctx.paint_with_alpha(0.7)
+            if i < len(windows) - 1:
+                ctx.rectangle(icon_width + 3,0,1,PANEL_HEIGHT)
+                ctx.set_source(self.divider)
+                ctx.fill()
             ctx.restore()
 
-            if self.unit_width > 28:
+            offset_left = 4
+            if self.unit_width > 48:
                 font = self.font
                 if self.hovered == w.wid:
                     font = self.font_hilight
-                tr = text_region.TextRegion(offset+28,self.text_y_offset,self.unit_width - 30,PANEL_HEIGHT-self.text_y_offset,font=font)
+                tr = text_region.TextRegion(offset+4+offset_left,self.text_y_offset,self.unit_width - 6 - offset_left,PANEL_HEIGHT-self.text_y_offset,font=font)
                 tr.set_one_line()
                 tr.set_ellipsis()
                 tr.set_text(w.name)
                 tr.draw(window)
+
+
             offset += self.unit_width
+            i += 1
 
     def focus_leave(self):
         self.hovered = None
