@@ -85,7 +85,7 @@ class PaintingWindow(yutani.Window):
                 MenuEntrySubmenu("New",[
                     MenuEntryAction("500×500","new",new_surface,(500,500)),
                     MenuEntryAction("800×600","new",new_surface,(800,600)),
-                ],icon=None),
+                ],icon="new"),
                 #MenuEntryAction("Open","new",open_file,None),
                 MenuEntryAction("Save","save",save_file,None),
                 MenuEntryDivider(),

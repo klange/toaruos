@@ -56,9 +56,9 @@ class HelpBrowserWindow(yutani.Window):
                 MenuEntryAction("Exit","exit",exit_app,None),
             ]),
             ("Go", [
-                MenuEntryAction("Home",None,self.go_page,"0_index.trt"),
+                MenuEntryAction("Home","home",self.go_page,"0_index.trt"),
                 MenuEntryAction("Topics",None,self.go_page,"special:contents"),
-                MenuEntryAction("Back",None,self.go_back,None),
+                MenuEntryAction("Back","back",self.go_back,None),
             ]),
             ("Help", [
                 MenuEntryAction("Contents","help",self.go_page,"help_browser.trt"),
@@ -264,7 +264,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                 if not self.menus:
                     menu_entries = [
-                        MenuEntryAction("Back",None,self.go_back,None),
+                        MenuEntryAction("Back","back",self.go_back,None),
                     ]
                     menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
         if msg.command == yutani.MouseEvent.DOWN:

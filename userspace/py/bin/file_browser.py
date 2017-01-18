@@ -94,9 +94,9 @@ class FileBrowserWindow(yutani.Window):
                 MenuEntryAction("Exit","exit",exit_app,None),
             ]),
             ("Go", [
-                MenuEntryAction("Home",None,self.load_directory,os.environ.get("HOME")),
+                MenuEntryAction("Home","home",self.load_directory,os.environ.get("HOME")),
                 MenuEntryAction("File System",None,self.load_directory,"/"),
-                MenuEntryAction("Up",None,self.go_up,None),
+                MenuEntryAction("Up","up",self.go_up,None),
             ]),
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
@@ -240,7 +240,7 @@ class FileBrowserWindow(yutani.Window):
             if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                 if not self.menus:
                     menu_entries = [
-                        MenuEntryAction("Up",None,self.go_up,None),
+                        MenuEntryAction("Up","up",self.go_up,None),
                     ]
                     menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
                 return

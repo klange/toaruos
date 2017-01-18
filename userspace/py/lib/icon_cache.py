@@ -5,6 +5,16 @@ import os
 import cairo
 
 icon_directories = {
+    16: [
+        "/usr/share/icons/16",
+        "/usr/share/icons/external/16",
+        "/usr/share/icons/24",
+        "/usr/share/icons/external/24",
+        "/usr/share/icons/48",
+        "/usr/share/icons/external/48",
+        "/usr/share/icons",
+        "/usr/share/icons/external",
+    ],
     24: [
         "/usr/share/icons/24",
         "/usr/share/icons/external/24",
@@ -23,7 +33,7 @@ icon_directories = {
     ],
 }
 
-icon_cache = {24:{},48:{}}
+icon_cache = {24:{},48:{},16:{}}
 def get_icon(name,size=24):
     """Find an icon in the icon cache or fetch it if possible."""
     if not name:

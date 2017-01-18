@@ -12,11 +12,18 @@ class MenuBarWidget(object):
     """Widget for display multiple menus."""
 
     height = 24
+    hilight_gradient_top = (93/255,163/255,236/255)
+    hilight_gradient_bottom = (56/255,137/255,220/55)
 
     def __init__(self, window, entries):
         self.window = window
         self.entries = entries
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,13,0xFFFFFFFF)
+        self.active_menu = None
+        self.active_entry = None
+        self.gradient = cairo.LinearGradient(0,0,0,self.height)
+        self.gradient.add_color_stop_rgba(0.0,*self.hilight_gradient_top,1.0)
+        self.gradient.add_color_stop_rgba(1.0,*self.hilight_gradient_bottom,1.0)
 
     def draw(self, cr, x, y, width):
         self.x = x
@@ -29,11 +36,17 @@ class MenuBarWidget(object):
         cr.fill()
         cr.restore()
 
+        menus = self.window.menus
+
         x_, y_ = cr.user_to_device(x,y)
         offset = 0
         for e in self.entries:
             title, _ = e
             w = self.font.width(title) + 10
+            if self.active_menu in menus.values() and e == self.active_entry:
+                cr.rectangle(offset+2,0,w+2,self.height)
+                cr.set_source(self.gradient)
+                cr.fill()
             tr = text_region.TextRegion(int(x_)+8+offset,int(y_)+2,w,self.height,self.font)
             tr.set_one_line()
             tr.set_text(title)
@@ -48,6 +61,8 @@ class MenuBarWidget(object):
             if x >= offset and x < offset + w:
                 if msg.command == yutani.MouseEvent.CLICK: # or raise
                     menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width()+offset,self.window.y+self.window.decorator.top_height()+self.height),root=self.window)
+                    self.active_menu = menu
+                    self.active_entry = e
                     break
             offset += w
 
@@ -66,7 +81,7 @@ class MenuEntryAction(object):
 
     def __init__(self, title, icon, action=None, data=None):
         self.title = title
-        self.icon = get_icon(icon) if icon else None
+        self.icon = get_icon(icon,16) if icon else None
         self.action = action
         self.data = data
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,13,0xFF000000)
