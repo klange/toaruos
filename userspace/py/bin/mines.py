@@ -66,7 +66,8 @@ class MineButton(Button):
             ctx.set_source_rgb(1,1,1)
         ctx.fill()
 
-        self.tr.draw(window)
+        if self.tr.text:
+            self.tr.draw(window)
 
 class MinesWindow(yutani.Window):
 
@@ -83,7 +84,7 @@ class MinesWindow(yutani.Window):
                 button = b
                 if self.first_click:
                     while button.is_mine or button.mines:
-                        new_game(None)
+                        new_game(action)
                         button = self.buttons[button.row][button.col]
                     self.first_click = False
                 if button.is_mine:
@@ -104,8 +105,7 @@ class MinesWindow(yutani.Window):
                                 if b.mines == 0:
                                     n.extend([x for x in check_neighbor_buttons(b.row,b.col) if not x.revealed and not x in n])
 
-            self.field_size = 9
-            self.mine_count = 10
+            self.field_size, self.mine_count = action
             self.first_click = True
             self.tr.set_text(f"There are {self.mine_count} mines.")
 
@@ -153,7 +153,11 @@ class MinesWindow(yutani.Window):
             subprocess.Popen(["help-browser.py","mines.trt"])
         menus = [
             ("File", [
-                MenuEntryAction("New Game","new",new_game,None),
+                MenuEntrySubmenu("New Game…",[
+                    MenuEntryAction("9×9, 10 mines",None,new_game,(9,10)),
+                    MenuEntryAction("16×16, 40 mines",None,new_game,(16,40)),
+                    MenuEntryAction("20×20, 90 mines",None,new_game,(20,90)),
+                ],icon="new"),
                 MenuEntryDivider(),
                 MenuEntryAction("Exit","exit",exit_app,None),
             ]),
@@ -183,7 +187,7 @@ class MinesWindow(yutani.Window):
         self.hovered_menu = None
         self.modifiers = 0
 
-        new_game(None)
+        new_game((9,10))
 
     def flag(self,button):
         button.set_flagged()
