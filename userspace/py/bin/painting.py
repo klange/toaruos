@@ -63,7 +63,10 @@ class PaintingWindow(yutani.Window):
             self.draw()
 
         def save_file(action):
-            self.surface.write_to_png('/tmp/painting.png')
+            self.modified = False
+            path = '/tmp/painting.png'
+            self.set_title(f'{os.path.basename(path)} - ToaruPaint')
+            self.surface.write_to_png(path)
 
         def select_color(action):
             if self.picker:
@@ -119,8 +122,10 @@ class PaintingWindow(yutani.Window):
         self.curs_y = None
         self.moving = False
         self.scale = 1.0
+        self.modified = False
 
     def load_buffer(self,path):
+        self.set_title(f'{os.path.basename(path)} - ToaruPaint')
         s = cairo.ImageSurface.create_from_png(path)
 
         self.init_buffer(s.get_width(),s.get_height())
@@ -134,6 +139,7 @@ class PaintingWindow(yutani.Window):
         self.draw_ctx.paint()
 
     def init_buffer(self,w,h):
+        self.modified = False
         self.buf = yutani.GraphicsBuffer(w,h)
         self.surface = self.buf.get_cairo_surface()
         self.draw_ctx = cairo.Context(self.surface)
@@ -142,6 +148,7 @@ class PaintingWindow(yutani.Window):
 
     def new_buffer(self,w,h):
         self.init_buffer(w,h)
+        self.set_title('Untitled - ToaruPaint')
         self.draw_ctx.rectangle(0,0,self.surface.get_width(),self.surface.get_height())
         self.draw_ctx.set_source_rgb(1,1,1)
         self.draw_ctx.fill()
@@ -306,6 +313,10 @@ class PaintingWindow(yutani.Window):
             self.draw_ctx.move_to(x_0,y_0)
             self.draw_ctx.line_to(x_1,y_1)
             self.draw_ctx.stroke()
+            if not self.modified:
+                self.modified = True
+                self.set_title("*" + self.title)
+
 
 
         self.curs_x = 0.5+msg.new_x - self.decorator.left_width()
