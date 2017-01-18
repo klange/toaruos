@@ -106,7 +106,7 @@ class MinesWindow(yutani.Window):
                                 b.reveal()
                                 if b.mines == 0:
                                     n.extend([x for x in check_neighbor_buttons(b.row,b.col) if not x.revealed and not x in n])
-                            self.check_win()
+                        self.check_win()
 
             self.field_size, self.mine_count = action
             self.first_click = True
