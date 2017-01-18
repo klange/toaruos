@@ -57,7 +57,7 @@ class HelpBrowserWindow(yutani.Window):
             ]),
             ("Go", [
                 MenuEntryAction("Home","home",self.go_page,"0_index.trt"),
-                MenuEntryAction("Topics",None,self.go_page,"special:contents"),
+                MenuEntryAction("Topics","bookmark",self.go_page,"special:contents"),
                 MenuEntryAction("Back","back",self.go_back,None),
             ]),
             ("Help", [
