@@ -233,7 +233,7 @@ class WindowListWidget(BaseWidget):
         self.window = window
         self.offset = offset
         available_width = remaining - offset
-        self.unit_width = min(int(available_width / len(windows)),150)
+        self.unit_width = min(int(available_width / len(windows)),180)
         icon_width = self.icon_width
         if self.unit_width < 56:
             self.unit_width = 32
