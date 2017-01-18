@@ -1,0 +1,11 @@
+
+<h1>Calculator</h1>
+
+<img src="/usr/share/icons/48/calculator.png"></img>
+A simple four-function calculator.
+
+<h2>Technical Details</h2>
+
+The calculator uses Python's integrated parsing and AST to format mathematical expressions. As such, some functions are different from a normal calculator. For example, you can use <mono>**</mono> as an exponent operator, parenthesis do not imply multiplication (<mono>2(4)</mono> is a syntax error; use <mono>2*(4)</mono> or similar instead), etc.
+
+

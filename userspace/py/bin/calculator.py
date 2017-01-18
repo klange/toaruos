@@ -2,6 +2,7 @@
 """
 Calculator for ToaruOS
 """
+import subprocess
 import sys
 
 import cairo
@@ -11,6 +12,7 @@ import text_region
 import toaru_fonts
 
 from button import Button
+from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 
 import ast
 import operator as op
@@ -18,6 +20,9 @@ import operator as op
 operators = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul,
              ast.Div: op.truediv, ast.Pow: op.pow, ast.BitXor: op.xor,
              ast.USub: op.neg}
+
+version = "0.1.0"
+_description = f"<b>Calculator {version}</b>\n© 2017 Kevin Lange\n\nSimple four-function calculator using Python.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 def eval_expr(expr):
     """
@@ -44,7 +49,7 @@ def eval_(node):
 class CalculatorWindow(yutani.Window):
 
     base_width = 200
-    base_height = 200
+    base_height = 240
 
     def __init__(self, decorator):
         super(CalculatorWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Calculator", icon="calculator", doublebuffer=True)
@@ -68,7 +73,30 @@ class CalculatorWindow(yutani.Window):
             [Button("0",add_string), Button(".",add_string), Button("=",calculate),  Button("+",add_string)],
         ]
 
-        self.tr = text_region.TextRegion(self.decorator.left_width()+5,self.decorator.top_height(),self.base_width-10,40)
+        def exit_app(action):
+            menus = [x for x in self.menus.values()]
+            for x in menus:
+                x.definitely_close()
+            self.close()
+            sys.exit(0)
+        def about_window(action):
+            subprocess.Popen(["about-applet.py","About Calculator","calculator","/usr/share/icons/48/calculator.png",_description])
+        def help_browser(action):
+            subprocess.Popen(["help-browser.py","calculator.trt"])
+        menus = [
+            ("File", [
+                MenuEntryAction("Exit","exit",exit_app,None),
+            ]),
+            ("Help", [
+                MenuEntryAction("Contents","help",help_browser,None),
+                MenuEntryDivider(),
+                MenuEntryAction("About Calculator","star",about_window,None),
+            ]),
+        ]
+
+        self.menubar = MenuBarWidget(self,menus)
+
+        self.tr = text_region.TextRegion(self.decorator.left_width()+5,self.decorator.top_height()+self.menubar.height,self.base_width-10,40)
         self.tr.set_font(toaru_fonts.Font(toaru_fonts.FONT_MONOSPACE,18))
         self.tr.set_text("")
         self.tr.set_alignment(1)
@@ -80,6 +108,10 @@ class CalculatorWindow(yutani.Window):
 
         self.hover_widget = None
         self.down_button = None
+
+        self.menus = {}
+        self.hovered_menu = None
+
 
     def calculate(self):
         if self.error or len(self.tr.text) == 0:
@@ -130,15 +162,15 @@ class CalculatorWindow(yutani.Window):
         ctx.set_source_rgb(204/255,204/255,204/255)
         ctx.fill()
 
-        ctx.rectangle(0,5,WIDTH,self.tr.height-10)
+        ctx.rectangle(0,5+self.menubar.height,WIDTH,self.tr.height-10)
         ctx.set_source_rgb(1,1,1)
         ctx.fill()
         self.tr.resize(WIDTH-10, self.tr.height)
         self.tr.draw(self)
 
         offset_x = 0
-        offset_y = self.tr.height
-        button_height = int((HEIGHT - self.tr.height) / len(self.buttons))
+        offset_y = self.tr.height + self.menubar.height
+        button_height = int((HEIGHT - self.tr.height - self.menubar.height) / len(self.buttons))
         for row in self.buttons:
             button_width = int(WIDTH / len(row))
             for button in row:
@@ -148,12 +180,15 @@ class CalculatorWindow(yutani.Window):
             offset_x = 0
             offset_y += button_height
 
-
-
+        self.menubar.draw(ctx,0,0,WIDTH)
         self.decorator.render(self)
+        self.flip()
 
     def finish_resize(self, msg):
         """Accept a resize."""
+        if msg.width < 200 or msg.height < 200:
+            self.resize_offer(max(msg.width,200),max(msg.height,200))
+            return
         self.resize_accept(msg.width, msg.height)
         self.reinit()
         self.draw()
@@ -166,6 +201,10 @@ class CalculatorWindow(yutani.Window):
             sys.exit(0)
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+
+        if x >= 0 and x < w and y >= 0 and y < self.menubar.height:
+            self.menubar.mouse_event(msg, x, y)
+            return
 
         redraw = False
         if self.down_button:
@@ -185,8 +224,8 @@ class CalculatorWindow(yutani.Window):
                         redraw = True
 
         else:
-            if y > self.tr.height and y < h and x >= 0 and x < w:
-                row = int((y - self.tr.height) / (self.height - self.decorator.height() - self.tr.height) * len(self.buttons))
+            if y > self.tr.height + self.menubar.height and y < h and x >= 0 and x < w:
+                row = int((y - self.tr.height - self.menubar.height) / (self.height - self.decorator.height() - self.tr.height - self.menubar.height) * len(self.buttons))
                 col = int(x / (self.width - self.decorator.width()) * len(self.buttons[row]))
                 button = self.buttons[row][col]
                 if button != self.hover_widget:
@@ -211,7 +250,6 @@ class CalculatorWindow(yutani.Window):
 
         if redraw:
             self.draw()
-            self.flip()
 
     def keyboard_event(self, msg):
         if msg.event.action != 0x01:
@@ -234,7 +272,6 @@ if __name__ == '__main__':
 
     window = CalculatorWindow(d)
     window.draw()
-    window.flip()
 
     while 1:
         # Poll for events.
@@ -245,13 +282,34 @@ if __name__ == '__main__':
         elif msg.type == yutani.Message.MSG_KEY_EVENT:
             if msg.wid == window.wid:
                 window.keyboard_event(msg)
+            elif msg.wid in window.menus:
+                window.menus[msg.wid].keyboard_event(msg)
         elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
             if msg.wid == window.wid:
-                window.focused = msg.focused
+                if msg.focused == 0 and window.menus:
+                    window.focused = 1
+                else:
+                    window.focused = msg.focused
                 window.draw()
-                window.flip()
+            elif msg.wid in window.menus and msg.focused == 0:
+                window.menus[msg.wid].leave_menu()
+                if not window.menus and window.focused:
+                    window.focused = 0
+                    window.draw()
         elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            window.finish_resize(msg)
+            if msg.wid == window.wid:
+                window.finish_resize(msg)
+        elif msg.type == yutani.Message.MSG_WINDOW_MOVE:
+            if msg.wid == window.wid:
+                window.x = msg.x
+                window.y = msg.y
         elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
             if msg.wid == window.wid:
                 window.mouse_event(msg)
+            elif msg.wid in window.menus:
+                m = window.menus[msg.wid]
+                if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
+                    window.hovered_menu = m
+                elif window.hovered_menu == m:
+                    window.hovered_menu = None
+                m.mouse_action(msg)
