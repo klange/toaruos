@@ -131,13 +131,6 @@ class PackageManagerWindow(yutani.Window):
         self.scroll_y = 0
         self.hilighted = None
         self.buf = None
-        try:
-            toaru_package.fetch_manifest()
-            toaru_package.is_gui = True
-            self.load_packages()
-        except:
-            self.packages = [NoPackages()]
-        self.redraw_buf()
         self.hilighted = None
 
     def load_packages(self):
@@ -321,7 +314,22 @@ if __name__ == '__main__':
     yutani.Yutani()
     d = yutani.Decor()
 
+    try:
+        toaru_package.fetch_manifest()
+        toaru_package.is_gui = True
+        packages = []
+    except:
+        packages = [NoPackages()]
+
     window = PackageManagerWindow(d)
+    if not packages:
+        try:
+            window.load_packages()
+        except:
+            window.packages = packages
+    else:
+        window.packages = packages
+    window.redraw_buf()
     window.draw()
 
     yutani_mainloop.mainloop()
