@@ -88,7 +88,7 @@ class PaintingWindow(yutani.Window):
 
         menus = [
             ("File", [
-                MenuEntrySubmenu("New",[
+                MenuEntrySubmenu("New...",[
                     MenuEntryAction("500×500","new",new_surface,(500,500)),
                     MenuEntryAction("800×600","new",new_surface,(800,600)),
                 ],icon="new"),
