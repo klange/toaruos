@@ -34,10 +34,10 @@ icon_directories = {
 }
 
 icon_cache = {24:{},48:{},16:{}}
-def get_icon(name,size=24):
+def get_icon(name,size=24,fallback='applications-generic'):
     """Find an icon in the icon cache or fetch it if possible."""
     if not name:
-        return get_icon("applications-generic",size)
+        return get_icon(fallback,size)
 
     if not name in icon_cache[size]:
         for directory in icon_directories[size]:
@@ -46,7 +46,7 @@ def get_icon(name,size=24):
                 icon = cairo.ImageSurface.create_from_png(f"{directory}/{name}.png")
                 icon_cache[size][name] = icon
                 return icon
-        return get_icon("applications-generic",size)
+        return get_icon(fallback,size)
     else:
         return icon_cache[size][name]
 
