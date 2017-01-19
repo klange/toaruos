@@ -5,14 +5,21 @@ general graphics routines, and the system decoration library.
 """
 
 from ctypes import *
+import importlib
 
 yutani_lib = None
 yutani_gfx_lib = None
 yutani_ctx = None
 yutani_windows = {}
 
+_cairo_lib = None
+_cairo_module = None
+_cairo_module_lib = None
+
+_libc = CDLL('libc.so')
+
 def usleep(microseconds):
-    CDLL('libc.so').usleep(microseconds)
+    _libc.usleep(microseconds)
 
 class Message(object):
     """A generic event message from the Yutani server."""
@@ -321,7 +328,7 @@ class Yutani(object):
         yutani_gfx_lib = CDLL("libtoaru-graphics.so")
         self._ptr = cast(yutani_lib.yutani_init(), POINTER(self._yutani_t))
         yutani_ctx = self
-        self._fileno = CDLL('libc.so').fileno(self._ptr.contents.sock)
+        self._fileno = _libc.fileno(self._ptr.contents.sock)
 
     def poll(self, sync=True):
         """Poll for an event message."""
@@ -451,7 +458,7 @@ class GraphicsBuffer(object):
 
     def destroy(self):
         yutani_gfx_lib.sprite_free(self._sprite)
-        CDLL('libc.so').free(self._gfx)
+        _libc.free(self._gfx)
 
 
 class Window(object):
@@ -499,25 +506,31 @@ class Window(object):
 
     def get_cairo_surface(self):
         """Obtain a pycairo.ImageSurface representing the window backbuffer."""
-        import _cairo
+        global _cairo_lib
+        global _cairo_module
+        global _cairo_module_lib
+        if not _cairo_lib:
+            _cairo_lib = CDLL('libcairo.so')
+            _cairo_module = importlib.import_module('_cairo')
+            _cairo_module_lib = CDLL(_cairo_module.__file__)
         buffer = self._gfx.contents.backbuffer
         width = self.width
         height = self.height
-        format = _cairo.FORMAT_ARGB32
+        format = _cairo_module.FORMAT_ARGB32
         # int cairo_format_stride_for_width(cairo_format_t format, int width)
-        cfsfw = CDLL('libcairo.so').cairo_format_stride_for_width
+        cfsfw = _cairo_lib.cairo_format_stride_for_width
         cfsfw.argtypes = [c_int, c_int]
         cfsfw.restype = c_int
         # stride = cairo_format_stride_for_width(format, width)
         stride = cfsfw(format, width)
         # cairo_surface_t * cairo_image_surface_create_for_data(unsigned char * data, cairo_format_t format, int ...)
-        ciscfd = CDLL('libcairo.so').cairo_image_surface_create_for_data
+        ciscfd = _cairo_lib.cairo_image_surface_create_for_data
         ciscfd.argtypes = [POINTER(c_char), c_int, c_int, c_int, c_int]
         ciscfd.restype = c_void_p
         # surface = cairo_image_surface_create_for_data(buffer,format,width,height,stride)
         surface = ciscfd(buffer,format,width,height,stride)
         # PyObject * PycairoSurface_FromSurface(cairo_surface_t * surface, PyObject * base)
-        pcsfs = CDLL(_cairo.__file__).PycairoSurface_FromSurface
+        pcsfs = _cairo_module_lib.PycairoSurface_FromSurface
         pcsfs.argtypes = [c_void_p, c_int]
         pcsfs.restype = py_object
         # return PycairoSurface_FromSurface(surface, NULL)
