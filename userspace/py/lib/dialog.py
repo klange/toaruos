@@ -154,9 +154,7 @@ class DialogWindow(yutani.Window):
             self.draw()
 
     def keyboard_event(self, msg):
-        if msg.event.key == b"q":
-            self.close()
-            sys.exit(0)
+        pass # Do not respond to keyboard events until we get keyboard focus stuff
 
 if __name__ == '__main__':
     yutani.Yutani()
