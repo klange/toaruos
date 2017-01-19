@@ -14,6 +14,7 @@ import text_region
 import toaru_fonts
 
 from button import Button
+import yutani_mainloop
 
 class SideButton(Button):
 
@@ -112,7 +113,6 @@ class WallpaperSelectorWindow(yutani.Window):
         self.tr.set_text(self.path)
         self.load_wallpaper()
         self.draw()
-        self.flip()
 
     def load_directory(self, path):
         if not os.path.exists(path):
@@ -192,9 +192,8 @@ class WallpaperSelectorWindow(yutani.Window):
                 button.draw(self,ctx,offset_x,offset_y,button_width,button_height)
             offset_x += button_width + button_pad
 
-
-
         self.decorator.render(self)
+        self.flip()
 
     def finish_resize(self, msg):
         """Accept a resize."""
@@ -260,7 +259,6 @@ class WallpaperSelectorWindow(yutani.Window):
 
         if redraw:
             self.draw()
-            self.flip()
 
     def keyboard_event(self, msg):
         if msg.event.action != 0x01:
@@ -275,25 +273,7 @@ if __name__ == '__main__':
 
     window = WallpaperSelectorWindow(d)
     window.draw()
-    window.flip()
 
-    while 1:
-        # Poll for events.
-        msg = yutani.yutani_ctx.poll()
-        if msg.type == yutani.Message.MSG_SESSION_END:
-            window.close()
-            break
-        elif msg.type == yutani.Message.MSG_KEY_EVENT:
-            if msg.wid == window.wid:
-                window.keyboard_event(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-            if msg.wid == window.wid:
-                window.focused = msg.focused
-                window.draw()
-                window.flip()
-        elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            window.finish_resize(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-            if msg.wid == window.wid:
-                window.mouse_event(msg)
+    yutani_mainloop.mainloop()
+
 

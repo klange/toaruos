@@ -14,6 +14,8 @@ import toaru_fonts
 
 from button import Button
 
+import yutani_mainloop
+
 class HintHole(object):
     """Draws a hole in the hints window."""
 
@@ -86,6 +88,10 @@ class HintWindow(yutani.Window):
         self.resize_done()
         self.flip()
 
+    def focus_changed(self, msg):
+        if msg.focused:
+            yctx.focus_window(window.wid)
+
 logo = "/usr/share/logo_login.png"
 pages = [
     (f"<img src=\"{logo}\"></img>\n\n<h1>Welcome to ToaruOS!</h1>\n\nThis tutorial will guide you through the features of the operating system, as well as give you a feel for the UI and design principles.\n\n\nWhen you're ready to continue, press \"Next\".\n\n<link target=\"\">https://github.com/klange/toaruos</link> - <link target=\"\">http://toaruos.org</link>\n\nToaruOS is free software, released under the terms of the NCSA/University of Illinois license.",[]),
@@ -149,6 +155,9 @@ class WizardWindow(yutani.Window):
 
         self.decorator.render(self)
         self.flip()
+
+    def finish_resize(self, msg):
+        pass # Ignore resize requests
 
     def mouse_event(self, msg):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
@@ -222,25 +231,8 @@ if __name__ == '__main__':
     while 1:
         # Poll for events.
         msg = yutani.yutani_ctx.poll()
-        if msg.type == yutani.Message.MSG_SESSION_END:
-            window.close()
-            hints.close()
-            break
-        elif msg.type == yutani.Message.MSG_WELCOME:
+        if msg.type == yutani.Message.MSG_WELCOME:
             hints.resize(msg.display_width,msg.display_height)
             window.center()
-        elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            if msg.wid == hints.wid:
-                hints.finish_resize(msg)
-        elif msg.type == yutani.Message.MSG_KEY_EVENT:
-            if msg.wid == window.wid:
-                window.keyboard_event(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-            if msg.wid == hints.wid:
-                yctx.focus_window(window.wid)
-            if msg.wid == window.wid:
-                window.focused = msg.focused
-                window.draw()
-        elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-            if msg.wid == window.wid:
-                window.mouse_event(msg)
+        else:
+            yutani_mainloop.handle_event(msg)

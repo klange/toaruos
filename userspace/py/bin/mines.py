@@ -15,6 +15,8 @@ import toaru_fonts
 from button import Button, rounded_rectangle
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 
+import yutani_mainloop
+
 version = "0.1.0"
 _description = f"<b>Mines {version}</b>\n© 2017 Kevin Lange\n\nClassic logic game.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
@@ -323,44 +325,4 @@ if __name__ == '__main__':
     window = MinesWindow(d)
     window.draw()
 
-    while 1:
-        # Poll for events.
-        msg = yutani.yutani_ctx.poll()
-        if msg.type == yutani.Message.MSG_SESSION_END:
-            window.close()
-            break
-        elif msg.type == yutani.Message.MSG_KEY_EVENT:
-            if msg.wid == window.wid:
-                window.keyboard_event(msg)
-            elif msg.wid in window.menus:
-                window.menus[msg.wid].keyboard_event(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-            if msg.wid == window.wid:
-                if msg.focused == 0 and window.menus:
-                    window.focused = 1
-                else:
-                    window.focused = msg.focused
-                window.draw()
-            elif msg.wid in window.menus and msg.focused == 0:
-                window.menus[msg.wid].leave_menu()
-                if not window.menus and window.focused:
-                    window.focused = 0
-                    window.draw()
-        elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            if msg.wid == window.wid:
-                window.finish_resize(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_MOVE:
-            if msg.wid == window.wid:
-                window.x = msg.x
-                window.y = msg.y
-        elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-            if msg.wid == window.wid:
-                window.mouse_event(msg)
-            elif msg.wid in window.menus:
-                m = window.menus[msg.wid]
-                if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
-                    window.hovered_menu = m
-                elif window.hovered_menu == m:
-                    window.hovered_menu = None
-                m.mouse_action(msg)
-
+    yutani_mainloop.mainloop()

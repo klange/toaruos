@@ -9,6 +9,7 @@ from ctypes import *
 yutani_lib = None
 yutani_gfx_lib = None
 yutani_ctx = None
+yutani_windows = {}
 
 def usleep(microseconds):
     CDLL('libc.so').usleep(microseconds)
@@ -482,6 +483,8 @@ class Window(object):
 
         self._ptr = cast(yutani_lib.yutani_window_create_flags(yutani_ctx._ptr, width, height, flags), POINTER(self._yutani_window_t))
 
+        yutani_windows[self.wid] = self
+
         self.doublebuffer = doublebuffer
 
         if doublebuffer:
@@ -491,6 +494,8 @@ class Window(object):
 
         if title:
             self.set_title(title, icon)
+
+        self.closed = False
 
     def get_cairo_surface(self):
         """Obtain a pycairo.ImageSurface representing the window backbuffer."""
@@ -543,6 +548,9 @@ class Window(object):
 
     def close(self):
         """Close the window."""
+        if self.wid in yutani_windows:
+            del yutani_windows[self.wid]
+        self.closed = True
         yutani_lib.yutani_close(yutani_ctx._ptr, self._ptr)
         yutani_lib.release_graphics_yutani(self._gfx)
 

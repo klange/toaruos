@@ -13,6 +13,8 @@ import text_region
 import toaru_fonts
 import fswait
 
+import yutani_mainloop
+
 def rounded_rectangle(ctx,x,y,w,h,r):
     degrees = math.pi / 180
     ctx.new_sub_path()
@@ -74,6 +76,7 @@ class ProgressBarWindow(yutani.Window):
         self.tr.draw(self)
 
         self.decorator.render(self)
+        self.flip()
 
     def finish_resize(self, msg):
         """Accept a resize."""
@@ -104,7 +107,6 @@ if __name__ == '__main__':
 
     window = ProgressBarWindow(d,title,icon)
     window.draw()
-    window.flip()
 
     fds = [yutani.yutani_ctx,sys.stdin]
     while 1:
@@ -115,22 +117,7 @@ if __name__ == '__main__':
             print("? fswait error.")
         elif fd == 0:
             msg = yutani.yutani_ctx.poll()
-            if msg.type == yutani.Message.MSG_SESSION_END:
-                window.close()
-                break
-            elif msg.type == yutani.Message.MSG_KEY_EVENT:
-                if msg.wid == window.wid:
-                    window.keyboard_event(msg)
-            elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-                if msg.wid == window.wid:
-                    window.focused = msg.focused
-                    window.draw()
-                    window.flip()
-            elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-                window.finish_resize(msg)
-            elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-                if msg.wid == window.wid:
-                    window.mouse_event(msg)
+            yutani_mainloop.handle_event(msg)
         elif fd == 1:
             status = sys.stdin.readline().strip()
             if status == "done":
@@ -138,5 +125,4 @@ if __name__ == '__main__':
                 break
             window.progress, window.total = map(int,status.split(" "))
             window.draw()
-            window.flip()
 

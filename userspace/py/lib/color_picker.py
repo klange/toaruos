@@ -181,7 +181,7 @@ class ColorPickerWindow(yutani.Window):
         self.decorator.render(self)
         self.flip()
 
-    def resize_finish(self,msg):
+    def finish_resize(self,msg):
         """Accept a resize."""
         WIDTH, HEIGHT = msg.width - self.decorator.width(), msg.height - self.decorator.height()
         if WIDTH != HEIGHT:
@@ -239,8 +239,18 @@ class ColorPickerWindow(yutani.Window):
                 self.down_in_circle = False
                 self.down_in_triangel = False
 
+    def keyboard_event(self, msg):
+        if __name__ == '__main__':
+            if msg.event.action != 0x01:
+                return # Ignore anything that isn't a key down.
+            if msg.event.key == b'q':
+                self.close()
+                sys.exit(0)
+
 if __name__ == '__main__':
     # Connect to the server.
+    import yutani_mainloop
+
     yutani.Yutani()
     d = yutani.Decor()
 
@@ -250,23 +260,4 @@ if __name__ == '__main__':
     w = ColorPickerWindow(d,on_close)
     w.draw()
 
-    while 1:
-        # Poll for events.
-        msg = yutani.yutani_ctx.poll()
-        if msg.type == yutani.Message.MSG_SESSION_END:
-            w.close()
-            sys.exit(0)
-        elif msg.type == yutani.Message.MSG_KEY_EVENT:
-            if msg.event.key == b'q':
-                w.close()
-                sys.exit(0)
-        elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-            if msg.wid == w.wid:
-                w.focused = msg.focused
-                w.draw()
-        elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            if msg.wid == w.wid:
-                w.resize_finish(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-            if msg.wid == w.wid:
-                w.mouse_event(msg)
+    yutani_mainloop.mainloop()

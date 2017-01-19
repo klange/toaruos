@@ -8,6 +8,8 @@ import text_region
 import toaru_fonts
 from icon_cache import get_icon
 
+menu_windows = {}
+
 class MenuBarWidget(object):
     """Widget for display multiple menus."""
 
@@ -218,6 +220,7 @@ class MenuWindow(yutani.Window):
         required_height = sum([e.height for e in entries]) + self.top_height + self.bottom_height
         flags = yutani.WindowFlag.FLAG_ALT_ANIMATION
         super(MenuWindow, self).__init__(required_width,required_height,doublebuffer=True,flags=flags)
+        menu_windows[self.wid] = self
         self.move(*origin)
         self.focused_widget = None
         self.child = None
@@ -346,6 +349,11 @@ class MenuWindow(yutani.Window):
         if msg.event.key == b'\n':
             if self.focused_widget:
                 self.focused_widget.activate()
+
+    def close(self):
+        if self.wid in menu_windows:
+            del menu_windows[self.wid]
+        super(MenuWindow,self).close()
 
     def definitely_close(self):
         """Close this menu and all of its submenus."""

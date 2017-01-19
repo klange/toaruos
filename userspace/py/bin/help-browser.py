@@ -14,6 +14,8 @@ import text_region
 
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 
+import yutani_mainloop
+
 version = "0.1.0"
 _description = f"<b>Help Browser {version}</b>\n© 2017 Kevin Lange\n\nRich text help document viewer.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
@@ -199,6 +201,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         self.menubar.draw(ctx,0,0,WIDTH)
 
         self.decorator.render(self)
+        self.flip()
 
     def finish_resize(self, msg):
         """Accept a resize."""
@@ -243,16 +246,18 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         """Navigate to a page."""
         self.navigate(action)
         self.draw()
-        self.flip()
 
     def go_back(self,action):
         """Go back."""
         if self.last_topic:
             self.navigate(self.last_topic)
         self.draw()
-        self.flip()
 
     def mouse_event(self, msg):
+        if self.mouse_check(msg):
+            self.draw()
+
+    def mouse_check(self, msg):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
             window.close()
             sys.exit(0)
@@ -320,6 +325,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         return False
 
     def keyboard_event(self, msg):
+        if self.keyboard_check(msg):
+            self.draw()
+
+    def keyboard_check(self,msg):
         if msg.event.action != 0x01:
             return False # Ignore anything that isn't a key down.
         if msg.event.keycode == yutani.Keycode.HOME:
@@ -353,53 +362,5 @@ if __name__ == '__main__':
         window.navigate(sys.argv[-1])
 
     window.draw()
-    window.flip()
 
-    while 1:
-        # Poll for events.
-        msg = yutani.yutani_ctx.poll()
-        if msg.type == yutani.Message.MSG_SESSION_END:
-            window.close()
-            break
-        elif msg.type == yutani.Message.MSG_KEY_EVENT:
-            if msg.wid == window.wid:
-                if window.keyboard_event(msg):
-                    window.draw()
-                    window.flip()
-            elif msg.wid in window.menus:
-                window.menus[msg.wid].keyboard_event(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-            if msg.wid == window.wid:
-                if msg.focused == 0 and window.menus:
-                    window.focused = 1
-                else:
-                    window.focused = msg.focused
-                window.draw()
-                window.flip()
-            elif msg.wid in window.menus and msg.focused == 0:
-                window.menus[msg.wid].leave_menu()
-                if not window.menus and window.focused:
-                    window.focused = 0
-                    window.draw()
-                    window.flip()
-        elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            if msg.wid == window.wid:
-                window.finish_resize(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_MOVE:
-            if msg.wid == window.wid:
-                window.x = msg.x
-                window.y = msg.y
-        elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-            if msg.wid == window.wid:
-                if window.mouse_event(msg):
-                    window.draw()
-                    window.flip()
-            elif msg.wid in window.menus:
-                m = window.menus[msg.wid]
-                if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
-                    window.hovered_menu = m
-                elif window.hovered_menu == m:
-                    window.hovered_menu = None
-                m.mouse_action(msg)
-
-
+    yutani_mainloop.mainloop()
