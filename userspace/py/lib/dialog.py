@@ -57,15 +57,15 @@ class DialogWindow(yutani.Window):
         self.draw()
 
     def ok_click(self, button):
+        self.close()
         if self.callback:
             self.callback()
-        self.close()
         return False
 
     def cancel_click(self, button):
+        self.close()
         if self.cancel_callback:
             self.cancel_callback()
-        self.close()
         return False
 
     def draw(self):
