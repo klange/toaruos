@@ -20,6 +20,8 @@ from color_picker import ColorPickerWindow
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
 
+from dialog import DialogWindow
+
 import yutani_mainloop
 
 app_name = "ToaruPaint"
@@ -40,13 +42,6 @@ class PaintingWindow(yutani.Window):
         self.picker = None
         self.last_color = (0,0,0)
         self.modifiers = None
-
-        def exit_app(action):
-            menus = [x for x in self.menus.values()]
-            for x in menus:
-                x.definitely_close()
-            self.close()
-            sys.exit(0)
 
         def about_window(action):
             subprocess.Popen(["about-applet.py",f"About {app_name}","applications-painting","/usr/share/icons/48/applications-painting.png",_description])
@@ -95,7 +90,7 @@ class PaintingWindow(yutani.Window):
                 #MenuEntryAction("Open","new",open_file,None),
                 MenuEntryAction("Save","save",save_file,None),
                 MenuEntryDivider(),
-                MenuEntryAction("Exit","exit",exit_app,None),
+                MenuEntryAction("Exit","exit",self.exit_app,None),
             ]),
             ("Tools", [
                 MenuEntryAction("Color",None,select_color,None),
@@ -126,6 +121,20 @@ class PaintingWindow(yutani.Window):
         self.moving = False
         self.scale = 1.0
         self.modified = False
+
+    def actually_exit(self):
+        menus = [x for x in self.menus.values()]
+        for x in menus:
+            x.definitely_close()
+        self.close()
+        sys.exit(0)
+
+    def exit_app(self, action=None):
+        if self.modified:
+            DialogWindow(self.decorator,app_name,"You have unsaved changes.\nAre you sure you want to quit?",callback=self.actually_exit,window=self)
+        else:
+            self.actually_exit()
+
 
     def load_buffer(self,path):
         self.set_title(f'{os.path.basename(path)} - {app_name}',self.icon)
@@ -239,8 +248,7 @@ class PaintingWindow(yutani.Window):
 
     def mouse_event(self, msg):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
-            window.close()
-            sys.exit(0)
+            self.exit_app()
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
 
@@ -331,8 +339,7 @@ class PaintingWindow(yutani.Window):
         if msg.event.action != yutani.KeyAction.ACTION_DOWN:
             return # Ignore anything that isn't a key down.
         if msg.event.key == b"q":
-            self.close()
-            sys.exit(0)
+            self.exit_app()
 
 if __name__ == '__main__':
     yutani.Yutani()

@@ -15,10 +15,13 @@ import toaru_fonts
 from button import Button, rounded_rectangle
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 
+from dialog import DialogWindow
+
 import yutani_mainloop
 
 version = "0.1.0"
-_description = f"<b>Mines {version}</b>\n© 2017 Kevin Lange\n\nClassic logic game.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+app_name = "Mines"
+_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nClassic logic game.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 class MineButton(Button):
 
@@ -77,74 +80,9 @@ class MinesWindow(yutani.Window):
     base_height = 440
 
     def __init__(self, decorator):
-        super(MinesWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Mines", icon="mines", doublebuffer=True)
+        super(MinesWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="mines", doublebuffer=True)
         self.move(100,100)
         self.decorator = decorator
-
-        def new_game(action):
-            def mine_func(b):
-                button = b
-                if self.first_click:
-                    while button.is_mine or button.mines:
-                        new_game(action)
-                        button = self.buttons[button.row][button.col]
-                    self.first_click = False
-                if button.flagged:
-                    return
-                if button.is_mine:
-                    self.tr.set_text("You lose.")
-                    for row in self.buttons:
-                        for b in row:
-                            b.reveal()
-                    self.draw()
-                    return
-                else:
-                    if not button.revealed:
-                        button.reveal()
-                        if button.mines == 0:
-                            n = [x for x in check_neighbor_buttons(button.row,button.col) if not x.revealed]
-                            while n:
-                                b = n.pop()
-                                b.reveal()
-                                if b.mines == 0:
-                                    n.extend([x for x in check_neighbor_buttons(b.row,b.col) if not x.revealed and not x in n])
-                        self.check_win()
-
-            self.field_size, self.mine_count = action
-            self.first_click = True
-            self.tr.set_text(f"There are {self.mine_count} mines.")
-
-            self.mines = []
-            while len(self.mines) < self.mine_count:
-                x,y = random.randrange(self.field_size),random.randrange(self.field_size)
-                if not (x,y) in self.mines:
-                    self.mines.append((x,y))
-
-            def check_neighbors(r,c):
-                n = []
-                if r > 0:
-                    if c > 0: n.append((r-1,c-1))
-                    n.append((r-1,c))
-                    if c < self.field_size-1: n.append((r-1,c+1))
-                if r < self.field_size-1:
-                    if c > 0: n.append((r+1,c-1))
-                    n.append((r+1,c))
-                    if c < self.field_size-1: n.append((r+1,c+1))
-                if c > 0: n.append((r,c-1))
-                if c < self.field_size-1: n.append((r,c+1))
-                return n
-
-            def check_neighbor_buttons(r,c):
-                return [self.buttons[x][y] for x,y in check_neighbors(r,c)]
-
-            self.buttons = []
-            for row in range(self.field_size):
-                r = []
-                for col in range(self.field_size):
-                    is_mine = (row,col) in self.mines
-                    neighbor_mines = len([x for x in check_neighbors(row,col) if x in self.mines])
-                    r.append(MineButton(mine_func,row,col,is_mine,neighbor_mines))
-                self.buttons.append(r)
 
         def exit_app(action):
             menus = [x for x in self.menus.values()]
@@ -153,15 +91,15 @@ class MinesWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            subprocess.Popen(["about-applet.py","About Mines","mines","/usr/share/icons/48/mines.png",_description])
+            subprocess.Popen(["about-applet.py",f"About {app_name}","mines","/usr/share/icons/48/mines.png",_description])
         def help_browser(action):
             subprocess.Popen(["help-browser.py","mines.trt"])
         menus = [
             ("File", [
                 MenuEntrySubmenu("New Game...",[
-                    MenuEntryAction("9×9, 10 mines",None,new_game,(9,10)),
-                    MenuEntryAction("16×16, 40 mines",None,new_game,(16,40)),
-                    MenuEntryAction("20×20, 90 mines",None,new_game,(20,90)),
+                    MenuEntryAction("9×9, 10 mines",None,self.new_game,(9,10)),
+                    MenuEntryAction("16×16, 40 mines",None,self.new_game,(16,40)),
+                    MenuEntryAction("20×20, 90 mines",None,self.new_game,(20,90)),
                 ],icon="new"),
                 MenuEntryDivider(),
                 MenuEntryAction("Exit","exit",exit_app,None),
@@ -169,7 +107,7 @@ class MinesWindow(yutani.Window):
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
                 MenuEntryDivider(),
-                MenuEntryAction("About Mines","star",about_window,None),
+                MenuEntryAction(f"About {app_name}","star",about_window,None),
             ]),
         ]
 
@@ -192,7 +130,76 @@ class MinesWindow(yutani.Window):
         self.hovered_menu = None
         self.modifiers = 0
 
-        new_game((9,10))
+        self.new_game((9,10))
+
+    def new_game(self,action):
+        def mine_func(b):
+            button = b
+            if self.first_click:
+                while button.is_mine or button.mines:
+                    self.new_game(action)
+                    button = self.buttons[button.row][button.col]
+                self.first_click = False
+            if button.flagged:
+                return
+            if button.is_mine:
+                self.tr.set_text("You lose.")
+                for row in self.buttons:
+                    for b in row:
+                        b.reveal()
+                self.draw()
+                def new():
+                    self.new_game(action)
+                DialogWindow(self.decorator,app_name,"Oops, you clicked a mine! Play another game?",callback=new,window=self,icon='mines')
+                return
+            else:
+                if not button.revealed:
+                    button.reveal()
+                    if button.mines == 0:
+                        n = [x for x in check_neighbor_buttons(button.row,button.col) if not x.revealed]
+                        while n:
+                            b = n.pop()
+                            b.reveal()
+                            if b.mines == 0:
+                                n.extend([x for x in check_neighbor_buttons(b.row,b.col) if not x.revealed and not x in n])
+                    self.check_win()
+
+        self.field_size, self.mine_count = action
+        self.first_click = True
+        self.tr.set_text(f"There are {self.mine_count} mines.")
+
+        self.mines = []
+        while len(self.mines) < self.mine_count:
+            x,y = random.randrange(self.field_size),random.randrange(self.field_size)
+            if not (x,y) in self.mines:
+                self.mines.append((x,y))
+
+        def check_neighbors(r,c):
+            n = []
+            if r > 0:
+                if c > 0: n.append((r-1,c-1))
+                n.append((r-1,c))
+                if c < self.field_size-1: n.append((r-1,c+1))
+            if r < self.field_size-1:
+                if c > 0: n.append((r+1,c-1))
+                n.append((r+1,c))
+                if c < self.field_size-1: n.append((r+1,c+1))
+            if c > 0: n.append((r,c-1))
+            if c < self.field_size-1: n.append((r,c+1))
+            return n
+
+        def check_neighbor_buttons(r,c):
+            return [self.buttons[x][y] for x,y in check_neighbors(r,c)]
+
+        self.buttons = []
+        for row in range(self.field_size):
+            r = []
+            for col in range(self.field_size):
+                is_mine = (row,col) in self.mines
+                neighbor_mines = len([x for x in check_neighbors(row,col) if x in self.mines])
+                r.append(MineButton(mine_func,row,col,is_mine,neighbor_mines))
+            self.buttons.append(r)
+
 
     def check_win(self):
         buttons = []
@@ -204,6 +211,9 @@ class MinesWindow(yutani.Window):
             self.tr.set_text("You win!")
             for b in buttons:
                 b.reveal()
+            def new():
+                self.new_game((self.field_size,self.mine_count))
+            DialogWindow(self.decorator,app_name,"You won! Play another game?",callback=new,window=self,icon='mines')
 
     def flag(self,button):
         button.set_flagged()
