@@ -18,6 +18,7 @@ import toaru_package
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
 from about_applet import AboutAppletWindow
+from dialog import DialogWindow
 
 import yutani_mainloop
 
@@ -68,7 +69,11 @@ class Package(object):
     def do_action(self):
         if self.installed:
             return False
-        install(self.name)
+        def do_it():
+            install(self.name)
+            window.redraw_buf()
+            window.draw()
+        DialogWindow(window.decorator,f"Install {self.name}?",f"The package `{self.name}` will now be installed. Continue?",callback=do_it,window=window,icon='package')
         return True
 
 class NoPackages(object):
