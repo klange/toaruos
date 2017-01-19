@@ -51,11 +51,13 @@ class TextUnit(object):
 
 class TextRegion(object):
 
-    def __init__(self, x, y, width, height, font=toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13)):
+    def __init__(self, x, y, width, height, font=None):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
+        if not font:
+            font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13)
         self.font = font
         self.text = ""
         self.lines = []
