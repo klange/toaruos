@@ -65,14 +65,12 @@ class AboutAppletWindow(yutani.Window):
         """Accept a resize."""
         self.resize_accept(msg.width, msg.height)
         self.reinit()
-        self.int_width = msg.width - self.decorator.width()
-        self.int_height = msg.height - self.decorator.height()
         self.draw()
         self.resize_done()
         self.flip()
 
     def mouse_event(self, msg):
-        if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
+        if self.decorator.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
             window.close()
             sys.exit(0)
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
