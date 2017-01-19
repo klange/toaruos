@@ -3,7 +3,11 @@
 Simple okay/cancel dialog.
 """
 import os
+import re
+import stat
 import sys
+import time
+import fnmatch
 
 import cairo
 
@@ -18,6 +22,11 @@ import yutani_mainloop
 
 _default_text = "This is a dialog. <b>Formatting is available.</b>"
 
+hilight_border_top = (54/255,128/255,205/255)
+hilight_gradient_top = (93/255,163/255,236/255)
+hilight_gradient_bottom = (56/255,137/255,220/55)
+hilight_border_bottom = (47/255,106/255,167/255)
+
 class DialogButtons(object):
 
     OKAY_CANCEL = 1
@@ -29,6 +38,9 @@ class DialogWindow(yutani.Window):
     base_height = 150
 
     text_offset = 40
+
+    okay_label = "Okay"
+    cancel_label = "Cancel"
 
     def __init__(self, decorator, title, text, icon='help', buttons=DialogButtons.OKAY_CANCEL, callback=None, cancel_callback=None,window=None):
         super(DialogWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=title, icon=icon, doublebuffer=True)
@@ -45,8 +57,8 @@ class DialogWindow(yutani.Window):
         self.tr = text_region.TextRegion(0,0,self.base_width-60,self.base_height-self.text_offset,font=self.font)
         self.tr.set_richtext(text)
 
-        self.button_ok = Button("Okay",self.ok_click)
-        self.button_cancel = Button("Cancel",self.cancel_click)
+        self.button_ok = Button(self.okay_label,self.ok_click)
+        self.button_cancel = Button(self.cancel_label,self.cancel_click)
         self.buttons = [self.button_ok, self.button_cancel]
 
         self.hover_widget = None
@@ -156,19 +168,261 @@ class DialogWindow(yutani.Window):
     def keyboard_event(self, msg):
         pass # Do not respond to keyboard events until we get keyboard focus stuff
 
+class File(object):
+
+    def __init__(self, path,name=None):
+        if not name:
+            self.name = os.path.basename(path)
+        else:
+            self.name = name
+        self.path = os.path.normpath(path)
+        self.stat = os.stat(path)
+        self.y = 0
+        self.x = 0
+        self.hilight = False
+        self.tr = text_region.TextRegion(0,0,400,20)
+        self.tr.set_one_line()
+        self.tr.set_ellipsis()
+        self.tr.set_text(self.name)
+
+    def do_action(self, dialog):
+        if self.is_directory:
+            dialog.load_directory(self.path)
+            dialog.redraw_buf()
+            return True
+        else:
+            dialog.path = self.path
+            dialog.ok_click(None)
+            return False
+
+    @property
+    def is_directory(self):
+        return stat.S_ISDIR(self.stat.st_mode)
+
+    @property
+    def is_executable(self):
+        return stat.S_IXUSR & self.stat.st_mode and not self.is_directory
+
+    @property
+    def icon(self):
+        if self.is_directory: return get_icon('folder',16)
+        if self.is_executable: return get_icon('applications-generic',16)
+        return get_icon('file',16) # Need file icon
+
+    @property
+    def sortkey(self):
+        if self.is_directory: return "___" + self.name
+        else: return "zzz" + self.name
+
+
+class OpenFileDialog(DialogWindow):
+
+    base_width = 500
+    base_height = 450
+    okay_label = "Open"
+
+    buf = None
+    path = None
+    icon_width = 16
+
+    def __init__(self, decorator, title, glob=None, callback=None, cancel_callback=None,window=None):
+        self.buf = None
+        self.path = None
+        if glob:
+            self.matcher = re.compile(fnmatch.translate(glob))
+        else:
+            self.matcher = None
+        self.tr = None
+        self.load_directory(os.getcwd())
+        self.redraw_buf()
+        self.hilighted = None
+        super(OpenFileDialog, self).__init__(decorator,title,"Open...",icon="open",callback=callback,cancel_callback=cancel_callback,window=window)
+        self.tr.set_text(self.directory)
+
+    def ok_click(self, button):
+        self.close()
+        if self.callback:
+            self.callback(self.path)
+        return False
+
+    def load_directory(self, directory):
+        self.directory = os.path.normpath(directory)
+        if self.tr:
+            self.tr.set_text(self.directory)
+        self.files = sorted([File(os.path.join(self.directory,f)) for f in os.listdir(self.directory)],key=lambda x: x.sortkey)
+        if self.matcher:
+            self.files = [x for x in self.files if x.is_directory or self.matcher.match(x.name)]
+        if directory != '/':
+            self.files.insert(0,File(os.path.join(self.directory,'..'),'(Go up)'))
+        self.scroll_y = 0
+
+    def redraw_buf(self,clips=None):
+        if self.buf:
+            self.buf.destroy()
+        w = 450
+        self.buf = yutani.GraphicsBuffer(w,len(self.files)*24)
+
+        surface = self.buf.get_cairo_surface()
+        ctx = cairo.Context(surface)
+
+        if clips:
+            for clip in clips:
+                ctx.rectangle(clip.x,clip.y,w,24)
+            ctx.clip()
+
+        ctx.rectangle(0,0,surface.get_width(),surface.get_height())
+        ctx.set_source_rgb(1,1,1)
+        ctx.fill()
+
+        offset_y = 0
+
+        for f in self.files:
+            f.y = offset_y
+            if not clips or f in clips:
+                tr = f.tr
+                tr.move(26,offset_y+4)
+                if f.hilight:
+                    gradient = cairo.LinearGradient(0,0,0,18)
+                    gradient.add_color_stop_rgba(0.0,*hilight_gradient_top,1.0)
+                    gradient.add_color_stop_rgba(1.0,*hilight_gradient_bottom,1.0)
+                    ctx.rectangle(0,offset_y+4,w,1)
+                    ctx.set_source_rgb(*hilight_border_top)
+                    ctx.fill()
+                    ctx.rectangle(0,offset_y+4+20-1,w,1)
+                    ctx.set_source_rgb(*hilight_border_bottom)
+                    ctx.fill()
+                    ctx.save()
+                    ctx.translate(0,offset_y+4+1)
+                    ctx.rectangle(0,0,w,20-2)
+                    ctx.set_source(gradient)
+                    ctx.fill()
+                    ctx.restore()
+                    tr.font.font_color = 0xFFFFFFFF
+                else:
+                    ctx.rectangle(0,offset_y+4,w,20)
+                    ctx.set_source_rgb(1,1,1)
+                    ctx.fill()
+                    tr.font.font_color = 0xFF000000
+                ctx.set_source_surface(f.icon,4,offset_y+6)
+                ctx.paint()
+                tr.draw(self.buf)
+            offset_y += 24
+
+    def draw(self):
+        surface = self.get_cairo_surface()
+
+        WIDTH, HEIGHT = self.width - self.decorator.width(), self.height - self.decorator.height()
+
+        ctx = cairo.Context(surface)
+        ctx.translate(self.decorator.left_width(), self.decorator.top_height())
+        ctx.rectangle(0,0,WIDTH,HEIGHT)
+        ctx.set_source_rgb(204/255,204/255,204/255)
+        ctx.fill()
+
+        #ctx.set_source_surface(self.logo,30,30)
+        #ctx.paint()
+
+        self.tr.resize(WIDTH,30)
+        self.tr.move(self.decorator.left_width(),self.decorator.top_height()+10)
+        self.tr.set_alignment(2)
+        self.tr.draw(self)
+
+        ctx.save()
+        ctx.translate(20, 40)
+        ctx.rectangle(0,0,450,HEIGHT-130)
+        ctx.set_source_rgb(1,1,1)
+        ctx.fill()
+        ctx.rectangle(0,0,450,HEIGHT-130)
+        ctx.clip()
+        text = self.buf.get_cairo_surface()
+        ctx.set_source_surface(text,0,self.scroll_y)
+        ctx.paint()
+        ctx.restore()
+
+        self.button_cancel.draw(self,ctx,WIDTH-130,HEIGHT-60,100,30)
+        self.button_ok.draw(self,ctx,WIDTH-240,HEIGHT-60,100,30)
+
+        self.decorator.render(self)
+        self.flip()
+
+    def scroll(self, amount):
+        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        rows = 1000
+        self.scroll_y += amount
+        if self.scroll_y > 0:
+            self.scroll_y = 0
+        if self.scroll_y < -100 * rows:
+            self.scroll_y = -100 * rows
+
+
+    def mouse_event(self, msg):
+        super(OpenFileDialog,self).mouse_event(msg)
+
+        x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
+        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        if y < 0: return
+        if x < 0 or x >= w: return
+
+        if msg.buttons & yutani.MouseButton.SCROLL_UP:
+            self.scroll(30)
+            self.draw()
+            return
+        elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
+            self.scroll(-30)
+            self.draw()
+            return
+
+        offset_y = self.scroll_y + 40
+
+        redraw = []
+        hit = False
+
+        for f in self.files:
+            if offset_y > h: break
+            if y >= offset_y and y < offset_y + 24:
+                if not f.hilight:
+                    redraw.append(f)
+                    if self.hilighted:
+                        redraw.append(self.hilighted)
+                        self.hilighted.hilight = False
+                    f.hilight = True
+                self.hilighted = f
+                hit = True
+                break
+            offset_y += 24
+
+        if not hit:
+            if self.hilighted:
+                redraw.append(self.hilighted)
+                self.hilighted.hilight = False
+                self.hilighted = None
+
+        if self.hilighted:
+            if msg.command == yutani.MouseEvent.DOWN:
+                if self.hilighted.do_action(self):
+                    redraw = []
+                    self.redraw_buf()
+                    self.draw()
+
+        if redraw:
+            self.redraw_buf(redraw)
+            self.draw()
+
+
 if __name__ == '__main__':
     yutani.Yutani()
     d = yutani.Decor()
 
-    def okay():
-        print("You hit Okay!")
+    def okay(path):
+        print("You hit Okay!",path)
         sys.exit(0)
 
     def cancel():
         print("You hit Cancel!")
         sys.exit(0)
 
-    window = DialogWindow(d,"Okay/Cancel Dialog","A thing happend!",cancel_callback=cancel,callback=okay)
+    #window = DialogWindow(d,"Okay/Cancel Dialog","A thing happend!",cancel_callback=cancel,callback=okay)
+    window = OpenFileDialog(d,"Open...",glob="*.png",cancel_callback=cancel,callback=okay)
 
     yutani_mainloop.mainloop()
 

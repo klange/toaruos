@@ -21,7 +21,7 @@ from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntry
 from icon_cache import get_icon
 from about_applet import AboutAppletWindow
 
-from dialog import DialogWindow
+from dialog import DialogWindow, OpenFileDialog
 
 import yutani_mainloop
 
@@ -53,6 +53,9 @@ class PaintingWindow(yutani.Window):
         def close_picker():
             self.last_color = self.picker.color
             self.picker = None
+
+        def open_file(action):
+            OpenFileDialog(self.decorator,"Open...",glob="*.png",callback=self.load_buffer,window=self)
 
         def new_surface(action):
             # TODO: prompt for size
@@ -88,7 +91,7 @@ class PaintingWindow(yutani.Window):
                     MenuEntryAction("500×500","new",new_surface,(500,500)),
                     MenuEntryAction("800×600","new",new_surface,(800,600)),
                 ],icon="new"),
-                #MenuEntryAction("Open","new",open_file,None),
+                MenuEntryAction("Open","open",open_file,None),
                 MenuEntryAction("Save","save",save_file,None),
                 MenuEntryDivider(),
                 MenuEntryAction("Exit","exit",self.exit_app,None),
