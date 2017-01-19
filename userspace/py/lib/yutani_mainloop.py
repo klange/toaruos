@@ -14,7 +14,7 @@ def handle_event(msg):
             if msg.wid in menu_bar.menu_windows:
                 if msg.focused == 0:
                     window.leave_menu()
-                    if window.root and window.root.menus and window.root.focused:
+                    if window.root and not window.root.menus and window.root.focused:
                         window.root.focused = 0
                         window.root.draw()
             elif msg.focused == 0 and 'menus' in dir(window) and window.menus:
