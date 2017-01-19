@@ -143,11 +143,12 @@ class MenuEntryAction(object):
     def activate(self):
         if self.action:
             self.action(self.data) # Probably like launch_app("terminal")
-            self.focus_leave()
             self.window.root.hovered_menu = None
+            self.focus_leave()
             m = [m for m in self.window.root.menus.values()]
             for k in m:
                 k.definitely_close()
+            self.window.root.draw()
 
     def mouse_action(self, msg):
         if msg.command == yutani.MouseEvent.CLICK:
