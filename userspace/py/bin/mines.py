@@ -143,7 +143,7 @@ class MinesWindow(yutani.Window):
                 self.first_click = False
             if button.flagged:
                 return
-            if button.is_mine:
+            if button.is_mine and not button.revealed:
                 self.tr.set_text("You lose.")
                 for row in self.buttons:
                     for b in row:
