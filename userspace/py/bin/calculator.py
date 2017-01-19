@@ -13,6 +13,7 @@ import toaru_fonts
 
 from button import Button
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
+from about_applet import AboutAppletWindow
 
 import yutani_mainloop
 
@@ -82,7 +83,7 @@ class CalculatorWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            subprocess.Popen(["about-applet.py","About Calculator","calculator","/usr/share/icons/48/calculator.png",_description])
+            AboutAppletWindow(self.decorator,"About Calculator","/usr/share/icons/48/calculator.png",_description,"calculator")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","calculator.trt"])
         menus = [

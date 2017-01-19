@@ -4,7 +4,6 @@ Help Documentation Browser
 """
 import os
 import sys
-import subprocess
 
 import cairo
 
@@ -13,6 +12,7 @@ import toaru_fonts
 import text_region
 
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
+from about_applet import AboutAppletWindow
 
 import yutani_mainloop
 
@@ -50,7 +50,7 @@ class HelpBrowserWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            subprocess.Popen(["about-applet.py","About Help Browser","help","/usr/share/icons/48/help.png",_description])
+            AboutAppletWindow(self.decorator,"About Help Browser","/usr/share/icons/48/help.png",_description,"help")
         menus = [
             ("File", [
                 #MenuEntryAction("Open...",None,print_derp,None),

@@ -16,6 +16,7 @@ import toaru_fonts
 
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
+from about_applet import AboutAppletWindow
 
 import yutani_mainloop
 
@@ -88,7 +89,7 @@ class FileBrowserWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            subprocess.Popen(["about-applet.py","About File Browser","folder","/usr/share/icons/48/folder.png",_description])
+            AboutAppletWindow(self.decorator,f"About File Browser","/usr/share/icons/48/folder.png",_description,"folder")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","file_browser.trt"])
         menus = [

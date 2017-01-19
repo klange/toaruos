@@ -19,6 +19,7 @@ from color_picker import ColorPickerWindow
 
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
+from about_applet import AboutAppletWindow
 
 from dialog import DialogWindow
 
@@ -44,7 +45,7 @@ class PaintingWindow(yutani.Window):
         self.modifiers = None
 
         def about_window(action):
-            subprocess.Popen(["about-applet.py",f"About {app_name}","applications-painting","/usr/share/icons/48/applications-painting.png",_description])
+            AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/applications-painting.png",_description,"applications-painting")
 
         def help_browser(action):
             subprocess.Popen(["help-browser.py","painting.trt"])

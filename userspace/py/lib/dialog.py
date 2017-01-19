@@ -102,8 +102,8 @@ class DialogWindow(yutani.Window):
 
     def mouse_event(self, msg):
         if self.decorator.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
-            window.close()
-            sys.exit(0)
+            self.cancel_click(None)
+            return
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
 

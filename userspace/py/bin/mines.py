@@ -14,6 +14,7 @@ import toaru_fonts
 
 from button import Button, rounded_rectangle
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
+from about_applet import AboutAppletWindow
 
 from dialog import DialogWindow
 
@@ -91,7 +92,7 @@ class MinesWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            subprocess.Popen(["about-applet.py",f"About {app_name}","mines","/usr/share/icons/48/mines.png",_description])
+            AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/mines.png",_description,"mines")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","mines.trt"])
         menus = [

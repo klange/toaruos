@@ -17,6 +17,7 @@ import toaru_package
 
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
+from about_applet import AboutAppletWindow
 
 import yutani_mainloop
 
@@ -103,7 +104,7 @@ class PackageManagerWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            subprocess.Popen(["about-applet.py","About Package Manager","package","/usr/share/icons/48/package.png",_description])
+            AboutAppletWindow(self.decorator,f"About Package Manager","/usr/share/icons/48/package.png",_description,"package")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","packages.trt"])
         menus = [
