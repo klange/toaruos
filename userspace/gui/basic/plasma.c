@@ -122,7 +122,7 @@ int main (int argc, char ** argv) {
 	flip(ctx);
 	yutani_flip(yctx, wina);
 
-	yutani_window_advertise(yctx, wina, "Graphics Test");
+	yutani_window_advertise_icon(yctx, wina, "Plasma", "plasma");
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, draw_thread, NULL);
