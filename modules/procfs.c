@@ -288,6 +288,50 @@ static uint32_t compiler_func(fs_node_t *node, uint32_t offset, uint32_t size, u
 	return size;
 }
 
+extern tree_t * fs_tree; /* kernel/fs/vfs.c */
+
+static void mount_recurse(char * buf, tree_node_t * node, size_t height) {
+	/* End recursion on a blank entry */
+	if (!node) return;
+	char * tmp = malloc(512);
+	memset(tmp, 0, 512);
+	char * c = tmp;
+	/* Indent output */
+	for (uint32_t i = 0; i < height; ++i) {
+		c += sprintf(c, "  ");
+	}
+	/* Get the current process */
+	struct vfs_entry * fnode = (struct vfs_entry *)node->value;
+	/* Print the process name */
+	if (fnode->file) {
+		c += sprintf(c, "%s → %s 0x%x (%s, %s)", fnode->name, fnode->device, fnode->file, fnode->fs_type, fnode->file->name);
+	} else {
+		c += sprintf(c, "%s → (empty)", fnode->name);
+	}
+	/* Linefeed */
+	sprintf(buf+strlen(buf),"%s\n",tmp);
+	free(tmp);
+	foreach(child, node->children) {
+		/* Recursively print the children */
+		mount_recurse(buf+strlen(buf),child->value, height + 1);
+	}
+}
+
+static uint32_t mounts_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+
+	buf[0] = '\0';
+
+	mount_recurse(buf, fs_tree->root, 0);
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf, size);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -295,6 +339,7 @@ static struct procfs_entry std_entries[] = {
 	{-4, "cmdline",  cmdline_func},
 	{-5, "version",  version_func},
 	{-6, "compiler", compiler_func},
+	{-7, "mounts",   mounts_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
