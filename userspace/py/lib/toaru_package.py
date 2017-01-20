@@ -106,7 +106,7 @@ def run_install_step(step):
     elif step[0] == 'ext2':
         print(f"- Mounting ext2 image {step[1]} at {step[2]}")
         if not dryrun:
-            subprocess.call(['mount','ext2',step[1],step[2]])
+            subprocess.call(['mount','ext2',step[1] + ',nocache',step[2]])
     elif step[0] == 'chmodx':
         print(f"- Making {step[1]} executable")
         if not dryrun:
