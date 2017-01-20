@@ -185,9 +185,15 @@ void delete_process(process_t * proc) {
 	/* Remove the entry. */
 	spin_lock(tree_lock);
 	/* Reparent everyone below me to init */
+	int has_children = entry->children->length;
 	tree_remove_reparent_root(process_tree, entry);
 	list_delete(process_list, list_find(process_list, proc));
 	spin_unlock(tree_lock);
+
+	if (has_children) {
+		process_t * init = process_tree->root->value;
+		wakeup_queue(init->wait_queue);
+	}
 
 	bitset_clear(&pid_set, proc->id);
 
