@@ -50,14 +50,21 @@ class ClockWidget(BaseWidget):
     text_y_offset = 4
     width = 80
     color = 0xFFE6E6E6
+    font_size = 16
+    alignment = 0
+    time_format = '<b>%H:%M:%S</b>'
 
     def __init__(self):
-        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF_BOLD, 16, self.color)
+        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, self.font_size, self.color)
         self.tr   = text_region.TextRegion(0,0,self.width,PANEL_HEIGHT-self.text_y_offset,font=self.font)
+        self.tr.set_alignment(self.alignment)
+        self.offset = 0
 
     def draw(self, window, offset, remaining, ctx):
+        self.offset = offset
+        self.window = window
         self.tr.move(offset,self.text_y_offset)
-        self.tr.set_text(time.strftime('%H:%M:%S',time.localtime(current_time)))
+        self.tr.set_richtext(time.strftime(self.time_format,time.localtime(current_time)))
         self.tr.draw(window)
 
     def focus_enter(self):
@@ -66,25 +73,24 @@ class ClockWidget(BaseWidget):
     def focus_leave(self):
         self.font.font_color = self.color
 
-class DateWidget(BaseWidget):
+    def mouse_action(self, msg):
+        if msg.command == yutani.MouseEvent.CLICK:
+            def _pass(action):
+                pass
+            menu_entries = [
+                MenuEntryAction(time.strftime("%A, %e %B %Y",time.localtime(current_time)),None,_pass,None),
+            ]
+            menu = MenuWindow(menu_entries,(self.offset-120,PANEL_HEIGHT),root=self.window)
+
+class DateWidget(ClockWidget):
     """Displays the weekday and date on separate lines."""
 
     text_y_offset = 4
     color = 0xFFE6E6E6
     width = 70
-
-    def __init__(self):
-        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 9, self.color)
-        self.tr   = text_region.TextRegion(0,0,self.width,PANEL_HEIGHT-self.text_y_offset,font=self.font)
-        self.tr.set_alignment(2)
-
-    def draw(self, window, offset, remaining, ctx):
-        self.tr.move(offset,self.text_y_offset)
-        lt = time.localtime(current_time)
-        weekday = time.strftime('%A',lt)
-        date = time.strftime('%h %e',lt)
-        self.tr.set_richtext(f"{weekday}\n<b>{date}</b>")
-        self.tr.draw(window)
+    font_size = 9
+    alignment = 2
+    time_format = '%A\n<b>%B %e</b>'
 
 class LogOutWidget(BaseWidget):
     """Simple button widget that ends the user session when clicked."""
@@ -106,9 +112,9 @@ class LogOutWidget(BaseWidget):
 
     def draw(self, window, offset, remaining, ctx):
         if self.hilighted:
-            ctx.set_source_surface(self.icon_hilight,offset+2,1)
+            ctx.set_source_surface(self.icon_hilight,offset+2,2)
         else:
-            ctx.set_source_surface(self.icon,offset+2,1)
+            ctx.set_source_surface(self.icon,offset+2,2)
         ctx.paint()
 
     def focus_enter(self):
@@ -126,17 +132,37 @@ class VolumeWidget(BaseWidget):
     """Volume control widget."""
 
     width = 28
-    color = 0xFFE6E6E6
+    color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
+    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
     icon_names = ['volume-mute','volume-low','volume-medium','volume-full']
 
     def __init__(self):
         self.icons = {}
+        self.icons_hilight = {}
         for name in self.icon_names:
-            self.icons[name] = get_icon(name)
+            self.icons[name] = cairo.ImageSurface.create_from_png(f'/usr/share/icons/24/{name}.png')
+            tmp = cairo.Context(self.icons[name])
+            tmp.set_operator(cairo.OPERATOR_ATOP)
+            tmp.rectangle(0,0,24,24)
+            tmp.set_source_rgb(*self.color)
+            tmp.paint()
+            self.icons_hilight[name] = cairo.ImageSurface.create_from_png(f'/usr/share/icons/24/{name}.png')
+            tmp = cairo.Context(self.icons_hilight[name])
+            tmp.set_operator(cairo.OPERATOR_ATOP)
+            tmp.rectangle(0,0,24,24)
+            tmp.set_source_rgb(*self.hilight_color)
+            tmp.paint()
         self.mixer_fd = open('/dev/mixer')
         self.volume = self.get_volume()
         self.muted = False
         self.previous_volume = 0
+        self.hilighted = False
+
+    def focus_enter(self):
+        self.hilighted = True
+
+    def focus_leave(self):
+        self.hilighted = False
 
     def draw(self, window, offset, remaining, ctx):
         if self.volume < 10:
@@ -147,7 +173,10 @@ class VolumeWidget(BaseWidget):
             source = 'volume-medium'
         else:
             source = 'volume-full'
-        ctx.set_source_surface(self.icons[source],offset,0)
+        if self.hilighted:
+            ctx.set_source_surface(self.icons_hilight[source],offset,2)
+        else:
+            ctx.set_source_surface(self.icons[source],offset,2)
         ctx.paint()
 
     def get_volume(self):
