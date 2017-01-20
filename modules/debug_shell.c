@@ -326,17 +326,29 @@ static int shell_mod(fs_node_t * tty, int argc, char * argv[]) {
 }
 
 static int shell_symbols(fs_node_t * tty, int argc, char * argv[]) {
-	extern char kernel_symbols_start[];
-	extern char kernel_symbols_end[];
 
-	struct ksym {
-		uintptr_t addr;
-		char name[];
-	} * k = (void*)&kernel_symbols_start;
+	if (argc > 1 && !strcmp(argv[1],"--all")) {
+		list_t * hash_keys = hashmap_keys(modules_get_symbols());
+		foreach(_key, hash_keys) {
+			char * key = (char *)_key->value;
+			uintptr_t a = (uintptr_t)hashmap_get(modules_get_symbols(), key);
+			fprintf(tty, "0x%x - %s\n", a, key);
+		}
+		free(hash_keys);
+	} else {
 
-	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-		fprintf(tty, "0x%x - %s\n", k->addr, k->name);
-		k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
+		extern char kernel_symbols_start[];
+		extern char kernel_symbols_end[];
+
+		struct ksym {
+			uintptr_t addr;
+			char name[];
+		} * k = (void*)&kernel_symbols_start;
+
+		while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
+			fprintf(tty, "0x%x - %s\n", k->addr, k->name);
+			k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
+		}
 	}
 
 	return 0;
@@ -358,7 +370,7 @@ static int shell_print(fs_node_t * tty, int argc, char * argv[]) {
 		deref = 1;
 	}
 
-	void * addr = (void*)(uintptr_t)symbol_find(symbol);
+	void * addr = hashmap_get(modules_get_symbols(),symbol);
 	if (!addr) return 1;
 
 	if (deref) {
@@ -380,7 +392,7 @@ static int shell_call(fs_node_t * tty, int argc, char * argv[]) {
 
 	char * symbol = argv[1];
 
-	void (*addr)(void) = symbol_find(symbol);
+	void (*addr)(void) = (void (*)(void))(uintptr_t)hashmap_get(modules_get_symbols(),symbol);
 	if (!addr) return 1;
 
 	addr();
