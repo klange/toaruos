@@ -358,26 +358,32 @@ static int shell_print(fs_node_t * tty, int argc, char * argv[]) {
 		deref = 1;
 	}
 
-	extern char kernel_symbols_start[];
-	extern char kernel_symbols_end[];
+	void * addr = (void*)(uintptr_t)symbol_find(symbol);
+	if (!addr) return 1;
 
-	struct ksym {
-		uintptr_t addr;
-		char name[];
-	} * k = (void*)&kernel_symbols_start;
-
-	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-		if (!strcmp(symbol, k->name)) {
-			if (deref) {
-				fprintf(tty, format, k->addr);
-			} else {
-				fprintf(tty, format, *((uintptr_t *)k->addr));
-			}
-			fprintf(tty, "\n");
-			break;
-		}
-		k = (void *)((uintptr_t)k + sizeof(uintptr_t) + strlen(k->name) + 1);
+	if (deref) {
+		fprintf(tty, format, addr);
+	} else {
+		fprintf(tty, format, *((uintptr_t *)addr));
 	}
+	fprintf(tty, "\n");
+
+	return 0;
+}
+
+static int shell_call(fs_node_t * tty, int argc, char * argv[]) {
+
+	if (argc < 2) {
+		fprintf(tty, "call function_name\n");
+		return 1;
+	}
+
+	char * symbol = argv[1];
+
+	void (*addr)(void) = symbol_find(symbol);
+	if (!addr) return 1;
+
+	addr();
 
 	return 0;
 }
@@ -585,6 +591,8 @@ static struct shell_command shell_commands[] = {
 		"Set pid to trace syscalls for."},
 	{"print", &shell_print,
 		"[dangerous] Print the value of a symbol using a format string."},
+	{"call", &shell_call,
+		"[dangerous] Call a function by name."},
 	{"modules", &shell_modules,
 		"Print names and addresses of all loaded modules."},
 	{"divine-size", &shell_divinesize,
