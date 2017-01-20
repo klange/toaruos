@@ -42,8 +42,12 @@
 #include "lib/list.h"
 #include "lib/spinlock.h"
 
+#ifdef _DEBUG_YUTANI
 #include "lib/trace.h"
 #define TRACE_APP_NAME "yutani"
+#else
+#define TRACE(msg,...)
+#endif
 
 #include "yutani_int.h"
 

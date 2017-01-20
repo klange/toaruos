@@ -10,7 +10,6 @@
 #define TRACE_APP_NAME "live-welcome"
 
 int main(int argc, char * argv[]) {
-	TRACE("Starting session manager and launching demo...");
 
 	int _session_pid = fork();
 	if (!_session_pid) {
