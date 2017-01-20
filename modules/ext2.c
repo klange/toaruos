@@ -11,6 +11,7 @@
 #include <module.h>
 #include <args.h>
 #include <printf.h>
+#include <tokenize.h>
 
 #define EXT2_BGD_BLOCK 2
 
@@ -48,7 +49,11 @@ typedef struct {
 	unsigned int              inode_size;
 
 	uint8_t *                 cache_data;
+
+	int flags;
 } ext2_fs_t;
+
+#define EXT2_FLAG_NOCACHE 0x0001
 
 /*
  * These macros were used in the original toaru ext2 driver.
@@ -1488,12 +1493,14 @@ static uint32_t ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t 
 	return 1;
 }
 
-static fs_node_t * mount_ext2(fs_node_t * block_device) {
+static fs_node_t * mount_ext2(fs_node_t * block_device, int flags) {
 
 	debug_print(NOTICE, "Mounting ext2 file system...");
 	ext2_fs_t * this = malloc(sizeof(ext2_fs_t));
 
 	memset(this, 0x00, sizeof(ext2_fs_t));
+
+	this->flags = flags;
 
 	this->block_device = block_device;
 	this->block_size = 1024;
@@ -1525,7 +1532,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 	}
 	this->inodes_per_group = SB->inodes_count / BGDS;
 
-	if (!args_present("noext2cache")) {
+	if (!(this->flags & EXT2_FLAG_NOCACHE)) {
 		debug_print(INFO, "Allocating cache...");
 		DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
 		this->cache_data = calloc(this->block_size, this->cache_entries);
@@ -1541,7 +1548,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 		debug_print(INFO, "Allocated cache.");
 	} else {
 		DC = NULL;
-		debug_print(NOTICE, "ext2 cache is disabled (noext2cache)");
+		debug_print(NOTICE, "ext2 cache is disabled (nocache)");
 	}
 
 	// load the block group descriptors
@@ -1599,12 +1606,30 @@ static fs_node_t * mount_ext2(fs_node_t * block_device) {
 }
 
 fs_node_t * ext2_fs_mount(char * device, char * mount_path) {
-	fs_node_t * dev = kopen(device, 0);
+
+	char * arg = strdup(device);
+	char * argv[10];
+	int argc = tokenize(arg, ",", argv);
+
+	fs_node_t * dev = kopen(argv[0], 0);
 	if (!dev) {
 		debug_print(ERROR, "failed to open %s", device);
 		return NULL;
 	}
-	fs_node_t * fs = mount_ext2(dev);
+
+	int flags = 0;
+
+	for (int i = 1; i < argc; ++i) {
+		if (!strcmp(argv[i],"nocache")) {
+			flags |= EXT2_FLAG_NOCACHE;
+		} else {
+			debug_print(WARNING, "Unrecognized option to ext2 driver: %s", argv[i]);
+		}
+	}
+
+	fs_node_t * fs = mount_ext2(dev, flags);
+
+	free(arg);
 	return fs;
 }
 
