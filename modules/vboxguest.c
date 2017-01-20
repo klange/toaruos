@@ -16,6 +16,7 @@
 #include <video.h>
 #include <pipe.h>
 #include <mouse.h>
+#include <args.h>
 
 #define VBOX_VENDOR_ID 0x80EE
 #define VBOX_DEVICE_ID 0xCAFE
@@ -135,6 +136,10 @@ static int vbox_check(void) {
 
 	if (vbox_device) {
 		fprintf(&vb, "VirtualBox host detected, switching log to VirtualBox.\n");
+
+		if (args_present("vboxdebug")) {
+			vbox_set_log();
+		}
 
 		uintptr_t t = pci_read_field(vbox_device, PCI_BAR0, 4);
 		if (t > 0) {
