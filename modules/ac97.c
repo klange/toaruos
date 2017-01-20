@@ -79,9 +79,11 @@ typedef struct {
 	uint16_t nambar;                /* Native audio mixing BAR */
 	size_t irq;                     /* This ac97's irq */
 	uint8_t lvi;                    /* The currently set last valid index */
+	uint8_t bits;                   /* How many bits of volume are supported (5 or 6) */
 	ac97_bdl_entry_t * bdl;         /* Buffer descriptor list */
 	uint16_t * bufs[AC97_BDL_LEN];  /* Virtual addresses for buffers in BDL */
 	uint32_t bdl_p;
+	uint32_t mask;
 } ac97_device_t;
 
 static ac97_device_t _device;
@@ -156,18 +158,29 @@ static int irq_handler(struct regs * regs) {
 
 /* Currently we just assume right and left are the same */
 static int ac97_mixer_read(uint32_t knob_id, uint32_t *val) {
+	uint16_t tmp;
 	switch (knob_id) {
 		case SND_KNOB_MASTER:
-			/* 6 bit value */
-			*val = (inports(_device.nambar + AC97_MASTER_VOLUME) & 0x3f) << (sizeof(*val) * 8 - 6);
-			*val = ~*val;
-			*val &= (uint32_t)0x3f << (sizeof(*val) * 8 - 6);
+			tmp = inports(_device.nambar + AC97_MASTER_VOLUME);
+			if (tmp == 0x8000) {
+				*val = 0;
+			} else {
+				/* 6 bit value */
+				*val = (tmp & _device.mask) << (sizeof(*val) * 8 - _device.bits);
+				*val = ~*val;
+				*val &= (uint32_t)_device.mask << (sizeof(*val) * 8 - _device.bits);
+			}
 			break;
 		case AC97_KNOB_PCM_OUT:
-			/* 5 bit value */
-			*val = (inports(_device.nambar + AC97_PCM_OUT_VOLUME) & 0x1f) << (sizeof(*val) * 8 - 5);
-			*val = ~*val;
-			*val &= 0x1f << (sizeof(*val) * 8 - 5);
+			tmp = inports(_device.nambar + AC97_PCM_OUT_VOLUME);
+			if (tmp == 0x8000) {
+				*val = 0;
+			} else {
+				/* 5 bit value */
+				*val = (tmp & 0x1f) << (sizeof(*val) * 8 - 5);
+				*val = ~*val;
+				*val &= 0x1f << (sizeof(*val) * 8 - 5);
+			}
 			break;
 
 		default:
@@ -180,21 +193,31 @@ static int ac97_mixer_read(uint32_t knob_id, uint32_t *val) {
 static int ac97_mixer_write(uint32_t knob_id, uint32_t val) {
 	switch (knob_id) {
 		case SND_KNOB_MASTER: {
-			/* 0 is the highest volume */
-			val = ~val;
-			/* 6 bit value */
-			val >>= (sizeof(val) * 8 - 6);
-			uint16_t encoded = val | (val << 8);
+			uint16_t encoded;
+			if (val == 0x0) {
+				encoded = 0x8000;
+			} else {
+				/* 0 is the highest volume */
+				val = ~val;
+				/* 6 bit value */
+				val >>= (sizeof(val) * 8 - _device.bits);
+				encoded = (val & 0xFF) | (val << 8);
+			}
 			outports(_device.nambar + AC97_MASTER_VOLUME, encoded);
 			break;
 		}
 
 		case AC97_KNOB_PCM_OUT: {
-			/* 0 is the highest volume */
-			val = ~val;
-			/* 5 bit value */
-			val >>= (sizeof(val) * 8 - 5);
-			uint16_t encoded = val | (val << 8);
+			uint16_t encoded;
+			if (val == 0x0) {
+				encoded = 0x8000;
+			} else {
+				/* 0 is the highest volume */
+				val = ~val;
+				/* 5 bit value */
+				val >>= (sizeof(val) * 8 - 5);
+				encoded = (val & 0xFF) | (val << 8);
+			}
 			outports(_device.nambar + AC97_PCM_OUT_VOLUME, encoded);
 			break;
 		}
@@ -221,10 +244,8 @@ static int init(void) {
 
 	/* Enable bus mastering and disable memory mapped space */
 	pci_write_field(_device.pci_device, PCI_COMMAND, 2, 0x5);
-	/* Put ourselves at a reasonable volume. */
-	uint16_t volume = 0x03 | (0x03 << 8);
-	outports(_device.nambar + AC97_MASTER_VOLUME, volume);
-	outports(_device.nambar + AC97_PCM_OUT_VOLUME, volume);
+	/* Default the PCM output to full volume. */
+	outports(_device.nambar + AC97_PCM_OUT_VOLUME, 0x0000);
 
 	/* Allocate our BDL and our buffers */
 	_device.bdl = (void *)kmalloc_p(AC97_BDL_LEN * sizeof(*_device.bdl), &_device.bdl_p);
@@ -243,6 +264,20 @@ static int init(void) {
 	/* Set the LVI to be the last index */
 	_device.lvi = 2;
 	outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
+
+	/* detect whether device supports MSB */
+	outports(_device.nambar + AC97_MASTER_VOLUME, 0x2020);
+	uint16_t t = inports(_device.nambar + AC97_MASTER_VOLUME) & 0x1f;
+	if (t == 0x1f) {
+		debug_print(WARNING, "This device only supports 5 bits of audio volume.");
+		_device.bits = 5;
+		_device.mask = 0x1f;
+		outports(_device.nambar + AC97_MASTER_VOLUME, 0x0f0f);
+	} else {
+		_device.bits = 6;
+		_device.mask = 0x3f;
+		outports(_device.nambar + AC97_MASTER_VOLUME, 0x1f1f);
+	}
 
 	snd_register(&_snd);
 

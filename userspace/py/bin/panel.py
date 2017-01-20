@@ -196,17 +196,15 @@ class VolumeWidget(BaseWidget):
         fcntl.ioctl(self.mixer_fd, 3, knob)
 
     def volume_up(self):
-        if self.volume > 0xE0000000:
-            self.volume = 0xF0000000
-        else:
-            self.volume += 0x10000000
+        self.volume += 0x8000000
+        if self.volume >= 0x100000000:
+            self.volume = 0xf8000000
         self.set_volume()
 
     def volume_down(self):
-        if self.volume < 0x20000000:
-            self.volume = 0x0
-        else:
-            self.volume -= 0x10000000
+        self.volume -= 0x8000000
+        if self.volume < 0:
+            self.volume = 0
         self.set_volume()
 
     def mouse_action(self, msg):
