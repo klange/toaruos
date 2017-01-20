@@ -126,12 +126,15 @@ static int vbox_irq_handler(struct regs *r) {
 	return 1;
 }
 
+void vbox_set_log(void) {
+	debug_file = &vb;
+}
+
 static int vbox_check(void) {
 	pci_scan(vbox_scan_pci, -1, &vbox_device);
 
 	if (vbox_device) {
 		fprintf(&vb, "VirtualBox host detected, switching log to VirtualBox.\n");
-		debug_file = &vb;
 
 		uintptr_t t = pci_read_field(vbox_device, PCI_BAR0, 4);
 		if (t > 0) {
