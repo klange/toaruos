@@ -224,6 +224,7 @@ class OpenFileDialog(DialogWindow):
     buf = None
     path = None
     icon_width = 16
+    unit_height = 20
 
     def __init__(self, decorator, title, glob=None, callback=None, cancel_callback=None,window=None):
         self.buf = None
@@ -260,14 +261,15 @@ class OpenFileDialog(DialogWindow):
         if self.buf:
             self.buf.destroy()
         w = 450
-        self.buf = yutani.GraphicsBuffer(w,len(self.files)*24)
+        height = self.unit_height
+        self.buf = yutani.GraphicsBuffer(w,len(self.files)*height)
 
         surface = self.buf.get_cairo_surface()
         ctx = cairo.Context(surface)
 
         if clips:
             for clip in clips:
-                ctx.rectangle(clip.x,clip.y,w,24)
+                ctx.rectangle(clip.x,clip.y,w,height)
             ctx.clip()
 
         ctx.rectangle(0,0,surface.get_width(),surface.get_height())
@@ -276,37 +278,42 @@ class OpenFileDialog(DialogWindow):
 
         offset_y = 0
 
+        i = 0
         for f in self.files:
             f.y = offset_y
             if not clips or f in clips:
                 tr = f.tr
-                tr.move(26,offset_y+4)
+                tr.move(26,offset_y+2)
                 if f.hilight:
-                    gradient = cairo.LinearGradient(0,0,0,18)
+                    gradient = cairo.LinearGradient(0,0,0,height-2)
                     gradient.add_color_stop_rgba(0.0,*hilight_gradient_top,1.0)
                     gradient.add_color_stop_rgba(1.0,*hilight_gradient_bottom,1.0)
-                    ctx.rectangle(0,offset_y+4,w,1)
+                    ctx.rectangle(0,offset_y,w,1)
                     ctx.set_source_rgb(*hilight_border_top)
                     ctx.fill()
-                    ctx.rectangle(0,offset_y+4+20-1,w,1)
+                    ctx.rectangle(0,offset_y+height-1,w,1)
                     ctx.set_source_rgb(*hilight_border_bottom)
                     ctx.fill()
                     ctx.save()
-                    ctx.translate(0,offset_y+4+1)
-                    ctx.rectangle(0,0,w,20-2)
+                    ctx.translate(0,offset_y+1)
+                    ctx.rectangle(0,0,w,height-2)
                     ctx.set_source(gradient)
                     ctx.fill()
                     ctx.restore()
                     tr.font.font_color = 0xFFFFFFFF
                 else:
-                    ctx.rectangle(0,offset_y+4,w,20)
-                    ctx.set_source_rgb(1,1,1)
+                    ctx.rectangle(0,offset_y,w,height)
+                    if i % 2:
+                        ctx.set_source_rgb(0.9,0.9,0.9)
+                    else:
+                        ctx.set_source_rgb(1,1,1)
                     ctx.fill()
                     tr.font.font_color = 0xFF000000
-                ctx.set_source_surface(f.icon,4,offset_y+6)
+                ctx.set_source_surface(f.icon,4,offset_y+2)
                 ctx.paint()
                 tr.draw(self.buf)
-            offset_y += 24
+            offset_y += height
+            i += 1
 
     def draw(self):
         surface = self.get_cairo_surface()
@@ -330,6 +337,9 @@ class OpenFileDialog(DialogWindow):
         ctx.save()
         ctx.translate(20, 40)
         ctx.rectangle(0,0,450,HEIGHT-130)
+        ctx.set_line_width(2)
+        ctx.set_source_rgb(0.7,0.7,0.7)
+        ctx.stroke_preserve()
         ctx.set_source_rgb(1,1,1)
         ctx.fill()
         ctx.rectangle(0,0,450,HEIGHT-130)
@@ -347,12 +357,12 @@ class OpenFileDialog(DialogWindow):
 
     def scroll(self, amount):
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
-        rows = 1000
         self.scroll_y += amount
         if self.scroll_y > 0:
             self.scroll_y = 0
-        if self.scroll_y < -100 * rows:
-            self.scroll_y = -100 * rows
+        top = min(-(self.buf.height - (h-130)),0)
+        if self.scroll_y < top:
+            self.scroll_y = top
 
 
     def mouse_event(self, msg):
@@ -377,19 +387,20 @@ class OpenFileDialog(DialogWindow):
         redraw = []
         hit = False
 
-        for f in self.files:
-            if offset_y > h: break
-            if y >= offset_y and y < offset_y + 24:
-                if not f.hilight:
-                    redraw.append(f)
-                    if self.hilighted:
-                        redraw.append(self.hilighted)
-                        self.hilighted.hilight = False
-                    f.hilight = True
-                self.hilighted = f
-                hit = True
-                break
-            offset_y += 24
+        if x >= 20 and x < 450+20:
+            for f in self.files:
+                if offset_y > h: break
+                if y >= offset_y and y < offset_y + self.unit_height:
+                    if not f.hilight:
+                        redraw.append(f)
+                        if self.hilighted:
+                            redraw.append(self.hilighted)
+                            self.hilighted.hilight = False
+                        f.hilight = True
+                    self.hilighted = f
+                    hit = True
+                    break
+                offset_y += self.unit_height
 
         if not hit:
             if self.hilighted:
