@@ -597,6 +597,8 @@ void vfs_install(void) {
 
 	root->name = strdup("[root]");
 	root->file = NULL; /* Nothing mounted as root */
+	root->fs_type = NULL;
+	root->device = NULL;
 
 	tree_set_root(fs_tree, root);
 
@@ -621,7 +623,12 @@ int vfs_mount_type(char * type, char * arg, char * mountpoint) {
 
 	if (!n) return -EINVAL;
 
-	vfs_mount(mountpoint, n);
+	tree_node_t * node = vfs_mount(mountpoint, n);
+	if (node && node->value) {
+		struct vfs_entry * ent = (struct vfs_entry *)node->value;
+		ent->fs_type = strdup(type);
+		ent->device  = strdup(arg);
+	}
 
 	debug_print(NOTICE, "Mounted %s[%s] to %s: 0x%x", type, arg, mountpoint, n);
 	debug_print_vfs_tree();
@@ -711,6 +718,8 @@ void * vfs_mount(char * path, fs_node_t * local_root) {
 				struct vfs_entry * ent = malloc(sizeof(struct vfs_entry));
 				ent->name = strdup(at);
 				ent->file = NULL;
+				ent->device = NULL;
+				ent->fs_type = NULL;
 				node = tree_node_insert_child(fs_tree, node, ent);
 			}
 			at = at + strlen(at) + 1;
@@ -753,7 +762,7 @@ void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
 	struct vfs_entry * fnode = (struct vfs_entry *)node->value;
 	/* Print the process name */
 	if (fnode->file) {
-		c += sprintf(c, "%s → 0x%x (%s)", fnode->name, fnode->file, fnode->file->name);
+		c += sprintf(c, "%s → %s 0x%x (%s, %s)", fnode->name, fnode->device, fnode->file, fnode->fs_type, fnode->file->name);
 	} else {
 		c += sprintf(c, "%s → (empty)", fnode->name);
 	}

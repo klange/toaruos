@@ -123,6 +123,8 @@ struct stat  {
 struct vfs_entry {
 	char * name;
 	fs_node_t * file;
+	char * device;
+	char * fs_type;
 };
 
 extern fs_node_t *fs_root;
