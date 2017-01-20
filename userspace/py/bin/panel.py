@@ -184,16 +184,22 @@ class VolumeWidget(BaseWidget):
         import fcntl
         import struct
         knob = bytearray(struct.pack("III", 0, 0, 0)) # VOLUME_DEVICE_ID, VOLUME_KNOB_ID, <Unused>
-        fcntl.ioctl(self.mixer_fd, 2, knob, True)
-        _,_,value = struct.unpack("III", knob)
-        return value
+        try:
+            fcntl.ioctl(self.mixer_fd, 2, knob, True)
+            _,_,value = struct.unpack("III", knob)
+            return value
+        except:
+            return 0
 
     def set_volume(self):
         """Set the mixer master volume to the widget's volume level."""
         import fcntl
         import struct
-        knob = struct.pack("III", 0, 0, self.volume) # VOLUME_DEVICE_ID, VOLUME_KNOB_ID, volume_level
-        fcntl.ioctl(self.mixer_fd, 3, knob)
+        try:
+            knob = struct.pack("III", 0, 0, self.volume) # VOLUME_DEVICE_ID, VOLUME_KNOB_ID, volume_level
+            fcntl.ioctl(self.mixer_fd, 3, knob)
+        except:
+            pass
 
     def volume_up(self):
         self.volume += 0x8000000
