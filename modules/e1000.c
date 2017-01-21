@@ -236,11 +236,11 @@ static int irq_handler(struct regs *r) {
 				enqueue_packet(packet);
 
 				write_command(E1000_REG_RXDESCTAIL, rx_index);
-				wakeup_queue(rx_wait);
 			} else {
-				return 1;
+				break;
 			}
 		} while (1);
+		wakeup_queue(rx_wait);
 	}
 
 	return 1;
