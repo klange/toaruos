@@ -235,4 +235,5 @@ if __name__ == '__main__':
             hints.resize(msg.display_width,msg.display_height)
             window.center()
         else:
-            yutani_mainloop.handle_event(msg)
+            if not yutani_mainloop.handle_event(msg):
+                break

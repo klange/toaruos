@@ -3,8 +3,7 @@ import menu_bar
 
 def handle_event(msg):
     if msg.type == yutani.Message.MSG_SESSION_END:
-        # Will close on exit.
-        return 0
+        return False
     elif msg.type == yutani.Message.MSG_KEY_EVENT:
         if msg.wid in yutani.yutani_windows:
             yutani.yutani_windows[msg.wid].keyboard_event(msg)
@@ -48,10 +47,12 @@ def handle_event(msg):
                 window.mouse_action(msg)
             elif 'mouse_event' in dir(window):
                 window.mouse_event(msg)
+    return True
 
 
 def mainloop():
-    while 1:
+    status = True
+    while status:
         # Poll for events.
         msg = yutani.yutani_ctx.poll()
-        handle_event(msg)
+        status = handle_event(msg)
