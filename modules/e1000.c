@@ -175,10 +175,6 @@ static uint16_t eeprom_read(uint8_t addr) {
 }
 
 
-//static list_t * net_queue = NULL;
-//static spin_lock_t net_queue_lock = { 0 };
-//static list_t * rx_wait;
-
 static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
 	if ((vendorid == 0x8086) && (deviceid == 0x100e)) {
 		*((uint32_t *)extra) = device;
@@ -211,7 +207,9 @@ static int irq_handler(struct regs *r) {
 
 	irq_ack(e1000_irq);
 
-	if (!status) return 0;
+	if (!status) {
+		return 0;
+	}
 
 	if (status & 0x04) {
 		/* Start link */
@@ -248,6 +246,7 @@ static int irq_handler(struct regs *r) {
 
 static void send_packet(uint8_t* payload, size_t payload_size) {
 	tx_index = read_command(E1000_REG_TXDESCTAIL);
+	debug_print(CRITICAL,"sending packet 0x%x, %d desc[%d]", payload, payload_size, tx_index);
 
 	memcpy(tx_virt[tx_index], payload, payload_size);
 	tx[tx_index].length = payload_size;
@@ -265,6 +264,7 @@ static void init_rx(void) {
 
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
 		rx_virt[i] = (void*)kvmalloc_p(8192 + 16, (uint32_t *)&rx[i].addr);
+		debug_print(INFO, "rx[%d] 0x%x → 0x%x", i, rx_virt[i], (uint32_t)rx[i].addr);
 		rx[i].status = 0;
 	}
 
@@ -290,8 +290,8 @@ static void init_tx(void) {
 	tx = (void*)kvmalloc_p(sizeof(struct tx_desc) * E1000_NUM_TX_DESC + 16, &phys);
 
 	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
-		tx_virt[i] = (void*)kvmalloc_p(8192, (uint32_t *)&tx[i].addr);
-		debug_print(WARNING, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
+		tx_virt[i] = (void*)kvmalloc_p(8192+16, (uint32_t *)&tx[i].addr);
+		debug_print(INFO, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
 		tx[i].status = 0;
 		tx[i].cmd = (1 << 0);
 	}
@@ -315,23 +315,10 @@ static void init_tx(void) {
 
 static void e1000_init(void * data, char * name) {
 
-	/* This seems to always be memory mapped on important devices. */
-	mem_base  = pci_read_field(e1000_device_pci, PCI_BAR0, 4) & 0xFFFFFFF0;
-
-	for (size_t x = 0; x < 0x10000; x += 0x1000) {
-		uintptr_t addr = (mem_base & 0xFFFFF000) + x;
-		dma_frame(get_page(addr, 1, kernel_directory), 0, 1, addr);
-	}
-
-#if 1
 	uint16_t command_reg = pci_read_field(e1000_device_pci, PCI_COMMAND, 2);
-	if (command_reg & (1 << 2)) {
-		debug_print(NOTICE, "Bus mastering already enabled.\n");
-	}
 	command_reg |= (1 << 2);
 	command_reg |= (1 << 0);
 	pci_write_field(e1000_device_pci, PCI_COMMAND, 2, command_reg);
-#endif
 
 	debug_print(NOTICE, "mem base: 0x%x", mem_base);
 
@@ -351,25 +338,28 @@ static void e1000_init(void * data, char * name) {
 	switch_task(0);
 	debug_print(NOTICE, "back from sleep");
 
-	/* setup */
-	write_command(E1000_REG_CTRL, (1 << 5) | (1 << 6));
-
 	uint32_t status = read_command(E1000_REG_CTRL);
-	status &= ~(1 << 3);
-	status &= ~(1 << 31);
-	status &= ~(1 << 7);
+	status |= (1 << 5);   /* set auto speed detection */
+	status |= (1 << 6);   /* set link up */
+	status &= ~(1 << 3);  /* unset link reset */
+	status &= ~(1 << 31); /* unset phy reset */
+	status &= ~(1 << 7);  /* unset invert loss-of-signal */
 	write_command(E1000_REG_CTRL, status);
 
+	/* Disables flow control */
 	write_command(0x0028, 0);
 	write_command(0x002c, 0);
 	write_command(0x0030, 0);
 	write_command(0x0170, 0);
 
+	/* Unset flow control */
 	status = read_command(E1000_REG_CTRL);
 	status &= ~(1 << 30);
 	write_command(E1000_REG_CTRL, status);
 
-
+	relative_time(0, 10, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
 
 	net_queue = list_create();
 	rx_wait = list_create();
@@ -388,6 +378,7 @@ static void e1000_init(void * data, char * name) {
 	}
 
 #if 0
+	/* This would rewrite the MAC address... */
 	write_command(0x5400, *(uint32_t*)(&mac[0]));
 	write_command(0x5404, *(uint16_t*)(&mac[4]));
 	write_command(0x5404, read_command(0x5404) | (1 << 31));
@@ -398,9 +389,17 @@ static void e1000_init(void * data, char * name) {
 	init_rx();
 	init_tx();
 
-	//write_command(0x00D0, read_command(0x00D0) | (1 << 2) | (1 << 6) | (1 << 7) | (1 << 1) | (1 << 0));
+	/* Twiddle interrupts */
 	write_command(0x00D0, 0xFF);
-	read_command(0xc0);
+	write_command(0x00D8, 0xFF);
+	write_command(0x00D0,(1 << 2) | (1 << 6) | (1 << 7) | (1 << 1) | (1 << 0));
+
+	relative_time(0, 10, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+
+	int link_is_up = (read_command(E1000_REG_STATUS) & (1 << 1));
+	debug_print(NOTICE,"e1000 done. has_eeprom = %d, link is up = %d, irq=%d", has_eeprom, link_is_up, e1000_irq);
 
 	init_netif_funcs(get_mac, dequeue_packet, send_packet, "Intel E1000");
 	create_kernel_tasklet(net_handler, "[eth]", NULL);
@@ -413,6 +412,15 @@ static int init(void) {
 		debug_print(WARNING, "No e1000 device found.");
 		return 1;
 	}
+
+	/* This seems to always be memory mapped on important devices. */
+	mem_base  = pci_read_field(e1000_device_pci, PCI_BAR0, 4) & 0xFFFFFFF0;
+
+	for (size_t x = 0; x < 0x10000; x += 0x1000) {
+		uintptr_t addr = (mem_base & 0xFFFFF000) + x;
+		dma_frame(get_page(addr, 1, kernel_directory), 1, 1, addr);
+	}
+
 	create_kernel_tasklet(e1000_init, "[e1000]", NULL);
 
 	return 0;
