@@ -8,6 +8,7 @@ on providing a more easily extended widget system. Each element of the panel is
 a widget object which can independently draw and receive mouse events.
 
 """
+import calendar
 import configparser
 import html
 import math
@@ -44,6 +45,28 @@ class BaseWidget(object):
     def mouse_action(self, msg):
         return False
 
+class CalendarMenuEntry(MenuEntryDivider):
+
+    height = 130
+    width = 200
+
+    def __init__(self):
+        self.font = toaru_fonts.Font(toaru_fonts.FONT_MONOSPACE,13,0xFF000000)
+        self.tr = text_region.TextRegion(0,0,self.width-20,self.height,font=self.font)
+        self.calendar = calendar.TextCalendar(calendar.SUNDAY)
+        t = time.localtime(current_time)
+        self.tr.set_line_height(17)
+        self.tr.set_text(self.calendar.formatmonth(t.tm_year,t.tm_mon))
+        for tu in self.tr.text_units:
+            if tu.string == str(t.tm_mday):
+                tu.set_font(toaru_fonts.Font(toaru_fonts.FONT_MONOSPACE_BOLD,13,0xFF000000))
+                break
+
+    def draw(self, window, offset, ctx):
+        self.window = window
+        self.tr.move(20,offset)
+        self.tr.draw(window)
+
 class ClockWidget(BaseWidget):
     """Displays a simple clock"""
 
@@ -78,7 +101,7 @@ class ClockWidget(BaseWidget):
             def _pass(action):
                 pass
             menu_entries = [
-                MenuEntryAction(time.strftime("%A, %e %B %Y",time.localtime(current_time)),None,_pass,None),
+                CalendarMenuEntry(),
             ]
             menu = MenuWindow(menu_entries,(self.offset-120,PANEL_HEIGHT),root=self.window)
 
