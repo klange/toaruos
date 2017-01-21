@@ -158,6 +158,7 @@ class VolumeWidget(BaseWidget):
     color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
     hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
     icon_names = ['volume-mute','volume-low','volume-medium','volume-full']
+    check_time = 10
 
     def __init__(self):
         self.icons = {}
@@ -180,6 +181,7 @@ class VolumeWidget(BaseWidget):
         self.muted = False
         self.previous_volume = 0
         self.hilighted = False
+        self.last_check = 0
 
     def focus_enter(self):
         self.hilighted = True
@@ -188,6 +190,7 @@ class VolumeWidget(BaseWidget):
         self.hilighted = False
 
     def draw(self, window, offset, remaining, ctx):
+        self.check()
         if self.volume < 10:
             source = 'volume-mute'
         elif self.volume < 0x547ae147:
@@ -201,6 +204,11 @@ class VolumeWidget(BaseWidget):
         else:
             ctx.set_source_surface(self.icons[source],offset,2)
         ctx.paint()
+
+    def check(self):
+        if current_time - self.last_check > self.check_time:
+            self.last_check = current_time
+            self.volume = self.get_volume()
 
     def get_volume(self):
         """Get the current mixer master volume."""
