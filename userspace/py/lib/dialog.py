@@ -98,8 +98,8 @@ class DialogWindow(yutani.Window):
         self.tr.move(self.decorator.left_width() + 90,self.decorator.top_height()+self.text_offset)
         self.tr.draw(self)
 
-        self.button_cancel.draw(self,ctx,WIDTH-130,HEIGHT-60,100,30)
-        self.button_ok.draw(self,ctx,WIDTH-240,HEIGHT-60,100,30)
+        self.button_ok.draw(self,ctx,WIDTH-130,HEIGHT-60,100,30)
+        self.button_cancel.draw(self,ctx,WIDTH-240,HEIGHT-60,100,30)
 
         self.decorator.render(self)
         self.flip()
