@@ -564,6 +564,10 @@ static void load_fonts(yutani_globals_t * yg) {
  */
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
 	cairo_rectangle(yg->framebuffer_ctx, x, y, w, h);
+	if (yg->width > 2600) {
+		x = 0;
+		w = yg->width;
+	}
 	cairo_rectangle(yg->real_ctx, x, y, w, h);
 }
 
