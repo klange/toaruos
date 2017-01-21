@@ -66,6 +66,8 @@ static uint8_t * rx_virt[E1000_NUM_RX_DESC];
 static uint8_t * tx_virt[E1000_NUM_TX_DESC];
 static struct rx_desc * rx;
 static struct tx_desc * tx;
+static uintptr_t rx_phys;
+static uintptr_t tx_phys;
 
 static void enqueue_packet(void * buffer) {
 	spin_lock(net_queue_lock);
@@ -259,16 +261,7 @@ static void send_packet(uint8_t* payload, size_t payload_size) {
 
 static void init_rx(void) {
 
-	uintptr_t phys;
-	rx = (void*)kvmalloc_p(sizeof(struct rx_desc) * E1000_NUM_RX_DESC + 16, &phys);
-
-	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
-		rx_virt[i] = (void*)kvmalloc_p(8192 + 16, (uint32_t *)&rx[i].addr);
-		debug_print(INFO, "rx[%d] 0x%x → 0x%x", i, rx_virt[i], (uint32_t)rx[i].addr);
-		rx[i].status = 0;
-	}
-
-	write_command(E1000_REG_RXDESCLO, phys);
+	write_command(E1000_REG_RXDESCLO, rx_phys);
 	write_command(E1000_REG_RXDESCHI, 0);
 
 	write_command(E1000_REG_RXDESCLEN, E1000_NUM_RX_DESC * sizeof(struct rx_desc));
@@ -286,17 +279,8 @@ static void init_rx(void) {
 
 static void init_tx(void) {
 
-	uintptr_t phys;
-	tx = (void*)kvmalloc_p(sizeof(struct tx_desc) * E1000_NUM_TX_DESC + 16, &phys);
 
-	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
-		tx_virt[i] = (void*)kvmalloc_p(8192+16, (uint32_t *)&tx[i].addr);
-		debug_print(INFO, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
-		tx[i].status = 0;
-		tx[i].cmd = (1 << 0);
-	}
-
-	write_command(E1000_REG_TXDESCLO, phys);
+	write_command(E1000_REG_TXDESCLO, tx_phys);
 	write_command(E1000_REG_TXDESCHI, 0);
 
 	write_command(E1000_REG_TXDESCLEN, E1000_NUM_TX_DESC * sizeof(struct tx_desc));
@@ -420,6 +404,24 @@ static int init(void) {
 		uintptr_t addr = (mem_base & 0xFFFFF000) + x;
 		dma_frame(get_page(addr, 1, kernel_directory), 1, 1, addr);
 	}
+
+	rx = (void*)kvmalloc_p(sizeof(struct rx_desc) * E1000_NUM_RX_DESC + 16, &rx_phys);
+
+	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
+		rx_virt[i] = (void*)kvmalloc_p(8192 + 16, (uint32_t *)&rx[i].addr);
+		debug_print(INFO, "rx[%d] 0x%x → 0x%x", i, rx_virt[i], (uint32_t)rx[i].addr);
+		rx[i].status = 0;
+	}
+
+	tx = (void*)kvmalloc_p(sizeof(struct tx_desc) * E1000_NUM_TX_DESC + 16, &tx_phys);
+
+	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
+		tx_virt[i] = (void*)kvmalloc_p(8192+16, (uint32_t *)&tx[i].addr);
+		debug_print(INFO, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
+		tx[i].status = 0;
+		tx[i].cmd = (1 << 0);
+	}
+
 
 	create_kernel_tasklet(e1000_init, "[e1000]", NULL);
 
