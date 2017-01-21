@@ -256,6 +256,87 @@ class VolumeWidget(BaseWidget):
                 self.volume_down()
                 return True
 
+class NetworkWidget(BaseWidget):
+    """Volume control widget."""
+
+    width = 28
+    color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
+    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
+    icon_names = ['net-active','net-disconnected']
+    check_time = 10
+
+    def __init__(self):
+        self.icons = {}
+        self.icons_hilight = {}
+        for name in self.icon_names:
+            self.icons[name] = cairo.ImageSurface.create_from_png(f'/usr/share/icons/24/{name}.png')
+            tmp = cairo.Context(self.icons[name])
+            tmp.set_operator(cairo.OPERATOR_ATOP)
+            tmp.rectangle(0,0,24,24)
+            tmp.set_source_rgb(*self.color)
+            tmp.paint()
+            self.icons_hilight[name] = cairo.ImageSurface.create_from_png(f'/usr/share/icons/24/{name}.png')
+            tmp = cairo.Context(self.icons_hilight[name])
+            tmp.set_operator(cairo.OPERATOR_ATOP)
+            tmp.rectangle(0,0,24,24)
+            tmp.set_source_rgb(*self.hilight_color)
+            tmp.paint()
+        self.hilighted = False
+        self.ip = None
+        self.mac = None
+        self.device = None
+        self.last_check = 0
+        self.status = 0
+
+    def focus_enter(self):
+        self.hilighted = True
+
+    def focus_leave(self):
+        self.hilighted = False
+
+    def check(self):
+        if current_time - self.last_check > self.check_time:
+            self.last_check = current_time
+            with open('/proc/netif','r') as f:
+                lines = f.readlines()
+                if len(lines) < 3 or "no network" in lines[0]:
+                    self.status = 0
+                else:
+                    self.status = 1
+                    _,self.ip = lines[0].strip().split('\t')
+                    _,self.mac = lines[1].strip().split('\t')
+                    _,self.device = lines[2].strip().split('\t')
+
+    def draw(self, window, offset, remaining, ctx):
+        self.check()
+        self.offset = offset
+        self.window = window
+        if self.status == 1:
+            source = 'net-active'
+        else:
+            source = 'net-disconnected'
+        if self.hilighted:
+            ctx.set_source_surface(self.icons_hilight[source],offset,2)
+        else:
+            ctx.set_source_surface(self.icons[source],offset,2)
+        ctx.paint()
+
+    def mouse_action(self, msg):
+        if msg.command == yutani.MouseEvent.CLICK:
+            def _pass(action):
+                pass
+            if self.status == 1:
+                menu_entries = [
+                    MenuEntryAction(f"IP: {self.ip}",None,_pass,None),
+                    MenuEntryAction(f"MAC: {self.mac}",None,_pass,None),
+                    MenuEntryAction(f"Device: {self.device}",None,_pass,None),
+                ]
+            else:
+                menu_entries = [
+                    MenuEntryAction(f"No network.",None,_pass,None),
+                ]
+            menu = MenuWindow(menu_entries,(self.offset-100,PANEL_HEIGHT),root=self.window)
+
 class WindowListWidget(BaseWidget):
     """Displays a list of windows with icons and titles."""
 
@@ -1094,7 +1175,7 @@ if __name__ == '__main__':
     yctx = yutani.Yutani()
 
     appmenu = ApplicationsMenuWidget()
-    widgets = [appmenu,WindowListWidget(),VolumeWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
+    widgets = [appmenu,WindowListWidget(),VolumeWidget(),NetworkWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
     panel = PanelWindow(widgets)
 
     wallpaper = WallpaperWindow()
