@@ -568,7 +568,7 @@ static unsigned int inode_read_block(ext2_fs_t * this, ext2_inodetable_t * inode
 
 	if (block >= inode->blocks / (this->block_size / 512)) {
 		memset(buf, 0x00, this->block_size);
-		debug_print(CRITICAL, "Tried to read an invalid block. Asked for %d, but inode only has %d!", block, inode->blocks / (this->block_size / 512));
+		debug_print(WARNING, "Tried to read an invalid block. Asked for %d (0-indexed), but inode only has %d!", block, inode->blocks / (this->block_size / 512));
 		return 0;
 	}
 
