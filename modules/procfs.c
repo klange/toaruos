@@ -343,10 +343,14 @@ static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 
 	struct netif * (*get_netif)(void) = (struct netif *(*)(void))(uintptr_t)hashmap_get(modules_get_symbols(),"get_default_network_interface");
 
+	uint32_t (*get_dns)(void) = (uint32_t (*)(void))(uintptr_t)hashmap_get(modules_get_symbols(),"get_primary_dns");
+
 	if (get_netif) {
 		struct netif * netif = get_netif();
 		char ip[16];
 		ip_ntoa(netif->source, ip);
+		char dns[16];
+		ip_ntoa(get_dns(), dns);
 
 		if (netif->hwaddr[0] == 0 &&
 			netif->hwaddr[1] == 0 &&
@@ -361,10 +365,12 @@ static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 				"ip:\t%s\n"
 				"mac:\t%2x:%2x:%2x:%2x:%2x:%2x\n"
 				"device:\t%s\n"
+				"dns:\t%s\n"
 				,
 				ip,
 				netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2], netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5],
-				netif->driver
+				netif->driver,
+				dns
 			);
 		}
 	} else {

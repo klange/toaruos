@@ -285,6 +285,7 @@ class NetworkWidget(BaseWidget):
         self.ip = None
         self.mac = None
         self.device = None
+        self.dns = None
         self.last_check = 0
         self.status = 0
 
@@ -299,13 +300,14 @@ class NetworkWidget(BaseWidget):
             self.last_check = current_time
             with open('/proc/netif','r') as f:
                 lines = f.readlines()
-                if len(lines) < 3 or "no network" in lines[0]:
+                if len(lines) < 4 or "no network" in lines[0]:
                     self.status = 0
                 else:
                     self.status = 1
                     _,self.ip = lines[0].strip().split('\t')
                     _,self.mac = lines[1].strip().split('\t')
                     _,self.device = lines[2].strip().split('\t')
+                    _,self.dns = lines[3].strip().split('\t')
 
     def draw(self, window, offset, remaining, ctx):
         self.check()
@@ -328,6 +330,7 @@ class NetworkWidget(BaseWidget):
             if self.status == 1:
                 menu_entries = [
                     MenuEntryAction(f"IP: {self.ip}",None,_pass,None),
+                    MenuEntryAction(f"Primary DNS: {self.dns}",None,_pass,None),
                     MenuEntryAction(f"MAC: {self.mac}",None,_pass,None),
                     MenuEntryAction(f"Device: {self.device}",None,_pass,None),
                 ]

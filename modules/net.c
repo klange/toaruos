@@ -35,6 +35,10 @@ struct netif * get_default_network_interface(void) {
 	return &_netif;
 }
 
+uint32_t get_primary_dns(void) {
+	return _dns_server;
+}
+
 uint32_t ip_aton(const char * in) {
 	char ip[16];
 	char * c = ip;
