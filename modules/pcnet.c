@@ -249,10 +249,6 @@ static void pcnet_init(void * data, char * name) {
 
 	debug_print(NOTICE, "device mac %2x:%2x:%2x:%2x:%2x:%2x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-	/* Initialize ring buffers */
-	debug_print(WARNING, "Request a large continuous chunk of memory.");
-	/* This fits 32x1548 (rx) + 8x1548 (tx) + 32x16 (rx DE) + 8x16 (tx DE) */
-	pcnet_buffer_virt = (void*)kvmalloc_p(0x10000, &pcnet_buffer_phys);
 	if (!pcnet_buffer_virt) {
 		debug_print(ERROR, "Failed.");
 		return;
@@ -351,6 +347,12 @@ static int init(void) {
 		debug_print(WARNING, "No PCNET device found.");
 		return 1;
 	}
+
+	/* Initialize ring buffers */
+	debug_print(WARNING, "Request a large continuous chunk of memory.");
+	/* This fits 32x1548 (rx) + 8x1548 (tx) + 32x16 (rx DE) + 8x16 (tx DE) */
+	pcnet_buffer_virt = (void*)kvmalloc_p(0x10000, &pcnet_buffer_phys);
+
 	create_kernel_tasklet(pcnet_init, "[pcnet]", NULL);
 
 	return 0;
