@@ -402,7 +402,7 @@ static void e1000_init(void * data, char * name) {
 	write_command(0x00D0, 0xFF);
 	read_command(0xc0);
 
-	init_netif_funcs(get_mac, dequeue_packet, send_packet);
+	init_netif_funcs(get_mac, dequeue_packet, send_packet, "Intel E1000");
 	create_kernel_tasklet(net_handler, "[eth]", NULL);
 }
 

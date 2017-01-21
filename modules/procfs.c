@@ -11,6 +11,8 @@
 #include <printf.h>
 #include <module.h>
 
+#include <mod/net.h>
+
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
 
@@ -329,7 +331,54 @@ static uint32_t mounts_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf, size);
+	free(buf);
 	return size;
+}
+
+static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+
+	/* In order to not directly depend on the network module, we dynamically locate the symbols we need. */
+	void (*ip_ntoa)(uint32_t, char *) = (void (*)(uint32_t,char*))(uintptr_t)hashmap_get(modules_get_symbols(),"ip_ntoa");
+
+	struct netif * (*get_netif)(void) = (struct netif *(*)(void))(uintptr_t)hashmap_get(modules_get_symbols(),"get_default_network_interface");
+
+	if (get_netif) {
+		struct netif * netif = get_netif();
+		char ip[16];
+		ip_ntoa(netif->source, ip);
+
+		if (netif->hwaddr[0] == 0 &&
+			netif->hwaddr[1] == 0 &&
+			netif->hwaddr[2] == 0 &&
+			netif->hwaddr[3] == 0 &&
+			netif->hwaddr[4] == 0 &&
+			netif->hwaddr[5] == 0) {
+
+			sprintf(buf, "no network\n");
+		} else {
+			sprintf(buf,
+				"ip:\t%s\n"
+				"mac:\t%2x:%2x:%2x:%2x:%2x:%2x\n"
+				"device:\t%s\n"
+				,
+				ip,
+				netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2], netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5],
+				netif->driver
+			);
+		}
+	} else {
+		sprintf(buf, "no network\n");
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf, size);
+	free(buf);
+	return size;
+
 }
 
 static struct procfs_entry std_entries[] = {
@@ -340,6 +389,7 @@ static struct procfs_entry std_entries[] = {
 	{-5, "version",  version_func},
 	{-6, "compiler", compiler_func},
 	{-7, "mounts",   mounts_func},
+	{-8, "netif",    netif_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {

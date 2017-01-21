@@ -21,13 +21,18 @@ static hashmap_t *_udp_sockets = NULL;
 static void parse_dns_response(fs_node_t * tty, void * last_packet);
 static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries);
 
-static struct netif _netif;
+static struct netif _netif = {0};
 
-void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func) {
+void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func, char * device) {
 	_netif.get_mac = mac_func;
 	_netif.get_packet = get_func;
 	_netif.send_packet = send_func;
+	_netif.driver = device;
 	memcpy(_netif.hwaddr, _netif.get_mac(), sizeof(_netif.hwaddr));
+}
+
+struct netif * get_default_network_interface(void) {
+	return &_netif;
 }
 
 uint32_t ip_aton(const char * in) {

@@ -393,7 +393,7 @@ int init_rtl(void) {
 		net_queue = list_create();
 
 		debug_print(NOTICE, "Initializing netif functions\n");
-		init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet);
+		init_netif_funcs(rtl_get_mac, rtl_get_packet, rtl_send_packet, "RTL8139");
 		debug_print(NOTICE, "Card is configured, going to start worker thread now.\n");
 		create_kernel_tasklet(net_handler, "[eth]", NULL);
 

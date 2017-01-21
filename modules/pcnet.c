@@ -339,7 +339,7 @@ static void pcnet_init(void * data, char * name) {
 
 	debug_print(NOTICE, "Card start.");
 
-	init_netif_funcs(pcnet_get_mac, dequeue_packet, pcnet_send_packet);
+	init_netif_funcs(pcnet_get_mac, dequeue_packet, pcnet_send_packet, "AMD PCnet FAST II/III");
 	create_kernel_tasklet(net_handler, "[eth]", NULL);
 
 }

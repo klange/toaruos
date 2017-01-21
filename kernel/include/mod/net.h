@@ -14,9 +14,11 @@ struct netif {
 
 	uint8_t hwaddr[6];
 	uint32_t source;
+
+	char * driver;
 };
 
-extern void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func);
+extern void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func, char * device);
 extern void net_handler(void * data, char * name);
 extern size_t write_dhcp_packet(uint8_t * buffer);
 
