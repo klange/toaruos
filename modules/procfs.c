@@ -415,7 +415,15 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
 		return out;
 	}
 
-	index -= 2;
+	if (index == 3) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, "self");
+		return out;
+	}
+
+	index -= 3;
 
 	if (index < PROCFS_STANDARD_ENTRIES) {
 		struct dirent * out = malloc(sizeof(struct dirent));
@@ -464,6 +472,10 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 		}
 		fs_node_t * out = procfs_procdir_create(pid);
 		return out;
+	}
+
+	if (!strcmp(name,"self")) {
+		return procfs_procdir_create(current_process->id);
 	}
 
 	for (unsigned int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
