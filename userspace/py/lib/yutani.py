@@ -72,6 +72,11 @@ class Message(object):
     def __init__(self, msg):
         self._ptr = msg
 
+    def free(self):
+        if self._ptr:
+            _libc.free(self._ptr)
+            self._ptr = None
+
     @property
     def type(self):
         return self._ptr.contents.type

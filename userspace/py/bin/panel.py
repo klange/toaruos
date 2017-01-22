@@ -1235,6 +1235,7 @@ if __name__ == '__main__':
             # All applications should attempt to exit on SESSION_END.
             panel.close()
             wallpaper.close()
+            msg.free()
             break
         elif msg.type == yutani.Message.MSG_NOTIFY:
             # Update the window list.
@@ -1255,6 +1256,7 @@ if __name__ == '__main__':
         elif msg.type == yutani.Message.MSG_KEY_EVENT:
             if app_runner and msg.wid == app_runner.wid:
                 app_runner.key_action(msg)
+                msg.free()
                 continue
             if not app_runner and \
                 (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
@@ -1314,4 +1316,5 @@ if __name__ == '__main__':
         elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
             if msg.wid in panel.menus and msg.focused == 0:
                 panel.menus[msg.wid].leave_menu()
+        msg.free()
 

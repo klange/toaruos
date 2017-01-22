@@ -3,6 +3,7 @@ import menu_bar
 
 def handle_event(msg):
     if msg.type == yutani.Message.MSG_SESSION_END:
+        msg.free()
         return False
     elif msg.type == yutani.Message.MSG_KEY_EVENT:
         if msg.wid in yutani.yutani_windows:
@@ -47,6 +48,7 @@ def handle_event(msg):
                 window.mouse_action(msg)
             elif 'mouse_event' in dir(window):
                 window.mouse_event(msg)
+    msg.free()
     return True
 
 
