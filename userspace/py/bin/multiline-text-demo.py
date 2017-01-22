@@ -192,4 +192,5 @@ if __name__ == '__main__':
                     e.set_font(new_font)
                     draw_window()
                     w.flip()
+        msg.free()
 

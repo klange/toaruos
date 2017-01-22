@@ -234,6 +234,7 @@ if __name__ == '__main__':
         if msg.type == yutani.Message.MSG_WELCOME:
             hints.resize(msg.display_width,msg.display_height)
             window.center()
+            msg.free()
         else:
             if not yutani_mainloop.handle_event(msg):
                 break

@@ -126,3 +126,4 @@ if __name__ == '__main__':
                 # For events that didn't get handled by the decorations,
                 # print a debug message with details.
                 print(f'W({msg.wid}) mouse {msg.new_x},{msg.new_y}')
+        msg.free()
