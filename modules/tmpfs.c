@@ -8,18 +8,22 @@
 #include <fs.h>
 #include <version.h>
 #include <process.h>
+#include <mem.h>
 
 #include <module.h>
 #include <mod/tmpfs.h>
 
-/* 1KB */
-#define BLOCKSIZE 1024
+/* 4KB */
+#define BLOCKSIZE 0x1000
 
 #define TMPFS_TYPE_FILE 1
 #define TMPFS_TYPE_DIR  2
 #define TMPFS_TYPE_LINK 3
 
+static char * buf_space = NULL;
+
 static spin_lock_t tmpfs_lock = { 0 };
+static spin_lock_t tmpfs_page_lock = { 0 };
 
 struct tmpfs_dir * tmpfs_root = NULL;
 
@@ -119,7 +123,7 @@ static void tmpfs_file_free(struct tmpfs_file * t) {
 		free(t->target);
 	}
 	for (size_t i = 0; i < t->block_count; ++i) {
-		free(t->blocks[i]);
+		clear_frame((uintptr_t)t->blocks[i] * 0x1000);
 	}
 }
 
@@ -131,6 +135,9 @@ static void tmpfs_file_blocks_embiggen(struct tmpfs_file * t) {
 
 static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int create) {
 	debug_print(INFO, "Reading block %d from file %s", blockid, t->name);
+
+	spin_lock(tmpfs_page_lock);
+
 	if (create) {
 		spin_lock(tmpfs_lock);
 		while (blockid >= t->pointers) {
@@ -138,7 +145,9 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 		}
 		while (blockid >= t->block_count) {
 			debug_print(INFO, "Allocating block %d for file %s", blockid, t->name);
-			t->blocks[t->block_count] = malloc(BLOCKSIZE);
+			uintptr_t index = first_frame();
+			set_frame(index * 0x1000);
+			t->blocks[t->block_count] = (char*)index;
 			t->block_count += 1;
 		}
 		spin_unlock(tmpfs_lock);
@@ -149,7 +158,15 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 		}
 	}
 	debug_print(INFO, "Using block %d->0x%x (of %d) on file %s", blockid, t->blocks[blockid], t->block_count, t->name);
-	return t->blocks[blockid];
+
+	page_t * page = get_page((uintptr_t)buf_space,0,current_directory);
+	page->rw = 1;
+	page->user = 0;
+	page->frame = (uintptr_t)t->blocks[blockid];
+	page->present = 1;
+	invalidate_tables_at((uintptr_t)buf_space);
+
+	return (char *)buf_space;
 }
 
 
@@ -173,6 +190,7 @@ static uint32_t read_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uint
 	if (start_block == end_block) {
 		void *buf = tmpfs_file_getset_block(t, start_block, 0);
 		memcpy(buffer, (uint8_t *)(((uint32_t)buf) + (offset % BLOCKSIZE)), size_to_read);
+		spin_unlock(tmpfs_page_lock);
 		return size_to_read;
 	} else {
 		uint32_t block_offset;
@@ -181,14 +199,17 @@ static uint32_t read_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uint
 			if (block_offset == start_block) {
 				void *buf = tmpfs_file_getset_block(t, block_offset, 0);
 				memcpy(buffer, (uint8_t *)(((uint32_t)buf) + (offset % BLOCKSIZE)), BLOCKSIZE - (offset % BLOCKSIZE));
+				spin_unlock(tmpfs_page_lock);
 			} else {
 				void *buf = tmpfs_file_getset_block(t, block_offset, 0);
 				memcpy(buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), buf, BLOCKSIZE);
+				spin_unlock(tmpfs_page_lock);
 			}
 		}
 		if (end_size) {
 			void *buf = tmpfs_file_getset_block(t, end_block, 0);
 			memcpy(buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), buf, end_size);
+			spin_unlock(tmpfs_page_lock);
 		}
 	}
 	return size_to_read;
@@ -212,6 +233,7 @@ static uint32_t write_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	if (start_block == end_block) {
 		void *buf = tmpfs_file_getset_block(t, start_block, 1);
 		memcpy((uint8_t *)(((uint32_t)buf) + (offset % BLOCKSIZE)), buffer, size_to_read);
+		spin_unlock(tmpfs_page_lock);
 		return size_to_read;
 	} else {
 		uint32_t block_offset;
@@ -220,14 +242,17 @@ static uint32_t write_tmpfs(fs_node_t *node, uint32_t offset, uint32_t size, uin
 			if (block_offset == start_block) {
 				void *buf = tmpfs_file_getset_block(t, block_offset, 1);
 				memcpy((uint8_t *)(((uint32_t)buf) + (offset % BLOCKSIZE)), buffer, BLOCKSIZE - (offset % BLOCKSIZE));
+				spin_unlock(tmpfs_page_lock);
 			} else {
 				void *buf = tmpfs_file_getset_block(t, block_offset, 1);
 				memcpy(buf, buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), BLOCKSIZE);
+				spin_unlock(tmpfs_page_lock);
 			}
 		}
 		if (end_size) {
 			void *buf = tmpfs_file_getset_block(t, end_block, 1);
 			memcpy(buf, buffer + BLOCKSIZE * blocks_read - (offset % BLOCKSIZE), end_size);
+			spin_unlock(tmpfs_page_lock);
 		}
 	}
 	return size_to_read;
@@ -250,7 +275,7 @@ static void open_tmpfs(fs_node_t * node, unsigned int flags) {
 	if (flags & O_TRUNC) {
 		debug_print(WARNING, "Truncating file %s", t->name);
 		for (size_t i = 0; i < t->block_count; ++i) {
-			free(t->blocks[i]);
+			clear_frame((uintptr_t)t->blocks[i] * 0x1000);
 			t->blocks[i] = 0;
 		}
 		t->block_count = 0;
@@ -490,6 +515,8 @@ fs_node_t * tmpfs_mount(char * device, char * mount_path) {
 }
 
 static int tmpfs_initialize(void) {
+
+	buf_space = (void*)kvmalloc(BLOCKSIZE);
 
 	vfs_mount("/tmp", tmpfs_create("tmp"));
 	vfs_mount("/var", tmpfs_create("var"));
