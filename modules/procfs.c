@@ -415,7 +415,7 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
 		return out;
 	}
 
-	if (index == 3) {
+	if (index == 2) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->ino = 0;
