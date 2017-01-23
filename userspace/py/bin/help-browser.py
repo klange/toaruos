@@ -4,6 +4,7 @@ Help Documentation Browser
 """
 import os
 import sys
+import subprocess
 
 import cairo
 
@@ -40,6 +41,7 @@ class HelpBrowserWindow(yutani.Window):
         self.special['contents'] = self.special_contents
         self.special['demo'] = self.special_demo
         self.down_text = None
+        self.cache = {}
 
         def print_derp(derp):
             print("derp!")
@@ -81,6 +83,16 @@ class HelpBrowserWindow(yutani.Window):
             if self.current_topic[8:] in self.special:
                 return self.special[self.current_topic[8:]].__doc__
             return "???"
+        elif document.startswith("http:"):
+            if document in self.cache:
+                lines = self.cache[document].split('\n')
+                for x in lines:
+                    x = x.strip()
+                    if x.startswith('<h1>') and x.endswith('</h1>'):
+                        return x[4:-5]
+                return document.split('/')[-1].replace('.trt','').title()
+            else:
+                return document
         path = f'/usr/share/help/{document}'
         if not os.path.exists(path):
             return "(file not found)"
@@ -129,10 +141,24 @@ This is text below that.
 This is normal text. <b>This is bold text.</b> <i>This is italic text.</i> <b><i>This is both.</i></b>
 <link target=\"0_index.trt\">go home</link>"""
 
+    def get_cache(self, url):
+        if url in self.cache:
+            return self.cache[url]
+        else:
+            try:
+                text = subprocess.check_output(['fetch',url]).decode('utf-8')
+            except:
+                text = '\n<h1>Error</h1>\n\nThere was an error obtaining this file.'
+            self.cache[url] = text
+            return text
+
     def get_document_text(self):
         if self.current_topic.startswith("special:"):
             if self.current_topic[8:] in self.special:
                 return self.special[self.current_topic[8:]]()
+        elif self.current_topic.startswith("http:"):
+            # Good luck
+            return self.get_cache(self.current_topic)
         else:
             path = f'/usr/share/help/{self.current_topic}'
             if os.path.exists(path):
