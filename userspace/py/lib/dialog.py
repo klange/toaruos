@@ -42,7 +42,7 @@ class DialogWindow(yutani.Window):
     okay_label = "Okay"
     cancel_label = "Cancel"
 
-    def __init__(self, decorator, title, text, icon='help', buttons=DialogButtons.OKAY_CANCEL, callback=None, cancel_callback=None,window=None):
+    def __init__(self, decorator, title, text, icon='help', buttons=DialogButtons.OKAY_CANCEL, callback=None, cancel_callback=None,window=None,cancel_label=True,close_is_cancel=True):
         super(DialogWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=title, icon=icon, doublebuffer=True)
 
         if window:
@@ -57,9 +57,16 @@ class DialogWindow(yutani.Window):
         self.tr = text_region.TextRegion(0,0,self.base_width-60,self.base_height-self.text_offset,font=self.font)
         self.tr.set_richtext(text)
 
+        if cancel_label is not True:
+            self.cancel_label = cancel_label
+
         self.button_ok = Button(self.okay_label,self.ok_click)
         self.button_cancel = Button(self.cancel_label,self.cancel_click)
-        self.buttons = [self.button_ok, self.button_cancel]
+        self.buttons = [self.button_ok]
+        if self.cancel_label:
+            self.buttons.append(self.button_cancel)
+
+        self.close_is_cancel = close_is_cancel
 
         self.hover_widget = None
         self.down_button = None
@@ -99,7 +106,8 @@ class DialogWindow(yutani.Window):
         self.tr.draw(self)
 
         self.button_ok.draw(self,ctx,WIDTH-130,HEIGHT-60,100,30)
-        self.button_cancel.draw(self,ctx,WIDTH-240,HEIGHT-60,100,30)
+        if self.cancel_label:
+            self.button_cancel.draw(self,ctx,WIDTH-240,HEIGHT-60,100,30)
 
         self.decorator.render(self)
         self.flip()
@@ -114,7 +122,10 @@ class DialogWindow(yutani.Window):
 
     def mouse_event(self, msg):
         if self.decorator.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
-            self.cancel_click(None)
+            if self.close_is_cancel:
+                self.cancel_click(None)
+            else:
+                self.ok_click(None)
             return
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
