@@ -215,11 +215,19 @@ static uint32_t cpuinfo_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	return 0;
 }
 
+extern uintptr_t heap_end;
+extern uintptr_t kernel_heap_alloc_point;
+
 static uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	unsigned int total = memory_total();
 	unsigned int free  = total - memory_use();
-	sprintf(buf, "MemTotal: %d kB\nMemFree: %d kB\n", total, free);
+	unsigned int kheap = (heap_end - kernel_heap_alloc_point) / 1024;
+	sprintf(buf,
+		"MemTotal: %d kB\n"
+		"MemFree: %d kB\n"
+		"KHeapUse: %d kB\n"
+		, total, free, kheap);
 
 	size_t _bsize = strlen(buf);
 	if (offset > _bsize) return 0;
