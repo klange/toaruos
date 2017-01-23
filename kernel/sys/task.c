@@ -515,7 +515,7 @@ void task_exit(int retval) {
 
 	process_t * parent = process_get_parent((process_t *)current_process);
 
-	if (parent) {
+	if (parent && !parent->finished) {
 		wakeup_queue(parent->wait_queue);
 	}
 
