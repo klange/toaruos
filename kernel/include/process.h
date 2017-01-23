@@ -151,4 +151,6 @@ extern void cleanup_process(process_t * proc, int retval);
 extern void reap_process(process_t * proc);
 extern int waitpid(int pid, int * status, int options);
 
+extern int is_valid_process(process_t * process);
+
 #endif

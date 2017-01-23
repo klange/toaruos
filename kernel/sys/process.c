@@ -36,6 +36,16 @@ static bitset_t pid_set;
 /* Default process name string */
 char * default_name = "[unnamed]";
 
+int is_valid_process(process_t * process) {
+	foreach(lnode, process_list) {
+		if (lnode->value == process) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * This makes a nice 4096-byte bitmap. It also happens
  * to be pid_max on 32-bit Linux, so that's kinda nice.
@@ -713,6 +723,13 @@ void cleanup_process(process_t * proc, int retval) {
 	list_free(proc->signal_queue);
 	free(proc->signal_queue);
 	free(proc->wd_name);
+
+
+	if (proc->node_waits) {
+		list_free(proc->node_waits);
+		free(proc->node_waits);
+		proc->node_waits = NULL;
+	}
 	debug_print(INFO, "Releasing shared memory for %d", proc->id);
 	shm_release_all(proc);
 	free(proc->shm_mappings);
@@ -905,6 +922,14 @@ int process_awaken_from_fswait(process_t * process, int index) {
 }
 
 int process_alert_node(process_t * process, void * value) {
+
+	if (!is_valid_process(process)) {
+		debug_print(WARNING, "Invalid process in alert from fswait.");
+		return 0;
+	}
+
+
+
 	if (!process->node_waits) {
 		return 0; /* Possibly already returned. Wait for another call. */
 	}
