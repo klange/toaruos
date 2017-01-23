@@ -240,7 +240,9 @@ static int pipe_wait(fs_node_t * node, void * process) {
 		pipe->alert_waiters = list_create();
 	}
 
-	list_insert(pipe->alert_waiters, process);
+	if (!list_find(pipe->alert_waiters, process)) {
+		list_insert(pipe->alert_waiters, process);
+	}
 	list_insert(((process_t *)process)->node_waits, pipe);
 
 	return 0;

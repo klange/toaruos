@@ -65,7 +65,9 @@ void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process) {
 		ring_buffer->alert_waiters = list_create();
 	}
 
-	list_insert(ring_buffer->alert_waiters, process);
+	if (!list_find(ring_buffer->alert_waiters, process)) {
+		list_insert(ring_buffer->alert_waiters, process);
+	}
 	list_insert(((process_t *)process)->node_waits, ring_buffer);
 }
 
@@ -149,6 +151,11 @@ void ring_buffer_destroy(ring_buffer_t * ring_buffer) {
 
 	free(ring_buffer->wait_queue_writers);
 	free(ring_buffer->wait_queue_readers);
+
+	if (ring_buffer->alert_waiters) {
+		list_free(ring_buffer->alert_waiters);
+		free(ring_buffer->alert_waiters);
+	}
 }
 
 void ring_buffer_interrupt(ring_buffer_t * ring_buffer) {
