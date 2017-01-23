@@ -5,6 +5,7 @@ Live CD wizard / tutorial
 import math
 import os
 import sys
+import subprocess
 
 import cairo
 
@@ -227,6 +228,8 @@ if __name__ == '__main__':
 
     window = WizardWindow(d)
     window.draw()
+
+    subprocess.Popen(['check-updates.py'])
 
     while 1:
         # Poll for events.
