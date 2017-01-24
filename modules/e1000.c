@@ -248,7 +248,7 @@ static int irq_handler(struct regs *r) {
 
 static void send_packet(uint8_t* payload, size_t payload_size) {
 	tx_index = read_command(E1000_REG_TXDESCTAIL);
-	debug_print(CRITICAL,"sending packet 0x%x, %d desc[%d]", payload, payload_size, tx_index);
+	debug_print(NOTICE,"sending packet 0x%x, %d desc[%d]", payload, payload_size, tx_index);
 
 	memcpy(tx_virt[tx_index], payload, payload_size);
 	tx[tx_index].length = payload_size;

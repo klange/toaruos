@@ -56,7 +56,7 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 
 static void symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
-	debug_print(CRITICAL, "Creating TMPFS file %s in %s", name, d->name);
+	debug_print(NOTICE, "Creating TMPFS file (symlink) %s in %s", name, d->name);
 
 	spin_lock(tmpfs_lock);
 	foreach(f, d->files) {
@@ -153,7 +153,7 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 		spin_unlock(tmpfs_lock);
 	} else {
 		if (blockid >= t->block_count) {
-			debug_print(CRITICAL, "This will probably end badly.");
+			debug_print(ERROR, "This will probably end badly.");
 			return NULL;
 		}
 	}
@@ -420,7 +420,7 @@ static void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	if (!name) return;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
-	debug_print(CRITICAL, "Creating TMPFS file %s in %s", name, d->name);
+	debug_print(NOTICE, "Creating TMPFS file %s in %s", name, d->name);
 
 	spin_lock(tmpfs_lock);
 	foreach(f, d->files) {
@@ -448,7 +448,7 @@ static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
 	if (!name) return;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
-	debug_print(CRITICAL, "Creating TMPFS directory %s (in %s)", name, d->name);
+	debug_print(NOTICE, "Creating TMPFS directory %s (in %s)", name, d->name);
 
 	spin_lock(tmpfs_lock);
 	foreach(f, d->files) {
