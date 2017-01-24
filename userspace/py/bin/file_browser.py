@@ -17,11 +17,14 @@ import toaru_fonts
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
 from about_applet import AboutAppletWindow
+from input_box import TextInputWindow
+from dialog import DialogWindow
 
 import yutani_mainloop
 
+app_name = "File Browser"
 version = "0.1.0"
-_description = f"<b>File Browser {version}</b>\n© 2017 Kevin Lange\n\nFile system navigator.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nFile system navigator.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 class File(object):
 
@@ -78,7 +81,7 @@ class FileBrowserWindow(yutani.Window):
     base_height = 300
 
     def __init__(self, decorator, path):
-        super(FileBrowserWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="File Browser", icon="folder", doublebuffer=True)
+        super(FileBrowserWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="folder", doublebuffer=True)
         self.move(100,100)
         self.x = 100
         self.y = 100
@@ -91,14 +94,24 @@ class FileBrowserWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            AboutAppletWindow(self.decorator,f"About File Browser","/usr/share/icons/48/folder.png",_description,"folder")
+            AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/folder.png",_description,"folder")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","file_browser.trt"])
+
+        def input_path(action):
+            def input_callback(input_window):
+                text = input_window.tr.text
+                input_window.close()
+                self.load_directory(text)
+            TextInputWindow(self.decorator,"Open directory...","open",text=self.path,callback=input_callback,window=self)
+
         menus = [
             ("File", [
                 MenuEntryAction("Exit","exit",exit_app,None),
             ]),
             ("Go", [
+                MenuEntryAction("Path...","open",input_path,None),
+                MenuEntryDivider(),
                 MenuEntryAction("Home","home",self.load_directory,os.environ.get("HOME")),
                 MenuEntryAction("File System",None,self.load_directory,"/"),
                 MenuEntryAction("Up","up",self.go_up,None),
@@ -106,7 +119,7 @@ class FileBrowserWindow(yutani.Window):
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
                 MenuEntryDivider(),
-                MenuEntryAction("About File Browser","star",about_window,None),
+                MenuEntryAction(f"About {app_name}","star",about_window,None),
             ]),
         ]
 
@@ -127,9 +140,16 @@ class FileBrowserWindow(yutani.Window):
         self.draw()
 
     def load_directory(self, path):
+        if not os.path.exists(path):
+            DialogWindow(self.decorator,app_name,f"The path <mono>{path}</mono> could not be opened. (Not found)",window=self,icon='folder')
+            return
+        if not os.path.isdir(path):
+            DialogWindow(self.decorator,app_name,f"The path <mono>{path}</mono> could not be opened. (Not a directory)",window=self,icon='folder')
+            return
+        path = os.path.normpath(path)
         self.path = path
         title = "/" if path == "/" else os.path.basename(path)
-        self.set_title(f"{title} - File Browser",'folder')
+        self.set_title(f"{title} - {app_name}",'folder')
 
         self.files = sorted([File(os.path.join(path,f), self) for f in os.listdir(path)], key=lambda x: x.sortkey)
         self.scroll_y = 0

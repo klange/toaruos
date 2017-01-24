@@ -69,6 +69,7 @@ class TextRegion(object):
         self.ellipsis = ""
         self.one_line = False
         self.base_dir = ""
+        self.break_all = False
 
     def set_alignment(self, align):
         self.align = align
@@ -173,6 +174,7 @@ class TextRegion(object):
             if char == '\n': return 3 # break on line feed
             if unicodedata.category(char) == 'Zs': return 1 # break on space
             if char_width(char) > 1: return 2 # allow break on CJK characters (TODO: only really valid for Chinese and Japanese; Korean doesn't work this way
+            if self.break_all: return 2
             return 0
 
         units = []
@@ -345,10 +347,28 @@ class TextRegion(object):
         self.x = new_x
         self.y = new_y
 
-    def click(self, x, y):
+    def get_offset_at_index(self, index):
+        """ Only works for one-liners... """
+        if not self.lines:
+            return None, (0, 0, 0, 0)
+        left_align = 0
+        xline = self.lines[0]
+        if self.align == 1: # right align
+            left_align = self.width - sum([u.width for u in xline])
+        elif self.align == 2: # center
+            left_align = int((self.width - sum([u.width for u in xline])) / 2)
+        i = 0
+        for unit in xline:
+            if i == index:
+                return unit, (0, left_align, left_align, i)
+            left_align += unit.width
+            i += 1
+        return None, (0, left_align, left_align, i)
+
+    def pick(self, x, y):
         # Determine which line this click belongs in
         if x < self.x or x > self.x + self.width or y < self.y or y > self.y + self.height:
-            return None
+            return None, None
         top_align = 0
         if len(self.lines) < int(self.height / self.line_height):
             if self.valign == 1: # bottom
@@ -364,12 +384,18 @@ class TextRegion(object):
                 left_align = self.width - sum([u.width for u in xline])
             elif self.align == 2: # center
                 left_align = int((self.width - sum([u.width for u in xline])) / 2)
+            i = 0
             for unit in xline:
                 if x >= self.x + left_align and x < self.x + left_align + unit.width:
-                    return unit
+                    return unit, (line, left_align, x - self.x, i)
                 left_align += unit.width
-        else:
-            return None
+                i += 1
+            return None, (line, left_align, x - self.x, i)
+        return None, None
+
+    def click(self, x, y):
+        unit, _ = self.pick(x,y)
+        return unit
 
     def draw(self, context):
         current_height = self.line_height

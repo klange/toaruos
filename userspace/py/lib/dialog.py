@@ -177,7 +177,10 @@ class DialogWindow(yutani.Window):
             self.draw()
 
     def keyboard_event(self, msg):
-        pass # Do not respond to keyboard events until we get keyboard focus stuff
+        if msg.event.action == yutani.KeyAction.ACTION_DOWN:
+            if msg.event.key == b'\n':
+                self.ok_click(None)
+
 
 class File(object):
 

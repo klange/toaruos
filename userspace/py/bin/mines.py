@@ -15,7 +15,7 @@ import toaru_fonts
 from button import Button, rounded_rectangle
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from about_applet import AboutAppletWindow
-
+from input_box import TextInputWindow
 from dialog import DialogWindow
 
 import yutani_mainloop
@@ -95,12 +95,25 @@ class MinesWindow(yutani.Window):
             AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/mines.png",_description,"mines")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","mines.trt"])
+        def custom_game(action):
+            def input_callback(input_window):
+                size = int(input_window.tr.text)
+                input_window.close()
+                def second_callback(input_window):
+                    mines = int(input_window.tr.text)
+                    input_window.close()
+                    self.new_game((size,mines))
+
+                TextInputWindow(self.decorator,"How many mines?","mines",text="90",callback=second_callback,window=self)
+            TextInputWindow(self.decorator,"How wide/tall?","mines",text="20",callback=input_callback,window=self)
+
         menus = [
             ("File", [
                 MenuEntrySubmenu("New Game...",[
                     MenuEntryAction("9×9, 10 mines",None,self.new_game,(9,10)),
                     MenuEntryAction("16×16, 40 mines",None,self.new_game,(16,40)),
                     MenuEntryAction("20×20, 90 mines",None,self.new_game,(20,90)),
+                    MenuEntryAction("Custom...",None,custom_game,None),
                 ],icon="new"),
                 MenuEntryDivider(),
                 MenuEntryAction("Exit","exit",exit_app,None),
@@ -133,13 +146,21 @@ class MinesWindow(yutani.Window):
 
         self.new_game((9,10))
 
+    def basic_game(self):
+        self.new_game((9,10))
+
     def new_game(self,action):
         def mine_func(b):
             button = b
             if self.first_click:
+                i = 0
                 while button.is_mine or button.mines:
+                    if i > 30:
+                        DialogWindow(self.decorator,app_name,"Failed to generate a board.",callback=self.basic_game,window=self,icon='mines')
+                        return
                     self.new_game(action)
                     button = self.buttons[button.row][button.col]
+                    i += 1
                 self.first_click = False
             if button.flagged:
                 return
@@ -170,10 +191,16 @@ class MinesWindow(yutani.Window):
         self.tr.set_text(f"There are {self.mine_count} mines.")
 
         self.mines = []
+        i = 0
         while len(self.mines) < self.mine_count:
             x,y = random.randrange(self.field_size),random.randrange(self.field_size)
+            i += 1
             if not (x,y) in self.mines:
+                i = 0
                 self.mines.append((x,y))
+            if i > 50:
+                DialogWindow(self.decorator,app_name,"Failed to generate a board.",callback=self.basic_game,window=self,icon='mines')
+                return
 
         def check_neighbors(r,c):
             n = []
