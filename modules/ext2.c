@@ -256,6 +256,8 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 }
 
 static unsigned int ext2_sync(ext2_fs_t * this) {
+	if (!this->disk_cache) return 0;
+
 	/* This operation requires the filesystem lock */
 	spin_lock(this->lock);
 
