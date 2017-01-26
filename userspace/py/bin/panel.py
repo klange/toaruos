@@ -1246,7 +1246,7 @@ if __name__ == '__main__':
         # Poll for events.
         fd = fswait.fswait(fds,500 if not wallpaper.animations else 20)
         maybe_animate()
-        if fd == 0:
+        while yutani.yutani_ctx.query():
             msg = yutani.yutani_ctx.poll()
             if msg.type == yutani.Message.MSG_SESSION_END:
                 # All applications should attempt to exit on SESSION_END.

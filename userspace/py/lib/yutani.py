@@ -382,6 +382,10 @@ class Yutani(object):
         """Act file-like and return our file descriptor number."""
         return self._fileno
 
+    def query(self):
+        """Asynchronously check if data is available."""
+        return yutani_lib.yutani_query(self._ptr)
+
 class KeybindFlag(object):
     """Flags for global key bindings."""
     BIND_PASSTHROUGH = 0 # The key bind should be received by other clients.
