@@ -22,6 +22,7 @@ import cairo
 import yutani
 import text_region
 import toaru_fonts
+import fswait
 
 from menu_bar import MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
@@ -1199,7 +1200,6 @@ if __name__ == '__main__':
     alttab = None
     new_focused = -1
 
-    yctx.timer_request(0,0)
     yctx.subscribe()
 
     set_binds()
@@ -1228,21 +1228,11 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGUSR2, reset_zorder)
 
+    fds = [yutani.yutani_ctx]
     while 1:
         # Poll for events.
-        msg = yutani.yutani_ctx.poll()
-        if msg.type == yutani.Message.MSG_SESSION_END:
-            # All applications should attempt to exit on SESSION_END.
-            panel.close()
-            wallpaper.close()
-            msg.free()
-            break
-        elif msg.type == yutani.Message.MSG_NOTIFY:
-            # Update the window list.
-            windows_zorder = [x for x in update_window_list()]
-            windows = sorted(windows_zorder, key=lambda window: window.wid)
-            panel.draw()
-        elif msg.type == yutani.Message.MSG_TIMER_TICK:
+        fd = fswait.fswait(fds,500 if not wallpaper.animations else 20)
+        if fd == 1:
             tick = int(time.time())
             if tick != current_time:
                 try:
@@ -1253,68 +1243,81 @@ if __name__ == '__main__':
                 panel.draw()
             if wallpaper.animations:
                 wallpaper.animate()
-        elif msg.type == yutani.Message.MSG_KEY_EVENT:
-            if app_runner and msg.wid == app_runner.wid:
-                app_runner.key_action(msg)
+        elif fd == 0:
+            msg = yutani.yutani_ctx.poll()
+            if msg.type == yutani.Message.MSG_SESSION_END:
+                # All applications should attempt to exit on SESSION_END.
+                panel.close()
+                wallpaper.close()
                 msg.free()
-                continue
-            if not app_runner and \
-                (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
-                (msg.event.keycode == yutani.Keycode.F2) and \
-                (msg.event.action == yutani.KeyAction.ACTION_DOWN):
-                app_runner = ApplicationRunnerWindow()
-                app_runner.draw()
-            if not panel.menus and \
-                (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
-                (msg.event.keycode == yutani.Keycode.F1) and \
-                (msg.event.action == yutani.KeyAction.ACTION_DOWN):
-                appmenu.activate()
-            # Ctrl-Alt-T: Open Terminal
-            if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_CTRL) and \
-                (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
-                (msg.event.keycode == ord('t')) and \
-                (msg.event.action == yutani.KeyAction.ACTION_DOWN):
-                launch_app('terminal')
-            # Ctrl-F11: Toggle visibility of panel
-            if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_CTRL) and \
-                (msg.event.keycode == yutani.Keycode.F11) and \
-                (msg.event.action == yutani.KeyAction.ACTION_DOWN):
-                panel.toggle_visibility()
-            # Release alt while alt-tabbing
-            if tabbing and (msg.event.keycode == 0 or msg.event.keycode == yutani.Keycode.LEFT_ALT) and \
-                (msg.event.modifiers == 0) and (msg.event.action == yutani.KeyAction.ACTION_UP):
-                finish_alt_tab(msg)
-            # Alt-Tab and Alt-Shift-Tab: Switch window focus.
-            if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
-                (msg.event.keycode == ord("\t")) and \
-                (msg.event.action == yutani.KeyAction.ACTION_DOWN):
-                alt_tab(msg)
-            if msg.wid in panel.menus:
-                panel.menus[msg.wid].keyboard_event(msg)
-        elif msg.type == yutani.Message.MSG_WELCOME:
-            # Display size has changed.
-            panel.resize(msg.display_width, PANEL_HEIGHT)
-            wallpaper.resize(msg.display_width, msg.display_height)
-        elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
-            # Resize the window.
-            if msg.wid == panel.wid:
-                panel.finish_resize(msg)
-            elif msg.wid == wallpaper.wid:
-                wallpaper.finish_resize(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-            if msg.wid == panel.wid:
-                panel.mouse_action(msg)
-            elif msg.wid == wallpaper.wid:
-                wallpaper.mouse_action(msg)
-            if msg.wid in panel.menus:
-                m = panel.menus[msg.wid]
-                if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
-                    panel.hovered_menu = m
-                elif panel.hovered_menu == m:
-                    panel.hovered_menu = None
-                m.mouse_action(msg)
-        elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-            if msg.wid in panel.menus and msg.focused == 0:
-                panel.menus[msg.wid].leave_menu()
-        msg.free()
+                break
+            elif msg.type == yutani.Message.MSG_NOTIFY:
+                # Update the window list.
+                windows_zorder = [x for x in update_window_list()]
+                windows = sorted(windows_zorder, key=lambda window: window.wid)
+                panel.draw()
+            elif msg.type == yutani.Message.MSG_KEY_EVENT:
+                if app_runner and msg.wid == app_runner.wid:
+                    app_runner.key_action(msg)
+                    msg.free()
+                    continue
+                if not app_runner and \
+                    (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
+                    (msg.event.keycode == yutani.Keycode.F2) and \
+                    (msg.event.action == yutani.KeyAction.ACTION_DOWN):
+                    app_runner = ApplicationRunnerWindow()
+                    app_runner.draw()
+                if not panel.menus and \
+                    (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
+                    (msg.event.keycode == yutani.Keycode.F1) and \
+                    (msg.event.action == yutani.KeyAction.ACTION_DOWN):
+                    appmenu.activate()
+                # Ctrl-Alt-T: Open Terminal
+                if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_CTRL) and \
+                    (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
+                    (msg.event.keycode == ord('t')) and \
+                    (msg.event.action == yutani.KeyAction.ACTION_DOWN):
+                    launch_app('terminal')
+                # Ctrl-F11: Toggle visibility of panel
+                if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_CTRL) and \
+                    (msg.event.keycode == yutani.Keycode.F11) and \
+                    (msg.event.action == yutani.KeyAction.ACTION_DOWN):
+                    panel.toggle_visibility()
+                # Release alt while alt-tabbing
+                if tabbing and (msg.event.keycode == 0 or msg.event.keycode == yutani.Keycode.LEFT_ALT) and \
+                    (msg.event.modifiers == 0) and (msg.event.action == yutani.KeyAction.ACTION_UP):
+                    finish_alt_tab(msg)
+                # Alt-Tab and Alt-Shift-Tab: Switch window focus.
+                if (msg.event.modifiers & yutani.Modifier.MOD_LEFT_ALT) and \
+                    (msg.event.keycode == ord("\t")) and \
+                    (msg.event.action == yutani.KeyAction.ACTION_DOWN):
+                    alt_tab(msg)
+                if msg.wid in panel.menus:
+                    panel.menus[msg.wid].keyboard_event(msg)
+            elif msg.type == yutani.Message.MSG_WELCOME:
+                # Display size has changed.
+                panel.resize(msg.display_width, PANEL_HEIGHT)
+                wallpaper.resize(msg.display_width, msg.display_height)
+            elif msg.type == yutani.Message.MSG_RESIZE_OFFER:
+                # Resize the window.
+                if msg.wid == panel.wid:
+                    panel.finish_resize(msg)
+                elif msg.wid == wallpaper.wid:
+                    wallpaper.finish_resize(msg)
+            elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
+                if msg.wid == panel.wid:
+                    panel.mouse_action(msg)
+                elif msg.wid == wallpaper.wid:
+                    wallpaper.mouse_action(msg)
+                if msg.wid in panel.menus:
+                    m = panel.menus[msg.wid]
+                    if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
+                        panel.hovered_menu = m
+                    elif panel.hovered_menu == m:
+                        panel.hovered_menu = None
+                    m.mouse_action(msg)
+            elif msg.type == yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
+                if msg.wid in panel.menus and msg.focused == 0:
+                    panel.menus[msg.wid].leave_menu()
+            msg.free()
 

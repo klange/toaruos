@@ -162,11 +162,9 @@ int main (int argc, char ** argv) {
 
 	time_t last_tick = 0;
 
-	yutani_timer_request(yctx, 0, 0);
-
 	while (!exit_app) {
 
-		int index = syscall_fswait(2,fds);
+		int index = syscall_fswait2(2,fds,1000);
 
 		if (index == 1) {
 			pex_packet_t * p = calloc(PACKET_SIZE, 1);
@@ -190,35 +188,32 @@ int main (int argc, char ** argv) {
 					case YUTANI_MSG_SESSION_END:
 						exit_app = 1;
 						break;
-					case YUTANI_MSG_TIMER_TICK:
-						{
-							time_t now = time(NULL);
-							if (now == last_tick) break;
-
-							last_tick = now;
-
-							list_t * tmp = list_create();
-
-							foreach(node, notifications) {
-								notification_int_t * toast = node->value;
-								if (toast->window && toast->ttl <= now) {
-									yutani_close(yctx, toast->window);
-									free(toast->title);
-									free(toast->content);
-									list_insert(tmp, node);
-								}
-							}
-
-							foreach(node, tmp) {
-								list_delete(notifications, node->value);
-							}
-							list_free(tmp);
-							free(tmp);
-						}
-						break;
 				}
 				free(m);
 			}
+		} else if (index == 2) {
+			time_t now = time(NULL);
+			if (now == last_tick) continue;
+
+			last_tick = now;
+
+			list_t * tmp = list_create();
+
+			foreach(node, notifications) {
+				notification_int_t * toast = node->value;
+				if (toast->window && toast->ttl <= now) {
+					yutani_close(yctx, toast->window);
+					free(toast->title);
+					free(toast->content);
+					list_insert(tmp, node);
+				}
+			}
+
+			foreach(node, tmp) {
+				list_delete(notifications, node->value);
+			}
+			list_free(tmp);
+			free(tmp);
 		}
 	}
 

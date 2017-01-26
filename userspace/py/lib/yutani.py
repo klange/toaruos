@@ -64,8 +64,8 @@ class Message(object):
     MSG_KEY_BIND            = 0x00000040
     MSG_WINDOW_UPDATE_SHAPE = 0x00000050
     MSG_GOODBYE             = 0x000000F0
-    MSG_TIMER_REQUEST       = 0x00000100
-    MSG_TIMER_TICK          = 0x00000101
+    MSG_TIMER_REQUEST       = 0x00000100 # XXX deprecated
+    MSG_TIMER_TICK          = 0x00000101 # xxx deprecated
     MSG_WELCOME             = 0x00010001
     MSG_WINDOW_INIT         = 0x00010002
 
@@ -365,10 +365,6 @@ class Yutani(object):
     def query_windows(self):
         """Request a window subsription list."""
         yutani_lib.yutani_query_windows(self._ptr)
-
-    def timer_request(self, precision=0, flags=0):
-        """Request timer tick messages."""
-        yutani_lib.yutani_timer_request(self._ptr, precision, flags)
 
     def focus_window(self, wid):
         """Request that the server change the focused window to the window with the specified wid."""

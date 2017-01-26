@@ -487,18 +487,6 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 	mark_window(yg, win);
 }
 
-void * timer_tick(void * _server) {
-	(void)_server;
-	//yutani_globals_t * yg = _server;
-	yutani_t * y = yutani_init();
-
-	yutani_msg_t * m = yutani_msg_build_timer_tick();
-	while (1) {
-		usleep(20000); /* XXX timer precision */
-		yutani_msg_send(y, m);
-	}
-}
-
 #define FONT_PATH "/usr/share/fonts/"
 #define FONT(a,b) {a, FONT_PATH b}
 
@@ -2082,17 +2070,14 @@ int main(int argc, char * argv[]) {
 	yg->mid_zs = list_create();
 
 	yg->window_subscribers = list_create();
-	yg->timer_subscribers = list_create();
 
 	yg->last_mouse_buttons = 0;
 
 	yutani_cairo_init(yg);
 
 	pthread_t render_thread;
-	pthread_t timer_thread;
 
 	pthread_create(&render_thread, NULL, redraw, yg);
-	pthread_create(&timer_thread, NULL, timer_tick, yg);
 
 	if (!fork()) {
 		if (argx < argc) {
@@ -2521,56 +2506,6 @@ int main(int argc, char * argv[]) {
 							mouse_start_resize(yg, wa->direction);
 						}
 					}
-				}
-				break;
-			case YUTANI_MSG_TIMER_REQUEST:
-				{
-					struct yutani_msg_timer_request * tr = (void *)m->data;
-
-					/* TODO: precision */
-					if (tr->flags & 1) {
-						/* Unsubscribe */
-						node_t * node = list_find(yg->timer_subscribers, (void*)p->source);
-						if (node) {
-							list_delete(yg->timer_subscribers, node);
-						}
-					} else {
-						/* Subscribe */
-						foreach(node, yg->timer_subscribers) {
-							if ((uint32_t)node->value == p->source) {
-								break;
-							}
-						}
-						list_insert(yg->timer_subscribers, (void*)p->source);
-					}
-				}
-				break;
-			case YUTANI_MSG_TIMER_TICK:
-				{
-					/* Send timer ticks to requesters */
-					yutani_msg_t * response = yutani_msg_build_timer_tick();
-					list_t * remove = NULL;
-					foreach(node, yg->timer_subscribers) {
-						uint32_t subscriber = (uint32_t)node->value;
-
-						if (!hashmap_has(yg->clients_to_windows, (void *)subscriber)) {
-							if (!remove) {
-								remove = list_create();
-							}
-							list_insert(remove, node);
-						} else {
-							pex_send(yg->server, subscriber, response->size, (char *)response);
-						}
-					}
-					if (remove) {
-						while (remove->length) {
-							node_t * n = list_pop(remove);
-							list_delete(yg->timer_subscribers, n->value);
-							free(n);
-						}
-						free(remove);
-					}
-					free(response);
 				}
 				break;
 			default:

@@ -13,6 +13,8 @@ import text_region
 import toaru_fonts
 import fswait
 
+from button import Button
+
 import yutani_mainloop
 
 def rounded_rectangle(ctx,x,y,w,h,r):
@@ -45,9 +47,13 @@ def draw_input_box(ctx,x,y,w,h,focused):
 
 class TextInputWindow(yutani.Window):
 
-    base_width = 350
-    base_height = 80
+    base_width = 500
+    base_height = 120
+
     text_offset = 22
+
+    okay_label = "Okay"
+    cancel_label = "Cancel"
 
     def __init__(self, decorator, title, icon, text="", text_changed=None, callback=None,window=None):
         super(TextInputWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=title, icon=icon, doublebuffer=True)
@@ -63,14 +69,29 @@ class TextInputWindow(yutani.Window):
         self.tr.set_one_line()
         self.tr.break_all = True
         self.tr.set_text(text)
-        self.progress = 0
-        self.total = 1
         self.is_focused = False
         self.cursor_index = len(self.tr.text)
         self.cursor_x = self.tr.get_offset_at_index(self.cursor_index)[1][1]
         self.text_changed = text_changed
         self.callback = callback
         self.ctrl_chars = [' ','/']
+
+        self.button_ok = Button(self.okay_label,self.ok_click)
+        self.button_cancel = Button(self.cancel_label,self.cancel_click)
+        self.buttons = [self.button_ok, self.button_cancel]
+
+        self.hover_widget = None
+        self.down_button = None
+
+
+    def cancel_click(self, button):
+        self.close()
+        if __name__ == '__main__':
+            sys.exit(0)
+
+    def ok_click(self, button):
+        if self.callback:
+            self.callback(self)
 
     def draw(self):
         surface = self.get_cairo_surface()
@@ -85,7 +106,6 @@ class TextInputWindow(yutani.Window):
 
         draw_input_box(ctx,10,20,WIDTH-20,20,self.is_focused)
 
-        percent = int(100 * self.progress / self.total)
         self.tr.resize(WIDTH-30,HEIGHT-self.text_offset)
         self.tr.move(self.decorator.left_width() + 15,self.decorator.top_height()+self.text_offset)
         self.tr.draw(self)
@@ -94,6 +114,9 @@ class TextInputWindow(yutani.Window):
             ctx.rectangle(self.cursor_x + 15, 23, 1, 15)
             ctx.set_source_rgb(0,0,0)
             ctx.fill()
+
+        self.button_ok.draw(self,ctx,WIDTH-130,HEIGHT-60,100,30)
+        self.button_cancel.draw(self,ctx,WIDTH-240,HEIGHT-60,100,30)
 
         self.decorator.render(self)
         self.flip()
@@ -110,11 +133,52 @@ class TextInputWindow(yutani.Window):
 
     def mouse_event(self, msg):
         if self.decorator.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
-            self.close()
-            if __name__ == '__main__':
-                sys.exit(0)
+            self.cancel_click(None)
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+
+        redraw = False
+        if self.down_button:
+            if msg.command == yutani.MouseEvent.RAISE or msg.command == yutani.MouseEvent.CLICK:
+                if not (msg.buttons & yutani.MouseButton.BUTTON_LEFT):
+                    if x >= self.down_button.x and \
+                        x < self.down_button.x + self.down_button.width and \
+                        y >= self.down_button.y and \
+                        y < self.down_button.y + self.down_button.height:
+                            self.down_button.focus_enter()
+                            if self.down_button.callback(self.down_button):
+                                redraw = True
+                            self.down_button = None
+                    else:
+                        self.down_button.focus_leave()
+                        self.down_button = None
+                        redraw = True
+
+        else:
+            button = None
+            for b in self.buttons:
+                if x >= b.x and x < b.x + b.width and y >= b.y and y < b.y + b.height:
+                    button = b
+                    break
+            if button != self.hover_widget:
+                if button:
+                    button.focus_enter()
+                    redraw = True
+                if self.hover_widget:
+                    self.hover_widget.focus_leave()
+                    redraw = True
+                self.hover_widget = button
+
+            if msg.command == yutani.MouseEvent.DOWN:
+                if button:
+                    button.hilight = 2
+                    self.down_button = button
+                    redraw = True
+            if not button:
+                if self.hover_widget:
+                    self.hover_widget.focus_leave()
+                    redraw = True
+                self.hover_widget = None
 
         if x >= 10 and x < 10 + w - 20 and y >= 20 and y < 20 + 20:
             changed = not self.is_focused
@@ -122,7 +186,6 @@ class TextInputWindow(yutani.Window):
             if msg.command == yutani.MouseEvent.CLICK:
                 u,l = self.tr.pick(msg.new_x,msg.new_y)
                 if u:
-                    print(u,l)
                     changed = True
                     self.cursor_x = l[1]
                     self.cursor_index = l[3]
@@ -130,7 +193,6 @@ class TextInputWindow(yutani.Window):
                         self.cursor_x += u.width
                         self.cursor_index += 1
                 elif l:
-                    print(l)
                     changed = True
                     self.cursor_x = l[1]
                     self.cursor_index = l[3]
@@ -138,7 +200,7 @@ class TextInputWindow(yutani.Window):
             changed = self.is_focused
             self.is_focused = False
 
-        if changed:
+        if changed or redraw:
             self.draw()
 
     def keyboard_event(self, msg):
@@ -229,8 +291,7 @@ class TextInputWindow(yutani.Window):
                                 self.text_changed(self)
                             self.draw()
                 elif msg.event.key == b'\n':
-                    if self.callback:
-                        self.callback(self)
+                    self.ok_click()
                 elif msg.event.key != b'\x00':
                     text = self.tr.text
                     before = text[:self.cursor_index]
@@ -249,7 +310,11 @@ if __name__ == '__main__':
     title = "Input Box" if len(sys.argv) < 2 else sys.argv[1]
     icon  = "default" if len(sys.argv) < 3 else sys.argv[2]
 
-    window = TextInputWindow(d,title,icon)
+    def print_text(text_box):
+        print(text_box.tr.text)
+        sys.exit(0)
+
+    window = TextInputWindow(d,title,icon,callback=print_text)
     window.draw()
 
     yutani_mainloop.mainloop()

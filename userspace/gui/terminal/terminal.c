@@ -1349,16 +1349,6 @@ void * handle_incoming(void) {
 					}
 				}
 				break;
-			case YUTANI_MSG_TIMER_TICK:
-				{
-					uint64_t ticks = get_ticks();
-					if (ticks > mouse_ticks + 600000LL) {
-						mouse_ticks = ticks;
-						spin_lock(&display_lock);
-						flip_cursor();
-						spin_unlock(&display_lock);
-					}
-				}
 			default:
 				break;
 		}
@@ -1545,14 +1535,12 @@ int main(int argc, char ** argv) {
 
 		child_pid = f;
 
-		yutani_timer_request(yctx, 0, 0);
-
 		int fds[2] = {fd_master, fileno(yctx->sock)};
 
 		unsigned char buf[1024];
 		while (!exit_application) {
 
-			int index = syscall_fswait(2,fds);
+			int index = syscall_fswait2(2,fds,200);
 
 			check_for_exit();
 
@@ -1564,8 +1552,16 @@ int main(int argc, char ** argv) {
 				}
 				display_flip();
 				spin_unlock(&display_lock);
-			} else {
+			} else if (index == 1) {
 				handle_incoming();
+			} else if (index == 2) {
+				uint64_t ticks = get_ticks();
+				if (ticks > mouse_ticks + 600000LL) {
+					mouse_ticks = ticks;
+					spin_lock(&display_lock);
+					flip_cursor();
+					spin_unlock(&display_lock);
+				}
 			}
 		}
 
