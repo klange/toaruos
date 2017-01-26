@@ -24,7 +24,7 @@ int main(int argc, char * argv[]) {
 	}
 	int _toastd_pid = fork();
 	if (!_toastd_pid) {
-		char * args[] = {"/bin/toastd", NULL};
+		char * args[] = {"/bin/toastd.py", NULL};
 		execvp(args[0], args);
 	}
 
