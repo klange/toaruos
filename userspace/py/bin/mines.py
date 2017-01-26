@@ -84,6 +84,8 @@ class MinesWindow(yutani.Window):
         super(MinesWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="mines", doublebuffer=True)
         self.move(100,100)
         self.decorator = decorator
+        self.button_width = {}
+        self.button_height = 0
 
         def exit_app(action):
             menus = [x for x in self.menus.values()]
@@ -264,15 +266,17 @@ class MinesWindow(yutani.Window):
 
         offset_x = 0
         offset_y = self.tr.height + self.menubar.height
-        button_height = int((HEIGHT - self.tr.height - self.menubar.height) / len(self.buttons))
+        self.button_height = int((HEIGHT - self.tr.height - self.menubar.height) / len(self.buttons))
+        i = 0
         for row in self.buttons:
-            button_width = int(WIDTH / len(row))
+            self.button_width[i] = int(WIDTH / len(row))
             for button in row:
                 if button:
-                    button.draw(self,ctx,offset_x,offset_y,button_width,button_height)
-                offset_x += button_width
+                    button.draw(self,ctx,offset_x,offset_y,self.button_width[i],self.button_height)
+                offset_x += self.button_width[i]
             offset_x = 0
-            offset_y += button_height
+            offset_y += self.button_height
+            i += 1
 
         self.menubar.draw(ctx,0,0,WIDTH)
         self.decorator.render(self)
@@ -322,9 +326,17 @@ class MinesWindow(yutani.Window):
 
         else:
             if y > self.tr.height + self.menubar.height and y < h and x >= 0 and x < w:
-                row = int((y - self.tr.height - self.menubar.height) / (self.height - self.decorator.height() - self.tr.height - self.menubar.height) * len(self.buttons))
-                col = int(x / (self.width - self.decorator.width()) * len(self.buttons[row]))
-                button = self.buttons[row][col]
+                xh = self.button_height * len(self.buttons)
+                row = int((y - self.tr.height - self.menubar.height) / (xh) * len(self.buttons))
+                if row < len(self.buttons):
+                    xw = self.button_width[row] * len(self.buttons[row])
+                    col = int(x / (xw) * len(self.buttons[row]))
+                    if col < len(self.buttons[row]):
+                        button = self.buttons[row][col]
+                    else:
+                        button = None
+                else:
+                    button = None
                 if button != self.hover_widget:
                     if button:
                         button.focus_enter()
