@@ -269,3 +269,7 @@ void draw_string_shadow(gfx_context_t * ctx, int x, int y, uint32_t fg, char * s
 	sprite_free(out_s);
 	free(out_c);
 }
+
+FT_Face get_active_font_face(void) {
+	return faces[selected_face];
+}

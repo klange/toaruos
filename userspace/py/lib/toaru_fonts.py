@@ -1,4 +1,9 @@
 import ctypes
+import importlib
+
+_cairo_lib = None
+_cairo_module = None
+_cairo_module_lib = None
 
 _lib = None
 
@@ -10,6 +15,7 @@ if not _lib:
     _lib.shmem_font_name.restype = ctypes.c_char_p
     _lib.draw_string.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_uint32, ctypes.c_char_p]
     _lib.draw_string_shadow.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_double]
+    _lib.get_active_font_face.restype = ctypes.c_void_p
 
 FONT_SANS_SERIF             = 0
 FONT_SANS_SERIF_BOLD        = 1
@@ -21,6 +27,28 @@ FONT_MONOSPACE_ITALIC       = 6
 FONT_MONOSPACE_BOLD_ITALIC  = 7
 FONT_JAPANESE               = 8
 FONT_SYMBOLA                = 9
+
+def get_active_font():
+    return _lib.get_active_font_face()
+
+def get_cairo_face():
+    global _cairo_lib
+    global _cairo_module
+    global _cairo_module_lib
+    if not _cairo_lib:
+        _cairo_lib = ctypes.CDLL('libcairo.so')
+        _cairo_module = importlib.import_module('_cairo')
+        _cairo_module_lib = ctypes.CDLL(_cairo_module.__file__)
+
+    cfffcfff = _cairo_lib.cairo_ft_font_face_create_for_ft_face
+    cfffcfff.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    cfffcfff.restype = ctypes.c_void_p
+    ft_face = cfffcfff(get_active_font(),0)
+
+    pcfffff = _cairo_module_lib.PycairoFontFace_FromFontFace
+    pcfffff.argtypes = [ctypes.c_void_p]
+    pcfffff.restype = ctypes.py_object
+    return pcfffff(ft_face)
 
 class Font(object):
 
