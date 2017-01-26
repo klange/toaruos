@@ -577,13 +577,6 @@ static int sys_sysfunc(int fn, char ** args) {
 		}
 	}
 	switch (fn) {
-		case 8:
-			PTR_VALIDATE(args);
-			debug_print(WARNING, "0x%x 0x%x 0x%x 0x%x", args[0], args[1], args[2], args[3]);
-			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3] ? args[3] : "(null)");
-			return 0;
-			break;
-
 		/* The following functions are here to support the loader and are probably bad. */
 		case 9:
 			{
@@ -632,6 +625,46 @@ static int sys_sysfunc(int fn, char ** args) {
 
 				return 0;
 			}
+
+		case 11:
+			{
+				/* Set command line (meant for threads to set descriptions) */
+				int count = 0;
+				char **arg = args;
+				PTR_VALIDATE(args);
+				while (*arg) {
+					PTR_VALIDATE(*args);
+					count++;
+					arg++;
+				}
+				/*
+				 * XXX We have a pretty obvious leak in storing command lines, since
+				 *     we never free them! Unfortunately, at the moment, they are
+				 *     shared between different processes, so until that gets fixed
+				 *     we're going to be just as bad as the rest of the codebase and
+				 *     just not free the previous value.
+				 */
+				current_process->cmdline = malloc(sizeof(char*)*(count+1));
+				int i = 0;
+				while (i < count) {
+					current_process->cmdline[i] = strdup(args[i]);
+					i++;
+				}
+				current_process->cmdline[i] = NULL;
+				return 0;
+			}
+
+		case 12:
+			/*
+			 * Print a debug message to the kernel console
+			 * XXX: This probably should be a thing normal users can do.
+			 */
+			PTR_VALIDATE(args);
+			debug_print(WARNING, "0x%x 0x%x 0x%x 0x%x", args[0], args[1], args[2], args[3]);
+			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3] ? args[3] : "(null)");
+			return 0;
+			break;
+
 		default:
 			debug_print(ERROR, "Bad system function %d", fn);
 			break;

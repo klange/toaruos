@@ -1144,6 +1144,9 @@ void yutani_cairo_init(yutani_globals_t * yg) {
  * additional yielding and sleeping.
  */
 void * redraw(void * in) {
+
+	syscall_system_function(11,(char *[]){"compositor","render thread",NULL});
+
 	yutani_globals_t * yg = in;
 	while (1) {
 		/*
