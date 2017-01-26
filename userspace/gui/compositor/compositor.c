@@ -1035,6 +1035,12 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 * TODO: Do a better job of this.
 			 */
 			yutani_flip(yg->host_context, yg->host_window);
+			yutani_server_window_t * tmp_window = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+			if (yg->mouse_state == YUTANI_MOUSE_STATE_MOVING) {
+				yutani_window_show_mouse(yg->host_context, yg->host_window, YUTANI_CURSOR_TYPE_DRAG);
+			} else if (!tmp_window || tmp_window->show_mouse) {
+				yutani_window_show_mouse(yg->host_context, yg->host_window, tmp_window ? tmp_window->show_mouse : 1);
+			}
 		} else {
 
 			/*
@@ -2135,6 +2141,8 @@ int main(int argc, char * argv[]) {
 								packet.buttons = me->buttons;
 								packet.x_difference = me->new_x;
 								packet.y_difference = me->new_y;
+
+								yg->last_mouse_buttons = packet.buttons;
 
 								yutani_msg_t * m_ = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 								handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m_->data);
