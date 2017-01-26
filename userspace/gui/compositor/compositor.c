@@ -1262,10 +1262,6 @@ static void window_remove_from_client(yutani_globals_t * yg, yutani_server_windo
 			list_delete(client_list, n);
 			free(n);
 		}
-		if (client_list->length == 0) {
-			free(client_list);
-			hashmap_remove(yg->clients_to_windows, (void *)w->owner);
-		}
 	}
 }
 
