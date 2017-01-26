@@ -105,6 +105,7 @@ typedef struct process {
 	volatile uint8_t sleep_interrupted;
 	list_t *      node_waits;
 	int           awoken_index;
+	node_t *      timeout_node;
 } process_t;
 
 typedef struct {

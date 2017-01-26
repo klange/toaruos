@@ -665,6 +665,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
 
 			if (proc->is_fswait) {
+				proc->is_fswait = -1;
 				process_alert_node(proc->process,proc);
 			} else {
 				process_t * process = proc->process;
@@ -900,9 +901,11 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 		proc->end_subtick = ss;
 		proc->is_fswait = 1;
 		list_insert(((process_t *)process)->node_waits, proc);
-		list_insert_after(sleep_queue, before, proc);
+		process->timeout_node = list_insert_after(sleep_queue, before, proc);
 		spin_unlock(sleep_lock);
 		IRQ_RES;
+	} else {
+		process->timeout_node = NULL;
 	}
 
 	process->awoken_index = -1;
@@ -917,6 +920,15 @@ int process_awaken_from_fswait(process_t * process, int index) {
 	list_free(process->node_waits);
 	free(process->node_waits);
 	process->node_waits = NULL;
+	if (process->timeout_node && process->timeout_node->owner == sleep_queue) {
+		sleeper_t * proc = process->timeout_node->value;
+		if (proc->is_fswait != -1) {
+			list_delete(sleep_queue, process->timeout_node);
+			free(process->timeout_node->value);
+			free(process->timeout_node);
+		}
+	}
+	process->timeout_node = NULL;
 	make_process_ready(process);
 	return 0;
 }
