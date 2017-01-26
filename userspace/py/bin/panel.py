@@ -487,7 +487,7 @@ class ApplicationsMenuWidget(BaseWidget):
     def reinit_menus(self):
         accessories = [
             MenuEntryAction("Calculator","calculator",launch_app,"calculator.py"),
-            MenuEntryAction("Clock Widget","clock",launch_app,"clock-win"),
+            MenuEntryAction("Clock Widget","clock",launch_app,"clock.py"),
             MenuEntryAction("File Browser","folder",launch_app,"file_browser.py"),
             MenuEntryAction("Terminal","utilities-terminal",launch_app,"terminal"),
         ]
