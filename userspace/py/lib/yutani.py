@@ -604,6 +604,10 @@ class Window(object):
         """Set the stack layer for the window."""
         yutani_lib.yutani_set_stack(yutani_ctx._ptr, self._ptr, stack)
 
+    def drag_start(self):
+        """Begin window drag."""
+        yutani_lib.yutani_window_drag_start(yutani_ctx._ptr, self._ptr)
+
     @property
     def width(self):
         return self._ptr.contents.width
