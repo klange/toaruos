@@ -1183,6 +1183,19 @@ def reset_zorder(signum, frame):
     panel.set_stack(yutani.WindowStackOrder.ZORDER_TOP)
     set_binds()
 
+def maybe_animate():
+    global current_time
+    tick = int(time.time())
+    if tick != current_time:
+        try:
+            os.waitpid(-1,os.WNOHANG)
+        except ChildProcessError:
+            pass
+        current_time = tick
+        panel.draw()
+    if wallpaper.animations:
+        wallpaper.animate()
+
 if __name__ == '__main__':
     yctx = yutani.Yutani()
 
@@ -1232,18 +1245,8 @@ if __name__ == '__main__':
     while 1:
         # Poll for events.
         fd = fswait.fswait(fds,500 if not wallpaper.animations else 20)
-        if fd == 1:
-            tick = int(time.time())
-            if tick != current_time:
-                try:
-                    os.waitpid(-1,os.WNOHANG)
-                except ChildProcessError:
-                    pass
-                current_time = tick
-                panel.draw()
-            if wallpaper.animations:
-                wallpaper.animate()
-        elif fd == 0:
+        maybe_animate()
+        if fd == 0:
             msg = yutani.yutani_ctx.poll()
             if msg.type == yutani.Message.MSG_SESSION_END:
                 # All applications should attempt to exit on SESSION_END.

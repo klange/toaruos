@@ -82,8 +82,6 @@ int      button_state   = 0;
 
 uint64_t mouse_ticks = 0;
 
-static volatile int display_lock = 0;
-
 yutani_window_t * window       = NULL; /* GUI window */
 yutani_t * yctx = NULL;
 
@@ -885,17 +883,13 @@ void clear_input() {
 uint32_t child_pid = 0;
 
 void handle_input(char c) {
-	spin_lock(&display_lock);
 	write(fd_master, &c, 1);
 	display_flip();
-	spin_unlock(&display_lock);
 }
 
 void handle_input_s(char * c) {
-	spin_lock(&display_lock);
 	write(fd_master, c, strlen(c));
 	display_flip();
-	spin_unlock(&display_lock);
 }
 
 void scroll_up(int amount) {
@@ -966,12 +960,10 @@ void key_event(int ret, key_event_t * event) {
 			case KEY_F12:
 				/* Toggle decorations */
 				if (!_fullscreen) {
-					spin_lock(&display_lock);
 					_no_frame = !_no_frame;
 					window_width = window->width - decor_width() * (!_no_frame);
 					window_height = window->height - decor_height() * (!_no_frame);
 					reinit(1);
-					spin_unlock(&display_lock);
 				}
 				break;
 			case KEY_ARROW_UP:
@@ -1240,10 +1232,8 @@ static void resize_finish(int width, int height) {
 	window_width  = window->width  - extra_x;
 	window_height = window->height - extra_y;
 
-	spin_lock(&display_lock);
 	reinit_graphics_yutani(ctx, window);
 	reinit(1);
-	spin_unlock(&display_lock);
 
 	yutani_window_resize_done(yctx, window);
 	yutani_flip(yctx, window);
@@ -1353,6 +1343,14 @@ void * handle_incoming(void) {
 				break;
 		}
 		free(m);
+	}
+}
+
+void maybe_flip_cursor(void) {
+	uint64_t ticks = get_ticks();
+	if (ticks > mouse_ticks + 600000LL) {
+		mouse_ticks = ticks;
+		flip_cursor();
 	}
 }
 
@@ -1545,23 +1543,17 @@ int main(int argc, char ** argv) {
 			check_for_exit();
 
 			if (index == 0) {
+				maybe_flip_cursor();
 				int r = read(fd_master, buf, 1024);
-				spin_lock(&display_lock);
 				for (uint32_t i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
 				display_flip();
-				spin_unlock(&display_lock);
 			} else if (index == 1) {
+				maybe_flip_cursor();
 				handle_incoming();
 			} else if (index == 2) {
-				uint64_t ticks = get_ticks();
-				if (ticks > mouse_ticks + 600000LL) {
-					mouse_ticks = ticks;
-					spin_lock(&display_lock);
-					flip_cursor();
-					spin_unlock(&display_lock);
-				}
+				maybe_flip_cursor();
 			}
 		}
 
