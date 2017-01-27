@@ -22,8 +22,9 @@ from dialog import DialogWindow
 
 import yutani_mainloop
 
+app_name = "Package Manager"
 version = "0.1.0"
-_description = f"<b>Package Manager {version}</b>\n© 2017 Kevin Lange\n\nBrowse and install software packages.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nBrowse and install software packages.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 hilight_border_top = (54/255,128/255,205/255)
 hilight_gradient_top = (93/255,163/255,236/255)
@@ -96,7 +97,7 @@ class PackageManagerWindow(yutani.Window):
     base_height = 300
 
     def __init__(self, decorator):
-        super(PackageManagerWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Package Manager", icon="package", doublebuffer=True)
+        super(PackageManagerWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="package", doublebuffer=True)
         self.move(100,100)
         self.x = 100
         self.y = 100
@@ -109,7 +110,7 @@ class PackageManagerWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            AboutAppletWindow(self.decorator,f"About Package Manager","/usr/share/icons/48/package.png",_description,"package")
+            AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/package.png",_description,"package")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","packages.trt"])
         menus = [
@@ -119,7 +120,7 @@ class PackageManagerWindow(yutani.Window):
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
                 MenuEntryDivider(),
-                MenuEntryAction("About Package Manager","star",about_window,None),
+                MenuEntryAction(f"About {app_name}","star",about_window,None),
             ]),
         ]
 
