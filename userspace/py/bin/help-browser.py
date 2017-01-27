@@ -17,8 +17,9 @@ from about_applet import AboutAppletWindow
 
 import yutani_mainloop
 
+app_name = "Help Browser"
 version = "0.1.0"
-_description = f"<b>Help Browser {version}</b>\n© 2017 Kevin Lange\n\nRich text help document viewer.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nRich text help document viewer.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 class HelpBrowserWindow(yutani.Window):
 
@@ -26,7 +27,7 @@ class HelpBrowserWindow(yutani.Window):
     base_height = 600
 
     def __init__(self, decorator):
-        super(HelpBrowserWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Help Browser", icon="help", doublebuffer=True)
+        super(HelpBrowserWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="help", doublebuffer=True)
         self.move(100,100)
         self.decorator = decorator
         self.last_topic = None
@@ -52,7 +53,7 @@ class HelpBrowserWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            AboutAppletWindow(self.decorator,"About Help Browser","/usr/share/icons/48/help.png",_description,"help")
+            AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/help.png",_description,"help")
         menus = [
             ("File", [
                 #MenuEntryAction("Open...",None,print_derp,None),
@@ -67,7 +68,7 @@ class HelpBrowserWindow(yutani.Window):
             ("Help", [
                 MenuEntryAction("Contents","help",self.go_page,"help_browser.trt"),
                 MenuEntryDivider(),
-                MenuEntryAction("About Help Browser","star",about_window,None),
+                MenuEntryAction(f"About {app_name}","star",about_window,None),
             ]),
         ]
 
@@ -180,7 +181,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         self.scroll_offset = 0
         self.tr.set_richtext(self.get_document_text())
         self.update_text_buffer()
-        self.set_title(f"{self.get_title(self.current_topic)} - Help Browser","help")
+        self.set_title(f"{self.get_title(self.current_topic)} - {app_name}","help")
 
     def update_text_buffer(self):
         if self.size_changed or not self.text_buffer:
