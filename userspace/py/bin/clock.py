@@ -14,7 +14,15 @@ import text_region
 import toaru_fonts
 import fswait
 
+from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
+from about_applet import AboutAppletWindow
+
 import yutani_mainloop
+
+app_name = "Clock"
+version = "1.0.0"
+_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nAnalog clock widget.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+
 
 class ClockWindow(yutani.Window):
 
@@ -26,6 +34,8 @@ class ClockWindow(yutani.Window):
         self.move(100,100)
         self.update_shape(yutani.WindowShape.THRESHOLD_CLEAR)
         self.font = toaru_fonts.get_cairo_face()
+
+        self.menus = {}
 
 
     def draw(self):
@@ -187,16 +197,32 @@ class ClockWindow(yutani.Window):
         self.resize_done()
         self.flip()
 
+    def exit(self, data):
+        sys.exit(0)
+
+    def about(self, data):
+        AboutAppletWindow(d,f"About {app_name}","/usr/share/icons/48/clock.png",_description,"clock")
+
+
     def mouse_event(self, msg):
         # drag start
         if msg.command == yutani.MouseEvent.DOWN and msg.buttons & yutani.MouseButton.BUTTON_LEFT:
             self.drag_start()
 
+        if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
+            if not self.menus:
+                menu_entries = [
+                    MenuEntryAction(f"About {app_name}","star",self.about,None),
+                    MenuEntryDivider(),
+                    MenuEntryAction("Exit","exit",self.exit,None),
+                ]
+                menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
+
     def keyboard_event(self, msg):
         if msg.event.action != yutani.KeyAction.ACTION_DOWN:
             return
         if msg.event.key == b'q':
-            sys.exit(0)
+            self.exit(None)
 
 
 if __name__ == '__main__':
