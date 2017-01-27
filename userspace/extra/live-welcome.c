@@ -36,6 +36,11 @@ int main(int argc, char * argv[]) {
 		pid = wait(NULL);
 	} while ((pid > 0 && pid != _session_pid) || (pid == -1 && errno == EINTR));
 
+	char * args[] = {"/bin/glogin",NULL};
+	execvp(args[0],args);
+
+	TRACE("failed to start glogin after log out, trying to reboot instead.");
 	system("reboot");
 
+	return 1;
 }
