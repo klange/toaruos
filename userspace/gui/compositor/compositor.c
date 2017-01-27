@@ -2158,7 +2158,14 @@ int main(int argc, char * argv[]) {
 							}
 							break;
 						case YUTANI_MSG_SESSION_END:
-							TRACE("Host session ended. Should exit.");
+							{
+								TRACE("Host session ended. Should exit.");
+								yutani_msg_t * response = yutani_msg_build_session_end();
+								pex_broadcast(server, response->size, (char *)response);
+								free(response);
+								kill(render_thread.id, SIGINT);
+								exit(0);
+							}
 							break;
 						default:
 							break;
