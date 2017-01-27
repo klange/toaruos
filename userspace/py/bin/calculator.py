@@ -24,8 +24,9 @@ operators = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul,
              ast.Div: op.truediv, ast.Pow: op.pow, ast.BitXor: op.xor,
              ast.USub: op.neg}
 
+app_name = "Calculator"
 version = "0.1.0"
-_description = f"<b>Calculator {version}</b>\n© 2017 Kevin Lange\n\nSimple four-function calculator using Python.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nSimple four-function calculator using Python.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 def eval_expr(expr):
     """
@@ -55,7 +56,7 @@ class CalculatorWindow(yutani.Window):
     base_height = 240
 
     def __init__(self, decorator):
-        super(CalculatorWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title="Calculator", icon="calculator", doublebuffer=True)
+        super(CalculatorWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="calculator", doublebuffer=True)
         self.move(100,100)
         self.decorator = decorator
 
@@ -83,7 +84,7 @@ class CalculatorWindow(yutani.Window):
             self.close()
             sys.exit(0)
         def about_window(action):
-            AboutAppletWindow(self.decorator,"About Calculator","/usr/share/icons/48/calculator.png",_description,"calculator")
+            AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/calculator.png",_description,"calculator")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","calculator.trt"])
         menus = [
@@ -93,7 +94,7 @@ class CalculatorWindow(yutani.Window):
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
                 MenuEntryDivider(),
-                MenuEntryAction("About Calculator","star",about_window,None),
+                MenuEntryAction(f"About {app_name}","star",about_window,None),
             ]),
         ]
 
