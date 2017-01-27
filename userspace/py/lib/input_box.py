@@ -291,7 +291,7 @@ class TextInputWindow(yutani.Window):
                                 self.text_changed(self)
                             self.draw()
                 elif msg.event.key == b'\n':
-                    self.ok_click()
+                    self.ok_click(None)
                 elif msg.event.key != b'\x00':
                     text = self.tr.text
                     before = text[:self.cursor_index]
