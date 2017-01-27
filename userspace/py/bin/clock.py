@@ -162,7 +162,15 @@ class ClockWindow(yutani.Window):
 
         draw_line(3,(0,0,0),h%12+(m+s/60)/60,12,52,-5)
         draw_line(2,(0,0,0),m+s/60,60,86,-10)
-        draw_line(1,(1,0,0),s,60,86,-20)
+
+        def func(t):
+            ts = t*t
+            tc = ts*t
+            return (0.5*tc*ts + -8*ts*ts + 20*tc + -19*ts + 7.5*t);
+
+        _s = int(60+s-1)+func(s%1)
+        draw_line(1,(1,0,0),_s,60,86,-20)
+        draw_line(3,(1,0,0),_s,60,-4,-16)
 
         self.flip()
 
