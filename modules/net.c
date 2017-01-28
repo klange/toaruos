@@ -284,6 +284,39 @@ static char * fgets(char * buf, int size, struct socket * stream) {
 	return buf;
 }
 
+static void socket_alert_waiters(struct socket * sock) {
+	if (sock->alert_waiters) {
+		while (sock->alert_waiters->head) {
+			node_t * node = list_dequeue(sock->alert_waiters);
+			process_t * p = node->value;
+			process_alert_node(p, sock);
+			free(node);
+		}
+	}
+}
+
+
+static int socket_check(fs_node_t * node) {
+	struct socket * sock = node->device;
+
+	if (sock->packet_queue->length > 0) {
+		return 0;
+	}
+
+	return 1;
+}
+
+static int socket_wait(fs_node_t * node, void * process) {
+	struct socket * sock = node->device;
+
+	if (!list_find(sock->alert_waiters, process)) {
+		list_insert(sock->alert_waiters, process);
+	}
+
+	list_insert(((process_t *)process)->node_waits, sock);
+	return 0;
+}
+
 static uint32_t socket_read(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
 	/* Sleep until we have something to receive */
 #if 0
@@ -406,6 +439,8 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	fnode->read    = socket_read;
 	fnode->write   = socket_write;
 	fnode->device  = (void *)net_open(SOCK_STREAM);
+	fnode->selectcheck = socket_check;
+	fnode->selectwait = socket_wait;
 
 	net_connect((struct socket *)fnode->device, ip, port);
 
@@ -607,6 +642,7 @@ int net_close(struct socket* socket) {
 	// socket->is_connected;
 	socket->status = 1; /* Disconnected */
 	wakeup_queue(socket->packet_wait);
+	socket_alert_waiters(socket);
 	return 1;
 }
 
@@ -752,6 +788,7 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 			net_send_tcp(socket, TCP_FLAGS_ACK, NULL, 0);
 
 			wakeup_queue(socket->packet_wait);
+			socket_alert_waiters(socket);
 
 			if (htons(tcp->flags) & TCP_FLAGS_FIN) {
 				/* We should make sure we finish sending before closing. */
@@ -825,6 +862,7 @@ int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 
 	socket->packet_queue = list_create();
 	socket->packet_wait = list_create();
+	socket->alert_waiters = list_create();
 
 	socket->ip = dest_ip; //ip_aton("10.255.50.206");
 	socket->port_dest = dest_port; //12345;

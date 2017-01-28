@@ -158,6 +158,7 @@ struct socket {
 		struct tcp_socket tcp_socket;
 		// struct udp_socket udp_socket;
 	} proto_sock;
+	list_t * alert_waiters;
 };
 
 struct sized_blob {
