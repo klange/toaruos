@@ -142,6 +142,13 @@ static void close_serial(fs_node_t * node) {
 	return;
 }
 
+static int wait_serial(fs_node_t * node, void * process) {
+	return selectwait_fs(*pipe_for_port((int)node->device), process);
+}
+static int check_serial(fs_node_t * node) {
+	return selectcheck_fs(*pipe_for_port((int)node->device));
+}
+
 static fs_node_t * serial_device_create(int device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -158,6 +165,9 @@ static fs_node_t * serial_device_create(int device) {
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
 	fnode->ioctl   = NULL; /* TODO ioctls for raw serial devices */
+
+	fnode->selectcheck = check_serial;
+	fnode->selectwait  = wait_serial;
 
 	fnode->atime = now();
 	fnode->mtime = fnode->atime;
