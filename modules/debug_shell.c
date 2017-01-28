@@ -225,8 +225,12 @@ static int shell_cd(fs_node_t * tty, int argc, char * argv[]) {
 }
 
 static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
-	/* Okay, we're going to take the working directory... */
-	fs_node_t * wd = kopen(current_process->wd_name, 0);
+	fs_node_t * wd;
+	if (argc < 2) {
+		wd = kopen(current_process->wd_name, 0);
+	} else {
+		wd = kopen(argv[1], 0);
+	}
 	uint32_t index = 0;
 	struct dirent * kentry = readdir_fs(wd, index);
 	while (kentry) {
@@ -237,6 +241,33 @@ static int shell_ls(fs_node_t * tty, int argc, char * argv[]) {
 		kentry = readdir_fs(wd, index);
 	}
 	close_fs(wd);
+	return 0;
+}
+
+static int shell_cat(fs_node_t * tty, int argc, char * argv[]) {
+	if (argc < 2) {
+		fprintf(tty, "Usage: cat <file>\n");
+		return 1;
+	}
+
+	fs_node_t * node = kopen(argv[1], 0);
+	if (!node) {
+		fprintf(tty, "Could not open %s.\n", argv[1]);
+		return 1;
+	}
+
+#define CHUNK_SIZE 4096
+	uint8_t * buf = malloc(CHUNK_SIZE);
+	memset(buf, 0, CHUNK_SIZE);
+	size_t offset = 0;
+	while (1) {
+		size_t r = read_fs(node, offset, CHUNK_SIZE, buf);
+		if (!r) break;
+		write_fs(tty, 0, r, buf);
+		offset += r;
+	}
+
+	close_fs(node);
 	return 0;
 }
 
@@ -589,6 +620,8 @@ static struct shell_command shell_commands[] = {
 		"Change current directory."},
 	{"ls",    &shell_ls,
 		"List files in current or other directory."},
+	{"cat",   &shell_cat,
+		"Read a file to the console."},
 	{"log", &shell_log,
 		"Configure serial debug logging."},
 	{"pci", &shell_pci,
