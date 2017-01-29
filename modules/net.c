@@ -23,12 +23,19 @@ static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * q
 
 static struct netif _netif = {0};
 
+static int tasklet_pid = 0;
+
 void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func, char * device) {
 	_netif.get_mac = mac_func;
 	_netif.get_packet = get_func;
 	_netif.send_packet = send_func;
 	_netif.driver = device;
 	memcpy(_netif.hwaddr, _netif.get_mac(), sizeof(_netif.hwaddr));
+
+	if (!tasklet_pid) {
+		tasklet_pid = create_kernel_tasklet(net_handler, "[net]", NULL);
+		debug_print(NOTICE, "Network worker tasklet started with pid %d", tasklet_pid);
+	}
 }
 
 struct netif * get_default_network_interface(void) {

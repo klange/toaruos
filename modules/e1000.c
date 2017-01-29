@@ -386,7 +386,6 @@ static void e1000_init(void * data, char * name) {
 	debug_print(NOTICE,"e1000 done. has_eeprom = %d, link is up = %d, irq=%d", has_eeprom, link_is_up, e1000_irq);
 
 	init_netif_funcs(get_mac, dequeue_packet, send_packet, "Intel E1000");
-	create_kernel_tasklet(net_handler, "[eth]", NULL);
 }
 
 static int init(void) {
