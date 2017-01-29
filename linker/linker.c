@@ -27,6 +27,8 @@ static hashmap_t * dumb_symbol_table;
 static hashmap_t * glob_dat;
 static hashmap_t * objects_map;
 
+static char * last_error = NULL;
+
 typedef struct elf_object {
 	FILE * file;
 
@@ -107,13 +109,17 @@ static elf_t * open_object(const char * path) {
 	}
 
 	char * file = find_lib(path);
-	if (!file) return NULL;
+	if (!file) {
+		last_error = "Could not find library.";
+		return NULL;
+	}
 
 	FILE * f = fopen(file, "r");
 
 	free(file);
 
 	if (!f) {
+		last_error = "Could not open library.";
 		return NULL;
 	}
 
@@ -121,6 +127,7 @@ static elf_t * open_object(const char * path) {
 	hashmap_set(objects_map, (void*)path, object);
 
 	if (!object) {
+		last_error = "Could not allocate space.";
 		return NULL;
 	}
 
@@ -129,6 +136,7 @@ static elf_t * open_object(const char * path) {
 	size_t r = fread(&object->header, sizeof(Elf32_Header), 1, object->file);
 
 	if (!r) {
+		last_error = "Failed to read object header.";
 		free(object);
 		return NULL;
 	}
@@ -138,6 +146,7 @@ static elf_t * open_object(const char * path) {
 	    object->header.e_ident[2] != ELFMAG2 ||
 	    object->header.e_ident[3] != ELFMAG3) {
 
+		last_error = "Not an ELF object.";
 		free(object);
 		return NULL;
 	}
@@ -425,8 +434,6 @@ static void object_find_copy_relocations(elf_t * object) {
 
 }
 
-static char * last_error = NULL;
-
 static void * object_find_symbol(elf_t * object, const char * symbol_name) {
 	if (!object->dyn_symbol_table) {
 		last_error = "lib does not have a symbol table";
@@ -515,6 +522,10 @@ static void * dlopen_ld(const char * filename, int flags) {
 	TRACE_LD("dlopen(%s,0x%x)", filename, flags);
 
 	elf_t * lib = open_object(filename);
+
+	if (!lib) {
+		return NULL;
+	}
 
 	if (lib->loaded) {
 		return lib;
