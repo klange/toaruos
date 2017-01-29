@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <getopt.h>
 #include <errno.h>
@@ -24,7 +25,6 @@
 #include <wchar.h>
 
 #include "lib/utf8decode.h"
-#include "lib/pthread.h"
 #include "lib/kbd.h"
 #include "lib/graphics.h"
 
@@ -49,6 +49,8 @@ uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered 
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 
+uint64_t mouse_ticks = 0;
+
 #define char_width 1
 #define char_height 1
 
@@ -63,6 +65,13 @@ static unsigned int timer_tick = 0;
 void term_clear();
 
 void dump_buffer();
+
+static uint64_t get_ticks(void) {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+
+	return (uint64_t)now.tv_sec * 1000000LL + (uint64_t)now.tv_usec;
+}
 
 static int color_distance(uint32_t a, uint32_t b) {
 	int a_r = (a & 0xFF0000) >> 16;
@@ -400,7 +409,7 @@ void render_cursor() {
 
 void draw_cursor() {
 	if (!cursor_on) return;
-	timer_tick = 0;
+	mouse_ticks = get_ticks();
 	render_cursor();
 }
 
@@ -701,18 +710,6 @@ void key_event(int ret, key_event_t * event) {
 	}
 }
 
-void * wait_for_exit(void * garbage) {
-	int pid;
-	do {
-		pid = waitpid(-1, NULL, 0);
-	} while (pid == -1 && errno == EINTR);
-	/* Clean up */
-	exit_application = 1;
-	/* Exit */
-	char exit_message[] = "[Process terminated]\n";
-	write(fd_slave, exit_message, sizeof(exit_message));
-}
-
 void usage(char * argv[]) {
 	printf(
 			"VGA Terminal Emulator\n"
@@ -759,43 +756,29 @@ void reinit(int send_sig) {
 }
 
 
-
-void * handle_incoming(void * garbage) {
-	int kfd = open("/dev/kbd", O_RDONLY);
-	key_event_t event;
-	char c;
-
-	key_event_state_t kbd_state = {0};
-
-	/* Prune any keyboard input we got before the terminal started. */
-	struct stat s;
-	fstat(kfd, &s);
-	for (int i = 0; i < s.st_size; i++) {
-		char tmp[1];
-		read(kfd, tmp, 1);
+void maybe_flip_cursor(void) {
+	uint64_t ticks = get_ticks();
+	if (ticks > mouse_ticks + 600000LL) {
+		mouse_ticks = ticks;
+		flip_cursor();
 	}
-
-	while (!exit_application) {
-		int r = read(kfd, &c, 1);
-		if (r > 0) {
-			int ret = kbd_scancode(&kbd_state, c, &event);
-			key_event(ret, &event);
-		}
-	}
-	pthread_exit(0);
 }
 
-void * blink_cursor(void * garbage) {
-	while (!exit_application) {
-		timer_tick++;
-		if (timer_tick == 3) {
-			timer_tick = 0;
-			flip_cursor();
-		}
-		usleep(90000);
-	}
-	pthread_exit(0);
+
+void check_for_exit(void) {
+	if (exit_application) return;
+
+	int pid = waitpid(-1, NULL, WNOHANG);
+
+	if (pid != child_pid) return;
+
+	/* Clean up */
+	exit_application = 1;
+	/* Exit */
+	char exit_message[] = "[Process terminated]\n";
+	write(fd_slave, exit_message, sizeof(exit_message));
 }
+
 
 int main(int argc, char ** argv) {
 
@@ -873,20 +856,44 @@ int main(int argc, char ** argv) {
 
 		child_pid = f;
 
-		pthread_t wait_for_exit_thread;
-		pthread_create(&wait_for_exit_thread, NULL, wait_for_exit, NULL);
+		int kfd = open("/dev/kbd", O_RDONLY);
+		key_event_t event;
+		char c;
 
-		pthread_t handle_incoming_thread;
-		pthread_create(&handle_incoming_thread, NULL, handle_incoming, NULL);
+		key_event_state_t kbd_state = {0};
 
-		pthread_t cursor_blink_thread;
-		pthread_create(&cursor_blink_thread, NULL, blink_cursor, NULL);
+		/* Prune any keyboard input we got before the terminal started. */
+		struct stat s;
+		fstat(kfd, &s);
+		for (int i = 0; i < s.st_size; i++) {
+			char tmp[1];
+			read(kfd, tmp, 1);
+		}
+
+		int fds[2] = {fd_master, kfd};
 
 		unsigned char buf[1024];
 		while (!exit_application) {
-			int r = read(fd_master, buf, 1024);
-			for (uint32_t i = 0; i < r; ++i) {
-				ansi_put(ansi_state, buf[i]);
+
+			int index = syscall_fswait2(2,fds,200);
+
+			check_for_exit();
+
+			if (index == 0) {
+				maybe_flip_cursor();
+				int r = read(fd_master, buf, 1024);
+				for (uint32_t i = 0; i < r; ++i) {
+					ansi_put(ansi_state, buf[i]);
+				}
+			} else if (index == 1) {
+				maybe_flip_cursor();
+				int r = read(kfd, &c, 1);
+				if (r > 0) {
+					int ret = kbd_scancode(&kbd_state, c, &event);
+					key_event(ret, &event);
+				}
+			} else if (index == 2) {
+				maybe_flip_cursor();
 			}
 		}
 
