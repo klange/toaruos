@@ -119,6 +119,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"SC2:\t0x%x\n"
 			"SC3:\t0x%x\n"
 			"SC4:\t0x%x\n"
+			"Path:\t%s\n"
 			,
 			name,
 			state,
@@ -132,7 +133,8 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			proc->syscall_registers ? proc->syscall_registers->ecx : 0,
 			proc->syscall_registers ? proc->syscall_registers->edx : 0,
 			proc->syscall_registers ? proc->syscall_registers->esi : 0,
-			proc->syscall_registers ? proc->syscall_registers->edi : 0
+			proc->syscall_registers ? proc->syscall_registers->edi : 0,
+			proc->cmdline ? proc->cmdline[0] : "(none)"
 			);
 
 	size_t _bsize = strlen(buf);

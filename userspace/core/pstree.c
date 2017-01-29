@@ -27,6 +27,7 @@ typedef struct process {
 	int ppid;
 	int tgid;
 	char name[100];
+	char path[200];
 } p_t;
 
 #define LINE_LEN 4096
@@ -53,7 +54,24 @@ p_t * build_entry(struct dirent * dent) {
 			sscanf(line, "%s %d", &buf, &proc->tgid);
 		} else if (strstr(line, "Name:") == line) {
 			sscanf(line, "%s %s", &buf, &proc->name);
+		} else if (strstr(line, "Path:") == line) {
+			sscanf(line, "%s %s", &buf, &proc->path);
 		}
+	}
+
+	if (!strncmp(proc->name,"python",6)) {
+		char * name = proc->path + strlen(proc->path) - 1;
+
+		while (1) {
+			if (*name == '/') {
+				name++;
+				break;
+			}
+			if (name == proc->name) break;
+			name--;
+		}
+
+		memcpy(proc->name, name, strlen(name)+1);
 	}
 
 	if (proc->tgid != proc->pid) {
