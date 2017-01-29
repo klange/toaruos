@@ -23,7 +23,7 @@ from dialog import DialogWindow
 import yutani_mainloop
 
 app_name = "Package Manager"
-version = "0.1.0"
+version = "1.0.0"
 _description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nBrowse and install software packages.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 hilight_border_top = (54/255,128/255,205/255)

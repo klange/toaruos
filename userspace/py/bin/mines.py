@@ -20,7 +20,7 @@ from dialog import DialogWindow
 
 import yutani_mainloop
 
-version = "0.1.0"
+version = "1.0.0"
 app_name = "Mines"
 _description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nClassic logic game.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
