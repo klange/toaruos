@@ -18,6 +18,7 @@
 #include <pipe.h>
 #include <elf.h>
 #include <module.h>
+#include <args.h>
 
 #include <mod/shell.h>
 
@@ -802,8 +803,10 @@ int debug_shell_start(void) {
 
 	debug_hook = debug_shell_actual;
 
-	int i = create_kernel_tasklet(debug_shell_run, "[kttydebug]", NULL);
-	debug_print(NOTICE, "Started tasklet with pid=%d", i);
+	if (args_present("kdebug")) {
+		int i = create_kernel_tasklet(debug_shell_run, "[kttydebug]", NULL);
+		debug_print(NOTICE, "Started tasklet with pid=%d", i);
+	}
 
 	return 0;
 }
