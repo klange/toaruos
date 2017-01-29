@@ -15,6 +15,8 @@ import math
 import os
 import signal
 import sys
+import shlex
+import subprocess
 import time
 
 import cairo
@@ -775,7 +777,7 @@ class WallpaperWindow(yutani.Window):
         wallpaper = self
         def launch_application(self):
             wallpaper.add_animation(self)
-            os.spawnvp(os.P_NOWAIT,'/bin/sh',['/bin/sh','-c',self.data])
+            launch_app(self.data)
 
         out = []
         for icon in icons:
@@ -1113,9 +1115,9 @@ def rounded_rectangle(ctx,x,y,w,h,r):
 def launch_app(item,terminal=False):
     """Launch an application in the background."""
     if terminal:
-        os.spawnvp(os.P_NOWAIT,'/bin/terminal',['terminal',item])
+        subprocess.Popen(['/bin/terminal',item])
     else:
-        os.spawnvp(os.P_NOWAIT,'/bin/sh',['/bin/sh','-c',item])
+        subprocess.Popen(shlex.split(item))
 
 def logout_callback(item):
     """Request the active session be stopped."""

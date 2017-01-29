@@ -325,7 +325,7 @@ if __name__ == '__main__':
     yutani.Yutani()
     d = yutani.Decor()
 
-    window = FileBrowserWindow(d,'/' if len(sys.argv) < 2 else sys.argv[1])
+    window = FileBrowserWindow(d,os.environ.get('HOME','/') if len(sys.argv) < 2 else sys.argv[1])
     window.draw()
 
     yutani_mainloop.mainloop()
