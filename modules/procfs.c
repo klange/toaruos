@@ -37,6 +37,9 @@ static fs_node_t * procfs_generic_create(char * name, read_type_t read_func) {
 	fnode->close   = NULL;
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
 	return fnode;
 }
 
@@ -194,7 +197,8 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, char * name) {
 }
 
 
-static fs_node_t * procfs_procdir_create(pid_t pid) {
+static fs_node_t * procfs_procdir_create(process_t * process) {
+	pid_t pid = process->id;
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = pid;
@@ -210,6 +214,9 @@ static fs_node_t * procfs_procdir_create(pid_t pid) {
 	fnode->readdir = readdir_procfs_procdir;
 	fnode->finddir = finddir_procfs_procdir;
 	fnode->nlink   = 1;
+	fnode->ctime   = process->start.tv_sec;
+	fnode->mtime   = process->start.tv_sec;
+	fnode->atime   = process->start.tv_sec;
 	return fnode;
 }
 
@@ -480,12 +487,12 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 		if (!proc) {
 			return NULL;
 		}
-		fs_node_t * out = procfs_procdir_create(pid);
+		fs_node_t * out = procfs_procdir_create(proc);
 		return out;
 	}
 
 	if (!strcmp(name,"self")) {
-		return procfs_procdir_create(current_process->id);
+		return procfs_procdir_create((process_t *)current_process);
 	}
 
 	for (unsigned int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
@@ -515,6 +522,9 @@ static fs_node_t * procfs_create(void) {
 	fnode->readdir = readdir_procfs_root;
 	fnode->finddir = finddir_procfs_root;
 	fnode->nlink   = 1;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
 	return fnode;
 }
 

@@ -106,6 +106,7 @@ typedef struct process {
 	list_t *      node_waits;
 	int           awoken_index;
 	node_t *      timeout_node;
+	struct timeval start;
 } process_t;
 
 typedef struct {

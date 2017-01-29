@@ -239,6 +239,8 @@ process_t * spawn_kidle(void) {
 	idle->shm_mappings = list_create();
 	idle->signal_queue = list_create();
 
+	gettimeofday(&idle->start, NULL);
+
 	set_process_environment(idle, current_directory);
 	return idle;
 }
@@ -452,6 +454,8 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 	proc->timed_sleep_node = NULL;
 
 	proc->is_tasklet = 0;
+
+	gettimeofday(&proc->start, NULL);
 
 	/* Insert the process into the process tree as a child
 	 * of the parent process. */

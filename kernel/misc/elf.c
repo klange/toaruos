@@ -281,6 +281,7 @@ int exec(
 	debug_print(WARNING, "First four bytes: %c%c%c%c", head[0], head[1], head[2], head[3]);
 
 	current_process->name = strdup(path);
+	gettimeofday((struct timeval *)&current_process->start, NULL);
 
 	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
 		if (matches(fmts[i].bytes, head, fmts[i].match)) {
