@@ -665,6 +665,19 @@ static int sys_sysfunc(int fn, char ** args) {
 			return 0;
 			break;
 
+		case 13:
+			/*
+			 * Set VGA text-mode cursor location
+			 * (Not actually used to place a cursor, we use this to move the cursor off screen)
+			 */
+			PTR_VALIDATE(args);
+			outportb(0x3D4, 14);
+			outportb(0x3D5, (unsigned int)args[0]);
+			outportb(0x3D4, 15);
+			outportb(0x3D5, (unsigned int)args[1]);
+
+			return 0;
+
 		default:
 			debug_print(ERROR, "Bad system function %d", fn);
 			break;
