@@ -469,9 +469,15 @@ void draw_cursor() {
 }
 
 void term_redraw_all() { 
-	for (uint16_t y = 0; y < term_height; ++y) {
-		for (uint16_t x = 0; x < term_width; ++x) {
-			cell_redraw(x,y);
+	for (int i = 0; i < term_height; i++) {
+		for (int x = 0; x < term_width; ++x) {
+			term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (i * term_width + x) * sizeof(term_cell_t));
+			if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,i,cell); continue; }
+			if (((uint32_t *)cell)[0] == 0x00000000) {
+				term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
+			} else {
+				term_write_char(cell->c, x * char_width, i * char_height, cell->fg, cell->bg, cell->flags);
+			}
 		}
 	}
 }
@@ -484,6 +490,8 @@ void term_scroll(int how_much) {
 	if (how_much == 0) {
 		return;
 	}
+
+	cell_redraw(csr_x, csr_y);
 	if (how_much > 0) {
 		/* Shift terminal cells one row up */
 		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), sizeof(term_cell_t) * term_width * (term_height - how_much));
@@ -576,6 +584,7 @@ void save_scrollback() {
 void redraw_scrollback() {
 	if (!scrollback_offset) {
 		term_redraw_all();
+		display_flip();
 		return;
 	}
 	if (scrollback_offset < term_height) {
