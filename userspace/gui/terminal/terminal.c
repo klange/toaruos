@@ -415,10 +415,17 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
 			data++;
 		}
 	}
-	l_x = min(l_x, decor_left_width + x);
-	l_y = min(l_y, decor_top_height + y);
-	r_x = max(r_x, decor_left_width + x + char_width);
-	r_y = max(r_y, decor_top_height + y + char_height);
+	if (!_no_frame) {
+		l_x = min(l_x, decor_left_width + x * char_width);
+		l_y = min(l_y, decor_top_height + y * char_height);
+		r_x = max(r_x, decor_left_width + x * char_width + char_width);
+		r_y = max(r_y, decor_top_height + y * char_height + char_height);
+	} else {
+		l_x = min(l_x, x * char_width);
+		l_y = min(l_y, y * char_height);
+		r_x = max(r_x, x * char_width + char_width);
+		r_y = max(r_y, y * char_height + char_height);
+	}
 }
 
 static void cell_redraw(uint16_t x, uint16_t y) {
