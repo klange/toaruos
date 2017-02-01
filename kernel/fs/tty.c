@@ -13,7 +13,8 @@
 #include <termios.h>
 #include <ringbuffer.h>
 
-#define TTY_BUFFER_SIZE 512
+#define TTY_BUFFER_SIZE 4096
+//4096
 
 typedef struct pty {
 	/* the PTY number */
@@ -62,6 +63,15 @@ static void clear_input_buffer(pty_t * pty) {
 }
 
 static void output_process(pty_t * pty, uint8_t c) {
+	if (ring_buffer_available(pty->out) < 2) return; /* uh oh */
+	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
+		uint8_t d = '\r';
+		OUT(d);
+	}
+	OUT(c);
+}
+
+static void output_process_slave(pty_t * pty, uint8_t c) {
 	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
 		uint8_t d = '\r';
 		OUT(d);
@@ -128,20 +138,18 @@ static void input_process(pty_t * pty, uint8_t c) {
 			}
 			return;
 		}
-		pty->canon_buffer[pty->canon_buflen] = c;
+		if (pty->canon_buflen < pty->canon_bufsize) {
+			pty->canon_buffer[pty->canon_buflen] = c;
+			pty->canon_buflen++;
+		}
 		if (pty->tios.c_lflag & ECHO) {
 			output_process(pty, c);
 		}
-		if (pty->canon_buffer[pty->canon_buflen] == '\n') {
-			pty->canon_buflen++;
+		if (c == '\n') {
+			pty->canon_buffer[pty->canon_buflen-1] = c;
 			dump_input_buffer(pty);
 			return;
 		}
-		if (pty->canon_buflen == pty->canon_bufsize) {
-			dump_input_buffer(pty);
-			return;
-		}
-		pty->canon_buflen++;
 		return;
 	} else if (pty->tios.c_lflag & ECHO) {
 		output_process(pty, c);
@@ -244,7 +252,7 @@ uint32_t write_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8
 
 	size_t l = 0;
 	for (uint8_t * c = buffer; l < size; ++c, ++l) {
-		output_process(pty, *c);
+		output_process_slave(pty, *c);
 	}
 
 	return l;
@@ -371,6 +379,8 @@ pty_t * pty_new(struct winsize * size) {
 	pty->in  = ring_buffer_create(TTY_BUFFER_SIZE);
 	pty->out = ring_buffer_create(TTY_BUFFER_SIZE);
 
+	pty->in->discard = 1;
+
 	/* Master endpoint - writes go to stdin, reads come from stdout */
 	pty->master = pty_master_create(pty);
 
@@ -409,7 +419,7 @@ pty_t * pty_new(struct winsize * size) {
 	pty->tios.c_cc[VTIME]  =  0;
 
 	pty->canon_buffer  = malloc(TTY_BUFFER_SIZE);
-	pty->canon_bufsize = TTY_BUFFER_SIZE;
+	pty->canon_bufsize = TTY_BUFFER_SIZE-2;
 	pty->canon_buflen  = 0;
 
 	return pty;

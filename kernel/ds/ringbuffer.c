@@ -108,6 +108,9 @@ size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 		wakeup_queue(ring_buffer->wait_queue_readers);
 		ring_buffer_alert_waiters(ring_buffer);
 		if (written < size) {
+			if (ring_buffer->discard) {
+				break;
+			}
 			if (sleep_on(ring_buffer->wait_queue_writers) && ring_buffer->internal_stop) {
 				ring_buffer->internal_stop = 0;
 				break;
@@ -132,6 +135,7 @@ ring_buffer_t * ring_buffer_create(size_t size) {
 	spin_init(out->lock);
 
 	out->internal_stop = 0;
+	out->discard = 0;
 
 	out->wait_queue_readers = list_create();
 	out->wait_queue_writers = list_create();

@@ -11,6 +11,7 @@ typedef struct {
 	list_t * wait_queue_writers;
 	int internal_stop;
 	list_t * alert_waiters;
+	int discard;
 } ring_buffer_t;
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer);
