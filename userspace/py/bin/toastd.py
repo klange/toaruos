@@ -127,7 +127,7 @@ if __name__ == '__main__':
     fds = [yutani.yutani_ctx,pex_server]
     while 1:
         # Poll for events.
-        fd = fswait.fswait(fds,20)
+        fd = fswait.fswait(fds,20 if sliding else 500)
 
         if fd == 1:
             size, packet = pex_server.listen()
