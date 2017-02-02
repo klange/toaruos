@@ -885,7 +885,7 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 	}
 
 	if (timeout > 0) {
-		debug_print(NOTICE, "fswait with a timeout of %d (pid=%d)", timeout, current_process->id);
+		debug_print(INFO, "fswait with a timeout of %d (pid=%d)", timeout, current_process->id);
 		unsigned long s, ss;
 		relative_time(0, timeout, &s, &ss);
 
