@@ -36,11 +36,13 @@ static void keyboard_wait(void) {
  */
 static int keyboard_handler(struct regs *r) {
 	unsigned char scancode;
-	keyboard_wait();
-	scancode = inportb(KEY_DEVICE);
-	irq_ack(KEY_IRQ);
+	if (inportb(KEY_PENDING) & 0x01) {
+		scancode = inportb(KEY_DEVICE);
 
-	write_fs(keyboard_pipe, 0, 1, (uint8_t []){scancode});
+		write_fs(keyboard_pipe, 0, 1, (uint8_t []){scancode});
+	}
+
+	irq_ack(KEY_IRQ);
 	return 1;
 }
 

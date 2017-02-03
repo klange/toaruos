@@ -73,69 +73,67 @@ static uint8_t mouse_read(void) {
 
 static int mouse_handler(struct regs *r) {
 	uint8_t status = inportb(MOUSE_STATUS);
-	while (status & MOUSE_BBIT) {
+	while ((status & MOUSE_BBIT) && (status & MOUSE_F_BIT)) {
 		int8_t mouse_in = inportb(MOUSE_PORT);
-		if (status & MOUSE_F_BIT) {
-			switch (mouse_cycle) {
-				case 0:
-					mouse_byte[0] = mouse_in;
-					if (!(mouse_in & MOUSE_V_BIT)) { goto read_next; }
+		switch (mouse_cycle) {
+			case 0:
+				mouse_byte[0] = mouse_in;
+				if (!(mouse_in & MOUSE_V_BIT)) { goto read_next; }
+				++mouse_cycle;
+				break;
+			case 1:
+				mouse_byte[1] = mouse_in;
+				++mouse_cycle;
+				break;
+			case 2:
+				mouse_byte[2] = mouse_in;
+				if (mouse_mode == MOUSE_SCROLLWHEEL || mouse_mode == MOUSE_BUTTONS) {
 					++mouse_cycle;
 					break;
-				case 1:
-					mouse_byte[1] = mouse_in;
-					++mouse_cycle;
-					break;
-				case 2:
-					mouse_byte[2] = mouse_in;
-					if (mouse_mode == MOUSE_SCROLLWHEEL || mouse_mode == MOUSE_BUTTONS) {
-						++mouse_cycle;
-						break;
-					}
-					goto finish_packet;
-				case 3:
-					mouse_byte[3] = mouse_in;
-					goto finish_packet;
-			}
-			goto read_next;
-finish_packet:
-			mouse_cycle = 0;
-			if (mouse_byte[0] & 0x80 || mouse_byte[0] & 0x40) {
-				/* x/y overflow? bad packet! */
-				goto read_next;
-			}
-			/* We now have a full mouse packet ready to use */
-			mouse_device_packet_t packet;
-			packet.magic = MOUSE_MAGIC;
-			packet.x_difference = mouse_byte[1];
-			packet.y_difference = mouse_byte[2];
-			packet.buttons = 0;
-			if (mouse_byte[0] & 0x01) {
-				packet.buttons |= LEFT_CLICK;
-			}
-			if (mouse_byte[0] & 0x02) {
-				packet.buttons |= RIGHT_CLICK;
-			}
-			if (mouse_byte[0] & 0x04) {
-				packet.buttons |= MIDDLE_CLICK;
-			}
-
-			if (mouse_mode == MOUSE_SCROLLWHEEL && mouse_byte[3]) {
-				if (mouse_byte[3] > 0) {
-					packet.buttons |= MOUSE_SCROLL_DOWN;
-				} else if (mouse_byte[3] < 0) {
-					packet.buttons |= MOUSE_SCROLL_UP;
 				}
-			}
-
-			mouse_device_packet_t bitbucket;
-			while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
-				read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
-			}
-			write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
+				goto finish_packet;
+			case 3:
+				mouse_byte[3] = mouse_in;
+				goto finish_packet;
 		}
+		goto read_next;
+finish_packet:
+		mouse_cycle = 0;
+		if (mouse_byte[0] & 0x80 || mouse_byte[0] & 0x40) {
+			/* x/y overflow? bad packet! */
+			goto read_next;
+		}
+		/* We now have a full mouse packet ready to use */
+		mouse_device_packet_t packet;
+		packet.magic = MOUSE_MAGIC;
+		packet.x_difference = mouse_byte[1];
+		packet.y_difference = mouse_byte[2];
+		packet.buttons = 0;
+		if (mouse_byte[0] & 0x01) {
+			packet.buttons |= LEFT_CLICK;
+		}
+		if (mouse_byte[0] & 0x02) {
+			packet.buttons |= RIGHT_CLICK;
+		}
+		if (mouse_byte[0] & 0x04) {
+			packet.buttons |= MIDDLE_CLICK;
+		}
+
+		if (mouse_mode == MOUSE_SCROLLWHEEL && mouse_byte[3]) {
+			if (mouse_byte[3] > 0) {
+				packet.buttons |= MOUSE_SCROLL_DOWN;
+			} else if (mouse_byte[3] < 0) {
+				packet.buttons |= MOUSE_SCROLL_UP;
+			}
+		}
+
+		mouse_device_packet_t bitbucket;
+		while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
+			read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
+		}
+		write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 read_next:
-		status = 0; // inportb(MOUSE_STATUS);
+		break;
 	}
 	irq_ack(MOUSE_IRQ);
 	return 1;
