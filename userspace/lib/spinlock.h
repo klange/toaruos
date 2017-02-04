@@ -1,5 +1,4 @@
-#ifndef _SPINLOCK_H_
-#define _SPINLOCK_H_
+#pragma once
 
 #ifndef spin_lock
 static void spin_lock(int volatile * lock) {
@@ -13,4 +12,3 @@ static void spin_unlock(int volatile * lock) {
 }
 #endif
 
-#endif /* _SPINLOCK_H */

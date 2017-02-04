@@ -1,5 +1,4 @@
-#ifndef USERSPACE_LIB_SOUND_H
-#define USERSPACE_LIB_SOUND_H
+#pragma once
 
 #include <stdint.h>
 
@@ -35,4 +34,3 @@ typedef struct snd_knob_value {
 #define SND_MIXER_READ_KNOB 2
 #define SND_MIXER_WRITE_KNOB 3
 
-#endif  /* USERSPACE_LIB_SOUND_H */

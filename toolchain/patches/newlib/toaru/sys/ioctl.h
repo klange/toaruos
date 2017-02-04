@@ -1,5 +1,4 @@
-#ifndef _IOCTL_H
-#define _IOCTL_H
+#pragma once
 
 #include <termios.h>
 
@@ -11,4 +10,3 @@
 
 #define IOCTL_PACKETFS_QUEUED 0x5050
 
-#endif

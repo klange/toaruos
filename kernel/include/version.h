@@ -1,5 +1,4 @@
-#ifndef VERSION_H
-#define VERSION_H
+#pragma once
 
 extern char * __kernel_name;
 extern char * __kernel_version_format;
@@ -18,4 +17,3 @@ extern char * __kernel_build_time;
 
 extern char * __kernel_compiler_version;
 
-#endif

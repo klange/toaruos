@@ -1,5 +1,4 @@
-#ifndef LOGGING_H
-#define LOGGING_H
+#pragma once
 
 typedef enum {
 	INFO = 0, /* Unimportant */
@@ -26,4 +25,3 @@ extern void (*debug_video_crash)(char **);
 #define debug_print(level, ...)
 #endif
 
-#endif

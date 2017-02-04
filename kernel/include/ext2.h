@@ -1,7 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef EXT2_H
-#define EXT2_H
+#pragma once
 
 #ifdef _KERNEL_
 #	include <types.h>
@@ -172,6 +171,4 @@ typedef struct {
 } ext2_disk_cache_entry_t;
 
 typedef int (*ext2_block_io_t) (void *, uint32_t, uint8_t *);
-
-#endif
 

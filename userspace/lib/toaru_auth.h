@@ -4,10 +4,8 @@
  * Copyright (C) 2013-2014 Kevin Lange
  */
 
-#ifndef _TOARU_AUTH_H
-#define _TOARU_AUTH_H
+#pragma once
 
 int toaru_auth_check_pass(char * user, char * pass);
 void toaru_auth_set_vars(void);
 
-#endif /* _TOARU_AUTH_H */

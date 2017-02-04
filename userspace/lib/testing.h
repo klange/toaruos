@@ -1,5 +1,4 @@
-#ifndef _TESTING_H
-#define _TESTING_H
+#pragma once
 
 #include <stdarg.h>
 
@@ -12,4 +11,3 @@
 
 void notice(char * type, char * fmt, ...);
 
-#endif

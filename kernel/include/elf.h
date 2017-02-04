@@ -4,8 +4,7 @@
  *
  */
 
-#ifndef _ELF_H
-#define _ELF_H
+#pragma once
 
 /*
  * Different bits of our build environment
@@ -184,11 +183,3 @@ typedef struct {
 #define STT_LOPROC  13
 #define STT_HIPROC  15
 
-
-#endif /* _ELF_H*/
-
-
-/*
- * vim:noexpandtab
- * vim:tabstop=4
- */

@@ -1,5 +1,4 @@
-#ifndef _TOARU_SYS_SOCKET_H
-#define _TOARU_SYS_SOCKET_H
+#pragma once
 
 #include <stdint.h>
 
@@ -105,4 +104,3 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 }
 #endif
 
-#endif /* _TOARU_SYS_SOCKET_H */

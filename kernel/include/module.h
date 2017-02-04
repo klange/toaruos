@@ -1,5 +1,4 @@
-#ifndef MODULE_H
-#define MODULE_H
+#pragma once
 
 #include <types.h>
 #include <hashmap.h>
@@ -40,4 +39,3 @@ extern hashmap_t * modules_get_symbols(void);
 #define MODULE_DEPENDS(n) \
     static char _mod_dependency_ ## n [] __attribute__((section("moddeps"), used)) = #n
 
-#endif

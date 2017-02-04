@@ -1,5 +1,4 @@
-#ifndef _PEX_H__
-#define _PEX_H__
+#pragma once
 
 #include <stdint.h>
 #include <stdio.h>
@@ -28,4 +27,3 @@ size_t pex_query(FILE * sock);
 FILE * pex_bind(char * target);
 FILE * pex_connect(char * target);
 
-#endif

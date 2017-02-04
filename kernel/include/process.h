@@ -1,8 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
 
-#ifndef PROCESS_H
-#define PROCESS_H
+#pragma once
 
 //#include <system.h>
 #include <tree.h>
@@ -155,4 +154,3 @@ extern int waitpid(int pid, int * status, int options);
 
 extern int is_valid_process(process_t * process);
 
-#endif

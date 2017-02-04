@@ -1,5 +1,4 @@
-#ifndef _PCI_H
-#define _PCI_H
+#pragma once
 
 #define PCI_VENDOR_ID            0x00 // 2
 #define PCI_DEVICE_ID            0x02 // 2
@@ -68,5 +67,3 @@ void pci_scan_slot(pci_func_t f, int type, int bus, int slot, void * extra);
 void pci_scan_bus(pci_func_t f, int type, int bus, void * extra);
 void pci_scan(pci_func_t f, int type, void * extra);
 
-
-#endif

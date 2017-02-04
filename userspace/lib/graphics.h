@@ -1,7 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef LIB_GRAPHICS_H
-#define LIB_GRAPHICS_H
+#pragma once
 
 #include <syscall.h>
 #include <stdint.h>
@@ -84,5 +83,3 @@ void context_to_png(FILE * file, gfx_context_t * ctx);
 
 uint32_t premultiply(uint32_t color);
 
-
-#endif

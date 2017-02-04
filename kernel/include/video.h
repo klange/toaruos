@@ -1,5 +1,4 @@
-#ifndef _LFB_VIDEO_H
-#define _LFB_VIDEO_H
+#pragma once
 
 #define IO_VID_WIDTH  0x5001
 #define IO_VID_HEIGHT 0x5002
@@ -15,4 +14,3 @@ extern uint16_t lfb_resolution_b;
 extern uint8_t * lfb_vid_memory;
 #endif
 
-#endif

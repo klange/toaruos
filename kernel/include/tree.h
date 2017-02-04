@@ -2,8 +2,7 @@
  * 
  * General-purpose tree implementation
  */
-#ifndef TREE_H
-#define TREE_H
+#pragma once
 
 #include "list.h"
 
@@ -36,4 +35,3 @@ tree_node_t * tree_find(tree_t * tree, void * value, tree_comparator_t comparato
 void tree_break_off(tree_t * tree, tree_node_t * node);
 
 
-#endif

@@ -1,5 +1,4 @@
-#ifndef _ERRNO_DEFS_H
-#define _ERRNO_DEFS_H
+#pragma once
 
 /*
  * The bulk of these match Linux.
@@ -130,4 +129,3 @@
 #define ESTRPIPE 143          /* Streams pipe error */
 #define EWOULDBLOCK EAGAIN    /* Operation would block */
 
-#endif

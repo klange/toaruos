@@ -1,5 +1,4 @@
-#ifndef _YUTANI_H
-#define _YUTANI_H
+#pragma once
 
 #include <stdio.h>
 #include <stdint.h>
@@ -470,4 +469,3 @@ extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * win
 extern void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
 extern void release_graphics_yutani(gfx_context_t * gfx);
 
-#endif /* _YUTANI_H */

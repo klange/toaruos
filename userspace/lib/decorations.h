@@ -4,8 +4,7 @@
  *
  */
 
-#ifndef DECORATIONS_H
-#define DECORATIONS_H
+#pragma once
 
 #include "graphics.h"
 #include "yutani.h"
@@ -53,4 +52,3 @@ extern void decor_set_resize_callback(void (*callback)(yutani_window_t *));
 #define DECOR_ACTIVE   0
 #define DECOR_INACTIVE 1
 
-#endif /* DECORATION_H */

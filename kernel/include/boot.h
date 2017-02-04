@@ -1,7 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef BOOT_H
-#define BOOT_H
+#pragma once
 /*
  * Boot Information Types
  * Used in the kernel boot process to determine
@@ -19,4 +18,3 @@
  */
 #include <multiboot.h>
 
-#endif /* BOOT_H */

@@ -1,5 +1,4 @@
-#ifndef _TERMEMU_H__
-#define _TERMEMU_H__
+#pragma once
 
 #ifdef _KERNEL_
 # include <types.h>
@@ -109,4 +108,3 @@ typedef struct {
 term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in);
 void ansi_put(term_state_t * s, char c);
 
-#endif /* _TERMEMU_H__ */

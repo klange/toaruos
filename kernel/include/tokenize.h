@@ -1,6 +1,4 @@
-#ifndef TOKENIZE_H
-#define TOKENIZE_H
+#pragma once
 
 int tokenize(char *, char *, char **);
 
-#endif

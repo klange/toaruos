@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef FS_H
-#define FS_H
+
+#pragma once
 
 #define PATH_SEPARATOR '/'
 #define PATH_SEPARATOR_STRING "/"
@@ -164,4 +164,3 @@ void map_vfs_directory(char *);
 
 int make_unix_pipe(fs_node_t ** pipes);
 
-#endif

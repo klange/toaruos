@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef __SYSTEM_H
-#define __SYSTEM_H
+#pragma once
+
 #include <types.h>
 #include <fs.h>
 #include <va_list.h>
@@ -232,4 +232,3 @@ extern int validate_safe(void * ptr);
 
 #include <errno_defs.h>
 
-#endif

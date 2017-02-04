@@ -1,5 +1,4 @@
-#ifndef MOUSE_DEVICE_H
-#define MOUSE_DEVICE_H
+#pragma once
 
 typedef enum {
 	LEFT_CLICK   = 0x01,
@@ -19,4 +18,3 @@ typedef struct {
 
 #define MOUSE_MAGIC 0xFEED1234
 
-#endif

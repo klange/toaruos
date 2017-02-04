@@ -1,5 +1,4 @@
-#ifndef PTHREAD_H
-#define PTHREAD_H
+#pragma once
 
 #include <stdint.h>
 #include <syscall.h>
@@ -18,4 +17,3 @@ int pthread_kill(pthread_t thread, int sig);
 int clone(uintptr_t,uintptr_t,void*);
 int gettid();
 
-#endif

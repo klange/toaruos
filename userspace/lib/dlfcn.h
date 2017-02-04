@@ -1,5 +1,4 @@
-#ifndef _DLFCN_H
-#define _DLFCN_H
+#pragma once
 
 #define RTLD_LAZY 0
 #define RTLD_NOW  1
@@ -10,4 +9,3 @@ extern int dlclose(void *);
 extern void * dlsym(void *, const char *);
 extern char * dlerror(void);
 
-#endif /* _DLFCN_H */

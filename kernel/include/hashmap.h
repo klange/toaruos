@@ -1,5 +1,4 @@
-#ifndef KL_HASHMAP_H
-#define KL_HASHMAP_H
+#pragma once
 
 #include "list.h"
 
@@ -46,4 +45,3 @@ unsigned int hashmap_string_hash(void * key);
 int hashmap_string_comp(void * a, void * b);
 void * hashmap_string_dupe(void * key);
 
-#endif

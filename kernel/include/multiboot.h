@@ -1,7 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef SYSTEM_H
-#define SYSTEM_H
+#pragma once
 
 #include <system.h>
 
@@ -91,4 +90,3 @@ extern void dump_multiboot(struct multiboot *mboot_ptr);
 extern char * ramdisk;
 extern struct multiboot * mboot_ptr;
 
-#endif

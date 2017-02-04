@@ -3,8 +3,7 @@
  * Pipe
  */
 
-#ifndef PIPE_H
-#define PIPE_H
+#pragma once
 
 #include <types.h>
 
@@ -26,4 +25,3 @@ fs_node_t * make_pipe(size_t size);
 int pipe_size(fs_node_t * node);
 int pipe_unsize(fs_node_t * node);
 
-#endif

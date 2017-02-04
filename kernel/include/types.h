@@ -1,7 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef TYPES_H
-#define TYPES_H
+#pragma once
 
 /* Types */
 
@@ -17,4 +16,3 @@ struct timeval {
 	uint32_t tv_usec;
 };
 
-#endif

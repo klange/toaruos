@@ -1,5 +1,4 @@
-#ifndef _RLINE_H
-#define _RLINE_H
+#pragma once
 
 struct rline_callback;
 
@@ -43,6 +42,4 @@ extern int rline_history_count;
 extern int rline_history_offset;
 extern int rline_scroll;
 extern char * rline_exit_string;
-
-#endif /* _RLINE_H */
 

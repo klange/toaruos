@@ -1,5 +1,4 @@
-#ifndef _IPV4_H
-#define _IPV4_H
+#pragma once
 
 #include <system.h>
 
@@ -187,4 +186,3 @@ typedef struct {
 	size_t	payload_size;
 } tcpdata_t;
 
-#endif

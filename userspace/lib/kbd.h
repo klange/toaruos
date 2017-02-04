@@ -1,5 +1,4 @@
-#ifndef KBD_H
-#define KBD_H
+#pragma once
 
 #define KBD_NORMAL 0
 #define KBD_ESC_A  1
@@ -148,4 +147,3 @@ typedef struct {
 kbd_key_t kbd_key(key_event_state_t * state, unsigned char c);
 int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event);
 
-#endif

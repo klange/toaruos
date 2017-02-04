@@ -1,12 +1,9 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
 
-
-#ifndef __MEM_H
-#define __MEM_H
+#pragma once
 
 #include <types.h>
-
 
 extern uintptr_t heap_end;
 
@@ -17,4 +14,3 @@ extern uint32_t first_frame(void);
 
 extern uintptr_t map_to_physical(uintptr_t virtual);
 
-#endif

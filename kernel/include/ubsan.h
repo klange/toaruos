@@ -1,5 +1,4 @@
-#ifndef _LIB_UBSAN_H
-#define _LIB_UBSAN_H
+#pragma once
 
 #include <types.h>
 
@@ -67,4 +66,3 @@ struct InvalidValueData {
 typedef int64_t s_max;
 typedef uint64_t u_max;
 
-#endif

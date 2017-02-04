@@ -1,5 +1,4 @@
-#ifndef _SYS_UTSNAME_H
-#define _SYS_UTSNAME_H
+#pragma once
 
 #define _UTSNAME_LENGTH 256
 
@@ -16,4 +15,3 @@ struct utsname {
 int uname(struct utsname *);
 #endif
 
-#endif

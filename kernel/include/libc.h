@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef __LIBC_H
-#define __LIBC_H
+#pragma once
+
 #include <stddef.h>
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
@@ -35,4 +35,3 @@ extern int atoi(const char * s);
 /* Non-standard broken strtok_r */
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 
-#endif

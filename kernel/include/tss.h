@@ -1,7 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef _TSS_H
-#define _TSS_H
+#pragma once
 
 extern void tss_flush(void);
 
@@ -35,6 +34,4 @@ typedef struct tss_entry {
 	uint16_t	iomap_base;
 } __attribute__ ((packed)) tss_entry_t;
 
-
-#endif /* _TSS_H */
 

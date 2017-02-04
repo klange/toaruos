@@ -3,8 +3,7 @@
  * Values for ATA / PATA devices
  */
 
-#ifndef ATA_H
-#define ATA_H
+#pragma once
 
 #define ATA_SR_BSY     0x80
 #define ATA_SR_DRDY    0x40
@@ -140,4 +139,3 @@ typedef struct {
 } __attribute__((packed)) mbr_t;
 
 
-#endif

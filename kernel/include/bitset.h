@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-#ifndef BITSET_H
-#define BITSET_H
+#pragma once
+
 #include <system.h>
 
 typedef struct {
@@ -17,4 +17,3 @@ int bitset_test(bitset_t *set, size_t bit);
 /* Find first unset bit */
 int bitset_ffub(bitset_t *set);
 
-#endif

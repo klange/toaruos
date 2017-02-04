@@ -1,5 +1,4 @@
-#ifndef _TERMIOS_H
-#define _TERMIOS_H
+#pragma once
 
 /* Technically part of ioctl */
 struct winsize {
@@ -188,4 +187,3 @@ int     tcsetattr(int, int, struct termios *);
 int     ioctl(int, int, void*);
 #endif /* ndef _KERNEL_ */
 
-#endif /* ndef _TERMIOS_H */

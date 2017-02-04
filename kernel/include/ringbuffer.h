@@ -1,5 +1,4 @@
-#ifndef RING_BUFFER_H
-#define RING_BUFFER_H
+#pragma once
 
 typedef struct {
 	unsigned char * buffer;
@@ -25,4 +24,3 @@ void ring_buffer_destroy(ring_buffer_t * ring_buffer);
 void ring_buffer_interrupt(ring_buffer_t * ring_buffer);
 void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process);
 
-#endif

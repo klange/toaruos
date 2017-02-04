@@ -2,8 +2,7 @@
  * 
  * General-purpose list implementations.
  */
-#ifndef LIST_H
-#define LIST_H
+#pragma once
 
 #ifdef _KERNEL_
 #	include <types.h>
@@ -49,4 +48,3 @@ node_t * list_insert_before(list_t * list, node_t * after, void * item);
 #define foreach(i, list) for (node_t * i = (list)->head; i != NULL; i = i->next)
 #define foreachr(i, list) for (node_t * i = (list)->tail; i != NULL; i = i->prev)
 
-#endif

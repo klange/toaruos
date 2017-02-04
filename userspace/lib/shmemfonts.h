@@ -1,5 +1,4 @@
-#ifndef SHMEMFONTS_H
-#define SHMEMFONTS_H
+#pragma once
 
 #include "graphics.h"
 #include "yutani.h"
@@ -25,4 +24,3 @@ char * shmem_font_name(int i);
 
 #define FONTS_TOTAL 10
 
-#endif

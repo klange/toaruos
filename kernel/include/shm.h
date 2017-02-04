@@ -1,8 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  */
-
-#ifndef SHM_H
-#define SHM_H
+#pragma once
 
 #include <system.h>
 #include <types.h>
@@ -42,4 +40,3 @@ extern int    shm_release(char * path);
 extern void shm_install(void);
 extern void shm_release_all(process_t * proc);
 
-#endif
