@@ -1,5 +1,4 @@
-#ifndef _YUTANI_INTERNAL_H
-#define _YUTANI_INTERNAL_H
+#pragma once
 
 #include <cairo.h>
 #include "lib/yutani.h"
@@ -184,4 +183,3 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window);
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w);
 static void notify_subscribers(yutani_globals_t * yg);
 
-#endif /* _YUTANI_INTERNAL_H */
