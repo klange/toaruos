@@ -14,7 +14,7 @@
 #include <args.h>
 
 static uint8_t mouse_cycle = 0;
-static int8_t  mouse_byte[4];
+static uint8_t mouse_byte[4];
 
 #define PACKETS_IN_PIPE 1024
 #define DISCARD_POINT 32
@@ -78,7 +78,7 @@ static int mouse_handler(struct regs *r) {
 		switch (mouse_cycle) {
 			case 0:
 				mouse_byte[0] = mouse_in;
-				if (!(mouse_in & MOUSE_V_BIT)) { goto read_next; }
+				if (!(mouse_in & MOUSE_V_BIT)) break;
 				++mouse_cycle;
 				break;
 			case 1:
@@ -99,15 +99,27 @@ static int mouse_handler(struct regs *r) {
 		goto read_next;
 finish_packet:
 		mouse_cycle = 0;
-		if (mouse_byte[0] & 0x80 || mouse_byte[0] & 0x40) {
-			/* x/y overflow? bad packet! */
-			goto read_next;
-		}
 		/* We now have a full mouse packet ready to use */
 		mouse_device_packet_t packet;
 		packet.magic = MOUSE_MAGIC;
-		packet.x_difference = mouse_byte[1];
-		packet.y_difference = mouse_byte[2];
+		int x = mouse_byte[1];
+		int y = mouse_byte[2];
+		if (x && mouse_byte[0] & (1 << 4)) {
+			/* Sign bit */
+			x = x - 0x100;
+		}
+		if (y && mouse_byte[0] & (1 << 5)) {
+			/* Sign bit */
+			y = y - 0x100;
+		}
+		if (mouse_byte[0] & (1 << 6) || mouse_byte[0] & (1 << 7)) {
+			/* Overflow */
+			x = 0;
+			y = 0;
+		}
+		debug_print(WARNING, "click: %2x %2x %2x", mouse_byte[0], mouse_byte[1], mouse_byte[2]);
+		packet.x_difference = x;
+		packet.y_difference = y;
 		packet.buttons = 0;
 		if (mouse_byte[0] & 0x01) {
 			packet.buttons |= LEFT_CLICK;
@@ -120,9 +132,9 @@ finish_packet:
 		}
 
 		if (mouse_mode == MOUSE_SCROLLWHEEL && mouse_byte[3]) {
-			if (mouse_byte[3] > 0) {
+			if ((int8_t)mouse_byte[3] > 0) {
 				packet.buttons |= MOUSE_SCROLL_DOWN;
-			} else if (mouse_byte[3] < 0) {
+			} else if ((int8_t)mouse_byte[3] < 0) {
 				packet.buttons |= MOUSE_SCROLL_UP;
 			}
 		}
