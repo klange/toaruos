@@ -176,7 +176,7 @@ static int sys_sbrk(int size) {
 	spin_lock(proc->image.lock);
 	uintptr_t ret = proc->image.heap;
 	uintptr_t i_ret = ret;
-	ret = (ret + 0xfff) & ~0xfff; // Rounds ret to 0x1000 in O(1)
+	ret = (ret + 0xfff) & ~0xfff; /* Rounds ret to 0x1000 in O(1) */
 	proc->image.heap += (ret - i_ret) + size;
 	while (proc->image.heap > proc->image.heap_actual) {
 		proc->image.heap_actual += 0x1000;
