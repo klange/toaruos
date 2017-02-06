@@ -21,7 +21,7 @@ pushd "$DIR" > /dev/null
         grab "binutils" "http://ftp.gnu.org/gnu/binutils" "binutils-2.27.tar.gz" || bail
         grab "newlib" "http://b.dakko.us/~klange/mirrors" "newlib-1.19.0.tar.gz" || bail
         grab "freetype" "http://download.savannah.gnu.org/releases/freetype" "freetype-2.4.9.tar.gz" || bail
-        grab "zlib" "http://zlib.net" "zlib-1.2.8.tar.gz" || bail
+        grab "zlib" "http://zlib.net/fossils" "zlib-1.2.8.tar.gz" || bail
         grab "libpng" "http://b.dakko.us/~klange/mirrors" "libpng-1.5.13.tar.gz" || bail
         grab "pixman" "http://www.cairographics.org/releases" "pixman-0.26.2.tar.gz" || bail
         grab "cairo" "http://www.cairographics.org/releases" "cairo-1.12.2.tar.xz" || bail
