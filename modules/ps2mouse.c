@@ -117,7 +117,6 @@ finish_packet:
 			x = 0;
 			y = 0;
 		}
-		debug_print(WARNING, "click: %2x %2x %2x", mouse_byte[0], mouse_byte[1], mouse_byte[2]);
 		packet.x_difference = x;
 		packet.y_difference = y;
 		packet.buttons = 0;
