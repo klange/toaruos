@@ -48,6 +48,11 @@ class BaseWidget(object):
     def mouse_action(self, msg):
         return False
 
+class FillWidget(BaseWidget):
+    """Fills the panel with blank space. Only one such panel element should exist at a time."""
+
+    width = -1
+
 class CalendarMenuEntry(MenuEntryDivider):
 
     height = 130
@@ -106,7 +111,7 @@ class ClockWidget(BaseWidget):
             menu_entries = [
                 CalendarMenuEntry(),
             ]
-            menu = MenuWindow(menu_entries,(self.offset-120,PANEL_HEIGHT),root=self.window)
+            menu = MenuWindow(menu_entries,(self.offset-120,self.window.height),root=self.window)
 
 class DateWidget(ClockWidget):
     """Displays the weekday and date on separate lines."""
@@ -137,6 +142,8 @@ class LogOutWidget(BaseWidget):
         self.hilighted = False
 
     def draw(self, window, offset, remaining, ctx):
+        self.offset = offset
+        self.window = window
         if self.hilighted:
             ctx.set_source_surface(self.icon_hilight,offset+2,2)
         else:
@@ -153,6 +160,55 @@ class LogOutWidget(BaseWidget):
         if msg.command == yutani.MouseEvent.CLICK:
             yctx.session_end()
         return False
+
+class RestartMenuWidget(LogOutWidget):
+
+    def mouse_action(self, msg):
+        if msg.command == yutani.MouseEvent.CLICK:
+            def exit(action):
+                if 'callback' in dir(self):
+                    self.callback()
+                else:
+                    sys.exit(0)
+            menu_entries = [
+                MenuEntryAction("Restart","exit",exit,None),
+            ]
+            menu = MenuWindow(menu_entries,(self.offset-120,self.window.height),root=self.window)
+            menu.move(self.window.width - menu.width, self.window.height)
+        return False
+
+class LabelWidget(BaseWidget):
+    """Provides a menu of applications to launch."""
+
+    text_y_offset = 4
+    text_x_offset = 10
+    color = 0xFFE6E6E6
+    hilight = 0xFF8ED8FF
+
+    def __init__(self, text):
+        self.width = 140
+        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF_BOLD, 14, self.color)
+        self.tr   = text_region.TextRegion(0,0,self.width-self.text_x_offset*2,PANEL_HEIGHT-self.text_y_offset,font=self.font)
+        self.tr.set_text(text)
+
+    def draw(self, window, offset, remaining, ctx):
+        self.window = window
+        self.tr.move(offset+self.text_x_offset,self.text_y_offset)
+        self.tr.draw(window)
+
+    def focus_enter(self):
+        self.font.font_color = self.hilight
+
+    def focus_leave(self):
+        self.font.font_color = self.color
+
+    def activate(self):
+        pass # Extend this as needed
+
+    def mouse_action(self,msg):
+        if msg.command == yutani.MouseEvent.CLICK:
+            self.activate()
+
 
 class VolumeWidget(BaseWidget):
     """Volume control widget."""
@@ -351,10 +407,9 @@ class NetworkWidget(BaseWidget):
                 ]
             menu = MenuWindow(menu_entries,(self.offset-100,PANEL_HEIGHT),root=self.window)
 
-class WindowListWidget(BaseWidget):
+class WindowListWidget(FillWidget):
     """Displays a list of windows with icons and titles."""
 
-    width = -1
     text_y_offset = 5
     color = 0xFFE6E6E6
     hilight = 0xFF8ED8FF
@@ -547,7 +602,7 @@ class ApplicationsMenuWidget(BaseWidget):
         self.font.font_color = self.color
 
     def activate(self):
-        menu = MenuWindow(self.menu_entries,(0,PANEL_HEIGHT),root=self.window)
+        menu = MenuWindow(self.menu_entries,(0,self.window.height),root=self.window)
 
     def mouse_action(self,msg):
         if msg.command == yutani.MouseEvent.CLICK:
@@ -614,7 +669,7 @@ class PanelWindow(yutani.Window):
         self.flip()
 
 
-    def mouse_action(self, msg):
+    def mouse_event(self, msg):
         redraw = False
         if (msg.command == 5 or msg.new_y >= self.height) and self.focused_widget:
             self.focused_widget.focus_leave()
@@ -888,7 +943,7 @@ class WallpaperWindow(yutani.Window):
 
         self.flip()
 
-    def mouse_action(self, msg):
+    def mouse_event(self, msg):
         redraw = False
         clips = []
         if (msg.command == 5 or msg.new_y >= self.height) and self.focused_icon:
@@ -1311,9 +1366,9 @@ if __name__ == '__main__':
                     wallpaper.finish_resize(msg)
             elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
                 if msg.wid == panel.wid:
-                    panel.mouse_action(msg)
+                    panel.mouse_event(msg)
                 elif msg.wid == wallpaper.wid:
-                    wallpaper.mouse_action(msg)
+                    wallpaper.mouse_event(msg)
                 if msg.wid in panel.menus:
                     m = panel.menus[msg.wid]
                     if msg.new_x >= 0 and msg.new_x < m.width and msg.new_y >= 0 and msg.new_y < m.height:
