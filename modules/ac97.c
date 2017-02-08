@@ -132,7 +132,7 @@ static void find_ac97(uint32_t device, uint16_t vendorid, uint16_t deviceid, voi
 
 }
 
-#define DIVISION 128
+#define DIVISION 0x1000
 static int irq_handler(struct regs * regs) {
 	uint16_t sr = inports(_device.nabmbar + AC97_PO_SR);
 	if (sr & AC97_X_SR_LVBCI) {
