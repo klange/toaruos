@@ -58,6 +58,13 @@ static spin_lock_t _buffers_lock;
 static list_t _buffers;
 static uint32_t _next_device_id = SND_DEVICE_MAIN;
 
+struct dsp_node {
+	ring_buffer_t * rb;
+	size_t samples;
+	size_t written;
+	int realtime;
+};
+
 int snd_register(snd_device_t * device) {
 	int rv = 0;
 
@@ -97,11 +104,29 @@ snd_unregister_cleanup:
 
 static uint32_t snd_dsp_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	if (!_devices.length) return -1; /* No sink available. */
-	return ring_buffer_write(node->device, size, buffer);
+
+	struct dsp_node * dsp = node->device;
+
+	size_t s = ring_buffer_available(dsp->rb);
+	size_t out;
+	if (size > s && dsp->realtime) {
+		out = ring_buffer_write(dsp->rb, s & ~0x3, buffer);
+	} else {
+		out = ring_buffer_write(dsp->rb, size, buffer);
+	}
+	dsp->written += out / 4;
+
+	return out;
 }
 
 static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp) {
 	/* Potentially use this to set sample rates in the future */
+	struct dsp_node * dsp = node->device;
+	if (request == 4) {
+		dsp->realtime = 1;
+	} else if (request == 5) {
+		return dsp->samples;
+	}
 	return -1;
 }
 
@@ -111,16 +136,27 @@ static void snd_dsp_open(fs_node_t * node, unsigned int flags) {
 	 * too many of these...
 	 */
 	/* Allocate a buffer for the node and keep a reference for ourselves */
-	node->device = ring_buffer_create(SND_BUF_SIZE);
+
+	struct dsp_node * dsp = malloc(sizeof(struct dsp_node));
+	dsp->rb = ring_buffer_create(SND_BUF_SIZE);
+	dsp->samples = 0;
+	dsp->written = 0;
+	dsp->realtime = 0;
+	node->device = dsp;
 	spin_lock(_buffers_lock);
 	list_insert(&_buffers, node->device);
 	spin_unlock(_buffers_lock);
 }
 
 static void snd_dsp_close(fs_node_t * node) {
+	struct dsp_node * dsp = node->device;
 	spin_lock(_buffers_lock);
-	list_delete(&_buffers, list_find(&_buffers, node->device));
+	list_delete(&_buffers, list_find(&_buffers, dsp));
 	spin_unlock(_buffers_lock);
+
+	ring_buffer_destroy(dsp->rb);
+	free(dsp->rb);
+	free(dsp);
 }
 
 static snd_device_t * snd_device_by_id(uint32_t device_id) {
@@ -204,13 +240,15 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 
 	spin_lock(_buffers_lock);
 	foreach(buf_node, &_buffers) {
-		ring_buffer_t * buf = buf_node->value;
+		struct dsp_node * dsp = buf_node->value;
+		ring_buffer_t * buf = dsp->rb;
 		/* ~0x3 is to ensure we don't read partial samples or just a single channel */
 		size_t bytes_left = MIN(ring_buffer_unread(buf) & ~0x3, size);
 		int16_t * adding_ptr = (int16_t *) buffer;
 		while (bytes_left) {
 			size_t this_read_size = MIN(bytes_left, sizeof(tmp_buf));
 			ring_buffer_read(buf, this_read_size, (uint8_t *)tmp_buf);
+			dsp->samples += this_read_size / 4; /* 16 bits, 2 channels */
 			/*
 			 * Reduce the sample by a half so that multiple sources won't immediately
 			 * cause awful clipping. This is kind of a hack since it would probably be
