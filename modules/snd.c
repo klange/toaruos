@@ -22,7 +22,7 @@
 /* Utility macros */
 #define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#define SND_BUF_SIZE 0x1000
+#define SND_BUF_SIZE 0x4000
 
 static uint32_t snd_dsp_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer);
 static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp);
@@ -96,6 +96,7 @@ snd_unregister_cleanup:
 }
 
 static uint32_t snd_dsp_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	if (!_devices.length) return -1; /* No sink available. */
 	return ring_buffer_write(node->device, size, buffer);
 }
 
