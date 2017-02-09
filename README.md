@@ -38,7 +38,7 @@ ToaruOS's userspace is focused on a rich graphical environment, backed by an in-
 
 The userspace depends on a number of third-party libraries which are outside of the development scope of the project. Additionally, several third-party applications and libraries have been integrated into ToaruOS's core userspace, or otherwise ported to ToaruOS.
 
-License for the included third-party tools and libraries can be found [here](hdd/usr/share/licenses).
+License for the included third-party tools and libraries can be found [here](hdd/usr/share/help/licenses).
 
 ## Community ##
 
