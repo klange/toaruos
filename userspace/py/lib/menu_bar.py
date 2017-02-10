@@ -65,7 +65,13 @@ class MenuBarWidget(object):
                     menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width()+offset,self.window.y+self.window.decorator.top_height()+self.height),root=self.window)
                     self.active_menu = menu
                     self.active_entry = e
-                    break
+                elif self.active_menu and self.active_menu in self.window.menus.values() and e != self.active_entry:
+                    self.active_menu.definitely_close()
+                    menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width()+offset,self.window.y+self.window.decorator.top_height()+self.height),root=self.window)
+                    self.active_menu = menu
+                    self.active_entry = e
+                    self.window.draw()
+                break
             offset += w
 
 
