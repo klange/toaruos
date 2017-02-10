@@ -16,7 +16,7 @@
 
 #define PIT_MASK 0xFF
 #define PIT_SCALE 1193180
-#define PIT_SET 0x36
+#define PIT_SET 0x34
 
 #define TIMER_IRQ 0
 
