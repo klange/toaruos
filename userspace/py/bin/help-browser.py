@@ -94,7 +94,10 @@ class HelpBrowserWindow(yutani.Window):
                 return document.split('/')[-1].replace('.trt','').title()
             else:
                 return document
-        path = f'/usr/share/help/{document}'
+        elif document.startswith("file:"):
+            path = document.replace("file:","")
+        else:
+            path = f'/usr/share/help/{document}'
         if not os.path.exists(path):
             return "(file not found)"
         with open(path,'r') as f:
@@ -160,11 +163,13 @@ This is normal text. <b>This is bold text.</b> <i>This is italic text.</i> <b><i
         elif self.current_topic.startswith("http:"):
             # Good luck
             return self.get_cache(self.current_topic)
+        elif self.current_topic.startswith("file:"):
+            path = self.current_topic.replace("file:","")
         else:
             path = f'/usr/share/help/{self.current_topic}'
-            if os.path.exists(path):
-                with open(path,'r') as f:
-                    return f.read()
+        if os.path.exists(path):
+            with open(path,'r') as f:
+                return f.read()
         return f"""
 <h1>Document Not Found</h1>
 
