@@ -444,6 +444,20 @@ netboot.img.gz: _cdrom/ramdisk.img.gz
 fix-cd:
 	$(call fixup-cd)
 
+
+##############
+#  packages  #
+##############
+
+kernel-headers.img.gz: kernel/include
+	@${BEG} "pack" "$@"
+	@rm -rf _kernel
+	@mkdir _kernel
+	@cp -rL kernel/include/* _kernel/
+	@${GENEXT} -B 4096 -d _kernel -U -b 170 $@ ${ERRORS}
+	@rm -r _kernel
+	@${END} "pack" "$@"
+
 ##############
 #    ctags   #
 ##############

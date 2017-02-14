@@ -75,6 +75,7 @@
 /toaruos-big.iso
 /modpack.kop
 /cdrom/
+/kernel-headers.img
 
 # Toolchain
 /toolchain/build
