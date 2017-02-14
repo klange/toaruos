@@ -70,7 +70,6 @@
 /kernel/symbols.S
 /tags
 /toaruos-disk.img
-/netboot.img.gz
 /toaruos-kernel
 /toaruos.iso
 /toaruos-big.iso
