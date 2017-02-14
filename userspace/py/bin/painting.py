@@ -43,6 +43,7 @@ class PaintingWindow(yutani.Window):
         self.picker = None
         self.last_color = (0,0,0)
         self.modifiers = None
+        self.checkpattern = self.checkerboard(24)
 
         def about_window(action):
             AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/applications-painting.png",_description,"applications-painting")
@@ -194,7 +195,7 @@ class PaintingWindow(yutani.Window):
         ctx = cairo.Context(surface)
         ctx.translate(self.decorator.left_width(), self.decorator.top_height())
         ctx.save()
-        ctx.set_source_surface(self.checkerboard(24),0,0)
+        ctx.set_source_surface(self.checkpattern,0,0)
         ctx.get_source().set_filter(cairo.FILTER_NEAREST)
         ctx.get_source().set_extend(cairo.EXTEND_REPEAT)
         ctx.paint()
