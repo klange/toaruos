@@ -45,6 +45,12 @@ class HelpBrowserWindow(yutani.Window):
         self.history = []
         self.history_index = 0
 
+
+        def herp(action):
+            print(action)
+
+        self.history_menu = MenuEntrySubmenu('History...',[MenuEntryDivider()])
+
         def exit_app(action):
             menus = [x for x in self.menus.values()]
             for x in menus:
@@ -64,6 +70,8 @@ class HelpBrowserWindow(yutani.Window):
             ("Go", [
                 MenuEntryAction("Home","home",self.go_page,"0_index.trt"),
                 MenuEntryAction("Topics","bookmark",self.go_page,"special:contents"),
+                MenuEntryDivider(),
+                self.history_menu,
                 MenuEntryAction("Back","back",self.go_back,None),
                 MenuEntryAction("Forward","forward",self.go_forward,None),
             ]),
@@ -85,8 +93,8 @@ class HelpBrowserWindow(yutani.Window):
 
     def get_title(self, document):
         if document.startswith("special:"):
-            if self.current_topic[8:] in self.special:
-                return self.special[self.current_topic[8:]].__doc__
+            if document[8:] in self.special:
+                return self.special[document[8:]].__doc__
             return "???"
         elif document.startswith("http:"):
             if document in self.cache:
@@ -183,11 +191,29 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
 
 """
 
+    def update_history(self):
+        def go_history(action):
+            self.navigate(self.history[action],touch_history=False)
+            self.history_index = action
+            self.update_history()
+        entries = []
+        for x in range(len(self.history)):
+            t = self.get_title(self.history[x])
+            e = MenuEntryAction(t,None,go_history,x)
+            if x == self.history_index:
+                e.title = f'<b>{t}</b>'
+                e.rich = True
+                e.update_text()
+            entries.append(e)
+        entries.reverse()
+        self.history_menu.entries = entries
+
     def navigate(self, target, touch_history=True):
         if touch_history:
             del self.history[self.history_index+1:]
             self.history.append(target)
             self.history_index = len(self.history)-1
+            self.update_history()
         self.current_topic = target
         self.text_offset = 0
         self.scroll_offset = 0
@@ -291,6 +317,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         if self.history and self.history_index > 0:
             self.history_index -= 1
             self.navigate(self.history[self.history_index], touch_history=False)
+            self.update_history()
         self.draw()
 
     def go_forward(self,action):
@@ -298,6 +325,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         if self.history and self.history_index < len(self.history)-1:
             self.history_index += 1
             self.navigate(self.history[self.history_index], touch_history=False)
+            self.update_history()
         self.draw()
 
     def mouse_event(self, msg):
