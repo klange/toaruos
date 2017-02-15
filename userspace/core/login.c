@@ -43,7 +43,6 @@ void sig_segv(int sig) {
 }
 
 int main(int argc, char ** argv) {
-
 	printf("\n");
 	system("uname -a");
 	printf("\n");
