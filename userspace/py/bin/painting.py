@@ -22,6 +22,7 @@ from icon_cache import get_icon
 from about_applet import AboutAppletWindow
 
 from dialog import DialogWindow, OpenFileDialog
+from input_box import TextInputWindow
 
 import yutani_mainloop
 
@@ -65,6 +66,18 @@ class PaintingWindow(yutani.Window):
             self.new_buffer(*action)
             self.draw()
 
+        def new_prompt(action):
+            def input_callback(input_window):
+                width = int(input_window.tr.text)
+                input_window.close()
+                def second_callback(input_window):
+                    height = int(input_window.tr.text)
+                    input_window.close()
+                    new_surface((width,height))
+
+                TextInputWindow(self.decorator,"Height?","new",text="500",callback=second_callback,window=self)
+            TextInputWindow(self.decorator,"Width?","new",text="500",callback=input_callback,window=self)
+
         def save_file(action):
             self.modified = False
             path = '/tmp/painting.png'
@@ -91,6 +104,7 @@ class PaintingWindow(yutani.Window):
                 MenuEntrySubmenu("New...",[
                     MenuEntryAction("500×500","new",new_surface,(500,500)),
                     MenuEntryAction("800×600","new",new_surface,(800,600)),
+                    MenuEntryAction("Custom...","new",new_prompt,None),
                 ],icon="new"),
                 MenuEntryAction("Open","open",open_file,None),
                 MenuEntryAction("Save","save",save_file,None),
