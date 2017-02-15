@@ -30,7 +30,6 @@ class HelpBrowserWindow(yutani.Window):
         super(HelpBrowserWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="help", doublebuffer=True)
         self.move(100,100)
         self.decorator = decorator
-        self.last_topic = None
         self.current_topic = "0_index.trt"
         self.text_buffer = None
         self.text_offset = 0
@@ -43,17 +42,19 @@ class HelpBrowserWindow(yutani.Window):
         self.special['demo'] = self.special_demo
         self.down_text = None
         self.cache = {}
+        self.history = []
+        self.history_index = 0
 
-        def print_derp(derp):
-            print("derp!")
         def exit_app(action):
             menus = [x for x in self.menus.values()]
             for x in menus:
                 x.definitely_close()
             self.close()
             sys.exit(0)
+
         def about_window(action):
             AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/help.png",_description,"help")
+
         menus = [
             ("File", [
                 #MenuEntryAction("Open...",None,print_derp,None),
@@ -64,6 +65,7 @@ class HelpBrowserWindow(yutani.Window):
                 MenuEntryAction("Home","home",self.go_page,"0_index.trt"),
                 MenuEntryAction("Topics","bookmark",self.go_page,"special:contents"),
                 MenuEntryAction("Back","back",self.go_back,None),
+                MenuEntryAction("Forward","forward",self.go_forward,None),
             ]),
             ("Help", [
                 MenuEntryAction("Contents","help",self.go_page,"help_browser.trt"),
@@ -78,6 +80,8 @@ class HelpBrowserWindow(yutani.Window):
         self.hovered_menu = None
 
         self.update_text_buffer()
+        self.navigate("0_index.trt")
+
 
     def get_title(self, document):
         if document.startswith("special:"):
@@ -173,14 +177,17 @@ This is normal text. <b>This is bold text.</b> <i>This is italic text.</i> <b><i
         return f"""
 <h1>Document Not Found</h1>
 
-Uh oh, looks like the help document you tried to open ({self.current_topic}) wasn't available. Do you want to <link target=\"{self.last_topic}\">go back</link> or <link target=\"0_index.trt\">return to the index</link>?
+Uh oh, looks like the help document you tried to open ({self.current_topic}) wasn't available. Do you want to <link target=\"0_index.trt\">return to the index</link>?
 
 You can also <link target=\"special:contents\">check the Table of Contents</link>.
 
 """
 
-    def navigate(self, target):
-        self.last_topic = self.current_topic
+    def navigate(self, target, touch_history=True):
+        if touch_history:
+            del self.history[self.history_index+1:]
+            self.history.append(target)
+            self.history_index = len(self.history)-1
         self.current_topic = target
         self.text_offset = 0
         self.scroll_offset = 0
@@ -281,8 +288,16 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
 
     def go_back(self,action):
         """Go back."""
-        if self.last_topic:
-            self.navigate(self.last_topic)
+        if self.history and self.history_index > 0:
+            self.history_index -= 1
+            self.navigate(self.history[self.history_index], touch_history=False)
+        self.draw()
+
+    def go_forward(self,action):
+        """Go forward."""
+        if self.history and self.history_index < len(self.history)-1:
+            self.history_index += 1
+            self.navigate(self.history[self.history_index], touch_history=False)
         self.draw()
 
     def mouse_event(self, msg):
@@ -303,6 +318,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
                 if not self.menus:
                     menu_entries = [
                         MenuEntryAction("Back","back",self.go_back,None),
+                        MenuEntryAction("Forward","forward",self.go_forward,None),
                     ]
                     menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
         if msg.command == yutani.MouseEvent.DOWN:
