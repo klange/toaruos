@@ -16,6 +16,8 @@ struct netif {
 	uint32_t source;
 
 	char * driver;
+
+	uint32_t gateway;
 };
 
 extern void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func, char * device);

@@ -354,6 +354,7 @@ class NetworkWidget(BaseWidget):
         self.hilighted = False
         self.ip = None
         self.mac = None
+        self.gw = None
         self.device = None
         self.dns = None
         self.last_check = 0
@@ -378,6 +379,7 @@ class NetworkWidget(BaseWidget):
                     _,self.mac = lines[1].strip().split('\t')
                     _,self.device = lines[2].strip().split('\t')
                     _,self.dns = lines[3].strip().split('\t')
+                    _,self.gw = lines[4].strip().split('\t')
 
     def draw(self, window, offset, remaining, ctx):
         self.check()
@@ -401,6 +403,7 @@ class NetworkWidget(BaseWidget):
                 menu_entries = [
                     MenuEntryAction(f"IP: {self.ip}",None,_pass,None),
                     MenuEntryAction(f"Primary DNS: {self.dns}",None,_pass,None),
+                    MenuEntryAction(f"Gateway: {self.gw}",None,_pass,None),
                     MenuEntryAction(f"MAC: {self.mac}",None,_pass,None),
                     MenuEntryAction(f"Device: {self.device}",None,_pass,None),
                 ]

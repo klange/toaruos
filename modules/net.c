@@ -20,6 +20,10 @@ static hashmap_t *_udp_sockets = NULL;
 
 static void parse_dns_response(fs_node_t * tty, void * last_packet);
 static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * queries);
+size_t write_dhcp_request(uint8_t * buffer, uint8_t * ip);
+static size_t write_arp_request(uint8_t * buffer, uint32_t ip);
+
+static uint8_t _gateway[6] = {255,255,255,255,255,255};
 
 static struct netif _netif = {0};
 
@@ -546,7 +550,8 @@ static size_t write_dns_packet(uint8_t * buffer, size_t queries_len, uint8_t * q
 static int net_send_ether(struct socket *socket, struct netif* netif, uint16_t ether_type, void* payload, uint32_t payload_size) {
 	struct ethernet_packet *eth = malloc(sizeof(struct ethernet_packet) + payload_size);
 	memcpy(eth->source, netif->hwaddr, sizeof(eth->source));
-	memset(eth->destination, 0xFF, sizeof(eth->destination));
+	//memset(eth->destination, 0xFF, sizeof(eth->destination));
+	memcpy(eth->destination, _gateway, sizeof(_gateway));
 	eth->type = htons(ether_type);
 
 	if (payload_size) {
@@ -823,6 +828,19 @@ static void net_handle_udp(struct udp_packet * udp, size_t length) {
 		return;
 	}
 
+	if (ntohs(udp->source_port) == 67) {
+		debug_print(WARNING, "UDP response to DHCP!");
+
+		{
+			void * tmp = malloc(1024);
+			size_t packet_size = write_arp_request(tmp, _netif.gateway);
+			_netif.send_packet(tmp, packet_size);
+			free(tmp);
+		}
+
+		return;
+	}
+
 	/* Find socket */
 	if (hashmap_has(_udp_sockets, (void *)ntohs(udp->source_port))) {
 		/* Do the thing */
@@ -888,22 +906,28 @@ int net_connect(struct socket* socket, uint32_t dest_ip, uint16_t dest_port) {
 }
 
 static void placeholder_dhcp(void) {
-	debug_print(NOTICE, "Sending DHCP discover\n");
+	debug_print(NOTICE, "Sending DHCP discover");
 	void * tmp = malloc(1024);
 	size_t packet_size = write_dhcp_packet(tmp);
 	_netif.send_packet(tmp, packet_size);
 	free(tmp);
 
-	{
+	while (1) {
 		struct ethernet_packet * eth = (struct ethernet_packet *)_netif.get_packet();
 		uint16_t eth_type = ntohs(eth->type);
 
-		debug_print(NOTICE, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x)\n",
+		debug_print(NOTICE, "Ethernet II, Src: (%2x:%2x:%2x:%2x:%2x:%2x), Dst: (%2x:%2x:%2x:%2x:%2x:%2x) [type=%4x])",
 				eth->source[0], eth->source[1], eth->source[2],
 				eth->source[3], eth->source[4], eth->source[5],
 				eth->destination[0], eth->destination[1], eth->destination[2],
 				eth->destination[3], eth->destination[4], eth->destination[5],
 				eth_type);
+
+		if (eth_type != 0x0800) {
+			debug_print(WARNING, "ARP packet while waiting for DHCP...");
+			free(eth);
+			continue;
+		}
 
 
 		struct ipv4_packet * ipv4 = (struct ipv4_packet *)eth->payload;
@@ -917,23 +941,37 @@ static void placeholder_dhcp(void) {
 		ip_ntoa(src_addr, src_ip);
 		ip_ntoa(dst_addr, dst_ip);
 
-		debug_print(NOTICE, "IP packet [%s → %s] length=%d bytes\n",
+		debug_print(NOTICE, "IP packet [%s → %s] length=%d bytes",
 				src_ip, dst_ip, length);
+
+		if (ipv4->protocol != IPV4_PROT_UDP) {
+			debug_print(WARNING, "Protocol: %d", ipv4->protocol);
+			debug_print(WARNING, "Bad packet...");
+			free(eth);
+			continue;
+		}
 
 		struct udp_packet * udp = (struct udp_packet *)ipv4->payload;;
 		uint16_t src_port = ntohs(udp->source_port);
 		uint16_t dst_port = ntohs(udp->destination_port);
 		uint16_t udp_len  = ntohs(udp->length);
 
-		debug_print(NOTICE, "UDP [%d → %d] length=%d bytes\n",
+		debug_print(NOTICE, "UDP [%d → %d] length=%d bytes",
 				src_port, dst_port, udp_len);
+
+		if (dst_port != 68) {
+			debug_print(WARNING, "Destination port: %d", dst_port);
+			debug_print(WARNING, "Bad packet...");
+			free(eth);
+			continue;
+		}
 
 		struct dhcp_packet * dhcp = (struct dhcp_packet *)udp->payload;
 		uint32_t yiaddr = ntohl(dhcp->yiaddr);
 
 		char yiaddr_ip[16];
 		ip_ntoa(yiaddr, yiaddr_ip);
-		debug_print(NOTICE,  "DHCP Offer: %s\n", yiaddr_ip);
+		debug_print(NOTICE,  "DHCP Offer: %s", yiaddr_ip);
 
 		_netif.source = yiaddr;
 
@@ -956,14 +994,194 @@ static void placeholder_dhcp(void) {
 				ip_ntoa(dnsaddr, ip);
 				debug_print(NOTICE, "Found one: %s", ip);
 				_dns_server = dnsaddr;
+			} else if (type == 3) {
+				_netif.gateway = ntohl(*(uint32_t *)data);
 			}
 
 			j += 2 + len;
 			i += 2 + len;
 		}
 
+		debug_print(NOTICE, "Sending DHCP Request...");
+		void * tmp = malloc(1024);
+		size_t packet_size = write_dhcp_request(tmp, (uint8_t *)&dhcp->yiaddr);
+		_netif.send_packet(tmp, packet_size);
+		free(tmp);
 
 		free(eth);
+
+		break;
+	}
+
+}
+
+struct arp {
+	uint16_t htype;
+	uint16_t proto;
+
+	uint8_t hlen;
+	uint8_t plen;
+
+	uint16_t oper;
+
+	uint8_t sender_ha[6];
+	uint32_t sender_ip;
+	uint8_t target_ha[6];
+	uint32_t target_ip;
+
+	uint8_t padding[18];
+} __attribute__((packed));
+
+static size_t write_arp_response(uint8_t * buffer, struct arp * source) {
+	size_t offset = 0;
+
+	/* Then, let's write an ethernet frame */
+	struct ethernet_packet eth_out = {
+		.source = { _netif.hwaddr[0], _netif.hwaddr[1], _netif.hwaddr[2],
+		            _netif.hwaddr[3], _netif.hwaddr[4], _netif.hwaddr[5] },
+		.destination = BROADCAST_MAC,
+		.type = htons(0x0806),
+	};
+
+	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
+	offset += sizeof(struct ethernet_packet);
+
+	struct arp arp_out;
+
+	arp_out.htype = source->htype;
+	arp_out.proto = source->proto;
+
+	arp_out.hlen = 6;
+	arp_out.plen = 4;
+	arp_out.oper = ntohs(2);
+
+	arp_out.sender_ha[0] = _netif.hwaddr[0];
+	arp_out.sender_ha[1] = _netif.hwaddr[1];
+	arp_out.sender_ha[2] = _netif.hwaddr[2];
+	arp_out.sender_ha[3] = _netif.hwaddr[3];
+	arp_out.sender_ha[4] = _netif.hwaddr[4];
+	arp_out.sender_ha[5] = _netif.hwaddr[5];
+	arp_out.sender_ip = ntohl(_netif.source);
+
+	arp_out.target_ha[0] = source->sender_ha[0];
+	arp_out.target_ha[1] = source->sender_ha[1];
+	arp_out.target_ha[2] = source->sender_ha[2];
+	arp_out.target_ha[3] = source->sender_ha[3];
+	arp_out.target_ha[4] = source->sender_ha[4];
+	arp_out.target_ha[5] = source->sender_ha[5];
+
+	arp_out.target_ip = source->sender_ip;
+
+	memcpy(&buffer[offset], &arp_out, sizeof(struct arp));
+	offset += sizeof(struct arp);
+
+	return offset;
+}
+
+static size_t write_arp_request(uint8_t * buffer, uint32_t ip) {
+	size_t offset = 0;
+
+	debug_print(WARNING, "Request ARP from gateway address %x", ip);
+
+	/* Then, let's write an ethernet frame */
+	struct ethernet_packet eth_out = {
+		.source = { _netif.hwaddr[0], _netif.hwaddr[1], _netif.hwaddr[2],
+		            _netif.hwaddr[3], _netif.hwaddr[4], _netif.hwaddr[5] },
+		.destination = BROADCAST_MAC,
+		.type = htons(0x0806),
+	};
+
+	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
+	offset += sizeof(struct ethernet_packet);
+
+	struct arp arp_out;
+
+	arp_out.htype = ntohs(1);
+
+	debug_print(WARNING, "Request ARP from gateway address %x", ip);
+	arp_out.proto = ntohs(0x0800);
+
+	arp_out.hlen = 6;
+	arp_out.plen = 4;
+	arp_out.oper = ntohs(1);
+
+	arp_out.sender_ha[0] = _netif.hwaddr[0];
+	arp_out.sender_ha[1] = _netif.hwaddr[1];
+	arp_out.sender_ha[2] = _netif.hwaddr[2];
+	arp_out.sender_ha[3] = _netif.hwaddr[3];
+	arp_out.sender_ha[4] = _netif.hwaddr[4];
+	arp_out.sender_ha[5] = _netif.hwaddr[5];
+	arp_out.sender_ip = ntohl(_netif.source);
+
+	arp_out.target_ha[0] = 0;
+	arp_out.target_ha[1] = 0;
+	arp_out.target_ha[2] = 0;
+	arp_out.target_ha[3] = 0;
+	arp_out.target_ha[4] = 0;
+	arp_out.target_ha[5] = 0;
+
+	arp_out.target_ip = ntohl(ip);
+
+	memcpy(&buffer[offset], &arp_out, sizeof(struct arp));
+	offset += sizeof(struct arp);
+
+	return offset;
+}
+
+
+static void net_handle_arp(struct ethernet_packet * eth) {
+	debug_print(WARNING, "ARP packet...");
+
+	struct arp * arp = (struct arp *)&eth->payload;
+
+	char sender_ip[16];
+	char target_ip[16];
+
+	ip_ntoa(ntohl(arp->sender_ip), sender_ip);
+	ip_ntoa(ntohl(arp->target_ip), target_ip);
+
+	debug_print(WARNING, "%2x:%2x:%2x:%2x:%2x:%2x (%s) → %2x:%2x:%2x:%2x:%2x:%2x (%s) is",
+		arp->sender_ha[0],
+		arp->sender_ha[1],
+		arp->sender_ha[2],
+		arp->sender_ha[3],
+		arp->sender_ha[4],
+		arp->sender_ha[5],
+		sender_ip,
+		arp->target_ha[0],
+		arp->target_ha[1],
+		arp->target_ha[2],
+		arp->target_ha[3],
+		arp->target_ha[4],
+		arp->target_ha[5],
+		target_ip);
+
+	if (ntohs(arp->oper) == 1) {
+
+		if (ntohl(arp->target_ip) == _netif.source) {
+			debug_print(WARNING, "That's us!");
+
+			{
+				void * tmp = malloc(1024);
+				size_t packet_size = write_arp_response(tmp, arp);
+				_netif.send_packet(tmp, packet_size);
+				free(tmp);
+			}
+
+		}
+
+	} else {
+		if (ntohl(arp->target_ip) == _netif.source) {
+			debug_print(WARNING, "It's a response to our query!");
+			_gateway[0] = arp->sender_ha[0];
+			_gateway[1] = arp->sender_ha[1];
+			_gateway[2] = arp->sender_ha[2];
+			_gateway[3] = arp->sender_ha[3];
+			_gateway[4] = arp->sender_ha[4];
+			_gateway[5] = arp->sender_ha[5];
+		} else {
+			debug_print(WARNING, "Response to someone else...\n");
+		}
 	}
 
 }
@@ -991,7 +1209,7 @@ void net_handler(void * data, char * name) {
 				net_handle_ipv4((struct ipv4_packet *)eth->payload);
 				break;
 			case ETHERNET_TYPE_ARP:
-				// net_handle_arp(eth);
+				net_handle_arp(eth);
 				break;
 		}
 
@@ -1095,6 +1313,107 @@ size_t write_dhcp_packet(uint8_t * buffer) {
 
 	return offset;
 }
+
+size_t write_dhcp_request(uint8_t * buffer, uint8_t * ip) {
+	size_t offset = 0;
+	size_t payload_size = sizeof(struct dhcp_packet);
+
+	/* First, let's figure out how big this is supposed to be... */
+
+	uint8_t dhcp_options[] = {
+		53, /* Message type */
+		1,  /* Length: 1 */
+		3,  /* Request */
+		50,
+		4,  /* requested ip */
+		ip[0],ip[1],ip[2],ip[3],
+		255, /* END */
+	};
+
+	payload_size += sizeof(dhcp_options);
+
+	/* Then, let's write an ethernet frame */
+	struct ethernet_packet eth_out = {
+		.source = { _netif.hwaddr[0], _netif.hwaddr[1], _netif.hwaddr[2],
+		            _netif.hwaddr[3], _netif.hwaddr[4], _netif.hwaddr[5] },
+		.destination = BROADCAST_MAC,
+		.type = htons(0x0800),
+	};
+
+	memcpy(&buffer[offset], &eth_out, sizeof(struct ethernet_packet));
+	offset += sizeof(struct ethernet_packet);
+
+	/* Prepare the IPv4 header */
+	uint16_t _length = htons(sizeof(struct ipv4_packet) + sizeof(struct udp_packet) + payload_size);
+	uint16_t _ident  = htons(1);
+
+	struct ipv4_packet ipv4_out = {
+		.version_ihl = ((0x4 << 4) | (0x5 << 0)), /* 4 = ipv4, 5 = no options */
+		.dscp_ecn = 0, /* not setting either of those */
+		.length = _length,
+		.ident = _ident,
+		.flags_fragment = 0,
+		.ttl = 0x40,
+		.protocol = IPV4_PROT_UDP,
+		.checksum = 0, /* fill this in later */
+		.source = htonl(ip_aton("0.0.0.0")),
+		.destination = htonl(ip_aton("255.255.255.255")),
+	};
+
+	uint16_t checksum = calculate_ipv4_checksum(&ipv4_out);
+	ipv4_out.checksum = htons(checksum);
+
+	memcpy(&buffer[offset], &ipv4_out, sizeof(struct ipv4_packet));
+	offset += sizeof(struct ipv4_packet);
+
+	uint16_t _udp_source = htons(68);
+	uint16_t _udp_destination = htons(67);
+	uint16_t _udp_length = htons(sizeof(struct udp_packet) + payload_size);
+
+	/* Now let's build a UDP packet */
+	struct udp_packet udp_out = {
+		.source_port = _udp_source,
+		.destination_port = _udp_destination,
+		.length = _udp_length,
+		.checksum = 0,
+	};
+
+	/* XXX calculate checksum here */
+
+	memcpy(&buffer[offset], &udp_out, sizeof(struct udp_packet));
+	offset += sizeof(struct udp_packet);
+
+	/* BOOTP headers */
+	struct dhcp_packet bootp_out = {
+		.op = 1,
+		.htype = 1,
+		.hlen = 6, /* mac address... */
+		.hops = 0,
+		.xid = htonl(0x1337), /* transaction id */
+		.secs = 0,
+		.flags = 0,
+
+		.ciaddr = 0x000000,
+		.yiaddr = 0x000000,
+		.siaddr = 0x000000,
+		.giaddr = 0x000000,
+
+		.chaddr = { _netif.hwaddr[0], _netif.hwaddr[1], _netif.hwaddr[2],
+		            _netif.hwaddr[3], _netif.hwaddr[4], _netif.hwaddr[5] },
+		.sname = {0},
+		.file = {0},
+		.magic = htonl(DHCP_MAGIC),
+	};
+
+	memcpy(&buffer[offset], &bootp_out, sizeof(struct dhcp_packet));
+	offset += sizeof(struct dhcp_packet);
+
+	memcpy(&buffer[offset], &dhcp_options, sizeof(dhcp_options));
+	offset += sizeof(dhcp_options);
+
+	return offset;
+}
+
 
 static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 	struct udp_packet * udp = (struct udp_packet *)last_packet;
