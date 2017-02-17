@@ -11,15 +11,11 @@
 #include <printf.h>
 #include <types.h>
 #include <logging.h>
-#include <pci.h>
 #include <module.h>
 #include <video.h>
 #include <pipe.h>
 #include <mouse.h>
 #include <args.h>
-
-#define VMWARE_VENDOR_ID 0x15AD
-#define VMWARE_DEVICE_ID 0x0405
 
 #define VMWARE_MAGIC 0x564D5868
 #define VMWARE_PORT  0x5658
@@ -54,12 +50,6 @@ typedef struct {
 	uint32_t si;
 	uint32_t di;
 } vmware_cmd;
-
-static void vbox_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
-	if (v == VMWARE_VENDOR_ID && d == VMWARE_DEVICE_ID) {
-		*((uint32_t *)extra) = device;
-	}
-}
 
 static void vmware_io(vmware_cmd * cmd) {
 	uint32_t dummy;
@@ -199,7 +189,7 @@ static void vmware_mouse(void) {
 
 }
 
-static int try_anyway(void) {
+static int detect_device(void) {
 	vmware_cmd cmd;
 	cmd.bx = ~VMWARE_MAGIC;
 	cmd.command = 10;
@@ -212,16 +202,32 @@ static int try_anyway(void) {
 	return 1;
 }
 
-static int init(void) {
-	int has_device = 0;
-	pci_scan(vbox_scan_pci, -1, &has_device);
+static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
+	if (request == 1) {
+		/* Disable */
+		mouse_off();
+		ps2_mouse_alternate = NULL;
+		return 0;
+	}
+	if (request == 2) {
+		ps2_mouse_alternate = vmware_mouse;
+		mouse_on();
+		mouse_absolute();
+		return 0;
+	}
+	return -1;
+}
 
-	if (has_device || try_anyway()) {
+static int init(void) {
+	if (detect_device()) {
 
 		mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 		mouse_pipe->flags = FS_CHARDEVICE;
 
 		vfs_mount("/dev/vmmouse", mouse_pipe);
+
+		mouse_pipe->flags = FS_CHARDEVICE;
+		mouse_pipe->ioctl = ioctl_mouse;
 
 		ps2_mouse_alternate = vmware_mouse;
 
