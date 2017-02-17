@@ -201,22 +201,35 @@ class PaintingWindow(yutani.Window):
         c.fill()
         return s
 
-    def draw(self):
+    def draw(self,decor=True,menu=True,clips=None):
         surface = self.get_cairo_surface()
 
         WIDTH, HEIGHT = self.width - self.decorator.width(), self.height - self.decorator.height()
 
         ctx = cairo.Context(surface)
         ctx.translate(self.decorator.left_width(), self.decorator.top_height())
+
+        if clips:
+            for clip in clips:
+                x,y,a,b = clip
+                width = a - x
+                height = b - y
+                ctx.rectangle(x,y,width,height)
+            ctx.clip()
+
         ctx.save()
         ctx.set_source_surface(self.checkpattern,0,0)
         ctx.get_source().set_filter(cairo.FILTER_NEAREST)
         ctx.get_source().set_extend(cairo.EXTEND_REPEAT)
-        ctx.paint()
+        ctx.rectangle(0,self.menubar.height,WIDTH,HEIGHT-self.menubar.height)
+        ctx.fill()
         ctx.restore()
 
         ctx.save()
         ctx.translate(0,self.menubar.height)
+        ctx.rectangle(0,0,WIDTH,HEIGHT-self.menubar.height)
+        ctx.clip()
+
 
         ctx.save()
         ctx.scale(self.scale,self.scale)
@@ -239,9 +252,22 @@ class PaintingWindow(yutani.Window):
         ctx.restore()
         ctx.restore()
 
-        self.menubar.draw(ctx,0,0,WIDTH)
+        # For debugging clip regions.
+        #if clips:
+        #    for clip in clips:
+        #        x,y,a,b = clip
+        #        width = a - x
+        #        height = b - y
+        #        ctx.rectangle(x,y,width,height)
+        #        ctx.set_source_rgba(1.0,0,0,0.4)
+        #        ctx.paint()
 
-        self.decorator.render(self)
+        if menu:
+            self.menubar.draw(ctx,0,0,WIDTH)
+
+        if decor:
+            self.decorator.render(self)
+
         self.flip()
 
     def finish_resize(self, msg):
@@ -272,8 +298,6 @@ class PaintingWindow(yutani.Window):
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
 
         if not self.was_drawing:
-            self.curs_x = None
-            self.curs_y = None
             if x >= 0 and x < w and y >= 0 and y < self.menubar.height:
                 self.menubar.mouse_event(msg, x, y)
                 return
@@ -297,6 +321,9 @@ class PaintingWindow(yutani.Window):
 
             if y < 0: return
 
+        decor = False
+        regions = []
+
         if not self.modifiers:
             if msg.buttons & yutani.MouseButton.SCROLL_UP:
                 self.line_width *= 1.2
@@ -305,13 +332,12 @@ class PaintingWindow(yutani.Window):
         elif self.modifiers & yutani.Modifier.MOD_LEFT_CTRL:
             if msg.buttons & yutani.MouseButton.SCROLL_UP:
                 self.scale += 0.1
+                regions.append((0,0,w,h))
             elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
                 self.scale -= 0.1
                 if self.scale < 0.1:
                     self.scale = 0.1
-
-
-        redraw = False
+                regions.append((0,0,w,h))
 
         if not (msg.buttons & yutani.MouseButton.BUTTON_LEFT):
             self.was_drawing = False
@@ -321,10 +347,33 @@ class PaintingWindow(yutani.Window):
                 self.initial = msg.new_x, msg.new_y
                 self.initial_off = self.offset_x, self.offset_y
                 self.moving = True
+            regions.append(
+                (
+                    self.offset_x,
+                    self.offset_y+self.menubar.height,
+                    self.offset_x+int(self.buf.width*self.scale),
+                    self.offset_y+self.menubar.height+int(self.buf.height*self.scale)
+                )
+            )
             self.offset_x = self.initial_off[0] + msg.new_x - self.initial[0]
             self.offset_y = self.initial_off[1] + msg.new_y - self.initial[1]
+            regions.append(
+                (
+                    self.offset_x,
+                    self.offset_y+self.menubar.height,
+                    self.offset_x+int(self.buf.width*self.scale),
+                    self.offset_y+self.menubar.height+int(self.buf.height*self.scale)
+                )
+            )
         else:
             self.moving = False
+
+
+        cur_x_new = msg.new_x - self.decorator.left_width()
+        cur_y_new = msg.new_y - self.decorator.top_height()
+
+        cur_x_old = msg.old_x - self.decorator.left_width()
+        cur_y_old = msg.old_y - self.decorator.top_height()
 
         if (msg.command == yutani.MouseEvent.DRAG or msg.command == yutani.MouseEvent.DOWN) and msg.buttons & yutani.MouseButton.BUTTON_LEFT:
             self.was_drawing = True
@@ -332,26 +381,62 @@ class PaintingWindow(yutani.Window):
             self.draw_ctx.set_line_join(cairo.LINE_JOIN_ROUND)
             self.draw_ctx.set_source_rgb(*self.color())
             self.draw_ctx.set_line_width(self.line_width)
-            x_1 = 0.5 + (msg.new_x - self.decorator.left_width() - self.offset_x) / self.scale
-            y_1 = 0.5 + (msg.new_y - self.decorator.top_height() - self.offset_y - self.menubar.height) / self.scale
+
+            x_1 = 0.5 + (cur_x_new - self.offset_x) / self.scale
+            y_1 = 0.5 + (cur_y_new - self.offset_y - self.menubar.height) / self.scale
             if msg.command == yutani.MouseEvent.DOWN:
                 x_0 = x_1
                 y_0 = y_1
+                regions.append(
+                    (
+                        int(cur_x_new - self.line_width * self.scale),
+                        int(cur_y_new - self.line_width * self.scale),
+                        int(cur_x_new + self.line_width * self.scale),
+                        int(cur_y_new + self.line_width * self.scale),
+                    )
+                )
             else:
-                x_0 = 0.5 + (msg.old_x - self.decorator.left_width() - self.offset_x) / self.scale
-                y_0 = 0.5 + (msg.old_y - self.decorator.top_height() - self.offset_y - self.menubar.height) / self.scale
+                x_0 = 0.5 + (cur_x_old - self.offset_x) / self.scale
+                y_0 = 0.5 + (cur_y_old - self.offset_y - self.menubar.height) / self.scale
+                regions.append(
+                    (
+                        int(min(cur_x_new,cur_x_old) - self.line_width * self.scale),
+                        int(min(cur_y_new,cur_y_old) - self.line_width * self.scale),
+                        int(max(cur_x_new,cur_x_old) + self.line_width * self.scale),
+                        int(max(cur_y_new,cur_y_old) + self.line_width * self.scale),
+                    )
+                )
+
             self.draw_ctx.move_to(x_0,y_0)
             self.draw_ctx.line_to(x_1,y_1)
             self.draw_ctx.stroke()
             if not self.modified:
                 self.modified = True
                 self.set_title("*" + self.title, self.icon)
+                decor = True
+        else:
+            regions.append(
+                (
+                    int(cur_x_new - self.line_width * self.scale),
+                    int(cur_y_new - self.line_width * self.scale),
+                    int(cur_x_new + self.line_width * self.scale),
+                    int(cur_y_new + self.line_width * self.scale),
+                )
+            )
 
 
-
+        if self.curs_x:
+            regions.append(
+                (
+                    int(self.curs_x - self.line_width * self.scale - 1.0),
+                    int(self.curs_y - self.line_width * self.scale + self.menubar.height - 1.0),
+                    int(self.curs_x + self.line_width * self.scale + 1.0),
+                    int(self.curs_y + self.line_width * self.scale + self.menubar.height + 1.0),
+                )
+            )
         self.curs_x = 0.5+msg.new_x - self.decorator.left_width()
         self.curs_y = 0.5+msg.new_y - self.decorator.top_height() - self.menubar.height
-        self.draw()
+        self.draw(menu=False,decor=decor,clips=regions)
 
     def keyboard_event(self, msg):
         self.modifiers = msg.event.modifiers
