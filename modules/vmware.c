@@ -1,9 +1,15 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2016 Kevin Lange
+ * Copyright (C) 2017 Kevin Lange
  *
- * VirtualBox Guest Additions driver
+ * VMWare absolute mouse driver.
+ *
+ * This device is also available by default in QEMU.
+ *
+ * Toggle off / back on with ioctl 1 and 2 respectively to /dev/vmmouse.
+ *
+ * Actually supports mouse buttons, unlike the one in VirtualBox.
  */
 
 #include <system.h>
@@ -54,18 +60,20 @@ typedef struct {
 static void vmware_io(vmware_cmd * cmd) {
 	uint32_t dummy;
 
+	/* Now how's THAT for a VM backdoor... */
+
 	asm volatile(
 			"pushl %%ebx\n"
 			"pushl %%eax\n"
-			"movl 20(%%eax), %%edi\n"
+			"movl 20(%%eax), %%edi\n" /* Load data into registers */
 			"movl 16(%%eax), %%esi\n"
 			"movl 12(%%eax), %%edx\n"
 			"movl  8(%%eax), %%ecx\n"
 			"movl  4(%%eax), %%ebx\n"
 			"movl   (%%eax), %%eax\n"
-			"inl %%dx, %%eax\n"
+			"inl %%dx, %%eax\n"       /* Then trip a magic i/o port */
 			"xchgl %%eax, (%%esp)\n"
-			"movl %%edi, 20(%%eax)\n"
+			"movl %%edi, 20(%%eax)\n" /* Data also comes back out by registers */
 			"movl %%esi, 16(%%eax)\n"
 			"movl %%edx, 12(%%eax)\n"
 			"movl %%ecx,  8(%%eax)\n"
@@ -74,7 +82,7 @@ static void vmware_io(vmware_cmd * cmd) {
 			"popl %%ebx\n"
 			: "=a"(dummy)
 			: "0"(cmd)
-			: "ecx", "edx", "esi", "edi", "memory"
+			: "ecx", "edx", "esi", "edi", "memory" /* And vmware / qemu could trash anything they desire... */
 	);
 }
 
@@ -107,6 +115,7 @@ static void mouse_on(void) {
 }
 
 static void mouse_off(void) {
+	/* Disable the absolute mouse */
 	vmware_cmd cmd;
 	cmd.bx = 0xf5;
 	cmd.command = 41;
@@ -114,6 +123,15 @@ static void mouse_off(void) {
 }
 
 static void mouse_absolute(void) {
+	/*
+	 * Set the mouse to absolute.
+	 *
+	 * You can also set a relative mode, but there's not
+	 * a lot of use in that as disabling the device just
+	 * falls back to the PS/2 (or USB, I guess) device anyway,
+	 * so instead of using that we just... turn it off.
+	 */
+
 	vmware_cmd cmd;
 	cmd.bx = 0x53424152; /* request absolute */
 	cmd.command = 41; /* request for abs/rel */
@@ -123,15 +141,17 @@ static void mouse_absolute(void) {
 volatile int8_t vmware_mouse_byte;
 
 static void vmware_mouse(void) {
-	/* unused */
+	/* unused, but we need to read the fake mouse event bytes from the PS/2 device. */
 	vmware_mouse_byte = inportb(0x60);
 
+	/* Read status byte. */
 	vmware_cmd cmd;
 	cmd.bx = 0;
 	cmd.command = 40;
 	vmware_send(&cmd);
 
 	if (cmd.ax == 0xffff0000) {
+		/* Device error; turn it off and back on again. */
 		mouse_off();
 		mouse_on();
 		mouse_absolute();
@@ -141,13 +161,19 @@ static void vmware_mouse(void) {
 	int words = cmd.ax & 0xFFFF;
 
 	if (!words || words % 4) {
+		/* If we don't have data, or for some reason data isn't a multiple of 4... bail */
 		return;
 	}
 
-	cmd.bx = 4;
-	cmd.command = 39;
+	/* Read 4 bytes of data */
+	cmd.bx = 4; /* how many */
+	cmd.command = 39; /* read */
 	vmware_send(&cmd);
 
+	/*
+	 * I guess the flags tell you if this was relative or absolute, so if we
+	 * actually used the relative mode, we'd want to check that, but...
+	 */
 	int flags   = (cmd.ax & 0xFFFF0000) >> 16;
 	int buttons = (cmd.ax & 0x0000FFFF);
 
@@ -155,6 +181,11 @@ static void vmware_mouse(void) {
 	debug_print(WARNING, "x=%x y=%x z=%x", cmd.bx, cmd.cx, cmd.dx);
 
 	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y) {
+		/*
+		 * Just like the virtualbox stuff, this is based on a mapping
+		 * to the display resolution, independently scaled in
+		 * each dimension...
+		 */
 		unsigned int x = ((unsigned int)cmd.bx * lfb_resolution_x) / 0xFFFF;
 		unsigned int y = ((unsigned int)cmd.cx * lfb_resolution_y) / 0xFFFF;
 
@@ -164,6 +195,7 @@ static void vmware_mouse(void) {
 		packet.y_difference = y;
 		packet.buttons = 0;
 
+		/* The particular bits for the buttons seem weird, but okay... */
 		if (buttons & 0x20) {
 			packet.buttons |= LEFT_CLICK;
 		}
@@ -174,6 +206,7 @@ static void vmware_mouse(void) {
 			packet.buttons |= MIDDLE_CLICK;
 		}
 
+		/* dx = z = scroll amount */
 		if ((int)cmd.dx > 0) {
 			packet.buttons |= MOUSE_SCROLL_DOWN;
 		} else if ((int)cmd.dx < 0) {
@@ -191,14 +224,18 @@ static void vmware_mouse(void) {
 
 static int detect_device(void) {
 	vmware_cmd cmd;
+
+	/* read version */
 	cmd.bx = ~VMWARE_MAGIC;
 	cmd.command = 10;
 	vmware_send(&cmd);
 
 	if (cmd.bx != VMWARE_MAGIC || cmd.ax == 0xFFFFFFFF) {
+		/* Not a vmware device... */
 		return 0;
 	}
 
+	/* Good to go! */
 	return 1;
 }
 
@@ -210,6 +247,7 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 		return 0;
 	}
 	if (request == 2) {
+		/* Enable */
 		ps2_mouse_alternate = vmware_mouse;
 		mouse_on();
 		mouse_absolute();
@@ -229,6 +267,11 @@ static int init(void) {
 		mouse_pipe->flags = FS_CHARDEVICE;
 		mouse_pipe->ioctl = ioctl_mouse;
 
+		/*
+		 * We have a hack in the PS/2 mouse driver that lets us
+		 * take over for the normal mouse driver and essential
+		 * intercept the interrputs when they are valid.
+		 */
 		ps2_mouse_alternate = vmware_mouse;
 
 		mouse_on();
@@ -244,5 +287,5 @@ static int fini(void) {
 }
 
 MODULE_DEF(vmmware, init, fini);
-MODULE_DEPENDS(ps2mouse);
-MODULE_DEPENDS(lfbvideo);
+MODULE_DEPENDS(ps2mouse); /* For ps2_mouse_alternate */
+MODULE_DEPENDS(lfbvideo); /* For lfb resolution */
