@@ -235,7 +235,10 @@ class VolumeWidget(BaseWidget):
             tmp.rectangle(0,0,24,24)
             tmp.set_source_rgb(*self.hilight_color)
             tmp.paint()
-        self.mixer_fd = open('/dev/mixer')
+        try:
+            self.mixer_fd = open('/dev/mixer')
+        except:
+            self.mixer_fd = None
         self.volume = self.get_volume()
         self.muted = False
         self.previous_volume = 0
