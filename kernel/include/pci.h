@@ -22,7 +22,7 @@
 
 #define PCI_INTERRUPT_LINE       0x3C // 1
 
-#define PCI_SECONDARY_BUS        0x09 // 1
+#define PCI_SECONDARY_BUS        0x19 // 1
 
 #define PCI_HEADER_TYPE_DEVICE  0
 #define PCI_HEADER_TYPE_BRIDGE  1
