@@ -2099,6 +2099,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	int fds[4], mfd, kfd, amfd;
+	int vmmouse = 0;
 	mouse_device_packet_t packet;
 	key_event_t event;
 	key_event_state_t state = {0};
@@ -2111,6 +2112,10 @@ int main(int argc, char * argv[]) {
 		mfd = open("/dev/mouse", O_RDONLY);
 		kfd = open("/dev/kbd", O_RDONLY);
 		amfd = open("/dev/absmouse", O_RDONLY);
+		if (amfd == -1) {
+			amfd = open("/dev/vmmouse", O_RDONLY);
+			vmmouse = 1;
+		}
 
 		fds[1] = mfd;
 		fds[2] = kfd;
@@ -2199,7 +2204,11 @@ int main(int argc, char * argv[]) {
 			} else if (index == 3) {
 				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
-					packet.buttons = yg->last_mouse_buttons & 0xF;
+					if (!vmmouse) {
+						packet.buttons = yg->last_mouse_buttons & 0xF;
+					} else {
+						yg->last_mouse_buttons = packet.buttons;
+					}
 					yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
 					free(m);

@@ -37,6 +37,8 @@ static int8_t mouse_mode = MOUSE_DEFAULT;
 
 static fs_node_t * mouse_pipe;
 
+void (*ps2_mouse_alternate)(void) = NULL;
+
 static void mouse_wait(uint8_t a_type) {
 	uint32_t timeout = 100000;
 	if (!a_type) {
@@ -74,6 +76,10 @@ static uint8_t mouse_read(void) {
 static int mouse_handler(struct regs *r) {
 	uint8_t status = inportb(MOUSE_STATUS);
 	while ((status & MOUSE_BBIT) && (status & MOUSE_F_BIT)) {
+		if (ps2_mouse_alternate) {
+			ps2_mouse_alternate();
+			break;
+		}
 		int8_t mouse_in = inportb(MOUSE_PORT);
 		switch (mouse_cycle) {
 			case 0:
