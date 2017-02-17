@@ -394,6 +394,7 @@ static uint32_t vmware_read(int reg) {
 }
 
 static void vmware_set_mode(uint16_t w, uint16_t h) {
+	w = w & ~1;
 	vmware_write(SVGA_REG_ENABLE, 0);
 	vmware_write(SVGA_REG_ID, 0);
 	vmware_write(SVGA_REG_WIDTH, w);
@@ -428,7 +429,7 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 	uint32_t fb_addr = vmware_read(SVGA_REG_FB_START);
 	debug_print(WARNING, "vmware fb address: 0x%x", fb_addr);
 
-	uint32_t fb_size = vmware_read(16);
+	uint32_t fb_size = vmware_read(15);
 
 	debug_print(WARNING, "vmware fb size: 0x%x", fb_size);
 
