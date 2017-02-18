@@ -423,20 +423,23 @@ class NetworkWidget(BaseWidget):
     def focus_leave(self):
         self.hilighted = False
 
+    def update(self):
+        self.last_check = current_time
+        with open('/proc/netif','r') as f:
+            lines = f.readlines()
+            if len(lines) < 4 or "no network" in lines[0]:
+                self.status = 0
+            else:
+                self.status = 1
+                _,self.ip = lines[0].strip().split('\t')
+                _,self.mac = lines[1].strip().split('\t')
+                _,self.device = lines[2].strip().split('\t')
+                _,self.dns = lines[3].strip().split('\t')
+                _,self.gw = lines[4].strip().split('\t')
+
     def check(self):
         if current_time - self.last_check > self.check_time:
-            self.last_check = current_time
-            with open('/proc/netif','r') as f:
-                lines = f.readlines()
-                if len(lines) < 4 or "no network" in lines[0]:
-                    self.status = 0
-                else:
-                    self.status = 1
-                    _,self.ip = lines[0].strip().split('\t')
-                    _,self.mac = lines[1].strip().split('\t')
-                    _,self.device = lines[2].strip().split('\t')
-                    _,self.dns = lines[3].strip().split('\t')
-                    _,self.gw = lines[4].strip().split('\t')
+            self.update()
 
     def draw(self, window, offset, remaining, ctx):
         self.check()
@@ -456,6 +459,7 @@ class NetworkWidget(BaseWidget):
         if msg.command == yutani.MouseEvent.CLICK:
             def _pass(action):
                 pass
+            self.update()
             if self.status == 1:
                 menu_entries = [
                     MenuEntryAction(f"IP: {self.ip}",None,_pass,None),
