@@ -1173,12 +1173,14 @@ static void net_handle_arp(struct ethernet_packet * eth) {
 	} else {
 		if (ntohl(arp->target_ip) == _netif.source) {
 			debug_print(WARNING, "It's a response to our query!");
-			_gateway[0] = arp->sender_ha[0];
-			_gateway[1] = arp->sender_ha[1];
-			_gateway[2] = arp->sender_ha[2];
-			_gateway[3] = arp->sender_ha[3];
-			_gateway[4] = arp->sender_ha[4];
-			_gateway[5] = arp->sender_ha[5];
+			if (ntohl(arp->sender_ip) == _netif.gateway) {
+				_gateway[0] = arp->sender_ha[0];
+				_gateway[1] = arp->sender_ha[1];
+				_gateway[2] = arp->sender_ha[2];
+				_gateway[3] = arp->sender_ha[3];
+				_gateway[4] = arp->sender_ha[4];
+				_gateway[5] = arp->sender_ha[5];
+			}
 		} else {
 			debug_print(WARNING, "Response to someone else...\n");
 		}
@@ -1227,6 +1229,10 @@ size_t write_dhcp_packet(uint8_t * buffer) {
 		53, /* Message type */
 		1,  /* Length: 1 */
 		1,  /* Discover */
+		55,
+		2,
+		3,
+		6,
 		255, /* END */
 	};
 
@@ -1327,6 +1333,10 @@ size_t write_dhcp_request(uint8_t * buffer, uint8_t * ip) {
 		50,
 		4,  /* requested ip */
 		ip[0],ip[1],ip[2],ip[3],
+		55,
+		2,
+		3,
+		6,
 		255, /* END */
 	};
 
