@@ -522,6 +522,7 @@ static void atapi_device_init(struct ata_device * dev) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_read;
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
+		if ((status & ATA_SR_DRQ)) break;
 	}
 
 	uint16_t data[4];
