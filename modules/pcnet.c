@@ -322,8 +322,17 @@ static void pcnet_init(void * data, char * name) {
 
 	write_csr32(0, read_csr32(0) | (1 << 0) | (1 << 6)); /* do it */
 
-	while ((read_csr32(0) & (1 << 8)) == 0) {
-		/* herp */
+	uint64_t start_time;
+	asm volatile (".byte 0x0f, 0x31" : "=A" (start_time));
+
+	uint32_t status;
+	while (((status = read_csr32(0)) & (1 << 8)) == 0) {
+		uint64_t now_time;
+		asm volatile (".byte 0x0f, 0x31" : "=A" (now_time));
+		if (now_time - start_time > 0x10000) {
+			debug_print(ERROR, "Could not initialize PCNet card, status is 0x%4x", status);
+			return;
+		}
 	}
 
 	/* Start card */
