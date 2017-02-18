@@ -36,12 +36,19 @@ static uint16_t bochs_current_scroll(void);
 
 static pid_t display_change_recipient = 0;
 
+void lfb_set_resolution(uint16_t x, uint16_t y);
+
 /*
  * Address of the linear frame buffer.
  * This can move, so it's a pointer instead of
  * #define.
  */
 uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
+
+struct vid_size {
+	uint32_t width;
+	uint32_t height;
+};
 
 static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 	/* TODO: Make this actually support multiple video devices */
@@ -66,6 +73,10 @@ static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 		case IO_VID_SIGNAL:
 			/* ioctl to register for a signal (vid device change? idk) on display change */
 			display_change_recipient = getpid();
+			return 0;
+		case IO_VID_SET:
+			validate(argp);
+			lfb_set_resolution(((struct vid_size *)argp)->width, ((struct vid_size *)argp)->height);
 			return 0;
 		default:
 			return -1; /* TODO EINV... something or other */
