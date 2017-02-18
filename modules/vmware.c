@@ -177,8 +177,8 @@ static void vmware_mouse(void) {
 	int flags   = (cmd.ax & 0xFFFF0000) >> 16;
 	int buttons = (cmd.ax & 0x0000FFFF);
 
-	debug_print(WARNING, "flags=%4x buttons=%4x", flags, buttons);
-	debug_print(WARNING, "x=%x y=%x z=%x", cmd.bx, cmd.cx, cmd.dx);
+	debug_print(INFO, "flags=%4x buttons=%4x", flags, buttons);
+	debug_print(INFO, "x=%x y=%x z=%x", cmd.bx, cmd.cx, cmd.dx);
 
 	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y) {
 		/*
