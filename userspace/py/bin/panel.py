@@ -209,6 +209,63 @@ class LabelWidget(BaseWidget):
         if msg.command == yutani.MouseEvent.CLICK:
             self.activate()
 
+class MouseModeWidget(BaseWidget):
+    """Controls the mouse mode in VMs."""
+
+    width = 28
+    color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
+    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
+    icon_names = ['mouse-status', 'mouse-relative']
+    check_time = 10
+
+    def __init__(self):
+        self.icons = {}
+        self.icons_hilight = {}
+        for name in self.icon_names:
+            self.icons[name] = cairo.ImageSurface.create_from_png(f'/usr/share/icons/24/{name}.png')
+            tmp = cairo.Context(self.icons[name])
+            tmp.set_operator(cairo.OPERATOR_ATOP)
+            tmp.rectangle(0,0,24,24)
+            tmp.set_source_rgb(*self.color)
+            tmp.paint()
+            self.icons_hilight[name] = cairo.ImageSurface.create_from_png(f'/usr/share/icons/24/{name}.png')
+            tmp = cairo.Context(self.icons_hilight[name])
+            tmp.set_operator(cairo.OPERATOR_ATOP)
+            tmp.rectangle(0,0,24,24)
+            tmp.set_source_rgb(*self.hilight_color)
+            tmp.paint()
+        self.hilighted = False
+        self.absolute = True
+        if not os.path.exists('/dev/vmmouse'):
+            self.width = 0
+
+    def focus_enter(self):
+        self.hilighted = True
+
+    def focus_leave(self):
+        self.hilighted = False
+
+    def draw(self, window, offset, remaining, ctx):
+        if not self.width:
+            return
+        source = 'mouse-status' if self.absolute else 'mouse-relative'
+        if self.hilighted:
+            ctx.set_source_surface(self.icons_hilight[source],offset,2)
+        else:
+            ctx.set_source_surface(self.icons[source],offset,2)
+        ctx.paint()
+
+    def mouse_action(self, msg):
+        if msg.command == yutani.MouseEvent.CLICK:
+            if self.absolute:
+                launch_app('toggle_vmware_mouse.py relative')
+                self.absolute = False
+            else:
+                launch_app('toggle_vmware_mouse.py absolute')
+                self.absolute = True
+            return True
+
+
 
 class VolumeWidget(BaseWidget):
     """Volume control widget."""
@@ -1263,7 +1320,7 @@ if __name__ == '__main__':
     yctx = yutani.Yutani()
 
     appmenu = ApplicationsMenuWidget()
-    widgets = [appmenu,WindowListWidget(),VolumeWidget(),NetworkWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
+    widgets = [appmenu,WindowListWidget(),MouseModeWidget(),VolumeWidget(),NetworkWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
     panel = PanelWindow(widgets)
 
     wallpaper = WallpaperWindow()
