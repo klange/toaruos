@@ -12,6 +12,9 @@
 #include <module.h>
 #include <args.h>
 #include <printf.h>
+#include <hashmap.h>
+#include <list.h>
+#include <tokenize.h>
 
 #define ISO_SECTOR_SIZE 2048
 
@@ -25,6 +28,8 @@
 typedef struct {
 	fs_node_t * block_device;
 	uint32_t block_size;
+	hashmap_t * cache;
+	list_t * lru;
 } iso_9660_fs_t;
 
 typedef struct {
@@ -131,8 +136,34 @@ typedef struct {
 
 static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_directory_entry_t * dir, size_t offset, fs_node_t * fs);
 
+#define CACHE_SIZE 64
+
 static void read_sector(iso_9660_fs_t * this, uint32_t sector_id, char * buffer) {
-	read_fs(this->block_device, sector_id * this->block_size, this->block_size, (uint8_t *)buffer);
+	if (this->cache) {
+		void * sector_id_v = (void *)sector_id;
+		if (hashmap_has(this->cache, sector_id_v)) {
+			memcpy(buffer,hashmap_get(this->cache, sector_id_v), this->block_size);
+
+			node_t * me = list_find(this->lru, sector_id_v);
+			list_delete(this->lru, me);
+			list_append(this->lru, me);
+
+		} else {
+			if (this->lru->length > CACHE_SIZE) {
+				node_t * l = list_dequeue(this->lru);
+				free(hashmap_get(this->cache, l->value));
+				hashmap_remove(this->cache, l->value);
+				free(l);
+			}
+			read_fs(this->block_device, sector_id * this->block_size, this->block_size, (uint8_t *)buffer);
+			char * buf = malloc(this->block_size);
+			memcpy(buf, buffer, this->block_size);
+			hashmap_set(this->cache, sector_id_v, buf);
+			list_insert(this->lru, sector_id_v);
+		}
+	} else {
+		read_fs(this->block_device, sector_id * this->block_size, this->block_size, (uint8_t *)buffer);
+	}
 }
 
 static void inplace_lower(char * string) {
@@ -174,7 +205,7 @@ static struct dirent * readdir_iso(fs_node_t *node, uint32_t index) {
 	read_sector(this, node->inode, buffer);
 	iso_9660_directory_entry_t * root_entry = (iso_9660_directory_entry_t *)(buffer + node->impl);
 
-	debug_print(WARNING, "[iso] Reading directory for readdir; sector = %d, offset = %d", node->inode, node->impl);
+	debug_print(INFO, "[iso] Reading directory for readdir; sector = %d, offset = %d", node->inode, node->impl);
 
 	uint8_t * root_data = malloc(root_entry->extent_length_LSB);
 	uint8_t * offset = root_data;
@@ -191,7 +222,7 @@ static struct dirent * readdir_iso(fs_node_t *node, uint32_t index) {
 		}
 	}
 
-	debug_print(WARNING, "[iso] Done, want index = %d", index);
+	debug_print(INFO, "[iso] Done, want index = %d", index);
 
 	/* Examine directory */
 	offset = root_data;
@@ -202,9 +233,16 @@ static struct dirent * readdir_iso(fs_node_t *node, uint32_t index) {
 	memset(dirent, 0, sizeof(struct dirent));
 	while (1) {
 		iso_9660_directory_entry_t * dir = (iso_9660_directory_entry_t *)offset;
-		if (dir->length == 0) break;
+		if (dir->length == 0) {
+			debug_print(INFO, "dir->length = %d", dir->length);
+			if ((size_t)(offset - root_data) < root_entry->extent_length_LSB) {
+				offset += 1; // this->block_size - ((uintptr_t)offset % this->block_size);
+				goto try_again;
+			}
+			break;
+		}
 		if (!(dir->flags & FLAG_HIDDEN)) {
-			debug_print(WARNING, "[iso] Found file %d", i);
+			debug_print(INFO, "[iso] Found file %d", i);
 			if (i == index) {
 				file_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, out);
 				memcpy(&dirent->name, out->name, strlen(out->name)+1);
@@ -214,8 +252,11 @@ static struct dirent * readdir_iso(fs_node_t *node, uint32_t index) {
 			i += 1;
 		}
 		offset += dir->length;
+try_again:
 		if ((size_t)(offset - root_data) > root_entry->extent_length_LSB) break;
 	}
+
+	debug_print(INFO, "offset = %x; root_data = %x; extent = %x", offset, root_data, root_entry->extent_length_LSB);
 
 	free(dirent);
 	dirent = NULL;
@@ -275,7 +316,13 @@ static fs_node_t * finddir_iso(fs_node_t *node, char *name) {
 	fs_node_t * out = malloc(sizeof(fs_node_t));
 	while (1) {
 		iso_9660_directory_entry_t * dir = (iso_9660_directory_entry_t *)offset;
-		if (dir->length == 0) break;
+		if (dir->length == 0) {
+			if ((size_t)(offset - root_data) < root_entry->extent_length_LSB) {
+				offset += 1; // this->block_size - ((uintptr_t)offset % this->block_size);
+				goto try_next_finddir;
+			}
+			break;
+		}
 		if (!(dir->flags & FLAG_HIDDEN)) {
 			memset(out, 0, sizeof(fs_node_t));
 			file_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, out);
@@ -286,6 +333,7 @@ static fs_node_t * finddir_iso(fs_node_t *node, char *name) {
 
 		}
 		offset += dir->length;
+try_next_finddir:
 		if ((size_t)(offset - root_data) > root_entry->extent_length_LSB) break;
 	}
 
@@ -353,15 +401,41 @@ static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_di
 }
 
 static fs_node_t * iso_fs_mount(char * device, char * mount_path) {
-	fs_node_t * dev = kopen(device, 0);
+	char * arg = strdup(device);
+	char * argv[10];
+	int argc = tokenize(arg, ",", argv);
+
+	fs_node_t * dev = kopen(argv[0], 0);
 	if (!dev) {
 		debug_print(ERROR, "failed to open %s", device);
+		return NULL;
+	}
+
+	int cache = 1;
+
+	for (int i = 1; i < argc; ++i) {
+		if (!strcmp(argv[i],"nocache")) {
+			cache = 0;
+		} else {
+			debug_print(WARNING, "Unrecognized option to iso driver: %s", argv[i]);
+		}
+	}
+
+	if (!dev) {
+		debug_print(ERROR, "failed to open %s", argv[0]);
+		free(arg);
 		return NULL;
 	}
 
 	iso_9660_fs_t * this = malloc(sizeof(iso_9660_fs_t));
 	this->block_device = dev;
 	this->block_size = ISO_SECTOR_SIZE;
+	if (cache) {
+		this->cache = hashmap_create_int(10);
+		this->lru = list_create();
+	} else {
+		this->cache = NULL;
+	}
 
 	/* Probably want to put a block cache on this like EXT2 driver does; or do that in the ATAPI layer... */
 
@@ -390,6 +464,7 @@ static fs_node_t * iso_fs_mount(char * device, char * mount_path) {
 
 	if (!found) {
 		debug_print(WARNING, "No primary volume descriptor?");
+		free(arg);
 		return NULL;
 	}
 
@@ -417,6 +492,7 @@ static fs_node_t * iso_fs_mount(char * device, char * mount_path) {
 	memset(fs, 0, sizeof(fs_node_t));
 	file_from_dir_entry(this, i, root_entry, 156, fs);
 
+	free(arg);
 	return fs;
 }
 
