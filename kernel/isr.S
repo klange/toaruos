@@ -70,6 +70,7 @@ isr_common:
     mov %ax, %es
     mov %ax, %fs
     mov %ax, %gs
+    cld
 
     /* Call fault handler */
     push %esp

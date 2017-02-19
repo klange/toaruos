@@ -46,6 +46,7 @@ irq_common:
     mov %ax, %es
     mov %ax, %fs
     mov %ax, %gs
+    cld
 
     /* Call interrupt handler */
     push %esp
