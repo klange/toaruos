@@ -207,9 +207,9 @@ static void vmware_mouse(void) {
 		}
 
 		/* dx = z = scroll amount */
-		if ((int)cmd.dx > 0) {
+		if ((int8_t)cmd.dx > 0) {
 			packet.buttons |= MOUSE_SCROLL_DOWN;
-		} else if ((int)cmd.dx < 0) {
+		} else if ((int8_t)cmd.dx < 0) {
 			packet.buttons |= MOUSE_SCROLL_UP;
 		}
 
