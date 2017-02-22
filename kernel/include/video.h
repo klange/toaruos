@@ -6,6 +6,7 @@
 #define IO_VID_ADDR   0x5004
 #define IO_VID_SIGNAL 0x5005
 #define IO_VID_SET    0x5006
+#define IO_VID_STRIDE 0x5007
 
 #ifdef _KERNEL_
 extern void lfb_set_resolution(uint16_t x, uint16_t y);

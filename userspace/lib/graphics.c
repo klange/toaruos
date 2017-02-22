@@ -72,6 +72,12 @@ gfx_context_t * init_graphics_fullscreen() {
 	return out;
 }
 
+uint32_t framebuffer_stride(void) {
+	uint32_t stride;
+	ioctl(framebuffer_fd, IO_VID_STRIDE, &stride);
+	return stride;
+}
+
 gfx_context_t * init_graphics_fullscreen_double_buffer() {
 	gfx_context_t * out = init_graphics_fullscreen();
 	if (!out) return NULL;

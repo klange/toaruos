@@ -28,6 +28,7 @@ static void graphics_install_preset(uint16_t, uint16_t);
 uint16_t lfb_resolution_x = 0;
 uint16_t lfb_resolution_y = 0;
 uint16_t lfb_resolution_b = 0;
+uint32_t lfb_resolution_s = 0;
 
 /* BOCHS / QEMU VBE Driver */
 static void graphics_install_bochs(uint16_t, uint16_t);
@@ -78,6 +79,9 @@ static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 			validate(argp);
 			lfb_set_resolution(((struct vid_size *)argp)->width, ((struct vid_size *)argp)->height);
 			return 0;
+		case IO_VID_STRIDE:
+			*((size_t *)argp) = lfb_resolution_s;
+			return 0;
 		default:
 			return -1; /* TODO EINV... something or other */
 	}
@@ -98,7 +102,7 @@ static int vignette_at(int x, int y) {
 
 static void set_point(int x, int y, uint32_t value) {
 	uint32_t * disp = (uint32_t *)lfb_vid_memory;
-	uint32_t * cell = &disp[y * lfb_resolution_x + x];
+	uint32_t * cell = &disp[y * (lfb_resolution_s / 4) + x];
 	*cell = value;
 }
 
@@ -125,7 +129,7 @@ static void lfb_video_panic(char ** msgs) {
 	uint32_t * disp = (uint32_t *)lfb_vid_memory;
 	for (int y = 0; y < lfb_resolution_y; y++) {
 		for (int x = 0; x < lfb_resolution_x; x++) {
-			uint32_t * cell = &disp[y * lfb_resolution_x + x];
+			uint32_t * cell = &disp[y * (lfb_resolution_s / 4) + x];
 
 			int r = _RED(*cell);
 			int g = _GRE(*cell);
@@ -176,8 +180,9 @@ static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	return fnode;
 }
 
-static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b) {
+static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b, uint32_t s) {
 	lfb_resolution_x = x;
+	lfb_resolution_s = s;
 	lfb_resolution_y = y;
 	lfb_resolution_b = b;
 	fs_node_t * fb_device = lfb_video_device_create();
@@ -250,6 +255,7 @@ static void res_change_bochs(uint16_t x, uint16_t y) {
 	}
 
 	lfb_resolution_x = x;
+	lfb_resolution_s = x * 4;
 	lfb_resolution_y = y;
 }
 
@@ -314,7 +320,7 @@ mem_found:
 	for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + vid_memsize; i += 0x1000) {
 		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 	}
-	finalize_graphics(resolution_x, resolution_y, PREFERRED_B);
+	finalize_graphics(resolution_x, resolution_y, PREFERRED_B, resolution_x * 4);
 }
 
 /* }}} end bochs support */
@@ -367,7 +373,7 @@ static void graphics_install_preset(uint16_t w, uint16_t h) {
 	debug_print(WARNING, "Failed to locate video memory. This could end poorly.");
 
 mem_found:
-	finalize_graphics(w,h,b);
+	finalize_graphics(w,h,b,w*4);
 
 }
 
@@ -381,6 +387,7 @@ mem_found:
 #define SVGA_REG_WIDTH 2
 #define SVGA_REG_HEIGHT 3
 #define SVGA_REG_BITS_PER_PIXEL 7
+#define SVGA_REG_BYTES_PER_LINE 12
 #define SVGA_REG_FB_START 13
 
 static uint32_t vmware_io = 0;
@@ -405,7 +412,6 @@ static uint32_t vmware_read(int reg) {
 }
 
 static void vmware_set_mode(uint16_t w, uint16_t h) {
-	w = w & ~1;
 	vmware_write(SVGA_REG_ENABLE, 0);
 	vmware_write(SVGA_REG_ID, 0);
 	vmware_write(SVGA_REG_WIDTH, w);
@@ -413,7 +419,10 @@ static void vmware_set_mode(uint16_t w, uint16_t h) {
 	vmware_write(SVGA_REG_BITS_PER_PIXEL, 32);
 	vmware_write(SVGA_REG_ENABLE, 1);
 
+	uint32_t bpl = vmware_read(SVGA_REG_BYTES_PER_LINE);
+
 	lfb_resolution_x = w;
+	lfb_resolution_s = bpl;
 	lfb_resolution_y = h;
 
 }
@@ -435,6 +444,8 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 	vmware_write(SVGA_REG_BITS_PER_PIXEL, 32);
 	vmware_write(SVGA_REG_ENABLE, 1);
 
+	uint32_t bpl = vmware_read(SVGA_REG_BYTES_PER_LINE);
+
 	lfb_resolution_impl = &vmware_set_mode;
 
 	uint32_t fb_addr = vmware_read(SVGA_REG_FB_START);
@@ -451,7 +462,7 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 	}
 
-	finalize_graphics(w,h,32);
+	finalize_graphics(w,h,32,bpl);
 }
 
 struct disp_mode {

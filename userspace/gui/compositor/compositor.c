@@ -1096,8 +1096,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		if (!yutani_options.nested) {
 			reinit_graphics_fullscreen(yg->backend_ctx);
+			yg->stride = framebuffer_stride();
 		} else {
 			reinit_graphics_yutani(yg->backend_ctx, yg->host_window);
+			yg->stride = yg->backend_ctx->width * 4;
 			yutani_window_resize_done(yg->host_context, yg->host_window);
 		}
 		yg->width = yg->backend_ctx->width;
@@ -1108,7 +1110,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 		yg->framebuffer_surface = cairo_image_surface_create_for_data(
 				yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 		yg->real_surface = cairo_image_surface_create_for_data(
-				yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
+				yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, yg->stride);
 
 		yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
 		yg->real_ctx = cairo_create(yg->real_surface);
@@ -1134,7 +1136,7 @@ void yutani_cairo_init(yutani_globals_t * yg) {
 	yg->framebuffer_surface = cairo_image_surface_create_for_data(
 			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 	yg->real_surface = cairo_image_surface_create_for_data(
-			yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
+			yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, yg->stride);
 
 	yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
 	yg->real_ctx = cairo_create(yg->real_surface);
@@ -2015,10 +2017,12 @@ int main(int argc, char * argv[]) {
 		yutani_window_move(yg->host_context, yg->host_window, 50, 50);
 		yutani_window_advertise_icon(yg->host_context, yg->host_window, "Compositor", "compositor");
 		yg->backend_ctx = init_graphics_yutani_double_buffer(yg->host_window);
+		yg->stride = yg->backend_ctx->width * 4;
 	} else {
 		_static_yg = yg;
 		signal(SIGWINEVENT, yutani_display_resize_handle);
 		yg->backend_ctx = init_graphics_fullscreen_double_buffer();
+		yg->stride = framebuffer_stride();
 	}
 
 	if (!yg->backend_ctx) {
