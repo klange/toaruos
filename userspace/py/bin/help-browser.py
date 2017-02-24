@@ -21,6 +21,65 @@ app_name = "Help Browser"
 version = "1.0.0"
 _description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nRich text help document viewer.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
+
+class ScrollableText(object):
+
+    def __init__(self):
+        self.tr = None
+        self.width = 0
+        self.height_ext = 0
+        self.height_int = 0
+        self.text_buffer = None
+        self.background = (1,1,1)
+        self.pad = 10
+
+    def destroy(self):
+        if self.text_buffer:
+            self.text_buffer.destroy()
+
+    def update(self, width):
+
+        needs_resize = False
+
+        if width != self.width:
+            needs_resize = True
+            self.width = width
+
+        self.tr.resize(self.width-self.pad*2, self.tr.line_height)
+        h = self.tr.line_height * len(self.tr.lines) + self.pad*2
+        if h != self.height_int:
+            needs_resize = True
+            self.height_int = h
+        self.tr.resize(self.width-self.pad*2, self.height_int-self.pad*2)
+        self.tr.move(self.pad,self.pad)
+
+        if needs_resize or not self.text_buffer:
+            if self.text_buffer:
+                self.text_buffer.destroy()
+            self.text_buffer = yutani.GraphicsBuffer(self.width,self.height_int)
+
+        surface = self.text_buffer.get_cairo_surface()
+        ctx = cairo.Context(surface)
+        ctx.rectangle(0,0,surface.get_width(),surface.get_height())
+        ctx.set_source_rgb(*self.background)
+        ctx.fill()
+
+        self.tr.draw(self.text_buffer)
+
+    def scroll_max(self):
+        if self.height_ext > self.height_int:
+            return 0
+
+        return self.height_int - self.height_ext
+
+
+    def draw(self,ctx,x,y,height,scroll):
+        self.height_ext = height
+        surface = self.text_buffer.get_cairo_surface()
+        ctx.rectangle(x,y,self.width,height)
+        ctx.set_source_surface(surface,x,y-scroll)
+        ctx.fill()
+
 class HelpBrowserWindow(yutani.Window):
 
     base_width = 800
@@ -33,9 +92,9 @@ class HelpBrowserWindow(yutani.Window):
         self.current_topic = "0_index.trt"
         self.text_buffer = None
         self.text_offset = 0
-        self.scroll_offset = 0
         self.tr = None
-        self.size_changed = False
+        self.size_changed = True
+        self.text_scroller = ScrollableText()
 
         self.special = {}
         self.special['contents'] = self.special_contents
@@ -216,34 +275,23 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             self.update_history()
         self.current_topic = target
         self.text_offset = 0
-        self.scroll_offset = 0
         self.tr.set_richtext(self.get_document_text())
         self.update_text_buffer()
         self.set_title(f"{self.get_title(self.current_topic)} - {app_name}","help")
 
     def update_text_buffer(self):
-        if self.size_changed or not self.text_buffer:
-            if self.text_buffer:
-                self.text_buffer.destroy()
-            self.text_buffer = yutani.GraphicsBuffer(self.width - self.decorator.width(),self.height-self.decorator.height()+80-self.menubar.height)
-        surface = self.text_buffer.get_cairo_surface()
-        ctx = cairo.Context(surface)
-        ctx.rectangle(0,0,surface.get_width(),surface.get_height())
-        ctx.set_source_rgb(1,1,1)
-        ctx.fill()
-
-        pad = 10
         if not self.tr:
-            self.tr = text_region.TextRegion(pad,0,surface.get_width()-pad*2,surface.get_height())
+            self.tr = text_region.TextRegion(0,0,100,100)
             self.tr.set_line_height(18)
             self.tr.base_dir = '/usr/share/help/'
             self.tr.set_richtext(self.get_document_text())
-        elif self.size_changed:
-            self.size_changed = False
-            self.tr.resize(surface.get_width()-pad*2,surface.get_height()-pad*2)
+            self.text_scroller.tr = self.tr
 
-        self.tr.scroll = self.scroll_offset
-        self.tr.draw(self.text_buffer)
+        if self.size_changed:
+            self.text_scroller.update(self.width - self.decorator.width())
+
+        #self.tr.scroll = self.scroll_offset
+        #self.tr.draw(self.text_buffer)
 
     def draw(self):
         surface = self.get_cairo_surface()
@@ -253,14 +301,18 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         ctx = cairo.Context(surface)
         ctx.translate(self.decorator.left_width(), self.decorator.top_height())
         ctx.rectangle(0,0,WIDTH,HEIGHT)
-        ctx.set_source_rgb(204/255,204/255,204/255)
+        #ctx.set_source_rgb(204/255,204/255,204/255)
+        ctx.set_source_rgb(1,1,1)
         ctx.fill()
 
         ctx.save()
         ctx.translate(0,self.menubar.height)
+        """
         text = self.text_buffer.get_cairo_surface()
         ctx.set_source_surface(text,0,-self.text_offset)
         ctx.paint()
+        """
+        self.text_scroller.draw(ctx,0,0,HEIGHT-self.menubar.height,self.text_offset)
         ctx.restore()
 
         self.menubar.draw(ctx,0,0,WIDTH)
@@ -284,21 +336,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
 
     def scroll(self, amount):
         self.text_offset += amount
-        while self.text_offset < 0:
-            if self.scroll_offset == 0:
-                self.text_offset = 0
-            else:
-                self.scroll_offset -= 1
-                self.text_offset += self.tr.line_height
-        while self.text_offset >= self.tr.line_height:
-            self.scroll_offset += 1
-            self.text_offset -= self.tr.line_height
-        n = (len(self.tr.lines)-self.tr.visible_lines())+5
-        n = n if n >= 0 else 0
-        if self.scroll_offset >= n:
-            self.scroll_offset = n
+        if self.text_offset < 0:
             self.text_offset = 0
-        self.update_text_buffer()
+        if self.text_offset > self.text_scroller.scroll_max():
+            self.text_offset = self.text_scroller.scroll_max()
 
     def text_under_cursor(self, msg):
         """Get the text unit under the cursor."""
@@ -409,14 +450,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             return False # Ignore anything that isn't a key down.
         if msg.event.keycode == yutani.Keycode.HOME:
             self.text_offset = 0
-            self.scroll_offset = 0
-            self.update_text_buffer()
             return True
         elif msg.event.keycode == yutani.Keycode.END:
             n = (len(self.tr.lines)-self.tr.visible_lines())+5
-            self.scroll_offset = n if n >= 0 else 0
-            self.text_offset = 0
-            self.update_text_buffer()
+            self.text_offset = self.text_scroller.scroll_max()
             return True
         elif msg.event.keycode == yutani.Keycode.PAGE_UP:
             self.scroll(int(-self.height/2))
