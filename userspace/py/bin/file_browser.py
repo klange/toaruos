@@ -252,16 +252,16 @@ class FileBrowserWindow(yutani.Window):
             self.menubar.mouse_event(msg, x, y)
             return
 
-        if msg.buttons & yutani.MouseButton.SCROLL_UP:
-            self.scroll(30)
-            self.draw()
-            return
-        elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
-            self.scroll(-30)
-            self.draw()
-            return
-
         if x >= 0 and x < w and y >= self.menubar.height and y < h:
+            if msg.buttons & yutani.MouseButton.SCROLL_UP:
+                self.scroll(30)
+                self.draw()
+                return
+            elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
+                self.scroll(-30)
+                self.draw()
+                return
+
             if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                 if not self.menus:
                     menu_entries = [

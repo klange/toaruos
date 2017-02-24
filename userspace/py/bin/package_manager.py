@@ -225,13 +225,13 @@ class PackageManagerWindow(yutani.Window):
         self.flip()
 
     def scroll(self, amount):
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
-        rows = 1000
+        w,h = self.width - self.decorator.width(), self.height - self.decorator.height() - self.menubar.height
         self.scroll_y += amount
         if self.scroll_y > 0:
             self.scroll_y = 0
-        if self.scroll_y < -100 * rows:
-            self.scroll_y = -100 * rows
+        max_scroll = self.buf.height - h if h < self.buf.height else 0
+        if self.scroll_y < -max_scroll:
+            self.scroll_y = -max_scroll
 
     def mouse_event(self, msg):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
@@ -247,16 +247,16 @@ class PackageManagerWindow(yutani.Window):
         if x < 0 or x >= w or y < 0 or y >= h:
             return
 
-        if msg.buttons & yutani.MouseButton.SCROLL_UP:
-            self.scroll(30)
-            self.draw()
-            return
-        elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
-            self.scroll(-30)
-            self.draw()
-            return
-
         if x >= 0 and x < w and y >= self.menubar.height and y < h:
+            if msg.buttons & yutani.MouseButton.SCROLL_UP:
+                self.scroll(30)
+                self.draw()
+                return
+            elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
+                self.scroll(-30)
+                self.draw()
+                return
+
             if msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                 if not self.menus:
                     pass # no context menu at the moment

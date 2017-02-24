@@ -390,55 +390,56 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
                         MenuEntryAction("Forward","forward",self.go_forward,None),
                     ]
                     menu = MenuWindow(menu_entries,(self.x+msg.new_x,self.y+msg.new_y),root=self)
-        if msg.command == yutani.MouseEvent.DOWN:
-            e = self.text_under_cursor(msg)
-            r = False
-            if self.down_text and e != self.down_text:
-                for u in self.down_text.tag_group:
-                    if u.unit_type == 4:
-                        u.set_extra('hilight',False)
-                    else:
-                        u.set_font(self.down_font[u])
-                del self.down_font
-                self.down_text = None
-                self.update_text_buffer()
-                r = True
-            if e and 'link' in e.extra and e.tag_group:
-                self.down_font = {}
-                for u in e.tag_group:
-                    if u.unit_type == 4:
-                        u.set_extra('hilight',True)
-                    else:
-                        new_font = toaru_fonts.Font(u.font.font_number,u.font.font_size,0xFFFF0000)
-                        self.down_font[u] = u.font
-                        u.set_font(new_font)
-                self.update_text_buffer()
-                r = True
-                self.down_text = e
-            else:
-                self.down_text = None
-            return r
-        if msg.command == yutani.MouseEvent.CLICK or msg.command == yutani.MouseEvent.RAISE:
-            e = self.text_under_cursor(msg)
-            if self.down_text and e == self.down_text:
-                self.navigate(e.extra['link'])
+            if msg.buttons & yutani.MouseButton.SCROLL_UP:
+                self.scroll(-30)
                 return True
-            elif self.down_text:
-                for u in self.down_text.tag_group:
-                    if u.unit_type == 4:
-                        u.set_extra('hilight',False)
-                    else:
-                        u.set_font(self.down_font[u])
-                del self.down_font
-                self.down_text = None
-                self.update_text_buffer()
+            elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
+                self.scroll(30)
                 return True
-        if msg.buttons & yutani.MouseButton.SCROLL_UP:
-            self.scroll(-30)
-            return True
-        elif msg.buttons & yutani.MouseButton.SCROLL_DOWN:
-            self.scroll(30)
-            return True
+            if msg.command == yutani.MouseEvent.DOWN:
+                e = self.text_under_cursor(msg)
+                r = False
+                if self.down_text and e != self.down_text:
+                    for u in self.down_text.tag_group:
+                        if u.unit_type == 4:
+                            u.set_extra('hilight',False)
+                        else:
+                            u.set_font(self.down_font[u])
+                    del self.down_font
+                    self.down_text = None
+                    self.update_text_buffer()
+                    r = True
+                if e and 'link' in e.extra and e.tag_group:
+                    self.down_font = {}
+                    for u in e.tag_group:
+                        if u.unit_type == 4:
+                            u.set_extra('hilight',True)
+                        else:
+                            new_font = toaru_fonts.Font(u.font.font_number,u.font.font_size,0xFFFF0000)
+                            self.down_font[u] = u.font
+                            u.set_font(new_font)
+                    self.update_text_buffer()
+                    r = True
+                    self.down_text = e
+                else:
+                    self.down_text = None
+                return r
+            if msg.command == yutani.MouseEvent.CLICK or msg.command == yutani.MouseEvent.RAISE:
+                e = self.text_under_cursor(msg)
+                if self.down_text and e == self.down_text:
+                    self.navigate(e.extra['link'])
+                    return True
+                elif self.down_text:
+                    for u in self.down_text.tag_group:
+                        if u.unit_type == 4:
+                            u.set_extra('hilight',False)
+                        else:
+                            u.set_font(self.down_font[u])
+                    del self.down_font
+                    self.down_text = None
+                    self.update_text_buffer()
+                    return True
+
         return False
 
     def keyboard_event(self, msg):
