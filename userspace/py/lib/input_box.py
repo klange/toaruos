@@ -108,7 +108,7 @@ class InputBox(object):
             ctx.fill()
 
     def mouse_event(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.DOWN:
             if msg.new_x >= self.x and msg.new_x < self.x + self.width and \
                     msg.new_y >= self.y and msg.new_y < self.y + self.height:
                 self.focus_enter()
@@ -398,7 +398,7 @@ class TextInputWindow(yutani.Window):
         if not self.closed:
             if self.input.mouse_event(msg):
                 changed = True
-            elif msg.command == yutani.MouseEvent.CLICK:
+            elif msg.command == yutani.MouseEvent.DOWN:
                 changed = self.input.focus_leave()
                 # Do unfocus stuff here
             else:

@@ -7,6 +7,7 @@
  */
 
 #include <stdint.h>
+#include <math.h>
 #include "lib/graphics.h"
 #include "lib/yutani.h"
 #include "lib/shmemfonts.h"
@@ -33,6 +34,11 @@ int  (*decor_check_button_press)(yutani_window_t *, int x, int y) = NULL;
 
 static void (*callback_close)(yutani_window_t *) = NULL;
 static void (*callback_resize)(yutani_window_t *) = NULL;
+
+static int close_enough(struct yutani_msg_window_mouse_event * me) {
+	return (me->command == YUTANI_MOUSE_EVENT_RAISE &&
+			sqrt(pow(me->new_x - me->old_x, 2.0) + pow(me->new_y - me->old_y, 2.0)) < 10.0);
+}
 
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
@@ -237,7 +243,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 								}
 							}
 						}
-						if (me->command == YUTANI_MOUSE_EVENT_CLICK) {
+						if (me->command == YUTANI_MOUSE_EVENT_CLICK || close_enough(me)) {
 							/* Determine if we clicked on a button */
 							switch (button) {
 								case DECOR_CLOSE:

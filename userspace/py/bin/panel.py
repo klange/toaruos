@@ -31,6 +31,10 @@ from icon_cache import get_icon
 
 PANEL_HEIGHT=28
 
+def close_enough(msg):
+    return msg.command == yutani.MouseEvent.RAISE and \
+            math.sqrt((msg.new_x - msg.old_x) ** 2 + (msg.new_y - msg.old_y) ** 2) < 10
+
 class BaseWidget(object):
     """Base class for a panel widget."""
 
@@ -105,7 +109,7 @@ class ClockWidget(BaseWidget):
         self.font.font_color = self.color
 
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             def _pass(action):
                 pass
             menu_entries = [
@@ -157,14 +161,14 @@ class LogOutWidget(BaseWidget):
         self.hilighted = False
 
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             yctx.session_end()
         return False
 
 class RestartMenuWidget(LogOutWidget):
 
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             def exit(action):
                 if 'callback' in dir(self):
                     self.callback()
@@ -206,7 +210,7 @@ class LabelWidget(BaseWidget):
         pass # Extend this as needed
 
     def mouse_action(self,msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             self.activate()
 
 class MouseModeWidget(BaseWidget):
@@ -256,7 +260,7 @@ class MouseModeWidget(BaseWidget):
         ctx.paint()
 
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             if self.absolute:
                 launch_app('toggle_vmware_mouse.py relative')
                 self.absolute = False
@@ -364,7 +368,7 @@ class VolumeWidget(BaseWidget):
         self.set_volume()
 
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             if self.muted:
                 self.muted = False
                 self.volume = self.previous_volume
@@ -456,7 +460,7 @@ class NetworkWidget(BaseWidget):
         ctx.paint()
 
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             def _pass(action):
                 pass
             self.update()
@@ -563,7 +567,7 @@ class WindowListWidget(FillWidget):
         previously_hovered = self.hovered
         if hovered_index < len(windows):
             self.hovered = windows[hovered_index].wid
-            if msg.command == yutani.MouseEvent.CLICK:
+            if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
                 yctx.focus_window(self.hovered)
             elif msg.buttons & yutani.MouseButton.BUTTON_RIGHT:
                 if not self.window.menus:
@@ -672,7 +676,7 @@ class ApplicationsMenuWidget(BaseWidget):
         menu = MenuWindow(self.menu_entries,(0,self.window.height),root=self.window)
 
     def mouse_action(self,msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             self.activate()
 
 class PanelWindow(yutani.Window):
@@ -842,7 +846,7 @@ class WallpaperIcon(object):
         self.hilighted = False
 
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             self.action(self)
 
 class WallpaperWindow(yutani.Window):

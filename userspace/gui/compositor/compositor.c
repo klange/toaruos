@@ -1764,6 +1764,8 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					if (yg->mouse_window) {
 						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_DOWN);
+						yg->mouse_click_x_orig = yg->mouse_click_x;
+						yg->mouse_click_y_orig = yg->mouse_click_y;
 						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
 						free(response);
 					}
@@ -1868,8 +1870,8 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				if (!(me->event.buttons & yg->mouse_drag_button)) {
 					/* Mouse released */
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
-					int32_t old_x = yg->mouse_click_x;
-					int32_t old_y = yg->mouse_click_y;
+					int32_t old_x = yg->mouse_click_x_orig;
+					int32_t old_y = yg->mouse_click_y_orig;
 					if (yg->mouse_window) {
 						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						if (!yg->mouse_moved) {

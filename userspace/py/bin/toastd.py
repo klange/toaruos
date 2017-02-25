@@ -91,7 +91,7 @@ class Notification(yutani.Window):
         pass
 
     def mouse_event(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or msg.command == yutani.MouseEvent.RAISE:
             self.close()
             return
 

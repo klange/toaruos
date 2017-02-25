@@ -223,7 +223,7 @@ class InputWindow(yutani.Window):
             self.focus_username()
         elif self.password.mouse_event(msg):
             self.focus_password()
-        elif msg.command == yutani.MouseEvent.CLICK:
+        elif msg.command == yutani.MouseEvent.DOWN:
             self.password.focus_leave()
             self.username.focus_leave()
             self.focused_widget = None

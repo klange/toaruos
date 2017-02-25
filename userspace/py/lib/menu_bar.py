@@ -2,6 +2,7 @@
 Provides basic nested menus.
 """
 import cairo
+import math
 
 import yutani
 import text_region
@@ -9,6 +10,10 @@ import toaru_fonts
 from icon_cache import get_icon
 
 menu_windows = {}
+
+def close_enough(msg):
+    return msg.command == yutani.MouseEvent.RAISE and \
+            math.sqrt((msg.new_x - msg.old_x) ** 2 + (msg.new_y - msg.old_y) ** 2) < 10
 
 class MenuBarWidget(object):
     """Widget for display multiple menus."""
@@ -61,7 +66,7 @@ class MenuBarWidget(object):
             title, menu = e
             w = self.font.width(title) + 10
             if x >= offset and x < offset + w:
-                if msg.command == yutani.MouseEvent.CLICK: # or raise
+                if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
                     menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width()+offset,self.window.y+self.window.decorator.top_height()+self.height),root=self.window)
                     self.active_menu = menu
                     self.active_entry = e
@@ -163,8 +168,11 @@ class MenuEntryAction(object):
                 k.definitely_close()
             self.window.root.draw()
 
+    def close_enough(self, msg):
+        return close_enough(msg) and msg.old_y >= self.offset and msg.old_y < self.offset + self.height
+
     def mouse_action(self, msg):
-        if msg.command == yutani.MouseEvent.CLICK:
+        if msg.command == yutani.MouseEvent.CLICK or self.close_enough(msg):
             self.activate()
 
         return False
