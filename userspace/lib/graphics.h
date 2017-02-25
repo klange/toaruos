@@ -56,6 +56,7 @@ uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
 uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask);
 uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top);
+uint8_t framebuffer_stride(void);
 
 void flip(gfx_context_t * ctx);
 void clear_buffer(gfx_context_t * ctx);
