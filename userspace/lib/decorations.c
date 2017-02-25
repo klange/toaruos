@@ -108,15 +108,17 @@ void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, 
 void init_decorations() {
 	init_shmemfonts();
 
-	char * theme = strdup(getenv("WM_THEME"));
-	char * options = strchr(theme,',');
-	if (options) {
-		*options = '\0';
-		options++;
-	}
+	char * tmp = getenv("WM_THEME");
+	char * theme = tmp ? strdup(tmp) : NULL;
+
 	if (!theme || !strcmp(theme, "simple")) {
 		initialize_simple();
 	} else {
+		char * options = strchr(theme,',');
+		if (options) {
+			*options = '\0';
+			options++;
+		}
 		char lib_name[100];
 		sprintf(lib_name, "libtoaru-decor-%s.so", theme);
 		void * theme_lib = dlopen(lib_name, 0);
