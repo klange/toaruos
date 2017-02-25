@@ -152,6 +152,9 @@ class InputWindow(yutani.Window):
     def update_position(self, w, h):
         self.move(int((w - self.width)/2),int((h - self.height)/2))
 
+    def finish_resize(self, msg):
+        pass # lol no
+
     def draw(self):
         surface = self.get_cairo_surface()
         ctx = cairo.Context(surface)
@@ -216,7 +219,21 @@ class InputWindow(yutani.Window):
             self.focus_password()
 
     def go(self):
-        print(f"Your username is {self.username.text} and your password is {self.password.text}")
+        print(f"USER {self.username.text}")
+        print(f"PASS {self.password.text}")
+        print(f"AUTH",flush=True)
+        response = input()
+        if response == "FAIL":
+            self.error = "Incorrect username or password."
+            self.username.update_text("")
+            self.password.update_text("")
+            self.username.reset_cursor()
+            self.password.reset_cursor()
+            self.focus_username()
+            self.draw()
+        elif response == "SUCC":
+            sys.exit(0)
+
 
     def mouse_event(self, msg):
         if self.username.mouse_event(msg):
@@ -239,6 +256,10 @@ def maybe_animate():
         panel_window.draw()
 
 if __name__ == '__main__':
+    if os.getuid() != 0:
+        print("This is the GUI login client. You should not be running this. It is run by the GUI session manager.")
+        sys.exit(1)
+    print("Hello",flush=True)
     yutani.Yutani()
     d = yutani.Decor() # Just in case.
 
@@ -252,6 +273,7 @@ if __name__ == '__main__':
 
     def restart_callback():
         def confirm():
+            print(f"RESTART",flush=True)
             sys.exit(0)
         DialogWindow(d,"Restart","Are you sure you want to restart?",callback=confirm,icon='exit')
 

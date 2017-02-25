@@ -140,6 +140,10 @@ class InputBox(object):
         else:
             self.tr.set_text(new_text)
 
+    def reset_cursor(self):
+        self.cursor_index = 0
+        self.cursor_x = self.tr.get_offset_at_index(self.cursor_index)[1][1]
+
     def focus_enter(self):
         if not self.is_focused:
             self.is_focused = True
