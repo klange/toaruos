@@ -412,7 +412,7 @@ class TextRegion(object):
                         img = self.img_from_path(target)
                     except:
                         print(f"Failed to load image {target}, going to show backup image.")
-                        img = self.img_from_path('/usr/share/icons/16/help.png')
+                        img = self.img_from_path('/usr/share/icons/16/missing.png')
                     chop = math.ceil(img.get_height() / tr.line_height)
                     group = []
                     for i in range(chop):
