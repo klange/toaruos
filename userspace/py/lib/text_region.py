@@ -1,3 +1,6 @@
+import hashlib
+import subprocess
+from urllib.parse import urlparse
 import unicodedata
 from html.parser import HTMLParser
 import math
@@ -70,6 +73,7 @@ class TextRegion(object):
         self.one_line = False
         self.base_dir = ""
         self.break_all = False
+        self.title = None
 
     def set_alignment(self, align):
         self.align = align
@@ -156,7 +160,7 @@ class TextRegion(object):
         if current_units:
             self.lines.append(current_units)
 
-    def units_from_text(self, text, font=None):
+    def units_from_text(self, text, font=None, whitespace=True):
         if not font:
             font = self.font
 
@@ -164,11 +168,14 @@ class TextRegion(object):
             if _emoji_available and ord(char) in _emoji_values:
                 return 2
             x = unicodedata.east_asian_width(char)
-            if x == 'Na': return 1
-            if x == 'N': return 1
-            if x == 'A': return 1
-            if x == 'W': return 2
-            raise ValueError("Don't know how wide "+x+" is.")
+            if x == 'Na': return 1 # Narrow
+            if x == 'N': return 1 # Narrow
+            if x == 'A': return 1 # Ambiguous
+            if x == 'W': return 2 # Wide
+            if x == 'F': return 1 # Fullwidth (treat as normal)
+            if x == 'H': return 1 # Halfwidth
+            print(f"Don't know how wide {x} is, assuming 1")
+            return 1
 
         def classify(char):
             if char == '\n': return 3 # break on line feed
@@ -182,6 +189,13 @@ class TextRegion(object):
         current_unit = ""
         while offset < len(text):
             c = text[offset]
+            if not whitespace and c.isspace():
+                if current_unit:
+                    units.append(TextUnit(current_unit,0,font))
+                    current_unit = ""
+                units.append(TextUnit(' ',1,font))
+                offset += 1
+                continue
             x = classify(c)
             if x == 0:
                 current_unit += c
@@ -210,13 +224,14 @@ class TextRegion(object):
         self.text_units = self.units_from_text(text)
         self.reflow()
 
-    def set_richtext(self, text):
+    def set_richtext(self, text, html=False):
         f = self.font
         self.text = text
         tr = self
 
         class RichTextParser(HTMLParser):
-            def __init__(self):
+
+            def __init__(self, html=False):
                 super(RichTextParser,self).__init__()
                 self.font_stack = []
                 self.tag_stack = []
@@ -225,6 +240,13 @@ class TextRegion(object):
                 self.link_stack = []
                 self.current_link = None
                 self.tag_group = None
+                self.is_html = html
+                self.whitespace_sensitive = not html
+                self.autoclose = ['br','meta','input']
+                self.title = ''
+                if self.is_html:
+                    self.autoclose.extend(['img','link'])
+                self.surface_cache = {}
 
             def handle_starttag(self, tag, attrs):
                 def make_bold(n):
@@ -246,7 +268,13 @@ class TextRegion(object):
                     if n == 3: return 7
                     return n
 
-                self.tag_stack.append(tag)
+                if tag not in self.autoclose:
+                    self.tag_stack.append(tag)
+
+                if tag in ['p','div','h1','h2','h3','li','tr','pre'] and not self.whitespace_sensitive: # etc?
+                    if self.units and self.units[-1].unit_type != 3:
+                        self.units.append(TextUnit('\n',3,self.current_font))
+
                 if tag == "b":
                     self.font_stack.append(self.current_font)
                     self.current_font = toaru_fonts.Font(make_bold(self.current_font.font_number),self.current_font.font_size,self.current_font.font_color)
@@ -259,13 +287,33 @@ class TextRegion(object):
                 elif tag == "mono":
                     self.font_stack.append(self.current_font)
                     self.current_font = toaru_fonts.Font(make_monospace(self.current_font.font_number),self.current_font.font_size,self.current_font.font_color)
-                elif tag == "link":
+                elif tag == "pre":
+                    self.font_stack.append(self.current_font)
+                    self.current_font = toaru_fonts.Font(make_monospace(self.current_font.font_number),self.current_font.font_size,self.current_font.font_color)
+                elif tag == "link" and not self.is_html:
                     target = None
                     for attr in attrs:
                         if attr[0] == "target":
                             target = attr[1]
                     self.tag_group = []
                     self.link_stack.append(self.current_link)
+                    self.current_link = target
+                    self.font_stack.append(self.current_font)
+                    self.current_font = toaru_fonts.Font(self.current_font.font_number,self.current_font.font_size,0xFF0000FF)
+                elif tag == "a":
+                    target = None
+                    for attr in attrs:
+                        if attr[0] == "href":
+                            target = attr[1]
+                    self.tag_group = []
+                    self.link_stack.append(self.current_link)
+                    if target and self.is_html and not target.startswith('http:') and not target.startswith('https:'):
+                        # This is actually more complicated than this check - protocol-relative stuff can work without full URLs
+                        if target.startswith('/'):
+                            base = urlparse(tr.base_dir)
+                            target = f"{base.scheme}://{base.netloc}{target}"
+                        else:
+                            target = tr.base_dir + target
                     self.current_link = target
                     self.font_stack.append(self.current_font)
                     self.current_font = toaru_fonts.Font(self.current_font.font_number,self.current_font.font_size,0xFF0000FF)
@@ -279,41 +327,51 @@ class TextRegion(object):
                     self.font_stack.append(self.current_font)
                     self.current_font = toaru_fonts.Font(make_bold(self.current_font.font_number),16)
                 elif tag == "img":
-                    target = None
-                    for attr in attrs:
-                        if attr[0] == "src":
-                            target = attr[1]
-                    if target and not target.startswith('/'):
-                        target = tr.base_dir + target
-                    if target and os.path.exists(target):
-                        img = cairo.ImageSurface.create_from_png(target)
-                        chop = math.ceil(img.get_height() / tr.line_height)
-                        group = []
-                        for i in range(chop):
-                            u = TextUnit("",4,self.current_font)
-                            u.set_extra('img',img)
-                            u.set_extra('offset',i * tr.line_height)
-                            if self.current_link:
-                                u.set_extra('link',self.current_link)
-                            u.set_tag_group(group)
-                            u.width = img.get_width()
-                            self.units.append(u)
+                    self.handle_img(tag,attrs)
+                elif tag == "br":
+                    units = tr.units_from_text('\n', self.current_font)
+                    self.units.extend(units)
                 else:
                     pass
 
+            def handle_startendtag(self, tag, attrs):
+                if tag == "img":
+                    self.handle_img(tag,attrs)
+                elif tag == "br":
+                    units = tr.units_from_text('\n', self.current_font)
+                    self.units.extend(units)
+                elif tag in ['p','div','h1','h2','h3','tr','pre'] and not self.whitespace_sensitive: # etc?
+                    units = tr.units_from_text('\n', self.current_font)
+                    self.units.extend(units)
+                else:
+                    # Unknown start/end tag.
+                    pass
+
+
             def handle_endtag(self, tag):
+                if not self.tag_stack:
+                    print(f"No stack when trying to close {tag}?")
                 if self.tag_stack[-1] != tag:
                     print(f"unclosed tag {self.tag_stack[-1]} when closing tag {tag}")
                 else:
                     self.tag_stack.pop()
-                    if tag in ["b","i","color","mono","link","h1","h2","h3"]:
+                    if tag in ["b","i","color","mono","link","h1","h2","h3","a","pre"]:
                         self.current_font = self.font_stack.pop()
-                    if tag in ["link"]:
+                    if tag in ['p','div','h1','h2','h3','li','tr','pre'] and not self.whitespace_sensitive: # etc?
+                        units = tr.units_from_text('\n', self.current_font)
+                        self.units.extend(units)
+                    if tag in ["link","a"]:
                         self.current_link = self.link_stack.pop()
                         self.tag_group = None
 
             def handle_data(self, data):
-                units = tr.units_from_text(data, self.current_font)
+                if 'title' in self.tag_stack:
+                    self.title += data
+                if 'head' in self.tag_stack or 'script' in self.tag_stack: return
+                if 'pre' in self.tag_stack:
+                    units = tr.units_from_text(data, self.current_font, whitespace=True)
+                else:
+                    units = tr.units_from_text(data, self.current_font, whitespace=self.whitespace_sensitive)
                 if self.current_link:
                     for u in units:
                         u.set_extra('link',self.current_link)
@@ -322,8 +380,81 @@ class TextRegion(object):
                         u.set_tag_group(self.tag_group)
                 self.units.extend(units)
 
-        parser = RichTextParser()
+            def handle_img(self, tag, attrs):
+                target = None
+                for attr in attrs:
+                    if attr[0] == "src":
+                        target = attr[1]
+                if target and self.is_html and not target.startswith('http:') and not target.startswith('https:'):
+                    # This is actually more complicated than this check - protocol-relative stuff can work without full URLs
+                    if target.startswith('/'):
+                        base = urlparse(tr.base_dir)
+                        target = f"{base.scheme}://{base.netloc}{target}"
+                    else:
+                        target = tr.base_dir + target
+                else:
+                    if target and not self.is_html and not target.startswith('/'):
+                        target = tr.base_dir + target
+                    if target and self.is_html and not target.startswith('http:'):
+                        target = tr.base_dir + target
+                if target and target.startswith('http:'):
+                    x = hashlib.sha512(target.encode('utf-8')).hexdigest()
+                    p = f'/tmp/.browser-cache.{x}'
+                    if not os.path.exists(p):
+                        try:
+                            subprocess.check_output(['fetch','-o',p,target])
+                        except:
+                            print(f"Failed to download image: {target}")
+                            pass
+                    target = p
+                if target and os.path.exists(target):
+                    try:
+                        img = self.img_from_path(target)
+                    except:
+                        print(f"Failed to load image {target}, going to show backup image.")
+                        img = self.img_from_path('/usr/share/icons/16/help.png')
+                    chop = math.ceil(img.get_height() / tr.line_height)
+                    group = []
+                    for i in range(chop):
+                        u = TextUnit("",4,self.current_font)
+                        u.set_extra('img',img)
+                        u.set_extra('offset',i * tr.line_height)
+                        if self.current_link:
+                            u.set_extra('link',self.current_link)
+                        u.set_tag_group(group)
+                        u.width = img.get_width()
+                        self.units.append(u)
+
+            def fix_whitespace(self):
+                out_units = []
+                last_was_whitespace = False
+                for unit in self.units:
+                    if unit.unit_type == 3:
+                        last_was_whitespace = True
+                        out_units.append(unit)
+                    elif unit.unit_type == 1 and unit.string == ' ':
+                        if last_was_whitespace:
+                            continue
+                        last_was_whitespace = True
+                        out_units.append(unit)
+                    else:
+                        last_was_whitespace = False
+                        out_units.append(unit)
+                self.units = out_units
+
+            def img_from_path(self, path):
+                if not path in self.surface_cache:
+                    s = cairo.ImageSurface.create_from_png(path)
+                    self.surface_cache[path] = s
+                    return s
+                else:
+                    return self.surface_cache[path]
+
+        parser = RichTextParser(html=html)
         parser.feed(text)
+        self.title = parser.title
+        if html:
+            parser.fix_whitespace()
         self.text_units = parser.units
         self.reflow()
 

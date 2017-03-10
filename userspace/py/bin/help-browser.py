@@ -50,6 +50,11 @@ class ScrollableText(object):
         if h != self.height_int:
             needs_resize = True
             self.height_int = h
+
+        if self.height_int - self.pad * 2 > 30000:
+            # Shit...
+            self.height_int = 30000 - self.pad * 2
+
         self.tr.resize(self.width-self.pad*2, self.height_int-self.pad*2)
         self.tr.move(self.pad,self.pad)
 
@@ -221,7 +226,11 @@ This is normal text. <b>This is bold text.</b> <i>This is italic text.</i> <b><i
             return self.cache[url]
         else:
             try:
-                text = subprocess.check_output(['fetch',url]).decode('utf-8')
+                text = subprocess.check_output(['fetch',url])
+                if text.startswith(b'\x89PNG'):
+                    text = f"<html><body><img src=\"{url}\"></body></html>"
+                else:
+                    text = text.decode('utf-8')
             except:
                 text = '\n<h1>Error</h1>\n\nThere was an error obtaining this file.'
             self.cache[url] = text
@@ -250,6 +259,11 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
 
 """
 
+    def is_html(self):
+        if self.current_topic.endswith('.html') or self.current_topic.endswith('.htm'): return True
+        if '<html' in self.get_document_text(): return True
+        return False
+
     def update_history(self):
         def go_history(action):
             self.navigate(self.history[action],touch_history=False)
@@ -275,16 +289,23 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
             self.update_history()
         self.current_topic = target
         self.text_offset = 0
-        self.tr.set_richtext(self.get_document_text())
+        if self.is_html():
+            self.tr.base_dir = os.path.dirname(target) + '/'
+        else:
+            self.tr.base_dir = '/usr/share/help/'
+        self.tr.set_richtext(self.get_document_text(),html=self.is_html())
         self.update_text_buffer()
-        self.set_title(f"{self.get_title(self.current_topic)} - {app_name}","help")
+        if self.tr.title:
+            self.set_title(f"{self.tr.title} - {app_name}","help")
+        else:
+            self.set_title(f"{self.get_title(self.current_topic)} - {app_name}","help")
 
     def update_text_buffer(self):
         if not self.tr:
             self.tr = text_region.TextRegion(0,0,100,100)
             self.tr.set_line_height(18)
             self.tr.base_dir = '/usr/share/help/'
-            self.tr.set_richtext(self.get_document_text())
+            self.tr.set_richtext(self.get_document_text(),html=self.is_html())
             self.text_scroller.tr = self.tr
 
         if self.size_changed:
