@@ -199,6 +199,33 @@ size_t dns_name_to_normal_name(struct dns_packet * dns, size_t offset, char * bu
 	return i-1;
 }
 
+size_t get_dns_name(char * buffer, struct dns_packet * dns, size_t offset) {
+	uint8_t * bytes = (uint8_t *)dns;
+	while (1) {
+		uint8_t c = bytes[offset];
+		if (c == 0) {
+			offset++;
+			return offset;
+		} else if (c >= 0xC0) {
+			uint16_t ref = ((c - 0xC0) << 8) + bytes[offset+1];
+			get_dns_name(buffer, dns, ref);
+			offset++;
+			offset++;
+			return offset;
+		} else {
+			for (int i = 0; i < c; ++i) {
+				*buffer = bytes[offset+1+i];
+				buffer++;
+				*buffer = '\0';
+			}
+			*buffer = '.';
+			buffer++;
+			*buffer = '\0';
+			offset += c + 1;
+		}
+	}
+}
+
 size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset) {
 	uint8_t * bytes = (uint8_t *)dns;
 	while (1) {
@@ -381,6 +408,7 @@ static int gethost(char * name, uint32_t * ip) {
 			debug_print(WARNING, "   In Cache: %s → %x", name, ip);
 			return 0;
 		} else {
+			debug_print(WARNING, "   Not in cache: %s", name);
 			debug_print(WARNING, "   Still needs look up.");
 			char * xname = strdup(name);
 			char * queries = malloc(1024);
@@ -400,6 +428,8 @@ static int gethost(char * name, uint32_t * ip) {
 			queries[c+3] = 0x01; /* IN */
 			free(xname);
 
+			debug_print(WARNING, "Querying...");
+
 			void * tmp = malloc(1024);
 			size_t packet_size = write_dns_packet(tmp, c + 4, (uint8_t *)queries);
 			free(queries);
@@ -408,12 +438,19 @@ static int gethost(char * name, uint32_t * ip) {
 			free(tmp);
 
 			/* wait for response */
-			sleep_on(dns_waiters);
+			if (current_process->id != tasklet_pid) {
+				sleep_on(dns_waiters);
+			}
 			if (hashmap_has(dns_cache, name)) {
 				*ip = ip_aton(hashmap_get(dns_cache, name));
 				debug_print(WARNING, "   Now in cache: %s → %x", name, ip);
 				return 0;
 			} else {
+				if (current_process->id == tasklet_pid) {
+					debug_print(WARNING, "Query hasn't returned yet, but we're in the network thread, so we need to yield.");
+					return 2;
+				}
+				gethost(name,ip);
 				return 1;
 			}
 		}
@@ -1481,8 +1518,23 @@ static void parse_dns_response(fs_node_t * tty, void * last_packet) {
 		} else {
 			if (ntohs(d[0]) == 5) {
 				fprintf(tty, "CNAME: ");
-				print_dns_name(tty, dns, offset);
-				fprintf(tty, "\n");
+				char buffer[256];
+				get_dns_name(buffer, dns, offset);
+				fprintf(tty, "%s\n", buffer);
+				if (strlen(buffer)) {
+					buffer[strlen(buffer)-1] = '\0';
+				}
+				uint32_t addr;
+				if (gethost(buffer,&addr) == 2) {
+					debug_print(WARNING,"Can't provide a response yet, but going to query again in a moment.");
+				} else {
+					if (!hashmap_has(dns_cache, buf)) {
+						char ip[16];
+						ip_ntoa(addr, ip);
+						hashmap_set(dns_cache, buf, strdup(ip));
+						fprintf(tty, "resolves to %s\n", ip);
+					}
+				}
 			} else {
 				fprintf(tty, "dunno\n");
 			}
