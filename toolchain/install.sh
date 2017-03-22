@@ -160,7 +160,7 @@ pushd build
 
     if $BUILD_ZLIB; then
         # XXX zlib can not be built in a separate directory
-        pushd $DIR/tarballs/zlib*
+        pushd $DIR/tarballs/zlib*/
             CC=i686-pc-toaru-gcc ./configure --static --prefix=$VIRTPREFIX || bail
             make || bail
             make DESTDIR=$TOARU_SYSROOT install || bail
@@ -205,7 +205,7 @@ pushd build
 
     if $BUILD_MESA; then
         # XXX Mesa can not be built from a separate directory (configure script doesn't provide a Makefile)
-        pushd $DIR/tarballs/Mesa-*
+        pushd $DIR/tarballs/Mesa-*/
             ./configure --enable-32-bit --host=$TARGET --prefix=$VIRTPREFIX  --with-osmesa-bits=8 --with-driver=osmesa --disable-egl --disable-shared --without-x --disable-glw --disable-glut --disable-driglx-direct --disable-gallium || bail
             make || bail
             make DESTDIR=$TOARU_SYSROOT install || bail
