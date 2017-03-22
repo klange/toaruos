@@ -5,6 +5,8 @@ cd $DIR/..
 
 HDD_PATH=`pwd`/hdd
 
+which python3.6 > /dev/null || echo "You need Python 3.6 to cross-compile Python 3.6. You should build it locally or obtain it from your package manager if possible. A PPA for Ubuntu is available at ppa:jonathonf/python-3.6" && exit 1
+
 if [ ! -d toaru-python ]; then
 	echo "No Python source checkout, cloning..."
 	git clone https://github.com/klange/cpython toaru-python
