@@ -20,7 +20,7 @@ class MenuBarWidget(object):
 
     height = 24
     hilight_gradient_top = (93/255,163/255,236/255)
-    hilight_gradient_bottom = (56/255,137/255,220/55)
+    hilight_gradient_bottom = (56/255,137/255,220/255)
 
     def __init__(self, window, entries):
         self.window = window
