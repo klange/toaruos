@@ -15,6 +15,12 @@
 void get_cell_sizes(int * w, int * h) {
 	struct winsize wsz;
 	ioctl(0, TIOCGWINSZ, &wsz);
+
+	if (!wsz.ws_col || !wsz.ws_row) {
+		*w = 0;
+		*h = 0;
+	}
+
 	*w = wsz.ws_xpixel / wsz.ws_col;
 	*h = wsz.ws_ypixel / wsz.ws_row;
 }
@@ -73,6 +79,8 @@ int main (int argc, char * argv[]) {
 
 	int w, h;
 	get_cell_sizes(&w, &h);
+
+	if (!w || !h) return 1;
 
 	while (optind < argc) {
 		sprite_t * image = calloc(sizeof(sprite_t),1);

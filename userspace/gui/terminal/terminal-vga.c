@@ -819,6 +819,13 @@ int main(int argc, char ** argv) {
 
 	terminal = fdopen(fd_slave, "w");
 
+	struct winsize w;
+	w.ws_row = term_height;
+	w.ws_col = term_width;
+	w.ws_xpixel = 0;
+	w.ws_ypixel = 0;
+	ioctl(fd_master, TIOCSWINSZ, &w);
+
 	reinit(0);
 
 	fflush(stdin);
