@@ -11,6 +11,7 @@ a widget object which can independently draw and receive mouse events.
 import calendar
 import configparser
 import html
+import json
 import math
 import os
 import signal
@@ -269,6 +270,95 @@ class MouseModeWidget(BaseWidget):
                 self.absolute = True
             return True
 
+
+class WeatherWidget(BaseWidget):
+    """Collects weather information from an API."""
+
+    text_y_offset = 4
+    width = 50
+    color = 0xFFE6E6E6
+    font_size = 14
+    alignment = 0
+    check_time = 7200 # 2hr
+    update_time = 5
+    icon_width = 24
+
+    def __init__(self):
+        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, self.font_size, self.color)
+        self.tr   = text_region.TextRegion(0,0,self.width-self.icon_width,PANEL_HEIGHT-self.text_y_offset,font=self.font)
+        self.tr.set_alignment(self.alignment)
+        self.offset = 0
+        self.last_check = 0
+        self.last_update = 0
+        self.icon = None
+
+    def draw(self, window, offset, remaining, ctx):
+        self.check()
+        self.offset = offset
+        self.window = window
+        if self.icon:
+            ctx.save()
+            ctx.translate(offset,0)
+            ctx.scale(self.icon_width/self.icon.get_width(),self.icon_width/self.icon.get_width())
+            ctx.set_source_surface(self.icon,0,0)
+            ctx.paint()
+            ctx.restore()
+            self.tr.move(offset + self.icon_width,self.text_y_offset)
+        else:
+            self.tr.move(offset,self.text_y_offset)
+        self.tr.draw(window)
+
+    def focus_enter(self):
+        self.font.font_color = 0xFF8EDBFF
+
+    def focus_leave(self):
+        self.font.font_color = self.color
+
+    def check(self):
+        if current_time - self.last_check > self.check_time:
+            # Every so often, try to colect new weather data.
+            self.last_check = current_time
+            subprocess.Popen(['/bin/weather_tool.py'])
+            self.update_time = 1 # Try to collect data every seconds.
+
+        if current_time - self.last_update > self.update_time:
+            self.last_update = current_time
+
+            try:
+                with open('/tmp/weather.json','r') as f:
+                    weather = json.loads(f.read())
+            except:
+                self.icon = None
+                self.tr.set_richtext("")
+                self.width = 0
+                if current_time - self.last_check > 10:
+                    self.update_time = 60 # It's taken more than ten seconds to collect, give up for now.
+                return
+
+            # We succeeded, so we don't need to try again until we run the update tool again.
+            self.update_time = 7200
+
+            self.tr.set_richtext(f"{weather['temp_r']}°")
+            self.width = self.icon_width + self.tr.get_offset_at_index(-1)[1][1]
+            if weather['conditions'] and os.path.exists(f"/usr/share/icons/weather/{weather['icon']}.png"):
+                self.icon = cairo.ImageSurface.create_from_png(f"/usr/share/icons/weather/{weather['icon']}.png")
+            else:
+                self.icon = None
+            self.weather = weather
+
+    def mouse_action(self, msg):
+        if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
+            def _pass(action):
+                pass
+            menu_entries = [
+                MenuEntryAction(f"{self.weather['temp']:.2f}°C - {self.weather['conditions']}",None,_pass,None),
+                MenuEntryAction(f"Humidity: {self.weather['humidity']}%",None,_pass,None),
+                MenuEntryAction(f"Clouds: {self.weather['clouds']}%",None,_pass,None),
+                MenuEntryDivider(),
+                MenuEntryAction(f"Weather data provided",None,_pass,None),
+                MenuEntryAction(f"by OpenWeatherMap.org",None,_pass,None),
+            ]
+            menu = MenuWindow(menu_entries,(self.offset-120,self.window.height),root=self.window)
 
 
 class VolumeWidget(BaseWidget):
@@ -1328,7 +1418,7 @@ if __name__ == '__main__':
     yctx = yutani.Yutani()
 
     appmenu = ApplicationsMenuWidget()
-    widgets = [appmenu,WindowListWidget(),MouseModeWidget(),VolumeWidget(),NetworkWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
+    widgets = [appmenu,WindowListWidget(),MouseModeWidget(),VolumeWidget(),NetworkWidget(),WeatherWidget(),DateWidget(),ClockWidget(),LogOutWidget()]
     panel = PanelWindow(widgets)
 
     wallpaper = WallpaperWindow()
