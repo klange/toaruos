@@ -14,6 +14,7 @@ import text_region
 
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from about_applet import AboutAppletWindow
+from dialog import DialogWindow
 
 import yutani_mainloop
 
@@ -93,6 +94,8 @@ class HelpBrowserWindow(yutani.Window):
     def __init__(self, decorator):
         super(HelpBrowserWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="help", doublebuffer=True)
         self.move(100,100)
+        self.x = 100
+        self.y = 100
         self.decorator = decorator
         self.current_topic = "0_index.trt"
         self.text_buffer = None
@@ -108,7 +111,7 @@ class HelpBrowserWindow(yutani.Window):
         self.cache = {}
         self.history = []
         self.history_index = 0
-
+        self.title_cache = {}
 
         def herp(action):
             print(action)
@@ -161,6 +164,8 @@ class HelpBrowserWindow(yutani.Window):
                 return self.special[document[8:]].__doc__
             return "???"
         elif document.startswith("http:"):
+            if document in self.title_cache:
+                return self.title_cache[document]
             if document in self.cache:
                 lines = self.cache[document].split('\n')
                 for x in lines:
@@ -261,6 +266,7 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
 
     def is_html(self):
         if self.current_topic.endswith('.html') or self.current_topic.endswith('.htm'): return True
+        if self.current_topic.startswith('http') and not self.current_topic.endswith('.trt'): return True
         if '<html' in self.get_document_text(): return True
         return False
 
@@ -282,11 +288,13 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         self.history_menu.entries = entries
 
     def navigate(self, target, touch_history=True):
+        if target.startswith('https:'):
+            DialogWindow(self.decorator,app_name,f"<mono>https</mono> is not supported. Could not load the URL <mono>{target}</mono>",callback=lambda: None,window=self,cancel_label=False)
+            return
         if touch_history:
             del self.history[self.history_index+1:]
             self.history.append(target)
             self.history_index = len(self.history)-1
-            self.update_history()
         self.current_topic = target
         self.text_offset = 0
         if self.is_html():
@@ -297,8 +305,10 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         self.update_text_buffer()
         if self.tr.title:
             self.set_title(f"{self.tr.title} - {app_name}","help")
+            self.title_cache[target] = self.tr.title
         else:
             self.set_title(f"{self.get_title(self.current_topic)} - {app_name}","help")
+        self.update_history()
 
     def update_text_buffer(self):
         if not self.tr:
