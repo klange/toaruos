@@ -269,7 +269,7 @@ class TextInputWindow(yutani.Window):
     okay_label = "Okay"
     cancel_label = "Cancel"
 
-    def __init__(self, decorator, title, icon, text="", text_changed=None, callback=None,window=None):
+    def __init__(self, decorator, title, icon, text="", text_changed=None, callback=None,window=None,cancel_callback=None):
         super(TextInputWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=title, icon=icon, doublebuffer=True)
         if window:
             # Center window
@@ -288,6 +288,7 @@ class TextInputWindow(yutani.Window):
 
         self.text_changed = text_changed
         self.callback = callback
+        self.cancel_callback = cancel_callback
 
         self.button_ok = Button(self.okay_label,self.ok_click)
         self.button_cancel = Button(self.cancel_label,self.cancel_click)
@@ -307,6 +308,8 @@ class TextInputWindow(yutani.Window):
         self.close()
         if __name__ == '__main__':
             sys.exit(0)
+        if self.cancel_callback:
+            self.cancel_callback()
 
     def ok_click(self, button=None):
         self.tr.text = self.text()
