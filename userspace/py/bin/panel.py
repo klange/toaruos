@@ -280,7 +280,7 @@ class WeatherWidget(BaseWidget):
     font_size = 14
     alignment = 0
     check_time = 7200 # 2hr
-    update_time = 5
+    update_time = 60
     icon_width = 24
 
     def __init__(self):
@@ -336,7 +336,9 @@ class WeatherWidget(BaseWidget):
                 return
 
             # We succeeded, so we don't need to try again until we run the update tool again.
-            self.update_time = 7200
+            # In case the update tool runs on its own (triggered update from change in city, etc),
+            # we'll check every minute.
+            self.update_time = 60
 
             self.tr.set_richtext(f"{weather['temp_r']}°")
             self.width = self.icon_width + self.tr.get_offset_at_index(-1)[1][1]
@@ -352,11 +354,17 @@ class WeatherWidget(BaseWidget):
                 pass
             def open_browser(site):
                 launch_app(f"help-browser.py {site}")
+            def refresh_weather(action):
+                self.last_check = 0
+                self.check()
 
             menu_entries = [
-                MenuEntryAction(f"{self.weather['temp']:.2f}°C - {self.weather['conditions']}",None,_pass,None),
+                MenuEntryAction(f"{self.weather['temp']:.2f}° - {self.weather['conditions']}",None,_pass,None),
                 MenuEntryAction(f"Humidity: {self.weather['humidity']}%",None,_pass,None),
                 MenuEntryAction(f"Clouds: {self.weather['clouds']}%",None,_pass,None),
+                MenuEntryDivider(),
+                MenuEntryAction(f"Refresh now","forward",refresh_weather,None),
+                MenuEntryAction(f"Configure...","save",launch_app,"weather_tool.py --config"),
                 MenuEntryDivider(),
                 MenuEntryAction(f"Weather data provided",None,_pass,None),
                 MenuEntryAction(f"by OpenWeatherMap.org",None,open_browser,"http://openweathermap.org/"),
