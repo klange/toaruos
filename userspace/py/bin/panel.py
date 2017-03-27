@@ -350,13 +350,16 @@ class WeatherWidget(BaseWidget):
         if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
             def _pass(action):
                 pass
+            def open_browser(site):
+                launch_app(f"help-browser.py {site}")
+
             menu_entries = [
                 MenuEntryAction(f"{self.weather['temp']:.2f}°C - {self.weather['conditions']}",None,_pass,None),
                 MenuEntryAction(f"Humidity: {self.weather['humidity']}%",None,_pass,None),
                 MenuEntryAction(f"Clouds: {self.weather['clouds']}%",None,_pass,None),
                 MenuEntryDivider(),
                 MenuEntryAction(f"Weather data provided",None,_pass,None),
-                MenuEntryAction(f"by OpenWeatherMap.org",None,_pass,None),
+                MenuEntryAction(f"by OpenWeatherMap.org",None,open_browser,"http://openweathermap.org/"),
             ]
             menu = MenuWindow(menu_entries,(self.offset-120,self.window.height),root=self.window)
 
@@ -807,18 +810,30 @@ class PanelWindow(yutani.Window):
         surface = self.get_cairo_surface()
         ctx = cairo.Context(surface)
 
-        ctx.set_operator(cairo.OPERATOR_SOURCE)
-        ctx.set_source(self.background_pattern)
-        ctx.paint()
-        ctx.set_operator(cairo.OPERATOR_OVER)
+        something_changed = False
+        for i in range(2):
+            # Minor hack - if a widget changes its width during the draw call
+            # and it's on the right side, we need to redraw again. We'll go through
+            # one draw call with everything, in case multiple widgets changed widths
+            # and then redraw them all again. If something changes the second time,
+            # well, tough luck.
+            ctx.set_operator(cairo.OPERATOR_SOURCE)
+            ctx.set_source(self.background_pattern)
+            ctx.paint()
+            ctx.set_operator(cairo.OPERATOR_OVER)
 
-        offset = 0
-        index = 0
-        for widget in self.widgets:
-            index += 1
-            remaining = 0 if widget.width != -1 else self.width - sum([widget.width for widget in self.widgets[index:]])
-            widget.draw(self, offset, remaining, ctx)
-            offset = offset + widget.width if widget.width != -1 else remaining
+            offset = 0
+            index = 0
+            for widget in self.widgets:
+                index += 1
+                remaining = 0 if widget.width != -1 else self.width - sum([widget.width for widget in self.widgets[index:]])
+                before = widget.width
+                widget.draw(self, offset, remaining, ctx)
+                if widget.width != before:
+                    something_changed = True
+                offset = offset + widget.width if widget.width != -1 else remaining
+            if not something_changed:
+                break
 
         self.flip()
 
