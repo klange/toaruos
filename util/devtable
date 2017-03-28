@@ -3,3 +3,4 @@
 /home/local d 775 1000 1000 - - - - -
 /home/local/.desktop.conf f 664 1000 1000 - - - - -
 /home/local/.menu.desktop f 664 1000 1000 - - - - -
+/home/local/.weather.json f 664 1000 1000 - - - - -
