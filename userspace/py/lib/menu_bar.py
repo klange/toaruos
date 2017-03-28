@@ -92,6 +92,8 @@ class MenuEntryAction(object):
     hilight_gradient_bottom = (56/255,137/255,220/55)
     hilight_border_bottom = (47/255,106/255,167/255)
 
+    right_margin = 50
+
     def __init__(self, title, icon, action=None, data=None, rich=False):
         self.title = title
         self.icon = get_icon(icon,16) if icon else None
@@ -99,10 +101,11 @@ class MenuEntryAction(object):
         self.data = data
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,13,0xFF000000)
         self.font_hilight = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,13,0xFFFFFFFF)
-        self.width = self.font.width(self.title) + 50 # Arbitrary bit of extra space.
+        self.rich = rich
+
+        self.width = self.font.width(self.title) + self.right_margin # Arbitrary bit of extra space.
         # Fit width to hold title?
         self.tr = text_region.TextRegion(0,0,self.width - 22, 20, self.font)
-        self.rich = rich
         self.update_text()
         self.hilight = False
         self.window = None
@@ -115,6 +118,13 @@ class MenuEntryAction(object):
             self.tr.set_richtext(self.title)
         else:
             self.tr.set_text(self.title)
+        self.width = self.font.width(self.title) + self.right_margin # Arbitrary bit of extra space.
+        if self.rich:
+            try:
+                self.width = self.tr.get_offset_at_index(-1)[1][1] + self.right_margin
+            except:
+                pass # uh, fallback to the original width
+        self.tr.resize(self.width - 22, 20)
 
     def focus_enter(self,keyboard=False):
         if self.window and self.window.child:
