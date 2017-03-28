@@ -241,7 +241,7 @@ class MouseModeWidget(BaseWidget):
             tmp.paint()
         self.hilighted = False
         self.absolute = True
-        if not os.path.exists('/dev/vmmouse'):
+        if not os.path.exists('/dev/vmmouse') and not os.path.exists('/dev/absmouse'):
             self.width = 0
 
     def focus_enter(self):

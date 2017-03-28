@@ -89,6 +89,8 @@ static struct vbox_display_change * vbox_disp;
 static uint32_t vbox_phys_disp;
 static struct vbox_mouse * vbox_m;
 static uint32_t vbox_phys_mouse;
+static struct vbox_mouse * vbox_mg;
+static uint32_t vbox_phys_mouse_get;
 static uint32_t * vbox_vmmdev = 0;
 
 static fs_node_t * mouse_pipe;
@@ -98,13 +100,13 @@ static fs_node_t * mouse_pipe;
 
 static int vbox_irq_handler(struct regs *r) {
 	outportl(vbox_port, vbox_phys_disp);
-	outportl(vbox_port, vbox_phys_mouse);
+	outportl(vbox_port, vbox_phys_mouse_get);
 	outportl(vbox_port, vbox_phys_ack);
 	irq_ack(vbox_irq);
 
-	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y && vbox_m->x && vbox_m->y) {
-		unsigned int x = ((unsigned int)vbox_m->x * lfb_resolution_x) / 0xFFFF;
-		unsigned int y = ((unsigned int)vbox_m->y * lfb_resolution_y) / 0xFFFF;
+	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y && vbox_mg->x && vbox_mg->y) {
+		unsigned int x = ((unsigned int)vbox_mg->x * lfb_resolution_x) / 0xFFFF;
+		unsigned int y = ((unsigned int)vbox_mg->y * lfb_resolution_y) / 0xFFFF;
 
 		mouse_device_packet_t packet;
 		packet.magic = MOUSE_MAGIC;
@@ -131,6 +133,36 @@ void vbox_set_log(void) {
 	debug_file = &vb;
 }
 
+#define VBOX_MOUSE_ON (1 << 0) | (1 << 4)
+#define VBOX_MOUSE_OFF (0)
+
+static void mouse_on_off(unsigned int status) {
+	vbox_m->header.size = sizeof(struct vbox_mouse);
+	vbox_m->header.version = VBOX_REQUEST_HEADER_VERSION;
+	vbox_m->header.requestType = 2;
+	vbox_m->header.rc = 0;
+	vbox_m->header.reserved1 = 0;
+	vbox_m->header.reserved2 = 0;
+	vbox_m->features = status;
+	vbox_m->x = 0;
+	vbox_m->y = 0;
+	outportl(vbox_port, vbox_phys_mouse);
+}
+
+static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
+	if (request == 1) {
+		/* Disable */
+		mouse_on_off(VBOX_MOUSE_OFF);
+		return 0;
+	}
+	if (request == 2) {
+		/* Enable */
+		mouse_on_off(VBOX_MOUSE_ON);
+		return 0;
+	}
+	return -1;
+}
+
 static int vbox_check(void) {
 	pci_scan(vbox_scan_pci, -1, &vbox_device);
 
@@ -148,6 +180,7 @@ static int vbox_check(void) {
 
 		mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 		mouse_pipe->flags = FS_CHARDEVICE;
+		mouse_pipe->ioctl = ioctl_mouse;
 
 		vfs_mount("/dev/absmouse", mouse_pipe);
 
@@ -200,18 +233,16 @@ static int vbox_check(void) {
 		vbox_disp->eventack = 1;
 
 		vbox_m = (void*)kvmalloc_p(0x1000, &vbox_phys_mouse);
-		vbox_m->header.size = sizeof(struct vbox_mouse);
-		vbox_m->header.version = VBOX_REQUEST_HEADER_VERSION;
-		vbox_m->header.requestType = 2;
-		vbox_m->header.rc = 0;
-		vbox_m->header.reserved1 = 0;
-		vbox_m->header.reserved2 = 0;
-		vbox_m->features = (1 << 0) | (1 << 4);
-		vbox_m->x = 0;
-		vbox_m->y = 0;
-		outportl(vbox_port, vbox_phys_mouse);
+		mouse_on_off(VBOX_MOUSE_ON);
 
-		vbox_m->header.requestType = 1;
+		/* For use with later receives */
+		vbox_mg = (void*)kvmalloc_p(0x1000, &vbox_phys_mouse_get);
+		vbox_mg->header.size = sizeof(struct vbox_mouse);
+		vbox_mg->header.version = VBOX_REQUEST_HEADER_VERSION;
+		vbox_mg->header.requestType = 1;
+		vbox_mg->header.rc = 0;
+		vbox_mg->header.reserved1 = 0;
+		vbox_mg->header.reserved2 = 0;
 
 		/* device memory region mapping? */
 		{
