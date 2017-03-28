@@ -89,6 +89,7 @@ class ClockWidget(BaseWidget):
     font_size = 16
     alignment = 0
     time_format = '<b>%H:%M:%S</b>'
+    hilight = 0xFF8EDBFF
 
     def __init__(self):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, self.font_size, self.color)
@@ -104,7 +105,7 @@ class ClockWidget(BaseWidget):
         self.tr.draw(window)
 
     def focus_enter(self):
-        self.font.font_color = 0xFF8EDBFF
+        self.font.font_color = self.hilight
 
     def focus_leave(self):
         self.font.font_color = self.color
@@ -282,6 +283,7 @@ class WeatherWidget(BaseWidget):
     check_time = 7200 # 2hr
     update_time = 60
     icon_width = 24
+    hilight = 0xFF8EDBFF
 
     def __init__(self):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, self.font_size, self.color)
@@ -309,7 +311,7 @@ class WeatherWidget(BaseWidget):
         self.tr.draw(window)
 
     def focus_enter(self):
-        self.font.font_color = 0xFF8EDBFF
+        self.font.font_color = self.hilight
 
     def focus_leave(self):
         self.font.font_color = self.color
