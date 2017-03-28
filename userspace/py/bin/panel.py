@@ -164,7 +164,11 @@ class LogOutWidget(BaseWidget):
 
     def mouse_action(self, msg):
         if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
-            yctx.session_end()
+            menu_entries = [
+                MenuEntryAction("Log Out","exit",logout_callback,None),
+            ]
+            menu = MenuWindow(menu_entries,(self.offset-120,self.window.height),root=self.window)
+            menu.move(self.window.width - menu.width, self.window.height)
         return False
 
 class RestartMenuWidget(LogOutWidget):
@@ -284,6 +288,8 @@ class WeatherWidget(BaseWidget):
     update_time = 60
     icon_width = 24
     hilight = 0xFF8EDBFF
+    data_path = '/tmp/weather.json'
+    icons_path = '/usr/share/icons/weather/'
 
     def __init__(self):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, self.font_size, self.color)
@@ -327,7 +333,7 @@ class WeatherWidget(BaseWidget):
             self.last_update = current_time
 
             try:
-                with open('/tmp/weather.json','r') as f:
+                with open(self.data_path,'r') as f:
                     weather = json.loads(f.read())
             except:
                 self.icon = None
@@ -337,6 +343,8 @@ class WeatherWidget(BaseWidget):
                     self.update_time = 60 # It's taken more than ten seconds to collect, give up for now.
                 return
 
+            self.last_modified = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime(os.path.getmtime(self.data_path)))
+
             # We succeeded, so we don't need to try again until we run the update tool again.
             # In case the update tool runs on its own (triggered update from change in city, etc),
             # we'll check every minute.
@@ -344,8 +352,8 @@ class WeatherWidget(BaseWidget):
 
             self.tr.set_richtext(f"{weather['temp_r']}°")
             self.width = self.icon_width + self.tr.get_offset_at_index(-1)[1][1]
-            if weather['conditions'] and os.path.exists(f"/usr/share/icons/weather/{weather['icon']}.png"):
-                self.icon = cairo.ImageSurface.create_from_png(f"/usr/share/icons/weather/{weather['icon']}.png")
+            if weather['conditions'] and os.path.exists(f"{self.icons_path}{weather['icon']}.png"):
+                self.icon = cairo.ImageSurface.create_from_png(f"{self.icons_path}{weather['icon']}.png")
             else:
                 self.icon = None
             self.weather = weather
@@ -361,15 +369,18 @@ class WeatherWidget(BaseWidget):
                 self.check()
 
             menu_entries = [
-                MenuEntryAction(f"{self.weather['temp']:.2f}° - {self.weather['conditions']}",None,_pass,None),
-                MenuEntryAction(f"Humidity: {self.weather['humidity']}%",None,_pass,None),
-                MenuEntryAction(f"Clouds: {self.weather['clouds']}%",None,_pass,None),
+                MenuEntryAction(f"<b>Weather for {self.weather['city']}</b>",None,_pass,None,rich=True),
+                MenuEntryAction(self.last_modified,None,_pass,None),
+                MenuEntryDivider(),
+                MenuEntryAction(f"<b>{self.weather['temp']:.2f}°</b> - {self.weather['conditions']}",None,_pass,None,rich=True),
+                MenuEntryAction(f"<b>Humidity</b>: {self.weather['humidity']}%",None,_pass,None,rich=True),
+                MenuEntryAction(f"<b>Clouds</b>: {self.weather['clouds']}%",None,_pass,None,rich=True),
                 MenuEntryDivider(),
                 MenuEntryAction(f"Refresh...","refresh",refresh_weather,None),
                 MenuEntryAction(f"Configure...","config",launch_app,"weather_tool.py --config"),
                 MenuEntryDivider(),
-                MenuEntryAction(f"Weather data provided",None,_pass,None),
-                MenuEntryAction(f"by OpenWeatherMap.org",None,open_browser,"http://openweathermap.org/"),
+                MenuEntryAction(f"Weather data provided by",None,_pass,None),
+                MenuEntryAction(f"<color 0x0000FF>OpenWeatherMap.org</color>",None,open_browser,"http://openweathermap.org/",rich=True),
             ]
             menu = MenuWindow(menu_entries,(self.offset-120,self.window.height),root=self.window)
 
@@ -569,11 +580,13 @@ class NetworkWidget(BaseWidget):
             self.update()
             if self.status == 1:
                 menu_entries = [
-                    MenuEntryAction(f"IP: {self.ip}",None,_pass,None),
-                    MenuEntryAction(f"Primary DNS: {self.dns}",None,_pass,None),
-                    MenuEntryAction(f"Gateway: {self.gw}",None,_pass,None),
-                    MenuEntryAction(f"MAC: {self.mac}",None,_pass,None),
-                    MenuEntryAction(f"Device: {self.device}",None,_pass,None),
+                    MenuEntryAction(f"<b>Network Status</b>",None,_pass,None,rich=True),
+                    MenuEntryDivider(),
+                    MenuEntryAction(f"<b>IP</b>: {self.ip}",None,_pass,None,rich=True),
+                    MenuEntryAction(f"<b>Primary DNS</b>: {self.dns}",None,_pass,None,rich=True),
+                    MenuEntryAction(f"<b>Gateway</b>: {self.gw}",None,_pass,None,rich=True),
+                    MenuEntryAction(f"<b>MAC</b>: {self.mac}",None,_pass,None,rich=True),
+                    MenuEntryAction(f"<b>Device</b>: {self.device}",None,_pass,None,rich=True),
                 ]
             else:
                 menu_entries = [
