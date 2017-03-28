@@ -63,6 +63,7 @@ def update_weather():
             'icon': conditions['icon'] if conditions else None,
             'humidity': weather['main']['humidity'],
             'clouds': weather['clouds']['all'] if 'all' in weather['clouds'] else None,
+            'city': city,
         }
 
         with open('/tmp/weather.json','w') as f:
