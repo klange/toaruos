@@ -747,6 +747,8 @@ _nope:
 void add_path_contents(char * path) {
 	DIR * dirp = opendir(path);
 
+	if (!dirp) return; /* Failed to load directly */
+
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
 		if (ent->d_name[0] != '.') {
