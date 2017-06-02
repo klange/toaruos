@@ -412,6 +412,7 @@ BLACKLIST += hdd/usr/share/wallpapers/paris.png
 BLACKLIST += hdd/usr/share/wallpapers/southbay.png
 BLACKLIST += hdd/usr/share/wallpapers/yokohama.png
 BLACKLIST += hdd/usr/share/wallpapers/yosemite.png
+BLACKLIST += hdd/usr/share/wallpapers/fuji.png
 
 _cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod ${PYTHON_FILES}
 	@${BEG} "ext" "Generating a ramdisk image..."
