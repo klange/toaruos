@@ -14,62 +14,41 @@
 #include <fs.h>
 
 /*
- * Integer to string
+ * Integer (in any base) to string
  */
-static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr ) {
+static void print_int(	unsigned int value, unsigned int base, unsigned int width, 
+						char * buf, int * ptr ) {
+	/* Default width for hexadecimal numbers is 8 */
+	if(base == 16 && width == 0)
+		width = 8;
+
 	unsigned int n_width = 1;
-	unsigned int i = 9;
-	while (value > i && i < UINT32_MAX) {
-		n_width += 1;
-		i *= 10;
-		i += 9;
+	unsigned int i = base - 1;
+	while(value > i && i < UINT32_MAX) {
+		n_width++;
+		i *= base;
+		i += (base - 1);
 	}
 
 	int printed = 0;
-	while (n_width + printed < width) {
+	while(n_width + printed < width) {
 		buf[*ptr] = '0';
-		*ptr += 1;
-		printed += 1;
+		(*ptr)++;
+		printed++;
 	}
 
-	i = n_width;
-	while (i > 0) {
-		unsigned int n = value / 10;
-		int r = value % 10;
-		buf[*ptr + i - 1] = r + '0';
-		i--;
+	for(unsigned int j = n_width; j > 0; j--) {
+		unsigned int n = value / base;
+		int r = value % base;
+		/* For bigger bases than 10 (eg: hexadecimal) */
+		if(r > 9)
+			buf[*ptr + j - 1] = (r - 10) + 'a';
+		else
+			buf[*ptr + j - 1] = r + '0';
 		value = n;
 	}
+
 	*ptr += n_width;
-}
-
-/*
- * Hexadecimal to string
- */
-static void print_hex(unsigned int value, unsigned int width, char * buf, int * ptr) {
-	int i = width;
-
-	if (i == 0) i = 8;
-
-	unsigned int n_width = 1;
-	unsigned int j = 0x0F;
-	while (value > j && j < UINT32_MAX) {
-		n_width += 1;
-		j *= 0x10;
-		j += 0x0F;
-	}
-
-	while (i > (int)n_width) {
-		buf[*ptr] = '0';
-		*ptr += 1;
-		i--;
-	}
-
-	i = (int)n_width;
-	while (i-- > 0) {
-		buf[*ptr] = "0123456789abcdef"[(value>>(i*4))&0xF];
-		*ptr += + 1;
-	}
 }
 
 /*
@@ -107,12 +86,12 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 				break;
 			case 'x': /* Hexadecimal number */
 				i = b - buf;
-				print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+				print_int((unsigned long)va_arg(args, unsigned long), 16, arg_width, buf, &i);
 				b = buf + i;
 				break;
 			case 'd': /* Decimal number */
 				i = b - buf;
-				print_dec((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+				print_int((unsigned long)va_arg(args, unsigned long), 10, arg_width, buf, &i);
 				b = buf + i;
 				break;
 			case '%': /* Escape */
