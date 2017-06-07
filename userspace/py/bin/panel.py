@@ -288,6 +288,7 @@ class WeatherWidget(BaseWidget):
     update_time = 60
     icon_width = 24
     hilight = 0xFF8EDBFF
+    icon_color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
     data_path = '/tmp/weather.json'
     icons_path = '/usr/share/icons/weather/'
 
@@ -354,6 +355,11 @@ class WeatherWidget(BaseWidget):
             self.width = self.icon_width + self.tr.get_offset_at_index(-1)[1][1]
             if weather['conditions'] and os.path.exists(f"{self.icons_path}{weather['icon']}.png"):
                 self.icon = cairo.ImageSurface.create_from_png(f"{self.icons_path}{weather['icon']}.png")
+                tmp = cairo.Context(self.icon)
+                tmp.set_operator(cairo.OPERATOR_ATOP)
+                tmp.rectangle(0,0,24,24)
+                tmp.set_source_rgb(*self.icon_color)
+                tmp.paint()
             else:
                 self.icon = None
             self.weather = weather
