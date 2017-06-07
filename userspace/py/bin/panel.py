@@ -289,6 +289,7 @@ class WeatherWidget(BaseWidget):
     icon_width = 24
     hilight = 0xFF8EDBFF
     icon_color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
+    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
     data_path = '/tmp/weather.json'
     icons_path = '/usr/share/icons/weather/'
 
@@ -300,16 +301,19 @@ class WeatherWidget(BaseWidget):
         self.last_check = 0
         self.last_update = 0
         self.icon = None
+        self.hilighted = False
 
     def draw(self, window, offset, remaining, ctx):
         self.check()
         self.offset = offset
         self.window = window
         if self.icon:
+            icon = self.icon_hilight if self.hilighted else self.icon
             ctx.save()
             ctx.translate(offset,0)
-            ctx.scale(self.icon_width/self.icon.get_width(),self.icon_width/self.icon.get_width())
-            ctx.set_source_surface(self.icon,0,0)
+            if icon.get_width() != self.icon_width:
+                ctx.scale(self.icon_width/icon.get_width(),self.icon_width/icon.get_width())
+            ctx.set_source_surface(icon,0,0)
             ctx.paint()
             ctx.restore()
             self.tr.move(offset + self.icon_width,self.text_y_offset)
@@ -319,9 +323,11 @@ class WeatherWidget(BaseWidget):
 
     def focus_enter(self):
         self.font.font_color = self.hilight
+        self.hilighted = True
 
     def focus_leave(self):
         self.font.font_color = self.color
+        self.hilighted = False
 
     def check(self):
         if current_time - self.last_check > self.check_time:
@@ -359,6 +365,12 @@ class WeatherWidget(BaseWidget):
                 tmp.set_operator(cairo.OPERATOR_ATOP)
                 tmp.rectangle(0,0,24,24)
                 tmp.set_source_rgb(*self.icon_color)
+                tmp.paint()
+                self.icon_hilight = cairo.ImageSurface.create_from_png(f"{self.icons_path}{weather['icon']}.png")
+                tmp = cairo.Context(self.icon_hilight)
+                tmp.set_operator(cairo.OPERATOR_ATOP)
+                tmp.rectangle(0,0,24,24)
+                tmp.set_source_rgb(*self.hilight_color)
                 tmp.paint()
             else:
                 self.icon = None
