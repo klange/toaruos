@@ -917,6 +917,9 @@ class PanelWindow(yutani.Window):
         if redraw:
             self.draw()
 
+    def keyboard_event(self, msg):
+        pass
+
 
 class WallpaperIcon(object):
 
