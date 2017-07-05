@@ -13,6 +13,7 @@
 #include <module.h>
 #include <fs.h>
 #include <printf.h>
+#include <mem.h>
 
 static uint32_t read_ramdisk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 static uint32_t write_ramdisk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -57,6 +58,25 @@ static void close_ramdisk(fs_node_t * node) {
 	return;
 }
 
+static int ioctl_ramdisk(fs_node_t * node, int request, void * argp) {
+	switch (request) {
+		case 0x4001:
+			if (current_process->user != 0) {
+				return -EPERM;
+			} else {
+				/* Clear all of the memory used by this ramdisk */
+				for (uintptr_t i = node->inode; i < node->inode + node->length; i += 0x1000) {
+					clear_frame(i);
+				}
+				/* Mark the file length as 0 */
+				node->length = 0;
+				return 0;
+			}
+		default:
+			return -EINVAL;
+	}
+}
+
 static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -71,6 +91,7 @@ static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, 
 	fnode->write   = write_ramdisk;
 	fnode->open    = open_ramdisk;
 	fnode->close   = close_ramdisk;
+	fnode->ioctl   = ioctl_ramdisk;
 	return fnode;
 }
 
