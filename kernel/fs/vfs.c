@@ -28,6 +28,10 @@ hashmap_t * fs_types = NULL;
 int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
 
+	if (current_process->user == 0) {
+		return 1;
+	}
+
 	uint32_t permissions = node->mask;
 
 	uint8_t user_perm  = (permissions >> 6) & 07;
@@ -305,17 +309,23 @@ int create_file_fs(char *name, uint16_t permission) {
 		f_path--;
 	}
 
+	while (*f_path == '/') {
+		f_path++;
+	}
+
 	debug_print(WARNING, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
 
 	parent = kopen(parent_path, 0);
 	free(parent_path);
 
 	if (!parent) {
+		debug_print(WARNING, "failed to open parent");
 		free(path);
 		return -1;
 	}
 
 	if (!has_permission(parent, 02)) {
+		debug_print(WARNING, "bad permissions");
 		return -EACCES;
 	}
 
@@ -344,6 +354,10 @@ int unlink_fs(char * name) {
 			break;
 		}
 		f_path--;
+	}
+
+	while (*f_path == '/') {
+		f_path++;
 	}
 
 	debug_print(WARNING, "unlinking file %s within %s (hope these strings are good)", f_path, parent_path);
@@ -375,12 +389,10 @@ int mkdir_fs(char *name, uint16_t permission) {
 	sprintf(parent_path, "%s/..", path);
 
 	fs_node_t * this = kopen(path, 0);
+	int _exists = 0;
 	if (this) {
-		debug_print(ERROR, "Tried to mkdir a dir that already exists? (%s)", path);
-		close_fs(this);
-		free(path);
-		free(parent_path);
-		return -EEXIST;
+		debug_print(WARNING, "Tried to mkdir a dir that already exists? (%s)", path);
+		_exists = 1;
 	}
 
 	char * f_path = path + strlen(path) - 1;
@@ -392,6 +404,10 @@ int mkdir_fs(char *name, uint16_t permission) {
 		f_path--;
 	}
 
+	while (*f_path == '/') {
+		f_path++;
+	}
+
 	debug_print(WARNING, "creating directory %s within %s (hope these strings are good)", f_path, parent_path);
 
 	parent = kopen(parent_path, 0);
@@ -399,6 +415,9 @@ int mkdir_fs(char *name, uint16_t permission) {
 
 	if (!parent) {
 		free(path);
+		if (_exists) {
+			return -EEXIST;
+		}
 		return -1;
 	}
 
@@ -409,6 +428,9 @@ int mkdir_fs(char *name, uint16_t permission) {
 	free(path);
 	close_fs(parent);
 
+	if (_exists) {
+		return -EEXIST;
+	}
 	return 0;
 }
 
