@@ -338,7 +338,12 @@ int lstat(const char *path, struct stat *st) {
 }
 
 int mkdir(const char *pathname, mode_t mode) {
-	return syscall_mkdir((char *)pathname, mode);
+	int ret = syscall_mkdir((char *)pathname, mode);
+	if (ret < 0) {
+		errno = -ret;
+		return -1;
+	}
+	return ret;
 }
 
 int chdir(const char *path) {
