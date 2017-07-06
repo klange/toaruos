@@ -77,6 +77,8 @@ int main(int argc, char * argv[]) {
 			return start_options((char *[]){"/bin/compositor","--","/bin/terminal","-Fl",args,NULL});
 		} else if (!strcmp(argv[1], "--vga")) {
 			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
+		} else if (!strcmp(argv[1], "--migrate")) {
+			return start_options((char *[]){"/usr/bin/python","/bin/migrate.py",NULL});
 		} else {
 			/* Pass it to the compositor... */
 			return start_options((char *[]){"/bin/compositor","--",argv[1],NULL});
