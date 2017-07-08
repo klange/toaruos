@@ -1549,7 +1549,7 @@ int main(int argc, char ** argv) {
 
 		child_pid = f;
 
-		int fds[2] = {fd_master, fileno(yctx->sock)};
+		int fds[2] = {fileno(yctx->sock), fd_master};
 
 		unsigned char buf[1024];
 		while (!exit_application) {
@@ -1558,14 +1558,14 @@ int main(int argc, char ** argv) {
 
 			check_for_exit();
 
-			if (index == 0) {
+			if (index == 1) {
 				maybe_flip_cursor();
 				int r = read(fd_master, buf, 1024);
 				for (uint32_t i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
 				display_flip();
-			} else if (index == 1) {
+			} else if (index == 0) {
 				maybe_flip_cursor();
 				handle_incoming();
 			} else if (index == 2) {
