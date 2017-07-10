@@ -69,5 +69,7 @@ if start == '--single':
     os.execv('/bin/compositor',['compositor','--','/bin/terminal','-Fl'])
 elif start == '--vga':
     os.execv('/bin/terminal-vga',['terminal-vga','-l'])
-else:
+elif start:
     os.execv('/bin/compositor',['compositor','--',start])
+else:
+    os.execv('/bin/compositor',['compositor'])
