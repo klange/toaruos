@@ -13,7 +13,7 @@ import cairo
 import yutani
 import text_region
 import toaru_fonts
-import toaru_package
+import msk
 
 from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
@@ -31,19 +31,23 @@ hilight_gradient_top = (93/255,163/255,236/255)
 hilight_gradient_bottom = (56/255,137/255,220/55)
 hilight_border_bottom = (47/255,106/255,167/255)
 
+_local_index = None
+_manifest = None
+
+package_height = 50
+
 def install(name):
-    toaru_package.process_package(name)
-    toaru_package.calculate_upgrades()
+    msk.needs_local_cache()
+    all_packages = msk.resolve_dependencies([name], _local_index, _manifest)
 
-    for package in toaru_package.packages_to_install:
-        if package in toaru_package.upgrade_packages or package in toaru_package.install_packages:
-            toaru_package.install_package(package)
+    for name in all_packages:
+        msk.fetch_package(name, _manifest)
 
-    toaru_package.write_status()
+    for name in all_packages:
+        msk.install_fetched_package(name, _manifest, _local_index, [name])
 
-    toaru_package.packages_to_install = []
-    toaru_package.upgrade_packages = []
-    toaru_package.install_packages = []
+    msk.commit_local_index(_local_index)
+    msk.signal_desktop()
 
 class Package(object):
 
@@ -55,17 +59,24 @@ class Package(object):
 
     @property
     def installed(self):
-        return self.name in toaru_package.installed_packages
+        return self.name in _local_index
+
+    @property
+    def description(self):
+        return _manifest[self.name]['description'].replace('\n',' ')
 
     @property
     def version(self):
-        a,b,c= toaru_package.manifest['packages'][self.name]['version']
+        a,b,c= _manifest[self.name]['version']
         return f"{a}.{b}.{c}"
 
     @property
+    def friendly_name(self):
+        return _manifest[self.name]['friendly-name']
+
+    @property
     def text(self):
-        check = "☐" if not self.installed else "☑"
-        return f"{check} <b>{self.name}</b> - {self.version}"
+        return f"<h2><b>{self.friendly_name}</b> - {self.version}</h2>\n{self.description}"
 
     def do_action(self):
         if self.installed:
@@ -135,20 +146,20 @@ class PackageManagerWindow(yutani.Window):
         self.hilighted = None
 
     def load_packages(self):
-        self.packages = sorted([Package(name) for name in toaru_package.manifest['packages'].keys()],key=lambda x: x.name)
+        self.packages = sorted([Package(name) for name in _manifest.keys()],key=lambda x: x.name)
 
     def redraw_buf(self,clips=None):
         if self.buf:
             self.buf.destroy()
         w = self.width - self.decorator.width()
-        self.buf = yutani.GraphicsBuffer(w,len(self.packages)*24)
+        self.buf = yutani.GraphicsBuffer(w,len(self.packages)*package_height)
 
         surface = self.buf.get_cairo_surface()
         ctx = cairo.Context(surface)
 
         if clips:
             for clip in clips:
-                ctx.rectangle(clip.x,clip.y,w,24)
+                ctx.rectangle(clip.x,clip.y,w,package_height)
             ctx.clip()
 
         ctx.rectangle(0,0,surface.get_width(),surface.get_height())
@@ -160,7 +171,8 @@ class PackageManagerWindow(yutani.Window):
         for f in self.packages:
             f.y = offset_y
             if not clips or f in clips:
-                tr = text_region.TextRegion(4,offset_y+4,w-4,20)
+                tr = text_region.TextRegion(54,offset_y+4,w-54,package_height-4)
+                tr.line_height = 20
                 if f.hilight:
                     gradient = cairo.LinearGradient(0,0,0,18)
                     gradient.add_color_stop_rgba(0.0,*hilight_gradient_top,1.0)
@@ -168,26 +180,30 @@ class PackageManagerWindow(yutani.Window):
                     ctx.rectangle(0,offset_y+4,w,1)
                     ctx.set_source_rgb(*hilight_border_top)
                     ctx.fill()
-                    ctx.rectangle(0,offset_y+4+20-1,w,1)
+                    ctx.rectangle(0,offset_y+package_height-1,w,1)
                     ctx.set_source_rgb(*hilight_border_bottom)
                     ctx.fill()
                     ctx.save()
                     ctx.translate(0,offset_y+4+1)
-                    ctx.rectangle(0,0,w,20-2)
+                    ctx.rectangle(0,0,w,package_height-6)
                     ctx.set_source(gradient)
                     ctx.fill()
                     ctx.restore()
                     tr.font.font_color = 0xFFFFFFFF
                 else:
-                    ctx.rectangle(0,offset_y+4,w,20)
+                    ctx.rectangle(0,offset_y+4,w,package_height-4)
                     ctx.set_source_rgb(1,1,1)
                     ctx.fill()
                     tr.font.font_color = 0xFF000000
+                if f.installed:
+                    package_icon = get_icon('package',48)
+                    ctx.set_source_surface(package_icon,2,1+offset_y)
+                    ctx.paint()
                 tr.set_richtext(f.text)
                 tr.set_one_line()
                 tr.set_ellipsis()
                 tr.draw(self.buf)
-            offset_y += 24
+            offset_y += package_height
 
     def draw(self):
         surface = self.get_cairo_surface()
@@ -275,7 +291,7 @@ class PackageManagerWindow(yutani.Window):
 
         for f in self.packages:
             if offset_y > h: break
-            if y >= offset_y and y < offset_y + 24:
+            if y >= offset_y and y < offset_y + package_height:
                 if not f.hilight:
                     redraw.append(f)
                     if self.hilighted:
@@ -285,7 +301,7 @@ class PackageManagerWindow(yutani.Window):
                 self.hilighted = f
                 hit = True
                 break
-            offset_y += 24
+            offset_y += package_height
 
         if not hit:
             if self.hilighted:
@@ -316,8 +332,9 @@ if __name__ == '__main__':
     d = yutani.Decor()
 
     try:
-        toaru_package.fetch_manifest()
-        toaru_package.is_gui = True
+        msk.is_gui = True
+        _manifest = msk.get_manifest()
+        _local_index = msk.get_local_index()
         packages = []
     except:
         packages = [NoPackages()]

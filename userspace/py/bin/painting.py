@@ -13,7 +13,6 @@ import cairo
 import yutani
 import text_region
 import toaru_fonts
-import toaru_package
 
 from color_picker import ColorPickerWindow
 
