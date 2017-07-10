@@ -26,6 +26,9 @@ if cmdline:
             args[key] = value
     if 'root' in args:
         print("Original root is:", args['root'])
+    elif 'init' in args and args['init'] == '/dev/ram0':
+        print("Init is ram0, so this is probably a netboot image, going to assume root is /tmp/netboot.img")
+        args['root'] = '/tmp/netboot.img'
     else:
         print("Don't know what root is, bailing.")
         sys.exit(1)
@@ -59,6 +62,8 @@ if '/dev/ram' in root:
         root,_ = root.split(',',1)
     with open(root,'r') as f:
         fcntl.ioctl(f, 0x4001)
+if '/tmp/' in root:
+    os.remove(root)
 
 if start == '--single':
     os.execv('/bin/compositor',['compositor','--','/bin/terminal','-Fl'])
