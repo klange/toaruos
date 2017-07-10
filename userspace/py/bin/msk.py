@@ -83,6 +83,7 @@ def extract_package(path, quiet=True):
         package.extractall('/',members=members)
 
 def signal_desktop(pid_file='/tmp/.wallpaper.pid'):
+    pid = None
     if os.path.exists(pid_file):
         with open(pid_file,'r') as f:
             pid = int(f.read().strip())
