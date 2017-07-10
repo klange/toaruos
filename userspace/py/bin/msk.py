@@ -22,6 +22,8 @@ index_path = f'{var_dir}/index.json'
 local_cache = f'{var_dir}/cache'
 
 is_gui = False
+force_yes = False
+start_index = 1
 
 def fetch(url, destination, check=False):
     """Fetch a package or other file from `url` and write it to `destination`."""
@@ -101,6 +103,7 @@ def needs_local_cache():
 
 def fetch_manifest():
     needs_var_dir()
+    print("Updating manifest...")
     fetch(manifest_url, manifest_path)
 
 def get_manifest():
@@ -186,7 +189,7 @@ def install_packages():
         return 1
 
     # Verify the requested package names are valid
-    packages = sys.argv[2:]
+    packages = sys.argv[start_index:]
     install_candidates = []
     for package in packages:
         if package in local_index:
@@ -207,7 +210,7 @@ def install_packages():
     # If the set of packages we are installing differs from what
     # was requested (and valid), warn the user before continuing
     # (this just means there were dependencies to also install)
-    if set(all_packages) != set(install_candidates):
+    if set(all_packages) != set(install_candidates) and not force_yes:
         print("Going to install:", ", ".join(all_packages))
         if input("Continue? [y/N] ") not in ['y','Y','yes','YES']:
             print("Stopping.")
@@ -220,7 +223,7 @@ def install_packages():
 
     # Install the packages
     for name in all_packages:
-        print(f"Installing {package['file']}...")
+        print(f"Installing {name}...")
         install_fetched_package(name, manifest, local_index, install_candidates)
 
     # Commit
@@ -258,9 +261,20 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.exit(show_usage())
 
-    if sys.argv[1] in __commands:
-        sys.exit(__commands[sys.argv[1]]())
+    i = 1
+    while sys.argv[i].startswith('-'):
+        if sys.argv[i] == '--yes':
+            force_yes = True
+        elif sys.argv[i] == '--gui':
+            is_gui = True
+        elif sys.argv[i] == '--help':
+            sys.exit(show_usage())
+        i+= 1
+
+    start_index = i + 1
+    if sys.argv[i] in __commands:
+        sys.exit(__commands[sys.argv[i]]())
     else:
-        print("Unrecognized command:", sys.argv[1])
+        print("Unrecognized command:", sys.argv[i])
         sys.exit(1)
 
