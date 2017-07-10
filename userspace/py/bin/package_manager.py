@@ -19,11 +19,12 @@ from menu_bar import MenuBarWidget, MenuEntryAction, MenuEntrySubmenu, MenuEntry
 from icon_cache import get_icon
 from about_applet import AboutAppletWindow
 from dialog import DialogWindow
+from button import Button
 
 import yutani_mainloop
 
 app_name = "Package Manager"
-version = "1.0.0"
+version = "1.2.0"
 _description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nBrowse and install software packages.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 hilight_border_top = (54/255,128/255,205/255)
@@ -34,7 +35,7 @@ hilight_border_bottom = (47/255,106/255,167/255)
 _local_index = None
 _manifest = None
 
-package_height = 50
+package_height = 70
 
 def install(name):
     msk.needs_local_cache()
@@ -63,7 +64,10 @@ class Package(object):
 
     @property
     def description(self):
-        return _manifest[self.name]['description'].replace('\n',' ')
+        d = _manifest[self.name]['description'].replace('\n',' ')
+        while '  ' in d:
+            d = d.replace('  ',' ')
+        return d
 
     @property
     def version(self):
@@ -76,7 +80,7 @@ class Package(object):
 
     @property
     def text(self):
-        return f"<h2><b>{self.friendly_name}</b> - {self.version}</h2>\n{self.description}"
+        return f"<h2><b>{self.friendly_name}</b> - {self.version}</h2>\n<color 0x777777>{self.name}</color> {self.description}"
 
     def do_action(self):
         if self.installed:
@@ -104,8 +108,8 @@ class NoPackages(object):
 
 class PackageManagerWindow(yutani.Window):
 
-    base_width = 400
-    base_height = 300
+    base_width = 640
+    base_height = 480
 
     def __init__(self, decorator):
         super(PackageManagerWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="package", doublebuffer=True)
@@ -124,9 +128,18 @@ class PackageManagerWindow(yutani.Window):
             AboutAppletWindow(self.decorator,f"About {app_name}","/usr/share/icons/48/package.png",_description,"package")
         def help_browser(action):
             subprocess.Popen(["help-browser.py","packages.trt"])
+        def refresh_index(action):
+            global _manifest
+            msk.fetch_manifest()
+            _manifest = msk.get_manifest()
+            self.redraw_buf()
+            self.draw()
         menus = [
             ("File", [
                 MenuEntryAction("Exit","exit",exit_app,None),
+            ]),
+            ("Index", [
+                MenuEntryAction("Refresh","refresh",refresh_index,None),
             ]),
             ("Help", [
                 MenuEntryAction("Contents","help",help_browser,None),
@@ -168,12 +181,14 @@ class PackageManagerWindow(yutani.Window):
 
         offset_y = 0
 
+        button = Button('Install', None)
+
         for f in self.packages:
             f.y = offset_y
             if not clips or f in clips:
-                tr = text_region.TextRegion(54,offset_y+4,w-54,package_height-4)
-                tr.line_height = 20
-                if f.hilight:
+                tr = text_region.TextRegion(64,offset_y+4,w-64 - 120,package_height-4)
+                tr.line_height = 19
+                if False and f.hilight:
                     gradient = cairo.LinearGradient(0,0,0,18)
                     gradient.add_color_stop_rgba(0.0,*hilight_gradient_top,1.0)
                     gradient.add_color_stop_rgba(1.0,*hilight_gradient_bottom,1.0)
@@ -197,11 +212,18 @@ class PackageManagerWindow(yutani.Window):
                     tr.font.font_color = 0xFF000000
                 if f.installed:
                     package_icon = get_icon('package',48)
-                    ctx.set_source_surface(package_icon,2,1+offset_y)
-                    ctx.paint()
+                else:
+                    if f.hilight:
+                        button.hilight = f.hilight
+                    else:
+                        button.hilight = 0
+                    button.draw(self.buf,ctx,w-110,offset_y+11,100,32)
+                    package_icon = get_icon('package-uninstalled',48)
+                ctx.set_source_surface(package_icon,8,11+offset_y)
+                ctx.paint()
                 tr.set_richtext(f.text)
-                tr.set_one_line()
                 tr.set_ellipsis()
+                tr.set_max_lines(3)
                 tr.draw(self.buf)
             offset_y += package_height
 
@@ -291,7 +313,7 @@ class PackageManagerWindow(yutani.Window):
 
         for f in self.packages:
             if offset_y > h: break
-            if y >= offset_y and y < offset_y + package_height:
+            if y >= offset_y + 11 and y < offset_y + 11 + 32 and x >= w - 110 and x <= w - 10: # button height
                 if not f.hilight:
                     redraw.append(f)
                     if self.hilighted:
@@ -311,6 +333,9 @@ class PackageManagerWindow(yutani.Window):
 
         if self.hilighted:
             if msg.command == yutani.MouseEvent.DOWN:
+                self.hilighted.hilight = 2
+                redraw.append(self.hilighted)
+            if msg.command == yutani.MouseEvent.RAISE or msg.command == yutani.MouseEvent.CLICK:
                 if self.hilighted.do_action():
                     redraw = []
                     self.redraw_buf()

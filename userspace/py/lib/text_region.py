@@ -74,12 +74,17 @@ class TextRegion(object):
         self.base_dir = ""
         self.break_all = False
         self.title = None
+        self.max_lines = None
 
     def set_alignment(self, align):
         self.align = align
 
     def set_valignment(self, align):
         self.valign = align
+
+    def set_max_lines(self, max_lines):
+        self.max_lines = max_lines
+        self.reflow()
 
     def visible_lines(self):
         return int(self.height / self.line_height)
@@ -115,7 +120,7 @@ class TextRegion(object):
                 continue
 
             if current_width + unit.width > self.width:
-                if not current_units or self.one_line:
+                if not current_units or self.one_line or (self.max_lines is not None and len(self.lines) == self.max_lines - 1):
                     # We need to split the current unit.
                     k = len(unit.string)-1
                     while k and current_width + unit.font.width(unit.string[:k] + self.ellipsis) > self.width:
@@ -123,7 +128,7 @@ class TextRegion(object):
                     ellipsis = self.ellipsis
                     if not k and self.ellipsis:
                         ellipsis = ""
-                    if not k and self.one_line:
+                    if not k and (self.one_line or (self.max_lines is not None and len(self.lines) == self.max_lines - 1)):
                         added_ellipsis = False
                         while len(current_units) and sum([unit.width for unit in current_units]) + unit.font.width(self.ellipsis) > self.width:
                             this_unit = current_units[-1]
@@ -145,7 +150,7 @@ class TextRegion(object):
                     self.lines.append(current_units)
                     current_units = []
                     current_width = 0
-                    if self.one_line:
+                    if self.one_line or (self.max_lines is not None and len(self.lines) == self.max_lines):
                         return
                 else:
                     self.lines.append(current_units)
