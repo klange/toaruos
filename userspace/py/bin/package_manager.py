@@ -70,6 +70,10 @@ class Package(object):
         return d
 
     @property
+    def icon(self):
+        return _manifest[self.name]['icon']
+
+    @property
     def version(self):
         a,b,c= _manifest[self.name]['version']
         return f"{a}.{b}.{c}"
@@ -211,7 +215,7 @@ class PackageManagerWindow(yutani.Window):
                     ctx.fill()
                     tr.font.font_color = 0xFF000000
                 if f.installed:
-                    package_icon = get_icon('package',48)
+                    package_icon = get_icon(f.icon if f.icon else 'package',48,'package')
                 else:
                     if f.hilight:
                         button.hilight = f.hilight
