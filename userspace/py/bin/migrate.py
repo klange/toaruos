@@ -8,6 +8,8 @@ import sys
 import os
 import shutil
 import fcntl
+import glob
+import pwd
 
 if not os.getuid() == 0:
     print("You almost definitely don't want to be running this (and you can't be cause you're not root).")
@@ -55,6 +57,15 @@ for ent in os.listdir('/dev/base'):
             shutil.copytree('/dev/base/'+ent,'/'+ent,symlinks=True)
         except:
             print("failed to make",ent)
+
+print('Migration does not copy permissions, changing home directory owners...')
+for path in glob.glob('/home/*'):
+    user = path.replace('/home/','')
+    uid = pwd.getpwnam(user).pw_uid
+    os.chown(path,uid,uid)
+    for root, dirs, files in os.walk(path):
+        for name in dirs+files:
+            os.chown(os.path.join(root, name), uid, uid)
 
 if '/dev/ram' in root:
     print("Freeing ramdisk...")
