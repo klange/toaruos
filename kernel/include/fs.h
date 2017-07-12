@@ -53,6 +53,7 @@ typedef void (*symlink_type_t) (struct fs_node *, char * name, char * value);
 typedef int (*readlink_type_t) (struct fs_node *, char * buf, size_t size);
 typedef int (*selectcheck_type_t) (struct fs_node *);
 typedef int (*selectwait_type_t) (struct fs_node *, void * process);
+typedef int (*chown_type_t) (struct fs_node *, int, int);
 
 typedef struct fs_node {
 	char name[256];         /* The filename. */
@@ -94,6 +95,8 @@ typedef struct fs_node {
 
 	selectcheck_type_t selectcheck;
 	selectwait_type_t selectwait;
+
+	chown_type_t chown;
 } fs_node_t;
 
 struct dirent {
@@ -144,6 +147,7 @@ char *canonicalize_path(char *cwd, char *input);
 fs_node_t *clone_fs(fs_node_t * source);
 int ioctl_fs(fs_node_t *node, int request, void * argp);
 int chmod_fs(fs_node_t *node, int mode);
+int chown_fs(fs_node_t *node, int uid, int gid);
 int unlink_fs(char * name);
 int symlink_fs(char * value, char * name);
 int readlink_fs(fs_node_t * node, char * buf, size_t size);

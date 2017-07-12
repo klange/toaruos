@@ -229,6 +229,16 @@ int chmod_fs(fs_node_t *node, int mode) {
 }
 
 /**
+ * chown_fs
+ */
+int chown_fs(fs_node_t *node, int uid, int gid) {
+	if (node->chown) {
+		return node->chown(node, uid, gid);
+	}
+	return 0;
+}
+
+/**
  * readdir_fs: Read a directory for the requested index
  *
  * @param node  Directory to read

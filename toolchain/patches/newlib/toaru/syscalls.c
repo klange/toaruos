@@ -94,6 +94,7 @@ DEFN_SYSCALL3(readlink, SYS_READLINK, char *, char *, int);
 DEFN_SYSCALL2(lstat, SYS_LSTAT, char *, void *);
 DEFN_SYSCALL2(fswait, SYS_FSWAIT, int, int *);
 DEFN_SYSCALL3(fswait2, SYS_FSWAIT2, int, int *,int);
+DEFN_SYSCALL3(chown, SYS_CHOWN, char *, int, int);
 
 static int toaru_debug_stubs_enabled(void) {
 	static int checked = 0;
@@ -474,7 +475,12 @@ mode_t umask(mode_t mask) {
 }
 
 int chmod(const char *path, mode_t mode) {
-	return syscall_chmod((char *)path, mode);
+	int result = syscall_chmod((char *)path, mode);
+	if (result < 0) {
+		errno = -result;
+		result = -1;
+	}
+	return result;
 }
 
 int unlink(char *name) {
@@ -502,8 +508,12 @@ int utime(const char *filename, const struct utimbuf *times) {
 }
 
 int chown(const char *path, uid_t owner, gid_t group) {
-	DEBUG_STUB("[user/debug] Unsupported operation [chown]\n");
-	return 0;
+	int result = syscall_chown((char *)path, owner, group);
+	if (result < 0) {
+		errno = -result;
+		result = -1;
+	}
+	return result;
 }
 
 int rmdir(const char *pathname) {

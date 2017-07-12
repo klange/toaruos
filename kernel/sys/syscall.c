@@ -340,6 +340,19 @@ static int sys_chmod(char * file, int mode) {
 	}
 }
 
+static int sys_chown(char * file, int uid, int gid) {
+	int result;
+	PTR_VALIDATE(file);
+	fs_node_t * fn = kopen(file, 0);
+	if (fn) {
+		result = chown_fs(fn, uid, gid);
+		close_fs(fn);
+		return result;
+	} else {
+		return -1;
+	}
+}
+
 
 static int sys_stat(int fd, uintptr_t st) {
 	PTR_VALIDATE(st);
@@ -919,6 +932,7 @@ static int (*syscalls[])() = {
 	[SYS_LSTAT]        = sys_lstat,
 	[SYS_FSWAIT]       = sys_fswait,
 	[SYS_FSWAIT2]      = sys_fswait_timeout,
+	[SYS_CHOWN]        = sys_chown,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);

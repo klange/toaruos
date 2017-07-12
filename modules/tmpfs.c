@@ -267,6 +267,17 @@ static int chmod_tmpfs(fs_node_t * node, int mode) {
 	return 0;
 }
 
+static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+
+	debug_print(WARNING, "chown(..., %d, %d)", uid, gid);
+
+	t->uid = uid;
+	t->gid = gid;
+
+	return 0;
+}
+
 static void open_tmpfs(fs_node_t * node, unsigned int flags) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 
@@ -305,6 +316,7 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
 	fnode->chmod   = chmod_tmpfs;
+	fnode->chown   = chown_tmpfs;
 	fnode->length  = t->length;
 	fnode->nlink   = 1;
 	return fnode;
@@ -496,6 +508,9 @@ static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fnode->mkdir   = mkdir_tmpfs;
 	fnode->nlink   = 1; /* should be "number of children that are directories + 1" */
 	fnode->symlink = symlink_tmpfs;
+
+	fnode->chown   = chown_tmpfs;
+	fnode->chmod   = chmod_tmpfs;
 
 	return fnode;
 }
