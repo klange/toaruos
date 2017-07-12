@@ -30,6 +30,8 @@ import fswait
 from menu_bar import MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
 
+import toaru_theme
+
 PANEL_HEIGHT=28
 
 def close_enough(msg):
@@ -64,7 +66,7 @@ class CalendarMenuEntry(MenuEntryDivider):
     width = 200
 
     def __init__(self):
-        self.font = toaru_fonts.Font(toaru_fonts.FONT_MONOSPACE,13,0xFF000000)
+        self.font = toaru_fonts.Font(toaru_fonts.FONT_MONOSPACE,13,toaru_theme.menu_entry_text)
         self.tr = text_region.TextRegion(0,0,self.width-20,self.height,font=self.font)
         self.calendar = calendar.TextCalendar(calendar.SUNDAY)
         t = time.localtime(current_time)
@@ -72,7 +74,7 @@ class CalendarMenuEntry(MenuEntryDivider):
         self.tr.set_text(self.calendar.formatmonth(t.tm_year,t.tm_mon))
         for tu in self.tr.text_units:
             if tu.string == str(t.tm_mday):
-                tu.set_font(toaru_fonts.Font(toaru_fonts.FONT_MONOSPACE_BOLD,13,0xFF000000))
+                tu.set_font(toaru_fonts.Font(toaru_fonts.FONT_MONOSPACE_BOLD,13,toaru_theme.menu_entry_text))
                 break
 
     def draw(self, window, offset, ctx):
@@ -85,11 +87,11 @@ class ClockWidget(BaseWidget):
 
     text_y_offset = 4
     width = 80
-    color = 0xFFE6E6E6
+    color = toaru_theme.panel_widget_foreground
     font_size = 16
     alignment = 0
     time_format = '<b>%H:%M:%S</b>'
-    hilight = 0xFF8EDBFF
+    hilight = toaru_theme.panel_widget_hilight
 
     def __init__(self):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, self.font_size, self.color)
@@ -123,7 +125,7 @@ class DateWidget(ClockWidget):
     """Displays the weekday and date on separate lines."""
 
     text_y_offset = 4
-    color = 0xFFE6E6E6
+    color = toaru_theme.panel_widget_foreground
     width = 70
     font_size = 9
     alignment = 2
@@ -143,7 +145,7 @@ class LogOutWidget(BaseWidget):
         tmp = cairo.Context(self.icon_hilight)
         tmp.set_operator(cairo.OPERATOR_ATOP)
         tmp.rectangle(0,0,24,24)
-        tmp.set_source_rgb(0x8E/0xFF,0xD8/0xFF,1)
+        tmp.set_source_rgb(*toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_hilight))
         tmp.paint()
         self.hilighted = False
 
@@ -192,8 +194,8 @@ class LabelWidget(BaseWidget):
 
     text_y_offset = 4
     text_x_offset = 10
-    color = 0xFFE6E6E6
-    hilight = 0xFF8ED8FF
+    color = toaru_theme.panel_widget_foreground
+    hilight = toaru_theme.panel_widget_hilight
 
     def __init__(self, text):
         self.width = 140
@@ -223,8 +225,8 @@ class MouseModeWidget(BaseWidget):
     """Controls the mouse mode in VMs."""
 
     width = 28
-    color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
-    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
+    color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_foreground)
+    hilight_color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_hilight)
     icon_names = ['mouse-status', 'mouse-relative']
     check_time = 10
 
@@ -281,15 +283,15 @@ class WeatherWidget(BaseWidget):
 
     text_y_offset = 4
     width = 50
-    color = 0xFFE6E6E6
+    color = toaru_theme.panel_widget_foreground
     font_size = 14
     alignment = 0
     check_time = 7200 # 2hr
     update_time = 60
     icon_width = 24
-    hilight = 0xFF8EDBFF
-    icon_color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
-    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
+    hilight = toaru_theme.panel_widget_hilight
+    icon_color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_foreground)
+    hilight_color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_hilight)
     data_path = '/tmp/weather.json'
     icons_path = '/usr/share/icons/weather/'
 
@@ -407,8 +409,8 @@ class VolumeWidget(BaseWidget):
     """Volume control widget."""
 
     width = 28
-    color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
-    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
+    color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_foreground)
+    hilight_color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_hilight)
     icon_names = ['volume-mute','volume-low','volume-medium','volume-full']
     check_time = 10
 
@@ -523,8 +525,8 @@ class NetworkWidget(BaseWidget):
     """Volume control widget."""
 
     width = 28
-    color = (0xE6/0xFF,0xE6/0xFF,0xE6/0xFF)
-    hilight_color = (0x8E/0xFF,0xD8/0xFF,1)
+    color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_foreground)
+    hilight_color = toaru_theme.as_rgb_tuple(toaru_theme.panel_widget_hilight)
     icon_names = ['net-active','net-disconnected']
     check_time = 10
 
@@ -616,23 +618,23 @@ class WindowListWidget(FillWidget):
     """Displays a list of windows with icons and titles."""
 
     text_y_offset = 5
-    color = 0xFFE6E6E6
-    hilight = 0xFF8ED8FF
+    color = toaru_theme.panel_widget_foreground
+    hilight = toaru_theme.panel_widget_hilight
     icon_width = 48
 
     def __init__(self):
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, self.color)
-        self.font.set_shadow((0xFF000000, 2, 1, 1, 3.0))
+        self.font.set_shadow(toaru_theme.panel_window_shadow)
         self.font_hilight = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, self.hilight)
-        self.font_hilight.set_shadow((0xFF000000, 2, 1, 1, 3.0))
+        self.font_hilight.set_shadow(toaru_theme.panel_window_shadow)
         self.gradient = cairo.LinearGradient(0,0,0,PANEL_HEIGHT)
-        self.gradient.add_color_stop_rgba(0.0,72/255,167/255,255/255,0.7)
-        self.gradient.add_color_stop_rgba(1.0,72/255,167/255,255/255,0.0)
+        self.gradient.add_color_stop_rgba(*toaru_theme.panel_window_gradient_top)
+        self.gradient.add_color_stop_rgba(*toaru_theme.panel_window_gradient_low)
 
         self.divider = cairo.LinearGradient(0,0,0,PANEL_HEIGHT)
-        self.divider.add_color_stop_rgba(0.1,1,1,1,0.0)
-        self.divider.add_color_stop_rgba(0.5,1,1,1,1.0)
-        self.divider.add_color_stop_rgba(0.9,1,1,1,0.0)
+        self.divider.add_color_stop_rgba(*toaru_theme.panel_window_divider_top)
+        self.divider.add_color_stop_rgba(*toaru_theme.panel_window_divider_mid)
+        self.divider.add_color_stop_rgba(*toaru_theme.panel_window_divider_low)
         self.hovered = None
         self.unit_width = None
         self.offset = 0
@@ -724,8 +726,8 @@ class ApplicationsMenuWidget(BaseWidget):
 
     text_y_offset = 4
     text_x_offset = 10
-    color = 0xFFE6E6E6
-    hilight = 0xFF8ED8FF
+    color = toaru_theme.panel_widget_foreground
+    hilight = toaru_theme.panel_widget_hilight
 
     def __init__(self):
         self.width = 140
@@ -944,11 +946,11 @@ class WallpaperIcon(object):
         tmp.paint()
         tmp.set_operator(cairo.OPERATOR_ATOP)
         tmp.rectangle(0,0,self.icon_hilight.get_width(),self.icon_hilight.get_height())
-        tmp.set_source_rgba(0x8E/0xFF,0xD8/0xFF,1,0.3)
+        tmp.set_source_rgba(*toaru_theme.desktop_icon_hilight)
         tmp.paint()
 
-        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, 0xFFFFFFFF)
-        self.font.set_shadow((0xFF000000, 2, 1, 1, 3.0))
+        self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, toaru_theme.desktop_icon_text)
+        self.font.set_shadow(toaru_theme.desktop_icon_shadow)
         self.tr = text_region.TextRegion(0,0,self.width,15,font=self.font)
         self.tr.set_alignment(2)
         self.tr.set_text(self.name)
@@ -1208,7 +1210,7 @@ class AlttabWindow(yutani.Window):
     """Displays the currently selected window for Alt-Tab switching."""
 
     icon_width = 48
-    color = 0xFFE6E6E6
+    color = toaru_theme.alt_tab_text
 
     def __init__(self):
         flags = yutani.WindowFlag.FLAG_NO_STEAL_FOCUS | yutani.WindowFlag.FLAG_DISALLOW_DRAG | yutani.WindowFlag.FLAG_DISALLOW_RESIZE
@@ -1229,7 +1231,7 @@ class AlttabWindow(yutani.Window):
 
         ctx.set_operator(cairo.OPERATOR_OVER)
         rounded_rectangle(ctx,0,0,self.width,self.height,10)
-        ctx.set_source_rgba(0,0,0,0.7)
+        ctx.set_source_rgba(*toaru_theme.alt_tab_background)
         ctx.fill()
 
         if new_focused >= 0 and new_focused < len(windows_zorder):
@@ -1260,7 +1262,7 @@ class ApplicationRunnerWindow(yutani.Window):
     """Displays the currently selected window for Alt-Tab switching."""
 
     icon_width = 48
-    color = 0xFFE6E6E6
+    color = toaru_theme.alt_tab_text
 
     def __init__(self):
         super(ApplicationRunnerWindow,self).__init__(400,115,doublebuffer=True)
@@ -1351,7 +1353,7 @@ class ApplicationRunnerWindow(yutani.Window):
 
         ctx.set_operator(cairo.OPERATOR_OVER)
         rounded_rectangle(ctx,0,0,self.width,self.height,10)
-        ctx.set_source_rgba(0,0,0,0.7)
+        ctx.set_source_rgba(*toaru_theme.alt_tab_background)
         ctx.fill()
 
         icon = self.match_icon()
@@ -1370,7 +1372,7 @@ class ApplicationRunnerWindow(yutani.Window):
         tr.set_one_line()
         tr.set_ellipsis()
         tr.set_alignment(2)
-        tr.set_richtext(html.escape(self.data) + '<color 0x888888>' + html.escape(self.complete) + '</color>')
+        tr.set_richtext(html.escape(self.data) + '<color ' + toaru_theme.alt_tab_extra_text + '>' + html.escape(self.complete) + '</color>')
         tr.draw(self)
 
 
