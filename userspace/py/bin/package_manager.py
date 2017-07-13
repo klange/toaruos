@@ -355,6 +355,21 @@ class PackageManagerWindow(yutani.Window):
         if msg.event.key == b"q":
             self.close()
             sys.exit(0)
+        elif msg.event.keycode == yutani.Keycode.PAGE_UP:
+            h = self.height - self.decorator.height() - self.menubar.height
+            self.scroll(int(h/2))
+            self.draw()
+        elif msg.event.keycode == yutani.Keycode.PAGE_DOWN:
+            h = self.height - self.decorator.height() - self.menubar.height
+            self.scroll(-int(h/2))
+            self.draw()
+        elif msg.event.keycode == yutani.Keycode.HOME:
+            self.scroll_y = 0
+            self.draw()
+        elif msg.event.keycode == yutani.Keycode.END:
+            h = self.height - self.decorator.height() - self.menubar.height
+            self.scroll_y = -(self.buf.height - h if h < self.buf.height else 0)
+            self.draw()
 
 if __name__ == '__main__':
     yutani.Yutani()
