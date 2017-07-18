@@ -1,53 +1,33 @@
 #!/bin/bash
 
-COOKIE=".2016-12-25-gcc-6-3.cookie"
+# Locale stuff
+. /opt/build/base.sh
 
-unset CC
+# Build toolchain
+. /opt/toaruos/toolchain/activate.sh
 
-if [ ! -e "toolchain/local/$COOKIE" ]; then
-    echo "=== Cleaning any preexisting stuff... ==="
-    rm -fr toolchain/build
-    rm -fr toolchain/local
-    rm -fr toolchain/tarballs/*
-    echo "=== Starting watchdog ==="
-    (
-        while [ 1 == 1 ]; do
-            echo "..."
-            sleep 1m
-        done
-    ) &
-    watchdog_pid=$!
-    echo "=== Begin Toolchain Build ==="
-    pushd toolchain
-        unset PKG_CONFIG_LIBDIR
-        ./prepare.sh
-        ./install.sh
-        date > ./local/$COOKIE
-    popd
-    echo "=== End Toolchain Build ==="
-    echo "=== Stopping watchdog ==="
-    kill $watchdog_pid
-else
-    echo "=== Toolchain was cached. ==="
-fi
+# Print environment for reference
+env
 
-. toolchain/activate.sh
+# Print cross GCC version for reference
+i686-pc-toaru-gcc --version
 
-make || exit 1
+# Clone the toolchain's Python checkout
+git clone /opt/toaruos/toaru-python toaru-python
 
-echo "=== Running test suite. ==="
+# Do the first build pass
+make cdrom # Base pass to build libs
 
-expect util/test-travis.exp || exit 1
+# Build the Python stuff
+echo "travis_fold:start:Python"
+toolchain/install-python.sh
+echo "travis_fold:end:Python"
 
-echo "=== Building live CD ==="
+echo "travis_fold:start:PyCairo"
+toolchain/install-pycairo.sh
+echo "travis_fold:end:PyCairo"
 
-git fetch --unshallow
+# Do a final build
+make cdrom # Build with python/pycairo
 
-git clone . _cdsource || exit 1
-
-cd _cdsource
-
-make cdrom || exit 1
-
-echo "=== Done. ==="
-
+# We're done!
