@@ -2,6 +2,7 @@ language: c
 script:
   - docker run -v `pwd`:/opt/tree -w /opt/tree -t toaruos/build-tools:test util/build-travis.sh
 sudo: required
+dist: trusty
 serivces:
   - docker
 before_install:
