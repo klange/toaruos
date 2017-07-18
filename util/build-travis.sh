@@ -20,7 +20,7 @@ pushd hdd/usr
         mkdir bin
     fi
 
-    if [ ! -d lib]; then
+    if [ ! -d lib ]; then
         mkdir lib
     fi
 
