@@ -1,6 +1,6 @@
-![](http://i.imgur.com/6J9yaeW.png)
-![](http://i.imgur.com/0FCwNSa.png)
-![](http://i.imgur.com/S3WqBPg.png)
+![](http://i.imgur.com/QGVoRJD.png)
+![](http://i.imgur.com/MlAxGpj.png)
+![](http://i.imgur.com/OpMGfHP.png)
 
 # ToaruOS (とあるOS) #
 
