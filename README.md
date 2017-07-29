@@ -10,9 +10,12 @@ This repository contains the kernel, modules, and core userspace applications an
 
 ## Build Instructions ##
 
-Please ensure you are running [a supported environment](https://github.com/klange/toaruos/wiki/Testing-and-Building#requirements) before continuing.
+If you just want to build the kernel and userspace and get a working CD image, you can use Docker:
 
-Start by building a toolchain:
+    docker pull toaruos/build-tools:test
+    docker run -v `pwd`:/opt/tree -w /opt/tree -t toaruos/build-tools:test util/build-travis.sh
+
+To build a full toolchain locally, set up [a supported environment](https://github.com/klange/toaruos/wiki/Testing-and-Building#requirements) and run:
 
     make toolchain
 
