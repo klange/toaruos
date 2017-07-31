@@ -357,7 +357,6 @@ $(eval $(call basic-so-wrapper,png15,-lz))
 $(eval $(call basic-so-wrapper,freetype,-lz))
 $(eval $(call basic-so-wrapper,pixman-1,-lm))
 $(eval $(call basic-so-wrapper,cairo,-lpixman-1 -lpng15 -lfreetype))
-$(eval $(call basic-so-wrapper,OSMesa,-lm))
 
 # Python parts of userspace
 
