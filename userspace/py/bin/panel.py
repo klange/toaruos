@@ -762,10 +762,6 @@ class ApplicationsMenuWidget(BaseWidget):
                 MenuEntryAction("Cairo Snow","snow",launch_app,"make-it-snow"),
                 MenuEntryAction("Pixman Demo","pixman-demo",launch_app,"pixman-demo"),
             ]),
-            MenuEntrySubmenu("Mesa (swrast)",[
-                MenuEntryAction("Gears","gears",launch_app,"gears"),
-                MenuEntryAction("Teapot","teapot",launch_app,"teapot"),
-            ]),
             MenuEntryAction("Draw Lines","drawlines",launch_app,"drawlines"),
             MenuEntryAction("Julia Fractals","julia",launch_app,"julia"),
             MenuEntryAction("Plasma","plasma",launch_app,"plasma"),
