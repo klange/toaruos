@@ -12,6 +12,7 @@ import cairo
 import yutani
 import text_region
 import toaru_fonts
+import toaru_webp
 
 from button import Button
 import yutani_mainloop
@@ -118,7 +119,10 @@ class WallpaperSelectorWindow(yutani.Window):
         if not os.path.exists(path):
             return []
 
-        return [os.path.join(path,x) for x in os.listdir(path) if x.endswith('.png')]
+        if toaru_webp.exists():
+            return [os.path.join(path,x) for x in os.listdir(path) if x.endswith('.png') or x.endswith('.webp')]
+        else:
+            return [os.path.join(path,x) for x in os.listdir(path) if x.endswith('.png')]
 
     def find_wallpapers(self):
         self.wallpapers = []
@@ -139,7 +143,12 @@ class WallpaperSelectorWindow(yutani.Window):
             self.path = c['desktop'].get('wallpaper',self.fallback)
 
     def load_wallpaper(self):
+        if self.path.endswith('.webp') and toaru_webp.exists():
+            self.wallpaper = toaru_webp.load_webp(self.path)
+            return
+
         self.wallpaper = cairo.ImageSurface.create_from_png(self.path)
+
 
     def draw(self):
         surface = self.get_cairo_surface()

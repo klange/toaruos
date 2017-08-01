@@ -26,6 +26,7 @@ import yutani
 import text_region
 import toaru_fonts
 import fswait
+import toaru_webp
 
 from menu_bar import MenuEntryAction, MenuEntrySubmenu, MenuEntryDivider, MenuWindow
 from icon_cache import get_icon
@@ -1070,6 +1071,9 @@ class WallpaperWindow(yutani.Window):
                 c = configparser.ConfigParser()
                 c.read_string(conf_str)
                 path = c['desktop'].get('wallpaper',self.fallback)
+
+        if path.endswith('.webp') and toaru_webp.exists():
+            return toaru_webp.load_webp(path)
         return cairo.ImageSurface.create_from_png(path)
 
     def finish_resize(self, msg):
