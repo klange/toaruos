@@ -829,7 +829,11 @@ static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_serve
 
 						cairo_set_source_surface(cr, surf, 0, 0);
 						cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_FAST);
-						cairo_paint_with_alpha(cr, time_diff);
+						if (window->opacity != 255) {
+							cairo_paint_with_alpha(cr, time_diff * (double)(window->opacity) / 255.0);
+						} else {
+							cairo_paint_with_alpha(cr, time_diff);
+						}
 					}
 					break;
 				default:
