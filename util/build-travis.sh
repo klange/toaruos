@@ -13,6 +13,9 @@ env
 i686-pc-toaru-gcc --version
 
 # Cheating and copying /usr/python from toolchain
+if [ -d hdd/usr/python ]; then
+    rm -r hdd/usr/python
+fi
 cp -r /opt/toaruos/hdd/usr/python hdd/usr/python
 
 pushd hdd/usr
