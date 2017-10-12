@@ -163,7 +163,7 @@ class HelpBrowserWindow(yutani.Window):
             if document[8:] in self.special:
                 return self.special[document[8:]].__doc__
             return "???"
-        elif document.startswith("http:"):
+        elif document.startswith("http:") or document.startswith('https:'):
             if document in self.title_cache:
                 return self.title_cache[document]
             if document in self.cache:
@@ -245,7 +245,7 @@ This is normal text. <b>This is bold text.</b> <i>This is italic text.</i> <b><i
         if self.current_topic.startswith("special:"):
             if self.current_topic[8:] in self.special:
                 return self.special[self.current_topic[8:]]()
-        elif self.current_topic.startswith("http:"):
+        elif self.current_topic.startswith("http:") or self.current_topic.startswith('https:'):
             # Good luck
             return self.get_cache(self.current_topic)
         elif self.current_topic.startswith("file:"):
@@ -288,9 +288,9 @@ You can also <link target=\"special:contents\">check the Table of Contents</link
         self.history_menu.entries = entries
 
     def navigate(self, target, touch_history=True):
-        if target.startswith('https:'):
-            DialogWindow(self.decorator,app_name,f"<mono>https</mono> is not supported. Could not load the URL <mono>{target}</mono>",callback=lambda: None,window=self,cancel_label=False)
-            return
+        #if target.startswith('https:'):
+        #    DialogWindow(self.decorator,app_name,f"<mono>https</mono> is not supported. Could not load the URL <mono>{target}</mono>",callback=lambda: None,window=self,cancel_label=False)
+        #    return
         if touch_history:
             del self.history[self.history_index+1:]
             self.history.append(target)
