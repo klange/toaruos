@@ -432,7 +432,7 @@ endef
 
 toaruos.iso: _cdrom/ramdisk.img.gz _cdrom/kernel
 	@${BEG} "ISO" "Building a CD image"
-	@if grep precise /etc/lsb-release; then grub-mkrescue -o $@ _cdrom; else grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ _cdrom -- -quiet 2> /dev/null; fi
+	@if [ -e /etc/lsb-release ] && grep precise /etc/lsb-release; then grub-mkrescue -o $@ _cdrom; else grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ _cdrom 2> /dev/null; fi
 	@${END} "ISO" "Building a CD image"
 	$(call fixup-cd)
 	@${INFO} "--" "CD generated"
