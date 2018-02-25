@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
@@ -87,6 +87,9 @@ base/bin/background: background.c base/lib/libnihc.so base/lib/libtoaru_graphics
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
 base/bin/drawlines: drawlines.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
+
+base/bin/yutani-test: yutani-test.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
 base/bin/compositor: compositor.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_pthread.so base/lib/libtoaru_pex.so base/lib/libtoaru_yutani.so base/lib/libtoaru_hashmap.so
