@@ -61,8 +61,8 @@ float    font_scaling   = 1.0;  /* How much they should be scaled by */
 uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
 uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
 uint16_t font_size      = 13;   /* Font size according to Freetype */
-uint16_t char_width     = 8;    /* Width of a cell in pixels */
-uint16_t char_height    = 12;   /* Height of a cell in pixels */
+uint16_t char_width     = 9;    /* Width of a cell in pixels */
+uint16_t char_height    = 20;   /* Height of a cell in pixels */
 uint16_t char_offset    = 0;    /* Offset of the font within the cell */
 int      csr_x          = 0;    /* Cursor X */
 int      csr_y          = 0;    /* Cursor Y */
@@ -339,6 +339,7 @@ term_write_char(
 		if (val > 128) {
 			val = 4;
 		}
+#ifdef number_font
 		uint8_t * c = number_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -349,6 +350,18 @@ term_write_char(
 				}
 			}
 		}
+#else
+		uint16_t * c = large_font[val];
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
+				if (c[i] & (1 << (15-j))) {
+					term_set_point(x+j,y+i,_fg);
+				} else {
+					term_set_point(x+j,y+i,_bg);
+				}
+			}
+		}
+#endif
 	}
 _extra_stuff:
 	if (flags & ANSI_UNDERLINE) {
