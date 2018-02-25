@@ -34,6 +34,7 @@ extern int    sprintf(char *buf, const char *fmt, ...);
 extern int    fprintf(FILE *stream, char *fmt, ...);
 extern int    printf(char *fmt, ...);
 
+extern int puts(const char *s);
 extern int fputs(const char *s, FILE *stream);
 extern int fputc(int c, FILE *stream);
 extern int fgetc(FILE *stream);
