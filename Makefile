@@ -22,8 +22,8 @@ ENDRM = util/mk-end-rm
 # Rules start here.
 .PHONY: all system install test toolchain userspace modules cdrom fix-cd
 .PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
-.PHONY: run vga term headless quick
-.PHONY: debug debug-vga debug-term
+.PHONY: run vga term headless curses quick
+.PHONY: debug debug-vga debug-term debug-curses
 .PHONY: virtualbox virtualbox-cdrom run-cdrom
 
 # Prevents Make from removing intermediary files on failure
@@ -75,8 +75,6 @@ EMU = qemu-system-i386
 EMUARGS  = -sdl -no-frame -k en-us
 # 1GB of RAM
 EMUARGS += -m 1024
-# Serial debug output to stdio (kernel console)
-EMUARGS += -serial stdio
 # Bochs VBE display device
 EMUARGS += -vga std
 # Realtime clock based on localtime (we don't NTP or support timezone configs yet)
@@ -109,17 +107,21 @@ run: system
 quick: system
 	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT) start=quick-launch"
 debug: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -serial stdio -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
 vga: system
 	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(START_VGA) $(DISK_ROOT)"
 debug-vga: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -serial stdio -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
 term: system
 	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
 debug-term: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
+	${EMU} ${EMUARGS} ${EMUKARGS} -serial stdio -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
 headless: system
 	${EMU} ${EMUARGS} ${EMUKARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
+curses: system
+	${EMU} ${EMUARGS} ${EMUKARGS} -curses -append "$(START_VGA) $(DISK_ROOT)"
+debug-curses: system
+	${EMU} ${EMUARGS} ${EMUKARGS} -serial file:serial-debug.log -curses -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
 live: system
 	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
 
