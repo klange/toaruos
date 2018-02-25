@@ -501,9 +501,9 @@ void load_sprite(sprite_t * sprite, char * filename) {
 						(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000;
 			} else if (bpp == 32) {
 				color =	(bufferb[i   + 4 * x] & 0xFF) * 0x1000000 +
-						(bufferb[i+1 + 4 * x] & 0xFF) * 0x100 +
-						(bufferb[i+2 + 4 * x] & 0xFF) * 0x10000 +
-						(bufferb[i+3 + 4 * x] & 0xFF) * 0x1;
+						(bufferb[i+1 + 4 * x] & 0xFF) * 0x1 +
+						(bufferb[i+2 + 4 * x] & 0xFF) * 0x100 +
+						(bufferb[i+3 + 4 * x] & 0xFF) * 0x10000;
 			}
 			/* Set our point */
 			sprite->bitmap[(height - y - 1) * width + x] = color;
