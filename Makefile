@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
@@ -80,8 +80,8 @@ base/bin/init: init.c base/lib/libnihc.a | dirs
 base/bin/sh: sh.c base/lib/libnihc.so base/lib/libtoaru_list.so base/lib/libtoaru_rline.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_rline -ltoaru_list -ltoaru_kbd $(LIBS)
 
-base/bin/hello: hello.c base/lib/libnihc.so base/lib/libtoaru_graphics.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_graphics $(LIBS)
+base/bin/sysinfo: sysinfo.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_termemu.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_graphics -ltoaru_termemu $(LIBS)
 
 base/bin/terminal: terminal.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so base/lib/libtoaru_pex.so base/lib/libtoaru_hashmap.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_decorations -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_hashmap -ltoaru_dlfcn -ltoaru_kbd -ltoaru_list $(LIBS)
@@ -90,6 +90,9 @@ base/bin/background: background.c base/lib/libnihc.so base/lib/libtoaru_graphics
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
 base/bin/drawlines: drawlines.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
+
+base/bin/yutani-query: yutani-query.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
 base/bin/yutani-test: yutani-test.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
