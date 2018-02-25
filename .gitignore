@@ -1,0 +1,8 @@
+*.so
+*.a
+*.o
+*.iso
+base/bin/*
+cdrom/kernel
+cdrom/mod/*
+cdrom/ramdisk.img.gz
