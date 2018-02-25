@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
