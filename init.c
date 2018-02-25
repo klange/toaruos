@@ -23,6 +23,7 @@ int start_options(char * args[]) {
 			"PATH=/bin",
 			"USER=root",
 			"PRETEND_STDOUT_IS_TTY=1",
+			"WM_THEME=fancy",
 			NULL,
 		};
 		int i = syscall_execve(args[0], args, _envp);

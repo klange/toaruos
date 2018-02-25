@@ -71,6 +71,9 @@ base/lib/libtoaru_termemu.so: lib/termemu.c lib/termemu.h base/lib/libtoaru_grap
 base/lib/libtoaru_decorations.so: lib/decorations.c lib/decorations.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
+base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c lib/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so
+	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_decorations -ltoaru_graphics
+
 base/bin/init: init.c base/lib/libnihc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $< $(LIBS)
 
@@ -101,7 +104,7 @@ base/bin/ls: ls.c base/lib/libnihc.so base/lib/libtoaru_list.so
 base/bin/%: %.c base/lib/libnihc.so | dirs
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
-cdrom/ramdisk.img.gz: ${APPS_X} base/lib/ld.so | dirs
+cdrom/ramdisk.img.gz: ${APPS_X} base/lib/ld.so base/lib/libtoaru-decor-fancy.so | dirs
 	genext2fs -B 4096 -d base -U -b 16384 -N 2048 cdrom/ramdisk.img
 	rm -f cdrom/ramdisk.img.gz
 	gzip cdrom/ramdisk.img
