@@ -123,7 +123,7 @@ static uint64_t get_ticks(void) {
 
 static void display_flip(void) {
 	if (l_x != INT32_MAX && l_y != INT32_MAX) {
-		//yutani_flip_region(yctx, window, l_x, l_y, r_x - l_x, r_y - l_y);
+		yutani_flip_region(yctx, window, l_x, l_y, r_x - l_x, r_y - l_y);
 		l_x = INT32_MAX;
 		l_y = INT32_MAX;
 		r_x = -1;
