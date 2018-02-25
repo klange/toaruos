@@ -2127,17 +2127,18 @@ int main(int argc, char * argv[]) {
 	load_sprite_png(&yg->mouse_sprite_resize_db, "/usr/share/cursor/resize-dlur.png");
 #endif
 	TRACE("Loading sprites...");
-	load_sprite(&yg->mouse_sprite, "/mouse.bmp");
+#define MOUSE_DIR "/usr/share/cursor/"
+	load_sprite(&yg->mouse_sprite, MOUSE_DIR "mouse.bmp");
 	yg->mouse_sprite.alpha = ALPHA_EMBEDDED;
-	load_sprite(&yg->mouse_sprite_drag, "/mouse.bmp");
+	load_sprite(&yg->mouse_sprite_drag, MOUSE_DIR "drag.bmp");
 	yg->mouse_sprite_drag.alpha = ALPHA_EMBEDDED;
-	load_sprite(&yg->mouse_sprite_resize_v, "/mouse.bmp");
+	load_sprite(&yg->mouse_sprite_resize_v, MOUSE_DIR "resize-vertical.bmp");
 	yg->mouse_sprite_resize_v.alpha = ALPHA_EMBEDDED;
-	load_sprite(&yg->mouse_sprite_resize_h, "/mouse.bmp");
+	load_sprite(&yg->mouse_sprite_resize_h, MOUSE_DIR "resize-horizontal.bmp");
 	yg->mouse_sprite_resize_h.alpha = ALPHA_EMBEDDED;
-	load_sprite(&yg->mouse_sprite_resize_da, "/mouse.bmp");
+	load_sprite(&yg->mouse_sprite_resize_da, MOUSE_DIR "resize-uldr.bmp");
 	yg->mouse_sprite_resize_da.alpha = ALPHA_EMBEDDED;
-	load_sprite(&yg->mouse_sprite_resize_db, "/mouse.bmp");
+	load_sprite(&yg->mouse_sprite_resize_db, MOUSE_DIR "resize-dlur.bmp");
 	yg->mouse_sprite_resize_db.alpha = ALPHA_EMBEDDED;
 	TRACE("Done.");
 
