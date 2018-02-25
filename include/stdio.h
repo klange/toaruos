@@ -37,5 +37,7 @@ extern int    printf(char *fmt, ...);
 extern int fputs(const char *s, FILE *stream);
 extern int fputc(int c, FILE *stream);
 extern int fgetc(FILE *stream);
+extern char *fgets(char *s, int size, FILE *stream);
 
+extern void rewind(FILE *stream);
 extern void setbuf(FILE * stream, char * buf);

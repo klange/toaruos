@@ -77,7 +77,7 @@ base/bin/sh: sh.c base/lib/libnihc.so base/lib/libtoaru_list.so base/lib/libtoar
 base/bin/hello: hello.c base/lib/libnihc.so base/lib/libtoaru_graphics.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_graphics $(LIBS)
 
-base/bin/terminal: terminal.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so
+base/bin/terminal: terminal.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so base/lib/libtoaru_pex.so base/lib/libtoaru_hashmap.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_decorations -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_hashmap -ltoaru_dlfcn -ltoaru_kbd -ltoaru_list $(LIBS)
 
 base/bin/background: background.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
@@ -103,3 +103,10 @@ cdrom/ramdisk.img.gz: ${APPS_X} base/lib/ld.so | dirs
 image.iso: cdrom/ramdisk.img.gz
 	grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ cdrom
 
+.PHONY: clean
+clean:
+	rm -f base/lib/*.so
+	rm -f base/lib/libnihc.a
+	rm -f libc/*.o
+	rm -f image.iso
+	rm -f cdrom/randisk.img.gz
