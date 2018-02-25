@@ -73,3 +73,5 @@ struct stat  {
 
 extern int stat(const char *file, struct stat *st);
 extern int lstat(const char *path, struct stat *st);
+extern int fstat(int fd, struct stat *st);
+
