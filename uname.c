@@ -48,36 +48,38 @@ int main(int argc, char * argv[]) {
 	int flags = 0;
 	int space = 0;
 
-#if 0
-	while ((c = getopt(argc, argv, "ahmnrsv")) != -1) {
-		switch (c) {
-			case 'a':
-				flags |= FLAG_ALL;
-				break;
-			case 's':
-				flags |= FLAG_SYSNAME;
-				break;
-			case 'n':
-				flags |= FLAG_NODENAME;
-				break;
-			case 'r':
-				flags |= FLAG_RELEASE;
-				break;
-			case 'v':
-				flags |= FLAG_VERSION;
-				break;
-			case 'm':
-				flags |= FLAG_MACHINE;
-				break;
-			case 'h':
-			default:
-				show_usage(argc, argv);
-				break;
+	for (int i = 1; i < argc; ++i) {
+		if (argv[i][0] == '-') {
+			char *c = &argv[i][1];
+			while (*c) {
+				switch (*c) {
+					case 'a':
+						flags |= FLAG_ALL;
+						break;
+					case 's':
+						flags |= FLAG_SYSNAME;
+						break;
+					case 'n':
+						flags |= FLAG_NODENAME;
+						break;
+					case 'r':
+						flags |= FLAG_RELEASE;
+						break;
+					case 'v':
+						flags |= FLAG_VERSION;
+						break;
+					case 'm':
+						flags |= FLAG_MACHINE;
+						break;
+					case 'h':
+					default:
+						show_usage(argc, argv);
+						break;
+				}
+				c++;
+			}
 		}
 	}
-#else
-	flags |= FLAG_ALL;
-#endif
 
 	uname(&u);
 
