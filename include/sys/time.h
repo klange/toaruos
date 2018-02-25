@@ -12,3 +12,4 @@ struct timezone {
 	int tz_dsttime;         /* type of DST correction */
 };
 
+extern int gettimeofday(struct timeval *p, void *z);

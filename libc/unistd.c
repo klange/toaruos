@@ -151,3 +151,8 @@ ssize_t readlink(const char * name, char * buf, size_t len) {
 
 	return r;
 }
+
+int usleep(useconds_t usec) {
+	syscall_nanosleep(0, usec / 10000);
+	return 0;
+}

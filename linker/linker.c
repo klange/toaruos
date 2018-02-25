@@ -16,13 +16,13 @@
 
 extern char** environ;
 
-//#include <_xlog.h>
-#define _XLOG(...)
 
 #define TRACE_APP_NAME "ld.so"
-#define TRACE_LD(...)
+#define TRACE_LD(...) do { if (__trace_ld) { TRACE(__VA_ARGS__); } } while (0)
 
 static int __trace_ld = 0;
+
+#include "../lib/trace.h"
 
 #include "../lib/list.c"
 #include "../lib/hashmap.c"
@@ -75,45 +75,32 @@ static char * find_lib(const char * file) {
 
 	if (strchr(file, '/')) return strdup(file);
 
-	_XLOG("checking path");
 	char * path = getenv("LD_LIBRARY_PATH");
 	if (!path) {
 		path = "/usr/lib:/lib:/opt/lib";
 	}
-	_XLOG("path is");
-	_XLOG(path);
 	char * xpath = strdup(path);
 	int found = 0;
 	char * p, * tokens[10], * last;
 	int i = 0;
 	for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
-		_XLOG("step");
-		_XLOG(p);
 		int r;
 		struct stat stat_buf;
-		_XLOG("malloc");
 		char * exe = malloc(strlen(p) + strlen(file) + 2);
-		_XLOG(exe);
-		_XLOG("strcpy");
 		memcpy(exe, p, strlen(p) + 1);
 		//strcpy(exe, p);
-		_XLOG("strcat");
 		strcat(exe, "/");
-		_XLOG("strcat");
 		strcat(exe, file);
-		_XLOG("stat");
 
 		r = stat(exe, &stat_buf);
 		if (r != 0) {
 			free(exe);
 			continue;
 		}
-		_XLOG("found");
 		return exe;
 	}
 	free(xpath);
 
-	_XLOG("not found");
 
 	return NULL;
 }
@@ -125,24 +112,20 @@ static elf_t * open_object(const char * path) {
 		return _main_obj;
 	}
 
-	_XLOG("hashmap check");
 	if (hashmap_has(objects_map, (void*)path)) {
 		elf_t * object = hashmap_get(objects_map, (void*)path);
 		object->loaded = 1;
 		return object;
 	}
 
-	_XLOG("find lib");
 	char * file = find_lib(path);
 	if (!file) {
 		last_error = "Could not find library.";
 		return NULL;
 	}
 
-	_XLOG("open");
 	FILE * f = fopen(file, "r");
 
-	_XLOG("free string");
 	free(file);
 
 	if (!f) {
@@ -150,7 +133,6 @@ static elf_t * open_object(const char * path) {
 		return NULL;
 	}
 
-	_XLOG("hash set");
 	elf_t * object = calloc(1, sizeof(elf_t));
 	hashmap_set(objects_map, (void*)path, object);
 
@@ -161,7 +143,6 @@ static elf_t * open_object(const char * path) {
 
 	object->file = f;
 
-	_XLOG("header read");
 	size_t r = fread(&object->header, sizeof(Elf32_Header), 1, object->file);
 
 	if (!r) {
@@ -274,17 +255,12 @@ static int object_postload(elf_t * object) {
 
 	/* Load section string table */
 	{
-		_XLOG("Load section string table.");
 		Elf32_Shdr shdr;
 		fseek(object->file, object->header.e_shoff + object->header.e_shentsize * object->header.e_shstrndx, SEEK_SET);
-		_XLOG("read");
 		fread(&shdr, object->header.e_shentsize, 1, object->file);
 		object->string_table = malloc(shdr.sh_size);
-		_XLOG("seek");
 		fseek(object->file, shdr.sh_offset, SEEK_SET);
-		_XLOG("read");
 		fread(object->string_table, shdr.sh_size, 1, object->file);
-		_XLOG("Done.");
 	}
 
 	if (object->dynamic) {
@@ -600,7 +576,6 @@ int main(int argc, char * argv[]) {
 	char * file = argv[1];
 	size_t arg_offset = 1;
 
-	_XLOG("ld starting");
 
 	if (!strcmp(argv[1], "-e")) {
 		arg_offset = 3;
@@ -608,7 +583,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	char * trace_ld_env = getenv("LD_DEBUG");
-	if (trace_ld_env && (!strcmp(trace_ld_env,"1") || !strcmp(trace_ld_env,"yes"))) {
+	if ((trace_ld_env && (!strcmp(trace_ld_env,"1") || !strcmp(trace_ld_env,"yes")))) {
 		__trace_ld = 1;
 	}
 
@@ -622,24 +597,19 @@ int main(int argc, char * argv[]) {
 		ex++;
 	}
 
-	_XLOG("Opening main object");
 	elf_t * main_obj = open_object(file);
 	_main_obj = main_obj;
-	_XLOG("Done.");
 
 	if (!main_obj) {
 		//fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], file);
 		return 1;
 	}
 
-	_XLOG("calculating sizes");
 	size_t main_size = object_calculate_size(main_obj);
 	uintptr_t end_addr = object_load(main_obj, 0x0);
 
-	_XLOG("post load");
 	object_postload(main_obj);
 
-	_XLOG("find relocations");
 	object_find_copy_relocations(main_obj);
 
 	hashmap_t * libs = hashmap_create(10);
@@ -651,38 +621,30 @@ int main(int argc, char * argv[]) {
 	list_t * ctor_libs = list_create();
 	list_t * init_libs = list_create();
 
-	_XLOG("loading dependencies");
 	TRACE_LD("Loading dependencies.");
 	node_t * item;
 	while (item = list_pop(main_obj->dependencies)) {
-		_XLOG("loading a dependency");
 		while (end_addr & 0xFFF) {
 			end_addr++;
 		}
 
 		char * lib_name = item->value;
-		_XLOG(lib_name);
 		if (!strcmp(lib_name, "libg.so")) goto nope;
-		_XLOG("opening it");
 		elf_t * lib = open_object(lib_name);
 		if (!lib) {
 			//fprintf(stderr, "Failed to load dependency '%s'.\n", lib_name);
-			_XLOG("Failure to load!");
 			return 1;
 		}
 		hashmap_set(libs, lib_name, lib);
 
-		_XLOG("loading it");
 		TRACE_LD("Loading %s at 0x%x", lib_name, end_addr);
 		end_addr = object_load(lib, end_addr);
 		object_postload(lib);
-		_XLOG("relocating it");
 		TRACE_LD("Relocating %s", lib_name);
 		object_relocate(lib);
 
 		fclose(lib->file);
 
-		_XLOG("queing its constructors");
 		/* Execute constructors */
 		if (lib->ctors || lib->init_array) {
 			list_insert(ctor_libs, lib);
@@ -694,7 +656,6 @@ int main(int argc, char * argv[]) {
 nope:
 		free(item);
 	}
-	_XLOG("done with that, time to relocate some shit");
 
 	TRACE_LD("Relocating main object");
 	object_relocate(main_obj);
