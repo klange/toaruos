@@ -112,7 +112,14 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 				break;
 			case 'd': /* Decimal number */
 				i = b - buf;
-				print_dec((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+				{
+					long val = (long)va_arg(args, long);
+					if (val < 0) {
+						*b++ = '-';
+						val = -val;
+					}
+					print_dec(val, arg_width, buf, &i);
+				}
 				b = buf + i;
 				break;
 			case '%': /* Escape */
