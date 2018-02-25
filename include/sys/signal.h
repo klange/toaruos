@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sys/types.h>
+
 #define SIGEV_NONE   1
 #define SIGEV_SIGNAL 2
 #define SIGEV_THREAD 3

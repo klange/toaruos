@@ -71,6 +71,7 @@ extern void _init();
 extern void _fini();
 
 char ** environ;
+int _environ_size = 0;
 
 void _exit(int val){
 	_fini();

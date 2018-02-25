@@ -4,7 +4,7 @@
 #include <wait.h>
 
 void set_console() {
-	int _stdin  = syscall_open("/dev/ttyS0", 0, 0);
+	int _stdin  = syscall_open("/dev/null", 0, 0);
 	int _stdout = syscall_open("/dev/ttyS0", 1, 0);
 	int _stderr = syscall_open("/dev/ttyS0", 1, 0);
 
@@ -40,9 +40,7 @@ int main(int argc, char * argv[]) {
 	set_console();
 
 	char * _argv[] = {
-		"/bin/hello",
-		"--argument1",
-		"--argument2",
+		"/bin/compositor",
 		NULL,
 	};
 

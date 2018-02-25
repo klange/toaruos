@@ -21,14 +21,44 @@ FILE * stdout = &_stdout;
 FILE * stderr = &_stderr;
 
 FILE * fopen(const char *path, const char *mode) {
-	// TODO parse mode
 
-	int fd = syscall_open(path, 0, 0);
+	const char * x = mode;
+
+	int flags = 0;
+	int mask = 0;
+
+	while (*x) {
+		if (*x == 'a') {
+			flags |= 0x08;
+			flags |= 0x01;
+		}
+		if (*x == 'w') {
+			flags |= 0x01;
+		}
+		if (*x == '+') {
+			if (flags & 0x01) {
+				flags |= 0x200;
+				mask = 0666;
+			} else {
+				flags |= 0x01;
+			}
+		}
+		++x;
+	}
+
+	int fd = syscall_open(path, flags, mask);
 
 	if (fd < 0) {
 		return NULL;
 	}
 
+	FILE * out = malloc(sizeof(FILE));
+	out->fd = fd;
+
+	return out;
+}
+
+FILE * fdopen(int fd, const char *mode){
 	FILE * out = malloc(sizeof(FILE));
 	out->fd = fd;
 
@@ -48,7 +78,7 @@ int fseek(FILE * stream, long offset, int whence) {
 }
 
 long ftell(FILE * stream) {
-	return fseek(stream, 0, SEEK_CUR);
+	return syscall_lseek(stream->fd, 0, SEEK_CUR);
 }
 
 
@@ -142,4 +172,8 @@ char *fgets(char *s, int size, FILE *stream) {
 		}
 	}
 	return NULL;
+}
+
+void setbuf(FILE * stream, char * buf) {
+	// ...
 }
