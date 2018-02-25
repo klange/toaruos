@@ -922,7 +922,12 @@ draw_finish:
 	_win_sprite.masks = NULL;
 	_win_sprite.blank = 0;
 	_win_sprite.alpha = ALPHA_EMBEDDED;
-	draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
+
+	if (window == yg->resizing_window) {
+		draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h);
+	} else {
+		draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
+	}
 
 	if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
 		list_insert(yg->windows_to_remove, window);

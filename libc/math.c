@@ -1,18 +1,9 @@
 #include <math.h>
 
-double floor(double x) {
-	return __builtin_floor(x);
-}
-
-int abs(int j) {
-	return __builtin_abs(j);
-}
-
 double exp(double x) {
 	return __builtin_exp(x);
 }
 
-#if 0
 double floor(double x) {
 	if (x > -1.0 && x < 1.0) {
 		if (x >= 0) {
@@ -34,4 +25,3 @@ double floor(double x) {
 int abs(int j) {
 	return (j < 0 ? -j : j);
 }
-#endif
