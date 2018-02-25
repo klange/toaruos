@@ -923,15 +923,55 @@ draw_finish:
 	_win_sprite.blank = 0;
 	_win_sprite.alpha = ALPHA_EMBEDDED;
 
-	if (window == yg->resizing_window) {
-		draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h);
-	} else {
-		draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
-	}
+	if (window->anim_mode) {
+		int frame = yutani_time_since(yg, window->anim_start);
+		if (frame >= yutani_animation_lengths[window->anim_mode]) {
+			/* XXX handle animation-end things like cleanup of closing windows */
+			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
+				list_insert(yg->windows_to_remove, window);
+				goto draw_finish;
+			}
+			window->anim_mode = 0;
+			window->anim_start = 0;
+			goto draw_window;
+		} else {
+			switch (window->anim_mode) {
+				case YUTANI_EFFECT_FADE_OUT:
+					{
+						frame = yutani_animation_lengths[window->anim_mode] - frame;
+					}
+				case YUTANI_EFFECT_FADE_IN:
+					{
+						double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
+						double x = 0.75 + time_diff * 0.25;
+						int t_x = (window->width * (1.0 - x)) / 2;
+						int t_y = (window->height * (1.0 - x)) / 2;
 
-	if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
-		list_insert(yg->windows_to_remove, window);
+						double opacity = time_diff * (double)(window->opacity) / 255.0;
+
+						if (!window_is_top(yg, window) && !window_is_bottom(yg, window) &&
+							!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
+							draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + t_x, window->y + t_y, window->width * x, window->height * x, opacity);
+						} else {
+							draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+						}
+					}
+					break;
+				default:
+					goto draw_window;
+					break;
+			}
+		}
+	} else {
+draw_window:
+		if (window == yg->resizing_window) {
+			draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h);
+		} else {
+			draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
+		}
 	}
+draw_finish:
+
 #endif
 
 	return 0;
