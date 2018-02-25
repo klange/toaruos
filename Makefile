@@ -41,6 +41,9 @@ base/lib/libtoaru_graphics.so: lib/graphics.c lib/graphics.h
 base/lib/libtoaru_list.so: lib/list.c lib/list.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
+base/lib/libtoaru_tree.so: lib/tree.c lib/tree.h base/lib/libtoaru_list.so
+	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
+
 base/lib/libtoaru_hashmap.so: lib/hashmap.c lib/hashmap.h base/lib/libtoaru_list.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
 
