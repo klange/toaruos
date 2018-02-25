@@ -836,6 +836,20 @@ int main(int argc, char ** argv) {
 	//add_path_contents("/usr/bin");
 	sort_commands();
 
+	for (int i = 1; i < argc; ++i) {
+		if (!strcmp(argv[i], "-c")) {
+			return shell_exec(argv[i+1], strlen(argv[i+1]));
+		}
+		if (!strcmp(argv[i], "-v")) {
+			show_version();
+			return 0;
+		}
+		if (!strcmp(argv[i], "-?")) {
+			show_usage(argc, argv);
+			return 0;
+		}
+	}
+
 #if 0
 	if (argc > 1) {
 		int index, c;
