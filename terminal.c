@@ -99,7 +99,7 @@ void term_redraw_cursor();
 
 /* Some GUI-only options */
 uint32_t window_width  = 640;
-uint32_t window_height = 408;
+uint32_t window_height = 480;
 #define TERMINAL_TITLE_SIZE 512
 char   terminal_title[TERMINAL_TITLE_SIZE];
 size_t terminal_title_length = 0;
@@ -336,6 +336,15 @@ term_write_char(
 
 #endif
 	} else {
+		if (val >= 0x2580 && val <= 0x2588) {
+			for (uint8_t i = 0; i < char_height; ++i) {
+				for (uint8_t j = 0; j < char_width; ++j) {
+					term_set_point(x+j,y+i,premultiply(_bg));
+				}
+			}
+			draw_semi_block(val, x, y, _fg, _bg);
+			goto _extra_stuff;
+		}
 		if (val > 128) {
 			val = 4;
 		}
@@ -1393,6 +1402,9 @@ int main(int argc, char ** argv) {
 	_login_shell = 0;
 	_fullscreen = 0;
 	_no_frame = 0;
+
+	window_width  = char_width * 80;
+	window_height = char_height * 24;
 
 #if 0
 	static struct option long_opts[] = {
