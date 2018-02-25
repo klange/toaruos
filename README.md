@@ -20,7 +20,7 @@ ToaruOS's kernel is entirely in-house. Its userspace, however, is built on sever
 
 - **Remove Cairo as a dependency for the compositor.**
 
-  Cairo is a major component of the modern ToaruOS compositor, but is the only significant third-party dependency. This makes the compositor, which is a key part of what makes ToaruOS "ToaruOS", an important inclusion in this project.
+  Cairo is a major component of the modern ToaruOS compositor, but is the only significant third-party dependency. This makes the compositor, which is a key part of what makes ToaruOS "ToaruOS", an important inclusion in this project. Very basic work has been done to allow the compositor to build and run without Cairo, but it is a naïve approach and remains very slow. Implementing Cairo's clipping and SSE-accelerated blitting operations is a must.
 
 - **Write a vector font library.**
 
@@ -28,7 +28,7 @@ ToaruOS's kernel is entirely in-house. Its userspace, however, is built on sever
 
 - **Support a compressed image format.**
 
-  ToaruOS used a lot of PNGs, but maybe writing our format would be fun.
+  ToaruOS used a lot of PNGs, but maybe writing our own format would be fun.
 
 ## Roadmap
 
