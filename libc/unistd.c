@@ -156,3 +156,8 @@ int usleep(useconds_t usec) {
 	syscall_nanosleep(0, usec / 10000);
 	return 0;
 }
+
+int fstat(int file, struct stat *st) {
+	syscall_fstat(file, st);
+	return 0;
+}
