@@ -93,6 +93,21 @@ static int usage(char * argv[]) {
  * Parse arguments
  */
 static int parse_args(int argc, char * argv[], int * out) {
+	*out = 1;
+	for (int i = 1; i < argc; ++i) {
+		if (argv[i][0] == '-') {
+			char *c = &argv[i][1];
+			*out = *out + 1;
+			while (*c) {
+				switch (*c) {
+					case 'n':
+						yutani_options.nested = 1;
+						break;
+				}
+				c++;
+			}
+		}
+	}
 #if 0
 	static struct option long_opts[] = {
 		{"nest",       no_argument,       0, 'n'},
@@ -132,7 +147,6 @@ static int parse_args(int argc, char * argv[], int * out) {
 	}
 	*out = optind;
 #endif
-	*out = 1;
 	return 0;
 }
 
@@ -2154,6 +2168,30 @@ int main(int argc, char * argv[]) {
 	}
 	// XXX need setenv to get display variable
 	//setenv("DISPLAY", yg->server_ident, 1);
+	char * _env = malloc(sizeof(char) * 64);
+	sprintf(_env, "DISPLAY=%s", yg->server_ident);
+
+	/* count environ */
+	size_t env_c = 0;
+	for (char ** env = environ; *env; env++, env_c++);
+	char ** env_new = malloc(sizeof(char *) * (env_c + 2));
+	int set_env = 0;
+	for (size_t i = 0; i < env_c; ++i) {
+		if (strstr(environ[i], "DISPLAY=") == environ[i]) {
+			TRACE("Display already set, replacing.\n");
+			env_new[i] = _env;
+			set_env = 1;
+		} else {
+			env_new[i] = environ[i];
+		}
+	}
+	if (!set_env) {
+		env_new[env_c] = _env;
+		env_c++;
+	}
+	env_new[env_c] = NULL;
+	environ = env_new;
+	TRACE("environment has %d items", env_c);
 
 	FILE * server = pex_bind(yg->server_ident);
 	TRACE("pex bound? %d", server);
