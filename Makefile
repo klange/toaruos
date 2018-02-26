@@ -26,13 +26,13 @@ dirs: base/dev base/tmp base/proc base/bin base/lib
 libc/%.o: libc/%.c
 	$(CC) -fPIC -c -m32 -Wa,--32 -O3 -isystem include -o $@ $<
 
-base/lib/ld.so: linker/linker.c base/lib/libnihc.a
+base/lib/ld.so: linker/linker.c base/lib/libnihc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $< $(LIBS)
 
-base/lib/libnihc.a: ${LIBC_OBJS}
+base/lib/libnihc.a: ${LIBC_OBJS} | dirs
 	$(AR) cr $@ $^
 
-base/lib/libnihc.so: ${LIBC_OBJS}
+base/lib/libnihc.so: ${LIBC_OBJS} | dirs
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $^
 
 base/lib/libtoaru_graphics.so: lib/graphics.c lib/graphics.h
