@@ -69,7 +69,7 @@ pushd build
         unset PKG_CONFIG_LIBDIR
 
         pushd gcc
-            $DIR/tarballs/gcc-6.3.0/configure --target=i686-pc-toaru --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --disable-nls --enable-languages=c,c++,go --disable-libssp --with-newlib || baiol
+            $DIR/tarballs/gcc-6.4.0/configure --target=i686-pc-toaru --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --disable-nls --enable-languages=c,c++,go --disable-libssp --with-newlib || baiol
             make -j4 all-gcc all-target-libgcc || bail
             make install-gcc install-target-libgcc || bail
         popd
@@ -80,7 +80,7 @@ pushd build
         mkdir gcc-elf
 
         pushd gcc-elf
-            $DIR/tarballs/gcc-6.3.0/configure --target=i686-elf --prefix=$PREFIX --disable-nls --enable-languages=c --disable-libssp --without-headers || baiol
+            $DIR/tarballs/gcc-6.4.0/configure --target=i686-elf --prefix=$PREFIX --disable-nls --enable-languages=c --disable-libssp --without-headers || baiol
             make -j4 all-gcc all-target-libgcc || bail
             make install-gcc install-target-libgcc || bail
         popd
