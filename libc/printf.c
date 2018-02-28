@@ -13,7 +13,7 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 
 	int printed = 0;
 	while (n_width + printed < width) {
-		buf[*ptr] = '0';
+		buf[*ptr] = ' ';
 		*ptr += 1;
 		printed += 1;
 	}
@@ -75,6 +75,10 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 		int align = 1; /* right */
 		if (*f == '-') {
 			align = 0;
+			++f;
+		}
+		if (*f == '*') {
+			arg_width = (char)va_arg(args, int);
 			++f;
 		}
 		while (*f >= '0' && *f <= '9') {
