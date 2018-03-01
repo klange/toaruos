@@ -128,7 +128,7 @@ void draw_prompt(int ret) {
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
 #else
 	char date_buffer[80];
-	sprintf(date_buffer, "%02d/%02d", timeinfo->tm_mon, timeinfo->tm_mday);
+	sprintf(date_buffer, "%02d/%02d", timeinfo->tm_mon+1, timeinfo->tm_mday);
 	char time_buffer[80];
 	sprintf(time_buffer, "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 #endif
