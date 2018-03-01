@@ -26,15 +26,15 @@ typedef struct rline_callback {
 	rline_callback_t rev_search;
 } rline_callbacks_t;
 
-void rline_redraw(rline_context_t * context);
-void rline_redraw_clean(rline_context_t * context);
-void rline_insert(rline_context_t * context, const char * what);
-int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks);
+extern void rline_redraw(rline_context_t * context);
+extern void rline_redraw_clean(rline_context_t * context);
+extern void rline_insert(rline_context_t * context, const char * what);
+extern int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks);
 
-void rline_history_insert(char * str);
-void rline_history_append_line(char * str);
-char * rline_history_get(int item);
-char * rline_history_prev(int item);
+extern void rline_history_insert(char * str);
+extern void rline_history_append_line(char * str);
+extern char * rline_history_get(int item);
+extern char * rline_history_prev(int item);
 
 #define RLINE_HISTORY_ENTRIES 128
 extern char * rline_history[RLINE_HISTORY_ENTRIES];

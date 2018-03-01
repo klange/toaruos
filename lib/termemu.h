@@ -105,6 +105,6 @@ typedef struct {
 #define TERM_DEFAULT_FLAGS  0x00 /* Default flags for a cell */
 #define TERM_DEFAULT_OPAC   0xF2 /* For background, default transparency */
 
-term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in);
-void ansi_put(term_state_t * s, char c);
+extern term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in);
+extern void ansi_put(term_state_t * s, char c);
 

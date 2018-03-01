@@ -41,46 +41,47 @@ typedef struct context {
 	void *   clips;
 } gfx_context_t;
 
-gfx_context_t * init_graphics_fullscreen();
-gfx_context_t * init_graphics_fullscreen_double_buffer();
-void reinit_graphics_fullscreen(gfx_context_t * ctx);
+extern gfx_context_t * init_graphics_fullscreen();
+extern gfx_context_t * init_graphics_fullscreen_double_buffer();
+extern void reinit_graphics_fullscreen(gfx_context_t * ctx);
 
 #define ALPHA_OPAQUE   0
 #define ALPHA_MASK     1
 #define ALPHA_EMBEDDED 2
 #define ALPHA_INDEXED  3
 
-uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
-uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask);
-uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top);
-uint32_t framebuffer_stride(void);
+extern uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
+extern uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+extern uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask);
+extern uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top);
+extern uint32_t framebuffer_stride(void);
 
-void flip(gfx_context_t * ctx);
+extern void flip(gfx_context_t * ctx);
 void clear_buffer(gfx_context_t * ctx);
 
-gfx_context_t * init_graphics_sprite(sprite_t * sprite);
-sprite_t * create_sprite(size_t width, size_t height, int alpha);
+extern gfx_context_t * init_graphics_sprite(sprite_t * sprite);
+extern sprite_t * create_sprite(size_t width, size_t height, int alpha);
 
-void blur_context(gfx_context_t * _dst, gfx_context_t * _src, double amount);
-void blur_context_no_vignette(gfx_context_t * _dst, gfx_context_t * _src, double amount);
-void blur_context_box(gfx_context_t * _src, int radius);
-void sprite_free(sprite_t * sprite);
+extern void blur_context(gfx_context_t * _dst, gfx_context_t * _src, double amount);
+extern void blur_context_no_vignette(gfx_context_t * _dst, gfx_context_t * _src, double amount);
+extern void blur_context_box(gfx_context_t * _src, int radius);
+extern void sprite_free(sprite_t * sprite);
 
-void load_sprite(sprite_t * sprite, char * filename);
-//int load_sprite_png(sprite_t * sprite, char * file);
-void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y);
-void draw_line(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color);
-void draw_line_thick(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color, char thickness);
-void draw_fill(gfx_context_t * ctx, uint32_t color);
+extern void load_sprite(sprite_t * sprite, char * filename);
+//extern int load_sprite_png(sprite_t * sprite, char * file);
+extern void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y);
+extern void draw_line(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color);
+extern void draw_line_thick(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color, char thickness);
+extern void draw_fill(gfx_context_t * ctx, uint32_t color);
 
-void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height);
-void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
-void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha);
+extern void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height);
+extern void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
+extern void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha);
 
-//void context_to_png(FILE * file, gfx_context_t * ctx);
+//extern void context_to_png(FILE * file, gfx_context_t * ctx);
 
-uint32_t premultiply(uint32_t color);
+extern uint32_t premultiply(uint32_t color);
 
-void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h);
-void gfx_clear_clip(gfx_context_t * ctx);
+extern void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h);
+extern void gfx_clear_clip(gfx_context_t * ctx);
+
