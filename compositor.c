@@ -573,6 +573,8 @@ static void load_fonts(yutani_globals_t * yg) {
  * Add a clip region from a rectangle.
  */
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
+
+	gfx_add_clip(yg->backend_ctx, (int)x, (int)y, (int)w, (int)h);
 #if 0
 	cairo_rectangle(yg->framebuffer_ctx, x, y, w, h);
 	if (yg->width > 2490) {
@@ -602,6 +604,12 @@ static void restore_cairo_states(yutani_globals_t * yg) {
 	cairo_restore(yg->real_ctx);
 #endif
 }
+
+typedef struct {
+	int32_t start;
+	int32_t end;
+	void * next;
+} _clip_t;
 
 /**
  * Apply the clips we built earlier.
@@ -1179,12 +1187,14 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	}
 
+
 	if (yg->screenshot_frame) {
 		yutani_screenshot(yg);
 	}
 
 	/* Restore the cairo contexts to reset clip regions */
 	restore_cairo_states(yg);
+	gfx_clear_clip(yg->backend_ctx);
 
 	if (yg->resize_on_next) {
 		spin_lock(&yg->redraw_lock);

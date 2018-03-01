@@ -38,6 +38,7 @@ typedef struct context {
 	uint32_t size;
 	char *   buffer;
 	char *   backbuffer;
+	void *   clips;
 } gfx_context_t;
 
 gfx_context_t * init_graphics_fullscreen();
@@ -81,3 +82,5 @@ void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_
 
 uint32_t premultiply(uint32_t color);
 
+void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h);
+void gfx_clear_clip(gfx_context_t * ctx);
