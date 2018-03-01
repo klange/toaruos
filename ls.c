@@ -322,7 +322,7 @@ static int display_dir(char * p) {
 
 			f->name = strdup(ent->d_name);
 
-			char tmp[strlen(p)+strlen(ent->d_name)+1];
+			char tmp[strlen(p)+strlen(ent->d_name)+2];
 			sprintf(tmp, "%s/%s", p, ent->d_name);
 			int t = lstat(tmp, &f->statbuf);
 			if (S_ISLNK(f->statbuf.st_mode)) {
