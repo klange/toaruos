@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/utsname.h>
 
 #include "lib/yutani.h"
@@ -42,6 +43,24 @@ static void resize_finish_panel(int width, int height) {
 	yutani_flip(yctx, panel_window);
 }
 
+static void launch_application(char * app) {
+	if (!fork()) {
+		printf("Starting %s\n", app);
+		char * args[] = {"/bin/sh", "-c", app, NULL};
+		execvp(args[0], args);
+		exit(1);
+	}
+}
+
+static void handle_key_event(struct yutani_msg_key_event * ke) {
+	if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+		(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+		(ke->event.keycode == 't') &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+		launch_application("terminal");
+	}
+}
+
 int main (int argc, char ** argv) {
 	yctx = yutani_init();
 
@@ -65,6 +84,8 @@ int main (int argc, char ** argv) {
 
 	int should_exit = 0;
 
+	yutani_key_bind(yctx, 't', KEY_MOD_LEFT_CTRL | KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
 	while (!should_exit) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
@@ -73,6 +94,9 @@ int main (int argc, char ** argv) {
 					fprintf(stderr, "Request to resize desktop received, resizing to %d x %d\n", yctx->display_width, yctx->display_height);
 					yutani_window_resize_offer(yctx, wallpaper_window, yctx->display_width, yctx->display_height);
 					yutani_window_resize_offer(yctx, panel_window, yctx->display_width, PANEL_HEIGHT);
+					break;
+				case YUTANI_MSG_KEY_EVENT:
+					handle_key_event((struct yutani_msg_key_event *)m->data);
 					break;
 				case YUTANI_MSG_RESIZE_OFFER:
 					{
