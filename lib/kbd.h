@@ -144,6 +144,6 @@ typedef struct {
 	int kbd_esc_buf;
 } key_event_state_t;
 
-kbd_key_t kbd_key(key_event_state_t * state, unsigned char c);
-int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event);
+extern kbd_key_t kbd_key(key_event_state_t * state, unsigned char c);
+extern int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event);
 

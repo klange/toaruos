@@ -16,14 +16,14 @@ typedef struct pex_header {
 	uint8_t data[];
 } pex_header_t;
 
-size_t pex_send(FILE * sock, unsigned int rcpt, size_t size, char * blob);
-size_t pex_broadcast(FILE * sock, size_t size, char * blob);
-size_t pex_listen(FILE * sock, pex_packet_t * packet);
+extern size_t pex_send(FILE * sock, unsigned int rcpt, size_t size, char * blob);
+extern size_t pex_broadcast(FILE * sock, size_t size, char * blob);
+extern size_t pex_listen(FILE * sock, pex_packet_t * packet);
 
-size_t pex_reply(FILE * sock, size_t size, char * blob);
-size_t pex_recv(FILE * sock, char * blob);
-size_t pex_query(FILE * sock);
+extern size_t pex_reply(FILE * sock, size_t size, char * blob);
+extern size_t pex_recv(FILE * sock, char * blob);
+extern size_t pex_query(FILE * sock);
 
-FILE * pex_bind(char * target);
-FILE * pex_connect(char * target);
+extern FILE * pex_bind(char * target);
+extern FILE * pex_connect(char * target);
 
