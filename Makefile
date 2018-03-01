@@ -119,6 +119,7 @@ image.iso: cdrom/ramdisk.img.gz
 clean:
 	rm -f base/lib/*.so
 	rm -f base/lib/libnihc.a
+	rm -f ${APPS_X}
 	rm -f libc/*.o
 	rm -f image.iso
 	rm -f cdrom/randisk.img.gz
