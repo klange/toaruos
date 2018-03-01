@@ -112,6 +112,7 @@ DECL_SYSCALL2(fswait,int,int*);
 DECL_SYSCALL3(fswait2,int,int*,int);
 DECL_SYSCALL3(chown,char*,int,int);
 DECL_SYSCALL3(waitpid, int, int *, int);
+DECL_SYSCALL5(mount, char *, char *, char *, unsigned long, void *);
 
 #endif
 /*
