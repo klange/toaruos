@@ -225,29 +225,11 @@ static void print_entry_long(int * widths, struct tfile * file) {
 
 	char time_buf[80];
 	struct tm * timeinfo = localtime(&file->statbuf.st_mtime);
-#if 0
 	if (timeinfo->tm_year == this_year) {
 		strftime(time_buf, 80, "%b %d %H:%M", timeinfo);
 	} else {
 		strftime(time_buf, 80, "%b %d  %Y", timeinfo);
 	}
-#else
-	static char * months[] = {
-		"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
-	};
-	if (timeinfo->tm_year == this_year) {
-		sprintf(time_buf, "%s %02d %02d:%02d",
-				months[timeinfo->tm_mon],
-				timeinfo->tm_mday,
-				timeinfo->tm_hour,
-				timeinfo->tm_min);
-	} else {
-		sprintf(time_buf, "%s %02d  %04d",
-				months[timeinfo->tm_mon],
-				timeinfo->tm_mday,
-				timeinfo->tm_year+1900);
-	}
-#endif
 	printf("%s ", time_buf);
 
 	/* Print the file name */
