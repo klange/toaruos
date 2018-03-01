@@ -2,7 +2,7 @@
 #include <string.h>
 #include <va_list.h>
 
-static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr ) {
+static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr, int fill_zero) {
 	unsigned int n_width = 1;
 	unsigned int i = 9;
 	while (value > i && i < UINT32_MAX) {
@@ -13,7 +13,7 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 
 	int printed = 0;
 	while (n_width + printed < width) {
-		buf[*ptr] = ' ';
+		buf[*ptr] = fill_zero ? '0' : ' ';
 		*ptr += 1;
 		printed += 1;
 	}
@@ -73,12 +73,17 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 		++f;
 		unsigned int arg_width = 0;
 		int align = 1; /* right */
+		int fill_zero = 0;
 		if (*f == '-') {
 			align = 0;
 			++f;
 		}
 		if (*f == '*') {
 			arg_width = (char)va_arg(args, int);
+			++f;
+		}
+		if (*f == '0') {
+			fill_zero = 1;
 			++f;
 		}
 		while (*f >= '0' && *f <= '9') {
@@ -122,7 +127,7 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 						*b++ = '-';
 						val = -val;
 					}
-					print_dec(val, arg_width, buf, &i);
+					print_dec(val, arg_width, buf, &i, fill_zero);
 				}
 				b = buf + i;
 				break;
