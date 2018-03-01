@@ -115,12 +115,12 @@ void gethost() {
 /* Draw the user prompt */
 void draw_prompt(int ret) {
 	/* Get the time */
-#if 0
 	struct tm * timeinfo;
 	struct timeval now;
 	gettimeofday(&now, NULL); //time(NULL);
 	timeinfo = localtime((time_t *)&now.tv_sec);
 
+#if 0
 	/* Format the date and time for prompt display */
 	char date_buffer[80];
 	strftime(date_buffer, 80, "%m/%d", timeinfo);
@@ -128,9 +128,9 @@ void draw_prompt(int ret) {
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
 #else
 	char date_buffer[80];
-	sprintf(date_buffer, "xx/xx");
+	sprintf(date_buffer, "%02d/%02d", timeinfo->tm_mon, timeinfo->tm_mday);
 	char time_buffer[80];
-	sprintf(time_buffer, "xx:xx:xx");
+	sprintf(time_buffer, "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 #endif
 
 	/* Print the working directory in there, too */
