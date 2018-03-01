@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <sys/types.h>
 
 struct tm {
@@ -15,3 +16,4 @@ struct tm {
 };
 
 extern struct tm *localtime(const time_t *timep);
+extern size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
