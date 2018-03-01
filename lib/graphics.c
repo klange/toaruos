@@ -37,9 +37,35 @@ static inline uint16_t max16(uint16_t a, uint16_t b) {
 }
 
 
+typedef struct {
+	int32_t start;
+	int32_t end;
+	void * next;
+} _clip_t;
+
+void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h) {
+	_clip_t * clip = malloc(sizeof(_clip_t));
+	clip->start = max(y,0);
+	clip->end = min(y+h,ctx->height);
+	clip->next = ctx->clips;
+	ctx->clips = clip;
+}
+
+void gfx_clear_clip(gfx_context_t * ctx) {
+	_clip_t * clip = ctx->clips;
+	while (clip) {
+		_clip_t * tmp = clip->next;
+		free(clip);
+		clip = tmp;
+	}
+	ctx->clips = NULL;
+}
 
 /* Pointer to graphics memory */
 void flip(gfx_context_t * ctx) {
+	if (ctx->clips) {
+		/// do this differently
+	}
 	memcpy(ctx->buffer, ctx->backbuffer, ctx->size);
 }
 
@@ -51,6 +77,7 @@ void clearbuffer(gfx_context_t * ctx) {
 static int framebuffer_fd = 0;
 gfx_context_t * init_graphics_fullscreen() {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+	out->clips = NULL;
 
 	if (!framebuffer_fd) {
 		framebuffer_fd = syscall_open("/dev/fb0", 0, 0);
@@ -105,6 +132,7 @@ void reinit_graphics_fullscreen(gfx_context_t * out) {
 
 gfx_context_t * init_graphics_sprite(sprite_t * sprite) {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+	out->clips = NULL;
 
 	out->width  = sprite->width;
 	out->height = sprite->height;
@@ -516,12 +544,25 @@ _cleanup_sprite:
 	free(bufferb);
 }
 
+static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
+	if (!ctx->clips) return 1;
+	_clip_t * clip = ctx->clips;
+	while (clip) {
+		if (y >= clip->start && y <= clip->end) {
+			return 1;
+		}
+		clip = (_clip_t *)clip->next;
+	}
+	return 0;
+}
+
 void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+		if (!_is_in_clip(ctx, y + _y)) continue;
 		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
