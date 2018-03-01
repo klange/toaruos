@@ -22,7 +22,7 @@ static void draw_panel(int width) {
 	struct utsname u;
 	uname(&u);
 	sprintf(label, "ToaruOS-NIH %s", u.release);
-	draw_fill(panel_ctx, rgb(20,20,20));
+	draw_fill(panel_ctx, rgba(0,0,0,170));
 	draw_string(panel_ctx, 1, 2, rgb(255,255,255), label);
 }
 
