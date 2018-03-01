@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <termios.h>
+#include <time.h>
 #include <pwd.h>
 
 #include <sys/ioctl.h>
@@ -222,16 +223,32 @@ static void print_entry_long(int * widths, struct tfile * file) {
 		printf("%*d ", widths[3], file->statbuf.st_size);
 	}
 
-#if 0
 	char time_buf[80];
 	struct tm * timeinfo = localtime(&file->statbuf.st_mtime);
+#if 0
 	if (timeinfo->tm_year == this_year) {
 		strftime(time_buf, 80, "%b %d %H:%M", timeinfo);
 	} else {
 		strftime(time_buf, 80, "%b %d  %Y", timeinfo);
 	}
-	printf("%s ", time_buf);
+#else
+	static char * months[] = {
+		"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
+	};
+	if (timeinfo->tm_year == this_year) {
+		sprintf(time_buf, "%s %02d %02d:%02d",
+				months[timeinfo->tm_mon],
+				timeinfo->tm_mday,
+				timeinfo->tm_hour,
+				timeinfo->tm_min);
+	} else {
+		sprintf(time_buf, "%s %02d  %04d",
+				months[timeinfo->tm_mon],
+				timeinfo->tm_mday,
+				timeinfo->tm_year+1900);
+	}
 #endif
+	printf("%s ", time_buf);
 
 	/* Print the file name */
 	if (stdout_is_tty) {
@@ -425,7 +442,6 @@ int main (int argc, char * argv[]) {
 
 	stdout_is_tty = isatty(STDOUT_FILENO);
 
-#if 0
 	if (long_mode) {
 		struct tm * timeinfo;
 		struct timeval now;
@@ -433,7 +449,6 @@ int main (int argc, char * argv[]) {
 		timeinfo = localtime((time_t *)&now.tv_sec);
 		this_year = timeinfo->tm_year;
 	}
-#endif
 
 	if (stdout_is_tty) {
 		TRACE("getting display size");
