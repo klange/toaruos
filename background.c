@@ -13,9 +13,24 @@ static yutani_window_t * wallpaper_window;
 static gfx_context_t * wallpaper_ctx;
 static yutani_window_t * panel_window;
 static gfx_context_t * panel_ctx;
+static sprite_t * wallpaper;
 
 static void draw_background(int width, int height) {
-	draw_fill(wallpaper_ctx, rgb(110,110,110));
+
+	float x = (float)wallpaper_window->width / (float)wallpaper->width;
+	float y = (float)wallpaper_window->height / (float)wallpaper->height;
+
+	int nh = (int)(x * (float)wallpaper->height);
+	int nw = (int)(y * (float)wallpaper->width);
+
+	if (nw == wallpaper->width && nh == wallpaper->height) {
+		// special case
+		draw_sprite(wallpaper_ctx, wallpaper, 0, 0);
+	} else if (nw >= width) {
+		draw_sprite_scaled(wallpaper_ctx, wallpaper, ((int)wallpaper_window->width - nw) / 2, 0, nw, wallpaper_window->height);
+	} else {
+		draw_sprite_scaled(wallpaper_ctx, wallpaper, 0, ((int)wallpaper_window->height - nh) / 2, wallpaper_window->width, nh);
+	}
 }
 
 static void draw_panel(int width) {
@@ -62,6 +77,11 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 }
 
 int main (int argc, char ** argv) {
+
+	wallpaper = malloc(sizeof(sprite_t));
+	load_sprite(wallpaper, "/usr/share/wallpaper.bmp");
+	wallpaper->alpha = 0;
+
 	yctx = yutani_init();
 
 	/* wallpaper */
