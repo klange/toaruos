@@ -853,6 +853,7 @@ gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
 	out->buffer = window->buffer;
 	out->backbuffer = out->buffer;
+	out->clips  = NULL;
 	return out;
 }
 

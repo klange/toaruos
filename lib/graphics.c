@@ -674,6 +674,7 @@ void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 	int32_t _right  = min(x + width,  ctx->width - 1);
 	int32_t _bottom = min(y + height, ctx->height - 1);
 	for (uint16_t _y = 0; _y < height; ++_y) {
+		if (!_is_in_clip(ctx, y + _y)) continue;
 		for (uint16_t _x = 0; _x < width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
@@ -694,6 +695,7 @@ void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+		if (!_is_in_clip(ctx, y + _y)) continue;
 		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
@@ -711,6 +713,7 @@ void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x,
 	int32_t _right  = min(x + width,  ctx->width - 1);
 	int32_t _bottom = min(y + height, ctx->height - 1);
 	for (uint16_t _y = 0; _y < height; ++_y) {
+		if (!_is_in_clip(ctx, y + _y)) continue;
 		for (uint16_t _x = 0; _x < width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
