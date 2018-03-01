@@ -68,11 +68,14 @@ base/lib/libtoaru_rline.so: lib/rline.c lib/rline.h base/lib/libtoaru_kbd.so
 base/lib/libtoaru_termemu.so: lib/termemu.c lib/termemu.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
+base/lib/libtoaru_drawstring.so: lib/drawstring.c lib/drawstring.h base/lib/libtoaru_graphics.so
+	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
+
 base/lib/libtoaru_decorations.so: lib/decorations.c lib/decorations.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
-base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c lib/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_decorations -ltoaru_graphics
+base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c lib/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so base/lib/libtoaru_drawstring.so
+	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_decorations -ltoaru_drawstring -ltoaru_graphics
 
 base/bin/init: init.c base/lib/libnihc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $< $(LIBS)
@@ -86,8 +89,8 @@ base/bin/sysinfo: sysinfo.c base/lib/libnihc.so base/lib/libtoaru_graphics.so ba
 base/bin/terminal: terminal.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so base/lib/libtoaru_pex.so base/lib/libtoaru_hashmap.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_decorations -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_hashmap -ltoaru_dlfcn -ltoaru_kbd -ltoaru_list $(LIBS)
 
-base/bin/background: background.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
+base/bin/background: background.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so base/lib/libtoaru_drawstring.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_drawstring -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
 base/bin/drawlines: drawlines.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)

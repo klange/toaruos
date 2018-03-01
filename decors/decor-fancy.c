@@ -4,6 +4,7 @@
 #include "lib/graphics.h"
 //#include "lib/shmemfonts.h"
 #include "lib/decorations.h"
+#include "lib/drawstring.h"
 
 #define INACTIVE 9
 
@@ -24,7 +25,7 @@ static int lry_offset = 3;
 
 static sprite_t * sprites[20];
 
-#define TEXT_OFFSET 24
+#define TEXT_OFFSET 10
 
 static void init_sprite(int id, char * path) {
 	sprites[id] = malloc(sizeof(sprite_t));
@@ -74,10 +75,6 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	}
 	draw_sprite(ctx, sprites[decors_active + 7], width - lr_width, height - l_height);
 
-#if 0
-	set_font_face(FONT_SANS_SERIF_BOLD);
-	set_font_size(12);
-
 	char * tmp_title = strdup(title);
 	int t_l = strlen(tmp_title);
 
@@ -100,7 +97,6 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	}
 
 	free(tmp_title);
-#endif
 
 	/* Buttons */
 	draw_sprite(ctx, sprites[decors_active + 8], width - 28, 16);
