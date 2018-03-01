@@ -572,7 +572,7 @@ void term_scroll(int how_much) {
 		}
 	}
 	flush_unused_images();
-	//yutani_flip(yctx, window);
+	yutani_flip(yctx, window);
 }
 
 int is_wide(uint32_t codepoint) {
