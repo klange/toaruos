@@ -1,6 +1,6 @@
 # ToaruOS-NIH
 
-![screenshot](https://i.imgur.com/y8poETu.png)
+![screenshot](https://i.imgur.com/CebAZPA.png)
 
 This is an experimental spin-off / distribution of ToaruOS which includes no third-party components.
 
