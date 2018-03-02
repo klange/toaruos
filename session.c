@@ -13,11 +13,6 @@ int main(int argc, char * argv[]) {
 		char * args[] = {"/bin/background", NULL};
 		execvp(args[0], args);
 	}
-	int _terminal_pid = fork();
-	if (!_terminal_pid) {
-		char * args[] = {"/bin/terminal", NULL};
-		execvp(args[0], args);
-	}
 
 	wait(NULL);
 

@@ -106,6 +106,12 @@ int main (int argc, char ** argv) {
 
 	yutani_key_bind(yctx, 't', KEY_MOD_LEFT_CTRL | KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 
+	int _terminal_pid = fork();
+	if (!_terminal_pid) {
+		char * args[] = {"/bin/terminal", NULL};
+		execvp(args[0], args);
+	}
+
 	while (!should_exit) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
