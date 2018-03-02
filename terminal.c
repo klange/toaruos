@@ -1477,6 +1477,28 @@ int main(int argc, char ** argv) {
 
 	// XXX
 	//putenv("TERM=toaru");
+#if 1
+	char * _env = malloc(strlen("TERM=toaru"));
+	sprintf(_env, "TERM=toaru");
+	size_t env_c = 0;
+	for (char ** env = environ; *env; env++, env_c++);
+	char ** env_new = malloc(sizeof(char *) * (env_c + 2));
+	int set_env = 0;
+	for (size_t i = 0; i < env_c; ++i) {
+		if (strstr(environ[i], "TERM=") == environ[i]) {
+			env_new[i] = _env;
+			set_env = 1;
+		} else {
+			env_new[i] = environ[i];
+		}
+	}
+	if (!set_env) {
+		env_new[env_c] = _env;
+		env_c++;
+	}
+	env_new[env_c] = NULL;
+	environ = env_new;
+#endif
 
 	/* Initialize the windowing library */
 	yctx = yutani_init();
