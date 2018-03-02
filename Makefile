@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
@@ -106,6 +106,9 @@ base/bin/compositor: compositor.c base/lib/libnihc.so base/lib/libtoaru_graphics
 
 base/bin/ls: ls.c base/lib/libnihc.so base/lib/libtoaru_list.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_list $(LIBS)
+
+base/bin/nyancat: nyancat/nyancat.c base/lib/libnihc.so
+	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
 base/bin/%: %.c base/lib/libnihc.so | dirs
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
