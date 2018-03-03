@@ -2,7 +2,7 @@ APPS=init hello sh ls terminal uname compositor drawlines background session kde
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
-CFLAGS=-nodefaultlibs -O3 -m32 -Wa,--32 -g -std=c99 -I. -isystem include -Lbase/lib
+CFLAGS=-nodefaultlibs -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps -isystem include -Lbase/lib
 LIBS=-lnihc -lgcc
 
 LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
