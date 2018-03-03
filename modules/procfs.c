@@ -59,7 +59,7 @@ static uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t siz
 		if (offset > _bsize) return 0;
 		if (size > _bsize - offset) size = _bsize - offset;
 
-		memcpy(buffer, buf, size);
+		memcpy(buffer, buf + offset, size);
 		return size;
 	}
 
