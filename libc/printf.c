@@ -2,7 +2,7 @@
 #include <string.h>
 #include <va_list.h>
 
-static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr, int fill_zero) {
+static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr, int fill_zero, int align_right) {
 	unsigned int n_width = 1;
 	unsigned int i = 9;
 	while (value > i && i < UINT32_MAX) {
@@ -12,21 +12,39 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 	}
 
 	int printed = 0;
-	while (n_width + printed < width) {
-		buf[*ptr] = fill_zero ? '0' : ' ';
-		*ptr += 1;
-		printed += 1;
-	}
+	if (align_right) {
+		while (n_width + printed < width) {
+			buf[*ptr] = fill_zero ? '0' : ' ';
+			*ptr += 1;
+			printed += 1;
+		}
 
-	i = n_width;
-	while (i > 0) {
-		unsigned int n = value / 10;
-		int r = value % 10;
-		buf[*ptr + i - 1] = r + '0';
-		i--;
-		value = n;
+		i = n_width;
+		while (i > 0) {
+			unsigned int n = value / 10;
+			int r = value % 10;
+			buf[*ptr + i - 1] = r + '0';
+			i--;
+			value = n;
+		}
+		*ptr += n_width;
+	} else {
+		i = n_width;
+		while (i > 0) {
+			unsigned int n = value / 10;
+			int r = value % 10;
+			buf[*ptr + i - 1] = r + '0';
+			i--;
+			value = n;
+			printed++;
+		}
+		*ptr += n_width;
+		while (n_width + printed < width) {
+			buf[*ptr] = fill_zero ? '0' : ' ';
+			*ptr += 1;
+			printed += 1;
+		}
 	}
-	*ptr += n_width;
 }
 
 /*
@@ -127,7 +145,7 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 						*b++ = '-';
 						val = -val;
 					}
-					print_dec(val, arg_width, buf, &i, fill_zero);
+					print_dec(val, arg_width, buf, &i, fill_zero, align);
 				}
 				b = buf + i;
 				break;
