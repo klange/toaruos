@@ -142,7 +142,7 @@ _try_again:
 	if (r < 0) {
 		return EOF;
 	} else if (r == 0) {
-		goto _try_again;
+		return EOF;
 	}
 	return buf[0];
 }
