@@ -673,7 +673,7 @@ void write_file(char * file) {
 		return;
 	}
 
-	FILE * f = fopen(file, "w");
+	FILE * f = fopen(file, "w+");
 
 	if (!f) {
 		render_error("Failed to open file for writing.");
@@ -708,6 +708,20 @@ void write_file(char * file) {
 	redraw_all();
 }
 
+void close_buffer() {
+	buffer_t * previous_env = env;
+	buffer_t * new_env = buffer_close(env);
+	if (new_env == previous_env) {
+		render_error("lolwat");
+	}
+	if (!new_env) {
+		quit();
+	}
+	free(previous_env);
+	env = new_env;
+	redraw_all();
+}
+
 void process_command(char * cmd) {
 	char *p, *argv[512], *last;
 	int argc = 0;
@@ -733,22 +747,17 @@ void process_command(char * cmd) {
 		} else {
 			write_file(env->file_name);
 		}
+	} else if (!strcmp(argv[0], "wq")) {
+		write_file(env->file_name);
+		close_buffer();
 	} else if (!strcmp(argv[0], "q")) {
 		if (env->modified) {
 			render_error("No write since last change. Use :q! to force exit.");
 		} else {
-			buffer_t * previous_env = env;
-			buffer_t * new_env = buffer_close(env);
-			if (new_env == previous_env) {
-				render_error("lolwat");
-			}
-			if (!new_env) {
-				quit();
-			}
-			free(previous_env);
-			env = new_env;
-			redraw_all();
+			close_buffer();
 		}
+	} else if (!strcmp(argv[0], "qa")) {
+		try_quit();
 	} else if (!strcmp(argv[0], "qall")) {
 		try_quit();
 	} else if (!strcmp(argv[0], "q!")) {
