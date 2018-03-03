@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <signal.h>
 
 #ifdef __linux__
 #include <stdio_ext.h>
@@ -513,6 +514,17 @@ void place_cursor_actual() {
 #endif
 }
 
+void SIGWINCH_handler(int sig) {
+	(void)sig;
+	struct winsize w;
+	ioctl(0, TIOCGWINSZ, &w);
+	term_width = w.ws_col;
+	term_height = w.ws_row;
+	redraw_all();
+
+	signal(SIGWINCH, SIGWINCH_handler);
+}
+
 void initialize() {
 	buffers_avail = 4;
 	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
@@ -523,6 +535,7 @@ void initialize() {
 	term_height = w.ws_row;
 	set_unbuffered();
 
+	signal(SIGWINCH, SIGWINCH_handler);
 }
 
 void goto_line(int line) {
