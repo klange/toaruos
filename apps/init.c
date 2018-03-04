@@ -1,7 +1,7 @@
 #include <syscall.h>
 #include <errno.h>
-#include <_xlog.h>
 #include <wait.h>
+#include <string.h>
 
 void set_console() {
 	int _stdin  = syscall_open("/dev/null", 0, 0);
@@ -37,7 +37,6 @@ int start_options(char * args[]) {
 }
 
 int main(int argc, char * argv[]) {
-	_XLOG("Init starting...");
 	set_console();
 
 	char * _argv[] = {
@@ -46,5 +45,22 @@ int main(int argc, char * argv[]) {
 	};
 
 	syscall_sethostname("base");
-	return start_options(_argv);
+
+	if (argc > 1) {
+		char * args = NULL;
+		if (argc > 2) {
+			args = argv[2];
+		}
+		if (!strcmp(argv[1], "--vga")) {
+			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
+#if 0
+		} else if (!strcmp(argv[1], "--migrate")) {
+			return start_options((char *[]){"/usr/bin/python","/bin/migrate.py",NULL});
+#endif
+		} else {
+			/* Pass it to the compositor... */
+			return start_options((char *[]){"/bin/compositor","--",argv[1],NULL});
+		}
+	}
+	return start_options((char *[]){"/bin/compositor",NULL});
 }
