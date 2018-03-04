@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
@@ -88,6 +88,9 @@ base/bin/sysinfo: apps/sysinfo.c base/lib/libnihc.so base/lib/libtoaru_graphics.
 
 base/bin/terminal: apps/terminal.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so base/lib/libtoaru_pex.so base/lib/libtoaru_hashmap.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_decorations -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_hashmap -ltoaru_dlfcn -ltoaru_kbd -ltoaru_list $(LIBS)
+
+base/bin/terminal-vga: apps/terminal-vga.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_graphics -ltoaru_kbd $(LIBS)
 
 base/bin/background: apps/background.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so base/lib/libtoaru_drawstring.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_drawstring -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)

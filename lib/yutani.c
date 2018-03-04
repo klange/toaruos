@@ -567,7 +567,6 @@ yutani_t * yutani_init(void) {
 	FILE * c = pex_connect(server_name);
 
 	if (!c) {
-		fprintf(stderr, "Pex connection failed?\n");
 		return NULL; /* Connection failed. */
 	}
 
