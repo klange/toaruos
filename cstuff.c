@@ -308,7 +308,7 @@ int kmain() {
 	do {
 		clear_();
 		attr = 0x1f;
-		print_banner("ToaruOS-NIH Bootloader v0.1");
+		print_banner("ToaruOS-NIH Bootloader v1.0");
 		attr = 0x07;
 		print_("\n");
 		attr = sel == 0 ? 0x70 : 0x07;
