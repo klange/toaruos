@@ -9,6 +9,15 @@
 #include "elf.h"
 #include "multiboot.h"
 
+static int read_scancode(void) {
+	while (!(inportb(0x64) & 1));
+	int out;
+	while (inportb(0x64) & 1) {
+		out = inportb(0x60);
+	}
+	return out;
+}
+
 static void restore_root(void) {
 	memcpy(dir_entry, (iso_9660_directory_entry_t *)&root->root, sizeof(iso_9660_directory_entry_t));
 
@@ -34,34 +43,32 @@ static void restore_mod(void) {
 
 #define KERNEL_LOAD_START 0x300000
 
-#ifdef _VGA_BOOT
 static char * modules[] = {
-	"ZERO.KO",
-	"RANDOM.KO",
-	"SERIAL.KO",
-	"DEBUG_SH.KO",
-	"PROCFS.KO",
-	"TMPFS.KO",
-	"NONE",//"ATA.KO",
-	"EXT2.KO",
-	"NONE",//"ISO9660.KO",
-	"PS2KBD.KO",
-	"PS2MOUSE.KO",
-	"NONE",//"LFBVIDEO.KO",
-	"NONE",//"VBOXGUES.KO",
-	"NONE",//"VMWARE.KO",
-	"NONE",//"VIDSET.KO",
-	"PACKETFS.KO",
-	"NONE",//"SND.KO",
-	"NONE",//"AC97.KO",
-	"NONE",//"NET.KO",
-	"NONE",//"PCNET.KO",
-	"NONE",//"RTL.KO",
-	"NONE",//"E1000.KO",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
+	"NONE",
 	0
 };
-#else
-static char * modules[] = {
+static char * modules_normal[] = {
 	"ZERO.KO",
 	"RANDOM.KO",
 	"SERIAL.KO",
@@ -86,7 +93,6 @@ static char * modules[] = {
 	"E1000.KO",
 	0
 };
-#endif
 
 
 static mboot_mod_t modules_mboot[23] = {
@@ -98,11 +104,7 @@ static struct multiboot multiboot_header = {
 	/* mem_lower;         */ 0x100000,
 	/* mem_upper;         */ 0x640000,
 	/* boot_device;       */ 0,
-#ifdef _VGA_BOOT
-	/* cmdline;           */ (uintptr_t)"root=/dev/ram0,nocache start=--vga",
-#else
-	/* cmdline;           */ (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session",
-#endif
+	/* cmdline;           */ 0,
 	/* mods_count;        */ 23,
 	/* mods_addr;         */ (uintptr_t)&modules_mboot,
 	/* num;               */ 0,
@@ -283,16 +285,9 @@ done:
 				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
 				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
 				for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
-#ifdef __DEBUG__
 					if (i % 32 == 0) {
 						print(".");
 					}
-#else
-# if 0
-					j++;
-					*(unsigned short *)(0xB8000) = 0xF000 | ("|/-\\"[i%4]);
-# endif
-#endif
 					ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 				}
 				print("Done.\n");
@@ -309,10 +304,36 @@ done:
 }
 
 int kmain() {
-	clear();
-	print("ToaruOS-NIH Bootloader v0.1\n\n");
-	print("Scanning ATA devices.\n");
+	do {
+		clear_();
+		print_("ToaruOS-NIH Bootloader v0.1\n\n");
+		print_(" 1 - normal boot\n");
+		print_(" 2 - vga mode\n");
+		if (_debug) {
+			print_(" 0 - disable debug\n");
+		} else {
+			print_(" 0 - enable debug\n");
+		}
 
+		int s = read_scancode();
+		print_hex_(s); print_(" ");
+		if (s == 0x02) {
+			memcpy(modules, modules_normal, sizeof(modules));
+			multiboot_header.cmdline = (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session kdebug";
+			break;
+		} else if (s == 0x03) {
+			memcpy(modules, modules_normal, sizeof(modules));
+			multiboot_header.cmdline = (uintptr_t)"root=/dev/ram0,nocache start=--vga";
+			break;
+		} else if (s == 0x0b) {
+			_debug = !_debug;
+			continue;
+		}
+	} while (1);
+
+	clear_();
+
+	print("Scanning ATA devices.\n");
 	ata_device_detect(&ata_primary_master);
 	ata_device_detect(&ata_primary_slave);
 	ata_device_detect(&ata_secondary_master);

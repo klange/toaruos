@@ -1,6 +1,7 @@
 #pragma once
 
-#ifdef __DEBUG__
+static int _debug = 0;
+
 unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {
 	unsigned short *where;
@@ -11,7 +12,7 @@ static void placech(unsigned char c, int x, int y, int attr) {
 
 static int x = 0;
 static int y = 0;
-static void print(char * str) {
+static void print_(char * str) {
 	while (*str) {
 		if (*str == '\n') {
 			for (; x < 80; ++x) {
@@ -37,15 +38,15 @@ static void print(char * str) {
 	}
 }
 
-static void print_hex(unsigned int value) {
+static void print_hex_(unsigned int value) {
 	char out[9] = {0};
 	for (int i = 7; i > -1; i--) {
 		out[i] = "0123456789abcdef"[(value >> (4 * (7 - i))) & 0xF];
 	}
-	print(out);
+	print_(out);
 }
 
-static void clear() {
+static void clear_() {
 	x = 0;
 	y = 0;
 	for (int y = 0; y < 24; ++y) {
@@ -54,9 +55,8 @@ static void clear() {
 		}
 	}
 }
-#else
-#define print(...)
-#define clear()
-#define print_hex(...)
-#endif
+
+#define print(s) do {if (_debug) {print_(s);}} while(0)
+#define clear() do {if (_debug) {clear_();}} while(0)
+#define print_hex(d) do {if (_debug) {print_hex_(d);}} while(0)
 
