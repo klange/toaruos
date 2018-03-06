@@ -38,8 +38,8 @@ static void restore_mod(void) {
 static char * modules[] = {
 	"ZERO.KO",
 	"RANDOM.KO",
-	"NONE",//"SERIAL.KO",
-	"NONE",//"DEBUG_SH.KO",
+	"SERIAL.KO",
+	"DEBUG_SH.KO",
 	"PROCFS.KO",
 	"TMPFS.KO",
 	"NONE",//"ATA.KO",
