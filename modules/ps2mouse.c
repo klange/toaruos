@@ -171,10 +171,11 @@ static int mouse_install(void) {
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_wait(1);
 	outportb(MOUSE_STATUS, 0xA8);
+	mouse_read();
 	mouse_wait(1);
 	outportb(MOUSE_STATUS, 0x20);
 	mouse_wait(0);
-	status = inportb(0x60) | 2;
+	status = inportb(0x60) | 3;
 	mouse_wait(1);
 	outportb(MOUSE_STATUS, 0x60);
 	mouse_wait(1);
