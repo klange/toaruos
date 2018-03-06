@@ -21,7 +21,7 @@ static int read_scancode(void) {
 static void restore_root(void) {
 	memcpy(dir_entry, (iso_9660_directory_entry_t *)&root->root, sizeof(iso_9660_directory_entry_t));
 
-#if 1
+#if 0
 	print("Root restored.");
 	print("\n Entry len:  "); print_hex( dir_entry->length);
 	print("\n File start: "); print_hex( dir_entry->extent_start_LSB);
@@ -44,53 +44,28 @@ static void restore_mod(void) {
 #define KERNEL_LOAD_START 0x300000
 
 static char * modules[] = {
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	"NONE",
-	0
-};
-static char * modules_normal[] = {
-	"ZERO.KO",
-	"RANDOM.KO",
-	"SERIAL.KO",
-	"DEBUG_SH.KO",
-	"PROCFS.KO",
-	"TMPFS.KO",
-	"ATA.KO",
-	"EXT2.KO",
-	"ISO9660.KO",
-	"PS2KBD.KO",
-	"PS2MOUSE.KO",
-	"LFBVIDEO.KO",
-	"VBOXGUES.KO",
-	"VMWARE.KO",
-	"VIDSET.KO",
-	"PACKETFS.KO",
-	"SND.KO",
-	"AC97.KO",
-	"NET.KO",
-	"PCNET.KO",
-	"RTL.KO",
-	"E1000.KO",
+	"ZERO.KO",     // 0
+	"RANDOM.KO",   // 1
+	"SERIAL.KO",   // 2
+	"DEBUG_SH.KO", // 3
+	"PROCFS.KO",   // 4
+	"TMPFS.KO",    // 5
+	"ATA.KO",      // 6
+	"EXT2.KO",     // 7
+	"ISO9660.KO",  // 8
+	"PS2KBD.KO",   // 9
+	"PS2MOUSE.KO", // 10
+	"LFBVIDEO.KO", // 11
+	"VBOXGUES.KO", // 12
+	"VMWARE.KO",   // 13
+	"VIDSET.KO",   // 14
+	"PACKETFS.KO", // 15
+	"SND.KO",      // 16
+	"AC97.KO",     // 17
+	"NET.KO",      // 18
+	"PCNET.KO",    // 19
+	"RTL.KO",      // 20
+	"E1000.KO",    // 21
 	0
 };
 
@@ -303,37 +278,142 @@ done:
 	return;
 }
 
+static int sel_max = 11;
+static int sel = 0;
+
+void toggle(int ndx, int value, char *str) {
+	attr = sel == ndx ? 0x70 : 0x07;
+	if (value) {
+		print_(" [X] ");
+	} else {
+		print_(" [ ] ");
+	}
+	print_(str);
+	print_("\n");
+}
+
 int kmain() {
+	int boot_mode = 0;
+
+	int _normal_ata = 1;
+	int _legacy_ata = 0;
+	int _debug_shell = 1;
+	int _video = 1;
+	int _vbox = 1;
+	int _vmware = 1;
+	int _sound = 1;
+	int _net = 1;
+
+
 	do {
 		clear_();
-		print_("ToaruOS-NIH Bootloader v0.1\n\n");
-		print_(" 1 - normal boot\n");
-		print_(" 2 - vga mode\n");
-		if (_debug) {
-			print_(" 0 - disable debug\n");
-		} else {
-			print_(" 0 - enable debug\n");
-		}
+		attr = 0x1f;
+		print_banner("ToaruOS-NIH Bootloader v0.1");
+		attr = 0x07;
+		print_("\n");
+		attr = sel == 0 ? 0x70 : 0x07;
+		print_(" Normal Boot\n");
+		attr = sel == 1 ? 0x70 : 0x07;
+		print_(" VGA Text Mode\n");
+
+		// put a gap
+		attr = 0x07;
+		print_("\n");
+
+		toggle(2, _debug, "Enable debug output.");
+		toggle(3, _legacy_ata, "Enable legacy ATA driver.");
+		toggle(4, _normal_ata, "Enable DMA ATA driver.");
+		toggle(5, _debug_shell, "Enable debug shell.");
+		toggle(6, _video, "Enable video modules.");
+		toggle(7, _vbox, "Enable VirtualBox Guest Additions.");
+		toggle(8, _vmware, "Enable VMWare mouse driver.");
+		toggle(9, _sound, "Enable audio drivers.");
+		toggle(10,_net, "Enable network drivers.");
+
+		attr = 0x07;
 
 		int s = read_scancode();
-		print_hex_(s); print_(" ");
-		if (s == 0x02) {
-			memcpy(modules, modules_normal, sizeof(modules));
-			multiboot_header.cmdline = (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session";
-			break;
-		} else if (s == 0x03) {
-			memcpy(modules, modules_normal, sizeof(modules));
-			multiboot_header.cmdline = (uintptr_t)"root=/dev/ram0,nocache start=--vga";
-			break;
-		} else if (s == 0x0b) {
-			_debug = !_debug;
+		if (s == 0x50) {
+			sel = (sel + 1)  % sel_max;
 			continue;
+		} else if (s == 0x48) {
+			sel = (sel_max + sel - 1)  % sel_max;
+			continue;
+		} else if (s == 0x1c) {
+			if (sel == 0 || sel == 1) {
+				boot_mode = sel;
+				break;
+			} else if (sel == 2) {
+				_debug = !_debug;
+				continue;
+			} else if (sel == 3) {
+				_legacy_ata = !_legacy_ata;
+			} else if (sel == 4) {
+				_normal_ata = !_normal_ata;
+			} else if (sel == 5) {
+				_debug_shell = !_debug_shell;
+			} else if (sel == 6) {
+				_video = !_video;
+			} else if (sel == 7) {
+				_vbox = !_vbox;
+			} else if (sel == 8) {
+				_vmware = !_vmware;
+			} else if (sel == 9) {
+				_sound = !_sound;
+			} else if (sel == 10) {
+				_net = !_net;
+			}
 		}
 	} while (1);
 
+	if (boot_mode == 0) {
+		multiboot_header.cmdline = (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session";
+	} else if (boot_mode == 1) {
+		multiboot_header.cmdline = (uintptr_t)"root=/dev/ram0,nocache start=--vga";
+	}
+
+	if (!_normal_ata) {
+		modules[6] = "NONE";
+	}
+
+	if (_legacy_ata) {
+		modules[6] = "ATAOLD.KO";
+	}
+
+	if (!_debug_shell) {
+		modules[3] = "NONE";
+		modules[14] = "NONE";
+	}
+
+	if (!_video) {
+		modules[11] = "NONE";
+		modules[12] = "NONE";
+		modules[13] = "NONE";
+		modules[13] = "NONE";
+	}
+
+	if (!_vmware) {
+		modules[13] = "NONE";
+	}
+
+	if (!_vbox) {
+		modules[12] = "NONE";
+	}
+
+	if (!_sound) {
+		modules[16] = "NONE";
+		modules[17] = "NONE";
+	}
+
+	if (!_net) {
+		modules[18] = "NONE";
+		modules[19] = "NONE";
+		modules[20] = "NONE";
+		modules[21] = "NONE";
+	}
+
 	clear_();
 
-	print("Scanning ATA devices.\n");
 	ata_device_detect(&ata_primary_master);
 	ata_device_detect(&ata_primary_slave);
 	ata_device_detect(&ata_secondary_master);

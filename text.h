@@ -12,11 +12,12 @@ static void placech(unsigned char c, int x, int y, int attr) {
 
 static int x = 0;
 static int y = 0;
+static int attr = 0x07;
 static void print_(char * str) {
 	while (*str) {
 		if (*str == '\n') {
 			for (; x < 80; ++x) {
-				placech(' ', x, y, 0x00);
+				placech(' ', x, y, attr);
 			}
 			x = 0;
 			y += 1;
@@ -24,7 +25,7 @@ static void print_(char * str) {
 				y = 0;
 			}
 		} else {
-			placech(*str, x, y, 0x07);
+			placech(*str, x, y, attr);
 			x++;
 			if (x == 80) {
 				x = 0;
@@ -36,6 +37,25 @@ static void print_(char * str) {
 		}
 		str++;
 	}
+}
+
+static void print_banner(char * str) {
+	int len = 0;
+	char *c = str;
+	while (*c) {
+		len++;
+		c++;
+	}
+	int off = (80 - len) / 2;
+
+	for (int i = 0; i < 80; ++i) {
+		placech(' ', i, y, attr);
+	}
+	for (int i = 0; i < len; ++i) {
+		placech(str[i], i + off, y, attr);
+	}
+
+	y++;
 }
 
 static void print_hex_(unsigned int value) {
