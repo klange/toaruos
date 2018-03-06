@@ -41,6 +41,8 @@ static void clear() {
 
 int kmain() {
 	clear();
-	print("ToaruOS-NIH Bootloader v0.1\n");
+	print("ToaruOS-NIH Bootloader v0.1\n\n");
+	print("Doing stuff.\n");
+
 	while (1);
 }
