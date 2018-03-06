@@ -6,7 +6,7 @@ KLD = $(KERNEL_TARGET)-ld
 all: image.iso
 
 image.iso: stuff/boot/boot.sys
-	xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.sys -no-emul-boot -boot-load-size 16 -o image.iso stuff
+	xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.sys -no-emul-boot -boot-load-size 20 -o image.iso stuff
 
 cstuff.o: cstuff.c ata.h  atapi_imp.h  elf.h  iso9660.h  multiboot.h  text.h  types.h  util.h
 	${KCC} -c -Os -o cstuff.o cstuff.c
