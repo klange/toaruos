@@ -1,7 +1,4 @@
 [bits 16]
-jmp main
-;jmp protected_start
-
 main:
 	mov ax, 0x0000
 	mov ds, ax
@@ -10,65 +7,17 @@ main:
 
 	cli
 
-	mov si, msg_hello
-	call print
+	; memory scan
 	mov di, 0x0
 	call do_e820
-	jc .e820_failed
+	jc hang
 
-; success
-	mov si, msg_done
-	call print
-
-	mov si, msg_a20
-	call print
-
+	; a20
 	in al, 0x92
 	or al, 2
 	out 0x92, al
 
-	mov si, msg_done
-	call print
-
-	mov si, msg_gdt
-	call print
-	call set_gdt
-
-	mov si, msg_done
-	call print
-
-	mov eax, cr0
-	or eax, 1
-	mov cr0, eax
-
-	mov ax, 0x10
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-	mov ss, ax
-
-	jmp far 0x08:(protected_start)
-
-; failure
-.e820_failed:
-	mov si, msg_fail
-	call print
-	jmp hang
-
-hang:
-	jmp hang
-
-print: lodsb
-	or al, al
-	jz .ch_done
-	mov ah, 0x0E
-	int 0x10
-	jmp print
-.ch_done:
-	ret
-
-set_gdt:
+	; basic flat GDT
 	xor eax, eax
 	mov ax, ds
 	shl eax, 4
@@ -78,7 +27,26 @@ set_gdt:
 	sub eax, gdt_base
 	mov [gdtr], ax
 	lgdt [gdtr]
-	ret
+
+	; protected mode enable flag
+	mov eax, cr0
+	or eax, 1
+	mov cr0, eax
+
+	; set segments
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	mov ss, ax
+
+	; jump to protected mode entry
+	extern kmain
+	jmp far 0x08:(kmain)
+
+hang:
+	jmp hang
 
 do_e820:
 	xor ebx, ebx		; ebx must be 0 to start
@@ -125,42 +93,25 @@ do_e820:
 	stc			; "function unsupported" error exit
 	ret
 
-db '--- Data Starts Here ---'
-
-msg_hello db 'Scanning memory... ', 0
-msg_gdt  db 'Instaling gdt... ', 0
-msg_a20 db 'Flipping A20... ', 0
-msg_done db 'Done', 13, 10, 0
-msg_fail db 'Failed', 13, 10, 0
-
-;typedef struct {
-;	/* Limits */
-;	uint16_t limit_low;
-;	/* Segment address */
-;	uint16_t base_low;
-;	uint8_t base_middle;
-;	/* Access modes */
-;	uint8_t access;
-;	uint8_t granularity;
-;	uint8_t base_high;
-
 align 8
 
+; GDT pointer
 gdtr
 	dw 0
 	dd 0
 
-
+; GDT (null, code, data)
 gdt_base
+	; null
 	dq 0
-
+	; code
 	dw 0xFFFF
 	dw 0
 	db 0
 	db 0x9a
 	db 0xcf
 	db 0
-
+	; data
 	dw 0xffff
 	dw 0
 	db 0
@@ -169,15 +120,7 @@ gdt_base
 	db 0
 gdt_end
 
+; memory map entry count
+global mmap_ent
 mmap_ent db 0, 0
 
-[bits 32]
-align 8
-
-protected_start:
-	mov eax, 0xAAAABBBB
-	mov [0xB8000], eax
-	;jmp protected_start
-
-extern kmain
-	jmp (kmain)
