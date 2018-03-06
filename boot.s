@@ -7,6 +7,10 @@ main:
 
 	cli
 
+	clc
+	int 0x12
+	mov [lower_mem], ax
+
 	; memory scan
 	mov di, 0x0
 	call do_e820
@@ -123,6 +127,9 @@ gdt_end
 ; memory map entry count
 global mmap_ent
 mmap_ent db 0, 0
+
+global lower_mem
+lower_mem db 0, 0
 
 [bits 32]
 global jump_to_main

@@ -131,6 +131,16 @@ int _eax = 1;
 int _ebx = 1;
 int _xmain = 1;
 
+struct mmap_entry {
+	uint64_t base;
+	uint64_t len;
+	uint32_t type;
+	uint32_t reserved;
+};
+
+extern unsigned short mmap_ent;
+extern unsigned short lower_mem;
+
 static void move_kernel(void) {
 	clear();
 	print("Relocating kernel...\n");
@@ -165,6 +175,40 @@ static void move_kernel(void) {
 			}
 		}
 	}
+
+	print("Setting up memory map...\n");
+	print_hex(mmap_ent);
+	print("\n");
+	memset((void*)KERNEL_LOAD_START, 0x00, 1024);
+	mboot_memmap_t * mmap = (void*)KERNEL_LOAD_START;
+	multiboot_header.mmap_addr = (uintptr_t)mmap;
+
+	struct mmap_entry * e820 = (void*)0x5000;
+
+	uint64_t upper_mem = 0;
+	for (int i = 0; i < mmap_ent; ++i) {
+		print("entry "); print_hex(i); print("\n");
+		print("base: "); print_hex((uint32_t)e820[i].base); print("\n");
+		print("type: "); print_hex(e820[i].type); print("\n");
+
+		mmap->size = sizeof(uint64_t) * 2 + sizeof(uintptr_t);
+		mmap->base_addr = e820[i].base;
+		mmap->length = e820[i].len;
+		mmap->type = e820[i].type;
+		if (mmap->type == 1 && mmap->base_addr >= 0x100000) {
+			upper_mem += mmap->length;
+		}
+		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uintptr_t));
+	}
+
+	print("lower "); print_hex(lower_mem); print("KB\n");
+	multiboot_header.mem_lower = 1024;
+	print("upper ");
+	print_hex(upper_mem >> 32);
+	print_hex(upper_mem);
+	print("\n");
+	
+	multiboot_header.mem_upper = upper_mem / 1024;
 
 	int foo;
 	//__asm__ __volatile__("jmp %1" : "=a"(foo) : "a" (MULTIBOOT_EAX_MAGIC), "b"((unsigned int)multiboot_header), "r"((unsigned int)entry));
