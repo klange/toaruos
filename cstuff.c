@@ -319,7 +319,7 @@ int kmain() {
 		print_hex_(s); print_(" ");
 		if (s == 0x02) {
 			memcpy(modules, modules_normal, sizeof(modules));
-			multiboot_header.cmdline = (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session kdebug";
+			multiboot_header.cmdline = (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session";
 			break;
 		} else if (s == 0x03) {
 			memcpy(modules, modules_normal, sizeof(modules));
