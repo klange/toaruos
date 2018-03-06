@@ -32,6 +32,33 @@ static void restore_mod(void) {
 
 #define KERNEL_LOAD_START 0x300000
 
+#ifdef _VGA_BOOT
+static char * modules[] = {
+	"ZERO.KO",
+	"RANDOM.KO",
+	"NONE",//"SERIAL.KO",
+	"NONE",//"DEBUG_SH.KO",
+	"PROCFS.KO",
+	"TMPFS.KO",
+	"NONE",//"ATA.KO",
+	"EXT2.KO",
+	"NONE",//"ISO9660.KO",
+	"PS2KBD.KO",
+	"PS2MOUSE.KO",
+	"NONE",//"LFBVIDEO.KO",
+	"NONE",//"VBOXGUES.KO",
+	"NONE",//"VMWARE.KO",
+	"NONE",//"VIDSET.KO",
+	"PACKETFS.KO",
+	"NONE",//"SND.KO",
+	"NONE",//"AC97.KO",
+	"NONE",//"NET.KO",
+	"NONE",//"PCNET.KO",
+	"NONE",//"RTL.KO",
+	"NONE",//"E1000.KO",
+	0
+};
+#else
 static char * modules[] = {
 	"ZERO.KO",
 	"RANDOM.KO",
@@ -57,6 +84,8 @@ static char * modules[] = {
 	"E1000.KO",
 	0
 };
+#endif
+
 
 static mboot_mod_t modules_mboot[23] = {
 	{0,0,0,1}
@@ -67,9 +96,13 @@ static struct multiboot multiboot_header = {
 	/* mem_lower;         */ 0x100000,
 	/* mem_upper;         */ 0x640000,
 	/* boot_device;       */ 0,
+#ifdef _VGA_BOOT
+	/* cmdline;           */ (uintptr_t)"root=/dev/ram0,nocache start=--vga",
+#else
 	/* cmdline;           */ (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session",
+#endif
 	/* mods_count;        */ 23,
-	/* mods_addr;         */ &modules_mboot,
+	/* mods_addr;         */ (uintptr_t)&modules_mboot,
 	/* num;               */ 0,
 	/* size;              */ 0,
 	/* addr;              */ 0,
@@ -136,7 +169,7 @@ static void move_kernel(void) {
 	int foo;
 	//__asm__ __volatile__("jmp %1" : "=a"(foo) : "a" (MULTIBOOT_EAX_MAGIC), "b"((unsigned int)multiboot_header), "r"((unsigned int)entry));
 	_eax = MULTIBOOT_EAX_MAGIC;
-	_ebx = &multiboot_header;
+	_ebx = (unsigned int)&multiboot_header;
 	_xmain = entry;
 	jump_to_main();
 }
@@ -182,17 +215,18 @@ done:
 				if (!navigate(*c)) {
 					print("Failed to locate module! [");
 					print(*c);
+					multiboot_header.mods_count--;
 					print("]\n");
-					break;
+				} else {
+					modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
+					modules_mboot[j].mod_end = KERNEL_LOAD_START + offset + dir_entry->extent_length_LSB;
+					for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
+						ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
+					}
+					j++;
 				}
-				modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
-				modules_mboot[j].mod_end = KERNEL_LOAD_START + offset + dir_entry->extent_length_LSB;
-				for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
-					ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
-				}
-				restore_mod();
 				c++;
-				j++;
+				restore_mod();
 			}
 			print("Done.\n");
 			restore_root();
@@ -200,8 +234,8 @@ done:
 				print("Loading ramdisk...\n");
 				ramdisk_off = KERNEL_LOAD_START + offset;
 				ramdisk_len = dir_entry->extent_length_LSB;
-				modules_mboot[22].mod_start = ramdisk_off;
-				modules_mboot[22].mod_end = ramdisk_off + ramdisk_len;
+				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
+				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
 				for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
 					if (i % 32 == 0) {
 						print(".");
