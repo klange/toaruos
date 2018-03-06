@@ -1,3 +1,5 @@
+//#define __DEBUG__
+
 #include "types.h"
 #include "ata.h"
 #include "text.h"
@@ -281,9 +283,16 @@ done:
 				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
 				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
 				for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
+#ifdef __DEBUG__
 					if (i % 32 == 0) {
 						print(".");
 					}
+#else
+# if 0
+					j++;
+					*(unsigned short *)(0xB8000) = 0xF000 | ("|/-\\"[i%4]);
+# endif
+#endif
 					ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 				}
 				print("Done.\n");

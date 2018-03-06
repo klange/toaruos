@@ -1,6 +1,5 @@
 #pragma once
 
-#define __DEBUG__
 #ifdef __DEBUG__
 unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {
