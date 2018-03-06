@@ -1,3 +1,5 @@
+#define __DEBUG__
+#ifdef __DEBUG__
 unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {
 	unsigned short *where;
@@ -38,11 +40,15 @@ static void clear() {
 		}
 	}
 }
+#else
+#define print(...)
+#define clear()
+#endif
 
 int kmain() {
 	clear();
 	print("ToaruOS-NIH Bootloader v0.1\n\n");
-	print("Doing stuff.\n");
+	print("Scanning ATA devices.\n");
 
 	while (1);
 }
