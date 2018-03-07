@@ -389,7 +389,7 @@ int kmain() {
 		modules[11] = "NONE";
 		modules[12] = "NONE";
 		modules[13] = "NONE";
-		modules[13] = "NONE";
+		modules[14] = "NONE";
 	}
 
 	if (!_vmware) {
