@@ -381,10 +381,10 @@ _cdrom/mod: ${MODULES} _cdrom
 _cdrom/kernel: toaruos-kernel _cdrom
 	@cp $< $@
 
-_cdrom/ramdisk.img: ${NONTEST} util/devtable hdd/usr/share/terminfo/t/toaru _cdrom
+_cdrom/ramdisk.img: ${NONTEST} util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod
 	@${BEG} "ext" "Generating a ramdisk image..."
 	@${STRIP} ${NONTEST}
-	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 3000 -N 2048 $@
+	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 2100 -N 2048 $@
 	@${END} "ext" "Generated ramdisk image"
 
 define fixup-cd
@@ -392,7 +392,7 @@ define fixup-cd
 	@rm -r _cdrom
 endef
 
-toaruos.iso: _cdrom/ramdisk.img _cdrom/kernel _cdrom/mod _cdrom/boot/boot.sys
+toaruos.iso: _cdrom/ramdisk.img _cdrom/kernel _cdrom/boot/boot.sys
 	@${BEG} "ISO" "Building a CD image"
 	@xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.sys -no-emul-boot -boot-load-size 20 -o $@ _cdrom
 	@${END} "ISO" "Building a CD image"
