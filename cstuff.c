@@ -304,6 +304,10 @@ int kmain() {
 	int _sound = 1;
 	int _net = 1;
 
+	outportb(0x3D4, 14);
+	outportb(0x3D5, 0xFF);
+	outportb(0x3D4, 15);
+	outportb(0x3D5, 0xFF);
 
 	do {
 		clear_();
@@ -331,6 +335,12 @@ int kmain() {
 		toggle(10,_net, "Enable network drivers.");
 
 		attr = 0x07;
+		print_("\n\n\n");
+		print_banner("Press <Enter> or select a menu option with \030/\031.");
+		print_("\n");
+		print_banner("ToaruOS is free software under the NCSA license.");
+		print_("\n");
+		print_banner("https://toaruos.org - https://github.com/klange/toaruos");
 
 		int s = read_scancode();
 		if (s == 0x50) {
