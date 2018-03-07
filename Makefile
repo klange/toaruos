@@ -462,6 +462,7 @@ clean: clean-soft clean-core
 	@-rm -f hdd/usr/lib/*.a
 	@-rm -f hdd/lib/ld.so
 	@-rm -f boot/*.o
+	@-rm -f toaruos.iso
 
 clean-hard: clean clean-user clean-mods
 	@${INFO} "--" "Finished hard cleaning"
