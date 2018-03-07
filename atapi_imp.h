@@ -169,8 +169,6 @@ _try_again:
 	outportb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
 	ata_io_wait(dev);
 
-	print_hex(dev->atapi_sector_size);
-
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 	outportb(bus + ATA_REG_LBA1, dev->atapi_sector_size & 0xFF);
 	outportb(bus + ATA_REG_LBA2, dev->atapi_sector_size >> 8);
@@ -201,8 +199,6 @@ _try_again:
 		outports(bus, command.command_words[i]);
 	}
 
-	print("sending\n");
-
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup_cmd;
@@ -212,8 +208,6 @@ _try_again:
 	uint16_t size_to_read = inportb(bus + ATA_REG_LBA2) << 8;
 	size_to_read = size_to_read | inportb(bus + ATA_REG_LBA1);
 
-	print("reading\n");
-
 	inportsm(bus,buf,size_to_read/2);
 
 	while (1) {
@@ -222,7 +216,6 @@ _try_again:
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 	}
 
-	print("read done\n");
 	return;
 
 atapi_error_on_read_setup:
