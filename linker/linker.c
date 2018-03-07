@@ -2,26 +2,30 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2016-2017 Kevin Lange
  */
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <alloca.h>
-#include <unistd.h>
+
+#include <elf.h>
+
+#include <stdio.h>
+#include <string.h>
 #include <syscall.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+
+extern char** environ;
+
 
 #define TRACE_APP_NAME "ld.so"
-
 #define TRACE_LD(...) do { if (__trace_ld) { TRACE(__VA_ARGS__); } } while (0)
 
 static int __trace_ld = 0;
 
-#include "../kernel/include/elf.h"
-#include "../userspace/lib/trace.h"
+#include "../lib/trace.h"
 
-#include "../userspace/lib/list.c"
-#include "../userspace/lib/hashmap.c"
+#include "../lib/list.c"
+#include "../lib/hashmap.c"
 
 typedef int (*entry_point_t)(int, char *[], char**);
 
@@ -83,7 +87,8 @@ static char * find_lib(const char * file) {
 		int r;
 		struct stat stat_buf;
 		char * exe = malloc(strlen(p) + strlen(file) + 2);
-		strcpy(exe, p);
+		memcpy(exe, p, strlen(p) + 1);
+		//strcpy(exe, p);
 		strcat(exe, "/");
 		strcat(exe, file);
 
@@ -95,6 +100,7 @@ static char * find_lib(const char * file) {
 		return exe;
 	}
 	free(xpath);
+
 
 	return NULL;
 }
@@ -570,13 +576,14 @@ int main(int argc, char * argv[]) {
 	char * file = argv[1];
 	size_t arg_offset = 1;
 
+
 	if (!strcmp(argv[1], "-e")) {
 		arg_offset = 3;
 		file = argv[2];
 	}
 
 	char * trace_ld_env = getenv("LD_DEBUG");
-	if (trace_ld_env && (!strcmp(trace_ld_env,"1") || !strcmp(trace_ld_env,"yes"))) {
+	if ((trace_ld_env && (!strcmp(trace_ld_env,"1") || !strcmp(trace_ld_env,"yes")))) {
 		__trace_ld = 1;
 	}
 
@@ -594,12 +601,13 @@ int main(int argc, char * argv[]) {
 	_main_obj = main_obj;
 
 	if (!main_obj) {
-		fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], file);
+		//fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], file);
 		return 1;
 	}
 
 	size_t main_size = object_calculate_size(main_obj);
 	uintptr_t end_addr = object_load(main_obj, 0x0);
+
 	object_postload(main_obj);
 
 	object_find_copy_relocations(main_obj);
@@ -624,7 +632,7 @@ int main(int argc, char * argv[]) {
 		if (!strcmp(lib_name, "libg.so")) goto nope;
 		elf_t * lib = open_object(lib_name);
 		if (!lib) {
-			fprintf(stderr, "Failed to load dependency '%s'.\n", lib_name);
+			//fprintf(stderr, "Failed to load dependency '%s'.\n", lib_name);
 			return 1;
 		}
 		hashmap_set(libs, lib_name, lib);
