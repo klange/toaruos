@@ -1,1 +1,1 @@
-../../userspace/gui/terminal/lib/termemu.h
+../../userspace/lib/termemu.h
