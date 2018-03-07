@@ -1,56 +1,27 @@
-![](http://i.imgur.com/QGVoRJD.png)
-![](http://i.imgur.com/MlAxGpj.png)
-![](http://i.imgur.com/OpMGfHP.png)
+# ToaruOS-NIH
 
-# ToaruOS (とあるOS) #
+This is an experimental spin-off / distribution of ToaruOS which includes no third-party components.
 
-とあるOS (ToaruOS) is a hobby operating system built mostly from scratch, including both a kernel and userspace.
 
-This repository contains the kernel, modules, and core userspace applications and libraries. Some third-party libraries and utilities are required to build a working system.
+## Rationale
 
-## Build Instructions ##
+ToaruOS's kernel is entirely in-house. Its userspace, however, is built on several third-party libraries and tools, such as the Newlib C library, Freetype, Cairo, libpng, and most notably Python. While the decision to build ToaruOS on these technologies is not at all considered a mistake, the possibility remains to build a userspace entirely from scratch.
 
-If you just want to build the kernel and userspace and get a working CD image, you can use Docker:
+## Goals
 
-    docker pull toaruos/build-tools:test
-    docker run -v `pwd`:/opt/tree -w /opt/tree -t toaruos/build-tools:test util/build-travis.sh
+- **Write a basic C library.**
 
-To build a full toolchain locally, set up [a supported environment](https://github.com/klange/toaruos/wiki/Testing-and-Building#requirements) and run:
+  To support building the native ToaruOS libraries and port some basic software, a rudimentary C library is required.
 
-    make toolchain
+- **Remove Cairo as a dependency for the compositor.**
 
-You may be prompted to enter your password for `sudo` to install required packages. The toolchain build scripts will then build several dependencies for building ToaruOS such as a GCC cross compiler and a few libraries used by the userspace. This may take around thirty minutes to an hour to complete, depending on your hardware. Once it is done, verify there were no errors and then follow the instructions provided to continue with the build.
+  Cairo is a major component of the modern ToaruOS compositor, but is the only significant third-party dependency. This makes the compositor, which is a key part of what makes ToaruOS "ToaruOS", an important inclusion in this project.
 
-If you experience issues, please join our [IRC channel](#irc) for help.
+- **Write a vector font library.**
 
-## History ##
+  Support for TrueType/OpenType TBD, but vector fonts are critical to the visual presentation of ToaruOS.
 
-ToaruOS started as a side project at the University of Illinois at Urbana-Champaign. For several months in late 2011 and early 2012, the University's [SIGOps](http://www.acm.uiuc.edu/sigops/) chapter managed development efforts focused on building the original compositing GUI. Since then, the project has mostly been a one-man effort with a handful of third party contributions.
+- **Support a compressed image format.**
 
-## Kernel ##
+  ToaruOS used a lot of PNGs, but maybe writing our format would be fun.
 
-The Toaru kernel provides a basic Unix-like environment. The kernel uses a hybrid modular architecture, with loadable modules providing most device driver support. The core kernel includes support for Unix pipes and TTYs, a virtual file system, multitasking, ELF binary support, and various core platform features on x86 systems.
-
-Modules provide support for disk drives, ext2 filesystems, serial, keyboards and mice, a `/proc` filesystem similar to the one found in Linux, as well as an expanding collection of other device drivers.
-
-## Userspace ##
-
-ToaruOS's userspace is focused on a rich graphical environment, backed by an in-house compositing window manager. ToaruOS's terminal emulator supports xterm-compatible 256-color modes, as well as Konsole 24-bit color modes and anti-aliased text with basic Unicode support. Program binaries are dynamically linked. Several graphical demos are provided, alongside a number of command-line applications. A port of SDL targetting the native graphical environment is also available.
-
-### Third-Party Software ###
-
-The userspace depends on a number of third-party libraries which are outside of the development scope of the project. Additionally, several third-party applications and libraries have been integrated into ToaruOS's core userspace, or otherwise ported to ToaruOS.
-
-License for the included third-party tools and libraries can be found [here](hdd/usr/share/help/licenses).
-
-## Community ##
-
-### Wiki ###
-
-For additional screenshots, see [Screenshots](https://github.com/klange/toaruos/wiki/Screenshots).
-
-For instructions on building, see [Testing and Building](https://github.com/klange/toaruos/wiki/Testing-and-Building).
-
-### IRC ###
-
-For help building the kernel and userspace, join us in `#toaruos` on Freenode (`irc.freenode.net`).
