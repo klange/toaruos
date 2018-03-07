@@ -1,8 +1,0 @@
-
-<h1>Python</h1>
-
-The license for Python may be viewed by running the following command:
-<mono>
-    python -c "license()"
-</mono>
-
