@@ -384,7 +384,7 @@ _cdrom/kernel: toaruos-kernel _cdrom
 _cdrom/ramdisk.img: ${NONTEST} util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod
 	@${BEG} "ext" "Generating a ramdisk image..."
 	@${STRIP} ${NONTEST}
-	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 2100 -N 2048 $@
+	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 3000 -N 2048 $@
 	@${END} "ext" "Generated ramdisk image"
 
 define fixup-cd
