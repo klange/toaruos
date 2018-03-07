@@ -4,7 +4,7 @@
 
 #include <logging.h>
 
-#include "../userspace/gui/terminal/lib/termemu.c"
+#include "../userspace/lib/termemu.c"
 
 static unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {

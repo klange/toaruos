@@ -1,7 +1,7 @@
 #include "lib/utf8decode.h"
 #include "lib/graphics.h"
 
-#include "terminal-font.h"
+#include "../apps/terminal-font.h"
 
 static uint16_t char_width     = 9;    /* Width of a cell in pixels */
 static uint16_t char_height    = 20;   /* Height of a cell in pixels */

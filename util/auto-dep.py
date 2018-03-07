@@ -15,21 +15,7 @@ force_static = ["GLU"]
 class Classifier(object):
 
     dependency_hints = {
-        # Core libraries
-        '<math.h>':            (None, '-lm', []),
-        '<cairo.h>':           ('cairo', '-lcairo', ['<ft2build.h>', '<pixman.h>', '<png.h>']),
-        '<ft2build.h>':        ('freetype2', '-lfreetype', ['<zlib.h>']),
-        '<pixman.h>':          ('pixman-1', '-lpixman-1', ['<math.h>']),
-        '<GL/osmesa.h>':       (None, '-lOSMesa', []),
-        '<GL/glu.h>':          (None, '-lGLU', ['<GL/osmesa.h>']),
-        '<ncurses.h>':         ('ncurses', '-lncurses', []),
-        '<panel.h>':           (None, '-lpanel', ['<ncurses.h>']),
-        '<menu.h>':            (None, '-lmenu', ['<ncurses.h>']),
-        '<zlib.h>':            (None, '-lz', ['<math.h>']),
-        '<png.h>':             (None, '-lpng15', ['<zlib.h>']),
-        '<Python.h>':          ('python/include/python3.6m', '-lpython3.6m', ['<math.h>']),
         # Toaru Standard Library
-        '<toaru.h>':           (None, '-ltoaru', ['<png.h>','<ft2build.h>','<cairo.h>']),
         '"lib/toaru_auth.h"':  (None, '-ltoaru-toaru_auth',  ['"lib/sha2.h"']),
         '"lib/kbd.h"':         (None, '-ltoaru-kbd',         []),
         '"lib/list.h"':        (None, '-ltoaru-list',        []),
@@ -39,17 +25,17 @@ class Classifier(object):
         '"lib/pthread.h"':     (None, '-ltoaru-pthread',     []),
         '"lib/sha2.h"':        (None, '-ltoaru-sha2',        []),
         '"lib/pex.h"':         (None, '-ltoaru-pex',         []),
-        '"lib/graphics.h"':    (None, '-ltoaru-graphics',    ['<png.h>']),
-        '"lib/shmemfonts.h"':  (None, '-ltoaru-shmemfonts',  ['"lib/graphics.h"', '<ft2build.h>']),
+        '"lib/graphics.h"':    (None, '-ltoaru-graphics',    []),
         '"lib/rline.h"':       (None, '-ltoaru-rline',       ['"lib/kbd.h"']),
         '"lib/confreader.h"':  (None, '-ltoaru-confreader',  ['"lib/hashmap.h"']),
         '"lib/network.h"':     (None, '-ltoaru-network',     []),
         '"lib/http_parser.h"': (None, '-ltoaru-http_parser', []),
         '"lib/dlfcn.h"':       (None, '-ltoaru-dlfcn',       []),
+        '"lib/drawstring.h"':  (None, '-ltoaru-drawstring',  ['"lib/graphics.h"']),
         # Yutani Libraries
         '"lib/yutani.h"':      (None, '-ltoaru-yutani',      ['"lib/kbd.h"', '"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
-        '"lib/decorations.h"': (None, '-ltoaru-decorations', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"','"lib/dlfcn.h"']),
-        '"gui/terminal/lib/termemu.h"': (None, '-ltoaru-termemu', ['"lib/graphics.h"']),
+        '"lib/decorations.h"': (None, '-ltoaru-decorations', ['"lib/graphics.h"', '"lib/yutani.h"','"lib/dlfcn.h"']),
+        '"lib/termemu.h"': (None, '-ltoaru-termemu', ['"lib/graphics.h"']),
     }
 
     def __init__(self, filename):

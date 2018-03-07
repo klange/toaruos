@@ -2,7 +2,7 @@
  * Kernel linker script for x86
  */
 OUTPUT_FORMAT("binary")
-ENTRY(start)
+/* ENTRY(start) */
 phys = 0x7c00;
 
 SECTIONS

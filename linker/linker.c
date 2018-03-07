@@ -22,10 +22,10 @@ extern char** environ;
 
 static int __trace_ld = 0;
 
-#include "../lib/trace.h"
+#include "../userspace/lib/trace.h"
 
-#include "../lib/list.c"
-#include "../lib/hashmap.c"
+#include "../userspace/lib/list.c"
+#include "../userspace/lib/hashmap.c"
 
 typedef int (*entry_point_t)(int, char *[], char**);
 

@@ -18,7 +18,7 @@
 #include <module.h>
 #include <video.h>
 
-#include "../userspace/gui/terminal/terminal-font.h"
+#include "../userspace/apps/terminal-font.h"
 
 #define PREFERRED_VY 4096
 #define PREFERRED_B 32
@@ -97,8 +97,8 @@ static int vignette_at(int x, int y) {
 	return amount;
 }
 
-#define char_height 12
-#define char_width  8
+#define char_height 20
+#define char_width  9
 
 static void set_point(int x, int y, uint32_t value) {
 	uint32_t * disp = (uint32_t *)lfb_vid_memory;
@@ -110,10 +110,10 @@ static void write_char(int x, int y, int val, uint32_t color) {
 	if (val > 128) {
 		val = 4;
 	}
-	uint8_t * c = number_font[val];
+	uint16_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
-			if (c[i] & (1 << (8-j))) {
+			if (c[i] & (1 << (15-j))) {
 				set_point(x+j,y+i,color);
 			}
 		}
