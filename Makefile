@@ -151,4 +151,6 @@ clean:
 	rm -f ${APPS_X}
 	rm -f libc/*.o
 	rm -f image.iso
-	rm -f cdrom/randisk.img.gz
+	rm -f cdrom/ramdisk.img
+	rm -f cdrom/boot/boot.sys
+	rm -f boot/*.o
