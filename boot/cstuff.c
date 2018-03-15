@@ -383,9 +383,9 @@ int kmain() {
 	} while (1);
 
 	if (boot_mode == 0) {
-		multiboot_header.cmdline = (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=session";
+		multiboot_header.cmdline = (uintptr_t)"vid=auto,1024,768 root=/dev/ram0,nocache start=--migrate _start=session";
 	} else if (boot_mode == 1) {
-		multiboot_header.cmdline = (uintptr_t)"root=/dev/ram0,nocache start=--vga";
+		multiboot_header.cmdline = (uintptr_t)"root=/dev/ram0,nocache start=--migrate _start=--vga";
 	}
 
 	if (!_normal_ata) {
