@@ -5,4 +5,5 @@
 base/bin/*
 cdrom/kernel
 cdrom/mod/*
-cdrom/ramdisk.img.gz
+cdrom/ramdisk.img
+cdrom/boot/boot.sys

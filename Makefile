@@ -1,5 +1,10 @@
 APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server
 
+KERNEL_TARGET=i686-elf
+KCC = $(KERNEL_TARGET)-gcc
+KAS = $(KERNEL_TARGET)-as
+KLD = $(KERNEL_TARGET)-ld
+
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
 CFLAGS=-nodefaultlibs -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps -isystem include -Lbase/lib
@@ -21,7 +26,9 @@ base/bin:
 	mkdir -p base/bin
 base/lib:
 	mkdir -p base/lib
-dirs: base/dev base/tmp base/proc base/bin base/lib
+cdrom/boot:
+	mkdir -p cdrom/boot
+dirs: base/dev base/tmp base/proc base/bin base/lib cdrom/boot
 
 libc/%.o: libc/%.c
 	$(CC) -fPIC -c -m32 -Wa,--32 -O3 -isystem include -o $@ $<
@@ -122,13 +129,20 @@ base/bin/pstree: apps/pstree.c base/lib/libnihc.so base/lib/libtoaru_tree.so bas
 base/bin/%: apps/%.c base/lib/libnihc.so | dirs
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
-cdrom/ramdisk.img.gz: ${APPS_X} base/lib/ld.so base/lib/libtoaru-decor-fancy.so | dirs
-	genext2fs -B 4096 -d base -U -b 16384 -N 2048 cdrom/ramdisk.img
-	rm -f cdrom/ramdisk.img.gz
-	gzip cdrom/ramdisk.img
+cdrom/ramdisk.img: ${APPS_X} base/lib/ld.so base/lib/libtoaru-decor-fancy.so Makefile | dirs
+	genext2fs -B 4096 -d base -U -b 4096 -N 2048 cdrom/ramdisk.img
 
-image.iso: cdrom/ramdisk.img.gz
-	grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ cdrom
+image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel
+	xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.sys -no-emul-boot -boot-load-size 20 -o image.iso cdrom
+
+cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | cdrom/boot
+	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
+
+boot/cstuff.o: boot/cstuff.c boot/ata.h  boot/atapi_imp.h  boot/elf.h  boot/iso9660.h  boot/multiboot.h  boot/text.h  boot/types.h  boot/util.h
+	${KCC} -c -Os -o $@ $<
+
+boot/boot.o: boot/boot.s
+	yasm -f elf -o $@ $<
 
 .PHONY: clean
 clean:
