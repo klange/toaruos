@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate
 
 KERNEL_TARGET=i686-elf
 KCC = $(KERNEL_TARGET)-gcc
@@ -89,6 +89,9 @@ base/bin/init: apps/init.c base/lib/libnihc.a | dirs
 
 base/bin/sh: apps/sh.c base/lib/libnihc.so base/lib/libtoaru_list.so base/lib/libtoaru_rline.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_rline -ltoaru_list -ltoaru_kbd $(LIBS)
+
+base/bin/migrate: apps/migrate.c base/lib/libnihc.so base/lib/libtoaru_list.so base/lib/libtoaru_hashmap.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_hashmap -ltoaru_list $(LIBS)
 
 base/bin/sysinfo: apps/sysinfo.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_termemu.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_graphics -ltoaru_termemu $(LIBS)

@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+typedef int mode_t;
+
 struct stat  {
 	uint16_t  st_dev;
 	uint16_t  st_ino;
@@ -74,4 +76,5 @@ struct stat  {
 extern int stat(const char *file, struct stat *st);
 extern int lstat(const char *path, struct stat *st);
 extern int fstat(int fd, struct stat *st);
+extern int mkdir(const char *pathname, mode_t mode);
 
