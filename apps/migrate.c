@@ -208,14 +208,7 @@ int main(int argc, char * argv[]) {
 		free(tmp);
 	}
 
-	TRACE("Executing compositor...");
-	char * args[] = {
-		"compositor",
-		"--",
-		"session",
-		NULL,
-	};
-
+	TRACE("Launching intended startup app...");
 	if (!strcmp(start, "--vga")) {
 		execvp("/bin/terminal-vga", (char *[]){"terminal-vga","-l",NULL});
 	} else if (start) {
