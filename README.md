@@ -4,9 +4,13 @@
 
 This is an experimental spin-off / distribution of ToaruOS which includes no third-party components.
 
+The bootloader is a simple El Torito "no-emulation" CD bootloader. It is not guaranteed to work on real hardware, but has been tested in QEMU, Bochs, and VirtualBox.
+
+The userspace includes a work-in-progress C standard library, the ToaruOS native libraries, the compositor (using only in-house graphics routines), and various other first-party utilities and applications.
+
 ## Building
 
-Build a full ToaruOS, activate its toolchain, copy the kernel to `cdrom/kernel` and modules to `cdrom/mod` and you should be able to run `make`.
+Build a full ToaruOS, activate its toolchain, copy the kernel to `cdrom/kernel` and modules to `cdrom/mod/` and you should be able to run `make` to build the userspace, bootloader, and a final CD image.
 
 ## Rationale
 
@@ -32,10 +36,14 @@ ToaruOS's kernel is entirely in-house. Its userspace, however, is built on sever
 
 ## Roadmap
 
-1. Enough C to port the dynamic loader.
+1. Enough C to port the dynamic loader. (Done)
 
-2. Get the VGA terminal building.
+2. Get the VGA terminal building. (Done)
 
-3. Get the shell running.
+3. Get the shell running. (Done)
 
-4. De-Cairo-tize the compositor.
+4. De-Cairo-tize the compositor. (Done, but more work planned)
+
+6. Enough C to port Python. (In progress)
+
+7. Enough C to port GCC. (In progress)
