@@ -47,11 +47,9 @@ int main(int argc, char * argv[]) {
 	sprintf(data_lines[i++], C_A "OS: " C_O "ToaruOS");
 	prog_lines[i] = "uname -sr";
 	sprintf(data_lines[i++], C_A "Kernel: " C_O);
-#if 0
 	prog_lines[i] = "uptime -p";
 	sprintf(data_lines[i++], C_A "Uptime: " C_O);
 	//sprintf(data_lines[i++], C_A "Packages: " C_O "(hell if I know!)");
-#endif
 	prog_lines[i] = "sh -v";
 	sprintf(data_lines[i++], C_A "Shell: " C_O);
 	prog_lines[i] = "yutani-query -r";
@@ -64,10 +62,8 @@ int main(int argc, char * argv[]) {
 #endif
 	//sprintf(data_lines[i++], C_A "CPU: " C_O "(query cpudet)");
 	//sprintf(data_lines[i++], C_A "GPU: " C_O "(hell if I know!)");
-#if 0
 	prog_lines[i] = "free -ut";
 	sprintf(data_lines[i++], C_A "RAM: " C_O);
-#endif
 
 	int j = 0;
 	for (unsigned int y = 0; y < gimp_image.height; y += 2) {
