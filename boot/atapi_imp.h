@@ -156,7 +156,7 @@ static int ata_device_detect(struct ata_device * dev) {
 	return 0;
 }
 
-static int _read_12 = 1;
+static int _read_12 = 0;
 
 static void ata_device_read_sector_atapi(struct ata_device * dev, uint32_t lba, uint8_t * buf) {
 
