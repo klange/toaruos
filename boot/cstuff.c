@@ -309,6 +309,12 @@ int kmain() {
 	outportb(0x3D4, 15);
 	outportb(0x3D5, 0xFF);
 
+	inportb(0x3DA);
+	outportb(0x3C0, 0x30);
+	char b = inportb(0x3C1);
+	b &= ~8;
+	outportb(0x3c0, b);
+
 	do {
 		clear_();
 		attr = 0x1f;
