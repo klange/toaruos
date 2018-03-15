@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate free uptime
 
 KERNEL_TARGET=i686-elf
 KCC = $(KERNEL_TARGET)-gcc
