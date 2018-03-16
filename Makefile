@@ -8,8 +8,8 @@ KNM = $(KERNEL_TARGET)-nm
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
-CFLAGS=-nodefaultlibs -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps -isystem include -Lbase/lib
-LIBS=-lnihc -lgcc
+CFLAGS= -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps 
+LIBS=
 
 LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
 
@@ -81,18 +81,23 @@ dirs: base/dev base/tmp base/proc base/bin base/lib cdrom/boot
 
 # C Library
 
-libc/%.o: libc/%.c
-	$(CC) -fPIC -c -m32 -Wa,--32 -O3 -isystem include -o $@ $<
+crts: base/lib/crt0.o base/lib/crti.o base/lib/crtn.o | dirs
 
-base/lib/libnihc.a: ${LIBC_OBJS} | dirs
+base/lib/crt%.o: libc/crt%.s
+	yasm -f elf -o $@ $<
+
+libc/%.o: libc/%.c
+	$(CC) -fPIC -c -m32 -Wa,--32 -O3 -o $@ $<
+
+base/lib/libc.a: ${LIBC_OBJS} | dirs crts
 	$(AR) cr $@ $^
 
-base/lib/libnihc.so: ${LIBC_OBJS} | dirs
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $^
+base/lib/libc.so: ${LIBC_OBJS} | dirs crts
+	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
 
 # Userspace Linker/Loader
 
-base/lib/ld.so: linker/linker.c base/lib/libnihc.a | dirs
+base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $< $(LIBS)
 
 # Shared Libraries
@@ -143,54 +148,54 @@ base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c lib/decorations.h base/li
 
 # Init
 
-base/bin/init: apps/init.c base/lib/libnihc.a | dirs
+base/bin/init: apps/init.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $< $(LIBS)
 
 # Userspace
 
-base/bin/sh: apps/sh.c base/lib/libnihc.so base/lib/libtoaru_list.so base/lib/libtoaru_rline.so
+base/bin/sh: apps/sh.c base/lib/libc.so base/lib/libtoaru_list.so base/lib/libtoaru_rline.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_rline -ltoaru_list -ltoaru_kbd $(LIBS)
 
-base/bin/migrate: apps/migrate.c base/lib/libnihc.so base/lib/libtoaru_list.so base/lib/libtoaru_hashmap.so
+base/bin/migrate: apps/migrate.c base/lib/libc.so base/lib/libtoaru_list.so base/lib/libtoaru_hashmap.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_hashmap -ltoaru_list $(LIBS)
 
-base/bin/sysinfo: apps/sysinfo.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_termemu.so
+base/bin/sysinfo: apps/sysinfo.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_termemu.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_graphics -ltoaru_termemu $(LIBS)
 
-base/bin/terminal: apps/terminal.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so base/lib/libtoaru_pex.so base/lib/libtoaru_hashmap.so
+base/bin/terminal: apps/terminal.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so base/lib/libtoaru_pex.so base/lib/libtoaru_hashmap.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_decorations -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_hashmap -ltoaru_dlfcn -ltoaru_kbd -ltoaru_list $(LIBS)
 
-base/bin/terminal-vga: apps/terminal-vga.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so
+base/bin/terminal-vga: apps/terminal-vga.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_graphics -ltoaru_kbd $(LIBS)
 
-base/bin/background: apps/background.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so base/lib/libtoaru_drawstring.so
+base/bin/background: apps/background.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so base/lib/libtoaru_drawstring.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_drawstring -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
-base/bin/drawlines: apps/drawlines.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
+base/bin/drawlines: apps/drawlines.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
-base/bin/yutani-query: apps/yutani-query.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
+base/bin/yutani-query: apps/yutani-query.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
-base/bin/yutani-test: apps/yutani-test.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
+base/bin/yutani-test: apps/yutani-test.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
-base/bin/compositor: apps/compositor.c base/lib/libnihc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_pthread.so base/lib/libtoaru_pex.so base/lib/libtoaru_yutani.so base/lib/libtoaru_hashmap.so
+base/bin/compositor: apps/compositor.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_pthread.so base/lib/libtoaru_pex.so base/lib/libtoaru_yutani.so base/lib/libtoaru_hashmap.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_pthread -ltoaru_pex -ltoaru_graphics -ltoaru_kbd -ltoaru_hashmap -ltoaru_list $(LIBS)
 
-base/bin/ls: apps/ls.c base/lib/libnihc.so base/lib/libtoaru_list.so
+base/bin/ls: apps/ls.c base/lib/libc.so base/lib/libtoaru_list.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_list $(LIBS)
 
-base/bin/nyancat: apps/nyancat/nyancat.c base/lib/libnihc.so
+base/bin/nyancat: apps/nyancat/nyancat.c base/lib/libc.so
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
-base/bin/ps: apps/ps.c base/lib/libnihc.so base/lib/libtoaru_list.so
+base/bin/ps: apps/ps.c base/lib/libc.so base/lib/libtoaru_list.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_list $(LIBS)
 
-base/bin/pstree: apps/pstree.c base/lib/libnihc.so base/lib/libtoaru_tree.so base/lib/libtoaru_list.so
+base/bin/pstree: apps/pstree.c base/lib/libc.so base/lib/libtoaru_tree.so base/lib/libtoaru_list.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_tree -ltoaru_list $(LIBS)
 
-base/bin/%: apps/%.c base/lib/libnihc.so | dirs
+base/bin/%: apps/%.c base/lib/libc.so | dirs
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
 # Ramdisk
@@ -217,7 +222,7 @@ boot/boot.o: boot/boot.s
 .PHONY: clean
 clean:
 	rm -f base/lib/*.so
-	rm -f base/lib/libnihc.a
+	rm -f base/lib/libc.a
 	rm -f ${APPS_X}
 	rm -f libc/*.o
 	rm -f image.iso
