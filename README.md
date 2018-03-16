@@ -10,7 +10,19 @@ The userspace includes a work-in-progress C standard library, the ToaruOS native
 
 ## Building
 
-Build a full ToaruOS, activate its toolchain, copy the kernel to `cdrom/kernel` and modules to `cdrom/mod/` and you should be able to run `make` to build the userspace, bootloader, and a final CD image.
+You'll need a working compiler to build the gcc cross-compiler targeting `i686-pc-toaru`. You will also need `yasm` for some assorted assembly files I was too lazy to translate to gas. `xorriso` is needed to build the final CD, `genext2fs` (with Debian patches) is needed for the ramdisk. Python is needed for some parts of the build as well.
+
+Install the toolchain:
+
+    bash util/build-gcc.sh
+
+Activate it:
+
+    . util/activate.sh
+
+Run Make:
+
+    make
 
 ## Rationale
 
