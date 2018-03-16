@@ -1,9 +1,10 @@
 APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate free uptime
 
-KERNEL_TARGET=i686-elf
+KERNEL_TARGET=i686-pc-toaru
 KCC = $(KERNEL_TARGET)-gcc
 KAS = $(KERNEL_TARGET)-as
 KLD = $(KERNEL_TARGET)-ld
+KNM = $(KERNEL_TARGET)-nm
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
@@ -15,6 +16,54 @@ LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
 APPS_X=$(foreach app,$(APPS),base/bin/$(app))
 
 all: image.iso
+
+# Kernel
+
+KCFLAGS  = -O2 -std=c99
+KCFLAGS += -finline-functions -ffreestanding
+KCFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format
+KCFLAGS += -pedantic -fno-omit-frame-pointer
+KCFLAGS += -D_KERNEL_
+KCFLAGS += -DKERNEL_GIT_TAG=$(shell util/make-version)
+KASFLAGS = --32
+
+KERNEL_OBJS = $(patsubst %.c,%.o,$(wildcard kernel/*.c))
+KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
+KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
+
+KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
+
+cdrom/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
+	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
+
+kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
+	-rm -f kernel/symbols.o
+	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o .toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc
+	${KNM} .toaruos-kernel -g | util/generate_symbols.py > kernel/symbols.S
+	${KAS} ${KASFLAGS} kernel/symbols.S -o $@
+	-rm -f .toaruos-kernel
+
+kernel/sys/version.o: kernel/*/*.c kernel/*.c
+
+cdrom/mod:
+	@mkdir -p $@
+
+MODULES = $(patsubst modules/%.c,cdrom/mod/%.ko,$(wildcard modules/*.c))
+
+HEADERS = $(shell find kernel/include/ -type f -name '*.h')
+
+cdrom/mod/%.ko: modules/%.c ${HEADERS} | cdrom/mod
+	${KCC} -T modules/link.ld -I./kernel/include -nostdlib ${KCFLAGS} -c -o $@ $<
+
+modules: ${MODULES}
+
+kernel/%.o: kernel/%.S
+	${KAS} ${ASFLAGS} $< -o $@
+
+kernel/%.o: kernel/%.c ${HEADERS}
+	${KCC} ${KCFLAGS} -nostdlib -g -I./kernel/include -c -o $@ $<
+
+# Root Filesystem
 
 base/dev:
 	mkdir -p base/dev
@@ -30,17 +79,23 @@ cdrom/boot:
 	mkdir -p cdrom/boot
 dirs: base/dev base/tmp base/proc base/bin base/lib cdrom/boot
 
+# C Library
+
 libc/%.o: libc/%.c
 	$(CC) -fPIC -c -m32 -Wa,--32 -O3 -isystem include -o $@ $<
-
-base/lib/ld.so: linker/linker.c base/lib/libnihc.a | dirs
-	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $< $(LIBS)
 
 base/lib/libnihc.a: ${LIBC_OBJS} | dirs
 	$(AR) cr $@ $^
 
 base/lib/libnihc.so: ${LIBC_OBJS} | dirs
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $^
+
+# Userspace Linker/Loader
+
+base/lib/ld.so: linker/linker.c base/lib/libnihc.a | dirs
+	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $< $(LIBS)
+
+# Shared Libraries
 
 base/lib/libtoaru_graphics.so: lib/graphics.c lib/graphics.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
@@ -81,11 +136,17 @@ base/lib/libtoaru_drawstring.so: lib/drawstring.c lib/drawstring.h base/lib/libt
 base/lib/libtoaru_decorations.so: lib/decorations.c lib/decorations.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
+# Decoration Themes
+
 base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c lib/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so base/lib/libtoaru_drawstring.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_decorations -ltoaru_drawstring -ltoaru_graphics
 
+# Init
+
 base/bin/init: apps/init.c base/lib/libnihc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $< $(LIBS)
+
+# Userspace
 
 base/bin/sh: apps/sh.c base/lib/libnihc.so base/lib/libtoaru_list.so base/lib/libtoaru_rline.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_rline -ltoaru_list -ltoaru_kbd $(LIBS)
@@ -132,11 +193,17 @@ base/bin/pstree: apps/pstree.c base/lib/libnihc.so base/lib/libtoaru_tree.so bas
 base/bin/%: apps/%.c base/lib/libnihc.so | dirs
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
+# Ramdisk
+
 cdrom/ramdisk.img: ${APPS_X} base/lib/ld.so base/lib/libtoaru-decor-fancy.so Makefile | dirs
 	genext2fs -B 4096 -d base -U -b 4096 -N 2048 cdrom/ramdisk.img
 
-image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel
+# CD image
+
+image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel ${MODULES}
 	xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.sys -no-emul-boot -boot-load-size 20 -o image.iso cdrom
+
+# Boot loader
 
 cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | cdrom/boot
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
@@ -157,3 +224,7 @@ clean:
 	rm -f cdrom/ramdisk.img
 	rm -f cdrom/boot/boot.sys
 	rm -f boot/*.o
+	rm -f cdrom/kernel
+	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS}
+	rm -f ${MODULES}
+
