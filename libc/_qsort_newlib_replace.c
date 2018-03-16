@@ -74,8 +74,13 @@ PORTABILITY
  * SUCH DAMAGE.
  */
 
-#include <_ansi.h>
+//#include <_ansi.h>
 #include <stdlib.h>
+#include <stddef.h>
+
+#define _PARAMS(paramlist) paramlist
+#define _DEFUN(name, arglist, args) name arglist args;
+#define _AND ;
 
 #ifndef __GNUC__
 #define inline

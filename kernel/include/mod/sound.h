@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include "../../../include/stdint.h"
 
 #define SND_MAX_KNOBS 256
 #define SND_KNOB_NAME_SIZE 256

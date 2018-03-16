@@ -1,0 +1,127 @@
+diff --git a/config.sub b/config.sub
+index 41146e1..8438e24 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1375,6 +1375,7 @@ case $os in
+ 	# -sysv* is not here because it comes later, after sysvr4.
+ 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
++	      | -toaru* \
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+diff --git a/fixincludes/mkfixinc.sh b/fixincludes/mkfixinc.sh
+index 0d96c8c..1ae6bdc 100755
+--- a/fixincludes/mkfixinc.sh
++++ b/fixincludes/mkfixinc.sh
+@@ -13,6 +13,7 @@ target=fixinc.sh
+ case $machine in
+     i?86-*-cygwin* | \
+     i?86-*-mingw32* | \
++    i?86-*-toaru* | \
+     x86_64-*-mingw32* | \
+     i?86-*-interix* | \
+     powerpc-*-eabisim* | \
+diff --git a/gcc/config.gcc b/gcc/config.gcc
+index 1d5b23f..603a22b 100644
+--- a/gcc/config.gcc
++++ b/gcc/config.gcc
+@@ -820,6 +820,11 @@ case ${target} in
+   gnu_ld=yes
+   default_use_cxa_atexit=yes
+   ;;
++*-*-toaru*)
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  ;;
+ *-*-rtems*)
+   case ${enable_threads} in
+     "" | yes | rtems) thread_file='rtems' ;;
+@@ -1441,6 +1446,9 @@ x86_64-*-rdos*)
+     tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h i386/rdos.h i386/rdos64.h"
+     tmake_file="i386/t-i386elf t-svr4"
+     ;;
++*-*-toaru*)
++	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h toaru.h"
++	;;
+ i[34567]86-*-dragonfly*)
+ 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h dragonfly.h dragonfly-stdint.h i386/dragonfly.h"
+ 	tmake_file="${tmake_file} i386/t-crtstuff"
+diff --git a/gcc/config/toaru.h b/gcc/config/toaru.h
+new file mode 100644
+index 0000000..9157525
+--- /dev/null
++++ b/gcc/config/toaru.h
+@@ -0,0 +1,26 @@
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS() \
++	do { \
++		builtin_define_std ("toaru"); \
++		builtin_define_std ("unix"); \
++		builtin_assert ("system=toaru"); \
++		builtin_assert ("system=unix"); \
++	} while (0);
++
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "%{!shared: %{!pg:crt0.o%s}} crti.o%s %{!shared:crtbegin.o%s}"
++
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "%{!shared:crtend.o%s} crtn.o%s"
++
++#undef LINK_SPEC
++#define LINK_SPEC "%{shared:-shared} %{static:-static} %{!shared: %{!static: %{rdynamic:-export-dynamic} %{!dynamic-linker:-dynamic-linker /lib/ld.so}}}"
++
++#undef  LIB_SPEC
++#define LIB_SPEC "%{pthread:-lpthread} -lc"
++
++#undef  OBJECT_FORMAT_ELF
++#define OBJECT_FORMAT_ELF
++
++#undef  NO_IMPLICIT_EXTERN_C
++#define NO_IMPLICIT_EXTERN_C 1
+diff --git a/libgcc/config.host b/libgcc/config.host
+index 124f2ce..c865054 100644
+--- a/libgcc/config.host
++++ b/libgcc/config.host
+@@ -656,6 +656,10 @@ i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*)
+ 	;;
+ i[4567]86-wrs-vxworks|i[4567]86-wrs-vxworksae)
+ 	;;
++i[34567]86-*-toaru*)
++	extra_parts="$extra_parts crtbegin.o crtend.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
+ i[34567]86-*-cygwin*)
+ 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtfastmath.o"
+ 	if test x$enable_vtable_verify = xyes; then
+diff --git a/libstdc++-v3/crossconfig.m4 b/libstdc++-v3/crossconfig.m4
+index ece1256..97566e6 100644
+--- a/libstdc++-v3/crossconfig.m4
++++ b/libstdc++-v3/crossconfig.m4
+@@ -248,6 +248,12 @@ case "${host}" in
+     GLIBCXX_CHECK_MATH_SUPPORT
+     GLIBCXX_CHECK_STDLIB_SUPPORT
+     ;;
++  *-toaru*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
+   *-vxworks)
+     AC_DEFINE(HAVE_ACOSF)
+     AC_DEFINE(HAVE_ASINF)
+diff --git a/libstdc++-v3/include/std/type_traits b/libstdc++-v3/include/std/type_traits
+index 03e198a..e0eb9d6 100644
+--- a/libstdc++-v3/include/std/type_traits
++++ b/libstdc++-v3/include/std/type_traits
+@@ -38,7 +38,7 @@
+ #include <bits/c++config.h>
+ 
+ #ifdef _GLIBCXX_USE_C99_STDINT_TR1
+-# if defined (__UINT_LEAST16_TYPE__) && defined(__UINT_LEAST32_TYPE__)
++# if defined (__UINT_LEAST16_TYPE__) && defined(__UINT_LEAST32_TYPE__) && 0
+ namespace std
+ {
+   typedef __UINT_LEAST16_TYPE__ uint_least16_t;
