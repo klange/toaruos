@@ -12,4 +12,6 @@ struct utsname {
 };
 
 
+#ifndef _KERNEL_
 extern int uname(struct utsname *__name);
+#endif

@@ -1,6 +1,10 @@
 #pragma once
 
+#ifndef _KERNEL_
 #include <sys/types.h>
+#else
+#include <types.h>
+#endif
 
 /* Technically part of ioctl */
 struct winsize {
