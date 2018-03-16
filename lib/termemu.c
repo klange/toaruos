@@ -6,6 +6,16 @@
  * Portable library for terminal emulation.
  */
 
+#ifdef _KERNEL_
+# include <system.h>
+# include <types.h>
+# include <logging.h>
+static void _spin_lock(volatile int * foo) { return; }
+static void _spin_unlock(volatile int * foo) { return; }
+# define rgba(r,g,b,a) (((uint32_t)a * 0x1000000) + ((uint32_t)r * 0x10000) + ((uint32_t)g * 0x100) + ((uint32_t)b * 0x1))
+# define rgb(r,g,b) rgba(r,g,b,0xFF)
+#include "termemu.h"
+#else
 #include <stdlib.h>
 
 #include <math.h>
@@ -21,6 +31,7 @@
 #include "lib/spinlock.h"
 #define _spin_lock spin_lock
 #define _spin_unlock spin_unlock
+#endif
 
 #define MAX_ARGS 1024
 
