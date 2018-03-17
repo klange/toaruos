@@ -513,34 +513,6 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
 
 	gfx_add_clip(yg->backend_ctx, (int)x, (int)y, (int)w, (int)h);
-#if 0
-	cairo_rectangle(yg->framebuffer_ctx, x, y, w, h);
-	if (yg->width > 2490) {
-		x = 0;
-		w = yg->width;
-	}
-	cairo_rectangle(yg->real_ctx, x, y, w, h);
-#endif
-}
-
-/**
- * Save cairo states for the framebuffers to the stack.
- */
-static void save_cairo_states(yutani_globals_t * yg) {
-#if 0
-	cairo_save(yg->framebuffer_ctx);
-	cairo_save(yg->real_ctx);
-#endif
-}
-
-/**
- * Pop previous framebuffer cairo states.
- */
-static void restore_cairo_states(yutani_globals_t * yg) {
-#if 0
-	cairo_restore(yg->framebuffer_ctx);
-	cairo_restore(yg->real_ctx);
-#endif
 }
 
 typedef struct {
@@ -548,16 +520,6 @@ typedef struct {
 	int32_t end;
 	void * next;
 } _clip_t;
-
-/**
- * Apply the clips we built earlier.
- */
-static void yutani_set_clip(yutani_globals_t * yg) {
-#if 0
-	cairo_clip(yg->framebuffer_ctx);
-	cairo_clip(yg->real_ctx);
-#endif
-}
 
 /**
  * Mark a screen region as damaged.
@@ -577,9 +539,6 @@ static void mark_screen(yutani_globals_t * yg, int32_t x, int32_t y, int32_t wid
 
 /**
  * Draw the cursor sprite.
- *
- * TODO This should probably use Cairo's PNG functionality, or something
- *      else other than our own rendering tools...
  */
 static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
 	sprite_t * sprite = &yg->mouse_sprite;
@@ -719,162 +678,10 @@ static uint32_t color_for_wid(yutani_wid_t wid) {
  * Blit a window to the framebuffer.
  *
  * Applies transformations (rotation, animations) and then renders
- * the window with Cairo.
+ * the window through alpha blitting.
  */
-static int yutani_blit_window(yutani_globals_t * yg, cairo_t * ctx, yutani_server_window_t * window, int x, int y) {
+static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
 
-#if 0
-	/* Obtain the previously initialized cairo contexts */
-	cairo_t * cr = ctx;
-
-	/* Window stride is always 4 bytes per pixel... */
-	int stride = window->width * 4;
-
-	/* Initialize a cairo surface object for this window */
-	cairo_surface_t * surf = cairo_image_surface_create_for_data(
-			window->buffer, CAIRO_FORMAT_ARGB32, window->width, window->height, stride);
-
-	/* Save cairo context */
-	cairo_save(cr);
-
-	/*
-	 * Offset the rendering context appropriately for the position of the window
-	 * based on the modifier paramters
-	 */
-	cairo_translate(cr, x, y);
-
-	/* Top and bottom windows can not be rotated. */
-	if (!window_is_top(yg, window) && !window_is_bottom(yg, window)) {
-		/* Calcuate radians from degrees */
-
-		/* XXX Window rotation is disabled until damage rects can take it into account */
-		if (window->rotation != 0) {
-			double r = M_PI * (((double)window->rotation) / 180.0);
-
-			/* Rotate the render context about the center of the window */
-			cairo_translate(cr, (int)( window->width / 2), (int)( (int)window->height / 2));
-			cairo_rotate(cr, r);
-			cairo_translate(cr, (int)(-window->width / 2), (int)(-window->height / 2));
-
-			/* Prefer faster filter when rendering rotated windows */
-			cairo_pattern_set_filter (cairo_get_source (cr), CAIRO_FILTER_FAST);
-		}
-
-		if (window == yg->resizing_window) {
-			double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
-			double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
-			if (x_scale < 0.00001) {
-				x_scale = 0.00001;
-			}
-			if (y_scale < 0.00001) {
-				y_scale = 0.00001;
-			}
-			cairo_translate(cr, (int)yg->resizing_offset_x, (int)yg->resizing_offset_y);
-			cairo_scale(cr, x_scale, y_scale);
-		}
-
-	}
-	if (window->anim_mode) {
-		int frame = yutani_time_since(yg, window->anim_start);
-		if (frame >= yutani_animation_lengths[window->anim_mode]) {
-			/* XXX handle animation-end things like cleanup of closing windows */
-			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
-				list_insert(yg->windows_to_remove, window);
-				goto draw_finish;
-			}
-			window->anim_mode = 0;
-			window->anim_start = 0;
-			goto draw_window;
-		} else {
-			switch (window->anim_mode) {
-				case YUTANI_EFFECT_FADE_OUT:
-					{
-						frame = yutani_animation_lengths[window->anim_mode] - frame;
-					}
-				case YUTANI_EFFECT_FADE_IN:
-					{
-						double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
-						double x = 0.75 + time_diff * 0.25;
-						int t_x = (window->width * (1.0 - x)) / 2;
-						int t_y = (window->height * (1.0 - x)) / 2;
-
-						if (!window_is_top(yg, window) && !window_is_bottom(yg, window) &&
-							!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
-							cairo_translate(cr, t_x, t_y);
-							cairo_scale(cr, x, x);
-						}
-
-						cairo_set_source_surface(cr, surf, 0, 0);
-						cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_FAST);
-						if (window->opacity != 255) {
-							cairo_paint_with_alpha(cr, time_diff * (double)(window->opacity) / 255.0);
-						} else {
-							cairo_paint_with_alpha(cr, time_diff);
-						}
-					}
-					break;
-				default:
-					goto draw_window;
-					break;
-			}
-		}
-	} else {
-draw_window:
-		/* Paint window */
-		cairo_set_source_surface(cr, surf, 0, 0);
-		if (window->opacity != 255) {
-			cairo_paint_with_alpha(cr, (float)(window->opacity)/255.0);
-		} else {
-			cairo_paint(cr);
-		}
-	}
-
-draw_finish:
-
-	/* Clean up */
-	cairo_surface_destroy(surf);
-
-
-	/* Restore context stack */
-	cairo_restore(cr);
-
-#if YUTANI_DEBUG_WINDOW_BOUNDS
-	/*
-	 * If window bound debugging is enabled, we also draw a box
-	 * representing the rectangular (possibly rotated) boundary
-	 * for a window texture.
-	 */
-	if (yg->debug_bounds) {
-		cairo_save(cr);
-
-		int32_t t_x, t_y;
-		int32_t s_x, s_y;
-		int32_t r_x, r_y;
-		int32_t q_x, q_y;
-
-		window_to_device(window, 0, 0, &t_x, &t_y);
-		window_to_device(window, window->width, window->height, &s_x, &s_y);
-		window_to_device(window, 0, window->height, &r_x, &r_y);
-		window_to_device(window, window->width, 0, &q_x, &q_y);
-
-		uint32_t x = color_for_wid(window->wid);
-		cairo_set_source_rgba(cr,
-				_RED(x) / 255.0,
-				_GRE(x) / 255.0,
-				_BLU(x) / 255.0,
-				0.7
-		);
-
-		cairo_move_to(cr, t_x, t_y);
-		cairo_line_to(cr, r_x, r_y);
-		cairo_line_to(cr, s_x, s_y);
-		cairo_line_to(cr, q_x, q_y);
-		cairo_fill(cr);
-
-		cairo_restore(cr);
-	}
-#endif
-#else
 	sprite_t _win_sprite;
 	_win_sprite.width = window->width;
 	_win_sprite.height = window->height;
@@ -932,8 +739,6 @@ draw_window:
 	}
 draw_finish:
 
-#endif
-
 	return 0;
 }
 
@@ -942,50 +747,20 @@ draw_finish:
  *
  * This is called for rendering and for screenshots.
  */
-static void yutani_blit_windows(yutani_globals_t * yg, cairo_t * ctx) {
-	if (yg->bottom_z) yutani_blit_window(yg, ctx, yg->bottom_z, yg->bottom_z->x, yg->bottom_z->y);
+static void yutani_blit_windows(yutani_globals_t * yg) {
+	if (yg->bottom_z) yutani_blit_window(yg, yg->bottom_z, yg->bottom_z->x, yg->bottom_z->y);
 	foreach (node, yg->mid_zs) {
 		yutani_server_window_t * w = node->value;
-		if (w) yutani_blit_window(yg, ctx, w, w->x, w->y);
+		if (w) yutani_blit_window(yg, w, w->x, w->y);
 	}
-	if (yg->top_z) yutani_blit_window(yg, ctx, yg->top_z, yg->top_z->x, yg->top_z->y);
+	if (yg->top_z) yutani_blit_window(yg, yg->top_z, yg->top_z->x, yg->top_z->y);
 }
 
 /**
  * Take a screenshot
  */
 static void yutani_screenshot(yutani_globals_t * yg) {
-#if 0
-	int target_width;
-	int target_height;
-	void * target_data;
-
-	switch (yg->screenshot_frame) {
-		case YUTANI_SCREENSHOT_FULL:
-			target_width = yg->width;
-			target_height = yg->height;
-			target_data = yg->backend_framebuffer;
-			break;
-		case YUTANI_SCREENSHOT_WINDOW:
-			if (!yg->focused_window) goto screenshot_done;
-			target_width = yg->focused_window->width;
-			target_height = yg->focused_window->height;
-			target_data = yg->focused_window->buffer;
-			break;
-		default:
-			/* ??? */
-			goto screenshot_done;
-	}
-
-	cairo_surface_t * s = cairo_image_surface_create_for_data(target_data, CAIRO_FORMAT_ARGB32, target_width, target_height, target_width * 4);
-
-	cairo_surface_write_to_png(s, "/tmp/screenshot.png");
-
-	cairo_surface_destroy(s);
-
-screenshot_done:
-	yg->screenshot_frame = 0;
-#endif
+	/* TODO Render bitmap screenshot */
 }
 
 /**
@@ -994,8 +769,6 @@ screenshot_done:
  * This is the main redraw function.
  */
 static void redraw_windows(yutani_globals_t * yg) {
-	/* Save the cairo contexts so we can apply clipping */
-	save_cairo_states(yg);
 	int has_updates = 0;
 
 	/* We keep our own temporary mouse coordinates as they may change while we're drawing. */
@@ -1036,8 +809,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 	/* Render */
 	if (has_updates) {
 
-		yutani_set_clip(yg);
-
 		yg->windows_to_remove = list_create();
 
 		/*
@@ -1046,7 +817,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * we also need to render windows in stacking order...
 		 */
 		spin_lock(&yg->redraw_lock);
-		yutani_blit_windows(yg, yg->framebuffer_ctx);
+		yutani_blit_windows(yg);
 
 #if YUTANI_DEBUG_WINDOW_SHAPES
 #define WINDOW_SHAPE_VIEWER_SIZE 20
@@ -1099,15 +870,11 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 * Flip the updated areas. This minimizes writes to video memory,
 			 * which is very important on real hardware where these writes are slow.
 			 */
-#if 0
-			cairo_set_operator(yg->real_ctx, CAIRO_OPERATOR_SOURCE);
-			cairo_translate(yg->real_ctx, 0, 0);
-			cairo_set_source_surface(yg->real_ctx, yg->framebuffer_surface, 0, 0);
-			cairo_paint(yg->real_ctx);
-#else
 			flip(yg->backend_ctx);
-#endif
 		}
+
+		gfx_clear_clip(yg->backend_ctx);
+
 		spin_unlock(&yg->redraw_lock);
 
 		/*
@@ -1130,19 +897,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 		yutani_screenshot(yg);
 	}
 
-	/* Restore the cairo contexts to reset clip regions */
-	restore_cairo_states(yg);
-	gfx_clear_clip(yg->backend_ctx);
-
 	if (yg->resize_on_next) {
 		spin_lock(&yg->redraw_lock);
-
-#if 0
-		cairo_destroy(yg->framebuffer_ctx);
-		cairo_destroy(yg->real_ctx);
-		cairo_surface_destroy(yg->framebuffer_surface);
-		cairo_surface_destroy(yg->real_surface);
-#endif
 
 		if (!yutani_options.nested) {
 			reinit_graphics_fullscreen(yg->backend_ctx);
@@ -1155,17 +911,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		yg->width = yg->backend_ctx->width;
 		yg->height = yg->backend_ctx->height;
 		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
-
-#if 0
-		int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, yg->width);
-		yg->framebuffer_surface = cairo_image_surface_create_for_data(
-				yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
-		yg->real_surface = cairo_image_surface_create_for_data(
-				yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, yg->stride);
-
-		yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
-		yg->real_ctx = cairo_create(yg->real_surface);
-#endif
 
 		yg->resize_on_next = 0;
 		mark_screen(yg, 0, 0, yg->width, yg->height);
@@ -1180,20 +925,9 @@ static void redraw_windows(yutani_globals_t * yg) {
 }
 
 /**
- * Initialize cairo contexts and surfaces for the framebuffers.
+ * Initialize clipping regions.
  */
-void yutani_cairo_init(yutani_globals_t * yg) {
-
-#if 0
-	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, yg->width);
-	yg->framebuffer_surface = cairo_image_surface_create_for_data(
-			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
-	yg->real_surface = cairo_image_surface_create_for_data(
-			yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, yg->stride);
-
-	yg->framebuffer_ctx = cairo_create(yg->framebuffer_surface);
-	yg->real_ctx = cairo_create(yg->real_surface);
-#endif
+void yutani_clip_init(yutani_globals_t * yg) {
 
 	yg->update_list = list_create();
 	yg->update_list_lock = 0;
@@ -2186,8 +1920,7 @@ int main(int argc, char * argv[]) {
 	yg->last_mouse_buttons = 0;
 	TRACE("Done.");
 
-	TRACE("Doing some bullshit cairo stuff.");
-	yutani_cairo_init(yg);
+	yutani_clip_init(yg);
 
 	pthread_t render_thread;
 
