@@ -123,7 +123,7 @@ base/lib/libtoaru_pthread.so: lib/pthread.c lib/pthread.h
 base/lib/libtoaru_pex.so: lib/pex.c lib/pex.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_dlfcn.so: lib/dlfcn.c lib/dlfcn.h
+base/lib/libtoaru_dlfcn.so: lib/dlfcn.c
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
 base/lib/libtoaru_yutani.so: lib/yutani.c lib/yutani.h base/lib/libtoaru_graphics.so

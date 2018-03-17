@@ -8,10 +8,10 @@
 
 #include <stdint.h>
 #include <math.h>
+#include <dlfcn.h>
 #include "lib/graphics.h"
 #include "lib/yutani.h"
 //#include "lib/shmemfonts.h"
-#include "lib/dlfcn.h"
 
 #include "decorations.h"
 
