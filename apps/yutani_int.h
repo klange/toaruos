@@ -15,9 +15,6 @@
 #define YUTANI_SCREENSHOT_FULL 1
 #define YUTANI_SCREENSHOT_WINDOW 2
 
-typedef void cairo_t;
-typedef void cairo_surface_t;
-
 typedef enum {
 	YUTANI_EFFECT_NONE,
 	YUTANI_EFFECT_FADE_IN,
@@ -79,11 +76,6 @@ typedef struct {
 	/* XXX multiple displays */
 	unsigned int width;
 	unsigned int height;
-
-	cairo_surface_t * framebuffer_surface;
-	cairo_surface_t * real_surface;
-	cairo_t * framebuffer_ctx;
-	cairo_t * real_ctx;
 
 	void * backend_framebuffer;
 	gfx_context_t * backend_ctx;
