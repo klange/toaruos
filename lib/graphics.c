@@ -43,6 +43,19 @@ typedef struct {
 	void * next;
 } _clip_t;
 
+static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
+	if (!ctx->clips) return 1;
+	_clip_t * clip = ctx->clips;
+	while (clip) {
+		if (y >= clip->start && y <= clip->end) {
+			return 1;
+		}
+		clip = (_clip_t *)clip->next;
+	}
+	return 0;
+}
+
+
 void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h) {
 	_clip_t * clip = malloc(sizeof(_clip_t));
 	clip->start = max(y,0);
@@ -64,9 +77,14 @@ void gfx_clear_clip(gfx_context_t * ctx) {
 /* Pointer to graphics memory */
 void flip(gfx_context_t * ctx) {
 	if (ctx->clips) {
-		/// do this differently
+		for (size_t i = 0; i < ctx->height; ++i) {
+			if (_is_in_clip(ctx,i)) {
+				memcpy(&ctx->buffer[i*ctx->width*4], &ctx->backbuffer[i*ctx->width*4], 4 * ctx->width);
+			}
+		}
+	} else {
+		memcpy(ctx->buffer, ctx->backbuffer, ctx->size);
 	}
-	memcpy(ctx->buffer, ctx->backbuffer, ctx->size);
 }
 
 void clearbuffer(gfx_context_t * ctx) {
@@ -542,18 +560,6 @@ void load_sprite(sprite_t * sprite, char * filename) {
 _cleanup_sprite:
 	fclose(image);
 	free(bufferb);
-}
-
-static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
-	if (!ctx->clips) return 1;
-	_clip_t * clip = ctx->clips;
-	while (clip) {
-		if (y >= clip->start && y <= clip->end) {
-			return 1;
-		}
-		clip = (_clip_t *)clip->next;
-	}
-	return 0;
 }
 
 void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
