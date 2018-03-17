@@ -254,18 +254,25 @@ done:
 			print("Done.\n");
 			restore_root();
 			if (navigate("RAMDISK.IMG")) {
-				print("Loading ramdisk...\n");
+				clear_();
 				ramdisk_off = KERNEL_LOAD_START + offset;
 				ramdisk_len = dir_entry->extent_length_LSB;
 				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
 				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
+
+				print_("\n\n\n\n\n\n\n");
+				print_banner("Loading ramdisk...");
+				print_("\n\n\n");
+				attr = 0x70;
+
 				for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
-					if (i % 32 == 0) {
-						print(".");
+					if (i % ((dir_entry->extent_length_LSB / 2048) / 80) == 0) {
+						print_(" ");
 					}
 					ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 				}
-				print("Done.\n");
+				attr = 0x07;
+				print("\nDone.\n");
 				move_kernel();
 			}
 		} else {
