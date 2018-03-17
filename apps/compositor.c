@@ -731,10 +731,19 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 		}
 	} else {
 draw_window:
-		if (window == yg->resizing_window) {
-			draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h);
+		if (window->opacity != 255) {
+			double opacity = (double)(window->opacity) / 255.0;
+			if (window == yg->resizing_window) {
+				draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h, opacity);
+			} else {
+				draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+			}
 		} else {
-			draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
+			if (window == yg->resizing_window) {
+				draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h);
+			} else {
+				draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
+			}
 		}
 	}
 draw_finish:
