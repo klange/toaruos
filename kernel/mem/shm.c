@@ -6,13 +6,13 @@
  *
  * Shared Memory
  */
-#include <system.h>
-#include <process.h>
-#include <logging.h>
-#include <shm.h>
-#include <mem.h>
-#include <tree.h>
-#include <list.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/shm.h>
+#include <kernel/mem.h>
+#include <kernel/tree.h>
+#include <kernel/list.h>
 
 
 //static volatile uint8_t bsl; // big shm lock

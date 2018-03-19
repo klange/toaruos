@@ -3,15 +3,14 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <system.h>
-#include <logging.h>
-#include <fs.h>
-#include <version.h>
-#include <process.h>
-#include <printf.h>
-#include <module.h>
-
-#include <mod/net.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/fs.h>
+#include <kernel/version.h>
+#include <kernel/process.h>
+#include <kernel/printf.h>
+#include <kernel/module.h>
+#include <kernel/mod/net.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))

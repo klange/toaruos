@@ -7,13 +7,13 @@
  * Kernel Memory Manager
  */
 
-#include <mem.h>
-#include <system.h>
-#include <process.h>
-#include <logging.h>
-#include <signal.h>
-#include <hashmap.h>
-#include <module.h>
+#include <kernel/mem.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/signal.h>
+#include <kernel/hashmap.h>
+#include <kernel/module.h>
 
 #define KERNEL_HEAP_INIT 0x00800000
 #define KERNEL_HEAP_END  0x20000000

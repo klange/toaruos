@@ -12,12 +12,12 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#include "lib/yutani.h"
-#include "lib/graphics.h"
-#include "lib/pthread.h"
+#include <toaru/yutani.h>
+#include <toaru/graphics.h>
+#include <toaru/pthread.h>
 
 #define TRACE_APP_NAME "drawlines"
-#include "lib/trace.h"
+#include <toaru/trace.h>
 
 static int left, top, width, height;
 

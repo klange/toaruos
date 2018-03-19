@@ -7,11 +7,11 @@
  * Task Switching and Management Functions
  *
  */
-#include <system.h>
-#include <process.h>
-#include <logging.h>
-#include <shm.h>
-#include <mem.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/shm.h>
+#include <kernel/mem.h>
 
 #define TASK_MAGIC 0xDEADBEEF
 

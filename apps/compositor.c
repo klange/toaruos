@@ -30,19 +30,19 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include "lib/graphics.h"
-#include "lib/pthread.h"
-#include "lib/mouse.h"
-#include "lib/kbd.h"
-#include "lib/pex.h"
-#include "lib/yutani.h"
-#include "lib/hashmap.h"
-#include "lib/list.h"
-#include "lib/spinlock.h"
+#include <toaru/graphics.h>
+#include <toaru/pthread.h>
+#include <toaru/mouse.h>
+#include <toaru/kbd.h>
+#include <toaru/pex.h>
+#include <toaru/yutani.h>
+#include <toaru/hashmap.h>
+#include <toaru/list.h>
+#include <toaru/spinlock.h>
 
 #define _DEBUG_YUTANI
 #ifdef _DEBUG_YUTANI
-#include "lib/trace.h"
+#include <toaru/trace.h>
 #define TRACE_APP_NAME "yutani"
 #else
 #define TRACE(msg,...)

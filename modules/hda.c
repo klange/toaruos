@@ -2,10 +2,10 @@
  * Experimental Intel High-Definition Audio "driver"
  */
 
-#include <module.h>
-#include <printf.h>
-#include <pci.h>
-#include <mod/shell.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
+#include <kernel/mod/shell.h>
 
 struct hda_device {
 	uint32_t pci_device;

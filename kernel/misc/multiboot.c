@@ -5,9 +5,9 @@
  *
  * Multiboot (GRUB) handler
  */
-#include <system.h>
-#include <logging.h>
-#include <multiboot.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/multiboot.h>
 
 char * ramdisk = NULL;
 struct multiboot * mboot_ptr = NULL;

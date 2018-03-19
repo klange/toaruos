@@ -6,14 +6,13 @@
 #include <stdlib.h>
 #include <syscall.h>
 
-#include "yutani.h"
-#include "mouse.h"
-
-#include "lib/pex.h"
-#include "lib/graphics.h"
-#include "lib/kbd.h"
-#include "lib/hashmap.h"
-#include "lib/list.h"
+#include <toaru/pex.h>
+#include <toaru/graphics.h>
+#include <toaru/kbd.h>
+#include <toaru/hashmap.h>
+#include <toaru/list.h>
+#include <toaru/yutani.h>
+#include <toaru/mouse.h>
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {

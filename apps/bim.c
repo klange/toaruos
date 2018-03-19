@@ -31,7 +31,7 @@
 
 #include <wchar.h>
 
-#include "lib/utf8decode.h"
+#include <toaru/utf8decode.h>
 
 #define BLOCK_SIZE 256
 #define ENTER_KEY     '\n'

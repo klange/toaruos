@@ -30,7 +30,7 @@
 //#include "lib/trace.h"
 #define TRACE(...)
 
-#include "lib/list.h"
+#include <toaru/list.h>
 
 #define MIN_COL_SPACING 2
 

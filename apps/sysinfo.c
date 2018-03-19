@@ -12,8 +12,8 @@
 #include <unistd.h>
 #include <sys/utsname.h>
 
-#include "lib/graphics.h"
-#include "lib/termemu.h"
+#include <toaru/graphics.h>
+#include <toaru/termemu.h>
 
 #include "toaru_logo.h"
 

@@ -3,15 +3,15 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2016 Kevin Lange
  */
-#include <module.h>
-#include <logging.h>
-#include <printf.h>
-#include <pci.h>
-#include <mem.h>
-#include <list.h>
-#include <pipe.h>
-#include <ipv4.h>
-#include <mod/net.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
+#include <kernel/mem.h>
+#include <kernel/list.h>
+#include <kernel/pipe.h>
+#include <kernel/ipv4.h>
+#include <kernel/mod/net.h>
 
 static list_t * net_queue = NULL;
 static spin_lock_t net_queue_lock = { 0 };

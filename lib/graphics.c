@@ -17,8 +17,9 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <video.h>
-#include "graphics.h"
+#include <kernel/video.h>
+
+#include <toaru/graphics.h>
 
 static inline int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;

@@ -7,7 +7,7 @@
  *
  */
 
-#include <system.h>
+#include <kernel/system.h>
 
 /* CMOS values are stored like so:
  * Say it's 8:42 AM, then the values are stored as:

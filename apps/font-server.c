@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <syscall.h>
 
-#include "lib/trace.h"
+#include <toaru/trace.h>
 #define TRACE_APP_NAME "font-server"
 
 #define FONT_PATH "/usr/share/fonts/"

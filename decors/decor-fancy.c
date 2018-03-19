@@ -1,10 +1,9 @@
 #include <stdint.h>
 
-#include "lib/yutani.h"
-#include "lib/graphics.h"
-//#include "lib/shmemfonts.h"
-#include "lib/decorations.h"
-#include "lib/drawstring.h"
+#include <toaru/yutani.h>
+#include <toaru/graphics.h>
+#include <toaru/decorations.h>
+#include <toaru/drawstring.h>
 
 #define INACTIVE 9
 

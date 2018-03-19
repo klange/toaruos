@@ -20,7 +20,7 @@
 #include <dirent.h>
 #include <pwd.h>
 
-#include "lib/list.h"
+#include <toaru/list.h>
 
 #define LINE_LEN 4096
 

@@ -2,9 +2,9 @@
 #include <unistd.h>
 #include <sys/utsname.h>
 
-#include "lib/yutani.h"
-#include "lib/graphics.h"
-#include "lib/drawstring.h"
+#include <toaru/yutani.h>
+#include <toaru/graphics.h>
+#include <toaru/drawstring.h>
 
 #define PANEL_HEIGHT 24
 

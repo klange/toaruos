@@ -8,10 +8,10 @@
  * Simple, painfully lacking, implementation of printf(),
  * for the kernel of all things.
  */
-#include <system.h>
-#include <process.h>
-#include <va_list.h>
-#include <fs.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/va_list.h>
+#include <kernel/fs.h>
 
 /*
  * Integer to string

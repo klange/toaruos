@@ -5,14 +5,13 @@
  *
  * Module to provide a debug shell command to set display mode.
  */
-#include <system.h>
-#include <hashmap.h>
-#include <module.h>
-#include <logging.h>
-#include <printf.h>
-
-#include <mod/shell.h>
-#include <video.h>
+#include <kernel/system.h>
+#include <kernel/hashmap.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/video.h>
+#include <kernel/mod/shell.h>
 
 DEFINE_SHELL_FUNCTION(set_mode, "Set display mode") {
 	if (argc < 3) {

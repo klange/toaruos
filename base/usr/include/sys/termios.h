@@ -3,7 +3,7 @@
 #ifndef _KERNEL_
 #include <sys/types.h>
 #else
-#include <types.h>
+#include <kernel/types.h>
 #endif
 
 /* Technically part of ioctl */

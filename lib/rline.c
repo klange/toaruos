@@ -10,8 +10,8 @@
 
 #include <_xlog.h>
 
-#include "kbd.h"
-#include "rline.h"
+#include <toaru/kbd.h>
+#include <toaru/rline.h>
 
 static struct termios old;
 

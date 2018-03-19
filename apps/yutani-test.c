@@ -13,9 +13,9 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#include "lib/yutani.h"
-#include "lib/graphics.h"
-#include "lib/pthread.h"
+#include <toaru/yutani.h>
+#include <toaru/graphics.h>
+#include <toaru/pthread.h>
 
 static int left, top, width, height;
 

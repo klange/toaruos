@@ -22,7 +22,7 @@ extern char** environ;
 
 static int __trace_ld = 0;
 
-#include "../lib/trace.h"
+#include <toaru/trace.h>
 
 #include "../lib/list.c"
 #include "../lib/hashmap.c"

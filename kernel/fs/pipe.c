@@ -7,11 +7,11 @@
  *
  */
 
-#include <system.h>
-#include <fs.h>
-#include <printf.h>
-#include <pipe.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/pipe.h>
+#include <kernel/logging.h>
 
 #define DEBUG_PIPES 0
 

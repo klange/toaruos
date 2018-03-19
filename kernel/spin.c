@@ -6,7 +6,7 @@
  * Spin locks with waiters
  *
  */
-#include <system.h>
+#include <kernel/system.h>
 
 static inline int arch_atomic_swap(volatile int * x, int v) {
 	asm("xchg %0, %1" : "=r"(v), "=m"(*x) : "0"(v) : "memory");

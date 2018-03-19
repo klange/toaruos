@@ -3,12 +3,13 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <system.h>
-#include <fs.h>
-#include <pipe.h>
-#include <module.h>
-#include <logging.h>
-#include <ioctl.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+
+#include <sys/ioctl.h>
 
 #define MAX_PACKET_SIZE 1024
 

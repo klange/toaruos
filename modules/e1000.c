@@ -3,15 +3,15 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2017 Kevin Lange
  */
-#include <module.h>
-#include <logging.h>
-#include <printf.h>
-#include <pci.h>
-#include <mem.h>
-#include <list.h>
-#include <pipe.h>
-#include <ipv4.h>
-#include <mod/net.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
+#include <kernel/mem.h>
+#include <kernel/list.h>
+#include <kernel/pipe.h>
+#include <kernel/ipv4.h>
+#include <kernel/mod/net.h>
 
 static uint32_t e1000_device_pci = 0x00000000;
 static int e1000_irq = 0;

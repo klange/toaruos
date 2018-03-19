@@ -6,9 +6,8 @@
  * General-purpose list implementations.
  */
 
-#include "list.h"
-
 #include <string.h>
+#include <toaru/list.h>
 
 void list_destroy(list_t * list) {
 	/* Free all of the contents of a list */

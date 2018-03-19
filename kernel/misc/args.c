@@ -11,11 +11,11 @@
  *
  * This module provides access 
  */
-#include <system.h>
-#include <logging.h>
-#include <args.h>
-#include <hashmap.h>
-#include <tokenize.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/args.h>
+#include <kernel/hashmap.h>
+#include <kernel/tokenize.h>
 
 char * cmdline = NULL;
 

@@ -5,22 +5,22 @@
   *
  * Kernel Debug Shell
  */
-#include <system.h>
-#include <fs.h>
-#include <printf.h>
-#include <logging.h>
-#include <process.h>
-#include <version.h>
-#include <termios.h>
-#include <tokenize.h>
-#include <hashmap.h>
-#include <pci.h>
-#include <pipe.h>
-#include <elf.h>
-#include <module.h>
-#include <args.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/logging.h>
+#include <kernel/process.h>
+#include <kernel/version.h>
+#include <kernel/tokenize.h>
+#include <kernel/hashmap.h>
+#include <kernel/pci.h>
+#include <kernel/pipe.h>
+#include <kernel/elf.h>
+#include <kernel/module.h>
+#include <kernel/args.h>
+#include <kernel/mod/shell.h>
 
-#include <mod/shell.h>
+#include <sys/termios.h>
 
 /*
  * This is basically the same as a userspace buffered/unbuffered

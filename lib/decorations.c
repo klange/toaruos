@@ -9,11 +9,10 @@
 #include <stdint.h>
 #include <math.h>
 #include <dlfcn.h>
-#include "lib/graphics.h"
-#include "lib/yutani.h"
-//#include "lib/shmemfonts.h"
 
-#include "decorations.h"
+#include <toaru/graphics.h>
+#include <toaru/yutani.h>
+#include <toaru/decorations.h>
 
 uint32_t decor_top_height     = 33;
 uint32_t decor_bottom_height  = 6;

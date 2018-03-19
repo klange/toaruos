@@ -6,9 +6,9 @@
  * Signal Handling
  */
 
-#include <system.h>
-#include <signal.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/signal.h>
+#include <kernel/logging.h>
 
 void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 	IRQ_OFF;

@@ -7,16 +7,17 @@
  * Syscall Tables
  *
  */
-#include <system.h>
-#include <process.h>
-#include <logging.h>
-#include <fs.h>
-#include <pipe.h>
-#include <version.h>
-#include <shm.h>
-#include <utsname.h>
-#include <printf.h>
-#include <module.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/version.h>
+#include <kernel/shm.h>
+#include <kernel/printf.h>
+#include <kernel/module.h>
+
+#include <sys/utsname.h>
 #include <syscall_nums.h>
 
 static char   hostname[256];

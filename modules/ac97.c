@@ -9,13 +9,13 @@
  * See <http://www.intel.com/design/chipsets/manuals/29802801.pdf>.
  */
 
-#include <logging.h>
-#include <mem.h>
-#include <module.h>
-#include <mod/snd.h>
-#include <printf.h>
-#include <pci.h>
-#include <system.h>
+#include <kernel/logging.h>
+#include <kernel/mem.h>
+#include <kernel/module.h>
+#include <kernel/mod/snd.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
+#include <kernel/system.h>
 
 /* Utility macros */
 #define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))

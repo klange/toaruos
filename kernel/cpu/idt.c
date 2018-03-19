@@ -7,8 +7,8 @@
  * Interrupt Descriptor Tables
  *
  */
-#include <system.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
 
 typedef struct {
 	uint16_t base_low;
