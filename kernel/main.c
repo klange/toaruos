@@ -39,15 +39,15 @@
  * WITH THE SOFTWARE.
  */
 
-#include <system.h>
-#include <boot.h>
-#include <ext2.h>
-#include <fs.h>
-#include <logging.h>
-#include <process.h>
-#include <shm.h>
-#include <args.h>
-#include <module.h>
+#include <kernel/system.h>
+#include <kernel/boot.h>
+#include <kernel/ext2.h>
+#include <kernel/fs.h>
+#include <kernel/logging.h>
+#include <kernel/process.h>
+#include <kernel/shm.h>
+#include <kernel/args.h>
+#include <kernel/module.h>
 
 uintptr_t initial_esp = 0;
 

@@ -3,9 +3,9 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013 Kevin Lange
  */
-#include <system.h>
-#include <logging.h>
-#include <tokenize.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/tokenize.h>
 
 int tokenize(char * str, char * sep, char **buf) {
 	char * pch_i;

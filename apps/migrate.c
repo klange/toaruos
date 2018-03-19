@@ -8,8 +8,8 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
-#include "lib/trace.h"
-#include "lib/hashmap.h"
+#include <toaru/trace.h>
+#include <toaru/hashmap.h>
 #define TRACE_APP_NAME "migrate"
 
 #define CHUNK_SIZE 4096

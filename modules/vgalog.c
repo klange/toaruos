@@ -1,8 +1,7 @@
-#include <system.h>
-#include <printf.h>
-#include <module.h>
-
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/printf.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
 
 #include "../lib/termemu.c"
 

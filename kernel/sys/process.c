@@ -10,14 +10,14 @@
  * Internal format format for a process and functions to spawn
  * new processes and manage the process tree.
  */
-#include <system.h>
-#include <process.h>
-#include <tree.h>
-#include <list.h>
-#include <bitset.h>
-#include <logging.h>
-#include <shm.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/tree.h>
+#include <kernel/list.h>
+#include <kernel/bitset.h>
+#include <kernel/logging.h>
+#include <kernel/shm.h>
+#include <kernel/printf.h>
 
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_list;  /* Flat storage */

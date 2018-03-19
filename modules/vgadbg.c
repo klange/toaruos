@@ -1,8 +1,7 @@
-#include <system.h>
-#include <printf.h>
-#include <module.h>
-
-#include <ata.h>
+#include <kernel/system.h>
+#include <kernel/printf.h>
+#include <kernel/module.h>
+#include <kernel/ata.h>
 
 static unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {

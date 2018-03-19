@@ -6,7 +6,7 @@
  * System Functions
  *
  */
-#include <system.h>
+#include <kernel/system.h>
 
 char * boot_arg = NULL;
 char * boot_arg_extra = NULL;

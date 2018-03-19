@@ -3,9 +3,9 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2014 Kevin Lange
  */
-#include <system.h>
-#include <ringbuffer.h>
-#include <process.h>
+#include <kernel/system.h>
+#include <kernel/ringbuffer.h>
+#include <kernel/process.h>
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer) {
 	if (ring_buffer->read_ptr == ring_buffer->write_ptr) {

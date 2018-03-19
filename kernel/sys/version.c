@@ -4,7 +4,7 @@
  * Copyright (C) 2011-2017 Kevin Lange
  */
 
-#include <version.h>
+#include <kernel/version.h>
 
 /* Kernel name. If you change this, you're not
  * my friend any more. */

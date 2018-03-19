@@ -24,10 +24,10 @@
 
 #include <wchar.h>
 
-#include "lib/utf8decode.h"
-#include "lib/kbd.h"
-#include "lib/graphics.h"
-#include "lib/termemu.h"
+#include <toaru/utf8decode.h>
+#include <toaru/kbd.h>
+#include <toaru/graphics.h>
+#include <toaru/termemu.h>
 
 #include "vga-palette.h"
 

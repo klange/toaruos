@@ -11,7 +11,7 @@
  *   - It translates incoming keys to escape sequences
  */
 
-#include "kbd.h"
+#include <toaru/kbd.h>
 
 #define DEBUG_SCANCODES 0
 

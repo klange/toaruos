@@ -6,7 +6,8 @@
 #include <stdint.h>
 #include <syscall.h>
 #include <signal.h>
-#include "pthread.h"
+
+#include <toaru/pthread.h>
 
 #define PTHREAD_STACK_SIZE 0x100000
 

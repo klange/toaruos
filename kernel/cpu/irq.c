@@ -7,10 +7,10 @@
  * Interrupt Requests
  *
  */
-#include <system.h>
-#include <logging.h>
-#include <module.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
 
 /* Programmable interrupt controller */
 #define PIC1           0x20

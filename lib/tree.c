@@ -6,13 +6,13 @@
  * General-purpose tree implementation
  */
 
-#include "tree.h"
-
 #ifdef _KERNEL_
-#	include <system.h>
+#	include <kernel/tree.h>
+#	include <kernel/system.h>
 #else
 #	include <stddef.h>
 #	include <stdlib.h>
+#	include <toaru/tree.h>
 #endif
 
 tree_t * tree_create(void) {

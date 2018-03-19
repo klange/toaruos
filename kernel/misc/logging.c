@@ -9,11 +9,11 @@
  * told not to).
  */
 
-#include <system.h>
-#include <list.h>
-#include <logging.h>
-#include <va_list.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/list.h>
+#include <kernel/logging.h>
+#include <kernel/va_list.h>
+#include <kernel/printf.h>
 
 log_type_t debug_level = NOTICE;
 void * debug_file = NULL;

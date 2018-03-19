@@ -1,10 +1,10 @@
 #pragma once
 
-#include "lib/yutani.h"
-#include "lib/list.h"
-#include "lib/hashmap.h"
-#include "lib/graphics.h"
-#include "lib/kbd.h"
+#include <toaru/yutani.h>
+#include <toaru/list.h>
+#include <toaru/hashmap.h>
+#include <toaru/graphics.h>
+#include <toaru/kbd.h>
 
 #define MOUSE_SCALE 3
 #define MOUSE_OFFSET_X 26

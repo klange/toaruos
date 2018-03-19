@@ -8,13 +8,13 @@
  * Virtual File System
  *
  */
-#include <system.h>
-#include <fs.h>
-#include <printf.h>
-#include <list.h>
-#include <process.h>
-#include <logging.h>
-#include <hashmap.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/list.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/hashmap.h>
 
 #define MAX_SYMLINK_DEPTH 8
 #define MAX_SYMLINK_SIZE 4096

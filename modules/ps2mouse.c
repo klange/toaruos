@@ -6,12 +6,12 @@
  * Mouse driver
  *
  */
-#include <system.h>
-#include <logging.h>
-#include <pipe.h>
-#include <module.h>
-#include <mouse.h>
-#include <args.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/pipe.h>
+#include <kernel/module.h>
+#include <kernel/mouse.h>
+#include <kernel/args.h>
 
 static uint8_t mouse_cycle = 0;
 static uint8_t mouse_byte[4];

@@ -8,14 +8,14 @@
  * Provides raw block access to an (Parallel) ATA drive.
  */
 
-#include <system.h>
-#include <logging.h>
-#include <module.h>
-#include <fs.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
 
 /* TODO: Move this to mod/ata.h */
-#include <ata.h>
+#include <kernel/ata.h>
 
 static char ata_drive_char = 'a';
 

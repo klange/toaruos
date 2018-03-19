@@ -3,15 +3,15 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <system.h>
-#include <types.h>
-#include <fs.h>
-#include <ext2.h>
-#include <logging.h>
-#include <module.h>
-#include <args.h>
-#include <printf.h>
-#include <tokenize.h>
+#include <kernel/system.h>
+#include <kernel/types.h>
+#include <kernel/fs.h>
+#include <kernel/ext2.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/args.h>
+#include <kernel/printf.h>
+#include <kernel/tokenize.h>
 
 #define EXT2_BGD_BLOCK 2
 

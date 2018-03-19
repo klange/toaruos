@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
-#include "pex.h"
+#include <toaru/pex.h>
 
 size_t pex_send(FILE * sock, unsigned int rcpt, size_t size, char * blob) {
 	assert(size <= MAX_PACKET_SIZE);

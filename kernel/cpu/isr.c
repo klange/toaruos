@@ -6,10 +6,10 @@
  *
  * Interrupt Service Requests
  */
-#include <system.h>
-#include <logging.h>
-#include <module.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
 
 /* The count is treated as is when setting up IDT gates. However there is an
  * additional ISR for the system call vector which is handled explicitly since

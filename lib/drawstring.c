@@ -1,5 +1,5 @@
-#include "lib/utf8decode.h"
-#include "lib/graphics.h"
+#include <toaru/utf8decode.h>
+#include <toaru/graphics.h>
 
 #include "terminal-font.h"
 

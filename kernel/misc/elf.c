@@ -7,11 +7,11 @@
  *
  */
 
-#include <system.h>
-#include <fs.h>
-#include <elf.h>
-#include <process.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/elf.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
 
 int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env, int interp) {
 	Elf32_Header header;

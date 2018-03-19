@@ -10,13 +10,12 @@
  *
  */
 
-#include <system.h>
-#include <logging.h>
-#include <fs.h>
-#include <pipe.h>
-#include <process.h>
-
-#include <module.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/process.h>
+#include <kernel/module.h>
 
 #define KEY_DEVICE  0x60
 #define KEY_PENDING 0x64

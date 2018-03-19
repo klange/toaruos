@@ -5,9 +5,9 @@
  *
  * Programmable Interrupt Timer
  */
-#include <system.h>
-#include <logging.h>
-#include <process.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/process.h>
 
 #define PIT_A 0x40
 #define PIT_B 0x41

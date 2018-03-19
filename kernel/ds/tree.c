@@ -6,11 +6,11 @@
  * General-purpose tree implementation
  */
 
-#include "tree.h"
-
 #ifdef _KERNEL_
-#	include <system.h>
+#	include <kernel/tree.h>
+#	include <kernel/system.h>
 #else
+#	include <toaru/tree.h>
 #	include <stddef.h>
 #	include <stdlib.h>
 #endif

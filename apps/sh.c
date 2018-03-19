@@ -33,9 +33,9 @@
 
 #include <_xlog.h>
 
-#include "lib/list.h"
-#include "lib/kbd.h"
-#include "lib/rline.h"
+#include <toaru/list.h>
+#include <toaru/kbd.h>
+#include <toaru/rline.h>
 
 #define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
 #define STAR_TOKEN "\xFF\xFFSTAR\xFF\xFF"

@@ -34,17 +34,15 @@
 #include <wchar.h>
 
 #define TRACE_APP_NAME "terminal"
-#include "lib/trace.h"
-
-#include "lib/utf8decode.h"
-
-#include "lib/yutani.h"
-#include "lib/decorations.h"
-#include "lib/graphics.h"
-#include "lib/kbd.h"
-#include "lib/termemu.h"
-#include "lib/spinlock.h"
-#include "lib/list.h"
+#include <toaru/trace.h>
+#include <toaru/utf8decode.h>
+#include <toaru/yutani.h>
+#include <toaru/decorations.h>
+#include <toaru/graphics.h>
+#include <toaru/kbd.h>
+#include <toaru/termemu.h>
+#include <toaru/spinlock.h>
+#include <toaru/list.h>
 
 #include "terminal-palette.h"
 #include "terminal-font.h"

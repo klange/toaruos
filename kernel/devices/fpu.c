@@ -15,8 +15,8 @@
  * FPU states are per kernel thread.
  *
  */
-#include <system.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
 
 #define NO_LAZY_FPU
 

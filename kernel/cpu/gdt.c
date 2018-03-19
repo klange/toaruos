@@ -7,9 +7,9 @@
  * Global Descriptor Tables module
  *
  */
-#include <system.h>
-#include <logging.h>
-#include <tss.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/tss.h>
 
 typedef struct {
 	/* Limits */

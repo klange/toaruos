@@ -3,13 +3,13 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <module.h>
-#include <logging.h>
-#include <hashmap.h>
-#include <ipv4.h>
-#include <printf.h>
-#include <tokenize.h>
-#include <mod/net.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+#include <kernel/hashmap.h>
+#include <kernel/ipv4.h>
+#include <kernel/printf.h>
+#include <kernel/tokenize.h>
+#include <kernel/mod/net.h>
 
 static hashmap_t * dns_cache;
 static list_t * dns_waiters = NULL;

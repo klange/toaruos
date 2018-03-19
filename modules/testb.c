@@ -3,10 +3,10 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <system.h>
-#include <hashmap.h>
-#include <module.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/hashmap.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
 
 extern int a_function(void);
 

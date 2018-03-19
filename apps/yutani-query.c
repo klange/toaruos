@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <getopt.h>
 
-#include "lib/yutani.h"
+#include <toaru/yutani.h>
 
 yutani_t * yctx;
 

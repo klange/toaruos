@@ -4,7 +4,7 @@
  * Copyright (C) 2015 Dale Weiler
  *               2015 Kevin Lange
  */
-#include "bitset.h"
+#include <kernel/bitset.h>
 
 #define CEIL(NUMBER, BASE) \
 	(((NUMBER) + (BASE) - 1) & ~((BASE) - 1))

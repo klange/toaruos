@@ -3,9 +3,9 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <module.h>
-#include <printf.h>
-#include <mod/shell.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
+#include <kernel/mod/shell.h>
 
 static void note(int length, int freq) {
 

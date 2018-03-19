@@ -7,9 +7,9 @@
  *
  */
 
-#include <system.h>
-#include <fs.h>
-#include <module.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/module.h>
 
 static uint32_t read_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 static uint32_t write_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);

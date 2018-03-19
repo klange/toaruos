@@ -19,8 +19,8 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include "lib/list.h"
-#include "lib/tree.h"
+#include <toaru/list.h>
+#include <toaru/tree.h>
 
 typedef struct process {
 	int pid;

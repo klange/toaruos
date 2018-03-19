@@ -3,14 +3,14 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <system.h>
-#include <fs.h>
-#include <pipe.h>
-#include <logging.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/ringbuffer.h>
 
-#include <ioctl.h>
-#include <ringbuffer.h>
+#include <sys/ioctl.h>
 
 #define UNIX_PIPE_BUFFER 512
 

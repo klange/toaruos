@@ -50,10 +50,10 @@ cdrom/mod:
 
 MODULES = $(patsubst modules/%.c,cdrom/mod/%.ko,$(wildcard modules/*.c))
 
-HEADERS = $(shell find kernel/include/ -type f -name '*.h')
+HEADERS = $(shell find base/usr/include/kernel -type f -name '*.h')
 
 cdrom/mod/%.ko: modules/%.c ${HEADERS} | cdrom/mod
-	${KCC} -T modules/link.ld -I./kernel/include -nostdlib ${KCFLAGS} -c -o $@ $<
+	${KCC} -T modules/link.ld -nostdlib ${KCFLAGS} -c -o $@ $<
 
 modules: ${MODULES}
 
@@ -61,7 +61,7 @@ kernel/%.o: kernel/%.S
 	${KAS} ${ASFLAGS} $< -o $@
 
 kernel/%.o: kernel/%.c ${HEADERS}
-	${KCC} ${KCFLAGS} -nostdlib -g -I./kernel/include -c -o $@ $<
+	${KCC} ${KCFLAGS} -nostdlib -g -c -o $@ $<
 
 # Root Filesystem
 
@@ -102,48 +102,48 @@ base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 
 # Shared Libraries
 
-base/lib/libtoaru_graphics.so: lib/graphics.c lib/graphics.h
+base/lib/libtoaru_graphics.so: lib/graphics.c base/usr/include/toaru/graphics.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_list.so: lib/list.c lib/list.h
+base/lib/libtoaru_list.so: lib/list.c base/usr/include/toaru/list.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_tree.so: lib/tree.c lib/tree.h base/lib/libtoaru_list.so
+base/lib/libtoaru_tree.so: lib/tree.c base/usr/include/toaru/tree.h base/lib/libtoaru_list.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
 
-base/lib/libtoaru_hashmap.so: lib/hashmap.c lib/hashmap.h base/lib/libtoaru_list.so
+base/lib/libtoaru_hashmap.so: lib/hashmap.c base/usr/include/toaru/hashmap.h base/lib/libtoaru_list.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
 
-base/lib/libtoaru_kbd.so: lib/kbd.c lib/kbd.h
+base/lib/libtoaru_kbd.so: lib/kbd.c base/usr/include/toaru/kbd.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_pthread.so: lib/pthread.c lib/pthread.h
+base/lib/libtoaru_pthread.so: lib/pthread.c base/usr/include/toaru/pthread.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_pex.so: lib/pex.c lib/pex.h
+base/lib/libtoaru_pex.so: lib/pex.c base/usr/include/toaru/pex.h
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
 base/lib/libtoaru_dlfcn.so: lib/dlfcn.c
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_yutani.so: lib/yutani.c lib/yutani.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_yutani.so: lib/yutani.c base/usr/include/toaru/yutani.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
-base/lib/libtoaru_rline.so: lib/rline.c lib/rline.h base/lib/libtoaru_kbd.so
+base/lib/libtoaru_rline.so: lib/rline.c base/usr/include/toaru/rline.h base/lib/libtoaru_kbd.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_kbd
 
-base/lib/libtoaru_termemu.so: lib/termemu.c lib/termemu.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_termemu.so: lib/termemu.c base/usr/include/toaru/termemu.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
-base/lib/libtoaru_drawstring.so: lib/drawstring.c lib/drawstring.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_drawstring.so: lib/drawstring.c base/usr/include/toaru/drawstring.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
-base/lib/libtoaru_decorations.so: lib/decorations.c lib/decorations.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_decorations.so: lib/decorations.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
 # Decoration Themes
 
-base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c lib/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so base/lib/libtoaru_drawstring.so
+base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so base/lib/libtoaru_drawstring.so
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_decorations -ltoaru_drawstring -ltoaru_graphics
 
 # Init

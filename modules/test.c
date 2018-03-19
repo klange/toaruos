@@ -3,13 +3,12 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 Kevin Lange
  */
-#include <system.h>
-#include <hashmap.h>
-#include <module.h>
-#include <logging.h>
-#include <printf.h>
-
-#include <mod/shell.h>
+#include <kernel/system.h>
+#include <kernel/hashmap.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/mod/shell.h>
 
 extern char * special_thing;
 

@@ -12,16 +12,16 @@
  * Actually supports mouse buttons, unlike the one in VirtualBox.
  */
 
-#include <system.h>
-#include <fs.h>
-#include <printf.h>
-#include <types.h>
-#include <logging.h>
-#include <module.h>
-#include <video.h>
-#include <pipe.h>
-#include <mouse.h>
-#include <args.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/types.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/video.h>
+#include <kernel/pipe.h>
+#include <kernel/mouse.h>
+#include <kernel/args.h>
 
 #define VMWARE_MAGIC 0x564D5868
 #define VMWARE_PORT  0x5658
