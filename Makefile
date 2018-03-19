@@ -12,6 +12,7 @@ CFLAGS= -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps
 LIBS=
 
 LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
+LC=base/lib/libc.so
 
 APPS_X=$(foreach app,$(APPS),base/bin/$(app))
 
@@ -102,48 +103,48 @@ base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 
 # Shared Libraries
 
-base/lib/libtoaru_graphics.so: lib/graphics.c base/usr/include/toaru/graphics.h
+base/lib/libtoaru_graphics.so: lib/graphics.c base/usr/include/toaru/graphics.h ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_list.so: lib/list.c base/usr/include/toaru/list.h
+base/lib/libtoaru_list.so: lib/list.c base/usr/include/toaru/list.h ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_tree.so: lib/tree.c base/usr/include/toaru/tree.h base/lib/libtoaru_list.so
+base/lib/libtoaru_tree.so: lib/tree.c base/usr/include/toaru/tree.h base/lib/libtoaru_list.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
 
-base/lib/libtoaru_hashmap.so: lib/hashmap.c base/usr/include/toaru/hashmap.h base/lib/libtoaru_list.so
+base/lib/libtoaru_hashmap.so: lib/hashmap.c base/usr/include/toaru/hashmap.h base/lib/libtoaru_list.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
 
-base/lib/libtoaru_kbd.so: lib/kbd.c base/usr/include/toaru/kbd.h
+base/lib/libtoaru_kbd.so: lib/kbd.c base/usr/include/toaru/kbd.h ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_pthread.so: lib/pthread.c base/usr/include/toaru/pthread.h
+base/lib/libtoaru_pthread.so: lib/pthread.c base/usr/include/toaru/pthread.h ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_pex.so: lib/pex.c base/usr/include/toaru/pex.h
+base/lib/libtoaru_pex.so: lib/pex.c base/usr/include/toaru/pex.h ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_dlfcn.so: lib/dlfcn.c
+base/lib/libtoaru_dlfcn.so: lib/dlfcn.c ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
 
-base/lib/libtoaru_yutani.so: lib/yutani.c base/usr/include/toaru/yutani.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_yutani.so: lib/yutani.c base/usr/include/toaru/yutani.h base/lib/libtoaru_graphics.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
-base/lib/libtoaru_rline.so: lib/rline.c base/usr/include/toaru/rline.h base/lib/libtoaru_kbd.so
+base/lib/libtoaru_rline.so: lib/rline.c base/usr/include/toaru/rline.h base/lib/libtoaru_kbd.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_kbd
 
-base/lib/libtoaru_termemu.so: lib/termemu.c base/usr/include/toaru/termemu.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_termemu.so: lib/termemu.c base/usr/include/toaru/termemu.h base/lib/libtoaru_graphics.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
-base/lib/libtoaru_drawstring.so: lib/drawstring.c base/usr/include/toaru/drawstring.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_drawstring.so: lib/drawstring.c base/usr/include/toaru/drawstring.h base/lib/libtoaru_graphics.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
-base/lib/libtoaru_decorations.so: lib/decorations.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so
+base/lib/libtoaru_decorations.so: lib/decorations.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
 
 # Decoration Themes
 
-base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so base/lib/libtoaru_drawstring.so
+base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so base/lib/libtoaru_drawstring.so ${LC}
 	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_decorations -ltoaru_drawstring -ltoaru_graphics
 
 # Init
@@ -186,7 +187,7 @@ base/bin/compositor: apps/compositor.c base/lib/libc.so base/lib/libtoaru_graphi
 base/bin/ls: apps/ls.c base/lib/libc.so base/lib/libtoaru_list.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_list $(LIBS)
 
-base/bin/nyancat: apps/nyancat/nyancat.c base/lib/libc.so
+base/bin/nyancat: apps/nyancat/nyancat.c ${LC}
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
 base/bin/ps: apps/ps.c base/lib/libc.so base/lib/libtoaru_list.so
@@ -195,7 +196,7 @@ base/bin/ps: apps/ps.c base/lib/libc.so base/lib/libtoaru_list.so
 base/bin/pstree: apps/pstree.c base/lib/libc.so base/lib/libtoaru_tree.so base/lib/libtoaru_list.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_tree -ltoaru_list $(LIBS)
 
-base/bin/%: apps/%.c base/lib/libc.so | dirs
+base/bin/%: apps/%.c base/lib/libc.so ${LC} | dirs
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
 # Ramdisk
