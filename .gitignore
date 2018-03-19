@@ -10,3 +10,5 @@ cdrom/boot/boot.sys
 util/tarballs
 util/build
 util/local
+.gdb_history
+kernel/symbols.S

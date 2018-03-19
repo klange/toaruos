@@ -231,7 +231,7 @@ clean:
 	rm -f cdrom/boot/boot.sys
 	rm -f boot/*.o
 	rm -f cdrom/kernel
-	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o
+	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
 	rm -f base/lib/crt*.o
 	rm -f ${MODULES}
 
