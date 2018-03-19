@@ -59,3 +59,16 @@ ToaruOS's kernel is entirely in-house. Its userspace, however, is built on sever
 6. Enough C to port Python. (In progress)
 
 7. Enough C to port GCC. (In progress)
+
+## Project Layout
+
+- **apps** - Userspace applications, all first-party.
+- **base** - Ramdisk root filesystem staging directory. Includes C headers in `base/usr/include`, as well as graphical resources for the compositor and window decorator.
+- **boot** - Bootloader.
+- **decors** - Decoration themes.
+- **kernel** - The ToaruOS kernel.
+- **lib** - Userspace libraries.
+- **libc** - C standard library implementation.
+- **linker** - Userspace dynamic linker/loader, implements shared library support.
+- **modules** - Kernel modules/drivers.
+- **util** - Utility scripts, staging directory for the toolchain (binutils/gcc).
