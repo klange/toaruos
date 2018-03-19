@@ -168,6 +168,11 @@ static int mouse_install(void) {
 	debug_print(NOTICE, "Initializing PS/2 mouse interface");
 	uint8_t status, result;
 	IRQ_OFF;
+
+	while ((inportb(0x64) & 1)) {
+		inportb(0x60);
+	}
+
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_wait(1);
 	outportb(MOUSE_STATUS, 0xA8);
@@ -184,6 +189,16 @@ static int mouse_install(void) {
 	mouse_read();
 	mouse_write(0xF4);
 	mouse_read();
+
+	/* keyboard scancode set */
+	mouse_wait(1);
+	outportb(MOUSE_PORT, 0xF0);
+	mouse_wait(1);
+	outportb(MOUSE_PORT, 0x02);
+	mouse_wait(1);
+	mouse_read();
+
+
 	/* Try to enable scroll wheel (but not buttons) */
 	if (!args_present("nomousescroll")) {
 		mouse_write(0xF2);
@@ -216,6 +231,10 @@ static int mouse_install(void) {
 	outportb(0x61, tmp | 0x80);
 	outportb(0x61, tmp & 0x7F);
 	inportb(MOUSE_PORT);
+
+	while ((inportb(0x64) & 1)) {
+		inportb(0x60);
+	}
 
 	mouse_pipe->flags = FS_CHARDEVICE;
 	mouse_pipe->ioctl = ioctl_mouse;
