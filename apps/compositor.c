@@ -103,10 +103,29 @@ static int parse_args(int argc, char * argv[], int * out) {
 					case 'n':
 						yutani_options.nested = 1;
 						break;
+					case 'g':
+						{
+							char * c = strstr(argv[i+1], "x");
+							if (c) {
+								*c = '\0';
+								c++;
+								yutani_options.nest_width  = atoi(argv[i+1]);
+								yutani_options.nest_height = atoi(c);
+							}
+							i += 2;
+							goto _next;
+						}
+					case 'h':
+						return usage(argv);
+					default:
+						fprintf(stderr, "Unrecognized option: %c\n", c);
+						break;
 				}
 				c++;
 			}
 		}
+_next:
+		;
 	}
 #if 0
 	static struct option long_opts[] = {
@@ -1822,6 +1841,11 @@ int main(int argc, char * argv[]) {
 		yg->backend_ctx = init_graphics_yutani_double_buffer(yg->host_window);
 		yg->stride = yg->backend_ctx->width * 4;
 	} else {
+		char * d = getenv("DISPLAY");
+		if (d && *d) {
+			fprintf(stderr, "DISPLAY is already set but not running nested. This is probably wrong.\n");
+			return 1;
+		}
 		_static_yg = yg;
 		signal(SIGWINEVENT, yutani_display_resize_handle);
 		yg->backend_ctx = init_graphics_fullscreen_double_buffer();
