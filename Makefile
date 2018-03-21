@@ -1,5 +1,9 @@
 APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate free uptime
 
+ifeq ($(TOOLCHAIN),)
+	export PATH := $(shell util/activate.sh)
+endif
+
 KERNEL_TARGET=i686-pc-toaru
 KCC = $(KERNEL_TARGET)-gcc
 KAS = $(KERNEL_TARGET)-as
