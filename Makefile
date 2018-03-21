@@ -1,7 +1,16 @@
 APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate free uptime
 
 ifeq ($(TOOLCHAIN),)
-	export PATH := $(shell util/activate.sh)
+  ifeq ($(shell util/check.sh),y)
+    export PATH := $(shell util/activate.sh)
+  else
+    FOO := $(shell util/prompt.sh)
+    ifeq ($(shell util/check.sh),y)
+      export PATH := $(shell util/activate.sh)
+    else
+      $(error "No toolchain, and you did not ask to build it.")
+    endif
+  endif
 endif
 
 KERNEL_TARGET=i686-pc-toaru
