@@ -8,7 +8,7 @@ if [ ! -e "$DIR/local/bin/i686-pc-toaru-gcc" ]; then
     case $response in
         [yY]) bash $DIR/build-gcc.sh ;;
         [nN]) exit 1 ;;
-        *)
+        *) exit 1 ;;
     esac
 fi
 

@@ -12,17 +12,7 @@ The userspace includes a work-in-progress C standard library, the ToaruOS native
 
 You'll need a working compiler to build the gcc cross-compiler targeting `i686-pc-toaru`. You will also need `yasm` for some assorted assembly files I was too lazy to translate to gas. `xorriso` is needed to build the final CD, `genext2fs` (with Debian patches) is needed for the ramdisk. Python is needed for some parts of the build as well.
 
-Install the toolchain:
-
-    bash util/build-gcc.sh
-
-Activate it:
-
-    . util/activate.sh
-
-Run Make:
-
-    make
+Run `make` and you will be prompted to build a toolchain. Reply `y` and allow the toolchain to build.
 
 ## Rationale
 
