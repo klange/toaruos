@@ -118,7 +118,7 @@ static int parse_args(int argc, char * argv[], int * out) {
 					case 'h':
 						return usage(argv);
 					default:
-						fprintf(stderr, "Unrecognized option: %c\n", c);
+						fprintf(stderr, "Unrecognized option: %c\n", *c);
 						break;
 				}
 				c++;
@@ -214,7 +214,11 @@ static uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time) {
  * Translate and transform coordinate from screen-relative to window-relative.
  */
 static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
-	if (!window) return;
+	if (!window) {
+		*out_x = 0;
+		*out_y = 0;
+		return;
+	}
 	*out_x = x - window->x;
 	*out_y = y - window->y;
 
@@ -240,13 +244,15 @@ static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t
  */
 static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
 
+#if 0
 	if (!window->rotation) {
+#endif
 		*out_x = window->x + x;
 		*out_y = window->y + y;
+#if 0
 		return;
 	}
 
-#if 0
 	double t_x = x - (window->width / 2);
 	double t_y = y - (window->height / 2);
 
@@ -290,7 +296,6 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 		return;
 	}
 
-	int z = window->z;
 	spin_lock(&yg->redraw_lock);
 	unorder_window(yg, window);
 	spin_unlock(&yg->redraw_lock);
@@ -579,6 +584,8 @@ static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
 			case SCALE_DOWN_LEFT:
 			case SCALE_UP_RIGHT:
 				sprite = &yg->mouse_sprite_resize_db;
+				break;
+			default:
 				break;
 		}
 	} else if (yg->mouse_state == YUTANI_MOUSE_STATE_MOVING) {
@@ -1972,7 +1979,10 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	int fds[4], mfd, kfd, amfd;
+	int fds[4];
+	int mfd = -1;
+	int kfd = -1;
+	int amfd = -1;
 	int vmmouse = 0;
 	mouse_device_packet_t packet;
 	key_event_t event;
