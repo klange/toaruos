@@ -21,7 +21,7 @@ KNM = $(KERNEL_TARGET)-nm
 
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
-CFLAGS= -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps 
+CFLAGS= -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps -pipe
 LIBS=
 
 LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
