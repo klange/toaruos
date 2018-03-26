@@ -117,6 +117,9 @@ static int parse_args(int argc, char * argv[], int * out) {
 						}
 					case 'h':
 						return usage(argv);
+					case '-':
+						// hm
+						return 0;
 					default:
 						fprintf(stderr, "Unrecognized option: %c\n", *c);
 						break;
