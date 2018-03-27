@@ -271,7 +271,6 @@ done:
 					}
 					ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 				}
-				print_("\n");
 				attr = 0x07;
 				print("Done.\n");
 				move_kernel();
