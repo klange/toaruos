@@ -41,41 +41,29 @@ static inline uint16_t max16(uint16_t a, uint16_t b) {
 }
 
 
-typedef struct {
-	int32_t start;
-	int32_t end;
-	void * next;
-} _clip_t;
-
 static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
 	if (!ctx->clips) return 1;
-	_clip_t * clip = ctx->clips;
-	while (clip) {
-		if (y >= clip->start && y <= clip->end) {
-			return 1;
-		}
-		clip = (_clip_t *)clip->next;
-	}
-	return 0;
+	return ctx->clips[y];
 }
 
 
 void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h) {
-	_clip_t * clip = malloc(sizeof(_clip_t));
-	clip->start = max(y,0);
-	clip->end = min(y+h,ctx->height);
-	clip->next = ctx->clips;
-	ctx->clips = clip;
+	if (ctx->clips && ctx->clips_size != ctx->height) {
+		free(ctx->clips);
+		ctx->clips = NULL;
+	}
+	if (!ctx->clips) {
+		ctx->clips = malloc(ctx->height);
+		memset(ctx->clips, 0, ctx->height);
+		ctx->clips_size = ctx->height;
+	}
+	memset(&ctx->clips[y], 0x01, h);
 }
 
 void gfx_clear_clip(gfx_context_t * ctx) {
-	_clip_t * clip = ctx->clips;
-	while (clip) {
-		_clip_t * tmp = clip->next;
-		free(clip);
-		clip = tmp;
+	if (ctx->clips) {
+		memset(ctx->clips, 0, ctx->clips_size);
 	}
-	ctx->clips = NULL;
 }
 
 /* Pointer to graphics memory */
