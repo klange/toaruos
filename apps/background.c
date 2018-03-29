@@ -27,9 +27,9 @@ static void draw_background(int width, int height) {
 		// special case
 		draw_sprite(wallpaper_ctx, wallpaper, 0, 0);
 	} else if (nw >= width) {
-		draw_sprite_scaled(wallpaper_ctx, wallpaper, ((int)wallpaper_window->width - nw) / 2, 0, nw, wallpaper_window->height);
+		draw_sprite_scaled(wallpaper_ctx, wallpaper, ((int)wallpaper_window->width - nw) / 2, 0, nw+2, wallpaper_window->height);
 	} else {
-		draw_sprite_scaled(wallpaper_ctx, wallpaper, 0, ((int)wallpaper_window->height - nh) / 2, wallpaper_window->width, nh);
+		draw_sprite_scaled(wallpaper_ctx, wallpaper, 0, ((int)wallpaper_window->height - nh) / 2, wallpaper_window->width+2, nh);
 	}
 }
 
