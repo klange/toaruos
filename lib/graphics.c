@@ -17,6 +17,9 @@
 #include <stdio.h>
 #include <math.h>
 
+#include <xmmintrin.h>
+#include <emmintrin.h>
+
 #include <kernel/video.h>
 
 #include <toaru/graphics.h>
@@ -547,10 +550,14 @@ void load_sprite(sprite_t * sprite, char * filename) {
 						(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
 						(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000;
 			} else if (bpp == 32) {
-				color =	(bufferb[i   + 4 * x] & 0xFF) * 0x1000000 +
-						(bufferb[i+1 + 4 * x] & 0xFF) * 0x1 +
-						(bufferb[i+2 + 4 * x] & 0xFF) * 0x100 +
-						(bufferb[i+3 + 4 * x] & 0xFF) * 0x10000;
+				if (bufferb[i + 4 * x] == 0) {
+					color = 0x000000;
+				} else {
+					color =	(bufferb[i   + 4 * x] & 0xFF) * 0x1000000 +
+							(bufferb[i+1 + 4 * x] & 0xFF) * 0x1 +
+							(bufferb[i+2 + 4 * x] & 0xFF) * 0x100 +
+							(bufferb[i+3 + 4 * x] & 0xFF) * 0x10000;
+				}
 			}
 			/* Set our point */
 			sprite->bitmap[(height - y - 1) * width + x] = color;
@@ -563,25 +570,124 @@ _cleanup_sprite:
 	free(bufferb);
 }
 
+static __m128i mask00ff;
+static __m128i mask0080;
+static __m128i mask0101;
+
+__attribute__((constructor)) static void _masks(void) {
+	mask00ff = _mm_set1_epi16(0x00FF);
+	mask0080 = _mm_set1_epi16(0x0080);
+	mask0101 = _mm_set1_epi16(0x0101);
+}
+
+__attribute__((__force_align_arg_pointer__))
 void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
+
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
-	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-		if (!_is_in_clip(ctx, y + _y)) continue;
-		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-				continue;
-			if (sprite->alpha == ALPHA_MASK) {
+	if (sprite->alpha == ALPHA_MASK) {
+		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+			if (!_is_in_clip(ctx, y + _y)) continue;
+			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+					continue;
 				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
-			} else if (sprite->alpha == ALPHA_EMBEDDED) {
+			}
+		}
+	} else if (sprite->alpha == ALPHA_EMBEDDED) {
+		/* Alpha embedded is the most important step. */
+		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+			if (!_is_in_clip(ctx, y + _y)) continue;
+#if 0
+			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+					continue;
 				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
-			} else if (sprite->alpha == ALPHA_INDEXED) {
+			}
+#else
+			uint16_t _x = 0;
+
+			/* Ensure alignment */
+			for (; _x < sprite->width && ((uintptr_t)&GFX(ctx, x + _x, y + _y) & 15); ++_x) {
+				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+					continue;
+				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
+			}
+			for (; _x < sprite->width - 3; _x += 4) {
+				if (x + _x < _left || x + _x + 3 > _right || y + _y < _top || y + _y > _bottom) {
+					continue;
+				}
+
+				__m128i d = _mm_load_si128((void *)&GFX(ctx, x + _x, y + _y));
+				__m128i s = _mm_loadu_si128((void *)&SPRITE(sprite, _x, _y));
+
+				// clear
+				if (_mm_movemask_epi8(_mm_cmpeq_epi8(s, _mm_setzero_si128())) == 0xFFFF)
+					continue;
+
+				// opaque
+				if (_mm_movemask_epi8(_mm_cmpeq_epi8(s, _mm_cmpeq_epi8(s,s))) & 0x8888 == 0x8888)
+					_mm_storeu_si128((void*)&GFX(ctx, x + _x, y + _y), s);
+
+				__m128i d_l, d_h;
+				__m128i s_l, s_h;
+
+				// unpack destination
+				d_l = _mm_unpacklo_epi8(d, _mm_setzero_si128());
+				d_h = _mm_unpackhi_epi8(d, _mm_setzero_si128());
+
+				// unpack source
+				s_l = _mm_unpacklo_epi8(s, _mm_setzero_si128());
+				s_h = _mm_unpackhi_epi8(s, _mm_setzero_si128());
+
+				__m128i a_l, a_h;
+				__m128i t_l, t_h;
+
+				// extract source alpha RGBA → AAAA
+				a_l = _mm_shufflehi_epi16(_mm_shufflelo_epi16(s_l, _MM_SHUFFLE(3,3,3,3)), _MM_SHUFFLE(3,3,3,3));
+				a_h = _mm_shufflehi_epi16(_mm_shufflelo_epi16(s_h, _MM_SHUFFLE(3,3,3,3)), _MM_SHUFFLE(3,3,3,3));
+
+				// negate source alpha
+				t_l = _mm_xor_si128(a_l, mask00ff);
+				t_h = _mm_xor_si128(a_h, mask00ff);
+
+				// apply source alpha to destination
+				d_l = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(d_l,t_l),mask0080),mask0101);
+				d_h = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(d_h,t_h),mask0080),mask0101);
+
+				// combine source and destination
+				d_l = _mm_adds_epu8(s_l,d_l);
+				d_h = _mm_adds_epu8(s_h,d_h);
+
+				// pack low + high and write back to memory
+				_mm_storeu_si128((void*)&GFX(ctx, x + _x, y + _y), _mm_packus_epi16(d_l,d_h));
+			}
+			for (; _x < sprite->width; ++_x) {
+				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+					continue;
+				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
+			}
+#endif
+		}
+	} else if (sprite->alpha == ALPHA_INDEXED) {
+		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+			if (!_is_in_clip(ctx, y + _y)) continue;
+			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+					continue;
 				if (SPRITE(sprite, _x, _y) != sprite->blank) {
 					GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
 				}
-			} else {
+			}
+		}
+	} else {
+		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+			if (!_is_in_clip(ctx, y + _y)) continue;
+			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+					continue;
 				GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
 			}
 		}
