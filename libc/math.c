@@ -25,3 +25,7 @@ double floor(double x) {
 int abs(int j) {
 	return (j < 0 ? -j : j);
 }
+
+double pow(double x, double y) {
+	return __builtin_pow(x,y);
+}
