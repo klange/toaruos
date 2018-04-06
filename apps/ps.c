@@ -117,7 +117,7 @@ void show_usage(int argc, char * argv[]) {
 			"\n"
 			"usage: %s [-A] [format]\n"
 			"\n"
-			" -A     \033[3mignored\033[0m\n"
+			" -A     \033[3mshow threads\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
 }
