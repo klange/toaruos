@@ -204,7 +204,6 @@ static void do_it(struct ata_device * _device) {
 		print("\n - bad sector size\n");
 		return;
 	}
-	print("Locating stage2...\n");
 	for (int i = 0x10; i < 0x15; ++i) {
 		ata_device_read_sector_atapi(device, i, (uint8_t *)root);
 		switch (root->type) {
