@@ -103,8 +103,8 @@ void resize_finish(int w, int h) {
 int main (int argc, char ** argv) {
 	yctx = yutani_init();
 
-	win_width  = 100;
-	win_height = 100;
+	win_width  = 300;
+	win_height = 300;
 
 	init_decorations();
 
