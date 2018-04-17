@@ -635,7 +635,10 @@ static void redraw_appmenu(int item) {
 			draw_line(bctx, 1, APPMENU_WIDTH-1, offset, offset, HILIGHT_BORDER_TOP);
 			draw_line(bctx, 1, APPMENU_WIDTH-1, offset + APPMENU_ITEM_HEIGHT - 1, offset + APPMENU_ITEM_HEIGHT - 1, HILIGHT_BORDER_BOTTOM);
 			for (int i = 1; i < APPMENU_ITEM_HEIGHT-1; ++i) {
-				uint32_t c = interp_colors(HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM, (i * 256) / (APPMENU_ITEM_HEIGHT - 2));
+				int thing = ((i - 1) * 256) / (APPMENU_ITEM_HEIGHT - 2);
+				if (thing > 255) thing = 255;
+				if (thing < 0) thing = 0;
+				uint32_t c = interp_colors(HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM, thing);
 				draw_line(bctx, 1, APPMENU_WIDTH-1, offset + i, offset + i, c);
 			}
 		}
