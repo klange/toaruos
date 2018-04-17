@@ -1,5 +1,3 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate free uptime http-get plasma julia panel
-
 ifeq ($(TOOLCHAIN),)
   ifeq ($(shell util/check.sh),y)
     export PATH := $(shell util/activate.sh)
@@ -13,6 +11,12 @@ ifeq ($(TOOLCHAIN),)
   endif
 endif
 
+# Prevents Make from removing intermediary files on failure
+.SECONDARY:
+
+# Disable built-in rules
+.SUFFIXES:
+
 KERNEL_TARGET=i686-pc-toaru
 KCC = $(KERNEL_TARGET)-gcc
 KAS = $(KERNEL_TARGET)-as
@@ -22,13 +26,17 @@ KNM = $(KERNEL_TARGET)-nm
 CC=i686-pc-toaru-gcc
 AR=i686-pc-toaru-ar
 CFLAGS= -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps -pipe -mfpmath=sse -mmmx -msse -msse2
-LIBS=
 
 LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
 LC=base/lib/libc.so
 
+APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
 APPS_X=$(foreach app,$(APPS),base/bin/$(app))
 APPS_Y=$(foreach app,$(filter-out init,$(APPS)),.make/$(app).mak)
+
+LIBS=$(patsubst lib/%.c,%,$(wildcard lib/*.c))
+LIBS_X=$(foreach lib,$(LIBS),base/lib/libtoaru_$(lib).so)
+LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
 all: image.iso
 
@@ -115,48 +123,15 @@ base/lib/libc.so: ${LIBC_OBJS} | dirs crts
 # Userspace Linker/Loader
 
 base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
-	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $< $(LIBS)
+	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $<
 
 # Shared Libraries
+.make/%.lmak: lib/%.c util/auto-dep.py | dirs
+	util/auto-dep.py --makelib $< > $@
 
-base/lib/libtoaru_graphics.so: lib/graphics.c base/usr/include/toaru/graphics.h ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
+base/lib/libtoaru_%.so: .make/%.lmak
 
-base/lib/libtoaru_list.so: lib/list.c base/usr/include/toaru/list.h ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
-
-base/lib/libtoaru_tree.so: lib/tree.c base/usr/include/toaru/tree.h base/lib/libtoaru_list.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
-
-base/lib/libtoaru_hashmap.so: lib/hashmap.c base/usr/include/toaru/hashmap.h base/lib/libtoaru_list.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_list
-
-base/lib/libtoaru_kbd.so: lib/kbd.c base/usr/include/toaru/kbd.h ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
-
-base/lib/libtoaru_pthread.so: lib/pthread.c base/usr/include/toaru/pthread.h ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
-
-base/lib/libtoaru_pex.so: lib/pex.c base/usr/include/toaru/pex.h ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
-
-base/lib/libtoaru_dlfcn.so: lib/dlfcn.c ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $<
-
-base/lib/libtoaru_yutani.so: lib/yutani.c base/usr/include/toaru/yutani.h base/lib/libtoaru_graphics.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
-
-base/lib/libtoaru_rline.so: lib/rline.c base/usr/include/toaru/rline.h base/lib/libtoaru_kbd.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_kbd
-
-base/lib/libtoaru_termemu.so: lib/termemu.c base/usr/include/toaru/termemu.h base/lib/libtoaru_graphics.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
-
-base/lib/libtoaru_drawstring.so: lib/drawstring.c base/usr/include/toaru/drawstring.h base/lib/libtoaru_graphics.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
-
-base/lib/libtoaru_decorations.so: lib/decorations.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_graphics
+-include ${LIBS_Y}
 
 # Decoration Themes
 
@@ -166,7 +141,7 @@ base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c base/usr/include/toaru/de
 # Init
 
 base/bin/init: apps/init.c base/lib/libc.a | dirs
-	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $< $(LIBS)
+	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
 # Userspace
 
@@ -179,7 +154,7 @@ base/bin/%: .make/%.mak
 
 # Ramdisk
 
-cdrom/ramdisk.img: ${APPS_X} ${APPS_Y} base/lib/ld.so base/lib/libtoaru-decor-fancy.so Makefile | dirs
+cdrom/ramdisk.img: ${APPS_X} base/lib/ld.so base/lib/libtoaru-decor-fancy.so Makefile | dirs
 	genext2fs -B 4096 -d base -U -b 4096 -N 2048 cdrom/ramdisk.img
 
 
@@ -213,5 +188,5 @@ clean:
 	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
 	rm -f base/lib/crt*.o
 	rm -f ${MODULES}
-	rm -f ${APPS_Y}
+	rm -f ${APPS_Y} ${LIBS_Y}
 
