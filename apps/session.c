@@ -14,6 +14,12 @@ int main(int argc, char * argv[]) {
 		execvp(args[0], args);
 	}
 
+	int _panel_pid = fork();
+	if (!_panel_pid) {
+		char * args[] = {"/bin/panel", NULL};
+		execvp(args[0], args);
+	}
+
 	wait(NULL);
 
 	int pid;

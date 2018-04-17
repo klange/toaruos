@@ -675,6 +675,19 @@ void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 				}
 			}
 		}
+	} else if (sprite->alpha == ALPHA_FORCE_SLOW_EMBEDDED) {
+		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+			if (!_is_in_clip(ctx, y + _y)) continue;
+			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+					continue;
+#if 1
+				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
+#else
+				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(rgba(255,255,0,255), SPRITE(sprite, _x, _y));
+#endif
+			}
+		}
 	} else {
 		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 			if (!_is_in_clip(ctx, y + _y)) continue;
@@ -812,6 +825,22 @@ void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_
 	}
 }
 
+void draw_sprite_alpha_paint(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha, uint32_t c) {
+	int32_t _left   = max(x, 0);
+	int32_t _top    = max(y, 0);
+	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
+	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
+	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+		if (!_is_in_clip(ctx, y + _y)) continue;
+		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
+			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+				continue;
+			uint32_t n_color = SPRITE(sprite, _x, _y);
+			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
+			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), c, f_color);
+		}
+	}
+}
 
 void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha) {
 	int32_t _left   = max(x, 0);

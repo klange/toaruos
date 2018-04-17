@@ -93,6 +93,7 @@ int main (int argc, char ** argv) {
 	draw_background(yctx->display_width, yctx->display_height);
 	yutani_flip(yctx, wallpaper_window);
 
+#if 0
 	/* panel */
 	panel_window = yutani_window_create(yctx, yctx->display_width, PANEL_HEIGHT);
 	yutani_window_move(yctx, panel_window, 0, 0);
@@ -101,6 +102,7 @@ int main (int argc, char ** argv) {
 	panel_ctx = init_graphics_yutani(panel_window);
 	draw_panel(yctx->display_width);
 	yutani_flip(yctx, panel_window);
+#endif
 
 	int should_exit = 0;
 
@@ -119,7 +121,9 @@ int main (int argc, char ** argv) {
 				case YUTANI_MSG_WELCOME:
 					fprintf(stderr, "Request to resize desktop received, resizing to %d x %d\n", yctx->display_width, yctx->display_height);
 					yutani_window_resize_offer(yctx, wallpaper_window, yctx->display_width, yctx->display_height);
+#if 0
 					yutani_window_resize_offer(yctx, panel_window, yctx->display_width, PANEL_HEIGHT);
+#endif
 					break;
 				case YUTANI_MSG_KEY_EVENT:
 					handle_key_event((struct yutani_msg_key_event *)m->data);
@@ -129,8 +133,10 @@ int main (int argc, char ** argv) {
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						if (wr->wid == wallpaper_window->wid) {
 							resize_finish_wallpaper(wr->width, wr->height);
+#if 0
 						} else if (wr->wid == panel_window->wid) {
 							resize_finish_panel(wr->width, wr->height);
+#endif
 						}
 					}
 					break;

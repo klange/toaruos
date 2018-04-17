@@ -50,6 +50,7 @@ extern void reinit_graphics_fullscreen(gfx_context_t * ctx);
 #define ALPHA_MASK     1
 #define ALPHA_EMBEDDED 2
 #define ALPHA_INDEXED  3
+#define ALPHA_FORCE_SLOW_EMBEDDED 4
 
 extern uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
 extern uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
@@ -78,6 +79,7 @@ extern void draw_fill(gfx_context_t * ctx, uint32_t color);
 extern void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height);
 extern void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
 extern void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha);
+extern void draw_sprite_alpha_paint(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha, uint32_t c);
 
 //extern void context_to_png(FILE * file, gfx_context_t * ctx);
 
