@@ -54,7 +54,7 @@ void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t 
 		memset(ctx->clips, 0, ctx->height);
 		ctx->clips_size = ctx->height;
 	}
-	for (int i = max(y,0); i < min(y+h,ctx->clips_size-1); ++i) {
+	for (int i = max(y,0); i < min(y+h,ctx->clips_size); ++i) {
 		ctx->clips[i] = 1;
 	}
 }
