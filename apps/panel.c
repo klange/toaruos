@@ -355,7 +355,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				}
 			} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
 				if (evt->new_x >= 0 && evt->new_x < appmenu->width && evt->new_y >= 0 && evt->new_y < appmenu->height) {
-					int item = (evt->new_y - 4) / APPMENU_ITEM_HEIGHT;
+					int item = evt->new_y > 4 ? (evt->new_y - 4) / APPMENU_ITEM_HEIGHT : -1;
 					if (item != appmenu_item) {
 						appmenu_item = item;
 						redraw_appmenu(appmenu_item);
