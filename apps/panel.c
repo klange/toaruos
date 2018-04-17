@@ -68,9 +68,9 @@
 
 #define APPMENU_WIDTH  200
 #define APPMENU_PAD_RIGHT 1
-#define APPMENU_PAD_BOTTOM 1
-#define APPMENU_BACKGROUND premultiply(rgba(255,255,255,240))
-#define APPMENU_HIGHLIGHT rgb(50,50,200)
+#define APPMENU_PAD_TOP 4
+#define APPMENU_PAD_BOTTOM 4
+#define APPMENU_BACKGROUND rgb(239,238,232)
 #define APPMENU_ITEM_HEIGHT 24
 
 #define WIDGET_WIDTH 24
@@ -260,7 +260,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				_continue = 0;
 			} else if (evt->new_x < APP_OFFSET) {
 				if (!appmenu) {
-					appmenu = yutani_window_create_flags(yctx, APPMENU_WIDTH + APPMENU_PAD_RIGHT, APPMENU_ITEM_HEIGHT * appmenu_items_count + APPMENU_PAD_BOTTOM, YUTANI_WINDOW_FLAG_ALT_ANIMATION);
+					appmenu = yutani_window_create_flags(yctx, APPMENU_WIDTH + APPMENU_PAD_RIGHT, APPMENU_ITEM_HEIGHT * appmenu_items_count + APPMENU_PAD_BOTTOM + APPMENU_PAD_TOP, YUTANI_WINDOW_FLAG_ALT_ANIMATION);
 					yutani_window_move(yctx, appmenu, 0, PANEL_HEIGHT);
 					bctx = init_graphics_yutani_double_buffer(appmenu);
 					redraw_appmenu(-1);
@@ -355,7 +355,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				}
 			} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
 				if (evt->new_x >= 0 && evt->new_x < appmenu->width && evt->new_y >= 0 && evt->new_y < appmenu->height) {
-					int item = evt->new_y / APPMENU_ITEM_HEIGHT;
+					int item = (evt->new_y - 4) / APPMENU_ITEM_HEIGHT;
 					if (item != appmenu_item) {
 						appmenu_item = item;
 						redraw_appmenu(appmenu_item);
@@ -604,16 +604,25 @@ static void read_applications(FILE * f) {
 	fclose(f);
 }
 
+static uint32_t interp_colors(uint32_t bottom, uint32_t top, uint8_t interp) {
+	uint8_t red = (_RED(bottom) * (255 - interp) + _RED(top) * interp) / 255;
+	uint8_t gre = (_GRE(bottom) * (255 - interp) + _GRE(top) * interp) / 255;
+	uint8_t blu = (_BLU(bottom) * (255 - interp) + _BLU(top) * interp) / 255;
+	uint8_t alp = (_ALP(bottom) * (255 - interp) + _ALP(top) * interp) / 255;
+	return rgba(red,gre,blu, alp);
+}
+
+#define HILIGHT_BORDER_TOP rgb(54,128,205)
+#define HILIGHT_GRADIENT_TOP rgb(93,163,236)
+#define HILIGHT_GRADIENT_BOTTOM rgb(56,137,220)
+#define HILIGHT_BORDER_BOTTOM rgb(47,106,167)
+
 static void redraw_appmenu(int item) {
 	draw_fill(bctx, APPMENU_BACKGROUND);
-	if (item != -1) {
-		for (int i = 0; i < APPMENU_ITEM_HEIGHT; ++i) {
-			draw_line(bctx, 0, APPMENU_WIDTH, APPMENU_ITEM_HEIGHT * item + i, APPMENU_ITEM_HEIGHT * item + i, APPMENU_HIGHLIGHT);
-		}
-	}
-	draw_line(bctx, APPMENU_WIDTH, APPMENU_WIDTH, 0, APPMENU_ITEM_HEIGHT * appmenu_items_count, rgb(0,0,0));
-	draw_line(bctx, 0, APPMENU_WIDTH, APPMENU_ITEM_HEIGHT * appmenu_items_count, APPMENU_ITEM_HEIGHT * appmenu_items_count, rgb(0,0,0));
+	draw_line(bctx, 0, APPMENU_WIDTH, 0, 0, rgb(109,111,112));
 	spin_lock(&drawlock);
+	int32_t offset = 4;
+
 	for (int i = 0; i < appmenu_items_count; ++i) {
 #if 0
 		set_font_face(FONT_SANS_SERIF);
@@ -622,17 +631,35 @@ static void redraw_appmenu(int item) {
 
 		sprite_t * icon = icon_get(applications[i].icon);
 
+		if (item == i) {
+			draw_line(bctx, 1, APPMENU_WIDTH-1, offset, offset, HILIGHT_BORDER_TOP);
+			draw_line(bctx, 1, APPMENU_WIDTH-1, offset + APPMENU_ITEM_HEIGHT - 1, offset + APPMENU_ITEM_HEIGHT - 1, HILIGHT_BORDER_BOTTOM);
+			for (int i = 1; i < APPMENU_ITEM_HEIGHT-1; ++i) {
+				uint32_t c = interp_colors(HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM, (i * 256) / (APPMENU_ITEM_HEIGHT - 2));
+				draw_line(bctx, 1, APPMENU_WIDTH-1, offset + i, offset + i, c);
+			}
+		}
+
 		/* Draw it, scaled if necessary */
 		if (icon->width == 24) {
-			draw_sprite(bctx, icon, 2, APPMENU_ITEM_HEIGHT * i);
+			draw_sprite(bctx, icon, 2, offset);
 		} else {
-			draw_sprite_scaled(bctx, icon, 2, APPMENU_ITEM_HEIGHT * i, 24, 24);
+			draw_sprite_scaled(bctx, icon, 2, offset, 24, 24);
 		}
 
 		uint32_t color = (i == item) ? rgb(255,255,255) : rgb(0,0,0);
 
-		draw_string(bctx, 30, 2 + APPMENU_ITEM_HEIGHT * i, color, applications[i].title);
+		draw_string(bctx, 30, offset + 2, color, applications[i].title);
+
+		offset += APPMENU_ITEM_HEIGHT;
 	}
+
+	offset += 3;
+
+	draw_line(bctx, 0, 0, 0, offset, rgb(109,111,112));
+	draw_line(bctx, APPMENU_WIDTH, APPMENU_WIDTH, 0, offset, rgb(109,111,112));
+	draw_line(bctx, 0, APPMENU_WIDTH, offset, offset, rgb(109,111,112));
+
 	spin_unlock(&drawlock);
 	flip(bctx);
 	yutani_flip(yctx, appmenu);
