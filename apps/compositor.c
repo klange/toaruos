@@ -813,6 +813,37 @@ static void redraw_windows(yutani_globals_t * yg) {
 	int tmp_mouse_x = yg->mouse_x;
 	int tmp_mouse_y = yg->mouse_y;
 
+	if (yg->resize_on_next) {
+		spin_lock(&yg->redraw_lock);
+		TRACE("Resizing display.");
+
+		if (!yutani_options.nested) {
+			reinit_graphics_fullscreen(yg->backend_ctx);
+			yg->stride = framebuffer_stride();
+		} else {
+			reinit_graphics_yutani(yg->backend_ctx, yg->host_window);
+			yg->stride = yg->backend_ctx->width * 4;
+			yutani_window_resize_done(yg->host_context, yg->host_window);
+		}
+		TRACE("graphics context resized...");
+		yg->width = yg->backend_ctx->width;
+		yg->height = yg->backend_ctx->height;
+		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
+
+
+		TRACE("Marking...");
+		yg->resize_on_next = 0;
+		mark_screen(yg, 0, 0, yg->width, yg->height);
+
+		TRACE("Sending welcome messages...");
+		yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
+		pex_broadcast(yg->server, response->size, (char *)response);
+		free(response);
+		TRACE("Done.");
+
+		spin_unlock(&yg->redraw_lock);
+	}
+
 	/* If the mouse has moved, that counts as two damage regions */
 	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
 		has_updates = 2;
@@ -933,31 +964,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	if (yg->screenshot_frame) {
 		yutani_screenshot(yg);
-	}
-
-	if (yg->resize_on_next) {
-		spin_lock(&yg->redraw_lock);
-
-		if (!yutani_options.nested) {
-			reinit_graphics_fullscreen(yg->backend_ctx);
-			yg->stride = framebuffer_stride();
-		} else {
-			reinit_graphics_yutani(yg->backend_ctx, yg->host_window);
-			yg->stride = yg->backend_ctx->width * 4;
-			yutani_window_resize_done(yg->host_context, yg->host_window);
-		}
-		yg->width = yg->backend_ctx->width;
-		yg->height = yg->backend_ctx->height;
-		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
-
-		yg->resize_on_next = 0;
-		mark_screen(yg, 0, 0, yg->width, yg->height);
-
-		yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
-		pex_broadcast(yg->server, response->size, (char *)response);
-		free(response);
-
-		spin_unlock(&yg->redraw_lock);
 	}
 
 }
