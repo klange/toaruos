@@ -1,4 +1,4 @@
-APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate free uptime http-get
+APPS=init hello sh ls terminal uname compositor drawlines background session kdebug cat yutani-test sysinfo hostname yutani-query env mount date echo nyancat kill ps pstree bim terminal-vga cursor-off font-server migrate free uptime http-get plasma julia
 
 ifeq ($(TOOLCHAIN),)
   ifeq ($(shell util/check.sh),y)
@@ -187,6 +187,12 @@ base/bin/background: apps/background.c base/lib/libc.so base/lib/libtoaru_graphi
 
 base/bin/drawlines: apps/drawlines.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
+
+base/bin/plasma: apps/plasma.c base/lib/libc.so base/lib/libtoaru_decorations.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_decorations -ltoaru_dlfcn  -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
+
+base/bin/julia: apps/julia.c base/lib/libc.so base/lib/libtoaru_decorations.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
+	$(CC) $(CFLAGS) -o $@ $< -ltoaru_decorations -ltoaru_dlfcn  -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
 
 base/bin/yutani-query: apps/yutani-query.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
 	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
