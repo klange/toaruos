@@ -12,6 +12,10 @@ except KeyError:
 
 force_static = []
 
+special_headers = {
+        '-ltoaru_dlfcn': 'base/usr/include/dlfcn.h',
+}
+
 class Classifier(object):
 
     dependency_hints = {
@@ -93,6 +97,12 @@ def todep(name):
     else:
         return (False, name)
 
+def toheader(name):
+    if name in special_headers:
+        return special_headers[name]
+    if name.startswith('-ltoaru_'):
+        return name.replace('-ltoaru_','base/usr/include/toaru/') + '.h'
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("usage: util/auto-dep.py command filename")
@@ -112,17 +122,19 @@ if __name__ == "__main__":
         order_only = [x[1] for x in results if x[0]]
         print(" ".join(normal) + " | " + " ".join(order_only))
     elif command == "--make":
-        print("base/bin/{app}: {source} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -o $@ $< {libraries}".format(
+        print("base/bin/{app}: {source} {headers} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -o $@ $< {libraries}".format(
             app=os.path.basename(filename).replace(".c",""),
             source=filename,
+            headers=" ".join([toheader(x) for x in c.libs]),
             libraryfiles=" ".join([todep(x)[1] for x in c.libs]),
             libraries=" ".join([x for x in c.libs])))
     elif command == "--makelib":
         libname = os.path.basename(filename).replace(".c","")
         _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
-        print("base/lib/libtoaru_{lib}.so: {source} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -shared -fPIC -o $@ $< {libraries}".format(
+        print("base/lib/libtoaru_{lib}.so: {source} {headers} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -shared -fPIC -o $@ $< {libraries}".format(
             lib=libname,
             source=filename,
+            headers=" ".join([toheader(x) for x in c.libs]),
             libraryfiles=" ".join([todep(x)[1] for x in _libs]),
             libraries=" ".join([x for x in _libs])))
 
