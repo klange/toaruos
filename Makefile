@@ -170,15 +170,10 @@ base/bin/init: apps/init.c base/lib/libc.a | dirs
 
 # Userspace
 
-.PHONY: update
-update: ${APPS_Y}
-
-base/bin/%: .make/%.mak
-
 .make/%.mak: apps/%.c util/auto-dep.py | dirs
 	util/auto-dep.py --make $< > $@
 
-base/bin/%: | ${APPS_Y}
+base/bin/%: .make/%.mak
 
 -include ${APPS_Y}
 
