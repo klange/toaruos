@@ -129,8 +129,6 @@ base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 .make/%.lmak: lib/%.c util/auto-dep.py | dirs
 	util/auto-dep.py --makelib $< > $@
 
-base/lib/libtoaru_%.so: .make/%.lmak
-
 -include ${LIBS_Y}
 
 # Decoration Themes
@@ -147,8 +145,6 @@ base/bin/init: apps/init.c base/lib/libc.a | dirs
 
 .make/%.mak: apps/%.c util/auto-dep.py | dirs
 	util/auto-dep.py --make $< > $@
-
-base/bin/%: .make/%.mak
 
 -include ${APPS_Y}
 
