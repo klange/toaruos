@@ -112,9 +112,17 @@ if __name__ == "__main__":
         order_only = [x[1] for x in results if x[0]]
         print(" ".join(normal) + " | " + " ".join(order_only))
     elif command == "--make":
-        print("base/bin/{app}: {source} | {libraryfiles} base/lib/libc.so\n\t$(CC) $(CFLAGS) -o $@ $< {libraries} $(LIBS)".format(
+        print("base/bin/{app}: {source} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -o $@ $< {libraries}".format(
             app=os.path.basename(filename).replace(".c",""),
             source=filename,
             libraryfiles=" ".join([todep(x)[1] for x in c.libs]),
             libraries=" ".join([x for x in c.libs])))
+    elif command == "--makelib":
+        libname = os.path.basename(filename).replace(".c","")
+        _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
+        print("base/lib/libtoaru_{lib}.so: {source} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -shared -fPIC -o $@ $< {libraries}".format(
+            lib=libname,
+            source=filename,
+            libraryfiles=" ".join([todep(x)[1] for x in _libs]),
+            libraries=" ".join([x for x in _libs])))
 
