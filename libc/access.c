@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <errno.h>
+#include <syscall.h>
 
 int access(const char *pathname, int mode) {
 	int result = syscall_access((char *)pathname, mode);

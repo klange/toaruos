@@ -77,13 +77,13 @@
  * (it surprises some people that telnet is, really,
  *  a protocol, and not just raw text transmission)
  */
-#include "telnet.h"
+#include "nyancat/telnet.h"
 
 /*
  * The animation frames are stored separately in
  * this header so they don't clutter the core source
  */
-#include "animation.h"
+#include "nyancat/animation.h"
 
 /*
  * Color palette to use for final output

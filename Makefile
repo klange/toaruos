@@ -28,6 +28,7 @@ LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
 LC=base/lib/libc.so
 
 APPS_X=$(foreach app,$(APPS),base/bin/$(app))
+APPS_Y=$(foreach app,$(filter-out init,$(APPS)),.make/$(app).mak)
 
 all: image.iso
 
@@ -91,7 +92,9 @@ base/lib:
 	mkdir -p base/lib
 cdrom/boot:
 	mkdir -p cdrom/boot
-dirs: base/dev base/tmp base/proc base/bin base/lib cdrom/boot
+.make:
+	mkdir -p .make
+dirs: base/dev base/tmp base/proc base/bin base/lib cdrom/boot .make
 
 # C Library
 
@@ -167,64 +170,23 @@ base/bin/init: apps/init.c base/lib/libc.a | dirs
 
 # Userspace
 
-base/bin/sh: apps/sh.c base/lib/libc.so base/lib/libtoaru_list.so base/lib/libtoaru_rline.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_rline -ltoaru_list -ltoaru_kbd $(LIBS)
+.PHONY: update
+update: ${APPS_Y}
 
-base/bin/migrate: apps/migrate.c base/lib/libc.so base/lib/libtoaru_list.so base/lib/libtoaru_hashmap.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_hashmap -ltoaru_list $(LIBS)
+base/bin/%: .make/%.mak
 
-base/bin/sysinfo: apps/sysinfo.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_termemu.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_graphics -ltoaru_termemu $(LIBS)
+.make/%.mak: apps/%.c util/auto-dep.py | dirs
+	util/auto-dep.py --make $< > $@
 
-base/bin/terminal: apps/terminal.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_decorations.so base/lib/libtoaru_dlfcn.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so base/lib/libtoaru_pex.so base/lib/libtoaru_hashmap.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_decorations -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_hashmap -ltoaru_dlfcn -ltoaru_kbd -ltoaru_list $(LIBS)
+base/bin/%: | ${APPS_Y}
 
-base/bin/terminal-vga: apps/terminal-vga.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_kbd.so base/lib/libtoaru_termemu.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_termemu -ltoaru_graphics -ltoaru_kbd $(LIBS)
-
-base/bin/background: apps/background.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so base/lib/libtoaru_drawstring.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_drawstring -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/drawlines: apps/drawlines.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/plasma: apps/plasma.c base/lib/libc.so base/lib/libtoaru_decorations.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_decorations -ltoaru_dlfcn  -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/julia: apps/julia.c base/lib/libc.so base/lib/libtoaru_decorations.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_decorations -ltoaru_dlfcn  -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/panel: apps/panel.c base/lib/libc.so base/lib/libtoaru_decorations.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_decorations -ltoaru_drawstring  -ltoaru_dlfcn  -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/yutani-query: apps/yutani-query.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/yutani-test: apps/yutani-test.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_yutani.so base/lib/libtoaru_pthread.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_graphics -ltoaru_pex -ltoaru_pthread -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/compositor: apps/compositor.c base/lib/libc.so base/lib/libtoaru_graphics.so base/lib/libtoaru_list.so base/lib/libtoaru_kbd.so base/lib/libtoaru_pthread.so base/lib/libtoaru_pex.so base/lib/libtoaru_yutani.so base/lib/libtoaru_hashmap.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_yutani -ltoaru_pthread -ltoaru_pex -ltoaru_graphics -ltoaru_kbd -ltoaru_hashmap -ltoaru_list $(LIBS)
-
-base/bin/ls: apps/ls.c base/lib/libc.so base/lib/libtoaru_list.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_list $(LIBS)
-
-base/bin/nyancat: apps/nyancat/nyancat.c ${LC}
-	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
-
-base/bin/ps: apps/ps.c base/lib/libc.so base/lib/libtoaru_list.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_list $(LIBS)
-
-base/bin/pstree: apps/pstree.c base/lib/libc.so base/lib/libtoaru_tree.so base/lib/libtoaru_list.so
-	$(CC) $(CFLAGS) -o $@ $< -ltoaru_tree -ltoaru_list $(LIBS)
-
-base/bin/%: apps/%.c base/lib/libc.so ${LC} | dirs
-	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
+-include ${APPS_Y}
 
 # Ramdisk
 
-cdrom/ramdisk.img: ${APPS_X} base/lib/ld.so base/lib/libtoaru-decor-fancy.so Makefile | dirs
+cdrom/ramdisk.img: ${APPS_X} ${APPS_Y} base/lib/ld.so base/lib/libtoaru-decor-fancy.so Makefile | dirs
 	genext2fs -B 4096 -d base -U -b 4096 -N 2048 cdrom/ramdisk.img
+
 
 # CD image
 
@@ -256,4 +218,5 @@ clean:
 	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
 	rm -f base/lib/crt*.o
 	rm -f ${MODULES}
+	rm -f ${APPS_Y}
 

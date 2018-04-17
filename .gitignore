@@ -2,6 +2,7 @@
 *.a
 *.o
 *.iso
+.make/*
 base/bin/*
 cdrom/kernel
 cdrom/mod/*
