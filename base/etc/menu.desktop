@@ -1,1 +1,4 @@
 utilities-terminal,terminal,Terminal
+applications-generic,drawlines,Draw Lines
+applications-generic,julia,Julia Fractals
+applications-generic,plasma,Plasma
