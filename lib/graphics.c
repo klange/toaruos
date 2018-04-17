@@ -43,21 +43,20 @@ static inline uint16_t max16(uint16_t a, uint16_t b) {
 
 static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
 	if (!ctx->clips) return 1;
+	if (y < 0 || y >= ctx->clips_size) return 1;
 	return ctx->clips[y];
 }
 
 
 void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h) {
-	if (ctx->clips && ctx->clips_size != ctx->height) {
-		free(ctx->clips);
-		ctx->clips = NULL;
-	}
 	if (!ctx->clips) {
 		ctx->clips = malloc(ctx->height);
 		memset(ctx->clips, 0, ctx->height);
 		ctx->clips_size = ctx->height;
 	}
-	memset(&ctx->clips[y], 0x01, h);
+	for (int i = max(y,0); i < min(y+h,ctx->clips_size-1); ++i) {
+		ctx->clips[i] = 1;
+	}
 }
 
 void gfx_clear_clip(gfx_context_t * ctx) {
@@ -129,6 +128,12 @@ void reinit_graphics_fullscreen(gfx_context_t * out) {
 	syscall_ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
 
 	out->size = GFX_H(out) * GFX_W(out) * GFX_B(out);
+
+	if (out->clips && out->clips_size != out->height) {
+		free(out->clips);
+		out->clips = NULL;
+		out->clips_size = 0;
+	}
 
 	if (out->buffer != out->backbuffer) {
 		syscall_ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
