@@ -126,7 +126,7 @@ void init_decorations() {
 			options++;
 		}
 		char lib_name[100];
-		sprintf(lib_name, "libtoaru-decor-%s.so", theme);
+		sprintf(lib_name, "libtoaru_decor-%s.so", theme);
 		void * theme_lib = dlopen(lib_name, 0);
 		if (!theme_lib) {
 			goto _theme_error;

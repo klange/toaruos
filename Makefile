@@ -131,11 +131,6 @@ base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 
 -include ${LIBS_Y}
 
-# Decoration Themes
-
-base/lib/libtoaru-decor-fancy.so: decors/decor-fancy.c base/usr/include/toaru/decorations.h base/lib/libtoaru_graphics.so base/lib/libtoaru_decorations.so base/lib/libtoaru_drawstring.so ${LC}
-	$(CC) -o $@ $(CFLAGS) -shared -fPIC $< -ltoaru_decorations -ltoaru_drawstring -ltoaru_graphics
-
 # Init
 
 base/bin/init: apps/init.c base/lib/libc.a | dirs
@@ -150,7 +145,7 @@ base/bin/init: apps/init.c base/lib/libc.a | dirs
 
 # Ramdisk
 
-cdrom/ramdisk.img: ${APPS_X} base/lib/ld.so base/lib/libtoaru-decor-fancy.so Makefile | dirs
+cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so Makefile | dirs
 	genext2fs -B 4096 -d base -U -b 4096 -N 2048 cdrom/ramdisk.img
 
 
