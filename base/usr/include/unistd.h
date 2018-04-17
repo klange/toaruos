@@ -41,6 +41,8 @@ extern int isatty(int fd);
 extern int usleep(useconds_t usec);
 extern off_t lseek(int fd, off_t offset, int whence);
 
+extern int access(const char * pathname, int mode);
+
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
