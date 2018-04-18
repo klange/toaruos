@@ -116,10 +116,13 @@ struct {
 	{0,0},
 };
 
+static int loaded = 0;
+
 __attribute__((constructor))
 static void _init_sdf(void) {
 	/* Load the font. */
 	load_sprite(&_font_data, "/usr/share/sdf.bmp");
+	loaded = 1;
 }
 
 static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp) {
@@ -136,11 +139,12 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 	}
 
 	double scale = (double)size / 50.0;
-	size_t width = _char_data[ch].width * scale;
+	int width = _char_data[ch].width * scale;
 	int fx = ((BASE_WIDTH * ch) % _font_data.width) * scale;
 	int fy = (((BASE_WIDTH * ch) / _font_data.width) * BASE_HEIGHT) * scale;
 
 	int height = BASE_HEIGHT * ((double)size / 50.0);
+
 
 	/* ignore size */
 	for (int j = 0; j < height; ++j) {
@@ -165,6 +169,8 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 }
 
 int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, char * str, int size, uint32_t color) {
+
+	if (!loaded) return 0;
 
 	double scale = (double)size / 50.0;
 	sprite_t * tmp = create_sprite(scale * _font_data.width, scale * _font_data.height, ALPHA_OPAQUE);

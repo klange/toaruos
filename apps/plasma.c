@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <math.h>
 #include <syscall.h>
+#include <wait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -170,6 +171,8 @@ int main (int argc, char ** argv) {
 			free(m);
 		}
 	}
+
+	wait(NULL);
 
 	yutani_close(yctx, wina);
 	return 0;

@@ -3,7 +3,7 @@
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
-#include <toaru/drawstring.h>
+#include <toaru/sdf.h>
 
 #define INACTIVE 9
 
@@ -79,19 +79,19 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 
 #define EXTRA_SPACE 40
 
-	if (draw_string_width(tmp_title) + EXTRA_SPACE > width) {
-		while (t_l >= 0 && (draw_string_width(tmp_title) + EXTRA_SPACE > width)) {
+	if (draw_sdf_string_width(tmp_title, 18) + EXTRA_SPACE > width) {
+		while (t_l >= 0 && (draw_sdf_string_width(tmp_title, 18) + EXTRA_SPACE > width)) {
 			tmp_title[t_l] = '\0';
 			t_l--;
 		}
 	}
 
 	if (strlen(tmp_title)) {
-		int title_offset = (width / 2) - (draw_string_width(tmp_title) / 2);
+		int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, 18) / 2);
 		if (decors_active == 0) {
-			draw_string(ctx, title_offset, TEXT_OFFSET, rgb(226,226,226), tmp_title);
+			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(226,226,226));
 		} else {
-			draw_string(ctx, title_offset, TEXT_OFFSET, rgb(147,147,147), tmp_title);
+			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(147,147,147));
 		}
 	}
 
