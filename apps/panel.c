@@ -686,7 +686,7 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	draw_sdf_string(ctx, width - TIME_LEFT, 2, buffer, 18, txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, width - TIME_LEFT, 4, buffer, 18, txt_color, SDF_FONT_BOLD);
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
@@ -696,12 +696,12 @@ static void redraw(void) {
 
 	/* Month Day */
 	strftime(buffer, 80, "%h %e", timeinfo);
-	t = draw_sdf_string_width(buffer, 10, SDF_FONT_THIN);
+	t = draw_sdf_string_width(buffer, 12, SDF_FONT_BOLD);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 10, txt_color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 12, txt_color, SDF_FONT_BOLD);
 
 	/* Applications menu */
-	draw_sdf_string(ctx, 10, 2, "Applications", 18, appmenu ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, 10, 4, "Applications", 18, appmenu ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
 
 	/* Draw each widget */
 	/* - Volume */
