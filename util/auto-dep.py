@@ -34,6 +34,7 @@ class Classifier(object):
         '<toaru/yutani.h>':      (None, '-ltoaru_yutani',      ['<toaru/kbd.h>', '<toaru/list.h>', '<toaru/pex.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/graphics.h>', '<toaru/yutani.h>','<toaru/dlfcn.h>']),
         '<toaru/termemu.h>':     (None, '-ltoaru_termemu',     ['<toaru/graphics.h>']),
+        '<toaru/sdf.h>':         (None, '-ltoaru_sdf',         ['<toaru/graphics.h>']),
     }
 
     def __init__(self, filename):
