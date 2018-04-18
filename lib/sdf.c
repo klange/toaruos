@@ -7,112 +7,114 @@
 #include <stdlib.h>
 
 #include <toaru/graphics.h>
+#include <toaru/sdf.h>
 
 #define BASE_WIDTH 50
 #define BASE_HEIGHT 50
 #define GAMMA 1.7
 
-static sprite_t _font_data;
+static sprite_t _font_data_thin;
+static sprite_t _font_data_bold;
 
 struct {
 	char code;
-	size_t width;
+	size_t width_bold;
 } _char_data[] = {
-	{'!', 20},
-	{'"', 35},
-	{'#', 40},
-	{'$', 35},
-	{'%', 35},
-	{'&', 35},
+	{'!',  20},
+	{'"',  35},
+	{'#',  40},
+	{'$',  35},
+	{'%',  35},
+	{'&',  35},
 	{'\'', 35},
-	{'(', 35},
-	{')', 35},
-	{'*', 35},
-	{'+', 35},
-	{',', 35},
-	{'-', 35},
-	{'.', 35},
-	{'/', 35},
-	{'0', 32},
-	{'1', 32},
-	{'2', 32},
-	{'3', 32},
-	{'4', 32},
-	{'5', 32},
-	{'6', 32},
-	{'7', 32},
-	{'8', 32},
-	{'9', 32},
-	{':', 26},
-	{';', 35},
-	{'<', 35},
-	{'=', 35},
-	{'>', 35},
-	{'?', 35},
-	{'@', 50},
-	{'A', 35},
-	{'B', 35},
-	{'C', 34},
-	{'D', 36},
-	{'E', 34},
-	{'F', 35},
-	{'G', 35},
-	{'H', 35},
-	{'I', 22},
-	{'J', 24},
-	{'K', 35},
-	{'L', 32},
-	{'M', 45},
-	{'N', 36},
-	{'O', 38},
-	{'P', 35},
-	{'Q', 38},
-	{'R', 36},
-	{'S', 36},
-	{'T', 35},
-	{'U', 35},
-	{'V', 37},
-	{'W', 50},
-	{'X', 35},
-	{'Y', 35},
-	{'Z', 35},
-	{'[', 35},
+	{'(',  35},
+	{')',  35},
+	{'*',  35},
+	{'+',  35},
+	{',',  35},
+	{'-',  35},
+	{'.',  35},
+	{'/',  35},
+	{'0',  32},
+	{'1',  32},
+	{'2',  32},
+	{'3',  32},
+	{'4',  32},
+	{'5',  32},
+	{'6',  32},
+	{'7',  32},
+	{'8',  32},
+	{'9',  32},
+	{':',  26},
+	{';',  35},
+	{'<',  35},
+	{'=',  35},
+	{'>',  35},
+	{'?',  35},
+	{'@',  50},
+	{'A',  35},
+	{'B',  35},
+	{'C',  34},
+	{'D',  36},
+	{'E',  34},
+	{'F',  35},
+	{'G',  35},
+	{'H',  35},
+	{'I',  22},
+	{'J',  24},
+	{'K',  35},
+	{'L',  32},
+	{'M',  45},
+	{'N',  36},
+	{'O',  38},
+	{'P',  35},
+	{'Q',  38},
+	{'R',  36},
+	{'S',  36},
+	{'T',  35},
+	{'U',  35},
+	{'V',  37},
+	{'W',  50},
+	{'X',  35},
+	{'Y',  35},
+	{'Z',  35},
+	{'[',  35},
 	{'\\', 35},
-	{']', 35},
-	{'^', 35},
-	{'_', 35},
-	{'`', 35},
-	{'a', 32},
-	{'b', 32},
-	{'c', 32},
-	{'d', 32},
-	{'e', 32},
-	{'f', 30},
-	{'g', 32},
-	{'h', 32},
-	{'i', 16},
-	{'j', 16},
-	{'k', 30},
-	{'l', 16},
-	{'m', 48},
-	{'n', 34},
-	{'o', 32},
-	{'p', 32},
-	{'q', 32},
-	{'r', 25},
-	{'s', 32},
-	{'t', 29},
-	{'u', 32},
-	{'v', 32},
-	{'w', 42},
-	{'x', 32},
-	{'y', 32},
-	{'z', 32},
-	{'{', 32},
-	{'|', 32},
-	{'}', 32},
-	{'~', 32},
-	{' ', 20},
+	{']',  35},
+	{'^',  35},
+	{'_',  35},
+	{'`',  35},
+	{'a',  32},
+	{'b',  32},
+	{'c',  32},
+	{'d',  32},
+	{'e',  32},
+	{'f',  30},
+	{'g',  32},
+	{'h',  32},
+	{'i',  16},
+	{'j',  16},
+	{'k',  30},
+	{'l',  16},
+	{'m',  48},
+	{'n',  34},
+	{'o',  32},
+	{'p',  32},
+	{'q',  32},
+	{'r',  25},
+	{'s',  32},
+	{'t',  29},
+	{'u',  32},
+	{'v',  32},
+	{'w',  42},
+	{'x',  32},
+	{'y',  32},
+	{'z',  32},
+	{'{',  32},
+	{'|',  32},
+	{'}',  32},
+	{'~',  32},
+	{' ',  20},
 	{0,0},
 };
 
@@ -121,11 +123,32 @@ static int loaded = 0;
 __attribute__((constructor))
 static void _init_sdf(void) {
 	/* Load the font. */
-	load_sprite(&_font_data, "/usr/share/sdf.bmp");
+	load_sprite(&_font_data_thin, "/usr/share/sdf_thin.bmp");
+	load_sprite(&_font_data_bold, "/usr/share/sdf_bold.bmp");
 	loaded = 1;
 }
 
-static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp) {
+static sprite_t * _select_font(int font) {
+	switch (font) {
+		case SDF_FONT_BOLD:
+			return &_font_data_bold;
+		case SDF_FONT_THIN:
+		default:
+			return &_font_data_thin;
+	}
+}
+
+static int _select_width(char ch, int font) {
+	switch (font) {
+		case SDF_FONT_BOLD:
+			return _char_data[ch].width_bold;
+		case SDF_FONT_THIN:
+		default:
+			return _char_data[ch].width_bold * 0.8;
+	}
+}
+
+static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp, int font, sprite_t * _font_data) {
 	if (ch != ' ' && ch < '!' || ch > '~') {
 		/* TODO: Draw missing symbol? */
 		return 0;
@@ -139,9 +162,9 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 	}
 
 	double scale = (double)size / 50.0;
-	int width = _char_data[ch].width * scale;
-	int fx = ((BASE_WIDTH * ch) % _font_data.width) * scale;
-	int fy = (((BASE_WIDTH * ch) / _font_data.width) * BASE_HEIGHT) * scale;
+	int width = _select_width(ch, font) * scale;
+	int fx = ((BASE_WIDTH * ch) % _font_data->width) * scale;
+	int fy = (((BASE_WIDTH * ch) / _font_data->width) * BASE_HEIGHT) * scale;
 
 	int height = BASE_HEIGHT * ((double)size / 50.0);
 
@@ -168,18 +191,20 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 
 }
 
-int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, char * str, int size, uint32_t color) {
+int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, char * str, int size, uint32_t color, int font) {
+
+	sprite_t * _font_data = _select_font(font);
 
 	if (!loaded) return 0;
 
 	double scale = (double)size / 50.0;
-	sprite_t * tmp = create_sprite(scale * _font_data.width, scale * _font_data.height, ALPHA_OPAQUE);
+	sprite_t * tmp = create_sprite(scale * _font_data->width, scale * _font_data->height, ALPHA_OPAQUE);
 	gfx_context_t * t = init_graphics_sprite(tmp);
-	draw_sprite_scaled(t, &_font_data, 0, 0, tmp->width, tmp->height);
+	draw_sprite_scaled(t, _font_data, 0, 0, tmp->width, tmp->height);
 
 	int32_t out_width = 0;
 	while (*str) {
-		int w = draw_sdf_character(ctx,x,y,*str,size,color,tmp);
+		int w = draw_sdf_character(ctx,x,y,*str,size,color,tmp,font,_font_data);
 		out_width += w;
 		x += w;
 		str++;
@@ -191,8 +216,7 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, char * str, int s
 	return out_width;
 }
 
-
-static int char_width(char ch) {
+static int char_width(char ch, int font) {
 	if (ch != ' ' && ch < '!' || ch > '~') {
 		/* TODO: Draw missing symbol? */
 		return 0;
@@ -205,16 +229,16 @@ static int char_width(char ch) {
 		ch -= '!';
 	}
 
-	return _char_data[ch].width;
+	return _select_width(ch, font);
 }
 
 
-int draw_sdf_string_width(char * str, int size) {
+int draw_sdf_string_width(char * str, int size, int font) {
 	double scale = (double)size / 50.0;
 
 	int32_t out_width = 0;
 	while (*str) {
-		int w = char_width(*str) * scale;
+		int w = char_width(*str,font) * scale;
 		out_width += w;
 		str++;
 	}

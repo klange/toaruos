@@ -400,9 +400,9 @@ static void redraw_alttab(void) {
 			draw_sprite_scaled(actx, icon, center_x_a(24), ALTTAB_OFFSET, 24, 24);
 		}
 
-		int t = draw_sdf_string_width(ad->name, 18);
+		int t = draw_sdf_string_width(ad->name, 18, SDF_FONT_THIN);
 
-		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+16, ad->name, 18, rgb(255,255,255));
+		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+16, ad->name, 18, rgb(255,255,255), SDF_FONT_THIN);
 	}
 
 	flip(actx);
@@ -649,7 +649,7 @@ static void redraw_appmenu(int item) {
 
 		uint32_t color = (i == item) ? rgb(255,255,255) : rgb(0,0,0);
 
-		draw_sdf_string(bctx, 30, offset + 2, applications[i].title, 18, color);
+		draw_sdf_string(bctx, 30, offset + 2, applications[i].title, 18, color, SDF_FONT_THIN);
 
 		offset += APPMENU_ITEM_HEIGHT;
 	}
@@ -686,22 +686,22 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	draw_sdf_string(ctx, width - TIME_LEFT, 2, buffer, 18, txt_color);
+	draw_sdf_string(ctx, width - TIME_LEFT, 2, buffer, 18, txt_color, SDF_FONT_BOLD);
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
-	t = draw_sdf_string_width(buffer, 10);
+	t = draw_sdf_string_width(buffer, 10, SDF_FONT_BOLD);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2, buffer, 10, txt_color);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2, buffer, 10, txt_color, SDF_FONT_BOLD);
 
 	/* Month Day */
 	strftime(buffer, 80, "%h %e", timeinfo);
-	t = draw_sdf_string_width(buffer, 10);
+	t = draw_sdf_string_width(buffer, 10, SDF_FONT_THIN);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 10, txt_color);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 10, txt_color, SDF_FONT_THIN);
 
 	/* Applications menu */
-	draw_sdf_string(ctx, 10, 2, "Applications", 18, appmenu ? HILIGHT_COLOR : txt_color);
+	draw_sdf_string(ctx, 10, 2, "Applications", 18, appmenu ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
 
 	/* Draw each widget */
 	/* - Volume */
@@ -732,11 +732,6 @@ static void redraw(void) {
 				break;
 			}
 
-#if 0
-			set_font_face(FONT_SANS_SERIF);
-			set_font_size(13);
-#endif
-
 			if (title_width > MIN_TEXT_WIDTH) {
 
 				memset(tmp_title, 0x0, 50);
@@ -749,7 +744,7 @@ static void redraw(void) {
 					if (!ad->name[i]) break;
 				}
 
-				while (draw_sdf_string_width(tmp_title, 16) > title_width - ICON_PADDING) {
+				while (draw_sdf_string_width(tmp_title, 16, SDF_FONT_THIN) > title_width - ICON_PADDING) {
 					t_l--;
 					tmp_title[t_l] = '.';
 					tmp_title[t_l+1] = '.';
@@ -785,14 +780,14 @@ static void redraw(void) {
 				/* Then draw the window title, with appropriate color */
 				if (j == focused_app) {
 					/* Current hilighted - title should be a light blue */
-					draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET, s, 16, HILIGHT_COLOR);
+					draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET + 2, s, 16, HILIGHT_COLOR, SDF_FONT_THIN);
 				} else {
 					if (ad->flags & 1) {
 						/* Top window should be white */
-						draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET, s, 16, FOCUS_COLOR);
+						draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET + 2, s, 16, FOCUS_COLOR, SDF_FONT_THIN);
 					} else {
 						/* Otherwise, off white */
-						draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET, s, 16, txt_color);
+						draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET + 2, s, 16, txt_color, SDF_FONT_THIN);
 					}
 				}
 			}
