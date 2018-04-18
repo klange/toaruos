@@ -690,9 +690,9 @@ static void redraw(void) {
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
-	t = draw_sdf_string_width(buffer, 10, SDF_FONT_BOLD);
+	t = draw_sdf_string_width(buffer, 12, SDF_FONT_THIN);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2, buffer, 10, txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2, buffer, 12, txt_color, SDF_FONT_THIN);
 
 	/* Month Day */
 	strftime(buffer, 80, "%h %e", timeinfo);
