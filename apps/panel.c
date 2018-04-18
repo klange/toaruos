@@ -105,6 +105,9 @@ static int height;
 
 static int widgets_width = 0;
 static int widgets_volume_enabled = 0;
+static int widgets_network_enabled = 0;
+
+static int network_status = 0;
 
 static sprite_t * sprite_panel;
 static sprite_t * sprite_logout;
@@ -113,6 +116,9 @@ static sprite_t * sprite_volume_mute;
 static sprite_t * sprite_volume_low;
 static sprite_t * sprite_volume_med;
 static sprite_t * sprite_volume_high;
+
+static sprite_t * sprite_net_active;
+static sprite_t * sprite_net_disabled;
 
 static int center_x(int x) {
 	return (width - x) / 2;
@@ -251,6 +257,72 @@ static void volume_lower(void) {
 	redraw();
 }
 
+static char read_buf[1024];
+static size_t available = 0;
+static size_t offset = 0;
+static size_t read_from = 0;
+static char * read_line(FILE * f, char * out, ssize_t len) {
+	while (len > 0) {
+		if (available == 0) {
+			if (offset == 1024) {
+				offset = 0;
+			}
+			size_t r = read(fileno(f), &read_buf[offset], 1024 - offset);
+			read_from = offset;
+			available = r;
+			offset += available;
+		}
+
+#if 0
+		fprintf(stderr, "Available: %d\n", available);
+		fprintf(stderr, "Remaining length: %d\n", len);
+		fprintf(stderr, "Read from: %d\n", read_from);
+		fprintf(stderr, "Offset: %d\n", offset);
+#endif
+
+		if (available == 0) {
+			*out = '\0';
+			return out;
+		}
+
+		while (read_from < offset && len > 0) {
+			*out = read_buf[read_from];
+			len--;
+			read_from++;
+			available--;
+			if (*out == '\n') {
+				return out;
+			}
+			out++;
+		}
+	}
+
+	return out;
+}
+static void update_network_status(void) {
+	FILE * net = fopen("/proc/netif","r");
+
+	char line[256];
+	int found = 0;
+
+	do {
+		memset(line, 0, 256);
+		read_line(net, line, 256);
+		if (!*line) break;
+		if (strstr(line,"no network") != NULL) {
+			found = 1;
+			network_status = 0;
+			break;
+		} else if (strstr(line,"ip:") != NULL) {
+			found = 1;
+			network_status = 1;
+			break;
+		}
+	} while (1);
+
+	fclose(net);
+}
+
 /* Callback for mouse events */
 static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->wid == panel->wid) {
@@ -269,9 +341,6 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				} else {
 					/* ??? */
 				}
-			} else if (evt->new_x > WIDGET_POSITION(1) && evt->new_x < WIDGET_POSITION(0)) {
-				/* TODO: More generic widget click handling */
-				/* TODO: Show the volume manager */
 			} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
 					if (ads_by_l[i] == NULL) break;
@@ -280,6 +349,19 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 						break;
 					}
 				}
+			}
+			int widget = 0;
+			if (widgets_network_enabled) {
+				if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
+					/* TODO: Show the network status */
+				}
+				widget++;
+			}
+			if (widgets_volume_enabled) {
+				if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
+					/* TODO: Show the volume manager */
+				}
+				widget++;
 			}
 		} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
 			/* Movement, or mouse entered window */
@@ -303,13 +385,24 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			else if (evt->buttons & YUTANI_MOUSE_SCROLL_DOWN) scroll_direction = 1;
 
 			if (scroll_direction) {
-				if (evt->new_x > WIDGET_POSITION(1) && evt->new_y < WIDGET_POSITION(0)) {
-					if (scroll_direction == 1) {
-						volume_lower();
-					} else if (scroll_direction == -1) {
-						volume_raise();
+				int widget = 0;
+				if (widgets_network_enabled) {
+					if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
+						/* Ignore */
 					}
-				} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
+					widget++;
+				}
+				if (widgets_volume_enabled) {
+					if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
+						if (scroll_direction == 1) {
+							volume_lower();
+						} else if (scroll_direction == -1) {
+							volume_raise();
+						}
+					}
+					widget++;
+				}
+				if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 					if (scroll_direction != 0) {
 						struct window_ad * last = window_list->tail ? window_list->tail->value : NULL;
 						int focus_next = 0;
@@ -706,16 +799,26 @@ static void redraw(void) {
 	/* Draw each widget */
 	/* - Volume */
 	/* TODO: Get actual volume levels, and cache them somewhere */
+	int widget = 0;
+	if (widgets_network_enabled) {
+		if (network_status == 1) {
+			draw_sprite_alpha_paint(ctx, sprite_net_active, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+		} else {
+			draw_sprite_alpha_paint(ctx, sprite_net_disabled, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+		}
+		widget++;
+	}
 	if (widgets_volume_enabled) {
 		if (volume_level < 10) {
-			draw_sprite_alpha_paint(ctx, sprite_volume_mute, WIDGET_POSITION(0), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_mute, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
 		} else if (volume_level < 0x547ae147) {
-			draw_sprite_alpha_paint(ctx, sprite_volume_low, WIDGET_POSITION(0), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_low, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
 		} else if (volume_level < 0xa8f5c28e) {
-			draw_sprite_alpha_paint(ctx, sprite_volume_med, WIDGET_POSITION(0), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_med, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
 		} else {
-			draw_sprite_alpha_paint(ctx, sprite_volume_high, WIDGET_POSITION(0), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_high, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
 		}
+		widget++;
 	}
 
 	/* Now draw the window list */
@@ -919,21 +1022,6 @@ static void update_window_list(void) {
 	redraw();
 }
 
-static void * clock_thread(void * garbage) {
-	/*
-	 * This thread just calls redraw every so often so the clock
-	 * continues to tick. We really shouldn't need this,
-	 * but our current environment doens't provide timeouts,
-	 * so we can't just bail out of a yutani poll and redraw...
-	 */
-	while (_continue) {
-		waitpid(-1, NULL, WNOHANG);
-		update_volume_level();
-		redraw();
-		usleep(500000);
-	}
-}
-
 static void resize_finish(int xwidth, int xheight) {
 	yutani_window_resize_accept(yctx, panel, xwidth, xheight);
 
@@ -1048,6 +1136,17 @@ int main (int argc, char ** argv) {
 		/* XXX store current volume */
 	}
 
+	{
+		widgets_network_enabled = 1;
+		widgets_width += WIDGET_WIDTH;
+		sprite_net_active = malloc(sizeof(sprite_t));
+		load_sprite(sprite_net_active, "/usr/share/icons/24/net-active.bmp");
+		sprite_net_active->alpha = ALPHA_FORCE_SLOW_EMBEDDED;
+		sprite_net_disabled = malloc(sizeof(sprite_t));
+		load_sprite(sprite_net_disabled, "/usr/share/icons/24/net-disconnected.bmp");
+		sprite_net_disabled->alpha = ALPHA_FORCE_SLOW_EMBEDDED;
+	}
+
 	/* Draw the background */
 	for (uint32_t i = 0; i < width; i += sprite_panel->width) {
 		draw_sprite(ctx, sprite_panel, i, 0);
@@ -1063,10 +1162,6 @@ int main (int argc, char ** argv) {
 	signal(SIGUSR2, sig_usr2);
 
 	/* Start clock thread XXX need timeouts in yutani calls */
-#if 0
-	pthread_t _clock_thread;
-	pthread_create(&_clock_thread, NULL, clock_thread, NULL);
-#endif
 
 	yutani_timer_request(yctx, 0, 0);
 
@@ -1143,6 +1238,7 @@ int main (int argc, char ** argv) {
 				last_tick = now.tv_sec;
 				waitpid(-1, NULL, WNOHANG);
 				update_volume_level();
+				update_network_status();
 				redraw();
 				tick = 0;
 			}
