@@ -148,7 +148,7 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 
 	/* ignore size */
 	for (int j = 0; j < height; ++j) {
-		for (int i = 0; i < width; ++i) {
+		for (int i = 0; i < size; ++i) {
 			/* TODO needs to do bilinear filter */
 			if (fx+i > tmp->width) continue;
 			if (fy+j > tmp->height) continue;
