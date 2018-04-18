@@ -49,8 +49,10 @@ void redraw() {
 
 	decors();
 
-	draw_sdf_string(ctx, 30, 30, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0));
-	draw_sdf_string(ctx, 30, 60, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0));
+	draw_sdf_string(ctx, 30, 30, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_THIN);
+	draw_sdf_string(ctx, 30, 60, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_THIN);
+	draw_sdf_string(ctx, 30, 90, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_BOLD);
+	draw_sdf_string(ctx, 30,120, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_BOLD);
 }
 
 void resize_finish(int w, int h) {

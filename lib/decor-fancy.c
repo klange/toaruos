@@ -79,19 +79,19 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 
 #define EXTRA_SPACE 40
 
-	if (draw_sdf_string_width(tmp_title, 18) + EXTRA_SPACE > width) {
-		while (t_l >= 0 && (draw_sdf_string_width(tmp_title, 18) + EXTRA_SPACE > width)) {
+	if (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width) {
+		while (t_l >= 0 && (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width)) {
 			tmp_title[t_l] = '\0';
 			t_l--;
 		}
 	}
 
 	if (strlen(tmp_title)) {
-		int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, 18) / 2);
+		int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) / 2);
 		if (decors_active == 0) {
-			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(226,226,226));
+			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(226,226,226), SDF_FONT_BOLD);
 		} else {
-			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(147,147,147));
+			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(147,147,147), SDF_FONT_BOLD);
 		}
 	}
 
