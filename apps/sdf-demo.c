@@ -38,7 +38,7 @@ static int height = 500;
 static int left = 200;
 static int top = 200;
 
-static int size = 30;
+static int size = 16;
 
 static void decors() {
 	render_decorations(window, ctx, "SDF Demo");
@@ -49,10 +49,8 @@ void redraw() {
 
 	decors();
 
-	char tmp[100];
-	sprintf(tmp, "Hello, %d sized world!", size);
-
-	draw_sdf_string(ctx, 30, 30, tmp, size, rgb(0,0,0));
+	draw_sdf_string(ctx, 30, 30, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0));
+	draw_sdf_string(ctx, 30, 60, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0));
 }
 
 void resize_finish(int w, int h) {
