@@ -4,11 +4,13 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <toaru/graphics.h>
 
 #define BASE_WIDTH 50
 #define BASE_HEIGHT 50
+#define GAMMA 1.7
 
 static sprite_t _font_data;
 
@@ -120,7 +122,7 @@ static void _init_sdf(void) {
 	load_sprite(&_font_data, "/usr/share/sdf.bmp");
 }
 
-int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color) {
+static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp) {
 	if (ch != ' ' && ch < '!' || ch > '~') {
 		/* TODO: Draw missing symbol? */
 		return 0;
@@ -140,10 +142,6 @@ int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int si
 
 	int height = BASE_HEIGHT * ((double)size / 50.0);
 
-	sprite_t * tmp = create_sprite(scale * _font_data.width, scale * _font_data.height, ALPHA_OPAQUE);
-	gfx_context_t * t = init_graphics_sprite(tmp);
-	draw_sprite_scaled(t, &_font_data, 0, 0, tmp->width, tmp->height);
-
 	/* ignore size */
 	for (int j = 0; j < height; ++j) {
 		for (int i = 0; i < width; ++i) {
@@ -152,8 +150,8 @@ int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int si
 			if (fy+j > tmp->height) continue;
 			uint32_t c = SPRITE((tmp), fx+i, fy+j);
 			double dist = (double)_RED(c) / 255.0;
-			double edge0 = 0.75 - 2.0 * 1.4142 / (double)size;
-			double edge1 = 0.75 + 2.0 * 1.4142 / (double)size;
+			double edge0 = 0.75 - GAMMA * 1.4142 / (double)size;
+			double edge1 = 0.75 + GAMMA * 1.4142 / (double)size;
 			double a = (dist - edge0) / (edge1 - edge0);
 			if (a < 0.0) a = 0.0;
 			if (a > 1.0) a = 1.0;
@@ -162,21 +160,58 @@ int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int si
 		}
 	}
 
-	sprite_free(tmp);
-	free(t);
-
 	return width;
 
 }
 
 int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, char * str, int size, uint32_t color) {
+
+	double scale = (double)size / 50.0;
+	sprite_t * tmp = create_sprite(scale * _font_data.width, scale * _font_data.height, ALPHA_OPAQUE);
+	gfx_context_t * t = init_graphics_sprite(tmp);
+	draw_sprite_scaled(t, &_font_data, 0, 0, tmp->width, tmp->height);
+
 	int32_t out_width = 0;
 	while (*str) {
-		int w = draw_sdf_character(ctx,x,y,*str,size,color);
+		int w = draw_sdf_character(ctx,x,y,*str,size,color,tmp);
 		out_width += w;
 		x += w;
 		str++;
 	}
+
+	sprite_free(tmp);
+	free(t);
+
 	return out_width;
 }
 
+
+static int char_width(char ch) {
+	if (ch != ' ' && ch < '!' || ch > '~') {
+		/* TODO: Draw missing symbol? */
+		return 0;
+	}
+
+	/* Calculate offset into table above */
+	if (ch == ' ') {
+		ch = '~' + 1 - '!';
+	} else {
+		ch -= '!';
+	}
+
+	return _char_data[ch].width;
+}
+
+
+int draw_sdf_string_width(char * str, int size) {
+	double scale = (double)size / 50.0;
+
+	int32_t out_width = 0;
+	while (*str) {
+		int w = char_width(*str) * scale;
+		out_width += w;
+		str++;
+	}
+
+	return out_width;
+}

@@ -1,12 +1,7 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: ts=4 sw=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2014 Kevin Lange
- */
-/*
- * Julia Fractal Generator
- *
- * This is the updated windowed version of the
- * julia fractal generator demo.
+ * Copyright (C) 2018 Kevin Lange
  */
 
 #include <stdio.h>
@@ -54,7 +49,10 @@ void redraw() {
 
 	decors();
 
-	draw_sdf_string(ctx, 30, 30, "Hello, world!", size, rgb(0,0,0));
+	char tmp[100];
+	sprintf(tmp, "Hello, %d sized world!", size);
+
+	draw_sdf_string(ctx, 30, 30, tmp, size, rgb(0,0,0));
 }
 
 void resize_finish(int w, int h) {
