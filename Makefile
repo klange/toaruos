@@ -129,7 +129,9 @@ base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 .make/%.lmak: lib/%.c util/auto-dep.py | dirs
 	util/auto-dep.py --makelib $< > $@
 
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${LIBS_Y}
+endif
 
 # Init
 
@@ -141,7 +143,9 @@ base/bin/init: apps/init.c base/lib/libc.a | dirs
 .make/%.mak: apps/%.c util/auto-dep.py | dirs
 	util/auto-dep.py --make $< > $@
 
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${APPS_Y}
+endif
 
 # Ramdisk
 
