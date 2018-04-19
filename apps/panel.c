@@ -440,7 +440,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			/* Do stuff */
 			if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
 				if (evt->new_x >= 0 && evt->new_x < appmenu->width && evt->new_y >= 0 && evt->new_y < appmenu->height) {
-					int item = evt->new_y / APPMENU_ITEM_HEIGHT;
+					int item = evt->new_y > 4 ? (evt->new_y - 4) / APPMENU_ITEM_HEIGHT : -1;
 					launch_application(applications[item].appname);
 					yutani_close(yctx, appmenu);
 					appmenu = NULL;
