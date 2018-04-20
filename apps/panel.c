@@ -787,7 +787,7 @@ static void redraw_appmenu(int item) {
 
 		uint32_t color = (i == item) ? rgb(255,255,255) : rgb(0,0,0);
 
-		draw_sdf_string(bctx, 22, offset + 2, applications[i].title, 14, color, SDF_FONT_THIN);
+		draw_sdf_string(bctx, 22, offset + 1, applications[i].title, 16, color, SDF_FONT_THIN);
 
 		offset += APPMENU_ITEM_HEIGHT;
 	}
