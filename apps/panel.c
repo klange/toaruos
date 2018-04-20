@@ -58,7 +58,7 @@
 #define GRADIENT_AT(y) premultiply(rgba(72, 167, 255, ((24-(y))*160)/24))
 
 #define ALTTAB_WIDTH  250
-#define ALTTAB_HEIGHT 70
+#define ALTTAB_HEIGHT 100
 #define ALTTAB_BACKGROUND premultiply(rgba(0,0,0,150))
 #define ALTTAB_OFFSET 10
 
@@ -72,7 +72,8 @@
 #define APPMENU_PAD_TOP 4
 #define APPMENU_PAD_BOTTOM 4
 #define APPMENU_BACKGROUND rgb(239,238,232)
-#define APPMENU_ITEM_HEIGHT 24
+#define APPMENU_ITEM_HEIGHT 20
+#define APPMENU_ICON_SIZE 16
 
 #define WIDGET_WIDTH 24
 #define WIDGET_RIGHT (width - TIME_LEFT - DATE_WIDTH)
@@ -95,7 +96,8 @@ static list_t * window_list = NULL;
 static volatile int lock = 0;
 static volatile int drawlock = 0;
 
-static hashmap_t * icon_cache;
+static hashmap_t * icon_cache_48;
+static hashmap_t * icon_cache_16;
 
 static size_t bg_size;
 static char * bg_blob;
@@ -190,7 +192,8 @@ static void toggle_hide_panel(void) {
 	}
 }
 
-static sprite_t * icon_get(char * name);
+static sprite_t * icon_get_48(char * name);
+static sprite_t * icon_get_16(char * name);
 static void redraw_appmenu(int item);
 
 /* Handle SIGINT by telling other threads (clock) to shut down */
@@ -484,18 +487,18 @@ static void redraw_alttab(void) {
 	if (ads_by_z[new_focused]) {
 		struct window_ad * ad = ads_by_z[new_focused];
 
-		sprite_t * icon = icon_get(ad->icon);
+		sprite_t * icon = icon_get_48(ad->icon);
 
 		/* Draw it, scaled if necessary */
-		if (icon->width == 24) {
-			draw_sprite(actx, icon, center_x_a(24), ALTTAB_OFFSET);
+		if (icon->width == 48) {
+			draw_sprite(actx, icon, center_x_a(48), ALTTAB_OFFSET);
 		} else {
-			draw_sprite_scaled(actx, icon, center_x_a(24), ALTTAB_OFFSET, 24, 24);
+			draw_sprite_scaled(actx, icon, center_x_a(48), ALTTAB_OFFSET, 48, 48);
 		}
 
 		int t = draw_sdf_string_width(ad->name, 18, SDF_FONT_THIN);
 
-		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+16, ad->name, 18, rgb(255,255,255), SDF_FONT_THIN);
+		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+40, ad->name, 18, rgb(255,255,255), SDF_FONT_THIN);
 	}
 
 	flip(actx);
@@ -581,15 +584,20 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 }
 
 /* Default search paths for icons, in order of preference */
-static char * icon_directories[] = {
-#if 0
-	"/usr/share/icons/24",
-	"/usr/share/icons/external/24",
+static char * icon_directories_48[] = {
 	"/usr/share/icons/48",
-	"/usr/share/icons/external/48",
+	"/usr/share/icons/24",
+	"/usr/share/icons/16",
 	"/usr/share/icons",
 	"/usr/share/icons/external",
-#endif
+	NULL
+};
+static char * icon_directories_16[] = {
+	"/usr/share/icons/16",
+	"/usr/share/icons/24",
+	"/usr/share/icons/48",
+	"/usr/share/icons",
+	"/usr/share/icons/external",
 	NULL
 };
 
@@ -598,37 +606,74 @@ static char * icon_directories[] = {
  * load it - or cache the generic icon if we can not find an
  * appropriate matching icon on the filesystem.
  */
-static sprite_t * icon_get(char * name) {
+static sprite_t * icon_get_48(char * name) {
 
 	if (!strcmp(name,"")) {
 		/* If a window doesn't have an icon set, return the generic icon */
-		return hashmap_get(icon_cache, "generic");
+		return hashmap_get(icon_cache_48, "generic");
 	}
 
 	/* Check the icon cache */
-	sprite_t * icon = hashmap_get(icon_cache, name);
+	sprite_t * icon = hashmap_get(icon_cache_48, name);
 
 	if (!icon) {
 		/* We don't have an icon cached for this identifier, try search */
 		int i = 0;
 		char path[100];
-		while (icon_directories[i]) {
+		while (icon_directories_48[i]) {
 			/* Check each path... */
-			sprintf(path, "%s/%s.bmp", icon_directories[i], name);
+			sprintf(path, "%s/%s.bmp", icon_directories_48[i], name);
 			if (access(path, R_OK) == 0) {
 				/* And if we find one, cache it */
 				icon = malloc(sizeof(sprite_t));
 				load_sprite(icon, path);
 				icon->alpha = ALPHA_EMBEDDED;
-				hashmap_set(icon_cache, name, icon);
+				hashmap_set(icon_cache_48, name, icon);
 				return icon;
 			}
 			i++;
 		}
 
 		/* If we've exhausted our search paths, just return the generic icon */
-		icon = hashmap_get(icon_cache, "generic");
-		hashmap_set(icon_cache, name, icon);
+		icon = hashmap_get(icon_cache_48, "generic");
+		hashmap_set(icon_cache_48, name, icon);
+	}
+
+	/* We have an icon, return it */
+	return icon;
+}
+
+static sprite_t * icon_get_16(char * name) {
+
+	if (!strcmp(name,"")) {
+		/* If a window doesn't have an icon set, return the generic icon */
+		return hashmap_get(icon_cache_16, "generic");
+	}
+
+	/* Check the icon cache */
+	sprite_t * icon = hashmap_get(icon_cache_16, name);
+
+	if (!icon) {
+		/* We don't have an icon cached for this identifier, try search */
+		int i = 0;
+		char path[100];
+		while (icon_directories_16[i]) {
+			/* Check each path... */
+			sprintf(path, "%s/%s.bmp", icon_directories_16[i], name);
+			if (access(path, R_OK) == 0) {
+				/* And if we find one, cache it */
+				icon = malloc(sizeof(sprite_t));
+				load_sprite(icon, path);
+				icon->alpha = ALPHA_EMBEDDED;
+				hashmap_set(icon_cache_16, name, icon);
+				return icon;
+			}
+			i++;
+		}
+
+		/* If we've exhausted our search paths, just return the generic icon */
+		icon = hashmap_get(icon_cache_16, "generic");
+		hashmap_set(icon_cache_16, name, icon);
 	}
 
 	/* We have an icon, return it */
@@ -719,7 +764,7 @@ static void redraw_appmenu(int item) {
 		set_font_size(12);
 #endif
 
-		sprite_t * icon = icon_get(applications[i].icon);
+		sprite_t * icon = icon_get_16(applications[i].icon);
 
 		if (item == i) {
 			draw_line(bctx, 1, APPMENU_WIDTH-1, offset, offset, HILIGHT_BORDER_TOP);
@@ -734,15 +779,15 @@ static void redraw_appmenu(int item) {
 		}
 
 		/* Draw it, scaled if necessary */
-		if (icon->width == 24) {
-			draw_sprite(bctx, icon, 2, offset);
+		if (icon->width == APPMENU_ICON_SIZE) {
+			draw_sprite(bctx, icon, 4, offset + 2);
 		} else {
-			draw_sprite_scaled(bctx, icon, 2, offset, 24, 24);
+			draw_sprite_scaled(bctx, icon, 4, offset + 2, APPMENU_ICON_SIZE, APPMENU_ICON_SIZE);
 		}
 
 		uint32_t color = (i == item) ? rgb(255,255,255) : rgb(0,0,0);
 
-		draw_sdf_string(bctx, 30, offset + 2, applications[i].title, 18, color, SDF_FONT_THIN);
+		draw_sdf_string(bctx, 22, offset + 2, applications[i].title, 14, color, SDF_FONT_THIN);
 
 		offset += APPMENU_ITEM_HEIGHT;
 	}
@@ -870,7 +915,7 @@ static void redraw(void) {
 			}
 
 			/* Get the icon for this window */
-			sprite_t * icon = icon_get(ad->icon);
+			sprite_t * icon = icon_get_48(ad->icon);
 
 			/* Draw it, scaled if necessary */
 			if (icon->width == ICON_SIZE) {
@@ -1081,7 +1126,8 @@ int main (int argc, char ** argv) {
 	yutani_flip(yctx, panel);
 
 	/* Initialize hashmap for icon cache */
-	icon_cache = hashmap_create(10);
+	icon_cache_16 = hashmap_create(10);
+	icon_cache_48 = hashmap_create(10);
 
 	{
 		char f_name[256];
@@ -1096,16 +1142,15 @@ int main (int argc, char ** argv) {
 	/* Preload some common icons */
 	{ /* Generic fallback icon */
 		sprite_t * app_icon = malloc(sizeof(sprite_t));
-		load_sprite(app_icon, "/usr/share/icons/24/applications-generic.bmp");
+		load_sprite(app_icon, "/usr/share/icons/48/applications-generic.bmp");
 		app_icon->alpha = ALPHA_EMBEDDED;
-		hashmap_set(icon_cache, "generic", app_icon);
+		hashmap_set(icon_cache_48, "generic", app_icon);
 	}
-
-	{ /* Terminal */
+	{ /* Generic fallback icon */
 		sprite_t * app_icon = malloc(sizeof(sprite_t));
-		load_sprite(app_icon, "/usr/share/icons/24/utilities-terminal.bmp");
+		load_sprite(app_icon, "/usr/share/icons/16/applications-generic.bmp");
 		app_icon->alpha = ALPHA_EMBEDDED;
-		hashmap_set(icon_cache, "utilities-terminal", app_icon);
+		hashmap_set(icon_cache_16, "generic", app_icon);
 	}
 
 	/* Load textures for the background and logout button */
