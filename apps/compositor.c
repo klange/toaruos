@@ -1293,7 +1293,12 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 			(ke->event.keycode == KEY_F10)) {
 			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
-				window_tile(yg, focused, 1, 1, 0, 0);
+				if (focused->tiled) {
+					window_untile(yg, focused);
+					window_move(yg, focused, focused->untiled_left, focused->untiled_top);
+				} else {
+					window_tile(yg, focused, 1, 1, 0, 0);
+				}
 				return;
 			}
 		}
@@ -1660,10 +1665,10 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
 					mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 				} else {
-					if (yg->mouse_y / MOUSE_SCALE < 2) {
-						window_tile(yg, yg->mouse_window, 1, 1, 0, 0);
-						yg->mouse_window = NULL;
-						yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+					if (yg->mouse_y / MOUSE_SCALE < 10) {
+						if (!yg->mouse_window->tiled) {
+							window_tile(yg, yg->mouse_window, 1, 1, 0, 0);
+						}
 						break;
 					}
 					if (yg->mouse_window->tiled) {
