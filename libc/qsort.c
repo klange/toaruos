@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stddef.h>
+#include <string.h>
 #include <sys/types.h>
 
 void qsort(void * base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
