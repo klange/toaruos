@@ -1,0 +1,13 @@
+:_
+&accessories,folder,Accessories
+&demos,folder,Demos
+-
+help,help,Help
+about,star,About ToaruOS
+log-out,exit,Log Out
+:accessories
+terminal,utilities-terminal,Terminal
+:demos
+drawlines,drawlines,Draw Lines
+julia,julia,Julia Fractals
+plasma,plasma,Plasma
