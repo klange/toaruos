@@ -13,6 +13,7 @@
 #include <toaru/graphics.h>
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
+#include <toaru/sdf.h>
 
 uint32_t decor_top_height     = 33;
 uint32_t decor_bottom_height  = 6;
@@ -20,7 +21,7 @@ uint32_t decor_left_width     = 6;
 uint32_t decor_right_width    = 6;
 
 #define TEXT_OFFSET_X 10
-#define TEXT_OFFSET_Y 16
+#define TEXT_OFFSET_Y 3
 
 #define BORDERCOLOR rgb(60,60,60)
 #define BORDERCOLOR_INACTIVE rgb(30,30,30)
@@ -36,14 +37,8 @@ static void (*callback_resize)(yutani_window_t *) = NULL;
 static void (*callback_maximize)(yutani_window_t *) = NULL;
 
 static int close_enough(struct yutani_msg_window_mouse_event * me) {
-#if 0
 	return (me->command == YUTANI_MOUSE_EVENT_RAISE &&
 			sqrt(pow(me->new_x - me->old_x, 2.0) + pow(me->new_y - me->old_y, 2.0)) < 10.0);
-#else
-	return (me->command == YUTANI_MOUSE_EVENT_RAISE &&
-			pow(pow(me->new_x - me->old_x, 2.0) + pow(me->new_y - me->old_y, 2.0), -1.0) < 10.0);
-			
-#endif
 }
 
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
@@ -66,11 +61,11 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 	}
 
 	if (decors_active == DECOR_INACTIVE) {
-		//draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR_INACTIVE, title);
-		//draw_string(ctx, window->width - 20, TEXT_OFFSET_Y, TEXTCOLOR_INACTIVE, "✕");
+		draw_sdf_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, title, 14, TEXTCOLOR_INACTIVE, SDF_FONT_THIN);
+		draw_sdf_string(ctx, window->width - 20, TEXT_OFFSET_Y, "x", 14, TEXTCOLOR_INACTIVE, SDF_FONT_THIN);
 	} else {
-		//draw_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, TEXTCOLOR, title);
-		//draw_string(ctx, window->width - 20, TEXT_OFFSET_Y, TEXTCOLOR, "✕");
+		draw_sdf_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, title, 14, TEXTCOLOR, SDF_FONT_THIN);
+		draw_sdf_string(ctx, window->width - 20, TEXT_OFFSET_Y, "x", 14, TEXTCOLOR, SDF_FONT_THIN);
 	}
 
 	for (uint32_t i = 0; i < window->width; ++i) {
@@ -113,8 +108,6 @@ void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, 
 }
 
 void init_decorations() {
-	//init_shmemfonts();
-
 	char * tmp = getenv("WM_THEME");
 	char * theme = tmp ? strdup(tmp) : NULL;
 
