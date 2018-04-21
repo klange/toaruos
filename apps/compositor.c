@@ -1218,6 +1218,8 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 	if (!window->tiled) {
 		window->untiled_width = window->width;
 		window->untiled_height = window->height;
+		window->untiled_left = window->x;
+		window->untiled_top = window->y;
 		window->tiled = 1;
 	}
 
@@ -2444,6 +2446,7 @@ int main(int argc, char * argv[]) {
 							if (w) {
 								if (yg->mouse_window->tiled) {
 									window_untile(yg,w);
+									window_move(yg,w,w->untiled_left,w->untiled_top);
 								} else {
 									window_tile(yg, w, 1, 1, 0, 0);
 								}

@@ -65,6 +65,8 @@ typedef struct {
 	int tiled;
 	int32_t untiled_width;
 	int32_t untiled_height;
+	int32_t untiled_left;
+	int32_t untiled_top;
 
 	int default_mouse;
 	uint32_t server_flags;
