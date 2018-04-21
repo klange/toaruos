@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include <toaru/graphics.h>
+#include <toaru/hashmap.h>
 #include <toaru/sdf.h>
 
 #define BASE_WIDTH 50
@@ -15,6 +16,8 @@
 
 static sprite_t _font_data_thin;
 static sprite_t _font_data_bold;
+
+static hashmap_t * _font_cache;
 
 struct {
 	char code;
@@ -123,6 +126,7 @@ static int loaded = 0;
 __attribute__((constructor))
 static void _init_sdf(void) {
 	/* Load the font. */
+	_font_cache = hashmap_create_int(10);
 	load_sprite(&_font_data_thin, "/usr/share/sdf_thin.bmp");
 	load_sprite(&_font_data_bold, "/usr/share/sdf_bold.bmp");
 	loaded = 1;
@@ -198,9 +202,18 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str,
 	if (!loaded) return 0;
 
 	double scale = (double)size / 50.0;
-	sprite_t * tmp = create_sprite(scale * _font_data->width, scale * _font_data->height, ALPHA_OPAQUE);
-	gfx_context_t * t = init_graphics_sprite(tmp);
-	draw_sprite_scaled(t, _font_data, 0, 0, tmp->width, tmp->height);
+	int scale_height = scale * _font_data->height;
+
+	sprite_t * tmp;
+	if (!hashmap_has(_font_cache, (void *)(scale_height | (font << 16)))) {
+		tmp = create_sprite(scale * _font_data->width, scale * _font_data->height, ALPHA_OPAQUE);
+		gfx_context_t * t = init_graphics_sprite(tmp);
+		draw_sprite_scaled(t, _font_data, 0, 0, tmp->width, tmp->height);
+		free(t);
+		hashmap_set(_font_cache, (void *)(scale_height | (font << 16)), tmp);
+	} else {
+		tmp = hashmap_get(_font_cache, (void *)(scale_height | (font << 16)));
+	}
 
 	int32_t out_width = 0;
 	while (*str) {
@@ -209,9 +222,6 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str,
 		x += w;
 		str++;
 	}
-
-	sprite_free(tmp);
-	free(t);
 
 	return out_width;
 }
