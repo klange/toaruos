@@ -33,6 +33,7 @@ int  (*decor_check_button_press)(yutani_window_t *, int x, int y) = NULL;
 
 static void (*callback_close)(yutani_window_t *) = NULL;
 static void (*callback_resize)(yutani_window_t *) = NULL;
+static void (*callback_maximize)(yutani_window_t *) = NULL;
 
 static int close_enough(struct yutani_msg_window_mouse_event * me) {
 #if 0
@@ -160,6 +161,10 @@ void decor_set_resize_callback(void (*callback)(yutani_window_t *)) {
 	callback_resize = callback;
 }
 
+void decor_set_maximize_callback(void (*callback)(yutani_window_t *)) {
+	callback_maximize = callback;
+}
+
 static int within_decors(yutani_window_t * window, int x, int y) {
 	if ((x <= decor_left_width || x >= window->width - decor_right_width) && (x > 0 && x < window->width)) return 1;
 	if ((y <= decor_top_height || y >= window->height - decor_bottom_height) && (y > 0 && y < window->height)) return 1;
@@ -259,6 +264,13 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 									break;
 								case DECOR_RESIZE:
 									if (callback_resize) callback_resize(window);
+									break;
+								case DECOR_MAXIMIZE:
+									if (callback_maximize) {
+										callback_maximize(window);
+									} else {
+										yutani_special_request(yctx, window, YUTANI_SPECIAL_REQUEST_MAXIMIZE);
+									}
 									break;
 								default:
 									break;

@@ -43,11 +43,13 @@ extern int decor_handle_event(yutani_t * yctx, yutani_msg_t * m);
 /* Callbacks for handle_event */
 extern void decor_set_close_callback(void (*callback)(yutani_window_t *));
 extern void decor_set_resize_callback(void (*callback)(yutani_window_t *));
+extern void decor_set_maximize_callback(void (*callback)(yutani_window_t *));
 
 /* Responses from handle_event */
-#define DECOR_OTHER  1
-#define DECOR_CLOSE  2
-#define DECOR_RESIZE 3
+#define DECOR_OTHER     1
+#define DECOR_CLOSE     2
+#define DECOR_RESIZE    3
+#define DECOR_MAXIMIZE  4
 
 #define DECOR_ACTIVE   0
 #define DECOR_INACTIVE 1

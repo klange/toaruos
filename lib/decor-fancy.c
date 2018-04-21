@@ -5,7 +5,7 @@
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
 
-#define INACTIVE 9
+#define INACTIVE 10
 
 #define TTK_FANCY_PATH "/usr/share/ttk/"
 
@@ -99,12 +99,18 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 
 	/* Buttons */
 	draw_sprite(ctx, sprites[decors_active + 8], width - 28, 16);
+	draw_sprite(ctx, sprites[decors_active + 9], width - 50, 16);
 }
 
 static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
 	if (x >= window->width - 28 && x <= window->width - 18 &&
 		y >= 16 && y <= 26) {
 		return DECOR_CLOSE;
+	}
+
+	if (x >= window->width - 50 && x <= window->width - 40 &&
+		y >= 16 && y <= 26) {
+		return DECOR_MAXIMIZE;
 	}
 
 	return 0;
@@ -120,6 +126,7 @@ void decor_init() {
 	init_sprite(6, TTK_FANCY_PATH "active/lm.bmp");
 	init_sprite(7, TTK_FANCY_PATH "active/lr.bmp");
 	init_sprite(8, TTK_FANCY_PATH "active/button-close.bmp");
+	init_sprite(9, TTK_FANCY_PATH "active/button-maximize.bmp");
 
 	init_sprite(INACTIVE + 0, TTK_FANCY_PATH "inactive/ul.bmp");
 	init_sprite(INACTIVE + 1, TTK_FANCY_PATH "inactive/um.bmp");
@@ -130,6 +137,7 @@ void decor_init() {
 	init_sprite(INACTIVE + 6, TTK_FANCY_PATH "inactive/lm.bmp");
 	init_sprite(INACTIVE + 7, TTK_FANCY_PATH "inactive/lr.bmp");
 	init_sprite(INACTIVE + 8, TTK_FANCY_PATH "inactive/button-close.bmp");
+	init_sprite(INACTIVE + 9, TTK_FANCY_PATH "inactive/button-maximize.bmp");
 
 	decor_top_height     = 33;
 	decor_bottom_height  = 6;
