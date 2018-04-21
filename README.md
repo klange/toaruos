@@ -2,7 +2,9 @@
 
 ![screenshot](https://i.imgur.com/rJfDM1Y.png)
 
-This is an experimental spin-off / distribution of ToaruOS which includes no third-party components.
+ToaruOS-NIH is a distribution of ToaruOS which contains no third-party components. Its bootloader, kernel, modules, C library, and userspace applications are all written by the ToaruOS development team and direct contributors.
+
+This distribution aims to eventually replace the core of the mainline ToaruOS, with the various third-party components building against our own C library. This is a long-term project.
 
 The bootloader is a simple El Torito "no-emulation" CD bootloader. It is not guaranteed to work on real hardware, but has been tested in QEMU, Bochs, and VirtualBox.
 
@@ -10,7 +12,7 @@ The userspace includes a work-in-progress C standard library, the ToaruOS native
 
 ## Building
 
-You'll need a working compiler to build the gcc cross-compiler targeting `i686-pc-toaru`. You will also need `yasm` for some assorted assembly files I was too lazy to translate to gas. `xorriso` is needed to build the final CD, `genext2fs` (with Debian patches) is needed for the ramdisk. Python is needed for some parts of the build as well.
+First, ensure you have the necessary build tools, which are mostly the same as mainline ToaruOS: `yasm`, `xorriso`, `genext2fs` (with Debian patches), `python`.
 
 Run `make` and you will be prompted to build a toolchain. Reply `y` and allow the toolchain to build.
 
@@ -55,7 +57,6 @@ ToaruOS's kernel is entirely in-house. Its userspace, however, is built on sever
 - **apps** - Userspace applications, all first-party.
 - **base** - Ramdisk root filesystem staging directory. Includes C headers in `base/usr/include`, as well as graphical resources for the compositor and window decorator.
 - **boot** - Bootloader.
-- **decors** - Decoration themes.
 - **kernel** - The ToaruOS kernel.
 - **lib** - Userspace libraries.
 - **libc** - C standard library implementation.
