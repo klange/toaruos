@@ -9,6 +9,7 @@
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
 #include <toaru/sdf.h>
+#include <toaru/spinlock.h>
 
 #define BASE_WIDTH 50
 #define BASE_HEIGHT 50
@@ -18,6 +19,8 @@ static sprite_t _font_data_thin;
 static sprite_t _font_data_bold;
 
 static hashmap_t * _font_cache;
+
+static volatile int _sdf_lock = 0;
 
 struct {
 	char code;
@@ -205,6 +208,7 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str,
 	int scale_height = scale * _font_data->height;
 
 	sprite_t * tmp;
+	spin_lock(&_sdf_lock);
 	if (!hashmap_has(_font_cache, (void *)(scale_height | (font << 16)))) {
 		tmp = create_sprite(scale * _font_data->width, scale * _font_data->height, ALPHA_OPAQUE);
 		gfx_context_t * t = init_graphics_sprite(tmp);
@@ -214,6 +218,7 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str,
 	} else {
 		tmp = hashmap_get(_font_cache, (void *)(scale_height | (font << 16)));
 	}
+	spin_unlock(&_sdf_lock);
 
 	int32_t out_width = 0;
 	while (*str) {
