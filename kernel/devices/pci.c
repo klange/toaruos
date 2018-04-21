@@ -9,9 +9,6 @@
 #include <kernel/system.h>
 #include <kernel/pci.h>
 
-#include "pci_list.h"
-
-
 void pci_write_field(uint32_t device, int field, int size, uint32_t value) {
 	outportl(PCI_ADDRESS_PORT, pci_get_addr(device, field));
 	outportl(PCI_VALUE_PORT, value);
@@ -37,19 +34,49 @@ uint16_t pci_find_type(uint32_t dev) {
 	return (pci_read_field(dev, PCI_CLASS, 1) << 8) | pci_read_field(dev, PCI_SUBCLASS, 1);
 }
 
+struct {
+	uint16_t id;
+	const char * name;
+} _pci_vendors[] = {
+	{0x1022, "AMD"},
+	{0x106b, "Apple, Inc."},
+	{0x1234, "Bochs/QEMU"},
+	{0x8086, "Intel Corporation"},
+	{0x80EE, "VirtualBox"},
+};
+
+struct {
+	uint16_t ven_id;
+	uint16_t dev_id;
+	const char * name;
+} _pci_devices[] = {
+	{0x1022, 0x2000, "PCNet Ethernet Controller (pcnet)"},
+	{0x106b, 0x003f, "OHCI Controller"},
+	{0x1234, 0x1111, "VGA BIOS Graphics Extensions"},
+	{0x8086, 0x100e, "Gigabit Ethernet Controller (e1000)"},
+	{0x8086, 0x1237, "PCI & Memory"},
+	{0x8086, 0x2415, "AC'97 Audio Chipset"},
+	{0x8086, 0x7000, "PCI-to-ISA Bridge"},
+	{0x8086, 0x7010, "IDE Interface"},
+	{0x8086, 0x7113, "Power Management Controller"},
+	{0x80EE, 0xBEEF, "Bochs/QEMU-compatible Graphics Adapter"},
+	{0x80EE, 0xCAFE, "Guest Additions Device"},
+};
+
+
 const char * pci_vendor_lookup(unsigned short vendor_id) {
-	for (unsigned int i = 0; i < PCI_VENTABLE_LEN; ++i) {
-		if (PciVenTable[i].VenId == vendor_id) {
-			return PciVenTable[i].VenFull;
+	for (unsigned int i = 0; i < sizeof(_pci_vendors)/sizeof(_pci_vendors[0]); ++i) {
+		if (_pci_vendors[i].id == vendor_id) {
+			return _pci_vendors[i].name;
 		}
 	}
 	return "";
 }
 
 const char * pci_device_lookup(unsigned short vendor_id, unsigned short device_id) {
-	for (unsigned int i = 0; i < PCI_DEVTABLE_LEN; ++i) {
-		if (PciDevTable[i].VenId == vendor_id && PciDevTable[i].DevId == device_id) {
-			return PciDevTable[i].ChipDesc;
+	for (unsigned int i = 0; i < sizeof(_pci_devices)/sizeof(_pci_devices[0]); ++i) {
+		if (_pci_devices[i].ven_id == vendor_id && _pci_devices[i].dev_id == device_id) {
+			return _pci_devices[i].name;
 		}
 	}
 	return "";
