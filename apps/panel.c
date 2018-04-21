@@ -31,7 +31,6 @@
 #include <toaru/pthread.h>
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
-#include <toaru/drawstring.h>
 #include <toaru/hashmap.h>
 #include <toaru/spinlock.h>
 #include <toaru/sdf.h>
