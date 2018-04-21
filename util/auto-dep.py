@@ -32,7 +32,7 @@ class Classifier(object):
         '<toaru/confreader.h>':  (None, '-ltoaru_confreader',  ['<toaru/hashmap.h>']),
         '<toaru/dlfcn.h>':       (None, '-ltoaru_dlfcn',       []),
         '<toaru/yutani.h>':      (None, '-ltoaru_yutani',      ['<toaru/kbd.h>', '<toaru/list.h>', '<toaru/pex.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
-        '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/graphics.h>', '<toaru/yutani.h>','<toaru/dlfcn.h>']),
+        '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/sdf.h>', '<toaru/graphics.h>', '<toaru/yutani.h>','<toaru/dlfcn.h>']),
         '<toaru/termemu.h>':     (None, '-ltoaru_termemu',     ['<toaru/graphics.h>']),
         '<toaru/sdf.h>':         (None, '-ltoaru_sdf',         ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
     }
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         order_only = [x[1] for x in results if x[0]]
         print(" ".join(normal) + " | " + " ".join(order_only))
     elif command == "--make":
-        print("base/bin/{app}: {source} {headers} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -o $@ $< {libraries}".format(
+        print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -o $@ $< {libraries}".format(
             app=os.path.basename(filename).replace(".c",""),
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     elif command == "--makelib":
         libname = os.path.basename(filename).replace(".c","")
         _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
-        print("base/lib/libtoaru_{lib}.so: {source} {headers} | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -shared -fPIC -o $@ $< {libraries}".format(
+        print("base/lib/libtoaru_{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -shared -fPIC -o $@ $< {libraries}".format(
             lib=libname,
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
