@@ -191,7 +191,7 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 
 }
 
-int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, char * str, int size, uint32_t color, int font) {
+int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font) {
 
 	sprite_t * _font_data = _select_font(font);
 
@@ -233,7 +233,7 @@ static int char_width(char ch, int font) {
 }
 
 
-int draw_sdf_string_width(char * str, int size, int font) {
+int draw_sdf_string_width(const char * str, int size, int font) {
 	double scale = (double)size / 50.0;
 
 	int32_t out_width = 0;
