@@ -1205,10 +1205,6 @@ int main (int argc, char ** argv) {
 	signal(SIGINT, sig_int);
 	signal(SIGUSR2, sig_usr2);
 
-	/* Start clock thread XXX need timeouts in yutani calls */
-
-	yutani_timer_request(yctx, 0, 0);
-
 	/* Subscribe to window updates */
 	yutani_subscribe_windows(yctx);
 

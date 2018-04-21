@@ -1237,7 +1237,17 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 	yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
 	free(response);
-	return;
+}
+
+/**
+ * Take a previously tiled window and "untile" it, eg. restore its original size.
+ */
+static void window_untile(yutani_globals_t * yg, yutani_server_window_t * window) {
+	window->tiled = 0;
+
+	yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, window->untiled_width, window->untiled_height, 0);
+	pex_send(yg->server, window->owner, response->size, (char *)response);
+	free(response);
 }
 
 /**
@@ -1656,17 +1666,14 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					}
 					if (yg->mouse_window->tiled) {
 						if ((abs(yg->mouse_x - yg->mouse_init_x) > UNTILE_SENSITIVITY) || (abs(yg->mouse_y - yg->mouse_init_y) > UNTILE_SENSITIVITY)) {
-					/* Untile it */
-							yg->mouse_window->tiled = 0;
+							/* Untile it */
+							window_untile(yg,yg->mouse_window);
 							/* Position the window such that it's representative of where it was, percentage-wise, in the untiled window */
 							float percent_x = (float)(yg->mouse_x / MOUSE_SCALE - yg->mouse_window->x) / (float)yg->mouse_window->width;
 							float percent_y = (float)(yg->mouse_y / MOUSE_SCALE - yg->mouse_window->y) / (float)yg->mouse_window->height;
 							window_move(yg, yg->mouse_window,
 							            yg->mouse_x / MOUSE_SCALE - yg->mouse_window->untiled_width * percent_x,
 							            yg->mouse_y / MOUSE_SCALE - yg->mouse_window->untiled_height * percent_y);
-							yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->mouse_window->wid, yg->mouse_window->untiled_width, yg->mouse_window->untiled_height, 0);
-							pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
-							free(response);
 							/* reset init_x / init_y */
 							yg->mouse_init_x = yg->mouse_x;
 							yg->mouse_init_y = yg->mouse_y;
@@ -2428,6 +2435,26 @@ int main(int argc, char * argv[]) {
 					}
 				}
 				break;
+			case YUTANI_MSG_SPECIAL_REQUEST:
+				{
+					struct yutani_msg_special_request * sr = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)sr->wid);
+					switch (sr->request) {
+						case YUTANI_SPECIAL_REQUEST_MAXIMIZE:
+							if (w) {
+								if (yg->mouse_window->tiled) {
+									window_untile(yg,w);
+								} else {
+									window_tile(yg, w, 1, 1, 0, 0);
+								}
+							}
+							break;
+						default:
+							TRACE("Unknown special request type: 0x%x\n", sr->request);
+							break;
+					}
+
+				}
 			default:
 				{
 					TRACE("Unknown type: 0x%8x", m->type);

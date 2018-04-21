@@ -513,33 +513,21 @@ yutani_msg_t * yutani_msg_build_window_resize_start(yutani_wid_t wid, yutani_sca
 	return msg;
 }
 
-yutani_msg_t * yutani_msg_build_timer_request(uint32_t precision, uint32_t flags) {
-	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_timer_request);
+yutani_msg_t * yutani_msg_build_special_request(yutani_wid_t wid, uint32_t request) {
+	size_t s = sizeof(struct yutani_message) + sizeof(struct yutani_msg_special_request);
 	yutani_msg_t * msg = malloc(s);
 
 	msg->magic = YUTANI_MSG__MAGIC;
-	msg->type  = YUTANI_MSG_TIMER_REQUEST;
+	msg->type  = YUTANI_MSG_SPECIAL_REQUEST;
 	msg->size  = s;
 
-	struct yutani_msg_timer_request * tr = (void *)msg->data;
+	struct yutani_msg_special_request * sr = (void *)msg->data;
 
-	tr->precision = precision;
-	tr->flags = flags;
+	sr->wid   = wid;
+	sr->request = request;
 
 	return msg;
 }
-
-yutani_msg_t * yutani_msg_build_timer_tick(void) {
-	size_t s = sizeof(struct yutani_message);
-	yutani_msg_t * msg = malloc(s);
-
-	msg->magic = YUTANI_MSG__MAGIC;
-	msg->type  = YUTANI_MSG_TIMER_TICK;
-	msg->size  = s;
-
-	return msg;
-}
-
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	int result = pex_reply(y->sock, msg->size, (char *)msg);
@@ -837,8 +825,9 @@ void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutan
 	free(m);
 }
 
-void yutani_timer_request(yutani_t * yctx, uint32_t precision, uint32_t flags) {
-	yutani_msg_t * m = yutani_msg_build_timer_request(precision, flags);
+void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t request) {
+	/* wid isn't necessary; if window is null, set to 0 */
+	yutani_msg_t * m = yutani_msg_build_special_request(window ? window->wid : 0, request);
 	int result = yutani_msg_send(yctx, m);
 	free(m);
 }
