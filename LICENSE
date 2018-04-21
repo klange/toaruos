@@ -1,10 +1,9 @@
+
 University of Illinois/NCSA Open Source License 
 
-Copyright (c) 2011-2018 K. Lange, et al. All rights reserved. 
+Copyright (c) 2011-2018 K Lange (hereafter [fullname]). All rights reserved. 
 
-Developed by: ToaruOS-NIH Developers
-              ToaruOS Kernel Development Group
-              https://toaruos.org/
+Developed by: ToaruOS (hereafter [project])
                   
 Permission is hereby granted, free of charge, to any person 
 obtaining a copy of this software and associated documentation files 
@@ -21,7 +20,7 @@ subject to the following conditions:
   notice, this list of conditions and the following disclaimers in the 
   documentation and/or other materials provided with the distribution.
 
-* Neither the names of K. Lange, ToaruOS nor the names of its 
+* Neither the names of [fullname], [project] nor the names of its 
   contributors may be used to endorse or promote products derived from
   this Software without specific prior written permission.
   
