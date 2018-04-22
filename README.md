@@ -4,9 +4,21 @@
 
 ToaruOS-NIH is a distribution of ToaruOS which contains no third-party components. Its bootloader, kernel, modules, C library, and userspace applications are all written by the ToaruOS development team and direct contributors.
 
-This distribution aims to eventually replace the core of the mainline ToaruOS, with the various third-party components building against our own C library. This is a long-term project.
+This distribution aims to eventually replace the core of the mainline ToaruOS, with the various third-party components building against our own C library. This is a long-term project, and developing the C library to the point where it is useful for this purpose is not expected to be completed for quite some time.
 
-The bootloader is a simple El Torito "no-emulation" CD bootloader. It is not guaranteed to work on real hardware, but has been tested in QEMU, Bochs, and VirtualBox.
+## Implementation Details
+
+All source code for the entire operating system is included in this repository.
+
+### Kernel
+
+The NIH kernel is essentially the same as the mainline kernel, though the PCI vendor and device ID list has been replaced with our own slimmed down version. This was the only third-party element of the ToaruOS kernel. Additionally, the headers for the kernel have been relocated from their original directories to facilitate a cleaner build. The NIH kernel should be considered the latest version of the ToaruOS kernel.
+
+### Bootloader
+
+Mailine ToaruOS shipped with GRUB, which provided a multiboot-compatible ELF loader. To that end, our native bootloader also implements multiboot. However, as writing a feature-complete bootloader is not a goal of this project, the native bootloader is very limited, supporting only ATAPI CDs on systems with El Torito "no-emulation" support. It is not guaranteed to work on real hardware, but has been tested in QEMU, Bochs, and VirtualBox.
+
+### Userspace
 
 The userspace includes a work-in-progress C standard library, the ToaruOS native libraries, the compositor (using only in-house graphics routines), and various other first-party utilities and applications.
 
