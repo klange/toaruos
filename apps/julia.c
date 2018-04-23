@@ -163,6 +163,7 @@ void redraw() {
 			newcolor = lastcolor;
 			i+= 2;
 		} while ( i < width );
+		yutani_flip(yctx, window);
 		++j;
 	} while ( j < height );
 }
@@ -174,9 +175,12 @@ void resize_finish(int w, int h) {
 	width  = w - decor_left_width - decor_right_width;
 	height = h - decor_top_height - decor_bottom_height;
 
+	draw_fill(ctx, rgb(0,0,0));
+	decors();
+	yutani_window_resize_done(yctx, window);
+
 	redraw();
 
-	yutani_window_resize_done(yctx, window);
 	yutani_flip(yctx, window);
 }
 
