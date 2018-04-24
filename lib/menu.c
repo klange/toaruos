@@ -363,7 +363,7 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 	my_yctx = yctx;
 
 	/* Create window */
-	yutani_window_t * menu_window = yutani_window_create(yctx, width, height);
+	yutani_window_t * menu_window = yutani_window_create_flags(yctx, width, height, YUTANI_WINDOW_FLAG_ALT_ANIMATION);
 	if (menu->ctx) {
 		reinit_graphics_yutani(menu->ctx, menu_window);
 	} else {
