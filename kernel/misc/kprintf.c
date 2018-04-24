@@ -10,8 +10,9 @@
  */
 #include <kernel/system.h>
 #include <kernel/process.h>
-#include <kernel/va_list.h>
 #include <kernel/fs.h>
+
+#include <va_list.h>
 
 /*
  * Integer to string

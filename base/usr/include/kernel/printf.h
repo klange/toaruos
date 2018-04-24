@@ -1,5 +1,7 @@
 #pragma once
 
+#include <va_list.h>
+
 #include <kernel/fs.h>
 
 extern size_t vasprintf(char * buf, const char *fmt, va_list args);
