@@ -14,8 +14,9 @@
 #include <kernel/system.h>
 #include <kernel/logging.h>
 #include <kernel/args.h>
-#include <kernel/hashmap.h>
 #include <kernel/tokenize.h>
+
+#include <toaru/hashmap.h>
 
 char * cmdline = NULL;
 

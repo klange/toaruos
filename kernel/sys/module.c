@@ -6,9 +6,10 @@
 #include <kernel/system.h>
 #include <kernel/logging.h>
 #include <kernel/fs.h>
-#include <kernel/hashmap.h>
 #include <kernel/elf.h>
 #include <kernel/module.h>
+
+#include <toaru/hashmap.h>
 
 #define SYMBOLTABLE_HASHMAP_SIZE 10
 #define MODULE_HASHMAP_SIZE 10

@@ -6,7 +6,6 @@
  * Module to provide a debug shell command to set display mode.
  */
 #include <kernel/system.h>
-#include <kernel/hashmap.h>
 #include <kernel/module.h>
 #include <kernel/logging.h>
 #include <kernel/printf.h>

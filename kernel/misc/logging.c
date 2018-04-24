@@ -10,10 +10,11 @@
  */
 
 #include <kernel/system.h>
-#include <kernel/list.h>
 #include <kernel/logging.h>
 #include <kernel/va_list.h>
 #include <kernel/printf.h>
+
+#include <toaru/list.h>
 
 log_type_t debug_level = NOTICE;
 void * debug_file = NULL;

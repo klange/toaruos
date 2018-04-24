@@ -12,13 +12,15 @@
 #include <kernel/process.h>
 #include <kernel/version.h>
 #include <kernel/tokenize.h>
-#include <kernel/hashmap.h>
 #include <kernel/pci.h>
 #include <kernel/pipe.h>
 #include <kernel/elf.h>
 #include <kernel/module.h>
 #include <kernel/args.h>
 #include <kernel/mod/shell.h>
+
+#include <toaru/list.h>
+#include <toaru/hashmap.h>
 
 #include <sys/termios.h>
 

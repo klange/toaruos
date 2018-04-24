@@ -11,12 +11,12 @@
  * really support multiple devices despite the interface suggesting it might...
  */
 
-#include <kernel/list.h>
 #include <kernel/module.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/system.h>
 #include <kernel/mod/snd.h>
 
+#include <toaru/list.h>
 #include <errno.h>
 
 /* Utility macros */

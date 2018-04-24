@@ -5,11 +5,13 @@
  */
 #include <kernel/module.h>
 #include <kernel/logging.h>
-#include <kernel/hashmap.h>
 #include <kernel/ipv4.h>
 #include <kernel/printf.h>
 #include <kernel/tokenize.h>
 #include <kernel/mod/net.h>
+
+#include <toaru/list.h>
+#include <toaru/hashmap.h>
 
 static hashmap_t * dns_cache;
 static list_t * dns_waiters = NULL;

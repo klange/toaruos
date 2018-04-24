@@ -5,10 +5,11 @@
 #include <kernel/types.h>
 #include <kernel/fs.h>
 #include <kernel/va_list.h>
-#include <kernel/list.h>
 #include <kernel/task.h>
 #include <kernel/process.h>
 #include <kernel/libc.h>
+
+#include <toaru/list.h>
 
 #define ASSUME(cond) __extension__ ({ if (!(cond)) { __builtin_unreachable(); } })
 

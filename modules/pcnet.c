@@ -8,10 +8,11 @@
 #include <kernel/printf.h>
 #include <kernel/pci.h>
 #include <kernel/mem.h>
-#include <kernel/list.h>
 #include <kernel/pipe.h>
 #include <kernel/ipv4.h>
 #include <kernel/mod/net.h>
+
+#include <toaru/list.h>
 
 static list_t * net_queue = NULL;
 static spin_lock_t net_queue_lock = { 0 };
