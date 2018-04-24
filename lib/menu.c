@@ -364,11 +364,13 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 
 	/* Create window */
 	yutani_window_t * menu_window = yutani_window_create(yctx, width, height);
-	gfx_context_t * ctx = init_graphics_yutani_double_buffer(menu_window);
+	if (menu->ctx) {
+		reinit_graphics_yutani(menu->ctx, menu_window);
+	} else {
+		menu->ctx = init_graphics_yutani_double_buffer(menu_window);
+	}
 
 	menu_window->user_data = menu;
-
-	menu->ctx = ctx;
 	menu->window = menu_window;
 
 	_menu_redraw(menu_window, yctx, menu);
@@ -423,28 +425,29 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 					}
 				}
 				break;
-#if 0
 			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
-				handle_focus_event((struct yutani_msg_window_focus_change *)m->data);
-				break;
-			case YUTANI_MSG_WELCOME:
 				{
-					struct yutani_msg_welcome * mw = (void*)m->data;
-					width = mw->display_width;
-					height = mw->display_height;
-					yutani_window_resize(yctx, panel, mw->display_width, PANEL_HEIGHT);
+					struct yutani_msg_window_focus_change * me = (void*)m->data;
+					if (hashmap_has(menu_windows, (void*)me->wid)) {
+						yutani_window_t * window = hashmap_get(menu_windows, (void *)me->wid);
+						struct MenuList * menu = window->user_data;
+						if (!me->focused) {
+							/* XXX leave menu */
+							yutani_close(yctx, window);
+							menu->window = NULL;
+							/* if root and not window.root.menus and window.root.focused */
+							return 1;
+						} else {
+							window->focused = me->focused;
+							/* Redraw? */
+						}
+					}
 				}
 				break;
-			case YUTANI_MSG_RESIZE_OFFER:
-				{
-					struct yutani_msg_window_resize * wr = (void*)m->data;
-					resize_finish(wr->width, wr->height);
-				}
-				break;
-#endif
 			default:
 				break;
 		}
 		free(m);
 	}
+	return 0;
 }

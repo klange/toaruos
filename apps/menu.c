@@ -39,7 +39,9 @@ int main(int argc, char * argv[]) {
 
 	while (1) {
 		yutani_msg_t * m = yutani_poll(yctx);
-		menu_process_event(yctx, m);
+		if (menu_process_event(yctx, m)) {
+			return 1;
+		}
 	}
 
 	return 0;
