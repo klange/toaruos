@@ -2463,6 +2463,7 @@ int main(int argc, char * argv[]) {
 					}
 
 				}
+				break;
 			default:
 				{
 					TRACE("Unknown type: 0x%8x", m->type);
