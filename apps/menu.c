@@ -42,6 +42,7 @@ int main(int argc, char * argv[]) {
 		if (menu_process_event(yctx, m)) {
 			return 1;
 		}
+		free(m);
 	}
 
 	return 0;

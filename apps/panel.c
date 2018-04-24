@@ -35,6 +35,7 @@
 #include <toaru/spinlock.h>
 #include <toaru/sdf.h>
 #include <toaru/icon_cache.h>
+#include <toaru/menu.h>
 #include <kernel/mod/sound.h>
 
 #define PANEL_HEIGHT 28
@@ -67,14 +68,6 @@
 #define TOTAL_CELL_WIDTH (ICON_SIZE + ICON_PADDING * 2 + title_width)
 #define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING - widgets_width)
 
-#define APPMENU_WIDTH  200
-#define APPMENU_PAD_RIGHT 1
-#define APPMENU_PAD_TOP 4
-#define APPMENU_PAD_BOTTOM 4
-#define APPMENU_BACKGROUND rgb(239,238,232)
-#define APPMENU_ITEM_HEIGHT 20
-#define APPMENU_ICON_SIZE 16
-
 #define WIDGET_WIDTH 24
 #define WIDGET_RIGHT (width - TIME_LEFT - DATE_WIDTH)
 #define WIDGET_POSITION(i) (WIDGET_RIGHT - WIDGET_WIDTH * (i+1))
@@ -86,11 +79,6 @@ static yutani_window_t * panel = NULL;
 
 static gfx_context_t * actx = NULL;
 static yutani_window_t * alttab = NULL;
-
-static gfx_context_t * bctx = NULL;
-static yutani_window_t * appmenu = NULL;
-
-static int appmenu_item = -1;
 
 static list_t * window_list = NULL;
 static volatile int lock = 0;
@@ -118,6 +106,8 @@ static sprite_t * sprite_volume_high;
 
 static sprite_t * sprite_net_active;
 static sprite_t * sprite_net_disabled;
+
+struct MenuList * appmenu;
 
 static int center_x(int x) {
 	return (width - x) / 2;
@@ -154,9 +144,6 @@ typedef struct {
 	char * title;
 } application_t;
 
-static int appmenu_items_count = 0;
-static application_t * applications = NULL;
-
 /* Windows, indexed by list order */
 static struct window_ad * ads_by_l[MAX_WINDOW_COUNT+1] = {NULL};
 /* Windows, indexed by z-order */
@@ -188,8 +175,6 @@ static void toggle_hide_panel(void) {
 		panel_hidden = 1;
 	}
 }
-
-static void redraw_appmenu(int item);
 
 /* Handle SIGINT by telling other threads (clock) to shut down */
 static void sig_int(int sig) {
@@ -330,14 +315,12 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				yutani_session_end(yctx);
 				_continue = 0;
 			} else if (evt->new_x < APP_OFFSET) {
-				if (!appmenu) {
-					appmenu = yutani_window_create_flags(yctx, APPMENU_WIDTH + APPMENU_PAD_RIGHT, APPMENU_ITEM_HEIGHT * appmenu_items_count + APPMENU_PAD_BOTTOM + APPMENU_PAD_TOP, YUTANI_WINDOW_FLAG_ALT_ANIMATION);
-					yutani_window_move(yctx, appmenu, 0, PANEL_HEIGHT);
-					bctx = init_graphics_yutani_double_buffer(appmenu);
-					redraw_appmenu(-1);
-					yutani_focus_window(yctx, appmenu->wid);
-				} else {
-					/* ??? */
+				if (!appmenu->window) {
+					menu_show(appmenu, yctx);
+					if (appmenu->window) {
+						yutani_window_move(yctx, appmenu->window, 0, PANEL_HEIGHT);
+					}
+					// show menu
 				}
 			} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
@@ -433,46 +416,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			/* Mouse left panel window */
 			set_focused(-1);
 		}
-	} else {
-		if (appmenu && evt->wid == appmenu->wid) {
-			/* Do stuff */
-			if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
-				if (evt->new_x >= 0 && evt->new_x < appmenu->width && evt->new_y >= 0 && evt->new_y < appmenu->height) {
-					int item = evt->new_y > 4 ? (evt->new_y - 4) / APPMENU_ITEM_HEIGHT : -1;
-					launch_application(applications[item].appname);
-					yutani_close(yctx, appmenu);
-					appmenu = NULL;
-					free(bctx->backbuffer);
-					free(bctx);
-				}
-			} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
-				if (evt->new_x >= 0 && evt->new_x < appmenu->width && evt->new_y >= 0 && evt->new_y < appmenu->height) {
-					int item = evt->new_y > 4 ? (evt->new_y - 4) / APPMENU_ITEM_HEIGHT : -1;
-					if (item != appmenu_item) {
-						appmenu_item = item;
-						redraw_appmenu(appmenu_item);
-					}
-				}
-			} else if (evt->command == YUTANI_MOUSE_EVENT_LEAVE) {
-				if (-1 != appmenu_item) {
-					appmenu_item = -1;
-					redraw_appmenu(appmenu_item);
-				}
-			}
-		}
 	}
-}
-
-static void handle_focus_event(struct yutani_msg_window_focus_change * wf) {
-
-	if (appmenu && wf->wid == appmenu->wid  && wf->focused == 0) {
-		/* Close */
-		yutani_close(yctx, appmenu);
-		appmenu = NULL;
-		free(bctx->backbuffer);
-		free(bctx);
-	}
-
 }
 
 static void redraw_alttab(void) {
@@ -498,6 +442,12 @@ static void redraw_alttab(void) {
 
 	flip(actx);
 	yutani_flip(yctx, alttab);
+}
+
+static void launch_application_menu(struct MenuEntry * self) {
+	struct MenuEntry_Normal * _self = (void *)self;
+
+	launch_application((char *)_self->action);
 }
 
 static void handle_key_event(struct yutani_msg_key_event * ke) {
@@ -578,121 +528,6 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 
 }
 
-static void read_applications(FILE * f) {
-	if (!f) {
-		/* No applications? */
-		applications = malloc(sizeof(application_t));
-		applications[0].icon = NULL;
-		return;
-	}
-	char line[2048];
-
-	int count = 0;
-
-	while (fgets(line, 2048, f) != NULL) {
-		if (strstr(line, "#") == line) continue;
-
-		char * icon = line;
-		char * name = strstr(icon,","); name++;
-		char * title = strstr(name, ","); title++;
-
-		if (!name || !title) {
-			continue; /* invalid */
-		}
-
-		count++;
-	}
-
-	fseek(f, 0, SEEK_SET);
-	applications = malloc(sizeof(application_t) * (count + 1));
-	memset(&applications[count], 0x00, sizeof(application_t));
-
-	appmenu_items_count = count;
-
-	int i = 0;
-	while (fgets(line, 2048, f) != NULL) {
-		if (strstr(line, "#") == line) continue;
-
-		char * icon = line;
-		char * name = strstr(icon,","); name++;
-		char * title = strstr(name, ","); title++;
-
-		if (!name || !title) {
-			continue; /* invalid */
-		}
-
-		name[-1] = '\0';
-		title[-1] = '\0';
-
-		char * tmp = strstr(title, "\n");
-		if (tmp) *tmp = '\0';
-
-		applications[i].icon = strdup(icon);
-		applications[i].appname = strdup(name);
-		applications[i].title = strdup(title);
-
-		i++;
-	}
-
-	fclose(f);
-}
-
-#define HILIGHT_BORDER_TOP rgb(54,128,205)
-#define HILIGHT_GRADIENT_TOP rgb(93,163,236)
-#define HILIGHT_GRADIENT_BOTTOM rgb(56,137,220)
-#define HILIGHT_BORDER_BOTTOM rgb(47,106,167)
-
-static void redraw_appmenu(int item) {
-	draw_fill(bctx, APPMENU_BACKGROUND);
-	draw_line(bctx, 0, APPMENU_WIDTH, 0, 0, rgb(109,111,112));
-	spin_lock(&drawlock);
-	int32_t offset = 4;
-
-	for (int i = 0; i < appmenu_items_count; ++i) {
-#if 0
-		set_font_face(FONT_SANS_SERIF);
-		set_font_size(12);
-#endif
-
-		sprite_t * icon = icon_get_16(applications[i].icon);
-
-		if (item == i) {
-			draw_line(bctx, 1, APPMENU_WIDTH-1, offset, offset, HILIGHT_BORDER_TOP);
-			draw_line(bctx, 1, APPMENU_WIDTH-1, offset + APPMENU_ITEM_HEIGHT - 1, offset + APPMENU_ITEM_HEIGHT - 1, HILIGHT_BORDER_BOTTOM);
-			for (int i = 1; i < APPMENU_ITEM_HEIGHT-1; ++i) {
-				int thing = ((i - 1) * 256) / (APPMENU_ITEM_HEIGHT - 2);
-				if (thing > 255) thing = 255;
-				if (thing < 0) thing = 0;
-				uint32_t c = interp_colors(HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM, thing);
-				draw_line(bctx, 1, APPMENU_WIDTH-1, offset + i, offset + i, c);
-			}
-		}
-
-		/* Draw it, scaled if necessary */
-		if (icon->width == APPMENU_ICON_SIZE) {
-			draw_sprite(bctx, icon, 4, offset + 2);
-		} else {
-			draw_sprite_scaled(bctx, icon, 4, offset + 2, APPMENU_ICON_SIZE, APPMENU_ICON_SIZE);
-		}
-
-		uint32_t color = (i == item) ? rgb(255,255,255) : rgb(0,0,0);
-
-		draw_sdf_string(bctx, 22, offset + 1, applications[i].title, 16, color, SDF_FONT_THIN);
-
-		offset += APPMENU_ITEM_HEIGHT;
-	}
-
-	offset += 3;
-
-	draw_line(bctx, 0, 0, 0, offset, rgb(109,111,112));
-	draw_line(bctx, APPMENU_WIDTH, APPMENU_WIDTH, 0, offset, rgb(109,111,112));
-	draw_line(bctx, 0, APPMENU_WIDTH, offset, offset, rgb(109,111,112));
-
-	spin_unlock(&drawlock);
-	flip(bctx);
-	yutani_flip(yctx, appmenu);
-}
-
 static void redraw(void) {
 	spin_lock(&drawlock);
 
@@ -729,7 +564,7 @@ static void redraw(void) {
 	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 12, txt_color, SDF_FONT_BOLD);
 
 	/* Applications menu */
-	draw_sdf_string(ctx, 10, 4, "Applications", 18, appmenu ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, 10, 4, "Applications", 18, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
 
 	/* Draw each widget */
 	/* - Volume */
@@ -995,12 +830,6 @@ int main (int argc, char ** argv) {
 	width  = yctx->display_width;
 	height = yctx->display_height;
 
-	/* Initialize fonts. */
-#if 0
-	init_shmemfonts();
-	set_font_size(14);
-#endif
-
 	/* Create the panel window */
 	panel = yutani_window_create_flags(yctx, width, PANEL_HEIGHT, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
 
@@ -1014,16 +843,6 @@ int main (int argc, char ** argv) {
 	draw_fill(ctx, rgba(0,0,0,0));
 	flip(ctx);
 	yutani_flip(yctx, panel);
-
-	{
-		char f_name[256];
-		sprintf(f_name, "%s/.menu.desktop", getenv("HOME"));
-		FILE * f = fopen(f_name, "r");
-		if (!f) {
-			f = fopen("/etc/menu.desktop", "r");
-		}
-		read_applications(f);
-	}
 
 	/* Load textures for the background and logout button */
 	sprite_panel  = malloc(sizeof(sprite_t));
@@ -1078,6 +897,8 @@ int main (int argc, char ** argv) {
 	signal(SIGINT, sig_int);
 	signal(SIGUSR2, sig_usr2);
 
+	appmenu = menu_set_get_root(menu_set_from_description("/usr/share/demo.menu", launch_application_menu));
+
 	/* Subscribe to window updates */
 	yutani_subscribe_windows(yctx);
 
@@ -1109,6 +930,7 @@ int main (int argc, char ** argv) {
 		if (index == 0) {
 			/* Respond to Yutani events */
 			yutani_msg_t * m = yutani_poll(yctx);
+			menu_process_event(yctx, m);
 			if (m) {
 				switch (m->type) {
 					/* New window information is available */
@@ -1121,9 +943,6 @@ int main (int argc, char ** argv) {
 						break;
 					case YUTANI_MSG_KEY_EVENT:
 						handle_key_event((struct yutani_msg_key_event *)m->data);
-						break;
-					case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
-						handle_focus_event((struct yutani_msg_window_focus_change *)m->data);
 						break;
 					case YUTANI_MSG_WELCOME:
 						{

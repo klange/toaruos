@@ -381,15 +381,6 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 	if (m) {
 		switch (m->type) {
-			case YUTANI_MSG_KEY_EVENT:
-				{
-					struct yutani_msg_key_event * ke = (void*)m->data;
-					if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-						return 0;
-					}
-				}
-				break;
-				/* Mouse movement / click */
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
@@ -433,6 +424,7 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 						struct MenuList * menu = window->user_data;
 						if (!me->focused) {
 							/* XXX leave menu */
+							hashmap_remove(menu_windows, (void*)me->wid);
 							yutani_close(yctx, window);
 							menu->window = NULL;
 							/* if root and not window.root.menus and window.root.focused */
@@ -447,7 +439,6 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 			default:
 				break;
 		}
-		free(m);
 	}
 	return 0;
 }
