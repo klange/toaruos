@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <math.h>
 #include <sys/types.h>
 
 #include <toaru/yutani.h>
@@ -12,60 +13,13 @@
 #include <toaru/sdf.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
+#include <toaru/icon_cache.h>
 
 #define MENU_ENTRY_HEIGHT 20
 #define MENU_BACKGROUND rgb(239,238,232)
 #define MENU_ICON_SIZE 16
 
 static yutani_t * yctx;
-
-static char * icon_directories_16[] = {
-	"/usr/share/icons/16",
-	"/usr/share/icons/24",
-	"/usr/share/icons/48",
-	"/usr/share/icons",
-	"/usr/share/icons/external",
-	NULL
-};
-
-static hashmap_t * icon_cache_16;
-
-static sprite_t * icon_get_16(const char * name) {
-
-	if (!strcmp(name,"")) {
-		/* If a window doesn't have an icon set, return the generic icon */
-		return hashmap_get(icon_cache_16, "generic");
-	}
-
-	/* Check the icon cache */
-	sprite_t * icon = hashmap_get(icon_cache_16, (void*)name);
-
-	if (!icon) {
-		/* We don't have an icon cached for this identifier, try search */
-		int i = 0;
-		char path[100];
-		while (icon_directories_16[i]) {
-			/* Check each path... */
-			sprintf(path, "%s/%s.bmp", icon_directories_16[i], name);
-			if (access(path, R_OK) == 0) {
-				/* And if we find one, cache it */
-				icon = malloc(sizeof(sprite_t));
-				load_sprite(icon, path);
-				icon->alpha = ALPHA_EMBEDDED;
-				hashmap_set(icon_cache_16, (void*)name, icon);
-				return icon;
-			}
-			i++;
-		}
-
-		/* If we've exhausted our search paths, just return the generic icon */
-		icon = hashmap_get(icon_cache_16, "generic");
-		hashmap_set(icon_cache_16, (void*)name, icon);
-	}
-
-	/* We have an icon, return it */
-	return icon;
-}
 
 enum ListEntry_Type {
 	ListEntry_Unknown,
@@ -84,6 +38,7 @@ struct ListEntry {
 
 	void (*renderer)(gfx_context_t *, struct ListEntry *, int);
 	void (*focus_change)(struct ListEntry *, int);
+	void (*activate)(struct ListEntry *, int);
 };
 
 struct ListEntry_Normal {
@@ -152,6 +107,13 @@ void _menu_focus_ListEntry_Normal(struct ListEntry * self, int focused) {
 
 }
 
+void _menu_activate_ListEntry_Normal(struct ListEntry * self, int flags) {
+	struct ListEntry_Normal * _self = (struct ListEntry_Normal *)self;
+
+	fprintf(stdout, "%s\n", _self->action);
+	exit(0);
+}
+
 struct ListEntry * menu_create_normal(const char * icon, const char * action, const char * title) {
 	struct ListEntry_Normal * out = malloc(sizeof(struct ListEntry_Normal));
 
@@ -160,6 +122,7 @@ struct ListEntry * menu_create_normal(const char * icon, const char * action, co
 	out->hilight = 0;
 	out->renderer = _menu_draw_ListEntry_Normal;
 	out->focus_change = _menu_focus_ListEntry_Normal;
+	out->activate = _menu_activate_ListEntry_Normal;
 	out->icon = strdup(icon);
 	out->title = strdup(title);
 	out->action = strdup(action);
@@ -177,6 +140,10 @@ void _menu_focus_ListEntry_Submenu(struct ListEntry * self, int focused) {
 
 }
 
+void _menu_activate_ListEntry_Submenu(struct ListEntry * self, int focused) {
+
+}
+
 struct ListEntry * menu_create_submenu(const char * icon, const char * action, const char * title) {
 	struct ListEntry_Submenu * out = malloc(sizeof(struct ListEntry_Submenu));
 
@@ -185,6 +152,7 @@ struct ListEntry * menu_create_submenu(const char * icon, const char * action, c
 	out->hilight = 0;
 	out->renderer = _menu_draw_ListEntry_Submenu;
 	out->focus_change = _menu_focus_ListEntry_Submenu;
+	out->activate = _menu_activate_ListEntry_Submenu;
 	out->icon = strdup(icon);
 	out->title = strdup(title);
 	out->action = strdup(action);
@@ -214,6 +182,13 @@ struct ListEntry * menu_create_separator(void) {
 	out->rwidth = 10; /* at least a bit please */
 
 	return (struct ListEntry *)out;
+}
+
+static int _close_enough(struct yutani_msg_window_mouse_event * me) {
+	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
+		return 1;
+	}
+	return 0;
 }
 
 static char read_buf[1024];
@@ -270,7 +245,12 @@ static void _menu_calculate_dimensions(list_t * list, int * height, int * width)
 }
 
 hashmap_t * menu_from_description(const char * path) {
-	FILE * f = fopen(path,"r");
+	FILE * f;
+	if (!strcmp(path,"-")) {
+		f = stdin;
+	} else {
+		f = fopen(path,"r");
+	}
 
 	if (!f) {
 		return NULL;
@@ -363,6 +343,9 @@ hashmap_t * menu_from_description(const char * path) {
 
 failure:
 	fprintf(stderr, "malformed description file\n");
+	if (f != stdin) {
+		fclose(f);
+	}
 	free(out);
 	return NULL;
 }
@@ -417,15 +400,6 @@ int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
 
-	/* TODO This belongs in a constructor */
-	icon_cache_16 = hashmap_create(10);
-	{ /* Generic fallback icon */
-		sprite_t * app_icon = malloc(sizeof(sprite_t));
-		load_sprite(app_icon, "/usr/share/icons/16/applications-generic.bmp");
-		app_icon->alpha = ALPHA_EMBEDDED;
-		hashmap_set(icon_cache_16, "generic", app_icon);
-	}
-
 	/* Create menu from file. */
 	hashmap_t * menu = menu_from_description(argv[1]);
 
@@ -465,6 +439,7 @@ int main(int argc, char * argv[]) {
 	gfx_context_t * ctx;
 	list_t * entries = hashmap_get(menu, "_");
 	_menu_create_window(entries, &window, &ctx);
+	yutani_window_move(yctx, window, 0, 80);
 
 	while (1) {
 		yutani_msg_t * m = yutani_poll(yctx);
@@ -492,6 +467,11 @@ int main(int argc, char * argv[]) {
 									if (!entry->hilight) {
 										changed = 1;
 										entry->hilight = 1;
+									}
+									if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
+										if (entry->activate) {
+											entry->activate(entry, 0);
+										}
 									}
 								} else {
 									if (entry->hilight) {

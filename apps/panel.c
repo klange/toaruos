@@ -34,6 +34,7 @@
 #include <toaru/hashmap.h>
 #include <toaru/spinlock.h>
 #include <toaru/sdf.h>
+#include <toaru/icon_cache.h>
 #include <kernel/mod/sound.h>
 
 #define PANEL_HEIGHT 28
@@ -94,9 +95,6 @@ static int appmenu_item = -1;
 static list_t * window_list = NULL;
 static volatile int lock = 0;
 static volatile int drawlock = 0;
-
-static hashmap_t * icon_cache_48;
-static hashmap_t * icon_cache_16;
 
 static size_t bg_size;
 static char * bg_blob;
@@ -191,8 +189,6 @@ static void toggle_hide_panel(void) {
 	}
 }
 
-static sprite_t * icon_get_48(char * name);
-static sprite_t * icon_get_16(char * name);
 static void redraw_appmenu(int item);
 
 /* Handle SIGINT by telling other threads (clock) to shut down */
@@ -580,103 +576,6 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		redraw_alttab();
 	}
 
-}
-
-/* Default search paths for icons, in order of preference */
-static char * icon_directories_48[] = {
-	"/usr/share/icons/48",
-	"/usr/share/icons/24",
-	"/usr/share/icons/16",
-	"/usr/share/icons",
-	"/usr/share/icons/external",
-	NULL
-};
-static char * icon_directories_16[] = {
-	"/usr/share/icons/16",
-	"/usr/share/icons/24",
-	"/usr/share/icons/48",
-	"/usr/share/icons",
-	"/usr/share/icons/external",
-	NULL
-};
-
-/*
- * Get an icon from the cache, or if it is not in the cache,
- * load it - or cache the generic icon if we can not find an
- * appropriate matching icon on the filesystem.
- */
-static sprite_t * icon_get_48(char * name) {
-
-	if (!strcmp(name,"")) {
-		/* If a window doesn't have an icon set, return the generic icon */
-		return hashmap_get(icon_cache_48, "generic");
-	}
-
-	/* Check the icon cache */
-	sprite_t * icon = hashmap_get(icon_cache_48, name);
-
-	if (!icon) {
-		/* We don't have an icon cached for this identifier, try search */
-		int i = 0;
-		char path[100];
-		while (icon_directories_48[i]) {
-			/* Check each path... */
-			sprintf(path, "%s/%s.bmp", icon_directories_48[i], name);
-			if (access(path, R_OK) == 0) {
-				/* And if we find one, cache it */
-				icon = malloc(sizeof(sprite_t));
-				load_sprite(icon, path);
-				icon->alpha = ALPHA_EMBEDDED;
-				hashmap_set(icon_cache_48, name, icon);
-				return icon;
-			}
-			i++;
-		}
-
-		/* If we've exhausted our search paths, just return the generic icon */
-		icon = hashmap_get(icon_cache_48, "generic");
-		hashmap_set(icon_cache_48, name, icon);
-	}
-
-	/* We have an icon, return it */
-	return icon;
-}
-
-static sprite_t * icon_get_16(char * name) {
-
-	if (!strcmp(name,"")) {
-		/* If a window doesn't have an icon set, return the generic icon */
-		return hashmap_get(icon_cache_16, "generic");
-	}
-
-	/* Check the icon cache */
-	sprite_t * icon = hashmap_get(icon_cache_16, name);
-
-	if (!icon) {
-		/* We don't have an icon cached for this identifier, try search */
-		int i = 0;
-		char path[100];
-		while (icon_directories_16[i]) {
-			/* Check each path... */
-			sprintf(path, "%s/%s.bmp", icon_directories_16[i], name);
-			if (access(path, R_OK) == 0) {
-				/* And if we find one, cache it */
-				icon = malloc(sizeof(sprite_t));
-				load_sprite(icon, path);
-				icon->alpha = ALPHA_EMBEDDED;
-				hashmap_set(icon_cache_16, name, icon);
-				return icon;
-			}
-			i++;
-		}
-
-		/* If we've exhausted our search paths, just return the generic icon */
-		icon = hashmap_get(icon_cache_16, "generic");
-		hashmap_set(icon_cache_16, name, icon);
-	}
-
-	/* We have an icon, return it */
-	return icon;
 }
 
 static void read_applications(FILE * f) {
@@ -1124,10 +1023,6 @@ int main (int argc, char ** argv) {
 	flip(ctx);
 	yutani_flip(yctx, panel);
 
-	/* Initialize hashmap for icon cache */
-	icon_cache_16 = hashmap_create(10);
-	icon_cache_48 = hashmap_create(10);
-
 	{
 		char f_name[256];
 		sprintf(f_name, "%s/.menu.desktop", getenv("HOME"));
@@ -1136,20 +1031,6 @@ int main (int argc, char ** argv) {
 			f = fopen("/etc/menu.desktop", "r");
 		}
 		read_applications(f);
-	}
-
-	/* Preload some common icons */
-	{ /* Generic fallback icon */
-		sprite_t * app_icon = malloc(sizeof(sprite_t));
-		load_sprite(app_icon, "/usr/share/icons/48/applications-generic.bmp");
-		app_icon->alpha = ALPHA_EMBEDDED;
-		hashmap_set(icon_cache_48, "generic", app_icon);
-	}
-	{ /* Generic fallback icon */
-		sprite_t * app_icon = malloc(sizeof(sprite_t));
-		load_sprite(app_icon, "/usr/share/icons/16/applications-generic.bmp");
-		app_icon->alpha = ALPHA_EMBEDDED;
-		hashmap_set(icon_cache_16, "generic", app_icon);
 	}
 
 	/* Load textures for the background and logout button */
