@@ -718,3 +718,11 @@ void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x,
 	}
 }
 
+
+uint32_t interp_colors(uint32_t bottom, uint32_t top, uint8_t interp) {
+	uint8_t red = (_RED(bottom) * (255 - interp) + _RED(top) * interp) / 255;
+	uint8_t gre = (_GRE(bottom) * (255 - interp) + _GRE(top) * interp) / 255;
+	uint8_t blu = (_BLU(bottom) * (255 - interp) + _BLU(top) * interp) / 255;
+	uint8_t alp = (_ALP(bottom) * (255 - interp) + _ALP(top) * interp) / 255;
+	return rgba(red,gre,blu, alp);
+}

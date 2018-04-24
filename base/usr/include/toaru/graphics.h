@@ -90,3 +90,4 @@ extern void gfx_clear_clip(gfx_context_t * ctx);
 
 extern uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v);
 
+extern uint32_t interp_colors(uint32_t bottom, uint32_t top, uint8_t interp);
