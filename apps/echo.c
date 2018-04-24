@@ -28,6 +28,7 @@ int main(int argc, char ** argv) {
 			start = i;
 			break;
 		} else {
+			start++;
 			if (argv[i][1] == 'h') {
 				usage();
 				return 1;
