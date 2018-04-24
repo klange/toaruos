@@ -17,14 +17,12 @@ endif
 # Disable built-in rules
 .SUFFIXES:
 
-KERNEL_TARGET=i686-pc-toaru
-KCC = $(KERNEL_TARGET)-gcc
-KAS = $(KERNEL_TARGET)-as
-KLD = $(KERNEL_TARGET)-ld
-KNM = $(KERNEL_TARGET)-nm
+TARGET_TRIPLET=i686-pc-toaru
 
-CC=i686-pc-toaru-gcc
-AR=i686-pc-toaru-ar
+# Userspace flags
+
+CC=$(TARGET_TRIPLET)-gcc
+AR=$(TARGET_TRIPLET)-ar
 CFLAGS= -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps -pipe -mfpmath=sse -mmmx -msse -msse2 -fplan9-extensions
 
 LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
@@ -40,7 +38,12 @@ LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
 all: image.iso
 
-# Kernel
+# Kernel / module flags
+
+KCC = $(TARGET_TRIPLET)-gcc
+KAS = $(TARGET_TRIPLET)-as
+KLD = $(TARGET_TRIPLET)-ld
+KNM = $(TARGET_TRIPLET)-nm
 
 KCFLAGS  = -O2 -std=c99
 KCFLAGS += -finline-functions -ffreestanding
@@ -56,6 +59,8 @@ KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
 
 KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
 
+# Kernel
+
 cdrom/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
 
@@ -68,6 +73,14 @@ kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 
 kernel/sys/version.o: kernel/*/*.c kernel/*.c
 
+kernel/%.o: kernel/%.S
+	${KAS} ${ASFLAGS} $< -o $@
+
+kernel/%.o: kernel/%.c ${HEADERS}
+	${KCC} ${KCFLAGS} -nostdlib -g -c -o $@ $<
+
+# Modules
+
 cdrom/mod:
 	@mkdir -p $@
 
@@ -79,12 +92,6 @@ cdrom/mod/%.ko: modules/%.c ${HEADERS} | cdrom/mod
 	${KCC} -T modules/link.ld -nostdlib ${KCFLAGS} -c -o $@ $<
 
 modules: ${MODULES}
-
-kernel/%.o: kernel/%.S
-	${KAS} ${ASFLAGS} $< -o $@
-
-kernel/%.o: kernel/%.c ${HEADERS}
-	${KCC} ${KCFLAGS} -nostdlib -g -c -o $@ $<
 
 # Root Filesystem
 
@@ -133,12 +140,12 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${LIBS_Y}
 endif
 
-# Init
+# Init (static)
 
 base/bin/init: apps/init.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
-# Userspace
+# Userspace applications
 
 .make/%.mak: apps/%.c util/auto-dep.py | dirs
 	util/auto-dep.py --make $< > $@
@@ -151,7 +158,6 @@ endif
 
 cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so Makefile | dirs
 	genext2fs -B 4096 -d base -U -b 4096 -N 2048 cdrom/ramdisk.img
-
 
 # CD image
 
