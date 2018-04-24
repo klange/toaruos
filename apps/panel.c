@@ -637,14 +637,6 @@ static void read_applications(FILE * f) {
 	fclose(f);
 }
 
-static uint32_t interp_colors(uint32_t bottom, uint32_t top, uint8_t interp) {
-	uint8_t red = (_RED(bottom) * (255 - interp) + _RED(top) * interp) / 255;
-	uint8_t gre = (_GRE(bottom) * (255 - interp) + _GRE(top) * interp) / 255;
-	uint8_t blu = (_BLU(bottom) * (255 - interp) + _BLU(top) * interp) / 255;
-	uint8_t alp = (_ALP(bottom) * (255 - interp) + _ALP(top) * interp) / 255;
-	return rgba(red,gre,blu, alp);
-}
-
 #define HILIGHT_BORDER_TOP rgb(54,128,205)
 #define HILIGHT_GRADIENT_TOP rgb(93,163,236)
 #define HILIGHT_GRADIENT_BOTTOM rgb(56,137,220)
