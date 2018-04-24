@@ -7,13 +7,13 @@
  */
 
 #ifdef _KERNEL_
-#	include <kernel/tree.h>
 #	include <kernel/system.h>
 #else
 #	include <stddef.h>
 #	include <stdlib.h>
-#	include <toaru/tree.h>
 #endif
+
+#include <toaru/tree.h>
 
 tree_t * tree_create(void) {
 	/* Create a new tree */

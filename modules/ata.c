@@ -13,11 +13,12 @@
 #include <kernel/module.h>
 #include <kernel/fs.h>
 #include <kernel/printf.h>
-#include <kernel/list.h>
 #include <kernel/pci.h>
 
 /* TODO: Move this to mod/ata.h */
 #include <kernel/ata.h>
+
+#include <toaru/list.h>
 
 static char ata_drive_char = 'a';
 static int  cdrom_number = 0;

@@ -12,9 +12,10 @@
 #include <kernel/module.h>
 #include <kernel/args.h>
 #include <kernel/printf.h>
-#include <kernel/hashmap.h>
-#include <kernel/list.h>
 #include <kernel/tokenize.h>
+
+#include <toaru/list.h>
+#include <toaru/hashmap.h>
 
 #define ISO_SECTOR_SIZE 2048
 

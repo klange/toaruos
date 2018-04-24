@@ -4,7 +4,6 @@
  * Copyright (C) 2014 Kevin Lange
  */
 #include <kernel/system.h>
-#include <kernel/hashmap.h>
 #include <kernel/module.h>
 #include <kernel/logging.h>
 

@@ -8,10 +8,11 @@
 #include <kernel/printf.h>
 #include <kernel/pci.h>
 #include <kernel/mem.h>
-#include <kernel/list.h>
 #include <kernel/pipe.h>
 #include <kernel/ipv4.h>
 #include <kernel/mod/net.h>
+
+#include <toaru/list.h>
 
 /* XXX move this to ipv4? */
 extern size_t print_dns_name(fs_node_t * tty, struct dns_packet * dns, size_t offset);

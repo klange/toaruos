@@ -12,12 +12,13 @@
  */
 #include <kernel/system.h>
 #include <kernel/process.h>
-#include <kernel/tree.h>
-#include <kernel/list.h>
 #include <kernel/bitset.h>
 #include <kernel/logging.h>
 #include <kernel/shm.h>
 #include <kernel/printf.h>
+
+#include <toaru/list.h>
+#include <toaru/tree.h>
 
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_list;  /* Flat storage */

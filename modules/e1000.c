@@ -8,10 +8,11 @@
 #include <kernel/printf.h>
 #include <kernel/pci.h>
 #include <kernel/mem.h>
-#include <kernel/list.h>
 #include <kernel/pipe.h>
 #include <kernel/ipv4.h>
 #include <kernel/mod/net.h>
+
+#include <toaru/list.h>
 
 static uint32_t e1000_device_pci = 0x00000000;
 static int e1000_irq = 0;

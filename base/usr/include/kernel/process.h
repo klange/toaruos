@@ -3,9 +3,10 @@
 
 #pragma once
 
-#include <kernel/tree.h>
 #include <kernel/signal.h>
 #include <kernel/task.h>
+
+#include <toaru/tree.h>
 
 #define KERNEL_STACK_SIZE 0x8000
 

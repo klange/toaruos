@@ -6,7 +6,13 @@
  * General-purpose list implementations.
  */
 
-#include <string.h>
+#ifdef _KERNEL_
+#	include <kernel/system.h>
+#else
+#	include <stddef.h>
+#	include <stdlib.h>
+#endif
+
 #include <toaru/list.h>
 
 void list_destroy(list_t * list) {

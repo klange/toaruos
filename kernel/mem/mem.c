@@ -12,8 +12,9 @@
 #include <kernel/process.h>
 #include <kernel/logging.h>
 #include <kernel/signal.h>
-#include <kernel/hashmap.h>
 #include <kernel/module.h>
+
+#include <toaru/hashmap.h>
 
 #define KERNEL_HEAP_INIT 0x00800000
 #define KERNEL_HEAP_END  0x20000000

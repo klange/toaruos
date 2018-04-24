@@ -1,7 +1,8 @@
 #pragma once
 
 #include <kernel/types.h>
-#include <kernel/hashmap.h>
+
+#include <toaru/hashmap.h>
 
 typedef struct {
     char * name;

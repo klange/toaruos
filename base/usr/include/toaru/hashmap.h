@@ -2,14 +2,14 @@
 
 
 #ifdef _KERNEL_
-#	include <kernel/list.h>
 #	include <kernel/system.h>
 #else
-#	include <toaru/list.h>
 #	include <string.h>
 #	include <stddef.h>
 #	include <stdlib.h>
 #endif
+
+#include <toaru/list.h>
 
 typedef unsigned int (*hashmap_hash_t) (void * key);
 typedef int (*hashmap_comp_t) (void * a, void * b);

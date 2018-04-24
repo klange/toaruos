@@ -11,8 +11,9 @@
 #include <kernel/logging.h>
 #include <kernel/shm.h>
 #include <kernel/mem.h>
-#include <kernel/tree.h>
-#include <kernel/list.h>
+
+#include <toaru/tree.h>
+#include <toaru/list.h>
 
 
 //static volatile uint8_t bsl; // big shm lock
