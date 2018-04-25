@@ -131,6 +131,10 @@ void _menu_focus_MenuEntry_Separator(struct MenuEntry * self, int focused) {
 
 }
 
+void _menu_activate_MenuEntry_Separator(struct MenuEntry * self, int focused) {
+
+}
+
 struct MenuEntry * menu_create_separator(void) {
 	struct MenuEntry_Separator * out = malloc(sizeof(struct MenuEntry_Separator));
 
@@ -140,6 +144,7 @@ struct MenuEntry * menu_create_separator(void) {
 	out->renderer = _menu_draw_MenuEntry_Separator;
 	out->focus_change = _menu_focus_MenuEntry_Separator;
 	out->rwidth = 10; /* at least a bit please */
+	out->activate = _menu_activate_MenuEntry_Separator;
 
 	return (struct MenuEntry *)out;
 }
