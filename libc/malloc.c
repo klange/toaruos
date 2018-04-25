@@ -192,7 +192,7 @@ void free(void * ptr) {
 /*
  * Adjust bin size in bin_size call to proper bounds.
  */
-static uintptr_t inline __attribute__ ((always_inline, pure)) klmalloc_adjust_bin(uintptr_t bin)
+static inline uintptr_t __attribute__ ((always_inline, pure)) klmalloc_adjust_bin(uintptr_t bin)
 {
 	if (bin <= (uintptr_t)SMALLEST_BIN_LOG)
 	{
@@ -209,7 +209,7 @@ static uintptr_t inline __attribute__ ((always_inline, pure)) klmalloc_adjust_bi
  * Given a size value, find the correct bin
  * to place the requested allocation in.
  */
-static uintptr_t inline __attribute__ ((always_inline, pure)) klmalloc_bin_size(uintptr_t size) {
+static inline uintptr_t __attribute__ ((always_inline, pure)) klmalloc_bin_size(uintptr_t size) {
 	uintptr_t bin = sizeof(size) * CHAR_BIT - __builtin_clzl(size);
 	bin += !!(size & (size - 1));
 	return klmalloc_adjust_bin(bin);
@@ -270,7 +270,7 @@ static klmalloc_big_bin_header * klmalloc_newest_big = NULL;		/* Newest big bin 
  * position in the list by linking
  * its neighbors to eachother.
  */
-static void inline __attribute__ ((always_inline)) klmalloc_list_decouple(klmalloc_bin_header_head *head, klmalloc_bin_header *node) {
+static inline void __attribute__ ((always_inline)) klmalloc_list_decouple(klmalloc_bin_header_head *head, klmalloc_bin_header *node) {
 	klmalloc_bin_header *next	= node->next;
 	head->first = next;
 	node->next = NULL;
@@ -283,7 +283,7 @@ static void inline __attribute__ ((always_inline)) klmalloc_list_decouple(klmall
  * elements are updated to point back
  * to it (our list is doubly linked).
  */
-static void inline __attribute__ ((always_inline)) klmalloc_list_insert(klmalloc_bin_header_head *head, klmalloc_bin_header *node) {
+static inline void __attribute__ ((always_inline)) klmalloc_list_insert(klmalloc_bin_header_head *head, klmalloc_bin_header *node) {
 	node->next = head->first;
 	head->first = node;
 }
@@ -330,7 +330,7 @@ static uint32_t __attribute__ ((pure)) klmalloc_skip_rand(void) {
 /*
  * Generate a random level for a skip node
  */
-static int inline __attribute__ ((pure, always_inline)) klmalloc_random_level(void) {
+static inline int __attribute__ ((pure, always_inline)) klmalloc_random_level(void) {
 	int level = 0;
 	/*
 	 * Keep trying to check rand() against 50% of its maximum.
@@ -572,7 +572,7 @@ static void klmalloc_stack_push(klmalloc_bin_header *header, void *ptr) {
  * stack, so there is no more free
  * space available in the block.
  */
-static int inline __attribute__ ((always_inline)) klmalloc_stack_empty(klmalloc_bin_header *header) {
+static inline int __attribute__ ((always_inline)) klmalloc_stack_empty(klmalloc_bin_header *header) {
 	return header->head == NULL;
 }
 

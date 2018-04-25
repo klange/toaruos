@@ -56,6 +56,8 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 			_alto = 1;
 			++f;
 		}
+		(void)_alte; /* TODO: Implement these */
+		(void)_alto;
 		switch (*f) {
 			case 'a':
 				b += sprintf(b, "%s", weekdays_short[tm->tm_wday]);
@@ -177,7 +179,7 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 				b += sprintf(b, "UTC");
 				break;
 			case '%':
-				b += sprintf(b, "%");
+				b += sprintf(b, "%c", '%');
 				break;
 			case 'V':
 			case 'W':

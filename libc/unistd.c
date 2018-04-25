@@ -19,7 +19,7 @@ DECL_SYSCALL3(readlink, char *, char *, int);
 
 int open(const char *name, int flags, ...) {
 	va_list argp;
-	int mode;
+	int mode = 0;
 	int result;
 	va_start(argp, flags);
 	if (flags & O_CREAT) mode = va_arg(argp, int);

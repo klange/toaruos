@@ -90,7 +90,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream) {
 			return -1;
 		}
 		tracking += r;
-		if (r < size) {
+		if (r < (int)size) {
 			return i;
 		}
 	}
@@ -106,7 +106,7 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream) {
 			return -1;
 		}
 		tracking += r;
-		if (r < size) {
+		if (r < (int)size) {
 			return i;
 		}
 	}
@@ -122,9 +122,8 @@ int fflush(FILE * stream) {
 }
 
 int fputs(const char *s, FILE *stream) {
-	if (fwrite(s, strlen(s), 1, stream) < 0) {
-		return EOF;
-	}
+	fwrite(s, strlen(s), 1, stream);
+	/* eof? */
 	return 0;
 }
 
@@ -137,7 +136,6 @@ int fputc(int c, FILE *stream) {
 int fgetc(FILE * stream) {
 	char buf[1];
 	int r;
-_try_again:
 	r = fread(buf, 1, 1, stream);
 	if (r < 0) {
 		return EOF;
