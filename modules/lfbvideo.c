@@ -46,11 +46,6 @@ void lfb_set_resolution(uint16_t x, uint16_t y);
  */
 uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
 
-struct vid_size {
-	uint32_t width;
-	uint32_t height;
-};
-
 static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 	/* TODO: Make this actually support multiple video devices */
 
