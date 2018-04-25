@@ -14,8 +14,6 @@
 #include <toaru/yutani.h>
 #include <toaru/mouse.h>
 
-#include <toaru/yutani_ext.h>
-
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {
 		yutani_msg_t * out;

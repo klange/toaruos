@@ -40,8 +40,6 @@
 #include <toaru/list.h>
 #include <toaru/spinlock.h>
 
-#include <toaru/yutani_ext.h>
-
 #define _DEBUG_YUTANI
 #ifdef _DEBUG_YUTANI
 #include <toaru/trace.h>
