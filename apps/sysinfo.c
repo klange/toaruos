@@ -93,8 +93,8 @@ int main(int argc, char * argv[]) {
 
 			/* Print half block */
 			printf("\033[38;6;%d;%d;%d;%dm\033[48;6;%d;%d;%d;%dm▄",
-					_RED(back), _GRE(back), _BLU(back), _ALP(back),
-					_RED(out), _GRE(out), _BLU(out), _ALP(out));
+					(int)_RED(back), (int)_GRE(back), (int)_BLU(back), (int)_ALP(back),
+					(int)_RED(out), (int)_GRE(out), (int)_BLU(out), (int)_ALP(out));
 
 		}
 		if (j < i) {
@@ -106,7 +106,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	while (j < i) {
-		for (int x = 0; x < gimp_image.width; x++) {
+		for (int x = 0; x < (int)gimp_image.width; x++) {
 			printf(" ");
 		}
 		print_thing(j);

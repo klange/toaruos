@@ -59,9 +59,6 @@ term_state_t * ansi_state = NULL;
 void reinit(); /* Defined way further down */
 void term_redraw_cursor();
 
-/* Cursor bink timer */
-static unsigned int timer_tick = 0;
-
 void term_clear();
 
 void dump_buffer();
@@ -109,6 +106,7 @@ static uint32_t vga_base_colors[] = {
 	0xFFFFFF,
 };
 
+#if 0
 static int is_gray(uint32_t a) {
 	int a_r = (a & 0xFF0000) >> 16;
 	int a_g = (a & 0xFF00) >> 8;
@@ -116,12 +114,12 @@ static int is_gray(uint32_t a) {
 
 	return (a_r == a_g && a_g == a_b);
 }
+#endif
 
 static int best_match(uint32_t a) {
 	int best_distance = INT32_MAX;
 	int best_index = 0;
 	for (int j = 0; j < 16; ++j) {
-		if (is_gray(a) && !is_gray(vga_base_colors[j]));
 		int distance = color_distance(a, vga_base_colors[j]);
 		if (distance < best_distance) {
 			best_index = j;
@@ -393,6 +391,7 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	}
 }
 
+#if 0
 static void cell_redraw_box(uint16_t x, uint16_t y) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
@@ -402,6 +401,7 @@ static void cell_redraw_box(uint16_t x, uint16_t y) {
 		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags | ANSI_BORDER);
 	}
 }
+#endif
 
 void render_cursor() {
 	cell_redraw_inverted(csr_x, csr_y);
@@ -617,7 +617,7 @@ void clear_input() {
 	input_collected = 0;
 }
 
-uint32_t child_pid = 0;
+pid_t child_pid = 0;
 
 void handle_input(char c) {
 	write(fd_master, &c, 1);
@@ -768,7 +768,7 @@ void maybe_flip_cursor(void) {
 void check_for_exit(void) {
 	if (exit_application) return;
 
-	int pid = waitpid(-1, NULL, WNOHANG);
+	pid_t pid = waitpid(-1, NULL, WNOHANG);
 
 	if (pid != child_pid) return;
 
@@ -874,12 +874,14 @@ int main(int argc, char ** argv) {
 #endif
 			if (_login_shell) {
 				char * tokens[] = {"/bin/login",NULL};
-				int i = execvp(tokens[0], tokens);
+				execvp(tokens[0], tokens);
+				exit(1);
 			} else {
 				char * shell = getenv("SHELL");
 				if (!shell) shell = "/bin/sh"; /* fallback */
 				char * tokens[] = {shell,NULL};
-				int i = execvp(tokens[0], tokens);
+				execvp(tokens[0], tokens);
+				exit(1);
 			}
 #if 0
 		}
@@ -901,7 +903,7 @@ int main(int argc, char ** argv) {
 		/* Prune any keyboard input we got before the terminal started. */
 		struct stat s;
 		fstat(kfd, &s);
-		for (int i = 0; i < s.st_size; i++) {
+		for (unsigned int i = 0; i < s.st_size; i++) {
 			char tmp[1];
 			read(kfd, tmp, 1);
 		}
@@ -918,7 +920,7 @@ int main(int argc, char ** argv) {
 			if (index == 0) {
 				maybe_flip_cursor();
 				int r = read(fd_master, buf, 1024);
-				for (uint32_t i = 0; i < r; ++i) {
+				for (int i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
 			} else if (index == 1) {

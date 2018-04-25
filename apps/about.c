@@ -44,19 +44,6 @@ static void redraw(void) {
 	yutani_flip(yctx, window);
 }
 
-static void resize_finish(int w, int h) {
-	yutani_window_resize_accept(yctx, window, w, h);
-	reinit_graphics_yutani(ctx, window);
-
-	width  = w - decor_left_width - decor_right_width;
-	height = h - decor_top_height - decor_bottom_height;
-
-	redraw();
-
-	yutani_window_resize_done(yctx, window);
-	yutani_flip(yctx, window);
-}
-
 int main(int argc, char * argv[]) {
 	struct utsname u;
 	uname(&u);

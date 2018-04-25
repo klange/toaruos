@@ -530,8 +530,7 @@ yutani_msg_t * yutani_msg_build_special_request(yutani_wid_t wid, uint32_t reque
 }
 
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
-	int result = pex_reply(y->sock, msg->size, (char *)msg);
-	return result;
+	return pex_reply(y->sock, msg->size, (char *)msg);
 }
 
 yutani_t * yutani_context_create(FILE * socket) {
@@ -559,7 +558,7 @@ yutani_t * yutani_init(void) {
 
 	yutani_t * y = yutani_context_create(c);
 	yutani_msg_t * m = yutani_msg_build_hello();
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 
 	m = yutani_wait_for(y, YUTANI_MSG_WELCOME);
@@ -576,7 +575,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	yutani_window_t * win = malloc(sizeof(yutani_window_t));
 
 	yutani_msg_t * m = yutani_msg_build_window_new_flags(width, height, flags);
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 
 	m = yutani_wait_for(y, YUTANI_MSG_WINDOW_INIT);
@@ -594,7 +593,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	YUTANI_SHMKEY(y->server_ident, key, 1024, win);
 
 	size_t size = (width * height * 4);
-	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+	win->buffer = (char *)syscall_shm_obtain(key, &size);
 	return win;
 
 }
@@ -605,19 +604,19 @@ yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 
 void yutani_flip(yutani_t * y, yutani_window_t * win) {
 	yutani_msg_t * m = yutani_msg_build_flip(win->wid);
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 }
 
 void yutani_flip_region(yutani_t * yctx, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height) {
 	yutani_msg_t * m = yutani_msg_build_flip_region(win->wid, x, y, width, height);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_close(yutani_t * y, yutani_window_t * win) {
 	yutani_msg_t * m = yutani_msg_build_window_close(win->wid);
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 
 	/* Now destroy our end of the window */
@@ -633,31 +632,31 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 
 void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y) {
 	yutani_msg_t * m = yutani_msg_build_window_move(window->wid, x, y);
-	int reuslt = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_set_stack(yutani_t * yctx, yutani_window_t * window, int z) {
 	yutani_msg_t * m = yutani_msg_build_window_stack(window->wid, z);
-	int reuslt = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_REQUEST, window->wid, width, height, 0);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, width, height, 0);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_ACCEPT, window->wid, width, height, 0);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 
 	/* Now wait for the new bufid */
@@ -682,7 +681,7 @@ void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint
 		YUTANI_SHMKEY(yctx->server_ident, key, 1024, window);
 
 		size_t size = (window->width * window->height * 4);
-		window->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+		window->buffer = (char *)syscall_shm_obtain(key, &size);
 	}
 }
 
@@ -695,7 +694,7 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 	}
 
 	yutani_msg_t * m = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_DONE, window->wid, window->width, window->height, window->bufid);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
@@ -720,7 +719,7 @@ void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * n
 	}
 
 	yutani_msg_t * m = yutani_msg_build_window_advertise(window->wid, flags, offsets, length, strings);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
@@ -748,87 +747,87 @@ void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, cha
 	}
 
 	yutani_msg_t * m = yutani_msg_build_window_advertise(window->wid, flags, offsets, length, strings);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 	free(strings);
 }
 
 void yutani_subscribe_windows(yutani_t * y) {
 	yutani_msg_t * m = yutani_msg_build_subscribe();
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 }
 
 void yutani_unsubscribe_windows(yutani_t * y) {
 	yutani_msg_t * m = yutani_msg_build_unsubscribe();
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 }
 
 void yutani_query_windows(yutani_t * y) {
 	yutani_msg_t * m = yutani_msg_build_query_windows();
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 }
 
 void yutani_session_end(yutani_t * y) {
 	yutani_msg_t * m = yutani_msg_build_session_end();
-	int result = yutani_msg_send(y, m);
+	yutani_msg_send(y, m);
 	free(m);
 }
 
 void yutani_focus_window(yutani_t * yctx, yutani_wid_t wid) {
 	yutani_msg_t * m = yutani_msg_build_window_focus(wid);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_key_bind(yutani_t * yctx, kbd_key_t key, kbd_mod_t mod, int response) {
 	yutani_msg_t * m = yutani_msg_build_key_bind(key,mod,response);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_drag_start(yutani_t * yctx, yutani_window_t * window) {
 	yutani_msg_t * m = yutani_msg_build_window_drag_start(window->wid);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_drag_start_wid(yutani_t * yctx, yutani_wid_t wid) {
 	yutani_msg_t * m = yutani_msg_build_window_drag_start(wid);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window, int set_shape) {
 	yutani_msg_t * m = yutani_msg_build_window_update_shape(window->wid, set_shape);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t x, int32_t y) {
 	yutani_msg_t * m = yutani_msg_build_window_warp_mouse(window->wid, x, y);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse) {
 	yutani_msg_t * m = yutani_msg_build_window_show_mouse(window->wid, show_mouse);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction) {
 	yutani_msg_t * m = yutani_msg_build_window_resize_start(window->wid, direction);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 
 void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t request) {
 	/* wid isn't necessary; if window is null, set to 0 */
 	yutani_msg_t * m = yutani_msg_build_special_request(window ? window->wid : 0, request);
-	int result = yutani_msg_send(yctx, m);
+	yutani_msg_send(yctx, m);
 	free(m);
 }
 

@@ -49,13 +49,13 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 	}
 
 
-	for (uint32_t i = 0; i < window->height; ++i) {
+	for (int i = 0; i < (int)window->height; ++i) {
 		GFX(ctx, 0, i) = color;
 		GFX(ctx, window->width - 1, i) = color;
 	}
 
-	for (uint32_t i = 1; i < decor_top_height; ++i) {
-		for (uint32_t j = 1; j < window->width - 1; ++j) {
+	for (int i = 1; i < (int)decor_top_height; ++i) {
+		for (int j = 1; j < (int)window->width - 1; ++j) {
 			GFX(ctx, j, i) = BACKCOLOR;
 		}
 	}
@@ -76,7 +76,7 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 }
 
 static int check_button_press_simple(yutani_window_t * window, int x, int y) {
-	if (x >= window->width - 20 && x <= window->width - 2 && y >= 2) {
+	if (x >= (int)window->width - 20 && x <= (int)window->width - 2 && y >= 2) {
 		return DECOR_CLOSE;
 	}
 
@@ -159,15 +159,15 @@ void decor_set_maximize_callback(void (*callback)(yutani_window_t *)) {
 }
 
 static int within_decors(yutani_window_t * window, int x, int y) {
-	if ((x <= decor_left_width || x >= window->width - decor_right_width) && (x > 0 && x < window->width)) return 1;
-	if ((y <= decor_top_height || y >= window->height - decor_bottom_height) && (y > 0 && y < window->height)) return 1;
+	if ((x <= (int)decor_left_width || x >= (int)window->width - (int)decor_right_width) && (x > 0 && x < (int)window->width)) return 1;
+	if ((y <= (int)decor_top_height || y >= (int)window->height - (int)decor_bottom_height) && (y > 0 && y < (int)window->height)) return 1;
 	return 0;
 }
 
-#define LEFT_SIDE (me->new_x <= decor_left_width)
-#define RIGHT_SIDE (me->new_x >= window->width - decor_right_width)
-#define TOP_SIDE (me->new_y <= decor_top_height)
-#define BOTTOM_SIDE (me->new_y >= window->height - decor_bottom_height)
+#define LEFT_SIDE (me->new_x <= (int)decor_left_width)
+#define RIGHT_SIDE (me->new_x >= (int)window->width - (int)decor_right_width)
+#define TOP_SIDE (me->new_y <= (int)decor_top_height)
+#define BOTTOM_SIDE (me->new_y >= (int)window->height - (int)decor_bottom_height)
 
 static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_mouse_event * me, yutani_window_t * window) {
 	yutani_scale_direction_t resize_direction = SCALE_NONE;
@@ -191,7 +191,7 @@ static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_
 	return resize_direction;
 }
 
-static int old_resize_direction = SCALE_NONE;
+static yutani_scale_direction_t old_resize_direction = SCALE_NONE;
 
 int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 	if (m) {
@@ -212,7 +212,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 									yutani_window_resize_start(yctx, window, resize_direction);
 								}
 
-								if (me->new_y < decor_top_height && resize_direction == SCALE_NONE) {
+								if (me->new_y < (int)decor_top_height && resize_direction == SCALE_NONE) {
 									yutani_window_drag_start(yctx, window);
 								}
 								return DECOR_OTHER;
@@ -242,6 +242,9 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 											case SCALE_DOWN_LEFT:
 											case SCALE_UP_RIGHT:
 												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP);
+												break;
+											case SCALE_AUTO:
+											case SCALE_NONE:
 												break;
 										}
 									}

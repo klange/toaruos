@@ -44,7 +44,7 @@ void print_uptime(void) {
 	FILE * f = fopen("/proc/uptime", "r");
 	if (!f) return;
 
-	int seconds, subseconds;
+	int seconds;
 
 	char buf[1024] = {0};
 	fgets(buf, 1024, f);
@@ -54,9 +54,6 @@ void print_uptime(void) {
 	dot[3] = '\0';
 
 	seconds = atoi(buf);
-	subseconds = atoi(dot);
-
-	//fscanf(f, "%d.%2d", &seconds, &subseconds);
 
 	printf("up ");
 

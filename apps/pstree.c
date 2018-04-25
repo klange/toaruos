@@ -33,12 +33,9 @@ typedef struct process {
 #define LINE_LEN 4096
 
 p_t * build_entry(struct dirent * dent) {
-	char tmp[256], buf[4096];
+	char tmp[256];
 	FILE * f;
-	int read = 1;
 	char line[LINE_LEN];
-
-	int pid, uid;
 
 	sprintf(tmp, "/proc/%s/status", dent->d_name);
 	f = fopen(tmp, "r");
@@ -103,7 +100,7 @@ void print_process_tree_node(tree_node_t * node, size_t depth, int indented, int
 
 	p_t * proc = node->value;
 
-	for (int i = 0; i < strlen(proc->name)+3; ++i) {
+	for (int i = 0; i < (int)strlen(proc->name)+3; ++i) {
 		lines[depth+i] = 0;
 	}
 
@@ -116,7 +113,7 @@ void print_process_tree_node(tree_node_t * node, size_t depth, int indented, int
 		}
 		depth += 3;
 	} else if (depth) {
-		for (int i = 0; i < depth; ++i) {
+		for (int i = 0; i < (int)depth; ++i) {
 			if (lines[i]) {
 				printf("│");
 			} else {
@@ -142,11 +139,12 @@ void print_process_tree_node(tree_node_t * node, size_t depth, int indented, int
 		int t = 0;
 		foreach(child, node->children) {
 			/* Recursively print the children */
-			print_process_tree_node(child->value, depth, !!(t++), ((t+1)!=node->children->length), lines);
+			print_process_tree_node(child->value, depth, !!(t), ((t+1)!=(int)node->children->length), lines);
+			t++;
 		}
 	}
 
-	for (int i = 0; i < strlen(proc->name)+3; ++i) {
+	for (int i = 0; i < (int)strlen(proc->name)+3; ++i) {
 		lines[depth+i] = 0;
 	}
 }

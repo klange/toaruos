@@ -61,7 +61,6 @@ int main (int argc, char ** argv) {
 		if (m) {
 			switch (m->type) {
 				case YUTANI_MSG_WELCOME:
-					fprintf(stderr, "Request to resize desktop received, resizing to %d x %d\n", yctx->display_width, yctx->display_height);
 					yutani_window_resize_offer(yctx, wallpaper_window, yctx->display_width, yctx->display_height);
 					break;
 				case YUTANI_MSG_RESIZE_OFFER:

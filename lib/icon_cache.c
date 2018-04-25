@@ -89,5 +89,5 @@ sprite_t * icon_get_16(const char * name) {
 }
 
 sprite_t * icon_get_48(const char * name) {
-	return icon_get_int(name, icon_cache_16, icon_directories_16);
+	return icon_get_int(name, icon_cache_16, icon_directories_48);
 }

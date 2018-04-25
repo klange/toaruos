@@ -42,17 +42,17 @@ int main(int argc, char ** argv) {
 
 	for (int i = start; i < argc; ++i) {
 		if (process_escapes) {
-			for (int j = 0; j < strlen(argv[i]) - 1; ++j) {
+			for (int j = 0; j < (int)strlen(argv[i]) - 1; ++j) {
 				if (argv[i][j] == '\\') {
 					if (argv[i][j+1] == 'e') {
 						argv[i][j] = '\033';
-						for (int k = j + 1; k < strlen(argv[i]); ++k) {
+						for (int k = j + 1; k < (int)strlen(argv[i]); ++k) {
 							argv[i][k] = argv[i][k+1];
 						}
 					}
 					if (argv[i][j+1] == 'n') {
 						argv[i][j] = '\n';
-						for (int k = j + 1; k < strlen(argv[i]); ++k) {
+						for (int k = j + 1; k < (int)strlen(argv[i]); ++k) {
 							argv[i][k] = argv[i][k+1];
 						}
 					}

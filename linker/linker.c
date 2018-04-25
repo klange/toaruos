@@ -80,9 +80,7 @@ static char * find_lib(const char * file) {
 		path = "/usr/lib:/lib:/opt/lib";
 	}
 	char * xpath = strdup(path);
-	int found = 0;
-	char * p, * tokens[10], * last;
-	int i = 0;
+	char * p, * last;
 	for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
 		int r;
 		struct stat stat_buf;
@@ -301,7 +299,6 @@ static int object_postload(elf_t * object) {
 		}
 	}
 
-	size_t i = 0;
 	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
 		Elf32_Shdr shdr;
 		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
@@ -355,7 +352,6 @@ static int object_relocate(elf_t * object) {
 		}
 	}
 
-	size_t i = 0;
 	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
 		Elf32_Shdr shdr;
 		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
@@ -373,7 +369,7 @@ static int object_relocate(elf_t * object) {
 				if (need_symbol_for_type(type) || (type == 5)) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
 				}
-				if ((sym->st_shndx == 0) && need_symbol_for_type(type) || (type == 5)) {
+				if (((sym->st_shndx == 0) && need_symbol_for_type(type)) || (type == 5)) {
 					if (symname && hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 					} else {
@@ -421,7 +417,6 @@ static int object_relocate(elf_t * object) {
 }
 
 static void object_find_copy_relocations(elf_t * object) {
-	size_t i = 0;
 	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
 		Elf32_Shdr shdr;
 		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
@@ -484,7 +479,7 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 	object_postload(lib);
 
 	node_t * item;
-	while (item = list_pop(lib->dependencies)) {
+	while ((item = list_pop(lib->dependencies))) {
 
 		elf_t * lib = open_object(item->value);
 
@@ -605,7 +600,6 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	size_t main_size = object_calculate_size(main_obj);
 	uintptr_t end_addr = object_load(main_obj, 0x0);
 
 	object_postload(main_obj);
@@ -623,7 +617,7 @@ int main(int argc, char * argv[]) {
 
 	TRACE_LD("Loading dependencies.");
 	node_t * item;
-	while (item = list_pop(main_obj->dependencies)) {
+	while ((item = list_pop(main_obj->dependencies))) {
 		while (end_addr & 0xFFF) {
 			end_addr++;
 		}

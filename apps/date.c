@@ -17,7 +17,6 @@ void print_time(time_t time) {
     if (!date) {
         fprintf(stderr, "Failure.\n");
     } else {
-        int t_year = 1900 + date->tm_year;
         printf("%d-%02d-%02d %02d:%02d:%02d (%s, day %d)\n",
                 date->tm_year + 1900,
                 date->tm_mon + 1,

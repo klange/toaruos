@@ -357,14 +357,14 @@ int main(int argc, char ** argv) {
 	char term[1024] = {'a','n','s','i', 0};
 	unsigned int k;
 	int ttype;
-	uint32_t option = 0, done = 0, sb_mode = 0;
+	//uint32_t option = 0, done = 0, sb_mode = 0;
 	/* Various pieces for the telnet communication */
-	char  sb[1024] = {0};
-	unsigned short sb_len   = 0;
+	//char  sb[1024] = {0};
+	//unsigned short sb_len   = 0;
 
 	/* Whether or not to show the MOTD intro */
 	char show_intro = 0;
-	char skip_intro = 0;
+	//char skip_intro = 0;
 
 #if 0
 	/* Long option names */

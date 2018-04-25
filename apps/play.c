@@ -31,7 +31,7 @@ int main(int argc, char * argv[]) {
 
 	char buf[0x1000];
 	int r;
-	while (r = read(song, buf, sizeof(buf))) {
+	while ((r = read(song, buf, sizeof(buf)))) {
 		write(spkr, buf, r);
 	}
 	return 0;

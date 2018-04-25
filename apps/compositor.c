@@ -194,8 +194,8 @@ static uint32_t yutani_current_time(yutani_globals_t * yg) {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 
-	uint32_t sec_diff = t.tv_sec - yg->start_time;
-	uint32_t usec_diff = t.tv_usec - yg->start_subtime;
+	time_t sec_diff = t.tv_sec - yg->start_time;
+	suseconds_t usec_diff = t.tv_usec - yg->start_subtime;
 
 	if (t.tv_usec < yg->start_subtime) {
 		sec_diff -= 1;
@@ -1408,7 +1408,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	if (hashmap_has(yg->key_binds, (void*)key_code)) {
 		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
 
-		yutani_msg_t * response = yutani_msg_build_key_event(focused ? focused->wid : -1, &ke->event, &ke->state);
+		yutani_msg_t * response = yutani_msg_build_key_event(focused ? focused->wid : UINT32_MAX, &ke->event, &ke->state);
 		pex_send(yg->server, bind->owner, response->size, (char *)response);
 		free(response);
 
@@ -1589,8 +1589,8 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 
 	if (yg->mouse_x < 0) yg->mouse_x = 0;
 	if (yg->mouse_y < 0) yg->mouse_y = 0;
-	if (yg->mouse_x > (yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
-	if (yg->mouse_y > (yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
+	if (yg->mouse_x > (int)(yg->width) * MOUSE_SCALE) yg->mouse_x = (yg->width) * MOUSE_SCALE;
+	if (yg->mouse_y > (int)(yg->height) * MOUSE_SCALE) yg->mouse_y = (yg->height) * MOUSE_SCALE;
 
 	switch (yg->mouse_state) {
 		case YUTANI_MOUSE_STATE_NORMAL:

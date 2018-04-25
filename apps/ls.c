@@ -54,7 +54,6 @@
 static int human_readable = 0;
 static int stdout_is_tty = 1;
 static int this_year = 0;
-static int explicit_path_set = 0;
 static int show_hidden = 0;
 static int long_mode   = 0;
 static int print_dir   = 0;
@@ -100,6 +99,7 @@ static int filecmp(const void * c1, const void * c2) {
 	if (a == b) return strcmp(d1->name, d2->name);
 	else if (a < b) return -1;
 	else if (a > b) return 1;
+	return 0; /* impossible ? */
 }
 
 static int filecmp_notypesort(const void * c1, const void * c2) {
@@ -147,12 +147,12 @@ static int print_username(char * _out, int uid) {
 static int print_human_readable_size(char * _out, size_t s) {
 	if (s >= 1<<20) {
 		size_t t = s / (1 << 20);
-		return sprintf(_out, "%d.%1dM", t, (s - t * (1 << 20)) / ((1 << 20) / 10));
+		return sprintf(_out, "%d.%1dM", (int)t, (int)(s - t * (1 << 20)) / ((1 << 20) / 10));
 	} else if (s >= 1<<10) {
 		size_t t = s / (1 << 10);
-		return sprintf(_out, "%d.%1dK", t, (s - t * (1 << 10)) / ((1 << 10) / 10));
+		return sprintf(_out, "%d.%1dK", (int)t, (int)(s - t * (1 << 10)) / ((1 << 10) / 10));
 	} else {
-		return sprintf(_out, "%d", s);
+		return sprintf(_out, "%d", (int)s);
 	}
 }
 
@@ -180,7 +180,7 @@ static void update_column_widths(int * widths, struct tfile * file) {
 	if (human_readable) {
 		n = print_human_readable_size(tmp, file->statbuf.st_size);
 	} else {
-		n = sprintf(tmp, "%d", file->statbuf.st_size);
+		n = sprintf(tmp, "%d", (int)file->statbuf.st_size);
 	}
 	if (n > widths[3]) widths[3] = n;
 }
@@ -220,11 +220,11 @@ static void print_entry_long(int * widths, struct tfile * file) {
 		print_human_readable_size(tmp, file->statbuf.st_size);
 		printf("%*s ", widths[3], tmp);
 	} else {
-		printf("%*d ", widths[3], file->statbuf.st_size);
+		printf("%*d ", widths[3], (int)file->statbuf.st_size);
 	}
 
 	char time_buf[80];
-	struct tm * timeinfo = localtime(&file->statbuf.st_mtime);
+	struct tm * timeinfo = localtime((time_t*)&file->statbuf.st_mtime);
 	if (timeinfo->tm_year == this_year) {
 		strftime(time_buf, 80, "%b %d %H:%M", timeinfo);
 	} else {
@@ -277,7 +277,7 @@ static void display_tfiles(struct tfile ** ents_array, int numents) {
 		/* Determine the gridding dimensions */
 		int ent_max_len = 0;
 		for (int i = 0; i < numents; i++) {
-			ent_max_len = MAX(ent_max_len, strlen(ents_array[i]->name));
+			ent_max_len = MAX(ent_max_len, (int)strlen(ents_array[i]->name));
 		}
 
 		int col_ext = ent_max_len + MIN_COL_SPACING;
@@ -324,7 +324,7 @@ static int display_dir(char * p) {
 
 			char tmp[strlen(p)+strlen(ent->d_name)+2];
 			sprintf(tmp, "%s/%s", p, ent->d_name);
-			int t = lstat(tmp, &f->statbuf);
+			lstat(tmp, &f->statbuf);
 			if (S_ISLNK(f->statbuf.st_mode)) {
 				stat(tmp, &f->statbufl);
 				f->link = malloc(4096);

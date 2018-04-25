@@ -45,6 +45,8 @@ static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
 
 
 void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h) {
+	(void)x;
+	(void)w; // TODO Horizontal clipping
 	if (!ctx->clips) {
 		ctx->clips = malloc(ctx->height);
 		memset(ctx->clips, 0, ctx->height);
@@ -410,6 +412,8 @@ void load_sprite(sprite_t * sprite, char * filename) {
 							(bufferb[i+3 + 4 * x] & 0xFF) * 0x10000;
 					color = premultiply(color);
 				}
+			} else {
+				color = rgb(0,0,0); /* Unsupported */
 			}
 			/* Set our point */
 			sprite->bitmap[(height - y - 1) * width + x] = color;
@@ -480,7 +484,7 @@ void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 					continue;
 
 				// opaque
-				if (_mm_movemask_epi8(_mm_cmpeq_epi8(s, _mm_cmpeq_epi8(s,s))) & 0x8888 == 0x8888)
+				if ((_mm_movemask_epi8(_mm_cmpeq_epi8(s, _mm_cmpeq_epi8(s,s))) & 0x8888) == 0x8888)
 					_mm_storeu_si128((void*)&GFX(ctx, x + _x, y + _y), s);
 
 				__m128i d_l, d_h;

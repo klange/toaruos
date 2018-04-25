@@ -144,10 +144,10 @@ int main (int argc, char ** argv) {
 							"\told = %d, %d\n"
 							"\tbuttons = %s\n"
 							"\tcommand = %d\n",
-							me->wid,
+							(int)me->wid,
 							mouse_command(me->command),
-							me->new_x, me->new_y,
-							me->old_x, me->old_y,
+							(int)me->new_x, (int)me->new_y,
+							(int)me->old_x, (int)me->old_y,
 							mouse_buttons(me->buttons),
 							me->command);
 					}
@@ -161,7 +161,7 @@ int main (int argc, char ** argv) {
 				case YUTANI_MSG_WINDOW_MOVE:
 					{
 						struct yutani_msg_window_move * wm = (void*)m->data;
-						fprintf(stderr, "Window Moved (wid=%d) %d, %d\n", wm->wid, wm->x, wm->y);
+						fprintf(stderr, "Window Moved (wid=%d) %d, %d\n", (int)wm->wid, (int)wm->x, (int)wm->y);
 					}
 					break;
 				case YUTANI_MSG_RESIZE_OFFER:
@@ -169,9 +169,9 @@ int main (int argc, char ** argv) {
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						fprintf(stderr, "Resize Offer (wid=%d) %d x %d\n"
 							"\tbufid = %d\n",
-							wr->wid,
-							wr->width, wr->height,
-							wr->bufid);
+							(int)wr->wid,
+							(int)wr->width, (int)wr->height,
+							(int)wr->bufid);
 					}
 					break;
 				case YUTANI_MSG_SESSION_END:

@@ -190,7 +190,7 @@ static void history_previous(rline_context_t * context) {
 	}
 	if (rline_scroll < rline_history_count) {
 		rline_scroll++;
-		for (int i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < (int)strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		char * h = rline_history_prev(rline_scroll);
@@ -205,7 +205,7 @@ static void history_previous(rline_context_t * context) {
 static void history_next(rline_context_t * context) {
 	if (rline_scroll > 1) {
 		rline_scroll--;
-		for (int i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < (int)strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		char * h = rline_history_prev(rline_scroll);
@@ -213,7 +213,7 @@ static void history_next(rline_context_t * context) {
 		printf("%s", h);
 		fflush(stdout);
 	} else if (rline_scroll == 1) {
-		for (int i = 0; i < strlen(context->buffer); ++i) {
+		for (int i = 0; i < (int)strlen(context->buffer); ++i) {
 			printf("\010 \010");
 		}
 		rline_scroll = 0;
@@ -232,7 +232,7 @@ static void history_next(rline_context_t * context) {
 void rline_insert(rline_context_t * context, const char * what) {
 	size_t insertion_length = strlen(what);
 
-	if (context->collected + insertion_length > context->requested) {
+	if (context->collected + (int)insertion_length > context->requested) {
 		insertion_length = context->requested - context->collected;
 	}
 

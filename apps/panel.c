@@ -121,10 +121,6 @@ static int center_x_a(int x) {
 	return (ALTTAB_WIDTH - x) / 2;
 }
 
-static int center_y_a(int y) {
-	return (ALTTAB_HEIGHT - y) / 2;
-}
-
 static void redraw(void);
 
 static volatile int _continue = 1;
@@ -286,18 +282,15 @@ static void update_network_status(void) {
 	FILE * net = fopen("/proc/netif","r");
 
 	char line[256];
-	int found = 0;
 
 	do {
 		memset(line, 0, 256);
 		read_line(net, line, 256);
 		if (!*line) break;
 		if (strstr(line,"no network") != NULL) {
-			found = 1;
 			network_status = 0;
 			break;
 		} else if (strstr(line,"ip:") != NULL) {
-			found = 1;
 			network_status = 1;
 			break;
 		}
@@ -532,7 +525,6 @@ static void redraw(void) {
 	spin_lock(&drawlock);
 
 	struct timeval now;
-	int last = 0;
 	struct tm * timeinfo;
 	char   buffer[80];
 
@@ -544,7 +536,6 @@ static void redraw(void) {
 
 	/* Get the current time for the clock */
 	gettimeofday(&now, NULL);
-	last = now.tv_sec;
 	timeinfo = localtime((time_t *)&now.tv_sec);
 
 	/* Hours : Minutes : Seconds */
@@ -802,7 +793,7 @@ static void resize_finish(int xwidth, int xheight) {
 
 	/* Draw the background */
 	draw_fill(ctx, rgba(0,0,0,0));
-	for (uint32_t i = 0; i < xwidth; i += sprite_panel->width) {
+	for (int i = 0; i < xwidth; i += sprite_panel->width) {
 		draw_sprite(ctx, sprite_panel, i, 0);
 	}
 
@@ -821,8 +812,6 @@ static void sig_usr2(int sig) {
 }
 
 int main (int argc, char ** argv) {
-	int tick = 0;
-
 	/* Connect to window server */
 	yctx = yutani_init();
 
@@ -884,7 +873,7 @@ int main (int argc, char ** argv) {
 	}
 
 	/* Draw the background */
-	for (uint32_t i = 0; i < width; i += sprite_panel->width) {
+	for (int i = 0; i < width; i += sprite_panel->width) {
 		draw_sprite(ctx, sprite_panel, i, 0);
 	}
 
@@ -919,7 +908,7 @@ int main (int argc, char ** argv) {
 	/* This lets us receive all just-modifier key releases */
 	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
 
-	unsigned int last_tick = 0;
+	time_t last_tick = 0;
 
 	int fds[1] = {fileno(yctx->sock)};
 
@@ -972,7 +961,6 @@ int main (int argc, char ** argv) {
 				update_volume_level();
 				update_network_status();
 				redraw();
-				tick = 0;
 			}
 		}
 	}

@@ -70,9 +70,6 @@ void * draw_thread(void * garbage) {
 
 		time += 1.0;
 
-		int w = win_width;
-		int h = win_height;
-
 		spin_lock(&draw_lock);
 		for (int x = 0; x < win_width; ++x) {
 			for (int y = 0; y < win_height; ++y) {
@@ -89,6 +86,7 @@ void * draw_thread(void * garbage) {
 		spin_unlock(&draw_lock);
 		syscall_yield();
 	}
+	return NULL;
 }
 
 void resize_finish(int w, int h) {

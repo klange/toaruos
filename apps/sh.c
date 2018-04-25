@@ -50,7 +50,7 @@ shell_command_t shell_pointers[SHELL_COMMANDS]; /* Command functions */
 char * shell_descript[SHELL_COMMANDS];          /* Command descriptions */
 
 /* This is the number of actual commands installed */
-uint32_t shell_commands_len = 0;
+int shell_commands_len = 0;
 
 int    shell_interactive = 1;
 
@@ -68,7 +68,7 @@ void shell_install_command(char * name, shell_command_t func, char * desc) {
 }
 
 shell_command_t shell_find(char * str) {
-	for (uint32_t i = 0; i < shell_commands_len; ++i) {
+	for (int i = 0; i < shell_commands_len; ++i) {
 		if (!strcmp(str, shell_commands[i])) {
 			return shell_pointers[i];
 		}
@@ -178,7 +178,7 @@ void tab_complete_func(rline_context_t * c) {
 	
 	memcpy(dup, c->buffer, LINE_LEN);
 
-	char *pch, *cmd, *save;
+	char *pch, *save;
 	char *argv[1024];
 	int argc = 0;
 	int cursor = 0;
@@ -256,9 +256,9 @@ void tab_complete_func(rline_context_t * c) {
 					if (last_slash) {
 						char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
 						sprintf(x,"%s/%s",tmp,ent->d_name);
-						int t = lstat(x, &statbuf);
+						lstat(x, &statbuf);
 					} else {
-						int t = lstat(ent->d_name, &statbuf);
+						lstat(ent->d_name, &statbuf);
 					}
 					char * s;
 					if (S_ISDIR(statbuf.st_mode)) {
@@ -281,7 +281,7 @@ void tab_complete_func(rline_context_t * c) {
 	if (matches->length == 1) {
 		/* Insert */
 		rline_insert(c, &match[word_offset]);
-		if (word && word_offset == strlen(word) && !no_space_if_only) {
+		if (word && word_offset == (int)strlen(word) && !no_space_if_only) {
 			rline_insert(c, " ");
 		}
 		rline_redraw(c);
@@ -298,8 +298,8 @@ void tab_complete_func(rline_context_t * c) {
 				}
 				if (diff) break;
 				j++;
-			} while (j < c->requested);
-			if (j > word_offset) {
+			} while (j < (size_t)c->requested);
+			if (j > (size_t)word_offset) {
 				char * tmp = strdup(match);
 				tmp[j] = '\0';
 				rline_insert(c, &tmp[word_offset]);
@@ -386,14 +386,13 @@ void run_cmd(char ** args) {
 	exit(i);
 }
 
-int shell_exec(char * buffer, int buffer_size) {
+int shell_exec(char * buffer) {
 
 	/* Read previous history entries */
 	if (buffer[0] == '!') {
 		int x = atoi((char *)((uintptr_t)buffer + 1));
 		if (x > 0 && x <= rline_history_count) {
 			buffer = rline_history_get(x - 1);
-			buffer_size = strlen(buffer);
 		} else {
 			fprintf(stderr, "esh: !%d: event not found\n", x);
 			return 0;
@@ -458,7 +457,7 @@ int shell_exec(char * buffer, int buffer_size) {
 						char *c = getenv(var);
 						if (c) {
 							backtick = 0;
-							for (int i = 0; i < strlen(c); ++i) {
+							for (int i = 0; i < (int)strlen(c); ++i) {
 								buffer_[collected] = c[i];
 								collected++;
 							}
@@ -562,7 +561,7 @@ _done:
 		if (quoted) {
 			if (shell_interactive) {
 				draw_prompt_c();
-				buffer_size = read_entry_continued(buffer);
+				read_entry_continued(buffer);
 				rline_history_append_line(buffer);
 				continue;
 			} else {
@@ -812,8 +811,6 @@ void show_usage(int argc, char * argv[]) {
 
 int main(int argc, char ** argv) {
 
-	int  nowait = 0;
-	int  free_cmd = 0;
 	int  last_ret = 0;
 
 	pid = getpid();
@@ -831,7 +828,7 @@ int main(int argc, char ** argv) {
 
 	for (int i = 1; i < argc; ++i) {
 		if (!strcmp(argv[i], "-c")) {
-			return shell_exec(argv[i+1], strlen(argv[i+1]));
+			return shell_exec(argv[i+1]);
 		}
 		if (!strcmp(argv[i], "-v")) {
 			show_version();
@@ -850,7 +847,7 @@ int main(int argc, char ** argv) {
 			switch (c) {
 				case 'c':
 					shell_interactive = 0;
-					return shell_exec(optarg, strlen(optarg));
+					return shell_exec(optarg);
 				case 'v':
 					show_version();
 					return 0;
@@ -867,15 +864,12 @@ int main(int argc, char ** argv) {
 	while (1) {
 		draw_prompt(last_ret);
 		char buffer[LINE_LEN] = {0};
-		int  buffer_size;
 
-		buffer_size = read_entry(buffer);
-		last_ret = shell_exec(buffer, buffer_size);
+		read_entry(buffer);
+		last_ret = shell_exec(buffer);
 		rline_scroll = 0;
 
 	}
-
-exit:
 
 	return 0;
 }
@@ -995,7 +989,7 @@ uint32_t shell_cmd_help(int argc, char * argv[]) {
 	printf("\nThis shell is not POSIX-compliant, please be careful.\n\n");
 
 	printf("Built-in commands:\n");
-	for (uint32_t i = 0; i < shell_commands_len; ++i) {
+	for (int i = 0; i < shell_commands_len; ++i) {
 		if (!shell_descript[i]) continue;
 		printf(" %-20s - %s\n", shell_commands[i], shell_descript[i]);
 	}

@@ -26,14 +26,6 @@ static yutani_window_t * wina;
 static gfx_context_t * ctx;
 static int should_exit = 0;
 
-static int32_t min(int32_t a, int32_t b) {
-	return (a < b) ? a : b;
-}
-
-static int32_t max(int32_t a, int32_t b) {
-	return (a > b) ? a : b;
-}
-
 uint32_t __attribute__ ((pure)) krand(void) {
 	static uint32_t x = 123456789;
 	static uint32_t y = 362436069;
@@ -55,6 +47,7 @@ void * draw_thread(void * garbage) {
 		usleep(16666);
 	}
 	pthread_exit(0);
+	return NULL;
 }
 
 int main (int argc, char ** argv) {

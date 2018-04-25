@@ -19,7 +19,7 @@ void show_usage(int argc, char * argv[]) {
 }
 
 int show_resolution(void) {
-	printf("%dx%d\n", yctx->display_width, yctx->display_height);
+	printf("%dx%d\n", (int)yctx->display_width, (int)yctx->display_height);
 	return 0;
 }
 
