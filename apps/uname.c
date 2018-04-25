@@ -44,7 +44,6 @@ void show_usage(int argc, char * argv[]) {
 int main(int argc, char * argv[]) {
 	struct utsname u;
 
-	int c;
 	int flags = 0;
 	int space = 0;
 

@@ -30,7 +30,7 @@ int tokenize(char * str, char * sep, char **buf) {
 }
 
 void copy_link(char * source, char * dest) {
-	fprintf(stderr, "need to copy link %s to %s\n");
+	fprintf(stderr, "need to copy link %s to %s\n", source, dest);
 }
 
 void copy_file(char * source, char * dest, int mode) {
@@ -69,7 +69,7 @@ void copy_directory(char * source, char * dest, int mode) {
 	}
 
 	//fprintf(stderr, "Creating %s\n", dest);
-	if (dest == "/") {
+	if (!strcmp(dest, "/")) {
 		dest = "";
 	} else {
 		mkdir(dest, mode);
@@ -89,7 +89,7 @@ void copy_directory(char * source, char * dest, int mode) {
 		char tmp2[strlen(dest)+strlen(ent->d_name)+2];
 		sprintf(tmp2, "%s/%s", dest, ent->d_name);
 		//fprintf(stderr,"%s → %s\n", tmp, tmp2);
-		int t = lstat(tmp,&statbuf);
+		lstat(tmp,&statbuf);
 		if (S_ISLNK(statbuf.st_mode)) {
 			copy_link(tmp, tmp2);
 		} else if (S_ISDIR(statbuf.st_mode)) {

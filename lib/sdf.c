@@ -148,15 +148,15 @@ static sprite_t * _select_font(int font) {
 static int _select_width(char ch, int font) {
 	switch (font) {
 		case SDF_FONT_BOLD:
-			return _char_data[ch].width_bold;
+			return _char_data[(int)ch].width_bold;
 		case SDF_FONT_THIN:
 		default:
-			return _char_data[ch].width_bold * 0.8;
+			return _char_data[(int)ch].width_bold * 0.8;
 	}
 }
 
 static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp, int font, sprite_t * _font_data) {
-	if (ch != ' ' && ch < '!' || ch > '~') {
+	if (ch != ' ' && (ch < '!' || ch > '~')) {
 		/* TODO: Draw missing symbol? */
 		return 0;
 	}
@@ -232,7 +232,7 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str,
 }
 
 static int char_width(char ch, int font) {
-	if (ch != ' ' && ch < '!' || ch > '~') {
+	if (ch != ' ' && (ch < '!' || ch > '~')) {
 		/* TODO: Draw missing symbol? */
 		return 0;
 	}

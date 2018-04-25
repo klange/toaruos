@@ -39,7 +39,7 @@ typedef struct context {
 	char *   buffer;
 	char *   backbuffer;
 	char *   clips;
-	size_t   clips_size;
+	int32_t  clips_size;
 } gfx_context_t;
 
 extern gfx_context_t * init_graphics_fullscreen();

@@ -44,7 +44,7 @@ void print_entry(struct dirent * dent) {
 	int read = 1;
 	char line[LINE_LEN];
 
-	int pid, uid, tgid;
+	int pid = 0, uid = 0, tgid = 0;
 	char name[100];
 
 	sprintf(tmp, "/proc/%s/status", dent->d_name);

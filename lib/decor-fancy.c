@@ -12,15 +12,19 @@
 static int u_height = 33;
 static int ul_width = 10;
 static int ur_width = 10;
+#if 0
 static int ml_width = 6;
+#endif
 static int mr_width = 6;
 static int l_height = 9;
 static int ll_width = 9;
 static int lr_width = 9;
+#if 0
 static int llx_offset = 3;
 static int lly_offset = 3;
 static int lrx_offset = 3;
 static int lry_offset = 3;
+#endif
 
 static sprite_t * sprites[20];
 
@@ -36,22 +40,22 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	int width = window->width;
 	int height = window->height;
 
-	for (int j = 0; j < decor_top_height; ++j) {
+	for (int j = 0; j < (int)decor_top_height; ++j) {
 		for (int i = 0; i < width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
 	}
 
-	for (int j = decor_top_height; j < height - decor_bottom_height; ++j) {
-		for (int i = 0; i < decor_left_width; ++i) {
+	for (int j = (int)decor_top_height; j < height - (int)decor_bottom_height; ++j) {
+		for (int i = 0; i < (int)decor_left_width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
-		for (int i = width - decor_right_width; i < width; ++i) {
+		for (int i = width - (int)decor_right_width; i < width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
 	}
 
-	for (int j = height - decor_bottom_height; j < height; ++j) {
+	for (int j = height - (int)decor_bottom_height; j < height; ++j) {
 		for (int i = 0; i < width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
@@ -103,12 +107,12 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 }
 
 static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
-	if (x >= window->width - 28 && x <= window->width - 18 &&
+	if (x >= (int)window->width - 28 && x <= (int)window->width - 18 &&
 		y >= 16 && y <= 26) {
 		return DECOR_CLOSE;
 	}
 
-	if (x >= window->width - 50 && x <= window->width - 40 &&
+	if (x >= (int)window->width - 50 && x <= (int)window->width - 40 &&
 		y >= 16 && y <= 26) {
 		return DECOR_MAXIMIZE;
 	}

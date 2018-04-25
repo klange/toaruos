@@ -189,7 +189,7 @@ typedef struct yutani_window {
 	uint32_t width;
 	uint32_t height;
 
-	uint8_t * buffer;
+	char * buffer;
 	uint32_t bufid;/* We occasionally replace the buffer; each is uniquely-indexed */
 
 	uint8_t focused;

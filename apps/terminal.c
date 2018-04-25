@@ -753,7 +753,7 @@ struct scrollback_row {
 
 list_t * scrollback_list = NULL;
 
-uint32_t scrollback_offset = 0;
+int scrollback_offset = 0;
 
 void save_scrollback() {
 	/* Save the current top row for scrollback */
@@ -1084,7 +1084,7 @@ void clear_input() {
 	input_collected = 0;
 }
 
-uint32_t child_pid = 0;
+pid_t child_pid = 0;
 
 void handle_input(char c) {
 	write(fd_master, &c, 1);
@@ -1098,7 +1098,7 @@ void handle_input_s(char * c) {
 
 void scroll_up(int amount) {
 	int i = 0;
-	while (i < amount && scrollback_list && scrollback_offset < scrollback_list->length) {
+	while (i < amount && scrollback_list && scrollback_offset < (int)scrollback_list->length) {
 		scrollback_offset ++;
 		i++;
 	}
@@ -1273,7 +1273,7 @@ void key_event(int ret, key_event_t * event) {
 void check_for_exit(void) {
 	if (exit_application) return;
 
-	int pid = waitpid(-1, NULL, WNOHANG);
+	pid_t pid = waitpid(-1, NULL, WNOHANG);
 
 	if (pid != child_pid) return;
 
@@ -1349,7 +1349,6 @@ void reinit(int send_sig) {
 		FT_Set_Pixel_Sizes(face_variable, font_size, font_size);
 #endif
 	}
-	int i = 0;
 
 	int old_width  = term_width;
 	int old_height = term_height;
@@ -1424,7 +1423,7 @@ static void resize_finish(int width, int height) {
 		return;
 	}
 
-	if (!_free_size && (t_window_width % char_width != 0 || t_window_height % char_height != 0 && resize_attempts < 3)) {
+	if (!_free_size && ((t_window_width % char_width != 0 || t_window_height % char_height != 0) && resize_attempts < 3)) {
 		resize_attempts++;
 		int n_width  = extra_x + t_window_width  - (t_window_width  % char_width);
 		int n_height = extra_y + t_window_height - (t_window_height % char_height);
@@ -1495,7 +1494,7 @@ void * handle_incoming(void) {
 							break;
 						}
 					}
-					if (me->new_x < 0 || me->new_x >= window_width || me->new_y < 0 || me->new_y >= window_height) {
+					if (me->new_x < 0 || me->new_x >= (int)window_width || me->new_y < 0 || me->new_y >= (int)window_height) {
 						break;
 					}
 					/* Map Cursor Action */
@@ -1550,6 +1549,8 @@ void * handle_incoming(void) {
 		}
 		free(m);
 	}
+
+	return NULL;
 }
 
 void maybe_flip_cursor(void) {
@@ -1735,8 +1736,8 @@ int main(int argc, char ** argv) {
 
 	fflush(stdin);
 
-	int pid = getpid();
-	uint32_t f = fork();
+	pid_t pid = getpid();
+	pid_t f = fork();
 
 	if (getpid() != pid) {
 		dup2(fd_slave, 0);
@@ -1752,12 +1753,14 @@ int main(int argc, char ** argv) {
 #endif
 			if (_login_shell) {
 				char * tokens[] = {"/bin/login",NULL};
-				int i = execvp(tokens[0], tokens);
+				execvp(tokens[0], tokens);
+				exit(1);
 			} else {
 				char * shell = getenv("SHELL");
 				if (!shell) shell = "/bin/sh"; /* fallback */
 				char * tokens[] = {shell,NULL};
-				int i = execvp(tokens[0], tokens);
+				execvp(tokens[0], tokens);
+				exit(1);
 			}
 #if 0
 		}
@@ -1787,7 +1790,7 @@ int main(int argc, char ** argv) {
 			if (index == 1) {
 				maybe_flip_cursor();
 				int r = read(fd_master, buf, 1024);
-				for (uint32_t i = 0; i < r; ++i) {
+				for (int i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
 				display_flip();

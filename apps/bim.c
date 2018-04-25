@@ -42,8 +42,8 @@ typedef struct {
 } __attribute__((packed)) char_t;
 
 typedef struct {
-	uint32_t available;
-	uint32_t actual;
+	int available;
+	int actual;
 	char_t   text[0];
 } line_t;
 
@@ -66,8 +66,8 @@ typedef struct _env {
 
 buffer_t * env;
 
-uint32_t    buffers_len;
-uint32_t    buffers_avail;
+int    buffers_len;
+int    buffers_avail;
 buffer_t ** buffers;
 
 buffer_t * buffer_new() {
@@ -83,7 +83,7 @@ buffer_t * buffer_new() {
 }
 
 buffer_t * buffer_close(buffer_t * buf) {
-	uint32_t i;
+	int i;
 	for (i = 0; i < buffers_len; i++) {
 		if (buf == buffers[i])
 			break;
@@ -106,7 +106,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 	return buffers[buffers_len];
 }
 
-line_t * line_insert(line_t * line, char_t c, uint32_t offset) {
+line_t * line_insert(line_t * line, char_t c, int offset) {
 	if (line->actual == line->available) {
 		line->available *= 2;
 		line = realloc(line, sizeof(line_t) + sizeof(char_t) * line->available);
@@ -119,7 +119,7 @@ line_t * line_insert(line_t * line, char_t c, uint32_t offset) {
 	return line;
 }
 
-void line_delete(line_t * line, uint32_t offset) {
+void line_delete(line_t * line, int offset) {
 	if (offset == 0) return;
 	if (offset < line->actual) {
 		memmove(&line->text[offset-1], &line->text[offset], sizeof(char_t) * (line->actual - offset - 1));
@@ -127,7 +127,7 @@ void line_delete(line_t * line, uint32_t offset) {
 	line->actual -= 1;
 }
 
-line_t ** add_line(line_t ** lines, uint32_t offset) {
+line_t ** add_line(line_t ** lines, int offset) {
 	if (env->line_count == env->line_avail) {
 		env->line_avail *= 2;
 		lines = realloc(lines, sizeof(line_t *) * env->line_avail);
@@ -142,7 +142,7 @@ line_t ** add_line(line_t ** lines, uint32_t offset) {
 	return lines;
 }
 
-line_t ** split_line(line_t ** lines, uint32_t line, uint32_t split) {
+line_t ** split_line(line_t ** lines, int line, int split) {
 	if (split == 0) {
 		return add_line(lines, line - 1);
 	}
@@ -153,9 +153,9 @@ line_t ** split_line(line_t ** lines, uint32_t line, uint32_t split) {
 	if (line < env->line_count) {
 		memmove(&lines[line+1], &lines[line], sizeof(line_t *) * (env->line_count - line));
 	}
-	uint32_t remaining = lines[line-1]->actual - split;
+	int remaining = lines[line-1]->actual - split;
 
-	uint32_t v = remaining;
+	int v = remaining;
 	v--;
 	v |= v >> 1;
 	v |= v >> 2;
@@ -229,11 +229,11 @@ void set_buffered() {
 	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 }
 
-int to_eight(uint32_t codepoint, uint8_t * out) {
+int to_eight(uint32_t codepoint, char * out) {
 	memset(out, 0x00, 7);
 
 	if (codepoint < 0x0080) {
-		out[0] = (uint8_t)codepoint;
+		out[0] = (char)codepoint;
 	} else if (codepoint < 0x0800) {
 		out[0] = 0xC0 | (codepoint >> 6);
 		out[1] = 0x80 | (codepoint & 0x3F);
@@ -318,7 +318,7 @@ void clear_screen() {
 
 void redraw_tabbar() {
 	place_cursor(1,1);
-	for (uint32_t i = 0; i < buffers_len; i++) {
+	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 		if (_env == env) {
 			reset();
@@ -351,8 +351,8 @@ int log_base_10(unsigned int v) {
 }
 
 void render_line(line_t * line, int width, int offset) {
-	uint32_t i = 0;
-	uint32_t j = 0;
+	int i = 0;
+	int j = 0;
 	set_colors(COLOR_FG, COLOR_BG);
 	while (i < line->actual) {
 		char_t c = line->text[i];
@@ -390,7 +390,6 @@ void render_line(line_t * line, int width, int offset) {
 }
 
 void realign_cursor() {
-	line_t * line = env->lines[env->line_no-1];
 	int x = -env->coffset;
 	int i = 0;
 	for (; i < env->col_no - 1; ++i) {
@@ -623,7 +622,7 @@ void quit() {
 }
 
 void try_quit() {
-	for (uint32_t i = 0; i < buffers_len; i++ ) {
+	for (int i = 0; i < buffers_len; i++ ) {
 		buffer_t * _env = buffers[i];
 		if (_env->modified) {
 			char msg[100];
@@ -637,7 +636,7 @@ void try_quit() {
 
 void previous_tab() {
 	buffer_t * last = NULL;
-	for (uint32_t i = 0; i < buffers_len; i++) {
+	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 		if (_env == env) {
 			if (last) {
@@ -655,7 +654,7 @@ void previous_tab() {
 }
 
 void next_tab() {
-	for (uint32_t i = 0; i < buffers_len; i++) {
+	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 		if (_env == env) {
 			if (i != buffers_len - 1) {
@@ -692,7 +691,7 @@ void write_file(char * file) {
 		render_error("Failed to open file for writing.");
 	}
 
-	uint32_t i, j;
+	int i, j;
 	for (i = 0; i < env->line_count; ++i) {
 		line_t * line = env->lines[i];
 		for (j = 0; j < line->actual; j++) {
@@ -797,7 +796,7 @@ void command_mode() {
 	printf(":");
 	fflush(stdout);
 
-	while (c = fgetc(stdin)) {
+	while ((c = fgetc(stdin))) {
 		if (c == '\033') {
 			break;
 		} else if (c == ENTER_KEY) {
@@ -824,7 +823,7 @@ void command_mode() {
 }
 
 void insert_mode() {
-	uint8_t cin;
+	int cin;
 	uint32_t c;
 	redraw_commandline();
 	set_bold();
@@ -832,7 +831,7 @@ void insert_mode() {
 	reset();
 	place_cursor_actual();
 	set_colors(COLOR_FG, COLOR_BG);
-	while (cin = fgetc(stdin)) {
+	while ((cin = fgetc(stdin))) {
 		if (!decode(&istate, &c, cin)) {
 			switch (c) {
 				case '\033':
@@ -907,9 +906,8 @@ int main(int argc, char * argv[]) {
 	while (1) {
 		redraw_all();
 		place_cursor_actual();
-		char buf[1];
 		char c;
-		while (c = fgetc(stdin)) {
+		while ((c = fgetc(stdin))) {
 			switch (c) {
 				case '\033':
 					redraw_all();
@@ -1021,7 +1019,6 @@ _insert:
 			}
 			place_cursor_actual();
 		}
-_continue:
 		printf("%c", c);
 	}
 

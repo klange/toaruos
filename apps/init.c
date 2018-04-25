@@ -12,6 +12,9 @@ void set_console() {
 		_stdout = syscall_open("/dev/null", 1, 0);
 		_stderr = syscall_open("/dev/null", 1, 0);
 	}
+
+	(void)_stderr;
+	(void)_stdin;
 }
 
 int start_options(char * args[]) {
@@ -26,7 +29,7 @@ int start_options(char * args[]) {
 			"WM_THEME=fancy",
 			NULL,
 		};
-		int i = syscall_execve(args[0], args, _envp);
+		syscall_execve(args[0], args, _envp);
 		syscall_exit(0);
 	} else {
 		int pid = 0;
@@ -34,23 +37,15 @@ int start_options(char * args[]) {
 			pid = wait(NULL);
 		} while ((pid > 0) || (pid == -1 && errno == EINTR));
 	}
+	return 0;
 }
 
 int main(int argc, char * argv[]) {
 	set_console();
 
-	char * _argv[] = {
-		"/bin/compositor",
-		NULL,
-	};
-
 	syscall_sethostname("base");
 
 	if (argc > 1) {
-		char * args = NULL;
-		if (argc > 2) {
-			args = argv[2];
-		}
 		if (!strcmp(argv[1], "--vga")) {
 			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
 		} else if (!strcmp(argv[1], "--migrate")) {

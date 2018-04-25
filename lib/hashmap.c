@@ -40,6 +40,7 @@ void * hashmap_int_dupe(void * key) {
 }
 
 static void hashmap_int_free(void * ptr) {
+	(void)ptr;
 	return;
 }
 

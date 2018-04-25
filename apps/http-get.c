@@ -208,7 +208,7 @@ int main(int argc, char * argv[]) {
 	list_t * hash_keys = hashmap_keys(headers);
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
-		fprintf(stderr, "[%s] = %s\n", key, hashmap_get(headers, key));
+		fprintf(stderr, "[%s] = %s\n", key, (char*)hashmap_get(headers, key));
 	}
 	list_free(hash_keys);
 	free(hash_keys);

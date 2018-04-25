@@ -128,7 +128,7 @@ typedef struct {
 
 	list_t * window_subscribers;
 
-	uint32_t start_time;
+	time_t start_time;
 
 	volatile int redraw_lock;
 
@@ -148,7 +148,7 @@ typedef struct {
 
 	int screenshot_frame;
 
-	uint32_t start_subtime;
+	suseconds_t start_subtime;
 
 	yutani_scale_direction_t resizing_direction;
 	int32_t resizing_offset_x;
