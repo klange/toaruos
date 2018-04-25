@@ -40,6 +40,8 @@
 #include <toaru/list.h>
 #include <toaru/spinlock.h>
 
+#include <toaru/yutani_ext.h>
+
 #define _DEBUG_YUTANI
 #ifdef _DEBUG_YUTANI
 #include <toaru/trace.h>
@@ -363,16 +365,16 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 
 	if (yg->focused_window) {
 		/* Send focus change to old focused window */
-		yutani_msg_t * response = yutani_msg_build_window_focus_change(yg->focused_window->wid, 0);
+		yutani_msg_buildx_window_focus_change_alloc(response);
+		yutani_msg_buildx_window_focus_change(response, yg->focused_window->wid, 0);
 		pex_send(yg->server, yg->focused_window->owner, response->size, (char *)response);
-		free(response);
 	}
 	yg->focused_window = w;
 	if (w) {
 		/* Send focus change to new focused window */
-		yutani_msg_t * response = yutani_msg_build_window_focus_change(w->wid, 1);
+		yutani_msg_buildx_window_focus_change_alloc(response);
+		yutani_msg_buildx_window_focus_change(response, w->wid, 1);
 		pex_send(yg->server, w->owner, response->size, (char *)response);
-		free(response);
 		make_top(yg, w);
 		mark_window(yg, w);
 	} else {
@@ -836,9 +838,9 @@ static void redraw_windows(yutani_globals_t * yg) {
 		mark_screen(yg, 0, 0, yg->width, yg->height);
 
 		TRACE("Sending welcome messages...");
-		yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
+		yutani_msg_buildx_welcome_alloc(response);
+		yutani_msg_buildx_welcome(response, yg->width, yg->height);
 		pex_broadcast(yg->server, response->size, (char *)response);
-		free(response);
 		TRACE("Done.");
 
 		spin_unlock(&yg->redraw_lock);
@@ -1155,9 +1157,9 @@ static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
  */
 static void yutani_query_result(yutani_globals_t * yg, uint32_t dest, yutani_server_window_t * win) {
 	if (win && win->client_length) {
-		yutani_msg_t * response = yutani_msg_build_window_advertise(win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
+		yutani_msg_buildx_window_advertise_alloc(response, win->client_length);
+		yutani_msg_buildx_window_advertise(response, win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
 		pex_send(yg->server, dest, response->size, (char *)response);
-		free(response);
 	}
 }
 
@@ -1165,7 +1167,8 @@ static void yutani_query_result(yutani_globals_t * yg, uint32_t dest, yutani_ser
  * Send a notice to all subscribed clients that windows have updated.
  */
 static void notify_subscribers(yutani_globals_t * yg) {
-	yutani_msg_t * response = yutani_msg_build_notify();
+	yutani_msg_buildx_notify_alloc(response);
+	yutani_msg_buildx_notify(response);
 	list_t * remove = NULL;
 	foreach(node, yg->window_subscribers) {
 		uint32_t subscriber = (uint32_t)node->value;
@@ -1186,7 +1189,6 @@ static void notify_subscribers(yutani_globals_t * yg) {
 		}
 		free(remove);
 	}
-	free(response);
 }
 
 static void window_move(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
@@ -1195,7 +1197,8 @@ static void window_move(yutani_globals_t * yg, yutani_server_window_t * window, 
 	window->y = y;
 	mark_window(yg, window);
 
-	yutani_msg_t * response = yutani_msg_build_window_move(window->wid, x, y);
+	yutani_msg_buildx_window_move_alloc(response);
+	yutani_msg_buildx_window_move(response, window->wid, x, y);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
 }
 
@@ -1236,9 +1239,9 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 		h = (yg->height - panel_h) - h * y;
 	}
 
-	yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0);
+	yutani_msg_buildx_window_resize_alloc(response);
+	yutani_msg_buildx_window_resize(response, YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
-	free(response);
 }
 
 /**
@@ -1247,9 +1250,9 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 static void window_untile(yutani_globals_t * yg, yutani_server_window_t * window) {
 	window->tiled = 0;
 
-	yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, window->wid, window->untiled_width, window->untiled_height, 0);
+	yutani_msg_buildx_window_resize_alloc(response);
+	yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, window->wid, window->untiled_width, window->untiled_height, 0);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
-	free(response);
 }
 
 /**
@@ -1306,9 +1309,9 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 			(ke->event.keycode == KEY_F4)) {
 			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
-				yutani_msg_t * response = yutani_msg_build_session_end();
+				yutani_msg_buildx_session_end_alloc(response);
+				yutani_msg_buildx_session_end(response);
 				pex_send(yg->server, focused->owner, response->size, (char *)response);
-				free(response);
 				return;
 			}
 		}
@@ -1408,9 +1411,9 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	if (hashmap_has(yg->key_binds, (void*)key_code)) {
 		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
 
-		yutani_msg_t * response = yutani_msg_build_key_event(focused ? focused->wid : UINT32_MAX, &ke->event, &ke->state);
+		yutani_msg_buildx_key_event_alloc(response);
+		yutani_msg_buildx_key_event(response,focused ? focused->wid : UINT32_MAX, &ke->event, &ke->state);
 		pex_send(yg->server, bind->owner, response->size, (char *)response);
-		free(response);
 
 		if (bind->response == YUTANI_BIND_STEAL) {
 			/* If this keybinding was registered as "steal", we'll stop here. */
@@ -1421,9 +1424,9 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	/* Finally, send the key to the focused client. */
 	if (focused) {
 
-		yutani_msg_t * response = yutani_msg_build_key_event(focused->wid, &ke->event, &ke->state);
+		yutani_msg_buildx_key_event_alloc(response);
+		yutani_msg_buildx_key_event(response,focused->wid, &ke->event, &ke->state);
 		pex_send(yg->server, focused->owner, response->size, (char *)response);
-		free(response);
 
 	}
 }
@@ -1614,11 +1617,11 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->mouse_drag_button = YUTANI_MOUSE_BUTTON_LEFT;
 					if (yg->mouse_window) {
 						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
-						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_DOWN);
+						yutani_msg_buildx_window_mouse_event_alloc(response);
+						yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_DOWN);
 						yg->mouse_click_x_orig = yg->mouse_click_x;
 						yg->mouse_click_y_orig = yg->mouse_click_y;
 						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
-						free(response);
 					}
 				} else {
 					yg->mouse_window = get_focused(yg);
@@ -1626,31 +1629,28 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					if (yg->mouse_window) {
 						int32_t x, y;
 						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
-						yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
+						yutani_msg_buildx_window_mouse_event_alloc(response);
+						yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
 						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
-						free(response);
 					}
 					if (tmp_window) {
 						int32_t x, y;
-						yutani_msg_t * response;
+						yutani_msg_buildx_window_mouse_event_alloc(response);
 						if (tmp_window != yg->old_hover_window) {
 							device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
-							response = yutani_msg_build_window_mouse_event(tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_ENTER);
+							yutani_msg_buildx_window_mouse_event(response, tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_ENTER);
 							pex_send(yg->server, tmp_window->owner, response->size, (char *)response);
-							free(response);
 							if (yg->old_hover_window) {
 								device_to_window(yg->old_hover_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
-								response = yutani_msg_build_window_mouse_event(yg->old_hover_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_LEAVE);
+								yutani_msg_buildx_window_mouse_event(response, yg->old_hover_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_LEAVE);
 								pex_send(yg->server, yg->old_hover_window->owner, response->size, (char *)response);
-								free(response);
 							}
 							yg->old_hover_window = tmp_window;
 						}
 						if (tmp_window != yg->mouse_window) {
 							device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
-							response = yutani_msg_build_window_mouse_event(tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
+							yutani_msg_buildx_window_mouse_event(response, tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
 							pex_send(yg->server, tmp_window->owner, response->size, (char *)response);
-							free(response);
 						}
 					}
 				}
@@ -1725,13 +1725,13 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					if (yg->mouse_window) {
 						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						if (!yg->mouse_moved) {
-							yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_CLICK);
+							yutani_msg_buildx_window_mouse_event_alloc(response);
+							yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_CLICK);
 							pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
-							free(response);
 						} else {
-							yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_RAISE);
+							yutani_msg_buildx_window_mouse_event_alloc(response);
+							yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_RAISE);
 							pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
-							free(response);
 						}
 					}
 				} else {
@@ -1742,9 +1742,9 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					if (yg->mouse_window) {
 						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						if (old_x != yg->mouse_click_x || old_y != yg->mouse_click_y) {
-							yutani_msg_t * response = yutani_msg_build_window_mouse_event(yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_DRAG);
+							yutani_msg_buildx_window_mouse_event_alloc(response);
+							yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_DRAG);
 							pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
-							free(response);
 						}
 					}
 				}
@@ -1829,9 +1829,9 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					}
 					TRACE("resize complete, now %d x %d", yg->resizing_w, yg->resizing_h);
 					window_move(yg, yg->resizing_window, x,y);
-					yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, yg->resizing_window->wid, yg->resizing_w, yg->resizing_h, 0);
+					yutani_msg_buildx_window_resize_alloc(response);
+					yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, yg->resizing_window->wid, yg->resizing_w, yg->resizing_h, 0);
 					pex_send(yg->server, yg->resizing_window->owner, response->size, (char *)response);
-					free(response);
 					yg->resizing_window = NULL;
 					yg->mouse_window = NULL;
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
@@ -2040,9 +2040,9 @@ int main(int argc, char * argv[]) {
 						case YUTANI_MSG_KEY_EVENT:
 							{
 								struct yutani_msg_key_event * ke = (void*)m->data;
-								yutani_msg_t * m_ = yutani_msg_build_key_event(0, &ke->event, &ke->state);
+								yutani_msg_buildx_key_event_alloc(m_);
+								yutani_msg_buildx_key_event(m_, 0, &ke->event, &ke->state);
 								handle_key_event(yg, (struct yutani_msg_key_event *)m_->data);
-								free(m_);
 							}
 							break;
 						case YUTANI_MSG_WINDOW_MOUSE_EVENT:
@@ -2056,9 +2056,9 @@ int main(int argc, char * argv[]) {
 
 								yg->last_mouse_buttons = packet.buttons;
 
-								yutani_msg_t * m_ = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
+								yutani_msg_buildx_mouse_event_alloc(m_);
+								yutani_msg_buildx_mouse_event(m_, 0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 								handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m_->data);
-								free(m_);
 							}
 							break;
 						case YUTANI_MSG_RESIZE_OFFER:
@@ -2072,9 +2072,9 @@ int main(int argc, char * argv[]) {
 						case YUTANI_MSG_SESSION_END:
 							{
 								TRACE("Host session ended. Should exit.");
-								yutani_msg_t * response = yutani_msg_build_session_end();
+								yutani_msg_buildx_session_end_alloc(response);
+								yutani_msg_buildx_session_end(response);
 								pex_broadcast(server, response->size, (char *)response);
-								free(response);
 								kill(render_thread.id, SIGINT);
 								exit(0);
 							}
@@ -2094,18 +2094,18 @@ int main(int argc, char * argv[]) {
 				int r = read(kfd, buf, 1);
 				if (r > 0) {
 					kbd_scancode(&state, buf[0], &event);
-					yutani_msg_t * m = yutani_msg_build_key_event(0, &event, &state);
+					yutani_msg_buildx_key_event_alloc(m);
+					yutani_msg_buildx_key_event(m,0, &event, &state);
 					handle_key_event(yg, (struct yutani_msg_key_event *)m->data);
-					free(m);
 				}
 				continue;
 			} else if (index == 1) {
 				int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
 					yg->last_mouse_buttons = packet.buttons;
-					yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_RELATIVE);
+					yutani_msg_buildx_mouse_event_alloc(m);
+					yutani_msg_buildx_mouse_event(m,0, &packet, YUTANI_MOUSE_EVENT_TYPE_RELATIVE);
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
-					free(m);
 				}
 				continue;
 			} else if (index == 3) {
@@ -2116,9 +2116,9 @@ int main(int argc, char * argv[]) {
 					} else {
 						yg->last_mouse_buttons = packet.buttons;
 					}
-					yutani_msg_t * m = yutani_msg_build_mouse_event(0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
+					yutani_msg_buildx_mouse_event_alloc(m);
+					yutani_msg_buildx_mouse_event(m,0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
-					free(m);
 				}
 				continue;
 			}
@@ -2165,9 +2165,9 @@ int main(int argc, char * argv[]) {
 						client_list = list_create();
 						hashmap_set(yg->clients_to_windows, (void *)p->source, client_list);
 					}
-					yutani_msg_t * response = yutani_msg_build_welcome(yg->width, yg->height);
+					yutani_msg_buildx_welcome_alloc(response);
+					yutani_msg_buildx_welcome(response,yg->width, yg->height);
 					pex_send(server, p->source, response->size, (char *)response);
-					free(response);
 				}
 				break;
 			case YUTANI_MSG_WINDOW_NEW:
@@ -2176,9 +2176,9 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_new_flags * wn = (void *)m->data;
 					TRACE("Client %08x requested a new window (%dx%d).", p->source, wn->width, wn->height);
 					yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source, m->type != YUTANI_MSG_WINDOW_NEW ? wn->flags : 0);
-					yutani_msg_t * response = yutani_msg_build_window_init(w->wid, w->width, w->height, w->bufid);
+					yutani_msg_buildx_window_init_alloc(response);
+					yutani_msg_buildx_window_init(response,w->wid, w->width, w->height, w->bufid);
 					pex_send(server, p->source, response->size, (char *)response);
-					free(response);
 
 					if (!(w->server_flags & YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS)) {
 						set_focused_window(yg, w);
@@ -2259,9 +2259,9 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_resize * wr = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
 					if (w) {
-						yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
+						yutani_msg_buildx_window_resize_alloc(response);
+						yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
 						pex_send(server, p->source, response->size, (char *)response);
-						free(response);
 					}
 				}
 				break;
@@ -2270,9 +2270,9 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_resize * wr = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
 					if (w) {
-						yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
+						yutani_msg_buildx_window_resize_alloc(response);
+						yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0);
 						pex_send(server, p->source, response->size, (char *)response);
-						free(response);
 					}
 				}
 				break;
@@ -2282,9 +2282,9 @@ int main(int argc, char * argv[]) {
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
 					if (w) {
 						uint32_t newbufid = server_window_resize(yg, w, wr->width, wr->height);
-						yutani_msg_t * response = yutani_msg_build_window_resize(YUTANI_MSG_RESIZE_BUFID, w->wid, wr->width, wr->height, newbufid);
+						yutani_msg_buildx_window_resize_alloc(response);
+						yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_BUFID, w->wid, wr->width, wr->height, newbufid);
 						pex_send(server, p->source, response->size, (char *)response);
-						free(response);
 					}
 				}
 				break;
@@ -2304,9 +2304,9 @@ int main(int argc, char * argv[]) {
 						yutani_query_result(yg, p->source, node->value);
 					}
 					yutani_query_result(yg, p->source, yg->top_z);
-					yutani_msg_t * response = yutani_msg_build_window_advertise(0, 0, NULL, 0, NULL);
+					yutani_msg_buildx_window_advertise_alloc(response, 0);
+					yutani_msg_buildx_window_advertise(response,0, 0, NULL, 0, NULL);
 					pex_send(server, p->source, response->size, (char *)response);
-					free(response);
 				}
 				break;
 			case YUTANI_MSG_SUBSCRIBE:
@@ -2349,9 +2349,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case YUTANI_MSG_SESSION_END:
 				{
-					yutani_msg_t * response = yutani_msg_build_session_end();
+					yutani_msg_buildx_session_end_alloc(response);
+					yutani_msg_buildx_session_end(response);
 					pex_broadcast(server, response->size, (char *)response);
-					free(response);
 				}
 				break;
 			case YUTANI_MSG_WINDOW_FOCUS:
