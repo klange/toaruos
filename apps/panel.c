@@ -43,12 +43,11 @@
 #define TIME_LEFT 108
 #define DATE_WIDTH 70
 
-#define ICON_SIZE 24
 #define GRADIENT_HEIGHT 24
 #define APP_OFFSET 140
 #define TEXT_Y_OFFSET 2
 #define ICON_PADDING 2
-#define MAX_TEXT_WIDTH 120
+#define MAX_TEXT_WIDTH 180
 #define MIN_TEXT_WIDTH 50
 
 #define HILIGHT_COLOR rgb(142,216,255)
@@ -65,7 +64,7 @@
 
 #define MAX_WINDOW_COUNT 100
 
-#define TOTAL_CELL_WIDTH (ICON_SIZE + ICON_PADDING * 2 + title_width)
+#define TOTAL_CELL_WIDTH (title_width)
 #define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING - widgets_width)
 
 #define WIDGET_WIDTH 24
@@ -540,7 +539,7 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	draw_sdf_string(ctx, width - TIME_LEFT, 4, buffer, 18, txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, width - TIME_LEFT, 3, buffer, 20, txt_color, SDF_FONT_THIN);
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
@@ -555,7 +554,7 @@ static void redraw(void) {
 	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 12, txt_color, SDF_FONT_BOLD);
 
 	/* Applications menu */
-	draw_sdf_string(ctx, 10, 4, "Applications", 18, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, 8, 3, "Applications", 20, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Draw each widget */
 	/* - Volume */
@@ -590,7 +589,7 @@ static void redraw(void) {
 			struct window_ad * ad = node->value;
 			char * s = "";
 			char tmp_title[50];
-			int w = ICON_SIZE + ICON_PADDING * 2;
+			int w = 0;
 
 			if (APP_OFFSET + i + w > LEFT_BOUND) {
 				break;
@@ -633,25 +632,50 @@ static void redraw(void) {
 			/* Get the icon for this window */
 			sprite_t * icon = icon_get_48(ad->icon);
 
-			/* Draw it, scaled if necessary */
-			if (icon->width == ICON_SIZE) {
-				draw_sprite(ctx, icon, APP_OFFSET + i + ICON_PADDING, 0);
-			} else {
-				draw_sprite_scaled(ctx, icon, APP_OFFSET + i + ICON_PADDING, 0, ICON_SIZE, ICON_SIZE);
+			{
+				sprite_t * _tmp_s = create_sprite(48, PANEL_HEIGHT-2, ALPHA_EMBEDDED);
+				gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
+
+				draw_fill(_tmp, rgba(0,0,0,0));
+				/* Draw it, scaled if necessary */
+				if (icon->width == 48) {
+					draw_sprite(_tmp, icon, 0, 0);
+				} else {
+					draw_sprite_scaled(_tmp, icon, 0, 0, 48, 48);
+				}
+
+				free(_tmp);
+				draw_sprite_alpha(ctx, _tmp_s, APP_OFFSET + i + w - 48 - 2, 0, 0.7);
+				sprite_free(_tmp_s);
+			}
+
+
+			{
+				sprite_t * _tmp_s = create_sprite(w, PANEL_HEIGHT, ALPHA_EMBEDDED);
+				gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
+
+				draw_fill(_tmp, rgba(0,0,0,0));
+				draw_sdf_string(_tmp, 0, 0, s, 16, rgb(0,0,0), SDF_FONT_THIN);
+				blur_context_box(_tmp, 4);
+
+				free(_tmp);
+				draw_sprite(ctx, _tmp_s, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2);
+				sprite_free(_tmp_s);
+
 			}
 
 			if (title_width > MIN_TEXT_WIDTH) {
 				/* Then draw the window title, with appropriate color */
 				if (j == focused_app) {
 					/* Current hilighted - title should be a light blue */
-					draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET + 2, s, 16, HILIGHT_COLOR, SDF_FONT_THIN);
+					draw_sdf_string(ctx, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2, s, 16, HILIGHT_COLOR, SDF_FONT_THIN);
 				} else {
 					if (ad->flags & 1) {
 						/* Top window should be white */
-						draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET + 2, s, 16, FOCUS_COLOR, SDF_FONT_THIN);
+						draw_sdf_string(ctx, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2, s, 16, FOCUS_COLOR, SDF_FONT_THIN);
 					} else {
 						/* Otherwise, off white */
-						draw_sdf_string(ctx, APP_OFFSET + i + ICON_SIZE + ICON_PADDING * 2, TEXT_Y_OFFSET + 2, s, 16, txt_color, SDF_FONT_THIN);
+						draw_sdf_string(ctx, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2, s, 16, txt_color, SDF_FONT_THIN);
 					}
 				}
 			}
@@ -752,7 +776,6 @@ static void update_window_list(void) {
 	if (new_window_list->length) {
 		int tmp = LEFT_BOUND;
 		tmp -= APP_OFFSET;
-		tmp -= new_window_list->length * (ICON_SIZE + ICON_PADDING * 2);
 		if (tmp < 0) {
 			title_width = 0;
 		} else {
