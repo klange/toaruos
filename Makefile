@@ -23,7 +23,7 @@ TARGET_TRIPLET=i686-pc-toaru
 
 CC=$(TARGET_TRIPLET)-gcc
 AR=$(TARGET_TRIPLET)-ar
-CFLAGS= -O3 -m32 -Wa,--32 -g -std=c99 -I. -Iapps -pipe -mfpmath=sse -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
+CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mfpmath=sse -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
 
 LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
 LC=base/lib/libc.so
@@ -119,7 +119,7 @@ base/lib/crt%.o: libc/crt%.s
 	yasm -f elf -o $@ $<
 
 libc/%.o: libc/%.c
-	$(CC) -fPIC -c -m32 -Wa,--32 -O3 -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 base/lib/libc.a: ${LIBC_OBJS} | dirs crts
 	$(AR) cr $@ $^

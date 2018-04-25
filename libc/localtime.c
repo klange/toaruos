@@ -61,7 +61,6 @@ struct tm *localtime(const time_t *timep) {
 	fprintf(stderr, "Hello world?\n");
 
 	long seconds = 0; // this needs to be bigger, but whatever
-	int year = 0;
 
 	long year_sec = 0;
 
