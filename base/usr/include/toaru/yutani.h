@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <toaru/hashmap.h>
 #include <toaru/graphics.h>
@@ -200,6 +201,9 @@ typedef struct yutani_window {
 
 	int32_t x;
 	int32_t y;
+
+	bool is_decorated;
+	yutani_t * ctx;
 } yutani_window_t;
 
 /* Magic value */

@@ -38,24 +38,7 @@ size_t yutani_query(yutani_t * y) {
 	return pex_query(y->sock);
 }
 
-yutani_msg_t * yutani_poll(yutani_t * y) {
-	yutani_msg_t * out;
-
-	if (y->queued->length > 0) {
-		node_t * node = list_dequeue(y->queued);
-		out = (yutani_msg_t *)node->value;
-		free(node);
-		return out;
-	}
-
-	size_t size;
-	{
-		char tmp[MAX_PACKET_SIZE];
-		size = pex_recv(y->sock, tmp);
-		out = malloc(size);
-		memcpy(out, tmp, size);
-	}
-
+static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 	switch (out->type) {
 		case YUTANI_MSG_WELCOME:
 			{
@@ -77,6 +60,28 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 		default:
 			break;
 	}
+}
+
+yutani_msg_t * yutani_poll(yutani_t * y) {
+	yutani_msg_t * out;
+
+	if (y->queued->length > 0) {
+		node_t * node = list_dequeue(y->queued);
+		out = (yutani_msg_t *)node->value;
+		free(node);
+		_handle_internal(y, out);
+		return out;
+	}
+
+	size_t size;
+	{
+		char tmp[MAX_PACKET_SIZE];
+		size = pex_recv(y->sock, tmp);
+		out = malloc(size);
+		memcpy(out, tmp, size);
+	}
+
+	_handle_internal(y, out);
 
 	return out;
 }
@@ -485,6 +490,11 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	win->bufid = mw->bufid;
 	win->wid = mw->wid;
 	win->focused = 0;
+	win->is_decorated = 0;
+	win->x = 0;
+	win->y = 0;
+	win->user_data = NULL;
+	win->ctx = y;
 	free(mm);
 
 	hashmap_set(y->windows, (void*)win->wid, win);
