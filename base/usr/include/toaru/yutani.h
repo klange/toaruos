@@ -197,6 +197,9 @@ typedef struct yutani_window {
 	uint32_t oldbufid;
 
 	void * user_data;
+
+	int32_t x;
+	int32_t y;
 } yutani_window_t;
 
 /* Magic value */
