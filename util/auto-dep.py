@@ -32,7 +32,7 @@ class Classifier(object):
         '<toaru/confreader.h>':  (None, '-ltoaru_confreader',  ['<toaru/hashmap.h>']),
         '<toaru/dlfcn.h>':       (None, '-ltoaru_dlfcn',       []),
         '<toaru/yutani.h>':      (None, '-ltoaru_yutani',      ['<toaru/kbd.h>', '<toaru/list.h>', '<toaru/pex.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
-        '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/sdf.h>', '<toaru/graphics.h>', '<toaru/yutani.h>','<toaru/dlfcn.h>']),
+        '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/menu.h>', '<toaru/sdf.h>', '<toaru/graphics.h>', '<toaru/yutani.h>','<toaru/dlfcn.h>']),
         '<toaru/termemu.h>':     (None, '-ltoaru_termemu',     ['<toaru/graphics.h>']),
         '<toaru/sdf.h>':         (None, '-ltoaru_sdf',         ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/icon_cache.h>':  (None, '-ltoaru_icon_cache',  ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
