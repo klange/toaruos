@@ -1480,6 +1480,15 @@ void * handle_incoming(void) {
 					}
 				}
 				break;
+			case YUTANI_MSG_WINDOW_CLOSE:
+				{
+					struct yutani_msg_window_close * wc = (void*)m->data;
+					if (wc->wid == window->wid) {
+						kill(child_pid, SIGKILL);
+						exit_application = 1;
+					}
+				}
+				break;
 			case YUTANI_MSG_SESSION_END:
 				{
 					kill(child_pid, SIGKILL);

@@ -404,6 +404,7 @@ typedef struct yutani_window {
  * Special one-off single-shot request messages.
  */
 #define YUTANI_SPECIAL_REQUEST_MAXIMIZE     1
+#define YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE 2
 
 typedef struct {
 	int x;
