@@ -47,11 +47,13 @@ void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, i
 	}
 
 	/* Icon */
-	sprite_t * icon = icon_get_16(_self->icon);
-	if (icon->width == MENU_ICON_SIZE) {
-		draw_sprite(ctx, icon, 4, offset + 2);
-	} else {
-		draw_sprite_scaled(ctx, icon, 4, offset + 2, MENU_ICON_SIZE, MENU_ICON_SIZE);
+	if (_self->icon) {
+		sprite_t * icon = icon_get_16(_self->icon);
+		if (icon->width == MENU_ICON_SIZE) {
+			draw_sprite(ctx, icon, 4, offset + 2);
+		} else {
+			draw_sprite_scaled(ctx, icon, 4, offset + 2, MENU_ICON_SIZE, MENU_ICON_SIZE);
+		}
 	}
 
 	/* Foreground text color */
@@ -82,9 +84,9 @@ struct MenuEntry * menu_create_normal(const char * icon, const char * action, co
 	out->renderer = _menu_draw_MenuEntry_Normal;
 	out->focus_change = _menu_focus_MenuEntry_Normal;
 	out->activate = _menu_activate_MenuEntry_Normal;
-	out->icon = strdup(icon);
+	out->icon = icon ? strdup(icon) : NULL;
 	out->title = strdup(title);
-	out->action = strdup(action);
+	out->action = action ? strdup(action) : NULL;
 	out->callback = callback;
 
 	out->rwidth = 50 + draw_sdf_string_width(out->title, 16, SDF_FONT_THIN);
@@ -113,9 +115,9 @@ struct MenuEntry * menu_create_submenu(const char * icon, const char * action, c
 	out->renderer = _menu_draw_MenuEntry_Submenu;
 	out->focus_change = _menu_focus_MenuEntry_Submenu;
 	out->activate = _menu_activate_MenuEntry_Submenu;
-	out->icon = strdup(icon);
+	out->icon = icon ? strdup(icon) : NULL;
 	out->title = strdup(title);
-	out->action = strdup(action);
+	out->action = action ? strdup(action) : NULL;
 
 	out->rwidth = 50 + draw_sdf_string_width(out->title, 16, SDF_FONT_THIN);
 
@@ -214,6 +216,19 @@ struct MenuList * menu_set_get_root(struct MenuSet * menu) {
 	return (void*)hashmap_get(menu->_menus,"_");
 }
 
+void menu_insert(struct MenuList * menu, struct MenuEntry * entry) {
+	list_insert(menu->entries, entry);
+	entry->_owner = menu;
+}
+
+struct MenuList * menu_create(void) {
+	struct MenuList * p = malloc(sizeof(struct MenuList));
+	p->entries = list_create();
+	p->ctx = NULL;
+	p->window = NULL;
+	return p;
+}
+
 struct MenuSet * menu_set_from_description(const char * path, void (*callback)(struct MenuEntry *)) {
 	FILE * f;
 	if (!strcmp(path,"-")) {
@@ -228,8 +243,7 @@ struct MenuSet * menu_set_from_description(const char * path, void (*callback)(s
 
 	hashmap_t * out = hashmap_create(10);
 
-	char * current_name = NULL;
-	list_t * current_list = NULL;
+	struct MenuList * current_menu = NULL;
 
 	/* Read through the file */
 	char line[256];
@@ -246,26 +260,23 @@ struct MenuSet * menu_set_from_description(const char * path, void (*callback)(s
 
 		if (*line == ':') {
 			/* New menu */
-			if (current_name) {
-				struct MenuList * p = malloc(sizeof(struct MenuList));
-				p->entries = current_list;
-				p->ctx = NULL;
-				p->window = NULL;
-				hashmap_set(out, current_name, p);
-			}
-			current_name = strdup(line+1);
-			current_list = list_create();
+			struct MenuList * p = malloc(sizeof(struct MenuList));
+			p->entries = list_create();
+			p->ctx = NULL;
+			p->window = NULL;
+			hashmap_set(out, line+1, p);
+			current_menu = p;
 		} else if (*line == '#') {
 			/* Comment */
 			continue;
 		} else if (*line == '-') {
-			if (!current_list) {
+			if (!current_menu) {
 				fprintf(stderr, "Tried to add separator with no active menu.\n");
 				goto failure;
 			}
-			list_insert(current_list, menu_create_separator());
+			menu_insert(current_menu, menu_create_separator());
 		} else if (*line == '&') {
-			if (!current_list) {
+			if (!current_menu) {
 				fprintf(stderr, "Tried to add submenu with no active menu.\n");
 				goto failure;
 			}
@@ -284,9 +295,9 @@ struct MenuSet * menu_set_from_description(const char * path, void (*callback)(s
 			}
 			*title = '\0';
 			title++;
-			list_insert(current_list, menu_create_submenu(icon,action,title));
+			menu_insert(current_menu, menu_create_submenu(icon,action,title));
 		} else {
-			if (!current_list) {
+			if (!current_menu) {
 				fprintf(stderr, "Tried to add item with no active menu.\n");
 				goto failure;
 			}
@@ -305,16 +316,8 @@ struct MenuSet * menu_set_from_description(const char * path, void (*callback)(s
 			}
 			*title = '\0';
 			title++;
-			list_insert(current_list, menu_create_normal(icon,action,title,callback));
+			menu_insert(current_menu, menu_create_normal(icon,action,title,callback));
 		}
-	}
-
-	if (current_name) {
-		struct MenuList * p = malloc(sizeof(struct MenuList));
-		p->entries = current_list;
-		p->ctx = NULL;
-		p->window = NULL;
-		hashmap_set(out, current_name, p);
 	}
 
 	struct MenuSet * _out = malloc(sizeof(struct MenuSet));
