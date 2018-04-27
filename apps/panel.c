@@ -942,8 +942,8 @@ int main (int argc, char ** argv) {
 		if (index == 0) {
 			/* Respond to Yutani events */
 			yutani_msg_t * m = yutani_poll(yctx);
-			menu_process_event(yctx, m);
-			if (m) {
+			while (m) {
+				menu_process_event(yctx, m);
 				switch (m->type) {
 					/* New window information is available */
 					case YUTANI_MSG_NOTIFY:
@@ -974,6 +974,7 @@ int main (int argc, char ** argv) {
 						break;
 				}
 				free(m);
+				m = yutani_poll_async(yctx);
 			}
 		} else {
 			struct timeval now;
