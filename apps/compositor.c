@@ -1307,8 +1307,8 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 			(ke->event.keycode == KEY_F4)) {
 			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
-				yutani_msg_buildx_session_end_alloc(response);
-				yutani_msg_buildx_session_end(response);
+				yutani_msg_buildx_window_close_alloc(response);
+				yutani_msg_buildx_window_close(response, focused->wid);
 				pex_send(yg->server, focused->owner, response->size, (char *)response);
 				return;
 			}
@@ -2453,6 +2453,13 @@ int main(int argc, char * argv[]) {
 								} else {
 									window_tile(yg, w, 1, 1, 0, 0);
 								}
+							}
+							break;
+						case YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE:
+							if (w) {
+								yutani_msg_buildx_window_close_alloc(response);
+								yutani_msg_buildx_window_close(response, w->wid);
+								pex_send(yg->server, w->owner, response->size, (char *)response);
 							}
 							break;
 						default:

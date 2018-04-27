@@ -112,6 +112,7 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
+				case YUTANI_MSG_WINDOW_CLOSE:
 				case YUTANI_MSG_SESSION_END:
 					playing = 0;
 					break;

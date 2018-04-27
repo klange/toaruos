@@ -741,6 +741,13 @@ void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t 
 	yutani_msg_send(yctx, m);
 }
 
+void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t request) {
+	/* For working with other applications' windows */
+	yutani_msg_buildx_special_request_alloc(m);
+	yutani_msg_buildx_special_request(m, wid, request);
+	yutani_msg_send(yctx, m);
+}
+
 gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
 	out->width  = window->width;

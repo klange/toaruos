@@ -147,6 +147,7 @@ int main (int argc, char ** argv) {
 						}
 					}
 					break;
+				case YUTANI_MSG_WINDOW_CLOSE:
 				case YUTANI_MSG_SESSION_END:
 					should_exit = 1;
 					break;

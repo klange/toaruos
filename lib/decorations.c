@@ -135,6 +135,13 @@ static void _decor_start_maximize(struct MenuEntry * self) {
 	yutani_focus_window(_decor_menu_owner_window->ctx, _decor_menu_owner_window->wid);
 }
 
+static void _decor_close(struct MenuEntry * self) {
+	if (!_decor_menu_owner_window)
+		return;
+
+	yutani_special_request(_decor_menu_owner_window->ctx, _decor_menu_owner_window, YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE);
+}
+
 yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y, int x) {
 	if (_decor_menu->window) return NULL;
 	_decor_menu_owner_window = window;
@@ -150,6 +157,8 @@ void init_decorations() {
 	_decor_menu = menu_create();
 	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Maximize", _decor_start_maximize));
 	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Move", _decor_start_move));
+	menu_insert(_decor_menu, menu_create_separator());
+	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Close", _decor_close));
 
 	if (!theme || !strcmp(theme, "simple")) {
 		initialize_simple();
