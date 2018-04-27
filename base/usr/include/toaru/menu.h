@@ -9,8 +9,11 @@ enum MenuEntry_Type {
 	MenuEntry_Separator,
 };
 
+struct MenuList;
+
 struct MenuEntry {
 	enum MenuEntry_Type _type;
+	struct MenuList * _owner;
 
 	int height; /* All must have a height, so put it here. */
 	int width; /* Actual width */
