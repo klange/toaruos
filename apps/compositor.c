@@ -2447,7 +2447,7 @@ int main(int argc, char * argv[]) {
 					switch (sr->request) {
 						case YUTANI_SPECIAL_REQUEST_MAXIMIZE:
 							if (w) {
-								if (yg->mouse_window->tiled) {
+								if (w->tiled) {
 									window_untile(yg,w);
 									window_move(yg,w,w->untiled_left,w->untiled_top);
 								} else {
@@ -2456,7 +2456,7 @@ int main(int argc, char * argv[]) {
 							}
 							break;
 						default:
-							TRACE("Unknown special request type: 0x%x\n", sr->request);
+							TRACE("Unknown special request type: 0x%x", sr->request);
 							break;
 					}
 
