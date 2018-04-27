@@ -43,6 +43,7 @@
 #include <toaru/termemu.h>
 #include <toaru/spinlock.h>
 #include <toaru/list.h>
+#include <toaru/menu.h>
 
 #include "terminal-palette.h"
 #include "terminal-font.h"
@@ -1453,7 +1454,8 @@ void mouse_event(int button, int x, int y) {
 void * handle_incoming(void) {
 
 	yutani_msg_t * m = yutani_poll(yctx);
-	if (m) {
+	while (m) {
+		menu_process_event(yctx, m);
 		switch (m->type) {
 			case YUTANI_MSG_KEY_EVENT:
 				{
@@ -1488,10 +1490,19 @@ void * handle_incoming(void) {
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
 					if (!_no_frame) {
-						if (decor_handle_event(yctx, m) == DECOR_CLOSE) {
-							kill(child_pid, SIGKILL);
-							exit_application = 1;
-							break;
+						int decor_response = decor_handle_event(yctx, m);
+
+						switch (decor_response) {
+							case DECOR_CLOSE:
+								kill(child_pid, SIGKILL);
+								exit_application = 1;
+								break;
+							case DECOR_RIGHT:
+								/* right click in decoration, show appropriate menu */
+								decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
+								break;
+							default:
+								break;
 						}
 					}
 					if (me->new_x < 0 || me->new_x >= (int)window_width || me->new_y < 0 || me->new_y >= (int)window_height) {
@@ -1548,6 +1559,7 @@ void * handle_incoming(void) {
 				break;
 		}
 		free(m);
+		m = yutani_poll_async(yctx);
 	}
 
 	return NULL;
