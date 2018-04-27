@@ -1363,7 +1363,11 @@ void reinit(int send_sig) {
 
 		int offset = 0;
 		if (term_height < old_height) {
-			offset = old_height - term_height;
+			while (csr_y >= term_height) {
+				offset++;
+				old_height--;
+				csr_y--;
+			}
 		}
 		for (int row = 0; row < min(old_height, term_height); ++row) {
 			for (int col = 0; col < min(old_width, term_width); ++col) {
@@ -1372,7 +1376,9 @@ void reinit(int send_sig) {
 				*new_cell = *old_cell;
 			}
 		}
-		csr_y -= offset;
+		if (csr_x >= term_width) {
+			csr_x = term_width-1;
+		}
 		free(term_buffer);
 
 		term_buffer = new_term_buffer;
