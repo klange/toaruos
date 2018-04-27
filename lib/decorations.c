@@ -114,7 +114,6 @@ static void _decor_maximize(yutani_t * yctx, yutani_window_t * window) {
 	if (callback_maximize) {
 		callback_maximize(window);
 	} else {
-		fprintf(stderr, "bloop\n");
 		yutani_special_request(yctx, window, YUTANI_SPECIAL_REQUEST_MAXIMIZE);
 	}
 }
@@ -132,7 +131,6 @@ static void _decor_start_move(struct MenuEntry * self) {
 static void _decor_start_maximize(struct MenuEntry * self) {
 	if (!_decor_menu_owner_window)
 		return;
-	fprintf(stderr, "Sending maximize request\n");
 	_decor_maximize(_decor_menu_owner_window->ctx, _decor_menu_owner_window);
 	yutani_focus_window(_decor_menu_owner_window->ctx, _decor_menu_owner_window->wid);
 }
