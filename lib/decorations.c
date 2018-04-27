@@ -14,6 +14,7 @@
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
+#include <toaru/menu.h>
 
 uint32_t decor_top_height     = 33;
 uint32_t decor_bottom_height  = 6;
@@ -95,6 +96,7 @@ static void initialize_simple() {
 
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
+	window->is_decorated = true;
 	if (!window->focused) {
 		decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
 	} else {
@@ -104,12 +106,52 @@ void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * ti
 
 void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
+	window->is_decorated = true;
 	decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
+}
+
+static void _decor_maximize(yutani_t * yctx, yutani_window_t * window) {
+	if (callback_maximize) {
+		callback_maximize(window);
+	} else {
+		fprintf(stderr, "bloop\n");
+		yutani_special_request(yctx, window, YUTANI_SPECIAL_REQUEST_MAXIMIZE);
+	}
+}
+
+static yutani_window_t * _decor_menu_owner_window = NULL;
+static struct MenuList * _decor_menu = NULL;
+
+static void _decor_start_move(struct MenuEntry * self) {
+	if (!_decor_menu_owner_window)
+		return;
+	yutani_focus_window(_decor_menu_owner_window->ctx, _decor_menu_owner_window->wid);
+	yutani_window_drag_start(_decor_menu_owner_window->ctx, _decor_menu_owner_window);
+}
+
+static void _decor_start_maximize(struct MenuEntry * self) {
+	if (!_decor_menu_owner_window)
+		return;
+	fprintf(stderr, "Sending maximize request\n");
+	_decor_maximize(_decor_menu_owner_window->ctx, _decor_menu_owner_window);
+	yutani_focus_window(_decor_menu_owner_window->ctx, _decor_menu_owner_window->wid);
+}
+
+yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y, int x) {
+	if (_decor_menu->window) return NULL;
+	_decor_menu_owner_window = window;
+	menu_show(_decor_menu, window->ctx);
+	yutani_window_move(window->ctx, _decor_menu->window, y, x);
+	return _decor_menu->window;
 }
 
 void init_decorations() {
 	char * tmp = getenv("WM_THEME");
 	char * theme = tmp ? strdup(tmp) : NULL;
+
+	_decor_menu = menu_create();
+	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Maximize", _decor_start_maximize));
+	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Move", _decor_start_move));
 
 	if (!theme || !strcmp(theme, "simple")) {
 		initialize_simple();
@@ -201,6 +243,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
 					yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
 					if (!window) return 0;
+					if (!window->is_decorated) return 0;
 					if (within_decors(window, me->new_x, me->new_y)) {
 						int button = decor_check_button_press(window, me->new_x, me->new_y);
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
@@ -217,6 +260,9 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 								}
 								return DECOR_OTHER;
 							}
+						}
+						if (!button && (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT)) {
+							return DECOR_RIGHT;
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_MOVE) {
 							if (!button) {
@@ -262,11 +308,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 									if (callback_resize) callback_resize(window);
 									break;
 								case DECOR_MAXIMIZE:
-									if (callback_maximize) {
-										callback_maximize(window);
-									} else {
-										yutani_special_request(yctx, window, YUTANI_SPECIAL_REQUEST_MAXIMIZE);
-									}
+									_decor_maximize(yctx, window);
 									break;
 								default:
 									break;

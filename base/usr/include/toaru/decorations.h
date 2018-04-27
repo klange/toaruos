@@ -44,12 +44,14 @@ extern int decor_handle_event(yutani_t * yctx, yutani_msg_t * m);
 extern void decor_set_close_callback(void (*callback)(yutani_window_t *));
 extern void decor_set_resize_callback(void (*callback)(yutani_window_t *));
 extern void decor_set_maximize_callback(void (*callback)(yutani_window_t *));
+extern yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y, int x);
 
 /* Responses from handle_event */
-#define DECOR_OTHER     1
-#define DECOR_CLOSE     2
-#define DECOR_RESIZE    3
+#define DECOR_OTHER     1 /* Clicked on title bar but otherwise unimportant */
+#define DECOR_CLOSE     2 /* Clicked on close button */
+#define DECOR_RESIZE    3 /* Resize button */
 #define DECOR_MAXIMIZE  4
+#define DECOR_RIGHT     5
 
 #define DECOR_ACTIVE   0
 #define DECOR_INACTIVE 1
