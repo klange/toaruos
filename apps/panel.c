@@ -107,6 +107,8 @@ static sprite_t * sprite_net_active;
 static sprite_t * sprite_net_disabled;
 
 struct MenuList * appmenu;
+struct MenuList * window_menu;
+static yutani_wid_t _window_menu_wid = 0;
 
 static int center_x(int x) {
 	return (width - x) / 2;
@@ -193,6 +195,35 @@ static void set_focused(int i) {
 		redraw();
 	}
 }
+
+static void _window_menu_start_move(struct MenuEntry * self) {
+	if (!_window_menu_wid)
+		return;
+	yutani_focus_window(yctx, _window_menu_wid);
+	yutani_window_drag_start_wid(yctx, _window_menu_wid);
+}
+
+static void _window_menu_start_maximize(struct MenuEntry * self) {
+	if (!_window_menu_wid)
+		return;
+	yutani_special_request_wid(yctx, _window_menu_wid, YUTANI_SPECIAL_REQUEST_MAXIMIZE);
+	yutani_focus_window(yctx, _window_menu_wid);
+}
+
+static void _window_menu_close(struct MenuEntry * self) {
+	if (!_window_menu_wid)
+		return;
+	yutani_focus_window(yctx, _window_menu_wid);
+	yutani_special_request_wid(yctx, _window_menu_wid, YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE);
+}
+
+static void window_show_menu(yutani_wid_t wid, int y, int x) {
+	if (window_menu->window) return;
+	_window_menu_wid = wid;
+	menu_show(window_menu, yctx);
+	yutani_window_move(yctx, window_menu->window, y, x);
+}
+
 
 #define VOLUME_DEVICE_ID 0
 #define VOLUME_KNOB_ID   0
@@ -335,6 +366,15 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 					/* TODO: Show the volume manager */
 				}
 				widget++;
+			}
+		} else if (evt->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
+			if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
+				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
+					if (ads_by_l[i] == NULL) break;
+					if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
+						window_show_menu(ads_by_l[i]->wid, ads_by_l[i]->left, PANEL_HEIGHT);
+					}
+				}
 			}
 		} else if (evt->command == YUTANI_MOUSE_EVENT_MOVE || evt->command == YUTANI_MOUSE_EVENT_ENTER) {
 			/* Movement, or mouse entered window */
@@ -910,6 +950,12 @@ int main (int argc, char ** argv) {
 	signal(SIGUSR2, sig_usr2);
 
 	appmenu = menu_set_get_root(menu_set_from_description("/usr/share/demo.menu", launch_application_menu));
+
+	window_menu = menu_create();
+	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Maximize", _window_menu_start_maximize));
+	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Move", _window_menu_start_move));
+	menu_insert(window_menu, menu_create_separator());
+	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Close", _window_menu_close));
 
 	/* Subscribe to window updates */
 	yutani_subscribe_windows(yctx);
