@@ -1,6 +1,6 @@
 # ToaruOS-NIH
 
-![screenshot](https://i.imgur.com/rJfDM1Y.png)
+![screenshot](https://i.imgur.com/oAOXHTR.png)
 
 ToaruOS-NIH is a distribution of ToaruOS which contains no third-party components. Its bootloader, kernel, modules, C library, and userspace applications are all written by the ToaruOS development team and direct contributors.
 
