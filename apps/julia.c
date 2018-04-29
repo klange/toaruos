@@ -21,6 +21,7 @@
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
+#include <toaru/menu.h>
 
 #define DIRECT_OFFSET(x,y) ((x) + (y) * window->width)
 
@@ -262,7 +263,8 @@ int main(int argc, char * argv[]) {
 	int playing = 1;
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
-		if (m) {
+		while (m) {
+			menu_process_event(yctx, m);
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
@@ -276,7 +278,7 @@ int main(int argc, char * argv[]) {
 					{
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
-						if (win) {
+						if (win && win == window) {
 							win->focused = wf->focused;
 							decors();
 							yutani_flip(yctx, window);
@@ -291,10 +293,15 @@ int main(int argc, char * argv[]) {
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
 						int result = decor_handle_event(yctx, m);
 						switch (result) {
 							case DECOR_CLOSE:
 								playing = 0;
+								break;
+							case DECOR_RIGHT:
+								/* right click in decoration, show appropriate menu */
+								decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
 								break;
 							default:
 								/* Other actions */
@@ -309,8 +316,9 @@ int main(int argc, char * argv[]) {
 				default:
 					break;
 			}
+			free(m);
+			m = yutani_poll_async(yctx);
 		}
-		free(m);
 	}
 
 	yutani_close(yctx, window);
