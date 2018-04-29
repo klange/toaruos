@@ -5,10 +5,27 @@
 static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr, int fill_zero, int align_right) {
 	unsigned int n_width = 1;
 	unsigned int i = 9;
-	while (value > i && i < UINT32_MAX) {
-		n_width += 1;
-		i *= 10;
-		i += 9;
+
+	if (value < 10UL) {
+		n_width = 1;
+	} else if (value < 100UL) {
+		n_width = 2;
+	} else if (value < 1000UL) {
+		n_width = 3;
+	} else if (value < 10000UL) {
+		n_width = 4;
+	} else if (value < 100000UL) {
+		n_width = 5;
+	} else if (value < 1000000UL) {
+		n_width = 6;
+	} else if (value < 10000000UL) {
+		n_width = 7;
+	} else if (value < 100000000UL) {
+		n_width = 8;
+	} else if (value < 1000000000UL) {
+		n_width = 9;
+	} else {
+		n_width = 10;
 	}
 
 	int printed = 0;
@@ -39,7 +56,7 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 			printed++;
 		}
 		*ptr += n_width;
-		while (n_width + printed < width) {
+		while (printed < (int)width) {
 			buf[*ptr] = fill_zero ? '0' : ' ';
 			*ptr += 1;
 			printed += 1;
