@@ -1,7 +1,7 @@
 /* vim: ts=4 sw=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 Kevin Lange
+ * Copyright (C) 2018 K. Lange
  */
 
 #include <stdio.h>

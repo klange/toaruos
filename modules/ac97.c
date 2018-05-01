@@ -2,7 +2,7 @@
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2015 Michael Gerow
- * Copyright (C) 2015 Kevin Lange
+ * Copyright (C) 2015-2018 K. Lange
  *
  * Driver for the Intel AC'97.
  *

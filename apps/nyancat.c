@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2011-2013 Kevin Lange.  All rights reserved.
+ * Copyright (c) 2011-2018 K. Lange.  All rights reserved.
  *
- * Developed by:            Kevin Lange
+ * Developed by:            K. Lange
  *                          http://github.com/klange/nyancat
  *                          http://nyancat.dakko.us
  *
@@ -35,7 +35,7 @@
  *   2. Redistributions in binary form must reproduce the above copyright
  *      notice, this list of conditions and the following disclaimers in the
  *      documentation and/or other materials provided with the distribution.
- *   3. Neither the names of the Association for Computing Machinery, Kevin
+ *   3. Neither the names of the Association for Computing Machinery, K.
  *      Lange, nor the names of its contributors may be used to endorse
  *      or promote products derived from this Software without specific prior
  *      written permission.
@@ -784,7 +784,7 @@ int main(int argc, char ** argv) {
 			newline(3);
 			printf("                             \033[1mNyancat Telnet Server\033[0m");
 			newline(2);
-			printf("                   written and run by \033[1;32mKevin Lange\033[1;34m @kevinlange\033[0m");
+			printf("                   written and run by \033[1;32mK. Lange\033[1;34m @_klange\033[0m");
 			newline(2);
 			printf("        If things don't look right, try:");
 			newline(1);

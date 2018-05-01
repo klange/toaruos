@@ -1,6 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
- * Kevin Lange's Slab Allocator
+ * klange's Slab Allocator
  *
  * Implemented for CS241, Fall 2010, machine problem 7
  * at the University of Illinois, Urbana-Champaign.
@@ -8,9 +8,9 @@
  * Overall competition winner for speed.
  * Well ranked in memory usage.
  *
- * Copyright (c) 2010 Kevin Lange.  All rights reserved.
+ * Copyright (c) 2010-2018 K. Lange.  All rights reserved.
  *
- * Developed by: Kevin Lange <lange7@acm.uiuc.edu>
+ * Developed by: K. Lange <klange@toaruos.org>
  *               Dave Majnemer <dmajnem2@acm.uiuc.edu>
  *               Assocation for Computing Machinery
  *               University of Illinois, Urbana-Champaign

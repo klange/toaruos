@@ -3,7 +3,7 @@
  * The ToAruOS kernel is released under the terms of the
  * University of Illinois / NCSA License.
  *
- * Copyright (C) 2011-2014 Kevin Lange.  All rights reserved.
+ * Copyright (C) 2011-2018 K. Lange.  All rights reserved.
  * Copyright (C) 2012 Markus Schober
  * Copyright (C) 2014 Lioncash
  *
@@ -25,7 +25,7 @@
  *   2. Redistributions in binary form must reproduce the above copyright
  *      notice, this list of conditions and the following disclaimers in the
  *      documentation and/or other materials provided with the distribution.
- *   3. Neither the names of the ToAruOS Kernel Development Team, Kevin Lange,
+ *   3. Neither the names of the ToAruOS Kernel Development Team, K. Lange,
  *      nor the names of its contributors may be used to endorse
  *      or promote products derived from this Software without specific prior
  *      written permission.
