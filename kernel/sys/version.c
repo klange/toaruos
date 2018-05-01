@@ -34,7 +34,7 @@ int    __kernel_version_lower = 0;
 char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename. */
-char * __kernel_version_codename = "touma";
+char * __kernel_version_codename = "nih";
 
 /* Build architecture (should probably not be
  * here as a string, but rather some sort of
