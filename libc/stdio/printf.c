@@ -160,6 +160,7 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 					long val = (long)va_arg(args, long);
 					if (val < 0) {
 						*b++ = '-';
+						buf++;
 						val = -val;
 					}
 					print_dec(val, arg_width, buf, &i, fill_zero, align);
