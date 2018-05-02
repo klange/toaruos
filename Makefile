@@ -25,7 +25,8 @@ CC=$(TARGET_TRIPLET)-gcc
 AR=$(TARGET_TRIPLET)-ar
 CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mfpmath=sse -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
 
-LIBC_OBJS=$(patsubst %.c,%.o,$(wildcard libc/*.c))
+LIBC_OBJS  = $(patsubst %.c,%.o,$(wildcard libc/*.c))
+LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))
 LC=base/lib/libc.so
 
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
