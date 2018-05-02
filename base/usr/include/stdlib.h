@@ -19,4 +19,6 @@ extern int abs(int j);
 extern int putenv(char * name);
 extern int setenv(const char *name, const char *value, int overwrite);
 
+extern double atof(const char * nptr);
+
 #define NULL 0

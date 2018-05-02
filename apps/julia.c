@@ -214,7 +214,6 @@ int main(int argc, char * argv[]) {
 				case 'n':
 					no_repeat = 1;
 					break;
-#if 0
 				case 'i':
 					initer = atof(optarg);
 					break;
@@ -230,7 +229,6 @@ int main(int argc, char * argv[]) {
 				case 'C':
 					cony = atof(optarg);
 					break;
-#endif
 				case 'W':
 					width = atoi(optarg);
 					break;
