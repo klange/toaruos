@@ -181,7 +181,7 @@ clean:
 	rm -f base/lib/*.so
 	rm -f base/lib/libc.a
 	rm -f ${APPS_X}
-	rm -f libc/*.o
+	rm -f libc/*.o libc/*/*.o
 	rm -f image.iso
 	rm -f cdrom/ramdisk.img
 	rm -f cdrom/boot/boot.sys
