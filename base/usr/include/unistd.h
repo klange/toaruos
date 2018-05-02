@@ -45,6 +45,10 @@ extern off_t lseek(int fd, off_t offset, int whence);
 
 extern int access(const char * pathname, int mode);
 
+extern int getopt(int argc, char * const argv[], const char * optstring);
+
+extern char * optarg;
+extern int optind, opterr, optopt;
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1

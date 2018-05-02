@@ -784,7 +784,6 @@ int main(int argc, char ** argv) {
 
 	_login_shell = 0;
 
-#if 0
 	static struct option long_opts[] = {
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
@@ -794,11 +793,6 @@ int main(int argc, char ** argv) {
 	/* Read some arguments */
 	int index, c;
 	while ((c = getopt_long(argc, argv, "hl", long_opts, &index)) != -1) {
-		if (!c) {
-			if (long_opts[index].flag == 0) {
-				c = long_opts[index].val;
-			}
-		}
 		switch (c) {
 			case 'l':
 				_login_shell = 1;
@@ -814,8 +808,7 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	putenv("TERM=toaru");
-#endif
+	//putenv("TERM=toaru");
 
 #if 1
 	char * _env = malloc(strlen("TERM=toaru"));
@@ -865,13 +858,11 @@ int main(int argc, char ** argv) {
 		dup2(fd_slave, 1);
 		dup2(fd_slave, 2);
 
-#if 0
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};
-			int i = execvp(tokens[0], tokens);
+			execvp(tokens[0], tokens);
 			fprintf(stderr, "Failed to launch requested startup application.\n");
 		} else {
-#endif
 			if (_login_shell) {
 				char * tokens[] = {"/bin/login",NULL};
 				execvp(tokens[0], tokens);
@@ -883,9 +874,7 @@ int main(int argc, char ** argv) {
 				execvp(tokens[0], tokens);
 				exit(1);
 			}
-#if 0
 		}
-#endif
 
 		exit_application = 1;
 

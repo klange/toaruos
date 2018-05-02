@@ -188,7 +188,6 @@ void resize_finish(int w, int h) {
 
 int main(int argc, char * argv[]) {
 
-#if 0
 	static struct option long_opts[] = {
 		{"no-repeat", no_argument,    0, 'n'},
 		{"initer", required_argument, 0, 'i'},
@@ -215,6 +214,7 @@ int main(int argc, char * argv[]) {
 				case 'n':
 					no_repeat = 1;
 					break;
+#if 0
 				case 'i':
 					initer = atof(optarg);
 					break;
@@ -230,6 +230,7 @@ int main(int argc, char * argv[]) {
 				case 'C':
 					cony = atof(optarg);
 					break;
+#endif
 				case 'W':
 					width = atoi(optarg);
 					break;
@@ -245,7 +246,6 @@ int main(int argc, char * argv[]) {
 			}
 		}
 	}
-#endif
 
 	yctx = yutani_init();
 	init_decorations();

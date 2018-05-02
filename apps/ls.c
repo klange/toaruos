@@ -365,9 +365,8 @@ int main (int argc, char * argv[]) {
 	/* Parse arguments */
 	char * p = ".";
 
-#if 0
 	if (argc > 1) {
-		int index, c;
+		int c;
 		while ((c = getopt(argc, argv, "ahl?")) != -1) {
 			switch (c) {
 				case 'a':
@@ -384,34 +383,6 @@ int main (int argc, char * argv[]) {
 					return 0;
 			}
 		}
-#else
-	int optind = 1;
-	for (int i = 1; i < argc; ++i) {
-		if (argv[i][0] == '-') {
-			char *c = &argv[i][1];
-			optind++;
-			while (*c) {
-				switch (*c) {
-					case 'a':
-						show_hidden = 1;
-						break;
-					case 'h':
-						human_readable = 1;
-						break;
-					case 'l':
-						long_mode = 1;
-						break;
-					case '?':
-						show_usage(argc, argv);
-						return 0;
-				}
-				c++;
-			}
-		}
-	}
-
-	{
-#endif
 
 		if (optind < argc) {
 			p = argv[optind];

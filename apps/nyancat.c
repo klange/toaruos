@@ -364,9 +364,8 @@ int main(int argc, char ** argv) {
 
 	/* Whether or not to show the MOTD intro */
 	char show_intro = 0;
-	//char skip_intro = 0;
+	char skip_intro = 0;
 
-#if 0
 	/* Long option names */
 	static struct option long_opts[] = {
 		{"help",       no_argument,       0, 'h'},
@@ -444,8 +443,8 @@ int main(int argc, char ** argv) {
 				break;
 		}
 	}
-#endif
 
+	(void)skip_intro;
 #if 0
 	if (telnet) {
 		/* Telnet mode */

@@ -538,14 +538,27 @@ term_write_char(
 #endif
 	}
 _extra_stuff:
-	if (flags & ANSI_UNDERLINE) {
-		for (uint8_t i = 0; i < char_width; ++i) {
-			term_set_point(x + i, y + char_offset + 2, _fg);
+	if (_use_freetype) {
+		if (flags & ANSI_UNDERLINE) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_offset + 2, _fg);
+			}
 		}
-	}
-	if (flags & ANSI_CROSS) {
-		for (uint8_t i = 0; i < char_width; ++i) {
-			term_set_point(x + i, y + char_offset - 5, _fg);
+		if (flags & ANSI_CROSS) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_offset - 5, _fg);
+			}
+		}
+	} else {
+		if (flags & ANSI_UNDERLINE) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_height - 1, _fg);
+			}
+		}
+		if (flags & ANSI_CROSS) {
+			for (uint8_t i = 0; i < char_width; ++i) {
+				term_set_point(x + i, y + char_height - 7, _fg);
+			}
 		}
 	}
 	if (flags & ANSI_BORDER) {
@@ -1292,9 +1305,11 @@ void usage(char * argv[]) {
 			"usage: %s [-b] [-F] [-h]\n"
 			"\n"
 			" -F --fullscreen \033[3mRun in fullscreen (background) mode.\033[0m\n"
+#if 0
 			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
-			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -s --scale      \033[3mScale the font in FreeType mode by a given amount.\033[0m\n"
+#endif
+			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
 			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
 			"\n"
@@ -1598,16 +1613,17 @@ int main(int argc, char ** argv) {
 	window_width  = char_width * 80;
 	window_height = char_height * 24;
 
-#if 0
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
+#if 0
 		{"bitmap",     no_argument,       0, 'b'},
+		{"scale",      required_argument, 0, 's'},
+#endif
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
 		{"kernel",     no_argument,       0, 'k'},
 		{"grid",       no_argument,       0, 'x'},
 		{"no-frame",   no_argument,       0, 'n'},
-		{"scale",      required_argument, 0, 's'},
 		{"geometry",   required_argument, 0, 'g'},
 		{0,0,0,0}
 	};
@@ -1644,10 +1660,12 @@ int main(int argc, char ** argv) {
 				usage(argv);
 				return 0;
 				break;
+#if 0
 			case 's':
 				scale_fonts = 1;
 				font_scaling = atof(optarg);
 				break;
+#endif
 			case 'g':
 				{
 					char * c = strstr(optarg, "x");
@@ -1665,7 +1683,6 @@ int main(int argc, char ** argv) {
 				break;
 		}
 	}
-#endif
 
 	// XXX
 	//putenv("TERM=toaru");
@@ -1771,13 +1788,11 @@ int main(int argc, char ** argv) {
 		dup2(fd_slave, 1);
 		dup2(fd_slave, 2);
 
-#if 0
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};
-			int i = execvp(tokens[0], tokens);
+			execvp(tokens[0], tokens);
 			fprintf(stderr, "Failed to launch requested startup application.\n");
 		} else {
-#endif
 			if (_login_shell) {
 				char * tokens[] = {"/bin/login",NULL};
 				execvp(tokens[0], tokens);
@@ -1789,9 +1804,7 @@ int main(int argc, char ** argv) {
 				execvp(tokens[0], tokens);
 				exit(1);
 			}
-#if 0
 		}
-#endif
 
 		exit_application = 1;
 

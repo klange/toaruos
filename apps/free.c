@@ -7,6 +7,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 void show_usage(int argc, char * argv[]) {
 	printf(
@@ -27,28 +28,21 @@ int main(int argc, char * argv[]) {
 	int use_kilobytes = 0;
 	int show_total = 0;
 
-	if (argc > 1) {
-		for (int i = 1; i < argc; ++i) {
-			if (argv[i][0] == '-') {
-				char *c = &argv[i][1];
-				while (*c) {
-					switch (*c) {
-						case 'u':
-							show_used = 1;
-							break;
-						case 't':
-							show_total = 1;
-							break;
-						case 'k':
-							use_kilobytes = 1;
-							break;
-						case '?':
-							show_usage(argc, argv);
-							return 0;
-					}
-					c++;
-				}
-			}
+	int c;
+	while ((c = getopt(argc, argv, "utk?")) != -1) {
+		switch (c) {
+			case 'u':
+				show_used = 1;
+				break;
+			case 't':
+				show_total = 1;
+				break;
+			case 'k':
+				use_kilobytes = 1;
+				break;
+			case '?':
+				show_usage(argc, argv);
+				return 0;
 		}
 	}
 

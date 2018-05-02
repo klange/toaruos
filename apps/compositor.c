@@ -93,46 +93,8 @@ static int usage(char * argv[]) {
  * Parse arguments
  */
 static int parse_args(int argc, char * argv[], int * out) {
-	*out = 1;
-	for (int i = 1; i < argc; ++i) {
-		if (argv[i][0] == '-') {
-			char *c = &argv[i][1];
-			*out = *out + 1;
-			while (*c) {
-				switch (*c) {
-					case 'n':
-						yutani_options.nested = 1;
-						break;
-					case 'g':
-						{
-							char * c = strstr(argv[i+1], "x");
-							if (c) {
-								*c = '\0';
-								c++;
-								yutani_options.nest_width  = atoi(argv[i+1]);
-								yutani_options.nest_height = atoi(c);
-							}
-							i += 2;
-							goto _next;
-						}
-					case 'h':
-						return usage(argv);
-					case '-':
-						// hm
-						return 0;
-					default:
-						fprintf(stderr, "Unrecognized option: %c\n", *c);
-						break;
-				}
-				c++;
-			}
-		}
-_next:
-		;
-	}
-#if 0
 	static struct option long_opts[] = {
-		{"nest",       no_argument,       0, 'n'},
+		{"nested",     no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
 		{"help",       no_argument,       0, 'h'},
 		{0,0,0,0}
@@ -168,7 +130,6 @@ _next:
 		}
 	}
 	*out = optind;
-#endif
 	return 0;
 }
 
@@ -2067,6 +2028,7 @@ int main(int argc, char * argv[]) {
 								yg->resize_on_next = 1;
 							}
 							break;
+						case YUTANI_MSG_WINDOW_CLOSE:
 						case YUTANI_MSG_SESSION_END:
 							{
 								TRACE("Host session ended. Should exit.");

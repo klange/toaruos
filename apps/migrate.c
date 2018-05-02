@@ -210,11 +210,11 @@ int main(int argc, char * argv[]) {
 
 	TRACE("Launching intended startup app...");
 	if (!strcmp(start, "--vga")) {
-		execvp("/bin/terminal-vga", (char *[]){"terminal-vga","-l",NULL});
+		execvp("/bin/terminal-vga", (char *[]){"terminal-vga",NULL});
 	} else if (start) {
-		execvp("/bin/compositor", (char *[]){"comositor","--",start,NULL});
+		execvp("/bin/compositor", (char *[]){"compositor","--",start,NULL});
 	} else {
-		execvp("/bin/compositor", (char *[]){"comositor",NULL});
+		execvp("/bin/compositor", (char *[]){"compositor",NULL});
 	}
 
 	return 0;

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <getopt.h>
 
 #include <toaru/yutani.h>
 
