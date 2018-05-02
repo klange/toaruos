@@ -21,6 +21,8 @@ extern void _exit(int status);
 
 extern uid_t getuid(void);
 extern uid_t geteuid(void);
+extern gid_t getgid(void);
+extern gid_t getegid(void);
 extern char * getcwd(char *buf, size_t size);
 extern int pipe(int pipefd[2]);
 extern int dup(int oldfd);

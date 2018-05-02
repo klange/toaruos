@@ -1,5 +1,4 @@
-#ifndef _SYSCALL_H
-#define _SYSCALL_H
+#pragma once
 
 #include <stdint.h>
 #include <stddef.h>
@@ -113,8 +112,8 @@ DECL_SYSCALL3(fswait2,int,int*,int);
 DECL_SYSCALL3(chown,char*,int,int);
 DECL_SYSCALL3(waitpid, int, int *, int);
 DECL_SYSCALL5(mount, char *, char *, char *, unsigned long, void *);
-
-#endif
+DECL_SYSCALL1(pipe,  int *);
+DECL_SYSCALL3(readlink, char *, char *, int);
 /*
  * vim:tabstop=4
  * vim:noexpandtab
