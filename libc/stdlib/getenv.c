@@ -1,7 +1,7 @@
 #include <string.h>
+#include <stdlib.h>
 
 extern char ** environ;
-extern int _environ_size;
 
 char * getenv(const char *name) {
 	char ** e = environ;

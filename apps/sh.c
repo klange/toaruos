@@ -898,7 +898,7 @@ uint32_t shell_cmd_history(int argc, char * argv[]) {
 
 uint32_t shell_cmd_export(int argc, char * argv[]) {
 	if (argc > 1) {
-		//putenv(argv[1]);
+		putenv(argv[1]);
 	}
 	return 0;
 }

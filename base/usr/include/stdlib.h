@@ -16,4 +16,7 @@ extern int system(const char * command);
 
 extern int abs(int j);
 
+extern int putenv(char * name);
+extern int setenv(const char *name, const char *value, int overwrite);
+
 #define NULL 0
