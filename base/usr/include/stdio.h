@@ -42,3 +42,5 @@ extern char *fgets(char *s, int size, FILE *stream);
 
 extern void rewind(FILE *stream);
 extern void setbuf(FILE * stream, char * buf);
+
+extern void perror(const char *s);
