@@ -321,8 +321,11 @@ int kmain() {
 	b &= ~8;
 	outportb(0x3c0, b);
 
+	clear_();
+
 	do {
-		clear_();
+		x = 0;
+		y = 0;
 		attr = 0x1f;
 		print_banner("ToaruOS-NIH Bootloader v1.0");
 		attr = 0x07;
