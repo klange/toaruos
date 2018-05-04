@@ -401,7 +401,7 @@ void load_sprite(sprite_t * sprite, char * filename) {
 			if (bpp == 24) {
 				color =	(bufferb[i   + 3 * x] & 0xFF) +
 						(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
-						(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000;
+						(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000 + 0xFF000000;
 			} else if (bpp == 32) {
 				if (bufferb[i + 4 * x] == 0) {
 					color = 0x000000;
