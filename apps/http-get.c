@@ -37,82 +37,10 @@ void parse_url(char * d, struct uri * r) {
 	}
 }
 
-static char read_buf[1024];
-static size_t available = 0;
-static size_t offset = 0;
-static size_t read_from = 0;
-static char * read_line(FILE * f, char * out, ssize_t len) {
-	while (len > 0) {
-		if (available == 0) {
-			if (offset == 1024) {
-				offset = 0;
-			}
-			size_t r = read(fileno(f), &read_buf[offset], 1024 - offset);
-			read_from = offset;
-			available = r;
-			offset += available;
-		}
-
-#if 0
-		fprintf(stderr, "Available: %d\n", available);
-		fprintf(stderr, "Remaining length: %d\n", len);
-		fprintf(stderr, "Read from: %d\n", read_from);
-		fprintf(stderr, "Offset: %d\n", offset);
-#endif
-
-		if (available == 0) {
-			return out;
-		}
-
-		while (read_from < offset && len > 0) {
-			*out = read_buf[read_from];
-			len--;
-			read_from++;
-			available--;
-			if (*out == '\n') {
-				return out;
-			}
-			out++;
-		}
-	}
-
-	return out;
-}
-static size_t read_bytes(FILE * f, char * out, ssize_t len) {
-	size_t r_out = 0;
-	while (len > 0) {
-		if (available == 0) {
-			if (offset == 1024) {
-				offset = 0;
-			}
-			size_t r = read(fileno(f), &read_buf[offset], 1024 - offset);
-			read_from = offset;
-			available = r;
-			offset += available;
-		}
-
-		if (available == 0) {
-			return r_out;
-		}
-
-		while (read_from < offset && len > 0) {
-			*out = read_buf[read_from];
-			len--;
-			read_from++;
-			available--;
-			out++;
-			r_out += 1;
-		}
-	}
-
-	return r_out;
-}
-
-
 void read_http_line(char * buf, FILE * f) {
 	memset(buf, 0x00, 256);
 
-	read_line(f, buf, 255);
+	fgets(buf, 255, f);
 	char * _r = strchr(buf, '\r');
 	if (_r) {
 		*_r = '\0';
@@ -223,7 +151,7 @@ int main(int argc, char * argv[]) {
 
 	while (bytes_to_read > 0) {
 		char buf[1024];
-		size_t r = read_bytes(f, buf, bytes_to_read < 1024 ? bytes_to_read : 1024);
+		size_t r = fread(buf, 1, bytes_to_read < 1024 ? bytes_to_read : 1024, f);
 		fwrite(buf, 1, r, stdout);
 		bytes_to_read -= r;
 	}

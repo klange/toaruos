@@ -55,12 +55,17 @@ extern void _fini();
 char ** environ;
 int _environ_size = 0;
 
+
+extern void __stdio_init_buffers(void);
+
 void _exit(int val){
 	_fini();
 	syscall_exit(val);
 
 	__builtin_unreachable();
 }
+
+char * _argv_0 = NULL;
 
 void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
 	unsigned int x = 0;
@@ -78,6 +83,8 @@ void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
 			break;
 		}
 	}
+	_argv_0 = argv[0];
+	__stdio_init_buffers();
 	_init();
 	_exit(main(argc, argv));
 }

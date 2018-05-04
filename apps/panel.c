@@ -266,48 +266,6 @@ static void volume_lower(void) {
 	redraw();
 }
 
-static char read_buf[1024];
-static size_t available = 0;
-static size_t offset = 0;
-static size_t read_from = 0;
-static char * read_line(FILE * f, char * out, ssize_t len) {
-	while (len > 0) {
-		if (available == 0) {
-			if (offset == 1024) {
-				offset = 0;
-			}
-			size_t r = read(fileno(f), &read_buf[offset], 1024 - offset);
-			read_from = offset;
-			available = r;
-			offset += available;
-		}
-
-#if 0
-		fprintf(stderr, "Available: %d\n", available);
-		fprintf(stderr, "Remaining length: %d\n", len);
-		fprintf(stderr, "Read from: %d\n", read_from);
-		fprintf(stderr, "Offset: %d\n", offset);
-#endif
-
-		if (available == 0) {
-			*out = '\0';
-			return out;
-		}
-
-		while (read_from < offset && len > 0) {
-			*out = read_buf[read_from];
-			len--;
-			read_from++;
-			available--;
-			if (*out == '\n') {
-				return out;
-			}
-			out++;
-		}
-	}
-
-	return out;
-}
 static void update_network_status(void) {
 	FILE * net = fopen("/proc/netif","r");
 
@@ -315,7 +273,7 @@ static void update_network_status(void) {
 
 	do {
 		memset(line, 0, 256);
-		read_line(net, line, 256);
+		fgets(line, 256, net);
 		if (!*line) break;
 		if (strstr(line,"no network") != NULL) {
 			network_status = 0;

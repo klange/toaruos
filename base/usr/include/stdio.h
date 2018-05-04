@@ -3,9 +3,9 @@
 #include <stddef.h>
 #include <va_list.h>
 
-typedef struct _FILE {
-  int fd;
-} FILE;
+typedef struct _FILE FILE;
+
+#define BUFSIZ 1024
 
 extern FILE * stdin;
 extern FILE * stdout;
@@ -44,3 +44,5 @@ extern void rewind(FILE *stream);
 extern void setbuf(FILE * stream, char * buf);
 
 extern void perror(const char *s);
+
+extern int ungetc(int c, FILE * stream);
