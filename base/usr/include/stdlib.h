@@ -20,5 +20,9 @@ extern int putenv(char * name);
 extern int setenv(const char *name, const char *value, int overwrite);
 
 extern double atof(const char * nptr);
+extern int atoi(const char * nptr);
+
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
 
 #define NULL 0
