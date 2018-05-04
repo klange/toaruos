@@ -208,6 +208,7 @@ virtualbox: image.iso
 	VBoxManage modifyvm "$(VMNAME)" --memory 1024 --audio pulse --audiocontroller ac97 --bioslogodisplaytime 1 --bioslogofadeout off --bioslogofadein off --biosbootmenu disabled
 	VBoxManage storagectl "$(VMNAME)" --add ide --name "IDE"
 	VBoxManage storageattach "$(VMNAME)" --storagectl "IDE" --port 0 --device 0 --medium $(shell pwd)/image.iso --type dvddrive
+	VBoxManage setextradata "$(VMNAME)" GUI/DefaultCloseAction PowerOff
 	VBoxManage startvm "$(VMNAME)" --type separate
 
 
