@@ -5,8 +5,6 @@ main:
 	mov ax, 0x0500
 	mov es, ax
 
-	cli
-
 	clc
 	int 0x12
 	mov [lower_mem], ax
@@ -15,6 +13,8 @@ main:
 	mov di, 0x0
 	call do_e820
 	jc hang
+
+	cli
 
 	; a20
 	in al, 0x92
