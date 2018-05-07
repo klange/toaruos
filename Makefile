@@ -157,7 +157,7 @@ endif
 
 # Ramdisk
 
-cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so Makefile | dirs
+cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so $(shell find base) Makefile | dirs
 	genext2fs -B 4096 -d base -U -b 4096 -N 2048 cdrom/ramdisk.img
 
 # CD image
