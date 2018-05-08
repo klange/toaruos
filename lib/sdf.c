@@ -12,9 +12,6 @@
 #include <toaru/sdf.h>
 #include <toaru/spinlock.h>
 
-#define TRACE_APP_NAME "sdf"
-#include <toaru/trace.h>
-
 #define BASE_WIDTH 50
 #define BASE_HEIGHT 50
 
@@ -50,12 +47,8 @@ static size_t _font_data_size = 0;
 static void load_font(sprite_t * sprite, int font) {
 	uint32_t * _font_data_i = (uint32_t*)_font_data;
 
-	TRACE("Loading font %d", font);
-
 	sprite->width = _font_data_i[font * 3 + 1];
 	sprite->height = _font_data_i[font * 3 + 2];
-
-	TRACE("Bitmap size is %d by %d", sprite->width, sprite->height);
 
 	int offset = _font_data_i[font * 3 + 3];
 	sprite->bitmap = (uint32_t *)&_font_data[offset];
@@ -68,15 +61,12 @@ __attribute__((constructor))
 static void _init_sdf(void) {
 	/* Load the font. */
 	_font_cache = hashmap_create_int(10);
-	TRACE("Loading font data.");
 	{
-		TRACE("Loading font resource from %s", getenv("DISPLAY"));
 		char tmp[100];
 		sprintf(tmp, "sys.%s.fonts", getenv("DISPLAY"));
 		_font_data = (char *)syscall_shm_obtain(tmp, &_font_data_size);
 	}
 
-	TRACE("Loading individual fonts...");
 	load_font(&_font_data_thin, SDF_FONT_THIN);
 	load_font(&_font_data_bold, SDF_FONT_BOLD);
 	load_font(&_font_data_mono, SDF_FONT_MONO);
