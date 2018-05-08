@@ -1877,14 +1877,53 @@ int main(int argc, char * argv[]) {
 	TRACE("pex bound? %d", server);
 	yg->server = server;
 
-#if 0
-	load_sprite_png(&yg->mouse_sprite, "/usr/share/cursor/normal.png");
-	load_sprite_png(&yg->mouse_sprite_drag, "/usr/share/cursor/drag.png");
-	load_sprite_png(&yg->mouse_sprite_resize_v, "/usr/share/cursor/resize-vertical.png");
-	load_sprite_png(&yg->mouse_sprite_resize_h, "/usr/share/cursor/resize-horizontal.png");
-	load_sprite_png(&yg->mouse_sprite_resize_da, "/usr/share/cursor/resize-uldr.png");
-	load_sprite_png(&yg->mouse_sprite_resize_db, "/usr/share/cursor/resize-dlur.png");
-#endif
+	TRACE("Loading fonts...");
+	{
+		sprite_t _font_data[6];
+
+		load_sprite(&_font_data[0], "/usr/share/sdf_thin.bmp");
+		load_sprite(&_font_data[1], "/usr/share/sdf_bold.bmp");
+		load_sprite(&_font_data[2], "/usr/share/sdf_mono.bmp");
+		load_sprite(&_font_data[3], "/usr/share/sdf_mono_bold.bmp");
+		load_sprite(&_font_data[4], "/usr/share/sdf_mono_oblique.bmp");
+		load_sprite(&_font_data[5], "/usr/share/sdf_mono_bold_oblique.bmp");
+
+		TRACE("  Data loaded...");
+
+		size_t font_data_size = sizeof(unsigned int) * (1 + 6 * 3);
+		for (int i = 0; i < 6; ++i) {
+			font_data_size += 4 * _font_data[i].width * _font_data[i].height;
+		}
+
+		TRACE("  Size calculated: %d", font_data_size);
+
+		char tmp[100];
+		sprintf(tmp, "sys.%s.fonts", yg->server_ident);
+		size_t s = font_data_size;
+		char * font = (char *)syscall_shm_obtain(tmp, &s);
+		assert((s >= font_data_size) && "Font server failure.");
+
+		uint32_t * data = (uint32_t *)font;
+		data[0] = 6;
+
+		data[1] = _font_data[0].width;
+		data[2] = _font_data[0].height;
+		data[3] = (6 * 3 + 1) * sizeof(unsigned int);
+		memcpy(&font[data[3]], _font_data[0].bitmap, _font_data[0].width * _font_data[0].height * 4);
+		free(_font_data[0].bitmap);
+
+		for (int i = 1; i < 6; ++i) {
+			TRACE("  Loaded %d font(s)... %d %d %d", i, data[(i - 1) * 3 + 2], data[(i - 1) * 3 + 1], data[(i - 1) * 3 + 3]);
+			data[i * 3 + 1] = _font_data[i].width;
+			data[i * 3 + 2] = _font_data[i].height;
+			data[i * 3 + 3] = data[(i - 1) * 3 + 3] + data[(i - 1) * 3 + 2] * data[(i - 1) * 3 + 1] * 4;
+			memcpy(&font[data[i * 3 + 3]], _font_data[i].bitmap, _font_data[i].width * _font_data[i].height * 4);
+			free(_font_data[i].bitmap);
+		}
+
+		TRACE("Done loading fonts.");
+	}
+
 	TRACE("Loading sprites...");
 #define MOUSE_DIR "/usr/share/cursor/"
 	load_sprite(&yg->mouse_sprite, MOUSE_DIR "mouse.bmp");
