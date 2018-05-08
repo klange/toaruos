@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <_xlog.h>
 
@@ -128,18 +129,19 @@ FILE * fopen(const char *path, const char *mode) {
 
 	while (*x) {
 		if (*x == 'a') {
-			flags |= 0x08;
-			flags |= 0x01;
+			flags |= O_WRONLY;
+			flags |= O_APPEND;
+			flags |= O_CREAT;
 		}
 		if (*x == 'w') {
-			flags |= 0x01;
+			flags |= O_WRONLY;
 		}
 		if (*x == '+') {
-			if (flags & 0x01) {
-				flags |= 0x200;
+			if (flags & O_WRONLY) {
+				flags |= O_CREAT;
 				mask = 0666;
 			} else {
-				flags |= 0x01;
+				flags |= O_WRONLY;
 			}
 		}
 		++x;
