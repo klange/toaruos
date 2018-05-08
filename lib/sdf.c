@@ -17,6 +17,9 @@
 static sprite_t _font_data_thin;
 static sprite_t _font_data_bold;
 static sprite_t _font_data_mono;
+static sprite_t _font_data_mono_bold;
+static sprite_t _font_data_mono_oblique;
+static sprite_t _font_data_mono_bold_oblique;
 
 static hashmap_t * _font_cache;
 
@@ -44,6 +47,9 @@ static void _init_sdf(void) {
 	load_sprite(&_font_data_thin, "/usr/share/sdf_thin.bmp");
 	load_sprite(&_font_data_bold, "/usr/share/sdf_bold.bmp");
 	load_sprite(&_font_data_mono, "/usr/share/sdf_mono.bmp");
+	load_sprite(&_font_data_mono_bold, "/usr/share/sdf_mono_bold.bmp");
+	load_sprite(&_font_data_mono_oblique, "/usr/share/sdf_mono_oblique.bmp");
+	load_sprite(&_font_data_mono_bold_oblique, "/usr/share/sdf_mono_bold_oblique.bmp");
 	FILE * fi = fopen("/etc/sdf.conf", "r");
 	char tmp[1024];
 	char * s = tmp;
@@ -78,6 +84,12 @@ static sprite_t * _select_font(int font) {
 			return &_font_data_bold;
 		case SDF_FONT_MONO:
 			return &_font_data_mono;
+		case SDF_FONT_MONO_BOLD:
+			return &_font_data_mono_bold;
+		case SDF_FONT_MONO_OBLIQUE:
+			return &_font_data_mono_oblique;
+		case SDF_FONT_MONO_BOLD_OBLIQUE:
+			return &_font_data_mono_bold_oblique;
 		case SDF_FONT_THIN:
 		default:
 			return &_font_data_thin;
@@ -89,6 +101,9 @@ static int _select_width(char ch, int font) {
 		case SDF_FONT_BOLD:
 			return _char_data[(int)ch].width_bold;
 		case SDF_FONT_MONO:
+		case SDF_FONT_MONO_BOLD:
+		case SDF_FONT_MONO_OBLIQUE:
+		case SDF_FONT_MONO_BOLD_OBLIQUE:
 			return _char_data[(int)ch].width_mono;
 		case SDF_FONT_THIN:
 		default:

@@ -429,10 +429,18 @@ term_write_char(
 				term_set_point(x+j,y+i,premultiply(_bg));
 			}
 		}
+		int _font = SDF_FONT_MONO;
+		if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
+			_font = SDF_FONT_MONO_BOLD_OBLIQUE;
+		} else if (flags & ANSI_BOLD) {
+			_font = SDF_FONT_MONO_BOLD;
+		} else if (flags & ANSI_ITALIC) {
+			_font = SDF_FONT_MONO_OBLIQUE;
+		}
 		if (_no_frame) {
-			draw_sdf_string_gamma(ctx, x, y, tmp, font_size, _fg, SDF_FONT_MONO, font_gamma);
+			draw_sdf_string_gamma(ctx, x, y, tmp, font_size, _fg, _font, font_gamma);
 		} else {
-			draw_sdf_string_gamma(ctx, x+decor_left_width, y+decor_top_height, tmp, font_size, _fg, SDF_FONT_MONO, font_gamma);
+			draw_sdf_string_gamma(ctx, x+decor_left_width, y+decor_top_height, tmp, font_size, _fg, _font, font_gamma);
 		}
 	} else {
 #ifdef number_font

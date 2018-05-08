@@ -413,7 +413,7 @@ void load_sprite(sprite_t * sprite, char * filename) {
 					color = premultiply(color);
 				}
 			} else {
-				color = rgb(0,0,0); /* Unsupported */
+				color = rgb(bufferb[i + x],bufferb[i + x],bufferb[i + x]); /* Unsupported */
 			}
 			/* Set our point */
 			sprite->bitmap[(height - y - 1) * width + x] = color;
