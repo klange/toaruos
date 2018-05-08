@@ -442,9 +442,9 @@ term_write_char(
 			_font = SDF_FONT_MONO_OBLIQUE;
 		}
 		if (_no_frame) {
-			draw_sdf_string_gamma(ctx, x, y, tmp, font_size, _fg, _font, font_gamma);
+			draw_sdf_string_gamma(ctx, x-1, y, tmp, font_size, _fg, _font, font_gamma);
 		} else {
-			draw_sdf_string_gamma(ctx, x+decor_left_width, y+decor_top_height, tmp, font_size, _fg, _font, font_gamma);
+			draw_sdf_string_gamma(ctx, x+decor_left_width-1, y+decor_top_height, tmp, font_size, _fg, _font, font_gamma);
 		}
 	} else {
 #ifdef number_font
