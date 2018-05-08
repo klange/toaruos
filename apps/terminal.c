@@ -44,6 +44,7 @@
 #include <toaru/spinlock.h>
 #include <toaru/list.h>
 #include <toaru/menu.h>
+#include <toaru/sdf.h>
 
 #include "terminal-palette.h"
 #include "terminal-font.h"
@@ -57,9 +58,10 @@ static FILE * terminal;
 
 int      scale_fonts    = 0;    /* Whether fonts should be scaled */
 float    font_scaling   = 1.0;  /* How much they should be scaled by */
+float    font_gamma     = 1.7;  /* Gamma to use for SDF library */
 uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
 uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
-uint16_t font_size      = 13;   /* Font size according to Freetype */
+uint16_t font_size      = 13;   /* Font size according to SDF library */
 uint16_t char_width     = 9;    /* Width of a cell in pixels */
 uint16_t char_height    = 20;   /* Height of a cell in pixels */
 uint16_t char_offset    = 0;    /* Offset of the font within the cell */
@@ -72,7 +74,7 @@ uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered 
 uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 uint8_t  _no_frame      = 0;    /* Whether to disable decorations or not */
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
-uint8_t  _use_freetype  = 0;    /* Whether we should use freetype or not XXX seriously, how about some flags */
+uint8_t  _use_sdf       = 1;    /* Whether or not to use SDF text rendering */
 uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 uint8_t  _free_size     = 1;    /* Disable rounding when resized */
@@ -136,6 +138,11 @@ static void set_term_font_size(float s) {
 	reinit(1);
 }
 
+static void set_term_font_gamma(float s) {
+	font_gamma = s;
+	reinit(1);
+}
+
 /* Returns the lower of two shorts */
 int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
@@ -184,35 +191,6 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 		GFX(ctx, x,y) = color;
 	}
 }
-
-/* FreeType text rendering */
-#if 0
-FT_Library   library;
-FT_Face      face;
-FT_Face      face_bold;
-FT_Face      face_italic;
-FT_Face      face_bold_italic;
-FT_Face      face_extra;
-FT_Face      face_symbol;
-FT_Face      face_variable;
-
-FT_Face * fallbacks[] = {&face_variable, &face_symbol, &face_extra, &face_symbol, NULL};
-
-
-void drawChar(FT_Bitmap * bitmap, int x, int y, uint32_t fg, uint32_t bg) {
-	int i, j, p, q;
-	int x_max = x + bitmap->width;
-	int y_max = y + bitmap->rows;
-	for (j = y, q = 0; j < y_max; j++, q++) {
-		for ( i = x, p = 0; i < x_max; i++, p++) {
-			uint32_t a = _ALP(fg);
-			a = (a * bitmap->buffer[q * bitmap->width + p]) / 255;
-			uint32_t tmp = rgba(_RED(fg),_GRE(fg),_BLU(fg),a);
-			term_set_point(i,j, alpha_blend_rgba(premultiply(bg), premultiply(tmp)));
-		}
-	}
-}
-#endif
 
 void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 	int height;
@@ -432,87 +410,31 @@ term_write_char(
 	} else {
 		_bg = bg;
 	}
-	if (_use_freetype) {
-#if 0
-		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
+	if (val >= 0x2580 && val <= 0x2588) {
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
 				term_set_point(x+j,y+i,premultiply(_bg));
 			}
 		}
-		if (flags & ANSI_WIDE) {
-			for (uint8_t i = 0; i < char_height; ++i) {
-				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
-					term_set_point(x+j,y+i,premultiply(_bg));
-				}
+		draw_semi_block(val, x, y, _fg, _bg);
+		goto _extra_stuff;
+	}
+	if (val > 128) {
+		val = ununicode(val);
+	}
+	if (_use_sdf) {
+		char tmp[2] = {val,0};
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
+				term_set_point(x+j,y+i,premultiply(_bg));
 			}
 		}
-		if (val < 32 || val == ' ') {
-			goto _extra_stuff;
-		}
-		if (val >= 0x2580 && val <= 0x2588) {
-			draw_semi_block(val, x, y, _fg, _bg);
-			goto _extra_stuff;
-		}
-
-		int pen_x = x;
-		int pen_y = y + char_offset;
-		int error;
-
-		FT_Face * _font = NULL;
-		FT_GlyphSlot slot;
-		FT_UInt      glyph_index;
-
-		if (flags & ANSI_ALTFONT) {
-			_font = &face_extra;
-		} else if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
-			_font = &face_bold_italic;
-		} else if (flags & ANSI_ITALIC) {
-			_font = &face_italic;
-		} else if (flags & ANSI_BOLD) {
-			_font = &face_bold;
+		if (_no_frame) {
+			draw_sdf_string_gamma(ctx, x, y, tmp, font_size, _fg, SDF_FONT_MONO, font_gamma);
 		} else {
-			_font = &face;
+			draw_sdf_string_gamma(ctx, x+decor_left_width, y+decor_top_height, tmp, font_size, _fg, SDF_FONT_MONO, font_gamma);
 		}
-		glyph_index = FT_Get_Char_Index(*_font, val);
-
-		if (!glyph_index) {
-			int i = 0;
-			while (!glyph_index && fallbacks[i]) {
-				_font = fallbacks[i];
-				glyph_index = FT_Get_Char_Index(*_font, val);
-				i++;
-			}
-		}
-		error = FT_Load_Glyph(*_font, glyph_index,  FT_LOAD_DEFAULT);
-		if (error) {
-			fprintf(terminal, "Error loading glyph: %d\n", val);
-			fprintf(stderr, "Error loading glyph: %d\n", val);
-		};
-		slot = (*_font)->glyph;
-		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
-			error = FT_Render_Glyph((*_font)->glyph, FT_RENDER_MODE_NORMAL);
-			if (error) {
-				fprintf(stderr, "Error rendering glyph: %d\n", val);
-				goto _extra_stuff;
-			}
-		}
-		drawChar(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, _fg, _bg);
-
-#endif
 	} else {
-		if (val >= 0x2580 && val <= 0x2588) {
-			for (uint8_t i = 0; i < char_height; ++i) {
-				for (uint8_t j = 0; j < char_width; ++j) {
-					term_set_point(x+j,y+i,premultiply(_bg));
-				}
-			}
-			draw_semi_block(val, x, y, _fg, _bg);
-			goto _extra_stuff;
-		}
-		if (val > 128) {
-			val = ununicode(val);
-		}
 #ifdef number_font
 		uint8_t * c = number_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
@@ -538,27 +460,14 @@ term_write_char(
 #endif
 	}
 _extra_stuff:
-	if (_use_freetype) {
-		if (flags & ANSI_UNDERLINE) {
-			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_offset + 2, _fg);
-			}
+	if (flags & ANSI_UNDERLINE) {
+		for (uint8_t i = 0; i < char_width; ++i) {
+			term_set_point(x + i, y + char_height - 1, _fg);
 		}
-		if (flags & ANSI_CROSS) {
-			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_offset - 5, _fg);
-			}
-		}
-	} else {
-		if (flags & ANSI_UNDERLINE) {
-			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_height - 1, _fg);
-			}
-		}
-		if (flags & ANSI_CROSS) {
-			for (uint8_t i = 0; i < char_width; ++i) {
-				term_set_point(x + i, y + char_height - 7, _fg);
-			}
+	}
+	if (flags & ANSI_CROSS) {
+		for (uint8_t i = 0; i < char_width; ++i) {
+			term_set_point(x + i, y + char_height - 7, _fg);
 		}
 	}
 	if (flags & ANSI_BORDER) {
@@ -1305,10 +1214,8 @@ void usage(char * argv[]) {
 			"usage: %s [-b] [-F] [-h]\n"
 			"\n"
 			" -F --fullscreen \033[3mRun in fullscreen (background) mode.\033[0m\n"
-#if 0
 			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
-			" -s --scale      \033[3mScale the font in FreeType mode by a given amount.\033[0m\n"
-#endif
+			" -s --scale      \033[3mScale the font in SDF mode by a given amount.\033[0m\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
 			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
@@ -1335,35 +1242,19 @@ term_callbacks_t term_callbacks = {
 	term_get_cell_width,
 	term_get_cell_height,
 	term_set_csr_show,
+	set_term_font_gamma,
 };
 
 void reinit(int send_sig) {
-	if (_use_freetype) {
-#if 0
-		/* Reset font sizes */
-
-		font_size   = 13;
-		char_height = 17;
-		char_width  = 8;
-		char_offset = 13;
-
+	if (_use_sdf) {
+		char_width = 10;
+		char_height = 18;
+		font_size = 18;
 		if (scale_fonts) {
-			/* Recalculate scaling */
 			font_size   *= font_scaling;
 			char_height *= font_scaling;
 			char_width  *= font_scaling;
-			char_offset *= font_scaling;
 		}
-
-		/* Initialize the freetype font pixel sizes */
-		FT_Set_Pixel_Sizes(face, font_size, font_size);
-		FT_Set_Pixel_Sizes(face_bold, font_size, font_size);
-		FT_Set_Pixel_Sizes(face_italic, font_size, font_size);
-		FT_Set_Pixel_Sizes(face_bold_italic, font_size, font_size);
-		FT_Set_Pixel_Sizes(face_extra, font_size, font_size);
-		FT_Set_Pixel_Sizes(face_symbol, font_size, font_size);
-		FT_Set_Pixel_Sizes(face_variable, font_size, font_size);
-#endif
 	}
 
 	int old_width  = term_width;
@@ -1605,7 +1496,6 @@ void maybe_flip_cursor(void) {
 
 int main(int argc, char ** argv) {
 
-	_use_freetype = 0;
 	_login_shell = 0;
 	_fullscreen = 0;
 	_no_frame = 0;
@@ -1615,10 +1505,8 @@ int main(int argc, char ** argv) {
 
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
-#if 0
 		{"bitmap",     no_argument,       0, 'b'},
 		{"scale",      required_argument, 0, 's'},
-#endif
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
 		{"kernel",     no_argument,       0, 'k'},
@@ -1654,18 +1542,16 @@ int main(int argc, char ** argv) {
 				_no_frame = 1;
 				break;
 			case 'b':
-				_use_freetype = 0;
+				_use_sdf = 0;
 				break;
 			case 'h':
 				usage(argv);
 				return 0;
 				break;
-#if 0
 			case 's':
 				scale_fonts = 1;
 				font_scaling = atof(optarg);
 				break;
-#endif
 			case 'g':
 				{
 					char * c = strstr(optarg, "x");
@@ -1716,39 +1602,6 @@ int main(int argc, char ** argv) {
 	draw_fill(ctx, rgba(0,0,0,0));
 
 	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
-
-	if (_use_freetype) {
-#if 0
-		int error;
-		error = FT_Init_FreeType(&library);
-		if (error) return 1;
-
-		char * font = NULL;
-		size_t s;
-
-		/* XXX Use shmemfont library */
-
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono.ttf",  "monospace", &s);
-		error = FT_New_Memory_Face(library, font, s, 0, &face); if (error) return 1;
-
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Bold.ttf",  "monospace.bold", &s);
-		error = FT_New_Memory_Face(library, font, s, 0, &face_bold); if (error) return 1;
-
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-Oblique.ttf",  "monospace.italic", &s);
-		error = FT_New_Memory_Face(library, font, s, 0, &face_italic); if (error) return 1;
-
-		font = loadMemFont("/usr/share/fonts/DejaVuSansMono-BoldOblique.ttf",  "monospace.bolditalic", &s);
-		error = FT_New_Memory_Face(library, font, s, 0, &face_bold_italic); if (error) return 1;
-
-		error = FT_New_Face(library, "/usr/share/fonts/VLGothic.ttf", 0, &face_extra);
-
-		error = FT_New_Face(library, "/usr/share/fonts/Symbola.ttf", 0, &face_symbol);
-
-		font = loadMemFont("/usr/share/fonts/DejaVuSans.ttf",  "sans-serif", &s);
-		error = FT_New_Memory_Face(library, font, s, 0, &face_variable); if (error) return 1;
-
-#endif
-	}
 
 	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
 

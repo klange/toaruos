@@ -13,128 +13,28 @@
 
 #define BASE_WIDTH 50
 #define BASE_HEIGHT 50
-#define GAMMA 1.7
 
 static sprite_t _font_data_thin;
 static sprite_t _font_data_bold;
+static sprite_t _font_data_mono;
 
 static hashmap_t * _font_cache;
 
 static volatile int _sdf_lock = 0;
+static double gamma = 1.7;
 
 struct CharData{
 	char code;
 	size_t width_bold;
 	size_t width_thin;
-} _char_data[] = {
-	{'!',  20, 20},
-	{'"',  35, 20},
-	{'#',  40, 20},
-	{'$',  35, 20},
-	{'%',  35, 20},
-	{'&',  35, 20},
-	{'\'', 35, 20},
-	{'(',  22, 20},
-	{')',  22, 20},
-	{'*',  35, 20},
-	{'+',  35, 20},
-	{',',  35, 20},
-	{'-',  30, 20},
-	{'.',  18, 20},
-	{'/',  24, 20},
-	{'0',  32, 20},
-	{'1',  32, 20},
-	{'2',  32, 20},
-	{'3',  32, 20},
-	{'4',  32, 20},
-	{'5',  32, 20},
-	{'6',  32, 20},
-	{'7',  32, 20},
-	{'8',  32, 20},
-	{'9',  32, 20},
-	{':',  22, 20},
-	{';',  22, 20},
-	{'<',  35, 20},
-	{'=',  35, 20},
-	{'>',  35, 20},
-	{'?',  35, 20},
-	{'@',  50, 20},
-	{'A',  35, 20},
-	{'B',  35, 20},
-	{'C',  34, 20},
-	{'D',  36, 20},
-	{'E',  34, 20},
-	{'F',  34, 20},
-	{'G',  35, 20},
-	{'H',  35, 20},
-	{'I',  22, 20},
-	{'J',  24, 20},
-	{'K',  35, 20},
-	{'L',  32, 20},
-	{'M',  45, 20},
-	{'N',  36, 20},
-	{'O',  38, 20},
-	{'P',  35, 20},
-	{'Q',  38, 20},
-	{'R',  36, 20},
-	{'S',  35, 20},
-	{'T',  35, 20},
-	{'U',  35, 20},
-	{'V',  37, 20},
-	{'W',  50, 20},
-	{'X',  35, 20},
-	{'Y',  32, 20},
-	{'Z',  35, 20},
-	{'[',  35, 20},
-	{'\\', 35, 20},
-	{']',  35, 20},
-	{'^',  35, 20},
-	{'_',  35, 20},
-	{'`',  35, 20},
-	{'a',  32, 20},
-	{'b',  32, 20},
-	{'c',  29, 20},
-	{'d',  32, 20},
-	{'e',  32, 20},
-	{'f',  25, 20},
-	{'g',  32, 20},
-	{'h',  32, 20},
-	{'i',  16, 20},
-	{'j',  16, 20},
-	{'k',  30, 20},
-	{'l',  16, 20},
-	{'m',  47, 20},
-	{'n',  33, 20},
-	{'o',  32, 20},
-	{'p',  32, 20},
-	{'q',  32, 20},
-	{'r',  25, 20},
-	{'s',  31, 20},
-	{'t',  26, 20},
-	{'u',  32, 20},
-	{'v',  32, 20},
-	{'w',  42, 20},
-	{'x',  32, 20},
-	{'y',  32, 20},
-	{'z',  32, 20},
-	{'{',  32, 20},
-	{'|',  32, 20},
-	{'}',  32, 20},
-	{'~',  32, 20},
-	{' ',  20, 20},
-	{0,0,0},
-};
+	size_t width_mono;
+} _char_data[256];
 
 static int loaded = 0;
 
 static int offset(int ch) {
 	/* Calculate offset into table above */
-	if (ch == ' ') {
-		return '~' + 1 - '!';
-	} else {
-		return ch - '!';
-	}
-
+	return ch;
 }
 
 __attribute__((constructor))
@@ -143,9 +43,16 @@ static void _init_sdf(void) {
 	_font_cache = hashmap_create_int(10);
 	load_sprite(&_font_data_thin, "/usr/share/sdf_thin.bmp");
 	load_sprite(&_font_data_bold, "/usr/share/sdf_bold.bmp");
+	load_sprite(&_font_data_mono, "/usr/share/sdf_mono.bmp");
 	FILE * fi = fopen("/etc/sdf.conf", "r");
 	char tmp[1024];
 	char * s = tmp;
+	for (int i = 0; i < 256; ++i) {
+		_char_data[i].code = i;
+		_char_data[i].width_bold = 25;
+		_char_data[i].width_thin = 20;
+		_char_data[i].width_mono = 25;
+	}
 	while ((s = fgets(tmp, 1024, fi))) {
 		if (strlen(s) < 1) continue;
 		int i = offset(*s);
@@ -157,6 +64,8 @@ static void _init_sdf(void) {
 			_char_data[i].width_bold = o;
 		} else if (t == 't') {
 			_char_data[i].width_thin = o;
+		} else if (t == 'm') {
+			_char_data[i].width_mono = o;
 		}
 	}
 	fclose(fi);
@@ -167,6 +76,8 @@ static sprite_t * _select_font(int font) {
 	switch (font) {
 		case SDF_FONT_BOLD:
 			return &_font_data_bold;
+		case SDF_FONT_MONO:
+			return &_font_data_mono;
 		case SDF_FONT_THIN:
 		default:
 			return &_font_data_thin;
@@ -177,6 +88,8 @@ static int _select_width(char ch, int font) {
 	switch (font) {
 		case SDF_FONT_BOLD:
 			return _char_data[(int)ch].width_bold;
+		case SDF_FONT_MONO:
+			return _char_data[(int)ch].width_mono;
 		case SDF_FONT_THIN:
 		default:
 			return _char_data[(int)ch].width_thin;
@@ -184,17 +97,7 @@ static int _select_width(char ch, int font) {
 }
 
 static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp, int font, sprite_t * _font_data) {
-	if (ch != ' ' && (ch < '!' || ch > '~')) {
-		/* TODO: Draw missing symbol? */
-		return 0;
-	}
-
-	/* Calculate offset into table above */
-	if (ch == ' ') {
-		ch = '~' + 1 - '!';
-	} else {
-		ch -= '!';
-	}
+	if (ch < 0 || ch > 255) return 0;
 
 	double scale = (double)size / 50.0;
 	int width = _select_width(ch, font) * scale;
@@ -212,8 +115,8 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 			if (fy+j > tmp->height) continue;
 			uint32_t c = SPRITE((tmp), fx+i, fy+j);
 			double dist = (double)_RED(c) / 255.0;
-			double edge0 = 0.75 - GAMMA * 1.4142 / (double)size;
-			double edge1 = 0.75 + GAMMA * 1.4142 / (double)size;
+			double edge0 = 0.75 - gamma * 1.4142 / (double)size;
+			double edge1 = 0.75 + gamma * 1.4142 / (double)size;
 			double a = (dist - edge0) / (edge1 - edge0);
 			if (a < 0.0) a = 0.0;
 			if (a > 1.0) a = 1.0;
@@ -226,7 +129,7 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 
 }
 
-int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font) {
+int draw_sdf_string_gamma(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font, double _gamma) {
 
 	sprite_t * _font_data = _select_font(font);
 
@@ -246,32 +149,26 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str,
 	} else {
 		tmp = hashmap_get(_font_cache, (void *)(scale_height | (font << 16)));
 	}
-	spin_unlock(&_sdf_lock);
 
 	int32_t out_width = 0;
+	gamma = _gamma;
 	while (*str) {
-		int w = draw_sdf_character(ctx,x,y,*str,size,color,tmp,font,_font_data);
+		int w = draw_sdf_character(ctx,x,y,*((uint8_t *)str),size,color,tmp,font,_font_data);
 		out_width += w;
 		x += w;
 		str++;
 	}
+	spin_unlock(&_sdf_lock);
 
 	return out_width;
 }
 
+
+int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font) {
+	return draw_sdf_string_gamma(ctx,x,y,str,size,color,font,1.7);
+}
+
 static int char_width(char ch, int font) {
-	if (ch != ' ' && (ch < '!' || ch > '~')) {
-		/* TODO: Draw missing symbol? */
-		return 0;
-	}
-
-	/* Calculate offset into table above */
-	if (ch == ' ') {
-		ch = '~' + 1 - '!';
-	} else {
-		ch -= '!';
-	}
-
 	return _select_width(ch, font);
 }
 

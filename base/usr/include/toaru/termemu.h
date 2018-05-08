@@ -33,6 +33,7 @@ typedef struct {
 	int  (*get_cell_width)(void);
 	int  (*get_cell_height)(void);
 	void (*set_csr_on)(int);
+	void (*set_font_gamma)(float);
 } term_callbacks_t;
 
 typedef struct {

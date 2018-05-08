@@ -180,13 +180,16 @@ static void _ansi_put(term_state_t * s, char c) {
 									case 1:
 										callbacks->redraw_cursor();
 										break;
-#if 0
 									case 1555:
 										if (argc > 1) {
 											callbacks->set_font_size(atof(argv[1]));
 										}
 										break;
-#endif
+									case 1556:
+										if (argc > 1) {
+											callbacks->set_font_gamma(atof(argv[1]));
+										}
+										break;
 									default:
 										break;
 								}

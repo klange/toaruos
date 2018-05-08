@@ -741,6 +741,7 @@ term_callbacks_t term_callbacks = {
 	unsupported_int,
 	unsupported_int,
 	term_set_csr_show,
+	set_term_font_size,
 };
 
 void reinit(int send_sig) {

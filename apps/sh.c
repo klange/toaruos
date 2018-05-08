@@ -792,7 +792,7 @@ void sort_commands() {
 }
 
 void show_version(void) {
-	printf("esh 0.11.0 - experimental shell\n");
+	printf("esh 1.3.0\n");
 }
 
 void show_usage(int argc, char * argv[]) {
@@ -942,6 +942,14 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 			return 1;
 		}
 		printf("\033[1555;%sz", argv[2]);
+		fflush(stdout);
+		return 0;
+	} else if (!strcmp(argv[1], "gamma")) {
+		if (argc < 3) {
+			fprintf(stderr, "%s %s [floating point gamma, 1.7 = normal]\n", argv[0], argv[1]);
+			return 1;
+		}
+		printf("\033[1556;%sz", argv[2]);
 		fflush(stdout);
 		return 0;
 	} else if (!strcmp(argv[1], "size")) {
