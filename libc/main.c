@@ -52,9 +52,14 @@ DEFN_SYSCALL3(chown, SYS_CHOWN, char *, int, int);
 extern void _init();
 extern void _fini();
 
-char ** environ;
+char ** environ = NULL;
 int _environ_size = 0;
+char * _argv_0 = NULL;
 
+char ** __argv = NULL;
+extern char ** __get_argv(void) {
+	return __argv;
+}
 
 extern void __stdio_init_buffers(void);
 
@@ -65,13 +70,14 @@ void _exit(int val){
 	__builtin_unreachable();
 }
 
-char * _argv_0 = NULL;
+__attribute__((constructor))
+static void _libc_init(void) {
+	__stdio_init_buffers();
 
-void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
 	unsigned int x = 0;
 	unsigned int nulls = 0;
 	for (x = 0; 1; ++x) {
-		if (!argv[x]) {
+		if (!__get_argv()[x]) {
 			++nulls;
 			if (nulls == 2) {
 				break;
@@ -79,12 +85,18 @@ void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
 			continue;
 		}
 		if (nulls == 1) {
-			environ = &argv[x];
+			environ = &__get_argv()[x];
 			break;
 		}
 	}
-	_argv_0 = argv[0];
-	__stdio_init_buffers();
+	_argv_0 = __get_argv()[0];
+}
+
+void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
+	if (!__get_argv()) {
+		__argv = argv;
+		_libc_init();
+	}
 	_init();
 	_exit(main(argc, argv));
 }

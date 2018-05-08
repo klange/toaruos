@@ -368,8 +368,6 @@ static int object_relocate(elf_t * object) {
 				uintptr_t x = sym->st_value + object->base;
 				if (need_symbol_for_type(type) || (type == 5)) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
-				}
-				if (((sym->st_shndx == 0) && need_symbol_for_type(type)) || (type == 5)) {
 					if (symname && hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 					} else {
@@ -554,6 +552,11 @@ static char * dlerror_ld(void) {
 	return this_error;
 }
 
+static void * _argv_value = NULL;
+static char * argv_value(void) {
+	return _argv_value;
+}
+
 typedef struct {
 	char * name;
 	void * symbol;
@@ -563,6 +566,7 @@ ld_exports_t ld_builtin_exports[] = {
 	{"dlsym", object_find_symbol},
 	{"dlclose", dlclose_ld},
 	{"dlerror", dlerror_ld},
+	{"__get_argv", argv_value},
 	{NULL, NULL},
 };
 
@@ -576,6 +580,8 @@ int main(int argc, char * argv[]) {
 		arg_offset = 3;
 		file = argv[2];
 	}
+
+	_argv_value = argv+arg_offset;
 
 	char * trace_ld_env = getenv("LD_DEBUG");
 	if ((trace_ld_env && (!strcmp(trace_ld_env,"1") || !strcmp(trace_ld_env,"yes")))) {
