@@ -61,9 +61,9 @@ float    font_scaling   = 1.0;  /* How much they should be scaled by */
 float    font_gamma     = 1.7;  /* Gamma to use for SDF library */
 uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
 uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
-uint16_t font_size      = 13;   /* Font size according to SDF library */
-uint16_t char_width     = 9;    /* Width of a cell in pixels */
-uint16_t char_height    = 20;   /* Height of a cell in pixels */
+uint16_t font_size      = 18;   /* Font size according to SDF library */
+uint16_t char_width     = 10;   /* Width of a cell in pixels */
+uint16_t char_height    = 19;   /* Height of a cell in pixels */
 int      csr_x          = 0;    /* Cursor X */
 int      csr_y          = 0;    /* Cursor Y */
 term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
@@ -1261,7 +1261,7 @@ term_callbacks_t term_callbacks = {
 void reinit(int send_sig) {
 	if (_use_sdf) {
 		char_width = 10;
-		char_height = 18;
+		char_height = 19;
 		font_size = 18;
 		if (scale_fonts) {
 			font_size   *= font_scaling;
