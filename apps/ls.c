@@ -341,6 +341,8 @@ static int display_dir(char * p) {
 
 	/* Now, copy those entries into an array (for sorting) */
 
+	if (!ents_list->length) return 0;
+
 	struct tfile ** file_arr = malloc(sizeof(struct tfile *) * ents_list->length);
 	int index = 0;
 	foreach(node, ents_list) {
