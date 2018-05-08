@@ -14,6 +14,7 @@ static void _spin_lock(volatile int * foo) { return; }
 static void _spin_unlock(volatile int * foo) { return; }
 # define rgba(r,g,b,a) (((uint32_t)a * 0x1000000) + ((uint32_t)r * 0x10000) + ((uint32_t)g * 0x100) + ((uint32_t)b * 0x1))
 # define rgb(r,g,b) rgba(r,g,b,0xFF)
+# define atof(i) (0.0f)
 #include <toaru/termemu.h>
 #else
 #include <stdlib.h>
@@ -190,6 +191,10 @@ static void _ansi_put(term_state_t * s, char c) {
 											callbacks->set_font_gamma(atof(argv[1]));
 										}
 										break;
+									case 1557:
+										if (argc > 1) {
+											callbacks->set_font_mode(atoi(argv[1]));
+										}
 									default:
 										break;
 								}

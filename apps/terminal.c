@@ -64,7 +64,6 @@ uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
 uint16_t font_size      = 13;   /* Font size according to SDF library */
 uint16_t char_width     = 9;    /* Width of a cell in pixels */
 uint16_t char_height    = 20;   /* Height of a cell in pixels */
-uint16_t char_offset    = 0;    /* Offset of the font within the cell */
 int      csr_x          = 0;    /* Cursor X */
 int      csr_y          = 0;    /* Cursor Y */
 term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
@@ -140,6 +139,11 @@ static void set_term_font_size(float s) {
 
 static void set_term_font_gamma(float s) {
 	font_gamma = s;
+	reinit(1);
+}
+
+static void set_term_font_mode(int i) {
+	_use_sdf = i;
 	reinit(1);
 }
 
@@ -1251,6 +1255,7 @@ term_callbacks_t term_callbacks = {
 	term_get_cell_height,
 	term_set_csr_show,
 	set_term_font_gamma,
+	set_term_font_mode,
 };
 
 void reinit(int send_sig) {
@@ -1263,6 +1268,9 @@ void reinit(int send_sig) {
 			char_height *= font_scaling;
 			char_width  *= font_scaling;
 		}
+	} else {
+		char_width = 9;
+		char_height = 20;
 	}
 
 	int old_width  = term_width;

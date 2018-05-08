@@ -94,8 +94,8 @@ static void _libc_init(void) {
 
 void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
 	if (!__get_argv()) {
+		/* Statically loaded, must set __argv so __get_argv() works */
 		__argv = argv;
-		_libc_init();
 	}
 	_init();
 	_exit(main(argc, argv));

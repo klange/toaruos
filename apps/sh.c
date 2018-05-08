@@ -952,6 +952,14 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 		printf("\033[1556;%sz", argv[2]);
 		fflush(stdout);
 		return 0;
+	} else if (!strcmp(argv[1], "sdf")) {
+		if (argc < 3) {
+			fprintf(stderr, "%s %s [sdf enabled, 1 = yes]\n", argv[0], argv[1]);
+			return 1;
+		}
+		printf("\033[1557;%sz", argv[2]);
+		fflush(stdout);
+		return 0;
 	} else if (!strcmp(argv[1], "size")) {
 		if (argc < 4) {
 			fprintf(stderr, "%s %s [width] [height]\n", argv[0], argv[1]);

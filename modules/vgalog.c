@@ -131,6 +131,10 @@ static void term_clear(int i) {
 	memset(textmemptr, 0x00, sizeof(unsigned short) * 80 * 25);
 }
 
+static void set_term_font_mode(int i) {
+	/* Do nothing */
+}
+
 int unsupported_int(void) { return 0; }
 void unsupported(int x, int y, char * data) { }
 
@@ -151,6 +155,8 @@ term_callbacks_t term_callbacks = {
 	unsupported_int,
 	unsupported_int,
 	term_set_csr_show,
+	set_term_font_size,
+	set_term_font_mode,
 };
 
 

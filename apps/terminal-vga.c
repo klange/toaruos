@@ -136,6 +136,10 @@ static void set_term_font_size(float s) {
 	/* do nothing */
 }
 
+static void set_term_font_mode(int i) {
+	/* do nothing */
+}
+
 /* Returns the lower of two shorts */
 uint16_t min(uint16_t a, uint16_t b) {
 	return (a < b) ? a : b;
@@ -742,6 +746,7 @@ term_callbacks_t term_callbacks = {
 	unsupported_int,
 	term_set_csr_show,
 	set_term_font_size,
+	set_term_font_mode,
 };
 
 void reinit(int send_sig) {
