@@ -15,6 +15,7 @@ struct _FILE {
 	int offset;
 	int read_from;
 	int ungetc;
+	int eof;
 };
 
 FILE _stdin = {
@@ -24,6 +25,7 @@ FILE _stdin = {
 	.offset = 0,
 	.read_from = 0,
 	.ungetc = -1,
+	.eof = 0,
 };
 
 FILE _stdout = {
@@ -33,6 +35,7 @@ FILE _stdout = {
 	.offset = 0,
 	.read_from = 0,
 	.ungetc = -1,
+	.eof = 0,
 };
 
 FILE _stderr = {
@@ -42,6 +45,7 @@ FILE _stderr = {
 	.offset = 0,
 	.read_from = 0,
 	.ungetc = -1,
+	.eof = 0,
 };
 
 FILE * stdin = &_stdin;
@@ -102,6 +106,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 		if (f->available == 0) {
 			/* EOF condition */
 			//fprintf(stderr, "%s: no bytes available, returning read value of %d\n", _argv_0, r_out);
+			f->eof = 1;
 			return r_out;
 		}
 
@@ -160,6 +165,7 @@ FILE * fopen(const char *path, const char *mode) {
 	out->read_from = 0;
 	out->offset = 0;
 	out->ungetc = -1;
+	out->eof = 0;
 
 	return out;
 }
@@ -179,6 +185,7 @@ FILE * fdopen(int fd, const char *mode){
 	out->read_from = 0;
 	out->offset = 0;
 	out->ungetc = -1;
+	out->eof = 0;
 
 	return out;
 }
@@ -200,6 +207,7 @@ int fseek(FILE * stream, long offset, int whence) {
 	stream->read_from = 0;
 	stream->available = 0;
 	stream->ungetc = -1;
+	stream->eof = 0;
 
 	int resp = syscall_lseek(stream->fd,offset,whence);
 	if (resp < 0) {
@@ -214,6 +222,7 @@ long ftell(FILE * stream) {
 	stream->read_from = 0;
 	stream->available = 0;
 	stream->ungetc = -1;
+	stream->eof = 0;
 	return syscall_lseek(stream->fd, 0, SEEK_CUR);
 }
 
@@ -273,8 +282,10 @@ int fgetc(FILE * stream) {
 	int r;
 	r = fread(buf, 1, 1, stream);
 	if (r < 0) {
+		stream->eof = 1;
 		return EOF;
 	} else if (r == 0) {
+		stream->eof = 1;
 		return EOF;
 	}
 	return buf[0];
@@ -295,6 +306,7 @@ char *fgets(char *s, int size, FILE *stream) {
 		}
 	}
 	if (c == EOF) {
+		stream->eof = 1;
 		if (out == s) {
 			return NULL;
 		} else {
@@ -314,4 +326,8 @@ void rewind(FILE *stream) {
 
 void setbuf(FILE * stream, char * buf) {
 	// ...
+}
+
+int feof(FILE * stream) {
+	return stream->eof;
 }
