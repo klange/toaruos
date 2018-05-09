@@ -2,7 +2,7 @@
 #include <stddef.h>
 
 extern void * memset(void * dest, int c, size_t n);
-extern void * memcpy(void * restrict dest, const void * restrict src, size_t n);
+extern void * memcpy(void * dest, const void * src, size_t n);
 extern void * memmove(void * dest, const void * src, size_t n);
 
 extern void * memchr(const void * src, int c, size_t n);
@@ -16,8 +16,8 @@ extern void * __attribute__ ((malloc)) valloc(uintptr_t size);
 extern void free(void * ptr);
 
 extern char * strdup(const char * s);
-extern char * stpcpy(char * restrict d, const char * restrict s);
-extern char * strcpy(char * restrict dest, const char * restrict src);
+extern char * stpcpy(char * d, const char * s);
+extern char * strcpy(char * dest, const char * src);
 extern char * strchrnul(const char * s, int c);
 extern char * strchr(const char * s, int c);
 extern char * strrchr(const char * s, int c);

@@ -21,6 +21,8 @@ extern int setenv(const char *name, const char *value, int overwrite);
 
 extern double atof(const char * nptr);
 extern int atoi(const char * nptr);
+extern long atol(const char * nptr);
+extern long int labs(long int j);
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
