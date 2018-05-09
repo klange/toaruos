@@ -147,7 +147,9 @@ void print_header(void) {
 		printf("%-*s ", widths[2], "USER");
 	}
 	printf("%*s ", widths[0], "PID");
-	printf("%*s ", widths[1], "TID");
+	if (show_threads) {
+		printf("%*s ", widths[1], "TID");
+	}
 	printf("CMD\n");
 }
 
@@ -162,7 +164,9 @@ void print_entry(struct process * out) {
 		endpwent();
 	}
 	printf("%*d ", widths[0], out->pid);
-	printf("%*d ", widths[1], out->tid);
+	if (show_threads) {
+		printf("%*d ", widths[1], out->tid);
+	}
 	if (out->command_line) {
 		printf("%s\n", out->command_line);
 	} else {
