@@ -13,18 +13,21 @@
 #include <kernel/mod/sound.h>
 
 static char usage[] =
+"%s - Control audio mixer settings.\n"
+"\n"
 "Usage  %s [-d device_id] -l\n"
 "       %s [-d device_id] [-k knob_id] -r\n"
 "       %s [-d device_id] [-k knob_id] -w knob_value\n"
 "       %s -h\n"
-"    -d: Device id to address. Defaults to the main sound device.\n"
-"    -l: List the knobs on a device.\n"
-"    -k: Knob id to address. Defaults to the device's master knob.\n"
-"    -r: Perform a read on the given device's knob. Defaults to the device's\n"
-"        master knob.\n"
-"    -w: Perform a write on the given device's knob. The value should be a\n"
-"        float from 0.0 to 1.0.\n"
-"    -h: Print this help message and exit.\n";
+"\n"
+" -d: \033[3mDevice id to address. Defaults to the main sound device.\033[0m\n"
+" -l: \033[3mList the knobs on a device.\033[0m\n"
+" -k: \033[3mKnob id to address. Defaults to the device's master knob.\033[0m\n"
+" -r: \033[3mPerform a read on the given device's knob. Defaults to the device's\n"
+"     master knob.\033[0m\n"
+" -w: \033[3mPerform a write on the given device's knob. The value should be a\n"
+"     float from 0.0 to 1.0.\033[0m\n"
+" -h: \033[3mPrint this help message and exit.\033[0m\n";
 
 int main(int argc, char * argv[]) {
 	uint32_t device_id = SND_DEVICE_MAIN;
@@ -36,7 +39,7 @@ int main(int argc, char * argv[]) {
 
 	int c;
 
-	while ((c = getopt(argc, argv, "d:lk:rw:h")) != -1) {
+	while ((c = getopt(argc, argv, "d:lk:rw:h?")) != -1) {
 		switch (c) {
 			case 'd':
 				device_id = atoi(optarg);
@@ -59,10 +62,9 @@ int main(int argc, char * argv[]) {
 				}
 				break;
 			case 'h':
-				fprintf(stdout, usage, argv[0], argv[0], argv[0], argv[0]);
-				exit(EXIT_SUCCESS);
+			case '?':
 			default:
-				fprintf(stderr, usage, argv[0], argv[0], argv[0], argv[0]);
+				fprintf(stderr, usage, argv[0], argv[0], argv[0], argv[0], argv[0]);
 				exit(EXIT_FAILURE);
 		}
 	}
