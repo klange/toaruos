@@ -26,23 +26,10 @@ static yutani_window_t * wina;
 static gfx_context_t * ctx;
 static int should_exit = 0;
 
-uint32_t __attribute__ ((pure)) krand(void) {
-	static uint32_t x = 123456789;
-	static uint32_t y = 362436069;
-	static uint32_t z = 521288629;
-	static uint32_t w = 88675123;
-
-	uint32_t t;
-
-	t = x ^ (x << 11);
-	x = y; y = z; z = w;
-	return w = w ^ (w >> 19) ^ t ^ (t >> 8);
-}
-
 void * draw_thread(void * garbage) {
 	(void)garbage;
 	while (!should_exit) {
-		draw_line(ctx, krand() % width, krand() % width, krand() % height, krand() % height, rgb(krand() % 255,krand() % 255,krand() % 255));
+		draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
 		yutani_flip(yctx, wina);
 		usleep(16666);
 	}
@@ -55,6 +42,8 @@ int main (int argc, char ** argv) {
 	top    = 100;
 	width  = 500;
 	height = 500;
+
+	srand(time(NULL));
 
 	TRACE("Starting drawlines.");
 	yctx = yutani_init();
