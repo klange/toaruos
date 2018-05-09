@@ -11,10 +11,10 @@
 #include <assert.h>
 #include <syscall.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
-#include <toaru/pthread.h>
 
 #define TRACE_APP_NAME "drawlines"
 #include <toaru/trace.h>

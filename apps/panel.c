@@ -22,13 +22,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <syscall.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
-#include <toaru/pthread.h>
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>

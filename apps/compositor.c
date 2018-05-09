@@ -29,9 +29,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include <toaru/graphics.h>
-#include <toaru/pthread.h>
 #include <toaru/mouse.h>
 #include <toaru/kbd.h>
 #include <toaru/pex.h>

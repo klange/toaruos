@@ -28,7 +28,6 @@
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
-#include <toaru/pthread.h>
 
 #define GAME_PATH "/usr/share/pong"
 

@@ -12,11 +12,11 @@
 #include <math.h>
 #include <syscall.h>
 #include <wait.h>
+#include <pthread.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
-#include <toaru/pthread.h>
 #include <toaru/spinlock.h>
 #include <toaru/menu.h>
 
