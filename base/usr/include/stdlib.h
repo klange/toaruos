@@ -24,6 +24,12 @@ extern int atoi(const char * nptr);
 extern long atol(const char * nptr);
 extern long int labs(long int j);
 
+extern void srand(unsigned int);
+extern int rand(void);
+
+#define RAND_MAX 0x7FFFFFFF
+
+
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
