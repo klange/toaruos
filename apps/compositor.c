@@ -2197,7 +2197,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_MOVE:
 				{
 					struct yutani_msg_window_move * wm = (void *)m->data;
-					TRACE("%08x wanted to move window %d to %d, %d", p->source, wm->wid, (int)wm->x, (int)wm->y);
+					//TRACE("%08x wanted to move window %d to %d, %d", p->source, wm->wid, (int)wm->x, (int)wm->y);
 					if (wm->x > (int)yg->width + 100 || wm->x < -(int)yg->width || wm->y > (int)yg->height + 100 || wm->y < -(int)yg->height) {
 						TRACE("Refusing to move window to these coordinates.");
 						break;
