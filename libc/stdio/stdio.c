@@ -331,3 +331,7 @@ void setbuf(FILE * stream, char * buf) {
 int feof(FILE * stream) {
 	return stream->eof;
 }
+
+void clearerr(FILE * stream) {
+	stream->eof = 0;
+}

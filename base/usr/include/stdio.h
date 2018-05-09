@@ -48,3 +48,6 @@ extern void perror(const char *s);
 extern int ungetc(int c, FILE * stream);
 
 extern int feof(FILE * stream);
+extern void clearerr(FILE * stream);
+
+#define getc(s) fgetc(s)

@@ -13,3 +13,6 @@ extern int isupper(int c);
 extern int isxdigit(int c);
 
 extern int isascii(int c);
+
+extern int tolower(int c);
+extern int toupper(int c);

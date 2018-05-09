@@ -9,3 +9,5 @@ extern double sqrt(double x);
 extern double fabs(double x);
 extern double sin(double x);
 extern double cos(double x);
+
+#define HUGE_VAL (__builtin_huge_val())
