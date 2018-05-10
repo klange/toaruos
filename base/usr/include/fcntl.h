@@ -16,3 +16,4 @@
 #define X_OK 1
 
 extern int open (const char *, int, ...);
+extern int chmod(const char *path, mode_t mode);
