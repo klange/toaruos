@@ -72,8 +72,6 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 
-		toaru_auth_set_vars();
-
 		char ** args = &argv[1];
 		execvp(args[0], args);
 
