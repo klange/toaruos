@@ -839,6 +839,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 	/* Render */
 	if (has_updates) {
 
+		if (!yg->bottom_z || yg->bottom_z->anim_mode) {
+			draw_fill(yg->backend_ctx, rgb(110,110,110));
+		}
+
 		yg->windows_to_remove = list_create();
 
 		/*
