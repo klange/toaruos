@@ -115,7 +115,8 @@ int main(int argc, char ** argv) {
 				getenv("SHELL"),
 				NULL
 			};
-			int i = execvp(args[0], args);
+			execvp(args[0], args);
+			return 1;
 		} else {
 			child = f;
 			int result;
