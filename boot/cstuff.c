@@ -394,9 +394,9 @@ int kmain() {
 
 	if (boot_mode == 0) {
 		if (_debug) {
-			multiboot_header.cmdline = (uintptr_t)"logtoserial=3 vid=auto,1440,900 root=/dev/ram0,nocache start=--migrate _start=session";
+			multiboot_header.cmdline = (uintptr_t)"logtoserial=3 vid=auto,1440,900 root=/dev/ram0,nocache start=--migrate _start=live-session";
 		} else {
-			multiboot_header.cmdline = (uintptr_t)"vid=auto,1440,900 root=/dev/ram0,nocache start=--migrate _start=session";
+			multiboot_header.cmdline = (uintptr_t)"vid=auto,1440,900 root=/dev/ram0,nocache start=--migrate _start=live-session";
 		}
 	} else if (boot_mode == 1) {
 		if (_debug) {

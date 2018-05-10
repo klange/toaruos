@@ -93,9 +93,9 @@ void copy_directory(char * source, char * dest, int mode) {
 		if (S_ISLNK(statbuf.st_mode)) {
 			copy_link(tmp, tmp2);
 		} else if (S_ISDIR(statbuf.st_mode)) {
-			copy_directory(tmp, tmp2, statbuf.st_mode & 0777);
+			copy_directory(tmp, tmp2, statbuf.st_mode & 07777);
 		} else if (S_ISREG(statbuf.st_mode)) {
-			copy_file(tmp, tmp2, statbuf.st_mode & 0777);
+			copy_file(tmp, tmp2, statbuf.st_mode & 07777);
 		} else {
 			fprintf(stderr, " %s is not any of the required file types?\n", tmp);
 		}
@@ -210,7 +210,7 @@ int main(int argc, char * argv[]) {
 
 	TRACE("Launching intended startup app...");
 	if (!strcmp(start, "--vga")) {
-		execvp("/bin/terminal-vga", (char *[]){"terminal-vga",NULL});
+		execvp("/bin/terminal-vga", (char *[]){"terminal-vga","-l",NULL});
 	} else if (start) {
 		execvp("/bin/compositor", (char *[]){"compositor","--",start,NULL});
 	} else {

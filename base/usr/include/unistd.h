@@ -19,6 +19,8 @@ extern int execvp(const char *file, char *const argv[]);
 extern int execvpe(const char *file, char *const argv[], char *const envp[]);
 extern void _exit(int status);
 
+extern int setuid(uid_t uid);
+
 extern uid_t getuid(void);
 extern uid_t geteuid(void);
 extern gid_t getgid(void);
@@ -40,6 +42,7 @@ extern int chdir(const char *path);
 extern int fchdir(int fd);
 extern int isatty(int fd);
 
+extern unsigned int sleep(unsigned int seconds);
 extern int usleep(useconds_t usec);
 extern off_t lseek(int fd, off_t offset, int whence);
 

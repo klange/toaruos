@@ -1,0 +1,2 @@
+root:toor:0:0:Administrator:/home/root:/bin/sh:fancy
+local:local:1000:1000:Local User:/home/local:/bin/sh:fancy

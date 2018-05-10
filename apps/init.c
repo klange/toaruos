@@ -22,10 +22,9 @@ int start_options(char * args[]) {
 	if (!pid) {
 		char * _envp[] = {
 			"LD_LIBRARY_PATH=/lib",
-			"HOME=/",
 			"PATH=/bin",
 			"USER=root",
-			"WM_THEME=fancy",
+			"HOME=/home/root",
 			NULL,
 		};
 		syscall_execve(args[0], args, _envp);
@@ -46,7 +45,7 @@ int main(int argc, char * argv[]) {
 
 	if (argc > 1) {
 		if (!strcmp(argv[1], "--vga")) {
-			return start_options((char *[]){"/bin/terminal-vga",NULL});
+			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
 		} else if (!strcmp(argv[1], "--migrate")) {
 			return start_options((char *[]){"/bin/migrate",NULL});
 		} else {

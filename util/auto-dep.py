@@ -25,6 +25,7 @@ class Classifier(object):
         '<toaru/hashmap.h>':     (None, '-ltoaru_hashmap',     ['<toaru/list.h>']),
         '<toaru/tree.h>':        (None, '-ltoaru_tree',        ['<toaru/list.h>']),
         '<toaru/pex.h>':         (None, '-ltoaru_pex',         []),
+        '<toaru/auth.h>':        (None, '-ltoaru_auth',        []),
         '<toaru/graphics.h>':    (None, '-ltoaru_graphics',    []),
         '<toaru/drawstring.h>':  (None, '-ltoaru_drawstring',  ['<toaru/graphics.h>']),
         '<toaru/rline.h>':       (None, '-ltoaru_rline',       ['<toaru/kbd.h>']),
