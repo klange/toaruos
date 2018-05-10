@@ -7,16 +7,15 @@
 #include <sys/wait.h>
 
 int main(int argc, char * argv[]) {
-
 	int _background_pid = fork();
 	if (!_background_pid) {
-		char * args[] = {"/bin/background", NULL};
+		char * args[] = {"/bin/background", "--really", NULL};
 		execvp(args[0], args);
 	}
 
 	int _panel_pid = fork();
 	if (!_panel_pid) {
-		char * args[] = {"/bin/panel", NULL};
+		char * args[] = {"/bin/panel", "--really", NULL};
 		execvp(args[0], args);
 	}
 

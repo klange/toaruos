@@ -39,6 +39,16 @@ static void resize_finish_wallpaper(int width, int height) {
 
 int main (int argc, char ** argv) {
 
+	if (argc < 2 || strcmp(argv[1],"--really")) {
+		fprintf(stderr,
+				"%s: Desktop environment wallpaper\n"
+				"\n"
+				" Renders the desktop wallpaper. You probably don't want\n"
+				" to be running this directly - it is started by the\n"
+				" session manager along with the panel.\n", argv[0]);
+		return 1;
+	}
+
 	wallpaper = malloc(sizeof(sprite_t));
 	load_sprite(wallpaper, "/usr/share/wallpaper.bmp");
 	wallpaper->alpha = 0;

@@ -833,6 +833,17 @@ static void sig_usr2(int sig) {
 }
 
 int main (int argc, char ** argv) {
+	if (argc < 2 || strcmp(argv[1],"--really")) {
+		fprintf(stderr,
+				"%s: Desktop environment panel / dock\n"
+				"\n"
+				" Renders the application menu, window list, widgets,\n"
+				" alt-tab window switcher, clock, etc.\n"
+				" You probably don't want to run this directly - it is\n"
+				" started automatically by the session manager.\n", argv[0]);
+		return 1;
+	}
+
 	/* Connect to window server */
 	yctx = yutani_init();
 
