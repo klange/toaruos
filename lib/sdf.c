@@ -148,10 +148,14 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 
 	/* ignore size */
 	for (int j = 0; j < height; ++j) {
+		if (y + j < 0) continue;
+		if (y + j >= ctx->height) continue;
+		if (fy+j >= tmp->height) continue;
 		for (int i = 0; i < size; ++i) {
 			/* TODO needs to do bilinear filter */
-			if (fx+i > tmp->width) continue;
-			if (fy+j > tmp->height) continue;
+			if (fx+i >= tmp->width) continue;
+			if (x + i < 0) continue;
+			if (x + i >= ctx->width) continue;
 			uint32_t c = SPRITE((tmp), fx+i, fy+j);
 			double dist = (double)_RED(c) / 255.0;
 			double edge0 = 0.75 - gamma * 1.4142 / (double)size;
