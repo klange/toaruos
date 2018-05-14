@@ -1,4 +1,5 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: ts=4 sw=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
  * Copyright (C) 2014 Lioncash
@@ -49,6 +50,27 @@ typedef struct {
 
 int term_width, term_height;
 int csr_x_actual, csr_y_actual;
+
+int _bim_unget = -1;
+
+void bim_unget(int c) {
+	_bim_unget = c;
+}
+
+int bim_getch(void) {
+	if (_bim_unget != -1) {
+		int out = _bim_unget;
+		_bim_unget = -1;
+		return out;
+	}
+	int fds[] = {STDIN_FILENO};
+	int index = syscall_fswait2(1,fds,200);
+	if (index == 0) {
+		return fgetc(stdin);
+	} else {
+		return -1;
+	}
+}
 
 typedef struct _env {
 	int    bottom_size;
@@ -738,6 +760,62 @@ void close_buffer() {
 	redraw_all();
 }
 
+void cursor_down(void) {
+	if (env->line_no < env->line_count) {
+		env->line_no += 1;
+		if (env->col_no > env->lines[env->line_no-1]->actual) {
+			env->col_no = env->lines[env->line_no-1]->actual;
+		}
+		if (env->col_no == 0) env->col_no = 1;
+		if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+			env->offset += 1;
+			redraw_text();
+		}
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+void cursor_up(void) {
+	if (env->line_no > 1) {
+		env->line_no -= 1;
+		if (env->col_no > env->lines[env->line_no-1]->actual) {
+			env->col_no = env->lines[env->line_no-1]->actual;
+		}
+		if (env->col_no == 0) env->col_no = 1;
+		if (env->line_no <= env->offset) {
+			env->offset -= 1;
+			redraw_text();
+		}
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+void cursor_left(void) {
+	if (env->col_no > 1) {
+		env->col_no -= 1;
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+void cursor_right(void) {
+	if (env->col_no < env->lines[env->line_no-1]->actual) {
+		env->col_no += 1;
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+void break_input(void) {
+	if (env->col_no > env->lines[env->line_no-1]->actual) {
+		env->col_no = env->lines[env->line_no-1]->actual;
+	}
+	if (env->col_no == 0) env->col_no = 1;
+	redraw_commandline();
+}
+
 void process_command(char * cmd) {
 	char *p, *argv[512], *last;
 	int argc = 0;
@@ -776,6 +854,8 @@ void process_command(char * cmd) {
 		try_quit();
 	} else if (!strcmp(argv[0], "qall")) {
 		try_quit();
+	} else if (!strcmp(argv[0], "qa!")) {
+		quit();
 	} else if (!strcmp(argv[0], "q!")) {
 		quit();
 	} else if (!strcmp(argv[0], "tabp")) {
@@ -800,7 +880,10 @@ void command_mode() {
 	printf(":");
 	fflush(stdout);
 
-	while ((c = fgetc(stdin))) {
+	while ((c = bim_getch())) {
+		if (c == -1) {
+			continue;
+		}
 		if (c == '\033') {
 			break;
 		} else if (c == ENTER_KEY) {
@@ -835,16 +918,25 @@ void insert_mode() {
 	reset();
 	place_cursor_actual();
 	set_colors(COLOR_FG, COLOR_BG);
-	while ((cin = fgetc(stdin))) {
+	int timeout = 0;
+	int this_buf[20];
+	while ((cin = bim_getch())) {
+		if (cin == -1) {
+			if (timeout && this_buf[timeout-1] == '\033') {
+				break_input();
+				return;
+			}
+			timeout = 0;
+			continue;
+		}
 		if (!decode(&istate, &c, cin)) {
 			switch (c) {
 				case '\033':
-					if (env->col_no > env->lines[env->line_no-1]->actual) {
-						env->col_no = env->lines[env->line_no-1]->actual;
+					if (timeout == 0) {
+						this_buf[timeout] = c;
+						timeout++;
 					}
-					if (env->col_no == 0) env->col_no = 1;
-					redraw_commandline();
-					return;
+					break;
 				case BACKSPACE_KEY:
 					if (env->col_no > 1) {
 						line_delete(env->lines[env->line_no - 1], env->col_no - 1);
@@ -874,6 +966,34 @@ void insert_mode() {
 					break;
 				default:
 					{
+						if (timeout == 1 && c == '[' && this_buf[0] == '\033') {
+							this_buf[1] = c;
+							timeout++;
+							continue;
+						} else if (timeout == 1 && c  != '[') {
+							break_input();
+							bim_unget(c);
+							return;
+						}
+						if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+							switch (c) {
+								case 'A': // up
+									cursor_up();
+									break;
+								case 'B': // down
+									cursor_down();
+									break;
+								case 'C': // right
+									cursor_right();
+									break;
+								case 'D': // left
+									cursor_left();
+									break;
+							}
+							timeout = 0;
+							continue;
+						}
+						timeout = 0;
 						char_t _c;
 						_c.codepoint = c;
 						_c.display_width = codepoint_width(c);
@@ -911,9 +1031,15 @@ int main(int argc, char * argv[]) {
 		redraw_all();
 		place_cursor_actual();
 		char c;
-		while ((c = fgetc(stdin))) {
+		int timeout = 0;
+		int this_buf[20];
+		while ((c = bim_getch())) {
 			switch (c) {
 				case '\033':
+					if (timeout == 0) {
+						this_buf[timeout] = c;
+						timeout++;
+					}
 					redraw_all();
 					break;
 				case ':':
@@ -921,48 +1047,16 @@ int main(int argc, char * argv[]) {
 					command_mode();
 					break;
 				case 'j':
-					if (env->line_no < env->line_count) {
-						env->line_no += 1;
-						if (env->col_no > env->lines[env->line_no-1]->actual) {
-							env->col_no = env->lines[env->line_no-1]->actual;
-						}
-						if (env->col_no == 0) env->col_no = 1;
-						if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
-							env->offset += 1;
-							redraw_text();
-						}
-						redraw_statusbar();
-						place_cursor_actual();
-					}
+					cursor_down();
 					break;
 				case 'k':
-					if (env->line_no > 1) {
-						env->line_no -= 1;
-						if (env->col_no > env->lines[env->line_no-1]->actual) {
-							env->col_no = env->lines[env->line_no-1]->actual;
-						}
-						if (env->col_no == 0) env->col_no = 1;
-						if (env->line_no <= env->offset) {
-							env->offset -= 1;
-							redraw_text();
-						}
-						redraw_statusbar();
-						place_cursor_actual();
-					}
+					cursor_up();
 					break;
 				case 'h':
-					if (env->col_no > 1) {
-						env->col_no -= 1;
-						redraw_statusbar();
-						place_cursor_actual();
-					}
+					cursor_left();
 					break;
 				case 'l':
-					if (env->col_no < env->lines[env->line_no-1]->actual) {
-						env->col_no += 1;
-						redraw_statusbar();
-						place_cursor_actual();
-					}
+					cursor_right();
 					break;
 				case ' ':
 					goto_line(env->line_no + term_height - 6);
@@ -1019,6 +1113,30 @@ _insert:
 					insert_mode();
 					break;
 				default:
+					if (timeout == 1 && c == '[' && this_buf[0] == '\033') {
+						this_buf[1] = c;
+						timeout++;
+						continue;
+					}
+					if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+						switch (c) {
+							case 'A': // up
+								cursor_up();
+								break;
+							case 'B': // down
+								cursor_down();
+								break;
+							case 'C': // right
+								cursor_right();
+								break;
+							case 'D': // left
+								cursor_left();
+								break;
+						}
+						timeout = 0;
+						continue;
+					}
+					timeout = 0;
 					break;
 			}
 			place_cursor_actual();
