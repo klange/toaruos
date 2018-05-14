@@ -5,7 +5,7 @@
 int main(int argc, char * argv[]) {
 	char * term = getenv("TERM");
 	if (!term || strstr(term, "toaru") != term) {
-		fprintf(stderr, "Unrecognized terminal. These commands are for the とある terminal only.\n");
+		fprintf(stderr, "Unrecognized terminal. These commands are for the ToaruOS terminal only.\n");
 		return 1;
 	}
 	if (argc < 2) {
@@ -63,8 +63,8 @@ int main(int argc, char * argv[]) {
 		                "  alpha - alpha transparency enabled / disabled\n"
 		                "  scale - font scaling\n"
 		                "  size - terminal width/height in characters\n"
-		                "  force-raw - sets terminal to raw mode before commands\n"
-		                "  no-force-raw - disables forced raw mode\n"
+		                "  gamma - SDF font gamma\n"
+		                "  sdf - whether SDF is enabled\n"
 		);
 		return 0;
 	}
