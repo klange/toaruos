@@ -263,23 +263,32 @@ static int to_eight(uint32_t codepoint, char * out) {
 
 void count_selection(uint16_t x, uint16_t y) {
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (cell->flags & ANSI_EXT_IMG) { return; }
-	if (((uint32_t *)cell)[0] != 0x00000000) {
-		char tmp[7];
-		_selection_count += to_eight(cell->c, tmp);
+	if (!(cell->flags & ANSI_EXT_IMG)) {
+		if (((uint32_t *)cell)[0] != 0x00000000) {
+			char tmp[7];
+			_selection_count += to_eight(cell->c, tmp);
+		}
+	}
+	if (x == term_width - 1) {
+		_selection_count++;
 	}
 }
 
 void write_selection(uint16_t x, uint16_t y) {
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (cell->flags & ANSI_EXT_IMG) { return; }
-	if (((uint32_t *)cell)[0] != 0x00000000) {
-		char tmp[7];
-		int count = to_eight(cell->c, tmp);
-		for (int i = 0; i < count; ++i) {
-			selection_text[_selection_i] = tmp[i];
-			_selection_i++;
+	if (!(cell->flags & ANSI_EXT_IMG)) {
+		if (((uint32_t *)cell)[0] != 0x00000000) {
+			char tmp[7];
+			int count = to_eight(cell->c, tmp);
+			for (int i = 0; i < count; ++i) {
+				selection_text[_selection_i] = tmp[i];
+				_selection_i++;
+			}
 		}
+	}
+	if (x == term_width - 1) {
+		selection_text[_selection_i] = '\n';;
+		_selection_i++;
 	}
 }
 
@@ -294,10 +303,19 @@ char * copy_selection(void) {
 		free(selection_text);
 	}
 
+	if (_selection_count == 0) {
+		return NULL;
+	}
+
 	selection_text = malloc(_selection_count + 1);
 	selection_text[_selection_count] = '\0';
 	_selection_i = 0;
 	iterate_selection(write_selection);
+
+	if (selection_text[_selection_count-1] == '\n') {
+		/* Don't end on a line feed */
+		selection_text[_selection_count-1] = '\0';
+	}
 
 	return selection_text;
 }
