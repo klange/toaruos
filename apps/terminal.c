@@ -1598,8 +1598,15 @@ void * handle_incoming(void) {
 								break;
 						}
 					}
-					if (me->new_x < 0 || me->new_x >= (int)window_width || me->new_y < 0 || me->new_y >= (int)window_height) {
-						break;
+
+					if (!_no_frame) {
+						if (me->new_x < 0 || me->new_x >= (int)window_width + (int)decor_width() || me->new_y < 0 || me->new_y >= (int)window_height + (int)decor_height()) {
+							break;
+						}
+					} else {
+						if (me->new_x < 0 || me->new_x >= (int)window_width || me->new_y < 0 || me->new_y >= (int)window_height) {
+							break;
+						}
 					}
 
 					int new_x = me->new_x;
