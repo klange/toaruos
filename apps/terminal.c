@@ -78,6 +78,13 @@ uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 uint8_t  _free_size     = 1;    /* Disable rounding when resized */
 
+int selection = 0;
+int selection_start_x = 0;
+int selection_start_y = 0;
+int selection_end_x = 0;
+int selection_end_y = 0;
+char * selection_text = NULL;
+
 int      last_mouse_x   = -1;
 int      last_mouse_y   = -1;
 int      button_state   = 0;
@@ -114,6 +121,9 @@ void dump_buffer();
  * we otherwise receive an exit signal */
 volatile int exit_application = 0;
 
+static void cell_redraw(uint16_t x, uint16_t y);
+static void cell_redraw_inverted(uint16_t x, uint16_t y);
+
 static uint64_t get_ticks(void) {
 	struct timeval now;
 	gettimeofday(&now, NULL);
@@ -123,6 +133,7 @@ static uint64_t get_ticks(void) {
 
 static void display_flip(void) {
 	if (l_x != INT32_MAX && l_y != INT32_MAX) {
+		flip(ctx);
 		yutani_flip_region(yctx, window, l_x, l_y, r_x - l_x, r_y - l_y);
 		l_x = INT32_MAX;
 		l_y = INT32_MAX;
@@ -163,6 +174,132 @@ void set_title(char * c) {
 	terminal_title[len-1] = '\0';
 	terminal_title_length = len - 1;
 	render_decors();
+}
+
+void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
+	if (selection_end_y < selection_start_y) {
+		for (int x = selection_end_x; x < term_width; ++x) {
+			func(x, selection_end_y);
+		}
+		for (int y = selection_end_y + 1; y < selection_start_y; ++y) {
+			for (int x = 0; x < term_width; ++x) {
+				func(x, y);
+			}
+		}
+		for (int x = 0; x <= selection_start_x; ++x) {
+			func(x, selection_start_y);
+		}
+	} else if (selection_start_y == selection_end_y) {
+		if (selection_start_x > selection_end_x) {
+			for (int x = selection_end_x; x <= selection_start_x; ++x) {
+				func(x, selection_start_y);
+			}
+		} else {
+			for (int x = selection_start_x; x <= selection_end_x; ++x) {
+				func(x, selection_start_y);
+			}
+		}
+	} else {
+		for (int x = selection_start_x; x < term_width; ++x) {
+			func(x, selection_start_y);
+		}
+		for (int y = selection_start_y + 1; y < selection_end_y; ++y) {
+			for (int x = 0; x < term_width; ++x) {
+				func(x, y);
+			}
+		}
+		for (int x = 0; x <= selection_end_x; ++x) {
+			func(x, selection_end_y);
+		}
+	}
+
+}
+
+void unredraw_selection(void) {
+	iterate_selection(cell_redraw);
+}
+
+void redraw_selection(void) {
+	iterate_selection(cell_redraw_inverted);
+}
+
+static int _selection_count = 0;
+static int _selection_i = 0;
+
+static int to_eight(uint32_t codepoint, char * out) {
+	memset(out, 0x00, 7);
+
+	if (codepoint < 0x0080) {
+		out[0] = (char)codepoint;
+	} else if (codepoint < 0x0800) {
+		out[0] = 0xC0 | (codepoint >> 6);
+		out[1] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x10000) {
+		out[0] = 0xE0 | (codepoint >> 12);
+		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[2] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x200000) {
+		out[0] = 0xF0 | (codepoint >> 18);
+		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[3] = 0x80 | ((codepoint) & 0x3F);
+	} else if (codepoint < 0x4000000) {
+		out[0] = 0xF8 | (codepoint >> 24);
+		out[1] = 0x80 | (codepoint >> 18);
+		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[4] = 0x80 | ((codepoint) & 0x3F);
+	} else {
+		out[0] = 0xF8 | (codepoint >> 30);
+		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[5] = 0x80 | ((codepoint) & 0x3F);
+	}
+
+	return strlen(out);
+}
+
+void count_selection(uint16_t x, uint16_t y) {
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+	if (cell->flags & ANSI_EXT_IMG) { return; }
+	if (((uint32_t *)cell)[0] != 0x00000000) {
+		char tmp[7];
+		_selection_count += to_eight(cell->c, tmp);
+	}
+}
+
+void write_selection(uint16_t x, uint16_t y) {
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+	if (cell->flags & ANSI_EXT_IMG) { return; }
+	if (((uint32_t *)cell)[0] != 0x00000000) {
+		char tmp[7];
+		int count = to_eight(cell->c, tmp);
+		for (int i = 0; i < count; ++i) {
+			selection_text[_selection_i] = tmp[i];
+			_selection_i++;
+		}
+	}
+}
+
+
+char * copy_selection(void) {
+	_selection_count = 0;
+	iterate_selection(count_selection);
+
+	fprintf(stderr, "Selection length is %d\n", _selection_count);
+
+	if (selection_text) {
+		free(selection_text);
+	}
+
+	selection_text = malloc(_selection_count + 1);
+	selection_text[_selection_count] = '\0';
+	_selection_i = 0;
+	iterate_selection(write_selection);
+
+	return selection_text;
 }
 
 /* Stuffs a string into the stdin of the terminal's child process
@@ -1051,6 +1188,25 @@ void scroll_down(int amount) {
 
 void key_event(int ret, key_event_t * event) {
 	if (ret) {
+		/* Special keys */
+		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
+			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
+			(event->keycode == 'c')) {
+			if (selection) {
+				/* Copy selection */
+				copy_selection();
+			}
+			return;
+		}
+		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
+			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
+			(event->keycode == 'v')) {
+			/* Paste selection */
+			if (selection_text) {
+				handle_input_s(selection_text);
+			}
+			return;
+		}
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
 			handle_input('\033');
 		}
@@ -1445,17 +1601,19 @@ void * handle_incoming(void) {
 					if (me->new_x < 0 || me->new_x >= (int)window_width || me->new_y < 0 || me->new_y >= (int)window_height) {
 						break;
 					}
+
+					int new_x = me->new_x;
+					int new_y = me->new_y;
+					if (!_no_frame) {
+						new_x -= decor_left_width;
+						new_y -= decor_top_height;
+					}
+					/* Convert from coordinate to cell positon */
+					new_x /= char_width;
+					new_y /= char_height;
+
 					/* Map Cursor Action */
 					if (ansi_state->mouse_on) {
-						int new_x = me->new_x;
-						int new_y = me->new_y;
-						if (!_no_frame) {
-							new_x -= decor_left_width;
-							new_y -= decor_top_height;
-						}
-						/* Convert from coordinate to cell positon */
-						new_x /= char_width;
-						new_y /= char_height;
 
 						if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 							mouse_event(32+32, new_x, new_y);
@@ -1484,6 +1642,30 @@ void * handle_incoming(void) {
 							last_mouse_y = new_y;
 						}
 					} else {
+						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+							term_redraw_all();
+							selection_start_x = new_x;
+							selection_start_y = new_y;
+							selection_end_x = new_x;
+							selection_end_y = new_y;
+							selection = 1;
+							redraw_selection();
+							display_flip();
+						}
+						if (me->command == YUTANI_MOUSE_EVENT_DRAG && me->buttons & YUTANI_MOUSE_BUTTON_LEFT ){
+							unredraw_selection();
+							selection_end_x = new_x;
+							selection_end_y = new_y;
+							redraw_selection();
+							display_flip();
+						}
+						if (me->command == YUTANI_MOUSE_EVENT_RAISE) {
+							if (me->new_x == me->old_x && me->new_y == me->old_y) {
+								selection = 0;
+								term_redraw_all();
+								display_flip();
+							} /* else selection */
+						}
 						if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 							scroll_up(5);
 						} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
@@ -1612,7 +1794,7 @@ int main(int argc, char ** argv) {
 	}
 
 	/* Initialize the graphics context */
-	ctx = init_graphics_yutani(window);
+	ctx = init_graphics_yutani_double_buffer(window);
 
 	/* Clear to black */
 	draw_fill(ctx, rgba(0,0,0,0));
