@@ -1475,6 +1475,7 @@ void reinit(int send_sig) {
 	draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
 	render_decors();
 	term_redraw_all();
+	display_flip();
 
 	struct winsize w;
 	w.ws_row = term_height;
@@ -1603,6 +1604,12 @@ void * handle_incoming(void) {
 
 					if (!_no_frame) {
 						if (me->new_x < 0 || me->new_x >= (int)window_width + (int)decor_width() || me->new_y < 0 || me->new_y >= (int)window_height + (int)decor_height()) {
+							break;
+						}
+						if (me->new_y < (int)decor_top_height || me->new_y >= (int)(window_height + decor_top_height)) {
+							break;
+						}
+						if (me->new_x < (int)decor_left_width || me->new_y >= (int)(window_width + decor_left_width)) {
 							break;
 						}
 					} else {
