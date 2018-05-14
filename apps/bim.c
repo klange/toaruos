@@ -408,17 +408,13 @@ void realign_cursor() {
 	}
 }
 
-void redraw_text() {
-	int l = term_height - env->bottom_size - 1;
-	int j = 0;
-
-	int num_size = log_base_10(env->line_count) + 2;
-	for (int x = env->offset; j < l && x < env->line_count; x++) {
+void redraw_line(int j, int x) {
 		place_cursor(1,2 + j);
 		/* draw line number */
 		set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
 		printf(" ");
 		set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
+		int num_size = log_base_10(env->line_count) + 2;
 		for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 			printf(" ");
 		}
@@ -426,6 +422,14 @@ void redraw_text() {
 		set_colors(COLOR_FG, COLOR_BG);
 		clear_to_end();
 		render_line(env->lines[x], term_width - 3 - num_size, env->coffset);
+}
+
+void redraw_text() {
+	int l = term_height - env->bottom_size - 1;
+	int j = 0;
+
+	for (int x = env->offset; j < l && x < env->line_count; x++) {
+		redraw_line(j,x);
 		j++;
 	}
 	for (; j < l; ++j) {
@@ -845,7 +849,7 @@ void insert_mode() {
 					if (env->col_no > 1) {
 						line_delete(env->lines[env->line_no - 1], env->col_no - 1);
 						env->col_no -= 1;
-						redraw_text();
+						redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 						set_modified();
 						redraw_statusbar();
 						place_cursor_actual();
@@ -878,7 +882,7 @@ void insert_mode() {
 						if (line != nline) {
 							env->lines[env->line_no - 1] = nline;
 						}
-						redraw_text(); /* XXX */
+						redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 						env->col_no += 1;
 						set_modified();
 						redraw_statusbar();
