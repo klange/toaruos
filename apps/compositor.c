@@ -1228,6 +1228,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	yutani_server_window_t * focused = get_focused(yg);
 	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
 	if (focused) {
+#if 0
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
@@ -1255,6 +1256,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			mark_window(yg,focused);
 			return;
 		}
+#endif
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 			(ke->event.keycode == KEY_F10)) {
@@ -1282,7 +1284,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
-			(ke->event.keycode == 'v')) {
+			(ke->event.keycode == 'n')) {
 			yg->debug_shapes = (1-yg->debug_shapes);
 			return;
 		}
