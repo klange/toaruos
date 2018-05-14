@@ -935,6 +935,10 @@ void insert_mode() {
 					if (timeout == 0) {
 						this_buf[timeout] = c;
 						timeout++;
+					} else if (timeout == 1 && this_buf[0] == '\033') {
+						break_input();
+						bim_unget(c);
+						return;
 					}
 					break;
 				case BACKSPACE_KEY:
@@ -1111,6 +1115,7 @@ int main(int argc, char * argv[]) {
 				case 'i':
 _insert:
 					insert_mode();
+					timeout = 0;
 					break;
 				default:
 					if (timeout == 1 && c == '[' && this_buf[0] == '\033') {
