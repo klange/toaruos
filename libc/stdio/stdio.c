@@ -288,7 +288,7 @@ int fgetc(FILE * stream) {
 		stream->eof = 1;
 		return EOF;
 	}
-	return buf[0];
+	return (unsigned char)buf[0];
 }
 
 char *fgets(char *s, int size, FILE *stream) {
