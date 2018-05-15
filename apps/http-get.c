@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "../lib/list.c"
-#include "../lib/hashmap.c"
+#include <toaru/list.h>
+#include <toaru/hashmap.h>
 
 #define SIZE 512
 
