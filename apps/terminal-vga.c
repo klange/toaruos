@@ -28,6 +28,7 @@
 #include <toaru/kbd.h>
 #include <toaru/graphics.h>
 #include <toaru/termemu.h>
+#include <toaru/mouse.h>
 
 #include "vga-palette.h"
 
@@ -50,6 +51,13 @@ uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell 
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 
 uint64_t mouse_ticks = 0;
+
+int selection = 0;
+int selection_start_x = 0;
+int selection_start_y = 0;
+int selection_end_x = 0;
+int selection_end_y = 0;
+char * selection_text = NULL;
 
 #define char_width 1
 #define char_height 1
@@ -152,6 +160,147 @@ uint16_t max(uint16_t a, uint16_t b) {
 
 void set_title(char * c) {
 	/* Do nothing */
+}
+
+static void cell_redraw(uint16_t x, uint16_t y);
+static void cell_redraw_inverted(uint16_t x, uint16_t y);
+
+void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
+	if (selection_end_y < selection_start_y) {
+		for (int x = selection_end_x; x < term_width; ++x) {
+			func(x, selection_end_y);
+		}
+		for (int y = selection_end_y + 1; y < selection_start_y; ++y) {
+			for (int x = 0; x < term_width; ++x) {
+				func(x, y);
+			}
+		}
+		for (int x = 0; x <= selection_start_x; ++x) {
+			func(x, selection_start_y);
+		}
+	} else if (selection_start_y == selection_end_y) {
+		if (selection_start_x > selection_end_x) {
+			for (int x = selection_end_x; x <= selection_start_x; ++x) {
+				func(x, selection_start_y);
+			}
+		} else {
+			for (int x = selection_start_x; x <= selection_end_x; ++x) {
+				func(x, selection_start_y);
+			}
+		}
+	} else {
+		for (int x = selection_start_x; x < term_width; ++x) {
+			func(x, selection_start_y);
+		}
+		for (int y = selection_start_y + 1; y < selection_end_y; ++y) {
+			for (int x = 0; x < term_width; ++x) {
+				func(x, y);
+			}
+		}
+		for (int x = 0; x <= selection_end_x; ++x) {
+			func(x, selection_end_y);
+		}
+	}
+
+}
+
+void unredraw_selection(void) {
+	iterate_selection(cell_redraw);
+}
+
+void redraw_selection(void) {
+	iterate_selection(cell_redraw_inverted);
+}
+
+static int _selection_count = 0;
+static int _selection_i = 0;
+
+static int to_eight(uint32_t codepoint, char * out) {
+	memset(out, 0x00, 7);
+
+	if (codepoint < 0x0080) {
+		out[0] = (char)codepoint;
+	} else if (codepoint < 0x0800) {
+		out[0] = 0xC0 | (codepoint >> 6);
+		out[1] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x10000) {
+		out[0] = 0xE0 | (codepoint >> 12);
+		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[2] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x200000) {
+		out[0] = 0xF0 | (codepoint >> 18);
+		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[3] = 0x80 | ((codepoint) & 0x3F);
+	} else if (codepoint < 0x4000000) {
+		out[0] = 0xF8 | (codepoint >> 24);
+		out[1] = 0x80 | (codepoint >> 18);
+		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[4] = 0x80 | ((codepoint) & 0x3F);
+	} else {
+		out[0] = 0xF8 | (codepoint >> 30);
+		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[5] = 0x80 | ((codepoint) & 0x3F);
+	}
+
+	return strlen(out);
+}
+
+void count_selection(uint16_t x, uint16_t y) {
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+	if (((uint32_t *)cell)[0] != 0x00000000) {
+		char tmp[7];
+		_selection_count += to_eight(cell->c, tmp);
+	}
+	if (x == term_width - 1) {
+		_selection_count++;
+	}
+}
+
+void write_selection(uint16_t x, uint16_t y) {
+	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+	if (((uint32_t *)cell)[0] != 0x00000000) {
+		char tmp[7];
+		int count = to_eight(cell->c, tmp);
+		for (int i = 0; i < count; ++i) {
+			selection_text[_selection_i] = tmp[i];
+			_selection_i++;
+		}
+	}
+	if (x == term_width - 1) {
+		selection_text[_selection_i] = '\n';;
+		_selection_i++;
+	}
+}
+
+
+char * copy_selection(void) {
+	_selection_count = 0;
+	iterate_selection(count_selection);
+
+	if (selection_text) {
+		free(selection_text);
+	}
+
+	if (_selection_count == 0) {
+		return NULL;
+	}
+
+	selection_text = malloc(_selection_count + 1);
+	selection_text[_selection_count] = '\0';
+	_selection_i = 0;
+	iterate_selection(write_selection);
+
+	if (selection_text[_selection_count-1] == '\n') {
+		/* Don't end on a line feed */
+		selection_text[_selection_count-1] = '\0';
+	}
+
+	return selection_text;
 }
 
 void input_buffer_stuff(char * str) {
@@ -633,6 +782,25 @@ void handle_input_s(char * c) {
 
 void key_event(int ret, key_event_t * event) {
 	if (ret) {
+		/* Special keys */
+		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
+			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
+			(event->keycode == 'c')) {
+			if (selection) {
+				/* Copy selection */
+				copy_selection();
+			}
+			return;
+		}
+		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
+			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
+			(event->keycode == 'v')) {
+			/* Paste selection */
+			if (selection_text) {
+				handle_input_s(selection_text);
+			}
+			return;
+		}
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
 			handle_input('\033');
 		}
@@ -785,6 +953,65 @@ void check_for_exit(void) {
 	write(fd_slave, exit_message, sizeof(exit_message));
 }
 
+static int mouse_x = 0;
+static int mouse_y = 0;
+static int last_mouse_buttons = 0;
+static int mouse_is_dragging = 0;
+
+#define MOUSE_X_R 820
+#define MOUSE_Y_R 2730
+
+static int old_x = 0;
+static int old_y = 0;
+
+void handle_mouse_event(mouse_device_packet_t * packet) {
+	if (mouse_is_dragging) {
+		if (packet->buttons & LEFT_CLICK) {
+			/* still dragging */
+			unredraw_selection();
+			selection_end_x = mouse_x;
+			selection_end_y = mouse_y;
+			redraw_selection();
+		} else {
+			mouse_is_dragging = 0;
+		}
+	} else {
+		if (packet->buttons & LEFT_CLICK) {
+			term_redraw_all();
+			selection_start_x = mouse_x;
+			selection_start_y = mouse_y;
+			selection_end_x = mouse_x;
+			selection_end_y = mouse_y;
+			selection = 1;
+			redraw_selection();
+			mouse_is_dragging = 1;
+		} else {
+			cell_redraw(old_x, old_y);
+			cell_redraw_inverted(mouse_x, mouse_y);
+			old_x = mouse_x;
+			old_y = mouse_y;
+		}
+	}
+
+
+}
+
+void handle_mouse(mouse_device_packet_t * packet) {
+	mouse_x += packet->x_difference;
+	mouse_y -= packet->y_difference;
+	if (mouse_x < 0) mouse_x = 0;
+	if (mouse_y < 0) mouse_y = 0;
+	if (mouse_x >= term_width) mouse_x = term_width - 1;
+	if (mouse_y >= term_height) mouse_y = term_height - 1;
+	handle_mouse_event(packet);
+}
+
+void handle_mouse_abs(mouse_device_packet_t * packet) {
+	mouse_x = packet->x_difference / MOUSE_X_R;
+	mouse_y = packet->y_difference / MOUSE_Y_R;
+	handle_mouse_event(packet);
+}
+
 
 int main(int argc, char ** argv) {
 
@@ -869,6 +1096,15 @@ int main(int argc, char ** argv) {
 		int kfd = open("/dev/kbd", O_RDONLY);
 		key_event_t event;
 		char c;
+		int vmmouse = 0;
+		mouse_device_packet_t packet;
+
+		int mfd = open("/dev/mouse", O_RDONLY);
+		int amfd = open("/dev/absmouse", O_RDONLY);
+		if (amfd == -1) {
+			amfd = open("/dev/vmmouse", O_RDONLY);
+			vmmouse = 1;
+		}
 
 		key_event_state_t kbd_state = {0};
 
@@ -880,12 +1116,12 @@ int main(int argc, char ** argv) {
 			read(kfd, tmp, 1);
 		}
 
-		int fds[2] = {fd_master, kfd};
+		int fds[] = {fd_master, kfd, mfd, amfd};
 
 		unsigned char buf[1024];
 		while (!exit_application) {
 
-			int index = syscall_fswait2(2,fds,200);
+			int index = syscall_fswait2(amfd == -1 ? 3 : 4,fds,200);
 
 			check_for_exit();
 
@@ -903,6 +1139,25 @@ int main(int argc, char ** argv) {
 					key_event(ret, &event);
 				}
 			} else if (index == 2) {
+				/* mouse event */
+				int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
+				if (r > 0) {
+					last_mouse_buttons = packet.buttons;
+					handle_mouse(&packet);
+				}
+			} else if (amfd != -1 && index == 3) {
+				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
+				if (r > 0) {
+					if (!vmmouse) {
+						packet.buttons = last_mouse_buttons & 0xF;
+					} else {
+						last_mouse_buttons = packet.buttons;
+					}
+					handle_mouse_abs(&packet);
+				}
+				continue;
+				
+			} else {
 				maybe_flip_cursor();
 			}
 		}
