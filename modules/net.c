@@ -339,6 +339,10 @@ static void socket_alert_waiters(struct socket * sock) {
 static int socket_check(fs_node_t * node) {
 	struct socket * sock = node->device;
 
+	if (sock->bytes_available) {
+		return 0;
+	}
+
 	if (sock->packet_queue->length > 0) {
 		return 0;
 	}
