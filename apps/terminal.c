@@ -587,10 +587,10 @@ term_write_char(
 		char tmp[2] = {val,0};
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
-				term_set_point(x+j,y+i,premultiply(_bg));
+				term_set_point(x+j,y+i,_bg);
 			}
 		}
-		if (val != 0 && val != ' ') {
+		if (val != 0 && val != ' ' && _fg != _bg) {
 			int _font = SDF_FONT_MONO;
 			if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
 				_font = SDF_FONT_MONO_BOLD_OBLIQUE;
