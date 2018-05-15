@@ -190,6 +190,10 @@ FILE * fdopen(int fd, const char *mode){
 	return out;
 }
 
+int _fwouldblock(FILE * stream) {
+	return !stream->available;
+}
+
 int fclose(FILE * stream) {
 	int out = syscall_close(stream->fd);
 	free(stream->read_buf);

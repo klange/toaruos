@@ -96,7 +96,7 @@ static void print_hex(unsigned int value, unsigned int width, char * buf, int * 
 /*
  * vasprintf()
  */
-size_t vasprintf(char * buf, const char * fmt, va_list args) {
+size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 	int i = 0;
 	char * s;
 	char * b = buf;
@@ -178,33 +178,42 @@ size_t vasprintf(char * buf, const char * fmt, va_list args) {
 	/* Ensure the buffer ends in a null */
 	*b = '\0';
 	return b - buf;
+}
 
+size_t vasprintf(char ** buf, const char * fmt, va_list args) {
+	char * b = malloc(1024);
+	*buf = b;
+	return xvasprintf(b, fmt, args);
 }
 
 int fprintf(FILE * device, char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	char buffer[1024];
-	vasprintf(buffer, fmt, args);
+	char * buffer;
+	vasprintf(&buffer, fmt, args);
 	va_end(args);
 
-	return fwrite(buffer, 1, strlen(buffer), device);
+	int out = fwrite(buffer, 1, strlen(buffer), device);
+	free(buffer);
+	return out;
 }
 
 int printf(char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	char buffer[1024];
-	vasprintf(buffer, fmt, args);
+	char * buffer;
+	vasprintf(&buffer, fmt, args);
 	va_end(args);
 
-	return fwrite(buffer, 1, strlen(buffer), stdout);
+	int out = fwrite(buffer, 1, strlen(buffer), stdout);
+	free(buffer);
+	return out;
 }
 
 int sprintf(char * buf, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	int out = vasprintf(buf, fmt, args);
+	int out = xvasprintf(buf, fmt, args);
 	va_end(args);
 	return out;
 }

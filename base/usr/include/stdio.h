@@ -29,7 +29,7 @@ extern size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream);
 extern int fileno(FILE * stream);
 extern int fflush(FILE * stream);
 
-extern size_t vasprintf(char * buf, const char *fmt, va_list args);
+extern size_t vasprintf(char ** buf, const char *fmt, va_list args);
 extern int    sprintf(char *buf, const char *fmt, ...);
 extern int    fprintf(FILE *stream, char *fmt, ...);
 extern int    printf(char *fmt, ...);
@@ -49,5 +49,7 @@ extern int ungetc(int c, FILE * stream);
 
 extern int feof(FILE * stream);
 extern void clearerr(FILE * stream);
+
+extern int _fwouldblock(FILE * stream);
 
 #define getc(s) fgetc(s)
