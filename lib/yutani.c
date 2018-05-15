@@ -761,9 +761,30 @@ void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t requ
 
 void yutani_set_clipboard(yutani_t * yctx, char * content) {
 	/* Set clipboard contents */
-	yutani_msg_buildx_clipboard_alloc(m, strlen(content));
-	yutani_msg_buildx_clipboard(m, content);
-	yutani_msg_send(yctx, m);
+	int len = strlen(content);
+	if (len > 511) {
+		char tmp_file[100];
+		sprintf(tmp_file, "/tmp/.clipboard.%s", yctx->server_ident);
+		FILE * tmp = fopen(tmp_file, "w+");
+		fwrite(content, len, 1, tmp);
+		fclose(tmp);
+
+		char tmp_data[100];
+		sprintf(tmp_data, "\002 %d", len);
+		yutani_msg_buildx_clipboard_alloc(m, strlen(tmp_data));
+		yutani_msg_buildx_clipboard(m, tmp_data);
+		yutani_msg_send(yctx, m);
+	} else {
+		yutani_msg_buildx_clipboard_alloc(m, len);
+		yutani_msg_buildx_clipboard(m, content);
+		yutani_msg_send(yctx, m);
+	}
+}
+
+FILE * yutani_open_clipboard(yutani_t * yctx) {
+	char tmp_file[100];
+	sprintf(tmp_file, "/tmp/.clipboard.%s", yctx->server_ident);
+	return fopen(tmp_file, "r");
 }
 
 gfx_context_t * init_graphics_yutani(yutani_window_t * window) {

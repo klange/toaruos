@@ -1613,9 +1613,18 @@ void * handle_incoming(void) {
 					if (selection_text) {
 						free(selection_text);
 					}
-					selection_text = malloc(cb->size+1);
-					memcpy(selection_text, cb->content, cb->size);
-					selection_text[cb->size] = '\0';
+					if (*cb->content == '\002') {
+						int size = atoi(&cb->content[2]);
+						FILE * clipboard = yutani_open_clipboard(yctx);
+						selection_text = malloc(size + 1);
+						fread(selection_text, 1, size, clipboard);
+						selection_text[size] = '\0';
+						fclose(clipboard);
+					} else {
+						selection_text = malloc(cb->size+1);
+						memcpy(selection_text, cb->content, cb->size);
+						selection_text[cb->size] = '\0';
+					}
 					handle_input_s(selection_text);
 				}
 				break;

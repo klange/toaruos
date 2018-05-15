@@ -520,6 +520,7 @@ extern void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window
 extern void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t request);
 extern void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t request);
 extern void yutani_set_clipboard(yutani_t * yctx, char * content);
+extern FILE * yutani_open_clipboard(yutani_t * yctx);
 
 extern gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);
