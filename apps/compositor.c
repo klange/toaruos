@@ -2445,11 +2445,27 @@ int main(int argc, char * argv[]) {
 								pex_send(yg->server, w->owner, response->size, (char *)response);
 							}
 							break;
+						case YUTANI_SPECIAL_REQUEST_CLIPBOARD:
+							{
+								yutani_msg_buildx_clipboard_alloc(response, yg->clipboard_size);
+								yutani_msg_buildx_clipboard(response, yg->clipboard);
+								pex_send(server, p->source, response->size, (char *)response);
+							}
+							break;
 						default:
 							TRACE("Unknown special request type: 0x%x", sr->request);
 							break;
 					}
 
+				}
+				break;
+			case YUTANI_MSG_CLIPBOARD:
+				{
+					struct yutani_msg_clipboard * cb = (void *)m->data;
+					yg->clipboard_size = min(cb->size, 511);
+					memcpy(yg->clipboard, cb->content, yg->clipboard_size);
+					yg->clipboard[yg->clipboard_size] = '\0';
+					TRACE("Copied text to clipbard (size=%d)", yg->clipboard_size);
 				}
 				break;
 			default:

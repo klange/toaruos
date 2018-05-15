@@ -206,6 +206,11 @@ typedef struct yutani_window {
 	yutani_t * ctx;
 } yutani_window_t;
 
+struct yutani_msg_clipboard {
+	uint32_t size;
+	char content[];
+};
+
 /* Magic value */
 #define YUTANI_MSG__MAGIC 0xABAD1DEA
 
@@ -248,6 +253,8 @@ typedef struct yutani_window {
 #define YUTANI_MSG_KEY_BIND            0x00000040
 
 #define YUTANI_MSG_WINDOW_UPDATE_SHAPE 0x00000050
+
+#define YUTANI_MSG_CLIPBOARD           0x00000060
 
 #define YUTANI_MSG_GOODBYE             0x000000F0
 
@@ -406,6 +413,8 @@ typedef struct yutani_window {
 #define YUTANI_SPECIAL_REQUEST_MAXIMIZE     1
 #define YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE 2
 
+#define YUTANI_SPECIAL_REQUEST_CLIPBOARD    10
+
 typedef struct {
 	int x;
 	int y;
@@ -447,6 +456,7 @@ extern size_t yutani_query(yutani_t * y);
 #define yutani_msg_buildx_window_show_mouse_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_show_mouse)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
 #define yutani_msg_buildx_window_resize_start_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_resize_start)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
 #define yutani_msg_buildx_special_request_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_special_request)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
+#define yutani_msg_buildx_clipboard_alloc(out, length) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_clipboard)+length]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
 
 extern void yutani_msg_buildx_hello(yutani_msg_t * msg);
 extern void yutani_msg_buildx_flip(yutani_msg_t * msg, yutani_wid_t wid);
@@ -477,6 +487,7 @@ extern void yutani_msg_buildx_window_warp_mouse(yutani_msg_t * msg, yutani_wid_t
 extern void yutani_msg_buildx_window_show_mouse(yutani_msg_t * msg, yutani_wid_t wid, int32_t show_mouse);
 extern void yutani_msg_buildx_window_resize_start(yutani_msg_t * msg, yutani_wid_t wid, yutani_scale_direction_t direction);
 extern void yutani_msg_buildx_special_request(yutani_msg_t * msg, yutani_wid_t wid, uint32_t request);
+extern void yutani_msg_buildx_clipboard(yutani_msg_t * msg, char * content);
 
 extern int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 extern yutani_t * yutani_context_create(FILE * socket);
@@ -508,7 +519,7 @@ extern void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, 
 extern void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction);
 extern void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t request);
 extern void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t request);
-
+extern void yutani_set_clipboard(yutani_t * yctx, char * content);
 
 extern gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);

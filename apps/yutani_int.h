@@ -173,6 +173,9 @@ typedef struct {
 
 	int32_t mouse_click_x_orig;
 	int32_t mouse_click_y_orig;
+
+	char clipboard[512];
+	int clipboard_size;
 } yutani_globals_t;
 
 struct key_bind {

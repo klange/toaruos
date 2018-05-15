@@ -433,6 +433,17 @@ void yutani_msg_buildx_special_request(yutani_msg_t * msg, yutani_wid_t wid, uin
 	sr->request = request;
 }
 
+void yutani_msg_buildx_clipboard(yutani_msg_t * msg, char * content) {
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_CLIPBOARD;
+	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_clipboard) + strlen(content);
+
+	struct yutani_msg_clipboard * cl = (void *)msg->data;
+
+	cl->size = strlen(content);
+	memcpy(cl->content, content, strlen(content));
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -745,6 +756,13 @@ void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t requ
 	/* For working with other applications' windows */
 	yutani_msg_buildx_special_request_alloc(m);
 	yutani_msg_buildx_special_request(m, wid, request);
+	yutani_msg_send(yctx, m);
+}
+
+void yutani_set_clipboard(yutani_t * yctx, char * content) {
+	/* Set clipboard contents */
+	yutani_msg_buildx_clipboard_alloc(m, strlen(content));
+	yutani_msg_buildx_clipboard(m, content);
 	yutani_msg_send(yctx, m);
 }
 

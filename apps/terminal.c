@@ -317,6 +317,8 @@ char * copy_selection(void) {
 		selection_text[_selection_count-1] = '\0';
 	}
 
+	yutani_set_clipboard(yctx, selection_text);
+
 	return selection_text;
 }
 
@@ -1222,9 +1224,12 @@ void key_event(int ret, key_event_t * event) {
 			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
 			(event->keycode == 'v')) {
 			/* Paste selection */
+			yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
+#if 0
 			if (selection_text) {
 				handle_input_s(selection_text);
 			}
+#endif
 			return;
 		}
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
@@ -1600,6 +1605,18 @@ void * handle_incoming(void) {
 				{
 					struct yutani_msg_window_resize * wr = (void*)m->data;
 					resize_finish(wr->width, wr->height);
+				}
+				break;
+			case YUTANI_MSG_CLIPBOARD:
+				{
+					struct yutani_msg_clipboard * cb = (void *)m->data;
+					if (selection_text) {
+						free(selection_text);
+					}
+					selection_text = malloc(cb->size+1);
+					memcpy(selection_text, cb->content, cb->size);
+					selection_text[cb->size] = '\0';
+					handle_input_s(selection_text);
 				}
 				break;
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
