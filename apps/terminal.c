@@ -1357,8 +1357,10 @@ void key_event(int ret, key_event_t * event) {
 				break;
 			case KEY_HOME:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
-					scrollback_offset = scrollback_list->length;
-					redraw_scrollback();
+					if (scrollback_list) {
+						scrollback_offset = scrollback_list->length;
+						redraw_scrollback();
+					}
 				} else {
 					handle_input_s("\033OH");
 				}
