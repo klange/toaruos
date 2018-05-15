@@ -180,46 +180,51 @@ static void vmware_mouse(void) {
 	debug_print(INFO, "flags=%4x buttons=%4x", flags, buttons);
 	debug_print(INFO, "x=%x y=%x z=%x", cmd.bx, cmd.cx, cmd.dx);
 
+	unsigned int x = 0;
+	unsigned int y = 0;
+
 	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y) {
 		/*
 		 * Just like the virtualbox stuff, this is based on a mapping
 		 * to the display resolution, independently scaled in
 		 * each dimension...
 		 */
-		unsigned int x = ((unsigned int)cmd.bx * lfb_resolution_x) / 0xFFFF;
-		unsigned int y = ((unsigned int)cmd.cx * lfb_resolution_y) / 0xFFFF;
-
-		mouse_device_packet_t packet;
-		packet.magic = MOUSE_MAGIC;
-		packet.x_difference = x;
-		packet.y_difference = y;
-		packet.buttons = 0;
-
-		/* The particular bits for the buttons seem weird, but okay... */
-		if (buttons & 0x20) {
-			packet.buttons |= LEFT_CLICK;
-		}
-		if (buttons & 0x10) {
-			packet.buttons |= RIGHT_CLICK;
-		}
-		if (buttons & 0x08) {
-			packet.buttons |= MIDDLE_CLICK;
-		}
-
-		/* dx = z = scroll amount */
-		if ((int8_t)cmd.dx > 0) {
-			packet.buttons |= MOUSE_SCROLL_DOWN;
-		} else if ((int8_t)cmd.dx < 0) {
-			packet.buttons |= MOUSE_SCROLL_UP;
-		}
-
-		mouse_device_packet_t bitbucket;
-		while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
-			read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
-		}
-		write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
+		x = ((unsigned int)cmd.bx * lfb_resolution_x) / 0xFFFF;
+		y = ((unsigned int)cmd.cx * lfb_resolution_y) / 0xFFFF;
+	} else {
+		x = cmd.bx;
+		y = cmd.cx;
 	}
 
+	mouse_device_packet_t packet;
+	packet.magic = MOUSE_MAGIC;
+	packet.x_difference = x;
+	packet.y_difference = y;
+	packet.buttons = 0;
+
+	/* The particular bits for the buttons seem weird, but okay... */
+	if (buttons & 0x20) {
+		packet.buttons |= LEFT_CLICK;
+	}
+	if (buttons & 0x10) {
+		packet.buttons |= RIGHT_CLICK;
+	}
+	if (buttons & 0x08) {
+		packet.buttons |= MIDDLE_CLICK;
+	}
+
+	/* dx = z = scroll amount */
+	if ((int8_t)cmd.dx > 0) {
+		packet.buttons |= MOUSE_SCROLL_DOWN;
+	} else if ((int8_t)cmd.dx < 0) {
+		packet.buttons |= MOUSE_SCROLL_UP;
+	}
+
+	mouse_device_packet_t bitbucket;
+	while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
+		read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
+	}
+	write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 }
 
 static int detect_device(void) {

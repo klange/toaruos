@@ -104,22 +104,27 @@ static int vbox_irq_handler(struct regs *r) {
 	outportl(vbox_port, vbox_phys_ack);
 	irq_ack(vbox_irq);
 
+	unsigned int x, y;
+
 	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y && vbox_mg->x && vbox_mg->y) {
-		unsigned int x = ((unsigned int)vbox_mg->x * lfb_resolution_x) / 0xFFFF;
-		unsigned int y = ((unsigned int)vbox_mg->y * lfb_resolution_y) / 0xFFFF;
-
-		mouse_device_packet_t packet;
-		packet.magic = MOUSE_MAGIC;
-		packet.x_difference = x;
-		packet.y_difference = y;
-		packet.buttons = 0;
-
-		mouse_device_packet_t bitbucket;
-		while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
-			read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
-		}
-		write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
+		x = ((unsigned int)vbox_mg->x * lfb_resolution_x) / 0xFFFF;
+		y = ((unsigned int)vbox_mg->y * lfb_resolution_y) / 0xFFFF;
+	} else {
+		x = vbox_mg->x;
+		y = vbox_mg->y;
 	}
+
+	mouse_device_packet_t packet;
+	packet.magic = MOUSE_MAGIC;
+	packet.x_difference = x;
+	packet.y_difference = y;
+	packet.buttons = 0;
+
+	mouse_device_packet_t bitbucket;
+	while (pipe_size(mouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
+		read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
+	}
+	write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 
 
 	if (lfb_resolution_x && vbox_disp->xres && (vbox_disp->xres != lfb_resolution_x  || vbox_disp->yres != lfb_resolution_y)) {
