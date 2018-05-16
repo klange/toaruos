@@ -327,7 +327,7 @@ static void e1000_init(void * data, char * name) {
 	status |= (1 << 5);   /* set auto speed detection */
 	status |= (1 << 6);   /* set link up */
 	status &= ~(1 << 3);  /* unset link reset */
-	status &= ~(1 << 31); /* unset phy reset */
+	status &= ~(1UL << 31UL); /* unset phy reset */
 	status &= ~(1 << 7);  /* unset invert loss-of-signal */
 	write_command(E1000_REG_CTRL, status);
 
