@@ -30,6 +30,7 @@ void __ubsan_handle_sub_overflow(struct OverflowData * data, unsigned long lhs, 
 }
 
 void __ubsan_handle_mul_overflow(struct OverflowData * data, unsigned long lhs, unsigned long rhs) {
+	ubsan_debug(&data->location);
 	fprintf(&_ubsan_log, "Overflow in mul: %d %d\n", lhs, rhs);
 }
 
@@ -61,7 +62,7 @@ void __ubsan_handle_shift_out_of_bounds(struct ShiftOutOfBoundsData * data, unsi
 #define IS_ALIGNED(a, b) (((a) & ((__typeof__(a))(b)-1)) == 0)
 
 void __ubsan_handle_type_mismatch(struct TypeMismatchData * data, unsigned long ptr) {
-	return;
+	return; /* Unaligned reads are valid on x86, and we have some very ugly code where this goes poorly. */
 	ubsan_debug(&data->location);
 	if (data->alignment && !IS_ALIGNED(ptr, data->alignment)) {
 		fprintf(&_ubsan_log, "bad alignment in read at 0x%x (wanted %d)\n", ptr, data->alignment);
