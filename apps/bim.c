@@ -24,6 +24,7 @@
 
 #ifdef __linux__
 #include <stdio_ext.h>
+#include <locale.h>
 #define BACKSPACE_KEY 0x7F
 #else
 #include <syscall.h>
@@ -551,6 +552,10 @@ void SIGWINCH_handler(int sig) {
 }
 
 void initialize() {
+#ifdef __linux__
+	setlocale(LC_ALL, "");
+#endif
+
 	buffers_avail = 4;
 	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
 
