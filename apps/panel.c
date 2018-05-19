@@ -108,6 +108,7 @@ static sprite_t * sprite_net_disabled;
 
 struct MenuList * appmenu;
 struct MenuList * window_menu;
+struct MenuList * logout_menu;
 static yutani_wid_t _window_menu_wid = 0;
 
 static int center_x(int x) {
@@ -293,8 +294,12 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 		if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
 			/* Up-down click */
 			if (evt->new_x >= width - 24 ) {
-				yutani_session_end(yctx);
-				_continue = 0;
+				if (!logout_menu->window) {
+					menu_show(logout_menu, yctx);
+					if (logout_menu->window) {
+						yutani_window_move(yctx, logout_menu->window, width - logout_menu->window->width, PANEL_HEIGHT);
+					}
+				}
 			} else if (evt->new_x < APP_OFFSET) {
 				if (!appmenu->window) {
 					menu_show(appmenu, yctx);
@@ -437,7 +442,12 @@ static void redraw_alttab(void) {
 static void launch_application_menu(struct MenuEntry * self) {
 	struct MenuEntry_Normal * _self = (void *)self;
 
-	launch_application((char *)_self->action);
+	if (!strcmp((char *)_self->action,"log-out")) {
+		yutani_session_end(yctx);
+		_continue = 0;
+	} else {
+		launch_application((char *)_self->action);
+	}
 }
 
 static void handle_key_event(struct yutani_msg_key_event * ke) {
@@ -925,6 +935,9 @@ int main (int argc, char ** argv) {
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Move", _window_menu_start_move));
 	menu_insert(window_menu, menu_create_separator());
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Close", _window_menu_close));
+
+	logout_menu = menu_create();
+	menu_insert(logout_menu, menu_create_normal("exit", "log-out", "Log Out", launch_application_menu));
 
 	/* Subscribe to window updates */
 	yutani_subscribe_windows(yctx);
