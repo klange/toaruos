@@ -2,6 +2,7 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
+#include <toaru/menu.h>
 
 #include <sys/utsname.h>
 
@@ -38,6 +39,7 @@ static void redraw(void) {
 	draw_string(100, "http://toaruos.org", SDF_FONT_THIN, rgb(0,0,255));
 	draw_string(120, "https://github.com/klange/toaru-nih", SDF_FONT_THIN, rgb(0,0,255));
 
+	window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
 	render_decorations(window, ctx, TITLE);
 
 	flip(ctx);
@@ -71,7 +73,8 @@ int main(int argc, char * argv[]) {
 	int playing = 1;
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
-		if (m) {
+		while (m) {
+			menu_process_event(yctx, m);
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
@@ -101,10 +104,15 @@ int main(int argc, char * argv[]) {
 #endif
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
 						int result = decor_handle_event(yctx, m);
 						switch (result) {
 							case DECOR_CLOSE:
 								playing = 0;
+								break;
+							case DECOR_RIGHT:
+								/* right click in decoration, show appropriate menu */
+								decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
 								break;
 							default:
 								/* Other actions */
@@ -119,8 +127,9 @@ int main(int argc, char * argv[]) {
 				default:
 					break;
 			}
+			free(m);
+			m = yutani_poll_async(yctx);
 		}
-		free(m);
 	}
 
 	yutani_close(yctx, window);

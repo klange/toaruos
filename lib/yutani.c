@@ -501,7 +501,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	win->bufid = mw->bufid;
 	win->wid = mw->wid;
 	win->focused = 0;
-	win->is_decorated = 0;
+	win->decorator_flags = 0;
 	win->x = 0;
 	win->y = 0;
 	win->user_data = NULL;

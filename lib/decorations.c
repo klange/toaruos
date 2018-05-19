@@ -96,7 +96,7 @@ static void initialize_simple() {
 
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
-	window->is_decorated = true;
+	window->decorator_flags |= DECOR_FLAG_DECORATED;
 	if (!window->focused) {
 		decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
 	} else {
@@ -106,7 +106,7 @@ void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * ti
 
 void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
-	window->is_decorated = true;
+	window->decorator_flags |= DECOR_FLAG_DECORATED;
 	decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
 }
 
@@ -250,7 +250,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
 					yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
 					if (!window) return 0;
-					if (!window->is_decorated) return 0;
+					if (!(window->decorator_flags & DECOR_FLAG_DECORATED)) return 0;
 					if (within_decors(window, me->new_x, me->new_y)) {
 						int button = decor_check_button_press(window, me->new_x, me->new_y);
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {

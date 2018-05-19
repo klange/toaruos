@@ -56,3 +56,5 @@ extern yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y
 #define DECOR_ACTIVE   0
 #define DECOR_INACTIVE 1
 
+#define DECOR_FLAG_DECORATED   (1 << 0)
+#define DECOR_FLAG_NO_MAXIMIZE (1 << 1)

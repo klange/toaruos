@@ -103,7 +103,9 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 
 	/* Buttons */
 	draw_sprite(ctx, sprites[decors_active + 8], width - 28, 16);
-	draw_sprite(ctx, sprites[decors_active + 9], width - 50, 16);
+	if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
+		draw_sprite(ctx, sprites[decors_active + 9], width - 50, 16);
+	}
 }
 
 static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
@@ -112,9 +114,11 @@ static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
 		return DECOR_CLOSE;
 	}
 
-	if (x >= (int)window->width - 50 && x <= (int)window->width - 40 &&
-		y >= 16 && y <= 26) {
-		return DECOR_MAXIMIZE;
+	if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
+		if (x >= (int)window->width - 50 && x <= (int)window->width - 40 &&
+			y >= 16 && y <= 26) {
+			return DECOR_MAXIMIZE;
+		}
 	}
 
 	return 0;

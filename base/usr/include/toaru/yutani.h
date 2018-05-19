@@ -202,7 +202,7 @@ typedef struct yutani_window {
 	int32_t x;
 	int32_t y;
 
-	bool is_decorated;
+	uint32_t decorator_flags;
 	yutani_t * ctx;
 } yutani_window_t;
 
