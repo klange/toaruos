@@ -2,7 +2,7 @@
 &accessories,folder,Accessories
 &demos,folder,Demos
 -
-help,help,Help
+#help,help,Help
 about,star,About ToaruOS
 log-out,exit,Log Out
 :accessories
