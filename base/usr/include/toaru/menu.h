@@ -19,6 +19,7 @@ struct MenuEntry {
 	int width; /* Actual width */
 	int rwidth; /* Requested width */
 	int hilight; /* Is currently hilighted */
+	int offset; /* Our offset when we were rendered */
 
 	void (*renderer)(gfx_context_t *, struct MenuEntry *, int);
 	void (*focus_change)(struct MenuEntry *, int);
@@ -49,6 +50,10 @@ struct MenuList {
 	list_t * entries;
 	gfx_context_t * ctx;
 	yutani_window_t * window;
+	struct MenuSet * set;
+	struct MenuList * child;
+	struct MenuList * parent;
+	int closed;
 };
 
 struct MenuSet {
@@ -65,6 +70,7 @@ extern void menu_insert(struct MenuList * menu, struct MenuEntry * entry);
 extern void menu_show(struct MenuList * menu, yutani_t * yctx);
 extern int menu_process_event(yutani_t * yctx, yutani_msg_t * m);
 extern struct MenuList * menu_set_get_root(struct MenuSet * menu);
+extern struct MenuList * menu_set_get_menu(struct MenuSet * menu, char * submenu);
 
 extern void menu_free_entry(struct MenuEntry * ptr);
 extern void menu_free_menu(struct MenuList * ptr);
