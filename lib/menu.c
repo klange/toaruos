@@ -72,7 +72,6 @@ void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, i
 void _menu_focus_MenuEntry_Normal(struct MenuEntry * self, int focused) {
 	if (focused) {
 		if (self->_owner && self->_owner->child) {
-			fprintf(stderr, "Close current child because a normal entry was hovered\n");
 			menu_definitely_close(self->_owner->child);
 			self->_owner->child = NULL;
 		}
@@ -82,13 +81,11 @@ void _menu_focus_MenuEntry_Normal(struct MenuEntry * self, int focused) {
 void _menu_activate_MenuEntry_Normal(struct MenuEntry * self, int flags) {
 	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
 
-	fprintf(stderr, "Closing all menus because an entry was selected\n");
 	list_t * menu_keys = hashmap_keys(menu_windows);
 	hovered_menu = NULL;
 	foreach(_key, menu_keys) {
 		yutani_window_t * window = hashmap_get(menu_windows, (void*)_key->value);
 		if (window) {
-			fprintf(stderr, "Killing menu window %d\n", window->wid);
 			struct MenuList * menu = window->user_data;
 			menu_definitely_close(menu);
 			if (menu->parent && menu->parent->child == menu) {
@@ -144,15 +141,11 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 			menu_definitely_close(_self->_owner->child);
 			_self->_owner->child = NULL;
 		}
-		if (!_self->_owner->child) {
-			new_menu->parent = _self->_owner;
-			new_menu->parent->child = new_menu;
-			if (!new_menu->closed) {
-				fprintf(stderr, "Menu is not closed, refusing to make new window!\n");
-			} else {
-				menu_show(new_menu, _self->_owner->window->ctx);
-				yutani_window_move(_self->_owner->window->ctx, new_menu->window, _self->_owner->window->width + _self->_owner->window->x - 2, _self->_owner->window->y + _self->offset - 4);
-			}
+		new_menu->parent = _self->_owner;
+		new_menu->parent->child = new_menu;
+		if (new_menu->closed) {
+			menu_show(new_menu, _self->_owner->window->ctx);
+			yutani_window_move(_self->_owner->window->ctx, new_menu->window, _self->_owner->window->width + _self->_owner->window->x - 2, _self->_owner->window->y + _self->offset - 4);
 		}
 	}
 
@@ -185,7 +178,6 @@ void _menu_draw_MenuEntry_Separator(gfx_context_t * ctx, struct MenuEntry * self
 void _menu_focus_MenuEntry_Separator(struct MenuEntry * self, int focused) {
 	if (focused) {
 		if (self->_owner && self->_owner->child) {
-			fprintf(stderr, "Closing current child because a separated was hovered\n");
 			menu_definitely_close(self->_owner->child);
 			self->_owner->child = NULL;
 		}
@@ -460,11 +452,16 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 
 int menu_has_eventual_child(struct MenuList * root, struct MenuList * child) {
 
+	if (!child) return 0;
 	if (root == child) return 1;
 
 	struct MenuList * candidate = root->child;
 
 	while (candidate && candidate != child) {
+		if (candidate == root->child) {
+			root->child = NULL;
+			return 1;
+		}
 		candidate = root->child;
 	}
 
@@ -473,32 +470,38 @@ int menu_has_eventual_child(struct MenuList * root, struct MenuList * child) {
 
 int menu_definitely_close(struct MenuList * menu) {
 
-	fprintf(stderr, "Closing menu with wid %d\n", menu->window->wid);
-
 	if (menu->child) {
 		menu_definitely_close(menu->child);
 		menu->child = NULL;
 	}
 
 	if (menu->closed) {
-		fprintf(stderr, "Not closing wid %d, already closed.\n", menu->window->wid);
 		return 0;
 	}
 
 	/* if focused_widget, leave focus on widget */
-	fprintf(stderr, "Closing wid %d\n", menu->window->wid);
+	foreach(node, menu->entries) {
+		struct MenuEntry * entry = node->value;
+		entry->hilight = 0;
+	}
 	menu->closed = 1;
 	yutani_wid_t wid = menu->window->wid;
 	yutani_close(menu->window->ctx, menu->window);
 	menu->window = NULL;
-	hashmap_remove(menu_windows, wid);
+	hashmap_remove(menu_windows, (void*)wid);
 
 	return 0;
 }
 
 int menu_leave(struct MenuList * menu) {
 
-	fprintf(stderr, "Leaving menu %d\n", menu->window->wid);
+	if (!hovered_menu) {
+		while (menu->parent) {
+			menu = menu->parent;
+		}
+		menu_definitely_close(menu);
+		return 0;
+	}
 
 	if (!menu_has_eventual_child(menu, hovered_menu)) {
 		/* Get all menus */
@@ -507,7 +510,7 @@ int menu_leave(struct MenuList * menu) {
 			yutani_window_t * window = hashmap_get(menu_windows, (void *)_key->value);
 			if (window) {
 				struct MenuList * menu = window->user_data;
-				if (!hovered_menu || (menu == hovered_menu->child && !menu_has_eventual_child(menu, hovered_menu)))  {
+				if (!hovered_menu || (menu != hovered_menu->child && !menu_has_eventual_child(menu, hovered_menu)))  {
 					menu_definitely_close(menu);
 					if (menu->parent && menu->parent->child == menu) {
 						menu->parent->child = NULL;
@@ -520,14 +523,61 @@ int menu_leave(struct MenuList * menu) {
 		free(menu_keys);
 	}
 
-	if (!hovered_menu) {
-		while (menu->parent) {
-			menu = menu->parent;
+	return 0;
+}
+
+void menu_mouse_action(struct MenuList * menu, struct yutani_msg_window_mouse_event * me) {
+	yutani_window_t * window = menu->window;
+	yutani_t * yctx = window->ctx;
+
+	int offset = 4;
+	int changed = 0;
+	foreach(node, menu->entries) {
+		struct MenuEntry * entry = node->value;
+		if (me->new_y >= offset && me->new_y < offset + entry->height &&
+				me->new_x >= 0 && me->new_x < entry->width) {
+			if (!entry->hilight) {
+				changed = 1;
+				entry->hilight = 1;
+				entry->focus_change(entry, 1);
+			}
+			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
+				if (entry->activate) {
+					entry->activate(entry, 0);
+				}
+			}
+		} else {
+			if (entry->hilight) {
+				changed = 1;
+				entry->hilight = 0;
+				entry->focus_change(entry, 0);
+			}
 		}
-		menu_definitely_close(menu);
+		offset += entry->height;
+	}
+	if (changed) {
+		_menu_redraw(window,yctx,menu);
+	}
+}
+
+struct MenuList * menu_any_contains(int x, int y) {
+	struct MenuList * out = NULL;
+	list_t * menu_keys = hashmap_keys(menu_windows);
+	foreach(_key, menu_keys) {
+		yutani_window_t * window = hashmap_get(menu_windows, (void*)_key->value);
+		if (window) {
+			if (x >= (int)window->x && x < (int)window->x + (int)window->width && y >= (int)window->y && y < (int)window->y + (int)window->height) {
+				out = window->user_data;
+				break;
+
+			}
+		}
 	}
 
-	return 0;
+	list_free(menu_keys);
+	free(menu_keys);
+
+	return out;
 }
 
 int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
@@ -540,42 +590,21 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 						yutani_window_t * window = hashmap_get(menu_windows, (void *)me->wid);
 						struct MenuList * menu = window->user_data;
 						if (me->new_x >= 0 && me->new_x < (int)window->width && me->new_y >= 0 && me->new_y < (int)window->height) {
-							fprintf(stderr, "setting hovered menu to %d\n", menu->entries->length);
-							hovered_menu = menu;
-
+							if (hovered_menu != menu)  {
+								hovered_menu = menu;
+							}
 						} else {
-							fprintf(stderr, "UNsetting hoevered menu from menu with %d entries\n", menu->entries->length);
-							hovered_menu = NULL;
-						}
-
-						int offset = 4;
-						int changed = 0;
-						foreach(node, menu->entries) {
-							struct MenuEntry * entry = node->value;
-							if (me->new_y >= offset && me->new_y < offset + entry->height &&
-									me->new_x >= 0 && me->new_x < entry->width) {
-								if (!entry->hilight) {
-									changed = 1;
-									entry->hilight = 1;
-									entry->focus_change(entry, 1);
-								}
-								if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
-									if (entry->activate) {
-										entry->activate(entry, 0);
-									}
-								}
-							} else {
-								if (entry->hilight) {
-									changed = 1;
-									entry->hilight = 0;
-									entry->focus_change(entry, 0);
+							if (hovered_menu) {
+								struct MenuList * t = menu_any_contains(me->new_x + window->x, me->new_y + window->y);
+								if (t) {
+									hovered_menu = t;
+								} else {
+									hovered_menu = NULL;
 								}
 							}
-							offset += entry->height;
 						}
-						if (changed) {
-							_menu_redraw(window,yctx,menu);
-						}
+						menu_mouse_action(menu, me);
+
 					}
 				}
 				break;
@@ -587,7 +616,6 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 						struct MenuList * menu = window->user_data;
 						if (!me->focused) {
 							/* XXX leave menu */
-							fprintf(stderr, "should be leaving menu...\n");
 							menu_leave(menu);
 							/* if root and not window.root.menus and window.root.focused */
 							return 1;

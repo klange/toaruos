@@ -8,6 +8,10 @@ log-out,exit,Log Out
 :accessories
 terminal,utilities-terminal,Terminal
 :demos
+&decorated,folder,Decorated
+&undecorated,folder,Undecorated
+:undecorated
 drawlines,drawlines,Draw Lines
+:decorated
 julia,julia,Julia Fractals
 plasma,plasma,Plasma
