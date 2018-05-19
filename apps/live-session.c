@@ -6,11 +6,15 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <toaru/auth.h>
+#include <toaru/trace.h>
+#define TRACE_APP_NAME "live-session"
 
 int main(int argc, char * argv[]) {
 	if (getuid() != 0) {
 		return 1;
 	}
+
+	TRACE("Starting live session.");
 
 	int _session_pid = fork();
 	if (!_session_pid) {
@@ -28,7 +32,13 @@ int main(int argc, char * argv[]) {
 		pid = wait(NULL);
 	} while ((pid > 0 && pid != _session_pid) || (pid == -1 && errno == EINTR));
 
-	/* TODO Exec login manager here */
+	TRACE("Live session has ended, launching graphical login.");
+	char * args[] = {"/bin/glogin",NULL};
+	execvp(args[0],args);
+
+	TRACE("failed to start glogin after log out, trying to reboot instead.");
+	system("reboot");
+
 
 	return 0;
 }
