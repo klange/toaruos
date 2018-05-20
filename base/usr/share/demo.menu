@@ -2,10 +2,11 @@
 &accessories,folder,Accessories
 &demos,folder,Demos
 -
-#help,help,Help
+help-browser,help,Help Browser
 about,star,About ToaruOS
 log-out,exit,Log Out
 :accessories
+file-browser,folder,File Browser
 terminal,utilities-terminal,Terminal
 :demos
 &decorated,folder,Decorated
