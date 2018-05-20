@@ -78,6 +78,8 @@ uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 uint8_t  _free_size     = 1;    /* Disable rounding when resized */
 
+int menu_bar_height = 24;
+
 int selection = 0;
 int selection_start_x = 0;
 int selection_start_y = 0;
@@ -90,6 +92,8 @@ int      last_mouse_y   = -1;
 int      button_state   = 0;
 
 uint64_t mouse_ticks = 0;
+
+struct MenuList * menu_right_click = NULL;
 
 yutani_window_t * window       = NULL; /* GUI window */
 yutani_t * yctx = NULL;
@@ -329,11 +333,112 @@ void input_buffer_stuff(char * str) {
 	write(fd_master, str, s);
 }
 
+struct menu_bar_entries {
+	char * title;
+	char * action;
+};
+
+struct menu_bar {
+	int x;
+	int y;
+	int width;
+
+	struct menu_bar_entries * entries;
+
+	struct MenuSet * set;
+
+	struct menu_bar_entries * active_entry;
+	struct MenuList * active_menu;
+	int active_menu_wid;
+};
+
+
+struct menu_bar terminal_menu_bar = {0};
+struct menu_bar_entries terminal_menu_entries[] = {
+	{"File", "file"},
+	{"Edit", "edit"},
+	{"View", "view"},
+	{"Help", "help"},
+	{NULL, NULL},
+};
+
+void menu_bar_render(struct menu_bar * self) {
+	int _x = self->x;
+	int _y = self->y;
+	int width = self->width;
+
+	uint32_t menu_bar_color = rgb(59,59,59);
+	for (int y = 0; y < menu_bar_height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			GFX(ctx, x+_x,y+_y) = menu_bar_color;
+		}
+	}
+
+	/* for each menu entry */
+	int offset = _x;
+	struct menu_bar_entries * _entries = self->entries;
+
+	while (_entries->title) {
+		int w = draw_sdf_string_width(_entries->title, 16, SDF_FONT_THIN) + 10;
+		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)self->active_menu_wid)) && _entries == self->active_entry) {
+			for (int y = _y; y < _y + 24; ++y) {
+				for (int x = offset + 2; x < offset + 2 + w; ++x) {
+					GFX(ctx, x, y) = rgb(93,163,236);
+				}
+			}
+		}
+		offset += draw_sdf_string(ctx, offset + 4, _y + 2, _entries->title, 16, rgb(255,255,255), SDF_FONT_THIN) + 10;
+		_entries++;
+	}
+}
+
+void menu_bar_show_menu(struct menu_bar * self, int offset, struct menu_bar_entries * _entries) {
+	struct MenuList * new_menu = menu_set_get_menu(self->set, _entries->action);
+	menu_show(new_menu, yctx);
+	yutani_window_move(yctx, new_menu->window, window->x + offset, window->y + self->y + 24);
+	self->active_menu = new_menu;
+	self->active_menu_wid = new_menu->window->wid;
+	self->active_entry = _entries;
+	render_decors(); /* XXX this is specific to terminal, needs a redraw callback */
+}
+
+int menu_bar_mouse_event(struct menu_bar * self, struct yutani_msg_window_mouse_event * me, int x, int y) {
+	if (x < self->x || x >= self->x + self->width || y < self->y || y >= self->y + 24 /* base height */) {
+		return 0;
+	}
+
+	int offset = self->x;
+
+	struct menu_bar_entries * _entries = self->entries;
+
+	while (_entries->title) {
+		int w = draw_sdf_string_width(_entries->title, 16, SDF_FONT_THIN) + 10;
+		if (x >= offset && x < offset + w) {
+			if (me->command == YUTANI_MOUSE_EVENT_CLICK) {
+				menu_bar_show_menu(self,offset,_entries);
+			} else if (self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)self->active_menu_wid) && _entries != self->active_entry) {
+				menu_definitely_close(self->active_menu);
+				menu_bar_show_menu(self,offset,_entries);
+			}
+		}
+
+		offset += w;
+		_entries++;
+	}
+
+	return 0;
+}
+
 static void render_decors() {
 	/* XXX Make the decorations library support Yutani windows */
 	if (_fullscreen) return;
 	if (!_no_frame) {
 		render_decorations(window, ctx, terminal_title_length ? terminal_title : "Terminal");
+		terminal_menu_bar.x = decor_left_width;
+		terminal_menu_bar.y = decor_top_height;
+		terminal_menu_bar.width = window_width;
+		terminal_menu_bar.entries = terminal_menu_entries;
+		menu_bar_render(&terminal_menu_bar);
 	}
 	yutani_window_advertise_icon(yctx, window, terminal_title_length ? terminal_title : "Terminal", "utilities-terminal");
 	l_x = 0; l_y = 0;
@@ -347,7 +452,7 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 		color = alpha_blend_rgba(premultiply(rgba(0,0,0,0xFF)), color);
 	}
 	if (!_no_frame) {
-		GFX(ctx, (x+decor_left_width),(y+decor_top_height)) = color;
+		GFX(ctx, (x+decor_left_width),(y+decor_top_height+menu_bar_height)) = color;
 	} else {
 		GFX(ctx, x,y) = color;
 	}
@@ -602,7 +707,7 @@ term_write_char(
 			if (_no_frame) {
 				draw_sdf_string_gamma(ctx, x-1, y, tmp, font_size, _fg, _font, font_gamma);
 			} else {
-				draw_sdf_string_gamma(ctx, x+decor_left_width-1, y+decor_top_height, tmp, font_size, _fg, _font, font_gamma);
+				draw_sdf_string_gamma(ctx, x+decor_left_width-1, y+decor_top_height+menu_bar_height, tmp, font_size, _fg, _font, font_gamma);
 			}
 		}
 	} else {
@@ -654,14 +759,14 @@ _extra_stuff:
 
 	if (!_no_frame) {
 		l_x = min(l_x, decor_left_width + x);
-		l_y = min(l_y, decor_top_height + y);
+		l_y = min(l_y, decor_top_height+menu_bar_height + y);
 
 		if (flags & ANSI_WIDE) {
 			r_x = max(r_x, decor_left_width + x + char_width * 2);
-			r_y = max(r_y, decor_top_height + y + char_height * 2);
+			r_y = max(r_y, decor_top_height+menu_bar_height + y + char_height * 2);
 		} else {
 			r_x = max(r_x, decor_left_width + x + char_width);
-			r_y = max(r_y, decor_top_height + y + char_height);
+			r_y = max(r_y, decor_top_height+menu_bar_height + y + char_height);
 		}
 	} else {
 		l_x = min(l_x, x);
@@ -697,9 +802,9 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
 	}
 	if (!_no_frame) {
 		l_x = min(l_x, decor_left_width + x * char_width);
-		l_y = min(l_y, decor_top_height + y * char_height);
+		l_y = min(l_y, decor_top_height+menu_bar_height + y * char_height);
 		r_x = max(r_x, decor_left_width + x * char_width + char_width);
-		r_y = max(r_y, decor_top_height + y * char_height + char_height);
+		r_y = max(r_y, decor_top_height+menu_bar_height + y * char_height + char_height);
 	} else {
 		l_x = min(l_x, x * char_width);
 		l_y = min(l_y, y * char_height);
@@ -789,8 +894,8 @@ void term_scroll(int how_much) {
 		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
 		if (!_no_frame) {
 			/* Must include decorations */
-			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
-			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
+			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height)) * GFX_B(ctx);
+			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height + char_height * how_much)) * GFX_B(ctx);
 		} else {
 			/* Can skip decorations */
 			dst = (uintptr_t)ctx->backbuffer;
@@ -814,8 +919,8 @@ void term_scroll(int how_much) {
 		uintptr_t dst, src;
 		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
 		if (!_no_frame) {
-			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * decor_top_height) * GFX_B(ctx);
-			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height + char_height * how_much)) * GFX_B(ctx);
+			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height)) * GFX_B(ctx);
+			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height + char_height * how_much)) * GFX_B(ctx);
 		} else {
 			src = (uintptr_t)ctx->backbuffer;
 			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
@@ -1282,7 +1387,7 @@ void key_event(int ret, key_event_t * event) {
 				if (!_fullscreen) {
 					_no_frame = !_no_frame;
 					window_width = window->width - decor_width() * (!_no_frame);
-					window_height = window->height - decor_height() * (!_no_frame);
+					window_height = window->height - (decor_height() + menu_bar_height) * (!_no_frame);
 					reinit(1);
 				}
 				break;
@@ -1522,7 +1627,7 @@ static void resize_finish(int width, int height) {
 
 	if (!_no_frame) {
 		extra_x = decor_width();
-		extra_y = decor_height();
+		extra_y = decor_height() + menu_bar_height;
 	}
 
 	int t_window_width  = width  - extra_x;
@@ -1631,6 +1736,7 @@ void * handle_incoming(void) {
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
+					if (me->wid != window->wid) break;
 					if (!_no_frame) {
 						int decor_response = decor_handle_event(yctx, m);
 
@@ -1646,13 +1752,15 @@ void * handle_incoming(void) {
 							default:
 								break;
 						}
+
+						menu_bar_mouse_event(&terminal_menu_bar, me, me->new_x, me->new_y);
 					}
 
 					if (!_no_frame) {
 						if (me->new_x < 0 || me->new_x >= (int)window_width + (int)decor_width() || me->new_y < 0 || me->new_y >= (int)window_height + (int)decor_height()) {
 							break;
 						}
-						if (me->new_y < (int)decor_top_height || me->new_y >= (int)(window_height + decor_top_height)) {
+						if (me->new_y < (int)decor_top_height+menu_bar_height || me->new_y >= (int)(window_height + decor_top_height+menu_bar_height)) {
 							break;
 						}
 						if (me->new_x < (int)decor_left_width || me->new_y >= (int)(window_width + decor_left_width)) {
@@ -1668,7 +1776,7 @@ void * handle_incoming(void) {
 					int new_y = me->new_y;
 					if (!_no_frame) {
 						new_x -= decor_left_width;
-						new_y -= decor_top_height;
+						new_y -= decor_top_height+menu_bar_height;
 					}
 					/* Convert from coordinate to cell positon */
 					new_x /= char_width;
@@ -1735,6 +1843,11 @@ void * handle_incoming(void) {
 							scroll_up(5);
 						} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
 							scroll_down(5);
+						} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
+							if (!menu_right_click->window) {
+								menu_show(menu_right_click, yctx);
+								yutani_window_move(yctx, menu_right_click->window, window->x + me->new_x, window->y + me->new_y);
+							}
 						}
 					}
 				}
@@ -1747,6 +1860,26 @@ void * handle_incoming(void) {
 	}
 
 	return NULL;
+}
+
+void _menu_action_exit(struct MenuEntry * self) {
+	kill(child_pid, SIGKILL);
+	exit_application = 1;
+}
+
+void _menu_action_hide_borders(struct MenuEntry * self) {
+	_no_frame = !(_no_frame);
+	window_width = window->width - decor_width() * (!_no_frame);
+	window_height = window->height - (decor_height() + menu_bar_height) * (!_no_frame);
+	reinit(1);
+}
+
+void _menu_action_copy(struct MenuEntry * self) {
+	copy_selection();
+}
+
+void _menu_action_paste(struct MenuEntry * self) {
+	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 }
 
 void maybe_flip_cursor(void) {
@@ -1848,7 +1981,8 @@ int main(int argc, char ** argv) {
 		window = yutani_window_create(yctx, window_width, window_height);
 	} else {
 		init_decorations();
-		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height + decor_bottom_height);
+		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height+menu_bar_height + decor_bottom_height);
+
 	}
 
 	if (_fullscreen) {
@@ -1857,6 +1991,42 @@ int main(int argc, char ** argv) {
 	} else {
 		window->focused = 0;
 	}
+
+	/* Set up menus */
+	struct MenuEntry * _menu_exit = menu_create_normal("exit","exit","Exit", _menu_action_exit);
+	struct MenuEntry * _menu_copy = menu_create_normal(NULL, NULL, "Copy", _menu_action_copy);
+	struct MenuEntry * _menu_paste = menu_create_normal(NULL, NULL, "Paste", _menu_action_paste);
+
+
+	menu_right_click = menu_create();
+	menu_insert(menu_right_click, _menu_copy);
+	menu_insert(menu_right_click, _menu_paste);
+	menu_insert(menu_right_click, menu_create_separator());
+	menu_insert(menu_right_click, menu_create_normal(NULL, NULL, "Toggle borders", _menu_action_hide_borders));
+	menu_insert(menu_right_click, menu_create_separator());
+	menu_insert(menu_right_click, _menu_exit);
+
+	/* Menu Bar menus */
+	terminal_menu_bar.set = menu_set_create();
+	struct MenuList * m;
+	m = menu_create(); /* File */
+	menu_insert(m, _menu_exit);
+	menu_set_insert(terminal_menu_bar.set, "file", m);
+
+	m = menu_create();
+	menu_insert(m, _menu_copy);
+	menu_insert(m, _menu_paste);
+	menu_set_insert(terminal_menu_bar.set, "edit", m);
+
+	m = menu_create();
+	menu_insert(m, menu_create_normal(NULL, NULL, "Hide borders", _menu_action_hide_borders));
+	menu_set_insert(terminal_menu_bar.set, "view", m);
+
+	m = menu_create();
+	menu_insert(m, menu_create_normal("star","star","About Terminal", NULL));
+	menu_set_insert(terminal_menu_bar.set, "help", m);
+
+
 
 	/* Initialize the graphics context */
 	ctx = init_graphics_yutani_double_buffer(window);
