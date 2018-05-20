@@ -145,7 +145,11 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 		new_menu->parent->child = new_menu;
 		if (new_menu->closed) {
 			menu_show(new_menu, _self->_owner->window->ctx);
-			yutani_window_move(_self->_owner->window->ctx, new_menu->window, _self->_owner->window->width + _self->_owner->window->x - 2, _self->_owner->window->y + _self->offset - 4);
+			if (_self->_owner->window->width + _self->_owner->window->x - 2 + new_menu->window->width > _self->_owner->window->ctx->display_width) {
+				yutani_window_move(_self->_owner->window->ctx, new_menu->window, _self->_owner->window->x + 2 - new_menu->window->width, _self->_owner->window->y + _self->offset - 4);
+			} else {
+				yutani_window_move(_self->_owner->window->ctx, new_menu->window, _self->_owner->window->width + _self->_owner->window->x - 2, _self->_owner->window->y + _self->offset - 4);
+			}
 		}
 	}
 
