@@ -1,3 +1,5 @@
+#pragma once
+
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
