@@ -34,6 +34,10 @@ static void _init_menus(void) {
 	menu_windows = hashmap_create_int(10);
 }
 
+hashmap_t * menu_get_windows_hash(void) {
+	return menu_windows;
+}
+
 void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
 	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
 
@@ -290,6 +294,16 @@ struct MenuList * menu_create(void) {
 	p->parent = NULL;
 	p->closed = 1;
 	return p;
+}
+
+struct MenuSet * menu_set_create(void) {
+	struct MenuSet * _out = malloc(sizeof(struct MenuSet));
+	_out->_menus = hashmap_create(10);
+	return _out;
+}
+
+void menu_set_insert(struct MenuSet * set, char * action, struct MenuList * menu) {
+	hashmap_set(set->_menus, action, menu);
 }
 
 struct MenuSet * menu_set_from_description(const char * path, void (*callback)(struct MenuEntry *)) {

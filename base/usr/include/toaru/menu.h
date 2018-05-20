@@ -76,3 +76,7 @@ extern void menu_free_entry(struct MenuEntry * ptr);
 extern void menu_free_menu(struct MenuList * ptr);
 extern void menu_free_set(struct MenuSet * ptr);
 
+extern hashmap_t * menu_get_windows_hash(void);
+extern int menu_definitely_close(struct MenuList * menu);
+extern struct MenuSet * menu_set_create(void);
+extern void menu_set_insert(struct MenuSet * set, char * action, struct MenuList * menu);
