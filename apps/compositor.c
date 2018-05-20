@@ -40,7 +40,7 @@
 #include <toaru/list.h>
 #include <toaru/spinlock.h>
 
-#define _DEBUG_YUTANI
+//#define _DEBUG_YUTANI
 #ifdef _DEBUG_YUTANI
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "yutani"
