@@ -41,7 +41,6 @@ DEFN_SYSCALL1(umask, 51, int);
 DEFN_SYSCALL1(unlink, 52, char *);
 DEFN_SYSCALL3(waitpid, 53, int, int *, int);
 DEFN_SYSCALL5(mount, SYS_MOUNT, char *, char *, char *, unsigned long, void *);
-DEFN_SYSCALL2(symlink, SYS_SYMLINK, char *, char *);
 DEFN_SYSCALL2(lstat, SYS_LSTAT, char *, void *);
 DEFN_SYSCALL2(fswait, SYS_FSWAIT, int, int *);
 DEFN_SYSCALL3(fswait2, SYS_FSWAIT2, int, int *,int);

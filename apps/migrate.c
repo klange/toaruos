@@ -30,7 +30,10 @@ int tokenize(char * str, char * sep, char **buf) {
 }
 
 void copy_link(char * source, char * dest) {
-	fprintf(stderr, "need to copy link %s to %s\n", source, dest);
+	//fprintf(stderr, "need to copy link %s to %s\n", source, dest);
+	char tmp[1024];
+	readlink(source, tmp, 1024);
+	symlink(tmp, dest);
 }
 
 void copy_file(char * source, char * dest, int mode) {
