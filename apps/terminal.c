@@ -1943,6 +1943,8 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();
+	menu_insert(m, menu_create_normal("help","help","Contents", NULL));
+	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal("star","star","About Terminal", NULL));
 	menu_set_insert(terminal_menu_bar.set, "help", m);
 
