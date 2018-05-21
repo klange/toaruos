@@ -76,7 +76,7 @@ static mboot_mod_t modules_mboot[sizeof(modules)/sizeof(*modules)] = {
 };
 
 static struct multiboot multiboot_header = {
-	/* flags;             */ (1 << 3),
+	/* flags;             */ MULTIBOOT_FLAG_CMDLINE | MULTIBOOT_FLAG_MODS | MULTIBOOT_FLAG_MEM | MULTIBOOT_FLAG_MMAP,
 	/* mem_lower;         */ 0x100000,
 	/* mem_upper;         */ 0x640000,
 	/* boot_device;       */ 0,

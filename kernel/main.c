@@ -96,7 +96,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	isrs_install();     /* Interrupt service requests */
 	irq_install();      /* Hardware interrupt requests */
 
-	if (mboot_ptr->flags & (1 << 3)) {
+	if (mboot_ptr->flags & MULTIBOOT_FLAG_MODS) {
 		debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
 		debug_print(NOTICE, "Current kernel heap start point would be 0x%x.", &end);
 		if (mboot_ptr->mods_count > 0) {
@@ -122,8 +122,13 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		}
 	}
 
-	paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);
-	if (mboot_ptr->flags & (1 << 6)) {
+	if (mboot_ptr->flags & MULTIBOOT_FLAG_MEM) {
+		paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);
+	} else {
+		debug_print(CRITICAL, "Missing MEM flag in multiboot header\n");
+	}
+
+	if (mboot_ptr->flags & MULTIBOOT_FLAG_MMAP) {
 		debug_print(NOTICE, "Parsing memory map.");
 		mboot_memmap_t * mmap = (void *)mboot_ptr->mmap_addr;
 		while ((uintptr_t)mmap < mboot_ptr->mmap_addr + mboot_ptr->mmap_length) {
@@ -168,40 +173,42 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	DISABLE_EARLY_BOOT_LOG();
 
 	/* Load modules from bootloader */
-	debug_print(NOTICE, "%d modules to load", mboot_mods_count);
-	for (unsigned int i = 0; i < mboot_ptr->mods_count; ++i ) {
-		mboot_mod_t * mod = &mboot_mods[i];
-		uint32_t module_start = mod->mod_start;
-		uint32_t module_end = mod->mod_end;
-		size_t   module_size = module_end - module_start;
+	if (mboot_ptr->flags & MULTIBOOT_FLAG_MODS) {
+		debug_print(NOTICE, "%d modules to load", mboot_mods_count);
+		for (unsigned int i = 0; i < mboot_ptr->mods_count; ++i ) {
+			mboot_mod_t * mod = &mboot_mods[i];
+			uint32_t module_start = mod->mod_start;
+			uint32_t module_end = mod->mod_end;
+			size_t   module_size = module_end - module_start;
 
-		int check_result = module_quickcheck((void *)module_start);
-		if (check_result == 1) {
-			debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start, module_end);
-			module_data_t * mod_info = (module_data_t *)module_load_direct((void *)(module_start), module_size);
-			if (mod_info) {
-				debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
-			}
-		} else if (check_result == 2) {
-			/* Mod pack */
-			debug_print(NOTICE, "Loading modpack. %x", module_start);
-			struct pack_header * pack_header = (struct pack_header *)module_start;
-			while (pack_header->region_size) {
-				void * start = (void *)((uintptr_t)pack_header + 4096);
-				int result = module_quickcheck(start);
-				if (result != 1) {
-					debug_print(WARNING, "Not actually a module?! %x", start);
-				}
-				module_data_t * mod_info = (module_data_t *)module_load_direct(start, pack_header->region_size);
+			int check_result = module_quickcheck((void *)module_start);
+			if (check_result == 1) {
+				debug_print(NOTICE, "Loading a module: 0x%x:0x%x", module_start, module_end);
+				module_data_t * mod_info = (module_data_t *)module_load_direct((void *)(module_start), module_size);
 				if (mod_info) {
 					debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
 				}
-				pack_header = (struct pack_header *)((uintptr_t)start + pack_header->region_size);
+			} else if (check_result == 2) {
+				/* Mod pack */
+				debug_print(NOTICE, "Loading modpack. %x", module_start);
+				struct pack_header * pack_header = (struct pack_header *)module_start;
+				while (pack_header->region_size) {
+					void * start = (void *)((uintptr_t)pack_header + 4096);
+					int result = module_quickcheck(start);
+					if (result != 1) {
+						debug_print(WARNING, "Not actually a module?! %x", start);
+					}
+					module_data_t * mod_info = (module_data_t *)module_load_direct(start, pack_header->region_size);
+					if (mod_info) {
+						debug_print(NOTICE, "Loaded: %s", mod_info->mod_info->name);
+					}
+					pack_header = (struct pack_header *)((uintptr_t)start + pack_header->region_size);
+				}
+				debug_print(NOTICE, "Done with modpack.");
+			} else {
+				debug_print(NOTICE, "Loading ramdisk: 0x%x:0x%x", module_start, module_end);
+				ramdisk_mount(module_start, module_size);
 			}
-			debug_print(NOTICE, "Done with modpack.");
-		} else {
-			debug_print(NOTICE, "Loading ramdisk: 0x%x:0x%x", module_start, module_end);
-			ramdisk_mount(module_start, module_size);
 		}
 	}
 
