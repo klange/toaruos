@@ -1760,7 +1760,11 @@ void * handle_incoming(void) {
 						} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
 							if (!menu_right_click->window) {
 								menu_show(menu_right_click, yctx);
-								yutani_window_move(yctx, menu_right_click->window, window->x + me->new_x, window->y + me->new_y);
+								if (window->x + me->new_x + menu_right_click->window->width > yctx->display_width) {
+									yutani_window_move(yctx, menu_right_click->window, window->x + me->new_x - menu_right_click->window->width, window->y + me->new_y);
+								} else {
+									yutani_window_move(yctx, menu_right_click->window, window->x + me->new_x, window->y + me->new_y);
+								}
 							}
 						}
 					}
