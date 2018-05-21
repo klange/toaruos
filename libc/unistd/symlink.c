@@ -6,7 +6,7 @@
 
 DEFN_SYSCALL2(symlink, SYS_SYMLINK, char *, char *);
 
-int symlink(char * target, char * name) {
+int symlink(const char *target, const char *name) {
 	int r = syscall_symlink(target, name);
 
 	if (r < 0) {
