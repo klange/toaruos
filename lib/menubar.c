@@ -4,6 +4,15 @@
 #include <toaru/menubar.h>
 #include <toaru/sdf.h>
 
+#include <math.h>
+
+static int _close_enough(struct yutani_msg_window_mouse_event * me) {
+	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
+		return 1;
+	}
+	return 0;
+}
+
 void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 	int _x = self->x;
 	int _y = self->y;
@@ -58,7 +67,7 @@ int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_
 	while (_entries->title) {
 		int w = draw_sdf_string_width(_entries->title, 16, SDF_FONT_THIN) + 10;
 		if (x >= offset && x < offset + w) {
-			if (me->command == YUTANI_MOUSE_EVENT_CLICK) {
+			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
 				menu_bar_show_menu(yctx, window, self,offset,_entries);
 			} else if (self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)self->active_menu_wid) && _entries != self->active_entry) {
 				menu_definitely_close(self->active_menu);
