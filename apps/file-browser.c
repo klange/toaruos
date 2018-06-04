@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -64,10 +65,16 @@ static void _menu_action_up(struct MenuEntry * entry) {
 
 static void _menu_action_help(struct MenuEntry * entry) {
 	/* show help documentation */
+	if (!fork()) {
+		system("help-browser file-browser.trt");
+	}
 }
 
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
+	if (!fork()) {
+		system("about \"About File Browser\" /usr/share/icons/48/folder.bmp \"ToaruOS File Browser\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaru-nih\"");
+	}
 }
 
 int main(int argc, char * argv[]) {

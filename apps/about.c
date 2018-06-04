@@ -15,7 +15,10 @@ static int32_t width = 350;
 static int32_t height = 250;
 static char * version_str;
 
-#define TITLE "About ToaruOS-NIH"
+static char * icon_path;
+static char * title_str;
+static char * version_str;
+static char * copyright_str[20] = {NULL};
 
 static int center_x(int x) {
 	return (width - x) / 2;
@@ -30,42 +33,84 @@ static void redraw(void) {
 	draw_fill(ctx, rgb(204,204,204));
 	draw_sprite(ctx, &logo, decor_left_width + center_x(logo.width), decor_top_height + 10);
 
-	char version[100];
-	sprintf(version, "ToaruOS-NIH %s", version_str);
-	draw_string(0, version, SDF_FONT_BOLD, rgb(0,0,0));
-	draw_string(20, "(C) 2011-2018 K. Lange, et al.", SDF_FONT_THIN, rgb(0,0,0));
-	draw_string(50, "ToaruOS is free software released under the", SDF_FONT_THIN, rgb(0,0,0));
-	draw_string(70, "NCSA/University of Illinois license.", SDF_FONT_THIN, rgb(0,0,0));
-	draw_string(100, "http://toaruos.org", SDF_FONT_THIN, rgb(0,0,255));
-	draw_string(120, "https://github.com/klange/toaru-nih", SDF_FONT_THIN, rgb(0,0,255));
+	draw_string(0, version_str, SDF_FONT_BOLD, rgb(0,0,0));
+
+	int offset = 20;
+
+	for (char ** copy_str = copyright_str; *copy_str; ++copy_str) {
+		if (**copy_str == '-') {
+			offset += 10;
+		} else if (**copy_str == '%') {
+			draw_string(offset, *copy_str+1, SDF_FONT_THIN, rgb(0,0,255));
+			offset += 20;
+		} else {
+			draw_string(offset, *copy_str, SDF_FONT_THIN, rgb(0,0,0));
+			offset += 20;
+		}
+	}
 
 	window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
-	render_decorations(window, ctx, TITLE);
+	render_decorations(window, ctx, title_str);
 
 	flip(ctx);
 	yutani_flip(yctx, window);
 }
 
-int main(int argc, char * argv[]) {
-	struct utsname u;
-	uname(&u);
+static void init_default(void) {
+	title_str = "About ToaruOS-NIH";
+	icon_path = "/usr/share/logo_login.bmp";
 
-	version_str = strdup(u.release);
-	char * tmp = strstr(version_str, "-");
-	if (tmp) {
-		*tmp = '\0';
+	{
+		version_str = malloc(100);
+		struct utsname u;
+		uname(&u);
+		sprintf(version_str, "ToaruOS-NIH %s", u.release);
 	}
 
+	copyright_str[0] = "(C) 2011-2018 K. Lange, et al.";
+	copyright_str[1] = "-";
+	copyright_str[2] = "ToaruOS is free software released under the";
+	copyright_str[3] = "NCSA/University of Illinois license.";
+	copyright_str[4] = "-";
+	copyright_str[5] = "%https://toaruos.org";
+	copyright_str[6] = "%https://github.com/klange/toaru-nih";
+
+}
+
+int main(int argc, char * argv[]) {
 	yctx = yutani_init();
 	init_decorations();
 
 	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
 	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
 
-	yutani_window_advertise_icon(yctx, window, TITLE, "star");
+	if (argc < 2) {
+		init_default();
+	} else if (argc < 5) {
+		fprintf(stderr, "Invalid arguments.\n");
+		return 1;
+	} else {
+		title_str = argv[1];
+		icon_path = argv[2];
+		version_str = argv[3];
+
+		int i = 0;
+		char * me = argv[4], * end;
+		do {
+			copyright_str[i] = me;
+			i++;
+			end = strchr(me,'\n');
+			if (end) {
+				*end = '\0';
+				me = end+1;
+			}
+		} while (end);
+	}
+
+	yutani_window_advertise_icon(yctx, window, title_str, "star");
 
 	ctx = init_graphics_yutani_double_buffer(window);
-	load_sprite(&logo, "/usr/share/logo_login.bmp");
+	load_sprite(&logo, icon_path);
 	logo.alpha = ALPHA_EMBEDDED;
 
 	redraw();

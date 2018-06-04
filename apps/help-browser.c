@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -64,6 +65,9 @@ static void _menu_action_forward(struct MenuEntry * entry) {
 
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
+	if (!fork()) {
+		system("about \"About Help Browser\" /usr/share/icons/48/help.bmp \"ToaruOS Help Browser\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaru-nih\"");
+	}
 }
 
 int main(int argc, char * argv[]) {

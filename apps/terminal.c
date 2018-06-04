@@ -1792,6 +1792,18 @@ void _menu_action_hide_borders(struct MenuEntry * self) {
 	reinit(1);
 }
 
+void _menu_action_show_about(struct MenuEntry * self) {
+	if (!fork()) {
+		system("about \"About Terminal\" /usr/share/icons/48/utilities-terminal.bmp \"ToaruOS Terminal\" \"(C) 2013-2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaru-nih\"");
+	}
+}
+
+void _menu_action_show_help(struct MenuEntry * self) {
+	if (!fork()) {
+		system("help-browser terminal.trt");
+	}
+}
+
 void _menu_action_copy(struct MenuEntry * self) {
 	copy_selection();
 }
@@ -1943,9 +1955,9 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();
-	menu_insert(m, menu_create_normal("help","help","Contents", NULL));
+	menu_insert(m, menu_create_normal("help","help","Contents", _menu_action_show_help));
 	menu_insert(m, menu_create_separator());
-	menu_insert(m, menu_create_normal("star","star","About Terminal", NULL));
+	menu_insert(m, menu_create_normal("star","star","About Terminal", _menu_action_show_about));
 	menu_set_insert(terminal_menu_bar.set, "help", m);
 
 
