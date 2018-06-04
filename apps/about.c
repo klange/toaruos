@@ -78,11 +78,13 @@ static void init_default(void) {
 }
 
 int main(int argc, char * argv[]) {
+	int req_center_x, req_center_y;
 	yctx = yutani_init();
 	init_decorations();
 
 	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
-	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
+	req_center_x = yctx->display_width / 2;
+	req_center_y = yctx->display_height / 2;
 
 	if (argc < 2) {
 		init_default();
@@ -105,7 +107,14 @@ int main(int argc, char * argv[]) {
 				me = end+1;
 			}
 		} while (end);
+
+		if (argc > 6) {
+			req_center_x = atoi(argv[5]);
+			req_center_y = atoi(argv[6]);
+		}
 	}
+
+	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 
 	yutani_window_advertise_icon(yctx, window, title_str, "star");
 

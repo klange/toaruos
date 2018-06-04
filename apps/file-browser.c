@@ -75,7 +75,12 @@ static void _menu_action_help(struct MenuEntry * entry) {
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
 	if (!fork()) {
-		system("about \"About File Browser\" /usr/share/icons/48/folder.bmp \"ToaruOS File Browser\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaru-nih\"");
+		char about_cmd[1024] = "\0";
+		strcat(about_cmd, "about \"About File Browser\" /usr/share/icons/48/folder.bmp \"ToaruOS File Browser\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaru-nih\" ");
+		char coords[100];
+		sprintf(coords, "%d %d", (int)main_window->x + (int)main_window->width / 2, (int)main_window->y + (int)main_window->height / 2);
+		strcat(about_cmd, coords);
+		system(about_cmd);
 		exit(0);
 	}
 	redraw_window();
