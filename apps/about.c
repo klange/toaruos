@@ -64,6 +64,10 @@ static void init_default(void) {
 		version_str = malloc(100);
 		struct utsname u;
 		uname(&u);
+		char * tmp = strstr(u.release, "-");
+		if (tmp) {
+			*tmp = '\0';
+		}
 		sprintf(version_str, "ToaruOS-NIH %s", u.release);
 	}
 
