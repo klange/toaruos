@@ -1797,6 +1797,7 @@ void _menu_action_show_about(struct MenuEntry * self) {
 		system("about \"About Terminal\" /usr/share/icons/48/utilities-terminal.bmp \"ToaruOS Terminal\" \"(C) 2013-2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaru-nih\"");
 		exit(0);
 	}
+	render_decors();
 }
 
 void _menu_action_show_help(struct MenuEntry * self) {
@@ -1804,6 +1805,7 @@ void _menu_action_show_help(struct MenuEntry * self) {
 		system("help-browser terminal.trt");
 		exit(0);
 	}
+	render_decors();
 }
 
 void _menu_action_copy(struct MenuEntry * self) {
