@@ -68,13 +68,13 @@ int main (int argc, char ** argv) {
 		while (!feof(com)) {
 			char buf[1024]; /* line length? */
 			char * cmd = fgets(buf, sizeof(buf), com);
-			TRACE("cmd = %p", cmd);
 			size_t r = strlen(cmd);
 			if (cmd && r) {
 				if (cmd[r-1] == '\n') {
 					cmd[r-1] = '\0';
 					r--;
 				}
+				TRACE("cmd = %s", cmd);
 				if (!strcmp(buf,"RESTART")) {
 					TRACE("Client requested system restart, rebooting.");
 					system("reboot");
