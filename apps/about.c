@@ -77,7 +77,7 @@ static void init_default(void) {
 	copyright_str[3] = "NCSA/University of Illinois license.";
 	copyright_str[4] = "-";
 	copyright_str[5] = "%https://toaruos.org";
-	copyright_str[6] = "%https://github.com/klange/toaru-nih";
+	copyright_str[6] = "%https://gitlab.com/toaruos";
 
 }
 

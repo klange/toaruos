@@ -356,7 +356,7 @@ int kmain() {
 		print_("\n");
 		print_banner("ToaruOS is free software under the NCSA license.");
 		print_("\n");
-		print_banner("https://toaruos.org - https://github.com/klange/toaruos");
+		print_banner("https://toaruos.org - https://gitlab.com/toaruos");
 
 		int s = read_scancode();
 		if (s == 0x50) {

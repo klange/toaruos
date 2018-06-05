@@ -1795,7 +1795,7 @@ void _menu_action_hide_borders(struct MenuEntry * self) {
 void _menu_action_show_about(struct MenuEntry * self) {
 	if (!fork()) {
 		char about_cmd[1024] = "\0";
-		strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.bmp \"ToaruOS Terminal\" \"(C) 2013-2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaru-nih\" ");
+		strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.bmp \"ToaruOS Terminal\" \"(C) 2013-2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://gitlab.com/toaruos\" ");
 		char coords[100];
 		sprintf(coords, "%d %d", (int)window->x + (int)window->width / 2, (int)window->y + (int)window->height / 2);
 		strcat(about_cmd, coords);

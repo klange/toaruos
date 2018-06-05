@@ -2,7 +2,7 @@
  * Copyright (c) 2011-2018 K. Lange.  All rights reserved.
  *
  * Developed by:            K. Lange
- *                          http://github.com/klange/nyancat
+ *                          http://gitlab.com/klange/nyancat
  *                          http://nyancat.dakko.us
  *
  * 40-column support by:    Peter Hazenberg
