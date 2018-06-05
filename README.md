@@ -1,3 +1,5 @@
+*Development of ToaruOS has been redirected to [ToaruOS-NIH](https://gitlab.com/toaruos/toaru-nih). Additionally, the ToaruOS project itself is migrating to [GitLab](https://gitlab.com/toaruos).*
+
 ![](http://i.imgur.com/QGVoRJD.png)
 ![](http://i.imgur.com/MlAxGpj.png)
 ![](http://i.imgur.com/OpMGfHP.png)
