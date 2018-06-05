@@ -190,15 +190,6 @@ static int mouse_install(void) {
 	mouse_write(0xF4);
 	mouse_read();
 
-	/* keyboard scancode set */
-	mouse_wait(1);
-	outportb(MOUSE_PORT, 0xF0);
-	mouse_wait(1);
-	outportb(MOUSE_PORT, 0x02);
-	mouse_wait(1);
-	mouse_read();
-
-
 	/* Try to enable scroll wheel (but not buttons) */
 	if (!args_present("nomousescroll")) {
 		mouse_write(0xF2);
@@ -223,6 +214,14 @@ static int mouse_install(void) {
 			mouse_mode = MOUSE_SCROLLWHEEL;
 		}
 	}
+
+	/* keyboard scancode set */
+	mouse_wait(1);
+	outportb(MOUSE_PORT, 0xF0);
+	mouse_wait(1);
+	outportb(MOUSE_PORT, 0x02);
+	mouse_wait(1);
+	mouse_read();
 
 	irq_install_handler(MOUSE_IRQ, mouse_handler);
 	IRQ_RES;
