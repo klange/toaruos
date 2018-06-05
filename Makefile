@@ -205,7 +205,7 @@ VMNAME=ToaruOS-NIH CD
 virtualbox: image.iso
 	-VBoxManage unregistervm "$(VMNAME)" --delete
 	VBoxManage createvm --name "$(VMNAME)" --ostype "Other" --register
-	VBoxManage modifyvm "$(VMNAME)" --memory 1024 --vram 32 --audio pulse --audiocontroller ac97 --bioslogodisplaytime 1 --bioslogofadeout off --bioslogofadein off --biosbootmenu disabled
+	VBoxManage modifyvm "$(VMNAME)" --memory 1024 --vram 32 --audio pulse --audiocontroller ac97 --audioout on --audioin on --bioslogodisplaytime 1 --bioslogofadeout off --bioslogofadein off --biosbootmenu disabled
 	VBoxManage storagectl "$(VMNAME)" --add ide --name "IDE"
 	VBoxManage storageattach "$(VMNAME)" --storagectl "IDE" --port 0 --device 0 --medium $(shell pwd)/image.iso --type dvddrive
 	VBoxManage setextradata "$(VMNAME)" GUI/DefaultCloseAction PowerOff

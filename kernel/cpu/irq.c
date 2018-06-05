@@ -153,7 +153,8 @@ void irq_handler(struct regs *r) {
 	if (r->int_no <= 47 && r->int_no >= 32) {
 		for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
 			irq_handler_chain_t handler = irq_routines[i * IRQ_CHAIN_SIZE + (r->int_no - 32)];
-			if (handler && handler(r)) {
+			if (!handler) break;
+			if (handler(r)) {
 				goto done;
 			}
 		}

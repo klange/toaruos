@@ -91,7 +91,7 @@ static struct vbox_mouse * vbox_m;
 static uint32_t vbox_phys_mouse;
 static struct vbox_mouse * vbox_mg;
 static uint32_t vbox_phys_mouse_get;
-static uint32_t * vbox_vmmdev = 0;
+static volatile uint32_t * vbox_vmmdev = 0;
 
 static fs_node_t * mouse_pipe;
 
@@ -99,10 +99,13 @@ static fs_node_t * mouse_pipe;
 #define DISCARD_POINT 32
 
 static int vbox_irq_handler(struct regs *r) {
-	outportl(vbox_port, vbox_phys_disp);
-	outportl(vbox_port, vbox_phys_mouse_get);
+	if (!vbox_vmmdev[2]) return 0;
+
+	vbox_irq_ack->events = vbox_vmmdev[2];
 	outportl(vbox_port, vbox_phys_ack);
 	irq_ack(vbox_irq);
+
+	outportl(vbox_port, vbox_phys_mouse_get);
 
 	unsigned int x, y;
 
@@ -126,11 +129,12 @@ static int vbox_irq_handler(struct regs *r) {
 	}
 	write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 
-
+	outportl(vbox_port, vbox_phys_disp);
 	if (lfb_resolution_x && vbox_disp->xres && (vbox_disp->xres != lfb_resolution_x  || vbox_disp->yres != lfb_resolution_y)) {
 
 		lfb_set_resolution(vbox_disp->xres, vbox_disp->yres);
 	}
+
 	return 1;
 }
 
@@ -190,7 +194,7 @@ static int vbox_check(void) {
 		vfs_mount("/dev/absmouse", mouse_pipe);
 
 		vbox_irq = pci_read_field(vbox_device, PCI_INTERRUPT_LINE, 1);
-		debug_print(WARNING, "(vbox) device IRQ is set to %d\n", vbox_irq);
+		debug_print(WARNING, "(vbox) device IRQ is set to %d", vbox_irq);
 		irq_install_handler(vbox_irq, vbox_irq_handler);
 
 		uint32_t vbox_phys = 0;
@@ -224,6 +228,7 @@ static int vbox_check(void) {
 		vbox_irq_ack->header.reserved1 = 0;
 		vbox_irq_ack->header.reserved2 = 0;
 		vbox_irq_ack->events = 0;
+
 
 		vbox_disp = (void*)kvmalloc_p(0x1000, &vbox_phys_disp);
 		vbox_disp->header.size = sizeof(struct vbox_display_change);
