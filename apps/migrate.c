@@ -199,6 +199,7 @@ int main(int argc, char * argv[]) {
 
 	TRACE("Migrating root...");
 	copy_directory("/dev/base","/",0660);
+	system("mount tmpfs x /dev/base");
 
 	if (strstr(root, "/dev/ram") != NULL) {
 		char * tmp = strdup(root);
