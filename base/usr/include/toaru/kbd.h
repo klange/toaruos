@@ -83,6 +83,25 @@
 #define KEY_END         2016
 #define KEY_DEL         2017
 #define KEY_INSERT      2018
+#define KEY_PAUSE       2019
+#define KEY_SCROLL_LOCK 2020
+
+#define KEY_NUM_0       2500
+#define KEY_NUM_1       2501
+#define KEY_NUM_2       2502
+#define KEY_NUM_3       2503
+#define KEY_NUM_4       2504
+#define KEY_NUM_5       2505
+#define KEY_NUM_6       2506
+#define KEY_NUM_7       2507
+#define KEY_NUM_8       2508
+#define KEY_NUM_9       2509
+#define KEY_NUM_DOT     2510
+#define KEY_NUM_DIV     2511
+#define KEY_NUM_STAR    2512
+#define KEY_NUM_MINUS   2513
+#define KEY_NUM_PLUS    2514
+#define KEY_NUM_ENTER   2515
 
 #define KEY_SCANCODE_F1  0x3b
 #define KEY_SCANCODE_F2  0x3c
@@ -96,6 +115,23 @@
 #define KEY_SCANCODE_F10 0x44
 #define KEY_SCANCODE_F11 0x57
 #define KEY_SCANCODE_F12 0x58
+
+#define KEY_SCANCODE_NUM_1  0x4f
+#define KEY_SCANCODE_NUM_2  0x50
+#define KEY_SCANCODE_NUM_3  0x51
+#define KEY_SCANCODE_NUM_4  0x4B
+#define KEY_SCANCODE_NUM_5  0x4C
+#define KEY_SCANCODE_NUM_6  0x4D
+#define KEY_SCANCODE_NUM_7  0x47
+#define KEY_SCANCODE_NUM_8  0x48
+#define KEY_SCANCODE_NUM_9  0x49
+#define KEY_SCANCODE_NUM_0  0x52
+#define KEY_SCANCODE_NUM_DOT 0x53
+#define KEY_SCANCODE_NUM_MIN 0x4a
+#define KEY_SCANCODE_NUM_ADD 0x4e
+
+#define KEY_SCANCODE_NUM_LK 0x45
+#define KEY_SCANCODE_SCROLL 0x46
 
 #define KEY_MOD_LEFT_CTRL   0x01
 #define KEY_MOD_LEFT_SHIFT  0x02

@@ -11,6 +11,7 @@
  *   - It translates incoming keys to escape sequences
  */
 
+#include <stdio.h>
 #include <toaru/kbd.h>
 
 #define DEBUG_SCANCODES 0
@@ -351,6 +352,58 @@ int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event
 						event->keycode  = KEY_LEFT_ALT;
 						SET_UNSET(event->modifiers, KEY_MOD_LEFT_ALT, down);
 						break;
+					case KEY_SCANCODE_NUM_0:
+						event->keycode = KEY_NUM_0;
+						event->key = '0';
+						break;
+					case KEY_SCANCODE_NUM_1:
+						event->keycode = KEY_NUM_1;
+						event->key = '1';
+						break;
+					case KEY_SCANCODE_NUM_2:
+						event->keycode = KEY_NUM_2;
+						event->key = '2';
+						break;
+					case KEY_SCANCODE_NUM_3:
+						event->keycode = KEY_NUM_3;
+						event->key = '3';
+						break;
+					case KEY_SCANCODE_NUM_4:
+						event->keycode = KEY_NUM_4;
+						event->key = '4';
+						break;
+					case KEY_SCANCODE_NUM_5:
+						event->keycode = KEY_NUM_5;
+						event->key = '5';
+						break;
+					case KEY_SCANCODE_NUM_6:
+						event->keycode = KEY_NUM_6;
+						event->key = '6';
+						break;
+					case KEY_SCANCODE_NUM_7:
+						event->keycode = KEY_NUM_7;
+						event->key = '7';
+						break;
+					case KEY_SCANCODE_NUM_8:
+						event->keycode = KEY_NUM_8;
+						event->key = '8';
+						break;
+					case KEY_SCANCODE_NUM_9:
+						event->keycode = KEY_NUM_9;
+						event->key = '9';
+						break;
+					case KEY_SCANCODE_NUM_DOT:
+						event->keycode = KEY_NUM_DOT;
+						event->key = '.';
+						break;
+					case KEY_SCANCODE_NUM_MIN:
+						event->keycode = KEY_NUM_MINUS;
+						event->key = '-';
+						break;
+					case KEY_SCANCODE_NUM_ADD:
+						event->keycode = KEY_NUM_PLUS;
+						event->key = '+';
+						break;
 					default:
 						break;
 				}
@@ -468,6 +521,14 @@ int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event
 				break;
 			case 0x53:
 				event->keycode = KEY_DEL;
+				break;
+			case 0x35:
+				event->keycode = KEY_NUM_DIV;
+				event->key = '/';
+				break;
+			case 0x1C:
+				event->keycode = KEY_NUM_ENTER;
+				event->key = '\n';
 				break;
 			default:
 				break;

@@ -2071,7 +2071,7 @@ int main(int argc, char * argv[]) {
 			int index = syscall_fswait(amfd == -1 ? 3 : 4, fds);
 
 			if (index == 2) {
-				char buf[1];
+				unsigned char buf[1];
 				int r = read(kfd, buf, 1);
 				if (r > 0) {
 					kbd_scancode(&state, buf[0], &event);
