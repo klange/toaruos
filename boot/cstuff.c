@@ -10,7 +10,7 @@
 #include "multiboot.h"
 
 #define DEFAULT_ROOT_CMDLINE "root=/dev/ram0,nocache "
-#define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
+#define DEFAULT_GRAPHICAL_CMDLINE "start=live-welcome "
 #define DEFAULT_SINGLE_CMDLINE "start=terminal "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
@@ -421,7 +421,6 @@ int kmain() {
 			toggle(BASE_SEL + 1 + i, *boot_options[i].value, boot_options[i].title);
 		}
 
-
 		attr = 0x07;
 		print_("\n\n");
 		print_banner("Press <Enter> or select a menu option with \030/\031.");
@@ -448,27 +447,9 @@ int kmain() {
 			if (sel <= BASE_SEL) {
 				boot_mode = sel;
 				break;
-			} else if (sel == BASE_SEL + 1) {
-				_debug = !_debug;
-				continue;
-			} else if (sel == BASE_SEL + 2) {
-				_legacy_ata = !_legacy_ata;
-			} else if (sel == BASE_SEL + 3) {
-				_normal_ata = !_normal_ata;
-			} else if (sel == BASE_SEL + 4) {
-				_debug_shell = !_debug_shell;
-			} else if (sel == BASE_SEL + 5) {
-				_video = !_video;
-			} else if (sel == BASE_SEL + 6) {
-				_vbox = !_vbox;
-			} else if (sel == BASE_SEL + 7) {
-				_vmware = !_vmware;
-			} else if (sel == BASE_SEL + 8) {
-				_sound = !_sound;
-			} else if (sel == BASE_SEL + 9) {
-				_net = !_net;
-			} else if (sel == BASE_SEL + 10) {
-				_migrate = !_migrate;
+			} else {
+				int index = sel - BASE_SEL - 1;
+				*boot_options[index].value = !*boot_options[index].value;
 			}
 		}
 	} while (1);
