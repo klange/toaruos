@@ -10,7 +10,7 @@
 #include "multiboot.h"
 
 #define DEFAULT_ROOT_CMDLINE "root=/dev/ram0,nocache "
-#define DEFAULT_GRAPHICAL_CMDLINE "start=live-welcome "
+#define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
 #define DEFAULT_SINGLE_CMDLINE "start=terminal "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
