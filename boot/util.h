@@ -68,3 +68,16 @@ static char * strchr(const char * s, int c) {
 	return 0;
 }
 
+static char * strcat(char *dest, const char *src) {
+	char * end = dest;
+	while (*end != '\0') {
+		++end;
+	}
+	while (*src) {
+		*end = *src;
+		end++;
+		src++;
+	}
+	*end = '\0';
+	return dest;
+}

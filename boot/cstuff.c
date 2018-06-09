@@ -9,6 +9,17 @@
 #include "elf.h"
 #include "multiboot.h"
 
+#define DEFAULT_ROOT_CMDLINE "root=/dev/ram0,nocache "
+#define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
+#define DEFAULT_TEXT_CMDLINE "start=--vga "
+#define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
+
+#define MIGRATE_CMDLINE "start=--migrate _"
+
+#define DEBUG_LOG_CMDLINE "logtoserial=3 "
+
+static char cmdline[1024] = {0};
+
 static int read_scancode(void) {
 	while (!(inportb(0x64) & 1));
 	int out;
@@ -285,7 +296,7 @@ done:
 	return;
 }
 
-static int sel_max = 11;
+static int sel_max = 12;
 static int sel = 0;
 
 void toggle(int ndx, int value, char *str) {
@@ -310,6 +321,7 @@ int kmain() {
 	int _vmware = 1;
 	int _sound = 1;
 	int _net = 1;
+	int _migrate = 1;
 
 	outportb(0x3D4, 14);
 	outportb(0x3D5, 0xFF);
@@ -328,7 +340,7 @@ int kmain() {
 		x = 0;
 		y = 0;
 		attr = 0x1f;
-		print_banner("ToaruOS-NIH Bootloader v1.0");
+		print_banner("ToaruOS-NIH Bootloader v1.1");
 		attr = 0x07;
 		print_("\n");
 		attr = sel == 0 ? 0x70 : 0x07;
@@ -349,6 +361,7 @@ int kmain() {
 		toggle(8, _vmware, "Enable VMWare mouse driver.");
 		toggle(9, _sound, "Enable audio drivers.");
 		toggle(10,_net, "Enable network drivers.");
+		toggle(11,_migrate,"Enable copying of ramdisk to tmpfs (writable root).");
 
 		attr = 0x07;
 		print_("\n\n\n");
@@ -388,23 +401,31 @@ int kmain() {
 				_sound = !_sound;
 			} else if (sel == 10) {
 				_net = !_net;
+			} else if (sel == 11) {
+				_migrate = !_migrate;
 			}
 		}
 	} while (1);
 
-	if (boot_mode == 0) {
-		if (_debug) {
-			multiboot_header.cmdline = (uintptr_t)"logtoserial=3 vid=auto,1440,900 root=/dev/ram0,nocache start=--migrate _start=live-session";
-		} else {
-			multiboot_header.cmdline = (uintptr_t)"vid=auto,1440,900 root=/dev/ram0,nocache start=--migrate _start=live-session";
-		}
-	} else if (boot_mode == 1) {
-		if (_debug) {
-			multiboot_header.cmdline = (uintptr_t)"logtoserial=3 root=/dev/ram0,nocache start=--migrate _start=--vga";
-		} else {
-			multiboot_header.cmdline = (uintptr_t)"root=/dev/ram0,nocache start=--migrate _start=--vga";
-		}
+
+	strcat(cmdline, DEFAULT_ROOT_CMDLINE);
+
+	if (_migrate) {
+		strcat(cmdline, MIGRATE_CMDLINE);
 	}
+
+	if (boot_mode == 0) {
+		strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
+		strcat(cmdline, DEFAULT_VID_CMDLINE);
+	} else if (boot_mode == 1) {
+		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
+	}
+
+	if (_debug) {
+		strcat(cmdline, DEBUG_LOG_CMDLINE);
+	}
+
+	multiboot_header.cmdline = (uintptr_t)cmdline;
 
 	if (!_normal_ata) {
 		modules[6] = "NONE";
