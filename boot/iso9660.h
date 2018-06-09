@@ -163,3 +163,25 @@ try_again:
 	return 0;
 }
 
+static void restore_root(void) {
+	memcpy(dir_entry, (iso_9660_directory_entry_t *)&root->root, sizeof(iso_9660_directory_entry_t));
+
+#if 0
+	print("Root restored.");
+	print("\n Entry len:  "); print_hex( dir_entry->length);
+	print("\n File start: "); print_hex( dir_entry->extent_start_LSB);
+	print("\n File len:   "); print_hex( dir_entry->extent_length_LSB);
+	print("\n");
+#endif
+}
+
+static void restore_mod(void) {
+	memcpy(dir_entry, (iso_9660_directory_entry_t *)mod_dir, sizeof(iso_9660_directory_entry_t));
+#if 0
+	print("mod restored.");
+	print("\n Entry len:  "); print_hex( dir_entry->length);
+	print("\n File start: "); print_hex( dir_entry->extent_start_LSB);
+	print("\n File len:   "); print_hex( dir_entry->extent_length_LSB);
+	print("\n");
+#endif
+}

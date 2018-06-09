@@ -86,5 +86,4 @@ extern struct multiboot *copy_multiboot(struct multiboot *mboot_ptr);
 extern void dump_multiboot(struct multiboot *mboot_ptr);
 extern char * ramdisk;
 extern struct multiboot * mboot_ptr;
-
-
+static char cmdline[1024] = {0};
