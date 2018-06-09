@@ -170,7 +170,7 @@ image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel ${MODULES}
 cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | cdrom/boot
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
-boot/cstuff.o: boot/cstuff.c boot/ata.h  boot/atapi_imp.h  boot/elf.h  boot/iso9660.h  boot/multiboot.h  boot/text.h  boot/types.h  boot/util.h
+boot/cstuff.o: boot/cstuff.c boot/*.h
 	${KCC} -c -Os -o $@ $<
 
 boot/boot.o: boot/boot.s

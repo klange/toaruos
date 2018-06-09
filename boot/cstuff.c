@@ -26,6 +26,10 @@
 #define MIGRATE_CMDLINE "start=--migrate _"
 #define DEBUG_LOG_CMDLINE "logtoserial=3 "
 
+#define KERNEL_PATH "KERNEL."
+#define RAMDISK_PATH "RAMDISK.IMG"
+#define MODULE_DIRECTORY "MOD"
+
 /* Where to dump kernel data while loading */
 #define KERNEL_LOAD_START 0x300000
 
