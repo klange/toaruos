@@ -26,7 +26,7 @@ uint32_t decor_right_width    = 6;
 
 #define BORDERCOLOR rgb(60,60,60)
 #define BORDERCOLOR_INACTIVE rgb(30,30,30)
-#define BACKCOLOR rgb(20,20,20)
+#define BACKCOLOR rgb(59,59,59)
 #define TEXTCOLOR rgb(230,230,230)
 #define TEXTCOLOR_INACTIVE rgb(140,140,140)
 
