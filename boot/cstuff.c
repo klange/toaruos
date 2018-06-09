@@ -11,6 +11,7 @@
 
 #define DEFAULT_ROOT_CMDLINE "root=/dev/ram0,nocache "
 #define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
+#define DEFAULT_SINGLE_CMDLINE "start=terminal "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
 
@@ -296,7 +297,8 @@ done:
 	return;
 }
 
-static int sel_max = 12;
+#define BASE_SEL 2
+static int sel_max = 13;
 static int sel = 0;
 
 void toggle(int ndx, int value, char *str) {
@@ -347,24 +349,26 @@ int kmain() {
 		print_(" Normal Boot\n");
 		attr = sel == 1 ? 0x70 : 0x07;
 		print_(" VGA Text Mode\n");
+		attr = sel == 2 ? 0x70 : 0x07;
+		print_(" Single-User Graphical Terminal\n");
 
 		// put a gap
 		attr = 0x07;
 		print_("\n");
 
-		toggle(2, _debug, "Enable debug output.");
-		toggle(3, _legacy_ata, "Enable legacy ATA driver.");
-		toggle(4, _normal_ata, "Enable DMA ATA driver.");
-		toggle(5, _debug_shell, "Enable debug shell.");
-		toggle(6, _video, "Enable video modules.");
-		toggle(7, _vbox, "Enable VirtualBox Guest Additions.");
-		toggle(8, _vmware, "Enable VMWare mouse driver.");
-		toggle(9, _sound, "Enable audio drivers.");
-		toggle(10,_net, "Enable network drivers.");
-		toggle(11,_migrate,"Enable copying of ramdisk to tmpfs (writable root).");
+		toggle(BASE_SEL+1, _debug, "Enable debug output.");
+		toggle(BASE_SEL+2, _legacy_ata, "Enable legacy ATA driver.");
+		toggle(BASE_SEL+3, _normal_ata, "Enable DMA ATA driver.");
+		toggle(BASE_SEL+4, _debug_shell, "Enable debug shell.");
+		toggle(BASE_SEL+5, _video, "Enable video modules.");
+		toggle(BASE_SEL+6, _vbox, "Enable VirtualBox Guest Additions.");
+		toggle(BASE_SEL+7, _vmware, "Enable VMWare mouse driver.");
+		toggle(BASE_SEL+8, _sound, "Enable audio drivers.");
+		toggle(BASE_SEL+9,_net, "Enable network drivers.");
+		toggle(BASE_SEL+10,_migrate,"Enable copying of ramdisk to tmpfs (writable root).");
 
 		attr = 0x07;
-		print_("\n\n\n");
+		print_("\n\n");
 		print_banner("Press <Enter> or select a menu option with \030/\031.");
 		print_("\n");
 		print_banner("ToaruOS is free software under the NCSA license.");
@@ -379,29 +383,29 @@ int kmain() {
 			sel = (sel_max + sel - 1)  % sel_max;
 			continue;
 		} else if (s == 0x1c) {
-			if (sel == 0 || sel == 1) {
+			if (sel <= BASE_SEL) {
 				boot_mode = sel;
 				break;
-			} else if (sel == 2) {
+			} else if (sel == BASE_SEL + 1) {
 				_debug = !_debug;
 				continue;
-			} else if (sel == 3) {
+			} else if (sel == BASE_SEL + 2) {
 				_legacy_ata = !_legacy_ata;
-			} else if (sel == 4) {
+			} else if (sel == BASE_SEL + 3) {
 				_normal_ata = !_normal_ata;
-			} else if (sel == 5) {
+			} else if (sel == BASE_SEL + 4) {
 				_debug_shell = !_debug_shell;
-			} else if (sel == 6) {
+			} else if (sel == BASE_SEL + 5) {
 				_video = !_video;
-			} else if (sel == 7) {
+			} else if (sel == BASE_SEL + 6) {
 				_vbox = !_vbox;
-			} else if (sel == 8) {
+			} else if (sel == BASE_SEL + 7) {
 				_vmware = !_vmware;
-			} else if (sel == 9) {
+			} else if (sel == BASE_SEL + 8) {
 				_sound = !_sound;
-			} else if (sel == 10) {
+			} else if (sel == BASE_SEL + 9) {
 				_net = !_net;
-			} else if (sel == 11) {
+			} else if (sel == BASE_SEL + 10) {
 				_migrate = !_migrate;
 			}
 		}
@@ -419,6 +423,9 @@ int kmain() {
 		strcat(cmdline, DEFAULT_VID_CMDLINE);
 	} else if (boot_mode == 1) {
 		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
+	} else if (boot_mode == 2) {
+		strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
+		strcat(cmdline, DEFAULT_VID_CMDLINE);
 	}
 
 	if (_debug) {
