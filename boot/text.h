@@ -40,6 +40,13 @@ static void print_(char * str) {
 }
 
 static void print_banner(char * str) {
+	if (!str) {
+		for (int i = 0; i < 80; ++i) {
+			placech(' ', i, y, attr);
+		}
+		y++;
+		return;
+	}
 	int len = 0;
 	char *c = str;
 	while (*c) {

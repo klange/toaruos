@@ -297,8 +297,7 @@ done:
 	return;
 }
 
-#define BASE_SEL 2
-static int sel_max = 13;
+static int sel_max = 0;
 static int sel = 0;
 
 void toggle(int ndx, int value, char *str) {
@@ -312,18 +311,79 @@ void toggle(int ndx, int value, char *str) {
 	print_("\n");
 }
 
+static char * boot_mode_names[] = {
+	"Normal Boot",
+	"VGA Text Mode",
+	"Single-User Graphical Terminal",
+};
+
+struct option {
+	int * value;
+	char * title;
+	char * description_1;
+	char * description_2;
+} boot_options[20] = {{0}}; /* can't really hold more than that */
+
+static int _boot_offset = 0;
+#define BOOT_OPTION(_value, default_val, option, d1, d2) \
+	int _value = default_val;\
+	boot_options[_boot_offset].value = &_value; \
+	boot_options[_boot_offset].title = option; \
+	boot_options[_boot_offset].description_1 = d1; \
+	boot_options[_boot_offset].description_2 = d2; \
+	_boot_offset++
+
+#define BASE_SEL ((sizeof(boot_mode_names)/sizeof(*boot_mode_names))-1)
+
 int kmain() {
 	int boot_mode = 0;
 
-	int _normal_ata = 1;
-	int _legacy_ata = 0;
-	int _debug_shell = 1;
-	int _video = 1;
-	int _vbox = 1;
-	int _vmware = 1;
-	int _sound = 1;
-	int _net = 1;
-	int _migrate = 1;
+	BOOT_OPTION(_debug,       0, "Enable debug output.",
+		"Enable debug output in the bootloader and enable the",
+		"serial debug log in the operating system itself.");
+
+	BOOT_OPTION(_legacy_ata,  0, "Enable legacy ATA driver.",
+		"Enable the legacy ATA driver, which does not support",
+		"ATAPI or use DMA. May be necessary in some virtual machines.");
+
+	BOOT_OPTION(_normal_ata,  1, "Enable DMA ATA driver.",
+		"Enable the normal, DMA-capable ATA driver. This is the default.",
+		NULL);
+
+	BOOT_OPTION(_debug_shell, 1, "Enable debug shell.",
+		"Enable the kernel debug shell. This can be accessed using",
+		"the `kdebug` application.");
+
+	BOOT_OPTION(_video,       1, "Enable video modules.",
+		"Enable the video modules. These are needed to modeset",
+		"and provide a framebuffer for the UI.");
+
+	BOOT_OPTION(_vbox,        1, "Enable VirtualBox Guest Additions.",
+		"Enable integration with VirtualBox, including",
+		"automatic mode setting and absolute mouse pointer.");
+
+	BOOT_OPTION(_vmware,      1, "Enable VMWare mouse driver.",
+		"Enable the VMware / QEMU absolute mouse pointer.",
+		NULL);
+
+	BOOT_OPTION(_sound,       1, "Enable audio drivers.",
+		"Enable the audio subsystem and AC'97 drivers.",
+		NULL);
+
+	BOOT_OPTION(_net,         1, "Enable network drivers.",
+		"Enable the IPv4 network subsystem and various",
+		"network interface drivers.");
+
+	BOOT_OPTION(_migrate,     1, "Enable writable root.",
+		"Migrates the ramdisk from ext2 to an in-memory",
+		"temporary filesystem at boot.");
+
+	/* Determine number of options */
+	sel_max = 0;
+	while (boot_options[sel_max].value) {
+		sel_max++;
+	}
+	sel_max += BASE_SEL + 1;
 
 	outportb(0x3D4, 14);
 	outportb(0x3D5, 0xFF);
@@ -342,38 +402,40 @@ int kmain() {
 		x = 0;
 		y = 0;
 		attr = 0x1f;
-		print_banner("ToaruOS-NIH Bootloader v1.1");
+		print_banner("ToaruOS-NIH Bootloader v1.2");
 		attr = 0x07;
 		print_("\n");
-		attr = sel == 0 ? 0x70 : 0x07;
-		print_(" Normal Boot\n");
-		attr = sel == 1 ? 0x70 : 0x07;
-		print_(" VGA Text Mode\n");
-		attr = sel == 2 ? 0x70 : 0x07;
-		print_(" Single-User Graphical Terminal\n");
+
+		for (int i = 0; i < BASE_SEL+1; ++i) {
+			attr = sel == i ? 0x70 : 0x07;
+			print_(" ");
+			print_(boot_mode_names[i]);
+			print_("\n");
+		}
 
 		// put a gap
 		attr = 0x07;
 		print_("\n");
 
-		toggle(BASE_SEL+1, _debug, "Enable debug output.");
-		toggle(BASE_SEL+2, _legacy_ata, "Enable legacy ATA driver.");
-		toggle(BASE_SEL+3, _normal_ata, "Enable DMA ATA driver.");
-		toggle(BASE_SEL+4, _debug_shell, "Enable debug shell.");
-		toggle(BASE_SEL+5, _video, "Enable video modules.");
-		toggle(BASE_SEL+6, _vbox, "Enable VirtualBox Guest Additions.");
-		toggle(BASE_SEL+7, _vmware, "Enable VMWare mouse driver.");
-		toggle(BASE_SEL+8, _sound, "Enable audio drivers.");
-		toggle(BASE_SEL+9,_net, "Enable network drivers.");
-		toggle(BASE_SEL+10,_migrate,"Enable copying of ramdisk to tmpfs (writable root).");
+		for (int i = 0; i < sel_max - BASE_SEL - 1; ++i) {
+			toggle(BASE_SEL + 1 + i, *boot_options[i].value, boot_options[i].title);
+		}
+
 
 		attr = 0x07;
 		print_("\n\n");
 		print_banner("Press <Enter> or select a menu option with \030/\031.");
 		print_("\n");
-		print_banner("ToaruOS is free software under the NCSA license.");
-		print_("\n");
-		print_banner("https://toaruos.org - https://gitlab.com/toaruos");
+
+		if (sel > BASE_SEL) {
+			print_banner(boot_options[sel-BASE_SEL-1].description_1);
+			print_banner(boot_options[sel-BASE_SEL-1].description_2);
+			print_("\n");
+		} else {
+			print_banner("ToaruOS is free software under the NCSA license.");
+			print_("\n");
+			print_banner("https://toaruos.org - https://gitlab.com/toaruos");
+		}
 
 		int s = read_scancode();
 		if (s == 0x50) {

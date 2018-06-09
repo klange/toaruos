@@ -7,4 +7,4 @@ typedef unsigned char uint8_t;
 typedef signed char int8_t;
 typedef unsigned long uintptr_t;
 
-
+#define NULL (0)
