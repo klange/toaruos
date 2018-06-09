@@ -259,6 +259,7 @@ void show_menu(void) {
 			toggle(BASE_SEL + 1 + i, *boot_options[i].value, boot_options[i].title);
 		}
 
+		attr = 0x07;
 		y = 16;
 		print_("\n\n");
 		print_banner(HELP_TEXT);
