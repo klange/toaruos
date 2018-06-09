@@ -24,9 +24,8 @@ uint32_t decor_right_width    = 6;
 #define TEXT_OFFSET_X 10
 #define TEXT_OFFSET_Y 3
 
-#define BORDERCOLOR rgb(60,60,60)
+#define BORDERCOLOR rgb(59,59,59)
 #define BORDERCOLOR_INACTIVE rgb(30,30,30)
-#define BACKCOLOR rgb(59,59,59)
 #define TEXTCOLOR rgb(230,230,230)
 #define TEXTCOLOR_INACTIVE rgb(140,140,140)
 
@@ -57,7 +56,7 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 
 	for (int i = 1; i < (int)decor_top_height; ++i) {
 		for (int j = 1; j < (int)window->width - 1; ++j) {
-			GFX(ctx, j, i) = BACKCOLOR;
+			GFX(ctx, j, i) = color;
 		}
 	}
 
