@@ -240,4 +240,14 @@ int sprintf(char * buf, const char *fmt, ...) {
 	return out;
 }
 
+int snprintf(char * buf, size_t size, const char * fmt, ...) {
+	/* XXX This is bad. */
+	(void)size;
+	va_list args;
+	va_start(args, fmt);
+	int out = xvasprintf(buf, fmt, args);
+	va_end(args);
+	return out;
+}
+
 
