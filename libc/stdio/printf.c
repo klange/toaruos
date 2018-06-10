@@ -167,6 +167,28 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 				}
 				b = buf + i;
 				break;
+			case 'f':
+				{
+					double val = (double)va_arg(args, double);
+					i = b - buf;
+					if (val < 0) {
+						*b++ = '-';
+						buf++;
+						val = -val;
+					}
+					print_dec((long)val, arg_width, buf, &i, fill_zero, align);
+					b = buf + i;
+					i = b - buf;
+					*b++ = '.';
+					buf++;
+					for (int j = 0; j < 10; ++j) {
+						if ((int)(val * 100000.0) % 100000 == 0 && j != 0) break;
+						val *= 10.0;
+						print_dec((int)(val) % 10, 0, buf, &i, 0, 0);
+					}
+					b = buf + i;
+				}
+				break;
 			case '%': /* Escape */
 				*b++ = '%';
 				break;

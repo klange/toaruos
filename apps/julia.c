@@ -134,18 +134,14 @@ static void decors() {
 }
 
 void redraw() {
-#if 0
 	printf("initer: %f\n", initer);
 	printf("X: %f %f\n", Minx, Maxx);
-#endif
 	float _x = Maxx - Minx;
 	float _y = _x / width * height;
 	Miny = 0 - _y / 2;
 	Maxy = _y / 2;
-#if 0
 	printf("Y: %f %f\n", Miny, Maxy);
 	printf("conx: %f cony: %f\n", conx, cony);
-#endif
 
 	decors();
 
