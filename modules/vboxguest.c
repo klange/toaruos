@@ -91,7 +91,7 @@ static struct vbox_mouse * vbox_m;
 static uint32_t vbox_phys_mouse;
 static struct vbox_mouse * vbox_mg;
 static uint32_t vbox_phys_mouse_get;
-static uint32_t * vbox_vmmdev = 0;
+static volatile uint32_t * vbox_vmmdev = 0;
 
 static fs_node_t * mouse_pipe;
 
@@ -99,11 +99,13 @@ static fs_node_t * mouse_pipe;
 #define DISCARD_POINT 32
 
 static int vbox_irq_handler(struct regs *r) {
-	outportl(vbox_port, vbox_phys_disp);
-	outportl(vbox_port, vbox_phys_mouse_get);
+	if (!vbox_vmmdev[2]) return 0;
+
+	vbox_irq_ack->events = vbox_vmmdev[2];
 	outportl(vbox_port, vbox_phys_ack);
 	irq_ack(vbox_irq);
 
+	outportl(vbox_port, vbox_phys_mouse_get);
 	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y && vbox_mg->x && vbox_mg->y) {
 		unsigned int x = ((unsigned int)vbox_mg->x * lfb_resolution_x) / 0xFFFF;
 		unsigned int y = ((unsigned int)vbox_mg->y * lfb_resolution_y) / 0xFFFF;
@@ -121,7 +123,7 @@ static int vbox_irq_handler(struct regs *r) {
 		write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 	}
 
-
+	outportl(vbox_port, vbox_phys_disp);
 	if (lfb_resolution_x && vbox_disp->xres && (vbox_disp->xres != lfb_resolution_x  || vbox_disp->yres != lfb_resolution_y)) {
 
 		lfb_set_resolution(vbox_disp->xres, vbox_disp->yres);
