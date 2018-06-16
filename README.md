@@ -1,8 +1,6 @@
-*Development of ToaruOS has been redirected to [ToaruOS-NIH](https://gitlab.com/toaruos/toaru-nih). Additionally, the ToaruOS project itself is migrating to [GitLab](https://gitlab.com/toaruos).*
-
-![](http://i.imgur.com/QGVoRJD.png)
-![](http://i.imgur.com/MlAxGpj.png)
-![](http://i.imgur.com/OpMGfHP.png)
+![](https://i.imgur.com/QGVoRJD.png)
+![](https://i.imgur.com/MlAxGpj.png)
+![](https://i.imgur.com/OpMGfHP.png)
 
 # ToaruOS (とあるOS) #
 
@@ -46,6 +44,15 @@ The userspace depends on a number of third-party libraries which are outside of 
 License for the included third-party tools and libraries can be found [here](hdd/usr/share/help/licenses).
 
 ## Community ##
+
+### Git ###
+
+ToaruOS is hosted across multiple social git hosting sites:
+
+- [Gitlab](https://gitlab.com/toaruos/toaruos)
+- [Github](https://github.com/klange/toaruos)
+- [Bitbucket](https://bitbucket.org/klange/toaruos)
+- [git.toaruos.org](https://git.toaruos.org/klange/toaruos)
 
 ### Wiki ###
 
