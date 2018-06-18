@@ -1821,6 +1821,18 @@ void _menu_action_paste(struct MenuEntry * self) {
 	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 }
 
+void _menu_action_set_scale(struct MenuEntry * self) {
+	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
+	if (!_self->action) {
+		scale_fonts  = 0;
+		font_scaling = 1.0;
+	} else {
+		scale_fonts  = 1;
+		font_scaling = atof(_self->action);
+	}
+	reinit(1);
+}
+
 void maybe_flip_cursor(void) {
 	uint64_t ticks = get_ticks();
 	if (ticks > mouse_ticks + 600000LL) {
@@ -1960,7 +1972,15 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "edit", m);
 
 	m = menu_create();
+	menu_insert(m, menu_create_normal(NULL, "0.75", "75%", _menu_action_set_scale));
+	menu_insert(m, menu_create_normal(NULL, NULL, "100%", _menu_action_set_scale));
+	menu_insert(m, menu_create_normal(NULL, "1.5", "150%", _menu_action_set_scale));
+	menu_insert(m, menu_create_normal(NULL, "2.0", "200%", _menu_action_set_scale));
+	menu_set_insert(terminal_menu_bar.set, "zoom", m);
+
+	m = menu_create();
 	menu_insert(m, menu_create_normal(NULL, NULL, "Hide borders", _menu_action_hide_borders));
+	menu_insert(m, menu_create_submenu(NULL,"zoom","Set Zoom..."));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();

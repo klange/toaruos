@@ -304,6 +304,7 @@ struct MenuSet * menu_set_create(void) {
 
 void menu_set_insert(struct MenuSet * set, char * action, struct MenuList * menu) {
 	hashmap_set(set->_menus, action, menu);
+	menu->set = set;
 }
 
 struct MenuSet * menu_set_from_description(const char * path, void (*callback)(struct MenuEntry *)) {
