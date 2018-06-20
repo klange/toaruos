@@ -127,6 +127,12 @@ struct MenuEntry * menu_create_normal(const char * icon, const char * action, co
 
 void _menu_draw_MenuEntry_Submenu(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
 	_menu_draw_MenuEntry_Normal(ctx,self,offset);
+	struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
+
+	/* Draw the tick on the right side to indicate this is a submenu */
+	uint32_t color = _self->hilight ? rgb(255,255,255) : rgb(0,0,0);
+	sprite_t * tick = icon_get_16("menu-tick");
+	draw_sprite_alpha_paint(ctx, tick, _self->width - 16, offset + 2, 1.0, color);
 }
 
 void _menu_focus_MenuEntry_Submenu(struct MenuEntry * self, int focused) {

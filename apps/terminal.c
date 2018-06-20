@@ -1980,7 +1980,7 @@ int main(int argc, char ** argv) {
 
 	m = menu_create();
 	menu_insert(m, menu_create_normal(NULL, NULL, "Hide borders", _menu_action_hide_borders));
-	menu_insert(m, menu_create_submenu(NULL,"zoom","Set Zoom..."));
+	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();
