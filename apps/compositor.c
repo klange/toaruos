@@ -36,6 +36,7 @@
 #include <toaru/kbd.h>
 #include <toaru/pex.h>
 #include <toaru/yutani.h>
+#include <toaru/yutani-internal.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
 #include <toaru/spinlock.h>

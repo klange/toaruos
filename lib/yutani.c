@@ -12,6 +12,7 @@
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
 #include <toaru/yutani.h>
+#include <toaru/yutani-internal.h>
 #include <toaru/mouse.h>
 
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
