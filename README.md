@@ -60,7 +60,7 @@ ToaruOS's kernel is entirely in-house. Its userspace, however, is built on sever
 
 4. De-Cairo-tize the compositor. (Done, but more work planned)
 
-6. Enough C to port Python. (In progress)
+6. Enough C to port Python. (Done, but also more work to do - some bugs exist / math stuff doesn't work)
 
 7. Enough C to port GCC. (In progress)
 
