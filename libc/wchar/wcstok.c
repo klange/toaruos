@@ -32,7 +32,7 @@ wchar_t *wcspbrk(const wchar_t *wcs, const wchar_t *accept) {
 }
 
 wchar_t * wcschr(const wchar_t *wcs, wchar_t wc) {
-	while (*wcs != wc && *wcs != L'0') {
+	while (*wcs != wc && *wcs != 0) {
 		wcs++;
 	}
 	if (!*wcs) return NULL;

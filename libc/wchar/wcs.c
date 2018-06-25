@@ -6,6 +6,8 @@ size_t wcstombs(char * dest, const wchar_t *src, size_t n) {
 	while (c < n && *src) {
 		*dest = *src;
 		c++;
+		src++;
+		dest++;
 	}
 	return c;
 }
@@ -16,6 +18,8 @@ size_t mbstowcs(wchar_t * dest, const char *src, size_t n) {
 	while (c < n && *src) {
 		*dest = *src;
 		c++;
+		src++;
+		dest++;
 	}
 	return c;
 }

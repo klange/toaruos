@@ -109,6 +109,7 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 		unsigned int arg_width = 0;
 		int align = 1; /* right */
 		int fill_zero = 0;
+		int big = 0;
 		if (*f == '-') {
 			align = 0;
 			++f;
@@ -126,19 +127,36 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 			arg_width += *f - '0';
 			++f;
 		}
+		if (*f == 'l') {
+			big = 1;
+			++f;
+		}
 		/* fmt[i] == '%' */
 		switch (*f) {
 			case 's': /* String pointer -> String */
 				{
-					s = (char *)va_arg(args, char *);
-					if (s == NULL) {
-						s = "(null)";
-					}
 					size_t count = 0;
-					while (*s) {
-						*b++ = *s++;
-						count++;
-						if (arg_width && count == arg_width) break;
+					if (big) {
+						wchar_t * ws = (wchar_t *)va_arg(args, wchar_t *);
+						if (ws == NULL) {
+							ws = L"(null)";
+						}
+						size_t count = 0;
+						while (*ws) {
+							*b++ = *ws++;
+							count++;
+							if (arg_width && count == arg_width) break;
+						}
+					} else {
+						s = (char *)va_arg(args, char *);
+						if (s == NULL) {
+							s = "(null)";
+						}
+						while (*s) {
+							*b++ = *s++;
+							count++;
+							if (arg_width && count == arg_width) break;
+						}
 					}
 					while (count < arg_width) {
 						*b++ = ' ';
