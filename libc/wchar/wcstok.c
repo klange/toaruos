@@ -41,7 +41,7 @@ wchar_t * wcschr(const wchar_t *wcs, wchar_t wc) {
 
 wchar_t * wcsrchr(const wchar_t *wcs, wchar_t wc) {
 	wchar_t * last = NULL;
-	while (*wcs != L'0') {
+	while (*wcs != 0) {
 		if (*wcs == wc) {
 			last = (wchar_t *)wcs;
 		}
