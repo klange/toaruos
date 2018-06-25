@@ -21,8 +21,8 @@ int start_options(char * args[]) {
 	int pid = syscall_fork();
 	if (!pid) {
 		char * _envp[] = {
-			"LD_LIBRARY_PATH=/lib",
-			"PATH=/bin",
+			"LD_LIBRARY_PATH=/lib:/usr/lib",
+			"PATH=/bin:/usr/bin",
 			"USER=root",
 			"HOME=/home/root",
 			NULL,
