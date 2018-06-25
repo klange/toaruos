@@ -6,6 +6,7 @@
 extern char **environ;
 
 extern pid_t getpid(void);
+extern pid_t getppid(void);
 
 extern int close(int fd);
 
@@ -40,7 +41,7 @@ extern int symlink(const char *target, const char *linkpath);
 extern ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 
 extern int chdir(const char *path);
-extern int fchdir(int fd);
+//extern int fchdir(int fd);
 extern int isatty(int fd);
 
 extern unsigned int sleep(unsigned int seconds);
@@ -55,6 +56,15 @@ extern char * optarg;
 extern int optind, opterr, optopt;
 
 extern int unlink(const char * pathname);
+
+/* Unimplemented stubs */
+struct utimbuf {
+    time_t actime;
+    time_t modtime;
+};
+extern char * ttyname(int fd);
+extern int utime(const char *filename, const struct utimbuf *times);
+extern int rmdir(const char *pathname); /* TODO  rm probably just works */
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1

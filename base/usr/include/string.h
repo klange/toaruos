@@ -24,6 +24,8 @@ extern char * strrchr(const char * s, int c);
 extern char * strpbrk(const char * s, const char * b);
 extern char * strstr(const char * h, const char * n);
 
+extern char * strncpy(char * dest, const char * src, size_t n);
+
 extern int strcmp(const char * l, const char * r);
 extern int strncmp(const char *s1, const char *s2, size_t n);
 extern int strcoll(const char * s1, const char * s2);

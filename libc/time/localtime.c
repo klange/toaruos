@@ -56,7 +56,7 @@ static long secs_of_month(int months, int year) {
 	return days * SEC_DAY;
 }
 
-struct tm *localtime(const time_t *timep) {
+struct tm *localtime_r(const time_t *timep, struct tm * _timevalue) {
 
 	fprintf(stderr, "Hello world?\n");
 
@@ -71,7 +71,7 @@ struct tm *localtime(const time_t *timep) {
 		long secs = added * 86400;
 
 		if (seconds + secs >= *timep) {
-			_timevalue.tm_year = year - 1900;
+			_timevalue->tm_year = year - 1900;
 			year_sec = seconds;
 			fprintf(stderr, "The year is %d, year_sec=%d\n", year, year_sec);
 			for (int month = 1; month <= 12; ++month) {
@@ -80,24 +80,24 @@ struct tm *localtime(const time_t *timep) {
 				fprintf(stderr, "%d vs %d\n", seconds + secs, *timep);
 				if (seconds + secs >= *timep) {
 					fprintf(stderr, "The month is %d.\n", month);
-					_timevalue.tm_mon = month - 1;
+					_timevalue->tm_mon = month - 1;
 					for (int day = 1; day <= days_in_month(month, year); ++day) {
 						secs = 60 * 60 * 24;
 						fprintf(stderr, "Checking day %d, %d vs . %d\n", day, seconds + secs, *timep);
 						if (seconds + secs >= *timep) {
 							fprintf(stderr, "The day is %d.\n", day);
-							_timevalue.tm_mday = day;
+							_timevalue->tm_mday = day;
 							for (int hour = 1; hour <= 24; ++hour) {
 								secs = 60 * 60;
 								if (seconds + secs >= *timep) {
 									long remaining = *timep - seconds;
-									_timevalue.tm_hour = hour-1;
-									_timevalue.tm_min = remaining / 60;
-									_timevalue.tm_sec = remaining % 60; // can be 60 on a leap second, ignore that
-									_timevalue.tm_wday = day_of_week(*timep); // oh shit
-									_timevalue.tm_yday = (*timep - year_sec) / SEC_DAY;
-									_timevalue.tm_isdst = 0; // never because UTC
-									return &_timevalue;
+									_timevalue->tm_hour = hour-1;
+									_timevalue->tm_min = remaining / 60;
+									_timevalue->tm_sec = remaining % 60; // can be 60 on a leap second, ignore that
+									_timevalue->tm_wday = day_of_week(*timep); // oh shit
+									_timevalue->tm_yday = (*timep - year_sec) / SEC_DAY;
+									_timevalue->tm_isdst = 0; // never because UTC
+									return _timevalue;
 								} else {
 									seconds += secs;
 								}
@@ -150,6 +150,15 @@ time_t mktime(struct tm *tm) {
 
 }
 
+struct tm * gmtime_r(const time_t * timep, struct tm * tm) {
+	return localtime_r(timep, tm);
+}
+
+struct tm * localtime(const time_t *timep) {
+	return localtime_r(timep, &_timevalue);
+}
+
 struct tm *gmtime(const time_t *timep) {
 	return localtime(timep);
 }
+

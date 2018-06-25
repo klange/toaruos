@@ -13,3 +13,4 @@ util/build
 util/local
 .gdb_history
 kernel/symbols.S
+base/usr/python
