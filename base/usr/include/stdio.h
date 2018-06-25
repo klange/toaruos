@@ -36,6 +36,7 @@ extern int    fprintf(FILE *stream, const char *fmt, ...);
 extern int    printf(const char *fmt, ...);
 extern int snprintf(char * buf, size_t size, const char * fmt, ...);
 extern int vsprintf(char * buf, const char *fmt, va_list args);
+extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
 
 extern int puts(const char *s);
 extern int fputs(const char *s, FILE *stream);

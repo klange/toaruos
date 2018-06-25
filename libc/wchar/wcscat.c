@@ -1,4 +1,5 @@
 #include <wchar.h>
+#include <stdio.h>
 
 wchar_t * wcscat(wchar_t *dest, const wchar_t *src) {
 	wchar_t * end = dest;
@@ -19,10 +20,7 @@ wchar_t * wcsncat(wchar_t *dest, const wchar_t * src, size_t n) {
 	size_t c = 0;
 	while (*end != 0) {
 		++end;
-		c++;
 	}
-	if (c >= n) return dest;
-
 	while (*src && c < n) {
 		*end = *src;
 		end++;
@@ -31,5 +29,4 @@ wchar_t * wcsncat(wchar_t *dest, const wchar_t * src, size_t n) {
 	}
 	*end = 0;
 	return dest;
-
 }
