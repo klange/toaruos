@@ -100,6 +100,7 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 	int i = 0;
 	char * s;
 	char * b = buf;
+	int precision = 0;
 	for (const char *f = fmt; *f; f++) {
 		if (*f != '%') {
 			*b++ = *f;
@@ -127,6 +128,15 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 			arg_width += *f - '0';
 			++f;
 		}
+		if (*f == '.') {
+			++f;
+			precision = 0;
+			while (*f >= '0' && *f <= '9') {
+				precision *= 10;
+				precision += *f - '0';
+				++f;
+			}
+		}
 		if (*f == 'l') {
 			big = 1;
 			++f;
@@ -152,10 +162,19 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 						if (s == NULL) {
 							s = "(null)";
 						}
-						while (*s) {
-							*b++ = *s++;
-							count++;
-							if (arg_width && count == arg_width) break;
+						if (precision > 0) {
+							while (*s && precision > 0) {
+								*b++ = *s++;
+								count++;
+								precision--;
+								if (arg_width && count == arg_width) break;
+							}
+						} else {
+							while (*s) {
+								*b++ = *s++;
+								count++;
+								if (arg_width && count == arg_width) break;
+							}
 						}
 					}
 					while (count < arg_width) {
@@ -167,6 +186,10 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 			case 'c': /* Single character */
 				*b++ = (char)va_arg(args, int);
 				break;
+			case 'p':
+				if (!arg_width) {
+					arg_width = 8;
+				}
 			case 'x': /* Hexadecimal number */
 				i = b - buf;
 				print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
