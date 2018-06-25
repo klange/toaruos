@@ -195,6 +195,7 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 				print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
 				b = buf + i;
 				break;
+			case 'i':
 			case 'd': /* Decimal number */
 				i = b - buf;
 				{
