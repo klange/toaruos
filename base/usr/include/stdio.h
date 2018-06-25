@@ -22,6 +22,7 @@ extern int fclose(FILE * stream);
 extern int fseek(FILE * stream, long offset, int whence);
 extern long ftell(FILE * stream);
 extern FILE * fdopen(int fd, const char *mode);
+extern FILE * freopen(const char *path, const char *mode, FILE * stream);
 
 extern size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream);
 extern size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream);
@@ -50,7 +51,18 @@ extern int ungetc(int c, FILE * stream);
 
 extern int feof(FILE * stream);
 extern void clearerr(FILE * stream);
+extern int ferror(FILE * stream);
+
+extern char * strerror(int errnum);
 
 extern int _fwouldblock(FILE * stream);
+
+extern FILE * tmpfile(void);
+
+extern int setvbuf(FILE * stream, char * buf, int mode, size_t size);
+
+#define _IONBF 0
+#define _IOLBF 1
+#define _IOFBF 2
 
 #define getc(s) fgetc(s)

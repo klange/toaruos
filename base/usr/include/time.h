@@ -19,3 +19,6 @@ extern struct tm *localtime(const time_t *timep);
 extern size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
 extern time_t time(time_t * out);
 extern double difftime(time_t a, time_t b);
+
+extern int clock(void);
+#define CLOCKS_PER_SEC 1

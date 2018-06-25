@@ -51,6 +51,10 @@ int strcmp(const char * l, const char * r) {
 	return *(unsigned char *)l - *(unsigned char *)r;
 }
 
+int strcoll(const char * s1, const char * s2) {
+	return strcmp(s1,s2); /* TODO locales */
+}
+
 size_t strlen(const char * s) {
 	const char * a = s;
 	const size_t * w;

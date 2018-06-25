@@ -38,7 +38,6 @@ DEFN_SYSCALL3(ioctl, 47, int, int, void *);
 DEFN_SYSCALL2(access, 48, char *, int);
 DEFN_SYSCALL2(stat, 49, char *, void *);
 DEFN_SYSCALL1(umask, 51, int);
-DEFN_SYSCALL1(unlink, 52, char *);
 DEFN_SYSCALL3(waitpid, 53, int, int *, int);
 DEFN_SYSCALL5(mount, SYS_MOUNT, char *, char *, char *, unsigned long, void *);
 DEFN_SYSCALL2(lstat, SYS_LSTAT, char *, void *);

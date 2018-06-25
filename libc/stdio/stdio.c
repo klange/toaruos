@@ -16,6 +16,7 @@ struct _FILE {
 	int read_from;
 	int ungetc;
 	int eof;
+	int bufsiz;
 };
 
 FILE _stdin = {
@@ -26,6 +27,7 @@ FILE _stdin = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.bufsiz = BUFSIZ,
 };
 
 FILE _stdout = {
@@ -36,6 +38,7 @@ FILE _stdout = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.bufsiz = BUFSIZ,
 };
 
 FILE _stderr = {
@@ -46,6 +49,7 @@ FILE _stderr = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.bufsiz = BUFSIZ,
 };
 
 FILE * stdin = &_stdin;
@@ -71,6 +75,18 @@ static char * stream_id(FILE * stream) {
 
 extern char * _argv_0;
 
+int setvbuf(FILE * stream, char * buf, int mode, size_t size) {
+	if (mode != _IOLBF) {
+		return -1; /* Unsupported */
+	}
+	if (buf) {
+		if (stream->read_buf) {
+			free(stream->read_buf);
+		}
+		stream->bufsiz = size;
+	}
+	return 0;
+}
 
 static size_t read_bytes(FILE * f, char * out, size_t len) {
 	size_t r_out = 0;
@@ -89,10 +105,10 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 		}
 
 		if (f->available == 0) {
-			if (f->offset == BUFSIZ) {
+			if (f->offset == f->bufsiz) {
 				f->offset = 0;
 			}
-			ssize_t r = read(fileno(f), &f->read_buf[f->offset], BUFSIZ - f->offset);
+			ssize_t r = read(fileno(f), &f->read_buf[f->offset], f->bufsiz - f->offset);
 			if (r < 0) {
 				//fprintf(stderr, "error condition\n");
 				return r_out;
@@ -125,8 +141,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 	return r_out;
 }
 
-FILE * fopen(const char *path, const char *mode) {
-
+static void parse_mode(const char * mode, int * flags_, int * mask_) {
 	const char * x = mode;
 
 	int flags = 0;
@@ -152,6 +167,15 @@ FILE * fopen(const char *path, const char *mode) {
 		++x;
 	}
 
+	*flags_  = flags;
+	*mask_ = mask;
+}
+
+
+FILE * fopen(const char *path, const char *mode) {
+
+	int flags, mask;
+	parse_mode(mode, &flags, &mask);
 	int fd = syscall_open(path, flags, mask);
 
 	if (fd < 0) {
@@ -161,6 +185,7 @@ FILE * fopen(const char *path, const char *mode) {
 	FILE * out = malloc(sizeof(FILE));
 	out->fd = fd;
 	out->read_buf = malloc(BUFSIZ);
+	out->bufsiz = BUFSIZ;
 	out->available = 0;
 	out->read_from = 0;
 	out->offset = 0;
@@ -168,6 +193,30 @@ FILE * fopen(const char *path, const char *mode) {
 	out->eof = 0;
 
 	return out;
+}
+
+/* This is very wrong */
+FILE * freopen(const char *path, const char *mode, FILE * stream) {
+
+	if (path) {
+		if (stream) {
+			fclose(stream);
+		}
+		int flags, mask;
+		parse_mode(mode, &flags, &mask);
+		int fd = syscall_open(path, flags, mask);
+		stream->fd = fd;
+		stream->available = 0;
+		stream->read_from = 0;
+		stream->offset = 0;
+		stream->ungetc = -1;
+		stream->eof = 0;
+		if (fd < 0) {
+			return NULL;
+		}
+	}
+
+	return stream;
 }
 
 int ungetc(int c, FILE * stream) {
@@ -181,6 +230,7 @@ FILE * fdopen(int fd, const char *mode){
 	FILE * out = malloc(sizeof(FILE));
 	out->fd = fd;
 	out->read_buf = malloc(BUFSIZ);
+	out->bufsiz = BUFSIZ;
 	out->available = 0;
 	out->read_from = 0;
 	out->offset = 0;
@@ -338,4 +388,8 @@ int feof(FILE * stream) {
 
 void clearerr(FILE * stream) {
 	stream->eof = 0;
+}
+
+int ferror(FILE * stream) {
+	return 0; /* TODO */
 }

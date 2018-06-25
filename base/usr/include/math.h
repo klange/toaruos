@@ -10,4 +10,6 @@ extern double fabs(double x);
 extern double sin(double x);
 extern double cos(double x);
 
+double frexp(double x, int *exp);
+
 #define HUGE_VAL (__builtin_huge_val())

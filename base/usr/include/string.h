@@ -26,6 +26,7 @@ extern char * strstr(const char * h, const char * n);
 
 extern int strcmp(const char * l, const char * r);
 extern int strncmp(const char *s1, const char *s2, size_t n);
+extern int strcoll(const char * s1, const char * s2);
 
 extern size_t strcspn(const char * s, const char * c);
 extern size_t strspn(const char * s, const char * c);
@@ -38,3 +39,5 @@ extern char * strcat(char *dest, const char *src);
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 
 extern char * strncpy(char *dest, const char *src, size_t n);
+
+extern char * strerror(int errnum);
