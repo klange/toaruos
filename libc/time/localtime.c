@@ -20,7 +20,7 @@ static int day_of_week(long seconds) {
 	return day % 7;
 }
 
-long days_in_month(int month, int year) {
+static long days_in_month(int month, int year) {
 	switch(month) {
 		case 11:
 			return 30;
@@ -48,7 +48,7 @@ long days_in_month(int month, int year) {
 	return 0;
 }
 
-long secs_of_month(int months, int year) {
+static long secs_of_month(int months, int year) {
 	long days = 0;
 	for (int i = 1; i < months; ++i) {
 		days += days_in_month(months, year);
@@ -123,4 +123,33 @@ struct tm *localtime(const time_t *timep) {
 
 	fprintf(stderr, "Uh, no?\n");
 	return (void *)0; /// uh what
+}
+
+static unsigned int secs_of_years(int years) {
+	unsigned int days = 0;
+	years += 2000;
+	while (years > 1969) {
+		days += 365;
+		if (year_is_leap(years)) {
+			days++;
+		}
+		years--;
+	}
+	return days * 86400;
+}
+
+
+time_t mktime(struct tm *tm) {
+	return
+	  secs_of_years(tm->tm_year + 1900) +
+	  secs_of_month(tm->tm_mon, tm->tm_year + 1900) +
+	  (tm->tm_mday - 1) * 86400 +
+	  (tm->tm_hour) * 3600 +
+	  (tm->tm_min) * 60 +
+	  (tm->tm_sec);
+
+}
+
+struct tm *gmtime(const time_t *timep) {
+	return localtime(timep);
 }

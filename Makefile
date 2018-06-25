@@ -23,10 +23,12 @@ TARGET_TRIPLET=i686-pc-toaru
 
 CC=$(TARGET_TRIPLET)-gcc
 AR=$(TARGET_TRIPLET)-ar
+AS=$(TARGET_TRIPLET)-as
 CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
 
 LIBC_OBJS  = $(patsubst %.c,%.o,$(wildcard libc/*.c))
 LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))
+LIBC_OBJS += libc/setjmp.o
 LC=base/lib/libc.so
 
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
@@ -118,6 +120,9 @@ crts: base/lib/crt0.o base/lib/crti.o base/lib/crtn.o | dirs
 
 base/lib/crt%.o: libc/crt%.s
 	yasm -f elf -o $@ $<
+
+libc/setjmp.o: libc/setjmp.S
+	$(AS) -o $@ $<
 
 libc/%.o: libc/%.c
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $<

@@ -61,8 +61,14 @@ extern FILE * tmpfile(void);
 
 extern int setvbuf(FILE * stream, char * buf, int mode, size_t size);
 
+extern int remove(const char * pathname);
+extern int rename(const char * oldpath, const char * newpath);
+
 #define _IONBF 0
 #define _IOLBF 1
 #define _IOFBF 2
 
 #define getc(s) fgetc(s)
+
+extern char * tmpnam(char * s);
+#define L_tmpnam 256

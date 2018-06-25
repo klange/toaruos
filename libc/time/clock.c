@@ -1,5 +1,5 @@
 #include <time.h>
 
-int clock(void) {
+clock_t clock(void) {
 	return -1;
 }
