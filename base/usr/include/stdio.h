@@ -32,9 +32,10 @@ extern int fflush(FILE * stream);
 
 extern size_t vasprintf(char ** buf, const char *fmt, va_list args);
 extern int    sprintf(char *buf, const char *fmt, ...);
-extern int    fprintf(FILE *stream, char *fmt, ...);
-extern int    printf(char *fmt, ...);
+extern int    fprintf(FILE *stream, const char *fmt, ...);
+extern int    printf(const char *fmt, ...);
 extern int snprintf(char * buf, size_t size, const char * fmt, ...);
+extern int vsprintf(char * buf, const char *fmt, va_list args);
 
 extern int puts(const char *s);
 extern int fputs(const char *s, FILE *stream);

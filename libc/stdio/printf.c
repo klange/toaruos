@@ -208,7 +208,11 @@ size_t vasprintf(char ** buf, const char * fmt, va_list args) {
 	return xvasprintf(b, fmt, args);
 }
 
-int fprintf(FILE * device, char *fmt, ...) {
+int vsprintf(char * buf, const char *fmt, va_list args) {
+	return xvasprintf(buf, fmt, args);
+}
+
+int fprintf(FILE * device, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	char * buffer;
@@ -220,7 +224,7 @@ int fprintf(FILE * device, char *fmt, ...) {
 	return out;
 }
 
-int printf(char *fmt, ...) {
+int printf(const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	char * buffer;

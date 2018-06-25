@@ -12,3 +12,4 @@ typedef _sig_func_ptr sighandler_t;
 typedef int sig_atomic_t;
 
 extern sighandler_t signal(int signum, sighandler_t handler);
+extern int raise(int sig);

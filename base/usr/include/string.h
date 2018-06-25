@@ -36,6 +36,7 @@ extern int atoi(const char * s);
 
 extern char * strcat(char *dest, const char *src);
 
+extern char * strtok(char * str, const char * delim);
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 
 extern char * strncpy(char *dest, const char *src, size_t n);

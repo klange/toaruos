@@ -391,6 +391,28 @@ int atoi(const char * s) {
 	return neg ? n : -n;
 }
 
+long int strtol(const char * s, char **endptr, int base) {
+	int n = 0;
+	int neg = 0;
+	while (isspace(*s)) {
+		s++;
+	}
+	switch (*s) {
+		case '-':
+			neg = 1;
+			/* Fallthrough is intentional here */
+		case '+':
+			s++;
+	}
+	while (isdigit(*s)) {
+		n = 10*n - (*s++ - '0');
+	}
+	/* The sign order may look incorrect here but this is correct as n is calculated
+	 * as a negative number to avoid overflow on INT_MAX.
+	 */
+	return neg ? n : -n;
+}
+
 size_t lfind(const char * str, const char accept) {
 	return (size_t)strchr(str, accept);
 }
@@ -418,6 +440,14 @@ char * strtok_r(char * str, const char * delim, char ** saveptr) {
 		*saveptr = str + 1;
 	}
 	return token;
+}
+
+char * strtok(char * str, const char * delim) {
+	static char * saveptr = NULL;
+	if (str) {
+			saveptr = NULL;
+	}
+	return strtok_r(str, delim, &saveptr);
 }
 
 char * strcat(char *dest, const char *src) {

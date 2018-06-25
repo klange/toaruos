@@ -11,11 +11,21 @@
 #define O_EXCL       0x0800
 #define O_NOFOLLOW   0x1000
 #define O_PATH       0x2000
+#define O_NONBLOCK   0x4000
 
 #define F_OK 1
 #define R_OK 4
 #define W_OK 2
 #define X_OK 1
 
+#define F_GETFD 1
+#define F_SETFD 2
+
+#define F_GETFL 3
+#define F_SETFL 4
+
+#define FD_CLOEXEC (1 << 0)
+
 extern int open (const char *, int, ...);
 extern int chmod(const char *path, mode_t mode);
+extern int fcntl(int fd, int cmd, ...);
