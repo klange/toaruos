@@ -651,12 +651,12 @@ if __name__ == '__main__':
     d = Decor()
 
     # Create a new window.
-    w = Window(200+d.width(),200+d.height(),title="Python Demo")
+    w = Window(300+d.width(),300+d.height(),title="Python Demo")
 
     # Since this is Python, we can attach data to our window, such
     # as its internal width (excluding the decorations).
-    w.int_width = 200
-    w.int_height = 200
+    w.int_width = 300
+    w.int_height = 300
 
     # We can set window shaping...
     #w.update_shape(WindowShape.THRESHOLD_HALF)
