@@ -10,8 +10,7 @@ pushd $HDD_PATH/usr/python/lib || exit 1
 	chmod -w libpython3.6m.so
 
 	echo "Killing __pycache__ directories..."
-	rm -r ./python3.6/__pycache__
-	rm -r ./python3.6/importlib/__pycache__
+	find . -name __pycache__ -exec rm -r "{}" \;
 
 	# Let's kill some other shit while we're in here
 	pushd python3.6 || exit 1
