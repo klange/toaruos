@@ -40,3 +40,6 @@ pushd $HDD_PATH/usr
 
 	popd
 popd
+
+echo "Installing readline hook..."
+cp util/readline.py $HDD_PATH/usr/python/lib/python3.6/
