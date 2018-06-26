@@ -808,6 +808,29 @@ void show_usage(int argc, char * argv[]) {
 			"\n", argv[0]);
 }
 
+void add_path(void) {
+
+	char * envvar = getenv("PATH");
+
+	if (!envvar) {
+		add_path_contents("/bin");
+		return;
+	}
+
+	char * tmp = strdup(envvar);
+
+	do {
+		char * end = strstr(tmp,":");
+		if (end) {
+			*end = '\0';
+			end++;
+		}
+		add_path_contents(tmp);
+		tmp = end;
+	} while (tmp);
+
+	free(tmp);
+}
 
 int main(int argc, char ** argv) {
 
@@ -822,8 +845,8 @@ int main(int argc, char ** argv) {
 	gethost();
 
 	install_commands();
-	add_path_contents("/bin");
-	//add_path_contents("/usr/bin");
+	/* Parse $PATH to add contents */
+	add_path();
 	sort_commands();
 
 	if (argc > 1) {
