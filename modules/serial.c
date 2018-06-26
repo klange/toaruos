@@ -203,7 +203,21 @@ static int serial_mount_devices(void) {
 	char * c;
 	if ((c = args_value("logtoserial"))) {
 		debug_file = ttyS0;
-		debug_level = atoi(c);
+		if (!strcmp(c,"INFO") || !strcmp(c,"info")) {
+			debug_level = INFO;
+		} else if (!strcmp(c,"NOTICE") || !strcmp(c,"notice")) {
+			debug_level = NOTICE;
+		} else if (!strcmp(c,"WARNING") || !strcmp(c,"warning")) {
+			debug_level = WARNING;
+		} else if (!strcmp(c,"ERROR") || !strcmp(c,"error")) {
+			debug_level = ERROR;
+		} else if (!strcmp(c,"CRITICAL") || !strcmp(c,"critical")) {
+			debug_level = CRITICAL;
+		} else if (!strcmp(c,"INSANE") || !strcmp(c,"insane")) {
+			debug_level = INSANE;
+		} else {
+			debug_level = atoi(c);
+		}
 		debug_print(NOTICE, "Serial logging enabled at level %d.", debug_level);
 	}
 
