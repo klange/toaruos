@@ -209,6 +209,7 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 				}
 				b = buf + i;
 				break;
+			case 'g': /* supposed to also support e */
 			case 'f':
 				{
 					double val = (double)va_arg(args, double);

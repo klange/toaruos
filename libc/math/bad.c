@@ -8,6 +8,10 @@ double asin(double x) {
 	return 0.0;
 }
 
+double atan(double x) {
+	return 0.0;
+}
+
 double atan2(double y, double x) {
 	return 0.0;
 }

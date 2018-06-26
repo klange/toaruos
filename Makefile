@@ -133,6 +133,9 @@ base/lib/libc.a: ${LIBC_OBJS} | dirs crts
 base/lib/libc.so: ${LIBC_OBJS} | dirs crts
 	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
 
+base/lib/libm.so: util/lm.c | dirs crts
+	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
+
 # Userspace Linker/Loader
 
 base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
@@ -162,7 +165,7 @@ endif
 
 # Ramdisk
 
-cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so $(shell find base) Makefile | dirs
+cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell find base) Makefile | dirs
 	genext2fs -B 4096 -d base -D util/devtable -U -b `util/calc-size.sh` -N 2048 cdrom/ramdisk.img
 
 # CD image

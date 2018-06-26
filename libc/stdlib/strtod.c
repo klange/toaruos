@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <math.h>
+#include <stdio.h>
 
 double strtod(const char *nptr, char **endptr) {
 	int sign = 1;
@@ -11,10 +13,7 @@ double strtod(const char *nptr, char **endptr) {
 
 	while (*nptr && *nptr != '.') {
 		if (*nptr < '0' || *nptr > '9') {
-			if (endptr) {
-				*endptr = (char *)nptr;
-			}
-			return 0.0;
+			break;
 		}
 		decimal_part *= 10LL;
 		decimal_part += (long long)(*nptr - '0');
@@ -29,10 +28,7 @@ double strtod(const char *nptr, char **endptr) {
 
 		while (*nptr) {
 			if (*nptr < '0' || *nptr > '9') {
-				if (endptr) {
-					*endptr = (char *)nptr;
-				}
-				return ((double)decimal_part) * (double)(sign);
+				break;
 			}
 
 			sub_part += multiplier * (*nptr - '0');
@@ -41,9 +37,38 @@ double strtod(const char *nptr, char **endptr) {
 		}
 	}
 
+	double expn = (double)sign;
+
+	if (*nptr == 'e' || *nptr == 'E') {
+		nptr++;
+
+		int exponent_sign = 1;
+
+		if (*nptr == '+') {
+			nptr++;
+		} else if (*nptr == '-') {
+			exponent_sign = -1;
+			nptr++;
+		}
+
+		int exponent = 0;
+
+		while (*nptr) {
+			if (*nptr < '0' || *nptr > '9') {
+				break;
+			}
+			exponent *= 10;
+			exponent += (*nptr - '0');
+			nptr++;
+		}
+
+		expn = pow(10.0,(double)(exponent * exponent_sign));
+	}
+
 	if (endptr) {
 		*endptr = (char *)nptr;
 	}
-	return ((double)decimal_part + sub_part) * (double)(sign);
+	double result = ((double)decimal_part + sub_part) * expn;
+	return result;
 }
 

@@ -58,7 +58,7 @@ static long secs_of_month(int months, int year) {
 
 struct tm *localtime_r(const time_t *timep, struct tm * _timevalue) {
 
-	fprintf(stderr, "Hello world?\n");
+	fprintf(stderr, "Hello world? %p %d\n", _timevalue, *timep);
 
 	long seconds = 0; // this needs to be bigger, but whatever
 
@@ -70,7 +70,7 @@ struct tm *localtime_r(const time_t *timep, struct tm * _timevalue) {
 		fprintf(stderr, "adding %d...\n", added);
 		long secs = added * 86400;
 
-		if (seconds + secs >= *timep) {
+		if (seconds + secs >= *timep + 1) {
 			_timevalue->tm_year = year - 1900;
 			year_sec = seconds;
 			fprintf(stderr, "The year is %d, year_sec=%d\n", year, year_sec);
@@ -102,7 +102,7 @@ struct tm *localtime_r(const time_t *timep, struct tm * _timevalue) {
 									seconds += secs;
 								}
 							}
-							fprintf(stderr, "Failed but this is definitely the right day, returning NULL\n");
+							fprintf(stderr, "Failed but this is definitely the right day, returning NULL (seconds = %dbut need %d)\n", seconds, *timep);
 							return NULL;
 						} else {
 							seconds += secs;
