@@ -188,16 +188,23 @@ done:
 				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
 				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
 
-				print_("\n\n\n\n\n\n\n");
-				print_banner("Loading ramdisk...");
-				print_("\n\n\n");
-				attr = 0x70;
+				print_("Loading ramdisk");
 
-				for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
-					if (i % ((dir_entry->extent_length_LSB / 2048) / 80) == 0) {
-						print_(" ");
-					}
-					ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
+				int i = dir_entry->extent_start_LSB;
+				int sectors = dir_entry->extent_length_LSB / 2048 + 1;
+#define SECTORS 65536
+				while (sectors >= SECTORS) {
+					print_(".");
+					ata_device_read_sectors_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset, SECTORS);
+
+					sectors -= SECTORS;
+					offset += 2048 * SECTORS;
+					i += SECTORS;
+				}
+				if (sectors > 0) {
+					print_("!");
+					ata_device_read_sectors_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset, sectors);
+					offset += 2048;
 				}
 				attr = 0x07;
 				print("Done.\n");

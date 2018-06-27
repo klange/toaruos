@@ -156,9 +156,7 @@ static int ata_device_detect(struct ata_device * dev) {
 	return 0;
 }
 
-static int _read_12 = 0;
-
-static void ata_device_read_sector_atapi(struct ata_device * dev, uint32_t lba, uint8_t * buf) {
+static void ata_device_read_sectors_atapi(struct ata_device * dev, uint32_t lba, uint8_t * buf, int sectors) {
 
 	if (!dev->is_atapi) return;
 
@@ -182,16 +180,16 @@ _try_again:
 	}
 
 	atapi_command_t command;
-	command.command_bytes[0] = _read_12 ? 0xA8 : 0x28;
+	command.command_bytes[0] = 0x28;
 	command.command_bytes[1] = 0;
 	command.command_bytes[2] = (lba >> 0x18) & 0xFF;
 	command.command_bytes[3] = (lba >> 0x10) & 0xFF;
 	command.command_bytes[4] = (lba >> 0x08) & 0xFF;
 	command.command_bytes[5] = (lba >> 0x00) & 0xFF;
-	command.command_bytes[6] = 0;
-	command.command_bytes[7] = 0;
-	command.command_bytes[8] = _read_12 ? 0 : 1; /* bit 0 = PMI (0, last sector) */
-	command.command_bytes[9] = _read_12 ? 1 : 0; /* control */
+	command.command_bytes[6] = sectors >> 16;
+	command.command_bytes[7] = sectors >> 8;
+	command.command_bytes[8] = sectors; /* bit 0 = PMI (0, last sector) */
+	command.command_bytes[9] = 0; /* control */
 	command.command_bytes[10] = 0;
 	command.command_bytes[11] = 0;
 
@@ -199,21 +197,25 @@ _try_again:
 		outports(bus, command.command_words[i]);
 	}
 
+
+	for (int i = 0; i < sectors; ++i) {
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup_cmd;
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
 	}
+		uint16_t size_to_read = inportb(bus + ATA_REG_LBA2) << 8;
+		size_to_read = size_to_read | inportb(bus + ATA_REG_LBA1);
 
-	uint16_t size_to_read = inportb(bus + ATA_REG_LBA2) << 8;
-	size_to_read = size_to_read | inportb(bus + ATA_REG_LBA1);
+		inportsm(bus,buf,size_to_read/2);
 
-	inportsm(bus,buf,size_to_read/2);
+		buf += 2048;
 
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
+	}
 	}
 
 	return;
@@ -222,13 +224,9 @@ atapi_error_on_read_setup:
 	print("error on setup\n");
 	return;
 atapi_error_on_read_setup_cmd:
-	if (_read_12) {
-		_read_12 = 0;
-		print("trying again\n");
-		goto _try_again;
-	}
 	print("error on cmd\n");
 	return;
 }
 
 
+#define ata_device_read_sector_atapi(a,b,c) ata_device_read_sectors_atapi(a,b,c,1)
