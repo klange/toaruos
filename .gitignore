@@ -5,6 +5,7 @@
 .make/*
 base/bin/*
 cdrom/kernel
+cdrom/netboot
 cdrom/mod/*
 cdrom/ramdisk.img
 cdrom/boot/boot.sys

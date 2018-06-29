@@ -23,12 +23,13 @@
 #define DEFAULT_SINGLE_CMDLINE "start=terminal "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
+#define DEFAULT_NETBOOT_CMDLINE "init=/dev/ram0 _"
 #define MIGRATE_CMDLINE "start=--migrate _"
 #define DEBUG_LOG_CMDLINE "logtoserial=3 "
 
-#define KERNEL_PATH "KERNEL."
-#define RAMDISK_PATH "RAMDISK.IMG"
-#define MODULE_DIRECTORY "MOD"
+char * module_dir = "MOD";
+char * kernel_path = "KERNEL.";
+char * ramdisk_path = "RAMDISK.IMG";
 
 /* Where to dump kernel data while loading */
 #define KERNEL_LOAD_START 0x300000
@@ -66,6 +67,7 @@ static char * boot_mode_names[] = {
 	"Normal Boot",
 	"VGA Text Mode",
 	"Single-User Graphical Terminal",
+	"Netboot (experimental)",
 };
 
 /* More bootloader implementation that depends on the module config */
@@ -119,10 +121,15 @@ int kmain() {
 	show_menu();
 
 	/* Build our command line. */
-	strcat(cmdline, DEFAULT_ROOT_CMDLINE);
+	if (boot_mode == 3) {
+		strcat(cmdline, DEFAULT_NETBOOT_CMDLINE);
+		ramdisk_path = "NETBOOT.";
+	} else {
+		strcat(cmdline, DEFAULT_ROOT_CMDLINE);
 
-	if (_migrate) {
-		strcat(cmdline, MIGRATE_CMDLINE);
+		if (_migrate) {
+			strcat(cmdline, MIGRATE_CMDLINE);
+		}
 	}
 
 	if (boot_mode == 0) {
@@ -132,6 +139,9 @@ int kmain() {
 		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
 	} else if (boot_mode == 2) {
 		strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
+		strcat(cmdline, DEFAULT_VID_CMDLINE);
+	} else if (boot_mode == 3) {
+		strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
 		strcat(cmdline, DEFAULT_VID_CMDLINE);
 	}
 

@@ -147,7 +147,7 @@ static void do_it(struct ata_device * _device) {
 done:
 	restore_root();
 
-	if (navigate(KERNEL_PATH)) {
+	if (navigate(kernel_path)) {
 		print("Found kernel.\n");
 		print_hex(dir_entry->extent_start_LSB); print(" ");
 		print_hex(dir_entry->extent_length_LSB); print("\n");
@@ -156,7 +156,7 @@ done:
 			ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 		}
 		restore_root();
-		if (navigate(MODULE_DIRECTORY)) {
+		if (navigate(module_dir)) {
 			memcpy(mod_dir, dir_entry, sizeof(iso_9660_directory_entry_t));
 			print("Scanning modules...\n");
 			char ** c = modules;
@@ -181,7 +181,7 @@ done:
 			}
 			print("Done.\n");
 			restore_root();
-			if (navigate(RAMDISK_PATH)) {
+			if (navigate(ramdisk_path)) {
 				clear_();
 				ramdisk_off = KERNEL_LOAD_START + offset;
 				ramdisk_len = dir_entry->extent_length_LSB;
@@ -267,8 +267,8 @@ void show_menu(void) {
 		}
 
 		attr = 0x07;
-		y = 16;
-		print_("\n\n");
+		y = 17;
+		print_("\n");
 		print_banner(HELP_TEXT);
 		print_("\n");
 
