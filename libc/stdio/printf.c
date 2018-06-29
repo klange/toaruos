@@ -100,7 +100,7 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 	int i = 0;
 	char * s;
 	char * b = buf;
-	int precision = 0;
+	int precision = -1;
 	for (const char *f = fmt; *f; f++) {
 		if (*f != '%') {
 			*b++ = *f;
@@ -131,10 +131,15 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 		if (*f == '.') {
 			++f;
 			precision = 0;
-			while (*f >= '0' && *f <= '9') {
-				precision *= 10;
-				precision += *f - '0';
+			if (*f == '*') {
+				precision = (int)va_arg(args, int);
 				++f;
+			} else  {
+				while (*f >= '0' && *f <= '9') {
+					precision *= 10;
+					precision += *f - '0';
+					++f;
+				}
 			}
 		}
 		if (*f == 'l') {
@@ -162,7 +167,7 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 						if (s == NULL) {
 							s = "(null)";
 						}
-						if (precision > 0) {
+						if (precision >= 0) {
 							while (*s && precision > 0) {
 								*b++ = *s++;
 								count++;
