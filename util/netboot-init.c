@@ -331,10 +331,31 @@ static void * watchdog_func(void * garbage) {
 #define bar_perc "||||||||||||||||||||"
 #define bar_spac "                    "
 static void draw_progress(size_t content_length, size_t size) {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+
 	TRACE("\033[G%6dkB",(int)size/1024);
 	if (content_length) {
 		int percent = (size * BAR_WIDTH) / (content_length);
 		TRACE(" / %6dkB [%.*s%.*s]", (int)content_length/1024, percent,bar_perc,BAR_WIDTH-percent,bar_spac);
+	}
+	double timediff = (double)(now.tv_sec - start.tv_sec) + (double)(now.tv_usec - start.tv_usec)/1000000.0;
+	if (timediff > 0.0) {
+		double rate = (double)(size) / timediff;
+		double s = rate/(1024.0) * 8.0;
+		if (s > 1024.0) {
+			TRACE(" %.2f mbps", s/1024.0);
+		} else {
+			TRACE(" %.2f kbps", s);
+		}
+
+		if (content_length) {
+			if (rate > 0.0) {
+				double remaining = (double)(content_length - size) / rate;
+
+				TRACE(" (%.2f sec remaining)", remaining);
+			}
+		}
 	}
 	TRACE("\033[K");
 }
