@@ -13,7 +13,7 @@
 
 /* Basic text strings */
 #define VERSION_TEXT "ToaruOS-NIH Bootloader v1.2"
-#define HELP_TEXT "Press <Enter> or select a menu option with \030/\031."
+#define HELP_TEXT "Press <Enter> or select a menu option with \030/\031/\032/\033."
 #define COPYRIGHT_TEXT "ToaruOS is free software under the NCSA license."
 #define LINK_TEXT "https://toaruos.org - https://gitlab.com/toaruos"
 
@@ -26,6 +26,7 @@
 #define DEFAULT_NETBOOT_CMDLINE "init=/dev/ram0 _"
 #define MIGRATE_CMDLINE "start=--migrate _"
 #define DEBUG_LOG_CMDLINE "logtoserial=3 "
+#define DEBUG_SERIAL_CMDLINE "kdebug "
 
 char * module_dir = "MOD";
 char * kernel_path = "KERNEL.";
@@ -76,47 +77,51 @@ int kmain() {
 
 	/* Boot options - configurable values */
 
-	BOOT_OPTION(_debug,       0, "Enable debug output.",
+	BOOT_OPTION(_debug,       0, "Debug output",
 		"Enable debug output in the bootloader and enable the",
 		"serial debug log in the operating system itself.");
 
-	BOOT_OPTION(_legacy_ata,  0, "Enable legacy ATA driver.",
+	BOOT_OPTION(_legacy_ata,  0, "Legacy ATA driver",
 		"Enable the legacy ATA driver, which does not support",
 		"ATAPI or use DMA. May be necessary in some virtual machines.");
 
-	BOOT_OPTION(_normal_ata,  1, "Enable DMA ATA driver.",
+	BOOT_OPTION(_normal_ata,  1, "DMA ATA driver",
 		"Enable the normal, DMA-capable ATA driver. This is the default.",
 		NULL);
 
-	BOOT_OPTION(_debug_shell, 1, "Enable debug shell.",
+	BOOT_OPTION(_debug_shell, 1, "Debug shell",
 		"Enable the kernel debug shell. This can be accessed using",
 		"the `kdebug` application.");
 
-	BOOT_OPTION(_video,       1, "Enable video modules.",
+	BOOT_OPTION(_video,       1, "Video modules",
 		"Enable the video modules. These are needed to modeset",
 		"and provide a framebuffer for the UI.");
 
-	BOOT_OPTION(_vbox,        1, "Enable VirtualBox Guest Additions.",
+	BOOT_OPTION(_vbox,        1, "VirtualBox Guest Additions",
 		"Enable integration with VirtualBox, including",
 		"automatic mode setting and absolute mouse pointer.");
 
-	BOOT_OPTION(_vmware,      1, "Enable VMWare mouse driver.",
+	BOOT_OPTION(_vmware,      1, "VMWare mouse driver",
 		"Enable the VMware / QEMU absolute mouse pointer.",
 		NULL);
 
-	BOOT_OPTION(_sound,       1, "Enable audio drivers.",
+	BOOT_OPTION(_sound,       1, "Audio drivers",
 		"Enable the audio subsystem and AC'97 drivers.",
 		NULL);
 
-	BOOT_OPTION(_net,         1, "Enable network drivers.",
+	BOOT_OPTION(_net,         1, "Network drivers",
 		"Enable the IPv4 network subsystem and various",
 		"network interface drivers.");
 
-	BOOT_OPTION(_migrate,     1, "Enable writable root.",
+	BOOT_OPTION(_migrate,     1, "Writable root",
 		"Migrates the ramdisk from ext2 to an in-memory",
 		"temporary filesystem at boot.");
 
-	BOOT_OPTION(_netboot,     0, "Enable netboot.",
+	BOOT_OPTION(_serialshell, 0, "Debug on serial",
+		"Start a kernel debug shell on the first",
+		"serial port.");
+
+	BOOT_OPTION(_netboot,     0, "Netboot",
 		"Downloads a userspace filesystem from a remote",
 		"server and extracts it at boot.");
 
@@ -147,6 +152,10 @@ int kmain() {
 
 	if (_debug) {
 		strcat(cmdline, DEBUG_LOG_CMDLINE);
+	}
+
+	if (_serialshell) {
+		strcat(cmdline, DEBUG_SERIAL_CMDLINE);
 	}
 
 	/* Configure modules */

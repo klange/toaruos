@@ -9,7 +9,14 @@ void toggle(int ndx, int value, char *str) {
 		print_(" [ ] ");
 	}
 	print_(str);
-	print_("\n");
+	if (x < 40) {
+		while (x < 39) {
+			print_(" ");
+		}
+		x = 40;
+	} else {
+		print_("\n");
+	}
 }
 
 struct option {

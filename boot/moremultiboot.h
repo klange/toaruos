@@ -254,6 +254,8 @@ void show_menu(void) {
 		for (int i = 0; i < BASE_SEL+1; ++i) {
 			attr = sel == i ? 0x70 : 0x07;
 			print_(" ");
+			char tmp[] = {'0' + (i + 1), '.', ' ', '\0'};
+			print_(tmp);
 			print_(boot_mode_names[i]);
 			print_("\n");
 		}
@@ -283,12 +285,26 @@ void show_menu(void) {
 		}
 
 		int s = read_scancode();
-		if (s == 0x50) {
-			sel = (sel + 1)  % sel_max;
-			continue;
-		} else if (s == 0x48) {
-			sel = (sel_max + sel - 1)  % sel_max;
-			continue;
+		if (s == 0x50) { /* DOWN */
+			if (sel > BASE_SEL && sel < sel_max - 1) {
+				sel = (sel + 2) % sel_max;
+			} else {
+				sel = (sel + 1)  % sel_max;
+			}
+		} else if (s == 0x48) { /* UP */
+			if (sel > BASE_SEL + 1) {
+				sel = (sel_max + sel - 2)  % sel_max;
+			} else {
+				sel = (sel_max + sel - 1)  % sel_max;
+			}
+		} else if (s == 0x4B) { /* LEFT */
+			if (sel > BASE_SEL + 1) {
+				sel -= 1;
+			}
+		} else if (s == 0x4D) { /* RIGHT */
+			if (sel > BASE_SEL) {
+				sel = (sel + 1) % sel_max;
+			}
 		} else if (s == 0x1c) {
 			if (sel <= BASE_SEL) {
 				boot_mode = sel;
@@ -297,6 +313,16 @@ void show_menu(void) {
 				int index = sel - BASE_SEL - 1;
 				*boot_options[index].value = !*boot_options[index].value;
 			}
+		} else if (s >= 2 && s <= 10) {
+			int i = s - 2;
+			if (i <= BASE_SEL) {
+				boot_mode = i;
+				break;
+			}
+#if 0
+		} else {
+			print_hex_(s);
+#endif
 		}
 	} while (1);
 }
