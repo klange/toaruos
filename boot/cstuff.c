@@ -67,7 +67,6 @@ static char * boot_mode_names[] = {
 	"Normal Boot",
 	"VGA Text Mode",
 	"Single-User Graphical Terminal",
-	"Netboot (experimental)",
 };
 
 /* More bootloader implementation that depends on the module config */
@@ -117,11 +116,15 @@ int kmain() {
 		"Migrates the ramdisk from ext2 to an in-memory",
 		"temporary filesystem at boot.");
 
+	BOOT_OPTION(_netboot,     0, "Enable netboot.",
+		"Downloads a userspace filesystem from a remote",
+		"server and extracts it at boot.");
+
 	/* Loop over rendering the menu */
 	show_menu();
 
 	/* Build our command line. */
-	if (boot_mode == 3) {
+	if (_netboot) {
 		strcat(cmdline, DEFAULT_NETBOOT_CMDLINE);
 		ramdisk_path = "NETBOOT.";
 	} else {
@@ -139,9 +142,6 @@ int kmain() {
 		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
 	} else if (boot_mode == 2) {
 		strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
-		strcat(cmdline, DEFAULT_VID_CMDLINE);
-	} else if (boot_mode == 3) {
-		strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
 		strcat(cmdline, DEFAULT_VID_CMDLINE);
 	}
 

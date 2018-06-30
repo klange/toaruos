@@ -125,42 +125,93 @@ static void read_http_line(char * buf, FILE * f) {
 	}
 }
 
+static unsigned short * textmemptr = (unsigned short *)0xB8000;
+static void placech(unsigned char c, int x, int y, int attr) {
+	unsigned short *where;
+	unsigned att = attr << 8;
+	where = textmemptr + (y * 80 + x);
+	*where = c | att;
+}
+
+
 #define LEFT_PAD 40
 static int x = LEFT_PAD;
 static int y = 0;
+static int vx = 0;
+static int vy = 0;
 static void print_string(char * msg) {
-	if (!has_video) return;
-	while (*msg) {
-		write_char(x,y,' ',BG_COLOR);
-		switch (*msg) {
-			case '\n':
-				x = LEFT_PAD;
-				y += char_height;
-				break;
-			case '\033':
-				msg++;
-				if (*msg == '[') {
+	if (!has_video)  {
+		while (*msg) {
+			placech(' ',vx,vy,0);
+			switch (*msg) {
+				case '\n':
+					vx = 0;
+					vy += 1;
+					if (vy == 25) {
+						/* scroll */
+						memcpy(textmemptr,textmemptr + 80,sizeof(unsigned short) * 80 * 24);
+						memset(textmemptr + 80 * 24, 0, sizeof(unsigned short) * 80);
+						vy = 24;
+					}
+					break;
+				case '\033':
 					msg++;
-					if (*msg == 'G') {
-						x = LEFT_PAD;
-					}
-					if (*msg == 'K') {
-						int last_x = x;
-						while (x < width) {
-							write_char(x,y,' ',FG_COLOR);
-							x += char_width;
+					if (*msg == '[') {
+						msg++;
+						if (*msg == 'G') {
+							vx = 0;
 						}
-						x = last_x;
+						if (*msg == 'K') {
+							int last_x = vx;
+							while (vx < 80) {
+								placech(' ',vx,vy,0);
+								vx++;
+							}
+							vx = last_x;
+						}
 					}
-				}
-				break;
-			default:
-				write_char(x,y,*msg,FG_COLOR);
-				x += char_width;
-				break;
+					break;
+				default:
+					placech(*msg,vx,vy,0xF);
+					vx++;
+					break;
+			}
+			placech('_',vx,vy,0xF);
+			msg++;
 		}
-		write_char(x,y,'_',EX_COLOR);
-		msg++;
+	} else {
+		while (*msg) {
+			write_char(x,y,' ',BG_COLOR);
+			switch (*msg) {
+				case '\n':
+					x = LEFT_PAD;
+					y += char_height;
+					break;
+				case '\033':
+					msg++;
+					if (*msg == '[') {
+						msg++;
+						if (*msg == 'G') {
+							x = LEFT_PAD;
+						}
+						if (*msg == 'K') {
+							int last_x = x;
+							while (x < width) {
+								write_char(x,y,' ',FG_COLOR);
+								x += char_width;
+							}
+							x = last_x;
+						}
+					}
+					break;
+				default:
+					write_char(x,y,*msg,FG_COLOR);
+					x += char_width;
+					break;
+			}
+			write_char(x,y,'_',EX_COLOR);
+			msg++;
+		}
 	}
 }
 
@@ -249,6 +300,7 @@ static void update_video(int sig) {
 static volatile int watchdog_success = 0;
 
 static void network_error(int is_thread) {
+	TRACE("\n\n");
 	TRACE("ERROR: Network does not seem to be available, or unable to reach host.\n");
 	TRACE("       Please check your VM configuration.\n");
 	if (is_thread) {
@@ -313,15 +365,16 @@ int main(int argc, char * argv[]) {
 	framebuffer_fd = open("/dev/fb0", O_RDONLY);
 	if (framebuffer_fd < 0) {
 		has_video = 0;
+		memset(textmemptr, 0, sizeof(unsigned short) * 80 * 25);
 	} else {
 		update_video(0);
 		signal(SIGWINEVENT, update_video);
 	}
 
-	TRACE("\n\nToaruOS Netboot Host\n\n");
+	TRACE("\n\nToaruOS-NIH Netboot Host\n\n");
 
-	TRACE("ToaruOS is free software under the NCSA / University of Illinois license.\n");
-	TRACE("   http://toaruos.org/   https://github.com/klange/toaruos\n\n");
+	TRACE("ToaruOS-NIH is free software under the NCSA / University of Illinois license.\n");
+	TRACE("   https://toaruos.org/   https://git.toaruos.org/klange/toaru-nih\n\n");
 
 	struct utsname u;
 	uname(&u);
@@ -343,8 +396,6 @@ int main(int argc, char * argv[]) {
 
 	if (has_video) {
 		TRACE("Display is %dx%d (%d bpp), framebuffer at 0x%x\n", width, height, depth, (unsigned int)framebuffer);
-	} else {
-		TRACE("No video? framebuffer_fd = %d\n", framebuffer_fd);
 	}
 
 	TRACE("\n");
