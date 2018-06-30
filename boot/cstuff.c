@@ -12,7 +12,7 @@
 #include "options.h"
 
 /* Basic text strings */
-#define VERSION_TEXT "ToaruOS-NIH Bootloader v1.2"
+#define VERSION_TEXT "ToaruOS-NIH Bootloader v1.3"
 #define HELP_TEXT "Press <Enter> or select a menu option with \030/\031/\032/\033."
 #define COPYRIGHT_TEXT "ToaruOS is free software under the NCSA license."
 #define LINK_TEXT "https://toaruos.org - https://gitlab.com/toaruos"
