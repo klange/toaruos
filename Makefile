@@ -155,7 +155,7 @@ base/bin/init: apps/init.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
 cdrom/netboot: util/netboot-init.c base/lib/libc.a | dirs
-	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
+	$(CC) -s -static -Wl,-static $(CFLAGS) -o $@ $<
 
 # Userspace applications
 
