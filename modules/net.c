@@ -743,7 +743,7 @@ size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 		free(node);
 	}
 
-	size_to_read = MIN(len, offset + socket->bytes_available);
+	size_to_read = MIN(len, socket->bytes_available);
 
 	if (tcpdata->payload != 0) {
 		memcpy(buffer + offset, tcpdata->payload + socket->bytes_read, size_to_read);
@@ -752,8 +752,8 @@ size_t net_recv(struct socket* socket, uint8_t* buffer, size_t len) {
 	offset += size_to_read;
 
 	if (size_to_read < socket->bytes_available) {
-		socket->bytes_available = socket->bytes_available - size_to_read;
-		socket->bytes_read = size_to_read;
+		socket->bytes_available -= size_to_read;
+		socket->bytes_read += size_to_read;
 		socket->current_packet = tcpdata;
 	} else {
 		socket->bytes_available = 0;
