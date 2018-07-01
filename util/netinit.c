@@ -3,7 +3,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2015-2017 Kevin Lange
  *
- * netboot-init
+ * netinit
  *
  *   Download, decompress, and mount a root filesystem from the
  *   network and run the `/bin/init` contained therein.
@@ -462,7 +462,7 @@ int main(int argc, char * argv[]) {
 		signal(SIGWINEVENT, update_video);
 	}
 
-	TRACE("\n\nToaruOS-NIH Netboot Host\n\n");
+	TRACE("\n\nToaruOS-NIH Netinit Host\n\n");
 
 	TRACE("ToaruOS-NIH is free software under the NCSA / University of Illinois license.\n");
 	TRACE("   https://toaruos.org/   https://git.toaruos.org/klange/toaru-nih\n\n");
@@ -481,7 +481,7 @@ int main(int argc, char * argv[]) {
 		TRACE(" Kernel was built with: %s\n", kernel_version);
 	}
 
-	TRACE(" Netboot binary was built with: %s\n", COMPILER_VERSION);
+	TRACE(" Netinit binary was built with: %s\n", COMPILER_VERSION);
 
 	TRACE("\n");
 

@@ -154,7 +154,7 @@ endif
 base/bin/init: apps/init.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
-cdrom/netboot: util/netboot-init.c base/lib/libc.a | dirs
+cdrom/netinit: util/netinit.c base/lib/libc.a | dirs
 	$(CC) -s -static -Wl,-static $(CFLAGS) -o $@ $<
 
 # Userspace applications
@@ -173,7 +173,7 @@ cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell f
 
 # CD image
 
-image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel cdrom/netboot ${MODULES}
+image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel cdrom/netinit ${MODULES}
 	xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.sys -no-emul-boot -boot-load-size 20 -o image.iso cdrom
 
 # Boot loader

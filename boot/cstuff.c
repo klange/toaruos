@@ -23,7 +23,7 @@
 #define DEFAULT_SINGLE_CMDLINE "start=terminal "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
-#define DEFAULT_NETBOOT_CMDLINE "init=/dev/ram0 _"
+#define DEFAULT_NETINIT_CMDLINE "init=/dev/ram0 _"
 #define MIGRATE_CMDLINE "start=--migrate _"
 #define DEBUG_LOG_CMDLINE "logtoserial=3 "
 #define DEBUG_SERIAL_CMDLINE "kdebug "
@@ -121,7 +121,7 @@ int kmain() {
 		"Start a kernel debug shell on the first",
 		"serial port.");
 
-	BOOT_OPTION(_netboot,     0, "Netboot",
+	BOOT_OPTION(_netinit,     0, "Netinit",
 		"Downloads a userspace filesystem from a remote",
 		"server and extracts it at boot.");
 
@@ -129,9 +129,9 @@ int kmain() {
 	show_menu();
 
 	/* Build our command line. */
-	if (_netboot) {
-		strcat(cmdline, DEFAULT_NETBOOT_CMDLINE);
-		ramdisk_path = "NETBOOT.";
+	if (_netinit) {
+		strcat(cmdline, DEFAULT_NETINIT_CMDLINE);
+		ramdisk_path = "NETINIT.";
 	} else {
 		strcat(cmdline, DEFAULT_ROOT_CMDLINE);
 
