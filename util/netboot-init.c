@@ -551,8 +551,10 @@ int main(int argc, char * argv[]) {
 		network_error(0);
 	}
 
+#if 0
 	char * vbuf = malloc(10240);
 	setvbuf(f,vbuf,_IOLBF,10240);
+#endif
 
 	watchdog_success = 1;
 

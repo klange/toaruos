@@ -5,7 +5,7 @@
 
 typedef struct _FILE FILE;
 
-#define BUFSIZ 1024
+#define BUFSIZ 8192
 
 extern FILE * stdin;
 extern FILE * stdout;
