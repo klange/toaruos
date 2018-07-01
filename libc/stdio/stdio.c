@@ -83,6 +83,7 @@ int setvbuf(FILE * stream, char * buf, int mode, size_t size) {
 		if (stream->read_buf) {
 			free(stream->read_buf);
 		}
+		stream->read_buf = buf;
 		stream->bufsiz = size;
 	}
 	return 0;
@@ -127,7 +128,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 		}
 
 		//fprintf(stderr, "%s: reading until %d reaches %d or %d reaches 0\n", _argv_0, f->read_from, f->offset, len);
-		while (f->read_from < f->offset && len > 0) {
+		while (f->read_from < f->offset && len > 0 && f->available > 0) {
 			*out = f->read_buf[f->read_from];
 			len--;
 			f->read_from++;
