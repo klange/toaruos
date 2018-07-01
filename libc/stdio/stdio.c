@@ -156,15 +156,14 @@ static void parse_mode(const char * mode, int * flags_, int * mask_) {
 		}
 		if (*x == 'w') {
 			flags |= O_WRONLY;
+			flags |= O_CREAT;
+			mask = 0666;
 		}
+#if 0
 		if (*x == '+') {
-			if (flags & O_WRONLY) {
-				flags |= O_CREAT;
-				mask = 0666;
-			} else {
-				flags |= O_WRONLY;
-			}
+			/* Also set up for read? */
 		}
+#endif
 		++x;
 	}
 
