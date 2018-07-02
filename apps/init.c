@@ -41,7 +41,6 @@ int start_options(char * args[]) {
 
 int main(int argc, char * argv[]) {
 	set_console();
-	fprintf(stderr, "Hello, world?\n");
 
 	syscall_sethostname("base");
 

@@ -14,8 +14,6 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	TRACE("Starting live session.");
-
 	int _session_pid = fork();
 	if (!_session_pid) {
 		setuid(1000);

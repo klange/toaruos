@@ -12,7 +12,11 @@
 #include <toaru/hashmap.h>
 #define TRACE_APP_NAME "migrate"
 
+#define TRACE_(...) do { if (_debug) { TRACE(__VA_ARGS__); } } while (0)
+
 #define CHUNK_SIZE 4096
+
+static int _debug = 0;
 
 int tokenize(char * str, char * sep, char **buf) {
 	char * pch_i;
@@ -122,8 +126,6 @@ hashmap_t * get_cmdline(void) {
 		out[r-1] = '\0';
 	}
 
-	TRACE("Command line: %s", out);
-
 	char * arg = strdup(out);
 	char * argv[1024];
 	int argc = tokenize(arg, " ", argv);
@@ -164,16 +166,19 @@ _break:
 
 int main(int argc, char * argv[]) {
 
-	TRACE("Reading command line.");
 	hashmap_t * cmdline = get_cmdline();
 
+	if (hashmap_has(cmdline, "logtoserial")) {
+		_debug = 1;
+	}
+
 	if (hashmap_has(cmdline, "root")) {
-		TRACE("Original root was %s", hashmap_get(cmdline, "root"));
+		TRACE_("Original root was %s", hashmap_get(cmdline, "root"));
 	} else if (hashmap_has(cmdline,"init") && !strcmp(hashmap_get(cmdline,"init"),"/dev/ram0")) {
-		TRACE("Init is ram0, so this is probably a netboot image, going to assume root is /tmp/netboot.img");
+		TRACE_("Init is ram0, so this is probably a netboot image, going to assume root is /tmp/netboot.img");
 		hashmap_set(cmdline,"root","/tmp/netboot.img");
 	} else {
-		TRACE("Fatal: Don't know how to boot this. No root set.\n");
+		TRACE_("Fatal: Don't know how to boot this. No root set.\n");
 		return 1;
 	}
 
@@ -190,14 +195,14 @@ int main(int argc, char * argv[]) {
 
 	char tmp[1024];
 
-	TRACE("Remounting root to /dev/base");
+	TRACE_("Remounting root to /dev/base");
 	sprintf(tmp, "mount %s %s /dev/base", root_type, root);
 	system(tmp);
 
-	TRACE("Mounting tmpfs to /");
+	TRACE_("Mounting tmpfs to /");
 	system("mount tmpfs x /");
 
-	TRACE("Migrating root...");
+	TRACE_("Migrating root...");
 	copy_directory("/dev/base","/",0660);
 	system("mount tmpfs x /dev/base");
 
@@ -207,12 +212,12 @@ int main(int argc, char * argv[]) {
 		if (c) {
 			*c = '\0';
 		}
-		TRACE("Freeing ramdisk at %s", tmp);
+		TRACE_("Freeing ramdisk at %s", tmp);
 		free_ramdisk(tmp);
 		free(tmp);
 	}
 
-	TRACE("Launching intended startup app...");
+	TRACE_("Launching intended startup app...");
 	if (!strcmp(start, "--vga")) {
 		execvp("/bin/terminal-vga", (char *[]){"terminal-vga","-l",NULL});
 	} else if (start) {
