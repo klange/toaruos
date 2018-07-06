@@ -227,13 +227,17 @@ clean:
 	rm -f ${MODULES}
 	rm -f ${APPS_Y} ${LIBS_Y}
 
+QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm
+
 .PHONY: run
 run: image.iso
-	qemu-system-i386 -cdrom $< \
-	  -serial stdio \
-	  -m 1G \
-	  -soundhw ac97,pcspk \
-	  -enable-kvm
+	qemu-system-i386 -cdrom $< ${QEMU_ARGS}
+
+.PHONY: headless
+headless: image.iso
+	qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
+	  -nographic \
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=3
 
 .PHONY: virtualbox
 VMNAME=ToaruOS-NIH CD

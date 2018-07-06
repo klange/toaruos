@@ -220,10 +220,87 @@ done:
 	return;
 }
 
+struct fw_cfg_file {
+	uint32_t size;
+	uint16_t select;
+	uint16_t reserved;
+	char name[56];
+};
+
 static int boot_mode = 0;
+
+void swap_bytes(void * in, int count) {
+	char * bytes = in;
+	if (count == 4) {
+		uint32_t * t = in;
+		*t = (bytes[0] << 24) | (bytes[1] << 12) | (bytes[2] << 8) | bytes[3];
+	} else if (count == 2) {
+		uint16_t * t = in;
+		*t = (bytes[0] << 8) | bytes[1];
+	}
+}
 
 #ifndef EFI_FUNCTION_WRAPPER
 void show_menu(void) {
+
+#if 1
+	/* Try to detect qemu headless boot */
+	outports(0x510, 0x0000);
+	if (inportb(0x511) == 'Q' &&
+		inportb(0x511) == 'E' &&
+		inportb(0x511) == 'M' &&
+		inportb(0x511) == 'U') {
+		uint32_t count = 0;
+		uint8_t * bytes = (uint8_t *)&count;
+		outports(0x510,0x0019);
+		for (int i = 0; i < 4; ++i) {
+			bytes[i] = inportb(0x511);
+		}
+		swap_bytes(&count, 4);
+#if 0
+		print_("there are ");
+		print_hex_(count);
+		print_(" entries\n");
+#endif
+
+		unsigned int bootmode_size = 0;
+		int bootmode_index = -1;
+		for (unsigned int i = 0; i < count; ++i) {
+			struct fw_cfg_file file;
+			uint8_t * tmp = (uint8_t *)&file;
+			for (int j = 0; j < sizeof(struct fw_cfg_file); ++j) {
+				tmp[j] = inportb(0x511);
+			}
+			if (!strcmp(file.name,"opt/org.toaruos.bootmode")) {
+				swap_bytes(&file.size, 4);
+				swap_bytes(&file.select, 2);
+				bootmode_size = file.size;
+				bootmode_index = file.select;
+			}
+#if 0
+			print_("selector "); print_hex_(file.select); print_(" is "); print_hex_(file.size); print_(" bytes\n");
+			print_("and its name is: "); print_(file.name); print_("\n");
+#endif
+		}
+
+		if (bootmode_index != -1) {
+			if (bootmode_size != 1) {
+				print_("org.toaruos.bootmode must be one character");
+			} else {
+				outports(0x510, bootmode_index);
+				char bootmode = inportb(0x511);
+				if (bootmode < '0' || bootmode > '9') {
+					print_("org.toaruos.bootmode must be a digit");
+				} else {
+					boot_mode = bootmode - '0';
+					return;
+				}
+			}
+		}
+	}
+#endif
+
+
 	/* Determine number of options */
 	sel_max = 0;
 	while (boot_options[sel_max].value) {

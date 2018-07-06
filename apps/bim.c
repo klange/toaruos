@@ -24,12 +24,13 @@
 
 #ifdef __linux__
 #include <stdio_ext.h>
-#include <locale.h>
 #define BACKSPACE_KEY 0x7F
 #else
 #include <syscall.h>
 #define BACKSPACE_KEY 0x08
 #endif
+
+#include <locale.h>
 
 #include <wchar.h>
 
@@ -48,6 +49,10 @@ typedef struct {
 	int actual;
 	char_t   text[0];
 } line_t;
+
+char * term = NULL;
+
+#define IS_TOARU() (term && !strcmp(term,"toaru"))
 
 int term_width, term_height;
 int csr_x_actual, csr_y_actual;
@@ -535,9 +540,9 @@ void place_cursor_actual() {
 	csr_x_actual = x;
 	csr_y_actual = y;
 
-#ifndef __linux__
-	render_cursor();
-#endif
+	if (IS_TOARU()) {
+		render_cursor();
+	}
 }
 
 void SIGWINCH_handler(int sig) {
@@ -552,9 +557,9 @@ void SIGWINCH_handler(int sig) {
 }
 
 void initialize() {
-#ifdef __linux__
 	setlocale(LC_ALL, "");
-#endif
+
+	term = getenv("TERM");
 
 	buffers_avail = 4;
 	buffers = malloc(sizeof(buffer_t *) * buffers_avail);

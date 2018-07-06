@@ -27,6 +27,7 @@
 #define MIGRATE_CMDLINE "start=--migrate _"
 #define DEBUG_LOG_CMDLINE "logtoserial=3 "
 #define DEBUG_SERIAL_CMDLINE "kdebug "
+#define DEFAULT_HEADLESS_CMDLINE "start=--headless "
 
 char * module_dir = "MOD";
 char * kernel_path = "KERNEL.";
@@ -68,6 +69,7 @@ static char * boot_mode_names[] = {
 	"Normal Boot",
 	"VGA Text Mode",
 	"Single-User Graphical Terminal",
+	"Headless",
 };
 
 /* More bootloader implementation that depends on the module config */
@@ -148,6 +150,8 @@ int kmain() {
 	} else if (boot_mode == 2) {
 		strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
 		strcat(cmdline, DEFAULT_VID_CMDLINE);
+	} else if (boot_mode == 3) {
+		strcat(cmdline, DEFAULT_HEADLESS_CMDLINE);
 	}
 
 	if (_debug) {

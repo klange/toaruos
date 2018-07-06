@@ -49,6 +49,8 @@ int main(int argc, char * argv[]) {
 			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
 		} else if (!strcmp(argv[1], "--migrate")) {
 			return start_options((char *[]){"/bin/migrate",NULL});
+		} else if (!strcmp(argv[1], "--headless")) {
+			return start_options((char *[]){"/bin/getty",NULL});
 		} else {
 			/* Pass it to the compositor... */
 			return start_options((char *[]){"/bin/compositor","--",argv[1],NULL});
