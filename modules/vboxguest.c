@@ -101,6 +101,8 @@ static fs_node_t * mouse_pipe;
 static int vbox_irq_handler(struct regs *r) {
 	if (!vbox_vmmdev[2]) return 0;
 
+	fprintf(&vb, "IRQ IRQ IRQ\n");
+
 	vbox_irq_ack->events = vbox_vmmdev[2];
 	outportl(vbox_port, vbox_phys_ack);
 	irq_ack(vbox_irq);
@@ -181,11 +183,19 @@ static int vbox_check(void) {
 		if (args_present("vboxdebug")) {
 			vbox_set_log();
 		}
+		fprintf(&vb, "HELLO WORLD\n");
 
 		uintptr_t t = pci_read_field(vbox_device, PCI_BAR0, 4);
 		if (t > 0) {
 			vbox_port = (t & 0xFFFFFFF0);
 		}
+
+		uint16_t c = pci_read_field(vbox_device, PCI_COMMAND, 2);
+		fprintf(&vb, "Command register: 0x%4x\n", c);
+		if (!!(c & (1 << 10))) {
+			fprintf(&vb, "INterrupts areadisabled\n");
+		}
+
 
 		mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 		mouse_pipe->flags = FS_CHARDEVICE;
@@ -194,7 +204,12 @@ static int vbox_check(void) {
 		vfs_mount("/dev/absmouse", mouse_pipe);
 
 		vbox_irq = pci_read_field(vbox_device, PCI_INTERRUPT_LINE, 1);
+		if (vbox_irq == 255) {
+			vbox_irq = 10; /* seems to work okay */
+			pci_write_field(vbox_device, PCI_INTERRUPT_LINE, 1, vbox_irq);
+		}
 		debug_print(WARNING, "(vbox) device IRQ is set to %d", vbox_irq);
+		fprintf(&vb, "irq line is %d\n", vbox_irq);
 		irq_install_handler(vbox_irq, vbox_irq_handler);
 
 		uint32_t vbox_phys = 0;
@@ -257,6 +272,7 @@ static int vbox_check(void) {
 		/* device memory region mapping? */
 		{
 			uintptr_t t = pci_read_field(vbox_device, PCI_BAR1, 4);
+			fprintf(&vb, "mapping vmm_dev = 0x%x\n", t);
 			if (t > 0) {
 				vbox_vmmdev =  (void *)(t & 0xFFFFFFF0);
 			}
