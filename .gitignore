@@ -9,6 +9,7 @@ cdrom/netinit
 cdrom/mod/*
 cdrom/ramdisk.img
 cdrom/boot/boot.sys
+cdrom/boot/boot.efi
 util/tarballs
 util/build
 util/local

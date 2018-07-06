@@ -222,6 +222,7 @@ done:
 
 static int boot_mode = 0;
 
+#ifndef EFI_FUNCTION_WRAPPER
 void show_menu(void) {
 	/* Determine number of options */
 	sel_max = 0;
@@ -353,3 +354,13 @@ static void boot(void) {
 
 	while (1);
 }
+#else
+
+void show_menu(void) {
+	Print(L"lol menu goes here\n");
+}
+
+static void boot(void) {
+	Print(L"Boop.\n");
+}
+#endif

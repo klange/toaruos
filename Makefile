@@ -174,17 +174,40 @@ cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell f
 # CD image
 
 image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel cdrom/netinit ${MODULES}
-	xorriso -as mkisofs -R -J -c boot/bootcat -b boot/boot.sys -no-emul-boot -boot-load-size 20 -o image.iso cdrom
+	xorriso -as mkisofs -R -J -c boot/bootcat \
+	  -b boot/boot.sys -no-emul-boot -boot-load-size 20 \
+	  -eltorito-alt-boot -e boot/boot.efi -no-emul-boot \
+	  -isohybrid-gpt-basdat \
+	  -o image.iso cdrom
 
 # Boot loader
 
-cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | cdrom/boot
+cdrom/boot/boot.efi: boot/efi.c boot/jmp.o
+	$(CC) -c -fno-stack-protector -fpic -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -DEFI_FUNCTION_WRAPPER -o boot/efi.o $<
+	$(LD) boot/efi.o boot/jmp.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -l:libgnuefi.a -l:libefi.a -o boot/efi.so
+	objcopy \
+	  -j .text \
+	  -j .sdata \
+	  -j .data \
+	  -j .dynamic \
+	  -j .dynsym \
+	  -j .rel \
+	  -j .rela \
+	  -j .reloc \
+	  --target=efi-app-ia32 \
+	  boot/efi.so \
+	  cdrom/boot/boot.efi
+
+cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld cdrom/boot/boot.efi | cdrom/boot
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 boot/cstuff.o: boot/cstuff.c boot/*.h
 	${KCC} -c -Os -o $@ $<
 
 boot/boot.o: boot/boot.s
+	yasm -f elf -o $@ $<
+
+boot/jmp.o: boot/jmp.s
 	yasm -f elf -o $@ $<
 
 .PHONY: clean
