@@ -33,7 +33,7 @@ static void divine_size(int * width, int * height) {
 	*width = 80;
 	*height = 24;
 
-	fprintf(stderr, "\033[s\033[1000;1000H\033[6n\033[H");
+	fprintf(stderr, "\033[s\033[1000;1000H\033[6n\033[u");
 	fflush(stderr);
 
 	char buf[1024] = {0};
@@ -56,7 +56,6 @@ static void divine_size(int * width, int * height) {
 	}
 
 _done:
-	fprintf(stderr,"\033[u");
 	fflush(stderr);
 	set_buffered();
 }
