@@ -241,6 +241,11 @@ QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm
 run: image.iso
 	qemu-system-i386 -cdrom $< ${QEMU_ARGS}
 
+.PHONY: fast
+fast: image.iso
+	qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=0
+
 .PHONY: headless
 headless: image.iso
 	@echo "=== Launching qemu headless."
