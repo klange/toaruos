@@ -177,8 +177,8 @@ ifeq (,$(wildcard /usr/lib32/crt0-efi-ia32.o))
     EFI_XORRISO=
     EFI_BOOT=
 else
-    EFI_XORRISO=-eltorito-alt-boot -e boot/boot.efi -no-emul-boot -isohybrid-gpt-basdat
-    EFI_BOOT=cdrom/boot/boot.efi
+    EFI_XORRISO=-eltorito-alt-boot -e boot/efi.img -no-emul-boot -isohybrid-gpt-basdat
+    EFI_BOOT=cdrom/boot/efi.img
 endif
 
 
@@ -190,21 +190,27 @@ image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel cdrom/netinit ${MO
 
 # Boot loader
 
-cdrom/boot/boot.efi: boot/efi.c boot/jmp.o
-	$(CC) -c -fno-stack-protector -fpic -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -DEFI_FUNCTION_WRAPPER -o boot/efi.o $<
-	$(LD) boot/efi.o boot/jmp.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -l:libgnuefi.a -l:libefi.a -o boot/efi.so
-	objcopy \
-	  -j .text \
-	  -j .sdata \
-	  -j .data \
-	  -j .dynamic \
-	  -j .dynsym \
-	  -j .rel \
-	  -j .rela \
-	  -j .reloc \
-	  --target=efi-app-ia32 \
-	  boot/efi.so \
-	  cdrom/boot/boot.efi
+cdrom/boot/efi.img: boot/boot64.efi boot/boot32.efi
+	-rm -f $@
+	fallocate -l 32M $@
+	mkfs.fat $@
+	-mmd  -i $@ '/EFI'
+	-mmd  -i $@ '/EFI/BOOT'
+	mcopy -i $@ boot/boot64.efi '::/EFI/BOOT/BOOTX64.EFI'
+	mcopy -i $@ boot/boot32.efi '::/EFI/BOOT/BOOTIA32.EFI'
+
+EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_FUNCTION_WRAPPER -m32 -ffreestanding -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -mno-red-zone
+EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
+
+boot/efi.so: boot/efi.c boot/jmp.o
+	$(CC) ${EFI_CFLAGS} -c -o boot/efi.o $<
+	$(LD) boot/efi.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -lefi -lgnuefi -o boot/efi.so
+
+boot/boot64.efi: boot/efi.so
+	objcopy ${EFI_SECTIONS} --target=efi-app-x86-64 boot/efi.so boot/boot64.efi
+
+boot/boot32.efi: boot/efi.so
+	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 boot/efi.so boot/boot32.efi
 
 cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld ${EFI_BOOT} | cdrom/boot
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o

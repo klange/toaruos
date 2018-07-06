@@ -204,5 +204,9 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	}
 
 	boot();
+
+	while (1) {
+
+	}
 	return EFI_SUCCESS;
 }

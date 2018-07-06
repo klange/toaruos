@@ -9,7 +9,8 @@ cdrom/netinit
 cdrom/mod/*
 cdrom/ramdisk.img
 cdrom/boot/boot.sys
-cdrom/boot/boot.efi
+cdrom/boot/efi.img
+*.efi
 util/tarballs
 util/build
 util/local
