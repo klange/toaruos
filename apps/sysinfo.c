@@ -9,6 +9,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/utsname.h>
 
@@ -40,6 +41,8 @@ int main(int argc, char * argv[]) {
 	/* Prepare data */
 	char * user = getenv("USER");
 	char * wm_theme = getenv("WM_THEME");
+	char * term = getenv("TERM");
+	int term_is_toaru = term && !strcmp(term,"toaru");
 
 	int i = 0;
 	prog_lines[i] = "hostname";
@@ -91,10 +94,17 @@ int main(int argc, char * argv[]) {
 				rgba(0,0,0,TERM_DEFAULT_OPAC),
 				premultiply(rgba(r_b, g_b, b_b, a_b)));
 
-			/* Print half block */
-			printf("\033[38;6;%d;%d;%d;%dm\033[48;6;%d;%d;%d;%dm▄",
-					(int)_RED(back), (int)_GRE(back), (int)_BLU(back), (int)_ALP(back),
-					(int)_RED(out), (int)_GRE(out), (int)_BLU(out), (int)_ALP(out));
+			if (term_is_toaru) {
+
+				/* Print half block */
+				printf("\033[38;6;%d;%d;%d;%dm\033[48;6;%d;%d;%d;%dm▄",
+						(int)_RED(back), (int)_GRE(back), (int)_BLU(back), (int)_ALP(back),
+						(int)_RED(out), (int)_GRE(out), (int)_BLU(out), (int)_ALP(out));
+			} else {
+				printf("\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm▄",
+						(int)_RED(back), (int)_GRE(back), (int)_BLU(back),
+						(int)_RED(out), (int)_GRE(out), (int)_BLU(out));
+			}
 
 		}
 		if (j < i) {
