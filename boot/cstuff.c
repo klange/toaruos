@@ -1,6 +1,11 @@
-//#define __DEBUG__
+#ifdef EFI_PLATFORM
+#  include <efi.h>
+#  include <efilib.h>
+EFI_HANDLE ImageHandleIn;
+#else
+#  include "types.h"
+#endif
 
-#include "types.h"
 #include "ata.h"
 #include "text.h"
 #include "util.h"
@@ -75,57 +80,65 @@ static char * boot_mode_names[] = {
 /* More bootloader implementation that depends on the module config */
 #include "moremultiboot.h"
 
+#ifdef EFI_PLATFORM
+EFI_STATUS
+	EFIAPI
+efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+{
+	InitializeLib(ImageHandle, SystemTable);
+	ST = SystemTable;
+	ImageHandleIn = ImageHandle;
+#else
 int kmain() {
-
-	/* Boot options - configurable values */
+#endif
 
 	BOOT_OPTION(_debug,       0, "Debug output",
-		"Enable debug output in the bootloader and enable the",
-		"serial debug log in the operating system itself.");
+			"Enable debug output in the bootloader and enable the",
+			"serial debug log in the operating system itself.");
 
 	BOOT_OPTION(_legacy_ata,  0, "Legacy ATA driver",
-		"Enable the legacy ATA driver, which does not support",
-		"ATAPI or use DMA. May be necessary in some virtual machines.");
+			"Enable the legacy ATA driver, which does not support",
+			"ATAPI or use DMA. May be necessary in some virtual machines.");
 
 	BOOT_OPTION(_normal_ata,  1, "DMA ATA driver",
-		"Enable the normal, DMA-capable ATA driver. This is the default.",
-		NULL);
+			"Enable the normal, DMA-capable ATA driver. This is the default.",
+			NULL);
 
 	BOOT_OPTION(_debug_shell, 1, "Debug shell",
-		"Enable the kernel debug shell. This can be accessed using",
-		"the `kdebug` application.");
+			"Enable the kernel debug shell. This can be accessed using",
+			"the `kdebug` application.");
 
 	BOOT_OPTION(_video,       1, "Video modules",
-		"Enable the video modules. These are needed to modeset",
-		"and provide a framebuffer for the UI.");
+			"Enable the video modules. These are needed to modeset",
+			"and provide a framebuffer for the UI.");
 
 	BOOT_OPTION(_vbox,        1, "VirtualBox Guest Additions",
-		"Enable integration with VirtualBox, including",
-		"automatic mode setting and absolute mouse pointer.");
+			"Enable integration with VirtualBox, including",
+			"automatic mode setting and absolute mouse pointer.");
 
 	BOOT_OPTION(_vmware,      1, "VMWare mouse driver",
-		"Enable the VMware / QEMU absolute mouse pointer.",
-		NULL);
+			"Enable the VMware / QEMU absolute mouse pointer.",
+			NULL);
 
 	BOOT_OPTION(_sound,       1, "Audio drivers",
-		"Enable the audio subsystem and AC'97 drivers.",
-		NULL);
+			"Enable the audio subsystem and AC'97 drivers.",
+			NULL);
 
 	BOOT_OPTION(_net,         1, "Network drivers",
-		"Enable the IPv4 network subsystem and various",
-		"network interface drivers.");
+			"Enable the IPv4 network subsystem and various",
+			"network interface drivers.");
 
 	BOOT_OPTION(_migrate,     1, "Writable root",
-		"Migrates the ramdisk from ext2 to an in-memory",
-		"temporary filesystem at boot.");
+			"Migrates the ramdisk from ext2 to an in-memory",
+			"temporary filesystem at boot.");
 
 	BOOT_OPTION(_serialshell, 0, "Debug on serial",
-		"Start a kernel debug shell on the first",
-		"serial port.");
+			"Start a kernel debug shell on the first",
+			"serial port.");
 
 	BOOT_OPTION(_netinit,     0, "Netinit",
-		"Downloads a userspace filesystem from a remote",
-		"server and extracts it at boot.");
+			"Downloads a userspace filesystem from a remote",
+			"server and extracts it at boot.");
 
 	/* Loop over rendering the menu */
 	show_menu();
@@ -156,6 +169,7 @@ int kmain() {
 
 	if (_debug) {
 		strcat(cmdline, DEBUG_LOG_CMDLINE);
+		txt_debug = 1;
 	}
 
 	if (_serialshell) {
@@ -204,4 +218,7 @@ int kmain() {
 	}
 
 	boot();
+
+	while (1) {}
+	return 0;
 }

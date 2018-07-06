@@ -33,8 +33,6 @@ static struct multiboot multiboot_header = {
 static long ramdisk_off = 1;
 static long ramdisk_len = 1;
 
-extern void jump_to_main(void);
-
 int _eax = 1;
 int _ebx = 1;
 int _xmain = 1;
@@ -48,6 +46,10 @@ struct mmap_entry {
 
 extern unsigned short mmap_ent;
 extern unsigned short lower_mem;
+
+char * final_offset = NULL;
+
+extern char make_it_happen_capn[];
 
 static void move_kernel(void) {
 	clear();
@@ -75,6 +77,10 @@ static void move_kernel(void) {
 			print(" ");
 			print_hex(phdr->p_filesz);
 			print("\n");
+#ifdef EFI_PLATFORM
+			EFI_PHYSICAL_ADDRESS addr = phdr->p_vaddr;
+			uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, phdr->p_memsz / 4096 + 1, &addr);
+#endif
 			memcpy((uint8_t*)phdr->p_vaddr, (uint8_t*)KERNEL_LOAD_START + phdr->p_offset, phdr->p_filesz);
 			long r = phdr->p_filesz;
 			while (r < phdr->p_memsz) {
@@ -85,6 +91,33 @@ static void move_kernel(void) {
 	}
 
 	print("Setting up memory map...\n");
+#ifdef EFI_PLATFORM
+	mboot_memmap_t * mmap = (void*)KERNEL_LOAD_START;
+	multiboot_header.mmap_addr = (uintptr_t)mmap;
+	mmap->size = 0;
+	mmap->base_addr = 0;
+	mmap->length = 0;
+	mmap->type = 0;
+
+	multiboot_header.mem_lower = 1024;
+	multiboot_header.mem_upper = 1024 * 512;
+
+	memcpy(final_offset, cmdline, 1024);
+	multiboot_header.cmdline = (uintptr_t)final_offset;
+	final_offset += 1024;
+	while ((uintptr_t)final_offset & 0x3ff) final_offset++;
+
+	multiboot_header.mods_addr = (uintptr_t)final_offset;
+	memcpy(final_offset, &modules_mboot, sizeof(modules_mboot));
+	final_offset += sizeof(modules_mboot);
+	while ((uintptr_t)final_offset & 0x3ff) final_offset++;
+
+	memcpy(final_offset, &multiboot_header, sizeof(multiboot_header));
+	_ebx = (uintptr_t)final_offset;
+
+
+	print("Jumping to main, good luck.\n");
+#else
 	print_hex(mmap_ent);
 	print("\n");
 	memset((void*)KERNEL_LOAD_START, 0x00, 1024);
@@ -118,12 +151,40 @@ static void move_kernel(void) {
 	
 	multiboot_header.mem_upper = upper_mem / 1024;
 
-	int foo;
-	//__asm__ __volatile__("jmp %1" : "=a"(foo) : "a" (MULTIBOOT_EAX_MAGIC), "b"((unsigned int)multiboot_header), "r"((unsigned int)entry));
-	_eax = MULTIBOOT_EAX_MAGIC;
 	_ebx = (unsigned int)&multiboot_header;
+#endif
+
+	_eax = MULTIBOOT_EAX_MAGIC;
 	_xmain = entry;
-	jump_to_main();
+
+#ifdef EFI_PLATFORM
+	print_("\nExiting boot services and jumping to ");
+	print_hex_(entry);
+	print_(" with mboot_mag=");
+	print_hex_(_eax);
+	print_(" and mboot_ptr=");
+	print_hex_(_ebx);
+	print_("...\n");
+
+	if (1) {
+		EFI_STATUS e;
+		UINTN mapSize = 0, mapKey, descriptorSize;
+		UINT32 descriptorVersion;
+		uefi_call_wrapper(ST->BootServices->GetMemoryMap, 5, &mapSize, NULL, &mapKey, &descriptorSize, NULL);
+		e = uefi_call_wrapper(ST->BootServices->ExitBootServices, 2, ImageHandleIn, mapKey);
+
+		if (e != EFI_SUCCESS) { 
+			print_("Exit services failed. \n");
+			print_hex_(e);
+		}
+	}
+#endif
+
+	__asm__ __volatile__ (
+		"mov %1,%%eax \n"
+		"mov %2,%%ebx \n"
+		"jmp *%0" : : "g"(_xmain), "g"(_eax), "g"(_ebx) : "eax", "ebx"
+		);
 }
 
 static void do_it(struct ata_device * _device) {
@@ -153,6 +214,12 @@ done:
 		print_hex(dir_entry->extent_length_LSB); print("\n");
 		long offset = 0;
 		for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
+
+#ifdef EFI_PLATFORM
+			EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START + offset;
+			uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, 1, &addr);
+#endif
+
 			ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 		}
 		restore_root();
@@ -172,6 +239,10 @@ done:
 					modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
 					modules_mboot[j].mod_end = KERNEL_LOAD_START + offset + dir_entry->extent_length_LSB;
 					for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
+#ifdef EFI_PLATFORM
+						EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START + offset;
+						uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, 1, &addr);
+#endif
 						ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 					}
 					j++;
@@ -182,13 +253,18 @@ done:
 			print("Done.\n");
 			restore_root();
 			if (navigate(ramdisk_path)) {
-				clear_();
+				//clear_();
 				ramdisk_off = KERNEL_LOAD_START + offset;
 				ramdisk_len = dir_entry->extent_length_LSB;
 				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
 				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
 
 				print_("Loading ramdisk");
+
+#ifdef EFI_PLATFORM
+						EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START + offset;
+						uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, ramdisk_len / 4096 + 1, &addr);
+#endif
 
 				int i = dir_entry->extent_start_LSB;
 				int sectors = dir_entry->extent_length_LSB / 2048 + 1;
@@ -204,9 +280,11 @@ done:
 				if (sectors > 0) {
 					print_("!");
 					ata_device_read_sectors_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset, sectors);
-					offset += 2048;
+					offset += 2048 * sectors;
 				}
-				attr = 0x07;
+
+				final_offset = (uint8_t *)KERNEL_LOAD_START + offset;
+				set_attr(0x07);
 				print("Done.\n");
 				move_kernel();
 			}
@@ -240,7 +318,6 @@ void swap_bytes(void * in, int count) {
 	}
 }
 
-#ifndef EFI_FUNCTION_WRAPPER
 void show_menu(void) {
 
 #if 1
@@ -308,6 +385,7 @@ void show_menu(void) {
 	}
 	sel_max += BASE_SEL + 1;
 
+#ifndef EFI_PLATFORM
 	outportb(0x3D4, 14);
 	outportb(0x3D5, 0xFF);
 	outportb(0x3D4, 15);
@@ -318,19 +396,19 @@ void show_menu(void) {
 	char b = inportb(0x3C1);
 	b &= ~8;
 	outportb(0x3c0, b);
+#endif
 
 	clear_();
 
 	do {
-		x = 0;
-		y = 0;
-		attr = 0x1f;
+		move_cursor(0,0);
+		set_attr(0x1f);
 		print_banner(VERSION_TEXT);
-		attr = 0x07;
+		set_attr(0x07);
 		print_("\n");
 
 		for (int i = 0; i < BASE_SEL+1; ++i) {
-			attr = sel == i ? 0x70 : 0x07;
+			set_attr(sel == i ? 0x70 : 0x07);
 			print_(" ");
 			char tmp[] = {'0' + (i + 1), '.', ' ', '\0'};
 			print_(tmp);
@@ -339,15 +417,15 @@ void show_menu(void) {
 		}
 
 		// put a gap
-		attr = 0x07;
+		set_attr(0x07);
 		print_("\n");
 
 		for (int i = 0; i < sel_max - BASE_SEL - 1; ++i) {
 			toggle(BASE_SEL + 1 + i, *boot_options[i].value, boot_options[i].title);
 		}
 
-		attr = 0x07;
-		y = 17;
+		set_attr(0x07);
+		move_cursor(x,17);
 		print_("\n");
 		print_banner(HELP_TEXT);
 		print_("\n");
@@ -431,13 +509,3 @@ static void boot(void) {
 
 	while (1);
 }
-#else
-
-void show_menu(void) {
-	Print(L"lol menu goes here\n");
-}
-
-static void boot(void) {
-	Print(L"Boop.\n");
-}
-#endif

@@ -1,13 +1,38 @@
 #pragma once
 
-static int _debug = 0;
+static int txt_debug = 0;
 
 unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {
+#ifdef EFI_PLATFORM
+	unsigned short ch;
+	switch (c) {
+		case '\030':
+			ch = L'↑';
+			break;
+		case '\031':
+			ch = L'↓';
+			break;
+		case '\032':
+			ch = L'←';
+			break;
+		case '\033':
+			ch = L'→';
+			break;
+		default:
+			ch = c;
+			break;
+	}
+	uint16_t string[] = {ch, 0};
+	uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
+	uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x, y);
+	uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, string);
+#else
 	unsigned short *where;
 	unsigned att = attr << 8;
 	where = textmemptr + (y * 80 + x);
 	*where = c | att;
+#endif
 }
 
 static int x = 0;
@@ -37,6 +62,15 @@ static void print_(char * str) {
 		}
 		str++;
 	}
+}
+
+static void move_cursor(int _x, int _y) {
+	x = _x;
+	y = _y;
+}
+
+static void set_attr(int _attr) {
+	attr = _attr;
 }
 
 static void print_banner(char * str) {
@@ -83,7 +117,7 @@ static void clear_() {
 	}
 }
 
-#define print(s) do {if (_debug) {print_(s);}} while(0)
-#define clear() do {if (_debug) {clear_();}} while(0)
-#define print_hex(d) do {if (_debug) {print_hex_(d);}} while(0)
+#define print(s) do {if (txt_debug) {print_(s);}} while(0)
+#define clear() do {if (txt_debug) {clear_();}} while(0)
+#define print_hex(d) do {if (txt_debug) {print_hex_(d);}} while(0)
 

@@ -2,7 +2,7 @@ static int sel_max = 0;
 static int sel = 0;
 
 void toggle(int ndx, int value, char *str) {
-	attr = sel == ndx ? 0x70 : 0x07;
+	set_attr(sel == ndx ? 0x70 : 0x07);
 	if (value) {
 		print_(" [X] ");
 	} else {

@@ -96,11 +96,11 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	isrs_install();     /* Interrupt service requests */
 	irq_install();      /* Hardware interrupt requests */
 
+	uintptr_t last_mod = (uintptr_t)&end;
 	if (mboot_ptr->flags & MULTIBOOT_FLAG_MODS) {
 		debug_print(NOTICE, "There %s %d module%s starting at 0x%x.", mboot_ptr->mods_count == 1 ? "is" : "are", mboot_ptr->mods_count, mboot_ptr->mods_count == 1 ? "" : "s", mboot_ptr->mods_addr);
 		debug_print(NOTICE, "Current kernel heap start point would be 0x%x.", &end);
 		if (mboot_ptr->mods_count > 0) {
-			uintptr_t last_mod = (uintptr_t)&end;
 			uint32_t i;
 			mboot_mods = (mboot_mod_t *)mboot_ptr->mods_addr;
 			mboot_mods_count = mboot_ptr->mods_count;
@@ -111,6 +111,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 				if ((uintptr_t)mod + sizeof(mboot_mod_t) > last_mod) {
 					/* Just in case some silly person put this *behind* the modules... */
 					last_mod = (uintptr_t)mod + sizeof(mboot_mod_t);
+					debug_print(NOTICE, "moving forward to 0x%x", last_mod);
 				}
 				debug_print(NOTICE, "Module %d is at 0x%x:0x%x", i, module_start, module_end);
 				if (last_mod < module_end) {
@@ -118,9 +119,12 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 				}
 			}
 			debug_print(NOTICE, "Moving kernel heap start to 0x%x", last_mod);
-			kmalloc_startat(last_mod);
 		}
 	}
+	if ((uintptr_t)mboot_ptr > last_mod) {
+		last_mod = (uintptr_t)mboot_ptr + sizeof(struct multiboot);
+	}
+	kmalloc_startat(last_mod);
 
 	if (mboot_ptr->flags & MULTIBOOT_FLAG_MEM) {
 		paging_install(mboot_ptr->mem_upper + mboot_ptr->mem_lower);

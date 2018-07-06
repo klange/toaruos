@@ -184,7 +184,7 @@ endif
 
 image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel cdrom/netinit ${MODULES}
 	xorriso -as mkisofs -R -J -c boot/bootcat \
-	  -b boot/boot.sys -no-emul-boot -boot-load-size 20 \
+	  -b boot/boot.sys -no-emul-boot -boot-load-size 24 \
 	  ${EFI_XORRISO} \
 	  -o image.iso cdrom
 
@@ -198,10 +198,10 @@ cdrom/boot/efi.img: boot/boot32.efi
 	-mmd  -i $@ '/EFI/BOOT'
 	mcopy -i $@ boot/boot32.efi '::/EFI/BOOT/BOOTIA32.EFI'
 
-EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_FUNCTION_WRAPPER -m32 -ffreestanding -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -mno-red-zone
+EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_FUNCTION_WRAPPER -m32 -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -mno-red-zone
 EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
 
-boot/efi.so: boot/efi.c boot/jmp.o
+boot/efi.so: boot/cstuff.c boot/*.h
 	$(CC) ${EFI_CFLAGS} -c -o boot/efi.o $<
 	$(LD) boot/efi.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -lefi -lgnuefi -o boot/efi.so
 
@@ -215,9 +215,6 @@ boot/cstuff.o: boot/cstuff.c boot/*.h
 	${KCC} -c -Os -o $@ $<
 
 boot/boot.o: boot/boot.s
-	yasm -f elf -o $@ $<
-
-boot/jmp.o: boot/jmp.s
 	yasm -f elf -o $@ $<
 
 .PHONY: clean
