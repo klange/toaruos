@@ -234,6 +234,9 @@ clean:
 	rm -f cdrom/ramdisk.img
 	rm -f cdrom/boot/boot.sys
 	rm -f boot/*.o
+	rm -f boot/*.efi
+	rm -f boot/*.so
+	rm -f cdrom/boot/efi.img
 	rm -f cdrom/kernel
 	rm -f cdrom/netboot cdrom/netinit
 	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
