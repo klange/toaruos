@@ -173,11 +173,19 @@ cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell f
 
 # CD image
 
+ifeq (,$(wildcard /usr/lib32/crt0-efi-ia32.o))
+    EFI_XORRISO=
+    EFI_BOOT=
+else
+    EFI_XORRISO=-eltorito-alt-boot -e boot/boot.efi -no-emul-boot -isohybrid-gpt-basdat
+    EFI_BOOT=cdrom/boot/boot.efi
+endif
+
+
 image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel cdrom/netinit ${MODULES}
 	xorriso -as mkisofs -R -J -c boot/bootcat \
 	  -b boot/boot.sys -no-emul-boot -boot-load-size 20 \
-	  -eltorito-alt-boot -e boot/boot.efi -no-emul-boot \
-	  -isohybrid-gpt-basdat \
+	  ${EFI_XORRISO} \
 	  -o image.iso cdrom
 
 # Boot loader
@@ -198,7 +206,7 @@ cdrom/boot/boot.efi: boot/efi.c boot/jmp.o
 	  boot/efi.so \
 	  cdrom/boot/boot.efi
 
-cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld cdrom/boot/boot.efi | cdrom/boot
+cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld ${EFI_BOOT} | cdrom/boot
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 boot/cstuff.o: boot/cstuff.c boot/*.h
@@ -235,6 +243,9 @@ run: image.iso
 
 .PHONY: headless
 headless: image.iso
+	@echo "=== Launching qemu headless."
+	@echo "=== To quit qemu, use 'Ctrl-a c' to access monitor"
+	@echo "=== and type 'quit' to exit."
 	qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
 	  -nographic \
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=3
