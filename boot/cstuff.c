@@ -17,7 +17,11 @@ EFI_HANDLE ImageHandleIn;
 #include "options.h"
 
 /* Basic text strings */
-#define VERSION_TEXT "ToaruOS-NIH Bootloader v1.3"
+#ifdef EFI_PLATFORM
+#define VERSION_TEXT "ToaruOS-NIH Bootloader v1.3 (EFI, IA32)"
+#else
+#define VERSION_TEXT "ToaruOS-NIH Bootloader v1.3 (BIOS)"
+#endif
 #define HELP_TEXT "Press <Enter> or select a menu option with \030/\031/\032/\033."
 #define COPYRIGHT_TEXT "ToaruOS is free software under the NCSA license."
 #define LINK_TEXT "https://toaruos.org - https://gitlab.com/toaruos"
@@ -70,11 +74,13 @@ static char * modules[] = {
 };
 
 /* Names of the available boot modes. */
-static char * boot_mode_names[] = {
-	"Normal Boot",
-	"VGA Text Mode",
-	"Single-User Graphical Terminal",
-	"Headless",
+static struct bootmode boot_mode_names[] = {
+	{1, "normal",   "Normal Boot"},
+#ifndef EFI_PLATFORM
+	{2, "vga",      "VGA Text Mode"},
+#endif
+	{3, "single",   "Single-User Graphical Terminal"},
+	{4, "headless", "Headless"},
 };
 
 /* More bootloader implementation that depends on the module config */
@@ -155,15 +161,15 @@ int kmain() {
 		}
 	}
 
-	if (boot_mode == 0) {
+	if (boot_mode == 1) {
 		strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
 		strcat(cmdline, DEFAULT_VID_CMDLINE);
-	} else if (boot_mode == 1) {
-		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
 	} else if (boot_mode == 2) {
+		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
+	} else if (boot_mode == 3) {
 		strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
 		strcat(cmdline, DEFAULT_VID_CMDLINE);
-	} else if (boot_mode == 3) {
+	} else if (boot_mode == 4) {
 		strcat(cmdline, DEFAULT_HEADLESS_CMDLINE);
 	}
 

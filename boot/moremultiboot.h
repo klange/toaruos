@@ -361,18 +361,20 @@ void show_menu(void) {
 		}
 
 		if (bootmode_index != -1) {
-			if (bootmode_size != 1) {
-				print_("org.toaruos.bootmode must be one character");
-			} else {
-				outports(0x510, bootmode_index);
-				char bootmode = inportb(0x511);
-				if (bootmode < '0' || bootmode > '9') {
-					print_("org.toaruos.bootmode must be a digit");
-				} else {
-					boot_mode = bootmode - '0';
+			outports(0x510, bootmode_index);
+			char tmp[33] = {0};
+			for (int i = 0; i < 32 && i < bootmode_size; ++i) {
+				tmp[i] = inportb(0x511);
+			}
+			for (int i = 0; i < BASE_SEL+1; ++i) {
+				if (!strcmp(tmp,boot_mode_names[i].key)) {
+					boot_mode = boot_mode_names[i].index;
 					return;
 				}
 			}
+			print_("fw_cfg boot mode not recognized: ");
+			print_(tmp);
+			print_("\n");
 		}
 	}
 #endif
@@ -412,7 +414,7 @@ void show_menu(void) {
 			print_(" ");
 			char tmp[] = {'0' + (i + 1), '.', ' ', '\0'};
 			print_(tmp);
-			print_(boot_mode_names[i]);
+			print_(boot_mode_names[i].title);
 			print_("\n");
 		}
 
@@ -463,7 +465,7 @@ void show_menu(void) {
 			}
 		} else if (s == 0x1c) {
 			if (sel <= BASE_SEL) {
-				boot_mode = sel;
+				boot_mode = boot_mode_names[sel].index;
 				break;
 			} else {
 				int index = sel - BASE_SEL - 1;
@@ -472,7 +474,7 @@ void show_menu(void) {
 		} else if (s >= 2 && s <= 10) {
 			int i = s - 2;
 			if (i <= BASE_SEL) {
-				boot_mode = i;
+				boot_mode = boot_mode_names[i].index;
 				break;
 			}
 #if 0

@@ -246,7 +246,7 @@ run: image.iso
 .PHONY: fast
 fast: image.iso
 	qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
-	  -fw_cfg name=opt/org.toaruos.bootmode,string=0
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=normal
 
 .PHONY: headless
 headless: image.iso
@@ -255,7 +255,7 @@ headless: image.iso
 	@echo "=== and type 'quit' to exit."
 	qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
 	  -nographic \
-	  -fw_cfg name=opt/org.toaruos.bootmode,string=3
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
 .PHONY: virtualbox
 VMNAME=ToaruOS-NIH CD

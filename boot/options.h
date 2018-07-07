@@ -35,4 +35,11 @@ static int _boot_offset = 0;
 	boot_options[_boot_offset].description_2 = d2; \
 	_boot_offset++
 
+struct bootmode {
+	int index;
+	char * key;
+	char * title;
+};
+
 #define BASE_SEL ((sizeof(boot_mode_names)/sizeof(*boot_mode_names))-1)
+
