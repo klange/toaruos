@@ -259,8 +259,9 @@ headless: image.iso
 	  -nographic \
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
-.PHONY: virtualbox
 VMNAME=ToaruOS-NIH CD
+
+.PHONY: virtualbox
 virtualbox: image.iso
 	-VBoxManage unregistervm "$(VMNAME)" --delete
 	VBoxManage createvm --name "$(VMNAME)" --ostype "Other" --register
@@ -270,4 +271,22 @@ virtualbox: image.iso
 	VBoxManage setextradata "$(VMNAME)" GUI/DefaultCloseAction PowerOff
 	VBoxManage startvm "$(VMNAME)" --type separate
 
+.PHONY: virtualbox-efi
+virtualbox-efi: image.iso
+	-VBoxManage unregistervm "$(VMNAME)" --delete
+	VBoxManage createvm --name "$(VMNAME)" --ostype "Other" --register
+	VBoxManage modifyvm "$(VMNAME)" --memory 1024 --vram 32 --audio pulse --audiocontroller ac97 --bioslogodisplaytime 1 --bioslogofadeout off --bioslogofadein off --biosbootmenu disabled --firmware efi
+	VBoxManage storagectl "$(VMNAME)" --add ide --name "IDE"
+	VBoxManage storageattach "$(VMNAME)" --storagectl "IDE" --port 0 --device 0 --medium $(shell pwd)/image.iso --type dvddrive
+	VBoxManage setextradata "$(VMNAME)" GUI/DefaultCloseAction PowerOff
+	VBoxManage startvm "$(VMNAME)" --type separate
 
+.PHONY: virtualbox-efi64
+virtualbox-efi64: image.iso
+	-VBoxManage unregistervm "$(VMNAME)" --delete
+	VBoxManage createvm --name "$(VMNAME)" --ostype "Other_64" --register
+	VBoxManage modifyvm "$(VMNAME)" --memory 1024 --vram 32 --audio pulse --audiocontroller ac97 --bioslogodisplaytime 1 --bioslogofadeout off --bioslogofadein off --biosbootmenu disabled --firmware efi
+	VBoxManage storagectl "$(VMNAME)" --add ide --name "IDE"
+	VBoxManage storageattach "$(VMNAME)" --storagectl "IDE" --port 0 --device 0 --medium $(shell pwd)/image.iso --type dvddrive
+	VBoxManage setextradata "$(VMNAME)" GUI/DefaultCloseAction PowerOff
+	VBoxManage startvm "$(VMNAME)" --type separate
