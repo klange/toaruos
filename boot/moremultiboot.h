@@ -270,7 +270,7 @@ static void move_kernel(void) {
 		//"mov %ax, %ss\n"
 		".code32\n"
 		"mov %cr0, %eax\n"
-		"and $0x7FFFFFFF, %eax\n"
+		"and $0x7FFeFFFF, %eax\n"
 		"mov %eax, %cr0\n"
 		// Paging is disabled
 		"mov $0xc0000080, %ecx\n"
