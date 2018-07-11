@@ -24,7 +24,7 @@ The userspace includes a work-in-progress C standard library, the ToaruOS native
 
 ## Building
 
-First, ensure you have the necessary build tools, which are mostly the same as mainline ToaruOS: `yasm`, `xorriso`, `genext2fs` (with Debian patches), `python`.
+First, ensure you have the necessary build tools, which are mostly the same as mainline ToaruOS: `yasm`, `xorriso`, `genext2fs` (with Debian patches), `python`, and `gnu-efi` to build the EFI bootloader (I'll explore implementing necessary headers and functionality myself in the future, but for now just pull in gnu-efi and make my life easier).
 
 Run `make` and you will be prompted to build a toolchain. Reply `y` and allow the toolchain to build.
 

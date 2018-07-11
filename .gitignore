@@ -8,8 +8,13 @@ cdrom/kernel
 cdrom/netinit
 cdrom/mod/*
 cdrom/ramdisk.img
-cdrom/boot/boot.sys
-cdrom/boot/efi.img
+cdrom/boot.sys
+cdrom/fat.img
+fatbase/kernel
+fatbase/netinit
+fatbase/mod/*
+fatbase/ramdisk.img
+fatbase/efi/boot/bootia32.efi
 *.efi
 util/tarballs
 util/build

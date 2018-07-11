@@ -64,7 +64,7 @@ KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard ker
 
 # Kernel
 
-cdrom/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
+fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
 
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
@@ -84,14 +84,14 @@ kernel/%.o: kernel/%.c ${HEADERS}
 
 # Modules
 
-cdrom/mod:
+fatbase/mod:
 	@mkdir -p $@
 
-MODULES = $(patsubst modules/%.c,cdrom/mod/%.ko,$(wildcard modules/*.c))
+MODULES = $(patsubst modules/%.c,fatbase/mod/%.ko,$(wildcard modules/*.c))
 
 HEADERS = $(shell find base/usr/include/kernel -type f -name '*.h')
 
-cdrom/mod/%.ko: modules/%.c ${HEADERS} | cdrom/mod
+fatbase/mod/%.ko: modules/%.c ${HEADERS} | fatbase/mod
 	${KCC} -T modules/link.ld -nostdlib ${KCFLAGS} -c -o $@ $<
 
 modules: ${MODULES}
@@ -99,20 +99,20 @@ modules: ${MODULES}
 # Root Filesystem
 
 base/dev:
-	mkdir -p base/dev
+	mkdir -p $@
 base/tmp:
-	mkdir -p base/tmp
+	mkdir -p $2
 base/proc:
-	mkdir -p base/proc
+	mkdir -p $@
 base/bin:
-	mkdir -p base/bin
+	mkdir -p $@
 base/lib:
-	mkdir -p base/lib
-cdrom/boot:
-	mkdir -p cdrom/boot
+	mkdir -p $@
+fatbase/efi/boot:
+	mkdir -p $@
 .make:
 	mkdir -p .make
-dirs: base/dev base/tmp base/proc base/bin base/lib cdrom/boot .make
+dirs: base/dev base/tmp base/proc base/bin base/lib fatbase/efi/boot .make
 
 # C Library
 
@@ -154,7 +154,7 @@ endif
 base/bin/init: apps/init.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
-cdrom/netinit: util/netinit.c base/lib/libc.a | dirs
+fatbase/netinit: util/netinit.c base/lib/libc.a | dirs
 	$(CC) -s -static -Wl,-static $(CFLAGS) -o $@ $<
 
 # Userspace applications
@@ -168,35 +168,30 @@ endif
 
 # Ramdisk
 
-cdrom/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell find base) Makefile | dirs
-	genext2fs -B 4096 -d base -D util/devtable -U -b `util/calc-size.sh` -N 2048 cdrom/ramdisk.img
+fatbase/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell find base) Makefile | dirs
+	genext2fs -B 4096 -d base -D util/devtable -U -b `util/calc-size.sh` -N 2048 $@
 
 # CD image
 
 ifeq (,$(wildcard /usr/lib32/crt0-efi-ia32.o))
-    EFI_XORRISO=
-    EFI_BOOT=
 else
-    EFI_XORRISO=-eltorito-alt-boot -e boot/efi.img -no-emul-boot -isohybrid-gpt-basdat
-    EFI_BOOT=cdrom/boot/efi.img
 endif
 
+EFI_XORRISO=-eltorito-alt-boot -e fat.img -no-emul-boot -isohybrid-gpt-basdat
+EFI_BOOT=cdrom/fat.img
+EFI_UPDATE=python util/update-extents.py
 
-image.iso: cdrom/ramdisk.img cdrom/boot/boot.sys cdrom/kernel cdrom/netinit ${MODULES}
-	xorriso -as mkisofs -R -J -c boot/bootcat \
-	  -b boot/boot.sys -no-emul-boot -boot-load-size 24 \
+image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES}
+	xorriso -as mkisofs -R -J -c bootcat \
+	  -b boot.sys -no-emul-boot -boot-load-size 24 \
 	  ${EFI_XORRISO} \
 	  -o image.iso cdrom
+	${EFI_UPDATE}
 
 # Boot loader
 
-cdrom/boot/efi.img: boot/boot32.efi
-	-rm -f $@
-	fallocate -l 32M $@
-	mkfs.fat $@
-	-mmd  -i $@ '/EFI'
-	-mmd  -i $@ '/EFI/BOOT'
-	mcopy -i $@ boot/boot32.efi '::/EFI/BOOT/BOOTIA32.EFI'
+cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi
+	util/mkdisk.sh $@ fatbase
 
 EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_FUNCTION_WRAPPER -m32 -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -mno-red-zone
 EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
@@ -205,10 +200,10 @@ boot/efi.so: boot/cstuff.c boot/*.h
 	$(CC) ${EFI_CFLAGS} -c -o boot/efi.o $<
 	$(LD) boot/efi.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -lefi -lgnuefi -o boot/efi.so
 
-boot/boot32.efi: boot/efi.so
-	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 boot/efi.so boot/boot32.efi
+fatbase/efi/boot/bootia32.efi: boot/efi.so
+	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 boot/efi.so $@
 
-cdrom/boot/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld ${EFI_BOOT} | cdrom/boot
+cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 boot/cstuff.o: boot/cstuff.c boot/*.h
@@ -224,14 +219,14 @@ clean:
 	rm -f ${APPS_X}
 	rm -f libc/*.o libc/*/*.o
 	rm -f image.iso
-	rm -f cdrom/ramdisk.img
-	rm -f cdrom/boot/boot.sys
+	rm -f fatbase/ramdisk.img
+	rm -f cdrom/boot.sys
 	rm -f boot/*.o
 	rm -f boot/*.efi
 	rm -f boot/*.so
-	rm -f cdrom/boot/efi.img
-	rm -f cdrom/kernel
-	rm -f cdrom/netboot cdrom/netinit
+	rm -f cdrom/fat.img cdrom/kernel cdrom/mod/* cdrom/efi/boot/bootia32.efi cdrom/ramdisk.img
+	rm -f fatbase/kernel fatbase/efi/boot/bootia32.efi
+	rm -f cdrom/netinit fatbase/netinit
 	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
 	rm -f base/lib/crt*.o
 	rm -f ${MODULES}
