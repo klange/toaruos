@@ -9,8 +9,10 @@ EFI_HANDLE ImageHandleIn;
 #include "ata.h"
 #include "text.h"
 #include "util.h"
+#ifndef EFI_PLATFORM
 #include "atapi_imp.h"
 #include "iso9660.h"
+#endif
 #include "elf.h"
 #include "multiboot.h"
 #include "kbd.h"
@@ -59,7 +61,7 @@ static char * modules[] = {
 	"PS2KBD.KO",   // 9
 	"PS2MOUSE.KO", // 10
 	"LFBVIDEO.KO", // 11
-	"VBOXGUES.KO", // 12
+	"VBOX.KO",     // 12
 	"VMWARE.KO",   // 13
 	"VIDSET.KO",   // 14
 	"PACKETFS.KO", // 15

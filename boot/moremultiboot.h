@@ -187,6 +187,7 @@ static void move_kernel(void) {
 		);
 }
 
+#ifndef EFI_PLATFORM
 static void do_it(struct ata_device * _device) {
 	device = _device;
 	if (device->atapi_sector_size != 2048) {
@@ -215,11 +216,6 @@ done:
 		long offset = 0;
 		for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
 
-#ifdef EFI_PLATFORM
-			EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START + offset;
-			uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, 1, &addr);
-#endif
-
 			ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 		}
 		restore_root();
@@ -239,10 +235,6 @@ done:
 					modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
 					modules_mboot[j].mod_end = KERNEL_LOAD_START + offset + dir_entry->extent_length_LSB;
 					for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
-#ifdef EFI_PLATFORM
-						EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START + offset;
-						uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, 1, &addr);
-#endif
 						ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 					}
 					j++;
@@ -260,11 +252,6 @@ done:
 				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
 
 				print_("Loading ramdisk");
-
-#ifdef EFI_PLATFORM
-						EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START + offset;
-						uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, ramdisk_len / 4096 + 1, &addr);
-#endif
 
 				int i = dir_entry->extent_start_LSB;
 				int sectors = dir_entry->extent_length_LSB / 2048 + 1;
@@ -297,6 +284,7 @@ done:
 
 	return;
 }
+#endif
 
 struct fw_cfg_file {
 	uint32_t size;
@@ -485,6 +473,163 @@ void show_menu(void) {
 	} while (1);
 }
 
+#ifdef EFI_PLATFORM
+/* EFI boot uses simple filesystem driver */
+static EFI_GUID efi_simple_file_system_protocol_guid =
+	{0x0964e5b22,0x6459,0x11d2,0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b};
+
+static void boot(void) {
+	UINTN count;
+	EFI_HANDLE * handles;
+	EFI_FILE_IO_INTERFACE *efi_simple_filesystem;
+	EFI_FILE *root;
+
+	clear_();
+
+	EFI_STATUS status = uefi_call_wrapper(ST->BootServices->LocateHandleBuffer,
+			5, ByProtocol, &efi_simple_file_system_protocol_guid,
+			NULL, &count, &handles);
+
+	if (EFI_ERROR(status)) {
+		print_("There was an error.\n");
+		while (1) {};
+	}
+
+	print_("Found "); print_hex_(count); print_(" handles.\n");
+
+	status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
+			3, handles[0], &efi_simple_file_system_protocol_guid,
+			(void **)&efi_simple_filesystem);
+
+	if (EFI_ERROR(status)) {
+		print_("There was an error.\n");
+		while (1) {};
+	}
+
+	status = uefi_call_wrapper(efi_simple_filesystem->OpenVolume,
+			2, efi_simple_filesystem, &root);
+
+	if (EFI_ERROR(status)) {
+		print_("There was an error.\n");
+		while (1) {};
+	}
+
+	EFI_FILE * file;
+
+	CHAR16 kernel_name[16] = L"";
+	{
+		char * c = kernel_path;
+		char * ascii = c;
+		int i = 0;
+		while (*ascii) {
+			kernel_name[i] = *ascii;
+			i++;
+			ascii++;
+		}
+		if (kernel_name[i-1] == L'.') {
+			kernel_name[i-1] = 0;
+		}
+	}
+
+	/* Load kernel */
+	status = uefi_call_wrapper(root->Open,
+			5, root, &file, kernel_name, EFI_FILE_MODE_READ, 0);
+
+	if (EFI_ERROR(status)) {
+		print_("There was an error.\n");
+		while (1) {};
+	}
+
+	unsigned int offset = 0;
+	UINTN bytes = 134217728;
+	status = uefi_call_wrapper(file->Read,
+			3, file, &bytes, (void *)KERNEL_LOAD_START);
+
+	if (EFI_ERROR(status)) {
+		print_("There was an error.\n");
+		while (1) {};
+	}
+
+	print_("Read "); print_hex_(bytes); print_(" bytes\n");
+
+	offset += bytes;
+	while (offset % 4096) offset++;
+
+	print_("Reading modules...\n");
+
+	char ** c = modules;
+	int j = 0;
+	while (*c) {
+		if (strcmp(*c, "NONE")) {
+			/* Try to load module */
+			CHAR16 name[16] = L"MOD\\";
+			char * ascii = *c;
+			int i = 0;
+			while (*ascii) {
+				name[i+4] = *ascii;
+				i++;
+				ascii++;
+			}
+			bytes = 134217728;
+			status = uefi_call_wrapper(root->Open,
+					5, root, &file, name, EFI_FILE_MODE_READ, 0);
+			if (!EFI_ERROR(status)) {
+				status = uefi_call_wrapper(file->Read,
+						3, file, &bytes, (void *)(KERNEL_LOAD_START + offset));
+				if (!EFI_ERROR(status)) {
+					print_("Loaded "); print_(*c); print_("\n");
+					modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
+					modules_mboot[j].mod_end = KERNEL_LOAD_START + offset + bytes;
+					j++;
+					offset += bytes;
+					while (offset % 4096) offset++;
+				}
+			} else {
+				print_("Error opening "); print_(*c); print_("\n");
+			}
+		}
+		c++;
+	}
+
+	{
+		char * c = ramdisk_path;
+		CHAR16 name[16] = L"";
+		char * ascii = c;
+		int i = 0;
+		while (*ascii) {
+			name[i] = *ascii;
+			i++;
+			ascii++;
+		}
+		if (name[i-1] == L'.') {
+			name[i-1] == 0;
+		}
+		bytes = 134217728;
+		status = uefi_call_wrapper(root->Open,
+				5, root, &file, name, EFI_FILE_MODE_READ, 0);
+		if (!EFI_ERROR(status)) {
+			status = uefi_call_wrapper(file->Read,
+					3, file, &bytes, (void *)(KERNEL_LOAD_START + offset));
+			if (!EFI_ERROR(status)) {
+				print_("Loaded "); print_(c); print_("\n");
+				modules_mboot[multiboot_header.mods_count-1].mod_start = KERNEL_LOAD_START + offset;
+				modules_mboot[multiboot_header.mods_count-1].mod_end = KERNEL_LOAD_START + offset + bytes;
+				offset += bytes;
+				while (offset % 4096) offset++;
+				final_offset = (uint8_t *)KERNEL_LOAD_START + offset;
+			}
+		} else {
+			print_("Error opening "); print_(c); print_("\n");
+		}
+	}
+
+	move_kernel();
+
+
+}
+
+#else
+/* BIOS boot uses native ATAPI drivers, need to find boot drive. */
 static void boot(void) {
 
 	clear_();
@@ -511,3 +656,4 @@ static void boot(void) {
 
 	while (1);
 }
+#endif
