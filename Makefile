@@ -259,6 +259,11 @@ headless: image.iso
 	  -nographic \
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
+.PHONY: efi64
+efi64: image.iso
+	qemu-system-x86_64 -cdrom $< ${QEMU_ARGS} \
+	  -bios /usr/share/qemu/OVMF.fd
+
 VMNAME=ToaruOS-NIH CD
 
 .PHONY: virtualbox
