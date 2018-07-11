@@ -478,27 +478,32 @@ void show_menu(void) {
 static EFI_GUID efi_simple_file_system_protocol_guid =
 	{0x0964e5b22,0x6459,0x11d2,0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b};
 
+static EFI_GUID efi_loaded_image_protocol_guid =
+	{0x5B1B31A1,0x9562,0x11d2, {0x8E,0x3F,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
+
 static void boot(void) {
 	UINTN count;
 	EFI_HANDLE * handles;
+	EFI_LOADED_IMAGE * loaded_image;
 	EFI_FILE_IO_INTERFACE *efi_simple_filesystem;
 	EFI_FILE *root;
+	EFI_STATUS status;
 
 	clear_();
 
-	EFI_STATUS status = uefi_call_wrapper(ST->BootServices->LocateHandleBuffer,
-			5, ByProtocol, &efi_simple_file_system_protocol_guid,
-			NULL, &count, &handles);
+	status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
+			3, ImageHandleIn, &efi_loaded_image_protocol_guid,
+			(void **)&loaded_image);
 
 	if (EFI_ERROR(status)) {
-		print_("There was an error.\n");
+		print_("There was an error (init)\n");
 		while (1) {};
 	}
 
-	print_("Found "); print_hex_(count); print_(" handles.\n");
+	print_("Found loaded image...\n");
 
 	status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
-			3, handles[0], &efi_simple_file_system_protocol_guid,
+			3, loaded_image->DeviceHandle, &efi_simple_file_system_protocol_guid,
 			(void **)&efi_simple_filesystem);
 
 	if (EFI_ERROR(status)) {

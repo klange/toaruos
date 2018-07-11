@@ -181,7 +181,7 @@ EFI_XORRISO=-eltorito-alt-boot -e fat.img -no-emul-boot -isohybrid-gpt-basdat
 EFI_BOOT=cdrom/fat.img
 EFI_UPDATE=python util/update-extents.py
 
-image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES}
+image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-extents.py
 	xorriso -as mkisofs -R -J -c bootcat \
 	  -b boot.sys -no-emul-boot -boot-load-size 24 \
 	  ${EFI_XORRISO} \
@@ -190,7 +190,7 @@ image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES}
 
 # Boot loader
 
-cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi
+cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi util/mkdisk.sh
 	util/mkdisk.sh $@ fatbase
 
 EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_FUNCTION_WRAPPER -m32 -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -mno-red-zone
