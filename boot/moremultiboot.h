@@ -81,7 +81,7 @@ static void move_kernel(void) {
 			EFI_PHYSICAL_ADDRESS addr = phdr->p_vaddr;
 			uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, phdr->p_memsz / 4096 + 1, &addr);
 #endif
-			memcpy((uint8_t*)phdr->p_vaddr, (uint8_t*)KERNEL_LOAD_START + phdr->p_offset, phdr->p_filesz);
+			memcpy((uint8_t*)(uintptr_t)phdr->p_vaddr, (uint8_t*)KERNEL_LOAD_START + phdr->p_offset, phdr->p_filesz);
 			long r = phdr->p_filesz;
 			while (r < phdr->p_memsz) {
 				*(char *)(phdr->p_vaddr + r) = 0;
@@ -210,12 +210,16 @@ static void move_kernel(void) {
 
 #ifdef EFI_PLATFORM
 	print_("\nExiting boot services and jumping to ");
-	print_hex_(entry);
+	print_hex_(_xmain);
 	print_(" with mboot_mag=");
 	print_hex_(_eax);
 	print_(" and mboot_ptr=");
 	print_hex_(_ebx);
 	print_("...\n");
+
+#if defined(__x86_64__)
+	print_("&_xmain = "); print_hex_(((uintptr_t)&_xmain) >> 32); print_hex_((uint32_t)(uintptr_t)&_xmain); print_("\n");
+#endif
 
 	if (1) {
 		EFI_STATUS e;
@@ -231,11 +235,22 @@ static void move_kernel(void) {
 	}
 #endif
 
+#if defined(__x86_64__)
+	__asm__ __volatile__ (
+		".code32 \n"
+		"mov %1,%%eax \n"
+		"mov %2,%%ebx \n"
+		"jmp *%0 \n"
+		".code64 \n"
+		 : : "g"(_xmain), "g"(_eax), "g"(_ebx) : "eax", "ebx"
+		);
+#else
 	__asm__ __volatile__ (
 		"mov %1,%%eax \n"
 		"mov %2,%%ebx \n"
 		"jmp *%0" : : "g"(_xmain), "g"(_eax), "g"(_ebx) : "eax", "ebx"
 		);
+#endif
 }
 
 #ifndef EFI_PLATFORM
@@ -642,7 +657,7 @@ _try_module_again:
 					5, root, &file, name, EFI_FILE_MODE_READ, 0);
 			if (!EFI_ERROR(status)) {
 				status = uefi_call_wrapper(file->Read,
-						3, file, &bytes, (void *)(KERNEL_LOAD_START + offset));
+						3, file, &bytes, (void *)(KERNEL_LOAD_START + (uintptr_t)offset));
 				if (!EFI_ERROR(status)) {
 					print_("Loaded "); print_(*c); print_("\n");
 					modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
@@ -677,7 +692,7 @@ _try_module_again:
 				5, root, &file, name, EFI_FILE_MODE_READ, 0);
 		if (!EFI_ERROR(status)) {
 			status = uefi_call_wrapper(file->Read,
-					3, file, &bytes, (void *)(KERNEL_LOAD_START + offset));
+					3, file, &bytes, (void *)(KERNEL_LOAD_START + (uintptr_t)offset));
 			if (!EFI_ERROR(status)) {
 				print_("Loaded "); print_(c); print_("\n");
 				modules_mboot[multiboot_header.mods_count-1].mod_start = KERNEL_LOAD_START + offset;

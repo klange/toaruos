@@ -28,5 +28,6 @@ do
     fi
 done
 
-rm cdrom/efi/boot/bootia32.efi # Otherwise virtualbox may erroneously try to load from this
+rm -f cdrom/efi/boot/bootia32.efi # Otherwise virtualbox may erroneously try to load from this
+rm -f cdrom/efi/boot/bootx64.efi # Same
 

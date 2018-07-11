@@ -190,18 +190,25 @@ image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-ext
 
 # Boot loader
 
-cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi util/mkdisk.sh
+cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi util/mkdisk.sh
 	util/mkdisk.sh $@ fatbase
 
-EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_FUNCTION_WRAPPER -m32 -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -I /usr/include/efi/ia32 -mno-red-zone
+EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -mno-red-zone
 EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
 
 boot/efi.so: boot/cstuff.c boot/*.h
-	$(CC) ${EFI_CFLAGS} -c -o boot/efi.o $<
+	$(CC) ${EFI_CFLAGS} -I /usr/include/efi/ia32 -c -o boot/efi.o $<
 	$(LD) boot/efi.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -lefi -lgnuefi -o boot/efi.so
 
 fatbase/efi/boot/bootia32.efi: boot/efi.so
-	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 boot/efi.so $@
+	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 $< $@
+
+boot/efi64.so: boot/cstuff.c boot/*.h
+	gcc ${EFI_CFLAGS} -I /usr/include/efi/x86_64 -DEFI_FUNCTION_WRAPPER -c -o boot/efi64.o $<
+	$(LD) boot/efi64.o /usr/lib/crt0-efi-x86_64.o -nostdlib -znocombreloc -T /usr/lib/elf_x86_64_efi.lds -shared -Bsymbolic -L /usr/lib -lefi -lgnuefi -o boot/efi64.so
+
+fatbase/efi/boot/bootx64.efi: boot/efi64.so
+	objcopy ${EFI_SECTIONS} --target=efi-app-x86_64 $< $@
 
 cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
@@ -224,8 +231,8 @@ clean:
 	rm -f boot/*.o
 	rm -f boot/*.efi
 	rm -f boot/*.so
-	rm -f cdrom/fat.img cdrom/kernel cdrom/mod/* cdrom/efi/boot/bootia32.efi cdrom/ramdisk.img
-	rm -f fatbase/kernel fatbase/efi/boot/bootia32.efi
+	rm -f cdrom/fat.img cdrom/kernel cdrom/mod/* cdrom/ramdisk.img
+	rm -f fatbase/kernel fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi
 	rm -f cdrom/netinit fatbase/netinit
 	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
 	rm -f base/lib/crt*.o
