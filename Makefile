@@ -174,7 +174,7 @@ fatbase/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell
 # CD image
 
 ifeq (,$(wildcard /usr/lib32/crt0-efi-ia32.o))
-else
+$(error Missing GNU-EFI.)
 endif
 
 EFI_XORRISO=-eltorito-alt-boot -e fat.img -no-emul-boot -isohybrid-gpt-basdat
