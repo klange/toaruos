@@ -516,7 +516,7 @@ static void boot(void) {
 
 	EFI_FILE * file;
 
-	CHAR16 kernel_name[16] = L"";
+	CHAR16 kernel_name[16] = {0};
 	{
 		char * c = kernel_path;
 		char * ascii = c;
@@ -562,15 +562,26 @@ static void boot(void) {
 	while (*c) {
 		if (strcmp(*c, "NONE")) {
 			/* Try to load module */
-			CHAR16 name[16] = L"MOD\\";
+			CHAR16 name[16] = {0};
+			name[0] = L'm';
+			name[1] = L'o';
+			name[2] = L'd';
+			name[3] = L'\\';
 			char * ascii = *c;
 			int i = 0;
 			while (*ascii) {
-				name[i+4] = *ascii;
+				name[i+4] = (*ascii >= 'A' && *ascii <= 'Z') ? (*ascii - 'A' + 'a') : *ascii;
+				name[i+5] = 0;
 				i++;
 				ascii++;
 			}
-			bytes = 134217728;
+			for (int i = 0; name[i]; ++i) {
+				char c[] = {name[i], 0};
+				print_(c);
+			}
+			print_("\n");
+			bytes = 2097152;
+_try_module_again:
 			status = uefi_call_wrapper(root->Open,
 					5, root, &file, name, EFI_FILE_MODE_READ, 0);
 			if (!EFI_ERROR(status)) {
@@ -585,7 +596,8 @@ static void boot(void) {
 					while (offset % 4096) offset++;
 				}
 			} else {
-				print_("Error opening "); print_(*c); print_("\n");
+				print_("Error opening "); print_(*c); print_(" "); print_hex_(status); print_("\n");
+				while (1) { };
 			}
 		}
 		c++;
@@ -593,7 +605,7 @@ static void boot(void) {
 
 	{
 		char * c = ramdisk_path;
-		CHAR16 name[16] = L"";
+		CHAR16 name[16] = {0};
 		char * ascii = c;
 		int i = 0;
 		while (*ascii) {
@@ -617,6 +629,8 @@ static void boot(void) {
 				offset += bytes;
 				while (offset % 4096) offset++;
 				final_offset = (uint8_t *)KERNEL_LOAD_START + offset;
+			} else {
+				print_("Failed to read ramdisk\n");
 			}
 		} else {
 			print_("Error opening "); print_(c); print_("\n");
