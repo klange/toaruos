@@ -93,14 +93,65 @@ static void move_kernel(void) {
 	print("Setting up memory map...\n");
 #ifdef EFI_PLATFORM
 	mboot_memmap_t * mmap = (void*)KERNEL_LOAD_START;
+	memset((void*)KERNEL_LOAD_START, 0x00, 1024);
 	multiboot_header.mmap_addr = (uintptr_t)mmap;
-	mmap->size = 0;
-	mmap->base_addr = 0;
-	mmap->length = 0;
-	mmap->type = 0;
+
+	EFI_STATUS e;
+	UINTN mapSize = 0, mapKey, descriptorSize;
+	UINT32 descriptorVersion;
+	e = uefi_call_wrapper(ST->BootServices->GetMemoryMap, 5, &mapSize, NULL, &mapKey, &descriptorSize, NULL);
+
+	print_("Memory map size is "); print_hex_(mapSize); print_("\n");
+
+	EFI_MEMORY_DESCRIPTOR * efi_memory = (void*)(final_offset);
+	final_offset += mapSize;
+	while ((uintptr_t)final_offset & 0x3ff) final_offset++;
+
+	e = uefi_call_wrapper(ST->BootServices->GetMemoryMap, 5, &mapSize, efi_memory, &mapKey, &descriptorSize, NULL);
+
+	if (EFI_ERROR(e)) {
+		print_("EFI error.\n");
+	}
+
+	uint64_t upper_mem = 0;
+	int descriptors = mapSize / descriptorSize;
+	for (int i = 0; i < descriptors; ++i) {
+		EFI_MEMORY_DESCRIPTOR * d = (EFI_MEMORY_DESCRIPTOR *)((char *)efi_memory + descriptorSize);
+
+		mmap->size = sizeof(uint64_t) * 2 + sizeof(uintptr_t);
+		mmap->base_addr = d->PhysicalStart;
+		mmap->length = d->NumberOfPages * 4096;
+		switch (d->Type) {
+			case EfiConventionalMemory:
+			case EfiLoaderCode:
+			case EfiLoaderData:
+			case EfiBootServicesCode:
+			case EfiBootServicesData:
+			case EfiRuntimeServicesCode:
+			case EfiRuntimeServicesData:
+			case EfiACPIReclaimMemory:
+				mmap->type = 1;
+				break;
+			case EfiReservedMemoryType:
+			case EfiUnusableMemory:
+			case EfiMemoryMappedIO:
+			case EfiMemoryMappedIOPortSpace:
+			case EfiPalCode:
+			case EfiACPIMemoryNVS:
+			default:
+				mmap->type = 2;
+				break;
+		}
+		if (mmap->type == 1 && mmap->base_addr >= 0x100000) {
+			upper_mem += mmap->length;
+		}
+		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uintptr_t));
+		efi_memory = d;
+	}
 
 	multiboot_header.mem_lower = 1024;
-	multiboot_header.mem_upper = 1024 * 512;
+	multiboot_header.mem_upper = upper_mem / 1024;
+
 
 	memcpy(final_offset, cmdline, 1024);
 	multiboot_header.cmdline = (uintptr_t)final_offset;

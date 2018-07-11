@@ -294,7 +294,8 @@ def process(fatfile, path):
         #print path + fatfile.readable_name(), "is a file"
         cdfile = image.get_file(path + fatfile.readable_name())
         if not cdfile:
-            print "Warning:", fatfile.readable_name(), "not found in ISO"
+            if fatfile.readable_name() != 'bootia32.efi':
+                print "Warning:", fatfile.readable_name(), "not found in ISO"
         else:
             #print fatfile.get_offset() / 2048, fatfile.filesize
             cdfile.extent_start_lsb = fatfile.get_offset() / 2048
