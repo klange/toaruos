@@ -10,7 +10,7 @@ static struct multiboot multiboot_header = {
 	/* boot_device;       */ 0,
 	/* cmdline;           */ 0,
 	/* mods_count;        */ sizeof(modules)/sizeof(*modules),
-	/* mods_addr;         */ (uintptr_t)&modules_mboot,
+	/* mods_addr;         */ 0,
 	/* num;               */ 0,
 	/* size;              */ 0,
 	/* addr;              */ 0,
@@ -49,7 +49,7 @@ extern unsigned short lower_mem;
 
 char * final_offset = NULL;
 
-extern char make_it_happen_capn[];
+extern char do_the_nasty[];
 
 static void move_kernel(void) {
 	clear();
@@ -174,6 +174,7 @@ static void move_kernel(void) {
 	memset((void*)KERNEL_LOAD_START, 0x00, 1024);
 	mboot_memmap_t * mmap = (void*)KERNEL_LOAD_START;
 	multiboot_header.mmap_addr = (uintptr_t)mmap;
+	multiboot_header.mods_addr = (uintptr_t)&modules_mboot;
 
 	struct mmap_entry * e820 = (void*)0x5000;
 
@@ -236,14 +237,18 @@ static void move_kernel(void) {
 #endif
 
 #if defined(__x86_64__)
+	uint64_t foobar = ((uint32_t)(uintptr_t)&do_the_nasty) | (0x10L << 32L);
+
+	uint32_t * foo = (uint32_t *)0x7c00;
+
+	foo[0] = _eax;
+	foo[1] = _ebx;
+	foo[2] = _xmain;
+
 	__asm__ __volatile__ (
-		".code32 \n"
-		"mov %1,%%eax \n"
-		"mov %2,%%ebx \n"
-		"jmp *%0 \n"
-		".code64 \n"
-		 : : "g"(_xmain), "g"(_eax), "g"(_ebx) : "eax", "ebx"
-		);
+			"push %0\n"
+			"retf\n"
+			 : : "g"(foobar));
 #else
 	__asm__ __volatile__ (
 		"mov %1,%%eax \n"
@@ -252,6 +257,36 @@ static void move_kernel(void) {
 		);
 #endif
 }
+
+#if defined(__x86_64__)
+	__asm__ (
+		"do_the_nasty:\n"
+		"cli\n"
+		//"mov 0x08, %ax\n"
+		//"mov %ax, %ds\n"
+		//"mov %ax, %es\n"
+		//"mov %ax, %fs\n"
+		//"mov %ax, %gs\n"
+		//"mov %ax, %ss\n"
+		".code32\n"
+		"mov %cr0, %eax\n"
+		"and $0x7FFFFFFF, %eax\n"
+		"mov %eax, %cr0\n"
+		// Paging is disabled
+		"mov $0xc0000080, %ecx\n"
+		"rdmsr\n"
+		"and $0xfffffeff, %eax\n"
+		"wrmsr\n"
+		"mov $0x640, %eax\n"
+		"mov %eax, %cr4\n"
+		"mov 0x7c00, %eax\n"
+		"mov 0x7c04, %ebx\n"
+		"mov 0x7c08, %ecx\n"
+		"jmp *%ecx\n"
+		"target: jmp target\n"
+		".code64\n"
+		);
+#endif
 
 #ifndef EFI_PLATFORM
 static void do_it(struct ata_device * _device) {
