@@ -30,6 +30,10 @@ static int read_scancode(void) {
 				case L'8':
 				case L'9':
 					return Key.UnicodeChar - L'1' + KBD_SCAN_1;
+				case L'y':
+					return 'y';
+				case L'n':
+					return 'n';
 				default:
 					return 0xFF;
 			}

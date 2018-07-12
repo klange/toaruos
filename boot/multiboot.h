@@ -41,6 +41,13 @@ struct multiboot
 	uint32_t vbe_interface_seg;
 	uint32_t vbe_interface_off;
 	uint32_t vbe_interface_len;
+	uint32_t framebuffer_addr;
+	uint32_t framebuffer_pitch;
+	uint32_t framebuffer_width;
+	uint32_t framebuffer_height;
+	uint8_t   framebuffer_bpp;
+	uint8_t   framebuffer_type;
+	/* Palette stuff goes here but we don't use it */
 } __attribute__ ((packed));
 
 typedef struct {

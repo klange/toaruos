@@ -99,6 +99,30 @@ static void print_banner(char * str) {
 	y++;
 }
 
+#ifdef EFI_PLATFORM
+static void print_int_(unsigned int value) {
+	unsigned int n_width = 1;
+	unsigned int i = 9;
+	while (value > i && i < UINT32_MAX) {
+		n_width += 1;
+		i *= 10;
+		i += 9;
+	}
+
+	char buf[n_width+1];
+	buf[n_width] = 0;
+	i = n_width;
+	while (i > 0) {
+		unsigned int n = value / 10;
+		int r = value % 10;
+		buf[i - 1] = r + '0';
+		i--;
+		value = n;
+	}
+	print_(buf);
+}
+#endif
+
 static void print_hex_(unsigned int value) {
 	char out[9] = {0};
 	for (int i = 7; i > -1; i--) {

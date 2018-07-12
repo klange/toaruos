@@ -51,6 +51,11 @@ char * final_offset = NULL;
 
 extern char do_the_nasty[];
 
+#ifdef EFI_PLATFORM
+static EFI_GUID efi_graphics_output_protocol_guid =
+  {0x9042a9de,0x23dc,0x4a38,  {0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a}};
+#endif
+
 static void move_kernel(void) {
 	clear();
 	print("Relocating kernel...\n");
@@ -151,6 +156,115 @@ static void move_kernel(void) {
 
 	multiboot_header.mem_lower = 1024;
 	multiboot_header.mem_upper = upper_mem / 1024;
+
+	/* Set up framebuffer */
+	if (_efi_do_mode_set) {
+		UINTN count;
+		EFI_HANDLE * handles;
+		EFI_GRAPHICS_OUTPUT_PROTOCOL * gfx;
+		EFI_STATUS status;
+
+		status = uefi_call_wrapper(ST->BootServices->LocateHandleBuffer,
+				5, ByProtocol, &efi_graphics_output_protocol_guid, NULL, &count, &handles);
+		if (EFI_ERROR(status)) {
+			print_("Error getting graphics device handle.\n");
+			while (1) {};
+		}
+
+		status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
+				3, handles[0], &efi_graphics_output_protocol_guid, (void **)&gfx);
+		if (EFI_ERROR(status)) {
+			print_("Error getting graphics device.\n");
+			while (1) {};
+		}
+
+#if 0
+		print_("Attempting to set a sane mode (32bit color, etc.)\n");
+		print_("There are 0x"); print_hex_(gfx->Mode->MaxMode); print_(" modes available.\n");
+		print_("This is mode 0x"); print_hex_(gfx->Mode->Mode); print_(".\n");
+#endif
+
+		int biggest = gfx->Mode->Mode;
+		int big_width = 0;
+		int big_height = 0;
+
+		clear_();
+
+		for (int i = 0; i < gfx->Mode->MaxMode; ++i) {
+			EFI_STATUS status;
+			UINTN size;
+			EFI_GRAPHICS_OUTPUT_MODE_INFORMATION * info;
+
+			status = uefi_call_wrapper(gfx->QueryMode,
+					4, gfx, i, &size, &info);
+
+			if (EFI_ERROR(status)) {
+				print_("Error getting gfx mode 0x"); print_hex_(i); print_("\n");
+			} else {
+				print_("Mode "); print_int_(i); print_(" "); print_int_(info->HorizontalResolution);
+				print_("x"); print_int_(info->VerticalResolution); print_(" ");
+				print_int_(info->PixelFormat); print_("\n");
+				if (_efi_do_mode_set == 1) {
+					if (info->PixelFormat == 1 && info->HorizontalResolution >= big_width) {
+						biggest = i;
+						big_width = info->HorizontalResolution;
+					}
+				} else if (_efi_do_mode_set == 2) {
+					if (info->PixelFormat == 1 && info->HorizontalResolution == 1024 &&
+						info->VerticalResolution == 768) {
+						biggest = i;
+						break;
+					}
+				} else if (_efi_do_mode_set == 3) {
+					if (info->PixelFormat == 1 && info->HorizontalResolution == 1920 &&
+						info->VerticalResolution == 1080) {
+						biggest = i;
+						break;
+					}
+				} else if (_efi_do_mode_set == 4) {
+					while (1) {
+						print_("y/n? ");
+						int resp = read_scancode();
+						if (resp == 'y') {
+							biggest = i;
+							goto done_video;
+						} else if (resp == 'n') {
+							break;
+						}
+					}
+				}
+			}
+		}
+
+done_video:
+		print_("Selected video mode was "); print_int_(biggest); print_("\n");
+		uefi_call_wrapper(gfx->SetMode, 2, gfx, biggest);
+
+		uint32_t high = gfx->Mode->FrameBufferBase >> 32;
+		uint32_t low  = gfx->Mode->FrameBufferBase & 0xFFFFFFFF;
+
+		print_("Framebuffer address is 0x"); print_hex_(high); print_hex_(low); print_("\n");
+
+		if (high) {
+			clear_();
+			print_("Framebuffer is outside of 32-bit memory range.\n");
+			print_("EFI mode setting is not available - and graphics may not work in general.\n");
+			while (1) {};
+		}
+
+		multiboot_header.flags |= (1 << 12); /* Enable framebuffer flag */
+		multiboot_header.framebuffer_addr = low;
+		multiboot_header.framebuffer_width  = gfx->Mode->Info->HorizontalResolution;
+		multiboot_header.framebuffer_height = gfx->Mode->Info->VerticalResolution;
+		multiboot_header.framebuffer_pitch = 0;
+
+		print_("Mode information passed to multiboot:\n");
+		print_("  Address: 0x"); print_hex_(multiboot_header.framebuffer_addr); print_("\n");
+		print_("  Width:   "); print_int_(multiboot_header.framebuffer_width); print_("\n");
+		print_("  Height:  "); print_int_(multiboot_header.framebuffer_height); print_("\n");
+		print_("\n");
+
+	}
 
 
 	memcpy(final_offset, cmdline, 1024);

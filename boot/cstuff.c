@@ -38,6 +38,7 @@ EFI_HANDLE ImageHandleIn;
 #define DEFAULT_SINGLE_CMDLINE "start=terminal "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
+#define DEFAULT_PRESET_VID_CMDLINE "vid=preset "
 #define DEFAULT_NETINIT_CMDLINE "init=/dev/ram0 _"
 #define MIGRATE_CMDLINE "start=--migrate _"
 #define DEBUG_LOG_CMDLINE "logtoserial=3 "
@@ -47,6 +48,10 @@ EFI_HANDLE ImageHandleIn;
 char * module_dir = "MOD";
 char * kernel_path = "KERNEL.";
 char * ramdisk_path = "RAMDISK.IMG";
+
+#ifdef EFI_PLATFORM
+int _efi_do_mode_set = 0;
+#endif
 
 /* Where to dump kernel data while loading */
 #define KERNEL_LOAD_START 0x300000
@@ -152,6 +157,24 @@ int kmain() {
 			"Downloads a userspace filesystem from a remote",
 			"server and extracts it at boot.");
 
+#ifdef EFI_PLATFORM
+	BOOT_OPTION(_efilargest,  0, "Prefer largest mode.",
+			"When using EFI mode setting, use the largest mode.",
+			NULL);
+
+	BOOT_OPTION(_efi1024,     0, "Prefer 1024x768",
+			"If a 1024x768x32 mode is found, set that.",
+			NULL);
+
+	BOOT_OPTION(_efi1080p,    0, "Prefer 1080p",
+			"If a 1920x1080 mode is found, set that.",
+			NULL);
+
+	BOOT_OPTION(_efiask,      0, "Ask for input on each mode.",
+			"Displays a y/n prompt for each possible mode.",
+			NULL);
+#endif
+
 	/* Loop over rendering the menu */
 	show_menu();
 
@@ -167,14 +190,22 @@ int kmain() {
 		}
 	}
 
+	char * _video_command_line = DEFAULT_VID_CMDLINE;
+#ifdef EFI_PLATFORM
+	_efi_do_mode_set = (_efilargest ? 1 : (_efi1024 ? 2 : (_efi1080p ? 3 : (_efiask ? 4 : 0))));
+	if (_efi_do_mode_set) {
+		_video_command_line = DEFAULT_PRESET_VID_CMDLINE;
+	}
+#endif
+
 	if (boot_mode == 1) {
 		strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
-		strcat(cmdline, DEFAULT_VID_CMDLINE);
+		strcat(cmdline, _video_command_line);
 	} else if (boot_mode == 2) {
 		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
 	} else if (boot_mode == 3) {
 		strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
-		strcat(cmdline, DEFAULT_VID_CMDLINE);
+		strcat(cmdline, _video_command_line);
 	} else if (boot_mode == 4) {
 		strcat(cmdline, DEFAULT_HEADLESS_CMDLINE);
 	}

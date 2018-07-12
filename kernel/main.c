@@ -124,6 +124,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	if ((uintptr_t)mboot_ptr > last_mod) {
 		last_mod = (uintptr_t)mboot_ptr + sizeof(struct multiboot);
 	}
+	while (last_mod & 0x7FF) last_mod++;
 	kmalloc_startat(last_mod);
 
 	if (mboot_ptr->flags & MULTIBOOT_FLAG_MEM) {

@@ -325,6 +325,20 @@ static void graphics_install_preset(uint16_t w, uint16_t h) {
 	debug_print(NOTICE, "Graphics were pre-configured (thanks, bootloader!), locating video memory...");
 	uint16_t b = 32; /* If you are 24 bit, go away, we really do not support you. */
 
+	if (mboot_ptr && (mboot_ptr->flags & (1 << 12))) {
+		/* hello world */
+		lfb_vid_memory = (void *)mboot_ptr->framebuffer_addr;
+		w = mboot_ptr->framebuffer_width;
+		h = mboot_ptr->framebuffer_height;
+
+		debug_print(WARNING, "Mode was set by bootloader: %dx%d bpp should be 32, framebuffer is at 0x%x", w, h, (uintptr_t)lfb_vid_memory);
+
+		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
+			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		}
+		goto mem_found;
+	}
+
 	/* XXX: Massive hack */
 	uint32_t * herp = (uint32_t *)0xA0000;
 	herp[0] = 0xA5ADFACE;
