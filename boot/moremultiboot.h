@@ -226,11 +226,14 @@ static void move_kernel(void) {
 						print_("y/n? ");
 						int resp = read_scancode();
 						if (resp == 'y') {
+							print_("y\n");
 							biggest = i;
 							goto done_video;
 						} else if (resp == 'n') {
+							print_("n\n");
 							break;
 						}
+						print_("?\n");
 					}
 				}
 			}

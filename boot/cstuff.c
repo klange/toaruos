@@ -19,14 +19,15 @@ EFI_HANDLE ImageHandleIn;
 #include "options.h"
 
 /* Basic text strings */
+#define BASE_VERSION "ToaruOS-NIH Bootloader v2.0"
 #ifdef EFI_PLATFORM
 #  if defined(__x86_64__)
-#    define VERSION_TEXT "ToaruOS-NIH Bootloader v1.3 (EFI, X64)"
+#    define VERSION_TEXT BASE_VERSION " (EFI, X64)"
 #  else
-#    define VERSION_TEXT "ToaruOS-NIH Bootloader v1.3 (EFI, IA32)"
+#    define VERSION_TEXT BASE_VERSION " (EFI, IA32)"
 #  endif
 #else
-#  define VERSION_TEXT "ToaruOS-NIH Bootloader v1.3 (BIOS)"
+#  define VERSION_TEXT BASE_VERSION " (BIOS)"
 #endif
 #define HELP_TEXT "Press <Enter> or select a menu option with \030/\031/\032/\033."
 #define COPYRIGHT_TEXT "ToaruOS is free software under the NCSA license."
