@@ -101,7 +101,7 @@ modules: ${MODULES}
 base/dev:
 	mkdir -p $@
 base/tmp:
-	mkdir -p $2
+	mkdir -p $@
 base/proc:
 	mkdir -p $@
 base/bin:
