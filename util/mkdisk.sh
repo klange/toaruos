@@ -6,6 +6,7 @@ IN=$2
 OUTDIR=`dirname $1`
 
 rm -f $OUT
+mkdir -p cdrom
 fallocate -l 64M $OUT
 mkfs.fat $OUT
 
