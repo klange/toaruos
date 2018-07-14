@@ -14,11 +14,11 @@ The use of Newlib and allowance of third-party libraries in mainline ToaruOS als
 
 ## Phasing out mainline ToaruOS
 
-As ToaruOS-NIH reaches a state of feature completeness, and libraries which had previously been ported to mainline ToaruOS are also ported to ToaruOS-NI's C libraryH, the mainline distribution will be discontinued and ToaruOS-NIH will become the only distribution of ToaruOS.
+As ToaruOS-NIH reaches a state of feature completeness, and libraries which had previously been ported to mainline ToaruOS are also ported to ToaruOS-NIH's C library, the mainline distribution will be discontinued and ToaruOS-NIH will become the only distribution of ToaruOS.
 
 There are many obstacles to tackle on the way to making ToaruOS-NIH the core ToaruOS distribution:
 
 - Implementing enough C standard library functionality to port key applications and libraries from the mainline distribution, such as GCC, Vim, libpng, freetype, and Cairo.
 - Implementing plugin architectures so that applications can use either native libraries or these third-party libraries for graphics, font rendering, and so on.
-- Development of a package manager using only in-house componenets, so that the third-party libraries and applications may be installed.
+- Development of a package manager using only in-house components, so that the third-party libraries and applications may be installed.
 
