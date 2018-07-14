@@ -46,11 +46,6 @@ void lfb_set_resolution(uint16_t x, uint16_t y);
  */
 uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
 
-struct vid_size {
-	uint32_t width;
-	uint32_t height;
-};
-
 static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 	/* TODO: Make this actually support multiple video devices */
 
@@ -205,7 +200,8 @@ static uint16_t bochs_current_scroll(void) {
 
 static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	if ((v == 0x1234 && d == 0x1111) ||
-	    (v == 0x80EE && d == 0xBEEF)) {
+	    (v == 0x80EE && d == 0xBEEF) ||
+	    (v == 0x10de && d == 0x0a20))  {
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
 		if (t > 0) {
 			*((uint8_t **)extra) = (uint8_t *)(t & 0xFFFFFFF0);
@@ -328,6 +324,20 @@ mem_found:
 static void graphics_install_preset(uint16_t w, uint16_t h) {
 	debug_print(NOTICE, "Graphics were pre-configured (thanks, bootloader!), locating video memory...");
 	uint16_t b = 32; /* If you are 24 bit, go away, we really do not support you. */
+
+	if (mboot_ptr && (mboot_ptr->flags & (1 << 12))) {
+		/* hello world */
+		lfb_vid_memory = (void *)mboot_ptr->framebuffer_addr;
+		w = mboot_ptr->framebuffer_width;
+		h = mboot_ptr->framebuffer_height;
+
+		debug_print(WARNING, "Mode was set by bootloader: %dx%d bpp should be 32, framebuffer is at 0x%x", w, h, (uintptr_t)lfb_vid_memory);
+
+		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
+			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		}
+		goto mem_found;
+	}
 
 	/* XXX: Massive hack */
 	uint32_t * herp = (uint32_t *)0xA0000;
@@ -475,7 +485,8 @@ static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	struct disp_mode * mode = extra;
 	if (mode->set) return;
 	if ((v == 0x1234 && d == 0x1111) ||
-	    (v == 0x80EE && d == 0xBEEF)) {
+	    (v == 0x80EE && d == 0xBEEF) ||
+	    (v == 0x10de && d == 0x0a20))  {
 		mode->set = 1;
 		graphics_install_bochs(mode->x, mode->y);
 	} else if ((v == 0x15ad && d == 0x0405)) {

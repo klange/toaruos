@@ -8,6 +8,11 @@
 #define IO_VID_SET    0x5006
 #define IO_VID_STRIDE 0x5007
 
+struct vid_size {
+	uint32_t width;
+	uint32_t height;
+};
+
 #ifdef _KERNEL_
 extern void lfb_set_resolution(uint16_t x, uint16_t y);
 extern uint16_t lfb_resolution_x;
