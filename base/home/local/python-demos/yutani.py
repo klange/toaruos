@@ -328,6 +328,8 @@ class Yutani(object):
         yutani_lib = CDLL("libtoaru_yutani.so")
         yutani_gfx_lib = CDLL("libtoaru_graphics.so")
         self._ptr = cast(yutani_lib.yutani_init(), POINTER(self._yutani_t))
+        if not self._ptr:
+            raise ConnectionRefusedError("Could not connect to compositor.")
         yutani_ctx = self
         self._fileno = _libc.fileno(self._ptr.contents.sock)
 
