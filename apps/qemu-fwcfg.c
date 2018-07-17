@@ -96,6 +96,7 @@ int main(int argc, char * argv[]) {
 		inportb(FW_CFG_PORT_IN) != 'M' ||
 		inportb(FW_CFG_PORT_IN) != 'U') {
 		fprintf(stderr, "%s: this doesn't seem to be qemu\n", argv[0]);
+		return 1;
 	}
 
 	/* Then get the list of "files" so we can look at names */
