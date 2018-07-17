@@ -55,7 +55,9 @@ char * shell_descript[SHELL_COMMANDS];          /* Command descriptions */
 /* This is the number of actual commands installed */
 int shell_commands_len = 0;
 
-int    shell_interactive = 1;
+int shell_interactive = 1;
+int last_ret = 0;
+
 
 int pid; /* Process ID of the shell */
 
@@ -364,10 +366,11 @@ int read_entry_continued(char * buffer) {
 }
 
 int variable_char(uint8_t c) {
-	if (c >= 65 && c <= 90)  return 1;
-	if (c >= 97 && c <= 122) return 1;
-	if (c >= 48 && c <= 57)  return 1;
-	if (c == 95) return 1;
+	if (c >= 'A' && c <= 'Z')  return 1;
+	if (c >= 'a' && c <= 'z') return 1;
+	if (c >= '0' && c <= '9')  return 1;
+	if (c == '_') return 1;
+	if (c == '?') return 1;
 	return 0;
 }
 
@@ -457,7 +460,16 @@ int shell_exec(char * buffer, size_t size, FILE * file) {
 								p++;
 							}
 						}
-						char *c = getenv(var);
+						/* Special cases */
+						char *c;
+						char tmp[128];
+						if (!strcmp(var, "?")) {
+							sprintf(tmp,"%d",last_ret);
+							c = tmp;
+						} else {
+							c = getenv(var);
+						}
+
 						if (c) {
 							backtick = 0;
 							for (int i = 0; i < (int)strlen(c); ++i) {
@@ -882,8 +894,6 @@ void add_path(void) {
 }
 
 int main(int argc, char ** argv) {
-
-	int  last_ret = 0;
 
 	pid = getpid();
 
