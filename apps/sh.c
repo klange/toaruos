@@ -25,6 +25,7 @@
 #include <getopt.h>
 #include <termios.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -39,6 +40,8 @@
 
 #define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
 #define STAR_TOKEN "\xFF\xFFSTAR\xFF\xFF"
+#define WRITE_TOKEN "\xFF\xFFWRITE\xFF\xFF"
+#define APPEND_TOKEN "\xFF\xFF""APPEND\xFF"
 
 /* A shell command is like a C program */
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
@@ -529,6 +532,13 @@ int shell_exec(char * buffer) {
 						collected = sprintf(buffer_, "%s", PIPE_TOKEN);
 						goto _new_arg;
 					}
+					goto _just_add;
+				case '>':
+					if (!quoted && !backtick && !collected) {
+						collected = sprintf(buffer_, "%s", WRITE_TOKEN);
+						goto _new_arg;
+					}
+					goto _just_add;
 				default:
 					if (backtick) {
 						buffer_[collected] = '\\';
@@ -580,11 +590,30 @@ _done:
 
 	int cmdi = 0;
 	char ** arg_starts[100] = { &argv[0], NULL };
+	char * output_files[100] = { NULL };
+	int file_args[100] = {0};
 	int argcs[100] = {0};
+	int next_is_file = 0;
 
 	int i = 0;
 	foreach(node, args) {
 		char * c = node->value;
+
+		if (next_is_file) {
+			if (next_is_file == 1 && !strcmp(c, WRITE_TOKEN)) {
+				next_is_file = 2;
+				file_args[cmdi] |= O_APPEND;
+				continue;
+			}
+			output_files[cmdi] = c;
+			continue;
+		}
+
+		if (!strcmp(c, WRITE_TOKEN)) {
+			next_is_file = 1;
+			file_args[cmdi] = O_WRONLY | O_CREAT;
+			continue;
+		}
 
 		if (!strcmp(c, PIPE_TOKEN)) {
 			argv[i] = 0;
@@ -712,6 +741,9 @@ _nope:
 		}
 
 		if (!fork()) {
+			if (output_files[cmdi]) {
+				dup2(open(output_files[cmdi], file_args[cmdi], 0666), STDOUT_FILENO);
+			}
 			dup2(last_output[0], STDIN_FILENO);
 			close(last_output[1]);
 			run_cmd(arg_starts[cmdi]);
@@ -727,6 +759,9 @@ _nope:
 		} else {
 			child_pid = fork();
 			if (!child_pid) {
+				if (output_files[cmdi]) {
+					dup2(open(output_files[cmdi], file_args[cmdi], 0666), STDOUT_FILENO);
+				}
 				run_cmd(arg_starts[0]);
 			}
 		}
