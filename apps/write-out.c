@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 int main(int argc, char * argv[]) {
-	int fd = open(argv[1], O_WRONLY | O_CREAT);
+	int fd = open(argv[1], O_WRONLY | O_CREAT, 0666);
 
 	while (1) {
 		char buf[1024];
