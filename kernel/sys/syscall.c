@@ -123,7 +123,7 @@ static int sys_open(const char * file, int flags, int mode) {
 		debug_print(WARNING, "access denied (read, sys_open, file=%s)", file);
 		return -EACCES;
 	}
-	if (node && ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY))) {
+	if (node && ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY) || (flags & O_TRUNC))) {
 		if (!has_permission(node, 02)) {
 			debug_print(WARNING, "access denied (write, sys_open, file=%s)", file);
 			return -EACCES;
