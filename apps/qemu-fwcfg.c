@@ -10,45 +10,25 @@
 #include <unistd.h>
 #include <getopt.h>
 
-unsigned short inports(unsigned short _port) {
-	unsigned short rv;
-	asm volatile ("inw %1, %0" : "=a" (rv) : "dN" (_port));
-	return rv;
-}
+#define FW_CFG_PORT_OUT 0x510
+#define FW_CFG_PORT_IN  0x511
+#define FW_CFG_SELECT_QEMU 0x0000
+#define FW_CFG_SELECT_LIST 0x0019
 
-void outports(unsigned short _port, unsigned short _data) {
+
+/* outw / inb helper functions */
+static void outports(unsigned short _port, unsigned short _data) {
 	asm volatile ("outw %1, %0" : : "dN" (_port), "a" (_data));
 }
 
-unsigned int inportl(unsigned short _port) {
-	unsigned int rv;
-	asm volatile ("inl %%dx, %%eax" : "=a" (rv) : "dN" (_port));
-	return rv;
-}
-
-void outportl(unsigned short _port, unsigned int _data) {
-	asm volatile ("outl %%eax, %%dx" : : "dN" (_port), "a" (_data));
-}
-
-unsigned char inportb(unsigned short _port) {
+static unsigned char inportb(unsigned short _port) {
 	unsigned char rv;
 	asm volatile ("inb %1, %0" : "=a" (rv) : "dN" (_port));
 	return rv;
 }
 
-void outportb(unsigned short _port, unsigned char _data) {
-	asm volatile ("outb %1, %0" : : "dN" (_port), "a" (_data));
-}
-
-void outportsm(unsigned short port, unsigned char * data, unsigned long size) {
-	asm volatile ("rep outsw" : "+S" (data), "+c" (size) : "d" (port));
-}
-
-void inportsm(unsigned short port, unsigned char * data, unsigned long size) {
-	asm volatile ("rep insw" : "+D" (data), "+c" (size) : "d" (port) : "memory");
-}
-
-void swap_bytes(void * in, int count) {
+/* Despite primarily emulating x86, these are all big-endian */
+static void swap_bytes(void * in, int count) {
 	char * bytes = in;
 	if (count == 4) {
 		uint32_t * t = in;
@@ -59,6 +39,7 @@ void swap_bytes(void * in, int count) {
 	}
 }
 
+/* Layout of the information returned from the fw_cfg port */
 struct fw_cfg_file {
 	uint32_t size;
 	uint16_t select;
@@ -66,8 +47,10 @@ struct fw_cfg_file {
 	char name[56];
 };
 
-int usage(char * argv[]) {
+static int usage(char * argv[]) {
 	printf(
+			"Obtain QEMU fw_cfg values\n"
+			"\n"
 			"usage: %s [-?ln] [config name]\n"
 			"\n"
 			" -l     \033[3mlist available config entries\033[0m\n"
@@ -78,6 +61,12 @@ int usage(char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
+
+	uint32_t count = 0;
+	uint8_t * bytes = (uint8_t *)&count;
+	int found = 0;
+	struct fw_cfg_file file;
+	uint8_t * tmp = (uint8_t *)&file;
 
 	int opt = 0;
 	int list = 0;
@@ -100,38 +89,39 @@ int main(int argc, char * argv[]) {
 		return usage(argv);
 	}
 
-	outports(0x510, 0x0000);
-	if (inportb(0x511) != 'Q' ||
-		inportb(0x511) != 'E' ||
-		inportb(0x511) != 'M' ||
-		inportb(0x511) != 'U') {
+	/* First check for QEMU */
+	outports(FW_CFG_PORT_OUT, FW_CFG_SELECT_QEMU);
+	if (inportb(FW_CFG_PORT_IN) != 'Q' ||
+		inportb(FW_CFG_PORT_IN) != 'E' ||
+		inportb(FW_CFG_PORT_IN) != 'M' ||
+		inportb(FW_CFG_PORT_IN) != 'U') {
 		fprintf(stderr, "%s: this doesn't seem to be qemu\n", argv[0]);
 	}
 
-	uint32_t count = 0;
-	uint8_t * bytes = (uint8_t *)&count;
-	outports(0x510,0x0019);
+	/* Then get the list of "files" so we can look at names */
+	outports(FW_CFG_PORT_OUT, FW_CFG_SELECT_LIST);
 	for (int i = 0; i < 4; ++i) {
-		bytes[i] = inportb(0x511);
+		bytes[i] = inportb(FW_CFG_PORT_IN);
 	}
-	swap_bytes(&count, 4);
-
-	int found = 0;
-	struct fw_cfg_file file;
-	uint8_t * tmp = (uint8_t *)&file;
+	swap_bytes(&count, sizeof(count));
 
 	for (unsigned int i = 0; i < count; ++i) {
+
+		/* read one file entry */
 		for (unsigned int j = 0; j < sizeof(struct fw_cfg_file); ++j) {
-			tmp[j] = inportb(0x511);
+			tmp[j] = inportb(FW_CFG_PORT_IN);
 		}
 
-		swap_bytes(&file.size, 4);
-		swap_bytes(&file.select, 2);
+		/* endian swap to get file size and selector ID */
+		swap_bytes(&file.size, sizeof(file.size));
+		swap_bytes(&file.select, sizeof(file.select));
 
 		if (list) {
-			fprintf(stdout, "%s (%d byte%s)\n", file.name, (int)file.size, file.size == 1 ? "" : "s");
+			/* 0x0020 org/whatever (1234 bytes) */
+			fprintf(stdout, "0x%04x %s (%d byte%s)\n", file.select, file.name, (int)file.size, file.size == 1 ? "" : "s");
 		} else {
 			if (!strcmp(file.name, argv[optind])) {
+				/* found the requested file */
 				found = 1;
 				break;
 			}
@@ -139,16 +129,19 @@ int main(int argc, char * argv[]) {
 	}
 
 	if (found) {
-		outports(0x510, file.select);
-		char * tmp = malloc(file.size);
+		/* if we found the requested file, read it from the port */
+		outports(FW_CFG_PORT_OUT, file.select);
+
 		for (unsigned int i = 0; i < 32 && i < file.size; ++i) {
-			tmp[i] = inportb(0x511);
+			fputc(inportb(FW_CFG_PORT_IN), stdout);
 		}
-		fwrite(tmp, 1, file.size, stdout);
 
 		if (!no_newline) {
 			fprintf(stdout, "\n");
+		} else {
+			fflush(stdout);
 		}
+
 	} else if (!list) {
 		fprintf(stderr, "%s: config option not found\n", argv[0]);
 		return 1;
