@@ -239,7 +239,7 @@ clean:
 	rm -f ${MODULES}
 	rm -f ${APPS_Y} ${LIBS_Y}
 
-QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm
+QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime
 
 .PHONY: run
 run: image.iso
