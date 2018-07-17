@@ -602,7 +602,7 @@ _done:
 		if (next_is_file) {
 			if (next_is_file == 1 && !strcmp(c, WRITE_TOKEN)) {
 				next_is_file = 2;
-				file_args[cmdi] |= O_APPEND;
+				file_args[cmdi] = O_WRONLY | O_CREAT | O_APPEND;
 				continue;
 			}
 			output_files[cmdi] = c;
@@ -611,7 +611,7 @@ _done:
 
 		if (!strcmp(c, WRITE_TOKEN)) {
 			next_is_file = 1;
-			file_args[cmdi] = O_WRONLY | O_CREAT;
+			file_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC;
 			continue;
 		}
 
