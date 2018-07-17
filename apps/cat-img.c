@@ -46,6 +46,7 @@ int usage(char * argv[]) {
 			"\n"
 			" -n     \033[3mdon't print a new line after image\033[0m\n"
 			" -s     \033[3mscale to cell height (up or down)\033[0m\n"
+			" -w     \033[3mscale to terminal width (up or down)\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
 	return 1;
@@ -60,13 +61,17 @@ int main (int argc, char * argv[]) {
 	int opt;
 	int no_newline = 0;
 	int scale_to_cell_height = 0;
+	int scale_to_term_width = 0;
 
-	while ((opt = getopt(argc, argv, "?ns")) != -1) {
+	while ((opt = getopt(argc, argv, "?nsw")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
 			case 'n':
 				no_newline = 1;
+				break;
+			case 'w':
+				scale_to_term_width = 1;
 				break;
 			case 's':
 				scale_to_cell_height = 1;
@@ -96,6 +101,17 @@ int main (int argc, char * argv[]) {
 			gfx_context_t * g = init_graphics_sprite(source);
 			draw_fill(g, 0x00000000);
 			draw_sprite_scaled(g, image, 0, 0, new_width, h);
+			sprite_free(image);
+		}
+
+		if (scale_to_term_width) {
+			struct winsize w;
+			ioctl(0, TIOCGWINSZ, &w);
+			int new_height = (w.ws_xpixel * image->height) / image->width;
+			source = create_sprite(w.ws_xpixel, new_height, 1);
+			gfx_context_t * g = init_graphics_sprite(source);
+			draw_fill(g, 0x00000000);
+			draw_sprite_scaled(g, image, 0, 0, w.ws_xpixel, new_height);
 			sprite_free(image);
 		}
 
