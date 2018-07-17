@@ -26,6 +26,7 @@
 #include <termios.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -57,6 +58,8 @@ int shell_commands_len = 0;
 
 int shell_interactive = 1;
 int last_ret = 0;
+char ** shell_argv = NULL;
+int shell_argc = 0;
 
 
 int pid; /* Process ID of the shell */
@@ -392,6 +395,14 @@ void run_cmd(char ** args) {
 	exit(i);
 }
 
+int is_number(const char * c) {
+	while (*c) {
+		if (!isdigit(*c)) return 0;
+		c++;
+	}
+	return 1;
+}
+
 int shell_exec(char * buffer, size_t size, FILE * file) {
 
 	/* Read previous history entries */
@@ -457,15 +468,24 @@ int shell_exec(char * buffer, size_t size, FILE * file) {
 								var[coll] = *p;
 								coll++;
 								var[coll] = '\0';
+								if (isdigit(*p) || *p == '?') {
+									p++;
+									break; /* Don't let these keep going */
+								}
 								p++;
 							}
 						}
 						/* Special cases */
-						char *c;
+						char *c = NULL;
 						char tmp[128];
 						if (!strcmp(var, "?")) {
 							sprintf(tmp,"%d",last_ret);
 							c = tmp;
+						} else if (is_number(var)) {
+							int a = atoi(var);
+							if (a >= 0 && a < shell_argc) {
+								c = shell_argv[a];
+							}
 						} else {
 							c = getenv(var);
 						}
@@ -934,6 +954,9 @@ int main(int argc, char ** argv) {
 			fprintf(stderr, "%s: %s: file not found\n", argv[0], argv[optind]);
 			return 1;
 		}
+
+		shell_argc = argc - 1;
+		shell_argv = &argv[1];
 
 		while (!feof(f)) {
 			char buf[LINE_LEN] = {0};
