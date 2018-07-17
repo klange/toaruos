@@ -167,7 +167,7 @@ void sig_pass(int sig) {
 }
 
 void redraw_prompt_func(rline_context_t * context) {
-	draw_prompt(0);
+	draw_prompt(last_ret);
 }
 
 void draw_prompt_c() {
@@ -725,7 +725,7 @@ _nope:
 	argv[i] = NULL;
 
 	if (i == 0) {
-		return 0;
+		return -1;
 	}
 
 	list_free(args);
@@ -914,7 +914,8 @@ int main(int argc, char ** argv) {
 			switch (c) {
 				case 'c':
 					shell_interactive = 0;
-					return shell_exec(optarg, strlen(optarg), NULL);
+					last_ret = shell_exec(optarg, strlen(optarg), NULL);
+					return (last_ret == -1) ? 0 : last_ret;
 				case 'v':
 					show_version();
 					return 0;
@@ -937,7 +938,8 @@ int main(int argc, char ** argv) {
 		while (!feof(f)) {
 			char buf[LINE_LEN] = {0};
 			fgets(buf, LINE_LEN, f);
-			last_ret = shell_exec(buf, 4096, f);
+			int ret = shell_exec(buf, LINE_LEN, f);
+			if (ret >= 0) last_ret = ret;
 		}
 		return 0;
 	}
@@ -949,7 +951,8 @@ int main(int argc, char ** argv) {
 		char buffer[LINE_LEN] = {0};
 
 		read_entry(buffer);
-		last_ret = shell_exec(buffer, LINE_LEN, stdin);
+		int ret = shell_exec(buffer, LINE_LEN, stdin);
+		if (ret >= 0) last_ret = ret;
 		rline_scroll = 0;
 
 	}
