@@ -35,6 +35,7 @@ int main(int argc, char * argv[]) {
 	enum mode_set mode_set = MODE_SET;
 	char * c = argv[1];
 	int user_modes = 0;
+	int all_users = 7;
 
 	while (*c) {
 		switch (*c) {
@@ -47,18 +48,22 @@ int main(int argc, char * argv[]) {
 				}
 				break;
 			case 'u':
+				all_users = 0;
 				user_modes |= 1;
 				c++;
 				break;
 			case 'g':
+				all_users = 0;
 				user_modes |= 2;
 				c++;
 				break;
 			case 'o':
+				all_users = 0;
 				user_modes |= 4;
 				c++;
 				break;
 			case 'a':
+				all_users = 7;
 				user_modes = 7;
 				c++;
 				break;
@@ -75,15 +80,15 @@ int main(int argc, char * argv[]) {
 				c++;
 				break;
 			case 'r':
-				mode |= calc(S_IROTH, user_modes);
+				mode |= calc(S_IROTH, user_modes | all_users);
 				c++;
 				break;
 			case 'w':
-				mode |= calc(S_IWOTH, user_modes);
+				mode |= calc(S_IWOTH, user_modes | all_users);
 				c++;
 				break;
 			case 'x':
-				mode |= calc(S_IXOTH, user_modes);
+				mode |= calc(S_IXOTH, user_modes | all_users);
 				c++;
 				break;
 		}
