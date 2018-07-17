@@ -528,13 +528,19 @@ int shell_exec(char * buffer) {
 					}
 					goto _just_add;
 				case '|':
-					if (!quoted && !backtick && !collected) {
+					if (!quoted && !backtick) {
+						if (collected) {
+							add_argument(args, buffer_);
+						}
 						collected = sprintf(buffer_, "%s", PIPE_TOKEN);
 						goto _new_arg;
 					}
 					goto _just_add;
 				case '>':
-					if (!quoted && !backtick && !collected) {
+					if (!quoted && !backtick) {
+						if (collected) {
+							add_argument(args, buffer_);
+						}
 						collected = sprintf(buffer_, "%s", WRITE_TOKEN);
 						goto _new_arg;
 					}
