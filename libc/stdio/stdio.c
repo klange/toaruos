@@ -162,7 +162,7 @@ static void parse_mode(const char * mode, int * flags_, int * mask_) {
 		}
 		if (*x == '+') {
 			flags |= O_RDWR;
-			flags ^= (O_APPEND); /* uh... */
+			flags &= ~(O_APPEND); /* uh... */
 		}
 		++x;
 	}
