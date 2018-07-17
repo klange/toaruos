@@ -145,7 +145,11 @@ static int sys_open(const char * file, int flags, int mode) {
 		debug_print(NOTICE, "File does not exist; someone should be setting errno?");
 		return -1;
 	}
-	node->offset = 0;
+	if (flags & O_APPEND) {
+		node->offset = node->length;
+	} else {
+		node->offset = 0;
+	}
 	int fd = process_append_fd((process_t *)current_process, node);
 	debug_print(INFO, "[open] pid=%d %s -> %d", getpid(), file, fd);
 	return fd;
