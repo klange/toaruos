@@ -133,7 +133,7 @@ int main(int argc, char * argv[]) {
 		/* if we found the requested file, read it from the port */
 		outports(FW_CFG_PORT_OUT, file.select);
 
-		for (unsigned int i = 0; i < 32 && i < file.size; ++i) {
+		for (unsigned int i = 0; i < file.size; ++i) {
 			fputc(inportb(FW_CFG_PORT_IN), stdout);
 		}
 
