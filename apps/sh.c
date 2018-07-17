@@ -468,7 +468,7 @@ int shell_exec(char * buffer, size_t size, FILE * file) {
 								var[coll] = *p;
 								coll++;
 								var[coll] = '\0';
-								if (isdigit(*p) || *p == '?') {
+								if (coll == 0 && (isdigit(*p) || *p == '?')) {
 									p++;
 									break; /* Don't let these keep going */
 								}
