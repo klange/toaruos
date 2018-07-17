@@ -389,7 +389,7 @@ void run_cmd(char ** args) {
 	exit(i);
 }
 
-int shell_exec(char * buffer) {
+int shell_exec(char * buffer, size_t size, FILE * file) {
 
 	/* Read previous history entries */
 	if (buffer[0] == '!') {
@@ -545,6 +545,11 @@ int shell_exec(char * buffer) {
 						goto _new_arg;
 					}
 					goto _just_add;
+				case '#':
+					if (!quoted && !backtick && !collected) {
+						goto _done; /* Support comments; must not be part of an existing arg */
+					}
+					goto _just_add;
 				default:
 					if (backtick) {
 						buffer_[collected] = '\\';
@@ -575,10 +580,13 @@ _next:
 _done:
 
 		if (quoted) {
-			if (shell_interactive) {
+			if (shell_interactive == 1) {
 				draw_prompt_c();
 				read_entry_continued(buffer);
 				rline_history_append_line(buffer);
+				continue;
+			} else if (shell_interactive == 2) {
+				fgets(buffer, size, file);
 				continue;
 			} else {
 				fprintf(stderr, "Syntax error: Unterminated quoted string.\n");
@@ -896,7 +904,7 @@ int main(int argc, char ** argv) {
 			switch (c) {
 				case 'c':
 					shell_interactive = 0;
-					return shell_exec(optarg);
+					return shell_exec(optarg, strlen(optarg), NULL);
 				case 'v':
 					show_version();
 					return 0;
@@ -907,6 +915,23 @@ int main(int argc, char ** argv) {
 		}
 	}
 
+	if (optind < argc) {
+		shell_interactive = 2;
+		FILE * f = fopen(argv[optind],"r");
+
+		if (!f) {
+			fprintf(stderr, "%s: %s: file not found\n", argv[0], argv[optind]);
+			return 1;
+		}
+
+		while (!feof(f)) {
+			char buf[LINE_LEN] = {0};
+			fgets(buf, LINE_LEN, f);
+			last_ret = shell_exec(buf, 4096, f);
+		}
+		return 0;
+	}
+
 	shell_interactive = 1;
 
 	while (1) {
@@ -914,7 +939,7 @@ int main(int argc, char ** argv) {
 		char buffer[LINE_LEN] = {0};
 
 		read_entry(buffer);
-		last_ret = shell_exec(buffer);
+		last_ret = shell_exec(buffer, LINE_LEN, stdin);
 		rline_scroll = 0;
 
 	}
