@@ -252,10 +252,7 @@ fast: image.iso
 
 .PHONY: headless
 headless: image.iso
-	@echo "=== Launching qemu headless."
-	@echo "=== To quit qemu, use 'Ctrl-a c' to access monitor"
-	@echo "=== and type 'quit' to exit."
-	qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
+	@qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
 	  -nographic \
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
