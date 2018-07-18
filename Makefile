@@ -168,7 +168,10 @@ endif
 
 # Ramdisk
 
-fatbase/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell find base) Makefile | dirs
+util/devtable: $(shell find base) util/update-devtable.py
+	util/update-devtable.py
+
+fatbase/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell find base) Makefile util/devtable | dirs
 	genext2fs -B 4096 -d base -D util/devtable -U -b `util/calc-size.sh` -N 2048 $@
 
 # CD image
