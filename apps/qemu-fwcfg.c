@@ -71,13 +71,17 @@ int main(int argc, char * argv[]) {
 	int opt = 0;
 	int list = 0;
 	int no_newline = 0;
+	int query_quietly = 0;
 
-	while ((opt = getopt(argc, argv, "?ln")) != -1) {
+	while ((opt = getopt(argc, argv, "?lnq")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
 			case 'n':
 				no_newline = 1;
+				break;
+			case 'q':
+				query_quietly = 1;
 				break;
 			case 'l':
 				list = 1;
@@ -127,6 +131,10 @@ int main(int argc, char * argv[]) {
 				break;
 			}
 		}
+	}
+
+	if (query_quietly) {
+		return !found;
 	}
 
 	if (found) {
