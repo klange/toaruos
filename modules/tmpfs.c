@@ -74,6 +74,10 @@ static int symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
 	debug_print(NOTICE, "symlink target is [%s]", target);
 	t->target = strdup(target);
 
+	t->mask = 0777;
+	t->uid = current_process->user;
+	t->gid = current_process->user;
+
 	spin_lock(tmpfs_lock);
 	list_insert(d->files, t);
 	spin_unlock(tmpfs_lock);
