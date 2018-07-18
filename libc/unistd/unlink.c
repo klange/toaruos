@@ -6,11 +6,5 @@
 DEFN_SYSCALL1(unlink, SYS_UNLINK, char *);
 
 int unlink(const char * pathname) {
-	int result = syscall_unlink((char *)pathname);
-	if (result < 0) {
-		errno = -result;
-		return -1;
-	}
-
-	return 0;
+	__sets_errno(syscall_unlink((char *)pathname));
 }

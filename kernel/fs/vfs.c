@@ -29,7 +29,7 @@ hashmap_t * fs_types = NULL;
 int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
 
-	if (current_process->user == 0) {
+	if (current_process->user == 0 && permission_bit != 01) { /* even root needs exec to exec */
 		return 1;
 	}
 
@@ -98,26 +98,26 @@ static fs_node_t * vfs_mapper(void) {
  * selectcheck_fs: Check if a read from this file would block.
  */
 int selectcheck_fs(fs_node_t * node) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->selectcheck) {
 		return node->selectcheck(node);
 	}
 
-	return -1;
+	return -EINVAL;
 }
 
 /**
  * selectwait_fs: Inform a node that it should alert the current_process.
  */
 int selectwait_fs(fs_node_t * node, void * process) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->selectwait) {
 		return node->selectwait(node, process);
 	}
 
-	return -1;
+	return -EINVAL;
 }
 
 /**
@@ -130,13 +130,13 @@ int selectwait_fs(fs_node_t * node, void * process) {
  * @returns Bytes read
  */
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->read) {
 		uint32_t ret = node->read(node, offset, size, buffer);
 		return ret;
 	} else {
-		return -1;
+		return -EINVAL;
 	}
 }
 
@@ -150,13 +150,13 @@ uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffe
  * @returns Bytes written
  */
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->write) {
 		uint32_t ret = node->write(node, offset, size, buffer);
 		return ret;
 	} else {
-		return -1;
+		return -EINVAL;
 	}
 }
 
@@ -286,12 +286,12 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
  * @returns Depends on `request`
  */
 int ioctl_fs(fs_node_t *node, int request, void * argp) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->ioctl) {
 		return node->ioctl(node, request, argp);
 	} else {
-		return -1; /* TODO Should actually be ENOTTY, but we're bad at error numbers */
+		return -EINVAL;
 	}
 }
 
@@ -332,7 +332,7 @@ int create_file_fs(char *name, uint16_t permission) {
 	if (!parent) {
 		debug_print(WARNING, "failed to open parent");
 		free(path);
-		return -1;
+		return -ENOENT;
 	}
 
 	if (!has_permission(parent, 02)) {
@@ -378,7 +378,7 @@ int unlink_fs(char * name) {
 
 	if (!parent) {
 		free(path);
-		return -1;
+		return -ENOENT;
 	}
 
 	if (parent->unlink) {
@@ -429,7 +429,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 		if (_exists) {
 			return -EEXIST;
 		}
-		return -1;
+		return -ENOENT;
 	}
 
 	if (parent->mkdir) {
@@ -481,7 +481,7 @@ int symlink_fs(char * target, char * name) {
 
 	if (!parent) {
 		free(path);
-		return -1;
+		return -ENOENT;
 	}
 
 	if (parent->symlink) {
@@ -495,12 +495,12 @@ int symlink_fs(char * target, char * name) {
 }
 
 int readlink_fs(fs_node_t *node, char * buf, uint32_t size) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->readlink) {
 		return node->readlink(node, buf, size);
 	} else {
-		return -1;
+		return -EINVAL;
 	}
 }
 

@@ -3,10 +3,5 @@
 #include <sys/stat.h>
 
 int mkdir(const char *pathname, mode_t mode) {
-	int ret = syscall_mkdir((char *)pathname, mode);
-	if (ret < 0) {
-		errno = -ret;
-		return -1;
-	}
-	return ret;
+	__sets_errno(syscall_mkdir((char *)pathname, mode));
 }

@@ -3,12 +3,7 @@
 
 int waitpid(int pid, int *status, int options) {
 	/* XXX: status, options? */
-	int i = syscall_waitpid(pid, status, options);
-	if (i < 0) {
-		errno = -i;
-		return -1;
-	}
-	return i;
+	__sets_errno(syscall_waitpid(pid, status, options));
 }
 
 int wait(int *status) {
