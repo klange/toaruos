@@ -4,6 +4,7 @@ import glob
 from pathlib import Path
 
 with open('util/devtable','w') as devtable:
+    devtable.write('/bin/gsudo f 4555 0 0 - - - - -\n') # sudo always needs setuid
     devtable.write('/bin/sudo f 4555 0 0 - - - - -\n') # sudo always needs setuid
     devtable.write('/etc/master.passwd f 600 0 0 - - - - -\n') # /etc/master.passwd should be restricted
 
