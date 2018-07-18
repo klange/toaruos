@@ -179,7 +179,7 @@ endif
 
 EFI_XORRISO=-eltorito-alt-boot -e fat.img -no-emul-boot -isohybrid-gpt-basdat
 EFI_BOOT=cdrom/fat.img
-EFI_UPDATE=python util/update-extents.py
+EFI_UPDATE=util/update-extents.py
 
 image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-extents.py
 	xorriso -as mkisofs -R -J -c bootcat \

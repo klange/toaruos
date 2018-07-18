@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import array
 import struct
 
@@ -10,7 +11,7 @@ class ISO(object):
     def __init__(self, path):
         with open(path, 'rb') as f:
             tmp = f.read()
-            self.data = array.array('c', tmp)
+            self.data = array.array('b', tmp)
         self.sector_size = 2048
         o = 0x10 * self.sector_size
         self.type,             o = read_struct('B',self.data,o)
@@ -87,6 +88,7 @@ class ISOFile(object):
 
         self.name_len, o = read_struct('b', self.iso.data, o)
         self.name, o = read_struct('{}s'.format(self.name_len), self.iso.data, o)
+        self.name = self.name.decode('ascii')
 
     def write_extents(self):
         struct.pack_into('<I', self.iso.data, self.offset + 2, self.extent_start_lsb)
@@ -146,8 +148,6 @@ class FAT(object):
         self.iso = iso
         self.offset = offset
 
-        #print self.offset
-
         self.bytespersector,    _ = read_struct('H', self.iso.data, offset + 11)
         self.sectorspercluster, _ = read_struct('B', self.iso.data, offset + 13)
         self.reservedsectors,   _ = read_struct('H', self.iso.data, offset + 14)
@@ -155,16 +155,9 @@ class FAT(object):
         self.numberofdirs,      _ = read_struct('H', self.iso.data, offset + 17)
         self.fatsize, _ = read_struct('H', self.iso.data, offset + 22)
 
-        #print self.bytespersector, self.sectorspercluster
-
-        self.root_dir_sectors = (self.numberofdirs * 32 + (self.bytespersector - 1)) / self.bytespersector
-        #print "root_dir_sectors", self.root_dir_sectors
+        self.root_dir_sectors = (self.numberofdirs * 32 + (self.bytespersector - 1)) // self.bytespersector
         self.first_data_sector = self.reservedsectors + (self.numberoffats * self.fatsize) + self.root_dir_sectors
-        #print "resrved", self.reservedsectors
-        #print "fats, fatsize", self.numberoffats, self.fatsize
-        #print "first_data_sector_", self.first_data_sector
         self.root_sector= self.first_data_sector - self.root_dir_sectors
-        #print self.first_data_sector - self.root_dir_sectors, self.root_sector * self.bytespersector
         self.root = FATDirectory(self, self.offset + self.root_sector * self.bytespersector)
 
     def get_offset(self, cluster):
@@ -177,7 +170,6 @@ class FAT(object):
         me = self.root
         out = None
         for i in units:
-            #print 'trav', i, me
             for fatfile in me.list():
                 if fatfile.readable_name() == i:
                     me = fatfile.to_dir()
@@ -249,6 +241,9 @@ class FATFile(object):
         self.clusterlow, o = read_struct('H',self.fat.iso.data,o)
         self.filesize,   o = read_struct('I',self.fat.iso.data,o)
 
+        self.name = self.name.decode('ascii')
+        self.ext  = self.ext.decode('ascii')
+
         self.size += 32
 
         self.cluster = (self.clusterhi << 16) + self.clusterlow
@@ -287,18 +282,15 @@ def process(fatfile, path):
     if fatfile.readable_name() == '..':
         return
     if fatfile.is_dir():
-        #print path + fatfile.readable_name(), "is a directory"
         for i in fatfile.to_dir().list():
             process(i, path + fatfile.readable_name() + '/')
     else:
-        #print path + fatfile.readable_name(), "is a file"
         cdfile = image.get_file(path + fatfile.readable_name())
         if not cdfile:
             if fatfile.readable_name() != 'bootia32.efi' and fatfile.readable_name() != 'bootx64.efi':
-                print "Warning:", fatfile.readable_name(), "not found in ISO"
+                print("Warning:", fatfile.readable_name(), "not found in ISO")
         else:
-            #print fatfile.get_offset() / 2048, fatfile.filesize
-            cdfile.extent_start_lsb = fatfile.get_offset() / 2048
+            cdfile.extent_start_lsb = fatfile.get_offset() // 2048
             cdfile.extent_length_lsb = fatfile.filesize
             cdfile.write_extents()
 
