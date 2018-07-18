@@ -88,7 +88,7 @@ static struct dirent * readdir_mapper(fs_node_t *node, uint32_t index) {
 static fs_node_t * vfs_mapper(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->mask = 0666;
+	fnode->mask = 0555;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->readdir = readdir_mapper;
 	return fnode;
@@ -340,14 +340,17 @@ int create_file_fs(char *name, uint16_t permission) {
 		return -EACCES;
 	}
 
+	int ret = 0;
 	if (parent->create) {
-		parent->create(parent, f_path, permission);
+		ret = parent->create(parent, f_path, permission);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
 	free(parent);
 
-	return 0;
+	return ret;
 }
 
 int unlink_fs(char * name) {
@@ -381,14 +384,22 @@ int unlink_fs(char * name) {
 		return -ENOENT;
 	}
 
+	if (!has_permission(parent, 02)) {
+		free(path);
+		free(parent);
+		return -EACCES;
+	}
+
+	int ret = 0;
 	if (parent->unlink) {
-		parent->unlink(parent, f_path);
+		ret = parent->unlink(parent, f_path);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
 	free(parent);
-
-	return 0;
+	return ret;
 }
 
 int mkdir_fs(char *name, uint16_t permission) {
@@ -432,8 +443,11 @@ int mkdir_fs(char *name, uint16_t permission) {
 		return -ENOENT;
 	}
 
+	int ret = 0;
 	if (parent->mkdir) {
-		parent->mkdir(parent, f_path, permission);
+		ret = parent->mkdir(parent, f_path, permission);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
@@ -442,7 +456,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 	if (_exists) {
 		return -EEXIST;
 	}
-	return 0;
+	return ret;
 }
 
 fs_node_t *clone_fs(fs_node_t *source) {
@@ -484,14 +498,17 @@ int symlink_fs(char * target, char * name) {
 		return -ENOENT;
 	}
 
+	int ret = 0;
 	if (parent->symlink) {
-		parent->symlink(parent, target, f_path);
+		ret = parent->symlink(parent, target, f_path);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
 	close_fs(parent);
 
-	return 0;
+	return ret;
 }
 
 int readlink_fs(fs_node_t *node, char * buf, uint32_t size) {

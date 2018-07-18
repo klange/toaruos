@@ -147,7 +147,7 @@ static void parse_mode(const char * mode, int * flags_, int * mask_) {
 	const char * x = mode;
 
 	int flags = 0;
-	int mask = 0;
+	int mask = 0644;
 
 	while (*x) {
 		if (*x == 'a') {

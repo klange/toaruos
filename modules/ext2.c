@@ -769,8 +769,8 @@ static unsigned int allocate_inode(ext2_fs_t * this) {
 	return node_no;
 }
 
-static void mkdir_ext2(fs_node_t * parent, char * name, uint16_t permission) {
-	if (!name) return;
+static int mkdir_ext2(fs_node_t * parent, char * name, uint16_t permission) {
+	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
 
@@ -779,7 +779,7 @@ static void mkdir_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 	if (check) {
 		debug_print(WARNING, "A file by this name already exists: %s", name);
 		free(check);
-		return; /* this should probably have a return value... */
+		return -EEXIST;
 	}
 
 	/* Allocate an inode for it */
@@ -860,10 +860,11 @@ static void mkdir_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 
 	ext2_sync(this);
 
+	return 0;
 }
 
-static void create_ext2(fs_node_t * parent, char * name, uint16_t permission) {
-	if (!name) return;
+static int create_ext2(fs_node_t * parent, char * name, uint16_t permission) {
+	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
 
@@ -872,7 +873,7 @@ static void create_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 	if (check) {
 		debug_print(WARNING, "A file by this name already exists: %s", name);
 		free(check);
-		return; /* this should probably have a return value... */
+		return -EEXIST;
 	}
 
 	/* Allocate an inode for it */
@@ -921,6 +922,7 @@ static void create_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 
 	ext2_sync(this);
 
+	return 0;
 }
 
 static int chmod_ext2(fs_node_t * node, int mode) {
@@ -1041,7 +1043,7 @@ static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
 	return outnode;
 }
 
-static void unlink_ext2(fs_node_t * node, char * name) {
+static int unlink_ext2(fs_node_t * node, char * name) {
 	/* XXX this is a very bad implementation */
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 
@@ -1085,7 +1087,7 @@ static void unlink_ext2(fs_node_t * node, char * name) {
 	free(inode);
 	if (!direntry) {
 		free(block);
-		return;
+		return -ENOENT;
 	}
 
 	direntry->inode = 0;
@@ -1094,6 +1096,8 @@ static void unlink_ext2(fs_node_t * node, char * name) {
 	free(block);
 
 	ext2_sync(this);
+
+	return 0;
 }
 
 
@@ -1262,8 +1266,8 @@ static struct dirent * readdir_ext2(fs_node_t *node, uint32_t index) {
 	return dirent;
 }
 
-static void symlink_ext2(fs_node_t * parent, char * target, char * name) {
-	if (!name) return;
+static int symlink_ext2(fs_node_t * parent, char * target, char * name) {
+	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
 
@@ -1272,7 +1276,7 @@ static void symlink_ext2(fs_node_t * parent, char * target, char * name) {
 	if (check) {
 		debug_print(WARNING, "A file by this name already exists: %s", name);
 		free(check);
-		return; /* this should probably have a return value... */
+		return -EEXIST; /* this should probably have a return value... */
 	}
 
 	/* Allocate an inode for it */
@@ -1332,6 +1336,8 @@ static void symlink_ext2(fs_node_t * parent, char * target, char * name) {
 	free(inode);
 
 	ext2_sync(this);
+
+	return 0;
 }
 
 static int readlink_ext2(fs_node_t * node, char * buf, size_t size) {

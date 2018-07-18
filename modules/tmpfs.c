@@ -53,7 +53,7 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 	return t;
 }
 
-static void symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
+static int symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
 	debug_print(NOTICE, "Creating TMPFS file (symlink) %s in %s", name, d->name);
 
@@ -63,7 +63,7 @@ static void symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
 		if (!strcmp(name, t->name)) {
 			spin_unlock(tmpfs_lock);
 			debug_print(WARNING, "... already exists.");
-			return; /* Already exists */
+			return -EEXIST; /* Already exists */
 		}
 	}
 	spin_unlock(tmpfs_lock);
@@ -77,6 +77,8 @@ static void symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
 	spin_lock(tmpfs_lock);
 	list_insert(d->files, t);
 	spin_unlock(tmpfs_lock);
+
+	return 0;
 }
 
 static int readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
@@ -403,7 +405,7 @@ static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
-static void unlink_tmpfs(fs_node_t * node, char * name) {
+static int unlink_tmpfs(fs_node_t * node, char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->device;
 	int i = -1, j = 0;
 	spin_lock(tmpfs_lock);
@@ -421,14 +423,17 @@ static void unlink_tmpfs(fs_node_t * node, char * name) {
 
 	if (i >= 0) {
 		list_remove(d->files, i);
+	} else {
+		spin_unlock(tmpfs_lock);
+		return -ENOENT;
 	}
 
 	spin_unlock(tmpfs_lock);
-	return;
+	return 0;
 }
 
-static void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
-	if (!name) return;
+static int create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
+	if (!name) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
 	debug_print(NOTICE, "Creating TMPFS file %s in %s", name, d->name);
@@ -439,7 +444,7 @@ static void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 		if (!strcmp(name, t->name)) {
 			spin_unlock(tmpfs_lock);
 			debug_print(WARNING, "... already exists.");
-			return; /* Already exists */
+			return -EEXIST; /* Already exists */
 		}
 	}
 	spin_unlock(tmpfs_lock);
@@ -453,10 +458,12 @@ static void create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	spin_lock(tmpfs_lock);
 	list_insert(d->files, t);
 	spin_unlock(tmpfs_lock);
+
+	return 0;
 }
 
-static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
-	if (!name) return;
+static int mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
+	if (!name) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
 	debug_print(NOTICE, "Creating TMPFS directory %s (in %s)", name, d->name);
@@ -467,7 +474,7 @@ static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
 		if (!strcmp(name, t->name)) {
 			spin_unlock(tmpfs_lock);
 			debug_print(WARNING, "... already exists.");
-			return; /* Already exists */
+			return -EEXIST; /* Already exists */
 		}
 	}
 	spin_unlock(tmpfs_lock);
@@ -481,6 +488,8 @@ static void mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
 	spin_lock(tmpfs_lock);
 	list_insert(d->files, out);
 	spin_unlock(tmpfs_lock);
+
+	return 0;
 }
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {

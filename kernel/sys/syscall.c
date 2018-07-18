@@ -341,7 +341,7 @@ static int sys_chmod(char * file, int mode) {
 		/* Can group members change bits? I think it's only owners. */
 		if (current_process->user != 0 && current_process->user != fn->uid) {
 			close_fs(fn);
-			return -EPERM;
+			return -EACCES;
 		}
 		result = chmod_fs(fn, mode);
 		close_fs(fn);
@@ -359,7 +359,7 @@ static int sys_chown(char * file, int uid, int gid) {
 		/* TODO: Owners can change groups... */
 		if (current_process->user != 0) {
 			close_fs(fn);
-			return -EPERM;
+			return -EACCES;
 		}
 		result = chown_fs(fn, uid, gid);
 		close_fs(fn);
