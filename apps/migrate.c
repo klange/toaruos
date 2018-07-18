@@ -33,14 +33,16 @@ int tokenize(char * str, char * sep, char **buf) {
 	return argc;
 }
 
-void copy_link(char * source, char * dest) {
+void copy_link(char * source, char * dest, int mode, int uid, int gid) {
 	//fprintf(stderr, "need to copy link %s to %s\n", source, dest);
 	char tmp[1024];
 	readlink(source, tmp, 1024);
 	symlink(tmp, dest);
+	chmod(dest, mode);
+	chown(dest, uid, gid);
 }
 
-void copy_file(char * source, char * dest, int mode) {
+void copy_file(char * source, char * dest, int mode,int uid, int gid) {
 	//fprintf(stderr, "need to copy file %s to %s %x\n", source, dest, mode);
 
 	int d_fd = open(dest, O_WRONLY | O_CREAT, mode);
@@ -66,9 +68,10 @@ void copy_file(char * source, char * dest, int mode) {
 	close(s_fd);
 	close(d_fd);
 
+	chown(dest, uid, gid);
 }
 
-void copy_directory(char * source, char * dest, int mode) {
+void copy_directory(char * source, char * dest, int mode, int uid, int gid) {
 	DIR * dirp = opendir(source);
 	if (dirp == NULL) {
 		fprintf(stderr, "Failed to copy directory %s\n", source);
@@ -98,17 +101,19 @@ void copy_directory(char * source, char * dest, int mode) {
 		//fprintf(stderr,"%s → %s\n", tmp, tmp2);
 		lstat(tmp,&statbuf);
 		if (S_ISLNK(statbuf.st_mode)) {
-			copy_link(tmp, tmp2);
+			copy_link(tmp, tmp2, statbuf.st_mode & 07777, statbuf.st_uid, statbuf.st_gid);
 		} else if (S_ISDIR(statbuf.st_mode)) {
-			copy_directory(tmp, tmp2, statbuf.st_mode & 07777);
+			copy_directory(tmp, tmp2, statbuf.st_mode & 07777, statbuf.st_uid, statbuf.st_gid);
 		} else if (S_ISREG(statbuf.st_mode)) {
-			copy_file(tmp, tmp2, statbuf.st_mode & 07777);
+			copy_file(tmp, tmp2, statbuf.st_mode & 07777, statbuf.st_uid, statbuf.st_gid);
 		} else {
 			fprintf(stderr, " %s is not any of the required file types?\n", tmp);
 		}
 		ent = readdir(dirp);
 	}
 	closedir(dirp);
+
+	chown(dest, uid, gid);
 }
 
 void free_ramdisk(char * path) {
@@ -203,7 +208,7 @@ int main(int argc, char * argv[]) {
 	system("mount tmpfs x /");
 
 	TRACE_("Migrating root...");
-	copy_directory("/dev/base","/",0660);
+	copy_directory("/dev/base","/",0660,0,0);
 	system("mount tmpfs x /dev/base");
 
 	if (strstr(root, "/dev/ram") != NULL) {
