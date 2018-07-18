@@ -1,3 +1,4 @@
+/etc/master.passwd f 600 0 0 - - - - -
 /bin/sudo f 4555 0 0 - - - - -
 /home/local d 775 1000 1000 - - - - -
 /home/local/hello f 664 1000 1000 - - - - -

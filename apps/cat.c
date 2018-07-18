@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/stat.h>
 
 #define CHUNK_SIZE 4096
@@ -36,8 +37,8 @@ int main(int argc, char ** argv) {
 
 	for (int i = 1; i < argc; ++i) {
 		int fd = open(argv[i], O_RDONLY);
-		if (fd == -1) {
-			fprintf(stderr, "%s: %s: no such file or directory\n", argv[0], argv[i]);
+		if (fd < 0) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
 			ret = 1;
 			continue;
 		}

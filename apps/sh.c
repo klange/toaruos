@@ -951,7 +951,7 @@ int main(int argc, char ** argv) {
 		FILE * f = fopen(argv[optind],"r");
 
 		if (!f) {
-			fprintf(stderr, "%s: %s: file not found\n", argv[0], argv[optind]);
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
 			return 1;
 		}
 
