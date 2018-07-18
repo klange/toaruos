@@ -66,6 +66,7 @@ struct utimbuf {
 extern char * ttyname(int fd);
 extern int utime(const char *filename, const struct utimbuf *times);
 extern int rmdir(const char *pathname); /* TODO  rm probably just works */
+extern int chown(const char * pathname, uid_t owner, gid_t group);
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
