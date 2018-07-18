@@ -5,14 +5,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <alloca.h>
-
-#include <elf.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <syscall.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <kernel/elf.h>
 
 extern char** environ;
 
