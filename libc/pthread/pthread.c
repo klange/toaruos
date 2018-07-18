@@ -7,14 +7,15 @@
 #include <syscall.h>
 #include <signal.h>
 #include <pthread.h>
+#include <errno.h>
 
 #define PTHREAD_STACK_SIZE 0x100000
 
 int clone(uintptr_t a,uintptr_t b,void* c) {
-	return syscall_clone(a,b,c);
+	__sets_errno(syscall_clone(a,b,c));
 }
 int gettid() {
-	return syscall_gettid();
+	return syscall_gettid(); /* never fails */
 }
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
@@ -26,7 +27,7 @@ int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_rout
 }
 
 int pthread_kill(pthread_t thread, int sig) {
-	return kill(thread.id, sig);
+	__sets_errno(kill(thread.id, sig));
 }
 
 void pthread_exit(void * value) {

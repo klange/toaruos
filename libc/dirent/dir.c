@@ -2,11 +2,13 @@
 #include <fcntl.h>
 #include <string.h>
 #include <syscall.h>
+#include <errno.h>
 #include <bits/dirent.h>
 
 DIR * opendir (const char * dirname) {
 	int fd = open(dirname, O_RDONLY);
-	if (fd == -1) {
+	if (fd < 0) {
+		errno = -fd;
 		return NULL;
 	}
 
@@ -20,7 +22,7 @@ int closedir (DIR * dir) {
 	if (dir && (dir->fd != -1)) {
 		return close(dir->fd);
 	} else {
-		return -1;
+		return -EBADF;
 	}
 }
 
@@ -28,7 +30,14 @@ struct dirent * readdir (DIR * dirp) {
 	static struct dirent ent;
 
 	int ret = syscall_readdir(dirp->fd, ++dirp->cur_entry, &ent);
-	if (ret != 0) {
+	if (ret < 0) {
+		errno = -ret;
+		memset(&ent, 0, sizeof(struct dirent));
+		return NULL;
+	}
+
+	if (ret == 0) {
+		/* end of directory */
 		memset(&ent, 0, sizeof(struct dirent));
 		return NULL;
 	}

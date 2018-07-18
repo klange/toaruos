@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <_xlog.h>
 
@@ -179,6 +180,7 @@ FILE * fopen(const char *path, const char *mode) {
 	int fd = syscall_open(path, flags, mask);
 
 	if (fd < 0) {
+		errno = -fd;
 		return NULL;
 	}
 
@@ -212,6 +214,7 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 		stream->ungetc = -1;
 		stream->eof = 0;
 		if (fd < 0) {
+			errno = -fd;
 			return NULL;
 		}
 	}
@@ -265,6 +268,7 @@ int fseek(FILE * stream, long offset, int whence) {
 
 	int resp = syscall_lseek(stream->fd,offset,whence);
 	if (resp < 0) {
+		errno = -resp;
 		return -1;
 	}
 	return 0;
@@ -277,7 +281,12 @@ long ftell(FILE * stream) {
 	stream->available = 0;
 	stream->ungetc = -1;
 	stream->eof = 0;
-	return syscall_lseek(stream->fd, 0, SEEK_CUR);
+	long resp = syscall_lseek(stream->fd, 0, SEEK_CUR);
+	if (resp < 0) {
+		errno = -resp;
+		return -1;
+	}
+	return resp;
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream) {
@@ -300,6 +309,7 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream) {
 	for (size_t i = 0; i < nmemb; ++i) {
 		int r = syscall_write(stream->fd, tracking, size);
 		if (r < 0) {
+			errno = -r;
 			_XLOG("write error in fwrite");
 			return -1;
 		}

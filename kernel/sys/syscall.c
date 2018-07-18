@@ -66,7 +66,7 @@ static int sys_read(int fd, char * ptr, int len) {
 		node->offset += out;
 		return (int)out;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_ioctl(int fd, int request, void * argp) {
@@ -74,7 +74,7 @@ static int sys_ioctl(int fd, int request, void * argp) {
 		PTR_VALIDATE(argp);
 		return ioctl_fs(FD_ENTRY(fd), request, argp);
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_readdir(int fd, int index, struct dirent * entry) {
@@ -84,12 +84,12 @@ static int sys_readdir(int fd, int index, struct dirent * entry) {
 		if (kentry) {
 			memcpy(entry, kentry, sizeof *entry);
 			free(kentry);
-			return 0;
-		} else {
 			return 1;
+		} else {
+			return 0;
 		}
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_write(int fd, char * ptr, int len) {
@@ -104,7 +104,7 @@ static int sys_write(int fd, char * ptr, int len) {
 		node->offset += out;
 		return out;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_waitpid(int pid, int * status, int options) {
@@ -121,11 +121,13 @@ static int sys_open(const char * file, int flags, int mode) {
 
 	if (node && !has_permission(node, 04)) {
 		debug_print(WARNING, "access denied (read, sys_open, file=%s)", file);
+		close_fs(node);
 		return -EACCES;
 	}
 	if (node && ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY) || (flags & O_TRUNC))) {
 		if (!has_permission(node, 02)) {
 			debug_print(WARNING, "access denied (write, sys_open, file=%s)", file);
+			close_fs(node);
 			return -EACCES;
 		}
 	}
@@ -143,7 +145,7 @@ static int sys_open(const char * file, int flags, int mode) {
 	}
 	if (!node) {
 		debug_print(NOTICE, "File does not exist; someone should be setting errno?");
-		return -1;
+		return -ENOENT;
 	}
 	if (flags & O_APPEND) {
 		node->offset = node->length;
@@ -159,7 +161,7 @@ static int sys_access(const char * file, int flags) {
 	PTR_VALIDATE(file);
 	debug_print(INFO, "access(%s, 0x%x) from pid=%d", file, flags, getpid());
 	fs_node_t * node = kopen((char *)file, 0);
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 	close_fs(node);
 	return 0;
 }
@@ -170,7 +172,7 @@ static int sys_close(int fd) {
 		FD_ENTRY(fd) = NULL;
 		return 0;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_sbrk(int size) {
@@ -255,8 +257,7 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 
 	debug_print(INFO,"Executing...");
 	/* Discard envp */
-	exec((char *)filename, argc, (char **)argv_, (char **)envp_);
-	return -1;
+	return exec((char *)filename, argc, (char **)argv_, (char **)envp_);
 }
 
 static int sys_seek(int fd, int offset, int whence) {
@@ -277,7 +278,7 @@ static int sys_seek(int fd, int offset, int whence) {
 		}
 		return FD_ENTRY(fd)->offset;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int stat_node(fs_node_t * fn, uintptr_t st) {
@@ -337,11 +338,16 @@ static int sys_chmod(char * file, int mode) {
 	PTR_VALIDATE(file);
 	fs_node_t * fn = kopen(file, 0);
 	if (fn) {
+		/* Can group members change bits? I think it's only owners. */
+		if (current_process->user != 0 && current_process->user != fn->uid) {
+			close_fs(fn);
+			return -EPERM;
+		}
 		result = chmod_fs(fn, mode);
 		close_fs(fn);
 		return result;
 	} else {
-		return -1;
+		return -ENOENT;
 	}
 }
 
@@ -350,11 +356,16 @@ static int sys_chown(char * file, int uid, int gid) {
 	PTR_VALIDATE(file);
 	fs_node_t * fn = kopen(file, 0);
 	if (fn) {
+		/* TODO: Owners can change groups... */
+		if (current_process->user != 0) {
+			close_fs(fn);
+			return -EPERM;
+		}
 		result = chown_fs(fn, uid, gid);
 		close_fs(fn);
 		return result;
 	} else {
-		return -1;
+		return -ENOENT;
 	}
 }
 
@@ -364,7 +375,7 @@ static int sys_stat(int fd, uintptr_t st) {
 	if (FD_CHECK(fd)) {
 		return stat_node(FD_ENTRY(fd), st);
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_mkpipe(void) {
@@ -386,7 +397,7 @@ static int sys_setuid(user_t new_uid) {
 		current_process->user = new_uid;
 		return 0;
 	}
-	return -1;
+	return -EPERM;
 }
 
 static int sys_uname(struct utsname * name) {
@@ -413,7 +424,7 @@ static int sys_uname(struct utsname * name) {
 
 static int sys_signal(uint32_t signum, uintptr_t handler) {
 	if (signum > NUMSIGNALS) {
-		return -1;
+		return -EINVAL;
 	}
 	uintptr_t old = current_process->signals.functions[signum];
 	current_process->signals.functions[signum] = handler;
@@ -430,7 +441,7 @@ static void inspect_memory (uintptr_t vaddr) {
 static int sys_reboot(void) {
 	debug_print(NOTICE, "[kernel] Reboot requested from process %d by user #%d", current_process->id, current_process->user);
 	if (current_process->user != USER_ROOT_UID) {
-		return -1;
+		return -EPERM;
 	} else {
 		debug_print(NOTICE, "[kernel] Good bye!");
 		/* Goodbye, cruel world */
@@ -452,7 +463,7 @@ static int sys_chdir(char * newdir) {
 	if (chd) {
 		if ((chd->flags & FS_DIRECTORY) == 0) {
 			close_fs(chd);
-			return -1;
+			return -ENOTDIR;
 		}
 		close_fs(chd);
 		free(current_process->wd_name);
@@ -460,7 +471,7 @@ static int sys_chdir(char * newdir) {
 		memcpy(current_process->wd_name, path, strlen(path) + 1);
 		return 0;
 	} else {
-		return -1;
+		return -ENOENT;
 	}
 }
 
@@ -478,13 +489,13 @@ static int sys_sethostname(char * new_hostname) {
 		PTR_VALIDATE(new_hostname);
 		size_t len = strlen(new_hostname) + 1;
 		if (len > 256) {
-			return 1;
+			return -ENAMETOOLONG;
 		}
 		hostname_len = len;
 		memcpy(hostname, new_hostname, hostname_len);
 		return 0;
 	} else {
-		return 1;
+		return -EPERM;
 	}
 }
 
@@ -548,7 +559,7 @@ static int sys_sysfunc(int fn, char ** args) {
 					PTR_VALIDATE(args[0]);
 					fs_node_t * file = kopen((char *)args[0], 0);
 					if (!file) {
-						return -1;
+						return -EINVAL;
 					}
 					size_t length = file->length;
 					uint8_t * buffer = malloc(length);
@@ -572,7 +583,7 @@ static int sys_sysfunc(int fn, char ** args) {
 					fs_node_t * tty = FD_ENTRY(0);
 					return create_kernel_tasklet(debug_hook, "[kttydebug]", tty);
 				} else {
-					return -1;
+					return -EINVAL;
 				}
 			case 8:
 				debug_print(NOTICE, "Loading module %s.", args[0]);
@@ -698,7 +709,7 @@ static int sys_sysfunc(int fn, char ** args) {
 			debug_print(ERROR, "Bad system function %d", fn);
 			break;
 	}
-	return -1; /* Bad system function or access failure */
+	return -EINVAL; /* Bad system function or access failure */
 }
 
 static int sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
@@ -736,8 +747,8 @@ static int sys_fork(void) {
 }
 
 static int sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
-	if (!new_stack || !PTR_INRANGE(new_stack)) return -1;
-	if (!thread_func || !PTR_INRANGE(thread_func)) return -1;
+	if (!new_stack || !PTR_INRANGE(new_stack)) return -EINVAL;
+	if (!thread_func || !PTR_INRANGE(thread_func)) return -EINVAL;
 	return (int)clone(new_stack, thread_func, arg);
 }
 
@@ -767,10 +778,10 @@ static int sys_gettimeofday(struct timeval * tv, void * tz) {
 
 static int sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
-	if (!master || !slave) return -1;
-	if (master && !PTR_INRANGE(master)) return -1;
-	if (slave && !PTR_INRANGE(slave)) return -1;
-	if (size && !PTR_INRANGE(size)) return -1;
+	if (!master || !slave) return -EINVAL;
+	if (master && !PTR_INRANGE(master)) return -EINVAL;
+	if (slave && !PTR_INRANGE(slave)) return -EINVAL;
+	if (size && !PTR_INRANGE(size)) return -EINVAL;
 
 	/* Create a new pseudo terminal */
 	fs_node_t * fs_master;
@@ -854,7 +865,7 @@ static int sys_lstat(char * file, uintptr_t st) {
 static int sys_fswait(int c, int fds[]) {
 	PTR_VALIDATE(fds);
 	for (int i = 0; i < c; ++i) {
-		if (!FD_CHECK(fds[i])) return -1;
+		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
 	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
 	for (int i = 0; i < c; ++i) {
@@ -870,7 +881,7 @@ static int sys_fswait(int c, int fds[]) {
 static int sys_fswait_timeout(int c, int fds[], int timeout) {
 	PTR_VALIDATE(fds);
 	for (int i = 0; i < c; ++i) {
-		if (!FD_CHECK(fds[i])) return -1;
+		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
 	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
 	for (int i = 0; i < c; ++i) {

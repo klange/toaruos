@@ -17,6 +17,7 @@ int open(const char *name, int flags, ...) {
 
 	result = syscall_open(name, flags, mode);
 	if (result == -1) {
+		/* Not sure this is necessary */
 		if (flags & O_CREAT) {
 			errno = EACCES;
 		} else {
@@ -24,6 +25,7 @@ int open(const char *name, int flags, ...) {
 		}
 	} else if (result < 0) {
 		errno = -result;
+		result = -1;
 	}
 	return result;
 }

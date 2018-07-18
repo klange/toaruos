@@ -2000,7 +2000,7 @@ int main(int argc, char * argv[]) {
 		mfd = open("/dev/mouse", O_RDONLY);
 		kfd = open("/dev/kbd", O_RDONLY);
 		amfd = open("/dev/absmouse", O_RDONLY);
-		if (amfd == -1) {
+		if (amfd < 0) {
 			amfd = open("/dev/vmmouse", O_RDONLY);
 			vmmouse = 1;
 		}
