@@ -9,6 +9,7 @@
  */
 
 #include <stdio.h>
+#include <errno.h>
 
 #ifndef mount
 extern int mount(char * source, char * target, char * type, unsigned long flags, void * data);
@@ -20,9 +21,11 @@ int main(int argc, char ** argv) {
 		return 1;
 	}
 
-	if (mount(argv[2], argv[3], argv[1], 0, NULL) < 0) {
-//		perror("mount");
-		return 1;
+	int ret = mount(argv[2], argv[3], argv[1], 0, NULL);
+
+	if (ret < 0) {
+		fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
+		return ret;
 	}
 
 	return 0;
