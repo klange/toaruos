@@ -72,8 +72,5 @@ if ! cpp <(echo "#include \"mpc.h\"") >/dev/null 2>/dev/null; then
     RET=1
 fi
 
-echo "butts"
-RET=1
-
 exit $RET
 
