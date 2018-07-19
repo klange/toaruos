@@ -96,7 +96,7 @@ static void print_hex(unsigned int value, unsigned int width, char * buf, int * 
 /*
  * vasprintf()
  */
-size_t xvasprintf(char * buf, const char * fmt, va_list args) {
+int xvasprintf(char * buf, const char * fmt, va_list args) {
 	int i = 0;
 	char * s;
 	char * b = buf;
@@ -250,7 +250,7 @@ size_t xvasprintf(char * buf, const char * fmt, va_list args) {
 	return b - buf;
 }
 
-size_t vasprintf(char ** buf, const char * fmt, va_list args) {
+int vasprintf(char ** buf, const char * fmt, va_list args) {
 	char * b = malloc(1024);
 	*buf = b;
 	return xvasprintf(b, fmt, args);

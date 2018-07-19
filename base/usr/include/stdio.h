@@ -30,10 +30,10 @@ extern size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream);
 extern int fileno(FILE * stream);
 extern int fflush(FILE * stream);
 
-extern size_t vasprintf(char ** buf, const char *fmt, va_list args);
-extern int    sprintf(char *buf, const char *fmt, ...);
-extern int    fprintf(FILE *stream, const char *fmt, ...);
-extern int    printf(const char *fmt, ...);
+extern int vasprintf(char ** buf, const char *fmt, va_list args);
+extern int sprintf(char *buf, const char *fmt, ...);
+extern int fprintf(FILE *stream, const char *fmt, ...);
+extern int printf(const char *fmt, ...);
 extern int snprintf(char * buf, size_t size, const char * fmt, ...);
 extern int vsprintf(char * buf, const char *fmt, va_list args);
 extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
