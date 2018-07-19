@@ -508,7 +508,7 @@ static int sys_gethostname(char * buffer) {
 extern int mkdir_fs(char *name, uint16_t permission);
 
 static int sys_mkdir(char * path, uint32_t mode) {
-	return mkdir_fs(path, 0777);
+	return mkdir_fs(path, mode);
 }
 
 /*
