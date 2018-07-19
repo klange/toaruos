@@ -7,7 +7,7 @@ OUTDIR=`dirname $1`
 
 rm -f $OUT
 mkdir -p cdrom
-fallocate -l 64M $OUT
+fallocate -l 64M $OUT || dd if=/dev/zero bs=1M count=64 of=$OUT
 mkfs.fat $OUT
 
 #echo "Turning $IN into $OUT"
