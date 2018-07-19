@@ -2,5 +2,5 @@
 #include <errno.h>
 
 void perror(const char *s) {
-	fprintf(stderr, "%s: error %d\n", s, errno);
+	fprintf(stderr, "%s: %s\n", s, strerror(errno));
 }
