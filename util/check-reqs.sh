@@ -2,8 +2,8 @@
 
 RET=0
 
-if ! which python3.6 >/dev/null; then
-    echo "python3.6 is required to run build tools (and eventually cross-compile python3.6)"
+if ! which python3 >/dev/null; then
+    echo "python3 is required to run build tools - 3.6 is recommended as it is needed to cross-compile itself"
     RET=1
 fi
 
