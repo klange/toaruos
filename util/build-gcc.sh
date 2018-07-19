@@ -1,6 +1,8 @@
 #!/bin/bash
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+$DIR/check-reqs.sh
+
 TARGET=i686-pc-toaru
 PREFIX="$DIR/local"
 TOARU_SYSROOT="$DIR/../base"
