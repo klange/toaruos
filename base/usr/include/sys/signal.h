@@ -15,9 +15,11 @@
 #define SA_NOCLDSTOP 1
 #define SA_SIGINFO   2
 
+#if 0
 #define SIG_SETMASK 0
 #define SIG_BLOCK 1
 #define SIG_UNBLOCK 2
+#endif
 
 #define sa_handler   _signal_handlers._handler
 #define sa_sigaction _signal_handlers._sigaction
