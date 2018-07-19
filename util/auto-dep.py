@@ -12,10 +12,6 @@ except KeyError:
 
 force_static = []
 
-special_headers = {
-        '-ltoaru_dlfcn': 'base/usr/include/dlfcn.h',
-}
-
 class Classifier(object):
 
     dependency_hints = {
@@ -30,9 +26,8 @@ class Classifier(object):
         '<toaru/drawstring.h>':  (None, '-ltoaru_drawstring',  ['<toaru/graphics.h>']),
         '<toaru/rline.h>':       (None, '-ltoaru_rline',       ['<toaru/kbd.h>']),
         '<toaru/confreader.h>':  (None, '-ltoaru_confreader',  ['<toaru/hashmap.h>']),
-        '<toaru/dlfcn.h>':       (None, '-ltoaru_dlfcn',       []),
         '<toaru/yutani.h>':      (None, '-ltoaru_yutani',      ['<toaru/kbd.h>', '<toaru/list.h>', '<toaru/pex.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
-        '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/menu.h>', '<toaru/sdf.h>', '<toaru/graphics.h>', '<toaru/yutani.h>','<toaru/dlfcn.h>']),
+        '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/menu.h>', '<toaru/sdf.h>', '<toaru/graphics.h>', '<toaru/yutani.h>']),
         '<toaru/termemu.h>':     (None, '-ltoaru_termemu',     ['<toaru/graphics.h>']),
         '<toaru/sdf.h>':         (None, '-ltoaru_sdf',         ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/icon_cache.h>':  (None, '-ltoaru_icon_cache',  ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
@@ -103,8 +98,6 @@ def todep(name):
         return (False, name)
 
 def toheader(name):
-    if name in special_headers:
-        return special_headers[name]
     if name.startswith('-ltoaru_'):
         return name.replace('-ltoaru_','base/usr/include/toaru/') + '.h'
 
