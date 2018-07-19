@@ -43,7 +43,7 @@ extern int puts(const char *s);
 extern int fputs(const char *s, FILE *stream);
 extern int fputc(int c, FILE *stream);
 #define putc(c,s) fputc((c),(s))
-#define putchar(c) fputc((c),stdout)
+extern int putchar(int c);
 extern int fgetc(FILE *stream);
 extern char *fgets(char *s, int size, FILE *stream);
 
