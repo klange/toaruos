@@ -37,10 +37,13 @@ extern int printf(const char *fmt, ...);
 extern int snprintf(char * buf, size_t size, const char * fmt, ...);
 extern int vsprintf(char * buf, const char *fmt, va_list args);
 extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
+extern int vfprintf(FILE * device, const char *format, va_list ap);
 
 extern int puts(const char *s);
 extern int fputs(const char *s, FILE *stream);
 extern int fputc(int c, FILE *stream);
+#define putc(c,s) fputc((c),(s))
+#define putchar(c) fputc((c),stdout)
 extern int fgetc(FILE *stream);
 extern char *fgets(char *s, int size, FILE *stream);
 

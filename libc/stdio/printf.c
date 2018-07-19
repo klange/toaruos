@@ -265,6 +265,15 @@ int vsnprintf(char * buf, size_t size, const char *fmt, va_list args) {
 	return xvasprintf(buf, fmt, args);
 }
 
+int vfprintf(FILE * device, const char *fmt, va_list args) {
+	char * buffer;
+	vasprintf(&buffer, fmt, args);
+
+	int out = fwrite(buffer, 1, strlen(buffer), device);
+	free(buffer);
+	return out;
+}
+
 
 int fprintf(FILE * device, const char *fmt, ...) {
 	va_list args;
