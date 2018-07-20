@@ -608,7 +608,7 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			hilighted->hilight = 1;
 			if (hilighted->_type == MenuEntry_Submenu) {
 				hilighted->activate(hilighted, 0);
-			}
+			} /* else next menu from bar? */
 			_menu_redraw(window,yctx,menu);
 		}
 	} else if (me->event.key == '\n') {
@@ -622,8 +622,11 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 	} else if (me->event.keycode == KEY_ARROW_LEFT) {
 		if (menu->parent) {
 			hovered_menu = menu->parent;
-		}
+		} /* else previous from menu bar? */
 		menu_definitely_close(menu);
+		if (menu->parent && menu->parent->window) {
+			yutani_focus_window(yctx, menu->parent->window->wid);
+		}
 	}
 }
 
