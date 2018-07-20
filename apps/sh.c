@@ -223,25 +223,43 @@ void tab_complete_func(rline_context_t * c) {
 	int free_matches = 0;
 	int no_space_if_only = 0;
 
-	int complete_mode = 1;
+	/* TODO custom auto-complete as a configuration file? */
+#define COMPLETE_FILE    1
+#define COMPLETE_COMMAND 2
+#define COMPLETE_CUSTOM  3
+	int complete_mode = COMPLETE_FILE;
 
-	if (cursor == 0 && !strchr(prefix,'/')) {
-		complete_mode = 0;
+	int command_adj = 0;
+	int cursor_adj = cursor;
+
+	/* sudo should shift commands */
+	if (cursor_adj > command_adj && (!strcmp(argv[command_adj], "sudo") || !strcmp(argv[command_adj], "gsudo"))) {
+		cursor_adj -= 1;
+		command_adj += 1;
 	}
 
-	if (cursor == 1 && !strchr(prefix,'/') && (!strcmp(argv[0],"sudo") || !strcmp(argv[0], "gsudo"))) {
-		complete_mode = 0;
+	/* initial tab completion should be commands, unless typing a file path */
+	if (cursor_adj == 0 && !strchr(prefix,'/')) {
+		complete_mode = COMPLETE_COMMAND;
 	}
 
-	if (complete_mode == 0) {
-		/* Complete binary name */
+	/* term-set has some commands to complete */
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "term-set")) {
+		complete_mode = COMPLETE_CUSTOM;
+	}
+
+	if (complete_mode == COMPLETE_COMMAND) {
+		/* Complete a command name */
+
 		for (int i = 0; i < shell_commands_len; ++i) {
 			if (strstr(shell_commands[i], prefix) == shell_commands[i]) {
 				list_insert(matches, shell_commands[i]);
 				match = shell_commands[i];
 			}
 		}
-	} else {
+	} else if (complete_mode == COMPLETE_FILE) {
+		/* Complete a file path */
+
 		free_matches = 1;
 		char * tmp = strdup(prefix);
 		char * last_slash = strrchr(tmp, '/');
@@ -296,7 +314,25 @@ void tab_complete_func(rline_context_t * c) {
 		closedir(dirp);
 
 		free(tmp);
+	} else if (complete_mode == COMPLETE_CUSTOM) {
+
+		char ** completions = NULL;
+		char * term_set_completions[] = {"scale","size","gamma","sdf","alpha",NULL};
+
+		if (!strcmp(argv[command_adj],"term-set")) {
+			completions = term_set_completions;
+		}
+
+		while (*completions) {
+			if (strstr(*completions, prefix) == *completions) {
+				list_insert(matches, *completions);
+				match = *completions;
+			}
+			completions++;
+		}
+
 	}
+
 	if (matches->length == 1) {
 		/* Insert */
 		rline_insert(c, &match[word_offset]);
