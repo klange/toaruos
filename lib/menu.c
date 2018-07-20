@@ -551,6 +551,73 @@ int menu_leave(struct MenuList * menu) {
 	return 0;
 }
 
+void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
+	if (me->event.action != KEY_ACTION_DOWN) return;
+
+	yutani_window_t * window = menu->window;
+	yutani_t * yctx = window->ctx;
+
+	hovered_menu = menu;
+
+	/* Find hilighted entry */
+	struct MenuEntry * hilighted = NULL;
+	struct MenuEntry * previous = NULL;
+	struct MenuEntry * next = NULL;
+	int got_it = 0;
+	foreach(node, menu->entries) {
+		struct MenuEntry * entry = node->value;
+		if (entry->hilight) {
+			hilighted = entry;
+			got_it = 1;
+			continue;
+		}
+		if (got_it) {
+			next = entry;
+			break;
+		}
+		previous = entry;
+	}
+
+	if (me->event.keycode == KEY_ARROW_DOWN) {
+		if (hilighted) {
+			hilighted->hilight = 0;
+			hilighted = next;
+		}
+		if (!hilighted) {
+			/* Use the first entry */
+			hilighted = menu->entries->head->value;
+		}
+		hilighted->hilight = 1;
+		_menu_redraw(window,yctx,menu);
+	} else if (me->event.keycode == KEY_ARROW_UP) {
+		if (hilighted) {
+			hilighted->hilight = 0;
+			hilighted = previous;
+		}
+		if (!hilighted) {
+			/* Use the last entry */
+			hilighted = menu->entries->tail->value;
+		}
+		hilighted->hilight = 1;
+		_menu_redraw(window,yctx,menu);
+	} else if (me->event.keycode == KEY_ARROW_RIGHT) {
+		if (hilighted && hilighted->_type == MenuEntry_Submenu) {
+			hilighted->activate(hilighted, 0);
+		}
+	} else if (me->event.key == '\n') {
+		if (hilighted) {
+			hilighted->activate(hilighted, 0);
+		}
+	} else if (me->event.keycode == KEY_ARROW_LEFT) {
+		if (menu->parent) {
+			hovered_menu = menu->parent;
+		}
+		menu_definitely_close(menu);
+	}
+
+
+}
+
 void menu_mouse_action(struct MenuList * menu, struct yutani_msg_window_mouse_event * me) {
 	yutani_window_t * window = menu->window;
 	yutani_t * yctx = window->ctx;
@@ -608,6 +675,16 @@ struct MenuList * menu_any_contains(int x, int y) {
 int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 	if (m) {
 		switch (m->type) {
+			case YUTANI_MSG_KEY_EVENT:
+				{
+					struct yutani_msg_key_event * me = (void*)m->data;
+					if (hashmap_has(menu_windows, (void*)me->wid)) {
+						yutani_window_t * window = hashmap_get(menu_windows, (void *)me->wid);
+						struct MenuList * menu = window->user_data;
+						menu_key_action(menu, me);
+					}
+				}
+				break;
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
