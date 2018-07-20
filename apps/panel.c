@@ -115,6 +115,7 @@ static sprite_t * sprite_net_disabled;
 struct MenuList * appmenu;
 struct MenuList * window_menu;
 struct MenuList * logout_menu;
+struct MenuList * netstat;
 static yutani_wid_t _window_menu_wid = 0;
 
 static int center_x(int x) {
@@ -277,6 +278,11 @@ static void volume_lower(void) {
 	redraw();
 }
 
+static int netstat_left = 0;
+static struct MenuEntry_Normal * netstat_ip_entry;
+static char * netstat_ip = NULL;
+static struct MenuEntry_Normal * netstat_device_entry;
+static char * netstat_device = NULL;
 static void update_network_status(void) {
 	FILE * net = fopen("/proc/netif","r");
 
@@ -291,7 +297,24 @@ static void update_network_status(void) {
 			break;
 		} else if (strstr(line,"ip:") != NULL) {
 			network_status = 1;
-			break;
+			if (netstat_ip) {
+				free(netstat_ip);
+			}
+			char tmp[512];
+			sprintf(tmp, "IP: %s", &line[4]);
+			char * lf = strstr(tmp,"\n");
+			if (lf) *lf = '\0';
+			netstat_ip = strdup(tmp);
+		} else if (strstr(line,"device:") != NULL) {
+			network_status = 1;
+			if (netstat_device) {
+				free(netstat_device);
+			}
+			char tmp[512];
+			sprintf(tmp, "Device: %s", &line[8]);
+			char * lf = strstr(tmp,"\n");
+			if (lf) *lf = '\0';
+			netstat_device = strdup(tmp);
 		}
 	} while (1);
 
@@ -312,6 +335,31 @@ static void show_app_menu(void) {
 		menu_show(appmenu, yctx);
 		if (appmenu->window) {
 			yutani_window_move(yctx, appmenu->window, 0, PANEL_HEIGHT);
+		}
+	}
+}
+
+static void show_network_status(void) {
+	if (!netstat) {
+		netstat = menu_create();
+		menu_insert(netstat, menu_create_normal(NULL, NULL, "Network Status", NULL));
+		menu_insert(netstat, menu_create_separator());
+		netstat_ip_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(netstat, netstat_ip_entry);
+		netstat_device_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(netstat, netstat_device_entry);
+	}
+	if (network_status) {
+		menu_update_title(netstat_ip_entry, netstat_ip);
+		menu_update_title(netstat_device_entry, netstat_device ? netstat_device : "(?)");
+	} else {
+		menu_update_title(netstat_ip_entry, "No network.");
+		menu_update_title(netstat_device_entry, "");
+	}
+	if (!netstat->window) {
+		menu_show(netstat, yctx);
+		if (netstat->window) {
+			yutani_window_move(yctx, netstat->window, netstat_left, PANEL_HEIGHT);
 		}
 	}
 }
@@ -337,7 +385,8 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			int widget = 0;
 			if (widgets_network_enabled) {
 				if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
-					/* TODO: Show the network status */
+					netstat_left = WIDGET_POSITION(widget);
+					show_network_status();
 				}
 				widget++;
 			}
