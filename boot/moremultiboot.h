@@ -448,6 +448,7 @@ done:
 
 			ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 		}
+		while (offset % 4096) offset++;
 		restore_root();
 		if (navigate(module_dir)) {
 			memcpy(mod_dir, dir_entry, sizeof(iso_9660_directory_entry_t));
@@ -467,6 +468,7 @@ done:
 					for (int i = dir_entry->extent_start_LSB; i < dir_entry->extent_start_LSB + dir_entry->extent_length_LSB / 2048 + 1; ++i, offset += 2048) {
 						ata_device_read_sector_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset);
 					}
+					while (offset % 4096) offset++;
 					j++;
 				}
 				c++;
