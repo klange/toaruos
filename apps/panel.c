@@ -756,10 +756,11 @@ static void redraw(void) {
 	/* TODO: Get actual volume levels, and cache them somewhere */
 	int widget = 0;
 	if (widgets_network_enabled) {
+		uint32_t color = (netstat && netstat->window) ? HILIGHT_COLOR : ICON_COLOR;
 		if (network_status == 1) {
-			draw_sprite_alpha_paint(ctx, sprite_net_active, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_net_active, WIDGET_POSITION(widget), 0, 1.0, color);
 		} else {
-			draw_sprite_alpha_paint(ctx, sprite_net_disabled, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_net_disabled, WIDGET_POSITION(widget), 0, 1.0, color);
 		}
 		widget++;
 	}
@@ -889,7 +890,7 @@ static void redraw(void) {
 	spin_unlock(&lock);
 
 	/* Draw the logout button; XXX This should probably have some sort of focus hilight */
-	draw_sprite_alpha_paint(ctx, sprite_logout, width - 23, 1, 1.0, ICON_COLOR); /* Logout button */
+	draw_sprite_alpha_paint(ctx, sprite_logout, width - 23, 1, 1.0, (logout_menu->window ? HILIGHT_COLOR : ICON_COLOR)); /* Logout button */
 
 	/* Flip */
 	flip(ctx);
