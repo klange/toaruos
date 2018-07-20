@@ -11,6 +11,7 @@
 #include <kernel/printf.h>
 #include <kernel/module.h>
 #include <kernel/mod/net.h>
+#include <kernel/multiboot.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
@@ -497,6 +498,25 @@ static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size
 	return size;
 }
 
+static uint32_t loader_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+
+	if (mboot_ptr->flags & MULTIBOOT_FLAG_LOADER) {
+		sprintf(buf, "%s\n", mboot_ptr->boot_loader_name);
+	} else {
+		buf[0] = '\n';
+		buf[1] = '\0';
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf, size);
+	free(buf);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -508,6 +528,7 @@ static struct procfs_entry std_entries[] = {
 	{-8, "netif",    netif_func},
 	{-9, "modules",  modules_func},
 	{-10,"filesystems", filesystems_func},
+	{-11,"loader",   loader_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
