@@ -440,6 +440,63 @@ static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 
 }
 
+static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+	list_t * hash_keys = hashmap_keys(modules_get_list());
+	unsigned int soffset = 0;
+	foreach(_key, hash_keys) {
+		char * key = (char *)_key->value;
+		module_data_t * mod_info = hashmap_get(modules_get_list(), key);
+
+		soffset += sprintf(&buf[soffset], "0x%x {.init=0x%x, .fini=0x%x} %s",
+				mod_info->bin_data,
+				mod_info->mod_info->initialize,
+				mod_info->mod_info->finalize,
+				mod_info->mod_info->name);
+
+		if (mod_info->deps) {
+			unsigned int i = 0;
+			soffset += sprintf(&buf[soffset], " Deps: ");
+			while (i < mod_info->deps_length) {
+				soffset += sprintf(&buf[soffset], "%s ", &mod_info->deps[i]);
+				i += strlen(&mod_info->deps[i]) + 1;
+			}
+		}
+
+		soffset += sprintf(&buf[soffset], "\n");
+	}
+	free(hash_keys);
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf, size);
+	free(buf);
+	return size;
+}
+
+extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
+
+static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+	list_t * hash_keys = hashmap_keys(fs_types);
+	unsigned int soffset = 0;
+	foreach(_key, hash_keys) {
+		char * key = (char *)_key->value;
+		soffset += sprintf(&buf[soffset], "%s\n", key);
+	}
+	free(hash_keys);
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf, size);
+	free(buf);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -449,6 +506,8 @@ static struct procfs_entry std_entries[] = {
 	{-6, "compiler", compiler_func},
 	{-7, "mounts",   mounts_func},
 	{-8, "netif",    netif_func},
+	{-9, "modules",  modules_func},
+	{-10,"filesystems", filesystems_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {

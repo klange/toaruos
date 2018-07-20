@@ -457,6 +457,7 @@ static int shell_modules(fs_node_t * tty, int argc, char * argv[]) {
 
 		fprintf(tty, "\n");
 	}
+	free(hash_keys);
 
 	return 0;
 }
