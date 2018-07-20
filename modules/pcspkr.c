@@ -69,4 +69,3 @@ static int fini(void) {
 }
 
 MODULE_DEF(pcspkr, init, fini);
-MODULE_DEPENDS(debugshell);
