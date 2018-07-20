@@ -377,7 +377,10 @@ static uint32_t mounts_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	mount_recurse(buf, fs_tree->root, 0);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf, size);
@@ -432,7 +435,10 @@ static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 	}
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf, size);
@@ -469,7 +475,10 @@ static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	free(hash_keys);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf, size);
@@ -490,7 +499,10 @@ static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size
 	free(hash_keys);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf, size);
@@ -509,7 +521,10 @@ static uint32_t loader_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	}
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf, size);
