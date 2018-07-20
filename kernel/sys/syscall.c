@@ -535,7 +535,7 @@ static int sys_sysfunc(int fn, char ** args) {
 				/* Request kernel output to file descriptor in arg0*/
 				debug_print(NOTICE, "Setting output to file object in process %d's fd=%d!", getpid(), (int)args);
 				debug_file = current_process->fds->entries[(int)args];
-				break;
+				return 0;
 			case 5:
 				{
 					char *arg;
@@ -551,7 +551,7 @@ static int sys_sysfunc(int fn, char ** args) {
 					FD_ENTRY(1) = repdev;
 					FD_ENTRY(2) = repdev;
 				}
-				break;
+				return 0;
 			case 6:
 				debug_print(WARNING, "writing contents of file %s to sdb", args[0]);
 				{
@@ -690,7 +690,6 @@ static int sys_sysfunc(int fn, char ** args) {
 			debug_print(WARNING, "0x%x 0x%x 0x%x 0x%x", args[0], args[1], args[2], args[3]);
 			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3] ? args[3] : "(null)");
 			return 0;
-			break;
 
 		case 13:
 			/*
