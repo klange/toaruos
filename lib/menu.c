@@ -627,6 +627,9 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 		if (menu->parent && menu->parent->window) {
 			yutani_focus_window(yctx, menu->parent->window->wid);
 		}
+	} else if (me->event.keycode == KEY_ESCAPE) {
+		hovered_menu = NULL;
+		menu_leave(menu);
 	}
 }
 
