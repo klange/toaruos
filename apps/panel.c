@@ -359,7 +359,11 @@ static void show_network_status(void) {
 	if (!netstat->window) {
 		menu_show(netstat, yctx);
 		if (netstat->window) {
-			yutani_window_move(yctx, netstat->window, netstat_left, PANEL_HEIGHT);
+			if (netstat_left + netstat->window->width > (unsigned int)width) {
+				yutani_window_move(yctx, netstat->window, width - netstat->window->width, PANEL_HEIGHT);
+			} else {
+				yutani_window_move(yctx, netstat->window, netstat_left, PANEL_HEIGHT);
+			}
 		}
 	}
 }
