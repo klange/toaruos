@@ -27,7 +27,7 @@ fatbase/mod/rtl.ko,\
 fatbase/mod/e1000.ko,\
 fatbase/mod/pcspkr.ko,\
 fatbase/ramdisk.img \
--append "vid=qemu,,1440,,900 root=/dev/ram0,,nocache start=--migrate _start=--headless" \
+-append "vid=qemu,1440,900 root=/dev/ram0,nocache start=--migrate _start=--headless" \
 -nographic \
 -enable-kvm \
 -serial mon:stdio \
