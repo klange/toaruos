@@ -4,7 +4,7 @@ static mboot_mod_t modules_mboot[sizeof(modules)/sizeof(*modules)] = {
 };
 
 static struct multiboot multiboot_header = {
-	/* flags;             */ MULTIBOOT_FLAG_CMDLINE | MULTIBOOT_FLAG_MODS | MULTIBOOT_FLAG_MEM | MULTIBOOT_FLAG_MMAP,
+	/* flags;             */ MULTIBOOT_FLAG_CMDLINE | MULTIBOOT_FLAG_MODS | MULTIBOOT_FLAG_MEM | MULTIBOOT_FLAG_MMAP | MULTIBOOT_FLAG_LOADER,
 	/* mem_lower;         */ 0x100000,
 	/* mem_upper;         */ 0x640000,
 	/* boot_device;       */ 0,
@@ -50,6 +50,15 @@ extern unsigned short lower_mem;
 char * final_offset = NULL;
 
 extern char do_the_nasty[];
+
+static int strlen(char * s) {
+	int out = 0;
+	while (*s) {
+		s++;
+		out++;
+	}
+	return out;
+}
 
 #ifdef EFI_PLATFORM
 static EFI_GUID efi_graphics_output_protocol_guid =
@@ -269,10 +278,12 @@ done_video:
 
 	}
 
-
-	memcpy(final_offset, cmdline, 1024);
+	memcpy(final_offset, cmdline, strlen(cmdline)+1);
 	multiboot_header.cmdline = (uintptr_t)final_offset;
-	final_offset += 1024;
+	final_offset += strlen(cmdline)+1;
+	memcpy(final_offset, VERSION_TEXT, strlen(VERSION_TEXT)+1);
+	multiboot_header.boot_loader_name = (uintptr_t)final_offset;
+	final_offset += strlen(VERSION_TEXT)+1;
 	while ((uintptr_t)final_offset & 0x3ff) final_offset++;
 
 	multiboot_header.mods_addr = (uintptr_t)final_offset;
@@ -292,6 +303,7 @@ done_video:
 	mboot_memmap_t * mmap = (void*)KERNEL_LOAD_START;
 	multiboot_header.mmap_addr = (uintptr_t)mmap;
 	multiboot_header.mods_addr = (uintptr_t)&modules_mboot;
+	multiboot_header.boot_loader_name = (uintptr_t)VERSION_TEXT;
 
 	struct mmap_entry * e820 = (void*)0x5000;
 
