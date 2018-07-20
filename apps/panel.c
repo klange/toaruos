@@ -488,8 +488,8 @@ static void redraw_altf2(void) {
 	draw_fill(a2ctx, 0);
 	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 10, ALTTAB_BACKGROUND);
 
-	int t = draw_sdf_string_width(altf2_buffer, 18, SDF_FONT_THIN);
-	draw_sdf_string(a2ctx, center_x_a2(t), 60, altf2_buffer, 18, rgb(255,255,255), SDF_FONT_THIN);
+	int t = draw_sdf_string_width(altf2_buffer, 22, SDF_FONT_THIN);
+	draw_sdf_string(a2ctx, center_x_a2(t), 60, altf2_buffer, 22, rgb(255,255,255), SDF_FONT_THIN);
 
 	flip(a2ctx);
 	yutani_flip(yctx, alt_f2);
@@ -512,9 +512,9 @@ static void redraw_alttab(void) {
 			draw_sprite_scaled(actx, icon, center_x_a(48), ALTTAB_OFFSET, 48, 48);
 		}
 
-		int t = draw_sdf_string_width(ad->name, 22, SDF_FONT_THIN);
+		int t = draw_sdf_string_width(ad->name, 18, SDF_FONT_THIN);
 
-		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+40, ad->name, 22, rgb(255,255,255), SDF_FONT_THIN);
+		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+40, ad->name, 18, rgb(255,255,255), SDF_FONT_THIN);
 	}
 
 	flip(actx);
