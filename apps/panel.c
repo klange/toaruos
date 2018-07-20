@@ -62,6 +62,9 @@
 #define ALTTAB_BACKGROUND premultiply(rgba(0,0,0,150))
 #define ALTTAB_OFFSET 10
 
+#define ALTF2_WIDTH 400
+#define ALTF2_HEIGHT 200
+
 #define MAX_WINDOW_COUNT 100
 
 #define TOTAL_CELL_WIDTH (title_width)
@@ -78,6 +81,9 @@ static yutani_window_t * panel = NULL;
 
 static gfx_context_t * actx = NULL;
 static yutani_window_t * alttab = NULL;
+
+static gfx_context_t * a2ctx = NULL;
+static yutani_window_t * alt_f2 = NULL;
 
 static list_t * window_list = NULL;
 static volatile int lock = 0;
@@ -121,6 +127,10 @@ static int center_y(int y) {
 
 static int center_x_a(int x) {
 	return (ALTTAB_WIDTH - x) / 2;
+}
+
+static int center_x_a2(int x) {
+	return (ALTF2_WIDTH - x) / 2;
 }
 
 static void redraw(void);
@@ -288,26 +298,33 @@ static void update_network_status(void) {
 	fclose(net);
 }
 
+static void show_logout_menu(void) {
+	if (!logout_menu->window) {
+		menu_show(logout_menu, yctx);
+		if (logout_menu->window) {
+			yutani_window_move(yctx, logout_menu->window, width - logout_menu->window->width, PANEL_HEIGHT);
+		}
+	}
+}
+
+static void show_app_menu(void) {
+	if (!appmenu->window) {
+		menu_show(appmenu, yctx);
+		if (appmenu->window) {
+			yutani_window_move(yctx, appmenu->window, 0, PANEL_HEIGHT);
+		}
+	}
+}
+
 /* Callback for mouse events */
 static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->wid == panel->wid) {
 		if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
 			/* Up-down click */
 			if (evt->new_x >= width - 24 ) {
-				if (!logout_menu->window) {
-					menu_show(logout_menu, yctx);
-					if (logout_menu->window) {
-						yutani_window_move(yctx, logout_menu->window, width - logout_menu->window->width, PANEL_HEIGHT);
-					}
-				}
+				show_logout_menu();
 			} else if (evt->new_x < APP_OFFSET) {
-				if (!appmenu->window) {
-					menu_show(appmenu, yctx);
-					if (appmenu->window) {
-						yutani_window_move(yctx, appmenu->window, 0, PANEL_HEIGHT);
-					}
-					// show menu
-				}
+				show_app_menu();
 			} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
 					if (ads_by_l[i] == NULL) break;
@@ -414,9 +431,74 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	}
 }
 
+static char altf2_buffer[1024] = {0};
+static unsigned int altf2_collected = 0;
+
+#if 0
+static list_t * altf2_apps = NULL;
+
+struct altf2_app {
+	char * name;
+	sprite_t * icon;
+};
+
+static sprite_t * find_icon(char * name) {
+	struct {
+		char * name;
+		char * icon;
+	} special[] = {
+		{"about", "star"},
+		{"help-browser", "help"},
+		{"terminal", "utilities-terminal"},
+		{NULL,NULL},
+	};
+
+	int i = 0;
+	while (special[i].name) {
+		if (!strcmp(special[i].name, name)) {
+			return icon_get_48(special[i].icon);
+		}
+		i++;
+	}
+
+	return icon_get_48(name);
+}
+#endif
+
+static void close_altf2(void) {
+	free(a2ctx->backbuffer);
+	free(a2ctx);
+
+	altf2_buffer[0] = 0;
+	altf2_collected = 0;
+
+	yutani_close(yctx, alt_f2);
+	alt_f2 = NULL;
+}
+
+static void redraw_altf2(void) {
+
+#if 0
+	if (!altf2_apps) {
+		/* initialize */
+
+	}
+#endif
+
+	draw_fill(a2ctx, 0);
+	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 10, ALTTAB_BACKGROUND);
+
+	int t = draw_sdf_string_width(altf2_buffer, 18, SDF_FONT_THIN);
+	draw_sdf_string(a2ctx, center_x_a2(t), 60, altf2_buffer, 18, rgb(255,255,255), SDF_FONT_THIN);
+
+	flip(a2ctx);
+	yutani_flip(yctx, alt_f2);
+}
+
 static void redraw_alttab(void) {
 	/* Draw the background, right now just a dark semi-transparent box */
-	draw_fill(actx, ALTTAB_BACKGROUND);
+	draw_fill(actx, 0);
+	draw_rounded_rectangle(actx,0,0, ALTTAB_WIDTH, ALTTAB_HEIGHT, 10, ALTTAB_BACKGROUND);
 
 	if (ads_by_z[new_focused]) {
 		struct window_ad * ad = ads_by_z[new_focused];
@@ -430,9 +512,9 @@ static void redraw_alttab(void) {
 			draw_sprite_scaled(actx, icon, center_x_a(48), ALTTAB_OFFSET, 48, 48);
 		}
 
-		int t = draw_sdf_string_width(ad->name, 18, SDF_FONT_THIN);
+		int t = draw_sdf_string_width(ad->name, 22, SDF_FONT_THIN);
 
-		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+40, ad->name, 18, rgb(255,255,255), SDF_FONT_THIN);
+		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+40, ad->name, 22, rgb(255,255,255), SDF_FONT_THIN);
 	}
 
 	flip(actx);
@@ -451,19 +533,75 @@ static void launch_application_menu(struct MenuEntry * self) {
 }
 
 static void handle_key_event(struct yutani_msg_key_event * ke) {
+	if (alt_f2 && ke->wid == alt_f2->wid) {
+		if (ke->event.action == KEY_ACTION_DOWN) {
+			if (ke->event.keycode == KEY_ESCAPE) {
+				close_altf2();
+				return;
+			}
+			if (ke->event.key == '\b') {
+				if (altf2_collected) {
+					altf2_buffer[altf2_collected-1] = '\0';
+					altf2_collected--;
+					redraw_altf2();
+				}
+				return;
+			}
+			if (ke->event.key == '\n') {
+				/* execute */
+				launch_application(altf2_buffer);
+				close_altf2();
+				return;
+			}
+			if (!ke->event.key) {
+				return;
+			}
+
+			/* Try to add it */
+			if (altf2_collected < sizeof(altf2_buffer) - 1) {
+				altf2_buffer[altf2_collected] = ke->event.key;
+				altf2_collected++;
+				altf2_buffer[altf2_collected] = 0;
+				redraw_altf2();
+			}
+		}
+	}
+
 	if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 		(ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 		(ke->event.keycode == 't') &&
 		(ke->event.action == KEY_ACTION_DOWN)) {
 
 		launch_application("terminal");
+		return;
 	}
 
 	if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 		(ke->event.keycode == KEY_F11) &&
 		(ke->event.action == KEY_ACTION_DOWN)) {
+
 		fprintf(stderr, "[panel] Toggling visibility.\n");
 		toggle_hide_panel();
+		return;
+	}
+
+	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+		(ke->event.keycode == KEY_F1) &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+		/* show menu */
+		show_app_menu();
+	}
+
+	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+		(ke->event.keycode == KEY_F2) &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+		/* show menu */
+		if (!alt_f2) {
+			alt_f2 = yutani_window_create(yctx, ALTF2_WIDTH, ALTF2_HEIGHT);
+			yutani_window_move(yctx, alt_f2, center_x(ALTF2_WIDTH), center_y(ALTF2_HEIGHT));
+			a2ctx = init_graphics_yutani_double_buffer(alt_f2);
+			redraw_altf2();
+		}
 	}
 
 	if ((was_tabbing) && (ke->event.keycode == 0 || ke->event.keycode == KEY_LEFT_ALT) &&
@@ -947,14 +1085,21 @@ int main (int argc, char ** argv) {
 
 	/* Key bindings */
 
-	/* Launch terminal */
+	/* Cltr-Alt-T = launch terminal */
 	yutani_key_bind(yctx, 't', KEY_MOD_LEFT_CTRL | KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 
-	/* Alt+Tab */
+	/* Alt+Tab = app switcher*/
 	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT | KEY_MOD_LEFT_SHIFT, YUTANI_BIND_STEAL);
 
+	/* Ctrl-F11 = toggle panel visibility */
 	yutani_key_bind(yctx, KEY_F11, KEY_MOD_LEFT_CTRL, YUTANI_BIND_STEAL);
+
+	/* Alt+F1 = show menu */
+	yutani_key_bind(yctx, KEY_F1, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
+	/* Alt+F2 = show app runner */
+	yutani_key_bind(yctx, KEY_F2, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 
 	/* This lets us receive all just-modifier key releases */
 	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
