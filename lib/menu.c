@@ -601,11 +601,22 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 		hilighted->hilight = 1;
 		_menu_redraw(window,yctx,menu);
 	} else if (me->event.keycode == KEY_ARROW_RIGHT) {
-		if (hilighted && hilighted->_type == MenuEntry_Submenu) {
-			hilighted->activate(hilighted, 0);
+		if (!hilighted) {
+			hilighted = menu->entries->head->value;
+		}
+		if (hilighted) {
+			hilighted->hilight = 1;
+			if (hilighted->_type == MenuEntry_Submenu) {
+				hilighted->activate(hilighted, 0);
+			}
+			_menu_redraw(window,yctx,menu);
 		}
 	} else if (me->event.key == '\n') {
+		if (!hilighted) {
+			hilighted = menu->entries->head->value;
+		}
 		if (hilighted) {
+			hilighted->hilight = 1;
 			hilighted->activate(hilighted, 0);
 		}
 	} else if (me->event.keycode == KEY_ARROW_LEFT) {
@@ -614,8 +625,6 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 		}
 		menu_definitely_close(menu);
 	}
-
-
 }
 
 void menu_mouse_action(struct MenuList * menu, struct yutani_msg_window_mouse_event * me) {
