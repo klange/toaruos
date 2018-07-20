@@ -82,3 +82,4 @@ extern hashmap_t * menu_get_windows_hash(void);
 extern int menu_definitely_close(struct MenuList * menu);
 extern struct MenuSet * menu_set_create(void);
 extern void menu_set_insert(struct MenuSet * set, char * action, struct MenuList * menu);
+extern void menu_update_title(struct MenuEntry * self, char * new_title);

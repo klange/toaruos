@@ -216,6 +216,25 @@ struct MenuEntry * menu_create_separator(void) {
 	return (struct MenuEntry *)out;
 }
 
+void menu_update_title(struct MenuEntry * self, char * new_title) {
+
+	if (self->_type == MenuEntry_Normal) {
+		struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
+		if (_self->title) {
+			free((void*)_self->title);
+		}
+		_self->title = strdup(new_title);
+		_self->rwidth = 50 + draw_sdf_string_width(_self->title, 16, SDF_FONT_THIN);
+	} else if (self->_type == MenuEntry_Submenu) {
+		struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
+		if (_self->title) {
+			free((void*)_self->title);
+		}
+		_self->title = strdup(new_title);
+		_self->rwidth = 50 + draw_sdf_string_width(_self->title, 16, SDF_FONT_THIN);
+	}
+}
+
 static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
 		return 1;
