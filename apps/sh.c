@@ -222,7 +222,18 @@ void tab_complete_func(rline_context_t * c) {
 	char * match = NULL;
 	int free_matches = 0;
 	int no_space_if_only = 0;
+
+	int complete_mode = 1;
+
 	if (cursor == 0 && !strchr(prefix,'/')) {
+		complete_mode = 0;
+	}
+
+	if (cursor == 1 && !strchr(prefix,'/') && (!strcmp(argv[0],"sudo") || !strcmp(argv[0], "gsudo"))) {
+		complete_mode = 0;
+	}
+
+	if (complete_mode == 0) {
 		/* Complete binary name */
 		for (int i = 0; i < shell_commands_len; ++i) {
 			if (strstr(shell_commands[i], prefix) == shell_commands[i]) {
