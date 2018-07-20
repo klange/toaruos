@@ -63,6 +63,9 @@ static void draw_background(int width, int height) {
 
 	}
 
+	draw_rounded_rectangle(wallpaper_ctx, 300, 300, wallpaper_ctx->width - 600, wallpaper_ctx->height - 600, 30, rgba(0,0,0,127));
+
+
 	{
 		char * s = "It is now safe to shut down your virtual machine.";
 
