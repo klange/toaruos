@@ -334,9 +334,9 @@ static int shell_frob_piix(fs_node_t * tty, int argc, char * argv[]) {
 	uint32_t pci_isa = 0;
 	pci_scan(&find_isa_bridge, -1, &pci_isa);
 	if (pci_isa) {
-		fprintf(tty, "Found it.\n");
-		for (int i = 0; i < 16; ++i) {
-			fprintf(tty, "%d: 0x%2x\n", i, pci_read_field(pci_isa, 0x60+i, 1));
+		fprintf(tty, "PCI-to-ISA interrupt mappings by line:\n");
+		for (int i = 0; i < 4; ++i) {
+			fprintf(tty, "Line %d: 0x%2x\n", i+1, pci_read_field(pci_isa, 0x60+i, 1));
 		}
 	}
 	return 0;
