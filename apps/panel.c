@@ -118,6 +118,14 @@ struct MenuList * logout_menu;
 struct MenuList * netstat;
 static yutani_wid_t _window_menu_wid = 0;
 
+static int _close_enough(struct yutani_msg_window_mouse_event * me) {
+	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
+		return 1;
+	}
+	return 0;
+}
+
+
 static int center_x(int x) {
 	return (width - x) / 2;
 }
@@ -371,7 +379,7 @@ static void show_network_status(void) {
 /* Callback for mouse events */
 static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->wid == panel->wid) {
-		if (evt->command == YUTANI_MOUSE_EVENT_CLICK) {
+		if (evt->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(evt)) {
 			/* Up-down click */
 			if (evt->new_x >= width - 24 ) {
 				show_logout_menu();
