@@ -55,6 +55,7 @@ struct MenuList {
 	struct MenuSet * set;
 	struct MenuList * child;
 	struct MenuList * parent;
+	struct menu_bar * _bar;
 	int closed;
 };
 
@@ -103,9 +104,14 @@ struct menu_bar {
 	struct menu_bar_entries * active_entry;
 	struct MenuList * active_menu;
 	int active_menu_wid;
+	int active_entry_idx;
+	yutani_window_t * window;
+
+	int num_entries;
 
 	void (*redraw_callback)(void);
 };
 
 extern void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx);
 extern int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, struct yutani_msg_window_mouse_event * me, int x, int y);
+extern void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, int offset, struct menu_bar_entries * _entries);

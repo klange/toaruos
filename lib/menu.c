@@ -316,6 +316,7 @@ struct MenuList * menu_create(void) {
 	p->window = NULL;
 	p->set = NULL;
 	p->child = NULL;
+	p->_bar = NULL;
 	p->parent = NULL;
 	p->closed = 1;
 	return p;
@@ -371,6 +372,7 @@ struct MenuSet * menu_set_from_description(const char * path, void (*callback)(s
 			p->window = NULL;
 			p->set = _out;
 			p->child = NULL;
+			p->_bar = NULL;
 			p->parent = NULL;
 			p->closed = 1;
 			hashmap_set(out, line+1, p);
@@ -627,8 +629,28 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			hilighted->hilight = 1;
 			if (hilighted->_type == MenuEntry_Submenu) {
 				hilighted->activate(hilighted, 0);
-			} /* else next menu from bar? */
-			_menu_redraw(window,yctx,menu);
+				_menu_redraw(window,yctx,menu);
+			} else {
+				struct menu_bar * bar = NULL;
+				struct MenuList * p = menu;
+				do {
+					if (p->_bar) {
+						bar = p->_bar;
+						break;
+					}
+				} while ((p = p->parent));
+				if (bar) {
+					menu_definitely_close(p);
+					int active = (bar->active_entry_idx + 1 + bar->num_entries) % (bar->num_entries);
+					bar->active_entry = &bar->entries[active];
+					if (bar->redraw_callback) {
+						bar->redraw_callback();
+					}
+					menu_bar_show_menu(yctx, bar->window, bar, -1, bar->active_entry);
+				} else {
+					_menu_redraw(window,yctx,menu);
+				}
+			}
 		}
 	} else if (me->event.key == '\n') {
 		if (!hilighted) {
@@ -643,7 +665,14 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			hovered_menu = menu->parent;
 		} /* else previous from menu bar? */
 		menu_definitely_close(menu);
-		if (menu->parent && menu->parent->window) {
+		if (menu->_bar) {
+			int active = (menu->_bar->active_entry_idx - 1 + menu->_bar->num_entries) % (menu->_bar->num_entries);
+			menu->_bar->active_entry = &menu->_bar->entries[active];
+			if (menu->_bar->redraw_callback) {
+				menu->_bar->redraw_callback();
+			}
+			menu_bar_show_menu(yctx, menu->_bar->window, menu->_bar, -1, menu->_bar->active_entry);
+		} else if (menu->parent && menu->parent->window) {
 			yutani_focus_window(yctx, menu->parent->window->wid);
 		}
 	} else if (me->event.keycode == KEY_ESCAPE) {
@@ -785,6 +814,13 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 	int offset = _x;
 	struct menu_bar_entries * _entries = self->entries;
 
+	if (!self->num_entries) {
+		while (_entries->title) {
+			_entries++;
+			self->num_entries++;
+		}
+		_entries = self->entries;
+	}
 	while (_entries->title) {
 		int w = draw_sdf_string_width(_entries->title, 16, SDF_FONT_THIN) + 10;
 		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)self->active_menu_wid)) && _entries == self->active_entry) {
@@ -801,11 +837,34 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 
 void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, int offset, struct menu_bar_entries * _entries) {
 	struct MenuList * new_menu = menu_set_get_menu(self->set, _entries->action);
+	int i = 0;
+
+	if (offset == -1) {
+		/* Must calculate */
+		offset = self->x;
+		struct menu_bar_entries * e = self->entries;
+		while (e->title) {
+			if (e == _entries) break;
+			offset += draw_sdf_string_width(e->title, 16, SDF_FONT_THIN) + 10;
+			e++;
+			i++;
+		}
+	} else {
+		struct menu_bar_entries * e = self->entries;
+		while (e->title) {
+			if (e == _entries) break;
+			e++;
+			i++;
+		}
+	}
+
 	menu_show(new_menu, yctx);
 	yutani_window_move(yctx, new_menu->window, window->x + offset, window->y + self->y + MENU_BAR_HEIGHT);
 	self->active_menu = new_menu;
+	self->active_menu->_bar = self;
 	self->active_menu_wid = new_menu->window->wid;
 	self->active_entry = _entries;
+	self->active_entry_idx = i;
 	if (self->redraw_callback) {
 		self->redraw_callback();
 	}

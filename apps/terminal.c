@@ -351,6 +351,7 @@ static void render_decors(void) {
 		terminal_menu_bar.x = decor_left_width;
 		terminal_menu_bar.y = decor_top_height;
 		terminal_menu_bar.width = window_width;
+		terminal_menu_bar.window = window;
 		menu_bar_render(&terminal_menu_bar, ctx);
 	}
 	yutani_window_advertise_icon(yctx, window, terminal_title_length ? terminal_title : "Terminal", "utilities-terminal");

@@ -34,6 +34,7 @@ static void redraw_window(void) {
 	menu_bar.x = decor_left_width;
 	menu_bar.y = decor_top_height;
 	menu_bar.width = ctx->width - decor_width();
+	menu_bar.window = main_window;
 	menu_bar_render(&menu_bar, ctx);
 
 	flip(ctx);
