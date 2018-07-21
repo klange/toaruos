@@ -532,6 +532,34 @@ static uint32_t loader_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	return size;
 }
 
+extern char * get_irq_handler(int irq, int chain);
+
+static uint32_t irq_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+	unsigned int soffset = 0;
+
+	for (int i = 0; i < 16; ++i) {
+		soffset += sprintf(&buf[soffset], "irq %d: ", i);
+		for (int j = 0; j < 4; ++j) {
+			char * t = get_irq_handler(i, j);
+			if (!t) break;
+			soffset += sprintf(&buf[soffset], "%s%s", j ? "," : "", t);
+		}
+		soffset += sprintf(&buf[soffset], "\n");
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf, size);
+	free(buf);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -544,6 +572,7 @@ static struct procfs_entry std_entries[] = {
 	{-9, "modules",  modules_func},
 	{-10,"filesystems", filesystems_func},
 	{-11,"loader",   loader_func},
+	{-12,"irq",      irq_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {

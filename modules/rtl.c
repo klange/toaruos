@@ -304,7 +304,7 @@ int init_rtl(void) {
 
 		rtl_irq = pci_read_field(rtl_device_pci, PCI_INTERRUPT_LINE, 1);
 		debug_print(NOTICE, "Interrupt Line: %x\n", rtl_irq);
-		irq_install_handler(rtl_irq, rtl_irq_handler);
+		irq_install_handler(rtl_irq, rtl_irq_handler, "rtl8139");
 
 		uint32_t rtl_bar0 = pci_read_field(rtl_device_pci, PCI_BAR0, 4);
 		uint32_t rtl_bar1 = pci_read_field(rtl_device_pci, PCI_BAR1, 4);
@@ -406,7 +406,7 @@ int init_rtl(void) {
 static int init(void) {
 	pci_scan(&find_rtl, -1, &rtl_device_pci);
 	if (!rtl_device_pci) {
-		debug_print(ERROR, "No RTL 8139 found?");
+		debug_print(NOTICE, "No RTL 8139 found");
 		return 1;
 	}
 	init_rtl();

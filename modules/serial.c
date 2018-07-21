@@ -149,6 +149,9 @@ static int check_serial(fs_node_t * node) {
 	return selectcheck_fs(*pipe_for_port((int)node->device));
 }
 
+static int have_installed_ac = 0;
+static int have_installed_bd = 0;
+
 static fs_node_t * serial_device_create(int device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -176,9 +179,15 @@ static fs_node_t * serial_device_create(int device) {
 	serial_enable(device);
 
 	if (device == SERIAL_PORT_A || device == SERIAL_PORT_C) {
-		irq_install_handler(SERIAL_IRQ_AC, serial_handler_ac);
+		if (!have_installed_ac) {
+			irq_install_handler(SERIAL_IRQ_AC, serial_handler_ac, "serial ac");
+			have_installed_ac = 1;
+		}
 	} else {
-		irq_install_handler(SERIAL_IRQ_BD, serial_handler_bd);
+		if (!have_installed_bd) {
+			irq_install_handler(SERIAL_IRQ_BD, serial_handler_bd, "serial bd");
+			have_installed_bd = 1;
+		}
 	}
 
 	*pipe_for_port(device) = make_pipe(128);

@@ -820,8 +820,8 @@ static int ata_initialize(void) {
 	/* Locate ATA device via PCI */
 	pci_scan(&find_ata_pci, -1, &ata_pci);
 
-	irq_install_handler(14, ata_irq_handler);
-	irq_install_handler(15, ata_irq_handler_s);
+	irq_install_handler(14, ata_irq_handler, "ide master");
+	irq_install_handler(15, ata_irq_handler_s, "ide slave");
 
 	atapi_waiter = list_create();
 

@@ -223,7 +223,7 @@ static int mouse_install(void) {
 	mouse_wait(1);
 	mouse_read();
 
-	irq_install_handler(MOUSE_IRQ, mouse_handler);
+	irq_install_handler(MOUSE_IRQ, mouse_handler, "ps2 mouse");
 	IRQ_RES;
 
 	uint8_t tmp = inportb(0x61);

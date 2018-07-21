@@ -210,7 +210,7 @@ static void pcnet_init(void * data, char * name) {
 	pcnet_mem_base = pci_read_field(pcnet_device_pci, PCI_BAR1, 4) & 0xFFFFFFF0;
 
 	pcnet_irq = pci_read_field(pcnet_device_pci, PCI_INTERRUPT_LINE, 1);
-	irq_install_handler(pcnet_irq, pcnet_irq_handler);
+	irq_install_handler(pcnet_irq, pcnet_irq_handler, "pcnet");
 
 	debug_print(NOTICE, "irq line: %d", pcnet_irq);
 	debug_print(NOTICE, "io base: 0x%x", pcnet_io_base);

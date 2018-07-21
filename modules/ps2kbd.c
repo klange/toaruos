@@ -61,7 +61,7 @@ static int keyboard_install(void) {
 	vfs_mount("/dev/kbd", keyboard_pipe);
 
 	/* Install the interrupt handler */
-	irq_install_handler(KEY_IRQ, keyboard_handler);
+	irq_install_handler(KEY_IRQ, keyboard_handler, "ps2 kbd");
 
 	return 0;
 }

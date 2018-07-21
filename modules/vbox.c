@@ -210,7 +210,7 @@ static int vbox_check(void) {
 		}
 		debug_print(WARNING, "(vbox) device IRQ is set to %d", vbox_irq);
 		fprintf(&vb, "irq line is %d\n", vbox_irq);
-		irq_install_handler(vbox_irq, vbox_irq_handler);
+		irq_install_handler(vbox_irq, vbox_irq_handler, "vbox");
 
 		uint32_t vbox_phys = 0;
 		struct vbox_guest_info * packet = (void*)kvmalloc_p(0x1000, &vbox_phys);

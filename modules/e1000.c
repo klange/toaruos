@@ -14,6 +14,8 @@
 
 #include <toaru/list.h>
 
+#define E1000_LOG_LEVEL NOTICE
+
 static uint32_t e1000_device_pci = 0x00000000;
 static int e1000_irq = 0;
 static uintptr_t mem_base = 0;
@@ -206,6 +208,8 @@ static void read_mac(void) {
 
 static int irq_handler(struct regs *r) {
 
+	debug_print(E1000_LOG_LEVEL, "RECEIVED INTERRUPT FROM E1000");
+
 	uint32_t status = read_command(0xc0);
 
 	irq_ack(e1000_irq);
@@ -216,7 +220,7 @@ static int irq_handler(struct regs *r) {
 
 	if (status & 0x04) {
 		/* Start link */
-		debug_print(NOTICE, "start link");
+		debug_print(E1000_LOG_LEVEL, "start link");
 	} else if (status & 0x10) {
 		/* ?? */
 	} else if (status & ((1 << 6) | (1 << 7))) {
@@ -249,7 +253,7 @@ static int irq_handler(struct regs *r) {
 
 static void send_packet(uint8_t* payload, size_t payload_size) {
 	tx_index = read_command(E1000_REG_TXDESCTAIL);
-	debug_print(NOTICE,"sending packet 0x%x, %d desc[%d]", payload, payload_size, tx_index);
+	debug_print(E1000_LOG_LEVEL,"sending packet 0x%x, %d desc[%d]", payload, payload_size, tx_index);
 
 	memcpy(tx_virt[tx_index], payload, payload_size);
 	tx[tx_index].length = payload_size;
@@ -300,28 +304,52 @@ static void init_tx(void) {
 
 static void e1000_init(void * data, char * name) {
 
+	debug_print(E1000_LOG_LEVEL, "enabling bus mastering");
 	uint16_t command_reg = pci_read_field(e1000_device_pci, PCI_COMMAND, 2);
 	command_reg |= (1 << 2);
 	command_reg |= (1 << 0);
 	pci_write_field(e1000_device_pci, PCI_COMMAND, 2, command_reg);
 
-	debug_print(NOTICE, "mem base: 0x%x", mem_base);
+	debug_print(E1000_LOG_LEVEL, "mem base: 0x%x", mem_base);
 
 	eeprom_detect();
-	debug_print(NOTICE, "has_eeprom = %d", has_eeprom);
+	debug_print(E1000_LOG_LEVEL, "has_eeprom = %d", has_eeprom);
 	read_mac();
 
-	debug_print(NOTICE, "device mac %2x:%2x:%2x:%2x:%2x:%2x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-
-	/* initialize */
-	write_command(E1000_REG_CTRL, (1 << 26));
-
-	/* wait */
+	debug_print(E1000_LOG_LEVEL, "device mac %2x:%2x:%2x:%2x:%2x:%2x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	unsigned long s, ss;
+
+	uint32_t ctrl = read_command(E1000_REG_CTRL);
+	/* reset phy */
+	write_command(E1000_REG_CTRL, ctrl | (0x80000000));
+	read_command(E1000_REG_STATUS);
 	relative_time(0, 10, &s, &ss);
 	sleep_until((process_t *)current_process, s, ss);
 	switch_task(0);
-	debug_print(NOTICE, "back from sleep");
+
+	/* reset mac */
+	write_command(E1000_REG_CTRL, ctrl | (0x04000000));
+	read_command(E1000_REG_STATUS);
+	relative_time(0, 10, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+
+	/* Reload EEPROM */
+	write_command(E1000_REG_CTRL, ctrl | (0x00002000));
+	read_command(E1000_REG_STATUS);
+	relative_time(0, 20, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+
+
+	/* initialize */
+	write_command(E1000_REG_CTRL, ctrl | (1 << 26));
+
+	/* wait */
+	relative_time(0, 10, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+	debug_print(E1000_LOG_LEVEL, "back from sleep");
 
 	uint32_t status = read_command(E1000_REG_CTRL);
 	status |= (1 << 5);   /* set auto speed detection */
@@ -349,10 +377,25 @@ static void e1000_init(void * data, char * name) {
 	net_queue = list_create();
 	rx_wait = list_create();
 
+	uint32_t irq_pin = pci_read_field(e1000_device_pci, 0x3D, 1);
+	debug_print(E1000_LOG_LEVEL, "IRQ pin is 0x%2x", irq_pin);
 	e1000_irq = pci_read_field(e1000_device_pci, PCI_INTERRUPT_LINE, 1);
-	irq_install_handler(e1000_irq, irq_handler);
 
-	debug_print(NOTICE, "Binding interrupt %d", e1000_irq);
+#define REQ_IRQ 11
+	if (e1000_irq == 255) {
+		debug_print(E1000_LOG_LEVEL, "IRQ line is not set for E1000, trying 11");
+		/* Bad interrupt, need to select one */
+		e1000_irq = REQ_IRQ; /* seems to work okay */
+		pci_write_field(e1000_device_pci, PCI_INTERRUPT_LINE, 1, e1000_irq);
+		e1000_irq = pci_read_field(e1000_device_pci, PCI_INTERRUPT_LINE, 1);
+		if (e1000_irq != REQ_IRQ) {
+			debug_print(E1000_LOG_LEVEL, "irq 10 was rejected?");
+		}
+	}
+
+	irq_install_handler(e1000_irq, irq_handler, "e1000");
+
+	debug_print(E1000_LOG_LEVEL, "Binding interrupt %d", e1000_irq);
 
 	for (int i = 0; i < 128; ++i) {
 		write_command(0x5200 + i * 4, 0);
@@ -409,7 +452,7 @@ static int init(void) {
 
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
 		rx_virt[i] = (void*)kvmalloc_p(8192 + 16, (uint32_t *)&rx[i].addr);
-		debug_print(INFO, "rx[%d] 0x%x → 0x%x", i, rx_virt[i], (uint32_t)rx[i].addr);
+		debug_print(E1000_LOG_LEVEL, "rx[%d] 0x%x → 0x%x", i, rx_virt[i], (uint32_t)rx[i].addr);
 		rx[i].status = 0;
 	}
 
@@ -417,7 +460,7 @@ static int init(void) {
 
 	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
 		tx_virt[i] = (void*)kvmalloc_p(8192+16, (uint32_t *)&tx[i].addr);
-		debug_print(INFO, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
+		debug_print(E1000_LOG_LEVEL, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
 		tx[i].status = 0;
 		tx[i].cmd = (1 << 0);
 	}
