@@ -324,7 +324,7 @@ int create_file_fs(char *name, uint16_t permission) {
 		f_path++;
 	}
 
-	debug_print(WARNING, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
+	debug_print(NOTICE, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
 
 	parent = kopen(parent_path, 0);
 	free(parent_path);
