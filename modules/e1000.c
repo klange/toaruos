@@ -427,7 +427,7 @@ static void e1000_init(void * data, char * name) {
 	switch_task(0);
 
 	int link_is_up = (read_command(E1000_REG_STATUS) & (1 << 1));
-	debug_print(NOTICE,"e1000 done. has_eeprom = %d, link is up = %d, irq=%d", has_eeprom, link_is_up, e1000_irq);
+	debug_print(E1000_LOG_LEVEL,"e1000 done. has_eeprom = %d, link is up = %d, irq=%d", has_eeprom, link_is_up, e1000_irq);
 
 	init_netif_funcs(get_mac, dequeue_packet, send_packet, "Intel E1000");
 }
@@ -436,7 +436,7 @@ static int init(void) {
 	pci_scan(&find_e1000, -1, &e1000_device_pci);
 
 	if (!e1000_device_pci) {
-		debug_print(WARNING, "No e1000 device found.");
+		debug_print(E1000_LOG_LEVEL, "No e1000 device found.");
 		return 1;
 	}
 
