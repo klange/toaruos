@@ -74,7 +74,6 @@ int main (int argc, char ** argv) {
 					cmd[r-1] = '\0';
 					r--;
 				}
-				TRACE("cmd = %s", cmd);
 				if (!strcmp(buf,"RESTART")) {
 					TRACE("Client requested system restart, rebooting.");
 					system("reboot");
