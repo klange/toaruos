@@ -93,12 +93,12 @@ static int readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 	}
 
 	if (size < strlen(t->target) + 1) {
-		debug_print(WARNING, "Requested read size was only %d, need %d.", size, strlen(t->target)+1);
+		debug_print(INFO, "Requested read size was only %d, need %d.", size, strlen(t->target)+1);
 		memcpy(buf, t->target, size);
 		buf[size] = '\0';
 		return size-1;
 	} else {
-		debug_print(WARNING, "Reading link target is [%s]", t->target);
+		debug_print(INFO, "Reading link target is [%s]", t->target);
 		memcpy(buf, t->target, strlen(t->target) + 1);
 		return strlen(t->target);
 	}
@@ -275,7 +275,7 @@ static int chmod_tmpfs(fs_node_t * node, int mode) {
 static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 
-	debug_print(WARNING, "chown(..., %d, %d)", uid, gid);
+	debug_print(INFO, "chown(..., %d, %d)", uid, gid);
 
 	t->uid = uid;
 	t->gid = gid;
@@ -286,10 +286,10 @@ static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 static void open_tmpfs(fs_node_t * node, unsigned int flags) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 
-	debug_print(WARNING, "---- Opened TMPFS file %s with flags 0x%x ----", t->name, flags);
+	debug_print(INFO, "---- Opened TMPFS file %s with flags 0x%x ----", t->name, flags);
 
 	if (flags & O_TRUNC) {
-		debug_print(WARNING, "Truncating file %s", t->name);
+		debug_print(INFO, "Truncating file %s", t->name);
 		for (size_t i = 0; i < t->block_count; ++i) {
 			clear_frame((uintptr_t)t->blocks[i] * 0x1000);
 			t->blocks[i] = 0;
