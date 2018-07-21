@@ -8,6 +8,7 @@
 
 #include <kernel/system.h>
 #include <kernel/pci.h>
+#include <kernel/logging.h>
 
 void pci_write_field(uint32_t device, int field, int size, uint32_t value) {
 	outportl(PCI_ADDRESS_PORT, pci_get_addr(device, field));
@@ -151,3 +152,45 @@ void pci_scan(pci_func_t f, int type, void * extra) {
 	}
 }
 
+static void find_isa_bridge(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
+	if (vendorid == 0x8086 && (deviceid == 0x7000 || deviceid == 0x7110)) {
+		*((uint32_t *)extra) = device;
+	}
+}
+static uint32_t pci_isa = 0;
+static uint8_t pci_remaps[4] = {0};
+void pci_remap(void) {
+	pci_scan(&find_isa_bridge, -1, &pci_isa);
+	if (pci_isa) {
+		for (int i = 0; i < 4; ++i) {
+			pci_remaps[i] = pci_read_field(pci_isa, 0x60+i, 1);
+			if (pci_remaps[i] == 0x80) {
+				pci_remaps[i] = 0x0a; /* fallback */
+			}
+		}
+		uint32_t out = 0;
+		memcpy(&out, &pci_remaps, 4);
+		pci_write_field(pci_isa, 0x60, 4, out);
+	}
+}
+
+int pci_get_interrupt(uint32_t device) {
+
+	if (pci_isa) {
+		uint32_t irq_pin = pci_read_field(device, 0x3D, 1);
+		if (irq_pin == 0) {
+			/* ??? */
+			debug_print(ERROR, "PCI device does not specific interrupt line");
+			return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
+		}
+		int pirq = (irq_pin + pci_extract_slot(device) - 2) % 4;
+		debug_print(ERROR, "slot is %d, irq pin is %d, so pirq is %d and that maps to %d?", pci_extract_slot(device), irq_pin, pirq, pci_remaps[pirq]);
+		if (pci_remaps[pirq] == 0x80) {
+			debug_print(ERROR, "not mapped, falling back?\n");
+			return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
+		}
+		return pci_remaps[pirq];
+	} else {
+		return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
+	}
+}

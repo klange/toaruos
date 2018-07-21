@@ -208,8 +208,6 @@ static void read_mac(void) {
 
 static int irq_handler(struct regs *r) {
 
-	debug_print(E1000_LOG_LEVEL, "RECEIVED INTERRUPT FROM E1000");
-
 	uint32_t status = read_command(0xc0);
 
 	irq_ack(e1000_irq);
@@ -377,21 +375,7 @@ static void e1000_init(void * data, char * name) {
 	net_queue = list_create();
 	rx_wait = list_create();
 
-	uint32_t irq_pin = pci_read_field(e1000_device_pci, 0x3D, 1);
-	debug_print(E1000_LOG_LEVEL, "IRQ pin is 0x%2x", irq_pin);
-	e1000_irq = pci_read_field(e1000_device_pci, PCI_INTERRUPT_LINE, 1);
-
-#define REQ_IRQ 11
-	if (e1000_irq == 255) {
-		debug_print(E1000_LOG_LEVEL, "IRQ line is not set for E1000, trying 11");
-		/* Bad interrupt, need to select one */
-		e1000_irq = REQ_IRQ; /* seems to work okay */
-		pci_write_field(e1000_device_pci, PCI_INTERRUPT_LINE, 1, e1000_irq);
-		e1000_irq = pci_read_field(e1000_device_pci, PCI_INTERRUPT_LINE, 1);
-		if (e1000_irq != REQ_IRQ) {
-			debug_print(E1000_LOG_LEVEL, "irq 10 was rejected?");
-		}
-	}
+	e1000_irq = pci_get_interrupt(e1000_device_pci);
 
 	irq_install_handler(e1000_irq, irq_handler, "e1000");
 

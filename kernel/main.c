@@ -48,6 +48,7 @@
 #include <kernel/shm.h>
 #include <kernel/args.h>
 #include <kernel/module.h>
+#include <kernel/pci.h>
 
 uintptr_t initial_esp = 0;
 
@@ -174,6 +175,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	syscalls_install(); /* Install the system calls */
 	shm_install();      /* Install shared memory */
 	modules_install();  /* Modules! */
+	pci_remap();
 
 	DISABLE_EARLY_BOOT_LOG();
 

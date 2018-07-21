@@ -325,6 +325,23 @@ static int shell_pci(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+static void find_isa_bridge(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
+	if (vendorid == 0x8086 && (deviceid == 0x7000 || deviceid == 0x7110)) {
+		*((uint32_t *)extra) = device;
+	}
+}
+static int shell_frob_piix(fs_node_t * tty, int argc, char * argv[]) {
+	uint32_t pci_isa = 0;
+	pci_scan(&find_isa_bridge, -1, &pci_isa);
+	if (pci_isa) {
+		fprintf(tty, "Found it.\n");
+		for (int i = 0; i < 16; ++i) {
+			fprintf(tty, "%d: 0x%2x\n", i, pci_read_field(pci_isa, 0x60+i, 1));
+		}
+	}
+	return 0;
+}
+
 static int shell_uid(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 2) {
 		fprintf(tty, "uid=%d\n", current_process->user);
@@ -658,6 +675,8 @@ static struct shell_command shell_commands[] = {
 		"Disable VGA text mode cursor."},
 	{"exit", &shell_exit,
 		"Quit the shell."},
+	{"piix", &shell_frob_piix,
+		"frob piix"},
 	{NULL, NULL, NULL}
 };
 

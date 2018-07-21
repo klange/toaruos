@@ -203,11 +203,7 @@ static int vbox_check(void) {
 
 		vfs_mount("/dev/absmouse", mouse_pipe);
 
-		vbox_irq = pci_read_field(vbox_device, PCI_INTERRUPT_LINE, 1);
-		if (vbox_irq == 255) {
-			vbox_irq = 10; /* seems to work okay */
-			pci_write_field(vbox_device, PCI_INTERRUPT_LINE, 1, vbox_irq);
-		}
+		vbox_irq = pci_get_interrupt(vbox_device);
 		debug_print(WARNING, "(vbox) device IRQ is set to %d", vbox_irq);
 		fprintf(&vb, "irq line is %d\n", vbox_irq);
 		irq_install_handler(vbox_irq, vbox_irq_handler, "vbox");

@@ -302,7 +302,7 @@ int init_rtl(void) {
 			debug_print(NOTICE, "COMMAND register after:  0x%4x\n", command_reg);
 		}
 
-		rtl_irq = pci_read_field(rtl_device_pci, PCI_INTERRUPT_LINE, 1);
+		rtl_irq = pci_get_interrupt(rtl_device_pci);
 		debug_print(NOTICE, "Interrupt Line: %x\n", rtl_irq);
 		irq_install_handler(rtl_irq, rtl_irq_handler, "rtl8139");
 
