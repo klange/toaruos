@@ -131,6 +131,7 @@ void draw_text_box(gfx_context_t * ctx, struct text_box * tb) {
 	int text_offset = 15;
 	if (tb->is_focused) {
 		draw_rounded_rectangle(ctx, 1 + x, 1 + y, tb->width - 2, tb->height - 2, 4, rgb(8,193,236));
+		draw_rounded_rectangle(ctx, 2 + x, 2 + y, tb->width - 4, tb->height - 4, 4, rgb(244,244,244));
 	} else {
 		draw_rounded_rectangle(ctx, 1 + x, 1 + y, tb->width - 2, tb->height - 2, 4, rgb(158,169,177));
 	}
