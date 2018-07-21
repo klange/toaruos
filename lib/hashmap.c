@@ -217,3 +217,10 @@ void hashmap_free(hashmap_t * map) {
 	}
 	free(map->entries);
 }
+
+int hashmap_is_empty(hashmap_t * map) {
+	for (unsigned int i = 0; i < map->size; ++i) {
+		if (map->entries[i]) return 0;
+	}
+	return 1;
+}
