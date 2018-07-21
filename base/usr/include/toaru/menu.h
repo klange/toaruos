@@ -83,3 +83,29 @@ extern int menu_definitely_close(struct MenuList * menu);
 extern struct MenuSet * menu_set_create(void);
 extern void menu_set_insert(struct MenuSet * set, char * action, struct MenuList * menu);
 extern void menu_update_title(struct MenuEntry * self, char * new_title);
+
+#define MENU_BAR_HEIGHT 24
+
+struct menu_bar_entries {
+	char * title;
+	char * action;
+};
+
+struct menu_bar {
+	int x;
+	int y;
+	int width;
+
+	struct menu_bar_entries * entries;
+
+	struct MenuSet * set;
+
+	struct menu_bar_entries * active_entry;
+	struct MenuList * active_menu;
+	int active_menu_wid;
+
+	void (*redraw_callback)(void);
+};
+
+extern void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx);
+extern int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, struct yutani_msg_window_mouse_event * me, int x, int y);

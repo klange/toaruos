@@ -5,7 +5,6 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
-#include <toaru/menubar.h>
 
 #define APPLICATION_TITLE "Help Browser"
 

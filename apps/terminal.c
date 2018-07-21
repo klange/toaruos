@@ -44,7 +44,6 @@
 #include <toaru/spinlock.h>
 #include <toaru/list.h>
 #include <toaru/menu.h>
-#include <toaru/menubar.h>
 #include <toaru/sdf.h>
 
 #include "terminal-palette.h"
