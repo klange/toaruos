@@ -151,7 +151,7 @@ void draw_text_box(gfx_context_t * ctx, struct text_box * tb) {
 		text = password_circles;
 	}
 
-	draw_sdf_string(ctx, x + TEXTBOX_INTERIOR_LEFT, y + text_offset - 13, text, 14, color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, x + TEXTBOX_INTERIOR_LEFT, y + text_offset - 12, text, 14, color, SDF_FONT_THIN);
 
 	if (tb->is_focused) {
 		int width = draw_sdf_string_width(text, 14, SDF_FONT_THIN) + 2;
