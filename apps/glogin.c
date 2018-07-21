@@ -120,12 +120,13 @@ int main (int argc, char ** argv) {
 		if (!_session_pid) {
 			setuid(uid);
 			toaru_auth_set_vars();
-			char * args[] = {"/bin/gsession", NULL};
+			char * args[] = {"/bin/session", NULL};
 			execvp(args[0], args);
 			exit(1);
 		}
 
 		waitpid(_session_pid, NULL, 0);
+		TRACE("Session ended.");
 	}
 
 	return 0;
