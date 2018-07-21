@@ -45,7 +45,7 @@ static int uid = 0;
 static int LOGO_FINAL_OFFSET = 100;
 static int BOX_WIDTH = 272;
 static int BOX_HEIGHT = 104;
-static int BOX_ROUNDNESS = 4;
+static int BOX_ROUNDNESS = 8;
 static int CENTER_BOX_X=1;
 static int CENTER_BOX_Y=1;
 static int BOX_LEFT=-1;
@@ -130,9 +130,9 @@ void draw_text_box(gfx_context_t * ctx, struct text_box * tb) {
 
 	int text_offset = 15;
 	if (tb->is_focused) {
-		draw_rounded_rectangle(ctx, 1 + x, 1 + y, tb->width - 2, tb->height - 2, 2, rgb(8,193,236));
+		draw_rounded_rectangle(ctx, 1 + x, 1 + y, tb->width - 2, tb->height - 2, 4, rgb(8,193,236));
 	} else {
-		draw_rounded_rectangle(ctx, 1 + x, 1 + y, tb->width - 2, tb->height - 2, 2, rgb(158,169,177));
+		draw_rounded_rectangle(ctx, 1 + x, 1 + y, tb->width - 2, tb->height - 2, 4, rgb(158,169,177));
 	}
 	/* Line width 2? */
 	char * text = tb->buffer;
