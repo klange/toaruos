@@ -40,7 +40,7 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 			close_fs(file);
 
 			/* Find interpreter? */
-			debug_print(WARNING, "Dynamic executable");
+			debug_print(INFO, "Dynamic executable");
 
 			unsigned int nargc = argc + 3;
 			char * args[nargc+1];
@@ -278,7 +278,7 @@ int exec(
 	unsigned char head[4];
 	read_fs(file, 0, 4, head);
 
-	debug_print(WARNING, "First four bytes: %c%c%c%c", head[0], head[1], head[2], head[3]);
+	debug_print(INFO, "First four bytes: %c%c%c%c", head[0], head[1], head[2], head[3]);
 
 	current_process->name = strdup(path);
 	gettimeofday((struct timeval *)&current_process->start, NULL);
