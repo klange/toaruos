@@ -268,7 +268,7 @@ done_video:
 		multiboot_header.framebuffer_addr = low;
 		multiboot_header.framebuffer_width  = gfx->Mode->Info->HorizontalResolution;
 		multiboot_header.framebuffer_height = gfx->Mode->Info->VerticalResolution;
-		multiboot_header.framebuffer_pitch = 0;
+		multiboot_header.framebuffer_pitch = gfx->Mode->Info->PixelsPerScanLine * 4;
 
 		print_("Mode information passed to multiboot:\n");
 		print_("  Address: 0x"); print_hex_(multiboot_header.framebuffer_addr); print_("\n");
