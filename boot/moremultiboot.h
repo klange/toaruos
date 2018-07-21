@@ -836,6 +836,8 @@ _try_module_again:
 				print_("Error opening "); print_(*c); print_(" "); print_hex_(status); print_("\n");
 				while (1) { };
 			}
+		} else {
+			multiboot_header.mods_count--;
 		}
 		c++;
 	}
