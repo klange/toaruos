@@ -743,13 +743,14 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 		radius = height / 2;
 	}
 
+	uint32_t c = premultiply(color);
 	for (int row = y; row < y + height; row++){
 		for (int col = x; col < x + width; col++) {
 			if ((col < x + radius || col > x + width - radius - 1) &&
 				(row < y + radius || row > y + height - radius - 1)) {
 				continue;
 			}
-			GFX(ctx, col, row) = alpha_blend_rgba(GFX(ctx, col, row), color);
+			GFX(ctx, col, row) = alpha_blend_rgba(GFX(ctx, col, row), c);
 		}
 	}
 
@@ -767,7 +768,7 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 
 			uint32_t c = color;
 			if (j == (int)j_max) {
-				c = rgba(_RED(c),_BLU(c),_GRE(c),(int)((double)_ALP(c) * (j_max - (double)j)));
+				c = premultiply(rgba(_RED(c),_BLU(c),_GRE(c),(int)((double)_ALP(c) * (j_max - (double)j))));
 			}
 
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), c);
