@@ -318,6 +318,10 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid,
 	fprintf(tty, " BAR4: 0x%8x", pci_read_field(device, PCI_BAR4, 4));
 	fprintf(tty, " BAR6: 0x%8x\n", pci_read_field(device, PCI_BAR5, 4));
 
+	fprintf(tty, " IRQ Line: %d", pci_read_field(device, 0x3C, 1));
+	fprintf(tty, " IRQ Pin: %d", pci_read_field(device, 0x3D, 1));
+	fprintf(tty, " Interrupt: %d", pci_get_interrupt(device));
+	fprintf(tty, " Status: 0x%4x\n", pci_read_field(device, PCI_STATUS, 2));
 }
 
 static int shell_pci(fs_node_t * tty, int argc, char * argv[]) {
