@@ -210,11 +210,11 @@ static int irq_handler(struct regs *r) {
 
 	uint32_t status = read_command(0xc0);
 
-	irq_ack(e1000_irq);
-
 	if (!status) {
 		return 0;
 	}
+
+	irq_ack(e1000_irq);
 
 	if (status & 0x04) {
 		/* Start link */
