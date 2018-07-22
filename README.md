@@ -22,11 +22,16 @@ It is recommended that you run ToaruOS-NIH in an emulator - specifically Qemu or
 qemu-system-i386 -cdrom image.iso -serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime
 ```
 
-You may also use OVMF with the appropriate QEMU system target:
+You may also use OVMF with the appropriate QEMU system target. Our EFI loader supports both IA32 and X64 EFIs:
 
 ```
 qemu-system-x86_64 -cdrom image.iso -serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime \
   -bios /usr/share/qemu/OVMF.fd
+```
+
+```
+qemu-system-i386 -cdrom image.iso -serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime \
+  -bios /path/to/OVMFia32.fd
 ```
 
 #### VirtualBox
