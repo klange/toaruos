@@ -12,7 +12,7 @@ Releases are occasionally posted on [GitHub](https://github.com/klange/toaru-nih
 
 ### Running ToaruOS-NIH
 
-It is recommended that you run ToaruOS-NIH in an emulator - specific Qemu or VirtualBox, though some testing has been done in VMware Workstation (reasonable, but missing driver support) and Bochs (not recommended).
+It is recommended that you run ToaruOS-NIH in an emulator - specifically Qemu or VirtualBox, though some testing has been done in VMware Workstation (reasonable, but missing driver support) and Bochs (not recommended).
 
 #### QEMU
 
@@ -35,7 +35,7 @@ ToaruOS should function either as an "Other/Unknown" guest or an "Other/Uknown 6
 
 All network chipset options should work except for `virtio-net` (work on virtio drivers has not yet begun).
 
-It is highly recommended, due to the exisence of Guest Additions drivers, that you provide your VM with at least 32MB of video memory to support larger display resolutions - especially if you are using a 4K display.
+It is highly recommended, due to the existence of Guest Additions drivers, that you provide your VM with at least 32MB of video memory to support larger display resolutions - especially if you are using a 4K display.
 
 Ensure that the audio controller is set to ICH AC97 and that audio output is enabled (as it is disabled by default in some versions of VirtualBox).
 
