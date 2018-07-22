@@ -287,10 +287,18 @@ static void volume_lower(void) {
 }
 
 static int netstat_left = 0;
+
 static struct MenuEntry_Normal * netstat_ip_entry;
 static char * netstat_ip = NULL;
 static struct MenuEntry_Normal * netstat_device_entry;
 static char * netstat_device = NULL;
+static struct MenuEntry_Normal * netstat_gateway_entry;
+static char * netstat_gateway = NULL;
+static struct MenuEntry_Normal * netstat_dns_entry;
+static char * netstat_dns = NULL;
+static struct MenuEntry_Normal * netstat_mac_entry;
+static char * netstat_mac = NULL;
+
 static void update_network_status(void) {
 	FILE * net = fopen("/proc/netif","r");
 
@@ -309,7 +317,7 @@ static void update_network_status(void) {
 				free(netstat_ip);
 			}
 			char tmp[512];
-			sprintf(tmp, "IP: %s", &line[4]);
+			sprintf(tmp, "IP: %s", &line[strlen("ip: ")]);
 			char * lf = strstr(tmp,"\n");
 			if (lf) *lf = '\0';
 			netstat_ip = strdup(tmp);
@@ -319,10 +327,40 @@ static void update_network_status(void) {
 				free(netstat_device);
 			}
 			char tmp[512];
-			sprintf(tmp, "Device: %s", &line[8]);
+			sprintf(tmp, "Device: %s", &line[strlen("device: ")]);
 			char * lf = strstr(tmp,"\n");
 			if (lf) *lf = '\0';
 			netstat_device = strdup(tmp);
+		} else if (strstr(line,"gateway:") != NULL) {
+			network_status = 1;
+			if (netstat_gateway) {
+				free(netstat_gateway);
+			}
+			char tmp[512];
+			sprintf(tmp, "Gateway: %s", &line[strlen("gateway: ")]);
+			char * lf = strstr(tmp,"\n");
+			if (lf) *lf = '\0';
+			netstat_gateway = strdup(tmp);
+		} else if (strstr(line,"dns:") != NULL) {
+			network_status = 1;
+			if (netstat_dns) {
+				free(netstat_dns);
+			}
+			char tmp[512];
+			sprintf(tmp, "Primary DNS: %s", &line[strlen("dns: ")]);
+			char * lf = strstr(tmp,"\n");
+			if (lf) *lf = '\0';
+			netstat_dns = strdup(tmp);
+		} else if (strstr(line,"mac:") != NULL) {
+			network_status = 1;
+			if (netstat_mac) {
+				free(netstat_mac);
+			}
+			char tmp[512];
+			sprintf(tmp, "MAC: %s", &line[strlen("mac: ")]);
+			char * lf = strstr(tmp,"\n");
+			if (lf) *lf = '\0';
+			netstat_mac = strdup(tmp);
 		}
 	} while (1);
 
@@ -354,15 +392,27 @@ static void show_network_status(void) {
 		menu_insert(netstat, menu_create_separator());
 		netstat_ip_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
 		menu_insert(netstat, netstat_ip_entry);
+		netstat_dns_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(netstat, netstat_dns_entry);
+		netstat_gateway_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(netstat, netstat_gateway_entry);
+		netstat_mac_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(netstat, netstat_mac_entry);
 		netstat_device_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
 		menu_insert(netstat, netstat_device_entry);
 	}
 	if (network_status) {
 		menu_update_title(netstat_ip_entry, netstat_ip);
 		menu_update_title(netstat_device_entry, netstat_device ? netstat_device : "(?)");
+		menu_update_title(netstat_dns_entry, netstat_dns ? netstat_dns : "(?)");
+		menu_update_title(netstat_gateway_entry, netstat_gateway ? netstat_gateway : "(?)");
+		menu_update_title(netstat_mac_entry, netstat_mac ? netstat_mac : "(?)");
 	} else {
 		menu_update_title(netstat_ip_entry, "No network.");
 		menu_update_title(netstat_device_entry, "");
+		menu_update_title(netstat_dns_entry, "");
+		menu_update_title(netstat_gateway_entry, "");
+		menu_update_title(netstat_mac_entry, "");
 	}
 	if (!netstat->window) {
 		menu_show(netstat, yctx);
