@@ -91,50 +91,35 @@ First, ensure you have the necessary build tools, which are mostly the same as m
 
 Run `make` and you will be prompted to build a toolchain. Reply `y` and allow the toolchain to build.
 
+## Backwards Compatibility Notes
+
+No ABI or API compatibility is guaranteed through the development of ToaruOS-NIH. Until a larger corpus of third-party software is ported to our new C library, APIs may change to improve or simplify library use, or to fix bugs. Even kernel ABI compatibility is not guaranteed as system calls are improved or made more compliant with expectations of POSIX or the C standard.
+
 ## Rationale
 
 ToaruOS's kernel is entirely in-house. Its userspace, however, is built on several third-party libraries and tools, such as the Newlib C library, Freetype, Cairo, libpng, and most notably Python. While the decision to build ToaruOS on these technologies is not at all considered a mistake, the possibility remains to build a userspace entirely from scratch.
 
 ## Goals
 
-- **Write a basic C library.**
+Many of our initial goals have been met, including sufficient C library support to port Python 3.6.
 
-  To support building the native ToaruOS libraries and port some basic software, a rudimentary C library is required.
+Our current unmet goals include:
 
-- **Remove Cairo as a dependency for the compositor.**
-
-  Cairo is a major component of the modern ToaruOS compositor, but is the only significant third-party dependency. This makes the compositor, which is a key part of what makes ToaruOS "ToaruOS", an important inclusion in this project. Very basic work has been done to allow the compositor to build and run without Cairo, but it is a naïve approach and remains very slow. Implementing Cairo's clipping and SSE-accelerated blitting operations is a must.
-
-- **Write a vector font library.**
-
-  Support for TrueType/OpenType TBD, but vector fonts are critical to the visual presentation of ToaruOS.
-
-- **Support a compressed image format.**
-
-  ToaruOS used a lot of PNGs, but maybe writing our own format would be fun.
-
-## Roadmap
-
-1. Enough C to port the dynamic loader. (Done)
-
-2. Get the VGA terminal building. (Done)
-
-3. Get the shell running. (Done)
-
-4. De-Cairo-tize the compositor. (Done, but more work planned)
-
-6. Enough C to port Python. (Done, but also more work to do - some bugs exist / math stuff doesn't work)
-
-7. Enough C to port GCC. (In progress)
+- Enough C library support to port binutils/gcc (needs enough C to get libstdc++ working)
+- Plugin systems for the compositor and general graphics APIs to support third-party libraries in the future (including support for Cairo as a backend for the compositor, PNG support in the graphics sprite API, Truetype rendering support through FreeType in the text rendering engine).
+- Porting the complete native desktop experience from ToaruOS mainline (which mostly means porting Python prototype applications and libraries to C).
 
 ## Project Layout
 
 - **apps** - Userspace applications, all first-party.
 - **base** - Ramdisk root filesystem staging directory. Includes C headers in `base/usr/include`, as well as graphical resources for the compositor and window decorator.
-- **boot** - Bootloader.
+- **boot** - Bootloader, including BIOS and EFI IA32 and X64 support.
+- **cdrom** - Staging area for ISO9660 CD image, containing mostly blank shadow files for the FAT image.
+- **fatbase** - Staging area for FAT image used by EFI.
 - **kernel** - The ToaruOS kernel.
 - **lib** - Userspace libraries.
 - **libc** - C standard library implementation.
 - **linker** - Userspace dynamic linker/loader, implements shared library support.
 - **modules** - Kernel modules/drivers.
 - **util** - Utility scripts, staging directory for the toolchain (binutils/gcc).
+- **.make** - Generated Makefiles.
