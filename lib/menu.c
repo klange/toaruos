@@ -126,13 +126,19 @@ struct MenuEntry * menu_create_normal(const char * icon, const char * action, co
 }
 
 void _menu_draw_MenuEntry_Submenu(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
-	_menu_draw_MenuEntry_Normal(ctx,self,offset);
+
 	struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
+	int h = _self->hilight;
+	if (_self->_owner && _self->_owner->child == _self->_my_child) {
+		_self->hilight = 1;
+	}
+	_menu_draw_MenuEntry_Normal(ctx,self,offset);
 
 	/* Draw the tick on the right side to indicate this is a submenu */
 	uint32_t color = _self->hilight ? rgb(255,255,255) : rgb(0,0,0);
 	sprite_t * tick = icon_get_16("menu-tick");
 	draw_sprite_alpha_paint(ctx, tick, _self->width - 16, offset + 2, 1.0, color);
+	_self->hilight = h;
 }
 
 void _menu_focus_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
@@ -153,6 +159,7 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 		}
 		new_menu->parent = _self->_owner;
 		new_menu->parent->child = new_menu;
+		_self->_my_child = new_menu;
 		if (new_menu->closed) {
 			menu_show(new_menu, _self->_owner->window->ctx);
 			if (_self->_owner->window->width + _self->_owner->window->x - 2 + new_menu->window->width > _self->_owner->window->ctx->display_width) {

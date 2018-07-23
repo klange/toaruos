@@ -42,6 +42,7 @@ struct MenuEntry_Submenu {
 	const char * icon;
 	const char * title;
 	const char * action;
+	struct MenuList * _my_child;
 };
 
 struct MenuEntry_Separator {
