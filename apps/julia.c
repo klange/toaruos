@@ -258,7 +258,11 @@ int main(int argc, char * argv[]) {
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
-			menu_process_event(yctx, m);
+			if (menu_process_event(yctx, m)) {
+				/* just decorations should be fine */
+				decors();
+				yutani_flip(yctx, window);
+			}
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
 					{

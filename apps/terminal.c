@@ -1587,7 +1587,6 @@ void * handle_incoming(void) {
 	yutani_msg_t * m = yutani_poll(yctx);
 	while (m) {
 		if (menu_process_event(yctx, m)) {
-			window->focused = 0;
 			render_decors();
 		}
 		switch (m->type) {
@@ -1603,11 +1602,7 @@ void * handle_incoming(void) {
 					struct yutani_msg_window_focus_change * wf = (void*)m->data;
 					yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
 					if (win == window) {
-						if (!hashmap_is_empty(menu_get_windows_hash())) {
-							win->focused = 1;
-						} else {
-							win->focused = wf->focused;
-						}
+						win->focused = wf->focused;
 						render_decors();
 					}
 				}

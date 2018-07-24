@@ -125,7 +125,6 @@ int main(int argc, char * argv[]) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
 			if (menu_process_event(yctx, m)) {
-				main_window->focused = 0;
 				redraw_window();
 			}
 			switch (m->type) {
@@ -142,13 +141,8 @@ int main(int argc, char * argv[]) {
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
 						if (win == main_window) {
-							if (!hashmap_is_empty(menu_get_windows_hash())) {
-								win->focused = 1;
-								redraw_window();
-							} else {
-								win->focused = wf->focused;
-								redraw_window();
-							}
+							win->focused = wf->focused;
+							redraw_window();
 						}
 					}
 					break;

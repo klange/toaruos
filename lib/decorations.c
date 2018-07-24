@@ -96,10 +96,10 @@ static void initialize_simple() {
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
 	if (!window) return;
 	window->decorator_flags |= DECOR_FLAG_DECORATED;
-	if (!window->focused) {
-		decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
-	} else {
+	if (window->focused || !hashmap_is_empty(menu_get_windows_hash())) {
 		decor_render_decorations(window, ctx, title, DECOR_ACTIVE);
+	} else {
+		decor_render_decorations(window, ctx, title, DECOR_INACTIVE);
 	}
 }
 
