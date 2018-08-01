@@ -72,6 +72,10 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 
+		if (!strcmp(argv[1], "-s")) {
+			argv[1] = getenv("SHELL");
+		}
+
 		char ** args = &argv[1];
 		execvp(args[0], args);
 
