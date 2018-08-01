@@ -1,8 +1,8 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: ts=4 sw=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2012-2018 K. Lange
- */
-/*
+ *
  * General-purpose keyboard conversion library.
  *
  * This provides similar functionality to xkb:
@@ -175,6 +175,7 @@ kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
 				case 0x44:
 					state->kbd_state = KBD_NORMAL;
 					return KEY_ARROW_LEFT;
+				case '1':
 				case '2':
 				case '3':
 				case '4':
@@ -254,6 +255,12 @@ kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
 						default:
 							return c;
 					}
+				case ';':
+					/* We don't produce multiple-argument escapes ourself, but
+					 * we should handle them anyway because other terminals
+					 * definitely do make them... */
+					state->kbd_state = KBD_ESC_B;
+					return KEY_NONE;
 				default:
 					return c;
 			}
