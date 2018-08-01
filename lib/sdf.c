@@ -63,9 +63,13 @@ static void _init_sdf(void) {
 	_font_cache = hashmap_create_int(10);
 	{
 		char tmp[100];
-		sprintf(tmp, "sys.%s.fonts", getenv("DISPLAY"));
+		char * display = getenv("DISPLAY");
+		if (!display) display = "compositor";
+		sprintf(tmp, "sys.%s.fonts", display);
 		_font_data = (char *)syscall_shm_obtain(tmp, &_font_data_size);
 	}
+
+	if (!_font_data_size) return;
 
 	load_font(&_font_data_thin, SDF_FONT_THIN);
 	load_font(&_font_data_bold, SDF_FONT_BOLD);

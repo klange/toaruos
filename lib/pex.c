@@ -44,7 +44,9 @@ FILE * pex_connect(char * target) {
 	char tmp[100];
 	sprintf(tmp, "/dev/pex/%s", target);
 	FILE * out = fopen(tmp, "r+");
-	setbuf(out, NULL);
+	if (out) {
+		setbuf(out, NULL);
+	}
 	return out;
 }
 
@@ -52,7 +54,9 @@ FILE * pex_bind(char * target) {
 	char tmp[100];
 	sprintf(tmp, "/dev/pex/%s", target);
 	FILE * out = fopen(tmp, "a+");
-	setbuf(out, NULL);
+	if (out) {
+		setbuf(out, NULL);
+	}
 	return out;
 }
 
