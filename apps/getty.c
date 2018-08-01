@@ -30,6 +30,8 @@ int main(int argc, char * argv[]) {
 			dup2(fd_slave, 1);
 			dup2(fd_slave, 2);
 
+			system("ttysize -q");
+
 			char * tokens[] = {"/bin/login",NULL};
 			execvp(tokens[0], tokens);
 			exit(1);

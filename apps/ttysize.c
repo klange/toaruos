@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <syscall.h>
 
@@ -62,12 +64,22 @@ _done:
 
 int main(int argc, char * argv[]) {
 	int width, height;
+	int opt;
+	int quiet = 0;
 
-	if (argc < 3) {
-		divine_size(&width, &height);
+	while ((opt = getopt(argc, argv, "q")) != -1) {
+		switch (opt) {
+			case 'q':
+				quiet = 1;
+				break;
+		}
+	}
+
+	if (optind + 2 == argc) {
+		width = atoi(argv[optind]);
+		height = atoi(argv[optind+1]);
 	} else {
-		width = atoi(argv[1]);
-		height = atoi(argv[2]);
+		divine_size(&width, &height);
 	}
 
 	struct winsize w;
@@ -77,7 +89,9 @@ int main(int argc, char * argv[]) {
 	w.ws_ypixel = 0;
 	ioctl(0, TIOCSWINSZ, &w);
 
-	fprintf(stderr, "%dx%d\n", width, height);
+	if (!quiet) {
+		fprintf(stderr, "%dx%d\n", width, height);
+	}
 
 	return 0;
 }
