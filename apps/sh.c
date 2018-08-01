@@ -227,6 +227,7 @@ void tab_complete_func(rline_context_t * c) {
 #define COMPLETE_FILE    1
 #define COMPLETE_COMMAND 2
 #define COMPLETE_CUSTOM  3
+#define COMPLETE_VARIABLE 4
 	int complete_mode = COMPLETE_FILE;
 
 	int command_adj = 0;
@@ -246,6 +247,11 @@ void tab_complete_func(rline_context_t * c) {
 	/* term-set has some commands to complete */
 	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "term-set")) {
 		complete_mode = COMPLETE_CUSTOM;
+	}
+
+	/* complete variable names */
+	if (*prefix == '$') {
+		complete_mode = COMPLETE_VARIABLE;
 	}
 
 	if (complete_mode == COMPLETE_COMMAND) {
@@ -329,6 +335,25 @@ void tab_complete_func(rline_context_t * c) {
 				match = *completions;
 			}
 			completions++;
+		}
+
+	} else if (complete_mode == COMPLETE_VARIABLE) {
+
+		char ** envvar = environ;
+		free_matches = 1;
+
+		while (*envvar) {
+			char * tmp = strdup(*envvar);
+			char * c = strchr(tmp, '=');
+			*c = '\0';
+			if (strstr(tmp, prefix+1) == tmp) {
+				char * m = malloc(strlen(tmp)+2);
+				sprintf(m, "$%s", tmp);
+				list_insert(matches, m);
+				match = m;
+			}
+			free(tmp);
+			envvar++;
 		}
 
 	}
