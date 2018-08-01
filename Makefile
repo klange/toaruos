@@ -39,6 +39,8 @@ LIBS=$(patsubst lib/%.c,%,$(wildcard lib/*.c))
 LIBS_X=$(foreach lib,$(LIBS),base/lib/libtoaru_$(lib).so)
 LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
+RAMDISK_FILES= ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
+
 all: image.iso
 
 # Kernel / module flags
@@ -168,10 +170,10 @@ endif
 
 # Ramdisk
 
-util/devtable: $(shell find base) util/update-devtable.py
+util/devtable: ${RAMDISK_FILES} $(shell find base) util/update-devtable.py
 	util/update-devtable.py
 
-fatbase/ramdisk.img: ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so $(shell find base) Makefile util/devtable | dirs
+fatbase/ramdisk.img: ${RAMDISK_FILES} $(shell find base) Makefile util/devtable | dirs
 	genext2fs -B 4096 -d base -D util/devtable -U -b `util/calc-size.sh` -N 2048 $@
 
 # CD image
