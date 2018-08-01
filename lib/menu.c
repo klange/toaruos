@@ -129,7 +129,7 @@ void _menu_draw_MenuEntry_Submenu(gfx_context_t * ctx, struct MenuEntry * self, 
 
 	struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
 	int h = _self->hilight;
-	if (_self->_owner && _self->_owner->child == _self->_my_child) {
+	if (_self->_owner && _self->_my_child && _self->_owner->child == _self->_my_child) {
 		_self->hilight = 1;
 	}
 	_menu_draw_MenuEntry_Normal(ctx,self,offset);
