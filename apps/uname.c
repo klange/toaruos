@@ -19,8 +19,9 @@
 #define FLAG_RELEASE  0x04
 #define FLAG_VERSION  0x08
 #define FLAG_MACHINE  0x10
+#define FLAG_OSNAME   0x20
 
-#define FLAG_ALL (FLAG_SYSNAME|FLAG_NODENAME|FLAG_RELEASE|FLAG_VERSION|FLAG_MACHINE)
+#define FLAG_ALL (FLAG_SYSNAME|FLAG_NODENAME|FLAG_RELEASE|FLAG_VERSION|FLAG_MACHINE|FLAG_OSNAME)
 
 #define _ITALIC "\033[3m"
 #define _END    "\033[0m\n"
@@ -37,6 +38,7 @@ void show_usage(int argc, char * argv[]) {
 			" -r     " _ITALIC "Print kernel version number" _END
 			" -v     " _ITALIC "Print the extra kernel version information" _END
 			" -m     " _ITALIC "Print the architecture name" _END
+			" -o     " _ITALIC "Print operating system name" _END
 			"\n", argv[0]);
 	exit(1);
 }
@@ -69,6 +71,9 @@ int main(int argc, char * argv[]) {
 						break;
 					case 'm':
 						flags |= FLAG_MACHINE;
+						break;
+					case 'o':
+						flags |= FLAG_OSNAME;
 						break;
 					case 'h':
 					default:
@@ -110,6 +115,11 @@ int main(int argc, char * argv[]) {
 	if (flags & FLAG_MACHINE) {
 		if (space++) printf(" ");
 		printf("%s", u.machine);
+	}
+
+	if (flags & FLAG_OSNAME) {
+		if (space++) printf(" ");
+		printf("%s", "ToaruOS");
 	}
 
 	printf("\n");
