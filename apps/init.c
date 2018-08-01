@@ -24,7 +24,7 @@ void set_hostname(void) {
 
 	if (!f) {
 		/* set fallback hostname */
-		sethostname("base", 4);
+		sethostname("localhost", 4);
 	} else {
 		char tmp[128];
 		fgets(tmp, 128, f);
