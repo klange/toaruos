@@ -75,3 +75,6 @@ extern int chown(const char * pathname, uid_t owner, gid_t group);
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
+
+extern int gethostname(char * name, size_t len);
+extern int sethostname(const char * name, size_t len);

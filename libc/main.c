@@ -21,8 +21,6 @@ DEFN_SYSCALL1(kernel_string_XXX, 25, char *);
 DEFN_SYSCALL0(reboot, 26);
 DEFN_SYSCALL3(readdir, 27, int, int, void *);
 DEFN_SYSCALL3(clone, 30, uintptr_t, uintptr_t, void *);
-DEFN_SYSCALL1(sethostname, 31, char *);
-DEFN_SYSCALL1(gethostname, 32, char *);
 DEFN_SYSCALL0(mousedevice, 33);
 DEFN_SYSCALL2(mkdir, 34, char *, unsigned int);
 DEFN_SYSCALL2(shm_obtain, 35, char *, size_t *);

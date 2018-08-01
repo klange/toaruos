@@ -14,7 +14,6 @@
 #include <math.h>
 #include <string.h>
 #include <time.h>
-#include <syscall.h>
 
 #include <sys/utsname.h>
 #include <sys/wait.h>
@@ -188,7 +187,7 @@ void draw_login_container(gfx_context_t * ctx, struct login_container * lc) {
 static void get_updated_hostname_with_time_info(char hostname[]) {
 	// get hostname
 	char _hostname[256];
-	syscall_gethostname(_hostname);
+	gethostname(_hostname, 255);
 
 	// get current time
 	struct tm * timeinfo;

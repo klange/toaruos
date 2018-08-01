@@ -3,8 +3,9 @@
 #include <errno.h>
 #include <wait.h>
 #include <string.h>
+#include <unistd.h>
 
-void set_console() {
+void set_console(void) {
 	int _stdin  = syscall_open("/dev/null", 0, 0);
 	int _stdout = syscall_open("/dev/ttyS0", 1, 0);
 	int _stderr = syscall_open("/dev/ttyS0", 1, 0);
@@ -16,6 +17,22 @@ void set_console() {
 
 	(void)_stderr;
 	(void)_stdin;
+}
+
+void set_hostname(void) {
+	FILE * f = fopen("/etc/hostname", "r");
+
+	if (!f) {
+		/* set fallback hostname */
+		sethostname("base", 4);
+	} else {
+		char tmp[128];
+		fgets(tmp, 128, f);
+		char * nl = strchr(tmp, '\n');
+		if (nl) *nl = '\0';
+		sethostname(tmp, strlen(tmp));
+	}
+
 }
 
 int start_options(char * args[]) {
@@ -41,8 +58,7 @@ int start_options(char * args[]) {
 
 int main(int argc, char * argv[]) {
 	set_console();
-
-	syscall_sethostname("base");
+	set_hostname();
 
 	if (argc > 1) {
 		if (!strcmp(argv[1], "--vga")) {

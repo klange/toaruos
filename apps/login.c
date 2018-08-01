@@ -11,7 +11,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -58,7 +57,7 @@ int main(int argc, char ** argv) {
 
 		/* TODO: gethostname() */
 		char _hostname[256];
-		syscall_gethostname(_hostname);
+		gethostname(_hostname, 255);
 
 		fprintf(stdout, "%s login: ", _hostname);
 		fflush(stdout);
