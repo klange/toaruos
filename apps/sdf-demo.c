@@ -72,6 +72,10 @@ void resize_finish(int w, int h) {
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
+	if (!yctx) {
+		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+		return 1;
+	}
 	init_decorations();
 
 	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
