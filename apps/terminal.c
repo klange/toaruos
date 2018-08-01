@@ -1925,6 +1925,11 @@ int main(int argc, char ** argv) {
 	/* Initialize the windowing library */
 	yctx = yutani_init();
 
+	if (!yctx) {
+		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+		return 1;
+	}
+
 	if (_fullscreen) {
 		window_width = yctx->display_width;
 		window_height = yctx->display_height;

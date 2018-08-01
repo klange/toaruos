@@ -1,11 +1,11 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: ts=4 sw=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
- */
-/*
- * test-gfx
  *
- * Windowed graphical test application.
+ * Plasma
+ *
+ * Draws animated plasma in a decorated window.
  */
 #include <stdlib.h>
 #include <assert.h>
@@ -102,6 +102,10 @@ void resize_finish(int w, int h) {
 
 int main (int argc, char ** argv) {
 	yctx = yutani_init();
+	if (!yctx) {
+		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+		return 1;
+	}
 
 	win_width  = 300;
 	win_height = 300;

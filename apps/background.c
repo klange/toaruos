@@ -54,6 +54,10 @@ int main (int argc, char ** argv) {
 	wallpaper->alpha = 0;
 
 	yctx = yutani_init();
+	if (!yctx) {
+		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+		return 1;
+	}
 
 	/* wallpaper */
 	wallpaper_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);

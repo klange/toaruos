@@ -84,6 +84,10 @@ static void init_default(void) {
 int main(int argc, char * argv[]) {
 	int req_center_x, req_center_y;
 	yctx = yutani_init();
+	if (!yctx) {
+		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+		return 1;
+	}
 	init_decorations();
 
 	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());

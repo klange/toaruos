@@ -1,23 +1,20 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: ts=4 sw=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
- */
-/*
- * drawlines
  *
- * Test application to draw lines to a window.
+ * Yutani demo application that draws lines into a window.
+ *
  */
 #include <stdlib.h>
 #include <assert.h>
 #include <syscall.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
-
-#define TRACE_APP_NAME "drawlines"
-#include <toaru/trace.h>
 
 static int left, top, width, height;
 
@@ -45,16 +42,16 @@ int main (int argc, char ** argv) {
 
 	srand(time(NULL));
 
-	TRACE("Starting drawlines.");
 	yctx = yutani_init();
-	TRACE("Creating a window.");
+	if (!yctx) {
+		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+		return 1;
+	}
+
 	wina = yutani_window_create(yctx, width, height);
-	TRACE("Move.");
 	yutani_window_move(yctx, wina, left, top);
-	TRACE("Advertise icon.");
 	yutani_window_advertise_icon(yctx, wina, "drawlines", "drawlines");
 
-	TRACE("Init graphics.");
 	ctx = init_graphics_yutani(wina);
 	draw_fill(ctx, rgb(0,0,0));
 
