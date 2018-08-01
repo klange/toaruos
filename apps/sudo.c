@@ -72,6 +72,9 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 
+		/* Set username to root */
+		putenv("USER=root");
+
 		if (!strcmp(argv[1], "-s")) {
 			argv[1] = getenv("SHELL");
 		}
