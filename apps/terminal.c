@@ -146,22 +146,6 @@ static void display_flip(void) {
 	}
 }
 
-static void set_term_font_size(float s) {
-	scale_fonts  = 1;
-	font_scaling = s;
-	reinit(1);
-}
-
-static void set_term_font_gamma(float s) {
-	font_gamma = s;
-	reinit(1);
-}
-
-static void set_term_font_mode(int i) {
-	_use_sdf = i;
-	reinit(1);
-}
-
 /* Returns the lower of two shorts */
 int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
@@ -1450,14 +1434,11 @@ term_callbacks_t term_callbacks = {
 	term_scroll,
 	term_redraw_cursor,
 	input_buffer_stuff,
-	set_term_font_size,
 	set_title,
 	term_set_cell_contents,
 	term_get_cell_width,
 	term_get_cell_height,
 	term_set_csr_show,
-	set_term_font_gamma,
-	set_term_font_mode,
 };
 
 void reinit(int send_sig) {
@@ -1787,10 +1768,21 @@ void _menu_action_exit(struct MenuEntry * self) {
 	exit_application = 1;
 }
 
+static struct MenuEntry * _menu_toggle_borders_context = NULL;
+static struct MenuEntry * _menu_toggle_borders_bar = NULL;
+
 void _menu_action_hide_borders(struct MenuEntry * self) {
 	_no_frame = !(_no_frame);
 	window_width = window->width - decor_width() * (!_no_frame);
 	window_height = window->height - (decor_height() + menu_bar_height) * (!_no_frame);
+	menu_update_title(_menu_toggle_borders_context, _no_frame ? "Show borders" : "Hide borders");
+	menu_update_title(_menu_toggle_borders_bar, _no_frame ? "Show borders" : "Hide borders");
+	reinit(1);
+}
+
+void _menu_action_toggle_sdf(struct MenuEntry * self) {
+	_use_sdf = !(_use_sdf);
+	menu_update_title(self, _use_sdf ? "Bitmap font" : "Anti-aliased font");
 	reinit(1);
 }
 
@@ -1962,7 +1954,8 @@ int main(int argc, char ** argv) {
 	menu_insert(menu_right_click, _menu_copy);
 	menu_insert(menu_right_click, _menu_paste);
 	menu_insert(menu_right_click, menu_create_separator());
-	menu_insert(menu_right_click, menu_create_normal(NULL, NULL, "Toggle borders", _menu_action_hide_borders));
+	_menu_toggle_borders_context = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
+	menu_insert(menu_right_click, _menu_toggle_borders_context);
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_exit);
 
@@ -1986,8 +1979,10 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "zoom", m);
 
 	m = menu_create();
-	menu_insert(m, menu_create_normal(NULL, NULL, "Hide borders", _menu_action_hide_borders));
+	_menu_toggle_borders_bar = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
+	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
+	menu_insert(m, menu_create_normal(NULL, NULL, _use_sdf ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_sdf));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();

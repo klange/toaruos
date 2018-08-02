@@ -140,14 +140,6 @@ static int best_match(uint32_t a) {
 
 volatile int exit_application = 0;
 
-static void set_term_font_size(float s) {
-	/* do nothing */
-}
-
-static void set_term_font_mode(int i) {
-	/* do nothing */
-}
-
 /* Returns the lower of two shorts */
 uint16_t min(uint16_t a, uint16_t b) {
 	return (a < b) ? a : b;
@@ -907,14 +899,11 @@ term_callbacks_t term_callbacks = {
 	term_scroll,
 	term_redraw_cursor,
 	input_buffer_stuff,
-	set_term_font_size,
 	set_title,
 	unsupported,
 	unsupported_int,
 	unsupported_int,
 	term_set_csr_show,
-	set_term_font_size,
-	set_term_font_mode,
 };
 
 void reinit(int send_sig) {

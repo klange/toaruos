@@ -27,14 +27,11 @@ typedef struct {
 	void (*scroll)(int);
 	void (*redraw_cursor)(void);
 	void (*input_buffer_stuff)(char *);
-	void (*set_font_size)(float);
 	void (*set_title)(char *);
 	void (*set_cell_contents)(int,int,char *);
 	int  (*get_cell_width)(void);
 	int  (*get_cell_height)(void);
 	void (*set_csr_on)(int);
-	void (*set_font_gamma)(float);
-	void (*set_font_mode)(int);
 } term_callbacks_t;
 
 typedef struct {
