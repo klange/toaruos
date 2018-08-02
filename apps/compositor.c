@@ -955,7 +955,7 @@ void * redraw(void * in) {
 	syscall_system_function(11,(char *[]){"compositor","render thread",NULL});
 
 	yutani_globals_t * yg = in;
-	while (1) {
+	while (yg->server) {
 		/*
 		 * Perform whatever redraw work is required.
 		 */
@@ -971,6 +971,8 @@ void * redraw(void * in) {
 		 */
 		usleep(16666);
 	}
+
+	return NULL;
 }
 
 /**
@@ -2058,6 +2060,7 @@ int main(int argc, char * argv[]) {
 								yutani_msg_buildx_session_end_alloc(response);
 								yutani_msg_buildx_session_end(response);
 								pex_broadcast(server, response->size, (char *)response);
+								yg->server = NULL;
 								kill(render_thread.id, SIGINT);
 								exit(0);
 							}
@@ -2130,7 +2133,9 @@ int main(int argc, char * argv[]) {
 
 			if (hashmap_is_empty(yg->clients_to_windows)) {
 				TRACE("Last compositor client disconnected, exiting.");
-				return 0;
+				yg->server = NULL;
+				kill(render_thread.id, SIGINT);
+				exit(0);
 			}
 
 			free(p);
