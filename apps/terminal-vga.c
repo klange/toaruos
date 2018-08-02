@@ -1061,7 +1061,7 @@ int main(int argc, char ** argv) {
 			fprintf(stderr, "Failed to launch requested startup application.\n");
 		} else {
 			if (_login_shell) {
-				char * tokens[] = {"/bin/login",NULL};
+				char * tokens[] = {"/bin/login-loop",NULL};
 				execvp(tokens[0], tokens);
 				exit(1);
 			} else {

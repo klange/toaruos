@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 void set_console(void) {
-	int _stdin  = syscall_open("/dev/null", 0, 0);
+	int _stdin  = syscall_open("/dev/ttyS0", 0, 0);
 	int _stdout = syscall_open("/dev/ttyS0", 1, 0);
 	int _stderr = syscall_open("/dev/ttyS0", 1, 0);
 
@@ -36,8 +36,8 @@ void set_hostname(void) {
 }
 
 int start_options(char * args[]) {
-	int pid = syscall_fork();
-	if (!pid) {
+	int cpid = syscall_fork();
+	if (!cpid) {
 		char * _envp[] = {
 			"LD_LIBRARY_PATH=/lib:/usr/lib",
 			"PATH=/bin:/usr/bin",
@@ -51,8 +51,14 @@ int start_options(char * args[]) {
 		int pid = 0;
 		do {
 			pid = wait(NULL);
+			if (pid == cpid) {
+				break;
+			}
 		} while ((pid > 0) || (pid == -1 && errno == EINTR));
 	}
+
+	syscall_reboot();
+
 	return 0;
 }
 

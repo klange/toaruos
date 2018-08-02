@@ -258,7 +258,7 @@ fast: image.iso
 .PHONY: headless
 headless: image.iso
 	@qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
-	  -nographic \
+	  -nographic -no-reboot \
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
 .PHONY: efi64

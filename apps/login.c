@@ -43,6 +43,8 @@ void sig_segv(int sig) {
 
 int main(int argc, char ** argv) {
 
+	int uid;
+
 	printf("\n");
 	system("uname -a");
 	printf("\n");
@@ -52,8 +54,9 @@ int main(int argc, char ** argv) {
 	signal(SIGSEGV, sig_segv);
 
 	while (1) {
-		char * username = malloc(sizeof(char) * 1024);
-		char * password = malloc(sizeof(char) * 1024);
+
+		char username[1024] = {0};
+		char password[1024] = {0};
 
 		/* TODO: gethostname() */
 		char _hostname[256];
@@ -94,7 +97,7 @@ int main(int argc, char ** argv) {
 		tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 		fprintf(stdout, "\n");
 
-		int uid = toaru_auth_check_pass(username, password);
+		uid = toaru_auth_check_pass(username, password);
 
 		if (uid < 0) {
 			sleep(2);
@@ -102,31 +105,31 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 
-		system("cat /etc/motd");
-
-		pid_t pid = getpid();
-
-		pid_t f = fork();
-		if (getpid() != pid) {
-			setuid(uid);
-			toaru_auth_set_vars();
-			char * args[] = {
-				getenv("SHELL"),
-				NULL
-			};
-			execvp(args[0], args);
-			return 1;
-		} else {
-			child = f;
-			int result;
-			do {
-				result = waitpid(f, NULL, 0);
-			} while (result < 0);
-		}
-		child = 0;
-		free(username);
-		free(password);
+		break;
 	}
+
+	system("cat /etc/motd");
+
+	pid_t pid = getpid();
+
+	pid_t f = fork();
+	if (getpid() != pid) {
+		setuid(uid);
+		toaru_auth_set_vars();
+		char * args[] = {
+			getenv("SHELL"),
+			NULL
+		};
+		execvp(args[0], args);
+		return 1;
+	} else {
+		child = f;
+		int result;
+		do {
+			result = waitpid(f, NULL, 0);
+		} while (result < 0);
+	}
+	child = 0;
 
 	return 0;
 }
