@@ -8,13 +8,13 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <syscall.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <va_list.h>
 #include <time.h>
 #include <string.h>
+#include <sys/fswait.h>
 
 #define _ITALIC "\033[3m"
 #define _END    "\033[0m\n"
@@ -495,7 +495,7 @@ int main(int argc, char * argv[]) {
 	int buf_p = 0;
 
 	while (1) {
-		int index = syscall_fswait2(2,fds,200);
+		int index = fswait2(2,fds,200);
 
 		if (index == 1) {
 			/* stdin */

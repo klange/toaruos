@@ -4,7 +4,7 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include <syscall.h>
+#include <sys/fswait.h>
 
 static struct termios old;
 
@@ -21,7 +21,7 @@ static void set_buffered() {
 
 static int getc_timeout(FILE * f, int timeout) {
 	int fds[1] = {fileno(f)};
-	int index = syscall_fswait2(1,fds,timeout);
+	int index = fswait2(1,fds,timeout);
 	if (index == 0) {
 		return fgetc(f);
 	} else {

@@ -5,13 +5,13 @@
  * Generic Graphics library for ToaruOS
  */
 
-#include <syscall.h>
 #include <stdint.h>
-
-#include <sys/ioctl.h>
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <fcntl.h>
+
+#include <sys/ioctl.h>
 
 #include <xmmintrin.h>
 #include <emmintrin.h>
@@ -87,7 +87,7 @@ gfx_context_t * init_graphics_fullscreen() {
 	out->clips = NULL;
 
 	if (!framebuffer_fd) {
-		framebuffer_fd = syscall_open("/dev/fb0", 0, 0);
+		framebuffer_fd = open("/dev/fb0", 0, 0);
 	}
 	if (framebuffer_fd < 0) {
 		/* oh shit */
@@ -95,11 +95,11 @@ gfx_context_t * init_graphics_fullscreen() {
 		return NULL;
 	}
 
-	syscall_ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
-	syscall_ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
-	syscall_ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
-	syscall_ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
-	syscall_ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
+	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
+	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
+	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
+	ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
+	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
 
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
 	out->backbuffer = out->buffer;
@@ -108,7 +108,7 @@ gfx_context_t * init_graphics_fullscreen() {
 
 uint32_t framebuffer_stride(void) {
 	uint32_t stride;
-	syscall_ioctl(framebuffer_fd, IO_VID_STRIDE, &stride);
+	ioctl(framebuffer_fd, IO_VID_STRIDE, &stride);
 	return stride;
 }
 
@@ -121,9 +121,9 @@ gfx_context_t * init_graphics_fullscreen_double_buffer() {
 
 void reinit_graphics_fullscreen(gfx_context_t * out) {
 
-	syscall_ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
-	syscall_ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
-	syscall_ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
+	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
+	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
+	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
 
 	out->size = GFX_H(out) * GFX_W(out) * GFX_B(out);
 
@@ -134,10 +134,10 @@ void reinit_graphics_fullscreen(gfx_context_t * out) {
 	}
 
 	if (out->buffer != out->backbuffer) {
-		syscall_ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
+		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
 		out->backbuffer = realloc(out->backbuffer, sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
 	} else {
-		syscall_ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
+		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
 		out->backbuffer = out->buffer;
 	}
 

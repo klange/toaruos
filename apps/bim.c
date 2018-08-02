@@ -26,7 +26,7 @@
 #include <stdio_ext.h>
 #define BACKSPACE_KEY 0x7F
 #else
-#include <syscall.h>
+#include <sys/fswait.h>
 #define BACKSPACE_KEY 0x08
 #endif
 
@@ -70,12 +70,16 @@ int bim_getch(void) {
 		return out;
 	}
 	int fds[] = {STDIN_FILENO};
-	int index = syscall_fswait2(1,fds,200);
+#ifdef __linux__
+#error Need to replace fswait2 with select/poll
+#else
+	int index = fswait2(1,fds,200);
 	if (index == 0) {
 		return fgetc(stdin);
 	} else {
 		return -1;
 	}
+#endif
 }
 
 typedef struct _env {

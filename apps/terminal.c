@@ -17,19 +17,21 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <errno.h>
+#include <pty.h>
+
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <getopt.h>
-#include <errno.h>
+#include <sys/fswait.h>
 
 #include <wchar.h>
 
@@ -48,9 +50,6 @@
 
 #include "terminal-palette.h"
 #include "terminal-font.h"
-
-
-#define USE_BELL 0
 
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
@@ -74,7 +73,6 @@ uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen m
 uint8_t  _no_frame      = 0;    /* Whether to disable decorations or not */
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 uint8_t  _use_sdf       = 1;    /* Whether or not to use SDF text rendering */
-uint8_t  _force_kernel  = 0;
 uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 uint8_t  _free_size     = 1;    /* Disable rounding when resized */
 
@@ -985,15 +983,7 @@ void term_write(char c) {
 			draw_cursor();
 		} else if (c == '\007') {
 			/* bell */
-#if USE_BELL
-			for (int i = 0; i < term_height; ++i) {
-				for (int j = 0; j < term_width; ++j) {
-					cell_redraw_inverted(j, i);
-				}
-			}
-			syscall_nanosleep(0,10);
-			term_redraw_all();
-#endif
+			/* XXX play sound */
 		} else if (c == '\b') {
 			if (csr_x > 0) {
 				--csr_x;
@@ -1158,19 +1148,6 @@ void term_clear(int i) {
 	}
 	flush_unused_images();
 }
-
-#if 0
-char * loadMemFont(char * name, char * ident, size_t * size) {
-	size_t s = 0;
-	int error;
-	char tmp[100];
-	snprintf(tmp, 100, "sys.%s.fonts.%s", yctx->server_ident, ident);
-
-	char * font = (char *)syscall_shm_obtain(tmp, &s);
-	*size = s;
-	return font;
-}
-#endif
 
 #define INPUT_SIZE 1024
 char input_buffer[INPUT_SIZE];
@@ -1850,7 +1827,6 @@ int main(int argc, char ** argv) {
 		{"scale",      required_argument, 0, 's'},
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
-		{"kernel",     no_argument,       0, 'k'},
 		{"grid",       no_argument,       0, 'x'},
 		{"no-frame",   no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
@@ -1859,16 +1835,13 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxnFlks:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxnFls:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
 			}
 		}
 		switch (c) {
-			case 'k':
-				_force_kernel = 1;
-				break;
 			case 'x':
 				_free_size = 0;
 				break;
@@ -2001,7 +1974,7 @@ int main(int argc, char ** argv) {
 
 	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
 
-	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
+	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
 
 	terminal = fdopen(fd_slave, "w");
 
@@ -2040,11 +2013,6 @@ int main(int argc, char ** argv) {
 		return 1;
 	} else {
 
-		if (_force_kernel) {
-			/* Request kernel output to this terminal */
-			//syscall_system_function(4, (char **)fd_slave);
-		}
-
 		child_pid = f;
 
 		int fds[2] = {fileno(yctx->sock), fd_master};
@@ -2052,7 +2020,7 @@ int main(int argc, char ** argv) {
 		unsigned char buf[1024];
 		while (!exit_application) {
 
-			int index = syscall_fswait2(2,fds,200);
+			int index = fswait2(2,fds,200);
 
 			check_for_exit();
 

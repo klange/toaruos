@@ -10,7 +10,6 @@
  */
 #include <stdlib.h>
 #include <assert.h>
-#include <syscall.h>
 #include <unistd.h>
 
 #include <toaru/yutani.h>

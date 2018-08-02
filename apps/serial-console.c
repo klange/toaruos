@@ -12,12 +12,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <syscall.h>
 #include <signal.h>
 #include <string.h>
 #include <termios.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/fswait.h>
 
 int fd = 0;
 
@@ -91,7 +91,7 @@ int main(int argc, char ** argv) {
 	int fds[2] = {STDIN_FILENO, fd};
 
 	while (1) {
-		int index = syscall_fswait(2, fds);
+		int index = fswait(2, fds);
 
 		if (index == -1) {
 			fprintf(stderr, "serial-console: fswait: erroneous file descriptor\n");

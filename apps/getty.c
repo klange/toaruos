@@ -5,7 +5,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <syscall.h>
+#include <pty.h>
+#include <sys/fswait.h>
 
 int main(int argc, char * argv[]) {
 	int fd_master, fd_slave, fd_serial;
@@ -22,7 +23,7 @@ int main(int argc, char * argv[]) {
 			file = argv[1];
 		}
 
-		syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
+		openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
 		fd_serial = open(file, O_RDWR);
 
 		if (!fork()) {
@@ -40,7 +41,7 @@ int main(int argc, char * argv[]) {
 			int fds[2] = {fd_serial, fd_master};
 
 			while (1) {
-				int index = syscall_fswait2(2,fds,200);
+				int index = fswait2(2,fds,200);
 				char buf[1024];
 				int r;
 				switch (index) {

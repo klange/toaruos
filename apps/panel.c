@@ -22,12 +22,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
-#include <syscall.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/fswait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -1222,7 +1222,7 @@ int main (int argc, char ** argv) {
 
 	while (_continue) {
 
-		int index = syscall_fswait2(1,fds,200);
+		int index = fswait2(1,fds,200);
 
 		if (index == 0) {
 			/* Respond to Yutani events */

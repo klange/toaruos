@@ -23,7 +23,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <math.h>
-#include <syscall.h>
+#include <sched.h>
 #include <sys/time.h>
 
 #include <toaru/yutani.h>
@@ -295,7 +295,7 @@ int main (int argc, char ** argv) {
 			}
 			free(m);
 		} else {
-			syscall_yield();
+			sched_yield();
 		}
 	}
 

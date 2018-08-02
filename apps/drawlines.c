@@ -8,10 +8,10 @@
  */
 #include <stdlib.h>
 #include <assert.h>
-#include <syscall.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
+#include <sched.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -67,7 +67,7 @@ int main (int argc, char ** argv) {
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							should_exit = 1;
-							syscall_yield();
+							sched_yield();
 						}
 					}
 					break;

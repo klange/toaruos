@@ -9,7 +9,6 @@
  */
 #include <stdio.h>
 #include <sys/stat.h>
-#include <syscall.h>
 #include <stdint.h>
 #include <string.h>
 

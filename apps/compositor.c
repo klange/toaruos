@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/fswait.h>
 #include <pthread.h>
 
 #include <toaru/graphics.h>
@@ -2012,7 +2013,7 @@ int main(int argc, char * argv[]) {
 
 	while (1) {
 		if (yutani_options.nested) {
-			int index = syscall_fswait(2, fds);
+			int index = fswait(2, fds);
 
 			if (index == 1) {
 				yutani_msg_t * m = yutani_poll(yg->host_context);
@@ -2069,7 +2070,7 @@ int main(int argc, char * argv[]) {
 				continue;
 			}
 		} else {
-			int index = syscall_fswait(amfd == -1 ? 3 : 4, fds);
+			int index = fswait(amfd == -1 ? 3 : 4, fds);
 
 			if (index == 2) {
 				unsigned char buf[1];

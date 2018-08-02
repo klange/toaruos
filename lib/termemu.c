@@ -23,11 +23,8 @@ static void _spin_unlock(volatile int * foo) { return; }
 #include <string.h>
 #include <stdio.h>
 
-#include <syscall.h>
-
 #include <toaru/graphics.h>
 #include <toaru/termemu.h>
-
 
 #include <toaru/spinlock.h>
 #define _spin_lock spin_lock

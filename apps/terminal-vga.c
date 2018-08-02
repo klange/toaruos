@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -21,6 +20,8 @@
 #include <sys/wait.h>
 #include <getopt.h>
 #include <errno.h>
+#include <pty.h>
+#include <sys/fswait.h>
 
 #include <wchar.h>
 
@@ -631,15 +632,6 @@ void term_write(char c) {
 			draw_cursor();
 		} else if (c == '\007') {
 			/* bell */
-#if USE_BELL
-			for (int i = 0; i < term_height; ++i) {
-				for (int j = 0; j < term_width; ++j) {
-					cell_redraw_inverted(j, i);
-				}
-			}
-			syscall_nanosleep(0,10);
-			term_redraw_all();
-#endif
 		} else if (c == '\b') {
 			if (csr_x > 0) {
 				--csr_x;
@@ -1038,7 +1030,7 @@ int main(int argc, char ** argv) {
 
 	putenv("TERM=toaru");
 
-	syscall_openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
+	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
 
 	terminal = fdopen(fd_slave, "w");
 
@@ -1116,7 +1108,7 @@ int main(int argc, char ** argv) {
 		unsigned char buf[1024];
 		while (!exit_application) {
 
-			int index = syscall_fswait2(amfd == -1 ? 3 : 4,fds,200);
+			int index = fswait2(amfd == -1 ? 3 : 4,fds,200);
 
 			check_for_exit();
 

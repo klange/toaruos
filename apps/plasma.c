@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
-#include <syscall.h>
 #include <wait.h>
 #include <pthread.h>
+#include <sched.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -85,7 +85,7 @@ void * draw_thread(void * garbage) {
 		flip(ctx);
 		yutani_flip(yctx, wina);
 		spin_unlock(&draw_lock);
-		syscall_yield();
+		sched_yield();
 	}
 	return NULL;
 }
