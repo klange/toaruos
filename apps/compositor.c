@@ -2128,6 +2128,11 @@ int main(int argc, char * argv[]) {
 				free(client_list);
 			}
 
+			if (hashmap_is_empty(yg->clients_to_windows)) {
+				TRACE("Last compositor client disconnected, exiting.");
+				return 0;
+			}
+
 			free(p);
 			continue;
 		}

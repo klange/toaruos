@@ -17,6 +17,7 @@
 
 #include <sys/wait.h>
 
+#include <toaru/yutani.h>
 #include <toaru/auth.h>
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "glogin"
@@ -28,6 +29,7 @@ int main (int argc, char ** argv) {
 
 	/* Ensure a somewhat sane environment going in */
 	TRACE("Graphical login starting.");
+	yutani_init();
 
 	setenv("USER", "root", 1);
 	setenv("HOME", "/", 1);

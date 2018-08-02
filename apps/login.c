@@ -74,6 +74,11 @@ int main(int argc, char ** argv) {
 		}
 		username[strlen(username)-1] = '\0';
 
+		if (!strcmp(username, "reboot")) {
+			/* Quick hack so vga text mode login can exit */
+			system("reboot");
+		}
+
 		fprintf(stdout, "password: ");
 		fflush(stdout);
 
