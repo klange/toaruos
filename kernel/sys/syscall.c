@@ -438,14 +438,22 @@ static void inspect_memory (uintptr_t vaddr) {
 }
 */
 
+extern void idt_load(uint32_t *);
+
 static int sys_reboot(void) {
 	debug_print(NOTICE, "[kernel] Reboot requested from process %d by user #%d", current_process->id, current_process->user);
 	if (current_process->user != USER_ROOT_UID) {
 		return -EPERM;
 	} else {
-		debug_print(NOTICE, "[kernel] Good bye!");
+		debug_print(ERROR, "[kernel] Good bye!");
 		/* Goodbye, cruel world */
 		IRQ_OFF;
+		uintptr_t phys;
+		uint32_t * virt = (void*)kvmalloc_p(0x1000, &phys);
+		virt[0] = 0;
+		virt[1] = 0;
+		virt[2] = 0;
+		idt_load(virt);
 		uint8_t out = 0x02;
 		while ((out & 0x02) != 0) {
 			out = inportb(0x64);
