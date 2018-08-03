@@ -37,7 +37,7 @@ static void vbox_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 
 #define VMMCAP_SeamlessMode (1 << 0)
 #define VMMCAP_HostWindows (1 << 1)
-#define VMMCAP_MouseIntegration (1 << 2)
+#define VMMCAP_Graphics (1 << 2)
 
 #define VMMDEV_VERSION 0x00010003
 #define VBOX_REQUEST_HEADER_VERSION 0x10001
@@ -300,7 +300,7 @@ static int vbox_check(void) {
 		caps->header.rc = 0;
 		caps->header.reserved1 = 0;
 		caps->header.reserved2 = 0;
-		caps->caps = VMMCAP_MouseIntegration | VMMCAP_SeamlessMode;
+		caps->caps = VMMCAP_Graphics | VMMCAP_SeamlessMode;
 		outportl(vbox_port, vbox_phys);
 
 		vbox_irq_ack = (void*)kvmalloc_p(0x1000, &vbox_phys_ack);
