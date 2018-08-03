@@ -977,9 +977,10 @@ void handle_mouse_event(mouse_device_packet_t * packet) {
 
 }
 
+static int rel_mouse_x = 0;
+static int rel_mouse_y = 0;
+
 void handle_mouse(mouse_device_packet_t * packet) {
-	static int rel_mouse_x = 0;
-	static int rel_mouse_y = 0;
 	rel_mouse_x += packet->x_difference;
 	rel_mouse_y -= packet->y_difference;
 
@@ -996,6 +997,10 @@ void handle_mouse(mouse_device_packet_t * packet) {
 void handle_mouse_abs(mouse_device_packet_t * packet) {
 	mouse_x = packet->x_difference / MOUSE_X_R;
 	mouse_y = packet->y_difference / MOUSE_Y_R;
+
+	rel_mouse_x = mouse_x * 20;
+	rel_mouse_y = mouse_y * 40;
+
 	handle_mouse_event(packet);
 }
 
