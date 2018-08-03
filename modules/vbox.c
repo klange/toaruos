@@ -27,6 +27,18 @@ static void vbox_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	}
 }
 
+#define VMM_GetMouseState 1
+#define VMM_SetMouseState 2
+#define VMM_AcknowledgeEvents 41
+#define VMM_ReportGuestInfo 50
+#define VMM_GetDisplayChangeRequest 51
+#define VMM_ReportGuestCapabilities 55
+#define VMM_VideoSetVisibleRegion 72
+
+#define VMMCAP_SeamlessMode (1 << 0)
+#define VMMCAP_HostWindows (1 << 1)
+#define VMMCAP_MouseIntegration (1 << 2)
+
 #define VMMDEV_VERSION 0x00010003
 #define VBOX_REQUEST_HEADER_VERSION 0x10001
 struct vbox_header {
@@ -69,6 +81,19 @@ struct vbox_mouse {
 	int32_t y;
 };
 
+struct vbox_rtrect {
+	int32_t xLeft;
+	int32_t yTop;
+	int32_t xRight;
+	int32_t yBottom;
+};
+
+struct vbox_visibleregion {
+	struct vbox_header header;
+	uint32_t count;
+	struct vbox_rtrect rect[1];
+};
+
 
 #define EARLY_LOG_DEVICE 0x504
 static uint32_t _vbox_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -91,17 +116,18 @@ static struct vbox_mouse * vbox_m;
 static uint32_t vbox_phys_mouse;
 static struct vbox_mouse * vbox_mg;
 static uint32_t vbox_phys_mouse_get;
+static struct vbox_visibleregion * vbox_visibleregion;
+static uint32_t vbox_phys_visibleregion;
 static volatile uint32_t * vbox_vmmdev = 0;
 
 static fs_node_t * mouse_pipe;
+static fs_node_t * rect_pipe;
 
 #define PACKETS_IN_PIPE 1024
 #define DISCARD_POINT 32
 
 static int vbox_irq_handler(struct regs *r) {
 	if (!vbox_vmmdev[2]) return 0;
-
-	fprintf(&vb, "IRQ IRQ IRQ\n");
 
 	vbox_irq_ack->events = vbox_vmmdev[2];
 	outportl(vbox_port, vbox_phys_ack);
@@ -150,7 +176,7 @@ void vbox_set_log(void) {
 static void mouse_on_off(unsigned int status) {
 	vbox_m->header.size = sizeof(struct vbox_mouse);
 	vbox_m->header.version = VBOX_REQUEST_HEADER_VERSION;
-	vbox_m->header.requestType = 2;
+	vbox_m->header.requestType = VMM_SetMouseState;
 	vbox_m->header.rc = 0;
 	vbox_m->header.reserved1 = 0;
 	vbox_m->header.reserved2 = 0;
@@ -174,6 +200,44 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 	return -1;
 }
 
+uint32_t write_rectpipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	(void)node;
+	(void)offset;
+
+	/* TODO should check size */
+
+	/* This is kinda special and always assumes everything was written at once. */
+	uint32_t count = ((uint32_t *)buffer)[0];
+	vbox_visibleregion->count = count;
+
+	if (count > 254) count = 254; /* enforce maximum */
+
+#if 0
+	fprintf(&vb, "Writing %d rectangles\n", count);
+#endif
+
+	buffer += sizeof(uint32_t);
+
+	for (unsigned int i = 0; i < count; ++i) {
+		memcpy(&vbox_visibleregion->rect[i], buffer, sizeof(struct vbox_rtrect));
+#if 0
+		fprintf(&vb, "Rectangle %d is [%d,%d,%d,%d]\n",
+				i,
+				vbox_visibleregion->rect[i].xLeft,
+				vbox_visibleregion->rect[i].yTop,
+				vbox_visibleregion->rect[i].xRight,
+				vbox_visibleregion->rect[i].yBottom);
+#endif
+
+		buffer += sizeof(struct vbox_rtrect);
+	}
+
+	vbox_visibleregion->header.size = sizeof(struct vbox_header) + sizeof(uint32_t) + sizeof(int32_t) * count * 4;
+	outportl(vbox_port, vbox_phys_visibleregion);
+
+	return size;
+}
+
 static int vbox_check(void) {
 	pci_scan(vbox_scan_pci, -1, &vbox_device);
 
@@ -193,7 +257,7 @@ static int vbox_check(void) {
 		uint16_t c = pci_read_field(vbox_device, PCI_COMMAND, 2);
 		fprintf(&vb, "Command register: 0x%4x\n", c);
 		if (!!(c & (1 << 10))) {
-			fprintf(&vb, "INterrupts areadisabled\n");
+			fprintf(&vb, "Interrupts are disabled\n");
 		}
 
 
@@ -202,6 +266,14 @@ static int vbox_check(void) {
 		mouse_pipe->ioctl = ioctl_mouse;
 
 		vfs_mount("/dev/absmouse", mouse_pipe);
+
+		rect_pipe = malloc(sizeof(fs_node_t));
+		memset(rect_pipe, 0, sizeof(fs_node_t));
+		rect_pipe->mask = 0666;
+		rect_pipe->flags = FS_CHARDEVICE;
+		rect_pipe->write = write_rectpipe;
+
+		vfs_mount("/dev/vboxrects", rect_pipe);
 
 		vbox_irq = pci_get_interrupt(vbox_device);
 		debug_print(WARNING, "(vbox) device IRQ is set to %d", vbox_irq);
@@ -212,7 +284,7 @@ static int vbox_check(void) {
 		struct vbox_guest_info * packet = (void*)kvmalloc_p(0x1000, &vbox_phys);
 		packet->header.size = sizeof(struct vbox_guest_info);
 		packet->header.version = VBOX_REQUEST_HEADER_VERSION;
-		packet->header.requestType = 50;
+		packet->header.requestType = VMM_ReportGuestInfo;
 		packet->header.rc = 0;
 		packet->header.reserved1 = 0;
 		packet->header.reserved2 = 0;
@@ -224,17 +296,17 @@ static int vbox_check(void) {
 		struct vbox_guest_caps * caps = (void*)kvmalloc_p(0x1000, &vbox_phys);
 		caps->header.size = sizeof(struct vbox_guest_caps);
 		caps->header.version = VBOX_REQUEST_HEADER_VERSION;
-		caps->header.requestType = 55;
+		caps->header.requestType = VMM_ReportGuestCapabilities;
 		caps->header.rc = 0;
 		caps->header.reserved1 = 0;
 		caps->header.reserved2 = 0;
-		caps->caps = 1 << 2;
+		caps->caps = VMMCAP_MouseIntegration | VMMCAP_SeamlessMode;
 		outportl(vbox_port, vbox_phys);
 
 		vbox_irq_ack = (void*)kvmalloc_p(0x1000, &vbox_phys_ack);
 		vbox_irq_ack->header.size = sizeof(struct vbox_ack_events);
 		vbox_irq_ack->header.version = VBOX_REQUEST_HEADER_VERSION;
-		vbox_irq_ack->header.requestType = 41;
+		vbox_irq_ack->header.requestType = VMM_AcknowledgeEvents;
 		vbox_irq_ack->header.rc = 0;
 		vbox_irq_ack->header.reserved1 = 0;
 		vbox_irq_ack->header.reserved2 = 0;
@@ -244,7 +316,7 @@ static int vbox_check(void) {
 		vbox_disp = (void*)kvmalloc_p(0x1000, &vbox_phys_disp);
 		vbox_disp->header.size = sizeof(struct vbox_display_change);
 		vbox_disp->header.version = VBOX_REQUEST_HEADER_VERSION;
-		vbox_disp->header.requestType = 51;
+		vbox_disp->header.requestType = VMM_GetDisplayChangeRequest;
 		vbox_disp->header.rc = 0;
 		vbox_disp->header.reserved1 = 0;
 		vbox_disp->header.reserved2 = 0;
@@ -260,10 +332,24 @@ static int vbox_check(void) {
 		vbox_mg = (void*)kvmalloc_p(0x1000, &vbox_phys_mouse_get);
 		vbox_mg->header.size = sizeof(struct vbox_mouse);
 		vbox_mg->header.version = VBOX_REQUEST_HEADER_VERSION;
-		vbox_mg->header.requestType = 1;
+		vbox_mg->header.requestType = VMM_GetMouseState;
 		vbox_mg->header.rc = 0;
 		vbox_mg->header.reserved1 = 0;
 		vbox_mg->header.reserved2 = 0;
+
+		vbox_visibleregion = (void*)kvmalloc_p(0x1000, &vbox_phys_visibleregion);
+		vbox_visibleregion->header.size = sizeof(struct vbox_header) + sizeof(uint32_t) + sizeof(int32_t) * 4; /* TODO + more for additional rects? */
+		vbox_visibleregion->header.version = VBOX_REQUEST_HEADER_VERSION;
+		vbox_visibleregion->header.requestType = VMM_VideoSetVisibleRegion;
+		vbox_visibleregion->header.rc = 0;
+		vbox_visibleregion->header.reserved1 = 0;
+		vbox_visibleregion->header.reserved2 = 0;
+		vbox_visibleregion->count = 1;
+		vbox_visibleregion->rect[0].xLeft = 0;
+		vbox_visibleregion->rect[0].yTop = 0;
+		vbox_visibleregion->rect[0].xRight = 1440;
+		vbox_visibleregion->rect[0].yBottom = 900;
+		outportl(vbox_port, vbox_phys_visibleregion);
 
 		/* device memory region mapping? */
 		{

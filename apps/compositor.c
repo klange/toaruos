@@ -744,6 +744,61 @@ draw_finish:
 }
 
 /**
+ * VirtualBox Seamless desktop driver.
+ *
+ * Sends rectangles describing all the non-background windows
+ * to the VirtualBox Guest Additions driver for use with the
+ * seamless desktop mode.
+ */
+static void yutani_post_vbox_rects(yutani_globals_t * yg) {
+	if (yg->vbox_rects <= 0) return;
+
+	char tmp[4096];
+	uint32_t * count = (uint32_t *)tmp;
+	*count = 0;
+	int32_t * magic = (int32_t *)tmp;
+	magic++;
+
+	if (*count > 254) *count = 254; /* maximum we can support */
+
+	/* Skip the bottom window */
+	foreach (node, yg->mid_zs) {
+		yutani_server_window_t * w = node->value;
+		if (w) {
+			*magic = w->x; magic++;
+			*magic = w->y; magic++;
+			*magic = w->x + w->width; magic++;
+			*magic = w->y + w->height; magic++;
+			(*count)++;
+		}
+	}
+
+	/* Add top window if it exists */
+	if (yg->top_z) {
+		*magic = yg->top_z->x; magic++;
+		*magic = yg->top_z->y; magic++;
+		*magic = yg->top_z->x + yg->top_z->width; magic++;
+		*magic = yg->top_z->y + yg->top_z->height; magic++;
+		(*count)++;
+	}
+
+	/*
+	 * If there were no windows, show the whole desktop
+	 * so we can see, eg., the login screen.
+	 */
+	if (*count == 0) {
+		*count = 1;
+		*magic = 0; magic++;
+		*magic = 0; magic++;
+		*magic = yg->width; magic++;
+		*magic = yg->height; magic++;
+	}
+
+	/* Post rectangle data to driver */
+	write(yg->vbox_rects, tmp, sizeof(tmp));
+}
+
+/**
  * Blit all windows into the given context.
  *
  * This is called for rendering and for screenshots.
@@ -854,6 +909,9 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 */
 		spin_lock(&yg->redraw_lock);
 		yutani_blit_windows(yg);
+
+		/* Send VirtualBox rects */
+		yutani_post_vbox_rects(yg);
 
 #if YUTANI_DEBUG_WINDOW_SHAPES
 #define WINDOW_SHAPE_VIEWER_SIZE 20
@@ -2007,6 +2065,7 @@ int main(int argc, char * argv[]) {
 			amfd = open("/dev/vmmouse", O_RDONLY);
 			vmmouse = 1;
 		}
+		yg->vbox_rects = open("/dev/vboxrects", O_WRONLY);
 
 		fds[1] = mfd;
 		fds[2] = kfd;
