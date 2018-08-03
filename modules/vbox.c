@@ -29,6 +29,7 @@ static void vbox_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 
 #define VMM_GetMouseState 1
 #define VMM_SetMouseState 2
+#define VMM_SetPointerShape 3
 #define VMM_AcknowledgeEvents 41
 #define VMM_ReportGuestInfo 50
 #define VMM_GetDisplayChangeRequest 51
@@ -94,6 +95,16 @@ struct vbox_visibleregion {
 	struct vbox_rtrect rect[1];
 };
 
+struct vbox_pointershape {
+	struct vbox_header header;
+	uint32_t flags;
+	uint32_t xHot;
+	uint32_t yHot;
+	uint32_t width;
+	uint32_t height;
+	unsigned char data[];
+};
+
 
 #define EARLY_LOG_DEVICE 0x504
 static uint32_t _vbox_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -118,10 +129,16 @@ static struct vbox_mouse * vbox_mg;
 static uint32_t vbox_phys_mouse_get;
 static struct vbox_visibleregion * vbox_visibleregion;
 static uint32_t vbox_phys_visibleregion;
+static struct vbox_pointershape * vbox_pointershape;
+static uint32_t vbox_phys_pointershape;
+
 static volatile uint32_t * vbox_vmmdev = 0;
 
 static fs_node_t * mouse_pipe;
 static fs_node_t * rect_pipe;
+static fs_node_t * pointer_pipe;
+
+static int mouse_state;
 
 #define PACKETS_IN_PIPE 1024
 #define DISCARD_POINT 32
@@ -170,10 +187,12 @@ void vbox_set_log(void) {
 	debug_file = &vb;
 }
 
-#define VBOX_MOUSE_ON (1 << 0) | (1 << 4)
+#define VBOX_MOUSE_ON (1 << 0) | (1 << 4) | (1 << 2)
 #define VBOX_MOUSE_OFF (0)
 
 static void mouse_on_off(unsigned int status) {
+	mouse_state = status;
+
 	vbox_m->header.size = sizeof(struct vbox_mouse);
 	vbox_m->header.version = VBOX_REQUEST_HEADER_VERSION;
 	vbox_m->header.requestType = VMM_SetMouseState;
@@ -198,6 +217,18 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 		return 0;
 	}
 	return -1;
+}
+
+uint32_t write_pointer(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+
+	if (!mouse_state) {
+		return -1;
+	}
+
+	memcpy(&vbox_pointershape->data[288], buffer, 48*48*4);
+	outportl(vbox_port, vbox_phys_pointershape);
+
+	return size;
 }
 
 uint32_t write_rectpipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -336,6 +367,57 @@ static int vbox_check(void) {
 		vbox_mg->header.rc = 0;
 		vbox_mg->header.reserved1 = 0;
 		vbox_mg->header.reserved2 = 0;
+
+		vbox_pointershape = (void*)kvmalloc_p(0x4000, &vbox_phys_pointershape);
+		if (vbox_pointershape) {
+			fprintf(&vb, "Got a valid set of pages to load up a cursor.\n");
+			vbox_pointershape->header.version = VBOX_REQUEST_HEADER_VERSION;
+			vbox_pointershape->header.requestType = VMM_SetPointerShape;
+			vbox_pointershape->header.rc = 0;
+			vbox_pointershape->header.reserved1 = 0;
+			vbox_pointershape->header.reserved2 = 0;
+			vbox_pointershape->flags = (1 << 0) | (1 << 1) | (1 << 2);
+			vbox_pointershape->xHot = 26;
+			vbox_pointershape->yHot = 26;
+			vbox_pointershape->width = 48;
+			vbox_pointershape->height = 48;
+
+			unsigned int mask_bytes = ((vbox_pointershape->width + 7) / 8) * vbox_pointershape->height;
+
+			for (uint32_t i = 0; i < mask_bytes; ++i) {
+				vbox_pointershape->data[i] = 0x00;
+			}
+
+			while (mask_bytes & 3) {
+				mask_bytes++;
+			}
+			int base = mask_bytes;
+			fprintf(&vb, "mask_bytes = %d\n", mask_bytes);
+
+			vbox_pointershape->header.size = sizeof(struct vbox_pointershape) + (48*48*4)+mask_bytes; /* update later */
+
+			for (int i = 0; i < 48 * 48; ++i) {
+				vbox_pointershape->data[base+i*4] = 0x00; /* blue */
+				vbox_pointershape->data[base+i*4+1] = 0x00; /* red */
+				vbox_pointershape->data[base+i*4+2] = 0x00; /* green */
+				vbox_pointershape->data[base+i*4+3] = 0x00; /* alpha */
+			}
+			outportl(vbox_port, vbox_phys_pointershape);
+
+			if (vbox_pointershape->header.rc < 0) {
+				fprintf(&vb, "Bad response code: -%d\n", -vbox_pointershape->header.rc);
+			} else {
+				/* Success, let's install the device file */
+				fprintf(&vb, "Successfully initialized cursor, going to allow compositor to set it.\n");
+				pointer_pipe = malloc(sizeof(fs_node_t));
+				memset(pointer_pipe, 0, sizeof(fs_node_t));
+				pointer_pipe->mask = 0666;
+				pointer_pipe->flags = FS_CHARDEVICE;
+				pointer_pipe->write = write_pointer;
+
+				vfs_mount("/dev/vboxpointer", pointer_pipe);
+			}
+		}
 
 		vbox_visibleregion = (void*)kvmalloc_p(0x1000, &vbox_phys_visibleregion);
 		vbox_visibleregion->header.size = sizeof(struct vbox_header) + sizeof(uint32_t) + sizeof(int32_t) * 4; /* TODO + more for additional rects? */

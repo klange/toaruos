@@ -569,6 +569,14 @@ static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
 		mark_screen(yg, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 		previous = sprite;
 	}
+
+	if (yg->vbox_pointer > 0) {
+		if (write(yg->vbox_pointer, sprite->bitmap, 48*48*4) > 0) {
+			/* if that was successful, we don't need to draw the cursor */
+			return;
+		}
+	}
+
 	draw_sprite(yg->backend_ctx, sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
 }
 
@@ -2065,6 +2073,7 @@ int main(int argc, char * argv[]) {
 			vmmouse = 1;
 		}
 		yg->vbox_rects = open("/dev/vboxrects", O_WRONLY);
+		yg->vbox_pointer = open("/dev/vboxpointer", O_WRONLY);
 
 		fds[1] = mfd;
 		fds[2] = kfd;

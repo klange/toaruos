@@ -178,6 +178,7 @@ typedef struct {
 	int clipboard_size;
 
 	int vbox_rects;
+	int vbox_pointer;
 } yutani_globals_t;
 
 struct key_bind {
