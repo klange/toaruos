@@ -759,9 +759,16 @@ static void yutani_post_vbox_rects(yutani_globals_t * yg) {
 	int32_t * magic = (int32_t *)tmp;
 	magic++;
 
-	if (*count > 254) *count = 254; /* maximum we can support */
+	/* Add top window if it exists */
+	if (yg->top_z) {
+		*magic = yg->top_z->x; magic++;
+		*magic = yg->top_z->y; magic++;
+		*magic = yg->top_z->x + yg->top_z->width; magic++;
+		*magic = yg->top_z->y + yg->top_z->height; magic++;
+		(*count)++;
+	}
 
-	/* Skip the bottom window */
+	/* Add regular windows */
 	foreach (node, yg->mid_zs) {
 		yutani_server_window_t * w = node->value;
 		if (w) {
@@ -770,16 +777,8 @@ static void yutani_post_vbox_rects(yutani_globals_t * yg) {
 			*magic = w->x + w->width; magic++;
 			*magic = w->y + w->height; magic++;
 			(*count)++;
+			if (*count == 254) break;
 		}
-	}
-
-	/* Add top window if it exists */
-	if (yg->top_z) {
-		*magic = yg->top_z->x; magic++;
-		*magic = yg->top_z->y; magic++;
-		*magic = yg->top_z->x + yg->top_z->width; magic++;
-		*magic = yg->top_z->y + yg->top_z->height; magic++;
-		(*count)++;
 	}
 
 	/*
