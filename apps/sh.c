@@ -244,10 +244,10 @@ void tab_complete_func(rline_context_t * c) {
 		complete_mode = COMPLETE_COMMAND;
 	}
 
-	/* term-set has some commands to complete */
-	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "term-set")) {
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "toggle-abs-mouse")) {
 		complete_mode = COMPLETE_CUSTOM;
 	}
+
 
 	/* complete variable names */
 	if (*prefix == '$') {
@@ -323,10 +323,10 @@ void tab_complete_func(rline_context_t * c) {
 	} else if (complete_mode == COMPLETE_CUSTOM) {
 
 		char ** completions = NULL;
-		char * term_set_completions[] = {"scale","size","gamma","sdf","alpha",NULL};
+		char * toggle_abs_mouse_completions[] = {"relative","absolute",NULL};
 
-		if (!strcmp(argv[command_adj],"term-set")) {
-			completions = term_set_completions;
+		if (!strcmp(argv[command_adj],"toggle-abs-mouse")) {
+			completions = toggle_abs_mouse_completions;
 		}
 
 		while (*completions) {
