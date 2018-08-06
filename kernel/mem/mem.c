@@ -297,6 +297,17 @@ void paging_install(uint32_t memsize) {
 	uintptr_t phys;
 	kernel_directory = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t),&phys);
 	memset(kernel_directory, 0, sizeof(page_directory_t));
+
+	/* Set PAT 111b to Write-Combining */
+	asm volatile (
+		"mov $0x277, %%ecx\n" /* IA32_MSR_PAT */
+		"rdmsr\n"
+		"or $0x1000000, %%edx\n" /* set bit 56 */
+		"and $0xf9ffffff, %%edx\n" /* unset bits 57, 58 */
+		"wrmsr\n"
+		: : : "ecx", "edx", "eax"
+	);
+
 }
 
 void paging_mark_system(uint64_t addr) {

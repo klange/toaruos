@@ -278,7 +278,11 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 		/* Enable the higher memory */
 		uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
 		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+			page_t * p = get_page(i, 1, kernel_directory);
+			dma_frame(p, 0, 1, i);
+			p->pat = 1;
+			p->writethrough = 1;
+			p->cachedisable = 1;
 		}
 
 		goto mem_found;
@@ -291,7 +295,11 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 		for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
 			/* Enable the higher memory */
 			for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-				dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+				page_t * p = get_page(i, 1, kernel_directory);
+				dma_frame(p, 0, 1, i);
+				p->pat = 1;
+				p->writethrough = 1;
+				p->cachedisable = 1;
 			}
 
 			/* Go find it */
@@ -336,7 +344,11 @@ static void graphics_install_preset(uint16_t w, uint16_t h) {
 		debug_print(WARNING, "Mode was set by bootloader: %dx%d bpp should be 32, framebuffer is at 0x%x", w, h, (uintptr_t)lfb_vid_memory);
 
 		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+			page_t * p = get_page(i, 1, kernel_directory);
+			dma_frame(p, 0, 1, i);
+			p->pat = 1;
+			p->writethrough = 1;
+			p->cachedisable = 1;
 		}
 		goto mem_found;
 	}
@@ -364,7 +376,11 @@ static void graphics_install_preset(uint16_t w, uint16_t h) {
 	for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
 		/* Enable the higher memory */
 		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+			page_t * p = get_page(i, 1, kernel_directory);
+			dma_frame(p, 0, 1, i);
+			p->pat = 1;
+			p->writethrough = 1;
+			p->cachedisable = 1;
 		}
 
 		/* Go find it */
@@ -471,7 +487,11 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 
 	uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
 	for (uintptr_t i = fb_offset; i <= fb_offset + fb_size; i += 0x1000) {
-		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		page_t * p = get_page(i, 1, kernel_directory);
+		dma_frame(p, 0, 1, i);
+		p->pat = 1;
+		p->writethrough = 1;
+		p->cachedisable = 1;
 	}
 
 	finalize_graphics(w,h,32,bpl);

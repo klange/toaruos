@@ -8,7 +8,11 @@ typedef struct page {
 	unsigned int user:1;
 	unsigned int writethrough:1;
 	unsigned int cachedisable:1;
-	unsigned int unused:7;
+	unsigned int accessed:1;
+	unsigned int dirty:1;
+	unsigned int pat:1;
+	unsigned int global:1;
+	unsigned int unused:3;
 	unsigned int frame:20;
 } __attribute__((packed)) page_t;
 
