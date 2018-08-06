@@ -265,6 +265,9 @@ static uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	unsigned int total = memory_total();
 	unsigned int free  = total - memory_use();
 	unsigned int kheap = (heap_end - kernel_heap_alloc_point) / 1024;
+
+
+
 	sprintf(buf,
 		"MemTotal: %d kB\n"
 		"MemFree: %d kB\n"
@@ -278,6 +281,60 @@ static uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	memcpy(buffer, buf + offset, size);
 	return size;
 }
+
+static uint32_t pat_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char buf[1024];
+
+	uint64_t pat_values;
+	asm volatile ( "rdmsr" : "=A" (pat_values) : "c" (0x277) );
+
+	char * pat_names[] = {
+		"uncacheable (UC)",
+		"write combining (WC)",
+		"Reserved",
+		"Reserved",
+		"write through (WT)",
+		"write protected (WP)",
+		"write back (WB)",
+		"uncached (UC-)"
+	};
+
+	int pa_0 = (pat_values >>  0) & 0x7;
+	int pa_1 = (pat_values >>  8) & 0x7;
+	int pa_2 = (pat_values >> 16) & 0x7;
+	int pa_3 = (pat_values >> 24) & 0x7;
+	int pa_4 = (pat_values >> 32) & 0x7;
+	int pa_5 = (pat_values >> 40) & 0x7;
+	int pa_6 = (pat_values >> 48) & 0x7;
+	int pa_7 = (pat_values >> 56) & 0x7;
+
+	sprintf(buf,
+			"PA0: %d %s\n"
+			"PA1: %d %s\n"
+			"PA2: %d %s\n"
+			"PA3: %d %s\n"
+			"PA4: %d %s\n"
+			"PA5: %d %s\n"
+			"PA6: %d %s\n"
+			"PA7: %d %s\n",
+			pa_0, pat_names[pa_0],
+			pa_1, pat_names[pa_1],
+			pa_2, pat_names[pa_2],
+			pa_3, pat_names[pa_3],
+			pa_4, pat_names[pa_4],
+			pa_5, pat_names[pa_5],
+			pa_6, pat_names[pa_6],
+			pa_7, pat_names[pa_7]
+	);
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) return 0;
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	return size;
+}
+
 
 static uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
@@ -573,6 +630,7 @@ static struct procfs_entry std_entries[] = {
 	{-10,"filesystems", filesystems_func},
 	{-11,"loader",   loader_func},
 	{-12,"irq",      irq_func},
+	{-13,"pat",      pat_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
