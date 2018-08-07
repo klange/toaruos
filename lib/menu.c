@@ -901,5 +901,9 @@ int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_
 		_entries++;
 	}
 
+	if (x >= offset && me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+		yutani_window_drag_start(yctx, window);
+	}
+
 	return 0;
 }
