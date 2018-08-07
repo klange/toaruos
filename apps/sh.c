@@ -160,6 +160,7 @@ void draw_prompt(int ret) {
 	fflush(stdout);
 }
 
+volatile int break_while = 0;
 uint32_t child = 0;
 
 void sig_pass(int sig) {
@@ -167,6 +168,7 @@ void sig_pass(int sig) {
 	if (child) {
 		kill(child, sig);
 	}
+	break_while = sig;
 }
 
 void redraw_prompt_func(rline_context_t * context) {
@@ -1123,10 +1125,133 @@ uint32_t shell_cmd_help(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_if(int argc, char * argv[]) {
+	char ** if_args = &argv[1];
+	char ** then_args = NULL;
+	char ** else_args = NULL;
+
+	for (int i = 2; i < argc; ++i) {
+		if (!strcmp(argv[i],"then")) {
+			argv[i] = NULL;
+			then_args = &argv[i+1];
+		} else if (!strcmp(argv[i],"else")) {
+			argv[i] = NULL;
+			else_args = &argv[i+1];
+		}
+	}
+
+	if (!then_args) {
+		fprintf(stderr, "%s: syntax error: expected 'then' clause\n", argv[0]);
+		return 1;
+	}
+
+	if (else_args && else_args < then_args) {
+		fprintf(stderr, "%s: syntax error: 'else' clause before 'then' clase\n", argv[0]);
+		return 1;
+	}
+
+	pid_t child_pid = fork();
+	if (!child_pid) {
+		run_cmd(if_args);
+	}
+	tcsetpgrp(STDIN_FILENO, child_pid);
+
+	child = child_pid;
+
+	int pid, ret_code = 0;
+	do {
+		pid = waitpid(-1, &ret_code, 0);
+	} while (pid != -1 || (pid == -1 && errno != ECHILD));
+
+	child = 0;
+
+	if (ret_code == 0) {
+		child_pid = fork();
+		if (!child_pid) {
+			run_cmd(then_args);
+		}
+		tcsetpgrp(STDIN_FILENO, child_pid);
+		child = child_pid;
+		do {
+			pid = waitpid(-1, &ret_code, 0);
+		} while (pid != -1 || (pid == -1 && errno != ECHILD));
+		child = 0;
+		tcsetpgrp(STDIN_FILENO, getpid());
+		return ret_code;
+	} else if (else_args) {
+		child_pid = fork();
+		if (!child_pid) {
+			run_cmd(else_args);
+		}
+		tcsetpgrp(STDIN_FILENO, child_pid);
+		child = child_pid;
+		do {
+			pid = waitpid(-1, &ret_code, 0);
+		} while (pid != -1 || (pid == -1 && errno != ECHILD));
+		child = 0;
+		return ret_code;
+	}
+
+	tcsetpgrp(STDIN_FILENO, getpid());
+	return 1;
+}
+
+uint32_t shell_cmd_while(int argc, char * argv[]) {
+	char ** while_args = &argv[1];
+	char ** do_args = NULL;
+
+	for (int i = 2; i < argc; ++i) {
+		if (!strcmp(argv[i],"do")) {
+			argv[i] = NULL;
+			do_args = &argv[i+1];
+		}
+	}
+
+	if (!do_args) {
+		fprintf(stderr, "%s: syntax error: expected 'do' clause\n", argv[0]);
+		return 1;
+	}
+
+	break_while = 0;
+	tcsetpgrp(STDIN_FILENO, getpid());
+
+	do {
+		pid_t child_pid = fork();
+		if (!child_pid) {
+			run_cmd(while_args);
+		}
+		child = child_pid;
+
+		int pid, ret_code = 0;
+		do {
+			pid = waitpid(-1, &ret_code, 0);
+		} while (pid != -1 || (pid == -1 && errno != ECHILD));
+		child = 0;
+
+		if (ret_code == 0) {
+			child_pid = fork();
+			if (!child_pid) {
+				run_cmd(do_args);
+			}
+			child = child_pid;
+			do {
+				pid = waitpid(-1, &ret_code, 0);
+			} while (pid != -1 || (pid == -1 && errno != ECHILD));
+			child = 0;
+		} else {
+			return ret_code;
+		}
+	} while (!break_while);
+
+	return 127;
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd, "change directory");
 	shell_install_command("exit",    shell_cmd_exit, "exit the shell");
 	shell_install_command("export",  shell_cmd_export, "set environment variables");
 	shell_install_command("help",    shell_cmd_help, "display this help text");
 	shell_install_command("history", shell_cmd_history, "list command history");
+	shell_install_command("if",      shell_cmd_if, "if ... then ... [else ...]");
+	shell_install_command("while",   shell_cmd_while, "while ... do ...");
 }
