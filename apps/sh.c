@@ -477,7 +477,9 @@ int is_number(const char * c) {
 	return 1;
 }
 
-int shell_exec(char * buffer, size_t size, FILE * file) {
+int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
+
+	*out_buffer = NULL;
 
 	/* Read previous history entries */
 	if (buffer[0] == '!') {
@@ -488,15 +490,6 @@ int shell_exec(char * buffer, size_t size, FILE * file) {
 			fprintf(stderr, "esh: !%d: event not found\n", x);
 			return 0;
 		}
-	}
-
-	char * history = malloc(strlen(buffer) + 1);
-	memcpy(history, buffer, strlen(buffer) + 1);
-
-	if (buffer[0] != ' ' && buffer[0] != '\n') {
-		rline_history_insert(history);
-	} else {
-		free(history);
 	}
 
 	char * argv[1024];
@@ -651,8 +644,13 @@ int shell_exec(char * buffer, size_t size, FILE * file) {
 						goto _new_arg;
 					}
 					goto _just_add;
+				case ';':
+					if (!quoted && !backtick) {
+						*out_buffer = ++p;
+						goto _done;
+					}
 				case '#':
-					if (!quoted && !backtick && !collected) {
+					if (!quoted && !backtick) {
 						goto _done; /* Support comments; must not be part of an existing arg */
 					}
 					goto _just_add;
@@ -1008,7 +1006,13 @@ int main(int argc, char ** argv) {
 			switch (c) {
 				case 'c':
 					shell_interactive = 0;
-					last_ret = shell_exec(optarg, strlen(optarg), NULL);
+					{
+						char * out = NULL;
+						do {
+							last_ret = shell_exec(optarg, strlen(optarg), NULL, &out);
+							optarg = out;
+						} while (optarg);
+					}
 					return (last_ret == -1) ? 0 : last_ret;
 				case 'v':
 					show_version();
@@ -1035,7 +1039,13 @@ int main(int argc, char ** argv) {
 		while (!feof(f)) {
 			char buf[LINE_LEN] = {0};
 			fgets(buf, LINE_LEN, f);
-			int ret = shell_exec(buf, LINE_LEN, f);
+			int ret;
+			char * out = NULL;
+			char * b = buf;
+			do {
+				ret = shell_exec(b, LINE_LEN, f, &out);
+				b = out;
+			} while (b);
 			if (ret >= 0) last_ret = ret;
 		}
 		return 0;
@@ -1048,7 +1058,23 @@ int main(int argc, char ** argv) {
 		char buffer[LINE_LEN] = {0};
 
 		read_entry(buffer);
-		int ret = shell_exec(buffer, LINE_LEN, stdin);
+
+		char * history = malloc(strlen(buffer) + 1);
+		memcpy(history, buffer, strlen(buffer) + 1);
+
+		if (buffer[0] != ' ' && buffer[0] != '\n' && buffer[0] != '!') {
+			rline_history_insert(history);
+		} else {
+			free(history);
+		}
+
+		int ret;
+		char * out = NULL;
+		char * b = buffer;
+		do {
+			ret = shell_exec(b, LINE_LEN, stdin, &out);
+			b = out;
+		} while (b);
 		if (ret >= 0) last_ret = ret;
 		rline_scroll = 0;
 
