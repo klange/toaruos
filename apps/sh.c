@@ -575,6 +575,9 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						quoted = 0;
 						goto _next;
 					} else if (!quoted) {
+						if (backtick) {
+							goto _just_add;
+						}
 						quoted = *p;
 						goto _next;
 					}
@@ -587,6 +590,9 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						quoted = 0;
 						goto _next;
 					} else if (!quoted) {
+						if (backtick) {
+							goto _just_add;
+						}
 						quoted = *p;
 						goto _next;
 					}
@@ -683,7 +689,8 @@ _next:
 
 _done:
 
-		if (quoted) {
+		if (quoted || backtick) {
+			backtick = 0;
 			if (shell_interactive == 1) {
 				draw_prompt_c();
 				read_entry_continued(buffer);
