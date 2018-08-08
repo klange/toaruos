@@ -214,6 +214,14 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				}
 				b = buf + i;
 				break;
+			case 'u': /* Unsigned ecimal number */
+				i = b - buf;
+				{
+					long val = (long)va_arg(args, long);
+					print_dec(val, arg_width, buf, &i, fill_zero, align);
+				}
+				b = buf + i;
+				break;
 			case 'g': /* supposed to also support e */
 			case 'f':
 				{
