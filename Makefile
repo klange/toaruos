@@ -34,12 +34,14 @@ LC=base/lib/libc.so
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
 APPS_X=$(foreach app,$(APPS),base/bin/$(app))
 APPS_Y=$(foreach app,$(filter-out init,$(APPS)),.make/$(app).mak)
+APPS_SH=$(patsubst apps/%.sh,%.sh,$(wildcard apps/*.sh))
+APPS_SH_X=$(foreach app,$(APPS_SH),base/bin/$(app))
 
 LIBS=$(patsubst lib/%.c,%,$(wildcard lib/*.c))
 LIBS_X=$(foreach lib,$(LIBS),base/lib/libtoaru_$(lib).so)
 LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
-RAMDISK_FILES= ${APPS_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
+RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
 
 all: image.iso
 
@@ -168,6 +170,10 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${APPS_Y}
 endif
 
+base/bin/%.sh: apps/%.sh
+	cp $< $@
+	chmod +x $@
+
 # Ramdisk
 
 util/devtable: ${RAMDISK_FILES} $(shell find base) util/update-devtable.py
@@ -228,7 +234,7 @@ boot/boot.o: boot/boot.s
 clean:
 	rm -f base/lib/*.so
 	rm -f base/lib/libc.a
-	rm -f ${APPS_X}
+	rm -f ${APPS_X} ${APPS_SH_X}
 	rm -f libc/*.o libc/*/*.o
 	rm -f image.iso
 	rm -f fatbase/ramdisk.img

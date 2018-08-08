@@ -1219,7 +1219,7 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 	}
 
 	tcsetpgrp(STDIN_FILENO, getpid());
-	return 1;
+	return 0;
 }
 
 uint32_t shell_cmd_while(int argc, char * argv[]) {
@@ -1272,12 +1272,75 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 	return 127;
 }
 
+uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
+
+	if (argc < 3) {
+		fprintf(stderr, "%s: syntax error: not enough arguments\n", argv[0]);
+		return 1;
+	}
+
+	int pipe_fds[2];
+	pipe(pipe_fds);
+	pid_t child_pid = fork();
+	if (!child_pid) {
+		dup2(pipe_fds[1], STDOUT_FILENO);
+		close(pipe_fds[0]);
+		run_cmd(&argv[2]);
+	}
+
+	close(pipe_fds[1]);
+
+	tcsetpgrp(STDIN_FILENO, child_pid);
+	char buf[1024];
+	size_t accum = 0;
+
+	do {
+		int r = read(pipe_fds[0], buf+accum, 1023-accum);
+
+		if (r == 0) break;
+		if (r < 0) {
+			return -r;
+		}
+
+		accum += r;
+	} while (accum < 1023);
+
+	tcsetpgrp(STDIN_FILENO, getpid());
+
+	buf[accum] = '\0';
+
+	if (accum && buf[accum-1] == '\n') {
+		buf[accum-1] = '\0';
+	}
+
+	setenv(argv[1], buf, 1);
+	return 0;
+}
+
+uint32_t shell_cmd_empty(int argc, char * argv[]) {
+
+	for (int i = 1; i < argc; i++) {
+		if (argv[i] && *argv[i]) return 1;
+	}
+
+	return 0;
+}
+
+uint32_t shell_cmd_return(int argc, char * argv[]) {
+	if (argc < 2) return 0;
+
+	return atoi(argv[1]);
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd, "change directory");
 	shell_install_command("exit",    shell_cmd_exit, "exit the shell");
-	shell_install_command("export",  shell_cmd_export, "set environment variables");
+	shell_install_command("export",  shell_cmd_export, "set environment variables: export VAR=value");
 	shell_install_command("help",    shell_cmd_help, "display this help text");
 	shell_install_command("history", shell_cmd_history, "list command history");
 	shell_install_command("if",      shell_cmd_if, "if ... then ... [else ...]");
 	shell_install_command("while",   shell_cmd_while, "while ... do ...");
+	shell_install_command("empty?",  shell_cmd_empty, "empty? args...");
+	shell_install_command("return",  shell_cmd_return, "return status code");
+	shell_install_command("export-cmd",   shell_cmd_export_cmd, "set variable to result of command: export-cmd VAR command...");
 }
