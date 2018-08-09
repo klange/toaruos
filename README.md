@@ -2,7 +2,7 @@
 
 ![screenshot](https://i.imgur.com/G8G1dwf.png)
 
-ToaruOS-NIH is a distribution of ToaruOS which contains no third-party components. Its bootloader, kernel, modules, C library, and userspace applications are all written by the ToaruOS development team and direct contributors.
+ToaruOS-NIH is a distribution of ToaruOS which contains no third-party components. Its bootloader, kernel, modules, C library, and userspace applications and libraries are all written by the ToaruOS development team and direct contributors.
 
 This distribution aims to eventually replace the core of the mainline ToaruOS, with the various third-party components building against our own C library. This is a long-term project, and developing the C library to the point where it is useful for this purpose is not expected to be completed for quite some time.
 
@@ -123,3 +123,13 @@ Our current unmet goals include:
 - **modules** - Kernel modules/drivers.
 - **util** - Utility scripts, staging directory for the toolchain (binutils/gcc).
 - **.make** - Generated Makefiles.
+
+## Mirrors
+
+ToaruOS-NIH is regularly mirrored to multiple Git hosting sites. The recommended source is [Gitlab](https://gitlab.com/toaruos/toaru-nih).
+
+- Gitlab: [toaruos/toaru-nih](https://gitlab.com/toaruos/toaru-nih)
+- GitHub: [klange/toaru-nih](https://github.com/klange/toaru-nih)
+- Bitbucket: [klange/toaru-nih](https://bitbucket.org/klange/toaru-nih)
+- ToaruOS.org: [klange/toaru-nih](https://git.toaruos.org/klange/toaru-nih)
+
