@@ -1,10 +1,18 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <time.h>
+
+#include <sys/stat.h>
+#include <sys/time.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
+#include <toaru/icon_cache.h>
+#include <toaru/list.h>
+#include <toaru/sdf.h>
 
 #define APPLICATION_TITLE "File Browser"
 
@@ -13,6 +21,7 @@ static yutani_window_t * main_window;
 static gfx_context_t * ctx;
 
 static int application_running = 1;
+static int show_hidden = 1;
 
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
@@ -26,6 +35,109 @@ static void _menu_action_exit(struct MenuEntry * entry) {
 	application_running = 0;
 }
 
+struct File {
+	char name[256];
+	char icon[256];
+	char date[256];
+};
+
+static gfx_context_t * contents = NULL;
+static sprite_t * contents_sprite = NULL;
+static list_t * file_list = NULL;
+
+static void redraw_files(void) {
+	int i = 0;
+	foreach(node, file_list) {
+		struct File * f = node->value;
+		draw_sdf_string(contents, 30, i * 24, f->name, 16, rgb(0,0,0), SDF_FONT_THIN);
+		sprite_t * icon = icon_get_16(f->icon);
+		draw_sprite(contents, icon, 2, i * 24 + 2);
+
+
+		i++;
+	}
+}
+
+static void load_directory(char * path) {
+	if (file_list) {
+		list_destroy(file_list);
+		free(file_list);
+	}
+
+	DIR * dirp = opendir(path);
+
+	if (!dirp) {
+		/* Failed to open directory. Throw up a warning? */
+		file_list = NULL;
+		return;
+	}
+
+	/* Get the current time */
+#if 0
+	struct tm * timeinfo;
+	struct timeval now;
+	gettimeofday(&now, NULL); //time(NULL);
+	timeinfo = localtime((time_t *)&now.tv_sec);
+	int this_year = timeinfo->tm_year;
+#endif
+
+	file_list = list_create();
+
+	struct dirent * ent = readdir(dirp);
+	while (ent != NULL) {
+		if (show_hidden || (ent->d_name[0] != '.')) {
+			struct File * f = malloc(sizeof(struct File));
+			sprintf(f->name, "%s", ent->d_name); /* snprintf? copy min()? */
+
+			struct stat statbuf;
+			//struct stat statbufl;
+			//char * link;
+
+			char tmp[strlen(path)+strlen(ent->d_name)+2];
+			sprintf(tmp, "%s/%s", path, ent->d_name);
+			lstat(tmp, &statbuf);
+#if 0
+			if (S_ISLNK(statbuf.st_mode)) {
+				stat(tmp, &statbufl);
+				f->link = malloc(4096);
+				readlink(tmp, f->link, 4096);
+			}
+#endif
+
+			if (S_ISDIR(statbuf.st_mode)) {
+				sprintf(f->icon, "folder");
+			} else {
+				sprintf(f->icon, "file");
+			}
+
+			list_insert(file_list, f);
+		}
+		ent = readdir(dirp);
+	}
+	closedir(dirp);
+}
+
+static void reinitialize_contents(void) {
+	if (contents) {
+		free(contents);
+	}
+
+	if (contents_sprite) {
+		sprite_free(contents_sprite);
+	}
+
+	/* Calculate height for current directory */
+	int calculated_height = file_list->length * 24;
+
+	contents_sprite = create_sprite(main_window->width - decor_width(), calculated_height, ALPHA_EMBEDDED);
+	contents = init_graphics_sprite(contents_sprite);
+
+	draw_fill(contents, rgb(255,255,255));
+
+	/* Draw file entries */
+	redraw_files();
+}
+
 static void redraw_window(void) {
 	draw_fill(ctx, rgb(255,255,255));
 
@@ -37,13 +149,26 @@ static void redraw_window(void) {
 	menu_bar.window = main_window;
 	menu_bar_render(&menu_bar, ctx);
 
+	gfx_clear_clip(ctx);
+	gfx_add_clip(ctx, decor_left_width, decor_top_height + MENU_BAR_HEIGHT, ctx->width - decor_width(), ctx->height - MENU_BAR_HEIGHT - decor_height());
+	draw_sprite(ctx, contents_sprite, decor_left_width, decor_top_height + MENU_BAR_HEIGHT);
+	gfx_clear_clip(ctx);
+	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
+
+
 	flip(ctx);
 	yutani_flip(yctx, main_window);
 }
 
 static void resize_finish(int w, int h) {
+	int height_changed = (main_window->width != (unsigned int)w);
+
 	yutani_window_resize_accept(yctx, main_window, w, h);
 	reinit_graphics_yutani(ctx, main_window);
+
+	if (height_changed) {
+		reinitialize_contents();
+	}
 
 	redraw_window();
 	yutani_window_resize_done(yctx, main_window);
@@ -90,7 +215,7 @@ int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
 	init_decorations();
-	main_window = yutani_window_create(yctx, 640, 480);
+	main_window = yutani_window_create(yctx, 800, 600);
 	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 	ctx = init_graphics_yutani_double_buffer(main_window);
 
@@ -119,6 +244,8 @@ int main(int argc, char * argv[]) {
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
 
+	load_directory("/usr/share");
+	reinitialize_contents();
 	redraw_window();
 
 	while (application_running) {
