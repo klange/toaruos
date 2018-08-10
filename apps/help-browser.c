@@ -5,6 +5,7 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
+#include <toaru/sdf.h>
 
 #define APPLICATION_TITLE "Help Browser"
 
@@ -13,6 +14,9 @@ static yutani_window_t * main_window;
 static gfx_context_t * ctx;
 
 static int application_running = 1;
+
+static gfx_context_t * contents = NULL;
+static sprite_t * contents_sprite = NULL;
 
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
@@ -26,6 +30,31 @@ static void _menu_action_exit(struct MenuEntry * entry) {
 	application_running = 0;
 }
 
+static void redraw_text(void) {
+	draw_sdf_string(contents, 30, 30, "Hello, world.", 16, rgb(0,0,0), SDF_FONT_THIN);
+}
+
+static void reinitialize_contents(void) {
+	if (contents) {
+		free(contents);
+	}
+
+	if (contents_sprite) {
+		sprite_free(contents_sprite);
+	}
+
+	/* Calculate height for current directory */
+	int calculated_height = 200;
+
+	contents_sprite = create_sprite(main_window->width - decor_width(), calculated_height, ALPHA_EMBEDDED);
+	contents = init_graphics_sprite(contents_sprite);
+
+	draw_fill(contents, rgb(255,255,255));
+
+	/* Draw file entries */
+	redraw_text();
+}
+
 static void redraw_window(void) {
 	draw_fill(ctx, rgb(255,255,255));
 
@@ -37,13 +66,25 @@ static void redraw_window(void) {
 	menu_bar.window = main_window;
 	menu_bar_render(&menu_bar, ctx);
 
+	gfx_clear_clip(ctx);
+	gfx_add_clip(ctx, decor_left_width, decor_top_height + MENU_BAR_HEIGHT, ctx->width - decor_width(), ctx->height - MENU_BAR_HEIGHT - decor_height());
+	draw_sprite(ctx, contents_sprite, decor_left_width, decor_top_height + MENU_BAR_HEIGHT);
+	gfx_clear_clip(ctx);
+	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
+
 	flip(ctx);
 	yutani_flip(yctx, main_window);
 }
 
 static void resize_finish(int w, int h) {
+	int height_changed = (main_window->width != (unsigned int)w);
+
 	yutani_window_resize_accept(yctx, main_window, w, h);
 	reinit_graphics_yutani(ctx, main_window);
+
+	if (height_changed) {
+		reinitialize_contents();
+	}
 
 	redraw_window();
 	yutani_window_resize_done(yctx, main_window);
@@ -110,6 +151,7 @@ int main(int argc, char * argv[]) {
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
 
+	reinitialize_contents();
 	redraw_window();
 
 	while (application_running) {
