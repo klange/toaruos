@@ -130,7 +130,7 @@ static void move_kernel(void) {
 	uint64_t upper_mem = 0;
 	int descriptors = mapSize / descriptorSize;
 	for (int i = 0; i < descriptors; ++i) {
-		EFI_MEMORY_DESCRIPTOR * d = (EFI_MEMORY_DESCRIPTOR *)((char *)efi_memory + descriptorSize);
+		EFI_MEMORY_DESCRIPTOR * d = efi_memory;
 
 		mmap->size = sizeof(uint64_t) * 2 + sizeof(uintptr_t);
 		mmap->base_addr = d->PhysicalStart;
@@ -160,7 +160,7 @@ static void move_kernel(void) {
 			upper_mem += mmap->length;
 		}
 		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uintptr_t));
-		efi_memory = d;
+		efi_memory = (EFI_MEMORY_DESCRIPTOR *)((char *)efi_memory + descriptorSize);
 	}
 
 	multiboot_header.mem_lower = 1024;
