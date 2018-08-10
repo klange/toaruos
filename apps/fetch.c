@@ -98,7 +98,22 @@ void print_progress(void) {
 }
 
 int usage(char * argv[]) {
-	fprintf(stderr, "Usage: %s [-h] [-c cookie] [-o file] url\n", argv[0]);
+	fprintf(stderr,
+			"fetch - download files over HTTP\n"
+			"\n"
+			"usage: %s [-hOvmp?] [-c cookie] [-o file] [-u file] [-s speed] URL\n"
+			"\n"
+			" -h     \033[3mshow headers\033[0m\n"
+			" -O     \033[3msave the file based on the filename in the URL\033[0m\n"
+			" -v     \033[3mshow progress\033[0m\n"
+			" -m     \033[3mmachine readable output\033[0m\n"
+			" -p     \033[3mprompt for password\033[0m\n"
+			" -c ... \033[3mset cookies\033[0m\n"
+			" -o ... \033[3msave to the specified file\033[0m\n"
+			" -u ... \033[3mupload the specified file\033[0m\n"
+			" -s ... \033[3mspecify the speed for uploading slowly\033[0m\n"
+			" -?     \033[3mshow this help text\033[0m\n"
+			"\n", argv[0]);
 	return 1;
 }
 
