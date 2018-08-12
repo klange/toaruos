@@ -92,3 +92,4 @@ extern uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v
 
 extern uint32_t interp_colors(uint32_t bottom, uint32_t top, uint8_t interp);
 extern void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, int radius, uint32_t color);
+extern void draw_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, uint32_t color);
