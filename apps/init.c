@@ -8,7 +8,7 @@
 #include <wait.h>
 #include <sys/wait.h>
 
-#define INITD_PATH "/etc/init.d"
+#define INITD_PATH "/etc/startup.d"
 
 void set_console(void) {
 	int _stdin  = syscall_open("/dev/ttyS0", 0, 0);
@@ -56,7 +56,7 @@ int main(int argc, char * argv[]) {
 	/* Initialize stdin/out/err */
 	set_console();
 
-	/* Get directory listing for /etc/init.d */
+	/* Get directory listing for /etc/startup.d */
 	int initd_dir = syscall_open(INITD_PATH, 0, 0);
 	if (initd_dir < 0) {
 		/* No init scripts; try to start getty as a fallback */
@@ -89,7 +89,7 @@ int main(int argc, char * argv[]) {
 		for (int i = 0; i < count; ++i) {
 			if (entries[i].d_name[0] != '.') {
 				char path[256];
-				sprintf(path, "/etc/init.d/%s", entries[i].d_name);
+				sprintf(path, "/etc/startup.d/%s", entries[i].d_name);
 				start_options((char *[]){path, NULL});
 			}
 		}
