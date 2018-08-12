@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <time.h>
+#include <math.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -20,6 +21,7 @@ static yutani_t * yctx;
 static yutani_window_t * main_window;
 static gfx_context_t * ctx;
 
+#define SCROLL_AMOUNT 20
 static int application_running = 1;
 static int show_hidden = 1;
 static int scroll_offset = 0;
@@ -41,38 +43,74 @@ struct File {
 	char name[256];
 	char icon[256];
 	char date[256];
+	int type;
 };
 
 static gfx_context_t * contents = NULL;
 static sprite_t * contents_sprite = NULL;
-static list_t * file_list = NULL;
+static char * last_directory = NULL;
+static int hilighted_offset = -1;
+static struct File ** file_pointers = NULL;
+static ssize_t file_pointers_len = 0;
+
+static int _close_enough(struct yutani_msg_window_mouse_event * me) {
+	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
+		return 1;
+	}
+	return 0;
+}
+
+static void clear_offset(int offset) {
+	draw_rectangle(contents, 0, offset * 24, contents->width, 24, rgb(255,255,255));
+}
+
+static void draw_file(struct File * f, int offset) {
+	sprite_t * icon = icon_get_16(f->icon);
+	draw_sprite(contents, icon, 2, offset * 24 + 2);
+	if (offset == hilighted_offset) {
+		draw_sprite_alpha_paint(contents, icon, 2, offset * 24 + 2, 0.5, rgb(72,167,255));
+		draw_sdf_string(contents, 30, offset * 24, f->name, 16, rgb(72,167,255), SDF_FONT_THIN);
+	} else {
+		draw_sdf_string(contents, 30, offset * 24, f->name, 16, rgb(0,0,0), SDF_FONT_THIN);
+	}
+}
+
+static struct File * get_file_at_offset(int offset) {
+	if (offset >= 0 && offset < file_pointers_len) {
+		return file_pointers[offset];
+	}
+	return NULL;
+}
 
 static void redraw_files(void) {
-	int i = 0;
-	foreach(node, file_list) {
-		struct File * f = node->value;
-		draw_sdf_string(contents, 30, i * 24, f->name, 16, rgb(0,0,0), SDF_FONT_THIN);
-		sprite_t * icon = icon_get_16(f->icon);
-		draw_sprite(contents, icon, 2, i * 24 + 2);
-
-
-		i++;
+	for (int i = 0; i < file_pointers_len; ++i) {
+		fprintf(stderr, "drawing file %d\n", i);
+		draw_file(file_pointers[i], i);
 	}
 }
 
 static void load_directory(const char * path) {
-	if (file_list) {
-		list_destroy(file_list);
-		free(file_list);
+	if (file_pointers) {
+		for (int i = 0; i < file_pointers_len; ++i) {
+			free(file_pointers[i]);
+		}
+		free(file_pointers);
 	}
 
 	DIR * dirp = opendir(path);
 
 	if (!dirp) {
 		/* Failed to open directory. Throw up a warning? */
-		file_list = NULL;
+		file_pointers = NULL;
+		file_pointers_len = 0;
 		return;
 	}
+
+	if (last_directory) {
+		free(last_directory);
+	}
+
+	last_directory = strdup(path);
 
 	/* Get the current time */
 #if 0
@@ -83,7 +121,7 @@ static void load_directory(const char * path) {
 	int this_year = timeinfo->tm_year;
 #endif
 
-	file_list = list_create();
+	list_t * file_list = list_create();
 
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
@@ -108,8 +146,10 @@ static void load_directory(const char * path) {
 
 			if (S_ISDIR(statbuf.st_mode)) {
 				sprintf(f->icon, "folder");
+				f->type = 1;
 			} else {
 				sprintf(f->icon, "file");
+				f->type = 0;
 			}
 
 			list_insert(file_list, f);
@@ -117,6 +157,28 @@ static void load_directory(const char * path) {
 		ent = readdir(dirp);
 	}
 	closedir(dirp);
+
+	/* create a an array to hold the files */
+	file_pointers = malloc(sizeof(struct File *) * file_list->length);
+	file_pointers_len = file_list->length;
+	int i = 0;
+	foreach (node, file_list) {
+		file_pointers[i] = node->value;
+		i++;
+	}
+
+	list_free(file_list);
+	free(file_list);
+
+	/* Sort files */
+	int comparator(const void * c1, const void * c2) {
+		const struct File * f1 = *(const struct File **)(c1);
+		const struct File * f2 = *(const struct File **)(c2);
+		if (f1->type == 1 && f2->type == 0) return -1;
+		if (f1->type == 0 && f2->type == 1) return 1;
+		return strcmp(f1->name, f2->name);
+	}
+	qsort(file_pointers, file_pointers_len, sizeof(struct File *), comparator);
 
 	scroll_offset = 0;
 }
@@ -131,7 +193,9 @@ static void reinitialize_contents(void) {
 	}
 
 	/* Calculate height for current directory */
-	int calculated_height = file_list->length * 24;
+	int calculated_height = file_pointers_len * 24;
+
+	fprintf(stderr, "%d files means %d size\n", file_pointers_len, calculated_height);
 
 	contents_sprite = create_sprite(main_window->width - decor_width(), calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
@@ -139,6 +203,7 @@ static void reinitialize_contents(void) {
 	draw_fill(contents, rgb(255,255,255));
 
 	/* Draw file entries */
+	fprintf(stderr, "drawing files\n");
 	redraw_files();
 }
 
@@ -204,6 +269,11 @@ static void _menu_action_navigate(struct MenuEntry * entry) {
 
 static void _menu_action_up(struct MenuEntry * entry) {
 	/* go up */
+	char tmp[1024];
+	sprintf(tmp, "%s/..", last_directory);
+	load_directory(tmp);
+	reinitialize_contents();
+	redraw_window();
 }
 
 static void _menu_action_help(struct MenuEntry * entry) {
@@ -317,10 +387,13 @@ int main(int argc, char * argv[]) {
 							/* Menu bar */
 							menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
 
-							if (me->new_y > (int)(decor_top_height + MENU_BAR_HEIGHT)) {
+							if (me->new_y > (int)(decor_top_height + MENU_BAR_HEIGHT) &&
+								me->new_y < (int)(main_window->height - decor_bottom_height) &&
+								me->new_x > (int)(decor_left_width) &&
+								me->new_x < (int)(main_window->width - decor_right_width)) {
 								if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 									/* Scroll up */
-									scroll_offset -= 10;
+									scroll_offset -= SCROLL_AMOUNT;
 									if (scroll_offset < 0) {
 										scroll_offset = 0;
 									}
@@ -329,10 +402,56 @@ int main(int argc, char * argv[]) {
 									if (available_height > contents->height) {
 										scroll_offset = 0;
 									} else {
-										scroll_offset += 10;
+										scroll_offset += SCROLL_AMOUNT;
 										if (scroll_offset > contents->height - available_height) {
 											scroll_offset = contents->height - available_height;
 										}
+									}
+									redraw_window();
+								}
+
+								/* Get offset into contents */
+								int y_into = me->new_y - decor_top_height - MENU_BAR_HEIGHT + scroll_offset;
+								int offset = y_into / 24;
+								if (offset != hilighted_offset) {
+									int old_offset = hilighted_offset;
+									hilighted_offset = offset;
+									if (old_offset != -1) {
+										clear_offset(old_offset);
+										struct File * f = get_file_at_offset(old_offset);
+										if (f) {
+											clear_offset(old_offset);
+											draw_file(f, old_offset);
+										}
+									}
+									struct File * f = get_file_at_offset(hilighted_offset);
+									if (f) {
+										clear_offset(hilighted_offset);
+										draw_file(f, hilighted_offset);
+									}
+									redraw_window();
+								}
+
+								if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
+									struct File * f = get_file_at_offset(hilighted_offset);
+									if (f->type == 1) {
+										char tmp[1024];
+										sprintf(tmp,"%s/%s", last_directory, f->name);
+										load_directory(tmp);
+										reinitialize_contents();
+										redraw_window();
+									}
+								}
+
+							} else {
+								int old_offset = hilighted_offset;
+								hilighted_offset = -1;
+								if (old_offset != -1) {
+									clear_offset(old_offset);
+									struct File * f = get_file_at_offset(old_offset);
+									if (f) {
+										clear_offset(old_offset);
+										draw_file(f, old_offset);
 									}
 									redraw_window();
 								}
