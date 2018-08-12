@@ -1,9 +1,14 @@
-#include <stdio.h>
-#include <syscall.h>
+#include <dirent.h>
 #include <errno.h>
-#include <wait.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <syscall.h>
 #include <unistd.h>
+#include <wait.h>
+#include <sys/wait.h>
+
+#define INITD_PATH "/etc/init.d"
 
 void set_console(void) {
 	int _stdin  = syscall_open("/dev/ttyS0", 0, 0);
@@ -19,22 +24,6 @@ void set_console(void) {
 	(void)_stdin;
 }
 
-void set_hostname(void) {
-	FILE * f = fopen("/etc/hostname", "r");
-
-	if (!f) {
-		/* set fallback hostname */
-		sethostname("localhost", 4);
-	} else {
-		char tmp[128];
-		fgets(tmp, 128, f);
-		char * nl = strchr(tmp, '\n');
-		if (nl) *nl = '\0';
-		sethostname(tmp, strlen(tmp));
-	}
-
-}
-
 int start_options(char * args[]) {
 	int cpid = syscall_fork();
 	if (!cpid) {
@@ -47,36 +36,65 @@ int start_options(char * args[]) {
 		};
 		syscall_execve(args[0], args, _envp);
 		syscall_exit(0);
-	} else {
-		int pid = 0;
-		do {
-			pid = wait(NULL);
-			if (pid == cpid) {
-				break;
-			}
-		} while ((pid > 0) || (pid == -1 && errno == EINTR));
 	}
 
-	syscall_reboot();
+	int pid = 0;
+	do {
+		pid = waitpid(-1, NULL, WNOKERN);
+		if (pid == -1 && errno == ECHILD) {
+			break;
+		}
+		if (pid == cpid) {
+			break;
+		}
+	} while ((pid > 0) || (pid == -1 && errno == EINTR));
 
-	return 0;
+	return cpid;
 }
 
 int main(int argc, char * argv[]) {
+	/* Initialize stdin/out/err */
 	set_console();
-	set_hostname();
 
-	if (argc > 1) {
-		if (!strcmp(argv[1], "--vga")) {
-			return start_options((char *[]){"/bin/terminal-vga","-l",NULL});
-		} else if (!strcmp(argv[1], "--migrate")) {
-			return start_options((char *[]){"/bin/migrate",NULL});
-		} else if (!strcmp(argv[1], "--headless")) {
-			return start_options((char *[]){"/bin/getty",NULL});
-		} else {
-			/* Pass it to the compositor... */
-			return start_options((char *[]){"/bin/compositor","--",argv[1],NULL});
+	/* Get directory listing for /etc/init.d */
+	int initd_dir = syscall_open(INITD_PATH, 0, 0);
+	if (initd_dir < 0) {
+		/* No init scripts; try to start getty as a fallback */
+		start_options((char *[]){"/bin/getty",NULL});
+	} else {
+		int count = 0, i = 0, ret = 0;
+
+		/* Figure out how many entries we have with a dry run */
+		do {
+			struct dirent ent;
+			ret = syscall_readdir(initd_dir, ++count, &ent);
+		} while (ret > 0);
+
+		/* Read each directory entry */
+		struct dirent entries[count];
+		do {
+			syscall_readdir(initd_dir, i, &entries[i]);
+			i++;
+		} while (i < count);
+
+		/* Sort the directory entries */
+		int comparator(const void * c1, const void * c2) {
+			const struct dirent * d1 = c1;
+			const struct dirent * d2 = c2;
+			return strcmp(d1->d_name, d2->d_name);
+		}
+		qsort(entries, count, sizeof(struct dirent), comparator);
+
+		/* Run scripts */
+		for (int i = 0; i < count; ++i) {
+			if (entries[i].d_name[0] != '.') {
+				char path[256];
+				sprintf(path, "/etc/init.d/%s", entries[i].d_name);
+				start_options((char *[]){path, NULL});
+			}
 		}
 	}
-	return start_options((char *[]){"/bin/compositor",NULL});
+
+	syscall_reboot();
+	return 0;
 }

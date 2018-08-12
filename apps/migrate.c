@@ -222,16 +222,5 @@ int main(int argc, char * argv[]) {
 		free(tmp);
 	}
 
-	TRACE_("Launching intended startup app...");
-	if (!strcmp(start, "--vga")) {
-		execvp("/bin/terminal-vga", (char *[]){"terminal-vga","-l",NULL});
-	} else if (!strcmp(start, "--headless")) {
-		execvp("/bin/getty", (char *[]){"getty",NULL});
-	} else if (start) {
-		execvp("/bin/compositor", (char *[]){"compositor","--",start,NULL});
-	} else {
-		execvp("/bin/compositor", (char *[]){"compositor",NULL});
-	}
-
 	return 0;
 }
