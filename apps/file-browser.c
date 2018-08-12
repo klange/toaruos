@@ -84,7 +84,6 @@ static struct File * get_file_at_offset(int offset) {
 
 static void redraw_files(void) {
 	for (int i = 0; i < file_pointers_len; ++i) {
-		fprintf(stderr, "drawing file %d\n", i);
 		draw_file(file_pointers[i], i);
 	}
 }
@@ -125,7 +124,16 @@ static void load_directory(const char * path) {
 
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
+		if (ent->d_name[0] == '.' &&
+			(ent->d_name[1] == '\0' || 
+			 (ent->d_name[1] == '.' &&
+			  ent->d_name[2] == '\0'))) {
+			/* skip . and .. */
+			ent = readdir(dirp);
+			continue;
+		}
 		if (show_hidden || (ent->d_name[0] != '.')) {
+
 			struct File * f = malloc(sizeof(struct File));
 			sprintf(f->name, "%s", ent->d_name); /* snprintf? copy min()? */
 
@@ -195,15 +203,12 @@ static void reinitialize_contents(void) {
 	/* Calculate height for current directory */
 	int calculated_height = file_pointers_len * 24;
 
-	fprintf(stderr, "%d files means %d size\n", file_pointers_len, calculated_height);
-
 	contents_sprite = create_sprite(main_window->width - decor_width(), calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
 
 	draw_fill(contents, rgb(255,255,255));
 
 	/* Draw file entries */
-	fprintf(stderr, "drawing files\n");
 	redraw_files();
 }
 
