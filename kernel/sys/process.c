@@ -775,9 +775,12 @@ void reap_process(process_t * proc) {
 }
 
 static int wait_candidate(process_t * parent, int pid, int options, process_t * proc) {
-	(void)options; /* there is only one option that affects candidacy, and we don't support it yet */
-
 	if (!proc) return 0;
+
+	if (options & 0x10) {
+		/* Skip kernel processes */
+		if (proc->is_tasklet) return 0;
+	}
 
 	if (pid < -1) {
 		if (proc->group == -pid || proc->id == -pid) return 1;

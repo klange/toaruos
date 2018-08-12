@@ -2,8 +2,9 @@
 
 #include <sys/types.h>
 
-#define WNOHANG 1
-#define WUNTRACED 2
+#define WNOHANG   0x0001
+#define WUNTRACED 0x0002
+#define WNOKERN   0x0010
 
 /* This were taken from newlib, but they remain true */
 #define WIFEXITED(w)    (((w) & 0xff) == 0)
