@@ -1,34 +1,57 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: ts=4 sw=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013 K. Lange
- */
-/*
+ * Copyright (C) 2013-2018 K. Lange
+ *
  * stat
  *
- * Displays information on a file's inode.
+ * Display file status.
  */
 #include <stdio.h>
-#include <sys/stat.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
+#include <sys/stat.h>
 #include <sys/time.h>
 
+static void show_usage(int argc, char * argv[]) {
+	printf(
+			"stat - display file status\n"
+			"\n"
+			"usage: %s [-Lq] PATH\n"
+			"\n"
+			" -L     \033[3mdereference symlinks\033[0m\n"
+			" -q     \033[3mdon't print anything, just return 0 if file exists\033[0m\n"
+			" -?     \033[3mshow this help text\033[0m\n"
+			"\n", argv[0]);
+}
+
 int main(int argc, char ** argv) {
-	int dereference = 0;
-	if (argc < 2) {
-		fprintf(stderr,"%s: expected argument\n", argv[0]);
+	int dereference = 0, quiet = 0;
+	char * file;
+	int opt;
+
+	while ((opt = getopt(argc, argv, "?Lq")) != -1) {
+		switch (opt) {
+			case 'L':
+				dereference = 1;
+				break;
+			case 'q':
+				quiet = 1;
+				break;
+			case '?':
+				show_usage(argc,argv);
+				return 1;
+		}
+	}
+
+	if (optind >= argc) {
+		show_usage(argc, argv);
 		return 1;
 	}
 
-	char * file = argv[1];
-
-	if (argc > 2) {
-		if (!strcmp(argv[1],"-L")) {
-			dereference = 1;
-		}
-		file = argv[2];
-	}
+	file = argv[optind];
 
 	struct stat _stat;
 	if (dereference) {
@@ -36,6 +59,8 @@ int main(int argc, char ** argv) {
 	} else {
 		if (lstat(file, &_stat) < 0) return 1;
 	}
+
+	if (quiet) return 0;
 
 	printf("0x%x bytes\n", (unsigned int)_stat.st_size);
 
