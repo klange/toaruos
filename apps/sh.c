@@ -120,8 +120,7 @@ void gethost() {
 	memcpy(_hostname, buf.nodename, len+1);
 }
 
-/* Draw the user prompt */
-void draw_prompt(int ret) {
+void print_extended_ps(char * format) {
 	/* Get the time */
 	struct tm * timeinfo;
 	struct timeval now;
@@ -134,11 +133,12 @@ void draw_prompt(int ret) {
 	char time_buffer[80];
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
 
-	/* Print the working directory in there, too */
+	/* Collect the current working directory */
 	getcwd(cwd, 512);
 	char _cwd[512];
 	strcpy(_cwd, cwd);
 
+	/* Collect the user's home directory and apply it to cwd */
 	char * home = getenv("HOME");
 	if (home && strstr(cwd, home) == cwd) {
 		char * c = cwd + strlen(home);
@@ -147,16 +147,99 @@ void draw_prompt(int ret) {
 		}
 	}
 
-	/* Print the prompt. */
-	printf("\033]1;%s@%s:%s\007", username, _hostname, _cwd);
-	printf("\033[1m\033[s\033[400C\033[16D\033[1m\033[38;5;59m[\033[38;5;173m%s \033[38;5;167m%s\033[38;5;59m]\033[u\033[38;5;221m%s\033[38;5;59m@\033[38;5;81m%s ",
-			date_buffer, time_buffer,
-			username, _hostname);
-	if (ret != 0) {
-		printf("\033[38;5;167m%d ", ret);
+	char ret[80] = {0};
+	if (last_ret != 0) {
+		sprintf(ret, "%d ", last_ret);
 	}
 
-	printf("\033[0m%s%s\033[0m ", _cwd, getuid() == 0 ? "\033[1;38;5;196m#" : "\033[1;38;5;47m$");
+	while (*format) {
+		if (*format == '\\') {
+			format++;
+			switch (*format) {
+				case '\\':
+					putchar(*format);
+					format++;
+					break;
+				case '0':
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+					{
+						int i = (*format) - '0';
+						format++;
+						if (*format >= '0' && *format <= '7') {
+							i *= 8;
+							i += (*format) - '0';
+							format++;
+							if (*format >= '0' && *format <= '7') {
+								i *= 8;
+								i += (*format) - '0';
+								format++;
+							}
+						}
+						putchar(i);
+					}
+					break;
+				case 'e':
+					putchar('\033');
+					format++;
+					break;
+				case 'd':
+					printf("%s", date_buffer);
+					format++;
+					break;
+				case 't':
+					printf("%s", time_buffer);
+					format++;
+					break;
+				case 'h':
+					printf("%s", _hostname);
+					format++;
+					break;
+				case 'u':
+					printf("%s", username);
+					format++;
+					break;
+				case 'w':
+					printf("%s", _cwd);
+					format++;
+					break;
+				case '$':
+					putchar(getuid() == 0 ? '#' : '$');
+					format++;
+					break;
+				case 'U': /* prompt color string */
+					printf("%s", getuid() == 0 ? "\033[1;38;5;196m" : "\033[1;38;5;47m");
+					format++;
+					break;
+				case 'r':
+					printf("%s", ret);
+					format++;
+					break;
+				default:
+					printf("\\%c", *format);
+					format++;
+					break;
+			}
+		} else {
+			putchar(*format);
+			format++;
+		}
+	}
+
+}
+
+#define FALLBACK_PS1 "\\u@\\h \\w\\$ "
+#define DEFAULT_PS1 "\\e]1;\\u@\\h:\\w\\007\\e[1m\\e[s\\e[400C\\e[16D\\e[1m\\e[38;5;59m[\\e[38;5;173m\\d \\e[38;5;167m\\t\\e[38;5;59m]\\e[u\\e[38;5;221m\\u\\e[38;5;59m@\\e[38;5;81m\\h \\e[38;5;167m\\r\\e[0m\\w\\U\\$\\e[0m "
+
+/* Draw the user prompt */
+void draw_prompt(void) {
+	char * ps1 = getenv("PS1");
+	print_extended_ps(ps1 ? ps1 : FALLBACK_PS1);
 	fflush(stdout);
 }
 
@@ -172,11 +255,16 @@ void sig_pass(int sig) {
 }
 
 void redraw_prompt_func(rline_context_t * context) {
-	draw_prompt(last_ret);
+	draw_prompt();
 }
 
 void draw_prompt_c() {
-	printf("> ");
+	char * ps2 = getenv("PS2");
+	if (ps2) {
+		print_extended_ps(ps2);
+	} else {
+		printf("> ");
+	}
 	fflush(stdout);
 }
 void redraw_prompt_func_c(rline_context_t * context) {
@@ -1060,8 +1148,10 @@ int main(int argc, char ** argv) {
 
 	shell_interactive = 1;
 
+	setenv("PS1", DEFAULT_PS1, 1);
+
 	while (1) {
-		draw_prompt(last_ret);
+		draw_prompt();
 		char buffer[LINE_LEN] = {0};
 
 		read_entry(buffer);
