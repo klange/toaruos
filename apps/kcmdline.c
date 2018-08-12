@@ -75,12 +75,12 @@ int main(int argc, char * argv[]) {
 	char * cmdline = malloc(4096); /* cmdline can't be longer than that */
 	memset(cmdline, 0, 4096);
 	size_t size = fread(cmdline, 1, 4096, f);
+	if (cmdline[size-1] == '\n') cmdline[size-1] = '\0';
 	fclose(f);
 
 	/* Parse */
 	args_map = hashmap_create(10);
 	args_parse(cmdline);
-	free(cmdline);
 
 	/* Figure out what we're doing */
 	int opt;
@@ -88,7 +88,12 @@ int main(int argc, char * argv[]) {
 		switch (opt) {
 			case 'g':
 				if (hashmap_has(args_map, optarg)) {
-					printf("%s\n", hashmap_get(args_map, optarg));
+					char * tmp = (char*)hashmap_get(args_map, optarg);
+					if (!tmp) {
+						printf("%s\n", optarg); /* special case = present but not set should yield name of variable */
+					} else {
+						printf("%s\n", tmp);
+					}
 					return 0;
 				} else {
 					return 1;
@@ -99,7 +104,9 @@ int main(int argc, char * argv[]) {
 				return size;
 			case '?':
 				show_usage(argc, argv);
-				return 0;
+				return 1;
 		}
 	}
+
+	fprintf(stdout, "%s\n", cmdline);
 }
