@@ -234,7 +234,6 @@ void print_extended_ps(char * format) {
 }
 
 #define FALLBACK_PS1 "\\u@\\h \\w\\$ "
-#define DEFAULT_PS1 "\\e]1;\\u@\\h:\\w\\007\\e[1m\\e[s\\e[400C\\e[16D\\e[1m\\e[38;5;59m[\\e[38;5;173m\\d \\e[38;5;167m\\t\\e[38;5;59m]\\e[u\\e[38;5;221m\\u\\e[38;5;59m@\\e[38;5;81m\\h \\e[38;5;167m\\r\\e[0m\\w\\U\\$\\e[0m "
 
 /* Draw the user prompt */
 void draw_prompt(void) {
@@ -1080,6 +1079,39 @@ void add_path(void) {
 	free(tmp);
 }
 
+int run_script(FILE * f) {
+	while (!feof(f)) {
+		char buf[LINE_LEN] = {0};
+		fgets(buf, LINE_LEN, f);
+		int ret;
+		char * out = NULL;
+		char * b = buf;
+		do {
+			ret = shell_exec(b, LINE_LEN, f, &out);
+			b = out;
+		} while (b);
+		if (ret >= 0) last_ret = ret;
+	}
+
+	fclose(f);
+
+	return last_ret;
+}
+
+void source_eshrc(void) {
+	char * home = getenv("HOME");
+
+	if (!home) return;
+
+	char tmp[512];
+	sprintf(tmp, "%s/.eshrc", home);
+
+	FILE * f = fopen(tmp, "r");
+	if (!f) return;
+
+	run_script(f);
+}
+
 int main(int argc, char ** argv) {
 
 	pid = getpid();
@@ -1131,24 +1163,12 @@ int main(int argc, char ** argv) {
 		shell_argc = argc - 1;
 		shell_argv = &argv[1];
 
-		while (!feof(f)) {
-			char buf[LINE_LEN] = {0};
-			fgets(buf, LINE_LEN, f);
-			int ret;
-			char * out = NULL;
-			char * b = buf;
-			do {
-				ret = shell_exec(b, LINE_LEN, f, &out);
-				b = out;
-			} while (b);
-			if (ret >= 0) last_ret = ret;
-		}
-		return 0;
+		return run_script(f);
 	}
 
 	shell_interactive = 1;
 
-	setenv("PS1", DEFAULT_PS1, 1);
+	source_eshrc();
 
 	while (1) {
 		draw_prompt();
@@ -1429,6 +1449,18 @@ uint32_t shell_cmd_return(int argc, char * argv[]) {
 	return atoi(argv[1]);
 }
 
+uint32_t shell_cmd_source(int argc, char * argv[]) {
+	if (argc < 2) return 0;
+
+	FILE * f = fopen(argv[1], "r");
+
+	if (!f) {
+		fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+	}
+
+	return run_script(f);
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd, "change directory");
 	shell_install_command("exit",    shell_cmd_exit, "exit the shell");
@@ -1440,4 +1472,5 @@ void install_commands() {
 	shell_install_command("empty?",  shell_cmd_empty, "empty? args...");
 	shell_install_command("return",  shell_cmd_return, "return status code");
 	shell_install_command("export-cmd",   shell_cmd_export_cmd, "set variable to result of command: export-cmd VAR command...");
+	shell_install_command("source",  shell_cmd_source, "run a shell script in the context of this shell");
 }
