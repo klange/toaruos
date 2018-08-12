@@ -112,11 +112,13 @@ base/bin:
 	mkdir -p $@
 base/lib:
 	mkdir -p $@
+base/cdrom:
+	mkdir -p $@
 fatbase/efi/boot:
 	mkdir -p $@
 .make:
 	mkdir -p .make
-dirs: base/dev base/tmp base/proc base/bin base/lib fatbase/efi/boot .make
+dirs: base/dev base/tmp base/proc base/bin base/lib base/cdrom fatbase/efi/boot .make
 
 # C Library
 
