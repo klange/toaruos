@@ -25,7 +25,7 @@ int main(int argc, char * argv[]) {
 
 	struct vid_size s;
 
-	FILE * f = fopen("/dev/ttyS0","r+");
+	FILE * f = fopen("/dev/ttyS1","r+");
 	if (!f) {
 		fprintf(stderr, "%s: failed to open serial: %s\n", argv[0], strerror(errno));
 		return 1;

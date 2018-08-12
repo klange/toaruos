@@ -25,7 +25,9 @@ qemu = subprocess.Popen([
     '-soundhw','ac97,pcspk',
     # The GTK interface does not play well, force SDL
     '-display', 'sdl',
-    # Redirect serial to TCP server we can connect to
+    # /dev/ttyS0 is stdio multiplexed with monitor
+    '-serial', 'mon:stdio',
+    # /dev/ttyS1 is TCP connection to the harness
     '-serial','tcp::4444,server,nowait',
     # Add a VGA card with 32mb of video RAM
     '-device', 'VGA,id=video0,vgamem_mb=32',
@@ -103,7 +105,6 @@ async def heartbeat(transport):
             asyncio.get_event_loop().call_soon(sys.exit, 0)
             return
         if g.width != w or g.height != h:
-            print("Changed:",g.width,g.height)
             transport.write(("geometry-changed %d %d\n" % (g.width,g.height)).encode('utf-8'))
         w = g.width
         h = g.height
