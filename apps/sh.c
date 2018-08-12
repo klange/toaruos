@@ -1309,30 +1309,48 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 	child = 0;
 
 	if (ret_code == 0) {
-		child_pid = fork();
-		if (!child_pid) {
-			run_cmd(then_args);
+		shell_command_t func = shell_find(*then_args);
+		if (func) {
+			int argc = 0;
+			while (then_args[argc]) {
+				argc++;
+			}
+			return func(argc, then_args);
+		} else {
+			child_pid = fork();
+			if (!child_pid) {
+				run_cmd(then_args);
+			}
+			tcsetpgrp(STDIN_FILENO, child_pid);
+			child = child_pid;
+			do {
+				pid = waitpid(-1, &ret_code, 0);
+			} while (pid != -1 || (pid == -1 && errno != ECHILD));
+			child = 0;
+			tcsetpgrp(STDIN_FILENO, getpid());
+			return ret_code;
 		}
-		tcsetpgrp(STDIN_FILENO, child_pid);
-		child = child_pid;
-		do {
-			pid = waitpid(-1, &ret_code, 0);
-		} while (pid != -1 || (pid == -1 && errno != ECHILD));
-		child = 0;
-		tcsetpgrp(STDIN_FILENO, getpid());
-		return ret_code;
 	} else if (else_args) {
-		child_pid = fork();
-		if (!child_pid) {
-			run_cmd(else_args);
+		shell_command_t func = shell_find(*else_args);
+		if (func) {
+			int argc = 0;
+			while (else_args[argc]) {
+				argc++;
+			}
+			return func(argc, else_args);
+		} else {
+			child_pid = fork();
+			if (!child_pid) {
+				run_cmd(else_args);
+			}
+			tcsetpgrp(STDIN_FILENO, child_pid);
+			child = child_pid;
+			do {
+				pid = waitpid(-1, &ret_code, 0);
+			} while (pid != -1 || (pid == -1 && errno != ECHILD));
+			child = 0;
+			return ret_code;
 		}
-		tcsetpgrp(STDIN_FILENO, child_pid);
-		child = child_pid;
-		do {
-			pid = waitpid(-1, &ret_code, 0);
-		} while (pid != -1 || (pid == -1 && errno != ECHILD));
-		child = 0;
-		return ret_code;
 	}
 
 	tcsetpgrp(STDIN_FILENO, getpid());
@@ -1443,6 +1461,13 @@ uint32_t shell_cmd_empty(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_equals(int argc, char * argv[]) {
+
+	if (argc < 3) return 1;
+
+	return strcmp(argv[1], argv[2]);
+}
+
 uint32_t shell_cmd_return(int argc, char * argv[]) {
 	if (argc < 2) return 0;
 
@@ -1461,6 +1486,11 @@ uint32_t shell_cmd_source(int argc, char * argv[]) {
 	return run_script(f);
 }
 
+uint32_t shell_cmd_exec(int argc, char * argv[]) {
+	if (argc < 2) return 1;
+	return execvp(argv[1], &argv[1]);
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd, "change directory");
 	shell_install_command("exit",    shell_cmd_exit, "exit the shell");
@@ -1470,7 +1500,9 @@ void install_commands() {
 	shell_install_command("if",      shell_cmd_if, "if ... then ... [else ...]");
 	shell_install_command("while",   shell_cmd_while, "while ... do ...");
 	shell_install_command("empty?",  shell_cmd_empty, "empty? args...");
+	shell_install_command("equals?", shell_cmd_equals, "equals? arg1 arg2");
 	shell_install_command("return",  shell_cmd_return, "return status code");
 	shell_install_command("export-cmd",   shell_cmd_export_cmd, "set variable to result of command: export-cmd VAR command...");
 	shell_install_command("source",  shell_cmd_source, "run a shell script in the context of this shell");
+	shell_install_command("exec",    shell_cmd_exec, "replace shell (or subshell) with command");
 }
