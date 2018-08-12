@@ -22,6 +22,8 @@ static gfx_context_t * ctx;
 
 static int application_running = 1;
 static int show_hidden = 1;
+static int scroll_offset = 0;
+static int available_height = 0;
 
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
@@ -58,7 +60,7 @@ static void redraw_files(void) {
 	}
 }
 
-static void load_directory(char * path) {
+static void load_directory(const char * path) {
 	if (file_list) {
 		list_destroy(file_list);
 		free(file_list);
@@ -115,6 +117,8 @@ static void load_directory(char * path) {
 		ent = readdir(dirp);
 	}
 	closedir(dirp);
+
+	scroll_offset = 0;
 }
 
 static void reinitialize_contents(void) {
@@ -150,8 +154,8 @@ static void redraw_window(void) {
 	menu_bar_render(&menu_bar, ctx);
 
 	gfx_clear_clip(ctx);
-	gfx_add_clip(ctx, decor_left_width, decor_top_height + MENU_BAR_HEIGHT, ctx->width - decor_width(), ctx->height - MENU_BAR_HEIGHT - decor_height());
-	draw_sprite(ctx, contents_sprite, decor_left_width, decor_top_height + MENU_BAR_HEIGHT);
+	gfx_add_clip(ctx, decor_left_width, decor_top_height + MENU_BAR_HEIGHT, ctx->width - decor_width(), available_height);
+	draw_sprite(ctx, contents_sprite, decor_left_width, decor_top_height + MENU_BAR_HEIGHT - scroll_offset);
 	gfx_clear_clip(ctx);
 	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
 
@@ -161,13 +165,23 @@ static void redraw_window(void) {
 }
 
 static void resize_finish(int w, int h) {
-	int height_changed = (main_window->width != (unsigned int)w);
+	int width_changed = (main_window->width != (unsigned int)w);
 
 	yutani_window_resize_accept(yctx, main_window, w, h);
 	reinit_graphics_yutani(ctx, main_window);
 
-	if (height_changed) {
+	available_height = ctx->height - MENU_BAR_HEIGHT - decor_height();
+
+	if (width_changed) {
 		reinitialize_contents();
+	}
+
+	if (available_height > contents->height) {
+		scroll_offset = 0;
+	} else {
+		if (scroll_offset > contents->height - available_height) {
+			scroll_offset = contents->height - available_height;
+		}
 	}
 
 	redraw_window();
@@ -182,6 +196,10 @@ static void _menu_action_input_path(struct MenuEntry * entry) {
 
 static void _menu_action_navigate(struct MenuEntry * entry) {
 	/* go to entry->action */
+	struct MenuEntry_Normal * _entry = (void*)entry;
+	load_directory(_entry->action);
+	reinitialize_contents();
+	redraw_window();
 }
 
 static void _menu_action_up(struct MenuEntry * entry) {
@@ -238,6 +256,7 @@ int main(int argc, char * argv[]) {
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
 
+	available_height = ctx->height - MENU_BAR_HEIGHT - decor_height();
 	load_directory("/usr/share");
 	reinitialize_contents();
 	redraw_window();
@@ -297,6 +316,28 @@ int main(int argc, char * argv[]) {
 
 							/* Menu bar */
 							menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
+
+							if (me->new_y > (int)(decor_top_height + MENU_BAR_HEIGHT)) {
+								if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
+									/* Scroll up */
+									scroll_offset -= 10;
+									if (scroll_offset < 0) {
+										scroll_offset = 0;
+									}
+									redraw_window();
+								} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
+									if (available_height > contents->height) {
+										scroll_offset = 0;
+									} else {
+										scroll_offset += 10;
+										if (scroll_offset > contents->height - available_height) {
+											scroll_offset = contents->height - available_height;
+										}
+									}
+									redraw_window();
+								}
+							}
+
 						}
 					}
 					break;
