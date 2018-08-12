@@ -439,7 +439,7 @@ int main(int argc, char * argv[]) {
 
 								if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
 									struct File * f = get_file_at_offset(hilighted_offset);
-									if (f->type == 1) {
+									if (f && f->type == 1) {
 										char tmp[1024];
 										sprintf(tmp,"%s/%s", last_directory, f->name);
 										load_directory(tmp);
