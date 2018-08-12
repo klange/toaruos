@@ -17,24 +17,19 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	fprintf(stderr, "Display harness is running.\n");
-
 	int fd = open("/dev/fb0", O_RDONLY);
 	if (fd < 0) {
 		fprintf(stderr, "%s: failed to open framebuffer: %s\n", argv[0], strerror(errno));
 		return 1;
 	}
 
-	fprintf(stderr, "Framebuffer opened.\n");
-
 	struct vid_size s;
 
 	FILE * f = fopen("/dev/ttyS0","r+");
 	if (!f) {
 		fprintf(stderr, "%s: failed to open serial: %s\n", argv[0], strerror(errno));
+		return 1;
 	}
-
-	fprintf(stderr, "Serial opened.\n");
 
 	if (!fork()) {
 
@@ -44,8 +39,6 @@ int main(int argc, char * argv[]) {
 
 			char * linefeed = strstr(data,"\n");
 			if (linefeed) { *linefeed = '\0'; }
-
-			fprintf(stderr, "Received a line from serial: [%s]\n", data);
 
 			char * width;
 			char * height;
@@ -69,8 +62,6 @@ int main(int argc, char * argv[]) {
 			s.width = atoi(width);
 			s.height = atoi(height);
 
-			fprintf(stderr, "Setting resolution to %d x %d\n", (int)s.width, (int)s.height);
-
 			ioctl(fd, IO_VID_SET, &s);
 			fprintf(f, "X");
 			fflush(f);
@@ -78,8 +69,6 @@ int main(int argc, char * argv[]) {
 
 		return 0;
 	}
-
-	fprintf(stderr, "Disconnecting daemon.\n");
 
 	return 0;
 }
