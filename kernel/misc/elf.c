@@ -274,6 +274,10 @@ int exec(
 		return -ENOENT;
 	}
 
+	if (!has_permission(file, 01)) {
+		return -EACCES;
+	}
+
 	/* Read four bytes of the file */
 	unsigned char head[4];
 	read_fs(file, 0, 4, head);
