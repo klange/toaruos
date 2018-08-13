@@ -12,14 +12,24 @@
 int main(int argc, char * argv[]) {
 	int fd_master, fd_slave, fd_serial;
 	char * file = "/dev/ttyS0";
+	char * user = NULL;
 
 	if (getuid() != 0) {
 		fprintf(stderr, "%s: only root can do that\n", argv[0]);
 		return 1;
 	}
 
-	if (argc > 1) {
-		file = argv[1];
+	int opt;
+	while ((opt = getopt(argc, argv, "a:")) != -1) {
+		switch (opt) {
+			case 'a':
+				user = optarg;
+				break;
+		}
+	}
+
+	if (optind < argc) {
+		file = argv[optind];
 	}
 
 	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
@@ -34,7 +44,13 @@ int main(int argc, char * argv[]) {
 
 		system("ttysize -q");
 
-		char * tokens[] = {"/bin/login",NULL};
+		char * tokens[] = {"/bin/login",NULL,NULL,NULL};
+
+		if (user) {
+			tokens[1] = "-f";
+			tokens[2] = user;
+		}
+
 		execvp(tokens[0], tokens);
 		exit(1);
 	} else {

@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <termios.h>
 #include <errno.h>
+#include <pwd.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
 
@@ -43,7 +44,29 @@ void sig_segv(int sig) {
 
 int main(int argc, char ** argv) {
 
+	char * user = NULL;
 	int uid;
+	pid_t pid, f;
+
+	int opt;
+	while ((opt = getopt(argc, argv, "f:")) != -1) {
+		switch (opt) {
+			case 'f':
+				user = optarg;
+				break;
+		}
+	}
+
+	if (user) {
+		struct passwd * pw = getpwnam(user);
+		if (pw) {
+			uid = pw->pw_uid;
+			goto do_fork;
+		} else {
+			fprintf(stderr, "%s: no such user\n", argv[0]);
+			return 1;
+		}
+	}
 
 	printf("\n");
 	system("uname -a");
@@ -115,9 +138,9 @@ int main(int argc, char ** argv) {
 
 	system("cat /etc/motd");
 
-	pid_t pid = getpid();
-
-	pid_t f = fork();
+do_fork:
+	pid = getpid();
+	f = fork();
 	if (getpid() != pid) {
 		setuid(uid);
 		toaru_auth_set_vars();
