@@ -32,7 +32,9 @@ qemu = subprocess.Popen([
     # Add a VGA card with 32mb of video RAM
     '-device', 'VGA,id=video0,vgamem_mb=32',
     # Set the fwcfg flag so our userspace app recognizes us
-    '-fw_cfg','name=opt/org.toaruos.displayharness,string=1'
+    '-fw_cfg','name=opt/org.toaruos.displayharness,string=1',
+    # Boot directly to graphical mode
+    '-fw_cfg','name=opt/org.toaruos.bootmode,string=normal'
 ])
 
 # Give QEMU some time to start up and create a window.
