@@ -1491,6 +1491,27 @@ uint32_t shell_cmd_exec(int argc, char * argv[]) {
 	return execvp(argv[1], &argv[1]);
 }
 
+uint32_t shell_cmd_not(int argc, char * argv[]) {
+	if (argc < 2) {
+		fprintf(stderr, "%s: expected command argument\n", argv[0]);
+		return 1;
+	}
+	int ret_code = 0;
+	pid_t child_pid = fork();
+	if (!child_pid) {
+		run_cmd(&argv[1]);
+	}
+	tcsetpgrp(STDIN_FILENO, child_pid);
+	child = child_pid;
+	do {
+		pid = waitpid(-1, &ret_code, 0);
+	} while (pid != -1 || (pid == -1 && errno != ECHILD));
+	child = 0;
+	tcsetpgrp(STDIN_FILENO, getpid());
+	return !ret_code;
+
+}
+
 void install_commands() {
 	shell_install_command("cd",      shell_cmd_cd, "change directory");
 	shell_install_command("exit",    shell_cmd_exit, "exit the shell");
@@ -1505,4 +1526,5 @@ void install_commands() {
 	shell_install_command("export-cmd",   shell_cmd_export_cmd, "set variable to result of command: export-cmd VAR command...");
 	shell_install_command("source",  shell_cmd_source, "run a shell script in the context of this shell");
 	shell_install_command("exec",    shell_cmd_exec, "replace shell (or subshell) with command");
+	shell_install_command("not",     shell_cmd_not, "invert status of command");
 }
