@@ -647,8 +647,19 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						if (c) {
 							backtick = 0;
 							for (int i = 0; i < (int)strlen(c); ++i) {
-								buffer_[collected] = c[i];
-								collected++;
+								if (c[i] == ' ' && !quoted) {
+									/* If we are not quoted and we reach a space, it signals a new argument */
+									if (collected) {
+										buffer_[collected] = '\0';
+										add_argument(args, buffer_);
+										buffer_[0] = '\0';
+										have_star = 0;
+										collected = 0;
+									}
+								} else {
+									buffer_[collected] = c[i];
+									collected++;
+								}
 							}
 							buffer_[collected] = '\0';
 						}
