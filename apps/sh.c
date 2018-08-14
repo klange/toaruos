@@ -33,8 +33,6 @@
 #include <sys/utsname.h>
 #include <sys/stat.h>
 
-#include <_xlog.h>
-
 #include <toaru/list.h>
 #include <toaru/kbd.h>
 #include <toaru/rline.h>
@@ -102,8 +100,6 @@ char _hostname[256];
 void getuser() {
 	char * tmp = getenv("USER");
 	if (tmp) {
-		_XLOG("Got user:");
-		_XLOG(tmp);
 		strcpy(username, tmp);
 	} else {
 		sprintf(username, "%d", getuid());
