@@ -26,14 +26,13 @@
 #include <getopt.h>
 #include <errno.h>
 #include <pty.h>
+#include <wchar.h>
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/fswait.h>
-
-#include <wchar.h>
 
 #define TRACE_APP_NAME "terminal"
 #include <toaru/trace.h>
@@ -48,80 +47,123 @@
 #include <toaru/menu.h>
 #include <toaru/sdf.h>
 
+/* 16- and 256-color palette */
 #include "terminal-palette.h"
+/* Bitmap font */
 #include "terminal-font.h"
+
+/* Show help text */
+static void usage(char * argv[]) {
+	printf(
+			"Terminal Emulator\n"
+			"\n"
+			"usage: %s [-Fbxn] [-s SCALE] [-g WIDTHxHEIGHT] [COMMAND...]\n"
+			"\n"
+			" -F --fullscreen \033[3mRun in fullscreen (background) mode.\033[0m\n"
+			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
+			" -s --scale      \033[3mScale the font in SDF mode by a given amount.\033[0m\n"
+			" -h --help       \033[3mShow this help message.\033[0m\n"
+			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
+			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
+			" -g --geometry   \033[3mSet requested terminal size WIDTHxHEIGHT\033[0m\n"
+			"\n"
+			" This terminal emulator provides basic support for VT220 escapes and\n"
+			" XTerm extensions, including 256 color support and font effects.\n",
+			argv[0]);
+}
 
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
 static FILE * terminal;
+static pid_t child_pid = 0;
 
-int      scale_fonts    = 0;    /* Whether fonts should be scaled */
-float    font_scaling   = 1.0;  /* How much they should be scaled by */
-float    font_gamma     = 1.7;  /* Gamma to use for SDF library */
-uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
-uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
-uint16_t font_size      = 16;   /* Font size according to SDF library */
-uint16_t char_width     = 9;   /* Width of a cell in pixels */
-uint16_t char_height    = 17;   /* Height of a cell in pixels */
-int      csr_x          = 0;    /* Cursor X */
-int      csr_y          = 0;    /* Cursor Y */
-term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
-uint32_t current_fg     = 7;    /* Current foreground color */
-uint32_t current_bg     = 0;    /* Current background color */
-uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
-uint8_t  _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
-uint8_t  _no_frame      = 0;    /* Whether to disable decorations or not */
-uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
-uint8_t  _use_sdf       = 1;    /* Whether or not to use SDF text rendering */
-uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
-uint8_t  _free_size     = 1;    /* Disable rounding when resized */
+static int      scale_fonts    = 0;    /* Whether fonts should be scaled */
+static float    font_scaling   = 1.0;  /* How much they should be scaled by */
+static float    font_gamma     = 1.7;  /* Gamma to use for SDF library */
+static uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
+static uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
+static uint16_t font_size      = 16;   /* Font size according to SDF library */
+static uint16_t char_width     = 9;    /* Width of a cell in pixels */
+static uint16_t char_height    = 17;   /* Height of a cell in pixels */
+static int      csr_x          = 0;    /* Cursor X */
+static int      csr_y          = 0;    /* Cursor Y */
+static uint32_t current_fg     = 7;    /* Current foreground color */
+static uint32_t current_bg     = 0;    /* Current background color */
 
-int menu_bar_height = 24;
+static term_cell_t * term_buffer = NULL; /* The terminal cell buffer */
+static term_state_t * ansi_state = NULL; /* ANSI parser library state */
 
-int selection = 0;
-int selection_start_x = 0;
-int selection_start_y = 0;
-int selection_end_x = 0;
-int selection_end_y = 0;
-char * selection_text = NULL;
+static bool cursor_on      = 1;    /* Whether or not the cursor should be rendered */
+static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
+static bool _no_frame      = 0;    /* Whether to disable decorations or not */
+static bool _use_sdf       = 1;    /* Whether or not to use SDF text rendering */
+static bool _hold_out      = 0;    /* state indicator on last cell ignore \n */
+static bool _free_size     = 1;    /* Disable rounding when resized */
 
-int      last_mouse_x   = -1;
-int      last_mouse_y   = -1;
-int      button_state   = 0;
+static list_t * images_list = NULL;
 
-uint64_t mouse_ticks = 0;
+static int menu_bar_height = 24;
 
-struct MenuList * menu_right_click = NULL;
+/* Text selection information */
+static int selection = 0;
+static int selection_start_x = 0;
+static int selection_start_y = 0;
+static int selection_end_x = 0;
+static int selection_end_y = 0;
+static char * selection_text = NULL;
+static int _selection_count = 0;
+static int _selection_i = 0;
 
-yutani_window_t * window       = NULL; /* GUI window */
-yutani_t * yctx = NULL;
+/* Mouse state */
+static int last_mouse_x   = -1;
+static int last_mouse_y   = -1;
+static int button_state   = 0;
+static unsigned long long mouse_ticks = 0;
 
-term_state_t * ansi_state = NULL;
+static yutani_window_t * window       = NULL; /* GUI window */
+static yutani_t * yctx = NULL;
 
-int32_t l_x = INT32_MAX;
-int32_t l_y = INT32_MAX;
-int32_t r_x = -1;
-int32_t r_y = -1;
+/* Window flip bounds */
+static int32_t l_x = INT32_MAX;
+static int32_t l_y = INT32_MAX;
+static int32_t r_x = -1;
+static int32_t r_y = -1;
 
-void reinit(); /* Defined way further down */
-void term_redraw_cursor();
-
-/* Some GUI-only options */
-uint32_t window_width  = 640;
-uint32_t window_height = 480;
+static uint32_t window_width  = 640;
+static uint32_t window_height = 480;
 #define TERMINAL_TITLE_SIZE 512
-char   terminal_title[TERMINAL_TITLE_SIZE];
-size_t terminal_title_length = 0;
-gfx_context_t * ctx;
-static void render_decors(void);
-void term_clear();
-void flush_unused_images(void);
+static char   terminal_title[TERMINAL_TITLE_SIZE];
+static size_t terminal_title_length = 0;
+static gfx_context_t * ctx;
+static struct MenuList * menu_right_click = NULL;
 
-void dump_buffer();
+static void render_decors(void);
+static void term_clear();
+static void reinit();
+static void term_redraw_cursor();
+
+struct scrollback_row {
+	unsigned short width;
+	term_cell_t cells[];
+};
+
+#define MAX_SCROLLBACK 10240
+static list_t * scrollback_list = NULL;
+static int scrollback_offset = 0;
+
+/* Menu bar entries */
+struct menu_bar terminal_menu_bar = {0};
+struct menu_bar_entries terminal_menu_entries[] = {
+	{"File", "file"},
+	{"Edit", "edit"},
+	{"View", "view"},
+	{"Help", "help"},
+	{NULL, NULL},
+};
 
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
-volatile int exit_application = 0;
+static volatile int exit_application = 0;
 
 static void cell_redraw(uint16_t x, uint16_t y);
 static void cell_redraw_inverted(uint16_t x, uint16_t y);
@@ -145,16 +187,57 @@ static void display_flip(void) {
 }
 
 /* Returns the lower of two shorts */
-int32_t min(int32_t a, int32_t b) {
+static int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
 }
 
 /* Returns the higher of two shorts */
-int32_t max(int32_t a, int32_t b) {
+static int32_t max(int32_t a, int32_t b) {
 	return (a > b) ? a : b;
 }
 
-void set_title(char * c) {
+/*
+ * Convert codepoint to UTF-8
+ *
+ * Returns length of byte sequence written.
+ */
+static int to_eight(uint32_t codepoint, char * out) {
+	memset(out, 0x00, 7);
+
+	if (codepoint < 0x0080) {
+		out[0] = (char)codepoint;
+	} else if (codepoint < 0x0800) {
+		out[0] = 0xC0 | (codepoint >> 6);
+		out[1] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x10000) {
+		out[0] = 0xE0 | (codepoint >> 12);
+		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[2] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x200000) {
+		out[0] = 0xF0 | (codepoint >> 18);
+		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[3] = 0x80 | ((codepoint) & 0x3F);
+	} else if (codepoint < 0x4000000) {
+		out[0] = 0xF8 | (codepoint >> 24);
+		out[1] = 0x80 | (codepoint >> 18);
+		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[4] = 0x80 | ((codepoint) & 0x3F);
+	} else {
+		out[0] = 0xF8 | (codepoint >> 30);
+		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[5] = 0x80 | ((codepoint) & 0x3F);
+	}
+
+	return strlen(out);
+}
+
+/* Set the terminal title string */
+static void set_title(char * c) {
 	int len = min(TERMINAL_TITLE_SIZE, strlen(c)+1);
 	memcpy(terminal_title, c, len);
 	terminal_title[len-1] = '\0';
@@ -162,7 +245,8 @@ void set_title(char * c) {
 	render_decors();
 }
 
-void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
+/* Call a function for each selected cell */
+static void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 	if (selection_end_y < selection_start_y) {
 		for (int x = selection_end_x; x < term_width; ++x) {
 			func(x, selection_end_y);
@@ -201,53 +285,18 @@ void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 
 }
 
-void unredraw_selection(void) {
+/* Redraw original cells in selected text */
+static void unredraw_selection(void) {
 	iterate_selection(cell_redraw);
 }
 
-void redraw_selection(void) {
+/* Redraw the selection with the selection hint (inversion) */
+static void redraw_selection(void) {
 	iterate_selection(cell_redraw_inverted);
 }
 
-static int _selection_count = 0;
-static int _selection_i = 0;
-
-static int to_eight(uint32_t codepoint, char * out) {
-	memset(out, 0x00, 7);
-
-	if (codepoint < 0x0080) {
-		out[0] = (char)codepoint;
-	} else if (codepoint < 0x0800) {
-		out[0] = 0xC0 | (codepoint >> 6);
-		out[1] = 0x80 | (codepoint & 0x3F);
-	} else if (codepoint < 0x10000) {
-		out[0] = 0xE0 | (codepoint >> 12);
-		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[2] = 0x80 | (codepoint & 0x3F);
-	} else if (codepoint < 0x200000) {
-		out[0] = 0xF0 | (codepoint >> 18);
-		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
-		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[3] = 0x80 | ((codepoint) & 0x3F);
-	} else if (codepoint < 0x4000000) {
-		out[0] = 0xF8 | (codepoint >> 24);
-		out[1] = 0x80 | (codepoint >> 18);
-		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
-		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[4] = 0x80 | ((codepoint) & 0x3F);
-	} else {
-		out[0] = 0xF8 | (codepoint >> 30);
-		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
-		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
-		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
-		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[5] = 0x80 | ((codepoint) & 0x3F);
-	}
-
-	return strlen(out);
-}
-
-void count_selection(uint16_t x, uint16_t y) {
+/* Figure out how long the UTF-8 selection string should be. */
+static void count_selection(uint16_t x, uint16_t y) {
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	if (!(cell->flags & ANSI_EXT_IMG)) {
 		if (((uint32_t *)cell)[0] != 0x00000000) {
@@ -260,6 +309,7 @@ void count_selection(uint16_t x, uint16_t y) {
 	}
 }
 
+/* Fill the selection text buffer with the selected text. */
 void write_selection(uint16_t x, uint16_t y) {
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	if (!(cell->flags & ANSI_EXT_IMG)) {
@@ -278,8 +328,8 @@ void write_selection(uint16_t x, uint16_t y) {
 	}
 }
 
-
-char * copy_selection(void) {
+/* Copy the selection text to the clipboard. */
+static char * copy_selection(void) {
 	_selection_count = 0;
 	iterate_selection(count_selection);
 
@@ -310,41 +360,46 @@ char * copy_selection(void) {
 
 /* Stuffs a string into the stdin of the terminal's child process
  * Useful for things like the ANSI DSR command. */
-void input_buffer_stuff(char * str) {
+static void input_buffer_stuff(char * str) {
 	size_t s = strlen(str) + 1;
 	write(fd_master, str, s);
 }
 
-struct menu_bar terminal_menu_bar = {0};
-struct menu_bar_entries terminal_menu_entries[] = {
-	{"File", "file"},
-	{"Edit", "edit"},
-	{"View", "view"},
-	{"Help", "help"},
-	{NULL, NULL},
-};
-
-
+/* Redraw the decorations */
 static void render_decors(void) {
-	/* XXX Make the decorations library support Yutani windows */
+	/* Don't draw decorations or bother advertising the window if in "fullscreen mode" */
 	if (_fullscreen) return;
+
 	if (!_no_frame) {
+		/* Draw the decorations */
 		render_decorations(window, ctx, terminal_title_length ? terminal_title : "Terminal");
+		/* Update menu bar position and size */
 		terminal_menu_bar.x = decor_left_width;
 		terminal_menu_bar.y = decor_top_height;
 		terminal_menu_bar.width = window_width;
 		terminal_menu_bar.window = window;
+		/* Redraw the menu bar */
 		menu_bar_render(&terminal_menu_bar, ctx);
 	}
+
+	/* Advertise the window icon to the panel. */
 	yutani_window_advertise_icon(yctx, window, terminal_title_length ? terminal_title : "Terminal", "utilities-terminal");
+
+	/*
+	 * Flip the whole window
+	 * We do this regardless of whether we drew decorations to catch
+	 * a case where decorations are toggled.
+	 */
 	l_x = 0; l_y = 0;
 	r_x = window->width;
 	r_y = window->height;
 	display_flip();
 }
 
+/* Set a pixel in the terminal cell area */
 static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 	if (_fullscreen) {
+		/* In full screen mode, pre-blend the color over black. */
 		color = alpha_blend_rgba(premultiply(rgba(0,0,0,0xFF)), color);
 	}
 	if (!_no_frame) {
@@ -354,7 +409,8 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 	}
 }
 
-void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
+/* Draw a partial block character. */
+static void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 	int height;
 	bg = premultiply(bg);
 	fg = premultiply(fg);
@@ -378,7 +434,8 @@ void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 	}
 }
 
-uint32_t ununicode(uint32_t c) {
+/* Convert unicode codepoint to fallback codepage codepoint */
+static uint32_t ununicode(uint32_t c) {
 	switch (c) {
 		case L'☺': return 1;
 		case L'☻': return 2;
@@ -544,24 +601,19 @@ uint32_t ununicode(uint32_t c) {
 	return 4;
 }
 
-void
-term_write_char(
-		uint32_t val,
-		uint16_t x,
-		uint16_t y,
-		uint32_t fg,
-		uint32_t bg,
-		uint8_t flags
-		) {
-
+/* Write a character to the window. */
+static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg, uint8_t flags) {
 	uint32_t _fg, _bg;
 
+	/* Select foreground color from palette. */
 	if (fg < PALETTE_COLORS) {
 		_fg = term_colors[fg];
 		_fg |= 0xFF << 24;
 	} else {
 		_fg = fg;
 	}
+
+	/* Select background color from aplette. */
 	if (bg < PALETTE_COLORS) {
 		_bg = term_colors[bg];
 		if (flags & ANSI_SPECBG) {
@@ -572,6 +624,8 @@ term_write_char(
 	} else {
 		_bg = bg;
 	}
+
+	/* Draw block characters */
 	if (val >= 0x2580 && val <= 0x2588) {
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -581,10 +635,21 @@ term_write_char(
 		draw_semi_block(val, x, y, _fg, _bg);
 		goto _extra_stuff;
 	}
+
+	/* TODO: This is where a Unicode-capable rendering engine
+	 *       such as freetype should be patched in. The older
+	 *       version of this terminal included in mainline
+	 *       ToaruOS included freetype support.
+	 */
+
+	/* Convert other unicode characters. */
 	if (val > 128) {
 		val = ununicode(val);
 	}
+
+	/* Draw glyphs */
 	if (_use_sdf) {
+		/* Draw using the Toaru SDF rendering library */
 		char tmp[2] = {val,0};
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -607,18 +672,7 @@ term_write_char(
 			}
 		}
 	} else {
-#ifdef number_font
-		uint8_t * c = number_font[val];
-		for (uint8_t i = 0; i < char_height; ++i) {
-			for (uint8_t j = 0; j < char_width; ++j) {
-				if (c[i] & (1 << (8-j))) {
-					term_set_point(x+j,y+i,_fg);
-				} else {
-					term_set_point(x+j,y+i,_bg);
-				}
-			}
-		}
-#else
+		/* Draw using the bitmap font. */
 		uint16_t * c = large_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -629,8 +683,9 @@ term_write_char(
 				}
 			}
 		}
-#endif
 	}
+
+	/* Draw additional text elements, like underlines and cross-outs. */
 _extra_stuff:
 	if (flags & ANSI_UNDERLINE) {
 		for (uint8_t i = 0; i < char_width; ++i) {
@@ -653,6 +708,7 @@ _extra_stuff:
 		}
 	}
 
+	/* Calculate the bounds of the updated region of the window */
 	if (!_no_frame) {
 		l_x = min(l_x, decor_left_width + x);
 		l_y = min(l_y, decor_top_height+menu_bar_height + y);
@@ -678,17 +734,27 @@ _extra_stuff:
 	}
 }
 
+/* Set a terminal cell */
 static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint32_t flags) {
+	/* Avoid setting cells out of range. */
 	if (x >= term_width || y >= term_height) return;
+
+	/* Calculate the cell position in the terminal buffer */
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+
+	/* Set cell attributes */
 	cell->c     = c;
 	cell->fg    = fg;
 	cell->bg    = bg;
 	cell->flags = flags;
 }
 
+/* Redraw an embedded image cell */
 static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
+	/* Avoid setting cells out of range. */
 	if (x >= term_width || y >= term_height) return;
+
+	/* Draw the image data */
 	uint32_t * data = (uint32_t *)cell->fg;
 	for (uint32_t yy = 0; yy < char_height; ++yy) {
 		for (uint32_t xx = 0; xx < char_width; ++xx) {
@@ -696,6 +762,8 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
 			data++;
 		}
 	}
+
+	/* Update bounds */
 	if (!_no_frame) {
 		l_x = min(l_x, decor_left_width + x * char_width);
 		l_y = min(l_y, decor_top_height+menu_bar_height + y * char_height);
@@ -709,10 +777,21 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
 	}
 }
 
+/* Redraw a text cell normally. */
 static void cell_redraw(uint16_t x, uint16_t y) {
+	/* Avoid cells out of range. */
 	if (x >= term_width || y >= term_height) return;
+
+	/* Calculate the cell position in the terminal buffer */
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,y,cell); return; }
+
+	/* If it's an image cell, redraw the image data. */
+	if (cell->flags & ANSI_EXT_IMG) {
+		redraw_cell_image(x,y,cell);
+		return;
+	}
+
+	/* Special case empty cells. */
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 	} else {
@@ -720,10 +799,21 @@ static void cell_redraw(uint16_t x, uint16_t y) {
 	}
 }
 
+/* Redraw text cell inverted. */
 static void cell_redraw_inverted(uint16_t x, uint16_t y) {
+	/* Avoid cells out of range. */
 	if (x >= term_width || y >= term_height) return;
+
+	/* Calculate the cell position in the terminal buffer */
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,y,cell); return; }
+
+	/* If it's an image cell, redraw the image data. */
+	if (cell->flags & ANSI_EXT_IMG) {
+		redraw_cell_image(x,y,cell);
+		return;
+	}
+
+	/* Special case empty cells. */
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_BG, TERM_DEFAULT_FG, TERM_DEFAULT_FLAGS | ANSI_SPECBG);
 	} else {
@@ -731,10 +821,21 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y) {
 	}
 }
 
+/* Redraw text cell with a surrounding box (used by cursor) */
 static void cell_redraw_box(uint16_t x, uint16_t y) {
+	/* Avoid cells out of range. */
 	if (x >= term_width || y >= term_height) return;
+
+	/* Calculate the cell position in the terminal buffer */
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,y,cell); return; }
+
+	/* If it's an image cell, redraw the image data. */
+	if (cell->flags & ANSI_EXT_IMG) {
+		redraw_cell_image(x,y,cell);
+		return;
+	}
+
+	/* Special case empty cells. */
 	if (((uint32_t *)cell)[0] == 0x00000000) {
 		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS | ANSI_BORDER);
 	} else {
@@ -742,25 +843,56 @@ static void cell_redraw_box(uint16_t x, uint16_t y) {
 	}
 }
 
-void render_cursor() {
+/* Draw the cursor cell */
+static void render_cursor() {
 	if (!window->focused) {
+		/* An unfocused terminal should draw an unfilled box. */
 		cell_redraw_box(csr_x, csr_y);
 	} else {
+		/* A focused terminal draws a solid box. */
 		cell_redraw_inverted(csr_x, csr_y);
 	}
 }
 
-void draw_cursor() {
+/* A soft request to draw the cursor. */
+static void draw_cursor() {
 	if (!cursor_on) return;
 	mouse_ticks = get_ticks();
 	render_cursor();
 }
 
-void term_redraw_all() { 
+/* Timer callback to flip (flash) the cursor */
+static void maybe_flip_cursor(void) {
+	static uint8_t cursor_flipped = 0;
+	uint64_t ticks = get_ticks();
+	if (ticks > mouse_ticks + 600000LL) {
+		mouse_ticks = ticks;
+		if (scrollback_offset != 0) {
+			return; /* Don't flip cursor while drawing scrollback */
+		}
+		if (window->focused && cursor_flipped) {
+			cell_redraw(csr_x, csr_y);
+		} else {
+			render_cursor();
+		}
+		display_flip();
+		cursor_flipped = 1 - cursor_flipped;
+	}
+}
+
+/* Draw all cells. Duplicates code from cell_redraw to avoid unecessary bounds checks. */
+static void term_redraw_all() {
 	for (int i = 0; i < term_height; i++) {
 		for (int x = 0; x < term_width; ++x) {
+			/* Calculate the cell position in the terminal buffer */
 			term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (i * term_width + x) * sizeof(term_cell_t));
-			if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,i,cell); continue; }
+			/* If it's an image cell, redraw the image data. */
+			if (cell->flags & ANSI_EXT_IMG) {
+				redraw_cell_image(x,i,cell);
+				continue;
+			}
+
+			/* Special case empty cells. */
 			if (((uint32_t *)cell)[0] == 0x00000000) {
 				term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
 			} else {
@@ -770,18 +902,46 @@ void term_redraw_all() {
 	}
 }
 
-void term_scroll(int how_much) {
+/* Remove no-longer-visible image cell data. */
+static void flush_unused_images(void) {
+	list_t * tmp = list_create();
+	for (int y = 0; y < term_height; ++y) {
+		for (int x = 0; x < term_width; ++x) {
+			term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+			if (cell->flags & ANSI_EXT_IMG) {
+				list_insert(tmp, (void *)cell->fg);
+			}
+		}
+	}
+	foreach(node, images_list) {
+		if (!list_find(tmp, node->value)) {
+			free(node->value);
+		}
+	}
+
+	list_free(images_list);
+	images_list = tmp;
+}
+
+/* Scroll the terminal up or down. */
+static void term_scroll(int how_much) {
+
+	/* A large scroll request should just clear the screen. */
 	if (how_much >= term_height || -how_much >= term_height) {
 		term_clear();
 		return;
 	}
+
+	/* A request to scroll 0... is a request not to scroll. */
 	if (how_much == 0) {
 		return;
 	}
 
+	/* Redraw the cursor before continuing. */
 	cell_redraw(csr_x, csr_y);
+
 	if (how_much > 0) {
-		/* Shift terminal cells one row up */
+		/* Scroll up */
 		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), sizeof(term_cell_t) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
 		memset((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * (term_height - how_much)), 0x0, sizeof(term_cell_t) * term_width * how_much);
@@ -808,7 +968,7 @@ void term_scroll(int how_much) {
 		}
 	} else {
 		how_much = -how_much;
-		/* Shift terminal cells one row up */
+		/* Scroll down */
 		memmove((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), term_buffer, sizeof(term_cell_t) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
 		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * how_much);
@@ -830,31 +990,24 @@ void term_scroll(int how_much) {
 			}
 		}
 	}
+
+	/* Remove image data for image cells that are no longer on screen. */
 	flush_unused_images();
+
+	/* Flip the entire window. */
 	yutani_flip(yctx, window);
 }
 
-int is_wide(uint32_t codepoint) {
+/* Is this a wide character? (does wcwidth == 2) */
+static int is_wide(uint32_t codepoint) {
 	if (codepoint < 256) return 0;
 	return wcwidth(codepoint) == 2;
 }
 
-struct scrollback_row {
-	unsigned short width;
-	term_cell_t cells[];
-};
+/* Save the row that is about to be scrolled offscreen into the scrollback buffer. */
+static void save_scrollback(void) {
 
-#define MAX_SCROLLBACK 10240
-
-list_t * scrollback_list = NULL;
-
-int scrollback_offset = 0;
-
-void save_scrollback() {
-	/* Save the current top row for scrollback */
-	if (!scrollback_list) {
-		scrollback_list = list_create();
-	}
+	/* If the scrollback is already full, remove the oldest element. */
 	if (scrollback_list->length == MAX_SCROLLBACK) {
 		free(list_dequeue(scrollback_list));
 	}
@@ -869,7 +1022,8 @@ void save_scrollback() {
 	list_insert(scrollback_list, row);
 }
 
-void redraw_scrollback() {
+/* Draw the scrollback. */
+static void redraw_scrollback(void) {
 	if (!scrollback_offset) {
 		term_redraw_all();
 		display_flip();
@@ -945,7 +1099,12 @@ void redraw_scrollback() {
 	display_flip();
 }
 
-void term_write(char c) {
+/*
+ * ANSI callback for writing characters.
+ * Parses some things (\n\r, etc.) itself that should probably
+ * be moved into the ANSI library.
+ */
+static void term_write(char c) {
 	static uint32_t unicode_state = 0;
 	static uint32_t codepoint = 0;
 
@@ -1020,106 +1179,70 @@ void term_write(char c) {
 	draw_cursor();
 }
 
-void term_set_csr(int x, int y) {
+/* ANSI callback to set cursor position */
+static void term_set_csr(int x, int y) {
 	cell_redraw(csr_x,csr_y);
 	csr_x = x;
 	csr_y = y;
 	draw_cursor();
 }
 
-int term_get_csr_x(void) {
+/* ANSI callback to get cursor x position */
+static int term_get_csr_x(void) {
 	return csr_x;
 }
 
-int term_get_csr_y(void) {
+/* ANSI callback to get cursor y position */
+static int term_get_csr_y(void) {
 	return csr_y;
 }
 
-static list_t * images_list = NULL;
-
-void term_set_cell_contents(int x, int y, char * data) {
-	if (!images_list) {
-		images_list = list_create();
-	}
+/* ANSI callback to set cell image data. */
+static void term_set_cell_contents(int x, int y, char * data) {
 	char * cell_data = malloc(char_width * char_height * sizeof(uint32_t));
 	memcpy(cell_data, data, char_width * char_height * sizeof(uint32_t));
 	list_insert(images_list, cell_data);
 	cell_set(x, y, ' ', (uint32_t)cell_data, 0, ANSI_EXT_IMG);
-	return;
 }
 
-void flush_unused_images(void) {
-	if (!images_list) return;
-
-	list_t * tmp = list_create();
-	for (int y = 0; y < term_height; ++y) {
-		for (int x = 0; x < term_width; ++x) {
-			term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-			if (cell->flags & ANSI_EXT_IMG) {
-				list_insert(tmp, (void *)cell->fg);
-			}
-		}
-	}
-	foreach(node, images_list) {
-		if (!list_find(tmp, node->value)) {
-			free(node->value);
-		}
-	}
-
-	list_free(images_list);
-	images_list = tmp;
-}
-
-int term_get_cell_width(void) {
+/* ANSI callback to get character cell width */
+static int term_get_cell_width(void) {
 	return char_width;
 }
 
-int term_get_cell_height(void) {
+/* ANSI callback to get character cell height */
+static int term_get_cell_height(void) {
 	return char_height;
 }
 
-void term_set_csr_show(int on) {
+/* ANSI callback to set cursor visibility */
+static void term_set_csr_show(int on) {
 	cursor_on = on;
 }
 
-void term_set_colors(uint32_t fg, uint32_t bg) {
+/* ANSI callback to set the foreground/background colors. */
+static void term_set_colors(uint32_t fg, uint32_t bg) {
 	current_fg = fg;
 	current_bg = bg;
 }
 
-void term_redraw_cursor() {
+/* ANSI callback to force the cursor to draw */
+static void term_redraw_cursor() {
 	if (term_buffer) {
 		draw_cursor();
 	}
 }
 
-void flip_cursor() {
-	static uint8_t cursor_flipped = 0;
-	if (scrollback_offset != 0) {
-		return; /* Don't flip cursor while drawing scrollback */
-	}
-	if (window->focused && cursor_flipped) {
-		cell_redraw(csr_x, csr_y);
-	} else {
-		render_cursor();
-	}
-	display_flip();
-	cursor_flipped = 1 - cursor_flipped;
-}
-
-void term_set_cell(int x, int y, uint32_t c) {
+/* ANSI callback to set a cell to a codepoint (only ever used to set spaces) */
+static void term_set_cell(int x, int y, uint32_t c) {
 	cell_set(x, y, c, current_fg, current_bg, ansi_state->flags);
 	cell_redraw(x, y);
 }
 
-void term_redraw_cell(int x, int y) {
-	if (x < 0 || y < 0 || x >= term_width || y >= term_height) return;
-	cell_redraw(x,y);
-}
-
-void term_clear(int i) {
+/* ANSI callback to clear the terminal. */
+static void term_clear(int i) {
 	if (i == 2) {
-		/* Oh dear */
+		/* Clear all */
 		csr_x = 0;
 		csr_y = 0;
 		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(term_cell_t));
@@ -1128,6 +1251,7 @@ void term_clear(int i) {
 		}
 		term_redraw_all();
 	} else if (i == 0) {
+		/* Clear after cursor */
 		for (int x = csr_x; x < term_width; ++x) {
 			term_set_cell(x, csr_y, ' ');
 		}
@@ -1137,6 +1261,7 @@ void term_clear(int i) {
 			}
 		}
 	} else if (i == 1) {
+		/* Clear before cursor */
 		for (int y = 0; y < csr_y; ++y) {
 			for (int x = 0; x < term_width; ++x) {
 				term_set_cell(x, y, ' ');
@@ -1149,28 +1274,39 @@ void term_clear(int i) {
 	flush_unused_images();
 }
 
-#define INPUT_SIZE 1024
-char input_buffer[INPUT_SIZE];
-int  input_collected = 0;
+/* ANSI callbacks */
+term_callbacks_t term_callbacks = {
+	term_write,
+	term_set_colors,
+	term_set_csr,
+	term_get_csr_x,
+	term_get_csr_y,
+	term_set_cell,
+	term_clear,
+	term_scroll,
+	term_redraw_cursor,
+	input_buffer_stuff,
+	set_title,
+	term_set_cell_contents,
+	term_get_cell_width,
+	term_get_cell_height,
+	term_set_csr_show,
+};
 
-void clear_input() {
-	memset(input_buffer, 0x0, INPUT_SIZE);
-	input_collected = 0;
-}
-
-pid_t child_pid = 0;
-
-void handle_input(char c) {
+/* Write data into the PTY */
+static void handle_input(char c) {
 	write(fd_master, &c, 1);
 	display_flip();
 }
 
-void handle_input_s(char * c) {
+/* Write a string into the PTY */
+static void handle_input_s(char * c) {
 	write(fd_master, c, strlen(c));
 	display_flip();
 }
 
-void scroll_up(int amount) {
+/* Scroll the view up (scrollback) */
+static void scroll_up(int amount) {
 	int i = 0;
 	while (i < amount && scrollback_list && scrollback_offset < (int)scrollback_list->length) {
 		scrollback_offset ++;
@@ -1179,6 +1315,7 @@ void scroll_up(int amount) {
 	redraw_scrollback();
 }
 
+/* Scroll the view down (scrollback) */
 void scroll_down(int amount) {
 	int i = 0;
 	while (i < amount && scrollback_list && scrollback_offset != 0) {
@@ -1188,9 +1325,10 @@ void scroll_down(int amount) {
 	redraw_scrollback();
 }
 
-void key_event(int ret, key_event_t * event) {
+/* Handle a key press from Yutani */
+static void key_event(int ret, key_event_t * event) {
 	if (ret) {
-		/* Special keys */
+		/* Ctrl-Shift-C - Copy selection */
 		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
 			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
 			(event->keycode == 'c')) {
@@ -1200,29 +1338,36 @@ void key_event(int ret, key_event_t * event) {
 			}
 			return;
 		}
+
+		/* Ctrl-Shift-V - Paste selection */
 		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
 			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
 			(event->keycode == 'v')) {
 			/* Paste selection */
 			yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
-#if 0
-			if (selection_text) {
-				handle_input_s(selection_text);
-			}
-#endif
 			return;
 		}
+
+		/* Left alt */
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
 			handle_input('\033');
 		}
+
+		/* Shift-Tab */
 		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
 		    event->key == '\t') {
 			handle_input_s("\033[Z");
 			return;
 		}
+
+		/* Pass key value to PTY */
 		handle_input(event->key);
 	} else {
+		/* Special keys without ->key values */
+
+		/* Only trigger on key down */
 		if (event->action == KEY_ACTION_UP) return;
+
 		switch (event->keycode) {
 			case KEY_F1:
 				handle_input_s("\033OP");
@@ -1368,57 +1513,29 @@ void key_event(int ret, key_event_t * event) {
 	}
 }
 
-void check_for_exit(void) {
+/* Check if the Terminal should close. */
+static void check_for_exit(void) {
+
+	/* If something has set exit_application, we should exit. */
 	if (exit_application) return;
 
 	pid_t pid = waitpid(-1, NULL, WNOHANG);
 
+	/* If the child has exited, we should exit. */
 	if (pid != child_pid) return;
 
 	/* Clean up */
 	exit_application = 1;
-	/* Exit */
+
+	/* Write [Process terminated] */
 	char exit_message[] = "[Process terminated]\n";
 	write(fd_slave, exit_message, sizeof(exit_message));
 }
 
-void usage(char * argv[]) {
-	printf(
-			"Terminal Emulator\n"
-			"\n"
-			"usage: %s [-b] [-F] [-h]\n"
-			"\n"
-			" -F --fullscreen \033[3mRun in fullscreen (background) mode.\033[0m\n"
-			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
-			" -s --scale      \033[3mScale the font in SDF mode by a given amount.\033[0m\n"
-			" -h --help       \033[3mShow this help message.\033[0m\n"
-			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
-			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
-			"\n"
-			" This terminal emulator provides basic support for VT220 escapes and\n"
-			" XTerm extensions, including 256 color support and font effects.\n",
-			argv[0]);
-}
+/* Reinitialize the terminal after a resize. */
+static void reinit(int send_sig) {
 
-term_callbacks_t term_callbacks = {
-	&term_write,
-	term_set_colors,
-	term_set_csr,
-	term_get_csr_x,
-	term_get_csr_y,
-	term_set_cell,
-	term_clear,
-	term_scroll,
-	term_redraw_cursor,
-	input_buffer_stuff,
-	set_title,
-	term_set_cell_contents,
-	term_get_cell_width,
-	term_get_cell_height,
-	term_set_csr_show,
-};
-
-void reinit(int send_sig) {
+	/* Figure out character sizes if fonts have changed. */
 	if (_use_sdf) {
 		char_width = 9;
 		char_height = 17;
@@ -1436,6 +1553,7 @@ void reinit(int send_sig) {
 	int old_width  = term_width;
 	int old_height = term_height;
 
+	/* Resize the terminal buffer */
 	term_width  = window_width  / char_width;
 	term_height = window_height / char_height;
 	if (term_buffer) {
@@ -1469,16 +1587,19 @@ void reinit(int send_sig) {
 		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
 	}
 
+	/* Reset the ANSI library, ensuring we keep certain values */
 	int old_mouse_state = 0;
 	if (ansi_state) old_mouse_state = ansi_state->mouse_on;
 	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);
 	ansi_state->mouse_on = old_mouse_state;
 
+	/* Redraw the window */
 	draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
 	render_decors();
 	term_redraw_all();
 	display_flip();
 
+	/* Send window size change ioctl */
 	struct winsize w;
 	w.ws_row = term_height;
 	w.ws_col = term_width;
@@ -1486,17 +1607,20 @@ void reinit(int send_sig) {
 	w.ws_ypixel = term_height * char_height;
 	ioctl(fd_master, TIOCSWINSZ, &w);
 
+	/* If requested, send a signal to the application. */
 	if (send_sig) {
 		kill(child_pid, SIGWINCH);
 	}
 }
 
+/* Handle window resize event. */
 static void resize_finish(int width, int height) {
 	static int resize_attempts = 0;
 
 	int extra_x = 0;
 	int extra_y = 0;
 
+	/* Calculate window size */
 	if (!_no_frame) {
 		extra_x = decor_width();
 		extra_y = decor_height() + menu_bar_height;
@@ -1505,6 +1629,7 @@ static void resize_finish(int width, int height) {
 	int t_window_width  = width  - extra_x;
 	int t_window_height = height - extra_y;
 
+	/* Prevent the terminal from becoming too small. */
 	if (t_window_width < char_width * 20 || t_window_height < char_height * 10) {
 		resize_attempts++;
 		int n_width  = extra_x + max(char_width * 20, t_window_width);
@@ -1513,6 +1638,7 @@ static void resize_finish(int width, int height) {
 		return;
 	}
 
+	/* If requested, ensure the terminal resizes to a fixed size based on the cell size. */
 	if (!_free_size && ((t_window_width % char_width != 0 || t_window_height % char_height != 0) && resize_attempts < 3)) {
 		resize_attempts++;
 		int n_width  = extra_x + t_window_width  - (t_window_width  % char_width);
@@ -1523,24 +1649,31 @@ static void resize_finish(int width, int height) {
 
 	resize_attempts = 0;
 
+	/* Accept new window size */
 	yutani_window_resize_accept(yctx, window, width, height);
 	window_width  = window->width  - extra_x;
 	window_height = window->height - extra_y;
 
+	/* Reinitialize the graphics library */
 	reinit_graphics_yutani(ctx, window);
+
+	/* Reinitialize the terminal buffer and ANSI library */
 	reinit(1);
 
+	/* We are done resizing. */
 	yutani_window_resize_done(yctx, window);
 	yutani_flip(yctx, window);
 }
 
-void mouse_event(int button, int x, int y) {
+/* Insert a mouse event sequence into the PTY */
+static void mouse_event(int button, int x, int y) {
 	char buf[7];
 	sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
 	handle_input_s(buf);
 }
 
-void * handle_incoming(void) {
+/* Handle Yutani messages */
+static void * handle_incoming(void) {
 
 	yutani_msg_t * m = yutani_poll(yctx);
 	while (m) {
@@ -1630,20 +1763,17 @@ void * handle_incoming(void) {
 						menu_bar_mouse_event(yctx, window, &terminal_menu_bar, me, me->new_x, me->new_y);
 					}
 
+					if (me->new_x < 0 || me->new_y < 0) break;
 					if (!_no_frame) {
-						if (me->new_x < 0 || me->new_x >= (int)window_width + (int)decor_width() || me->new_y < 0 || me->new_y >= (int)window_height + (int)decor_height()) {
-							break;
-						}
-						if (me->new_y < (int)decor_top_height+menu_bar_height || me->new_y >= (int)(window_height + decor_top_height+menu_bar_height)) {
-							break;
-						}
-						if (me->new_x < (int)decor_left_width || me->new_y >= (int)(window_width + decor_left_width)) {
-							break;
-						}
+						if (me->new_x >= (int)window_width + (int)decor_width()) break;
+						if (me->new_y >= (int)window_height + (int)decor_height()) break;
+						if (me->new_y < (int)decor_top_height+menu_bar_height) break;
+						if (me->new_y >= (int)(window_height + decor_top_height+menu_bar_height)) break;
+						if (me->new_x < (int)decor_left_width) break;
+						if (me->new_y >= (int)(window_width + decor_left_width)) break;
 					} else {
-						if (me->new_x < 0 || me->new_x >= (int)window_width || me->new_y < 0 || me->new_y >= (int)window_height) {
-							break;
-						}
+						if (me->new_x >= (int)window_width) break;
+						if (me->new_y >= (int)window_height) break;
 					}
 
 					int new_x = me->new_x;
@@ -1670,12 +1800,24 @@ void * handle_incoming(void) {
 
 						if (me->buttons != button_state) {
 							/* Figure out what changed */
-							if (me->buttons & YUTANI_MOUSE_BUTTON_LEFT && !(button_state & YUTANI_MOUSE_BUTTON_LEFT)) mouse_event(0, new_x, new_y);
-							if (me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE && !(button_state & YUTANI_MOUSE_BUTTON_MIDDLE)) mouse_event(1, new_x, new_y);
-							if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT && !(button_state & YUTANI_MOUSE_BUTTON_RIGHT)) mouse_event(2, new_x, new_y);
-							if (!(me->buttons & YUTANI_MOUSE_BUTTON_LEFT) && button_state & YUTANI_MOUSE_BUTTON_LEFT) mouse_event(3, new_x, new_y);
-							if (!(me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && button_state & YUTANI_MOUSE_BUTTON_MIDDLE) mouse_event(3, new_x, new_y);
-							if (!(me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) && button_state & YUTANI_MOUSE_BUTTON_RIGHT) mouse_event(3, new_x, new_y);
+							if (me->buttons & YUTANI_MOUSE_BUTTON_LEFT &&
+									!(button_state & YUTANI_MOUSE_BUTTON_LEFT))
+								mouse_event(0, new_x, new_y);
+							if (me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE &&
+									!(button_state & YUTANI_MOUSE_BUTTON_MIDDLE))
+								mouse_event(1, new_x, new_y);
+							if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT &&
+									!(button_state & YUTANI_MOUSE_BUTTON_RIGHT))
+								mouse_event(2, new_x, new_y);
+							if (!(me->buttons & YUTANI_MOUSE_BUTTON_LEFT) &&
+									button_state & YUTANI_MOUSE_BUTTON_LEFT)
+								mouse_event(3, new_x, new_y);
+							if (!(me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE) &&
+									button_state & YUTANI_MOUSE_BUTTON_MIDDLE)
+								mouse_event(3, new_x, new_y);
+							if (!(me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) &&
+									button_state & YUTANI_MOUSE_BUTTON_RIGHT)
+								mouse_event(3, new_x, new_y);
 							last_mouse_x = new_x;
 							last_mouse_y = new_y;
 							button_state = me->buttons;
@@ -1740,15 +1882,21 @@ void * handle_incoming(void) {
 	return NULL;
 }
 
-void _menu_action_exit(struct MenuEntry * self) {
+/*
+ * Menu Actions
+ */
+
+/* File > Exit */
+static void _menu_action_exit(struct MenuEntry * self) {
 	kill(child_pid, SIGKILL);
 	exit_application = 1;
 }
 
+/* We need to track these so we can retitle both of them */
 static struct MenuEntry * _menu_toggle_borders_context = NULL;
 static struct MenuEntry * _menu_toggle_borders_bar = NULL;
 
-void _menu_action_hide_borders(struct MenuEntry * self) {
+static void _menu_action_hide_borders(struct MenuEntry * self) {
 	_no_frame = !(_no_frame);
 	window_width = window->width - decor_width() * (!_no_frame);
 	window_height = window->height - (decor_height() + menu_bar_height) * (!_no_frame);
@@ -1757,13 +1905,13 @@ void _menu_action_hide_borders(struct MenuEntry * self) {
 	reinit(1);
 }
 
-void _menu_action_toggle_sdf(struct MenuEntry * self) {
+static void _menu_action_toggle_sdf(struct MenuEntry * self) {
 	_use_sdf = !(_use_sdf);
 	menu_update_title(self, _use_sdf ? "Bitmap font" : "Anti-aliased font");
 	reinit(1);
 }
 
-void _menu_action_show_about(struct MenuEntry * self) {
+static void _menu_action_show_about(struct MenuEntry * self) {
 	char about_cmd[1024] = "\0";
 	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.bmp \"ToaruOS Terminal\" \"(C) 2013-2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://gitlab.com/toaruos\" ");
 	char coords[100];
@@ -1773,20 +1921,20 @@ void _menu_action_show_about(struct MenuEntry * self) {
 	render_decors();
 }
 
-void _menu_action_show_help(struct MenuEntry * self) {
+static void _menu_action_show_help(struct MenuEntry * self) {
 	system("help-browser terminal.trt &");
 	render_decors();
 }
 
-void _menu_action_copy(struct MenuEntry * self) {
+static void _menu_action_copy(struct MenuEntry * self) {
 	copy_selection();
 }
 
-void _menu_action_paste(struct MenuEntry * self) {
+static void _menu_action_paste(struct MenuEntry * self) {
 	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 }
 
-void _menu_action_set_scale(struct MenuEntry * self) {
+static void _menu_action_set_scale(struct MenuEntry * self) {
 	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
 	if (!_self->action) {
 		scale_fonts  = 0;
@@ -1798,19 +1946,7 @@ void _menu_action_set_scale(struct MenuEntry * self) {
 	reinit(1);
 }
 
-void maybe_flip_cursor(void) {
-	uint64_t ticks = get_ticks();
-	if (ticks > mouse_ticks + 600000LL) {
-		mouse_ticks = ticks;
-		flip_cursor();
-	}
-}
-
 int main(int argc, char ** argv) {
-
-	_login_shell = 0;
-	_fullscreen = 0;
-	_no_frame = 0;
 
 	window_width  = char_width * 80;
 	window_height = char_height * 24;
@@ -1819,7 +1955,6 @@ int main(int argc, char ** argv) {
 		{"fullscreen", no_argument,       0, 'F'},
 		{"bitmap",     no_argument,       0, 'b'},
 		{"scale",      required_argument, 0, 's'},
-		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
 		{"grid",       no_argument,       0, 'x'},
 		{"no-frame",   no_argument,       0, 'n'},
@@ -1838,9 +1973,6 @@ int main(int argc, char ** argv) {
 		switch (c) {
 			case 'x':
 				_free_size = 0;
-				break;
-			case 'l':
-				_login_shell = 1;
 				break;
 			case 'n':
 				_no_frame = 1;
@@ -1878,9 +2010,6 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	// XXX
-	putenv("TERM=toaru");
-
 	/* Initialize the windowing library */
 	yctx = yutani_init();
 
@@ -1889,6 +2018,7 @@ int main(int argc, char ** argv) {
 		return 1;
 	}
 
+	/* Full screen mode forces window size to be that the display server */
 	if (_fullscreen) {
 		window_width = yctx->display_width;
 		window_height = yctx->display_height;
@@ -1903,6 +2033,7 @@ int main(int argc, char ** argv) {
 	}
 
 	if (_fullscreen) {
+		/* If fullscreen, assume we're always focused and put us on the bottom. */
 		yutani_set_stack(yctx, window, YUTANI_ZORDER_BOTTOM);
 		window->focused = 1;
 	} else {
@@ -1958,7 +2089,8 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_normal("star","star","About Terminal", _menu_action_show_about));
 	menu_set_insert(terminal_menu_bar.set, "help", m);
 
-
+	scrollback_list = list_create();
+	images_list = list_create();
 
 	/* Initialize the graphics context */
 	ctx = init_graphics_yutani_double_buffer(window);
@@ -1966,59 +2098,67 @@ int main(int argc, char ** argv) {
 	/* Clear to black */
 	draw_fill(ctx, rgba(0,0,0,0));
 
+	/* Move window to screen center (XXX maybe remove this and do better window placement elsewhere */
 	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
 
+	/* Open a PTY */
 	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
-
 	terminal = fdopen(fd_slave, "w");
 
+	/* Initialize the terminal buffer and ANSI library for the first time. */
 	reinit(0);
 
+	/* Make sure we're not passing anything to stdin on the child */
 	fflush(stdin);
 
-	pid_t pid = getpid();
-	pid_t f = fork();
+	/* Fork off child */
+	child_pid = fork();
 
-	if (getpid() != pid) {
+	if (!child_pid) {
+		/* Prepare stdin/out/err */
 		dup2(fd_slave, 0);
 		dup2(fd_slave, 1);
 		dup2(fd_slave, 2);
 
+		/* Set the TERM environment variable. */
+		putenv("TERM=toaru");
+
+		/* Execute requested initial process */
 		if (argv[optind] != NULL) {
+			/* Run something specified by the terminal startup */
 			char * tokens[] = {argv[optind], NULL};
 			execvp(tokens[0], tokens);
 			fprintf(stderr, "Failed to launch requested startup application.\n");
 		} else {
-			if (_login_shell) {
-				char * tokens[] = {"/bin/login-loop",NULL};
-				execvp(tokens[0], tokens);
-				exit(1);
-			} else {
-				char * shell = getenv("SHELL");
-				if (!shell) shell = "/bin/sh"; /* fallback */
-				char * tokens[] = {shell,NULL};
-				execvp(tokens[0], tokens);
-				exit(1);
-			}
+			/* Run the user's shell */
+			char * shell = getenv("SHELL");
+			if (!shell) shell = "/bin/sh"; /* fallback */
+			char * tokens[] = {shell,NULL};
+			execvp(tokens[0], tokens);
+			exit(1);
 		}
 
+		/* Failed to start */
 		exit_application = 1;
-
 		return 1;
 	} else {
 
-		child_pid = f;
-
+		/* Set up fswait to check Yutani and the PTY master */
 		int fds[2] = {fileno(yctx->sock), fd_master};
 
+		/* PTY read buffer */
 		unsigned char buf[1024];
+
 		while (!exit_application) {
 
+			/* Wait for something to happen. */
 			int index = fswait2(2,fds,200);
 
+			/* Check if the child application has closed. */
 			check_for_exit();
 
 			if (index == 1) {
+				/* Read from PTY */
 				maybe_flip_cursor();
 				int r = read(fd_master, buf, 1024);
 				for (int i = 0; i < r; ++i) {
@@ -2026,16 +2166,16 @@ int main(int argc, char ** argv) {
 				}
 				display_flip();
 			} else if (index == 0) {
+				/* Handle Yutani events. */
 				maybe_flip_cursor();
 				handle_incoming();
 			} else if (index == 2) {
+				/* Timeout, flip the cursor. */
 				maybe_flip_cursor();
 			}
 		}
-
 	}
 
-	//yutani_close(yctx, window);
-
+	/* Windows will close automatically on exit. */
 	return 0;
 }
