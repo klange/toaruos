@@ -36,7 +36,7 @@ EFI_HANDLE ImageHandleIn;
 /* Boot command line strings */
 #define DEFAULT_ROOT_CMDLINE "root=/dev/ram0,nocache "
 #define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
-#define DEFAULT_SINGLE_CMDLINE "start=terminal "
+#define DEFAULT_SINGLE_CMDLINE "start=terminal\037-F "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
 #define DEFAULT_PRESET_VID_CMDLINE "vid=preset "
