@@ -41,6 +41,14 @@ void args_parse(char * _arg) {
 				*v = '\0';
 				v++;
 				value = v;
+				char * tmp = value;
+				/* scan it for \037 and replace with spaces */
+				while (*tmp) {
+					if (*tmp == '\037') {
+						*tmp = ' ';
+					}
+					tmp++;
+				}
 				goto _break;
 			}
 			v++;
