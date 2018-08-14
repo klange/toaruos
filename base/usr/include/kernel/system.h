@@ -205,7 +205,7 @@ extern void fpu_install(void);
 
 /* ELF */
 extern int exec( char *, int, char **, char **);
-extern int system( char *, int, char **);
+extern int system( char *, int, char **, char **);
 
 /* Sytem Calls */
 extern void syscalls_install(void);

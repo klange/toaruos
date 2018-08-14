@@ -259,7 +259,7 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	while (argv[argc]) {
 		argc++;
 	}
-	system(argv[0], argc, argv); /* Run init */
+	system(argv[0], argc, argv, NULL); /* Run init */
 
 	debug_print(CRITICAL, "init failed");
 	switch_task(0);

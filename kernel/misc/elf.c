@@ -303,7 +303,8 @@ int
 system(
 		char *  path, /* Path to the executable to run */
 		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
-		char ** argv  /* Argument strings (including executable path) */
+		char ** argv, /* Argument strings (including executable path) */
+		char ** envin
 	) {
 	char ** argv_ = malloc(sizeof(char *) * (argc + 1));
 	for (int j = 0; j < argc; ++j) {
@@ -318,7 +319,7 @@ system(
 
 	current_process->cmdline = argv_;
 
-	exec(path,argc,argv_,env);
+	exec(path,argc,argv_,envin ? envin : env);
 	debug_print(ERROR, "Failed to execute process!");
 	kexit(-1);
 	return -1;

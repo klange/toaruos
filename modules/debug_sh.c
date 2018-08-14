@@ -116,7 +116,11 @@ static void debug_shell_run_sh(void * data, char * name) {
 	while (argv[argc]) {
 		argc++;
 	}
-	system(argv[0], argc, argv); /* Run shell */
+	char * env[] = {
+		"LD_LIBRARY_PATH=/lib",
+		NULL
+	};
+	system(argv[0], argc, argv, env); /* Run shell */
 
 	task_exit(42);
 }
