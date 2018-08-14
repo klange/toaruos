@@ -75,7 +75,7 @@ static char * find_lib(const char * file) {
 
 	char * path = getenv("LD_LIBRARY_PATH");
 	if (!path) {
-		path = "/usr/lib:/lib:/opt/lib";
+		path = "/lib:/usr/lib";
 	}
 	char * xpath = strdup(path);
 	char * p, * last;
