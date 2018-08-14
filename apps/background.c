@@ -1,3 +1,15 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * background - Draw a desktop wallpaper.
+ *
+ * TODO: This is a very minimal wallpaper renderer.
+ *       ToaruOS-mainline, before it went all Python,
+ *       included a more complete wallpaper application,
+ *       which supported icons and config files.
+ */
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/utsname.h>

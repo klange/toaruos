@@ -1,5 +1,13 @@
-/*
- * Tool for reading QEMU fwcfg values.
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * qemu-fwcfg - Read QEMU fwcfg values.
+ *
+ * Provides easy access to values and files set by QEMU's -fw_cfg
+ * flag. This is used by the QEMU harness, as well as the bootloader,
+ * and can be used to provide files directly to the guest.
  */
 
 #include <stdio.h>

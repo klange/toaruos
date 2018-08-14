@@ -1,3 +1,16 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * help-browser - Display documentation.
+ *
+ * This is a work-in-progress reimplementation of the help browser
+ * from mainline ToaruOS. It is currently incomplete.
+ *
+ * Eventually, this should be a rich text document browser, almost
+ * akin to a web browser. Right now it just says "Hello, world."
+ */
 #include <stdio.h>
 #include <unistd.h>
 

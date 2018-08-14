@@ -1,3 +1,17 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * migrate - Relocate root filesystem to tmpfs
+ *
+ * Run as part of system startup to move the ext2 root ramdisk
+ * into a flexible in-memory temporary filesystem, which allows
+ * file creation and editing and is much faster than the using
+ * the ext2 driver against the static in-memory ramdisk.
+ *
+ * Based on the original Python implementation.
+ */
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

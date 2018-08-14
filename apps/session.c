@@ -1,3 +1,13 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * session - UI session manager
+ *
+ * Runs a background and panel for a single user and waits
+ * for them to exit.
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>

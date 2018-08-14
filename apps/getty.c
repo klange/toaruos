@@ -1,5 +1,12 @@
-/*
- * runs a proper tty on a serial port
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * getty - Manage a TTY.
+ *
+ * Wraps a serial port (or other dumb connection) with a pty
+ * and manages a login for it.
  */
 #include <stdio.h>
 #include <stdlib.h>

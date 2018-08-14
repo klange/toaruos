@@ -1,3 +1,13 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * live-session - Run live CD user session.
+ *
+ * Launches the general session manager as 'local', waits for the
+ * session to end, then launches the login manager.
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>

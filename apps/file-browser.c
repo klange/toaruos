@@ -1,3 +1,14 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * file-browser - Show directory listings.
+ *
+ * This is a basic graphical file navigator. It's based somewhat
+ * on the original Python implementation. There's still a lot
+ * of work to do here presentation-wise.
+ */
 #include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -260,9 +271,12 @@ static void resize_finish(int w, int h) {
 	yutani_flip(yctx, main_window);
 }
 
+/* TODO */
+#if 0
 static void _menu_action_input_path(struct MenuEntry * entry) {
 
 }
+#endif
 
 static void _menu_action_navigate(struct MenuEntry * entry) {
 	/* go to entry->action */
@@ -318,8 +332,11 @@ int main(int argc, char * argv[]) {
 	menu_set_insert(menu_bar.set, "file", m);
 
 	m = menu_create(); /* Go */
+	/* TODO implement input dialog for Path... */
+#if 0
 	menu_insert(m, menu_create_normal("open",NULL,"Path...", _menu_action_input_path));
 	menu_insert(m, menu_create_separator());
+#endif
 	menu_insert(m, menu_create_normal("home",getenv("HOME"),"Home",_menu_action_navigate));
 	menu_insert(m, menu_create_normal(NULL,"/","File System",_menu_action_navigate));
 	menu_insert(m, menu_create_normal("up",NULL,"Up",_menu_action_up));

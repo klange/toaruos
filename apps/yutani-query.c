@@ -1,3 +1,16 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2015-2018 K. Lange
+ *
+ * yutani-query - Query display server information
+ *
+ * At the moment, this only supports querying the display
+ * resolution. An older version of this application had
+ * support for getting the default font names, but the
+ * font server is no longer part of the compositor, so
+ * that functionality doesn't make sense here.
+ */
 #include <stdio.h>
 #include <unistd.h>
 

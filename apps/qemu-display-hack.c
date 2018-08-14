@@ -1,5 +1,17 @@
-/*
- * Daemon to communicate resolution changes with QEMU over serial.
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * qemu-display-hack - Manage display size under QEMU
+ *
+ * Communicates with a harness on the host running QEMU to
+ * automatically update the display resolution when the
+ * QEMU window size changes, similar to how VirtualBox's
+ * display size changing works.
+ *
+ * This is automatically run at startup if the harness is
+ * detected by the 90_qemu_hack.sh startup script.
  */
 #include <stdlib.h>
 #include <stdio.h>

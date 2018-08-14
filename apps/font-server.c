@@ -1,3 +1,15 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * font-server - Provides shared-memory fonts.
+ *
+ * This is an implementation of the shared memory font server
+ * from Yutani in mainline ToaruOS. In theory, with the fonts
+ * installed, this could be used to provide fonts for legacy
+ * mainline applications in ToaruOS-NIH, but this is untested.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -29,12 +41,6 @@ static struct font_def fonts[] = {
 
 /**
  * Preload a font into the font cache.
- *
- * TODO This should probably be moved out of the compositor,
- *      perhaps into a generic resource cache daemon. This
- *      is mostly kept this way for legacy reasons - the old
- *      compositor did it, but it was also using some of the
- *      fonts for internal rendering. We don't draw any text.
  */
 static char * precache_shmfont(char * ident, char * name) {
 	FILE * f = fopen(name, "r");

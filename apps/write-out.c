@@ -1,3 +1,13 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * write-out - write stdin into stdout until eof
+ *
+ * Not really necessary any more. This existed before the shell
+ * had support for >output.
+ */
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
