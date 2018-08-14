@@ -1,3 +1,13 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2016-2018 K. Lange
+ *
+ * The default "fancy" decorations theme.
+ *
+ * Based on an old gtk-window-decorator theme I used to use many,
+ * many years ago.
+ */
 #include <stdint.h>
 
 #include <toaru/yutani.h>
@@ -12,19 +22,10 @@
 static int u_height = 33;
 static int ul_width = 10;
 static int ur_width = 10;
-#if 0
-static int ml_width = 6;
-#endif
 static int mr_width = 6;
 static int l_height = 9;
 static int ll_width = 9;
 static int lr_width = 9;
-#if 0
-static int llx_offset = 3;
-static int lly_offset = 3;
-static int lrx_offset = 3;
-static int lry_offset = 3;
-#endif
 
 static sprite_t * sprites[20];
 

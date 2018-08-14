@@ -16,7 +16,6 @@
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
-#include <toaru/drawstring.h>
 
 static yutani_t * yctx;
 static yutani_window_t * wallpaper_window;

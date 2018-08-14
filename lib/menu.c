@@ -1,3 +1,13 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * menu - Provides menus.
+ *
+ * C reimplementation of the original Python menu library.
+ * Used to provide menu bars and the applications menu.
+ */
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
