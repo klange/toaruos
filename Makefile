@@ -252,7 +252,12 @@ clean:
 	rm -f ${MODULES}
 	rm -f ${APPS_Y} ${LIBS_Y}
 
-QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime
+ifneq (,$(findstring Microsoft,$(shell uname -r)))
+  QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime
+else
+  QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime
+endif
+
 
 .PHONY: run
 run: image.iso
