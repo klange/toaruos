@@ -248,8 +248,3 @@ int main(int argc, char ** argv) {
 	return 0;
 }
 
-/*
- * vim:noexpandtab
- * vim:tabstop=4
- * vim:shiftwidth=4
- */
