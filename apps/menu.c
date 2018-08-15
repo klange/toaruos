@@ -1,6 +1,13 @@
-/* vim: ts=4 sw=4 noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  *
- * Menu tool / eventual library.
+ * menu - Display a menu file and print actions
+ *
+ * This is a demo of the menu library, and can be used by scripts
+ * to display menus. It may be broken without a root window for
+ * the menus to display on, though?
  */
 #include <stdio.h>
 #include <unistd.h>

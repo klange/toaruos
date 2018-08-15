@@ -1,10 +1,14 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013 K. Lange
  * Copyright (C) 2013 Tyler Bindon
- */
-/*
- * cp
+ *
+ * cp - Copy files
+ *
+ * This is an incomplete implementation of `cp`. A more complete
+ * version of recursive directory copying can be found in the
+ * `migrate` sources, and should probably be imported here.
  */
 #include <stdlib.h>
 #include <string.h>

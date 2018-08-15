@@ -1,9 +1,9 @@
-/* vim: ts=4 sw=4 noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
  *
- * Julia Fractal Generator
+ * julia - Julia Fractal Generator
  *
  * This is the updated windowed version of the
  * julia fractal generator demo.

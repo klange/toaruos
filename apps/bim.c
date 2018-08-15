@@ -1,16 +1,18 @@
-/* vim: ts=4 sw=4 noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
  * Copyright (C) 2014 Lioncash
- */
-/*
- * bim
  *
- * Bim is a Bad IMitation of Vim.
+ * bim - Text editor
  *
- * The 'standard' text editor for とあるOS.
+ * bim is a "Bad IMitation" of vim. This is the standard text
+ * editor fo ToaruOS. It provides basic editing capabilities.
  *
+ * Expansion of bim is planned. I'd love to see it one day have
+ * syntax hilighting, for example. It's also painfully slow,
+ * so speed improvement is a must - most probably by not
+ * redrawing the entire screen all the time.
  */
 #define _XOPEN_SOURCE 1
 #include <stdio.h>

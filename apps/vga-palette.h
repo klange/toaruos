@@ -1,3 +1,16 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2012-2018 K. Lange
+ *
+ * vga-palette.h - 256-to-VGA palette
+ *
+ * Converts 256-color index values to closest matching 16-color
+ * value for the VGA terminal. Note that values here are terminal
+ * color codes, not the VGA color codes - the terminal converts
+ * them to VGA color codes later. This was automatically generated
+ * from a script, but I don't know where that script went.
+ */
 #define PALETTE_COLORS 256
 uint32_t vga_colors[PALETTE_COLORS] = {
 	0x0,

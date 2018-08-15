@@ -1,46 +1,50 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
- */
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
- * echo
+ * echo - Print arguments to stdout.
  *
- * Prints its arguments (with some processing, ask --help)
- * to standard out.
+ * Prints arguments to stdout, possibly interpreting escape
+ * sequences in the arguments.
  */
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
-void usage() {
-	printf("echo [-n] [-e] [STRING]...\n"
-	       "  -n    do not output a new line at the end\n"
-	       "  -e    process escape sequences\n");
+void show_usage(char * argv[]) {
+	printf(
+			"echo - print arguments\n"
+			"\n"
+			"usage: %s [-ne] ARG...\n"
+			"\n"
+			" -n     \033[3mdo not output a new line at the end\033[0m\n"
+			" -e     \033[3mprocess escape sequences\033[0m\n"
+			" -?     \033[3mshow this help text\033[0m\n"
+			"\n", argv[0]);
 }
 
 int main(int argc, char ** argv) {
-	int start           = 1;
 	int use_newline     = 1;
 	int process_escapes = 0;
 
-	for (int i = start; i < argc; ++i) {
-		if (argv[i][0] != '-') {
-			start = i;
-			break;
-		} else {
-			start++;
-			if (argv[i][1] == 'h') {
-				usage();
+	int opt;
+	while ((opt = getopt(argc, argv, "enh?")) != -1) {
+		switch (opt) {
+			case '?':
+			case 'h':
+				show_usage(argv);
 				return 1;
-			} else if (argv[i][1] == 'n') {
+			case 'n':
 				use_newline = 0;
-			} else if (argv[i][1] == 'e') {
+				break;
+			case 'e':
 				process_escapes = 1;
-			}
+				break;
 		}
 	}
 
-	for (int i = start; i < argc; ++i) {
+	for (int i = optind; i < argc; ++i) {
 		if (process_escapes) {
 			for (int j = 0; j < (int)strlen(argv[i]) - 1; ++j) {
 				if (argv[i][j] == '\\') {

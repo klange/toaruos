@@ -1,3 +1,18 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * ttysize - Magically divine terminal size
+ *
+ * This is called by getty to determine the size of foreign
+ * terminals, such as ones attached over serial.
+ *
+ * It works by placing the cursor in the lower right of the
+ * screen and requesting its position. Note that typing things
+ * while this happens can cause problems. Maybe we can flush
+ * stdin before doing this to try to avoid any conflicting data?
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

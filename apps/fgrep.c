@@ -1,9 +1,12 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2018 K. Lange
- */
-/*
- * Dump grep
+ *
+ * fgrep - dump grep
+ *
+ * Locates strings in files and prints the lines containing them,
+ * with extra color identification if stdout is a tty.
  */
 #include <stdio.h>
 #include <fcntl.h>
@@ -21,13 +24,18 @@ int main(int argc, char ** argv) {
 	char * needle = argv[1];
 	char buf[LINE_SIZE];
 	int ret = 1;
+	int is_tty = isatty(STDOUT_FILENO);
 
 	while (fgets(buf, LINE_SIZE, stdin)) {
 		char * found = strstr(buf, needle);
 		if (found) {
-			*found = '\0';
-			found += strlen(needle);
-			fprintf(stdout, "%s\033[1;31m%s\033[0m%s", buf, needle, found);
+			if (is_tty) {
+				*found = '\0';
+				found += strlen(needle);
+				fprintf(stdout, "%s\033[1;31m%s\033[0m%s", buf, needle, found);
+			} else {
+				fprintf(stdout, "%s", buf);
+			}
 			ret = 0;
 		}
 	}
@@ -35,8 +43,3 @@ int main(int argc, char ** argv) {
 	return ret;
 }
 
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- * vim:shiftwidth=4
- */

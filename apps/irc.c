@@ -1,11 +1,10 @@
-/* vim: ts=4 sw=4 noexpandtab
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  *
- * ToaruOS IRC Client v3
- *
- * Copyright 2018 K. Lange
- *
+ * irc - Internet Relay Chat client
  */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>

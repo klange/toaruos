@@ -1,8 +1,9 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2015-2018 K. Lange
  *
- * Yutani Test Tool
+ * yutani-test - Yutani Test Tool
  *
  * Kinda like xev: Pops up a window and displays events in a
  * human-readable format.

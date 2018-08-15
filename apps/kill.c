@@ -1,10 +1,11 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
  *
- * kill
+ * kill - Send a signal to a process
  *
- * Send a signal to another process
+ * Supports signal names like any mature `kill` should.
  */
 #include <stdio.h>
 #include <string.h>
@@ -59,14 +60,14 @@ struct sig_def signals[] = {
 
 void usage(char * argv[]) {
 	printf(
-			"kill - send a signal to another process\n"
+			"%s - send a signal to another process\n"
 			"\n"
 			"usage: %s [-\033[3mx\033[0m] \033[3mprocess\033[0m\n"
 			"\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -\033[3mx\033[0m              \033[3mSignal number to send\033[0m\n"
 			"\n",
-			argv[0]);
+			argv[0], argv[0]);
 }
 
 int main(int argc, char * argv[]) {

@@ -1,8 +1,14 @@
-/* This file is part of ToaruOS and is released under the terms
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K Lange
+ *
+ * readelf - Show information about ELF objects
+ *
+ * This is a very custom implementation and nothing remotely
+ * like the version that comes with binutils. Making it more
+ * like that version might be worthwhile.
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
