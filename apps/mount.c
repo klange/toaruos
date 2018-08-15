@@ -10,10 +10,7 @@
 
 #include <stdio.h>
 #include <errno.h>
-
-#ifndef mount
-extern int mount(char * source, char * target, char * type, unsigned long flags, void * data);
-#endif
+#include <sys/mount.h>
 
 int main(int argc, char ** argv) {
 	if (argc < 4) {
