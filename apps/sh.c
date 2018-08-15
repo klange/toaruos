@@ -1272,13 +1272,22 @@ uint32_t shell_cmd_exit(int argc, char * argv[]) {
 
 uint32_t shell_cmd_help(int argc, char * argv[]) {
 	show_version();
-
 	printf("\nThis shell is not POSIX-compliant, please be careful.\n\n");
-
 	printf("Built-in commands:\n");
+
+	/* First, determine max width of command names */
+	unsigned int max_len = 0;
 	for (int i = 0; i < shell_commands_len; ++i) {
 		if (!shell_descript[i]) continue;
-		printf(" %-20s - %s\n", shell_commands[i], shell_descript[i]);
+		if (strlen(shell_commands[i]) > max_len) {
+			max_len = strlen(shell_commands[i]);
+		}
+	}
+
+	/* Then print the commands their help text */
+	for (int i = 0; i < shell_commands_len; ++i) {
+		if (!shell_descript[i]) continue;
+		printf(" %-*s - %s\n", max_len + 1, shell_commands[i], shell_descript[i]);
 	}
 
 	return 0;
