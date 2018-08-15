@@ -835,6 +835,10 @@ _done:
 		}
 
 		if (!strcmp(c, PIPE_TOKEN)) {
+			if (arg_starts[cmdi] == &argv[i]) {
+				fprintf(stderr, "Syntax error: Unexpected pipe token\n");
+				return 2;
+			}
 			argv[i] = 0;
 			i++;
 			cmdi++;
@@ -922,6 +926,11 @@ _nope:
 	}
 
 	list_free(args);
+
+	if (!*arg_starts[cmdi]) {
+		fprintf(stderr, "Syntax error: Unexpected end of input\n");
+		return 2;
+	}
 
 	char * cmd = *arg_starts[0];
 	tokenid = i;
