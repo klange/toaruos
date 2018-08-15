@@ -3,15 +3,11 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
  *
- *
  * Yutani Panel
  *
- * Provides a window list and clock as well some simple session management.
- *
- * Future goals:
- * - Applications menu
- * - More session management
- * - Pluggable indicators
+ * Provides an applications menu, a window list, status widgets,
+ * and a clock, manages the user session, and provides alt-tab
+ * window switching and alt-f2 app runner.
  *
  */
 #include <stdlib.h>
@@ -815,7 +811,6 @@ static void redraw(void) {
 
 	/* Draw each widget */
 	/* - Volume */
-	/* TODO: Get actual volume levels, and cache them somewhere */
 	int widget = 0;
 	if (widgets_network_enabled) {
 		uint32_t color = (netstat && netstat->window) ? HILIGHT_COLOR : ICON_COLOR;

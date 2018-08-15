@@ -22,14 +22,7 @@
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
 
-#define DIRECT_OFFSET(x,y) ((x) + (y) * window->width)
-
-/*
- * Macros make verything easier.
- */
-#define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
-
-#define GFX_(xpt, ypt) ((uint32_t *)window->buffer)[DIRECT_OFFSET(xpt+decor_left_width,ypt+decor_top_height)]
+#define GFX_(xpt, ypt) (GFX(ctx,xpt+decor_left_width,ypt+decor_top_height))
 
 /* Pointer to graphics memory */
 static yutani_t * yctx;
