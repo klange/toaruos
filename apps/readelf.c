@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
 #include <kernel/elf.h>
 
 /**
@@ -45,6 +46,11 @@ int main(int argc, char ** argv) {
 
 	/* Open the requested binary */
 	binary = fopen(argv[1], "r");
+
+	if (!binary) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
+		return 1;
+	}
 
 	/* Jump to the end so we can get the size */
 	fseek(binary, 0, SEEK_END);
