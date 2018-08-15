@@ -1,3 +1,12 @@
+/* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2014-2018 K. Lange
+ *
+ * Yutani Client Library
+ *
+ * Client library for the compositing window system.
+ */
 #pragma once
 
 #include <stdio.h>
@@ -12,35 +21,62 @@
 
 typedef unsigned int yutani_wid_t;
 
-typedef enum {
-	SCALE_AUTO,
-
-	SCALE_UP,
-	SCALE_DOWN,
-	SCALE_LEFT,
-	SCALE_RIGHT,
-
-	SCALE_UP_LEFT,
-	SCALE_UP_RIGHT,
-	SCALE_DOWN_LEFT,
-	SCALE_DOWN_RIGHT,
-
-	SCALE_NONE,
-} yutani_scale_direction_t;
-
+/*
+ * Server connection context.
+ */
 typedef struct yutani_context {
 	FILE * sock;
 
-	/* XXX list of displays? */
-	/* XXX display struct with more information? */
+	/* server display size */
 	size_t display_width;
 	size_t display_height;
 
+	/* Hash of window IDs to window objects */
 	hashmap_t * windows;
+
+	/* queued events */
 	list_t * queued;
 
+	/* server identifier string */
 	char * server_ident;
 } yutani_t;
+
+typedef struct yutani_window {
+	/* Server window identifier, unique to each window */
+	yutani_wid_t wid;
+
+	/* Window size */
+	uint32_t width;
+	uint32_t height;
+
+	/* Window backing buffer */
+	char * buffer;
+	/*
+	 * Because the buffer can change during resizing,
+	 * buffers are indexed to ensure we are using
+	 * the one the server expects.
+	 */
+	uint32_t bufid;
+
+	/* Window focused flag */
+	uint8_t focused;
+
+	/* Old buffer ID */
+	uint32_t oldbufid;
+
+	/* Generic pointer for client use */
+	void * user_data;
+
+	/* Window position in the server; automatically updated */
+	int32_t x;
+	int32_t y;
+
+	/* Flags for the decorator library to use */
+	uint32_t decorator_flags;
+
+	/* Server context that owns this window */
+	yutani_t * ctx;
+} yutani_window_t;
 
 typedef struct yutani_message {
 	uint32_t magic;
@@ -171,6 +207,22 @@ struct yutani_msg_window_show_mouse {
 	int32_t show_mouse;
 };
 
+typedef enum {
+	SCALE_AUTO,
+
+	SCALE_UP,
+	SCALE_DOWN,
+	SCALE_LEFT,
+	SCALE_RIGHT,
+
+	SCALE_UP_LEFT,
+	SCALE_UP_RIGHT,
+	SCALE_DOWN_LEFT,
+	SCALE_DOWN_RIGHT,
+
+	SCALE_NONE,
+} yutani_scale_direction_t;
+
 struct yutani_msg_window_resize_start {
 	yutani_wid_t wid;
 	yutani_scale_direction_t direction;
@@ -180,28 +232,6 @@ struct yutani_msg_special_request {
 	yutani_wid_t wid;
 	uint32_t request;
 };
-
-typedef struct yutani_window {
-	yutani_wid_t wid;
-
-	uint32_t width;
-	uint32_t height;
-
-	char * buffer;
-	uint32_t bufid;/* We occasionally replace the buffer; each is uniquely-indexed */
-
-	uint8_t focused;
-
-	uint32_t oldbufid;
-
-	void * user_data;
-
-	int32_t x;
-	int32_t y;
-
-	uint32_t decorator_flags;
-	yutani_t * ctx;
-} yutani_window_t;
 
 struct yutani_msg_clipboard {
 	uint32_t size;

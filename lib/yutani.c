@@ -20,6 +20,12 @@
 #include <toaru/yutani-internal.h>
 #include <toaru/mouse.h>
 
+/**
+ * yutani_wait_for
+ *
+ * Wait for a particular kind of message, queuing other types
+ * of messages for processing later.
+ */
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {
 		yutani_msg_t * out;
@@ -39,11 +45,27 @@ yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	} while (1); /* XXX: (!y->abort) */
 }
 
+/**
+ * yutani_query
+ *
+ * Check if there is an available message, either in the
+ * internal queue or directly from the server interface.
+ */
 size_t yutani_query(yutani_t * y) {
 	if (y->queued->length > 0) return 1;
 	return pex_query(y->sock);
 }
 
+/**
+ * _handle_internal
+ *
+ * Some messages are processed internally. They are still
+ * available to the client application, but some work will
+ * be done before they are handed off.
+ *
+ * WELCOME: Update the display_width and display_height for the connection.
+ * WINDOW_MOVE: Update the window location.
+ */
 static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 	switch (out->type) {
 		case YUTANI_MSG_WELCOME:
@@ -68,6 +90,12 @@ static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 	}
 }
 
+/**
+ * yutani_poll
+ *
+ * Wait for a message to be available, processing it if
+ * it has internal processing requirements.
+ */
 yutani_msg_t * yutani_poll(yutani_t * y) {
 	yutani_msg_t * out;
 
@@ -92,6 +120,14 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 	return out;
 }
 
+/**
+ * yutani_poll_async
+ *
+ * Get the next available message, if there is one, otherwise
+ * return immediately. Generally should be called in a loop
+ * after an initial call to yutani_poll in case processing
+ * caused additional messages to be queued.
+ */
 yutani_msg_t * yutani_poll_async(yutani_t * y) {
 	if (yutani_query(y) > 0) {
 		return yutani_poll(y);
@@ -465,8 +501,14 @@ yutani_t * yutani_context_create(FILE * socket) {
 	return out;
 }
 
+/**
+ * yutani_init
+ *
+ * Connect to the compositor.
+ *
+ * Connects and handles the initial welcome message.
+ */
 yutani_t * yutani_init(void) {
-	/* XXX: Display, etc? */
 	char * server_name = getenv("DISPLAY");
 	if (!server_name) {
 		server_name = "compositor";
@@ -492,6 +534,11 @@ yutani_t * yutani_init(void) {
 	return y;
 }
 
+/**
+ * yutani_window_create_flags
+ *
+ * Create a window with certain pre-specified properties.
+ */
 yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height, uint32_t flags) {
 	yutani_window_t * win = malloc(sizeof(yutani_window_t));
 
@@ -525,22 +572,43 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 
 }
 
+/**
+ * yutani_window_create
+ *
+ * Create a basic window.
+ */
 yutani_window_t * yutani_window_create(yutani_t * y, int width, int height) {
 	return yutani_window_create_flags(y,width,height,0);
 }
 
+/**
+ * yutani_flip
+ *
+ * Ask the server to redraw the window.
+ */
 void yutani_flip(yutani_t * y, yutani_window_t * win) {
 	yutani_msg_buildx_flip_alloc(m);
 	yutani_msg_buildx_flip(m, win->wid);
 	yutani_msg_send(y, m);
 }
 
+/**
+ * yutani_flip_region
+ *
+ * Ask the server to redraw a region relative the window.
+ */
 void yutani_flip_region(yutani_t * yctx, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height) {
 	yutani_msg_buildx_flip_region_alloc(m);
 	yutani_msg_buildx_flip_region(m, win->wid, x, y, width, height);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_close
+ *
+ * Close a window. A closed window should not be used again,
+ * and its associated buffers will be freed.
+ */
 void yutani_close(yutani_t * y, yutani_window_t * win) {
 	yutani_msg_buildx_window_close_alloc(m);
 	yutani_msg_buildx_window_close(m, win->wid);
@@ -557,30 +625,58 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 	free(win);
 }
 
+/**
+ * yutani_window_move
+ *
+ * Request a window be moved to new a location on screen.
+ */
 void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y) {
 	yutani_msg_buildx_window_move_alloc(m);
 	yutani_msg_buildx_window_move(m, window->wid, x, y);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_set_stack
+ *
+ * Set the stacking order of the window.
+ */
 void yutani_set_stack(yutani_t * yctx, yutani_window_t * window, int z) {
 	yutani_msg_buildx_window_stack_alloc(m);
 	yutani_msg_buildx_window_stack(m, window->wid, z);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_resize
+ *
+ * Request that the server resize a window.
+ */
 void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_buildx_window_resize_alloc(m);
 	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_REQUEST, window->wid, width, height, 0);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_resize_offer
+ *
+ * In a response to a server resize message, offer an alternative size.
+ * Allows the client to reject a user-provided resize request due to
+ * size constraints or other reasons.
+ */
 void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_buildx_window_resize_alloc(m);
 	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_OFFER, window->wid, width, height, 0);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_resize_accept
+ *
+ * Accept the server's resize request, initialize new buffers
+ * and all the client to draw into the new buffers.
+ */
 void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_buildx_window_resize_alloc(m);
 	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_ACCEPT, window->wid, width, height, 0);
@@ -612,6 +708,13 @@ void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint
 	}
 }
 
+/**
+ * yutani_window_resize_done
+ *
+ * The client has finished drawing into the new buffers after
+ * accepting a resize request and the server should now
+ * discard the old buffer and switch to the new one.
+ */
 void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 	/* Destroy the old buffer */
 	{
@@ -625,6 +728,12 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_advertise
+ *
+ * Provide a title for a window to have it show up
+ * in the panel window list.
+ */
 void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name) {
 
 	uint32_t flags = 0; /* currently, no client flags */
@@ -650,6 +759,14 @@ void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * n
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_advertise_icon
+ *
+ * Provide a title and an icon for the panel to show.
+ *
+ * Note that three additional fields are available in the advertisement
+ * messages which are not yet used. This is to allow for future expansion.
+ */
 void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, char * name, char * icon) {
 
 	uint32_t flags = 0; /* currently no client flags */
@@ -679,78 +796,180 @@ void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, cha
 	free(strings);
 }
 
+/**
+ * yutani_subscribe_windows
+ *
+ * Subscribe to messages about new window advertisements.
+ * Basically, if you're a panel, you want to do this, so
+ * you can know when windows move around or change focus.
+ */
 void yutani_subscribe_windows(yutani_t * y) {
 	yutani_msg_buildx_subscribe_alloc(m);
 	yutani_msg_buildx_subscribe(m);
 	yutani_msg_send(y, m);
 }
 
+/**
+ * yutani_unsubscribe_windows
+ *
+ * If you no longer wish to receive window change messages,
+ * you can unsubscribe your client from them.
+ */
 void yutani_unsubscribe_windows(yutani_t * y) {
 	yutani_msg_buildx_unsubscribe_alloc(m);
 	yutani_msg_buildx_unsubscribe(m);
 	yutani_msg_send(y, m);
 }
 
+/**
+ * yutani_query_windows
+ *
+ * When notified of changes, call this to request
+ * the new information.
+ */
 void yutani_query_windows(yutani_t * y) {
 	yutani_msg_buildx_query_windows_alloc(m);
 	yutani_msg_buildx_query_windows(m);
 	yutani_msg_send(y, m);
 }
 
+/**
+ * yutani_session_end
+ *
+ * For use by session managers, tell the compositor
+ * that the session has ended and it should inform
+ * other clients of this so they can exit.
+ */
 void yutani_session_end(yutani_t * y) {
 	yutani_msg_buildx_session_end_alloc(m);
 	yutani_msg_buildx_session_end(m);
 	yutani_msg_send(y, m);
 }
 
+/**
+ * yutani_focus_window
+ *
+ * Change focus to the given window. Mostly used by
+ * panels and other window management things, but if you
+ * have a multi-window application, such as one with a
+ * model dialog, and you want to force focus away from one
+ * window and onto another, you can use this.
+ */
 void yutani_focus_window(yutani_t * yctx, yutani_wid_t wid) {
 	yutani_msg_buildx_window_focus_alloc(m);
 	yutani_msg_buildx_window_focus(m, wid);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_key_bind
+ *
+ * Request a key combination always be sent to this client.
+ * You can request for the combination to be sent only to
+ * this client (steal binding) or to also go to other clients
+ * (spy binding), the latter of which is useful for catching
+ * changes to modifier keys.
+ */
 void yutani_key_bind(yutani_t * yctx, kbd_key_t key, kbd_mod_t mod, int response) {
 	yutani_msg_buildx_key_bind_alloc(m);
 	yutani_msg_buildx_key_bind(m, key,mod,response);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_drag_start
+ *
+ * Begin a mouse-driven window movement action.
+ * Typically used by decorators to start moving the window
+ * when the user clicks and drags on the title bar.
+ */
 void yutani_window_drag_start(yutani_t * yctx, yutani_window_t * window) {
 	yutani_msg_buildx_window_drag_start_alloc(m);
 	yutani_msg_buildx_window_drag_start(m, window->wid);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_drag_start_wid
+ *
+ * Same as above, but takes a wid (of a presumably-foreign window)
+ * instead of a window pointer; used by the panel to initiate
+ * window movement through a drop-down menu for other clients.
+ */
 void yutani_window_drag_start_wid(yutani_t * yctx, yutani_wid_t wid) {
 	yutani_msg_buildx_window_drag_start_alloc(m);
 	yutani_msg_buildx_window_drag_start(m, wid);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_update_shape
+ *
+ * Change the window shaping threshold.
+ * Allows partially-transparent windows to control whether they
+ * should still receive mouse events in their transparent regions.
+ */
 void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window, int set_shape) {
 	yutani_msg_buildx_window_update_shape_alloc(m);
 	yutani_msg_buildx_window_update_shape(m, window->wid, set_shape);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_warp_mouse
+ *
+ * Move the mouse to a locate relative to the window.
+ * Only works with relative mouse cursor.
+ * Useful for games.
+ *
+ * TODO: We still need a way to lock the cursor to a particular window.
+ *       Even in games where warping happens quickly, we can still
+ *       end up with the cursor outside of the window when a click happens.
+ */
 void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t x, int32_t y) {
 	yutani_msg_buildx_window_warp_mouse_alloc(m);
 	yutani_msg_buildx_window_warp_mouse(m, window->wid, x, y);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_show_mouse
+ *
+ * Set the cursor type. Used to change to risize and drag indicators.
+ * Could be used to show a text insertion bar, or a link-clicking hand,
+ * but those cursors need to be added in the server.
+ *
+ * TODO: We should add a way to use client-provided cursor textures.
+ */
 void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse) {
 	yutani_msg_buildx_window_show_mouse_alloc(m);
 	yutani_msg_buildx_window_show_mouse(m, window->wid, show_mouse);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_window_resize_start
+ *
+ * Start a mouse-driven window resize action.
+ * Used by decorators.
+ */
 void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction) {
 	yutani_msg_buildx_window_resize_start_alloc(m);
 	yutani_msg_buildx_window_resize_start(m, window->wid, direction);
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_special_request
+ *
+ * Send one of the special request messages that aren't
+ * important enough to get their own message types.
+ *
+ * (MAXIMIZE, PLEASE_CLOSE, CLIPBOARD)
+ *
+ * Note that, especially in the CLIPBOARD case, the
+ * window does not to be set.
+ */
 void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t request) {
 	/* wid isn't necessary; if window is null, set to 0 */
 	yutani_msg_buildx_special_request_alloc(m);
@@ -758,6 +977,12 @@ void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t 
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_special_request_wid
+ *
+ * Same as above, but takes a wid instead of a window pointer,
+ * for use with foreign windows.
+ */
 void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t request) {
 	/* For working with other applications' windows */
 	yutani_msg_buildx_special_request_alloc(m);
@@ -765,6 +990,19 @@ void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t requ
 	yutani_msg_send(yctx, m);
 }
 
+/**
+ * yutani_set_clipboard
+ *
+ * Set the clipboard content.
+ *
+ * If the clipboard content is too large for a message,
+ * it will be stored in a file and a special clipboard string
+ * will be set to indicate the real contents are
+ * in the file.
+ *
+ * To get the clipboard contents, send a CLIPBOARD special
+ * request and wait for the CLIPBOARD response message.
+ */
 void yutani_set_clipboard(yutani_t * yctx, char * content) {
 	/* Set clipboard contents */
 	int len = strlen(content);
@@ -787,12 +1025,22 @@ void yutani_set_clipboard(yutani_t * yctx, char * content) {
 	}
 }
 
+/**
+ * yutani_open_clipboard
+ *
+ * Open the clipboard contents file.
+ */
 FILE * yutani_open_clipboard(yutani_t * yctx) {
 	char tmp_file[100];
 	sprintf(tmp_file, "/tmp/.clipboard.%s", yctx->server_ident);
 	return fopen(tmp_file, "r");
 }
 
+/**
+ * init_graphics_yutani
+ *
+ * Create a graphical context around a Yutani window.
+ */
 gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
 	out->width  = window->width;
@@ -805,12 +1053,24 @@ gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
 	return out;
 }
 
+/**
+ * init_graphics_yutani_double_buffer
+ *
+ * Create a graphics context around a Yutani window
+ * with a separate backing store for double-buffering.
+ */
 gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window) {
 	gfx_context_t * out = init_graphics_yutani(window);
 	out->backbuffer = malloc(GFX_B(out) * GFX_W(out) * GFX_H(out));
 	return out;
 }
 
+/**
+ * reinit_graphics_yutani
+ *
+ * Reinitialize a graphics context, such as when
+ * the window size changes.
+ */
 void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window) {
 	out->width  = window->width;
 	out->height = window->height;
@@ -825,6 +1085,12 @@ void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window) {
 	}
 }
 
+/**
+ * release_graphics_yutani
+ *
+ * Release a graphics context.
+ * XXX: This seems to work generically for any graphics context?
+ */
 void release_graphics_yutani(gfx_context_t * gfx) {
 	if (gfx->backbuffer != gfx->buffer) {
 		free(gfx->backbuffer);
