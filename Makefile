@@ -253,7 +253,7 @@ clean:
 	rm -f ${APPS_Y} ${LIBS_Y}
 
 ifneq (,$(findstring Microsoft,$(shell uname -r)))
-  QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime
+  QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime -vnc :0
 else
   QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime
 endif
