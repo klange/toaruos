@@ -255,7 +255,12 @@ clean:
 ifneq (,$(findstring Microsoft,$(shell uname -r)))
   QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime -vnc :0
 else
-  QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime
+  ifeq (,${NO_KVM})
+    KVM=-enable-kvm
+  else
+    KVM=
+  endif
+  QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk ${KVM} -rtc base=localtime
 endif
 
 
