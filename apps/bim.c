@@ -1015,6 +1015,8 @@ void render_line(line_t * line, int width, int offset) {
 	int i = 0; /* Offset in char_t line data entries */
 	int j = 0; /* Offset in terminal cells */
 
+	int last_color = -1;
+
 	/* Set default text colors */
 	set_colors(COLOR_FG, COLOR_BG);
 
@@ -1079,7 +1081,11 @@ void render_line(line_t * line, int width, int offset) {
 			}
 
 			/* Syntax hilighting */
-			set_fg_color(flag_to_color(c.flags));
+			int color = flag_to_color(c.flags);
+			if (color != last_color) {
+				set_fg_color(color);
+				last_color = color;
+			}
 
 			/* Render special characters */
 			if (c.codepoint == '\t') {
