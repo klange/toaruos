@@ -350,7 +350,13 @@ void clear_screen() {
 	fflush(stdout);
 }
 
+void hide_cursor() {
+	printf("\033[?25l");
+	fflush(stdout);
+}
+
 void redraw_tabbar() {
+	hide_cursor();
 	place_cursor(1,1);
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
@@ -443,22 +449,24 @@ void realign_cursor() {
 }
 
 void redraw_line(int j, int x) {
-		place_cursor(1,2 + j);
-		/* draw line number */
-		set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
+	hide_cursor();
+	place_cursor(1,2 + j);
+	/* draw line number */
+	set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
+	printf(" ");
+	set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
+	int num_size = log_base_10(env->line_count) + 2;
+	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
-		set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
-		int num_size = log_base_10(env->line_count) + 2;
-		for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
-			printf(" ");
-		}
-		printf("%d ", x + 1);
-		set_colors(COLOR_FG, COLOR_BG);
-		clear_to_end();
-		render_line(env->lines[x], term_width - 3 - num_size, env->coffset);
+	}
+	printf("%d ", x + 1);
+	set_colors(COLOR_FG, COLOR_BG);
+	render_line(env->lines[x], term_width - 3 - num_size, env->coffset);
+	clear_to_end();
 }
 
 void redraw_text() {
+	hide_cursor();
 	int l = term_height - env->bottom_size - 1;
 	int j = 0;
 
@@ -475,6 +483,7 @@ void redraw_text() {
 }
 
 void redraw_statusbar() {
+	hide_cursor();
 	place_cursor(1, term_height - 1);
 	set_colors(COLOR_FG, COLOR_STATUS_BG);
 	if (env->file_name) {
@@ -494,6 +503,7 @@ void redraw_statusbar() {
 }
 
 void redraw_commandline() {
+	hide_cursor();
 	place_cursor(1, term_height);
 	set_colors(COLOR_FG, COLOR_BG);
 	clear_to_end();
@@ -533,6 +543,14 @@ void render_cursor() {
 	fflush(stdout);
 }
 
+void show_cursor() {
+	if (IS_TOARU()) {
+		render_cursor();
+	}
+	fprintf(stdout, "\033[?25h");
+	fflush(stdout);
+}
+
 void place_cursor_actual() {
 	int num_size = log_base_10(env->line_count) + 5;
 	int x = num_size + 1 - env->coffset;
@@ -546,9 +564,7 @@ void place_cursor_actual() {
 	csr_x_actual = x;
 	csr_y_actual = y;
 
-	if (IS_TOARU()) {
-		render_cursor();
-	}
+	show_cursor();
 }
 
 void SIGWINCH_handler(int sig) {
@@ -894,7 +910,7 @@ void command_mode() {
 
 	redraw_commandline();
 	printf(":");
-	fflush(stdout);
+	show_cursor();
 
 	while ((c = bim_getch())) {
 		if (c == -1) {
@@ -911,7 +927,6 @@ void command_mode() {
 				buffer[buffer_len] = '\0';
 				redraw_commandline();
 				printf(":%s", buffer);
-				fflush(stdout);
 			} else {
 				redraw_commandline();
 				break;
@@ -920,8 +935,8 @@ void command_mode() {
 			buffer[buffer_len] = c;
 			buffer_len++;
 			printf("%c", c);
-			fflush(stdout);
 		}
+		show_cursor();
 	}
 }
 
@@ -1047,8 +1062,9 @@ int main(int argc, char * argv[]) {
 		setup_buffer(env);
 	}
 
+	redraw_all();
+
 	while (1) {
-		redraw_all();
 		place_cursor_actual();
 		char c;
 		int timeout = 0;
