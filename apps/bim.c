@@ -1508,14 +1508,8 @@ void open_file(char * file) {
 	setup_buffer(env);
 
 	FILE * f = fopen(file, "r");
-	if (!f) {
-		f = fopen(file,"a+");
-	}
 
 	if (!f) {
-		char buf[1024];
-		sprintf(buf, "Could not open %s", file);
-		render_error(buf);
 		return;
 	}
 
