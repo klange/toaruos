@@ -879,9 +879,6 @@ void redraw_commandline(void) {
 
 	/* Fill the rest of the command line with the background color */
 	clear_to_end();
-
-	/* Reset text colors */
-	reset();
 }
 
 /**
@@ -1773,6 +1770,9 @@ void search_mode(void) {
 	}
 }
 
+/**
+ * Find the next search result, or loop back around if at the end.
+ */
 void search_next(void) {
 	if (!env->search) return;
 	int line = -1, col = -1;
