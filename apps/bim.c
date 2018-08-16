@@ -677,6 +677,10 @@ void add_buffer(uint8_t * buf, int size) {
 			state = 0;
 		}
 	}
+	if (env->lines[env->line_no-1]->actual == 0) {
+		/* Remove blank line from end */
+		remove_line(env->lines, env->line_no-1);
+	}
 }
 
 
@@ -797,6 +801,7 @@ void write_file(char * file) {
 
 	if (!f) {
 		render_error("Failed to open file for writing.");
+		return;
 	}
 
 	int i, j;
@@ -813,9 +818,7 @@ void write_file(char * file) {
 				fwrite(tmp, i, 1, f);
 			}
 		}
-		if (i + 1 < env->line_count) {
-			fputc('\n', f);
-		}
+		fputc('\n', f);
 	}
 	fclose(f);
 
