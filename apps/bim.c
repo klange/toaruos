@@ -58,6 +58,36 @@
 #define COLOR_SEARCH_FG 234
 #define COLOR_SEARCH_BG 226
 
+#define COLOR_KEYWORD   117
+#define COLOR_STRING    113
+#define COLOR_COMMENT   102
+#define COLOR_TYPE      185
+#define COLOR_PRAGMA    173
+
+#define FLAG_NONE     0
+#define FLAG_KEYWORD  1
+#define FLAG_STRING   2
+#define FLAG_COMMENT  3
+#define FLAG_TYPE     4
+#define FLAG_PRAGMA   5
+
+int flag_to_color(int flag) {
+	switch (flag) {
+		case FLAG_KEYWORD:
+			return COLOR_KEYWORD;
+		case FLAG_STRING:
+			return COLOR_STRING;
+		case FLAG_COMMENT:
+			return COLOR_COMMENT;
+		case FLAG_TYPE:
+			return COLOR_TYPE;
+		case FLAG_PRAGMA:
+			return COLOR_PRAGMA;
+		default:
+			return COLOR_FG;
+	}
+}
+
 /**
  * Line buffer definitions
  *
@@ -134,6 +164,7 @@ typedef struct _env {
 	int    line_avail;
 	int    col_no;
 	char * search;
+	struct syntax_definition * syntax;
 	short  modified;
 	short  mode;
 	line_t ** lines;
@@ -220,6 +251,301 @@ buffer_t * buffer_close(buffer_t * buf) {
  * so that they can act on buffers other than the active one.
  */
 
+int syn_c_iskeywordchar(int c) {
+	if (isalnum(c)) return 1;
+	if (c == '_') return 1;
+	return 0;
+}
+
+static char * syn_c_keywords[] = {
+	"while","if","for","continue","return","break","switch","case","sizeof",
+	"struct","union","typedef","do","default","else","goto",
+	"alignas","alignof","offsetof",
+	NULL
+};
+
+static char * syn_c_types[] = {
+	"static","int","char","short","float","double","void","unsigned","volatile",
+	"register","long","inline","restrict","enum","auto","extern","bool","complex",
+	"uint8_t","uint16_t","uint32_t","uint64_t",
+	"int8_t","int16_t","int32_t","int64_t",
+	NULL
+};
+
+static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left) {
+	if (i == 0 && c == '#') {
+		*out_left = line->actual+1;
+		return FLAG_PRAGMA;
+	}
+
+	if (c == '/') {
+		if (line->text[i+1].codepoint == '/') {
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT;
+		}
+
+		if (line->text[i+1].codepoint == '*') {
+			int last = 0;
+			for (int j = i + 2; j < line->actual + 1; ++j) {
+				int c = line->text[j].codepoint;
+				if (c == '/' && last == '*') {
+					*out_left = j - i;
+					return FLAG_COMMENT;
+				}
+				last = c;
+			}
+			/* TODO multiline - update next */
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT;
+		}
+	}
+
+	if (line->text[i].codepoint == '"') {
+		int last = 0;
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+char * syn_c_ext[] = {".c",".h",NULL};
+
+static char * syn_py_keywords[] = {
+	"class","def","return","del","if","else","elif",
+	"for","while","continue","break","assert",
+	"as","and","or","except","finally","from",
+	"global","import","in","is","lambda","with",
+	"nonlocal","not","pass","raise","try","yield",
+	NULL
+};
+
+static char * syn_py_types[] = {
+	"True","False","None",
+	"object","set","dict","int","str","bytes",
+	NULL
+};
+
+static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left) {
+	if (i == 0 && c == 'i') {
+		/* Check for import */
+		char * import = "import ";
+		for (int j = 0; j < line->actual + 1; ++j) {
+			if (import[j] == '\0') {
+				*out_left = j - 2;
+				return FLAG_PRAGMA;
+			}
+			if (line->text[j].codepoint != import[j]) break;
+		}
+	}
+
+	if (c == '#') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	if (c == '@') {
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			if (!syn_c_iskeywordchar(line->text[j].codepoint)) {
+				*out_left = j - i - 1;
+				return FLAG_PRAGMA;
+			}
+			*out_left = (line->actual + 1) - i;
+			return FLAG_PRAGMA;
+		}
+	}
+
+	if (line->text[i].codepoint == '\'') {
+		int last = 0;
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '\'') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	if (line->text[i].codepoint == '"') {
+		int last = 0;
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+char * syn_py_ext[] = {".py",NULL};
+
+static char * syn_sh_keywords[] = {
+	"cd","exit","export","help","history","if",
+	"empty?","equals?","return","export-cmd",
+	"source","exec","not","while","then","else",
+	NULL,
+};
+
+static char * syn_sh_types[] = {NULL};
+
+static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
+	if (c == '#') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	if (line->text[i].codepoint == '\'') {
+		int last = 0;
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '\'') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	if (line->text[i].codepoint == '"') {
+		int last = 0;
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+static int syn_sh_iskeywordchar(int c) {
+	if (isalnum(c)) return 1;
+	if (c == '-') return 1;
+	if (c == '_') return 1;
+	if (c == '?') return 1;
+	return 0;
+}
+
+static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
+
+struct syntax_definition {
+	char * name;
+	char ** ext;
+	char ** keywords;
+	char ** types;
+	int (*extended)(line_t *, int, int, int, int *);
+	int (*iskwchar)(int);
+} syntaxes[] = {
+	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar},
+	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar},
+	{"esh",syn_sh_ext,syn_sh_keywords,syn_sh_types,syn_sh_extended,syn_sh_iskeywordchar},
+	{NULL, NULL, NULL, NULL, NULL, NULL}
+};
+
+int check_line(line_t * line, int c, char * str, int last) {
+	if (env->syntax->iskwchar(last)) return 0;
+	for (int i = c; i < line->actual + 1; ++i, ++str) {
+		if (*str == '\0' && !env->syntax->iskwchar(line->text[i].codepoint)) return 1;
+		if (line->text[i].codepoint == *str) continue;
+		return 0;
+	}
+	if (*str == '\0') return 1;
+	return 0;
+}
+
+void recalculate_syntax(line_t * line, int offset) {
+	if (!env->syntax) return;
+
+	int state = 0;
+	int left  = 0;
+	int last  = 0;
+	for (int i = 0; i < line->actual+1; last = line->text[i++].codepoint) {
+		if (state) {
+			left--;
+			line->text[i].flags = state;
+
+			if (!left) {
+				state = 0;
+			}
+
+			continue;
+		}
+
+		int c = line->text[i].codepoint;
+		line->text[i].flags = FLAG_NONE;
+
+		if (env->syntax->extended) {
+			int s = env->syntax->extended(line,i,c,last,&left);
+			if (s) {
+				state = s;
+				goto _continue;
+			}
+		}
+
+		for (char ** kw = env->syntax->keywords; *kw; kw++) {
+			int c = check_line(line, i, *kw, last);
+			if (c == 1) {
+				left = strlen(*kw)-1;
+				state = FLAG_KEYWORD;
+				goto _continue;
+			}
+		}
+
+		for (char ** kw = env->syntax->types; *kw; kw++) {
+			int c = check_line(line, i, *kw, last);
+			if (c == 1) {
+				left = strlen(*kw)-1;
+				state = FLAG_TYPE;
+				goto _continue;
+			}
+		}
+
+_continue:
+		line->text[i].flags = state;
+	}
+
+	(void)offset; /* TODO Process later lines if we, say, opened a comment */
+}
+
 /**
  * Insert a character into an existing line.
  */
@@ -242,6 +568,9 @@ line_t * line_insert(line_t * line, char_t c, int offset) {
 
 	/* There is one new character in the line */
 	line->actual += 1;
+
+	recalculate_syntax(line, offset);
+
 	return line;
 }
 
@@ -259,6 +588,8 @@ void line_delete(line_t * line, int offset) {
 
 	/* The line is one character shorter */
 	line->actual -= 1;
+
+	recalculate_syntax(line, offset);
 }
 
 /**
@@ -339,6 +670,8 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	/* The first line is now longer */
 	lines[linea]->actual = lines[linea]->actual + lines[lineb]->actual;
 
+	recalculate_syntax(lines[linea], linea);
+
 	/* Remove the second line */
 	return remove_line(lines, lineb);
 }
@@ -384,6 +717,9 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	/* Move the data from the old line into the new line */
 	memmove(lines[line]->text, &lines[line-1]->text[split], sizeof(char_t) * remaining);
 	lines[line-1]->actual = split;
+
+	recalculate_syntax(lines[line-1], line-1);
+	recalculate_syntax(lines[line], line);
 
 	/* There is one new line */
 	env->line_count += 1;
@@ -512,6 +848,14 @@ void place_cursor_h(int h) {
  */
 void set_colors(int fg, int bg) {
 	printf("\033[48;5;%dm", bg);
+	printf("\033[38;5;%dm", fg);
+	fflush(stdout);
+}
+
+/**
+ * Set just the foreground color
+ */
+void set_fg_color(int fg) {
 	printf("\033[38;5;%dm", fg);
 	fflush(stdout);
 }
@@ -706,6 +1050,9 @@ void render_line(line_t * line, int width, int offset) {
 				break;
 			}
 
+			/* Syntax hilighting */
+			set_fg_color(flag_to_color(c.flags));
+
 			/* Render special characters */
 			if (c.codepoint == '\t') {
 				/* TODO: This should adapt based on tabstops. */
@@ -837,9 +1184,15 @@ void redraw_statusbar(void) {
 		printf("[No Name]");
 	}
 
+	printf(" ");
+
+	if (env->syntax) {
+		printf("[%s]", env->syntax->name);
+	}
+
 	/* Print file status indicators */
 	if (env->modified) {
-		printf(" [+]");
+		printf("[+]");
 	}
 
 	/* Clear the rest of the status bar */
@@ -875,10 +1228,11 @@ void redraw_commandline(void) {
 	if (env->mode == MODE_INSERT) {
 		set_bold();
 		printf("-- INSERT --");
+		clear_to_end();
+		reset();
+	} else {
+		clear_to_end();
 	}
-
-	/* Fill the rest of the command line with the background color */
-	clear_to_end();
 }
 
 /**
@@ -1069,6 +1423,25 @@ void add_buffer(uint8_t * buf, int size) {
 	}
 }
 
+struct syntax_definition * match_syntax(char * file) {
+	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+		for (char ** ext = s->ext; *ext; ++ext) {
+			int i = strlen(file);
+			int j = strlen(*ext);
+
+			do {
+				if (file[i] != (*ext)[j]) break;
+				if (j == 0) return s;
+				if (i == 0) break;
+				i--;
+				j--;
+			} while (1);
+		}
+	}
+
+	return NULL;
+}
+
 /**
  * Create a new buffer from a file.
  */
@@ -1078,9 +1451,14 @@ void open_file(char * file) {
 	env->file_name = malloc(strlen(file) + 1);
 	memcpy(env->file_name, file, strlen(file) + 1);
 
+	env->syntax = match_syntax(file);
+
 	setup_buffer(env);
 
 	FILE * f = fopen(file, "r");
+	if (!f) {
+		f = fopen(file,"a+");
+	}
 
 	if (!f) {
 		char buf[1024];
