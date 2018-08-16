@@ -138,8 +138,10 @@ int bim_getch(void) {
 #ifdef __linux__
 	struct pollfd fds[] = {STDIN_FILENO,POLLIN,0};
 	int ret = poll(fds,1,200);
-	if (ret > 0) {
-		return fgetc(stdin);
+	if (ret > 0 && fds[0].revents & POLLIN) {
+		char buf[1];
+		read(STDIN_FILENO, buf, 1);
+		return buf[0];
 	} else {
 		return -1;
 	}
@@ -147,7 +149,9 @@ int bim_getch(void) {
 	int fds[] = {STDIN_FILENO};
 	int index = fswait2(1,fds,200);
 	if (index == 0) {
-		return fgetc(stdin);
+		char buf[1];
+		read(STDIN_FILENO, buf, 1);
+		return buf[0];
 	} else {
 		return -1;
 	}
