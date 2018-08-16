@@ -54,8 +54,6 @@ typedef struct {
 
 char * term = NULL;
 
-#define IS_TOARU() (term && !strcmp(term,"toaru"))
-
 int term_width, term_height;
 int csr_x_actual, csr_y_actual;
 
@@ -574,15 +572,7 @@ void render_error(char * message) {
 	fflush(stdout);
 }
 
-void render_cursor() {
-	printf("\033[1z");
-	fflush(stdout);
-}
-
 void show_cursor() {
-	if (IS_TOARU()) {
-		render_cursor();
-	}
 	fprintf(stdout, "\033[?25h");
 	fflush(stdout);
 }
