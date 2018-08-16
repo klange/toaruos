@@ -307,7 +307,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 
 	if (line->text[i].codepoint == '"') {
 		int last = 0;
-		for (int j = i+1; j < line->actual + 1; ++j) {
+		for (int j = i+1; j < line->actual; ++j) {
 			int c = line->text[j].codepoint;
 			if (last != '\\' && c == '"') {
 				*out_left = j - i;
@@ -501,7 +501,7 @@ struct syntax_definition {
  */
 int check_line(line_t * line, int c, char * str, int last) {
 	if (env->syntax->iskwchar(last)) return 0;
-	for (int i = c; i < line->actual + 1; ++i, ++str) {
+	for (int i = c; i < line->actual; ++i, ++str) {
 		if (*str == '\0' && !env->syntax->iskwchar(line->text[i].codepoint)) return 1;
 		if (line->text[i].codepoint == *str) continue;
 		return 0;
