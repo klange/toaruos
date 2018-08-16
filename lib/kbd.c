@@ -151,6 +151,18 @@ kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
 			}
 		case KBD_ESC_O:
 			switch (c) {
+				case 0x41:
+					state->kbd_state = KBD_NORMAL;
+					return KEY_ARROW_UP;
+				case 0x42:
+					state->kbd_state = KBD_NORMAL;
+					return KEY_ARROW_DOWN;
+				case 0x43:
+					state->kbd_state = KBD_NORMAL;
+					return KEY_ARROW_RIGHT;
+				case 0x44:
+					state->kbd_state = KBD_NORMAL;
+					return KEY_ARROW_LEFT;
 				case 'H':
 					state->kbd_state = KBD_NORMAL;
 					return KEY_HOME;
@@ -175,6 +187,12 @@ kbd_key_t kbd_key(key_event_state_t * state, unsigned char c) {
 				case 0x44:
 					state->kbd_state = KBD_NORMAL;
 					return KEY_ARROW_LEFT;
+				case 'H':
+					state->kbd_state = KBD_NORMAL;
+					return KEY_HOME;
+				case 'F':
+					state->kbd_state = KBD_NORMAL;
+					return KEY_END;
 				case '1':
 				case '2':
 				case '3':
