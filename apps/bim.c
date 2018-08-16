@@ -14,7 +14,7 @@
  * so speed improvement is a must - most probably by not
  * redrawing the entire screen all the time.
  */
-#define _XOPEN_SOURCE 1
+#define _XOPEN_SOURCE 500
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,18 +27,18 @@
 #include <wchar.h>
 #include <ctype.h>
 
-#ifdef __linux__
-#include <stdio_ext.h>
-#define BACKSPACE_KEY 0x7F
-#else
+#ifdef __toaru__
 #include <sys/fswait.h>
-#define BACKSPACE_KEY 0x08
-#endif
-
 #include <toaru/utf8decode.h>
+#else
+#include <poll.h>
+#include "../base/usr/include/toaru/utf8decode.h"
+#endif
 
 #define BLOCK_SIZE 256
 #define ENTER_KEY     '\n'
+#define BACKSPACE_KEY 0x08
+#define DELETE_KEY    0x7F
 
 /**
  * Theming data
@@ -135,10 +135,16 @@ int bim_getch(void) {
 		_bim_unget = -1;
 		return out;
 	}
-	int fds[] = {STDIN_FILENO};
 #ifdef __linux__
-#error Need to replace fswait2 with select/poll
+	struct pollfd fds[] = {STDIN_FILENO,POLLIN,0};
+	int ret = poll(fds,1,200);
+	if (ret > 0) {
+		return fgetc(stdin);
+	} else {
+		return -1;
+	}
 #else
+	int fds[] = {STDIN_FILENO};
 	int index = fswait2(1,fds,200);
 	if (index == 0) {
 		return fgetc(stdin);
@@ -278,14 +284,14 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 	}
 
 	if (c == '/') {
-		if (line->text[i+1].codepoint == '/') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
 			*out_left = (line->actual + 1) - i;
 			return FLAG_COMMENT;
 		}
 
-		if (line->text[i+1].codepoint == '*') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
 			int last = 0;
-			for (int j = i + 2; j < line->actual + 1; ++j) {
+			for (int j = i + 2; j < line->actual; ++j) {
 				int c = line->text[j].codepoint;
 				if (c == '/' && last == '*') {
 					*out_left = j - i;
@@ -513,7 +519,7 @@ void recalculate_syntax(line_t * line, int offset) {
 	int state = 0;
 	int left  = 0;
 	int last  = 0;
-	for (int i = 0; i < line->actual+1; last = line->text[i++].codepoint) {
+	for (int i = 0; i < line->actual; last = line->text[i++].codepoint) {
 		if (state) {
 			/* Currently hilighting, have `left` characters remaining with this state */
 			left--;
@@ -2025,7 +2031,7 @@ void command_mode(void) {
 			/* Enter, run command */
 			process_command(buffer);
 			break;
-		} else if (c == BACKSPACE_KEY) {
+		} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
 			/* Backspace, delete last character in command buffer */
 			if (buffer_len > 0) {
 				buffer_len -= 1;
@@ -2140,7 +2146,7 @@ void search_mode(void) {
 			}
 			env->search = strdup(buffer);
 			break;
-		} else if (c == BACKSPACE_KEY) {
+		} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
 			/* Backspace, delete last character in search buffer */
 			if (buffer_len > 0) {
 				buffer_len -= 1;
@@ -2308,6 +2314,7 @@ void insert_mode(void) {
 						return;
 					}
 					break;
+				case DELETE_KEY:
 				case BACKSPACE_KEY:
 					if (env->col_no > 1) {
 						line_delete(env->lines[env->line_no - 1], env->col_no - 1);
@@ -2462,6 +2469,7 @@ int main(int argc, char * argv[]) {
 						timeout++;
 					}
 					break;
+				case DELETE_KEY:
 				case BACKSPACE_KEY:
 					cursor_left();
 					break;
