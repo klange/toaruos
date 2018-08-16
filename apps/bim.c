@@ -572,6 +572,12 @@ void render_error(char * message) {
 	fflush(stdout);
 }
 
+void redraw_modeline() {
+	set_bold();
+	printf("-- INSERT --");
+	reset();
+}
+
 void show_cursor() {
 	fprintf(stdout, "\033[?25h");
 	fflush(stdout);
@@ -836,7 +842,7 @@ void close_buffer() {
 	redraw_all();
 }
 
-void cursor_down(void) {
+void cursor_down(int insert_mode) {
 	if (env->line_no < env->line_count) {
 		env->line_no += 1;
 		if (env->col_no > env->lines[env->line_no-1]->actual) {
@@ -867,6 +873,9 @@ void cursor_down(void) {
 			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
+			if (insert_mode) {
+				redraw_modeline();
+			}
 			place_cursor_actual();
 			return;
 		} else if (redraw == 1) {
@@ -877,7 +886,7 @@ void cursor_down(void) {
 	}
 }
 
-void cursor_up(void) {
+void cursor_up(int insert_mode) {
 	if (env->line_no > 1) {
 		env->line_no -= 1;
 		if (env->col_no > env->lines[env->line_no-1]->actual) {
@@ -900,8 +909,10 @@ void cursor_up(void) {
 			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
+			if (insert_mode) {
+				redraw_modeline();
+			}
 			place_cursor_actual();
-
 			return;
 		} else if (redraw) {
 			redraw_text();
@@ -1056,9 +1067,7 @@ void insert_mode() {
 	int cin;
 	uint32_t c;
 	redraw_commandline();
-	set_bold();
-	printf("-- INSERT --");
-	reset();
+	redraw_modeline();
 	place_cursor_actual();
 	set_colors(COLOR_FG, COLOR_BG);
 	int timeout = 0;
@@ -1134,10 +1143,10 @@ void insert_mode() {
 						if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 							switch (c) {
 								case 'A': // up
-									cursor_up();
+									cursor_up(1);
 									break;
 								case 'B': // down
-									cursor_down();
+									cursor_down(1);
 									break;
 								case 'C': // right
 									cursor_right(1);
@@ -1209,10 +1218,10 @@ int main(int argc, char * argv[]) {
 					command_mode();
 					break;
 				case 'j':
-					cursor_down();
+					cursor_down(0);
 					break;
 				case 'k':
-					cursor_up();
+					cursor_up(0);
 					break;
 				case 'h':
 					cursor_left();
@@ -1280,10 +1289,10 @@ _insert:
 					if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 						switch (c) {
 							case 'A': // up
-								cursor_up();
+								cursor_up(0);
 								break;
 							case 'B': // down
-								cursor_down();
+								cursor_down(0);
 								break;
 							case 'C': // right
 								cursor_right(0);
