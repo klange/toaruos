@@ -427,8 +427,22 @@ void render_line(line_t * line, int width, int offset) {
 	int i = 0;
 	int j = 0;
 	set_colors(COLOR_FG, COLOR_BG);
+	int remainder = 0;
 	while (i < line->actual) {
 		char_t c = line->text[i];
+		if (remainder) {
+			if (j >= offset) {
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("-");
+				set_colors(COLOR_FG, COLOR_BG);
+			}
+			remainder--;
+			j++;
+			if (remainder == 0) {
+				i++;
+			}
+			continue;
+		}
 		if (j >= offset) {
 			if (j - offset + c.display_width >= width) {
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
@@ -452,32 +466,21 @@ void render_line(line_t * line, int width, int offset) {
 				to_eight(c.codepoint, tmp);
 				printf("%s", tmp);
 			}
+			j += c.display_width;
+			i++;
 		} else if (j + c.display_width == offset + 1) {
 			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 			printf("<");
 			set_colors(COLOR_FG, COLOR_BG);
+			j += c.display_width;
+			i++;
+		} else if (c.display_width > 1) {
+			remainder = c.display_width - 1;
+			j++;
+		} else {
+			j++;
+			i++;
 		}
-		j += c.display_width;
-		i += 1;
-	}
-}
-
-void realign_cursor() {
-	int x = -env->coffset;
-	int i = 0;
-	for (; i < env->col_no - 1; ++i) {
-		if (x + 12 > term_width) {
-			env->col_no = i + 1;
-			return;
-		}
-		char_t * c = &env->lines[env->line_no-1]->text[i];
-		x += c->display_width;
-	}
-	while (x < 0) {
-		env->col_no += 1;
-		i++;
-		char_t * c = &env->lines[env->line_no-1]->text[i];
-		x += c->display_width;
 	}
 }
 
@@ -492,9 +495,9 @@ void redraw_line(int j, int x) {
 	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
 	}
-	printf("%d ", x + 1);
+	printf("%d%c", x + 1, (x+1 == env->line_no && env->coffset > 0) ? '<' : ' ');
 	set_colors(COLOR_FG, COLOR_BG);
-	render_line(env->lines[x], term_width - 3 - num_size, env->coffset);
+	render_line(env->lines[x], term_width - 3 - num_size, (x + 1 == env->line_no) ? env->coffset : 0);
 	clear_to_end();
 }
 
@@ -592,6 +595,20 @@ void place_cursor_actual() {
 		x += c->display_width;
 	}
 	int y = env->line_no - env->offset + 1;
+
+	if (x > term_width - 1) {
+		int diff = x - (term_width - 1);
+		env->coffset += diff;
+		x -= diff;
+		redraw_text();
+	}
+
+	if (x < num_size + 1) {
+		int diff = (num_size + 1) - x;
+		env->coffset -= diff;
+		x += diff;
+		redraw_text();
+	}
 
 	place_cursor(x,y);
 	csr_x_actual = x;
@@ -831,9 +848,17 @@ void cursor_down(void) {
 		if (env->col_no > env->lines[env->line_no-1]->actual) {
 			env->col_no = env->lines[env->line_no-1]->actual;
 		}
+		int redraw = 0;
+		if (env->coffset != 0) {
+			env->coffset = 0;
+			redraw = 1;
+		}
 		if (env->col_no == 0) env->col_no = 1;
 		if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
 			env->offset += 1;
+			redraw = 1;
+		}
+		if (redraw) {
 			redraw_text();
 		}
 		redraw_statusbar();
@@ -847,9 +872,17 @@ void cursor_up(void) {
 		if (env->col_no > env->lines[env->line_no-1]->actual) {
 			env->col_no = env->lines[env->line_no-1]->actual;
 		}
+		int redraw = 0;
+		if (env->coffset != 0) {
+			env->coffset = 0;
+			redraw = 1;
+		}
 		if (env->col_no == 0) env->col_no = 1;
 		if (env->line_no <= env->offset) {
 			env->offset -= 1;
+			redraw = 1;
+		}
+		if (redraw) {
 			redraw_text();
 		}
 		redraw_statusbar();
@@ -1189,20 +1222,6 @@ int main(int argc, char * argv[]) {
 						place_cursor_actual();
 						goto _insert;
 					}
-				case ',':
-					if (env->coffset > 5) {
-						env->coffset -= 5;
-					} else {
-						env->coffset = 0;
-					}
-					realign_cursor();
-					redraw_all();
-					break;
-				case '.':
-					env->coffset += 5;
-					realign_cursor();
-					redraw_all();
-					break;
 				case 'a':
 					if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
 						env->col_no += 1;
