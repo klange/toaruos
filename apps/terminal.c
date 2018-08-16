@@ -854,16 +854,17 @@ static void render_cursor() {
 	}
 }
 
+static uint8_t cursor_flipped = 0;
 /* A soft request to draw the cursor. */
 static void draw_cursor() {
 	if (!cursor_on) return;
 	mouse_ticks = get_ticks();
+	cursor_flipped = 0;
 	render_cursor();
 }
 
 /* Timer callback to flip (flash) the cursor */
 static void maybe_flip_cursor(void) {
-	static uint8_t cursor_flipped = 0;
 	uint64_t ticks = get_ticks();
 	if (ticks > mouse_ticks + 600000LL) {
 		mouse_ticks = ticks;
@@ -1218,6 +1219,9 @@ static int term_get_cell_height(void) {
 /* ANSI callback to set cursor visibility */
 static void term_set_csr_show(int on) {
 	cursor_on = on;
+	if (on) {
+		draw_cursor();
+	}
 }
 
 /* ANSI callback to set the foreground/background colors. */

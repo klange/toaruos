@@ -553,9 +553,11 @@ void render_cursor() {
 	cell_redraw_inverted(csr_x, csr_y);
 }
 
+static uint8_t cursor_flipped = 0;
 void draw_cursor() {
 	if (!cursor_on) return;
 	mouse_ticks = get_ticks();
+	cursor_flipped = 0;
 	render_cursor();
 }
 
@@ -684,6 +686,9 @@ int term_get_csr_y() {
 
 void term_set_csr_show(int on) {
 	cursor_on = on;
+	if (on) {
+		draw_cursor();
+	}
 }
 
 void term_set_colors(uint32_t fg, uint32_t bg) {
@@ -698,7 +703,6 @@ void term_redraw_cursor() {
 }
 
 void flip_cursor() {
-	static uint8_t cursor_flipped = 0;
 	if (cursor_flipped) {
 		cell_redraw(csr_x, csr_y);
 	} else {
