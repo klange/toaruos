@@ -858,10 +858,10 @@ void key_event(int ret, key_event_t * event) {
 				handle_input_s("\033[6~");
 				break;
 			case KEY_HOME:
-				handle_input_s("\033OH");
+				handle_input_s("\033[H");
 				break;
 			case KEY_END:
-				handle_input_s("\033OF");
+				handle_input_s("\033[F");
 				break;
 			case KEY_DEL:
 				handle_input_s("\033[3~");

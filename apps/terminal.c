@@ -1496,7 +1496,7 @@ static void key_event(int ret, key_event_t * event) {
 						redraw_scrollback();
 					}
 				} else {
-					handle_input_s("\033OH");
+					handle_input_s("\033[H");
 				}
 				break;
 			case KEY_END:
@@ -1504,7 +1504,7 @@ static void key_event(int ret, key_event_t * event) {
 					scrollback_offset = 0;
 					redraw_scrollback();
 				} else {
-					handle_input_s("\033OF");
+					handle_input_s("\033[F");
 				}
 				break;
 			case KEY_DEL:
