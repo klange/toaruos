@@ -161,7 +161,26 @@ void line_delete(line_t * line, int offset) {
 	line->actual -= 1;
 }
 
+void render_error(char * message);
+line_t ** remove_line(line_t ** lines, int offset) {
+
+	if (env->line_count == 1) {
+		lines[offset]->actual = 0;
+		return lines;
+	}
+
+	free(lines[offset]);
+	if (offset < env->line_count) {
+		memmove(&lines[offset], &lines[offset+1], sizeof(line_t *) * (env->line_count - (offset - 1)));
+		lines[env->line_count-1] = NULL;
+	}
+	env->line_count -= 1;
+	return lines;
+}
+
 line_t ** add_line(line_t ** lines, int offset) {
+	if (offset > env->line_count) return lines;
+
 	if (env->line_count == env->line_avail) {
 		env->line_avail *= 2;
 		lines = realloc(lines, sizeof(line_t *) * env->line_avail);
@@ -174,6 +193,20 @@ line_t ** add_line(line_t ** lines, int offset) {
 	lines[offset]->actual    = 0;
 	env->line_count += 1;
 	return lines;
+}
+
+line_t ** merge_lines(line_t ** lines, int lineb) {
+	int linea = lineb - 1;
+
+	while (lines[linea]->available < lines[linea]->actual + lines[lineb]->actual) {
+		lines[linea]->available *= 2;
+		lines[linea] = realloc(lines[linea], sizeof(line_t) + sizeof(char_t) * lines[linea]->available);
+	}
+
+	memcpy(&lines[linea]->text[lines[linea]->actual], &lines[lineb]->text, sizeof(char_t) * lines[lineb]->actual);
+	lines[linea]->actual = lines[linea]->actual + lines[lineb]->actual;
+
+	return remove_line(lines, lineb);
 }
 
 line_t ** split_line(line_t ** lines, int line, int split) {
@@ -832,8 +865,20 @@ void cursor_left(void) {
 	}
 }
 
-void cursor_right(void) {
-	if (env->col_no < env->lines[env->line_no-1]->actual) {
+void cursor_home(void) {
+	env->col_no = 1;
+	redraw_statusbar();
+	place_cursor_actual();
+}
+
+void cursor_end(int insert_mode) {
+	env->col_no = env->lines[env->line_no-1]->actual+!!insert_mode;
+	redraw_statusbar();
+	place_cursor_actual();
+}
+
+void cursor_right(int insert_mode) {
+	if (env->col_no < env->lines[env->line_no-1]->actual + !!insert_mode) {
 		env->col_no += 1;
 		redraw_statusbar();
 		place_cursor_actual();
@@ -980,6 +1025,15 @@ void insert_mode() {
 						set_modified();
 						redraw_statusbar();
 						place_cursor_actual();
+					} else if (env->line_no > 1) {
+						int tmp = env->lines[env->line_no - 2]->actual;
+						merge_lines(env->lines, env->line_no - 1);
+						env->line_no -= 1;
+						env->col_no = tmp+1;
+						redraw_text();
+						set_modified();
+						redraw_statusbar();
+						place_cursor_actual();
 					}
 					break;
 				case ENTER_KEY:
@@ -1019,10 +1073,16 @@ void insert_mode() {
 									cursor_down();
 									break;
 								case 'C': // right
-									cursor_right();
+									cursor_right(1);
 									break;
 								case 'D': // left
 									cursor_left();
+									break;
+								case 'H': // home
+									cursor_home();
+									break;
+								case 'F': // end
+									cursor_end(1);
 									break;
 							}
 							timeout = 0;
@@ -1092,7 +1152,17 @@ int main(int argc, char * argv[]) {
 					cursor_left();
 					break;
 				case 'l':
-					cursor_right();
+					cursor_right(0);
+					break;
+				case 'd':
+					remove_line(env->lines, env->line_no-1);
+					env->col_no = 1;
+					if (env->line_no > env->line_count) {
+						env->line_no--;
+					}
+					redraw_text();
+					set_modified();
+					place_cursor_actual();
 					break;
 				case ' ':
 					goto_line(env->line_no + term_height - 6);
@@ -1164,10 +1234,16 @@ _insert:
 								cursor_down();
 								break;
 							case 'C': // right
-								cursor_right();
+								cursor_right(0);
 								break;
 							case 'D': // left
 								cursor_left();
+								break;
+							case 'H': // home
+								cursor_home();
+								break;
+							case 'F': // end
+								cursor_end(0);
 								break;
 						}
 						timeout = 0;
