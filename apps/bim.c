@@ -945,6 +945,22 @@ void show_cursor(void) {
 }
 
 /**
+ * Request mouse events
+ */
+void mouse_enable(void) {
+	printf("\033[?1000h");
+	fflush(stdout);
+}
+
+/**
+ * Stop mouse events
+ */
+void mouse_disable(void) {
+	printf("\033[?1000l");
+	fflush(stdout);
+}
+
+/**
  * Redaw the tabbar, with a tab for each buffer.
  *
  * The active buffer is highlighted.
@@ -1401,6 +1417,8 @@ void initialize(void) {
 	term_height = w.ws_row;
 	set_unbuffered();
 
+	mouse_enable();
+
 	signal(SIGWINCH, SIGWINCH_handler);
 }
 
@@ -1537,6 +1555,7 @@ void open_file(char * file) {
  * Clean up the terminal and exit the editor.
  */
 void quit(void) {
+	mouse_disable();
 	set_buffered();
 	reset();
 	clear_screen();
@@ -2204,6 +2223,58 @@ void search_next(void) {
 }
 
 /**
+ * Handle mouse event
+ */
+void handle_mouse(void) {
+	int buttons = bim_getch() - 32;
+	int x = bim_getch() - 32;
+	int y = bim_getch() - 32;
+
+	if (buttons == 64) {
+		/* Scroll up */
+		for (int i = 0; i < 5; ++i) {
+			cursor_up();
+		}
+		return;
+	} else if (buttons == 65) {
+		/* Scroll down */
+		for (int i = 0; i < 5; ++i) {
+			cursor_down();
+		}
+		return;
+	} else if (buttons == 3) {
+		/* Move cursor to position */
+
+		/* Figure out y coordinate */
+		int line_no = y + env->offset - 1;
+		int col_no = -1;
+
+		/* Account for the left hand gutter */
+		int num_size = log_base_10(env->line_count) + 5;
+		int _x = num_size - (line_no == env->line_no ? env->coffset : 0);
+
+		/* Determine where the cursor is physically */
+		for (int i = 0; i < env->lines[line_no-1]->actual + 1; ++i) {
+			char_t * c = &env->lines[line_no-1]->text[i];
+			_x += c->display_width;
+			if (_x > x) {
+				col_no = i;
+				break;
+			}
+		}
+
+		if (col_no == -1 || col_no > env->lines[line_no-1]->actual) {
+			col_no = env->lines[line_no-1]->actual;
+		}
+
+		env->line_no = line_no;
+		env->col_no = col_no;
+		place_cursor_actual();
+	}
+	return;
+}
+
+/**
  * INSERT mode
  *
  * Accept input into the text buffer.
@@ -2292,6 +2363,9 @@ void insert_mode(void) {
 						}
 						if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 							switch (c) {
+								case 'M':
+									handle_mouse();
+									break;
 								case 'A': // up
 									cursor_up();
 									break;
@@ -2481,6 +2555,9 @@ _insert:
 					}
 					if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 						switch (c) {
+							case 'M':
+								handle_mouse();
+								break;
 							case 'A': // up
 								cursor_up();
 								break;
