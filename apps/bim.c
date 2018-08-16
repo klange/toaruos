@@ -1740,7 +1740,7 @@ void cursor_down(void) {
 
 			/* A new line appears on screen at the bottom, draw it */
 			int l = term_height - env->bottom_size - 1;
-			if (env->offset + l < env->line_count) {
+			if (env->offset + l < env->line_count + 1) {
 				redraw_line(l-1, env->offset + l-1);
 			} else {
 				place_cursor(1, 2 + l - 1);
