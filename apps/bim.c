@@ -850,9 +850,26 @@ void cursor_down(void) {
 		if (env->col_no == 0) env->col_no = 1;
 		if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
 			env->offset += 1;
-			redraw = 1;
+			redraw = 2;
 		}
-		if (redraw) {
+		if (redraw == 2) {
+			printf("\033[1S");
+			int l = term_height - env->bottom_size - 1;
+			if (env->offset + l < env->line_count) {
+				redraw_line(l-1, env->offset + l-1);
+			} else {
+				place_cursor(1, 2 + l - 1);
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("~");
+				clear_to_end();
+			}
+
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
+			return;
+		} else if (redraw == 1) {
 			redraw_text();
 		}
 		redraw_statusbar();
@@ -874,9 +891,19 @@ void cursor_up(void) {
 		if (env->col_no == 0) env->col_no = 1;
 		if (env->line_no <= env->offset) {
 			env->offset -= 1;
-			redraw = 1;
+			redraw = 2;
 		}
-		if (redraw) {
+		if (redraw == 2) {
+			printf("\033[1T");
+			fflush(stdout);
+			redraw_line(0,env->offset);
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
+
+			return;
+		} else if (redraw) {
 			redraw_text();
 		}
 		redraw_statusbar();
@@ -1176,7 +1203,6 @@ int main(int argc, char * argv[]) {
 						this_buf[timeout] = c;
 						timeout++;
 					}
-					redraw_all();
 					break;
 				case ':':
 					/* Switch to command mode */
