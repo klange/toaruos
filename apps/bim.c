@@ -71,6 +71,9 @@
 #define FLAG_TYPE     4
 #define FLAG_PRAGMA   5
 
+/**
+ * Convert syntax hilighting flag to color code
+ */
 int flag_to_color(int flag) {
 	switch (flag) {
 		case FLAG_KEYWORD:
@@ -245,12 +248,8 @@ buffer_t * buffer_close(buffer_t * buf) {
 }
 
 /**
- * TODO:
- *
- * The line editing functions should probably take a buffer_t *
- * so that they can act on buffers other than the active one.
+ * Syntax definition for C
  */
-
 int syn_c_iskeywordchar(int c) {
 	if (isalnum(c)) return 1;
 	if (c == '_') return 1;
@@ -322,6 +321,9 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 
 char * syn_c_ext[] = {".c",".h",NULL};
 
+/**
+ * Syntax definition for Python
+ */
 static char * syn_py_keywords[] = {
 	"class","def","return","del","if","else","elif",
 	"for","while","continue","break","assert",
@@ -405,6 +407,9 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 
 char * syn_py_ext[] = {".py",NULL};
 
+/**
+ * Syntax definition for ToaruOS shell
+ */
 static char * syn_sh_keywords[] = {
 	"cd","exit","export","help","history","if",
 	"empty?","equals?","return","export-cmd",
@@ -467,6 +472,9 @@ static int syn_sh_iskeywordchar(int c) {
 
 static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
 
+/**
+ * Syntax hilighting definition database
+ */
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -481,6 +489,10 @@ struct syntax_definition {
 	{NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
+/**
+ * Checks whether the character pointed to by `c` is the start of a match for
+ * keyword or type name `str`.
+ */
 int check_line(line_t * line, int c, char * str, int last) {
 	if (env->syntax->iskwchar(last)) return 0;
 	for (int i = c; i < line->actual + 1; ++i, ++str) {
@@ -492,6 +504,9 @@ int check_line(line_t * line, int c, char * str, int last) {
 	return 0;
 }
 
+/**
+ * Calculate syntax hilighting for the given line.
+ */
 void recalculate_syntax(line_t * line, int offset) {
 	if (!env->syntax) return;
 
@@ -500,19 +515,23 @@ void recalculate_syntax(line_t * line, int offset) {
 	int last  = 0;
 	for (int i = 0; i < line->actual+1; last = line->text[i++].codepoint) {
 		if (state) {
+			/* Currently hilighting, have `left` characters remaining with this state */
 			left--;
 			line->text[i].flags = state;
 
 			if (!left) {
+				/* Done hilighting this state, go back to parsing on next character */
 				state = 0;
 			}
 
+			/* If we are hilighting something, don't parse */
 			continue;
 		}
 
 		int c = line->text[i].codepoint;
 		line->text[i].flags = FLAG_NONE;
 
+		/* Language-specific syntax hilighting */
 		if (env->syntax->extended) {
 			int s = env->syntax->extended(line,i,c,last,&left);
 			if (s) {
@@ -521,6 +540,7 @@ void recalculate_syntax(line_t * line, int offset) {
 			}
 		}
 
+		/* Keywords */
 		for (char ** kw = env->syntax->keywords; *kw; kw++) {
 			int c = check_line(line, i, *kw, last);
 			if (c == 1) {
@@ -530,6 +550,7 @@ void recalculate_syntax(line_t * line, int offset) {
 			}
 		}
 
+		/* Type names */
 		for (char ** kw = env->syntax->types; *kw; kw++) {
 			int c = check_line(line, i, *kw, last);
 			if (c == 1) {
@@ -545,6 +566,13 @@ _continue:
 
 	(void)offset; /* TODO Process later lines if we, say, opened a comment */
 }
+
+/**
+ * TODO:
+ *
+ * The line editing functions should probably take a buffer_t *
+ * so that they can act on buffers other than the active one.
+ */
 
 /**
  * Insert a character into an existing line.
