@@ -154,7 +154,7 @@ line_t * line_insert(line_t * line, char_t c, int offset) {
 void line_delete(line_t * line, int offset) {
 	if (offset == 0) return;
 	if (offset < line->actual) {
-		memmove(&line->text[offset-1], &line->text[offset], sizeof(char_t) * (line->actual - offset - 1));
+		memmove(&line->text[offset-1], &line->text[offset], sizeof(char_t) * (line->actual - offset));
 	}
 	line->actual -= 1;
 }
@@ -1160,6 +1160,36 @@ void insert_mode() {
 								case 'F': // end
 									cursor_end(1);
 									break;
+								case '6':
+									if (bim_getch() == '~') {
+										/* Page down */
+										goto_line(env->line_no + term_height - 6);
+									}
+									break;
+								case '5':
+									if (bim_getch() == '~') {
+										/* Page up */
+										goto_line(env->line_no - (term_height - 6));
+									}
+									break;
+								case '3':
+									if (bim_getch() == '~') {
+										/* Page up */
+										if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
+											line_delete(env->lines[env->line_no - 1], env->col_no);
+											redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+											set_modified();
+											redraw_statusbar();
+											place_cursor_actual();
+										} else if (env->line_no < env->line_count) {
+											merge_lines(env->lines, env->line_no);
+											redraw_text();
+											set_modified();
+											redraw_statusbar();
+											place_cursor_actual();
+										}
+									}
+									break;
 							}
 							timeout = 0;
 							continue;
@@ -1212,6 +1242,9 @@ int main(int argc, char * argv[]) {
 						this_buf[timeout] = c;
 						timeout++;
 					}
+					break;
+				case BACKSPACE_KEY:
+					cursor_left();
 					break;
 				case ':':
 					/* Switch to command mode */
@@ -1305,6 +1338,18 @@ _insert:
 								break;
 							case 'F': // end
 								cursor_end(0);
+								break;
+							case '6':
+								if (bim_getch() == '~') {
+									/* Page down */
+									goto_line(env->line_no + term_height - 6);
+								}
+								break;
+							case '5':
+								if (bim_getch() == '~') {
+									/* Page up */
+									goto_line(env->line_no - (term_height - 6));
+								}
 								break;
 						}
 						timeout = 0;
