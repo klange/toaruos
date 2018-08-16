@@ -478,7 +478,7 @@ int to_eight(uint32_t codepoint, char * out) {
 /**
  * Get the presentation width of a codepoint
  */
-int codepoint_width(uint16_t codepoint) {
+int codepoint_width(wchar_t codepoint) {
 	if (codepoint < 32) {
 		/* We render these as <XX> */
 		return 4;
@@ -1054,7 +1054,8 @@ void add_buffer(uint8_t * buf, int size) {
 			} else {
 				char_t _c;
 				_c.codepoint = (uint32_t)c;
-				_c.display_width = codepoint_width((uint16_t)c);
+				_c.flags = 0;
+				_c.display_width = codepoint_width((wchar_t)c);
 				line_t * line  = env->lines[env->line_no - 1];
 				line_t * nline = line_insert(line, _c, env->col_no - 1);
 				if (line != nline) {
@@ -1934,6 +1935,7 @@ void insert_mode(void) {
 						timeout = 0;
 						char_t _c;
 						_c.codepoint = c;
+						_c.flags = 0;
 						_c.display_width = codepoint_width(c);
 						line_t * line  = env->lines[env->line_no - 1];
 						line_t * nline = line_insert(line, _c, env->col_no - 1);
