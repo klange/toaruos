@@ -82,6 +82,9 @@ int bim_getch(void) {
 #endif
 }
 
+#define MODE_NORMAL 0
+#define MODE_INSERT 1
+
 typedef struct _env {
 	int    bottom_size;
 	short  lineno_width;
@@ -93,6 +96,7 @@ typedef struct _env {
 	int    line_avail;
 	int    col_no;
 	short  modified;
+	short  mode;
 	line_t ** lines;
 } buffer_t;
 
@@ -541,6 +545,12 @@ void redraw_commandline() {
 	place_cursor(1, term_height);
 	set_colors(COLOR_FG, COLOR_BG);
 	clear_to_end();
+
+	if (env->mode == MODE_INSERT) {
+		set_bold();
+		printf("-- INSERT --");
+		reset();
+	}
 }
 
 void redraw_all() {
@@ -570,12 +580,6 @@ void render_error(char * message) {
 	set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
 	printf("%s", message);
 	fflush(stdout);
-}
-
-void redraw_modeline() {
-	set_bold();
-	printf("-- INSERT --");
-	reset();
 }
 
 void show_cursor() {
@@ -842,7 +846,7 @@ void close_buffer() {
 	redraw_all();
 }
 
-void cursor_down(int insert_mode) {
+void cursor_down() {
 	if (env->line_no < env->line_count) {
 		env->line_no += 1;
 		if (env->col_no > env->lines[env->line_no-1]->actual) {
@@ -873,9 +877,6 @@ void cursor_down(int insert_mode) {
 			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
-			if (insert_mode) {
-				redraw_modeline();
-			}
 			place_cursor_actual();
 			return;
 		} else if (redraw == 1) {
@@ -886,7 +887,7 @@ void cursor_down(int insert_mode) {
 	}
 }
 
-void cursor_up(int insert_mode) {
+void cursor_up() {
 	if (env->line_no > 1) {
 		env->line_no -= 1;
 		if (env->col_no > env->lines[env->line_no-1]->actual) {
@@ -909,9 +910,6 @@ void cursor_up(int insert_mode) {
 			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
-			if (insert_mode) {
-				redraw_modeline();
-			}
 			place_cursor_actual();
 			return;
 		} else if (redraw) {
@@ -936,14 +934,14 @@ void cursor_home(void) {
 	place_cursor_actual();
 }
 
-void cursor_end(int insert_mode) {
-	env->col_no = env->lines[env->line_no-1]->actual+!!insert_mode;
+void cursor_end(void) {
+	env->col_no = env->lines[env->line_no-1]->actual+!!(env->mode == MODE_INSERT);
 	redraw_statusbar();
 	place_cursor_actual();
 }
 
-void cursor_right(int insert_mode) {
-	if (env->col_no < env->lines[env->line_no-1]->actual + !!insert_mode) {
+void cursor_right(void) {
+	if (env->col_no < env->lines[env->line_no-1]->actual + !!(env->mode == MODE_INSERT)) {
 		env->col_no += 1;
 		redraw_statusbar();
 		place_cursor_actual();
@@ -1066,8 +1064,8 @@ void command_mode() {
 void insert_mode() {
 	int cin;
 	uint32_t c;
+	env->mode = MODE_INSERT;
 	redraw_commandline();
-	redraw_modeline();
 	place_cursor_actual();
 	set_colors(COLOR_FG, COLOR_BG);
 	int timeout = 0;
@@ -1143,13 +1141,13 @@ void insert_mode() {
 						if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 							switch (c) {
 								case 'A': // up
-									cursor_up(1);
+									cursor_up();
 									break;
 								case 'B': // down
-									cursor_down(1);
+									cursor_down();
 									break;
 								case 'C': // right
-									cursor_right(1);
+									cursor_right();
 									break;
 								case 'D': // left
 									cursor_left();
@@ -1158,7 +1156,7 @@ void insert_mode() {
 									cursor_home();
 									break;
 								case 'F': // end
-									cursor_end(1);
+									cursor_end();
 									break;
 								case '6':
 									if (bim_getch() == '~') {
@@ -1251,16 +1249,16 @@ int main(int argc, char * argv[]) {
 					command_mode();
 					break;
 				case 'j':
-					cursor_down(0);
+					cursor_down();
 					break;
 				case 'k':
-					cursor_up(0);
+					cursor_up();
 					break;
 				case 'h':
 					cursor_left();
 					break;
 				case 'l':
-					cursor_right(0);
+					cursor_right();
 					break;
 				case 'd':
 					remove_line(env->lines, env->line_no-1);
@@ -1311,6 +1309,9 @@ int main(int argc, char * argv[]) {
 				case 'i':
 _insert:
 					insert_mode();
+					env->mode = MODE_NORMAL;
+					redraw_statusbar();
+					redraw_commandline();
 					timeout = 0;
 					break;
 				default:
@@ -1322,13 +1323,13 @@ _insert:
 					if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 						switch (c) {
 							case 'A': // up
-								cursor_up(0);
+								cursor_up();
 								break;
 							case 'B': // down
-								cursor_down(0);
+								cursor_down();
 								break;
 							case 'C': // right
-								cursor_right(0);
+								cursor_right();
 								break;
 							case 'D': // left
 								cursor_left();
@@ -1337,7 +1338,7 @@ _insert:
 								cursor_home();
 								break;
 							case 'F': // end
-								cursor_end(0);
+								cursor_end();
 								break;
 							case '6':
 								if (bim_getch() == '~') {
