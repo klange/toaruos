@@ -920,6 +920,19 @@ void break_input(void) {
 }
 
 void process_command(char * cmd) {
+	/* special case ! */
+	if (*cmd == '!') {
+		printf("\033[0m\n\n");
+		set_buffered();
+		system(&cmd[1]);
+		printf("\n\nPress ENTER to continue.");
+		fflush(stdout);
+		set_unbuffered();
+		while (bim_getch() != ENTER_KEY);
+		redraw_all();
+		return;
+	}
+
 	char *p, *argv[512], *last;
 	int argc = 0;
 	for ((p = strtok_r(cmd, " ", &last)); p;
