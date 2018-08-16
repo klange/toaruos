@@ -667,10 +667,6 @@ void add_buffer(uint8_t * buf, int size) {
 			state = 0;
 		}
 	}
-	if (env->lines[env->line_no-1]->actual == 0) {
-		/* Remove blank line from end */
-		remove_line(env->lines, env->line_no-1);
-	}
 }
 
 
@@ -707,6 +703,11 @@ void open_file(char * file) {
 	if (length > 0) {
 		fread(buf, 1, length, f);
 		add_buffer((uint8_t *)buf, length);
+	}
+
+	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
+		/* Remove blank line from end */
+		remove_line(env->lines, env->line_no-1);
 	}
 
 	update_title();
