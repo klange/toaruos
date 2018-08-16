@@ -55,6 +55,8 @@
 #define COLOR_TAB_BG    248
 #define COLOR_ERROR_FG  15
 #define COLOR_ERROR_BG  196
+#define COLOR_SEARCH_FG 234
+#define COLOR_SEARCH_BG 226
 
 /**
  * Line buffer definitions
@@ -131,6 +133,7 @@ typedef struct _env {
 	int    line_count;
 	int    line_avail;
 	int    col_no;
+	char * search;
 	short  modified;
 	short  mode;
 	line_t ** lines;
@@ -1622,6 +1625,172 @@ void command_mode(void) {
 }
 
 /**
+ * Search forward from the given cursor position
+ * to find a basic search match.
+ *
+ * This could be more complicated...
+ */
+void find_match(int from_line, int from_col, int * out_line, int * out_col, char * str) {
+	int col = from_col;
+	for (int i = from_line; i <= env->line_count; ++i) {
+		line_t * line = env->lines[i - 1];
+
+		int j = col - 1;
+		while (j < line->actual + 1) {
+			int k = j;
+			char * match = str;
+			while (k < line->actual + 1) {
+				if (*match == '\0') {
+					*out_line = i;
+					*out_col = j + 1;
+					return;
+				}
+				/* TODO search for UTF-8 sequences? */
+				if (*match != line->text[k].codepoint) break;
+				match++;
+				k++;
+			}
+			j++;
+		}
+		col = 0;
+	}
+}
+
+/**
+ * Draw the matched search result.
+ */
+void draw_search_match(int line, char * buffer, int redraw_buffer) {
+	place_cursor_actual();
+	redraw_text();
+	if (line != -1) {
+		/*
+		 * TODO this should probably mark the relevant
+		 * regions so that redraw_text can hilight it
+		 */
+		set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
+		place_cursor_actual();
+
+		printf("%s", buffer);
+	}
+	redraw_statusbar();
+	redraw_commandline();
+	if (redraw_buffer) {
+		printf("/%s", buffer);
+	}
+}
+
+/**
+ * Search mode
+ *
+ * Search text for substring match.
+ */
+void search_mode(void) {
+	char c;
+	char buffer[1024] = {0};
+	int  buffer_len = 0;
+
+	/* Remember where the cursor is so we can cancel */
+	int prev_line = env->line_no;
+	int prev_col  = env->col_no;
+	int prev_coffset = env->coffset;
+	int prev_offset = env->offset;
+
+	redraw_commandline();
+	printf("/");
+	show_cursor();
+
+	while ((c = bim_getch())) {
+		if (c == -1) {
+			/* Time out */
+			continue;
+		}
+		if (c == '\033') {
+			/* Cancel search */
+			env->line_no = prev_line;
+			env->col_no  = prev_col;
+			redraw_all();
+			break;
+		} else if (c == ENTER_KEY) {
+			/* Exit search */
+			if (env->search) {
+				free(env->search);
+			}
+			env->search = strdup(buffer);
+			break;
+		} else if (c == BACKSPACE_KEY) {
+			/* Backspace, delete last character in search buffer */
+			if (buffer_len > 0) {
+				buffer_len -= 1;
+				buffer[buffer_len] = '\0';
+				/* Search from beginning to find first match */
+				int line = -1, col = -1;
+				find_match(prev_line, prev_col, &line, &col, buffer);
+
+				if (line != -1) {
+					env->coffset = 0;
+					env->offset = line - 1;
+					env->col_no = col;
+					env->line_no = line;
+				}
+
+				draw_search_match(line, buffer, 1);
+
+			} else {
+				/* If backspaced through entire search term, cancel search */
+				redraw_commandline();
+				env->coffset = prev_coffset;
+				env->offset = prev_offset;
+				env->col_no = prev_col;
+				env->line_no = prev_line;
+				redraw_all();
+				break;
+			}
+		} else {
+			/* Regular character */
+			buffer[buffer_len] = c;
+			buffer_len++;
+			buffer[buffer_len] = '\0';
+			printf("%c", c);
+
+			/* Find the next search match */
+			int line = -1, col = -1;
+			find_match(prev_line, prev_col, &line, &col, buffer);
+
+			if (line != -1) {
+				env->coffset = 0;
+				env->offset = line - 1;
+				env->col_no = col;
+				env->line_no = line;
+			} else {
+				env->coffset = prev_coffset;
+				env->offset = prev_offset;
+				env->col_no = prev_col;
+				env->line_no = prev_line;
+			}
+			draw_search_match(line, buffer, 1);
+		}
+		show_cursor();
+	}
+}
+
+void search_next(void) {
+	if (!env->search) return;
+	int line = -1, col = -1;
+	find_match(env->line_no, env->col_no+1, &line, &col, env->search);
+
+	if (line == -1) {
+		find_match(1,1, &line, &col, env->search);
+		if (line == -1) return;
+	}
+
+	env->coffset = 0;
+	env->offset = line - 1;
+	env->col_no = col;
+	env->line_no = line;
+	draw_search_match(line, env->search, 0);
+}
+
+/**
  * INSERT mode
  *
  * Accept input into the text buffer.
@@ -1817,6 +1986,13 @@ int main(int argc, char * argv[]) {
 				case ':':
 					/* Switch to command mode */
 					command_mode();
+					break;
+				case '/':
+					/* Switch to search mode */
+					search_mode();
+					break;
+				case 'n':
+					search_next();
 					break;
 				case 'j':
 					cursor_down();
