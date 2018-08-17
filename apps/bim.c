@@ -21,13 +21,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
 #include <termios.h>
 #include <signal.h>
 #include <locale.h>
 #include <wchar.h>
 #include <ctype.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #ifdef __toaru__
 #include <sys/fswait.h>
@@ -253,7 +257,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 
 	/* Remove the buffer from the vector, moving others up */
 	if (i != buffers_len - 1) {
-		memmove(&buffers[i], &buffers[i+1], buffers_len - i);
+		memmove(&buffers[i], &buffers[i+1], sizeof(*buffers) * (buffers_len - i));
 	}
 
 	/* There is one less buffer */
@@ -269,7 +273,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 	}
 
 	/* Otherwise return the new last buffer */
-	return buffers[buffers_len];
+	return buffers[i];
 }
 
 /**
@@ -1501,16 +1505,54 @@ void set_modified(void) {
 }
 
 /**
+ * Draw a message on the status line
+ */
+void render_status_message(char * message, ...) {
+	/* varargs setup */
+	va_list args;
+	va_start(args, message);
+	char buf[1024];
+
+	/* Process format string */
+	vsprintf(buf, message, args);
+	va_end(args);
+
+	/* Hide cursor while rendering */
+	hide_cursor();
+
+	/* Move cursor to the status bar line (second from bottom */
+	place_cursor(1, term_height - 1);
+
+	/* Set background colors for status line */
+	set_colors(COLOR_FG, COLOR_STATUS_BG);
+
+	printf("%s", buf);
+
+	/* Clear the rest of the status bar */
+	clear_to_end();
+}
+
+/**
  * Draw an errormessage to the command line.
  */
-void render_error(char * message) {
-	redraw_commandline(); /* Note: this hides the cursor for us */
+void render_error(char * message, ...) {
+	/* varargs setup */
+	va_list args;
+	va_start(args, message);
+	char buf[1024];
+
+	/* Process format string */
+	vsprintf(buf, message, args);
+	va_end(args);
+
+	/* Hide cursor and redraw command line */
+	redraw_commandline();
 
 	/* Set appropriate error message colors */
 	set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
 
 	/* Draw the message */
-	printf("%s", message);
+	printf("%s", buf);
 	fflush(stdout);
 }
 
@@ -1743,9 +1785,7 @@ void try_quit(void) {
 	for (int i = 0; i < buffers_len; i++ ) {
 		buffer_t * _env = buffers[i];
 		if (_env->modified) {
-			char msg[100];
-			sprintf(msg, "Modifications made to file `%s` in tab %d. Aborting.", _env->file_name, i+1);
-			render_error(msg);
+			render_error("Modifications made to file `%s` in tab %d. Aborting.", _env->file_name, i+1);
 			return;
 		}
 	}
@@ -2202,10 +2242,207 @@ void process_command(char * cmd) {
 		goto_line(atoi(argv[0]));
 	} else {
 		/* Unrecognized command */
-		char buf[512];
-		sprintf(buf, "Not an editor command: %s", argv[0]);
-		render_error(buf);
+		render_error("Not an editor command: %s", argv[0]);
 	}
+}
+
+/**
+ * Tab completion for command mode.
+ */
+void command_tab_complete(char * buffer) {
+	/* Figure out which argument this is and where it starts */
+	int arg = 0;
+	char * buf = strdup(buffer);
+	char * b = buf;
+
+	char * args[32];
+
+	int candidate_count= 0;
+	int candidate_space = 4;
+	char ** candidates = malloc(sizeof(char*)*candidate_space);
+
+	/* Accept whitespace before first argument */
+	while (*b == ' ') b++;
+	char * start = b;
+	args[0] = start;
+	while (*b && *b != ' ') b++;
+	while (*b) {
+		while (*b == ' ') {
+			*b = '\0';
+			b++;
+		}
+		start = b;
+		arg++;
+		if (arg < 32) {
+			args[arg] = start;
+		}
+		while (*b && *b != ' ') b++;
+	}
+
+	/**
+	 * Check a possible candidate and add it to the
+	 * candidates list, expanding as necessary,
+	 * if it matches for the current argument.
+	 */
+	void add_candidate(char * candidate) {
+		char * _arg = args[arg];
+		int r = strncmp(_arg, candidate, strlen(_arg));
+		if (!r) {
+			if (candidate_count == candidate_space) {
+				candidate_space *= 2;
+				candidates = realloc(candidates,sizeof(char *) * candidate_space);
+			}
+			candidates[candidate_count] = strdup(candidate);
+			candidate_count++;
+		}
+	}
+
+	if (arg == 0) {
+		/* Complete command names */
+		add_candidate("recalc");
+		add_candidate("syntax");
+		add_candidate("tabn");
+		add_candidate("tabp");
+		goto _accept_candidate;
+	}
+
+	if (arg == 1 && !strcmp(args[0], "syntax")) {
+		/* Complete syntax options */
+		add_candidate("none");
+		for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+			add_candidate(s->name);
+		}
+		goto _accept_candidate;
+	}
+
+	if (arg == 1 && !strcmp(args[0], "e")) {
+		/* Complete file paths */
+
+		/* First, find the deepest directory match */
+		char * tmp = strdup(args[arg]);
+		char * last_slash = strrchr(tmp, '/');
+		DIR * dirp;
+		if (last_slash) {
+			*last_slash = '\0';
+			if (last_slash == tmp) {
+				/* Started with slash, and it was the only slash */
+				dirp = opendir("/");
+			} else {
+				dirp = opendir(tmp);
+			}
+		} else {
+			/* No directory match, completing from current directory */
+			dirp = opendir(".");
+			tmp[0] = '\0';
+		}
+
+		if (!dirp) {
+			/* Directory match doesn't exist, no candidates to populate */
+			free(tmp);
+			goto done;
+		}
+
+		struct dirent * ent = readdir(dirp);
+		while (ent != NULL) {
+			if (ent->d_name[0] != '.') {
+				struct stat statbuf;
+				/* Figure out if this file is a directory */
+				if (last_slash) {
+					char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
+					sprintf(x,"%s/%s",tmp,ent->d_name);
+					lstat(x, &statbuf);
+					free(x);
+				} else {
+					lstat(ent->d_name, &statbuf);
+				}
+
+				/* Build the complete argument name to tab complete */
+				char s[1024] = {0};
+				if (last_slash == tmp) {
+					strcat(s,"/");
+				} else if (*tmp) {
+					strcat(s,tmp);
+					strcat(s,"/");
+				}
+				strcat(s,ent->d_name);
+				/*
+				 * If it is a directory, add a / to the end so the next completion
+				 * attempt will complete the directory's contents.
+				 */
+				if (S_ISDIR(statbuf.st_mode)) {
+					strcat(s,"/");
+				}
+				add_candidate(s);
+			}
+			ent = readdir(dirp);
+		}
+		closedir(dirp);
+		free(tmp);
+		goto _accept_candidate;
+	}
+
+_accept_candidate:
+	if (candidate_count == 0) {
+		redraw_statusbar();
+		goto done;
+	}
+
+	if (candidate_count == 1) {
+		/* Only one completion possibility */
+		redraw_statusbar();
+
+		/* Fill out the rest of the command */
+		char * cstart = (buffer) + (start - buf);
+		for (unsigned int i = 0; i < strlen(candidates[0]); ++i) {
+			*cstart = candidates[0][i];
+			cstart++;
+		}
+		*cstart = '\0';
+	} else {
+		/* Print candidates in status bar */
+		char tmp[term_width+1];
+		memset(tmp, 0, term_width+1);
+		int offset = 0;
+		for (int i = 0; i < candidate_count; ++i) {
+			if (offset + 1 + (signed)strlen(candidates[i]) > term_width - 5) {
+				strcat(tmp, "...");
+				break;
+			}
+			if (offset > 0) {
+				strcat(tmp, " ");
+				offset++;
+			}
+			strcat(tmp, candidates[i]);
+			offset += strlen(candidates[i]);
+		}
+		render_status_message("%s", tmp);
+
+		/* Complete to longest common substring */
+		char * cstart = (buffer) + (start - buf);
+		for (int i = 0; i < 1023 /* max length of command */; i++) {
+			for (int j = 1; j < candidate_count; ++j) {
+				if (candidates[0][i] != candidates[j][i]) goto _reject;
+			}
+			*cstart = candidates[0][i];
+			cstart++;
+		}
+		/* End of longest common substring */
+_reject:
+		*cstart = '\0';
+	}
+
+	/* Free candidates */
+	for (int i = 0; i < candidate_count; ++i) {
+		free(candidates[i]);
+	}
+
+	/* Redraw command line */
+done:
+	redraw_commandline();
+	printf(":%s", buffer);
+
+	free(candidates);
+	free(buf);
 }
 
 /**
@@ -2241,6 +2478,10 @@ void command_mode(void) {
 			/* Enter, run command */
 			process_command(buffer);
 			break;
+		} else if (c == '\t') {
+			/* Handle tab completion */
+			command_tab_complete(buffer);
+			buffer_len = strlen(buffer);
 		} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
 			/* Backspace, delete last character in command buffer */
 			if (buffer_len > 0) {
@@ -2493,7 +2734,7 @@ void handle_mouse(void) {
 		int _x = num_size - (line_no == env->line_no ? env->coffset : 0);
 
 		/* Determine where the cursor is physically */
-		for (int i = 0; i < env->lines[line_no-1]->actual + 1; ++i) {
+		for (int i = 0; i < env->lines[line_no-1]->actual; ++i) {
 			char_t * c = &env->lines[line_no-1]->text[i];
 			_x += c->display_width;
 			if (_x > x) {
