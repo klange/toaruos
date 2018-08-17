@@ -1905,7 +1905,7 @@ void write_file(char * file) {
 				char buf[1] = {0};
 				fwrite(buf, 1, 1, f);
 			} else {
-				char tmp[4];
+				char tmp[8] = {0};
 				int i = to_eight(c.codepoint, tmp);
 				fwrite(tmp, i, 1, f);
 			}
