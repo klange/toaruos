@@ -217,6 +217,7 @@ typedef struct _env {
 	struct syntax_definition * syntax;
 	short  modified;
 	short  mode;
+	short  tabs;
 	line_t ** lines;
 } buffer_t;
 
@@ -1750,6 +1751,7 @@ void open_file(char * file) {
 	env = buffer_new();
 
 	env->loading = 1;
+	env->tabs = 1;
 
 	env->file_name = malloc(strlen(file) + 1);
 	memcpy(env->file_name, file, strlen(file) + 1);
@@ -2310,6 +2312,10 @@ void process_command(char * cmd) {
 			recalculate_syntax(env->lines[i],i);
 		}
 		redraw_all();
+	} else if (!strcmp(argv[0], "tabs")) {
+		env->tabs = 1;
+	} else if (!strcmp(argv[0], "spaces")) {
+		env->tabs = 0;
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -2829,6 +2835,24 @@ void handle_mouse(void) {
 }
 
 /**
+ * Append a character at the current cursor point.
+ */
+void insert_char(unsigned int c) {
+	char_t _c;
+	_c.codepoint = c;
+	_c.flags = 0;
+	_c.display_width = codepoint_width(c);
+	line_t * line  = env->lines[env->line_no - 1];
+	line_t * nline = line_insert(line, _c, env->col_no - 1, env->line_no - 1);
+	if (line != nline) {
+		env->lines[env->line_no - 1] = nline;
+	}
+	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+	env->col_no += 1;
+	set_modified();
+}
+
+/**
  * INSERT mode
  *
  * Accept input into the text buffer.
@@ -2905,6 +2929,18 @@ void insert_mode(void) {
 					redraw_statusbar();
 					place_cursor_actual();
 					break;
+				case '\t':
+					if (env->tabs) {
+						insert_char('\t');
+					} else {
+						insert_char(' ');
+						insert_char(' ');
+						insert_char(' ');
+						insert_char(' ');
+					}
+					redraw_statusbar();
+					place_cursor_actual();
+					break;
 				default:
 					{
 						if (timeout == 1 && c == '[' && this_buf[0] == '\033') {
@@ -2974,18 +3010,7 @@ void insert_mode(void) {
 							continue;
 						}
 						timeout = 0;
-						char_t _c;
-						_c.codepoint = c;
-						_c.flags = 0;
-						_c.display_width = codepoint_width(c);
-						line_t * line  = env->lines[env->line_no - 1];
-						line_t * nline = line_insert(line, _c, env->col_no - 1, env->line_no - 1);
-						if (line != nline) {
-							env->lines[env->line_no - 1] = nline;
-						}
-						redraw_line(env->line_no - env->offset - 1, env->line_no-1);
-						env->col_no += 1;
-						set_modified();
+						insert_char(c);
 						redraw_statusbar();
 						place_cursor_actual();
 					}
