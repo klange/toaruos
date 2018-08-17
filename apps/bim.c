@@ -346,7 +346,19 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 		}
 	}
 
-	if (line->text[i].codepoint == '"') {
+	if (c == '\'') {
+		if (i < line->actual + 3 && line->text[i+1].codepoint == '\\' &&
+			line->text[i+3].codepoint == '\'') {
+			*out_left = 3;
+			return FLAG_PRAGMA; /* Number? */
+		}
+		if (i < line->actual + 2 && line->text[i+2].codepoint == '\'') {
+			*out_left = 2;
+			return FLAG_PRAGMA; /* Number? */
+		}
+	}
+
+	if (c == '"') {
 		int last = 0;
 		for (int j = i+1; j < line->actual; ++j) {
 			int c = line->text[j].codepoint;
