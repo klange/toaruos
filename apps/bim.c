@@ -71,6 +71,12 @@
 #define FLAG_TYPE     4
 #define FLAG_PRAGMA   5
 
+#define FLAG_NORM_MAX 15
+
+#define FLAG_COMMENT_ML 16
+#define FLAG_STRING_ML1 17
+#define FLAG_STRING_ML2 18
+
 /**
  * Convert syntax hilighting flag to color code
  */
@@ -79,8 +85,11 @@ int flag_to_color(int flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
 		case FLAG_STRING:
+		case FLAG_STRING_ML1:
+		case FLAG_STRING_ML2:
 			return COLOR_STRING;
 		case FLAG_COMMENT:
+		case FLAG_COMMENT_ML:
 			return COLOR_COMMENT;
 		case FLAG_TYPE:
 			return COLOR_TYPE;
@@ -111,6 +120,7 @@ typedef struct {
 typedef struct {
 	int available;
 	int actual;
+	int istate;
 	char_t   text[0];
 } line_t;
 
@@ -119,6 +129,8 @@ typedef struct {
  */
 int term_width, term_height;
 int csr_x_actual, csr_y_actual;
+
+void redraw_line(int j, int x);
 
 /**
  * Special implementation of getch with a timeout
@@ -169,6 +181,7 @@ int bim_getch(void) {
 typedef struct _env {
 	int    bottom_size;
 	short  lineno_width;
+	short  loading;
 	char * file_name;
 	int    offset;
 	int    coffset;
@@ -305,7 +318,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 			}
 			/* TODO multiline - update next */
 			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT;
+			return FLAG_COMMENT_ML;
 		}
 	}
 
@@ -330,6 +343,21 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 }
 
 char * syn_c_ext[] = {".c",".h",NULL};
+
+static int syn_c_finish(line_t * line, int * left, int state) {
+	if (state == FLAG_COMMENT_ML) {
+		int last = 0;
+		for (int i = 0; i < line->actual; ++i) {
+			if (line->text[i].codepoint == '/' && last == '*') {
+				*left = i+2;
+				return FLAG_COMMENT;
+			}
+			last = line->text[i].codepoint;
+		}
+		return FLAG_COMMENT_ML;
+	}
+	return 0;
+}
 
 /**
  * Syntax definition for Python
@@ -379,8 +407,21 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 	}
 
 	if (line->text[i].codepoint == '\'') {
+		if (i + 2 < line->actual && line->text[i+1].codepoint == '\'' && line->text[i+2].codepoint == '\'') {
+			/* Begin multiline */
+			for (int j = i + 3; j < line->actual - 2; ++j) {
+				if (line->text[j].codepoint == '\'' &&
+					line->text[j+1].codepoint == '\'' &&
+					line->text[j+2].codepoint == '\'') {
+					*out_left = (j+2) - i;
+					return FLAG_STRING;
+				}
+			}
+			return FLAG_STRING_ML1;
+		}
+
 		int last = 0;
-		for (int j = i+1; j < line->actual + 1; ++j) {
+		for (int j = i+1; j < line->actual; ++j) {
 			int c = line->text[j].codepoint;
 			if (last != '\\' && c == '\'') {
 				*out_left = j - i;
@@ -396,8 +437,21 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 	}
 
 	if (line->text[i].codepoint == '"') {
+		if (i + 2 < line->actual && line->text[i+1].codepoint == '"' && line->text[i+2].codepoint == '"') {
+			/* Begin multiline */
+			for (int j = i + 3; j < line->actual - 2; ++j) {
+				if (line->text[j].codepoint == '"' &&
+					line->text[j+1].codepoint == '"' &&
+					line->text[j+2].codepoint == '"') {
+					*out_left = (j+2) - i;
+					return FLAG_STRING;
+				}
+			}
+			return FLAG_STRING_ML2;
+		}
+
 		int last = 0;
-		for (int j = i+1; j < line->actual + 1; ++j) {
+		for (int j = i+1; j < line->actual; ++j) {
 			int c = line->text[j].codepoint;
 			if (last != '\\' && c == '"') {
 				*out_left = j - i;
@@ -412,6 +466,33 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 		return FLAG_STRING;
 	}
 
+	return 0;
+}
+
+static int syn_py_finish(line_t * line, int * left, int state) {
+	/* TODO support multiline quotes */
+	if (state == FLAG_STRING_ML1) {
+		for (int j = 0; j < line->actual - 2; ++j) {
+			if (line->text[j].codepoint == '\'' &&
+				line->text[j+1].codepoint == '\'' &&
+				line->text[j+2].codepoint == '\'') {
+				*left = (j+3);
+				return FLAG_STRING;
+			}
+		}
+		return FLAG_STRING_ML1;
+	}
+	if (state == FLAG_STRING_ML2) {
+		for (int j = 0; j < line->actual - 2; ++j) {
+			if (line->text[j].codepoint == '"' &&
+				line->text[j+1].codepoint == '"' &&
+				line->text[j+2].codepoint == '"') {
+				*left = (j+3);
+				return FLAG_STRING;
+			}
+		}
+		return FLAG_STRING_ML2;
+	}
 	return 0;
 }
 
@@ -482,6 +563,11 @@ static int syn_sh_iskeywordchar(int c) {
 
 static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
 
+static int syn_sh_finish(line_t * line, int * left, int state) {
+	/* No multilines supported */
+	return 0;
+}
+
 /**
  * Syntax hilighting definition database
  */
@@ -492,11 +578,12 @@ struct syntax_definition {
 	char ** types;
 	int (*extended)(line_t *, int, int, int, int *);
 	int (*iskwchar)(int);
+	int (*finishml)(line_t *, int *, int);
 } syntaxes[] = {
-	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar},
-	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar},
-	{"esh",syn_sh_ext,syn_sh_keywords,syn_sh_types,syn_sh_extended,syn_sh_iskeywordchar},
-	{NULL, NULL, NULL, NULL, NULL, NULL}
+	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar,syn_c_finish},
+	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
+	{"esh",syn_sh_ext,syn_sh_keywords,syn_sh_types,syn_sh_extended,syn_sh_iskeywordchar,syn_sh_finish},
+	{NULL}
 };
 
 /**
@@ -520,9 +607,30 @@ int check_line(line_t * line, int c, char * str, int last) {
 void recalculate_syntax(line_t * line, int offset) {
 	if (!env->syntax) return;
 
-	int state = 0;
+	/* Start from the line's stored in initial state */
+	int state = line->istate;
 	int left  = 0;
 	int last  = 0;
+
+	if (state) {
+		/*
+		 * If we are already highlighting coming in, then we need to check
+		 * for a finishing sequence for the curent state.
+		 */
+		state = env->syntax->finishml(line,&left,state);
+
+		if (state > FLAG_NORM_MAX) {
+			/* The finish check said that this multiline state continues. */
+			for (int i = 0; i < line->actual; i++) {
+				/* Set the entire line to draw with this state */
+				line->text[i].flags = state;
+			}
+
+			/* Recalculate later lines if needed */
+			goto _multiline;
+		}
+	}
+
 	for (int i = 0; i < line->actual; last = line->text[i++].codepoint) {
 		if (state) {
 			/* Currently hilighting, have `left` characters remaining with this state */
@@ -546,6 +654,14 @@ void recalculate_syntax(line_t * line, int offset) {
 			int s = env->syntax->extended(line,i,c,last,&left);
 			if (s) {
 				state = s;
+				if (state > FLAG_NORM_MAX) {
+					/* A multiline state was returned. Fill the rest of the line */
+					for (; i < line->actual; i++) {
+						line->text[i].flags = state;
+					}
+					/* And recalculate later lines if needed */
+					goto _multiline;
+				}
 				goto _continue;
 			}
 		}
@@ -574,7 +690,30 @@ _continue:
 		line->text[i].flags = state;
 	}
 
-	(void)offset; /* TODO Process later lines if we, say, opened a comment */
+	state = 0;
+
+_multiline:
+	/*
+	 * If the next line's initial state does not match the state we ended on,
+	 * then it needs to be recalculated (and redraw). This may lead to multiple
+	 * recursive calls until a match is found.
+	 */
+	if (offset + 1 < env->line_count && env->lines[offset+1]->istate != state) {
+		/* Set the next line's initial state to our ending state */
+		env->lines[offset+1]->istate = state;
+
+		/* Recursively recalculate */
+		recalculate_syntax(env->lines[offset+1],offset+1);
+
+		/*
+		 * Determine if this is an on-screen line so we can redraw it;
+		 * this ends up drawing from bottom to top when multiple lines
+		 * need to be redrawn by a recursive call.
+		 */
+		if (offset+1 >= env->offset && offset+1 < env->offset + term_height - env->bottom_size - 1) {
+			redraw_line(offset + 1 - env->offset,offset+1);
+		}
+	}
 }
 
 /**
@@ -587,7 +726,7 @@ _continue:
 /**
  * Insert a character into an existing line.
  */
-line_t * line_insert(line_t * line, char_t c, int offset) {
+line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 
 	/* If there is not enough space... */
 	if (line->actual == line->available) {
@@ -607,7 +746,7 @@ line_t * line_insert(line_t * line, char_t c, int offset) {
 	/* There is one new character in the line */
 	line->actual += 1;
 
-	recalculate_syntax(line, offset);
+	recalculate_syntax(line, lineno);
 
 	return line;
 }
@@ -615,7 +754,7 @@ line_t * line_insert(line_t * line, char_t c, int offset) {
 /**
  * Delete a character from a line
  */
-void line_delete(line_t * line, int offset) {
+void line_delete(line_t * line, int offset, int lineno) {
 	/* Can't delete character before start of line. */
 	if (offset == 0) return;
 
@@ -627,7 +766,7 @@ void line_delete(line_t * line, int offset) {
 	/* The line is one character shorter */
 	line->actual -= 1;
 
-	recalculate_syntax(line, offset);
+	recalculate_syntax(line, lineno);
 }
 
 /**
@@ -679,9 +818,15 @@ line_t ** add_line(line_t ** lines, int offset) {
 	lines[offset] = malloc(sizeof(line_t) + sizeof(char_t) * 32);
 	lines[offset]->available = 32;
 	lines[offset]->actual    = 0;
+	lines[offset]->istate    = 0;
 
 	/* There is one new line */
 	env->line_count += 1;
+	env->lines = lines;
+
+	if (offset > 0) {
+		recalculate_syntax(lines[offset-1],offset-1);
+	}
 	return lines;
 }
 
@@ -751,6 +896,7 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	lines[line] = malloc(sizeof(line_t) + sizeof(char_t) * v);
 	lines[line]->available = v;
 	lines[line]->actual = remaining;
+	lines[line]->istate = 0;
 
 	/* Move the data from the old line into the new line */
 	memmove(lines[line]->text, &lines[line-1]->text[split], sizeof(char_t) * remaining);
@@ -794,6 +940,7 @@ void setup_buffer(buffer_t * env) {
 	env->lines[0] = malloc(sizeof(line_t) + sizeof(char_t) * 32);
 	env->lines[0]->available = 32;
 	env->lines[0]->actual    = 0;
+	env->lines[0]->istate    = 0;
 }
 
 /**
@@ -1160,6 +1307,7 @@ void render_line(line_t * line, int width, int offset) {
  * j = screen-relative line offset.
  */
 void redraw_line(int j, int x) {
+	if (env->loading) return;
 	/* Hide cursor when drawing */
 	hide_cursor();
 
@@ -1473,7 +1621,7 @@ void add_buffer(uint8_t * buf, int size) {
 				_c.flags = 0;
 				_c.display_width = codepoint_width((wchar_t)c);
 				line_t * line  = env->lines[env->line_no - 1];
-				line_t * nline = line_insert(line, _c, env->col_no - 1);
+				line_t * nline = line_insert(line, _c, env->col_no - 1, env->line_no-1);
 				if (line != nline) {
 					env->lines[env->line_no - 1] = nline;
 				}
@@ -1510,6 +1658,8 @@ struct syntax_definition * match_syntax(char * file) {
 void open_file(char * file) {
 	env = buffer_new();
 
+	env->loading = 1;
+
 	env->file_name = malloc(strlen(file) + 1);
 	memcpy(env->file_name, file, strlen(file) + 1);
 
@@ -1520,6 +1670,7 @@ void open_file(char * file) {
 	FILE * f = fopen(file, "r");
 
 	if (!f) {
+		env->loading = 0;
 		return;
 	}
 
@@ -1549,6 +1700,7 @@ void open_file(char * file) {
 		remove_line(env->lines, env->line_no-1);
 	}
 
+	env->loading = 0;
 	update_title();
 	goto_line(0);
 
@@ -1991,6 +2143,32 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "tabn")) {
 		/* Previous tab */
 		next_tab();
+	} else if (!strcmp(argv[0], "syntax")) {
+		if (argc < 2) {
+			render_error("syntax expects argument");
+			return;
+		}
+		for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+			if (!strcmp(argv[1],s->name)) {
+				env->syntax = syntaxes;
+				for (int i = 0; i < env->line_count; ++i) {
+					env->lines[i]->istate = 0;
+				}
+				for (int i = 0; i < env->line_count; ++i) {
+					recalculate_syntax(env->lines[i],i);
+				}
+				redraw_all();
+				return;
+			}
+		}
+	} else if (!strcmp(argv[0], "recalc")) {
+		for (int i = 0; i < env->line_count; ++i) {
+			env->lines[i]->istate = 0;
+		}
+		for (int i = 0; i < env->line_count; ++i) {
+			recalculate_syntax(env->lines[i],i);
+		}
+		redraw_all();
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -2253,6 +2431,10 @@ void handle_mouse(void) {
 		int line_no = y + env->offset - 1;
 		int col_no = -1;
 
+		if (line_no > env->line_count) {
+			line_no = env->line_count;
+		}
+
 		/* Account for the left hand gutter */
 		int num_size = log_base_10(env->line_count) + 5;
 		int _x = num_size - (line_no == env->line_no ? env->coffset : 0);
@@ -2321,7 +2503,7 @@ void insert_mode(void) {
 				case DELETE_KEY:
 				case BACKSPACE_KEY:
 					if (env->col_no > 1) {
-						line_delete(env->lines[env->line_no - 1], env->col_no - 1);
+						line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
 						env->col_no -= 1;
 						redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 						set_modified();
@@ -2405,7 +2587,7 @@ void insert_mode(void) {
 									if (bim_getch() == '~') {
 										/* Page up */
 										if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
-											line_delete(env->lines[env->line_no - 1], env->col_no);
+											line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
 											redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 											set_modified();
 											redraw_statusbar();
@@ -2429,7 +2611,7 @@ void insert_mode(void) {
 						_c.flags = 0;
 						_c.display_width = codepoint_width(c);
 						line_t * line  = env->lines[env->line_no - 1];
-						line_t * nline = line_insert(line, _c, env->col_no - 1);
+						line_t * nline = line_insert(line, _c, env->col_no - 1, env->line_no - 1);
 						if (line != nline) {
 							env->lines[env->line_no - 1] = nline;
 						}
