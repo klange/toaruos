@@ -5,11 +5,12 @@
  *
  * E-Shell
  *
- * This is the "experimental shell". It provides
- * a somewhat unix-like shell environment, but does
- * not include a parser any advanced functionality.
- * It simply cuts its input into arguments and executes
- * programs.
+ * This is "experimental shell" - a vaguely-unix-like command
+ * interface. It has a very rudimentary parser that understands
+ * some things like pipes or writing out to a file. It has a
+ * handful of built-in commands, including ones that implement
+ * some more useful shell syntax such as loops and conditionals.
+ * There is support for tab completion of filenames and commands.
  */
 
 #define _XOPEN_SOURCE
