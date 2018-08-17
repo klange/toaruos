@@ -1012,8 +1012,8 @@ int to_eight(uint32_t codepoint, char * out) {
  */
 int codepoint_width(wchar_t codepoint) {
 	if (codepoint < 32) {
-		/* We render these as <XX> */
-		return 4;
+		/* We render these as ^@ */
+		return 2;
 	}
 	/* Skip wcwidth for anything under 256 */
 	if (codepoint > 256) {
@@ -1292,9 +1292,9 @@ void render_line(line_t * line, int width, int offset) {
 				printf("»···");
 				set_colors(COLOR_FG, COLOR_BG);
 			} else if (c.codepoint < 32) {
-				/* Codepoints under 32 to get converted to <XX> bytes */
+				/* Codepoints under 32 to get converted to ^@ escapes */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-				printf("<%02x>", (unsigned int)c.codepoint);
+				printf("^%c", '@' + c.codepoint);
 				set_colors(COLOR_FG, COLOR_BG);
 			} else {
 				/* Normal characters get output */
