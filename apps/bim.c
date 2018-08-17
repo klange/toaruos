@@ -2165,9 +2165,19 @@ void process_command(char * cmd) {
 			render_error("syntax expects argument");
 			return;
 		}
+		if (!strcmp(argv[1],"none")) {
+			for (int i = 0; i < env->line_count; ++i) {
+				env->lines[i]->istate = 0;
+				for (int j = 0; j < env->lines[i]->actual; ++j) {
+					env->lines[i]->text[j].flags = 0;
+				}
+			}
+			redraw_all();
+			return;
+		}
 		for (struct syntax_definition * s = syntaxes; s->name; ++s) {
 			if (!strcmp(argv[1],s->name)) {
-				env->syntax = syntaxes;
+				env->syntax = s;
 				for (int i = 0; i < env->line_count; ++i) {
 					env->lines[i]->istate = 0;
 				}
@@ -2178,6 +2188,7 @@ void process_command(char * cmd) {
 				return;
 			}
 		}
+		render_error("unrecognized syntax type");
 	} else if (!strcmp(argv[0], "recalc")) {
 		for (int i = 0; i < env->line_count; ++i) {
 			env->lines[i]->istate = 0;
