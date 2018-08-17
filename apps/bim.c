@@ -1011,6 +1011,10 @@ int to_eight(uint32_t codepoint, char * out) {
  * Get the presentation width of a codepoint
  */
 int codepoint_width(wchar_t codepoint) {
+	if (codepoint == '\t') {
+		/* XXX: Always rendered as 4-wide */
+		return 4;
+	}
 	if (codepoint < 32) {
 		/* We render these as ^@ */
 		return 2;
