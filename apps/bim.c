@@ -6,13 +6,15 @@
  *
  * bim - Text editor
  *
- * bim is a "Bad IMitation" of vim. This is the standard text
- * editor fo ToaruOS. It provides basic editing capabilities.
+ * Bim is inspired by vim, and its name is short for "Bad IMitation".
  *
- * Expansion of bim is planned. I'd love to see it one day have
- * syntax hilighting, for example. It's also painfully slow,
- * so speed improvement is a must - most probably by not
- * redrawing the entire screen all the time.
+ * Bim supports basic syntax highlighting, has a mode-based interface
+ * similar to vim's, and can be built for ToaruOS and Linux (and should
+ * be easily portable to other Unix-likes).
+ *
+ * Future goals:
+ * - History stack
+ * - Selection
  */
 #define _XOPEN_SOURCE 500
 #include <stdio.h>
@@ -1118,6 +1120,20 @@ void mouse_disable(void) {
 }
 
 /**
+ * Shift the screen up one line
+ */
+void shift_up(void) {
+	printf("\033[1S");
+}
+
+/**
+ * Shift the screen down one line.
+ */
+void shift_down(void) {
+	printf("\033[1T");
+}
+
+/**
  * Redaw the tabbar, with a tab for each buffer.
  *
  * The active buffer is highlighted.
@@ -1888,7 +1904,7 @@ void cursor_down(void) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
-			printf("\033[1S");
+			shift_up();
 
 			/* A new line appears on screen at the bottom, draw it */
 			int l = term_height - env->bottom_size - 1;
@@ -1956,7 +1972,7 @@ void cursor_up(void) {
 			env->offset -= 1;
 
 			/* Tell terminal to scroll */
-			printf("\033[1T");
+			shift_down();
 
 			/*
 			 * The line at the top of the screen should always be real
@@ -2066,7 +2082,8 @@ void process_command(char * cmd) {
 	/* Special case ! to run shell commands without parsing tokens */
 	if (*cmd == '!') {
 		/* Reset and draw some line feeds */
-		printf("\033[0m\n\n");
+		reset();
+		printf("\n\n");
 
 		/* Set buffered for shell application */
 		set_buffered();
