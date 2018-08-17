@@ -49,26 +49,25 @@
 /**
  * Theming data
  */
-#define COLOR_FG        230
-#define COLOR_BG        235
-#define COLOR_CURSOR    15
-#define COLOR_ALT_FG    244
-#define COLOR_ALT_BG    236
-#define COLOR_NUMBER_BG 232
-#define COLOR_NUMBER_FG 101
-#define COLOR_STATUS_BG 238
-#define COLOR_TABBAR_BG 230
-#define COLOR_TAB_BG    248
-#define COLOR_ERROR_FG  15
-#define COLOR_ERROR_BG  196
-#define COLOR_SEARCH_FG 234
-#define COLOR_SEARCH_BG 226
+#define COLOR_FG        "230"
+#define COLOR_BG        "235"
+#define COLOR_ALT_FG    "244"
+#define COLOR_ALT_BG    "236"
+#define COLOR_NUMBER_BG "232"
+#define COLOR_NUMBER_FG "101"
+#define COLOR_STATUS_BG "238"
+#define COLOR_TABBAR_BG "230"
+#define COLOR_TAB_BG    "248"
+#define COLOR_ERROR_FG  "015"
+#define COLOR_ERROR_BG  "196"
+#define COLOR_SEARCH_FG "234"
+#define COLOR_SEARCH_BG "226"
 
-#define COLOR_KEYWORD   117
-#define COLOR_STRING    113
-#define COLOR_COMMENT   102
-#define COLOR_TYPE      185
-#define COLOR_PRAGMA    173
+#define COLOR_KEYWORD   "117"
+#define COLOR_STRING    "113"
+#define COLOR_COMMENT   "102;3"
+#define COLOR_TYPE      "185"
+#define COLOR_PRAGMA    "173"
 
 #define FLAG_NONE     0
 #define FLAG_KEYWORD  1
@@ -86,7 +85,7 @@
 /**
  * Convert syntax hilighting flag to color code
  */
-int flag_to_color(int flag) {
+char * flag_to_color(int flag) {
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
@@ -1046,17 +1045,16 @@ void place_cursor_h(int h) {
 /**
  * Set text colors
  */
-void set_colors(int fg, int bg) {
-	printf("\033[48;5;%dm", bg);
-	printf("\033[38;5;%dm", fg);
+void set_colors(const char * fg, const char * bg) {
+	printf("\033[22;23;48;5;%s;38;5;%sm", bg, fg);
 	fflush(stdout);
 }
 
 /**
  * Set just the foreground color
  */
-void set_fg_color(int fg) {
-	printf("\033[38;5;%dm", fg);
+void set_fg_color(const char * fg) {
+	printf("\033[22;23;38;5;%sm", fg);
 	fflush(stdout);
 }
 
@@ -1217,7 +1215,7 @@ void render_line(line_t * line, int width, int offset) {
 	int i = 0; /* Offset in char_t line data entries */
 	int j = 0; /* Offset in terminal cells */
 
-	int last_color = -1;
+	char * last_color = NULL;
 
 	/* Set default text colors */
 	set_colors(COLOR_FG, COLOR_BG);
@@ -1283,8 +1281,8 @@ void render_line(line_t * line, int width, int offset) {
 			}
 
 			/* Syntax hilighting */
-			int color = flag_to_color(c.flags);
-			if (color != last_color) {
+			char * color = flag_to_color(c.flags);
+			if (!last_color || strcmp(color, last_color)) {
 				set_fg_color(color);
 				last_color = color;
 			}
