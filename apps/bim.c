@@ -2444,6 +2444,31 @@ void handle_mouse(void) {
 	} else if (buttons == 3) {
 		/* Move cursor to position */
 
+		if (x < 0) return;
+		if (y < 0) return;
+
+		if (y == 1) {
+			/* Pick from tabs */
+			int _x = 0;
+			for (int i = 0; i < buffers_len; i++) {
+				buffer_t * _env = buffers[i];
+				if (_env->modified) {
+					_x += 2;
+				}
+				if (_env->file_name) {
+					_x += 2 + strlen(_env->file_name);
+				} else {
+					_x += strlen(" [No Name] ");
+				}
+				if (_x > x) {
+					env = buffers[i];
+					redraw_all();
+					return;
+				}
+			}
+			return;
+		}
+
 		/* Figure out y coordinate */
 		int line_no = y + env->offset - 1;
 		int col_no = -1;
