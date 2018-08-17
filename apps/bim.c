@@ -332,7 +332,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 
 		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
 			int last = 0;
-			for (int j = i + 2; j < line->actual - 1; ++j) {
+			for (int j = i + 2; j < line->actual; ++j) {
 				int c = line->text[j].codepoint;
 				if (c == '/' && last == '*') {
 					*out_left = j - i;
