@@ -385,6 +385,7 @@ void tab_complete_func(rline_context_t * c) {
 						char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
 						sprintf(x,"%s/%s",tmp,ent->d_name);
 						lstat(x, &statbuf);
+						free(x);
 					} else {
 						lstat(ent->d_name, &statbuf);
 					}
