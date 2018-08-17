@@ -136,6 +136,11 @@ typedef struct {
 int term_width, term_height;
 int csr_x_actual, csr_y_actual;
 
+/**
+ * Command-line options
+ */
+int hilight_on_open = 1;
+
 void redraw_line(int j, int x);
 
 /**
@@ -1721,8 +1726,6 @@ void open_file(char * file) {
 	env->file_name = malloc(strlen(file) + 1);
 	memcpy(env->file_name, file, strlen(file) + 1);
 
-	env->syntax = match_syntax(file);
-
 	setup_buffer(env);
 
 	FILE * f = fopen(file, "r");
@@ -1756,6 +1759,13 @@ void open_file(char * file) {
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
 		/* Remove blank line from end */
 		remove_line(env->lines, env->line_no-1);
+	}
+
+	if (hilight_on_open) {
+		env->syntax = match_syntax(file);
+		for (int i = 0; i < env->line_count; ++i) {
+			recalculate_syntax(env->lines[i],i);
+		}
 	}
 
 	env->loading = 0;
@@ -2923,11 +2933,35 @@ void insert_mode(void) {
 	}
 }
 
+static void show_usage(int argc, char * argv[]) {
+	printf(
+			"bim - Text editor\n"
+			"\n"
+			"usage: %s [-s] [path]\n"
+			"\n"
+			" -s     \033[3mdisable automatic syntax highlighting\033[0m\n"
+			" -?     \033[3mshow this help text\033[0m\n"
+			"\n", argv[0]);
+}
+
+
 int main(int argc, char * argv[]) {
+	int opt;
+	while ((opt = getopt(argc, argv, "?s")) != -1) {
+		switch (opt) {
+			case 's':
+				hilight_on_open = 0;
+				break;
+			case '?':
+				show_usage(argc, argv);
+				return 0;
+		}
+	}
+
 	initialize();
 
-	if (argc > 1) {
-		open_file(argv[1]);
+	if (argc > optind) {
+		open_file(argv[optind]);
 	} else {
 		env = buffer_new();
 		update_title();
