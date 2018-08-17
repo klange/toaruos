@@ -1733,6 +1733,9 @@ void open_file(char * file) {
 	FILE * f = fopen(file, "r");
 
 	if (!f) {
+		if (hilight_on_open) {
+			env->syntax = match_syntax(file);
+		}
 		env->loading = 0;
 		return;
 	}
