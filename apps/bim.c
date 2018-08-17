@@ -2215,6 +2215,38 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "tabn")) {
 		/* Previous tab */
 		next_tab();
+	} else if (!strcmp(argv[0], "help")) {
+		/*
+		 * The repeated calls to redraw_commandline here make use
+		 * of scrolling to draw this multiline help message on
+		 * the same background as the command line.
+		 */
+		redraw_commandline(); printf("\n");
+		redraw_commandline(); printf(" \033[1mbim - The standard ToaruOS Text Editor\033[22m\n");
+		redraw_commandline(); printf("\n");
+		redraw_commandline(); printf(" Available commands:\n");
+		redraw_commandline(); printf("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
+		redraw_commandline(); printf("   Write out with \033[3m:w \033[4mfile\033[24;23m\n");
+		redraw_commandline(); printf("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
+		redraw_commandline(); printf("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
+		redraw_commandline(); printf("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
+		redraw_commandline(); printf("\n");
+		redraw_commandline(); printf(" Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>\n");
+		redraw_commandline(); printf("\n");
+		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
+		redraw_tabbar();
+		redraw_commandline();
+		fflush(stdout);
+		/* Wait for a character so we can redraw the screen before continuing */
+		int c;
+		while ((c = bim_getch())== -1);
+		/* Make sure that key press actually gets used */
+		bim_unget(c);
+		/*
+		 * Redraw everything to hide the help message and get the
+		 * upper few lines of text on screen again
+		 */
+		redraw_all();
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
 			render_error("syntax expects argument");
@@ -2314,6 +2346,7 @@ void command_tab_complete(char * buffer) {
 
 	if (arg == 0) {
 		/* Complete command names */
+		add_candidate("help");
 		add_candidate("recalc");
 		add_candidate("syntax");
 		add_candidate("tabn");
