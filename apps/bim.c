@@ -292,7 +292,7 @@ int bim_getch(void) {
 	fds[0].events = POLLIN;
 	int ret = poll(fds,1,200);
 	if (ret > 0 && fds[0].revents & POLLIN) {
-		char buf[1];
+		unsigned char buf[1];
 		read(STDIN_FILENO, buf, 1);
 		return buf[0];
 	} else {
@@ -302,7 +302,7 @@ int bim_getch(void) {
 	int fds[] = {STDIN_FILENO};
 	int index = fswait2(1,fds,200);
 	if (index == 0) {
-		char buf[1];
+		unsigned char buf[1];
 		read(STDIN_FILENO, buf, 1);
 		return buf[0];
 	} else {
@@ -3267,20 +3267,24 @@ void word_right(void) {
 	return;
 }
 
-void handle_escape(int * this_buf, int * timeout, char c) {
-	if (*timeout == 1 && this_buf[0] == '\033' && c == '[') {
-		//redraw_commandline(); printf("esssacapcewaca\n");
-		this_buf[1] = c;
+int handle_escape(int * this_buf, int * timeout, int c) {
+	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
+		this_buf[*timeout] = c;
 		(*timeout)++;
-		return;
+		return 1;
 	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 0;
+	}
+	if (*timeout >= 2 && this_buf[*timeout-2] == '\033' && this_buf[*timeout-1] == '[' &&
 			(isdigit(c) || c == ';')) {
 		this_buf[*timeout] = c;
 		(*timeout)++;
-		return;
+		return 0;
 	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+	if (*timeout >= 2 && this_buf[*timeout-2] == '\033' && this_buf[*timeout-1] == '[') {
 		switch (c) {
 			case 'M':
 				handle_mouse();
@@ -3344,10 +3348,11 @@ void handle_escape(int * this_buf, int * timeout, char c) {
 				break;
 		}
 		*timeout = 0;
-		return;
+		return 0;
 	}
 
 	*timeout = 0;
+	return 0;
 }
 
 /**
@@ -3385,10 +3390,6 @@ void insert_mode(void) {
 						if (timeout == 0) {
 							this_buf[timeout] = c;
 							timeout++;
-						} else if (timeout == 1 && this_buf[0] == '\033') {
-							leave_insert();
-							bim_unget(c);
-							return;
 						}
 						break;
 					case DELETE_KEY:
@@ -3446,7 +3447,11 @@ void insert_mode(void) {
 						break;
 				}
 			} else {
-				handle_escape(this_buf,&timeout,c);
+				if (handle_escape(this_buf,&timeout,c)) {
+					bim_unget(c);
+					leave_insert();
+					return;
+				}
 			}
 		} else if (istate == UTF8_REJECT) {
 			istate = 0;
@@ -3493,7 +3498,7 @@ int main(int argc, char * argv[]) {
 
 	while (1) {
 		place_cursor_actual();
-		char c;
+		int c;
 		int timeout = 0;
 		int this_buf[20];
 		while ((c = bim_getch())) {
