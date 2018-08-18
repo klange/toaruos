@@ -3274,17 +3274,18 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 		return 1;
 	}
 	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
+		*timeout = 1;
 		this_buf[*timeout] = c;
 		(*timeout)++;
 		return 0;
 	}
-	if (*timeout >= 2 && this_buf[*timeout-2] == '\033' && this_buf[*timeout-1] == '[' &&
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
 			(isdigit(c) || c == ';')) {
 		this_buf[*timeout] = c;
 		(*timeout)++;
 		return 0;
 	}
-	if (*timeout >= 2 && this_buf[*timeout-2] == '\033' && this_buf[*timeout-1] == '[') {
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 		switch (c) {
 			case 'M':
 				handle_mouse();
