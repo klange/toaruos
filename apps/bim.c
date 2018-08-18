@@ -126,9 +126,9 @@ char * flag_to_color(int flag) {
  * which represent single codepoints in the file.
  */
 typedef struct {
-	uint32_t display_width:3;
-	uint32_t flags:5;
-	uint32_t codepoint:24;
+	uint32_t display_width:5;
+	uint32_t flags:6;
+	uint32_t codepoint:21;
 } __attribute__((packed)) char_t;
 
 /**
@@ -172,7 +172,9 @@ int bim_getch(void) {
 		return out;
 	}
 #ifdef __linux__
-	struct pollfd fds[] = {STDIN_FILENO,POLLIN,0};
+	struct pollfd fds[1];
+	fds[0].fd = STDIN_FILENO;
+	fds[0].events = POLLIN;
 	int ret = poll(fds,1,200);
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		char buf[1];
@@ -218,6 +220,7 @@ typedef struct _env {
 	short  modified;
 	short  mode;
 	short  tabs;
+	short  tabstop;
 	line_t ** lines;
 } buffer_t;
 
@@ -320,6 +323,8 @@ static char * syn_c_types[] = {
 };
 
 static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
 	if (i == 0 && c == '#') {
 		*out_left = line->actual+1;
 		return FLAG_PRAGMA;
@@ -415,6 +420,8 @@ static char * syn_py_types[] = {
 };
 
 static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
 	if (i == 0 && c == 'i') {
 		/* Check for import */
 		char * import = "import ";
@@ -548,6 +555,8 @@ static char * syn_sh_keywords[] = {
 static char * syn_sh_types[] = {NULL};
 
 static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
 	if (c == '#') {
 		*out_left = (line->actual + 1) - i;
 		return FLAG_COMMENT;
@@ -602,6 +611,9 @@ static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
 
 static int syn_sh_finish(line_t * line, int * left, int state) {
 	/* No multilines supported */
+	(void)line;
+	(void)left;
+	(void)state;
 	return 0;
 }
 
@@ -754,6 +766,19 @@ _multiline:
 }
 
 /**
+ * Recalculate tab widths.
+ */
+void recalculate_tabs(line_t * line) {
+	int j = 0;
+	for (int i = 0; i < line->actual; ++i) {
+		if (line->text[i].codepoint == '\t') {
+			line->text[i].display_width = env->tabstop - (j % env->tabstop);
+		}
+		j += line->text[i].display_width;
+	}
+}
+
+/**
  * TODO:
  *
  * The line editing functions should probably take a buffer_t *
@@ -783,6 +808,7 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 	/* There is one new character in the line */
 	line->actual += 1;
 
+	recalculate_tabs(line);
 	recalculate_syntax(line, lineno);
 
 	return line;
@@ -803,6 +829,7 @@ void line_delete(line_t * line, int offset, int lineno) {
 	/* The line is one character shorter */
 	line->actual -= 1;
 
+	recalculate_tabs(line);
 	recalculate_syntax(line, lineno);
 }
 
@@ -890,6 +917,7 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	/* The first line is now longer */
 	lines[linea]->actual = lines[linea]->actual + lines[lineb]->actual;
 
+	recalculate_tabs(lines[linea]);
 	recalculate_syntax(lines[linea], linea);
 
 	/* Remove the second line */
@@ -939,6 +967,8 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	memmove(lines[line]->text, &lines[line-1]->text[split], sizeof(char_t) * remaining);
 	lines[line-1]->actual = split;
 
+	recalculate_tabs(lines[line-1]);
+	recalculate_tabs(lines[line]);
 	recalculate_syntax(lines[line-1], line-1);
 	recalculate_syntax(lines[line], line);
 
@@ -1038,8 +1068,7 @@ int to_eight(uint32_t codepoint, char * out) {
  */
 int codepoint_width(wchar_t codepoint) {
 	if (codepoint == '\t') {
-		/* XXX: Always rendered as 4-wide */
-		return 4;
+		return 1; /* Recalculate later */
 	}
 	if (codepoint < 32) {
 		/* We render these as ^@ */
@@ -1316,9 +1345,11 @@ void render_line(line_t * line, int width, int offset) {
 
 			/* Render special characters */
 			if (c.codepoint == '\t') {
-				/* TODO: This should adapt based on tabstops. */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-				printf("»···");
+				printf("»");
+				for (int i = 1; i < c.display_width; ++i) {
+					printf("·");
+				}
 				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint < 32) {
 				/* Codepoints under 32 to get converted to ^@ escapes */
@@ -1752,6 +1783,7 @@ void open_file(char * file) {
 
 	env->loading = 1;
 	env->tabs = 1;
+	env->tabstop = 4;
 
 	env->file_name = malloc(strlen(file) + 1);
 	memcpy(env->file_name, file, strlen(file) + 1);
@@ -2316,6 +2348,21 @@ void process_command(char * cmd) {
 		env->tabs = 1;
 	} else if (!strcmp(argv[0], "spaces")) {
 		env->tabs = 0;
+	} else if (!strcmp(argv[0], "tabstop")) {
+		if (argc < 2) {
+			render_status_message("tabstop=%d", env->tabstop);
+		} else {
+			int t = atoi(argv[1]);
+			if (t > 0 && t < 32) {
+				env->tabstop = t;
+				for (int i = 0; i < env->line_count; ++i) {
+					recalculate_tabs(env->lines[i]);
+				}
+				redraw_all();
+			} else {
+				render_error("Invalid tabstop: %s", argv[1]);
+			}
+		}
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -2933,10 +2980,9 @@ void insert_mode(void) {
 					if (env->tabs) {
 						insert_char('\t');
 					} else {
-						insert_char(' ');
-						insert_char(' ');
-						insert_char(' ');
-						insert_char(' ');
+						for (int i = 0; i < env->tabstop; ++i) {
+							insert_char(' ');
+						}
 					}
 					redraw_statusbar();
 					place_cursor_actual();
@@ -3022,7 +3068,7 @@ void insert_mode(void) {
 	}
 }
 
-static void show_usage(int argc, char * argv[]) {
+static void show_usage(char * argv[]) {
 	printf(
 			"bim - Text editor\n"
 			"\n"
@@ -3042,7 +3088,7 @@ int main(int argc, char * argv[]) {
 				hilight_on_open = 0;
 				break;
 			case '?':
-				show_usage(argc, argv);
+				show_usage(argv);
 				return 0;
 		}
 	}
