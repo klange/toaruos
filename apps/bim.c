@@ -124,7 +124,7 @@ void load_colorscheme_wombat(void) {
 }
 
 void load_colorscheme_citylights(void) {
-	/* Based on the textmate theme "City Lights" */
+	/* "City Lights" based on citylights.xyz */
 	COLOR_FG        = "2;113;140;161";
 	COLOR_BG        = "2;29;37;44";
 	COLOR_ALT_FG    = "2;45;55;65";
@@ -149,6 +149,7 @@ void load_colorscheme_citylights(void) {
 }
 
 void load_colorscheme_solarized_dark(void) {
+	/* Solarized Dark, popular theme */
 	COLOR_FG        = "2;147;161;161";
 	COLOR_BG        = "2;0;43;54";
 	COLOR_ALT_FG    = "2;147;161;161";
@@ -172,6 +173,31 @@ void load_colorscheme_solarized_dark(void) {
 	COLOR_SEARCH_BG = "5;226";
 }
 
+void load_colorscheme_ansi(void) {
+	/* 16-color theme */
+	COLOR_FG        = "@15";
+	COLOR_BG        = "@0";
+	COLOR_ALT_FG    = "@8";
+	COLOR_ALT_BG    = "@0";
+	COLOR_NUMBER_FG = "@3";
+	COLOR_NUMBER_BG = "@0";
+	COLOR_STATUS_FG = "@15";
+	COLOR_STATUS_BG = "@8";
+	COLOR_TABBAR_BG = "@8";
+	COLOR_TAB_BG    = "@0";
+	COLOR_KEYWORD   = "@12";
+	COLOR_STRING    = "@2";
+	COLOR_COMMENT   = "@7";
+	COLOR_TYPE      = "@6";
+	COLOR_PRAGMA    = "@1";
+	COLOR_NUMERAL   = "@5";
+
+	COLOR_ERROR_FG  = "@15";
+	COLOR_ERROR_BG  = "@1";
+	COLOR_SEARCH_FG = "@0";
+	COLOR_SEARCH_BG = "@11";
+}
+
 struct theme_def {
 	const char * name;
 	void (*load)(void);
@@ -179,6 +205,7 @@ struct theme_def {
 	{"wombat", load_colorscheme_wombat},
 	{"citylights", load_colorscheme_citylights},
 	{"solarized-dark", load_colorscheme_solarized_dark},
+	{"ansi", load_colorscheme_ansi},
 	{NULL, NULL}
 };
 
@@ -1243,17 +1270,55 @@ void place_cursor_h(int h) {
 
 /**
  * Set text colors
+ *
+ * Normally, text colors are just strings, but if they
+ * start with @ they will be parsed as integers
+ * representing one of the 16 standard colors, suitable
+ * for terminals without support for the 256- or 24-bit
+ * color modes.
  */
 void set_colors(const char * fg, const char * bg) {
-	printf("\033[22;23;48;%s;38;%sm", bg, fg);
+	printf("\033[22;23;");
+	if (*bg == '@') {
+		int _bg = atoi(bg+1);
+		if (_bg < 8) {
+			printf("4%d;", _bg);
+		} else {
+			printf("10%d;", _bg-8);
+		}
+	} else {
+		printf("48;%s;", bg);
+	}
+	if (*fg == '@') {
+		int _fg = atoi(fg+1);
+		if (_fg < 8) {
+			printf("3%dm", _fg);
+		} else {
+			printf("9%dm", _fg-8);
+		}
+	} else {
+		printf("38;%sm", fg);
+	}
 	fflush(stdout);
 }
 
 /**
  * Set just the foreground color
+ *
+ * (See set_colors above)
  */
 void set_fg_color(const char * fg) {
-	printf("\033[22;23;38;%sm", fg);
+	printf("\033[22;23;");
+	if (*fg == '@') {
+		int _fg = atoi(fg+1);
+		if (_fg < 8) {
+			printf("3%dm", _fg);
+		} else {
+			printf("9%dm", _fg-8);
+		}
+	} else {
+		printf("38;%sm", fg);
+	}
 	fflush(stdout);
 }
 
