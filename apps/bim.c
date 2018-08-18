@@ -268,6 +268,7 @@ int csr_x_actual, csr_y_actual;
  * Command-line options
  */
 int hilight_on_open = 1;
+int initial_file_is_read_only = 0;
 
 void redraw_line(int j, int x);
 
@@ -322,7 +323,12 @@ int bim_getch(void) {
 typedef struct _env {
 	int    bottom_size;
 	short  lineno_width;
-	short  loading;
+
+	short  loading:1;
+	short  tabs:1;
+	short  modified:1;
+	short  readonly:1;
+
 	char * file_name;
 	int    offset;
 	int    coffset;
@@ -332,9 +338,7 @@ typedef struct _env {
 	int    col_no;
 	char * search;
 	struct syntax_definition * syntax;
-	short  modified;
 	short  mode;
-	short  tabs;
 	short  tabstop;
 	line_t ** lines;
 } buffer_t;
@@ -1166,6 +1170,7 @@ void setup_buffer(buffer_t * env) {
 	env->col_no      = 1;
 	env->line_count  = 1; /* Buffers always have at least one line */
 	env->modified    = 0;
+	env->readonly    = 0;
 	env->bottom_size = 2;
 	env->offset      = 0;
 	env->line_avail  = 8; /* Default line buffer capacity */
@@ -1705,6 +1710,10 @@ void redraw_statusbar(void) {
 	/* Print file status indicators */
 	if (env->modified) {
 		printf("[+]");
+	}
+
+	if (env->readonly) {
+		printf("[ro]");
 	}
 
 	/* Clear the rest of the status bar */
@@ -3326,7 +3335,6 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 						break;
 					case '3':
 						if (env->mode == MODE_INSERT) {
-							/* Page up */
 							if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
 								line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
 								redraw_line(env->line_no - env->offset - 1, env->line_no-1);
@@ -3474,10 +3482,13 @@ static void show_usage(char * argv[]) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?s")) != -1) {
+	while ((opt = getopt(argc, argv, "?sR")) != -1) {
 		switch (opt) {
 			case 's':
 				hilight_on_open = 0;
+				break;
+			case 'R':
+				initial_file_is_read_only = 1;
 				break;
 			case '?':
 				show_usage(argv);
@@ -3489,6 +3500,8 @@ int main(int argc, char * argv[]) {
 
 	if (argc > optind) {
 		open_file(argv[optind]);
+		if (initial_file_is_read_only);
+		env->readonly = 1;
 	} else {
 		env = buffer_new();
 		update_title();
@@ -3553,6 +3566,7 @@ int main(int argc, char * argv[]) {
 						break;
 					case 'O':
 						{
+							if (env->readonly) goto _readonly;
 							env->lines = add_line(env->lines, env->line_no-1);
 							env->col_no = 1;
 							redraw_text();
@@ -3562,6 +3576,7 @@ int main(int argc, char * argv[]) {
 						}
 					case 'o':
 						{
+							if (env->readonly) goto _readonly;
 							env->lines = add_line(env->lines, env->line_no);
 							env->col_no = 1;
 							env->line_no += 1;
@@ -3586,10 +3601,14 @@ int main(int argc, char * argv[]) {
 						break;
 					case 'i':
 _insert:
+						if (env->readonly) goto _readonly;
 						insert_mode();
 						redraw_statusbar();
 						redraw_commandline();
 						timeout = 0;
+						break;
+_readonly:
+						render_error("Buffer is read-only");
 						break;
 					case 12:
 						redraw_all();
