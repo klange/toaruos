@@ -999,6 +999,8 @@ void setup_buffer(buffer_t * env) {
 	env->bottom_size = 2;
 	env->offset      = 0;
 	env->line_avail  = 8; /* Default line buffer capacity */
+	env->tabs        = 1; /* Tabs by default */
+	env->tabstop     = 4; /* Tab stop width */
 
 	/* Allocate line buffer */
 	env->lines = malloc(sizeof(line_t *) * env->line_avail);
@@ -1782,8 +1784,6 @@ void open_file(char * file) {
 	env = buffer_new();
 
 	env->loading = 1;
-	env->tabs = 1;
-	env->tabstop = 4;
 
 	env->file_name = malloc(strlen(file) + 1);
 	memcpy(env->file_name, file, strlen(file) + 1);
