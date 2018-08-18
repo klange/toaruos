@@ -3500,8 +3500,9 @@ int main(int argc, char * argv[]) {
 
 	if (argc > optind) {
 		open_file(argv[optind]);
-		if (initial_file_is_read_only);
-		env->readonly = 1;
+		if (initial_file_is_read_only) {
+			env->readonly = 1;
+		}
 	} else {
 		env = buffer_new();
 		update_title();
