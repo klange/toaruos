@@ -2494,6 +2494,11 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "tabn")) {
 		/* Previous tab */
 		next_tab();
+	} else if (!strcmp(argv[0], "noh")) {
+		if (env->search) {
+			free(env->search);
+			redraw_text();
+		}
 	} else if (!strcmp(argv[0], "help")) {
 		/*
 		 * The repeated calls to redraw_commandline here make use
@@ -2509,6 +2514,9 @@ void process_command(char * cmd) {
 		redraw_commandline(); printf("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
 		redraw_commandline(); printf("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
 		redraw_commandline(); printf("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
+		redraw_commandline(); printf("   Set the color scheme with \033[3m:theme \033[4mtheme\033[24;23m\n");
+		redraw_commandline(); printf("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
+		redraw_commandline(); printf("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
 		redraw_commandline(); printf("\n");
 		redraw_commandline(); printf(" Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>\n");
 		redraw_commandline(); printf("\n");
@@ -2661,6 +2669,10 @@ void command_tab_complete(char * buffer) {
 		add_candidate("tabn");
 		add_candidate("tabp");
 		add_candidate("theme");
+		add_candidate("tabs");
+		add_candidate("tabstop");
+		add_candidate("spaces");
+		add_candidate("noh");
 		goto _accept_candidate;
 	}
 
