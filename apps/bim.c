@@ -89,6 +89,7 @@
 #define FLAG_COMMENT  3
 #define FLAG_TYPE     4
 #define FLAG_PRAGMA   5
+#define FLAG_NUMERAL  6
 
 #define FLAG_NORM_MAX 15
 
@@ -112,6 +113,7 @@ char * flag_to_color(int flag) {
 			return COLOR_COMMENT;
 		case FLAG_TYPE:
 			return COLOR_TYPE;
+		case FLAG_NUMERAL:
 		case FLAG_PRAGMA:
 			return COLOR_PRAGMA;
 		default:
@@ -323,11 +325,41 @@ static char * syn_c_types[] = {
 };
 
 static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
 	if (i == 0 && c == '#') {
 		*out_left = line->actual+1;
 		return FLAG_PRAGMA;
+	}
+
+	if ((!last || !syn_c_iskeywordchar(last)) && (i < line->actual - 3) &&
+		line->text[i].codepoint == 'N' &&
+		line->text[i+1].codepoint == 'U' &&
+		line->text[i+2].codepoint == 'L' &&
+		line->text[i+3].codepoint == 'L' &&
+		(i == line->actual - 4 || !syn_c_iskeywordchar(line->text[i+4].codepoint))) {
+		*out_left = 3;
+		return FLAG_NUMERAL;
+	}
+
+	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
+		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
+			int j = 2;
+			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		} else {
+			int j = 1;
+			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
+				j++;
+			}
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		}
 	}
 
 	if (c == '/') {
@@ -353,14 +385,14 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 	}
 
 	if (c == '\'') {
-		if (i < line->actual + 3 && line->text[i+1].codepoint == '\\' &&
+		if (i < line->actual - 3 && line->text[i+1].codepoint == '\\' &&
 			line->text[i+3].codepoint == '\'') {
 			*out_left = 3;
-			return FLAG_PRAGMA; /* Number? */
+			return FLAG_NUMERAL;
 		}
-		if (i < line->actual + 2 && line->text[i+2].codepoint == '\'') {
+		if (i < line->actual - 2 && line->text[i+2].codepoint == '\'') {
 			*out_left = 2;
-			return FLAG_PRAGMA; /* Number? */
+			return FLAG_NUMERAL;
 		}
 	}
 
@@ -420,7 +452,6 @@ static char * syn_py_types[] = {
 };
 
 static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
 
 	if (i == 0 && c == 'i') {
 		/* Check for import */
@@ -447,6 +478,28 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 			}
 			*out_left = (line->actual + 1) - i;
 			return FLAG_PRAGMA;
+		}
+	}
+
+	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
+		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
+			int j = 2;
+			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		} else {
+			int j = 1;
+			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
+				j++;
+			}
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
 		}
 	}
 
@@ -681,6 +734,8 @@ void recalculate_syntax(line_t * line, int offset) {
 	}
 
 	for (int i = 0; i < line->actual; last = line->text[i++].codepoint) {
+		if (!left) state = 0;
+
 		if (state) {
 			/* Currently hilighting, have `left` characters remaining with this state */
 			left--;
@@ -1860,7 +1915,11 @@ void try_quit(void) {
 	for (int i = 0; i < buffers_len; i++ ) {
 		buffer_t * _env = buffers[i];
 		if (_env->modified) {
-			render_error("Modifications made to file `%s` in tab %d. Aborting.", _env->file_name, i+1);
+			if (_env->file_name) {
+				render_error("Modifications made to file `%s` in tab %d. Aborting.", _env->file_name, i+1);
+			} else {
+				render_error("Unsaved new file in tab %d. Aborting.", i+1);
+			}
 			return;
 		}
 	}
