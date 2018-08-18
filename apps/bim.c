@@ -69,10 +69,11 @@ const char * COLOR_ALT_FG    = "5;244";
 const char * COLOR_ALT_BG    = "5;236";
 const char * COLOR_NUMBER_BG = "5;232";
 const char * COLOR_NUMBER_FG = "5;101";
+const char * COLOR_STATUS_FG = "5;230";
 const char * COLOR_STATUS_BG = "5;238";
 const char * COLOR_TABBAR_BG = "5;230";
 const char * COLOR_TAB_BG    = "5;248";
-const char * COLOR_ERROR_FG  = "5;015";
+const char * COLOR_ERROR_FG  = "5;15";
 const char * COLOR_ERROR_BG  = "5;196";
 const char * COLOR_SEARCH_FG = "5;234";
 const char * COLOR_SEARCH_BG = "5;226";
@@ -81,6 +82,7 @@ const char * COLOR_STRING    = "5;113";
 const char * COLOR_COMMENT   = "5;102;3";
 const char * COLOR_TYPE      = "5;185";
 const char * COLOR_PRAGMA    = "5;173";
+const char * COLOR_NUMERAL   = "5;173";
 
 #define FLAG_NONE     0
 #define FLAG_KEYWORD  1
@@ -95,6 +97,90 @@ const char * COLOR_PRAGMA    = "5;173";
 #define FLAG_COMMENT_ML 16
 #define FLAG_STRING_ML1 17
 #define FLAG_STRING_ML2 18
+
+void load_colorscheme_wombat(void) {
+	/* Based on the wombat256 theme for vim */
+	COLOR_FG        = "5;230";
+	COLOR_BG        = "5;235";
+	COLOR_ALT_FG    = "5;244";
+	COLOR_ALT_BG    = "5;236";
+	COLOR_NUMBER_BG = "5;232";
+	COLOR_NUMBER_FG = "5;101";
+	COLOR_STATUS_FG = "5;230";
+	COLOR_STATUS_BG = "5;238";
+	COLOR_TABBAR_BG = "5;230";
+	COLOR_TAB_BG    = "5;248";
+	COLOR_KEYWORD   = "5;117";
+	COLOR_STRING    = "5;113";
+	COLOR_COMMENT   = "5;102;3";
+	COLOR_TYPE      = "5;185";
+	COLOR_PRAGMA    = "5;173";
+	COLOR_NUMERAL   = COLOR_PRAGMA;
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+}
+
+void load_colorscheme_citylights(void) {
+	/* Based on the textmate theme "City Lights" */
+	COLOR_FG        = "2;113;140;161";
+	COLOR_BG        = "2;29;37;44";
+	COLOR_ALT_FG    = "2;45;55;65";
+	COLOR_ALT_BG    = "2;33;42;50";
+	COLOR_NUMBER_FG = "2;71;89;103";
+	COLOR_NUMBER_BG = "2;37;47;56";
+	COLOR_STATUS_FG = "2;116;144;166";
+	COLOR_STATUS_BG = "2;53;67;78";
+	COLOR_TABBAR_BG = "2;37;47;56";
+	COLOR_TAB_BG    = "2;29;37;44";
+	COLOR_KEYWORD   = "2;94;196;255";
+	COLOR_STRING    = "2;83;154;252";
+	COLOR_COMMENT   = "2;107;133;153;3";
+	COLOR_TYPE      = "2;139;212;156";
+	COLOR_PRAGMA    = "2;0;139;148";
+	COLOR_NUMERAL   = "2;207;118;132";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+}
+
+void load_colorscheme_solarized_dark(void) {
+	COLOR_FG        = "2;147;161;161";
+	COLOR_BG        = "2;0;43;54";
+	COLOR_ALT_FG    = "2;147;161;161";
+	COLOR_ALT_BG    = "2;7;54;66";
+	COLOR_NUMBER_FG = "2;131;148;149";
+	COLOR_NUMBER_BG = "2;7;54;66";
+	COLOR_STATUS_FG = "2;131;148;150";
+	COLOR_STATUS_BG = "2;7;54;66";
+	COLOR_TABBAR_BG = "2;7;54;66";
+	COLOR_TAB_BG    = "2;131;148;150";
+	COLOR_KEYWORD   = "2;133;153;0";
+	COLOR_STRING    = "2;42;161;152";
+	COLOR_COMMENT   = "2;101;123;131";
+	COLOR_TYPE      = "2;181;137;0";
+	COLOR_PRAGMA    = "2;203;75;22";
+	COLOR_NUMERAL   = "2;220;50;47";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+}
+
+struct theme_def {
+	const char * name;
+	void (*load)(void);
+} themes[] = {
+	{"wombat", load_colorscheme_wombat},
+	{"citylights", load_colorscheme_citylights},
+	{"solarized-dark", load_colorscheme_solarized_dark},
+	{NULL, NULL}
+};
 
 /**
  * Convert syntax hilighting flag to color code
@@ -113,6 +199,7 @@ const char * flag_to_color(int flag) {
 		case FLAG_TYPE:
 			return COLOR_TYPE;
 		case FLAG_NUMERAL:
+			return COLOR_NUMERAL;
 		case FLAG_PRAGMA:
 			return COLOR_PRAGMA;
 		default:
@@ -316,7 +403,7 @@ static char * syn_c_keywords[] = {
 };
 
 static char * syn_c_types[] = {
-	"static","int","char","short","float","double","void","unsigned","volatile",
+	"static","int","char","short","float","double","void","unsigned","volatile","const",
 	"register","long","inline","restrict","enum","auto","extern","bool","complex",
 	"uint8_t","uint16_t","uint32_t","uint64_t",
 	"int8_t","int16_t","int32_t","int64_t",
@@ -1533,7 +1620,7 @@ void redraw_statusbar(void) {
 	place_cursor(1, term_height - 1);
 
 	/* Set background colors for status line */
-	set_colors(COLOR_FG, COLOR_STATUS_BG);
+	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 
 	/* Print the file name */
 	if (env->file_name) {
@@ -1654,7 +1741,7 @@ void render_status_message(char * message, ...) {
 	place_cursor(1, term_height - 1);
 
 	/* Set background colors for status line */
-	set_colors(COLOR_FG, COLOR_STATUS_BG);
+	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 
 	printf("%s", buf);
 
@@ -2374,9 +2461,20 @@ void process_command(char * cmd) {
 		 * upper few lines of text on screen again
 		 */
 		redraw_all();
+	} else if (!strcmp(argv[0], "theme")) {
+		if (argc < 2) {
+			return;
+		}
+		for (struct theme_def * d = themes; d->name; ++d) {
+			if (!strcmp(argv[1], d->name)) {
+				d->load();
+				redraw_all();
+				return;
+			}
+		}
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
-			render_error("syntax expects argument");
+			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
 			return;
 		}
 		if (!strcmp(argv[1],"none")) {
@@ -2477,7 +2575,7 @@ void command_tab_complete(char * buffer) {
 	 * candidates list, expanding as necessary,
 	 * if it matches for the current argument.
 	 */
-	void add_candidate(char * candidate) {
+	void add_candidate(const char * candidate) {
 		char * _arg = args[arg];
 		int r = strncmp(_arg, candidate, strlen(_arg));
 		if (!r) {
@@ -2497,6 +2595,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("syntax");
 		add_candidate("tabn");
 		add_candidate("tabp");
+		add_candidate("theme");
 		goto _accept_candidate;
 	}
 
@@ -2504,6 +2603,14 @@ void command_tab_complete(char * buffer) {
 		/* Complete syntax options */
 		add_candidate("none");
 		for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+			add_candidate(s->name);
+		}
+		goto _accept_candidate;
+	}
+
+	if (arg == 1 && !strcmp(args[0], "theme")) {
+		/* Complete color theme names */
+		for (struct theme_def * s = themes; s->name; ++s) {
 			add_candidate(s->name);
 		}
 		goto _accept_candidate;
