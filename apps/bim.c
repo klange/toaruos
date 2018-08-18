@@ -63,24 +63,24 @@
 /**
  * Theming data
  */
-const char * COLOR_FG        = "230";
-const char * COLOR_BG        = "235";
-const char * COLOR_ALT_FG    = "244";
-const char * COLOR_ALT_BG    = "236";
-const char * COLOR_NUMBER_BG = "232";
-const char * COLOR_NUMBER_FG = "101";
-const char * COLOR_STATUS_BG = "238";
-const char * COLOR_TABBAR_BG = "230";
-const char * COLOR_TAB_BG    = "248";
-const char * COLOR_ERROR_FG  = "015";
-const char * COLOR_ERROR_BG  = "196";
-const char * COLOR_SEARCH_FG = "234";
-const char * COLOR_SEARCH_BG = "226";
-const char * COLOR_KEYWORD   = "117";
-const char * COLOR_STRING    = "113";
-const char * COLOR_COMMENT   = "102;3";
-const char * COLOR_TYPE      = "185";
-const char * COLOR_PRAGMA    = "173";
+const char * COLOR_FG        = "5;230";
+const char * COLOR_BG        = "5;235";
+const char * COLOR_ALT_FG    = "5;244";
+const char * COLOR_ALT_BG    = "5;236";
+const char * COLOR_NUMBER_BG = "5;232";
+const char * COLOR_NUMBER_FG = "5;101";
+const char * COLOR_STATUS_BG = "5;238";
+const char * COLOR_TABBAR_BG = "5;230";
+const char * COLOR_TAB_BG    = "5;248";
+const char * COLOR_ERROR_FG  = "5;015";
+const char * COLOR_ERROR_BG  = "5;196";
+const char * COLOR_SEARCH_FG = "5;234";
+const char * COLOR_SEARCH_BG = "5;226";
+const char * COLOR_KEYWORD   = "5;117";
+const char * COLOR_STRING    = "5;113";
+const char * COLOR_COMMENT   = "5;102;3";
+const char * COLOR_TYPE      = "5;185";
+const char * COLOR_PRAGMA    = "5;173";
 
 #define FLAG_NONE     0
 #define FLAG_KEYWORD  1
@@ -1158,7 +1158,7 @@ void place_cursor_h(int h) {
  * Set text colors
  */
 void set_colors(const char * fg, const char * bg) {
-	printf("\033[22;23;48;5;%s;38;5;%sm", bg, fg);
+	printf("\033[22;23;48;%s;38;%sm", bg, fg);
 	fflush(stdout);
 }
 
@@ -1166,7 +1166,7 @@ void set_colors(const char * fg, const char * bg) {
  * Set just the foreground color
  */
 void set_fg_color(const char * fg) {
-	printf("\033[22;23;38;5;%sm", fg);
+	printf("\033[22;23;38;%sm", fg);
 	fflush(stdout);
 }
 
