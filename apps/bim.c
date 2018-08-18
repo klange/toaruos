@@ -937,6 +937,8 @@ _multiline:
  * Recalculate tab widths.
  */
 void recalculate_tabs(line_t * line) {
+	if (env->loading) return;
+
 	int j = 0;
 	for (int i = 0; i < line->actual; ++i) {
 		if (line->text[i].codepoint == '\t') {
@@ -2049,6 +2051,11 @@ void open_file(char * file) {
 	}
 
 	env->loading = 0;
+
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_tabs(env->lines[i]);
+	}
+
 	update_title();
 	goto_line(0);
 
@@ -3151,6 +3158,103 @@ void insert_char(unsigned int c) {
 }
 
 /**
+ * Move the cursor the start of the previous word.
+ */
+void word_left(void) {
+
+}
+
+/**
+ * Word right
+ */
+void word_right(void) {
+
+}
+
+void handle_escape(int * this_buf, int * timeout, char c) {
+	if (*timeout == 1 && this_buf[0] == '\033' && c == '[') {
+		//redraw_commandline(); printf("esssacapcewaca\n");
+		this_buf[1] = c;
+		(*timeout)++;
+		return;
+	}
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+			(isdigit(c) || c == ';')) {
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return;
+	}
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+		switch (c) {
+			case 'M':
+				handle_mouse();
+				break;
+			case 'A': // up
+				cursor_up();
+				break;
+			case 'B': // down
+				cursor_down();
+				break;
+			case 'C': // right
+				if (this_buf[*timeout-1] == '5') {
+					word_right();
+				} else {
+					cursor_right();
+				}
+				break;
+			case 'D': // left
+				if (this_buf[*timeout-1] == '5') {
+					word_left();
+				} else {
+					cursor_left();
+				}
+				break;
+			case 'H': // home
+				cursor_home();
+				break;
+			case 'F': // end
+				cursor_end();
+				break;
+			case '~':
+				switch (this_buf[*timeout-1]) {
+					case '6':
+						goto_line(env->line_no + term_height - 6);
+						break;
+					case '5':
+						goto_line(env->line_no - (term_height - 6));
+						break;
+					case '3':
+						if (env->mode == MODE_INSERT) {
+							/* Page up */
+							if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
+								line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
+								redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+								set_modified();
+								redraw_statusbar();
+								place_cursor_actual();
+							} else if (env->line_no < env->line_count) {
+								merge_lines(env->lines, env->line_no);
+								redraw_text();
+								set_modified();
+								redraw_statusbar();
+								place_cursor_actual();
+							}
+						}
+						break;
+				}
+				break;
+			default:
+				render_error("Unrecognized escape sequence identifier: %c", c);
+				break;
+		}
+		*timeout = 0;
+		return;
+	}
+
+	*timeout = 0;
+}
+
+/**
  * INSERT mode
  *
  * Accept input into the text buffer.
@@ -3179,139 +3283,74 @@ void insert_mode(void) {
 			continue;
 		}
 		if (!decode(&istate, &c, cin)) {
-			switch (c) {
-				case '\033':
-					if (timeout == 0) {
-						this_buf[timeout] = c;
-						timeout++;
-					} else if (timeout == 1 && this_buf[0] == '\033') {
-						leave_insert();
-						bim_unget(c);
-						return;
-					}
-					break;
-				case DELETE_KEY:
-				case BACKSPACE_KEY:
-					if (env->col_no > 1) {
-						line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
-						env->col_no -= 1;
-						redraw_line(env->line_no - env->offset - 1, env->line_no-1);
-						set_modified();
-						redraw_statusbar();
-						place_cursor_actual();
-					} else if (env->line_no > 1) {
-						int tmp = env->lines[env->line_no - 2]->actual;
-						merge_lines(env->lines, env->line_no - 1);
-						env->line_no -= 1;
-						env->col_no = tmp+1;
-						redraw_text();
-						set_modified();
-						redraw_statusbar();
-						place_cursor_actual();
-					}
-					break;
-				case ENTER_KEY:
-					if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
-						env->lines = add_line(env->lines, env->line_no);
-					} else {
-						/* oh oh god we're all gonna die */
-						env->lines = split_line(env->lines, env->line_no, env->col_no - 1);
-					}
-					env->col_no = 1;
-					env->line_no += 1;
-					if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
-						env->offset += 1;
-					}
-					redraw_text();
-					set_modified();
-					redraw_statusbar();
-					place_cursor_actual();
-					break;
-				case '\t':
-					if (env->tabs) {
-						insert_char('\t');
-					} else {
-						for (int i = 0; i < env->tabstop; ++i) {
-							insert_char(' ');
-						}
-					}
-					redraw_statusbar();
-					place_cursor_actual();
-					break;
-				default:
-					{
-						if (timeout == 1 && c == '[' && this_buf[0] == '\033') {
-							this_buf[1] = c;
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
 							timeout++;
-							continue;
-						} else if (timeout == 1 && c  != '[') {
+						} else if (timeout == 1 && this_buf[0] == '\033') {
 							leave_insert();
 							bim_unget(c);
 							return;
 						}
-						if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
-							switch (c) {
-								case 'M':
-									handle_mouse();
-									break;
-								case 'A': // up
-									cursor_up();
-									break;
-								case 'B': // down
-									cursor_down();
-									break;
-								case 'C': // right
-									cursor_right();
-									break;
-								case 'D': // left
-									cursor_left();
-									break;
-								case 'H': // home
-									cursor_home();
-									break;
-								case 'F': // end
-									cursor_end();
-									break;
-								case '6':
-									if (bim_getch() == '~') {
-										/* Page down */
-										goto_line(env->line_no + term_height - 6);
-									}
-									break;
-								case '5':
-									if (bim_getch() == '~') {
-										/* Page up */
-										goto_line(env->line_no - (term_height - 6));
-									}
-									break;
-								case '3':
-									if (bim_getch() == '~') {
-										/* Page up */
-										if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
-											line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
-											redraw_line(env->line_no - env->offset - 1, env->line_no-1);
-											set_modified();
-											redraw_statusbar();
-											place_cursor_actual();
-										} else if (env->line_no < env->line_count) {
-											merge_lines(env->lines, env->line_no);
-											redraw_text();
-											set_modified();
-											redraw_statusbar();
-											place_cursor_actual();
-										}
-									}
-									break;
-							}
-							timeout = 0;
-							continue;
+						break;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						if (env->col_no > 1) {
+							line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+							env->col_no -= 1;
+							redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+							set_modified();
+							redraw_statusbar();
+							place_cursor_actual();
+						} else if (env->line_no > 1) {
+							int tmp = env->lines[env->line_no - 2]->actual;
+							merge_lines(env->lines, env->line_no - 1);
+							env->line_no -= 1;
+							env->col_no = tmp+1;
+							redraw_text();
+							set_modified();
+							redraw_statusbar();
+							place_cursor_actual();
 						}
-						timeout = 0;
+						break;
+					case ENTER_KEY:
+						if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
+							env->lines = add_line(env->lines, env->line_no);
+						} else {
+							/* oh oh god we're all gonna die */
+							env->lines = split_line(env->lines, env->line_no, env->col_no - 1);
+						}
+						env->col_no = 1;
+						env->line_no += 1;
+						if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+							env->offset += 1;
+						}
+						redraw_text();
+						set_modified();
+						redraw_statusbar();
+						place_cursor_actual();
+						break;
+					case '\t':
+						if (env->tabs) {
+							insert_char('\t');
+						} else {
+							for (int i = 0; i < env->tabstop; ++i) {
+								insert_char(' ');
+							}
+						}
+						redraw_statusbar();
+						place_cursor_actual();
+						break;
+					default:
 						insert_char(c);
 						redraw_statusbar();
 						place_cursor_actual();
-					}
-					break;
+						break;
+				}
+			} else {
+				handle_escape(this_buf,&timeout,c);
 			}
 		} else if (istate == UTF8_REJECT) {
 			istate = 0;
@@ -3362,144 +3401,100 @@ int main(int argc, char * argv[]) {
 		int timeout = 0;
 		int this_buf[20];
 		while ((c = bim_getch())) {
-			switch (c) {
-				case '\033':
-					if (timeout == 0) {
-						this_buf[timeout] = c;
-						timeout++;
-					}
-					break;
-				case DELETE_KEY:
-				case BACKSPACE_KEY:
-					cursor_left();
-					break;
-				case ':':
-					/* Switch to command mode */
-					command_mode();
-					break;
-				case '/':
-					/* Switch to search mode */
-					search_mode();
-					break;
-				case 'n':
-					search_next();
-					break;
-				case 'j':
-					cursor_down();
-					break;
-				case 'k':
-					cursor_up();
-					break;
-				case 'h':
-					cursor_left();
-					break;
-				case 'l':
-					cursor_right();
-					break;
-				case 'd':
-					remove_line(env->lines, env->line_no-1);
-					env->col_no = 1;
-					if (env->line_no > env->line_count) {
-						env->line_no--;
-					}
-					redraw_text();
-					set_modified();
-					place_cursor_actual();
-					break;
-				case ' ':
-					goto_line(env->line_no + term_height - 6);
-					break;
-				case 'O':
-					{
-						env->lines = add_line(env->lines, env->line_no-1);
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						cursor_left();
+						break;
+					case ':':
+						/* Switch to command mode */
+						command_mode();
+						break;
+					case '/':
+						/* Switch to search mode */
+						search_mode();
+						break;
+					case 'n':
+						search_next();
+						break;
+					case 'j':
+						cursor_down();
+						break;
+					case 'k':
+						cursor_up();
+						break;
+					case 'h':
+						cursor_left();
+						break;
+					case 'l':
+						cursor_right();
+						break;
+					case 'd':
+						remove_line(env->lines, env->line_no-1);
 						env->col_no = 1;
-						redraw_text();
-						set_modified();
-						place_cursor_actual();
-						goto _insert;
-					}
-				case 'o':
-					{
-						env->lines = add_line(env->lines, env->line_no);
-						env->col_no = 1;
-						env->line_no += 1;
-						if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
-							env->offset += 1;
+						if (env->line_no > env->line_count) {
+							env->line_no--;
 						}
 						redraw_text();
 						set_modified();
 						place_cursor_actual();
+						break;
+					case ' ':
+						goto_line(env->line_no + term_height - 6);
+						break;
+					case 'O':
+						{
+							env->lines = add_line(env->lines, env->line_no-1);
+							env->col_no = 1;
+							redraw_text();
+							set_modified();
+							place_cursor_actual();
+							goto _insert;
+						}
+					case 'o':
+						{
+							env->lines = add_line(env->lines, env->line_no);
+							env->col_no = 1;
+							env->line_no += 1;
+							if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+								env->offset += 1;
+							}
+							redraw_text();
+							set_modified();
+							place_cursor_actual();
+							goto _insert;
+						}
+					case 'a':
+						if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
+							env->col_no += 1;
+						}
 						goto _insert;
-					}
-				case 'a':
-					if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
-						env->col_no += 1;
-					}
-					goto _insert;
-				case '$':
-					env->col_no = env->lines[env->line_no-1]->actual+1;
-					break;
-				case '0':
-					env->col_no = 1;
-					break;
-				case 'i':
+					case '$':
+						env->col_no = env->lines[env->line_no-1]->actual+1;
+						break;
+					case '0':
+						env->col_no = 1;
+						break;
+					case 'i':
 _insert:
-					insert_mode();
-					redraw_statusbar();
-					redraw_commandline();
-					timeout = 0;
-					break;
-				default:
-					if (timeout == 1 && c == '[' && this_buf[0] == '\033') {
-						this_buf[1] = c;
-						timeout++;
-						continue;
-					}
-					if (timeout == 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
-						switch (c) {
-							case 'M':
-								handle_mouse();
-								break;
-							case 'A': // up
-								cursor_up();
-								break;
-							case 'B': // down
-								cursor_down();
-								break;
-							case 'C': // right
-								cursor_right();
-								break;
-							case 'D': // left
-								cursor_left();
-								break;
-							case 'H': // home
-								cursor_home();
-								break;
-							case 'F': // end
-								cursor_end();
-								break;
-							case '6':
-								if (bim_getch() == '~') {
-									/* Page down */
-									goto_line(env->line_no + term_height - 6);
-								}
-								break;
-							case '5':
-								if (bim_getch() == '~') {
-									/* Page up */
-									goto_line(env->line_no - (term_height - 6));
-								}
-								break;
-						}
+						insert_mode();
+						redraw_statusbar();
+						redraw_commandline();
 						timeout = 0;
-						continue;
-					}
-					timeout = 0;
-					break;
+						break;
+				}
+			} else {
+				handle_escape(this_buf,&timeout,c);
 			}
 			place_cursor_actual();
 		}
-		printf("%c", c);
 	}
 
 	return 0;
