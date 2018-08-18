@@ -1862,6 +1862,27 @@ void place_cursor_actual(void) {
 	/* y is a bit easier to calculate */
 	int y = env->line_no - env->offset + 1;
 
+	int needs_redraw = 0;
+
+	while (y < 2) {
+		y++;
+		env->offset--;
+		needs_redraw = 1;
+	}
+
+	while (y > term_height - env->bottom_size) {
+		y--;
+		env->offset++;
+		needs_redraw = 1;
+	}
+
+	if (needs_redraw) {
+		redraw_text();
+		redraw_tabbar();
+		redraw_statusbar();
+		redraw_commandline();
+	}
+
 	/* If the cursor has gone off screen to the right... */
 	if (x > term_width - 1) {
 		/* Adjust the offset appropriately to scroll horizontally */
@@ -3161,14 +3182,89 @@ void insert_char(unsigned int c) {
  * Move the cursor the start of the previous word.
  */
 void word_left(void) {
+	int line_no = env->line_no;
+	int col_no = env->col_no;
 
+	do {
+		col_no--;
+		if (col_no == 0) {
+			line_no--;
+			if (line_no == 0) {
+				goto_line(1);
+				return;
+			}
+			col_no = env->lines[line_no-1]->actual + 1;
+		}
+	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	do {
+		col_no--;
+		if (col_no == 0) {
+			line_no--;
+			if (line_no == 0) {
+				goto_line(1);
+				return;
+			}
+			col_no = env->lines[line_no-1]->actual + 1;
+		}
+		if (col_no == 1) {
+			env->col_no = 1;
+			env->line_no = line_no;
+			redraw_statusbar();
+			place_cursor_actual();
+			return;
+		}
+	} while (!isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	env->col_no = col_no;
+	env->line_no = line_no;
+	cursor_right();
 }
 
 /**
  * Word right
  */
 void word_right(void) {
+	int line_no = env->line_no;
+	int col_no = env->col_no;
 
+	do {
+		col_no++;
+		if (col_no >= env->lines[line_no-1]->actual + 1) {
+			line_no++;
+			if (line_no >= env->line_count) {
+				env->col_no = env->lines[env->line_count-1]->actual;
+				env->line_no = env->line_count;
+				redraw_statusbar();
+				place_cursor_actual();
+				return;
+			}
+			col_no = 0;
+			break;
+		}
+	} while (!isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	do {
+		col_no++;
+		if (col_no >= env->lines[line_no-1]->actual + 1) {
+			line_no++;
+			if (line_no >= env->line_count) {
+				env->col_no = env->lines[env->line_count-1]->actual;
+				env->line_no = env->line_count;
+				redraw_statusbar();
+				place_cursor_actual();
+				return;
+			}
+			col_no = 1;
+			break;
+		}
+	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	env->col_no = col_no;
+	env->line_no = line_no;
+	redraw_statusbar();
+	place_cursor_actual();
+	return;
 }
 
 void handle_escape(int * this_buf, int * timeout, char c) {
@@ -3488,6 +3584,9 @@ _insert:
 						redraw_statusbar();
 						redraw_commandline();
 						timeout = 0;
+						break;
+					case 12:
+						redraw_all();
 						break;
 				}
 			} else {
