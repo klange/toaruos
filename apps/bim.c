@@ -1443,6 +1443,15 @@ void render_line(line_t * line, int width, int offset) {
 }
 
 /**
+ * Get the width of the line number region
+ */
+int num_width(void) {
+	int w = log_base_10(env->line_count) + 1;
+	if (w < 2) return 2;
+	return w;
+}
+
+/**
  * Redraw line.
  *
  * This draws the line number as well as the actual text.
@@ -1466,7 +1475,7 @@ void redraw_line(int j, int x) {
 
 	/* Draw the line number */
 	set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
-	int num_size = log_base_10(env->line_count) + 2;
+	int num_size = num_width();
 	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
 	}
@@ -1688,7 +1697,7 @@ void render_error(char * message, ...) {
 void place_cursor_actual(void) {
 
 	/* Account for the left hand gutter */
-	int num_size = log_base_10(env->line_count) + 5;
+	int num_size = num_width() + 3;
 	int x = num_size + 1 - env->coffset;
 
 	/* Determine where the cursor is physically */
@@ -2916,7 +2925,7 @@ void handle_mouse(void) {
 		}
 
 		/* Account for the left hand gutter */
-		int num_size = log_base_10(env->line_count) + 5;
+		int num_size = num_width() + 3;
 		int _x = num_size - (line_no == env->line_no ? env->coffset : 0);
 
 		/* Determine where the cursor is physically */
