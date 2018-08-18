@@ -63,25 +63,24 @@
 /**
  * Theming data
  */
-#define COLOR_FG        "230"
-#define COLOR_BG        "235"
-#define COLOR_ALT_FG    "244"
-#define COLOR_ALT_BG    "236"
-#define COLOR_NUMBER_BG "232"
-#define COLOR_NUMBER_FG "101"
-#define COLOR_STATUS_BG "238"
-#define COLOR_TABBAR_BG "230"
-#define COLOR_TAB_BG    "248"
-#define COLOR_ERROR_FG  "015"
-#define COLOR_ERROR_BG  "196"
-#define COLOR_SEARCH_FG "234"
-#define COLOR_SEARCH_BG "226"
-
-#define COLOR_KEYWORD   "117"
-#define COLOR_STRING    "113"
-#define COLOR_COMMENT   "102;3"
-#define COLOR_TYPE      "185"
-#define COLOR_PRAGMA    "173"
+const char * COLOR_FG        = "230";
+const char * COLOR_BG        = "235";
+const char * COLOR_ALT_FG    = "244";
+const char * COLOR_ALT_BG    = "236";
+const char * COLOR_NUMBER_BG = "232";
+const char * COLOR_NUMBER_FG = "101";
+const char * COLOR_STATUS_BG = "238";
+const char * COLOR_TABBAR_BG = "230";
+const char * COLOR_TAB_BG    = "248";
+const char * COLOR_ERROR_FG  = "015";
+const char * COLOR_ERROR_BG  = "196";
+const char * COLOR_SEARCH_FG = "234";
+const char * COLOR_SEARCH_BG = "226";
+const char * COLOR_KEYWORD   = "117";
+const char * COLOR_STRING    = "113";
+const char * COLOR_COMMENT   = "102;3";
+const char * COLOR_TYPE      = "185";
+const char * COLOR_PRAGMA    = "173";
 
 #define FLAG_NONE     0
 #define FLAG_KEYWORD  1
@@ -100,7 +99,7 @@
 /**
  * Convert syntax hilighting flag to color code
  */
-char * flag_to_color(int flag) {
+const char * flag_to_color(int flag) {
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
@@ -1328,7 +1327,7 @@ void render_line(line_t * line, int width, int offset) {
 	int i = 0; /* Offset in char_t line data entries */
 	int j = 0; /* Offset in terminal cells */
 
-	char * last_color = NULL;
+	const char * last_color = NULL;
 
 	/* Set default text colors */
 	set_colors(COLOR_FG, COLOR_BG);
@@ -1394,7 +1393,7 @@ void render_line(line_t * line, int width, int offset) {
 			}
 
 			/* Syntax hilighting */
-			char * color = flag_to_color(c.flags);
+			const char * color = flag_to_color(c.flags);
 			if (!last_color || strcmp(color, last_color)) {
 				set_fg_color(color);
 				last_color = color;
