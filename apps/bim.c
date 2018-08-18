@@ -1251,6 +1251,18 @@ int codepoint_width(wchar_t codepoint) {
 		/* We render these as ^@ */
 		return 2;
 	}
+	if (codepoint == 0x7F) {
+		/* Renders as ^? */
+		return 2;
+	}
+	if (codepoint > 0x7f && codepoint < 0xa0) {
+		/* Upper control bytes <xx> */
+		return 4;
+	}
+	if (codepoint == 0xa0) {
+		/* Non-breaking space _ */
+		return 1;
+	}
 	/* Skip wcwidth for anything under 256 */
 	if (codepoint > 256) {
 		/* Higher codepoints may be wider (eg. Japanese) */
@@ -1570,6 +1582,18 @@ void render_line(line_t * line, int width, int offset) {
 				/* Codepoints under 32 to get converted to ^@ escapes */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("^%c", '@' + c.codepoint);
+				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (c.codepoint == 0x7f) {
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("^?");
+				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (c.codepoint > 0x7f && c.codepoint < 0xa0) {
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("<%2x>", c.codepoint);
+				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (c.codepoint == 0xa0) {
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("_");
 				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else {
 				/* Normal characters get output */
