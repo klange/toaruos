@@ -305,12 +305,10 @@ int bim_getch(void) {
 		_bim_unget = -1;
 		return out;
 	}
-#ifdef __linux__
-	struct pollfd fds[1];
-	fds[0].fd = global_config.tty_in;
-	fds[0].events = POLLIN;
-	int ret = poll(fds,1,200);
-	if (ret > 0 && fds[0].revents & POLLIN) {
+#ifdef __toaru__
+	int fds[] = {global_config.tty_in};
+	int index = fswait2(1,fds,200);
+	if (index == 0) {
 		unsigned char buf[1];
 		read(global_config.tty_in, buf, 1);
 		return buf[0];
@@ -318,9 +316,11 @@ int bim_getch(void) {
 		return -1;
 	}
 #else
-	int fds[] = {global_config.tty_in};
-	int index = fswait2(1,fds,200);
-	if (index == 0) {
+	struct pollfd fds[1];
+	fds[0].fd = global_config.tty_in;
+	fds[0].events = POLLIN;
+	int ret = poll(fds,1,200);
+	if (ret > 0 && fds[0].revents & POLLIN) {
 		unsigned char buf[1];
 		read(global_config.tty_in, buf, 1);
 		return buf[0];
