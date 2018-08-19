@@ -3577,6 +3577,7 @@ void line_selection_mode(void) {
 					case 'y':
 						yank_lines(start_line, env->line_no);
 						goto _leave_select_line;
+					case 'D':
 					case 'd':
 						yank_lines(start_line, env->line_no);
 						if (start_line <= env->line_no) {
