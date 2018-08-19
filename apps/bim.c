@@ -259,16 +259,24 @@ typedef struct {
 } line_t;
 
 /**
- * Global terminal state
+ * Global configuration state
  */
-int term_width, term_height;
-int csr_x_actual, csr_y_actual;
+struct {
+	/* Terminal size */
+	int term_width, term_height;
+	int bottom_size;
 
-/**
- * Command-line options
- */
-int hilight_on_open = 1;
-int initial_file_is_read_only = 0;
+	/* Command-line parameters */
+	int hilight_on_open;
+	int initial_file_is_read_only;
+
+} global_config = {
+	0, /* term_width */
+	0, /* term_height */
+	2, /* bottom_size */
+	1, /* hilight_on_open */
+	0  /* initial_file_is_read_only */
+};
 
 void redraw_line(int j, int x);
 
@@ -321,13 +329,13 @@ int bim_getch(void) {
  * line buffers.
  */
 typedef struct _env {
-	int    bottom_size;
-	short  lineno_width;
-
 	short  loading:1;
 	short  tabs:1;
 	short  modified:1;
 	short  readonly:1;
+
+	short  mode;
+	short  tabstop;
 
 	char * file_name;
 	int    offset;
@@ -338,8 +346,6 @@ typedef struct _env {
 	int    col_no;
 	char * search;
 	struct syntax_definition * syntax;
-	short  mode;
-	short  tabstop;
 	line_t ** lines;
 } buffer_t;
 
@@ -931,7 +937,7 @@ _multiline:
 		 * this ends up drawing from bottom to top when multiple lines
 		 * need to be redrawn by a recursive call.
 		 */
-		if (offset+1 >= env->offset && offset+1 < env->offset + term_height - env->bottom_size - 1) {
+		if (offset+1 >= env->offset && offset+1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
 			redraw_line(offset + 1 - env->offset,offset+1);
 		}
 	}
@@ -1171,7 +1177,6 @@ void setup_buffer(buffer_t * env) {
 	env->line_count  = 1; /* Buffers always have at least one line */
 	env->modified    = 0;
 	env->readonly    = 0;
-	env->bottom_size = 2;
 	env->offset      = 0;
 	env->line_avail  = 8; /* Default line buffer capacity */
 	env->tabs        = 1; /* Tabs by default */
@@ -1668,7 +1673,7 @@ void redraw_line(int j, int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], term_width - 3 - num_size, (x + 1 == env->line_no) ? env->coffset : 0);
+	render_line(env->lines[x], global_config.term_width - 3 - num_size, (x + 1 == env->line_no) ? env->coffset : 0);
 
 	/* Clear the rest of the line */
 	clear_to_end();
@@ -1682,7 +1687,7 @@ void redraw_text(void) {
 	hide_cursor();
 
 	/* Figure out the available size of the text region */
-	int l = term_height - env->bottom_size - 1;
+	int l = global_config.term_height - global_config.bottom_size - 1;
 	int j = 0;
 
 	/* Draw each line */
@@ -1713,7 +1718,7 @@ void redraw_statusbar(void) {
 	hide_cursor();
 
 	/* Move cursor to the status bar line (second from bottom */
-	place_cursor(1, term_height - 1);
+	place_cursor(1, global_config.term_height - 1);
 
 	/* Set background colors for status line */
 	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
@@ -1748,7 +1753,7 @@ void redraw_statusbar(void) {
 	sprintf(right_hand, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
 
 	/* Move the cursor appropriately to draw it */
-	place_cursor_h(term_width - strlen(right_hand)); /* TODO: What if we're localized and this has wide chars? */
+	place_cursor_h(global_config.term_width - strlen(right_hand)); /* TODO: What if we're localized and this has wide chars? */
 	printf("%s",right_hand);
 	fflush(stdout);
 }
@@ -1764,7 +1769,7 @@ void redraw_commandline(void) {
 	hide_cursor();
 
 	/* Move cursor to the last line */
-	place_cursor(1, term_height);
+	place_cursor(1, global_config.term_height);
 
 	/* Set background color */
 	set_colors(COLOR_FG, COLOR_BG);
@@ -1838,7 +1843,7 @@ void render_status_message(char * message, ...) {
 	hide_cursor();
 
 	/* Move cursor to the status bar line (second from bottom */
-	place_cursor(1, term_height - 1);
+	place_cursor(1, global_config.term_height - 1);
 
 	/* Set background colors for status line */
 	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
@@ -1903,7 +1908,7 @@ void place_cursor_actual(void) {
 		needs_redraw = 1;
 	}
 
-	while (y > term_height - env->bottom_size) {
+	while (y > global_config.term_height - global_config.bottom_size) {
 		y--;
 		env->offset++;
 		needs_redraw = 1;
@@ -1917,9 +1922,9 @@ void place_cursor_actual(void) {
 	}
 
 	/* If the cursor has gone off screen to the right... */
-	if (x > term_width - 1) {
+	if (x > global_config.term_width - 1) {
 		/* Adjust the offset appropriately to scroll horizontally */
-		int diff = x - (term_width - 1);
+		int diff = x - (global_config.term_width - 1);
 		env->coffset += diff;
 		x -= diff;
 		redraw_text();
@@ -1935,8 +1940,6 @@ void place_cursor_actual(void) {
 
 	/* Move the actual terminal cursor */
 	place_cursor(x,y);
-	csr_x_actual = x;
-	csr_y_actual = y;
 
 	/* Show the cursor */
 	show_cursor();
@@ -1949,8 +1952,8 @@ void SIGWINCH_handler(int sig) {
 	(void)sig;
 	struct winsize w;
 	ioctl(0, TIOCGWINSZ, &w);
-	term_width = w.ws_col;
-	term_height = w.ws_row;
+	global_config.term_width = w.ws_col;
+	global_config.term_height = w.ws_row;
 	redraw_all();
 
 	signal(SIGWINCH, SIGWINCH_handler);
@@ -1967,8 +1970,8 @@ void initialize(void) {
 
 	struct winsize w;
 	ioctl(0, TIOCGWINSZ, &w);
-	term_width = w.ws_col;
-	term_height = w.ws_row;
+	global_config.term_width = w.ws_col;
+	global_config.term_height = w.ws_row;
 	set_unbuffered();
 
 	mouse_enable();
@@ -2064,7 +2067,7 @@ void open_file(char * file) {
 	FILE * f = fopen(file, "r");
 
 	if (!f) {
-		if (hilight_on_open) {
+		if (global_config.hilight_on_open) {
 			env->syntax = match_syntax(file);
 		}
 		env->loading = 0;
@@ -2097,7 +2100,7 @@ void open_file(char * file) {
 		remove_line(env->lines, env->line_no-1);
 	}
 
-	if (hilight_on_open) {
+	if (global_config.hilight_on_open) {
 		env->syntax = match_syntax(file);
 		for (int i = 0; i < env->line_count; ++i) {
 			recalculate_syntax(env->lines[i],i);
@@ -2295,14 +2298,14 @@ void cursor_down(void) {
 		}
 
 		/* If we've scrolled past the bottom of the screen, scroll the screen */
-		if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+		if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
 			shift_up();
 
 			/* A new line appears on screen at the bottom, draw it */
-			int l = term_height - env->bottom_size - 1;
+			int l = global_config.term_height - global_config.bottom_size - 1;
 			if (env->offset + l < env->line_count + 1) {
 				redraw_line(l-1, env->offset + l-1);
 			} else {
@@ -2839,11 +2842,11 @@ _accept_candidate:
 		*cstart = '\0';
 	} else {
 		/* Print candidates in status bar */
-		char tmp[term_width+1];
-		memset(tmp, 0, term_width+1);
+		char tmp[global_config.term_width+1];
+		memset(tmp, 0, global_config.term_width+1);
 		int offset = 0;
 		for (int i = 0; i < candidate_count; ++i) {
-			if (offset + 1 + (signed)strlen(candidates[i]) > term_width - 5) {
+			if (offset + 1 + (signed)strlen(candidates[i]) > global_config.term_width - 5) {
 				strcat(tmp, "...");
 				break;
 			}
@@ -3352,10 +3355,10 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 			case '~':
 				switch (this_buf[*timeout-1]) {
 					case '6':
-						goto_line(env->line_no + term_height - 6);
+						goto_line(env->line_no + global_config.term_height - 6);
 						break;
 					case '5':
-						goto_line(env->line_no - (term_height - 6));
+						goto_line(env->line_no - (global_config.term_height - 6));
 						break;
 					case '3':
 						if (env->mode == MODE_INSERT) {
@@ -3454,7 +3457,7 @@ void insert_mode(void) {
 						}
 						env->col_no = 1;
 						env->line_no += 1;
-						if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+						if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 							env->offset += 1;
 						}
 						redraw_text();
@@ -3509,10 +3512,10 @@ int main(int argc, char * argv[]) {
 	while ((opt = getopt(argc, argv, "?sR")) != -1) {
 		switch (opt) {
 			case 's':
-				hilight_on_open = 0;
+				global_config.hilight_on_open = 0;
 				break;
 			case 'R':
-				initial_file_is_read_only = 1;
+				global_config.initial_file_is_read_only = 1;
 				break;
 			case '?':
 				show_usage(argv);
@@ -3524,7 +3527,7 @@ int main(int argc, char * argv[]) {
 
 	if (argc > optind) {
 		open_file(argv[optind]);
-		if (initial_file_is_read_only) {
+		if (global_config.initial_file_is_read_only) {
 			env->readonly = 1;
 		}
 	} else {
@@ -3587,7 +3590,7 @@ int main(int argc, char * argv[]) {
 						place_cursor_actual();
 						break;
 					case ' ':
-						goto_line(env->line_no + term_height - 6);
+						goto_line(env->line_no + global_config.term_height - 6);
 						break;
 					case 'O':
 						{
@@ -3605,7 +3608,7 @@ int main(int argc, char * argv[]) {
 							env->lines = add_line(env->lines, env->line_no);
 							env->col_no = 1;
 							env->line_no += 1;
-							if (env->line_no > env->offset + term_height - env->bottom_size - 1) {
+							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 								env->offset += 1;
 							}
 							redraw_text();
