@@ -1004,8 +1004,10 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 	/* There is one new character in the line */
 	line->actual += 1;
 
-	recalculate_tabs(line);
-	recalculate_syntax(line, lineno);
+	if (!env->loading) {
+		recalculate_tabs(line);
+		recalculate_syntax(line, lineno);
+	}
 
 	return line;
 }
@@ -1084,7 +1086,7 @@ line_t ** add_line(line_t ** lines, int offset) {
 	env->line_count += 1;
 	env->lines = lines;
 
-	if (offset > 0) {
+	if (offset > 0 && !env->loading) {
 		recalculate_syntax(lines[offset-1],offset-1);
 	}
 	return lines;
