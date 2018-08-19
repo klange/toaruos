@@ -25,7 +25,7 @@
 
 #include <wchar.h>
 
-#include <toaru/utf8decode.h>
+#include <toaru/decodeutf8.h>
 #include <toaru/kbd.h>
 #include <toaru/graphics.h>
 #include <toaru/termemu.h>

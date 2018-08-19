@@ -36,7 +36,7 @@
 
 #define TRACE_APP_NAME "terminal"
 #include <toaru/trace.h>
-#include <toaru/utf8decode.h>
+#include <toaru/decodeutf8.h>
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
 #include <toaru/graphics.h>

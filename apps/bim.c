@@ -49,13 +49,13 @@
 
 #ifdef __toaru__
 #include <sys/fswait.h>
-#include <toaru/utf8decode.h>
+#include <toaru/decodeutf8.h>
 #else
 #include <poll.h>
-#include "../base/usr/include/toaru/utf8decode.h"
+#include "../base/usr/include/toaru/decodeutf8.h"
 #endif
 
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 4096
 #define ENTER_KEY     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
