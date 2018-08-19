@@ -22,13 +22,13 @@
  *
  * Bim is inspired by vim, and its name is short for "Bad IMitation".
  *
- * Bim supports basic syntax highlighting, has a mode-based interface
- * similar to vim's, and can be built for ToaruOS and Linux (and should
- * be easily portable to other Unix-likes).
+ * Bim supports syntax highlighting, extensive editing, line selection
+ * and copy-paste, and can be built for ToaruOS and Linux (and should be
+ * easily portable to other Unix-like environments).
  *
  * Future goals:
- * - Copy / paste (yank)
  * - History stack
+ * - Character selection
  */
 #define _XOPEN_SOURCE 500
 #include <stdio.h>
@@ -273,12 +273,16 @@ struct {
 	int hilight_on_open;
 	int initial_file_is_read_only;
 
+	line_t ** yanks;
+	size_t    yank_count;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
 	2, /* bottom_size */
 	1, /* hilight_on_open */
-	0  /* initial_file_is_read_only */
+	0, /* initial_file_is_read_only */
+	NULL, /* yanks */
+	0  /* yank_count */
 };
 
 void redraw_line(int j, int x);
@@ -834,7 +838,12 @@ int check_line(line_t * line, int c, char * str, int last) {
  * Calculate syntax hilighting for the given line.
  */
 void recalculate_syntax(line_t * line, int offset) {
-	if (!env->syntax) return;
+	if (!env->syntax) {
+		for (int i = 0; i < line->actual; ++i) {
+			line->text[i].flags = 0;
+		}
+		return;
+	}
 
 	/* Start from the line's stored in initial state */
 	int state = line->istate;
@@ -1076,6 +1085,20 @@ line_t ** add_line(line_t ** lines, int offset) {
 		recalculate_syntax(lines[offset-1],offset-1);
 	}
 	return lines;
+}
+
+/**
+ * Replace a line with data from another line (used by paste to paste yanked lines)
+ */
+void replace_line(line_t ** lines, int offset, line_t * replacement) {
+	if (lines[offset]->available < replacement->actual) {
+		lines[offset] = realloc(lines[offset], sizeof(line_t) + sizeof(char_t) * replacement->available);
+		lines[offset]->available = replacement->available;
+	}
+	lines[offset]->actual = replacement->actual;
+	memcpy(&lines[offset]->text, &replacement->text, sizeof(char_t) * replacement->actual);
+
+	recalculate_syntax(lines[offset],offset);
 }
 
 /**
@@ -2544,6 +2567,10 @@ void process_command(char * cmd) {
 			/* TODO: Reopen file? */
 			render_error("Expected a file to open...");
 		}
+	} else if (!strcmp(argv[0], "tabnew")) {
+		env = buffer_new();
+		setup_buffer(env);
+		redraw_all();
 	} else if (!strcmp(argv[0], "w")) {
 		/* w: write file */
 		if (argc > 1) {
@@ -2751,6 +2778,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("syntax");
 		add_candidate("tabn");
 		add_candidate("tabp");
+		add_candidate("tabnew");
 		add_candidate("theme");
 		add_candidate("tabs");
 		add_candidate("tabstop");
@@ -3411,6 +3439,41 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 }
 
 /**
+ * Yank lines between line start and line end (which may be in either order)
+ */
+void yank_lines(int start, int end) {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+	}
+	int lines_to_yank;
+	int start_point;
+	if (start <= end) {
+		lines_to_yank = end - start + 1;
+		start_point = start - 1;
+	} else {
+		lines_to_yank = start - end + 1;
+		start_point = end - 1;
+	}
+	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
+	global_config.yank_count = lines_to_yank;
+	for (int i = 0; i < lines_to_yank; ++i) {
+		global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
+		global_config.yanks[i]->available = env->lines[start_point+i]->available;
+		global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
+		global_config.yanks[i]->istate = 0;
+		memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
+
+		for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
+			global_config.yanks[i]->text[j].flags = 0;
+		}
+	}
+	render_status_message("Yanked %d lines", lines_to_yank);
+}
+
+/**
  * LINE SELECTION mode
  *
  * Equivalent to visual line in vim; selects lines of texts.
@@ -3494,7 +3557,11 @@ void line_selection_mode(void) {
 					case 'l':
 						cursor_right();
 						break;
+					case 'y':
+						yank_lines(start_line, env->line_no);
+						goto _leave_select_line;
 					case 'd':
+						yank_lines(start_line, env->line_no);
 						if (start_line <= env->line_no) {
 							int lines_to_delete = env->line_no - start_line + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
@@ -3507,7 +3574,6 @@ void line_selection_mode(void) {
 								remove_line(env->lines, env->line_no-1);
 							}
 						}
-						redraw_text();
 						set_modified();
 						goto _leave_select_line;
 					case ' ':
@@ -3789,6 +3855,24 @@ int main(int argc, char * argv[]) {
 							env->col_no += 1;
 						}
 						goto _insert;
+					case 'P':
+					case 'p':
+						if (global_config.yanks) {
+							for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+								env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
+							}
+							for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+								replace_line(env->lines, env->line_no - (c == 'P' ? 1 : 0) + i, global_config.yanks[i]);
+							}
+							for (int i = 0; i < env->line_count; ++i) {
+								env->lines[i]->istate = 0;
+							}
+							for (int i = 0; i < env->line_count; ++i) {
+								recalculate_syntax(env->lines[i],i);
+							}
+							redraw_all();
+						}
+						break;
 					case '$':
 						env->col_no = env->lines[env->line_no-1]->actual+1;
 						break;
