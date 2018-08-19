@@ -27,8 +27,8 @@
  * be easily portable to other Unix-likes).
  *
  * Future goals:
+ * - Copy / paste (yank)
  * - History stack
- * - Selection
  */
 #define _XOPEN_SOURCE 500
 #include <stdio.h>
@@ -91,6 +91,7 @@ const char * COLOR_NUMERAL   = "5;173";
 #define FLAG_TYPE     4
 #define FLAG_PRAGMA   5
 #define FLAG_NUMERAL  6
+#define FLAG_SELECT   7
 
 #define FLAG_NORM_MAX 15
 
@@ -229,6 +230,8 @@ const char * flag_to_color(int flag) {
 			return COLOR_NUMERAL;
 		case FLAG_PRAGMA:
 			return COLOR_PRAGMA;
+		case FLAG_SELECT:
+			return COLOR_BG;
 		default:
 			return COLOR_FG;
 	}
@@ -359,6 +362,7 @@ buffer_t * env;
  */
 #define MODE_NORMAL 0
 #define MODE_INSERT 1
+#define MODE_LINE_SELECTION 2
 
 /**
  * Available buffers
@@ -1570,36 +1574,46 @@ void render_line(line_t * line, int width, int offset) {
 
 			/* Syntax hilighting */
 			const char * color = flag_to_color(c.flags);
-			if (!last_color || strcmp(color, last_color)) {
-				set_fg_color(color);
-				last_color = color;
+			if (c.flags == FLAG_SELECT) {
+				set_colors(COLOR_BG, COLOR_FG);
+			} else {
+				if (!last_color || strcmp(color, last_color)) {
+					set_fg_color(color);
+					last_color = color;
+				}
+			}
+
+			void _set_colors(const char * fg, const char * bg) {
+				if (c.flags != FLAG_SELECT) {
+					set_colors(fg,bg);
+				}
 			}
 
 			/* Render special characters */
 			if (c.codepoint == '\t') {
-				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("»");
 				for (int i = 1; i < c.display_width; ++i) {
 					printf("·");
 				}
-				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint < 32) {
 				/* Codepoints under 32 to get converted to ^@ escapes */
-				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("^%c", '@' + c.codepoint);
-				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint == 0x7f) {
-				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("^?");
-				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint > 0x7f && c.codepoint < 0xa0) {
-				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("<%2x>", c.codepoint);
-				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint == 0xa0) {
-				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("_");
-				set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else {
 				/* Normal characters get output */
 				char tmp[7]; /* Max six bytes, use 7 to ensure last is always nil */
@@ -1778,6 +1792,11 @@ void redraw_commandline(void) {
 	if (env->mode == MODE_INSERT) {
 		set_bold();
 		printf("-- INSERT --");
+		clear_to_end();
+		reset();
+	} else if (env->mode == MODE_LINE_SELECTION) {
+		set_bold();
+		printf("-- LINE SELECTION --");
 		clear_to_end();
 		reset();
 	} else {
@@ -3392,6 +3411,152 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 }
 
 /**
+ * LINE SELECTION mode
+ *
+ * Equivalent to visual line in vim; selects lines of texts.
+ */
+void line_selection_mode(void) {
+	int start_line = env->line_no;
+	int prev_line  = start_line;
+
+	env->mode = MODE_LINE_SELECTION;
+	redraw_commandline();
+
+	int c;
+	int timeout = 0;
+	int this_buf[20];
+
+	for (int j = 0; j < env->lines[env->line_no-1]->actual; ++j) {
+		env->lines[env->line_no-1]->text[j].flags = FLAG_SELECT;
+	}
+	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+
+	void _redraw_line(int line) {
+		if (line == start_line) return;
+
+		if ((env->line_no < start_line && line < env->line_no) ||
+			(env->line_no > start_line && line > env->line_no) ||
+			(env->line_no == start_line && line != start_line)) {
+			recalculate_syntax(env->lines[line-1],line-1);
+		} else {
+			for (int j = 0; j < env->lines[line-1]->actual; ++j) {
+				env->lines[line-1]->text[j].flags = FLAG_SELECT;
+			}
+		}
+		if (line - env->offset + 1 > 1 &&
+			line - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) {
+			redraw_line(line - env->offset - 1, line-1);
+		}
+	}
+
+	while ((c = bim_getch())) {
+		if (c == -1) {
+			if (timeout && this_buf[timeout-1] == '\033') {
+				goto _leave_select_line;
+			}
+			timeout = 0;
+			continue;
+		} else {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						cursor_left();
+						break;
+					case ':':
+						/* Switch to command mode */
+						command_mode();
+						break;
+					case '/':
+						/* Switch to search mode */
+						search_mode();
+						break;
+					case 'V':
+						goto _leave_select_line;
+					case 'n':
+						search_next();
+						break;
+					case 'j':
+						cursor_down();
+						break;
+					case 'k':
+						cursor_up();
+						break;
+					case 'h':
+						cursor_left();
+						break;
+					case 'l':
+						cursor_right();
+						break;
+					case 'd':
+						if (start_line <= env->line_no) {
+							int lines_to_delete = env->line_no - start_line + 1;
+							for (int i = 0; i < lines_to_delete; ++i) {
+								remove_line(env->lines, start_line-1);
+							}
+							env->line_no = start_line;
+						} else {
+							int lines_to_delete = start_line - env->line_no + 1;
+							for (int i = 0; i < lines_to_delete; ++i) {
+								remove_line(env->lines, env->line_no-1);
+							}
+						}
+						redraw_text();
+						set_modified();
+						goto _leave_select_line;
+					case ' ':
+						goto_line(env->line_no + global_config.term_height - 6);
+						break;
+					case '$':
+						env->col_no = env->lines[env->line_no-1]->actual+1;
+						break;
+					case '0':
+						env->col_no = 1;
+						break;
+				}
+			} else {
+				if (handle_escape(this_buf,&timeout,c)) {
+					bim_unget(c);
+					goto _leave_select_line;
+				}
+			}
+
+			/* Mark current line */
+			_redraw_line(env->line_no);
+
+			/* Properly mark everything in the span we just moved through */
+			if (prev_line < env->line_no) {
+				for (int i = prev_line; i < env->line_no; ++i) {
+					_redraw_line(i);
+				}
+				prev_line = env->line_no;
+			} else if (prev_line > env->line_no) {
+				for (int i = env->line_no + 1; i <= prev_line; ++i) {
+					_redraw_line(i);
+				}
+				prev_line = env->line_no;
+			}
+			place_cursor_actual();
+
+		}
+	}
+
+_leave_select_line:
+	env->mode = MODE_NORMAL;
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	redraw_all();
+}
+
+
+/**
  * INSERT mode
  *
  * Accept input into the text buffer.
@@ -3563,6 +3728,9 @@ int main(int argc, char * argv[]) {
 					case '/':
 						/* Switch to search mode */
 						search_mode();
+						break;
+					case 'V':
+						line_selection_mode();
 						break;
 					case 'n':
 						search_next();
