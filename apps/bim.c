@@ -1782,6 +1782,12 @@ void redraw_statusbar(void) {
 		printf("[ro]");
 	}
 
+	printf(" ");
+
+	if (global_config.yanks) {
+		printf("[y:%ld]", global_config.yank_count);
+	}
+
 	/* Clear the rest of the status bar */
 	clear_to_end();
 
@@ -2169,6 +2175,7 @@ void quit(void) {
 	set_buffered();
 	reset();
 	clear_screen();
+	show_cursor();
 	printf("Thanks for flying bim!\n");
 	exit(0);
 }
@@ -2711,6 +2718,16 @@ void process_command(char * cmd) {
 				render_error("Invalid tabstop: %s", argv[1]);
 			}
 		}
+	} else if (!strcmp(argv[0], "clearyank")) {
+		if (global_config.yanks) {
+			for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+				free(global_config.yanks[i]);
+			}
+			free(global_config.yanks);
+			global_config.yanks = NULL;
+			global_config.yank_count = 0;
+			redraw_statusbar();
+		}
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -2784,6 +2801,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("tabstop");
 		add_candidate("spaces");
 		add_candidate("noh");
+		add_candidate("clearyank");
 		goto _accept_candidate;
 	}
 
@@ -3470,7 +3488,6 @@ void yank_lines(int start, int end) {
 			global_config.yanks[i]->text[j].flags = 0;
 		}
 	}
-	render_status_message("Yanked %d lines", lines_to_yank);
 }
 
 /**
