@@ -275,6 +275,8 @@ struct {
 
 	line_t ** yanks;
 	size_t    yank_count;
+
+	int tty_in;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -282,7 +284,8 @@ struct {
 	1, /* hilight_on_open */
 	0, /* initial_file_is_read_only */
 	NULL, /* yanks */
-	0  /* yank_count */
+	0, /* yank_count */
+	STDIN_FILENO
 };
 
 void redraw_line(int j, int x);
@@ -304,22 +307,22 @@ int bim_getch(void) {
 	}
 #ifdef __linux__
 	struct pollfd fds[1];
-	fds[0].fd = STDIN_FILENO;
+	fds[0].fd = global_config.tty_in;
 	fds[0].events = POLLIN;
 	int ret = poll(fds,1,200);
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		unsigned char buf[1];
-		read(STDIN_FILENO, buf, 1);
+		read(global_config.tty_in, buf, 1);
 		return buf[0];
 	} else {
 		return -1;
 	}
 #else
-	int fds[] = {STDIN_FILENO};
+	int fds[] = {global_config.tty_in};
 	int index = fswait2(1,fds,200);
 	if (index == 0) {
 		unsigned char buf[1];
-		read(STDIN_FILENO, buf, 1);
+		read(global_config.tty_in, buf, 1);
 		return buf[0];
 	} else {
 		return -1;
@@ -1224,14 +1227,14 @@ void setup_buffer(buffer_t * env) {
  */
 struct termios old;
 void set_unbuffered(void) {
-	tcgetattr(fileno(stdin), &old);
+	tcgetattr(STDOUT_FILENO, &old);
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO);
-	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
 
 void set_buffered(void) {
-	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &old);
 }
 
 /**
@@ -1999,7 +2002,7 @@ void place_cursor_actual(void) {
 void SIGWINCH_handler(int sig) {
 	(void)sig;
 	struct winsize w;
-	ioctl(0, TIOCGWINSZ, &w);
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	global_config.term_width = w.ws_col;
 	global_config.term_height = w.ws_row;
 	redraw_all();
@@ -2017,7 +2020,7 @@ void initialize(void) {
 	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
 
 	struct winsize w;
-	ioctl(0, TIOCGWINSZ, &w);
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	global_config.term_width = w.ws_col;
 	global_config.term_height = w.ws_row;
 	set_unbuffered();
@@ -2104,15 +2107,23 @@ struct syntax_definition * match_syntax(char * file) {
  */
 void open_file(char * file) {
 	env = buffer_new();
-
 	env->loading = 1;
-
-	env->file_name = malloc(strlen(file) + 1);
-	memcpy(env->file_name, file, strlen(file) + 1);
 
 	setup_buffer(env);
 
-	FILE * f = fopen(file, "r");
+	FILE * f;
+
+	if (!strcmp(file,"-")) {
+		/**
+		 * Read file from stdin. stderr provides terminal input.
+		 */
+		f = stdin;
+		global_config.tty_in = STDERR_FILENO;
+		env->modified = 1;
+	} else {
+		f = fopen(file, "r");
+		env->file_name = strdup(file);
+	}
 
 	if (!f) {
 		if (global_config.hilight_on_open) {
@@ -2122,25 +2133,13 @@ void open_file(char * file) {
 		return;
 	}
 
-	size_t length;
-
-	fseek(f, 0, SEEK_END);
-	length = ftell(f);
-	fseek(f, 0, SEEK_SET);
-
 	uint8_t buf[BLOCK_SIZE];
 
 	state = 0;
 
-	/* XXX: while (!feof()) ? */
-	while (length > BLOCK_SIZE) {
-		fread(buf, BLOCK_SIZE, 1, f);
-		add_buffer(buf, BLOCK_SIZE);
-		length -= BLOCK_SIZE;
-	}
-	if (length > 0) {
-		fread(buf, 1, length, f);
-		add_buffer((uint8_t *)buf, length);
+	while (!feof(f)) {
+		size_t r = fread(buf, 1, BLOCK_SIZE, f);
+		add_buffer(buf, r);
 	}
 
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
