@@ -1410,7 +1410,11 @@ int codepoint_width(wchar_t codepoint) {
 	/* Skip wcwidth for anything under 256 */
 	if (codepoint > 256) {
 		/* Higher codepoints may be wider (eg. Japanese) */
-		return wcwidth(codepoint);
+		int out = wcwidth(codepoint);
+		if (out < 1) {
+			/* Invalid character */
+			return 1;
+		}
 	}
 	return 1;
 }
