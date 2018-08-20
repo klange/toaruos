@@ -895,6 +895,7 @@ static char * syn_bimrc_keywords[] = {
 static char * syn_bimrc_types[] = {NULL}; /* none */
 
 static int syn_bimrc_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
 	if (i == 0 && c == '#') {
 		*out_left = line->actual+1;
 		return FLAG_COMMENT;
@@ -2201,8 +2202,8 @@ void SIGWINCH_handler(int sig) {
 /**
  * Handle suspend
  */
-
 void SIGTSTP_handler(int sig) {
+	(void)sig;
 	mouse_disable();
 	set_buffered();
 	reset();
@@ -2214,6 +2215,7 @@ void SIGTSTP_handler(int sig) {
 }
 
 void SIGCONT_handler(int sig) {
+	(void)sig;
 	set_unbuffered();
 	redraw_all();
 	signal(SIGCONT, SIGCONT_handler);
