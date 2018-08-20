@@ -186,7 +186,7 @@ void load_colorscheme_ansi(void) {
 	COLOR_TAB_BG    = "@0";
 	COLOR_KEYWORD   = "@12";
 	COLOR_STRING    = "@2";
-	COLOR_COMMENT   = "@7";
+	COLOR_COMMENT   = "@8";
 	COLOR_TYPE      = "@6";
 	COLOR_PRAGMA    = "@1";
 	COLOR_NUMERAL   = "@5";
