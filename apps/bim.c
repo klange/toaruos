@@ -3158,7 +3158,7 @@ done:
  *       where the command input bar is rendered.
  */
 void command_mode(void) {
-	char c;
+	int c;
 	char buffer[1024] = {0};
 	int  buffer_len = 0;
 
@@ -3265,7 +3265,7 @@ void draw_search_match(int line, char * buffer, int redraw_buffer) {
  * Search text for substring match.
  */
 void search_mode(void) {
-	char c;
+	int c;
 	char buffer[1024] = {0};
 	int  buffer_len = 0;
 
