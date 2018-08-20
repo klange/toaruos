@@ -2339,6 +2339,22 @@ void open_file(char * file) {
 		}
 	}
 
+	/* Try to automatically figure out tabs vs. spaces */
+	int tabs = 0, spaces = 0;
+	for (int i = 0; i < env->line_count; ++i) {
+		if (env->lines[i]->actual > 1) { /* Make sure line has at least some text on it */
+			if (env->lines[i]->text[0].codepoint == '\t') tabs++;
+			if (env->lines[i]->text[0].codepoint == ' ' &&
+				env->lines[i]->text[1].codepoint == ' ') /* Ignore spaces at the start of asterisky C comments */
+				spaces++;
+		}
+	}
+	if (spaces > tabs) {
+		env->tabs = 0;
+	}
+
+	/* TODO figure out tabstop for spaces? */
+
 	env->loading = 0;
 
 	for (int i = 0; i < env->line_count; ++i) {
