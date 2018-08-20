@@ -1316,6 +1316,7 @@ void setup_buffer(buffer_t * env) {
 	env->line_avail  = 8; /* Default line buffer capacity */
 	env->tabs        = 1; /* Tabs by default */
 	env->tabstop     = 4; /* Tab stop width */
+	env->indent      = 1; /* Auto-indent by default */
 
 	/* Allocate line buffer */
 	env->lines = malloc(sizeof(line_t *) * env->line_avail);
