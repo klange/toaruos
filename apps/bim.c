@@ -549,7 +549,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 	return 0;
 }
 
-char * syn_c_ext[] = {".c",".h",NULL};
+char * syn_c_ext[] = {".c",".h",".cpp",".hpp",NULL};
 
 static int syn_c_finish(line_t * line, int * left, int state) {
 	if (state == FLAG_COMMENT_ML) {
