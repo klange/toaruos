@@ -1890,6 +1890,12 @@ void redraw_statusbar(void) {
 
 	printf(" ");
 
+	if (env->tabs) {
+		printf("[tabs]");
+	} else {
+		printf("[spaces=%d]", env->tabstop);
+	}
+
 	if (global_config.yanks) {
 		printf("[y:%ld]", global_config.yank_count);
 	}
@@ -2760,8 +2766,10 @@ void process_command(char * cmd) {
 		next_tab();
 	} else if (!strcmp(argv[0], "indent")) {
 		env->indent = 1;
+		redraw_statusbar();
 	} else if (!strcmp(argv[0], "noindent")) {
 		env->indent = 0;
+		redraw_statusbar();
 	} else if (!strcmp(argv[0], "noh")) {
 		if (env->search) {
 			free(env->search);
@@ -2852,8 +2860,10 @@ void process_command(char * cmd) {
 		redraw_all();
 	} else if (!strcmp(argv[0], "tabs")) {
 		env->tabs = 1;
+		redraw_statusbar();
 	} else if (!strcmp(argv[0], "spaces")) {
 		env->tabs = 0;
+		redraw_statusbar();
 	} else if (!strcmp(argv[0], "tabstop")) {
 		if (argc < 2) {
 			render_status_message("tabstop=%d", env->tabstop);
@@ -2953,6 +2963,8 @@ void command_tab_complete(char * buffer) {
 		add_candidate("spaces");
 		add_candidate("noh");
 		add_candidate("clearyank");
+		add_candidate("indent");
+		add_candidate("noindent");
 		goto _accept_candidate;
 	}
 
@@ -3568,6 +3580,13 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 			case 'F': // end
 				cursor_end();
 				break;
+			case 'Z':
+				/* Shift tab */
+				if (env->mode == MODE_LINE_SELECTION) {
+					*timeout = 0;
+					return 'Z';
+				}
+				break;
 			case '~':
 				switch (this_buf[*timeout-1]) {
 					case '6':
@@ -3662,8 +3681,8 @@ void line_selection_mode(void) {
 	}
 	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 
-	void _redraw_line(int line) {
-		if (line == start_line) return;
+	void _redraw_line(int line, int force_start_line) {
+		if (!force_start_line && line == start_line) return;
 
 		if ((env->line_no < start_line && line < env->line_no) ||
 			(env->line_no > start_line && line > env->line_no) ||
@@ -3678,6 +3697,57 @@ void line_selection_mode(void) {
 			line - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) {
 			redraw_line(line - env->offset - 1, line-1);
 		}
+	}
+
+	void adjust_indent(int direction) {
+		int lines_to_cover = 0;
+		int start_point = 0;
+		if (start_line <= env->line_no) {
+			start_point = start_line - 1;
+			lines_to_cover = env->line_no - start_line + 1;
+		} else {
+			start_point = env->line_no - 1;
+			lines_to_cover = start_line - env->line_no + 1;
+		}
+		for (int i = 0; i < lines_to_cover; ++i) {
+			if ((direction == -1) && env->lines[start_point + i]->actual < 1) continue;
+			if (direction == -1) {
+				if (env->tabs) {
+					if (env->lines[start_point + i]->text[0].codepoint == '\t') {
+						line_delete(env->lines[start_point + i],1,start_point+i);
+						_redraw_line(start_point+i+1,1);
+					}
+				} else {
+					for (int j = 0; j < env->tabstop; ++j) {
+						if (env->lines[start_point + i]->text[0].codepoint == ' ') {
+							line_delete(env->lines[start_point + i],1,start_point+i);
+						}
+					}
+					_redraw_line(start_point+i+1,1);
+				}
+			} else if (direction == 1) {
+				if (env->tabs) {
+					char_t c;
+					c.codepoint = '\t';
+					c.display_width = env->tabstop;
+					c.flags = FLAG_SELECT;
+					env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
+				} else {
+					for (int j = 0; j < env->tabstop; ++j) {
+						char_t c;
+						c.codepoint = ' ';
+						c.display_width = 1;
+						c.flags = FLAG_SELECT;
+						env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
+					}
+				}
+				_redraw_line(start_point+i+1,1);
+			}
+		}
+		if (env->col_no > env->lines[env->line_no-1]->actual) {
+			env->col_no = env->lines[env->line_no-1]->actual;
+		}
+		set_modified();
 	}
 
 	while ((c = bim_getch())) {
@@ -3707,6 +3777,9 @@ void line_selection_mode(void) {
 					case '/':
 						/* Switch to search mode */
 						search_mode();
+						break;
+					case '\t':
+						adjust_indent(1);
 						break;
 					case 'V':
 						goto _leave_select_line;
@@ -3756,24 +3829,29 @@ void line_selection_mode(void) {
 						break;
 				}
 			} else {
-				if (handle_escape(this_buf,&timeout,c)) {
-					bim_unget(c);
-					goto _leave_select_line;
+				switch (handle_escape(this_buf,&timeout,c)) {
+					case 1:
+						bim_unget(c);
+						goto _leave_select_line;
+					case 'Z':
+						/* Unindent */
+						adjust_indent(-1);
+						break;
 				}
 			}
 
 			/* Mark current line */
-			_redraw_line(env->line_no);
+			_redraw_line(env->line_no,0);
 
 			/* Properly mark everything in the span we just moved through */
 			if (prev_line < env->line_no) {
 				for (int i = prev_line; i < env->line_no; ++i) {
-					_redraw_line(i);
+					_redraw_line(i,0);
 				}
 				prev_line = env->line_no;
 			} else if (prev_line > env->line_no) {
 				for (int i = env->line_no + 1; i <= prev_line; ++i) {
-					_redraw_line(i);
+					_redraw_line(i,0);
 				}
 				prev_line = env->line_no;
 			}
