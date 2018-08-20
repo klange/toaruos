@@ -341,6 +341,7 @@ typedef struct _env {
 	short  tabs:1;
 	short  modified:1;
 	short  readonly:1;
+	short  indent:1;
 
 	short  mode;
 	short  tabstop;
@@ -1270,6 +1271,28 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 }
 
 /**
+ * Add indentation from the previous (temporally) line
+ */
+void add_indent(int new_line, int old_line) {
+	if (env->indent) {
+		int changed = 0;
+		for (int i = 0; i < env->lines[old_line]->actual; ++i) {
+			if (env->lines[old_line]->text[i].codepoint == ' ' ||
+				env->lines[old_line]->text[i].codepoint == '\t') {
+				env->lines[new_line] = line_insert(env->lines[new_line],env->lines[old_line]->text[i],i,new_line);
+				env->col_no++;
+				changed = 1;
+			} else {
+				break;
+			}
+		}
+		if (changed) {
+			recalculate_syntax(env->lines[new_line],new_line);
+		}
+	}
+}
+
+/**
  * Initialize a buffer with default values
  */
 void setup_buffer(buffer_t * env) {
@@ -1869,6 +1892,10 @@ void redraw_statusbar(void) {
 
 	if (global_config.yanks) {
 		printf("[y:%ld]", global_config.yank_count);
+	}
+
+	if (env->indent) {
+		printf("[indent]");
 	}
 
 	/* Clear the rest of the status bar */
@@ -2731,6 +2758,10 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "tabn")) {
 		/* Previous tab */
 		next_tab();
+	} else if (!strcmp(argv[0], "indent")) {
+		env->indent = 1;
+	} else if (!strcmp(argv[0], "noindent")) {
+		env->indent = 0;
 	} else if (!strcmp(argv[0], "noh")) {
 		if (env->search) {
 			free(env->search);
@@ -3826,6 +3857,7 @@ void insert_mode(void) {
 						}
 						env->col_no = 1;
 						env->line_no += 1;
+						add_indent(env->line_no-1,env->line_no-2);
 						if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 							env->offset += 1;
 						}
@@ -3969,6 +4001,7 @@ int main(int argc, char * argv[]) {
 							if (env->readonly) goto _readonly;
 							env->lines = add_line(env->lines, env->line_no-1);
 							env->col_no = 1;
+							add_indent(env->line_no-1,env->line_no);
 							redraw_text();
 							set_modified();
 							place_cursor_actual();
@@ -3980,6 +4013,7 @@ int main(int argc, char * argv[]) {
 							env->lines = add_line(env->lines, env->line_no);
 							env->col_no = 1;
 							env->line_no += 1;
+							add_indent(env->line_no-1,env->line_no-2);
 							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 								env->offset += 1;
 							}
