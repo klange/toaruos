@@ -3779,6 +3779,7 @@ void line_selection_mode(void) {
 						search_mode();
 						break;
 					case '\t':
+						if (env->readonly) goto _readonly;
 						adjust_indent(1);
 						break;
 					case 'V':
@@ -3803,6 +3804,7 @@ void line_selection_mode(void) {
 						goto _leave_select_line;
 					case 'D':
 					case 'd':
+						if (env->readonly) goto _readonly;
 						yank_lines(start_line, env->line_no);
 						if (start_line <= env->line_no) {
 							int lines_to_delete = env->line_no - start_line + 1;
@@ -3835,6 +3837,7 @@ void line_selection_mode(void) {
 						goto _leave_select_line;
 					case 'Z':
 						/* Unindent */
+						if (env->readonly) goto _readonly;
 						adjust_indent(-1);
 						break;
 				}
@@ -3856,7 +3859,9 @@ void line_selection_mode(void) {
 				prev_line = env->line_no;
 			}
 			place_cursor_actual();
-
+			continue;
+_readonly:
+			render_error("Buffer is read-only");
 		}
 	}
 
@@ -3981,6 +3986,7 @@ static void show_usage(char * argv[]) {
 			"usage: %s [-s] [path]\n"
 			"\n"
 			" -s     \033[3mdisable automatic syntax highlighting\033[0m\n"
+			" -R     \033[3mopen initial buffer read-only\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
 }
