@@ -1972,11 +1972,9 @@ void update_title(void) {
 	char cwd[1024] = {'/',0};
 	getcwd(cwd, 1024);
 
-	/*
-	 * XXX: I think this only works in a few terminals.
-	 *      VTE seems to have a different escape sequence for tab names.
-	 */
-	printf("\033]1;%s%s (%s) - BIM\007", env->file_name, env->modified ? " +" : "", cwd);
+	for (int i = 1; i < 3; ++i) {
+		printf("\033]%d;%s%s (%s) - BIM\007", i, env->file_name ? env->file_name : "[No Name]", env->modified ? " +" : "", cwd);
+	}
 }
 
 /**
