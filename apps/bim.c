@@ -275,6 +275,8 @@ struct {
 	size_t    yank_count;
 
 	int tty_in;
+
+	const char * bimrc_path;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -283,7 +285,8 @@ struct {
 	0, /* initial_file_is_read_only */
 	NULL, /* yanks */
 	0, /* yank_count */
-	STDIN_FILENO
+	STDIN_FILENO, /* tty_in */
+	"~/.bimrc" /* bimrc_path */
 };
 
 void redraw_line(int j, int x);
@@ -884,6 +887,31 @@ static int syn_make_extended(line_t * line, int i, int c, int last, int * out_le
 	return FLAG_NONE;
 }
 
+static char * syn_bimrc_keywords[] = {
+	"theme",
+	NULL,
+};
+
+static char * syn_bimrc_types[] = {NULL}; /* none */
+
+static int syn_bimrc_extended(line_t * line, int i, int c, int last, int * out_left) {
+	if (i == 0 && c == '#') {
+		*out_left = line->actual+1;
+		return FLAG_COMMENT;
+	}
+	return FLAG_NONE;
+}
+
+static char * syn_bimrc_ext[] = {".bimrc",NULL};
+
+static int syn_bimrc_finish(line_t * line, int * left, int state) {
+	/* No multilines supported */
+	(void)line;
+	(void)left;
+	(void)state;
+	return 0;
+}
+
 /**
  * Syntax hilighting definition database
  */
@@ -900,6 +928,7 @@ struct syntax_definition {
 	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
 	{"esh",syn_sh_ext,syn_sh_keywords,syn_sh_types,syn_sh_extended,syn_sh_iskeywordchar,syn_sh_finish},
 	{"make",syn_make_ext,syn_make_keywords,syn_make_types,syn_make_extended,syn_make_iskeywordchar,syn_make_finish},
+	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,syn_bimrc_types,syn_bimrc_extended,syn_c_iskeywordchar,syn_bimrc_finish},
 	{NULL}
 };
 
@@ -4090,6 +4119,87 @@ static void show_usage(char * argv[]) {
 			"\n", argv[0]);
 }
 
+/**
+ * Load bimrc configuration file.
+ *
+ * At the moment, this a simple key=value list.
+ */
+void load_bimrc(void) {
+	if (!global_config.bimrc_path) return;
+
+	/* Default is ~/.bimrc */
+	char * tmp = strdup(global_config.bimrc_path);
+
+	if (!*tmp) {
+		free(tmp);
+		return;
+	}
+
+	/* Parse ~ at the front of the path. */
+	if (*tmp == '~') {
+		char path[1024] = {0};
+		char * home = getenv("HOME");
+		if (!home) {
+			/* $HOME is unset? */
+			free(tmp);
+			return;
+		}
+
+		/* New path is $HOME/.bimrc */
+		sprintf(path, "%s%s", home, tmp+1);
+		free(tmp);
+		tmp = strdup(path);
+	}
+
+	/* Try to open the file */
+	FILE * bimrc = fopen(tmp, "r");
+
+	if (!bimrc) {
+		/* No bimrc, or bad permissions */
+		free(tmp);
+		return;
+	}
+
+	/* Parse through lines */
+	char line[1024];
+	while (!feof(bimrc)) {
+		char * l = fgets(line, 1023, bimrc);
+
+		/* Ignore bad lines */
+		if (!l) break;
+		if (!*l) continue;
+		if (*l == '\n') continue;
+
+		/* Ignore comment lines */
+		if (*l == '#') continue;
+
+		/* Remove linefeed at the end */
+		char *nl = strstr(l,"\n");
+		if (nl) *nl = '\0';
+
+		/* Extrace value from keypair, if available
+		 * (I forsee options without values in the future) */
+		char *value= strstr(l,"=");
+		if (value) {
+			*value = '\0';
+			value++;
+		}
+
+		/* theme=... */
+		if (!strcmp(l,"theme") && value) {
+			/* Examine available themes for a match. */
+			for (struct theme_def * d = themes; d->name; ++d) {
+				if (!strcmp(value, d->name)) {
+					d->load();
+					break;
+				}
+			}
+		}
+	}
+
+	fclose(bimrc);
+}
+
 
 int main(int argc, char * argv[]) {
 	int opt;
@@ -4101,6 +4211,9 @@ int main(int argc, char * argv[]) {
 			case 'R':
 				global_config.initial_file_is_read_only = 1;
 				break;
+			case 'u':
+				global_config.bimrc_path = optarg;
+				break;
 			case '?':
 				show_usage(argv);
 				return 0;
@@ -4108,6 +4221,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	initialize();
+	load_bimrc();
 
 	if (argc > optind) {
 		open_file(argv[optind]);
