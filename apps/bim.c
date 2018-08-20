@@ -802,6 +802,85 @@ static int syn_sh_finish(line_t * line, int * left, int state) {
 	return 0;
 }
 
+static int syn_make_finish(line_t * line, int * left, int state) {
+	/* No multilines supported */
+	(void)line;
+	(void)left;
+	(void)state;
+	return 0;
+}
+
+static char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
+
+static int syn_make_iskeywordchar(int c) {
+	if (isalpha(c)) return 1;
+	if (c == '$') return 1;
+	if (c == '(') return 1;
+	return 0;
+}
+
+static char * syn_make_types[] = {
+	NULL
+};
+
+static char * syn_make_commands[] = {
+	"define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
+	"include","sinclude","override","export","unexport","private","vpath",
+	NULL
+};
+
+static char * syn_make_keywords[] = {
+	"$(subst","$(patsubst","$(findstring","$(filter","$(filter-out",
+	"$(sort","$(word","$(words","$(wordlist","$(firstword","$(lastword",
+	"$(dir","$(notdir","$(suffix","$(basename","$(addsuffix","$(addprefix",
+	"$(join","$(wildcard","$(realpath","$(abspath","$(error","$(warning",
+	"$(shell","$(origin","$(flavor","$(foreach","$(if","$(or","$(and",
+	"$(call","$(eval","$(file","$(value",
+	NULL
+};
+
+static int syn_make_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
+	if (c == '#') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	if (c == '\t') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_NUMERAL;
+	}
+
+	if (i == 0) {
+		int j = 0;
+		for (; j < line->actual; ++j) {
+			if (line->text[j].codepoint != ' ') break;
+		}
+		for (int s = 0; syn_make_commands[s]; ++s) {
+			int d = 0;
+			while (j + d < line->actual && line->text[j+d].codepoint == syn_make_commands[s][d]) d++;
+			if (syn_make_commands[s][d] == '\0') {
+				*out_left = j+d;
+				return FLAG_PRAGMA;
+			}
+		}
+	}
+
+	if (i == 0) {
+		int j = 0;
+		for (; j < line->actual; ++j) {
+			if (line->text[j].codepoint == ':') {
+				*out_left = j;
+				return FLAG_TYPE;
+			}
+		}
+	}
+
+
+	return FLAG_NONE;
+}
+
 /**
  * Syntax hilighting definition database
  */
@@ -817,6 +896,7 @@ struct syntax_definition {
 	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar,syn_c_finish},
 	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
 	{"esh",syn_sh_ext,syn_sh_keywords,syn_sh_types,syn_sh_extended,syn_sh_iskeywordchar,syn_sh_finish},
+	{"make",syn_make_ext,syn_make_keywords,syn_make_types,syn_make_extended,syn_make_iskeywordchar,syn_make_finish},
 	{NULL}
 };
 
