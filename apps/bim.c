@@ -1331,8 +1331,11 @@ void setup_buffer(buffer_t * env) {
  * Toggle buffered / unbuffered modes
  */
 struct termios old;
-void set_unbuffered(void) {
+void get_initial_termios(void) {
 	tcgetattr(STDOUT_FILENO, &old);
+}
+
+void set_unbuffered(void) {
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO);
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
@@ -2126,6 +2129,28 @@ void SIGWINCH_handler(int sig) {
 }
 
 /**
+ * Handle suspend
+ */
+
+void SIGTSTP_handler(int sig) {
+	mouse_disable();
+	set_buffered();
+	reset();
+	clear_screen();
+	show_cursor();
+
+	signal(SIGTSTP, SIG_DFL);
+	raise(SIGTSTP);
+}
+
+void SIGCONT_handler(int sig) {
+	set_unbuffered();
+	redraw_all();
+	signal(SIGCONT, SIGCONT_handler);
+	signal(SIGTSTP, SIGTSTP_handler);
+}
+
+/**
  * Run global initialization tasks
  */
 void initialize(void) {
@@ -2138,11 +2163,14 @@ void initialize(void) {
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	global_config.term_width = w.ws_col;
 	global_config.term_height = w.ws_row;
+	get_initial_termios();
 	set_unbuffered();
 
 	mouse_enable();
 
 	signal(SIGWINCH, SIGWINCH_handler);
+	signal(SIGCONT,  SIGCONT_handler);
+	signal(SIGTSTP,  SIGTSTP_handler);
 }
 
 /**
