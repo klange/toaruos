@@ -1963,6 +1963,34 @@ void redraw_commandline(void) {
 }
 
 /**
+ * Draw a message on the command line.
+ */
+void render_commandline_message(char * message, ...) {
+	/* varargs setup */
+	va_list args;
+	va_start(args, message);
+	char buf[1024];
+
+	/* Process format string */
+	vsprintf(buf, message, args);
+	va_end(args);
+
+	/* Hide cursor while rendering */
+	hide_cursor();
+
+	/* Move cursor to the last line */
+	place_cursor(1, global_config.term_height);
+
+	/* Set background color */
+	set_colors(COLOR_FG, COLOR_BG);
+
+	printf("%s", buf);
+
+	/* Clear the rest of the status bar */
+	clear_to_end();
+}
+
+/**
  * Draw all screen elements
  */
 void redraw_all(void) {
@@ -2042,8 +2070,11 @@ void render_error(char * message, ...) {
 	vsprintf(buf, message, args);
 	va_end(args);
 
-	/* Hide cursor and redraw command line */
-	redraw_commandline();
+	/* Hide cursor while rendering */
+	hide_cursor();
+
+	/* Move cursor to the command line */
+	place_cursor(1, global_config.term_height);
 
 	/* Set appropriate error message colors */
 	set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
@@ -2830,21 +2861,22 @@ void process_command(char * cmd) {
 		 * of scrolling to draw this multiline help message on
 		 * the same background as the command line.
 		 */
-		redraw_commandline(); printf("\n");
-		redraw_commandline(); printf(" \033[1mbim - The standard ToaruOS Text Editor\033[22m\n");
-		redraw_commandline(); printf("\n");
-		redraw_commandline(); printf(" Available commands:\n");
-		redraw_commandline(); printf("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
-		redraw_commandline(); printf("   Write out with \033[3m:w \033[4mfile\033[24;23m\n");
-		redraw_commandline(); printf("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
-		redraw_commandline(); printf("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
-		redraw_commandline(); printf("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
-		redraw_commandline(); printf("   Set the color scheme with \033[3m:theme \033[4mtheme\033[24;23m\n");
-		redraw_commandline(); printf("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
-		redraw_commandline(); printf("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
-		redraw_commandline(); printf("\n");
-		redraw_commandline(); printf(" Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>\n");
-		redraw_commandline(); printf("\n");
+		render_commandline_message(""); /* To clear command line */
+		render_commandline_message("\n");
+		render_commandline_message(" \033[1mbim - The standard ToaruOS Text Editor\033[22m\n");
+		render_commandline_message("\n");
+		render_commandline_message(" Available commands:\n");
+		render_commandline_message("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
+		render_commandline_message("   Write out with \033[3m:w \033[4mfile\033[24;23m\n");
+		render_commandline_message("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
+		render_commandline_message("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
+		render_commandline_message("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
+		render_commandline_message("   Set the color scheme with \033[3m:theme \033[4mtheme\033[24;23m\n");
+		render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
+		render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
+		render_commandline_message("\n");
+		render_commandline_message(" Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>\n");
+		render_commandline_message("\n");
 		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
 		redraw_tabbar();
 		redraw_commandline();
@@ -3584,6 +3616,11 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
 		(*timeout)++;
+		return 1;
+	}
+	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
+		*timeout = 0;
+		bim_unget(c);
 		return 1;
 	}
 	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
