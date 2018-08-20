@@ -1829,6 +1829,16 @@ void redraw_line(int j, int x) {
 }
 
 /**
+ * Draw a ~ line where there is no buffer text.
+ */
+void draw_excess_line(int j) {
+	place_cursor(1,2 + j);
+	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+	printf("~");
+	clear_to_end();
+}
+
+/**
  * Redraw the entire text area
  */
 void redraw_text(void) {
@@ -1847,10 +1857,7 @@ void redraw_text(void) {
 
 	/* Draw the rest of the text region as ~ lines */
 	for (; j < l; ++j) {
-		place_cursor(1,2 + j);
-		set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-		printf("~");
-		clear_to_end();
+		draw_excess_line(j);
 	}
 }
 
@@ -2556,10 +2563,7 @@ void cursor_down(void) {
 			if (env->offset + l < env->line_count + 1) {
 				redraw_line(l-1, env->offset + l-1);
 			} else {
-				place_cursor(1, 2 + l - 1);
-				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-				printf("~");
-				clear_to_end();
+				draw_excess_line(l - 1);
 			}
 
 			/* Redraw elements that were moved by scrolling */
@@ -3728,6 +3732,12 @@ void line_selection_mode(void) {
 
 	void _redraw_line(int line, int force_start_line) {
 		if (!force_start_line && line == start_line) return;
+		if (line > env->line_count + 1) {
+			if (line - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) {
+				draw_excess_line(line - env->offset - 1);
+			}
+			return;
+		}
 
 		if ((env->line_no < start_line && line < env->line_no) ||
 			(env->line_no > start_line && line > env->line_no) ||
@@ -3862,6 +3872,9 @@ void line_selection_mode(void) {
 							for (int i = 0; i < lines_to_delete; ++i) {
 								remove_line(env->lines, env->line_no-1);
 							}
+						}
+						if (env->line_no > env->line_count) {
+							env->line_no = env->line_count;
 						}
 						set_modified();
 						goto _leave_select_line;
