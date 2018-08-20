@@ -446,6 +446,8 @@ static char * syn_c_keywords[] = {
 	"while","if","for","continue","return","break","switch","case","sizeof",
 	"struct","union","typedef","do","default","else","goto",
 	"alignas","alignof","offsetof",
+	/* C++ stuff */
+	"public","private","class","using","namespace",
 	NULL
 };
 
@@ -549,7 +551,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 	return 0;
 }
 
-char * syn_c_ext[] = {".c",".h",".cpp",".hpp",NULL};
+char * syn_c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",NULL};
 
 static int syn_c_finish(line_t * line, int * left, int state) {
 	if (state == FLAG_COMMENT_ML) {
