@@ -22,5 +22,6 @@ size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 ring_buffer_t * ring_buffer_create(size_t size);
 void ring_buffer_destroy(ring_buffer_t * ring_buffer);
 void ring_buffer_interrupt(ring_buffer_t * ring_buffer);
+void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer);
 void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process);
 

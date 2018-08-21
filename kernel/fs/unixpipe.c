@@ -90,6 +90,9 @@ static void close_write_pipe(fs_node_t * node) {
 		debug_print(NOTICE, "Both ends now closed, should clean up.");
 	} else {
 		ring_buffer_interrupt(self->buffer);
+		if (!ring_buffer_unread(self->buffer)) {
+			ring_buffer_alert_waiters(self->buffer);
+		}
 	}
 }
 
@@ -98,6 +101,7 @@ static int check_pipe(fs_node_t * node) {
 	if (ring_buffer_unread(self->buffer) > 0) {
 		return 0;
 	}
+	if (self->write_closed) return 0;
 	return 1;
 }
 

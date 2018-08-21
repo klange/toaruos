@@ -49,7 +49,7 @@ static inline void ring_buffer_increment_write(ring_buffer_t * ring_buffer) {
 	}
 }
 
-static void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer) {
+void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer) {
 	if (ring_buffer->alert_waiters) {
 		while (ring_buffer->alert_waiters->head) {
 			node_t * node = list_dequeue(ring_buffer->alert_waiters);
