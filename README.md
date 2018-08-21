@@ -1,10 +1,14 @@
 # ToaruOS-NIH
 
-![screenshot](https://i.imgur.com/G8G1dwf.png)
+![screenshot](https://i.imgur.com/KQISNFg.png)
 
 ToaruOS-NIH is a distribution of ToaruOS which contains no third-party components. Its bootloader, kernel, modules, C library, and userspace applications and libraries are all written by the ToaruOS development team and direct contributors.
 
 This distribution aims to eventually replace the core of the mainline ToaruOS, with the various third-party components building against our own C library. This is a long-term project, and developing the C library to the point where it is useful for this purpose is not expected to be completed for quite some time.
+
+## Features
+
+ToaruOS-NIH comes with a graphical desktop environment with a compositing window manager, a featureful terminal emulator, a shell, several command-line tools, a text editor (with syntax highlighting), a dynamic loader, and can host Python 3.6 (which is included in pre-built CD releases). The kernel and included drivers support ATA hard disks and CD drives, ext2 filesystems, ISO 9660 filesystems, PS/2 mice and keyboards, RS232 serial, Intel e1000, RTL8139, and AMD PCNet-series network chipsets, TCP/IPv4, several virtual graphical framebuffers (including Bochs/QEMU and VMware, and support for framebuffers initialized by EFI), advanced VM integration (including absolute pointing devices in VMware, QEMU, and VirtualBox, as well as automatic display resizing, "Seamless Desktop" and hardware cursors in VirtualBox specifically), an implementation of the `/proc` virtual filesystem, Unix-style pipes and TTYs, shared memory, in-memory read-write temporary filesystem, Intel AC'97 audio (with a mixer), and more.
 
 ## Pre-Built Images
 
