@@ -1442,8 +1442,8 @@ int codepoint_width(wchar_t codepoint) {
 		/* Higher codepoints may be wider (eg. Japanese) */
 		int out = wcwidth(codepoint);
 		if (out < 1) {
-			/* Invalid character */
-			return 1;
+			/* Invalid character, render as [U+ABCD] or [U+ABCDEF] */
+			return (codepoint < 0x10000) ? 8 : 10;
 		}
 	}
 	return 1;
@@ -1782,6 +1782,14 @@ void render_line(line_t * line, int width, int offset) {
 			} else if (c.codepoint == 0xa0) {
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("_");
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (c.display_width == 8) {
+				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("[U+%04x]", c.codepoint);
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (c.display_width == 10) {
+				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("[U+%06x]", c.codepoint);
 				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else {
 				/* Normal characters get output */
