@@ -15,39 +15,45 @@
  */
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/time.h>
 
-/* XXX Why do we have our own list of weekdays */
-char * daysofweeks[] = {
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday"
-};
-
-void print_time(time_t time) {
-    struct tm * date = localtime(&time);
-    if (!date) {
-        fprintf(stderr, "Failure.\n");
-    } else {
-        printf("%d-%02d-%02d %02d:%02d:%02d (%s, day %d)\n",
-                date->tm_year + 1900,
-                date->tm_mon + 1,
-                date->tm_mday,
-                date->tm_hour,
-                date->tm_min,
-                date->tm_sec,
-                daysofweeks[date->tm_wday],
-                date->tm_yday);
-    }
+static void show_usage(int argc, char * argv[]) {
+	printf(
+			"%s - print the time and day\n"
+			"\n"
+			"usage: %s [-?] +FORMAT\n"
+			"\n"
+			"    Note: This implementation is not currently capable of\n"
+			"          setting the system time.\n"
+			"\n"
+			" -?     \033[3mshow this help text\033[0m\n"
+			"\n", argv[0], argv[0]);
 }
 
 int main(int argc, char * argv[]) {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    print_time(tv.tv_sec);
-    return 0;
+	char * format = "%a %b %d %T %Y";
+	struct tm * timeinfo;
+	struct timeval now;
+	char buf[BUFSIZ] = {0};
+	int opt;
+
+	while ((opt = getopt(argc,argv,"?")) != -1) {
+		switch (opt) {
+			case '?':
+				show_usage(argc,argv);
+				return 1;
+		}
+	}
+
+	if (optind < argc && *argv[optind] == '+') {
+		format = &argv[optind][1];
+	}
+
+	gettimeofday(&now, NULL); //time(NULL);
+	timeinfo = localtime((time_t *)&now.tv_sec);
+
+	strftime(buf,BUFSIZ,format,timeinfo);
+	puts(buf);
+	return 0;
 }
