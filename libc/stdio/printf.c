@@ -282,6 +282,9 @@ int vfprintf(FILE * device, const char *fmt, va_list args) {
 	return out;
 }
 
+int vprintf(const char *fmt, va_list args) {
+	return vfprintf(stdout, fmt, args);
+}
 
 int fprintf(FILE * device, const char *fmt, ...) {
 	va_list args;

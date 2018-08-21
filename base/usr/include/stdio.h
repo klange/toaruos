@@ -38,14 +38,17 @@ extern int snprintf(char * buf, size_t size, const char * fmt, ...);
 extern int vsprintf(char * buf, const char *fmt, va_list args);
 extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
 extern int vfprintf(FILE * device, const char *format, va_list ap);
+extern int vprintf(const char *format, va_list ap);
 
 extern int puts(const char *s);
 extern int fputs(const char *s, FILE *stream);
 extern int fputc(int c, FILE *stream);
-#define putc(c,s) fputc((c),(s))
+extern int putc(int c, FILE *stream);
 extern int putchar(int c);
 extern int fgetc(FILE *stream);
+extern int getc(FILE *stream);
 extern char *fgets(char *s, int size, FILE *stream);
+extern int getchar(void);
 
 extern void rewind(FILE *stream);
 extern void setbuf(FILE * stream, char * buf);
@@ -72,8 +75,6 @@ extern int rename(const char * oldpath, const char * newpath);
 #define _IONBF 0
 #define _IOLBF 1
 #define _IOFBF 2
-
-#define getc(s) fgetc(s)
 
 extern char * tmpnam(char * s);
 #define L_tmpnam 256

@@ -26,6 +26,9 @@ extern time_t time(time_t * out);
 extern double difftime(time_t a, time_t b);
 extern time_t mktime(struct tm *tm);
 
+extern char * asctime(const struct tm *tm);
+extern char * ctime(const time_t * timep);
+
 typedef int clock_t;
 
 extern clock_t clock(void);

@@ -195,3 +195,10 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 	*b = '\0';
 	return b - s;
 }
+
+static char output[26];
+char * asctime(const struct tm *tm) {
+	strftime(output, 26, "%a %b %d %T %Y\n", tm);
+	return output;
+}
+

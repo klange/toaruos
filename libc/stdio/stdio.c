@@ -341,6 +341,8 @@ int fputc(int c, FILE *stream) {
 	return c;
 }
 
+int putc(int c, FILE *stream) __attribute__((weak, alias("fputc")));
+
 int fgetc(FILE * stream) {
 	char buf[1];
 	int r;
@@ -353,6 +355,12 @@ int fgetc(FILE * stream) {
 		return EOF;
 	}
 	return (unsigned char)buf[0];
+}
+
+int getc(FILE * stream) __attribute__((weak, alias("fgetc")));
+
+int getchar(void) {
+	return fgetc(stdin);
 }
 
 char *fgets(char *s, int size, FILE *stream) {
