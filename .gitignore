@@ -22,6 +22,7 @@
 /util/build
 /util/local
 /util/devtable
+/util/tmp-gcc
 /kernel/symbols.S
 /base/usr/python
 /base/usr/bin/*
