@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# needed for strip
+source util/activate.sh
+
 HDD_PATH=base
 
 pushd $HDD_PATH/usr/python/lib || exit 1
