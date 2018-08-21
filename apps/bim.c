@@ -4244,6 +4244,10 @@ int main(int argc, char * argv[]) {
 		int timeout = 0;
 		int this_buf[20];
 		while ((c = bim_getch())) {
+			if (c == -1) {
+				/* getch timed out, nothing to do in normal mode */
+				continue;
+			}
 			if (timeout == 0) {
 				switch (c) {
 					case '\033':
