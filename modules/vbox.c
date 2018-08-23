@@ -129,7 +129,7 @@ static struct vbox_mouse * vbox_mg;
 static uint32_t vbox_phys_mouse_get;
 static struct vbox_visibleregion * vbox_visibleregion;
 static uint32_t vbox_phys_visibleregion;
-static struct vbox_pointershape * vbox_pointershape;
+static struct vbox_pointershape * vbox_pointershape = NULL;
 static uint32_t vbox_phys_pointershape;
 
 static volatile uint32_t * vbox_vmmdev = 0;
@@ -187,7 +187,7 @@ void vbox_set_log(void) {
 	debug_file = &vb;
 }
 
-#define VBOX_MOUSE_ON (1 << 0) | (1 << 4) | (1 << 2)
+#define VBOX_MOUSE_ON (1 << 0) | (1 << 4)
 #define VBOX_MOUSE_OFF (0)
 
 static void mouse_on_off(unsigned int status) {
@@ -298,14 +298,6 @@ static int vbox_check(void) {
 
 		vfs_mount("/dev/absmouse", mouse_pipe);
 
-		rect_pipe = malloc(sizeof(fs_node_t));
-		memset(rect_pipe, 0, sizeof(fs_node_t));
-		rect_pipe->mask = 0666;
-		rect_pipe->flags = FS_CHARDEVICE;
-		rect_pipe->write = write_rectpipe;
-
-		vfs_mount("/dev/vboxrects", rect_pipe);
-
 		vbox_irq = pci_get_interrupt(vbox_device);
 		debug_print(WARNING, "(vbox) device IRQ is set to %d", vbox_irq);
 		fprintf(&vb, "irq line is %d\n", vbox_irq);
@@ -331,7 +323,7 @@ static int vbox_check(void) {
 		caps->header.rc = 0;
 		caps->header.reserved1 = 0;
 		caps->header.reserved2 = 0;
-		caps->caps = VMMCAP_Graphics | VMMCAP_SeamlessMode;
+		caps->caps = VMMCAP_Graphics | (args_present("novboxseamless") ? 0 : VMMCAP_SeamlessMode);
 		outportl(vbox_port, vbox_phys);
 
 		vbox_irq_ack = (void*)kvmalloc_p(0x1000, &vbox_phys_ack);
@@ -368,70 +360,83 @@ static int vbox_check(void) {
 		vbox_mg->header.reserved1 = 0;
 		vbox_mg->header.reserved2 = 0;
 
-		vbox_pointershape = (void*)kvmalloc_p(0x4000, &vbox_phys_pointershape);
-		if (vbox_pointershape) {
-			fprintf(&vb, "Got a valid set of pages to load up a cursor.\n");
-			vbox_pointershape->header.version = VBOX_REQUEST_HEADER_VERSION;
-			vbox_pointershape->header.requestType = VMM_SetPointerShape;
-			vbox_pointershape->header.rc = 0;
-			vbox_pointershape->header.reserved1 = 0;
-			vbox_pointershape->header.reserved2 = 0;
-			vbox_pointershape->flags = (1 << 0) | (1 << 1) | (1 << 2);
-			vbox_pointershape->xHot = 26;
-			vbox_pointershape->yHot = 26;
-			vbox_pointershape->width = 48;
-			vbox_pointershape->height = 48;
+		if (!args_present("novboxpointer")) {
+			vbox_pointershape = (void*)kvmalloc_p(0x4000, &vbox_phys_pointershape);
 
-			unsigned int mask_bytes = ((vbox_pointershape->width + 7) / 8) * vbox_pointershape->height;
+			if (vbox_pointershape) {
+				fprintf(&vb, "Got a valid set of pages to load up a cursor.\n");
+				vbox_pointershape->header.version = VBOX_REQUEST_HEADER_VERSION;
+				vbox_pointershape->header.requestType = VMM_SetPointerShape;
+				vbox_pointershape->header.rc = 0;
+				vbox_pointershape->header.reserved1 = 0;
+				vbox_pointershape->header.reserved2 = 0;
+				vbox_pointershape->flags = (1 << 0) | (1 << 1) | (1 << 2);
+				vbox_pointershape->xHot = 26;
+				vbox_pointershape->yHot = 26;
+				vbox_pointershape->width = 48;
+				vbox_pointershape->height = 48;
 
-			for (uint32_t i = 0; i < mask_bytes; ++i) {
-				vbox_pointershape->data[i] = 0x00;
-			}
+				unsigned int mask_bytes = ((vbox_pointershape->width + 7) / 8) * vbox_pointershape->height;
 
-			while (mask_bytes & 3) {
-				mask_bytes++;
-			}
-			int base = mask_bytes;
-			fprintf(&vb, "mask_bytes = %d\n", mask_bytes);
+				for (uint32_t i = 0; i < mask_bytes; ++i) {
+					vbox_pointershape->data[i] = 0x00;
+				}
 
-			vbox_pointershape->header.size = sizeof(struct vbox_pointershape) + (48*48*4)+mask_bytes; /* update later */
+				while (mask_bytes & 3) {
+					mask_bytes++;
+				}
+				int base = mask_bytes;
+				fprintf(&vb, "mask_bytes = %d\n", mask_bytes);
 
-			for (int i = 0; i < 48 * 48; ++i) {
-				vbox_pointershape->data[base+i*4] = 0x00; /* blue */
-				vbox_pointershape->data[base+i*4+1] = 0x00; /* red */
-				vbox_pointershape->data[base+i*4+2] = 0x00; /* green */
-				vbox_pointershape->data[base+i*4+3] = 0x00; /* alpha */
-			}
-			outportl(vbox_port, vbox_phys_pointershape);
+				vbox_pointershape->header.size = sizeof(struct vbox_pointershape) + (48*48*4)+mask_bytes; /* update later */
 
-			if (vbox_pointershape->header.rc < 0) {
-				fprintf(&vb, "Bad response code: -%d\n", -vbox_pointershape->header.rc);
-			} else {
-				/* Success, let's install the device file */
-				fprintf(&vb, "Successfully initialized cursor, going to allow compositor to set it.\n");
-				pointer_pipe = malloc(sizeof(fs_node_t));
-				memset(pointer_pipe, 0, sizeof(fs_node_t));
-				pointer_pipe->mask = 0666;
-				pointer_pipe->flags = FS_CHARDEVICE;
-				pointer_pipe->write = write_pointer;
+				for (int i = 0; i < 48 * 48; ++i) {
+					vbox_pointershape->data[base+i*4] = 0x00; /* blue */
+					vbox_pointershape->data[base+i*4+1] = 0x00; /* red */
+					vbox_pointershape->data[base+i*4+2] = 0x00; /* green */
+					vbox_pointershape->data[base+i*4+3] = 0x00; /* alpha */
+				}
+				outportl(vbox_port, vbox_phys_pointershape);
 
-				vfs_mount("/dev/vboxpointer", pointer_pipe);
+				if (vbox_pointershape->header.rc < 0) {
+					fprintf(&vb, "Bad response code: -%d\n", -vbox_pointershape->header.rc);
+				} else {
+					/* Success, let's install the device file */
+					fprintf(&vb, "Successfully initialized cursor, going to allow compositor to set it.\n");
+					pointer_pipe = malloc(sizeof(fs_node_t));
+					memset(pointer_pipe, 0, sizeof(fs_node_t));
+					pointer_pipe->mask = 0666;
+					pointer_pipe->flags = FS_CHARDEVICE;
+					pointer_pipe->write = write_pointer;
+
+					vfs_mount("/dev/vboxpointer", pointer_pipe);
+				}
 			}
 		}
 
-		vbox_visibleregion = (void*)kvmalloc_p(0x1000, &vbox_phys_visibleregion);
-		vbox_visibleregion->header.size = sizeof(struct vbox_header) + sizeof(uint32_t) + sizeof(int32_t) * 4; /* TODO + more for additional rects? */
-		vbox_visibleregion->header.version = VBOX_REQUEST_HEADER_VERSION;
-		vbox_visibleregion->header.requestType = VMM_VideoSetVisibleRegion;
-		vbox_visibleregion->header.rc = 0;
-		vbox_visibleregion->header.reserved1 = 0;
-		vbox_visibleregion->header.reserved2 = 0;
-		vbox_visibleregion->count = 1;
-		vbox_visibleregion->rect[0].xLeft = 0;
-		vbox_visibleregion->rect[0].yTop = 0;
-		vbox_visibleregion->rect[0].xRight = 1440;
-		vbox_visibleregion->rect[0].yBottom = 900;
-		outportl(vbox_port, vbox_phys_visibleregion);
+		if (!args_present("novboxseamless")) {
+			vbox_visibleregion = (void*)kvmalloc_p(0x1000, &vbox_phys_visibleregion);
+			vbox_visibleregion->header.size = sizeof(struct vbox_header) + sizeof(uint32_t) + sizeof(int32_t) * 4; /* TODO + more for additional rects? */
+			vbox_visibleregion->header.version = VBOX_REQUEST_HEADER_VERSION;
+			vbox_visibleregion->header.requestType = VMM_VideoSetVisibleRegion;
+			vbox_visibleregion->header.rc = 0;
+			vbox_visibleregion->header.reserved1 = 0;
+			vbox_visibleregion->header.reserved2 = 0;
+			vbox_visibleregion->count = 1;
+			vbox_visibleregion->rect[0].xLeft = 0;
+			vbox_visibleregion->rect[0].yTop = 0;
+			vbox_visibleregion->rect[0].xRight = 1440;
+			vbox_visibleregion->rect[0].yBottom = 900;
+			outportl(vbox_port, vbox_phys_visibleregion);
+
+			rect_pipe = malloc(sizeof(fs_node_t));
+			memset(rect_pipe, 0, sizeof(fs_node_t));
+			rect_pipe->mask = 0666;
+			rect_pipe->flags = FS_CHARDEVICE;
+			rect_pipe->write = write_rectpipe;
+
+			vfs_mount("/dev/vboxrects", rect_pipe);
+		}
 
 		/* device memory region mapping? */
 		{

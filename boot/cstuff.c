@@ -158,6 +158,14 @@ int kmain() {
 			"Downloads a userspace filesystem from a remote",
 			"server and extracts it at boot.");
 
+	BOOT_OPTION(_vboxrects,   0, "VirtualBox Seamless support",
+			"(Requires Guest Additions) Enables support for the",
+			"Seamless Desktop mode in VirtualBox.");
+
+	BOOT_OPTION(_vboxpointer, 1, "VirtualBox Pointer",
+			"(Requires Guest Additions) Enables support for the",
+			"VirtualBox hardware pointer mapping.");
+
 #ifdef EFI_PLATFORM
 	BOOT_OPTION(_efilargest,  0, "Prefer largest mode.",
 			"When using EFI mode setting, use the largest mode.",
@@ -218,6 +226,14 @@ int kmain() {
 
 	if (_serialshell) {
 		strcat(cmdline, DEBUG_SERIAL_CMDLINE);
+	}
+
+	if (_vbox && !_vboxrects) {
+		strcat(cmdline, "novboxseamless ");
+	}
+
+	if (_vbox && !_vboxpointer) {
+		strcat(cmdline, "novboxpointer ");
 	}
 
 	/* Configure modules */
