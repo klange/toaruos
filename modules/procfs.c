@@ -522,7 +522,10 @@ static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 			unsigned int i = 0;
 			soffset += sprintf(&buf[soffset], " Deps: ");
 			while (i < mod_info->deps_length) {
-				soffset += sprintf(&buf[soffset], "%s ", &mod_info->deps[i]);
+				/* Skip padding bytes */
+				if (strlen(&mod_info->deps[i])) {
+					soffset += sprintf(&buf[soffset], "%s ", &mod_info->deps[i]);
+				}
 				i += strlen(&mod_info->deps[i]) + 1;
 			}
 		}
