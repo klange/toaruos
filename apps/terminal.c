@@ -91,7 +91,14 @@ static uint32_t current_fg     = 7;    /* Current foreground color */
 static uint32_t current_bg     = 0;    /* Current background color */
 
 static term_cell_t * term_buffer = NULL; /* The terminal cell buffer */
+static term_cell_t * term_buffer_a = NULL;
+static term_cell_t * term_buffer_b = NULL;
 static term_state_t * ansi_state = NULL; /* ANSI parser library state */
+static int active_buffer  = 0;
+static int _orig_x = 0;
+static int _orig_y = 0;
+static uint32_t _orig_fg = 7;
+static uint32_t _orig_bg = 0;
 
 static bool cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
@@ -1278,6 +1285,26 @@ static void term_clear(int i) {
 	flush_unused_images();
 }
 
+
+#define SWAP(T,a,b) do { T _a = a; a = b; b = _a; } while(0);
+
+static void term_switch_buffer(int buffer) {
+	if (buffer != 0 && buffer != 1) return;
+	if (buffer != active_buffer) {
+		active_buffer = buffer;
+		term_buffer = active_buffer == 0 ? term_buffer_a : term_buffer_b;
+
+		SWAP(int, csr_x, _orig_x);
+		SWAP(int, csr_y, _orig_y);
+		SWAP(uint32_t, current_fg, _orig_fg);
+		SWAP(uint32_t, current_bg, _orig_bg);
+
+		term_redraw_all();
+		display_flip();
+	}
+
+}
+
 /* ANSI callbacks */
 term_callbacks_t term_callbacks = {
 	term_write,
@@ -1295,6 +1322,7 @@ term_callbacks_t term_callbacks = {
 	term_get_cell_width,
 	term_get_cell_height,
 	term_set_csr_show,
+	term_switch_buffer,
 };
 
 /* Write data into the PTY */
@@ -1536,6 +1564,33 @@ static void check_for_exit(void) {
 	write(fd_slave, exit_message, sizeof(exit_message));
 }
 
+static term_cell_t * copy_terminal(int old_width, int old_height, term_cell_t * term_buffer) {
+	term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
+
+	memset(new_term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
+
+	int offset = 0;
+	if (term_height < old_height) {
+		while (csr_y >= term_height) {
+			offset++;
+			old_height--;
+			csr_y--;
+		}
+	}
+	for (int row = 0; row < min(old_height, term_height); ++row) {
+		for (int col = 0; col < min(old_width, term_width); ++col) {
+			term_cell_t * old_cell = (term_cell_t *)((uintptr_t)term_buffer + ((row + offset) * old_width + col) * sizeof(term_cell_t));
+			term_cell_t * new_cell = (term_cell_t *)((uintptr_t)new_term_buffer + (row * term_width + col) * sizeof(term_cell_t));
+			*new_cell = *old_cell;
+		}
+	}
+	if (csr_x >= term_width) {
+		csr_x = term_width-1;
+	}
+
+	return new_term_buffer;
+}
+
 /* Reinitialize the terminal after a resize. */
 static void reinit(int send_sig) {
 
@@ -1561,34 +1616,25 @@ static void reinit(int send_sig) {
 	term_width  = window_width  / char_width;
 	term_height = window_height / char_height;
 	if (term_buffer) {
-		term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
-
-		memset(new_term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
-
-		int offset = 0;
-		if (term_height < old_height) {
-			while (csr_y >= term_height) {
-				offset++;
-				old_height--;
-				csr_y--;
-			}
+		term_cell_t * new_a = copy_terminal(old_width, old_height, term_buffer_a);
+		term_cell_t * new_b = copy_terminal(old_width, old_height, term_buffer_b);
+		free(term_buffer_a);
+		term_buffer_a = new_a;
+		free(term_buffer_b);
+		term_buffer_b = new_b;
+		if (active_buffer == 0) {
+			term_buffer = new_a;
+		} else {
+			term_buffer = new_b;
 		}
-		for (int row = 0; row < min(old_height, term_height); ++row) {
-			for (int col = 0; col < min(old_width, term_width); ++col) {
-				term_cell_t * old_cell = (term_cell_t *)((uintptr_t)term_buffer + ((row + offset) * old_width + col) * sizeof(term_cell_t));
-				term_cell_t * new_cell = (term_cell_t *)((uintptr_t)new_term_buffer + (row * term_width + col) * sizeof(term_cell_t));
-				*new_cell = *old_cell;
-			}
-		}
-		if (csr_x >= term_width) {
-			csr_x = term_width-1;
-		}
-		free(term_buffer);
-
-		term_buffer = new_term_buffer;
 	} else {
-		term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
-		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
+		term_buffer_a = malloc(sizeof(term_cell_t) * term_width * term_height);
+		memset(term_buffer_a, 0x0, sizeof(term_cell_t) * term_width * term_height);
+
+		term_buffer_b = malloc(sizeof(term_cell_t) * term_width * term_height);
+		memset(term_buffer_b, 0x0, sizeof(term_cell_t) * term_width * term_height);
+
+		term_buffer = term_buffer_a;
 	}
 
 	/* Reset the ANSI library, ensuring we keep certain values */

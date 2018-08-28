@@ -311,8 +311,7 @@ static void _ansi_put(term_state_t * s, char c) {
 					case ANSI_SHOW:
 						if (argc > 0) {
 							if (!strcmp(argv[0], "?1049")) {
-								callbacks->cls(2);
-								callbacks->set_csr(0,0);
+								if (callbacks->switch_buffer) callbacks->switch_buffer(1);
 							} else if (!strcmp(argv[0], "?1000")) {
 								s->mouse_on = 1;
 							} else if (!strcmp(argv[0], "?1002")) {
@@ -325,7 +324,7 @@ static void _ansi_put(term_state_t * s, char c) {
 					case ANSI_HIDE:
 						if (argc > 0) {
 							if (!strcmp(argv[0], "?1049")) {
-								/* TODO: Unimplemented */
+								if (callbacks->switch_buffer) callbacks->switch_buffer(0);
 							} else if (!strcmp(argv[0], "?1000")) {
 								s->mouse_on = 0;
 							} else if (!strcmp(argv[0], "?1002")) {
