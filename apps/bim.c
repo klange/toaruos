@@ -65,26 +65,26 @@
  * The default is to load_colorscheme_ansi, but config
  * files can be used to set a different default theme.
  */
-const char * COLOR_FG        = "@15";
+const char * COLOR_FG        = "@17";
 const char * COLOR_BG        = "@0";
-const char * COLOR_ALT_FG    = "@15";
+const char * COLOR_ALT_FG    = "@17";
 const char * COLOR_ALT_BG    = "@0";
-const char * COLOR_NUMBER_FG = "@15";
+const char * COLOR_NUMBER_FG = "@17";
 const char * COLOR_NUMBER_BG = "@0";
-const char * COLOR_STATUS_FG = "@15";
+const char * COLOR_STATUS_FG = "@17";
 const char * COLOR_STATUS_BG = "@0";
 const char * COLOR_TABBAR_BG = "@0";
 const char * COLOR_TAB_BG    = "@0";
-const char * COLOR_ERROR_FG  = "@15";
+const char * COLOR_ERROR_FG  = "@17";
 const char * COLOR_ERROR_BG  = "@0";
-const char * COLOR_SEARCH_FG = "@15";
+const char * COLOR_SEARCH_FG = "@17";
 const char * COLOR_SEARCH_BG = "@0";
-const char * COLOR_KEYWORD   = "@15";
-const char * COLOR_STRING    = "@15";
-const char * COLOR_COMMENT   = "@15";
-const char * COLOR_TYPE      = "@15";
-const char * COLOR_PRAGMA    = "@15";
-const char * COLOR_NUMERAL   = "@15";
+const char * COLOR_KEYWORD   = "@17";
+const char * COLOR_STRING    = "@17";
+const char * COLOR_COMMENT   = "@17";
+const char * COLOR_TYPE      = "@17";
+const char * COLOR_PRAGMA    = "@17";
+const char * COLOR_NUMERAL   = "@17";
 const char * current_theme = "none";
 
 /**
@@ -192,27 +192,27 @@ void load_colorscheme_solarized_dark(void) {
 
 /* 16-color theme, default */
 void load_colorscheme_ansi(void) {
-	COLOR_FG        = "@15";
-	COLOR_BG        = "@0";
-	COLOR_ALT_FG    = "@8";
-	COLOR_ALT_BG    = "@0";
+	COLOR_FG        = "@17";
+	COLOR_BG        = "@9";
+	COLOR_ALT_FG    = "@10";
+	COLOR_ALT_BG    = "@9";
 	COLOR_NUMBER_FG = "@3";
-	COLOR_NUMBER_BG = "@0";
-	COLOR_STATUS_FG = "@15";
+	COLOR_NUMBER_BG = "@9";
+	COLOR_STATUS_FG = "@17";
 	COLOR_STATUS_BG = "@4";
 	COLOR_TABBAR_BG = "@4";
 	COLOR_TAB_BG    = "@4";
-	COLOR_KEYWORD   = "@12";
+	COLOR_KEYWORD   = "@14";
 	COLOR_STRING    = "@2";
-	COLOR_COMMENT   = "@8";
+	COLOR_COMMENT   = "@10";
 	COLOR_TYPE      = "@3";
 	COLOR_PRAGMA    = "@1";
 	COLOR_NUMERAL   = "@1";
 
-	COLOR_ERROR_FG  = "@15";
+	COLOR_ERROR_FG  = "@17";
 	COLOR_ERROR_BG  = "@1";
 	COLOR_SEARCH_FG = "@0";
-	COLOR_SEARCH_BG = "@11";
+	COLOR_SEARCH_BG = "@13";
 
 	current_theme = "ansi";
 }
@@ -1518,20 +1518,20 @@ void set_colors(const char * fg, const char * bg) {
 	printf("\033[22;23;");
 	if (*bg == '@') {
 		int _bg = atoi(bg+1);
-		if (_bg < 8) {
+		if (_bg < 10) {
 			printf("4%d;", _bg);
 		} else {
-			printf("10%d;", _bg-8);
+			printf("10%d;", _bg-10);
 		}
 	} else {
 		printf("48;%s;", bg);
 	}
 	if (*fg == '@') {
 		int _fg = atoi(fg+1);
-		if (_fg < 8) {
+		if (_fg < 10) {
 			printf("3%dm", _fg);
 		} else {
-			printf("9%dm", _fg-8);
+			printf("9%dm", _fg-10);
 		}
 	} else {
 		printf("38;%sm", fg);
@@ -1548,10 +1548,10 @@ void set_fg_color(const char * fg) {
 	printf("\033[22;23;");
 	if (*fg == '@') {
 		int _fg = atoi(fg+1);
-		if (_fg < 8) {
+		if (_fg < 10) {
 			printf("3%dm", _fg);
 		} else {
-			printf("9%dm", _fg-8);
+			printf("9%dm", _fg-10);
 		}
 	} else {
 		printf("38;%sm", fg);
