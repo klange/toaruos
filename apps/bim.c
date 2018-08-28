@@ -187,9 +187,9 @@ void load_colorscheme_ansi(void) {
 	COLOR_KEYWORD   = "@12";
 	COLOR_STRING    = "@2";
 	COLOR_COMMENT   = "@8";
-	COLOR_TYPE      = "@6";
+	COLOR_TYPE      = "@3";
 	COLOR_PRAGMA    = "@1";
-	COLOR_NUMERAL   = "@5";
+	COLOR_NUMERAL   = "@1";
 
 	COLOR_ERROR_FG  = "@15";
 	COLOR_ERROR_BG  = "@1";
