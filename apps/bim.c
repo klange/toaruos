@@ -3888,11 +3888,8 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 				break;
 			case '~':
 				switch (this_buf[*timeout-1]) {
-					case '6':
-						goto_line(env->line_no + global_config.term_height - 6);
-						break;
-					case '5':
-						goto_line(env->line_no - (global_config.term_height - 6));
+					case '1':
+						cursor_home();
 						break;
 					case '3':
 						if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) {
@@ -3910,6 +3907,15 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 								place_cursor_actual();
 							}
 						}
+						break;
+					case '4':
+						cursor_end();
+						break;
+					case '5':
+						goto_line(env->line_no - (global_config.term_height - 6));
+						break;
+					case '6':
+						goto_line(env->line_no + global_config.term_height - 6);
 						break;
 				}
 				break;
@@ -4136,6 +4142,7 @@ void line_selection_mode(void) {
 							recalculate_syntax(env->lines[i],i);
 						}
 						find_matching_paren();
+						redraw_statusbar();
 						break;
 					case '{':
 						env->col_no = 1;
@@ -4144,6 +4151,7 @@ void line_selection_mode(void) {
 							env->line_no--;
 							if (env->lines[env->line_no-1]->actual == 0) break;
 						} while (env->line_no > 1);
+						redraw_statusbar();
 						break;
 					case '}':
 						env->col_no = 1;
@@ -4152,13 +4160,14 @@ void line_selection_mode(void) {
 							env->line_no++;
 							if (env->lines[env->line_no-1]->actual == 0) break;
 						} while (env->line_no < env->line_count);
+						redraw_statusbar();
 						break;
 					case '$':
-						env->col_no = env->lines[env->line_no-1]->actual+1;
+						cursor_end();
 						break;
 					case '^':
 					case '0':
-						env->col_no = 1;
+						cursor_home();
 						break;
 				}
 			} else {
@@ -4654,6 +4663,7 @@ int main(int argc, char * argv[]) {
 						break;
 					case '%':
 						find_matching_paren();
+						redraw_statusbar();
 						break;
 					case '{':
 						env->col_no = 1;
@@ -4662,6 +4672,7 @@ int main(int argc, char * argv[]) {
 							env->line_no--;
 							if (env->lines[env->line_no-1]->actual == 0) break;
 						} while (env->line_no > 1);
+						redraw_statusbar();
 						break;
 					case '}':
 						env->col_no = 1;
@@ -4670,13 +4681,14 @@ int main(int argc, char * argv[]) {
 							env->line_no++;
 							if (env->lines[env->line_no-1]->actual == 0) break;
 						} while (env->line_no < env->line_count);
+						redraw_statusbar();
 						break;
 					case '$':
-						env->col_no = env->lines[env->line_no-1]->actual+1;
+						cursor_end();
 						break;
 					case '^':
 					case '0':
-						env->col_no = 1;
+						cursor_home();
 						break;
 					case 'i':
 _insert:
