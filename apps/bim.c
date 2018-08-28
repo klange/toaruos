@@ -124,7 +124,7 @@ void load_colorscheme_wombat(void) {
 
 void load_colorscheme_citylights(void) {
 	/* "City Lights" based on citylights.xyz */
-	COLOR_FG        = "2;113;140;161";
+	COLOR_FG        = "2;151;178;198";
 	COLOR_BG        = "2;29;37;44";
 	COLOR_ALT_FG    = "2;45;55;65";
 	COLOR_ALT_BG    = "2;33;42;50";
