@@ -4131,9 +4131,32 @@ void line_selection_mode(void) {
 					case ' ':
 						goto_line(env->line_no + global_config.term_height - 6);
 						break;
+					case '%':
+						for (int i = 0; i < env->line_count; ++i) {
+							recalculate_syntax(env->lines[i],i);
+						}
+						find_matching_paren();
+						break;
+					case '{':
+						env->col_no = 1;
+						if (env->line_no == 1) break;
+						do {
+							env->line_no--;
+							if (env->lines[env->line_no-1]->actual == 0) break;
+						} while (env->line_no > 1);
+						break;
+					case '}':
+						env->col_no = 1;
+						if (env->line_no == env->line_count) break;
+						do {
+							env->line_no++;
+							if (env->lines[env->line_no-1]->actual == 0) break;
+						} while (env->line_no < env->line_count);
+						break;
 					case '$':
 						env->col_no = env->lines[env->line_no-1]->actual+1;
 						break;
+					case '^':
 					case '0':
 						env->col_no = 1;
 						break;
@@ -4632,9 +4655,26 @@ int main(int argc, char * argv[]) {
 					case '%':
 						find_matching_paren();
 						break;
+					case '{':
+						env->col_no = 1;
+						if (env->line_no == 1) break;
+						do {
+							env->line_no--;
+							if (env->lines[env->line_no-1]->actual == 0) break;
+						} while (env->line_no > 1);
+						break;
+					case '}':
+						env->col_no = 1;
+						if (env->line_no == env->line_count) break;
+						do {
+							env->line_no++;
+							if (env->lines[env->line_no-1]->actual == 0) break;
+						} while (env->line_no < env->line_count);
+						break;
 					case '$':
 						env->col_no = env->lines[env->line_no-1]->actual+1;
 						break;
+					case '^':
 					case '0':
 						env->col_no = 1;
 						break;
