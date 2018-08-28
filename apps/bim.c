@@ -372,6 +372,7 @@ buffer_t * env;
 #define MODE_NORMAL 0
 #define MODE_INSERT 1
 #define MODE_LINE_SELECTION 2
+#define MODE_REPLACE 3
 
 /**
  * Available buffers
@@ -2013,6 +2014,11 @@ void redraw_commandline(void) {
 	} else if (env->mode == MODE_LINE_SELECTION) {
 		set_bold();
 		printf("-- LINE SELECTION --");
+		clear_to_end();
+		reset();
+	} else if (env->mode == MODE_REPLACE) {
+		set_bold();
+		printf("-- REPLACE --");
 		clear_to_end();
 		reset();
 	} else {
@@ -3659,6 +3665,25 @@ void insert_char(unsigned int c) {
 }
 
 /**
+ * Replace a single character at the current cursor point
+ */
+void replace_char(unsigned int c) {
+	if (env->col_no < 1 || env->col_no > env->lines[env->line_no-1]->actual) return;
+
+	char_t _c;
+	_c.codepoint = c;
+	_c.flags = 0;
+	_c.display_width = codepoint_width(c);
+
+	env->lines[env->line_no-1]->text[env->col_no-1] = _c;
+	recalculate_tabs(env->lines[env->line_no-1]);
+	recalculate_syntax(env->lines[env->line_no-1], env->line_no);
+
+	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+	set_modified();
+}
+
+/**
  * Move the cursor the start of the previous word.
  */
 void word_left(void) {
@@ -3817,7 +3842,7 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 						goto_line(env->line_no - (global_config.term_height - 6));
 						break;
 					case '3':
-						if (env->mode == MODE_INSERT) {
+						if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) {
 							if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
 								line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
 								redraw_line(env->line_no - env->offset - 1, env->line_no-1);
@@ -4103,6 +4128,49 @@ _leave_select_line:
 	redraw_all();
 }
 
+/**
+ * Backspace from the current cursor position.
+ */
+void delete_at_cursor(void) {
+	if (env->col_no > 1) {
+		line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+		env->col_no -= 1;
+		redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	} else if (env->line_no > 1) {
+		int tmp = env->lines[env->line_no - 2]->actual;
+		merge_lines(env->lines, env->line_no - 1);
+		env->line_no -= 1;
+		env->col_no = tmp+1;
+		redraw_text();
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+/**
+ * Break the current line in two at the current cursor position.
+ */
+void insert_line_feed(void) {
+	if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
+		env->lines = add_line(env->lines, env->line_no);
+	} else {
+		env->lines = split_line(env->lines, env->line_no, env->col_no - 1);
+	}
+	env->col_no = 1;
+	env->line_no += 1;
+	add_indent(env->line_no-1,env->line_no-2);
+	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
+		env->offset += 1;
+	}
+	redraw_text();
+	set_modified();
+	redraw_statusbar();
+	place_cursor_actual();
+}
 
 /**
  * INSERT mode
@@ -4143,41 +4211,10 @@ void insert_mode(void) {
 						break;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
-						if (env->col_no > 1) {
-							line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
-							env->col_no -= 1;
-							redraw_line(env->line_no - env->offset - 1, env->line_no-1);
-							set_modified();
-							redraw_statusbar();
-							place_cursor_actual();
-						} else if (env->line_no > 1) {
-							int tmp = env->lines[env->line_no - 2]->actual;
-							merge_lines(env->lines, env->line_no - 1);
-							env->line_no -= 1;
-							env->col_no = tmp+1;
-							redraw_text();
-							set_modified();
-							redraw_statusbar();
-							place_cursor_actual();
-						}
+						delete_at_cursor();
 						break;
 					case ENTER_KEY:
-						if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
-							env->lines = add_line(env->lines, env->line_no);
-						} else {
-							/* oh oh god we're all gonna die */
-							env->lines = split_line(env->lines, env->line_no, env->col_no - 1);
-						}
-						env->col_no = 1;
-						env->line_no += 1;
-						add_indent(env->line_no-1,env->line_no-2);
-						if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
-							env->offset += 1;
-						}
-						redraw_text();
-						set_modified();
-						redraw_statusbar();
-						place_cursor_actual();
+						insert_line_feed();
 						break;
 					case '\t':
 						if (env->tabs) {
@@ -4192,6 +4229,80 @@ void insert_mode(void) {
 						break;
 					default:
 						insert_char(c);
+						redraw_statusbar();
+						place_cursor_actual();
+						break;
+				}
+			} else {
+				if (handle_escape(this_buf,&timeout,c)) {
+					bim_unget(c);
+					leave_insert();
+					return;
+				}
+			}
+		} else if (istate == UTF8_REJECT) {
+			istate = 0;
+		}
+	}
+}
+
+/*
+ * REPLACE mode
+ *
+ * Like insert, but replaces characters.
+ */
+void replace_mode(void) {
+	int cin;
+	uint32_t c;
+
+	/* Set mode line */
+	env->mode = MODE_REPLACE;
+	redraw_commandline();
+
+	/* Place the cursor in the text area */
+	place_cursor_actual();
+
+	int timeout = 0;
+	int this_buf[20];
+	uint32_t istate = 0;
+	while ((cin = bim_getch())) {
+		if (cin == -1) {
+			if (timeout && this_buf[timeout-1] == '\033') {
+				leave_insert();
+				return;
+			}
+			timeout = 0;
+			continue;
+		}
+		if (!decode(&istate, &c, cin)) {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						if (env->line_no > 1 && env->col_no == 1) {
+							env->line_no--;
+							env->col_no = env->lines[env->line_no-1]->actual;
+							place_cursor_actual();
+						} else {
+							cursor_left();
+						}
+						break;
+					case ENTER_KEY:
+						insert_line_feed();
+						break;
+					default:
+						if (env->col_no <= env->lines[env->line_no - 1]->actual) {
+							replace_char(c);
+							env->col_no += 1;
+						} else {
+							insert_char(c);
+						}
 						redraw_statusbar();
 						place_cursor_actual();
 						break;
@@ -4358,7 +4469,13 @@ int main(int argc, char * argv[]) {
 						break;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
-						cursor_left();
+						if (env->line_no > 1 && env->col_no == 1) {
+							env->line_no--;
+							env->col_no = env->lines[env->line_no-1]->actual;
+							place_cursor_actual();
+						} else {
+							cursor_left();
+						}
 						break;
 					case ':':
 						/* Switch to command mode */
@@ -4461,6 +4578,13 @@ int main(int argc, char * argv[]) {
 _insert:
 						if (env->readonly) goto _readonly;
 						insert_mode();
+						redraw_statusbar();
+						redraw_commandline();
+						timeout = 0;
+						break;
+					case 'R':
+						if (env->readonly) goto _readonly;
+						replace_mode();
 						redraw_statusbar();
 						redraw_commandline();
 						timeout = 0;
