@@ -3484,6 +3484,82 @@ void search_next(void) {
 }
 
 /**
+ * Find the matching paren for this one.
+ *
+ * This approach skips having to do its own syntax parsing
+ * to deal with, eg., erroneous parens in comments. It does
+ * this by finding the matching paren with the same flag
+ * value, thus parens in strings will match, parens outside
+ * of strings will match, but parens in strings won't
+ * match parens outside of strings and so on.
+ */
+void find_matching_paren(void) {
+	if (env->col_no > env->lines[env->line_no-1]->actual) {
+		return; /* Invalid cursor position */
+	}
+
+	/* TODO: vim can find the nearest paren to start searching from, we need to be on one right now */
+
+	int paren_match = 0;
+	int direction = 0;
+	int start = env->lines[env->line_no-1]->text[env->col_no-1].codepoint;
+	int flags = env->lines[env->line_no-1]->text[env->col_no-1].flags;
+	int count = 0;
+
+	/* TODO what about unicode parens? */
+	char * p = "()[]{}<>";
+	for (int i = 0; p[i]; ++i) {
+		if (start == p[i]) {
+			direction = (i % 2 == 0) ? 1 : -1;
+			paren_match = p[(i % 2 == 0) ? (i+1) : (i-1)];
+			break;
+		}
+	}
+
+	if (!paren_match) return;
+
+	/* Scan for match */
+	int line = env->line_no;
+	int col  = env->col_no;
+
+	do {
+		while (col > 0 && col < env->lines[line-1]->actual + 1) {
+			/* Only match on same syntax */
+			if (env->lines[line-1]->text[col-1].flags == flags) {
+				/* Count up on same direction */
+				if (env->lines[line-1]->text[col-1].codepoint == start) count++;
+				/* Count down on opposite direction */
+				if (env->lines[line-1]->text[col-1].codepoint == paren_match) {
+					count--;
+					/* When count == 0 we have a match */
+					if (count == 0) goto _match_found;
+				}
+			}
+			col += direction;
+		}
+
+		line += direction;
+
+		/* Reached first/last line with no match */
+		if (line == 0 || line == env->line_count + 1) {
+			return;
+		}
+
+		/* Reset column to start/end of line, depending on direction */
+		if (direction > 0) {
+			col = 1;
+		} else {
+			col = env->lines[line-1]->actual;
+		}
+	} while (1);
+
+_match_found:
+	env->line_no = line;
+	env->col_no = col;
+	place_cursor_actual();
+}
+
+/**
  * Handle mouse event
  */
 void handle_mouse(void) {
@@ -4371,6 +4447,9 @@ int main(int argc, char * argv[]) {
 							}
 							redraw_all();
 						}
+						break;
+					case '%':
+						find_matching_paren();
 						break;
 					case '$':
 						env->col_no = env->lines[env->line_no-1]->actual+1;
