@@ -250,6 +250,8 @@ void rline_insert(rline_context_t * context, const char * what) {
 	context->offset += insertion_length;
 }
 
+static rline_callbacks_t _rline_null_callbacks = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+
 int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 	/* Initialize context */
 	rline_context_t context = {
@@ -262,6 +264,10 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 		0,
 		0,
 	};
+
+	if (!callbacks) {
+		callbacks = &_rline_null_callbacks;
+	}
 
 	set_unbuffered();
 
