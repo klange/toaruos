@@ -743,8 +743,6 @@ static char * syn_sh_keywords[] = {
 	NULL,
 };
 
-static char * syn_sh_types[] = {NULL};
-
 static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
 	(void)last;
 
@@ -825,23 +823,20 @@ static int syn_make_iskeywordchar(int c) {
 	return 0;
 }
 
-static char * syn_make_types[] = {
-	NULL
-};
-
 static char * syn_make_commands[] = {
 	"define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
 	"include","sinclude","override","export","unexport","private","vpath",
+	"-include",
 	NULL
 };
 
-static char * syn_make_keywords[] = {
-	"$(subst","$(patsubst","$(findstring","$(filter","$(filter-out",
-	"$(sort","$(word","$(words","$(wordlist","$(firstword","$(lastword",
-	"$(dir","$(notdir","$(suffix","$(basename","$(addsuffix","$(addprefix",
-	"$(join","$(wildcard","$(realpath","$(abspath","$(error","$(warning",
-	"$(shell","$(origin","$(flavor","$(foreach","$(if","$(or","$(and",
-	"$(call","$(eval","$(file","$(value",
+static char * syn_make_functions[] = {
+	"subst","patsubst","findstring","filter","filter-out",
+	"sort","word","words","wordlist","firstword","lastword",
+	"dir","notdir","suffix","basename","addsuffix","addprefix",
+	"join","wildcard","realpath","abspath","error","warning",
+	"shell","origin","flavor","foreach","if","or","and",
+	"call","eval","file","value",
 	NULL
 };
 
@@ -861,6 +856,7 @@ static int syn_make_extended(line_t * line, int i, int c, int last, int * out_le
 	if (i == 0) {
 		int j = 0;
 		for (; j < line->actual; ++j) {
+			/* Handle leading spaces */
 			if (line->text[j].codepoint != ' ') break;
 		}
 		for (int s = 0; syn_make_commands[s]; ++s) {
@@ -873,9 +869,27 @@ static int syn_make_extended(line_t * line, int i, int c, int last, int * out_le
 		}
 	}
 
+	if (last == '(' && i > 1) {
+		if (line->text[i-2].codepoint == '$') {
+			int j = i;
+			for (int s = 0; syn_make_functions[s]; ++s) {
+				int d = 0;
+				while (j + d < line->actual && line->text[j+d].codepoint == syn_make_functions[s][d]) d++;
+				if (syn_make_functions[s][d] == '\0') {
+					*out_left = d;
+					return FLAG_KEYWORD;
+				}
+			}
+		}
+	}
+
 	if (i == 0) {
 		int j = 0;
 		for (; j < line->actual; ++j) {
+			if (line->text[j].codepoint == '=') {
+				*out_left = j;
+				return FLAG_TYPE;
+			}
 			if (line->text[j].codepoint == ':') {
 				*out_left = j;
 				return FLAG_TYPE;
@@ -891,8 +905,6 @@ static char * syn_bimrc_keywords[] = {
 	"theme",
 	NULL,
 };
-
-static char * syn_bimrc_types[] = {NULL}; /* none */
 
 static int syn_bimrc_extended(line_t * line, int i, int c, int last, int * out_left) {
 	(void)last;
@@ -927,9 +939,9 @@ struct syntax_definition {
 } syntaxes[] = {
 	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar,syn_c_finish},
 	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
-	{"esh",syn_sh_ext,syn_sh_keywords,syn_sh_types,syn_sh_extended,syn_sh_iskeywordchar,syn_sh_finish},
-	{"make",syn_make_ext,syn_make_keywords,syn_make_types,syn_make_extended,syn_make_iskeywordchar,syn_make_finish},
-	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,syn_bimrc_types,syn_bimrc_extended,syn_c_iskeywordchar,syn_bimrc_finish},
+	{"esh",syn_sh_ext,syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,syn_sh_finish},
+	{"make",syn_make_ext,NULL,NULL,syn_make_extended,syn_make_iskeywordchar,syn_make_finish},
+	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,syn_bimrc_finish},
 	{NULL}
 };
 
@@ -1021,22 +1033,26 @@ void recalculate_syntax(line_t * line, int offset) {
 		}
 
 		/* Keywords */
-		for (char ** kw = env->syntax->keywords; *kw; kw++) {
-			int c = check_line(line, i, *kw, last);
-			if (c == 1) {
-				left = strlen(*kw)-1;
-				state = FLAG_KEYWORD;
-				goto _continue;
+		if (env->syntax->keywords) {
+			for (char ** kw = env->syntax->keywords; *kw; kw++) {
+				int c = check_line(line, i, *kw, last);
+				if (c == 1) {
+					left = strlen(*kw)-1;
+					state = FLAG_KEYWORD;
+					goto _continue;
+				}
 			}
 		}
 
 		/* Type names */
-		for (char ** kw = env->syntax->types; *kw; kw++) {
-			int c = check_line(line, i, *kw, last);
-			if (c == 1) {
-				left = strlen(*kw)-1;
-				state = FLAG_TYPE;
-				goto _continue;
+		if (env->syntax->types) {
+			for (char ** kw = env->syntax->types; *kw; kw++) {
+				int c = check_line(line, i, *kw, last);
+				if (c == 1) {
+					left = strlen(*kw)-1;
+					state = FLAG_TYPE;
+					goto _continue;
+				}
 			}
 		}
 
