@@ -88,6 +88,9 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 		Elf32_Phdr phdr;
 		read_fs(file, header.e_phoff + x, sizeof(Elf32_Phdr), (uint8_t *)&phdr);
 		if (phdr.p_type == PT_LOAD) {
+			/* TODO: These virtual address bounds should be in a header somewhere */
+			if (phdr.p_vaddr < 0x20000000) return -EINVAL;
+			/* TODO Upper bounds */
 			for (uintptr_t i = phdr.p_vaddr; i < phdr.p_vaddr + phdr.p_memsz; i += 0x1000) {
 				/* This doesn't care if we already allocated this page */
 				alloc_frame(get_page(i, 1, current_directory), 0, 1);

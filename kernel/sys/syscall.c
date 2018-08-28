@@ -638,6 +638,9 @@ static int sys_sysfunc(int fn, char ** args) {
 			{
 				/* Load pages to fit region. */
 				uintptr_t address = (uintptr_t)args[0];
+				/* TODO: These virtual address bounds should be in a header somewhere */
+				if (address < 0x20000000) return -EINVAL;
+				/* TODO: Upper bounds */
 				size_t size = (size_t)args[1];
 				/* TODO: Other arguments for read/write? */
 
