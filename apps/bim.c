@@ -1623,6 +1623,20 @@ void shift_down(void) {
 }
 
 /**
+ * Switch to the alternate terminal screen.
+ */
+void set_alternate_screen(void) {
+	printf("\033[?1049h");
+}
+
+/**
+ * Restore the standard terminal screen.
+ */
+void unset_alternate_screen(void) {
+	printf("\033[?1049l");
+}
+
+/**
  * Redaw the tabbar, with a tab for each buffer.
  *
  * The active buffer is highlighted.
@@ -2239,6 +2253,8 @@ void SIGTSTP_handler(int sig) {
 	reset();
 	clear_screen();
 	show_cursor();
+	unset_alternate_screen();
+	fflush(stdout);
 
 	signal(SIGTSTP, SIG_DFL);
 	raise(SIGTSTP);
@@ -2246,6 +2262,7 @@ void SIGTSTP_handler(int sig) {
 
 void SIGCONT_handler(int sig) {
 	(void)sig;
+	set_alternate_screen();
 	set_unbuffered();
 	redraw_all();
 	signal(SIGCONT, SIGCONT_handler);
@@ -2260,6 +2277,8 @@ void initialize(void) {
 
 	buffers_avail = 4;
 	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
+
+	set_alternate_screen();
 
 	struct winsize w;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -2477,7 +2496,7 @@ void quit(void) {
 	reset();
 	clear_screen();
 	show_cursor();
-	printf("Thanks for flying bim!\n");
+	unset_alternate_screen();
 	exit(0);
 }
 
