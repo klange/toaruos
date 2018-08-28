@@ -60,28 +60,36 @@
 
 /**
  * Theming data
+ *
+ * This is all overridden by a load_colorscheme_ method.
+ * The default is to load_colorscheme_ansi, but config
+ * files can be used to set a different default theme.
  */
-const char * COLOR_FG        = "5;230";
-const char * COLOR_BG        = "5;235";
-const char * COLOR_ALT_FG    = "5;244";
-const char * COLOR_ALT_BG    = "5;236";
-const char * COLOR_NUMBER_BG = "5;232";
-const char * COLOR_NUMBER_FG = "5;101";
-const char * COLOR_STATUS_FG = "5;230";
-const char * COLOR_STATUS_BG = "5;238";
-const char * COLOR_TABBAR_BG = "5;230";
-const char * COLOR_TAB_BG    = "5;248";
-const char * COLOR_ERROR_FG  = "5;15";
-const char * COLOR_ERROR_BG  = "5;196";
-const char * COLOR_SEARCH_FG = "5;234";
-const char * COLOR_SEARCH_BG = "5;226";
-const char * COLOR_KEYWORD   = "5;117";
-const char * COLOR_STRING    = "5;113";
-const char * COLOR_COMMENT   = "5;102;3";
-const char * COLOR_TYPE      = "5;185";
-const char * COLOR_PRAGMA    = "5;173";
-const char * COLOR_NUMERAL   = "5;173";
+const char * COLOR_FG        = "@15";
+const char * COLOR_BG        = "@0";
+const char * COLOR_ALT_FG    = "@15";
+const char * COLOR_ALT_BG    = "@0";
+const char * COLOR_NUMBER_FG = "@15";
+const char * COLOR_NUMBER_BG = "@0";
+const char * COLOR_STATUS_FG = "@15";
+const char * COLOR_STATUS_BG = "@0";
+const char * COLOR_TABBAR_BG = "@0";
+const char * COLOR_TAB_BG    = "@0";
+const char * COLOR_ERROR_FG  = "@15";
+const char * COLOR_ERROR_BG  = "@0";
+const char * COLOR_SEARCH_FG = "@15";
+const char * COLOR_SEARCH_BG = "@0";
+const char * COLOR_KEYWORD   = "@15";
+const char * COLOR_STRING    = "@15";
+const char * COLOR_COMMENT   = "@15";
+const char * COLOR_TYPE      = "@15";
+const char * COLOR_PRAGMA    = "@15";
+const char * COLOR_NUMERAL   = "@15";
+const char * current_theme = "none";
 
+/**
+ * Syntax highlighting flags.
+ */
 #define FLAG_NONE     0
 #define FLAG_KEYWORD  1
 #define FLAG_STRING   2
@@ -97,8 +105,12 @@ const char * COLOR_NUMERAL   = "5;173";
 #define FLAG_STRING_ML1 17
 #define FLAG_STRING_ML2 18
 
+/**
+ * Themes
+ */
+
+/* Based on the wombat256 theme for vim */
 void load_colorscheme_wombat(void) {
-	/* Based on the wombat256 theme for vim */
 	COLOR_FG        = "5;230";
 	COLOR_BG        = "5;235";
 	COLOR_ALT_FG    = "5;244";
@@ -120,10 +132,12 @@ void load_colorscheme_wombat(void) {
 	COLOR_ERROR_BG  = "5;196";
 	COLOR_SEARCH_FG = "5;234";
 	COLOR_SEARCH_BG = "5;226";
+
+	current_theme = "wombat";
 }
 
+/* "City Lights" based on citylights.xyz */
 void load_colorscheme_citylights(void) {
-	/* "City Lights" based on citylights.xyz */
 	COLOR_FG        = "2;151;178;198";
 	COLOR_BG        = "2;29;37;44";
 	COLOR_ALT_FG    = "2;45;55;65";
@@ -145,10 +159,12 @@ void load_colorscheme_citylights(void) {
 	COLOR_ERROR_BG  = "5;196";
 	COLOR_SEARCH_FG = "5;234";
 	COLOR_SEARCH_BG = "5;226";
+
+	current_theme = "citylights";
 }
 
+/* Solarized Dark, popular theme */
 void load_colorscheme_solarized_dark(void) {
-	/* Solarized Dark, popular theme */
 	COLOR_FG        = "2;147;161;161";
 	COLOR_BG        = "2;0;43;54";
 	COLOR_ALT_FG    = "2;147;161;161";
@@ -170,10 +186,12 @@ void load_colorscheme_solarized_dark(void) {
 	COLOR_ERROR_BG  = "5;196";
 	COLOR_SEARCH_FG = "5;234";
 	COLOR_SEARCH_BG = "5;226";
+
+	current_theme = "solarized-dark";
 }
 
+/* 16-color theme, default */
 void load_colorscheme_ansi(void) {
-	/* 16-color theme */
 	COLOR_FG        = "@15";
 	COLOR_BG        = "@0";
 	COLOR_ALT_FG    = "@8";
@@ -195,6 +213,8 @@ void load_colorscheme_ansi(void) {
 	COLOR_ERROR_BG  = "@1";
 	COLOR_SEARCH_FG = "@0";
 	COLOR_SEARCH_BG = "@11";
+
+	current_theme = "ansi";
 }
 
 struct theme_def {
@@ -277,6 +297,8 @@ struct {
 	int tty_in;
 
 	const char * bimrc_path;
+	
+	int can_scroll;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -286,7 +308,8 @@ struct {
 	NULL, /* yanks */
 	0, /* yank_count */
 	STDIN_FILENO, /* tty_in */
-	"~/.bimrc" /* bimrc_path */
+	"~/.bimrc", /* bimrc_path */
+	1,
 };
 
 void redraw_line(int j, int x);
@@ -2671,21 +2694,25 @@ void cursor_down(void) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
-			shift_up();
+			if (global_config.can_scroll) {
+				shift_up();
 
-			/* A new line appears on screen at the bottom, draw it */
-			int l = global_config.term_height - global_config.bottom_size - 1;
-			if (env->offset + l < env->line_count + 1) {
-				redraw_line(l-1, env->offset + l-1);
+				/* A new line appears on screen at the bottom, draw it */
+				int l = global_config.term_height - global_config.bottom_size - 1;
+				if (env->offset + l < env->line_count + 1) {
+					redraw_line(l-1, env->offset + l-1);
+				} else {
+					draw_excess_line(l - 1);
+				}
+
+				/* Redraw elements that were moved by scrolling */
+				redraw_tabbar();
+				redraw_statusbar();
+				redraw_commandline();
+				place_cursor_actual();
 			} else {
-				draw_excess_line(l - 1);
+				redraw_all();
 			}
-
-			/* Redraw elements that were moved by scrolling */
-			redraw_tabbar();
-			redraw_statusbar();
-			redraw_commandline();
-			place_cursor_actual();
 			return;
 		} else if (redraw) {
 			/* Otherwise, if we need to redraw because of coffset change, do that */
@@ -2736,19 +2763,23 @@ void cursor_up(void) {
 			env->offset -= 1;
 
 			/* Tell terminal to scroll */
-			shift_down();
+			if (global_config.can_scroll) {
+				shift_down();
 
-			/*
-			 * The line at the top of the screen should always be real
-			 * so we can just call redraw_line here
-			 */
-			redraw_line(0,env->offset);
+				/*
+				 * The line at the top of the screen should always be real
+				 * so we can just call redraw_line here
+				 */
+				redraw_line(0,env->offset);
 
-			/* Redraw elements that were moved by scrolling */
-			redraw_tabbar();
-			redraw_statusbar();
-			redraw_commandline();
-			place_cursor_actual();
+				/* Redraw elements that were moved by scrolling */
+				redraw_tabbar();
+				redraw_statusbar();
+				redraw_commandline();
+				place_cursor_actual();
+			} else {
+				redraw_all();
+			}
 			return;
 		} else if (redraw) {
 			/* Otherwise, if we need to redraw because of coffset change, do that */
@@ -2977,6 +3008,7 @@ void process_command(char * cmd) {
 		redraw_all();
 	} else if (!strcmp(argv[0], "theme")) {
 		if (argc < 2) {
+			render_status_message("theme=%s", current_theme);
 			return;
 		}
 		for (struct theme_def * d = themes; d->name; ++d) {
@@ -2986,6 +3018,8 @@ void process_command(char * cmd) {
 				return;
 			}
 		}
+	} else if (!strcmp(argv[0], "noscroll")) {
+		global_config.can_scroll = 0;
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
@@ -4432,6 +4466,15 @@ void load_bimrc(void) {
 	fclose(bimrc);
 }
 
+void detect_weird_terminals(void) {
+
+	char * term = getenv("TERM");
+	if (term && !strcmp(term,"linux")) {
+		/* Linux VTs can't scroll. */
+		global_config.can_scroll = 0;
+	}
+
+}
 
 int main(int argc, char * argv[]) {
 	int opt;
@@ -4453,6 +4496,8 @@ int main(int argc, char * argv[]) {
 	}
 
 	initialize();
+	detect_weird_terminals();
+	load_colorscheme_ansi();
 	load_bimrc();
 
 	if (argc > optind) {
