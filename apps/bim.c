@@ -199,9 +199,9 @@ void load_colorscheme_ansi(void) {
 	COLOR_NUMBER_FG = "@3";
 	COLOR_NUMBER_BG = "@0";
 	COLOR_STATUS_FG = "@15";
-	COLOR_STATUS_BG = "@8";
-	COLOR_TABBAR_BG = "@8";
-	COLOR_TAB_BG    = "@0";
+	COLOR_STATUS_BG = "@4";
+	COLOR_TABBAR_BG = "@4";
+	COLOR_TAB_BG    = "@4";
 	COLOR_KEYWORD   = "@12";
 	COLOR_STRING    = "@2";
 	COLOR_COMMENT   = "@8";
