@@ -85,6 +85,8 @@ const char * COLOR_COMMENT   = "@17";
 const char * COLOR_TYPE      = "@17";
 const char * COLOR_PRAGMA    = "@17";
 const char * COLOR_NUMERAL   = "@17";
+const char * COLOR_SELECTFG  = "@0";
+const char * COLOR_SELECTBG  = "@17";
 const char * current_theme = "none";
 
 /**
@@ -104,129 +106,6 @@ const char * current_theme = "none";
 #define FLAG_COMMENT_ML 16
 #define FLAG_STRING_ML1 17
 #define FLAG_STRING_ML2 18
-
-/**
- * Themes
- */
-
-/* Based on the wombat256 theme for vim */
-void load_colorscheme_wombat(void) {
-	COLOR_FG        = "5;230";
-	COLOR_BG        = "5;235";
-	COLOR_ALT_FG    = "5;244";
-	COLOR_ALT_BG    = "5;236";
-	COLOR_NUMBER_BG = "5;232";
-	COLOR_NUMBER_FG = "5;101";
-	COLOR_STATUS_FG = "5;230";
-	COLOR_STATUS_BG = "5;238";
-	COLOR_TABBAR_BG = "5;230";
-	COLOR_TAB_BG    = "5;248";
-	COLOR_KEYWORD   = "5;117";
-	COLOR_STRING    = "5;113";
-	COLOR_COMMENT   = "5;102;3";
-	COLOR_TYPE      = "5;185";
-	COLOR_PRAGMA    = "5;173";
-	COLOR_NUMERAL   = COLOR_PRAGMA;
-
-	COLOR_ERROR_FG  = "5;15";
-	COLOR_ERROR_BG  = "5;196";
-	COLOR_SEARCH_FG = "5;234";
-	COLOR_SEARCH_BG = "5;226";
-
-	current_theme = "wombat";
-}
-
-/* "City Lights" based on citylights.xyz */
-void load_colorscheme_citylights(void) {
-	COLOR_FG        = "2;151;178;198";
-	COLOR_BG        = "2;29;37;44";
-	COLOR_ALT_FG    = "2;45;55;65";
-	COLOR_ALT_BG    = "2;33;42;50";
-	COLOR_NUMBER_FG = "2;71;89;103";
-	COLOR_NUMBER_BG = "2;37;47;56";
-	COLOR_STATUS_FG = "2;116;144;166";
-	COLOR_STATUS_BG = "2;53;67;78";
-	COLOR_TABBAR_BG = "2;37;47;56";
-	COLOR_TAB_BG    = "2;29;37;44";
-	COLOR_KEYWORD   = "2;94;196;255";
-	COLOR_STRING    = "2;83;154;252";
-	COLOR_COMMENT   = "2;107;133;153;3";
-	COLOR_TYPE      = "2;139;212;156";
-	COLOR_PRAGMA    = "2;0;139;148";
-	COLOR_NUMERAL   = "2;207;118;132";
-
-	COLOR_ERROR_FG  = "5;15";
-	COLOR_ERROR_BG  = "5;196";
-	COLOR_SEARCH_FG = "5;234";
-	COLOR_SEARCH_BG = "5;226";
-
-	current_theme = "citylights";
-}
-
-/* Solarized Dark, popular theme */
-void load_colorscheme_solarized_dark(void) {
-	COLOR_FG        = "2;147;161;161";
-	COLOR_BG        = "2;0;43;54";
-	COLOR_ALT_FG    = "2;147;161;161";
-	COLOR_ALT_BG    = "2;7;54;66";
-	COLOR_NUMBER_FG = "2;131;148;149";
-	COLOR_NUMBER_BG = "2;7;54;66";
-	COLOR_STATUS_FG = "2;131;148;150";
-	COLOR_STATUS_BG = "2;7;54;66";
-	COLOR_TABBAR_BG = "2;7;54;66";
-	COLOR_TAB_BG    = "2;131;148;150";
-	COLOR_KEYWORD   = "2;133;153;0";
-	COLOR_STRING    = "2;42;161;152";
-	COLOR_COMMENT   = "2;101;123;131";
-	COLOR_TYPE      = "2;181;137;0";
-	COLOR_PRAGMA    = "2;203;75;22";
-	COLOR_NUMERAL   = "2;220;50;47";
-
-	COLOR_ERROR_FG  = "5;15";
-	COLOR_ERROR_BG  = "5;196";
-	COLOR_SEARCH_FG = "5;234";
-	COLOR_SEARCH_BG = "5;226";
-
-	current_theme = "solarized-dark";
-}
-
-/* 16-color theme, default */
-void load_colorscheme_ansi(void) {
-	COLOR_FG        = "@17";
-	COLOR_BG        = "@9";
-	COLOR_ALT_FG    = "@10";
-	COLOR_ALT_BG    = "@9";
-	COLOR_NUMBER_FG = "@3";
-	COLOR_NUMBER_BG = "@9";
-	COLOR_STATUS_FG = "@17";
-	COLOR_STATUS_BG = "@4";
-	COLOR_TABBAR_BG = "@4";
-	COLOR_TAB_BG    = "@4";
-	COLOR_KEYWORD   = "@14";
-	COLOR_STRING    = "@2";
-	COLOR_COMMENT   = "@10";
-	COLOR_TYPE      = "@3";
-	COLOR_PRAGMA    = "@1";
-	COLOR_NUMERAL   = "@1";
-
-	COLOR_ERROR_FG  = "@17";
-	COLOR_ERROR_BG  = "@1";
-	COLOR_SEARCH_FG = "@0";
-	COLOR_SEARCH_BG = "@13";
-
-	current_theme = "ansi";
-}
-
-struct theme_def {
-	const char * name;
-	void (*load)(void);
-} themes[] = {
-	{"wombat", load_colorscheme_wombat},
-	{"citylights", load_colorscheme_citylights},
-	{"solarized-dark", load_colorscheme_solarized_dark},
-	{"ansi", load_colorscheme_ansi},
-	{NULL, NULL}
-};
 
 /**
  * Convert syntax hilighting flag to color code
@@ -249,7 +128,7 @@ const char * flag_to_color(int flag) {
 		case FLAG_PRAGMA:
 			return COLOR_PRAGMA;
 		case FLAG_SELECT:
-			return COLOR_BG;
+			return COLOR_FG;
 		default:
 			return COLOR_FG;
 	}
@@ -299,6 +178,11 @@ struct {
 	const char * bimrc_path;
 	
 	int can_scroll;
+	int can_hideshow;
+	int can_altscreen;
+	int can_mouse;
+	int can_unicode;
+	int can_bright;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -309,6 +193,11 @@ struct {
 	0, /* yank_count */
 	STDIN_FILENO, /* tty_in */
 	"~/.bimrc", /* bimrc_path */
+	1,
+	1,
+	1,
+	1,
+	1,
 	1,
 };
 
@@ -459,6 +348,142 @@ buffer_t * buffer_close(buffer_t * buf) {
 	/* Otherwise return the new last buffer */
 	return buffers[i];
 }
+
+/**
+ * Themes
+ */
+
+/* Based on the wombat256 theme for vim */
+void load_colorscheme_wombat(void) {
+	COLOR_FG        = "5;230";
+	COLOR_BG        = "5;235";
+	COLOR_ALT_FG    = "5;244";
+	COLOR_ALT_BG    = "5;236";
+	COLOR_NUMBER_BG = "5;232";
+	COLOR_NUMBER_FG = "5;101";
+	COLOR_STATUS_FG = "5;230";
+	COLOR_STATUS_BG = "5;238";
+	COLOR_TABBAR_BG = "5;230";
+	COLOR_TAB_BG    = "5;248";
+	COLOR_KEYWORD   = "5;117";
+	COLOR_STRING    = "5;113";
+	COLOR_COMMENT   = "5;102;3";
+	COLOR_TYPE      = "5;185";
+	COLOR_PRAGMA    = "5;173";
+	COLOR_NUMERAL   = COLOR_PRAGMA;
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "5;235";
+	COLOR_SELECTBG  = "5;230";
+
+	current_theme = "wombat";
+}
+
+/* "City Lights" based on citylights.xyz */
+void load_colorscheme_citylights(void) {
+	COLOR_FG        = "2;151;178;198";
+	COLOR_BG        = "2;29;37;44";
+	COLOR_ALT_FG    = "2;45;55;65";
+	COLOR_ALT_BG    = "2;33;42;50";
+	COLOR_NUMBER_FG = "2;71;89;103";
+	COLOR_NUMBER_BG = "2;37;47;56";
+	COLOR_STATUS_FG = "2;116;144;166";
+	COLOR_STATUS_BG = "2;53;67;78";
+	COLOR_TABBAR_BG = "2;37;47;56";
+	COLOR_TAB_BG    = "2;29;37;44";
+	COLOR_KEYWORD   = "2;94;196;255";
+	COLOR_STRING    = "2;83;154;252";
+	COLOR_COMMENT   = "2;107;133;153;3";
+	COLOR_TYPE      = "2;139;212;156";
+	COLOR_PRAGMA    = "2;0;139;148";
+	COLOR_NUMERAL   = "2;207;118;132";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "2;29;37;44";
+	COLOR_SELECTBG  = "2;151;178;198";
+
+	current_theme = "citylights";
+}
+
+/* Solarized Dark, popular theme */
+void load_colorscheme_solarized_dark(void) {
+	COLOR_FG        = "2;147;161;161";
+	COLOR_BG        = "2;0;43;54";
+	COLOR_ALT_FG    = "2;147;161;161";
+	COLOR_ALT_BG    = "2;7;54;66";
+	COLOR_NUMBER_FG = "2;131;148;149";
+	COLOR_NUMBER_BG = "2;7;54;66";
+	COLOR_STATUS_FG = "2;131;148;150";
+	COLOR_STATUS_BG = "2;7;54;66";
+	COLOR_TABBAR_BG = "2;7;54;66";
+	COLOR_TAB_BG    = "2;131;148;150";
+	COLOR_KEYWORD   = "2;133;153;0";
+	COLOR_STRING    = "2;42;161;152";
+	COLOR_COMMENT   = "2;101;123;131";
+	COLOR_TYPE      = "2;181;137;0";
+	COLOR_PRAGMA    = "2;203;75;22";
+	COLOR_NUMERAL   = "2;220;50;47";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "2;0;43;54";
+	COLOR_SELECTBG  = "2;147;161;161";
+
+	current_theme = "solarized-dark";
+}
+
+/* 16-color theme, default */
+void load_colorscheme_ansi(void) {
+	COLOR_FG        = global_config.can_bright ? "@17" : "@7";
+	COLOR_BG        = global_config.can_bright ? "@9"  : "@0";
+	COLOR_ALT_FG    = global_config.can_bright ? "@10" : "@5";
+	COLOR_ALT_BG    = "@9";
+	COLOR_NUMBER_FG = "@3";
+	COLOR_NUMBER_BG = "@9";
+	COLOR_STATUS_FG = global_config.can_bright ? "@17" : "@7";
+	COLOR_STATUS_BG = "@4";
+	COLOR_TABBAR_BG = "@4";
+	COLOR_TAB_BG    = "@4";
+	COLOR_KEYWORD   = global_config.can_bright ? "@14" : "@4";
+	COLOR_STRING    = "@2";
+	COLOR_COMMENT   = global_config.can_bright ? "@10" : "@5";
+	COLOR_TYPE      = "@3";
+	COLOR_PRAGMA    = "@1";
+	COLOR_NUMERAL   = "@1";
+
+	COLOR_ERROR_FG  = global_config.can_bright ? "@17" : "@7";
+	COLOR_ERROR_BG  = "@1";
+	COLOR_SEARCH_FG = "@0";
+	COLOR_SEARCH_BG = global_config.can_bright ? "@13" : "@3";
+
+	COLOR_SELECTBG  = global_config.can_bright ? "@17" : "@7";
+	COLOR_SELECTFG  = "@0";
+
+	current_theme = "ansi";
+}
+
+struct theme_def {
+	const char * name;
+	void (*load)(void);
+} themes[] = {
+	{"wombat", load_colorscheme_wombat},
+	{"citylights", load_colorscheme_citylights},
+	{"solarized-dark", load_colorscheme_solarized_dark},
+	{"ansi", load_colorscheme_ansi},
+	{NULL, NULL}
+};
+
 
 /**
  * Syntax definition for C
@@ -1479,12 +1504,13 @@ int codepoint_width(wchar_t codepoint) {
 	}
 	/* Skip wcwidth for anything under 256 */
 	if (codepoint > 256) {
-		/* Higher codepoints may be wider (eg. Japanese) */
-		int out = wcwidth(codepoint);
-		if (out < 1) {
-			/* Invalid character, render as [U+ABCD] or [U+ABCDEF] */
-			return (codepoint < 0x10000) ? 8 : 10;
+		if (global_config.can_unicode) {
+			/* Higher codepoints may be wider (eg. Japanese) */
+			int out = wcwidth(codepoint);
+			if (out >= 1) return out;
 		}
+		/* Invalid character, render as [U+ABCD] or [U+ABCDEF] */
+		return (codepoint < 0x10000) ? 8 : 10;
 	}
 	return 1;
 }
@@ -1494,14 +1520,6 @@ int codepoint_width(wchar_t codepoint) {
  */
 void place_cursor(int x, int y) {
 	printf("\033[%d;%dH", y, x);
-	fflush(stdout);
-}
-
-/**
- * Move the terminal cursor, but only horizontally
- */
-void place_cursor_h(int h) {
-	printf("\033[%dG", h);
 	fflush(stdout);
 }
 
@@ -1603,7 +1621,9 @@ void clear_screen(void) {
  * Hide the cursor
  */
 void hide_cursor(void) {
-	printf("\033[?25l");
+	if (global_config.can_hideshow) {
+		printf("\033[?25l");
+	}
 	fflush(stdout);
 }
 
@@ -1611,7 +1631,9 @@ void hide_cursor(void) {
  * Show the cursor
  */
 void show_cursor(void) {
-	printf("\033[?25h");
+	if (global_config.can_hideshow) {
+		printf("\033[?25h");
+	}
 	fflush(stdout);
 }
 
@@ -1619,7 +1641,9 @@ void show_cursor(void) {
  * Request mouse events
  */
 void mouse_enable(void) {
-	printf("\033[?1000h");
+	if (global_config.can_mouse) {
+		printf("\033[?1000h");
+	}
 	fflush(stdout);
 }
 
@@ -1627,7 +1651,9 @@ void mouse_enable(void) {
  * Stop mouse events
  */
 void mouse_disable(void) {
-	printf("\033[?1000l");
+	if (global_config.can_mouse) {
+		printf("\033[?1000l");
+	}
 	fflush(stdout);
 }
 
@@ -1649,14 +1675,18 @@ void shift_down(void) {
  * Switch to the alternate terminal screen.
  */
 void set_alternate_screen(void) {
-	printf("\033[?1049h");
+	if (global_config.can_altscreen) {
+		printf("\033[?1049h");
+	}
 }
 
 /**
  * Restore the standard terminal screen.
  */
 void unset_alternate_screen(void) {
-	printf("\033[?1049l");
+	if (global_config.can_altscreen) {
+		printf("\033[?1049l");
+	}
 }
 
 /**
@@ -1798,7 +1828,7 @@ void render_line(line_t * line, int width, int offset) {
 			/* Syntax hilighting */
 			const char * color = flag_to_color(c.flags);
 			if (c.flags == FLAG_SELECT) {
-				set_colors(COLOR_BG, COLOR_FG);
+				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
 			} else {
 				if (!last_color || strcmp(color, last_color)) {
 					set_fg_color(color);
@@ -1811,9 +1841,16 @@ void render_line(line_t * line, int width, int offset) {
 			/* Render special characters */
 			if (c.codepoint == '\t') {
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-				printf("»");
-				for (int i = 1; i < c.display_width; ++i) {
-					printf("·");
+				if (global_config.can_unicode) {
+					printf("»");
+					for (int i = 1; i < c.display_width; ++i) {
+						printf("·");
+					}
+				} else {
+					printf(">");
+					for (int i = 1; i < c.display_width; ++i) {
+						printf("-");
+					}
 				}
 				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint < 32) {
@@ -2017,7 +2054,8 @@ void redraw_statusbar(void) {
 	sprintf(right_hand, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
 
 	/* Move the cursor appropriately to draw it */
-	place_cursor_h(global_config.term_width - strlen(right_hand)); /* TODO: What if we're localized and this has wide chars? */
+	place_cursor(global_config.term_width - strlen(right_hand), global_config.term_height - 1);
+	/* TODO: What if we're localized and this has wide chars? */
 	printf("%s",right_hand);
 	fflush(stdout);
 }
@@ -3876,6 +3914,12 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 			case 'F': // end
 				cursor_end();
 				break;
+			case 'I':
+				goto_line(env->line_no - (global_config.term_height - 6));
+				break;
+			case 'G':
+				goto_line(env->line_no + global_config.term_height - 6);
+				break;
 			case 'Z':
 				/* Shift tab */
 				if (env->mode == MODE_LINE_SELECTION) {
@@ -4509,6 +4553,14 @@ void detect_weird_terminals(void) {
 		/* Linux VTs can't scroll. */
 		global_config.can_scroll = 0;
 	}
+	if (term && !strcmp(term,"cons25")) {
+		/* Dragonfly BSD console */
+		global_config.can_hideshow = 0;
+		global_config.can_altscreen = 0;
+		global_config.can_mouse = 0;
+		global_config.can_unicode = 0;
+		global_config.can_bright = 0;
+	}
 
 }
 
@@ -4531,8 +4583,8 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	initialize();
 	detect_weird_terminals();
+	initialize();
 	load_colorscheme_ansi();
 	load_bimrc();
 
