@@ -1917,6 +1917,19 @@ int num_width(void) {
 }
 
 /**
+ * Draw the gutter and line numbers.
+ */
+void draw_line_number(int x) {
+	/* Draw the line number */
+	set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
+	int num_size = num_width();
+	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
+		printf(" ");
+	}
+	printf("%d%c", x + 1, (x+1 == env->line_no && env->coffset > 0) ? '<' : ' ');
+}
+
+/**
  * Redraw line.
  *
  * This draws the line number as well as the actual text.
@@ -1938,20 +1951,14 @@ void redraw_line(int j, int x) {
 	set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
 	printf(" ");
 
-	/* Draw the line number */
-	set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
-	int num_size = num_width();
-	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
-		printf(" ");
-	}
-	printf("%d%c", x + 1, (x+1 == env->line_no && env->coffset > 0) ? '<' : ' ');
+	draw_line_number(x);
 
 	/*
 	 * Draw the line text 
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], global_config.term_width - 3 - num_size, (x + 1 == env->line_no) ? env->coffset : 0);
+	render_line(env->lines[x], global_config.term_width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
 
 	/* Clear the rest of the line */
 	clear_to_end();
@@ -2287,14 +2294,21 @@ void place_cursor_actual(void) {
 }
 
 /**
- * Handle terminal size changes
+ * Update screen size
  */
-void SIGWINCH_handler(int sig) {
-	(void)sig;
+void update_screen_size(void) {
 	struct winsize w;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	global_config.term_width = w.ws_col;
 	global_config.term_height = w.ws_row;
+}
+
+/**
+ * Handle terminal size changes
+ */
+void SIGWINCH_handler(int sig) {
+	(void)sig;
+	update_screen_size();
 	redraw_all();
 
 	signal(SIGWINCH, SIGWINCH_handler);
@@ -2324,31 +2338,6 @@ void SIGCONT_handler(int sig) {
 	redraw_all();
 	signal(SIGCONT, SIGCONT_handler);
 	signal(SIGTSTP, SIGTSTP_handler);
-}
-
-/**
- * Run global initialization tasks
- */
-void initialize(void) {
-	setlocale(LC_ALL, "");
-
-	buffers_avail = 4;
-	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
-
-	set_alternate_screen();
-
-	struct winsize w;
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-	global_config.term_width = w.ws_col;
-	global_config.term_height = w.ws_row;
-	get_initial_termios();
-	set_unbuffered();
-
-	mouse_enable();
-
-	signal(SIGWINCH, SIGWINCH_handler);
-	signal(SIGCONT,  SIGCONT_handler);
-	signal(SIGTSTP,  SIGTSTP_handler);
 }
 
 /**
@@ -2537,9 +2526,6 @@ void open_file(char * file) {
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_tabs(env->lines[i]);
 	}
-
-	update_title();
-	goto_line(0);
 
 	fclose(f);
 }
@@ -2952,6 +2938,8 @@ void process_command(char * cmd) {
 		if (argc > 1) {
 			/* This actually opens a new tab */
 			open_file(argv[1]);
+			update_title();
+			goto_line(0);
 		} else {
 			/* TODO: Reopen file? */
 			render_error("Expected a file to open...");
@@ -4454,15 +4442,30 @@ void replace_mode(void) {
 }
 
 static void show_usage(char * argv[]) {
+#define _S "\033[3m"
+#define _E "\033[0m\n"
 	printf(
 			"bim - Text editor\n"
 			"\n"
-			"usage: %s [-s] [path]\n"
+			"usage: %s [options] [file]\n"
+			"       %s [options] -\n"
 			"\n"
-			" -s     \033[3mdisable automatic syntax highlighting\033[0m\n"
-			" -R     \033[3mopen initial buffer read-only\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -R     " _S "open initial buffer read-only" _E
+			" -O     " _S "set various display options:" _E
+			"        noscroll    " _S "disable terminal scrolling" _E
+			"        noaltscreen " _S "disable alternate screen buffer" _E
+			"        nomouse     " _S "disable mouse support" _E
+			"        nounicode   " _S "disable unicode display" _E
+			"        nobright    " _S "disable bright next" _E
+			"        nohideshow  " _S "disable togglging cursor visibility" _E
+			"        nosyntax    " _S "disable syntax highlighting on load" _E
+			" -c,-C  " _S "print file to stdout with syntax hilighting" _E
+			"        " _S "-C includes line numbers, -c does not" _E
+			" -u     " _S "override bimrc file" _E
+			" -?     " _S "show this help text" _E
+			"\n", argv[0], argv[0]);
+#undef _E
+#undef _S
 }
 
 /**
@@ -4564,18 +4567,74 @@ void detect_weird_terminals(void) {
 
 }
 
+/**
+ * Run global initialization tasks
+ */
+void initialize(void) {
+	setlocale(LC_ALL, "");
+
+	detect_weird_terminals();
+	load_colorscheme_ansi();
+	load_bimrc();
+
+	buffers_avail = 4;
+	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
+}
+
+/**
+ * Initialize terminal for editor display.
+ */
+void init_terminal(void) {
+	set_alternate_screen();
+	update_screen_size();
+	get_initial_termios();
+	set_unbuffered();
+	mouse_enable();
+
+	signal(SIGWINCH, SIGWINCH_handler);
+	signal(SIGCONT,  SIGCONT_handler);
+	signal(SIGTSTP,  SIGTSTP_handler);
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?sR")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:C:u:RO:")) != -1) {
 		switch (opt) {
-			case 's':
-				global_config.hilight_on_open = 0;
-				break;
 			case 'R':
 				global_config.initial_file_is_read_only = 1;
 				break;
+			case 'c':
+			case 'C':
+				/* Print file to stdout using our syntax highlighting and color theme */
+				initialize();
+				open_file(optarg);
+				for (int i = 0; i < env->line_count; ++i) {
+					if (opt == 'C') {
+						draw_line_number(i);
+					}
+					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0);
+					clear_to_end();
+					fprintf(stdout,"\n");
+				}
+				reset();
+				clear_to_end();
+				return 0;
 			case 'u':
 				global_config.bimrc_path = optarg;
+				break;
+			case 'O':
+				/* Set various display options */
+				if (!strcmp(optarg,"noaltscreen"))     global_config.can_altscreen = 0;
+				else if (!strcmp(optarg,"noscroll"))   global_config.can_scroll = 0;
+				else if (!strcmp(optarg,"nomouse"))    global_config.can_mouse = 0;
+				else if (!strcmp(optarg,"nounicode"))  global_config.can_unicode = 0;
+				else if (!strcmp(optarg,"nobright"))   global_config.can_bright = 0;
+				else if (!strcmp(optarg,"nohideshow")) global_config.can_hideshow = 0;
+				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
+				else {
+					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
+					return 1;
+				}
 				break;
 			case '?':
 				show_usage(argv);
@@ -4583,13 +4642,13 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	detect_weird_terminals();
 	initialize();
-	load_colorscheme_ansi();
-	load_bimrc();
+	init_terminal();
 
 	if (argc > optind) {
 		open_file(argv[optind]);
+		update_title();
+		goto_line(0);
 		if (global_config.initial_file_is_read_only) {
 			env->readonly = 1;
 		}
