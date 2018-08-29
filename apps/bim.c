@@ -3254,10 +3254,10 @@ void command_tab_complete(char * buffer) {
 				if (last_slash) {
 					char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
 					sprintf(x,"%s/%s",tmp,ent->d_name);
-					lstat(x, &statbuf);
+					stat(x, &statbuf);
 					free(x);
 				} else {
-					lstat(ent->d_name, &statbuf);
+					stat(ent->d_name, &statbuf);
 				}
 
 				/* Build the complete argument name to tab complete */
