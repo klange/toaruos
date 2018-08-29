@@ -4614,10 +4614,9 @@ int main(int argc, char * argv[]) {
 					}
 					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0);
 					clear_to_end();
-					fprintf(stdout,"\n");
+					reset();
+					fprintf(stdout, "\n");
 				}
-				reset();
-				clear_to_end();
 				return 0;
 			case 'u':
 				global_config.bimrc_path = optarg;
