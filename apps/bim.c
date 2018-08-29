@@ -1806,11 +1806,7 @@ void render_line(line_t * line, int width, int offset) {
 				}
 			}
 
-			void _set_colors(const char * fg, const char * bg) {
-				if (c.flags != FLAG_SELECT) {
-					set_colors(fg,bg);
-				}
-			}
+#define _set_colors(fg,bg) if (c.flags != FLAG_SELECT) { set_colors(fg,bg); }
 
 			/* Render special characters */
 			if (c.codepoint == '\t') {
@@ -3135,18 +3131,19 @@ void command_tab_complete(char * buffer) {
 	 * candidates list, expanding as necessary,
 	 * if it matches for the current argument.
 	 */
-	void add_candidate(const char * candidate) {
-		char * _arg = args[arg];
-		int r = strncmp(_arg, candidate, strlen(_arg));
-		if (!r) {
-			if (candidate_count == candidate_space) {
-				candidate_space *= 2;
-				candidates = realloc(candidates,sizeof(char *) * candidate_space);
-			}
-			candidates[candidate_count] = strdup(candidate);
-			candidate_count++;
-		}
-	}
+#define add_candidate(candidate) \
+	do { \
+		char * _arg = args[arg]; \
+		int r = strncmp(_arg, candidate, strlen(_arg)); \
+		if (!r) { \
+			if (candidate_count == candidate_space) { \
+				candidate_space *= 2; \
+				candidates = realloc(candidates,sizeof(char *) * candidate_space); \
+			} \
+			candidates[candidate_count] = strdup(candidate); \
+			candidate_count++; \
+		} \
+	} while (0)
 
 	if (arg == 0) {
 		/* Complete command names */
@@ -3966,6 +3963,88 @@ void yank_lines(int start, int end) {
 }
 
 /**
+ * Macro for redrawing selected lines with appropriate highlighting.
+ */
+#define _redraw_line(line, force_start_line) \
+	do { \
+		if (!(force_start_line) && (line) == start_line) break; \
+		if ((line) > env->line_count + 1) { \
+			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
+				draw_excess_line((line) - env->offset - 1); \
+			} \
+			break; \
+		} \
+		if ((env->line_no < start_line && (line) < env->line_no) || \
+			(env->line_no > start_line && (line) > env->line_no) || \
+			(env->line_no == start_line && (line) != start_line)) { \
+			recalculate_syntax(env->lines[(line)-1],(line)-1); \
+		} else { \
+			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
+				env->lines[(line)-1]->text[j].flags = FLAG_SELECT; \
+			} \
+		} \
+		if ((line) - env->offset + 1 > 1 && \
+			(line) - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) { \
+			redraw_line((line) - env->offset - 1, (line)-1); \
+		} \
+	} while (0)
+
+/**
+ * Adjust indentation on selected lines.
+ */
+void adjust_indent(int start_line, int direction) {
+	int lines_to_cover = 0;
+	int start_point = 0;
+	if (start_line <= env->line_no) {
+		start_point = start_line - 1;
+		lines_to_cover = env->line_no - start_line + 1;
+	} else {
+		start_point = env->line_no - 1;
+		lines_to_cover = start_line - env->line_no + 1;
+	}
+	for (int i = 0; i < lines_to_cover; ++i) {
+		if ((direction == -1) && env->lines[start_point + i]->actual < 1) continue;
+		if (direction == -1) {
+			if (env->tabs) {
+				if (env->lines[start_point + i]->text[0].codepoint == '\t') {
+					line_delete(env->lines[start_point + i],1,start_point+i);
+					_redraw_line(start_point+i+1,1);
+				}
+			} else {
+				for (int j = 0; j < env->tabstop; ++j) {
+					if (env->lines[start_point + i]->text[0].codepoint == ' ') {
+						line_delete(env->lines[start_point + i],1,start_point+i);
+					}
+				}
+				_redraw_line(start_point+i+1,1);
+			}
+		} else if (direction == 1) {
+			if (env->tabs) {
+				char_t c;
+				c.codepoint = '\t';
+				c.display_width = env->tabstop;
+				c.flags = FLAG_SELECT;
+				env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
+			} else {
+				for (int j = 0; j < env->tabstop; ++j) {
+					char_t c;
+					c.codepoint = ' ';
+					c.display_width = 1;
+					c.flags = FLAG_SELECT;
+					env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
+				}
+			}
+			_redraw_line(start_point+i+1,1);
+		}
+	}
+	if (env->col_no > env->lines[env->line_no-1]->actual) {
+		env->col_no = env->lines[env->line_no-1]->actual;
+	}
+	set_modified();
+}
+
+
+/**
  * LINE SELECTION mode
  *
  * Equivalent to visual line in vim; selects lines of texts.
@@ -3985,81 +4064,6 @@ void line_selection_mode(void) {
 		env->lines[env->line_no-1]->text[j].flags = FLAG_SELECT;
 	}
 	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
-
-	void _redraw_line(int line, int force_start_line) {
-		if (!force_start_line && line == start_line) return;
-		if (line > env->line_count + 1) {
-			if (line - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) {
-				draw_excess_line(line - env->offset - 1);
-			}
-			return;
-		}
-
-		if ((env->line_no < start_line && line < env->line_no) ||
-			(env->line_no > start_line && line > env->line_no) ||
-			(env->line_no == start_line && line != start_line)) {
-			recalculate_syntax(env->lines[line-1],line-1);
-		} else {
-			for (int j = 0; j < env->lines[line-1]->actual; ++j) {
-				env->lines[line-1]->text[j].flags = FLAG_SELECT;
-			}
-		}
-		if (line - env->offset + 1 > 1 &&
-			line - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) {
-			redraw_line(line - env->offset - 1, line-1);
-		}
-	}
-
-	void adjust_indent(int direction) {
-		int lines_to_cover = 0;
-		int start_point = 0;
-		if (start_line <= env->line_no) {
-			start_point = start_line - 1;
-			lines_to_cover = env->line_no - start_line + 1;
-		} else {
-			start_point = env->line_no - 1;
-			lines_to_cover = start_line - env->line_no + 1;
-		}
-		for (int i = 0; i < lines_to_cover; ++i) {
-			if ((direction == -1) && env->lines[start_point + i]->actual < 1) continue;
-			if (direction == -1) {
-				if (env->tabs) {
-					if (env->lines[start_point + i]->text[0].codepoint == '\t') {
-						line_delete(env->lines[start_point + i],1,start_point+i);
-						_redraw_line(start_point+i+1,1);
-					}
-				} else {
-					for (int j = 0; j < env->tabstop; ++j) {
-						if (env->lines[start_point + i]->text[0].codepoint == ' ') {
-							line_delete(env->lines[start_point + i],1,start_point+i);
-						}
-					}
-					_redraw_line(start_point+i+1,1);
-				}
-			} else if (direction == 1) {
-				if (env->tabs) {
-					char_t c;
-					c.codepoint = '\t';
-					c.display_width = env->tabstop;
-					c.flags = FLAG_SELECT;
-					env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
-				} else {
-					for (int j = 0; j < env->tabstop; ++j) {
-						char_t c;
-						c.codepoint = ' ';
-						c.display_width = 1;
-						c.flags = FLAG_SELECT;
-						env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
-					}
-				}
-				_redraw_line(start_point+i+1,1);
-			}
-		}
-		if (env->col_no > env->lines[env->line_no-1]->actual) {
-			env->col_no = env->lines[env->line_no-1]->actual;
-		}
-		set_modified();
-	}
 
 	while ((c = bim_getch())) {
 		if (c == -1) {
@@ -4091,7 +4095,7 @@ void line_selection_mode(void) {
 						break;
 					case '\t':
 						if (env->readonly) goto _readonly;
-						adjust_indent(1);
+						adjust_indent(start_line, 1);
 						break;
 					case 'V':
 						goto _leave_select_line;
@@ -4178,7 +4182,7 @@ void line_selection_mode(void) {
 					case 'Z':
 						/* Unindent */
 						if (env->readonly) goto _readonly;
-						adjust_indent(-1);
+						adjust_indent(start_line, -1);
 						break;
 				}
 			}
