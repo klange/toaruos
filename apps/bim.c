@@ -485,6 +485,36 @@ void load_colorscheme_solarized_dark(void) {
 	current_theme = "solarized-dark";
 }
 
+/* Custom theme */
+void load_colorscheme_sunsmoke(void) {
+	COLOR_FG        = "2;230;230;230";
+	COLOR_BG        = "2;31;31;31";
+	COLOR_ALT_FG    = "2;122;122;122";
+	COLOR_ALT_BG    = "2;46;43;46";
+	COLOR_NUMBER_FG = "2;150;139;57";
+	COLOR_NUMBER_BG = "2;0;0;0";
+	COLOR_STATUS_FG = "2;230;230;230";
+	COLOR_STATUS_BG = "2;71;64;58";
+	COLOR_TABBAR_BG = "2;71;64;58";
+	COLOR_TAB_BG    = "2;31;31;31";
+	COLOR_KEYWORD   = "2;51;162;230";
+	COLOR_STRING    = "2;72;176;72";
+	COLOR_COMMENT   = "2;158;153;129;3";
+	COLOR_TYPE      = "2;230;206;110";
+	COLOR_PRAGMA    = "2;194;70;54";
+	COLOR_NUMERAL   = "2;230;43;127";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "2;0;43;54";
+	COLOR_SELECTBG  = "2;147;161;161";
+
+	current_theme = "sunsmoke";
+}
+
 /* 16-color theme, default */
 void load_colorscheme_ansi(void) {
 	COLOR_FG        = global_config.can_bright ? "@17" : "@7";
@@ -523,6 +553,7 @@ struct theme_def {
 	{"citylights", load_colorscheme_citylights},
 	{"solarized-dark", load_colorscheme_solarized_dark},
 	{"ansi", load_colorscheme_ansi},
+	{"sunsmoke", load_colorscheme_sunsmoke},
 	{NULL, NULL}
 };
 
@@ -889,30 +920,7 @@ static int syn_sh_iskeywordchar(int c) {
 
 static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
 
-static int syn_sh_finish(line_t * line, int * left, int state) {
-	/* No multilines supported */
-	(void)line;
-	(void)left;
-	(void)state;
-	return 0;
-}
-
-static int syn_make_finish(line_t * line, int * left, int state) {
-	/* No multilines supported */
-	(void)line;
-	(void)left;
-	(void)state;
-	return 0;
-}
-
 static char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
-
-static int syn_make_iskeywordchar(int c) {
-	if (isalpha(c)) return 1;
-	if (c == '$') return 1;
-	if (c == '(') return 1;
-	return 0;
-}
 
 static char * syn_make_commands[] = {
 	"define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
@@ -1008,13 +1016,18 @@ static int syn_bimrc_extended(line_t * line, int i, int c, int last, int * out_l
 
 static char * syn_bimrc_ext[] = {".bimrc",NULL};
 
-static int syn_bimrc_finish(line_t * line, int * left, int state) {
-	/* No multilines supported */
-	(void)line;
-	(void)left;
-	(void)state;
-	return 0;
+static int syn_gitcommit_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
+	if (c == '#') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	return FLAG_NONE;
 }
+
+static char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG",NULL};
 
 /**
  * Syntax hilighting definition database
@@ -1030,9 +1043,10 @@ struct syntax_definition {
 } syntaxes[] = {
 	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar,syn_c_finish},
 	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
-	{"esh",syn_sh_ext,syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,syn_sh_finish},
-	{"make",syn_make_ext,NULL,NULL,syn_make_extended,syn_make_iskeywordchar,syn_make_finish},
-	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,syn_bimrc_finish},
+	{"esh",syn_sh_ext,syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,NULL},
+	{"make",syn_make_ext,NULL,NULL,syn_make_extended,NULL,NULL},
+	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,NULL},
+	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
 	{NULL}
 };
 
