@@ -1,0 +1,4 @@
+# Nice 256-color default
+theme=sunsmoke
+# Enable experimental history support
+history
