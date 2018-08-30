@@ -183,6 +183,7 @@ struct {
 	int can_mouse;
 	int can_unicode;
 	int can_bright;
+	int history_enabled;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -199,6 +200,7 @@ struct {
 	1,
 	1,
 	1,
+	0,
 };
 
 void redraw_line(int j, int x);
@@ -243,6 +245,43 @@ int bim_getch(void) {
 #endif
 }
 
+#define HISTORY_SENTINEL     0
+#define HISTORY_INSERT       1
+#define HISTORY_DELETE       2
+#define HISTORY_REPLACE      3
+#define HISTORY_REMOVE_LINE  4
+#define HISTORY_ADD_LINE     5
+#define HISTORY_REPLACE_LINE 6
+#define HISTORY_MERGE_LINES  7
+#define HISTORY_SPLIT_LINE   8
+
+#define HISTORY_BREAK        10
+
+typedef struct history {
+	struct history * previous;
+	struct history * next;
+	int type;
+	union {
+		struct {
+			int lineno;
+			int offset;
+			int codepoint;
+			int old_codepoint;
+		} insert_delete_replace;
+
+		struct {
+			int lineno;
+			line_t * contents;
+			line_t * old_contents;
+		} remove_replace_line;
+
+		struct {
+			int lineno;
+			int split;
+		} add_merge_split_lines;
+	};
+} history_t;
+
 /**
  * Buffer data
  *
@@ -271,6 +310,9 @@ typedef struct _env {
 	char * search;
 	struct syntax_definition * syntax;
 	line_t ** lines;
+
+	history_t * history;
+	history_t * last_save_history;
 } buffer_t;
 
 /**
@@ -1157,10 +1199,64 @@ void recalculate_tabs(line_t * line) {
  * so that they can act on buffers other than the active one.
  */
 
+void recursive_history_free(history_t * root) {
+	if (!root->next) return;
+
+	history_t * n = root->next;
+	recursive_history_free(n);
+
+	switch (n->type) {
+		case HISTORY_REPLACE_LINE:
+			free(n->remove_replace_line.contents);
+			/* fall-through */
+		case HISTORY_REMOVE_LINE:
+			free(n->remove_replace_line.old_contents);
+			break;
+		default:
+			/* Nothing extra to free */
+			break;
+	}
+
+	free(n);
+	root->next = NULL;
+}
+
+#define HIST_APPEND(e) do { \
+		if (env->history) { \
+			e->previous = env->history; \
+			recursive_history_free(env->history); \
+			env->history->next = e; \
+			e->next = NULL; \
+		} \
+		env->history = e; \
+	} while (0)
+
+/**
+ * Mark a point where a complete set of actions has ended.
+ */
+void set_history_break(void) {
+	if (!global_config.history_enabled) return;
+
+	if (env->history->type != HISTORY_BREAK) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_BREAK;
+		HIST_APPEND(e);
+	}
+}
+
 /**
  * Insert a character into an existing line.
  */
 line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_INSERT;
+		e->insert_delete_replace.lineno = lineno;
+		e->insert_delete_replace.offset = offset;
+		e->insert_delete_replace.codepoint = c.codepoint;
+		HIST_APPEND(e);
+	}
 
 	/* If there is not enough space... */
 	if (line->actual == line->available) {
@@ -1192,8 +1288,18 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
  * Delete a character from a line
  */
 void line_delete(line_t * line, int offset, int lineno) {
+
 	/* Can't delete character before start of line. */
 	if (offset == 0) return;
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_DELETE;
+		e->insert_delete_replace.lineno = lineno;
+		e->insert_delete_replace.offset = offset;
+		e->insert_delete_replace.old_codepoint = line->text[offset-1].codepoint;
+		HIST_APPEND(e);
+	}
 
 	/* If this isn't the last character, we need to move all subsequent characters backwards */
 	if (offset < line->actual) {
@@ -1208,14 +1314,48 @@ void line_delete(line_t * line, int offset, int lineno) {
 }
 
 /**
+ * Replace a character in a line
+ */
+void line_replace(line_t * line, char_t _c, int offset, int lineno) {
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_REPLACE;
+		e->insert_delete_replace.lineno = lineno;
+		e->insert_delete_replace.offset = offset;
+		e->insert_delete_replace.codepoint = _c.codepoint;
+		e->insert_delete_replace.old_codepoint = line->text[offset].codepoint;
+		HIST_APPEND(e);
+	}
+
+	line->text[offset] = _c;
+
+	if (!env->loading) {
+		recalculate_tabs(line);
+		recalculate_syntax(line, lineno);
+	}
+}
+
+/**
  * Remove a line from the active buffer
  */
 line_t ** remove_line(line_t ** lines, int offset) {
 
 	/* If there is only one line, clear it instead of removing it. */
 	if (env->line_count == 1) {
-		lines[offset]->actual = 0;
+		while (lines[offset]->actual > 0) {
+			line_delete(lines[offset], lines[offset]->actual, offset);
+		}
 		return lines;
+	}
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_REMOVE_LINE;
+		e->remove_replace_line.lineno = offset;
+		e->remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		memcpy(e->remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		HIST_APPEND(e);
 	}
 
 	/* Otherwise, free the data used by the line */
@@ -1239,6 +1379,13 @@ line_t ** add_line(line_t ** lines, int offset) {
 
 	/* Invalid offset? */
 	if (offset > env->line_count) return lines;
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_ADD_LINE;
+		e->add_merge_split_lines.lineno = offset;
+		HIST_APPEND(e);
+	}
 
 	/* Not enough space */
 	if (env->line_count == env->line_avail) {
@@ -1272,6 +1419,18 @@ line_t ** add_line(line_t ** lines, int offset) {
  * Replace a line with data from another line (used by paste to paste yanked lines)
  */
 void replace_line(line_t ** lines, int offset, line_t * replacement) {
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_REPLACE_LINE;
+		e->remove_replace_line.lineno = offset;
+		e->remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		memcpy(e->remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		e->remove_replace_line.contents = malloc(sizeof(line_t) + sizeof(char_t) * replacement->available);
+		memcpy(e->remove_replace_line.contents, replacement, sizeof(line_t) + sizeof(char_t) * replacement->available);
+		HIST_APPEND(e);
+	}
+
 	if (lines[offset]->available < replacement->actual) {
 		lines[offset] = realloc(lines[offset], sizeof(line_t) + sizeof(char_t) * replacement->available);
 		lines[offset]->available = replacement->available;
@@ -1279,7 +1438,9 @@ void replace_line(line_t ** lines, int offset, line_t * replacement) {
 	lines[offset]->actual = replacement->actual;
 	memcpy(&lines[offset]->text, &replacement->text, sizeof(char_t) * replacement->actual);
 
-	recalculate_syntax(lines[offset],offset);
+	if (!env->loading) {
+		recalculate_syntax(lines[offset],offset);
+	}
 }
 
 /**
@@ -1290,6 +1451,14 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 
 	/* linea is the line immediately before lineb */
 	int linea = lineb - 1;
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_MERGE_LINES;
+		e->add_merge_split_lines.lineno = lineb;
+		e->add_merge_split_lines.split = env->lines[linea]->actual;
+		HIST_APPEND(e);
+	}
 
 	/* If there isn't enough space in linea hold both... */
 	while (lines[linea]->available < lines[linea]->actual + lines[lineb]->actual) {
@@ -1305,12 +1474,25 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	/* The first line is now longer */
 	lines[linea]->actual = lines[linea]->actual + lines[lineb]->actual;
 
-	recalculate_tabs(lines[linea]);
-	recalculate_syntax(lines[linea], linea);
+	if (!env->loading) {
+		recalculate_tabs(lines[linea]);
+		recalculate_syntax(lines[linea], linea);
+	}
 
 	/* Remove the second line */
-	return remove_line(lines, lineb);
+	free(lines[lineb]);
+
+	/* Move other lines up */
+	if (lineb < env->line_count) {
+		memmove(&lines[lineb], &lines[lineb+1], sizeof(line_t *) * (env->line_count - (lineb - 1)));
+		lines[env->line_count-1] = NULL;
+	}
+
+	/* There is one less line */
+	env->line_count -= 1;
+	return lines;
 }
+void render_error(char * message, ...);
 
 /**
  * Split a line into two lines at the given column
@@ -1319,7 +1501,15 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 
 	/* If we're trying to split from the start, just add a new blank line before */
 	if (split == 0) {
-		return add_line(lines, line - 1);
+		return add_line(lines, line);
+	}
+
+	if (!env->loading && global_config.history_enabled) {
+		history_t * e = malloc(sizeof(history_t));
+		e->type = HISTORY_SPLIT_LINE;
+		e->add_merge_split_lines.lineno = line;
+		e->add_merge_split_lines.split  = split;
+		HIST_APPEND(e);
 	}
 
 	/* Allocate more space as needed */
@@ -1330,11 +1520,11 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 
 	/* Shift later lines down */
 	if (line < env->line_count) {
-		memmove(&lines[line+1], &lines[line], sizeof(line_t *) * (env->line_count - line));
+		memmove(&lines[line+2], &lines[line+1], sizeof(line_t *) * (env->line_count - line));
 	}
 
 	/* I have no idea what this is doing */
-	int remaining = lines[line-1]->actual - split;
+	int remaining = lines[line]->actual - split;
 
 	int v = remaining;
 	v--;
@@ -1346,19 +1536,21 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	v++;
 
 	/* Allocate space for the new line */
-	lines[line] = malloc(sizeof(line_t) + sizeof(char_t) * v);
-	lines[line]->available = v;
-	lines[line]->actual = remaining;
-	lines[line]->istate = 0;
+	lines[line+1] = malloc(sizeof(line_t) + sizeof(char_t) * v);
+	lines[line+1]->available = v;
+	lines[line+1]->actual = remaining;
+	lines[line+1]->istate = 0;
 
 	/* Move the data from the old line into the new line */
-	memmove(lines[line]->text, &lines[line-1]->text[split], sizeof(char_t) * remaining);
-	lines[line-1]->actual = split;
+	memmove(lines[line+1]->text, &lines[line]->text[split], sizeof(char_t) * remaining);
+	lines[line]->actual = split;
 
-	recalculate_tabs(lines[line-1]);
-	recalculate_tabs(lines[line]);
-	recalculate_syntax(lines[line-1], line-1);
-	recalculate_syntax(lines[line], line);
+	if (!env->loading) {
+		recalculate_tabs(lines[line]);
+		recalculate_tabs(lines[line+1]);
+		recalculate_syntax(lines[line], line);
+		recalculate_syntax(lines[line+1], line+1);
+	}
 
 	/* There is one new line */
 	env->line_count += 1;
@@ -1412,6 +1604,9 @@ void setup_buffer(buffer_t * env) {
 	env->tabs        = 1; /* Tabs by default */
 	env->tabstop     = 4; /* Tab stop width */
 	env->indent      = 1; /* Auto-indent by default */
+	env->history     = malloc(sizeof(struct history));
+	memset(env->history, 0, sizeof(struct history));
+	env->last_save_history = env->history;
 
 	/* Allocate line buffer */
 	env->lines = malloc(sizeof(line_t *) * env->line_avail);
@@ -2235,6 +2430,10 @@ void render_error(char * message, ...) {
  */
 void place_cursor_actual(void) {
 
+	/* Invalid positions */
+	if (env->line_no < 1) env->line_no = 1;
+	if (env->col_no  < 1) env->col_no  = 1;
+
 	/* Account for the left hand gutter */
 	int num_size = num_width() + 3;
 	int x = num_size + 1 - env->coffset;
@@ -2643,6 +2842,7 @@ void write_file(char * file) {
 
 	/* Mark it no longer modified */
 	env->modified = 0;
+	env->last_save_history = env->history;
 
 	/* If there was no file name set, set one */
 	if (!env->file_name) {
@@ -2886,6 +3086,7 @@ void leave_insert(void) {
 		env->col_no = env->lines[env->line_no-1]->actual;
 		if (env->col_no == 0) env->col_no = 1;
 	}
+	set_history_break();
 	env->mode = MODE_NORMAL;
 	redraw_commandline();
 }
@@ -3726,6 +3927,10 @@ void handle_mouse(void) {
  * Append a character at the current cursor point.
  */
 void insert_char(unsigned int c) {
+	if (!c) {
+		render_error("Inserted nil byte?");
+		return;
+	}
 	char_t _c;
 	_c.codepoint = c;
 	_c.flags = 0;
@@ -3751,12 +3956,260 @@ void replace_char(unsigned int c) {
 	_c.flags = 0;
 	_c.display_width = codepoint_width(c);
 
-	env->lines[env->line_no-1]->text[env->col_no-1] = _c;
-	recalculate_tabs(env->lines[env->line_no-1]);
-	recalculate_syntax(env->lines[env->line_no-1], env->line_no);
+	line_replace(env->lines[env->line_no-1], _c, env->col_no-1, env->line_no-1);
 
 	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 	set_modified();
+}
+
+/**
+ * Undo a history entry.
+ */
+void undo_history(void) {
+	if (!global_config.history_enabled) return;
+
+	env->loading = 1;
+	history_t * e = env->history;
+
+	if (e->type == HISTORY_SENTINEL) {
+		render_commandline_message("Already at oldest change");
+		return;
+	}
+
+	int count_chars = 0;
+	int count_lines = 0;
+
+	do {
+		if (e->type == HISTORY_SENTINEL) break;
+
+		switch (e->type) {
+			case HISTORY_INSERT:
+				/* Delete */
+				line_delete(
+						env->lines[e->insert_delete_replace.lineno],
+						e->insert_delete_replace.offset+1,
+						e->insert_delete_replace.lineno
+				);
+				env->line_no = e->insert_delete_replace.lineno + 1;
+				env->col_no  = e->insert_delete_replace.offset + 1;
+				count_chars++;
+				break;
+			case HISTORY_DELETE:
+				{
+					char_t _c = {codepoint_width(e->insert_delete_replace.old_codepoint),0,e->insert_delete_replace.old_codepoint};
+					env->lines[e->insert_delete_replace.lineno] = line_insert(
+							env->lines[e->insert_delete_replace.lineno],
+							_c,
+							e->insert_delete_replace.offset-1,
+							e->insert_delete_replace.lineno
+					);
+				}
+				env->line_no = e->insert_delete_replace.lineno + 1;
+				env->col_no  = e->insert_delete_replace.offset + 2;
+				count_chars++;
+				break;
+			case HISTORY_REPLACE:
+				{
+					char_t _o = {codepoint_width(e->insert_delete_replace.old_codepoint),0,e->insert_delete_replace.old_codepoint};
+					line_replace(
+							env->lines[e->insert_delete_replace.lineno],
+							_o,
+							e->insert_delete_replace.offset,
+							e->insert_delete_replace.lineno
+					);
+				}
+				env->line_no = e->insert_delete_replace.lineno + 1;
+				env->col_no  = e->insert_delete_replace.offset + 1;
+				count_chars++;
+				break;
+			case HISTORY_REMOVE_LINE:
+				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
+				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
+				env->line_no = e->remove_replace_line.lineno + 2;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_ADD_LINE:
+				env->lines = remove_line(env->lines, e->add_merge_split_lines.lineno);
+				env->line_no = e->add_merge_split_lines.lineno + 1;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_REPLACE_LINE:
+				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
+				env->line_no = e->remove_replace_line.lineno + 1;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_SPLIT_LINE:
+				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno+1);
+				env->line_no = e->add_merge_split_lines.lineno + 2;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_MERGE_LINES:
+				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno-1, e->add_merge_split_lines.split);
+				env->line_no = e->add_merge_split_lines.lineno;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_BREAK:
+				/* Ignore break */
+				break;
+			default:
+				render_error("Unknown type %d!\n", e->type);
+				break;
+		}
+
+		env->history = e->previous;
+		e = env->history;
+	} while (e->type != HISTORY_BREAK);
+
+	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+
+	env->modified = (env->history != env->last_save_history);
+
+	env->loading = 0;
+
+	for (int i = 0; i < env->line_count; ++i) {
+		env->lines[i]->istate = 0;
+		recalculate_tabs(env->lines[i]);
+	}
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	place_cursor_actual();
+	redraw_all();
+	render_commandline_message("%d character%s, %d line%s changed",
+			count_chars, (count_chars == 1) ? "" : "s",
+			count_lines, (count_lines == 1) ? "" : "s");
+}
+
+/**
+ * Replay a history entry.
+ */
+void redo_history(void) {
+	if (!global_config.history_enabled) return;
+
+	env->loading = 1;
+	history_t * e = env->history->next;
+
+	if (!e) {
+		render_commandline_message("Already at newest change");
+		return;
+	}
+
+	int count_chars = 0;
+	int count_lines = 0;
+
+	while (e) {
+		if (e->type == HISTORY_BREAK) {
+			env->history = e;
+			break;
+		}
+
+		switch (e->type) {
+			case HISTORY_INSERT:
+				{
+					char_t _c = {codepoint_width(e->insert_delete_replace.codepoint),0,e->insert_delete_replace.codepoint};
+					env->lines[e->insert_delete_replace.lineno] = line_insert(
+							env->lines[e->insert_delete_replace.lineno],
+							_c,
+							e->insert_delete_replace.offset,
+							e->insert_delete_replace.lineno
+					);
+				}
+				env->line_no = e->insert_delete_replace.lineno + 1;
+				env->col_no  = e->insert_delete_replace.offset + 2;
+				count_chars++;
+				break;
+			case HISTORY_DELETE:
+				/* Delete */
+				line_delete(
+						env->lines[e->insert_delete_replace.lineno],
+						e->insert_delete_replace.offset,
+						e->insert_delete_replace.lineno
+				);
+				env->line_no = e->insert_delete_replace.lineno + 1;
+				env->col_no  = e->insert_delete_replace.offset + 1;
+				count_chars++;
+				break;
+			case HISTORY_REPLACE:
+				{
+					char_t _o = {codepoint_width(e->insert_delete_replace.codepoint),0,e->insert_delete_replace.codepoint};
+					line_replace(
+							env->lines[e->insert_delete_replace.lineno],
+							_o,
+							e->insert_delete_replace.offset,
+							e->insert_delete_replace.lineno
+					);
+				}
+				env->line_no = e->insert_delete_replace.lineno + 1;
+				env->col_no  = e->insert_delete_replace.offset + 2;
+				count_chars++;
+				break;
+			case HISTORY_ADD_LINE:
+				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
+				env->line_no = e->remove_replace_line.lineno + 2;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_REMOVE_LINE:
+				env->lines = remove_line(env->lines, e->remove_replace_line.lineno);
+				env->line_no = e->add_merge_split_lines.lineno + 1;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_REPLACE_LINE:
+				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.contents);
+				env->line_no = e->remove_replace_line.lineno + 2;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_MERGE_LINES:
+				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno);
+				env->line_no = e->remove_replace_line.lineno + 1;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_SPLIT_LINE:
+				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno, e->add_merge_split_lines.split);
+				env->line_no = e->remove_replace_line.lineno + 2;
+				env->col_no = 1;
+				count_lines++;
+				break;
+			case HISTORY_BREAK:
+				/* Ignore break */
+				break;
+			default:
+				render_error("Unknown type %d!\n", e->type);
+				break;
+		}
+
+		env->history = e;
+		e = e->next;
+	}
+
+	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+
+	env->modified = (env->history != env->last_save_history);
+
+	env->loading = 0;
+
+	for (int i = 0; i < env->line_count; ++i) {
+		env->lines[i]->istate = 0;
+		recalculate_tabs(env->lines[i]);
+	}
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	place_cursor_actual();
+	redraw_all();
+	render_commandline_message("%d character%s, %d line%s changed",
+			count_chars, (count_chars == 1) ? "" : "s",
+			count_lines, (count_lines == 1) ? "" : "s");
 }
 
 /**
@@ -4242,6 +4695,7 @@ _readonly:
 	}
 
 _leave_select_line:
+	set_history_break();
 	env->mode = MODE_NORMAL;
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_syntax(env->lines[i],i);
@@ -4279,7 +4733,7 @@ void insert_line_feed(void) {
 	if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
 		env->lines = add_line(env->lines, env->line_no);
 	} else {
-		env->lines = split_line(env->lines, env->line_no, env->col_no - 1);
+		env->lines = split_line(env->lines, env->line_no-1, env->col_no - 1);
 	}
 	env->col_no = 1;
 	env->line_no += 1;
@@ -4544,6 +4998,11 @@ void load_bimrc(void) {
 				}
 			}
 		}
+
+		/* enable history (experimental) */
+		if (!strcmp(l,"history")) {
+			global_config.history_enabled = 1;
+		}
 	}
 
 	fclose(bimrc);
@@ -4630,6 +5089,8 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nobright"))   global_config.can_bright = 0;
 				else if (!strcmp(optarg,"nohideshow")) global_config.can_hideshow = 0;
 				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
+				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
+				else if (!strcmp(optarg,"history"))    global_config.history_enabled = 1;
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
 					return 1;
@@ -4803,6 +5264,12 @@ int main(int argc, char * argv[]) {
 					case '^':
 					case '0':
 						cursor_home();
+						break;
+					case 'u':
+						undo_history();
+						break;
+					case 18: /* ^R */
+						redo_history();
 						break;
 					case 'i':
 _insert:
