@@ -1,10 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2012-2018 K. Lange
  *
- * Alternatively, this source file is also released under the
- * following terms:
+ * Copyright (C) 2012-2018 K. Lange
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,11 +19,10 @@
  * Bim is inspired by vim, and its name is short for "Bad IMitation".
  *
  * Bim supports syntax highlighting, extensive editing, line selection
- * and copy-paste, and can be built for ToaruOS and Linux (and should be
- * easily portable to other Unix-like environments).
+ * and copy-paste, undo/redo stack, forward and backward search, and can
+ * be built for ToaruOS, Sortix, Linux, macOS, and BSDs.
  *
  * Future goals:
- * - History stack
  * - Character selection
  */
 #define _XOPEN_SOURCE 500
@@ -184,6 +179,7 @@ struct {
 	int can_unicode;
 	int can_bright;
 	int history_enabled;
+	int can_title;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -201,6 +197,7 @@ struct {
 	1,
 	1,
 	0,
+	1,
 };
 
 void redraw_line(int j, int x);
@@ -295,7 +292,7 @@ typedef struct _env {
 	int    line_count;
 	int    line_avail;
 	int    col_no;
-	char * search;
+	uint32_t * search;
 	struct syntax_definition * syntax;
 	line_t ** lines;
 
@@ -1239,7 +1236,7 @@ void recursive_history_free(history_t * root) {
 void set_history_break(void) {
 	if (!global_config.history_enabled) return;
 
-	if (env->history->type != HISTORY_BREAK) {
+	if (env->history->type != HISTORY_BREAK && env->history->type != HISTORY_SENTINEL) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_BREAK;
 		HIST_APPEND(e);
@@ -2343,6 +2340,8 @@ void redraw_all(void) {
  * Update the terminal title bar
  */
 void update_title(void) {
+	if (!global_config.can_title) return;
+
 	char cwd[1024] = {'/',0};
 	getcwd(cwd, 1024);
 
@@ -3243,8 +3242,6 @@ void process_command(char * cmd) {
 				return;
 			}
 		}
-	} else if (!strcmp(argv[0], "noscroll")) {
-		global_config.can_scroll = 0;
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
@@ -3605,7 +3602,7 @@ void command_mode(void) {
  *
  * This could be more complicated...
  */
-void find_match(int from_line, int from_col, int * out_line, int * out_col, char * str) {
+void find_match(int from_line, int from_col, int * out_line, int * out_col, uint32_t * str) {
 	int col = from_col;
 	for (int i = from_line; i <= env->line_count; ++i) {
 		line_t * line = env->lines[i - 1];
@@ -3613,7 +3610,7 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, char
 		int j = col - 1;
 		while (j < line->actual + 1) {
 			int k = j;
-			char * match = str;
+			uint32_t * match = str;
 			while (k < line->actual + 1) {
 				if (*match == '\0') {
 					*out_line = i;
@@ -3634,7 +3631,7 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, char
 /**
  * Search backwards for matching string.
  */
-void find_match_backwards(int from_line, int from_col, int * out_line, int * out_col, char * str) {
+void find_match_backwards(int from_line, int from_col, int * out_line, int * out_col, uint32_t * str) {
 	int col = from_col;
 	for (int i = from_line; i >= 1; --i) {
 		line_t * line = env->lines[i-1];
@@ -3642,7 +3639,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 		int j = col - 1;
 		while (j > -1) {
 			int k = j;
-			char * match = str;
+			uint32_t * match = str;
 			while (k < line->actual + 1) {
 				if (*match == '\0') {
 					*out_line = i;
@@ -3664,7 +3661,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 /**
  * Draw the matched search result.
  */
-void draw_search_match(int line, char * buffer, int redraw_buffer) {
+void draw_search_match(int line, uint32_t * buffer, int redraw_buffer) {
 	place_cursor_actual();
 	redraw_text();
 	if (line != -1) {
@@ -3675,12 +3672,25 @@ void draw_search_match(int line, char * buffer, int redraw_buffer) {
 		set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 		place_cursor_actual();
 
-		printf("%s", buffer);
+		uint32_t * c = buffer;
+		while (*c) {
+			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
+			to_eight(*c, tmp);
+			printf("%s", tmp);
+			c++;
+		}
 	}
 	redraw_statusbar();
 	redraw_commandline();
 	if (redraw_buffer) {
-		printf("/%s", buffer);
+		printf("/");
+		uint32_t * c = buffer;
+		while (*c) {
+			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
+			to_eight(*c, tmp);
+			printf("%s", tmp);
+			c++;
+		}
 	}
 }
 
@@ -3690,9 +3700,11 @@ void draw_search_match(int line, char * buffer, int redraw_buffer) {
  * Search text for substring match.
  */
 void search_mode(void) {
-	int c;
-	char buffer[1024] = {0};
+	uint32_t c;
+	uint32_t buffer[1024] = {0};
 	int  buffer_len = 0;
+
+	/* utf-8 decoding */
 
 	/* Remember where the cursor is so we can cancel */
 	int prev_line = env->line_no;
@@ -3704,73 +3716,83 @@ void search_mode(void) {
 	printf("/");
 	show_cursor();
 
-	while ((c = bim_getch())) {
-		if (c == -1) {
+	uint32_t state = 0, codepoint = 0;
+	int cin;
+
+	while ((cin = bim_getch())) {
+		if (cin == -1) {
 			/* Time out */
 			continue;
 		}
-		if (c == '\033') {
-			/* Cancel search */
-			env->line_no = prev_line;
-			env->col_no  = prev_col;
-			redraw_all();
-			break;
-		} else if (c == ENTER_KEY) {
-			/* Exit search */
-			if (env->search) {
-				free(env->search);
-			}
-			env->search = strdup(buffer);
-			break;
-		} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
-			/* Backspace, delete last character in search buffer */
-			if (buffer_len > 0) {
-				buffer_len -= 1;
+		if (!decode(&state, &c, cin)) {
+			if (c == '\033') {
+				/* Cancel search */
+				env->line_no = prev_line;
+				env->col_no  = prev_col;
+				redraw_all();
+				break;
+			} else if (c == ENTER_KEY) {
+				/* Exit search */
+				if (env->search) {
+					free(env->search);
+				}
+				env->search = malloc((buffer_len + 1) * sizeof(uint32_t));
+				memcpy(env->search, buffer, (buffer_len + 1) * sizeof(uint32_t));
+				break;
+			} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
+				/* Backspace, delete last character in search buffer */
+				if (buffer_len > 0) {
+					buffer_len -= 1;
+					buffer[buffer_len] = '\0';
+					/* Search from beginning to find first match */
+					int line = -1, col = -1;
+					find_match(prev_line, prev_col, &line, &col, buffer);
+
+					if (line != -1) {
+						env->col_no = col;
+						env->line_no = line;
+					}
+
+					draw_search_match(line, buffer, 1);
+
+				} else {
+					/* If backspaced through entire search term, cancel search */
+					redraw_commandline();
+					env->coffset = prev_coffset;
+					env->offset = prev_offset;
+					env->col_no = prev_col;
+					env->line_no = prev_line;
+					redraw_all();
+					break;
+				}
+			} else {
+				/* Regular character */
+				buffer[buffer_len] = c;
+				buffer_len++;
 				buffer[buffer_len] = '\0';
-				/* Search from beginning to find first match */
+				char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
+				to_eight(c, tmp);
+				printf("%s", tmp);
+
+				/* Find the next search match */
 				int line = -1, col = -1;
 				find_match(prev_line, prev_col, &line, &col, buffer);
 
 				if (line != -1) {
 					env->col_no = col;
 					env->line_no = line;
+				} else {
+					env->coffset = prev_coffset;
+					env->offset = prev_offset;
+					env->col_no = prev_col;
+					env->line_no = prev_line;
 				}
-
 				draw_search_match(line, buffer, 1);
-
-			} else {
-				/* If backspaced through entire search term, cancel search */
-				redraw_commandline();
-				env->coffset = prev_coffset;
-				env->offset = prev_offset;
-				env->col_no = prev_col;
-				env->line_no = prev_line;
-				redraw_all();
-				break;
 			}
-		} else {
-			/* Regular character */
-			buffer[buffer_len] = c;
-			buffer_len++;
-			buffer[buffer_len] = '\0';
-			printf("%c", c);
-
-			/* Find the next search match */
-			int line = -1, col = -1;
-			find_match(prev_line, prev_col, &line, &col, buffer);
-
-			if (line != -1) {
-				env->col_no = col;
-				env->line_no = line;
-			} else {
-				env->coffset = prev_coffset;
-				env->offset = prev_offset;
-				env->col_no = prev_col;
-				env->line_no = prev_line;
-			}
-			draw_search_match(line, buffer, 1);
+			show_cursor();
+		} else if (state == UTF8_REJECT) {
+			state = 0;
 		}
-		show_cursor();
 	}
 }
 
@@ -4504,8 +4526,8 @@ void yank_lines(int start, int end) {
 			} \
 			break; \
 		} \
-		if ((env->line_no < start_line && (line) < env->line_no) || \
-			(env->line_no > start_line && (line) > env->line_no) || \
+		if ((env->line_no < start_line  && ((line) < env->line_no || (line) > start_line)) || \
+			(env->line_no > start_line  && ((line) > env->line_no || (line) < start_line)) || \
 			(env->line_no == start_line && (line) != start_line)) { \
 			recalculate_syntax(env->lines[(line)-1],(line)-1); \
 		} else { \
@@ -4953,7 +4975,7 @@ static void show_usage(char * argv[]) {
 			"       %s [options] -\n"
 			"\n"
 			" -R     " _S "open initial buffer read-only" _E
-			" -O     " _S "set various display options:" _E
+			" -O     " _S "set various options:" _E
 			"        noscroll    " _S "disable terminal scrolling" _E
 			"        noaltscreen " _S "disable alternate screen buffer" _E
 			"        nomouse     " _S "disable mouse support" _E
@@ -4961,6 +4983,8 @@ static void show_usage(char * argv[]) {
 			"        nobright    " _S "disable bright next" _E
 			"        nohideshow  " _S "disable togglging cursor visibility" _E
 			"        nosyntax    " _S "disable syntax highlighting on load" _E
+			"        notitle     " _S "disable title-setting escapes" _E
+			"        history     " _S "enable experimental undo/redo" _E
 			" -c,-C  " _S "print file to stdout with syntax hilighting" _E
 			"        " _S "-C includes line numbers, -c does not" _E
 			" -u     " _S "override bimrc file" _E
@@ -5071,6 +5095,10 @@ void detect_weird_terminals(void) {
 		global_config.can_unicode = 0;
 		global_config.can_bright = 0;
 	}
+	if (term && !strcmp(term,"sortix")) {
+		/* sortix will spew title escapes to the screen, no good */
+		global_config.can_title = 0;
+	}
 
 }
 
@@ -5139,6 +5167,7 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
 				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
 				else if (!strcmp(optarg,"history"))    global_config.history_enabled = 1;
+				else if (!strcmp(optarg,"notitle"))    global_config.can_title = 0;
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
 					return 1;
@@ -5261,6 +5290,7 @@ int main(int argc, char * argv[]) {
 						goto _insert;
 					case 'P':
 					case 'p':
+						if (env->readonly) goto _readonly;
 						if (global_config.yanks) {
 							for (unsigned int i = 0; i < global_config.yank_count; ++i) {
 								env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
@@ -5274,6 +5304,7 @@ int main(int argc, char * argv[]) {
 							for (int i = 0; i < env->line_count; ++i) {
 								recalculate_syntax(env->lines[i],i);
 							}
+							set_modified();
 							redraw_all();
 						}
 						break;
