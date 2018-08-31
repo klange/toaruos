@@ -3716,7 +3716,7 @@ void search_mode(void) {
 	printf("/");
 	show_cursor();
 
-	uint32_t state = 0, codepoint = 0;
+	uint32_t state = 0;
 	int cin;
 
 	while ((cin = bim_getch())) {
