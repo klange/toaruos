@@ -2255,7 +2255,7 @@ void redraw_statusbar(void) {
 
 	/* Pre-render the right hand side of the status bar */
 	char right_hand[1024];
-	sprintf(right_hand, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
+	snprintf(right_hand, 1024, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
 
 	/* Move the cursor appropriately to draw it */
 	place_cursor(global_config.term_width - strlen(right_hand), global_config.term_height - 1);
@@ -2311,7 +2311,7 @@ void render_commandline_message(char * message, ...) {
 	char buf[1024];
 
 	/* Process format string */
-	vsprintf(buf, message, args);
+	vsnprintf(buf, 1024, message, args);
 	va_end(args);
 
 	/* Hide cursor while rendering */
@@ -2378,7 +2378,7 @@ void render_status_message(char * message, ...) {
 	char buf[1024];
 
 	/* Process format string */
-	vsprintf(buf, message, args);
+	vsnprintf(buf, 1024, message, args);
 	va_end(args);
 
 	/* Hide cursor while rendering */
@@ -2406,7 +2406,7 @@ void render_error(char * message, ...) {
 	char buf[1024];
 
 	/* Process format string */
-	vsprintf(buf, message, args);
+	vsnprintf(buf, 1024, message, args);
 	va_end(args);
 
 	/* Hide cursor while rendering */
@@ -3444,7 +3444,7 @@ void command_tab_complete(char * buffer) {
 				/* Figure out if this file is a directory */
 				if (last_slash) {
 					char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
-					sprintf(x,"%s/%s",tmp,ent->d_name);
+					snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
 					stat(x, &statbuf);
 					free(x);
 				} else {
@@ -4997,7 +4997,7 @@ void load_bimrc(void) {
 		}
 
 		/* New path is $HOME/.bimrc */
-		sprintf(path, "%s%s", home, tmp+1);
+		snprintf(path, 1024, "%s%s", home, tmp+1);
 		free(tmp);
 		tmp = strdup(path);
 	}
