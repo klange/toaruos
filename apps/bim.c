@@ -481,7 +481,7 @@ void load_colorscheme_sunsmoke(void) {
 	COLOR_STATUS_FG = "2;230;230;230";
 	COLOR_STATUS_BG = "2;71;64;58";
 	COLOR_TABBAR_BG = "2;71;64;58";
-	COLOR_TAB_BG    = "2;31;31;31";
+	COLOR_TAB_BG    = "2;71;64;58";
 	COLOR_KEYWORD   = "2;51;162;230";
 	COLOR_STRING    = "2;72;176;72";
 	COLOR_COMMENT   = "2;158;153;129;3";
