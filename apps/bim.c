@@ -21,9 +21,6 @@
  * Bim supports syntax highlighting, extensive editing, line selection
  * and copy-paste, undo/redo stack, forward and backward search, and can
  * be built for ToaruOS, Sortix, Linux, macOS, and BSDs.
- *
- * Future goals:
- * - Yanking from character selection
  */
 #define _XOPEN_SOURCE 500
 #define _DARWIN_C_SOURCE 1
@@ -167,11 +164,12 @@ struct {
 
 	line_t ** yanks;
 	size_t    yank_count;
+	int       yank_is_full_lines;
 
 	int tty_in;
 
 	const char * bimrc_path;
-	
+
 	int can_scroll;
 	int can_hideshow;
 	int can_altscreen;
@@ -188,6 +186,7 @@ struct {
 	0, /* initial_file_is_read_only */
 	NULL, /* yanks */
 	0, /* yank_count */
+	0,
 	STDIN_FILENO, /* tty_in */
 	"~/.bimrc", /* bimrc_path */
 	1,
@@ -196,7 +195,7 @@ struct {
 	1,
 	1,
 	1,
-	0,
+	1,
 	1,
 };
 
@@ -3208,6 +3207,7 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "noh")) {
 		if (env->search) {
 			free(env->search);
+			env->search = NULL;
 			redraw_text();
 		}
 	} else if (!strcmp(argv[0], "help")) {
@@ -4519,6 +4519,7 @@ void yank_lines(int start, int end) {
 	}
 	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
 	global_config.yank_count = lines_to_yank;
+	global_config.yank_is_full_lines = 1;
 	for (int i = 0; i < lines_to_yank; ++i) {
 		global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
 		global_config.yanks[i]->available = env->lines[start_point+i]->available;
@@ -4529,6 +4530,53 @@ void yank_lines(int start, int end) {
 		for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
 			global_config.yanks[i]->text[j].flags = 0;
 		}
+	}
+}
+
+void yank_partial_line(int yank_no, int line_no, int start_off, int count) {
+	global_config.yanks[yank_no] = malloc(sizeof(line_t) + sizeof(char_t) * (count + 1));
+	global_config.yanks[yank_no]->available = count + 1; /* ensure extra space */
+	global_config.yanks[yank_no]->actual = count;
+	global_config.yanks[yank_no]->istate = 0;
+	memcpy(&global_config.yanks[yank_no]->text, &env->lines[line_no]->text[start_off], sizeof(char_t) * count);
+	for (int i = 0; i < count; ++i) {
+		global_config.yanks[yank_no]->text[i].flags = 0;
+	}
+}
+
+/**
+ * Yank text...
+ */
+void yank_text(int start_line, int start_col, int end_line, int end_col) {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+	}
+	int lines_to_yank = end_line - start_line + 1;
+	int start_point = start_line - 1;
+	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
+	global_config.yank_count = lines_to_yank;
+	global_config.yank_is_full_lines = 0;
+	if (lines_to_yank == 1) {
+		yank_partial_line(0, start_point, start_col - 1, (end_col - start_col + 1));
+	} else {
+		yank_partial_line(0, start_point, start_col - 1, (env->lines[start_point]->actual - start_col + 1));
+		/* Yank middle lines */
+		for (int i = 1; i < lines_to_yank - 1; ++i) {
+			global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
+			global_config.yanks[i]->available = env->lines[start_point+i]->available;
+			global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
+			global_config.yanks[i]->istate = 0;
+			memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
+
+			for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
+				global_config.yanks[i]->text[j].flags = 0;
+			}
+		}
+		/* Yank end line */
+		yank_partial_line(lines_to_yank-1, end_line - 1, 0, end_col);
 	}
 }
 
@@ -4920,6 +4968,27 @@ void char_selection_mode(void) {
 					case 'l':
 						cursor_right();
 						break;
+					case 'y':
+						{
+							int end_line = env->line_no;
+							int end_col  = env->col_no;
+							if (start_line == end_line) {
+								if (start_col > end_col) {
+									int tmp = start_col;
+									start_col = end_col;
+									end_col = tmp;
+								}
+							} else if (start_line > end_line) {
+								int tmp = start_line;
+								start_line = end_line;
+								end_line = tmp;
+								tmp = start_col;
+								start_col = end_col;
+								end_col = tmp;
+							}
+							yank_text(start_line, start_col, end_line, end_col);
+						}
+						goto _leave_select_char;
 					case 'D':
 					case 'd':
 						if (env->readonly) goto _readonly;
@@ -4932,6 +5001,7 @@ void char_selection_mode(void) {
 									start_col = end_col;
 									end_col = tmp;
 								}
+								yank_text(start_line, start_col, end_line, end_col);
 								for (int i = start_col; i <= end_col; ++i) {
 									line_delete(env->lines[start_line-1], start_col, start_line - 1);
 								}
@@ -4945,6 +5015,8 @@ void char_selection_mode(void) {
 									start_col = end_col;
 									end_col = tmp;
 								}
+								/* Copy lines */
+								yank_text(start_line, start_col, end_line, end_col);
 								/* Delete lines */
 								for (int i = start_line+1; i < end_line; ++i) {
 									remove_line(env->lines, start_line);
@@ -5436,7 +5508,6 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nohideshow")) global_config.can_hideshow = 0;
 				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
 				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
-				else if (!strcmp(optarg,"history"))    global_config.history_enabled = 1;
 				else if (!strcmp(optarg,"notitle"))    global_config.can_title = 0;
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
@@ -5565,18 +5636,50 @@ int main(int argc, char * argv[]) {
 					case 'p':
 						if (env->readonly) goto _readonly;
 						if (global_config.yanks) {
-							for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-								env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
+							if (!global_config.yank_is_full_lines) {
+								/* Handle P for paste before, p for past after */
+								int target_column = (c == 'P' ? (env->col_no) : (env->col_no+1));
+								if (target_column > env->lines[env->line_no-1]->actual + 1) {
+									target_column = env->lines[env->line_no-1]->actual + 1;
+								}
+								if (global_config.yank_count > 1) {
+									/* Spit the current line at the current position */
+									env->lines = split_line(env->lines, env->line_no - 1, target_column - 1); /* Split after */
+								}
+								/* Insert first line at current position */
+								for (unsigned int i = 0; i < global_config.yanks[0]->actual; ++i) {
+									env->lines[env->line_no - 1] = line_insert(env->lines[env->line_no - 1], global_config.yanks[0]->text[i], target_column + i - 1, env->line_no - 1); 
+								}
+								if (global_config.yank_count > 1) {
+									/* Insert full lines */
+									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
+										env->lines = add_line(env->lines, env->line_no);
+									}
+									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
+										replace_line(env->lines, env->line_no + i - 1, global_config.yanks[i]);
+									}
+									/* Insert characters from last line into (what was) the next line */
+									for (unsigned int i = 0; i < global_config.yanks[global_config.yank_count-1]->actual; ++i) {
+										env->lines[env->line_no + global_config.yank_count - 2] = line_insert(env->lines[env->line_no + global_config.yank_count - 2], global_config.yanks[global_config.yank_count-1]->text[i], i, env->line_no + global_config.yank_count - 2);
+									}
+								}
+							} else {
+								/* Insert full lines */
+								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+									env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
+								}
+								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+									replace_line(env->lines, env->line_no - (c == 'P' ? 1 : 0) + i, global_config.yanks[i]);
+								}
 							}
-							for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-								replace_line(env->lines, env->line_no - (c == 'P' ? 1 : 0) + i, global_config.yanks[i]);
-							}
+							/* Recalculate whole document syntax */
 							for (int i = 0; i < env->line_count; ++i) {
 								env->lines[i]->istate = 0;
 							}
 							for (int i = 0; i < env->line_count; ++i) {
 								recalculate_syntax(env->lines[i],i);
 							}
+							set_history_break();
 							set_modified();
 							redraw_all();
 						}
