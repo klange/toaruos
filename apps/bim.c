@@ -5647,7 +5647,7 @@ int main(int argc, char * argv[]) {
 									env->lines = split_line(env->lines, env->line_no - 1, target_column - 1); /* Split after */
 								}
 								/* Insert first line at current position */
-								for (unsigned int i = 0; i < global_config.yanks[0]->actual; ++i) {
+								for (int i = 0; i < global_config.yanks[0]->actual; ++i) {
 									env->lines[env->line_no - 1] = line_insert(env->lines[env->line_no - 1], global_config.yanks[0]->text[i], target_column + i - 1, env->line_no - 1); 
 								}
 								if (global_config.yank_count > 1) {
@@ -5659,7 +5659,7 @@ int main(int argc, char * argv[]) {
 										replace_line(env->lines, env->line_no + i - 1, global_config.yanks[i]);
 									}
 									/* Insert characters from last line into (what was) the next line */
-									for (unsigned int i = 0; i < global_config.yanks[global_config.yank_count-1]->actual; ++i) {
+									for (int i = 0; i < global_config.yanks[global_config.yank_count-1]->actual; ++i) {
 										env->lines[env->line_no + global_config.yank_count - 2] = line_insert(env->lines[env->line_no + global_config.yank_count - 2], global_config.yanks[global_config.yank_count-1]->text[i], i, env->line_no + global_config.yank_count - 2);
 									}
 								}
