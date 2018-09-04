@@ -529,11 +529,8 @@ int main(int argc, char * argv[]) {
 
 
 	struct http_req my_req;
-	if (argc > 1) {
-		parse_url(argv[1], &my_req);
-	} else {
-		parse_url(NETBOOT_URL, &my_req);
-	}
+	/* TODO: Extract URL from kcmdline */
+	parse_url(NETBOOT_URL, &my_req);
 
 	char file[100];
 	sprintf(file, "/dev/net/%s:%d", my_req.domain, my_req.port);
@@ -706,7 +703,7 @@ int main(int argc, char * argv[]) {
 	TRACE("Executing init...\n");
 	char * const _argv[] = {
 		"/bin/init",
-		"--migrate",
+		argv[1],
 		NULL,
 	};
 	execve("/bin/init",_argv,NULL);

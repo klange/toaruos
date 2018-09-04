@@ -161,7 +161,7 @@ base/bin/init: apps/init.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
 fatbase/netinit: util/netinit.c base/lib/libc.a | dirs
-	$(CC) -s -static -Wl,-static $(CFLAGS) -o $@ $<
+	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
 # Userspace applications
 

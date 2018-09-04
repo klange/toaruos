@@ -40,7 +40,7 @@ EFI_HANDLE ImageHandleIn;
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
 #define DEFAULT_PRESET_VID_CMDLINE "vid=preset "
-#define DEFAULT_NETINIT_CMDLINE "init=/dev/ram0 _"
+#define DEFAULT_NETINIT_CMDLINE "init=/dev/ram0 "
 #define MIGRATE_CMDLINE "migrate "
 #define DEBUG_LOG_CMDLINE "logtoserial=warning "
 #define DEBUG_SERIAL_CMDLINE "kdebug "
