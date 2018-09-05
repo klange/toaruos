@@ -2866,6 +2866,7 @@ void write_file(char * file) {
 		memcpy(env->file_name, file, strlen(file) + 1);
 	}
 
+	update_title();
 	redraw_all();
 }
 
@@ -3165,6 +3166,7 @@ void process_command(char * cmd) {
 		env = buffer_new();
 		setup_buffer(env);
 		redraw_all();
+		update_title();
 	} else if (!strcmp(argv[0], "w")) {
 		/* w: write file */
 		if (argc > 1) {
@@ -3195,9 +3197,11 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "tabp")) {
 		/* Next tab */
 		previous_tab();
+		update_title();
 	} else if (!strcmp(argv[0], "tabn")) {
 		/* Previous tab */
 		next_tab();
+		update_title();
 	} else if (!strcmp(argv[0], "indent")) {
 		env->indent = 1;
 		redraw_statusbar();
