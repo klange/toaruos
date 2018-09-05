@@ -3698,8 +3698,8 @@ void draw_search_match(int line, uint32_t * buffer, int redraw_buffer) {
 	}
 	redraw_statusbar();
 	redraw_commandline();
-	if (redraw_buffer) {
-		printf("/");
+	if (redraw_buffer != -1) {
+		printf(redraw_buffer == 1 ? "/" : "?");
 		uint32_t * c = buffer;
 		while (*c) {
 			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
@@ -3715,7 +3715,7 @@ void draw_search_match(int line, uint32_t * buffer, int redraw_buffer) {
  *
  * Search text for substring match.
  */
-void search_mode(void) {
+void search_mode(int direction) {
 	uint32_t c;
 	uint32_t buffer[1024] = {0};
 	int  buffer_len = 0;
@@ -3729,7 +3729,7 @@ void search_mode(void) {
 	int prev_offset = env->offset;
 
 	redraw_commandline();
-	printf("/");
+	printf(direction == 1 ? "/" : "?");
 	show_cursor();
 
 	uint32_t state = 0;
@@ -3762,14 +3762,18 @@ void search_mode(void) {
 					buffer[buffer_len] = '\0';
 					/* Search from beginning to find first match */
 					int line = -1, col = -1;
-					find_match(prev_line, prev_col, &line, &col, buffer);
+					if (direction == 1) {
+						find_match(prev_line, prev_col, &line, &col, buffer);
+					} else {
+						find_match_backwards(prev_line, prev_col, &line, &col, buffer);
+					}
 
 					if (line != -1) {
 						env->col_no = col;
 						env->line_no = line;
 					}
 
-					draw_search_match(line, buffer, 1);
+					draw_search_match(line, buffer, direction);
 
 				} else {
 					/* If backspaced through entire search term, cancel search */
@@ -3792,7 +3796,11 @@ void search_mode(void) {
 
 				/* Find the next search match */
 				int line = -1, col = -1;
-				find_match(prev_line, prev_col, &line, &col, buffer);
+				if (direction == 1) {
+					find_match(prev_line, prev_col, &line, &col, buffer);
+				} else {
+					find_match_backwards(prev_line, prev_col, &line, &col, buffer);
+				}
 
 				if (line != -1) {
 					env->col_no = col;
@@ -3803,7 +3811,7 @@ void search_mode(void) {
 					env->col_no = prev_col;
 					env->line_no = prev_line;
 				}
-				draw_search_match(line, buffer, 1);
+				draw_search_match(line, buffer, direction);
 			}
 			show_cursor();
 		} else if (state == UTF8_REJECT) {
@@ -3827,7 +3835,7 @@ void search_next(void) {
 
 	env->col_no = col;
 	env->line_no = line;
-	draw_search_match(line, env->search, 0);
+	draw_search_match(line, env->search, -1);
 }
 
 /**
@@ -3839,14 +3847,13 @@ void search_prev(void) {
 	find_match_backwards(env->line_no, env->col_no-1, &line, &col, env->search);
 
 	if (line == -1) {
-		render_error("no match");
 		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, env->search);
 		if (line == -1) return;
 	}
 
 	env->col_no = col;
 	env->line_no = line;
-	draw_search_match(line, env->search, 0);
+	draw_search_match(line, env->search, -1);
 }
 
 /**
@@ -3989,8 +3996,8 @@ void handle_mouse(void) {
 		for (int i = 0; i < env->lines[line_no-1]->actual; ++i) {
 			char_t * c = &env->lines[line_no-1]->text[i];
 			_x += c->display_width;
-			if (_x > x) {
-				col_no = i;
+			if (_x > x-1) {
+				col_no = i+1;
 				break;
 			}
 		}
@@ -4708,7 +4715,11 @@ void line_selection_mode(void) {
 						break;
 					case '/':
 						/* Switch to search mode */
-						search_mode();
+						search_mode(1);
+						break;
+					case '?':
+						/* Switch to search mode */
+						search_mode(0);
 						break;
 					case '\t':
 						if (env->readonly) goto _readonly;
@@ -4946,7 +4957,11 @@ void char_selection_mode(void) {
 						break;
 					case '/':
 						/* Switch to search mode */
-						search_mode();
+						search_mode(1);
+						break;
+					case '?':
+						/* Switch to search mode */
+						search_mode(0);
 						break;
 					case 'v':
 						goto _leave_select_char;
@@ -5572,7 +5587,11 @@ int main(int argc, char * argv[]) {
 						break;
 					case '/':
 						/* Switch to search mode */
-						search_mode();
+						search_mode(1);
+						break;
+					case '?':
+						/* Switch to search mode */
+						search_mode(0);
 						break;
 					case 'V':
 						line_selection_mode();
