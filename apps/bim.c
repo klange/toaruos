@@ -22,12 +22,8 @@
  * and copy-paste, undo/redo stack, forward and backward search, and can
  * be built for ToaruOS, Sortix, Linux, macOS, and BSDs.
  */
-#define _XOPEN_SOURCE 500
-#define _DARWIN_C_SOURCE 1
-#define _BSD_SOURCE
+#define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE
-#define _SORTIX_SOURCE
-#define __BSD_VISIBLE 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +40,9 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+
+#define BIM_VERSION   "1.0.0"
+#define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\n'
@@ -1495,7 +1494,6 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	env->line_count -= 1;
 	return lines;
 }
-void render_error(char * message, ...);
 
 /**
  * Split a line into two lines at the given column
@@ -2021,7 +2019,8 @@ void render_line(line_t * line, int width, int offset) {
 
 				/* End the line with a > to show it overflows */
 				printf(">");
-				break;
+				set_colors(COLOR_FG, COLOR_BG);
+				return;
 			}
 
 			/* Syntax hilighting */
@@ -2113,6 +2112,13 @@ void render_line(line_t * line, int width, int offset) {
 			i++;
 		}
 	}
+
+	if (env->mode == MODE_CHAR_SELECTION) {
+		set_colors(COLOR_FG, COLOR_BG);
+	}
+
+	/* Clear the rest of the line */
+	clear_to_end();
 }
 
 /**
@@ -2167,13 +2173,6 @@ void redraw_line(int j, int x) {
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
 	render_line(env->lines[x], global_config.term_width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
-
-	if (env->mode == MODE_CHAR_SELECTION) {
-		set_colors(COLOR_FG, COLOR_BG);
-	}
-
-	/* Clear the rest of the line */
-	clear_to_end();
 }
 
 /**
@@ -3244,7 +3243,7 @@ void process_command(char * cmd) {
 		render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
 		render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
 		render_commandline_message("\n");
-		render_commandline_message(" Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>\n");
+		render_commandline_message(" %s\n", BIM_COPYRIGHT);
 		render_commandline_message("\n");
 		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
 		redraw_tabbar();
@@ -4417,6 +4416,138 @@ void word_right(void) {
 	return;
 }
 
+/**
+ * Backspace from the current cursor position.
+ */
+void delete_at_cursor(void) {
+	if (env->col_no > 1) {
+		line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+		env->col_no -= 1;
+		redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	} else if (env->line_no > 1) {
+		int tmp = env->lines[env->line_no - 2]->actual;
+		merge_lines(env->lines, env->line_no - 1);
+		env->line_no -= 1;
+		env->col_no = tmp+1;
+		redraw_text();
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+/**
+ * Break the current line in two at the current cursor position.
+ */
+void insert_line_feed(void) {
+	if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
+		env->lines = add_line(env->lines, env->line_no);
+	} else {
+		env->lines = split_line(env->lines, env->line_no-1, env->col_no - 1);
+	}
+	env->col_no = 1;
+	env->line_no += 1;
+	add_indent(env->line_no-1,env->line_no-2);
+	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
+		env->offset += 1;
+	}
+	redraw_text();
+	set_modified();
+	redraw_statusbar();
+	place_cursor_actual();
+}
+
+/**
+ * Yank lines between line start and line end (which may be in either order)
+ */
+void yank_lines(int start, int end) {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+	}
+	int lines_to_yank;
+	int start_point;
+	if (start <= end) {
+		lines_to_yank = end - start + 1;
+		start_point = start - 1;
+	} else {
+		lines_to_yank = start - end + 1;
+		start_point = end - 1;
+	}
+	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
+	global_config.yank_count = lines_to_yank;
+	global_config.yank_is_full_lines = 1;
+	for (int i = 0; i < lines_to_yank; ++i) {
+		global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
+		global_config.yanks[i]->available = env->lines[start_point+i]->available;
+		global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
+		global_config.yanks[i]->istate = 0;
+		memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
+
+		for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
+			global_config.yanks[i]->text[j].flags = 0;
+		}
+	}
+}
+
+/**
+ * Helper to yank part of a line into a new yank line.
+ */
+void yank_partial_line(int yank_no, int line_no, int start_off, int count) {
+	global_config.yanks[yank_no] = malloc(sizeof(line_t) + sizeof(char_t) * (count + 1));
+	global_config.yanks[yank_no]->available = count + 1; /* ensure extra space */
+	global_config.yanks[yank_no]->actual = count;
+	global_config.yanks[yank_no]->istate = 0;
+	memcpy(&global_config.yanks[yank_no]->text, &env->lines[line_no]->text[start_off], sizeof(char_t) * count);
+	for (int i = 0; i < count; ++i) {
+		global_config.yanks[yank_no]->text[i].flags = 0;
+	}
+}
+
+/**
+ * Yank text...
+ */
+void yank_text(int start_line, int start_col, int end_line, int end_col) {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+	}
+	int lines_to_yank = end_line - start_line + 1;
+	int start_point = start_line - 1;
+	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
+	global_config.yank_count = lines_to_yank;
+	global_config.yank_is_full_lines = 0;
+	if (lines_to_yank == 1) {
+		yank_partial_line(0, start_point, start_col - 1, (end_col - start_col + 1));
+	} else {
+		yank_partial_line(0, start_point, start_col - 1, (env->lines[start_point]->actual - start_col + 1));
+		/* Yank middle lines */
+		for (int i = 1; i < lines_to_yank - 1; ++i) {
+			global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
+			global_config.yanks[i]->available = env->lines[start_point+i]->available;
+			global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
+			global_config.yanks[i]->istate = 0;
+			memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
+
+			for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
+				global_config.yanks[i]->text[j].flags = 0;
+			}
+		}
+		/* Yank end line */
+		yank_partial_line(lines_to_yank-1, end_line - 1, 0, end_col);
+	}
+}
+
+/**
+ * Handle shared escape keys (mostly navigation)
+ */
 int handle_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
@@ -4530,84 +4661,75 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 }
 
 /**
- * Yank lines between line start and line end (which may be in either order)
+ * Standard navigation shared by normal, line, and char selection.
  */
-void yank_lines(int start, int end) {
-	if (global_config.yanks) {
-		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-			free(global_config.yanks[i]);
-		}
-		free(global_config.yanks);
-	}
-	int lines_to_yank;
-	int start_point;
-	if (start <= end) {
-		lines_to_yank = end - start + 1;
-		start_point = start - 1;
-	} else {
-		lines_to_yank = start - end + 1;
-		start_point = end - 1;
-	}
-	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
-	global_config.yank_count = lines_to_yank;
-	global_config.yank_is_full_lines = 1;
-	for (int i = 0; i < lines_to_yank; ++i) {
-		global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
-		global_config.yanks[i]->available = env->lines[start_point+i]->available;
-		global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
-		global_config.yanks[i]->istate = 0;
-		memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
-
-		for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
-			global_config.yanks[i]->text[j].flags = 0;
-		}
-	}
-}
-
-void yank_partial_line(int yank_no, int line_no, int start_off, int count) {
-	global_config.yanks[yank_no] = malloc(sizeof(line_t) + sizeof(char_t) * (count + 1));
-	global_config.yanks[yank_no]->available = count + 1; /* ensure extra space */
-	global_config.yanks[yank_no]->actual = count;
-	global_config.yanks[yank_no]->istate = 0;
-	memcpy(&global_config.yanks[yank_no]->text, &env->lines[line_no]->text[start_off], sizeof(char_t) * count);
-	for (int i = 0; i < count; ++i) {
-		global_config.yanks[yank_no]->text[i].flags = 0;
-	}
-}
-
-/**
- * Yank text...
- */
-void yank_text(int start_line, int start_col, int end_line, int end_col) {
-	if (global_config.yanks) {
-		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-			free(global_config.yanks[i]);
-		}
-		free(global_config.yanks);
-	}
-	int lines_to_yank = end_line - start_line + 1;
-	int start_point = start_line - 1;
-	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
-	global_config.yank_count = lines_to_yank;
-	global_config.yank_is_full_lines = 0;
-	if (lines_to_yank == 1) {
-		yank_partial_line(0, start_point, start_col - 1, (end_col - start_col + 1));
-	} else {
-		yank_partial_line(0, start_point, start_col - 1, (env->lines[start_point]->actual - start_col + 1));
-		/* Yank middle lines */
-		for (int i = 1; i < lines_to_yank - 1; ++i) {
-			global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
-			global_config.yanks[i]->available = env->lines[start_point+i]->available;
-			global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
-			global_config.yanks[i]->istate = 0;
-			memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
-
-			for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
-				global_config.yanks[i]->text[j].flags = 0;
+void handle_navigation(int c) {
+	switch (c) {
+		case ':': /* Switch to command mode */
+			command_mode();
+			break;
+		case '/': /* Switch to search mode */
+			search_mode(1);
+			break;
+		case '?': /* Switch to search mode */
+			search_mode(0);
+			break;
+		case 'n': /* Jump to next search result */
+			search_next();
+			break;
+		case 'N': /* Jump backwards to previous search result */
+			search_prev();
+			break;
+		case 'j': /* Move cursor down */
+			cursor_down();
+			break;
+		case 'k': /* Move cursor up */
+			cursor_up();
+			break;
+		case 'h': /* Move cursor left */
+			cursor_left();
+			break;
+		case 'l': /* Move cursor right*/
+			cursor_right();
+			break;
+		case ' ': /* Jump forward several lines */
+			goto_line(env->line_no + global_config.term_height - 6);
+			break;
+		case '%': /* Jump to matching brace/bracket */
+			if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION) {
+				/* These modes need to recalculate syntax as find_matching_brace uses it to find appropriate match */
+				for (int i = 0; i < env->line_count; ++i) {
+					recalculate_syntax(env->lines[i],i);
+				}
 			}
-		}
-		/* Yank end line */
-		yank_partial_line(lines_to_yank-1, end_line - 1, 0, end_col);
+			find_matching_paren();
+			redraw_statusbar();
+			break;
+		case '{': /* Jump to previous blank line */
+			env->col_no = 1;
+			if (env->line_no == 1) break;
+			do {
+				env->line_no--;
+				if (env->lines[env->line_no-1]->actual == 0) break;
+			} while (env->line_no > 1);
+			redraw_statusbar();
+			break;
+		case '}': /* Jump to next blank line */
+			env->col_no = 1;
+			if (env->line_no == env->line_count) break;
+			do {
+				env->line_no++;
+				if (env->lines[env->line_no-1]->actual == 0) break;
+			} while (env->line_no < env->line_count);
+			redraw_statusbar();
+			break;
+		case '$': /* Move cursor to end of line */
+			cursor_end();
+			break;
+		case '^':
+		case '0': /* Move cursor to beginning of line */
+			cursor_home();
+			break;
 	}
 }
 
@@ -4733,42 +4855,12 @@ void line_selection_mode(void) {
 					case BACKSPACE_KEY:
 						cursor_left();
 						break;
-					case ':':
-						/* Switch to command mode */
-						command_mode();
-						break;
-					case '/':
-						/* Switch to search mode */
-						search_mode(1);
-						break;
-					case '?':
-						/* Switch to search mode */
-						search_mode(0);
-						break;
 					case '\t':
 						if (env->readonly) goto _readonly;
 						adjust_indent(start_line, 1);
 						break;
 					case 'V':
 						goto _leave_select_line;
-					case 'n':
-						search_next();
-						break;
-					case 'N':
-						search_prev();
-						break;
-					case 'j':
-						cursor_down();
-						break;
-					case 'k':
-						cursor_up();
-						break;
-					case 'h':
-						cursor_left();
-						break;
-					case 'l':
-						cursor_right();
-						break;
 					case 'y':
 						yank_lines(start_line, env->line_no);
 						goto _leave_select_line;
@@ -4793,40 +4885,8 @@ void line_selection_mode(void) {
 						}
 						set_modified();
 						goto _leave_select_line;
-					case ' ':
-						goto_line(env->line_no + global_config.term_height - 6);
-						break;
-					case '%':
-						for (int i = 0; i < env->line_count; ++i) {
-							recalculate_syntax(env->lines[i],i);
-						}
-						find_matching_paren();
-						redraw_statusbar();
-						break;
-					case '{':
-						env->col_no = 1;
-						if (env->line_no == 1) break;
-						do {
-							env->line_no--;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no > 1);
-						redraw_statusbar();
-						break;
-					case '}':
-						env->col_no = 1;
-						if (env->line_no == env->line_count) break;
-						do {
-							env->line_no++;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no < env->line_count);
-						redraw_statusbar();
-						break;
-					case '$':
-						cursor_end();
-						break;
-					case '^':
-					case '0':
-						cursor_home();
+					default:
+						handle_navigation(c);
 						break;
 				}
 			} else {
@@ -4873,6 +4933,13 @@ _leave_select_line:
 	redraw_all();
 }
 
+/**
+ * Determine if a column + line number are within range of the
+ * current character selection specified by start_line, etc.
+ *
+ * Used to determine how syntax flags should be set when redrawing
+ * selected text in CHAR SELECTION mode.
+ */
 int point_in_range(int start_line, int end_line, int start_col, int end_col, int line, int col) {
 	if (start_line == end_line) {
 		if ( end_col < start_col) {
@@ -4975,38 +5042,8 @@ void char_selection_mode(void) {
 					case BACKSPACE_KEY:
 						cursor_left();
 						break;
-					case ':':
-						/* Switch to command mode */
-						command_mode();
-						break;
-					case '/':
-						/* Switch to search mode */
-						search_mode(1);
-						break;
-					case '?':
-						/* Switch to search mode */
-						search_mode(0);
-						break;
 					case 'v':
 						goto _leave_select_char;
-					case 'n':
-						search_next();
-						break;
-					case 'N':
-						search_prev();
-						break;
-					case 'j':
-						cursor_down();
-						break;
-					case 'k':
-						cursor_up();
-						break;
-					case 'h':
-						cursor_left();
-						break;
-					case 'l':
-						cursor_right();
-						break;
 					case 'y':
 						{
 							int end_line = env->line_no;
@@ -5079,40 +5116,8 @@ void char_selection_mode(void) {
 						}
 						set_modified();
 						goto _leave_select_char;
-					case ' ':
-						goto_line(env->line_no + global_config.term_height - 6);
-						break;
-					case '%':
-						for (int i = 0; i < env->line_count; ++i) {
-							recalculate_syntax(env->lines[i],i);
-						}
-						find_matching_paren();
-						redraw_statusbar();
-						break;
-					case '{':
-						env->col_no = 1;
-						if (env->line_no == 1) break;
-						do {
-							env->line_no--;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no > 1);
-						redraw_statusbar();
-						break;
-					case '}':
-						env->col_no = 1;
-						if (env->line_no == env->line_count) break;
-						do {
-							env->line_no++;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no < env->line_count);
-						redraw_statusbar();
-						break;
-					case '$':
-						cursor_end();
-						break;
-					case '^':
-					case '0':
-						cursor_home();
+					default:
+						handle_navigation(c);
 						break;
 				}
 			} else {
@@ -5152,50 +5157,6 @@ _leave_select_char:
 		recalculate_syntax(env->lines[i],i);
 	}
 	redraw_all();
-}
-
-/**
- * Backspace from the current cursor position.
- */
-void delete_at_cursor(void) {
-	if (env->col_no > 1) {
-		line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
-		env->col_no -= 1;
-		redraw_line(env->line_no - env->offset - 1, env->line_no-1);
-		set_modified();
-		redraw_statusbar();
-		place_cursor_actual();
-	} else if (env->line_no > 1) {
-		int tmp = env->lines[env->line_no - 2]->actual;
-		merge_lines(env->lines, env->line_no - 1);
-		env->line_no -= 1;
-		env->col_no = tmp+1;
-		redraw_text();
-		set_modified();
-		redraw_statusbar();
-		place_cursor_actual();
-	}
-}
-
-/**
- * Break the current line in two at the current cursor position.
- */
-void insert_line_feed(void) {
-	if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
-		env->lines = add_line(env->lines, env->line_no);
-	} else {
-		env->lines = split_line(env->lines, env->line_no-1, env->col_no - 1);
-	}
-	env->col_no = 1;
-	env->line_no += 1;
-	add_indent(env->line_no-1,env->line_no-2);
-	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
-		env->offset += 1;
-	}
-	redraw_text();
-	set_modified();
-	redraw_statusbar();
-	place_cursor_actual();
 }
 
 /**
@@ -5346,6 +5307,174 @@ void replace_mode(void) {
 	}
 }
 
+/**
+ * NORMAL mode
+ *
+ * Default editor mode - just cursor navigation and keybinds
+ * to enter the other modes.
+ */
+void normal_mode(void) {
+
+	while (1) {
+		place_cursor_actual();
+		int c;
+		int timeout = 0;
+		int this_buf[20];
+		while ((c = bim_getch())) {
+			if (c == -1) {
+				/* getch timed out, nothing to do in normal mode */
+				continue;
+			}
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						if (env->line_no > 1 && env->col_no == 1) {
+							env->line_no--;
+							env->col_no = env->lines[env->line_no-1]->actual;
+							place_cursor_actual();
+						} else {
+							cursor_left();
+						}
+						break;
+					case 'V': /* Enter LINE SELECTION mode */
+						line_selection_mode();
+						break;
+					case 'v': /* Enter CHAR SELECTION mode */
+						char_selection_mode();
+						break;
+					case 'O': /* Append line before and enter INSERT mode */
+						{
+							if (env->readonly) goto _readonly;
+							env->lines = add_line(env->lines, env->line_no-1);
+							env->col_no = 1;
+							add_indent(env->line_no-1,env->line_no);
+							redraw_text();
+							set_modified();
+							place_cursor_actual();
+							goto _insert;
+						}
+					case 'o': /* Append line after and enter INSERT mode */
+						{
+							if (env->readonly) goto _readonly;
+							env->lines = add_line(env->lines, env->line_no);
+							env->col_no = 1;
+							env->line_no += 1;
+							add_indent(env->line_no-1,env->line_no-2);
+							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
+								env->offset += 1;
+							}
+							redraw_text();
+							set_modified();
+							place_cursor_actual();
+							goto _insert;
+						}
+					case 'a': /* Enter INSERT mode with cursor after current position */
+						if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
+							env->col_no += 1;
+						}
+						goto _insert;
+					case 'P': /* Paste before */
+					case 'p': /* Paste after */
+						if (env->readonly) goto _readonly;
+						if (global_config.yanks) {
+							if (!global_config.yank_is_full_lines) {
+								/* Handle P for paste before, p for past after */
+								int target_column = (c == 'P' ? (env->col_no) : (env->col_no+1));
+								if (target_column > env->lines[env->line_no-1]->actual + 1) {
+									target_column = env->lines[env->line_no-1]->actual + 1;
+								}
+								if (global_config.yank_count > 1) {
+									/* Spit the current line at the current position */
+									env->lines = split_line(env->lines, env->line_no - 1, target_column - 1); /* Split after */
+								}
+								/* Insert first line at current position */
+								for (int i = 0; i < global_config.yanks[0]->actual; ++i) {
+									env->lines[env->line_no - 1] = line_insert(env->lines[env->line_no - 1], global_config.yanks[0]->text[i], target_column + i - 1, env->line_no - 1); 
+								}
+								if (global_config.yank_count > 1) {
+									/* Insert full lines */
+									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
+										env->lines = add_line(env->lines, env->line_no);
+									}
+									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
+										replace_line(env->lines, env->line_no + i - 1, global_config.yanks[i]);
+									}
+									/* Insert characters from last line into (what was) the next line */
+									for (int i = 0; i < global_config.yanks[global_config.yank_count-1]->actual; ++i) {
+										env->lines[env->line_no + global_config.yank_count - 2] = line_insert(env->lines[env->line_no + global_config.yank_count - 2], global_config.yanks[global_config.yank_count-1]->text[i], i, env->line_no + global_config.yank_count - 2);
+									}
+								}
+							} else {
+								/* Insert full lines */
+								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+									env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
+								}
+								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+									replace_line(env->lines, env->line_no - (c == 'P' ? 1 : 0) + i, global_config.yanks[i]);
+								}
+							}
+							/* Recalculate whole document syntax */
+							for (int i = 0; i < env->line_count; ++i) {
+								env->lines[i]->istate = 0;
+							}
+							for (int i = 0; i < env->line_count; ++i) {
+								recalculate_syntax(env->lines[i],i);
+							}
+							set_history_break();
+							set_modified();
+							redraw_all();
+						}
+						break;
+					case 'u': /* Undo one block of history */
+						undo_history();
+						break;
+					case 18: /* ^R - Redo one block of history */
+						redo_history();
+						break;
+					case 12: /* ^L - Repaint the whole screen */
+						redraw_all();
+						break;
+					case 'i': /* Enter INSERT mode */
+_insert:
+						if (env->readonly) goto _readonly;
+						insert_mode();
+						redraw_statusbar();
+						redraw_commandline();
+						timeout = 0;
+						break;
+					case 'R': /* Enter REPLACE mode */
+						if (env->readonly) goto _readonly;
+						replace_mode();
+						redraw_statusbar();
+						redraw_commandline();
+						timeout = 0;
+						break;
+_readonly:
+						render_error("Buffer is read-only");
+						break;
+					default:
+						handle_navigation(c);
+						break;
+				}
+			} else {
+				handle_escape(this_buf,&timeout,c);
+			}
+			place_cursor_actual();
+		}
+	}
+
+}
+
+/**
+ * Show help text for -?
+ */
 static void show_usage(char * argv[]) {
 #define _S "\033[3m"
 #define _E "\033[0m\n"
@@ -5433,8 +5562,8 @@ void load_bimrc(void) {
 		char *nl = strstr(l,"\n");
 		if (nl) *nl = '\0';
 
-		/* Extrace value from keypair, if available
-		 * (I forsee options without values in the future) */
+		/* Extract value from keypair, if available
+		 * (I foresee options without values in the future) */
 		char *value= strstr(l,"=");
 		if (value) {
 			*value = '\0';
@@ -5466,6 +5595,9 @@ void load_bimrc(void) {
 	fclose(bimrc);
 }
 
+/**
+ * Set some default values when certain terminals are detected.
+ */
 void detect_weird_terminals(void) {
 
 	char * term = getenv("TERM");
@@ -5519,7 +5651,7 @@ void init_terminal(void) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?c:C:u:RO:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:C:u:RO:-:")) != -1) {
 		switch (opt) {
 			case 'R':
 				global_config.initial_file_is_read_only = 1;
@@ -5534,7 +5666,6 @@ int main(int argc, char * argv[]) {
 						draw_line_number(i);
 					}
 					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0);
-					clear_to_end();
 					reset();
 					fprintf(stdout, "\n");
 				}
@@ -5558,15 +5689,33 @@ int main(int argc, char * argv[]) {
 					return 1;
 				}
 				break;
+			case '-':
+				if (!strcmp(optarg,"version")) {
+					fprintf(stderr, "bim %s %s\n", BIM_VERSION, BIM_COPYRIGHT);
+					fprintf(stderr, " Available syntax highlighters:");
+					for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+						fprintf(stderr, " %s", s->name);
+					}
+					fprintf(stderr, "\n");
+					fprintf(stderr, " Available color themes:");
+					for (struct theme_def * d = themes; d->name; ++d) {
+						fprintf(stderr, " %s", d->name);
+					}
+					fprintf(stderr, "\n");
+					return 0;
+				}
+				break;
 			case '?':
 				show_usage(argv);
 				return 0;
 		}
 	}
 
+	/* Set up terminal */
 	initialize();
 	init_terminal();
 
+	/* Open file */
 	if (argc > optind) {
 		open_file(argv[optind]);
 		update_title();
@@ -5580,221 +5729,11 @@ int main(int argc, char * argv[]) {
 		setup_buffer(env);
 	}
 
+	/* Draw the screen once */
 	redraw_all();
 
-	while (1) {
-		place_cursor_actual();
-		int c;
-		int timeout = 0;
-		int this_buf[20];
-		while ((c = bim_getch())) {
-			if (c == -1) {
-				/* getch timed out, nothing to do in normal mode */
-				continue;
-			}
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						if (env->line_no > 1 && env->col_no == 1) {
-							env->line_no--;
-							env->col_no = env->lines[env->line_no-1]->actual;
-							place_cursor_actual();
-						} else {
-							cursor_left();
-						}
-						break;
-					case ':':
-						/* Switch to command mode */
-						command_mode();
-						break;
-					case '/':
-						/* Switch to search mode */
-						search_mode(1);
-						break;
-					case '?':
-						/* Switch to search mode */
-						search_mode(0);
-						break;
-					case 'V':
-						line_selection_mode();
-						break;
-					case 'v':
-						char_selection_mode();
-						break;
-					case 'n':
-						search_next();
-						break;
-					case 'N':
-						search_prev();
-						break;
-					case 'j':
-						cursor_down();
-						break;
-					case 'k':
-						cursor_up();
-						break;
-					case 'h':
-						cursor_left();
-						break;
-					case 'l':
-						cursor_right();
-						break;
-					case ' ':
-						goto_line(env->line_no + global_config.term_height - 6);
-						break;
-					case 'O':
-						{
-							if (env->readonly) goto _readonly;
-							env->lines = add_line(env->lines, env->line_no-1);
-							env->col_no = 1;
-							add_indent(env->line_no-1,env->line_no);
-							redraw_text();
-							set_modified();
-							place_cursor_actual();
-							goto _insert;
-						}
-					case 'o':
-						{
-							if (env->readonly) goto _readonly;
-							env->lines = add_line(env->lines, env->line_no);
-							env->col_no = 1;
-							env->line_no += 1;
-							add_indent(env->line_no-1,env->line_no-2);
-							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
-								env->offset += 1;
-							}
-							redraw_text();
-							set_modified();
-							place_cursor_actual();
-							goto _insert;
-						}
-					case 'a':
-						if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
-							env->col_no += 1;
-						}
-						goto _insert;
-					case 'P':
-					case 'p':
-						if (env->readonly) goto _readonly;
-						if (global_config.yanks) {
-							if (!global_config.yank_is_full_lines) {
-								/* Handle P for paste before, p for past after */
-								int target_column = (c == 'P' ? (env->col_no) : (env->col_no+1));
-								if (target_column > env->lines[env->line_no-1]->actual + 1) {
-									target_column = env->lines[env->line_no-1]->actual + 1;
-								}
-								if (global_config.yank_count > 1) {
-									/* Spit the current line at the current position */
-									env->lines = split_line(env->lines, env->line_no - 1, target_column - 1); /* Split after */
-								}
-								/* Insert first line at current position */
-								for (int i = 0; i < global_config.yanks[0]->actual; ++i) {
-									env->lines[env->line_no - 1] = line_insert(env->lines[env->line_no - 1], global_config.yanks[0]->text[i], target_column + i - 1, env->line_no - 1); 
-								}
-								if (global_config.yank_count > 1) {
-									/* Insert full lines */
-									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
-										env->lines = add_line(env->lines, env->line_no);
-									}
-									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
-										replace_line(env->lines, env->line_no + i - 1, global_config.yanks[i]);
-									}
-									/* Insert characters from last line into (what was) the next line */
-									for (int i = 0; i < global_config.yanks[global_config.yank_count-1]->actual; ++i) {
-										env->lines[env->line_no + global_config.yank_count - 2] = line_insert(env->lines[env->line_no + global_config.yank_count - 2], global_config.yanks[global_config.yank_count-1]->text[i], i, env->line_no + global_config.yank_count - 2);
-									}
-								}
-							} else {
-								/* Insert full lines */
-								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-									env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
-								}
-								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-									replace_line(env->lines, env->line_no - (c == 'P' ? 1 : 0) + i, global_config.yanks[i]);
-								}
-							}
-							/* Recalculate whole document syntax */
-							for (int i = 0; i < env->line_count; ++i) {
-								env->lines[i]->istate = 0;
-							}
-							for (int i = 0; i < env->line_count; ++i) {
-								recalculate_syntax(env->lines[i],i);
-							}
-							set_history_break();
-							set_modified();
-							redraw_all();
-						}
-						break;
-					case '%':
-						find_matching_paren();
-						redraw_statusbar();
-						break;
-					case '{':
-						env->col_no = 1;
-						if (env->line_no == 1) break;
-						do {
-							env->line_no--;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no > 1);
-						redraw_statusbar();
-						break;
-					case '}':
-						env->col_no = 1;
-						if (env->line_no == env->line_count) break;
-						do {
-							env->line_no++;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no < env->line_count);
-						redraw_statusbar();
-						break;
-					case '$':
-						cursor_end();
-						break;
-					case '^':
-					case '0':
-						cursor_home();
-						break;
-					case 'u':
-						undo_history();
-						break;
-					case 18: /* ^R */
-						redo_history();
-						break;
-					case 'i':
-_insert:
-						if (env->readonly) goto _readonly;
-						insert_mode();
-						redraw_statusbar();
-						redraw_commandline();
-						timeout = 0;
-						break;
-					case 'R':
-						if (env->readonly) goto _readonly;
-						replace_mode();
-						redraw_statusbar();
-						redraw_commandline();
-						timeout = 0;
-						break;
-_readonly:
-						render_error("Buffer is read-only");
-						break;
-					case 12:
-						redraw_all();
-						break;
-				}
-			} else {
-				handle_escape(this_buf,&timeout,c);
-			}
-			place_cursor_actual();
-		}
-	}
+	/* Start accepting key commands */
+	normal_mode();
 
 	return 0;
 }
