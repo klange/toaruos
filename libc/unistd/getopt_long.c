@@ -32,11 +32,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 						/* End of arguments */
 						optind++;
 						return -1;
-					} else {
-						if (!longopts) {
-							optind++;
-							return -1;
-						}
+					} else if (longopts) {
 						/* Scan through options */
 						nextchar++;
 						char tmp[strlen(nextchar)+1];
@@ -87,6 +83,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 							}
 						}
 					}
+					/* else: --foo but not long, see if -: is set, otherwise continue as if - was an option */
 				}
 			}
 		}
@@ -97,7 +94,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 			continue;
 		}
 
-		if ((*nextchar < 'A' || *nextchar > 'z' || (*nextchar > 'Z' && *nextchar < 'a')) && (*nextchar != '?')) {
+		if ((*nextchar < 'A' || *nextchar > 'z' || (*nextchar > 'Z' && *nextchar < 'a')) && (*nextchar != '?') && (*nextchar != '-')) {
 			if (opterr) {
 				fprintf(stderr, "Invalid option character: %c\n", *nextchar);
 			}
