@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.0"
+#define BIM_VERSION   "1.0.1"
 #define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -175,8 +175,9 @@ struct {
 	int can_mouse;
 	int can_unicode;
 	int can_bright;
-	int history_enabled;
 	int can_title;
+	int can_bce;
+	int history_enabled;
 
 	int cursor_padding;
 } global_config = {
@@ -190,6 +191,7 @@ struct {
 	0,
 	STDIN_FILENO, /* tty_in */
 	"~/.bimrc", /* bimrc_path */
+	1,
 	1,
 	1,
 	1,
@@ -1777,8 +1779,26 @@ void set_fg_color(const char * fg) {
  * Clear the rest of this line
  */
 void clear_to_end(void) {
-	printf("\033[K");
-	fflush(stdout);
+	if (global_config.can_bce) {
+		printf("\033[K");
+		fflush(stdout);
+	}
+}
+
+/**
+ * For terminals without bce,
+ * prepaint the whole line, so we don't have to track
+ * where the cursor is for everything. Inefficient,
+ * but effective.
+ */
+void paint_line(const char * bg) {
+	if (!global_config.can_bce) {
+		set_colors(COLOR_FG, bg);
+		for (int i = 0; i < global_config.term_width; ++i) {
+			printf(" ");
+		}
+		printf("\r");
+	}
 }
 
 /**
@@ -1896,6 +1916,8 @@ void redraw_tabbar(void) {
 
 	/* Move to upper left */
 	place_cursor(1,1);
+
+	paint_line(COLOR_TABBAR_BG);
 
 	/* For each buffer... */
 	for (int i = 0; i < buffers_len; i++) {
@@ -2117,6 +2139,13 @@ void render_line(line_t * line, int width, int offset) {
 		set_colors(COLOR_FG, COLOR_BG);
 	}
 
+	if (!global_config.can_bce) {
+		/* Paint the rest of the line */
+		for (; j < global_config.term_width; ++j) {
+			printf(" ");
+		}
+	}
+
 	/* Clear the rest of the line */
 	clear_to_end();
 }
@@ -2180,6 +2209,7 @@ void redraw_line(int j, int x) {
  */
 void draw_excess_line(int j) {
 	place_cursor(1,2 + j);
+	paint_line(COLOR_ALT_BG);
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	printf("~");
 	clear_to_end();
@@ -2224,6 +2254,7 @@ void redraw_statusbar(void) {
 	place_cursor(1, global_config.term_height - 1);
 
 	/* Set background colors for status line */
+	paint_line(COLOR_STATUS_BG);
 	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 
 	/* Print the file name */
@@ -2292,6 +2323,7 @@ void redraw_commandline(void) {
 	place_cursor(1, global_config.term_height);
 
 	/* Set background color */
+	paint_line(COLOR_BG);
 	set_colors(COLOR_FG, COLOR_BG);
 
 	/* If we are in an edit mode, note that. */
@@ -2340,6 +2372,7 @@ void render_commandline_message(char * message, ...) {
 	place_cursor(1, global_config.term_height);
 
 	/* Set background color */
+	paint_line(COLOR_BG);
 	set_colors(COLOR_FG, COLOR_BG);
 
 	printf("%s", buf);
@@ -2409,6 +2442,7 @@ void render_status_message(char * message, ...) {
 	place_cursor(1, global_config.term_height - 1);
 
 	/* Set background colors for status line */
+	paint_line(COLOR_STATUS_BG);
 	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 
 	printf("%s", buf);
@@ -5617,6 +5651,10 @@ void detect_weird_terminals(void) {
 		/* sortix will spew title escapes to the screen, no good */
 		global_config.can_title = 0;
 	}
+	if (term && strstr(term,"tmux") == term) {
+		global_config.can_scroll = 0;
+		global_config.can_bce = 0;
+	}
 
 }
 
@@ -5684,6 +5722,7 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
 				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
 				else if (!strcmp(optarg,"notitle"))    global_config.can_title = 0;
+				else if (!strcmp(optarg,"nobce"))      global_config.can_bce = 0;
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
 					return 1;
