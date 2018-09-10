@@ -78,39 +78,39 @@ const char * COLOR_PRAGMA    = "@17";
 const char * COLOR_NUMERAL   = "@17";
 const char * COLOR_SELECTFG  = "@0";
 const char * COLOR_SELECTBG  = "@17";
+const char * COLOR_RED       = "@1";
+const char * COLOR_GREEN     = "@2";
 const char * current_theme = "none";
 
 /**
  * Syntax highlighting flags.
  */
-#define FLAG_NONE     0
-#define FLAG_KEYWORD  1
-#define FLAG_STRING   2
-#define FLAG_COMMENT  3
-#define FLAG_TYPE     4
-#define FLAG_PRAGMA   5
-#define FLAG_NUMERAL  6
-#define FLAG_SELECT   7
+#define FLAG_NONE      0
+#define FLAG_KEYWORD   1
+#define FLAG_STRING    2
+#define FLAG_COMMENT   3
+#define FLAG_TYPE      4
+#define FLAG_PRAGMA    5
+#define FLAG_NUMERAL   6
+#define FLAG_SELECT    7
+#define FLAG_STRING2   8
+#define FLAG_DIFFPLUS  9
+#define FLAG_DIFFMINUS 10
 
-#define FLAG_NORM_MAX 15
-
-#define FLAG_COMMENT_ML 16
-#define FLAG_STRING_ML1 17
-#define FLAG_STRING_ML2 18
+#define FLAG_CONTINUES (1 << 6)
 
 /**
  * Convert syntax hilighting flag to color code
  */
-const char * flag_to_color(int flag) {
+const char * flag_to_color(int _flag) {
+	int flag = _flag & 0x3F;
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
 		case FLAG_STRING:
-		case FLAG_STRING_ML1:
-		case FLAG_STRING_ML2:
+		case FLAG_STRING2: /* allows python to differentiate " and ' */
 			return COLOR_STRING;
 		case FLAG_COMMENT:
-		case FLAG_COMMENT_ML:
 			return COLOR_COMMENT;
 		case FLAG_TYPE:
 			return COLOR_TYPE;
@@ -118,6 +118,10 @@ const char * flag_to_color(int flag) {
 			return COLOR_NUMERAL;
 		case FLAG_PRAGMA:
 			return COLOR_PRAGMA;
+		case FLAG_DIFFPLUS:
+			return COLOR_GREEN;
+		case FLAG_DIFFMINUS:
+			return COLOR_RED;
 		case FLAG_SELECT:
 			return COLOR_FG;
 		default:
@@ -132,8 +136,8 @@ const char * flag_to_color(int flag) {
  * which represent single codepoints in the file.
  */
 typedef struct {
-	uint32_t display_width:5;
-	uint32_t flags:6;
+	uint32_t display_width:4;
+	uint32_t flags:7;
 	uint32_t codepoint:21;
 } __attribute__((packed)) char_t;
 
@@ -411,6 +415,9 @@ void load_colorscheme_wombat(void) {
 	COLOR_SELECTFG  = "5;235";
 	COLOR_SELECTBG  = "5;230";
 
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
+
 	current_theme = "wombat";
 }
 
@@ -440,6 +447,9 @@ void load_colorscheme_citylights(void) {
 
 	COLOR_SELECTFG  = "2;29;37;44";
 	COLOR_SELECTBG  = "2;151;178;198";
+
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
 
 	current_theme = "citylights";
 }
@@ -471,6 +481,9 @@ void load_colorscheme_solarized_dark(void) {
 	COLOR_SELECTFG  = "2;0;43;54";
 	COLOR_SELECTBG  = "2;147;161;161";
 
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
+
 	current_theme = "solarized-dark";
 }
 
@@ -501,6 +514,9 @@ void load_colorscheme_sunsmoke(void) {
 	COLOR_SELECTFG  = "2;0;43;54";
 	COLOR_SELECTBG  = "2;147;161;161";
 
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
+
 	current_theme = "sunsmoke";
 }
 
@@ -530,6 +546,9 @@ void load_colorscheme_ansi(void) {
 
 	COLOR_SELECTBG  = global_config.can_bright ? "@17" : "@7";
 	COLOR_SELECTFG  = "@0";
+
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
 
 	current_theme = "ansi";
 }
@@ -576,6 +595,9 @@ static char * syn_c_types[] = {
 static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left) {
 	if (i == 0 && c == '#') {
 		*out_left = line->actual+1;
+		if (line->text[line->actual-1].codepoint == '\\') {
+			return FLAG_PRAGMA | FLAG_CONTINUES;
+		}
 		return FLAG_PRAGMA;
 	}
 
@@ -629,7 +651,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 			}
 			/* TODO multiline - update next */
 			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT_ML;
+			return FLAG_COMMENT | FLAG_CONTINUES;
 		}
 	}
 
@@ -668,7 +690,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 char * syn_c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",NULL};
 
 static int syn_c_finish(line_t * line, int * left, int state) {
-	if (state == FLAG_COMMENT_ML) {
+	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
 		int last = 0;
 		for (int i = 0; i < line->actual; ++i) {
 			if (line->text[i].codepoint == '/' && last == '*') {
@@ -677,7 +699,14 @@ static int syn_c_finish(line_t * line, int * left, int state) {
 			}
 			last = line->text[i].codepoint;
 		}
-		return FLAG_COMMENT_ML;
+		return FLAG_COMMENT | FLAG_CONTINUES;
+	}
+	if (state == (FLAG_PRAGMA | FLAG_CONTINUES)) {
+		*left = line->actual + 1;
+		if (line->text[line->actual-1].codepoint == '\\') {
+			return FLAG_PRAGMA | FLAG_CONTINUES;
+		}
+		return FLAG_PRAGMA;
 	}
 	return 0;
 }
@@ -763,7 +792,7 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 					return FLAG_STRING;
 				}
 			}
-			return FLAG_STRING_ML1;
+			return FLAG_STRING | FLAG_CONTINUES;
 		}
 
 		int last = 0;
@@ -793,7 +822,7 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 					return FLAG_STRING;
 				}
 			}
-			return FLAG_STRING_ML2;
+			return FLAG_STRING2 | FLAG_CONTINUES;
 		}
 
 		int last = 0;
@@ -817,7 +846,7 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 
 static int syn_py_finish(line_t * line, int * left, int state) {
 	/* TODO support multiline quotes */
-	if (state == FLAG_STRING_ML1) {
+	if (state == (FLAG_STRING | FLAG_CONTINUES)) {
 		for (int j = 0; j < line->actual - 2; ++j) {
 			if (line->text[j].codepoint == '\'' &&
 				line->text[j+1].codepoint == '\'' &&
@@ -826,18 +855,18 @@ static int syn_py_finish(line_t * line, int * left, int state) {
 				return FLAG_STRING;
 			}
 		}
-		return FLAG_STRING_ML1;
+		return FLAG_STRING | FLAG_CONTINUES;
 	}
-	if (state == FLAG_STRING_ML2) {
+	if (state == (FLAG_STRING2 | FLAG_CONTINUES)) {
 		for (int j = 0; j < line->actual - 2; ++j) {
 			if (line->text[j].codepoint == '"' &&
 				line->text[j+1].codepoint == '"' &&
 				line->text[j+2].codepoint == '"') {
 				*left = (j+3);
-				return FLAG_STRING;
+				return FLAG_STRING2;
 			}
 		}
-		return FLAG_STRING_ML2;
+		return FLAG_STRING2 | FLAG_CONTINUES;
 	}
 	return 0;
 }
@@ -1019,6 +1048,30 @@ static int syn_gitcommit_extended(line_t * line, int i, int c, int last, int * o
 
 static char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG",NULL};
 
+static int syn_diff_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
+	if (i == 0) {
+		if (c == '+') {
+			*out_left = (line->actual + 1);
+			return FLAG_DIFFPLUS;
+		} else if (c == '-') {
+			*out_left = (line->actual + 1);
+			return FLAG_DIFFMINUS;
+		} else if (c == '@') {
+			*out_left = (line->actual + 1);
+			return FLAG_TYPE;
+		} else if (c != ' ') {
+			*out_left = (line->actual + 1);
+			return FLAG_KEYWORD;
+		}
+	}
+
+	return FLAG_NONE;
+}
+
+static char * syn_diff_ext[] = {".diff",".patch",NULL};
+
 /**
  * Syntax hilighting definition database
  */
@@ -1037,6 +1090,7 @@ struct syntax_definition {
 	{"make",syn_make_ext,NULL,NULL,syn_make_extended,NULL,NULL},
 	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,NULL},
 	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
+	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
 	{NULL}
 };
 
@@ -1078,7 +1132,7 @@ void recalculate_syntax(line_t * line, int offset) {
 		 */
 		state = env->syntax->finishml(line,&left,state);
 
-		if (state > FLAG_NORM_MAX) {
+		if (state & FLAG_CONTINUES) {
 			/* The finish check said that this multiline state continues. */
 			for (int i = 0; i < line->actual; i++) {
 				/* Set the entire line to draw with this state */
@@ -1115,7 +1169,7 @@ void recalculate_syntax(line_t * line, int offset) {
 			int s = env->syntax->extended(line,i,c,last,&left);
 			if (s) {
 				state = s;
-				if (state > FLAG_NORM_MAX) {
+				if (state & FLAG_CONTINUES) {
 					/* A multiline state was returned. Fill the rest of the line */
 					for (; i < line->actual; i++) {
 						line->text[i].flags = state;
@@ -5516,7 +5570,7 @@ static void show_usage(char * argv[]) {
 			"bim - Text editor\n"
 			"\n"
 			"usage: %s [options] [file]\n"
-			"       %s [options] -\n"
+			"       %s [options] -- -\n"
 			"\n"
 			" -R     " _S "open initial buffer read-only" _E
 			" -O     " _S "set various options:" _E
