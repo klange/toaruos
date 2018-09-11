@@ -305,20 +305,15 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream) {
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream) {
-	char * tracking = (char*)ptr;
-	for (size_t i = 0; i < nmemb; ++i) {
-		int r = syscall_write(stream->fd, tracking, size);
-		if (r < 0) {
-			errno = -r;
-			_XLOG("write error in fwrite");
-			return -1;
-		}
-		tracking += r;
-		if (r < (int)size) {
-			return i;
-		}
+	size_t out_size = size * nmemb;
+
+	int r = syscall_write(stream->fd, (void*)ptr, out_size);
+	if (r < 0) {
+		errno = -r;
+		return -1;
 	}
-	return nmemb;
+
+	return r / size;
 }
 
 int fileno(FILE * stream) {
