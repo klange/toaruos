@@ -115,6 +115,8 @@ static uint8_t* get_mac() {
 #define E1000_REG_TXDESCHEAD 0x3810
 #define E1000_REG_TXDESCTAIL 0x3818
 
+#define E1000_REG_RXADDR     0x5400
+
 #define RCTL_EN                         (1 << 1)    /* Receiver Enable */
 #define RCTL_SBP                        (1 << 2)    /* Store Bad Packets */
 #define RCTL_UPE                        (1 << 3)    /* Unicast Promiscuous Enabled */
@@ -186,6 +188,20 @@ static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
 	}
 }
 
+static void write_mac(void) {
+
+	uint32_t low;
+	uint32_t high;
+
+	memcpy(&low, &mac[0], 4);
+	memcpy(&high,&mac[4], 2);
+	memset((uint8_t *)&high + 2, 0, 2);
+	high |= 0x80000000;
+
+	write_command(E1000_REG_RXADDR + 0, low);
+	write_command(E1000_REG_RXADDR + 4, high);
+}
+
 static void read_mac(void) {
 	if (has_eeprom) {
 		uint32_t t;
@@ -199,7 +215,7 @@ static void read_mac(void) {
 		mac[4] = t & 0xFF;
 		mac[5] = t >> 8;
 	} else {
-		uint8_t * mac_addr = (uint8_t *)(mem_base + 0x5400);
+		uint8_t * mac_addr = (uint8_t *)(mem_base + E1000_REG_RXADDR);
 		for (int i = 0; i < 6; ++i) {
 			mac[i] = mac_addr[i];
 		}
@@ -313,6 +329,7 @@ static void e1000_init(void * data, char * name) {
 	eeprom_detect();
 	debug_print(E1000_LOG_LEVEL, "has_eeprom = %d", has_eeprom);
 	read_mac();
+	write_mac();
 
 	debug_print(E1000_LOG_LEVEL, "device mac %2x:%2x:%2x:%2x:%2x:%2x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	unsigned long s, ss;
