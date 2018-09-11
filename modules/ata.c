@@ -451,7 +451,7 @@ static void ata_device_init(struct ata_device * dev) {
 
 }
 
-static void atapi_device_init(struct ata_device * dev) {
+static int atapi_device_init(struct ata_device * dev) {
 
 	dev->is_atapi = 1;
 
@@ -541,16 +541,18 @@ static void atapi_device_init(struct ata_device * dev) {
 	dev->atapi_lba = lba;
 	dev->atapi_sector_size = blocks;
 
+	if (!lba) return 1;
+
 	debug_print(WARNING, "Finished! LBA = %x; block length = %x", lba, blocks);
-	return;
+	return 0;
 
 atapi_error_read:
 	debug_print(ERROR, "ATAPI error; no medium?");
-	return;
+	return 1;
 
 atapi_error:
 	debug_print(ERROR, "ATAPI early error; unsure");
-	return;
+	return 1;
 
 }
 
@@ -589,7 +591,9 @@ static int ata_device_detect(struct ata_device * dev) {
 		char devname[64];
 		sprintf((char *)&devname, "/dev/cdrom%d", cdrom_number);
 
-		atapi_device_init(dev);
+		if (atapi_device_init(dev)) {
+			return 0;
+		}
 		fs_node_t * node = atapi_device_create(dev);
 		vfs_mount(devname, node);
 
