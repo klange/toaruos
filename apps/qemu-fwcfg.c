@@ -62,7 +62,7 @@ static int usage(char * argv[]) {
 			"usage: %s [-?ln] [config name]\n"
 			"\n"
 			" -l     \033[3mlist available config entries\033[0m\n"
-			" -n     \033[3mdon't print a new line after image\033[0m\n"
+			" -n     \033[3mdon't print a new line after data\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
 	return 1;
