@@ -11,7 +11,6 @@ fatbase/mod/procfs.ko,\
 fatbase/mod/tmpfs.ko,\
 fatbase/mod/ata.ko,\
 fatbase/mod/ext2.ko,\
-fatbase/mod/iso9660.ko,\
 fatbase/mod/ps2kbd.ko,\
 fatbase/mod/ps2mouse.ko,\
 fatbase/mod/lfbvideo.ko,\
@@ -25,10 +24,11 @@ fatbase/mod/net.ko,\
 fatbase/mod/pcnet.ko,\
 fatbase/mod/rtl.ko,\
 fatbase/mod/e1000.ko,\
-fatbase/mod/pcspkr.ko,\
-fatbase/ramdisk.img \
--append "vid=qemu,1440,900 root=/dev/ram0,nocache start=--migrate _start=--headless" \
+fatbase/mod/pcspkr.ko \
+-append "root=/dev/hda start=--headless" \
 -nographic \
+-no-reboot \
+-hda fatbase/ramdisk.img \
 -enable-kvm \
 -serial mon:stdio \
 -m 1G -soundhw ac97,pcspk
