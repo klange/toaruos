@@ -70,7 +70,7 @@ Using Bochs to run ToaruOS is not advised; however the following configuration o
 - Attach the CD and set it as a boot device.
 - Ensure that the `pcivga` device is enabled or ToaruOS will not be able to find the video card through PCI.
 - Provide at least 512MB of RAM to the guest.
-- If available, enable the `e1000` network device (this has never been tested).
+- If available, enable the `e1000` network device using the `slirp` backend.
 - Clock settings of `sync=realtime, time0=local, rtc_sync=1` are recommended.
 
 ## Implementation Details
