@@ -167,6 +167,7 @@ struct yutani_msg_window_resize {
 	uint32_t width;
 	uint32_t height;
 	uint32_t bufid;
+	uint32_t flags;
 };
 
 struct yutani_msg_window_advertise {
@@ -441,6 +442,14 @@ struct yutani_msg_clipboard {
 #define YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE 2
 
 #define YUTANI_SPECIAL_REQUEST_CLIPBOARD    10
+
+/*
+ * YUTANI_RESIZE
+ *
+ * Flags provided in resize offers describing the window state.
+ */
+#define YUTANI_RESIZE_NORMAL 0
+#define YUTANI_RESIZE_TILED  1
 
 typedef struct {
 	int x;

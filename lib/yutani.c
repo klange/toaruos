@@ -20,6 +20,9 @@
 #include <toaru/yutani-internal.h>
 #include <toaru/mouse.h>
 
+/* We need the flags but don't want the library dep (maybe the flags should be here?) */
+#include <toaru/./decorations.h>
+
 /**
  * yutani_wait_for
  *
@@ -85,6 +88,18 @@ static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 				}
 			}
 			break;
+		case YUTANI_MSG_RESIZE_OFFER:
+			{
+				struct yutani_msg_window_resize * wr = (void *)out->data;
+				yutani_window_t * win = hashmap_get(y->windows, (void *)wr->wid);
+				if (win) {
+					if (wr->flags & YUTANI_RESIZE_TILED) {
+						win->decorator_flags |= (DECOR_FLAG_TILED);
+					} else {
+						win->decorator_flags &= ~(DECOR_FLAG_TILED);
+					}
+				}
+			}
 		default:
 			break;
 	}
@@ -310,7 +325,7 @@ void yutani_msg_buildx_flip_region(yutani_msg_t * msg, yutani_wid_t wid, int32_t
 }
 
 
-void yutani_msg_buildx_window_resize(yutani_msg_t * msg, uint32_t type, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid) {
+void yutani_msg_buildx_window_resize(yutani_msg_t * msg, uint32_t type, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid, uint32_t flags) {
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = type;
 	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_resize);
@@ -321,6 +336,7 @@ void yutani_msg_buildx_window_resize(yutani_msg_t * msg, uint32_t type, yutani_w
 	mw->width = width;
 	mw->height = height;
 	mw->bufid = bufid;
+	mw->flags = flags;
 }
 
 
@@ -654,7 +670,7 @@ void yutani_set_stack(yutani_t * yctx, yutani_window_t * window, int z) {
  */
 void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_buildx_window_resize_alloc(m);
-	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_REQUEST, window->wid, width, height, 0);
+	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_REQUEST, window->wid, width, height, 0, 0);
 	yutani_msg_send(yctx, m);
 }
 
@@ -667,7 +683,7 @@ void yutani_window_resize(yutani_t * yctx, yutani_window_t * window, uint32_t wi
  */
 void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_buildx_window_resize_alloc(m);
-	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_OFFER, window->wid, width, height, 0);
+	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_OFFER, window->wid, width, height, 0, 0);
 	yutani_msg_send(yctx, m);
 }
 
@@ -679,7 +695,7 @@ void yutani_window_resize_offer(yutani_t * yctx, yutani_window_t * window, uint3
  */
 void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint32_t width, uint32_t height) {
 	yutani_msg_buildx_window_resize_alloc(m);
-	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_ACCEPT, window->wid, width, height, 0);
+	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_ACCEPT, window->wid, width, height, 0, 0);
 	yutani_msg_send(yctx, m);
 
 	/* Now wait for the new bufid */
@@ -724,7 +740,7 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 	}
 
 	yutani_msg_buildx_window_resize_alloc(m);
-	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_DONE, window->wid, window->width, window->height, window->bufid);
+	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_DONE, window->wid, window->width, window->height, window->bufid, 0);
 	yutani_msg_send(yctx, m);
 }
 
