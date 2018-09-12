@@ -164,9 +164,6 @@ void pci_remap(void) {
 	if (pci_isa) {
 		for (int i = 0; i < 4; ++i) {
 			pci_remaps[i] = pci_read_field(pci_isa, 0x60+i, 1);
-			if (pci_remaps[i] == 0x80) {
-				pci_remaps[i] = 0x0a; /* fallback */
-			}
 		}
 		uint32_t out = 0;
 		memcpy(&out, &pci_remaps, 4);
@@ -184,9 +181,14 @@ int pci_get_interrupt(uint32_t device) {
 			return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
 		}
 		int pirq = (irq_pin + pci_extract_slot(device) - 2) % 4;
-		debug_print(ERROR, "slot is %d, irq pin is %d, so pirq is %d and that maps to %d?", pci_extract_slot(device), irq_pin, pirq, pci_remaps[pirq]);
+		int int_line = pci_read_field(device, PCI_INTERRUPT_LINE, 1);
+		debug_print(ERROR, "slot is %d, irq pin is %d, so pirq is %d and that maps to %d? int_line=%d", pci_extract_slot(device), irq_pin, pirq, pci_remaps[pirq], int_line);
 		if (pci_remaps[pirq] == 0x80) {
-			debug_print(ERROR, "not mapped, falling back?\n");
+			debug_print(ERROR, "not mapped, remapping?\n");
+			pci_remaps[pirq] = int_line;
+			uint32_t out = 0;
+			memcpy(&out, &pci_remaps, 4);
+			pci_write_field(pci_isa, 0x60, 4, out);
 			return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
 		}
 		return pci_remaps[pirq];
