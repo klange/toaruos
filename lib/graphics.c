@@ -467,15 +467,19 @@ void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 			uint16_t _x = 0;
 
 			/* Ensure alignment */
-			for (; _x < sprite->width && ((uintptr_t)&GFX(ctx, x + _x, y + _y) & 15); ++_x) {
+			for (; _x < sprite->width; ++_x) {
 				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 					continue;
+				if (!((uintptr_t)&GFX(ctx, x + _x, y + _y) & 15))
+					break;
 				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
 			}
 			for (; _x < sprite->width - 3; _x += 4) {
-				if (x + _x < _left || x + _x + 3 > _right || y + _y < _top || y + _y > _bottom) {
+				if (x + _x < _left || y + _y < _top || y + _y > _bottom) {
 					continue;
 				}
+				if (x + _x + 3 > _right)
+					break;
 
 				__m128i d = _mm_load_si128((void *)&GFX(ctx, x + _x, y + _y));
 				__m128i s = _mm_loadu_si128((void *)&SPRITE(sprite, _x, _y));
