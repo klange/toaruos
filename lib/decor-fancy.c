@@ -29,7 +29,8 @@ static int lr_width = 9;
 
 static sprite_t * sprites[20];
 
-#define TEXT_OFFSET 10
+#define TEXT_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 10)
+#define BUTTON_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 0)
 
 static void init_sprite(int id, char * path) {
 	sprites[id] = malloc(sizeof(sprite_t));
@@ -38,17 +39,17 @@ static void init_sprite(int id, char * path) {
 }
 
 static int get_bounds_fancy(yutani_window_t * window, struct decor_bounds * bounds) {
-	if (window == NULL) {
+	if (window == NULL || !(window->decorator_flags & DECOR_FLAG_TILED)) {
 		bounds->top_height = 33;
 		bounds->bottom_height = 6;
 		bounds->left_width = 6;
 		bounds->right_width = 6;
 	} else {
 		/* TODO: Window type */
-		bounds->top_height = 33;
-		bounds->bottom_height = 6;
-		bounds->left_width = 6;
-		bounds->right_width = 6;
+		bounds->top_height = 28;
+		bounds->bottom_height = 1;
+		bounds->left_width = 1;
+		bounds->right_width = 1;
 	}
 
 	bounds->width = bounds->left_width + bounds->right_width;
@@ -69,37 +70,48 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 		}
 	}
 
+	uint32_t clear_color = ((window->decorator_flags & DECOR_FLAG_TILED) ? rgb(62,62,62) : 0);
+
 	for (int j = (int)bounds.top_height; j < height - (int)bounds.bottom_height; ++j) {
 		for (int i = 0; i < (int)bounds.left_width; ++i) {
-			GFX(ctx,i,j) = 0;
+			GFX(ctx,i,j) = clear_color;
 		}
 		for (int i = width - (int)bounds.right_width; i < width; ++i) {
-			GFX(ctx,i,j) = 0;
+			GFX(ctx,i,j) = clear_color;
 		}
 	}
 
 	for (int j = height - (int)bounds.bottom_height; j < height; ++j) {
 		for (int i = 0; i < width; ++i) {
-			GFX(ctx,i,j) = 0;
+			GFX(ctx,i,j) = clear_color;
 		}
 	}
 
 	if (decors_active == DECOR_INACTIVE) decors_active = INACTIVE;
 
-	draw_sprite(ctx, sprites[decors_active + 0], 0, 0);
-	for (int i = 0; i < width - (ul_width + ur_width); ++i) {
-		draw_sprite(ctx, sprites[decors_active + 1], i + ul_width, 0);
+	if ((window->decorator_flags & DECOR_FLAG_TILED)) {
+		draw_sprite(ctx, sprites[decors_active + 0], -5, -5);
+		for (int i = 0; i < width - 10; ++i) {
+			draw_sprite(ctx, sprites[decors_active + 1], i + 5, -5);
+		}
+		draw_sprite(ctx, sprites[decors_active + 2], width - 5, -5);
+	} else {
+
+		draw_sprite(ctx, sprites[decors_active + 0], 0, 0);
+		for (int i = 0; i < width - (ul_width + ur_width); ++i) {
+			draw_sprite(ctx, sprites[decors_active + 1], i + ul_width, 0);
+		}
+		draw_sprite(ctx, sprites[decors_active + 2], width - ur_width, 0);
+		for (int i = 0; i < height - (u_height + l_height); ++i) {
+			draw_sprite(ctx, sprites[decors_active + 3], 0, i + u_height);
+			draw_sprite(ctx, sprites[decors_active + 4], width - mr_width, i + u_height);
+		}
+		draw_sprite(ctx, sprites[decors_active + 5], 0, height - l_height);
+		for (int i = 0; i < width - (ll_width + lr_width); ++i) {
+			draw_sprite(ctx, sprites[decors_active + 6], i + ll_width, height - l_height);
+		}
+		draw_sprite(ctx, sprites[decors_active + 7], width - lr_width, height - l_height);
 	}
-	draw_sprite(ctx, sprites[decors_active + 2], width - ur_width, 0);
-	for (int i = 0; i < height - (u_height + l_height); ++i) {
-		draw_sprite(ctx, sprites[decors_active + 3], 0, i + u_height);
-		draw_sprite(ctx, sprites[decors_active + 4], width - mr_width, i + u_height);
-	}
-	draw_sprite(ctx, sprites[decors_active + 5], 0, height - l_height);
-	for (int i = 0; i < width - (ll_width + lr_width); ++i) {
-		draw_sprite(ctx, sprites[decors_active + 6], i + ll_width, height - l_height);
-	}
-	draw_sprite(ctx, sprites[decors_active + 7], width - lr_width, height - l_height);
 
 	char * tmp_title = strdup(title);
 	int t_l = strlen(tmp_title);
@@ -125,20 +137,20 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	free(tmp_title);
 
 	/* Buttons */
-	draw_sprite(ctx, sprites[decors_active + 8], width - 28, 16);
+	draw_sprite(ctx, sprites[decors_active + 8], width - 28 + BUTTON_OFFSET, 16 - BUTTON_OFFSET);
 	if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
-		draw_sprite(ctx, sprites[decors_active + 9], width - 50, 16);
+		draw_sprite(ctx, sprites[decors_active + 9], width - 50 + BUTTON_OFFSET, 16 - BUTTON_OFFSET);
 	}
 }
 
 static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
-	if (x >= (int)window->width - 28 && x <= (int)window->width - 18 &&
+	if (x >= (int)window->width - 28 + BUTTON_OFFSET && x <= (int)window->width - 18 + BUTTON_OFFSET &&
 		y >= 16 && y <= 26) {
 		return DECOR_CLOSE;
 	}
 
 	if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
-		if (x >= (int)window->width - 50 && x <= (int)window->width - 40 &&
+		if (x >= (int)window->width - 50 + BUTTON_OFFSET && x <= (int)window->width - 40 + BUTTON_OFFSET &&
 			y >= 16 && y <= 26) {
 			return DECOR_MAXIMIZE;
 		}
