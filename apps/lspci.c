@@ -28,6 +28,7 @@ struct device_class {
 	{"0480", "Multimedia controller"},
 	{"0600", "Host bridge"},
 	{"0601", "ISA bridge"},
+	{"0604", "PCI bridge"},
 	{"0680", "Bridge"},
 	{"0880", "System peripheral"},
 	{NULL, NULL},

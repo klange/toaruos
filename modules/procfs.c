@@ -394,7 +394,7 @@ static uint32_t compiler_func(fs_node_t *node, uint32_t offset, uint32_t size, u
 	if (offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf, size);
+	memcpy(buffer, buf + offset, size);
 	return size;
 }
 
@@ -441,7 +441,7 @@ static uint32_t mounts_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf, size);
+	memcpy(buffer, buf + offset, size);
 	free(buf);
 	return size;
 }
@@ -499,7 +499,7 @@ static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf, size);
+	memcpy(buffer, buf + offset, size);
 	free(buf);
 	return size;
 
@@ -542,7 +542,7 @@ static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf, size);
+	memcpy(buffer, buf + offset, size);
 	free(buf);
 	return size;
 }
@@ -566,7 +566,7 @@ static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size
 	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf, size);
+	memcpy(buffer, buf + offset, size);
 	free(buf);
 	return size;
 }
@@ -588,7 +588,7 @@ static uint32_t loader_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf, size);
+	memcpy(buffer, buf + offset, size);
 	free(buf);
 	return size;
 }
@@ -616,7 +616,7 @@ static uint32_t irq_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, buf, size);
+	memcpy(buffer, buf + offset, size);
 	free(buf);
 	return size;
 }
@@ -666,7 +666,7 @@ static uint32_t pci_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	pci_scan(&scan_count, -1, &count);
 
 	struct _pci_buf b = {0,NULL};
-	b.buffer = malloc(count * 512);
+	b.buffer = malloc(count * 1024);
 
 	pci_scan(&scan_hit_list, -1, &b);
 
@@ -677,7 +677,7 @@ static uint32_t pci_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	}
 	if (size > _bsize - offset) size = _bsize - offset;
 
-	memcpy(buffer, b.buffer, size);
+	memcpy(buffer, b.buffer + offset, size);
 	free(b.buffer);
 	return size;
 }
