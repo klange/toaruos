@@ -58,9 +58,7 @@ As of writing, the following configuration has been tested as functioning:
 
 - Create a virtual machine for a 64-bit guest. (ToaruOS-NIH is 32-bit, but this configuration selects some hardware defaults that are desirable)
 - Ensure the VM has 1GB of RAM.
-- Remove the hard disk from the VM.
-- Remove the sound card from the VM. VMWare implements an Ensoniq chipset we do not have drivers for.
-- Manually set the `firmware` value to `efi` in the VMX file. The BIOS loader has known issues under VMWare.
+- It is recommended you remove the hard disk and the audio device.
 - For network settings, the NAT option is recommended.
 
 #### Bochs
