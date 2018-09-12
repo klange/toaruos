@@ -506,8 +506,8 @@ static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint
 }
 
 static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	char * buf = malloc(4096);
 	list_t * hash_keys = hashmap_keys(modules_get_list());
+	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
@@ -550,8 +550,8 @@ static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
 
 static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	char * buf = malloc(4096);
 	list_t * hash_keys = hashmap_keys(fs_types);
+	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
@@ -572,7 +572,7 @@ static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size
 }
 
 static uint32_t loader_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	char * buf = malloc(4096);
+	char * buf = malloc(512);
 
 	if (mboot_ptr->flags & MULTIBOOT_FLAG_LOADER) {
 		sprintf(buf, "%s\n", mboot_ptr->boot_loader_name);
