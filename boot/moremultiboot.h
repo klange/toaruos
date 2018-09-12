@@ -487,7 +487,7 @@ done:
 
 				int i = dir_entry->extent_start_LSB;
 				int sectors = dir_entry->extent_length_LSB / 2048 + 1;
-#define SECTORS 65536
+#define SECTORS 512
 				while (sectors >= SECTORS) {
 					print_(".");
 					ata_device_read_sectors_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset, SECTORS);

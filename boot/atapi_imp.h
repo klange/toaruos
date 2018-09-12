@@ -197,25 +197,24 @@ _try_again:
 		outports(bus, command.command_words[i]);
 	}
 
+	uint16_t size_to_read = dev->atapi_sector_size;
 
 	for (int i = 0; i < sectors; ++i) {
-	while (1) {
-		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
-		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup_cmd;
-		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
-	}
-		uint16_t size_to_read = inportb(bus + ATA_REG_LBA2) << 8;
-		size_to_read = size_to_read | inportb(bus + ATA_REG_LBA1);
+		while (1) {
+			uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+			if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup_cmd;
+			if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
+		}
 
 		inportsm(bus,buf,size_to_read/2);
 
-		buf += 2048;
+		buf += size_to_read;
 
-	while (1) {
-		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
-		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
-		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
-	}
+		while (1) {
+			uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+			if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
+			if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
+		}
 	}
 
 	return;

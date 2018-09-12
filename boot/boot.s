@@ -1,7 +1,12 @@
 [bits 16]
 main:
+	jmp far 0x000:0x7c05
+main2:
 	mov ax, 0x0000
 	mov ds, ax
+	mov ss, ax
+	mov ax, 0x7b00
+	mov sp, ax
 	mov ax, 0x0500
 	mov es, ax
 
