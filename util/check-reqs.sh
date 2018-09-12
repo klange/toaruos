@@ -17,6 +17,11 @@ else
     fi
 fi
 
+if ! which mkfs.fat >/dev/null; then
+    echo "mkfs.fat is required (and should be in your PATH) to build EFI file systems"
+    RET=1
+fi
+
 if ! which mcopy >/dev/null; then
     echo "mtools is required to build FAT images for EFI / hybrid ISOs"
     RET=1
