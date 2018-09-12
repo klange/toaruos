@@ -37,6 +37,7 @@
 #include <toaru/list.h>
 #include <toaru/kbd.h>
 #include <toaru/rline.h>
+#include <toaru/rline_exp.h>
 
 #define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
 #define STAR_TOKEN "\xFF\xFFSTAR\xFF\xFF"
@@ -59,6 +60,7 @@ int shell_interactive = 1;
 int last_ret = 0;
 char ** shell_argv = NULL;
 int shell_argc = 0;
+int experimental_rline = 0;
 
 
 int pid; /* Process ID of the shell */
@@ -514,7 +516,7 @@ int read_entry(char * buffer) {
 		tab_complete_func, redraw_prompt_func, NULL,
 		NULL, NULL, NULL, NULL, NULL
 	};
-	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	int buffer_size = experimental_rline ? rline_experimental(buffer, LINE_LEN) : rline((char *)buffer, LINE_LEN, &callbacks);
 	return buffer_size;
 }
 
@@ -523,7 +525,7 @@ int read_entry_continued(char * buffer) {
 		tab_complete_func, redraw_prompt_func_c, NULL,
 		NULL, NULL, NULL, NULL, NULL
 	};
-	int buffer_size = rline((char *)buffer, LINE_LEN, &callbacks);
+	int buffer_size = experimental_rline ? rline_experimental(buffer, LINE_LEN) : rline((char *)buffer, LINE_LEN, &callbacks);
 	return buffer_size;
 }
 
@@ -1147,8 +1149,11 @@ int main(int argc, char ** argv) {
 
 	if (argc > 1) {
 		int c;
-		while ((c = getopt(argc, argv, "c:v?")) != -1) {
+		while ((c = getopt(argc, argv, "Rc:v?")) != -1) {
 			switch (c) {
+				case 'R':
+					experimental_rline = 1;
+					break;
 				case 'c':
 					shell_interactive = 0;
 					{
