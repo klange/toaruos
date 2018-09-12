@@ -605,33 +605,59 @@ class Decor(object):
     EVENT_CLOSE = 2
     EVENT_RESIZE = 3
 
+    class decor_bound(Structure):
+        _fields_ = [
+            ("top_height",    c_int),
+            ("bottom_height", c_int),
+            ("left_width",    c_int),
+            ("right_width",   c_int),
+            ("width",         c_int),
+            ("height",        c_int),
+        ]
+
     def __init__(self):
         self.lib = CDLL("libtoaru_decorations.so")
         self.lib.init_decorations()
+        self._bounds = self.decor_bound()
 
-    def width(self):
+        self._decor_get_bounds = cast(c_void_p.in_dll(self.lib, "decor_get_bounds").value, CFUNCTYPE(c_int, c_void_p, c_void_p))
+
+    def _get_bounds(self, window):
+        self._decor_get_bounds(window._ptr if window else None, byref(self._bounds))
+
+    def bounds(self,window=None):
+        self._get_bounds(window)
+        return self._bounds
+
+    def width(self,window=None):
         """The complete width of the left and right window borders."""
-        return int(self.lib.decor_width())
+        self._get_bounds(window)
+        return int(self._bounds.width)
 
-    def height(self):
+    def height(self,window=None):
         """The complete height of the top and bottom window borders."""
-        return int(self.lib.decor_height())
+        self._get_bounds(window)
+        return int(self._bounds.height)
 
-    def top_height(self):
+    def top_height(self,window=None):
         """The height of the top edge of the decorations."""
-        return c_uint32.in_dll(self.lib, "decor_top_height").value
+        self._get_bounds(window)
+        return int(self._bounds.top_height)
 
-    def bottom_height(self):
+    def bottom_height(self,window=None):
         """The height of the bottom edge of the decorations."""
-        return c_uint32.in_dll(self.lib, "decor_bottom_height").value
+        self._get_bounds(window)
+        return int(self._bounds.bottom_height)
 
-    def left_width(self):
+    def left_width(self,window=None):
         """The width of the left edge of the decorations."""
-        return c_uint32.in_dll(self.lib, "decor_left_width").value
+        self._get_bounds(window)
+        return int(self._bounds.left_width)
 
-    def right_width(self):
+    def right_width(self,window=None):
         """The width of the right edge of the decorations."""
-        return c_uint32.in_dll(self.lib, "decor_right_width").value
+        self._get_bounds(window)
+        return int(self._bounds.right_width)
 
     def render(self, window, title=None):
         """Render decorations on this window. If a title is not provided, it will be retreived from the window object."""
