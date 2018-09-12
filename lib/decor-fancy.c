@@ -37,26 +37,48 @@ static void init_sprite(int id, char * path) {
 	sprites[id]->alpha = ALPHA_EMBEDDED;
 }
 
+static int get_bounds_fancy(yutani_window_t * window, struct decor_bounds * bounds) {
+	if (window == NULL) {
+		bounds->top_height = 33;
+		bounds->bottom_height = 6;
+		bounds->left_width = 6;
+		bounds->right_width = 6;
+	} else {
+		/* TODO: Window type */
+		bounds->top_height = 33;
+		bounds->bottom_height = 6;
+		bounds->left_width = 6;
+		bounds->right_width = 6;
+	}
+
+	bounds->width = bounds->left_width + bounds->right_width;
+	bounds->height = bounds->top_height + bounds->bottom_height;
+	return 0;
+}
+
 static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 	int width = window->width;
 	int height = window->height;
 
-	for (int j = 0; j < (int)decor_top_height; ++j) {
+	struct decor_bounds bounds;
+	get_bounds_fancy(window, &bounds);
+
+	for (int j = 0; j < (int)bounds.top_height; ++j) {
 		for (int i = 0; i < width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
 	}
 
-	for (int j = (int)decor_top_height; j < height - (int)decor_bottom_height; ++j) {
-		for (int i = 0; i < (int)decor_left_width; ++i) {
+	for (int j = (int)bounds.top_height; j < height - (int)bounds.bottom_height; ++j) {
+		for (int i = 0; i < (int)bounds.left_width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
-		for (int i = width - (int)decor_right_width; i < width; ++i) {
+		for (int i = width - (int)bounds.right_width; i < width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
 	}
 
-	for (int j = height - (int)decor_bottom_height; j < height; ++j) {
+	for (int j = height - (int)bounds.bottom_height; j < height; ++j) {
 		for (int i = 0; i < width; ++i) {
 			GFX(ctx,i,j) = 0;
 		}
@@ -148,12 +170,8 @@ void decor_init() {
 	init_sprite(INACTIVE + 8, TTK_FANCY_PATH "inactive/button-close.bmp");
 	init_sprite(INACTIVE + 9, TTK_FANCY_PATH "inactive/button-maximize.bmp");
 
-	decor_top_height     = 33;
-	decor_bottom_height  = 6;
-	decor_left_width     = 6;
-	decor_right_width    = 6;
-
 	decor_render_decorations = render_decorations_fancy;
 	decor_check_button_press = check_button_press_fancy;
+	decor_get_bounds = get_bounds_fancy;
 }
 

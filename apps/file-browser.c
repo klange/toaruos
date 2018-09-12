@@ -214,7 +214,10 @@ static void reinitialize_contents(void) {
 	/* Calculate height for current directory */
 	int calculated_height = file_pointers_len * 24;
 
-	contents_sprite = create_sprite(main_window->width - decor_width(), calculated_height, ALPHA_EMBEDDED);
+	struct decor_bounds bounds;
+	decor_get_bounds(main_window, &bounds);
+
+	contents_sprite = create_sprite(main_window->width - bounds.width, calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
 
 	draw_fill(contents, rgb(255,255,255));
@@ -228,15 +231,18 @@ static void redraw_window(void) {
 
 	render_decorations(main_window, ctx, APPLICATION_TITLE);
 
-	menu_bar.x = decor_left_width;
-	menu_bar.y = decor_top_height;
-	menu_bar.width = ctx->width - decor_width();
+	struct decor_bounds bounds;
+	decor_get_bounds(main_window, &bounds);
+
+	menu_bar.x = bounds.left_width;
+	menu_bar.y = bounds.top_height;
+	menu_bar.width = ctx->width - bounds.width;
 	menu_bar.window = main_window;
 	menu_bar_render(&menu_bar, ctx);
 
 	gfx_clear_clip(ctx);
-	gfx_add_clip(ctx, decor_left_width, decor_top_height + MENU_BAR_HEIGHT, ctx->width - decor_width(), available_height);
-	draw_sprite(ctx, contents_sprite, decor_left_width, decor_top_height + MENU_BAR_HEIGHT - scroll_offset);
+	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT, ctx->width - bounds.width, available_height);
+	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT - scroll_offset);
 	gfx_clear_clip(ctx);
 	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
 
@@ -251,7 +257,10 @@ static void resize_finish(int w, int h) {
 	yutani_window_resize_accept(yctx, main_window, w, h);
 	reinit_graphics_yutani(ctx, main_window);
 
-	available_height = ctx->height - MENU_BAR_HEIGHT - decor_height();
+	struct decor_bounds bounds;
+	decor_get_bounds(main_window, &bounds);
+
+	available_height = ctx->height - MENU_BAR_HEIGHT - bounds.height;
 
 	if (width_changed) {
 		reinitialize_contents();
@@ -320,6 +329,9 @@ int main(int argc, char * argv[]) {
 	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 	ctx = init_graphics_yutani_double_buffer(main_window);
 
+	struct decor_bounds bounds;
+	decor_get_bounds(main_window, &bounds);
+
 	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "folder");
 
 	menu_bar.entries = menu_entries;
@@ -348,7 +360,7 @@ int main(int argc, char * argv[]) {
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
 
-	available_height = ctx->height - MENU_BAR_HEIGHT - decor_height();
+	available_height = ctx->height - MENU_BAR_HEIGHT - bounds.height;
 	load_directory("/usr/share");
 	reinitialize_contents();
 	redraw_window();
@@ -390,6 +402,8 @@ int main(int argc, char * argv[]) {
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)me->wid);
+						struct decor_bounds bounds;
+						decor_get_bounds(win, &bounds);
 
 						if (win == main_window) {
 							int result = decor_handle_event(yctx, m);
@@ -409,10 +423,10 @@ int main(int argc, char * argv[]) {
 							/* Menu bar */
 							menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
 
-							if (me->new_y > (int)(decor_top_height + MENU_BAR_HEIGHT) &&
-								me->new_y < (int)(main_window->height - decor_bottom_height) &&
-								me->new_x > (int)(decor_left_width) &&
-								me->new_x < (int)(main_window->width - decor_right_width)) {
+							if (me->new_y > (int)(bounds.top_height + MENU_BAR_HEIGHT) &&
+								me->new_y < (int)(main_window->height - bounds.bottom_height) &&
+								me->new_x > (int)(bounds.left_width) &&
+								me->new_x < (int)(main_window->width - bounds.right_width)) {
 								if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 									/* Scroll up */
 									scroll_offset -= SCROLL_AMOUNT;
@@ -433,7 +447,7 @@ int main(int argc, char * argv[]) {
 								}
 
 								/* Get offset into contents */
-								int y_into = me->new_y - decor_top_height - MENU_BAR_HEIGHT + scroll_offset;
+								int y_into = me->new_y - bounds.top_height - MENU_BAR_HEIGHT + scroll_offset;
 								int offset = y_into / 24;
 								if (offset != hilighted_offset) {
 									int old_offset = hilighted_offset;

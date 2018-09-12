@@ -16,11 +16,6 @@
 #include <toaru/sdf.h>
 #include <toaru/menu.h>
 
-uint32_t decor_top_height     = 33;
-uint32_t decor_bottom_height  = 6;
-uint32_t decor_left_width     = 6;
-uint32_t decor_right_width    = 6;
-
 #define TEXT_OFFSET_X 10
 #define TEXT_OFFSET_Y 3
 
@@ -31,6 +26,7 @@ uint32_t decor_right_width    = 6;
 
 void (*decor_render_decorations)(yutani_window_t *, gfx_context_t *, char *, int) = NULL;
 int  (*decor_check_button_press)(yutani_window_t *, int x, int y) = NULL;
+int  (*decor_get_bounds)(yutani_window_t *, struct decor_bounds *) = NULL;
 
 static void (*callback_close)(yutani_window_t *) = NULL;
 static void (*callback_resize)(yutani_window_t *) = NULL;
@@ -54,7 +50,7 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 		GFX(ctx, window->width - 1, i) = color;
 	}
 
-	for (int i = 1; i < (int)decor_top_height; ++i) {
+	for (int i = 1; i < (int)24; ++i) {
 		for (int j = 1; j < (int)window->width - 1; ++j) {
 			GFX(ctx, j, i) = color;
 		}
@@ -70,7 +66,7 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 
 	for (uint32_t i = 0; i < window->width; ++i) {
 		GFX(ctx, i, 0) = color;
-		GFX(ctx, i, decor_top_height - 1) = color;
+		GFX(ctx, i, 24 - 1) = color;
 		GFX(ctx, i, window->height - 1) = color;
 	}
 }
@@ -83,14 +79,23 @@ static int check_button_press_simple(yutani_window_t * window, int x, int y) {
 	return 0;
 }
 
-static void initialize_simple() {
-	decor_top_height     = 24;
-	decor_bottom_height  = 1;
-	decor_left_width     = 1;
-	decor_right_width    = 1;
+static int get_bounds_simple(yutani_window_t * window, struct decor_bounds * bounds) {
+	/* Does not change with window state */
+	bounds->top_height = 24;
+	bounds->bottom_height = 1;
+	bounds->left_width = 1;
+	bounds->right_width = 1;
 
+	bounds->width = bounds->left_width + bounds->right_width;
+	bounds->height = bounds->top_height + bounds->bottom_height;
+
+	return 0;
+}
+
+static void initialize_simple() {
 	decor_render_decorations = render_decorations_simple;
 	decor_check_button_press = check_button_press_simple;
+	decor_get_bounds         = get_bounds_simple;
 }
 
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
@@ -190,14 +195,6 @@ _theme_error:
 	}
 }
 
-uint32_t decor_width() {
-	return decor_left_width + decor_right_width;
-}
-
-uint32_t decor_height() {
-	return decor_top_height + decor_bottom_height;
-}
-
 void decor_set_close_callback(void (*callback)(yutani_window_t *)) {
 	callback_close = callback;
 }
@@ -211,18 +208,24 @@ void decor_set_maximize_callback(void (*callback)(yutani_window_t *)) {
 }
 
 static int within_decors(yutani_window_t * window, int x, int y) {
-	if ((x <= (int)decor_left_width || x >= (int)window->width - (int)decor_right_width) && (x > 0 && x < (int)window->width)) return 1;
-	if ((y <= (int)decor_top_height || y >= (int)window->height - (int)decor_bottom_height) && (y > 0 && y < (int)window->height)) return 1;
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
+
+	if ((x <= (int)bounds.left_width || x >= (int)window->width - (int)bounds.right_width) && (x > 0 && x < (int)window->width)) return 1;
+	if ((y <= (int)bounds.top_height || y >= (int)window->height - (int)bounds.bottom_height) && (y > 0 && y < (int)window->height)) return 1;
 	return 0;
 }
 
-#define LEFT_SIDE (me->new_x <= (int)decor_left_width)
-#define RIGHT_SIDE (me->new_x >= (int)window->width - (int)decor_right_width)
-#define TOP_SIDE (me->new_y <= (int)decor_top_height)
-#define BOTTOM_SIDE (me->new_y >= (int)window->height - (int)decor_bottom_height)
+#define LEFT_SIDE (me->new_x <= (int)bounds.left_width)
+#define RIGHT_SIDE (me->new_x >= (int)window->width - (int)bounds.right_width)
+#define TOP_SIDE (me->new_y <= (int)bounds.top_height)
+#define BOTTOM_SIDE (me->new_y >= (int)window->height - (int)bounds.bottom_height)
 
 static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_mouse_event * me, yutani_window_t * window) {
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
 	yutani_scale_direction_t resize_direction = SCALE_NONE;
+
 	if (LEFT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
 		resize_direction = SCALE_LEFT;
 	} else if (RIGHT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
@@ -252,6 +255,8 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
 					yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
+					struct decor_bounds bounds;
+					decor_get_bounds(window, &bounds);
 					if (!window) return 0;
 					if (!(window->decorator_flags & DECOR_FLAG_DECORATED)) return 0;
 					if (within_decors(window, me->new_x, me->new_y)) {
@@ -265,7 +270,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 									yutani_window_resize_start(yctx, window, resize_direction);
 								}
 
-								if (me->new_y < (int)decor_top_height && resize_direction == SCALE_NONE) {
+								if (me->new_y < (int)bounds.top_height && resize_direction == SCALE_NONE) {
 									yutani_window_drag_start(yctx, window);
 								}
 								return DECOR_OTHER;

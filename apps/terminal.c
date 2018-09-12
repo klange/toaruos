@@ -149,6 +149,13 @@ static void term_clear();
 static void reinit();
 static void term_redraw_cursor();
 
+static int decor_left_width = 0;
+static int decor_top_height = 0;
+static int decor_right_width = 0;
+static int decor_bottom_height = 0;
+static int decor_width = 0;
+static int decor_height = 0;
+
 struct scrollback_row {
 	unsigned short width;
 	term_cell_t cells[];
@@ -1438,8 +1445,8 @@ static void key_event(int ret, key_event_t * event) {
 				/* Toggle decorations */
 				if (!_fullscreen) {
 					_no_frame = !_no_frame;
-					window_width = window->width - decor_width() * (!_no_frame);
-					window_height = window->height - (decor_height() + menu_bar_height) * (!_no_frame);
+					window_width = window->width - decor_width * (!_no_frame);
+					window_height = window->height - (decor_height + menu_bar_height) * (!_no_frame);
 					reinit(1);
 				}
 				break;
@@ -1663,6 +1670,18 @@ static void reinit(int send_sig) {
 	}
 }
 
+static void update_bounds(void) {
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
+
+	decor_left_width = bounds.left_width;
+	decor_top_height = bounds.top_height;
+	decor_right_width = bounds.right_width;
+	decor_bottom_height = bounds.bottom_height;
+	decor_width = bounds.width;
+	decor_height = bounds.height;
+}
+
 /* Handle window resize event. */
 static void resize_finish(int width, int height) {
 	static int resize_attempts = 0;
@@ -1672,8 +1691,10 @@ static void resize_finish(int width, int height) {
 
 	/* Calculate window size */
 	if (!_no_frame) {
-		extra_x = decor_width();
-		extra_y = decor_height() + menu_bar_height;
+		update_bounds();
+
+		extra_x = decor_width;
+		extra_y = decor_height + menu_bar_height;
 	}
 
 	int t_window_width  = width  - extra_x;
@@ -1815,8 +1836,8 @@ static void * handle_incoming(void) {
 
 					if (me->new_x < 0 || me->new_y < 0) break;
 					if (!_no_frame) {
-						if (me->new_x >= (int)window_width + (int)decor_width()) break;
-						if (me->new_y >= (int)window_height + (int)decor_height()) break;
+						if (me->new_x >= (int)window_width + (int)decor_width) break;
+						if (me->new_y >= (int)window_height + (int)decor_height) break;
 						if (me->new_y < (int)decor_top_height+menu_bar_height) break;
 						if (me->new_y >= (int)(window_height + decor_top_height+menu_bar_height)) break;
 						if (me->new_x < (int)decor_left_width) break;
@@ -1948,8 +1969,8 @@ static struct MenuEntry * _menu_toggle_borders_bar = NULL;
 
 static void _menu_action_hide_borders(struct MenuEntry * self) {
 	_no_frame = !(_no_frame);
-	window_width = window->width - decor_width() * (!_no_frame);
-	window_height = window->height - (decor_height() + menu_bar_height) * (!_no_frame);
+	window_width = window->width - decor_width * (!_no_frame);
+	window_height = window->height - (decor_height + menu_bar_height) * (!_no_frame);
 	menu_update_title(_menu_toggle_borders_context, _no_frame ? "Show borders" : "Hide borders");
 	menu_update_title(_menu_toggle_borders_bar, _no_frame ? "Show borders" : "Hide borders");
 	reinit(1);
@@ -2078,8 +2099,10 @@ int main(int argc, char ** argv) {
 		window = yutani_window_create(yctx, window_width, window_height);
 	} else {
 		init_decorations();
-		window = yutani_window_create(yctx, window_width + decor_left_width + decor_right_width, window_height + decor_top_height+menu_bar_height + decor_bottom_height);
-
+		struct decor_bounds bounds;
+		decor_get_bounds(NULL, &bounds);
+		window = yutani_window_create(yctx, window_width + bounds.width, window_height + bounds.height + menu_bar_height);
+		update_bounds();
 	}
 
 	if (_fullscreen) {

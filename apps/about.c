@@ -36,13 +36,20 @@ static int center_x(int x) {
 }
 
 static void draw_string(int y, const char * string, int font, uint32_t color) {
-	draw_sdf_string(ctx, decor_left_width + center_x(draw_sdf_string_width(string, 16, font)), decor_top_height + 10 + logo.height + 10 + y, string, 16, color, font);
+
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
+
+	draw_sdf_string(ctx, bounds.left_width + center_x(draw_sdf_string_width(string, 16, font)), bounds.top_height + 10 + logo.height + 10 + y, string, 16, color, font);
 }
 
 static void redraw(void) {
 
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
+
 	draw_fill(ctx, rgb(204,204,204));
-	draw_sprite(ctx, &logo, decor_left_width + center_x(logo.width), decor_top_height + 10);
+	draw_sprite(ctx, &logo, bounds.left_width + center_x(logo.width), bounds.top_height + 10);
 
 	draw_string(0, version_str, SDF_FONT_BOLD, rgb(0,0,0));
 
@@ -101,7 +108,10 @@ int main(int argc, char * argv[]) {
 	}
 	init_decorations();
 
-	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
+	struct decor_bounds bounds;
+	decor_get_bounds(NULL, &bounds);
+
+	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
 	req_center_x = yctx->display_width / 2;
 	req_center_y = yctx->display_height / 2;
 

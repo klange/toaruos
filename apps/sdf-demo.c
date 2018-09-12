@@ -50,8 +50,11 @@ void resize_finish(int w, int h) {
 	yutani_window_resize_accept(yctx, window, w, h);
 	reinit_graphics_yutani(ctx, window);
 
-	width  = w - decor_left_width - decor_right_width;
-	height = h - decor_top_height - decor_bottom_height;
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
+
+	width  = w - bounds.left_width - bounds.right_width;
+	height = h - bounds.top_height - bounds.bottom_height;
 
 	redraw();
 
@@ -69,7 +72,10 @@ int main(int argc, char * argv[]) {
 	}
 	init_decorations();
 
-	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
+	struct decor_bounds bounds;
+	decor_get_bounds(NULL, &bounds);
+
+	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
 	yutani_window_move(yctx, window, left, top);
 
 	yutani_window_advertise_icon(yctx, window, "SDF Demo", "sdf");

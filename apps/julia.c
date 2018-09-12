@@ -29,6 +29,14 @@ static yutani_t * yctx;
 static yutani_window_t * window = NULL;
 static gfx_context_t * ctx = NULL;
 
+static int decor_left_width = 0;
+static int decor_top_height = 0;
+static int decor_right_width = 0;
+static int decor_bottom_height = 0;
+static int decor_width = 0;
+static int decor_height = 0;
+
+
 /* Julia fractals elements */
 float conx = -0.74;  /* real part of c */
 float cony = 0.1;    /* imag part of c */
@@ -161,6 +169,16 @@ void resize_finish(int w, int h) {
 	yutani_window_resize_accept(yctx, window, w, h);
 	reinit_graphics_yutani(ctx, window);
 
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
+
+	decor_left_width = bounds.left_width;
+	decor_top_height = bounds.top_height;
+	decor_right_width = bounds.right_width;
+	decor_bottom_height = bounds.bottom_height;
+	decor_width = bounds.width;
+	decor_height = bounds.height;
+
 	width  = w - decor_left_width - decor_right_width;
 	height = h - decor_top_height - decor_bottom_height;
 
@@ -240,7 +258,17 @@ int main(int argc, char * argv[]) {
 	}
 	init_decorations();
 
-	window = yutani_window_create(yctx, width + decor_width(), height + decor_height());
+	struct decor_bounds bounds;
+	decor_get_bounds(NULL, &bounds);
+
+	decor_left_width = bounds.left_width;
+	decor_top_height = bounds.top_height;
+	decor_right_width = bounds.right_width;
+	decor_bottom_height = bounds.bottom_height;
+	decor_width = bounds.width;
+	decor_height = bounds.height;
+
+	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
 	yutani_window_move(yctx, window, left, top);
 
 	yutani_window_advertise_icon(yctx, window, "Julia Fractals", "julia");

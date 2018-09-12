@@ -59,7 +59,10 @@ static void reinitialize_contents(void) {
 	/* Calculate height for current directory */
 	int calculated_height = 200;
 
-	contents_sprite = create_sprite(main_window->width - decor_width(), calculated_height, ALPHA_EMBEDDED);
+	struct decor_bounds bounds;
+	decor_get_bounds(main_window, &bounds);
+
+	contents_sprite = create_sprite(main_window->width - bounds.width, calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
 
 	draw_fill(contents, rgb(255,255,255));
@@ -73,15 +76,18 @@ static void redraw_window(void) {
 
 	render_decorations(main_window, ctx, APPLICATION_TITLE);
 
-	menu_bar.x = decor_left_width;
-	menu_bar.y = decor_top_height;
-	menu_bar.width = ctx->width - decor_width();
+	struct decor_bounds bounds;
+	decor_get_bounds(main_window, &bounds);
+
+	menu_bar.x = bounds.left_width;
+	menu_bar.y = bounds.top_height;
+	menu_bar.width = ctx->width - bounds.width;
 	menu_bar.window = main_window;
 	menu_bar_render(&menu_bar, ctx);
 
 	gfx_clear_clip(ctx);
-	gfx_add_clip(ctx, decor_left_width, decor_top_height + MENU_BAR_HEIGHT, ctx->width - decor_width(), ctx->height - MENU_BAR_HEIGHT - decor_height());
-	draw_sprite(ctx, contents_sprite, decor_left_width, decor_top_height + MENU_BAR_HEIGHT);
+	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT, ctx->width - bounds.width, ctx->height - MENU_BAR_HEIGHT - bounds.height);
+	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT);
 	gfx_clear_clip(ctx);
 	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
 

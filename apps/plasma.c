@@ -93,8 +93,13 @@ void resize_finish(int w, int h) {
 	yutani_window_resize_accept(yctx, wina, w, h);
 	reinit_graphics_yutani(ctx, wina);
 
-	win_width  = w - decor_width();
-	win_height = h - decor_height();
+	struct decor_bounds bounds;
+	decor_get_bounds(wina, &bounds);
+
+	win_width  = w - bounds.width;
+	win_height = h - bounds.height;
+	off_x = bounds.left_width;
+	off_y = bounds.top_height;
 
 	yutani_window_resize_done(yctx, wina);
 }
@@ -111,12 +116,18 @@ int main (int argc, char ** argv) {
 
 	init_decorations();
 
-	off_x = decor_left_width;
-	off_y = decor_top_height;
+	struct decor_bounds bounds;
+	decor_get_bounds(NULL, &bounds);
 
 	/* Do something with a window */
-	wina = yutani_window_create(yctx, win_width + decor_width(), win_height + decor_height());
+	wina = yutani_window_create(yctx, win_width + bounds.width, win_height + bounds.height);
 	yutani_window_move(yctx, wina, 300, 300);
+
+	decor_get_bounds(wina, &bounds);
+	off_x = bounds.left_width;
+	off_y = bounds.top_height;
+	win_width  = wina->width - bounds.width;
+	win_height = wina->height - bounds.height;
 
 	ctx = init_graphics_yutani_double_buffer(wina);
 

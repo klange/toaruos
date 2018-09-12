@@ -9,11 +9,6 @@
 #include <toaru/graphics.h>
 #include <toaru/yutani.h>
 
-extern uint32_t decor_top_height;
-extern uint32_t decor_bottom_height;
-extern uint32_t decor_left_width;
-extern uint32_t decor_right_width;
-
 /*
  * Render decorations to a window. A buffer pointer is
  * provided so that you may render in double-buffered mode.
@@ -24,19 +19,31 @@ extern uint32_t decor_right_width;
 extern void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title);
 extern void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title);
 
+/**
+ * Decoration boundaries
+ */
+struct decor_bounds {
+	int top_height;
+	int bottom_height;
+	int left_width;
+	int right_width;
+
+	/* Convenience */
+	int width;
+	int height;
+};
+
 /*
  * Used by decoration libraries to set callbacks
  */
 extern void (*decor_render_decorations)(yutani_window_t *, gfx_context_t *, char *, int);
 extern int  (*decor_check_button_press)(yutani_window_t *, int x, int y);
+extern int  (*decor_get_bounds)(yutani_window_t *, struct decor_bounds *);
 
 /*
  * Run me once to set things up
  */
 extern void init_decorations();
-
-extern uint32_t decor_width();
-extern uint32_t decor_height();
 
 extern int decor_handle_event(yutani_t * yctx, yutani_msg_t * m);
 
