@@ -4537,6 +4537,7 @@ void delete_at_cursor(void) {
 	if (env->col_no > 1) {
 		line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
 		env->col_no -= 1;
+		if (env->coffset > 0) env->coffset--;
 		redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 		set_modified();
 		redraw_statusbar();
@@ -4546,6 +4547,25 @@ void delete_at_cursor(void) {
 		merge_lines(env->lines, env->line_no - 1);
 		env->line_no -= 1;
 		env->col_no = tmp+1;
+		redraw_text();
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+void delete_word(void) {
+	if (!env->lines[env->line_no-1]) return;
+	if (env->col_no > 1) {
+
+		do {
+			if (env->col_no > 1) {
+				line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+				env->col_no -= 1;
+				if (env->coffset > 0) env->coffset--;
+			}
+		} while (env->col_no > 1 && env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint != ' ');
+
 		redraw_text();
 		set_modified();
 		redraw_statusbar();
@@ -5316,6 +5336,9 @@ void insert_mode(void) {
 						break;
 					case ENTER_KEY:
 						insert_line_feed();
+						break;
+					case 23: /* ^W */
+						delete_word();
 						break;
 					case '\t':
 						if (env->tabs) {
