@@ -883,6 +883,15 @@ static char * syn_sh_keywords[] = {
 	NULL,
 };
 
+static int variable_char(uint8_t c) {
+	if (c >= 'A' && c <= 'Z')  return 1;
+	if (c >= 'a' && c <= 'z') return 1;
+	if (c >= '0' && c <= '9')  return 1;
+	if (c == '_') return 1;
+	if (c == '?') return 1;
+	return 0;
+}
+
 static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
 	(void)last;
 
@@ -906,6 +915,23 @@ static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left
 		}
 		*out_left = (line->actual + 1) - i; /* unterminated string */
 		return FLAG_STRING;
+	}
+
+	if (line->text[i].codepoint == '$' && last != '\\') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '{') {
+			int j = i + 2;
+			for (; j < line->actual+1; ++j) {
+				if (line->text[j].codepoint == '}') break;
+			}
+			*out_left = (j - i);
+			return FLAG_NUMERAL;
+		}
+		int j = i + 1;
+		for (; j < line->actual + 1; ++j) {
+			if (!variable_char(line->text[j].codepoint)) break;
+		}
+		*out_left = (j - i) - 1;
+		return FLAG_NUMERAL;
 	}
 
 	if (line->text[i].codepoint == '"') {
