@@ -861,6 +861,82 @@ static void cursor_end(void) {
 	place_cursor_actual();
 }
 
+static char temp_buffer[1024];
+
+static void history_previous(void) {
+	if (rline_scroll == 0) {
+		/* Convert to temporaary buffer */
+		unsigned int off = 0;
+		memset(temp_buffer, 0, sizeof(temp_buffer));
+		for (int j = 0; j < the_line->actual; j++) {
+			char_t c = the_line->text[j];
+			off += to_eight(c.codepoint, &temp_buffer[off]);
+		}
+	}
+
+	if (rline_scroll < rline_history_count) {
+		rline_scroll++;
+
+		/* Copy in from history */
+		the_line->actual = 0;
+		column = 0;
+		loading = 1;
+		char * buf = rline_history_prev(rline_scroll);
+		uint32_t istate = 0, c = 0;
+		for (unsigned int i = 0; i < strlen(buf); ++i) {
+			if (!decode(&istate, &c, buf[i])) {
+				insert_char(c);
+			}
+		}
+		loading = 0;
+	}
+	/* Set cursor at end */
+	column = the_line->actual;
+	recalculate_syntax(the_line);
+	render_line();
+	place_cursor_actual();
+}
+
+static void history_next(void) {
+	if (rline_scroll > 1) {
+		rline_scroll--;
+
+		/* Copy in from history */
+		the_line->actual = 0;
+		column = 0;
+		loading = 1;
+		char * buf = rline_history_prev(rline_scroll);
+		uint32_t istate = 0, c = 0;
+		for (unsigned int i = 0; i < strlen(buf); ++i) {
+			if (!decode(&istate, &c, buf[i])) {
+				insert_char(c);
+			}
+		}
+		loading = 0;
+	} else if (rline_scroll == 1) {
+		/* Copy in from temp */
+		rline_scroll = 0;
+
+		the_line->actual = 0;
+		column = 0;
+		loading = 1;
+		char * buf = temp_buffer;
+		uint32_t istate = 0, c = 0;
+		for (unsigned int i = 0; i < strlen(buf); ++i) {
+			if (!decode(&istate, &c, buf[i])) {
+				insert_char(c);
+			}
+		}
+		loading = 0;
+	}
+	/* Set cursor at end */
+	column = the_line->actual;
+	recalculate_syntax(the_line);
+	render_line();
+	place_cursor_actual();
+}
+
+
 static int handle_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
@@ -886,14 +962,12 @@ static int handle_escape(int * this_buf, int * timeout, int c) {
 	}
 	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 		switch (c) {
-#if 0
 			case 'A': // up
-				cursor_up();
+				history_previous();
 				break;
 			case 'B': // down
-				cursor_down();
+				history_next();
 				break;
-#endif
 			case 'C': // right
 				if (this_buf[*timeout-1] == '5') {
 					word_right();
