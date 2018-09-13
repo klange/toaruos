@@ -11,6 +11,7 @@ typedef struct {
 	int     cancel;
 	int     offset;
 	int     tabbed;
+	int     quiet;
 } rline_context_t;
 
 typedef void (*rline_callback_t)(rline_context_t * context);
@@ -30,6 +31,7 @@ extern void rline_redraw(rline_context_t * context);
 extern void rline_redraw_clean(rline_context_t * context);
 extern void rline_insert(rline_context_t * context, const char * what);
 extern int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks);
+extern void rline_reverse_search(rline_context_t * context);
 
 extern void rline_history_insert(char * str);
 extern void rline_history_append_line(char * str);

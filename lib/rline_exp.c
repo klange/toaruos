@@ -1050,6 +1050,59 @@ static void dummy_redraw(rline_context_t * context) {
 	/* Do nothing */
 }
 
+static void call_rline_func(rline_callback_t func, rline_context_t * context) {
+	uint32_t istate = 0;
+	uint32_t c;
+	context->quiet = 1;
+	context->buffer = malloc(buf_size_max); /* TODO */
+	memset(context->buffer,0,buf_size_max);
+	unsigned int off = 0;
+	for (int j = 0; j < the_line->actual; j++) {
+		if (j == column) {
+			context->offset = off;
+		}
+		char_t c = the_line->text[j];
+		off += to_eight(c.codepoint, &context->buffer[off]);
+	}
+	if (column == the_line->actual) context->offset = off;
+	context->tabbed = tabbed;
+	rline_callbacks_t tmp = {0};
+	tmp.redraw_prompt = dummy_redraw;
+	context->callbacks = &tmp;
+	context->collected = off;
+	context->buffer[off] = '\0';
+	context->requested = 1024;
+	printf("\033[0m");
+	func(context);
+	/* Now convert back */
+	loading = 1;
+	int final_column = 0;
+	the_line->actual = 0;
+	column = 0;
+	istate = 0;
+	for (int i = 0; i < context->collected; ++i) {
+		if (i == context->offset) {
+			final_column = column;
+		}
+		if (!decode(&istate, &c, context->buffer[i])) {
+			insert_char(c);
+		}
+	}
+	if (context->offset == context->collected) {
+		column = the_line->actual;
+	} else {
+		column = final_column;
+	}
+
+	tabbed = context->tabbed;
+
+	loading = 0;
+	recalculate_syntax(the_line);
+	render_line();
+	place_cursor_actual();
+
+}
+
 static int read_line(void) {
 	int cin;
 	uint32_t c;
@@ -1111,52 +1164,16 @@ static int read_line(void) {
 						/* Tab complet e*/
 						if (tab_complete_func) {
 							rline_context_t context = {0};
-							context.buffer = malloc(buf_size_max); /* TODO */
-							memset(context.buffer,0,buf_size_max);
-							unsigned int off = 0;
-							for (int j = 0; j < the_line->actual; j++) {
-								if (j == column) {
-									context.offset = off;
-								}
-								char_t c = the_line->text[j];
-								off += to_eight(c.codepoint, &context.buffer[off]);
+							call_rline_func(tab_complete_func, &context);
+						}
+						break;
+					case 18:
+						{
+							rline_context_t context = {0};
+							call_rline_func(rline_reverse_search, &context);
+							if (!context.cancel) {
+								return 1;
 							}
-							if (column == the_line->actual) context.offset = off;
-							context.tabbed = tabbed;
-							rline_callbacks_t tmp = {0};
-							tmp.redraw_prompt = dummy_redraw;
-							context.callbacks = &tmp;
-							context.collected = off;
-							context.buffer[off] = '\0';
-							context.requested = 1024;
-							printf("\033[0m");
-							tab_complete_func(&context);
-							/* Now convert back */
-							loading = 1;
-							int final_column = 0;
-							the_line->actual = 0;
-							column = 0;
-							istate = 0;
-							for (int i = 0; i < context.collected; ++i) {
-								if (i == context.offset) {
-									final_column = column;
-								}
-								if (!decode(&istate, &c, context.buffer[i])) {
-									insert_char(c);
-								}
-							}
-							if (context.offset == context.collected) {
-								column = the_line->actual;
-							} else {
-								column = final_column;
-							}
-
-							tabbed = context.tabbed;
-
-							loading = 0;
-							recalculate_syntax(the_line);
-							render_line();
-							place_cursor_actual();
 						}
 						break;
 					default:

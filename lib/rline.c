@@ -35,6 +35,7 @@ static void set_buffered() {
 
 
 void rline_redraw(rline_context_t * context) {
+	if (context->quiet) return;
 	printf("\033[u%s\033[K", context->buffer);
 	for (int i = context->offset; i < context->collected; ++i) {
 		printf("\033[D");
@@ -43,6 +44,7 @@ void rline_redraw(rline_context_t * context) {
 }
 
 void rline_redraw_clean(rline_context_t * context) {
+	if (context->quiet) return;
 	printf("\033[u%s", context->buffer);
 	for (int i = context->offset; i < context->collected; ++i) {
 		printf("\033[D");
@@ -101,7 +103,7 @@ char * rline_history_prev(int item) {
 	return rline_history_get(rline_history_count - item);
 }
 
-static void rline_reverse_search(rline_context_t * context) {
+void rline_reverse_search(rline_context_t * context) {
 	char input[512] = {0};
 	int collected = 0;
 	int start_at = 0;
@@ -168,13 +170,13 @@ try_rev_search_again:
 				memcpy(context->buffer, match, strlen(match) + 1);
 				context->collected = strlen(match);
 				context->offset = context->collected;
-				if (context->callbacks->redraw_prompt) {
+				if (!context->quiet && context->callbacks->redraw_prompt) {
 					fprintf(stderr, "\033[G\033[K");
 					context->callbacks->redraw_prompt(context);
 				}
 				fprintf(stderr, "\033[s");
 				rline_redraw_clean(context);
-				if (key_sym == '\n') {
+				if (key_sym == '\n' && !context->quiet) {
 					fprintf(stderr, "\n");
 				}
 				return;
@@ -259,6 +261,7 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 		callbacks,
 		0,
 		buf_size,
+		0,
 		0,
 		0,
 		0,
