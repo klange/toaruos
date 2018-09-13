@@ -3,15 +3,9 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
  *
- * EXPERIMENTAL rline replacement with syntax highlight, based on
- * bim's lightlighting and line editing.
+ * Experimental rline replacement with syntax highlighting, based
+ * on bim's highlighting and line editing.
  *
- * Still needs tab completion, history, etc. integration, and a
- * LOT of code cleanup because this is all basically just cut
- * and pasted directly out of bim.
- *
- * Some key bindings should also be added (some of which are missing
- * in bim as well) like ^W.
  */
 #define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE
