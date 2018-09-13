@@ -119,7 +119,7 @@ void gethost() {
 	memcpy(_hostname, buf.nodename, len+1);
 }
 
-void print_extended_ps(char * format) {
+void print_extended_ps(char * format, char * buffer, int * display_width) {
 	/* Get the time */
 	struct tm * timeinfo;
 	struct timeval now;
@@ -151,12 +151,25 @@ void print_extended_ps(char * format) {
 		sprintf(ret, "%d ", last_ret);
 	}
 
+	size_t offset = 0;
+	int is_visible = 1;
+	*display_width = 0;
+
 	while (*format) {
 		if (*format == '\\') {
 			format++;
 			switch (*format) {
 				case '\\':
-					putchar(*format);
+					buffer[offset++] = *format;
+					(*display_width) += is_visible ? 1 : 0;
+					format++;
+					break;
+				case '[':
+					is_visible = 0;
+					format++;
+					break;
+				case ']':
+					is_visible = 1;
 					format++;
 					break;
 				case '0':
@@ -180,56 +193,93 @@ void print_extended_ps(char * format) {
 								format++;
 							}
 						}
-						putchar(i);
+						buffer[offset++] = i;
+						(*display_width) += is_visible ? 1 : 0;
 					}
 					break;
 				case 'e':
-					putchar('\033');
+					buffer[offset++] = '\033';
+					(*display_width) += is_visible ? 1 : 0;
 					format++;
 					break;
 				case 'd':
-					printf("%s", date_buffer);
+					{
+						int size = sprintf(buffer+offset, "%s", date_buffer);
+						offset += size;
+						(*display_width) += is_visible ? size : 0;
+					}
 					format++;
 					break;
 				case 't':
-					printf("%s", time_buffer);
+					{
+						int size = sprintf(buffer+offset, "%s", time_buffer);
+						offset += size;
+						(*display_width) += is_visible ? size : 0;
+					}
 					format++;
 					break;
 				case 'h':
-					printf("%s", _hostname);
+					{
+						int size = sprintf(buffer+offset, "%s", _hostname);
+						offset += size;
+						(*display_width) += is_visible ? size : 0;
+					}
 					format++;
 					break;
 				case 'u':
-					printf("%s", username);
+					{
+						int size = sprintf(buffer+offset, "%s", username);
+						offset += size;
+						(*display_width) += is_visible ? size : 0;
+					}
 					format++;
 					break;
 				case 'w':
-					printf("%s", _cwd);
+					{
+						int size = sprintf(buffer+offset, "%s", _cwd);
+						offset += size;
+						(*display_width) += is_visible ? size : 0;
+					}
 					format++;
 					break;
 				case '$':
-					putchar(getuid() == 0 ? '#' : '$');
+					buffer[offset++] = (getuid() == 0 ? '#' : '$');
+					(*display_width) += is_visible ? 1 : 0;
 					format++;
 					break;
 				case 'U': /* prompt color string */
-					printf("%s", getuid() == 0 ? "\033[1;38;5;196m" : "\033[1;38;5;47m");
+					{
+						int size = sprintf(buffer+offset, "%s", getuid() == 0 ? "\033[1;38;5;196m" : "\033[1;38;5;47m");
+						offset += size;
+						/* Does not affect size */
+					}
 					format++;
 					break;
 				case 'r':
-					printf("%s", ret);
+					{
+						int size = sprintf(buffer+offset, "%s", ret);
+						offset += size;
+						(*display_width) += is_visible ? size : 0;
+					}
 					format++;
 					break;
 				default:
-					printf("\\%c", *format);
+					{
+						int size = sprintf(buffer+offset, "\\%c", *format);
+						offset += size;
+						(*display_width) += is_visible ? size : 0;
+					}
 					format++;
 					break;
 			}
 		} else {
-			putchar(*format);
+			buffer[offset++] = *format;
+			(*display_width) += is_visible ? 1 : 0;
 			format++;
 		}
 	}
 
+	buffer[offset] = '\0';
 }
 
 #define FALLBACK_PS1 "\\u@\\h \\w\\$ "
@@ -237,7 +287,10 @@ void print_extended_ps(char * format) {
 /* Draw the user prompt */
 void draw_prompt(void) {
 	char * ps1 = getenv("PS1");
-	print_extended_ps(ps1 ? ps1 : FALLBACK_PS1);
+	char buf[1024];
+	int display_width;
+	print_extended_ps(ps1 ? ps1 : FALLBACK_PS1, buf, &display_width);
+	fprintf(stdout, "%s", buf);
 	fflush(stdout);
 }
 
@@ -259,7 +312,10 @@ void redraw_prompt_func(rline_context_t * context) {
 void draw_prompt_c() {
 	char * ps2 = getenv("PS2");
 	if (ps2) {
-		print_extended_ps(ps2);
+		char buf[1024];
+		int display_width;
+		print_extended_ps(ps2, buf, &display_width);
+		fprintf(stdout, "%s", buf);
 	} else {
 		printf("> ");
 	}
@@ -512,21 +568,41 @@ void add_argument(list_t * argv, char * buf) {
 }
 
 int read_entry(char * buffer) {
-	rline_callbacks_t callbacks = {
-		tab_complete_func, redraw_prompt_func, NULL,
-		NULL, NULL, NULL, NULL, NULL
-	};
-	int buffer_size = experimental_rline ? rline_experimental(buffer, LINE_LEN) : rline((char *)buffer, LINE_LEN, &callbacks);
-	return buffer_size;
+	if (experimental_rline) {
+		char lprompt[1024], rprompt[1024];
+		int lwidth, rwidth;
+
+		char * ps1 = getenv("PS1_LEFT");
+		print_extended_ps(ps1 ? ps1 : FALLBACK_PS1, lprompt, &lwidth);
+
+		char * ps1r = getenv("PS1_RIGHT");
+		print_extended_ps(ps1r ? ps1r : "", rprompt, &rwidth);
+
+		rline_exp_set_prompts(lprompt, rprompt, lwidth, rwidth);
+		rline_exp_set_shell_commands(shell_commands, shell_commands_len);
+		rline_exp_set_tab_complete_func(tab_complete_func);
+		return rline_experimental(buffer, LINE_LEN);
+	} else {
+		rline_callbacks_t callbacks = {
+			tab_complete_func, redraw_prompt_func, NULL,
+			NULL, NULL, NULL, NULL, NULL
+		};
+		return rline((char *)buffer, LINE_LEN, &callbacks);
+	}
 }
 
 int read_entry_continued(char * buffer) {
-	rline_callbacks_t callbacks = {
-		tab_complete_func, redraw_prompt_func_c, NULL,
-		NULL, NULL, NULL, NULL, NULL
-	};
-	int buffer_size = experimental_rline ? rline_experimental(buffer, LINE_LEN) : rline((char *)buffer, LINE_LEN, &callbacks);
-	return buffer_size;
+	if (experimental_rline) {
+		rline_exp_set_prompts("> ", "", 2, 0);
+		rline_exp_set_shell_commands(shell_commands, shell_commands_len);
+		return rline_experimental(buffer, LINE_LEN);
+	} else {
+		rline_callbacks_t callbacks = {
+			tab_complete_func, redraw_prompt_func_c, NULL,
+			NULL, NULL, NULL, NULL, NULL
+		};
+		return rline((char *)buffer, LINE_LEN, &callbacks);
+	}
 }
 
 int variable_char(uint8_t c) {

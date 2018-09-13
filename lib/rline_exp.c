@@ -26,6 +26,8 @@
 #include <locale.h>
 #include <sys/ioctl.h>
 
+#include <toaru/rline.h>
+
 #define ENTER_KEY     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
@@ -45,9 +47,11 @@ typedef struct {
 
 line_t * the_line = NULL;
 
+static int loading = 0;
 static int column = 0;
 static int offset = 0;
 static int width =  0;
+static int buf_size_max = 0;
 
 /**
  * TODO: Need to make prompt configurable.
@@ -60,6 +64,30 @@ static int prompt_width = 2;
 static char * prompt = "> ";
 static int prompt_right_width = 4;
 static char * prompt_right = " :) ";
+
+static char ** shell_commands = {0};
+static int shell_commands_len = 0;
+
+int rline_exp_set_shell_commands(char ** cmds, int len) {
+	shell_commands = cmds;
+	shell_commands_len = len;
+	return 0;
+}
+
+int rline_exp_set_prompts(char * left, char * right, int left_width, int right_width) {
+	prompt = left;
+	prompt_right = right;
+	prompt_width = left_width;
+	prompt_right_width = right_width;
+	return 0;
+}
+
+static rline_callback_t tab_complete_func = NULL;
+
+int rline_exp_set_tab_complete_func(rline_callback_t func) {
+	tab_complete_func = func;
+	return 0;
+}
 
 static int to_eight(uint32_t codepoint, char * out) {
 	memset(out, 0x00, 7);
@@ -193,9 +221,36 @@ static const char * COLOR_SELECTFG  = "@0";
 static const char * COLOR_RED       = "@1";
 static const char * COLOR_GREEN     = "@2";
 
-static void load_colorscheme_sunsmoke(void) {
+void rline_exp_load_colorscheme_default(void) {
+	COLOR_FG        = "@9";
+	COLOR_BG        = "@9";
+	COLOR_ALT_FG    = "@5";
+	COLOR_ALT_BG    = "@9";
+	COLOR_NUMBER_FG = "@3";
+	COLOR_NUMBER_BG = "@9";
+	COLOR_STATUS_FG = "@7";
+	COLOR_STATUS_BG = "@4";
+	COLOR_TABBAR_BG = "@4";
+	COLOR_TAB_BG    = "@4";
+	COLOR_KEYWORD   = "@4";
+	COLOR_STRING    = "@2";
+	COLOR_COMMENT   = "@5";
+	COLOR_TYPE      = "@3";
+	COLOR_PRAGMA    = "@1";
+	COLOR_NUMERAL   = "@1";
+	COLOR_ERROR_FG  = "@7";
+	COLOR_ERROR_BG  = "@1";
+	COLOR_SEARCH_FG = "@0";
+	COLOR_SEARCH_BG = "@3";
+	COLOR_SELECTBG  = "@7";
+	COLOR_SELECTFG  = "@0";
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
+}
+
+void rline_exp_load_colorscheme_sunsmoke(void) {
 	COLOR_FG        = "2;230;230;230";
-	COLOR_BG        = "2;31;31;31";
+	COLOR_BG        = "@9";
 	COLOR_ALT_FG    = "2;122;122;122";
 	COLOR_ALT_BG    = "2;46;43;46";
 	COLOR_NUMBER_FG = "2;150;139;57";
@@ -249,6 +304,15 @@ static char * syn_sh_keywords[] = {
 	NULL,
 };
 
+static int variable_char(uint8_t c) {
+	if (c >= 'A' && c <= 'Z')  return 1;
+	if (c >= 'a' && c <= 'z') return 1;
+	if (c >= '0' && c <= '9')  return 1;
+	if (c == '_') return 1;
+	if (c == '?') return 1;
+	return 0;
+}
+
 static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
 	(void)last;
 
@@ -272,6 +336,23 @@ static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left
 		}
 		*out_left = (line->actual + 1) - i; /* unterminated string */
 		return FLAG_STRING;
+	}
+
+	if (line->text[i].codepoint == '$' && last != '\\') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '{') {
+			int j = i + 2;
+			for (; j < line->actual+1; ++j) {
+				if (line->text[j].codepoint == '}') break;
+			}
+			*out_left = (j - i);
+			return FLAG_NUMERAL;
+		}
+		int j = i + 1;
+		for (; j < line->actual + 1; ++j) {
+			if (!variable_char(line->text[j].codepoint)) break;
+		}
+		*out_left = (j - i) - 1;
+		return FLAG_NUMERAL;
 	}
 
 	if (line->text[i].codepoint == '"') {
@@ -590,6 +671,15 @@ static void recalculate_syntax(line_t * line) {
 			}
 		}
 
+		for (int s = 0; s < shell_commands_len; ++s) {
+			int c = check_line(line, i, shell_commands[s], last);
+			if (c == 1) {
+				left = strlen(shell_commands[s])-1;
+				state = FLAG_KEYWORD;
+				goto _continue;
+			}
+		}
+
 _continue:
 		line->text[i].flags = state;
 	}
@@ -625,12 +715,22 @@ static line_t * line_insert(line_t * line, char_t c, int offset) {
 	/* There is one new character in the line */
 	line->actual += 1;
 
-	recalculate_syntax(line);
+	if (!loading) {
+		recalculate_syntax(line);
+	}
 
 	return line;
 }
 
+static void get_size(void) {
+	struct winsize w;
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+	width = w.ws_col - prompt_right_width;
+}
+
 static void place_cursor_actual(void) {
+	get_size();
+
 	int x = prompt_width + 1 - offset;
 	for (int i = 0; i < column; ++i) {
 		char_t * c = &the_line->text[i];
@@ -670,7 +770,9 @@ static void line_delete(line_t * line, int offset) {
 	/* The line is one character shorter */
 	line->actual -= 1;
 
-	recalculate_syntax(line);
+	if (!loading) {
+		recalculate_syntax(line);
+	}
 }
 
 static void delete_at_cursor(void) {
@@ -683,6 +785,22 @@ static void delete_at_cursor(void) {
 	}
 }
 
+static void delete_word(void) {
+	if (!the_line->actual) return;
+	if (!column) return;
+
+	do {
+		if (column > 0) {
+			line_delete(the_line, column);
+			column--;
+			if (offset > 0) offset--;
+		}
+	} while (column && the_line->text[column-1].codepoint != ' ');
+
+	render_line();
+	place_cursor_actual();
+}
+
 static void insert_char(uint32_t c) {
 	char_t _c;
 	_c.codepoint = c;
@@ -692,8 +810,10 @@ static void insert_char(uint32_t c) {
 	the_line = line_insert(the_line, _c, column);
 
 	column++;
-	render_line();
-	place_cursor_actual();
+	if (!loading) {
+		render_line();
+		place_cursor_actual();
+	}
 }
 
 static void cursor_left(void) {
@@ -707,11 +827,28 @@ static void cursor_right(void) {
 }
 
 static void word_left(void) {
-	/* TODO */
+	if (column == 0) return;
+	column--;
+	while (column && the_line->text[column].codepoint == ' ') {
+		column--;
+	}
+	while (column > 0) {
+		if (the_line->text[column-1].codepoint == ' ') break;
+		column--;
+	}
+	place_cursor_actual();
 }
 
 static void word_right(void) {
 	/* TODO */
+	while (column < the_line->actual && the_line->text[column].codepoint == ' ') {
+		column++;
+	}
+	while (column < the_line->actual) {
+		column++;
+		if (the_line->text[column].codepoint == ' ') break;
+	}
+	place_cursor_actual();
 }
 
 static void cursor_home(void) {
@@ -833,6 +970,12 @@ static void set_buffered(void) {
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &old);
 }
 
+static int tabbed;
+
+static void dummy_redraw(rline_context_t * context) {
+	/* Do nothing */
+}
+
 static int read_line(void) {
 	int cin;
 	uint32_t c;
@@ -846,11 +989,33 @@ static int read_line(void) {
 	while ((cin = getc(stdin))) {
 		if (!decode(&istate, &c, cin)) {
 			if (timeout == 0) {
+				if (c != '\t') tabbed = 0;
 				switch (c) {
 					case '\033':
 						if (timeout == 0) {
 							this_buf[timeout] = c;
 							timeout++;
+						}
+						break;
+					case 3:
+						the_line->actual = 0;
+						set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+						printf("^C");
+						printf("\033[0m");
+						return 1;
+					case 4:
+						if (column == 0 && the_line->actual == 0) {
+							for (char *_c = "exit"; *_c; ++_c) {
+								insert_char(*_c);
+							}
+							return 1;
+						} else {
+							if (column < the_line->actual) {
+								line_delete(the_line, column+1);
+								if (offset > 0) offset--;
+								render_line();
+								place_cursor_actual();
+							}
 						}
 						break;
 					case DELETE_KEY:
@@ -860,6 +1025,8 @@ static int read_line(void) {
 					case ENTER_KEY:
 						/* Print buffer */
 						return 1;
+					case 23:
+						delete_word();
 						break;
 					case 12: /* ^L - Repaint the whole screen */
 						printf("\033[2J\033[H");
@@ -868,6 +1035,55 @@ static int read_line(void) {
 						break;
 					case '\t':
 						/* Tab complet e*/
+						if (tab_complete_func) {
+							rline_context_t context = {0};
+							context.buffer = malloc(buf_size_max); /* TODO */
+							memset(context.buffer,0,buf_size_max);
+							unsigned int off = 0;
+							for (int j = 0; j < the_line->actual; j++) {
+								if (j == column) {
+									context.offset = off;
+								}
+								char_t c = the_line->text[j];
+								off += to_eight(c.codepoint, &context.buffer[off]);
+							}
+							if (column == the_line->actual) context.offset = off;
+							context.tabbed = tabbed;
+							rline_callbacks_t tmp = {0};
+							tmp.redraw_prompt = dummy_redraw;
+							context.callbacks = &tmp;
+							context.collected = off;
+							context.buffer[off] = '\0';
+							context.requested = 1024;
+							printf("\033[0m");
+							tab_complete_func(&context);
+							/* Now convert back */
+							loading = 1;
+							int final_column = 0;
+							the_line->actual = 0;
+							column = 0;
+							istate = 0;
+							for (int i = 0; i < context.collected; ++i) {
+								if (i == context.offset) {
+									final_column = column;
+								}
+								if (!decode(&istate, &c, context.buffer[i])) {
+									insert_char(c);
+								}
+							}
+							if (context.offset == context.collected) {
+								column = the_line->actual;
+							} else {
+								column = final_column;
+							}
+
+							tabbed = context.tabbed;
+
+							loading = 0;
+							recalculate_syntax(the_line);
+							render_line();
+							place_cursor_actual();
+						}
 						break;
 					default:
 						insert_char(c);
@@ -888,15 +1104,18 @@ static int read_line(void) {
 int rline_experimental(char * buffer, int buf_size) {
 	get_initial_termios();
 	set_unbuffered();
-
-	struct winsize w;
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-	width = w.ws_col - prompt_right_width;
+	get_size();
 
 	column = 0;
 	offset = 0;
+	buf_size_max = buf_size;
 
-	load_colorscheme_sunsmoke();
+	char * theme = getenv("RLINE_THEME");
+	if (theme && !strcmp(theme,"sunsmoke")) { /* TODO bring back theme tables */
+		rline_exp_load_colorscheme_sunsmoke();
+	} else {
+		rline_exp_load_colorscheme_default();
+	}
 
 	the_line = line_create();
 	read_line();
