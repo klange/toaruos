@@ -60,7 +60,7 @@ int shell_interactive = 1;
 int last_ret = 0;
 char ** shell_argv = NULL;
 int shell_argc = 0;
-int experimental_rline = 0;
+int experimental_rline = 1;
 
 
 int pid; /* Process ID of the shell */
@@ -1146,6 +1146,7 @@ void show_usage(int argc, char * argv[]) {
 			"\n"
 			" -c \033[4mcmd\033[0m \033[3mparse and execute cmd\033[0m\n"
 			//-c cmd \033[...
+			" -R     \033[3mdisable experimental line editor\033[0m\n"
 			" -v     \033[3mshow version information\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
@@ -1228,7 +1229,7 @@ int main(int argc, char ** argv) {
 		while ((c = getopt(argc, argv, "Rc:v?")) != -1) {
 			switch (c) {
 				case 'R':
-					experimental_rline = 1;
+					experimental_rline = 0;
 					break;
 				case 'c':
 					shell_interactive = 0;
