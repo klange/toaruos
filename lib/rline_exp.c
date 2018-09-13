@@ -26,18 +26,30 @@
 #include <locale.h>
 #include <sys/ioctl.h>
 
+#include <toaru/decodeutf8.h>
 #include <toaru/rline.h>
 
 #define ENTER_KEY     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
 
+/**
+ * Same structures as in bim.
+ * A single character has:
+ * - A codepoint (Unicode) of up to 21 bits.
+ * - Flags for syntax highlighting.
+ * - A display width for rendering.
+ */
 typedef struct {
 	uint32_t display_width:4;
 	uint32_t flags:7;
 	uint32_t codepoint:21;
 } __attribute__((packed)) char_t;
 
+/**
+ * We generally only have the one line,
+ * but this matches bim for compatibility reasons.
+ */
 typedef struct {
 	int available;
 	int actual;
@@ -45,8 +57,17 @@ typedef struct {
 	char_t   text[0];
 } line_t;
 
-line_t * the_line = NULL;
+/**
+ * We operate on a single line of text.
+ * Maybe we can expand this in the future
+ * for continuations of edits such as when
+ * a quote is unclosed?
+ */
+static line_t * the_line = NULL;
 
+/**
+ * Line editor state
+ */
 static int loading = 0;
 static int column = 0;
 static int offset = 0;
@@ -54,25 +75,15 @@ static int width =  0;
 static int buf_size_max = 0;
 
 /**
- * TODO: Need to make prompt configurable.
- *       Ideally, sh, etc. should generate
- *       a prompt string from $PS1 and also
- *       calculate it's width; we need \[\]
- *       for that to work correctly.
+ * Prompt strings.
+ * Defaults to just a "> " prompt with no right side.
+ * Support for right side prompts is important
+ * for the ToaruOS shell.
  */
 static int prompt_width = 2;
 static char * prompt = "> ";
-static int prompt_right_width = 4;
-static char * prompt_right = " :) ";
-
-static char ** shell_commands = {0};
-static int shell_commands_len = 0;
-
-int rline_exp_set_shell_commands(char ** cmds, int len) {
-	shell_commands = cmds;
-	shell_commands_len = len;
-	return 0;
-}
+static int prompt_right_width = 0;
+static char * prompt_right = "";
 
 int rline_exp_set_prompts(char * left, char * right, int left_width, int right_width) {
 	prompt = left;
@@ -82,6 +93,24 @@ int rline_exp_set_prompts(char * left, char * right, int left_width, int right_w
 	return 0;
 }
 
+/**
+ * Extra shell commands to highlight as keywords.
+ * These are basically just copied from the
+ * shell's tab completion database on startup.
+ */
+static char ** shell_commands = {0};
+static int shell_commands_len = 0;
+
+int rline_exp_set_shell_commands(char ** cmds, int len) {
+	shell_commands = cmds;
+	shell_commands_len = len;
+	return 0;
+}
+
+/**
+ * Tab completion callback.
+ * Compatible with the original rline version.
+ */
 static rline_callback_t tab_complete_func = NULL;
 
 int rline_exp_set_tab_complete_func(rline_callback_t func) {
@@ -89,6 +118,9 @@ int rline_exp_set_tab_complete_func(rline_callback_t func) {
 	return 0;
 }
 
+/**
+ * Convert from Unicode string to utf-8.
+ */
 static int to_eight(uint32_t codepoint, char * out) {
 	memset(out, 0x00, 7);
 
@@ -124,47 +156,12 @@ static int to_eight(uint32_t codepoint, char * out) {
 	return strlen(out);
 }
 
-#define UTF8_ACCEPT 0
-#define UTF8_REJECT 1
-
-static inline uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
-	static int state_table[32] = {
-		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xxxxxxx */
-		1,1,1,1,1,1,1,1,                 /* 10xxxxxx */
-		2,2,2,2,                         /* 110xxxxx */
-		3,3,                             /* 1110xxxx */
-		4,                               /* 11110xxx */
-		1                                /* 11111xxx */
-	};
-
-	static int mask_bytes[32] = {
-		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
-		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
-		0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-		0x1F,0x1F,0x1F,0x1F,
-		0x0F,0x0F,
-		0x07,
-		0x00
-	};
-
-	static int next[5] = {
-		0,
-		1,
-		0,
-		2,
-		3
-	};
-
-	if (*state == UTF8_ACCEPT) {
-		*codep = byte & mask_bytes[byte >> 3];
-		*state = state_table[byte >> 3];
-	} else if (*state > 0) {
-		*codep = (byte & 0x3F) | (*codep << 6);
-		*state = next[*state];
-	}
-	return *state;
-}
-
+/**
+ * Obtain codepoint display width.
+ *
+ * This is copied from bim. Supports a few useful
+ * things like rendering escapes as codepoints.
+ */
 static int codepoint_width(wchar_t codepoint) {
 	if (codepoint == '\t') {
 		return 1; /* Recalculate later */
@@ -196,84 +193,55 @@ static int codepoint_width(wchar_t codepoint) {
 	return 1;
 }
 
+/**
+ * Color themes have also been copied from bim.
+ *
+ * Slimmed down to only the ones we use for syntax
+ * highlighting; the UI colors have been removed.
+ */
 static const char * COLOR_FG        = "@9";
 static const char * COLOR_BG        = "@9";
 static const char * COLOR_ALT_FG    = "@5";
 static const char * COLOR_ALT_BG    = "@9";
-static const char * COLOR_NUMBER_FG = "@3";
-static const char * COLOR_NUMBER_BG = "@9";
-static const char * COLOR_STATUS_FG = "@7";
-static const char * COLOR_STATUS_BG = "@4";
-static const char * COLOR_TABBAR_BG = "@4";
-static const char * COLOR_TAB_BG    = "@4";
 static const char * COLOR_KEYWORD   = "@4";
 static const char * COLOR_STRING    = "@2";
 static const char * COLOR_COMMENT   = "@5";
 static const char * COLOR_TYPE      = "@3";
 static const char * COLOR_PRAGMA    = "@1";
 static const char * COLOR_NUMERAL   = "@1";
-static const char * COLOR_ERROR_FG  = "@7";
-static const char * COLOR_ERROR_BG  = "@1";
-static const char * COLOR_SEARCH_FG = "@0";
-static const char * COLOR_SEARCH_BG = "@3";
-static const char * COLOR_SELECTBG  = "@7";
-static const char * COLOR_SELECTFG  = "@0";
 static const char * COLOR_RED       = "@1";
 static const char * COLOR_GREEN     = "@2";
 
-void rline_exp_load_colorscheme_default(void) {
+/**
+ * Themes are selected from the $RLINE_THEME
+ * environment variable.
+ */
+static void rline_exp_load_colorscheme_default(void) {
 	COLOR_FG        = "@9";
 	COLOR_BG        = "@9";
 	COLOR_ALT_FG    = "@5";
 	COLOR_ALT_BG    = "@9";
-	COLOR_NUMBER_FG = "@3";
-	COLOR_NUMBER_BG = "@9";
-	COLOR_STATUS_FG = "@7";
-	COLOR_STATUS_BG = "@4";
-	COLOR_TABBAR_BG = "@4";
-	COLOR_TAB_BG    = "@4";
 	COLOR_KEYWORD   = "@4";
 	COLOR_STRING    = "@2";
 	COLOR_COMMENT   = "@5";
 	COLOR_TYPE      = "@3";
 	COLOR_PRAGMA    = "@1";
 	COLOR_NUMERAL   = "@1";
-	COLOR_ERROR_FG  = "@7";
-	COLOR_ERROR_BG  = "@1";
-	COLOR_SEARCH_FG = "@0";
-	COLOR_SEARCH_BG = "@3";
-	COLOR_SELECTBG  = "@7";
-	COLOR_SELECTFG  = "@0";
 	COLOR_RED       = "@1";
 	COLOR_GREEN     = "@2";
 }
 
-void rline_exp_load_colorscheme_sunsmoke(void) {
+static void rline_exp_load_colorscheme_sunsmoke(void) {
 	COLOR_FG        = "2;230;230;230";
 	COLOR_BG        = "@9";
 	COLOR_ALT_FG    = "2;122;122;122";
 	COLOR_ALT_BG    = "2;46;43;46";
-	COLOR_NUMBER_FG = "2;150;139;57";
-	COLOR_NUMBER_BG = "2;0;0;0";
-	COLOR_STATUS_FG = "2;230;230;230";
-	COLOR_STATUS_BG = "2;71;64;58";
-	COLOR_TABBAR_BG = "2;71;64;58";
-	COLOR_TAB_BG    = "2;71;64;58";
 	COLOR_KEYWORD   = "2;51;162;230";
 	COLOR_STRING    = "2;72;176;72";
 	COLOR_COMMENT   = "2;158;153;129;3";
 	COLOR_TYPE      = "2;230;206;110";
 	COLOR_PRAGMA    = "2;194;70;54";
 	COLOR_NUMERAL   = "2;230;43;127";
-
-	COLOR_ERROR_FG  = "5;15";
-	COLOR_ERROR_BG  = "5;196";
-	COLOR_SEARCH_FG = "5;234";
-	COLOR_SEARCH_BG = "5;226";
-
-	COLOR_SELECTFG  = "2;0;43;54";
-	COLOR_SELECTBG  = "2;147;161;161";
-
 	COLOR_RED       = "2;222;53;53";
 	COLOR_GREEN     = "2;55;167;0";
 }
@@ -413,7 +381,93 @@ static const char * flag_to_color(int _flag) {
 	}
 }
 
+/**
+ * Compare a line against a list of keywords
+ */
+static int check_line(line_t * line, int c, char * str, int last) {
+	if (syn_sh_iskeywordchar(last)) return 0;
+	for (int i = c; i < line->actual; ++i, ++str) {
+		if (*str == '\0' && !syn_sh_iskeywordchar(line->text[i].codepoint)) return 1;
+		if (line->text[i].codepoint == *str) continue;
+		return 0;
+	}
+	if (*str == '\0') return 1;
+	return 0;
+}
 
+/**
+ * Syntax highlighting
+ * Slimmed down from the bim implementation a bit,
+ * but generally compatible with the same definitions.
+ *
+ * Type highlighting has been removed as the sh highlighter
+ * didn't use it. This should be made pluggable again, and
+ * the bim syntax highlighters should probably be broken
+ * out into dynamically-loaded libraries?
+ */
+static void recalculate_syntax(line_t * line) {
+
+	/* Start from the line's stored in initial state */
+	int state = line->istate;
+	int left  = 0;
+	int last  = 0;
+
+	for (int i = 0; i < line->actual; last = line->text[i++].codepoint) {
+		if (!left) state = 0;
+
+		if (state) {
+			/* Currently hilighting, have `left` characters remaining with this state */
+			left--;
+			line->text[i].flags = state;
+
+			if (!left) {
+				/* Done hilighting this state, go back to parsing on next character */
+				state = 0;
+			}
+
+			/* If we are hilighting something, don't parse */
+			continue;
+		}
+
+		int c = line->text[i].codepoint;
+		line->text[i].flags = FLAG_NONE;
+
+		/* Language-specific syntax hilighting */
+		int s = syn_sh_extended(line,i,c,last,&left);
+		if (s) {
+			state = s;
+			goto _continue;
+		}
+
+		/* Keywords */
+		for (char ** kw = syn_sh_keywords; *kw; kw++) {
+			int c = check_line(line, i, *kw, last);
+			if (c == 1) {
+				left = strlen(*kw)-1;
+				state = FLAG_KEYWORD;
+				goto _continue;
+			}
+		}
+
+		for (int s = 0; s < shell_commands_len; ++s) {
+			int c = check_line(line, i, shell_commands[s], last);
+			if (c == 1) {
+				left = strlen(shell_commands[s])-1;
+				state = FLAG_KEYWORD;
+				goto _continue;
+			}
+		}
+
+_continue:
+		line->text[i].flags = state;
+	}
+
+	state = 0;
+}
+
+/**
+ * Set colors
+ */
 static void set_colors(const char * fg, const char * bg) {
 	printf("\033[22;23;");
 	if (*bg == '@') {
@@ -459,13 +513,13 @@ static void set_fg_color(const char * fg) {
 	fflush(stdout);
 }
 
-static void draw_prompt(void) {
-	printf("\033[0m\r%s", prompt);
-}
-
+/**
+ * Mostly copied from bim, but with some minor
+ * alterations and removal of selection support.
+ */
 static void render_line(void) {
 	printf("\033[?25l");
-	draw_prompt();
+	printf("\033[0m\r%s", prompt);
 
 	int i = 0; /* Offset in char_t line data entries */
 	int j = 0; /* Offset in terminal cells */
@@ -610,83 +664,19 @@ static void render_line(void) {
 			i++;
 		}
 	}
+
+	/* Fill to end right hand side */
 	for (; j < width + offset - prompt_width; ++j) {
 		printf(" ");
 	}
+
+	/* Print right hand side */
 	printf("\033[0m%s", prompt_right);
 }
 
-static int check_line(line_t * line, int c, char * str, int last) {
-	if (syn_sh_iskeywordchar(last)) return 0;
-	for (int i = c; i < line->actual; ++i, ++str) {
-		if (*str == '\0' && !syn_sh_iskeywordchar(line->text[i].codepoint)) return 1;
-		if (line->text[i].codepoint == *str) continue;
-		return 0;
-	}
-	if (*str == '\0') return 1;
-	return 0;
-}
-
-static void recalculate_syntax(line_t * line) {
-
-	/* Start from the line's stored in initial state */
-	int state = line->istate;
-	int left  = 0;
-	int last  = 0;
-
-	for (int i = 0; i < line->actual; last = line->text[i++].codepoint) {
-		if (!left) state = 0;
-
-		if (state) {
-			/* Currently hilighting, have `left` characters remaining with this state */
-			left--;
-			line->text[i].flags = state;
-
-			if (!left) {
-				/* Done hilighting this state, go back to parsing on next character */
-				state = 0;
-			}
-
-			/* If we are hilighting something, don't parse */
-			continue;
-		}
-
-		int c = line->text[i].codepoint;
-		line->text[i].flags = FLAG_NONE;
-
-		/* Language-specific syntax hilighting */
-		int s = syn_sh_extended(line,i,c,last,&left);
-		if (s) {
-			state = s;
-			goto _continue;
-		}
-
-		/* Keywords */
-		for (char ** kw = syn_sh_keywords; *kw; kw++) {
-			int c = check_line(line, i, *kw, last);
-			if (c == 1) {
-				left = strlen(*kw)-1;
-				state = FLAG_KEYWORD;
-				goto _continue;
-			}
-		}
-
-		for (int s = 0; s < shell_commands_len; ++s) {
-			int c = check_line(line, i, shell_commands[s], last);
-			if (c == 1) {
-				left = strlen(shell_commands[s])-1;
-				state = FLAG_KEYWORD;
-				goto _continue;
-			}
-		}
-
-_continue:
-		line->text[i].flags = state;
-	}
-
-	state = 0;
-}
-
+/**
+ * Create a line_t
+ */
 static line_t * line_create(void) {
 	line_t * line = malloc(sizeof(line_t) + sizeof(char_t) * 32);
 	line->available = 32;
@@ -695,6 +685,9 @@ static line_t * line_create(void) {
 	return line;
 }
 
+/**
+ * Insert a character into a line
+ */
 static line_t * line_insert(line_t * line, char_t c, int offset) {
 
 	/* If there is not enough space... */
@@ -722,12 +715,20 @@ static line_t * line_insert(line_t * line, char_t c, int offset) {
 	return line;
 }
 
+/**
+ * Update terminal size
+ *
+ * We don't listen for sigwinch for various reasons...
+ */
 static void get_size(void) {
 	struct winsize w;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	width = w.ws_col - prompt_right_width;
 }
 
+/**
+ * Place the cursor within the line
+ */
 static void place_cursor_actual(void) {
 	get_size();
 
@@ -757,6 +758,9 @@ static void place_cursor_actual(void) {
 	fflush(stdout);
 }
 
+/**
+ * Delete a character
+ */
 static void line_delete(line_t * line, int offset) {
 
 	/* Can't delete character before start of line. */
@@ -775,6 +779,9 @@ static void line_delete(line_t * line, int offset) {
 	}
 }
 
+/**
+ * Backspace from the cursor position
+ */
 static void delete_at_cursor(void) {
 	if (column > 0) {
 		line_delete(the_line, column);
@@ -785,6 +792,9 @@ static void delete_at_cursor(void) {
 	}
 }
 
+/**
+ * Delete whole word
+ */
 static void delete_word(void) {
 	if (!the_line->actual) return;
 	if (!column) return;
@@ -801,6 +811,9 @@ static void delete_word(void) {
 	place_cursor_actual();
 }
 
+/**
+ * Insert at cursor position
+ */
 static void insert_char(uint32_t c) {
 	char_t _c;
 	_c.codepoint = c;
@@ -816,16 +829,25 @@ static void insert_char(uint32_t c) {
 	}
 }
 
+/**
+ * Move cursor left
+ */
 static void cursor_left(void) {
 	if (column > 0) column--;
 	place_cursor_actual();
 }
 
+/**
+ * Move cursor right
+ */
 static void cursor_right(void) {
 	if (column < the_line->actual) column++;
 	place_cursor_actual();
 }
 
+/**
+ * Move cursor one whole word left
+ */
 static void word_left(void) {
 	if (column == 0) return;
 	column--;
@@ -839,8 +861,10 @@ static void word_left(void) {
 	place_cursor_actual();
 }
 
+/**
+ * Move cursor one whole word right
+ */
 static void word_right(void) {
-	/* TODO */
 	while (column < the_line->actual && the_line->text[column].codepoint == ' ') {
 		column++;
 	}
@@ -851,18 +875,30 @@ static void word_right(void) {
 	place_cursor_actual();
 }
 
+/**
+ * Move cursor to start of line
+ */
 static void cursor_home(void) {
 	column = 0;
 	place_cursor_actual();
 }
 
+/*
+ * Move cursor to end of line
+ */
 static void cursor_end(void) {
 	column = the_line->actual;
 	place_cursor_actual();
 }
 
+/**
+ * Temporary buffer for holding utf-8 data
+ */
 static char temp_buffer[1024];
 
+/**
+ * Cycle to previous history entry
+ */
 static void history_previous(void) {
 	if (rline_scroll == 0) {
 		/* Convert to temporaary buffer */
@@ -897,6 +933,9 @@ static void history_previous(void) {
 	place_cursor_actual();
 }
 
+/**
+ * Cycle to next history entry
+ */
 static void history_next(void) {
 	if (rline_scroll > 1) {
 		rline_scroll--;
@@ -936,7 +975,9 @@ static void history_next(void) {
 	place_cursor_actual();
 }
 
-
+/**
+ * Handle escape sequences (arrow keys, etc.)
+ */
 static int handle_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
@@ -994,24 +1035,13 @@ static int handle_escape(int * this_buf, int * timeout, int c) {
 						cursor_home();
 						break;
 					case '3':
-#if 0
-						if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) {
-							if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
-								line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
-								redraw_line(env->line_no - env->offset - 1, env->line_no-1);
-								set_modified();
-								redraw_statusbar();
-								place_cursor_actual();
-							} else if (env->line_no < env->line_count) {
-								merge_lines(env->lines, env->line_no);
-								redraw_text();
-								set_modified();
-								redraw_statusbar();
-								place_cursor_actual();
-							}
-						}
-#endif
 						/* Delete forward */
+						if (column < the_line->actual) {
+							line_delete(the_line, column+1);
+							if (offset > 0) offset--;
+							render_line();
+							place_cursor_actual();
+						}
 						break;
 					case '4':
 						cursor_end();
@@ -1050,30 +1080,63 @@ static void dummy_redraw(rline_context_t * context) {
 	/* Do nothing */
 }
 
+/**
+ * Juggle our buffer with an rline context so we can
+ * call original rline functions such as a tab-completion callback
+ * or reverse search.
+ */
 static void call_rline_func(rline_callback_t func, rline_context_t * context) {
+	/* Unicode parser state */
 	uint32_t istate = 0;
 	uint32_t c;
+
+	/* Don't let rline draw things */
 	context->quiet = 1;
-	context->buffer = malloc(buf_size_max); /* TODO */
+
+	/* Allocate a temporary buffer */
+	context->buffer = malloc(buf_size_max);
 	memset(context->buffer,0,buf_size_max);
+
+	/* Convert current data to utf-8 */
 	unsigned int off = 0;
 	for (int j = 0; j < the_line->actual; j++) {
 		if (j == column) {
+			/* Track cursor position */
 			context->offset = off;
 		}
 		char_t c = the_line->text[j];
 		off += to_eight(c.codepoint, &context->buffer[off]);
 	}
+
+	/* If the cursor was at the end, the loop above didn't catch it */
 	if (column == the_line->actual) context->offset = off;
+
+	/*
+	 * Did we just press tab before this? This is actually managed
+	 * by the tab-completion function.
+	 */
 	context->tabbed = tabbed;
+
+	/* Empty callbacks */
 	rline_callbacks_t tmp = {0};
+	/*
+	 * Because some clients expect this to be set...
+	 * (we don't need it, we'll redraw ourselves later)
+	 */
 	tmp.redraw_prompt = dummy_redraw;
+
+	/* Setup context */
 	context->callbacks = &tmp;
 	context->collected = off;
 	context->buffer[off] = '\0';
 	context->requested = 1024;
+
+	/* Reset colors (for tab completion candidates, etc. */
 	printf("\033[0m");
+
+	/* Call the function */
 	func(context);
+
 	/* Now convert back */
 	loading = 1;
 	int final_column = 0;
@@ -1088,21 +1151,30 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 			insert_char(c);
 		}
 	}
+
+	/* Position cursor */
 	if (context->offset == context->collected) {
 		column = the_line->actual;
 	} else {
 		column = final_column;
 	}
-
 	tabbed = context->tabbed;
-
 	loading = 0;
+
+	/* Recalculate + redraw */
 	recalculate_syntax(the_line);
 	render_line();
 	place_cursor_actual();
-
 }
 
+/**
+ * Perform actual interactive line editing.
+ *
+ * This is mostly a reimplementation of bim's
+ * INSERT mode, but with some cleanups and fixes
+ * to work on a single line and to add some new
+ * key bindings we don't have in bim.
+ */
 static int read_line(void) {
 	int cin;
 	uint32_t c;
@@ -1124,19 +1196,19 @@ static int read_line(void) {
 							timeout++;
 						}
 						break;
-					case 3:
+					case 3: /* ^C - Cancel editing, and print ^C */
 						the_line->actual = 0;
 						set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 						printf("^C");
 						printf("\033[0m");
 						return 1;
-					case 4:
+					case 4: /* ^D - With a blank line, return nothing */
 						if (column == 0 && the_line->actual == 0) {
 							for (char *_c = "exit"; *_c; ++_c) {
 								insert_char(*_c);
 							}
 							return 1;
-						} else {
+						} else { /* Otherwise act like delete */
 							if (column < the_line->actual) {
 								line_delete(the_line, column+1);
 								if (offset > 0) offset--;
@@ -1150,9 +1222,9 @@ static int read_line(void) {
 						delete_at_cursor();
 						break;
 					case ENTER_KEY:
-						/* Print buffer */
+						/* Finished */
 						return 1;
-					case 23:
+					case 23: /* ^W */
 						delete_word();
 						break;
 					case 12: /* ^L - Repaint the whole screen */
@@ -1192,6 +1264,9 @@ static int read_line(void) {
 	return 0;
 }
 
+/**
+ * Read a line of text with interactive editing.
+ */
 int rline_experimental(char * buffer, int buf_size) {
 	get_initial_termios();
 	set_unbuffered();
@@ -1225,11 +1300,3 @@ int rline_experimental(char * buffer, int buf_size) {
 	return strlen(buffer);
 }
 
-#if 0
-int main(int argc, char * argv[]) {
-	char buf[1024];
-	int r = rline_experimental(buf, 1024);
-	fwrite(buf, 1, r, stdout);
-	return 0;
-}
-#endif
