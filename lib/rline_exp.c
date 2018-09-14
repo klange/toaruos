@@ -224,11 +224,11 @@ static const char * COLOR_GREEN     = "@2";
 static void rline_exp_load_colorscheme_default(void) {
 	COLOR_FG        = "@9";
 	COLOR_BG        = "@9";
-	COLOR_ALT_FG    = "@5";
+	COLOR_ALT_FG    = "@10";
 	COLOR_ALT_BG    = "@9";
-	COLOR_KEYWORD   = "@4";
+	COLOR_KEYWORD   = "@14";
 	COLOR_STRING    = "@2";
-	COLOR_COMMENT   = "@5";
+	COLOR_COMMENT   = "@10";
 	COLOR_TYPE      = "@3";
 	COLOR_PRAGMA    = "@1";
 	COLOR_NUMERAL   = "@1";
