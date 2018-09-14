@@ -490,7 +490,7 @@ int main(int argc, char * argv[]) {
 	memset(net_buf, 0, 2048);
 	int net_buf_p = 0;
 
-	char buf[1024];
+	char buf[1024] = {0};
 	int buf_p = 0;
 
 	while (1) {
