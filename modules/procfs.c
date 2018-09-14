@@ -87,6 +87,30 @@ static uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t siz
 	return size;
 }
 
+static size_t calculate_memory_usage(page_directory_t * src) {
+	size_t pages = 0;
+	for (uint32_t i = 0; i < 1024; ++i) {
+		if (!src->tables[i] || (uintptr_t)src->tables[i] == (uintptr_t)0xFFFFFFFF) {
+			continue;
+		}
+		if (kernel_directory->tables[i] == src->tables[i]) {
+			continue;
+		}
+		/* For each table */
+		if (i * 0x1000 * 1024 < SHM_START) {
+			/* Ignore shared memory for now */
+			for (int j = 0; j < 1024; ++j) {
+				/* For each frame in the table... */
+				if (!src->tables[i]->pages[j].frame) {
+					continue;
+				}
+				pages++;
+			}
+		}
+	}
+	return pages;
+}
+
 static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[2048];
 	process_t * proc = process_from_pid(node->inode);
@@ -109,6 +133,9 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 		name--;
 	}
 
+	/* Calculate process memory usage */
+	int mem_usage = calculate_memory_usage(proc->thread.page_directory) * 4;
+
 	sprintf(buf,
 			"Name:\t%s\n" /* name */
 			"State:\t%c\n" /* yeah, do this at some point */
@@ -124,6 +151,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"SC3:\t0x%x\n"
 			"SC4:\t0x%x\n"
 			"Path:\t%s\n"
+			"VmSize:\t %d kB\n"
 			,
 			name,
 			state,
@@ -138,7 +166,8 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			proc->syscall_registers ? proc->syscall_registers->edx : 0,
 			proc->syscall_registers ? proc->syscall_registers->esi : 0,
 			proc->syscall_registers ? proc->syscall_registers->edi : 0,
-			proc->cmdline ? proc->cmdline[0] : "(none)"
+			proc->cmdline ? proc->cmdline[0] : "(none)",
+			mem_usage
 			);
 
 	size_t _bsize = strlen(buf);
