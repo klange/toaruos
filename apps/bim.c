@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.1"
+#define BIM_VERSION   "1.0.2"
 #define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -3593,7 +3593,7 @@ void command_tab_complete(char * buffer) {
 
 		struct dirent * ent = readdir(dirp);
 		while (ent != NULL) {
-			if (ent->d_name[0] != '.') {
+			if (ent->d_name[0] != '.' || (last_slash ? (last_slash[1] == '.') : (tmp[0] == '.'))) {
 				struct stat statbuf;
 				/* Figure out if this file is a directory */
 				if (last_slash) {
