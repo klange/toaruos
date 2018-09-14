@@ -187,6 +187,17 @@ static int codepoint_width(wchar_t codepoint) {
 	return 1;
 }
 
+void recalculate_tabs(line_t * line) {
+	int j = 0;
+	for (int i = 0; i < line->actual; ++i) {
+		if (line->text[i].codepoint == '\t') {
+			line->text[i].display_width = 4 - (j % 4);
+		}
+		j += line->text[i].display_width;
+	}
+}
+
+
 /**
  * Color themes have also been copied from bim.
  *
@@ -703,6 +714,7 @@ static line_t * line_insert(line_t * line, char_t c, int offset) {
 	line->actual += 1;
 
 	if (!loading) {
+		recalculate_tabs(line);
 		recalculate_syntax(line);
 	}
 
@@ -767,6 +779,7 @@ static void line_delete(line_t * line, int offset) {
 	line->actual -= 1;
 
 	if (!loading) {
+		recalculate_tabs(line);
 		recalculate_syntax(line);
 	}
 }
@@ -921,6 +934,7 @@ static void history_previous(void) {
 	/* Set cursor at end */
 	column = the_line->actual;
 	offset = 0;
+	recalculate_tabs(the_line);
 	recalculate_syntax(the_line);
 	render_line();
 	place_cursor_actual();
@@ -964,6 +978,7 @@ static void history_next(void) {
 	/* Set cursor at end */
 	column = the_line->actual;
 	offset = 0;
+	recalculate_tabs(the_line);
 	recalculate_syntax(the_line);
 	render_line();
 	place_cursor_actual();
@@ -1156,6 +1171,7 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 	loading = 0;
 
 	/* Recalculate + redraw */
+	recalculate_tabs(the_line);
 	recalculate_syntax(the_line);
 	render_line();
 	place_cursor_actual();
@@ -1219,6 +1235,10 @@ static int read_line(void) {
 					case ENTER_KEY:
 						/* Finished */
 						return 1;
+					case 22: /* ^V */
+						/* Don't bother with unicode, just take the next byte */
+						insert_char(getc(stdin));
+						break;
 					case 23: /* ^W */
 						delete_word();
 						break;
