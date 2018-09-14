@@ -436,7 +436,7 @@ void tab_complete_func(rline_context_t * c) {
 
 		struct dirent * ent = readdir(dirp);
 		while (ent != NULL) {
-			if (ent->d_name[0] != '.') {
+			if (ent->d_name[0] != '.' || compare[0] == '.') {
 				if (!word || strstr(ent->d_name, compare) == ent->d_name) {
 					struct stat statbuf;
 					/* stat it */
