@@ -724,8 +724,6 @@ static void get_size(void) {
  * Place the cursor within the line
  */
 static void place_cursor_actual(void) {
-	get_size();
-
 	int x = prompt_width + 1 - offset;
 	for (int i = 0; i < column; ++i) {
 		char_t * c = &the_line->text[i];
@@ -1180,6 +1178,7 @@ static int read_line(void) {
 	place_cursor_actual();
 
 	while ((cin = getc(stdin))) {
+		get_size();
 		if (!decode(&istate, &c, cin)) {
 			if (timeout == 0) {
 				if (c != '\t') tabbed = 0;
