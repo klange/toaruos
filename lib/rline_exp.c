@@ -920,6 +920,7 @@ static void history_previous(void) {
 	}
 	/* Set cursor at end */
 	column = the_line->actual;
+	offset = 0;
 	recalculate_syntax(the_line);
 	render_line();
 	place_cursor_actual();
@@ -962,6 +963,7 @@ static void history_next(void) {
 	}
 	/* Set cursor at end */
 	column = the_line->actual;
+	offset = 0;
 	recalculate_syntax(the_line);
 	render_line();
 	place_cursor_actual();
