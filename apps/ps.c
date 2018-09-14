@@ -29,13 +29,14 @@ static int show_username = 0;
 static int show_mem = 0;
 static int collect_commandline = 0;
 
-static int widths[5] = {3,3,4,3,0};
+static int widths[5] = {3,3,4,3,3};
 
 struct process {
 	int uid;
 	int pid;
 	int tid;
 	int mem;
+	int shm;
 	char * process;
 	char * command_line;
 };
@@ -57,7 +58,7 @@ struct process * process_entry(struct dirent *dent) {
 	FILE * f;
 	char line[LINE_LEN];
 
-	int pid = 0, uid = 0, tgid = 0, mem = 0;
+	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0;
 	char name[100];
 
 	sprintf(tmp, "/proc/%s/status", dent->d_name);
@@ -87,6 +88,8 @@ struct process * process_entry(struct dirent *dent) {
 			strcpy(name, tab);
 		} else if (strstr(line, "VmSize:") == line) {
 			mem = atoi(tab);
+		} else if (strstr(line, "RssShmem:") == line) {
+			shm = atoi(tab);
 		}
 	}
 
@@ -106,6 +109,7 @@ struct process * process_entry(struct dirent *dent) {
 	out->pid = tgid;
 	out->tid = pid;
 	out->mem = mem;
+	out->shm = shm;
 	out->process = strdup(name);
 	out->command_line = NULL;
 
@@ -115,6 +119,7 @@ struct process * process_entry(struct dirent *dent) {
 	if ((len = sprintf(garbage, "%d", out->pid)) > widths[0]) widths[0] = len;
 	if ((len = sprintf(garbage, "%d", out->tid)) > widths[1]) widths[1] = len;
 	if ((len = sprintf(garbage, "%d", out->mem)) > widths[3]) widths[3] = len;
+	if ((len = sprintf(garbage, "%d", out->shm)) > widths[4]) widths[4] = len;
 
 	struct passwd * p = getpwuid(out->uid);
 	if (p) {
@@ -157,6 +162,7 @@ void print_header(void) {
 	}
 	if (show_mem) {
 		printf("%*s ", widths[3], "VSZ");
+		printf("%*s ", widths[4], "SHM");
 	}
 	printf("CMD\n");
 }
@@ -177,6 +183,7 @@ void print_entry(struct process * out) {
 	}
 	if (show_mem) {
 		printf("%*d ", widths[3], out->mem);
+		printf("%*d ", widths[4], out->shm);
 	}
 	if (out->command_line) {
 		printf("%s\n", out->command_line);
