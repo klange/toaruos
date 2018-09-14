@@ -197,12 +197,99 @@ void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 
 }
 
-void unredraw_selection(void) {
-	iterate_selection(cell_redraw);
-}
-
 void redraw_selection(void) {
 	iterate_selection(cell_redraw_inverted);
+}
+
+static void redraw_new_selection(int old_x, int old_y) {
+	if (selection_end_y == selection_start_y && old_y != selection_start_y) {
+		int a, b;
+		a = selection_end_x;
+		b = selection_end_y;
+		selection_end_x = old_x;
+		selection_end_y = old_y;
+		iterate_selection(cell_redraw);
+		selection_end_x = a;
+		selection_end_y = b;
+		iterate_selection(cell_redraw_inverted);
+	} else {
+		int a, b;
+		a = selection_start_x;
+		b = selection_start_y;
+
+		selection_start_x = old_x;
+		selection_start_y = old_y;
+
+		/* Figure out direction */
+		if (old_y < b) {
+			/* Backwards */
+			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
+				/* Selection extended */
+				iterate_selection(cell_redraw_inverted);
+			} else {
+				/* Selection got smaller */
+				iterate_selection(cell_redraw);
+			}
+		} else if (old_y == b) {
+			/* Was a single line */
+			if (selection_end_y == b) {
+				/* And still is */
+				if (old_x < a) {
+					/* Backwards */
+					if (selection_end_x < old_x) {
+						iterate_selection(cell_redraw_inverted);
+					} else {
+						iterate_selection(cell_redraw);
+					}
+				} else {
+					if (selection_end_x < old_x) {
+						iterate_selection(cell_redraw);
+					} else {
+						iterate_selection(cell_redraw_inverted);
+					}
+				}
+			} else if (selection_end_y < b) {
+				/* Moved up */
+				if (old_x <= a) {
+					/* Should be fine with just append */
+					iterate_selection(cell_redraw_inverted);
+				} else {
+					/* Need to erase first */
+					iterate_selection(cell_redraw);
+					selection_start_x = a;
+					selection_start_y = b;
+					iterate_selection(cell_redraw_inverted);
+				}
+			} else if (selection_end_y > b) {
+				if (old_x >= a) {
+					/* Should be fine with just append */
+					iterate_selection(cell_redraw_inverted);
+				} else {
+					/* Need to erase first */
+					iterate_selection(cell_redraw);
+					selection_start_x = a;
+					selection_start_y = b;
+					iterate_selection(cell_redraw_inverted);
+				}
+			}
+		} else {
+			/* Forward */
+			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
+				/* Selection got smaller */
+				iterate_selection(cell_redraw);
+			} else {
+				/* Selection extended */
+				iterate_selection(cell_redraw_inverted);
+			}
+		}
+
+		cell_redraw_inverted(a,b);
+		cell_redraw_inverted(selection_end_x, selection_end_y);
+
+		/* Restore */
+		selection_start_x = a;
+		selection_start_y = b;
+	}
 }
 
 static int _selection_count = 0;
@@ -953,11 +1040,11 @@ static int old_y = 0;
 void handle_mouse_event(mouse_device_packet_t * packet) {
 	if (mouse_is_dragging) {
 		if (packet->buttons & LEFT_CLICK) {
-			/* still dragging */
-			unredraw_selection();
+			int old_end_x = selection_end_x;
+			int old_end_y = selection_end_y;
 			selection_end_x = mouse_x;
 			selection_end_y = mouse_y;
-			redraw_selection();
+			redraw_new_selection(old_end_x, old_end_y);
 		} else {
 			mouse_is_dragging = 0;
 		}

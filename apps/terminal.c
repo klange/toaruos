@@ -299,14 +299,100 @@ static void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 
 }
 
-/* Redraw original cells in selected text */
-static void unredraw_selection(void) {
-	iterate_selection(cell_redraw);
-}
-
 /* Redraw the selection with the selection hint (inversion) */
 static void redraw_selection(void) {
 	iterate_selection(cell_redraw_inverted);
+}
+
+static void redraw_new_selection(int old_x, int old_y) {
+	if (selection_end_y == selection_start_y && old_y != selection_start_y) {
+		int a, b;
+		a = selection_end_x;
+		b = selection_end_y;
+		selection_end_x = old_x;
+		selection_end_y = old_y;
+		iterate_selection(cell_redraw);
+		selection_end_x = a;
+		selection_end_y = b;
+		iterate_selection(cell_redraw_inverted);
+	} else {
+		int a, b;
+		a = selection_start_x;
+		b = selection_start_y;
+
+		selection_start_x = old_x;
+		selection_start_y = old_y;
+
+		/* Figure out direction */
+		if (old_y < b) {
+			/* Backwards */
+			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
+				/* Selection extended */
+				iterate_selection(cell_redraw_inverted);
+			} else {
+				/* Selection got smaller */
+				iterate_selection(cell_redraw);
+			}
+		} else if (old_y == b) {
+			/* Was a single line */
+			if (selection_end_y == b) {
+				/* And still is */
+				if (old_x < a) {
+					/* Backwards */
+					if (selection_end_x < old_x) {
+						iterate_selection(cell_redraw_inverted);
+					} else {
+						iterate_selection(cell_redraw);
+					}
+				} else {
+					if (selection_end_x < old_x) {
+						iterate_selection(cell_redraw);
+					} else {
+						iterate_selection(cell_redraw_inverted);
+					}
+				}
+			} else if (selection_end_y < b) {
+				/* Moved up */
+				if (old_x <= a) {
+					/* Should be fine with just append */
+					iterate_selection(cell_redraw_inverted);
+				} else {
+					/* Need to erase first */
+					iterate_selection(cell_redraw);
+					selection_start_x = a;
+					selection_start_y = b;
+					iterate_selection(cell_redraw_inverted);
+				}
+			} else if (selection_end_y > b) {
+				if (old_x >= a) {
+					/* Should be fine with just append */
+					iterate_selection(cell_redraw_inverted);
+				} else {
+					/* Need to erase first */
+					iterate_selection(cell_redraw);
+					selection_start_x = a;
+					selection_start_y = b;
+					iterate_selection(cell_redraw_inverted);
+				}
+			}
+		} else {
+			/* Forward */
+			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
+				/* Selection got smaller */
+				iterate_selection(cell_redraw);
+			} else {
+				/* Selection extended */
+				iterate_selection(cell_redraw_inverted);
+			}
+		}
+
+		cell_redraw_inverted(a,b);
+		cell_redraw_inverted(selection_end_x, selection_end_y);
+
+		/* Restore */
+		selection_start_x = a;
+		selection_start_y = b;
+	}
 }
 
 /* Figure out how long the UTF-8 selection string should be. */
@@ -1913,10 +1999,11 @@ static void * handle_incoming(void) {
 							display_flip();
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_DRAG && me->buttons & YUTANI_MOUSE_BUTTON_LEFT ){
-							unredraw_selection();
+							int old_end_x = selection_end_x;
+							int old_end_y = selection_end_y;
 							selection_end_x = new_x;
 							selection_end_y = new_y;
-							redraw_selection();
+							redraw_new_selection(old_end_x, old_end_y);
 							display_flip();
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_RAISE) {
