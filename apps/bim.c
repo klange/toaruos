@@ -3286,10 +3286,16 @@ void process_command(char * cmd) {
 			render_error("Expected a file to open...");
 		}
 	} else if (!strcmp(argv[0], "tabnew")) {
-		env = buffer_new();
-		setup_buffer(env);
-		redraw_all();
-		update_title();
+		if (argc > 1) {
+			open_file(argv[1]);
+			update_title();
+			goto_line(0);
+		} else {
+			env = buffer_new();
+			setup_buffer(env);
+			redraw_all();
+			update_title();
+		}
 	} else if (!strcmp(argv[0], "w")) {
 		/* w: write file */
 		if (argc > 1) {
@@ -3558,7 +3564,7 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && !strcmp(args[0], "e")) {
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew"))) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
