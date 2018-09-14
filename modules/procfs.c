@@ -159,6 +159,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 	/* Calculate process memory usage */
 	int mem_usage = calculate_memory_usage(proc->thread.page_directory) * 4;
 	int shm_usage = calculate_shm_resident(proc->thread.page_directory) * 4;
+	int mem_permille = 1000 * (mem_usage + shm_usage) / memory_total();
 
 	sprintf(buf,
 			"Name:\t%s\n" /* name */
@@ -177,6 +178,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"Path:\t%s\n"
 			"VmSize:\t %d kB\n"
 			"RssShmem:\t %d kB\n"
+			"MemPermille:\t %d\n"
 			,
 			name,
 			state,
@@ -192,7 +194,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			proc->syscall_registers ? proc->syscall_registers->esi : 0,
 			proc->syscall_registers ? proc->syscall_registers->edi : 0,
 			proc->cmdline ? proc->cmdline[0] : "(none)",
-			mem_usage, shm_usage
+			mem_usage, shm_usage, mem_permille
 			);
 
 	size_t _bsize = strlen(buf);
