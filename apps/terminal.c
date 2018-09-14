@@ -1923,11 +1923,10 @@ static void * handle_incoming(void) {
 					if (me->new_x < 0 || me->new_y < 0) break;
 					if (!_no_frame) {
 						if (me->new_x >= (int)window_width + (int)decor_width) break;
-						if (me->new_y >= (int)window_height + (int)decor_height) break;
 						if (me->new_y < (int)decor_top_height+menu_bar_height) break;
 						if (me->new_y >= (int)(window_height + decor_top_height+menu_bar_height)) break;
 						if (me->new_x < (int)decor_left_width) break;
-						if (me->new_y >= (int)(window_width + decor_left_width)) break;
+						if (me->new_x >= (int)(window_width + decor_left_width)) break;
 					} else {
 						if (me->new_x >= (int)window_width) break;
 						if (me->new_y >= (int)window_height) break;
