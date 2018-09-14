@@ -182,6 +182,11 @@ void show_usage(int argc, char * argv[]) {
 			" -A     \033[3mshow other users' processes\033[0m\n"
 			" -T     \033[3mshow threads\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
+			"\n"
+			" [format] supports some BSD options:\n"
+			"\n"
+			"  a     \033[3mshow full command line\033[0m\n"
+			"  u     \033[3muse 'user-oriented' format\033[0m\n"
 			"\n", argv[0]);
 }
 
