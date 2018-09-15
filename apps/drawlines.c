@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <sched.h>
+#include <math.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -30,17 +31,34 @@ static yutani_t * yctx;
 static yutani_window_t * wina;
 static gfx_context_t * ctx;
 static int should_exit = 0;
+static int thick = 0;
 
 void * draw_thread(void * garbage) {
 	(void)garbage;
 	while (!should_exit) {
-		draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
+		if (thick) {
+			draw_line_aa(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255), (float)thick);
+		} else {
+			draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
+		}
 		yutani_flip(yctx, wina);
 		usleep(16666);
 	}
 	pthread_exit(0);
 	return NULL;
 }
+
+static void show_usage(char * argv[]) {
+	printf(
+			"drawlines - graphical demo, draws lines randomly\n"
+			"\n"
+			"usage: %s [-t thickness]\n"
+			"\n"
+			" -t     \033[3mdraw with anti-aliasing and the specified thickness\033[0m\n"
+			" -?     \033[3mshow this help text\033[0m\n"
+			"\n", argv[0]);
+}
+
 
 int main (int argc, char ** argv) {
 	left   = 100;
@@ -49,6 +67,18 @@ int main (int argc, char ** argv) {
 	height = 500;
 
 	srand(time(NULL));
+
+	int c;
+	while ((c = getopt(argc, argv, "t:?")) != -1) {
+		switch (c) {
+			case 't':
+				thick = atoi(optarg);
+				break;
+			case '?':
+				show_usage(argv);
+				return 0;
+		}
+	}
 
 	yctx = yutani_init();
 	if (!yctx) {

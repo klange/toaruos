@@ -93,3 +93,16 @@ extern uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v
 extern uint32_t interp_colors(uint32_t bottom, uint32_t top, uint8_t interp);
 extern void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, int radius, uint32_t color);
 extern void draw_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, uint32_t color);
+
+struct gfx_point {
+	float x;
+	float y;
+};
+
+extern float gfx_point_distance(struct gfx_point * a, struct gfx_point * b);
+extern float gfx_point_distance_squared(struct gfx_point * a, struct gfx_point * b);
+extern float gfx_point_dot(struct gfx_point * a, struct gfx_point * b);
+extern struct gfx_point gfx_point_sub(struct gfx_point * a, struct gfx_point * b);
+extern struct gfx_point gfx_point_add(struct gfx_point * a, struct gfx_point * b);
+extern float gfx_line_distance(struct gfx_point * p, struct gfx_point * v, struct gfx_point * w);
+extern void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness);

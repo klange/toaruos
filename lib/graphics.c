@@ -797,9 +797,73 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), c);
 			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), c);
 		}
-
-
-
 	}
+}
 
+float gfx_point_distance(struct gfx_point * a, struct gfx_point * b) {
+	return sqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y));
+}
+
+float gfx_point_distance_squared(struct gfx_point * a, struct gfx_point * b) {
+	return (a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y);
+}
+
+float gfx_point_dot(struct gfx_point * a, struct gfx_point * b) {
+	return (a->x * b->x) + (a->y * b->y);
+}
+
+struct gfx_point gfx_point_sub(struct gfx_point * a, struct gfx_point * b) {
+	struct gfx_point p = {a->x - b->x, a->y - b->y};
+	return p;
+}
+
+struct gfx_point gfx_point_add(struct gfx_point * a, struct gfx_point * b) {
+	struct gfx_point p = {a->x + b->x, a->y + b->y};
+	return p;
+}
+
+#define fmax(a,b) ((a) > (b) ? (a) : (b))
+#define fmin(a,b) ((a) < (b) ? (a) : (b))
+
+float gfx_line_distance(struct gfx_point * p, struct gfx_point * v, struct gfx_point * w) {
+	float lengthlength = gfx_point_distance_squared(v,w);
+
+	if (lengthlength == 0.0) return gfx_point_distance(p, v); /* point */
+
+	struct gfx_point p_v = gfx_point_sub(p,v);
+	struct gfx_point w_v = gfx_point_sub(w,v);
+	float tmp = gfx_point_dot(&p_v,&w_v) / lengthlength;
+	tmp = fmin(1.0,tmp);
+	float t = fmax(0.0, tmp);
+
+	w_v.x *= t;
+	w_v.y *= t;
+
+	struct gfx_point v_t = gfx_point_add(v, &w_v);
+	return gfx_point_distance(p, &v_t);
+}
+
+/**
+ * This is slow, but it works...
+ *
+ * Maybe acceptable for baked UI elements?
+ */
+void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness) {
+	struct gfx_point v = {(float)x_1, (float)y_1};
+	struct gfx_point w = {(float)x_2, (float)y_2};
+
+	for (int y = 0; y < ctx->height; ++y) {
+		for (int x = 0; x < ctx->width; ++x) {
+			struct gfx_point p = {x,y};
+			float d = gfx_line_distance(&p,&v,&w);
+			if (d < thickness + 0.5) {
+				if (d < thickness - 0.5) {
+					GFX(ctx,x,y) = color;
+				} else {
+					uint32_t f_color = rgb(255 * (1.0 - (d - thickness + 0.5)), 0, 0);
+					GFX(ctx,x,y) = alpha_blend(GFX(ctx,x,y), color, f_color);
+				}
+			}
+		}
+	}
 }
