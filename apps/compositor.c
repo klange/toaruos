@@ -1962,6 +1962,17 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 						}
 						break;
 					}
+					if (yg->mouse_x / MOUSE_SCALE < 10) {
+						if (!yg->mouse_window->tiled) {
+							window_tile(yg, yg->mouse_window, 2, 1, 0, 0);
+						}
+						break;
+					} else if (yg->mouse_x / MOUSE_SCALE >= ((int)yg->width - 10)) {
+						if (!yg->mouse_window->tiled) {
+							window_tile(yg, yg->mouse_window, 2, 1, 1, 0);
+						}
+						break;
+					}
 					if (yg->mouse_window->tiled) {
 						if ((abs(yg->mouse_x - yg->mouse_init_x) > UNTILE_SENSITIVITY) || (abs(yg->mouse_y - yg->mouse_init_y) > UNTILE_SENSITIVITY)) {
 							/* Untile it */
