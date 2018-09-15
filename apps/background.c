@@ -45,6 +45,8 @@ static void draw_background(int width, int height) {
 }
 
 static void show_right_click_menu(int x, int y) {
+	if (_rc_menu->window) return; /* Already shown */
+
 	menu_show(_rc_menu, yctx);
 	if (x + _rc_menu->window->width > yctx->display_width) {
 		yutani_window_move(yctx, _rc_menu->window, x - _rc_menu->window->width, y);
