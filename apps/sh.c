@@ -578,6 +578,8 @@ int read_entry(char * buffer) {
 		char * ps1r = getenv("PS1_RIGHT");
 		print_extended_ps(ps1r ? ps1r : "", rprompt, &rwidth);
 
+		rline_exit_string="exit";
+		rline_exp_set_syntax("esh");
 		rline_exp_set_prompts(lprompt, rprompt, lwidth, rwidth);
 		rline_exp_set_shell_commands(shell_commands, shell_commands_len);
 		rline_exp_set_tab_complete_func(tab_complete_func);
@@ -593,8 +595,11 @@ int read_entry(char * buffer) {
 
 int read_entry_continued(char * buffer) {
 	if (experimental_rline) {
+		rline_exit_string="exit";
+		rline_exp_set_syntax("esh");
 		rline_exp_set_prompts("> ", "", 2, 0);
 		rline_exp_set_shell_commands(shell_commands, shell_commands_len);
+		rline_exp_set_tab_complete_func(tab_complete_func);
 		return rline_experimental(buffer, LINE_LEN);
 	} else {
 		rline_callbacks_t callbacks = {

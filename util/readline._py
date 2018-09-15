@@ -3,10 +3,10 @@ import ctypes
 auto_history = True
 
 py = ctypes.CDLL("libpython3.6m.so")
-rline_lib = ctypes.CDLL("libtoaru_rline.so")
+rline_lib = ctypes.CDLL("libtoaru_rline_exp.so")
 
 readline_func = ctypes.c_void_p.in_dll(py,"PyOS_ReadlineFunctionPointer")
-t = ctypes.c_char_p.in_dll(rline_lib,"rline_for_python")
+t = ctypes.c_char_p.in_dll(rline_lib,"rline_exp_for_python")
 readline_func.value = ctypes.addressof(t)
 
 # Change exit string to "exit()"

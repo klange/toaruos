@@ -356,6 +356,169 @@ static int syn_sh_iskeywordchar(int c) {
 	return 0;
 }
 
+static char * syn_py_keywords[] = {
+	"class","def","return","del","if","else","elif",
+	"for","while","continue","break","assert",
+	"as","and","or","except","finally","from",
+	"global","import","in","is","lambda","with",
+	"nonlocal","not","pass","raise","try","yield",
+	NULL
+};
+
+static char * syn_py_types[] = {
+	"True","False","None",
+	"object","set","dict","int","str","bytes",
+	NULL
+};
+
+int syn_c_iskeywordchar(int c) {
+	if (isalnum(c)) return 1;
+	if (c == '_') return 1;
+	return 0;
+}
+
+static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left) {
+
+	if (i == 0 && c == 'i') {
+		/* Check for import */
+		char * import = "import ";
+		for (int j = 0; j < line->actual + 1; ++j) {
+			if (import[j] == '\0') {
+				*out_left = j - 2;
+				return FLAG_PRAGMA;
+			}
+			if (line->text[j].codepoint != import[j]) break;
+		}
+	}
+
+	if (c == '#') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	if (c == '@') {
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			if (!syn_c_iskeywordchar(line->text[j].codepoint)) {
+				*out_left = j - i - 1;
+				return FLAG_PRAGMA;
+			}
+			*out_left = (line->actual + 1) - i;
+			return FLAG_PRAGMA;
+		}
+	}
+
+	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
+		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
+			int j = 2;
+			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		} else {
+			int j = 1;
+			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
+				j++;
+			}
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		}
+	}
+
+	if (line->text[i].codepoint == '\'') {
+		if (i + 2 < line->actual && line->text[i+1].codepoint == '\'' && line->text[i+2].codepoint == '\'') {
+			/* Begin multiline */
+			for (int j = i + 3; j < line->actual - 2; ++j) {
+				if (line->text[j].codepoint == '\'' &&
+					line->text[j+1].codepoint == '\'' &&
+					line->text[j+2].codepoint == '\'') {
+					*out_left = (j+2) - i;
+					return FLAG_STRING;
+				}
+			}
+			return FLAG_STRING | FLAG_CONTINUES;
+		}
+
+		int last = 0;
+		for (int j = i+1; j < line->actual; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '\'') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	if (line->text[i].codepoint == '"') {
+		if (i + 2 < line->actual && line->text[i+1].codepoint == '"' && line->text[i+2].codepoint == '"') {
+			/* Begin multiline */
+			for (int j = i + 3; j < line->actual - 2; ++j) {
+				if (line->text[j].codepoint == '"' &&
+					line->text[j+1].codepoint == '"' &&
+					line->text[j+2].codepoint == '"') {
+					*out_left = (j+2) - i;
+					return FLAG_STRING;
+				}
+			}
+			return FLAG_STRING2 | FLAG_CONTINUES;
+		}
+
+		int last = 0;
+		for (int j = i+1; j < line->actual; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+static int syn_py_finish(line_t * line, int * left, int state) {
+	/* TODO support multiline quotes */
+	if (state == (FLAG_STRING | FLAG_CONTINUES)) {
+		for (int j = 0; j < line->actual - 2; ++j) {
+			if (line->text[j].codepoint == '\'' &&
+				line->text[j+1].codepoint == '\'' &&
+				line->text[j+2].codepoint == '\'') {
+				*left = (j+3);
+				return FLAG_STRING;
+			}
+		}
+		return FLAG_STRING | FLAG_CONTINUES;
+	}
+	if (state == (FLAG_STRING2 | FLAG_CONTINUES)) {
+		for (int j = 0; j < line->actual - 2; ++j) {
+			if (line->text[j].codepoint == '"' &&
+				line->text[j+1].codepoint == '"' &&
+				line->text[j+2].codepoint == '"') {
+				*left = (j+3);
+				return FLAG_STRING2;
+			}
+		}
+		return FLAG_STRING2 | FLAG_CONTINUES;
+	}
+	return 0;
+}
+
 /**
  * Convert syntax hilighting flag to color code
  */
@@ -386,13 +549,38 @@ static const char * flag_to_color(int _flag) {
 	}
 }
 
+static struct syntax_definition {
+	char * name;
+	char ** keywords;
+	char ** types;
+	int (*extended)(line_t *, int, int, int, int *);
+	int (*iskwchar)(int);
+	int (*finishml)(line_t *, int *, int); /* TODO: How do we use this here? */
+} syntaxes[] = {
+	{"python",syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
+	{"esh",syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,NULL},
+	{NULL}
+};
+
+static struct syntax_definition * syntax;
+
+int rline_exp_set_syntax(char * name) {
+	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+		if (!strcmp(name,s->name)) {
+			syntax = s;
+			return 0;
+		}
+	}
+	return 1;
+}
+
 /**
  * Compare a line against a list of keywords
  */
 static int check_line(line_t * line, int c, char * str, int last) {
-	if (syn_sh_iskeywordchar(last)) return 0;
+	if (syntax->iskwchar(last)) return 0;
 	for (int i = c; i < line->actual; ++i, ++str) {
-		if (*str == '\0' && !syn_sh_iskeywordchar(line->text[i].codepoint)) return 1;
+		if (*str == '\0' && !syntax->iskwchar(line->text[i].codepoint)) return 1;
 		if (line->text[i].codepoint == *str) continue;
 		return 0;
 	}
@@ -411,6 +599,8 @@ static int check_line(line_t * line, int c, char * str, int last) {
  * out into dynamically-loaded libraries?
  */
 static void recalculate_syntax(line_t * line) {
+
+	if (!syntax) return;
 
 	/* Start from the line's stored in initial state */
 	int state = line->istate;
@@ -438,19 +628,21 @@ static void recalculate_syntax(line_t * line) {
 		line->text[i].flags = FLAG_NONE;
 
 		/* Language-specific syntax hilighting */
-		int s = syn_sh_extended(line,i,c,last,&left);
+		int s = syntax->extended(line,i,c,last,&left);
 		if (s) {
 			state = s;
 			goto _continue;
 		}
 
 		/* Keywords */
-		for (char ** kw = syn_sh_keywords; *kw; kw++) {
-			int c = check_line(line, i, *kw, last);
-			if (c == 1) {
-				left = strlen(*kw)-1;
-				state = FLAG_KEYWORD;
-				goto _continue;
+		if (syntax->keywords) {
+			for (char ** kw = syntax->keywords; *kw; kw++) {
+				int c = check_line(line, i, *kw, last);
+				if (c == 1) {
+					left = strlen(*kw)-1;
+					state = FLAG_KEYWORD;
+					goto _continue;
+				}
 			}
 		}
 
@@ -460,6 +652,17 @@ static void recalculate_syntax(line_t * line) {
 				left = strlen(shell_commands[s])-1;
 				state = FLAG_KEYWORD;
 				goto _continue;
+			}
+		}
+
+		if (syntax->types) {
+			for (char ** kw = syntax->types; *kw; kw++) {
+				int c = check_line(line, i, *kw, last);
+				if (c == 1) {
+					left = strlen(*kw)-1;
+					state = FLAG_TYPE;
+					goto _continue;
+				}
 			}
 		}
 
@@ -1215,7 +1418,7 @@ static int read_line(void) {
 						return 1;
 					case 4: /* ^D - With a blank line, return nothing */
 						if (column == 0 && the_line->actual == 0) {
-							for (char *_c = "exit"; *_c; ++_c) {
+							for (char *_c = rline_exit_string; *_c; ++_c) {
 								insert_char(*_c);
 							}
 							return 1;
@@ -1234,6 +1437,9 @@ static int read_line(void) {
 						break;
 					case ENTER_KEY:
 						/* Finished */
+						loading = 1;
+						column = the_line->actual;
+						insert_char('\n');
 						return 1;
 					case 22: /* ^V */
 						/* Don't bother with unicode, just take the next byte */
@@ -1248,10 +1454,13 @@ static int read_line(void) {
 						place_cursor_actual();
 						break;
 					case '\t':
-						/* Tab complet e*/
 						if (tab_complete_func) {
+							/* Tab complete */
 							rline_context_t context = {0};
 							call_rline_func(tab_complete_func, &context);
+						} else {
+							/* Insert tab character */
+							insert_char('\t');
 						}
 						break;
 					case 18:
@@ -1299,6 +1508,7 @@ int rline_experimental(char * buffer, int buf_size) {
 	}
 
 	the_line = line_create();
+	loading = 0;
 	read_line();
 	printf("\033[0m\n");
 
@@ -1315,3 +1525,18 @@ int rline_experimental(char * buffer, int buf_size) {
 	return strlen(buffer);
 }
 
+void * rline_exp_for_python(void * _stdin, void * _stdout, char * prompt) {
+
+	rline_exp_set_prompts(prompt, "", strlen(prompt), 0);
+
+	char * buf = malloc(1024);
+	memset(buf, 0, 1024);
+
+	rline_exp_set_syntax("python");
+	rline_exit_string = "";
+	rline_experimental(buf, 1024);
+	rline_history_insert(strdup(buf));
+	rline_scroll = 0;
+
+	return buf;
+}
