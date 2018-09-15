@@ -1032,7 +1032,7 @@ static int last_mouse_buttons = 0;
 static int mouse_is_dragging = 0;
 
 #define MOUSE_X_R 820
-#define MOUSE_Y_R 2730
+#define MOUSE_Y_R 2621
 
 static int old_x = 0;
 static int old_y = 0;
