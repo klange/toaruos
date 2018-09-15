@@ -125,6 +125,6 @@ void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
 		__argv = argv;
 	}
 	_init();
-	_exit(main(argc, argv));
+	exit(main(argc, argv));
 }
 

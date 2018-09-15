@@ -29,6 +29,10 @@ extern long int strtol(const char * s, char **endptr, int base);
 extern void srand(unsigned int);
 extern int rand(void);
 
+#define ATEXIT_MAX 32
+extern int atexit(void (*h)(void));
+extern void _handle_atexit(void);
+
 #define RAND_MAX 0x7FFFFFFF
 
 extern void abort(void);
