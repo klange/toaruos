@@ -24,11 +24,13 @@ void show_usage(int argc, char * argv[]) {
 			" -s     \033[3mset the clipboard text to argument\033[0m\n"
 			" -f     \033[3mset the clibboard text to file\033[0m\n"
 			" -g     \033[3mprint clipboard contents to stdout\033[0m\n"
+			" -n     \033[3mensure a linefeed is printed\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0], argv[0], argv[0]);
 }
 
 yutani_t * yctx;
+int force_linefeed = 0;
 
 int set_clipboard_from_file(char * file) {
 	FILE * f;
@@ -63,11 +65,17 @@ void get_clipboard(void) {
 		selection_text[size] = '\0';
 		fclose(clipboard);
 		fwrite(selection_text, 1, size, stdout);
+		if (force_linefeed && size && selection_text[size-1] != '\n') {
+			printf("\n");
+		}
 	} else {
 		char * selection_text = malloc(cb->size+1);
 		memcpy(selection_text, cb->content, cb->size);
 		selection_text[cb->size] = '\0';
 		fwrite(selection_text, 1, cb->size, stdout);
+		if (force_linefeed && cb->size && selection_text[cb->size-1] != '\n') {
+			printf("\n");
+		}
 	}
 
 }
@@ -79,13 +87,16 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	int opt;
-	while ((opt = getopt(argc, argv, "?s:f:g")) != -1) {
+	while ((opt = getopt(argc, argv, "?s:f:gn")) != -1) {
 		switch (opt) {
 			case 's':
 				yutani_set_clipboard(yctx, optarg);
 				return 0;
 			case 'f':
 				return set_clipboard_from_file(optarg);
+			case 'n':
+				force_linefeed = 1;
+				break;
 			case 'g':
 				get_clipboard();
 				return 0;
