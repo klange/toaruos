@@ -2825,9 +2825,14 @@ void open_file(char * file) {
 
 	state = 0;
 
-	while (!feof(f)) {
+	while (!feof(f) && !ferror(f)) {
 		size_t r = fread(buf, 1, BLOCK_SIZE, f);
 		add_buffer(buf, r);
+	}
+
+	if (ferror(f)) {
+		env->loading = 0;
+		return;
 	}
 
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
