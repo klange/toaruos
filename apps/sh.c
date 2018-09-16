@@ -589,6 +589,7 @@ int read_entry(char * buffer) {
 			tab_complete_func, redraw_prompt_func, NULL,
 			NULL, NULL, NULL, NULL, NULL
 		};
+		draw_prompt();
 		return rline((char *)buffer, LINE_LEN, &callbacks);
 	}
 }
@@ -606,6 +607,7 @@ int read_entry_continued(char * buffer) {
 			tab_complete_func, redraw_prompt_func_c, NULL,
 			NULL, NULL, NULL, NULL, NULL
 		};
+		draw_prompt_c();
 		return rline((char *)buffer, LINE_LEN, &callbacks);
 	}
 }
@@ -871,7 +873,6 @@ _done:
 		if (quoted || backtick) {
 			backtick = 0;
 			if (shell_interactive == 1) {
-				draw_prompt_c();
 				read_entry_continued(buffer);
 				rline_history_append_line(buffer);
 				continue;
@@ -1276,7 +1277,6 @@ int main(int argc, char ** argv) {
 	source_eshrc();
 
 	while (1) {
-		draw_prompt();
 		char buffer[LINE_LEN] = {0};
 
 		read_entry(buffer);
