@@ -13,8 +13,8 @@
  * There is support for tab completion of filenames and commands.
  */
 
-#define _XOPEN_SOURCE
-
+#define _XOPEN_SOURCE 500
+#define _POSIX_C_SOURCE 200112L
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -39,6 +39,14 @@
 #include <toaru/rline.h>
 #include <toaru/rline_exp.h>
 
+#ifndef environ
+extern char **environ;
+#endif
+
+#ifndef toaru
+#define tcsetpgrp(a,b)
+#endif
+
 #define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
 #define STAR_TOKEN "\xFF\xFFSTAR\xFF\xFF"
 #define WRITE_TOKEN "\xFF\xFFWRITE\xFF\xFF"
@@ -48,10 +56,10 @@
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
 
 /* We have a static array that fits a certain number of them. */
-#define SHELL_COMMANDS 512
-char * shell_commands[SHELL_COMMANDS];          /* Command names */
-shell_command_t shell_pointers[SHELL_COMMANDS]; /* Command functions */
-char * shell_descript[SHELL_COMMANDS];          /* Command descriptions */
+int SHELL_COMMANDS = 64;
+char ** shell_commands;          /* Command names */
+shell_command_t * shell_pointers; /* Command functions */
+char ** shell_descript;          /* Command descriptions */
 
 /* This is the number of actual commands installed */
 int shell_commands_len = 0;
@@ -67,7 +75,10 @@ int pid; /* Process ID of the shell */
 
 void shell_install_command(char * name, shell_command_t func, char * desc) {
 	if (shell_commands_len == SHELL_COMMANDS) {
-		fprintf(stderr, "Ran out of space for static shell commands. The maximum number of commands is %d\n", SHELL_COMMANDS);
+		SHELL_COMMANDS *= 2;
+		shell_commands = realloc(shell_commands, sizeof(char *) * SHELL_COMMANDS);
+		shell_pointers = realloc(shell_pointers, sizeof(shell_command_t) * SHELL_COMMANDS);
+		shell_descript = realloc(shell_descript, sizeof(char *) * SHELL_COMMANDS);
 		return;
 	}
 	shell_commands[shell_commands_len] = name;
@@ -1105,6 +1116,7 @@ _nope:
 	}
 	tcsetpgrp(STDIN_FILENO, getpid());
 	free(cmd);
+
 	return ret_code;
 }
 
@@ -1311,7 +1323,6 @@ int main(int argc, char ** argv) {
 		} while (b);
 		if (ret >= 0) last_ret = ret;
 		rline_scroll = 0;
-
 	}
 
 	return 0;
@@ -1639,6 +1650,10 @@ uint32_t shell_cmd_not(int argc, char * argv[]) {
 }
 
 void install_commands() {
+	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
+	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
+	shell_descript = malloc(sizeof(char *) * SHELL_COMMANDS);
+
 	shell_install_command("cd",      shell_cmd_cd, "change directory");
 	shell_install_command("exit",    shell_cmd_exit, "exit the shell");
 	shell_install_command("export",  shell_cmd_export, "set environment variables: export VAR=value");
