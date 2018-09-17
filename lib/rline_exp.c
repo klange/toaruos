@@ -1396,8 +1396,8 @@ static int read_line(void) {
 	uint32_t istate = 0;
 
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-	fprintf(stdout, "^M\033[0m");
-	for (int i = 0; i < width + prompt_right_width - 2; ++i) {
+	fprintf(stdout, "◄\033[0m"); /* TODO: This could be retrieved from an envvar */
+	for (int i = 0; i < width + prompt_right_width - 1; ++i) {
 		fprintf(stdout, " ");
 	}
 	render_line();
