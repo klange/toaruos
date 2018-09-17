@@ -26,8 +26,6 @@
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
 
-#define GFX_(xpt, ypt) (GFX(ctx,xpt+decor_left_width,ypt+decor_top_height))
-
 /* Pointer to graphics memory */
 static yutani_t * yctx;
 static yutani_window_t * window = NULL;
@@ -64,9 +62,18 @@ static void decors() {
 }
 
 void redraw() {
-	draw_fill(ctx, 0);
-	draw_sprite(ctx, &img, decor_left_width, decor_top_height);
+	static double r = 0.0;
+
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			GFX(ctx,x+decor_left_width,y+decor_top_height) = (((y / 10) % 2 == 0) ^ ((x / 10) % 2 == 0)) ? rgb(107,107,107) : rgb(147,147,147);
+		}
+	}
+
+	draw_sprite(ctx, &img, decor_left_width + width/2 - img.width/2, decor_top_height + height/2 - img.height/2);
 	decors();
+	flip(ctx);
+	r += 0.02;
 }
 
 void resize_finish(int w, int h) {
@@ -152,7 +159,7 @@ int main(int argc, char * argv[]) {
 
 	yutani_window_advertise_icon(yctx, window, APPLICATION_TITLE, "imgviewer");
 
-	ctx = init_graphics_yutani(window);
+	ctx = init_graphics_yutani_double_buffer(window);
 
 	redraw();
 	yutani_flip(yctx, window);
