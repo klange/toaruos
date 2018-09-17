@@ -1056,7 +1056,13 @@ _nope:
 
 		if (!fork()) {
 			if (output_files[cmdi]) {
-				dup2(open(output_files[cmdi], file_args[cmdi], 0666), STDOUT_FILENO);
+				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
+				if (fd < 0) {
+					fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
+					return -1;
+				} else {
+					dup2(fd, STDOUT_FILENO);
+				}
 			}
 			dup2(last_output[0], STDIN_FILENO);
 			close(last_output[1]);
@@ -1074,7 +1080,13 @@ _nope:
 			child_pid = fork();
 			if (!child_pid) {
 				if (output_files[cmdi]) {
-					dup2(open(output_files[cmdi], file_args[cmdi], 0666), STDOUT_FILENO);
+					int fd = open(output_files[cmdi], file_args[cmdi], 0666);
+					if (fd < 0) {
+						fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
+						return -1;
+					} else {
+						dup2(fd, STDOUT_FILENO);
+					}
 				}
 				run_cmd(arg_starts[0]);
 			}
