@@ -289,12 +289,12 @@ static int variable_char(uint8_t c) {
 static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
 	(void)last;
 
-	if (c == '#') {
+	if (c == '#' && last != '\\') {
 		*out_left = (line->actual + 1) - i;
 		return FLAG_COMMENT;
 	}
 
-	if (line->text[i].codepoint == '\'') {
+	if (line->text[i].codepoint == '\'' && last != '\\') {
 		int last = 0;
 		for (int j = i+1; j < line->actual + 1; ++j) {
 			int c = line->text[j].codepoint;
@@ -328,7 +328,7 @@ static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left
 		return FLAG_NUMERAL;
 	}
 
-	if (line->text[i].codepoint == '"') {
+	if (line->text[i].codepoint == '"' && last != '\\') {
 		int last = 0;
 		for (int j = i+1; j < line->actual + 1; ++j) {
 			int c = line->text[j].codepoint;
