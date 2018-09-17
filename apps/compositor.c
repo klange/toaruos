@@ -446,20 +446,18 @@ static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t
 	*out_y = y - window->y;
 
 	if (!window->rotation) return;
-#if 0
 
 	double t_x = *out_x - (window->width / 2);
 	double t_y = *out_y - (window->height / 2);
 
-	double s = __builtin_sin(-M_PI * (window->rotation/ 180.0));
-	double c = __builtin_cos(-M_PI * (window->rotation/ 180.0));
+	double s = sin(-M_PI * (window->rotation/ 180.0));
+	double c = cos(-M_PI * (window->rotation/ 180.0));
 
 	double n_x = t_x * c - t_y * s;
 	double n_y = t_x * s + t_y * c;
 
 	*out_x = (int32_t)n_x + (window->width / 2);
 	*out_y = (int32_t)n_y + (window->height / 2);
-#endif
 }
 
 /**
@@ -467,27 +465,23 @@ static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t
  */
 static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
 
-#if 0
 	if (!window->rotation) {
-#endif
 		*out_x = window->x + x;
 		*out_y = window->y + y;
-#if 0
 		return;
 	}
 
 	double t_x = x - (window->width / 2);
 	double t_y = y - (window->height / 2);
 
-	double s = __builtin_sin(M_PI * (window->rotation/ 180.0));
-	double c = __builtin_cos(M_PI * (window->rotation/ 180.0));
+	double s = sin(M_PI * (window->rotation/ 180.0));
+	double c = cos(M_PI * (window->rotation/ 180.0));
 
 	double n_x = t_x * c - t_y * s;
 	double n_y = t_x * s + t_y * c;
 
 	*out_x = (int32_t)n_x + (window->width / 2) + window->x;
 	*out_y = (int32_t)n_y + (window->height / 2) + window->y;
-#endif
 }
 
 /**
@@ -993,13 +987,21 @@ draw_window:
 			if (window == yg->resizing_window) {
 				draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h, opacity);
 			} else {
-				draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+				if (window->rotation) {
+					draw_sprite_rotate(yg->backend_ctx, &_win_sprite, window->x + window->width / 2, window->y + window->height / 2, (double)window->rotation * M_PI / 180.0, opacity);
+				} else {
+					draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+				}
 			}
 		} else {
 			if (window == yg->resizing_window) {
 				draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h);
 			} else {
-				draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
+				if (window->rotation) {
+					draw_sprite_rotate(yg->backend_ctx, &_win_sprite, window->x + window->width / 2, window->y + window->height / 2, (double)window->rotation * M_PI / 180.0, 1.0);
+				} else {
+					draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
+				}
 			}
 		}
 	}
@@ -1591,7 +1593,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	yutani_server_window_t * focused = get_focused(yg);
 	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
 	if (focused) {
-#if 0
+#if 1
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
@@ -1823,8 +1825,8 @@ static void mouse_start_drag(yutani_globals_t * yg, yutani_server_window_t * w) 
 	}
 }
 
-static void mouse_start_rotate(yutani_globals_t * yg) {
 #if 0
+static void mouse_start_rotate(yutani_globals_t * yg) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
 	if (yg->mouse_window) {
@@ -1843,8 +1845,8 @@ static void mouse_start_rotate(yutani_globals_t * yg) {
 		yg->mouse_init_r = yg->mouse_window->rotation - new_r;
 		make_top(yg, yg->mouse_window);
 	}
-#endif
 }
+#endif
 
 static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t direction) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
@@ -1932,8 +1934,10 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					adjust_window_opacity(yg, 8);
 				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_DOWN) && (yg->kbd_state.k_alt)) {
 					adjust_window_opacity(yg, -8);
+#if 0
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT) && (yg->kbd_state.k_alt)) {
 					mouse_start_rotate(yg);
+#endif
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && (yg->kbd_state.k_alt)) {
 					yg->resizing_button = YUTANI_MOUSE_BUTTON_MIDDLE;
 					mouse_start_resize(yg, SCALE_AUTO);
@@ -2046,7 +2050,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					/* Calculate rotation and make relative to initial rotation */
 					int32_t x_diff = yg->mouse_x / MOUSE_SCALE - (yg->mouse_window->x + yg->mouse_window->width / 2);
 					int32_t y_diff = yg->mouse_y / MOUSE_SCALE - (yg->mouse_window->y + yg->mouse_window->height / 2);
-					int new_r = __builtin_atan2(x_diff, y_diff) * 180.0 / (-M_PI);
+					int new_r = atan2(x_diff, y_diff) * 180.0 / (-M_PI);
 					mark_window(yg, yg->mouse_window);
 					yg->mouse_window->rotation = new_r + yg->mouse_init_r;
 					mark_window(yg, yg->mouse_window);
