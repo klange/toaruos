@@ -1080,7 +1080,44 @@ static void yutani_blit_windows(yutani_globals_t * yg) {
  * Take a screenshot
  */
 static void yutani_screenshot(yutani_globals_t * yg) {
-	/* TODO Render bitmap screenshot */
+	int task = yg->screenshot_frame;
+	yg->screenshot_frame = 0;
+
+	/* raw screenshots */
+	FILE * f = fopen("/tmp/screenshot.rgba", "w");
+	if (!f) {
+		TRACE("Error opening output file for screenshot.");
+		return;
+	}
+
+	uint32_t * buffer = NULL;
+	int width, height;
+
+	if (task == YUTANI_SCREENSHOT_FULL) {
+		buffer = (void *)yg->backend_ctx->backbuffer;
+		width = yg->width;
+		height = yg->height;
+	} else if (task == YUTANI_SCREENSHOT_WINDOW) {
+		yutani_server_window_t * window = yg->focused_window;
+		buffer = (void *)window->buffer;
+		width = window->width;
+		height = window->height;
+	}
+
+	if (buffer) {
+		for (int y = 0; y <height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				uint8_t buf[4] = {
+					_RED(buffer[y * width + x]),
+					_GRE(buffer[y * width + x]),
+					_BLU(buffer[y * width + x]),
+					_ALP(buffer[y * width + x]),
+				};
+				fwrite(buf, 1, 4, f);
+			}
+		}
+	}
+	fclose(f);
 }
 
 /**
