@@ -109,7 +109,7 @@ void rline_reverse_search(rline_context_t * context) {
 	int collected = 0;
 	int start_at = 0;
 	int changed = 0;
-	fprintf(stderr, "\033[G\033[s");
+	fprintf(stderr, "\033[G\033[0m\033[s");
 	fflush(stderr);
 	key_event_state_t kbd_state = {0};
 	char * match = "";
