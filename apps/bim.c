@@ -1018,7 +1018,8 @@ static int syn_make_extended(line_t * line, int i, int c, int last, int * out_le
 			for (int s = 0; syn_make_functions[s]; ++s) {
 				int d = 0;
 				while (j + d < line->actual && line->text[j+d].codepoint == syn_make_functions[s][d]) d++;
-				if (syn_make_functions[s][d] == '\0') {
+				if (syn_make_functions[s][d] == '\0' && (j + d == line->actual
+							|| line->text[j+d].codepoint == ')' || line->text[j+d].codepoint == ' ')) {
 					*out_left = d;
 					return FLAG_KEYWORD;
 				}
