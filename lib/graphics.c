@@ -635,6 +635,8 @@ uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v) {
 	int y = floor(v);
 	if (x >= tex->width)  return 0;
 	if (y >= tex->height) return 0;
+	if (x <= 0) return 0;
+	if (y <= 0) return 0;
 	double u_ratio = u - x;
 	double v_ratio = v - y;
 	double u_o = 1 - u_ratio;
@@ -867,3 +869,54 @@ void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint3
 		}
 	}
 }
+
+static void calc_rotation(double x, double y, double px, double py, double rotation, double * u, double * v) {
+	double s = sin(rotation);
+	double c = cos(rotation);
+
+	/* Translate to pivot */
+	x -= px;
+	y -= py;
+
+	*u = (x * c - y * s) + px;
+	*v = (x * s + y * c) + py;
+}
+
+void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha) {
+
+	double originx = (double)sprite->width / 2.0;
+	double originy = (double)sprite->height / 2.0;
+
+	/* Calculate corners */
+	double ul_x, ul_y;
+	double ll_x, ll_y;
+	double ur_x, ur_y;
+	double lr_x, lr_y;
+
+	calc_rotation(-sprite->width/2, -sprite->height/2, 0, 0, rotation, &ul_x, &ul_y);
+	calc_rotation(-sprite->width/2, sprite->height/2,  0, 0, rotation, &ll_x, &ll_y);
+	calc_rotation(sprite->width/2, -sprite->height/2,  0, 0, rotation, &ur_x, &ur_y);
+	calc_rotation(sprite->width/2, sprite->height/2,   0, 0, rotation, &lr_x, &lr_y);
+
+	/* Calculate bounds */
+	int32_t _left   = min(min(ul_x, ll_x), min(ur_x, lr_x));
+	int32_t _top    = min(min(ul_y, ll_y), min(ur_y, lr_y));
+	int32_t _right  = max(max(ul_x, ll_x), max(ur_x, lr_x));
+	int32_t _bottom = max(max(ul_y, ll_y), max(ur_y, lr_y));
+
+	for (int32_t _y = _top; _y < _bottom; ++_y) {
+		if (_y + y < 0) continue;
+		if (_y + y  >= ctx->height) break;
+		if (!_is_in_clip(ctx, y + _y)) continue;
+		for (int32_t _x = _left; _x < _right; ++_x) {
+			if (_x + x < 0) continue;
+			if (_x + x >= ctx->width) break;
+			double u, v;
+			calc_rotation(_x + originx, _y + originy, originx, originy, -rotation, &u, &v);
+			uint32_t n_color = getBilinearFilteredPixelColor(sprite, u / (double)sprite->width, v/(double)sprite->height);
+			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
+			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+		}
+	}
+}
+

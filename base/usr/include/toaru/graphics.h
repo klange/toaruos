@@ -106,3 +106,5 @@ extern struct gfx_point gfx_point_sub(struct gfx_point * a, struct gfx_point * b
 extern struct gfx_point gfx_point_add(struct gfx_point * a, struct gfx_point * b);
 extern float gfx_line_distance(struct gfx_point * p, struct gfx_point * v, struct gfx_point * w);
 extern void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness);
+
+extern void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha);
