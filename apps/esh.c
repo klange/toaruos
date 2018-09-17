@@ -546,7 +546,7 @@ void tab_complete_func(rline_context_t * c) {
 			}
 		} else {
 			/* Print matches */
-			fprintf(stderr,"\n\033[0m");
+			fprintf(stderr,"\033[0m\n");
 			size_t j = 0;
 			foreach(node, matches) {
 				char * match = (char *)node->value;
