@@ -9,9 +9,12 @@
  * complex line editing than what the raw tty interface supplies.
  */
 
+#define _POSIX_C_SOURCE 1
+#define _XOPEN_SOURCE 500
 #include <stdint.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <termios.h>
 

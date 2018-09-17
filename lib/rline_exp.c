@@ -1279,6 +1279,7 @@ static void get_initial_termios(void) {
 static void set_unbuffered(void) {
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO);
+	new.c_cc[VINTR] = 0;
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
 
