@@ -15,8 +15,6 @@
 #include <string.h>
 #include <termios.h>
 
-#include <_xlog.h>
-
 #include <toaru/kbd.h>
 #include <toaru/rline.h>
 
