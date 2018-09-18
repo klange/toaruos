@@ -12,10 +12,6 @@ double atan(double x) {
 	return 0.0;
 }
 
-double atan2(double y, double x) {
-	return 0.0;
-}
-
 double ceil(double x) {
 	return 0.0; /* extract and convert? */
 }

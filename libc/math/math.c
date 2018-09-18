@@ -444,4 +444,17 @@ double cos(double x) {
 	return sin(x + 3.141592654 / 2.0);
 }
 
+double atan2(double y, double x) {
+	float out;
+	float _x = x;
+	float _y = y;
+	asm volatile (
+		"fld %1\n"
+		"fld %2\n"
+		"fpatan\n"
+		"fstp %0\n"
+		: "=m"(out) : "m"(_y), "m"(_x)
+	);
+	return out;
+}
 
