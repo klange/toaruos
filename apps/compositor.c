@@ -1825,7 +1825,6 @@ static void mouse_start_drag(yutani_globals_t * yg, yutani_server_window_t * w) 
 	}
 }
 
-#if 0
 static void mouse_start_rotate(yutani_globals_t * yg) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	yg->mouse_window = get_focused(yg);
@@ -1846,7 +1845,6 @@ static void mouse_start_rotate(yutani_globals_t * yg) {
 		make_top(yg, yg->mouse_window);
 	}
 }
-#endif
 
 static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t direction) {
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
@@ -1934,10 +1932,8 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					adjust_window_opacity(yg, 8);
 				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_DOWN) && (yg->kbd_state.k_alt)) {
 					adjust_window_opacity(yg, -8);
-#if 0
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT) && (yg->kbd_state.k_alt)) {
 					mouse_start_rotate(yg);
-#endif
 				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && (yg->kbd_state.k_alt)) {
 					yg->resizing_button = YUTANI_MOUSE_BUTTON_MIDDLE;
 					mouse_start_resize(yg, SCALE_AUTO);
@@ -2041,7 +2037,6 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 			break;
 		case YUTANI_MOUSE_STATE_ROTATING:
 			{
-#if 0
 				if (!(me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT)) {
 					yg->mouse_window = NULL;
 					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
@@ -2055,7 +2050,6 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->mouse_window->rotation = new_r + yg->mouse_init_r;
 					mark_window(yg, yg->mouse_window);
 				}
-#endif
 			}
 			break;
 		case YUTANI_MOUSE_STATE_DRAGGING:
