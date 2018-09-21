@@ -14,11 +14,6 @@ double asin(double x) {
 	return 0.0;
 }
 
-double atan(double x) {
-	BAD;
-	return 0.0;
-}
-
 double ceil(double x) {
 	BAD;
 	return 0.0; /* extract and convert? */
@@ -54,11 +49,6 @@ double log2(double x) {
 }
 
 double sinh(double x) {
-	BAD;
-	return 0.0;
-}
-
-double tan(double x) {
 	BAD;
 	return 0.0;
 }

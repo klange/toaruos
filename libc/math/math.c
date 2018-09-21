@@ -444,6 +444,20 @@ double cos(double x) {
 	return sin(x + 3.141592654 / 2.0);
 }
 
+double tan(double x) {
+	float out;
+	float one;
+	float _x = x;
+	asm volatile (
+		"fld %2\n"
+		"fptan\n"
+		"fstp %1\n"
+		"fstp %0\n"
+		: "=m"(out), "=m"(one) : "m"(_x)
+	);
+	return out;
+}
+
 double atan2(double y, double x) {
 	float out;
 	float _x = x;
@@ -456,6 +470,10 @@ double atan2(double y, double x) {
 		: "=m"(out) : "m"(_y), "m"(_x)
 	);
 	return out;
+}
+
+double atan(double x) {
+	return atan2(x,1.0);
 }
 
 double hypot(double x, double y) {
