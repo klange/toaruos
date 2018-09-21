@@ -797,7 +797,8 @@ static void render_line(void) {
 				/* End the line with a > to show it overflows */
 				printf(">");
 				set_colors(COLOR_FG, COLOR_BG);
-				return;
+				j++;
+				break;
 			}
 
 			/* Syntax hilighting */
