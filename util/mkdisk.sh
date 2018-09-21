@@ -1,13 +1,21 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 OUT=$1
 IN=$2
 
 OUTDIR=`dirname $1`
 
+if [ -e "$DIR/../base/usr/share/fonts" ]; then
+    SIZE=128
+else
+    SIZE=64
+fi
+
 rm -f $OUT
 mkdir -p cdrom
-fallocate -l 64M $OUT || dd if=/dev/zero bs=1M count=64 of=$OUT
+fallocate -l ${SIZE}M $OUT || dd if=/dev/zero bs=1M count=${SIZE} of=$OUT
 mkfs.fat -s 1 -S 2048 $OUT
 
 #echo "Turning $IN into $OUT"

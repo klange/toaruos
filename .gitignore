@@ -27,3 +27,9 @@
 /base/usr/python
 /base/usr/bin/*
 /base/usr/lib/*
+
+# Freetype
+/base/usr/include/freetype2
+/base/usr/include/ft2build.h
+/base/usr/share/aclocal
+/base/usr/share/fonts
