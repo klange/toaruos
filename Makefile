@@ -309,3 +309,21 @@ $(eval $(call virtualbox-runner,virtualbox,"Other",))
 $(eval $(call virtualbox-runner,virtualbox-efi,"Other",--firmware efi))
 $(eval $(call virtualbox-runner,virtualbox-efi64,"Other_64",--firmware efi))
 
+# Optional Extensions
+#
+#    These optional extension libraries require third-party components to build,
+#    but allow the native applications to make use of functionality such as
+#    TrueType fonts or PNG images. You must have the necessary elements to build
+#    these already installed into your sysroot for this to work.
+EXT_LIBS=$(patsubst ext/%.c,%,$(wildcard ext/*.c))
+EXT_LIBS_X=$(foreach lib,$(EXT_LIBS),base/lib/libtoaru_$(lib).so)
+EXT_LIBS_Y=$(foreach lib,$(EXT_LIBS),.make/$(lib).elmak)
+
+.make/%.elmak: ext/%.c util/auto-dep.py | dirs
+	util/auto-dep.py --makelib $< > $@
+
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
+-include ${EXT_LIBS_Y}
+endif
+
+ext-freetype: base/lib/libtoaru_ext_freetype_fonts.so
