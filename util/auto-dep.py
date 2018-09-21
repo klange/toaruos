@@ -10,8 +10,6 @@ except KeyError:
     # This is not good, but we need to let it happen for the make file
     TOOLCHAIN_PATH = ""
 
-force_static = []
-
 class Classifier(object):
 
     dependency_hints = {
@@ -34,6 +32,8 @@ class Classifier(object):
         '<toaru/icon_cache.h>':  (None, '-ltoaru_icon_cache',  ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/menu.h>':        (None, '-ltoaru_menu',        ['<toaru/sdf.h>', '<toaru/yutani.h>', '<toaru/icon_cache.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/textregion.h>':  (None, '-ltoaru_textregion',  ['<toaru/sdf.h>', '<toaru/yutani.h>','<toaru/graphics.h>', '<toaru/hashmap.h>']),
+        # OPTIONAL third-party libraries, for extensions / ports
+        '<ft2build.h>':        ('freetype2', '-lfreetype', []),
     }
 
     def __init__(self, filename):
@@ -80,7 +80,7 @@ class Classifier(object):
         for k in depends:
             dep = self.dependency_hints[k]
             if dep[0]:
-                includes.append('-I' + TOOLCHAIN_PATH + '/include/' + dep[0])
+                includes.append('-I' + 'base/usr/include/' + dep[0])
             if dep[1]:
                 libraries.append(dep[1])
         return includes, libraries
@@ -90,16 +90,18 @@ def todep(name):
     """Convert a library name to an archive path or object file name."""
     if name.startswith("-l"):
         name = name.replace("-l","",1)
-        if name in force_static:
-            return (False, "%s/lib%s.a" % (TOOLCHAIN_PATH + '/lib', name))
-        else:
+        if name.startswith('toaru'):
             return (True, "%s/lib%s.so" % ('base/lib', name))
+        else:
+            return (True, "%s/lib%s.so" % ('base/usr/lib', name))
     else:
         return (False, name)
 
 def toheader(name):
     if name.startswith('-ltoaru_'):
         return name.replace('-ltoaru_','base/usr/include/toaru/') + '.h'
+    else:
+        return ''
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -120,19 +122,23 @@ if __name__ == "__main__":
         order_only = [x[1] for x in results if x[0]]
         print(" ".join(normal) + " | " + " ".join(order_only))
     elif command == "--make":
-        print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -o $@ $< {libraries}".format(
+        print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {includes} -o $@ $< {libraries}".format(
             app=os.path.basename(filename).replace(".c",""),
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
             libraryfiles=" ".join([todep(x)[1] for x in c.libs]),
-            libraries=" ".join([x for x in c.libs])))
+            libraries=" ".join([x for x in c.libs]),
+            includes=" ".join([x for x in c.includes if x is not None])
+            ))
     elif command == "--makelib":
         libname = os.path.basename(filename).replace(".c","")
         _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
-        print("base/lib/libtoaru_{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -shared -fPIC -o $@ $< {libraries}".format(
+        print("base/lib/libtoaru_{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {includes} -shared -fPIC -o $@ $< {libraries}".format(
             lib=libname,
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
             libraryfiles=" ".join([todep(x)[1] for x in _libs]),
-            libraries=" ".join([x for x in _libs])))
+            libraries=" ".join([x for x in _libs]),
+            includes=" ".join([x for x in c.includes if x is not None])
+            ))
 
