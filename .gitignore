@@ -28,8 +28,15 @@
 /base/usr/bin/*
 /base/usr/lib/*
 
+# Generic
+/base/usr/share/aclocal
+/base/usr/share/gtk-doc
+
 # Freetype
 /base/usr/include/freetype2
 /base/usr/include/ft2build.h
-/base/usr/share/aclocal
 /base/usr/share/fonts
+
+# Cairo + Pixman
+/base/usr/include/cairo
+/base/usr/include/pixman-1

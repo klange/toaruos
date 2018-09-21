@@ -34,6 +34,8 @@ class Classifier(object):
         '<toaru/textregion.h>':  (None, '-ltoaru_textregion',  ['<toaru/sdf.h>', '<toaru/yutani.h>','<toaru/graphics.h>', '<toaru/hashmap.h>']),
         # OPTIONAL third-party libraries, for extensions / ports
         '<ft2build.h>':        ('freetype2', '-lfreetype', []),
+        '<pixman.h>':          ('pixman-1', '-lpixman-1', []),
+        '<cairo.h>':           ('cairo', '-lcairo', ['<ft2build.h>', '<pixman.h>']),
     }
 
     def __init__(self, filename):
