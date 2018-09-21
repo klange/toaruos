@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <pty.h>
 #include <wchar.h>
+#include <dlfcn.h>
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -61,11 +62,12 @@ static void usage(char * argv[]) {
 			"\n"
 			" -F --fullscreen \033[3mRun in fullscreen (background) mode.\033[0m\n"
 			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
-			" -s --scale      \033[3mScale the font in SDF mode by a given amount.\033[0m\n"
+			" -s --scale      \033[3mScale the font in antialiased mode by a given amount.\033[0m\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
 			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
 			" -g --geometry   \033[3mSet requested terminal size WIDTHxHEIGHT\033[0m\n"
+			" -f --no-ft      \033[3mForce disable the freetype backend.\033[0m\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
@@ -85,6 +87,7 @@ static uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
 static uint16_t font_size      = 16;   /* Font size according to SDF library */
 static uint16_t char_width     = 9;    /* Width of a cell in pixels */
 static uint16_t char_height    = 17;   /* Height of a cell in pixels */
+static uint16_t char_offset    = 0;    /* Offset of the font within the cell */
 static int      csr_x          = 0;    /* Cursor X */
 static int      csr_y          = 0;    /* Cursor Y */
 static uint32_t current_fg     = 7;    /* Current foreground color */
@@ -103,9 +106,16 @@ static uint32_t _orig_bg = 0;
 static bool cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 static bool _no_frame      = 0;    /* Whether to disable decorations or not */
-static bool _use_sdf       = 1;    /* Whether or not to use SDF text rendering */
+static bool _use_aa        = 1;    /* Whether or not to use best-available anti-aliased renderer */
+static bool _have_freetype = 0;    /* Whether freetype is available */
+static bool _force_no_ft   = 0;    /* Whether to force disable the freetype backend */
 static bool _hold_out      = 0;    /* state indicator on last cell ignore \n */
 static bool _free_size     = 1;    /* Disable rounding when resized */
+
+/** Freetype extension renderer functions */
+static void (*freetype_set_font_face)(int face) = NULL;
+static void (*freetype_set_font_size)(int size) = NULL;
+static void (*freetype_draw_string)(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) = NULL;
 
 static list_t * images_list = NULL;
 
@@ -736,19 +746,12 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 		goto _extra_stuff;
 	}
 
-	/* TODO: This is where a Unicode-capable rendering engine
-	 *       such as freetype should be patched in. The older
-	 *       version of this terminal included in mainline
-	 *       ToaruOS included freetype support.
-	 */
-
-	/* Convert other unicode characters. */
-	if (val > 128) {
-		val = ununicode(val);
-	}
-
 	/* Draw glyphs */
-	if (_use_sdf) {
+	if (_use_aa && !_have_freetype) {
+		/* Convert other unicode characters. */
+		if (val > 128) {
+			val = ununicode(val);
+		}
 		/* Draw using the Toaru SDF rendering library */
 		char tmp[2] = {val,0};
 		for (uint8_t i = 0; i < char_height; ++i) {
@@ -771,7 +774,51 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 				draw_sdf_string_gamma(ctx, x+decor_left_width-1, y+decor_top_height+menu_bar_height, tmp, font_size, _fg, _font, font_gamma);
 			}
 		}
+	} else if (_use_aa && _have_freetype) {
+		/* Draw using freetype extension */
+		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
+				term_set_point(x+j,y+i,premultiply(_bg));
+			}
+		}
+		if (flags & ANSI_WIDE) {
+			for (uint8_t i = 0; i < char_height; ++i) {
+				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
+					term_set_point(x+j,y+i,premultiply(_bg));
+				}
+			}
+		}
+		if (val < 32 || val == ' ') {
+			goto _extra_stuff;
+		}
+
+#define FONT_MONOSPACE              4
+#define FONT_MONOSPACE_BOLD         5
+#define FONT_MONOSPACE_ITALIC       6
+#define FONT_MONOSPACE_BOLD_ITALIC  7
+		int _font = FONT_MONOSPACE;
+		if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
+			_font = FONT_MONOSPACE_BOLD_ITALIC;
+		} else if (flags & ANSI_ITALIC) {
+			_font = FONT_MONOSPACE_ITALIC;
+		} else if (flags & ANSI_BOLD) {
+			_font = FONT_MONOSPACE_BOLD;
+		}
+		freetype_set_font_face(_font);
+		freetype_set_font_size(font_size);
+		char tmp[8];
+		to_eight(val, tmp);
+		if (_no_frame) {
+			freetype_draw_string(ctx, x, y + char_offset, _fg, tmp);
+		} else {
+			freetype_draw_string(ctx, x + decor_left_width, y + char_offset + decor_top_height + menu_bar_height, _fg, tmp);
+		}
 	} else {
+		/* Convert other unicode characters. */
+		if (val > 128) {
+			val = ununicode(val);
+		}
 		/* Draw using the bitmap font. */
 		uint16_t * c = large_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
@@ -1688,7 +1735,7 @@ static term_cell_t * copy_terminal(int old_width, int old_height, term_cell_t * 
 static void reinit(int send_sig) {
 
 	/* Figure out character sizes if fonts have changed. */
-	if (_use_sdf) {
+	if (_use_aa && !_have_freetype) {
 		char_width = 9;
 		char_height = 17;
 		font_size = 16;
@@ -1696,6 +1743,19 @@ static void reinit(int send_sig) {
 			font_size   *= font_scaling;
 			char_height *= font_scaling;
 			char_width  *= font_scaling;
+		}
+	} else if (_use_aa && _have_freetype) {
+		font_size   = 13;
+		char_height = 17;
+		char_width  = 8;
+		char_offset = 13;
+
+		if (scale_fonts) {
+			/* Recalculate scaling */
+			font_size   *= font_scaling;
+			char_height *= font_scaling;
+			char_width  *= font_scaling;
+			char_offset *= font_scaling;
 		}
 	} else {
 		char_width = 9;
@@ -2063,8 +2123,8 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 }
 
 static void _menu_action_toggle_sdf(struct MenuEntry * self) {
-	_use_sdf = !(_use_sdf);
-	menu_update_title(self, _use_sdf ? "Bitmap font" : "Anti-aliased font");
+	_use_aa = !(_use_aa);
+	menu_update_title(self, _use_aa ? "Bitmap font" : "Anti-aliased font");
 	reinit(1);
 }
 
@@ -2116,12 +2176,13 @@ int main(int argc, char ** argv) {
 		{"grid",       no_argument,       0, 'x'},
 		{"no-frame",   no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
+		{"no-ft",      no_argument,       0, 'f'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxnFls:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxnfFls:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -2134,12 +2195,15 @@ int main(int argc, char ** argv) {
 			case 'n':
 				_no_frame = 1;
 				break;
+			case 'f':
+				_force_no_ft = 1;
+				break;
 			case 'F':
 				_fullscreen = 1;
 				_no_frame = 1;
 				break;
 			case 'b':
-				_use_sdf = 0;
+				_use_aa = 0;
 				break;
 			case 'h':
 				usage(argv);
@@ -2164,6 +2228,16 @@ int main(int argc, char ** argv) {
 				break;
 			default:
 				break;
+		}
+	}
+
+	if (!_force_no_ft) {
+		void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
+		if (freetype) {
+			_have_freetype = 1;
+			freetype_set_font_face = dlsym(freetype, "set_font_face");
+			freetype_set_font_size = dlsym(freetype, "set_font_size");
+			freetype_draw_string   = dlsym(freetype, "draw_string");
 		}
 	}
 
@@ -2239,7 +2313,7 @@ int main(int argc, char ** argv) {
 	_menu_toggle_borders_bar = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
-	menu_insert(m, menu_create_normal(NULL, NULL, _use_sdf ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_sdf));
+	menu_insert(m, menu_create_normal(NULL, NULL, _use_aa ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_sdf));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();
