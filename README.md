@@ -101,6 +101,22 @@ First, ensure you have the necessary build tools, which are mostly the same as m
 
 Run `make` and you will be prompted to build a toolchain. Reply `y` and allow the toolchain to build.
 
+### Third-Party Ports
+
+#### Python
+
+There are instructions on building Python 3.6 available from [the gitlab wiki](https://gitlab.com/toaruos/toaru-nih/wikis/Installing-Python).
+
+#### Freetype
+
+Currently only the Terminal supports using Freetype as a text rendering backend, but this will be expanded in the future.
+
+Freetype should mostly build as-is, though libtool needs to be taught how to build a shared object for ToaruOS called `libfreetype.so` - this is left as an exercise for the reader until I've had time to formalize the process.
+
+Once freetype is built and installed to `base/usr`, `make ext-freetype` will build the extension library. Place the required fonts, which you can get from maineline ToaruOS, in `base/usr/share/fonts`.
+
+With fonts available, the build scripts will build larger ramdisks to accomodate the additional files. The font server will automatically run on startup if a GUI boot target is selected, and the Terminal will automatically use the Freetype backend if it loads.
+
 ## Backwards Compatibility Notes
 
 No ABI or API compatibility is guaranteed through the development of ToaruOS-NIH. Until a larger corpus of third-party software is ported to our new C library, APIs may change to improve or simplify library use, or to fix bugs. Even kernel ABI compatibility is not guaranteed as system calls are improved or made more compliant with expectations of POSIX or the C standard.
@@ -125,6 +141,7 @@ Our current unmet goals include:
 - **base** - Ramdisk root filesystem staging directory. Includes C headers in `base/usr/include`, as well as graphical resources for the compositor and window decorator.
 - **boot** - Bootloader, including BIOS and EFI IA32 and X64 support.
 - **cdrom** - Staging area for ISO9660 CD image, containing mostly blank shadow files for the FAT image.
+- **ext** - Optional runtime-loaded bindings for third-party libraries.
 - **fatbase** - Staging area for FAT image used by EFI.
 - **kernel** - The ToaruOS kernel.
 - **lib** - Userspace libraries.
