@@ -16,8 +16,12 @@
 #include <unistd.h>
 #include <syscall.h>
 
+#if 0
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "font-server"
+#else
+#define TRACE(...)
+#endif
 
 #define FONT_PATH "/usr/share/fonts/"
 #define FONT(a,b) {a, FONT_PATH b}
@@ -78,10 +82,15 @@ static void load_fonts(char * server) {
 
 int main(int argc, char * argv[]) {
 
-	load_fonts(getenv("DISPLAY"));
+	/* Daemonize */
+	if (!fork()) {
+		load_fonts("fonts");
 
-	while (1) {
-		usleep(100000);
+		while (1) {
+			usleep(100000);
+		}
+
+		return 0;
 	}
 
 	return 0;
