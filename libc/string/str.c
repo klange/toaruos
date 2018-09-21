@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <limits.h>
+#include <ctype.h>
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
@@ -44,6 +45,11 @@ void * memrchr(const void * m, int c, size_t n) {
 		}
 	}
 	return 0;
+}
+
+int strcasecmp(const char * s1, const char * s2) {
+	for (; tolower(*s1) == tolower(*s2) && *s1; s1++, s2++);
+	return *(unsigned char *)s1 - *(unsigned char *)s2;
 }
 
 int strcmp(const char * l, const char * r) {
@@ -337,14 +343,6 @@ char *strstr(const char * h, const char * n) {
 
 	/* Two-way on large needles */
 	return strstr_twoway((void *)h, (void *)n);
-}
-
-static inline int isdigit(int ch) {
-	return (unsigned int)ch-'0' < 10;
-}
-
-static inline int isspace(int ch) {
-	return ch == ' ' || (unsigned int)ch-'\t' < 5;
 }
 
 long atol(const char * s) {
