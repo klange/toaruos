@@ -30,3 +30,5 @@ extern double tanh(double x);
 extern double atan(double x);
 
 extern double modf(double x, double *iptr);
+
+extern double hypot(double x, double y);
