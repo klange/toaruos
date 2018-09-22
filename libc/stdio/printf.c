@@ -237,7 +237,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					i = b - buf;
 					*b++ = '.';
 					buf++;
-					for (int j = 0; j < (precision > -1 ? precision : 8); ++j) {
+					for (int j = 0; j < ((precision > -1 && precision < 8) ? precision : 8); ++j) {
 						if ((int)(val * 100000.0) % 100000 == 0 && j != 0) break;
 						val *= 10.0;
 						print_dec((int)(val) % 10, 0, buf, &i, 0, 0);
