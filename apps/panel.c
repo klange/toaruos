@@ -459,7 +459,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
 					if (ads_by_l[i] == NULL) break;
 					if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
-						window_show_menu(ads_by_l[i]->wid, ads_by_l[i]->left, PANEL_HEIGHT);
+						window_show_menu(ads_by_l[i]->wid, evt->new_x, PANEL_HEIGHT);
 					}
 				}
 			}
