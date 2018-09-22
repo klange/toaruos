@@ -31,6 +31,25 @@
 
 #include <kernel/elf.h>
 
+void * (*_malloc)(size_t size) = malloc;
+void (*_free)(void * ptr) = free;
+
+#undef malloc
+#undef free
+#define malloc ld_x_malloc
+#define free ld_x_free
+
+uintptr_t _malloc_minimum = 0;
+
+static void * malloc(size_t size) {
+	return _malloc(size);
+}
+
+static void free(void * ptr) {
+	if ((uintptr_t)ptr < _malloc_minimum) return;
+	_free(ptr);
+}
+
 /*
  * When the LD_DEBUG environment variable is set, TRACE_LD messages
  * will be printed to stderr
@@ -175,7 +194,8 @@ static elf_t * open_object(const char * path) {
 	}
 
 	/* Initialize a fresh object object. */
-	elf_t * object = calloc(1, sizeof(elf_t));
+	elf_t * object = malloc(sizeof(elf_t));
+	memset(object, 0, sizeof(elf_t));
 	hashmap_set(objects_map, (void*)path, object);
 
 	/* Really unlikely... */
@@ -820,6 +840,11 @@ nope:
 		char * args[] = {(char*)end_addr};
 		syscall_system_function(9, args);
 	}
+
+	/* Set heap functions for later usage */
+	if (hashmap_has(dumb_symbol_table, "malloc")) _malloc = hashmap_get(dumb_symbol_table, "malloc");
+	if (hashmap_has(dumb_symbol_table, "free")) _free = hashmap_get(dumb_symbol_table, "free");
+	_malloc_minimum = 0x40000000;
 
 	/* Jump to the entry for the main object */
 	TRACE_LD("Jumping to entry point");
