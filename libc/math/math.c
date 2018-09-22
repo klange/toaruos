@@ -10,6 +10,15 @@ double exp(double x) {
 	return pow(2.71828182846, x);
 }
 
+double ceil(double x) {
+	int _x = x;
+	if ((float)_x == x) return x;
+	if (x < 0.0) {
+		return (double)_x;
+	}
+	return (double)_x + 1;
+}
+
 double floor(double x) {
 	MATH;
 	if (x > -1.0 && x < 1.0) {

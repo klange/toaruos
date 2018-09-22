@@ -14,11 +14,6 @@ double asin(double x) {
 	return 0.0;
 }
 
-double ceil(double x) {
-	BAD;
-	return 0.0; /* extract and convert? */
-}
-
 double cosh(double x) {
 	BAD;
 	return 0.0;
