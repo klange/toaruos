@@ -1,4 +1,6 @@
 #include <math.h>
+#include <stdint.h>
+#include <string.h>
 #include <stdio.h>
 
 //#define MATH do { fprintf(stderr, "Executed math function %s\n", __func__); } while (0)
@@ -458,12 +460,13 @@ double tan(double x) {
 	MATH;
 	float out;
 	float _x = x;
+	float one;
 	asm volatile (
-		"fld %1\n"
+		"fld %2\n"
 		"fptan\n"
-		"fincstp\n"
+		"fstp %1\n"
 		"fstp %0\n"
-		: "=m"(out) : "m"(_x)
+		: "=m"(out), "=m"(one) : "m"(_x)
 	);
 	return out;
 }
@@ -489,4 +492,35 @@ double atan(double x) {
 
 double hypot(double x, double y) {
 	return sqrt(x * x + y * y);
+}
+
+double modf(double x, double *iptr) {
+	MATH;
+	int i = (int)x;
+	*iptr = (double)i;
+	return x - i;
+}
+
+double frexp(double x, int *exp) {
+	MATH;
+	struct {
+		uint32_t lsw;
+		uint32_t msw;
+	} extract;
+
+	memcpy(&extract, &x, sizeof(double));
+
+	*exp = ((extract.msw & 0x7ff00000) >> 20) - 0x3FE;
+
+	struct {
+		uint32_t lsw;
+		uint32_t msw;
+	} out_double;
+
+	out_double.msw = (extract.msw & 0x800fffff) | 0x3FE00000;
+	out_double.lsw = extract.lsw;
+
+	double out;
+	memcpy(&out, &out_double, sizeof(double));
+	return out;
 }
