@@ -31,6 +31,8 @@
 #include <sys/time.h>
 #include <sys/fswait.h>
 #include <pthread.h>
+#include <dlfcn.h>
+/* auto-dep: export-dynamic */
 
 #include <toaru/graphics.h>
 #include <toaru/mouse.h>
@@ -38,6 +40,7 @@
 #include <toaru/pex.h>
 #include <toaru/yutani.h>
 #include <toaru/yutani-internal.h>
+#include <toaru/yutani-server.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
 #include <toaru/spinlock.h>
@@ -50,284 +53,19 @@
 #define TRACE(msg,...)
 #endif
 
-/* Mouse resolution scaling */
-#define MOUSE_SCALE 3
-#define YUTANI_INCOMING_MOUSE_SCALE * 3
-
-/* Mouse cursor hotspot */
-#define MOUSE_OFFSET_X 26
-#define MOUSE_OFFSET_Y 26
-
-/* Mouse cursor size */
-#define MOUSE_WIDTH 64
-#define MOUSE_HEIGHT 64
-
-/* How much the mouse needs to move to break off a tiled window */
-#define UNTILE_SENSITIVITY (MOUSE_SCALE * 5)
-
-/* Screenshot modes */
-#define YUTANI_SCREENSHOT_FULL 1
-#define YUTANI_SCREENSHOT_WINDOW 2
-
-/*
- * Animation effect types.
- * XXX: Should this be in the client library?
- */
-typedef enum {
-	YUTANI_EFFECT_NONE,
-
-	/* Basic animations */
-	YUTANI_EFFECT_FADE_IN,
-	YUTANI_EFFECT_FADE_OUT,
-
-	/* XXX: Are these used? */
-	YUTANI_EFFECT_MINIMIZE,
-	YUTANI_EFFECT_UNMINIMIZE,
-} yutani_effect;
-
-/* Animation lengths */
-static int yutani_animation_lengths[] = {
-	0,   /* None */
-	200, /* Fade In */
-	200, /* Fade Out */
-	0,   /* Minimize */
-	0,   /* Unminimized */
-};
-
-/* Debug Options */
-#define YUTANI_DEBUG_WINDOW_BOUNDS 1
-#define YUTANI_DEBUG_WINDOW_SHAPES 1
-
-/* Command line flag values */
-struct {
-	int nested;
-	int nest_width;
-	int nest_height;
-} yutani_options = {
-	.nested = 0,
-	.nest_width = 640,
-	.nest_height = 480,
-};
-
-/*
- * Server window definitions
- */
-typedef struct YutaniServerWindow {
-	/* Window identifier number */
-	yutani_wid_t wid;
-
-	/* Window location */
-	signed long x;
-	signed long y;
-
-	/* Stack order */
-	unsigned short z;
-
-	/* Window size */
-	int32_t width;
-	int32_t height;
-
-	/* Canvas buffer */
-	uint8_t * buffer;
-	uint32_t bufid;
-	uint32_t newbufid;
-	uint8_t * newbuffer;
-
-	/* Connection that owns this window */
-	uint32_t owner;
-
-	/* Rotation of windows XXX */
-	int16_t  rotation;
-
-	/* Client advertisements */
-	uint32_t client_flags;
-	uint16_t client_offsets[5];
-	uint32_t client_length;
-	char *   client_strings;
-
-	/* Window animations */
-	int anim_mode;
-	uint32_t anim_start;
-
-	/* Alpha shaping threshold */
-	int alpha_threshold;
-
-	/*
-	 * Mouse cursor selection
-	 * Originally, this specified whether the mouse was
-	 * hidden, but it plays double duty since client
-	 * control over mouse cursors was added.
-	 */
-	int show_mouse;
-	int default_mouse;
-
-	/* Tiling / untiling information */
-	int tiled;
-	int32_t untiled_width;
-	int32_t untiled_height;
-	int32_t untiled_left;
-	int32_t untiled_top;
-
-	/* Client-configurable server behavior flags */
-	uint32_t server_flags;
-
-	/* Window opacity */
-	int opacity;
-} yutani_server_window_t;
-
-typedef struct YutaniGlobals {
-	/* Display resolution */
-	unsigned int width;
-	unsigned int height;
-	uint32_t stride;
-
-	/* TODO: What about multiple screens?
-	 *
-	 * Obviously this is the whole canvas size,
-	 * but we need to be able to track different
-	 * monitors if/when we ever get support for that.
-	 */
-
-	/* Core graphics context */
-	void * backend_framebuffer;
-	gfx_context_t * backend_ctx;
-
-	/* Mouse location */
-	signed int mouse_x;
-	signed int mouse_y;
-
-	/*
-	 * Previous mouse location, so that events can have
-	 * both the new and old mouse location together
-	 */
-	signed int last_mouse_x;
-	signed int last_mouse_y;
-
-	/* List of all windows */
-	list_t * windows;
-
-	/* Hash of window IDs to their objects */
-	hashmap_t * wids_to_windows;
-
-	/*
-	 * Window stacking information
-	 * TODO: Support multiple top and bottom windows.
-	 */
-	yutani_server_window_t * bottom_z;
-	list_t * mid_zs;
-	yutani_server_window_t * top_z;
-
-	/* Damage region list */
-	list_t * update_list;
-	volatile int update_list_lock;
-
-	/* Mouse cursors */
-	sprite_t mouse_sprite;
-	sprite_t mouse_sprite_drag;
-	sprite_t mouse_sprite_resize_v;
-	sprite_t mouse_sprite_resize_h;
-	sprite_t mouse_sprite_resize_da;
-	sprite_t mouse_sprite_resize_db;
-	int current_cursor;
-
-	/* Server backend communication identifier */
-	char * server_ident;
-	FILE * server;
-
-	/* Pointer to focused window */
-	yutani_server_window_t * focused_window;
-
-	/* Mouse movement state */
-	int mouse_state;
-
-	/* Pointer to window being manipulated by mouse actions */
-	yutani_server_window_t * mouse_window;
-
-	/* Buffered information on mouse-moved window */
-	int mouse_win_x;
-	int mouse_win_y;
-	int mouse_init_x;
-	int mouse_init_y;
-	int mouse_init_r;
-
-	int32_t mouse_click_x_orig;
-	int32_t mouse_click_y_orig;
-
-	int mouse_drag_button;
-	int mouse_moved;
-
-	int32_t mouse_click_x;
-	int32_t mouse_click_y;
-
-	/* Keyboard library state machine state */
-	key_event_state_t kbd_state;
-
-	/* Pointer to window being resized */
-	yutani_server_window_t * resizing_window;
-	int32_t resizing_w;
-	int32_t resizing_h;
-	yutani_scale_direction_t resizing_direction;
-	int32_t resizing_offset_x;
-	int32_t resizing_offset_y;
-	int resizing_button;
-
-	/* List of clients subscribing to window information events */
-	list_t * window_subscribers;
-
-	/* When the server started, used for timing functions */
-	time_t start_time;
-	suseconds_t start_subtime;
-
-	/* Basic lock to prevent redraw thread and communication thread interference */
-	volatile int redraw_lock;
-
-	/* Pointer to last hovered window to allow exit events */
-	yutani_server_window_t * old_hover_window;
-
-	/* Key bindigns */
-	hashmap_t * key_binds;
-
-	/* Windows to remove after the end of the rendering pass */
-	list_t * windows_to_remove;
-
-	/* For nested mode, the host Yutani context and window */
-	yutani_t * host_context;
-	yutani_window_t * host_window;
-
-	/* Map of clients to their windows */
-	hashmap_t * clients_to_windows;
-
-	/* Toggles for debugging window locations */
-	int debug_bounds;
-	int debug_shapes;
-
-	/* If the next rendered frame should be saved as a screenshot */
-	int screenshot_frame;
-
-	/* Next frame should resize host context */
-	int resize_on_next;
-
-	/* Last mouse buttons - used for some specialized mouse drivers */
-	uint32_t last_mouse_buttons;
-
-	/* Clipboard buffer */
-	char clipboard[512];
-	int clipboard_size;
-
-	/* VirtualBox Seamless mode support information */
-	int vbox_rects;
-	int vbox_pointer;
-} yutani_globals_t;
-
-struct key_bind {
-	unsigned int owner;
-	int response;
-};
-
 /* Early definitions */
 static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window);
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w);
 static void notify_subscribers(yutani_globals_t * yg);
+
+static int (*renderer_alloc)(yutani_globals_t * yg) = NULL;
+static int (*renderer_init)(yutani_globals_t * yg) = NULL;
+static int (*renderer_add_clip)(yutani_globals_t * yg, double x, double y, double w, double h) = NULL;
+static int (*renderer_set_clip)(yutani_globals_t * yg) = NULL;
+static int (*renderer_push_state)(yutani_globals_t * yg) = NULL;
+static int (*renderer_pop_state)(yutani_globals_t * yg) = NULL;
+static int (*renderer_destroy)(yutani_globals_t * yg) = NULL;
+static int (*renderer_blit_window)(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y);
 
 /**
  * Print usage information.
@@ -392,11 +130,11 @@ static int parse_args(int argc, char * argv[], int * out) {
 	return 0;
 }
 
-int32_t min(int32_t a, int32_t b) {
+static int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
 }
 
-int32_t max(int32_t a, int32_t b) {
+static int32_t max(int32_t a, int32_t b) {
 	return (a > b) ? a : b;
 }
 
@@ -410,7 +148,7 @@ static int next_wid(void) {
 	return _next++;
 }
 
-static uint32_t yutani_current_time(yutani_globals_t * yg) {
+uint32_t yutani_current_time(yutani_globals_t * yg) {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 
@@ -425,7 +163,7 @@ static uint32_t yutani_current_time(yutani_globals_t * yg) {
 	return (uint32_t)(sec_diff * 1000 + usec_diff / 1000);
 }
 
-static uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time) {
+uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time) {
 
 	uint32_t now = yutani_current_time(yg);
 	uint32_t diff = now - start_time; /* Milliseconds */
@@ -436,7 +174,7 @@ static uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time) {
 /**
  * Translate and transform coordinate from screen-relative to window-relative.
  */
-static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+void yutani_device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
 	if (!window) {
 		*out_x = 0;
 		*out_y = 0;
@@ -463,7 +201,7 @@ static void device_to_window(yutani_server_window_t * window, int32_t x, int32_t
 /**
  * Translate and transform coordinate from window-relative to screen-relative.
  */
-static void window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
+void yutani_window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y) {
 
 	if (!window->rotation) {
 		*out_x = window->x + x;
@@ -752,15 +490,12 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
  * Add a clip region from a rectangle.
  */
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
-
-	gfx_add_clip(yg->backend_ctx, (int)x, (int)y, (int)w, (int)h);
+	if (renderer_add_clip) {
+		renderer_add_clip(yg,x,y,w,h);
+	} else {
+		gfx_add_clip(yg->backend_ctx, (int)x, (int)y, (int)w, (int)h);
+	}
 }
-
-typedef struct {
-	int32_t start;
-	int32_t end;
-	void * next;
-} _clip_t;
 
 /**
  * Mark a screen region as damaged.
@@ -840,10 +575,10 @@ static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
  * do have one debug method that indicates the top window in a box
  * around the cursor, but it is relatively slow.
  */
-yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_server_window_t * w, uint16_t x, uint16_t y){
+static yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_server_window_t * w, uint16_t x, uint16_t y){
 	if (!w) return NULL;
 	int32_t _x = -1, _y = -1;
-	device_to_window(w, x, y, &_x, &_y);
+	yutani_device_to_window(w, x, y, &_x, &_y);
 	if (_x < 0 || _x >= w->width || _y < 0 || _y >= w->height) return NULL;
 	uint32_t c = ((uint32_t *)w->buffer)[(w->width * _y + _x)];
 	uint8_t a = _ALP(c);
@@ -861,7 +596,7 @@ yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_server_windo
  * at the cursor coordinates, and it is not particularly fast, so don't use it
  * anywhere that needs to hit a lot of coordinates.
  */
-yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
+static yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
 	if (check_top_at(yg, yg->top_z, x, y)) return yg->top_z;
 	foreachr(node, yg->mid_zs) {
 		yutani_server_window_t * w = node->value;
@@ -889,12 +624,12 @@ static void set_focused_at(yutani_globals_t * yg, int x, int y) {
  * In the future, these single-item "stacks" will be replaced with dedicated stacks
  * so we can have multiple background windows and multiple panels / always-top windows.
  */
-static int window_is_top(yutani_globals_t * yg, yutani_server_window_t * window) {
+int yutani_window_is_top(yutani_globals_t * yg, yutani_server_window_t * window) {
 	/* For now, just use simple z-order */
 	return window->z == YUTANI_ZORDER_TOP;
 }
 
-static int window_is_bottom(yutani_globals_t * yg, yutani_server_window_t * window) {
+int yutani_window_is_bottom(yutani_globals_t * yg, yutani_server_window_t * window) {
 	/* For now, just use simple z-order */
 	return window->z == YUTANI_ZORDER_BOTTOM;
 }
@@ -904,7 +639,7 @@ static int window_is_bottom(yutani_globals_t * yg, yutani_server_window_t * wind
  *
  * Makes a pretty rainbow pattern.
  */
-static uint32_t color_for_wid(yutani_wid_t wid) {
+uint32_t yutani_color_for_wid(yutani_wid_t wid) {
 	static uint32_t colors[] = {
 		0xFF19aeff,
 		0xFFff4141,
@@ -932,6 +667,10 @@ static uint32_t color_for_wid(yutani_wid_t wid) {
  * the window through alpha blitting.
  */
 static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
+
+	if (renderer_blit_window) {
+		return renderer_blit_window(yg,window,x,y);
+	}
 
 	sprite_t _win_sprite;
 	_win_sprite.width = window->width;
@@ -967,7 +706,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 
 						double opacity = time_diff * (double)(window->opacity) / 255.0;
 
-						if (!window_is_top(yg, window) && !window_is_bottom(yg, window) &&
+						if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
 							!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
 							draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + t_x, window->y + t_y, window->width * x, window->height * x, opacity);
 						} else {
@@ -1151,6 +890,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 		yg->height = yg->backend_ctx->height;
 		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
 
+		if (renderer_destroy) renderer_destroy(yg);
+		if (renderer_init)  renderer_init(yg);
 
 		TRACE("Marking...");
 		yg->resize_on_next = 0;
@@ -1164,6 +905,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		spin_unlock(&yg->redraw_lock);
 	}
+
+	if (renderer_push_state) renderer_push_state(yg);
 
 	/* If the mouse has moved, that counts as two damage regions */
 	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
@@ -1203,6 +946,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 			draw_fill(yg->backend_ctx, rgb(110,110,110));
 		}
 
+		if (renderer_set_clip) renderer_set_clip(yg);
+
 		yg->windows_to_remove = list_create();
 
 		/*
@@ -1230,7 +975,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 			for (int y = _ly; y < _hy; ++y) {
 				for (int x = _lx; x < _hx; ++x) {
 					yutani_server_window_t * w = top_at(yg, x, y);
-					if (w) { GFX(yg->backend_ctx, x, y) = color_for_wid(w->wid); }
+					if (w) { GFX(yg->backend_ctx, x, y) = yutani_color_for_wid(w->wid); }
 				}
 			}
 		}
@@ -1270,7 +1015,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 			flip(yg->backend_ctx);
 		}
 
-		gfx_clear_clip(yg->backend_ctx);
+		if (!renderer_add_clip) gfx_clear_clip(yg->backend_ctx);
 
 		spin_unlock(&yg->redraw_lock);
 
@@ -1278,7 +1023,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * If any windows were marked for removal,
 		 * then remove them.
 		 */
-		while (yg->windows_to_remove->head) {
+		while (yg->windows_to_remove->tail) {
 			node_t * node = list_pop(yg->windows_to_remove);
 
 			window_actually_close(yg, node->value);
@@ -1289,6 +1034,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	}
 
+	if (renderer_pop_state) renderer_pop_state(yg);
 
 	if (yg->screenshot_frame) {
 		yutani_screenshot(yg);
@@ -1311,7 +1057,7 @@ void yutani_clip_init(yutani_globals_t * yg) {
  * Calls the redraw functions in a loop, with some
  * additional yielding and sleeping.
  */
-void * redraw(void * in) {
+static void * redraw(void * in) {
 
 	syscall_system_function(11,(char *[]){"compositor","render thread",NULL});
 
@@ -1373,10 +1119,10 @@ static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t *
 		int32_t ur_x, ur_y;
 		int32_t lr_x, lr_y;
 
-		window_to_device(window, x, y, &ul_x, &ul_y);
-		window_to_device(window, x, y + height, &ll_x, &ll_y);
-		window_to_device(window, x + width, y, &ur_x, &ur_y);
-		window_to_device(window, x + width, y + height, &lr_x, &lr_y);
+		yutani_window_to_device(window, x, y, &ul_x, &ul_y);
+		yutani_window_to_device(window, x, y + height, &ll_x, &ll_y);
+		yutani_window_to_device(window, x + width, y, &ur_x, &ur_y);
+		yutani_window_to_device(window, x + width, y + height, &lr_x, &lr_y);
 
 		/* Calculate bounds */
 
@@ -1872,7 +1618,7 @@ static void mouse_start_resize(yutani_globals_t * yg, yutani_scale_direction_t d
 			if (direction == SCALE_AUTO) {
 				/* Determine the best direction to scale in based on simple 9-cell system. */
 				int32_t x, y;
-				device_to_window(yg->resizing_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+				yutani_device_to_window(yg->resizing_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
 
 				int h_d = 0;
 				int v_d = 0;
@@ -1944,7 +1690,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yg->mouse_moved = 0;
 					yg->mouse_drag_button = YUTANI_MOUSE_BUTTON_LEFT;
 					if (yg->mouse_window) {
-						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+						yutani_device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						yutani_msg_buildx_window_mouse_event_alloc(response);
 						yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_DOWN);
 						yg->mouse_click_x_orig = yg->mouse_click_x;
@@ -1956,7 +1702,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					yutani_server_window_t * tmp_window = top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 					if (yg->mouse_window) {
 						int32_t x, y;
-						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+						yutani_device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
 						yutani_msg_buildx_window_mouse_event_alloc(response);
 						yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
 						pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
@@ -1965,18 +1711,18 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 						int32_t x, y;
 						yutani_msg_buildx_window_mouse_event_alloc(response);
 						if (tmp_window != yg->old_hover_window) {
-							device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+							yutani_device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
 							yutani_msg_buildx_window_mouse_event(response, tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_ENTER);
 							pex_send(yg->server, tmp_window->owner, response->size, (char *)response);
 							if (yg->old_hover_window) {
-								device_to_window(yg->old_hover_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+								yutani_device_to_window(yg->old_hover_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
 								yutani_msg_buildx_window_mouse_event(response, yg->old_hover_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_LEAVE);
 								pex_send(yg->server, yg->old_hover_window->owner, response->size, (char *)response);
 							}
 							yg->old_hover_window = tmp_window;
 						}
 						if (tmp_window != yg->mouse_window) {
-							device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
+							yutani_device_to_window(tmp_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &x, &y);
 							yutani_msg_buildx_window_mouse_event(response, tmp_window->wid, x, y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_MOVE);
 							pex_send(yg->server, tmp_window->owner, response->size, (char *)response);
 						}
@@ -2060,7 +1806,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					int32_t old_x = yg->mouse_click_x_orig;
 					int32_t old_y = yg->mouse_click_y_orig;
 					if (yg->mouse_window) {
-						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+						yutani_device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						if (!yg->mouse_moved) {
 							yutani_msg_buildx_window_mouse_event_alloc(response);
 							yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, -1, -1, me->event.buttons, YUTANI_MOUSE_EVENT_CLICK);
@@ -2077,7 +1823,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					int32_t old_x = yg->mouse_click_x;
 					int32_t old_y = yg->mouse_click_y;
 					if (yg->mouse_window) {
-						device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
+						yutani_device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						if (old_x != yg->mouse_click_x || old_y != yg->mouse_click_y) {
 							yutani_msg_buildx_window_mouse_event_alloc(response);
 							yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_DRAG);
@@ -2093,8 +1839,8 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				int32_t relative_x, relative_y;
 				int32_t relative_init_x, relative_init_y;
 
-				device_to_window(yg->resizing_window, yg->mouse_init_x / MOUSE_SCALE, yg->mouse_init_y / MOUSE_SCALE, &relative_init_x, &relative_init_y);
-				device_to_window(yg->resizing_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &relative_x, &relative_y);
+				yutani_device_to_window(yg->resizing_window, yg->mouse_init_x / MOUSE_SCALE, yg->mouse_init_y / MOUSE_SCALE, &relative_init_x, &relative_init_y);
+				yutani_device_to_window(yg->resizing_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &relative_x, &relative_y);
 
 				int width_diff  = (relative_x - relative_init_x);
 				int height_diff = (relative_y - relative_init_y);
@@ -2158,11 +1904,11 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 						/* If the window is rotated, we need to move the center to be where the new center should be, but x/y are based on the unrotated upper left corner. */
 						/* The center always moves by one-half the resize dimensions */
 						int32_t center_x, center_y;
-						window_to_device(yg->resizing_window, yg->resizing_offset_x + yg->resizing_w / 2, yg->resizing_offset_y + yg->resizing_h / 2, &center_x, &center_y);
+						yutani_window_to_device(yg->resizing_window, yg->resizing_offset_x + yg->resizing_w / 2, yg->resizing_offset_y + yg->resizing_h / 2, &center_x, &center_y);
 						x = center_x - yg->resizing_w / 2;
 						y = center_y - yg->resizing_h / 2;
 					} else {
-						window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y, &x, &y);
+						yutani_window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y, &x, &y);
 					}
 					TRACE("resize complete, now %d x %d", yg->resizing_w, yg->resizing_h);
 					window_move(yg, yg->resizing_window, x,y);
@@ -2333,6 +2079,24 @@ int main(int argc, char * argv[]) {
 
 	yg->last_mouse_buttons = 0;
 	TRACE("Done.");
+
+	/* Try to load Cairo backend */
+	void * cairo = dlopen("libtoaru_ext_cairo_renderer.so", 0);
+	if (cairo) {
+		char * foo = malloc(40);
+		fprintf(stderr, "cairo = %p, foo = %p\n", cairo, foo);
+		renderer_alloc = dlsym(cairo, "renderer_alloc");
+		renderer_init = dlsym(cairo, "renderer_init");
+		renderer_add_clip = dlsym(cairo, "renderer_add_clip");
+		renderer_set_clip = dlsym(cairo, "renderer_set_clip");
+		renderer_push_state = dlsym(cairo, "renderer_push_state");
+		renderer_pop_state = dlsym(cairo, "renderer_pop_state");
+		renderer_destroy = dlsym(cairo, "renderer_destroy");
+		renderer_blit_window = dlsym(cairo, "renderer_blit_window");
+	}
+
+	if (renderer_alloc) renderer_alloc(yg);
+	if (renderer_init)  renderer_init(yg);
 
 	yutani_clip_init(yg);
 
@@ -2758,7 +2522,7 @@ int main(int argc, char * argv[]) {
 					if (w) {
 						if (yg->focused_window == w) {
 							int32_t x, y;
-							window_to_device(w, wa->x, wa->y, &x, &y);
+							yutani_window_to_device(w, wa->x, wa->y, &x, &y);
 
 							struct yutani_msg_mouse_event me;
 							me.event.x_difference = x;
