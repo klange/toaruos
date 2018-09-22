@@ -327,3 +327,4 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 endif
 
 ext-freetype: base/lib/libtoaru_ext_freetype_fonts.so
+ext-cairo: base/lib/libtoaru_ext_cairo_renderer.so
