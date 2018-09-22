@@ -2092,8 +2092,6 @@ int main(int argc, char * argv[]) {
 	/* Try to load Cairo backend */
 	void * cairo = dlopen("libtoaru_ext_cairo_renderer.so", 0);
 	if (cairo) {
-		char * foo = malloc(40);
-		fprintf(stderr, "cairo = %p, foo = %p\n", cairo, foo);
 		renderer_alloc = dlsym(cairo, "renderer_alloc");
 		renderer_init = dlsym(cairo, "renderer_init");
 		renderer_add_clip = dlsym(cairo, "renderer_add_clip");
