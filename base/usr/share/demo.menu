@@ -2,17 +2,17 @@
 &accessories,folder,Accessories
 &demos,folder,Demos
 -
-help-browser,help,Help Browser
-about,star,About ToaruOS
+exec help-browser,help,Help Browser
+exec about,star,About ToaruOS
 log-out,exit,Log Out
 :accessories
-file-browser,folder,File Browser
-terminal,utilities-terminal,Terminal
+exec file-browser,folder,File Browser
+exec terminal,utilities-terminal,Terminal
 :demos
 &decorated,folder,Decorated
 &undecorated,folder,Undecorated
 :undecorated
-drawlines,drawlines,Draw Lines
+exec drawlines,drawlines,Draw Lines
 :decorated
-julia,julia,Julia Fractals
-plasma,plasma,Plasma
+exec julia,julia,Julia Fractals
+exec plasma,plasma,Plasma
