@@ -1,10 +1,15 @@
 #include <math.h>
+#include <stdio.h>
+
+//#define MATH do { fprintf(stderr, "Executed math function %s\n", __func__); } while (0)
+#define MATH (void)0
 
 double exp(double x) {
-	return __builtin_exp(x);
+	return pow(2.71828182846, x);
 }
 
 double floor(double x) {
+	MATH;
 	if (x > -1.0 && x < 1.0) {
 		if (x >= 0) {
 			return 0.0;
@@ -27,6 +32,7 @@ int abs(int j) {
 }
 
 double pow(double x, double y) {
+	MATH;
 	double out;
 	asm volatile (
 		"fyl2x;"
@@ -47,10 +53,12 @@ double pow(double x, double y) {
 }
 
 double fabs(double x) {
+	MATH;
 	return __builtin_fabs(x);
 }
 
 double fmod(double x, double y) {
+	MATH;
 	if (x >= 0.0) {
 		while (x > y) {
 			x -= y;
@@ -62,6 +70,7 @@ double fmod(double x, double y) {
 }
 
 double sqrt(double x) {
+	MATH;
 	return __builtin_sqrt(x);
 }
 
@@ -430,6 +439,7 @@ static double bad_sine_table[] = {
 };
 
 double sin(double x) {
+	MATH;
 	if (x < 0.0) {
 		x += 3.141592654 * 2.0 * 100.0;
 	}
@@ -445,20 +455,21 @@ double cos(double x) {
 }
 
 double tan(double x) {
+	MATH;
 	float out;
-	float one;
 	float _x = x;
 	asm volatile (
-		"fld %2\n"
+		"fld %1\n"
 		"fptan\n"
-		"fstp %1\n"
+		"fincstp\n"
 		"fstp %0\n"
-		: "=m"(out), "=m"(one) : "m"(_x)
+		: "=m"(out) : "m"(_x)
 	);
 	return out;
 }
 
 double atan2(double y, double x) {
+	MATH;
 	float out;
 	float _x = x;
 	float _y = y;
