@@ -117,6 +117,10 @@ Once freetype is built and installed to `base/usr`, `make ext-freetype` will bui
 
 With fonts available, the build scripts will build larger ramdisks to accomodate the additional files. The font server will automatically run on startup if a GUI boot target is selected, and the Terminal will automatically use the Freetype backend if it loads.
 
+#### Cairo / Pixman
+
+The compositor can use Cairo for rendering, which improves performance over the naïve in-house SSE-accelerated blitter.
+
 ## Backwards Compatibility Notes
 
 No ABI or API compatibility is guaranteed through the development of ToaruOS-NIH. Until a larger corpus of third-party software is ported to our new C library, APIs may change to improve or simplify library use, or to fix bugs. Even kernel ABI compatibility is not guaranteed as system calls are improved or made more compliant with expectations of POSIX or the C standard.
