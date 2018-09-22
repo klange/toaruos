@@ -679,7 +679,7 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		(ke->event.keycode == 't') &&
 		(ke->event.action == KEY_ACTION_DOWN)) {
 
-		launch_application("terminal");
+		launch_application("exec terminal");
 		return;
 	}
 

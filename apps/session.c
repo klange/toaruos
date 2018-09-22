@@ -16,6 +16,17 @@
 #include <sys/wait.h>
 
 int main(int argc, char * argv[]) {
+
+	char path[1024];
+	char * home = getenv("HOME");
+	if (home) {
+		sprintf(path, "%s/.yutanirc", home);
+		char * args[] = {path, NULL};
+		execvp(args[0], args);
+	}
+
+	/* Fallback */
+
 	int _background_pid = fork();
 	if (!_background_pid) {
 		char * args[] = {"/bin/background", "--really", NULL};

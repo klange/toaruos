@@ -1,0 +1,5 @@
+#!/bin/sh
+
+if stat -Lq /usr/share/fonts/DejaVuSansMono.ttf then export FREETYPE_PROPERTIES="truetype:interpreter-version=35"
+background --really &
+exec panel --really
