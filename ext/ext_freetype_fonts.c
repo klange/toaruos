@@ -81,11 +81,15 @@ static void _load_fonts() {
 	_load_font_f(FONT_SYMBOLA, "/usr/share/fonts/Symbola.ttf");
 }
 
-void set_font_face(int font) {
+void freetype_set_font_face(int font) {
 	selected_face = font;
 }
 
-void set_font_size(int size) {
+static int _old_size = -1;
+
+void freetype_set_font_size(int size) {
+	if (size == _old_size) return;
+	_old_size = size;
 	for (int i = 0; i < FONTS_TOTAL; ++i) {
 		FT_Set_Pixel_Sizes(faces[i], size, size);
 	}
@@ -107,7 +111,54 @@ static void draw_char(FT_Bitmap * bitmap, int x, int y, uint32_t fg, gfx_context
 	}
 }
 
-void draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
+void freetype_draw_char(gfx_context_t * ctx, int x, int y, uint32_t fg, uint32_t o) {
+	int pen_x = x, pen_y = y;
+	int error;
+	slot = faces[selected_face]->glyph;
+	FT_UInt glyph_index;
+
+	glyph_index = FT_Get_Char_Index( faces[selected_face], o);
+	if (glyph_index) {
+		error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
+		if (error) {
+			fprintf(stderr, "Error loading glyph for '%lu'\n", o);
+			return;
+		}
+		slot = (faces[selected_face])->glyph;
+		if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+			error = FT_Render_Glyph((faces[selected_face])->glyph, FT_RENDER_MODE_NORMAL);
+			if (error) {
+				fprintf(stderr, "Error rendering glyph for '%lu'\n", o);
+				return;
+			}
+		}
+	} else {
+		int i = 0;
+		while (!glyph_index && fallbacks[i] != -1) {
+			int fallback = fallbacks[i++];
+			glyph_index = FT_Get_Char_Index( faces[fallback], o);
+			error = FT_Load_Glyph(faces[fallback], glyph_index, FT_LOAD_DEFAULT);
+			if (error) {
+				fprintf(stderr, "Error loading glyph for '%lu'\n", o);
+				return;
+			}
+			slot = (faces[fallback])->glyph;
+			if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+				error = FT_Render_Glyph((faces[fallback])->glyph, FT_RENDER_MODE_NORMAL);
+				if (error) {
+					fprintf(stderr, "Error rendering glyph for '%lu'\n", o);
+					return;
+				}
+			}
+		}
+
+	}
+
+	draw_char(&slot->bitmap, pen_x + slot->bitmap_left, pen_y - slot->bitmap_top, fg, ctx);
+
+}
+
+void freetype_draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
 	slot = faces[selected_face]->glyph;
 	int pen_x = x, pen_y = y;
 	int error;

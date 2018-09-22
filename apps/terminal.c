@@ -115,7 +115,7 @@ static bool _free_size     = 1;    /* Disable rounding when resized */
 /** Freetype extension renderer functions */
 static void (*freetype_set_font_face)(int face) = NULL;
 static void (*freetype_set_font_size)(int size) = NULL;
-static void (*freetype_draw_string)(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) = NULL;
+static void (*freetype_draw_char)(gfx_context_t * ctx, int x, int y, uint32_t fg, uint32_t codepoint) = NULL;
 
 static list_t * images_list = NULL;
 
@@ -779,13 +779,13 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
-				term_set_point(x+j,y+i,premultiply(_bg));
+				term_set_point(x+j,y+i,_bg);
 			}
 		}
 		if (flags & ANSI_WIDE) {
 			for (uint8_t i = 0; i < char_height; ++i) {
 				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
-					term_set_point(x+j,y+i,premultiply(_bg));
+					term_set_point(x+j,y+i,_bg);
 				}
 			}
 		}
@@ -807,12 +807,10 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 		}
 		freetype_set_font_face(_font);
 		freetype_set_font_size(font_size);
-		char tmp[8];
-		to_eight(val, tmp);
 		if (_no_frame) {
-			freetype_draw_string(ctx, x, y + char_offset, _fg, tmp);
+			freetype_draw_char(ctx, x, y + char_offset, _fg, val);
 		} else {
-			freetype_draw_string(ctx, x + decor_left_width, y + char_offset + decor_top_height + menu_bar_height, _fg, tmp);
+			freetype_draw_char(ctx, x + decor_left_width, y + char_offset + decor_top_height + menu_bar_height, _fg, val);
 		}
 	} else {
 		/* Convert other unicode characters. */
@@ -2235,9 +2233,9 @@ int main(int argc, char ** argv) {
 		void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
 		if (freetype) {
 			_have_freetype = 1;
-			freetype_set_font_face = dlsym(freetype, "set_font_face");
-			freetype_set_font_size = dlsym(freetype, "set_font_size");
-			freetype_draw_string   = dlsym(freetype, "draw_string");
+			freetype_set_font_face = dlsym(freetype, "freetype_set_font_face");
+			freetype_set_font_size = dlsym(freetype, "freetype_set_font_size");
+			freetype_draw_char   = dlsym(freetype, "freetype_draw_char");
 		}
 	}
 
