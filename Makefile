@@ -17,6 +17,8 @@ endif
 # Disable built-in rules
 .SUFFIXES:
 
+all: image.iso
+
 TARGET_TRIPLET=i686-pc-toaru
 
 # Userspace flags
@@ -26,24 +28,36 @@ AR=$(TARGET_TRIPLET)-ar
 AS=$(TARGET_TRIPLET)-as
 CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
 
+##
+# C library objects from libc/ C sources (and setjmp, which is assembly)
 LIBC_OBJS  = $(patsubst %.c,%.o,$(wildcard libc/*.c))
 LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))
 LIBC_OBJS += libc/setjmp.o
 LC=base/lib/libc.so
 
+##
+#  APPS      = C sources from apps/
+#  APPS_X    = binaries
+#  APPS_Y    = generated makefiles for binaries (except init)
+#  APPS_SH   = shell scripts to copy to base/bin/ and mark executable
+#  APPS_SH_X = destinations for shell scripts
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
 APPS_X=$(foreach app,$(APPS),base/bin/$(app))
 APPS_Y=$(foreach app,$(filter-out init,$(APPS)),.make/$(app).mak)
 APPS_SH=$(patsubst apps/%.sh,%.sh,$(wildcard apps/*.sh))
 APPS_SH_X=$(foreach app,$(APPS_SH),base/bin/$(app))
 
+##
+# LIBS   = C sources from lib/
+# LIBS_X = Shared libraries (.so)
+# LIBS_Y = Generated makefiles for libraries
 LIBS=$(patsubst lib/%.c,%,$(wildcard lib/*.c))
 LIBS_X=$(foreach lib,$(LIBS),base/lib/libtoaru_$(lib).so)
 LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
+##
+# Files that must be present in the ramdisk (apps, libraries)
 RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
-
-all: image.iso
 
 # Kernel / module flags
 
@@ -60,10 +74,14 @@ KCFLAGS += -D_KERNEL_
 KCFLAGS += -DKERNEL_GIT_TAG=$(shell util/make-version)
 KASFLAGS = --32
 
+##
+# Kernel objects from kernel/ C sources
 KERNEL_OBJS = $(patsubst %.c,%.o,$(wildcard kernel/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
 
+##
+# Kernel objects from kernel/ assembly sources
 KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
 
 # Kernel
@@ -71,6 +89,14 @@ KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard ker
 fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
 
+##
+# Symbol table for the kernel. Instead of relying on getting
+# the symbol table from our bootloader (eg. through ELF
+# headers provided via multiboot structure), we have a dedicated
+# object that build with all the symbols. This allows us to
+# build the kernel as a flat binary or load it with less-capable
+# multiboot loaders and still get symbols, which we need to
+# load kernel modules and link them properly.
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 	-rm -f kernel/symbols.o
 	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o .toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc
@@ -78,6 +104,9 @@ kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 	${KAS} ${KASFLAGS} kernel/symbols.S -o $@
 	-rm -f .toaruos-kernel
 
+##
+# version.o should be rebuilt whenever the kernel changes
+# in order to get fresh git commit hash information.
 kernel/sys/version.o: kernel/*/*.c kernel/*.c
 
 kernel/%.o: kernel/%.S
@@ -91,8 +120,9 @@ kernel/%.o: kernel/%.c ${HEADERS}
 fatbase/mod:
 	@mkdir -p $@
 
+##
+# Modules need to be installed on the boot image
 MODULES = $(patsubst modules/%.c,fatbase/mod/%.ko,$(wildcard modules/*.c))
-
 HEADERS = $(shell find base/usr/include/kernel -type f -name '*.h')
 
 fatbase/mod/%.ko: modules/%.c ${HEADERS} | fatbase/mod
@@ -203,12 +233,22 @@ image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-ext
 
 # Boot loader
 
+##
+# FAT EFI payload
+# This is the filesystem the EFI loaders see, so it must contain
+# the kernel, modules, and ramdisk, plus anything else we want
+# available to the bootloader (eg., netinit).
 cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi util/mkdisk.sh
 	util/mkdisk.sh $@ fatbase
 
+##
+# For EFI, we build two laoders: ia32 and x64
+# We build them as ELF shared objects and the use objcopy to convert
+# them to PE executables / DLLs (as expected by EFI).
 EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -mno-red-zone
 EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
 
+# ia32
 boot/efi.so: boot/cstuff.c boot/*.h
 	$(CC) ${EFI_CFLAGS} -I /usr/include/efi/ia32 -c -o boot/efi.o $<
 	$(LD) boot/efi.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -lefi -lgnuefi -o boot/efi.so
@@ -216,6 +256,7 @@ boot/efi.so: boot/cstuff.c boot/*.h
 fatbase/efi/boot/bootia32.efi: boot/efi.so
 	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 $< $@
 
+# x64
 boot/efi64.so: boot/cstuff.c boot/*.h
 	gcc ${EFI_CFLAGS} -I /usr/include/efi/x86_64 -DEFI_FUNCTION_WRAPPER -c -o boot/efi64.o $<
 	$(LD) boot/efi64.o /usr/lib/crt0-efi-x86_64.o -nostdlib -znocombreloc -T /usr/lib/elf_x86_64_efi.lds -shared -Bsymbolic -L /usr/lib -lefi -lgnuefi -o boot/efi64.so
@@ -223,6 +264,7 @@ boot/efi64.so: boot/cstuff.c boot/*.h
 fatbase/efi/boot/bootx64.efi: boot/efi64.so
 	objcopy ${EFI_SECTIONS} --target=efi-app-x86_64 $< $@
 
+# BIOS loader
 cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
@@ -291,6 +333,7 @@ efi64: image.iso
 	qemu-system-x86_64 -cdrom $< ${QEMU_ARGS} \
 	  -bios /usr/share/qemu/OVMF.fd
 
+
 VMNAME=ToaruOS-NIH CD
 
 define virtualbox-runner =
@@ -309,12 +352,13 @@ $(eval $(call virtualbox-runner,virtualbox,"Other",))
 $(eval $(call virtualbox-runner,virtualbox-efi,"Other",--firmware efi))
 $(eval $(call virtualbox-runner,virtualbox-efi64,"Other_64",--firmware efi))
 
+##
 # Optional Extensions
 #
-#    These optional extension libraries require third-party components to build,
-#    but allow the native applications to make use of functionality such as
-#    TrueType fonts or PNG images. You must have the necessary elements to build
-#    these already installed into your sysroot for this to work.
+# These optional extension libraries require third-party components to build,
+# but allow the native applications to make use of functionality such as
+# TrueType fonts or PNG images. You must have the necessary elements to build
+# these already installed into your sysroot for this to work.
 EXT_LIBS=$(patsubst ext/%.c,%,$(wildcard ext/*.c))
 EXT_LIBS_X=$(foreach lib,$(EXT_LIBS),base/lib/libtoaru_$(lib).so)
 EXT_LIBS_Y=$(foreach lib,$(EXT_LIBS),.make/$(lib).elmak)
@@ -326,5 +370,8 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${EXT_LIBS_Y}
 endif
 
+# Freetype: Terminal text rendering backend
 ext-freetype: base/lib/libtoaru_ext_freetype_fonts.so
+
+# Cairo: Compositor rendering backend
 ext-cairo: base/lib/libtoaru_ext_cairo_renderer.so
