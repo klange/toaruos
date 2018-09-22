@@ -144,7 +144,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 		return 0;
 	}
 
-	char state = process_is_ready(proc) ? 'R' : 'S';
+	char state = proc->finished ? 'Z' : (process_is_ready(proc) ? 'R' : 'S');
 	char * name = proc->name + strlen(proc->name) - 1;
 
 	while (1) {
@@ -175,6 +175,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"SC2:\t0x%x\n"
 			"SC3:\t0x%x\n"
 			"SC4:\t0x%x\n"
+			"UserStack:\t0x%x\n"
 			"Path:\t%s\n"
 			"VmSize:\t %d kB\n"
 			"RssShmem:\t %d kB\n"
@@ -193,6 +194,7 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			proc->syscall_registers ? proc->syscall_registers->edx : 0,
 			proc->syscall_registers ? proc->syscall_registers->esi : 0,
 			proc->syscall_registers ? proc->syscall_registers->edi : 0,
+			proc->syscall_registers ? proc->syscall_registers->useresp : 0,
 			proc->cmdline ? proc->cmdline[0] : "(none)",
 			mem_usage, shm_usage, mem_permille
 			);
