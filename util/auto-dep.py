@@ -39,6 +39,7 @@ class Classifier(object):
     }
 
     def __init__(self, filename):
+        self.export_dynamic_hint = False
         self.filename  = filename
         self.includes, self.libs = self._depends()
 
@@ -75,6 +76,8 @@ class Classifier(object):
         for l in lines:
             if l.startswith('#include'):
                 depends.extend([k for k in list(self.dependency_hints.keys()) if l.startswith('#include ' + k)])
+            elif l.startswith('/* auto-dep: export-dynamic */'):
+                self.export_dynamic_hint = True
         depends = self._calculate([], depends)
         depends = self._sort(depends)
         includes  = []
@@ -124,13 +127,14 @@ if __name__ == "__main__":
         order_only = [x[1] for x in results if x[0]]
         print(" ".join(normal) + " | " + " ".join(order_only))
     elif command == "--make":
-        print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {includes} -o $@ $< {libraries}".format(
+        print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {extra} {includes} -o $@ $< {libraries}".format(
             app=os.path.basename(filename).replace(".c",""),
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
             libraryfiles=" ".join([todep(x)[1] for x in c.libs]),
             libraries=" ".join([x for x in c.libs]),
-            includes=" ".join([x for x in c.includes if x is not None])
+            includes=" ".join([x for x in c.includes if x is not None]),
+            extra="-Wl,--export-dynamic" if c.export_dynamic_hint else "",
             ))
     elif command == "--makelib":
         libname = os.path.basename(filename).replace(".c","")
