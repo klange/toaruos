@@ -13,12 +13,16 @@
 struct cairo_renderer {
 	cairo_t * framebuffer_ctx;
 	cairo_surface_t * framebuffer_surface;
+	cairo_t * real_ctx;
+	cairo_surface_t * real_surface;
 };
 
 int renderer_alloc(yutani_globals_t * yg) {
 	struct cairo_renderer * c = malloc(sizeof(struct cairo_renderer));
 	c->framebuffer_ctx = NULL;
 	c->framebuffer_surface = NULL;
+	c->real_ctx = NULL;
+	c->real_surface = NULL;
 	yg->renderer_ctx = c;
 	return 0;
 }
@@ -31,30 +35,42 @@ int renderer_init(yutani_globals_t * yg) {
 			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 	c->framebuffer_ctx = cairo_create(c->framebuffer_surface);
 
+	c->real_surface = cairo_image_surface_create_for_data(
+			(unsigned char *)yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, yg->stride);
+	c->real_ctx = cairo_create(c->real_surface);
+
 	return 0;
 }
 
 int renderer_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
 	struct cairo_renderer * c = yg->renderer_ctx;
 	cairo_rectangle(c->framebuffer_ctx, x, y, w, h);
+	if (yg->width > 2490) {
+		x = 0;
+		w = yg->width;
+	}
+	cairo_rectangle(c->real_ctx, x, y, w, h);
 	return 0;
 }
 
 int renderer_set_clip(yutani_globals_t * yg) {
 	struct cairo_renderer * c = yg->renderer_ctx;
 	cairo_clip(c->framebuffer_ctx);
+	cairo_clip(c->real_ctx);
 	return 0;
 }
 
 int renderer_push_state(yutani_globals_t * yg) {
 	struct cairo_renderer * c = yg->renderer_ctx;
 	cairo_save(c->framebuffer_ctx);
+	cairo_save(c->real_ctx);
 	return 0;
 }
 
 int renderer_pop_state(yutani_globals_t * yg) {
 	struct cairo_renderer * c = yg->renderer_ctx;
 	cairo_restore(c->framebuffer_ctx);
+	cairo_restore(c->real_ctx);
 	return 0;
 }
 
@@ -62,9 +78,19 @@ int renderer_destroy(yutani_globals_t * yg) {
 	struct cairo_renderer * c = yg->renderer_ctx;
 	cairo_destroy(c->framebuffer_ctx);
 	cairo_surface_destroy(c->framebuffer_surface);
+	cairo_destroy(c->real_ctx);
+	cairo_surface_destroy(c->real_surface);
 	return 0;
 }
 
+int renderer_blit_screen(yutani_globals_t * yg) {
+	struct cairo_renderer * c = yg->renderer_ctx;
+	cairo_set_operator(c->real_ctx, CAIRO_OPERATOR_SOURCE);
+	cairo_translate(c->real_ctx, 0, 0);
+	cairo_set_source_surface(c->real_ctx, c->framebuffer_surface, 0, 0);
+	cairo_paint(c->real_ctx);
+	return 0;
+}
 
 int renderer_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
 	/* Obtain the previously initialized cairo contexts */

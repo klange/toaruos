@@ -66,6 +66,7 @@ static int (*renderer_push_state)(yutani_globals_t * yg) = NULL;
 static int (*renderer_pop_state)(yutani_globals_t * yg) = NULL;
 static int (*renderer_destroy)(yutani_globals_t * yg) = NULL;
 static int (*renderer_blit_window)(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y);
+static int (*renderer_blit_screen)(yutani_globals_t * yg) = NULL;
 
 /**
  * Print usage information.
@@ -982,7 +983,11 @@ static void redraw_windows(yutani_globals_t * yg) {
 #endif
 
 		if (yutani_options.nested) {
-			flip(yg->backend_ctx);
+			if (renderer_blit_screen) {
+				renderer_blit_screen(yg);
+			} else {
+				flip(yg->backend_ctx);
+			}
 			/*
 			 * We should be able to flip only the places we need to flip, but
 			 * instead we're going to flip the whole thing.
@@ -1012,7 +1017,11 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 * Flip the updated areas. This minimizes writes to video memory,
 			 * which is very important on real hardware where these writes are slow.
 			 */
-			flip(yg->backend_ctx);
+			if (renderer_blit_screen) {
+				renderer_blit_screen(yg);
+			} else {
+				flip(yg->backend_ctx);
+			}
 		}
 
 		if (!renderer_add_clip) gfx_clear_clip(yg->backend_ctx);
@@ -2093,6 +2102,7 @@ int main(int argc, char * argv[]) {
 		renderer_pop_state = dlsym(cairo, "renderer_pop_state");
 		renderer_destroy = dlsym(cairo, "renderer_destroy");
 		renderer_blit_window = dlsym(cairo, "renderer_blit_window");
+		renderer_blit_screen = dlsym(cairo, "renderer_blit_screen");
 	}
 
 	if (renderer_alloc) renderer_alloc(yg);
