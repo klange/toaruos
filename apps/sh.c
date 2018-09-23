@@ -384,6 +384,7 @@ void tab_complete_func(rline_context_t * c) {
 #define COMPLETE_CUSTOM  3
 #define COMPLETE_VARIABLE 4
 	int complete_mode = COMPLETE_FILE;
+	int with_dollar = 0;
 
 	int command_adj = 0;
 	int cursor_adj = cursor;
@@ -403,10 +404,14 @@ void tab_complete_func(rline_context_t * c) {
 		complete_mode = COMPLETE_CUSTOM;
 	}
 
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "unset")) {
+		complete_mode = COMPLETE_VARIABLE;
+	}
 
 	/* complete variable names */
 	if (*prefix == '$') {
 		complete_mode = COMPLETE_VARIABLE;
+		with_dollar = 1;
 	}
 
 	if (complete_mode == COMPLETE_COMMAND) {
@@ -502,9 +507,9 @@ void tab_complete_func(rline_context_t * c) {
 			char * tmp = strdup(*envvar);
 			char * c = strchr(tmp, '=');
 			*c = '\0';
-			if (strstr(tmp, prefix+1) == tmp) {
-				char * m = malloc(strlen(tmp)+2);
-				sprintf(m, "$%s", tmp);
+			if (strstr(tmp, prefix+with_dollar) == tmp) {
+				char * m = malloc(strlen(tmp)+1+with_dollar);
+				sprintf(m, "%s%s", with_dollar ? "$" : "", tmp);
 				list_insert(matches, m);
 				match = m;
 			}
