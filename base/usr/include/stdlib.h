@@ -18,6 +18,7 @@ extern int abs(int j);
 
 extern int putenv(char * name);
 extern int setenv(const char *name, const char *value, int overwrite);
+extern int unsetenv(const char * str);
 
 extern double strtod(const char *nptr, char **endptr);
 extern double atof(const char * nptr);

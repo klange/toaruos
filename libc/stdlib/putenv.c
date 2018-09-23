@@ -14,6 +14,36 @@ static int why_no_strnstr(char * a, char * b, int n) {
 	return 0;
 }
 
+int unsetenv(const char * str) {
+	int last_index = -1;
+	int found_index = -1;
+	int len = strlen(str);
+
+	for (int i = 0; environ[i]; ++i) {
+		if (found_index == -1 && (strstr(environ[i], str) == environ[i] && environ[i][len] == '=')) {
+			found_index = i;
+		}
+		last_index = i;
+	}
+
+	if (found_index == -1) {
+		/* not found = success */
+		return 0;
+	}
+
+	if (last_index == found_index) {
+		/* Was last element */
+		environ[last_index] = NULL;
+		return 0;
+	}
+
+	/* Was not last element, swap ordering */
+	environ[found_index] = environ[last_index];
+	environ[last_index] = NULL;
+	return 0;
+}
+
+
 int putenv(char * string) {
 	char name[strlen(string)];
 	strcpy(name, string);
@@ -27,7 +57,7 @@ int putenv(char * string) {
 
 	int i;
 	for (i = 0; i < (_environ_size - 1) && environ[i]; ++i) {
-		if (!why_no_strnstr(name, environ[i], s)) {
+		if (!why_no_strnstr(name, environ[i], s) && environ[i][s] == '=') {
 			environ[i] = string;
 			return 0;
 		}

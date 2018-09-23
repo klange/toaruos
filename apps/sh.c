@@ -1646,7 +1646,15 @@ uint32_t shell_cmd_not(int argc, char * argv[]) {
 	child = 0;
 	tcsetpgrp(STDIN_FILENO, getpid());
 	return !ret_code;
+}
 
+uint32_t shell_cmd_unset(int argc, char * argv[]) {
+	if (argc < 2) {
+		fprintf(stderr, "%s: expected command argument\n", argv[0]);
+		return 1;
+	}
+
+	return unsetenv(argv[1]);
 }
 
 void install_commands() {
@@ -1668,4 +1676,5 @@ void install_commands() {
 	shell_install_command("source",  shell_cmd_source, "run a shell script in the context of this shell");
 	shell_install_command("exec",    shell_cmd_exec, "replace shell (or subshell) with command");
 	shell_install_command("not",     shell_cmd_not, "invert status of command");
+	shell_install_command("unset",   shell_cmd_unset, "unset variable");
 }
