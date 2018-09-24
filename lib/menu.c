@@ -78,7 +78,7 @@ static int draw_string(gfx_context_t * ctx, int x, int y, uint32_t color, const 
 	if (_have_freetype) {
 		freetype_set_font_face(0); /* regular non-monospace */
 		freetype_set_font_size(13);
-		return freetype_draw_string(ctx, x, y + 13 /* I think? */, color, s);
+		return freetype_draw_string(ctx, x+2, y + 13 /* I think? */, color, s);
 	} else {
 		return draw_sdf_string(ctx, x, y, s, 16, color, SDF_FONT_THIN);
 	}
