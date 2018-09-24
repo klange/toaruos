@@ -158,7 +158,7 @@ void freetype_draw_char(gfx_context_t * ctx, int x, int y, uint32_t fg, uint32_t
 
 }
 
-void freetype_draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
+int freetype_draw_string(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string) {
 	slot = faces[selected_face]->glyph;
 	int pen_x = x, pen_y = y;
 	int error;
@@ -227,6 +227,61 @@ finished:
 		pen_x += slot->advance.x >> 6;
 		pen_y += slot->advance.y >> 6;
 	}
+	return pen_x - x;
+}
+
+int freetype_draw_string_width(char * string) {
+	slot = faces[selected_face]->glyph;
+	int pen_x = 0;
+	int error;
+
+	uint8_t * s = (uint8_t *)string;
+
+	uint32_t codepoint;
+	uint32_t state = 0;
+
+	while (*s) {
+		uint32_t o = 0;
+		while (*s) {
+			if (!decode(&state, &codepoint, (uint8_t)*s)) {
+				o = (uint32_t)codepoint;
+				s++;
+				goto finished_width;
+			} else if (state == UTF8_REJECT) {
+				state = 0;
+			}
+			s++;
+		}
+
+finished_width:
+		if (!o) continue;
+
+		FT_UInt glyph_index;
+
+		glyph_index = FT_Get_Char_Index( faces[selected_face], o);
+		if (glyph_index) {
+			error = FT_Load_Glyph(faces[selected_face], glyph_index, FT_LOAD_DEFAULT);
+			if (error) {
+				fprintf(stderr, "Error loading glyph for '%lu'\n", o);
+				continue;
+			}
+			slot = (faces[selected_face])->glyph;
+		} else {
+			int i = 0;
+			while (!glyph_index && fallbacks[i] != -1) {
+				int fallback = fallbacks[i++];
+				glyph_index = FT_Get_Char_Index( faces[fallback], o);
+				error = FT_Load_Glyph(faces[fallback], glyph_index, FT_LOAD_DEFAULT);
+				if (error) {
+					fprintf(stderr, "Error loading glyph for '%lu'\n", o);
+					continue;
+				}
+				slot = (faces[fallback])->glyph;
+			}
+		}
+		pen_x += slot->advance.x >> 6;
+	}
+	return pen_x;
 }
 
 __attribute__((constructor)) static void init_lib(void) {
