@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <sys/types.h>
+#include <dlfcn.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -39,13 +40,48 @@ static struct MenuList * hovered_menu = NULL;
 
 int menu_definitely_close(struct MenuList * menu);
 
+/** Freetype extension renderer functions */
+static int _have_freetype = 0;
+static void (*freetype_set_font_face)(int face) = NULL;
+static void (*freetype_set_font_size)(int size) = NULL;
+static int (*freetype_draw_string)(gfx_context_t * ctx, int x, int y, uint32_t fg, const char * s) = NULL;
+static int (*freetype_draw_string_width)(char * s) = NULL;
+
 __attribute__((constructor))
 static void _init_menus(void) {
 	menu_windows = hashmap_create_int(10);
+	void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
+	if (freetype) {
+		_have_freetype = 1;
+		freetype_set_font_face = dlsym(freetype, "freetype_set_font_face");
+		freetype_set_font_size = dlsym(freetype, "freetype_set_font_size");
+		freetype_draw_string   = dlsym(freetype, "freetype_draw_string");
+		freetype_draw_string_width = dlsym(freetype, "freetype_draw_string_width");
+	}
 }
 
 hashmap_t * menu_get_windows_hash(void) {
 	return menu_windows;
+}
+
+static int string_width(const char * s) {
+	if (_have_freetype) {
+		freetype_set_font_face(0); /* regular non-monospace */
+		freetype_set_font_size(13);
+		return freetype_draw_string_width((char *)s);
+	} else {
+		return draw_sdf_string_width((char *)s, 16, SDF_FONT_THIN);
+	}
+}
+
+static int draw_string(gfx_context_t * ctx, int x, int y, uint32_t color, const char * s) {
+	if (_have_freetype) {
+		freetype_set_font_face(0); /* regular non-monospace */
+		freetype_set_font_size(13);
+		return freetype_draw_string(ctx, x, y + 13 /* I think? */, color, s);
+	} else {
+		return draw_sdf_string(ctx, x, y, s, 16, color, SDF_FONT_THIN);
+	}
 }
 
 void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
@@ -80,7 +116,7 @@ void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, i
 	uint32_t color = _self->hilight ? rgb(255,255,255) : rgb(0,0,0);
 
 	/* Draw title */
-	draw_sdf_string(ctx, 22, offset + 1, _self->title, 16, color, SDF_FONT_THIN);
+	draw_string(ctx, 22, offset + 1, color, _self->title);
 }
 
 void _menu_focus_MenuEntry_Normal(struct MenuEntry * self, int focused) {
@@ -130,7 +166,7 @@ struct MenuEntry * menu_create_normal(const char * icon, const char * action, co
 	out->action = action ? strdup(action) : NULL;
 	out->callback = callback;
 
-	out->rwidth = 50 + draw_sdf_string_width(out->title, 16, SDF_FONT_THIN);
+	out->rwidth = 50 + string_width(out->title);
 
 	return (struct MenuEntry *)out;
 }
@@ -195,7 +231,7 @@ struct MenuEntry * menu_create_submenu(const char * icon, const char * action, c
 	out->title = strdup(title);
 	out->action = action ? strdup(action) : NULL;
 
-	out->rwidth = 50 + draw_sdf_string_width(out->title, 16, SDF_FONT_THIN);
+	out->rwidth = 50 + string_width(out->title);
 
 	return (struct MenuEntry *)out;
 }
@@ -241,14 +277,14 @@ void menu_update_title(struct MenuEntry * self, char * new_title) {
 			free((void*)_self->title);
 		}
 		_self->title = strdup(new_title);
-		_self->rwidth = 50 + draw_sdf_string_width(_self->title, 16, SDF_FONT_THIN);
+		_self->rwidth = 50 + string_width(_self->title);
 	} else if (self->_type == MenuEntry_Submenu) {
 		struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
 		if (_self->title) {
 			free((void*)_self->title);
 		}
 		_self->title = strdup(new_title);
-		_self->rwidth = 50 + draw_sdf_string_width(_self->title, 16, SDF_FONT_THIN);
+		_self->rwidth = 50 + string_width(_self->title);
 	}
 }
 
@@ -839,7 +875,7 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 		_entries = self->entries;
 	}
 	while (_entries->title) {
-		int w = draw_sdf_string_width(_entries->title, 16, SDF_FONT_THIN) + 10;
+		int w = string_width(_entries->title) + 10;
 		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)self->active_menu_wid)) && _entries == self->active_entry) {
 			for (int y = _y; y < _y + MENU_BAR_HEIGHT; ++y) {
 				for (int x = offset + 2; x < offset + 2 + w; ++x) {
@@ -847,7 +883,7 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 				}
 			}
 		}
-		offset += draw_sdf_string(ctx, offset + 4, _y + 2, _entries->title, 16, rgb(255,255,255), SDF_FONT_THIN) + 10;
+		offset += draw_string(ctx, offset + 4, _y + 2, 0xFFFFFFFF, _entries->title) + 10;
 		_entries++;
 	}
 }
@@ -862,7 +898,7 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 		struct menu_bar_entries * e = self->entries;
 		while (e->title) {
 			if (e == _entries) break;
-			offset += draw_sdf_string_width(e->title, 16, SDF_FONT_THIN) + 10;
+			offset += string_width(e->title) + 10;
 			e++;
 			i++;
 		}
@@ -897,7 +933,7 @@ int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_
 	struct menu_bar_entries * _entries = self->entries;
 
 	while (_entries->title) {
-		int w = draw_sdf_string_width(_entries->title, 16, SDF_FONT_THIN) + 10;
+		int w = string_width(_entries->title) + 10;
 		if (x >= offset && x < offset + w) {
 			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
 				menu_bar_show_menu(yctx, window, self,offset,_entries);
