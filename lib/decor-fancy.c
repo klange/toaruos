@@ -9,6 +9,7 @@
  * many years ago.
  */
 #include <stdint.h>
+#include <dlfcn.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -31,6 +32,12 @@ static sprite_t * sprites[20];
 
 #define TEXT_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 10)
 #define BUTTON_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 0)
+
+static int _have_freetype = 0;
+static void (*freetype_set_font_face)(int face) = NULL;
+static void (*freetype_set_font_size)(int size) = NULL;
+static int (*freetype_draw_string)(gfx_context_t * ctx, int x, int y, uint32_t fg, const char * s) = NULL;
+static int (*freetype_draw_string_width)(char * s) = NULL;
 
 static void init_sprite(int id, char * path) {
 	sprites[id] = malloc(sizeof(sprite_t));
@@ -116,21 +123,33 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	char * tmp_title = strdup(title);
 	int t_l = strlen(tmp_title);
 
-#define EXTRA_SPACE 40
+#define EXTRA_SPACE 120
 
-	if (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width) {
-		while (t_l >= 0 && (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width)) {
-			tmp_title[t_l] = '\0';
-			t_l--;
+	uint32_t title_color = (decors_active == 0) ? rgb(226,226,226) : rgb(147,147,147);
+	if (_have_freetype) {
+		freetype_set_font_face(1); /* regular non-monospace */
+		freetype_set_font_size(12);
+		if (freetype_draw_string_width(tmp_title) + EXTRA_SPACE > width) {
+			while (t_l >= 0 && (freetype_draw_string_width(tmp_title) + EXTRA_SPACE > width)) {
+				tmp_title[t_l] = '\0';
+				t_l--;
+			}
 		}
-	}
+		if (*tmp_title) {
+			int title_offset = (width / 2) - (freetype_draw_string_width(tmp_title) / 2);
+			freetype_draw_string(ctx, title_offset, TEXT_OFFSET + 14, title_color, tmp_title);
+		}
+	} else {
+		if (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width) {
+			while (t_l >= 0 && (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width)) {
+				tmp_title[t_l] = '\0';
+				t_l--;
+			}
+		}
 
-	if (strlen(tmp_title)) {
-		int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) / 2);
-		if (decors_active == 0) {
-			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(226,226,226), SDF_FONT_BOLD);
-		} else {
-			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, rgb(147,147,147), SDF_FONT_BOLD);
+		if (*tmp_title) {
+			int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) / 2);
+			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, title_color, SDF_FONT_BOLD);
 		}
 	}
 
@@ -185,5 +204,14 @@ void decor_init() {
 	decor_render_decorations = render_decorations_fancy;
 	decor_check_button_press = check_button_press_fancy;
 	decor_get_bounds = get_bounds_fancy;
+
+	void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
+	if (freetype) {
+		_have_freetype = 1;
+		freetype_set_font_face = dlsym(freetype, "freetype_set_font_face");
+		freetype_set_font_size = dlsym(freetype, "freetype_set_font_size");
+		freetype_draw_string   = dlsym(freetype, "freetype_draw_string");
+		freetype_draw_string_width = dlsym(freetype, "freetype_draw_string_width");
+	}
 }
 
