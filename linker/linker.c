@@ -163,14 +163,12 @@ static elf_t * open_object(const char * path) {
 
 	/* If no path (eg. dlopen(NULL)), return the main object (the executable). */
 	if (!path) {
-		_main_obj->loaded = 1;
 		return _main_obj;
 	}
 
 	/* If we've already opened a file with this name, return it - don't load things twice. */
 	if (hashmap_has(objects_map, (void*)path)) {
 		elf_t * object = hashmap_get(objects_map, (void*)path);
-		object->loaded = 1;
 		return object;
 	}
 
@@ -592,18 +590,19 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 	node_t * item;
 	while ((item = list_pop(lib->dependencies))) {
 
-		elf_t * lib = open_object(item->value);
+		elf_t * _lib = open_object(item->value);
 
-		if (!lib) {
+		if (!_lib) {
 			/* Missing dependencies are fatal to this process, but
 			 * not to the entire application. */
 			free((void *)load_addr);
 			last_error = "Failed to load a dependency.";
+			lib->loaded = 0;
 			return NULL;
 		}
 
-		if (!lib->loaded) {
-			do_actual_load(item->value, lib, 0);
+		if (!_lib->loaded) {
+			do_actual_load(item->value, _lib, 0);
 			TRACE_LD("Loaded %s at 0x%x", item->value, lib->base);
 		}
 
@@ -637,6 +636,8 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 		lib->init();
 	}
 
+	lib->loaded = 1;
+
 	/* And return an object for the loaded library */
 	return (void *)lib;
 }
@@ -656,6 +657,11 @@ static void * dlopen_ld(const char * filename, int flags) {
 	}
 
 	void * ret = do_actual_load(filename, lib, flags);
+	if (!ret) {
+		/* Dependency load failure, remove us from hash */
+		hashmap_remove(objects_map, (void*)filename);
+	}
+
 	TRACE_LD("Loaded %s at 0x%x", filename, lib->base);
 	return ret;
 }
@@ -782,6 +788,8 @@ int main(int argc, char * argv[]) {
 			list_insert(init_libs, lib);
 		}
 
+		lib->loaded = 1;
+
 nope:
 		free(item);
 	}
@@ -834,6 +842,8 @@ nope:
 	if (main_obj->init) {
 		main_obj->init();
 	}
+
+	main_obj->loaded = 1;
 
 	/* Move heap start (kind of like a weird sbrk) */
 	{
