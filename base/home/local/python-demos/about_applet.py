@@ -24,6 +24,8 @@ class AboutAppletWindow(yutani.Window):
         super(AboutAppletWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=title, icon=icon, doublebuffer=True)
         self.move(int((yutani.yutani_ctx._ptr.contents.display_width-self.width)/2),int((yutani.yutani_ctx._ptr.contents.display_height-self.height)/2))
         self.decorator = decorator
+        if logo.endswith('.png'):
+            logo = logo.replace('.png','.bmp') # Hope that works
         self.logo = yutani.Sprite.from_file(logo).get_cairo_surface()
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF, 13, 0xFF000000)
         self.tr = text_region.TextRegion(0,0,self.base_width-30,self.base_height-self.text_offset,font=self.font)
