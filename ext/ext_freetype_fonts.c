@@ -34,6 +34,7 @@ static FT_Library   library;
 static FT_Face      faces[FONTS_TOTAL]; /* perhaps make this an array ? */
 static FT_GlyphSlot slot;
 static int selected_face = 0;
+static int _font_size = 12;
 static int fallbacks[] = {FONT_JAPANESE, FONT_SYMBOLA, -1};
 
 #define SGFX(CTX,x,y,WIDTH) *((uint32_t *)&CTX[((WIDTH) * (y) + (x)) * 4])
@@ -85,11 +86,8 @@ void freetype_set_font_face(int font) {
 	selected_face = font;
 }
 
-static int _old_size = -1;
-
 void freetype_set_font_size(int size) {
-	if (size == _old_size) return;
-	_old_size = size;
+	_font_size = size;
 	for (int i = 0; i < FONTS_TOTAL; ++i) {
 		FT_Set_Pixel_Sizes(faces[i], size, size);
 	}
@@ -288,4 +286,44 @@ __attribute__((constructor)) static void init_lib(void) {
 	FT_Init_FreeType(&library);
 	_load_fonts();
 	selected_face = FONT_SANS_SERIF;
+}
+
+char * freetype_font_name(int i) {
+	return ((FT_FaceRec *)faces[i])->family_name;
+}
+
+FT_Face freetype_get_active_font_face(void) {
+	return faces[selected_face];
+}
+
+void freetype_draw_string_shadow(gfx_context_t * ctx, int x, int y, uint32_t fg, char * string, uint32_t shadow_color, int darkness, int offset_x, int offset_y, double radius) {
+#define OFFSET_X  5
+#define OFFSET_Y  5
+#define WIDTH_PAD 15
+#define HEIGHT_PAD 15
+
+	gfx_context_t * out_c;
+	sprite_t * out_s;
+
+	size_t width = freetype_draw_string_width(string) + WIDTH_PAD;
+	size_t height = _font_size + HEIGHT_PAD;
+
+	out_s = create_sprite(width, height, ALPHA_EMBEDDED);
+	out_c = init_graphics_sprite(out_s);
+
+	draw_fill(out_c, rgba(0,0,0,0));
+	freetype_draw_string(out_c, OFFSET_X + offset_x, OFFSET_Y + offset_y + _font_size, shadow_color, string);
+
+	/* Two should work okay? */
+	blur_context_box(out_c, radius);
+	blur_context_box(out_c, radius);
+
+	freetype_draw_string(out_c, OFFSET_X, OFFSET_Y + _font_size, fg, string);
+
+	for (int i = 0; i < darkness; ++i) {
+		draw_sprite(ctx, out_s, x - OFFSET_X, y - OFFSET_Y - _font_size);
+	}
+
+	sprite_free(out_s);
+	free(out_c);
 }
