@@ -497,13 +497,11 @@ page_fault(
 				size_t d;
 				if (a <= r->eip) {
 					d = r->eip - a;
-				} else {
-					d = a - r->eip;
-				}
-				if (d < distance) {
-					closest = key;
-					distance = d;
-					addr = a;
+					if (d < distance) {
+						closest = key;
+						distance = d;
+						addr = a;
+					}
 				}
 			}
 			free(hash_keys);
