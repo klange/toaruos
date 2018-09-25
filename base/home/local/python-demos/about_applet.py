@@ -37,10 +37,10 @@ class AboutAppletWindow(yutani.Window):
     def draw(self):
         surface = self.get_cairo_surface()
 
-        WIDTH, HEIGHT = self.width - self.decorator.width(), self.height - self.decorator.height()
+        WIDTH, HEIGHT = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         ctx = cairo.Context(surface)
-        ctx.translate(self.decorator.left_width(), self.decorator.top_height())
+        ctx.translate(self.decorator.left_width(self), self.decorator.top_height(self))
         ctx.rectangle(0,0,WIDTH,HEIGHT)
         ctx.set_source_rgb(204/255,204/255,204/255)
         ctx.fill()
@@ -49,7 +49,7 @@ class AboutAppletWindow(yutani.Window):
         ctx.paint()
 
         self.tr.resize(WIDTH-30,HEIGHT-self.text_offset)
-        self.tr.move(self.decorator.left_width() + 15,self.decorator.top_height()+self.text_offset)
+        self.tr.move(self.decorator.left_width(self) + 15,self.decorator.top_height(self)+self.text_offset)
         self.tr.draw(self)
 
         self.decorator.render(self)
@@ -72,8 +72,8 @@ class AboutAppletWindow(yutani.Window):
         if self.decorator.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
             self.close_window()
             return
-        x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        x,y = msg.new_x - self.decorator.left_width(self), msg.new_y - self.decorator.top_height(self)
+        w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
     def keyboard_event(self, msg):
         if msg.event.key == b"q":

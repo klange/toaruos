@@ -159,7 +159,7 @@ class FileBrowserWindow(yutani.Window):
     def redraw_buf(self,icons=None):
         if self.buf:
             self.buf.destroy()
-        w = self.width - self.decorator.width()
+        w = self.width - self.decorator.width(self)
         files_per_row = int(w / 100)
         self.buf = yutani.GraphicsBuffer(w,math.ceil(len(self.files)/files_per_row)*100)
 
@@ -196,10 +196,10 @@ class FileBrowserWindow(yutani.Window):
     def draw(self):
         surface = self.get_cairo_surface()
 
-        WIDTH, HEIGHT = self.width - self.decorator.width(), self.height - self.decorator.height()
+        WIDTH, HEIGHT = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         ctx = cairo.Context(surface)
-        ctx.translate(self.decorator.left_width(), self.decorator.top_height())
+        ctx.translate(self.decorator.left_width(self), self.decorator.top_height(self))
         ctx.rectangle(0,0,WIDTH,HEIGHT)
         ctx.set_source_rgb(1,1,1)
         ctx.fill()
@@ -229,7 +229,7 @@ class FileBrowserWindow(yutani.Window):
         self.flip()
 
     def scroll(self, amount):
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
         files_per_row = int(w / 100)
         rows_total = math.ceil(len(self.files) / files_per_row)
         rows_visible = int((h - 24) / 100)
@@ -245,8 +245,8 @@ class FileBrowserWindow(yutani.Window):
         if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
             window.close()
             sys.exit(0)
-        x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        x,y = msg.new_x - self.decorator.left_width(self), msg.new_y - self.decorator.top_height(self)
+        w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         if x >= 0 and x < w and y >= 0 and y < self.menubar.height:
             self.menubar.mouse_event(msg, x, y)

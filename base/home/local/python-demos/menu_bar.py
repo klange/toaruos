@@ -67,12 +67,12 @@ class MenuBarWidget(object):
             w = self.font.width(title) + 10
             if x >= offset and x < offset + w:
                 if msg.command == yutani.MouseEvent.CLICK or close_enough(msg):
-                    menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width()+offset,self.window.y+self.window.decorator.top_height()+self.height),root=self.window)
+                    menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width(self.window)+offset,self.window.y+self.window.decorator.top_height(self.window)+self.height),root=self.window)
                     self.active_menu = menu
                     self.active_entry = e
                 elif self.active_menu and self.active_menu in self.window.menus.values() and e != self.active_entry:
                     self.active_menu.definitely_close()
-                    menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width()+offset,self.window.y+self.window.decorator.top_height()+self.height),root=self.window)
+                    menu = MenuWindow(menu,(self.window.x+self.window.decorator.left_width(self.window)+offset,self.window.y+self.window.decorator.top_height(self.window)+self.height),root=self.window)
                     self.active_menu = menu
                     self.active_entry = e
                     self.window.draw()
