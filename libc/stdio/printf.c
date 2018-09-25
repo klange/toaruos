@@ -146,6 +146,10 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 			big = 1;
 			++f;
 		}
+		if (*f == 'z') {
+			big = 1;
+			++f;
+		}
 		/* fmt[i] == '%' */
 		switch (*f) {
 			case 's': /* String pointer -> String */
