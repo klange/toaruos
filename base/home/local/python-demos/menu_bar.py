@@ -7,7 +7,7 @@ import math
 import yutani
 import text_region
 import toaru_fonts
-#from icon_cache import get_icon
+from icon_cache import get_icon
 
 menu_windows = {}
 
@@ -96,7 +96,7 @@ class MenuEntryAction(object):
 
     def __init__(self, title, icon, action=None, data=None, rich=False):
         self.title = title
-        self.icon = None #get_icon(icon,16) if icon else None
+        self.icon = get_icon(icon,16) if icon else None
         self.action = action
         self.data = data
         self.font = toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,13,0xFF000000)
