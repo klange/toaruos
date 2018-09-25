@@ -329,8 +329,10 @@ class Yutani(object):
         global yutani_lib
         global yutani_ctx
         global yutani_gfx_lib
-        yutani_lib = CDLL("libtoaru_yutani.so")
-        yutani_gfx_lib = CDLL("libtoaru_graphics.so")
+        if not yutani_lib:
+            yutani_lib = CDLL("libtoaru_yutani.so")
+        if not yutani_gfx_lib:
+            yutani_gfx_lib = CDLL("libtoaru_graphics.so")
         self._ptr = cast(yutani_lib.yutani_init(), POINTER(self._yutani_t))
         if not self._ptr:
             raise ConnectionRefusedError("Could not connect to compositor.")
@@ -446,6 +448,58 @@ class CursorType(object):
     RESIZE_HORIZONTAL = 4
     RESIZE_UP_DOWN    = 5
     RESIZE_DOWN_UP    = 6
+
+class Sprite(object):
+    class _sprite_t(Structure):
+        _fields_ = [
+            ('width',  c_uint16),
+            ('height', c_uint16),
+            ('bitmap', POINTER(c_char)),
+            ('masks',  POINTER(c_char)),
+            ('blank',  c_uint32),
+            ('alpha',  c_uint8),
+        ]
+
+    @property
+    def width(self):
+        return self._ptr.contents.width
+
+    @property
+    def height(self):
+        return self._ptr.contents.height
+
+    @property
+    def buffer(self):
+        return self._ptr.contents.bitmap
+
+    def get_cairo_surface(self):
+        class Derp(object):
+            pass
+        self._gfx = Derp()
+        self._gfx.contents = Derp()
+        self._gfx.contents.backbuffer = self._ptr.contents.bitmap
+        self._cairo_surface = Window.get_cairo_surface(self)
+        return self._cairo_surface
+
+    def from_file(path):
+        global yutani_gfx_lib
+        if not yutani_gfx_lib:
+            yutani_gfx_lib = CDLL("libtoaru_graphics.so")
+        s = Sprite()
+        s._contents = create_string_buffer(sizeof(Sprite._sprite_t))
+        s._ptr = cast(addressof(s._contents), POINTER(Sprite._sprite_t))
+        yutani_gfx_lib.load_sprite.argtypes = [c_void_p, c_char_p]
+        yutani_gfx_lib.load_sprite(s._ptr, path.encode('utf-8'))
+        return s
+
+    def create(width, height):
+        s = Sprite()
+        s._ptr = yutani_gfx_lib.create_sprite(width, height)
+        return s
+
+    def free(self):
+        yutani_gfx_lib.sprite_free(self._ptr)
+
 
 class GraphicsBuffer(object):
     """Generic buffer for rendering."""
