@@ -17,7 +17,6 @@ def handle_event(msg):
                     if window.root and not window.root.menus and window.root.focused:
                         window.root.focused = 0
                         window.root.draw()
-            if False: pass
             elif msg.focused == 0 and 'menus' in dir(window) and window.menus:
                 window.focused = 1
                 window.draw()
@@ -47,7 +46,6 @@ def handle_event(msg):
                     else:
                         window.root.hovered_menu = None
                 window.mouse_action(msg)
-            if False: pass
             elif 'mouse_event' in dir(window):
                 window.mouse_event(msg)
     msg.free()
