@@ -242,9 +242,12 @@ class FileBrowserWindow(yutani.Window):
             self.scroll_y = -100 * rows
 
     def mouse_event(self, msg):
-        if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
+        decor_event = d.handle_event(msg)
+        if decor_event == yutani.Decor.EVENT_CLOSE:
             window.close()
             sys.exit(0)
+        elif decor_event == yutani.Decor.EVENT_RIGHT:
+            d.show_menu(self, msg)
         x,y = msg.new_x - self.decorator.left_width(self), msg.new_y - self.decorator.top_height(self)
         w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 

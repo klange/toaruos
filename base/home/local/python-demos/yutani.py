@@ -10,6 +10,7 @@ import importlib
 yutani_lib = None
 yutani_gfx_lib = None
 yutani_ctx = None
+yutani_menu_lib = None
 yutani_windows = {}
 
 _cairo_lib = None
@@ -329,15 +330,21 @@ class Yutani(object):
         global yutani_lib
         global yutani_ctx
         global yutani_gfx_lib
+        global yutani_menu_lib
         if not yutani_lib:
             yutani_lib = CDLL("libtoaru_yutani.so")
         if not yutani_gfx_lib:
             yutani_gfx_lib = CDLL("libtoaru_graphics.so")
+        if not yutani_menu_lib:
+            yutani_menu_lib = CDLL("libtoaru_menu.so")
         self._ptr = cast(yutani_lib.yutani_init(), POINTER(self._yutani_t))
         if not self._ptr:
             raise ConnectionRefusedError("Could not connect to compositor.")
         yutani_ctx = self
         self._fileno = _libc.fileno(self._ptr.contents.sock)
+
+    def process_menus(self, event):
+        return yutani_menu_lib.menu_process_event(self._ptr, event._ptr)
 
     def poll(self, sync=True):
         """Poll for an event message."""
@@ -533,6 +540,11 @@ class Window(object):
             ("bufid", c_uint32),
             ("focused", c_uint8),
             ("oldbufid", c_uint32),
+            ("userdata", c_void_p),
+            ("x", c_int32),
+            ("y", c_int32),
+            ("decorator_flags", c_uint32),
+            ("ctx", c_void_p),
         ]
 
     class _gfx_context_t(Structure):
@@ -669,6 +681,14 @@ class Window(object):
         yutani_lib.yutani_window_drag_start(yutani_ctx._ptr, self._ptr)
 
     @property
+    def x(self):
+        return self._ptr.contents.x
+
+    @property
+    def y(self):
+        return self._ptr.contents.y
+
+    @property
     def width(self):
         return self._ptr.contents.width
 
@@ -698,6 +718,8 @@ class Decor(object):
     EVENT_OTHER = 1
     EVENT_CLOSE = 2
     EVENT_RESIZE = 3
+    EVENT_MAXIMIZE = 4
+    EVENT_RIGHT = 5
 
     class decor_bound(Structure):
         _fields_ = [
@@ -763,6 +785,9 @@ class Decor(object):
     def handle_event(self, msg):
         """Let the decorator library handle an event. Usually passed mouse events."""
         return self.lib.decor_handle_event(yutani_ctx._ptr, msg._ptr)
+
+    def show_menu(self, window, event):
+        self.lib.decor_show_default_menu(window._ptr, window.x + event.new_x, window.y + event.new_y)
 
 # Demo follows.
 if __name__ == '__main__':

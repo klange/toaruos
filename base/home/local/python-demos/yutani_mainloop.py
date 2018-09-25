@@ -5,6 +5,12 @@ def handle_event(msg):
     if msg.type == yutani.Message.MSG_SESSION_END:
         msg.free()
         return False
+    elif msg.type == yutani.Message.MSG_WINDOW_CLOSE:
+        # TODO should actually send a close signal to the window
+        msg.free()
+        return False
+    elif yutani.yutani_ctx.process_menus(msg):
+        return True
     elif msg.type == yutani.Message.MSG_KEY_EVENT:
         if msg.wid in yutani.yutani_windows:
             yutani.yutani_windows[msg.wid].keyboard_event(msg)
@@ -33,9 +39,6 @@ def handle_event(msg):
             window = yutani.yutani_windows[msg.wid]
             if 'window_moved' in dir(window):
                 window.window_moved(msg)
-            else:
-                window.x = msg.x
-                window.y = msg.y
     elif msg.type == yutani.Message.MSG_WINDOW_MOUSE_EVENT:
         if msg.wid in yutani.yutani_windows:
             window = yutani.yutani_windows[msg.wid]

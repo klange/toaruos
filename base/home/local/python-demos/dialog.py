@@ -121,12 +121,15 @@ class DialogWindow(yutani.Window):
         self.flip()
 
     def mouse_event(self, msg):
-        if self.decorator.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
+        decor_event = self.decorator.handle_event(msg)
+        if decor_event == yutani.Decor.EVENT_CLOSE:
             if self.close_is_cancel:
                 self.cancel_click(None)
             else:
                 self.ok_click(None)
             return
+        elif decor_event == yutani.Decor.EVENT_RIGHT:
+            self.decorator.show_menu(self, msg)
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
 

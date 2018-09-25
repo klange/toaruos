@@ -294,9 +294,12 @@ class MinesWindow(yutani.Window):
         self.flip()
 
     def mouse_event(self, msg):
-        if d.handle_event(msg) == yutani.Decor.EVENT_CLOSE:
+        decor_event = d.handle_event(msg)
+        if decor_event == yutani.Decor.EVENT_CLOSE:
             window.close()
             sys.exit(0)
+        elif decor_event == yutani.Decor.EVENT_RIGHT:
+            d.show_menu(self, msg)
         x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
         w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
 

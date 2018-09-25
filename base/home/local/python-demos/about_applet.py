@@ -21,7 +21,7 @@ class AboutAppletWindow(yutani.Window):
     text_offset = 110
 
     def __init__(self, decorator, title, logo, text, icon="star",on_close=None):
-        super(AboutAppletWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=title, icon=icon, doublebuffer=True)
+        super(AboutAppletWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=title, flags=yutani.WindowFlag.FLAG_DISALLOW_RESIZE, icon=icon, doublebuffer=True)
         self.move(int((yutani.yutani_ctx._ptr.contents.display_width-self.width)/2),int((yutani.yutani_ctx._ptr.contents.display_height-self.height)/2))
         self.decorator = decorator
         if logo.endswith('.png'):
