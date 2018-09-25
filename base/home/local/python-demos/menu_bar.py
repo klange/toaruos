@@ -193,6 +193,23 @@ class MenuEntrySubmenu(MenuEntryAction):
     def __init__(self, title, entries, icon="folder"):
         super(MenuEntrySubmenu,self).__init__(title,icon,None,None)
         self.entries = entries
+        self.tick = get_icon('menu-tick', 16)
+        self.tick_hilight = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.tick.get_width(), self.tick.get_height())
+        tmp = cairo.Context(self.tick_hilight)
+        tmp.set_operator(cairo.OPERATOR_SOURCE)
+        tmp.set_source_surface(self.tick,0,0)
+        tmp.paint()
+        tmp.set_operator(cairo.OPERATOR_ATOP)
+        tmp.rectangle(0,0,16,16)
+        tmp.set_source_rgb(1,1,1)
+        tmp.paint()
+
+    def draw(self, window, offset, ctx):
+        super(MenuEntrySubmenu,self).draw(window, offset, ctx)
+        ctx.save()
+        ctx.set_source_surface(self.tick if not self.hilight else self.tick_hilight,window.width-16, self.offset + 2)
+        ctx.paint()
+        ctx.restore()
 
     def focus_enter(self,keyboard=False):
         self.tr.set_font(self.font_hilight)

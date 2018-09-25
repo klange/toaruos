@@ -20,7 +20,7 @@ import yutani_mainloop
 
 app_name = "Clock"
 version = "1.0.0"
-_description = f"<b>{app_name} {version}</b>\n© 2017 Kevin Lange\n\nAnalog clock widget.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
+_description = f"<b>{app_name} {version}</b>\n© 2017-2018 K. Lange\n\nAnalog clock widget.\n\n<color 0x0000FF>http://github.com/klange/toaruos</color>"
 
 class BasicWatchFace(object):
 
