@@ -12,6 +12,10 @@ yutani_gfx_lib = None
 yutani_ctx = None
 yutani_windows = {}
 
+_cairo_lib = None
+_cairo_module = None
+_cairo_module_lib = None
+
 _libc = CDLL('libc.so')
 
 def usleep(microseconds):
@@ -453,6 +457,9 @@ class GraphicsBuffer(object):
         self._sprite = yutani_gfx_lib.create_sprite(width,height,2)
         self._gfx = cast(yutani_gfx_lib.init_graphics_sprite(self._sprite),POINTER(Window._gfx_context_t))
 
+    def get_cairo_surface(self):
+        return Window.get_cairo_surface(self)
+
     def get_value(self,x,y):
         return cast(self._gfx.contents.backbuffer,POINTER(c_uint32))[self.width * y + x]
 
@@ -503,6 +510,39 @@ class Window(object):
             self.set_title(title, icon)
 
         self.closed = False
+
+    def get_cairo_surface(self):
+        """Obtain a pycairo.ImageSurface representing the window backbuffer."""
+        global _cairo_lib
+        global _cairo_module
+        global _cairo_module_lib
+        if not _cairo_lib:
+            _cairo_lib = CDLL('libcairo.so')
+            _cairo_module = importlib.import_module('_cairo')
+            _cairo_module_lib = CDLL(_cairo_module.__file__)
+        buffer = self._gfx.contents.backbuffer
+        width = self.width
+        height = self.height
+        format = _cairo_module.FORMAT_ARGB32
+        # int cairo_format_stride_for_width(cairo_format_t format, int width)
+        cfsfw = _cairo_lib.cairo_format_stride_for_width
+        cfsfw.argtypes = [c_int, c_int]
+        cfsfw.restype = c_int
+        # stride = cairo_format_stride_for_width(format, width)
+        stride = cfsfw(format, width)
+        # cairo_surface_t * cairo_image_surface_create_for_data(unsigned char * data, cairo_format_t format, int ...)
+        ciscfd = _cairo_lib.cairo_image_surface_create_for_data
+        ciscfd.argtypes = [POINTER(c_char), c_int, c_int, c_int, c_int]
+        ciscfd.restype = c_void_p
+        # surface = cairo_image_surface_create_for_data(buffer,format,width,height,stride)
+        surface = ciscfd(buffer,format,width,height,stride)
+        # PyObject * PycairoSurface_FromSurface(cairo_surface_t * surface, PyObject * base)
+        pcsfs = _cairo_module_lib.PycairoSurface_FromSurface
+        pcsfs.argtypes = [c_void_p, c_int]
+        pcsfs.restype = py_object
+        # return PycairoSurface_FromSurface(surface, NULL)
+        return pcsfs(surface, 0)
+
 
     def set_title(self, title, icon=None):
         """Advertise this window with the given title and optional icon string."""
