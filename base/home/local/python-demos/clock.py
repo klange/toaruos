@@ -259,7 +259,7 @@ class ClockWindow(yutani.Window):
         sys.exit(0)
 
     def about(self, data=None):
-        AboutAppletWindow(d,f"About {app_name}","/usr/share/icons/48/clock.png",_description,"clock")
+        AboutAppletWindow(d,f"About {app_name}","/usr/share/icons/48/clock.bmp",_description,"clock")
 
     def mouse_event(self, msg):
         # drag start
