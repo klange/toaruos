@@ -83,8 +83,6 @@ class FileBrowserWindow(yutani.Window):
     def __init__(self, decorator, path):
         super(FileBrowserWindow, self).__init__(self.base_width + decorator.width(), self.base_height + decorator.height(), title=app_name, icon="folder", doublebuffer=True)
         self.move(100,100)
-        self.x = 100
-        self.y = 100
         self.decorator = decorator
 
         def exit_app(action):

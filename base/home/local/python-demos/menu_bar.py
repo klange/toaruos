@@ -273,7 +273,6 @@ class MenuWindow(yutani.Window):
         self.move(*origin)
         self.focused_widget = None
         self.child = None
-        self.x, self.y = origin
         self.closed = False
         self.root = root
         self.root.menus[self.wid] = self
