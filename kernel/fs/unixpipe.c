@@ -53,10 +53,7 @@ static uint32_t write_unixpipe(fs_node_t * node, uint32_t offset, uint32_t size,
 	while (written < size) {
 		if (self->read_closed) {
 			/* SIGPIPE to current process */
-			signal_t * sig = malloc(sizeof(signal_t));
-			sig->handler = current_process->signals.functions[SIGPIPE];
-			sig->signum  = SIGPIPE;
-			handle_signal((process_t *)current_process, sig);
+			send_signal(getpid(), SIGPIPE);
 
 			return written;
 		}

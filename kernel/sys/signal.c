@@ -111,7 +111,7 @@ void handle_signal(process_t * proc, signal_t * sig) {
 		return;
 	}
 
-	debug_print(NOTICE, "handling signal in process %d (%d)", proc->id, signum);
+	debug_print(NOTICE, "handling signal in process %d (%d) (0x%x)", proc->id, signum, handler);
 
 	uintptr_t stack = 0xFFFF0000;
 	if (proc->syscall_registers->useresp < 0x10000100) {
@@ -129,7 +129,7 @@ list_t * rets_from_sig;
 
 void return_from_signal_handler(void) {
 #if 0
-	debug_print(INFO, "Return From Signal for process %d", current_process->id);
+	debug_print(ERROR, "Return From Signal for process %d", current_process->id);
 #endif
 
 	if (__builtin_expect(!rets_from_sig, 0)) {
@@ -163,9 +163,14 @@ void fix_signal_stacks(void) {
 			p->thread.esp = p->signal_state.esp;
 			p->thread.eip = p->signal_state.eip;
 			p->thread.ebp = p->signal_state.ebp;
-			memcpy((void *)(p->image.stack - KERNEL_STACK_SIZE), p->signal_kstack, KERNEL_STACK_SIZE);
-			free(p->signal_kstack);
-			p->signal_kstack = NULL;
+			if (!p->signal_kstack) {
+				debug_print(ERROR, "Cannot restore signal stack for pid=%d - unset?", p->id);
+			} else {
+				debug_print(ERROR, "Restoring signal stack for pid=%d", p->id);
+				memcpy((void *)(p->image.stack - KERNEL_STACK_SIZE), p->signal_kstack, KERNEL_STACK_SIZE);
+				free(p->signal_kstack);
+				p->signal_kstack = NULL;
+			}
 			make_process_ready(p);
 		}
 		spin_unlock(sig_lock_b);
@@ -215,12 +220,16 @@ int send_signal(pid_t process, uint32_t signal) {
 	if (receiver->node_waits) {
 		process_awaken_from_fswait(receiver, -1);
 	}
-
 	if (!process_is_ready(receiver)) {
 		make_process_ready(receiver);
 	}
 
 	list_insert(receiver->signal_queue, sig);
+
+	if (receiver == current_process) {
+		/* Forces us to be rescheduled and enter signal handler */
+		switch_next();
+	}
 
 	return 0;
 }

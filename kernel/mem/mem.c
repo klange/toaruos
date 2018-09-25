@@ -204,13 +204,6 @@ uint32_t first_frame(void) {
 		debug_video_crash(msgs);
 	}
 
-#if 0
-	signal_t * sig = malloc(sizeof(signal_t));
-	sig->handler = current_process->signals.functions[SIGSEGV];
-	sig->signum  = SIGSEGV;
-	handle_signal((process_t *)current_process, sig);
-#endif
-
 	STOP;
 
 	return -1;
@@ -529,11 +522,7 @@ page_fault(
 
 #endif
 
-	signal_t * sig = malloc(sizeof(signal_t));
-	sig->handler = current_process->signals.functions[SIGSEGV];
-	sig->signum  = SIGSEGV;
-	handle_signal((process_t *)current_process, sig);
-
+	send_signal(current_process->id, SIGSEGV);
 }
 
 /*
