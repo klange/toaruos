@@ -90,10 +90,10 @@ class DialogWindow(yutani.Window):
     def draw(self):
         surface = self.get_cairo_surface()
 
-        WIDTH, HEIGHT = self.width - self.decorator.width(), self.height - self.decorator.height()
+        WIDTH, HEIGHT = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         ctx = cairo.Context(surface)
-        ctx.translate(self.decorator.left_width(), self.decorator.top_height())
+        ctx.translate(self.decorator.left_width(self), self.decorator.top_height(self))
         ctx.rectangle(0,0,WIDTH,HEIGHT)
         ctx.set_source_rgb(204/255,204/255,204/255)
         ctx.fill()
@@ -102,7 +102,7 @@ class DialogWindow(yutani.Window):
         ctx.paint()
 
         self.tr.resize(WIDTH-90,HEIGHT-self.text_offset)
-        self.tr.move(self.decorator.left_width() + 90,self.decorator.top_height()+self.text_offset)
+        self.tr.move(self.decorator.left_width(self) + 90,self.decorator.top_height(self)+self.text_offset)
         self.tr.draw(self)
 
         self.button_ok.draw(self,ctx,WIDTH-130,HEIGHT-60,100,30)
@@ -130,8 +130,8 @@ class DialogWindow(yutani.Window):
             return
         elif decor_event == yutani.Decor.EVENT_RIGHT:
             self.decorator.show_menu(self, msg)
-        x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        x,y = msg.new_x - self.decorator.left_width(self), msg.new_y - self.decorator.top_height(self)
+        w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         redraw = False
         if self.down_button:
@@ -335,10 +335,10 @@ class OpenFileDialog(DialogWindow):
     def draw(self):
         surface = self.get_cairo_surface()
 
-        WIDTH, HEIGHT = self.width - self.decorator.width(), self.height - self.decorator.height()
+        WIDTH, HEIGHT = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         ctx = cairo.Context(surface)
-        ctx.translate(self.decorator.left_width(), self.decorator.top_height())
+        ctx.translate(self.decorator.left_width(self), self.decorator.top_height(self))
         ctx.rectangle(0,0,WIDTH,HEIGHT)
         ctx.set_source_rgb(204/255,204/255,204/255)
         ctx.fill()
@@ -347,7 +347,7 @@ class OpenFileDialog(DialogWindow):
         #ctx.paint()
 
         self.tr.resize(WIDTH,30)
-        self.tr.move(self.decorator.left_width(),self.decorator.top_height()+10)
+        self.tr.move(self.decorator.left_width(self),self.decorator.top_height(self)+10)
         self.tr.set_alignment(2)
         self.tr.draw(self)
 
@@ -373,7 +373,7 @@ class OpenFileDialog(DialogWindow):
         self.flip()
 
     def scroll(self, amount):
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
         self.scroll_y += amount
         if self.scroll_y > 0:
             self.scroll_y = 0
@@ -385,8 +385,8 @@ class OpenFileDialog(DialogWindow):
     def mouse_event(self, msg):
         super(OpenFileDialog,self).mouse_event(msg)
 
-        x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        x,y = msg.new_x - self.decorator.left_width(self), msg.new_y - self.decorator.top_height(self)
+        w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
         if y < 0: return
         if x < 0 or x >= w: return
 

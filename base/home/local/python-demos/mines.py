@@ -129,7 +129,7 @@ class MinesWindow(yutani.Window):
 
         self.menubar = MenuBarWidget(self,menus)
 
-        self.tr = text_region.TextRegion(self.decorator.left_width()+5,self.decorator.top_height()+self.menubar.height,self.base_width-10,40)
+        self.tr = text_region.TextRegion(self.decorator.left_width(self)+5,self.decorator.top_height(self)+self.menubar.height,self.base_width-10,40)
         self.tr.set_font(toaru_fonts.Font(toaru_fonts.FONT_SANS_SERIF,18))
         self.tr.set_alignment(2)
         self.tr.set_valignment(2)
@@ -253,10 +253,10 @@ class MinesWindow(yutani.Window):
     def draw(self):
         surface = self.get_cairo_surface()
 
-        WIDTH, HEIGHT = self.width - self.decorator.width(), self.height - self.decorator.height()
+        WIDTH, HEIGHT = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         ctx = cairo.Context(surface)
-        ctx.translate(self.decorator.left_width(), self.decorator.top_height())
+        ctx.translate(self.decorator.left_width(self), self.decorator.top_height(self))
         ctx.rectangle(0,0,WIDTH,HEIGHT)
         ctx.set_source_rgb(204/255,204/255,204/255)
         ctx.fill()
@@ -300,8 +300,8 @@ class MinesWindow(yutani.Window):
             sys.exit(0)
         elif decor_event == yutani.Decor.EVENT_RIGHT:
             d.show_menu(self, msg)
-        x,y = msg.new_x - self.decorator.left_width(), msg.new_y - self.decorator.top_height()
-        w,h = self.width - self.decorator.width(), self.height - self.decorator.height()
+        x,y = msg.new_x - self.decorator.left_width(self), msg.new_y - self.decorator.top_height(self)
+        w,h = self.width - self.decorator.width(self), self.height - self.decorator.height(self)
 
         if x >= 0 and x < w and y >= 0 and y < self.menubar.height:
             self.menubar.mouse_event(msg, x, y)
