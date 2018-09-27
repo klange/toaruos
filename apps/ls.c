@@ -439,6 +439,11 @@ int main (int argc, char * argv[]) {
 			else p = argv[optind];
 		}
 
+		if (!files->length) {
+			/* No valid entries */
+			return out;
+		}
+
 		struct tfile ** file_arr = malloc(sizeof(struct tfile *) * files->length);
 		int index = 0;
 		foreach(node, files) {
