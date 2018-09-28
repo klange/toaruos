@@ -776,7 +776,7 @@ static int sys_shm_release(char * path) {
 }
 
 static int sys_kill(pid_t process, uint32_t signal) {
-	return send_signal(process, signal);
+	return send_signal(process, signal, 0);
 }
 
 static int sys_gettimeofday(struct timeval * tv, void * tz) {

@@ -102,7 +102,7 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 
 	if (pipe->dead) {
 		debug_print(WARNING, "Pipe is dead?");
-		send_signal(getpid(), SIGPIPE);
+		send_signal(getpid(), SIGPIPE, 1);
 		return 0;
 	}
 
@@ -146,7 +146,7 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 
 	if (pipe->dead) {
 		debug_print(WARNING, "Pipe is dead?");
-		send_signal(getpid(), SIGPIPE);
+		send_signal(getpid(), SIGPIPE, 1);
 		return 0;
 	}
 

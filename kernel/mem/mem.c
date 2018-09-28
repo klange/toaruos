@@ -522,7 +522,7 @@ page_fault(
 
 #endif
 
-	send_signal(current_process->id, SIGSEGV);
+	send_signal(current_process->id, SIGSEGV, 1);
 }
 
 /*

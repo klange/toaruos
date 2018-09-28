@@ -114,7 +114,7 @@ static void input_process(pty_t * pty, uint8_t c) {
 			}
 			clear_input_buffer(pty);
 			if (pty->fg_proc) {
-				send_signal(pty->fg_proc, SIGINT);
+				send_signal(pty->fg_proc, SIGINT, 1);
 			}
 			return;
 		}
@@ -126,7 +126,7 @@ static void input_process(pty_t * pty, uint8_t c) {
 			}
 			clear_input_buffer(pty);
 			if (pty->fg_proc) {
-				send_signal(pty->fg_proc, SIGQUIT);
+				send_signal(pty->fg_proc, SIGQUIT, 1);
 			}
 			return;
 		}

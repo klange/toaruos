@@ -183,7 +183,7 @@ void fix_signal_stacks(void) {
 	}
 }
 
-int send_signal(pid_t process, uint32_t signal) {
+int send_signal(pid_t process, uint32_t signal, int force_root) {
 	process_t * receiver = process_from_pid(process);
 
 	if (!receiver) {
@@ -191,7 +191,7 @@ int send_signal(pid_t process, uint32_t signal) {
 		return 1;
 	}
 
-	if (receiver->user != current_process->user && current_process->user != USER_ROOT_UID) {
+	if (!force_root && receiver->user != current_process->user && current_process->user != USER_ROOT_UID) {
 		/* No way in hell. */
 		return 1;
 	}

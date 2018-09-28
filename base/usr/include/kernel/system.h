@@ -223,7 +223,7 @@ typedef struct {
 
 extern void handle_signal(process_t *, signal_t *);
 
-extern int send_signal(pid_t process, uint32_t signal);
+extern int send_signal(pid_t process, uint32_t signal, int force);
 
 #define USER_STACK_BOTTOM 0xAFF00000
 #define USER_STACK_TOP    0xB0000000

@@ -47,7 +47,7 @@ void lfb_set_resolution(uint16_t x, uint16_t y) {
 	if (lfb_resolution_impl) {
 		lfb_resolution_impl(x,y);
 		if (display_change_recipient) {
-			send_signal(display_change_recipient, SIGWINEVENT);
+			send_signal(display_change_recipient, SIGWINEVENT, 1);
 			debug_print(WARNING, "Telling %d to SIGWINEVENT", display_change_recipient);
 		}
 	}
