@@ -3,7 +3,12 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2018 K. Lange
  *
- * Bochs VBE / QEMU vga=std Graphics Driver
+ * Generic linear framebuffer driver.
+ *
+ * Supports several cases:
+ *  - Bochs/QEMU/VirtualBox "Bochs VBE" with modesetting.
+ *  - VMware SVGA with modesetting.
+ *  - Linear framebuffers set by the bootloader with no modesetting.
  */
 
 #include <kernel/system.h>
@@ -274,45 +279,21 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 
 	lfb_resolution_impl = &res_change_bochs;
 
-	if (lfb_vid_memory) {
-		/* Enable the higher memory */
-		uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
-		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-			page_t * p = get_page(i, 1, kernel_directory);
-			dma_frame(p, 0, 1, i);
-			p->pat = 1;
-			p->writethrough = 1;
-			p->cachedisable = 1;
-		}
-
-		goto mem_found;
-	} else {
-		/* XXX: Massive hack */
-
-		uint32_t * text_vid_mem = (uint32_t *)0xA0000;
-		text_vid_mem[0] = 0xA5ADFACE;
-
-		for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
-			/* Enable the higher memory */
-			for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-				page_t * p = get_page(i, 1, kernel_directory);
-				dma_frame(p, 0, 1, i);
-				p->pat = 1;
-				p->writethrough = 1;
-				p->cachedisable = 1;
-			}
-
-			/* Go find it */
-			for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
-				if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-					lfb_vid_memory = (uint8_t *)x;
-					goto mem_found;
-				}
-			}
-		}
+	if (!lfb_vid_memory) {
+		debug_print(ERROR, "Failed to locate video memory.");
+		return;
 	}
 
-mem_found:
+	/* Enable the higher memory */
+	uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
+	for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
+		page_t * p = get_page(i, 1, kernel_directory);
+		dma_frame(p, 0, 1, i);
+		p->pat = 1;
+		p->writethrough = 1;
+		p->cachedisable = 1;
+	}
+
 	outports(0x1CE, 0x0a);
 	i = inports(0x1CF);
 	if (i > 1) {
@@ -330,79 +311,30 @@ mem_found:
 /* }}} end bochs support */
 
 static void graphics_install_preset(uint16_t w, uint16_t h) {
-	debug_print(NOTICE, "Graphics were pre-configured (thanks, bootloader!), locating video memory...");
 	uint16_t b = 32; /* If you are 24 bit, go away, we really do not support you. */
 	uint32_t s = 0;
 
-	if (mboot_ptr && (mboot_ptr->flags & (1 << 12))) {
-		/* hello world */
-		lfb_vid_memory = (void *)mboot_ptr->framebuffer_addr;
-		w = mboot_ptr->framebuffer_width;
-		h = mboot_ptr->framebuffer_height;
-		s = mboot_ptr->framebuffer_pitch;
-
-		debug_print(WARNING, "Mode was set by bootloader: %dx%d bpp should be 32, framebuffer is at 0x%x", w, h, (uintptr_t)lfb_vid_memory);
-
-		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
-			page_t * p = get_page(i, 1, kernel_directory);
-			dma_frame(p, 0, 1, i);
-			p->pat = 1;
-			p->writethrough = 1;
-			p->cachedisable = 1;
-		}
-		goto mem_found;
+	if (!(mboot_ptr && (mboot_ptr->flags & (1 << 12)))) {
+		debug_print(ERROR, "Failed to locate preset video memory - missing multiboot header.");
+		return;
 	}
 
-	/* XXX: Massive hack */
-	uint32_t * herp = (uint32_t *)0xA0000;
-	herp[0] = 0xA5ADFACE;
-	herp[1] = 0xFAF42943;
+	/* Extract framebuffer information from multiboot */
+	lfb_vid_memory = (void *)mboot_ptr->framebuffer_addr;
+	w = mboot_ptr->framebuffer_width;
+	h = mboot_ptr->framebuffer_height;
+	s = mboot_ptr->framebuffer_pitch;
 
-	if (lfb_vid_memory) {
-		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + 0xFF0000; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-		}
-		if (((uintptr_t *)lfb_vid_memory)[0] == 0xA5ADFACE && ((uintptr_t *)lfb_vid_memory)[1] == 0xFAF42943) {
-			debug_print(INFO, "Was able to locate video memory at 0x%x without dicking around.", lfb_vid_memory);
-			goto mem_found;
-		}
+	debug_print(WARNING, "Mode was set by bootloader: %dx%d bpp should be 32, framebuffer is at 0x%x", w, h, (uintptr_t)lfb_vid_memory);
+
+	for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
+		page_t * p = get_page(i, 1, kernel_directory);
+		dma_frame(p, 0, 1, i);
+		p->pat = 1;
+		p->writethrough = 1;
+		p->cachedisable = 1;
 	}
-
-	for (int i = 2; i < 1000; i += 2) {
-		herp[i]   = 0xFF00FF00;
-		herp[i+1] = 0x00FF00FF;
-	}
-
-	for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
-		/* Enable the higher memory */
-		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-			page_t * p = get_page(i, 1, kernel_directory);
-			dma_frame(p, 0, 1, i);
-			p->pat = 1;
-			p->writethrough = 1;
-			p->cachedisable = 1;
-		}
-
-		/* Go find it */
-		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
-			if (((uintptr_t *)x)[0] == 0xA5ADFACE && ((uintptr_t *)x)[1] == 0xFAF42943) {
-				lfb_vid_memory = (uint8_t *)x;
-				debug_print(INFO, "Had to futz around, but found video memory at 0x%x", lfb_vid_memory);
-				goto mem_found;
-			}
-		}
-	}
-
-	for (int i = 2; i < 1000; i += 2) {
-		herp[i]   = 0xFF00FF00;
-		herp[i+1] = 0xFF00FF00;
-	}
-
-	debug_print(WARNING, "Failed to locate video memory. This could end poorly.");
-
-mem_found:
 	finalize_graphics(w,h,b,s ? s : w * 4);
-
 }
 
 #define SVGA_IO_BASE (vmware_io)
@@ -456,7 +388,6 @@ static void vmware_set_mode(uint16_t w, uint16_t h) {
 }
 
 static void graphics_install_vmware(uint16_t w, uint16_t h) {
-	debug_print(WARNING, "Please note that the `vmware` display driver is experimental.");
 	pci_scan(vmware_scan_pci, -1, &vmware_io);
 
 	if (!vmware_io) {
@@ -543,7 +474,7 @@ static int init(void) {
 
 		if (!strcmp(argv[0], "auto")) {
 			/* Attempt autodetection */
-			debug_print(WARNING, "Autodetect is in beta, this may not work.");
+			debug_print(NOTICE, "Automatically detecting display driver...");
 			struct disp_mode mode = {x,y,0};
 			pci_scan(auto_scan_pci, -1, &mode);
 			if (!mode.set) {
@@ -552,10 +483,12 @@ static int init(void) {
 		} else if (!strcmp(argv[0], "qemu")) {
 			/* Bochs / Qemu Video Device */
 			graphics_install_bochs(x,y);
-		} else if (!strcmp(argv[0],"preset")) {
-			graphics_install_preset(x,y);
 		} else if (!strcmp(argv[0],"vmware")) {
+			/* VMware SVGA */
 			graphics_install_vmware(x,y);
+		} else if (!strcmp(argv[0],"preset")) {
+			/* Set by bootloader (UEFI) */
+			graphics_install_preset(x,y);
 		} else {
 			debug_print(WARNING, "Unrecognized video adapter: %s", argv[0]);
 		}
