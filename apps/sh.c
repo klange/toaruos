@@ -70,6 +70,8 @@ char ** shell_argv = NULL;
 int shell_argc = 0;
 int experimental_rline = 1;
 
+static int current_line = 0;
+static char * current_file = NULL;
 
 int pid; /* Process ID of the shell */
 
@@ -663,6 +665,36 @@ int is_number(const char * c) {
 	return 1;
 }
 
+/**
+ * Prints "Segmentation fault", etc.
+ */
+static void handle_status(int ret_code) {
+	if (WIFSIGNALED(ret_code)) {
+		char str[256] = {0};
+
+		switch (WTERMSIG(ret_code)) {
+			case SIGILL:
+				sprintf(str, "Illegal instruction");
+				break;
+			case SIGSEGV:
+				sprintf(str, "Segmentation fault");
+				break;
+			case SIGINT:
+				/* Do nothing */
+				return;
+			default:
+				sprintf(str, "Killed by unhandled signal %d",WTERMSIG(ret_code));
+				break;
+		}
+
+		if (shell_interactive == 1) {
+			fprintf(stderr, "%s\n", str);
+		} else if (shell_interactive == 2) {
+			fprintf(stderr, "%s: line %d: %s\n", current_file, current_line, str);
+		}
+	}
+}
+
 int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 
 	*out_buffer = NULL;
@@ -1122,7 +1154,8 @@ _nope:
 	tcsetpgrp(STDIN_FILENO, getpid());
 	free(cmd);
 
-	return ret_code;
+	handle_status(ret_code);
+	return WEXITSTATUS(ret_code);
 }
 
 void add_path_contents(char * path) {
@@ -1212,6 +1245,7 @@ void add_path(void) {
 }
 
 int run_script(FILE * f) {
+	current_line = 1;
 	while (!feof(f)) {
 		char buf[LINE_LEN] = {0};
 		fgets(buf, LINE_LEN, f);
@@ -1222,6 +1256,7 @@ int run_script(FILE * f) {
 			ret = shell_exec(b, LINE_LEN, f, &out);
 			b = out;
 		} while (b);
+		current_line++;
 		if (ret >= 0) last_ret = ret;
 	}
 
@@ -1241,6 +1276,7 @@ void source_eshrc(void) {
 	FILE * f = fopen(tmp, "r");
 	if (!f) return;
 
+	current_file = tmp;
 	run_script(f);
 }
 
@@ -1296,7 +1332,8 @@ int main(int argc, char ** argv) {
 		}
 
 		shell_argc = argc - 1;
-		shell_argv = &argv[1];
+		shell_argv = &argv[optind];
+		current_file = argv[optind];
 
 		return run_script(f);
 	}
@@ -1450,7 +1487,9 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 
 	child = 0;
 
-	if (ret_code == 0) {
+	handle_status(ret_code);
+
+	if (WEXITSTATUS(ret_code) == 0) {
 		shell_command_t func = shell_find(*then_args);
 		if (func) {
 			int argc = 0;
@@ -1470,7 +1509,8 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 			child = 0;
 			tcsetpgrp(STDIN_FILENO, getpid());
-			return ret_code;
+			handle_status(ret_code);
+			return WEXITSTATUS(ret_code);
 		}
 	} else if (else_args) {
 		shell_command_t func = shell_find(*else_args);
@@ -1491,7 +1531,8 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 				pid = waitpid(-1, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 			child = 0;
-			return ret_code;
+			handle_status(ret_code);
+			return WEXITSTATUS(ret_code);
 		}
 	}
 
@@ -1531,7 +1572,8 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		child = 0;
 
-		if (ret_code == 0) {
+		handle_status(ret_code);
+		if (WEXITSTATUS(ret_code) == 0) {
 			child_pid = fork();
 			if (!child_pid) {
 				run_cmd(do_args);
@@ -1542,7 +1584,7 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 			child = 0;
 		} else {
-			return ret_code;
+			return WEXITSTATUS(ret_code);
 		}
 	} while (!break_while);
 
@@ -1625,6 +1667,7 @@ uint32_t shell_cmd_source(int argc, char * argv[]) {
 		fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
 	}
 
+	current_file = argv[1];
 	return run_script(f);
 }
 
@@ -1650,7 +1693,8 @@ uint32_t shell_cmd_not(int argc, char * argv[]) {
 	} while (pid != -1 || (pid == -1 && errno != ECHILD));
 	child = 0;
 	tcsetpgrp(STDIN_FILENO, getpid());
-	return !ret_code;
+	handle_status(ret_code);
+	return !WEXITSTATUS(ret_code);
 }
 
 uint32_t shell_cmd_unset(int argc, char * argv[]) {

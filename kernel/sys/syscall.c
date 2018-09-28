@@ -53,7 +53,7 @@ void validate(void * ptr) {
  */
 static int __attribute__((noreturn)) sys_exit(int retval) {
 	/* Deschedule the current task */
-	task_exit(retval);
+	task_exit((retval & 0xFF) << 8);
 	for (;;) ;
 }
 

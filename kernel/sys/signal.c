@@ -97,7 +97,7 @@ void handle_signal(process_t * proc, signal_t * sig) {
 		char dowhat = isdeadly[signum];
 		if (dowhat == 1 || dowhat == 2) {
 			debug_print(WARNING, "Process %d killed by unhandled signal (%d)", proc->id, signum);
-			kexit(128 + signum);
+			kexit(((128 + signum) << 8) | signum);
 			__builtin_unreachable();
 		} else {
 			debug_print(WARNING, "Ignoring signal %d by default in pid %d", signum, proc->id);

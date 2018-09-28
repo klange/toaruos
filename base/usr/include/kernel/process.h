@@ -12,7 +12,7 @@
 
 typedef signed int    pid_t;
 typedef unsigned int  user_t;
-typedef unsigned char status_t;
+typedef unsigned int  status_t;
 
 #define USER_ROOT_UID (user_t)0
 

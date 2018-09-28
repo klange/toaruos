@@ -26,8 +26,7 @@ void halt_and_catch_fire(char * error_message, const char * file, int line, stru
 		debug_print(ERROR, "User ESP:   0x%x",  regs->useresp);
 		debug_print(ERROR, "eip=0x%x",          regs->eip);
 	}
-	debug_print(ERROR, "This process has been descheduled.");
-	kexit(1);
+	send_signal(current_process->id, SIGILL);
 }
 
 char * probable_function_name(uintptr_t ip, uintptr_t * out_addr) {

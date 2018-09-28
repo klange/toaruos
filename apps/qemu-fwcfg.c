@@ -17,6 +17,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <signal.h>
 
 #define FW_CFG_PORT_OUT 0x510
 #define FW_CFG_PORT_IN  0x511
@@ -68,6 +69,10 @@ static int usage(char * argv[]) {
 	return 1;
 }
 
+static void sig_pass(int sig) {
+	exit(1);
+}
+
 int main(int argc, char * argv[]) {
 
 	uint32_t count = 0;
@@ -100,6 +105,8 @@ int main(int argc, char * argv[]) {
 	if (optind >= argc && !list) {
 		return usage(argv);
 	}
+
+	signal(SIGILL, sig_pass);
 
 	/* First check for QEMU */
 	outports(FW_CFG_PORT_OUT, FW_CFG_SELECT_QEMU);
