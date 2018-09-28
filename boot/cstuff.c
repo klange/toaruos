@@ -135,9 +135,21 @@ int kmain() {
 			"Enable integration with VirtualBox, including",
 			"automatic mode setting and absolute mouse pointer.");
 
-	BOOT_OPTION(_vmware,      1, "VMWare mouse driver",
-			"Enable the VMware / QEMU absolute mouse pointer.",
-			NULL);
+	BOOT_OPTION(_vboxrects,   0, "VirtualBox Seamless support",
+			"(Requires Guest Additions) Enables support for the",
+			"Seamless Desktop mode in VirtualBox.");
+
+	BOOT_OPTION(_vboxpointer, 1, "VirtualBox Pointer",
+			"(Requires Guest Additions) Enables support for the",
+			"VirtualBox hardware pointer mapping.");
+
+	BOOT_OPTION(_vmware,      1, "VMWare driver",
+			"Enable the VMware / QEMU absolute mouse pointer,",
+			"and optional guest scaling.");
+
+	BOOT_OPTION(_vmwareres,   1, "VMware guest size",
+			"(Requires VMware driver) Enables support for",
+			"automatically setting display size in VMware");
 
 	BOOT_OPTION(_sound,       1, "Audio drivers",
 			"Enable the audio subsystem and AC'97 drivers.",
@@ -158,14 +170,6 @@ int kmain() {
 	BOOT_OPTION(_netinit,     0, "Netinit",
 			"Downloads a userspace filesystem from a remote",
 			"server and extracts it at boot.");
-
-	BOOT_OPTION(_vboxrects,   0, "VirtualBox Seamless support",
-			"(Requires Guest Additions) Enables support for the",
-			"Seamless Desktop mode in VirtualBox.");
-
-	BOOT_OPTION(_vboxpointer, 1, "VirtualBox Pointer",
-			"(Requires Guest Additions) Enables support for the",
-			"VirtualBox hardware pointer mapping.");
 
 #ifdef EFI_PLATFORM
 	BOOT_OPTION(_efilargest,  0, "Prefer largest mode.",
@@ -235,6 +239,10 @@ int kmain() {
 
 	if (_vbox && !_vboxpointer) {
 		strcat(cmdline, "novboxpointer ");
+	}
+
+	if (_vmware && !_vmwareres) {
+		strcat(cmdline, "novmwareresset ");
 	}
 
 	/* Configure modules */
