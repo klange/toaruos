@@ -1061,6 +1061,7 @@ gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
 	out->width  = window->width;
 	out->height = window->height;
+	out->stride = window->width * sizeof(uint32_t);
 	out->depth  = 32;
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
 	out->buffer = window->buffer;
@@ -1090,6 +1091,7 @@ gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window) {
 void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window) {
 	out->width  = window->width;
 	out->height = window->height;
+	out->stride = window->width * 4;
 	out->depth  = 32;
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
 	if (out->buffer == out->backbuffer) {

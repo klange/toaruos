@@ -69,7 +69,7 @@ void flip(gfx_context_t * ctx) {
 	if (ctx->clips) {
 		for (size_t i = 0; i < ctx->height; ++i) {
 			if (_is_in_clip(ctx,i)) {
-				memcpy(&ctx->buffer[i*ctx->width*4], &ctx->backbuffer[i*ctx->width*4], 4 * ctx->width);
+				memcpy(&ctx->buffer[i*GFX_S(ctx)], &ctx->backbuffer[i*GFX_S(ctx)], 4 * ctx->width);
 			}
 		}
 	} else {
@@ -99,10 +99,11 @@ gfx_context_t * init_graphics_fullscreen() {
 	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
 	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
 	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
+	ioctl(framebuffer_fd, IO_VID_STRIDE, &out->stride);
 	ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
 	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
 
-	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
+	out->size   = GFX_H(out) * GFX_S(out);
 	out->backbuffer = out->buffer;
 	return out;
 }
@@ -116,7 +117,7 @@ uint32_t framebuffer_stride(void) {
 gfx_context_t * init_graphics_fullscreen_double_buffer() {
 	gfx_context_t * out = init_graphics_fullscreen();
 	if (!out) return NULL;
-	out->backbuffer = malloc(sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+	out->backbuffer = malloc(GFX_S(out) * GFX_H(out));
 	return out;
 }
 
@@ -125,8 +126,9 @@ void reinit_graphics_fullscreen(gfx_context_t * out) {
 	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
 	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
 	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
+	ioctl(framebuffer_fd, IO_VID_STRIDE, &out->stride);
 
-	out->size = GFX_H(out) * GFX_W(out) * GFX_B(out);
+	out->size   = GFX_H(out) * GFX_S(out);
 
 	if (out->clips && out->clips_size != out->height) {
 		free(out->clips);
@@ -136,7 +138,7 @@ void reinit_graphics_fullscreen(gfx_context_t * out) {
 
 	if (out->buffer != out->backbuffer) {
 		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
-		out->backbuffer = realloc(out->backbuffer, sizeof(uint32_t) * GFX_W(out) * GFX_H(out));
+		out->backbuffer = realloc(out->backbuffer, GFX_S(out) * GFX_H(out));
 	} else {
 		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
 		out->backbuffer = out->buffer;
@@ -149,6 +151,7 @@ gfx_context_t * init_graphics_sprite(sprite_t * sprite) {
 	out->clips = NULL;
 
 	out->width  = sprite->width;
+	out->stride = sprite->width * sizeof(uint32_t);
 	out->height = sprite->height;
 	out->depth  = 32;
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);

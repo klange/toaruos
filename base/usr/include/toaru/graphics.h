@@ -8,6 +8,7 @@
 #define GFX_W(ctx)  ((ctx)->width)			/* Display width */
 #define GFX_H(ctx)  ((ctx)->height)			/* Display height */
 #define GFX_B(ctx)  ((ctx)->depth / 8)		/* Display byte depth */
+#define GFX_S(ctx)  ((ctx)->stride)			/* Stride */
 
 #define _RED(color) ((color & 0x00FF0000) / 0x10000)
 #define _GRE(color) ((color & 0x0000FF00) / 0x100)
@@ -17,8 +18,8 @@
 /*
  * Macros make verything easier.
  */
-#define GFX(ctx,x,y) *((uint32_t *)&((ctx)->backbuffer)[(GFX_W(ctx) * (y) + (x)) * GFX_B(ctx)])
-#define GFXR(ctx,x,y) *((uint32_t *)&((ctx)->buffer)[(GFX_W(ctx) * (y) + (x)) * GFX_B(ctx)])
+#define GFX(ctx,x,y) *((uint32_t *)&((ctx)->backbuffer)[(GFX_S(ctx) * (y) + (x) * GFX_B(ctx))])
+#define GFXR(ctx,x,y) *((uint32_t *)&((ctx)->buffer)[(GFX_S(ctx) * (y) + (x) * GFX_B(ctx))])
 #define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
 #define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
 
@@ -40,6 +41,7 @@ typedef struct context {
 	char *   backbuffer;
 	char *   clips;
 	int32_t  clips_size;
+	uint32_t stride;
 } gfx_context_t;
 
 extern gfx_context_t * init_graphics_fullscreen();

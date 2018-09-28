@@ -30,13 +30,13 @@ int renderer_alloc(yutani_globals_t * yg) {
 int renderer_init(yutani_globals_t * yg) {
 	struct cairo_renderer * c = yg->renderer_ctx;
 
-	int stride = yg->width * 4;
+	int stride = yg->backend_ctx->stride;
 	c->framebuffer_surface = cairo_image_surface_create_for_data(
 			yg->backend_framebuffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 	c->framebuffer_ctx = cairo_create(c->framebuffer_surface);
 
 	c->real_surface = cairo_image_surface_create_for_data(
-			(unsigned char *)yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, yg->stride);
+			(unsigned char *)yg->backend_ctx->buffer, CAIRO_FORMAT_ARGB32, yg->width, yg->height, stride);
 	c->real_ctx = cairo_create(c->real_surface);
 
 	return 0;
