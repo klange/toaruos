@@ -740,6 +740,46 @@ static uint32_t pci_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	return size;
 }
 
+static uint32_t framebuffer_func(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+	char * buf = malloc(4096);
+
+	char ** lfb_driver_name     = hashmap_get(modules_get_symbols(),"lfb_driver_name");
+	uint16_t * lfb_resolution_x = hashmap_get(modules_get_symbols(),"lfb_resolution_x");
+	uint16_t * lfb_resolution_y = hashmap_get(modules_get_symbols(),"lfb_resolution_y");
+	uint16_t * lfb_resolution_b = hashmap_get(modules_get_symbols(),"lfb_resolution_b");
+	uint32_t * lfb_resolution_s = hashmap_get(modules_get_symbols(),"lfb_resolution_s");
+	uintptr_t ** lfb_vid_memory = hashmap_get(modules_get_symbols(),"lfb_vid_memory");
+
+	if (lfb_driver_name && *lfb_driver_name) {
+		sprintf(buf,
+			"Driver:\t%s\n"
+			"XRes:\t%d\n"
+			"YRes:\t%d\n"
+			"BitsPerPixel:\t%d\n"
+			"Stride:\t%d\n"
+			"Address:\t0x%x\n",
+			*lfb_driver_name,
+			*lfb_resolution_x,
+			*lfb_resolution_y,
+			*lfb_resolution_b,
+			*lfb_resolution_s,
+			*lfb_vid_memory);
+	} else {
+		sprintf(buf, "Driver:\tnone\n");
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	free(buf);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -755,6 +795,7 @@ static struct procfs_entry std_entries[] = {
 	{-12,"irq",      irq_func},
 	{-13,"pat",      pat_func},
 	{-14,"pci",      pci_func},
+	{-15,"framebuffer", framebuffer_func},
 };
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
