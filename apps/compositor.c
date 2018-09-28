@@ -1350,7 +1350,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	if (focused) {
 #if 1
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
-			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'z')) {
 			mark_window(yg,focused);
@@ -1359,7 +1359,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			return;
 		}
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
-			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'x')) {
 			mark_window(yg,focused);
@@ -1368,7 +1368,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			return;
 		}
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
-			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'c')) {
 			mark_window(yg,focused);
@@ -1402,7 +1402,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		}
 #if YUTANI_DEBUG_WINDOW_SHAPES
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
-			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'n')) {
 			yg->debug_shapes = (1-yg->debug_shapes);
@@ -1411,7 +1411,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 #endif
 #if YUTANI_DEBUG_WINDOW_BOUNDS
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
-			(ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'b')) {
 			yg->debug_bounds = (1-yg->debug_bounds);
