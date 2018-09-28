@@ -9,7 +9,7 @@ extern char * getenv(char *);
 #define DEFAULT_PATH "/bin:/usr/bin"
 
 int execve(const char *name, char * const argv[], char * const envp[]) {
-	return syscall_execve((char*)name,(char**)argv,(char**)envp);
+	__sets_errno(syscall_execve((char*)name,(char**)argv,(char**)envp));
 }
 
 int execvp(const char *file, char *const argv[]) {
