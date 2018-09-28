@@ -82,6 +82,7 @@ static char * modules[] = {
 	"RTL.KO",      // 20
 	"E1000.KO",    // 21
 	"PCSPKR.KO",   // 22
+	"PORTIO.KO",   // 23
 	0
 };
 

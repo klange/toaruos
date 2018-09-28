@@ -18,22 +18,27 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <signal.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define FW_CFG_PORT_OUT 0x510
 #define FW_CFG_PORT_IN  0x511
 #define FW_CFG_SELECT_QEMU 0x0000
 #define FW_CFG_SELECT_LIST 0x0019
 
+static int port_fd = -1;
 
 /* outw / inb helper functions */
 static void outports(unsigned short _port, unsigned short _data) {
-	asm volatile ("outw %1, %0" : : "dN" (_port), "a" (_data));
+	lseek(port_fd, _port, SEEK_SET);
+	write(port_fd, &_data, 2);
 }
 
 static unsigned char inportb(unsigned short _port) {
-	unsigned char rv;
-	asm volatile ("inb %1, %0" : "=a" (rv) : "dN" (_port));
-	return rv;
+	unsigned char out;
+	lseek(port_fd, _port, SEEK_SET);
+	read(port_fd, &out, 1);
+	return out;
 }
 
 /* Despite primarily emulating x86, these are all big-endian */
@@ -104,6 +109,13 @@ int main(int argc, char * argv[]) {
 
 	if (optind >= argc && !list) {
 		return usage(argv);
+	}
+
+	port_fd = open("/dev/port", O_RDWR);
+
+	if (port_fd < 0) {
+		fprintf(stderr, "%s: could not open port IO device\n", argv[0]);
+		return 1;
 	}
 
 	signal(SIGILL, sig_pass);
