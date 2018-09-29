@@ -18,6 +18,7 @@
 #include <wchar.h>
 #include <unistd.h>
 #include <locale.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 
 #include <toaru/decodeutf8.h>
@@ -110,6 +111,33 @@ static rline_callback_t tab_complete_func = NULL;
 int rline_exp_set_tab_complete_func(rline_callback_t func) {
 	tab_complete_func = func;
 	return 0;
+}
+
+static int _unget = -1;
+static void _ungetc(int c) {
+	_unget = c;
+}
+
+static int getch(int immediate) {
+	if (_unget != -1) {
+		int out = _unget;
+		_unget = -1;
+		return out;
+	}
+	if (immediate) {
+		return getc(stdin);
+	}
+	struct pollfd fds[1];
+	fds[0].fd = STDIN_FILENO;
+	fds[0].events = POLLIN;
+	int ret = poll(fds,1,10);
+	if (ret > 0 && fds[0].revents & POLLIN) {
+		unsigned char buf[1];
+		read(STDIN_FILENO, buf, 1);
+		return buf[0];
+	} else {
+		return -1;
+	}
 }
 
 /**
@@ -996,8 +1024,6 @@ static void delete_at_cursor(void) {
 		line_delete(the_line, column);
 		column--;
 		if (offset > 0) offset--;
-		render_line();
-		place_cursor_actual();
 	}
 }
 
@@ -1015,9 +1041,6 @@ static void delete_word(void) {
 			if (offset > 0) offset--;
 		}
 	} while (column && the_line->text[column-1].codepoint != ' ');
-
-	render_line();
-	place_cursor_actual();
 }
 
 /**
@@ -1032,10 +1055,6 @@ static void insert_char(uint32_t c) {
 	the_line = line_insert(the_line, _c, column);
 
 	column++;
-	if (!loading) {
-		render_line();
-		place_cursor_actual();
-	}
 }
 
 /**
@@ -1199,7 +1218,7 @@ static int handle_escape(int * this_buf, int * timeout, int c) {
 	}
 	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
 		*timeout = 0;
-		ungetc(c, stdin);
+		_ungetc(c);
 		return 1;
 	}
 	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
@@ -1252,8 +1271,6 @@ static int handle_escape(int * this_buf, int * timeout, int c) {
 						if (column < the_line->actual) {
 							line_delete(the_line, column+1);
 							if (offset > 0) offset--;
-							render_line();
-							place_cursor_actual();
 						}
 						break;
 					case '4':
@@ -1396,6 +1413,7 @@ static int read_line(void) {
 	int timeout = 0;
 	int this_buf[20];
 	uint32_t istate = 0;
+	int immediate = 1;
 
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	fprintf(stdout, "◄\033[0m"); /* TODO: This could be retrieved from an envvar */
@@ -1405,7 +1423,13 @@ static int read_line(void) {
 	render_line();
 	place_cursor_actual();
 
-	while ((cin = getc(stdin))) {
+	while ((cin = getch(immediate))) {
+		if (cin == -1) {
+			immediate = 1;
+			render_line();
+			place_cursor_actual();
+			continue;
+		}
 		get_size();
 		if (!decode(&istate, &c, cin)) {
 			if (timeout == 0) {
@@ -1428,32 +1452,37 @@ static int read_line(void) {
 							for (char *_c = rline_exit_string; *_c; ++_c) {
 								insert_char(*_c);
 							}
+							render_line();
+							place_cursor_actual();
 							return 1;
 						} else { /* Otherwise act like delete */
 							if (column < the_line->actual) {
 								line_delete(the_line, column+1);
 								if (offset > 0) offset--;
-								render_line();
-								place_cursor_actual();
+								immediate = 0;
 							}
 						}
 						break;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
 						delete_at_cursor();
+						immediate = 0;
 						break;
 					case ENTER_KEY:
 						/* Finished */
 						loading = 1;
 						column = the_line->actual;
 						insert_char('\n');
+						immediate = 0;
 						return 1;
 					case 22: /* ^V */
 						/* Don't bother with unicode, just take the next byte */
 						insert_char(getc(stdin));
+						immediate = 0;
 						break;
 					case 23: /* ^W */
 						delete_word();
+						immediate = 0;
 						break;
 					case 12: /* ^L - Repaint the whole screen */
 						printf("\033[2J\033[H");
@@ -1465,9 +1494,11 @@ static int read_line(void) {
 							/* Tab complete */
 							rline_context_t context = {0};
 							call_rline_func(tab_complete_func, &context);
+							immediate = 0;
 						} else {
 							/* Insert tab character */
 							insert_char('\t');
+							immediate = 0;
 						}
 						break;
 					case 18:
@@ -1477,16 +1508,19 @@ static int read_line(void) {
 							if (!context.cancel) {
 								return 1;
 							}
+							immediate = 0;
 						}
 						break;
 					default:
 						insert_char(c);
+						immediate = 0;
 						break;
 				}
 			} else {
 				if (handle_escape(this_buf,&timeout,c)) {
 					continue;
 				}
+				immediate = 0;
 			}
 		} else if (istate == UTF8_REJECT) {
 			istate = 0;
