@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.2"
+#define BIM_VERSION   "1.0.3"
 #define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -218,7 +218,8 @@ void bim_unget(int c) {
 	_bim_unget = c;
 }
 
-int bim_getch(void) {
+#define bim_getch() bim_getch_timeout(200)
+int bim_getch_timeout(int timeout) {
 	if (_bim_unget != -1) {
 		int out = _bim_unget;
 		_bim_unget = -1;
@@ -227,7 +228,7 @@ int bim_getch(void) {
 	struct pollfd fds[1];
 	fds[0].fd = global_config.tty_in;
 	fds[0].events = POLLIN;
-	int ret = poll(fds,1,200);
+	int ret = poll(fds,1,timeout);
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		unsigned char buf[1];
 		read(global_config.tty_in, buf, 1);
@@ -4177,7 +4178,6 @@ void insert_char(unsigned int c) {
 	if (line != nline) {
 		env->lines[env->line_no - 1] = nline;
 	}
-	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 	env->col_no += 1;
 	set_modified();
 }
@@ -4600,10 +4600,7 @@ void insert_line_feed(void) {
 	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 		env->offset += 1;
 	}
-	redraw_text();
 	set_modified();
-	redraw_statusbar();
-	place_cursor_actual();
 }
 
 /**
@@ -5324,8 +5321,19 @@ void insert_mode(void) {
 	int timeout = 0;
 	int this_buf[20];
 	uint32_t istate = 0;
-	while ((cin = bim_getch())) {
+	int redraw = 0;
+	while ((cin = bim_getch_timeout((redraw ? 10 : 200)))) {
 		if (cin == -1) {
+			if (redraw) {
+				if (redraw & 2) {
+					redraw_text();
+				} else {
+					redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+				}
+				redraw_statusbar();
+				place_cursor_actual();
+				redraw = 0;
+			}
 			if (timeout && this_buf[timeout-1] == '\033') {
 				leave_insert();
 				return;
@@ -5348,6 +5356,7 @@ void insert_mode(void) {
 						break;
 					case ENTER_KEY:
 						insert_line_feed();
+						redraw |= 2;
 						break;
 					case 23: /* ^W */
 						delete_word();
@@ -5360,13 +5369,11 @@ void insert_mode(void) {
 								insert_char(' ');
 							}
 						}
-						redraw_statusbar();
-						place_cursor_actual();
+						redraw |= 1;
 						break;
 					default:
 						insert_char(c);
-						redraw_statusbar();
-						place_cursor_actual();
+						redraw |= 1;
 						break;
 				}
 			} else {
@@ -5431,6 +5438,10 @@ void replace_mode(void) {
 						break;
 					case ENTER_KEY:
 						insert_line_feed();
+						redraw_text();
+						set_modified();
+						redraw_statusbar();
+						place_cursor_actual();
 						break;
 					default:
 						if (env->col_no <= env->lines[env->line_no - 1]->actual) {
@@ -5438,6 +5449,7 @@ void replace_mode(void) {
 							env->col_no += 1;
 						} else {
 							insert_char(c);
+							redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 						}
 						redraw_statusbar();
 						place_cursor_actual();
