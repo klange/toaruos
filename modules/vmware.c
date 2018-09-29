@@ -3,13 +3,18 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2017-2018 K. Lange
  *
- * VMWare absolute mouse driver.
+ * VMWare backdoor driver.
  *
- * This device is also available by default in QEMU.
+ * Supports absolute mouse cursor and resolution setting.
  *
- * Toggle off / back on with ioctl 1 and 2 respectively to /dev/vmmouse.
+ * Mouse:
+ *   Toggle off / on with ioctl 1 and 2 respectively to /dev/vmmouse.
+ *   Supports mouse buttons, unlike the one in VirtualBox.
+ *   This device is also available by default in QEMU.
  *
- * Actually supports mouse buttons, unlike the one in VirtualBox.
+ * Resolution setting:
+ *   Enabled when the "vmware" LFB driver is active. Automatically
+ *   resizes the display when the window size changes.
  */
 
 #include <kernel/system.h>
