@@ -23,12 +23,25 @@
 #include <kernel/mouse.h>
 #include <kernel/args.h>
 
-#define VMWARE_MAGIC  0x564D5868
+#define VMWARE_MAGIC  0x564D5868 /* hXMV */
 #define VMWARE_PORT   0x5658
 #define VMWARE_PORTHB 0x5659
 
 #define PACKETS_IN_PIPE 1024
 #define DISCARD_POINT 32
+
+#define CMD_GETVERSION         10
+#define CMD_MESSAGE            30
+#define CMD_ABSPOINTER_DATA    39
+#define CMD_ABSPOINTER_STATUS  40
+#define CMD_ABSPOINTER_COMMAND 41
+
+#define ABSPOINTER_ENABLE   0x45414552 /* Q E A E */
+#define ABSPOINTER_RELATIVE 0xF5
+#define ABSPOINTER_ABSOLUTE 0x53424152 /* R A B S */
+
+#define MESSAGE_RPCI   0x49435052 /* R P C I */
+#define MESSAGE_TCLO   0x4f4c4354 /* T C L O */
 
 /* -Wpedantic complains about unnamed unions */
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -58,65 +71,35 @@ typedef struct {
 	uint32_t di;
 } vmware_cmd;
 
-static void vmware_io(vmware_cmd * cmd) {
-	asm volatile("in %%dx, %0" : "+a"(cmd->ax), "+b"(cmd->bx), "+c"(cmd->cx), "+d"(cmd->dx), "+S"(cmd->si), "+D"(cmd->di));
-}
-
-static void vmware_io_hb_out(vmware_cmd * cmd) {
-	asm volatile("cld; rep; outsb" : "+a"(cmd->ax), "+b"(cmd->bx), "+c"(cmd->cx), "+d"(cmd->dx), "+S"(cmd->si), "+D"(cmd->di));
-}
-
-static void vmware_io_hb_in(vmware_cmd * cmd) {
-	asm volatile("cld; rep; insb" : "+a"(cmd->ax), "+b"(cmd->bx), "+c"(cmd->cx), "+d"(cmd->dx), "+S"(cmd->si), "+D"(cmd->di));
-}
-
+/** Low bandwidth backdoor */
 static void vmware_send(vmware_cmd * cmd) {
 	cmd->magic = VMWARE_MAGIC;
 	cmd->port = VMWARE_PORT;
 
-	vmware_io(cmd);
+	asm volatile("in %%dx, %0" : "+a"(cmd->ax), "+b"(cmd->bx), "+c"(cmd->cx), "+d"(cmd->dx), "+S"(cmd->si), "+D"(cmd->di));
 }
 
+/** Output to high bandwidth backdoor */
 static void vmware_send_hb(vmware_cmd * cmd) {
 	cmd->magic = VMWARE_MAGIC;
 	cmd->port = VMWARE_PORTHB;
 
-	vmware_io_hb_out(cmd);
+	asm volatile("cld; rep; outsb" : "+a"(cmd->ax), "+b"(cmd->bx), "+c"(cmd->cx), "+d"(cmd->dx), "+S"(cmd->si), "+D"(cmd->di));
 }
 
+/** Input from high bandwidth backdoor */
 static void vmware_get_hb(vmware_cmd * cmd) {
 	cmd->magic = VMWARE_MAGIC;
 	cmd->port = VMWARE_PORTHB;
 
-	vmware_io_hb_in(cmd);
-}
-
-static void mouse_on(void) {
-	vmware_cmd cmd;
-
-	/* Enable */
-	cmd.bx = 0x45414552;
-	cmd.command = 41;
-	vmware_send(&cmd);
-
-	/* Status */
-	cmd.bx = 0;
-	cmd.command = 40;
-	vmware_send(&cmd);
-
-	/* Read data (1) */
-	cmd.bx = 1;
-	cmd.command = 39;
-	vmware_send(&cmd);
-
-	debug_print(WARNING, "Enabled with version ID %x", cmd.ax);
+	asm volatile("cld; rep; insb" : "+a"(cmd->ax), "+b"(cmd->bx), "+c"(cmd->cx), "+d"(cmd->dx), "+S"(cmd->si), "+D"(cmd->di));
 }
 
 static void mouse_off(void) {
 	/* Disable the absolute mouse */
 	vmware_cmd cmd;
-	cmd.bx = 0xf5;
-	cmd.command = 41;
+	cmd.bx = ABSPOINTER_RELATIVE;
+	cmd.command = CMD_ABSPOINTER_COMMAND;
 	vmware_send(&cmd);
 }
 
@@ -129,10 +112,26 @@ static void mouse_absolute(void) {
 	 * falls back to the PS/2 (or USB, I guess) device anyway,
 	 * so instead of using that we just... turn it off.
 	 */
-
 	vmware_cmd cmd;
-	cmd.bx = 0x53424152; /* request absolute */
-	cmd.command = 41; /* request for abs/rel */
+
+	/* Enable */
+	cmd.bx = ABSPOINTER_ENABLE;
+	cmd.command = CMD_ABSPOINTER_COMMAND;
+	vmware_send(&cmd);
+
+	/* Status */
+	cmd.bx = 0;
+	cmd.command = CMD_ABSPOINTER_STATUS;
+	vmware_send(&cmd);
+
+	/* Read data (1) */
+	cmd.bx = 1;
+	cmd.command = CMD_ABSPOINTER_DATA;
+	vmware_send(&cmd);
+
+	/* Enable absolute */
+	cmd.bx = ABSPOINTER_ABSOLUTE;
+	cmd.command = CMD_ABSPOINTER_COMMAND;
 	vmware_send(&cmd);
 }
 
@@ -145,13 +144,12 @@ static void vmware_mouse(void) {
 	/* Read status byte. */
 	vmware_cmd cmd;
 	cmd.bx = 0;
-	cmd.command = 40;
+	cmd.command = CMD_ABSPOINTER_STATUS;
 	vmware_send(&cmd);
 
 	if (cmd.ax == 0xffff0000) {
 		/* Device error; turn it off and back on again. */
 		mouse_off();
-		mouse_on();
 		mouse_absolute();
 		return;
 	}
@@ -165,7 +163,7 @@ static void vmware_mouse(void) {
 
 	/* Read 4 bytes of data */
 	cmd.bx = 4; /* how many */
-	cmd.command = 39; /* read */
+	cmd.command = CMD_ABSPOINTER_DATA; /* read */
 	vmware_send(&cmd);
 
 	/*
@@ -230,7 +228,7 @@ static int detect_device(void) {
 
 	/* read version */
 	cmd.bx = ~VMWARE_MAGIC;
-	cmd.command = 10;
+	cmd.command = CMD_GETVERSION;
 	vmware_send(&cmd);
 
 	if (cmd.bx != VMWARE_MAGIC || cmd.ax == 0xFFFFFFFF) {
@@ -245,7 +243,7 @@ static int detect_device(void) {
 
 static int open_msg_channel(uint32_t proto) {
 	vmware_cmd cmd;
-	cmd.cx = 30 | 0x00000000; /* CMD_MESSAGE */
+	cmd.cx = CMD_MESSAGE | 0x00000000; /* CMD_MESSAGE */
 	cmd.bx = proto;
 	vmware_send(&cmd);
 
@@ -258,7 +256,7 @@ static int open_msg_channel(uint32_t proto) {
 
 static void msg_close(int channel) {
 	vmware_cmd cmd = {0};
-	cmd.cx = 30 | 0x00060000;
+	cmd.cx = CMD_MESSAGE | 0x00060000;
 	cmd.bx = 0;
 	cmd.dx = channel << 16;
 
@@ -266,23 +264,23 @@ static void msg_close(int channel) {
 }
 
 static int open_rpci_channel(void) {
-	return open_msg_channel(0x49435052);
+	return open_msg_channel(MESSAGE_RPCI);
 }
 
-static int tclo_channel = 0;
+static int tclo_channel = -1;
 
 static int open_tclo_channel(void) {
-	if (tclo_channel) {
+	if (tclo_channel != -1) {
 		msg_close(tclo_channel);
 	}
-	tclo_channel = open_msg_channel(0x4f4c4354);
+	tclo_channel = open_msg_channel(MESSAGE_TCLO);
 	return tclo_channel;
 }
 
 static int msg_send(int channel, char * msg, size_t size) {
 	{
 		vmware_cmd cmd = {0};
-		cmd.cx = 30 | 0x00010000; /* CMD_MESSAGE size */
+		cmd.cx = CMD_MESSAGE | 0x00010000; /* CMD_MESSAGE size */
 		cmd.size = size;
 		cmd.dx   = channel << 16;
 		vmware_send(&cmd);
@@ -314,15 +312,9 @@ static int msg_recv(int channel, char * buf, size_t bufsize) {
 	size_t size;
 	{
 		vmware_cmd cmd = {0};
-		cmd.cx = 30 | 0x00030000; /* CMD_MESSAGE receive ize */
+		cmd.cx = CMD_MESSAGE | 0x00030000; /* CMD_MESSAGE receive ize */
 		cmd.dx   = channel << 16;
 		vmware_send(&cmd);
-
-#if 0
-		if ((cmd.dx >> 16) != 0x0001) {
-			return -4;
-		}
-#endif
 
 		size = cmd.bx;
 		if (size == 0) return 0;
@@ -347,7 +339,7 @@ static int msg_recv(int channel, char * buf, size_t bufsize) {
 
 	{
 		vmware_cmd cmd = {0};
-		cmd.cx = 30 | 0x00050000;
+		cmd.cx = CMD_MESSAGE | 0x00050000;
 		cmd.bx = 0x0001;
 		cmd.dx = channel << 16;
 
@@ -473,7 +465,6 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 		case 2:
 			/* Enable */
 			ps2_mouse_alternate = vmware_mouse;
-			mouse_on();
 			mouse_absolute();
 			return 0;
 		default:
@@ -499,7 +490,6 @@ static int init(void) {
 		 */
 		ps2_mouse_alternate = vmware_mouse;
 
-		mouse_on();
 		mouse_absolute();
 
 		if (lfb_driver_name && !strcmp(lfb_driver_name, "vmware") && !args_present("novmwareresset")) {
