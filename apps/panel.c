@@ -298,6 +298,8 @@ static char * netstat_mac = NULL;
 static void update_network_status(void) {
 	FILE * net = fopen("/proc/netif","r");
 
+	if (!net) return;
+
 	char line[256];
 
 	do {
