@@ -10,18 +10,12 @@
 #include <kernel/process.h>
 #include <kernel/printf.h>
 #include <kernel/module.h>
-#include <kernel/mod/net.h>
 #include <kernel/multiboot.h>
 #include <kernel/pci.h>
+#include <kernel/mod/procfs.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
-
-struct procfs_entry {
-	int          id;
-	char *       name;
-	read_type_t  func;
-};
 
 static fs_node_t * procfs_generic_create(char * name, read_type_t read_func) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -504,65 +498,6 @@ static uint32_t mounts_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	return size;
 }
 
-static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	char * buf = malloc(4096);
-
-	/* In order to not directly depend on the network module, we dynamically locate the symbols we need. */
-	void (*ip_ntoa)(uint32_t, char *) = (void (*)(uint32_t,char*))(uintptr_t)hashmap_get(modules_get_symbols(),"ip_ntoa");
-
-	struct netif * (*get_netif)(void) = (struct netif *(*)(void))(uintptr_t)hashmap_get(modules_get_symbols(),"get_default_network_interface");
-
-	uint32_t (*get_dns)(void) = (uint32_t (*)(void))(uintptr_t)hashmap_get(modules_get_symbols(),"get_primary_dns");
-
-	if (get_netif) {
-		struct netif * netif = get_netif();
-		char ip[16];
-		ip_ntoa(netif->source, ip);
-		char dns[16];
-		ip_ntoa(get_dns(), dns);
-		char gw[16];
-		ip_ntoa(netif->gateway, gw);
-
-		if (netif->hwaddr[0] == 0 &&
-			netif->hwaddr[1] == 0 &&
-			netif->hwaddr[2] == 0 &&
-			netif->hwaddr[3] == 0 &&
-			netif->hwaddr[4] == 0 &&
-			netif->hwaddr[5] == 0) {
-
-			sprintf(buf, "no network\n");
-		} else {
-			sprintf(buf,
-				"ip:\t%s\n"
-				"mac:\t%2x:%2x:%2x:%2x:%2x:%2x\n"
-				"device:\t%s\n"
-				"dns:\t%s\n"
-				"gateway:\t%s\n"
-				,
-				ip,
-				netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2], netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5],
-				netif->driver,
-				dns,
-				gw
-			);
-		}
-	} else {
-		sprintf(buf, "no network\n");
-	}
-
-	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
-
-}
-
 static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
 	list_t * hash_keys = hashmap_keys(modules_get_list());
 	char * buf = malloc(hash_keys->length * 512);
@@ -740,46 +675,6 @@ static uint32_t pci_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	return size;
 }
 
-static uint32_t framebuffer_func(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
-	char * buf = malloc(4096);
-
-	char ** lfb_driver_name     = hashmap_get(modules_get_symbols(),"lfb_driver_name");
-	uint16_t * lfb_resolution_x = hashmap_get(modules_get_symbols(),"lfb_resolution_x");
-	uint16_t * lfb_resolution_y = hashmap_get(modules_get_symbols(),"lfb_resolution_y");
-	uint16_t * lfb_resolution_b = hashmap_get(modules_get_symbols(),"lfb_resolution_b");
-	uint32_t * lfb_resolution_s = hashmap_get(modules_get_symbols(),"lfb_resolution_s");
-	uintptr_t ** lfb_vid_memory = hashmap_get(modules_get_symbols(),"lfb_vid_memory");
-
-	if (lfb_driver_name && *lfb_driver_name) {
-		sprintf(buf,
-			"Driver:\t%s\n"
-			"XRes:\t%d\n"
-			"YRes:\t%d\n"
-			"BitsPerPixel:\t%d\n"
-			"Stride:\t%d\n"
-			"Address:\t0x%x\n",
-			*lfb_driver_name,
-			*lfb_resolution_x,
-			*lfb_resolution_y,
-			*lfb_resolution_b,
-			*lfb_resolution_s,
-			*lfb_vid_memory);
-	} else {
-		sprintf(buf, "Driver:\tnone\n");
-	}
-
-	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
-}
-
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -788,15 +683,28 @@ static struct procfs_entry std_entries[] = {
 	{-5, "version",  version_func},
 	{-6, "compiler", compiler_func},
 	{-7, "mounts",   mounts_func},
-	{-8, "netif",    netif_func},
-	{-9, "modules",  modules_func},
-	{-10,"filesystems", filesystems_func},
-	{-11,"loader",   loader_func},
-	{-12,"irq",      irq_func},
-	{-13,"pat",      pat_func},
-	{-14,"pci",      pci_func},
-	{-15,"framebuffer", framebuffer_func},
+	{-8, "modules",  modules_func},
+	{-9, "filesystems", filesystems_func},
+	{-10,"loader",   loader_func},
+	{-11,"irq",      irq_func},
+	{-12,"pat",      pat_func},
+	{-13,"pci",      pci_func},
 };
+
+static list_t * extended_entries = NULL;
+static int next_id = 0;
+
+int procfs_install(struct procfs_entry * entry) {
+	if (!extended_entries) {
+		extended_entries = list_create();
+		next_id = -PROCFS_STANDARD_ENTRIES - 1;
+	}
+
+	entry->id = next_id--;
+	list_insert(extended_entries, entry);
+
+	return 0;
+}
 
 static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
 	if (index == 0) {
@@ -832,7 +740,29 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
 		strcpy(out->name, std_entries[index].name);
 		return out;
 	}
-	int i = index - PROCFS_STANDARD_ENTRIES + 1;
+
+	index -= PROCFS_STANDARD_ENTRIES;
+
+	if (extended_entries) {
+		if (index < extended_entries->length) {
+			size_t i = 0;
+			node_t * n = extended_entries->head;
+			while (i < index) {
+				n = n->next;
+				i++;
+			}
+
+			struct procfs_entry * e = n->value;
+			struct dirent * out = malloc(sizeof(struct dirent));
+			memset(out, 0x00, sizeof(struct dirent));
+			out->ino = e->id;
+			strcpy(out->name, e->name);
+			return out;
+		}
+		index -=  extended_entries->length;
+	}
+
+	int i = index + 1;
 
 	debug_print(WARNING, "%d %d %d", i, index, PROCFS_STANDARD_ENTRIES);
 
@@ -881,6 +811,14 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 	for (unsigned int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
 		if (!strcmp(name, std_entries[i].name)) {
 			fs_node_t * out = procfs_generic_create(std_entries[i].name, std_entries[i].func);
+			return out;
+		}
+	}
+
+	foreach(node, extended_entries) {
+		struct procfs_entry * e = node->value;
+		if (!strcmp(name, e->name)) {
+			fs_node_t * out = procfs_generic_create(e->name, e->func);
 			return out;
 		}
 	}

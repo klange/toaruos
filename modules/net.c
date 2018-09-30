@@ -9,6 +9,7 @@
 #include <kernel/printf.h>
 #include <kernel/tokenize.h>
 #include <kernel/mod/net.h>
+#include <kernel/mod/procfs.h>
 
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
@@ -31,12 +32,74 @@ static struct netif _netif = {0};
 
 static int tasklet_pid = 0;
 
+uint32_t get_primary_dns(void);
+
+static uint32_t netif_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+
+	struct netif * netif = &_netif;
+	char ip[16];
+	ip_ntoa(netif->source, ip);
+	char dns[16];
+	ip_ntoa(get_primary_dns(), dns);
+	char gw[16];
+	ip_ntoa(netif->gateway, gw);
+
+	if (netif->hwaddr[0] == 0 &&
+		netif->hwaddr[1] == 0 &&
+		netif->hwaddr[2] == 0 &&
+		netif->hwaddr[3] == 0 &&
+		netif->hwaddr[4] == 0 &&
+		netif->hwaddr[5] == 0) {
+
+		sprintf(buf, "no network\n");
+	} else {
+		sprintf(buf,
+			"ip:\t%s\n"
+			"mac:\t%2x:%2x:%2x:%2x:%2x:%2x\n"
+			"device:\t%s\n"
+			"dns:\t%s\n"
+			"gateway:\t%s\n"
+			,
+			ip,
+			netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2], netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5],
+			netif->driver,
+			dns,
+			gw
+		);
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	free(buf);
+	return size;
+}
+
+static struct procfs_entry netif_entry = {
+	0, /* filled by install */
+	"netif",
+	netif_func,
+};
+
 void init_netif_funcs(get_mac_func mac_func, get_packet_func get_func, send_packet_func send_func, char * device) {
 	_netif.get_mac = mac_func;
 	_netif.get_packet = get_func;
 	_netif.send_packet = send_func;
 	_netif.driver = device;
 	memcpy(_netif.hwaddr, _netif.get_mac(), sizeof(_netif.hwaddr));
+
+	if (!netif_entry.id) {
+		int (*procfs_install)(struct procfs_entry *) = (int (*)(struct procfs_entry *))(uintptr_t)hashmap_get(modules_get_symbols(),"procfs_install");
+		if (procfs_install) {
+			procfs_install(&netif_entry);
+		}
+	}
 
 	if (!tasklet_pid) {
 		tasklet_pid = create_kernel_tasklet(net_handler, "[net]", NULL);

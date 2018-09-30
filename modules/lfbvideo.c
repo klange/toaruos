@@ -22,6 +22,7 @@
 #include <kernel/tokenize.h>
 #include <kernel/module.h>
 #include <kernel/video.h>
+#include <kernel/mod/procfs.h>
 
 #define PREFERRED_W  1024
 #define PREFERRED_H  768
@@ -211,12 +212,57 @@ static void lfb_video_panic(char ** msgs) {
 	}
 }
 
+static uint32_t framebuffer_func(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+	char * buf = malloc(4096);
+
+	if (lfb_driver_name) {
+		sprintf(buf,
+			"Driver:\t%s\n"
+			"XRes:\t%d\n"
+			"YRes:\t%d\n"
+			"BitsPerPixel:\t%d\n"
+			"Stride:\t%d\n"
+			"Address:\t0x%x\n",
+			lfb_driver_name,
+			lfb_resolution_x,
+			lfb_resolution_y,
+			lfb_resolution_b,
+			lfb_resolution_s,
+			lfb_vid_memory);
+	} else {
+		sprintf(buf, "Driver:\tnone\n");
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	free(buf);
+	return size;
+}
+
+static struct procfs_entry framebuffer_entry = {
+	0,
+	"framebuffer",
+	framebuffer_func,
+};
+
 /* Install framebuffer device */
 static void finalize_graphics(const char * driver) {
 	lfb_driver_name = driver;
 	fs_node_t * fb_device = lfb_video_device_create();
 	vfs_mount("/dev/fb0", fb_device);
 	debug_video_crash = lfb_video_panic;
+
+	int (*procfs_install)(struct procfs_entry *) = (int (*)(struct procfs_entry *))(uintptr_t)hashmap_get(modules_get_symbols(),"procfs_install");
+
+	if (procfs_install) {
+		procfs_install(&framebuffer_entry);
+	}
 }
 
 /* Bochs support {{{ */
