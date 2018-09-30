@@ -1383,6 +1383,8 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 		}
 	}
 
+	free(context->buffer);
+
 	/* Position cursor */
 	if (context->offset == context->collected) {
 		column = the_line->actual;
