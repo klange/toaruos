@@ -639,6 +639,40 @@ int variable_char(uint8_t c) {
 	return 0;
 }
 
+struct alternative {
+	const char * command;
+	const char * replacement;
+	const char * description;
+};
+
+#define ALT_BIM    "bim", "vi-like text editor"
+#define ALT_FETCH  "fetch", "URL downloader"
+#define ALT_NETIF  "cat /proc/netif", "to see network configuration"
+
+static struct alternative cmd_alternatives[] = {
+	/* Propose bim as an alternative for common text editors */
+	{"vim",   ALT_BIM},
+	{"vi",    ALT_BIM},
+	{"emacs", ALT_BIM},
+	{"nano",  ALT_BIM},
+
+	/* Propose fetch for some common URL-getting tools */
+	{"curl",  ALT_FETCH},
+	{"wget",  ALT_FETCH},
+
+	/* We don't have ip or ifconfig commands, suggest cat /proc/netif */
+	{"ifconfig", ALT_NETIF},
+	{"ipconfig", ALT_NETIF},
+	{"ip", ALT_NETIF},
+
+	/* Some random other stuff */
+	{"grep", "fgrep", "non-regex-capable grep"},
+	{"more", "bim -", "paging to a text editor"},
+	{"less", "bim -", "paging to a text editor"},
+
+	{NULL, NULL, NULL},
+};
+
 void run_cmd(char ** args) {
 	int i = execvp(*args, args);
 	shell_command_t func = shell_find(*args);
@@ -651,6 +685,14 @@ void run_cmd(char ** args) {
 	} else {
 		if (i != 0) {
 			fprintf(stderr, "%s: Command not found\n", *args);
+			for (struct alternative * alt = cmd_alternatives; alt->command; alt++) {
+				if (!strcmp(*args, alt->command)) {
+					fprintf(stderr, "Consider this alternative:\n\n\t%s -- \033[3m%s\033[0m\n\n",
+						alt->replacement,
+						alt->description);
+					break;
+				}
+			}
 			i = 127;
 		}
 	}
