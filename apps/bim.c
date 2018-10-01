@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.3"
+#define BIM_VERSION   "1.0.2"
 #define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -5025,6 +5025,9 @@ void line_selection_mode(void) {
 						}
 						if (env->line_no > env->line_count) {
 							env->line_no = env->line_count;
+						}
+						if (env->col_no > env->lines[env->line_no-1]->actual) {
+							env->col_no = env->lines[env->line_no-1]->actual;
 						}
 						set_modified();
 						goto _leave_select_line;
