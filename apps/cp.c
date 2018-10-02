@@ -12,8 +12,10 @@
  */
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <stdio.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define CHUNK_SIZE 4096
 
@@ -27,11 +29,14 @@ int main(int argc, char ** argv) {
 	}
 	fd = fopen(argv[1], "r");
 	if (!fd) {
-		fprintf(stderr, "%s: %s: no such file or directory\n", argv[0], argv[1]);
+		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
 		return 1;
 	}
 
 	struct stat statbuf;
+	stat(argv[1], &statbuf);
+	int initial_mode = statbuf.st_mode;
+
 	stat(argv[2], &statbuf);
 	if (S_ISDIR(statbuf.st_mode)) {
 		char *filename = strrchr(argv[1], '/');
@@ -46,6 +51,11 @@ int main(int argc, char ** argv) {
 		free(target_path);
 	} else {
 		fout = fopen( argv[2], "w" );
+	}
+
+	if (!fout) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2], strerror(errno));
+		return 1;
 	}
 
 	size_t length;
@@ -67,6 +77,10 @@ int main(int argc, char ** argv) {
 
 	fclose(fd);
 	fclose(fout);
+
+	if (chmod(argv[2], initial_mode) < 0) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2], strerror(errno));
+	}
 
 	return 0;
 }
