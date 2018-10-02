@@ -25,6 +25,7 @@ void show_usage(int argc, char * argv[]) {
 			"usage: %s [-r?]\n"
 			"\n"
 			" -r     \033[3mprint display resoluton\033[0m\n"
+			" -e     \033[3mask compositor to reload extensions\033[0m\n"
 			" -?     \033[3mshow this help text\033[0m\n"
 			"\n", argv[0]);
 }
@@ -41,10 +42,13 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	int opt;
-	while ((opt = getopt(argc, argv, "?r")) != -1) {
+	while ((opt = getopt(argc, argv, "?re")) != -1) {
 		switch (opt) {
 			case 'r':
 				return show_resolution();
+			case 'e':
+				yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_RELOAD);
+				return 0;
 			case '?':
 				show_usage(argc,argv);
 				return 0;

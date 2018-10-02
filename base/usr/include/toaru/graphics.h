@@ -89,6 +89,7 @@ extern uint32_t premultiply(uint32_t color);
 
 extern void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h);
 extern void gfx_clear_clip(gfx_context_t * ctx);
+extern void gfx_no_clip(gfx_context_t * ctx);
 
 extern uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v);
 

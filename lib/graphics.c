@@ -64,6 +64,13 @@ void gfx_clear_clip(gfx_context_t * ctx) {
 	}
 }
 
+void gfx_no_clip(gfx_context_t * ctx) {
+	void * tmp = ctx->clips;
+	if (!tmp) return;
+	ctx->clips = NULL;
+	free(tmp);
+}
+
 /* Pointer to graphics memory */
 void flip(gfx_context_t * ctx) {
 	if (ctx->clips) {

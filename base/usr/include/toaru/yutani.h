@@ -443,6 +443,8 @@ struct yutani_msg_clipboard {
 
 #define YUTANI_SPECIAL_REQUEST_CLIPBOARD    10
 
+#define YUTANI_SPECIAL_REQUEST_RELOAD       20
+
 /*
  * YUTANI_RESIZE
  *

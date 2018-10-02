@@ -131,6 +131,31 @@ static int parse_args(int argc, char * argv[], int * out) {
 	return 0;
 }
 
+static void try_load_extensions(yutani_globals_t * yg) {
+	if (renderer_init) {
+		/* Already have a renderer extension loaded */
+		return;
+	}
+
+	/* Try to load cairo */
+	void * cairo = dlopen("libtoaru_ext_cairo_renderer.so", 0);
+	if (cairo) {
+		renderer_alloc = dlsym(cairo, "renderer_alloc");
+		renderer_init = dlsym(cairo, "renderer_init");
+		renderer_add_clip = dlsym(cairo, "renderer_add_clip");
+		renderer_set_clip = dlsym(cairo, "renderer_set_clip");
+		renderer_push_state = dlsym(cairo, "renderer_push_state");
+		renderer_pop_state = dlsym(cairo, "renderer_pop_state");
+		renderer_destroy = dlsym(cairo, "renderer_destroy");
+		renderer_blit_window = dlsym(cairo, "renderer_blit_window");
+		renderer_blit_screen = dlsym(cairo, "renderer_blit_screen");
+	}
+
+	/* On success, these are now set */
+	if (renderer_alloc) renderer_alloc(yg);
+	if (renderer_init)  renderer_init(yg);
+}
+
 static int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
 }
@@ -1045,6 +1070,13 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	if (yg->screenshot_frame) {
 		yutani_screenshot(yg);
+	}
+
+	if (yg->reload_renderer) {
+		yg->reload_renderer = 0;
+		/* Otherwise we won't draw the cursor... */
+		gfx_no_clip(yg->backend_ctx);
+		try_load_extensions(yg);
 	}
 
 }
@@ -2086,21 +2118,7 @@ int main(int argc, char * argv[]) {
 	TRACE("Done.");
 
 	/* Try to load Cairo backend */
-	void * cairo = dlopen("libtoaru_ext_cairo_renderer.so", 0);
-	if (cairo) {
-		renderer_alloc = dlsym(cairo, "renderer_alloc");
-		renderer_init = dlsym(cairo, "renderer_init");
-		renderer_add_clip = dlsym(cairo, "renderer_add_clip");
-		renderer_set_clip = dlsym(cairo, "renderer_set_clip");
-		renderer_push_state = dlsym(cairo, "renderer_push_state");
-		renderer_pop_state = dlsym(cairo, "renderer_pop_state");
-		renderer_destroy = dlsym(cairo, "renderer_destroy");
-		renderer_blit_window = dlsym(cairo, "renderer_blit_window");
-		renderer_blit_screen = dlsym(cairo, "renderer_blit_screen");
-	}
-
-	if (renderer_alloc) renderer_alloc(yg);
-	if (renderer_init)  renderer_init(yg);
+	try_load_extensions(yg);
 
 	yutani_clip_init(yg);
 
@@ -2599,6 +2617,11 @@ int main(int argc, char * argv[]) {
 								yutani_msg_buildx_clipboard_alloc(response, yg->clipboard_size);
 								yutani_msg_buildx_clipboard(response, yg->clipboard);
 								pex_send(server, p->source, response->size, (char *)response);
+							}
+							break;
+						case YUTANI_SPECIAL_REQUEST_RELOAD:
+							{
+								yg->reload_renderer = 1;
 							}
 							break;
 						default:
