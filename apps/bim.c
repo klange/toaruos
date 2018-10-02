@@ -5361,6 +5361,23 @@ void insert_mode(void) {
 						insert_line_feed();
 						redraw |= 2;
 						break;
+					case 22: /* ^V */
+						/* Insert next byte raw */
+						{
+							/* Indicate we're in literal mode */
+							render_commandline_message("^V");
+							/* Put the cursor back into the text field */
+							place_cursor_actual();
+							/* Get next character */
+							while ((cin = bim_getch()) == -1);
+							/* Insert literal */
+							insert_char(cin);
+							/* Redraw INSERT */
+							redraw_commandline();
+							/* Draw text */
+							redraw |= 1;
+						}
+						break;
 					case 23: /* ^W */
 						delete_word();
 						break;
