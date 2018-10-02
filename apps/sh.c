@@ -724,6 +724,9 @@ static void handle_status(int ret_code) {
 			case SIGINT:
 				/* Do nothing */
 				return;
+			case SIGPIPE:
+				/* Do nothing */
+				return;
 			default:
 				sprintf(str, "Killed by unhandled signal %d",WTERMSIG(ret_code));
 				break;
@@ -1112,6 +1115,7 @@ _nope:
 	tokenid = i;
 
 	unsigned int child_pid;
+	int last_child;
 
 	int nowait = (!strcmp(argv[tokenid-1],"&"));
 	if (nowait) {
@@ -1144,7 +1148,8 @@ _nope:
 			last_output[1] = tmp_out[1];
 		}
 
-		if (!fork()) {
+		last_child = fork();
+		if (!last_child) {
 			if (output_files[cmdi]) {
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
@@ -1180,6 +1185,7 @@ _nope:
 				}
 				run_cmd(arg_starts[0]);
 			}
+			last_child = child_pid;
 		}
 	}
 
@@ -1188,8 +1194,10 @@ _nope:
 	if (!nowait) {
 		child = child_pid;
 		int pid;
+		int tmp;
 		do {
-			pid = waitpid(-1, &ret_code, 0);
+			pid = waitpid(-1, &tmp, 0);
+			if (pid == last_child) ret_code = tmp;
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		child = 0;
 	}
