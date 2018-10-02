@@ -1,0 +1,7 @@
+{
+    "city": "Tokyo",
+    "units": "metric",
+
+    "--comment": "The key below is provided for use in ToaruOS for free from OpenWeatherMap.org. We must provide the key so that the weather widget can make API queries. Use of this key for other purposes is against OpenWeatherMap's terms of service.",
+    "key": "78c832cfada2b0337f516891afb4f13b"
+}
