@@ -14,6 +14,7 @@
 
 int main(int argc, char * argv[]) {
 	int append = 0;
+	int ret_val = 0;
 	int opt;
 
 	while ((opt = getopt(argc, argv, "ai")) != -1) {
@@ -34,6 +35,7 @@ int main(int argc, char * argv[]) {
 		files[i] = fopen(argv[j], append ? "a" : "w");
 		if (!files[i]) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[j], strerror(errno));
+			ret_val = 1;
 			file_count--;
 			continue;
 		} else {
@@ -56,5 +58,5 @@ int main(int argc, char * argv[]) {
 		fclose(files[i]);
 	}
 
-	return 0;
+	return ret_val;
 }
