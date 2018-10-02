@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 import os
-import glob
 from pathlib import Path
+
+def getPaths(base):
+    out = []
+    for root, dirs, files in os.walk(base):
+        for i in dirs:
+            out.append(os.path.join(root,i))
+        for i in files:
+            out.append(os.path.join(root,i))
+    return out
 
 with open('util/devtable','w') as devtable:
 
@@ -15,7 +23,7 @@ with open('util/devtable','w') as devtable:
     # Copy permissions and set ownership for user files
     for user_details in [('local',1000)]:
         user, uid = user_details
-        for path in glob.glob('./base/home/{user}/**'.format(user=user),recursive=True):
+        for path in getPaths('./base/home/{user}'.format(user=user)):
             p = Path(path)
             path_mod = path.replace('./base','').rstrip('/')
             path_type = 'd' if p.is_dir() else 'f'
