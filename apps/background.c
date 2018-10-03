@@ -12,6 +12,7 @@
  */
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <sys/fswait.h>
@@ -85,6 +86,11 @@ static void check_click(struct yutani_msg_window_mouse_event * evt) {
 	}
 }
 
+static void sig_usr2(int sig) {
+	yutani_set_stack(yctx, wallpaper_window, YUTANI_ZORDER_BOTTOM);
+	yutani_flip(yctx, wallpaper_window);
+}
+
 int main (int argc, char ** argv) {
 
 	if (argc < 2 || strcmp(argv[1],"--really")) {
@@ -96,6 +102,8 @@ int main (int argc, char ** argv) {
 				" session manager along with the panel.\n", argv[0]);
 		return 1;
 	}
+
+	signal(SIGUSR2, sig_usr2);
 
 	wallpaper = malloc(sizeof(sprite_t));
 	load_sprite(wallpaper, "/usr/share/wallpaper.bmp");
