@@ -1,7 +1,7 @@
 
 <h1>ToaruOS</h1>
 <mono>
-Copyright (c) 2011-2017 Kevin Lange.  All rights reserved.
+Copyright (c) 2011-2018 K. Lange.  All rights reserved.
 
                           Dedicated to the memory of
                                Dennis Ritchie
@@ -21,7 +21,7 @@ furnished to do so, subject to the following conditions:
   2. Redistributions in binary form must reproduce the above copyright
      notice, this list of conditions and the following disclaimers in the
      documentation and/or other materials provided with the distribution.
-  3. Neither the names of the ToAruOS Kernel Development Team, Kevin Lange,
+  3. Neither the names of the ToAruOS Kernel Development Team, K. Lange,
      nor the names of its contributors may be used to endorse
      or promote products derived from this Software without specific prior
      written permission.
@@ -36,7 +36,7 @@ WITH THE SOFTWARE.
 </mono>
 <h2>Authors</h2>
 
-- Kevin Lange
+- K. Lange
 - Markus Schober
 - Tianyi Wang
 - Josh Kilmer
