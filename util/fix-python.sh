@@ -42,7 +42,12 @@ pushd $HDD_PATH/usr
 		ln -s ../python/lib/libpython3.6m.so
 
 	popd
+
 popd
 
 echo "Installing readline hook..."
 cp util/readline._py $HDD_PATH/usr/python/lib/python3.6/
+
+echo "Installing demos..."
+mkdir -p base/usr/share/python-demos
+cp util/python-demos/*.py base/usr/share/python-demos/

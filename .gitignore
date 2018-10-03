@@ -27,6 +27,7 @@
 /base/usr/python
 /base/usr/bin/*
 /base/usr/lib/*
+/base/usr/share/python-demos
 
 # Generic
 /base/usr/share/aclocal
