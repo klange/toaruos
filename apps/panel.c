@@ -1084,9 +1084,33 @@ static void resize_finish(int xwidth, int xheight) {
 	redraw();
 }
 
+static void bind_keys(void) {
+
+	/* Cltr-Alt-T = launch terminal */
+	yutani_key_bind(yctx, 't', KEY_MOD_LEFT_CTRL | KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
+	/* Alt+Tab = app switcher*/
+	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT | KEY_MOD_LEFT_SHIFT, YUTANI_BIND_STEAL);
+
+	/* Ctrl-F11 = toggle panel visibility */
+	yutani_key_bind(yctx, KEY_F11, KEY_MOD_LEFT_CTRL, YUTANI_BIND_STEAL);
+
+	/* Alt+F1 = show menu */
+	yutani_key_bind(yctx, KEY_F1, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
+	/* Alt+F2 = show app runner */
+	yutani_key_bind(yctx, KEY_F2, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
+	/* This lets us receive all just-modifier key releases */
+	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
+
+}
+
 static void sig_usr2(int sig) {
 	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);
 	yutani_flip(yctx, panel);
+	bind_keys();
 }
 
 int main (int argc, char ** argv) {
@@ -1193,25 +1217,7 @@ int main (int argc, char ** argv) {
 	update_window_list();
 
 	/* Key bindings */
-
-	/* Cltr-Alt-T = launch terminal */
-	yutani_key_bind(yctx, 't', KEY_MOD_LEFT_CTRL | KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
-
-	/* Alt+Tab = app switcher*/
-	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
-	yutani_key_bind(yctx, '\t', KEY_MOD_LEFT_ALT | KEY_MOD_LEFT_SHIFT, YUTANI_BIND_STEAL);
-
-	/* Ctrl-F11 = toggle panel visibility */
-	yutani_key_bind(yctx, KEY_F11, KEY_MOD_LEFT_CTRL, YUTANI_BIND_STEAL);
-
-	/* Alt+F1 = show menu */
-	yutani_key_bind(yctx, KEY_F1, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
-
-	/* Alt+F2 = show app runner */
-	yutani_key_bind(yctx, KEY_F2, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
-
-	/* This lets us receive all just-modifier key releases */
-	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
+	bind_keys();
 
 	time_t last_tick = 0;
 
