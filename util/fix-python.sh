@@ -51,3 +51,9 @@ cp util/readline._py $HDD_PATH/usr/python/lib/python3.6/
 echo "Installing demos..."
 mkdir -p base/usr/share/python-demos
 cp util/python-demos/*.py base/usr/share/python-demos/
+
+echo "Installing Help Browser files..."
+mkdir -p base/usr/share/help
+mkdir -p base/usr/share/help/licenses
+cp util/extra-help/*.trt base/usr/share/help/
+cp util/extra-help/licenses/*.trt base/usr/share/help/licenses/

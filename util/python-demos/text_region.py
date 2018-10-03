@@ -8,6 +8,12 @@ import os
 
 import cairo
 import toaru_fonts
+import yutani
+
+def create_from_bmp(path):
+    if os.path.exists(path) and path.endswith('.bmp'):
+        return yutani.Sprite.from_file(path).get_cairo_surface()
+    return None
 
 _emoji_available = os.path.exists('/usr/share/emoji')
 
@@ -417,7 +423,9 @@ class TextRegion(object):
                         img = self.img_from_path(target)
                     except:
                         print(f"Failed to load image {target}, going to show backup image.")
-                        img = self.img_from_path('/usr/share/icons/16/missing.png')
+                        img = None
+                    if not img:
+                        img = self.img_from_path('/usr/share/icons/16/missing.bmp')
                     chop = math.ceil(img.get_height() / tr.line_height)
                     group = []
                     for i in range(chop):
@@ -449,7 +457,7 @@ class TextRegion(object):
 
             def img_from_path(self, path):
                 if not path in self.surface_cache:
-                    s = cairo.ImageSurface.create_from_png(path)
+                    s = create_from_bmp(path)
                     self.surface_cache[path] = s
                     return s
                 else:
