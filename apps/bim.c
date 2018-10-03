@@ -1076,6 +1076,47 @@ static int syn_gitcommit_extended(line_t * line, int i, int c, int last, int * o
 
 static char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG",NULL};
 
+static char * syn_gitrebase_commands[] = {
+	"p ","r ","e ","s ","f ","x "," d",
+	"pick ","reword ","edit ","squash ","fixup ",
+	"exec ","drop ",
+	NULL
+};
+
+static int syn_gitrebase_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
+	if (c == '#') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	if (i == 0) {
+		int j = i;
+		for (int s = 0; syn_gitrebase_commands[s]; ++s) {
+			int d = 0;
+			while (j + d < line->actual && line->text[j+d].codepoint == syn_gitrebase_commands[s][d]) d++;
+			if (syn_gitrebase_commands[s][d] == '\0') {
+				*out_left = j+d-1;
+				return FLAG_KEYWORD;
+			}
+		}
+	}
+
+	if (i > 0 && (line->text[i-1].flags & FLAG_KEYWORD)) {
+		int j = i;
+		while (isxdigit(line->text[j].codepoint)) {
+			j++;
+		}
+		*out_left = j-i-1;
+		return FLAG_NUMERAL;
+	}
+
+	return FLAG_NONE;
+}
+
+static char * syn_gitrebase_ext[] = {"git-rebase-todo",NULL};
+
 static int syn_diff_extended(line_t * line, int i, int c, int last, int * out_left) {
 	(void)last;
 
@@ -1118,6 +1159,7 @@ struct syntax_definition {
 	{"make",syn_make_ext,NULL,NULL,syn_make_extended,NULL,NULL},
 	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,NULL},
 	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
+	{"gitrebase",syn_gitrebase_ext,NULL,NULL,syn_gitrebase_extended,NULL,NULL},
 	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
 	{NULL}
 };
