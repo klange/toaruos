@@ -193,6 +193,7 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 	char tmp[100];
 	read_fs(file, 0, 100, (unsigned char *)tmp); close_fs(file);
 	char * cmd = (char *)&tmp[2];
+	if (*cmd == ' ') cmd++; /* Handle a leading space */
 	char * space_or_linefeed = strpbrk(cmd, " \n");
 	char * arg = NULL;
 
