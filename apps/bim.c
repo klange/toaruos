@@ -1702,6 +1702,28 @@ void add_indent(int new_line, int old_line) {
 				break;
 			}
 		}
+		if (old_line < new_line &&
+			(env->lines[old_line]->text[env->lines[old_line]->actual-1].codepoint == '{' ||
+			env->lines[old_line]->text[env->lines[old_line]->actual-1].codepoint == ':')) {
+			if (env->tabs) {
+				char_t c;
+				c.codepoint = '\t';
+				c.display_width = env->tabstop;
+				env->lines[new_line] = line_insert(env->lines[new_line], c, env->lines[new_line]->actual-1, new_line);
+				env->col_no++;
+				changed = 1;
+			} else {
+				for (int j = 0; j < env->tabstop; ++j) {
+					char_t c;
+					c.codepoint = ' ';
+					c.display_width = 1;
+					c.flags = FLAG_SELECT;
+					env->lines[new_line] = line_insert(env->lines[new_line], c, env->lines[new_line]->actual-1, new_line);
+					env->col_no++;
+				}
+				changed = 1;
+			}
+		}
 		if (changed) {
 			recalculate_syntax(env->lines[new_line],new_line);
 		}
