@@ -280,6 +280,7 @@ int main(int argc, char * argv[]) {
 		set_iflag("ixany",  IXANY);
 		set_iflag("ixoff",  IXOFF);
 
+		set_oflag("olcuc",  OLCUC);
 		set_oflag("opost",  OPOST);
 		set_oflag("onlcr",  ONLCR);
 		set_oflag("ocrnl",  OCRNL);
