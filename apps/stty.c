@@ -4,150 +4,166 @@
  * Copyright (C) 2018 K. Lange
  */
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 
-static void print_cc(struct termios * t, const char * lbl, int val) {
+static int hide_defaults = 1;
+static int printed = 0;
+
+static void print_cc(struct termios * t, const char * lbl, int val, int def) {
 	int c = t->c_cc[val];
+	if (hide_defaults && c == def) return;
 	if (!c) {
 		fprintf(stdout, "%s = <undef>; ", lbl);
 	} else if (c < 32) {
 		fprintf(stdout, "%s = ^%c; ", lbl, '@' + c);
+	} else {
+		fprintf(stdout, "%s = %c; ", lbl, c);
+	}
+	printed = 1;
+}
+
+static void print_(int flags, const char * lbl, int val, int def) {
+	int c = !!(flags & val);
+	if (!hide_defaults || c != def) {
+		fprintf(stdout, "%s%s ", c ? "" : "-", lbl);
+		printed = 1;
 	}
 }
 
-static void print_flag(struct termios * t, const char * lbl, int val) {
-	int c = t->c_cflag & val;
-	fprintf(stdout, "%s%s ", c ? "" : "-", lbl);
-}
-
-static void print_iflag(struct termios * t, const char * lbl, int val) {
-	int c = t->c_iflag & val;
-	fprintf(stdout, "%s%s ", c ? "" : "-", lbl);
-}
-
-static void print_oflag(struct termios * t, const char * lbl, int val) {
-	int c = t->c_oflag & val;
-	fprintf(stdout, "%s%s ", c ? "" : "-", lbl);
-}
-
-static void print_lflag(struct termios * t, const char * lbl, int val) {
-	int c = t->c_lflag & val;
-	fprintf(stdout, "%s%s ", c ? "" : "-", lbl);
-}
+#define print_cflag(lbl,val,def) print_(t.c_cflag, lbl, val, def)
+#define print_iflag(lbl,val,def) print_(t.c_iflag, lbl, val, def)
+#define print_oflag(lbl,val,def) print_(t.c_oflag, lbl, val, def)
+#define print_lflag(lbl,val,def) print_(t.c_lflag, lbl, val, def)
 
 static int show_settings(int all) {
 	/* Size */
 	struct winsize w;
 	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
 	fprintf(stdout, "rows %d; columns %d; ypixels %d; xpixels %d;\n", w.ws_row, w.ws_col, w.ws_ypixel, w.ws_xpixel);
+	printed = 0;
 
 	struct termios t;
 	tcgetattr(STDERR_FILENO, &t);
 
 	/* Keys */
-	print_cc(&t, "intr", VINTR);
-	print_cc(&t, "quit", VQUIT);
-	print_cc(&t, "erase", VERASE);
-	print_cc(&t, "kill", VKILL);
-	print_cc(&t, "eof", VEOF);
-	print_cc(&t, "eol", VEOL);
-	fprintf(stdout, "\n");
+	print_cc(&t, "intr",  VINTR,  3);
+	print_cc(&t, "quit",  VQUIT,  28);
+	print_cc(&t, "erase", VERASE, '\b');
+	print_cc(&t, "kill",  VKILL,  21);
+	print_cc(&t, "eof",   VEOF,   4);
+	print_cc(&t, "eol",   VEOL,   0);
+	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
-	print_cc(&t, "start", VSTART);
-	print_cc(&t, "stop", VSTOP);
-	print_cc(&t, "susp", VSUSP);
+	print_cc(&t, "start", VSTART, 17);
+	print_cc(&t, "stop",  VSTOP,  19);
+	print_cc(&t, "susp",  VSUSP,  26);
 
 	/* MIN, TIME */
-	fprintf(stdout, "min = %d; time = %d;\n", t.c_cc[VMIN], t.c_cc[VTIME]);
-
-	print_flag(&t, "parenb", PARENB);
-	print_flag(&t, "parodd", PARODD);
+	if (!hide_defaults || t.c_cc[VMIN]  != 1) { fprintf(stdout, "min = %d; ",  t.c_cc[VMIN]);  printed = 1; }
+	if (!hide_defaults || t.c_cc[VTIME] != 0) { fprintf(stdout, "time = %d; ", t.c_cc[VTIME]); printed = 1; }
+	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
 	switch ((t.c_cflag & CSIZE)) {
-		case CS5: fprintf(stdout, "cs5 "); break;
-		case CS6: fprintf(stdout, "cs6 "); break;
-		case CS7: fprintf(stdout, "cs7 "); break;
-		case CS8: fprintf(stdout, "cs8 "); break;
+		case CS5: fprintf(stdout, "cs5 "); printed = 1; break;
+		case CS6: fprintf(stdout, "cs6 "); printed = 1; break;
+		case CS7: fprintf(stdout, "cs7 "); printed = 1; break;
+		case CS8: if (!hide_defaults) { fprintf(stdout, "cs8 "); printed = 1; } break;
 	}
 
-	print_flag(&t, "hupcl",  HUPCL);
-	print_flag(&t, "cstopb", CSTOPB);
-	print_flag(&t, "cread",  CREAD);
-	print_flag(&t, "clocal", CLOCAL);
-	fprintf(stdout, "\n");
+	print_cflag("cstopb", CSTOPB, 0);
+	print_cflag("cread",  CREAD,  1);
+	print_cflag("parenb", PARENB, 0);
+	print_cflag("parodd", PARODD, 0);
+	print_cflag("hupcl",  HUPCL,  0);
+	print_cflag("clocal", CLOCAL, 0);
+	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
-	print_iflag(&t, "ignbrk", IGNBRK);
-	print_iflag(&t, "brkint", BRKINT);
-	print_iflag(&t, "ignpar", IGNPAR);
-	print_iflag(&t, "parmrk", PARMRK);
-	print_iflag(&t, "inpck",  INPCK);
-	print_iflag(&t, "istrip", ISTRIP);
-	print_iflag(&t, "inlcr",  INLCR);
-	print_iflag(&t, "ixon",   IXON);
-	print_iflag(&t, "ixany",  IXANY);
-	print_iflag(&t, "ixoff",  IXOFF);
-	fprintf(stdout, "\n");
+	print_iflag("brkint", BRKINT, 1);
+	print_iflag("icrnl",  ICRNL,  1);
+	print_iflag("ignbrk", IGNBRK, 0);
+	print_iflag("igncr",  IGNCR,  0);
+	print_iflag("ignpar", IGNPAR, 0);
+	print_iflag("inlcr",  INLCR,  0);
+	print_iflag("inpck",  INPCK,  0);
+	print_iflag("istrip", ISTRIP, 0);
+	print_iflag("ixany",  IXANY,  0);
+	print_iflag("ixoff",  IXOFF,  0);
+	print_iflag("ixon",   IXON,   0);
+	print_iflag("parmrk", PARMRK, 0);
+	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
-	print_oflag(&t, "opost",  OPOST);
-	print_oflag(&t, "onlcr",  ONLCR);
-	print_oflag(&t, "ocrnl",  OCRNL);
-	print_oflag(&t, "onocr",  ONOCR);
-	print_oflag(&t, "onlret", ONLRET);
-	print_oflag(&t, "ofill",  OFILL);
-	print_oflag(&t, "ofdel",  OFDEL);
+	print_oflag("opost",  OPOST,  1);
+	print_oflag("olcuc",  OLCUC,  0);
+	print_oflag("onlcr",  ONLCR,  1);
+	print_oflag("ocrnl",  OCRNL,  0);
+	print_oflag("onocr",  ONOCR,  0);
+	print_oflag("onlret", ONLRET, 0);
+	print_oflag("ofill",  OFILL,  0);
+	print_oflag("ofdel",  OFDEL,  0);
 
 	switch ((t.c_oflag & CRDLY)) {
-		case CR0: fprintf(stdout, "cr0 "); break;
-		case CR1: fprintf(stdout, "cr1 "); break;
-		case CR2: fprintf(stdout, "cr2 "); break;
-		case CR3: fprintf(stdout, "cr3 "); break;
+		case CR0: if (!hide_defaults) { fprintf(stdout, "cr0 "); printed = 1; } break;
+		case CR1: fprintf(stdout, "cr1 "); printed = 1; break;
+		case CR2: fprintf(stdout, "cr2 "); printed = 1; break;
+		case CR3: fprintf(stdout, "cr3 "); printed = 1; break;
 	}
 
 	switch ((t.c_oflag & NLDLY)) {
-		case NL0: fprintf(stdout, "nl0 "); break;
-		case NL1: fprintf(stdout, "nl1 "); break;
+		case NL0: if (!hide_defaults) { fprintf(stdout, "nl0 "); printed = 1; } break;
+		case NL1: fprintf(stdout, "nl1 "); printed = 1; break;
 	}
 
 	switch ((t.c_oflag & TABDLY)) {
-		case TAB0: fprintf(stdout, "tab0 "); break;
-		case TAB1: fprintf(stdout, "tab1 "); break;
-		case TAB2: fprintf(stdout, "tab2 "); break;
-		case TAB3: fprintf(stdout, "tab3 "); break;
+		case TAB0: if (!hide_defaults) { fprintf(stdout, "tab0 "); printed = 1; } break;
+		case TAB1: fprintf(stdout, "tab1 "); printed = 1; break;
+		case TAB2: fprintf(stdout, "tab2 "); printed = 1; break;
+		case TAB3: fprintf(stdout, "tab3 "); printed = 1; break;
 	}
 
 	switch ((t.c_oflag & BSDLY)) {
-		case BS0: fprintf(stdout, "bs0 "); break;
-		case BS1: fprintf(stdout, "bs1 "); break;
+		case BS0: if (!hide_defaults) { fprintf(stdout, "bs0 "); printed = 1; } break;
+		case BS1: fprintf(stdout, "bs1 "); printed = 1; break;
 	}
 
 	switch ((t.c_oflag & FFDLY)) {
-		case FF0: fprintf(stdout, "ff0 "); break;
-		case FF1: fprintf(stdout, "ff1 "); break;
+		case FF0: if (!hide_defaults) { fprintf(stdout, "ff0 "); printed = 1; } break;
+		case FF1: fprintf(stdout, "ff1 "); printed = 1; break;
 	}
 
 	switch ((t.c_oflag & VTDLY)) {
-		case VT0: fprintf(stdout, "vt0\n"); break;
-		case VT1: fprintf(stdout, "vt1\n"); break;
+		case VT0: if (!hide_defaults) { fprintf(stdout, "vt0"); printed = 1; } break;
+		case VT1: fprintf(stdout, "vt1"); printed = 1; break;
 	}
+	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
-	print_lflag(&t, "isig",   ISIG);
-	print_lflag(&t, "icanon", ICANON);
-	print_lflag(&t, "iexten", IEXTEN);
-	print_lflag(&t, "echo",   ECHO);
-	print_lflag(&t, "echoe",  ECHOE);
-	print_lflag(&t, "echok",  ECHOK);
-	print_lflag(&t, "echonl", ECHONL);
-	print_lflag(&t, "noflsh", NOFLSH);
-	print_lflag(&t, "tostop", TOSTOP);
-	fprintf(stdout, "\n");
+	print_lflag("isig",   ISIG,   1);
+	print_lflag("icanon", ICANON, 1);
+	print_lflag("xcase",  XCASE,  0);
+	print_lflag("echo",   ECHO,   1);
+	print_lflag("echoe",  ECHOE,  1);
+	print_lflag("echok",  ECHOK,  1);
+	print_lflag("echonl", ECHONL, 0);
+	print_lflag("noflsh", NOFLSH, 0);
+	print_lflag("tostop", TOSTOP, 0);
+	print_lflag("iexten", IEXTEN, 1);
+	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
 	return 0;
 }
 
 int main(int argc, char * argv[]) {
-	if (argc < 2) {
+
+	int i = 1;
+
+	if (i < argc && !strcmp(argv[i], "-a")) {
+		hide_defaults = 0;
+		i++;
+	}
+
+	if (i == argc) {
 		return show_settings(0);
 	}
 
