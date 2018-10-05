@@ -1490,6 +1490,8 @@ static int read_line(void) {
 						return 1;
 					case 22: /* ^V */
 						/* Don't bother with unicode, just take the next byte */
+						place_cursor_actual();
+						printf("^\b");
 						insert_char(getc(stdin));
 						immediate = 0;
 						break;
@@ -1501,6 +1503,16 @@ static int read_line(void) {
 						printf("\033[2J\033[H");
 						render_line();
 						place_cursor_actual();
+						break;
+					case 11: /* ^K - Clear to end */
+						the_line->actual = column;
+						immediate = 0;
+						break;
+					case 21: /* ^U - Kill to beginning */
+						while (column) {
+							delete_at_cursor();
+						}
+						immediate = 0;
 						break;
 					case '\t':
 						if (tab_complete_func) {
