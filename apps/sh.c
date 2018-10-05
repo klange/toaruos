@@ -762,6 +762,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 	char backtick = 0;
 	char buffer_[512] = {0};
 	int collected = 0;
+	int force_collected = 0;
 
 	list_t * args = list_create();
 	int have_star = 0;
@@ -825,12 +826,13 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 							for (int i = 0; i < (int)strlen(c); ++i) {
 								if (c[i] == ' ' && !quoted) {
 									/* If we are not quoted and we reach a space, it signals a new argument */
-									if (collected) {
+									if (collected || force_collected) {
 										buffer_[collected] = '\0';
 										add_argument(args, buffer_);
 										buffer_[0] = '\0';
 										have_star = 0;
 										collected = 0;
+										force_collected = 0;
 									}
 								} else {
 									buffer_[collected] = c[i];
@@ -842,6 +844,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						continue;
 					}
 				case '\"':
+					force_collected = 1;
 					if (quoted == '\"') {
 						if (backtick) {
 							goto _just_add;
@@ -857,6 +860,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					}
 					goto _just_add;
 				case '\'':
+					force_collected = 1;
 					if (quoted == '\'') {
 						if (backtick) {
 							goto _just_add;
@@ -908,18 +912,20 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					goto _just_add;
 				case '|':
 					if (!quoted && !backtick) {
-						if (collected) {
+						if (collected || force_collected) {
 							add_argument(args, buffer_);
 						}
+						force_collected = 0;
 						collected = sprintf(buffer_, "%s", PIPE_TOKEN);
 						goto _new_arg;
 					}
 					goto _just_add;
 				case '>':
 					if (!quoted && !backtick) {
-						if (collected) {
+						if (collected || force_collected) {
 							add_argument(args, buffer_);
 						}
+						force_collected = 0;
 						collected = sprintf(buffer_, "%s", WRITE_TOKEN);
 						goto _new_arg;
 					}
@@ -950,11 +956,12 @@ _just_add:
 
 _new_arg:
 			backtick = 0;
-			if (collected) {
+			if (collected || force_collected) {
 				add_argument(args, buffer_);
 				buffer_[0] = '\0';
 				have_star = 0;
 				collected = 0;
+				force_collected = 0;
 			}
 
 _next:
@@ -978,7 +985,7 @@ _done:
 			}
 		}
 
-		if (collected) {
+		if (collected || force_collected) {
 			add_argument(args, buffer_);
 			break;
 		}
