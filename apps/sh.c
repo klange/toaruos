@@ -1044,43 +1044,70 @@ _done:
 			int has_before = !!strlen(before);
 			int has_after = !!strlen(after);
 
-			if (!has_before || !strchr(before,'/')) {
+			if (1) {
 				/* read current directory, add all */
-				DIR * dirp = opendir(".");
+				DIR * dirp;
+				char * prepend = "";
+				if (has_before) {
+					char * dir = strrchr(before,'/');
+
+					if (!dir) {
+						dirp = opendir(".");
+					} else if (dir == before) {
+						dirp = opendir("/");
+						prepend = before;
+						before++;
+					} else {
+						*dir = '\0';
+						dirp = opendir(before);
+						prepend = before;
+						before = dir+1;
+					}
+				} else {
+					dirp = opendir(".");
+				}
 
 				int before_i = i;
-				struct dirent * ent = readdir(dirp);
-				while (ent != NULL) {
-					if (ent->d_name[0] != '.') {
-						char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
-						memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
+				if (dirp) {
+					struct dirent * ent = readdir(dirp);
+					while (ent != NULL) {
+						if (ent->d_name[0] != '.') {
+							char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
+							memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
 
-						char * t = s;
+							char * t = s;
 
-						if (has_before) {
-							if (strstr(s,before) != s) {
-								goto _nope;
-							}
-							t = &s[strlen(before)];
-						}
-						if (has_after) {
-							if (strlen(t) >= strlen(after)) {
-								if (!strcmp(after,&t[strlen(t)-strlen(after)])) {
-									argv[i] = s;
-									i++;
-									argcs[cmdi]++;
+							if (has_before) {
+								if (strstr(s,before) != s) {
+									free(s);
+									goto _nope;
 								}
+								t = &s[strlen(before)];
 							}
-						} else {
-							argv[i] = s;
-							i++;
-							argcs[cmdi]++;
+							if (has_after) {
+								if (strlen(t) >= strlen(after)) {
+									if (!strcmp(after,&t[strlen(t)-strlen(after)])) {
+										char * out = malloc(strlen(s) + 2 + strlen(prepend));
+										sprintf(out,"%s%s%s", prepend, !!*prepend ? "/" : "", s);
+										argv[i] = out;
+										i++;
+										argcs[cmdi]++;
+									}
+								}
+							} else {
+								char * out = malloc(strlen(s) + 2 + strlen(prepend));
+								sprintf(out,"%s%s%s", prepend, !!*prepend ? "/" : "", s);
+								argv[i] = out;
+								i++;
+								argcs[cmdi]++;
+							}
+							free(s);
 						}
-					}
 _nope:
-					ent = readdir(dirp);
+						ent = readdir(dirp);
+					}
+					closedir(dirp);
 				}
-				closedir(dirp);
 
 				if (before_i == i) {
 					/* no matches */
@@ -1092,12 +1119,6 @@ _nope:
 				} else {
 					free(c);
 				}
-			} else {
-				/* directory globs not supported */
-				glob[0] = '*';
-				argv[i] = c;
-				i++;
-				argcs[cmdi]++;
 			}
 		} else {
 			argv[i] = c;
