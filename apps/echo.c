@@ -8,6 +8,7 @@
  * Prints arguments to stdout, possibly interpreting escape
  * sequences in the arguments.
  */
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -46,24 +47,69 @@ int main(int argc, char ** argv) {
 
 	for (int i = optind; i < argc; ++i) {
 		if (process_escapes) {
-			for (int j = 0; j < (int)strlen(argv[i]) - 1; ++j) {
-				if (argv[i][j] == '\\') {
-					if (argv[i][j+1] == 'e') {
-						argv[i][j] = '\033';
-						for (int k = j + 1; k < (int)strlen(argv[i]); ++k) {
-							argv[i][k] = argv[i][k+1];
-						}
+			char * c = argv[i];
+			while (*c) {
+				if (*c == '\\') {
+					c++;
+					switch (*c) {
+						case '\\':
+							putchar('\\');
+							break;
+						case 'a':
+							putchar('\a');
+							break;
+						case 'b':
+							putchar('\b');
+							break;
+						case 'c':
+							return 0;
+						case 'e':
+							putchar('\033');
+							break;
+						case 'f':
+							putchar('\f');
+							break;
+						case 'n':
+							putchar('\n');
+							break;
+						case 't':
+							putchar('\t');
+							break;
+						case 'v':
+							putchar('\v');
+							break;
+						case '0':
+							{
+								int i = 0;
+								if (!isdigit(*(c+1)) || *(c+1) > '7') {
+									break;
+								}
+								c++;
+								i = *c - '0';
+								if (isdigit(*(c+1)) && *(c+1) <= '7') {
+									c++;
+									i = (i << 3) | (*c - '0');
+									if (isdigit(*(c+1)) && *(c+1) <= '7') {
+										c++;
+										i = (i << 3) | (*c - '0');
+									}
+								}
+								putchar(i);
+							}
+							break;
+						default:
+							putchar('\\');
+							putchar(*c);
+							break;
 					}
-					if (argv[i][j+1] == 'n') {
-						argv[i][j] = '\n';
-						for (int k = j + 1; k < (int)strlen(argv[i]); ++k) {
-							argv[i][k] = argv[i][k+1];
-						}
-					}
+				} else {
+					putchar(*c);
 				}
+				c++;
 			}
+		} else {
+			printf("%s",argv[i]);
 		}
-		printf("%s",argv[i]);
 		if (i != argc - 1) {
 			printf(" ");
 		}
