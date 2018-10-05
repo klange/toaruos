@@ -4,8 +4,10 @@
  * Copyright (C) 2018 K. Lange
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 
@@ -37,6 +39,30 @@ static void print_(int flags, const char * lbl, int val, int def) {
 #define print_iflag(lbl,val,def) print_(t.c_iflag, lbl, val, def)
 #define print_oflag(lbl,val,def) print_(t.c_oflag, lbl, val, def)
 #define print_lflag(lbl,val,def) print_(t.c_lflag, lbl, val, def)
+
+static void set_char_(struct termios *t, const char * lbl, int val, const char * cmp, const char * arg, int * i) {
+	if (!strcmp(cmp, lbl)) {
+		if (!arg) {
+			fprintf(stderr, "%s: expected argument\n", lbl);
+			exit(1);
+		}
+		/* Parse arg */
+		if (strlen(arg) == 1) {
+			/* Assume raw character */
+			t->c_cc[val] = *arg;
+		} else if (*arg == '^') { /* ^c, etc. */
+			int v = toupper(arg[1]);
+			t->c_cc[val] = v - '@';
+		} else {
+			/* Assume decimal for now */
+			int v = atoi(arg);
+			t->c_cc[val] = v;
+		}
+		(*i)++;
+	}
+}
+
+#define set_char(lbl,val) set_char_(&t, lbl, val, argv[i], argv[i+1], &i)
 
 static void setunset_flag(tcflag_t * flag, const char * lbl, int val, const char * cmp) {
 	if (*cmp == '-') {
@@ -206,6 +232,17 @@ int main(int argc, char * argv[]) {
 			t.c_cc[VSUSP] = 26; /* ^Z */
 			t.c_cc[VTIME]  =  0;
 		}
+
+		set_char("eof",   VEOF);
+		set_char("eol",   VEOL);
+		set_char("erase", VERASE);
+		set_char("intr",  VINTR);
+		set_char("kill",  VKILL);
+		set_char("quit",  VQUIT);
+		set_char("start", VSTART);
+		set_char("stop",  VSTOP);
+		set_char("susp",  VSUSP);
+
 
 		set_cflag("parenb", PARENB);
 		set_cflag("parodd", PARODD);
