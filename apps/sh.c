@@ -1040,6 +1040,7 @@ _done:
 
 			char * before = c;
 			char * after = &glob[8];
+			char * dir = NULL;
 
 			int has_before = !!strlen(before);
 			int has_after = !!strlen(after);
@@ -1049,7 +1050,7 @@ _done:
 				DIR * dirp;
 				char * prepend = "";
 				if (has_before) {
-					char * dir = strrchr(before,'/');
+					dir = strrchr(before,'/');
 
 					if (!dir) {
 						dirp = opendir(".");
@@ -1112,6 +1113,9 @@ _nope:
 				if (before_i == i) {
 					/* no matches */
 					glob[0] = '*';
+					if (dir) {
+						*dir = '/';
+					}
 					memmove(&glob[1], after, strlen(after)+1);
 					argv[i] = c;
 					i++;
