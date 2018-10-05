@@ -292,7 +292,7 @@ clean:
 	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
 	rm -f base/lib/crt*.o
 	rm -f ${MODULES}
-	rm -f ${APPS_Y} ${LIBS_Y}
+	rm -f ${APPS_Y} ${LIBS_Y} ${EXT_LIBS_Y}
 
 ifneq (,$(findstring Microsoft,$(shell uname -r)))
   QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime -vnc :0
