@@ -62,50 +62,35 @@ static void clear_input_buffer(pty_t * pty) {
 	pty->canon_buffer[0] = '\0';
 }
 
-static void output_process(pty_t * pty, uint8_t c) {
-	if (ring_buffer_available(pty->out) < 2) return; /* uh oh */
+static void output_process_slave(pty_t * pty, uint8_t c) {
 	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
-		uint8_t d = '\r';
-		OUT(d);
+		c = '\n';
+		OUT(c);
+		c = '\r';
+		OUT(c);
+		return;
 	}
+
+	if (c == '\r' && (pty->tios.c_oflag & ONLRET)) {
+		return;
+	}
+
+	if (c >= 'a' && c <= 'z' && (pty->tios.c_oflag & OLCUC)) {
+		c = c + 'a' - 'A';
+		OUT(c);
+		return;
+	}
+
 	OUT(c);
 }
 
-static void output_process_slave(pty_t * pty, uint8_t c) {
-	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
-		uint8_t d = '\r';
-		OUT(d);
-	}
-	OUT(c);
+static void output_process(pty_t * pty, uint8_t c) {
+	if (ring_buffer_available(pty->out) < 2) return; /* uh oh */
+	output_process_slave(pty, c);
 }
 
 static void input_process(pty_t * pty, uint8_t c) {
-	if (pty->tios.c_lflag & ICANON) {
-		if (c == pty->tios.c_cc[VKILL]) {
-			while (pty->canon_buflen > 0) {
-				pty->canon_buflen--;
-				pty->canon_buffer[pty->canon_buflen] = '\0';
-				if (pty->tios.c_lflag & ECHO) {
-					output_process(pty, '\010');
-					output_process(pty, ' ');
-					output_process(pty, '\010');
-				}
-			}
-			return;
-		}
-		if (c == pty->tios.c_cc[VERASE]) {
-			/* Backspace */
-			if (pty->canon_buflen > 0) {
-				pty->canon_buflen--;
-				pty->canon_buffer[pty->canon_buflen] = '\0';
-				if (pty->tios.c_lflag & ECHO) {
-					output_process(pty, '\010');
-					output_process(pty, ' ');
-					output_process(pty, '\010');
-				}
-			}
-			return;
-		}
+	if (pty->tios.c_lflag & ISIG) {
 		if (c == pty->tios.c_cc[VINTR]) {
 			if (pty->tios.c_lflag & ECHO) {
 				output_process(pty, '^');
@@ -130,6 +115,39 @@ static void input_process(pty_t * pty, uint8_t c) {
 			}
 			return;
 		}
+		/* VSUSP */
+	}
+#if 0
+	if (pty->tios.c_lflag & IXON ) {
+		/* VSTOP, VSTART */
+	}
+#endif
+	if (pty->tios.c_lflag & ICANON) {
+		if (c == pty->tios.c_cc[VKILL]) {
+			while (pty->canon_buflen > 0) {
+				pty->canon_buflen--;
+				pty->canon_buffer[pty->canon_buflen] = '\0';
+				if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOK)) {
+					output_process(pty, '\010');
+					output_process(pty, ' ');
+					output_process(pty, '\010');
+				}
+			}
+			return;
+		}
+		if (c == pty->tios.c_cc[VERASE]) {
+			/* Backspace */
+			if (pty->canon_buflen > 0) {
+				pty->canon_buflen--;
+				pty->canon_buffer[pty->canon_buflen] = '\0';
+				if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOE)) {
+					output_process(pty, '\010');
+					output_process(pty, ' ');
+					output_process(pty, '\010');
+				}
+			}
+			return;
+		}
 		if (c == pty->tios.c_cc[VEOF]) {
 			if (pty->canon_buflen) {
 				dump_input_buffer(pty);
@@ -138,6 +156,27 @@ static void input_process(pty_t * pty, uint8_t c) {
 			}
 			return;
 		}
+
+		/* ISTRIP: Strip eighth bit */
+		if (pty->tios.c_iflag & ISTRIP) {
+			c &= 0x7F;
+		}
+
+		/* IGNCR: Ignore carriage return. */
+		if ((pty->tios.c_iflag & IGNCR) && c == '\r') {
+			return;
+		}
+
+		/* INLCR: Translate NL to CR. */
+		if ((pty->tios.c_iflag & INLCR) && c == '\n') {
+			c = '\r';
+		}
+
+		/* ICRNL: Convert carriage return. */
+		if ((pty->tios.c_iflag & ICRNL) && c == '\r') {
+			c = '\n';
+		}
+
 		if (pty->canon_buflen < pty->canon_bufsize) {
 			pty->canon_buffer[pty->canon_buflen] = c;
 			pty->canon_buflen++;
@@ -146,6 +185,9 @@ static void input_process(pty_t * pty, uint8_t c) {
 			output_process(pty, c);
 		}
 		if (c == '\n') {
+			if (!(pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHONL)) {
+				output_process(pty, c);
+			}
 			pty->canon_buffer[pty->canon_buflen-1] = c;
 			dump_input_buffer(pty);
 			return;
