@@ -81,6 +81,16 @@ static void setunset_flag(tcflag_t * flag, const char * lbl, int val, const char
 #define set_oflag(lbl,val) setunset_flag(&(t.c_oflag), lbl, val, argv[i])
 #define set_lflag(lbl,val) setunset_flag(&(t.c_lflag), lbl, val, argv[i])
 
+static void set_toggle_(tcflag_t * flag, const char * lbl, int base, int val, const char * cmp) {
+	if (!strcmp(cmp, lbl)) {
+		(*flag) = (*flag) & ~(base);
+		(*flag) = (*flag) | (val);
+	}
+}
+
+#define set_ctoggle(lbl,base,val) set_toggle_(&(t.c_cflag), lbl, base, val, argv[i])
+#define set_otoggle(lbl,base,val) set_toggle_(&(t.c_oflag), lbl, base, val, argv[i])
+
 static int show_settings(int all) {
 	/* Size */
 	struct winsize w;
@@ -251,7 +261,11 @@ int main(int argc, char * argv[]) {
 		set_cflag("cstopb", CSTOPB);
 		set_cflag("cread",  CREAD);
 		set_cflag("clocal", CLOCAL);
-		/* TODO cs5 ... */
+
+		set_ctoggle("cs5", CSIZE, CS5);
+		set_ctoggle("cs6", CSIZE, CS6);
+		set_ctoggle("cs7", CSIZE, CS7);
+		set_ctoggle("cs8", CSIZE, CS8);
 
 		set_iflag("ignbrk", IGNBRK);
 		set_iflag("brkint", BRKINT);
@@ -273,7 +287,28 @@ int main(int argc, char * argv[]) {
 		set_oflag("onlret", ONLRET);
 		set_oflag("ofill",  OFILL);
 		set_oflag("ofdel",  OFDEL);
-		/* TODO cr0, nl0, tab0, bs0, ff0, vt0 */
+
+		set_otoggle("cr0", CRDLY, CR0);
+		set_otoggle("cr1", CRDLY, CR1);
+		set_otoggle("cr2", CRDLY, CR2);
+		set_otoggle("cr3", CRDLY, CR3);
+
+		set_otoggle("nl0", NLDLY, NL0);
+		set_otoggle("nl1", NLDLY, NL1);
+
+		set_otoggle("tab0", TABDLY, TAB0);
+		set_otoggle("tab1", TABDLY, TAB1);
+		set_otoggle("tab2", TABDLY, TAB2);
+		set_otoggle("tab3", TABDLY, TAB3);
+
+		set_otoggle("bs0", BSDLY, BS0);
+		set_otoggle("bs1", BSDLY, BS1);
+
+		set_otoggle("ff0", FFDLY, FF0);
+		set_otoggle("ff1", FFDLY, FF1);
+
+		set_otoggle("vt0", VTDLY, VT0);
+		set_otoggle("vt1", VTDLY, VT1);
 
 		set_lflag("isig",   ISIG);
 		set_lflag("icanon", ICANON);
