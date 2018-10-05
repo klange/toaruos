@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <locale.h>
 #include <poll.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 
 #include <toaru/decodeutf8.h>
@@ -1289,9 +1290,12 @@ static int handle_escape(int * this_buf, int * timeout, int c) {
 	return 0;
 }
 
-struct termios old;
+static unsigned int _INTR, _EOF;
+static struct termios old;
 static void get_initial_termios(void) {
 	tcgetattr(STDOUT_FILENO, &old);
+	_INTR = old.c_cc[VINTR];
+	_EOF  = old.c_cc[VEOF];
 }
 
 static void set_unbuffered(void) {
@@ -1436,33 +1440,40 @@ static int read_line(void) {
 		if (!decode(&istate, &c, cin)) {
 			if (timeout == 0) {
 				if (c != '\t') tabbed = 0;
+				if (_INTR && c == _INTR) {
+					set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+					printf("^%c", (int)('@' + c));
+					printf("\033[0m");
+					loading = 1;
+					the_line->actual = 0;
+					column = 0;
+					insert_char('\n');
+					immediate = 0;
+					raise(SIGINT);
+					return 1;
+				}
+				if (_EOF && c == _EOF) {
+					if (column == 0 && the_line->actual == 0) {
+						for (char *_c = rline_exit_string; *_c; ++_c) {
+							insert_char(*_c);
+						}
+						render_line();
+						place_cursor_actual();
+						return 1;
+					} else { /* Otherwise act like delete */
+						if (column < the_line->actual) {
+							line_delete(the_line, column+1);
+							if (offset > 0) offset--;
+							immediate = 0;
+						}
+						continue;
+					}
+				}
 				switch (c) {
 					case '\033':
 						if (timeout == 0) {
 							this_buf[timeout] = c;
 							timeout++;
-						}
-						break;
-					case 3: /* ^C - Cancel editing, and print ^C */
-						the_line->actual = 0;
-						set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-						printf("^C");
-						printf("\033[0m");
-						return 1;
-					case 4: /* ^D - With a blank line, return nothing */
-						if (column == 0 && the_line->actual == 0) {
-							for (char *_c = rline_exit_string; *_c; ++_c) {
-								insert_char(*_c);
-							}
-							render_line();
-							place_cursor_actual();
-							return 1;
-						} else { /* Otherwise act like delete */
-							if (column < the_line->actual) {
-								line_delete(the_line, column+1);
-								if (offset > 0) offset--;
-								immediate = 0;
-							}
 						}
 						break;
 					case DELETE_KEY:
