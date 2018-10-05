@@ -38,6 +38,23 @@ static void print_(int flags, const char * lbl, int val, int def) {
 #define print_oflag(lbl,val,def) print_(t.c_oflag, lbl, val, def)
 #define print_lflag(lbl,val,def) print_(t.c_lflag, lbl, val, def)
 
+static void setunset_flag(tcflag_t * flag, const char * lbl, int val, const char * cmp) {
+	if (*cmp == '-') {
+		if (!strcmp(cmp+1, lbl)) {
+			(*flag) = (*flag) & (~val);
+		}
+	} else {
+		if (!strcmp(cmp, lbl)) {
+			(*flag) = (*flag) | (val);
+		}
+	}
+}
+
+#define set_cflag(lbl,val) setunset_flag(&(t.c_cflag), lbl, val, argv[i])
+#define set_iflag(lbl,val) setunset_flag(&(t.c_iflag), lbl, val, argv[i])
+#define set_oflag(lbl,val) setunset_flag(&(t.c_oflag), lbl, val, argv[i])
+#define set_lflag(lbl,val) setunset_flag(&(t.c_lflag), lbl, val, argv[i])
+
 static int show_settings(int all) {
 	/* Size */
 	struct winsize w;
@@ -167,7 +184,74 @@ int main(int argc, char * argv[]) {
 		return show_settings(0);
 	}
 
-	/* TODO: Process arguments */
-	fprintf(stderr, "%s: argument processing not yet available\n", argv[0]);
-	return 1;
+	struct termios t;
+	tcgetattr(STDERR_FILENO, &t);
+
+	while (i < argc) {
+
+		if (!strcmp(argv[i], "sane")) {
+			t.c_iflag = ICRNL | BRKINT;
+			t.c_oflag = ONLCR | OPOST;
+			t.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN;
+			t.c_cflag = CREAD | CS8;
+			t.c_cc[VEOF]   =  4; /* ^D */
+			t.c_cc[VEOL]   =  0; /* Not set */
+			t.c_cc[VERASE] = '\b';
+			t.c_cc[VINTR]  =  3; /* ^C */
+			t.c_cc[VKILL]  = 21; /* ^U */
+			t.c_cc[VMIN]   =  1;
+			t.c_cc[VQUIT]  = 28; /* ^\ */
+			t.c_cc[VSTART] = 17; /* ^Q */
+			t.c_cc[VSTOP]  = 19; /* ^S */
+			t.c_cc[VSUSP] = 26; /* ^Z */
+			t.c_cc[VTIME]  =  0;
+		}
+
+		set_cflag("parenb", PARENB);
+		set_cflag("parodd", PARODD);
+		set_cflag("hupcl",  HUPCL);
+		set_cflag("hup",    HUPCL); /* alias */
+		set_cflag("cstopb", CSTOPB);
+		set_cflag("cread",  CREAD);
+		set_cflag("clocal", CLOCAL);
+		/* TODO cs5 ... */
+
+		set_iflag("ignbrk", IGNBRK);
+		set_iflag("brkint", BRKINT);
+		set_iflag("ignpar", IGNPAR);
+		set_iflag("parmrk", PARMRK);
+		set_iflag("inpck",  INPCK);
+		set_iflag("istrip", ISTRIP);
+		set_iflag("inlcr",  INLCR);
+		set_iflag("igncr",  IGNCR);
+		set_iflag("icrnl",  ICRNL);
+		set_iflag("ixon",   IXON);
+		set_iflag("ixany",  IXANY);
+		set_iflag("ixoff",  IXOFF);
+
+		set_oflag("opost",  OPOST);
+		set_oflag("onlcr",  ONLCR);
+		set_oflag("ocrnl",  OCRNL);
+		set_oflag("onocr",  ONOCR);
+		set_oflag("onlret", ONLRET);
+		set_oflag("ofill",  OFILL);
+		set_oflag("ofdel",  OFDEL);
+		/* TODO cr0, nl0, tab0, bs0, ff0, vt0 */
+
+		set_lflag("isig",   ISIG);
+		set_lflag("icanon", ICANON);
+		set_lflag("iexten", IEXTEN);
+		set_lflag("echo",   ECHO);
+		set_lflag("echoe",  ECHOE);
+		set_lflag("echok",  ECHOK);
+		set_lflag("echonl", ECHONL);
+		set_lflag("noflsh", NOFLSH);
+		set_lflag("tostop", TOSTOP);
+
+		i++;
+	}
+
+	tcsetattr(STDERR_FILENO, TCSAFLUSH, &t);
+
+	return 0;
 }
