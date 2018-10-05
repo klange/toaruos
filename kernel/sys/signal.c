@@ -228,7 +228,11 @@ int send_signal(pid_t process, uint32_t signal, int force_root) {
 
 	if (receiver == current_process) {
 		/* Forces us to be rescheduled and enter signal handler */
-		switch_next();
+		if (receiver->signal_kstack) {
+			switch_next();
+		} else {
+			switch_task(0);
+		}
 	}
 
 	return 0;
