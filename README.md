@@ -101,7 +101,7 @@ Run `make` and you will be prompted to build a toolchain. Reply `y` and allow th
 
 #### Python
 
-There are instructions on building Python 3.6 available from [the gitlab wiki](https://gitlab.com/toaruos/toaruos/wikis/Installing-Python).
+There are instructions on building Python 3.6 available from [the github wiki](https://github.com/klange/toaruos/wiki/How-to-Python).
 
 #### Freetype
 
