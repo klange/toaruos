@@ -105,11 +105,11 @@ There are instructions on building Python 3.6 available from [the gitlab wiki](h
 
 #### Freetype
 
-Currently only the Terminal supports using Freetype as a text rendering backend, but this will be expanded in the future.
+Freetype backends are available for the Terminal, decorator, and menu library.
 
 Freetype should mostly build as-is, though libtool needs to be taught how to build a shared object for ToaruOS called `libfreetype.so` - this is left as an exercise for the reader until I've had time to formalize the process.
 
-Once freetype is built and installed to `base/usr`, `make ext-freetype` will build the extension library. Place the required fonts, which you can get from maineline ToaruOS, in `base/usr/share/fonts`.
+Once freetype is built and installed to `base/usr`, `make ext-freetype` will build the extension library. Place the required fonts, which you can find [here](https://github.com/klange/toaruos/tree/v1.2.3/hdd/usr/share/fonts), in `base/usr/share/fonts`.
 
 With fonts available, the build scripts will build larger ramdisks to accomodate the additional files. The font server will automatically run on startup if a GUI boot target is selected, and the Terminal will automatically use the Freetype backend if it loads.
 
@@ -119,21 +119,7 @@ The compositor can use Cairo for rendering, which improves performance over the 
 
 ## Backwards Compatibility Notes
 
-No ABI or API compatibility is guaranteed through the development of ToaruOS. Until a larger corpus of third-party software is ported to our new C library, APIs may change to improve or simplify library use, or to fix bugs. Even kernel ABI compatibility is not guaranteed as system calls are improved or made more compliant with expectations of POSIX or the C standard.
-
-## Rationale
-
-ToaruOS's kernel is entirely in-house. Its userspace, however, is built on several third-party libraries and tools, such as the Newlib C library, Freetype, Cairo, libpng, and most notably Python. While the decision to build ToaruOS on these technologies is not at all considered a mistake, the possibility remains to build a userspace entirely from scratch.
-
-## Goals
-
-Many of our initial goals have been met, including sufficient C library support to port Python 3.6.
-
-Our current unmet goals include:
-
-- Enough C library support to port binutils/gcc (needs enough C to get libstdc++ working)
-- Plugin systems for the compositor and general graphics APIs to support third-party libraries in the future (including support for Cairo as a backend for the compositor, PNG support in the graphics sprite API, Truetype rendering support through FreeType in the text rendering engine).
-- Porting the complete native desktop experience from ToaruOS mainline (which mostly means porting Python prototype applications and libraries to C).
+Many ABI changes have been made since ToaruOS 1.2.x, as have several API changes. We expect to make several more API changes moving forward, leading up until an eventual stable 2.0 release.
 
 ## Project Layout
 
