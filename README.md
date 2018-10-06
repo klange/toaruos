@@ -1,4 +1,4 @@
-<p style="font-size: 16px; font-weight: bold; border: 2px solid; background-color: #f2d67b; padding: 30px; margin: 30px; text-align: center">ToaruOS-NIH has been merged. Some re-porting is still in progress, so not all functionality from ToaruOS 1.2.x is available yet.</p>
+***ToaruOS-NIH has been merged. Some re-porting is still in progress, so not all functionality from ToaruOS 1.2.x is available yet.***
 
 # ToaruOS
 
