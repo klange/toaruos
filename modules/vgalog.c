@@ -1,10 +1,9 @@
-#include <system.h>
-#include <printf.h>
-#include <module.h>
+#include <kernel/system.h>
+#include <kernel/printf.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
 
-#include <logging.h>
-
-#include "../userspace/gui/terminal/lib/termemu.c"
+#include "../lib/termemu.c"
 
 static unsigned short * textmemptr = (unsigned short *)0xB8000;
 static void placech(unsigned char c, int x, int y, int attr) {
@@ -120,10 +119,6 @@ static void input_buffer_stuff(char * str) {
 	return;
 }
 
-static void set_term_font_size(float s) {
-	/* Do nothing */
-}
-
 static void set_title(char * c) {
 	/* Do nothing */
 }
@@ -146,12 +141,12 @@ term_callbacks_t term_callbacks = {
 	term_scroll,
 	term_redraw_cursor,
 	input_buffer_stuff,
-	set_term_font_size,
 	set_title,
 	unsupported,
 	unsupported_int,
 	unsupported_int,
 	term_set_csr_show,
+	NULL,
 };
 
 

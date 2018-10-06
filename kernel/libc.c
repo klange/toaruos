@@ -7,7 +7,7 @@
  *
  */
 
-#include <system.h>
+#include <kernel/system.h>
 #include <limits.h>
 
 #define ALIGN (sizeof(size_t))

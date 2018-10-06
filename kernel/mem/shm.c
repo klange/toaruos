@@ -1,18 +1,19 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2012-2014 Kevin Lange
+ * Copyright (C) 2012-2018 K. Lange
  * Copyright (C) 2012 Markus Schober
  *
  * Shared Memory
  */
-#include <system.h>
-#include <process.h>
-#include <logging.h>
-#include <shm.h>
-#include <mem.h>
-#include <tree.h>
-#include <list.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/shm.h>
+#include <kernel/mem.h>
+
+#include <toaru/tree.h>
+#include <toaru/list.h>
 
 
 //static volatile uint8_t bsl; // big shm lock
@@ -104,7 +105,7 @@ static shm_chunk_t * create_chunk (shm_node_t * parent, size_t size) {
 
 	/* Now grab some frames for this guy. */
 	for (uint32_t i = 0; i < chunk->num_frames; i++) {
-		page_t tmp = {0,0,0,0,0,0,0};
+		page_t tmp = {0};
 		alloc_frame(&tmp, 0, 0);
 		chunk->frames[i] = tmp.frame;
 #if 0

@@ -1,24 +1,24 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
   *
  * ATA Disk Driver
  *
  * Provides raw block access to an (Parallel) ATA drive.
  */
 
-#include <system.h>
-#include <logging.h>
-#include <module.h>
-#include <fs.h>
-#include <printf.h>
-#include <list.h>
-
-#include <pci.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
 
 /* TODO: Move this to mod/ata.h */
-#include <ata.h>
+#include <kernel/ata.h>
+
+#include <toaru/list.h>
 
 static char ata_drive_char = 'a';
 static int  cdrom_number = 0;
@@ -451,7 +451,7 @@ static void ata_device_init(struct ata_device * dev) {
 
 }
 
-static void atapi_device_init(struct ata_device * dev) {
+static int atapi_device_init(struct ata_device * dev) {
 
 	dev->is_atapi = 1;
 
@@ -541,16 +541,18 @@ static void atapi_device_init(struct ata_device * dev) {
 	dev->atapi_lba = lba;
 	dev->atapi_sector_size = blocks;
 
+	if (!lba) return 1;
+
 	debug_print(WARNING, "Finished! LBA = %x; block length = %x", lba, blocks);
-	return;
+	return 0;
 
 atapi_error_read:
 	debug_print(ERROR, "ATAPI error; no medium?");
-	return;
+	return 1;
 
 atapi_error:
 	debug_print(ERROR, "ATAPI early error; unsure");
-	return;
+	return 1;
 
 }
 
@@ -589,7 +591,9 @@ static int ata_device_detect(struct ata_device * dev) {
 		char devname[64];
 		sprintf((char *)&devname, "/dev/cdrom%d", cdrom_number);
 
-		atapi_device_init(dev);
+		if (atapi_device_init(dev)) {
+			return 0;
+		}
 		fs_node_t * node = atapi_device_create(dev);
 		vfs_mount(devname, node);
 
@@ -820,8 +824,8 @@ static int ata_initialize(void) {
 	/* Locate ATA device via PCI */
 	pci_scan(&find_ata_pci, -1, &ata_pci);
 
-	irq_install_handler(14, ata_irq_handler);
-	irq_install_handler(15, ata_irq_handler_s);
+	irq_install_handler(14, ata_irq_handler, "ide master");
+	irq_install_handler(15, ata_irq_handler_s, "ide slave");
 
 	atapi_waiter = list_create();
 

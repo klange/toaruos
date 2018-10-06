@@ -2,20 +2,20 @@
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2015 Michael Gerow
- * Copyright (C) 2015 Kevin Lange
+ * Copyright (C) 2015-2018 K. Lange
  *
  * Driver for the Intel AC'97.
  *
  * See <http://www.intel.com/design/chipsets/manuals/29802801.pdf>.
  */
 
-#include <logging.h>
-#include <mem.h>
-#include <module.h>
-#include <mod/snd.h>
-#include <printf.h>
-#include <pci.h>
-#include <system.h>
+#include <kernel/logging.h>
+#include <kernel/mem.h>
+#include <kernel/module.h>
+#include <kernel/mod/snd.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
+#include <kernel/system.h>
 
 /* Utility macros */
 #define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -53,7 +53,7 @@
 #define AC97_X_SR_CELV  (1 << 1)  /* Current equals last valid */
 #define AC97_X_SR_LVBCI (1 << 2)  /* Last valid buffer completion interrupt */
 #define AC97_X_SR_BCIS  (1 << 3)  /* Buffer completion interrupt status */
-#define AC97_X_SR_FIFOE (1 << 3)  /* FIFO error */
+#define AC97_X_SR_FIFOE (1 << 4)  /* FIFO error */
 
 /* Mixer IO port offsets */
 #define AC97_RESET          0x00
@@ -135,22 +135,26 @@ static void find_ac97(uint32_t device, uint16_t vendorid, uint16_t deviceid, voi
 #define DIVISION 0x1000
 static int irq_handler(struct regs * regs) {
 	uint16_t sr = inports(_device.nabmbar + AC97_PO_SR);
-	if (sr & AC97_X_SR_LVBCI) {
-		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
-	} else if (sr & AC97_X_SR_BCIS) {
+	if (!sr) return 0;
+
+	if (sr & AC97_X_SR_BCIS) {
 		size_t f = (_device.lvi + 2) % AC97_BDL_LEN;
 		for (size_t i = 0; i < AC97_BDL_BUFFER_LEN * sizeof(*_device.bufs[0]); i += DIVISION) {
 			snd_request_buf(&_snd, DIVISION, (uint8_t *)_device.bufs[f] + i);
-			switch_task(1);
+			//switch_task(1);
 		}
 		_device.lvi = (_device.lvi + 1) % AC97_BDL_LEN;
 		outportb(_device.nabmbar + AC97_PO_LVI, _device.lvi);
-		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
+	} else if (sr & AC97_X_SR_LVBCI) {
+		debug_print(NOTICE, "ac97 irq is lvbci");
 	} else if (sr & AC97_X_SR_FIFOE) {
-		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_FIFOE);
+		debug_print(NOTICE, "ac97 irq is fifoe");
 	} else {
+		/* don't handle it */
 		return 0;
 	}
+	debug_print(NOTICE, "ac97 status register: 0x%4x", sr);
+	outports(_device.nabmbar + AC97_PO_SR, sr & 0x1E);
 
 	irq_ack(_device.irq);
 	return 1;
@@ -237,8 +241,8 @@ static int init(void) {
 	}
 	_device.nabmbar = pci_read_field(_device.pci_device, AC97_NABMBAR, 2) & ((uint32_t) -1) << 1;
 	_device.nambar = pci_read_field(_device.pci_device, PCI_BAR0, 4) & ((uint32_t) -1) << 1;
-	_device.irq = pci_read_field(_device.pci_device, PCI_INTERRUPT_LINE, 1);
-	irq_install_handler(_device.irq, irq_handler);
+	_device.irq = pci_get_interrupt(_device.pci_device);
+	irq_install_handler(_device.irq, irq_handler, "ac97");
 	/* Enable all matter of interrupts */
 	outportb(_device.nabmbar + AC97_PO_CR, AC97_X_CR_FEIE | AC97_X_CR_IOCE);
 
@@ -283,6 +287,7 @@ static int init(void) {
 
 	/* Start things playing */
 	outportb(_device.nabmbar + AC97_PO_CR, inportb(_device.nabmbar + AC97_PO_CR) | AC97_X_CR_RPBM);
+
 	debug_print(NOTICE, "AC97 initialized successfully");
 
 	return 0;

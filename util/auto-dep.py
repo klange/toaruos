@@ -10,49 +10,36 @@ except KeyError:
     # This is not good, but we need to let it happen for the make file
     TOOLCHAIN_PATH = ""
 
-force_static = ["GLU"]
-
 class Classifier(object):
 
     dependency_hints = {
-        # Core libraries
-        '<math.h>':            (None, '-lm', []),
-        '<cairo.h>':           ('cairo', '-lcairo', ['<ft2build.h>', '<pixman.h>', '<png.h>']),
-        '<ft2build.h>':        ('freetype2', '-lfreetype', ['<zlib.h>']),
-        '<pixman.h>':          ('pixman-1', '-lpixman-1', ['<math.h>']),
-        '<GL/osmesa.h>':       (None, '-lOSMesa', []),
-        '<GL/glu.h>':          (None, '-lGLU', ['<GL/osmesa.h>']),
-        '<ncurses.h>':         ('ncurses', '-lncurses', []),
-        '<panel.h>':           (None, '-lpanel', ['<ncurses.h>']),
-        '<menu.h>':            (None, '-lmenu', ['<ncurses.h>']),
-        '<zlib.h>':            (None, '-lz', ['<math.h>']),
-        '<png.h>':             (None, '-lpng15', ['<zlib.h>']),
-        '<Python.h>':          ('python/include/python3.6m', '-lpython3.6m', ['<math.h>']),
         # Toaru Standard Library
-        '<toaru.h>':           (None, '-ltoaru', ['<png.h>','<ft2build.h>','<cairo.h>']),
-        '"lib/toaru_auth.h"':  (None, '-ltoaru-toaru_auth',  ['"lib/sha2.h"']),
-        '"lib/kbd.h"':         (None, '-ltoaru-kbd',         []),
-        '"lib/list.h"':        (None, '-ltoaru-list',        []),
-        '"lib/hashmap.h"':     (None, '-ltoaru-hashmap',     ['"lib/list.h"']),
-        '"lib/tree.h"':        (None, '-ltoaru-tree',        ['"lib/list.h"']),
-        '"lib/testing.h"':     (None, '-ltoaru-testing',     []),
-        '"lib/pthread.h"':     (None, '-ltoaru-pthread',     []),
-        '"lib/sha2.h"':        (None, '-ltoaru-sha2',        []),
-        '"lib/pex.h"':         (None, '-ltoaru-pex',         []),
-        '"lib/graphics.h"':    (None, '-ltoaru-graphics',    ['<png.h>']),
-        '"lib/shmemfonts.h"':  (None, '-ltoaru-shmemfonts',  ['"lib/graphics.h"', '<ft2build.h>']),
-        '"lib/rline.h"':       (None, '-ltoaru-rline',       ['"lib/kbd.h"']),
-        '"lib/confreader.h"':  (None, '-ltoaru-confreader',  ['"lib/hashmap.h"']),
-        '"lib/network.h"':     (None, '-ltoaru-network',     []),
-        '"lib/http_parser.h"': (None, '-ltoaru-http_parser', []),
-        '"lib/dlfcn.h"':       (None, '-ltoaru-dlfcn',       []),
-        # Yutani Libraries
-        '"lib/yutani.h"':      (None, '-ltoaru-yutani',      ['"lib/kbd.h"', '"lib/list.h"', '"lib/pex.h"', '"lib/graphics.h"', '"lib/hashmap.h"']),
-        '"lib/decorations.h"': (None, '-ltoaru-decorations', ['"lib/shmemfonts.h"', '"lib/graphics.h"', '"lib/yutani.h"','"lib/dlfcn.h"']),
-        '"gui/terminal/lib/termemu.h"': (None, '-ltoaru-termemu', ['"lib/graphics.h"']),
+        '<toaru/kbd.h>':         (None, '-ltoaru_kbd',         []),
+        '<toaru/list.h>':        (None, '-ltoaru_list',        []),
+        '<toaru/hashmap.h>':     (None, '-ltoaru_hashmap',     ['<toaru/list.h>']),
+        '<toaru/tree.h>':        (None, '-ltoaru_tree',        ['<toaru/list.h>']),
+        '<toaru/pex.h>':         (None, '-ltoaru_pex',         []),
+        '<toaru/auth.h>':        (None, '-ltoaru_auth',        []),
+        '<toaru/graphics.h>':    (None, '-ltoaru_graphics',    []),
+        '<toaru/drawstring.h>':  (None, '-ltoaru_drawstring',  ['<toaru/graphics.h>']),
+        '<toaru/rline.h>':       (None, '-ltoaru_rline',       ['<toaru/kbd.h>']),
+        '<toaru/rline_exp.h>':   (None, '-ltoaru_rline_exp',   ['<toaru/rline.h>']),
+        '<toaru/confreader.h>':  (None, '-ltoaru_confreader',  ['<toaru/hashmap.h>']),
+        '<toaru/yutani.h>':      (None, '-ltoaru_yutani',      ['<toaru/kbd.h>', '<toaru/list.h>', '<toaru/pex.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
+        '<toaru/decorations.h>': (None, '-ltoaru_decorations', ['<toaru/menu.h>', '<toaru/sdf.h>', '<toaru/graphics.h>', '<toaru/yutani.h>']),
+        '<toaru/termemu.h>':     (None, '-ltoaru_termemu',     ['<toaru/graphics.h>']),
+        '<toaru/sdf.h>':         (None, '-ltoaru_sdf',         ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
+        '<toaru/icon_cache.h>':  (None, '-ltoaru_icon_cache',  ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
+        '<toaru/menu.h>':        (None, '-ltoaru_menu',        ['<toaru/sdf.h>', '<toaru/yutani.h>', '<toaru/icon_cache.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
+        '<toaru/textregion.h>':  (None, '-ltoaru_textregion',  ['<toaru/sdf.h>', '<toaru/yutani.h>','<toaru/graphics.h>', '<toaru/hashmap.h>']),
+        # OPTIONAL third-party libraries, for extensions / ports
+        '<ft2build.h>':        ('freetype2', '-lfreetype', []),
+        '<pixman.h>':          ('pixman-1', '-lpixman-1', []),
+        '<cairo.h>':           ('cairo', '-lcairo', ['<ft2build.h>', '<pixman.h>']),
     }
 
     def __init__(self, filename):
+        self.export_dynamic_hint = False
         self.filename  = filename
         self.includes, self.libs = self._depends()
 
@@ -89,6 +76,8 @@ class Classifier(object):
         for l in lines:
             if l.startswith('#include'):
                 depends.extend([k for k in list(self.dependency_hints.keys()) if l.startswith('#include ' + k)])
+            elif l.startswith('/* auto-dep: export-dynamic */'):
+                self.export_dynamic_hint = True
         depends = self._calculate([], depends)
         depends = self._sort(depends)
         includes  = []
@@ -96,7 +85,7 @@ class Classifier(object):
         for k in depends:
             dep = self.dependency_hints[k]
             if dep[0]:
-                includes.append('-I' + TOOLCHAIN_PATH + '/include/' + dep[0])
+                includes.append('-I' + 'base/usr/include/' + dep[0])
             if dep[1]:
                 libraries.append(dep[1])
         return includes, libraries
@@ -106,12 +95,18 @@ def todep(name):
     """Convert a library name to an archive path or object file name."""
     if name.startswith("-l"):
         name = name.replace("-l","",1)
-        if name in force_static:
-            return (False, "%s/lib%s.a" % (TOOLCHAIN_PATH + '/lib', name))
+        if name.startswith('toaru'):
+            return (True, "%s/lib%s.so" % ('base/lib', name))
         else:
-            return (True, "%s/lib%s.so" % ('hdd/usr/lib', name))
+            return (True, "%s/lib%s.so" % ('base/usr/lib', name))
     else:
         return (False, name)
+
+def toheader(name):
+    if name.startswith('-ltoaru_'):
+        return name.replace('-ltoaru_','base/usr/include/toaru/') + '.h'
+    else:
+        return ''
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -131,3 +126,25 @@ if __name__ == "__main__":
         normal = [x[1] for x in results if not x[0]]
         order_only = [x[1] for x in results if x[0]]
         print(" ".join(normal) + " | " + " ".join(order_only))
+    elif command == "--make":
+        print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {extra} {includes} -o $@ $< {libraries}".format(
+            app=os.path.basename(filename).replace(".c",""),
+            source=filename,
+            headers=" ".join([toheader(x) for x in c.libs]),
+            libraryfiles=" ".join([todep(x)[1] for x in c.libs]),
+            libraries=" ".join([x for x in c.libs]),
+            includes=" ".join([x for x in c.includes if x is not None]),
+            extra="-Wl,--export-dynamic" if c.export_dynamic_hint else "",
+            ))
+    elif command == "--makelib":
+        libname = os.path.basename(filename).replace(".c","")
+        _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
+        print("base/lib/libtoaru_{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {includes} -shared -fPIC -o $@ $< {libraries}".format(
+            lib=libname,
+            source=filename,
+            headers=" ".join([toheader(x) for x in c.libs]),
+            libraryfiles=" ".join([todep(x)[1] for x in _libs]),
+            libraries=" ".join([x for x in _libs]),
+            includes=" ".join([x for x in c.includes if x is not None])
+            ))
+

@@ -1,94 +1,44 @@
-*.aux
-*.idx
-*.ilg
-*.ind
-*.log
+*.so
+*.a
 *.o
-*.out
-*.pdf
-*.swp
-*.swn
-*.toc
-*.ko
-*.img.gz
-
-# Makefile magic
-/.compositor-check
-/.config
-/.passed
-/.userspace-check
-/.disk_size
-/.ramdisk_size
-/.toolchain
-
-/util/*.img
-/util/*.vmdk
-/util/*.vdi
-/util/bin/
-
-/hdd/bin/
-/hdd/boot/
-/hdd/home/local/
-/hdd/home/root/
-/hdd/etc/hostname
-
-/hdd/lib
-/hdd/opt
-
-/hdd/usr/bin
-/hdd/usr/etc
-/hdd/usr/i686-pc-toaru
-/hdd/usr/include
-/hdd/usr/lib
-/hdd/usr/libexec
-/hdd/usr/local
-/hdd/usr/man
-/hdd/usr/share/aclocal
-/hdd/usr/share/doc
-/hdd/usr/share/games
-/hdd/usr/share/gcc-4.6.*
-/hdd/usr/share/gtk-doc
-/hdd/usr/share/info
-/hdd/usr/share/locale
-/hdd/usr/share/man
-/hdd/usr/share/tabset
-/hdd/usr/share/terminfo
-/hdd/usr/share/vim
-/hdd/usr/share/icons/external
-/hdd/usr/share/fontconfig
-/hdd/usr/share/xml
-/hdd/usr/python
-/hdd/usr/gcc
-
-# pseudo-submodules
-/toaru-pdfviewer
-/toaru-python
-/pycairo
-
-# Generated files / targets
-/kernel/symbols.s
-/kernel/symbols.S
-/tags
-/toaruos-disk.img
-/toaruos-kernel
-/toaruos.iso
-/toaruos-big.iso
-/modpack.kop
-/cdrom/
-/kernel-headers.img
-
-# Toolchain
-/toolchain/build
-/toolchain/local
-/toolchain/tarballs
-
-# Tool-generated files
-/qemu-vlan0.pcap
-# gdb history can end up all sorts of places
+*.iso
+*.efi
 .gdb_history
 
-/contrib
+/.make/*
+/base/bin/*
+/cdrom/kernel
+/cdrom/netinit
+/cdrom/mod/*
+/cdrom/ramdisk.img
+/cdrom/boot.sys
+/cdrom/fat.img
+/fatbase/kernel
+/fatbase/netinit
+/fatbase/mod/*
+/fatbase/ramdisk.img
+/fatbase/efi/boot/bootia32.efi
+/util/tarballs
+/util/build
+/util/local
+/util/devtable
+/util/tmp-gcc
+/kernel/symbols.S
+/base/usr/python
+/base/usr/bin/*
+/base/usr/lib/*
+/base/usr/share/python-demos
+/base/usr/share/help
 
-# Vagrant configs shouldn't end up in git
-/.vagrant
-/Vagrantfile
+# Generic
+/base/usr/share/aclocal
+/base/usr/share/gtk-doc
+
+# Freetype
+/base/usr/include/freetype2
+/base/usr/include/ft2build.h
+/base/usr/share/fonts
+
+# Cairo + Pixman
+/base/usr/include/cairo
+/base/usr/include/pixman-1

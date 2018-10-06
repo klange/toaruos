@@ -1,30 +1,15 @@
-# ToaruOS Build Scripts
-ifneq ($(MAKECMDGOALS),toolchain)
- ifeq ($(TOOLCHAIN),)
-  $(error $(shell util/helpful-toolchain-error.sh))
- else
-  $(shell util/cache-toolchain.sh)
- endif
+ifeq ($(TOOLCHAIN),)
+  ifeq ($(shell util/check.sh),y)
+    export PATH := $(shell util/activate.sh)
+  else
+    FOO := $(shell util/prompt.sh)
+    ifeq ($(shell util/check.sh),y)
+      export PATH := $(shell util/activate.sh)
+    else
+      $(error "No toolchain, and you did not ask to build it.")
+    endif
+  endif
 endif
-
-KERNEL_TARGET=i686-elf
-USER_TARGET=i686-pc-toaru
-
-# Pretty output utilities.
-BEG = util/mk-beg
-END = util/mk-end
-INFO = util/mk-info
-ERRORS = 2>>/tmp/.`whoami`-build-errors || util/mk-error
-ERRORSS = >>/tmp/.`whoami`-build-errors || util/mk-error
-BEGRM = util/mk-beg-rm
-ENDRM = util/mk-end-rm
-
-# Rules start here.
-.PHONY: all system install test toolchain userspace modules cdrom fix-cd
-.PHONY: clean clean-soft clean-hard clean-user clean-mods clean-core clean-disk clean-once
-.PHONY: run vga term headless curses quick
-.PHONY: debug debug-vga debug-term debug-curses
-.PHONY: virtualbox virtualbox-cdrom run-cdrom
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY:
@@ -32,480 +17,361 @@ ENDRM = util/mk-end-rm
 # Disable built-in rules
 .SUFFIXES:
 
-all: $(shell util/detect-make-all.sh)
+all: image.iso
 
-toolchain:
-	@cd toolchain; ./toolchain-build.sh
+TARGET_TRIPLET=i686-pc-toaru
 
-###########################
-# Emulator Pseudo-targets #
-###########################
+# Userspace flags
 
-# Specify which modules should be included on startup.
-# There are a few modules that are kinda required for a working system
-# such as all of the dependencies needed to mount the root partition.
-# We can also include things like the debug shell...
-# Note that ordering matters - list dependencies first.
-BOOT_MODULES := zero random serial
-BOOT_MODULES += procfs tmpfs ata
-#BOOT_MODULES += dospart
-BOOT_MODULES += ext2
-BOOT_MODULES += debug_shell
-BOOT_MODULES += ps2mouse ps2kbd
-BOOT_MODULES += lfbvideo
-BOOT_MODULES += vidset
-BOOT_MODULES += packetfs
-BOOT_MODULES += snd
-BOOT_MODULES += pcspkr
-BOOT_MODULES += ac97
-BOOT_MODULES += net rtl
+CC=$(TARGET_TRIPLET)-gcc
+AR=$(TARGET_TRIPLET)-ar
+AS=$(TARGET_TRIPLET)-as
+CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
 
-# This is kinda silly. We're going to form an -initrd argument..
-# which is basically -initrd "hdd/mod/%.ko,hdd/mod/%.ko..."
-# for each of the modules listed above in BOOT_MODULES
-COMMA := ,
-EMPTY :=
-SPACE := $(EMPTY) $(EMPTY)
-BOOT_MODULES_X = -initrd "$(subst $(SPACE),$(COMMA),$(foreach mod,$(BOOT_MODULES),hdd/mod/$(mod).ko))"
+##
+# C library objects from libc/ C sources (and setjmp, which is assembly)
+LIBC_OBJS  = $(patsubst %.c,%.o,$(wildcard libc/*.c))
+LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))
+LIBC_OBJS += libc/setjmp.o
+LC=base/lib/libc.so
 
-# QEMU Configuration
-EMU = qemu-system-i386
+##
+#  APPS      = C sources from apps/
+#  APPS_X    = binaries
+#  APPS_Y    = generated makefiles for binaries (except init)
+#  APPS_SH   = shell scripts to copy to base/bin/ and mark executable
+#  APPS_SH_X = destinations for shell scripts
+APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
+APPS_X=$(foreach app,$(APPS),base/bin/$(app))
+APPS_Y=$(foreach app,$(filter-out init,$(APPS)),.make/$(app).mak)
+APPS_SH=$(patsubst apps/%.sh,%.sh,$(wildcard apps/*.sh))
+APPS_SH_X=$(foreach app,$(APPS_SH),base/bin/$(app))
 
-# Force the SDL backend with no frame and English (US) keyboard.
-EMUARGS  = -sdl -no-frame -k en-us
-# 1GB of RAM
-EMUARGS += -m 1024
-# Bochs VBE display device
-EMUARGS += -vga std
-# Realtime clock based on localtime (we don't NTP or support timezone configs yet)
-EMUARGS += -rtc base=localtime
-# Network hardware: RTL8139, usermode network emulation.
-EMUARGS += -net nic,model=rtl8139 -net user
-# Enable TCP dumps for monitoring.
-EMUARGS += -net dump
-# Sound hardware: Intel AC'97, PC beeper
-EMUARGS += -soundhw pcspk,ac97
-# Enable KVM if available, or fall back to TCG
-EMUARGS += -M accel=kvm:tcg
+##
+# LIBS   = C sources from lib/
+# LIBS_X = Shared libraries (.so)
+# LIBS_Y = Generated makefiles for libraries
+LIBS=$(patsubst lib/%.c,%,$(wildcard lib/*.c))
+LIBS_X=$(foreach lib,$(LIBS),base/lib/libtoaru_$(lib).so)
+LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
-# For development images, load the kernel, modules, hard disk.
-EMUKARGS  = -kernel toaruos-kernel
-EMUKARGS += $(BOOT_MODULES_X)
-EMUKARGS += -hda toaruos-disk.img
+##
+# Files that must be present in the ramdisk (apps, libraries)
+RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
 
-# These arguments are passed to the kernel command line.
-DISK_ROOT = root=/dev/hda
-VID_QEMU  = vid=qemu,,1280,,720
-START_VGA = start=--vga
-START_SINGLE = start=--single
-START_LIVE = start=live-welcome
-WITH_LOGS = logtoserial=1
+# Kernel / module flags
 
-# Various different quick options
-run: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT)"
-quick: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(DISK_ROOT) start=quick-launch"
-debug: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -serial stdio -append "$(VID_QEMU) $(WITH_LOGS) $(DISK_ROOT)"
-vga: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(START_VGA) $(DISK_ROOT)"
-debug-vga: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -serial stdio -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
-term: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_SINGLE) $(DISK_ROOT)"
-debug-term: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -serial stdio -append "$(VID_QEMU) $(START_SINGLE) $(WITH_LOGS) $(DISK_ROOT)"
-headless: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -display none -append "$(START_VGA) $(DISK_ROOT)"
-curses: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -curses -append "$(START_VGA) $(DISK_ROOT)"
-debug-curses: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -serial file:serial-debug.log -curses -append "$(WITH_LOGS) $(START_VGA) $(DISK_ROOT)"
-live: system
-	${EMU} ${EMUARGS} ${EMUKARGS} -append "$(VID_QEMU) $(START_LIVE) $(DISK_ROOT)"
+KCC = $(TARGET_TRIPLET)-gcc
+KAS = $(TARGET_TRIPLET)-as
+KLD = $(TARGET_TRIPLET)-ld
+KNM = $(TARGET_TRIPLET)-nm
 
-# Run the cdrom
-run-cdrom: toaruos.iso
-	${EMU} ${EMUARGS} -cdrom toaruos.iso
+KCFLAGS  = -O2 -std=c99
+KCFLAGS += -finline-functions -ffreestanding
+KCFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format
+KCFLAGS += -pedantic -fno-omit-frame-pointer
+KCFLAGS += -D_KERNEL_
+KCFLAGS += -DKERNEL_GIT_TAG=$(shell util/make-version)
+KASFLAGS = --32
 
-# Run VirtualBox
-virtualbox: system
-	util/run-virtualbox.sh
-virtualbox-cdrom: toaruos.iso
-	util/run-virtualbox-cdrom.sh
-
-# Run the test suite
-test: system
-	expect util/test.exp
-
-################
-#    Kernel    #
-################
-
-# Kernel build flags
-CFLAGS  = -O2 -std=c99
-CFLAGS += -finline-functions -ffreestanding
-CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format
-CFLAGS += -pedantic -fno-omit-frame-pointer
-CFLAGS += -D_KERNEL_
-ASFLAGS = --32
-
-# Build kernel with bare elf toolchain
-KCC = $(KERNEL_TARGET)-gcc
-KNM = $(KERNEL_TARGET)-nm
-KCXX= $(KERNEL_TARGET)-g++
-KAR = $(KERNEL_TARGET)-ar
-KAS = $(KERNEL_TARGET)-as
-KSTRIP = $(KERNEL_TARGET)-strip
-
-# Kernel autoversioning with git sha
-CFLAGS += -DKERNEL_GIT_TAG=`util/make-version`
-
-# All of the core parts of the kernel are built directly.
+##
+# Kernel objects from kernel/ C sources
 KERNEL_OBJS = $(patsubst %.c,%.o,$(wildcard kernel/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
 
+##
+# Kernel objects from kernel/ assembly sources
 KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
 
-toaruos-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
-	@${BEG} "CC" "$@"
-	@${KCC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc ${ERRORS}
-	@${END} "CC" "$@"
-	@${INFO} "--" "Kernel is ready!"
+# Kernel
 
+fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
+	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
+
+##
+# Symbol table for the kernel. Instead of relying on getting
+# the symbol table from our bootloader (eg. through ELF
+# headers provided via multiboot structure), we have a dedicated
+# object that build with all the symbols. This allows us to
+# build the kernel as a flat binary or load it with less-capable
+# multiboot loaders and still get symbols, which we need to
+# load kernel modules and link them properly.
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
-	@-rm -f kernel/symbols.o
-	@${BEG} "NM" "Generating symbol list..."
-	@${KCC} -T kernel/link.ld ${CFLAGS} -nostdlib -o toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc ${ERRORS}
-	@${KNM} toaruos-kernel -g | util/generate_symbols.py > kernel/symbols.S
-	@${END} "NM" "Generated symbol list."
-	@${BEG} "AS" "kernel/symbols.S"
-	@${KAS} ${ASFLAGS} kernel/symbols.S -o $@ ${ERRORS}
-	@${END} "AS" "kernel/symbols.S"
+	-rm -f kernel/symbols.o
+	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o .toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc
+	${KNM} .toaruos-kernel -g | util/generate_symbols.py > kernel/symbols.S
+	${KAS} ${KASFLAGS} kernel/symbols.S -o $@
+	-rm -f .toaruos-kernel
 
+##
+# version.o should be rebuilt whenever the kernel changes
+# in order to get fresh git commit hash information.
 kernel/sys/version.o: kernel/*/*.c kernel/*.c
 
-hdd/mod:
-	@mkdir -p hdd/mod
+kernel/%.o: kernel/%.S
+	${KAS} ${ASFLAGS} $< -o $@
 
-# Loadable modules
-MODULES = $(patsubst modules/%.c,hdd/mod/%.ko,$(wildcard modules/*.c))
+kernel/%.o: kernel/%.c ${HEADERS}
+	${KCC} ${KCFLAGS} -nostdlib -g -c -o $@ $<
 
-# We also want to rebuild when a header changes.
-# This is a naive approach, but it works...
-HEADERS = $(shell find kernel/include/ -type f -name '*.h')
+# Modules
 
-hdd/mod/%.ko: modules/%.c ${HEADERS} | hdd/mod
-	@${BEG} "CC" "$< [module]"
-	@${KCC} -T modules/link.ld -I./kernel/include -nostdlib ${CFLAGS} -c -o $@ $< ${ERRORS}
-	@${END} "CC" "$< [module]"
+fatbase/mod:
+	@mkdir -p $@
+
+##
+# Modules need to be installed on the boot image
+MODULES = $(patsubst modules/%.c,fatbase/mod/%.ko,$(wildcard modules/*.c))
+HEADERS = $(shell find base/usr/include/kernel -type f -name '*.h')
+
+fatbase/mod/%.ko: modules/%.c ${HEADERS} | fatbase/mod
+	${KCC} -T modules/link.ld -nostdlib ${KCFLAGS} -c -o $@ $<
 
 modules: ${MODULES}
 
-kernel/%.o: kernel/%.S
-	@${BEG} "AS" "$<"
-	@${KAS} ${ASFLAGS} $< -o $@ ${ERRORS}
-	@${END} "AS" "$<"
+# Root Filesystem
 
-kernel/%.o: kernel/%.c ${HEADERS}
-	@${BEG} "CC" "$<"
-	@${KCC} ${CFLAGS} -nostdlib -g -I./kernel/include -c -o $@ $< ${ERRORS}
-	@${END} "CC" "$<"
+base/dev:
+	mkdir -p $@
+base/tmp:
+	mkdir -p $@
+base/proc:
+	mkdir -p $@
+base/bin:
+	mkdir -p $@
+base/lib:
+	mkdir -p $@
+base/cdrom:
+	mkdir -p $@
+fatbase/efi/boot:
+	mkdir -p $@
+.make:
+	mkdir -p .make
+dirs: base/dev base/tmp base/proc base/bin base/lib base/cdrom fatbase/efi/boot .make
 
-system: toaruos-disk.img toaruos-kernel ${MODULES}
+# C Library
 
-#############
-# Userspace #
-#############
+crts: base/lib/crt0.o base/lib/crti.o base/lib/crtn.o | dirs
 
-# Userspace build flags
-USER_CFLAGS   = -O3 -m32 -Wa,--32 -g -Iuserspace -std=c99 -U__STRICT_ANSI__ -Lhdd/usr/lib
-USER_CXXFLAGS = -O3 -m32 -Wa,--32 -g -Iuserspace
-USER_BINFLAGS =
-STRIP_LIBS = 1
+base/lib/crt%.o: libc/crt%.s
+	yasm -f elf -o $@ $<
 
-# We always build with our targetted cross-compiler
-CC = $(USER_TARGET)-gcc
-NM = $(USER_TARGET)-nm
-CXX= $(USER_TARGET)-g++
-AR = $(USER_TARGET)-ar
-AS = $(USER_TARGET)-as
-STRIP = $(USER_TARGET)-strip
+libc/setjmp.o: libc/setjmp.S
+	$(AS) -o $@ $<
 
-# Userspace binaries and libraries
-USER_CFILES   = $(filter-out userspace/core/init.c,$(shell find userspace -not -wholename '*/lib/*' -not -wholename '*.static.*' -name '*.c'))
-USER_CXXFILES = $(shell find userspace -not -wholename '*/lib/*' -name '*.c++')
-USER_LIBFILES = $(shell find userspace -wholename '*/lib/*' -name '*.c')
+libc/%.o: libc/%.c
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
-LIBC=hdd/usr/lib/libc.so
+base/lib/libc.a: ${LIBC_OBJS} | dirs crts
+	$(AR) cr $@ $^
 
-# PYthon sources
-PYTHON_LIBS = $(shell find userspace -wholename '*/lib/*' -name '*.py')
-PYTHON_BINS = $(shell find userspace -wholename '*/bin/*' -name '*.py')
+base/lib/libc.so: ${LIBC_OBJS} | dirs crts
+	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
 
-PYTHON_FILES  = $(foreach file,$(PYTHON_LIBS),$(patsubst %.py,hdd/usr/python/lib/python3.6/%.py,$(notdir ${file})))
-PYTHON_FILES += $(foreach file,$(PYTHON_BINS),$(patsubst %.py,hdd/bin/%.py,$(notdir ${file})))
+base/lib/libm.so: util/lm.c | dirs crts
+	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
 
-# Userspace output files (so we can define metatargets)
-NONTEST_C   = $(foreach f,$(USER_CFILES),$(if $(findstring /tests/,$f),,$f))
-NONTEST_CXX = $(foreach f,$(USER_CXXFILES),$(if $(findstring /tests/,$f),,$f))
+# Userspace Linker/Loader
 
-NONTEST  = $(foreach file,$(NONTEST_C),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
-NONTEST += $(foreach file,$(NONTEST_CXX),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
-NONTEST += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
-NONTEST += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
-NONTEST += $(LIBC) hdd/bin/init hdd/lib/ld.so
+base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
+	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $<
 
-USERSPACE  = $(foreach file,$(USER_CFILES),$(patsubst %.c,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_CXXFILES),$(patsubst %.c++,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_CSTATICFILES),$(patsubst %.static.c,hdd/bin/%,$(notdir ${file})))
-USERSPACE += $(foreach file,$(USER_LIBFILES),$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})))
-USERSPACE += $(LIBC) hdd/bin/init hdd/lib/ld.so
+# Shared Libraries
+.make/%.lmak: lib/%.c util/auto-dep.py | dirs
+	util/auto-dep.py --makelib $< > $@
 
-userspace: ${USERSPACE}
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
+-include ${LIBS_Y}
+endif
 
-# Init must be built static at the moment.
-hdd/bin/init: userspace/core/init.c
-	@${BEG} "CC" "$< (static)"
-	@${CC} -o $@ -static -Wl,-static $(USER_CFLAGS) $(USER_BINFLAGS) $< ${ERRORS}
-	@${END} "CC" "$< (static)"
+# Init (static)
 
-# Libraries
-define user-c-rule
-$1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
-	@${BEG} "CCSO" "$$<"
-	@${CC} -o $$@ $(USER_CFLAGS) -shared -fPIC $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
-	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $$@; fi
-	@${END} "CCSO" "$$<"
-endef
-$(foreach file,$(USER_LIBFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/usr/lib/libtoaru-%.so,$(notdir ${file})),${file})))
+base/bin/init: apps/init.c base/lib/libc.a | dirs
+	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
-# Binaries from C sources
-define user-c-rule
-$1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
-	@${BEG} "CC" "$$<"
-	@${CC} -o $$@ $(USER_CFLAGS) $(USER_BINFLAGS) -fPIE $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
-	@${END} "CC" "$$<"
-endef
-$(foreach file,$(USER_CFILES),$(eval $(call user-c-rule,$(patsubst %.c,hdd/bin/%,$(notdir ${file})),${file})))
+fatbase/netinit: util/netinit.c base/lib/libc.a | dirs
+	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
 
-# Binaries from C++ sources
-define user-cxx-rule
-$1: $2 $(shell util/auto-dep.py --deps $2) $(LIBC)
-	@${BEG} "C++" "$$<"
-	@${CXX} -o $$@ $(USER_CXXFLAGS) $(USER_BINFLAGS) $$(shell util/auto-dep.py --cflags $$<) $$< $$(shell util/auto-dep.py --libs $$<) -lc ${ERRORS}
-	@${END} "C++" "$$<"
-endef
-$(foreach file,$(USER_CXXFILES),$(eval $(call user-cxx-rule,$(patsubst %.c++,hdd/bin/%,$(notdir ${file})),${file})))
+# Userspace applications
 
-hdd/usr/lib:
-	@mkdir -p hdd/usr/lib
+.make/%.mak: apps/%.c util/auto-dep.py | dirs
+	util/auto-dep.py --make $< > $@
 
-# Bad implementations of shared libraries
-hdd/usr/lib/libc.so: ${TOOLCHAIN}/lib/libc.a | hdd/usr/lib
-	@${BEG} "SO" "$@"
-	@cp ${TOARU_SYSROOT}/usr/lib/libc.a libc.a
-	@# init and fini don't belong in our shared object
-	@ar d libc.a lib_a-init.o
-	@ar d libc.a lib_a-fini.o
-	@# Remove references to newlib's reentrant malloc
-	@ar d libc.a lib_a-callocr.o
-	@ar d libc.a lib_a-cfreer.o
-	@ar d libc.a lib_a-freer.o
-	@ar d libc.a lib_a-malignr.o
-	@ar d libc.a lib_a-mallinfor.o
-	@ar d libc.a lib_a-mallocr.o
-	@ar d libc.a lib_a-malloptr.o
-	@ar d libc.a lib_a-msizer.o
-	@ar d libc.a lib_a-mallstatsr.o
-	@ar d libc.a lib_a-pvallocr.o
-	@ar d libc.a lib_a-vallocr.o
-	@ar d libc.a lib_a-reallocr.o
-	@ar d libc.a lib_a-realloc.o
-	@ar d libc.a lib_a-calloc.o
-	@ar d libc.a lib_a-reallo.o
-	@${CC} -shared -o libc.so -Wl,--whole-archive libc.a -Wl,--no-whole-archive ${ERRORS}
-	@mv libc.so hdd/usr/lib/libc.so
-	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $@; fi
-	@rm libc.a
-	@${END} "SO" "$@"
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
+-include ${APPS_Y}
+endif
+
+base/bin/%.sh: apps/%.sh
+	cp $< $@
+	chmod +x $@
+
+# Ramdisk
+
+util/devtable: ${RAMDISK_FILES} $(shell find base) util/update-devtable.py
+	util/update-devtable.py
+
+fatbase/ramdisk.img: ${RAMDISK_FILES} $(shell find base) Makefile util/devtable | dirs
+	genext2fs -B 4096 -d base -D util/devtable -U -b `util/calc-size.sh` -N 2048 $@
+
+# CD image
+
+ifeq (,$(wildcard /usr/lib32/crt0-efi-ia32.o))
+$(error Missing GNU-EFI.)
+endif
+
+EFI_XORRISO=-eltorito-alt-boot -e fat.img -no-emul-boot -isohybrid-gpt-basdat
+EFI_BOOT=cdrom/fat.img
+EFI_UPDATE=util/update-extents.py
+
+image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-extents.py
+	xorriso -as mkisofs -R -J -c bootcat \
+	  -b boot.sys -no-emul-boot -boot-load-size 24 \
+	  ${EFI_XORRISO} \
+	  -o image.iso cdrom
+	${EFI_UPDATE}
+
+# Boot loader
+
+##
+# FAT EFI payload
+# This is the filesystem the EFI loaders see, so it must contain
+# the kernel, modules, and ramdisk, plus anything else we want
+# available to the bootloader (eg., netinit).
+cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi util/mkdisk.sh
+	util/mkdisk.sh $@ fatbase
+
+##
+# For EFI, we build two laoders: ia32 and x64
+# We build them as ELF shared objects and the use objcopy to convert
+# them to PE executables / DLLs (as expected by EFI).
+EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -mno-red-zone
+EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
+
+# ia32
+boot/efi.so: boot/cstuff.c boot/*.h
+	$(CC) ${EFI_CFLAGS} -I /usr/include/efi/ia32 -c -o boot/efi.o $<
+	$(LD) boot/efi.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -lefi -lgnuefi -o boot/efi.so
+
+fatbase/efi/boot/bootia32.efi: boot/efi.so
+	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 $< $@
+
+# x64
+boot/efi64.so: boot/cstuff.c boot/*.h
+	gcc ${EFI_CFLAGS} -I /usr/include/efi/x86_64 -DEFI_FUNCTION_WRAPPER -c -o boot/efi64.o $<
+	$(LD) boot/efi64.o /usr/lib/crt0-efi-x86_64.o -nostdlib -znocombreloc -T /usr/lib/elf_x86_64_efi.lds -shared -Bsymbolic -L /usr/lib -lefi -lgnuefi -o boot/efi64.so
+
+fatbase/efi/boot/bootx64.efi: boot/efi64.so
+	objcopy ${EFI_SECTIONS} --target=efi-app-x86_64 $< $@
+
+# BIOS loader
+cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
+	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
+
+boot/cstuff.o: boot/cstuff.c boot/*.h
+	${KCC} -c -Os -o $@ $<
+
+boot/boot.o: boot/boot.s
+	yasm -f elf -o $@ $<
+
+.PHONY: clean
+clean:
+	rm -f base/lib/*.so
+	rm -f base/lib/libc.a
+	rm -f ${APPS_X} ${APPS_SH_X}
+	rm -f libc/*.o libc/*/*.o
+	rm -f image.iso
+	rm -f fatbase/ramdisk.img
+	rm -f cdrom/boot.sys
+	rm -f boot/*.o
+	rm -f boot/*.efi
+	rm -f boot/*.so
+	rm -f cdrom/fat.img cdrom/kernel cdrom/mod/* cdrom/ramdisk.img
+	rm -f fatbase/kernel fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi
+	rm -f cdrom/netinit fatbase/netinit
+	rm -f ${KERNEL_OBJS} ${KERNEL_ASMOBJS} kernel/symbols.o kernel/symbols.S
+	rm -f base/lib/crt*.o
+	rm -f ${MODULES}
+	rm -f ${APPS_Y} ${LIBS_Y} ${EXT_LIBS_Y}
+
+ifneq (,$(findstring Microsoft,$(shell uname -r)))
+  QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime -vnc :0
+else
+  ifeq (,${NO_KVM})
+    KVM=-enable-kvm
+  else
+    KVM=
+  endif
+  QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk ${KVM} -rtc base=localtime
+endif
 
 
-hdd/lib:
-	@mkdir -p hdd/lib
+.PHONY: run
+run: image.iso
+	qemu-system-i386 -cdrom $< ${QEMU_ARGS}
 
-hdd/lib/ld.so: linker/linker.c | hdd/lib
-	@${BEG} "CC" "$<"
-	@${CC} -static -Wl,-static -std=c99 -g -U__STRICT_ANSI__ -o $@ -Os -T linker/link.ld $< ${ERRORS}
-	@${END} "CC" "$<"
+.PHONY: fast
+fast: image.iso
+	qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=normal
 
-define basic-so-wrapper
-hdd/usr/lib/lib$(1).so: ${TOOLCHAIN}/lib/lib$(1).a
-	@${BEG} "SO" "$$@"
-	@${CC} -shared -Wl,-soname,lib$(1).so -o lib$(1).so -Lhdd/usr/lib -Wl,--whole-archive ${TOOLCHAIN}/lib/lib$(1).a -Wl,--no-whole-archive $2 -lgcc
-	@mv lib$(1).so hdd/usr/lib/lib$(1).so
-	@if [ "x$(STRIP_LIBS)" = "x1" ]; then ${STRIP} $$@; fi
-	@${END} "SO" "$$@"
-endef
+.PHONY: headless
+headless: image.iso
+	@qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
+	  -nographic -no-reboot \
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
-$(eval $(call basic-so-wrapper,gcc,))
-$(eval $(call basic-so-wrapper,m,))
-$(eval $(call basic-so-wrapper,z,))
-$(eval $(call basic-so-wrapper,ncurses,))
-$(eval $(call basic-so-wrapper,panel,-lncurses))
-$(eval $(call basic-so-wrapper,png15,-lz))
-$(eval $(call basic-so-wrapper,freetype,-lz))
-$(eval $(call basic-so-wrapper,pixman-1,-lm))
-$(eval $(call basic-so-wrapper,cairo,-lpixman-1 -lpng15 -lfreetype))
+.PHONY: shell
+shell: image.iso
+	@qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
+	  -nographic -no-reboot \
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless \
+	  -fw_cfg name=opt/org.toaruos.forceuser,string=local
 
-# Python parts of userspace
+.PHONY: efi64
+efi64: image.iso
+	qemu-system-x86_64 -cdrom $< ${QEMU_ARGS} \
+	  -bios /usr/share/qemu/OVMF.fd
 
-hdd/usr/python/lib/python3.6:
-	@mkdir -p $@
 
-hdd/bin/%.py: userspace/py/bin/%.py
-	@cp $< $@
+VMNAME=ToaruOS-NIH CD
 
-hdd/usr/python/lib/python3.6/%.py: userspace/py/lib/%.py hdd/usr/python/lib/python3.6
-	@cp $< $@
-
-####################
-# Hard Disk Images #
-####################
-
-# Hard disk image generation
-GENEXT = genext2fs
-DISK_SIZE = `util/disk_size.sh`
-
-toaruos-disk.img: ${USERSPACE} util/devtable ${PYTHON_FILES}
-	@${BEG} "hdd" "Generating a Hard Disk image..."
-	@-rm -f toaruos-disk.img
-	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b ${DISK_SIZE} -N 4096 toaruos-disk.img ${ERRORS}
-	@${END} "hdd" "Generated Hard Disk image"
-	@${INFO} "--" "Hard disk image is ready!"
-
-#############
-# CD Images #
-#############
-
-cdrom: toaruos.iso
-
-hdd/usr/share/terminfo/t/toaru: util/toaru.tic
-	@mkdir -p hdd/usr/share/terminfo/t
-	@cp $< $@
-
-FORCE:
-
-_cdrom: FORCE | ${NONTEST} toaruos-kernel
-	@-rm -rf _cdrom
-	@cp -r util/cdrom _cdrom
-
-_cdrom/mod: ${MODULES} _cdrom
-	@mv hdd/mod $@
-
-_cdrom/kernel: toaruos-kernel _cdrom
-	@cp $< $@
-
-BLACKLIST  = hdd/usr/share/wallpapers/grandcanyon.png
-BLACKLIST += hdd/usr/share/wallpapers/paris.png
-BLACKLIST += hdd/usr/share/wallpapers/southbay.png
-BLACKLIST += hdd/usr/share/wallpapers/yokohama.png
-BLACKLIST += hdd/usr/share/wallpapers/yosemite.png
-BLACKLIST += hdd/usr/share/wallpapers/fuji.png
-
-_cdrom/ramdisk.img: ${NONTEST} hdd/usr/share/wallpapers util/devtable hdd/usr/share/terminfo/t/toaru _cdrom _cdrom/mod ${PYTHON_FILES}
-	@${BEG} "ext" "Generating a ramdisk image..."
-	@rm -f $(filter-out ${NONTEST},${USERSPACE})
-	@rm -f ${BLACKLIST}
-	@${STRIP} ${NONTEST}
-	@${GENEXT} -B 4096 -d hdd -D util/devtable -U -b 16384 -N 2048 $@
-	@${END} "ext" "Generated ramdisk image"
-
-_cdrom/ramdisk.img.gz: _cdrom/ramdisk.img
-	@gzip $<
-
-define fixup-cd
-	@git checkout hdd/usr/share/wallpapers
-	@mv _cdrom/mod hdd/mod
-	@rm -r _cdrom
+define virtualbox-runner =
+.PHONY: $1
+$1: image.iso
+	-VBoxManage unregistervm "$(VMNAME)" --delete
+	VBoxManage createvm --name "$(VMNAME)" --ostype $2 --register
+	VBoxManage modifyvm "$(VMNAME)" --memory 1024 --vram 32 --audio pulse --audiocontroller ac97 --bioslogodisplaytime 1 --bioslogofadeout off --bioslogofadein off --biosbootmenu disabled $3
+	VBoxManage storagectl "$(VMNAME)" --add ide --name "IDE"
+	VBoxManage storageattach "$(VMNAME)" --storagectl "IDE" --port 0 --device 0 --medium $$(shell pwd)/image.iso --type dvddrive
+	VBoxManage setextradata "$(VMNAME)" GUI/DefaultCloseAction PowerOff
+	VBoxManage startvm "$(VMNAME)" --type separate
 endef
 
-toaruos.iso: _cdrom/ramdisk.img.gz _cdrom/kernel
-	@${BEG} "ISO" "Building a CD image"
-	@if [ -e /etc/lsb-release ] && grep precise /etc/lsb-release; then grub-mkrescue -o $@ _cdrom; else grub-mkrescue -d /usr/lib/grub/i386-pc --compress=xz -o $@ _cdrom 2> /dev/null; fi
-	@${END} "ISO" "Building a CD image"
-	$(call fixup-cd)
-	@${INFO} "--" "CD generated"
+$(eval $(call virtualbox-runner,virtualbox,"Other",))
+$(eval $(call virtualbox-runner,virtualbox-efi,"Other",--firmware efi))
+$(eval $(call virtualbox-runner,virtualbox-efi64,"Other_64",--firmware efi))
 
-netboot.img.gz: _cdrom/ramdisk.img.gz
-	cp _cdrom/ramdisk.img.gz netboot.img.gz
-	$(call fixup-cd)
+##
+# Optional Extensions
+#
+# These optional extension libraries require third-party components to build,
+# but allow the native applications to make use of functionality such as
+# TrueType fonts or PNG images. You must have the necessary elements to build
+# these already installed into your sysroot for this to work.
+EXT_LIBS=$(patsubst ext/%.c,%,$(wildcard ext/*.c))
+EXT_LIBS_X=$(foreach lib,$(EXT_LIBS),base/lib/libtoaru_$(lib).so)
+EXT_LIBS_Y=$(foreach lib,$(EXT_LIBS),.make/$(lib).elmak)
 
-fix-cd:
-	$(call fixup-cd)
+.make/%.elmak: ext/%.c util/auto-dep.py | dirs
+	util/auto-dep.py --makelib $< > $@
 
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
+-include ${EXT_LIBS_Y}
+endif
 
-##############
-#  packages  #
-##############
+# Freetype: Terminal text rendering backend
+ext-freetype: base/lib/libtoaru_ext_freetype_fonts.so
 
-kernel-headers.img.gz: kernel/include
-	@${BEG} "pack" "$@"
-	@rm -rf _kernel
-	@mkdir _kernel
-	@cp -rL kernel/include/* _kernel/
-	@${GENEXT} -B 4096 -d _kernel -U -b 170 $@ ${ERRORS}
-	@rm -r _kernel
-	@${END} "pack" "$@"
-
-##############
-#    ctags   #
-##############
-tags: kernel/*/*.c kernel/*.c userspace/**/*.c modules/*.c linker/*.c
-	@${BEG} "ctag" "Generating CTags..."
-	@-ctags -R --c++-kinds=+p --fields=+iaS --extra=+q kernel userspace modules util linker ${ERRORS}
-	@${END} "ctag" "Generated CTags."
-
-###############
-#    clean    #
-###############
-
-clean-soft:
-	@${BEGRM} "RM" "Cleaning kernel objects..."
-	@-rm -f kernel/*.o
-	@-rm -f kernel/*/*.o
-	@-rm -f ${KERNEL_OBJS}
-	@${ENDRM} "RM" "Cleaned kernel objects"
-
-clean-user:
-	@${BEGRM} "RM" "Cleaning userspace products..."
-	@-rm -f ${USERSPACE}
-	@${ENDRM} "RM" "Cleaned userspace products"
-
-clean-mods:
-	@${BEGRM} "RM" "Cleaning kernel modules..."
-	@-rm -f hdd/mod/*
-	@${ENDRM} "RM" "Cleaned kernel modules"
-
-clean-core:
-	@${BEGRM} "RM" "Cleaning final output..."
-	@-rm -f toaruos-kernel
-	@${ENDRM} "RM" "Cleaned final output"
-
-clean-disk:
-	@${BEGRM} "RM" "Deleting hard disk image..."
-	@-rm -f toaruos-disk.img
-	@${ENDRM} "RM" "Deleted hard disk image"
-
-clean: clean-soft clean-core
-	@${INFO} "--" "Finished soft cleaning"
-
-clean-hard: clean clean-user clean-mods
-	@${INFO} "--" "Finished hard cleaning"
-
-
-# vim:noexpandtab
-# vim:tabstop=4
-# vim:shiftwidth=4
+# Cairo: Compositor rendering backend
+ext-cairo: base/lib/libtoaru_ext_cairo_renderer.so

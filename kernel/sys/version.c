@@ -1,10 +1,10 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2017 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  */
 
-#include <version.h>
+#include <kernel/version.h>
 
 /* Kernel name. If you change this, you're not
  * my friend any more. */
@@ -17,8 +17,8 @@ char * __kernel_version_format = "%d.%d.%d-%s";
 
 /* Version numbers X.Y.Z */
 int    __kernel_version_major = 1;
-int    __kernel_version_minor = 2;
-int    __kernel_version_lower = 2;
+int    __kernel_version_minor = 5;
+int    __kernel_version_lower = 3;
 
 /* Kernel build suffix, which doesn't necessarily
  * mean anything, but can be used to distinguish
@@ -34,7 +34,7 @@ int    __kernel_version_lower = 2;
 char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename. */
-char * __kernel_version_codename = "touma";
+char * __kernel_version_codename = "nih";
 
 /* Build architecture (should probably not be
  * here as a string, but rather some sort of

@@ -1,10 +1,10 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2015 Dale Weiler
- *               2015 Kevin Lange
+ * Copyright (C) 2015-2018 K. Lange
+ *               2015 Dale Weiler
  */
-#include "bitset.h"
+#include <kernel/bitset.h>
 
 #define CEIL(NUMBER, BASE) \
 	(((NUMBER) + (BASE) - 1) & ~((BASE) - 1))

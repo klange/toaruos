@@ -1,19 +1,19 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
   *
  * Ramdisk driver.
  *
  * Provide raw block access to files loaded into kernel memory.
  */
 
-#include <system.h>
-#include <logging.h>
-#include <module.h>
-#include <fs.h>
-#include <printf.h>
-#include <mem.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/mem.h>
 
 static uint32_t read_ramdisk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 static uint32_t write_ramdisk(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
@@ -84,7 +84,7 @@ static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, 
 	sprintf(fnode->name, "ram%d", device_number);
 	fnode->uid = 0;
 	fnode->gid = 0;
-	fnode->mask    = 0660;
+	fnode->mask    = 0770;
 	fnode->length  = size;
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_ramdisk;

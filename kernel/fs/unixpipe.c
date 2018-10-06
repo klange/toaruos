@@ -1,16 +1,16 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
  */
-#include <system.h>
-#include <fs.h>
-#include <pipe.h>
-#include <logging.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/ringbuffer.h>
 
-#include <ioctl.h>
-#include <ringbuffer.h>
+#include <sys/ioctl.h>
 
 #define UNIX_PIPE_BUFFER 512
 
@@ -53,10 +53,7 @@ static uint32_t write_unixpipe(fs_node_t * node, uint32_t offset, uint32_t size,
 	while (written < size) {
 		if (self->read_closed) {
 			/* SIGPIPE to current process */
-			signal_t * sig = malloc(sizeof(signal_t));
-			sig->handler = current_process->signals.functions[SIGPIPE];
-			sig->signum  = SIGPIPE;
-			handle_signal((process_t *)current_process, sig);
+			send_signal(getpid(), SIGPIPE, 1);
 
 			return written;
 		}
@@ -90,6 +87,9 @@ static void close_write_pipe(fs_node_t * node) {
 		debug_print(NOTICE, "Both ends now closed, should clean up.");
 	} else {
 		ring_buffer_interrupt(self->buffer);
+		if (!ring_buffer_unread(self->buffer)) {
+			ring_buffer_alert_waiters(self->buffer);
+		}
 	}
 }
 
@@ -98,6 +98,7 @@ static int check_pipe(fs_node_t * node) {
 	if (ring_buffer_unread(self->buffer) > 0) {
 		return 0;
 	}
+	if (self->write_closed) return 0;
 	return 1;
 }
 

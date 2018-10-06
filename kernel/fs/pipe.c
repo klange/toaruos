@@ -1,17 +1,17 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2012-2014 Kevin Lange
+ * Copyright (C) 2012-2018 K. Lange
  *
  * Buffered Pipe
  *
  */
 
-#include <system.h>
-#include <fs.h>
-#include <printf.h>
-#include <pipe.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/pipe.h>
+#include <kernel/logging.h>
 
 #define DEBUG_PIPES 0
 
@@ -102,7 +102,7 @@ uint32_t read_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buf
 
 	if (pipe->dead) {
 		debug_print(WARNING, "Pipe is dead?");
-		send_signal(getpid(), SIGPIPE);
+		send_signal(getpid(), SIGPIPE, 1);
 		return 0;
 	}
 
@@ -146,7 +146,7 @@ uint32_t write_pipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
 
 	if (pipe->dead) {
 		debug_print(WARNING, "Pipe is dead?");
-		send_signal(getpid(), SIGPIPE);
+		send_signal(getpid(), SIGPIPE, 1);
 		return 0;
 	}
 

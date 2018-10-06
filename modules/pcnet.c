@@ -1,17 +1,18 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2016 Kevin Lange
+ * Copyright (C) 2016-2018 K. Lange
  */
-#include <module.h>
-#include <logging.h>
-#include <printf.h>
-#include <pci.h>
-#include <mem.h>
-#include <list.h>
-#include <pipe.h>
-#include <ipv4.h>
-#include <mod/net.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
+#include <kernel/mem.h>
+#include <kernel/pipe.h>
+#include <kernel/ipv4.h>
+#include <kernel/mod/net.h>
+
+#include <toaru/list.h>
 
 static list_t * net_queue = NULL;
 static spin_lock_t net_queue_lock = { 0 };
@@ -208,8 +209,8 @@ static void pcnet_init(void * data, char * name) {
 	pcnet_io_base  = pci_read_field(pcnet_device_pci, PCI_BAR0, 4) & 0xFFFFFFF0;
 	pcnet_mem_base = pci_read_field(pcnet_device_pci, PCI_BAR1, 4) & 0xFFFFFFF0;
 
-	pcnet_irq = pci_read_field(pcnet_device_pci, PCI_INTERRUPT_LINE, 1);
-	irq_install_handler(pcnet_irq, pcnet_irq_handler);
+	pcnet_irq = pci_get_interrupt(pcnet_device_pci);
+	irq_install_handler(pcnet_irq, pcnet_irq_handler, "pcnet");
 
 	debug_print(NOTICE, "irq line: %d", pcnet_irq);
 	debug_print(NOTICE, "io base: 0x%x", pcnet_io_base);

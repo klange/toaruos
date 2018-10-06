@@ -1,13 +1,13 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2013 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  *
  * Programmable Interrupt Timer
  */
-#include <system.h>
-#include <logging.h>
-#include <process.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/process.h>
 
 #define PIT_A 0x40
 #define PIT_B 0x41
@@ -84,7 +84,7 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 void timer_install(void) {
 	debug_print(NOTICE,"Initializing interval timer");
 	boot_time = read_cmos();
-	irq_install_handler(TIMER_IRQ, timer_handler);
+	irq_install_handler(TIMER_IRQ, timer_handler, "pit timer");
 	timer_phase(SUBTICKS_PER_TICK); /* 100Hz */
 }
 

@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  * Copyright (C) 2012 Markus Schober
  * Copyright (C) 2015 Dale Weiler
  *
@@ -10,14 +10,15 @@
  * Internal format format for a process and functions to spawn
  * new processes and manage the process tree.
  */
-#include <system.h>
-#include <process.h>
-#include <tree.h>
-#include <list.h>
-#include <bitset.h>
-#include <logging.h>
-#include <shm.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/bitset.h>
+#include <kernel/logging.h>
+#include <kernel/shm.h>
+#include <kernel/printf.h>
+
+#include <toaru/list.h>
+#include <toaru/tree.h>
 
 tree_t * process_tree;  /* Parent->Children tree */
 list_t * process_list;  /* Flat storage */
@@ -774,9 +775,12 @@ void reap_process(process_t * proc) {
 }
 
 static int wait_candidate(process_t * parent, int pid, int options, process_t * proc) {
-	(void)options; /* there is only one option that affects candidacy, and we don't support it yet */
-
 	if (!proc) return 0;
+
+	if (options & 0x10) {
+		/* Skip kernel processes */
+		if (proc->is_tasklet) return 0;
+	}
 
 	if (pid < -1) {
 		if (proc->group == -pid || proc->id == -pid) return 1;

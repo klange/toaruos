@@ -1,18 +1,18 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
  *
  * Serial communication device
  *
  */
 
-#include <system.h>
-#include <fs.h>
-#include <pipe.h>
-#include <logging.h>
-#include <args.h>
-#include <module.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/logging.h>
+#include <kernel/args.h>
+#include <kernel/module.h>
 
 #define SERIAL_PORT_A 0x3F8
 #define SERIAL_PORT_B 0x2F8
@@ -149,6 +149,9 @@ static int check_serial(fs_node_t * node) {
 	return selectcheck_fs(*pipe_for_port((int)node->device));
 }
 
+static int have_installed_ac = 0;
+static int have_installed_bd = 0;
+
 static fs_node_t * serial_device_create(int device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -176,9 +179,15 @@ static fs_node_t * serial_device_create(int device) {
 	serial_enable(device);
 
 	if (device == SERIAL_PORT_A || device == SERIAL_PORT_C) {
-		irq_install_handler(SERIAL_IRQ_AC, serial_handler_ac);
+		if (!have_installed_ac) {
+			irq_install_handler(SERIAL_IRQ_AC, serial_handler_ac, "serial ac");
+			have_installed_ac = 1;
+		}
 	} else {
-		irq_install_handler(SERIAL_IRQ_BD, serial_handler_bd);
+		if (!have_installed_bd) {
+			irq_install_handler(SERIAL_IRQ_BD, serial_handler_bd, "serial bd");
+			have_installed_bd = 1;
+		}
 	}
 
 	*pipe_for_port(device) = make_pipe(128);
@@ -203,7 +212,21 @@ static int serial_mount_devices(void) {
 	char * c;
 	if ((c = args_value("logtoserial"))) {
 		debug_file = ttyS0;
-		debug_level = atoi(c);
+		if (!strcmp(c,"INFO") || !strcmp(c,"info")) {
+			debug_level = INFO;
+		} else if (!strcmp(c,"NOTICE") || !strcmp(c,"notice")) {
+			debug_level = NOTICE;
+		} else if (!strcmp(c,"WARNING") || !strcmp(c,"warning")) {
+			debug_level = WARNING;
+		} else if (!strcmp(c,"ERROR") || !strcmp(c,"error")) {
+			debug_level = ERROR;
+		} else if (!strcmp(c,"CRITICAL") || !strcmp(c,"critical")) {
+			debug_level = CRITICAL;
+		} else if (!strcmp(c,"INSANE") || !strcmp(c,"insane")) {
+			debug_level = INSANE;
+		} else {
+			debug_level = atoi(c);
+		}
 		debug_print(NOTICE, "Serial logging enabled at level %d.", debug_level);
 	}
 

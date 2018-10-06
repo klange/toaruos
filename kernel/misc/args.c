@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2013 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  *
  * Kernel Argument Manager
  *
@@ -11,11 +11,12 @@
  *
  * This module provides access 
  */
-#include <system.h>
-#include <logging.h>
-#include <args.h>
-#include <hashmap.h>
-#include <tokenize.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/args.h>
+#include <kernel/tokenize.h>
+
+#include <toaru/hashmap.h>
 
 char * cmdline = NULL;
 

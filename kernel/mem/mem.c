@@ -1,19 +1,20 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  * Copyright (C) 2012 Markus Schober
  *
  * Kernel Memory Manager
  */
 
-#include <mem.h>
-#include <system.h>
-#include <process.h>
-#include <logging.h>
-#include <signal.h>
-#include <hashmap.h>
-#include <module.h>
+#include <kernel/mem.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/signal.h>
+#include <kernel/module.h>
+
+#include <toaru/hashmap.h>
 
 #define KERNEL_HEAP_INIT 0x00800000
 #define KERNEL_HEAP_END  0x20000000
@@ -203,13 +204,6 @@ uint32_t first_frame(void) {
 		debug_video_crash(msgs);
 	}
 
-#if 0
-	signal_t * sig = malloc(sizeof(signal_t));
-	sig->handler = current_process->signals.functions[SIGSEGV];
-	sig->signum  = SIGSEGV;
-	handle_signal((process_t *)current_process, sig);
-#endif
-
 	STOP;
 
 	return -1;
@@ -296,6 +290,17 @@ void paging_install(uint32_t memsize) {
 	uintptr_t phys;
 	kernel_directory = (page_directory_t *)kvmalloc_p(sizeof(page_directory_t),&phys);
 	memset(kernel_directory, 0, sizeof(page_directory_t));
+
+	/* Set PAT 111b to Write-Combining */
+	asm volatile (
+		"mov $0x277, %%ecx\n" /* IA32_MSR_PAT */
+		"rdmsr\n"
+		"or $0x1000000, %%edx\n" /* set bit 56 */
+		"and $0xf9ffffff, %%edx\n" /* unset bits 57, 58 */
+		"wrmsr\n"
+		: : : "ecx", "edx", "eax"
+	);
+
 }
 
 void paging_mark_system(uint64_t addr) {
@@ -485,13 +490,11 @@ page_fault(
 				size_t d;
 				if (a <= r->eip) {
 					d = r->eip - a;
-				} else {
-					d = a - r->eip;
-				}
-				if (d < distance) {
-					closest = key;
-					distance = d;
-					addr = a;
+					if (d < distance) {
+						closest = key;
+						distance = d;
+						addr = a;
+					}
 				}
 			}
 			free(hash_keys);
@@ -519,11 +522,7 @@ page_fault(
 
 #endif
 
-	signal_t * sig = malloc(sizeof(signal_t));
-	sig->handler = current_process->signals.functions[SIGSEGV];
-	sig->signum  = SIGSEGV;
-	handle_signal((process_t *)current_process, sig);
-
+	send_signal(current_process->id, SIGSEGV, 1);
 }
 
 /*

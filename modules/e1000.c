@@ -1,17 +1,20 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2017 Kevin Lange
+ * Copyright (C) 2017-2018 K. Lange
  */
-#include <module.h>
-#include <logging.h>
-#include <printf.h>
-#include <pci.h>
-#include <mem.h>
-#include <list.h>
-#include <pipe.h>
-#include <ipv4.h>
-#include <mod/net.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
+#include <kernel/mem.h>
+#include <kernel/pipe.h>
+#include <kernel/ipv4.h>
+#include <kernel/mod/net.h>
+
+#include <toaru/list.h>
+
+#define E1000_LOG_LEVEL NOTICE
 
 static uint32_t e1000_device_pci = 0x00000000;
 static int e1000_irq = 0;
@@ -112,6 +115,8 @@ static uint8_t* get_mac() {
 #define E1000_REG_TXDESCHEAD 0x3810
 #define E1000_REG_TXDESCTAIL 0x3818
 
+#define E1000_REG_RXADDR     0x5400
+
 #define RCTL_EN                         (1 << 1)    /* Receiver Enable */
 #define RCTL_SBP                        (1 << 2)    /* Store Bad Packets */
 #define RCTL_UPE                        (1 << 3)    /* Unicast Promiscuous Enabled */
@@ -183,6 +188,20 @@ static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
 	}
 }
 
+static void write_mac(void) {
+
+	uint32_t low;
+	uint32_t high;
+
+	memcpy(&low, &mac[0], 4);
+	memcpy(&high,&mac[4], 2);
+	memset((uint8_t *)&high + 2, 0, 2);
+	high |= 0x80000000;
+
+	write_command(E1000_REG_RXADDR + 0, low);
+	write_command(E1000_REG_RXADDR + 4, high);
+}
+
 static void read_mac(void) {
 	if (has_eeprom) {
 		uint32_t t;
@@ -196,7 +215,7 @@ static void read_mac(void) {
 		mac[4] = t & 0xFF;
 		mac[5] = t >> 8;
 	} else {
-		uint8_t * mac_addr = (uint8_t *)(mem_base + 0x5400);
+		uint8_t * mac_addr = (uint8_t *)(mem_base + E1000_REG_RXADDR);
 		for (int i = 0; i < 6; ++i) {
 			mac[i] = mac_addr[i];
 		}
@@ -207,15 +226,15 @@ static int irq_handler(struct regs *r) {
 
 	uint32_t status = read_command(0xc0);
 
-	irq_ack(e1000_irq);
-
 	if (!status) {
 		return 0;
 	}
 
+	irq_ack(e1000_irq);
+
 	if (status & 0x04) {
 		/* Start link */
-		debug_print(NOTICE, "start link");
+		debug_print(E1000_LOG_LEVEL, "start link");
 	} else if (status & 0x10) {
 		/* ?? */
 	} else if (status & ((1 << 6) | (1 << 7))) {
@@ -248,7 +267,7 @@ static int irq_handler(struct regs *r) {
 
 static void send_packet(uint8_t* payload, size_t payload_size) {
 	tx_index = read_command(E1000_REG_TXDESCTAIL);
-	debug_print(NOTICE,"sending packet 0x%x, %d desc[%d]", payload, payload_size, tx_index);
+	debug_print(E1000_LOG_LEVEL,"sending packet 0x%x, %d desc[%d]", payload, payload_size, tx_index);
 
 	memcpy(tx_virt[tx_index], payload, payload_size);
 	tx[tx_index].length = payload_size;
@@ -299,34 +318,59 @@ static void init_tx(void) {
 
 static void e1000_init(void * data, char * name) {
 
+	debug_print(E1000_LOG_LEVEL, "enabling bus mastering");
 	uint16_t command_reg = pci_read_field(e1000_device_pci, PCI_COMMAND, 2);
 	command_reg |= (1 << 2);
 	command_reg |= (1 << 0);
 	pci_write_field(e1000_device_pci, PCI_COMMAND, 2, command_reg);
 
-	debug_print(NOTICE, "mem base: 0x%x", mem_base);
+	debug_print(E1000_LOG_LEVEL, "mem base: 0x%x", mem_base);
 
 	eeprom_detect();
-	debug_print(NOTICE, "has_eeprom = %d", has_eeprom);
+	debug_print(E1000_LOG_LEVEL, "has_eeprom = %d", has_eeprom);
 	read_mac();
+	write_mac();
 
-	debug_print(NOTICE, "device mac %2x:%2x:%2x:%2x:%2x:%2x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-
-	/* initialize */
-	write_command(E1000_REG_CTRL, (1 << 26));
-
-	/* wait */
+	debug_print(E1000_LOG_LEVEL, "device mac %2x:%2x:%2x:%2x:%2x:%2x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	unsigned long s, ss;
+
+	uint32_t ctrl = read_command(E1000_REG_CTRL);
+	/* reset phy */
+	write_command(E1000_REG_CTRL, ctrl | (0x80000000));
+	read_command(E1000_REG_STATUS);
 	relative_time(0, 10, &s, &ss);
 	sleep_until((process_t *)current_process, s, ss);
 	switch_task(0);
-	debug_print(NOTICE, "back from sleep");
+
+	/* reset mac */
+	write_command(E1000_REG_CTRL, ctrl | (0x04000000));
+	read_command(E1000_REG_STATUS);
+	relative_time(0, 10, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+
+	/* Reload EEPROM */
+	write_command(E1000_REG_CTRL, ctrl | (0x00002000));
+	read_command(E1000_REG_STATUS);
+	relative_time(0, 20, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+
+
+	/* initialize */
+	write_command(E1000_REG_CTRL, ctrl | (1 << 26));
+
+	/* wait */
+	relative_time(0, 10, &s, &ss);
+	sleep_until((process_t *)current_process, s, ss);
+	switch_task(0);
+	debug_print(E1000_LOG_LEVEL, "back from sleep");
 
 	uint32_t status = read_command(E1000_REG_CTRL);
 	status |= (1 << 5);   /* set auto speed detection */
 	status |= (1 << 6);   /* set link up */
 	status &= ~(1 << 3);  /* unset link reset */
-	status &= ~(1 << 31); /* unset phy reset */
+	status &= ~(1UL << 31UL); /* unset phy reset */
 	status &= ~(1 << 7);  /* unset invert loss-of-signal */
 	write_command(E1000_REG_CTRL, status);
 
@@ -348,10 +392,11 @@ static void e1000_init(void * data, char * name) {
 	net_queue = list_create();
 	rx_wait = list_create();
 
-	e1000_irq = pci_read_field(e1000_device_pci, PCI_INTERRUPT_LINE, 1);
-	irq_install_handler(e1000_irq, irq_handler);
+	e1000_irq = pci_get_interrupt(e1000_device_pci);
 
-	debug_print(NOTICE, "Binding interrupt %d", e1000_irq);
+	irq_install_handler(e1000_irq, irq_handler, "e1000");
+
+	debug_print(E1000_LOG_LEVEL, "Binding interrupt %d", e1000_irq);
 
 	for (int i = 0; i < 128; ++i) {
 		write_command(0x5200 + i * 4, 0);
@@ -383,7 +428,7 @@ static void e1000_init(void * data, char * name) {
 	switch_task(0);
 
 	int link_is_up = (read_command(E1000_REG_STATUS) & (1 << 1));
-	debug_print(NOTICE,"e1000 done. has_eeprom = %d, link is up = %d, irq=%d", has_eeprom, link_is_up, e1000_irq);
+	debug_print(E1000_LOG_LEVEL,"e1000 done. has_eeprom = %d, link is up = %d, irq=%d", has_eeprom, link_is_up, e1000_irq);
 
 	init_netif_funcs(get_mac, dequeue_packet, send_packet, "Intel E1000");
 }
@@ -392,7 +437,7 @@ static int init(void) {
 	pci_scan(&find_e1000, -1, &e1000_device_pci);
 
 	if (!e1000_device_pci) {
-		debug_print(WARNING, "No e1000 device found.");
+		debug_print(E1000_LOG_LEVEL, "No e1000 device found.");
 		return 1;
 	}
 
@@ -408,7 +453,7 @@ static int init(void) {
 
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
 		rx_virt[i] = (void*)kvmalloc_p(8192 + 16, (uint32_t *)&rx[i].addr);
-		debug_print(INFO, "rx[%d] 0x%x → 0x%x", i, rx_virt[i], (uint32_t)rx[i].addr);
+		debug_print(E1000_LOG_LEVEL, "rx[%d] 0x%x → 0x%x", i, rx_virt[i], (uint32_t)rx[i].addr);
 		rx[i].status = 0;
 	}
 
@@ -416,7 +461,7 @@ static int init(void) {
 
 	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
 		tx_virt[i] = (void*)kvmalloc_p(8192+16, (uint32_t *)&tx[i].addr);
-		debug_print(INFO, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
+		debug_print(E1000_LOG_LEVEL, "tx[%d] 0x%x → 0x%x", i, tx_virt[i], (uint32_t)tx[i].addr);
 		tx[i].status = 0;
 		tx[i].cmd = (1 << 0);
 	}

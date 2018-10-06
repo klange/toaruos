@@ -1,14 +1,15 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
  */
-#include <system.h>
-#include <fs.h>
-#include <pipe.h>
-#include <module.h>
-#include <logging.h>
-#include <ioctl.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/module.h>
+#include <kernel/logging.h>
+
+#include <sys/ioctl.h>
 
 #define MAX_PACKET_SIZE 1024
 
@@ -379,8 +380,8 @@ static fs_node_t * finddir_packetfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
-static void create_packetfs(fs_node_t *parent, char *name, uint16_t permission) {
-	if (!name) return;
+static int create_packetfs(fs_node_t *parent, char *name, uint16_t permission) {
+	if (!name) return -EINVAL;
 
 	pex_t * p = (pex_t *)parent->device;
 
@@ -393,7 +394,7 @@ static void create_packetfs(fs_node_t *parent, char *name, uint16_t permission) 
 		if (!strcmp(name, t->name)) {
 			spin_unlock(p->lock);
 			/* Already exists */
-			return;
+			return -EEXIST;
 		}
 	}
 
@@ -412,14 +413,15 @@ static void create_packetfs(fs_node_t *parent, char *name, uint16_t permission) 
 
 	spin_unlock(p->lock);
 
+	return 0;
 }
 
 static void destroy_pex(pex_ex_t * p) {
 	/* XXX */
 }
 
-static void unlink_packetfs(fs_node_t *parent, char *name) {
-	if (!name) return;
+static int unlink_packetfs(fs_node_t *parent, char *name) {
+	if (!name) return -EINVAL;
 
 	pex_t * p = (pex_t *)parent->device;
 
@@ -441,9 +443,14 @@ static void unlink_packetfs(fs_node_t *parent, char *name) {
 
 	if (i >= 0) {
 		list_remove(p->exchanges, i);
+	} else {
+		spin_unlock(p->lock);
+		return -ENOENT;
 	}
 
 	spin_unlock(p->lock);
+
+	return 0;
 }
 
 static fs_node_t * packetfs_manager(void) {

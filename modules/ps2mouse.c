@@ -1,17 +1,17 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
  *
  * Mouse driver
  *
  */
-#include <system.h>
-#include <logging.h>
-#include <pipe.h>
-#include <module.h>
-#include <mouse.h>
-#include <args.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/pipe.h>
+#include <kernel/module.h>
+#include <kernel/mouse.h>
+#include <kernel/args.h>
 
 static uint8_t mouse_cycle = 0;
 static uint8_t mouse_byte[4];
@@ -168,6 +168,11 @@ static int mouse_install(void) {
 	debug_print(NOTICE, "Initializing PS/2 mouse interface");
 	uint8_t status, result;
 	IRQ_OFF;
+
+	while ((inportb(0x64) & 1)) {
+		inportb(0x60);
+	}
+
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_wait(1);
 	outportb(MOUSE_STATUS, 0xA8);
@@ -184,6 +189,7 @@ static int mouse_install(void) {
 	mouse_read();
 	mouse_write(0xF4);
 	mouse_read();
+
 	/* Try to enable scroll wheel (but not buttons) */
 	if (!args_present("nomousescroll")) {
 		mouse_write(0xF2);
@@ -209,13 +215,25 @@ static int mouse_install(void) {
 		}
 	}
 
-	irq_install_handler(MOUSE_IRQ, mouse_handler);
+	/* keyboard scancode set */
+	mouse_wait(1);
+	outportb(MOUSE_PORT, 0xF0);
+	mouse_wait(1);
+	outportb(MOUSE_PORT, 0x02);
+	mouse_wait(1);
+	mouse_read();
+
+	irq_install_handler(MOUSE_IRQ, mouse_handler, "ps2 mouse");
 	IRQ_RES;
 
 	uint8_t tmp = inportb(0x61);
 	outportb(0x61, tmp | 0x80);
 	outportb(0x61, tmp & 0x7F);
 	inportb(MOUSE_PORT);
+
+	while ((inportb(0x64) & 1)) {
+		inportb(0x60);
+	}
 
 	mouse_pipe->flags = FS_CHARDEVICE;
 	mouse_pipe->ioctl = ioctl_mouse;

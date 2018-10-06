@@ -1,68 +1,88 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
  *
- * Bochs VBE / QEMU vga=std Graphics Driver
+ * Generic linear framebuffer driver.
+ *
+ * Supports several cases:
+ *  - Bochs/QEMU/VirtualBox "Bochs VBE" with modesetting.
+ *  - VMware SVGA with modesetting.
+ *  - Linear framebuffers set by the bootloader with no modesetting.
  */
 
-#include <system.h>
-#include <fs.h>
-#include <printf.h>
-#include <types.h>
-#include <logging.h>
-#include <pci.h>
-#include <boot.h>
-#include <args.h>
-#include <tokenize.h>
-#include <module.h>
-#include <video.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/types.h>
+#include <kernel/logging.h>
+#include <kernel/pci.h>
+#include <kernel/boot.h>
+#include <kernel/args.h>
+#include <kernel/tokenize.h>
+#include <kernel/module.h>
+#include <kernel/video.h>
+#include <kernel/mod/procfs.h>
 
-#include "../userspace/gui/terminal/terminal-font.h"
-
+#define PREFERRED_W  1024
+#define PREFERRED_H  768
 #define PREFERRED_VY 4096
 #define PREFERRED_B 32
-/* Generic (pre-set, 32-bit, linear frame buffer) */
-static void graphics_install_preset(uint16_t, uint16_t);
 
+/* Exported to other modules */
 uint16_t lfb_resolution_x = 0;
 uint16_t lfb_resolution_y = 0;
 uint16_t lfb_resolution_b = 0;
 uint32_t lfb_resolution_s = 0;
+uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
+const char * lfb_driver_name = NULL;
 
-/* BOCHS / QEMU VBE Driver */
-static void graphics_install_bochs(uint16_t, uint16_t);
-static void bochs_set_y_offset(uint16_t y);
-static uint16_t bochs_current_scroll(void);
-
+/* Where to send display size change signals */
 static pid_t display_change_recipient = 0;
 
-void lfb_set_resolution(uint16_t x, uint16_t y);
+/* Driver-specific modesetting function */
+static void (*lfb_resolution_impl)(uint16_t,uint16_t) = NULL;
 
-/*
- * Address of the linear frame buffer.
- * This can move, so it's a pointer instead of
- * #define.
+/* Called by ioctl on /dev/fb0 */
+void lfb_set_resolution(uint16_t x, uint16_t y) {
+	if (lfb_resolution_impl) {
+		lfb_resolution_impl(x,y);
+		if (display_change_recipient) {
+			send_signal(display_change_recipient, SIGWINEVENT, 1);
+			debug_print(WARNING, "Telling %d to SIGWINEVENT", display_change_recipient);
+		}
+	}
+}
+
+/**
+ * Framebuffer control ioctls.
+ * Used by the compositor to get display sizes and by the
+ * resolution changer to initiate modesetting.
  */
-uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
-
 static int ioctl_vid(fs_node_t * node, int request, void * argp) {
-	/* TODO: Make this actually support multiple video devices */
-
 	switch (request) {
 		case IO_VID_WIDTH:
+			/* Get framebuffer width */
 			validate(argp);
 			*((size_t *)argp) = lfb_resolution_x;
 			return 0;
 		case IO_VID_HEIGHT:
+			/* Get framebuffer height */
 			validate(argp);
 			*((size_t *)argp) = lfb_resolution_y;
 			return 0;
 		case IO_VID_DEPTH:
+			/* Get framebuffer bit depth */
 			validate(argp);
 			*((size_t *)argp) = lfb_resolution_b;
 			return 0;
+		case IO_VID_STRIDE:
+			/* Get framebuffer scanline stride */
+			validate(argp);
+			*((size_t *)argp) = lfb_resolution_s;
+			return 0;
 		case IO_VID_ADDR:
+			/* Get framebuffer address - TODO: map the framebuffer? */
 			validate(argp);
 			*((uintptr_t *)argp) = (uintptr_t)lfb_vid_memory;
 			return 0;
@@ -71,17 +91,41 @@ static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 			display_change_recipient = getpid();
 			return 0;
 		case IO_VID_SET:
+			/* Initiate mode setting */
 			validate(argp);
 			lfb_set_resolution(((struct vid_size *)argp)->width, ((struct vid_size *)argp)->height);
 			return 0;
-		case IO_VID_STRIDE:
-			*((size_t *)argp) = lfb_resolution_s;
+		case IO_VID_DRIVER:
+			validate(argp);
+			memcpy(argp, lfb_driver_name, strlen(lfb_driver_name));
 			return 0;
 		default:
-			return -1; /* TODO EINV... something or other */
+			return -EINVAL;
 	}
 }
 
+/* Framebuffer device file initializer */
+static fs_node_t * lfb_video_device_create(void /* TODO */) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	sprintf(fnode->name, "fb0"); /* TODO */
+	fnode->length  = lfb_resolution_s * lfb_resolution_y; /* Size is framebuffer size in bytes */
+	fnode->flags   = FS_BLOCKDEVICE; /* Framebuffers are block devices */
+	fnode->mask    = 0660; /* Only accessible to root user/group */
+	fnode->ioctl   = ioctl_vid; /* control function defined above */
+	return fnode;
+}
+
+/**
+ * Framebuffer fatal error presentation.
+ *
+ * This is called by a kernel hook to render fatal error messages
+ * (panic / oops / bsod) to the graphraical framebuffer. Mostly,
+ * that means the "out of memory" error. Bescause this is a fatal
+ * error condition, we don't care much about speed, so we can do
+ * silly things like ready from the framebuffer, which we do to
+ * produce a vignetting and desaturation effect.
+ */
 static int vignette_at(int x, int y) {
 	int amount = 0;
 	int level = 100;
@@ -92,23 +136,28 @@ static int vignette_at(int x, int y) {
 	return amount;
 }
 
-#define char_height 12
-#define char_width  8
+#include "../apps/terminal-font.h"
 
+/* XXX Why is this not defined in the font header...  */
+#define char_height 20
+#define char_width  9
+
+/* Set point in framebuffer */
 static void set_point(int x, int y, uint32_t value) {
 	uint32_t * disp = (uint32_t *)lfb_vid_memory;
 	uint32_t * cell = &disp[y * (lfb_resolution_s / 4) + x];
 	*cell = value;
 }
 
+/* Draw text on framebuffer */
 static void write_char(int x, int y, int val, uint32_t color) {
 	if (val > 128) {
 		val = 4;
 	}
-	uint8_t * c = number_font[val];
+	uint16_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
-			if (c[i] & (1 << (8-j))) {
+			if (c[i] & (1 << (15-j))) {
 				set_point(x+j,y+i,color);
 			}
 		}
@@ -161,43 +210,62 @@ static void lfb_video_panic(char ** msgs) {
 		}
 		y += char_height;
 	}
-
 }
 
-static fs_node_t * lfb_video_device_create(void /* TODO */) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	sprintf(fnode->name, "fb0"); /* TODO */
-	fnode->length  = lfb_resolution_x * lfb_resolution_y * (lfb_resolution_b / 8);
-	fnode->flags   = FS_BLOCKDEVICE;
-	fnode->mask    = 0660;
-	fnode->ioctl   = ioctl_vid;
-	return fnode;
+static uint32_t framebuffer_func(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+	char * buf = malloc(4096);
+
+	if (lfb_driver_name) {
+		sprintf(buf,
+			"Driver:\t%s\n"
+			"XRes:\t%d\n"
+			"YRes:\t%d\n"
+			"BitsPerPixel:\t%d\n"
+			"Stride:\t%d\n"
+			"Address:\t0x%x\n",
+			lfb_driver_name,
+			lfb_resolution_x,
+			lfb_resolution_y,
+			lfb_resolution_b,
+			lfb_resolution_s,
+			lfb_vid_memory);
+	} else {
+		sprintf(buf, "Driver:\tnone\n");
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	free(buf);
+	return size;
 }
 
-static void finalize_graphics(uint16_t x, uint16_t y, uint16_t b, uint32_t s) {
-	lfb_resolution_x = x;
-	lfb_resolution_s = s;
-	lfb_resolution_y = y;
-	lfb_resolution_b = b;
+static struct procfs_entry framebuffer_entry = {
+	0,
+	"framebuffer",
+	framebuffer_func,
+};
+
+/* Install framebuffer device */
+static void finalize_graphics(const char * driver) {
+	lfb_driver_name = driver;
 	fs_node_t * fb_device = lfb_video_device_create();
 	vfs_mount("/dev/fb0", fb_device);
 	debug_video_crash = lfb_video_panic;
+
+	int (*procfs_install)(struct procfs_entry *) = (int (*)(struct procfs_entry *))(uintptr_t)hashmap_get(modules_get_symbols(),"procfs_install");
+
+	if (procfs_install) {
+		procfs_install(&framebuffer_entry);
+	}
 }
 
 /* Bochs support {{{ */
-static uintptr_t current_scroll = 0;
-
-static void bochs_set_y_offset(uint16_t y) {
-	outports(0x1CE, 0x9);
-	outports(0x1CF, y);
-	current_scroll = y;
-}
-
-static uint16_t bochs_current_scroll(void) {
-	return current_scroll;
-}
-
 static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	if ((v == 0x1234 && d == 0x1111) ||
 	    (v == 0x80EE && d == 0xBEEF) ||
@@ -209,22 +277,7 @@ static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra
 	}
 }
 
-static void (*lfb_resolution_impl)(uint16_t,uint16_t) = NULL;
-
-void lfb_set_resolution(uint16_t x, uint16_t y) {
-
-	if (lfb_resolution_impl) {
-		lfb_resolution_impl(x,y);
-		if (display_change_recipient) {
-			send_signal(display_change_recipient, SIGWINEVENT);
-			debug_print(WARNING, "Telling %d to SIGWINEVENT", display_change_recipient);
-		}
-	}
-
-}
-
-static void res_change_bochs(uint16_t x, uint16_t y) {
-
+static void bochs_set_resolution(uint16_t x, uint16_t y) {
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x00);
 	/* Uh oh, here we go. */
@@ -253,8 +306,8 @@ static void res_change_bochs(uint16_t x, uint16_t y) {
 	lfb_resolution_x = x;
 	lfb_resolution_s = x * 4;
 	lfb_resolution_y = y;
+	lfb_resolution_b = 32;
 }
-
 
 static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 	uint32_t vid_memsize;
@@ -267,44 +320,28 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 	}
 	outports(0x1CF, 0xB0C4);
 	i = inports(0x1CF);
-	res_change_bochs(resolution_x, resolution_y);
+	bochs_set_resolution(resolution_x, resolution_y);
 	resolution_x = lfb_resolution_x; /* may have changed */
 
 	pci_scan(bochs_scan_pci, -1, &lfb_vid_memory);
 
-	lfb_resolution_impl = &res_change_bochs;
+	lfb_resolution_impl = &bochs_set_resolution;
 
-	if (lfb_vid_memory) {
-		/* Enable the higher memory */
-		uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
-		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-		}
-
-		goto mem_found;
-	} else {
-		/* XXX: Massive hack */
-
-		uint32_t * text_vid_mem = (uint32_t *)0xA0000;
-		text_vid_mem[0] = 0xA5ADFACE;
-
-		for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
-			/* Enable the higher memory */
-			for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-				dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-			}
-
-			/* Go find it */
-			for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
-				if (((uintptr_t *)x)[0] == 0xA5ADFACE) {
-					lfb_vid_memory = (uint8_t *)x;
-					goto mem_found;
-				}
-			}
-		}
+	if (!lfb_vid_memory) {
+		debug_print(ERROR, "Failed to locate video memory.");
+		return;
 	}
 
-mem_found:
+	/* Enable the higher memory */
+	uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
+	for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
+		page_t * p = get_page(i, 1, kernel_directory);
+		dma_frame(p, 0, 1, i);
+		p->pat = 1;
+		p->writethrough = 1;
+		p->cachedisable = 1;
+	}
+
 	outports(0x1CE, 0x0a);
 	i = inports(0x1CF);
 	if (i > 1) {
@@ -316,75 +353,33 @@ mem_found:
 	for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + vid_memsize; i += 0x1000) {
 		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
 	}
-	finalize_graphics(resolution_x, resolution_y, PREFERRED_B, resolution_x * 4);
+
+	finalize_graphics("bochs");
 }
 
-/* }}} end bochs support */
-
 static void graphics_install_preset(uint16_t w, uint16_t h) {
-	debug_print(NOTICE, "Graphics were pre-configured (thanks, bootloader!), locating video memory...");
-	uint16_t b = 32; /* If you are 24 bit, go away, we really do not support you. */
-
-	if (mboot_ptr && (mboot_ptr->flags & (1 << 12))) {
-		/* hello world */
-		lfb_vid_memory = (void *)mboot_ptr->framebuffer_addr;
-		w = mboot_ptr->framebuffer_width;
-		h = mboot_ptr->framebuffer_height;
-
-		debug_print(WARNING, "Mode was set by bootloader: %dx%d bpp should be 32, framebuffer is at 0x%x", w, h, (uintptr_t)lfb_vid_memory);
-
-		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-		}
-		goto mem_found;
+	if (!(mboot_ptr && (mboot_ptr->flags & (1 << 12)))) {
+		debug_print(ERROR, "Failed to locate preset video memory - missing multiboot header.");
+		return;
 	}
 
-	/* XXX: Massive hack */
-	uint32_t * herp = (uint32_t *)0xA0000;
-	herp[0] = 0xA5ADFACE;
-	herp[1] = 0xFAF42943;
+	/* Extract framebuffer information from multiboot */
+	lfb_vid_memory = (void *)mboot_ptr->framebuffer_addr;
+	lfb_resolution_x = mboot_ptr->framebuffer_width;
+	lfb_resolution_y = mboot_ptr->framebuffer_height;
+	lfb_resolution_s = mboot_ptr->framebuffer_pitch;
+	lfb_resolution_b = 32;
 
-	if (lfb_vid_memory) {
-		for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + 0xFF0000; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-		}
-		if (((uintptr_t *)lfb_vid_memory)[0] == 0xA5ADFACE && ((uintptr_t *)lfb_vid_memory)[1] == 0xFAF42943) {
-			debug_print(INFO, "Was able to locate video memory at 0x%x without dicking around.", lfb_vid_memory);
-			goto mem_found;
-		}
+	debug_print(WARNING, "Mode was set by bootloader: %dx%d bpp should be 32, framebuffer is at 0x%x", w, h, (uintptr_t)lfb_vid_memory);
+
+	for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
+		page_t * p = get_page(i, 1, kernel_directory);
+		dma_frame(p, 0, 1, i);
+		p->pat = 1;
+		p->writethrough = 1;
+		p->cachedisable = 1;
 	}
-
-	for (int i = 2; i < 1000; i += 2) {
-		herp[i]   = 0xFF00FF00;
-		herp[i+1] = 0x00FF00FF;
-	}
-
-	for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
-		/* Enable the higher memory */
-		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
-			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
-		}
-
-		/* Go find it */
-		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
-			if (((uintptr_t *)x)[0] == 0xA5ADFACE && ((uintptr_t *)x)[1] == 0xFAF42943) {
-				lfb_vid_memory = (uint8_t *)x;
-				debug_print(INFO, "Had to futz around, but found video memory at 0x%x", lfb_vid_memory);
-				goto mem_found;
-			}
-		}
-	}
-
-	for (int i = 2; i < 1000; i += 2) {
-		herp[i]   = 0xFF00FF00;
-		herp[i+1] = 0xFF00FF00;
-	}
-
-	debug_print(WARNING, "Failed to locate video memory. This could end poorly.");
-
-mem_found:
-	finalize_graphics(w,h,b,w*4);
-
+	finalize_graphics("preset");
 }
 
 #define SVGA_IO_BASE (vmware_io)
@@ -421,7 +416,7 @@ static uint32_t vmware_read(int reg) {
 	return inportl(SVGA_IO_MUL * SVGA_VALUE_PORT + SVGA_IO_BASE);
 }
 
-static void vmware_set_mode(uint16_t w, uint16_t h) {
+static void vmware_set_resolution(uint16_t w, uint16_t h) {
 	vmware_write(SVGA_REG_ENABLE, 0);
 	vmware_write(SVGA_REG_ID, 0);
 	vmware_write(SVGA_REG_WIDTH, w);
@@ -434,11 +429,10 @@ static void vmware_set_mode(uint16_t w, uint16_t h) {
 	lfb_resolution_x = w;
 	lfb_resolution_s = bpl;
 	lfb_resolution_y = h;
-
+	lfb_resolution_b = 32;
 }
 
 static void graphics_install_vmware(uint16_t w, uint16_t h) {
-	debug_print(WARNING, "Please note that the `vmware` display driver is experimental.");
 	pci_scan(vmware_scan_pci, -1, &vmware_io);
 
 	if (!vmware_io) {
@@ -448,15 +442,8 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 		debug_print(WARNING, "vmware io base: 0x%x", vmware_io);
 	}
 
-	vmware_write(SVGA_REG_ID, 0);
-	vmware_write(SVGA_REG_WIDTH, w);
-	vmware_write(SVGA_REG_HEIGHT, h);
-	vmware_write(SVGA_REG_BITS_PER_PIXEL, 32);
-	vmware_write(SVGA_REG_ENABLE, 1);
-
-	uint32_t bpl = vmware_read(SVGA_REG_BYTES_PER_LINE);
-
-	lfb_resolution_impl = &vmware_set_mode;
+	vmware_set_resolution(w,h);
+	lfb_resolution_impl = &vmware_set_resolution;
 
 	uint32_t fb_addr = vmware_read(SVGA_REG_FB_START);
 	debug_print(WARNING, "vmware fb address: 0x%x", fb_addr);
@@ -469,10 +456,14 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 
 	uintptr_t fb_offset = (uintptr_t)lfb_vid_memory;
 	for (uintptr_t i = fb_offset; i <= fb_offset + fb_size; i += 0x1000) {
-		dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		page_t * p = get_page(i, 1, kernel_directory);
+		dma_frame(p, 0, 1, i);
+		p->pat = 1;
+		p->writethrough = 1;
+		p->cachedisable = 1;
 	}
 
-	finalize_graphics(w,h,32,bpl);
+	finalize_graphics("vmware");
 }
 
 struct disp_mode {
@@ -495,7 +486,6 @@ static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	}
 }
 
-
 static int init(void) {
 
 	if (mboot_ptr->vbe_mode_info) {
@@ -512,8 +502,8 @@ static int init(void) {
 
 		uint16_t x, y;
 		if (argc < 3) {
-			x = 1024;
-			y = 768;
+			x = PREFERRED_W;
+			y = PREFERRED_H;
 		} else {
 			x = atoi(argv[1]);
 			y = atoi(argv[2]);
@@ -521,7 +511,7 @@ static int init(void) {
 
 		if (!strcmp(argv[0], "auto")) {
 			/* Attempt autodetection */
-			debug_print(WARNING, "Autodetect is in beta, this may not work.");
+			debug_print(NOTICE, "Automatically detecting display driver...");
 			struct disp_mode mode = {x,y,0};
 			pci_scan(auto_scan_pci, -1, &mode);
 			if (!mode.set) {
@@ -530,10 +520,12 @@ static int init(void) {
 		} else if (!strcmp(argv[0], "qemu")) {
 			/* Bochs / Qemu Video Device */
 			graphics_install_bochs(x,y);
-		} else if (!strcmp(argv[0],"preset")) {
-			graphics_install_preset(x,y);
 		} else if (!strcmp(argv[0],"vmware")) {
+			/* VMware SVGA */
 			graphics_install_vmware(x,y);
+		} else if (!strcmp(argv[0],"preset")) {
+			/* Set by bootloader (UEFI) */
+			graphics_install_preset(x,y);
 		} else {
 			debug_print(WARNING, "Unrecognized video adapter: %s", argv[0]);
 		}

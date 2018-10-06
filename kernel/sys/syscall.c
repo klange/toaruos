@@ -1,22 +1,23 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  * Copyright (C) 2012 Markus Schober
  *
  * Syscall Tables
  *
  */
-#include <system.h>
-#include <process.h>
-#include <logging.h>
-#include <fs.h>
-#include <pipe.h>
-#include <version.h>
-#include <shm.h>
-#include <utsname.h>
-#include <printf.h>
-#include <module.h>
+#include <kernel/system.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/version.h>
+#include <kernel/shm.h>
+#include <kernel/printf.h>
+#include <kernel/module.h>
+
+#include <sys/utsname.h>
 #include <syscall_nums.h>
 
 static char   hostname[256];
@@ -52,7 +53,7 @@ void validate(void * ptr) {
  */
 static int __attribute__((noreturn)) sys_exit(int retval) {
 	/* Deschedule the current task */
-	task_exit(retval);
+	task_exit((retval & 0xFF) << 8);
 	for (;;) ;
 }
 
@@ -65,7 +66,7 @@ static int sys_read(int fd, char * ptr, int len) {
 		node->offset += out;
 		return (int)out;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_ioctl(int fd, int request, void * argp) {
@@ -73,7 +74,7 @@ static int sys_ioctl(int fd, int request, void * argp) {
 		PTR_VALIDATE(argp);
 		return ioctl_fs(FD_ENTRY(fd), request, argp);
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_readdir(int fd, int index, struct dirent * entry) {
@@ -83,12 +84,12 @@ static int sys_readdir(int fd, int index, struct dirent * entry) {
 		if (kentry) {
 			memcpy(entry, kentry, sizeof *entry);
 			free(kentry);
-			return 0;
-		} else {
 			return 1;
+		} else {
+			return 0;
 		}
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_write(int fd, char * ptr, int len) {
@@ -103,7 +104,7 @@ static int sys_write(int fd, char * ptr, int len) {
 		node->offset += out;
 		return out;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_waitpid(int pid, int * status, int options) {
@@ -120,11 +121,13 @@ static int sys_open(const char * file, int flags, int mode) {
 
 	if (node && !has_permission(node, 04)) {
 		debug_print(WARNING, "access denied (read, sys_open, file=%s)", file);
+		close_fs(node);
 		return -EACCES;
 	}
-	if (node && ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY))) {
+	if (node && ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY) || (flags & O_TRUNC))) {
 		if (!has_permission(node, 02)) {
 			debug_print(WARNING, "access denied (write, sys_open, file=%s)", file);
+			close_fs(node);
 			return -EACCES;
 		}
 	}
@@ -142,9 +145,13 @@ static int sys_open(const char * file, int flags, int mode) {
 	}
 	if (!node) {
 		debug_print(NOTICE, "File does not exist; someone should be setting errno?");
-		return -1;
+		return -ENOENT;
 	}
-	node->offset = 0;
+	if (flags & O_APPEND) {
+		node->offset = node->length;
+	} else {
+		node->offset = 0;
+	}
 	int fd = process_append_fd((process_t *)current_process, node);
 	debug_print(INFO, "[open] pid=%d %s -> %d", getpid(), file, fd);
 	return fd;
@@ -154,7 +161,7 @@ static int sys_access(const char * file, int flags) {
 	PTR_VALIDATE(file);
 	debug_print(INFO, "access(%s, 0x%x) from pid=%d", file, flags, getpid());
 	fs_node_t * node = kopen((char *)file, 0);
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 	close_fs(node);
 	return 0;
 }
@@ -165,7 +172,7 @@ static int sys_close(int fd) {
 		FD_ENTRY(fd) = NULL;
 		return 0;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_sbrk(int size) {
@@ -250,8 +257,7 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 
 	debug_print(INFO,"Executing...");
 	/* Discard envp */
-	exec((char *)filename, argc, (char **)argv_, (char **)envp_);
-	return -1;
+	return exec((char *)filename, argc, (char **)argv_, (char **)envp_);
 }
 
 static int sys_seek(int fd, int offset, int whence) {
@@ -272,7 +278,7 @@ static int sys_seek(int fd, int offset, int whence) {
 		}
 		return FD_ENTRY(fd)->offset;
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int stat_node(fs_node_t * fn, uintptr_t st) {
@@ -332,11 +338,16 @@ static int sys_chmod(char * file, int mode) {
 	PTR_VALIDATE(file);
 	fs_node_t * fn = kopen(file, 0);
 	if (fn) {
+		/* Can group members change bits? I think it's only owners. */
+		if (current_process->user != 0 && current_process->user != fn->uid) {
+			close_fs(fn);
+			return -EACCES;
+		}
 		result = chmod_fs(fn, mode);
 		close_fs(fn);
 		return result;
 	} else {
-		return -1;
+		return -ENOENT;
 	}
 }
 
@@ -345,11 +356,16 @@ static int sys_chown(char * file, int uid, int gid) {
 	PTR_VALIDATE(file);
 	fs_node_t * fn = kopen(file, 0);
 	if (fn) {
+		/* TODO: Owners can change groups... */
+		if (current_process->user != 0) {
+			close_fs(fn);
+			return -EACCES;
+		}
 		result = chown_fs(fn, uid, gid);
 		close_fs(fn);
 		return result;
 	} else {
-		return -1;
+		return -ENOENT;
 	}
 }
 
@@ -359,7 +375,7 @@ static int sys_stat(int fd, uintptr_t st) {
 	if (FD_CHECK(fd)) {
 		return stat_node(FD_ENTRY(fd), st);
 	}
-	return -1;
+	return -EBADF;
 }
 
 static int sys_mkpipe(void) {
@@ -381,7 +397,7 @@ static int sys_setuid(user_t new_uid) {
 		current_process->user = new_uid;
 		return 0;
 	}
-	return -1;
+	return -EPERM;
 }
 
 static int sys_uname(struct utsname * name) {
@@ -408,7 +424,7 @@ static int sys_uname(struct utsname * name) {
 
 static int sys_signal(uint32_t signum, uintptr_t handler) {
 	if (signum > NUMSIGNALS) {
-		return -1;
+		return -EINVAL;
 	}
 	uintptr_t old = current_process->signals.functions[signum];
 	current_process->signals.functions[signum] = handler;
@@ -422,14 +438,22 @@ static void inspect_memory (uintptr_t vaddr) {
 }
 */
 
+extern void idt_load(uint32_t *);
+
 static int sys_reboot(void) {
 	debug_print(NOTICE, "[kernel] Reboot requested from process %d by user #%d", current_process->id, current_process->user);
 	if (current_process->user != USER_ROOT_UID) {
-		return -1;
+		return -EPERM;
 	} else {
-		debug_print(NOTICE, "[kernel] Good bye!");
+		debug_print(ERROR, "[kernel] Good bye!");
 		/* Goodbye, cruel world */
 		IRQ_OFF;
+		uintptr_t phys;
+		uint32_t * virt = (void*)kvmalloc_p(0x1000, &phys);
+		virt[0] = 0;
+		virt[1] = 0;
+		virt[2] = 0;
+		idt_load(virt);
 		uint8_t out = 0x02;
 		while ((out & 0x02) != 0) {
 			out = inportb(0x64);
@@ -447,7 +471,7 @@ static int sys_chdir(char * newdir) {
 	if (chd) {
 		if ((chd->flags & FS_DIRECTORY) == 0) {
 			close_fs(chd);
-			return -1;
+			return -ENOTDIR;
 		}
 		close_fs(chd);
 		free(current_process->wd_name);
@@ -455,7 +479,7 @@ static int sys_chdir(char * newdir) {
 		memcpy(current_process->wd_name, path, strlen(path) + 1);
 		return 0;
 	} else {
-		return -1;
+		return -ENOENT;
 	}
 }
 
@@ -473,13 +497,13 @@ static int sys_sethostname(char * new_hostname) {
 		PTR_VALIDATE(new_hostname);
 		size_t len = strlen(new_hostname) + 1;
 		if (len > 256) {
-			return 1;
+			return -ENAMETOOLONG;
 		}
 		hostname_len = len;
 		memcpy(hostname, new_hostname, hostname_len);
 		return 0;
 	} else {
-		return 1;
+		return -EPERM;
 	}
 }
 
@@ -492,7 +516,7 @@ static int sys_gethostname(char * buffer) {
 extern int mkdir_fs(char *name, uint16_t permission);
 
 static int sys_mkdir(char * path, uint32_t mode) {
-	return mkdir_fs(path, 0777);
+	return mkdir_fs(path, mode);
 }
 
 /*
@@ -519,7 +543,7 @@ static int sys_sysfunc(int fn, char ** args) {
 				/* Request kernel output to file descriptor in arg0*/
 				debug_print(NOTICE, "Setting output to file object in process %d's fd=%d!", getpid(), (int)args);
 				debug_file = current_process->fds->entries[(int)args];
-				break;
+				return 0;
 			case 5:
 				{
 					char *arg;
@@ -535,7 +559,7 @@ static int sys_sysfunc(int fn, char ** args) {
 					FD_ENTRY(1) = repdev;
 					FD_ENTRY(2) = repdev;
 				}
-				break;
+				return 0;
 			case 6:
 				debug_print(WARNING, "writing contents of file %s to sdb", args[0]);
 				{
@@ -543,7 +567,7 @@ static int sys_sysfunc(int fn, char ** args) {
 					PTR_VALIDATE(args[0]);
 					fs_node_t * file = kopen((char *)args[0], 0);
 					if (!file) {
-						return -1;
+						return -EINVAL;
 					}
 					size_t length = file->length;
 					uint8_t * buffer = malloc(length);
@@ -567,7 +591,7 @@ static int sys_sysfunc(int fn, char ** args) {
 					fs_node_t * tty = FD_ENTRY(0);
 					return create_kernel_tasklet(debug_hook, "[kttydebug]", tty);
 				} else {
-					return -1;
+					return -EINVAL;
 				}
 			case 8:
 				debug_print(NOTICE, "Loading module %s.", args[0]);
@@ -614,6 +638,9 @@ static int sys_sysfunc(int fn, char ** args) {
 			{
 				/* Load pages to fit region. */
 				uintptr_t address = (uintptr_t)args[0];
+				/* TODO: These virtual address bounds should be in a header somewhere */
+				if (address < 0x20000000) return -EINVAL;
+				/* TODO: Upper bounds */
 				size_t size = (size_t)args[1];
 				/* TODO: Other arguments for read/write? */
 
@@ -674,7 +701,6 @@ static int sys_sysfunc(int fn, char ** args) {
 			debug_print(WARNING, "0x%x 0x%x 0x%x 0x%x", args[0], args[1], args[2], args[3]);
 			_debug_print(args[0], (uintptr_t)args[1], (uint32_t)args[2], args[3] ? args[3] : "(null)");
 			return 0;
-			break;
 
 		case 13:
 			/*
@@ -693,7 +719,7 @@ static int sys_sysfunc(int fn, char ** args) {
 			debug_print(ERROR, "Bad system function %d", fn);
 			break;
 	}
-	return -1; /* Bad system function or access failure */
+	return -EINVAL; /* Bad system function or access failure */
 }
 
 static int sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
@@ -731,8 +757,8 @@ static int sys_fork(void) {
 }
 
 static int sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
-	if (!new_stack || !PTR_INRANGE(new_stack)) return -1;
-	if (!thread_func || !PTR_INRANGE(thread_func)) return -1;
+	if (!new_stack || !PTR_INRANGE(new_stack)) return -EINVAL;
+	if (!thread_func || !PTR_INRANGE(thread_func)) return -EINVAL;
 	return (int)clone(new_stack, thread_func, arg);
 }
 
@@ -750,7 +776,7 @@ static int sys_shm_release(char * path) {
 }
 
 static int sys_kill(pid_t process, uint32_t signal) {
-	return send_signal(process, signal);
+	return send_signal(process, signal, 0);
 }
 
 static int sys_gettimeofday(struct timeval * tv, void * tz) {
@@ -762,10 +788,10 @@ static int sys_gettimeofday(struct timeval * tv, void * tz) {
 
 static int sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
-	if (!master || !slave) return -1;
-	if (master && !PTR_INRANGE(master)) return -1;
-	if (slave && !PTR_INRANGE(slave)) return -1;
-	if (size && !PTR_INRANGE(size)) return -1;
+	if (!master || !slave) return -EINVAL;
+	if (master && !PTR_INRANGE(master)) return -EINVAL;
+	if (slave && !PTR_INRANGE(slave)) return -EINVAL;
+	if (size && !PTR_INRANGE(size)) return -EINVAL;
 
 	/* Create a new pseudo terminal */
 	fs_node_t * fs_master;
@@ -849,7 +875,7 @@ static int sys_lstat(char * file, uintptr_t st) {
 static int sys_fswait(int c, int fds[]) {
 	PTR_VALIDATE(fds);
 	for (int i = 0; i < c; ++i) {
-		if (!FD_CHECK(fds[i])) return -1;
+		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
 	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
 	for (int i = 0; i < c; ++i) {
@@ -865,7 +891,7 @@ static int sys_fswait(int c, int fds[]) {
 static int sys_fswait_timeout(int c, int fds[], int timeout) {
 	PTR_VALIDATE(fds);
 	for (int i = 0; i < c; ++i) {
-		if (!FD_CHECK(fds[i])) return -1;
+		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
 	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
 	for (int i = 0; i < c; ++i) {

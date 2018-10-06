@@ -1,17 +1,17 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  *
  * ELF Static Executable Loader
  *
  */
 
-#include <system.h>
-#include <fs.h>
-#include <elf.h>
-#include <process.h>
-#include <logging.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/elf.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
 
 int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env, int interp) {
 	Elf32_Header header;
@@ -40,7 +40,7 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 			close_fs(file);
 
 			/* Find interpreter? */
-			debug_print(WARNING, "Dynamic executable");
+			debug_print(INFO, "Dynamic executable");
 
 			unsigned int nargc = argc + 3;
 			char * args[nargc+1];
@@ -88,6 +88,9 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 		Elf32_Phdr phdr;
 		read_fs(file, header.e_phoff + x, sizeof(Elf32_Phdr), (uint8_t *)&phdr);
 		if (phdr.p_type == PT_LOAD) {
+			/* TODO: These virtual address bounds should be in a header somewhere */
+			if (phdr.p_vaddr < 0x20000000) return -EINVAL;
+			/* TODO Upper bounds */
 			for (uintptr_t i = phdr.p_vaddr; i < phdr.p_vaddr + phdr.p_memsz; i += 0x1000) {
 				/* This doesn't care if we already allocated this page */
 				alloc_frame(get_page(i, 1, current_directory), 0, 1);
@@ -190,6 +193,7 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 	char tmp[100];
 	read_fs(file, 0, 100, (unsigned char *)tmp); close_fs(file);
 	char * cmd = (char *)&tmp[2];
+	if (*cmd == ' ') cmd++; /* Handle a leading space */
 	char * space_or_linefeed = strpbrk(cmd, " \n");
 	char * arg = NULL;
 
@@ -274,11 +278,15 @@ int exec(
 		return -ENOENT;
 	}
 
+	if (!has_permission(file, 01)) {
+		return -EACCES;
+	}
+
 	/* Read four bytes of the file */
 	unsigned char head[4];
 	read_fs(file, 0, 4, head);
 
-	debug_print(WARNING, "First four bytes: %c%c%c%c", head[0], head[1], head[2], head[3]);
+	debug_print(INFO, "First four bytes: %c%c%c%c", head[0], head[1], head[2], head[3]);
 
 	current_process->name = strdup(path);
 	gettimeofday((struct timeval *)&current_process->start, NULL);
@@ -299,7 +307,8 @@ int
 system(
 		char *  path, /* Path to the executable to run */
 		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
-		char ** argv  /* Argument strings (including executable path) */
+		char ** argv, /* Argument strings (including executable path) */
+		char ** envin
 	) {
 	char ** argv_ = malloc(sizeof(char *) * (argc + 1));
 	for (int j = 0; j < argc; ++j) {
@@ -314,7 +323,7 @@ system(
 
 	current_process->cmdline = argv_;
 
-	exec(path,argc,argv_,env);
+	exec(path,argc,argv_,envin ? envin : env);
 	debug_print(ERROR, "Failed to execute process!");
 	kexit(-1);
 	return -1;

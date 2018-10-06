@@ -1,13 +1,13 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  *
  * Multiboot (GRUB) handler
  */
-#include <system.h>
-#include <logging.h>
-#include <multiboot.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/multiboot.h>
 
 char * ramdisk = NULL;
 struct multiboot * mboot_ptr = NULL;

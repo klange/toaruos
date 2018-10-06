@@ -1,11 +1,11 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2014 Kevin Lange
+ * Copyright (C) 2013-2018 K. Lange
  */
-#include <system.h>
-#include <ringbuffer.h>
-#include <process.h>
+#include <kernel/system.h>
+#include <kernel/ringbuffer.h>
+#include <kernel/process.h>
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer) {
 	if (ring_buffer->read_ptr == ring_buffer->write_ptr) {
@@ -49,7 +49,7 @@ static inline void ring_buffer_increment_write(ring_buffer_t * ring_buffer) {
 	}
 }
 
-static void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer) {
+void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer) {
 	if (ring_buffer->alert_waiters) {
 		while (ring_buffer->alert_waiters->head) {
 			node_t * node = list_dequeue(ring_buffer->alert_waiters);

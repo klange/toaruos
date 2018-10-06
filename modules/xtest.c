@@ -1,14 +1,13 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014 Kevin Lange
+ * Copyright (C) 2014-2018 K. Lange
  */
-#include <system.h>
-#include <module.h>
-#include <printf.h>
-#include <logging.h>
-
-#include <mod/shell.h>
+#include <kernel/system.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
+#include <kernel/logging.h>
+#include <kernel/mod/shell.h>
 
 static void xtest_a(void * data, char * name) {
 	fs_node_t * tty = data;

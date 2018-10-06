@@ -1,20 +1,21 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  * Copyright (C) 2014 Lioncash
  * Copyright (C) 2012 Tianyi Wang
  *
  * Virtual File System
  *
  */
-#include <system.h>
-#include <fs.h>
-#include <printf.h>
-#include <list.h>
-#include <process.h>
-#include <logging.h>
-#include <hashmap.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/printf.h>
+#include <kernel/process.h>
+#include <kernel/logging.h>
+
+#include <toaru/list.h>
+#include <toaru/hashmap.h>
 
 #define MAX_SYMLINK_DEPTH 8
 #define MAX_SYMLINK_SIZE 4096
@@ -28,7 +29,7 @@ hashmap_t * fs_types = NULL;
 int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
 
-	if (current_process->user == 0) {
+	if (current_process->user == 0 && permission_bit != 01) { /* even root needs exec to exec */
 		return 1;
 	}
 
@@ -87,7 +88,7 @@ static struct dirent * readdir_mapper(fs_node_t *node, uint32_t index) {
 static fs_node_t * vfs_mapper(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->mask = 0666;
+	fnode->mask = 0555;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->readdir = readdir_mapper;
 	return fnode;
@@ -97,26 +98,26 @@ static fs_node_t * vfs_mapper(void) {
  * selectcheck_fs: Check if a read from this file would block.
  */
 int selectcheck_fs(fs_node_t * node) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->selectcheck) {
 		return node->selectcheck(node);
 	}
 
-	return -1;
+	return -EINVAL;
 }
 
 /**
  * selectwait_fs: Inform a node that it should alert the current_process.
  */
 int selectwait_fs(fs_node_t * node, void * process) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->selectwait) {
 		return node->selectwait(node, process);
 	}
 
-	return -1;
+	return -EINVAL;
 }
 
 /**
@@ -129,13 +130,13 @@ int selectwait_fs(fs_node_t * node, void * process) {
  * @returns Bytes read
  */
 uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->read) {
 		uint32_t ret = node->read(node, offset, size, buffer);
 		return ret;
 	} else {
-		return -1;
+		return -EINVAL;
 	}
 }
 
@@ -149,13 +150,13 @@ uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffe
  * @returns Bytes written
  */
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->write) {
 		uint32_t ret = node->write(node, offset, size, buffer);
 		return ret;
 	} else {
-		return -1;
+		return -EINVAL;
 	}
 }
 
@@ -285,12 +286,12 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
  * @returns Depends on `request`
  */
 int ioctl_fs(fs_node_t *node, int request, void * argp) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->ioctl) {
 		return node->ioctl(node, request, argp);
 	} else {
-		return -1; /* TODO Should actually be ENOTTY, but we're bad at error numbers */
+		return -EINVAL;
 	}
 }
 
@@ -323,7 +324,7 @@ int create_file_fs(char *name, uint16_t permission) {
 		f_path++;
 	}
 
-	debug_print(WARNING, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
+	debug_print(NOTICE, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
 
 	parent = kopen(parent_path, 0);
 	free(parent_path);
@@ -331,7 +332,7 @@ int create_file_fs(char *name, uint16_t permission) {
 	if (!parent) {
 		debug_print(WARNING, "failed to open parent");
 		free(path);
-		return -1;
+		return -ENOENT;
 	}
 
 	if (!has_permission(parent, 02)) {
@@ -339,14 +340,17 @@ int create_file_fs(char *name, uint16_t permission) {
 		return -EACCES;
 	}
 
+	int ret = 0;
 	if (parent->create) {
-		parent->create(parent, f_path, permission);
+		ret = parent->create(parent, f_path, permission);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
 	free(parent);
 
-	return 0;
+	return ret;
 }
 
 int unlink_fs(char * name) {
@@ -377,17 +381,25 @@ int unlink_fs(char * name) {
 
 	if (!parent) {
 		free(path);
-		return -1;
+		return -ENOENT;
 	}
 
+	if (!has_permission(parent, 02)) {
+		free(path);
+		free(parent);
+		return -EACCES;
+	}
+
+	int ret = 0;
 	if (parent->unlink) {
-		parent->unlink(parent, f_path);
+		ret = parent->unlink(parent, f_path);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
 	free(parent);
-
-	return 0;
+	return ret;
 }
 
 int mkdir_fs(char *name, uint16_t permission) {
@@ -428,11 +440,14 @@ int mkdir_fs(char *name, uint16_t permission) {
 		if (_exists) {
 			return -EEXIST;
 		}
-		return -1;
+		return -ENOENT;
 	}
 
+	int ret = 0;
 	if (parent->mkdir) {
-		parent->mkdir(parent, f_path, permission);
+		ret = parent->mkdir(parent, f_path, permission);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
@@ -441,7 +456,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 	if (_exists) {
 		return -EEXIST;
 	}
-	return 0;
+	return ret;
 }
 
 fs_node_t *clone_fs(fs_node_t *source) {
@@ -480,26 +495,29 @@ int symlink_fs(char * target, char * name) {
 
 	if (!parent) {
 		free(path);
-		return -1;
+		return -ENOENT;
 	}
 
+	int ret = 0;
 	if (parent->symlink) {
-		parent->symlink(parent, target, f_path);
+		ret = parent->symlink(parent, target, f_path);
+	} else {
+		ret = -EINVAL;
 	}
 
 	free(path);
 	close_fs(parent);
 
-	return 0;
+	return ret;
 }
 
 int readlink_fs(fs_node_t *node, char * buf, uint32_t size) {
-	if (!node) return -1;
+	if (!node) return -ENOENT;
 
 	if (node->readlink) {
 		return node->readlink(node, buf, size);
 	} else {
-		return -1;
+		return -EINVAL;
 	}
 }
 

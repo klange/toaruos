@@ -1,16 +1,16 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  * Copyright (C) 2015 Dale Weiler
  *
  * Interrupt Requests
  *
  */
-#include <system.h>
-#include <logging.h>
-#include <module.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
 
 /* Programmable interrupt controller */
 #define PIC1           0x20
@@ -85,14 +85,22 @@ void int_enable(void) {
 
 static void (*irqs[IRQ_CHAIN_SIZE])(void);
 static irq_handler_chain_t irq_routines[IRQ_CHAIN_SIZE * IRQ_CHAIN_DEPTH] = { NULL };
+static char * _irq_handler_descriptions[IRQ_CHAIN_SIZE * IRQ_CHAIN_DEPTH] = { NULL };
 
-void irq_install_handler(size_t irq, irq_handler_chain_t handler) {
+char * get_irq_handler(int irq, int chain) {
+	if (irq >= IRQ_CHAIN_SIZE) return NULL;
+	if (chain >= IRQ_CHAIN_DEPTH) return NULL;
+	return _irq_handler_descriptions[IRQ_CHAIN_SIZE * chain + irq];
+}
+
+void irq_install_handler(size_t irq, irq_handler_chain_t handler, char * desc) {
 	/* Disable interrupts when changing handlers */
 	SYNC_CLI();
 	for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
 		if (irq_routines[i * IRQ_CHAIN_SIZE + irq])
 			continue;
 		irq_routines[i * IRQ_CHAIN_SIZE + irq] = handler;
+		_irq_handler_descriptions[i * IRQ_CHAIN_SIZE + irq ] = desc;
 		break;
 	}
 	SYNC_STI();
@@ -153,7 +161,8 @@ void irq_handler(struct regs *r) {
 	if (r->int_no <= 47 && r->int_no >= 32) {
 		for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
 			irq_handler_chain_t handler = irq_routines[i * IRQ_CHAIN_SIZE + (r->int_no - 32)];
-			if (handler && handler(r)) {
+			if (!handler) break;
+			if (handler(r)) {
 				goto done;
 			}
 		}

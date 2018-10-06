@@ -1,15 +1,15 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2014 Kevin Lange
+ * Copyright (C) 2011-2018 K. Lange
  * Copyright (C) 2015 Dale Weiler
  *
  * Interrupt Service Requests
  */
-#include <system.h>
-#include <logging.h>
-#include <module.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
 
 /* The count is treated as is when setting up IDT gates. However there is an
  * additional ISR for the system call vector which is handled explicitly since

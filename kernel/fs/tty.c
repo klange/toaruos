@@ -1,17 +1,17 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2014 Kevin Lange
+ * Copyright (C) 2013-2018 K. Lange
  */
-#include <system.h>
-#include <fs.h>
-#include <pipe.h>
-#include <logging.h>
-#include <printf.h>
+#include <kernel/system.h>
+#include <kernel/fs.h>
+#include <kernel/pipe.h>
+#include <kernel/logging.h>
+#include <kernel/printf.h>
+#include <kernel/ringbuffer.h>
 
-#include <ioctl.h>
-#include <termios.h>
-#include <ringbuffer.h>
+#include <sys/ioctl.h>
+#include <sys/termios.h>
 
 #define TTY_BUFFER_SIZE 4096
 //4096
@@ -62,30 +62,72 @@ static void clear_input_buffer(pty_t * pty) {
 	pty->canon_buffer[0] = '\0';
 }
 
-static void output_process(pty_t * pty, uint8_t c) {
-	if (ring_buffer_available(pty->out) < 2) return; /* uh oh */
+static void output_process_slave(pty_t * pty, uint8_t c) {
 	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
-		uint8_t d = '\r';
-		OUT(d);
+		c = '\n';
+		OUT(c);
+		c = '\r';
+		OUT(c);
+		return;
 	}
+
+	if (c == '\r' && (pty->tios.c_oflag & ONLRET)) {
+		return;
+	}
+
+	if (c >= 'a' && c <= 'z' && (pty->tios.c_oflag & OLCUC)) {
+		c = c + 'a' - 'A';
+		OUT(c);
+		return;
+	}
+
 	OUT(c);
 }
 
-static void output_process_slave(pty_t * pty, uint8_t c) {
-	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
-		uint8_t d = '\r';
-		OUT(d);
-	}
-	OUT(c);
+static void output_process(pty_t * pty, uint8_t c) {
+	if (ring_buffer_available(pty->out) < 2) return; /* uh oh */
+	output_process_slave(pty, c);
 }
 
 static void input_process(pty_t * pty, uint8_t c) {
+	if (pty->tios.c_lflag & ISIG) {
+		if (c == pty->tios.c_cc[VINTR]) {
+			if (pty->tios.c_lflag & ECHO) {
+				output_process(pty, '^');
+				output_process(pty, '@' + c);
+				output_process(pty, '\n');
+			}
+			clear_input_buffer(pty);
+			if (pty->fg_proc) {
+				send_signal(pty->fg_proc, SIGINT, 1);
+			}
+			return;
+		}
+		if (c == pty->tios.c_cc[VQUIT]) {
+			if (pty->tios.c_lflag & ECHO) {
+				output_process(pty, '^');
+				output_process(pty, '@' + c);
+				output_process(pty, '\n');
+			}
+			clear_input_buffer(pty);
+			if (pty->fg_proc) {
+				send_signal(pty->fg_proc, SIGQUIT, 1);
+			}
+			return;
+		}
+		/* VSUSP */
+	}
+#if 0
+	if (pty->tios.c_lflag & IXON ) {
+		/* VSTOP, VSTART */
+	}
+#endif
 	if (pty->tios.c_lflag & ICANON) {
 		if (c == pty->tios.c_cc[VKILL]) {
 			while (pty->canon_buflen > 0) {
 				pty->canon_buflen--;
 				pty->canon_buffer[pty->canon_buflen] = '\0';
-				if (pty->tios.c_lflag & ECHO) {
+				if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOK)) {
 					output_process(pty, '\010');
 					output_process(pty, ' ');
 					output_process(pty, '\010');
@@ -98,35 +140,11 @@ static void input_process(pty_t * pty, uint8_t c) {
 			if (pty->canon_buflen > 0) {
 				pty->canon_buflen--;
 				pty->canon_buffer[pty->canon_buflen] = '\0';
-				if (pty->tios.c_lflag & ECHO) {
+				if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOE)) {
 					output_process(pty, '\010');
 					output_process(pty, ' ');
 					output_process(pty, '\010');
 				}
-			}
-			return;
-		}
-		if (c == pty->tios.c_cc[VINTR]) {
-			if (pty->tios.c_lflag & ECHO) {
-				output_process(pty, '^');
-				output_process(pty, '@' + c);
-				output_process(pty, '\n');
-			}
-			clear_input_buffer(pty);
-			if (pty->fg_proc) {
-				send_signal(pty->fg_proc, SIGINT);
-			}
-			return;
-		}
-		if (c == pty->tios.c_cc[VQUIT]) {
-			if (pty->tios.c_lflag & ECHO) {
-				output_process(pty, '^');
-				output_process(pty, '@' + c);
-				output_process(pty, '\n');
-			}
-			clear_input_buffer(pty);
-			if (pty->fg_proc) {
-				send_signal(pty->fg_proc, SIGQUIT);
 			}
 			return;
 		}
@@ -138,6 +156,27 @@ static void input_process(pty_t * pty, uint8_t c) {
 			}
 			return;
 		}
+
+		/* ISTRIP: Strip eighth bit */
+		if (pty->tios.c_iflag & ISTRIP) {
+			c &= 0x7F;
+		}
+
+		/* IGNCR: Ignore carriage return. */
+		if ((pty->tios.c_iflag & IGNCR) && c == '\r') {
+			return;
+		}
+
+		/* INLCR: Translate NL to CR. */
+		if ((pty->tios.c_iflag & INLCR) && c == '\n') {
+			c = '\r';
+		}
+
+		/* ICRNL: Convert carriage return. */
+		if ((pty->tios.c_iflag & ICRNL) && c == '\r') {
+			c = '\n';
+		}
+
 		if (pty->canon_buflen < pty->canon_bufsize) {
 			pty->canon_buffer[pty->canon_buflen] = c;
 			pty->canon_buflen++;
@@ -146,6 +185,9 @@ static void input_process(pty_t * pty, uint8_t c) {
 			output_process(pty, c);
 		}
 		if (c == '\n') {
+			if (!(pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHONL)) {
+				output_process(pty, c);
+			}
 			pty->canon_buffer[pty->canon_buflen-1] = c;
 			dump_input_buffer(pty);
 			return;
@@ -405,7 +447,7 @@ pty_t * pty_new(struct winsize * size) {
 	pty->tios.c_iflag = ICRNL | BRKINT;
 	pty->tios.c_oflag = ONLCR | OPOST;
 	pty->tios.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN;
-	pty->tios.c_cflag = CREAD;
+	pty->tios.c_cflag = CREAD | CS8;
 	pty->tios.c_cc[VEOF]   =  4; /* ^D */
 	pty->tios.c_cc[VEOL]   =  0; /* Not set */
 	pty->tios.c_cc[VERASE] = '\b';

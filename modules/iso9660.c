@@ -1,20 +1,21 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2016 Kevin Lange
+ * Copyright (C) 2016-2018 K. Lange
  *
  * ISO 9660 filesystem driver (for CDs)
  */
-#include <system.h>
-#include <types.h>
-#include <fs.h>
-#include <logging.h>
-#include <module.h>
-#include <args.h>
-#include <printf.h>
-#include <hashmap.h>
-#include <list.h>
-#include <tokenize.h>
+#include <kernel/system.h>
+#include <kernel/types.h>
+#include <kernel/fs.h>
+#include <kernel/logging.h>
+#include <kernel/module.h>
+#include <kernel/args.h>
+#include <kernel/printf.h>
+#include <kernel/tokenize.h>
+
+#include <toaru/list.h>
+#include <toaru/hashmap.h>
 
 #define ISO_SECTOR_SIZE 2048
 
