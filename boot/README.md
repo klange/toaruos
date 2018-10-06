@@ -1,4 +1,4 @@
-# ToaruOS-NIH Bootloader
+# ToaruOS Bootloader
 
 This is a simple, limited BIOS and EFI bootloader for ToaruOS kernels.
 

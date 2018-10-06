@@ -462,10 +462,10 @@ int main(int argc, char * argv[]) {
 		signal(SIGWINEVENT, update_video);
 	}
 
-	TRACE("\n\nToaruOS-NIH Netinit Host\n\n");
+	TRACE("\n\nToaruOS Netinit Host\n\n");
 
-	TRACE("ToaruOS-NIH is free software under the NCSA / University of Illinois license.\n");
-	TRACE("   https://toaruos.org/   https://git.toaruos.org/klange/toaru-nih\n\n");
+	TRACE("ToaruOS is free software under the NCSA / University of Illinois license.\n");
+	TRACE("   https://toaruos.org/   https://git.toaruos.org/klange/toaruos\n\n");
 
 	struct utsname u;
 	uname(&u);

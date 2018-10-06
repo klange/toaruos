@@ -19,7 +19,7 @@ EFI_HANDLE ImageHandleIn;
 #include "options.h"
 
 /* Basic text strings */
-#define BASE_VERSION "ToaruOS-NIH Bootloader v2.1"
+#define BASE_VERSION "ToaruOS Bootloader v2.1"
 #ifdef EFI_PLATFORM
 #  if defined(__x86_64__)
 #    define VERSION_TEXT BASE_VERSION " (EFI, X64)"

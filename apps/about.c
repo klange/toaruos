@@ -75,7 +75,7 @@ static void redraw(void) {
 }
 
 static void init_default(void) {
-	title_str = "About ToaruOS-NIH";
+	title_str = "About ToaruOS";
 	icon_path = "/usr/share/logo_login.bmp";
 
 	{
@@ -86,7 +86,7 @@ static void init_default(void) {
 		if (tmp) {
 			*tmp = '\0';
 		}
-		sprintf(version_str, "ToaruOS-NIH %s", u.release);
+		sprintf(version_str, "ToaruOS %s", u.release);
 	}
 
 	copyright_str[0] = "(C) 2011-2018 K. Lange, et al.";

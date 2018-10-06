@@ -1,22 +1,20 @@
-# ToaruOS-NIH
+# ToaruOS
 
 ![screenshot](https://i.imgur.com/DqXLxaT.png)
 
-ToaruOS-NIH is a distribution of ToaruOS which contains no third-party components. Its bootloader, kernel, modules, C library, and userspace applications and libraries are all written by the ToaruOS development team and direct contributors.
-
-This distribution aims to eventually replace the core of the mainline ToaruOS, with the various third-party components building against our own C library. This is a long-term project, and developing the C library to the point where it is useful for this purpose is not expected to be completed for quite some time.
+ToaruOS a complete hobby operating system built from scratch. Its bootloader, kernel, modules, C library, and userspace applications and libraries are all written by the ToaruOS development team and direct contributors.
 
 ## Features
 
-ToaruOS-NIH comes with a graphical desktop environment with a compositing window manager, a featureful terminal emulator, a shell, several command-line tools, a text editor (with syntax highlighting), a dynamic loader, and can host Python 3.6 (which is included in pre-built CD releases). The kernel and included drivers support ATA hard disks and CD drives, ext2 filesystems, ISO 9660 filesystems, PS/2 mice and keyboards, RS232 serial, Intel e1000, RTL8139, and AMD PCNet-series network chipsets, TCP/IPv4, several virtual graphical framebuffers (including Bochs/QEMU and VMware, and support for framebuffers initialized by EFI), advanced VM integration (including absolute pointing devices in VMware, QEMU, and VirtualBox, as well as automatic display resizing, "Seamless Desktop" and hardware cursors in VirtualBox specifically), an implementation of the `/proc` virtual filesystem, Unix-style pipes and TTYs, shared memory, in-memory read-write temporary filesystem, Intel AC'97 audio (with a mixer), and more.
+ToaruOS comes with a graphical desktop environment with a compositing window manager, a featureful terminal emulator, a shell, several command-line tools, a text editor (with syntax highlighting), a dynamic loader, and can host Python 3.6 (which is included in pre-built CD releases). The kernel and included drivers support ATA hard disks and CD drives, ext2 filesystems, ISO 9660 filesystems, PS/2 mice and keyboards, RS232 serial, Intel e1000, RTL8139, and AMD PCNet-series network chipsets, TCP/IPv4, several virtual graphical framebuffers (including Bochs/QEMU and VMware, and support for framebuffers initialized by EFI), advanced VM integration (including absolute pointing devices in VMware, QEMU, and VirtualBox, as well as automatic display resizing, "Seamless Desktop" and hardware cursors in VirtualBox specifically), an implementation of the `/proc` virtual filesystem, Unix-style pipes and TTYs, shared memory, in-memory read-write temporary filesystem, Intel AC'97 audio (with a mixer), and more.
 
 ## Pre-Built Images
 
-Releases are occasionally posted on [GitHub](https://github.com/klange/toaru-nih/releases), and nightlies are available [from toaruos.org](https://toaruos.org/nih.iso).
+Releases are occasionally posted on [GitHub](https://github.com/klange/toaru/releases), and nightlies are available [from toaruos.org](https://toaruos.org/toaru-core.iso).
 
-### Running ToaruOS-NIH
+### Running ToaruOS
 
-It is recommended that you run ToaruOS-NIH in an emulator - specifically Qemu or VirtualBox, though some testing has been done in VMware Workstation (reasonable, but missing driver support) and Bochs (not recommended).
+It is recommended that you run ToaruOS in an emulator - specifically Qemu or VirtualBox, though some testing has been done in VMware Workstation (reasonable, but missing driver support) and Bochs (not recommended).
 
 #### QEMU
 
@@ -56,7 +54,7 @@ Support for VMWare is experimental.
 
 As of writing, the following configuration has been tested as functioning:
 
-- Create a virtual machine for a 64-bit guest. (ToaruOS-NIH is 32-bit, but this configuration selects some hardware defaults that are desirable)
+- Create a virtual machine for a 64-bit guest. (ToaruOS is 32-bit, but this configuration selects some hardware defaults that are desirable)
 - Ensure the VM has 1GB of RAM.
 - It is recommended you remove the hard disk and the audio device.
 - For network settings, the NAT option is recommended.
@@ -75,13 +73,9 @@ Using Bochs to run ToaruOS is not advised; however the following configuration o
 
 All source code for the entire operating system is included in this repository.
 
-### Kernel
-
-The NIH kernel is essentially the same as the mainline kernel, though the PCI vendor and device ID list has been replaced with our own slimmed down version. This was the only third-party element of the ToaruOS kernel. Additionally, the headers for the kernel have been relocated from their original directories to facilitate a cleaner build. The NIH kernel should be considered the latest version of the ToaruOS kernel.
-
 ### Bootloader
 
-Mainline ToaruOS shipped with GRUB, which provided a multiboot-compatible ELF loader. To that end, our native bootloader also implements multiboot. However, as writing a feature-complete bootloader is not a goal of this project, the native bootloader is very limited, supporting only ATAPI CDs on systems with El Torito "no-emulation" support. It is not guaranteed to work on real hardware, but has been tested in QEMU, Bochs, VirtualBox, and VMware Player.
+ToaruOS 1.2.x and earlier shipped with GRUB, which provided a multiboot-compatible ELF loader. To that end, our native bootloader also implements multiboot. However, as writing a feature-complete bootloader is not a goal of this project, the native bootloader is very limited, supporting only ATAPI CDs on systems with El Torito "no-emulation" support. It is not guaranteed to work on real hardware, but has been tested in QEMU, Bochs, VirtualBox, and VMware Player.
 
 ### Userspace
 
@@ -97,7 +91,7 @@ The userspace includes a work-in-progress C standard library, the ToaruOS native
 
 ## Building
 
-First, ensure you have the necessary build tools, which are mostly the same as mainline ToaruOS: `yasm`, `xorriso`, `genext2fs` (with Debian patches), `python`, `mtools` (for building FAT EFI payloads) and `gnu-efi` to build the EFI bootloader (I'll explore implementing necessary headers and functionality myself in the future, but for now just pull in gnu-efi and make my life easier).
+First, ensure you have the necessary build tools: `yasm`, `xorriso`, `genext2fs` (with Debian patches), `python`, `mtools` (for building FAT EFI payloads) and `gnu-efi` to build the EFI bootloader (I'll explore implementing necessary headers and functionality myself in the future, but for now just pull in gnu-efi and make my life easier).
 
 Run `make` and you will be prompted to build a toolchain. Reply `y` and allow the toolchain to build.
 
@@ -105,7 +99,7 @@ Run `make` and you will be prompted to build a toolchain. Reply `y` and allow th
 
 #### Python
 
-There are instructions on building Python 3.6 available from [the gitlab wiki](https://gitlab.com/toaruos/toaru-nih/wikis/Installing-Python).
+There are instructions on building Python 3.6 available from [the gitlab wiki](https://gitlab.com/toaruos/toaruos/wikis/Installing-Python).
 
 #### Freetype
 
@@ -123,7 +117,7 @@ The compositor can use Cairo for rendering, which improves performance over the 
 
 ## Backwards Compatibility Notes
 
-No ABI or API compatibility is guaranteed through the development of ToaruOS-NIH. Until a larger corpus of third-party software is ported to our new C library, APIs may change to improve or simplify library use, or to fix bugs. Even kernel ABI compatibility is not guaranteed as system calls are improved or made more compliant with expectations of POSIX or the C standard.
+No ABI or API compatibility is guaranteed through the development of ToaruOS. Until a larger corpus of third-party software is ported to our new C library, APIs may change to improve or simplify library use, or to fix bugs. Even kernel ABI compatibility is not guaranteed as system calls are improved or made more compliant with expectations of POSIX or the C standard.
 
 ## Rationale
 
@@ -157,10 +151,10 @@ Our current unmet goals include:
 
 ## Mirrors
 
-ToaruOS-NIH is regularly mirrored to multiple Git hosting sites. The recommended source is [Gitlab](https://gitlab.com/toaruos/toaru-nih).
+ToaruOS is regularly mirrored to multiple Git hosting sites.
 
-- Gitlab: [toaruos/toaru-nih](https://gitlab.com/toaruos/toaru-nih)
-- GitHub: [klange/toaru-nih](https://github.com/klange/toaru-nih)
-- Bitbucket: [klange/toaru-nih](https://bitbucket.org/klange/toaru-nih)
-- ToaruOS.org: [klange/toaru-nih](https://git.toaruos.org/klange/toaru-nih)
+- Gitlab: [toaruos/toaruos](https://gitlab.com/toaruos/toaruos)
+- GitHub: [klange/toaruos](https://github.com/klange/toaruos)
+- Bitbucket: [klange/toaruos](https://bitbucket.org/klange/toaruos)
+- ToaruOS.org: [klange/toaruos](https://git.toaruos.org/klange/toaruos)
 

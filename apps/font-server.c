@@ -6,9 +6,9 @@
  * font-server - Provides shared-memory fonts.
  *
  * This is an implementation of the shared memory font server
- * from Yutani in mainline ToaruOS. In theory, with the fonts
- * installed, this could be used to provide fonts for legacy
- * mainline applications in ToaruOS-NIH, but this is untested.
+ * from Yutani in ToaruOS 1.2.x. It allows applications to
+ * make use of the Freetype font rendering backend by providing
+ * a common set of font files.
  */
 #include <stdio.h>
 #include <stdlib.h>

@@ -334,7 +334,7 @@ efi64: image.iso
 	  -bios /usr/share/qemu/OVMF.fd
 
 
-VMNAME=ToaruOS-NIH CD
+VMNAME=ToaruOS CD
 
 define virtualbox-runner =
 .PHONY: $1

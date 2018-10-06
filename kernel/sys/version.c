@@ -17,8 +17,8 @@ char * __kernel_version_format = "%d.%d.%d-%s";
 
 /* Version numbers X.Y.Z */
 int    __kernel_version_major = 1;
-int    __kernel_version_minor = 5;
-int    __kernel_version_lower = 3;
+int    __kernel_version_minor = 6;
+int    __kernel_version_lower = 0;
 
 /* Kernel build suffix, which doesn't necessarily
  * mean anything, but can be used to distinguish
@@ -34,7 +34,7 @@ int    __kernel_version_lower = 3;
 char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename. */
-char * __kernel_version_codename = "nih";
+char * __kernel_version_codename = "core";
 
 /* Build architecture (should probably not be
  * here as a string, but rather some sort of
