@@ -33,7 +33,7 @@ void show_usage(int argc, char * argv[]) {
 	fprintf(stderr,
 			"uname - Print system version information.\n"
 			"\n"
-			"usage: %s [-asnrvm]\n"
+			"usage: %s [-asnrvmp]\n"
 			"\n"
 			" -a     " _ITALIC "Print the standard uname string we all love" _END
 			" -s     " _ITALIC "Print kernel name" _END
@@ -42,6 +42,7 @@ void show_usage(int argc, char * argv[]) {
 			" -v     " _ITALIC "Print the extra kernel version information" _END
 			" -m     " _ITALIC "Print the architecture name" _END
 			" -o     " _ITALIC "Print operating system name" _END
+			" -p     " _ITALIC "Alias to -m" _END
 			"\n", argv[0]);
 	exit(1);
 }
@@ -73,6 +74,7 @@ int main(int argc, char * argv[]) {
 						flags |= FLAG_VERSION;
 						break;
 					case 'm':
+					case 'p':
 						flags |= FLAG_MACHINE;
 						break;
 					case 'o':
