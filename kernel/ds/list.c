@@ -1,1 +1,1 @@
-lib/list.c
+../../lib/list.c
