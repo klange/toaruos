@@ -61,7 +61,10 @@ RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
 
 # Kernel / module flags
 
+#KCC = clang --target=i686-elf -static -Ibase/usr/include -nostdinc -mno-sse
+#LGCC = 
 KCC = $(TARGET_TRIPLET)-gcc
+LGCC = -lgcc
 KAS = $(TARGET_TRIPLET)-as
 KLD = $(TARGET_TRIPLET)-ld
 KNM = $(TARGET_TRIPLET)-nm
@@ -87,7 +90,7 @@ KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard ker
 # Kernel
 
 fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
-	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
+	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o ${LGCC}
 
 ##
 # Symbol table for the kernel. Instead of relying on getting
@@ -99,7 +102,7 @@ fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 # load kernel modules and link them properly.
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
 	-rm -f kernel/symbols.o
-	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o .toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc
+	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o .toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} ${LGCC}
 	${KNM} .toaruos-kernel -g | util/generate_symbols.py > kernel/symbols.S
 	${KAS} ${KASFLAGS} kernel/symbols.S -o $@
 	-rm -f .toaruos-kernel
@@ -269,7 +272,7 @@ cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 boot/cstuff.o: boot/cstuff.c boot/*.h
-	${KCC} -c -Os -o $@ $<
+	${CC} -c -Os -o $@ $<
 
 boot/boot.o: boot/boot.s
 	yasm -f elf -o $@ $<
