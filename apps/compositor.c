@@ -966,7 +966,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 	/* Render */
 	if (has_updates) {
 
-		if (!yg->bottom_z || yg->bottom_z->anim_mode) {
+		if ((!yg->bottom_z || yg->bottom_z->anim_mode) && renderer_blit_screen) {
+			/* TODO: Need to clear with Cairo backend */
 			draw_fill(yg->backend_ctx, rgb(110,110,110));
 		}
 
@@ -2133,7 +2134,7 @@ int main(int argc, char * argv[]) {
 			execvp(argv[argx], &argv[argx]);
 		} else {
 			TRACE("Starting application");
-			char * args[] = {"/bin/session", NULL};
+			char * args[] = {"/bin/glogin", NULL};
 			execvp(args[0], args);
 			TRACE("Failed to start app?");
 		}
