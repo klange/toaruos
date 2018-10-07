@@ -2,7 +2,7 @@
  */
 #pragma once
 
-#include <stddef.h>
+#include <kernel/types.h>
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define MAX(A, B) ((A) > (B) ? (A) : (B))

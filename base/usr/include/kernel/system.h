@@ -159,10 +159,10 @@ uintptr_t memory_use(void);
 uintptr_t memory_total(void);
 
 /* klmalloc */
-void * __attribute__ ((malloc)) malloc(size_t size);
-void * __attribute__ ((malloc)) realloc(void *ptr, size_t size);
-void * __attribute__ ((malloc)) calloc(size_t nmemb, size_t size);
-void * __attribute__ ((malloc)) valloc(size_t size);
+void * __attribute__ ((malloc)) malloc(uintptr_t size);
+void * __attribute__ ((malloc)) realloc(void *ptr, uintptr_t size);
+void * __attribute__ ((malloc)) calloc(uintptr_t nmemb, uintptr_t size);
+void * __attribute__ ((malloc)) valloc(uintptr_t size);
 void free(void *ptr);
 
 /* Tasks */

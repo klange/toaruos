@@ -2,6 +2,7 @@
 #include <kernel/printf.h>
 #include <kernel/module.h>
 #include <kernel/logging.h>
+#include <kernel/types.h>
 
 #include "../lib/termemu.c"
 

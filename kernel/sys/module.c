@@ -215,7 +215,38 @@ void * module_load_direct(void * blob, size_t length) {
 							uintptr_t final = s->sh_addr + table->st_value;
 							hashmap_set(symboltable, name, (void *)final);
 							hashmap_set(local_symbols, name, (void *)final);
+						} else {
+							debug_print(ERROR, "Not resolving %s", name);
 						}
+					}
+				} else if (ELF32_ST_BIND(table->st_info) == STB_LOCAL) {
+					char * name = (char *)((uintptr_t)symstrtab + table->st_name);
+					Elf32_Shdr * s = NULL;
+					{
+						int i = 0;
+						int set = 0;
+						for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
+							Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
+							if (i == table->st_shndx) {
+								set = 1;
+								s = shdr;
+								break;
+							}
+							i++;
+						}
+						if (!set && table->st_shndx == 65522) {
+							if (!hashmap_get(symboltable, name)) {
+								void * final = calloc(1, table->st_value);
+								debug_print(NOTICE, "point %s to 0x%x", name, (uintptr_t)final);
+								hashmap_set(local_symbols, name, (void *)final);
+							}
+						}
+					}
+					if (s) {
+						uintptr_t final = s->sh_addr + table->st_value;
+						hashmap_set(local_symbols, name, (void *)final);
+					} else {
+						debug_print(ERROR, "Not resolving %s", name);
 					}
 				}
 			}
@@ -256,9 +287,15 @@ void * module_load_direct(void * blob, size_t length) {
 						addend = *ptr;
 						place  = (uintptr_t)ptr;
 						if (!hashmap_get(symboltable, name)) {
-							debug_print(ERROR, "Wat? Missing symbol %s", name);
+							if (!hashmap_get(local_symbols, name)) {
+								debug_print(ERROR, "Wat? Missing symbol %s", name);
+								debug_print(ERROR, "Here's all the symbols:");
+							} else {
+								symbol = (uintptr_t)hashmap_get(local_symbols, name);
+							}
+						} else {
+							symbol = (uintptr_t)hashmap_get(symboltable, name);
 						}
-						symbol = (uintptr_t)hashmap_get(symboltable, name);
 					}
 					switch (ELF32_R_TYPE(table->r_info)) {
 						case 1:
