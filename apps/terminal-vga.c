@@ -49,7 +49,6 @@ uint32_t current_bg     = 0;    /* Current background color */
 uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 
 uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
-uint8_t  _hold_out      = 0;    /* state indicator on last cell ignore \n */
 
 uint64_t mouse_ticks = 0;
 
@@ -703,16 +702,13 @@ void term_write(char c) {
 		if (csr_x == term_width) {
 			csr_x = 0;
 			++csr_y;
+			if (c == '\n') return;
 		}
 		if (csr_y == term_height) {
 			term_scroll(1);
 			csr_y = term_height - 1;
 		}
 		if (c == '\n') {
-			if (csr_x == 0 && _hold_out) {
-				_hold_out = 0;
-				return;
-			}
 			++csr_y;
 			if (csr_y == term_height) {
 				term_scroll(1);

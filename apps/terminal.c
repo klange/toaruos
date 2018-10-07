@@ -109,7 +109,6 @@ static bool _no_frame      = 0;    /* Whether to disable decorations or not */
 static bool _use_aa        = 1;    /* Whether or not to use best-available anti-aliased renderer */
 static bool _have_freetype = 0;    /* Whether freetype is available */
 static bool _force_no_ft   = 0;    /* Whether to force disable the freetype backend */
-static bool _hold_out      = 0;    /* state indicator on last cell ignore \n */
 static bool _free_size     = 1;    /* Disable rounding when resized */
 
 /** Freetype extension renderer functions */
@@ -1268,6 +1267,7 @@ static void term_write(char c) {
 		if (csr_x == term_width) {
 			csr_x = 0;
 			++csr_y;
+			if (c == '\n') return;
 		}
 		if (csr_y == term_height) {
 			save_scrollback();
@@ -1275,10 +1275,6 @@ static void term_write(char c) {
 			csr_y = term_height - 1;
 		}
 		if (c == '\n') {
-			if (csr_x == 0 && _hold_out) {
-				_hold_out = 0;
-				return;
-			}
 			++csr_y;
 			if (csr_y == term_height) {
 				save_scrollback();
