@@ -24,10 +24,9 @@ fatbase/mod/net.ko,\
 fatbase/mod/pcnet.ko,\
 fatbase/mod/rtl.ko,\
 fatbase/mod/e1000.ko,\
-fatbase/mod/pcspkr.ko \
--append "root=/dev/hda start=--headless" \
--nographic \
--no-reboot \
+fatbase/mod/pcspkr.ko,\
+fatbase/mod/portio.ko \
+-append "root=/dev/hda vid=qemu" \
 -hda fatbase/ramdisk.img \
 -enable-kvm \
 -serial mon:stdio \
