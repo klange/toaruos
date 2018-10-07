@@ -61,10 +61,13 @@ RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
 
 # Kernel / module flags
 
-#KCC = clang --target=i686-elf -static -Ibase/usr/include -nostdinc -mno-sse
-#LGCC = 
+ifeq (,${USE_CLANG})
 KCC = $(TARGET_TRIPLET)-gcc
 LGCC = -lgcc
+else
+KCC = clang --target=i686-elf -static -Ibase/usr/include -nostdinc -mno-sse
+LGCC = 
+endif
 KAS = $(TARGET_TRIPLET)-as
 KLD = $(TARGET_TRIPLET)-ld
 KNM = $(TARGET_TRIPLET)-nm
