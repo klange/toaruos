@@ -190,6 +190,8 @@ static volatile int exit_application = 0;
 
 static void cell_redraw(uint16_t x, uint16_t y);
 static void cell_redraw_inverted(uint16_t x, uint16_t y);
+static void cell_redraw_offset(uint16_t x, uint16_t y);
+static void cell_redraw_offset_inverted(uint16_t x, uint16_t y);
 
 static uint64_t get_ticks(void) {
 	struct timeval now;
@@ -310,7 +312,7 @@ static void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 
 /* Redraw the selection with the selection hint (inversion) */
 static void redraw_selection(void) {
-	iterate_selection(cell_redraw_inverted);
+	iterate_selection(cell_redraw_offset_inverted);
 }
 
 static void redraw_new_selection(int old_x, int old_y) {
@@ -320,10 +322,10 @@ static void redraw_new_selection(int old_x, int old_y) {
 		b = selection_end_y;
 		selection_end_x = old_x;
 		selection_end_y = old_y;
-		iterate_selection(cell_redraw);
+		iterate_selection(cell_redraw_offset);
 		selection_end_x = a;
 		selection_end_y = b;
-		iterate_selection(cell_redraw_inverted);
+		iterate_selection(cell_redraw_offset_inverted);
 	} else {
 		int a, b;
 		a = selection_start_x;
@@ -337,10 +339,10 @@ static void redraw_new_selection(int old_x, int old_y) {
 			/* Backwards */
 			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
 				/* Selection extended */
-				iterate_selection(cell_redraw_inverted);
+				iterate_selection(cell_redraw_offset_inverted);
 			} else {
 				/* Selection got smaller */
-				iterate_selection(cell_redraw);
+				iterate_selection(cell_redraw_offset);
 			}
 		} else if (old_y == b) {
 			/* Was a single line */
@@ -349,54 +351,54 @@ static void redraw_new_selection(int old_x, int old_y) {
 				if (old_x < a) {
 					/* Backwards */
 					if (selection_end_x < old_x) {
-						iterate_selection(cell_redraw_inverted);
+						iterate_selection(cell_redraw_offset_inverted);
 					} else {
-						iterate_selection(cell_redraw);
+						iterate_selection(cell_redraw_offset);
 					}
 				} else {
 					if (selection_end_x < old_x) {
-						iterate_selection(cell_redraw);
+						iterate_selection(cell_redraw_offset);
 					} else {
-						iterate_selection(cell_redraw_inverted);
+						iterate_selection(cell_redraw_offset_inverted);
 					}
 				}
 			} else if (selection_end_y < b) {
 				/* Moved up */
 				if (old_x <= a) {
 					/* Should be fine with just append */
-					iterate_selection(cell_redraw_inverted);
+					iterate_selection(cell_redraw_offset_inverted);
 				} else {
 					/* Need to erase first */
-					iterate_selection(cell_redraw);
+					iterate_selection(cell_redraw_offset);
 					selection_start_x = a;
 					selection_start_y = b;
-					iterate_selection(cell_redraw_inverted);
+					iterate_selection(cell_redraw_offset_inverted);
 				}
 			} else if (selection_end_y > b) {
 				if (old_x >= a) {
 					/* Should be fine with just append */
-					iterate_selection(cell_redraw_inverted);
+					iterate_selection(cell_redraw_offset_inverted);
 				} else {
 					/* Need to erase first */
-					iterate_selection(cell_redraw);
+					iterate_selection(cell_redraw_offset);
 					selection_start_x = a;
 					selection_start_y = b;
-					iterate_selection(cell_redraw_inverted);
+					iterate_selection(cell_redraw_offset_inverted);
 				}
 			}
 		} else {
 			/* Forward */
 			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
 				/* Selection got smaller */
-				iterate_selection(cell_redraw);
+				iterate_selection(cell_redraw_offset);
 			} else {
 				/* Selection extended */
-				iterate_selection(cell_redraw_inverted);
+				iterate_selection(cell_redraw_offset_inverted);
 			}
 		}
 
-		cell_redraw_inverted(a,b);
-		cell_redraw_inverted(selection_end_x, selection_end_y);
+		cell_redraw_offset_inverted(a,b);
+		cell_redraw_offset_inverted(selection_end_x, selection_end_y);
 
 		/* Restore */
 		selection_start_x = a;
@@ -405,12 +407,32 @@ static void redraw_new_selection(int old_x, int old_y) {
 }
 
 /* Figure out how long the UTF-8 selection string should be. */
-static void count_selection(uint16_t x, uint16_t y) {
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (!(cell->flags & ANSI_EXT_IMG)) {
-		if (((uint32_t *)cell)[0] != 0x00000000) {
-			char tmp[7];
-			_selection_count += to_eight(cell->c, tmp);
+static void count_selection(uint16_t x, uint16_t _y) {
+	int y = _y;
+	y -= scrollback_offset;
+	if (y >= 0) {
+		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+		if (!(cell->flags & ANSI_EXT_IMG)) {
+			if (((uint32_t *)cell)[0] != 0x00000000) {
+				char tmp[7];
+				_selection_count += to_eight(cell->c, tmp);
+			}
+		}
+	} else {
+		node_t * node = scrollback_list->tail;
+		for (; y < -1; y++) {
+			if (!node) break;
+			node = node->prev;
+		}
+		if (node) {
+			struct scrollback_row * row = (struct scrollback_row *)node->value;
+			if (row && x < row->width) {
+				term_cell_t * cell = &row->cells[x];
+				if (cell && ((uint32_t *)cell)[0] != 0x00000000) {
+					char tmp[7];
+					_selection_count += to_eight(cell->c, tmp);
+				}
+			}
 		}
 	}
 	if (x == term_width - 1) {
@@ -419,15 +441,39 @@ static void count_selection(uint16_t x, uint16_t y) {
 }
 
 /* Fill the selection text buffer with the selected text. */
-void write_selection(uint16_t x, uint16_t y) {
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (!(cell->flags & ANSI_EXT_IMG)) {
-		if (((uint32_t *)cell)[0] != 0x00000000) {
-			char tmp[7];
-			int count = to_eight(cell->c, tmp);
-			for (int i = 0; i < count; ++i) {
-				selection_text[_selection_i] = tmp[i];
-				_selection_i++;
+void write_selection(uint16_t x, uint16_t _y) {
+	int y = _y;
+	y -= scrollback_offset;
+	if (y >= 0) {
+		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+		if (!(cell->flags & ANSI_EXT_IMG)) {
+			if (((uint32_t *)cell)[0] != 0x00000000) {
+				char tmp[7];
+				int count = to_eight(cell->c, tmp);
+				for (int i = 0; i < count; ++i) {
+					selection_text[_selection_i] = tmp[i];
+					_selection_i++;
+				}
+			}
+		}
+	} else {
+		node_t * node = scrollback_list->tail;
+		for (; y < -1; y++) {
+			if (!node) break;
+			node = node->prev;
+		}
+		if (node) {
+			struct scrollback_row * row = (struct scrollback_row *)node->value;
+			if (row && x < row->width) {
+				term_cell_t * cell = &row->cells[x];
+				if (cell && ((uint32_t *)cell)[0] != 0x00000000) {
+					char tmp[7];
+					int count = to_eight(cell->c, tmp);
+					for (int i = 0; i < count; ++i) {
+						selection_text[_selection_i] = tmp[i];
+						_selection_i++;
+					}
+				}
 			}
 		}
 	}
@@ -920,6 +966,79 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
 		r_y = max(r_y, y * char_height + char_height);
 	}
 }
+
+static void cell_redraw_offset(uint16_t x, uint16_t _y) {
+	int y = _y;
+	int i = y;
+
+	y -= scrollback_offset;
+
+	if (y >= 0) {
+		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+		if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,i,cell); return; }
+		if (((uint32_t *)cell)[0] == 0x00000000) {
+			term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
+		} else {
+			term_write_char(cell->c, x * char_width, i * char_height, cell->fg, cell->bg, cell->flags);
+		}
+	} else {
+		node_t * node = scrollback_list->tail;
+		for (; y < -1; y++) {
+			if (!node) break;
+			node = node->prev;
+		}
+		if (node) {
+			struct scrollback_row * row = (struct scrollback_row *)node->value;
+			if (row && x < row->width) {
+				term_cell_t * cell = &row->cells[x];
+				if (!cell || ((uint32_t *)cell)[0] == 0x00000000) {
+					term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
+				} else {
+					term_write_char(cell->c, x * char_width, i * char_height, cell->fg, cell->bg, cell->flags);
+				}
+			} else {
+				term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
+			}
+		}
+	}
+}
+
+static void cell_redraw_offset_inverted(uint16_t x, uint16_t _y) {
+	int y = _y;
+	int i = y;
+
+	y -= scrollback_offset;
+
+	if (y >= 0) {
+		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+		if (cell->flags & ANSI_EXT_IMG) { redraw_cell_image(x,i,cell); return; }
+		if (((uint32_t *)cell)[0] == 0x00000000) {
+			term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_BG, TERM_DEFAULT_FG, TERM_DEFAULT_FLAGS|ANSI_SPECBG);
+		} else {
+			term_write_char(cell->c, x * char_width, i * char_height, cell->bg, cell->fg, cell->flags);
+		}
+	} else {
+		node_t * node = scrollback_list->tail;
+		for (; y < -1; y++) {
+			if (!node) break;
+			node = node->prev;
+		}
+		if (node) {
+			struct scrollback_row * row = (struct scrollback_row *)node->value;
+			if (row && x < row->width) {
+				term_cell_t * cell = &row->cells[x];
+				if (!cell || ((uint32_t *)cell)[0] == 0x00000000) {
+					term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_BG, TERM_DEFAULT_FG, TERM_DEFAULT_FLAGS);
+				} else {
+					term_write_char(cell->c, x * char_width, i * char_height, cell->bg, cell->fg, cell->flags);
+				}
+			} else {
+				term_write_char(' ', x * char_width, i * char_height, TERM_DEFAULT_BG, TERM_DEFAULT_FG, TERM_DEFAULT_FLAGS);
+			}
+		}
+	}
+}
+
 
 /* Redraw a text cell normally. */
 static void cell_redraw(uint16_t x, uint16_t y) {
@@ -1463,12 +1582,20 @@ term_callbacks_t term_callbacks = {
 static void handle_input(char c) {
 	write(fd_master, &c, 1);
 	display_flip();
+	if (scrollback_offset != 0) {
+		scrollback_offset = 0;
+		term_redraw_all();
+	}
 }
 
 /* Write a string into the PTY */
 static void handle_input_s(char * c) {
 	write(fd_master, c, strlen(c));
 	display_flip();
+	if (scrollback_offset != 0) {
+		scrollback_offset = 0;
+		term_redraw_all();
+	}
 }
 
 /* Scroll the view up (scrollback) */
@@ -2042,7 +2169,7 @@ static void * handle_incoming(void) {
 						}
 					} else {
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-							term_redraw_all();
+							redraw_scrollback();
 							selection_start_x = new_x;
 							selection_start_y = new_y;
 							selection_end_x = new_x;
@@ -2063,6 +2190,7 @@ static void * handle_incoming(void) {
 							if (me->new_x == me->old_x && me->new_y == me->old_y) {
 								selection = 0;
 								term_redraw_all();
+								redraw_scrollback();
 								display_flip();
 							} /* else selection */
 						}
