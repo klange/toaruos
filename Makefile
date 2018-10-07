@@ -132,7 +132,7 @@ MODULES = $(patsubst modules/%.c,fatbase/mod/%.ko,$(wildcard modules/*.c))
 HEADERS = $(shell find base/usr/include/kernel -type f -name '*.h')
 
 fatbase/mod/%.ko: modules/%.c ${HEADERS} | fatbase/mod
-	${KCC} -T modules/link.ld -nostdlib ${KCFLAGS} -c -o $@ $<
+	${KCC} -nostdlib ${KCFLAGS} -c -o $@ $<
 
 modules: ${MODULES}
 
