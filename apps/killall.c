@@ -7,10 +7,6 @@
  *
  * Find processes by name and send them signals.
  */
-
-
-#include <sys/stat.h>
-#include <sys/signal.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -20,6 +16,9 @@
 #include <dirent.h>
 #include <signal.h>
 #include <getopt.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/signal.h>
 
 typedef struct process {
 	int pid;
@@ -148,9 +147,6 @@ int main (int argc, char * argv[]) {
 
 	int signum = SIGTERM;
 
-	/* Open the directory */
-	DIR * dirp = opendir("/proc");
-
 	char c;
 	while ((c = getopt(argc, argv, "s:?")) != -1) {
 		switch (c) {
@@ -198,25 +194,36 @@ int main (int argc, char * argv[]) {
 	}
 
 	int killed_something = 0;
+	int retval = 0;
 
-	struct dirent * ent = readdir(dirp);
-	while (ent != NULL) {
-		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
-			p_t * proc = build_entry(ent);
+	for (int i = optind; i < argc; ++i) {
+		/* Open the directory */
+		DIR * dirp = opendir("/proc");
 
-			if (!strcmp(proc->name, argv[optind])) {
-				kill(proc->pid, signum);
-				killed_something = 1;
+		struct dirent * ent = readdir(dirp);
+		while (ent != NULL) {
+			if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
+				p_t * proc = build_entry(ent);
+
+				if (!strcmp(proc->name, argv[i])) {
+					if (kill(proc->pid, signum) < 0) {
+						fprintf(stderr, "%s(%d) %s\n", argv[i], proc->pid, strerror(errno));
+					} else {
+						killed_something = 1;
+					}
+				}
+
+				free(proc);
 			}
+			ent = readdir(dirp);
 		}
-		ent = readdir(dirp);
+		closedir(dirp);
+		if (!killed_something) {
+			fprintf(stderr, "%s: no process found\n", argv[i]);
+			retval = 1;
+		}
 	}
-	closedir(dirp);
 
-	if (!killed_something) {
-		fprintf(stderr, "%s: no process found\n", argv[optind]);
-		return 1;
-	}
-	return 0;
+	return retval;
 }
 
