@@ -147,7 +147,7 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### Is ToaruOS self-hosting?
 
-Prior to the merging of the "NIH" branch, ToaruOS was capable of running Binutils and GCC and could build its own kernel and core userspace (as well as a port of Bochs in which to run the resulting images), but was not demonstrated to have been able to build GCC and Binutils themselves due to limitations in the native shell. In its current state post-merge, GCC is no longer available, and the effort to bring back Binutils is still ongoing. We hope to have ToaruOS fully self-hosting, including peripheral build utilities, by the end of 2018. The current blockers include several pieces of C standard library support, as well as a port of `libstdc++`. Consideration has also been put towards development of our own C compiler.
+Prior to the merging of the "NIH" branch, ToaruOS was capable of running Binutils and GCC and could build its own kernel and core userspace (and also had a port of Bochs in which to run the resulting images), but was not demonstrated to have been able to build GCC and Binutils themselves due to limitations in the native shell. In its current state post-merge, GCC is no longer available, and the effort to bring back Binutils is still ongoing. We hope to have ToaruOS fully self-hosting, including peripheral build utilities, by the end of 2018. The current blockers include several pieces of C standard library support, as well as a port of `libstdc++`. Consideration has also been put towards development of our own C compiler.
 
 ### Is ToaruOS a Linux distribution?
 
