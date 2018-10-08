@@ -24,6 +24,15 @@ Early in its development, ToaruOS was focused on providing a modern *graphical u
 - **ld.so** (dynamic linker/loader), [linker/linker.c](linker/linker.c), loads dynamically-linked ELF binaries.
 - **Esh** (shell), [apps/sh.c](apps/sh.c), supports pipes, redirections, variables, and more.
 
+## Current Goals
+
+The following projects are currently in progress:
+
+- **Complete the re-porting of Binutils** to allow for some basic assembly development and to support the eventual return of GCC.
+- **Improve POSIX coverage** especially in regards to pipelines, process groups, synchronization primitives, as well as by providing more common utilities.
+- **Continue to improve the C library** which remains quite incomplete compared to Newlib and is a major source of issues with bringing back old ports.
+- **Implement a native dynamic, interpreted programming language** to replace Python, which was used prior to ToaruOS 1.6.x to provide most of the desktop environment.
+
 ## Building / Installation
 
 To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment.
