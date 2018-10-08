@@ -188,27 +188,27 @@ int send_signal(pid_t process, uint32_t signal, int force_root) {
 
 	if (!receiver) {
 		/* Invalid pid */
-		return 1;
+		return -ESRCH;
 	}
 
 	if (!force_root && receiver->user != current_process->user && current_process->user != USER_ROOT_UID) {
 		/* No way in hell. */
-		return 1;
+		return -EPERM;
 	}
 
 	if (signal > NUMSIGNALS) {
 		/* Invalid signal */
-		return 1;
+		return -EINVAL;
 	}
 
 	if (receiver->finished) {
 		/* Can't send signals to finished processes */
-		return 1;
+		return -EINVAL;
 	}
 
 	if (!receiver->signals.functions[signal] && !isdeadly[signal]) {
 		/* If we're blocking a signal and it's not going to kill us, don't deliver it */
-		return 1;
+		return 0;
 	}
 
 	/* Append signal to list */
