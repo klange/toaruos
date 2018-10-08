@@ -118,10 +118,10 @@ int main(int argc, char * argv[]) {
 		pid = atoi(argv[i]);
 		if (pid) {
 			if (kill(pid, signum) < 0) {
-				fprintf(stderr, "%s: kill: %s\n", argv[0], strerror(errno));
+				fprintf(stderr, "%s: (%d) %s\n", argv[0], pid, strerror(errno));
 			}
 		} else {
-			fprintf(stderr, "%s: invalid pid\n", argv[0]);
+			fprintf(stderr, "%s: invalid pid (%s)\n", argv[0], argv[i]);
 		}
 	} else {
 		usage(argv);
