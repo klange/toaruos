@@ -114,19 +114,25 @@ int main(int argc, char * argv[]) {
 		i++;
 	}
 
-	if (i < argc) {
-		pid = atoi(argv[i]);
-		if (pid) {
-			if (kill(pid, signum) < 0) {
-				fprintf(stderr, "%s: (%d) %s\n", argv[0], pid, strerror(errno));
-			}
-		} else {
-			fprintf(stderr, "%s: invalid pid (%s)\n", argv[0], argv[i]);
-		}
-	} else {
+	if (i == argc) {
 		usage(argv);
 		return 1;
 	}
 
-	return 0;
+	int retval = 0;
+
+	for (; i < argc; ++i) {
+		pid = atoi(argv[i]);
+		if (pid) {
+			if (kill(pid, signum) < 0) {
+				fprintf(stderr, "%s: (%d) %s\n", argv[0], pid, strerror(errno));
+				retval = 1;
+			}
+		} else {
+			fprintf(stderr, "%s: invalid pid (%s)\n", argv[0], argv[i]);
+			retval = 1;
+		}
+	}
+
+	return retval;
 }
