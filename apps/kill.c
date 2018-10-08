@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <ctype.h>
+#include <errno.h>
 
 struct sig_def {
 	int sig;
@@ -73,53 +75,57 @@ void usage(char * argv[]) {
 int main(int argc, char * argv[]) {
 	int signum = SIGKILL;
 	int pid = 0;
+	int i = 1;
 
 	if (argc < 2) {
 		usage(argv);
 		return 1;
 	}
 
-	if (argc > 2) {
-		if (argv[1][0] == '-') {
-			signum = -1;
-			if (strlen(argv[1]+1) > 3 && strstr(argv[1]+1,"SIG") == (argv[1]+1)) {
+	if (argv[1][0] == '-') {
+		signum = -1;
+		if (strlen(argv[1]+1) > 3 && strstr(argv[1]+1,"SIG") == (argv[1]+1)) {
+			struct sig_def * s = signals;
+			while (s->name) {
+				if (!strcmp(argv[1]+4,s->name)) {
+					signum = s->sig;
+					break;
+				}
+				s++;
+			}
+		} else {
+			if (!isdigit(argv[1][1] < '0')) {
 				struct sig_def * s = signals;
 				while (s->name) {
-					if (!strcmp(argv[1]+4,s->name)) {
+					if (!strcmp(argv[1]+1,s->name)) {
 						signum = s->sig;
 						break;
 					}
 					s++;
 				}
 			} else {
-				if (argv[1][1] < '0' || argv[1][1] > '9') {
-					struct sig_def * s = signals;
-					while (s->name) {
-						if (!strcmp(argv[1]+1,s->name)) {
-							signum = s->sig;
-							break;
-						}
-						s++;
-					}
-				} else {
-					signum = atoi(argv[1]+1);
-				}
+				signum = atoi(argv[1]+1);
 			}
-			if (signum == -1) {
-				fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],argv[1]+1);
-				return 1;
-			}
-		} else {
-			usage(argv);
+		}
+		if (signum == -1) {
+			fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],argv[1]+1);
 			return 1;
 		}
-		pid = atoi(argv[2]);
-	} else if (argc == 2) {
-		pid = atoi(argv[1]);
+		i++;
 	}
 
-	if (pid) {
-		kill(pid, signum);
+	if (i < argc) {
+		pid = atoi(argv[i]);
+		if (pid) {
+			if (kill(pid, signum) < 0) {
+				fprintf(stderr, "%s: kill: %s\n", argv[0], strerror(errno));
+			}
+		} else {
+			fprintf(stderr, "%s: invalid pid\n", argv[0]);
+		}
+	} else {
+		usage(argv);
+		return 1;
 	}
 
 	return 0;
