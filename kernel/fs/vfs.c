@@ -91,6 +91,9 @@ static fs_node_t * vfs_mapper(void) {
 	fnode->mask = 0555;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->readdir = readdir_mapper;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
 	return fnode;
 }
 
