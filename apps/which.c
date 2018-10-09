@@ -18,47 +18,61 @@
 
 int main(int argc, char * argv[]) {
 
-	if (argc < 2) {
+	int ret_val = 0;
+	int i = 1;
+	int print_all = 0;
+
+	if (i < argc && !strcmp(argv[i],"-a")) {
+		print_all = 1;
+		i++;
+	}
+
+	if (i == argc) {
 		return 1;
 	}
 
-	if (strstr(argv[1], "/")) {
-		struct stat t;
-		if (!stat(argv[1], &t)) {
-			if ((t.st_mode & 0111)) {
-				printf("%s\n", argv[1]);
-				return 0;
-			}
-		}
-	} else {
-		char * file = argv[1];
-		char * path = getenv("PATH");
-		if (!path) {
-			path = DEFAULT_PATH;
-		}
+	for (; i < argc; ++i) {
 
-		char * xpath = strdup(path);
-		char * p, * last;
-		for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
-			int r;
-			struct stat stat_buf;
-			char * exe = malloc(strlen(p) + strlen(file) + 2);
-			strcpy(exe, p);
-			strcat(exe, "/");
-			strcat(exe, file);
+		if (strstr(argv[i], "/")) {
+			struct stat t;
+			if (!stat(argv[i], &t)) {
+				if ((t.st_mode & 0111)) {
+					printf("%s\n", argv[1]);
+				}
+			}
+		} else {
+			char * file = argv[i];
+			char * path = getenv("PATH");
+			if (!path) {
+				path = DEFAULT_PATH;
+			}
 
-			r = stat(exe, &stat_buf);
-			if (r != 0) {
-				continue;
+			char * xpath = strdup(path);
+			char * p, * last;
+			int found = 0;
+			for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
+				int r;
+				struct stat stat_buf;
+				char * exe = malloc(strlen(p) + strlen(file) + 2);
+				strcpy(exe, p);
+				strcat(exe, "/");
+				strcat(exe, file);
+
+				r = stat(exe, &stat_buf);
+				if (r != 0) {
+					continue;
+				}
+				if (!(stat_buf.st_mode & 0111)) {
+					continue; /* XXX not technically correct; need to test perms */
+				}
+				found = 1;
+				printf("%s\n", exe);
+				if (print_all) continue;
+				break;
 			}
-			if (!(stat_buf.st_mode & 0111)) {
-				continue; /* XXX not technically correct; need to test perms */
-			}
-			printf("%s\n", exe);
-			return 0;
+			free(xpath);
+			if (!found) ret_val = 1;
 		}
-		free(xpath);
-		return 1;
 	}
-	return 1;
+	return ret_val;
 }
