@@ -79,7 +79,7 @@ static const char * color_str(struct stat * sb) {
 	} else if (sb->st_mode & 0111) {
 		/* Executable */
 		return EXE_COLOR;
-	} else if (S_ISBLK(sb->st_mode) || S_ISCHR(sb->st_mode)) {
+	} else if (S_ISBLK(sb->st_mode) || S_ISCHR(sb->st_mode) || S_ISFIFO(sb->st_mode)) {
 		/* Device file */
 		return DEVICE_COLOR;
 	} else {
