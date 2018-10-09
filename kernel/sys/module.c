@@ -245,8 +245,6 @@ void * module_load_direct(void * blob, size_t length) {
 					if (s) {
 						uintptr_t final = s->sh_addr + table->st_value;
 						hashmap_set(local_symbols, name, (void *)final);
-					} else {
-						debug_print(ERROR, "Not resolving %s", name);
 					}
 				}
 			}
