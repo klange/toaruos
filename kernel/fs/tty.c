@@ -198,42 +198,50 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			 */
 			return IOCTL_DTYPE_TTY;
 		case IOCTLTTYNAME:
-			if (!argp) return -1;
+			if (!argp) return -EINVAL;
 			validate(argp);
 			((char*)argp)[0] = '\0';
 			sprintf((char*)argp, "/dev/pts/%d", pty->name);
 			return 0;
+		case IOCTLTTYLOGIN:
+			/* Set the user id of the login user */
+			if (current_process->user != 0) return -EPERM;
+			if (!argp) return -EINVAL;
+			validate(argp);
+			pty->slave->uid = *(int*)argp;
+			pty->master->uid = *(int*)argp;
+			return 0;
 		case TIOCSWINSZ:
-			if (!argp) return -1;
+			if (!argp) return -EINVAL;
 			validate(argp);
 			memcpy(&pty->size, argp, sizeof(struct winsize));
 			/* TODO send sigwinch to fg_prog */
 			return 0;
 		case TIOCGWINSZ:
-			if (!argp) return -1;
+			if (!argp) return -EINVAL;
 			validate(argp);
 			memcpy(argp, &pty->size, sizeof(struct winsize));
 			return 0;
 		case TCGETS:
-			if (!argp) return -1;
+			if (!argp) return -EINVAL;
 			validate(argp);
 			memcpy(argp, &pty->tios, sizeof(struct termios));
 			return 0;
 		case TIOCSPGRP:
-			if (!argp) return -1;
+			if (!argp) return -EINVAL;
 			validate(argp);
 			pty->fg_proc = *(pid_t *)argp;
 			debug_print(NOTICE, "Setting PTY group to %d", pty->fg_proc);
 			return 0;
 		case TIOCGPGRP:
-			if (!argp) return -1;
+			if (!argp) return -EINVAL;
 			validate(argp);
 			*(pid_t *)argp = pty->fg_proc;
 			return 0;
 		case TCSETS:
 		case TCSETSW:
 		case TCSETSF:
-			if (!argp) return -1;
+			if (!argp) return -EINVAL;
 			validate(argp);
 			if (!(((struct termios *)argp)->c_lflag & ICANON) && (pty->tios.c_lflag & ICANON)) {
 				/* Switch out of canonical mode, the dump the input buffer */

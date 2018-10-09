@@ -21,6 +21,7 @@
 #include <pwd.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
+#include <sys/ioctl.h>
 
 #include <toaru/auth.h>
 
@@ -142,6 +143,7 @@ do_fork:
 	pid = getpid();
 	f = fork();
 	if (getpid() != pid) {
+		ioctl(STDIN_FILENO, IOCTLTTYLOGIN, &uid);
 		setuid(uid);
 		toaru_auth_set_vars();
 		char * args[] = {

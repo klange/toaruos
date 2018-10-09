@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdio.h>
 #include <sys/types.h>
 
 struct passwd {
