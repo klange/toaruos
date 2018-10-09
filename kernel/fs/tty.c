@@ -9,6 +9,7 @@
 #include <kernel/logging.h>
 #include <kernel/printf.h>
 #include <kernel/ringbuffer.h>
+#include <toaru/hashmap.h>
 
 #include <sys/ioctl.h>
 #include <sys/termios.h>
@@ -43,7 +44,9 @@ typedef struct pty {
 
 } pty_t;
 
-list_t * pty_list = NULL;
+static int _pty_counter = 0;
+static hashmap_t * _pty_index = NULL;
+static fs_node_t * _pty_dir = NULL;
 
 #define IN(character)   ring_buffer_write(pty->in, 1, (uint8_t *)&(character))
 #define OUT(character)  ring_buffer_write(pty->out, 1, (uint8_t *)&(character))
@@ -209,6 +212,12 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			 * but for here we just need to say we're a TTY.
 			 */
 			return IOCTL_DTYPE_TTY;
+		case IOCTLTTYNAME:
+			if (!argp) return -1;
+			validate(argp);
+			((char*)argp)[0] = '\0';
+			sprintf((char*)argp, "/dev/pts/%d", pty->name);
+			return 0;
 		case TIOCSWINSZ:
 			if (!argp) return -1;
 			validate(argp);
@@ -303,6 +312,10 @@ void      open_pty_slave(fs_node_t * node, unsigned int flags) {
 	return;
 }
 void     close_pty_slave(fs_node_t * node) {
+	pty_t * pty = (pty_t *)node->device;
+
+	hashmap_remove(_pty_index, (void*)pty->name);
+
 	return;
 }
 
@@ -364,7 +377,7 @@ fs_node_t * pty_master_create(pty_t * pty) {
 
 	fnode->name[0] = '\0';
 	sprintf(fnode->name, "pty master");
-	fnode->uid   = 0;
+	fnode->uid   = current_process->user;
 	fnode->gid   = 0;
 	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
@@ -378,6 +391,9 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	fnode->finddir = NULL;
 	fnode->ioctl = ioctl_pty_master;
 	fnode->get_size = pty_available_output;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
 
 	fnode->device = pty;
 
@@ -390,7 +406,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 
 	fnode->name[0] = '\0';
 	sprintf(fnode->name, "pty slave");
-	fnode->uid   = 0;
+	fnode->uid   = current_process->user;
 	fnode->gid   = 0;
 	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
@@ -404,17 +420,114 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	fnode->finddir = NULL;
 	fnode->ioctl = ioctl_pty_slave;
 	fnode->get_size = pty_available_input;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
 
 	fnode->device = pty;
 
 	return fnode;
 }
 
+static struct dirent * readdir_pty(fs_node_t *node, uint32_t index) {
+	if (index == 0) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, ".");
+		return out;
+	}
+
+	if (index == 1) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = 0;
+		strcpy(out->name, "..");
+		return out;
+	}
+
+	index -= 2;
+
+	pty_t * out_pty = NULL;
+	list_t * values = hashmap_values(_pty_index);
+	foreach(node, values) {
+		if (index == 0) {
+			out_pty = node->value;
+			break;
+		}
+		index--;
+	}
+	list_free(values);
+
+	if (out_pty) {
+		struct dirent * out = malloc(sizeof(struct dirent));
+		memset(out, 0x00, sizeof(struct dirent));
+		out->ino = out_pty->name;
+		out->name[0] = '\0';
+		sprintf(out->name, "%d", out_pty->name);
+		return out;
+	} else {
+		return NULL;
+	}
+}
+
+static fs_node_t * finddir_pty(fs_node_t * node, char * name) {
+	if (!name) return NULL;
+	if (strlen(name) < 1) return NULL;
+
+	int c = 0;
+	for (int i = 0; name[i]; ++i) {
+		if (name[i] < '0' || name[i] > '9') {
+			return NULL;
+		}
+		c = c * 10 + name[i] - '0';
+	}
+
+	pty_t * _pty = hashmap_get(_pty_index, (void*)c);
+
+	if (!_pty) {
+		debug_print(ERROR, "Invalid PTY number: %d\n", c);
+		return NULL;
+	}
+
+	return _pty->slave;
+}
+
+static fs_node_t * create_pty_dir(void) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	fnode->inode = 0;
+	strcpy(fnode->name, "pty");
+	fnode->mask = 0555;
+	fnode->uid  = 0;
+	fnode->gid  = 0;
+	fnode->flags   = FS_DIRECTORY;
+	fnode->read    = NULL;
+	fnode->write   = NULL;
+	fnode->open    = NULL;
+	fnode->close   = NULL;
+	fnode->readdir = readdir_pty;
+	fnode->finddir = finddir_pty;
+	fnode->nlink   = 1;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
+	return fnode;
+}
+
 void pty_install(void) {
-	pty_list = list_create();
+	_pty_index = hashmap_create_int(10);
+	_pty_dir   = create_pty_dir();
+
+	vfs_mount("/dev/pts", _pty_dir);
 }
 
 pty_t * pty_new(struct winsize * size) {
+
+	if (!_pty_index) {
+		pty_install();
+	}
+
 	pty_t * pty = malloc(sizeof(pty_t));
 
 	/* stdin linkage; characters from terminal → PTY slave */
@@ -429,8 +542,10 @@ pty_t * pty_new(struct winsize * size) {
 	/* Slave endpoint, reads come from stdin, writes go to stdout */
 	pty->slave  = pty_slave_create(pty);
 
-	/* TODO PTY name */
-	pty->name   = 0;
+	/* tty name */
+	pty->name   = _pty_counter++;
+
+	hashmap_set(_pty_index, (void*)pty->name, pty);
 
 	if (size) {
 		memcpy(&pty->size, size, sizeof(struct winsize));

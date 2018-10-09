@@ -8,5 +8,7 @@
 #define IOCTL_DTYPE_FILE     1
 #define IOCTL_DTYPE_TTY      2
 
+#define IOCTLTTYNAME 0x4F01
+
 #define IOCTL_PACKETFS_QUEUED 0x5050
 
