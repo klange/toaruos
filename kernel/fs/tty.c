@@ -9,47 +9,28 @@
 #include <kernel/logging.h>
 #include <kernel/printf.h>
 #include <kernel/ringbuffer.h>
+#include <kernel/pty.h>
 #include <toaru/hashmap.h>
 
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 
 #define TTY_BUFFER_SIZE 4096
-//4096
-
-typedef struct pty {
-	/* the PTY number */
-	int            name;
-
-	/* Master and slave endpoints */
-	fs_node_t *    master;
-	fs_node_t *    slave;
-
-	/* term io "window size" struct (width/height) */
-	struct winsize size;
-
-	/* termios data structure */
-	struct termios tios;
-
-	/* directional pipes */
-	ring_buffer_t * in;
-	ring_buffer_t * out;
-
-	char * canon_buffer;
-	size_t canon_bufsize;
-	size_t canon_buflen;
-
-	pid_t ct_proc; /* Controlling process (shell) */
-	pid_t fg_proc; /* Foreground process (might also be shell) */
-
-} pty_t;
 
 static int _pty_counter = 0;
 static hashmap_t * _pty_index = NULL;
 static fs_node_t * _pty_dir = NULL;
 
-#define IN(character)   ring_buffer_write(pty->in, 1, (uint8_t *)&(character))
-#define OUT(character)  ring_buffer_write(pty->out, 1, (uint8_t *)&(character))
+static void pty_write_in(pty_t * pty, uint8_t c) {
+	ring_buffer_write(pty->in, 1, &c);
+}
+
+static void pty_write_out(pty_t * pty, uint8_t c) {
+	ring_buffer_write(pty->out, 1, &c);
+}
+
+#define IN(character)   pty->write_in(pty, (uint8_t)character)
+#define OUT(character)  pty->write_out(pty, (uint8_t)character)
 
 static void dump_input_buffer(pty_t * pty) {
 	char * c = pty->canon_buffer;
@@ -65,7 +46,11 @@ static void clear_input_buffer(pty_t * pty) {
 	pty->canon_buffer[0] = '\0';
 }
 
-static void output_process_slave(pty_t * pty, uint8_t c) {
+#define output_process_slave tty_output_process_slave
+#define output_process tty_output_process
+#define input_process tty_input_process
+
+void tty_output_process_slave(pty_t * pty, uint8_t c) {
 	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
 		c = '\n';
 		OUT(c);
@@ -87,12 +72,12 @@ static void output_process_slave(pty_t * pty, uint8_t c) {
 	OUT(c);
 }
 
-static void output_process(pty_t * pty, uint8_t c) {
+void tty_output_process(pty_t * pty, uint8_t c) {
 	if (ring_buffer_available(pty->out) < 2) return; /* uh oh */
 	output_process_slave(pty, c);
 }
 
-static void input_process(pty_t * pty, uint8_t c) {
+void tty_input_process(pty_t * pty, uint8_t c) {
 	if (pty->tios.c_lflag & ISIG) {
 		if (c == pty->tios.c_cc[VINTR]) {
 			if (pty->tios.c_lflag & ECHO) {
@@ -544,6 +529,9 @@ pty_t * pty_new(struct winsize * size) {
 
 	/* tty name */
 	pty->name   = _pty_counter++;
+
+	pty->write_in = pty_write_in;
+	pty->write_out = pty_write_out;
 
 	hashmap_set(_pty_index, (void*)pty->name, pty);
 
