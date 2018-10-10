@@ -1,10 +1,10 @@
 #include <syscall.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
 
 extern char ** environ;
-extern char * getenv(char *);
 
 #define DEFAULT_PATH "/bin:/usr/bin"
 
