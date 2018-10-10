@@ -1146,9 +1146,9 @@ static void history_previous(void) {
 		the_line->actual = 0;
 		column = 0;
 		loading = 1;
-		char * buf = rline_history_prev(rline_scroll);
+		unsigned char * buf = (unsigned char *)rline_history_prev(rline_scroll);
 		uint32_t istate = 0, c = 0;
-		for (unsigned int i = 0; i < strlen(buf); ++i) {
+		for (unsigned int i = 0; i < strlen((char *)buf); ++i) {
 			if (!decode(&istate, &c, buf[i])) {
 				insert_char(c);
 			}
@@ -1175,9 +1175,9 @@ static void history_next(void) {
 		the_line->actual = 0;
 		column = 0;
 		loading = 1;
-		char * buf = rline_history_prev(rline_scroll);
+		unsigned char * buf = (unsigned char *)rline_history_prev(rline_scroll);
 		uint32_t istate = 0, c = 0;
-		for (unsigned int i = 0; i < strlen(buf); ++i) {
+		for (unsigned int i = 0; i < strlen((char *)buf); ++i) {
 			if (!decode(&istate, &c, buf[i])) {
 				insert_char(c);
 			}
@@ -1382,7 +1382,7 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 		if (i == context->offset) {
 			final_column = column;
 		}
-		if (!decode(&istate, &c, context->buffer[i])) {
+		if (!decode(&istate, &c, ((unsigned char *)context->buffer)[i])) {
 			insert_char(c);
 		}
 	}
