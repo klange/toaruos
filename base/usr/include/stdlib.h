@@ -50,3 +50,6 @@ extern void *bsearch(const void *key, const void *base, size_t nmemb, size_t siz
 	int (*compar)(const void *, const void *));
 
 extern char * mktemp(char * template);
+
+extern size_t mbstowcs(wchar_t *dest, const char *src, size_t n);
+extern size_t wcstombs(char * dest, const wchar_t *src, size_t n);

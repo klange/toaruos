@@ -14,7 +14,4 @@ extern wchar_t * wcschr(const wchar_t *wcs, wchar_t wc);
 extern wchar_t * wcsrchr(const wchar_t *wcs, wchar_t wc);
 extern wchar_t * wcsncat(wchar_t *dest, const wchar_t * src, size_t n);
 
-/* TODO */
-extern size_t wcstombs(char * dest, const wchar_t *src, size_t n);
-
 typedef unsigned int wint_t;
