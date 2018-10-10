@@ -53,10 +53,10 @@ static int get_bounds_fancy(yutani_window_t * window, struct decor_bounds * boun
 		bounds->right_width = 6;
 	} else {
 		/* TODO: Window type */
-		bounds->top_height = 28;
-		bounds->bottom_height = 1;
-		bounds->left_width = 1;
-		bounds->right_width = 1;
+		bounds->top_height = 27;
+		bounds->bottom_height = 0;
+		bounds->left_width = 0;
+		bounds->right_width = 0;
 	}
 
 	bounds->width = bounds->left_width + bounds->right_width;
@@ -77,32 +77,30 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 		}
 	}
 
-	uint32_t clear_color = ((window->decorator_flags & DECOR_FLAG_TILED) ? rgb(62,62,62) : 0);
-
-	for (int j = (int)bounds.top_height; j < height - (int)bounds.bottom_height; ++j) {
-		for (int i = 0; i < (int)bounds.left_width; ++i) {
-			GFX(ctx,i,j) = clear_color;
-		}
-		for (int i = width - (int)bounds.right_width; i < width; ++i) {
-			GFX(ctx,i,j) = clear_color;
-		}
-	}
-
-	for (int j = height - (int)bounds.bottom_height; j < height; ++j) {
-		for (int i = 0; i < width; ++i) {
-			GFX(ctx,i,j) = clear_color;
-		}
-	}
-
 	if (decors_active == DECOR_INACTIVE) decors_active = INACTIVE;
 
 	if ((window->decorator_flags & DECOR_FLAG_TILED)) {
-		draw_sprite(ctx, sprites[decors_active + 0], -5, -5);
-		for (int i = 0; i < width - 10; ++i) {
-			draw_sprite(ctx, sprites[decors_active + 1], i + 5, -5);
+		for (int i = 0; i < width; ++i) {
+			draw_sprite(ctx, sprites[decors_active + 1], i, -6);
 		}
-		draw_sprite(ctx, sprites[decors_active + 2], width - 5, -5);
 	} else {
+
+		uint32_t clear_color = ((window->decorator_flags & DECOR_FLAG_TILED) ? rgb(62,62,62) : 0);
+
+		for (int j = (int)bounds.top_height; j < height - (int)bounds.bottom_height; ++j) {
+			for (int i = 0; i < (int)bounds.left_width; ++i) {
+				GFX(ctx,i,j) = clear_color;
+			}
+			for (int i = width - (int)bounds.right_width; i < width; ++i) {
+				GFX(ctx,i,j) = clear_color;
+			}
+		}
+
+		for (int j = height - (int)bounds.bottom_height; j < height; ++j) {
+			for (int i = 0; i < width; ++i) {
+				GFX(ctx,i,j) = clear_color;
+			}
+		}
 
 		draw_sprite(ctx, sprites[decors_active + 0], 0, 0);
 		for (int i = 0; i < width - (ul_width + ur_width); ++i) {
