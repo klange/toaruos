@@ -111,8 +111,13 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 		int align = 1; /* right */
 		int fill_zero = 0;
 		int big = 0;
+		int alt = 0;
 		if (*f == '-') {
 			align = 0;
+			++f;
+		}
+		if (*f == '#') {
+			alt = 1;
 			++f;
 		}
 		if (*f == '*') {
@@ -204,6 +209,10 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					arg_width = 8;
 				}
 			case 'x': /* Hexadecimal number */
+				if (alt) {
+					*b++ = '0';
+					*b++ = 'x';
+				}
 				i = b - buf;
 				if (big == 2) {
 					unsigned long long val = (unsigned long long)va_arg(args, unsigned long long);
