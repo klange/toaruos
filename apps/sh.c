@@ -81,7 +81,6 @@ void shell_install_command(char * name, shell_command_t func, char * desc) {
 		shell_commands = realloc(shell_commands, sizeof(char *) * SHELL_COMMANDS);
 		shell_pointers = realloc(shell_pointers, sizeof(shell_command_t) * SHELL_COMMANDS);
 		shell_descript = realloc(shell_descript, sizeof(char *) * SHELL_COMMANDS);
-		return;
 	}
 	shell_commands[shell_commands_len] = name;
 	shell_pointers[shell_commands_len] = func;
