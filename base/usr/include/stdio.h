@@ -81,3 +81,5 @@ extern char * tmpnam(char * s);
 
 extern int vsscanf(const char *str, const char *format, va_list ap);
 extern int sscanf(const char *str, const char *format, ...);
+extern int vfscanf(FILE * stream, const char *format, va_list ap);
+extern int fscanf(FILE *stream, const char *format, ...);
