@@ -23,6 +23,7 @@ with open('util/devtable','w') as devtable:
     # Copy permissions and set ownership for user files
     for user_details in [('local',1000)]:
         user, uid = user_details
+        devtable.write('/home/{user} d 755 {uid} {uid} - - - - -\n'.format(user=user,uid=uid))
         for path in getPaths('./base/home/{user}'.format(user=user)):
             p = Path(path)
             path_mod = path.replace('./base','').rstrip('/')
