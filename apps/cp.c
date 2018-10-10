@@ -36,6 +36,7 @@ int main(int argc, char ** argv) {
 	struct stat statbuf;
 	stat(argv[1], &statbuf);
 	int initial_mode = statbuf.st_mode;
+	char * target_path = NULL;
 
 	stat(argv[2], &statbuf);
 	if (S_ISDIR(statbuf.st_mode)) {
@@ -44,17 +45,17 @@ int main(int argc, char ** argv) {
 			filename = argv[1];
 		}
 
-		char *target_path = malloc((strlen(argv[2]) + strlen(filename) + 2) * sizeof(char));
+		target_path = malloc((strlen(argv[2]) + strlen(filename) + 2) * sizeof(char));
 		sprintf(target_path, "%s/%s", argv[2], filename );
 		fout = fopen( target_path, "w" );
 
-		free(target_path);
 	} else {
+		target_path = argv[2];
 		fout = fopen( argv[2], "w" );
 	}
 
 	if (!fout) {
-		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2], strerror(errno));
+		fprintf(stderr, "%s: %s: %s\n", argv[0], target_path, strerror(errno));
 		return 1;
 	}
 
@@ -78,7 +79,7 @@ int main(int argc, char ** argv) {
 	fclose(fd);
 	fclose(fout);
 
-	if (chmod(argv[2], initial_mode) < 0) {
+	if (chmod(target_path, initial_mode) < 0) {
 		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2], strerror(errno));
 	}
 
