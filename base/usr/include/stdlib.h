@@ -26,6 +26,9 @@ extern int atoi(const char * nptr);
 extern long atol(const char * nptr);
 extern long int labs(long int j);
 extern long int strtol(const char * s, char **endptr, int base);
+extern long long int strtoll(const char *nptr, char **endptr, int base);
+extern unsigned long int strtoul(const char *nptr, char **endptr, int base);
+extern unsigned long long int strtoull(const char *nptr, char **endptr, int base);
 
 extern void srand(unsigned int);
 extern int rand(void);
