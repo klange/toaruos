@@ -47,11 +47,6 @@ void * memrchr(const void * m, int c, size_t n) {
 	return 0;
 }
 
-int strcasecmp(const char * s1, const char * s2) {
-	for (; tolower(*s1) == tolower(*s2) && *s1; s1++, s2++);
-	return *(unsigned char *)s1 - *(unsigned char *)s2;
-}
-
 int strcmp(const char * l, const char * r) {
 	for (; *l == *r && *l; l++, r++);
 	return *(unsigned char *)l - *(unsigned char *)r;
@@ -368,28 +363,6 @@ long atol(const char * s) {
 }
 
 int atoi(const char * s) {
-	int n = 0;
-	int neg = 0;
-	while (isspace(*s)) {
-		s++;
-	}
-	switch (*s) {
-		case '-':
-			neg = 1;
-			/* Fallthrough is intentional here */
-		case '+':
-			s++;
-	}
-	while (isdigit(*s)) {
-		n = 10*n - (*s++ - '0');
-	}
-	/* The sign order may look incorrect here but this is correct as n is calculated
-	 * as a negative number to avoid overflow on INT_MAX.
-	 */
-	return neg ? n : -n;
-}
-
-long int strtol(const char * s, char **endptr, int base) {
 	int n = 0;
 	int neg = 0;
 	while (isspace(*s)) {
