@@ -78,3 +78,6 @@ extern int rename(const char * oldpath, const char * newpath);
 
 extern char * tmpnam(char * s);
 #define L_tmpnam 256
+
+extern int vsscanf(const char *str, const char *format, va_list ap);
+extern int sscanf(const char *str, const char *format, ...);
