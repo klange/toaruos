@@ -45,3 +45,6 @@ extern void abort(void);
 #define EXIT_FAILURE 1
 
 #define NULL 0
+
+extern void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
+	int (*compar)(const void *, const void *));
