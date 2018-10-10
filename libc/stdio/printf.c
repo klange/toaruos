@@ -145,6 +145,10 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 		if (*f == 'l') {
 			big = 1;
 			++f;
+			if (*f == 'l') {
+				big = 2;
+				++f;
+			}
 		}
 		if (*f == 'z') {
 			big = 1;
@@ -201,14 +205,27 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				}
 			case 'x': /* Hexadecimal number */
 				i = b - buf;
-				print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+				if (big == 2) {
+					unsigned long long val = (unsigned long long)va_arg(args, unsigned long long);
+					if (val > 0xFFFFFFFF) {
+						print_hex(val >> 32, arg_width > 8 ? (arg_width - 8) : 0, buf, &i);
+					}
+					print_hex(val & 0xFFFFFFFF, arg_width > 8 ? 8 : arg_width, buf, &i);
+				} else {
+					print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+				}
 				b = buf + i;
 				break;
 			case 'i':
 			case 'd': /* Decimal number */
 				i = b - buf;
 				{
-					long val = (long)va_arg(args, long);
+					long long val;
+					if (big == 2) {
+						val = (long long)va_arg(args, long long);
+					} else {
+						val = (long)va_arg(args, long);
+					}
 					if (val < 0) {
 						*b++ = '-';
 						buf++;
@@ -221,7 +238,12 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 			case 'u': /* Unsigned ecimal number */
 				i = b - buf;
 				{
-					long val = (long)va_arg(args, long);
+					unsigned long long val;
+					if (big == 2) {
+						val = (unsigned long long)va_arg(args, unsigned long long);
+					} else {
+						val = (unsigned long)va_arg(args, unsigned long);
+					}
 					print_dec(val, arg_width, buf, &i, fill_zero, align);
 				}
 				b = buf + i;
@@ -308,7 +330,6 @@ int printf(const char *fmt, ...) {
 	char * buffer;
 	vasprintf(&buffer, fmt, args);
 	va_end(args);
-
 	int out = fwrite(buffer, 1, strlen(buffer), stdout);
 	free(buffer);
 	return out;
