@@ -2124,7 +2124,7 @@ static void * handle_incoming(void) {
 					new_y /= char_height;
 
 					if (new_x < 0 || new_y < 0) break;
-					if (new_x > term_width || new_y > term_height) break;
+					if (new_x >= term_width || new_y >= term_height) break;
 
 					/* Map Cursor Action */
 					if (ansi_state->mouse_on) {
