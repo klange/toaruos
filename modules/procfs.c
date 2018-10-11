@@ -789,6 +789,42 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
 	return out;
 }
 
+static int readlink_self(fs_node_t * node, char * buf, size_t size) {
+	char tmp[30];
+	size_t req;
+	sprintf(tmp, "/proc/%d", current_process->id);
+	req = strlen(tmp) + 1;
+
+	if (size < req) {
+		memcpy(buf, tmp, size);
+		buf[size-1] = '\0';
+		return size-1;
+	}
+
+	if (size > req) size = req;
+
+	memcpy(buf, tmp, size);
+	return size-1;
+}
+
+static fs_node_t * procfs_create_self(void) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	fnode->inode = 0;
+	strcpy(fnode->name, "self");
+	fnode->mask = 0777;
+	fnode->uid  = 0;
+	fnode->gid  = 0;
+	fnode->flags   = FS_FILE | FS_SYMLINK;
+	fnode->readlink = readlink_self;
+	fnode->length  = 1;
+	fnode->nlink   = 1;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
+	return fnode;
+}
+
 static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 	if (!name) return NULL;
 	if (strlen(name) < 1) return NULL;
@@ -805,7 +841,7 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 	}
 
 	if (!strcmp(name,"self")) {
-		return procfs_procdir_create((process_t *)current_process);
+		return procfs_create_self();
 	}
 
 	for (unsigned int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
