@@ -450,8 +450,13 @@ struct yutani_msg_clipboard {
  *
  * Flags provided in resize offers describing the window state.
  */
-#define YUTANI_RESIZE_NORMAL 0
-#define YUTANI_RESIZE_TILED  1
+#define YUTANI_RESIZE_NORMAL 0x00000000
+#define YUTANI_RESIZE_TILED  0x0000000f
+
+#define YUTANI_RESIZE_TILE_LEFT  0x00000001
+#define YUTANI_RESIZE_TILE_RIGHT 0x00000002
+#define YUTANI_RESIZE_TILE_UP    0x00000004
+#define YUTANI_RESIZE_TILE_DOWN  0x00000008
 
 typedef struct {
 	int x;

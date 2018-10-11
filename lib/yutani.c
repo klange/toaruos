@@ -93,11 +93,8 @@ static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 				struct yutani_msg_window_resize * wr = (void *)out->data;
 				yutani_window_t * win = hashmap_get(y->windows, (void *)wr->wid);
 				if (win) {
-					if (wr->flags & YUTANI_RESIZE_TILED) {
-						win->decorator_flags |= (DECOR_FLAG_TILED);
-					} else {
-						win->decorator_flags &= ~(DECOR_FLAG_TILED);
-					}
+					win->decorator_flags &= ~(DECOR_FLAG_TILED);
+					win->decorator_flags |= (wr->flags & YUTANI_RESIZE_TILED) << 2;
 				}
 			}
 		default:

@@ -1342,10 +1342,8 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 
 	int w = yg->width / width_div;
 	int h = (yg->height - panel_h) / height_div;
-
-	/* Calculate, move, etc. */
-	window_move(yg, window, w * x, panel_h + h * y);
-
+	int _x = w * x;
+	int _y = panel_h + h * y;
 	if (x == width_div - 1) {
 		w = yg->width - w * x;
 	}
@@ -1353,8 +1351,37 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 		h = (yg->height - panel_h) - h * y;
 	}
 
+	int tile = YUTANI_RESIZE_TILED;
+
+	/* If not left most */
+	if (x > 0) {
+		_x -= 1;
+		w++;
+		tile &= ~YUTANI_RESIZE_TILE_LEFT;
+	}
+
+	/* If not right most */
+	if (x < width_div) {
+		w++;
+		tile &= ~YUTANI_RESIZE_TILE_RIGHT;
+	}
+
+	/* If not top most */
+	if (y > 0) {
+		_y -= 1;
+		h++;
+		tile &= ~YUTANI_RESIZE_TILE_UP;
+	}
+
+	/* If not bottom most */
+	if (y < height_div) {
+		h++;
+		tile &= ~YUTANI_RESIZE_TILE_DOWN;
+	}
+
+	window_move(yg, window, _x, _y);
 	yutani_msg_buildx_window_resize_alloc(response);
-	yutani_msg_buildx_window_resize(response, YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0, YUTANI_RESIZE_TILED);
+	yutani_msg_buildx_window_resize(response, YUTANI_MSG_RESIZE_OFFER, window->wid, w, h, 0, tile);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
 }
 

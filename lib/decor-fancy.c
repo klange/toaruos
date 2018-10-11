@@ -52,11 +52,11 @@ static int get_bounds_fancy(yutani_window_t * window, struct decor_bounds * boun
 		bounds->left_width = 6;
 		bounds->right_width = 6;
 	} else {
-		/* TODO: Window type */
-		bounds->top_height = 27;
-		bounds->bottom_height = 0;
-		bounds->left_width = 0;
-		bounds->right_width = 0;
+		/* Any "exposed" edge gets an extra pixel. */
+		bounds->top_height = 27 + !(window->decorator_flags & DECOR_FLAG_TILE_UP);
+		bounds->bottom_height   = !(window->decorator_flags & DECOR_FLAG_TILE_DOWN);
+		bounds->left_width      = !(window->decorator_flags & DECOR_FLAG_TILE_LEFT);
+		bounds->right_width     = !(window->decorator_flags & DECOR_FLAG_TILE_RIGHT);
 	}
 
 	bounds->width = bounds->left_width + bounds->right_width;
@@ -81,11 +81,34 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 
 	if ((window->decorator_flags & DECOR_FLAG_TILED)) {
 		for (int i = 0; i < width; ++i) {
-			draw_sprite(ctx, sprites[decors_active + 1], i, -6);
+			draw_sprite(ctx, sprites[decors_active + 1], i, -6 + !(window->decorator_flags & DECOR_FLAG_TILE_UP));
 		}
+
+		uint32_t clear_color = rgb(62,62,62);
+		if (!(window->decorator_flags & DECOR_FLAG_TILE_DOWN)) {
+			/* Draw bottom line */
+			for (int i = 0; i < (int)window->width; ++i) {
+				GFX(ctx,i,window->height-1) = clear_color;
+			}
+		}
+
+		if (!(window->decorator_flags & DECOR_FLAG_TILE_LEFT)) {
+			/* Draw left line */
+			for (int i = 0; i < (int)window->height; ++i) {
+				GFX(ctx,0,i) = clear_color;
+			}
+		}
+
+		if (!(window->decorator_flags & DECOR_FLAG_TILE_RIGHT)) {
+			/* Draw right line */
+			for (int i = 0; i < (int)window->height; ++i) {
+				GFX(ctx,window->width-1,i) = clear_color;
+			}
+		}
+
 	} else {
 
-		uint32_t clear_color = ((window->decorator_flags & DECOR_FLAG_TILED) ? rgb(62,62,62) : 0);
+		uint32_t clear_color = 0x000000;
 
 		for (int j = (int)bounds.top_height; j < height - (int)bounds.bottom_height; ++j) {
 			for (int i = 0; i < (int)bounds.left_width; ++i) {
