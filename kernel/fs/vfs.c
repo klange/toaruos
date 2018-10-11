@@ -948,30 +948,14 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 
 	if (!node_ptr) return NULL;
 
-	if (path_offset >= path+path_len) {
-		free(path);
-		open_fs(node_ptr, flags);
-		return node_ptr;
-	}
-	fs_node_t *node_next = NULL;
-	for (; depth < path_depth; ++depth) {
-		/* Search the active directory for the requested directory */
-		debug_print(INFO, "... Searching for %s", path_offset);
-		node_next = finddir_fs(node_ptr, path_offset);
-		free(node_ptr); /* Always a clone or an unopened thing */
-		node_ptr = node_next;
-		if (!node_ptr) {
-			/* We failed to find the requested directory */
-			free((void *)path);
-			return NULL;
-		}
+	do {
 		/* 
 		 * This test is a little complicated, but we basically always resolve symlinks in the
 		 * of a path (like /home/symlink/file) even if O_NOFOLLOW and O_PATH are set. If we are
 		 * on the leaf of the path then we will look at those flags and act accordingly
 		 */
 		if ((node_ptr->flags & FS_SYMLINK) &&
-				!((flags & O_NOFOLLOW) && (flags & O_PATH) && depth == path_depth - 1)) {
+				!((flags & O_NOFOLLOW) && (flags & O_PATH) && depth == path_depth)) {
 			/* This ensures we don't return a path when NOFOLLOW is requested but PATH
 			 * isn't passed.
 			 */
@@ -1015,7 +999,7 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 			char * relpath = malloc(path_len + 1);
 			char * ptr = relpath;
 			memcpy(relpath, path, path_len + 1);
-			for (unsigned int i = 0; i < depth; i++) {
+			for (unsigned int i = 0; depth && i < depth-1; i++) {
 				while(*ptr != '\0') {
 					ptr++;
 				}
@@ -1031,15 +1015,31 @@ fs_node_t *kopen_recur(char *filename, uint32_t flags, uint32_t symlink_depth, c
 				return NULL;
 			}
 		}
-		if (depth == path_depth - 1) {
+		if (path_offset >= path+path_len) {
+			free(path);
+			open_fs(node_ptr, flags);
+			return node_ptr;
+		}
+		if (depth == path_depth) {
 			/* We found the file and are done, open the node */
 			open_fs(node_ptr, flags);
 			free((void *)path);
 			return node_ptr;
 		}
 		/* We are still searching... */
+		debug_print(INFO, "... Searching for %s", path_offset);
+		fs_node_t * node_next = finddir_fs(node_ptr, path_offset);
+		free(node_ptr); /* Always a clone or an unopened thing */
+		node_ptr = node_next;
+		/* Search the active directory for the requested directory */
+		if (!node_ptr) {
+			/* We failed to find the requested directory */
+			free((void *)path);
+			return NULL;
+		}
 		path_offset += strlen(path_offset) + 1;
-	}
+		++depth;
+	} while (depth < path_depth + 1);
 	debug_print(INFO, "- Not found.");
 	/* We failed to find the requested file, but our loop terminated. */
 	free((void *)path);
