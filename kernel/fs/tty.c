@@ -20,6 +20,7 @@
 static int _pty_counter = 0;
 static hashmap_t * _pty_index = NULL;
 static fs_node_t * _pty_dir = NULL;
+static fs_node_t * _dev_tty = NULL;
 
 static void pty_write_in(pty_t * pty, uint8_t c) {
 	ring_buffer_write(pty->in, 1, &c);
@@ -422,6 +423,62 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	return fnode;
 }
 
+static int isatty(fs_node_t * node) {
+	if (!node) return 0;
+	if (!node->ioctl) return 0;
+	return ioctl_fs(node, IOCTLDTYPE, NULL) == IOCTL_DTYPE_TTY;
+}
+
+static int readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
+	pty_t * pty = NULL;
+
+	for (unsigned int i = 0; i < ((current_process->fds->length < 3) ? current_process->fds->length : 3); ++i) {
+		if (isatty(current_process->fds->entries[i])) {
+			pty = (pty_t *)current_process->fds->entries[i]->device;
+			break;
+		}
+	}
+
+	char tmp[30];
+	size_t req;
+	if (!pty) {
+		sprintf(tmp, "/dev/null");
+	} else {
+		sprintf(tmp, "/dev/pts/%d", pty->name);
+	}
+
+	req = strlen(tmp) + 1;
+
+	if (size < req) {
+		memcpy(buf, tmp, size);
+		buf[size-1] = '\0';
+		return size-1;
+	}
+
+	if (size > req) size = req;
+
+	memcpy(buf, tmp, size);
+	return size-1;
+}
+
+static fs_node_t * create_dev_tty(void) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	fnode->inode = 0;
+	strcpy(fnode->name, "tty");
+	fnode->mask = 0777;
+	fnode->uid  = 0;
+	fnode->gid  = 0;
+	fnode->flags   = FS_FILE | FS_SYMLINK;
+	fnode->readlink = readlink_dev_tty;
+	fnode->length  = 1;
+	fnode->nlink   = 1;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
+	return fnode;
+}
+
 static struct dirent * readdir_pty(fs_node_t *node, uint32_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
@@ -511,8 +568,10 @@ static fs_node_t * create_pty_dir(void) {
 void pty_install(void) {
 	_pty_index = hashmap_create_int(10);
 	_pty_dir   = create_pty_dir();
+	_dev_tty   = create_dev_tty();
 
 	vfs_mount("/dev/pts", _pty_dir);
+	vfs_mount("/dev/tty", _dev_tty);
 }
 
 pty_t * pty_new(struct winsize * size) {
