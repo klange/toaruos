@@ -424,13 +424,18 @@ int main (int argc, char * argv[]) {
 			struct tfile * f = malloc(sizeof(struct tfile));
 
 			f->name = p;
-			int t = stat(p, &f->statbuf);
+			int t = lstat(p, &f->statbuf);
 
 			if (t < 0) {
 				printf("ls: cannot access %s: No such file or directory\n", p);
 				free(f);
 				out = 2;
 			} else {
+				if (S_ISLNK(f->statbuf.st_mode)) {
+					stat(p, &f->statbufl);
+					f->link = malloc(4096);
+					readlink(p, f->link, 4096);
+				}
 				list_insert(files, f);
 			}
 
