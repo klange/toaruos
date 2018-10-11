@@ -33,6 +33,11 @@
 # Generic
 /base/usr/share/aclocal
 /base/usr/share/gtk-doc
+/base/usr/share/man
+
+# zlib
+/base/usr/include/zconf.h
+/base/usr/include/zlib.h
 
 # binutils
 /base/usr/i686-pc-toaru
