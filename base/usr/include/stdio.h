@@ -7,6 +7,7 @@
 _Begin_C_Header
 
 typedef struct _FILE FILE;
+#define __DEFINED_FILE
 
 #define BUFSIZ 8192
 
