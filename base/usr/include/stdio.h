@@ -83,3 +83,10 @@ extern int vsscanf(const char *str, const char *format, va_list ap);
 extern int sscanf(const char *str, const char *format, ...);
 extern int vfscanf(FILE * stream, const char *format, va_list ap);
 extern int fscanf(FILE *stream, const char *format, ...);
+extern int scanf(const char *format, ...);
+
+typedef long fpos_t;
+
+extern int fgetpos(FILE *stream, fpos_t *pos);
+extern int fsetpos(FILE *stream, const fpos_t *pos);
+

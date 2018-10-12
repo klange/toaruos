@@ -72,3 +72,6 @@ double strtod(const char *nptr, char **endptr) {
 	return result;
 }
 
+float strtof(const char *nptr, char **endptr) {
+	return strtod(nptr,endptr);
+}

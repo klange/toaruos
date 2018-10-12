@@ -68,6 +68,10 @@ double fabs(double x) {
 	return __builtin_fabs(x);
 }
 
+float fabsf(float x) {
+	return fabs(x);
+}
+
 double fmod(double x, double y) {
 	MATH;
 	if (x >= 0.0) {
@@ -83,6 +87,10 @@ double fmod(double x, double y) {
 double sqrt(double x) {
 	MATH;
 	return __builtin_sqrt(x);
+}
+
+float sqrtf(float x) {
+	return sqrt(x);
 }
 
 static double bad_sine_table[] = {

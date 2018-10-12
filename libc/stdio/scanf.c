@@ -52,3 +52,11 @@ int fscanf(FILE *stream, const char *format, ...) {
 	va_end(args);
 	return out;
 }
+
+int scanf(const char *format, ...) {
+	va_list args;
+	va_start(args, format);
+	int out = vfscanf(stdin, format, args);
+	va_end(args);
+	return out;
+}

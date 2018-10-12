@@ -21,6 +21,7 @@ extern int setenv(const char *name, const char *value, int overwrite);
 extern int unsetenv(const char * str);
 
 extern double strtod(const char *nptr, char **endptr);
+extern float strtof(const char *nptr, char **endptr);
 extern double atof(const char * nptr);
 extern int atoi(const char * nptr);
 extern long atol(const char * nptr);
@@ -49,7 +50,14 @@ extern void abort(void);
 extern void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
 	int (*compar)(const void *, const void *));
 
-extern char * mktemp(char * template);
+extern char * mktemp(char *);
 
 extern size_t mbstowcs(wchar_t *dest, const char *src, size_t n);
 extern size_t wcstombs(char * dest, const wchar_t *src, size_t n);
+
+typedef struct { int quot; int rem; } div_t;
+typedef struct { long int quot; long int rem; } ldiv_t;
+
+extern div_t div(int numerator, int denominator);
+extern ldiv_t ldiv(long numerator, long denominator);
+

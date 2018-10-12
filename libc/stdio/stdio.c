@@ -289,6 +289,18 @@ long ftell(FILE * stream) {
 	return resp;
 }
 
+int fgetpos(FILE *stream, fpos_t *pos) {
+	long ret = ftell(stream);
+	if (ret == -1) return -1;
+
+	*pos = ret;
+	return 0;
+}
+
+int fsetpos(FILE *stream, const fpos_t *pos) {
+	return fseek(stream, *pos, SEEK_SET);
+}
+
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream) {
 	char * tracking = (char*)ptr;
 	for (size_t i = 0; i < nmemb; ++i) {

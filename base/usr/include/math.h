@@ -6,7 +6,9 @@ extern double pow(double x, double y);
 extern double exp(double x);
 extern double fmod(double x, double y);
 extern double sqrt(double x);
+extern float sqrtf(float x);
 extern double fabs(double x);
+extern float fabsf(float x);
 extern double sin(double x);
 extern double cos(double x);
 
