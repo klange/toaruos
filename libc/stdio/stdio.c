@@ -319,6 +319,8 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream) {
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream) {
 	size_t out_size = size * nmemb;
 
+	if (!out_size) return 0;
+
 	int r = syscall_write(stream->fd, (void*)ptr, out_size);
 	if (r < 0) {
 		errno = -r;
