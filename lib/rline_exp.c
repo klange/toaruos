@@ -758,6 +758,11 @@ static void render_line(void) {
 	printf("\033[?25l");
 	printf("\033[0m\r%s", prompt);
 
+	if (offset && prompt_width) {
+		set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+		printf("\b<");
+	}
+
 	int i = 0; /* Offset in char_t line data entries */
 	int j = 0; /* Offset in terminal cells */
 
