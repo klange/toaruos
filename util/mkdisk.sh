@@ -8,15 +8,22 @@ IN=$2
 OUTDIR=`dirname $1`
 
 if [ -e "$DIR/../base/usr/share/fonts" ]; then
-    SIZE=128
+    if [ -e "$DIR/../base/usr/local/bin/gcc" ]; then
+        SIZE=200
+        SPC=4
+    else
+        SIZE=128
+        SPC=1
+    fi
 else
     SIZE=64
+    SPC=1
 fi
 
 rm -f $OUT
 mkdir -p cdrom
 fallocate -l ${SIZE}M $OUT || dd if=/dev/zero bs=1M count=${SIZE} of=$OUT
-mkfs.fat -s 1 -S 2048 $OUT
+mkfs.fat -s $SPC -S 2048 $OUT
 
 #echo "Turning $IN into $OUT"
 
