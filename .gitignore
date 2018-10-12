@@ -34,6 +34,18 @@
 /base/usr/share/aclocal
 /base/usr/share/gtk-doc
 /base/usr/share/man
+/base/usr/share/info/
+/base/usr/share/doc/
+
+# GMP
+/base/usr/include/gmp.h
+
+# MPFR
+/base/usr/include/mpf2mpfr.h
+/base/usr/include/mpfr.h
+
+# MPC
+/base/usr/include/mpc.h
 
 # zlib
 /base/usr/include/zconf.h
