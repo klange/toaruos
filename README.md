@@ -1,6 +1,6 @@
 # ToaruOS
 
-ToaruOS is a hobbyist, educational, Unix-like operating system built entirely from scratch. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 60,000 lines of C and assembly, all of which is included in this repository.
+ToaruOS is a hobbyist, educational, Unix-like operating system built entirely from scratch and capable of hosting Python 3 and GCC. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 60,000 lines of C and assembly, all of which is included in this repository.
 
 ![Screenshot](https://i.imgur.com/aCvPH4X.png)
 *Demonstration of ToaruOS's UI, terminal emulator, and editor, showing a Python graphical application with Freetype and Cairo.*
@@ -156,7 +156,7 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### Is ToaruOS self-hosting?
 
-Prior to the merging of the "NIH" branch, ToaruOS was capable of running Binutils and GCC and could build its own kernel and core userspace (and also had a port of Bochs in which to run the resulting images), but was not demonstrated to have been able to build GCC and Binutils themselves due to limitations in the native shell. Native GCC builds for ToaruOS 1.6.x are experimental, but functioning. Consideration has also been put towards development of our own C compiler.
+While it has not yet been tested, ToaruOS should be capable of building its own kernel, driver modules, libraries, and applications given a hosted GCC. We are working to reduce the external dependencies required to build full CD images, and are considering writing our own C compiler for use with the OS, in order to fully close the loop, while also expanding the available ports to hopefully include everything necessary for a full build.
 
 ### Is ToaruOS a Linux distribution?
 
