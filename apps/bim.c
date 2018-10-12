@@ -5731,32 +5731,32 @@ _readonly:
  * Show help text for -?
  */
 static void show_usage(char * argv[]) {
-#define _S "\033[3m"
-#define _E "\033[0m\n"
+#define _s "\033[3m"
+#define _e "\033[0m\n"
 	printf(
 			"bim - Text editor\n"
 			"\n"
 			"usage: %s [options] [file]\n"
 			"       %s [options] -- -\n"
 			"\n"
-			" -R     " _S "open initial buffer read-only" _E
-			" -O     " _S "set various options:" _E
-			"        noscroll    " _S "disable terminal scrolling" _E
-			"        noaltscreen " _S "disable alternate screen buffer" _E
-			"        nomouse     " _S "disable mouse support" _E
-			"        nounicode   " _S "disable unicode display" _E
-			"        nobright    " _S "disable bright next" _E
-			"        nohideshow  " _S "disable togglging cursor visibility" _E
-			"        nosyntax    " _S "disable syntax highlighting on load" _E
-			"        notitle     " _S "disable title-setting escapes" _E
-			"        history     " _S "enable experimental undo/redo" _E
-			" -c,-C  " _S "print file to stdout with syntax hilighting" _E
-			"        " _S "-C includes line numbers, -c does not" _E
-			" -u     " _S "override bimrc file" _E
-			" -?     " _S "show this help text" _E
+			" -R     " _s "open initial buffer read-only" _e
+			" -O     " _s "set various options:" _e
+			"        noscroll    " _s "disable terminal scrolling" _e
+			"        noaltscreen " _s "disable alternate screen buffer" _e
+			"        nomouse     " _s "disable mouse support" _e
+			"        nounicode   " _s "disable unicode display" _e
+			"        nobright    " _s "disable bright next" _e
+			"        nohideshow  " _s "disable togglging cursor visibility" _e
+			"        nosyntax    " _s "disable syntax highlighting on load" _e
+			"        notitle     " _s "disable title-setting escapes" _e
+			"        history     " _s "enable experimental undo/redo" _e
+			" -c,-C  " _s "print file to stdout with syntax hilighting" _e
+			"        " _s "-C includes line numbers, -c does not" _e
+			" -u     " _s "override bimrc file" _e
+			" -?     " _s "show this help text" _e
 			"\n", argv[0], argv[0]);
-#undef _E
-#undef _S
+#undef _e
+#undef _s
 }
 
 /**
