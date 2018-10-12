@@ -36,6 +36,7 @@
 /base/usr/share/man
 /base/usr/share/info/
 /base/usr/share/doc/
+/base/usr/local
 
 # GMP
 /base/usr/include/gmp.h
