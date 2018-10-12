@@ -44,7 +44,7 @@ typedef struct {
 } siginfo_t;
 
 typedef unsigned long sigset_t;
-typedef void (*_sig_func_ptr)();
+typedef void (*_sig_func_ptr)(int);
 
 struct sigaction {
 	int         sa_flags;
