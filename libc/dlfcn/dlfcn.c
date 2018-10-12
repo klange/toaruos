@@ -21,3 +21,8 @@ void * dlsym(void * handle, const char * symbol) {
 char * dlerror(void) {
 	return error;
 }
+
+int __cxa_atexit(void (*fn)(void *), void * arg, void *d) {
+	return 0;
+}
+
