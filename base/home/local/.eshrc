@@ -8,3 +8,6 @@ export PS1="\e]1;\u@\h:\w\\007\e]2;\u@\\h:\w\007\\e[1m\e[s\e[400C\e[16D\e[1m\e[3
 export-cmd START kcmdline -g start
 if equals? "$START" "--vga" then export RLINE_THEME="default" else export RLINE_THEME="sunsmoke"
 unset START
+
+if stat -Lq /usr/local/bin then export PATH="/usr/local/bin:$PATH"
+if stat -Lq /usr/i686-pc-toaru/bin then export PATH="/usr/i686-pc-toaru/bin:$PATH"
