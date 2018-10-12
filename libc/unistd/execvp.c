@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <syscall.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,10 +6,21 @@
 #include <sys/stat.h>
 
 extern char ** environ;
+extern char * _argv_0;
+extern int __libc_debug;
 
 #define DEFAULT_PATH "/bin:/usr/bin"
 
 int execve(const char *name, char * const argv[], char * const envp[]) {
+	if (__libc_debug) {
+		fprintf(stderr, "%s: execve(\"%s\"", _argv_0, name);
+		char * const* arg = argv;
+		while (*arg) {
+			fprintf(stderr,", \"%s\"", *arg);
+			arg++;
+		}
+		fprintf(stderr, ")\n");
+	}
 	__sets_errno(syscall_execve((char*)name,(char**)argv,(char**)envp));
 }
 
@@ -36,6 +48,7 @@ int execvp(const char *file, char *const argv[]) {
 			if (!(stat_buf.st_mode & 0111)) {
 				continue; /* XXX not technically correct; need to test perms */
 			}
+
 			return execve(exe, argv, environ);
 		}
 		free(xpath);
