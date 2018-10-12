@@ -18,6 +18,8 @@ struct _FILE {
 	int ungetc;
 	int eof;
 	int bufsiz;
+	long last_read_start;
+	char * _name;
 };
 
 FILE _stdin = {
@@ -28,6 +30,7 @@ FILE _stdin = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 };
 
@@ -39,6 +42,7 @@ FILE _stdout = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 };
 
@@ -50,6 +54,7 @@ FILE _stderr = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 };
 
@@ -61,6 +66,9 @@ void __stdio_init_buffers(void) {
 	_stdin.read_buf = malloc(BUFSIZ);
 	//_stdout.read_buf = malloc(BUFSIZ);
 	//_stderr.read_buf = malloc(BUFSIZ);
+	_stdin._name = strdup("stdin");
+	_stdout._name = strdup("stdout");
+	_stderr._name = strdup("stderr");
 }
 
 #if 0
@@ -74,6 +82,7 @@ static char * stream_id(FILE * stream) {
 }
 #endif
 
+extern int __libc_debug;
 extern char * _argv_0;
 
 int setvbuf(FILE * stream, char * buf, int mode, size_t size) {
@@ -110,6 +119,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 			if (f->offset == f->bufsiz) {
 				f->offset = 0;
 			}
+			f->last_read_start = syscall_lseek(f->fd, 0, SEEK_CUR);
 			ssize_t r = read(fileno(f), &f->read_buf[f->offset], f->bufsiz - f->offset);
 			if (r < 0) {
 				//fprintf(stderr, "error condition\n");
@@ -185,6 +195,7 @@ FILE * fopen(const char *path, const char *mode) {
 	}
 
 	FILE * out = malloc(sizeof(FILE));
+	memset(out, 0, sizeof(struct _FILE));
 	out->fd = fd;
 	out->read_buf = malloc(BUFSIZ);
 	out->bufsiz = BUFSIZ;
@@ -193,6 +204,7 @@ FILE * fopen(const char *path, const char *mode) {
 	out->offset = 0;
 	out->ungetc = -1;
 	out->eof = 0;
+	out->_name = strdup(path);
 
 	return out;
 }
@@ -213,6 +225,7 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 		stream->offset = 0;
 		stream->ungetc = -1;
 		stream->eof = 0;
+		stream->_name = strdup(path);
 		if (fd < 0) {
 			errno = -fd;
 			return NULL;
@@ -231,6 +244,7 @@ int ungetc(int c, FILE * stream) {
 
 FILE * fdopen(int fd, const char *mode){
 	FILE * out = malloc(sizeof(FILE));
+	memset(out, 0, sizeof(struct _FILE));
 	out->fd = fd;
 	out->read_buf = malloc(BUFSIZ);
 	out->bufsiz = BUFSIZ;
@@ -239,6 +253,9 @@ FILE * fdopen(int fd, const char *mode){
 	out->offset = 0;
 	out->ungetc = -1;
 	out->eof = 0;
+	char tmp[30];
+	sprintf(tmp, "fd[%d]", fd);
+	out->_name = strdup(tmp);
 
 	return out;
 }
@@ -249,6 +266,7 @@ int _fwouldblock(FILE * stream) {
 
 int fclose(FILE * stream) {
 	int out = syscall_close(stream->fd);
+	free(stream->_name);
 	free(stream->read_buf);
 	if (stream == &_stdin || stream == &_stdout || stream == &_stderr) {
 		return out;
@@ -258,8 +276,25 @@ int fclose(FILE * stream) {
 	}
 }
 
+static char * _whence_str(int whence) {
+	if (whence == SEEK_SET) return "SEEK_SET";
+	if (whence == SEEK_CUR) return "SEEK_CUR";
+	if (whence == SEEK_END) return "SEEK_END";
+	return "?";
+}
+
 int fseek(FILE * stream, long offset, int whence) {
-	//fprintf(stderr, "%s: seek called, resetting\n", _argv_0);
+	if (_argv_0 && strcmp(_argv_0, "ld.so")) {
+		if (stream->read_from && whence == SEEK_CUR) {
+			if (__libc_debug) {
+				fprintf(stderr, "%s: fseek(%s, %ld, %s)\n", _argv_0, stream->_name, offset, _whence_str(whence));
+				fprintf(stderr, "\033[33;3mWARNING\033[0m: seeking when offset is currently %d\n", stream->read_from);
+				fprintf(stderr, "\033[33;3mWARNING\033[0m: this may not be reflected in kernel\n");
+			}
+			offset = offset + stream->read_from + stream->last_read_start;
+			whence = SEEK_SET;
+		}
+	}
 	stream->offset = 0;
 	stream->read_from = 0;
 	stream->available = 0;
@@ -275,7 +310,9 @@ int fseek(FILE * stream, long offset, int whence) {
 }
 
 long ftell(FILE * stream) {
-	//fprintf(stderr, "%s: tell called, resetting\n", _argv_0);
+	if (_argv_0 && strcmp(_argv_0, "ld.so") && __libc_debug) {
+		fprintf(stderr, "%s: ftell(%s)\n", _argv_0, stream->_name);
+	}
 	stream->offset = 0;
 	stream->read_from = 0;
 	stream->available = 0;

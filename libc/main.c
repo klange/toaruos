@@ -44,6 +44,7 @@ extern void _fini();
 char ** environ = NULL;
 int _environ_size = 0;
 char * _argv_0 = NULL;
+int __libc_debug = 0;
 
 char ** __argv = NULL;
 extern char ** __get_argv(void) {
@@ -116,6 +117,7 @@ static void _libc_init(void) {
 
 		environ = new_environ;
 	}
+	if (getenv("__LIBC_DEBUG")) __libc_debug = 1;
 	_argv_0 = __get_argv()[0];
 }
 
