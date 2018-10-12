@@ -293,7 +293,7 @@ int exec(
 
 	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
 		if (matches(fmts[i].bytes, head, fmts[i].match)) {
-			debug_print(WARNING, "Matched executor: %s", fmts[i].name);
+			debug_print(NOTICE, "Matched executor: %s", fmts[i].name);
 			return fmts[i].func(path, file, argc, argv, env, 0);
 		}
 	}
