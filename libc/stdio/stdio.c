@@ -313,6 +313,9 @@ long ftell(FILE * stream) {
 	if (_argv_0 && strcmp(_argv_0, "ld.so") && __libc_debug) {
 		fprintf(stderr, "%s: ftell(%s)\n", _argv_0, stream->_name);
 	}
+	if (stream->read_from || stream->last_read_start) {
+		return stream->last_read_start + stream->read_from;
+	}
 	stream->offset = 0;
 	stream->read_from = 0;
 	stream->available = 0;
