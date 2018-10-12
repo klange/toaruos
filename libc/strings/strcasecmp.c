@@ -7,13 +7,12 @@ int strcasecmp(const char * s1, const char * s2) {
 }
 
 int strncasecmp(const char *s1, const char *s2, size_t n) {
-	size_t i = 0;
-	while (i < n && tolower(*s1) && tolower(*s2)) {
-		if (tolower(*s1) < tolower(*s2)) return -1;
-		if (tolower(*s1) > tolower(*s2)) return 1;
+	if (n == 0) return 0;
+
+	while (n-- && tolower(*s1) == tolower(*s2)) {
+		if (!n || !*s1) break;
 		s1++;
 		s2++;
-		i++;
 	}
-	return 0;
+	return (unsigned int)tolower(*s1) - (unsigned int)tolower(*s2);
 }
