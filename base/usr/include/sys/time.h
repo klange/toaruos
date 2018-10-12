@@ -1,6 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
 #include <sys/types.h>
+
+_Begin_C_Header
 
 struct timeval {
 	time_t      tv_sec;     /* seconds */
@@ -13,3 +16,5 @@ struct timezone {
 };
 
 extern int gettimeofday(struct timeval *p, void *z);
+
+_End_C_Header

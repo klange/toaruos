@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stddef.h>
 #include <stdint.h>
+
+_Begin_C_Header
 
 typedef int mode_t;
 
@@ -79,3 +82,4 @@ extern int fstat(int fd, struct stat *st);
 extern int mkdir(const char *pathname, mode_t mode);
 extern mode_t umask(mode_t mask);
 
+_End_C_Header

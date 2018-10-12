@@ -1,7 +1,3 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
+#pragma once
+
 #include <sys/termios.h>
-#ifdef __cplusplus
-}
-#endif

@@ -1,5 +1,10 @@
+#pragma once
+
+#include <_cheader.h>
 #include <stdint.h>
 #include <stddef.h>
+
+_Begin_C_Header
 
 extern void * memset(void * dest, int c, size_t n);
 extern void * memcpy(void * dest, const void * src, size_t n);
@@ -46,5 +51,7 @@ extern char * strncpy(char *dest, const char *src, size_t n);
 
 extern char * strerror(int errnum);
 extern size_t strxfrm(char *dest, const char *src, size_t n);
+
+_End_C_Header
 
 #include <strings.h>

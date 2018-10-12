@@ -1,12 +1,10 @@
 /*
  * Stateful UTF-8 decoder
  */
-
 #include <stdint.h>
 
 #define UTF8_ACCEPT 0
 #define UTF8_REJECT 1
-
 
 static inline uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
 	static int state_table[32] = {

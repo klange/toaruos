@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stdint.h>
 #include <stddef.h>
+
+_Begin_C_Header
 
 #define DECL_SYSCALL0(fn)                int syscall_##fn()
 #define DECL_SYSCALL1(fn,p1)             int syscall_##fn(p1)
@@ -114,8 +117,6 @@ DECL_SYSCALL3(waitpid, int, int *, int);
 DECL_SYSCALL5(mount, char *, char *, char *, unsigned long, void *);
 DECL_SYSCALL1(pipe,  int *);
 DECL_SYSCALL3(readlink, char *, char *, int);
-/*
- * vim:tabstop=4
- * vim:noexpandtab
- * vim:shiftwidth=4
- */
+
+_End_C_Header
+

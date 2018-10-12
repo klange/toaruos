@@ -1,5 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
+
 /* Currently unused... */
 #define RTLD_LAZY   (1 << 0)
 #define RTLD_NOW    (1 << 1)
@@ -13,3 +17,4 @@ extern int dlclose(void *);
 extern void * dlsym(void *, const char *);
 extern char * dlerror(void);
 
+_End_C_Header

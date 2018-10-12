@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
+
 extern int toaru_auth_check_pass(char * user, char * pass);
 extern void toaru_auth_set_vars(void);
 
+_End_C_Header

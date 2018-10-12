@@ -1,6 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stddef.h>
+
+_Begin_C_Header
 
 extern void exit(int status);
 extern char * getenv(const char *name);
@@ -61,3 +64,4 @@ typedef struct { long int quot; long int rem; } ldiv_t;
 extern div_t div(int numerator, int denominator);
 extern ldiv_t ldiv(long numerator, long denominator);
 
+_End_C_Header

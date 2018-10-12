@@ -1,6 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
 #include <sys/types.h>
+
+_Begin_C_Header
 
 #define WNOHANG   0x0001
 #define WUNTRACED 0x0002
@@ -19,3 +22,5 @@
 extern pid_t wait(int*);
 extern pid_t waitpid(pid_t, int *, int);
 #endif
+
+_End_C_Header

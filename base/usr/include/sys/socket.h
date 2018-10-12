@@ -1,11 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stdint.h>
 #include <sys/types.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+_Begin_C_Header
 
 #define AF_INET 1
 #define AF_UNSPEC 0
@@ -28,7 +27,7 @@ struct hostent {
 	char **h_addr_list;       /* list of addresses */
 };
 
-struct hostent * gethostbyname(const char * name);
+extern struct hostent * gethostbyname(const char * name);
 
 typedef size_t socklen_t;
 
@@ -78,31 +77,29 @@ struct msghdr {
 typedef uint32_t in_addr_t;
 typedef uint16_t in_port_t;
 
-ssize_t recv(int sockfd, void *buf, size_t len, int flags);
-ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
-ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
+extern ssize_t recv(int sockfd, void *buf, size_t len, int flags);
+extern ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+extern ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
 
 ssize_t send(int sockfd, const void *buf, size_t len, int flags);
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
 
-int socket(int domain, int type, int protocol);
+extern int socket(int domain, int type, int protocol);
 
-uint32_t htonl(uint32_t hostlong);
-uint16_t htons(uint16_t hostshort);
-uint32_t ntohl(uint32_t netlong);
-uint16_t ntohs(uint16_t netshort);
+extern uint32_t htonl(uint32_t hostlong);
+extern uint16_t htons(uint16_t hostshort);
+extern uint32_t ntohl(uint32_t netlong);
+extern uint16_t ntohs(uint16_t netshort);
 
-int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-int accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen);
-int listen(int sockfd, int backlog);
-int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
-int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+extern int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+extern int accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen);
+extern int listen(int sockfd, int backlog);
+extern int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+extern int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+extern int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+extern int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
 
-#ifdef __cplusplus
-}
-#endif
+_End_C_Header
 
 

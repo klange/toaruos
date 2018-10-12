@@ -1,7 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stddef.h>
 
+_Begin_C_Header
 extern int wcwidth(wchar_t c);
 extern wchar_t * wcsncpy(wchar_t * dest, const wchar_t * src, size_t n);
 extern size_t wcslen(const wchar_t * s);
@@ -15,3 +17,4 @@ extern wchar_t * wcsrchr(const wchar_t *wcs, wchar_t wc);
 extern wchar_t * wcsncat(wchar_t *dest, const wchar_t * src, size_t n);
 
 typedef unsigned int wint_t;
+_End_C_Header

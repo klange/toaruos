@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include <_cheader.h>
 #include <toaru/hashmap.h>
+
+_Begin_C_Header
 
 typedef struct {
 	hashmap_t * sections;
@@ -16,3 +19,4 @@ int confreader_int(confreader_t * ctx, char * section, char * value);
 int confreader_intd(confreader_t * ctx, char * section, char * value, int def);
 void confreader_free(confreader_t * conf);
 
+_End_C_Header

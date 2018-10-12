@@ -1,6 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
 #include <limits.h>
+
+_Begin_C_Header
 
 typedef int gid_t;
 typedef int uid_t;
@@ -29,3 +32,5 @@ typedef long fd_mask;
 typedef struct _fd_set {
     fd_mask fds_bits[2]; /* should be 64 bits */
 } fd_set;
+
+_End_C_Header

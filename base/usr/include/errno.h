@@ -1,9 +1,13 @@
 #pragma once
 
+#include <_cheader.h>
+
 /*
  * The bulk of these match Linux.
  * Descriptions come from newlib.
  */
+
+_Begin_C_Header
 
 #define EPERM 1               /* Not super-user */
 #define ENOENT 2              /* No such file or directory */
@@ -133,3 +137,5 @@
 extern int errno;
 #define __sets_errno(...) int ret = __VA_ARGS__; if (ret < 0) { errno = -ret; ret = -1; } return ret
 #endif
+
+_End_C_Header

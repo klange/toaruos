@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stdint.h>
 #include <syscall.h>
+
+_Begin_C_Header
 
 typedef struct {
 	uint32_t id;
@@ -17,3 +20,4 @@ extern int pthread_kill(pthread_t thread, int sig);
 extern int clone(uintptr_t,uintptr_t,void*);
 extern int gettid();
 
+_End_C_Header

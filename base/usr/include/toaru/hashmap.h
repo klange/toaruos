@@ -1,5 +1,6 @@
 #pragma once
 
+#include <_cheader.h>
 
 #ifdef _KERNEL_
 #	include <kernel/system.h>
@@ -10,6 +11,8 @@
 #endif
 
 #include <toaru/list.h>
+
+_Begin_C_Header
 
 typedef unsigned int (*hashmap_hash_t) (void * key);
 typedef int (*hashmap_comp_t) (void * a, void * b);
@@ -47,3 +50,4 @@ extern int hashmap_string_comp(void * a, void * b);
 extern void * hashmap_string_dupe(void * key);
 extern int hashmap_is_empty(hashmap_t * map);
 
+_End_C_Header

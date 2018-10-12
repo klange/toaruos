@@ -1,10 +1,13 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stdint.h>
 #include <stdbool.h>
 
 #include <toaru/hashmap.h>
 #include <toaru/graphics.h>
+
+_Begin_C_Header
 
 struct TR_Font {
 	int typeface; /* Should probably be more flexible than int, but tough luck for now. */
@@ -86,3 +89,4 @@ extern void tr_textregion_pick(struct TR_TextRegion * self, int x, int y, struct
 extern struct TR_TextUnit * tr_textregion_click(struct TR_TextRegion * self, int x, int y);
 extern void tr_textregion_draw(struct TR_TextRegion * self, gfx_context_t * ctx);
 
+_End_C_Header

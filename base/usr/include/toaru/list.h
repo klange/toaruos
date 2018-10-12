@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <_cheader.h>
+
 #ifdef _KERNEL_
 #	include <kernel/types.h>
 #else
@@ -11,6 +13,8 @@
 #	include <stddef.h>
 #	include <assert.h>
 #endif
+
+_Begin_C_Header
 
 typedef struct node {
 	struct node * next;
@@ -48,3 +52,4 @@ extern node_t * list_insert_before(list_t * list, node_t * after, void * item);
 #define foreach(i, list) for (node_t * i = (list)->head; i != NULL; i = i->next)
 #define foreachr(i, list) for (node_t * i = (list)->tail; i != NULL; i = i->prev)
 
+_End_C_Header

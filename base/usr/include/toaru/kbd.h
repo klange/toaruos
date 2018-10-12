@@ -1,5 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
+
 #define KBD_NORMAL 0
 #define KBD_ESC_A  1
 #define KBD_ESC_B  2
@@ -183,3 +187,4 @@ typedef struct {
 extern kbd_key_t kbd_key(key_event_state_t * state, unsigned char c);
 extern int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event);
 
+_End_C_Header

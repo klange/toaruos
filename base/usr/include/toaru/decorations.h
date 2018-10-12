@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include <_cheader.h>
 #include <toaru/graphics.h>
 #include <toaru/yutani.h>
+
+_Begin_C_Header
 
 /*
  * Render decorations to a window. A buffer pointer is
@@ -70,3 +73,5 @@ extern yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y
 #define DECOR_FLAG_TILE_RIGHT  (0x2 << 2)
 #define DECOR_FLAG_TILE_UP     (0x4 << 2)
 #define DECOR_FLAG_TILE_DOWN   (0x8 << 2)
+
+_End_C_Header

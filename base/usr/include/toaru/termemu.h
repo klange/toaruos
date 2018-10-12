@@ -1,10 +1,14 @@
 #pragma once
 
+#include <_cheader.h>
+
 #ifdef _KERNEL_
 #	include <kernel/types.h>
 #else
 #	include <stdint.h>
 #endif
+
+_Begin_C_Header
 
 #define TERM_BUF_LEN 128
 
@@ -107,4 +111,6 @@ typedef struct {
 
 extern term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in);
 extern void ansi_put(term_state_t * s, char c);
+
+_End_C_Header
 

@@ -1,3 +1,4 @@
+#pragma once
 
 /* Signal names (from the Unix specification on signals) */
 #define SIGHUP      1  /* Hangup */

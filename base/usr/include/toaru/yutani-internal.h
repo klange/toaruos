@@ -1,4 +1,9 @@
+#pragma once
+
+#include <_cheader.h>
 #include <toaru/yutani.h>
+
+_Begin_C_Header
 
 #define YUTANI_SHMKEY(server_ident,buf,sz,win) sprintf(buf, "sys.%s.%d", server_ident, win->bufid);
 #define YUTANI_SHMKEY_EXP(server_ident,buf,sz,bufid) sprintf(buf, "sys.%s.%d", server_ident, bufid);
@@ -65,4 +70,4 @@ extern void yutani_msg_buildx_window_resize_start(yutani_msg_t * msg, yutani_wid
 extern void yutani_msg_buildx_special_request(yutani_msg_t * msg, yutani_wid_t wid, uint32_t request);
 extern void yutani_msg_buildx_clipboard(yutani_msg_t * msg, char * content);
 
-
+_End_C_Header

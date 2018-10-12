@@ -2,8 +2,11 @@
  */
 #pragma once
 
+#include <_cheader.h>
 #include <stdint.h>
 #include <stddef.h>
+
+_Begin_C_Header
 
 #define GFX_W(ctx)  ((ctx)->width)			/* Display width */
 #define GFX_H(ctx)  ((ctx)->height)			/* Display height */
@@ -111,3 +114,5 @@ extern float gfx_line_distance(struct gfx_point * p, struct gfx_point * v, struc
 extern void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness);
 
 extern void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha);
+
+_End_C_Header

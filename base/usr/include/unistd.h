@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stddef.h>
 #include <sys/types.h>
+
+_Begin_C_Header
 
 extern char **environ;
 
@@ -79,3 +82,5 @@ extern char * getlogin(void);
 
 extern int gethostname(char * name, size_t len);
 extern int sethostname(const char * name, size_t len);
+
+_End_C_Header

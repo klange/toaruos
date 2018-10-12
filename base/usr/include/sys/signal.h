@@ -1,7 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
 #include <sys/types.h>
 
+_Begin_C_Header
 #define SIGEV_NONE   1
 #define SIGEV_SIGNAL 2
 #define SIGEV_THREAD 3
@@ -55,3 +57,4 @@ struct sigaction {
 
 
 extern int kill(pid_t, int);
+_End_C_Header

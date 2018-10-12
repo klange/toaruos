@@ -1,5 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
+
 #define POLLIN    0x0001
 #define POLLOUT   0x0002
 #define POLLRDHUP 0x0004
@@ -17,3 +21,5 @@ struct pollfd {
 };
 
 extern int poll(struct pollfd * fds, nfds_t nfds, int timeout);
+
+_End_C_Header

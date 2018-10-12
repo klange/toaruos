@@ -1,3 +1,9 @@
+#pragma once
+
+#include <_cheader.h>
+
+_Begin_C_Header
+
 #define M_PI 3.1415926
 
 extern double floor(double x);
@@ -34,3 +40,5 @@ extern double atan(double x);
 extern double modf(double x, double *iptr);
 
 extern double hypot(double x, double y);
+
+_End_C_Header

@@ -1,8 +1,11 @@
 #pragma once
 
+#include <_cheader.h>
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
+
+_Begin_C_Header
 
 enum MenuEntry_Type {
 	MenuEntry_Unknown,
@@ -116,3 +119,5 @@ struct menu_bar {
 extern void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx);
 extern int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, struct yutani_msg_window_mouse_event * me, int x, int y);
 extern void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, int offset, struct menu_bar_entries * _entries);
+
+_End_C_Header

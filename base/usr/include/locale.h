@@ -1,5 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
+
 #define LC_ALL      0
 #define LC_COLLATE  1
 #define LC_CTYPE    2
@@ -31,3 +35,5 @@ struct lconv {
 
 extern struct lconv * localeconv(void);
 extern char * setlocale(int category, const char *locale);
+
+_End_C_Header

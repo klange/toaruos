@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stdio.h>
 #include <sys/types.h>
+
+_Begin_C_Header
 
 struct passwd {
 	char * pw_name;    // username
@@ -21,3 +24,5 @@ void setpwent(void);
 void endpwent(void);
 struct passwd * getpwnam(const char * name);
 struct passwd * getpwuid(uid_t uid);
+
+_End_C_Header

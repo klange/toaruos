@@ -8,9 +8,12 @@
  */
 #pragma once
 
+#include <_cheader.h>
 #include <stdint.h>
 #include <sys/time.h>
 #include <toaru/yutani.h>
+
+_Begin_C_Header
 
 /* Mouse resolution scaling */
 #define MOUSE_SCALE 3
@@ -298,3 +301,5 @@ extern uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time);
 extern void yutani_window_to_device(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y);
 extern void yutani_device_to_window(yutani_server_window_t * window, int32_t x, int32_t y, int32_t * out_x, int32_t * out_y);
 extern uint32_t yutani_color_for_wid(yutani_wid_t wid);
+
+_End_C_Header

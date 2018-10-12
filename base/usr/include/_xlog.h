@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <stddef.h>
-
 #include <syscall.h>
 
 #define _XLOG(_msg) do { \

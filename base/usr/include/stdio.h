@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stddef.h>
 #include <va_list.h>
+
+_Begin_C_Header
 
 typedef struct _FILE FILE;
 
@@ -90,3 +93,4 @@ typedef long fpos_t;
 extern int fgetpos(FILE *stream, fpos_t *pos);
 extern int fsetpos(FILE *stream, const fpos_t *pos);
 
+_End_C_Header;

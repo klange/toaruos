@@ -1,10 +1,14 @@
 #pragma once
 
+#include <_cheader.h>
+
 #ifndef _KERNEL_
 #include <sys/types.h>
 #else
 #include <kernel/types.h>
 #endif
+
+_Begin_C_Header
 
 /* Technically part of ioctl */
 struct winsize {
@@ -179,17 +183,18 @@ struct termios {
 
 /* termios functions */
 #ifndef _KERNEL_
-speed_t cfgetispeed(const struct termios *);
-speed_t cfgetospeed(const struct termios *);
-int     cfsetispeed(struct termios *, speed_t);
-int     cfsetospeed(struct termios *, speed_t);
-int     tcdrain(int);
-int     tcflow(int, int);
-int     tcflush(int, int);
-int     tcgetattr(int, struct termios *);
-pid_t   tcgetsid(int);
-int     tcsendbreak(int, int);
-int     tcsetattr(int, int, struct termios *);
-int     ioctl(int, int, void*);
+extern speed_t cfgetispeed(const struct termios *);
+extern speed_t cfgetospeed(const struct termios *);
+extern int     cfsetispeed(struct termios *, speed_t);
+extern int     cfsetospeed(struct termios *, speed_t);
+extern int     tcdrain(int);
+extern int     tcflow(int, int);
+extern int     tcflush(int, int);
+extern int     tcgetattr(int, struct termios *);
+extern pid_t   tcgetsid(int);
+extern int     tcsendbreak(int, int);
+extern int     tcsetattr(int, int, struct termios *);
+extern int     ioctl(int, int, void*);
 #endif /* ndef _KERNEL_ */
 
+_End_C_Header

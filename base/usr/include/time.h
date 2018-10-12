@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stddef.h>
 #include <sys/types.h>
+
+_Begin_C_Header
 
 struct tm {
     int tm_sec;    /* Seconds (0-60) */
@@ -33,3 +36,5 @@ typedef int clock_t;
 
 extern clock_t clock(void);
 #define CLOCKS_PER_SEC 1
+
+_End_C_Header

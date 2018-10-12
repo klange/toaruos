@@ -1,5 +1,8 @@
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
 #define _UTSNAME_LENGTH 256
 
 struct utsname {
@@ -15,3 +18,5 @@ struct utsname {
 #ifndef _KERNEL_
 extern int uname(struct utsname *__name);
 #endif
+
+_End_C_Header

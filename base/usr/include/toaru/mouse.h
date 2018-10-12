@@ -1,5 +1,9 @@
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
+
 typedef enum {
 	LEFT_CLICK   = 0x01,
 	RIGHT_CLICK  = 0x02,
@@ -18,3 +22,4 @@ typedef struct {
 
 #define MOUSE_MAGIC 0xFEED1234
 
+_End_C_Header

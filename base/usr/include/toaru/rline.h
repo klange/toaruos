@@ -1,5 +1,8 @@
 #pragma once
 
+#include <_cheader.h>
+
+_Begin_C_Header
 struct rline_callback;
 
 typedef struct {
@@ -44,4 +47,6 @@ extern int rline_history_count;
 extern int rline_history_offset;
 extern int rline_scroll;
 extern char * rline_exit_string;
+
+_End_C_Header
 

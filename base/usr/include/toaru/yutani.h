@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <_cheader.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -18,6 +19,8 @@
 #include <toaru/kbd.h>
 #include <toaru/mouse.h>
 #include <toaru/list.h>
+
+_Begin_C_Header
 
 typedef unsigned int yutani_wid_t;
 
@@ -507,4 +510,6 @@ extern gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);
 extern void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
 extern void release_graphics_yutani(gfx_context_t * gfx);
+
+_End_C_Header
 

@@ -1,7 +1,10 @@
 #pragma once
 
+#include <_cheader.h>
 #include <stdint.h>
 #include <stdio.h>
+
+_Begin_C_Header
 
 typedef struct pex_packet {
 	uintptr_t source;
@@ -27,3 +30,4 @@ extern size_t pex_query(FILE * sock);
 extern FILE * pex_bind(char * target);
 extern FILE * pex_connect(char * target);
 
+_End_C_Header
