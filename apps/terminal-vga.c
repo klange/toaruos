@@ -1237,7 +1237,7 @@ int main(int argc, char ** argv) {
 		/* Prune any keyboard input we got before the terminal started. */
 		struct stat s;
 		fstat(kfd, &s);
-		for (unsigned int i = 0; i < s.st_size; i++) {
+		for (int i = 0; i < s.st_size; i++) {
 			char tmp[1];
 			read(kfd, tmp, 1);
 		}
