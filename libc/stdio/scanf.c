@@ -5,7 +5,8 @@
 extern char * _argv_0;
 
 int vsscanf(const char *str, const char *format, va_list ap) {
-	fprintf(stderr, "%s: sscanf(..., format=%s, ...);\n", _argv_0, format);
+	fprintf(stderr, "%s: sscanf(\"%s\", format=\"%s\", ...);\n", _argv_0, str, format);
+	int count = 0;
 	while (*format) {
 		if (*format == ' ') {
 			/* handle white space */
@@ -14,12 +15,28 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 			}
 		} else if (*format == '%') {
 			/* Parse */
+			format++;
+
+			if (*format == 'd') {
+				int i = 0;
+				while (*str && *str > '0' && *str < '9') {
+					i = i * 10 + *str - '0';
+					str++;
+				}
+				int * out = (int *)va_arg(ap, int*);
+				fprintf(stderr, "%s: sscanf: out %d\n", _argv_0, i);
+				count++;
+				*out = i;
+			}
 		} else {
 			/* Expect exact character? */
+			if (*str == *format) {
+				str++;
+			}
 		}
 		format++;
 	}
-	return 0;
+	return count;
 }
 
 int vfscanf(FILE * stream, const char *format, va_list ap) {
