@@ -50,7 +50,7 @@ pushd build
     popd
 
     pushd gcc
-        $DIR/tarballs/gcc-6.4.0/configure --target=i686-pc-toaru --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --disable-nls --enable-languages=c --disable-libssp --with-newlib || exit 1
+        $DIR/tarballs/gcc-6.4.0/configure --target=i686-pc-toaru --prefix=$PREFIX --with-sysroot=$TOARU_SYSROOT --disable-nls --enable-languages=c,c++ --disable-libssp --with-newlib || exit 1
         make all-gcc all-target-libgcc
         make install-gcc install-target-libgcc
     popd
