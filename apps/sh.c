@@ -1372,9 +1372,6 @@ int main(int argc, char ** argv) {
 	gethost();
 
 	install_commands();
-	/* Parse $PATH to add contents */
-	add_path();
-	sort_commands();
 
 	if (argc > 1) {
 		int c;
@@ -1422,6 +1419,8 @@ int main(int argc, char ** argv) {
 	shell_interactive = 1;
 
 	source_eshrc();
+	add_path();
+	sort_commands();
 
 	while (1) {
 		char buffer[LINE_LEN] = {0};
