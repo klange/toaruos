@@ -1653,7 +1653,7 @@ static void mouse_start_rotate(yutani_globals_t * yg) {
 		yg->mouse_init_y = yg->mouse_y;
 		int32_t x_diff = yg->mouse_x / MOUSE_SCALE - (yg->mouse_window->x + yg->mouse_window->width / 2);
 		int32_t y_diff = yg->mouse_y / MOUSE_SCALE - (yg->mouse_window->y + yg->mouse_window->height / 2);
-		int new_r = __builtin_atan2(x_diff, y_diff) * 180.0 / (-M_PI);
+		int new_r = atan2(x_diff, y_diff) * 180.0 / (-M_PI);
 		yg->mouse_init_r = yg->mouse_window->rotation - new_r;
 		make_top(yg, yg->mouse_window);
 	}
