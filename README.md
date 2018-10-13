@@ -28,10 +28,10 @@ Early in its development, ToaruOS was focused on providing a modern *graphical u
 
 The following projects are currently in progress:
 
-- **Complete the re-porting of Binutils** to allow for some basic assembly development and to support the eventual return of GCC.
 - **Improve POSIX coverage** especially in regards to pipelines, process groups, synchronization primitives, as well as by providing more common utilities.
 - **Continue to improve the C library** which remains quite incomplete compared to Newlib and is a major source of issues with bringing back old ports.
 - **Implement a native dynamic, interpreted programming language** to replace Python, which was used prior to ToaruOS 1.6.x to provide most of the desktop environment.
+- **Replace third-party development tools** to get the OS to a state where it is self-hosting with just the addition of a C compiler.
 
 ## Building / Installation
 
