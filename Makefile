@@ -160,8 +160,8 @@ dirs: base/dev base/tmp base/proc base/bin base/lib base/cdrom fatbase/efi/boot 
 
 crts: base/lib/crt0.o base/lib/crti.o base/lib/crtn.o | dirs
 
-base/lib/crt%.o: libc/crt%.s
-	yasm -f elf -o $@ $<
+base/lib/crt%.o: libc/crt%.S
+	$(AS) -o $@ $<
 
 libc/setjmp.o: libc/setjmp.S
 	$(AS) -o $@ $<
@@ -184,7 +184,7 @@ base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $<
 
 # Shared Libraries
-.make/%.lmak: lib/%.c util/auto-dep.py | dirs
+.make/%.lmak: lib/%.c util/auto-dep.py | dirs crts
 	util/auto-dep.py --makelib $< > $@
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
@@ -201,7 +201,7 @@ fatbase/netinit: util/netinit.c base/lib/libc.a | dirs
 
 # Userspace applications
 
-.make/%.mak: apps/%.c util/auto-dep.py | dirs
+.make/%.mak: apps/%.c util/auto-dep.py | dirs crts
 	util/auto-dep.py --make $< > $@
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
