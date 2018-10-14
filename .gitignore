@@ -7,6 +7,7 @@
 
 /.make/*
 /base/bin/*
+/base/src
 /cdrom/kernel
 /cdrom/netinit
 /cdrom/mod/*
