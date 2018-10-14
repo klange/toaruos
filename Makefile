@@ -129,7 +129,7 @@ fatbase/mod:
 ##
 # Modules need to be installed on the boot image
 MODULES = $(patsubst modules/%.c,fatbase/mod/%.ko,$(wildcard modules/*.c))
-HEADERS = $(shell find base/usr/include/kernel -type f -name '*.h')
+HEADERS = $(wildcard base/usr/include/kernel/*.h base/usr/include/kernel/*/*.h)
 
 fatbase/mod/%.ko: modules/%.c ${HEADERS} | fatbase/mod
 	${KCC} -nostdlib ${KCFLAGS} -c -o $@ $<
