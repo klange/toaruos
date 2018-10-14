@@ -37,7 +37,7 @@ The following projects are currently in progress:
 
 To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment.
 
-Several packages are necessary: `build-essential`, `yasm`, `xorriso`, `genext2fs`, `python3`, `mtools`, `gnu-efi`
+Several packages are necessary: `build-essential`, `xorriso`, `genext2fs`, `python3`, `mtools`, `gnu-efi`
 
 Beyond package installation, no part of the build needs root privileges. 
 
