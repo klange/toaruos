@@ -277,8 +277,8 @@ cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
 boot/cstuff.o: boot/cstuff.c boot/*.h
 	${CC} -c -Os -o $@ $<
 
-boot/boot.o: boot/boot.s
-	yasm -f elf -o $@ $<
+boot/boot.o: boot/boot.S
+	${AS} -o $@ $<
 
 .PHONY: clean
 clean:
