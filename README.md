@@ -13,7 +13,13 @@ ToaruOS is currently in the 1.6.x series, which represents the merging of a proj
 
 ## Features
 
-Early in its development, ToaruOS was focused on providing a modern *graphical user interface* built on top of an efficient *composited window manager*. More recently, that focus has shifted towards providing a more compliant *Unix terminal environment*, including an Xterm-alike *graphical terminal emulator* (with support for several escape sequences including 24-bit color and alternate screen buffers), several utilities, and a shell (though it is not very POSIX-y).
+- **Dynamically linked userspace** with support for runtime `dlopen`ing of additional libraries.
+- **Composited graphical UI** with SSE-accelerated alpha blitting and optional Cairo backend.
+- **Extensible, modular kernel** with loadable drivers.
+- **VM integration** for absolute mouse and automatic display sizing in VirtualBox and VMware Workstation.
+- **Unix-like terminal interface** including a feature-rich terminal emulator and several familiar utilities.
+- **TCP/IPv4 support** with utilities to download from HTTP servers and connect to IRC.
+- **Optional third-party ports** including Python 3.6, GCC 6.4.0, Binutils, Cairo, and Freetype.
 
 ### Notable Components
 
@@ -37,7 +43,7 @@ The following projects are currently in progress:
 
 To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment.
 
-Several packages are necessary: `build-essential`, `xorriso`, `genext2fs`, `python3`, `mtools`, `gnu-efi`
+Several packages are necessary: `build-essential` (to build the cross-compiler), `xorriso` (to create CD images), `genext2fs` (to build ramdisks), `python3` (various build scripts), `mtools` (for building FAT EFI system partitions), `gnu-efi` (for building the EFI loaders).
 
 Beyond package installation, no part of the build needs root privileges. 
 
