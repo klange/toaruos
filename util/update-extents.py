@@ -218,7 +218,7 @@ class FATFile(object):
             tmp = read_struct('10s',self.fat.iso.data,o+1)[0]
             tmp += read_struct('12s',self.fat.iso.data,o+14)[0]
             tmp += read_struct('4s',self.fat.iso.data,o+28)[0]
-            tmp = "".join([x for x in tmp[::2] if x != '\xFF']).strip('\x00')
+            tmp = "".join([chr(x) for x in tmp[::2] if x != '\xFF']).strip('\x00')
             self.long_name = tmp + self.long_name
             self.size += 32
             o = self.offset + self.size
