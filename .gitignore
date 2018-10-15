@@ -8,12 +8,15 @@
 /.make/*
 /base/bin/*
 /base/src
+/_base
+/cdrom/extra
 /cdrom/kernel
 /cdrom/netinit
 /cdrom/mod/*
 /cdrom/ramdisk.img
 /cdrom/boot.sys
 /cdrom/fat.img
+/fatbase/extra
 /fatbase/kernel
 /fatbase/netinit
 /fatbase/mod/*
