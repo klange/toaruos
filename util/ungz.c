@@ -17,18 +17,23 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	if (strstr(argv[1],".gz") != (argv[1] + strlen(argv[1]) - 3)) {
-		fprintf(stderr, "%s: Not sure if this file is gzipped. Try renaming it to include `.gz' at the end.\n", argv[0]);
-		return 1;
+	char * dest_name = NULL;
+
+	if (argc < 3) {
+		if (strstr(argv[1],".gz") != (argv[1] + strlen(argv[1]) - 3)) {
+			fprintf(stderr, "%s: Not sure if this file is gzipped. Try renaming it to include `.gz' at the end.\n", argv[0]);
+			return 1;
+		}
+		dest_name = strdup(argv[1]);
+		char * t = strstr(dest_name,".gz");
+		*t = '\0';
+	} else {
+		dest_name = argv[2];
 	}
 
 	gzFile src = gzopen(argv[1], "r");
 
 	if (!src) return 1;
-
-	char * dest_name = strdup(argv[1]);
-	char * t = strstr(dest_name,".gz");
-	*t = '\0';
 
 	FILE * dest = fopen(dest_name, "w");
 
