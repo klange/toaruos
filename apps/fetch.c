@@ -222,6 +222,8 @@ int http_fetch(FILE * f) {
 	int bytes_to_read = atoi(hashmap_get(headers, "Content-Length"));
 	fetch_options.content_length = bytes_to_read;
 
+	gettimeofday(&fetch_options.start, NULL);
+
 	while (bytes_to_read > 0) {
 		char buf[1024];
 		size_t r = fread(buf, 1, bytes_to_read < 1024 ? bytes_to_read : 1024, f);
