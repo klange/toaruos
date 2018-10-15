@@ -4,11 +4,9 @@
 import os
 import sys
 
-try:
-    TOOLCHAIN_PATH = os.environ['TOOLCHAIN']
-except KeyError:
-    # This is not good, but we need to let it happen for the make file
-    TOOLCHAIN_PATH = ""
+import subprocess
+
+cflags = "-O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter"
 
 class Classifier(object):
 
@@ -126,6 +124,28 @@ if __name__ == "__main__":
         normal = [x[1] for x in results if not x[0]]
         order_only = [x[1] for x in results if x[0]]
         print(" ".join(normal) + " | " + " ".join(order_only))
+    elif command == "--build":
+        subprocess.run("gcc {cflags} {extra} {includes} -o {app} {source} {libraries}".format(
+            cflags=cflags,
+            app=os.path.basename(filename).replace(".c",""),
+            source=filename,
+            headers=" ".join([toheader(x) for x in c.libs]),
+            libraries=" ".join([x for x in c.libs]),
+            includes=" ".join([x for x in c.includes if x is not None]),
+            extra="-Wl,--export-dynamic" if c.export_dynamic_hint else "",
+            ), shell=True)
+    elif command == "--buildlib":
+        libname = os.path.basename(filename).replace(".c","")
+        _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
+        subprocess.run("gcc {cflags} {includes} -shared -fPIC -olibtoaru_{lib}.so {source} {libraries}".format(
+            cflags=cflags,
+            lib=libname,
+            source=filename,
+            headers=" ".join([toheader(x) for x in c.libs]),
+            libraryfiles=" ".join([todep(x)[1] for x in _libs]),
+            libraries=" ".join([x for x in _libs]),
+            includes=" ".join([x for x in c.includes if x is not None])
+            ),shell=True)
     elif command == "--make":
         print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {extra} {includes} -o $@ $< {libraries}".format(
             app=os.path.basename(filename).replace(".c",""),
