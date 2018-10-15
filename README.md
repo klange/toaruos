@@ -162,7 +162,7 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### Is ToaruOS self-hosting?
 
-While it has not yet been tested, ToaruOS should be capable of building its own kernel, driver modules, libraries, and applications given a hosted GCC. We are working to reduce the external dependencies required to build full CD images, and are considering writing our own C compiler for use with the OS, in order to fully close the loop, while also expanding the available ports to hopefully include everything necessary for a full build.
+While the complete ISO build process requires some tools that have not been ported, ToaruOS is capable of building its own core userspace and kernel given an installation of GCC and Binutils, which we believe is sufficient to be considered "self-hosting". The other tools required for the ISO build are in the process of being replaced with native tools. There are also plans to build our own C compiler, as GCC itself requires a plethora of tools to compile.
 
 ### Is ToaruOS a Linux distribution?
 
