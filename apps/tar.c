@@ -1,5 +1,15 @@
 /* vim: ts=4 sw=4 noexpandtab
- * tar stuff */
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
+ *
+ * tar - extract archives
+ *
+ * This is a very minimal and incomplete implementation of tar.
+ * It supports on ustar-formatted archives, and its arguments
+ * must by the - forms. As of writing, creating archives is not
+ * supported. No compression formats are supported, either.
+ */
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -260,7 +270,9 @@ int main(int argc, char * argv[]) {
 				} else if (file->type[0] == '2') {
 					char tmp[101] = {0};
 					strncat(tmp, file->link, 100);
-					fprintf(stderr, "%s → %s (skipped - TODO)\n", name, tmp);
+					if (symlink(tmp, name) < 0) {
+						fprintf(stderr, "%s: %s: %s: %s: %s\n", argv[0], fname, name, tmp, strerror(errno));
+					}
 				} else {
 					fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, type_to_string(file->type[0]));
 				}
