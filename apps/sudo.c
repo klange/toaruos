@@ -44,8 +44,8 @@ int main(int argc, char ** argv) {
 		char * username = getenv("USER");
 		char * password = malloc(sizeof(char) * 1024);
 
-		fprintf(stdout, "[%s] password for %s: ", argv[0], username);
-		fflush(stdout);
+		fprintf(stderr, "[%s] password for %s: ", argv[0], username);
+		fflush(stderr);
 
 		/* Disable echo */
 		struct termios old, new;
@@ -57,7 +57,7 @@ int main(int argc, char ** argv) {
 		fgets(password, 1024, stdin);
 		password[strlen(password)-1] = '\0';
 		tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-		fprintf(stdout, "\n");
+		fprintf(stderr, "\n");
 
 		int uid = toaru_auth_check_pass(username, password);
 
