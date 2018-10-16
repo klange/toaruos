@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.2"
+#define BIM_VERSION   "1.0.3"
 #define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -97,13 +97,14 @@ const char * current_theme = "none";
 #define FLAG_DIFFPLUS  9
 #define FLAG_DIFFMINUS 10
 
+#define FLAG_SEARCH    (1 << 5)
 #define FLAG_CONTINUES (1 << 6)
 
 /**
  * Convert syntax hilighting flag to color code
  */
 const char * flag_to_color(int _flag) {
-	int flag = _flag & 0x3F;
+	int flag = _flag & 0x1F;
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
@@ -581,7 +582,7 @@ static char * syn_c_keywords[] = {
 	"struct","union","typedef","do","default","else","goto",
 	"alignas","alignof","offsetof",
 	/* C++ stuff */
-	"public","private","class","using","namespace",
+	"public","private","class","using","namespace","virtual",
 	NULL
 };
 
@@ -2135,7 +2136,7 @@ void render_line(line_t * line, int width, int offset) {
 	int j = 0; /* Offset in terminal cells */
 
 	const char * last_color = NULL;
-	int was_selecting = 0;
+	int was_selecting = 0, was_searching = 0;
 
 	/* Set default text colors */
 	set_colors(COLOR_FG, COLOR_BG);
@@ -2206,8 +2207,11 @@ void render_line(line_t * line, int width, int offset) {
 			if (c.flags == FLAG_SELECT) {
 				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
 				was_selecting = 1;
+			} else if (c.flags & FLAG_SEARCH) {
+				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
+				was_searching = 1;
 			} else {
-				if (was_selecting) {
+				if (was_selecting || was_searching) {
 					set_colors(color, COLOR_BG);
 					last_color = color;
 				} else if (!last_color || strcmp(color, last_color)) {
@@ -2291,7 +2295,7 @@ void render_line(line_t * line, int width, int offset) {
 		}
 	}
 
-	if (env->mode == MODE_CHAR_SELECTION) {
+	if (env->mode == MODE_CHAR_SELECTION || was_searching) {
 		set_colors(COLOR_FG, COLOR_BG);
 	}
 
@@ -3422,6 +3426,9 @@ void process_command(char * cmd) {
 		if (env->search) {
 			free(env->search);
 			env->search = NULL;
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_syntax(env->lines[i],i);
+			}
 			redraw_text();
 		}
 	} else if (!strcmp(argv[0], "help")) {
@@ -3899,25 +3906,27 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 /**
  * Draw the matched search result.
  */
-void draw_search_match(int line, uint32_t * buffer, int redraw_buffer) {
+void draw_search_match(int __line, uint32_t * buffer, int redraw_buffer) {
 	place_cursor_actual();
-	redraw_text();
-	if (line != -1) {
-		/*
-		 * TODO this should probably mark the relevant
-		 * regions so that redraw_text can hilight it
-		 */
-		set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
-		place_cursor_actual();
-
-		uint32_t * c = buffer;
-		while (*c) {
-			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
-			to_eight(*c, tmp);
-			printf("%s", tmp);
-			c++;
-		}
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
 	}
+	int line = -1, col = -1, _line = 1, _col = 1;
+	do {
+		find_match(_line, _col, &line, &col, buffer);
+		if (line != -1) {
+			line_t * l = env->lines[line-1];
+			uint32_t * t = buffer;
+			for (int i = col; *t; ++i, ++t) {
+				l->text[i-1].flags |= FLAG_SEARCH;
+			}
+		}
+		_line = line;
+		_col  = col+1;
+		line  = -1;
+		col   = -1;
+	} while (_line != -1);
+	redraw_text();
 	redraw_statusbar();
 	redraw_commandline();
 	if (redraw_buffer != -1) {
@@ -4098,7 +4107,7 @@ void find_matching_paren(void) {
 	int paren_match = 0;
 	int direction = 0;
 	int start = env->lines[env->line_no-1]->text[env->col_no-1].codepoint;
-	int flags = env->lines[env->line_no-1]->text[env->col_no-1].flags;
+	int flags = env->lines[env->line_no-1]->text[env->col_no-1].flags & 0x1F;
 	int count = 0;
 
 	/* TODO what about unicode parens? */
@@ -4120,7 +4129,7 @@ void find_matching_paren(void) {
 	do {
 		while (col > 0 && col < env->lines[line-1]->actual + 1) {
 			/* Only match on same syntax */
-			if (env->lines[line-1]->text[col-1].flags == flags) {
+			if ((env->lines[line-1]->text[col-1].flags & 0x1F) == flags) {
 				/* Count up on same direction */
 				if (env->lines[line-1]->text[col-1].codepoint == start) count++;
 				/* Count down on opposite direction */
