@@ -3907,9 +3907,10 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
  * Draw the matched search result.
  */
 void draw_search_match(int __line, uint32_t * buffer, int redraw_buffer) {
-	place_cursor_actual();
 	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
+		for (int j = 0; j < env->lines[i]->actual; ++j) {
+			env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
+		}
 	}
 	int line = -1, col = -1, _line = 1, _col = 1;
 	do {
@@ -3927,6 +3928,7 @@ void draw_search_match(int __line, uint32_t * buffer, int redraw_buffer) {
 		col   = -1;
 	} while (_line != -1);
 	redraw_text();
+	place_cursor_actual();
 	redraw_statusbar();
 	redraw_commandline();
 	if (redraw_buffer != -1) {
