@@ -635,6 +635,7 @@ int variable_char(uint8_t c) {
 	if (c >= '0' && c <= '9')  return 1;
 	if (c == '_') return 1;
 	if (c == '?') return 1;
+	if (c == '$') return 1;
 	return 0;
 }
 
@@ -810,6 +811,9 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						char tmp[128];
 						if (!strcmp(var, "?")) {
 							sprintf(tmp,"%d",last_ret);
+							c = tmp;
+						} else if (!strcmp(var, "$")) {
+							sprintf(tmp,"%d",getpid());
 							c = tmp;
 						} else if (is_number(var)) {
 							int a = atoi(var);
