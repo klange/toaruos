@@ -382,6 +382,8 @@ static int syn_sh_iskeywordchar(int c) {
 	if (c == '-') return 1;
 	if (c == '_') return 1;
 	if (c == '?') return 1;
+	if (c == '/') return 1;
+	if (c == '.') return 1;
 	return 0;
 }
 
