@@ -26,6 +26,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <syscall.h>
+#include <signal.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -93,6 +95,9 @@ typedef struct elf_object {
 
 	Elf32_Sym * dyn_symbol_table;
 	size_t dyn_symbol_table_size;
+
+	Elf32_Sym * reg_symbol_table;
+	size_t reg_symbol_table_size;
 
 	Elf32_Dyn * dynamic;
 	Elf32_Word * dyn_hash;
@@ -686,6 +691,116 @@ static char * argv_value(void) {
 	return _argv_value;
 }
 
+#if 0
+static char _cat_space[4096] = {0};
+#endif
+
+#define _cat_write(...) do { \
+		char tmp[100]; \
+		int s = sprintf(tmp, __VA_ARGS__); \
+		write(2, tmp, s); \
+	} while (0)
+
+void cat_handler(int, uintptr_t, uintptr_t);
+
+static char * find_closest_symbol(elf_t * object, uintptr_t t, uintptr_t * actual) {
+	uintptr_t match_p = 0x40000000;
+	char * match_c = "(base)";
+
+	Elf32_Sym * table = object->dyn_symbol_table;
+	size_t i = 0;
+	while (i < object->dyn_symbol_table_size) {
+		uintptr_t p = (table->st_value + object->base);
+		char * c = (char *)((uintptr_t)object->dyn_string_table + table->st_name);
+		if (table->st_value && p <= t && t - p < t - match_p) {
+			match_p = p;
+			match_c = c;
+		}
+		table++;
+		i++;
+	}
+	*actual = match_p;
+	return match_c;
+}
+
+static elf_t * find_object(uintptr_t t, char ** name) {
+	uintptr_t match_base = 0x40000000;
+	*name = ((char **)_argv_value)[0];
+	elf_t * match_obj = _main_obj;
+
+	list_t * keys = hashmap_keys(objects_map);
+	foreach(node, keys) {
+		char * c = node->value;
+		elf_t * elf = (elf_t *)hashmap_get(objects_map, c);
+		if (elf->base > t) continue;
+		if (t - elf->base < t - match_base) {
+			match_base = elf->base;
+			match_obj = elf;
+			*name = c;
+		}
+	}
+
+	return match_obj;
+}
+
+__attribute__((noinline))
+int _trace_stack(unsigned int frames, uintptr_t ebp_base, uintptr_t esp_base) {
+	unsigned int * ebp = &frames - 2;
+	_cat_write("stack trace (0x%lx)\n", (uintptr_t)_trace_stack);
+	for (unsigned int frame = 0; frame < frames; ++frame) {
+		unsigned int eip = ebp[1];
+		if (eip == 0) {
+			_cat_write("  0x00000000 - done\n");
+			break;
+		} else if (eip == 0xFFFFDEAF) {
+			if (!ebp_base) {
+				ebp = (unsigned int*)(esp_base+4);
+			} else {
+				ebp = (unsigned int*)(ebp_base);
+			}
+		} else {
+			//unsigned int * args = &ebp[2];
+			if (eip >= 0x40000000) {
+				uintptr_t actual;
+				char * name = NULL;
+				elf_t * obj = find_object(eip, &name);
+				char * sym = find_closest_symbol(obj, eip, &actual);
+				if (actual) {
+					if (obj) {
+						_cat_write("  0x%x %s+0x%lx (%s + 0x%lx)\n", eip, sym, eip-actual, name, eip-obj->base);
+					} else {
+						_cat_write("  0x%x %s+0x%lx\n", eip, sym, eip - actual);
+					}
+				}
+			}
+
+			ebp = (unsigned int*)(ebp[0]);
+			if ((uintptr_t)ebp < 0x30000000) {
+				_cat_write("  (stack continues into kernel: 0x%lx)\n", (uintptr_t)ebp);
+				break;
+			}
+		}
+	}
+	return 0;
+}
+
+void cat_handler(int sig, uintptr_t ebp, uintptr_t esp) {
+	_cat_write("cat handler\n");
+	_trace_stack(10, ebp, esp);
+
+#if 0
+	int fd = open("/proc/self/status",0);
+	if (fd < 0) {
+		_cat_write("error\n");
+		return;
+	}
+
+	ssize_t r = read(fd, _cat_space, 4096);
+	_cat_write("read %d\n", r);
+	write(2, _cat_space, r);
+#endif
+}
+
 /* Exported methods (dlfcn) */
 typedef struct {
 	char * name;
@@ -729,6 +844,8 @@ int main(int argc, char * argv[]) {
 		hashmap_set(dumb_symbol_table, ex->name, ex->symbol);
 		ex++;
 	}
+
+	signal(SIGCAT, (void(*)(int))cat_handler);
 
 	/* Open the requested main object */
 	elf_t * main_obj = open_object(file);

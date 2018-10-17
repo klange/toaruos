@@ -26,7 +26,7 @@ TARGET_TRIPLET=i686-pc-toaru
 CC=$(TARGET_TRIPLET)-gcc
 AR=$(TARGET_TRIPLET)-ar
 AS=$(TARGET_TRIPLET)-as
-CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
+CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter -fno-omit-frame-pointer
 
 ##
 # C library objects from libc/ C sources (and setjmp, which is assembly)
