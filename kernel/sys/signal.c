@@ -12,8 +12,12 @@
 
 void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 	IRQ_OFF;
+	uintptr_t ebp = current_process->syscall_registers->ebp;
+	uintptr_t esp = current_process->syscall_registers->useresp;
 	asm volatile(
 			"mov %2, %%esp\n"
+			"pushl %4\n"
+			"pushl %3\n"
 			"pushl %1\n"           /*          argument count   */
 			"pushl $" STRSTR(SIGNAL_RETURN) "\n"
 			"mov $0x23, %%ax\n"    /* Segment selector */
@@ -31,7 +35,7 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 			"pushl $0x1B\n"
 			"pushl %0\n"           /* Push the entry point */
 			"iret\n"
-			: : "m"(location), "m"(signum), "r"(stack) : "%ax", "%esp", "%eax");
+			: : "m"(location), "m"(signum), "r"(stack), "m"(ebp), "m"(esp) : "%ax", "%esp", "%eax");
 
 	debug_print(CRITICAL, "Failed to jump to signal handler!");
 }
