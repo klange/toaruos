@@ -41,8 +41,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.4"
-#define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
+#define BIM_VERSION   "1.0.5"
+#define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\n'
@@ -2685,7 +2685,7 @@ void highlight_matching_paren(void) {
 			env->lines[i]->text[j].flags &= (~FLAG_SELECT);
 		}
 		if (redraw) {
-			if ((i) - env->offset > 1 &&
+			if ((i) - env->offset > -1 &&
 				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
 				redraw_line((i) - env->offset, i);
 			}
@@ -5064,6 +5064,7 @@ void handle_navigation(int c) {
 				if (paren_line != -1) {
 					env->line_no = paren_line;
 					env->col_no = paren_col;
+					set_preferred_column();
 					place_cursor_actual();
 					redraw_statusbar();
 				}
