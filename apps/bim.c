@@ -304,6 +304,7 @@ typedef struct _env {
 	int    line_count;
 	int    line_avail;
 	int    col_no;
+	int    preferred_column;
 	uint32_t * search;
 	struct syntax_definition * syntax;
 	line_t ** lines;
@@ -3158,6 +3159,14 @@ void close_buffer(void) {
 	redraw_all();
 }
 
+void set_preferred_column(void) {
+	int c = 0;
+	for (int i = 0; i < env->lines[env->line_no-1]->actual && i < env->col_no-1; ++i) {
+		c += env->lines[env->line_no-1]->text[i].display_width;
+	}
+	env->preferred_column = c;
+}
+
 /**
  * Move the cursor down one line in the text region
  */
@@ -3167,6 +3176,17 @@ void cursor_down(void) {
 
 		/* Move the cursor down */
 		env->line_no += 1;
+
+		/* Try to place the cursor horizontally at the preferred column */
+		int _x = 0;
+		for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+			char_t * c = &env->lines[env->line_no-1]->text[i];
+			_x += c->display_width;
+			env->col_no = i+1;
+			if (_x > env->preferred_column) {
+				break;
+			}
+		}
 
 		/*
 		 * If the horizontal cursor position exceeds the width the new line,
@@ -3237,6 +3257,17 @@ void cursor_up(void) {
 
 		/* Move the cursor down */
 		env->line_no -= 1;
+
+		/* Try to place the cursor horizontally at the preferred column */
+		int _x = 0;
+		for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+			char_t * c = &env->lines[env->line_no-1]->text[i];
+			_x += c->display_width;
+			env->col_no = i+1;
+			if (_x > env->preferred_column) {
+				break;
+			}
+		}
 
 		/*
 		 * If the horizontal cursor position exceeds the width the new line,
@@ -3309,6 +3340,7 @@ void cursor_left(void) {
 		/* Place the terminal cursor again */
 		place_cursor_actual();
 	}
+	set_preferred_column();
 }
 
 /**
@@ -3326,6 +3358,7 @@ void cursor_right(void) {
 		/* Place the terminal cursor again */
 		place_cursor_actual();
 	}
+	set_preferred_column();
 }
 
 /**
@@ -3333,6 +3366,7 @@ void cursor_right(void) {
  */
 void cursor_home(void) {
 	env->col_no = 1;
+	set_preferred_column();
 
 	/* Update the status bar */
 	redraw_statusbar();
@@ -3349,6 +3383,7 @@ void cursor_home(void) {
  */
 void cursor_end(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+!!(env->mode == MODE_INSERT);
+	set_preferred_column();
 
 	/* Update the status bar */
 	redraw_statusbar();
@@ -3367,6 +3402,7 @@ void leave_insert(void) {
 	if (env->col_no > env->lines[env->line_no-1]->actual) {
 		env->col_no = env->lines[env->line_no-1]->actual;
 		if (env->col_no == 0) env->col_no = 1;
+		set_preferred_column();
 	}
 	set_history_break();
 	env->mode = MODE_NORMAL;
@@ -3479,6 +3515,8 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "noindent")) {
 		env->indent = 0;
 		redraw_statusbar();
+	} else if (!strcmp(argv[0], "cursorcolumn")) {
+		render_status_message("cursorcolumn=%d", env->preferred_column);
 	} else if (!strcmp(argv[0], "noh")) {
 		if (env->search) {
 			free(env->search);
@@ -3701,6 +3739,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("noindent");
 		add_candidate("padding");
 		add_candidate("hlparen");
+		add_candidate("cursorcolumn");
 		goto _accept_candidate;
 	}
 
@@ -4079,6 +4118,7 @@ void search_mode(int direction) {
 					if (line != -1) {
 						env->col_no = col;
 						env->line_no = line;
+						set_preferred_column();
 					}
 
 					draw_search_match(line, buffer, direction);
@@ -4089,6 +4129,7 @@ void search_mode(int direction) {
 					env->coffset = prev_coffset;
 					env->offset = prev_offset;
 					env->col_no = prev_col;
+					set_preferred_column();
 					env->line_no = prev_line;
 					redraw_all();
 					break;
@@ -4113,10 +4154,12 @@ void search_mode(int direction) {
 				if (line != -1) {
 					env->col_no = col;
 					env->line_no = line;
+					set_preferred_column();
 				} else {
 					env->coffset = prev_coffset;
 					env->offset = prev_offset;
 					env->col_no = prev_col;
+					set_preferred_column();
 					env->line_no = prev_line;
 				}
 				draw_search_match(line, buffer, direction);
@@ -4143,6 +4186,7 @@ void search_next(void) {
 
 	env->col_no = col;
 	env->line_no = line;
+	set_preferred_column();
 	draw_search_match(line, env->search, -1);
 }
 
@@ -4161,6 +4205,7 @@ void search_prev(void) {
 
 	env->col_no = col;
 	env->line_no = line;
+	set_preferred_column();
 	draw_search_match(line, env->search, -1);
 }
 
@@ -4314,6 +4359,7 @@ void handle_mouse(void) {
 
 		env->line_no = line_no;
 		env->col_no = col_no;
+		set_preferred_column();
 		place_cursor_actual();
 	}
 	return;
@@ -4624,6 +4670,7 @@ void word_left(void) {
 			line_no--;
 			if (line_no == 0) {
 				goto_line(1);
+				set_preferred_column();
 				return;
 			}
 			col_no = env->lines[line_no-1]->actual + 1;
@@ -4643,6 +4690,7 @@ void word_left(void) {
 		if (col_no == 1) {
 			env->col_no = 1;
 			env->line_no = line_no;
+			set_preferred_column();
 			redraw_statusbar();
 			place_cursor_actual();
 			return;
@@ -4651,6 +4699,7 @@ void word_left(void) {
 
 	env->col_no = col_no;
 	env->line_no = line_no;
+	set_preferred_column();
 	cursor_right();
 }
 
@@ -4668,6 +4717,7 @@ void word_right(void) {
 			if (line_no >= env->line_count) {
 				env->col_no = env->lines[env->line_count-1]->actual;
 				env->line_no = env->line_count;
+				set_preferred_column();
 				redraw_statusbar();
 				place_cursor_actual();
 				return;
@@ -4684,6 +4734,7 @@ void word_right(void) {
 			if (line_no >= env->line_count) {
 				env->col_no = env->lines[env->line_count-1]->actual;
 				env->line_no = env->line_count;
+				set_preferred_column();
 				redraw_statusbar();
 				place_cursor_actual();
 				return;
@@ -4695,6 +4746,7 @@ void word_right(void) {
 
 	env->col_no = col_no;
 	env->line_no = line_no;
+	set_preferred_column();
 	redraw_statusbar();
 	place_cursor_actual();
 	return;
@@ -4717,6 +4769,7 @@ void delete_at_cursor(void) {
 		merge_lines(env->lines, env->line_no - 1);
 		env->line_no -= 1;
 		env->col_no = tmp+1;
+		set_preferred_column();
 		redraw_text();
 		set_modified();
 		redraw_statusbar();
@@ -4736,6 +4789,7 @@ void delete_word(void) {
 			}
 		} while (env->col_no > 1 && env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint != ' ');
 
+		set_preferred_column();
 		redraw_text();
 		set_modified();
 		redraw_statusbar();
@@ -4754,6 +4808,7 @@ void insert_line_feed(void) {
 	}
 	env->col_no = 1;
 	env->line_no += 1;
+	set_preferred_column();
 	add_indent(env->line_no-1,env->line_no-2);
 	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 		env->offset += 1;
@@ -5021,6 +5076,7 @@ void handle_navigation(int c) {
 				env->line_no--;
 				if (env->lines[env->line_no-1]->actual == 0) break;
 			} while (env->line_no > 1);
+			set_preferred_column();
 			redraw_statusbar();
 			break;
 		case '}': /* Jump to next blank line */
@@ -5030,6 +5086,7 @@ void handle_navigation(int c) {
 				env->line_no++;
 				if (env->lines[env->line_no-1]->actual == 0) break;
 			} while (env->line_no < env->line_count);
+			set_preferred_column();
 			redraw_statusbar();
 			break;
 		case '$': /* Move cursor to end of line */
@@ -5120,6 +5177,7 @@ void adjust_indent(int start_line, int direction) {
 	if (env->col_no > env->lines[env->line_no-1]->actual) {
 		env->col_no = env->lines[env->line_no-1]->actual;
 	}
+	set_preferred_column();
 	set_modified();
 }
 
@@ -5195,6 +5253,7 @@ void line_selection_mode(void) {
 						if (env->col_no > env->lines[env->line_no-1]->actual) {
 							env->col_no = env->lines[env->line_no-1]->actual;
 						}
+						set_preferred_column();
 						set_modified();
 						goto _leave_select_line;
 					default:
@@ -5426,6 +5485,7 @@ void char_selection_mode(void) {
 						if (env->line_no > env->line_count) {
 							env->line_no = env->line_count;
 						}
+						set_preferred_column();
 						set_modified();
 						goto _leave_select_char;
 					default:
@@ -5617,6 +5677,7 @@ void replace_mode(void) {
 						if (env->line_no > 1 && env->col_no == 1) {
 							env->line_no--;
 							env->col_no = env->lines[env->line_no-1]->actual;
+							set_preferred_column();
 							place_cursor_actual();
 						} else {
 							cursor_left();
@@ -5685,6 +5746,7 @@ void normal_mode(void) {
 						if (env->line_no > 1 && env->col_no == 1) {
 							env->line_no--;
 							env->col_no = env->lines[env->line_no-1]->actual;
+							set_preferred_column();
 							place_cursor_actual();
 						} else {
 							cursor_left();
@@ -5703,6 +5765,7 @@ void normal_mode(void) {
 							env->col_no = 1;
 							add_indent(env->line_no-1,env->line_no);
 							redraw_text();
+							set_preferred_column();
 							set_modified();
 							place_cursor_actual();
 							goto _insert;
@@ -5714,6 +5777,7 @@ void normal_mode(void) {
 							env->col_no = 1;
 							env->line_no += 1;
 							add_indent(env->line_no-1,env->line_no-2);
+							set_preferred_column();
 							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 								env->offset += 1;
 							}
