@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.3"
+#define BIM_VERSION   "1.0.4"
 #define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -92,11 +92,11 @@ const char * current_theme = "none";
 #define FLAG_TYPE      4
 #define FLAG_PRAGMA    5
 #define FLAG_NUMERAL   6
-#define FLAG_SELECT    7
-#define FLAG_STRING2   8
-#define FLAG_DIFFPLUS  9
-#define FLAG_DIFFMINUS 10
+#define FLAG_STRING2   7
+#define FLAG_DIFFPLUS  8
+#define FLAG_DIFFMINUS 9
 
+#define FLAG_SELECT    (1 << 4)
 #define FLAG_SEARCH    (1 << 5)
 #define FLAG_CONTINUES (1 << 6)
 
@@ -104,7 +104,7 @@ const char * current_theme = "none";
  * Convert syntax hilighting flag to color code
  */
 const char * flag_to_color(int _flag) {
-	int flag = _flag & 0x1F;
+	int flag = _flag & 0xF;
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
@@ -185,6 +185,7 @@ struct {
 	int history_enabled;
 
 	int cursor_padding;
+	int highlight_parens;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -206,6 +207,7 @@ struct {
 	1,
 	1,
 	4, /* cursor padding */
+	1,
 };
 
 void redraw_line(int j, int x);
@@ -290,6 +292,7 @@ typedef struct _env {
 	short  modified:1;
 	short  readonly:1;
 	short  indent:1;
+	short  highlighting_paren:1;
 
 	short  mode;
 	short  tabstop;
@@ -2204,7 +2207,7 @@ void render_line(line_t * line, int width, int offset) {
 
 			/* Syntax hilighting */
 			const char * color = flag_to_color(c.flags);
-			if (c.flags == FLAG_SELECT) {
+			if (c.flags & FLAG_SELECT) {
 				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
 				was_selecting = 1;
 			} else if (c.flags & FLAG_SEARCH) {
@@ -2220,7 +2223,7 @@ void render_line(line_t * line, int width, int offset) {
 				}
 			}
 
-#define _set_colors(fg,bg) if (c.flags != FLAG_SELECT) { set_colors(fg,bg); }
+#define _set_colors(fg,bg) if (!(c.flags & FLAG_SELECT)) { set_colors(fg,bg); }
 
 			/* Render special characters */
 			if (c.codepoint == '\t') {
@@ -2295,7 +2298,7 @@ void render_line(line_t * line, int width, int offset) {
 		}
 	}
 
-	if (env->mode == MODE_CHAR_SELECTION || was_searching) {
+	if (env->mode != MODE_LINE_SELECTION) {
 		set_colors(COLOR_FG, COLOR_BG);
 	}
 
@@ -2638,6 +2641,58 @@ void render_error(char * message, ...) {
 	fflush(stdout);
 }
 
+char * paren_pairs = "()[]{}<>";
+void find_matching_paren(int * out_line, int * out_col);
+
+int is_paren(int c) {
+	char * p = paren_pairs;
+	while (*p) {
+		if (c == *p) return 1;
+		p++;
+	}
+	return 0;
+}
+
+/**
+ * If the config option is enabled, find the matching
+ * paren character and highlight it with the SELECT
+ * colors, clearing out other SELECT values. As we
+ * co-opt the SELECT flag, don't do this in selection
+ * modes - only in normal and insert modes.
+ */
+void highlight_matching_paren(void) {
+	if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION) return;
+	if (!global_config.highlight_parens) return;
+	int line = -1, col = -1;
+	if (env->line_no <= env->line_count && env->col_no <= env->lines[env->line_no-1]->actual &&
+		is_paren(env->lines[env->line_no-1]->text[env->col_no-1].codepoint)) {
+		find_matching_paren(&line, &col);
+		if (line != -1) env->highlighting_paren = 1;
+	}
+	if (!env->highlighting_paren) return;
+	for (int i = 0; i < env->line_count; ++i) {
+		int redraw = 0;
+		for (int j = 0; j < env->lines[i]->actual; ++j) {
+			if (i == line-1 && j == col-1) {
+				env->lines[line-1]->text[col-1].flags |= FLAG_SELECT;
+				redraw = 1;
+				continue;
+			}
+			if (env->lines[i]->text[j].flags & FLAG_SELECT) {
+				redraw = 1;
+			}
+			env->lines[i]->text[j].flags &= (~FLAG_SELECT);
+		}
+		if (redraw) {
+			if ((i) - env->offset > 1 &&
+				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+				redraw_line((i) - env->offset, i);
+			}
+		}
+	}
+	if (line == -1) env->highlighting_paren = 0;
+}
+
 /**
  * Move the cursor to the appropriate location based
  * on where it is in the text region.
@@ -2701,6 +2756,8 @@ void place_cursor_actual(void) {
 		x += diff;
 		redraw_text();
 	}
+
+	highlight_matching_paren();
 
 	/* Move the actual terminal cursor */
 	place_cursor(x,y);
@@ -3554,6 +3611,17 @@ void process_command(char * cmd) {
 			global_config.cursor_padding = atoi(argv[1]);
 			place_cursor_actual();
 		}
+	} else if (!strcmp(argv[0], "hlparen")) {
+		if (argc < 2) {
+			render_status_message("hlparen=%d", global_config.highlight_parens);
+		} else {
+			global_config.highlight_parens = atoi(argv[1]);
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_syntax(env->lines[i],i);
+			}
+			redraw_text();
+			place_cursor_actual();
+		}
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -3632,6 +3700,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("indent");
 		add_candidate("noindent");
 		add_candidate("padding");
+		add_candidate("hlparen");
 		goto _accept_candidate;
 	}
 
@@ -3978,6 +4047,12 @@ void search_mode(int direction) {
 				/* Cancel search */
 				env->line_no = prev_line;
 				env->col_no  = prev_col;
+				/* Unhighlight search matches */
+				for (int i = 0; i < env->line_count; ++i) {
+					for (int j = 0; j < env->lines[i]->actual; ++j) {
+						env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
+					}
+				}
 				redraw_all();
 				break;
 			} else if (c == ENTER_KEY) {
@@ -4099,7 +4174,7 @@ void search_prev(void) {
  * of strings will match, but parens in strings won't
  * match parens outside of strings and so on.
  */
-void find_matching_paren(void) {
+void find_matching_paren(int * out_line, int * out_col) {
 	if (env->col_no > env->lines[env->line_no-1]->actual) {
 		return; /* Invalid cursor position */
 	}
@@ -4109,15 +4184,14 @@ void find_matching_paren(void) {
 	int paren_match = 0;
 	int direction = 0;
 	int start = env->lines[env->line_no-1]->text[env->col_no-1].codepoint;
-	int flags = env->lines[env->line_no-1]->text[env->col_no-1].flags & 0x1F;
+	int flags = env->lines[env->line_no-1]->text[env->col_no-1].flags & 0xF;
 	int count = 0;
 
 	/* TODO what about unicode parens? */
-	char * p = "()[]{}<>";
-	for (int i = 0; p[i]; ++i) {
-		if (start == p[i]) {
+	for (int i = 0; paren_pairs[i]; ++i) {
+		if (start == paren_pairs[i]) {
 			direction = (i % 2 == 0) ? 1 : -1;
-			paren_match = p[(i % 2 == 0) ? (i+1) : (i-1)];
+			paren_match = paren_pairs[(i % 2 == 0) ? (i+1) : (i-1)];
 			break;
 		}
 	}
@@ -4131,7 +4205,7 @@ void find_matching_paren(void) {
 	do {
 		while (col > 0 && col < env->lines[line-1]->actual + 1) {
 			/* Only match on same syntax */
-			if ((env->lines[line-1]->text[col-1].flags & 0x1F) == flags) {
+			if ((env->lines[line-1]->text[col-1].flags & 0xF) == flags) {
 				/* Count up on same direction */
 				if (env->lines[line-1]->text[col-1].codepoint == start) count++;
 				/* Count down on opposite direction */
@@ -4160,9 +4234,8 @@ void find_matching_paren(void) {
 	} while (1);
 
 _match_found:
-	env->line_no = line;
-	env->col_no = col;
-	place_cursor_actual();
+	*out_line = line;
+	*out_col  = col;
 }
 
 /**
@@ -4930,8 +5003,16 @@ void handle_navigation(int c) {
 					recalculate_syntax(env->lines[i],i);
 				}
 			}
-			find_matching_paren();
-			redraw_statusbar();
+			{
+				int paren_line = -1, paren_col = -1;
+				find_matching_paren(&paren_line, &paren_col);
+				if (paren_line != -1) {
+					env->line_no = paren_line;
+					env->col_no = paren_col;
+					place_cursor_actual();
+					redraw_statusbar();
+				}
+			}
 			break;
 		case '{': /* Jump to previous blank line */
 			env->col_no = 1;
@@ -4979,7 +5060,7 @@ void handle_navigation(int c) {
 			recalculate_syntax(env->lines[(line)-1],(line)-1); \
 		} else { \
 			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-				env->lines[(line)-1]->text[j].flags = FLAG_SELECT; \
+				env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
 			} \
 		} \
 		if ((line) - env->offset + 1 > 1 && \
@@ -5022,14 +5103,14 @@ void adjust_indent(int start_line, int direction) {
 				char_t c;
 				c.codepoint = '\t';
 				c.display_width = env->tabstop;
-				c.flags = FLAG_SELECT;
+				c.flags |= FLAG_SELECT;
 				env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
 			} else {
 				for (int j = 0; j < env->tabstop; ++j) {
 					char_t c;
 					c.codepoint = ' ';
 					c.display_width = 1;
-					c.flags = FLAG_SELECT;
+					c.flags |= FLAG_SELECT;
 					env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
 				}
 			}
@@ -5059,7 +5140,7 @@ void line_selection_mode(void) {
 	int this_buf[20];
 
 	for (int j = 0; j < env->lines[env->line_no-1]->actual; ++j) {
-		env->lines[env->line_no-1]->text[j].flags = FLAG_SELECT;
+		env->lines[env->line_no-1]->text[j].flags |= FLAG_SELECT;
 	}
 	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 
@@ -5224,7 +5305,7 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 			} \
 			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
 				if (point_in_range(start_line, env->line_no,start_col, env->col_no, (line), j+1)) { \
-					env->lines[(line)-1]->text[j].flags = FLAG_SELECT; \
+					env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
 				} \
 			} \
 		} \
@@ -5250,7 +5331,7 @@ void char_selection_mode(void) {
 	int this_buf[20];
 
 	/* Select single character */
-	env->lines[env->line_no-1]->text[env->col_no-1].flags = FLAG_SELECT;
+	env->lines[env->line_no-1]->text[env->col_no-1].flags |= FLAG_SELECT;
 	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 
 	while ((c = bim_getch())) {
@@ -5849,12 +5930,16 @@ void load_bimrc(void) {
 
 		/* enable history (experimental) */
 		if (!strcmp(l,"history")) {
-			global_config.history_enabled = 1;
+			global_config.history_enabled = (value ? atoi(value) : 1);
 		}
-		
+
 		/* padding= */
 		if (!strcmp(l,"padding") && value) {
 			global_config.cursor_padding = atoi(value);
+		}
+
+		if (!strcmp(l,"hlparen") && value) {
+			global_config.highlight_parens = atoi(value);
 		}
 	}
 
