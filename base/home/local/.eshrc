@@ -11,3 +11,4 @@ unset START
 
 if stat -Lq /usr/local/bin then export PATH="/usr/local/bin:$PATH"
 if stat -Lq /usr/i686-pc-toaru/bin then export PATH="/usr/i686-pc-toaru/bin:$PATH"
+if stat -Lq /usr/share/python-demos then export PATH="/usr/share/python-demos:$PATH"
