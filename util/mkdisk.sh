@@ -7,16 +7,14 @@ IN=$2
 
 OUTDIR=`dirname $1`
 
-if [ -e "$DIR/../base/usr/share/fonts" ]; then
-    if [ -e "$DIR/../base/usr/local/bin/gcc" ]; then
-        SIZE=200
-        SPC=4
-    else
-        SIZE=128
-        SPC=1
-    fi
+SPACE_REQ=$(du -sb "$DIR/../fatbase" | cut -f 1)
+
+let "SIZE = ($SPACE_REQ / 1040000)"
+echo $SIZE
+
+if [ $SIZE -gt 128 ]; then
+    SPC=4
 else
-    SIZE=64
     SPC=1
 fi
 
