@@ -1733,7 +1733,7 @@ uint32_t shell_cmd_equals(int argc, char * argv[]) {
 
 	if (argc < 3) return 1;
 
-	return strcmp(argv[1], argv[2]);
+	return !!strcmp(argv[1], argv[2]);
 }
 
 uint32_t shell_cmd_return(int argc, char * argv[]) {
@@ -1790,6 +1790,52 @@ uint32_t shell_cmd_unset(int argc, char * argv[]) {
 	return unsetenv(argv[1]);
 }
 
+uint32_t shell_cmd_read(int argc, char * argv[]) {
+	int raw = 0;
+	int i = 1;
+	char * var = "REPLY";
+	if (i < argc && !strcmp(argv[i], "-r")) {
+		raw = 1;
+		i++;
+	}
+	if (i < argc) {
+		var = argv[i];
+	}
+
+	char tmp[4096];
+	fgets(tmp, 4096, stdin);
+
+	if (*tmp && tmp[strlen(tmp)-1] == '\n') {
+		tmp[strlen(tmp)-1] = '\0';
+	}
+
+	if (raw) {
+		setenv(var, tmp, 1);
+		return 0;
+	}
+
+	char tmp2[4096] = {0};
+	char * out = tmp2;
+	char * in = tmp;
+
+	/* TODO: This needs to actually read more if a \ at the end of the line is found */
+	while (*in) {
+		if (*in == '\\') {
+			in++;
+			if (*in == '\n') {
+				in++;
+			}
+		} else {
+			*out = *in;
+			out++;
+			in++;
+		}
+	}
+
+	setenv(var, tmp2, 1);
+	return 0;
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -1810,4 +1856,5 @@ void install_commands() {
 	shell_install_command("exec",    shell_cmd_exec, "replace shell (or subshell) with command");
 	shell_install_command("not",     shell_cmd_not, "invert status of command");
 	shell_install_command("unset",   shell_cmd_unset, "unset variable");
+	shell_install_command("read",    shell_cmd_read, "read user input");
 }
