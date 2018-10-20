@@ -893,8 +893,10 @@ char * syn_py_ext[] = {".py",NULL};
  */
 static char * syn_sh_keywords[] = {
 	"cd","exit","export","help","history","if",
-	"empty?","equals?","return","export-cmd",
+	"empty?","equals?","return","export-cmd","read",
 	"source","exec","not","while","then","else",
+	/* Command commands */
+	"echo","cd","ln","tar","rm","cp","chmod",
 	NULL,
 };
 
