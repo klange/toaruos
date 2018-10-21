@@ -382,6 +382,47 @@ static void graphics_install_preset(uint16_t w, uint16_t h) {
 	finalize_graphics("preset");
 }
 
+static void graphics_install_kludge(uint16_t w, uint16_t h) {
+	uint32_t * herp = (uint32_t *)0xA0000;
+	herp[0] = 0xA5ADFACE;
+	herp[1] = 0xFAF42943;
+
+	for (int i = 2; i < 1000; i += 2) {
+		herp[i]   = 0xFF00FF00;
+		herp[i+1] = 0x00FF00FF;
+	}
+
+	for (uintptr_t fb_offset = 0xE0000000; fb_offset < 0xFF000000; fb_offset += 0x01000000) {
+		/* Enable the higher memory */
+		for (uintptr_t i = fb_offset; i <= fb_offset + 0xFF0000; i += 0x1000) {
+			dma_frame(get_page(i, 1, kernel_directory), 0, 1, i);
+		}
+
+		/* Go find it */
+		for (uintptr_t x = fb_offset; x < fb_offset + 0xFF0000; x += 0x1000) {
+			if (((uintptr_t *)x)[0] == 0xA5ADFACE && ((uintptr_t *)x)[1] == 0xFAF42943) {
+				lfb_vid_memory = (uint8_t *)x;
+				debug_print(INFO, "Had to futz around, but found video memory at 0x%x", lfb_vid_memory);
+				goto mem_found;
+			}
+		}
+	}
+mem_found:
+	lfb_resolution_x = w;
+	lfb_resolution_y = h;
+	lfb_resolution_s = w * 4;
+	lfb_resolution_b = 32;
+
+	for (uintptr_t i = (uintptr_t)lfb_vid_memory; i <= (uintptr_t)lfb_vid_memory + w * h * 4; i += 0x1000) {
+		page_t * p = get_page(i, 1, kernel_directory);
+		dma_frame(p, 0, 1, i);
+		p->pat = 1;
+		p->writethrough = 1;
+		p->cachedisable = 1;
+	}
+	finalize_graphics("kludge");
+}
+
 #define SVGA_IO_BASE (vmware_io)
 #define SVGA_IO_MUL 1
 #define SVGA_INDEX_PORT 0
@@ -526,6 +567,9 @@ static int init(void) {
 		} else if (!strcmp(argv[0],"preset")) {
 			/* Set by bootloader (UEFI) */
 			graphics_install_preset(x,y);
+		} else if (!strcmp(argv[0],"kludge")) {
+			/* Old hack to find vid memory from the VGA window */
+			graphics_install_kludge(x,y);
 		} else {
 			debug_print(WARNING, "Unrecognized video adapter: %s", argv[0]);
 		}
