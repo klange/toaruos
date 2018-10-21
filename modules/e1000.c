@@ -183,7 +183,7 @@ static uint16_t eeprom_read(uint8_t addr) {
 
 
 static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
-	if ((vendorid == 0x8086) && (deviceid == 0x100e || deviceid == 0x1004 || deviceid == 0x100f)) {
+	if ((vendorid == 0x8086) && (deviceid == 0x100e || deviceid == 0x1004 || deviceid == 0x100f || deviceid == 0x10ea)) {
 		*((uint32_t *)extra) = device;
 	}
 }
