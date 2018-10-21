@@ -1379,6 +1379,7 @@ static void term_write(char c) {
 		codepoint = 0;
 		if (c == '\r') {
 			csr_x = 0;
+			draw_cursor();
 			return;
 		}
 		if (csr_x < 0) csr_x = 0;

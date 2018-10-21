@@ -697,6 +697,7 @@ void term_write(char c) {
 	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
 		if (c == '\r') {
 			csr_x = 0;
+			draw_cursor();
 			return;
 		}
 		if (csr_x == term_width) {
