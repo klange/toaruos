@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.5"
+#define BIM_VERSION   "1.0.6"
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -186,6 +186,7 @@ struct {
 
 	int cursor_padding;
 	int highlight_parens;
+	int smart_case;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -197,17 +198,18 @@ struct {
 	0,
 	STDIN_FILENO, /* tty_in */
 	"~/.bimrc", /* bimrc_path */
-	1,
-	1,
-	1,
-	1,
-	1,
-	1,
-	1,
-	1,
-	1,
+	1, /* can scroll */
+	1, /* can hide/show cursor */
+	1, /* can use alternate screen */
+	1, /* can mouse */
+	1, /* can unicode */
+	1, /* can use bright colors */
+	1, /* can set title */
+	1, /* can bce */
+	1, /* history enabled */
 	4, /* cursor padding */
-	1,
+	1, /* highlight parens/braces when cursor moves */
+	1, /* smart case */
 };
 
 void redraw_line(int j, int x);
@@ -3190,6 +3192,10 @@ void cursor_down(void) {
 			}
 		}
 
+		if (env->mode == MODE_INSERT && _x <= env->preferred_column) {
+			env->col_no = env->lines[env->line_no-1]->actual + 1;
+		}
+
 		/*
 		 * If the horizontal cursor position exceeds the width the new line,
 		 * then move the cursor left to the extent of the new line.
@@ -3269,6 +3275,10 @@ void cursor_up(void) {
 			if (_x > env->preferred_column) {
 				break;
 			}
+		}
+
+		if (env->mode == MODE_INSERT && _x <= env->preferred_column) {
+			env->col_no = env->lines[env->line_no-1]->actual + 1;
 		}
 
 		/*
@@ -3651,6 +3661,13 @@ void process_command(char * cmd) {
 			global_config.cursor_padding = atoi(argv[1]);
 			place_cursor_actual();
 		}
+	} else if (!strcmp(argv[0], "smartcase")) {
+		if (argc < 2) {
+			render_status_message("smartcase=%d", global_config.smart_case);
+		} else {
+			global_config.smart_case = atoi(argv[1]);
+			place_cursor_actual();
+		}
 	} else if (!strcmp(argv[0], "hlparen")) {
 		if (argc < 2) {
 			render_status_message("hlparen=%d", global_config.highlight_parens);
@@ -3742,6 +3759,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("padding");
 		add_candidate("hlparen");
 		add_candidate("cursorcolumn");
+		add_candidate("smartcase");
 		goto _accept_candidate;
 	}
 
@@ -3951,6 +3969,26 @@ void command_mode(void) {
 	}
 }
 
+int search_matches(uint32_t a, uint32_t b, int mode) {
+	if (mode == 0) {
+		return a == b;
+	} else if (mode == 1) {
+		return tolower(a) == tolower(b);
+	}
+	return 0;
+}
+
+int smart_case(uint32_t * str) {
+	if (!global_config.smart_case) return 0;
+
+	for (uint32_t * s = str; *s; ++s) {
+		if (tolower(*s) != *s) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 /**
  * Search forward from the given cursor position
  * to find a basic search match.
@@ -3959,6 +3997,9 @@ void command_mode(void) {
  */
 void find_match(int from_line, int from_col, int * out_line, int * out_col, uint32_t * str) {
 	int col = from_col;
+
+	int ignorecase = smart_case(str);
+
 	for (int i = from_line; i <= env->line_count; ++i) {
 		line_t * line = env->lines[i - 1];
 
@@ -3972,8 +4013,7 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, uint
 					*out_col = j + 1;
 					return;
 				}
-				/* TODO search for UTF-8 sequences? */
-				if (*match != line->text[k].codepoint) break;
+				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 				match++;
 				k++;
 			}
@@ -3988,6 +4028,9 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, uint
  */
 void find_match_backwards(int from_line, int from_col, int * out_line, int * out_col, uint32_t * str) {
 	int col = from_col;
+
+	int ignorecase = smart_case(str);
+
 	for (int i = from_line; i >= 1; --i) {
 		line_t * line = env->lines[i-1];
 
@@ -4001,8 +4044,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 					*out_col = j + 1;
 					return;
 				}
-				/* TODO search for UTF-8 sequences? */
-				if (*match != line->text[k].codepoint) break;
+				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 				match++;
 				k++;
 			}
