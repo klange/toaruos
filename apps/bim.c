@@ -3982,7 +3982,7 @@ int smart_case(uint32_t * str) {
 	if (!global_config.smart_case) return 0;
 
 	for (uint32_t * s = str; *s; ++s) {
-		if (tolower(*s) != *s) {
+		if (tolower(*s) != (int)*s) {
 			return 0;
 		}
 	}
