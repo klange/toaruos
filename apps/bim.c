@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.6"
+#define BIM_VERSION   "1.0.7"
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -187,6 +187,8 @@ struct {
 	int cursor_padding;
 	int highlight_parens;
 	int smart_case;
+	int can_24bit;
+	int can_italic;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -210,6 +212,8 @@ struct {
 	4, /* cursor padding */
 	1, /* highlight parens/braces when cursor moves */
 	1, /* smart case */
+	1, /* can use 24-bit color */
+	1, /* can use italics (without inverting) */
 };
 
 void redraw_line(int j, int x);
@@ -410,8 +414,8 @@ void load_colorscheme_wombat(void) {
 	COLOR_TAB_BG    = "5;248";
 	COLOR_KEYWORD   = "5;117";
 	COLOR_STRING    = "5;113";
-	COLOR_COMMENT   = "5;102;3";
-	COLOR_TYPE      = "5;185";
+	COLOR_COMMENT   = global_config.can_italic ? "5;102;3" : "5;102";
+	COLOR_TYPE      = "5;186";
 	COLOR_PRAGMA    = "5;173";
 	COLOR_NUMERAL   = COLOR_PRAGMA;
 
@@ -431,6 +435,7 @@ void load_colorscheme_wombat(void) {
 
 /* "City Lights" based on citylights.xyz */
 void load_colorscheme_citylights(void) {
+	if (!global_config.can_24bit) return;
 	COLOR_FG        = "2;151;178;198";
 	COLOR_BG        = "2;29;37;44";
 	COLOR_ALT_FG    = "2;45;55;65";
@@ -464,6 +469,7 @@ void load_colorscheme_citylights(void) {
 
 /* Solarized Dark, popular theme */
 void load_colorscheme_solarized_dark(void) {
+	if (!global_config.can_24bit) return;
 	COLOR_FG        = "2;147;161;161";
 	COLOR_BG        = "2;0;43;54";
 	COLOR_ALT_FG    = "2;147;161;161";
@@ -495,8 +501,44 @@ void load_colorscheme_solarized_dark(void) {
 	current_theme = "solarized-dark";
 }
 
+
+void load_colorscheme_sunsmoke256(void) {
+	COLOR_FG        = "5;188";
+	COLOR_BG        = "5;234";
+	COLOR_ALT_FG    = "5;244";
+	COLOR_ALT_BG    = "5;236";
+	COLOR_NUMBER_FG = "5;101";
+	COLOR_NUMBER_BG = "5;232";
+	COLOR_STATUS_FG = "5;188";
+	COLOR_STATUS_BG = "5;59";
+	COLOR_TABBAR_BG = "5;59";
+	COLOR_TAB_BG    = "5;59";
+	COLOR_KEYWORD   = "5;74";
+	COLOR_STRING    = "5;71";
+	COLOR_COMMENT   = global_config.can_italic ? "5;102;3" : "5;102";
+	COLOR_TYPE      = "5;221";
+	COLOR_PRAGMA    = "5;160";
+	COLOR_NUMERAL   = "5;161";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "5;17";
+	COLOR_SELECTBG  = "5;109";
+
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
+	current_theme = "sunsmoke256";
+}
+
 /* Custom theme */
 void load_colorscheme_sunsmoke(void) {
+	if (!global_config.can_24bit) {
+		load_colorscheme_sunsmoke256();
+		return;
+	}
 	COLOR_FG        = "2;230;230;230";
 	COLOR_BG        = "2;31;31;31";
 	COLOR_ALT_FG    = "2;122;122;122";
@@ -570,6 +612,7 @@ struct theme_def {
 	{"solarized-dark", load_colorscheme_solarized_dark},
 	{"ansi", load_colorscheme_ansi},
 	{"sunsmoke", load_colorscheme_sunsmoke},
+	{"sunsmoke256", load_colorscheme_sunsmoke256},
 	{NULL, NULL}
 };
 
@@ -620,7 +663,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 		int j = i;
 		for (int s = 0; syn_c_special[s]; ++s) {
 			int d = 0;
-			while (j + d < line->actual && line->text[j+d].codepoint == syn_c_special[s][d]) d++;
+			while (j + d < line->actual - 1 && line->text[j+d].codepoint == syn_c_special[s][d]) d++;
 			if (syn_c_special[s][d] == '\0' && (j+d > line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
 				*out_left = d-1;
 				return FLAG_NUMERAL;
@@ -2309,7 +2352,7 @@ void render_line(line_t * line, int width, int offset) {
 
 	if (!global_config.can_bce) {
 		/* Paint the rest of the line */
-		for (; j < global_config.term_width; ++j) {
+		for (; j < width; ++j) {
 			printf(" ");
 		}
 	}
@@ -6080,6 +6123,11 @@ void detect_weird_terminals(void) {
 	if (term && strstr(term,"tmux") == term) {
 		global_config.can_scroll = 0;
 		global_config.can_bce = 0;
+	}
+	if (term && strstr(term,"screen") == term) {
+		/* unfortunately */
+		global_config.can_24bit = 0;
+		global_config.can_italic = 0;
 	}
 
 }
