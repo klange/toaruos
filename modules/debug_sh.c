@@ -58,49 +58,13 @@ void tty_set_vintr(fs_node_t * dev, char vintr) {
  * TODO history is also nice
  */
 int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
-	int read = 0;
-	tty_set_unbuffered(dev);
-	while (read < max) {
-		uint8_t buf[1];
-		int r = read_fs(dev, 0, 1, (unsigned char *)buf);
-		if (!r) {
-			debug_print(WARNING, "Read nothing?");
-			continue;
-		}
-		linebuf[read] = buf[0];
-		if (buf[0] == '\n') {
-			fprintf(dev, "\n");
-			linebuf[read] = 0;
-			break;
-		} else if (buf[0] == 0x08) {
-			if (read > 0) {
-				fprintf(dev, "\010 \010");
-				read--;
-				linebuf[read] = 0;
-			}
-		} else if (buf[0] < ' ') {
-			switch (buf[0]) {
-				case 0x04:
-					if (read == 0) {
-						fprintf(dev, "exit\n");
-						sprintf(linebuf, "exit");
-						return strlen(linebuf);
-					}
-					break;
-				case 0x0C: /* ^L */
-					/* Should reset display here */
-					break;
-				default:
-					/* do nothing */
-					break;
-			}
-		} else {
-			fprintf(dev, "%c", buf[0]);
-			read += r;
-		}
+	int r = read_fs(dev, 0, max, (uint8_t *)linebuf);
+	if (r <= 0) return -1;
+	if (r && linebuf[r-1] == '\n') {
+		linebuf[r-1] = '\0';
+		return r-1;
 	}
-	tty_set_buffered(dev);
-	return read;
+	return r;
 }
 
 /*
@@ -742,7 +706,7 @@ static void debug_shell_handle_out(void * data, char * name) {
 static void debug_shell_actual(void * data, char * name) {
 
 	current_process->image.entry = 0;
-	fs_node_t * tty = (fs_node_t *)data;
+	fs_node_t * tty = (fs_node_t *)current_process->fds->entries[1];
 
 	/* Our prompt will include the version number of the current kernel */
 	char version_number[1024];
@@ -766,7 +730,9 @@ static void debug_shell_actual(void * data, char * name) {
 		}
 
 		/* Read a line */
-		debug_shell_readline(tty, command, 511);
+		if (debug_shell_readline(current_process->fds->entries[0], command, 511) < 0) {
+			kexit(0);
+		}
 
 		char * arg = strdup(command);
 		char * argv[1024];  /* Command tokens (space-separated elements) */
@@ -813,6 +779,10 @@ static void debug_shell_run(void * data, char * name) {
 
 	/* Set the device to be the actual TTY slave */
 	tty = fs_slave;
+	int fd = process_append_fd((process_t *)current_process, tty);
+	process_move_fd((process_t *)current_process, fd, 0);
+	process_move_fd((process_t *)current_process, fd, 1);
+
 
 	fs_master->refcount = -1;
 	fs_slave->refcount = -1;
