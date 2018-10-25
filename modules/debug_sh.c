@@ -636,6 +636,16 @@ static int shell_debug_pid(fs_node_t * tty, int argc, char * argv[]) {
 	return 0;
 }
 
+extern hashmap_t * kernel_args_map;
+static int shell_set(fs_node_t * tty, int argc, char * argv[]) {
+	if (argc < 3) {
+		fprintf(tty, "set KEY VALUE");
+		return 1;
+	}
+	hashmap_set(kernel_args_map, argv[1], strdup(argv[2]));
+	return 0;
+}
+
 static struct shell_command shell_commands[] = {
 	{"shell", &shell_create_userspace_shell,
 		"Runs a userspace shell on this tty."},
@@ -685,6 +695,8 @@ static struct shell_command shell_commands[] = {
 		"Quit the shell."},
 	{"piix", &shell_frob_piix,
 		"frob piix"},
+	{"set", &shell_set,
+		"set kcmdline flag"},
 	{NULL, NULL, NULL}
 };
 
