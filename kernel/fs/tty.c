@@ -130,7 +130,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 				/* How many do we backspace? */
 				int vwidth = 1;
 				pty->canon_buflen--;
-				if (pty->canon_buflen < ' ') {
+				if (pty->canon_buffer[pty->canon_buflen] < ' ') {
 					/* Erase ^@ */
 					vwidth = 2;
 				}
