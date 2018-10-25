@@ -14,5 +14,13 @@ int main(int argc, char * argv[]) {
 		fprintf(stderr, "Usage: %s <modulepath>\n", argv[0]);
 		return 1;
 	}
-	return syscall_system_function(8, &argv[1]);
+	int ret = 0;
+	for (int i = 1; i < argc; ++i) {
+		int status = syscall_system_function(8, &argv[i]);
+		if (status) {
+			fprintf(stderr, "%s: %s: kernel returned %d\n", argv[0], argv[i], status);
+			ret = 1;
+		}
+	}
+	return ret;
 }
