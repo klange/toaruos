@@ -127,12 +127,20 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		if (c == pty->tios.c_cc[VERASE]) {
 			/* Backspace */
 			if (pty->canon_buflen > 0) {
+				/* How many do we backspace? */
+				int vwidth = 1;
 				pty->canon_buflen--;
+				if (pty->canon_buflen < ' ') {
+					/* Erase ^@ */
+					vwidth = 2;
+				}
 				pty->canon_buffer[pty->canon_buflen] = '\0';
 				if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOE)) {
-					output_process(pty, '\010');
-					output_process(pty, ' ');
-					output_process(pty, '\010');
+					for (int i = 0; i < vwidth; ++i) {
+						output_process(pty, '\010');
+						output_process(pty, ' ');
+						output_process(pty, '\010');
+					}
 				}
 			}
 			return;
@@ -171,7 +179,12 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			pty->canon_buflen++;
 		}
 		if (pty->tios.c_lflag & ECHO) {
-			output_process(pty, c);
+			if (c < ' ' && c != '\n') {
+				output_process(pty, '^');
+				output_process(pty, '@'+c);
+			} else {
+				output_process(pty, c);
+			}
 		}
 		if (c == '\n') {
 			if (!(pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHONL)) {
