@@ -78,6 +78,26 @@ void tty_output_process(pty_t * pty, uint8_t c) {
 	output_process_slave(pty, c);
 }
 
+static void erase_one(pty_t * pty) {
+	if (pty->canon_buflen > 0) {
+		/* How many do we backspace? */
+		int vwidth = 1;
+		pty->canon_buflen--;
+		if (pty->canon_buffer[pty->canon_buflen] < ' ') {
+			/* Erase ^@ */
+			vwidth = 2;
+		}
+		pty->canon_buffer[pty->canon_buflen] = '\0';
+		if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOE)) {
+			for (int i = 0; i < vwidth; ++i) {
+				output_process(pty, '\010');
+				output_process(pty, ' ');
+				output_process(pty, '\010');
+			}
+		}
+	}
+}
+
 void tty_input_process(pty_t * pty, uint8_t c) {
 	if (pty->tios.c_lflag & ISIG) {
 		if (c == pty->tios.c_cc[VINTR]) {
@@ -114,35 +134,13 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 	if (pty->tios.c_lflag & ICANON) {
 		if (c == pty->tios.c_cc[VKILL]) {
 			while (pty->canon_buflen > 0) {
-				pty->canon_buflen--;
-				pty->canon_buffer[pty->canon_buflen] = '\0';
-				if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOK)) {
-					output_process(pty, '\010');
-					output_process(pty, ' ');
-					output_process(pty, '\010');
-				}
+				erase_one(pty);
 			}
 			return;
 		}
 		if (c == pty->tios.c_cc[VERASE]) {
 			/* Backspace */
-			if (pty->canon_buflen > 0) {
-				/* How many do we backspace? */
-				int vwidth = 1;
-				pty->canon_buflen--;
-				if (pty->canon_buffer[pty->canon_buflen] < ' ') {
-					/* Erase ^@ */
-					vwidth = 2;
-				}
-				pty->canon_buffer[pty->canon_buflen] = '\0';
-				if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOE)) {
-					for (int i = 0; i < vwidth; ++i) {
-						output_process(pty, '\010');
-						output_process(pty, ' ');
-						output_process(pty, '\010');
-					}
-				}
-			}
+			erase_one(pty);
 			return;
 		}
 		if (c == pty->tios.c_cc[VEOF]) {
