@@ -79,7 +79,7 @@ kmalloc_real(
 		return (uintptr_t)address;
 	}
 
-	if (align && (placement_pointer & 0xFFFFF000)) {
+	if (align && (placement_pointer & 0x00000FFF)) {
 		placement_pointer &= 0xFFFFF000;
 		placement_pointer += 0x1000;
 	}
@@ -346,6 +346,9 @@ void paging_finalize(void) {
 	/* And preallocate the page entries for all the rest of the kernel heap as well */
 	for (uintptr_t i = tmp_heap_start; i < KERNEL_HEAP_END; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
+	}
+	for (unsigned int i = 0xE000; i <= 0xFFF0; i += 0x40) {
+		get_page(i << 16UL, 1, kernel_directory);
 	}
 
 	debug_print(NOTICE, "Setting directory.");
