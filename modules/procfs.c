@@ -138,7 +138,9 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 		return 0;
 	}
 
-	char state = proc->finished ? 'Z' : (process_is_ready(proc) ? 'R' : 'S');
+	char state = proc->finished ? 'Z' :
+		(proc->suspended ? 'T' :
+			(process_is_ready(proc) ? 'R' : 'S'));
 	char * name = proc->name + strlen(proc->name) - 1;
 
 	while (1) {
