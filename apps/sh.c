@@ -1882,7 +1882,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 		return 0;
 	}
 
-	if (kill(pid, SIGCONT) < 0) {
+	if (kill(-pid, SIGCONT) < 0) {
 		fprintf(stderr, "no current job / bad pid\n");
 		hashmap_remove(job_hash, (void*)pid);
 		return 1;

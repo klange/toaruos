@@ -139,7 +139,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			}
 			clear_input_buffer(pty);
 			if (pty->fg_proc) {
-				send_signal(pty->fg_proc, sig, 1);
+				group_send_signal(pty->fg_proc, sig, 1);
 			}
 			return;
 		}

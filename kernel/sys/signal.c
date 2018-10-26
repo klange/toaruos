@@ -267,3 +267,35 @@ int send_signal(pid_t process, uint32_t signal, int force_root) {
 	return 0;
 }
 
+int group_send_signal(int group, uint32_t signal, int force_root) {
+
+	int kill_self = 0;
+	int killed_something = 0;
+
+	debug_print(WARNING, "killing group %d", group);
+
+	foreach(node, process_list) {
+		process_t * proc = node->value;
+		debug_print(WARNING, "examining %d %d %d", proc->id, proc->job, proc->group);
+		if (proc->group == proc->id && proc->job == group) {
+			/* Only thread group leaders */
+			debug_print(WARNING, "killing %d", proc->group);
+			if (proc->group == current_process->group) {
+				kill_self = 1;
+			} else {
+				if (send_signal(proc->group, signal, force_root) == 0) {
+					killed_something = 1;
+				}
+			}
+		}
+	}
+
+	if (kill_self) {
+		if (send_signal(current_process->group, signal, force_root) == 0) {
+			killed_something = 1;
+		}
+	}
+
+	return !!killed_something;
+}
+
