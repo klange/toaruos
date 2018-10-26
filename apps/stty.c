@@ -263,7 +263,7 @@ int main(int argc, char * argv[]) {
 		set_char("stop",  VSTOP);
 		set_char("susp",  VSUSP);
 		set_char("lnext", VLNEXT);
-
+		set_char("vwerase",VWERASE);
 
 		set_cflag("parenb", PARENB);
 		set_cflag("parodd", PARODD);
