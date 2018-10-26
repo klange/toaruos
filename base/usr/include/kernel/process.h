@@ -106,6 +106,7 @@ typedef struct process {
 	int           awoken_index;
 	node_t *      timeout_node;
 	struct timeval start;
+	uint8_t       suspended;
 } process_t;
 
 typedef struct {

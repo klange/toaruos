@@ -50,3 +50,5 @@
 #define SYS_FSWAIT 59
 #define SYS_FSWAIT2 60
 #define SYS_CHOWN 61
+#define SYS_SETSID 62
+#define SYS_SETPGID 63

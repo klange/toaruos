@@ -908,6 +908,57 @@ static int sys_fswait_timeout(int c, int fds[], int timeout) {
 	return result;
 }
 
+static int sys_setsid(void) {
+	if (current_process->job == current_process->group) {
+		return -EPERM;
+	}
+	current_process->session = current_process->group;
+	return current_process->group;
+}
+
+static int sys_setpgid(pid_t pid, pid_t pgid) {
+	if (pgid < 0) {
+		return -EINVAL;
+	}
+	process_t * proc;
+	if (pid == 0) {
+		proc = (process_t*)current_process;
+	} else {
+		proc = process_from_pid(pid);
+	}
+	if (!proc) {
+		debug_print(WARNING, "not found");
+		return -ESRCH;
+	}
+	if (proc->session != current_process->session) {
+		debug_print(WARNING, "child is in different sesion");
+		return -EPERM;
+	}
+	if (proc->session == proc->group) {
+		debug_print(WARNING, "process is session leader");
+		return -EPERM;
+	}
+
+	process_t * pgroup = process_from_pid(pgid);
+
+	if (!pgroup) {
+		debug_print(WARNING, "bad session id");
+		return -EPERM;
+	}
+
+	if (pgroup->session != proc->session) {
+		debug_print(WARNING, "tried to move to different session");
+		return -EPERM;
+	}
+
+	if (pgid == 0) {
+		proc->job = proc->group;
+	} else {
+		proc->job = pgid;
+	}
+	return 0;
+}
+
 /*
  * System Call Internals
  */
@@ -963,6 +1014,8 @@ static int (*syscalls[])() = {
 	[SYS_FSWAIT]       = sys_fswait,
 	[SYS_FSWAIT2]      = sys_fswait_timeout,
 	[SYS_CHOWN]        = sys_chown,
+	[SYS_SETSID]       = sys_setsid,
+	[SYS_SETPGID]      = sys_setpgid,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);

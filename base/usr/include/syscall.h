@@ -117,6 +117,8 @@ DECL_SYSCALL3(waitpid, int, int *, int);
 DECL_SYSCALL5(mount, char *, char *, char *, unsigned long, void *);
 DECL_SYSCALL1(pipe,  int *);
 DECL_SYSCALL3(readlink, char *, char *, int);
+DECL_SYSCALL0(setsid);
+DECL_SYSCALL2(setpgid,int,int);
 
 _End_C_Header
 

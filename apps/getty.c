@@ -45,6 +45,7 @@ int main(int argc, char * argv[]) {
 	pid_t child = fork();
 
 	if (!child) {
+		setsid();
 		dup2(fd_slave, 0);
 		dup2(fd_slave, 1);
 		dup2(fd_slave, 2);

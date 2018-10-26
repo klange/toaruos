@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 
 #include <toaru/list.h>
+#include <toaru/hashmap.h>
 #include <toaru/kbd.h>
 #include <toaru/rline.h>
 #include <toaru/rline_exp.h>
@@ -308,6 +309,8 @@ void draw_prompt(void) {
 
 volatile int break_while = 0;
 uint32_t child = 0;
+pid_t suspended_pid = 0;
+hashmap_t * job_hash = NULL;
 
 void sig_pass(int sig) {
 	/* Interrupt handler */
@@ -1157,20 +1160,25 @@ _nope:
 		argv[tokenid-1] = NULL;
 	}
 
+	int pgid = 0;
 	if (cmdi > 0) {
 		int last_output[2];
 		pipe(last_output);
 		child_pid = fork();
 		if (!child_pid) {
+			setpgid(0,0);
 			dup2(last_output[1], STDOUT_FILENO);
 			close(last_output[0]);
 			run_cmd(arg_starts[0]);
 		}
 
+		pgid = child_pid;
+
 		for (int j = 1; j < cmdi; ++j) {
 			int tmp_out[2];
 			pipe(tmp_out);
 			if (!fork()) {
+				setpgid(0,pgid);
 				dup2(tmp_out[1], STDOUT_FILENO);
 				dup2(last_output[0], STDIN_FILENO);
 				close(tmp_out[0]);
@@ -1185,6 +1193,7 @@ _nope:
 
 		last_child = fork();
 		if (!last_child) {
+			setpgid(0,pgid);
 			if (output_files[cmdi]) {
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
@@ -1209,6 +1218,7 @@ _nope:
 		} else {
 			child_pid = fork();
 			if (!child_pid) {
+				setpgid(0,0);
 				if (output_files[cmdi]) {
 					int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 					if (fd < 0) {
@@ -1220,19 +1230,26 @@ _nope:
 				}
 				run_cmd(arg_starts[0]);
 			}
+			pgid = child_pid;
 			last_child = child_pid;
 		}
 	}
 
-	tcsetpgrp(STDIN_FILENO, child_pid);
+	tcsetpgrp(STDIN_FILENO, pgid);
 	int ret_code = 0;
 	if (!nowait) {
 		child = child_pid;
 		int pid;
 		int tmp;
 		do {
-			pid = waitpid(-1, &tmp, 0);
+			pid = waitpid(-pgid, &tmp, 0);
 			if (pid == last_child) ret_code = tmp;
+			if (WIFSTOPPED(tmp)) {
+				suspended_pid = pid;
+				hashmap_set(job_hash, (void*)pid, strdup(arg_starts[0][0]));
+				fprintf(stderr, "pid %d reports STOPPED (fg %d to resume)\n", pid, pid);
+				break;
+			}
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		child = 0;
 	}
@@ -1371,6 +1388,8 @@ int main(int argc, char ** argv) {
 
 	signal(SIGINT, sig_pass);
 	signal(SIGWINCH, sig_pass);
+
+	job_hash = hashmap_create_int(10);
 
 	getuser();
 	gethost();
@@ -1836,6 +1855,71 @@ uint32_t shell_cmd_read(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_fg(int argc, char * argv[]) {
+	int ret_code;
+	int pid;
+	if (argc < 2) {
+		if (!suspended_pid) {
+			list_t * keys = hashmap_keys(job_hash);
+			foreach(node, keys) {
+				suspended_pid = (int)node->value;
+				break;
+			}
+			list_free(keys);
+			free(keys);
+			if (!suspended_pid) {
+				fprintf(stderr, "no current job\n");
+				return 1;
+			}
+		}
+		pid = suspended_pid;
+	} else {
+		pid = atoi(argv[1]);
+	}
+
+	if (!hashmap_has(job_hash, (void*)pid)) {
+		fprintf(stderr, "invalid job");
+		return 0;
+	}
+
+	if (kill(pid, SIGCONT) < 0) {
+		fprintf(stderr, "no current job / bad pid\n");
+		hashmap_remove(job_hash, (void*)pid);
+		return 1;
+	}
+	tcsetpgrp(STDIN_FILENO, pid);
+	child = pid;
+
+	int outpid;
+	do {
+		outpid = waitpid(-pid, &ret_code, 0);
+		if (WIFSTOPPED(ret_code)) {
+			suspended_pid = pid;
+			fprintf(stderr, "pid %d reports STOPPED (fg %d to resume)\n", pid, pid);
+			break;
+		} else {
+			suspended_pid = 0;
+			hashmap_remove(job_hash, (void*)pid);
+		}
+	} while (outpid != -1 || (outpid == -1 && errno != ECHILD));
+	child = 0;
+	tcsetpgrp(STDIN_FILENO, getpid());
+	handle_status(ret_code);
+	return WEXITSTATUS(ret_code);
+}
+
+uint32_t shell_cmd_jobs(int argc, char * argv[]) {
+	list_t * keys = hashmap_keys(job_hash);
+	foreach(node, keys) {
+		int pid = (int)node->value;
+		char * c = hashmap_get(job_hash, (void*)pid);
+		fprintf(stdout, "%5d %s\n", pid, c);
+	}
+	list_free(keys);
+	free(keys);
+	return 0;
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -1857,4 +1941,6 @@ void install_commands() {
 	shell_install_command("not",     shell_cmd_not, "invert status of command");
 	shell_install_command("unset",   shell_cmd_unset, "unset variable");
 	shell_install_command("read",    shell_cmd_read, "read user input");
+	shell_install_command("fg",      shell_cmd_fg, "resume a suspended job");
+	shell_install_command("jobs",    shell_cmd_jobs, "list stopped jobs");
 }

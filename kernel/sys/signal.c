@@ -69,7 +69,7 @@ char isdeadly[] = {
 	0, /* SIGPOLL    */
 	3, /* SIGSTOP    */
 	3, /* SIGTSTP    */
-	0, /* SIGCONT    */
+	4, /* SIGCONT    */
 	3, /* SIGTTIN    */
 	3, /* SIGTTOUT   */
 	1, /* SIGVTALRM  */
@@ -103,6 +103,21 @@ void handle_signal(process_t * proc, signal_t * sig) {
 			debug_print(WARNING, "Process %d killed by unhandled signal (%d)", proc->id, signum);
 			kexit(((128 + signum) << 8) | signum);
 			__builtin_unreachable();
+		} else if (dowhat == 3) {
+			debug_print(WARNING, "suspending pid %d", proc->id);
+			current_process->suspended = 1;
+			current_process->status = 0x7F;
+
+			process_t * parent = process_get_parent((process_t *)current_process);
+
+			if (parent && !parent->finished) {
+				wakeup_queue(parent->wait_queue);
+			}
+
+			switch_task(0);
+		} else if (dowhat == 4) {
+			switch_task(1);
+			return;
 		} else {
 			debug_print(WARNING, "Ignoring signal %d by default in pid %d", signum, proc->id);
 		}
@@ -213,6 +228,16 @@ int send_signal(pid_t process, uint32_t signal, int force_root) {
 	if (!receiver->signals.functions[signal] && !isdeadly[signal]) {
 		/* If we're blocking a signal and it's not going to kill us, don't deliver it */
 		return 0;
+	}
+
+	if (isdeadly[signal] == 4) {
+		if (!receiver->suspended) {
+			return -EINVAL;
+		} else {
+			debug_print(WARNING, "Resuming pid %d from suspend", receiver->id);
+			receiver->suspended = 0;
+			receiver->status = 0;
+		}
 	}
 
 	/* Append signal to list */

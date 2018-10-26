@@ -122,31 +122,27 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		return;
 	}
 	if (pty->tios.c_lflag & ISIG) {
+		int sig = -1;
 		if (c == pty->tios.c_cc[VINTR]) {
-			if (pty->tios.c_lflag & ECHO) {
-				output_process(pty, '^');
-				output_process(pty, ('@' + c) % 128);
-				output_process(pty, '\n');
-			}
-			clear_input_buffer(pty);
-			if (pty->fg_proc) {
-				send_signal(pty->fg_proc, SIGINT, 1);
-			}
-			return;
-		}
-		if (c == pty->tios.c_cc[VQUIT]) {
-			if (pty->tios.c_lflag & ECHO) {
-				output_process(pty, '^');
-				output_process(pty, ('@' + c) % 128);
-				output_process(pty, '\n');
-			}
-			clear_input_buffer(pty);
-			if (pty->fg_proc) {
-				send_signal(pty->fg_proc, SIGQUIT, 1);
-			}
-			return;
+			sig = SIGINT;
+		} else if (c == pty->tios.c_cc[VQUIT]) {
+			sig = SIGQUIT;
+		} else if (c == pty->tios.c_cc[VSUSP]) {
+			sig = SIGTSTP;
 		}
 		/* VSUSP */
+		if (sig != -1) {
+			if (pty->tios.c_lflag & ECHO) {
+				output_process(pty, '^');
+				output_process(pty, ('@' + c) % 128);
+				output_process(pty, '\n');
+			}
+			clear_input_buffer(pty);
+			if (pty->fg_proc) {
+				send_signal(pty->fg_proc, sig, 1);
+			}
+			return;
+		}
 	}
 #if 0
 	if (pty->tios.c_lflag & IXON ) {

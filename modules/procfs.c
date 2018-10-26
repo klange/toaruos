@@ -161,6 +161,8 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			"Tgid:\t%d\n" /* group ? group : pid */
 			"Pid:\t%d\n" /* pid */
 			"PPid:\t%d\n" /* parent pid */
+			"Pgid:\t%d\n" /* progress group id */
+			"Sid:\t%d\n" /* session id */
 			"Uid:\t%d\n"
 			"Ueip:\t0x%x\n"
 			"SCid:\t%d\n"
@@ -180,6 +182,8 @@ static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size
 			proc->group ? proc->group : proc->id,
 			proc->id,
 			parent ? parent->id : 0,
+			proc->job,
+			proc->session,
 			proc->user,
 			proc->syscall_registers ? proc->syscall_registers->eip : 0,
 			proc->syscall_registers ? proc->syscall_registers->eax : 0,

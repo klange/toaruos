@@ -263,12 +263,13 @@ process_t * spawn_init(void) {
 	 * of the process' entry in the process tree. */
 	init->tree_entry = process_tree->root;
 	init->id      = 1;       /* Init is PID 1 */
-	init->group   = 0;
+	init->group   = 0; /* thread group id (real PID) */
+	init->job     = 1; /* process group id (jobs) */
+	init->session = 1; /* session leader id */
 	init->name    = strdup("init");  /* Um, duh. */
 	init->cmdline = NULL;
 	init->user    = 0;       /* UID 0 */
 	init->mask    = 022;     /* umask */
-	init->group   = 0;       /* Task group 0 */
 	init->status  = 0;       /* Run status */
 	init->fds = malloc(sizeof(fd_table_t));
 	init->fds->refs = 1;
@@ -293,6 +294,7 @@ process_t * spawn_init(void) {
 
 	/* Process is not finished */
 	init->finished = 0;
+	init->suspended = 0;
 	init->started = 1;
 	init->running = 1;
 	init->wait_queue = list_create();
@@ -385,8 +387,9 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 	proc->user  = parent->user;
 	proc->mask = parent->mask;
 
-	/* XXX this is wrong? */
-	proc->group = parent->group;
+	/* Until specified otherwise */
+	proc->job = parent->job;
+	proc->session = parent->session;
 
 	/* Zero out the ESP/EBP/EIP */
 	proc->thread.esp = 0;
@@ -436,6 +439,7 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 	/* Zero out the process status */
 	proc->status = 0;
 	proc->finished = 0;
+	proc->suspended = 0;
 	proc->started = 0;
 	proc->running = 0;
 	memset(proc->signals.functions, 0x00, sizeof(uintptr_t) * NUMSIGNALS);
@@ -783,10 +787,10 @@ static int wait_candidate(process_t * parent, int pid, int options, process_t * 
 	}
 
 	if (pid < -1) {
-		if (proc->group == -pid || proc->id == -pid) return 1;
+		if (proc->job == -pid || proc->id == -pid) return 1;
 	} else if (pid == 0) {
 		/* Matches our group ID */
-		if (proc->group == parent->id) return 1;
+		if (proc->job == parent->id) return 1;
 	} else if (pid > 0) {
 		/* Specific pid */
 		if (proc->id == pid) return 1;
@@ -817,7 +821,7 @@ int waitpid(int pid, int * status, int options) {
 
 			if (wait_candidate(proc, pid, options, child)) {
 				has_children = 1;
-				if (child->finished) {
+				if (child->finished || child->suspended) {
 					candidate = child;
 					break;
 				}
@@ -836,7 +840,9 @@ int waitpid(int pid, int * status, int options) {
 				*status = candidate->status;
 			}
 			int pid = candidate->id;
-			reap_process(candidate);
+			if (candidate->finished) {
+				reap_process(candidate);
+			}
 			return pid;
 		} else {
 			if (options & 1) {

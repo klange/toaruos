@@ -83,4 +83,7 @@ extern char * getlogin(void);
 extern int gethostname(char * name, size_t len);
 extern int sethostname(const char * name, size_t len);
 
+extern pid_t setsid(void);
+extern int setpgid(pid_t, pid_t);
+
 _End_C_Header

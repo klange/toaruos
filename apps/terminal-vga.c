@@ -1204,6 +1204,7 @@ int main(int argc, char ** argv) {
 	uint32_t f = fork();
 
 	if (getpid() != pid) {
+		setsid();
 		dup2(fd_slave, 0);
 		dup2(fd_slave, 1);
 		dup2(fd_slave, 2);

@@ -2483,6 +2483,7 @@ int main(int argc, char ** argv) {
 	child_pid = fork();
 
 	if (!child_pid) {
+		setsid();
 		/* Prepare stdin/out/err */
 		dup2(fd_slave, 0);
 		dup2(fd_slave, 1);
