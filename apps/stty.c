@@ -110,7 +110,7 @@ static int show_settings(int all) {
 	/* Keys */
 	print_cc(&t, "intr",  VINTR,  3);
 	print_cc(&t, "quit",  VQUIT,  28);
-	print_cc(&t, "erase", VERASE, '\b');
+	print_cc(&t, "erase", VERASE, 0x7F);
 	print_cc(&t, "kill",  VKILL,  21);
 	print_cc(&t, "eof",   VEOF,   4);
 	print_cc(&t, "eol",   VEOL,   0);
