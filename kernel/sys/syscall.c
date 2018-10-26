@@ -939,21 +939,21 @@ static int sys_setpgid(pid_t pid, pid_t pgid) {
 		return -EPERM;
 	}
 
-	process_t * pgroup = process_from_pid(pgid);
-
-	if (!pgroup) {
-		debug_print(WARNING, "bad session id");
-		return -EPERM;
-	}
-
-	if (pgroup->session != proc->session) {
-		debug_print(WARNING, "tried to move to different session");
-		return -EPERM;
-	}
-
 	if (pgid == 0) {
 		proc->job = proc->group;
 	} else {
+		process_t * pgroup = process_from_pid(pgid);
+
+		if (!pgroup) {
+			debug_print(WARNING, "bad session id");
+			return -EPERM;
+		}
+
+		if (pgroup->session != proc->session) {
+			debug_print(WARNING, "tried to move to different session");
+			return -EPERM;
+		}
+
 		proc->job = pgid;
 	}
 	return 0;
