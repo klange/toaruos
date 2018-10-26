@@ -78,7 +78,7 @@ void tty_output_process(pty_t * pty, uint8_t c) {
 	output_process_slave(pty, c);
 }
 
-static void erase_one(pty_t * pty) {
+static void erase_one(pty_t * pty, int erase) {
 	if (pty->canon_buflen > 0) {
 		/* How many do we backspace? */
 		int vwidth = 1;
@@ -88,17 +88,35 @@ static void erase_one(pty_t * pty) {
 			vwidth = 2;
 		}
 		pty->canon_buffer[pty->canon_buflen] = '\0';
-		if ((pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHOE)) {
-			for (int i = 0; i < vwidth; ++i) {
-				output_process(pty, '\010');
-				output_process(pty, ' ');
-				output_process(pty, '\010');
+		if (pty->tios.c_lflag & ECHO) {
+			if (erase) {
+				for (int i = 0; i < vwidth; ++i) {
+					output_process(pty, '\010');
+					output_process(pty, ' ');
+					output_process(pty, '\010');
+				}
 			}
 		}
 	}
 }
 
 void tty_input_process(pty_t * pty, uint8_t c) {
+	if (pty->next_is_verbatim) {
+		pty->next_is_verbatim = 0;
+		if (pty->canon_buflen < pty->canon_bufsize) {
+			pty->canon_buffer[pty->canon_buflen] = c;
+			pty->canon_buflen++;
+		}
+		if (pty->tios.c_lflag & ECHO) {
+			if (c < ' ') {
+				output_process(pty, '^');
+				output_process(pty, '@'+c);
+			} else {
+				output_process(pty, c);
+			}
+		}
+		return;
+	}
 	if (pty->tios.c_lflag & ISIG) {
 		if (c == pty->tios.c_cc[VINTR]) {
 			if (pty->tios.c_lflag & ECHO) {
@@ -131,16 +149,51 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		/* VSTOP, VSTART */
 	}
 #endif
+
+	/* ISTRIP: Strip eighth bit */
+	if (pty->tios.c_iflag & ISTRIP) {
+		c &= 0x7F;
+	}
+
+	/* IGNCR: Ignore carriage return. */
+	if ((pty->tios.c_iflag & IGNCR) && c == '\r') {
+		return;
+	}
+
+	if ((pty->tios.c_iflag & INLCR) && c == '\n') {
+		/* INLCR: Translate NL to CR. */
+		c = '\r';
+	} else if ((pty->tios.c_iflag & ICRNL) && c == '\r') {
+		/* ICRNL: Convert carriage return. */
+		c = '\n';
+	}
+
 	if (pty->tios.c_lflag & ICANON) {
+
+		if (c == pty->tios.c_cc[VLNEXT] && (pty->tios.c_lflag & IEXTEN)) {
+			pty->next_is_verbatim = 1;
+			output_process(pty, '^');
+			output_process(pty, '\010');
+			return;
+		}
+
 		if (c == pty->tios.c_cc[VKILL]) {
 			while (pty->canon_buflen > 0) {
-				erase_one(pty);
+				erase_one(pty, pty->tios.c_lflag & ECHOK);
+			}
+			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOK)) {
+				output_process(pty, '^');
+				output_process(pty, '@' + c);
 			}
 			return;
 		}
 		if (c == pty->tios.c_cc[VERASE]) {
 			/* Backspace */
-			erase_one(pty);
+			erase_one(pty, pty->tios.c_lflag & ECHOE);
+			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOE)) {
+				output_process(pty, '^');
+				output_process(pty, '@' + c);
+			}
 			return;
 		}
 		if (c == pty->tios.c_cc[VEOF]) {
@@ -150,26 +203,6 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 				ring_buffer_interrupt(pty->in);
 			}
 			return;
-		}
-
-		/* ISTRIP: Strip eighth bit */
-		if (pty->tios.c_iflag & ISTRIP) {
-			c &= 0x7F;
-		}
-
-		/* IGNCR: Ignore carriage return. */
-		if ((pty->tios.c_iflag & IGNCR) && c == '\r') {
-			return;
-		}
-
-		/* INLCR: Translate NL to CR. */
-		if ((pty->tios.c_iflag & INLCR) && c == '\n') {
-			c = '\r';
-		}
-
-		/* ICRNL: Convert carriage return. */
-		if ((pty->tios.c_iflag & ICRNL) && c == '\r') {
-			c = '\n';
 		}
 
 		if (pty->canon_buflen < pty->canon_bufsize) {
@@ -593,6 +626,8 @@ pty_t * pty_new(struct winsize * size) {
 
 	pty_t * pty = malloc(sizeof(pty_t));
 
+	pty->next_is_verbatim = 0;
+
 	/* stdin linkage; characters from terminal → PTY slave */
 	pty->in  = ring_buffer_create(TTY_BUFFER_SIZE);
 	pty->out = ring_buffer_create(TTY_BUFFER_SIZE);
@@ -640,6 +675,7 @@ pty_t * pty_new(struct winsize * size) {
 	pty->tios.c_cc[VSTOP]  = 19; /* ^S */
 	pty->tios.c_cc[VSUSP] = 26; /* ^Z */
 	pty->tios.c_cc[VTIME]  =  0;
+	pty->tios.c_cc[VLNEXT] = 22; /* ^V */
 
 	pty->canon_buffer  = malloc(TTY_BUFFER_SIZE);
 	pty->canon_bufsize = TTY_BUFFER_SIZE-2;

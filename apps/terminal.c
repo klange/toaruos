@@ -1654,6 +1654,12 @@ static void key_event(int ret, key_event_t * event) {
 			return;
 		}
 
+		/* ENTER = reads as linefeed, should be carriage return */
+		if (event->keycode == 10) {
+			handle_input('\r');
+			return;
+		}
+
 		/* Pass key value to PTY */
 		handle_input(event->key);
 	} else {

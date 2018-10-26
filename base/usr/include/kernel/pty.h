@@ -33,6 +33,8 @@ typedef struct pty {
 	void (*write_in)(struct pty *, uint8_t);
 	void (*write_out)(struct pty *, uint8_t);
 
+	int next_is_verbatim;
+
 } pty_t;
 
 void tty_output_process_slave(pty_t * pty, uint8_t c);

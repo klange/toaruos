@@ -881,6 +881,13 @@ void key_event(int ret, key_event_t * event) {
 			handle_input_s("\033[Z");
 			return;
 		}
+
+		/* ENTER = reads as linefeed, should be carriage return */
+		if (event->keycode == 10) {
+			handle_input('\r');
+			return;
+		}
+
 		handle_input(event->key);
 	} else {
 		if (event->action == KEY_ACTION_UP) return;

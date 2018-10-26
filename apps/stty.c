@@ -108,6 +108,7 @@ static int show_settings(int all) {
 	print_cc(&t, "kill",  VKILL,  21);
 	print_cc(&t, "eof",   VEOF,   4);
 	print_cc(&t, "eol",   VEOL,   0);
+	print_cc(&t, "lnext", VLNEXT, 22);
 	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
 	print_cc(&t, "start", VSTART, 17);
@@ -241,6 +242,7 @@ int main(int argc, char * argv[]) {
 			t.c_cc[VSTOP]  = 19; /* ^S */
 			t.c_cc[VSUSP] = 26; /* ^Z */
 			t.c_cc[VTIME]  =  0;
+			t.c_cc[VLNEXT] = 22; /* ^V */
 		}
 
 		set_char("eof",   VEOF);
@@ -252,6 +254,7 @@ int main(int argc, char * argv[]) {
 		set_char("start", VSTART);
 		set_char("stop",  VSTOP);
 		set_char("susp",  VSUSP);
+		set_char("lnext", VLNEXT);
 
 
 		set_cflag("parenb", PARENB);
