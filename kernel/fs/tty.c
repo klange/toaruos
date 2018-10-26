@@ -234,7 +234,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 				output_process(pty, c);
 			}
 		}
-		if (c == '\n') {
+		if (c == '\n' || (pty->tios.c_cc[VEOL] && c == pty->tios.c_cc[VEOL])) {
 			if (!(pty->tios.c_lflag & ECHO) && (pty->tios.c_lflag & ECHONL)) {
 				output_process(pty, c);
 			}
