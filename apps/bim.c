@@ -41,11 +41,12 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.8"
+#define BIM_VERSION   "1.1.1"
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
-#define ENTER_KEY     '\n'
+#define ENTER_KEY     '\r'
+#define LINE_FEED     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
 
@@ -629,9 +630,9 @@ int syn_c_iskeywordchar(int c) {
 static char * syn_c_keywords[] = {
 	"while","if","for","continue","return","break","switch","case","sizeof",
 	"struct","union","typedef","do","default","else","goto",
-	"alignas","alignof","offsetof",
+	"alignas","alignof","offsetof","asm","__asm__"
 	/* C++ stuff */
-	"public","private","class","using","namespace","virtual",
+	"public","private","class","using","namespace","virtual","override","protected",
 	NULL
 };
 
@@ -640,6 +641,7 @@ static char * syn_c_types[] = {
 	"register","long","inline","restrict","enum","auto","extern","bool","complex",
 	"uint8_t","uint16_t","uint32_t","uint64_t",
 	"int8_t","int16_t","int32_t","int64_t","FILE",
+	"ssize_t","size_t","uintptr_t","intptr_t","__volatile__",
 	NULL
 };
 
@@ -1450,7 +1452,11 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 	/* If there is not enough space... */
 	if (line->actual == line->available) {
 		/* Expand the line buffer */
-		line->available *= 2;
+		if (line->available == 0) {
+			line->available = 8;
+		} else {
+			line->available *= 2;
+		}
 		line = realloc(line, sizeof(line_t) + sizeof(char_t) * line->available);
 	}
 
@@ -1652,7 +1658,11 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	/* If there isn't enough space in linea hold both... */
 	while (lines[linea]->available < lines[linea]->actual + lines[lineb]->actual) {
 		/* ... allocate more space until it fits */
-		lines[linea]->available *= 2;
+		if (lines[linea]->available == 0) {
+			lines[linea]->available = 8;
+		} else {
+			lines[linea]->available *= 2;
+		}
 		/* XXX why not just do this once after calculating appropriate size */
 		lines[linea] = realloc(lines[linea], sizeof(line_t) + sizeof(char_t) * lines[linea]->available);
 	}
@@ -1851,7 +1861,8 @@ void get_initial_termios(void) {
 
 void set_unbuffered(void) {
 	struct termios new = old;
-	new.c_lflag &= (~ICANON & ~ECHO);
+	new.c_iflag &= (~ICRNL);
+	new.c_lflag &= (~ICANON) & (~ECHO);
 	new.c_cc[VINTR] = 0;
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
@@ -3004,6 +3015,17 @@ struct syntax_definition * match_syntax(char * file) {
 }
 
 /**
+ * Check if a string is all numbers.
+ */
+int is_all_numbers(const char * c) {
+	while (*c) {
+		if (!isdigit(*c)) return 0;
+		c++;
+	}
+	return 1;
+}
+
+/**
  * Create a new buffer from a file.
  */
 void open_file(char * file) {
@@ -3013,6 +3035,7 @@ void open_file(char * file) {
 	setup_buffer(env);
 
 	FILE * f;
+	int init_line = 1;
 
 	if (!strcmp(file,"-")) {
 		/**
@@ -3022,6 +3045,12 @@ void open_file(char * file) {
 		global_config.tty_in = STDERR_FILENO;
 		env->modified = 1;
 	} else {
+		char * l = strrchr(file, ':');
+		if (l && is_all_numbers(l+1)) {
+			*l = '\0';
+			l++;
+			init_line = atoi(l);
+		}
 		f = fopen(file, "r");
 		env->file_name = strdup(file);
 	}
@@ -3081,6 +3110,8 @@ void open_file(char * file) {
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_tabs(env->lines[i]);
 	}
+
+	goto_line(init_line);
 
 	fclose(f);
 }
@@ -3497,6 +3528,7 @@ void leave_insert(void) {
  */
 void process_command(char * cmd) {
 	/* Special case ! to run shell commands without parsing tokens */
+	int c;
 	if (*cmd == '!') {
 		/* Reset and draw some line feeds */
 		reset();
@@ -3512,7 +3544,7 @@ void process_command(char * cmd) {
 		set_unbuffered();
 		printf("\n\nPress ENTER to continue.");
 		fflush(stdout);
-		while (bim_getch() != ENTER_KEY);
+		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
 
 		/* Redraw the screen */
 		redraw_all();
@@ -3541,7 +3573,6 @@ void process_command(char * cmd) {
 			/* This actually opens a new tab */
 			open_file(argv[1]);
 			update_title();
-			goto_line(0);
 		} else {
 			/* TODO: Reopen file? */
 			render_error("Expected a file to open...");
@@ -3550,7 +3581,6 @@ void process_command(char * cmd) {
 		if (argc > 1) {
 			open_file(argv[1]);
 			update_title();
-			goto_line(0);
 		} else {
 			env = buffer_new();
 			setup_buffer(env);
@@ -4010,7 +4040,7 @@ void command_mode(void) {
 		if (c == '\033') {
 			/* Escape, cancel command */
 			break;
-		} else if (c == ENTER_KEY) {
+		} else if (c == ENTER_KEY || c == LINE_FEED) {
 			/* Enter, run command */
 			process_command(buffer);
 			break;
@@ -4209,7 +4239,7 @@ void search_mode(int direction) {
 				}
 				redraw_all();
 				break;
-			} else if (c == ENTER_KEY) {
+			} else if (c == ENTER_KEY || c == LINE_FEED) {
 				/* Exit search */
 				if (env->search) {
 					free(env->search);
@@ -5696,6 +5726,7 @@ void insert_mode(void) {
 						delete_at_cursor();
 						break;
 					case ENTER_KEY:
+					case LINE_FEED:
 						insert_line_feed();
 						redraw |= 2;
 						break;
@@ -5796,6 +5827,7 @@ void replace_mode(void) {
 						}
 						break;
 					case ENTER_KEY:
+					case LINE_FEED:
 						insert_line_feed();
 						redraw_text();
 						set_modified();
@@ -6256,7 +6288,6 @@ int main(int argc, char * argv[]) {
 	if (argc > optind) {
 		open_file(argv[optind]);
 		update_title();
-		goto_line(0);
 		if (global_config.initial_file_is_read_only) {
 			env->readonly = 1;
 		}
