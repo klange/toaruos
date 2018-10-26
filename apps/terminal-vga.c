@@ -888,6 +888,12 @@ void key_event(int ret, key_event_t * event) {
 			return;
 		}
 
+		/* BACKSPACE = reads as ^H, should be ^? */
+		if (event->keycode == 8) {
+			handle_input(0x7F);
+			return;
+		}
+
 		handle_input(event->key);
 	} else {
 		if (event->action == KEY_ACTION_UP) return;

@@ -21,6 +21,8 @@ static void print_cc(struct termios * t, const char * lbl, int val, int def) {
 		fprintf(stdout, "%s = <undef>; ", lbl);
 	} else if (c < 32) {
 		fprintf(stdout, "%s = ^%c; ", lbl, '@' + c);
+	} else if (c == 0x7F) {
+		fprintf(stdout, "%s = ^?; ", lbl);
 	} else {
 		fprintf(stdout, "%s = %c; ", lbl, c);
 	}
@@ -52,7 +54,11 @@ static void set_char_(struct termios *t, const char * lbl, int val, const char *
 			t->c_cc[val] = *arg;
 		} else if (*arg == '^') { /* ^c, etc. */
 			int v = toupper(arg[1]);
-			t->c_cc[val] = v - '@';
+			if (v == '?') { /* special case */
+				t->c_cc[val] = 0x7F;
+			} else {
+				t->c_cc[val] = v - '@';
+			}
 		} else {
 			/* Assume decimal for now */
 			int v = atoi(arg);
@@ -233,7 +239,7 @@ int main(int argc, char * argv[]) {
 			t.c_cflag = CREAD | CS8;
 			t.c_cc[VEOF]   =  4; /* ^D */
 			t.c_cc[VEOL]   =  0; /* Not set */
-			t.c_cc[VERASE] = '\b';
+			t.c_cc[VERASE] = 0x7F; /* ^? */
 			t.c_cc[VINTR]  =  3; /* ^C */
 			t.c_cc[VKILL]  = 21; /* ^U */
 			t.c_cc[VMIN]   =  1;

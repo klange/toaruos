@@ -29,17 +29,6 @@ static fs_node_t * _serial_port_b = NULL;
 static fs_node_t * _serial_port_c = NULL;
 static fs_node_t * _serial_port_d = NULL;
 
-static uint8_t convert(uint8_t in) {
-	switch (in) {
-		case 0x7F:
-			return 0x08;
-		case 0x0D:
-			return '\n';
-		default:
-			return in;
-	}
-}
-
 static fs_node_t ** pipe_for_port(int port) {
 	switch (port) {
 		case SERIAL_PORT_A: return &_serial_port_a;
@@ -60,8 +49,7 @@ static int serial_handler_ac(struct regs *r) {
 	}
 	serial = serial_recv(port);
 	irq_ack(SERIAL_IRQ_AC);
-	uint8_t buf[] = {convert(serial), 0};
-	write_fs(*pipe_for_port(port), 0, 1, buf);
+	write_fs(*pipe_for_port(port), 0, 1, (uint8_t*)&serial);
 	return 1;
 }
 
@@ -76,8 +64,7 @@ static int serial_handler_bd(struct regs *r) {
 	}
 	serial = serial_recv(port);
 	irq_ack(SERIAL_IRQ_BD);
-	uint8_t buf[] = {convert(serial), 0};
-	write_fs(*pipe_for_port(port), 0, 1, buf);
+	write_fs(*pipe_for_port(port), 0, 1, (uint8_t*)&serial);
 	return 1;
 }
 

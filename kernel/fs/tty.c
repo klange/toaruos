@@ -78,12 +78,16 @@ void tty_output_process(pty_t * pty, uint8_t c) {
 	output_process_slave(pty, c);
 }
 
+static int is_control(int c) {
+	return c < ' ' || c == 0x7F;
+}
+
 static void erase_one(pty_t * pty, int erase) {
 	if (pty->canon_buflen > 0) {
 		/* How many do we backspace? */
 		int vwidth = 1;
 		pty->canon_buflen--;
-		if (pty->canon_buffer[pty->canon_buflen] < ' ') {
+		if (is_control(pty->canon_buffer[pty->canon_buflen])) {
 			/* Erase ^@ */
 			vwidth = 2;
 		}
@@ -108,9 +112,9 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			pty->canon_buflen++;
 		}
 		if (pty->tios.c_lflag & ECHO) {
-			if (c < ' ') {
+			if (is_control(c)) {
 				output_process(pty, '^');
-				output_process(pty, '@'+c);
+				output_process(pty, ('@'+c) % 128);
 			} else {
 				output_process(pty, c);
 			}
@@ -121,7 +125,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		if (c == pty->tios.c_cc[VINTR]) {
 			if (pty->tios.c_lflag & ECHO) {
 				output_process(pty, '^');
-				output_process(pty, '@' + c);
+				output_process(pty, ('@' + c) % 128);
 				output_process(pty, '\n');
 			}
 			clear_input_buffer(pty);
@@ -133,7 +137,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		if (c == pty->tios.c_cc[VQUIT]) {
 			if (pty->tios.c_lflag & ECHO) {
 				output_process(pty, '^');
-				output_process(pty, '@' + c);
+				output_process(pty, ('@' + c) % 128);
 				output_process(pty, '\n');
 			}
 			clear_input_buffer(pty);
@@ -183,7 +187,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			}
 			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOK)) {
 				output_process(pty, '^');
-				output_process(pty, '@' + c);
+				output_process(pty, ('@' + c) % 128);
 			}
 			return;
 		}
@@ -192,7 +196,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			erase_one(pty, pty->tios.c_lflag & ECHOE);
 			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOE)) {
 				output_process(pty, '^');
-				output_process(pty, '@' + c);
+				output_process(pty, ('@' + c) % 128);
 			}
 			return;
 		}
@@ -210,9 +214,9 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			pty->canon_buflen++;
 		}
 		if (pty->tios.c_lflag & ECHO) {
-			if (c < ' ' && c != '\n') {
+			if (is_control(c) && c != '\n') {
 				output_process(pty, '^');
-				output_process(pty, '@'+c);
+				output_process(pty, ('@' + c) % 128);
 			} else {
 				output_process(pty, c);
 			}
@@ -666,7 +670,7 @@ pty_t * pty_new(struct winsize * size) {
 	pty->tios.c_cflag = CREAD | CS8;
 	pty->tios.c_cc[VEOF]   =  4; /* ^D */
 	pty->tios.c_cc[VEOL]   =  0; /* Not set */
-	pty->tios.c_cc[VERASE] = '\b';
+	pty->tios.c_cc[VERASE] = 0x7f; /* ^? */
 	pty->tios.c_cc[VINTR]  =  3; /* ^C */
 	pty->tios.c_cc[VKILL]  = 21; /* ^U */
 	pty->tios.c_cc[VMIN]   =  1;
