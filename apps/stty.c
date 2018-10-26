@@ -114,12 +114,13 @@ static int show_settings(int all) {
 	print_cc(&t, "kill",  VKILL,  21);
 	print_cc(&t, "eof",   VEOF,   4);
 	print_cc(&t, "eol",   VEOL,   0);
-	print_cc(&t, "lnext", VLNEXT, 22);
 	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
 	print_cc(&t, "start", VSTART, 17);
 	print_cc(&t, "stop",  VSTOP,  19);
 	print_cc(&t, "susp",  VSUSP,  26);
+	print_cc(&t, "lnext", VLNEXT, 22);
+	print_cc(&t, "werase",VWERASE, 23);
 
 	/* MIN, TIME */
 	if (!hide_defaults || t.c_cc[VMIN]  != 1) { fprintf(stdout, "min = %d; ",  t.c_cc[VMIN]);  printed = 1; }
@@ -249,6 +250,7 @@ int main(int argc, char * argv[]) {
 			t.c_cc[VSUSP] = 26; /* ^Z */
 			t.c_cc[VTIME]  =  0;
 			t.c_cc[VLNEXT] = 22; /* ^V */
+			t.c_cc[VWERASE] = 23; /* ^W */
 		}
 
 		set_char("eof",   VEOF);

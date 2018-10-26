@@ -200,6 +200,19 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			}
 			return;
 		}
+		if (c == pty->tios.c_cc[VWERASE] && (pty->tios.c_lflag & IEXTEN)) {
+			while (pty->canon_buflen && pty->canon_buffer[pty->canon_buflen-1] == ' ') {
+				erase_one(pty, pty->tios.c_lflag & ECHOE);
+			}
+			while (pty->canon_buflen && pty->canon_buffer[pty->canon_buflen-1] != ' ') {
+				erase_one(pty, pty->tios.c_lflag & ECHOE);
+			}
+			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOE)) {
+				output_process(pty, '^');
+				output_process(pty, ('@' + c) % 128);
+			}
+			return;
+		}
 		if (c == pty->tios.c_cc[VEOF]) {
 			if (pty->canon_buflen) {
 				dump_input_buffer(pty);
@@ -680,6 +693,7 @@ pty_t * pty_new(struct winsize * size) {
 	pty->tios.c_cc[VSUSP] = 26; /* ^Z */
 	pty->tios.c_cc[VTIME]  =  0;
 	pty->tios.c_cc[VLNEXT] = 22; /* ^V */
+	pty->tios.c_cc[VWERASE] = 23; /* ^W */
 
 	pty->canon_buffer  = malloc(TTY_BUFFER_SIZE);
 	pty->canon_bufsize = TTY_BUFFER_SIZE-2;

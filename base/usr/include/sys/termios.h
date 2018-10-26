@@ -35,6 +35,7 @@ typedef unsigned char cc_t;
 #define VSUSP   10 /* ^Z suspend foreground applicatioan (send SIGTSTP) */
 #define VTIME   11 /* Timeout for non-canonical read, deciseconds */
 #define VLNEXT  12 /* ^V literal next */
+#define VWERASE 13 /* ^W erase word */
 
 /* flags for input modes */
 #define BRKINT  0000001
