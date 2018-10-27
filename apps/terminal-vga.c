@@ -1152,6 +1152,17 @@ void handle_mouse_abs(mouse_device_packet_t * packet) {
 	handle_mouse_event(packet);
 }
 
+static int input_stopped = 0;
+
+void sig_suspend_input(int sig) {
+	(void)sig;
+	char exit_message[] = "[Input stopped]\n";
+	write(fd_slave, exit_message, sizeof(exit_message));
+
+	input_stopped = 1;
+
+	signal(SIGUSR2, sig_suspend_input);
+}
 
 int main(int argc, char ** argv) {
 
@@ -1199,6 +1210,8 @@ int main(int argc, char ** argv) {
 	fflush(stdin);
 
 	system("cursor-off"); /* Might GPF */
+
+	signal(SIGUSR2, sig_suspend_input);
 
 	int pid = getpid();
 	uint32_t f = fork();
@@ -1265,6 +1278,8 @@ int main(int argc, char ** argv) {
 			int index = fswait2(amfd == -1 ? 3 : 4,fds,200);
 
 			check_for_exit();
+
+			if (input_stopped) continue;
 
 			if (index == 0) {
 				maybe_flip_cursor();
