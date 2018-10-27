@@ -1245,9 +1245,9 @@ _nope:
 			pid = waitpid(-pgid, &tmp, 0);
 			if (pid == last_child) ret_code = tmp;
 			if (WIFSTOPPED(tmp)) {
-				suspended_pid = pid;
-				hashmap_set(job_hash, (void*)pid, strdup(arg_starts[0][0]));
-				fprintf(stderr, "pid %d reports STOPPED (fg %d to resume)\n", pid, pid);
+				suspended_pid = pgid;
+				hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
+				fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, arg_starts[0][0]);
 				break;
 			}
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
@@ -1895,7 +1895,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 		outpid = waitpid(-pid, &ret_code, 0);
 		if (WIFSTOPPED(ret_code)) {
 			suspended_pid = pid;
-			fprintf(stderr, "pid %d reports STOPPED (fg %d to resume)\n", pid, pid);
+			fprintf(stderr, "[%d] Stopped\t\t%s\n", pid, (char*)hashmap_get(job_hash, (void*)pid));
 			break;
 		} else {
 			suspended_pid = 0;
