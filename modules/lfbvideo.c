@@ -37,6 +37,9 @@ uint32_t lfb_resolution_s = 0;
 uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
 const char * lfb_driver_name = NULL;
 
+static fs_node_t * lfb_device = NULL;
+static int lfb_init(char * c);
+
 /* Where to send display size change signals */
 static pid_t display_change_recipient = 0;
 
@@ -99,6 +102,12 @@ static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 			validate(argp);
 			memcpy(argp, lfb_driver_name, strlen(lfb_driver_name));
 			return 0;
+		case IO_VID_REINIT:
+			if (current_process->user != 0) {
+				return -EPERM;
+			}
+			validate(argp);
+			return lfb_init(argp);
 		default:
 			return -EINVAL;
 	}
@@ -109,7 +118,7 @@ static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	sprintf(fnode->name, "fb0"); /* TODO */
-	fnode->length  = lfb_resolution_s * lfb_resolution_y; /* Size is framebuffer size in bytes */
+	fnode->length  = 0;
 	fnode->flags   = FS_BLOCKDEVICE; /* Framebuffers are block devices */
 	fnode->mask    = 0660; /* Only accessible to root user/group */
 	fnode->ioctl   = ioctl_vid; /* control function defined above */
@@ -254,8 +263,7 @@ static struct procfs_entry framebuffer_entry = {
 /* Install framebuffer device */
 static void finalize_graphics(const char * driver) {
 	lfb_driver_name = driver;
-	fs_node_t * fb_device = lfb_video_device_create();
-	vfs_mount("/dev/fb0", fb_device);
+	lfb_device->length  = lfb_resolution_s * lfb_resolution_y; /* Size is framebuffer size in bytes */
 	debug_video_crash = lfb_video_panic;
 
 	int (*procfs_install)(struct procfs_entry *) = (int (*)(struct procfs_entry *))(uintptr_t)hashmap_get(modules_get_symbols(),"procfs_install");
@@ -527,54 +535,63 @@ static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	}
 }
 
+static int lfb_init(char * c) {
+	char * arg = strdup(c);
+	char * argv[10];
+	int argc = tokenize(arg, ",", argv);
+
+	uint16_t x, y;
+	if (argc < 3) {
+		x = PREFERRED_W;
+		y = PREFERRED_H;
+	} else {
+		x = atoi(argv[1]);
+		y = atoi(argv[2]);
+	}
+
+	int ret_val = 0;
+	if (!strcmp(argv[0], "auto")) {
+		/* Attempt autodetection */
+		debug_print(NOTICE, "Automatically detecting display driver...");
+		struct disp_mode mode = {x,y,0};
+		pci_scan(auto_scan_pci, -1, &mode);
+		if (!mode.set) {
+			graphics_install_preset(x,y);
+		}
+	} else if (!strcmp(argv[0], "qemu")) {
+		/* Bochs / Qemu Video Device */
+		graphics_install_bochs(x,y);
+	} else if (!strcmp(argv[0],"vmware")) {
+		/* VMware SVGA */
+		graphics_install_vmware(x,y);
+	} else if (!strcmp(argv[0],"preset")) {
+		/* Set by bootloader (UEFI) */
+		graphics_install_preset(x,y);
+	} else if (!strcmp(argv[0],"kludge")) {
+		/* Old hack to find vid memory from the VGA window */
+		graphics_install_kludge(x,y);
+	} else {
+		debug_print(WARNING, "Unrecognized video adapter: %s", argv[0]);
+		ret_val = 1;
+	}
+
+	free(arg);
+	return ret_val;
+}
+
 static int init(void) {
 
 	if (mboot_ptr->vbe_mode_info) {
 		lfb_vid_memory = (uint8_t *)((vbe_info_t *)(mboot_ptr->vbe_mode_info))->physbase;
 	}
 
+	lfb_device = lfb_video_device_create();
+	vfs_mount("/dev/fb0", lfb_device);
+
 	char * c;
 	if ((c = args_value("vid"))) {
 		debug_print(NOTICE, "Video mode requested: %s", c);
-
-		char * arg = strdup(c);
-		char * argv[10];
-		int argc = tokenize(arg, ",", argv);
-
-		uint16_t x, y;
-		if (argc < 3) {
-			x = PREFERRED_W;
-			y = PREFERRED_H;
-		} else {
-			x = atoi(argv[1]);
-			y = atoi(argv[2]);
-		}
-
-		if (!strcmp(argv[0], "auto")) {
-			/* Attempt autodetection */
-			debug_print(NOTICE, "Automatically detecting display driver...");
-			struct disp_mode mode = {x,y,0};
-			pci_scan(auto_scan_pci, -1, &mode);
-			if (!mode.set) {
-				graphics_install_preset(x,y);
-			}
-		} else if (!strcmp(argv[0], "qemu")) {
-			/* Bochs / Qemu Video Device */
-			graphics_install_bochs(x,y);
-		} else if (!strcmp(argv[0],"vmware")) {
-			/* VMware SVGA */
-			graphics_install_vmware(x,y);
-		} else if (!strcmp(argv[0],"preset")) {
-			/* Set by bootloader (UEFI) */
-			graphics_install_preset(x,y);
-		} else if (!strcmp(argv[0],"kludge")) {
-			/* Old hack to find vid memory from the VGA window */
-			graphics_install_kludge(x,y);
-		} else {
-			debug_print(WARNING, "Unrecognized video adapter: %s", argv[0]);
-		}
-
-		free(arg);
+		lfb_init(c);
 	}
 
 	return 0;
