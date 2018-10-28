@@ -736,11 +736,29 @@ static void handle_status(int ret_code) {
 			case SIGSEGV:
 				sprintf(str, "Segmentation fault");
 				break;
+			case SIGTERM:
+				sprintf(str, "Terminated");
+				break;
+			case SIGQUIT:
+				sprintf(str, "Quit");
+				break;
+			case SIGKILL:
+				sprintf(str, "Killed");
+				break;
+			case SIGHUP:
+				sprintf(str, "Hangup");
+				break;
+			case SIGUSR1:
+				sprintf(str, "User defined signal 1");
+				break;
+			case SIGUSR2:
+				sprintf(str, "User defined signal 2");
+				break;
 			case SIGINT:
-				/* Do nothing */
+				/* sprintf(str, "Interrupt"); */
 				return;
 			case SIGPIPE:
-				/* Do nothing */
+				/* sprintf(str, "Broken pipe"); */
 				return;
 			default:
 				sprintf(str, "Killed by unhandled signal %d",WTERMSIG(ret_code));
