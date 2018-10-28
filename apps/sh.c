@@ -768,11 +768,11 @@ int wait_for_child(int pgid, char * name) {
 			if (name) {
 				hashmap_set(job_hash, (void*)pgid, strdup(name));
 			}
-			fprintf(stderr, "[%d] Stopped\t\t%s\n", pid, (char*)hashmap_get(job_hash, (void*)pid));
+			fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, (char*)hashmap_get(job_hash, (void*)pgid));
 			break;
 		} else {
 			suspended_pgid = 0;
-			hashmap_remove(job_hash, (void*)pid);
+			hashmap_remove(job_hash, (void*)pgid);
 		}
 	} while (outpid != -1 || (outpid == -1 && errno != ECHILD));
 	reset_pgrp();
