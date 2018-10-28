@@ -324,15 +324,11 @@ void draw_prompt(void) {
 }
 
 volatile int break_while = 0;
-uint32_t child = 0;
-pid_t suspended_pid = 0;
+pid_t suspended_pgid = 0;
 hashmap_t * job_hash = NULL;
 
 void sig_pass(int sig) {
 	/* Interrupt handler */
-	if (child) {
-		kill(child, sig);
-	}
 	break_while = sig;
 }
 
@@ -757,6 +753,31 @@ static void handle_status(int ret_code) {
 			fprintf(stderr, "%s: line %d: %s\n", current_file, current_line, str);
 		}
 	}
+}
+
+int wait_for_child(int pgid, char * name) {
+	int waitee = (shell_interactive == 1 && !is_subshell) ? -pgid : -1;
+	int outpid;
+	int ret_code = 0;
+
+	set_pgrp(pgid);
+	do {
+		outpid = waitpid(waitee, &ret_code, 0);
+		if (WIFSTOPPED(ret_code)) {
+			suspended_pgid = pgid;
+			if (name) {
+				hashmap_set(job_hash, (void*)pgid, strdup(name));
+			}
+			fprintf(stderr, "[%d] Stopped\t\t%s\n", pid, (char*)hashmap_get(job_hash, (void*)pid));
+			break;
+		} else {
+			suspended_pgid = 0;
+			hashmap_remove(job_hash, (void*)pid);
+		}
+	} while (outpid != -1 || (outpid == -1 && errno != ECHILD));
+	reset_pgrp();
+	handle_status(ret_code);
+	return WEXITSTATUS(ret_code);
 }
 
 int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
@@ -1255,29 +1276,15 @@ _nope:
 		}
 	}
 
-	set_pgrp(pgid);
-	int ret_code = 0;
-	if (!nowait) {
-		child = child_pid;
-		int pid;
-		int tmp;
-		do {
-			pid = waitpid(-pgid, &tmp, 0);
-			if (pid == last_child) ret_code = tmp;
-			if (WIFSTOPPED(tmp)) {
-				suspended_pid = pgid;
-				hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
-				fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, arg_starts[0][0]);
-				break;
-			}
-		} while (pid != -1 || (pid == -1 && errno != ECHILD));
-		child = 0;
+	if (nowait) {
+		free(cmd);
+		return 0;
 	}
-	reset_pgrp();
-	free(cmd);
 
-	handle_status(ret_code);
-	return WEXITSTATUS(ret_code);
+
+	int ret = wait_for_child(pgid, arg_starts[0][0]);
+	free(cmd);
+	return ret;
 }
 
 void add_path_contents(char * path) {
@@ -1603,14 +1610,10 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 	}
 	set_pgrp(child_pid);
 
-	child = child_pid;
-
 	int pid, ret_code = 0;
 	do {
 		pid = waitpid(-1, &ret_code, 0);
 	} while (pid != -1 || (pid == -1 && errno != ECHILD));
-
-	child = 0;
 
 	handle_status(ret_code);
 
@@ -1630,11 +1633,9 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 				run_cmd(then_args);
 			}
 			set_pgrp(child_pid);
-			child = child_pid;
 			do {
 				pid = waitpid(-1, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
-			child = 0;
 			reset_pgrp();
 			handle_status(ret_code);
 			return WEXITSTATUS(ret_code);
@@ -1655,11 +1656,9 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 				run_cmd(else_args);
 			}
 			set_pgrp(child_pid);
-			child = child_pid;
 			do {
 				pid = waitpid(-1, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
-			child = 0;
 			handle_status(ret_code);
 			return WEXITSTATUS(ret_code);
 		}
@@ -1696,13 +1695,11 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 			run_cmd(while_args);
 		}
 		set_pgrp(child_pid);
-		child = child_pid;
 
 		int pid, ret_code = 0;
 		do {
 			pid = waitpid(-1, &ret_code, 0);
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
-		child = 0;
 
 		handle_status(ret_code);
 		if (WEXITSTATUS(ret_code) == 0) {
@@ -1712,11 +1709,9 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 				set_pgid(0);
 				run_cmd(do_args);
 			}
-			child = child_pid;
 			do {
 				pid = waitpid(-1, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
-			child = 0;
 		} else {
 			reset_pgrp();
 			return WEXITSTATUS(ret_code);
@@ -1826,11 +1821,9 @@ uint32_t shell_cmd_not(int argc, char * argv[]) {
 		run_cmd(&argv[1]);
 	}
 	set_pgrp(child_pid);
-	child = child_pid;
 	do {
 		pid = waitpid(-1, &ret_code, 0);
 	} while (pid != -1 || (pid == -1 && errno != ECHILD));
-	child = 0;
 	reset_pgrp();
 	handle_status(ret_code);
 	return !WEXITSTATUS(ret_code);
@@ -1892,23 +1885,22 @@ uint32_t shell_cmd_read(int argc, char * argv[]) {
 }
 
 uint32_t shell_cmd_fg(int argc, char * argv[]) {
-	int ret_code;
 	int pid;
 	if (argc < 2) {
-		if (!suspended_pid) {
+		if (!suspended_pgid) {
 			list_t * keys = hashmap_keys(job_hash);
 			foreach(node, keys) {
-				suspended_pid = (int)node->value;
+				suspended_pgid = (int)node->value;
 				break;
 			}
 			list_free(keys);
 			free(keys);
-			if (!suspended_pid) {
+			if (!suspended_pgid) {
 				fprintf(stderr, "no current job\n");
 				return 1;
 			}
 		}
-		pid = suspended_pid;
+		pid = suspended_pgid;
 	} else {
 		pid = atoi(argv[1]);
 	}
@@ -1924,25 +1916,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 		return 1;
 	}
 
-	set_pgrp(pid);
-	child = pid;
-
-	int outpid;
-	do {
-		outpid = waitpid(-pid, &ret_code, 0);
-		if (WIFSTOPPED(ret_code)) {
-			suspended_pid = pid;
-			fprintf(stderr, "[%d] Stopped\t\t%s\n", pid, (char*)hashmap_get(job_hash, (void*)pid));
-			break;
-		} else {
-			suspended_pid = 0;
-			hashmap_remove(job_hash, (void*)pid);
-		}
-	} while (outpid != -1 || (outpid == -1 && errno != ECHILD));
-	child = 0;
-	reset_pgrp();
-	handle_status(ret_code);
-	return WEXITSTATUS(ret_code);
+	return wait_for_child(pid, NULL);
 }
 
 uint32_t shell_cmd_jobs(int argc, char * argv[]) {
