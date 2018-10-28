@@ -64,7 +64,7 @@ char * selection_text = NULL;
 
 term_state_t * ansi_state = NULL;
 
-void reinit(); /* Defined way further down */
+void reinit(void); /* Defined way further down */
 void term_redraw_cursor();
 
 void term_clear();
@@ -1046,7 +1046,7 @@ term_callbacks_t term_callbacks = {
 	NULL,
 };
 
-void reinit(int send_sig) {
+void reinit(void) {
 	if (term_buffer) {
 		/* Do nothing */
 	} else {
@@ -1205,7 +1205,7 @@ int main(int argc, char ** argv) {
 	w.ws_ypixel = 0;
 	ioctl(fd_master, TIOCSWINSZ, &w);
 
-	reinit(0);
+	reinit();
 
 	fflush(stdin);
 

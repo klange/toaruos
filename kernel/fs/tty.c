@@ -273,7 +273,7 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 			if (!argp) return -EINVAL;
 			validate(argp);
 			memcpy(&pty->size, argp, sizeof(struct winsize));
-			/* TODO send sigwinch to fg_prog */
+			group_send_signal(pty->fg_proc, SIGWINCH, 1);
 			return 0;
 		case TIOCGWINSZ:
 			if (!argp) return -EINVAL;

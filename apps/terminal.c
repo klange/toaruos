@@ -155,7 +155,7 @@ static struct MenuList * menu_right_click = NULL;
 
 static void render_decors(void);
 static void term_clear();
-static void reinit();
+static void reinit(void);
 static void term_redraw_cursor();
 
 static int decor_left_width = 0;
@@ -1714,7 +1714,7 @@ static void key_event(int ret, key_event_t * event) {
 					_no_frame = !_no_frame;
 					window_width = window->width - decor_width * (!_no_frame);
 					window_height = window->height - (decor_height + menu_bar_height) * (!_no_frame);
-					reinit(1);
+					reinit();
 				}
 				break;
 			case KEY_ARROW_UP:
@@ -1866,7 +1866,7 @@ static term_cell_t * copy_terminal(int old_width, int old_height, term_cell_t * 
 }
 
 /* Reinitialize the terminal after a resize. */
-static void reinit(int send_sig) {
+static void reinit(void) {
 
 	/* Figure out character sizes if fonts have changed. */
 	if (_use_aa && !_have_freetype) {
@@ -1943,11 +1943,6 @@ static void reinit(int send_sig) {
 	w.ws_xpixel = term_width * char_width;
 	w.ws_ypixel = term_height * char_height;
 	ioctl(fd_master, TIOCSWINSZ, &w);
-
-	/* If requested, send a signal to the application. */
-	if (send_sig) {
-		kill(child_pid, SIGWINCH);
-	}
 }
 
 static void update_bounds(void) {
@@ -2009,7 +2004,7 @@ static void resize_finish(int width, int height) {
 	reinit_graphics_yutani(ctx, window);
 
 	/* Reinitialize the terminal buffer and ANSI library */
-	reinit(1);
+	reinit();
 
 	/* We are done resizing. */
 	yutani_window_resize_done(yctx, window);
@@ -2254,13 +2249,13 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 	window_height = window->height - (decor_height + menu_bar_height) * (!_no_frame);
 	menu_update_title(_menu_toggle_borders_context, _no_frame ? "Show borders" : "Hide borders");
 	menu_update_title(_menu_toggle_borders_bar, _no_frame ? "Show borders" : "Hide borders");
-	reinit(1);
+	reinit();
 }
 
 static void _menu_action_toggle_sdf(struct MenuEntry * self) {
 	_use_aa = !(_use_aa);
 	menu_update_title(self, _use_aa ? "Bitmap font" : "Anti-aliased font");
-	reinit(1);
+	reinit();
 }
 
 static void _menu_action_show_about(struct MenuEntry * self) {
@@ -2295,7 +2290,7 @@ static void _menu_action_set_scale(struct MenuEntry * self) {
 		scale_fonts  = 1;
 		font_scaling = atof(_self->action);
 	}
-	reinit(1);
+	reinit();
 }
 
 int main(int argc, char ** argv) {
@@ -2474,7 +2469,7 @@ int main(int argc, char ** argv) {
 	terminal = fdopen(fd_slave, "w");
 
 	/* Initialize the terminal buffer and ANSI library for the first time. */
-	reinit(0);
+	reinit();
 
 	/* Make sure we're not passing anything to stdin on the child */
 	fflush(stdin);
