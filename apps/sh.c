@@ -44,10 +44,6 @@
 extern char **environ;
 #endif
 
-#ifndef toaru
-#define tcsetpgrp(a,b)
-#endif
-
 #define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
 #define STAR_TOKEN "\xFF\xFFSTAR\xFF\xFF"
 #define WRITE_TOKEN "\xFF\xFFWRITE\xFF\xFF"
@@ -75,6 +71,26 @@ static int current_line = 0;
 static char * current_file = NULL;
 
 int pid; /* Process ID of the shell */
+
+int is_subshell = 0;
+
+void set_pgid(int pgid) {
+	if (shell_interactive == 1) {
+		setpgid(0, pgid);
+	}
+}
+
+void set_pgrp(int pgid) {
+	if (shell_interactive == 1 && !is_subshell) {
+		tcsetpgrp(STDIN_FILENO, pgid);
+	}
+}
+
+void reset_pgrp() {
+	if (shell_interactive == 1 && !is_subshell) {
+		tcsetpgrp(STDIN_FILENO, pid);
+	}
+}
 
 void shell_install_command(char * name, shell_command_t func, char * desc) {
 	if (shell_commands_len == SHELL_COMMANDS) {
@@ -1166,7 +1182,8 @@ _nope:
 		pipe(last_output);
 		child_pid = fork();
 		if (!child_pid) {
-			setpgid(0,0);
+			is_subshell = 1;
+			set_pgid(0);
 			dup2(last_output[1], STDOUT_FILENO);
 			close(last_output[0]);
 			run_cmd(arg_starts[0]);
@@ -1178,7 +1195,8 @@ _nope:
 			int tmp_out[2];
 			pipe(tmp_out);
 			if (!fork()) {
-				setpgid(0,pgid);
+				is_subshell = 1;
+				set_pgid(pgid);
 				dup2(tmp_out[1], STDOUT_FILENO);
 				dup2(last_output[0], STDIN_FILENO);
 				close(tmp_out[0]);
@@ -1193,7 +1211,8 @@ _nope:
 
 		last_child = fork();
 		if (!last_child) {
-			setpgid(0,pgid);
+			is_subshell = 1;
+			set_pgid(pgid);
 			if (output_files[cmdi]) {
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
@@ -1218,7 +1237,8 @@ _nope:
 		} else {
 			child_pid = fork();
 			if (!child_pid) {
-				setpgid(0,0);
+				is_subshell = 1;
+				set_pgid(0);
 				if (output_files[cmdi]) {
 					int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 					if (fd < 0) {
@@ -1235,7 +1255,7 @@ _nope:
 		}
 	}
 
-	tcsetpgrp(STDIN_FILENO, pgid);
+	set_pgrp(pgid);
 	int ret_code = 0;
 	if (!nowait) {
 		child = child_pid;
@@ -1253,7 +1273,7 @@ _nope:
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		child = 0;
 	}
-	tcsetpgrp(STDIN_FILENO, getpid());
+	reset_pgrp();
 	free(cmd);
 
 	handle_status(ret_code);
@@ -1577,9 +1597,11 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 
 	pid_t child_pid = fork();
 	if (!child_pid) {
+		is_subshell = 1;
+		set_pgid(0);
 		run_cmd(if_args);
 	}
-	tcsetpgrp(STDIN_FILENO, child_pid);
+	set_pgrp(child_pid);
 
 	child = child_pid;
 
@@ -1603,15 +1625,17 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 		} else {
 			child_pid = fork();
 			if (!child_pid) {
+				is_subshell = 1;
+				set_pgid(0);
 				run_cmd(then_args);
 			}
-			tcsetpgrp(STDIN_FILENO, child_pid);
+			set_pgrp(child_pid);
 			child = child_pid;
 			do {
 				pid = waitpid(-1, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 			child = 0;
-			tcsetpgrp(STDIN_FILENO, getpid());
+			reset_pgrp();
 			handle_status(ret_code);
 			return WEXITSTATUS(ret_code);
 		}
@@ -1626,9 +1650,11 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 		} else {
 			child_pid = fork();
 			if (!child_pid) {
+				is_subshell = 1;
+				set_pgid(0);
 				run_cmd(else_args);
 			}
-			tcsetpgrp(STDIN_FILENO, child_pid);
+			set_pgrp(child_pid);
 			child = child_pid;
 			do {
 				pid = waitpid(-1, &ret_code, 0);
@@ -1639,7 +1665,7 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 		}
 	}
 
-	tcsetpgrp(STDIN_FILENO, getpid());
+	reset_pgrp();
 	return 0;
 }
 
@@ -1660,13 +1686,16 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 	}
 
 	break_while = 0;
-	tcsetpgrp(STDIN_FILENO, getpid());
+	reset_pgrp();
 
 	do {
 		pid_t child_pid = fork();
 		if (!child_pid) {
+			is_subshell = 1;
+			set_pgid(0);
 			run_cmd(while_args);
 		}
+		set_pgrp(child_pid);
 		child = child_pid;
 
 		int pid, ret_code = 0;
@@ -1679,6 +1708,8 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 		if (WEXITSTATUS(ret_code) == 0) {
 			child_pid = fork();
 			if (!child_pid) {
+				is_subshell = 1;
+				set_pgid(0);
 				run_cmd(do_args);
 			}
 			child = child_pid;
@@ -1687,6 +1718,7 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 			child = 0;
 		} else {
+			reset_pgrp();
 			return WEXITSTATUS(ret_code);
 		}
 	} while (!break_while);
@@ -1705,6 +1737,8 @@ uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 	pipe(pipe_fds);
 	pid_t child_pid = fork();
 	if (!child_pid) {
+		is_subshell = 1;
+		set_pgid(0);
 		dup2(pipe_fds[1], STDOUT_FILENO);
 		close(pipe_fds[0]);
 		run_cmd(&argv[2]);
@@ -1712,7 +1746,7 @@ uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 
 	close(pipe_fds[1]);
 
-	tcsetpgrp(STDIN_FILENO, child_pid);
+	set_pgrp(child_pid);
 	char buf[1024];
 	size_t accum = 0;
 
@@ -1727,7 +1761,7 @@ uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 		accum += r;
 	} while (accum < 1023);
 
-	tcsetpgrp(STDIN_FILENO, getpid());
+	reset_pgrp();
 
 	buf[accum] = '\0';
 
@@ -1787,15 +1821,17 @@ uint32_t shell_cmd_not(int argc, char * argv[]) {
 	int ret_code = 0;
 	pid_t child_pid = fork();
 	if (!child_pid) {
+		is_subshell = 1;
+		set_pgid(0);
 		run_cmd(&argv[1]);
 	}
-	tcsetpgrp(STDIN_FILENO, child_pid);
+	set_pgrp(child_pid);
 	child = child_pid;
 	do {
 		pid = waitpid(-1, &ret_code, 0);
 	} while (pid != -1 || (pid == -1 && errno != ECHILD));
 	child = 0;
-	tcsetpgrp(STDIN_FILENO, getpid());
+	reset_pgrp();
 	handle_status(ret_code);
 	return !WEXITSTATUS(ret_code);
 }
@@ -1887,7 +1923,8 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 		hashmap_remove(job_hash, (void*)pid);
 		return 1;
 	}
-	tcsetpgrp(STDIN_FILENO, pid);
+
+	set_pgrp(pid);
 	child = pid;
 
 	int outpid;
@@ -1903,7 +1940,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 		}
 	} while (outpid != -1 || (outpid == -1 && errno != ECHILD));
 	child = 0;
-	tcsetpgrp(STDIN_FILENO, getpid());
+	reset_pgrp();
 	handle_status(ret_code);
 	return WEXITSTATUS(ret_code);
 }
