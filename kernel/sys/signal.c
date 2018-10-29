@@ -211,8 +211,9 @@ int send_signal(pid_t process, uint32_t signal, int force_root) {
 	}
 
 	if (!force_root && receiver->user != current_process->user && current_process->user != USER_ROOT_UID) {
-		/* No way in hell. */
-		return -EPERM;
+		if (!(signal == SIGCONT && receiver->session == current_process->session)) {
+			return -EPERM;
+		}
 	}
 
 	if (signal > NUMSIGNALS) {
