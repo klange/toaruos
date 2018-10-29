@@ -1301,8 +1301,10 @@ _nope:
 	}
 
 	if (nowait) {
-		fprintf(stderr, "[%d] %s\n", pgid, arg_starts[0][0]);
-		hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
+		if (shell_interactive == 1) {
+			fprintf(stderr, "[%d] %s\n", pgid, arg_starts[0][0]);
+			hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
+		}
 		free(cmd);
 		return 0;
 	}
