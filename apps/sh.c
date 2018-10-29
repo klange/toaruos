@@ -1678,7 +1678,7 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 
 	int pid, ret_code = 0;
 	do {
-		pid = waitpid(-1, &ret_code, 0);
+		pid = waitpid(child_pid, &ret_code, 0);
 	} while (pid != -1 || (pid == -1 && errno != ECHILD));
 
 	handle_status(ret_code);
@@ -1700,7 +1700,7 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 			}
 			set_pgrp(child_pid);
 			do {
-				pid = waitpid(-1, &ret_code, 0);
+				pid = waitpid(child_pid, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 			reset_pgrp();
 			handle_status(ret_code);
@@ -1723,7 +1723,7 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 			}
 			set_pgrp(child_pid);
 			do {
-				pid = waitpid(-1, &ret_code, 0);
+				pid = waitpid(child_pid, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 			handle_status(ret_code);
 			return WEXITSTATUS(ret_code);
@@ -1764,7 +1764,7 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 
 		int pid, ret_code = 0;
 		do {
-			pid = waitpid(-1, &ret_code, 0);
+			pid = waitpid(child_pid, &ret_code, 0);
 		} while (pid != -1 || (pid == -1 && errno != ECHILD));
 
 		handle_status(ret_code);
@@ -1776,7 +1776,7 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 				run_cmd(do_args);
 			}
 			do {
-				pid = waitpid(-1, &ret_code, 0);
+				pid = waitpid(child_pid, &ret_code, 0);
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		} else {
 			reset_pgrp();
@@ -1889,7 +1889,7 @@ uint32_t shell_cmd_not(int argc, char * argv[]) {
 	}
 	set_pgrp(child_pid);
 	do {
-		pid = waitpid(-1, &ret_code, 0);
+		pid = waitpid(child_pid, &ret_code, 0);
 	} while (pid != -1 || (pid == -1 && errno != ECHILD));
 	reset_pgrp();
 	handle_status(ret_code);
