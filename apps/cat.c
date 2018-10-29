@@ -36,6 +36,10 @@ int main(int argc, char ** argv) {
 	}
 
 	for (int i = 1; i < argc; ++i) {
+		if (!strcmp(argv[i],"-")) {
+			doit(0);
+			continue;
+		}
 		int fd = open(argv[i], O_RDONLY);
 		if (fd < 0) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
