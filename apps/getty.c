@@ -51,6 +51,7 @@ int main(int argc, char * argv[]) {
 	dup2(fd_serial, 1);
 	dup2(fd_serial, 2);
 
+	system("stty sane");
 	system("ttysize -q");
 
 	char * tokens[] = {"/bin/login",NULL,NULL,NULL};
