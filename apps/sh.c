@@ -1295,7 +1295,7 @@ _nope:
 	}
 
 	if (nowait) {
-		fprintf(stderr, "[%d] Running\n", pgid);
+		fprintf(stderr, "[%d] %s\n", pgid, arg_starts[0][0]);
 		hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
 		free(cmd);
 		return 0;
@@ -1904,8 +1904,7 @@ uint32_t shell_cmd_read(int argc, char * argv[]) {
 	return 0;
 }
 
-uint32_t shell_cmd_fg(int argc, char * argv[]) {
-	int pid;
+int get_available_job(int argc, char * argv[]) {
 	if (argc < 2) {
 		if (!suspended_pgid) {
 			list_t * keys = hashmap_keys(job_hash);
@@ -1920,14 +1919,17 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 				return 1;
 			}
 		}
-		pid = suspended_pgid;
+		return suspended_pgid;
 	} else {
-		pid = atoi(argv[1]);
+		return atoi(argv[1]);
 	}
+}
 
-	if (!hashmap_has(job_hash, (void*)pid)) {
+uint32_t shell_cmd_fg(int argc, char * argv[]) {
+	int pid = get_available_job(argc,argv);
+	if (!pid || !hashmap_has(job_hash, (void*)pid)) {
 		fprintf(stderr, "invalid job");
-		return 0;
+		return 1;
 	}
 
 	if (kill(-pid, SIGCONT) < 0) {
@@ -1937,6 +1939,23 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 	}
 
 	return wait_for_child(pid, NULL);
+}
+
+uint32_t shell_cmd_bg(int argc, char * argv[]) {
+	int pid = get_available_job(argc,argv);
+	if (!pid || !hashmap_has(job_hash, (void*)pid)) {
+		fprintf(stderr, "invalid job");
+		return 1;
+	}
+
+	if (kill(-pid, SIGCONT) < 0) {
+		fprintf(stderr, "no current job / bad pid\n");
+		hashmap_remove(job_hash, (void*)pid);
+		return 1;
+	}
+
+	fprintf(stderr, "[%d] %s\n", pid, (char*)hashmap_get(job_hash, (void*)pid));
+	return 0;
 }
 
 uint32_t shell_cmd_jobs(int argc, char * argv[]) {
@@ -1974,4 +1993,5 @@ void install_commands() {
 	shell_install_command("read",    shell_cmd_read, "read user input");
 	shell_install_command("fg",      shell_cmd_fg, "resume a suspended job");
 	shell_install_command("jobs",    shell_cmd_jobs, "list stopped jobs");
+	shell_install_command("bg",      shell_cmd_bg, "restart suspended job in the background");
 }
