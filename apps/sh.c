@@ -722,49 +722,55 @@ int is_number(const char * c) {
 	return 1;
 }
 
+static char * _strsignal(int sig) {
+	static char str[256];
+	memset(str, 0, sizeof(str));
+	switch (sig) {
+		case SIGILL:
+			sprintf(str, "Illegal instruction");
+			break;
+		case SIGSEGV:
+			sprintf(str, "Segmentation fault");
+			break;
+		case SIGTERM:
+			sprintf(str, "Terminated");
+			break;
+		case SIGQUIT:
+			sprintf(str, "Quit");
+			break;
+		case SIGKILL:
+			sprintf(str, "Killed");
+			break;
+		case SIGHUP:
+			sprintf(str, "Hangup");
+			break;
+		case SIGUSR1:
+			sprintf(str, "User defined signal 1");
+			break;
+		case SIGUSR2:
+			sprintf(str, "User defined signal 2");
+			break;
+		case SIGINT:
+			sprintf(str, "Interrupt");
+			break;
+		case SIGPIPE:
+			sprintf(str, "Broken pipe");
+			break;
+		default:
+			sprintf(str, "Killed by unhandled signal %d",sig);
+			break;
+	}
+	return str;
+}
+
 /**
  * Prints "Segmentation fault", etc.
  */
 static void handle_status(int ret_code) {
 	if (WIFSIGNALED(ret_code)) {
-		char str[256] = {0};
-
-		switch (WTERMSIG(ret_code)) {
-			case SIGILL:
-				sprintf(str, "Illegal instruction");
-				break;
-			case SIGSEGV:
-				sprintf(str, "Segmentation fault");
-				break;
-			case SIGTERM:
-				sprintf(str, "Terminated");
-				break;
-			case SIGQUIT:
-				sprintf(str, "Quit");
-				break;
-			case SIGKILL:
-				sprintf(str, "Killed");
-				break;
-			case SIGHUP:
-				sprintf(str, "Hangup");
-				break;
-			case SIGUSR1:
-				sprintf(str, "User defined signal 1");
-				break;
-			case SIGUSR2:
-				sprintf(str, "User defined signal 2");
-				break;
-			case SIGINT:
-				/* sprintf(str, "Interrupt"); */
-				return;
-			case SIGPIPE:
-				/* sprintf(str, "Broken pipe"); */
-				return;
-			default:
-				sprintf(str, "Killed by unhandled signal %d",WTERMSIG(ret_code));
-				break;
-		}
-
+		int sig = WTERMSIG(ret_code);
+		if (sig == SIGINT || sig == SIGPIPE) return;
+		char * str = _strsignal(sig);
 		if (shell_interactive == 1) {
 			fprintf(stderr, "%s\n", str);
 		} else if (shell_interactive == 2) {
@@ -1494,6 +1500,22 @@ int main(int argc, char ** argv) {
 
 	while (1) {
 		char buffer[LINE_LEN] = {0};
+
+		list_t * keys = hashmap_keys(job_hash);
+		foreach(node, keys) {
+			int pid = (int)node->value;
+			int status = 0;
+			if (waitpid(-pid, &status, WNOHANG | WEXITED) > 0) {
+				char * desc = "Done";
+				if (WTERMSIG(status) != 0) {
+					desc = _strsignal(WTERMSIG(status));
+				}
+				fprintf(stderr, "[%d] %s\t\t%s\n", pid, desc, (char*)hashmap_get(job_hash, (void*)pid));
+				hashmap_remove(job_hash, (void*)pid);
+			}
+		}
+		list_free(keys);
+		free(keys);
 
 		read_entry(buffer);
 

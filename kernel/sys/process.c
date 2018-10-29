@@ -17,6 +17,8 @@
 #include <kernel/shm.h>
 #include <kernel/printf.h>
 
+#include <sys/wait.h>
+
 #include <toaru/list.h>
 #include <toaru/tree.h>
 
@@ -781,7 +783,7 @@ void reap_process(process_t * proc) {
 static int wait_candidate(process_t * parent, int pid, int options, process_t * proc) {
 	if (!proc) return 0;
 
-	if (options & 0x10) {
+	if (options & WNOKERN) {
 		/* Skip kernel processes */
 		if (proc->is_tasklet) return 0;
 	}
@@ -821,7 +823,11 @@ int waitpid(int pid, int * status, int options) {
 
 			if (wait_candidate(proc, pid, options, child)) {
 				has_children = 1;
-				if (child->finished || child->suspended) {
+				if (child->finished) {
+					candidate = child;
+					break;
+				}
+				if (!(options & WEXITED) && child->suspended) {
 					candidate = child;
 					break;
 				}
@@ -845,7 +851,7 @@ int waitpid(int pid, int * status, int options) {
 			}
 			return pid;
 		} else {
-			if (options & 1) {
+			if (options & WNOHANG) {
 				return 0;
 			}
 			debug_print(INFO, "Sleeping until queue is done.");

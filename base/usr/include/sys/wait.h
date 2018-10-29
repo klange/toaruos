@@ -7,6 +7,7 @@ _Begin_C_Header
 
 #define WNOHANG   0x0001
 #define WUNTRACED 0x0002
+#define WEXITED   0x0004
 #define WNOKERN   0x0010
 
 /* This were taken from newlib, but they remain true */
