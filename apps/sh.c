@@ -910,6 +910,26 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						}
 						continue;
 					}
+				case '~':
+					if (quoted || collected || backtick) {
+						goto _just_add;
+					} else {
+						if (p[1] == 0 || p[1] == '/' || p[1] == '\n' || p[1] == ' ') {
+							char * c = getenv("HOME");
+							if (!c) {
+								goto _just_add;
+							}
+							for (int i = 0; i < (int)strlen(c); ++i) {
+								buffer_[collected] = c[i];
+								collected++;
+							}
+							buffer_[collected] = '\0';
+							goto _next;
+						} else {
+							goto _just_add;
+						}
+					}
+					break;
 				case '\"':
 					force_collected = 1;
 					if (quoted == '\"') {
