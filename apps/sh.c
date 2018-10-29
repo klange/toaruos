@@ -1941,8 +1941,7 @@ int get_available_job(int argc, char * argv[]) {
 			list_free(keys);
 			free(keys);
 			if (!suspended_pgid) {
-				fprintf(stderr, "no current job\n");
-				return 1;
+				return 0;
 			}
 		}
 		return suspended_pgid;
@@ -1954,7 +1953,7 @@ int get_available_job(int argc, char * argv[]) {
 uint32_t shell_cmd_fg(int argc, char * argv[]) {
 	int pid = get_available_job(argc,argv);
 	if (!pid || !hashmap_has(job_hash, (void*)pid)) {
-		fprintf(stderr, "invalid job");
+		fprintf(stderr, "no current job\n");
 		return 1;
 	}
 
@@ -1970,7 +1969,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 uint32_t shell_cmd_bg(int argc, char * argv[]) {
 	int pid = get_available_job(argc,argv);
 	if (!pid || !hashmap_has(job_hash, (void*)pid)) {
-		fprintf(stderr, "invalid job");
+		fprintf(stderr, "no current job\n");
 		return 1;
 	}
 
