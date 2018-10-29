@@ -13,6 +13,8 @@
 #include <kernel/logging.h>
 #include <kernel/args.h>
 #include <kernel/module.h>
+#include <kernel/pty.h>
+#include <kernel/printf.h>
 
 #define SERIAL_PORT_A 0x3F8
 #define SERIAL_PORT_B 0x2F8
@@ -22,61 +24,19 @@
 #define SERIAL_IRQ_AC 4
 #define SERIAL_IRQ_BD 3
 
-static char serial_recv(int device);
+static pty_t * _serial_port_pty_a = NULL;
+static pty_t * _serial_port_pty_b = NULL;
+static pty_t * _serial_port_pty_c = NULL;
+static pty_t * _serial_port_pty_d = NULL;
 
-static fs_node_t * _serial_port_a = NULL;
-static fs_node_t * _serial_port_b = NULL;
-static fs_node_t * _serial_port_c = NULL;
-static fs_node_t * _serial_port_d = NULL;
-
-static fs_node_t ** pipe_for_port(int port) {
+static pty_t ** pty_for_port(int port) {
 	switch (port) {
-		case SERIAL_PORT_A: return &_serial_port_a;
-		case SERIAL_PORT_B: return &_serial_port_b;
-		case SERIAL_PORT_C: return &_serial_port_c;
-		case SERIAL_PORT_D: return &_serial_port_d;
+		case SERIAL_PORT_A: return &_serial_port_pty_a;
+		case SERIAL_PORT_B: return &_serial_port_pty_b;
+		case SERIAL_PORT_C: return &_serial_port_pty_c;
+		case SERIAL_PORT_D: return &_serial_port_pty_d;
 	}
 	__builtin_unreachable();
-}
-
-static int serial_handler_ac(struct regs *r) {
-	char serial;
-	int  port = 0;
-	if (inportb(SERIAL_PORT_A+1) & 0x01) {
-		port = SERIAL_PORT_A;
-	} else {
-		port = SERIAL_PORT_C;
-	}
-	serial = serial_recv(port);
-	irq_ack(SERIAL_IRQ_AC);
-	write_fs(*pipe_for_port(port), 0, 1, (uint8_t*)&serial);
-	return 1;
-}
-
-static int serial_handler_bd(struct regs *r) {
-	char serial;
-	int  port = 0;
-	debug_print(NOTICE, "Received something on secondary port");
-	if (inportb(SERIAL_PORT_B+1) & 0x01) {
-		port = SERIAL_PORT_B;
-	} else {
-		port = SERIAL_PORT_D;
-	}
-	serial = serial_recv(port);
-	irq_ack(SERIAL_IRQ_BD);
-	write_fs(*pipe_for_port(port), 0, 1, (uint8_t*)&serial);
-	return 1;
-}
-
-static void serial_enable(int port) {
-	outportb(port + 1, 0x00); /* Disable interrupts */
-	outportb(port + 3, 0x80); /* Enable divisor mode */
-	outportb(port + 0, 0x01); /* Div Low:  01 Set the port to 115200 bps */
-	outportb(port + 1, 0x00); /* Div High: 00 */
-	outportb(port + 3, 0x03); /* Disable divisor mode, set parity */
-	outportb(port + 2, 0xC7); /* Enable FIFO and clear */
-	outportb(port + 4, 0x0B); /* Enable interrupts */
-	outportb(port + 1, 0x01); /* Enable interrupts */
 }
 
 static int serial_rcvd(int device) {
@@ -97,75 +57,78 @@ static void serial_send(int device, char out) {
 	outportb(device, out);
 }
 
-static void serial_string(char * out) {
-	for (uint32_t i = 0; i < strlen(out); ++i) {
-		serial_send(SERIAL_PORT_A, out[i]);
+static int serial_handler_ac(struct regs *r) {
+	char serial;
+	int  port = 0;
+	if (inportb(SERIAL_PORT_A+1) & 0x01) {
+		port = SERIAL_PORT_A;
+	} else {
+		port = SERIAL_PORT_C;
 	}
+	serial = serial_recv(port);
+	irq_ack(SERIAL_IRQ_AC);
+	tty_input_process(*pty_for_port(port), serial);
+	return 1;
 }
 
-static uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static void open_serial(fs_node_t *node, unsigned int flags);
-static void close_serial(fs_node_t *node);
-
-static uint32_t read_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	return read_fs(*pipe_for_port((int)node->device), offset, size, buffer);
-}
-
-static uint32_t write_serial(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-	uint32_t sent = 0;
-	while (sent < size) {
-		serial_send((int)node->device, buffer[sent]);
-		sent++;
+static int serial_handler_bd(struct regs *r) {
+	char serial;
+	int  port = 0;
+	debug_print(NOTICE, "Received something on secondary port");
+	if (inportb(SERIAL_PORT_B+1) & 0x01) {
+		port = SERIAL_PORT_B;
+	} else {
+		port = SERIAL_PORT_D;
 	}
-	return size;
+	serial = serial_recv(port);
+	irq_ack(SERIAL_IRQ_BD);
+	tty_input_process(*pty_for_port(port), serial);
+	return 1;
 }
 
-static void open_serial(fs_node_t * node, unsigned int flags) {
-	return;
-}
-
-static void close_serial(fs_node_t * node) {
-	return;
-}
-
-static int wait_serial(fs_node_t * node, void * process) {
-	return selectwait_fs(*pipe_for_port((int)node->device), process);
-}
-static int check_serial(fs_node_t * node) {
-	return selectcheck_fs(*pipe_for_port((int)node->device));
+static void serial_enable(int port) {
+	outportb(port + 1, 0x00); /* Disable interrupts */
+	outportb(port + 3, 0x80); /* Enable divisor mode */
+	outportb(port + 0, 0x01); /* Div Low:  01 Set the port to 115200 bps */
+	outportb(port + 1, 0x00); /* Div High: 00 */
+	outportb(port + 3, 0x03); /* Disable divisor mode, set parity */
+	outportb(port + 2, 0xC7); /* Enable FIFO and clear */
+	outportb(port + 4, 0x0B); /* Enable interrupts */
+	outportb(port + 1, 0x01); /* Enable interrupts */
 }
 
 static int have_installed_ac = 0;
 static int have_installed_bd = 0;
 
-static fs_node_t * serial_device_create(int device) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->device= (void *)device;
-	strcpy(fnode->name, "serial");
-	fnode->uid = 0;
-	fnode->gid = 0;
-	fnode->mask    = 0660;
-	fnode->flags   = FS_CHARDEVICE;
-	fnode->read    = read_serial;
-	fnode->write   = write_serial;
-	fnode->open    = open_serial;
-	fnode->close   = close_serial;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = NULL; /* TODO ioctls for raw serial devices */
+static void serial_write_out(pty_t * pty, uint8_t c) {
+	if (pty == _serial_port_pty_a) serial_send(SERIAL_PORT_A, c);
+	if (pty == _serial_port_pty_b) serial_send(SERIAL_PORT_B, c);
+	if (pty == _serial_port_pty_c) serial_send(SERIAL_PORT_C, c);
+	if (pty == _serial_port_pty_d) serial_send(SERIAL_PORT_D, c);
+}
 
-	fnode->selectcheck = check_serial;
-	fnode->selectwait  = wait_serial;
+#define DEV_PATH "/dev/"
+#define TTY_A "ttyS0"
+#define TTY_B "ttyS1"
+#define TTY_C "ttyS2"
+#define TTY_D "ttyS3"
 
-	fnode->atime = now();
-	fnode->mtime = fnode->atime;
-	fnode->ctime = fnode->atime;
+static void serial_fill_name(pty_t * pty, char * name) {
+	if (pty == _serial_port_pty_a) sprintf(name, DEV_PATH TTY_A);
+	if (pty == _serial_port_pty_b) sprintf(name, DEV_PATH TTY_B);
+	if (pty == _serial_port_pty_c) sprintf(name, DEV_PATH TTY_C);
+	if (pty == _serial_port_pty_d) sprintf(name, DEV_PATH TTY_D);
+}
 
-	serial_enable(device);
+static fs_node_t * serial_device_create(int port) {
+	pty_t * pty = pty_new(NULL);
+	*pty_for_port(port) = pty;
+	pty->write_out = serial_write_out;
+	pty->fill_name = serial_fill_name;
 
-	if (device == SERIAL_PORT_A || device == SERIAL_PORT_C) {
+	serial_enable(port);
+
+	if (port == SERIAL_PORT_A || port == SERIAL_PORT_C) {
 		if (!have_installed_ac) {
 			irq_install_handler(SERIAL_IRQ_AC, serial_handler_ac, "serial ac");
 			have_installed_ac = 1;
@@ -177,24 +140,15 @@ static fs_node_t * serial_device_create(int device) {
 		}
 	}
 
-	*pipe_for_port(device) = make_pipe(128);
-
-	return fnode;
+	return pty->slave;
 }
 
 static int serial_mount_devices(void) {
 
-	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A);
-	vfs_mount("/dev/ttyS0", ttyS0);
-
-	fs_node_t * ttyS1 = serial_device_create(SERIAL_PORT_B);
-	vfs_mount("/dev/ttyS1", ttyS1);
-
-	fs_node_t * ttyS2 = serial_device_create(SERIAL_PORT_C);
-	vfs_mount("/dev/ttyS2", ttyS2);
-
-	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D);
-	vfs_mount("/dev/ttyS3", ttyS3);
+	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A); vfs_mount(DEV_PATH TTY_A, ttyS0);
+	fs_node_t * ttyS1 = serial_device_create(SERIAL_PORT_B); vfs_mount(DEV_PATH TTY_B, ttyS1);
+	fs_node_t * ttyS2 = serial_device_create(SERIAL_PORT_C); vfs_mount(DEV_PATH TTY_C, ttyS2);
+	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D); vfs_mount(DEV_PATH TTY_D, ttyS3);
 
 	char * c;
 	if ((c = args_value("logtoserial"))) {

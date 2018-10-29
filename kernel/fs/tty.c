@@ -74,7 +74,6 @@ void tty_output_process_slave(pty_t * pty, uint8_t c) {
 }
 
 void tty_output_process(pty_t * pty, uint8_t c) {
-	if (ring_buffer_available(pty->out) < 2) return; /* uh oh */
 	output_process_slave(pty, c);
 }
 
@@ -245,6 +244,11 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 	IN(c);
 }
 
+static void tty_fill_name(pty_t * pty, char * out) {
+	((char*)out)[0] = '\0';
+	sprintf((char*)out, "/dev/pts/%d", pty->name);
+}
+
 int pty_ioctl(pty_t * pty, int request, void * argp) {
 	switch (request) {
 		case IOCTLDTYPE:
@@ -258,8 +262,7 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 		case IOCTLTTYNAME:
 			if (!argp) return -EINVAL;
 			validate(argp);
-			((char*)argp)[0] = '\0';
-			sprintf((char*)argp, "/dev/pts/%d", pty->name);
+			pty->fill_name(pty, argp);
 			return 0;
 		case IOCTLTTYLOGIN:
 			/* Set the user id of the login user */
@@ -501,7 +504,7 @@ static int readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
 	if (!pty) {
 		sprintf(tmp, "/dev/null");
 	} else {
-		sprintf(tmp, "/dev/pts/%d", pty->name);
+		pty->fill_name(pty, tmp);
 	}
 
 	req = strlen(tmp) + 1;
@@ -655,6 +658,7 @@ pty_t * pty_new(struct winsize * size) {
 
 	/* tty name */
 	pty->name   = _pty_counter++;
+	pty->fill_name = tty_fill_name;
 
 	pty->write_in = pty_write_in;
 	pty->write_out = pty_write_out;

@@ -35,8 +35,11 @@ typedef struct pty {
 
 	int next_is_verbatim;
 
+	void (*fill_name)(struct pty *, char *);
+
 } pty_t;
 
 void tty_output_process_slave(pty_t * pty, uint8_t c);
 void tty_output_process(pty_t * pty, uint8_t c);
 void tty_input_process(pty_t * pty, uint8_t c);
+pty_t * pty_new(struct winsize * size);

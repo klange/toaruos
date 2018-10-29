@@ -17,7 +17,7 @@
 #include <sys/fswait.h>
 
 int main(int argc, char * argv[]) {
-	int fd_master, fd_slave, fd_serial;
+	int fd_serial;
 	char * file = "/dev/ttyS0";
 	char * user = NULL;
 
@@ -39,59 +39,27 @@ int main(int argc, char * argv[]) {
 		file = argv[optind];
 	}
 
-	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
 	fd_serial = open(file, O_RDWR);
 
-	pid_t child = fork();
-
-	if (!child) {
-		setsid();
-		dup2(fd_slave, 0);
-		dup2(fd_slave, 1);
-		dup2(fd_slave, 2);
-
-		system("ttysize -q");
-
-		char * tokens[] = {"/bin/login",NULL,NULL,NULL};
-
-		if (user) {
-			tokens[1] = "-f";
-			tokens[2] = user;
-		}
-
-		execvp(tokens[0], tokens);
-		exit(1);
-	} else {
-
-		int fds[2] = {fd_serial, fd_master};
-
-		while (1) {
-			int index = fswait2(2,fds,200);
-			char buf[1024];
-			int r;
-			switch (index) {
-				case 0: /* fd_serial */
-					r = read(fd_serial, buf, 1);
-					write(fd_master, buf, 1);
-					break;
-				case 1: /* fd_master */
-					r = read(fd_master, buf, 1024);
-					write(fd_serial, buf, r);
-					break;
-				default: /* timeout */
-					{
-						int result = waitpid(child, NULL, WNOHANG);
-						if (result > 0) {
-							/* Child login shell has returned (session ended) */
-							return 0;
-						}
-					}
-					break;
-			}
-
-		}
-
+	if (fd_serial < 0) {
+		perror("open");
+		return 1;
 	}
 
-	return 0;
+	setsid();
+	dup2(fd_serial, 0);
+	dup2(fd_serial, 1);
+	dup2(fd_serial, 2);
+
+	system("ttysize -q");
+
+	char * tokens[] = {"/bin/login",NULL,NULL,NULL};
+
+	if (user) {
+		tokens[1] = "-f";
+		tokens[2] = user;
+	}
+
+	execvp(tokens[0], tokens);
+	exit(1);
 }
