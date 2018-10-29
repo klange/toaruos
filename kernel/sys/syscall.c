@@ -29,6 +29,10 @@ static size_t hostname_len = 0;
 	(current_process->fds->entries[(FD)])
 #define FD_CHECK(FD) \
 	(FD_INRANGE(FD) && FD_ENTRY(FD))
+#define FD_OFFSET(FD) \
+	(current_process->fds->offsets[(FD)])
+#define FD_MODE(FD) \
+	(current_process->fds->modes[(FD)])
 
 #define PTR_INRANGE(PTR) \
 	((uintptr_t)(PTR) > current_process->image.entry)
@@ -62,8 +66,12 @@ static int sys_read(int fd, char * ptr, int len) {
 		PTR_VALIDATE(ptr);
 
 		fs_node_t * node = FD_ENTRY(fd);
-		uint32_t out = read_fs(node, node->offset, len, (uint8_t *)ptr);
-		node->offset += out;
+		if (!(FD_MODE(fd) & 01)) {
+			debug_print(WARNING, "access denied (read, fd=%d, mode=%d, %s, %s)", fd, FD_MODE(fd), node->name, current_process->name);
+			return -EACCES;
+		}
+		uint32_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
+		FD_OFFSET(fd) += out;
 		return (int)out;
 	}
 	return -EBADF;
@@ -96,12 +104,12 @@ static int sys_write(int fd, char * ptr, int len) {
 	if (FD_CHECK(fd)) {
 		PTR_VALIDATE(ptr);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!has_permission(node, 02)) {
+		if (!(FD_MODE(fd) & 02)) {
 			debug_print(WARNING, "access denied (write, fd=%d)", fd);
 			return -EACCES;
 		}
-		uint32_t out = write_fs(node, node->offset, len, (uint8_t *)ptr);
-		node->offset += out;
+		uint32_t out = write_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
+		FD_OFFSET(fd) += out;
 		return out;
 	}
 	return -EBADF;
@@ -119,17 +127,24 @@ static int sys_open(const char * file, int flags, int mode) {
 	debug_print(NOTICE, "open(%s) flags=0x%x; mode=0x%x", file, flags, mode);
 	fs_node_t * node = kopen((char *)file, flags);
 
-	if (node && !has_permission(node, 04)) {
-		debug_print(WARNING, "access denied (read, sys_open, file=%s)", file);
-		close_fs(node);
-		return -EACCES;
+	int access_bits = 0;
+
+	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
+		if (node && !has_permission(node, 04)) {
+			debug_print(WARNING, "access denied (read, sys_open, file=%s)", file);
+			close_fs(node);
+			return -EACCES;
+		} else {
+			access_bits |= 01;
+		}
 	}
-	if (node && ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY) || (flags & O_TRUNC))) {
-		if (!has_permission(node, 02)) {
+	if ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY) || (flags & O_TRUNC)) {
+		if (node && !has_permission(node, 02)) {
 			debug_print(WARNING, "access denied (write, sys_open, file=%s)", file);
 			close_fs(node);
 			return -EACCES;
 		}
+		access_bits |= 02;
 	}
 
 	if (!node && (flags & O_CREAT)) {
@@ -147,12 +162,13 @@ static int sys_open(const char * file, int flags, int mode) {
 		debug_print(NOTICE, "File does not exist; someone should be setting errno?");
 		return -ENOENT;
 	}
-	if (flags & O_APPEND) {
-		node->offset = node->length;
-	} else {
-		node->offset = 0;
-	}
 	int fd = process_append_fd((process_t *)current_process, node);
+	FD_MODE(fd) = access_bits;
+	if (flags & O_APPEND) {
+		FD_OFFSET(fd) = node->length;
+	} else {
+		FD_OFFSET(fd) = 0;
+	}
 	debug_print(INFO, "[open] pid=%d %s -> %d", getpid(), file, fd);
 	return fd;
 }
@@ -271,16 +287,16 @@ static int sys_seek(int fd, int offset, int whence) {
 		}
 		switch (whence) {
 			case 0:
-				FD_ENTRY(fd)->offset = offset;
+				FD_OFFSET(fd) = offset;
 				break;
 			case 1:
-				FD_ENTRY(fd)->offset += offset;
+				FD_OFFSET(fd) += offset;
 				break;
 			case 2:
-				FD_ENTRY(fd)->offset = FD_ENTRY(fd)->length + offset;
+				FD_OFFSET(fd) = FD_ENTRY(fd)->length + offset;
 				break;
 		}
-		return FD_ENTRY(fd)->offset;
+		return FD_OFFSET(fd);
 	}
 	return -EBADF;
 }
@@ -385,7 +401,9 @@ static int sys_stat(int fd, uintptr_t st) {
 static int sys_mkpipe(void) {
 	fs_node_t * node = make_pipe(4096 * 2);
 	open_fs(node, 0);
-	return process_append_fd((process_t *)current_process, node);
+	int fd = process_append_fd((process_t *)current_process, node);
+	FD_MODE(fd) = 03; /* read write */
+	return fd;
 }
 
 static int sys_dup2(int old, int new) {
@@ -811,6 +829,9 @@ static int sys_openpty(int * master, int * slave, char * name, void * _ign0, voi
 	*master = process_append_fd((process_t *)current_process, fs_master);
 	*slave  = process_append_fd((process_t *)current_process, fs_slave);
 
+	FD_MODE(*master) = 03;
+	FD_MODE(*slave) = 03;
+
 	open_fs(fs_master, 0);
 	open_fs(fs_slave, 0);
 
@@ -832,6 +853,8 @@ static int sys_pipe(int pipes[2]) {
 
 	pipes[0] = process_append_fd((process_t *)current_process, outpipes[0]);
 	pipes[1] = process_append_fd((process_t *)current_process, outpipes[1]);
+	FD_MODE(pipes[0]) = 03;
+	FD_MODE(pipes[1]) = 03;
 	return 0;
 }
 

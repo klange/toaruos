@@ -53,6 +53,8 @@ typedef struct image {
 /* Resizable descriptor table */
 typedef struct descriptor_table {
 	fs_node_t ** entries;
+	size_t    *  offsets;
+	int       *  modes;
 	size_t       length;
 	size_t       capacity;
 	size_t       refs;

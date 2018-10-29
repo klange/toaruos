@@ -780,17 +780,14 @@ static void debug_shell_run(void * data, char * name) {
 	/* Set the device to be the actual TTY slave */
 	tty = fs_slave;
 	int fd = process_append_fd((process_t *)current_process, tty);
+	current_process->fds->modes[fd] = 03; /* rw */
 	process_move_fd((process_t *)current_process, fd, 0);
 	process_move_fd((process_t *)current_process, fd, 1);
+	process_move_fd((process_t *)current_process, fd, 2);
 
 
 	fs_master->refcount = -1;
 	fs_slave->refcount = -1;
-
-	current_process->fds->entries[0] = tty;
-	current_process->fds->entries[1] = tty;
-	current_process->fds->entries[2] = tty;
-	current_process->fds->length = 3;
 
 	tty_set_vintr(tty, 0x02);
 

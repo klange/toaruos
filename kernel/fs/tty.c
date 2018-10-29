@@ -462,8 +462,8 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	sprintf(fnode->name, "pty slave");
 	fnode->uid   = current_process->user;
 	fnode->gid   = 0;
-	fnode->mask  = 0666;
-	fnode->flags = FS_PIPE;
+	fnode->mask  = 0620;
+	fnode->flags = FS_CHARDEVICE;
 	fnode->read  =  read_pty_slave;
 	fnode->write = write_pty_slave;
 	fnode->open  =  open_pty_slave;

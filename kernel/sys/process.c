@@ -278,6 +278,8 @@ process_t * spawn_init(void) {
 	init->fds->length   = 0;  /* Initialize the file descriptors */
 	init->fds->capacity = 4;
 	init->fds->entries  = malloc(sizeof(fs_node_t *) * init->fds->capacity);
+	init->fds->modes    = malloc(sizeof(int) * init->fds->capacity);
+	init->fds->offsets  = malloc(sizeof(size_t) * init->fds->capacity);
 
 	/* Set the working directory */
 	init->wd_node = clone_fs(fs_root);
@@ -426,10 +428,14 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 		proc->fds->capacity = parent->fds->capacity;
 		debug_print(INFO,"    fds / files {");
 		proc->fds->entries  = malloc(sizeof(fs_node_t *) * proc->fds->capacity);
+		proc->fds->modes    = malloc(sizeof(int) * proc->fds->capacity);
+		proc->fds->offsets  = malloc(sizeof(size_t) * proc->fds->capacity);
 		assert(proc->fds->entries && "Failed to allocate file descriptor table for new process.");
 		debug_print(INFO,"    ---");
 		for (uint32_t i = 0; i < parent->fds->length; ++i) {
 			proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
+			proc->fds->modes[i]   = parent->fds->modes[i];
+			proc->fds->offsets[i] = parent->fds->offsets[i];
 		}
 		debug_print(INFO,"    }");
 	}
@@ -581,6 +587,9 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
 	for (unsigned int i = 0; i < proc->fds->length; ++i) {
 		if (!proc->fds->entries[i]) {
 			proc->fds->entries[i] = node;
+			/* modes, offsets must be set by caller */
+			proc->fds->modes[i] = 0;
+			proc->fds->offsets[i] = 0;
 			return i;
 		}
 	}
@@ -588,8 +597,13 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
 	if (proc->fds->length == proc->fds->capacity) {
 		proc->fds->capacity *= 2;
 		proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
+		proc->fds->modes   = realloc(proc->fds->modes,   sizeof(int) * proc->fds->capacity);
+		proc->fds->offsets = realloc(proc->fds->offsets, sizeof(size_t) * proc->fds->capacity);
 	}
 	proc->fds->entries[proc->fds->length] = node;
+	/* modes, offsets must be set by caller */
+	proc->fds->modes[proc->fds->length] = 0;
+	proc->fds->offsets[proc->fds->length] = 0;
 	proc->fds->length++;
 	return proc->fds->length-1;
 }
@@ -613,6 +627,8 @@ uint32_t process_move_fd(process_t * proc, int src, int dest) {
 	if (proc->fds->entries[dest] != proc->fds->entries[src]) {
 		close_fs(proc->fds->entries[dest]);
 		proc->fds->entries[dest] = proc->fds->entries[src];
+		proc->fds->modes[dest] = proc->fds->modes[src];
+		proc->fds->offsets[dest] = proc->fds->offsets[src];
 		open_fs(proc->fds->entries[dest], 0);
 	}
 	return dest;
@@ -765,6 +781,8 @@ void cleanup_process(process_t * proc, int retval) {
 		}
 		debug_print(INFO, "... and their storage %d", proc->id);
 		free(proc->fds->entries);
+		free(proc->fds->offsets);
+		free(proc->fds->modes);
 		free(proc->fds);
 		debug_print(INFO, "... and the kernel stack (hope this ain't us) %d", proc->id);
 		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
