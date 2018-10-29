@@ -1295,6 +1295,8 @@ _nope:
 	}
 
 	if (nowait) {
+		fprintf(stderr, "[%d] Running\n", pgid);
+		hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
 		free(cmd);
 		return 0;
 	}
