@@ -44,18 +44,9 @@
 
 /* Initialize fd 0, 1, 2 */
 void set_console(void) {
-	/* default to /dev/ttyS0 (serial COM1) */
-	int _stdin  = syscall_open("/dev/ttyS0", 0, 0);
-	if (_stdin < 0) {
-		/* if /dev/ttyS0 failed to open, fall back to /dev/null */
-		syscall_open("/dev/null", 0, 0);
-		syscall_open("/dev/null", 1, 0);
-		syscall_open("/dev/null", 1, 0);
-	} else {
-		/* otherwise also use /dev/ttyS0 for stdout, stderr */
-		syscall_open("/dev/ttyS0", 1, 0);
-		syscall_open("/dev/ttyS0", 1, 0);
-	}
+	syscall_open("/dev/null", 0, 0);
+	syscall_open("/dev/null", 1, 0);
+	syscall_open("/dev/null", 1, 0);
 }
 
 /* Run a startup script and wait for it to finish */
