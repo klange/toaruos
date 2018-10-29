@@ -1843,6 +1843,7 @@ uint32_t shell_cmd_source(int argc, char * argv[]) {
 
 	if (!f) {
 		fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+		return 1;
 	}
 
 	current_file = argv[1];
