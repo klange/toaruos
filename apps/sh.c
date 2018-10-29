@@ -780,7 +780,7 @@ static void handle_status(int ret_code) {
 }
 
 int wait_for_child(int pgid, char * name) {
-	int waitee = (shell_interactive == 1 && !is_subshell) ? -pgid : -1;
+	int waitee = (shell_interactive == 1 && !is_subshell) ? -pgid : pgid;
 	int outpid;
 	int ret_code = 0;
 
@@ -1304,13 +1304,15 @@ _nope:
 		if (shell_interactive == 1) {
 			fprintf(stderr, "[%d] %s\n", pgid, arg_starts[0][0]);
 			hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
+		} else {
+			hashmap_set(job_hash, (void*)last_child, strdup(arg_starts[0][0]));
 		}
 		free(cmd);
 		return 0;
 	}
 
 
-	int ret = wait_for_child(pgid, arg_starts[0][0]);
+	int ret = wait_for_child(shell_interactive == 1 ? pgid : last_child, arg_starts[0][0]);
 	free(cmd);
 	return ret;
 }
