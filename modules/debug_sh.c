@@ -25,37 +25,7 @@
 #include <sys/termios.h>
 
 /*
- * This is basically the same as a userspace buffered/unbuffered
- * termio call. These are the same sorts of things I would use in
- * a text editor in userspace, but with the internal kernel calls
- * rather than system calls.
- */
-static struct termios old;
-
-void tty_set_unbuffered(fs_node_t * dev) {
-	ioctl_fs(dev, TCGETS, &old);
-	struct termios new = old;
-	new.c_lflag &= (~ICANON & ~ECHO);
-	ioctl_fs(dev, TCSETSF, &new);
-}
-
-void tty_set_buffered(fs_node_t * dev) {
-	ioctl_fs(dev, TCSETSF, &old);
-}
-
-void tty_set_vintr(fs_node_t * dev, char vintr) {
-	struct termios tmp;
-	ioctl_fs(dev, TCGETS, &tmp);
-	tmp.c_cc[VINTR] = vintr;
-	ioctl_fs(dev, TCSETSF, &tmp);
-}
-
-/*
- * Quick readline implementation.
- *
- * Most of these TODOs are things I've done already in older code:
- * TODO tabcompletion would be nice
- * TODO history is also nice
+ * just call read_fs honestly, I don't care anymore
  */
 int debug_shell_readline(fs_node_t * dev, char * linebuf, int max) {
 	int r = read_fs(dev, 0, max, (uint8_t *)linebuf);
@@ -499,7 +469,6 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 	unsigned long start_tick = timer_ticks;
 	memset(tmp, 0, sizeof(tmp));
 	/* Move cursor, Request position, Reset cursor */
-	tty_set_unbuffered(dev);
 	fprintf(dev, "\033[1000;1000H\033[6n\033[H");
 	while (1) {
 		char buf[1];
@@ -523,7 +492,6 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 			*height = 23;
 			/* Clear and return */
 			fprintf(dev, "\033[J");
-			tty_set_buffered(dev);
 			return;
 		}
 	}
@@ -541,7 +509,6 @@ static void divine_size(fs_node_t * dev, int * width, int * height) {
 	/* And then parse it into numbers */
 	*height = atoi(tmp);
 	*width  = atoi(h);
-	tty_set_buffered(dev);
 }
 
 static int shell_divinesize(fs_node_t * tty, int argc, char * argv[]) {
@@ -788,15 +755,6 @@ static void debug_shell_run(void * data, char * name) {
 
 	fs_master->refcount = -1;
 	fs_slave->refcount = -1;
-
-	tty_set_vintr(tty, 0x02);
-
-	fprintf(tty, "\n\n"
-			"Serial debug console started.\n"
-			"Type `help` for a list of commands.\n"
-			"To access a userspace shell, type `shell`.\n"
-			"Use ^B to send SIGINT instead of ^C.\n"
-			"\n");
 
 	debug_shell_actual(tty, name);
 }

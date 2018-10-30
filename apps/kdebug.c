@@ -7,10 +7,13 @@
  */
 #include <syscall.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 int main(int argc, char * argv[]) {
 	syscall_system_function(7, NULL);
 	int status;
-	wait(&status);
+	while (wait(&status)) {
+		if (errno == ECHILD) break;
+	}
 	return WEXITSTATUS(status);
 }
