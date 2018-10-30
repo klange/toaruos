@@ -1183,7 +1183,7 @@ _done:
 				if (dirp) {
 					struct dirent * ent = readdir(dirp);
 					while (ent != NULL) {
-						if (ent->d_name[0] != '.') {
+						if (ent->d_name[0] != '.' || (dir ? (dir[1] == '.') : (before && before[0] == '.'))) {
 							char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
 							memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
 
