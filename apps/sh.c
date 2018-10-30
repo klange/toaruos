@@ -814,13 +814,13 @@ int wait_for_child(int pgid, char * name) {
 		if (WIFSTOPPED(ret_code)) {
 			suspended_pgid = pgid;
 			if (name) {
-				hashmap_set(job_hash, (void*)pgid, strdup(name));
+				hashmap_set(job_hash, (void*)(intptr_t)pgid, strdup(name));
 			}
-			fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, (char*)hashmap_get(job_hash, (void*)pgid));
+			fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, (char*)hashmap_get(job_hash, (void*)(intptr_t)pgid));
 			break;
 		} else {
 			suspended_pgid = 0;
-			hashmap_remove(job_hash, (void*)pgid);
+			hashmap_remove(job_hash, (void*)(intptr_t)pgid);
 		}
 	} while (outpid != -1 || (outpid == -1 && e != ECHILD));
 	reset_pgrp();
@@ -1281,6 +1281,7 @@ _nope:
 			close(last_output[0]);
 			run_cmd(arg_starts[0]);
 		}
+		wait_semaphore(s);
 
 		pgid = child_pid;
 
@@ -1322,8 +1323,6 @@ _nope:
 		close(last_output[0]);
 		close(last_output[1]);
 
-		wait_semaphore(s);
-
 		/* Now execute the last piece and wait on all of them */
 	} else {
 		shell_command_t func = shell_find(*arg_starts[0]);
@@ -1359,9 +1358,9 @@ _nope:
 	if (nowait) {
 		if (shell_interactive == 1) {
 			fprintf(stderr, "[%d] %s\n", pgid, arg_starts[0][0]);
-			hashmap_set(job_hash, (void*)pgid, strdup(arg_starts[0][0]));
+			hashmap_set(job_hash, (void*)(intptr_t)pgid, strdup(arg_starts[0][0]));
 		} else {
-			hashmap_set(job_hash, (void*)last_child, strdup(arg_starts[0][0]));
+			hashmap_set(job_hash, (void*)(intptr_t)last_child, strdup(arg_starts[0][0]));
 		}
 		free(cmd);
 		return 0;
@@ -1567,15 +1566,15 @@ int main(int argc, char ** argv) {
 
 		list_t * keys = hashmap_keys(job_hash);
 		foreach(node, keys) {
-			int pid = (int)node->value;
+			int pid = (intptr_t)node->value;
 			int status = 0;
 			if (waitpid(-pid, &status, WNOHANG) > 0) {
 				char * desc = "Done";
 				if (WTERMSIG(status) != 0) {
 					desc = _strsignal(WTERMSIG(status));
 				}
-				fprintf(stderr, "[%d] %s\t\t%s\n", pid, desc, (char*)hashmap_get(job_hash, (void*)pid));
-				hashmap_remove(job_hash, (void*)pid);
+				fprintf(stderr, "[%d] %s\t\t%s\n", pid, desc, (char*)hashmap_get(job_hash, (void*)(intptr_t)pid));
+				hashmap_remove(job_hash, (void*)(intptr_t)pid);
 			}
 		}
 		list_free(keys);
@@ -1999,7 +1998,7 @@ int get_available_job(int argc, char * argv[]) {
 		if (!suspended_pgid) {
 			list_t * keys = hashmap_keys(job_hash);
 			foreach(node, keys) {
-				suspended_pgid = (int)node->value;
+				suspended_pgid = (intptr_t)node->value;
 				break;
 			}
 			list_free(keys);
@@ -2016,7 +2015,7 @@ int get_available_job(int argc, char * argv[]) {
 
 uint32_t shell_cmd_fg(int argc, char * argv[]) {
 	int pid = get_available_job(argc,argv);
-	if (!pid || !hashmap_has(job_hash, (void*)pid)) {
+	if (!pid || !hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 		fprintf(stderr, "no current job\n");
 		return 1;
 	}
@@ -2025,7 +2024,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 
 	if (kill(-pid, SIGCONT) < 0) {
 		fprintf(stderr, "no current job / bad pid\n");
-		hashmap_remove(job_hash, (void*)pid);
+		hashmap_remove(job_hash, (void*)(intptr_t)pid);
 		return 1;
 	}
 
@@ -2034,26 +2033,26 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 
 uint32_t shell_cmd_bg(int argc, char * argv[]) {
 	int pid = get_available_job(argc,argv);
-	if (!pid || !hashmap_has(job_hash, (void*)pid)) {
+	if (!pid || !hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 		fprintf(stderr, "no current job\n");
 		return 1;
 	}
 
 	if (kill(-pid, SIGCONT) < 0) {
 		fprintf(stderr, "no current job / bad pid\n");
-		hashmap_remove(job_hash, (void*)pid);
+		hashmap_remove(job_hash, (void*)(intptr_t)pid);
 		return 1;
 	}
 
-	fprintf(stderr, "[%d] %s\n", pid, (char*)hashmap_get(job_hash, (void*)pid));
+	fprintf(stderr, "[%d] %s\n", pid, (char*)hashmap_get(job_hash, (void*)(intptr_t)pid));
 	return 0;
 }
 
 uint32_t shell_cmd_jobs(int argc, char * argv[]) {
 	list_t * keys = hashmap_keys(job_hash);
 	foreach(node, keys) {
-		int pid = (int)node->value;
-		char * c = hashmap_get(job_hash, (void*)pid);
+		int pid = (intptr_t)node->value;
+		char * c = hashmap_get(job_hash, (void*)(intptr_t)pid);
 		fprintf(stdout, "%5d %s\n", pid, c);
 	}
 	list_free(keys);
