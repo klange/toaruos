@@ -820,7 +820,9 @@ int wait_for_child(int pgid, char * name) {
 			break;
 		} else {
 			suspended_pgid = 0;
-			hashmap_remove(job_hash, (void*)(intptr_t)pgid);
+			if (hashmap_has(job_hash, (void*)(intptr_t)pgid)) {
+				hashmap_remove(job_hash, (void*)(intptr_t)pgid);
+			}
 		}
 	} while (outpid != -1 || (outpid == -1 && e != ECHILD));
 	reset_pgrp();
@@ -1574,7 +1576,9 @@ int main(int argc, char ** argv) {
 					desc = _strsignal(WTERMSIG(status));
 				}
 				fprintf(stderr, "[%d] %s\t\t%s\n", pid, desc, (char*)hashmap_get(job_hash, (void*)(intptr_t)pid));
-				hashmap_remove(job_hash, (void*)(intptr_t)pid);
+				if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
+					hashmap_remove(job_hash, (void*)(intptr_t)pid);
+				}
 			}
 		}
 		list_free(keys);
@@ -2024,7 +2028,9 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 
 	if (kill(-pid, SIGCONT) < 0) {
 		fprintf(stderr, "no current job / bad pid\n");
-		hashmap_remove(job_hash, (void*)(intptr_t)pid);
+		if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
+			hashmap_remove(job_hash, (void*)(intptr_t)pid);
+		}
 		return 1;
 	}
 
@@ -2040,7 +2046,9 @@ uint32_t shell_cmd_bg(int argc, char * argv[]) {
 
 	if (kill(-pid, SIGCONT) < 0) {
 		fprintf(stderr, "no current job / bad pid\n");
-		hashmap_remove(job_hash, (void*)(intptr_t)pid);
+		if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
+			hashmap_remove(job_hash, (void*)(intptr_t)pid);
+		}
 		return 1;
 	}
 
