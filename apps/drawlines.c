@@ -17,10 +17,11 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <time.h>
 #include <sched.h>
 #include <math.h>
+
+#include <sys/fswait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -33,19 +34,13 @@ static gfx_context_t * ctx;
 static int should_exit = 0;
 static int thick = 0;
 
-void * draw_thread(void * garbage) {
-	(void)garbage;
-	while (!should_exit) {
-		if (thick) {
-			draw_line_aa(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255), (float)thick);
-		} else {
-			draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
-		}
-		yutani_flip(yctx, wina);
-		usleep(16666);
+static void draw(void) {
+	if (thick) {
+		draw_line_aa(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255), (float)thick);
+	} else {
+		draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
 	}
-	pthread_exit(0);
-	return NULL;
+	yutani_flip(yctx, wina);
 }
 
 static void show_usage(char * argv[]) {
@@ -93,39 +88,42 @@ int main (int argc, char ** argv) {
 	ctx = init_graphics_yutani(wina);
 	draw_fill(ctx, rgb(0,0,0));
 
-	pthread_t thread;
-	pthread_create(&thread, NULL, draw_thread, NULL);
-
 	while (!should_exit) {
-		yutani_msg_t * m = yutani_poll(yctx);
-		if (m) {
-			switch (m->type) {
-				case YUTANI_MSG_KEY_EVENT:
-					{
-						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-							should_exit = 1;
-							sched_yield();
+		int fds[1] = {fileno(yctx->sock)};
+		int index = fswait2(1,fds,20);
+		if (index == 0) {
+			yutani_msg_t * m = yutani_poll(yctx);
+			while (m) {
+				switch (m->type) {
+					case YUTANI_MSG_KEY_EVENT:
+						{
+							struct yutani_msg_key_event * ke = (void*)m->data;
+							if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+								should_exit = 1;
+								sched_yield();
+							}
 						}
-					}
-					break;
-				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-					{
-						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-							yutani_window_drag_start(yctx, wina);
+						break;
+					case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+						{
+							struct yutani_msg_window_mouse_event * me = (void*)m->data;
+							if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+								yutani_window_drag_start(yctx, wina);
+							}
 						}
-					}
-					break;
-				case YUTANI_MSG_WINDOW_CLOSE:
-				case YUTANI_MSG_SESSION_END:
-					should_exit = 1;
-					break;
-				default:
-					break;
+						break;
+					case YUTANI_MSG_WINDOW_CLOSE:
+					case YUTANI_MSG_SESSION_END:
+						should_exit = 1;
+						break;
+					default:
+						break;
+				}
+				free(m);
+				m = yutani_poll_async(yctx);
 			}
 		}
-		free(m);
+		draw();
 	}
 
 	yutani_close(yctx, wina);
