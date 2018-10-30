@@ -37,7 +37,7 @@ int main(int argc, char * argv[]) {
 	int i = optind;
 
 	if (i == argc) {
-		template = strdup("tmp.XXXXXX");
+		template = strdup("/tmp/tmp.XXXXXX");
 	} else {
 		template = strdup(argv[i]);
 	}
