@@ -986,6 +986,21 @@ static int sys_setpgid(pid_t pid, pid_t pgid) {
 	return 0;
 }
 
+static int sys_getpgid(pid_t pid) {
+	process_t * proc;
+	if (pid == 0) {
+		proc = (process_t*)current_process;
+	} else {
+		proc = process_from_pid(pid);
+	}
+
+	if (!proc) {
+		return -ESRCH;
+	}
+
+	return proc->job;
+}
+
 /*
  * System Call Internals
  */
@@ -1043,6 +1058,7 @@ static int (*syscalls[])() = {
 	[SYS_CHOWN]        = sys_chown,
 	[SYS_SETSID]       = sys_setsid,
 	[SYS_SETPGID]      = sys_setpgid,
+	[SYS_GETPGID]      = sys_getpgid,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);

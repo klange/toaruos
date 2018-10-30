@@ -71,8 +71,31 @@ static int current_line = 0;
 static char * current_file = NULL;
 
 int pid; /* Process ID of the shell */
+int my_pgid;
 
 int is_subshell = 0;
+
+struct semaphore {
+	int fds[2];
+};
+
+struct semaphore create_semaphore(void) {
+	struct semaphore out;
+	pipe(out.fds);
+	return out;
+}
+
+void raise_semaphore(struct semaphore s){
+	close(s.fds[0]);
+	close(s.fds[1]);
+}
+
+void wait_semaphore(struct semaphore s) {
+	close(s.fds[1]);
+	char buf;
+	read(s.fds[0], &buf, 1);
+	close(s.fds[0]);
+}
 
 void set_pgid(int pgid) {
 	if (shell_interactive == 1) {
@@ -88,7 +111,7 @@ void set_pgrp(int pgid) {
 
 void reset_pgrp() {
 	if (shell_interactive == 1 && !is_subshell) {
-		tcsetpgrp(STDIN_FILENO, pid);
+		tcsetpgrp(STDIN_FILENO, my_pgid);
 	}
 }
 
@@ -783,9 +806,11 @@ int wait_for_child(int pgid, char * name) {
 	int waitee = (shell_interactive == 1 && !is_subshell) ? -pgid : pgid;
 	int outpid;
 	int ret_code = 0;
+	int e;
 
 	do {
 		outpid = waitpid(waitee, &ret_code, WSTOPPED);
+		e = errno;
 		if (WIFSTOPPED(ret_code)) {
 			suspended_pgid = pgid;
 			if (name) {
@@ -797,7 +822,7 @@ int wait_for_child(int pgid, char * name) {
 			suspended_pgid = 0;
 			hashmap_remove(job_hash, (void*)pgid);
 		}
-	} while (outpid != -1 || (outpid == -1 && errno != ECHILD));
+	} while (outpid != -1 || (outpid == -1 && e != ECHILD));
 	reset_pgrp();
 	handle_status(ret_code);
 	return WEXITSTATUS(ret_code);
@@ -1244,10 +1269,13 @@ _nope:
 	if (cmdi > 0) {
 		int last_output[2];
 		pipe(last_output);
+
+		struct semaphore s = create_semaphore();
 		child_pid = fork();
 		if (!child_pid) {
 			set_pgid(0);
-			set_pgrp(getpid());
+			if (!nowait) set_pgrp(getpid());
+			raise_semaphore(s);
 			is_subshell = 1;
 			dup2(last_output[1], STDOUT_FILENO);
 			close(last_output[0]);
@@ -1294,16 +1322,20 @@ _nope:
 		close(last_output[0]);
 		close(last_output[1]);
 
+		wait_semaphore(s);
+
 		/* Now execute the last piece and wait on all of them */
 	} else {
 		shell_command_t func = shell_find(*arg_starts[0]);
 		if (func) {
 			return func(argcs[0], arg_starts[0]);
 		} else {
+			struct semaphore s = create_semaphore();
 			child_pid = fork();
 			if (!child_pid) {
 				set_pgid(0);
-				set_pgrp(getpid());
+				if (!nowait) set_pgrp(getpid());
+				raise_semaphore(s);
 				is_subshell = 1;
 				if (output_files[cmdi]) {
 					int fd = open(output_files[cmdi], file_args[cmdi], 0666);
@@ -1316,6 +1348,9 @@ _nope:
 				}
 				run_cmd(arg_starts[0]);
 			}
+
+			wait_semaphore(s);
+
 			pgid = child_pid;
 			last_child = child_pid;
 		}
@@ -1519,7 +1554,7 @@ int main(int argc, char ** argv) {
 
 	shell_interactive = 1;
 
-	signal(SIGTSTP, SIG_IGN);
+	my_pgid = getpgid(0);
 	signal(SIGTTOU, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
 

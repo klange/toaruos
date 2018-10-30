@@ -85,5 +85,6 @@ extern int sethostname(const char * name, size_t len);
 
 extern pid_t setsid(void);
 extern int setpgid(pid_t, pid_t);
+extern pid_t getpgid(pid_t);
 
 _End_C_Header

@@ -52,3 +52,4 @@
 #define SYS_CHOWN 61
 #define SYS_SETSID 62
 #define SYS_SETPGID 63
+#define SYS_GETPGID 64
