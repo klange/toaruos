@@ -785,7 +785,7 @@ int wait_for_child(int pgid, char * name) {
 	int ret_code = 0;
 
 	do {
-		outpid = waitpid(waitee, &ret_code, 0);
+		outpid = waitpid(waitee, &ret_code, WSTOPPED);
 		if (WIFSTOPPED(ret_code)) {
 			suspended_pgid = pgid;
 			if (name) {
@@ -1534,7 +1534,7 @@ int main(int argc, char ** argv) {
 		foreach(node, keys) {
 			int pid = (int)node->value;
 			int status = 0;
-			if (waitpid(-pid, &status, WNOHANG | WEXITED) > 0) {
+			if (waitpid(-pid, &status, WNOHANG) > 0) {
 				char * desc = "Done";
 				if (WTERMSIG(status) != 0) {
 					desc = _strsignal(WTERMSIG(status));
