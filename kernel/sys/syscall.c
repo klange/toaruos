@@ -940,7 +940,8 @@ static int sys_setsid(void) {
 		return -EPERM;
 	}
 	current_process->session = current_process->group;
-	return current_process->group;
+	current_process->job = current_process->group;
+	return current_process->session;
 }
 
 static int sys_setpgid(pid_t pid, pid_t pgid) {

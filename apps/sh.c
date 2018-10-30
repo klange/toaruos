@@ -1553,8 +1553,7 @@ int main(int argc, char ** argv) {
 
 	shell_interactive = 1;
 
-	setpgid(0,0);
-	my_pgid = getuid();
+	my_pgid = getpgid(0);
 	signal(SIGTTOU, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
 
