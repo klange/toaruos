@@ -1908,7 +1908,7 @@ uint32_t shell_cmd_source(int argc, char * argv[]) {
 	FILE * f = fopen(argv[1], "r");
 
 	if (!f) {
-		fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
 		return 1;
 	}
 
