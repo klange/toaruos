@@ -289,6 +289,11 @@ static void open_tmpfs(fs_node_t * node, unsigned int flags) {
 
 	debug_print(INFO, "---- Opened TMPFS file %s with flags 0x%x ----", t->name, flags);
 
+	t->atime = now();
+	if (flags & (O_TRUNC | O_WRONLY | O_RDWR | O_APPEND)) {
+		t->mtime = node->atime;
+	}
+
 	if (flags & O_TRUNC) {
 		debug_print(INFO, "Truncating file %s", t->name);
 		for (size_t i = 0; i < t->block_count; ++i) {
