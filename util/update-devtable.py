@@ -35,4 +35,5 @@ with open('util/devtable','w') as devtable:
 
     # Special case /tmp to allow all users to write
     devtable.write('/tmp d 777 0 0 - - - - -\n')
+    devtable.write('/var d 755 0 0 - - - - -\n')
 

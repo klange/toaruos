@@ -11,6 +11,7 @@
 #include <kernel/mem.h>
 #include <kernel/module.h>
 #include <kernel/mod/tmpfs.h>
+#include <kernel/tokenize.h>
 
 /* 4KB */
 #define BLOCKSIZE 0x1000
@@ -537,7 +538,24 @@ fs_node_t * tmpfs_create(char * name) {
 }
 
 fs_node_t * tmpfs_mount(char * device, char * mount_path) {
-	fs_node_t * fs = tmpfs_create(device);
+	char * arg = strdup(device);
+	char * argv[10];
+	int argc = tokenize(arg, ",", argv);
+
+	fs_node_t * fs = tmpfs_create(argv[0]);
+
+	if (argc > 1) {
+		if (strlen(argv[1]) < 3) {
+			debug_print(WARNING, "ignoring bad permission option for tmpfs");
+		} else {
+			int mode = ((argv[1][0] - '0') << 6) |
+			           ((argv[1][1] - '0') << 3) |
+			           ((argv[1][2] - '0') << 0);
+			fs->mask = mode;
+		}
+	}
+
+	free(arg);
 	return fs;
 }
 
@@ -545,8 +563,8 @@ static int tmpfs_initialize(void) {
 
 	buf_space = (void*)kvmalloc(BLOCKSIZE);
 
-	vfs_mount("/tmp", tmpfs_create("tmp"));
-	vfs_mount("/var", tmpfs_create("var"));
+	vfs_mount("/tmp", tmpfs_mount("tmp","/tmp"));
+	vfs_mount("/var", tmpfs_mount("var,755","/var"));
 
 	vfs_register("tmpfs", tmpfs_mount);
 
