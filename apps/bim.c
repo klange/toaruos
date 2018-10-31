@@ -190,6 +190,8 @@ struct {
 	int smart_case;
 	int can_24bit;
 	int can_italic;
+
+	int go_to_line;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -215,6 +217,7 @@ struct {
 	1, /* smart case */
 	1, /* can use 24-bit color */
 	1, /* can use italics (without inverting) */
+	1, /* should go to line when opening file */
 };
 
 void redraw_line(int j, int x);
@@ -3111,7 +3114,9 @@ void open_file(char * file) {
 		recalculate_tabs(env->lines[i]);
 	}
 
-	goto_line(init_line);
+	if (global_config.go_to_line) {
+		goto_line(init_line);
+	}
 
 	fclose(f);
 }
@@ -6228,6 +6233,7 @@ int main(int argc, char * argv[]) {
 			case 'C':
 				/* Print file to stdout using our syntax highlighting and color theme */
 				initialize();
+				global_config.go_to_line = 0;
 				open_file(optarg);
 				for (int i = 0; i < env->line_count; ++i) {
 					if (opt == 'C') {
