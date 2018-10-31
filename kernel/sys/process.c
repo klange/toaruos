@@ -271,6 +271,7 @@ process_t * spawn_init(void) {
 	init->name    = strdup("init");  /* Um, duh. */
 	init->cmdline = NULL;
 	init->user    = 0;       /* UID 0 */
+	init->real_user = 0;
 	init->mask    = 022;     /* umask */
 	init->status  = 0;       /* Run status */
 	init->fds = malloc(sizeof(fd_table_t));
@@ -389,6 +390,7 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 
 	/* Copy permissions */
 	proc->user  = parent->user;
+	proc->real_user = parent->real_user;
 	proc->mask = parent->mask;
 
 	/* Until specified otherwise */

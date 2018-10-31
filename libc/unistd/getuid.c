@@ -1,8 +1,10 @@
 #include <unistd.h>
 #include <syscall.h>
+#include <syscall_nums.h>
 
-DEFN_SYSCALL0(getuid, 23);
+DEFN_SYSCALL0(getuid, SYS_GETUID);
 
-int getuid() {
+uid_t getuid(void) {
 	return syscall_getuid();
 }
+

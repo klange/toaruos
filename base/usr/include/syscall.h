@@ -120,6 +120,7 @@ DECL_SYSCALL3(readlink, char *, char *, int);
 DECL_SYSCALL0(setsid);
 DECL_SYSCALL2(setpgid,int,int);
 DECL_SYSCALL1(getpgid,int);
+DECL_SYSCALL0(geteuid);
 
 _End_C_Header
 

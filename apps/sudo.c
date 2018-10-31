@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <termios.h>
 #include <errno.h>
+#include <pwd.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
 #include <toaru/auth.h>
@@ -36,12 +37,15 @@ int main(int argc, char ** argv) {
 	}
 
 	while (1) {
-		/*
-		 * This is not very secure, but I'm lazy and just want this to exist.
-		 * It's not like we have file system permissions or anything like
-		 * that sitting around anyway... So, XXX: make this not dumb.
-		 */
-		char * username = getenv("USER");
+		uid_t me = getuid();
+		if (me == 0) goto _do_it;
+
+		struct passwd * p = getpwuid(me);
+		if (!p) {
+			fprintf(stderr, "%s: unable to obtain username for real uid=%d\n", argv[0], getuid());
+			return 1;
+		}
+		char * username = p->pw_name;
 		char * password = malloc(sizeof(char) * 1024);
 
 		fprintf(stderr, "[%s] password for %s: ", argv[0], username);
@@ -71,8 +75,40 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 
+		/* Determine if this user is in the sudoers file */
+		FILE * sudoers = fopen("/etc/sudoers","r");
+		if (!sudoers) {
+			fprintf(stderr, "%s: /etc/sudoers is not available\n", argv[0]);
+			return 1;
+		}
+
+		/* Read each line */
+		int in_sudoers = 0;
+		while (!feof(sudoers)) {
+			char line[1024];
+			fgets(line, 1024, sudoers);
+			char * nl = strchr(line, '\n');
+			if (nl) {
+				*nl = '\0';
+			}
+			if (!strncmp(line,username,1024)) {
+				in_sudoers = 1;
+				break;
+			}
+		}
+		fclose(sudoers);
+
+		if (!in_sudoers) {
+			fprintf(stderr, "%s is not in sudoers file.\n", username);
+			return 1;
+		}
+
+_do_it:
 		/* Set username to root */
 		putenv("USER=root");
+
+		/* Actually become root, so real user id = 0 */
+		setuid(0);
 
 		if (!strcmp(argv[1], "-s")) {
 			argv[1] = getenv("SHELL");

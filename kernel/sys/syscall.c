@@ -411,12 +411,17 @@ static int sys_dup2(int old, int new) {
 }
 
 static int sys_getuid(void) {
+	return current_process->real_user;
+}
+
+static int sys_geteuid(void) {
 	return current_process->user;
 }
 
 static int sys_setuid(user_t new_uid) {
 	if (current_process->user == USER_ROOT_UID) {
 		current_process->user = new_uid;
+		current_process->real_user = new_uid;
 		return 0;
 	}
 	return -EPERM;
@@ -1008,6 +1013,7 @@ static int sys_getpgid(pid_t pid) {
 static int (*syscalls[])() = {
 	/* System Call Table */
 	[SYS_EXT]          = sys_exit,
+	[SYS_GETEUID]      = sys_geteuid,
 	[SYS_OPEN]         = sys_open,
 	[SYS_READ]         = sys_read,
 	[SYS_WRITE]        = sys_write,

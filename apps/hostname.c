@@ -18,7 +18,7 @@ int main(int argc, char * argv[]) {
 		printf("%s\n", tmp);
 		return 0;
 	} else {
-		if (getuid() != 0) {
+		if (geteuid() != 0) {
 			fprintf(stderr,"Must be root to set hostname.\n");
 			return 1;
 		} else {

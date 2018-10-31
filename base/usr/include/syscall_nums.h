@@ -1,6 +1,7 @@
 #pragma once
 
 #define SYS_EXT 0
+#define SYS_GETEUID 1
 #define SYS_OPEN 2
 #define SYS_READ 3
 #define SYS_WRITE 4

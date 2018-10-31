@@ -22,7 +22,7 @@
 int main(int argc, char * argv[]) {
 	int pid;
 
-	if (getuid() != 0) {
+	if (geteuid() != 0) {
 		return 1;
 	}
 

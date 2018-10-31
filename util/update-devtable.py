@@ -19,6 +19,7 @@ with open('util/devtable','w') as devtable:
 
     # Set master.passwd to not be visible except by root
     devtable.write('/etc/master.passwd f 600 0 0 - - - - -\n') # /etc/master.passwd should be restricted
+    devtable.write('/etc/sudoers f 600 0 0 - - - - -\n')
 
     # Copy permissions and set ownership for user files
     for user_details in [('local',1000)]:
