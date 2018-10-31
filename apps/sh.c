@@ -2068,6 +2068,29 @@ uint32_t shell_cmd_jobs(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_rehash(int argc, char * argv[]) {
+	/* PATH commands are malloc'd */
+	for (int i = 0; i < shell_commands_len; ++i) {
+		if (!shell_pointers[i]) {
+			free(shell_commands[i]);
+		}
+	}
+	/* Clear array */
+	shell_commands_len = 0;
+	/* Reset capacity */
+	SHELL_COMMANDS = 64;
+	/* Free existing */
+	free(shell_commands);
+	free(shell_pointers);
+	free(shell_descript);
+	/* Reallocate + install builtins */
+	install_commands();
+	/* Reload PATH */
+	add_path();
+
+	return 0;
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -2092,4 +2115,5 @@ void install_commands() {
 	shell_install_command("fg",      shell_cmd_fg, "resume a suspended job");
 	shell_install_command("jobs",    shell_cmd_jobs, "list stopped jobs");
 	shell_install_command("bg",      shell_cmd_bg, "restart suspended job in the background");
+	shell_install_command("rehash",  shell_cmd_rehash, "reset shell command memory");
 }
