@@ -89,6 +89,7 @@ static void check_click(struct yutani_msg_window_mouse_event * evt) {
 static void sig_usr2(int sig) {
 	yutani_set_stack(yctx, wallpaper_window, YUTANI_ZORDER_BOTTOM);
 	yutani_flip(yctx, wallpaper_window);
+	signal(SIGUSR2, sig_usr2);
 }
 
 int main (int argc, char ** argv) {

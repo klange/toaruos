@@ -1999,6 +1999,7 @@ static void yutani_display_resize_handle(int signum) {
 	(void)signum;
 	TRACE("Display change request, one moment.");
 	_static_yg->resize_on_next = 1;
+	signal(SIGWINEVENT, yutani_display_resize_handle);
 }
 
 /**

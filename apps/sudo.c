@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
-#include <signal.h>
 #include <termios.h>
 #include <errno.h>
 #include <pwd.h>

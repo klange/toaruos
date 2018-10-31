@@ -350,9 +350,10 @@ volatile int break_while = 0;
 pid_t suspended_pgid = 0;
 hashmap_t * job_hash = NULL;
 
-void sig_pass(int sig) {
+void sig_break_loop(int sig) {
 	/* Interrupt handler */
 	break_while = sig;
+	signal(sig, sig_break_loop);
 }
 
 void redraw_prompt_func(rline_context_t * context) {
@@ -1500,8 +1501,7 @@ int main(int argc, char ** argv) {
 
 	pid = getpid();
 
-	signal(SIGINT, sig_pass);
-	signal(SIGWINCH, sig_pass);
+	signal(SIGINT, sig_break_loop);
 
 	job_hash = hashmap_create_int(10);
 

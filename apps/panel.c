@@ -193,6 +193,7 @@ static void toggle_hide_panel(void) {
 static void sig_int(int sig) {
 	printf("Received shutdown signal in panel!\n");
 	_continue = 0;
+	signal(SIGINT, sig_int);
 }
 
 static void launch_application(char * app) {
@@ -1111,6 +1112,7 @@ static void sig_usr2(int sig) {
 	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);
 	yutani_flip(yctx, panel);
 	bind_keys();
+	signal(SIGUSR2, sig_usr2);
 }
 
 int main (int argc, char ** argv) {

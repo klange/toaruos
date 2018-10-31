@@ -7,7 +7,6 @@
  *
  */
 #include <sys/stat.h>
-#include <sys/signal.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,7 +14,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <signal.h>
 
 typedef struct process {
 	int pid;
