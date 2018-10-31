@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.1.1"
+#define BIM_VERSION   "1.1.2"
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -1763,7 +1763,7 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 /**
  * Add indentation from the previous (temporally) line
  */
-void add_indent(int new_line, int old_line) {
+void add_indent(int new_line, int old_line, int ignore_brace) {
 	if (env->indent) {
 		int changed = 0;
 		for (int i = 0; i < env->lines[old_line]->actual; ++i) {
@@ -1776,7 +1776,7 @@ void add_indent(int new_line, int old_line) {
 				break;
 			}
 		}
-		if (old_line < new_line &&
+		if (old_line < new_line && !ignore_brace &&
 			(env->lines[old_line]->text[env->lines[old_line]->actual-1].codepoint == '{' ||
 			env->lines[old_line]->text[env->lines[old_line]->actual-1].codepoint == ':')) {
 			if (env->tabs) {
@@ -4955,7 +4955,7 @@ void insert_line_feed(void) {
 	env->col_no = 1;
 	env->line_no += 1;
 	set_preferred_column();
-	add_indent(env->line_no-1,env->line_no-2);
+	add_indent(env->line_no-1,env->line_no-2,0);
 	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 		env->offset += 1;
 	}
@@ -5754,6 +5754,7 @@ void insert_mode(void) {
 						break;
 					case 23: /* ^W */
 						delete_word();
+						set_preferred_column();
 						break;
 					case '\t':
 						if (env->tabs) {
@@ -5764,9 +5765,40 @@ void insert_mode(void) {
 							}
 						}
 						redraw |= 1;
+						set_preferred_column();
 						break;
+					case '}':
+						if (env->indent) {
+							int was_whitespace = 1;
+							for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+								if (env->lines[env->line_no-1]->text[i].codepoint != ' ' &&
+									env->lines[env->line_no-1]->text[i].codepoint != '\t') {
+									was_whitespace = 0;
+									break;
+								}
+							}
+							insert_char('}');
+							if (was_whitespace) {
+								int line = -1, col = -1;
+								env->col_no--;
+								find_matching_paren(&line,&col);
+								if (line != -1) {
+									while (env->lines[env->line_no-1]->actual) {
+										line_delete(env->lines[env->line_no-1], env->lines[env->line_no-1]->actual, env->line_no-1);
+									}
+									add_indent(env->line_no-1,line-1,1);
+									env->col_no = env->lines[env->line_no-1]->actual + 1;
+									insert_char('}');
+								}
+							}
+							set_preferred_column();
+							redraw |= 1;
+							break;
+						}
+						/* fallthrough */
 					default:
 						insert_char(c);
+						set_preferred_column();
 						redraw |= 1;
 						break;
 				}
@@ -5912,7 +5944,7 @@ void normal_mode(void) {
 							if (env->readonly) goto _readonly;
 							env->lines = add_line(env->lines, env->line_no-1);
 							env->col_no = 1;
-							add_indent(env->line_no-1,env->line_no);
+							add_indent(env->line_no-1,env->line_no,0);
 							redraw_text();
 							set_preferred_column();
 							set_modified();
@@ -5925,7 +5957,7 @@ void normal_mode(void) {
 							env->lines = add_line(env->lines, env->line_no);
 							env->col_no = 1;
 							env->line_no += 1;
-							add_indent(env->line_no-1,env->line_no-2);
+							add_indent(env->line_no-1,env->line_no-2,0);
 							set_preferred_column();
 							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 								env->offset += 1;
