@@ -17,9 +17,15 @@
 #include <termios.h>
 #include <errno.h>
 #include <pwd.h>
-#include <sys/wait.h>
+#include <dirent.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <toaru/auth.h>
+
+#define MINUTES * 60
+
+#define SUDO_TIME 5 MINUTES
 
 uint32_t child = 0;
 
@@ -36,9 +42,20 @@ int main(int argc, char ** argv) {
 		return 1;
 	}
 
+	struct stat buf;
+	if (stat("/var/sudoers", &buf)) {
+		mkdir("/var/sudoers", 0700);
+	}
+
 	while (1) {
+		int need_password = 1;
+		int need_sudoers  = 1;
+
 		uid_t me = getuid();
-		if (me == 0) goto _do_it;
+		if (me == 0) {
+			need_password = 0;
+			need_sudoers  = 0;
+		}
 
 		struct passwd * p = getpwuid(me);
 		if (!p) {
@@ -46,64 +63,87 @@ int main(int argc, char ** argv) {
 			return 1;
 		}
 		char * username = p->pw_name;
-		char * password = malloc(sizeof(char) * 1024);
 
-		fprintf(stderr, "[%s] password for %s: ", argv[0], username);
-		fflush(stderr);
+		char token_file[64];
+		sprintf(token_file, "/var/sudoers/%d", me); /* TODO: Restrict to this session? */
 
-		/* Disable echo */
-		struct termios old, new;
-		tcgetattr(fileno(stdin), &old);
-		new = old;
-		new.c_lflag &= (~ECHO);
-		tcsetattr(fileno(stdin), TCSAFLUSH, &new);
-
-		fgets(password, 1024, stdin);
-		password[strlen(password)-1] = '\0';
-		tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-		fprintf(stderr, "\n");
-
-		int uid = toaru_auth_check_pass(username, password);
-
-		if (uid < 0) {
-			fails++;
-			if (fails == 3) {
-				fprintf(stderr, "%s: %d incorrect password attempts\n", argv[0], fails);
-				break;
+		if (need_password) {
+			struct stat buf;
+			if (!stat(token_file, &buf)) {
+				/* check the time */
+				if (buf.st_mtime > (SUDO_TIME) && time(NULL) - buf.st_mtime < (SUDO_TIME)) {
+					need_password = 0;
+				}
 			}
-			fprintf(stderr, "Sorry, try again.\n");
-			continue;
+		}
+
+		if (need_password) {
+			char * password = malloc(sizeof(char) * 1024);
+			fprintf(stderr, "[%s] password for %s: ", argv[0], username);
+			fflush(stderr);
+
+			/* Disable echo */
+			struct termios old, new;
+			tcgetattr(fileno(stdin), &old);
+			new = old;
+			new.c_lflag &= (~ECHO);
+			tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+
+			fgets(password, 1024, stdin);
+			password[strlen(password)-1] = '\0';
+			tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+			fprintf(stderr, "\n");
+
+			int uid = toaru_auth_check_pass(username, password);
+
+			if (uid < 0) {
+				fails++;
+				if (fails == 3) {
+					fprintf(stderr, "%s: %d incorrect password attempts\n", argv[0], fails);
+					break;
+				}
+				fprintf(stderr, "Sorry, try again.\n");
+				continue;
+			}
 		}
 
 		/* Determine if this user is in the sudoers file */
-		FILE * sudoers = fopen("/etc/sudoers","r");
-		if (!sudoers) {
-			fprintf(stderr, "%s: /etc/sudoers is not available\n", argv[0]);
-			return 1;
-		}
-
-		/* Read each line */
-		int in_sudoers = 0;
-		while (!feof(sudoers)) {
-			char line[1024];
-			fgets(line, 1024, sudoers);
-			char * nl = strchr(line, '\n');
-			if (nl) {
-				*nl = '\0';
+		if (need_sudoers) {
+			FILE * sudoers = fopen("/etc/sudoers","r");
+			if (!sudoers) {
+				fprintf(stderr, "%s: /etc/sudoers is not available\n", argv[0]);
+				return 1;
 			}
-			if (!strncmp(line,username,1024)) {
-				in_sudoers = 1;
-				break;
+
+			/* Read each line */
+			int in_sudoers = 0;
+			while (!feof(sudoers)) {
+				char line[1024];
+				fgets(line, 1024, sudoers);
+				char * nl = strchr(line, '\n');
+				if (nl) {
+					*nl = '\0';
+				}
+				if (!strncmp(line,username,1024)) {
+					in_sudoers = 1;
+					break;
+				}
+			}
+			fclose(sudoers);
+
+			if (!in_sudoers) {
+				fprintf(stderr, "%s is not in sudoers file.\n", username);
+				return 1;
 			}
 		}
-		fclose(sudoers);
 
-		if (!in_sudoers) {
-			fprintf(stderr, "%s is not in sudoers file.\n", username);
-			return 1;
+		/* Write a timestamp file */
+		FILE * f = fopen(token_file, "a");
+		if (!f) {
+			fprintf(stderr, "%s: (warning) failed to create token file\n", argv[0]);
 		}
+		fclose(f);
 
-_do_it:
 		/* Set username to root */
 		putenv("USER=root");
 
