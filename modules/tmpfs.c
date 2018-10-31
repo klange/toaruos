@@ -568,9 +568,6 @@ static int tmpfs_initialize(void) {
 
 	buf_space = (void*)kvmalloc(BLOCKSIZE);
 
-	vfs_mount("/tmp", tmpfs_mount("tmp","/tmp"));
-	vfs_mount("/var", tmpfs_mount("var,755","/var"));
-
 	vfs_register("tmpfs", tmpfs_mount);
 
 	return 0;
