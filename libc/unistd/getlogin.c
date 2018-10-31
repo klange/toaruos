@@ -20,9 +20,12 @@ char * getlogin(void) {
 		}
 	}
 
+	char * name = ttyname(tty);
+	if (!name) return NULL;
+
 	/* Get the owner */
 	struct stat statbuf;
-	fstat(tty, &statbuf);
+	stat(name, &statbuf);
 
 	struct passwd * passwd = getpwuid(statbuf.st_uid);
 
