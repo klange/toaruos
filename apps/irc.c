@@ -502,7 +502,7 @@ int main(int argc, char * argv[]) {
 			if (c < 0) {
 				continue;
 			}
-			if (c == 0x08) {
+			if (c == 0x08 || c == 0x7F) {
 				/* Remove from buffer */
 				if (buf_p) {
 					buf[buf_p-1] = '\0';
