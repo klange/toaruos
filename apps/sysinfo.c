@@ -42,7 +42,7 @@ int main(int argc, char * argv[]) {
 	char * user = getenv("USER");
 	char * wm_theme = getenv("WM_THEME");
 	char * term = getenv("TERM");
-	int term_is_toaru = term && !strcmp(term,"toaru");
+	int term_is_toaru = term && strstr(term,"toaru");
 
 	int i = 0;
 	prog_lines[i] = "hostname";
