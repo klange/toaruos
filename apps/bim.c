@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.1.2"
+#define BIM_VERSION   "1.1.4"
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -152,7 +152,7 @@ typedef struct {
 	int available;
 	int actual;
 	int istate;
-	char_t   text[0];
+	char_t   text[];
 } line_t;
 
 /**
@@ -189,6 +189,7 @@ struct {
 	int highlight_parens;
 	int smart_case;
 	int can_24bit;
+	int can_256color;
 	int can_italic;
 
 	int go_to_line;
@@ -216,6 +217,7 @@ struct {
 	1, /* highlight parens/braces when cursor moves */
 	1, /* smart case */
 	1, /* can use 24-bit color */
+	1, /* can use 265 colors */
 	1, /* can use italics (without inverting) */
 	1, /* should go to line when opening file */
 };
@@ -285,7 +287,7 @@ typedef struct history {
 			int lineno;
 			int split;
 		} add_merge_split_lines;
-	};
+	} contents;
 } history_t;
 
 /**
@@ -297,12 +299,12 @@ typedef struct history {
  * line buffers.
  */
 typedef struct _env {
-	short  loading:1;
-	short  tabs:1;
-	short  modified:1;
-	short  readonly:1;
-	short  indent:1;
-	short  highlighting_paren:1;
+	unsigned short loading:1;
+	unsigned short tabs:1;
+	unsigned short modified:1;
+	unsigned short readonly:1;
+	unsigned short indent:1;
+	unsigned short highlighting_paren:1;
 
 	short  mode;
 	short  tabstop;
@@ -404,8 +406,42 @@ buffer_t * buffer_close(buffer_t * buf) {
  * Themes
  */
 
+/* 16-color theme, default */
+void load_colorscheme_ansi(void) {
+	COLOR_FG        = global_config.can_bright ? "@17" : "@7";
+	COLOR_BG        = global_config.can_bright ? "@9"  : "@0";
+	COLOR_ALT_FG    = global_config.can_bright ? "@10" : "@5";
+	COLOR_ALT_BG    = "@9";
+	COLOR_NUMBER_FG = "@3";
+	COLOR_NUMBER_BG = "@9";
+	COLOR_STATUS_FG = global_config.can_bright ? "@17" : "@7";
+	COLOR_STATUS_BG = "@4";
+	COLOR_TABBAR_BG = "@4";
+	COLOR_TAB_BG    = "@4";
+	COLOR_KEYWORD   = global_config.can_bright ? "@14" : "@4";
+	COLOR_STRING    = "@2";
+	COLOR_COMMENT   = global_config.can_bright ? "@10" : "@5";
+	COLOR_TYPE      = "@3";
+	COLOR_PRAGMA    = "@1";
+	COLOR_NUMERAL   = "@1";
+
+	COLOR_ERROR_FG  = global_config.can_bright ? "@17" : "@7";
+	COLOR_ERROR_BG  = "@1";
+	COLOR_SEARCH_FG = "@0";
+	COLOR_SEARCH_BG = global_config.can_bright ? "@13" : "@3";
+
+	COLOR_SELECTBG  = global_config.can_bright ? "@17" : "@7";
+	COLOR_SELECTFG  = "@0";
+
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
+
+	current_theme = "ansi";
+}
+
 /* Based on the wombat256 theme for vim */
 void load_colorscheme_wombat(void) {
+	if (!global_config.can_256color) return;
 	COLOR_FG        = "5;230";
 	COLOR_BG        = "5;235";
 	COLOR_ALT_FG    = "5;244";
@@ -507,6 +543,7 @@ void load_colorscheme_solarized_dark(void) {
 
 
 void load_colorscheme_sunsmoke256(void) {
+	if (!global_config.can_256color) return;
 	COLOR_FG        = "5;188";
 	COLOR_BG        = "5;234";
 	COLOR_ALT_FG    = "5;244";
@@ -572,39 +609,6 @@ void load_colorscheme_sunsmoke(void) {
 	COLOR_GREEN     = "2;55;167;0";
 
 	current_theme = "sunsmoke";
-}
-
-/* 16-color theme, default */
-void load_colorscheme_ansi(void) {
-	COLOR_FG        = global_config.can_bright ? "@17" : "@7";
-	COLOR_BG        = global_config.can_bright ? "@9"  : "@0";
-	COLOR_ALT_FG    = global_config.can_bright ? "@10" : "@5";
-	COLOR_ALT_BG    = "@9";
-	COLOR_NUMBER_FG = "@3";
-	COLOR_NUMBER_BG = "@9";
-	COLOR_STATUS_FG = global_config.can_bright ? "@17" : "@7";
-	COLOR_STATUS_BG = "@4";
-	COLOR_TABBAR_BG = "@4";
-	COLOR_TAB_BG    = "@4";
-	COLOR_KEYWORD   = global_config.can_bright ? "@14" : "@4";
-	COLOR_STRING    = "@2";
-	COLOR_COMMENT   = global_config.can_bright ? "@10" : "@5";
-	COLOR_TYPE      = "@3";
-	COLOR_PRAGMA    = "@1";
-	COLOR_NUMERAL   = "@1";
-
-	COLOR_ERROR_FG  = global_config.can_bright ? "@17" : "@7";
-	COLOR_ERROR_BG  = "@1";
-	COLOR_SEARCH_FG = "@0";
-	COLOR_SEARCH_BG = global_config.can_bright ? "@13" : "@3";
-
-	COLOR_SELECTBG  = global_config.can_bright ? "@17" : "@7";
-	COLOR_SELECTFG  = "@0";
-
-	COLOR_RED       = "@1";
-	COLOR_GREEN     = "@2";
-
-	current_theme = "ansi";
 }
 
 struct theme_def {
@@ -1207,6 +1211,120 @@ static int syn_diff_extended(line_t * line, int i, int c, int last, int * out_le
 
 static char * syn_diff_ext[] = {".diff",".patch",NULL};
 
+
+
+static char * syn_rust_keywords[] = {
+	"as","break","const","continue","crate","else","enum","extern",
+	"false","fn","for","if","impl","in","let","loop","match","mod",
+	"move","mut","pub","ref","return","Self","self","static","struct",
+	"super","trait","true","type","unsafe","use","where","while",
+	NULL,
+};
+
+static char * syn_rust_types[] = {
+	"bool","char","str",
+	"i8","i16","i32","i64",
+	"u8","u16","u32","u64",
+	"isize","usize",
+	"f32","f64",
+	NULL,
+};
+
+static int syn_rust_extended(line_t * line, int i, int c, int last, int * out_left) {
+	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
+		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
+			int j = 2;
+			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		} else {
+			int j = 1;
+			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
+				j++;
+			}
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		}
+	}
+
+	if (c == '/') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT;
+		}
+
+		/* TODO: We can't support Rust's nested comments with this... */
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
+			int last = 0;
+			for (int j = i + 2; j < line->actual; ++j) {
+				int c = line->text[j].codepoint;
+				if (c == '/' && last == '*') {
+					*out_left = j - i;
+					return FLAG_COMMENT;
+				}
+				last = c;
+			}
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT | FLAG_CONTINUES;
+		}
+	}
+
+	if (c == '\'') {
+		if (i < line->actual - 3 && line->text[i+1].codepoint == '\\' &&
+			line->text[i+3].codepoint == '\'') {
+			*out_left = 3;
+			return FLAG_NUMERAL;
+		}
+		if (i < line->actual - 2 && line->text[i+2].codepoint == '\'') {
+			*out_left = 2;
+			return FLAG_NUMERAL;
+		}
+	}
+
+	if (c == '"') {
+		int last = 0;
+		for (int j = i+1; j < line->actual; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+static int syn_rust_finish(line_t * line, int * left, int state) {
+	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
+		int last = 0;
+		for (int i = 0; i < line->actual; ++i) {
+			if (line->text[i].codepoint == '/' && last == '*') {
+				*left = i+2;
+				return FLAG_COMMENT;
+			}
+			last = line->text[i].codepoint;
+		}
+		return FLAG_COMMENT | FLAG_CONTINUES;
+	}
+	return 0;
+}
+
+
+static char * syn_rust_ext[] = {".rs",NULL};
+
 /**
  * Syntax hilighting definition database
  */
@@ -1227,6 +1345,7 @@ struct syntax_definition {
 	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
 	{"gitrebase",syn_gitrebase_ext,NULL,NULL,syn_gitrebase_extended,NULL,NULL},
 	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
+	{"rust",syn_rust_ext,syn_rust_keywords,syn_rust_types,syn_rust_extended,syn_c_iskeywordchar,syn_rust_finish},
 	{NULL}
 };
 
@@ -1401,10 +1520,10 @@ void recursive_history_free(history_t * root) {
 
 	switch (n->type) {
 		case HISTORY_REPLACE_LINE:
-			free(n->remove_replace_line.contents);
+			free(n->contents.remove_replace_line.contents);
 			/* fall-through */
 		case HISTORY_REMOVE_LINE:
-			free(n->remove_replace_line.old_contents);
+			free(n->contents.remove_replace_line.old_contents);
 			break;
 		default:
 			/* Nothing extra to free */
@@ -1446,9 +1565,9 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_INSERT;
-		e->insert_delete_replace.lineno = lineno;
-		e->insert_delete_replace.offset = offset;
-		e->insert_delete_replace.codepoint = c.codepoint;
+		e->contents.insert_delete_replace.lineno = lineno;
+		e->contents.insert_delete_replace.offset = offset;
+		e->contents.insert_delete_replace.codepoint = c.codepoint;
 		HIST_APPEND(e);
 	}
 
@@ -1493,9 +1612,9 @@ void line_delete(line_t * line, int offset, int lineno) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_DELETE;
-		e->insert_delete_replace.lineno = lineno;
-		e->insert_delete_replace.offset = offset;
-		e->insert_delete_replace.old_codepoint = line->text[offset-1].codepoint;
+		e->contents.insert_delete_replace.lineno = lineno;
+		e->contents.insert_delete_replace.offset = offset;
+		e->contents.insert_delete_replace.old_codepoint = line->text[offset-1].codepoint;
 		HIST_APPEND(e);
 	}
 
@@ -1519,10 +1638,10 @@ void line_replace(line_t * line, char_t _c, int offset, int lineno) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REPLACE;
-		e->insert_delete_replace.lineno = lineno;
-		e->insert_delete_replace.offset = offset;
-		e->insert_delete_replace.codepoint = _c.codepoint;
-		e->insert_delete_replace.old_codepoint = line->text[offset].codepoint;
+		e->contents.insert_delete_replace.lineno = lineno;
+		e->contents.insert_delete_replace.offset = offset;
+		e->contents.insert_delete_replace.codepoint = _c.codepoint;
+		e->contents.insert_delete_replace.old_codepoint = line->text[offset].codepoint;
 		HIST_APPEND(e);
 	}
 
@@ -1550,9 +1669,9 @@ line_t ** remove_line(line_t ** lines, int offset) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REMOVE_LINE;
-		e->remove_replace_line.lineno = offset;
-		e->remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
-		memcpy(e->remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		e->contents.remove_replace_line.lineno = offset;
+		e->contents.remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		memcpy(e->contents.remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
 		HIST_APPEND(e);
 	}
 
@@ -1581,7 +1700,7 @@ line_t ** add_line(line_t ** lines, int offset) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_ADD_LINE;
-		e->add_merge_split_lines.lineno = offset;
+		e->contents.add_merge_split_lines.lineno = offset;
 		HIST_APPEND(e);
 	}
 
@@ -1621,11 +1740,11 @@ void replace_line(line_t ** lines, int offset, line_t * replacement) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REPLACE_LINE;
-		e->remove_replace_line.lineno = offset;
-		e->remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
-		memcpy(e->remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
-		e->remove_replace_line.contents = malloc(sizeof(line_t) + sizeof(char_t) * replacement->available);
-		memcpy(e->remove_replace_line.contents, replacement, sizeof(line_t) + sizeof(char_t) * replacement->available);
+		e->contents.remove_replace_line.lineno = offset;
+		e->contents.remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		memcpy(e->contents.remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		e->contents.remove_replace_line.contents = malloc(sizeof(line_t) + sizeof(char_t) * replacement->available);
+		memcpy(e->contents.remove_replace_line.contents, replacement, sizeof(line_t) + sizeof(char_t) * replacement->available);
 		HIST_APPEND(e);
 	}
 
@@ -1653,8 +1772,8 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_MERGE_LINES;
-		e->add_merge_split_lines.lineno = lineb;
-		e->add_merge_split_lines.split = env->lines[linea]->actual;
+		e->contents.add_merge_split_lines.lineno = lineb;
+		e->contents.add_merge_split_lines.split = env->lines[linea]->actual;
 		HIST_APPEND(e);
 	}
 
@@ -1708,8 +1827,8 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_SPLIT_LINE;
-		e->add_merge_split_lines.lineno = line;
-		e->add_merge_split_lines.split  = split;
+		e->contents.add_merge_split_lines.lineno = line;
+		e->contents.add_merge_split_lines.split  = split;
 		HIST_APPEND(e);
 	}
 
@@ -3971,7 +4090,7 @@ _accept_candidate:
 		*cstart = '\0';
 	} else {
 		/* Print candidates in status bar */
-		char tmp[global_config.term_width+1];
+		char * tmp = malloc(global_config.term_width+1);
 		memset(tmp, 0, global_config.term_width+1);
 		int offset = 0;
 		for (int i = 0; i < candidate_count; ++i) {
@@ -3987,6 +4106,7 @@ _accept_candidate:
 			offset += strlen(candidates[i]);
 		}
 		render_status_message("%s", tmp);
+		free(tmp);
 
 		/* Complete to longest common substring */
 		char * cstart = (buffer) + (start - buf);
@@ -4164,7 +4284,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 /**
  * Draw the matched search result.
  */
-void draw_search_match(int __line, uint32_t * buffer, int redraw_buffer) {
+void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 	for (int i = 0; i < env->line_count; ++i) {
 		for (int j = 0; j < env->lines[i]->actual; ++j) {
 			env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
@@ -4271,7 +4391,7 @@ void search_mode(int direction) {
 						set_preferred_column();
 					}
 
-					draw_search_match(line, buffer, direction);
+					draw_search_match(buffer, direction);
 
 				} else {
 					/* If backspaced through entire search term, cancel search */
@@ -4312,7 +4432,7 @@ void search_mode(int direction) {
 					set_preferred_column();
 					env->line_no = prev_line;
 				}
-				draw_search_match(line, buffer, direction);
+				draw_search_match(buffer, direction);
 			}
 			show_cursor();
 		} else if (state == UTF8_REJECT) {
@@ -4338,7 +4458,7 @@ void search_next(void) {
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(line, env->search, -1);
+	draw_search_match(env->search, -1);
 }
 
 /**
@@ -4358,7 +4478,7 @@ void search_prev(void) {
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(line, env->search, -1);
+	draw_search_match(env->search, -1);
 }
 
 /**
@@ -4574,70 +4694,70 @@ void undo_history(void) {
 			case HISTORY_INSERT:
 				/* Delete */
 				line_delete(
-						env->lines[e->insert_delete_replace.lineno],
-						e->insert_delete_replace.offset+1,
-						e->insert_delete_replace.lineno
+						env->lines[e->contents.insert_delete_replace.lineno],
+						e->contents.insert_delete_replace.offset+1,
+						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 1;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
 				{
-					char_t _c = {codepoint_width(e->insert_delete_replace.old_codepoint),0,e->insert_delete_replace.old_codepoint};
-					env->lines[e->insert_delete_replace.lineno] = line_insert(
-							env->lines[e->insert_delete_replace.lineno],
+					char_t _c = {codepoint_width(e->contents.insert_delete_replace.old_codepoint),0,e->contents.insert_delete_replace.old_codepoint};
+					env->lines[e->contents.insert_delete_replace.lineno] = line_insert(
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_c,
-							e->insert_delete_replace.offset-1,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset-1,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 2;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
 				{
-					char_t _o = {codepoint_width(e->insert_delete_replace.old_codepoint),0,e->insert_delete_replace.old_codepoint};
+					char_t _o = {codepoint_width(e->contents.insert_delete_replace.old_codepoint),0,e->contents.insert_delete_replace.old_codepoint};
 					line_replace(
-							env->lines[e->insert_delete_replace.lineno],
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_o,
-							e->insert_delete_replace.offset,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 1;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REMOVE_LINE:
-				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
-				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
+				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_ADD_LINE:
-				env->lines = remove_line(env->lines, e->add_merge_split_lines.lineno);
-				env->line_no = e->add_merge_split_lines.lineno + 1;
+				env->lines = remove_line(env->lines, e->contents.add_merge_split_lines.lineno);
+				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
-				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
-				env->line_no = e->remove_replace_line.lineno + 1;
+				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
+				env->line_no = e->contents.remove_replace_line.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
-				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno+1);
-				env->line_no = e->add_merge_split_lines.lineno + 2;
+				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno+1);
+				env->line_no = e->contents.add_merge_split_lines.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
-				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno-1, e->add_merge_split_lines.split);
-				env->line_no = e->add_merge_split_lines.lineno;
+				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno-1, e->contents.add_merge_split_lines.split);
+				env->line_no = e->contents.add_merge_split_lines.lineno;
 				env->col_no = 1;
 				count_lines++;
 				break;
@@ -4702,70 +4822,70 @@ void redo_history(void) {
 		switch (e->type) {
 			case HISTORY_INSERT:
 				{
-					char_t _c = {codepoint_width(e->insert_delete_replace.codepoint),0,e->insert_delete_replace.codepoint};
-					env->lines[e->insert_delete_replace.lineno] = line_insert(
-							env->lines[e->insert_delete_replace.lineno],
+					char_t _c = {codepoint_width(e->contents.insert_delete_replace.codepoint),0,e->contents.insert_delete_replace.codepoint};
+					env->lines[e->contents.insert_delete_replace.lineno] = line_insert(
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_c,
-							e->insert_delete_replace.offset,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 2;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
 				/* Delete */
 				line_delete(
-						env->lines[e->insert_delete_replace.lineno],
-						e->insert_delete_replace.offset,
-						e->insert_delete_replace.lineno
+						env->lines[e->contents.insert_delete_replace.lineno],
+						e->contents.insert_delete_replace.offset,
+						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 1;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
 				{
-					char_t _o = {codepoint_width(e->insert_delete_replace.codepoint),0,e->insert_delete_replace.codepoint};
+					char_t _o = {codepoint_width(e->contents.insert_delete_replace.codepoint),0,e->contents.insert_delete_replace.codepoint};
 					line_replace(
-							env->lines[e->insert_delete_replace.lineno],
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_o,
-							e->insert_delete_replace.offset,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 2;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_ADD_LINE:
-				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REMOVE_LINE:
-				env->lines = remove_line(env->lines, e->remove_replace_line.lineno);
-				env->line_no = e->add_merge_split_lines.lineno + 1;
+				env->lines = remove_line(env->lines, e->contents.remove_replace_line.lineno);
+				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
-				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.contents);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.contents);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
-				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno);
-				env->line_no = e->remove_replace_line.lineno + 1;
+				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno);
+				env->line_no = e->contents.remove_replace_line.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
-				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno, e->add_merge_split_lines.split);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno, e->contents.add_merge_split_lines.split);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
@@ -5194,6 +5314,9 @@ void handle_navigation(int c) {
 		case 'l': /* Move cursor right*/
 			cursor_right();
 			break;
+		case 'w': /* Move cursor one word right */
+			word_right();
+			break;
 		case ' ': /* Jump forward several lines */
 			goto_line(env->line_no + global_config.term_height - 6);
 			break;
@@ -5307,14 +5430,14 @@ void adjust_indent(int start_line, int direction) {
 				char_t c;
 				c.codepoint = '\t';
 				c.display_width = env->tabstop;
-				c.flags |= FLAG_SELECT;
+				c.flags = FLAG_SELECT;
 				env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
 			} else {
 				for (int j = 0; j < env->tabstop; ++j) {
 					char_t c;
 					c.codepoint = ' ';
 					c.display_width = 1;
-					c.flags |= FLAG_SELECT;
+					c.flags = FLAG_SELECT;
 					env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
 				}
 			}
@@ -6221,6 +6344,11 @@ void detect_weird_terminals(void) {
 		/* unfortunately */
 		global_config.can_24bit = 0;
 		global_config.can_italic = 0;
+	}
+	if (term && strstr(term,"toaru-vga") == term) {
+		global_config.can_altscreen = 0;
+		global_config.can_24bit = 0; /* Also not strictly true */
+		global_config.can_256color = 0; /* Not strictly true */
 	}
 
 }
