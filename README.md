@@ -9,7 +9,9 @@ ToaruOS is a hobbyist, educational, Unix-like operating system built entirely fr
 
 The ToaruOS project began in December 2010 and has its roots in an independent student project. The goals of the project have changed throughout its history, initially as a learning experience for the authors, and more recently as a complete, from-scratch ecosystem.
 
-ToaruOS is currently in the 1.6.x series, which represents the merging of a project (the "NIH" branch) to replace Newlib, the third-party C standard library employed by earlier versions of the operating system, with a new, in-house libc.
+The 1.6.x release series represented the merging of a project (the "NIH" branch) to replace Newlib, the third-party C standard library employed by earlier versions of the operating system, with a new, in-house libc. With the ports of Python and GCC to this new C library completed, this project has been concluded and considered as success.
+
+The current release series is 1.7.x, which aims to eventually replace all third-party elements of the build process and make the OS fully self-hosting.
 
 ## Features
 
@@ -34,10 +36,11 @@ ToaruOS is currently in the 1.6.x series, which represents the merging of a proj
 
 The following projects are currently in progress:
 
-- **Improve POSIX coverage** especially in regards to pipelines, process groups, synchronization primitives, as well as by providing more common utilities.
+- **Improve POSIX coverage** especially in regards to signals, synchronization primitives, as well as by providing more common utilities.
 - **Continue to improve the C library** which remains quite incomplete compared to Newlib and is a major source of issues with bringing back old ports.
 - **Implement a native dynamic, interpreted programming language** to replace Python, which was used prior to ToaruOS 1.6.x to provide most of the desktop environment.
 - **Replace third-party development tools** to get the OS to a state where it is self-hosting with just the addition of a C compiler.
+- **Implement a C compiler toolchain** in [toarucc](https://github.com/klange/toarucc).
 
 ## Building / Installation
 
