@@ -1192,7 +1192,7 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	putenv("TERM=toaru");
+	putenv("TERM=toaru-vga");
 
 	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
 
