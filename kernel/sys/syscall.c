@@ -500,6 +500,10 @@ static int sys_chdir(char * newdir) {
 			close_fs(chd);
 			return -ENOTDIR;
 		}
+		if (!has_permission(chd, 01)) {
+			close_fs(chd);
+			return -EACCES;
+		}
 		close_fs(chd);
 		free(current_process->wd_name);
 		current_process->wd_name = malloc(strlen(path) + 1);

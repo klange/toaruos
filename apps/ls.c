@@ -20,6 +20,7 @@
 #include <termios.h>
 #include <time.h>
 #include <pwd.h>
+#include <errno.h>
 
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -417,7 +418,9 @@ int main (int argc, char * argv[]) {
 
 	if (argc == 1 || optind == argc) {
 		TRACE("no file to look up");
-		display_dir(p);
+		if (display_dir(p) == 2) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], p, strerror(errno));
+		}
 	} else {
 		list_t * files = list_create();
 		while (p) {
@@ -427,7 +430,7 @@ int main (int argc, char * argv[]) {
 			int t = lstat(p, &f->statbuf);
 
 			if (t < 0) {
-				printf("ls: cannot access %s: No such file or directory\n", p);
+				fprintf(stderr, "%s: %s: %s\n", argv[0], p, strerror(errno));
 				free(f);
 				out = 2;
 			} else {
@@ -476,7 +479,9 @@ int main (int argc, char * argv[]) {
 			if (i != 0) {
 				printf("\n");
 			}
-			display_dir(file_arr[i]->name);
+			if (display_dir(file_arr[i]->name) == 2) {
+				fprintf(stderr, "%s: %s: %s\n", argv[0], file_arr[i]->name, strerror(errno));
+			}
 		}
 	}
 

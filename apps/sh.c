@@ -1633,7 +1633,7 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
 	}
 	return 0;
 cd_error:
-	fprintf(stderr, "%s: could not cd '%s': no such file or directory\n", argv[0], argv[1]);
+	fprintf(stderr, "%s: could not cd '%s': %s\n", argv[0], argv[1], strerror(errno));
 	return 1;
 }
 
