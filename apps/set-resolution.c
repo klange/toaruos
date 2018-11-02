@@ -23,6 +23,7 @@
 int main(int argc, char * argv[]) {
 	if (argc < 3) {
 		fprintf(stderr, "Usage: %s [--initialize DRIVER] WIDTH HEIGHT\n", argv[0]);
+		return 1;
 	}
 
 	/* Open framebuffer */
