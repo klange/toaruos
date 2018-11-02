@@ -7,7 +7,7 @@ if empty? "$1" then export WIDTH=1024 else export WIDTH="$1"
 if empty? "$2" then export HEIGHT=768 else export HEIGHT="$2"
 
 # Switch to graphics mode
-set-resolution --initialize auto $WIDTH $HEIGHT
+if not set-resolution --initialize auto $WIDTH $HEIGHT then exec sh -c "echo 'Failed to set video mode, bailing.'; exit 1"
 
 # Tell the terminal to pause input
 killall -s USR2 terminal-vga
