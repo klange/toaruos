@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <wait.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 int system(const char * command) {
 	char * args[] = {
@@ -17,6 +18,6 @@ int system(const char * command) {
 	} else {
 		int status;
 		waitpid(pid, &status, 0);
-		return status;
+		return WEXITSTATUS(status);
 	}
 }
