@@ -28,6 +28,7 @@
 #define ENTER_KEY     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
+#define MINIMUM_SIZE  10
 
 /**
  * Same structures as in bim.
@@ -68,6 +69,10 @@ static int loading = 0;
 static int column = 0;
 static int offset = 0;
 static int width =  0;
+static int full_width = 0;
+static int show_right_side = 0;
+static int show_left_side = 0;
+static int prompt_width_calc = 0;
 static int buf_size_max = 0;
 
 /**
@@ -758,9 +763,13 @@ static void set_fg_color(const char * fg) {
  */
 static void render_line(void) {
 	printf("\033[?25l");
-	printf("\033[0m\r%s", prompt);
+	if (show_left_side) {
+		printf("\033[0m\r%s", prompt);
+	} else {
+		printf("\033[0m\r$");
+	}
 
-	if (offset && prompt_width) {
+	if (offset && prompt_width_calc) {
 		set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 		printf("\b<");
 	}
@@ -820,12 +829,12 @@ static void render_line(void) {
 		if (j >= offset) {
 
 			/* If this character is going to fall off the edge of the screen... */
-			if (j - offset + c.display_width >= width - prompt_width) {
+			if (j - offset + c.display_width >= width - prompt_width_calc) {
 				/* We draw this with special colors so it isn't ambiguous */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 
 				/* If it's wide, draw ---> as needed */
-				while (j - offset < width - prompt_width - 1) {
+				while (j - offset < width - prompt_width_calc - 1) {
 					printf("-");
 					j++;
 				}
@@ -913,12 +922,14 @@ static void render_line(void) {
 	}
 
 	/* Fill to end right hand side */
-	for (; j < width + offset - prompt_width; ++j) {
+	for (; j < width + offset - prompt_width_calc; ++j) {
 		printf(" ");
 	}
 
 	/* Print right hand side */
-	printf("\033[0m%s", prompt_right);
+	if (show_right_side) {
+		printf("\033[0m%s", prompt_right);
+	}
 }
 
 /**
@@ -971,14 +982,30 @@ static line_t * line_insert(line_t * line, char_t c, int offset) {
 static void get_size(void) {
 	struct winsize w;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-	width = w.ws_col - prompt_right_width;
+	full_width = w.ws_col;
+	if (full_width - prompt_right_width - prompt_width > MINIMUM_SIZE) {
+		show_right_side = 1;
+		show_left_side = 1;
+		prompt_width_calc = prompt_width;
+		width = full_width - prompt_right_width;
+	} else {
+		show_right_side = 0;
+		if (full_width - prompt_width > MINIMUM_SIZE) {
+			show_left_side = 1;
+			prompt_width_calc = prompt_width;
+		} else {
+			show_left_side = 0;
+			prompt_width_calc = 1;
+		}
+		width = full_width;
+	}
 }
 
 /**
  * Place the cursor within the line
  */
 static void place_cursor_actual(void) {
-	int x = prompt_width + 1 - offset;
+	int x = prompt_width_calc + 1 - offset;
 	for (int i = 0; i < column; ++i) {
 		char_t * c = &the_line->text[i];
 		x += c->display_width;
@@ -993,8 +1020,8 @@ static void place_cursor_actual(void) {
 	}
 
 	/* Same for scrolling horizontally to the left */
-	if (x < prompt_width + 1) {
-		int diff = (prompt_width + 1) - x;
+	if (x < prompt_width_calc + 1) {
+		int diff = (prompt_width_calc + 1) - x;
 		offset -= diff;
 		x += diff;
 		render_line();
@@ -1431,7 +1458,7 @@ static int read_line(void) {
 
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	fprintf(stdout, "◄\033[0m"); /* TODO: This could be retrieved from an envvar */
-	for (int i = 0; i < width + prompt_right_width - 1; ++i) {
+	for (int i = 0; i < full_width - 1; ++i) {
 		fprintf(stdout, " ");
 	}
 	render_line();
