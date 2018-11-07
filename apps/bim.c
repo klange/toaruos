@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.1.4"
+#define BIM_VERSION   "1.1.5"
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -4932,26 +4932,22 @@ void word_left(void) {
 
 	do {
 		col_no--;
-		if (col_no == 0) {
+		while (col_no == 0) {
 			line_no--;
 			if (line_no == 0) {
 				goto_line(1);
 				set_preferred_column();
 				return;
 			}
-			col_no = env->lines[line_no-1]->actual + 1;
+			col_no = env->lines[line_no-1]->actual;
 		}
 	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
 
 	do {
 		col_no--;
 		if (col_no == 0) {
-			line_no--;
-			if (line_no == 0) {
-				goto_line(1);
-				return;
-			}
-			col_no = env->lines[line_no-1]->actual + 1;
+			col_no = 1;
+			break;
 		}
 		if (col_no == 1) {
 			env->col_no = 1;
@@ -4978,11 +4974,11 @@ void word_right(void) {
 
 	do {
 		col_no++;
-		if (col_no >= env->lines[line_no-1]->actual + 1) {
+		if (col_no > env->lines[line_no-1]->actual) {
 			line_no++;
-			if (line_no >= env->line_count) {
-				env->col_no = env->lines[env->line_count-1]->actual;
+			if (line_no > env->line_count) {
 				env->line_no = env->line_count;
+				env->col_no  = env->lines[env->line_no-1]->actual;
 				set_preferred_column();
 				redraw_statusbar();
 				place_cursor_actual();
@@ -4995,7 +4991,7 @@ void word_right(void) {
 
 	do {
 		col_no++;
-		if (col_no >= env->lines[line_no-1]->actual + 1) {
+		while (col_no > env->lines[line_no-1]->actual) {
 			line_no++;
 			if (line_no >= env->line_count) {
 				env->col_no = env->lines[env->line_count-1]->actual;
@@ -5006,7 +5002,6 @@ void word_right(void) {
 				return;
 			}
 			col_no = 1;
-			break;
 		}
 	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
 
