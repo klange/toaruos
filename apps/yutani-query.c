@@ -17,6 +17,7 @@
 #include <toaru/yutani.h>
 
 yutani_t * yctx;
+int quiet = 0;
 
 void show_usage(int argc, char * argv[]) {
 	printf(
@@ -31,24 +32,35 @@ void show_usage(int argc, char * argv[]) {
 }
 
 int show_resolution(void) {
+	if (!yctx) {
+		if (!quiet) printf("(not connected)\n");
+		return 1;
+	}
 	printf("%dx%d\n", (int)yctx->display_width, (int)yctx->display_height);
+	return 0;
+}
+
+int reload(void) {
+	if (!yctx) {
+		if (!quiet) printf("(not connected)\n");
+		return 1;
+	}
+	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_RELOAD);
 	return 0;
 }
 
 int main(int argc, char * argv[]) {
 	yctx = yutani_init();
-	if (!yctx) {
-		printf("(not connected)\n");
-		return 1;
-	}
 	int opt;
-	while ((opt = getopt(argc, argv, "?re")) != -1) {
+	while ((opt = getopt(argc, argv, "?qre")) != -1) {
 		switch (opt) {
+			case 'q':
+				quiet = 1;
+				break;
 			case 'r':
 				return show_resolution();
 			case 'e':
-				yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_RELOAD);
-				return 0;
+				return reload();
 			case '?':
 				show_usage(argc,argv);
 				return 0;
