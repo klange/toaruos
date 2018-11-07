@@ -334,7 +334,8 @@ shell: image.iso
 	@qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
 	  -nographic -no-reboot \
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless \
-	  -fw_cfg name=opt/org.toaruos.forceuser,string=local
+	  -fw_cfg name=opt/org.toaruos.forceuser,string=local \
+	  -fw_cfg name=opt/org.toaruos.term,string=${TERM}
 
 .PHONY: efi64
 efi64: image.iso
