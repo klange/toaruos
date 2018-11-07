@@ -251,7 +251,9 @@ int main(int argc, char * argv[]) {
 					}
 					if (strlen(name)) {
 						if (mkdir(name, 0777) < 0) {
-							fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
+							if (errno != EEXIST) {
+								fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
+							}
 						}
 					}
 				} else if (file->type[0] == '1') {
