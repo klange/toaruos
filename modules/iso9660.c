@@ -381,7 +381,7 @@ static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_di
 	fs->uid = 0;
 	fs->gid = 0;
 	fs->length = dir->extent_length_LSB;
-	fs->mask = 0444;
+	fs->mask = 0555;
 	fs->nlink = 0; /* Unsupported */
 	if (dir->flags & FLAG_DIRECTORY) {
 		fs->flags = FS_DIRECTORY;
