@@ -112,21 +112,26 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 		int fill_zero = 0;
 		int big = 0;
 		int alt = 0;
-		if (*f == '-') {
-			align = 0;
-			++f;
-		}
-		if (*f == '#') {
-			alt = 1;
-			++f;
-		}
-		if (*f == '*') {
-			arg_width = (char)va_arg(args, int);
-			++f;
-		}
-		if (*f == '0') {
-			fill_zero = 1;
-			++f;
+		int always_sign = 0;
+		while (1) {
+			if (*f == '-') {
+				align = 0;
+				++f;
+			} else if (*f == '#') {
+				alt = 1;
+				++f;
+			} else if (*f == '*') {
+				arg_width = (char)va_arg(args, int);
+				++f;
+			} else if (*f == '0') {
+				fill_zero = 1;
+				++f;
+			} else if (*f == '+') {
+				always_sign = 1;
+				++f;
+			} else {
+				break;
+			}
 		}
 		while (*f >= '0' && *f <= '9') {
 			arg_width *= 10;
@@ -239,6 +244,9 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 						*b++ = '-';
 						buf++;
 						val = -val;
+					} else if (always_sign) {
+						*b++ = '+';
+						buf++;
 					}
 					print_dec(val, arg_width, buf, &i, fill_zero, align);
 				}
