@@ -3,8 +3,12 @@
 #include <string.h>
 #include <stdio.h>
 
-//#define MATH do { fprintf(stderr, "Executed math function %s\n", __func__); } while (0)
+#if 0
+extern char * _argv_0;
+#define MATH do { if (getenv("LIBM_DEBUG")) { fprintf(stderr, "%s called math function %s\n", _argv_0, __func__); } } while (0)
+#else
 #define MATH (void)0
+#endif
 
 double exp(double x) {
 	return pow(2.71828182846, x);

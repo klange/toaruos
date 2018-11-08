@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define BAD do { if (getenv("LIBM_DEBUG")) { fprintf(stderr, "Called bad math function %s\n", __func__); } } while (0)
+extern char * _argv_0;
+#define BAD do { if (getenv("LIBM_DEBUG")) { fprintf(stderr, "%s called bad math function %s\n", _argv_0, __func__); } } while (0)
 
 double acos(double x) {
 	BAD;
