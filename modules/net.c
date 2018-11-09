@@ -526,6 +526,15 @@ static int gethost(char * name, uint32_t * ip) {
 	}
 }
 
+static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload, uint32_t payload_size);
+
+static void socket_close(fs_node_t * node) {
+	debug_print(ERROR, "Closing socket");
+	struct socket * sock = node->device;
+	if (sock->status == 1) return; /* already closed */
+	net_send_tcp(sock, TCP_FLAGS_ACK | TCP_FLAGS_FIN, NULL, 0);
+	sock->status = 2;
+}
 
 /* TODO: socket_close - TCP close; UDP... just clean us up */
 /* TODO: socket_open - idk, whatever */
@@ -555,6 +564,7 @@ static fs_node_t * finddir_netfs(fs_node_t * node, char * name) {
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->read    = socket_read;
 	fnode->write   = socket_write;
+	fnode->close   = socket_close;
 	fnode->device  = (void *)net_open(SOCK_STREAM);
 	fnode->selectcheck = socket_check;
 	fnode->selectwait = socket_wait;
@@ -840,8 +850,21 @@ static void net_handle_tcp(struct tcp_header * tcp, size_t length) {
 	if (hashmap_has(_tcp_sockets, (void *)ntohs(tcp->destination_port))) {
 		struct socket *socket = hashmap_get(_tcp_sockets, (void *)ntohs(tcp->destination_port));
 
+		if (socket->status == 2) {
+			debug_print(WARNING, "Received packet while connection is in 'closing' statuus");
+		}
+
 		if (socket->status == 1) {
-			debug_print(ERROR, "Socket is closed, but still receiving packets. Should send FIN. socket=0x%x", socket);
+			if ((htons(tcp->flags) & TCP_FLAGS_FIN)) {
+				debug_print(WARNING, "TCP close sequence continues");
+				return;
+			}
+			if ((htons(tcp->flags) & TCP_FLAGS_ACK)) {
+				debug_print(WARNING, "TCP close sequence continues");
+				return;
+			}
+			debug_print(ERROR, "Socket is closed? Should send FIN. socket=0x%x flags=0x%x", socket, tcp->flags);
+			net_send_tcp(socket, TCP_FLAGS_FIN | TCP_FLAGS_ACK, NULL, 0);
 			return;
 		}
 
