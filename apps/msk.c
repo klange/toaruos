@@ -26,9 +26,41 @@
 
 static confreader_t * msk_config = NULL;
 static confreader_t * msk_manifest = NULL;
-static hashmap_t * msk_installed = NULL;
+static hashmap_t *    msk_installed = NULL;
+static char *         msk_remote = NULL;
 
 static int verbose = 0;
+
+/**
+ * checks whether 'candidate' is newer than 'current'.
+ *
+ * Requires version strings to be of the form x.y.z
+ *
+ * > 0   candidate is newer
+ * = 0   candidate is the same
+ * < 0   candidate is older
+ */
+#if 0
+static int compare_version_strings(char * current, char * candidate) {
+	int current_x, current_y, current_z;
+	int candidate_x, candidate_y, candidate_z;
+
+	sscanf(current, "%d.%d.%d", &current_x, &current_y, &current_z);
+	sscanf(candidate, "%d.%d.%d", &candidate_x, &candidate_y, &candidate_z);
+
+	if (candidate_x >= current_x) {
+		if (candidate_y >= current_y) {
+			if (candidate_z > current_z) {
+				return 1;
+			} else if (candidate_z == current_z) {
+				return 0;
+			}
+		}
+	}
+
+	return -1;
+}
+#endif
 
 static void read_config(void) {
 	confreader_t * conf = confreader_load("/etc/msk.conf");
@@ -40,6 +72,8 @@ static void read_config(void) {
 	if (!strcmp(confreader_getd(conf, "", "verbose",""), "y")) {
 		verbose = 1;
 	}
+
+	msk_remote = confreader_get(conf, "", "remote");
 
 	msk_config = conf;
 }
@@ -119,20 +153,18 @@ static int update_stores(int argc, char * argv[]) {
 	read_config();
 	make_var();
 
-	char * remote = confreader_get(msk_config, "", "remote");
-
-	if (!remote) {
-		fprintf(stderr, "%s: no configured remote\n", argv[0]);
+	if (!msk_remote) {
+		fprintf(stderr, "%s: no configured msk_remote\n", argv[0]);
 		return 1;
 	}
 
-	if (remote[0] == '/') {
+	if (msk_remote[0] == '/') {
 		char cmd[512];
-		sprintf(cmd, "cp %s/manifest " VAR_PATH "/manifest", remote);
+		sprintf(cmd, "cp %s/manifest " VAR_PATH "/manifest", msk_remote);
 		return system(cmd);
 	} else {
 		char cmd[512];
-		sprintf(cmd, "fetch -vo " VAR_PATH "/manifest %s/manifest", remote);
+		sprintf(cmd, "fetch -vo " VAR_PATH "/manifest %s/manifest", msk_remote);
 		return system(cmd);
 	}
 }
@@ -175,6 +207,18 @@ static int process_package(list_t * pkgs, char * name) {
 static int install_package(char * pkg) {
 
 	char * type = confreader_getd(msk_manifest, pkg, "type", "");
+
+	if (strstr(msk_remote, "http:") == msk_remote) {
+		char * source = confreader_get(msk_manifest, pkg, "source");
+		if (source) {
+			fprintf(stderr, "Download %s...\n", pkg);
+			char cmd[1024];
+			sprintf(cmd, "fetch -o /tmp/msk.file -v %s/%s", msk_remote,
+					source);
+			system(cmd);
+			hashmap_set(hashmap_get(msk_manifest->sections, pkg), "source", "/tmp/msk.file");
+		}
+	}
 
 	fprintf(stderr, "Install '%s'...\n", pkg);
 
