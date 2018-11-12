@@ -1325,6 +1325,34 @@ static int syn_rust_finish(line_t * line, int * left, int state) {
 
 static char * syn_rust_ext[] = {".rs",NULL};
 
+static int syn_conf_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
+	if (c == ';') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	if (c == '[') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_KEYWORD;
+	}
+
+	if (i == 0) {
+		int j = 0;
+		for (; j < line->actual; ++j) {
+			if (line->text[j].codepoint == '=') {
+				*out_left = j;
+				return FLAG_TYPE;
+			}
+		}
+	}
+
+	return FLAG_NONE;
+}
+
+static char * syn_conf_ext[] = {".conf",NULL};
+
 /**
  * Syntax hilighting definition database
  */
@@ -1346,6 +1374,7 @@ struct syntax_definition {
 	{"gitrebase",syn_gitrebase_ext,NULL,NULL,syn_gitrebase_extended,NULL,NULL},
 	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
 	{"rust",syn_rust_ext,syn_rust_keywords,syn_rust_types,syn_rust_extended,syn_c_iskeywordchar,syn_rust_finish},
+	{"conf",syn_conf_ext,NULL,NULL,syn_conf_extended,NULL,NULL},
 	{NULL}
 };
 
