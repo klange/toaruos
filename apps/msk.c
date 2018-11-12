@@ -27,7 +27,6 @@
 static confreader_t * msk_config = NULL;
 static confreader_t * msk_manifest = NULL;
 static hashmap_t *    msk_installed = NULL;
-static char *         msk_remote = NULL;
 
 static int verbose = 0;
 
@@ -40,7 +39,6 @@ static int verbose = 0;
  * = 0   candidate is the same
  * < 0   candidate is older
  */
-#if 0
 static int compare_version_strings(char * current, char * candidate) {
 	int current_x, current_y, current_z;
 	int candidate_x, candidate_y, candidate_z;
@@ -60,7 +58,6 @@ static int compare_version_strings(char * current, char * candidate) {
 
 	return -1;
 }
-#endif
 
 static void read_config(void) {
 	confreader_t * conf = confreader_load("/etc/msk.conf");
@@ -72,8 +69,6 @@ static void read_config(void) {
 	if (!strcmp(confreader_getd(conf, "", "verbose",""), "y")) {
 		verbose = 1;
 	}
-
-	msk_remote = confreader_get(conf, "", "remote");
 
 	msk_config = conf;
 }
@@ -153,20 +148,64 @@ static int update_stores(int argc, char * argv[]) {
 	read_config();
 	make_var();
 
-	if (!msk_remote) {
-		fprintf(stderr, "%s: no configured msk_remote\n", argv[0]);
-		return 1;
-	}
+	confreader_t * manifest_out = confreader_create_empty();
 
-	if (msk_remote[0] == '/') {
-		char cmd[512];
-		sprintf(cmd, "cp %s/manifest " VAR_PATH "/manifest", msk_remote);
-		return system(cmd);
-	} else {
-		char cmd[512];
-		sprintf(cmd, "fetch -vo " VAR_PATH "/manifest %s/manifest", msk_remote);
-		return system(cmd);
+	hashmap_t * remotes = hashmap_get(msk_config->sections, "remotes");
+	list_t * remote_list = hashmap_keys(remotes);
+	foreach(node, remote_list) {
+		char * remote_name = (char*)node->value;
+		char * remote_path = hashmap_get(remotes, remote_name);
+
+		confreader_t * manifest;
+
+		if (remote_path[0] == '/') {
+			char source[512];
+			sprintf(source, "%s/manifest", remote_path);
+			manifest = confreader_load(source);
+			if (!manifest) {
+				fprintf(stderr, "Skipping unavailable local manifest '%s'.\n", remote_name);
+				continue;
+			}
+		} else {
+			char cmd[512];
+			sprintf(cmd, "fetch -vo /tmp/.msk_remote_%s %s/manifest", remote_name, remote_path);
+			fprintf(stderr, "Downloading remote manifest '%s'...\n", remote_name);
+			if (system(cmd)) {
+				fprintf(stderr, "Error loading remote '%s' from '%s'.\n", remote_name, remote_path);
+				continue;
+			}
+			sprintf(cmd, "/tmp/.msk_remote_%s", remote_name);
+			manifest = confreader_load(cmd);
+		}
+
+		list_t * packages = hashmap_keys(manifest->sections);
+		foreach(nnode, packages) {
+			char * package_name = (char*)nnode->value;
+			hashmap_t * package_data = (hashmap_t*)hashmap_get(manifest->sections, package_name);
+			if (!strcmp(package_name,"")) continue; /* skip intro section - remote repo information */
+
+			hashmap_set(package_data, "remote_path", remote_path);
+			hashmap_set(package_data, "remote_name", remote_name);
+
+			if (!hashmap_has(manifest_out->sections, package_name)) {
+				/* Package not yet known */
+				hashmap_set(manifest_out->sections, package_name, package_data);
+			} else {
+				/* Package is known, keep the newer version */
+				char * old_version = confreader_get(manifest_out, package_name, "version");
+				char * new_version = confreader_get(manifest, package_name, "version");
+
+				if (compare_version_strings(old_version, new_version) > 0) {
+					hashmap_set(manifest_out->sections, package_name, package_data);
+				}
+			}
+		}
+
 	}
+	list_free(remote_list);
+	free(remote_list);
+
+	return confreader_write(manifest_out, VAR_PATH "/manifest");
 }
 
 static int list_contains(list_t * list, char * key) {
@@ -207,6 +246,7 @@ static int process_package(list_t * pkgs, char * name) {
 static int install_package(char * pkg) {
 
 	char * type = confreader_getd(msk_manifest, pkg, "type", "");
+	char * msk_remote = confreader_get(msk_manifest, pkg, "remote_path");
 
 	if (strstr(msk_remote, "http:") == msk_remote) {
 		char * source = confreader_get(msk_manifest, pkg, "source");

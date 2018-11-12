@@ -24,13 +24,55 @@ static void free_hashmap(void * h) {
 	free(h);
 }
 
+static int write_section(FILE * f, hashmap_t * section) {
+	list_t * keys = hashmap_keys(section);
+	foreach(node, keys) {
+		char * key = (char*)node->value;
+		char * value = hashmap_get(section, key);
+		fprintf(f, "%s=%s\n", key, value);
+	}
+	list_free(keys);
+	free(keys);
+	return 0;
+}
+
+int confreader_write(confreader_t * config, const char * file) {
+
+	FILE * f = fopen(file, "w");
+
+	if (!f) return 1;
+
+	hashmap_t * base = hashmap_get(config->sections, "");
+	if (base) {
+		write_section(f, base);
+	}
+
+	list_t * sections = hashmap_keys(config->sections);
+	foreach(node, sections) {
+		char * section = (char*)node->value;
+		if (strcmp(section,"")) {
+			hashmap_t * data = hashmap_get(config->sections, section);
+			fprintf(f, "[%s]\n", section);
+			write_section(f, data);
+		}
+	}
+
+	return 0;
+}
+
+confreader_t * confreader_create_empty(void) {
+	confreader_t * out = malloc(sizeof(confreader_t));
+	out->sections = hashmap_create(10);
+	return out;
+}
+
 confreader_t * confreader_load(const char * file) {
 
-	confreader_t * out = malloc(sizeof(confreader_t));
-
-	out->sections = hashmap_create(10);
-
 	FILE * f = fopen(file, "r");
+
+	if (!f) return NULL;
+
+	confreader_t * out = confreader_create_empty();
 
 	hashmap_t * current_section = hashmap_create(10);
 	current_section->hash_val_free = free_hashmap;

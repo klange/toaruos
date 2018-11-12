@@ -232,25 +232,28 @@ int main (int argc, char ** argv) {
 	{
 		confreader_t * conf = confreader_load("/etc/glogin.conf");
 
-		LOGO_FINAL_OFFSET = confreader_intd(conf, "style", "logo_padding", LOGO_FINAL_OFFSET);
-		BOX_WIDTH = confreader_intd(conf, "style", "box_width", BOX_WIDTH);
-		BOX_HEIGHT = confreader_intd(conf, "style", "box_height", BOX_HEIGHT);
-		BOX_ROUNDNESS = confreader_intd(conf, "style", "box_roundness", BOX_ROUNDNESS);
-		CENTER_BOX_X = confreader_intd(conf, "style", "center_box_x", CENTER_BOX_X);
-		CENTER_BOX_Y = confreader_intd(conf, "style", "center_box_y", CENTER_BOX_Y);
-		BOX_LEFT = confreader_intd(conf, "style", "box_left", BOX_LEFT);
-		BOX_RIGHT = confreader_intd(conf, "style", "box_right", BOX_RIGHT);
-		BOX_TOP = confreader_intd(conf, "style", "box_top", BOX_TOP);
-		BOX_BOTTOM = confreader_intd(conf, "style", "box_bottom", BOX_BOTTOM);
-		BOX_COLOR_R = confreader_intd(conf, "style", "box_color_r", BOX_COLOR_R);
-		BOX_COLOR_G = confreader_intd(conf, "style", "box_color_g", BOX_COLOR_G);
-		BOX_COLOR_B = confreader_intd(conf, "style", "box_color_b", BOX_COLOR_B);
-		BOX_COLOR_A = confreader_intd(conf, "style", "box_color_a", BOX_COLOR_A);
+		if (conf) {
 
-		WALLPAPER = confreader_getd(conf, "image", "wallpaper", WALLPAPER);
-		LOGO = confreader_getd(conf, "image", "logo", LOGO);
+			LOGO_FINAL_OFFSET = confreader_intd(conf, "style", "logo_padding", LOGO_FINAL_OFFSET);
+			BOX_WIDTH = confreader_intd(conf, "style", "box_width", BOX_WIDTH);
+			BOX_HEIGHT = confreader_intd(conf, "style", "box_height", BOX_HEIGHT);
+			BOX_ROUNDNESS = confreader_intd(conf, "style", "box_roundness", BOX_ROUNDNESS);
+			CENTER_BOX_X = confreader_intd(conf, "style", "center_box_x", CENTER_BOX_X);
+			CENTER_BOX_Y = confreader_intd(conf, "style", "center_box_y", CENTER_BOX_Y);
+			BOX_LEFT = confreader_intd(conf, "style", "box_left", BOX_LEFT);
+			BOX_RIGHT = confreader_intd(conf, "style", "box_right", BOX_RIGHT);
+			BOX_TOP = confreader_intd(conf, "style", "box_top", BOX_TOP);
+			BOX_BOTTOM = confreader_intd(conf, "style", "box_bottom", BOX_BOTTOM);
+			BOX_COLOR_R = confreader_intd(conf, "style", "box_color_r", BOX_COLOR_R);
+			BOX_COLOR_G = confreader_intd(conf, "style", "box_color_g", BOX_COLOR_G);
+			BOX_COLOR_B = confreader_intd(conf, "style", "box_color_b", BOX_COLOR_B);
+			BOX_COLOR_A = confreader_intd(conf, "style", "box_color_a", BOX_COLOR_A);
 
-		confreader_free(conf);
+			WALLPAPER = confreader_getd(conf, "image", "wallpaper", WALLPAPER);
+			LOGO = confreader_getd(conf, "image", "logo", LOGO);
+
+			confreader_free(conf);
+		}
 
 		TRACE("Loading complete");
 	}
