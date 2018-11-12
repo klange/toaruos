@@ -171,6 +171,7 @@ int main(int argc, char * argv[]) {
 			if (menu_process_event(yctx, m)) {
 				/* just decorations should be fine */
 				decors();
+				flip(ctx);
 				yutani_flip(yctx, window);
 			}
 			switch (m->type) {
@@ -189,6 +190,7 @@ int main(int argc, char * argv[]) {
 						if (win && win == window) {
 							win->focused = wf->focused;
 							decors();
+							flip(ctx);
 							yutani_flip(yctx, window);
 						}
 					}
