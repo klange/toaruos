@@ -1328,17 +1328,17 @@ static char * syn_rust_ext[] = {".rs",NULL};
 static int syn_conf_extended(line_t * line, int i, int c, int last, int * out_left) {
 	(void)last;
 
-	if (c == ';') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	if (c == '[') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_KEYWORD;
-	}
-
 	if (i == 0) {
+		if (c == ';') {
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT;
+		}
+
+		if (c == '[') {
+			*out_left = (line->actual + 1) - i;
+			return FLAG_KEYWORD;
+		}
+
 		int j = 0;
 		for (; j < line->actual; ++j) {
 			if (line->text[j].codepoint == '=') {
