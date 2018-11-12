@@ -149,12 +149,18 @@ static int update_stores(int argc, char * argv[]) {
 	make_var();
 
 	confreader_t * manifest_out = confreader_create_empty();
-
 	hashmap_t * remotes = hashmap_get(msk_config->sections, "remotes");
-	list_t * remote_list = hashmap_keys(remotes);
-	foreach(node, remote_list) {
-		char * remote_name = (char*)node->value;
+
+	char * order = strdup(confreader_getd(msk_config, "", "remote_order", ""));
+	char * save;
+	char * tok = strtok_r(order, ",", &save);
+	do {
+		char * remote_name = strdup(tok);
 		char * remote_path = hashmap_get(remotes, remote_name);
+		if (!remote_path) {
+			fprintf(stderr, "Undefined remote specified in remote_order: %s\n", remote_name);
+			goto _next;
+		}
 
 		confreader_t * manifest;
 
@@ -164,7 +170,7 @@ static int update_stores(int argc, char * argv[]) {
 			manifest = confreader_load(source);
 			if (!manifest) {
 				fprintf(stderr, "Skipping unavailable local manifest '%s'.\n", remote_name);
-				continue;
+				goto _next;
 			}
 		} else {
 			char cmd[512];
@@ -172,7 +178,7 @@ static int update_stores(int argc, char * argv[]) {
 			fprintf(stderr, "Downloading remote manifest '%s'...\n", remote_name);
 			if (system(cmd)) {
 				fprintf(stderr, "Error loading remote '%s' from '%s'.\n", remote_name, remote_path);
-				continue;
+				goto _next;
 			}
 			sprintf(cmd, "/tmp/.msk_remote_%s", remote_name);
 			manifest = confreader_load(cmd);
@@ -201,9 +207,10 @@ static int update_stores(int argc, char * argv[]) {
 			}
 		}
 
-	}
-	list_free(remote_list);
-	free(remote_list);
+_next:
+		tok = strtok_r(NULL, " ", &save);
+	} while (tok);
+	free(order);
 
 	return confreader_write(manifest_out, VAR_PATH "/manifest");
 }
