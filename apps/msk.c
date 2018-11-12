@@ -151,6 +151,8 @@ static int update_stores(int argc, char * argv[]) {
 	confreader_t * manifest_out = confreader_create_empty();
 	hashmap_t * remotes = hashmap_get(msk_config->sections, "remotes");
 
+	int one_success = 0;
+
 	char * order = strdup(confreader_getd(msk_config, "", "remote_order", ""));
 	char * save;
 	char * tok = strtok_r(order, ",", &save);
@@ -207,10 +209,17 @@ static int update_stores(int argc, char * argv[]) {
 			}
 		}
 
+		one_success = 1;
+
 _next:
 		tok = strtok_r(NULL, " ", &save);
 	} while (tok);
 	free(order);
+
+	if (!one_success) {
+		fprintf(stderr, "\033[1;31merror\033[0m: no remote succeeded, no packages are available\n");
+		return 1;
+	}
 
 	return confreader_write(manifest_out, VAR_PATH "/manifest");
 }
