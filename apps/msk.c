@@ -21,7 +21,7 @@
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
 
-#define MSK_VERSION "0.0.1"
+#define MSK_VERSION "1.0.0"
 #define VAR_PATH "/var/msk"
 
 static confreader_t * msk_config = NULL;
