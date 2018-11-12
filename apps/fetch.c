@@ -69,7 +69,7 @@ void parse_url(char * d, struct http_req * r) {
 void print_progress(void) {
 	struct timeval now;
 	gettimeofday(&now, NULL);
-	fprintf(stderr,"\033[G%6dkB",(int)fetch_options.size/1024);
+	fprintf(stderr,"\033[?25l\033[G%6dkB",(int)fetch_options.size/1024);
 	if (fetch_options.content_length) {
 		int percent = (fetch_options.size * BAR_WIDTH) / (fetch_options.content_length);
 		fprintf(stderr," / %6dkB [%.*s%.*s]", (int)fetch_options.content_length/1024, percent,bar_perc,BAR_WIDTH-percent,bar_spac);
@@ -93,7 +93,7 @@ void print_progress(void) {
 			}
 		}
 	}
-	fprintf(stderr,"\033[K");
+	fprintf(stderr,"\033[K\033[?25h");
 	fflush(stderr);
 }
 
