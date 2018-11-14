@@ -12,6 +12,8 @@ enum sdf_font {
     SDF_FONT_MONO_BOLD,
     SDF_FONT_MONO_OBLIQUE,
     SDF_FONT_MONO_BOLD_OBLIQUE,
+    SDF_FONT_OBLIQUE,
+    SDF_FONT_BOLD_OBLIQUE,
 };
 
 extern int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font);

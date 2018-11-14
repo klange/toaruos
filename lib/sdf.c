@@ -20,6 +20,8 @@
 
 static sprite_t _font_data_thin;
 static sprite_t _font_data_bold;
+static sprite_t _font_data_oblique;
+static sprite_t _font_data_bold_oblique;
 static sprite_t _font_data_mono;
 static sprite_t _font_data_mono_bold;
 static sprite_t _font_data_mono_oblique;
@@ -76,6 +78,8 @@ static void _init_sdf(void) {
 
 	load_font(&_font_data_thin, SDF_FONT_THIN);
 	load_font(&_font_data_bold, SDF_FONT_BOLD);
+	load_font(&_font_data_oblique, SDF_FONT_OBLIQUE);
+	load_font(&_font_data_bold_oblique, SDF_FONT_BOLD_OBLIQUE);
 	load_font(&_font_data_mono, SDF_FONT_MONO);
 	load_font(&_font_data_mono_bold, SDF_FONT_MONO_BOLD);
 	load_font(&_font_data_mono_oblique, SDF_FONT_MONO_OBLIQUE);
@@ -121,6 +125,10 @@ static sprite_t * _select_font(int font) {
 			return &_font_data_mono_oblique;
 		case SDF_FONT_MONO_BOLD_OBLIQUE:
 			return &_font_data_mono_bold_oblique;
+		case SDF_FONT_OBLIQUE:
+			return &_font_data_oblique;
+		case SDF_FONT_BOLD_OBLIQUE:
+			return &_font_data_bold_oblique;
 		case SDF_FONT_THIN:
 		default:
 			return &_font_data_thin;
@@ -130,12 +138,14 @@ static sprite_t * _select_font(int font) {
 static int _select_width(char ch, int font) {
 	switch (font) {
 		case SDF_FONT_BOLD:
+		case SDF_FONT_BOLD_OBLIQUE:
 			return _char_data[(int)ch].width_bold;
 		case SDF_FONT_MONO:
 		case SDF_FONT_MONO_BOLD:
 		case SDF_FONT_MONO_OBLIQUE:
 		case SDF_FONT_MONO_BOLD_OBLIQUE:
 			return _char_data[(int)ch].width_mono;
+		case SDF_FONT_OBLIQUE:
 		case SDF_FONT_THIN:
 		default:
 			return _char_data[(int)ch].width_thin;

@@ -40,10 +40,14 @@ void redraw() {
 
 	decors();
 
-	draw_sdf_string(ctx, 30, 30, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_THIN);
-	draw_sdf_string(ctx, 30, 60, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_THIN);
-	draw_sdf_string(ctx, 30, 90, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_BOLD);
-	draw_sdf_string(ctx, 30,120, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_BOLD);
+	draw_sdf_string(ctx, 30,30*1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_THIN);
+	draw_sdf_string(ctx, 30,30*2, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_THIN);
+	draw_sdf_string(ctx, 30,30*3, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_BOLD);
+	draw_sdf_string(ctx, 30,30*4, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_BOLD);
+	draw_sdf_string(ctx, 30,30*5, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_OBLIQUE);
+	draw_sdf_string(ctx, 30,30*6, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_OBLIQUE);
+	draw_sdf_string(ctx, 30,30*7, "ABCDEFGHIJKLMNOPQRSTUVWXYZABC", size, rgb(0,0,0), SDF_FONT_BOLD_OBLIQUE);
+	draw_sdf_string(ctx, 30,30*8, "abcdefghijklmnopqrstuvwxyzabc", size, rgb(0,0,0), SDF_FONT_BOLD_OBLIQUE);
 }
 
 void resize_finish(int w, int h) {

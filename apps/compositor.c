@@ -2068,7 +2068,8 @@ int main(int argc, char * argv[]) {
 
 	TRACE("Loading fonts...");
 	{
-		sprite_t _font_data[6];
+#define FONT_COUNT 8
+		sprite_t _font_data[FONT_COUNT];
 
 		load_sprite(&_font_data[0], "/usr/share/sdf_thin.bmp");
 		load_sprite(&_font_data[1], "/usr/share/sdf_bold.bmp");
@@ -2076,11 +2077,13 @@ int main(int argc, char * argv[]) {
 		load_sprite(&_font_data[3], "/usr/share/sdf_mono_bold.bmp");
 		load_sprite(&_font_data[4], "/usr/share/sdf_mono_oblique.bmp");
 		load_sprite(&_font_data[5], "/usr/share/sdf_mono_bold_oblique.bmp");
+		load_sprite(&_font_data[6], "/usr/share/sdf_oblique.bmp");
+		load_sprite(&_font_data[7], "/usr/share/sdf_bold_oblique.bmp");
 
 		TRACE("  Data loaded...");
 
-		size_t font_data_size = sizeof(unsigned int) * (1 + 6 * 3);
-		for (int i = 0; i < 6; ++i) {
+		size_t font_data_size = sizeof(unsigned int) * (1 + FONT_COUNT * 3);
+		for (int i = 0; i < FONT_COUNT; ++i) {
 			font_data_size += 4 * _font_data[i].width * _font_data[i].height;
 		}
 
@@ -2093,15 +2096,15 @@ int main(int argc, char * argv[]) {
 		assert((s >= font_data_size) && "Font server failure.");
 
 		uint32_t * data = (uint32_t *)font;
-		data[0] = 6;
+		data[0] = FONT_COUNT;
 
 		data[1] = _font_data[0].width;
 		data[2] = _font_data[0].height;
-		data[3] = (6 * 3 + 1) * sizeof(unsigned int);
+		data[3] = (FONT_COUNT * 3 + 1) * sizeof(unsigned int);
 		memcpy(&font[data[3]], _font_data[0].bitmap, _font_data[0].width * _font_data[0].height * 4);
 		free(_font_data[0].bitmap);
 
-		for (int i = 1; i < 6; ++i) {
+		for (int i = 1; i < FONT_COUNT; ++i) {
 			TRACE("  Loaded %d font(s)... %d %d %d", i, data[(i - 1) * 3 + 2], data[(i - 1) * 3 + 1], data[(i - 1) * 3 + 3]);
 			data[i * 3 + 1] = _font_data[i].width;
 			data[i * 3 + 2] = _font_data[i].height;
