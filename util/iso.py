@@ -164,6 +164,9 @@ class ArbitraryData(object):
         struct.pack_into(str(self.size) + 's', data, offset, self.data.tobytes())
         return offset + self.size
 
+def make_entry():
+    return b'\0'*34
+
 class ISO9660(object):
 
     def __init__(self, from_file=None):
@@ -182,20 +185,25 @@ class ISO9660(object):
             self.volume_descriptor_set_terminator.read(data, 0x12 * 2048)
             self.el_torito_catalog.read(data, self.boot_record.data['catalog_lba'] * 2048)
         else:
-            self.boot_payload = ArbitraryData('cdrom/boot.sys')
             self.boot_record.set_catalog(0x13)
+            self.boot_payload = ArbitraryData('cdrom/boot.sys')
             self.el_torito_catalog.initial_entry.data['sector_count'] = 24
             self.el_torito_catalog.initial_entry.data['load_rba'] = 0x14
+            self.fat_payload = ArbitraryData('cdrom/fat.img')
+            self.el_torito_catalog.section.data['sector_count'] = 12288
+            self.el_torito_catalog.section.data['load_rba'] = 0x14 + 24
+            self.primary_volume_descriptor.data['root_entry_data'] = make_entry()
 
     def write(self, file_name):
         with open(file_name, 'wb') as f:
-            data = array.array('b',b'\0'*(2048*0x14 + self.boot_payload.size))
+            data = array.array('b',b'\0'*(2048*0x30 + self.boot_payload.size + self.fat_payload.size))
             print(len(data))
             self.primary_volume_descriptor.write(data,0x10 * 2048)
             self.boot_record.write(data,0x11 * 2048)
             self.volume_descriptor_set_terminator.write(data,0x12 * 2048)
             self.el_torito_catalog.write(data,0x13 * 2048)
             self.boot_payload.write(data,0x14 * 2048)
+            self.fat_payload.write(data,(0x14 + 24) * 2048)
             data.tofile(f)
 
 class ElToritoValidationEntry(Structure):
