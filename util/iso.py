@@ -69,6 +69,16 @@ def make_time():
     )
     return bytes(data)
 
+def make_date():
+    data = array.array('b',b'\0'*7)
+    struct.pack_into(
+        'BBBBBBb',
+        data, 0,
+        118, 11, 14,
+        12, 0, 0,
+        0,
+    )
+    return bytes(data)
 
 class ISOBootRecord(Structure):
     assert_size = 2048
@@ -148,15 +158,57 @@ class ISOVolumeDescriptorSetTerminator(Structure):
         ('2041s', 'unused', b'\0'*2041)
     )
 
+class ISODirectoryEntry(Structure):
+    assert_size = 33
+    fields = (
+        ('B', 'length'),
+        ('B', 'ext_length'),
+        ('<I', 'extent_start_lsb'),
+        ('>I', 'extent_start_msb'),
+        ('<I', 'extent_length_lsb'),
+        ('>I', 'extent_length_msb'),
+        ('7s', 'record_date', make_date()),
+        ('B', 'flags'),
+        ('B', 'interleave_units'),
+        ('B', 'interleave_gap'),
+        ('<H', 'volume_seq_lsb'),
+        ('>H', 'volume_seq_msb'),
+        ('B', 'name_len'),
+    )
+
+    def set_name(self, name):
+        self.data['name_len'] = len(name)
+        self.name = name
+        self.data['length'] = self.assert_size + len(self.name)
+        if self.data['length'] % 2:
+            self.data['length'] += 1
+
+    def set_extent(self, start, length):
+        self.data['extent_start_lsb'] = start
+        self.data['extent_start_msb'] = start
+        self.data['extent_length_lsb'] = length
+        self.data['extent_length_msb'] = length
+
+    def write(self, data, offset):
+        o = super(ISODirectoryEntry,self).write(data,offset)
+        struct.pack_into(str(len(self.name))+'s', data, o, self.name.encode('utf-8'))
+        return offset + self.data['length']
+
 class ArbitraryData(object):
 
-    def __init__(self, path):
+    def __init__(self, path=None, size=None):
 
-        with open(path,'rb') as f:
-            tmp = f.read()
-            self.data = array.array('b',tmp)
+        if path:
+            with open(path,'rb') as f:
+                tmp = f.read()
+                self.data = array.array('b',tmp)
+        elif size:
+            self.data = array.array('b',b'\0'*size)
+        else:
+            raise ValueError("Expected one of path or size to be set.")
 
-        self.size = len(self.data)
+        self.size = len(self.data.tobytes())
+        self.actual_size = self.size
         while (self.size % 2048):
             self.size += 1
 
@@ -174,6 +226,7 @@ class ISO9660(object):
         self.boot_record = ISOElToritoBootRecord()
         self.volume_descriptor_set_terminator = ISOVolumeDescriptorSetTerminator()
         self.el_torito_catalog = ElToritoCatalog()
+        self.allocate = 0x13
 
         if from_file:
             # Only for a file we produced.
@@ -185,25 +238,131 @@ class ISO9660(object):
             self.volume_descriptor_set_terminator.read(data, 0x12 * 2048)
             self.el_torito_catalog.read(data, self.boot_record.data['catalog_lba'] * 2048)
         else:
-            self.boot_record.set_catalog(0x13)
-            self.boot_payload = ArbitraryData('cdrom/boot.sys')
-            self.el_torito_catalog.initial_entry.data['sector_count'] = 24
-            self.el_torito_catalog.initial_entry.data['load_rba'] = 0x14
-            self.fat_payload = ArbitraryData('cdrom/fat.img')
-            self.el_torito_catalog.section.data['sector_count'] = 12288
-            self.el_torito_catalog.section.data['load_rba'] = 0x14 + 24
+            # Root directory
+            self.root = ISODirectoryEntry()
+            self.root.data['flags'] = 0x02 # Directory
+            self.root.set_name(' ')
+            self.root_data = ArbitraryData(size=2048)
+            self.root_data.sector_offset = self.allocate_space(1)
+            self.root.set_extent(self.root_data.sector_offset,self.root_data.size)
+
+            # Dummy entries
+            t = ISODirectoryEntry()
+            t.set_name('')
+            o = t.write(self.root_data.data, 0)
+            t = ISODirectoryEntry()
+            t.set_name('\1')
+            o = t.write(self.root_data.data, o)
+
+            # Kernel
+            self.kernel_data = ArbitraryData(path='fatbase/kernel')
+            self.kernel_data.sector_offset = self.allocate_space(self.kernel_data.size // 2048)
+            self.kernel_entry = ISODirectoryEntry()
+            self.kernel_entry.set_name('KERNEL.')
+            self.kernel_entry.set_extent(self.kernel_data.sector_offset, self.kernel_data.actual_size)
+            o = self.kernel_entry.write(self.root_data.data, o)
+
+            # Ramdisk
+            self.ramdisk_data = ArbitraryData(path='fatbase/ramdisk.img')
+            self.ramdisk_data.sector_offset = self.allocate_space(self.ramdisk_data.size // 2048)
+            self.ramdisk_entry = ISODirectoryEntry()
+            self.ramdisk_entry.set_name('RAMDISK.IMG')
+            self.ramdisk_entry.set_extent(self.ramdisk_data.sector_offset, self.ramdisk_data.actual_size)
+            o = self.ramdisk_entry.write(self.root_data.data, o)
+
+            # Modules directory
+            self.mods_data = ArbitraryData(size=(2048*2)) # Just in case
+            self.mods_data.sector_offset = self.allocate_space(self.mods_data.size // 2048)
+            self.mods_entry = ISODirectoryEntry()
+            self.mods_entry.data['flags'] = 0x02
+            self.mods_entry.set_name('MOD')
+            self.mods_entry.set_extent(self.mods_data.sector_offset, self.mods_data.actual_size)
+            o = self.mods_entry.write(self.root_data.data, o)
+
+            # Modules themselves
+            t = ISODirectoryEntry()
+            t.set_name('')
+            o = t.write(self.mods_data.data, 0)
+            t = ISODirectoryEntry()
+            t.set_name('\1')
+            o = t.write(self.mods_data.data, o)
+            self.mods = []
+            for mod_file in [
+                'fatbase/mod/ac97.ko',
+                'fatbase/mod/ata.ko',
+                'fatbase/mod/ataold.ko',
+                'fatbase/mod/debug_sh.ko',
+                'fatbase/mod/dospart.ko',
+                'fatbase/mod/e1000.ko',
+                'fatbase/mod/ext2.ko',
+                'fatbase/mod/hda.ko',
+                'fatbase/mod/iso9660.ko',
+                'fatbase/mod/lfbvideo.ko',
+                'fatbase/mod/net.ko',
+                'fatbase/mod/packetfs.ko',
+                'fatbase/mod/pcnet.ko',
+                'fatbase/mod/pcspkr.ko',
+                'fatbase/mod/portio.ko',
+                'fatbase/mod/procfs.ko',
+                'fatbase/mod/ps2kbd.ko',
+                'fatbase/mod/ps2mouse.ko',
+                'fatbase/mod/random.ko',
+                'fatbase/mod/rtl.ko',
+                'fatbase/mod/serial.ko',
+                'fatbase/mod/snd.ko',
+                'fatbase/mod/tarfs.ko',
+                'fatbase/mod/tmpfs.ko',
+                'fatbase/mod/usbuhci.ko',
+                'fatbase/mod/vbox.ko',
+                'fatbase/mod/vgadbg.ko',
+                'fatbase/mod/vgalog.ko',
+                'fatbase/mod/vidset.ko',
+                'fatbase/mod/vmware.ko',
+                'fatbase/mod/xtest.ko',
+                'fatbase/mod/zero.ko',
+            ]:
+                mod = ArbitraryData(path=mod_file)
+                mod.sector_offset = self.allocate_space(mod.size // 2048)
+                entry = ISODirectoryEntry()
+                entry.set_name(mod_file.replace('fatbase/mod/','').upper())
+                entry.set_extent(mod.sector_offset, mod.actual_size)
+                o = entry.write(self.mods_data.data, o)
+                self.mods.append(mod)
+
+            # Set up the boot catalog and records
+            self.el_torito_catalog.sector_offset = self.allocate_space(1)
+            self.boot_record.set_catalog(self.el_torito_catalog.sector_offset)
+            self.boot_payload = ArbitraryData(path='cdrom/boot.sys')
+            self.boot_payload.sector_offset = self.allocate_space(self.boot_payload.size // 2048)
+            self.el_torito_catalog.initial_entry.data['sector_count'] = self.boot_payload.size // 512
+            self.el_torito_catalog.initial_entry.data['load_rba'] = self.boot_payload.sector_offset
+            self.fat_payload = ArbitraryData(path='cdrom/fat.img')
+            self.fat_payload.sector_offset = self.allocate_space(self.fat_payload.size // 2048)
+            self.el_torito_catalog.section.data['sector_count'] = 0 # Expected to be 0 or 1 for "until end of CD"
+            self.el_torito_catalog.section.data['load_rba'] = self.fat_payload.sector_offset
             self.primary_volume_descriptor.data['root_entry_data'] = make_entry()
+
+    def allocate_space(self, sectors):
+        out = self.allocate
+        self.allocate += sectors
+        return out
 
     def write(self, file_name):
         with open(file_name, 'wb') as f:
-            data = array.array('b',b'\0'*(2048*0x30 + self.boot_payload.size + self.fat_payload.size))
-            print(len(data))
+            data = array.array('b',b'\0'*(2048*self.allocate))
             self.primary_volume_descriptor.write(data,0x10 * 2048)
+            self.root.write(data,0x10*2048 + 156)
             self.boot_record.write(data,0x11 * 2048)
+            self.kernel_data.write(data, self.kernel_data.sector_offset * 2048)
+            self.ramdisk_data.write(data, self.ramdisk_data.sector_offset * 2048)
+            self.mods_data.write(data, self.mods_data.sector_offset * 2048)
+            for mod in self.mods:
+                mod.write(data, mod.sector_offset * 2048)
+            self.root_data.write(data,self.root_data.sector_offset * 2048)
             self.volume_descriptor_set_terminator.write(data,0x12 * 2048)
-            self.el_torito_catalog.write(data,0x13 * 2048)
-            self.boot_payload.write(data,0x14 * 2048)
-            self.fat_payload.write(data,(0x14 + 24) * 2048)
+            self.el_torito_catalog.write(data,self.el_torito_catalog.sector_offset * 2048)
+            self.boot_payload.write(data,self.boot_payload.sector_offset * 2048)
+            self.fat_payload.write(data,self.fat_payload.sector_offset * 2048)
             data.tofile(f)
 
 class ElToritoValidationEntry(Structure):
