@@ -37,11 +37,16 @@ static void decors() {
 }
 
 static int cursor_x = 0;
-static int state = 0;
+static list_t * state = NULL;
+static int current_state = 0;
 
 static int parser_open(struct markup_state * self, void * user, struct markup_tag * tag) {
 	if (!strcmp(tag->name, "b")) {
-		state = 1; /* State append bold */
+		list_insert(state, (void*)current_state);
+		current_state |= (1 << 0);
+	} else if (!strcmp(tag->name, "i")) {
+		list_insert(state, (void*)current_state);
+		current_state |= (1 << 1);
 	}
 	markup_free_tag(tag);
 	return 0;
@@ -49,13 +54,31 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 
 static int parser_close(struct markup_state * self, void * user, char * tag_name) {
 	if (!strcmp(tag_name, "b")) {
-		state = 0; /* State pop bold */
+		node_t * nstate = list_pop(state);
+		current_state = (int)nstate->value;
+		free(nstate);
+	} else if (!strcmp(tag_name, "i")) {
+		node_t * nstate = list_pop(state);
+		current_state = (int)nstate->value;
+		free(nstate);
 	}
 	return 0;
 }
 
+static int state_to_font(void) {
+	if (current_state & (1 << 0)) {
+		if (current_state & (1 << 1)) {
+			return SDF_FONT_BOLD_OBLIQUE;
+		}
+		return SDF_FONT_BOLD;
+	} else if (current_state & (1 << 1)) {
+		return SDF_FONT_OBLIQUE;
+	}
+	return SDF_FONT_THIN;
+}
+
 static int parser_data(struct markup_state * self, void * user, char * data) {
-	cursor_x += draw_sdf_string(ctx, cursor_x, 30, data, size, rgb(0,0,0), state ? SDF_FONT_BOLD : SDF_FONT_THIN);
+	cursor_x += draw_sdf_string(ctx, cursor_x, 30, data, size, rgb(0,0,0), state_to_font());
 	return 0;
 }
 
@@ -67,9 +90,9 @@ void redraw() {
 
 	struct markup_state * parser = markup_init(NULL, parser_open, parser_close, parser_data);
 
-	char * str = "<b>This <i foo=bar baz=qux>is</i> a test</b> with <data fun=123>data</data> at the end";
+	char * str = "<b>This <i foo=bar baz=qux>is</i> a test</b> with <i><data fun=123>data</data> at <b>the</b> end</i>";
 	cursor_x = 20;
-	state = 0;
+	state = list_create();
 
 	while (*str) {
 		//fprintf(stderr, "Parser state in: %d  Character: %c\n", parser->state, *str);
@@ -79,6 +102,8 @@ void redraw() {
 		}
 	}
 	markup_finish(parser);
+	list_free(state);
+	free(state);
 
 }
 
