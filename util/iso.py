@@ -446,7 +446,6 @@ class ISO9660(object):
                 'fatbase/mod/rtl.ko',
                 'fatbase/mod/serial.ko',
                 'fatbase/mod/snd.ko',
-                'fatbase/mod/tarfs.ko',
                 'fatbase/mod/tmpfs.ko',
                 'fatbase/mod/usbuhci.ko',
                 'fatbase/mod/vbox.ko',
@@ -460,6 +459,9 @@ class ISO9660(object):
                 entry = ISODirectoryEntry()
                 entry.set_name(mod_file.replace('fatbase/mod/','').upper())
                 f = self.fat.get_file('/'+mod_file.replace('fatbase/',''))
+                if not f:
+                    print("didn't find",mod_file,"in fat")
+                    continue
                 entry.set_extent(f.get_offset() // 2048 + self.fat_payload.sector_offset, f.filesize)
                 o = entry.write(self.mods_data.data, o)
 
