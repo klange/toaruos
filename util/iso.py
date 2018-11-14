@@ -57,6 +57,136 @@ class Structure(object):
             o = write_struct(f,data,o,self.data[s])
         return o
 
+def read_struct(fmt,buf,offset):
+    out, = struct.unpack_from(fmt,buf,offset)
+    return out, offset + struct.calcsize(fmt)
+
+class FAT(object):
+
+    def __init__(self, iso, offset):
+        self.iso = iso
+        self.offset = offset
+
+        self.bytespersector,    _ = read_struct('H', self.iso.data, offset + 11)
+        self.sectorspercluster, _ = read_struct('B', self.iso.data, offset + 13)
+        self.reservedsectors,   _ = read_struct('H', self.iso.data, offset + 14)
+        self.numberoffats,      _ = read_struct('B', self.iso.data, offset + 16)
+        self.numberofdirs,      _ = read_struct('H', self.iso.data, offset + 17)
+        self.fatsize, _ = read_struct('H', self.iso.data, offset + 22)
+
+        self.root_dir_sectors = (self.numberofdirs * 32 + (self.bytespersector - 1)) // self.bytespersector
+        self.first_data_sector = self.reservedsectors + (self.numberoffats * self.fatsize) + self.root_dir_sectors
+        self.root_sector= self.first_data_sector - self.root_dir_sectors
+        self.root = FATDirectory(self, self.offset + self.root_sector * self.bytespersector)
+
+    def get_offset(self, cluster):
+        return self.offset + ((cluster - 2) * self.sectorspercluster + self.first_data_sector) * self.bytespersector
+
+    def get_file(self, path):
+        units = path.split('/')
+        units = units[1:]
+
+        me = self.root
+        out = None
+        for i in units:
+            for fatfile in me.list():
+                if fatfile.readable_name() == i:
+                    me = fatfile.to_dir()
+                    out = fatfile
+                    break
+            else:
+                return None
+        return out
+
+class FATDirectory(object):
+
+    def __init__(self, fat, offset):
+
+        self.fat = fat
+        self.offset = offset
+
+    def list(self):
+
+        o = self.offset
+        while 1:
+            out = FATFile(self.fat, o)
+            if out.name != '\0\0\0\0\0\0\0\0':
+                yield out
+            else:
+                break
+            o += out.size
+
+
+class FATFile(object):
+
+    def __init__(self, fat, offset):
+
+        self.fat = fat
+        self.offset = offset
+        self.magic_long = None
+        self.size = 0
+        self.long_name = ''
+
+        o = self.offset
+        self.actual_offset = o
+
+        self.attrib,     _ = read_struct('B',self.fat.iso.data,o+11)
+
+        while (self.attrib & 0x0F) == 0x0F:
+            # Long file name entry
+            tmp = read_struct('10s',self.fat.iso.data,o+1)[0]
+            tmp += read_struct('12s',self.fat.iso.data,o+14)[0]
+            tmp += read_struct('4s',self.fat.iso.data,o+28)[0]
+            tmp = "".join([chr(x) for x in tmp[::2] if x != '\xFF']).strip('\x00')
+            self.long_name = tmp + self.long_name
+            self.size += 32
+            o = self.offset + self.size
+            self.actual_offset = o
+            self.attrib,     _ = read_struct('B',self.fat.iso.data,o+11)
+
+        o = self.offset + self.size
+
+        self.name,       o = read_struct('8s',self.fat.iso.data,o)
+        self.ext,        o = read_struct('3s',self.fat.iso.data,o)
+        self.attrib,     o = read_struct('B',self.fat.iso.data,o)
+        self.userattrib, o = read_struct('B',self.fat.iso.data,o)
+        self.undelete,   o = read_struct('b',self.fat.iso.data,o)
+        self.createtime, o = read_struct('H',self.fat.iso.data,o)
+        self.createdate, o = read_struct('H',self.fat.iso.data,o)
+        self.accessdate, o = read_struct('H',self.fat.iso.data,o)
+        self.clusterhi,  o = read_struct('H',self.fat.iso.data,o)
+        self.modifiedti, o = read_struct('H',self.fat.iso.data,o)
+        self.modifiedda, o = read_struct('H',self.fat.iso.data,o)
+        self.clusterlow, o = read_struct('H',self.fat.iso.data,o)
+        self.filesize,   o = read_struct('I',self.fat.iso.data,o)
+
+        self.name = self.name.decode('ascii')
+        self.ext  = self.ext.decode('ascii')
+
+        self.size += 32
+
+        self.cluster = (self.clusterhi << 16) + self.clusterlow
+
+    def is_dir(self):
+        return bool(self.attrib & 0x10)
+
+    def is_long(self):
+        return bool((self.attrib & 0x0F) == 0x0F)
+
+    def to_dir(self):
+        return FATDirectory(self.fat, self.fat.get_offset(self.cluster))
+
+    def get_offset(self):
+        return self.fat.get_offset(self.cluster)
+
+    def readable_name(self):
+        if self.long_name:
+            return self.long_name
+        if self.ext.strip():
+            return (self.name.strip() + '.' + self.ext.strip()).lower()
+        else:
+            return self.name.strip().lower()
+
 def make_time():
     data = array.array('b',b'\0'*17)
     struct.pack_into(
@@ -254,20 +384,27 @@ class ISO9660(object):
             t.set_name('\1')
             o = t.write(self.root_data.data, o)
 
+            # Fat data
+            self.fat_payload = ArbitraryData(path='cdrom/fat.img')
+            self.fat_payload.sector_offset = self.allocate_space(self.fat_payload.size // 2048)
+            self.fat = FAT(self.fat_payload, 0)
+            self.fat_entry = ISODirectoryEntry()
+            self.fat_entry.set_name('FAT.IMG')
+            self.fat_entry.set_extent(self.fat_payload.sector_offset, self.fat_payload.actual_size)
+            o = self.fat_entry.write(self.root_data.data, o)
+
             # Kernel
-            self.kernel_data = ArbitraryData(path='fatbase/kernel')
-            self.kernel_data.sector_offset = self.allocate_space(self.kernel_data.size // 2048)
             self.kernel_entry = ISODirectoryEntry()
             self.kernel_entry.set_name('KERNEL.')
-            self.kernel_entry.set_extent(self.kernel_data.sector_offset, self.kernel_data.actual_size)
+            f = self.fat.get_file('/kernel')
+            self.kernel_entry.set_extent(f.get_offset() // 2048 + self.fat_payload.sector_offset, f.filesize)
             o = self.kernel_entry.write(self.root_data.data, o)
 
             # Ramdisk
-            self.ramdisk_data = ArbitraryData(path='fatbase/ramdisk.img')
-            self.ramdisk_data.sector_offset = self.allocate_space(self.ramdisk_data.size // 2048)
             self.ramdisk_entry = ISODirectoryEntry()
             self.ramdisk_entry.set_name('RAMDISK.IMG')
-            self.ramdisk_entry.set_extent(self.ramdisk_data.sector_offset, self.ramdisk_data.actual_size)
+            f = self.fat.get_file('/ramdisk.img')
+            self.ramdisk_entry.set_extent(f.get_offset() // 2048 + self.fat_payload.sector_offset, f.filesize)
             o = self.ramdisk_entry.write(self.root_data.data, o)
 
             # Modules directory
@@ -286,7 +423,6 @@ class ISO9660(object):
             t = ISODirectoryEntry()
             t.set_name('\1')
             o = t.write(self.mods_data.data, o)
-            self.mods = []
             for mod_file in [
                 'fatbase/mod/ac97.ko',
                 'fatbase/mod/ata.ko',
@@ -321,13 +457,11 @@ class ISO9660(object):
                 'fatbase/mod/xtest.ko',
                 'fatbase/mod/zero.ko',
             ]:
-                mod = ArbitraryData(path=mod_file)
-                mod.sector_offset = self.allocate_space(mod.size // 2048)
                 entry = ISODirectoryEntry()
                 entry.set_name(mod_file.replace('fatbase/mod/','').upper())
-                entry.set_extent(mod.sector_offset, mod.actual_size)
+                f = self.fat.get_file('/'+mod_file.replace('fatbase/',''))
+                entry.set_extent(f.get_offset() // 2048 + self.fat_payload.sector_offset, f.filesize)
                 o = entry.write(self.mods_data.data, o)
-                self.mods.append(mod)
 
             # Set up the boot catalog and records
             self.el_torito_catalog.sector_offset = self.allocate_space(1)
@@ -336,8 +470,6 @@ class ISO9660(object):
             self.boot_payload.sector_offset = self.allocate_space(self.boot_payload.size // 2048)
             self.el_torito_catalog.initial_entry.data['sector_count'] = self.boot_payload.size // 512
             self.el_torito_catalog.initial_entry.data['load_rba'] = self.boot_payload.sector_offset
-            self.fat_payload = ArbitraryData(path='cdrom/fat.img')
-            self.fat_payload.sector_offset = self.allocate_space(self.fat_payload.size // 2048)
             self.el_torito_catalog.section.data['sector_count'] = 0 # Expected to be 0 or 1 for "until end of CD"
             self.el_torito_catalog.section.data['load_rba'] = self.fat_payload.sector_offset
             self.primary_volume_descriptor.data['root_entry_data'] = make_entry()
@@ -353,11 +485,7 @@ class ISO9660(object):
             self.primary_volume_descriptor.write(data,0x10 * 2048)
             self.root.write(data,0x10*2048 + 156)
             self.boot_record.write(data,0x11 * 2048)
-            self.kernel_data.write(data, self.kernel_data.sector_offset * 2048)
-            self.ramdisk_data.write(data, self.ramdisk_data.sector_offset * 2048)
             self.mods_data.write(data, self.mods_data.sector_offset * 2048)
-            for mod in self.mods:
-                mod.write(data, mod.sector_offset * 2048)
             self.root_data.write(data,self.root_data.sector_offset * 2048)
             self.volume_descriptor_set_terminator.write(data,0x12 * 2048)
             self.el_torito_catalog.write(data,self.el_torito_catalog.sector_offset * 2048)
