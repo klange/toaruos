@@ -32,11 +32,6 @@ if ! which xorriso >/dev/null; then
     RET=1
 fi
 
-if ! which yasm >/dev/null; then
-    echo "yasm is required to build some assembly sources"
-    RET=1
-fi
-
 if ! which autoconf >/dev/null; then
     echo "autoconf is required to build GCC cross-compiler"
     RET=1
@@ -59,11 +54,6 @@ fi
 
 if ! cpp <(echo "#include \"gmp.h\"") >/dev/null 2>/dev/null; then
     echo "GMP headers are required to build GCC cross-compiler"
-    RET=1
-fi
-
-if ! cpp <(echo "#include \"mpfr.h\"") >/dev/null 2>/dev/null; then
-    echo "MPFR headers are required to build GCC cross-compiler"
     RET=1
 fi
 
