@@ -53,6 +53,15 @@ Beyond package installation, no part of the build needs root privileges.
 
 The build process has two parts: building a cross-compiler, and building the operating system. The cross-compiler uses GCC 6.4.0 and will be built automatically by `make` if other dependencies have been met. This only needs to be done once, and the cross-compiler does not depend on any of the components built for the operating system itself, though it is attached to the base directory of the repository so you may need to rebuild the toolchain if you move your checkout. Once the cross-compiler has been built, `make` will continue to build the operating system itself.
 
+### Building With Docker
+
+You can skip the process of building the cross-compiler toolchain (which doesn't get updated very often anyway) by using our pre-built toolchain through Docker:
+
+    docker pull toaruos/build-tools:1.8.x
+    docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
+
+After building like this, you can run the various utility targets (`make run`, etc.) by setting `TOOLCHAIN=none`. Try `TOOLCHAIN=none make shell` to run a ToaruOS shell (using QEMU and a network socket - you'll need netcat for this to work).
+
 ### Build Process Internals
 
 The `Makefile` first checks to see if a toolchain is available and activates it (appends its `bin` directory to `$PATH`). If a toolchain is not available, users are prompted if they would like to build one. This process downloads and patches both Binutils and GCC and then builds and installs them locally.
