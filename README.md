@@ -57,6 +57,8 @@ The build process has two parts: building a cross-compiler, and building the ope
 
 You can skip the process of building the cross-compiler toolchain (which doesn't get updated very often anyway) by using our pre-built toolchain through Docker:
 
+    git clone https://github.com/klange/toaruos
+    cd toaruos
     docker pull toaruos/build-tools:1.8.x
     docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
 
