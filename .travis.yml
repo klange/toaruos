@@ -1,6 +1,6 @@
 language: c
 script:
-  - docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.utf-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
+  - docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
 sudo: required
 dist: trusty
 serivces:
