@@ -17,7 +17,7 @@ deploy:
   provider: releases
   api_key:
     secure: Lcs5kHe9HAwcVLdm8c0FkAb77U9yzUQdI5PmTU1AnFyHtrPmW1+9d6HeYSPLHm+cPAUdWKqouJNKW7s76Sqhz+4IDcwro7VkbV/fd9NFQCOf9Jb5QScmCZndmYVQUiUmy/7wVqGdy+vatKEsnngctT7aVVhJ5SrWoCPmcttUez8=
-  file: toaruos.iso
+  file: image.iso
   skip_cleanup: true
   overwrite: true
   on:
