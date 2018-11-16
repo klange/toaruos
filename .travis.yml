@@ -1,0 +1,24 @@
+language: c
+script:
+  - docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.utf-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
+sudo: required
+dist: trusty
+serivces:
+  - docker
+before_install:
+  - docker pull toaruos/build-tools:1.8.x
+notifications:
+  irc:
+    channels:
+      - secure: "YIH2do6BypI1ZiXONyldvW/xt8O2j/PDb3sPzGUwJql08pItH3t3MPN3JHtKEBU7+/yFB58HbA2C8B1gu/oAGs2tqMCFYiapVUYYv5CudvMt+XkBzxgKRFwPcvPtz+lAjVbIM0SXDdlrfjczDGKPnEvCYBIu+ZYlz8dgn5DEVX8="
+    use_notice: false
+    skip_join: true
+deploy:
+  provider: releases
+  api_key:
+    secure: Lcs5kHe9HAwcVLdm8c0FkAb77U9yzUQdI5PmTU1AnFyHtrPmW1+9d6HeYSPLHm+cPAUdWKqouJNKW7s76Sqhz+4IDcwro7VkbV/fd9NFQCOf9Jb5QScmCZndmYVQUiUmy/7wVqGdy+vatKEsnngctT7aVVhJ5SrWoCPmcttUez8=
+  file: toaruos.iso
+  skip_cleanup: true
+  overwrite: true
+  on:
+    tags: true
