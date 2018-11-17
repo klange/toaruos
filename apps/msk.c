@@ -73,11 +73,15 @@ static void read_config(void) {
 	msk_config = conf;
 }
 
-static void read_manifest(void) {
+static void read_manifest(int required) {
 	confreader_t * conf = confreader_load(VAR_PATH "/manifest");
 	if (!conf) {
-		fprintf(stderr, "no manifest; try `msk update` first\n");
-		exit(1);
+		if (required) {
+			fprintf(stderr, "no manifest; try `msk update` first\n");
+			exit(1);
+		} else {
+			conf = confreader_create_empty();
+		}
 	}
 
 	msk_manifest = conf;
@@ -370,7 +374,7 @@ static int install_package(char * pkg) {
 static int install_packages(int argc, char * argv[]) {
 	needs_root();
 	read_config();
-	read_manifest();
+	read_manifest(1);
 	read_installed();
 
 	/* Go through each package and find its dependencies */
@@ -412,7 +416,7 @@ static int install_packages(int argc, char * argv[]) {
 
 static int list_packages(int argc, char * argv[]) {
 	read_config();
-	read_manifest();
+	read_manifest(0);
 	read_installed();
 
 	/* Go through sections */
@@ -425,6 +429,29 @@ static int list_packages(int argc, char * argv[]) {
 		/* TODO: Installation status */
 	}
 
+	return 0;
+}
+
+static int count_packages(int argc, char * argv[]) {
+	read_config();
+	read_manifest(0);
+	read_installed();
+
+	int installed = 0;
+	int available = 0;
+
+	/* Go through sections */
+	list_t * packages = hashmap_keys(msk_manifest->sections);
+	foreach(node, packages) {
+		char * name = node->value;
+		if (!strlen(name)) continue; /* skip empty section */
+		available++;
+		if (hashmap_has(msk_installed, name)) {
+			installed++;
+		}
+	}
+
+	fprintf(stdout, "%d installed; %d available\n", installed, available);
 	return 0;
 }
 
@@ -445,6 +472,8 @@ int main(int argc, char * argv[]) {
 		return install_packages(argc,argv);
 	} else if (!strcmp(argv[1], "list")) {
 		return list_packages(argc, argv);
+	} else if (!strcmp(argv[1], "count")) {
+		return count_packages(argc, argv);
 	} else {
 		fprintf(stderr, "%s: unknown command '%s'\n", argv[0], argv[1]);
 		return usage(argc,argv);
