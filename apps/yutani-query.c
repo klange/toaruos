@@ -57,13 +57,27 @@ int main(int argc, char * argv[]) {
 			case 'q':
 				quiet = 1;
 				break;
+
+			/* Legacy options */
 			case 'r':
 				return show_resolution();
 			case 'e':
 				return reload();
+
 			case '?':
 				show_usage(argc,argv);
 				return 0;
+		}
+	}
+
+	if (optind < argc) {
+		if (!strcmp(argv[optind], "resolution")) {
+			return show_resolution();
+		} else if (!strcmp(argv[optind], "reload")) {
+			return reload();
+		} else {
+			fprintf(stderr, "%s: unsupported command: %s\n", argv[0], argv[optind]);
+			return 1;
 		}
 	}
 
