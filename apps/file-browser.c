@@ -82,7 +82,7 @@ struct File {
 };
 
 static int FILE_HEIGHT = 80; /* Not a constant */
-static int FILE_WIDTH = 160;
+static int FILE_WIDTH = 100;
 static int FILE_PTR_WIDTH = 1;
 static gfx_context_t * contents = NULL;
 static sprite_t * contents_sprite = NULL;
@@ -111,12 +111,16 @@ static void draw_file(struct File * f, int offset) {
 	int y = offset_y * FILE_HEIGHT;
 	sprite_t * icon = icon_get_48(f->icon);
 
-	char * name = strdup(f->name);
-	int len = strlen(name);
+	int len = strlen(f->name);
+	char * name = malloc(len + 4);
+	memcpy(name, f->name, len + 1);
 	int name_width;
 	while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > FILE_WIDTH - 8 /* Padding */) {
-		name[len-1] = '\0';
 		len--;
+		name[len+0] = '.';
+		name[len+1] = '.';
+		name[len+2] = '.';
+		name[len+3] = '\0';
 	}
 
 	int center_x_icon = (FILE_WIDTH - icon->width) / 2;
@@ -193,7 +197,11 @@ static void load_directory(const char * path) {
 	set_title(base);
 	free(tmp);
 
-	last_directory = strdup(path);
+	if (path[0] == '/' && path[1] == '/') {
+		last_directory = strdup(path+1);
+	} else {
+		last_directory = strdup(path);
+	}
 
 	/* Get the current time */
 #if 0
