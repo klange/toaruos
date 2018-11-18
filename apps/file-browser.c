@@ -29,6 +29,24 @@
 
 #define APPLICATION_TITLE "File Browser"
 
+uint64_t precise_current_time(void) {
+	struct timeval t;
+	gettimeofday(&t, NULL);
+
+	time_t sec_diff = t.tv_sec;
+	suseconds_t usec_diff = t.tv_usec;
+
+	return (uint64_t)(sec_diff * 1000 + usec_diff / 1000);
+}
+
+uint64_t precise_time_since(uint64_t start_time) {
+
+	uint32_t now = precise_current_time();
+	uint32_t diff = now - start_time; /* Milliseconds */
+
+	return diff;
+}
+
 char title[512];
 
 static yutani_t * yctx;
@@ -60,6 +78,7 @@ struct File {
 	char icon[256];
 	char date[256];
 	int type;
+	int selected;
 };
 
 static int FILE_HEIGHT = 80; /* Not a constant */
@@ -103,12 +122,16 @@ static void draw_file(struct File * f, int offset) {
 	int center_x_icon = (FILE_WIDTH - icon->width) / 2;
 	int center_x_text = (FILE_WIDTH - name_width) / 2;
 	draw_sprite(contents, icon, center_x_icon + x, y + 2);
-	if (offset == hilighted_offset) {
+	if (f->selected) {
 		draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
 		draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
 		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
 	} else {
 		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+	}
+
+	if (offset == hilighted_offset) {
+		draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.3, rgb(255,255,255));
 	}
 
 	free(name);
@@ -221,6 +244,8 @@ static void load_directory(const char * path) {
 				f->type = 0;
 			}
 
+			f->selected = 0;
+
 			list_insert(file_list, f);
 		}
 		ent = readdir(dirp);
@@ -262,13 +287,11 @@ static void reinitialize_contents(void) {
 		sprite_free(contents_sprite);
 	}
 
-	/* Calculate height for current directory */
-	int calculated_height = file_pointers_len * FILE_HEIGHT;
-
 	struct decor_bounds bounds;
 	decor_get_bounds(main_window, &bounds);
 
 	FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
+	int calculated_height = (file_pointers_len / FILE_PTR_WIDTH + 1) * FILE_HEIGHT;
 
 	contents_sprite = create_sprite(main_window->width - bounds.width, calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
@@ -422,6 +445,9 @@ int main(int argc, char * argv[]) {
 	reinitialize_contents();
 	redraw_window();
 
+	uint64_t last_click = 0; /* For double click */
+	int modifiers = 0; /* For shift-click */
+
 	while (application_running) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
@@ -432,6 +458,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
+						modifiers = ke->event.modifiers;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							_menu_action_exit(NULL);
 						}
@@ -531,12 +558,43 @@ int main(int argc, char * argv[]) {
 
 								if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
 									struct File * f = get_file_at_offset(hilighted_offset);
-									if (f && f->type == 1) {
-										char tmp[1024];
-										sprintf(tmp,"%s/%s", last_directory, f->name);
-										load_directory(tmp);
-										reinitialize_contents();
-										redraw_window();
+									if (f) {
+										if (precise_time_since(last_click) < 400) {
+											if (f->type == 1) {
+												char tmp[1024];
+												sprintf(tmp,"%s/%s", last_directory, f->name);
+												load_directory(tmp);
+												reinitialize_contents();
+												redraw_window();
+											}
+											last_click = 0;
+										} else {
+											last_click = precise_current_time();
+											f->selected = !f->selected;
+											if (!(modifiers & KEY_MOD_LEFT_SHIFT)) {
+												for (int i = 0; i < file_pointers_len; ++i) {
+													if (file_pointers[i] != f && file_pointers[i]->selected) {
+														file_pointers[i]->selected = 0;
+														clear_offset(i);
+														draw_file(file_pointers[i], i);
+													}
+												}
+											}
+											clear_offset(hilighted_offset);
+											draw_file(f, hilighted_offset);
+											redraw_window();
+										}
+									} else {
+										if (!(modifiers & KEY_MOD_LEFT_SHIFT)) {
+											for (int i = 0; i < file_pointers_len; ++i) {
+												if (file_pointers[i]->selected) {
+													file_pointers[i]->selected = 0;
+													clear_offset(i);
+													draw_file(file_pointers[i], i);
+												}
+											}
+											redraw_window();
+										}
 									}
 								} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
 									if (!context_menu->window) {
