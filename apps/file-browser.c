@@ -14,6 +14,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <math.h>
+#include <libgen.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -27,6 +28,8 @@
 #include <toaru/sdf.h>
 
 #define APPLICATION_TITLE "File Browser"
+
+char title[512];
 
 static yutani_t * yctx;
 static yutani_window_t * main_window;
@@ -101,6 +104,18 @@ static void redraw_files(void) {
 	}
 }
 
+static void set_title(char * directory) {
+	if (directory) {
+		if (!strcmp(directory, "/")) {
+			directory = "File System";
+		}
+		sprintf(title, "%s - " APPLICATION_TITLE, directory);
+	} else {
+		sprintf(title, APPLICATION_TITLE);
+	}
+	yutani_window_advertise_icon(yctx, main_window, title, "folder");
+}
+
 static void load_directory(const char * path) {
 	if (file_pointers) {
 		for (int i = 0; i < file_pointers_len; ++i) {
@@ -121,6 +136,11 @@ static void load_directory(const char * path) {
 	if (last_directory) {
 		free(last_directory);
 	}
+
+	char * tmp = strdup(path);
+	char * base = basename(tmp);
+	set_title(base);
+	free(tmp);
 
 	last_directory = strdup(path);
 
@@ -231,7 +251,7 @@ static void reinitialize_contents(void) {
 static void redraw_window(void) {
 	draw_fill(ctx, rgb(255,255,255));
 
-	render_decorations(main_window, ctx, APPLICATION_TITLE);
+	render_decorations(main_window, ctx, title);
 
 	struct decor_bounds bounds;
 	decor_get_bounds(main_window, &bounds);
@@ -299,9 +319,9 @@ static void _menu_action_navigate(struct MenuEntry * entry) {
 
 static void _menu_action_up(struct MenuEntry * entry) {
 	/* go up */
-	char tmp[1024];
-	sprintf(tmp, "%s/..", last_directory);
-	load_directory(tmp);
+	char * tmp = strdup(last_directory);
+	char * dir = dirname(tmp);
+	load_directory(dir);
 	reinitialize_contents();
 	redraw_window();
 }
@@ -334,7 +354,7 @@ int main(int argc, char * argv[]) {
 	struct decor_bounds bounds;
 	decor_get_bounds(main_window, &bounds);
 
-	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "folder");
+	set_title(NULL);
 
 	menu_bar.entries = menu_entries;
 	menu_bar.redraw_callback = redraw_window;
