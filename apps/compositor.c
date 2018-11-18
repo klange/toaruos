@@ -859,16 +859,19 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 
 	uint32_t * buffer = NULL;
 	int width, height;
+	int alpha;
 
 	if (task == YUTANI_SCREENSHOT_FULL) {
 		buffer = (void *)yg->backend_ctx->backbuffer;
 		width = yg->width;
 		height = yg->height;
+		alpha = 0;
 	} else if (task == YUTANI_SCREENSHOT_WINDOW) {
 		yutani_server_window_t * window = yg->focused_window;
 		buffer = (void *)window->buffer;
 		width = window->width;
 		height = window->height;
+		alpha = 1;
 	}
 
 	if (buffer) {
@@ -894,8 +897,8 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 			2, /* Uncompressed truecolor */
 			0, 0, 0, /* No color map */
 			0, 0, /* Don't care about origin */
-			width, height, 32,
-			8,
+			width, height, alpha ? 32 : 24,
+			alpha ? 8 : 0,
 		};
 		fwrite(&header, 1, sizeof(header), f);
 
@@ -907,7 +910,7 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 					_RED(buffer[y * width + x]),
 					_ALP(buffer[y * width + x]),
 				};
-				fwrite(buf, 1, 4, f);
+				fwrite(buf, 1, alpha ? 4 : 3, f);
 			}
 		}
 	}
