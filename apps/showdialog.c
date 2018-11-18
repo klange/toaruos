@@ -75,21 +75,26 @@ static void draw_button(struct button * button) {
 	struct gradient_definition edge = {button->height, button->y, rgb(166,166,166), rgb(136,136,136)};
 	draw_rounded_rectangle_pattern(ctx, button->x, button->y, button->width, button->height, 4, gradient_pattern, &edge);
 	/* Sheen */
-	draw_rounded_rectangle(ctx, button->x + 1, button->y + 1, button->width - 2, button->height - 2, 3, rgb(238,238,238));
+	if (button->hilight < 2) {
+		draw_rounded_rectangle(ctx, button->x + 1, button->y + 1, button->width - 2, button->height - 2, 3, rgb(238,238,238));
 	/* Button face - this should normally be a gradient */
-	if (button->hilight) {
-		struct gradient_definition face = {button->height-3, button->y + 2, rgb(240,240,240), rgb(230,230,230)};
-		draw_rounded_rectangle_pattern(ctx, button->x + 2, button->y + 2, button->width - 4, button->height - 3, 2, gradient_pattern, &face);
-	} else {
-		struct gradient_definition face = {button->height-3, button->y + 2, rgb(219,219,219), rgb(204,204,204)};
-		draw_rounded_rectangle_pattern(ctx, button->x + 2, button->y + 2, button->width - 4, button->height - 3, 2, gradient_pattern, &face);
+		if (button->hilight == 1) {
+			struct gradient_definition face = {button->height-3, button->y + 2, rgb(240,240,240), rgb(230,230,230)};
+			draw_rounded_rectangle_pattern(ctx, button->x + 2, button->y + 2, button->width - 4, button->height - 3, 2, gradient_pattern, &face);
+		} else {
+			struct gradient_definition face = {button->height-3, button->y + 2, rgb(219,219,219), rgb(204,204,204)};
+			draw_rounded_rectangle_pattern(ctx, button->x + 2, button->y + 2, button->width - 4, button->height - 3, 2, gradient_pattern, &face);
+		}
+	} else if (button->hilight == 2) {
+		struct gradient_definition face = {button->height-2, button->y + 1, rgb(180,180,180), rgb(160,160,160)};
+		draw_rounded_rectangle_pattern(ctx, button->x + 1, button->y + 1, button->width - 2, button->height - 2, 3, gradient_pattern, &face);
 	}
 
 	int label_width = draw_sdf_string_width(button->title, 16, SDF_FONT_THIN);
 	int centered = (button->width - label_width) / 2;
 
 	int centered_y = (button->height - 16) / 2;
-	draw_sdf_string(ctx, button->x + centered, button->y + centered_y, button->title, 16, rgb(0,0,0), SDF_FONT_THIN);
+	draw_sdf_string(ctx, button->x + centered + (button->hilight == 2), button->y + centered_y + (button->hilight == 2), button->title, 16, rgb(0,0,0), SDF_FONT_THIN);
 
 }
 
@@ -171,6 +176,19 @@ void resize_finish(int w, int h) {
 	yutani_window_resize_done(yctx, window);
 }
 
+void set_hilight(struct button * button, int hilight) {
+	if (!button && (_ok.hilight || _cancel.hilight)) {
+		_ok.hilight = 0;
+		_cancel.hilight = 0;
+		redraw();
+	} else if (button && (button->hilight != hilight)) {
+		_ok.hilight = 0;
+		_cancel.hilight = 0;
+		button->hilight = hilight;
+		redraw();
+	}
+}
+
 
 int main(int argc, char * argv[]) {
 	int req_center_x, req_center_y;
@@ -190,7 +208,7 @@ int main(int argc, char * argv[]) {
 
 	if (argc < 2) {
 		init_default();
-	} else if (argc < 5) {
+	} else if (argc < 4) {
 		fprintf(stderr, "Invalid arguments.\n");
 		return 1;
 	} else {
@@ -198,7 +216,7 @@ int main(int argc, char * argv[]) {
 		icon_path = argv[2];
 
 		int i = 0;
-		char * me = argv[4], * end;
+		char * me = argv[3], * end;
 		do {
 			copyright_str[i] = me;
 			i++;
@@ -225,7 +243,10 @@ int main(int argc, char * argv[]) {
 	logo.alpha = ALPHA_EMBEDDED;
 	redraw();
 
+	struct button * _down_button = NULL;
+
 	int playing = 1;
+	int status = 0;
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
@@ -265,6 +286,7 @@ int main(int argc, char * argv[]) {
 							switch (result) {
 								case DECOR_CLOSE:
 									playing = 0;
+									status = 2;
 									break;
 								case DECOR_RIGHT:
 									/* right click in decoration, show appropriate menu */
@@ -278,23 +300,46 @@ int main(int argc, char * argv[]) {
 							struct decor_bounds bounds;
 							decor_get_bounds(window, &bounds);
 							if (me->new_y > bounds.top_height) {
-								if (in_button(&_ok, me)) {
-									if (!_ok.hilight) {
-										_ok.hilight = 1;
-										_cancel.hilight = 0;
-										redraw();
+
+								if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
+									if (in_button(&_ok, me)) {
+										set_hilight(&_ok, 2);
+										_down_button = &_ok;
+									} else if (in_button(&_cancel, me)) {
+										set_hilight(&_cancel, 2);
+										_down_button = &_cancel;
 									}
-								} else if (in_button(&_cancel, me)) {
-									if (!_cancel.hilight) {
-										_cancel.hilight = 1;
-										_ok.hilight = 0;
-										redraw();
+								} else if (me->command == YUTANI_MOUSE_EVENT_RAISE || me->command == YUTANI_MOUSE_EVENT_CLICK) {
+									if (_down_button) {
+										if (in_button(_down_button, me)) {
+											if (_down_button == &_cancel) {
+												playing = 0;
+												status  = 1;
+												break;
+											} else if (_down_button == &_ok) {
+												playing = 0;
+												status = 0;
+												break;
+											}
+											_down_button->hilight = 0;
+										}
 									}
-								} else {
-									if (_ok.hilight || _cancel.hilight) {
-										_cancel.hilight = 0;
-										_ok.hilight = 0;
-										redraw();
+									_down_button = NULL;
+								}
+
+								if (!me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
+									if (in_button(&_ok, me)) {
+										set_hilight(&_ok, 1);
+									} else if (in_button(&_cancel, me)) {
+										set_hilight(&_cancel, 1);
+									} else {
+										set_hilight(NULL,0);
+									}
+								} else if (_down_button) {
+									if (in_button(_down_button, me)) {
+										set_hilight(_down_button, 2);
+									} else {
+										set_hilight(NULL, 0);
 									}
 								}
 							}
@@ -304,6 +349,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_CLOSE:
 				case YUTANI_MSG_SESSION_END:
 					playing = 0;
+					status = 2;
 					break;
 				default:
 					break;
@@ -315,5 +361,5 @@ int main(int argc, char * argv[]) {
 
 	yutani_close(yctx, window);
 
-	return 0;
+	return status;
 }
