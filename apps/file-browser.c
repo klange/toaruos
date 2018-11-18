@@ -474,7 +474,7 @@ int main(int argc, char * argv[]) {
 
 	uint64_t last_click = 0; /* For double click */
 	int last_click_offset = -1;
-	int modifiers = 0; /* For shift-click */
+	int modifiers = 0; /* For ctrl-click */
 
 	while (application_running) {
 		yutani_msg_t * m = yutani_poll(yctx);
@@ -600,7 +600,7 @@ int main(int argc, char * argv[]) {
 											last_click = precise_current_time();
 											last_click_offset = hilighted_offset;
 											f->selected = !f->selected;
-											if (!(modifiers & KEY_MOD_LEFT_SHIFT)) {
+											if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
 												for (int i = 0; i < file_pointers_len; ++i) {
 													if (file_pointers[i] != f && file_pointers[i]->selected) {
 														file_pointers[i]->selected = 0;
@@ -614,7 +614,7 @@ int main(int argc, char * argv[]) {
 											redraw_window();
 										}
 									} else {
-										if (!(modifiers & KEY_MOD_LEFT_SHIFT)) {
+										if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
 											for (int i = 0; i < file_pointers_len; ++i) {
 												if (file_pointers[i]->selected) {
 													file_pointers[i]->selected = 0;
