@@ -851,7 +851,7 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	yg->screenshot_frame = 0;
 
 	/* raw screenshots */
-	FILE * f = fopen("/tmp/screenshot.rgba", "w");
+	FILE * f = fopen("/tmp/screenshot.tga", "w");
 	if (!f) {
 		TRACE("Error opening output file for screenshot.");
 		return;
@@ -872,12 +872,39 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	}
 
 	if (buffer) {
-		for (int y = 0; y <height; ++y) {
+
+		struct {
+			uint8_t id_length;
+			uint8_t color_map_type;
+			uint8_t image_type;
+
+			uint16_t color_map_first_entry;
+			uint16_t color_map_length;
+			uint8_t color_map_entry_size;
+
+			uint16_t x_origin;
+			uint16_t y_origin;
+			uint16_t width;
+			uint16_t height;
+			uint8_t  depth;
+			uint8_t  descriptor;
+		} __attribute__((packed)) header = {
+			0, /* No image ID field */
+			0, /* No color map */
+			2, /* Uncompressed truecolor */
+			0, 0, 0, /* No color map */
+			0, 0, /* Don't care about origin */
+			width, height, 32,
+			8,
+		};
+		fwrite(&header, 1, sizeof(header), f);
+
+		for (int y = height-1; y>=0; y--) {
 			for (int x = 0; x < width; ++x) {
 				uint8_t buf[4] = {
-					_RED(buffer[y * width + x]),
-					_GRE(buffer[y * width + x]),
 					_BLU(buffer[y * width + x]),
+					_GRE(buffer[y * width + x]),
+					_RED(buffer[y * width + x]),
 					_ALP(buffer[y * width + x]),
 				};
 				fwrite(buf, 1, 4, f);
