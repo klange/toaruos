@@ -404,6 +404,8 @@ static void _menu_action_copy(struct MenuEntry * entry) {
 		}
 	}
 
+	if (!output_size) return;
+
 	char * clipboard = malloc(output_size);
 	clipboard[0] = '\0';
 	for (int i = 0; i < file_pointers_len; ++i) {
@@ -413,6 +415,11 @@ static void _menu_action_copy(struct MenuEntry * entry) {
 			strcat(clipboard, file_pointers[i]->name);
 			strcat(clipboard, "\n");
 		}
+	}
+
+	if (clipboard[output_size-1] == '\n') {
+		/* Remove trailing line feed */
+		clipboard[output_size-1] = '\0';
 	}
 
 	yutani_set_clipboard(yctx, clipboard);
