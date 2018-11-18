@@ -812,6 +812,49 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 	}
 }
 
+void draw_rounded_rectangle_pattern(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, int radius, uint32_t (*pattern)(int32_t x, int32_t y, double alpha, void * extra), void * extra) {
+	/* Draw a rounded rectangle */
+
+	if (radius > width / 2) {
+		radius = width / 2;
+	}
+
+	if (radius > height / 2) {
+		radius = height / 2;
+	}
+
+	for (int row = y; row < y + height; row++){
+		for (int col = x; col < x + width; col++) {
+			if ((col < x + radius || col > x + width - radius - 1) &&
+				(row < y + radius || row > y + height - radius - 1)) {
+				continue;
+			}
+			GFX(ctx, col, row) = alpha_blend_rgba(GFX(ctx, col, row), pattern(col,row,1.0,extra));
+		}
+	}
+
+	/* draw the actual rounding */
+	for (int i = 0; i < radius; ++i) {
+		long r2 = radius * radius;
+		long i2 = i * i;
+		long j2 = r2 - i2;
+		double j_max = sqrt((double)j2);
+
+		for (int j = 0; j <= (int)j_max; ++j) {
+			int _x = x + width - radius + i;
+			int _y = y + height - radius + j;
+			int _z = y + radius - j - 1;
+
+			double alpha = (j_max - (double)j);
+			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
+			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
+			_x = x + radius - i - 1;
+			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
+			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
+		}
+	}
+}
+
 float gfx_point_distance(struct gfx_point * a, struct gfx_point * b) {
 	return sqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y));
 }
