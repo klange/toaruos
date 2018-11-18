@@ -389,7 +389,7 @@ int unlink_fs(char * name) {
 
 	if (!has_permission(parent, 02)) {
 		free(path);
-		free(parent);
+		close_fs(parent);
 		return -EACCES;
 	}
 
@@ -401,7 +401,7 @@ int unlink_fs(char * name) {
 	}
 
 	free(path);
-	free(parent);
+	close_fs(parent);
 	return ret;
 }
 
@@ -444,6 +444,12 @@ int mkdir_fs(char *name, uint16_t permission) {
 			return -EEXIST;
 		}
 		return -ENOENT;
+	}
+
+	if (!has_permission(parent, 02)) {
+		free(path);
+		close_fs(parent);
+		return -EACCES;
 	}
 
 	int ret = 0;
