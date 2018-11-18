@@ -62,6 +62,9 @@ struct File {
 	int type;
 };
 
+static int FILE_HEIGHT = 80; /* Not a constant */
+static int FILE_WIDTH = 160;
+static int FILE_PTR_WIDTH = 1;
 static gfx_context_t * contents = NULL;
 static sprite_t * contents_sprite = NULL;
 static char * last_directory = NULL;
@@ -77,23 +80,48 @@ static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 }
 
 static void clear_offset(int offset) {
-	draw_rectangle(contents, 0, offset * 24, contents->width, 24, rgb(255,255,255));
+	int offset_y = offset / FILE_PTR_WIDTH;
+	int offset_x = offset % FILE_PTR_WIDTH;
+	draw_rectangle(contents, offset_x * FILE_WIDTH, offset_y * FILE_HEIGHT, FILE_WIDTH, FILE_HEIGHT, rgb(255,255,255));
 }
 
 static void draw_file(struct File * f, int offset) {
-	sprite_t * icon = icon_get_16(f->icon);
-	draw_sprite(contents, icon, 2, offset * 24 + 2);
-	if (offset == hilighted_offset) {
-		draw_sprite_alpha_paint(contents, icon, 2, offset * 24 + 2, 0.5, rgb(72,167,255));
-		draw_sdf_string(contents, 30, offset * 24, f->name, 16, rgb(72,167,255), SDF_FONT_THIN);
-	} else {
-		draw_sdf_string(contents, 30, offset * 24, f->name, 16, rgb(0,0,0), SDF_FONT_THIN);
+	int offset_y = offset / FILE_PTR_WIDTH;
+	int offset_x = offset % FILE_PTR_WIDTH;
+	int x = offset_x * FILE_WIDTH;
+	int y = offset_y * FILE_HEIGHT;
+	sprite_t * icon = icon_get_48(f->icon);
+
+	char * name = strdup(f->name);
+	int len = strlen(name);
+	int name_width;
+	while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > FILE_WIDTH - 8 /* Padding */) {
+		name[len-1] = '\0';
+		len--;
 	}
+
+	int center_x_icon = (FILE_WIDTH - icon->width) / 2;
+	int center_x_text = (FILE_WIDTH - name_width) / 2;
+	draw_sprite(contents, icon, center_x_icon + x, y + 2);
+	if (offset == hilighted_offset) {
+		draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
+		draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
+		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
+	} else {
+		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+	}
+
+	free(name);
 }
 
 static struct File * get_file_at_offset(int offset) {
-	if (offset >= 0 && offset < file_pointers_len) {
-		return file_pointers[offset];
+	int offset_y = offset / FILE_PTR_WIDTH;
+	int offset_x = offset % FILE_PTR_WIDTH;
+	if (offset_y >= 0 && offset_x >= 0) {
+		int off_calc = offset_y * FILE_PTR_WIDTH + offset_x;
+		if (off_calc < file_pointers_len) {
+			return file_pointers[off_calc];
+		}
 	}
 	return NULL;
 }
@@ -208,6 +236,7 @@ static void load_directory(const char * path) {
 		i++;
 	}
 
+
 	list_free(file_list);
 	free(file_list);
 
@@ -234,10 +263,12 @@ static void reinitialize_contents(void) {
 	}
 
 	/* Calculate height for current directory */
-	int calculated_height = file_pointers_len * 24;
+	int calculated_height = file_pointers_len * FILE_HEIGHT;
 
 	struct decor_bounds bounds;
 	decor_get_bounds(main_window, &bounds);
+
+	FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
 
 	contents_sprite = create_sprite(main_window->width - bounds.width, calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
@@ -474,7 +505,11 @@ int main(int argc, char * argv[]) {
 
 								/* Get offset into contents */
 								int y_into = me->new_y - bounds.top_height - MENU_BAR_HEIGHT + scroll_offset;
-								int offset = y_into / 24;
+								int x_into = me->new_x - bounds.left_width;
+								int offset = (y_into / FILE_HEIGHT) * FILE_PTR_WIDTH + x_into / FILE_WIDTH;
+								if (x_into > FILE_PTR_WIDTH * FILE_WIDTH) {
+									offset = -1;
+								}
 								if (offset != hilighted_offset) {
 									int old_offset = hilighted_offset;
 									hilighted_offset = offset;
