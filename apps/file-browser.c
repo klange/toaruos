@@ -46,6 +46,8 @@ static struct menu_bar_entries menu_entries[] = {
 	{NULL, NULL},
 };
 
+static struct MenuList * context_menu = NULL;
+
 static void _menu_action_exit(struct MenuEntry * entry) {
 	application_running = 0;
 }
@@ -361,6 +363,10 @@ int main(int argc, char * argv[]) {
 	menu_set_insert(menu_bar.set, "help", m);
 
 	available_height = ctx->height - MENU_BAR_HEIGHT - bounds.height;
+
+	context_menu = menu_create(); /* Right-click menu */
+	menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+
 	load_directory("/usr/share");
 	reinitialize_contents();
 	redraw_window();
@@ -476,6 +482,11 @@ int main(int argc, char * argv[]) {
 										load_directory(tmp);
 										reinitialize_contents();
 										redraw_window();
+									}
+								} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
+									if (!context_menu->window) {
+										menu_show(context_menu, main_window->ctx);
+										yutani_window_move(main_window->ctx, context_menu->window, me->new_x + main_window->x, me->new_y + main_window->y);
 									}
 								}
 
