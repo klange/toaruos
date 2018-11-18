@@ -386,6 +386,31 @@ static void _menu_action_help(struct MenuEntry * entry) {
 	redraw_window();
 }
 
+static void _menu_action_copy(struct MenuEntry * entry) {
+	size_t output_size = 0;
+
+	int base_is_root = !strcmp(last_directory, "/"); /* avoid redundant slash */
+	for (int i = 0; i < file_pointers_len; ++i) {
+		if (file_pointers[i]->selected) {
+			output_size += strlen(last_directory) + !base_is_root + strlen(file_pointers[i]->name) + 1; /* base / file \n */
+		}
+	}
+
+	char * clipboard = malloc(output_size);
+	clipboard[0] = '\0';
+	for (int i = 0; i < file_pointers_len; ++i) {
+		if (file_pointers[i]->selected) {
+			strcat(clipboard, last_directory);
+			if (!base_is_root) { strcat(clipboard, "/"); }
+			strcat(clipboard, file_pointers[i]->name);
+			strcat(clipboard, "\n");
+		}
+	}
+
+	yutani_set_clipboard(yctx, clipboard);
+	free(clipboard);
+}
+
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
 	char about_cmd[1024] = "\0";
@@ -440,6 +465,8 @@ int main(int argc, char * argv[]) {
 
 	context_menu = menu_create(); /* Right-click menu */
 	menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+	menu_insert(context_menu, menu_create_separator());
+	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
 
 	load_directory("/usr/share");
 	reinitialize_contents();
