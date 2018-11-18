@@ -635,8 +635,10 @@ static void launch_application_menu(struct MenuEntry * self) {
 	struct MenuEntry_Normal * _self = (void *)self;
 
 	if (!strcmp((char *)_self->action,"log-out")) {
-		yutani_session_end(yctx);
-		_continue = 0;
+		if (system("showdialog \"Log Out\" /usr/share/icons/48/exit.bmp \"Are you sure you want to log out?\"") == 0) {
+			yutani_session_end(yctx);
+			_continue = 0;
+		}
 	} else {
 		launch_application((char *)_self->action);
 	}
