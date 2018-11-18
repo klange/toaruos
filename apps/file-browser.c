@@ -446,6 +446,7 @@ int main(int argc, char * argv[]) {
 	redraw_window();
 
 	uint64_t last_click = 0; /* For double click */
+	int last_click_offset = -1;
 	int modifiers = 0; /* For shift-click */
 
 	while (application_running) {
@@ -559,7 +560,7 @@ int main(int argc, char * argv[]) {
 								if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
 									struct File * f = get_file_at_offset(hilighted_offset);
 									if (f) {
-										if (precise_time_since(last_click) < 400) {
+										if (last_click_offset == hilighted_offset && precise_time_since(last_click) < 400) {
 											if (f->type == 1) {
 												char tmp[1024];
 												sprintf(tmp,"%s/%s", last_directory, f->name);
@@ -570,6 +571,7 @@ int main(int argc, char * argv[]) {
 											last_click = 0;
 										} else {
 											last_click = precise_current_time();
+											last_click_offset = hilighted_offset;
 											f->selected = !f->selected;
 											if (!(modifiers & KEY_MOD_LEFT_SHIFT)) {
 												for (int i = 0; i < file_pointers_len; ++i) {
