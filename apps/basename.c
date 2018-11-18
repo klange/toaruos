@@ -7,6 +7,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <libgen.h>
 
 int main(int argc, char * argv[]) {
 	if (argc < 2) {
@@ -14,23 +15,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	char * s = argv[1];
-	char * c = NULL;
-	do {
-		while (*s == '/') {
-			*s = '\0'; s++;
-			if (!*s) goto _done;
-		}
-		c = s;
-		s = strchr(c,'/');
-	} while (s);
-
-_done:
-	if (!c) {
-		/* Special case */
-		fprintf(stdout, "/\n");
-		return 0;
-	}
+	char * c = basename(argv[1]);
 
 	if (argc > 2) {
 		char * suffix = argv[2];
