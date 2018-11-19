@@ -761,7 +761,21 @@ void draw_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, u
 			GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), color);
 		}
 	}
+}
 
+void draw_rectangle_solid(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, uint32_t color) {
+	int32_t _left   = max(x, 0);
+	int32_t _top    = max(y, 0);
+	int32_t _right  = min(x + width,  ctx->width - 1);
+	int32_t _bottom = min(y + height, ctx->height - 1);
+	for (uint16_t _y = 0; _y < height; ++_y) {
+		if (!_is_in_clip(ctx, y + _y)) continue;
+		for (uint16_t _x = 0; _x < width; ++_x) {
+			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
+				continue;
+			GFX(ctx, x + _x, y + _y) = color;
+		}
+	}
 }
 
 void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, int radius, uint32_t color) {
@@ -801,6 +815,8 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 			uint32_t c = color;
 			if (j == (int)j_max) {
 				c = premultiply(rgba(_RED(c),_GRE(c),_BLU(c),(int)((double)_ALP(c) * (j_max - (double)j))));
+			} else {
+				c = premultiply(c);
 			}
 
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), c);
