@@ -29,7 +29,9 @@ int main(int argc, char * argv[]) {
 
 	int _background_pid = fork();
 	if (!_background_pid) {
-		char * args[] = {"/bin/background", "--really", NULL};
+		sprintf(path, "%s/Desktop", home);
+		chdir(path);
+		char * args[] = {"/bin/file-browser", "--wallpaper", NULL};
 		execvp(args[0], args);
 	}
 

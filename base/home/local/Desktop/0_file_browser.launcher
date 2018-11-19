@@ -1,0 +1,3 @@
+icon=folder
+run=cd ~ ; file-browser
+title=File Browser

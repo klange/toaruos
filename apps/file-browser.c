@@ -15,6 +15,7 @@
 #include <time.h>
 #include <math.h>
 #include <libgen.h>
+#include <signal.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -59,6 +60,11 @@ static int application_running = 1;
 static int show_hidden = 1;
 static int scroll_offset = 0;
 static int available_height = 0;
+static int is_desktop_background = 0;
+static sprite_t * wallpaper_buffer = NULL;
+static void draw_background(int width, int height);
+
+static int menu_bar_height = MENU_BAR_HEIGHT;
 
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
@@ -74,12 +80,24 @@ static void _menu_action_exit(struct MenuEntry * entry) {
 	application_running = 0;
 }
 
+static int _decor_get_bounds(yutani_window_t * win, struct decor_bounds * bounds) {
+	if (is_desktop_background) {
+		memset(bounds, 0, sizeof(struct decor_bounds));
+		bounds->top_height = 30;
+		bounds->left_width = 20;
+		return 0;
+	}
+	return decor_get_bounds(win, bounds);
+}
+
 struct File {
 	char name[256];
 	char icon[256];
 	//char date[256];
 	char link[256]; /* why so big */
-	char * launcher;
+	char launcher[256];
+	char filename[256];
+	int order;
 	int type;
 	int selected;
 };
@@ -104,7 +122,7 @@ static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 static void clear_offset(int offset) {
 	int offset_y = offset / FILE_PTR_WIDTH;
 	int offset_x = offset % FILE_PTR_WIDTH;
-	draw_rectangle(contents, offset_x * FILE_WIDTH, offset_y * FILE_HEIGHT, FILE_WIDTH, FILE_HEIGHT, rgb(255,255,255));
+	draw_rectangle_solid(contents, offset_x * FILE_WIDTH, offset_y * FILE_HEIGHT, FILE_WIDTH, FILE_HEIGHT, rgba(0,0,0,0));
 }
 
 static void draw_file(struct File * f, int offset) {
@@ -134,7 +152,13 @@ static void draw_file(struct File * f, int offset) {
 		draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
 		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
 	} else {
-		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+		if (is_desktop_background) {
+			//draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgba(255,255,255,120));
+			draw_sdf_string_stroke(contents, center_x_text + x + 1, y + 55, name, 16, rgba(0,0,0,120), SDF_FONT_THIN, 1.7, 0.5);
+			draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
+		} else {
+			draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+		}
 	}
 
 	if (offset == hilighted_offset) {
@@ -168,6 +192,7 @@ static void redraw_files(void) {
 }
 
 static void set_title(char * directory) {
+	if (is_desktop_background) return;
 	if (directory) {
 		if (!strcmp(directory, "/")) {
 			directory = "File System";
@@ -214,10 +239,15 @@ static void load_directory(const char * path) {
 		free(last_directory);
 	}
 
-	char * tmp = strdup(path);
-	char * base = basename(tmp);
-	set_title(base);
-	free(tmp);
+	char * home = getenv("HOME");
+	if (home && !strcmp(path, home)) {
+		set_title("Home");
+	} else {
+		char * tmp = strdup(path);
+		char * base = basename(tmp);
+		set_title(base);
+		free(tmp);
+	}
 
 	if (path[0] == '/' && path[1] == '/') {
 		last_directory = strdup(path+1);
@@ -266,27 +296,50 @@ static void load_directory(const char * path) {
 				f->link[0] = '\0';
 			}
 
-			f->launcher = NULL;
+			f->launcher[0] = '\0';
 
 			if (S_ISDIR(statbuf.st_mode)) {
 				sprintf(f->icon, "folder");
 				f->type = 1;
 			} else {
-				f->launcher = "terminal bim";
-				if (has_extension(f, ".c")) {
-					sprintf(f->icon, "c");
-				} else if (has_extension(f, ".h")) {
-					sprintf(f->icon, "h");
-				} else if (has_extension(f, ".bmp")) {
-					sprintf(f->icon, "image");
-					f->launcher = "imgviewer";
-				} else if (statbuf.st_mode & 0111) {
-					sprintf(f->icon, "%s", f->name);
-					f->launcher = "SELF";
+				sprintf(f->launcher, "exec terminal bim");
+				if (is_desktop_background && has_extension(f, ".launcher")) {
+					FILE * file = fopen(tmp,"r");
+					char tbuf[1024];
+					while (!feof(file)) {
+						fgets(tbuf, 1024, file);
+						char * nl = strchr(tbuf,'\n');
+						if (nl) *nl = '\0';
+						char * eq = strchr(tbuf,'=');
+						if (!eq) continue;
+						*eq = '\0'; eq++;
+
+						if (!strcmp(tbuf, "icon")) {
+							sprintf(f->icon, "%s", eq);
+						} else if (!strcmp(tbuf, "run")) {
+							sprintf(f->launcher, "%s #", eq);
+						} else if (!strcmp(tbuf, "title")) {
+							sprintf(f->name, eq);
+						}
+					}
+					sprintf(f->filename, "%s", tmp);
+					f->type = 2;
 				} else {
-					sprintf(f->icon, "file");
+					if (has_extension(f, ".c")) {
+						sprintf(f->icon, "c");
+					} else if (has_extension(f, ".h")) {
+						sprintf(f->icon, "h");
+					} else if (has_extension(f, ".bmp")) {
+						sprintf(f->icon, "image");
+						sprintf(f->launcher, "exec imgviewer");
+					} else if (statbuf.st_mode & 0111) {
+						sprintf(f->icon, "%s", f->name);
+						sprintf(f->launcher, "SELF");
+					} else {
+						sprintf(f->icon, "file");
+					}
+					f->type = 0;
 				}
-				f->type = 0;
 			}
 
 			f->selected = 0;
@@ -314,8 +367,11 @@ static void load_directory(const char * path) {
 	int comparator(const void * c1, const void * c2) {
 		const struct File * f1 = *(const struct File **)(c1);
 		const struct File * f2 = *(const struct File **)(c2);
-		if (f1->type == 1 && f2->type == 0) return -1;
-		if (f1->type == 0 && f2->type == 1) return 1;
+		if (f1->type > f2->type) return -1;
+		if (f2->type > f1->type) return 1;
+		if (f1->type == 2 && f2->type == 2) {
+			return strcmp(f1->filename, f2->filename);
+		}
 		return strcmp(f1->name, f2->name);
 	}
 	qsort(file_pointers, file_pointers_len, sizeof(struct File *), comparator);
@@ -333,37 +389,53 @@ static void reinitialize_contents(void) {
 	}
 
 	struct decor_bounds bounds;
-	decor_get_bounds(main_window, &bounds);
+	_decor_get_bounds(main_window, &bounds);
 
-	FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
+	if (is_desktop_background) {
+		FILE_PTR_WIDTH = 1;
+	} else {
+		FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
+	}
 	int calculated_height = (file_pointers_len / FILE_PTR_WIDTH + 1) * FILE_HEIGHT;
 
 	contents_sprite = create_sprite(main_window->width - bounds.width, calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
 
-	draw_fill(contents, rgb(255,255,255));
+	draw_fill(contents, rgba(0,0,0,0));
 
 	/* Draw file entries */
 	redraw_files();
 }
 
-static void redraw_window(void) {
-	draw_fill(ctx, rgb(255,255,255));
+static void sig_usr2(int sig) {
+	yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
+	yutani_flip(yctx, main_window);
+	signal(SIGUSR2, sig_usr2);
+}
 
-	render_decorations(main_window, ctx, title);
+static void redraw_window(void) {
+	if (!is_desktop_background) {
+		draw_fill(ctx, rgb(255,255,255));
+		render_decorations(main_window, ctx, title);
+	} else {
+		/* Draw wallpaper */
+		draw_sprite(ctx, wallpaper_buffer, 0, 0);
+	}
 
 	struct decor_bounds bounds;
-	decor_get_bounds(main_window, &bounds);
+	_decor_get_bounds(main_window, &bounds);
 
-	menu_bar.x = bounds.left_width;
-	menu_bar.y = bounds.top_height;
-	menu_bar.width = ctx->width - bounds.width;
-	menu_bar.window = main_window;
-	menu_bar_render(&menu_bar, ctx);
+	if (!is_desktop_background) {
+		menu_bar.x = bounds.left_width;
+		menu_bar.y = bounds.top_height;
+		menu_bar.width = ctx->width - bounds.width;
+		menu_bar.window = main_window;
+		menu_bar_render(&menu_bar, ctx);
+	}
 
 	gfx_clear_clip(ctx);
-	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT, ctx->width - bounds.width, available_height);
-	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT - scroll_offset);
+	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + menu_bar_height, ctx->width - bounds.width, available_height);
+	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + menu_bar_height - scroll_offset);
 	gfx_clear_clip(ctx);
 	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
 
@@ -379,9 +451,9 @@ static void resize_finish(int w, int h) {
 	reinit_graphics_yutani(ctx, main_window);
 
 	struct decor_bounds bounds;
-	decor_get_bounds(main_window, &bounds);
+	_decor_get_bounds(main_window, &bounds);
 
-	available_height = ctx->height - MENU_BAR_HEIGHT - bounds.height;
+	available_height = ctx->height - menu_bar_height - bounds.height;
 
 	if (width_changed) {
 		reinitialize_contents();
@@ -393,6 +465,10 @@ static void resize_finish(int w, int h) {
 		if (scroll_offset > contents->height - available_height) {
 			scroll_offset = contents->height - available_height;
 		}
+	}
+
+	if (is_desktop_background) {
+		draw_background(w, h);
 	}
 
 	redraw_window();
@@ -425,6 +501,13 @@ static void _menu_action_up(struct MenuEntry * entry) {
 	redraw_window();
 }
 
+static void _menu_action_refresh(struct MenuEntry * entry) {
+	char * tmp = strdup(last_directory);
+	load_directory(tmp);
+	reinitialize_contents();
+	redraw_window();
+}
+
 static void _menu_action_help(struct MenuEntry * entry) {
 	/* show help documentation */
 	system("help-browser file-browser.trt &");
@@ -437,7 +520,7 @@ static void _menu_action_copy(struct MenuEntry * entry) {
 	int base_is_root = !strcmp(last_directory, "/"); /* avoid redundant slash */
 	for (int i = 0; i < file_pointers_len; ++i) {
 		if (file_pointers[i]->selected) {
-			output_size += strlen(last_directory) + !base_is_root + strlen(file_pointers[i]->name) + 1; /* base / file \n */
+			output_size += strlen(last_directory) + !base_is_root + strlen(file_pointers[i]->type == 2 ? file_pointers[i]->filename : file_pointers[i]->name) + 1; /* base / file \n */
 		}
 	}
 
@@ -449,7 +532,7 @@ static void _menu_action_copy(struct MenuEntry * entry) {
 		if (file_pointers[i]->selected) {
 			strcat(clipboard, last_directory);
 			if (!base_is_root) { strcat(clipboard, "/"); }
-			strcat(clipboard, file_pointers[i]->name);
+			strcat(clipboard, file_pointers[i]->type == 2 ? file_pointers[i]->filename : file_pointers[i]->name);
 			strcat(clipboard, "\n");
 		}
 	}
@@ -476,9 +559,9 @@ static void _menu_action_about(struct MenuEntry * entry) {
 
 static void launch_application(char * app) {
 	if (!fork()) {
-		chdir(last_directory);
+		if (last_directory) chdir(last_directory);
 		char * tmp = malloc(strlen(app) + 10);
-		sprintf(tmp, "exec %s", app);
+		sprintf(tmp, "%s", app);
 		char * args[] = {"/bin/sh", "-c", tmp, NULL};
 		execvp(args[0], args);
 		exit(1);
@@ -493,14 +576,19 @@ static void launch_application_menu(struct MenuEntry * self) {
 static void open_file(struct File * f) {
 	if (f->type == 1) {
 		char tmp[1024];
-		sprintf(tmp,"%s/%s", last_directory, f->name);
-		load_directory(tmp);
-		reinitialize_contents();
-		redraw_window();
-	} else if (f->launcher) {
+		if (is_desktop_background) {
+			sprintf(tmp,"file-browser \"%s/%s\"", last_directory, f->name);
+			launch_application(tmp);
+		} else {
+			sprintf(tmp,"%s/%s", last_directory, f->name);
+			load_directory(tmp);
+			reinitialize_contents();
+			redraw_window();
+		}
+	} else if (f->launcher[0]) {
 		char tmp[4096];
 		if (!strcmp(f->launcher, "SELF")) {
-			sprintf(tmp, "./%s", f->name);
+			sprintf(tmp, "exec ./%s", f->name);
 		} else {
 			sprintf(tmp, "%s \"%s\"", f->launcher, f->name);
 		}
@@ -534,16 +622,60 @@ static void toggle_selected(int hilighted_offset, int modifiers) {
 	redraw_window();
 }
 
+static void draw_background(int width, int height) {
+	if (wallpaper_buffer) {
+		sprite_free(wallpaper_buffer);
+	}
+
+	sprite_t * wallpaper = malloc(sizeof(sprite_t));
+	load_sprite(wallpaper, "/usr/share/wallpaper.bmp");
+	wallpaper->alpha = 0;
+
+	wallpaper_buffer = create_sprite(width, height, 0);
+	gfx_context_t * ctx = init_graphics_sprite(wallpaper_buffer);
+
+	float x = (float)width / (float)wallpaper->width;
+	float y = (float)height / (float)wallpaper->height;
+
+	int nh = (int)(x * (float)wallpaper->height);
+	int nw = (int)(y * (float)wallpaper->width);
+
+	draw_fill(ctx, rgb(0,0,0));
+
+	if (nw == wallpaper->width && nh == wallpaper->height) {
+		// special case
+		draw_sprite(ctx, wallpaper, 0, 0);
+	} else if (nw >= width) {
+		draw_sprite_scaled(ctx, wallpaper, ((int)width - nw) / 2, 0, nw+2, height);
+	} else {
+		draw_sprite_scaled(ctx, wallpaper, 0, ((int)height - nh) / 2, width+2, nh);
+	}
+
+	sprite_free(wallpaper);
+	free(ctx);
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
 	init_decorations();
-	main_window = yutani_window_create(yctx, 800, 600);
-	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
+
+	if (argc > 1 && !strcmp(argv[1], "--wallpaper")) {
+		is_desktop_background = 1;
+		signal(SIGUSR2, sig_usr2);
+		draw_background(yctx->display_width, yctx->display_height);
+		main_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);
+		yutani_window_move(yctx, main_window, 0, 0);
+		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
+	} else {
+		main_window = yutani_window_create(yctx, 800, 600);
+		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
+	}
+
 	ctx = init_graphics_yutani_double_buffer(main_window);
 
 	struct decor_bounds bounds;
-	decor_get_bounds(main_window, &bounds);
+	_decor_get_bounds(main_window, &bounds);
 
 	set_title(NULL);
 
@@ -573,14 +705,17 @@ int main(int argc, char * argv[]) {
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
 
-	available_height = ctx->height - MENU_BAR_HEIGHT - bounds.height;
+	available_height = ctx->height - menu_bar_height - bounds.height;
 
 	context_menu = menu_create(); /* Right-click menu */
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Open",_menu_action_open));
 	menu_insert(context_menu, menu_create_separator());
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
 	menu_insert(context_menu, menu_create_separator());
-	menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+	if (!is_desktop_background) {
+		menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+	}
+	menu_insert(context_menu, menu_create_normal("refresh",NULL,"Refresh",_menu_action_refresh));
 	menu_insert(context_menu, menu_create_normal("utilities-terminal","terminal","Open Terminal",launch_application_menu));
 
 	char tmp[1024];
@@ -601,6 +736,11 @@ int main(int argc, char * argv[]) {
 				redraw_window();
 			}
 			switch (m->type) {
+				case YUTANI_MSG_WELCOME:
+					if (is_desktop_background) {
+						yutani_window_resize_offer(yctx, main_window, yctx->display_width, yctx->display_height);
+					}
+					break;
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
@@ -633,7 +773,7 @@ int main(int argc, char * argv[]) {
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)me->wid);
 						struct decor_bounds bounds;
-						decor_get_bounds(win, &bounds);
+						_decor_get_bounds(win, &bounds);
 
 						if (win == main_window) {
 							int result = decor_handle_event(yctx, m);
@@ -653,7 +793,7 @@ int main(int argc, char * argv[]) {
 							/* Menu bar */
 							menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
 
-							if (me->new_y > (int)(bounds.top_height + MENU_BAR_HEIGHT) &&
+							if (me->new_y > (int)(bounds.top_height + menu_bar_height) &&
 								me->new_y < (int)(main_window->height - bounds.bottom_height) &&
 								me->new_x > (int)(bounds.left_width) &&
 								me->new_x < (int)(main_window->width - bounds.right_width)) {
@@ -677,7 +817,7 @@ int main(int argc, char * argv[]) {
 								}
 
 								/* Get offset into contents */
-								int y_into = me->new_y - bounds.top_height - MENU_BAR_HEIGHT + scroll_offset;
+								int y_into = me->new_y - bounds.top_height - menu_bar_height + scroll_offset;
 								int x_into = me->new_x - bounds.left_width;
 								int offset = (y_into / FILE_HEIGHT) * FILE_PTR_WIDTH + x_into / FILE_WIDTH;
 								if (x_into > FILE_PTR_WIDTH * FILE_WIDTH) {
