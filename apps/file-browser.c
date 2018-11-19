@@ -604,6 +604,16 @@ static void _menu_action_open(struct MenuEntry * self) {
 	}
 }
 
+static void _menu_action_edit(struct MenuEntry * self) {
+	for (int i = 0; i < file_pointers_len; ++i) {
+		if (file_pointers[i]->selected) {
+			char tmp[1024];
+			sprintf(tmp, "exec terminal bim \"%s\"", file_pointers[i]->type == 2 ? file_pointers[i]->filename : file_pointers[i]->name);
+			launch_application(tmp);
+		}
+	}
+}
+
 static void toggle_selected(int hilighted_offset, int modifiers) {
 	struct File * f = get_file_at_offset(hilighted_offset);
 	if (!f) return;
@@ -709,6 +719,7 @@ int main(int argc, char * argv[]) {
 
 	context_menu = menu_create(); /* Right-click menu */
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Open",_menu_action_open));
+	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Edit in Bim",_menu_action_edit));
 	menu_insert(context_menu, menu_create_separator());
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
 	menu_insert(context_menu, menu_create_separator());
