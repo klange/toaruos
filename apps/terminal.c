@@ -2484,6 +2484,8 @@ int main(int argc, char ** argv) {
 		dup2(fd_slave, 1);
 		dup2(fd_slave, 2);
 
+		tcsetpgrp(STDIN_FILENO, getpid());
+
 		/* Set the TERM environment variable. */
 		putenv("TERM=toaru");
 
