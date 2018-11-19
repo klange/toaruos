@@ -2490,8 +2490,7 @@ int main(int argc, char ** argv) {
 		/* Execute requested initial process */
 		if (argv[optind] != NULL) {
 			/* Run something specified by the terminal startup */
-			char * tokens[] = {argv[optind], NULL};
-			execvp(tokens[0], tokens);
+			execvp(argv[optind], &argv[optind]);
 			fprintf(stderr, "Failed to launch requested startup application.\n");
 		} else {
 			/* Run the user's shell */
