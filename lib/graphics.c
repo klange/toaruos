@@ -403,6 +403,7 @@ void load_sprite(sprite_t * sprite, char * filename) {
 	sprite->width = width;
 	sprite->height = height;
 	sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
+	sprite->masks = NULL;
 
 	for (y = 0; y < height; ++y) {
 		for (x = 0; x < width; ++x) {
