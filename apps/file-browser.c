@@ -18,6 +18,7 @@
 
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -53,7 +54,7 @@ static yutani_t * yctx;
 static yutani_window_t * main_window;
 static gfx_context_t * ctx;
 
-#define SCROLL_AMOUNT 20
+#define SCROLL_AMOUNT 120
 static int application_running = 1;
 static int show_hidden = 1;
 static int scroll_offset = 0;
@@ -76,7 +77,9 @@ static void _menu_action_exit(struct MenuEntry * entry) {
 struct File {
 	char name[256];
 	char icon[256];
-	char date[256];
+	//char date[256];
+	char link[256]; /* why so big */
+	char * launcher;
 	int type;
 	int selected;
 };
@@ -138,6 +141,11 @@ static void draw_file(struct File * f, int offset) {
 		draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.3, rgb(255,255,255));
 	}
 
+	if (f->link[0]) {
+		sprite_t * arrow = icon_get_16("forward");
+		draw_sprite(contents, arrow, center_x_icon + 32 + x, y + 32);
+	}
+
 	free(name);
 }
 
@@ -169,6 +177,20 @@ static void set_title(char * directory) {
 		sprintf(title, APPLICATION_TITLE);
 	}
 	yutani_window_advertise_icon(yctx, main_window, title, "folder");
+}
+
+static int has_extension(struct File * f, char * extension) {
+	int i = strlen(f->name);
+	int j = strlen(extension);
+
+	do {
+		if (f->name[i] != (extension)[j]) break;
+		if (j == 0) return 1;
+		if (i == 0) break;
+		i--;
+		j--;
+	} while (1);
+	return 0;
 }
 
 static void load_directory(const char * path) {
@@ -230,25 +252,40 @@ static void load_directory(const char * path) {
 			sprintf(f->name, "%s", ent->d_name); /* snprintf? copy min()? */
 
 			struct stat statbuf;
-			//struct stat statbufl;
-			//char * link;
+			struct stat statbufl;
 
 			char tmp[strlen(path)+strlen(ent->d_name)+2];
 			sprintf(tmp, "%s/%s", path, ent->d_name);
 			lstat(tmp, &statbuf);
-#if 0
+
 			if (S_ISLNK(statbuf.st_mode)) {
-				stat(tmp, &statbufl);
-				f->link = malloc(4096);
-				readlink(tmp, f->link, 4096);
+				memcpy(&statbufl, &statbuf, sizeof(struct stat));
+				stat(tmp, &statbuf);
+				readlink(tmp, f->link, 256);
+			} else {
+				f->link[0] = '\0';
 			}
-#endif
+
+			f->launcher = NULL;
 
 			if (S_ISDIR(statbuf.st_mode)) {
 				sprintf(f->icon, "folder");
 				f->type = 1;
 			} else {
-				sprintf(f->icon, "file");
+				f->launcher = "terminal bim";
+				if (has_extension(f, ".c")) {
+					sprintf(f->icon, "c");
+				} else if (has_extension(f, ".h")) {
+					sprintf(f->icon, "h");
+				} else if (has_extension(f, ".bmp")) {
+					sprintf(f->icon, "image");
+					f->launcher = "imgviewer";
+				} else if (statbuf.st_mode & 0111) {
+					sprintf(f->icon, "%s", f->name);
+					f->launcher = "SELF";
+				} else {
+					sprintf(f->icon, "file");
+				}
 				f->type = 0;
 			}
 
@@ -437,6 +474,66 @@ static void _menu_action_about(struct MenuEntry * entry) {
 	redraw_window();
 }
 
+static void launch_application(char * app) {
+	if (!fork()) {
+		chdir(last_directory);
+		char * tmp = malloc(strlen(app) + 10);
+		sprintf(tmp, "exec %s", app);
+		char * args[] = {"/bin/sh", "-c", tmp, NULL};
+		execvp(args[0], args);
+		exit(1);
+	}
+}
+
+static void launch_application_menu(struct MenuEntry * self) {
+	struct MenuEntry_Normal * _self = (void *)self;
+	launch_application((char *)_self->action);
+}
+
+static void open_file(struct File * f) {
+	if (f->type == 1) {
+		char tmp[1024];
+		sprintf(tmp,"%s/%s", last_directory, f->name);
+		load_directory(tmp);
+		reinitialize_contents();
+		redraw_window();
+	} else if (f->launcher) {
+		char tmp[4096];
+		if (!strcmp(f->launcher, "SELF")) {
+			sprintf(tmp, "./%s", f->name);
+		} else {
+			sprintf(tmp, "%s \"%s\"", f->launcher, f->name);
+		}
+		launch_application(tmp);
+	}
+}
+
+static void _menu_action_open(struct MenuEntry * self) {
+	for (int i = 0; i < file_pointers_len; ++i) {
+		if (file_pointers[i]->selected) {
+			open_file(file_pointers[i]);
+		}
+	}
+}
+
+static void toggle_selected(int hilighted_offset, int modifiers) {
+	struct File * f = get_file_at_offset(hilighted_offset);
+	if (!f) return;
+	f->selected = !f->selected;
+	if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
+		for (int i = 0; i < file_pointers_len; ++i) {
+			if (file_pointers[i] != f && file_pointers[i]->selected) {
+				file_pointers[i]->selected = 0;
+				clear_offset(i);
+				draw_file(file_pointers[i], i);
+			}
+		}
+	}
+	clear_offset(hilighted_offset);
+	draw_file(f, hilighted_offset);
+	redraw_window();
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -479,11 +576,16 @@ int main(int argc, char * argv[]) {
 	available_height = ctx->height - MENU_BAR_HEIGHT - bounds.height;
 
 	context_menu = menu_create(); /* Right-click menu */
-	menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Open",_menu_action_open));
 	menu_insert(context_menu, menu_create_separator());
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
+	menu_insert(context_menu, menu_create_separator());
+	menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+	menu_insert(context_menu, menu_create_normal("utilities-terminal","terminal","Open Terminal",launch_application_menu));
 
-	load_directory("/usr/share");
+	char tmp[1024];
+	getcwd(tmp, 1024);
+	load_directory(tmp);
 	reinitialize_contents();
 	redraw_window();
 
@@ -492,6 +594,7 @@ int main(int argc, char * argv[]) {
 	int modifiers = 0; /* For ctrl-click */
 
 	while (application_running) {
+		waitpid(-1, NULL, WNOHANG);
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
 			if (menu_process_event(yctx, m)) {
@@ -603,30 +706,12 @@ int main(int argc, char * argv[]) {
 									struct File * f = get_file_at_offset(hilighted_offset);
 									if (f) {
 										if (last_click_offset == hilighted_offset && precise_time_since(last_click) < 400) {
-											if (f->type == 1) {
-												char tmp[1024];
-												sprintf(tmp,"%s/%s", last_directory, f->name);
-												load_directory(tmp);
-												reinitialize_contents();
-												redraw_window();
-											}
+											open_file(f);
 											last_click = 0;
 										} else {
 											last_click = precise_current_time();
 											last_click_offset = hilighted_offset;
-											f->selected = !f->selected;
-											if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
-												for (int i = 0; i < file_pointers_len; ++i) {
-													if (file_pointers[i] != f && file_pointers[i]->selected) {
-														file_pointers[i]->selected = 0;
-														clear_offset(i);
-														draw_file(file_pointers[i], i);
-													}
-												}
-											}
-											clear_offset(hilighted_offset);
-											draw_file(f, hilighted_offset);
-											redraw_window();
+											toggle_selected(hilighted_offset, modifiers);
 										}
 									} else {
 										if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
@@ -642,6 +727,10 @@ int main(int argc, char * argv[]) {
 									}
 								} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
 									if (!context_menu->window) {
+										struct File * f = get_file_at_offset(hilighted_offset);
+										if (f && !f->selected) {
+											toggle_selected(hilighted_offset, modifiers);
+										}
 										menu_show(context_menu, main_window->ctx);
 										yutani_window_move(main_window->ctx, context_menu->window, me->new_x + main_window->x, me->new_y + main_window->y);
 									}
