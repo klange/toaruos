@@ -28,7 +28,7 @@ with open('util/devtable','w') as devtable:
         for path in getPaths('./base/home/{user}'.format(user=user)):
             p = Path(path)
             path_mod = path.replace('./base','').rstrip('/')
-            path_type = 'd' if p.is_dir() else 'f'
+            path_type = 's' if p.is_symlink() else ('d' if p.is_dir() else 'f')
             st = os.stat(path)
             mode = '{:o}'.format(st.st_mode & 0o7777)
             devtable.write('{path_mod} {path_type} {mode} {uid} {uid} - - - - -\n'.format(path_mod=path_mod,path_type=path_type,mode=mode,uid=uid))
