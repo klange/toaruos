@@ -152,7 +152,7 @@ static int _select_width(char ch, int font) {
 	}
 }
 
-static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp, int font, sprite_t * _font_data) {
+static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp, int font, sprite_t * _font_data, double buffer) {
 	if (ch < 0 || ch > 255) return 0;
 
 	double scale = (double)size / 50.0;
@@ -175,8 +175,8 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 			if (x + i >= ctx->width) continue;
 			uint32_t c = SPRITE((tmp), fx+i, fy+j);
 			double dist = (double)_RED(c) / 255.0;
-			double edge0 = 0.75 - gamma * 1.4142 / (double)size;
-			double edge1 = 0.75 + gamma * 1.4142 / (double)size;
+			double edge0 = buffer - gamma * 1.4142 / (double)size;
+			double edge1 = buffer + gamma * 1.4142 / (double)size;
 			double a = (dist - edge0) / (edge1 - edge0);
 			if (a < 0.0) a = 0.0;
 			if (a > 1.0) a = 1.0;
@@ -189,7 +189,7 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 
 }
 
-int draw_sdf_string_gamma(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font, double _gamma) {
+int draw_sdf_string_stroke(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font, double _gamma, double stroke) {
 
 	sprite_t * _font_data = _select_font(font);
 
@@ -213,7 +213,7 @@ int draw_sdf_string_gamma(gfx_context_t * ctx, int32_t x, int32_t y, const char 
 	int32_t out_width = 0;
 	gamma = _gamma;
 	while (*str) {
-		int w = draw_sdf_character(ctx,x,y,*((uint8_t *)str),size,color,tmp,font,_font_data);
+		int w = draw_sdf_character(ctx,x,y,*((uint8_t *)str),size,color,tmp,font,_font_data, stroke);
 		out_width += w;
 		x += w;
 		str++;
@@ -223,9 +223,12 @@ int draw_sdf_string_gamma(gfx_context_t * ctx, int32_t x, int32_t y, const char 
 	return out_width;
 }
 
+int draw_sdf_string_gamma(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font, double _gamma) {
+	return draw_sdf_string_stroke(ctx,x,y,str,size,color,font,gamma,0.75);
+}
 
 int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str, int size, uint32_t color, int font) {
-	return draw_sdf_string_gamma(ctx,x,y,str,size,color,font,1.7);
+	return draw_sdf_string_stroke(ctx,x,y,str,size,color,font,1.7, 0.75);
 }
 
 static int char_width(char ch, int font) {
