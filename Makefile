@@ -338,7 +338,7 @@ shell: image.iso
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless \
 	  -fw_cfg name=opt/org.toaruos.forceuser,string=local \
 	  -fw_cfg name=opt/org.toaruos.term,string=${TERM} & \
-	  stty raw -echo && nc -l 8090 && stty sane && wait
+	  stty raw -echo && nc -l 127.0.0.1 8090 && stty sane && wait
 
 .PHONY: efi64
 efi64: image.iso
