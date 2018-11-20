@@ -2258,6 +2258,11 @@ static void _menu_action_toggle_sdf(struct MenuEntry * self) {
 	reinit();
 }
 
+static void _menu_action_toggle_free_size(struct MenuEntry * self) {
+	_free_size = !(_free_size);
+	menu_update_title(self, _free_size ? "Snap to Cell Size" : "Freely Resize");
+}
+
 static void _menu_action_show_about(struct MenuEntry * self) {
 	char about_cmd[1024] = "\0";
 	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.bmp \"ToaruOS Terminal\" \"(C) 2013-2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://gitlab.com/toaruos\" ");
@@ -2444,6 +2449,7 @@ int main(int argc, char ** argv) {
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
 	menu_insert(m, menu_create_normal(NULL, NULL, _use_aa ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_sdf));
+	menu_insert(m, menu_create_normal(NULL, NULL, _free_size ? "Snap to Cell Size" : "Freely Resize", _menu_action_toggle_free_size));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();
