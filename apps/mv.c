@@ -35,7 +35,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	/* TODO stat magic for other ways to reference the same file */
-	if (call((char *[]){"/bin/cp",argv[1],argv[2],NULL})) return 1;
-	if (call((char *[]){"/bin/rm",argv[1],NULL})) return 1;
+	if (call((char *[]){"/bin/cp","-r",argv[1],argv[2],NULL})) return 1;
+	if (call((char *[]){"/bin/rm","-r",argv[1],NULL})) return 1;
 	return 0;
 }
