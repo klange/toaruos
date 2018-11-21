@@ -1708,7 +1708,7 @@ line_t ** remove_line(line_t ** lines, int offset) {
 	free(lines[offset]);
 
 	/* Move other lines up */
-	if (offset < env->line_count) {
+	if (offset < env->line_count-1) {
 		memmove(&lines[offset], &lines[offset+1], sizeof(line_t *) * (env->line_count - (offset - 1)));
 		lines[env->line_count-1] = NULL;
 	}
@@ -6297,10 +6297,10 @@ void load_bimrc(void) {
 
 	/* Try to open the file */
 	FILE * bimrc = fopen(tmp, "r");
+	free(tmp);
 
 	if (!bimrc) {
 		/* No bimrc, or bad permissions */
-		free(tmp);
 		return;
 	}
 
