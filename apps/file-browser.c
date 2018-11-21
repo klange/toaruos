@@ -392,7 +392,7 @@ static void load_directory(const char * path) {
 							sprintf(f->name, eq);
 						}
 					}
-					sprintf(f->filename, "%s", tmp);
+					sprintf(f->filename, "%s", ent->d_name);
 					f->type = 2;
 				} else {
 					/* Handle various file types */
