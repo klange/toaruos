@@ -1227,15 +1227,15 @@ static uint32_t write_ext2(fs_node_t *node, uint32_t offset, uint32_t size, uint
 	return rv;
 }
 
-static void open_ext2(fs_node_t *node, unsigned int flags) {
+static void truncate_ext2(fs_node_t * node) {
 	ext2_fs_t * this = node->device;
+	ext2_inodetable_t * inode = read_inode(this,node->inode);
+	inode->size = 0;
+	write_inode(this, inode, node->inode);
+}
 
-	if (flags & O_TRUNC) {
-		/* Uh, herp */
-		ext2_inodetable_t * inode = read_inode(this,node->inode);
-		inode->size = 0;
-		write_inode(this, inode, node->inode);
-	}
+static void open_ext2(fs_node_t *node, unsigned int flags) {
+	/* Nothing to do here */
 }
 
 static void close_ext2(fs_node_t *node) {
@@ -1389,6 +1389,7 @@ static uint32_t node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_
 		fnode->finddir  = NULL;
 		fnode->symlink  = NULL;
 		fnode->readlink = NULL;
+		fnode->truncate = truncate_ext2;
 	}
 	if ((inode->mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
 		fnode->flags   |= FS_DIRECTORY;

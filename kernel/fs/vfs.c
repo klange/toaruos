@@ -163,6 +163,19 @@ uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buff
 	}
 }
 
+/**
+ * truncate_fs: set the size of a file to 9
+ *
+ * @param node File to resize
+ */
+void truncate_fs(fs_node_t * node) {
+	if (!node) return;
+
+	if (node->truncate) {
+		node->truncate(node);
+	}
+}
+
 //volatile uint8_t tmp_refcount_lock = 0;
 static spin_lock_t tmp_refcount_lock = { 0 };
 

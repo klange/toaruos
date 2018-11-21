@@ -144,6 +144,9 @@ static int sys_open(const char * file, int flags, int mode) {
 			close_fs(node);
 			return -EACCES;
 		}
+		if (node) {
+			truncate_fs(node);
+		}
 		access_bits |= 02;
 	}
 

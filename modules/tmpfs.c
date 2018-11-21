@@ -284,27 +284,23 @@ static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 	return 0;
 }
 
+static void truncate_tmpfs(fs_node_t * node) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
+	debug_print(INFO, "Truncating file %s", t->name);
+	for (size_t i = 0; i < t->block_count; ++i) {
+		clear_frame((uintptr_t)t->blocks[i] * 0x1000);
+		t->blocks[i] = 0;
+	}
+	t->block_count = 0;
+	t->length = 0;
+	t->mtime = node->atime;
+}
+
 static void open_tmpfs(fs_node_t * node, unsigned int flags) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
-
 	debug_print(INFO, "---- Opened TMPFS file %s with flags 0x%x ----", t->name, flags);
 
 	t->atime = now();
-	if (flags & (O_TRUNC | O_WRONLY | O_RDWR | O_APPEND)) {
-		t->mtime = node->atime;
-	}
-
-	if (flags & O_TRUNC) {
-		debug_print(INFO, "Truncating file %s", t->name);
-		for (size_t i = 0; i < t->block_count; ++i) {
-			clear_frame((uintptr_t)t->blocks[i] * 0x1000);
-			t->blocks[i] = 0;
-		}
-		t->block_count = 0;
-		t->length = 0;
-	}
-
-	return;
 }
 
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
@@ -329,6 +325,7 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->chmod   = chmod_tmpfs;
 	fnode->chown   = chown_tmpfs;
 	fnode->length  = t->length;
+	fnode->truncate = truncate_tmpfs;
 	fnode->nlink   = 1;
 	return fnode;
 }

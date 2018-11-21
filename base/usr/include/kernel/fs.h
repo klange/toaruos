@@ -54,6 +54,7 @@ typedef int (*readlink_type_t) (struct fs_node *, char * buf, size_t size);
 typedef int (*selectcheck_type_t) (struct fs_node *);
 typedef int (*selectwait_type_t) (struct fs_node *, void * process);
 typedef int (*chown_type_t) (struct fs_node *, int, int);
+typedef void (*truncate_type_t) (struct fs_node *);
 
 typedef struct fs_node {
 	char name[256];         /* The filename. */
@@ -87,6 +88,7 @@ typedef struct fs_node {
 	unlink_type_t unlink;
 	symlink_type_t symlink;
 	readlink_type_t readlink;
+	truncate_type_t truncate;
 
 	struct fs_node *ptr;   /* Alias pointer, for symlinks. */
 	int32_t refcount;
@@ -152,6 +154,7 @@ int symlink_fs(char * value, char * name);
 int readlink_fs(fs_node_t * node, char * buf, size_t size);
 int selectcheck_fs(fs_node_t * node);
 int selectwait_fs(fs_node_t * node, void * process);
+void truncate_fs(fs_node_t * node);
 
 void vfs_install(void);
 void * vfs_mount(char * path, fs_node_t * local_root);
