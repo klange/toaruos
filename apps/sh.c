@@ -941,7 +941,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					if (quoted || collected || backtick) {
 						goto _just_add;
 					} else {
-						if (p[1] == 0 || p[1] == '/' || p[1] == '\n' || p[1] == ' ') {
+						if (p[1] == 0 || p[1] == '/' || p[1] == '\n' || p[1] == ' ' || p[1] == ';') {
 							char * c = getenv("HOME");
 							if (!c) {
 								goto _just_add;
