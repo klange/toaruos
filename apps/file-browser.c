@@ -885,6 +885,8 @@ int main(int argc, char * argv[]) {
 	yctx = yutani_init();
 	init_decorations();
 
+	int arg_ind = 1;
+
 	if (argc > 1 && !strcmp(argv[1], "--wallpaper")) {
 		is_desktop_background = 1;
 		signal(SIGUSR2, sig_usr2);
@@ -892,9 +894,14 @@ int main(int argc, char * argv[]) {
 		main_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);
 		yutani_window_move(yctx, main_window, 0, 0);
 		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
+		arg_ind++;
 	} else {
 		main_window = yutani_window_create(yctx, 800, 600);
 		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
+	}
+
+	if (arg_ind < argc) {
+		chdir(argv[arg_ind]);
 	}
 
 	ctx = init_graphics_yutani_double_buffer(main_window);
