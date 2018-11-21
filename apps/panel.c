@@ -1203,7 +1203,7 @@ int main (int argc, char ** argv) {
 	signal(SIGINT, sig_int);
 	signal(SIGUSR2, sig_usr2);
 
-	appmenu = menu_set_get_root(menu_set_from_description("/usr/share/demo.menu", launch_application_menu));
+	appmenu = menu_set_get_root(menu_set_from_description("/etc/panel.menu", launch_application_menu));
 
 	window_menu = menu_create();
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Maximize", _window_menu_start_maximize));

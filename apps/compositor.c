@@ -2101,14 +2101,14 @@ int main(int argc, char * argv[]) {
 #define FONT_COUNT 8
 		sprite_t _font_data[FONT_COUNT];
 
-		load_sprite(&_font_data[0], "/usr/share/sdf_thin.bmp");
-		load_sprite(&_font_data[1], "/usr/share/sdf_bold.bmp");
-		load_sprite(&_font_data[2], "/usr/share/sdf_mono.bmp");
-		load_sprite(&_font_data[3], "/usr/share/sdf_mono_bold.bmp");
-		load_sprite(&_font_data[4], "/usr/share/sdf_mono_oblique.bmp");
-		load_sprite(&_font_data[5], "/usr/share/sdf_mono_bold_oblique.bmp");
-		load_sprite(&_font_data[6], "/usr/share/sdf_oblique.bmp");
-		load_sprite(&_font_data[7], "/usr/share/sdf_bold_oblique.bmp");
+		load_sprite(&_font_data[0], "/usr/share/fonts/sdf_thin.sdf");
+		load_sprite(&_font_data[1], "/usr/share/fonts/sdf_bold.sdf");
+		load_sprite(&_font_data[2], "/usr/share/fonts/sdf_mono.sdf");
+		load_sprite(&_font_data[3], "/usr/share/fonts/sdf_mono_bold.sdf");
+		load_sprite(&_font_data[4], "/usr/share/fonts/sdf_mono_oblique.sdf");
+		load_sprite(&_font_data[5], "/usr/share/fonts/sdf_mono_bold_oblique.sdf");
+		load_sprite(&_font_data[6], "/usr/share/fonts/sdf_oblique.sdf");
+		load_sprite(&_font_data[7], "/usr/share/fonts/sdf_bold_oblique.sdf");
 
 		TRACE("  Data loaded...");
 
