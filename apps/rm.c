@@ -11,20 +11,71 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <dirent.h>
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+
+static int recursive = 0;
+static int rm_thing(char * tmp);
+
+static int rm_directory(char * source) {
+	DIR * dirp = opendir(source);
+	if (dirp == NULL) {
+		fprintf(stderr, "could not open %s\n", source);
+		return 1;
+	}
+
+	struct dirent * ent = readdir(dirp);
+	while (ent != NULL) {
+		if (!strcmp(ent->d_name,".") || !strcmp(ent->d_name,"..")) {
+			ent = readdir(dirp);
+			continue;
+		}
+		char tmp[strlen(source)+strlen(ent->d_name)+2];
+		sprintf(tmp, "%s/%s", source, ent->d_name);
+		int status = rm_thing(tmp);
+		if (status) return status;
+		ent = readdir(dirp);
+	}
+	closedir(dirp);
+
+	return unlink(source);
+}
+
+static int rm_thing(char * tmp) {
+	struct stat statbuf;
+	lstat(tmp,&statbuf);
+	if (S_ISDIR(statbuf.st_mode)) {
+		if (!recursive) {
+			fprintf(stderr, "rm: %s: is a directory\n", tmp);
+			return 1;
+		}
+		return rm_directory(tmp);
+	} else {
+		return unlink(tmp);
+	}
+}
+
 
 int main(int argc, char * argv[]) {
-	if (argc < 2) {
-		fprintf(stderr, "usage: %s FILE...\n", argv[0]);
-		return 1;
+	int opt;
+	while ((opt = getopt(argc, argv, "r")) != -1) {
+		switch (opt) {
+			case 'r':
+				recursive = 1;
+				break;
+			default:
+				fprintf(stderr, "rm: unrecognized option '%c'\n", opt);
+				break;
+		}
 	}
 
 	int ret = 0;
 
-	for (int i = 1; i < argc; ++i) {
-		if (unlink(argv[i]) < 0) {
-			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
-			ret = 1;
-		}
+	for (int i = optind; i < argc; ++i) {
+		ret |= rm_thing(argv[i]);
 	}
 
 	return ret;
