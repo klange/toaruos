@@ -2,8 +2,8 @@
 
 ToaruOS is a hobbyist, educational, Unix-like operating system built entirely from scratch and capable of hosting Python 3 and GCC. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, package manager, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 65,000 lines of C and assembly, all of which is included in this repository.
 
-![Screenshot](https://i.imgur.com/ZovFcMe.png)
-*Demonstration of ToaruOS's UI, terminal emulator, and editor, showing a Python graphical application with Freetype and Cairo.*
+![Screenshot](https://i.imgur.com/nh1uuSt.png)
+*Demonstration of ToaruOS's UI, terminal emulator, editor, and file browser.*
 
 ## History
 
