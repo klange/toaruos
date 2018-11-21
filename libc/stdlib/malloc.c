@@ -140,11 +140,30 @@ static void * __attribute__ ((malloc)) klvalloc(uintptr_t size);
 static void klfree(void * ptr);
 
 static int volatile mem_lock = 0;
+static const char * _lock_holder;
 
-static void spin_lock(int volatile * lock) {
+#ifdef assert
+#undef assert
+#define assert(statement) ((statement) ? (void)0 : _malloc_assert(__FILE__, __LINE__, __FUNCTION__, #statement))
+#endif
+
+#define WRITE(x) syscall_write(2, (char*)x, sizeof(x))
+#define WRITEV(x) syscall_write(2, (char*)x, strlen(x))
+static void _malloc_assert(const char * file, int line, const char * func, const char *x) {
+	WRITEV(func);
+	WRITE(" in ");
+	WRITEV(file);
+	WRITE(" failed assertion: ");
+	WRITEV(x);
+	WRITE("\n");
+	exit(1);
+}
+
+static void spin_lock(int volatile * lock, const char * caller) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
 		syscall_yield();
 	}
+	_lock_holder = caller;
 }
 
 static void spin_unlock(int volatile * lock) {
@@ -153,35 +172,35 @@ static void spin_unlock(int volatile * lock) {
 
 
 void * __attribute__ ((malloc)) malloc(uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(&mem_lock, __FUNCTION__);
 	void * ret = klmalloc(size);
 	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(&mem_lock, __FUNCTION__);
 	void * ret = klrealloc(ptr, size);
 	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) calloc(uintptr_t nmemb, uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(&mem_lock, __FUNCTION__);
 	void * ret = klcalloc(nmemb, size);
 	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) valloc(uintptr_t size) {
-	spin_lock(&mem_lock);
+	spin_lock(&mem_lock, __FUNCTION__);
 	void * ret = klvalloc(size);
 	spin_unlock(&mem_lock);
 	return ret;
 }
 
 void free(void * ptr) {
-	spin_lock(&mem_lock);
+	spin_lock(&mem_lock, __FUNCTION__);
 	klfree(ptr);
 	spin_unlock(&mem_lock);
 }
