@@ -3202,6 +3202,26 @@ void open_file(char * file) {
 			l++;
 			init_line = atoi(l);
 		}
+
+		struct stat statbuf;
+		if (!stat(file, &statbuf) && S_ISDIR(statbuf.st_mode)) {
+			DIR * dirp = opendir(file);
+			if (!dirp) {
+				env->loading = 0;
+				return;
+			}
+			struct dirent * ent = readdir(dirp);
+			while (ent) {
+				add_buffer((unsigned char*)ent->d_name, strlen(ent->d_name));
+				add_buffer((unsigned char*)"\n",1);
+				ent = readdir(dirp);
+			}
+			closedir(dirp);
+			env->file_name = strdup(file);
+			env->readonly = 1;
+			env->loading = 0;
+			return;
+		}
 		f = fopen(file, "r");
 		env->file_name = strdup(file);
 	}
