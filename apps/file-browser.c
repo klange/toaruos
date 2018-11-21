@@ -711,6 +711,10 @@ static void _menu_action_copy(struct MenuEntry * entry) {
 	free(clipboard);
 }
 
+static void _menu_action_paste(struct MenuEntry * entry) {
+	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
+}
+
 /* Help > About File Browser */
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
@@ -801,6 +805,45 @@ static void _menu_action_edit(struct MenuEntry * self) {
 static void _menu_action_toggle_hidden(struct MenuEntry * self) {
 	show_hidden = !show_hidden;
 	menu_update_title(self, show_hidden ? "Hide Hidden Files" : "Show Hidden Files");
+	_menu_action_refresh(NULL);
+}
+
+static void handle_clipboard(char * contents) {
+	fprintf(stderr, "Received clipboard:\n%s\n",contents);
+
+	char * file = contents;
+	while (file && *file) {
+		char * next_file = strchr(file, '\n');
+		if (next_file) {
+			*next_file = '\0';
+			next_file++;
+		}
+
+		/* determine if the destination already exists */
+		char * cheap_basename = strrchr(file, '/');
+		if (!cheap_basename) cheap_basename = file;
+		else cheap_basename++;
+
+		char destination[4096];
+		sprintf(destination, "%s/%s", current_directory, cheap_basename);
+
+		struct stat statbuf;
+		if (!stat(destination, &statbuf)) {
+			char message[4096];
+			sprintf(message, "showdialog \"File Browser\" /usr/share/icons/48/folder.bmp \"Not overwriting file '%s'.\"", cheap_basename);
+			launch_application(message);
+		} else {
+			char cp[1024];
+			sprintf(cp, "cp -r \"%s\" \"%s\"", file, current_directory);
+			if (system(cp)) {
+				char message[4096];
+				sprintf(message, "showdialog \"File Browser\" /usr/share/icons/48/folder.bmp \"Error copying file '%s'.\"", cheap_basename);
+				launch_application(message);
+			}
+		}
+		file = next_file;
+	}
+
 	_menu_action_refresh(NULL);
 }
 
@@ -898,6 +941,7 @@ int main(int argc, char * argv[]) {
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Edit in Bim",_menu_action_edit));
 	menu_insert(context_menu, menu_create_separator());
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
+	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Paste",_menu_action_paste));
 	menu_insert(context_menu, menu_create_separator());
 	if (!is_desktop_background) {
 		menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
@@ -955,6 +999,26 @@ int main(int argc, char * argv[]) {
 						if (wr->wid == main_window->wid) {
 							resize_finish(wr->width, wr->height);
 						}
+					}
+					break;
+				case YUTANI_MSG_CLIPBOARD:
+					{
+						struct yutani_msg_clipboard * cb = (void *)m->data;
+						char * selection_text;
+						if (*cb->content == '\002') {
+							int size = atoi(&cb->content[2]);
+							FILE * clipboard = yutani_open_clipboard(yctx);
+							selection_text = malloc(size + 1);
+							fread(selection_text, 1, size, clipboard);
+							selection_text[size] = '\0';
+							fclose(clipboard);
+						} else {
+							selection_text = malloc(cb->size+1);
+							memcpy(selection_text, cb->content, cb->size);
+							selection_text[cb->size] = '\0';
+						}
+						handle_clipboard(selection_text);
+						free(selection_text);
 					}
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
