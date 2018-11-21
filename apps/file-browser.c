@@ -403,6 +403,16 @@ static void load_directory(const char * path) {
 					} else if (has_extension(f, ".bmp")) {
 						sprintf(f->icon, "image");
 						sprintf(f->launcher, "exec imgviewer");
+					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar") || has_extension(f, ".tar.gz")) {
+						/* Or dozens of others... */
+						sprintf(f->icon, "package");
+						/* TODO: Archive tool? Extract locally? */
+					} else if (has_extension(f, ".sh")) {
+						sprintf(f->icon, "sh");
+						if (statbuf.st_mode & 0111) {
+							/* Make executable */
+							sprintf(f->launcher, "SELF");
+						}
 					} else if (statbuf.st_mode & 0111) {
 						/* Executable files - use their name for their icon, and launch themselves. */
 						sprintf(f->icon, "%s", f->name);
