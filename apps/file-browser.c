@@ -403,6 +403,9 @@ static void load_directory(const char * path) {
 					} else if (has_extension(f, ".bmp")) {
 						sprintf(f->icon, "image");
 						sprintf(f->launcher, "exec imgviewer");
+					} else if (has_extension(f, ".sdf") || has_extension(f, ".ttf")) {
+						sprintf(f->icon, "font");
+						/* TODO: Font viewer for SDF and TrueType */
 					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar") || has_extension(f, ".tar.gz")) {
 						/* Or dozens of others... */
 						sprintf(f->icon, "package");
