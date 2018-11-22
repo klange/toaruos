@@ -10,6 +10,7 @@
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
 #include <toaru/menu.h>
+#include <toaru/button.h>
 
 #include <sys/utsname.h>
 
@@ -37,69 +38,8 @@ static void draw_string(int y, const char * string, int font, uint32_t color) {
 	draw_sdf_string(ctx, bounds.left_width + 80, bounds.top_height + 30 + y, string, 16, color, font);
 }
 
-struct button {
-	int x;
-	int y;
-	int width;
-	int height;
-	char * title;
-	int hilight;
-};
-
-struct gradient_definition {
-	int height;
-	int y;
-	uint32_t top;
-	uint32_t bottom;
-};
-
-static uint32_t gradient_pattern(int32_t x, int32_t y, double alpha, void * extra) {
-	struct gradient_definition * gradient = extra;
-	int base_r = _RED(gradient->top), base_g = _GRE(gradient->top), base_b = _BLU(gradient->top);
-	int last_r = _RED(gradient->bottom), last_g = _GRE(gradient->bottom), last_b = _GRE(gradient->bottom);
-	double gradpoint = (double)(y - (gradient->y)) / (double)gradient->height;
-
-	return premultiply(rgba(
-		base_r * (1.0 - gradpoint) + last_r * (gradpoint),
-		base_g * (1.0 - gradpoint) + last_g * (gradpoint),
-		base_b * (1.0 - gradpoint) + last_b * (gradpoint),
-		alpha * 255));
-}
-
-static void draw_button(struct button * button) {
-	if (button->width == 0) {
-		fprintf(stderr, "not drawing button, width is 0\n");
-		return;
-	}
-	/* Dark edge */
-	struct gradient_definition edge = {button->height, button->y, rgb(166,166,166), rgb(136,136,136)};
-	draw_rounded_rectangle_pattern(ctx, button->x, button->y, button->width, button->height, 4, gradient_pattern, &edge);
-	/* Sheen */
-	if (button->hilight < 2) {
-		draw_rounded_rectangle(ctx, button->x + 1, button->y + 1, button->width - 2, button->height - 2, 3, rgb(238,238,238));
-	/* Button face - this should normally be a gradient */
-		if (button->hilight == 1) {
-			struct gradient_definition face = {button->height-3, button->y + 2, rgb(240,240,240), rgb(230,230,230)};
-			draw_rounded_rectangle_pattern(ctx, button->x + 2, button->y + 2, button->width - 4, button->height - 3, 2, gradient_pattern, &face);
-		} else {
-			struct gradient_definition face = {button->height-3, button->y + 2, rgb(219,219,219), rgb(204,204,204)};
-			draw_rounded_rectangle_pattern(ctx, button->x + 2, button->y + 2, button->width - 4, button->height - 3, 2, gradient_pattern, &face);
-		}
-	} else if (button->hilight == 2) {
-		struct gradient_definition face = {button->height-2, button->y + 1, rgb(180,180,180), rgb(160,160,160)};
-		draw_rounded_rectangle_pattern(ctx, button->x + 1, button->y + 1, button->width - 2, button->height - 2, 3, gradient_pattern, &face);
-	}
-
-	int label_width = draw_sdf_string_width(button->title, 16, SDF_FONT_THIN);
-	int centered = (button->width - label_width) / 2;
-
-	int centered_y = (button->height - 16) / 2;
-	draw_sdf_string(ctx, button->x + centered + (button->hilight == 2), button->y + centered_y + (button->hilight == 2), button->title, 16, rgb(0,0,0), SDF_FONT_THIN);
-
-}
-
-struct button _ok = {0};
-struct button _cancel = {0};
+struct TTKButton _ok = {0};
+struct TTKButton _cancel = {0};
 
 static void redraw(void) {
 
@@ -122,8 +62,8 @@ static void redraw(void) {
 		}
 	}
 
-	draw_button(&_ok);
-	draw_button(&_cancel);
+	ttk_button_draw(ctx, &_ok);
+	ttk_button_draw(ctx, &_cancel);
 
 	window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
 	render_decorations(window, ctx, title_str);
@@ -140,7 +80,7 @@ static void init_default(void) {
 	copyright_str[1] = "You can press \"Okay\" or \"Cancel\" or close the window.";
 }
 
-int in_button(struct button * button, struct yutani_msg_window_mouse_event * me) {
+int in_button(struct TTKButton * button, struct yutani_msg_window_mouse_event * me) {
 	if (me->new_y >= button->y && me->new_y < button->y  + button->height) {
 		if (me->new_x >= button->x && me->new_x < button->x + button->width) {
 			return 1;
@@ -176,7 +116,7 @@ void resize_finish(int w, int h) {
 	yutani_window_resize_done(yctx, window);
 }
 
-void set_hilight(struct button * button, int hilight) {
+void set_hilight(struct TTKButton * button, int hilight) {
 	if (!button && (_ok.hilight || _cancel.hilight)) {
 		_ok.hilight = 0;
 		_cancel.hilight = 0;
@@ -243,7 +183,7 @@ int main(int argc, char * argv[]) {
 	logo.alpha = ALPHA_EMBEDDED;
 	redraw();
 
-	struct button * _down_button = NULL;
+	struct TTKButton * _down_button = NULL;
 
 	int playing = 1;
 	int status = 0;
