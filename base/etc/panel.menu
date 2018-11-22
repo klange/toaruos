@@ -1,6 +1,7 @@
 :_
 &accessories,folder,Accessories
 &demos,folder,Demos
+&settings,folder,Settings
 -
 exec help-browser,help,Help Browser
 exec about,star,About ToaruOS
@@ -16,3 +17,5 @@ exec drawlines,drawlines,Draw Lines
 :decorated
 exec julia,julia,Julia Fractals
 exec plasma,plasma,Plasma
+:settings
+exec gsudo package-manager,package,Package Manager
