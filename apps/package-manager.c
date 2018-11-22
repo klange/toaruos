@@ -10,6 +10,7 @@
 #include <math.h>
 
 #include <sys/time.h>
+#include <sys/stat.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -136,7 +137,7 @@ static void load_manifest(void) {
 	if (conf) {
 		hashmap_t * msk_installed = hashmap_create(10);
 
-		FILE * installed = fopen("/var/msk/installed", "r");
+		FILE * installed = fopen(VAR_PATH "/installed", "r");
 		if (installed) {
 			while (!feof(installed)) {
 				char tmp[128] = {0};
@@ -403,9 +404,15 @@ int main(int argc, char * argv[]) {
 	decor_get_bounds(main_window, &bounds);
 	available_height = ctx->height - MENU_BAR_HEIGHT - bounds.height;
 
-	load_manifest();
-	reinitialize_contents();
-	redraw_window();
+	struct stat statbuf;
+	if (!stat(VAR_PATH "/manifest",&statbuf)) {
+		load_manifest();
+		reinitialize_contents();
+		redraw_window();
+	} else {
+		_menu_action_refresh(NULL);
+		/* also redraws window */
+	}
 
 	while (application_running) {
 		yutani_msg_t * m = yutani_poll(yctx);
