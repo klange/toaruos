@@ -144,6 +144,9 @@ static int sys_open(const char * file, int flags, int mode) {
 			close_fs(node);
 			return -EACCES;
 		}
+		if (node && (node->flags & FS_DIRECTORY)) {
+			return -EISDIR;
+		}
 		if (node && (flags & O_TRUNC)) {
 			truncate_fs(node);
 		}
@@ -162,8 +165,10 @@ static int sys_open(const char * file, int flags, int mode) {
 		}
 	}
 	if (!node) {
-		debug_print(NOTICE, "File does not exist; someone should be setting errno?");
 		return -ENOENT;
+	}
+	if (node && (flags & O_CREAT) && (node->flags & FS_DIRECTORY)) {
+		return -EISDIR;
 	}
 	int fd = process_append_fd((process_t *)current_process, node);
 	FD_MODE(fd) = access_bits;
