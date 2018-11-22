@@ -153,6 +153,11 @@ static int sys_open(const char * file, int flags, int mode) {
 		}
 	}
 
+	if (node && (flags & O_CREAT) && (flags & O_EXCL)) {
+		close_fs(node);
+		return -EEXIST;
+	}
+
 	if (!node && (flags & O_CREAT)) {
 		/* TODO check directory permissions */
 		debug_print(NOTICE, "- file does not exist and create was requested.");
