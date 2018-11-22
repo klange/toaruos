@@ -103,7 +103,11 @@ static void draw_package(struct Package * package, int index) {
 	int offset_y = index * PKG_HEIGHT;
 
 	if (package->selected) {
-		draw_rectangle_solid(contents, 0, offset_y, contents->width, PKG_HEIGHT, rgb(0,120,220));
+		if (main_window->focused) {
+			draw_rectangle_solid(contents, 0, offset_y, contents->width, PKG_HEIGHT, rgb(0,120,220));
+		} else {
+			draw_rectangle_solid(contents, 0, offset_y, contents->width, PKG_HEIGHT, rgb(180,180,180));
+		}
 	}
 
 	sprite_t * icon = package->installed ? icon_get_48("package") : icon_get_48("package-uninstalled");
@@ -119,6 +123,8 @@ static void draw_package(struct Package * package, int index) {
 }
 
 static void redraw_packages(void) {
+	draw_fill(contents, rgba(0,0,0,0));
+
 	for (int i = 0; i < pkg_pointers_len; ++i) {
 		draw_package(pkg_pointers[i], i);
 	}
@@ -231,8 +237,6 @@ static void reinitialize_contents(void) {
 
 	contents_sprite = create_sprite(main_window->width - bounds.width, calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
-
-	draw_fill(contents, rgba(0,0,0,0));
 
 	/* Draw packages */
 	redraw_packages();
@@ -436,6 +440,7 @@ int main(int argc, char * argv[]) {
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
 						if (win == main_window) {
 							win->focused = wf->focused;
+							redraw_packages();
 							redraw_window();
 						}
 					}

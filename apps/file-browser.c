@@ -174,7 +174,7 @@ static void draw_file(struct File * f, int offset) {
 	int center_x_text = (FILE_WIDTH - name_width) / 2;
 	draw_sprite(contents, icon, center_x_icon + x, y + 2);
 
-	if (f->selected && (!is_desktop_background || main_window->focused)) {
+	if (f->selected) {
 		/* If this file is selected, paint the icon blue... */
 		if (main_window->focused) {
 			draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
