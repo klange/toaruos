@@ -66,7 +66,11 @@ void parse_url(char * d, struct http_req * r) {
 #define BAR_WIDTH 20
 #define bar_perc "||||||||||||||||||||"
 #define bar_spac "                    "
-void print_progress(void) {
+void print_progress(int force) {
+	static uint64_t last_size = 0;
+	if (!fetch_options.show_progress) return;
+	if (!force && (last_size + 102400 > fetch_options.size)) return;
+	last_size = fetch_options.size;
 	struct timeval now;
 	gettimeofday(&now, NULL);
 	fprintf(stderr,"\033[?25l\033[G%6dkB",(int)fetch_options.size/1024);
@@ -229,14 +233,13 @@ int http_fetch(FILE * f) {
 		size_t r = fread(buf, 1, bytes_to_read < 1024 ? bytes_to_read : 1024, f);
 		fwrite(buf, 1, r, fetch_options.out);
 		fetch_options.size += r;
-		if (fetch_options.show_progress) {
-			print_progress();
-		}
+		print_progress(0);
 		if (fetch_options.machine_readable && fetch_options.content_length) {
 			fprintf(stdout,"%d %d\n",(int)fetch_options.size, (int)fetch_options.content_length);
 		}
 		bytes_to_read -= r;
 	}
+	print_progress(1);
 
 	return 0;
 }
