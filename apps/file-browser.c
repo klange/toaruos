@@ -174,9 +174,11 @@ static void draw_file(struct File * f, int offset) {
 	int center_x_text = (FILE_WIDTH - name_width) / 2;
 	draw_sprite(contents, icon, center_x_icon + x, y + 2);
 
-	if (f->selected) {
+	if (f->selected && (!is_desktop_background || main_window->focused)) {
 		/* If this file is selected, paint the icon blue... */
-		draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
+		if (main_window->focused) {
+			draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
+		}
 		/* And draw the name with a blue background and white text */
 		draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
 		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
@@ -219,6 +221,9 @@ static struct File * get_file_at_offset(int offset) {
  * Redraw all icon view entries
  */
 static void redraw_files(void) {
+	/* Fill to blank */
+	draw_fill(contents, rgba(0,0,0,0));
+
 	for (int i = 0; i < file_pointers_len; ++i) {
 		draw_file(file_pointers[i], i);
 	}
@@ -500,9 +505,6 @@ static void reinitialize_contents(void) {
 	/* Create buffer */
 	contents_sprite = create_sprite(FILE_PTR_WIDTH * FILE_WIDTH, calculated_height, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
-
-	/* Fill to blank */
-	draw_fill(contents, rgba(0,0,0,0));
 
 	/* Draw file entries */
 	redraw_files();
@@ -1009,6 +1011,7 @@ int main(int argc, char * argv[]) {
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
 						if (win == main_window) {
 							win->focused = wf->focused;
+							redraw_files();
 							redraw_window();
 						}
 					}
@@ -1069,7 +1072,8 @@ int main(int argc, char * argv[]) {
 							if (me->new_y > (int)(bounds.top_height + menu_bar_height) &&
 								me->new_y < (int)(main_window->height - bounds.bottom_height) &&
 								me->new_x > (int)(bounds.left_width) &&
-								me->new_x < (int)(main_window->width - bounds.right_width)) {
+								me->new_x < (int)(main_window->width - bounds.right_width) &&
+								me->command != YUTANI_MOUSE_EVENT_LEAVE) {
 								if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 									/* Scroll up */
 									scroll_offset -= SCROLL_AMOUNT;
