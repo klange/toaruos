@@ -97,6 +97,10 @@ static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 #define BUTTON_HEIGHT 28
 #define BUTTON_WIDTH 86
 #define BUTTON_PADDING 14
+#define HILIGHT_BORDER_TOP rgb(54,128,205)
+#define HILIGHT_GRADIENT_TOP rgb(93,163,236)
+#define HILIGHT_GRADIENT_BOTTOM rgb(56,137,220)
+#define HILIGHT_BORDER_BOTTOM rgb(47,106,167)
 
 #define PKG_HEIGHT 70
 static void draw_package(struct Package * package, int index) {
@@ -104,7 +108,16 @@ static void draw_package(struct Package * package, int index) {
 
 	if (package->selected) {
 		if (main_window->focused) {
-			draw_rectangle_solid(contents, 0, offset_y, contents->width, PKG_HEIGHT, rgb(0,120,220));
+			draw_rectangle_solid(contents, 0, offset_y, contents->width, PKG_HEIGHT, rgb(93,163,236));
+			draw_line(contents, 0, contents->width, offset_y, offset_y, HILIGHT_BORDER_TOP);
+			draw_line(contents, 0, contents->width, offset_y + PKG_HEIGHT-1, offset_y + PKG_HEIGHT-1, HILIGHT_BORDER_BOTTOM);
+			for (int i = 1; i < PKG_HEIGHT - 2; ++i) {
+				int thing = ((i - 1) * 256) / (PKG_HEIGHT - 3);
+				if (thing > 255) thing = 255;
+				if (thing < 0) thing = 0;
+				uint32_t c = interp_colors(HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM, thing);
+				draw_line(contents, 0, contents->width, offset_y + i, offset_y + i, c);
+			}
 		} else {
 			draw_rectangle_solid(contents, 0, offset_y, contents->width, PKG_HEIGHT, rgb(180,180,180));
 		}
