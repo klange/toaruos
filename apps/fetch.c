@@ -84,9 +84,9 @@ void print_progress(int force) {
 		double rate = (double)(fetch_options.size) / timediff;
 		double s = rate/(1024.0) * 8.0;
 		if (s > 1024.0) {
-			fprintf(stderr," %.2f mbps", s/1024.0);
+			fprintf(stderr," %.2f Mbps", s/1024.0);
 		} else {
-			fprintf(stderr," %.2f kbps", s);
+			fprintf(stderr," %.2f Kbps", s);
 		}
 
 		if (fetch_options.content_length) {
