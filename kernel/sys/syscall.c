@@ -129,6 +129,11 @@ static int sys_open(const char * file, int flags, int mode) {
 
 	int access_bits = 0;
 
+	if (node && (flags & O_CREAT) && (flags & O_EXCL)) {
+		close_fs(node);
+		return -EEXIST;
+	}
+
 	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
 		if (node && !has_permission(node, 04)) {
 			debug_print(WARNING, "access denied (read, sys_open, file=%s)", file);
@@ -151,11 +156,6 @@ static int sys_open(const char * file, int flags, int mode) {
 			/* truncate doesn't grant write permissions */
 			access_bits |= 02;
 		}
-	}
-
-	if (node && (flags & O_CREAT) && (flags & O_EXCL)) {
-		close_fs(node);
-		return -EEXIST;
 	}
 
 	if (!node && (flags & O_CREAT)) {
