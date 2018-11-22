@@ -90,7 +90,7 @@ static void read_manifest(int required) {
 static void read_installed(void) {
 	msk_installed = hashmap_create(10);
 
-	FILE * installed = fopen("/var/msk/installed", "r");
+	FILE * installed = fopen(VAR_PATH "/installed", "r");
 	if (!installed) return;
 
 	while (!feof(installed)) {
@@ -364,7 +364,7 @@ static int install_package(char * pkg) {
 	}
 
 	/* Mark as installed */
-	FILE * installed = fopen("/var/msk/installed", "a");
+	FILE * installed = fopen(VAR_PATH "/installed", "a");
 	fprintf(installed, "%s==%s\n", pkg, confreader_get(msk_manifest, pkg, "version"));
 	fclose(installed);
 
@@ -387,7 +387,7 @@ static int install_packages(int argc, char * argv[]) {
 	}
 
 	/* Additional packages must be installed, let's ask. */
-	if (ordered->length != (unsigned int)(argc - 2)) {
+	if (ordered->length != (unsigned int)(argc - 2) && !getenv("MSK_YES")) {
 		fprintf(stderr, "The following packages will be installed:\n");
 		fprintf(stderr, "    ");
 		int notfirst = 0;
