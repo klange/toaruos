@@ -138,19 +138,19 @@ static int sys_open(const char * file, int flags, int mode) {
 			access_bits |= 01;
 		}
 	}
-	if ((flags & O_RDWR) || (flags & O_APPEND) || (flags & O_WRONLY) || (flags & O_TRUNC)) {
+
+	if ((flags & O_RDWR) || (flags & O_WRONLY)) {
 		if (node && !has_permission(node, 02)) {
-			debug_print(WARNING, "access denied (write, sys_open, file=%s)", file);
 			close_fs(node);
 			return -EACCES;
 		}
 		if (node && (node->flags & FS_DIRECTORY)) {
 			return -EISDIR;
 		}
-		if (node && (flags & O_TRUNC)) {
-			truncate_fs(node);
+		if ((flags & O_RDWR) || (flags & O_WRONLY)) {
+			/* truncate doesn't grant write permissions */
+			access_bits |= 02;
 		}
-		access_bits |= 02;
 	}
 
 	if (!node && (flags & O_CREAT)) {
@@ -164,10 +164,20 @@ static int sys_open(const char * file, int flags, int mode) {
 			return result;
 		}
 	}
+
+	if (node && (flags & O_TRUNC)) {
+		if (!(access_bits & 02)) {
+			close_fs(node);
+			return -EINVAL;
+		}
+		truncate_fs(node);
+	}
+
 	if (!node) {
 		return -ENOENT;
 	}
 	if (node && (flags & O_CREAT) && (node->flags & FS_DIRECTORY)) {
+		close_fs(node);
 		return -EISDIR;
 	}
 	int fd = process_append_fd((process_t *)current_process, node);
