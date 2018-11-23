@@ -107,7 +107,7 @@ struct vbox_pointershape {
 
 
 #define EARLY_LOG_DEVICE 0x504
-static uint32_t _vbox_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t _vbox_write(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	for (unsigned int i = 0; i < size; ++i) {
 		outportb(EARLY_LOG_DEVICE, buffer[i]);
 	}
@@ -219,7 +219,7 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 	return -1;
 }
 
-uint32_t write_pointer(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t write_pointer(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 
 	if (!mouse_state) {
 		return -1;
@@ -231,7 +231,7 @@ uint32_t write_pointer(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t
 	return size;
 }
 
-uint32_t write_rectpipe(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t write_rectpipe(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	(void)node;
 	(void)offset;
 

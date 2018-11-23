@@ -37,8 +37,8 @@
 
 struct fs_node;
 
-typedef uint32_t (*read_type_t) (struct fs_node *, uint32_t, uint32_t, uint8_t *);
-typedef uint32_t (*write_type_t) (struct fs_node *, uint32_t, uint32_t, uint8_t *);
+typedef uint32_t (*read_type_t) (struct fs_node *, uint64_t, uint32_t, uint8_t *);
+typedef uint32_t (*write_type_t) (struct fs_node *, uint64_t, uint32_t, uint8_t *);
 typedef void (*open_type_t) (struct fs_node *, unsigned int flags);
 typedef void (*close_type_t) (struct fs_node *);
 typedef struct dirent *(*readdir_type_t) (struct fs_node *, uint32_t);
@@ -135,8 +135,8 @@ extern fs_node_t *fs_root;
 extern int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave);
 
 int has_permission(fs_node_t *node, int permission_bit);
-uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
+uint32_t read_fs(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer);
+uint32_t write_fs(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer);
 void open_fs(fs_node_t *node, unsigned int flags);
 void close_fs(fs_node_t *node);
 struct dirent *readdir_fs(fs_node_t *node, uint32_t index);

@@ -7,7 +7,7 @@
 #include <va_list.h>
 
 #define EARLY_LOG_DEVICE 0x3F8
-static uint32_t _ubsan_log_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t _ubsan_log_write(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	for (unsigned int i = 0; i < size; ++i) {
 		outportb(EARLY_LOG_DEVICE, buffer[i]);
 	}

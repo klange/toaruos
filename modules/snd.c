@@ -24,7 +24,7 @@
 
 #define SND_BUF_SIZE 0x4000
 
-static uint32_t snd_dsp_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer);
+static uint32_t snd_dsp_write(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer);
 static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp);
 static void snd_dsp_open(fs_node_t * node, unsigned int flags);
 static void snd_dsp_close(fs_node_t * node);
@@ -102,7 +102,7 @@ snd_unregister_cleanup:
 	return rv;
 }
 
-static uint32_t snd_dsp_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t snd_dsp_write(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	if (!_devices.length) return -1; /* No sink available. */
 
 	struct dsp_node * dsp = node->device;

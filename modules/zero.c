@@ -11,20 +11,11 @@
 #include <kernel/fs.h>
 #include <kernel/module.h>
 
-static uint32_t read_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static uint32_t write_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static void open_null(fs_node_t *node, unsigned int flags);
-static void close_null(fs_node_t *node);
-static uint32_t read_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static uint32_t write_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static void open_zero(fs_node_t *node, unsigned int flags);
-static void close_zero(fs_node_t *node);
-
-static uint32_t read_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t read_null(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	return 0;
 }
 
-static uint32_t write_null(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t write_null(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	return 0;
 }
 
@@ -36,12 +27,12 @@ static void close_null(fs_node_t * node) {
 	return;
 }
 
-static uint32_t read_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t read_zero(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	memset(buffer, 0x00, size);
 	return 1;
 }
 
-static uint32_t write_zero(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t write_zero(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	return 0;
 }
 

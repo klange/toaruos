@@ -34,10 +34,6 @@ static spin_lock_t ata_lock = { 0 };
 
 static void ata_device_read_sector(struct ata_device * dev, uint32_t lba, uint8_t * buf);
 static void ata_device_write_sector_retry(struct ata_device * dev, uint32_t lba, uint8_t * buf);
-static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static void     open_ata(fs_node_t *node, unsigned int flags);
-static void     close_ata(fs_node_t *node);
 
 static uint64_t ata_max_offset(struct ata_device * dev) {
 	uint64_t sectors = dev->identity.sectors_48;
@@ -49,7 +45,7 @@ static uint64_t ata_max_offset(struct ata_device * dev) {
 	return sectors * ATA_SECTOR_SIZE;
 }
 
-static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t read_ata(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 
 	struct ata_device * dev = (struct ata_device *)node->device;
 
@@ -72,7 +68,7 @@ static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 		char * tmp = malloc(ATA_SECTOR_SIZE);
 		ata_device_read_sector(dev, start_block, (uint8_t *)tmp);
 
-		memcpy(buffer, (void *)((uintptr_t)tmp + (offset % ATA_SECTOR_SIZE)), prefix_size);
+		memcpy(buffer, (void *)((uintptr_t)tmp + ((uintptr_t)offset % ATA_SECTOR_SIZE)), prefix_size);
 
 		free(tmp);
 
@@ -101,7 +97,7 @@ static uint32_t read_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 	return size;
 }
 
-static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t write_ata(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	struct ata_device * dev = (struct ata_device *)node->device;
 
 	unsigned int start_block = offset / ATA_SECTOR_SIZE;
@@ -126,7 +122,7 @@ static uint32_t write_ata(fs_node_t *node, uint32_t offset, uint32_t size, uint8
 
 		debug_print(NOTICE, "Writing first block");
 
-		memcpy((void *)((uintptr_t)tmp + (offset % ATA_SECTOR_SIZE)), buffer, prefix_size);
+		memcpy((void *)((uintptr_t)tmp + ((uintptr_t)offset % ATA_SECTOR_SIZE)), buffer, prefix_size);
 		ata_device_write_sector_retry(dev, start_block, (uint8_t *)tmp);
 
 		free(tmp);

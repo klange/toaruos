@@ -269,7 +269,7 @@ cleanup:
 	return dirent;
 }
 
-static uint32_t read_iso(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+static uint32_t read_iso(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t * buffer) {
 	iso_9660_fs_t * this = node->device;
 	char * tmp = malloc(this->block_size);
 	read_sector(this, node->inode, tmp);

@@ -66,7 +66,7 @@ KCC = $(TARGET_TRIPLET)-gcc
 LGCC = -lgcc
 else
 KCC = clang --target=i686-elf -static -Ibase/usr/include -nostdinc -mno-sse
-LGCC = 
+LGCC = -lgcc
 endif
 KAS = $(TARGET_TRIPLET)-as
 KLD = $(TARGET_TRIPLET)-ld

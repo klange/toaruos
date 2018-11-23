@@ -63,7 +63,7 @@ static void term_write(char c) {
 	write_string(foo);
 }
 
-static uint32_t vga_write(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t vga_write(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	/* XXX do some terminal processing like we did in the old days */
 	size_t i = 0;
 	while (*buffer && i < size) {

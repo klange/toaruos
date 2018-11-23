@@ -221,7 +221,7 @@ static void lfb_video_panic(char ** msgs) {
 	}
 }
 
-static uint32_t framebuffer_func(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+static uint32_t framebuffer_func(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t * buffer) {
 	char * buf = malloc(4096);
 
 	if (lfb_driver_name) {

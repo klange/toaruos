@@ -28,7 +28,7 @@ static void close_complete(struct unix_pipe * self) {
 	ring_buffer_destroy(self->buffer);
 }
 
-static uint32_t read_unixpipe(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t read_unixpipe(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	struct unix_pipe * self = node->device;
 	size_t read = 0;
 
@@ -46,7 +46,7 @@ static uint32_t read_unixpipe(fs_node_t * node, uint32_t offset, uint32_t size, 
 	return read;
 }
 
-static uint32_t write_unixpipe(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t write_unixpipe(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	struct unix_pipe * self = node->device;
 	size_t written = 0;
 

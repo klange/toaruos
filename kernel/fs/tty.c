@@ -317,13 +317,13 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 	}
 }
 
-uint32_t  read_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t  read_pty_master(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	/* Standard pipe read */
 	return ring_buffer_read(pty->out, size, buffer);
 }
-uint32_t write_pty_master(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t write_pty_master(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	size_t l = 0;
@@ -340,7 +340,7 @@ void     close_pty_master(fs_node_t * node) {
 	return;
 }
 
-uint32_t  read_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t  read_pty_slave(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	if (pty->tios.c_lflag & ICANON) {
@@ -354,7 +354,7 @@ uint32_t  read_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8
 	}
 }
 
-uint32_t write_pty_slave(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t write_pty_slave(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	size_t l = 0;

@@ -38,7 +38,7 @@ static fs_node_t * procfs_generic_create(char * name, read_type_t read_func) {
 	return fnode;
 }
 
-static uint32_t proc_cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t proc_cmdline_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	process_t * proc = process_from_pid(node->inode);
 
@@ -128,7 +128,7 @@ static size_t calculate_shm_resident(page_directory_t * src) {
 	return pages;
 }
 
-static uint32_t proc_status_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t proc_status_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[2048];
 	process_t * proc = process_from_pid(node->inode);
 	process_t * parent = process_get_parent(proc);
@@ -281,7 +281,7 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 
 #define cpuid(in,a,b,c,d) do { asm volatile ("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(in)); } while(0)
 
-static uint32_t cpuinfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t cpuinfo_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 
 	unsigned long a, b, unused;;
@@ -319,7 +319,7 @@ static uint32_t cpuinfo_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 extern uintptr_t heap_end;
 extern uintptr_t kernel_heap_alloc_point;
 
-static uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t meminfo_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	unsigned int total = memory_total();
 	unsigned int free  = total - memory_use();
@@ -341,7 +341,7 @@ static uint32_t meminfo_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	return size;
 }
 
-static uint32_t pat_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t pat_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 
 	uint64_t pat_values;
@@ -395,7 +395,7 @@ static uint32_t pat_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
 }
 
 
-static uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t uptime_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	sprintf(buf, "%d.%3d\n", timer_ticks, timer_subticks);
 
@@ -407,7 +407,7 @@ static uint32_t uptime_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	return size;
 }
 
-static uint32_t cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t cmdline_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	extern char * cmdline;
 	sprintf(buf, "%s\n", cmdline ? cmdline : "");
@@ -420,7 +420,7 @@ static uint32_t cmdline_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	return size;
 }
 
-static uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t version_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	char version_number[512];
 	sprintf(version_number, __kernel_version_format,
@@ -444,7 +444,7 @@ static uint32_t version_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 	return size;
 }
 
-static uint32_t compiler_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t compiler_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char buf[1024];
 	sprintf(buf, "%s\n", __kernel_compiler_version);
 
@@ -485,7 +485,7 @@ static void mount_recurse(char * buf, tree_node_t * node, size_t height) {
 	}
 }
 
-static uint32_t mounts_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t mounts_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char * buf = malloc(4096);
 
 	buf[0] = '\0';
@@ -504,7 +504,7 @@ static uint32_t mounts_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 	return size;
 }
 
-static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t modules_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	list_t * hash_keys = hashmap_keys(modules_get_list());
 	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
@@ -548,7 +548,7 @@ static uint32_t modules_func(fs_node_t *node, uint32_t offset, uint32_t size, ui
 
 extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
 
-static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t filesystems_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	list_t * hash_keys = hashmap_keys(fs_types);
 	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
@@ -570,7 +570,7 @@ static uint32_t filesystems_func(fs_node_t *node, uint32_t offset, uint32_t size
 	return size;
 }
 
-static uint32_t loader_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t loader_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char * buf = malloc(512);
 
 	if (mboot_ptr->flags & MULTIBOOT_FLAG_LOADER) {
@@ -594,7 +594,7 @@ static uint32_t loader_func(fs_node_t *node, uint32_t offset, uint32_t size, uin
 
 extern char * get_irq_handler(int irq, int chain);
 
-static uint32_t irq_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t irq_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	char * buf = malloc(4096);
 	unsigned int soffset = 0;
 
@@ -660,7 +660,7 @@ static void scan_count(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
 	(*count)++;
 }
 
-static uint32_t pci_func(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static uint32_t pci_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	size_t count = 0;
 	pci_scan(&scan_count, -1, &count);
 

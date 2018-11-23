@@ -132,7 +132,7 @@ int selectwait_fs(fs_node_t * node, void * process) {
  * @param buffer  A buffer to copy of the read data into
  * @returns Bytes read
  */
-uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t read_fs(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
 
 	if (node->read) {
@@ -152,7 +152,7 @@ uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffe
  * @param buffer  A buffer to copy from
  * @returns Bytes written
  */
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+uint32_t write_fs(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
 
 	if (node->write) {

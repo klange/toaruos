@@ -98,7 +98,7 @@ static pex_client_t * create_client(pex_ex_t * p) {
 	return out;
 }
 
-static uint32_t read_server(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+static uint32_t read_server(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	debug_print(INFO, "[pex] server read(...)");
 
@@ -119,7 +119,7 @@ static uint32_t read_server(fs_node_t * node, uint32_t offset, uint32_t size, ui
 	return out;
 }
 
-static uint32_t write_server(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+static uint32_t write_server(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	debug_print(INFO, "[pex] server write(...)");
 
@@ -158,7 +158,7 @@ static int ioctl_server(fs_node_t * node, int request, void * argp) {
 	}
 }
 
-static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+static uint32_t read_client(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	if (c->parent != node->device) {
 		debug_print(WARNING, "[pex] Invalid device endpoint on client read?");
@@ -185,7 +185,7 @@ static uint32_t read_client(fs_node_t * node, uint32_t offset, uint32_t size, ui
 	return out;
 }
 
-static uint32_t write_client(fs_node_t * node, uint32_t offset, uint32_t size, uint8_t * buffer) {
+static uint32_t write_client(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	if (c->parent != node->device) {
 		debug_print(WARNING, "[pex] Invalid device endpoint on client write?");

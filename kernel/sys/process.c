@@ -280,7 +280,7 @@ process_t * spawn_init(void) {
 	init->fds->capacity = 4;
 	init->fds->entries  = malloc(sizeof(fs_node_t *) * init->fds->capacity);
 	init->fds->modes    = malloc(sizeof(int) * init->fds->capacity);
-	init->fds->offsets  = malloc(sizeof(size_t) * init->fds->capacity);
+	init->fds->offsets  = malloc(sizeof(uint64_t) * init->fds->capacity);
 
 	/* Set the working directory */
 	init->wd_node = clone_fs(fs_root);
@@ -431,7 +431,7 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 		debug_print(INFO,"    fds / files {");
 		proc->fds->entries  = malloc(sizeof(fs_node_t *) * proc->fds->capacity);
 		proc->fds->modes    = malloc(sizeof(int) * proc->fds->capacity);
-		proc->fds->offsets  = malloc(sizeof(size_t) * proc->fds->capacity);
+		proc->fds->offsets  = malloc(sizeof(uint64_t) * proc->fds->capacity);
 		assert(proc->fds->entries && "Failed to allocate file descriptor table for new process.");
 		debug_print(INFO,"    ---");
 		for (uint32_t i = 0; i < parent->fds->length; ++i) {
@@ -600,7 +600,7 @@ uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
 		proc->fds->capacity *= 2;
 		proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
 		proc->fds->modes   = realloc(proc->fds->modes,   sizeof(int) * proc->fds->capacity);
-		proc->fds->offsets = realloc(proc->fds->offsets, sizeof(size_t) * proc->fds->capacity);
+		proc->fds->offsets = realloc(proc->fds->offsets, sizeof(uint64_t) * proc->fds->capacity);
 	}
 	proc->fds->entries[proc->fds->length] = node;
 	/* modes, offsets must be set by caller */
