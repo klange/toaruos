@@ -332,7 +332,7 @@ static int stat_node(fs_node_t * fn, uintptr_t st) {
 	if (!fn) {
 		memset(f, 0x00, sizeof(struct stat));
 		debug_print(INFO, "stat: This file doesn't exist");
-		return -1;
+		return -ENOENT;
 	}
 	f->st_dev   = (uint16_t)(((uint32_t)fn->device & 0xFFFF0) >> 8);
 	f->st_ino   = fn->inode;
