@@ -100,10 +100,16 @@ static uint32_t read_ata(fs_node_t *node, uint64_t offset, uint32_t size, uint8_
 
 	struct ata_device * dev = (struct ata_device *)node->device;
 
+#if 0
+	debug_print(ERROR, "ATA read at offset 0x%8x%8x", (uint32_t)(offset >> 32), (uint32_t)(offset & 0xFFFFFFFF));
+	debug_print(ERROR, "read size is 0x%8x", size);
+#endif
+
 	unsigned int start_block = offset / ATA_SECTOR_SIZE;
 	unsigned int end_block = (offset + size - 1) / ATA_SECTOR_SIZE;
 
 	unsigned int x_offset = 0;
+
 
 	if (offset > ata_max_offset(dev)) {
 		return 0;
@@ -208,6 +214,12 @@ static uint32_t write_ata(fs_node_t *node, uint64_t offset, uint32_t size, uint8
 	unsigned int end_block = (offset + size - 1) / ATA_SECTOR_SIZE;
 
 	unsigned int x_offset = 0;
+
+#if 0
+	debug_print(ERROR, "ATA write at offset 0x%8x%8x", (uint32_t)(offset >> 32), (uint32_t)(offset & 0xFFFFFFFF));
+	debug_print(ERROR, "write size is 0x%8x", size);
+	debug_print(ERROR, "some data from buf: [%2x %2x %2x %2x]", buffer[0], buffer[1], buffer[2], buffer[3]);
+#endif
 
 	if (offset > ata_max_offset(dev)) {
 		return 0;
@@ -612,6 +624,12 @@ static void ata_device_read_sector(struct ata_device * dev, uint64_t lba, uint8_
 
 	if (dev->is_atapi) return;
 
+#if 0
+	debug_print(ERROR, "Request to read sector %8x%8x",
+			(uint32_t)(lba >> 32),
+			(uint32_t)(lba & 0xFFFFFFFF));
+#endif
+
 	spin_lock(ata_lock);
 
 #if 0
@@ -643,13 +661,16 @@ try_again:
 	outportb(bus + ATA_REG_HDDEVSEL, 0xe0 | slave << 4);
 	ata_io_wait(dev);
 	outportb(bus + ATA_REG_FEATURES, 0x00);
+
+	outportb(bus + ATA_REG_SECCOUNT0, 0);
+	outportb(bus + ATA_REG_LBA0, (lba & 0xff000000) >> 24);
+	outportb(bus + ATA_REG_LBA1, (lba & 0xff00000000) >> 32);
+	outportb(bus + ATA_REG_LBA2, (lba & 0xff0000000000) >> 40);
+
 	outportb(bus + ATA_REG_SECCOUNT0, 1);
 	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
-	outportb(bus + ATA_REG_LBA3, (lba & 0xff000000) >> 24);
-	outportb(bus + ATA_REG_LBA4, (lba & 0xff00000000) >> 32);
-	outportb(bus + ATA_REG_LBA5, (lba & 0xff0000000000) >> 40);
 
 	//outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
 #if 1
@@ -658,7 +679,7 @@ try_again:
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 	}
 #endif
-	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_DMA);
+	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_DMA_EXT);
 
 	ata_io_wait(dev);
 
@@ -779,6 +800,13 @@ static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8
 	uint16_t bus = dev->io_base;
 	uint8_t slave = dev->slave;
 
+#if 0
+	debug_print(ERROR, "Request to write sector %8x%8x",
+			(uint32_t)(lba >> 32),
+			(uint32_t)(lba & 0xFFFFFFFF));
+	debug_print(ERROR, "Some data from buf: [%2x %2x %2x %2x]", buf[0], buf[1], buf[2], buf[3]);
+#endif
+
 	spin_lock(ata_lock);
 
 	outportb(bus + ATA_REG_CONTROL, 0x02);
@@ -788,15 +816,18 @@ static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8
 	ata_wait(dev, 0);
 
 	outportb(bus + ATA_REG_FEATURES, 0x00);
-	outportb(bus + ATA_REG_SECCOUNT0, 0x01);
+
+	outportb(bus + ATA_REG_SECCOUNT0, 0);
+	outportb(bus + ATA_REG_LBA0, (lba & 0xff000000) >> 24);
+	outportb(bus + ATA_REG_LBA1, (lba & 0xff00000000) >> 32);
+	outportb(bus + ATA_REG_LBA2, (lba & 0xff0000000000) >> 40);
+
+	outportb(bus + ATA_REG_SECCOUNT0, 1);
 	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
-	outportb(bus + ATA_REG_LBA3, (lba & 0xff000000) >> 24);
-	outportb(bus + ATA_REG_LBA4, (lba & 0xff00000000) >> 32);
-	outportb(bus + ATA_REG_LBA5, (lba & 0xff0000000000) >> 40);
 
-	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
+	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO_EXT);
 	ata_wait(dev, 0);
 	int size = ATA_SECTOR_SIZE / 2;
 	outportsm(bus,buf,size);
@@ -818,6 +849,8 @@ static int buffer_compare(uint32_t * ptr1, uint32_t * ptr2, size_t size) {
 }
 
 static void ata_device_write_sector_retry(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
+	uint64_t sectors = dev->identity.sectors_48;
+	if (lba >= sectors) return;
 	uint8_t * read_buf = malloc(ATA_SECTOR_SIZE);
 	do {
 		ata_device_write_sector(dev, lba, buf);
