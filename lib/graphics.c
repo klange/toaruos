@@ -198,12 +198,12 @@ void sprite_free(sprite_t * sprite) {
 	free(sprite);
 }
 
-uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
-	return 0xFF000000 + (r * 0x10000) + (g * 0x100) + (b * 0x1);
+inline uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
+	return 0xFF000000 | (r << 16) | (g << 8) | (b);
 }
 
-uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-	return (a * 0x1000000) + (r * 0x10000) + (g * 0x100) + (b * 0x1);
+inline uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+	return (a << 24U) | (r << 16) | (g << 8) | (b);
 }
 
 uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
