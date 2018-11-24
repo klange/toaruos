@@ -117,4 +117,14 @@ extern void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2
 
 extern void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha);
 
+struct gradient_definition {
+	int height;
+	int y;
+	uint32_t top;
+	uint32_t bottom;
+};
+
+extern uint32_t gfx_vertical_gradient_pattern(int32_t x, int32_t y, double alpha, void * extra);
+
+
 _End_C_Header

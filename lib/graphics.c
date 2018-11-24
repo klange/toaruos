@@ -990,3 +990,19 @@ void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 	}
 }
 
+uint32_t gfx_vertical_gradient_pattern(int32_t x, int32_t y, double alpha, void * extra) {
+	struct gradient_definition * gradient = extra;
+	int base_r = _RED(gradient->top), base_g = _GRE(gradient->top), base_b = _BLU(gradient->top);
+	int last_r = _RED(gradient->bottom), last_g = _GRE(gradient->bottom), last_b = _GRE(gradient->bottom);
+	double gradpoint = (double)(y - (gradient->y)) / (double)gradient->height;
+
+	if (alpha > 1.0) alpha = 1.0;
+	if (alpha < 0.0) alpha = 0.0;
+
+	return premultiply(rgba(
+		base_r * (1.0 - gradpoint) + last_r * (gradpoint),
+		base_g * (1.0 - gradpoint) + last_g * (gradpoint),
+		base_b * (1.0 - gradpoint) + last_b * (gradpoint),
+		alpha * 255));
+}
+
