@@ -8,6 +8,7 @@
 #include <toaru/graphics.h>
 #include <toaru/button.h>
 #include <toaru/sdf.h>
+#include <toaru/icon_cache.h>
 
 struct gradient_definition {
 	int height;
@@ -22,6 +23,9 @@ static uint32_t gradient_pattern(int32_t x, int32_t y, double alpha, void * extr
 	int last_r = _RED(gradient->bottom), last_g = _GRE(gradient->bottom), last_b = _GRE(gradient->bottom);
 	double gradpoint = (double)(y - (gradient->y)) / (double)gradient->height;
 
+	if (alpha > 1.0) alpha = 1.0;
+	if (alpha < 0.0) alpha = 0.0;
+
 	return premultiply(rgba(
 		base_r * (1.0 - gradpoint) + last_r * (gradpoint),
 		base_g * (1.0 - gradpoint) + last_g * (gradpoint),
@@ -34,8 +38,11 @@ void ttk_button_draw(gfx_context_t * ctx, struct TTKButton * button) {
 		return;
 	}
 	/* Dark edge */
-	struct gradient_definition edge = {button->height, button->y, rgb(166,166,166), rgb(136,136,136)};
-	draw_rounded_rectangle_pattern(ctx, button->x, button->y, button->width, button->height, 4, gradient_pattern, &edge);
+	if (button->hilight < 3) {
+		struct gradient_definition edge = {button->height, button->y, rgb(166,166,166), rgb(136,136,136)};
+		draw_rounded_rectangle_pattern(ctx, button->x, button->y, button->width, button->height, 4, gradient_pattern, &edge);
+	}
+
 	/* Sheen */
 	if (button->hilight < 2) {
 		draw_rounded_rectangle(ctx, button->x + 1, button->y + 1, button->width - 2, button->height - 2, 3, rgb(238,238,238));
@@ -52,11 +59,18 @@ void ttk_button_draw(gfx_context_t * ctx, struct TTKButton * button) {
 		draw_rounded_rectangle_pattern(ctx, button->x + 1, button->y + 1, button->width - 2, button->height - 2, 3, gradient_pattern, &face);
 	}
 
-	int label_width = draw_sdf_string_width(button->title, 16, SDF_FONT_THIN);
-	int centered = (button->width - label_width) / 2;
+	if (button->title[0] != '\033') {
+		int label_width = draw_sdf_string_width(button->title, 16, SDF_FONT_THIN);
+		int centered = (button->width - label_width) / 2;
 
-	int centered_y = (button->height - 16) / 2;
-	draw_sdf_string(ctx, button->x + centered + (button->hilight == 2), button->y + centered_y + (button->hilight == 2), button->title, 16, rgb(0,0,0), SDF_FONT_THIN);
+		int centered_y = (button->height - 16) / 2;
+		draw_sdf_string(ctx, button->x + centered + (button->hilight == 2), button->y + centered_y + (button->hilight == 2), button->title, 16, rgb(0,0,0), SDF_FONT_THIN);
+	} else {
+		sprite_t * icon = icon_get_16(button->title+1);
+		int centered = button->x + (button->width - icon->width) / 2;
+		int centered_y = button->y + (button->height - icon->height) / 2;
+		draw_sprite(ctx, icon, centered, centered_y);
+	}
 
 }
 
