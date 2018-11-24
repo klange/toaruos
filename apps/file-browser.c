@@ -590,6 +590,24 @@ static void redraw_window(void) {
 		draw_button("up");
 		draw_button("home");
 
+		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(90,90,90), rgb(110,110,110)};
+		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
+		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 2, bounds.top_height + MENU_BAR_HEIGHT + 5, main_window->width - bounds.width - x - 8, 24, 3, rgb(250,250,250));
+
+		int max_width = main_window->width - bounds.width - x - 12;
+		int len = strlen(current_directory);
+		char * name = malloc(len + 4);
+		memcpy(name, current_directory, len + 1);
+		int name_width;
+		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > max_width) {
+			len--;
+			name[len+0] = '.';
+			name[len+1] = '.';
+			name[len+2] = '.';
+			name[len+3] = '\0';
+		}
+	
+		draw_sdf_string(ctx, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8, name, 16, rgb(0,0,0), SDF_FONT_THIN);
 
 	}
 
