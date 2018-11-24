@@ -673,6 +673,12 @@ static void draw_background(int width, int height) {
  * Resize window when asked by the compositor.
  */
 static void resize_finish(int w, int h) {
+
+	if (w < 300 || h < 300) {
+		yutani_window_resize_offer(yctx, main_window, w < 300 ? 300 : w, h < 300 ? 300 : h);
+		return;
+	}
+
 	int width_changed = (main_window->width != (unsigned int)w);
 
 	yutani_window_resize_accept(yctx, main_window, w, h);
