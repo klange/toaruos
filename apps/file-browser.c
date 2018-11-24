@@ -69,6 +69,10 @@ static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
 static int modifiers = 0; /* For ctrl-click */
 
+static int _button_hilights[4] = {3,3,3,3};
+static int _button_disabled[4] = {1,1,0,0};
+static int _button_hover = -1;
+
 /* Menu bar entries */
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
@@ -239,10 +243,6 @@ static void set_title(char * directory) {
 
 	/* If the directory name is set... */
 	if (directory) {
-		/* Translate / to File System */
-		if (!strcmp(directory, "/")) {
-			directory = "File System";
-		}
 		sprintf(title, "%s - " APPLICATION_TITLE, directory);
 	} else {
 		/* Otherwise, just "File Browser" */
@@ -316,10 +316,19 @@ static void load_directory(const char * path, int modifies_history) {
 		free(current_directory);
 	}
 
+	_button_disabled[0] = !(history_back->length);
+	_button_disabled[1] = !(history_forward->length);
+	_button_disabled[2] = 0;
+	_button_disabled[3] = 0;
+
 	char * home = getenv("HOME");
 	if (home && !strcmp(path, home)) {
 		/* If the current directory is the user's homedir, present it that way in the title */
 		set_title("Home");
+		_button_disabled[3] = 1;
+	} else if (!strcmp(path, "/")) {
+		set_title("File System");
+		_button_disabled[2] = 1;
 	} else {
 		/* Otherwise use just the directory base name */
 		char * tmp = strdup(path);
@@ -536,9 +545,6 @@ static void sig_usr2(int sig) {
 	signal(SIGUSR2, sig_usr2);
 }
 
-static int _button_hilights[4] = {3,3,3,3};
-static int _button_hover = -1;
-
 /**
  * Redraw the entire window.
  */
@@ -575,7 +581,7 @@ static void redraw_window(void) {
 		int x = 0;
 		int i = 0;
 #define draw_button(label) do { \
-		struct TTKButton _up = {bounds.left_width + 2 + x,bounds.top_height + MENU_BAR_HEIGHT + 2,32,32,"\033" label,_button_hilights[i]}; \
+		struct TTKButton _up = {bounds.left_width + 2 + x,bounds.top_height + MENU_BAR_HEIGHT + 2,32,32,"\033" label,_button_hilights[i] | (_button_disabled[i] << 8)}; \
 		ttk_button_draw(ctx, &_up); \
 		x += 34; i++; } while (0)
 
@@ -944,7 +950,7 @@ static void _set_hilight(int index, int hilight) {
 			_button_hilights[_button_hover] = 3;
 		}
 		_button_hover = index;
-		if (index != -1) {
+		if (index != -1 && !_button_disabled[index]) {
 			_button_hilights[_button_hover] = hilight;
 		}
 		redraw_window();
@@ -952,6 +958,7 @@ static void _set_hilight(int index, int hilight) {
 }
 
 static void _handle_button_press(int index) {
+	if (index != -1 && _button_disabled[index]) return; /* can't click disabled buttons */
 	switch (index) {
 		case 0:
 			/* Back */
