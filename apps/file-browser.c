@@ -28,6 +28,7 @@
 #include <toaru/icon_cache.h>
 #include <toaru/list.h>
 #include <toaru/sdf.h>
+#include <toaru/button.h>
 
 #define APPLICATION_TITLE "File Browser"
 #define SCROLL_AMOUNT 120
@@ -52,7 +53,7 @@ static int show_hidden = 0; /* Whether or not show hidden files */
 static int scroll_offset = 0; /* How far the icon view should be scrolled */
 static int available_height = 0; /* How much space is available in the main window for the icon view */
 static int is_desktop_background = 0; /* If we're in desktop background mode */
-static int menu_bar_height = MENU_BAR_HEIGHT; /* Height of the menu bar, if present - it's not in desktop mode */
+static int menu_bar_height = MENU_BAR_HEIGHT + 36; /* Height of the menu bar, if present - it's not in desktop mode */
 static sprite_t * wallpaper_buffer = NULL; /* Prebaked wallpaper texture */
 static char title[512]; /* Application title bar */
 static int FILE_HEIGHT = 80; /* Height of one row of icons */
@@ -112,7 +113,7 @@ static uint64_t precise_time_since(uint64_t start_time) {
 static int _decor_get_bounds(yutani_window_t * win, struct decor_bounds * bounds) {
 	if (is_desktop_background) {
 		memset(bounds, 0, sizeof(struct decor_bounds));
-		bounds->top_height = 30;
+		bounds->top_height = 54;
 		bounds->left_width = 20;
 		return 0;
 	}
@@ -271,10 +272,13 @@ static int has_extension(struct File * f, char * extension) {
 	return 0;
 }
 
+static list_t * history_back;
+static list_t * history_forward;
+
 /**
  * Read the contents of a directory into the icon view.
  */
-static void load_directory(const char * path) {
+static void load_directory(const char * path, int modifies_history) {
 
 	/* Free the current icon view entries */
 	if (file_pointers) {
@@ -294,6 +298,18 @@ static void load_directory(const char * path) {
 		file_pointers = NULL;
 		file_pointers_len = 0;
 		return;
+	}
+
+	if (modifies_history) {
+		/* Clear forward history */
+		list_destroy(history_forward);
+		list_free(history_forward);
+		free(history_forward);
+		history_forward = list_create();
+		/* Append current pointer */
+		if (current_directory) {
+			list_insert(history_back, strdup(current_directory));
+		}
 	}
 
 	if (current_directory) {
@@ -520,6 +536,9 @@ static void sig_usr2(int sig) {
 	signal(SIGUSR2, sig_usr2);
 }
 
+static int _button_hilights[4] = {3,3,3,3};
+static int _button_hover = -1;
+
 /**
  * Redraw the entire window.
  */
@@ -543,6 +562,29 @@ static void redraw_window(void) {
 		menu_bar.width = ctx->width - bounds.width;
 		menu_bar.window = main_window;
 		menu_bar_render(&menu_bar, ctx);
+
+		/* Draw toolbar */
+		uint32_t gradient_top = rgb(59,59,59);
+		uint32_t gradient_bot = rgb(40,40,40);
+		for (int i = 0; i < 37; ++i) {
+			uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
+			draw_rectangle(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT + i,
+					ctx->width - bounds.width, 1, c);
+		}
+
+		int x = 0;
+		int i = 0;
+#define draw_button(label) do { \
+		struct TTKButton _up = {bounds.left_width + 2 + x,bounds.top_height + MENU_BAR_HEIGHT + 2,32,32,"\033" label,_button_hilights[i]}; \
+		ttk_button_draw(ctx, &_up); \
+		x += 34; i++; } while (0)
+
+		draw_button("back");
+		draw_button("forward");
+		draw_button("up");
+		draw_button("home");
+
+
 	}
 
 	/* Draw the icon view, clipped to the viewport and scrolled appropriately. */
@@ -660,7 +702,7 @@ static void _menu_action_exit(struct MenuEntry * entry) {
 static void _menu_action_navigate(struct MenuEntry * entry) {
 	/* go to entry->action */
 	struct MenuEntry_Normal * _entry = (void*)entry;
-	load_directory(_entry->action);
+	load_directory(_entry->action, 1);
 	reinitialize_contents();
 	redraw_window();
 }
@@ -670,7 +712,7 @@ static void _menu_action_up(struct MenuEntry * entry) {
 	/* go up */
 	char * tmp = strdup(current_directory);
 	char * dir = dirname(tmp);
-	load_directory(dir);
+	load_directory(dir, 1);
 	reinitialize_contents();
 	redraw_window();
 }
@@ -678,7 +720,7 @@ static void _menu_action_up(struct MenuEntry * entry) {
 /* [Context] > Refresh */
 static void _menu_action_refresh(struct MenuEntry * entry) {
 	char * tmp = strdup(current_directory);
-	load_directory(tmp);
+	load_directory(tmp, 0);
 	reinitialize_contents();
 	redraw_window();
 }
@@ -776,7 +818,7 @@ static void open_file(struct File * f) {
 		} else {
 			/* In normal mode, navigate to this directory. */
 			sprintf(tmp,"%s/%s", current_directory, f->name);
-			load_directory(tmp);
+			load_directory(tmp, 1);
 			reinitialize_contents();
 			redraw_window();
 		}
@@ -895,6 +937,63 @@ static void toggle_selected(int hilighted_offset, int modifiers) {
 	redraw_window();
 }
 
+static int _down_button = -1;
+static void _set_hilight(int index, int hilight) {
+	if (_button_hover != index || (_button_hover == index && index != -1 && _button_hilights[index] != hilight)) {
+		if (_button_hover != -1) {
+			_button_hilights[_button_hover] = 3;
+		}
+		_button_hover = index;
+		if (index != -1) {
+			_button_hilights[_button_hover] = hilight;
+		}
+		redraw_window();
+	}
+}
+
+static void _handle_button_press(int index) {
+	switch (index) {
+		case 0:
+			/* Back */
+			if (history_back->length) {
+				list_insert(history_forward, strdup(current_directory));
+				node_t * next = list_pop(history_back);
+				load_directory(next->value, 0);
+				free(next->value);
+				free(next);
+				reinitialize_contents();
+				redraw_window();
+			}
+			break;
+		case 1:
+			/* Forward */
+			if (history_forward->length) {
+				list_insert(history_back, strdup(current_directory));
+				node_t * next = list_pop(history_forward);
+				load_directory(next->value, 0);
+				free(next->value);
+				free(next);
+				reinitialize_contents();
+				redraw_window();
+			}
+			break;
+		case 2:
+			/* Up */
+			_menu_action_up(NULL);
+			break;
+		case 3:
+			/* Home */
+			{
+				struct MenuEntry_Normal _fake = {.action = getenv("HOME") };
+				_menu_action_navigate(&_fake);
+			}
+			break;
+		default:
+			/* ??? */
+			break;
+	}
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -904,6 +1003,7 @@ int main(int argc, char * argv[]) {
 
 	if (argc > 1 && !strcmp(argv[1], "--wallpaper")) {
 		is_desktop_background = 1;
+		menu_bar_height = 0;
 		signal(SIGUSR2, sig_usr2);
 		draw_background(yctx->display_width, yctx->display_height);
 		main_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);
@@ -971,11 +1071,14 @@ int main(int argc, char * argv[]) {
 	menu_insert(context_menu, menu_create_normal("refresh",NULL,"Refresh",_menu_action_refresh));
 	menu_insert(context_menu, menu_create_normal("utilities-terminal","terminal","Open Terminal",launch_application_menu));
 
+	history_back = list_create();
+	history_forward = list_create();
+
 
 	/* Load the current working directory */
 	char tmp[1024];
 	getcwd(tmp, 1024);
-	load_directory(tmp);
+	load_directory(tmp, 1);
 
 	/* Draw files */
 	reinitialize_contents();
@@ -1068,6 +1171,48 @@ int main(int argc, char * argv[]) {
 
 							/* Menu bar */
 							menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
+
+							if (menu_bar_height &&
+								me->new_y > (int)(bounds.top_height + menu_bar_height - 36) &&
+								me->new_y < (int)(bounds.top_height + menu_bar_height) &&
+								me->new_x > (int)(bounds.left_width) &&
+								me->new_x < (int)(main_window->width - bounds.right_width)) {
+
+								int x = me->new_x - bounds.left_width - 2;
+								if (x >= 0) {
+									int i = x / 34;
+									if (i < 4) {
+										if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
+											_set_hilight(i, 2);
+											_down_button = i;
+										} else if (me->command == YUTANI_MOUSE_EVENT_RAISE || me->command == YUTANI_MOUSE_EVENT_CLICK) {
+											if (_down_button != -1 && _down_button == i) {
+												_handle_button_press(i);
+												_set_hilight(i, 1);
+											}
+											_down_button = -1;
+										} else {
+											if (!(me->buttons & YUTANI_MOUSE_BUTTON_LEFT)) {
+												_set_hilight(i, 1);
+											} else {
+												if (_down_button == i) {
+													_set_hilight(i, 2);
+												} else if (_down_button != -1) {
+													_set_hilight(_down_button, 3);
+												}
+											}
+										}
+									} else {
+										_set_hilight(-1,0);
+									}
+								}
+							} else {
+								if (_button_hover != -1) {
+									_button_hilights[_button_hover] = 3;
+									_button_hover = -1;
+									redraw_window(); /* Double redraw ??? */
+								}
+							}
 
 							if (me->new_y > (int)(bounds.top_height + menu_bar_height) &&
 								me->new_y < (int)(main_window->height - bounds.bottom_height) &&
