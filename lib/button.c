@@ -67,8 +67,8 @@ void ttk_button_draw(gfx_context_t * ctx, struct TTKButton * button) {
 		draw_sdf_string(ctx, button->x + centered + (button->hilight == 2), button->y + centered_y + (button->hilight == 2), button->title, 16, rgb(0,0,0), SDF_FONT_THIN);
 	} else {
 		sprite_t * icon = icon_get_16(button->title+1);
-		int centered = button->x + (button->width - icon->width) / 2;
-		int centered_y = button->y + (button->height - icon->height) / 2;
+		int centered = button->x + (button->width - icon->width) / 2 + (button->hilight == 2);
+		int centered_y = button->y + (button->height - icon->height) / 2 + (button->hilight == 2);
 		draw_sprite(ctx, icon, centered, centered_y);
 	}
 
