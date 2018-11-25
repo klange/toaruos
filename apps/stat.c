@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -27,37 +28,24 @@ static void show_usage(int argc, char * argv[]) {
 			"\n", argv[0]);
 }
 
-int main(int argc, char ** argv) {
-	int dereference = 0, quiet = 0;
-	char * file;
-	int opt;
+static int dereference = 0, quiet = 0;
 
-	while ((opt = getopt(argc, argv, "?Lq")) != -1) {
-		switch (opt) {
-			case 'L':
-				dereference = 1;
-				break;
-			case 'q':
-				quiet = 1;
-				break;
-			case '?':
-				show_usage(argc,argv);
-				return 1;
-		}
-	}
-
-	if (optind >= argc) {
-		show_usage(argc, argv);
-		return 1;
-	}
-
-	file = argv[optind];
+static int stat_file(char * file) {
 
 	struct stat _stat;
+	int result;
+
 	if (dereference) {
-		if (stat(file, &_stat) < 0) return 1;
+		result = stat(file, &_stat);
 	} else {
-		if (lstat(file, &_stat) < 0) return 1;
+		result = lstat(file, &_stat);
+	}
+
+	if (result == -1) {
+		if (!quiet) {
+			fprintf(stderr, "stat: %s: %s\n", file, strerror(errno));
+		}
+		return 1;
 	}
 
 	if (quiet) return 0;
@@ -88,5 +76,39 @@ int main(int argc, char ** argv) {
 	printf("0x%x\n", (unsigned int)((uint32_t *)f)[0]);
 
 	return 0;
+
+}
+
+int main(int argc, char ** argv) {
+	int opt;
+
+	while ((opt = getopt(argc, argv, "?Lq")) != -1) {
+		switch (opt) {
+			case 'L':
+				dereference = 1;
+				break;
+			case 'q':
+				quiet = 1;
+				break;
+			case '?':
+				show_usage(argc,argv);
+				return 1;
+		}
+	}
+
+	if (optind >= argc) {
+		show_usage(argc, argv);
+		return 1;
+	}
+
+	int ret = 0;
+
+	while (optind < argc) {
+		ret |= stat_file(argv[optind]);
+		optind++;
+	}
+
+	return ret;
+
 }
 
