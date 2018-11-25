@@ -18,8 +18,10 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
+static int show_total = 0;
 static int human = 0;
 static int all = 1;
+static int is_arg = 0;
 
 static uint64_t count_thing(char * tmp);
 
@@ -42,6 +44,9 @@ static void print_size(uint64_t size, char * name) {
 	} else {
 		print_human_readable_size(sizes, size);
 	}
+	if (strlen(name) > 2 && name[0] == '/' && name[1] == '/') {
+		name = &name[1];
+	}
 	fprintf(stdout, "%7s %s\n", sizes, name);
 }
 
@@ -51,6 +56,9 @@ static uint64_t count_directory(char * source) {
 		//fprintf(stderr, "could not open %s\n", source);
 		return 0;
 	}
+
+	int was_arg = is_arg;
+	is_arg = 0;
 
 	uint64_t total = 0;
 
@@ -67,7 +75,7 @@ static uint64_t count_directory(char * source) {
 	}
 	closedir(dirp);
 
-	if (all) {
+	if (all || was_arg) {
 		print_size(total, source);
 	}
 
@@ -80,6 +88,9 @@ static uint64_t count_thing(char * tmp) {
 	if (S_ISDIR(statbuf.st_mode)) {
 		return count_directory(tmp);
 	} else {
+		if (is_arg) {
+			print_size(statbuf.st_size, tmp);
+		}
 		return statbuf.st_size;
 	}
 }
@@ -87,10 +98,13 @@ static uint64_t count_thing(char * tmp) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "hs")) != -1) {
+	while ((opt = getopt(argc, argv, "hsc")) != -1) {
 		switch (opt) {
 			case 'h': /* human readable */
 				human = 1;
+				break;
+			case 'c':
+				show_total = 1;
 				break;
 			case 's': /* summary */
 				all = 0;
@@ -102,12 +116,15 @@ int main(int argc, char * argv[]) {
 	}
 
 	int ret = 0;
+	uint64_t total = 0;
 
 	for (int i = optind; i < argc; ++i) {
-		uint64_t total = count_thing(argv[i]);
-		if (!all) {
-			print_size(total, argv[i]);
-		}
+		is_arg = 1;
+		total += count_thing(argv[i]);
+	}
+
+	if (show_total) {
+		print_size(total, "total");
 	}
 
 	return ret;
