@@ -77,6 +77,7 @@ static int _button_hover = -1;
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
 	{"File", "file"},
+	{"Edit", "edit"},
 	{"View", "view"},
 	{"Go", "go"},
 	{"Help", "help"},
@@ -895,6 +896,14 @@ static void _menu_action_toggle_hidden(struct MenuEntry * self) {
 	_menu_action_refresh(NULL);
 }
 
+static void _menu_action_select_all(struct MenuEntry * self) {
+	for (int i = 0; i < file_pointers_len; ++i) {
+		file_pointers[i]->selected = 1;
+	}
+	reinitialize_contents();
+	redraw_window();
+}
+
 static void handle_clipboard(char * contents) {
 	fprintf(stderr, "Received clipboard:\n%s\n",contents);
 
@@ -1067,6 +1076,15 @@ int main(int argc, char * argv[]) {
 	menu_set_insert(menu_bar.set, "file", m);
 
 	m = menu_create();
+	menu_insert(m, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
+	menu_insert(m, menu_create_normal(NULL,NULL,"Paste",_menu_action_paste));
+	menu_insert(m, menu_create_separator());
+	menu_insert(m, menu_create_normal(NULL,NULL,"Select all",_menu_action_select_all));
+	menu_set_insert(menu_bar.set, "edit", m);
+
+	m = menu_create();
+	menu_insert(m, menu_create_normal("refresh",NULL,"Refresh", _menu_action_refresh));
+	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL,NULL,"Show Hidden Files", _menu_action_toggle_hidden));
 	menu_set_insert(menu_bar.set, "view", m);
 
