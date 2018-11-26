@@ -46,8 +46,12 @@ static int compare_version_strings(char * current, char * candidate) {
 	sscanf(current, "%d.%d.%d", &current_x, &current_y, &current_z);
 	sscanf(candidate, "%d.%d.%d", &candidate_x, &candidate_y, &candidate_z);
 
-	if (candidate_x >= current_x) {
-		if (candidate_y >= current_y) {
+	if (candidate_x > current_x) {
+		return 1;
+	} else if (candidate_x == current_x) {
+		if (candidate_y >current_y) {
+			return 1;
+		} else if (candidate_y == current_y) {
 			if (candidate_z > current_z) {
 				return 1;
 			} else if (candidate_z == current_z) {
