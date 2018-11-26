@@ -11,7 +11,7 @@ The ToaruOS project began in December 2010 and has its roots in an independent s
 
 The 1.6.x release series represented the merging of a project (the "NIH" branch) to replace Newlib, the third-party C standard library employed by earlier versions of the operating system, with a new, in-house libc. With the ports of Python and GCC to this new C library completed, this project has been concluded and considered as success.
 
-The current release series is 1.8.x, which aims to eventually replace all third-party elements of the build process and make the OS fully self-hosting.
+The current release series is 1.9.x, which aims to finish porting the remaining parts of older Python desktop environment to C.
 
 ## Features
 
