@@ -396,7 +396,7 @@ int main(int argc, char * argv[]) {
 	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 	ctx = init_graphics_yutani_double_buffer(main_window);
 
-	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "help");
+	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "package");
 
 	menu_bar.entries = menu_entries;
 	menu_bar.redraw_callback = redraw_window;
