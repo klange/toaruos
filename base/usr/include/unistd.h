@@ -87,4 +87,6 @@ extern pid_t setsid(void);
 extern int setpgid(pid_t, pid_t);
 extern pid_t getpgid(pid_t);
 
+extern unsigned int alarm(unsigned int seconds);
+
 _End_C_Header
