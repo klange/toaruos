@@ -17,7 +17,7 @@
 
 int main(int argc, char * argv[]) {
 	if (argc < 2) {
-		fprintf(stderr, "%s: argument (relative or absolute) expected\n", argv[0]);
+		fprintf(stderr, "%s: argument (relative, absolute, get) expected\n", argv[0]);
 		return 1;
 	}
 
@@ -38,11 +38,25 @@ int main(int argc, char * argv[]) {
 	if (!strcmp(argv[1],"absolute")) {
 		flag = 2;
 	}
+	if (!strcmp(argv[1],"get")) {
+		flag = 3;
+	}
 
 	if (!flag) {
 		fprintf(stderr, "%s: invalid argument\n", argv[0]);
 		return 1;
 	}
 
-	ioctl(fd, flag, NULL);
+	int result = ioctl(fd, flag, NULL);
+
+	if (flag == 3) {
+		if (result == 0) {
+			fprintf(stdout, "relative\n");
+		} else {
+			fprintf(stdout, "absolute\n");
+		}
+		return 0;
+	}
+
+	return result;
 }

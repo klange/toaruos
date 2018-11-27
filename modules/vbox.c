@@ -216,6 +216,9 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 		mouse_on_off(VBOX_MOUSE_ON);
 		return 0;
 	}
+	if (request == 3) {
+		return mouse_state == (VBOX_MOUSE_ON);
+	}
 	return -1;
 }
 
