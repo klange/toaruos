@@ -444,6 +444,10 @@ void tab_complete_func(rline_context_t * c) {
 		complete_mode = COMPLETE_CUSTOM;
 	}
 
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "msk")) {
+		complete_mode = COMPLETE_CUSTOM;
+	}
+
 	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "unset")) {
 		complete_mode = COMPLETE_VARIABLE;
 	}
@@ -523,11 +527,40 @@ void tab_complete_func(rline_context_t * c) {
 		free(tmp);
 	} else if (complete_mode == COMPLETE_CUSTOM) {
 
-		char ** completions = NULL;
+		char * none[] = {NULL};
+		char ** completions = none;
 		char * toggle_abs_mouse_completions[] = {"relative","absolute",NULL};
+		char * msk_commands[] = {"update","install","list","count","--version",NULL};
 
 		if (!strcmp(argv[command_adj],"toggle-abs-mouse")) {
 			completions = toggle_abs_mouse_completions;
+		} else if (!strcmp(argv[command_adj], "msk")) {
+			if (cursor_adj == 1) {
+				completions = msk_commands;
+			} else if (cursor_adj > 1 && !strcmp(argv[command_adj+1],"install")) {
+				FILE * f = fopen("/var/msk/manifest","r");
+				list_t * packages = list_create();
+				if (f) {
+					while (!feof(f)) {
+						char tmp[4096] = {0};
+						if (!fgets(tmp, 4096, f)) break;
+						if (tmp[0] == '[') {
+							char * s = strstr(tmp, "]");
+							if (s) { *s = '\0'; }
+							list_insert(packages, strdup(tmp+1));
+						}
+					}
+
+					completions = malloc(sizeof(char *) * (packages->length + 1));
+					free_matches = 1;
+					size_t i = 0;
+					foreach(node, packages) {
+						completions[i++] = node->value;
+					}
+					completions[i] = NULL;
+					list_free(packages);
+				}
+			}
 		}
 
 		while (*completions) {
