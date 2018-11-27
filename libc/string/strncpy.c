@@ -9,5 +9,9 @@ char * strncpy(char * dest, const char * src, size_t n) {
 		++src;
 		--n;
 	}
+	for (int i = 0; i < (int)n; ++i) {
+		*out = '\0';
+		++out;
+	}
 	return out;
 }
