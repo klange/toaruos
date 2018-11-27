@@ -537,16 +537,6 @@ static void reinitialize_contents(void) {
 }
 
 /**
- * Desktop mode responsds to sig_usr2 by returning to
- * the bottom of the Z-order stack.
- */
-static void sig_usr2(int sig) {
-	yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
-	yutani_flip(yctx, main_window);
-	signal(SIGUSR2, sig_usr2);
-}
-
-/**
  * Redraw the entire window.
  */
 static void redraw_window(void) {
@@ -1034,6 +1024,17 @@ static void _handle_button_press(int index) {
 	}
 }
 
+/**
+ * Desktop mode responsds to sig_usr2 by returning to
+ * the bottom of the Z-order stack.
+ */
+static void sig_usr2(int sig) {
+	yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
+	yutani_flip(yctx, main_window);
+	signal(SIGUSR2, sig_usr2);
+	_menu_action_refresh(NULL);
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -1050,6 +1051,9 @@ int main(int argc, char * argv[]) {
 		yutani_window_move(yctx, main_window, 0, 0);
 		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
 		arg_ind++;
+		FILE * f = fopen("/var/run/.wallpaper.pid", "w");
+		fprintf(f, "%d\n", getpid());
+		fclose(f);
 	} else {
 		main_window = yutani_window_create(yctx, 800, 600);
 		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
