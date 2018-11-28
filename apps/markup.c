@@ -24,6 +24,10 @@ static yutani_t * yctx;
 static yutani_window_t * window = NULL;
 static gfx_context_t * ctx = NULL;
 
+#define BASE_X 20
+#define BASE_Y 40
+#define LINE_HEIGHT 20
+
 static int width = 500;
 static int height = 500;
 
@@ -36,9 +40,64 @@ static void decors() {
 	render_decorations(window, ctx, "Markup Demo");
 }
 
+static int cursor_y = 0;
 static int cursor_x = 0;
 static list_t * state = NULL;
 static int current_state = 0;
+
+struct Char {
+	char c; /* TODO: unicode */
+	char state;
+};
+
+//static list_t * lines = NULL;
+static list_t * buffer = NULL;
+
+static int state_to_font(int current_state) {
+	if (current_state & (1 << 0)) {
+		if (current_state & (1 << 1)) {
+			return SDF_FONT_BOLD_OBLIQUE;
+		}
+		return SDF_FONT_BOLD;
+	} else if (current_state & (1 << 1)) {
+		return SDF_FONT_OBLIQUE;
+	}
+	return SDF_FONT_THIN;
+}
+
+static int buffer_width(list_t * buffer) {
+	int out = 0;
+	foreach(node, buffer) {
+		struct Char * c = node->value;
+
+		char tmp[2] = {c->c, '\0'};
+
+		out += draw_sdf_string_width(tmp, size, state_to_font(c->state));
+	}
+	return out;
+}
+
+static int draw_buffer(list_t * buffer) {
+	int x = 0;
+	while (buffer->length) {
+		node_t * node = list_dequeue(buffer);
+		struct Char * c = node->value;
+		char tmp[2] = { c->c, '\0' };
+		x += draw_sdf_string(ctx, cursor_x + x, cursor_y, tmp, size, 0xFF000000, state_to_font(c->state));
+		free(c);
+		free(node);
+	}
+	x += 4;
+	return x;
+}
+
+static void write_buffer(void) {
+	if (buffer_width(buffer) + cursor_x > ctx->width - 20) {
+		cursor_x = BASE_X;
+		cursor_y += LINE_HEIGHT;
+	}
+	cursor_x += draw_buffer(buffer);
+}
 
 static int parser_open(struct markup_state * self, void * user, struct markup_tag * tag) {
 	if (!strcmp(tag->name, "b")) {
@@ -47,6 +106,10 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 	} else if (!strcmp(tag->name, "i")) {
 		list_insert(state, (void*)current_state);
 		current_state |= (1 << 1);
+	} else if (!strcmp(tag->name, "br")) {
+		write_buffer();
+		cursor_x = BASE_X;
+		cursor_y += LINE_HEIGHT;
 	}
 	markup_free_tag(tag);
 	return 0;
@@ -65,20 +128,22 @@ static int parser_close(struct markup_state * self, void * user, char * tag_name
 	return 0;
 }
 
-static int state_to_font(void) {
-	if (current_state & (1 << 0)) {
-		if (current_state & (1 << 1)) {
-			return SDF_FONT_BOLD_OBLIQUE;
-		}
-		return SDF_FONT_BOLD;
-	} else if (current_state & (1 << 1)) {
-		return SDF_FONT_OBLIQUE;
-	}
-	return SDF_FONT_THIN;
-}
-
 static int parser_data(struct markup_state * self, void * user, char * data) {
-	cursor_x += draw_sdf_string(ctx, cursor_x, 30, data, size, rgb(0,0,0), state_to_font());
+	char * c = data;
+	while (*c) {
+		if (*c == ' ') {
+			if (buffer->length) {
+				write_buffer();
+			}
+		} else {
+			struct Char * ch = malloc(sizeof(struct Char));
+			ch->c = *c;
+			ch->state = current_state;
+			list_insert(buffer, ch);
+		}
+		c++;
+	}
+	//cursor_x += draw_sdf_string(ctx, cursor_x, 30, data, size, rgb(0,0,0), state_to_font(current_state));
 	return 0;
 }
 
@@ -90,9 +155,11 @@ void redraw() {
 
 	struct markup_state * parser = markup_init(NULL, parser_open, parser_close, parser_data);
 
-	char * str = "<b>This <i foo=bar baz=qux>is</i> a test</b> with <i><data fun=123>data</data> at <b>the</b> end</i>";
-	cursor_x = 20;
+	char * str = "<b>This <i foo=bar baz=qux>is</i> a test</b> with <i><data fun=123>data</data> at <b>the</b> end</i>. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit <b>esse</b> cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non <i>proident</i>, sunt in culpa qui officia deserunt mollit anim <b>id est laborum</b>.<br />Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim <i>ad minim veniam</i>, quis nostrud exercitation <b><i>ullamco laboris nisi</i></b> ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+	cursor_y = BASE_Y;
+	cursor_x = BASE_X;
 	state = list_create();
+	buffer = list_create();
 
 	while (*str) {
 		//fprintf(stderr, "Parser state in: %d  Character: %c\n", parser->state, *str);
@@ -102,8 +169,10 @@ void redraw() {
 		}
 	}
 	markup_finish(parser);
+	write_buffer();
 	list_free(state);
 	free(state);
+	free(buffer);
 
 }
 
