@@ -126,5 +126,6 @@ struct gradient_definition {
 
 extern uint32_t gfx_vertical_gradient_pattern(int32_t x, int32_t y, double alpha, void * extra);
 
+extern gfx_context_t * init_graphics_subregion(gfx_context_t * base, int x, int y, int width, int height);
 
 _End_C_Header

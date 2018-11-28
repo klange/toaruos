@@ -128,6 +128,22 @@ gfx_context_t * init_graphics_fullscreen_double_buffer() {
 	return out;
 }
 
+gfx_context_t * init_graphics_subregion(gfx_context_t * base, int x, int y, int width, int height) {
+	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+
+	out->clips = NULL;
+	out->depth = 32;
+
+	out->width = width;
+	out->height = height;
+	out->stride = base->stride;
+	out->backbuffer = base->buffer + (base->stride * y) + x * 4;
+	out->buffer = base->buffer + (base->stride * y) + x * 4;
+
+	out->size = 0; /* don't allow flip or clear operations */
+	return out;
+}
+
 void reinit_graphics_fullscreen(gfx_context_t * out) {
 
 	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
