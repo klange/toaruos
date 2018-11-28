@@ -17,6 +17,8 @@
 #define O_EXCL       0x0800
 #define O_NOFOLLOW   0x1000
 #define O_PATH       0x2000
+#define O_NONBLOCK   0x4000
+#define O_DIRECTORY  0x8000
 
 #define FS_FILE        0x01
 #define FS_DIRECTORY   0x02

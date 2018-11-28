@@ -170,6 +170,12 @@ static int sys_open(const char * file, int flags, int mode) {
 		}
 	}
 
+	if (node && (flags & O_DIRECTORY)) {
+		if (!(node->flags & FS_DIRECTORY)) {
+			return -ENOTDIR;
+		}
+	}
+
 	if (node && (flags & O_TRUNC)) {
 		if (!(access_bits & 02)) {
 			close_fs(node);
