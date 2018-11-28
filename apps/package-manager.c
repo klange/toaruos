@@ -42,6 +42,7 @@ static int modifiers = 0; /* For ctrl-click */
 
 struct Package {
 	char name[256];
+	char friendly_name[256];
 	char description[1024];
 	char version[256]; /* Really doesn't need to be that long */
 	int selected;
@@ -128,10 +129,12 @@ static void draw_package(struct Package * package, int index) {
 
 	uint32_t text_color = package->selected ? rgb(255,255,255) : rgb(0,0,0);
 
-	char tmp[520];
-	sprintf(tmp, "%s - %s", package->name, package->version);
+	char tmp[2048];
+	sprintf(tmp, "%s - %s", package->friendly_name, package->version);
 	draw_sdf_string(contents, 64, offset_y + 4, tmp, 20, text_color, SDF_FONT_BOLD);
-	draw_sdf_string(contents, 64, offset_y + 24, package->description, 16, text_color, SDF_FONT_THIN);
+	sprintf(tmp, "%s - %s", package->name, package->description);
+	int x = draw_sdf_string(contents, 65, offset_y + 24, package->name, 16, rgb(150,150,150), SDF_FONT_THIN);
+	draw_sdf_string(contents, 64 + x + 4, offset_y + 24, package->description, 16, text_color, SDF_FONT_THIN);
 
 }
 
@@ -186,9 +189,11 @@ static void load_manifest(void) {
 			if (!strlen(name)) continue; /* skip empty section */
 			char * desc = confreader_get(conf, name, "description");
 			char * version = confreader_get(conf, name, "version");
+			char * friendly_name = confreader_get(conf, name, "friendly-name");
 
 			struct Package * p = malloc(sizeof(struct Package));
 			sprintf(p->name, name);
+			sprintf(p->friendly_name, friendly_name);
 			sprintf(p->description, desc);
 			sprintf(p->version, version);
 			p->selected = 0;
