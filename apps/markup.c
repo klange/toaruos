@@ -23,9 +23,10 @@
 static yutani_t * yctx;
 static yutani_window_t * window = NULL;
 static gfx_context_t * ctx = NULL;
+static gfx_context_t * nctx = NULL;
 
-#define BASE_X 20
-#define BASE_Y 40
+#define BASE_X 0
+#define BASE_Y 0
 #define LINE_HEIGHT 20
 
 static int width = 500;
@@ -83,7 +84,7 @@ static int draw_buffer(list_t * buffer) {
 		node_t * node = list_dequeue(buffer);
 		struct Char * c = node->value;
 		char tmp[2] = { c->c, '\0' };
-		x += draw_sdf_string(ctx, cursor_x + x, cursor_y, tmp, size, 0xFF000000, state_to_font(c->state));
+		x += draw_sdf_string(nctx, cursor_x + x, cursor_y, tmp, size, 0xFF000000, state_to_font(c->state));
 		free(c);
 		free(node);
 	}
@@ -92,7 +93,7 @@ static int draw_buffer(list_t * buffer) {
 }
 
 static void write_buffer(void) {
-	if (buffer_width(buffer) + cursor_x > ctx->width - 20) {
+	if (buffer_width(buffer) + cursor_x > nctx->width) {
 		cursor_x = BASE_X;
 		cursor_y += LINE_HEIGHT;
 	}
@@ -153,6 +154,11 @@ void redraw() {
 
 	decors();
 
+	struct decor_bounds bounds;
+	decor_get_bounds(window, &bounds);
+
+	nctx = init_graphics_subregion(ctx, bounds.left_width, bounds.top_height, ctx->width - bounds.width, ctx->height - bounds.height);
+
 	struct markup_state * parser = markup_init(NULL, parser_open, parser_close, parser_data);
 
 	char * str = "<b>This <i foo=bar baz=qux>is</i> a test</b> with <i><data fun=123>data</data> at <b>the</b> end</i>. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit <b>esse</b> cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non <i>proident</i>, sunt in culpa qui officia deserunt mollit anim <b>id est laborum</b>.<br />Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim <i>ad minim veniam</i>, quis nostrud exercitation <b><i>ullamco laboris nisi</i></b> ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
@@ -160,6 +166,7 @@ void redraw() {
 	cursor_x = BASE_X;
 	state = list_create();
 	buffer = list_create();
+
 
 	while (*str) {
 		//fprintf(stderr, "Parser state in: %d  Character: %c\n", parser->state, *str);
@@ -174,6 +181,7 @@ void redraw() {
 	free(state);
 	free(buffer);
 
+	free(nctx);
 }
 
 void resize_finish(int w, int h) {
@@ -226,6 +234,7 @@ int main(int argc, char * argv[]) {
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							playing = 0;
 						} else if (ke->event.action == KEY_ACTION_DOWN) {
+#if 0
 							if (size <= 20) {
 								size += 1;
 							} else if (size > 20) {
@@ -236,6 +245,7 @@ int main(int argc, char * argv[]) {
 							}
 							redraw();
 							yutani_flip(yctx,window);
+#endif
 						}
 					}
 					break;
