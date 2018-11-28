@@ -19,6 +19,7 @@
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
 #include <toaru/sdf.h>
+#include <toaru/markup.h>
 
 #define APPLICATION_TITLE "Help Browser"
 
@@ -31,6 +32,123 @@ static int application_running = 1;
 static gfx_context_t * contents = NULL;
 static sprite_t * contents_sprite = NULL;
 
+static char * current_topic = "This is the ToaruOS Help Browser. No help document is currently loaded.";
+
+/* Markup Renderer { */
+#define BASE_X 0
+#define BASE_Y 0
+#define LINE_HEIGHT 20
+
+static gfx_context_t * nctx = NULL;
+static int cursor_y = 0;
+static int cursor_x = 0;
+static list_t * state = NULL;
+static int current_state = 0;
+static int size = 16;
+
+struct Char {
+	char c; /* TODO: unicode */
+	char state;
+};
+
+//static list_t * lines = NULL;
+static list_t * buffer = NULL;
+
+static int state_to_font(int current_state) {
+	if (current_state & (1 << 0)) {
+		if (current_state & (1 << 1)) {
+			return SDF_FONT_BOLD_OBLIQUE;
+		}
+		return SDF_FONT_BOLD;
+	} else if (current_state & (1 << 1)) {
+		return SDF_FONT_OBLIQUE;
+	}
+	return SDF_FONT_THIN;
+}
+
+static int buffer_width(list_t * buffer) {
+	int out = 0;
+	foreach(node, buffer) {
+		struct Char * c = node->value;
+
+		char tmp[2] = {c->c, '\0'};
+
+		out += draw_sdf_string_width(tmp, size, state_to_font(c->state));
+	}
+	return out;
+}
+
+static int draw_buffer(list_t * buffer) {
+	int x = 0;
+	while (buffer->length) {
+		node_t * node = list_dequeue(buffer);
+		struct Char * c = node->value;
+		char tmp[2] = { c->c, '\0' };
+		x += draw_sdf_string(nctx, cursor_x + x, cursor_y, tmp, size, 0xFF000000, state_to_font(c->state));
+		free(c);
+		free(node);
+	}
+	x += 4;
+	return x;
+}
+
+static void write_buffer(void) {
+	if (buffer_width(buffer) + cursor_x > nctx->width) {
+		cursor_x = BASE_X;
+		cursor_y += LINE_HEIGHT;
+	}
+	cursor_x += draw_buffer(buffer);
+}
+
+static int parser_open(struct markup_state * self, void * user, struct markup_tag * tag) {
+	if (!strcmp(tag->name, "b")) {
+		list_insert(state, (void*)current_state);
+		current_state |= (1 << 0);
+	} else if (!strcmp(tag->name, "i")) {
+		list_insert(state, (void*)current_state);
+		current_state |= (1 << 1);
+	} else if (!strcmp(tag->name, "br")) {
+		write_buffer();
+		cursor_x = BASE_X;
+		cursor_y += LINE_HEIGHT;
+	}
+	markup_free_tag(tag);
+	return 0;
+}
+
+static int parser_close(struct markup_state * self, void * user, char * tag_name) {
+	if (!strcmp(tag_name, "b")) {
+		node_t * nstate = list_pop(state);
+		current_state = (int)nstate->value;
+		free(nstate);
+	} else if (!strcmp(tag_name, "i")) {
+		node_t * nstate = list_pop(state);
+		current_state = (int)nstate->value;
+		free(nstate);
+	}
+	return 0;
+}
+
+static int parser_data(struct markup_state * self, void * user, char * data) {
+	char * c = data;
+	while (*c) {
+		if (*c == ' ') {
+			if (buffer->length) {
+				write_buffer();
+			}
+		} else {
+			struct Char * ch = malloc(sizeof(struct Char));
+			ch->c = *c;
+			ch->state = current_state;
+			list_insert(buffer, ch);
+		}
+		c++;
+	}
+	return 0;
+}
+
+/* } End Markup Renderer */
+
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
 	{"File", "file"},
@@ -41,10 +159,6 @@ static struct menu_bar_entries menu_entries[] = {
 
 static void _menu_action_exit(struct MenuEntry * entry) {
 	application_running = 0;
-}
-
-static void redraw_text(void) {
-	draw_sdf_string(contents, 30, 30, "Hello, world.", 16, rgb(0,0,0), SDF_FONT_THIN);
 }
 
 static void reinitialize_contents(void) {
@@ -67,8 +181,26 @@ static void reinitialize_contents(void) {
 
 	draw_fill(contents, rgb(255,255,255));
 
-	/* Draw file entries */
-	redraw_text();
+	nctx = contents;
+	struct markup_state * parser = markup_init(NULL, parser_open, parser_close, parser_data);
+	cursor_y = BASE_Y;
+	cursor_x = BASE_X;
+	state = list_create();
+	buffer = list_create();
+
+	char * str = current_topic;
+	while (*str) {
+		if (markup_parse(parser, *str++)) {
+			fprintf(stderr,"There was an error.\n");
+			return;
+		}
+	}
+
+	markup_finish(parser);
+	write_buffer();
+	list_free(state);
+	free(state);
+	free(buffer);
 }
 
 static void redraw_window(void) {
@@ -111,10 +243,46 @@ static void resize_finish(int w, int h) {
 	yutani_flip(yctx, main_window);
 }
 
-static void _menu_action_navigate(struct MenuEntry * entry) {
-	/* go to entry->action */
+static void navigate(const char * t) {
+
+	if (!strcmp(t,"file-browser.trt")) {
+		current_topic =
+			"<b>File Browser</b><br />"
+			"The File Browser shows files. Double click to navigate through the file system.";
+	} else if (!strcmp(t,"terminal.trt")) {
+		current_topic = 
+			"<b>Terminal</b><br />"
+			"It's a terminal emulator. Supports a large set of xterm escapes, plus 24-bit color.";
+	} else if (!strcmp(t,"help_browser.trt")) {
+		current_topic =
+			"<b>Help Browser</b><br />"
+			"A bit meta, reading about the Help Browser from within the Help Browser...<br />"
+			"This is an incomplete port of the original Python Help Browser, which was, effectively "
+			"a very bad web browser, built off of the expanding text label widget library.";
+	} else if (!strcmp(t,"0_index.trt")) {
+		current_topic =
+			"<b>Welcome!</b><br />"
+			"Welcome to ToaruOS. This Help Browser is still a bit experimental.";
+	} else if (!strcmp(t,"special:contents")) {
+		current_topic =
+			"<i>A list of topics should go here, but, alas...</i>";
+	} else {
+		current_topic =
+			"<i>No help document exists for this topic.</i>";
+	}
+
+	reinitialize_contents();
+	redraw_window();
+
 }
 
+static void _menu_action_navigate(struct MenuEntry * entry) {
+	/* go to entry->action */
+	struct MenuEntry_Normal * _entry = (void*)entry;
+	navigate(_entry->action);
+}
+
+#if 0
 static void _menu_action_back(struct MenuEntry * entry) {
 	/* go back */
 }
@@ -122,6 +290,7 @@ static void _menu_action_back(struct MenuEntry * entry) {
 static void _menu_action_forward(struct MenuEntry * entry) {
 	/* go forward */
 }
+#endif 
 
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
@@ -156,9 +325,12 @@ int main(int argc, char * argv[]) {
 	m = menu_create(); /* Go */
 	menu_insert(m, menu_create_normal("home","0_index.trt","Home",_menu_action_navigate));
 	menu_insert(m, menu_create_normal("bookmark","special:contents","Topics",_menu_action_navigate));
+#if 0
+	/* TODO: History */
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal("back",NULL,"Back",_menu_action_back));
 	menu_insert(m, menu_create_normal("forward",NULL,"Forward",_menu_action_forward));
+#endif
 	menu_set_insert(menu_bar.set, "go", m);
 
 	m = menu_create();
@@ -167,8 +339,12 @@ int main(int argc, char * argv[]) {
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
 
-	reinitialize_contents();
-	redraw_window();
+	if (argc > 1) {
+		navigate(argv[1]);
+	} else {
+		reinitialize_contents();
+		redraw_window();
+	}
 
 	while (application_running) {
 		yutani_msg_t * m = yutani_poll(yctx);
