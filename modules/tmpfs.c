@@ -471,6 +471,7 @@ static int create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 
 static int mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
 	if (!name) return -EINVAL;
+	if (!strlen(name)) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
 	debug_print(NOTICE, "Creating TMPFS directory %s (in %s)", name, d->name);
