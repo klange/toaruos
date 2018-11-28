@@ -259,6 +259,12 @@ static void navigate(const char * t) {
 			"A bit meta, reading about the Help Browser from within the Help Browser...<br />"
 			"This is an incomplete port of the original Python Help Browser, which was, effectively "
 			"a very bad web browser, built off of the expanding text label widget library.";
+	} else if (!strcmp(t,"package-manager.trt")) {
+		current_topic =
+			"<b>Package Manager</b><br />"
+			"Install additional third-party software through packages from the ToaruOS Package Repository. "
+			"Packages can be installed by double-clicking. Dependencies will automatically be installed. "
+			"At this time it is not possible to remove packages.";
 	} else if (!strcmp(t,"0_index.trt")) {
 		current_topic =
 			"<b>Welcome!</b><br />"
