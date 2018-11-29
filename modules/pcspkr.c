@@ -9,8 +9,15 @@
 
 static void note(int length, int freq) {
 
-	uint32_t div = 11931800 / freq;
 	uint8_t  t;
+
+	if (length == 0) {
+		t = inportb(0x61) & 0xFC;
+		outportb(0x61, t);
+		return;
+	}
+
+	uint32_t div = 11931800 / freq;
 
 	outportb(0x43, 0xb6);
 	outportb(0x42, (uint8_t)(div));
@@ -19,13 +26,15 @@ static void note(int length, int freq) {
 	t = inportb(0x61);
 	outportb(0x61, t | 0x3);
 
-	unsigned long s, ss;
-	relative_time(length / 1000, length % 1000, &s, &ss);
-	sleep_until((process_t *)current_process, s, ss);
-	switch_task(0);
+	if (length > 0) {
+		unsigned long s, ss;
+		relative_time(length / 1000, length % 1000, &s, &ss);
+		sleep_until((process_t *)current_process, s, ss);
+		switch_task(0);
 
-	t = inportb(0x61) & 0xFC;
-	outportb(0x61, t);
+		t = inportb(0x61) & 0xFC;
+		outportb(0x61, t);
+	}
 
 }
 
