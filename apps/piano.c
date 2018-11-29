@@ -20,7 +20,7 @@ struct spkr {
 
 void note(int length, int frequency) {
 	struct spkr s = {
-		.length = 2,
+		.length = length,
 		.frequency = frequency,
 	};
 
@@ -50,26 +50,27 @@ int main(int argc, char * argv[]) {
 	char c;
 	while ((c = fgetc(stdin))) {
 		switch (c) {
-			case 'q': return 0;
-			case 'z': return 0;
-			case 'a': note(10, 1308); break;
-			case 'w': note(10, 1386); break;
-			case 's': note(10, 1468); break;
-			case 'e': note(10, 1556); break;
-			case 'd': note(10, 1648); break;
-			case 'f': note(10, 1746); break;
-			case 't': note(10, 1850); break;
-			case 'g': note(10, 1960); break;
-			case 'y': note(10, 2077); break;
-			case 'h': note(10, 2200); break;
-			case 'u': note(10, 2331); break;
-			case 'j': note(10, 2469); break;
-			case 'k': note(10, 2616); break;
-			case 'o': note(10, 2772); break;
-			case 'l': note(10, 2937); break;
-			case 'p': note(10, 3111); break;
-			case ';': note(10, 3296); break;
-			case '\'': note(10, 3492);break;
+			case 'q': note(0, 1000); return 0;
+			case 'z': note(0, 1000); return 0;
+			case ' ': note(0, 1000); break;
+			case 'a': note(-1, 1308); break;
+			case 'w': note(-1, 1386); break;
+			case 's': note(-1, 1468); break;
+			case 'e': note(-1, 1556); break;
+			case 'd': note(-1, 1648); break;
+			case 'f': note(-1, 1746); break;
+			case 't': note(-1, 1850); break;
+			case 'g': note(-1, 1960); break;
+			case 'y': note(-1, 2077); break;
+			case 'h': note(-1, 2200); break;
+			case 'u': note(-1, 2331); break;
+			case 'j': note(-1, 2469); break;
+			case 'k': note(-1, 2616); break;
+			case 'o': note(-1, 2772); break;
+			case 'l': note(-1, 2937); break;
+			case 'p': note(-1, 3111); break;
+			case ';': note(-1, 3296); break;
+			case '\'': note(-1, 3492);break;
 		}
 	}
 
