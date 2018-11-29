@@ -20,7 +20,7 @@ static void note(int length, int freq) {
 	outportb(0x61, t | 0x3);
 
 	unsigned long s, ss;
-	relative_time(0, length, &s, &ss);
+	relative_time(length / 1000, length % 1000, &s, &ss);
 	sleep_until((process_t *)current_process, s, ss);
 	switch_task(0);
 
