@@ -53,8 +53,26 @@ int main(int argc, char * argv[]) {
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "?r:f:l:d:D:n")) != -1) {
+	while ((opt = getopt(argc, argv, "?hr:f:l:d:D:n")) != -1) {
 		switch (opt) {
+			case 'h':
+			case '?':
+				fprintf(stderr, "usage: %s BEEP...\n"
+						"Where BEEP consists of:\n"
+						"  -r  REPS  \033[3mNumber of repetitions.\033[0m\n"
+						"  -f  FREQ  \033[3mFrequency in Hz. 440 is A4. Supports fractional values.\033[0m\n"
+						"  -l  TIME  \033[3mDuration in milliseconds.\033[0m\n"
+						"  -d  TIME  \033[3mDelay between repetitions in milliseconds.\033[0m\n"
+						"  -D  TIME  \033[3mDelay between, and after, repetitions.\033[0m\n"
+						"  -n        \033[3mStart a new beep.\033[0m\n"
+						"\n"
+						"The default values are:\n"
+						"   -r 1 -l %d -f %.2f -d %d\n"
+						"\n"
+						"A length of -1 will start a sustained beep without blocking.\n"
+						"A length of 0 will stop a currently playing sustained beep.\n",
+						argv[0], DEFAULT_LEN, DEFAULT_FREQ, DEFAULT_DELAY);
+				return 1;
 			case 'r':
 				repetitions = atoi(optarg);
 				break;
