@@ -49,7 +49,10 @@ extern node_t * list_insert_after(list_t * list, node_t * before, void * item);
 extern void list_append_before(list_t * list, node_t * after, node_t * node);
 extern node_t * list_insert_before(list_t * list, node_t * after, void * item);
 
-#define foreach(i, list) for (node_t * i = (list)->head; i != NULL; i = i->next)
-#define foreachr(i, list) for (node_t * i = (list)->tail; i != NULL; i = i->prev)
+/* Known to conflict with some popular third-party libraries. */
+#ifndef TOARU_LIST_NO_FOREACH
+#  define foreach(i, list) for (node_t * i = (list)->head; i != NULL; i = i->next)
+#  define foreachr(i, list) for (node_t * i = (list)->tail; i != NULL; i = i->prev)
+#endif
 
 _End_C_Header

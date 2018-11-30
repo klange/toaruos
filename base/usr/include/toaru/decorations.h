@@ -1,9 +1,10 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2012-2018 K. Lange
  *
- * Decoration Library Headers
- *
+ * Client-side Window Decoration library
  */
-
 #pragma once
 
 #include <_cheader.h>
@@ -20,6 +21,8 @@ _Begin_C_Header
  * redraw them.
  */
 extern void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title);
+
+/** DEPRECATED */
 extern void render_decorations_inactive(yutani_window_t * window, gfx_context_t * ctx, char * title);
 
 /**
