@@ -161,16 +161,17 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 			freetype_draw_string(ctx, title_offset, TEXT_OFFSET + 14, title_color, tmp_title);
 		}
 	} else {
-		if (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width) {
-			while (t_l >= 0 && (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) + EXTRA_SPACE > width)) {
+#define TEXT_SIZE 15
+		if (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) + EXTRA_SPACE > width) {
+			while (t_l >= 0 && (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) + EXTRA_SPACE > width)) {
 				tmp_title[t_l] = '\0';
 				t_l--;
 			}
 		}
 
 		if (*tmp_title) {
-			int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, 18, SDF_FONT_BOLD) / 2);
-			draw_sdf_string(ctx, title_offset, TEXT_OFFSET, tmp_title, 18, title_color, SDF_FONT_BOLD);
+			int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) / 2);
+			draw_sdf_string(ctx, title_offset, TEXT_OFFSET+2, tmp_title, TEXT_SIZE, title_color, SDF_FONT_BOLD);
 		}
 	}
 
