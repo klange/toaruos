@@ -637,7 +637,7 @@ int syn_c_iskeywordchar(int c) {
 static char * syn_c_keywords[] = {
 	"while","if","for","continue","return","break","switch","case","sizeof",
 	"struct","union","typedef","do","default","else","goto",
-	"alignas","alignof","offsetof","asm","__asm__"
+	"alignas","alignof","offsetof","asm","__asm__",
 	/* C++ stuff */
 	"public","private","class","using","namespace","virtual","override","protected",
 	NULL
