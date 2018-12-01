@@ -1520,6 +1520,7 @@ static int read_line(void) {
 						/* Finished */
 						loading = 1;
 						column = the_line->actual;
+						render_line();
 						insert_char('\n');
 						immediate = 0;
 						return 1;
