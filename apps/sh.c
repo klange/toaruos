@@ -352,8 +352,13 @@ hashmap_t * job_hash = NULL;
 
 void sig_break_loop(int sig) {
 	/* Interrupt handler */
-	break_while = sig;
-	signal(sig, sig_break_loop);
+	if ((shell_interactive == 1 && !is_subshell)) {
+		break_while = sig;
+		signal(sig, sig_break_loop);
+	} else {
+		signal(sig, SIG_DFL);
+		raise(sig);
+	}
 }
 
 void redraw_prompt_func(rline_context_t * context) {
@@ -1854,6 +1859,10 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 			}
 			do {
 				pid = waitpid(child_pid, &ret_code, 0);
+				if (pid != -1 && WIFSIGNALED(ret_code)) {
+					int sig = WTERMSIG(ret_code);
+					if (sig == SIGINT) return 127; /* break */
+				}
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		} else {
 			reset_pgrp();
