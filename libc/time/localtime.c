@@ -22,6 +22,8 @@ static int day_of_week(long seconds) {
 
 static long days_in_month(int month, int year) {
 	switch(month) {
+		case 12:
+			return 31;
 		case 11:
 			return 30;
 		case 10:

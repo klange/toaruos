@@ -37,6 +37,9 @@ static char * months_short[] = {
 };
 
 size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
+	if (!tm) {
+		return sprintf(s, "[tm is null]");
+	}
 	char * b = s;
 	size_t count = 0;
 	for (const char *f = fmt; *f; f++) {
