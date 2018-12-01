@@ -696,8 +696,7 @@ void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 				continue;
 			if (sprite->alpha > 0) {
 				uint32_t n_color = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
-				uint32_t f_color = rgb(_ALP(n_color), 0, 0);
-				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), n_color);
 			} else {
 				GFX(ctx, x + _x, y + _y) = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
 			}
@@ -716,8 +715,9 @@ void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
 			uint32_t n_color = SPRITE(sprite, _x, _y);
-			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
-			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
+			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
+			GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), f_color);
 		}
 	}
 }
@@ -750,8 +750,9 @@ void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x,
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
 			uint32_t n_color = getBilinearFilteredPixelColor(sprite, (double)_x / (double)width, (double)_y/(double)height);
-			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
-			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
+			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
+			GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), f_color);
 		}
 	}
 }
@@ -1000,8 +1001,9 @@ void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 			double u, v;
 			calc_rotation(_x + originx, _y + originy, originx, originy, -rotation, &u, &v);
 			uint32_t n_color = getBilinearFilteredPixelColor(sprite, u / (double)sprite->width, v/(double)sprite->height);
-			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
-			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), n_color, f_color);
+			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
+			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
+			GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), f_color);
 		}
 	}
 }
