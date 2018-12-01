@@ -4,4 +4,5 @@ if stat -Lq /usr/share/fonts/DejaVuSansMono.ttf then export FREETYPE_PROPERTIES=
 cd ~/Desktop
 file-browser --wallpaper &
 cd ~
+export-cmd _DATE date +"%m/%d"; if equals? "$_DATE" "12/25" then sh -c "snow --no-ad &"; unset _DATE
 exec panel --really
