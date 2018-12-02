@@ -181,7 +181,9 @@ static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch,
 			if (a < 0.0) a = 0.0;
 			if (a > 1.0) a = 1.0;
 			a = a * a * (3 - 2 * a);
-			GFX(ctx,x+i,y+j) = alpha_blend(GFX(ctx,x+i,y+j), color, rgb(_ALP(color)*a,0,0));
+			uint32_t f_color = premultiply((color & 0xFFFFFF) | ((uint32_t)(255 * a) << 24));
+			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(a * _ALP(color)) << 24);
+			GFX(ctx,x+i,y+j) = alpha_blend_rgba(GFX(ctx,x+i,y+j), f_color);
 		}
 	}
 
