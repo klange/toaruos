@@ -608,6 +608,16 @@ static uint32_t irq_func(fs_node_t *node, uint64_t offset, uint32_t size, uint8_
 		soffset += sprintf(&buf[soffset], "\n");
 	}
 
+	outportb(0x20, 0x0b);
+	outportb(0xa0, 0x0b);
+	soffset += sprintf(&buf[soffset], "isr=0x%4x\n", (inportb(0xA0) << 8) | inportb(0x20));
+
+	outportb(0x20, 0x0a);
+	outportb(0xa0, 0x0a);
+	soffset += sprintf(&buf[soffset], "irr=0x%4x\n", (inportb(0xA0) << 8) | inportb(0x20));
+
+	soffset += sprintf(&buf[soffset], "imr=0x%4x\n", (inportb(0xA1) << 8) | inportb(0x21));
+
 	size_t _bsize = strlen(buf);
 	if (offset > _bsize) {
 		free(buf);
