@@ -857,11 +857,13 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 		}
 	}
 
-	foreach(node, extended_entries) {
-		struct procfs_entry * e = node->value;
-		if (!strcmp(name, e->name)) {
-			fs_node_t * out = procfs_generic_create(e->name, e->func);
-			return out;
+	if (extended_entries) {
+		foreach(node, extended_entries) {
+			struct procfs_entry * e = node->value;
+			if (!strcmp(name, e->name)) {
+				fs_node_t * out = procfs_generic_create(e->name, e->func);
+				return out;
+			}
 		}
 	}
 
