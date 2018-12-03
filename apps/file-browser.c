@@ -968,15 +968,20 @@ static void toggle_selected(int hilighted_offset, int modifiers) {
 
 static int _down_button = -1;
 static void _set_hilight(int index, int hilight) {
+	int _update = 0;
 	if (_button_hover != index || (_button_hover == index && index != -1 && _button_hilights[index] != hilight)) {
-		if (_button_hover != -1) {
+		if (_button_hover != -1 && _button_hilights[_button_hover] != 3) {
 			_button_hilights[_button_hover] = 3;
+			_update = 1;
 		}
 		_button_hover = index;
 		if (index != -1 && !_button_disabled[index]) {
 			_button_hilights[_button_hover] = hilight;
+			_update = 1;
 		}
-		redraw_window();
+		if (_update) {
+			redraw_window();
+		}
 	}
 }
 
