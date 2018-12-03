@@ -206,10 +206,10 @@ int kmain() {
 		}
 	} else {
 		strcat(cmdline, DEFAULT_ROOT_CMDLINE);
+	}
 
-		if (_migrate) {
-			strcat(cmdline, MIGRATE_CMDLINE);
-		}
+	if (_migrate) {
+		strcat(cmdline, MIGRATE_CMDLINE);
 	}
 
 	char * _video_command_line = DEFAULT_VID_CMDLINE;
