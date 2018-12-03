@@ -230,12 +230,12 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 		vfs_mount_type(root_type, args_value("root"), "/");
 	}
 
-	if (args_present("start")) {
-		char * c = args_value("start");
+	if (args_present("args")) {
+		char * c = args_value("args");
 		if (!c) {
-			debug_print(WARNING, "Expected an argument to kernel option `start`. Ignoring.");
+			debug_print(WARNING, "Expected an argument to kernel option `args`. Ignoring.");
 		} else {
-			debug_print(NOTICE, "Got start argument: %s", c);
+			debug_print(NOTICE, "Got init argument: %s", c);
 			boot_arg = strdup(c);
 		}
 	}
