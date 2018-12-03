@@ -148,7 +148,7 @@ int kmain() {
 			"Enable the VMware / QEMU absolute mouse pointer,",
 			"and optional guest scaling.");
 
-	BOOT_OPTION(_vmwareres,   1, "VMware guest size",
+	BOOT_OPTION(_vmwareres,   0, "VMware guest size",
 			"(Requires VMware driver) Enables support for",
 			"automatically setting display size in VMware");
 
