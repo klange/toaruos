@@ -453,6 +453,8 @@ int main(int argc, char * argv[]) {
 	(void)_stdout;
 	(void)_stderr;
 
+	mount("x", "/tmp", "tmpfs", 0, NULL);
+
 	framebuffer_fd = open("/dev/fb0", O_RDONLY);
 	if (framebuffer_fd < 0) {
 		has_video = 0;
