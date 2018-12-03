@@ -146,6 +146,9 @@ void irq_install(void) {
 	}
 	irq_remap();
 	irq_setup_gates();
+
+	outportb(0x4D0, 0xF8);
+	outportb(0x4D1, 0xDE);
 }
 
 void irq_ack(size_t irq_no) {
