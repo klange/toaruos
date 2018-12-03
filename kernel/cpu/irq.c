@@ -148,18 +148,15 @@ void irq_install(void) {
 	irq_setup_gates();
 
 	/**
-	 * This will set a bunch of random pins we stole
-	 * from Haiku to level-triggered mode. If we don't
-	 * do this, we may end up on an EFI system where
+	 * This will set a few pins to "level triggered".
+	 * If we don't do this, we may end up on an EFI system where
 	 * they were set to level triggered in expectation
 	 * of an IO APIC taking over...
-	 *
-	 * We may possibly only need to set the PCI-mapped
-	 * interrupts to level triggered, or even just
-	 * pins 10 and 11 (based on QEMU startup state)?
 	 */
-	outportb(0x4D0, 0xF8);
-	outportb(0x4D1, 0xDE);
+#if 0
+	outportb(0x4D0, 0x00);
+#endif
+	outportb(0x4D1, (1 << (10-8)) | (1 << (11-8)));
 }
 
 void irq_ack(size_t irq_no) {
