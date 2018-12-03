@@ -570,10 +570,21 @@ static int shell_debug_pid(fs_node_t * tty, int argc, char * argv[]) {
 extern hashmap_t * kernel_args_map;
 static int shell_set(fs_node_t * tty, int argc, char * argv[]) {
 	if (argc < 3) {
-		fprintf(tty, "set KEY VALUE");
+		fprintf(tty, "set KEY VALUE\n");
 		return 1;
 	}
 	hashmap_set(kernel_args_map, argv[1], strdup(argv[2]));
+	return 0;
+}
+
+static int shell_coax_irq(fs_node_t * tty, int argc, char * argv[]) {
+	if (argc < 2) {
+		fprintf(tty, "coax-irq IRQ\n");
+		return 1;
+	}
+
+	irq_ack(atoi(argv[1]));
+
 	return 0;
 }
 
@@ -628,6 +639,8 @@ static struct shell_command shell_commands[] = {
 		"frob piix"},
 	{"set", &shell_set,
 		"set kcmdline flag"},
+	{"coax-irq", &shell_coax_irq,
+		"force ack an irq"},
 	{NULL, NULL, NULL}
 };
 
@@ -646,29 +659,6 @@ struct tty_o {
 	fs_node_t * node;
 	fs_node_t * tty;
 };
-
-/*
- * These tasklets handle tty-serial interaction.
- */
-static void debug_shell_handle_in(void * data, char * name) {
-	struct tty_o * tty = (struct tty_o *)data;
-
-	while (1) {
-		uint8_t buf[1];
-		int r = read_fs(tty->tty, 0, 1, (unsigned char *)buf);
-		write_fs(tty->node, 0, r, buf);
-	}
-}
-
-static void debug_shell_handle_out(void * data, char * name) {
-	struct tty_o * tty = (struct tty_o *)data;
-
-	while (1) {
-		uint8_t buf[1];
-		int r = read_fs(tty->node, 0, 1, (unsigned char *)buf);
-		write_fs(tty->tty, 0, r, buf);
-	}
-}
 
 static void debug_shell_actual(void * data, char * name) {
 
@@ -727,34 +717,13 @@ static void debug_shell_actual(void * data, char * name) {
  * debugging routines.
  */
 static void debug_shell_run(void * data, char * name) {
-	/*
-	 * We will run on the first serial port.
-	 * TODO detect that this failed
-	 */
 	fs_node_t * tty = kopen("/dev/ttyS0", 0);
 
-	fs_node_t * fs_master;
-	fs_node_t * fs_slave;
-
-	pty_create(NULL, &fs_master, &fs_slave);
-
-	/* Attach the serial to the TTY interface */
-	struct tty_o _tty = {.node = fs_master, .tty = tty};
-
-	create_kernel_tasklet(debug_shell_handle_in,  "[kttydebug-in]",  (void *)&_tty);
-	create_kernel_tasklet(debug_shell_handle_out, "[kttydebug-out]", (void *)&_tty);
-
-	/* Set the device to be the actual TTY slave */
-	tty = fs_slave;
 	int fd = process_append_fd((process_t *)current_process, tty);
 	current_process->fds->modes[fd] = 03; /* rw */
 	process_move_fd((process_t *)current_process, fd, 0);
 	process_move_fd((process_t *)current_process, fd, 1);
 	process_move_fd((process_t *)current_process, fd, 2);
-
-
-	fs_master->refcount = -1;
-	fs_slave->refcount = -1;
 
 	debug_shell_actual(tty, name);
 }
