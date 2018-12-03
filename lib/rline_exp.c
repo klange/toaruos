@@ -1612,7 +1612,7 @@ int rline_experimental(char * buffer, int buf_size) {
 	the_line = line_create();
 	loading = 0;
 	read_line();
-	printf("\033[?25h\033[0m\n");
+	printf("\r\033[?25h\033[0m\n");
 
 	unsigned int off = 0;
 	for (int j = 0; j < the_line->actual; j++) {
