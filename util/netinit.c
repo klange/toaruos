@@ -25,7 +25,7 @@
 #include <getopt.h>
 #include <syscall.h>
 
-#define NETBOOT_URL "http://10.0.2.1:8080/netboot.img"
+#define DEFAULT_URL "http://10.0.2.1:8080/netboot.img"
 
 #include <pthread.h>
 #include <kernel/video.h>
@@ -534,7 +534,11 @@ int main(int argc, char * argv[]) {
 
 	struct http_req my_req;
 	/* TODO: Extract URL from kcmdline */
-	parse_url(NETBOOT_URL, &my_req);
+	if (argc < 2) {
+		parse_url(DEFAULT_URL, &my_req);
+	} else {
+		parse_url(argv[1], &my_req);
+	}
 
 	char file[100];
 	sprintf(file, "/dev/net/%s:%d", my_req.domain, my_req.port);
@@ -707,7 +711,6 @@ int main(int argc, char * argv[]) {
 	TRACE("Executing init...\n");
 	char * const _argv[] = {
 		"/bin/init",
-		argv[1],
 		NULL,
 	};
 	execve("/bin/init",_argv,NULL);

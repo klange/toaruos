@@ -41,6 +41,7 @@ EFI_HANDLE ImageHandleIn;
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
 #define DEFAULT_PRESET_VID_CMDLINE "vid=preset "
 #define DEFAULT_NETINIT_CMDLINE "init=/dev/ram0 "
+#define NETINIT_REMOTE_URL "args=http://toaruos.org/ramdisk-1.9.3.img "
 #define MIGRATE_CMDLINE "migrate "
 #define DEBUG_LOG_CMDLINE "logtoserial=warning "
 #define DEBUG_SERIAL_CMDLINE "kdebug "
@@ -167,9 +168,13 @@ int kmain() {
 			"Start a kernel debug shell on the first",
 			"serial port.");
 
-	BOOT_OPTION(_netinit,     0, "Netinit",
+	BOOT_OPTION(_netinit,     0, "Netinit (QEMU local)",
+			"Downloads a userspace filesystem from a local",
+			"HTTP server and extracts it at boot.");
+
+	BOOT_OPTION(_netinitr,    0, "Netinit (toaruos.org)",
 			"Downloads a userspace filesystem from a remote",
-			"server and extracts it at boot.");
+			"HTTP server and extracts it at boot.");
 
 #ifdef EFI_PLATFORM
 	BOOT_OPTION(_efilargest,  0, "Prefer largest mode.",
@@ -193,9 +198,12 @@ int kmain() {
 	show_menu();
 
 	/* Build our command line. */
-	if (_netinit) {
+	if (_netinit || _netinitr) {
 		strcat(cmdline, DEFAULT_NETINIT_CMDLINE);
 		ramdisk_path = "NETINIT.";
+		if (_netinitr) {
+			strcat(cmdline, NETINIT_REMOTE_URL);
+		}
 	} else {
 		strcat(cmdline, DEFAULT_ROOT_CMDLINE);
 
