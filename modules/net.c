@@ -529,7 +529,7 @@ static int gethost(char * name, uint32_t * ip) {
 static int net_send_tcp(struct socket *socket, uint16_t flags, uint8_t * payload, uint32_t payload_size);
 
 static void socket_close(fs_node_t * node) {
-	debug_print(ERROR, "Closing socket");
+	debug_print(WARNING, "Closing socket");
 	struct socket * sock = node->device;
 	if (sock->status == 1) return; /* already closed */
 	net_send_tcp(sock, TCP_FLAGS_ACK | TCP_FLAGS_FIN, NULL, 0);

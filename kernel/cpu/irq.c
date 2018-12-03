@@ -166,6 +166,7 @@ void irq_handler(struct regs *r) {
 				goto done;
 			}
 		}
+		debug_print(ERROR, "acking irq %d - no other device handled it\n", r->int_no - 32);
 		irq_ack(r->int_no - 32);
 	}
 done:

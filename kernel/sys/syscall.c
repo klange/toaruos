@@ -16,6 +16,7 @@
 #include <kernel/shm.h>
 #include <kernel/printf.h>
 #include <kernel/module.h>
+#include <kernel/args.h>
 
 #include <sys/utsname.h>
 #include <syscall_nums.h>
@@ -260,11 +261,13 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 	PTR_VALIDATE(filename);
 	PTR_VALIDATE(envp);
 
-	debug_print(WARNING, "%d = exec(%s", current_process->id, filename);
-	for (char * const * arg = argv; *arg; ++arg) {
-		debug_print(WARNING, "          %s", *arg);
+	if (args_present("traceexec")) {
+		debug_print(WARNING, "%d = exec(%s", current_process->id, filename);
+		for (char * const * arg = argv; *arg; ++arg) {
+			debug_print(WARNING, "          %s", *arg);
+		}
+		debug_print(WARNING, "         )");
 	}
-	debug_print(WARNING, "         )");
 
 	int argc = 0;
 	int envc = 0;

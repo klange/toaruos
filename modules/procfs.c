@@ -770,7 +770,7 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint32_t index) {
 
 	int i = index + 1;
 
-	debug_print(WARNING, "%d %d %d", i, index, PROCFS_STANDARD_ENTRIES);
+	debug_print(NOTICE, "%d %d %d", i, index, PROCFS_STANDARD_ENTRIES);
 
 	pid_t pid = 0;
 
