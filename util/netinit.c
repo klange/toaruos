@@ -59,7 +59,7 @@ struct {
 	print_string(tmp); \
 } while(0)
 
-static int has_video = 1;
+static int has_video = 0;
 static int width, height, depth;
 static char * framebuffer;
 static struct timeval start;
@@ -455,11 +455,13 @@ int main(int argc, char * argv[]) {
 
 	mount("x", "/tmp", "tmpfs", 0, NULL);
 
-	framebuffer_fd = open("/dev/fb0", O_RDONLY);
-	if (framebuffer_fd < 0) {
+	int tmpfd = open("/proc/framebuffer", O_RDONLY);
+	if (tmpfd < 0) {
 		has_video = 0;
 		memset(textmemptr, 0, sizeof(unsigned short) * 80 * 25);
 	} else {
+		has_video = 1;
+		framebuffer_fd = open("/dev/fb0", O_RDONLY);
 		update_video(0);
 		signal(SIGWINEVENT, update_video);
 	}
