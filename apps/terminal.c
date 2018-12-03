@@ -1108,6 +1108,7 @@ static void cell_redraw_box(uint16_t x, uint16_t y) {
 
 /* Draw the cursor cell */
 static void render_cursor() {
+	if (!cursor_on) return;
 	if (!window->focused) {
 		/* An unfocused terminal should draw an unfilled box. */
 		cell_redraw_box(csr_x, csr_y);

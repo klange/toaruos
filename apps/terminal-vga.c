@@ -636,6 +636,7 @@ static void cell_redraw_box(uint16_t x, uint16_t y) {
 #endif
 
 void render_cursor() {
+	if (!cursor_on) return;
 	cell_redraw_inverted(csr_x, csr_y);
 }
 
