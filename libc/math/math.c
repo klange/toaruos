@@ -466,9 +466,9 @@ double sin(double x) {
 	if (x < 0.0) {
 		x += 3.141592654 * 2.0 * 100.0;
 	}
-	double z = fmod(x, 3.141592654 * 2.0);
+	int i = x * 360.0 / (3.141592654 * 2.0);
 
-	int i = z * 360.0 / (3.141582654 * 2.0);
+	i = i % 360;
 
 	return bad_sine_table[i];
 }
