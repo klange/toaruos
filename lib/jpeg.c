@@ -15,7 +15,7 @@
 
 #include <toaru/graphics.h>
 
-#if 1
+#if 0
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "jpeg"
 #else
