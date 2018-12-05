@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <sys/fswait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -56,6 +57,8 @@ static int available_height = 0; /* How much space is available in the main wind
 static int is_desktop_background = 0; /* If we're in desktop background mode */
 static int menu_bar_height = MENU_BAR_HEIGHT + 36; /* Height of the menu bar, if present - it's not in desktop mode */
 static sprite_t * wallpaper_buffer = NULL; /* Prebaked wallpaper texture */
+static sprite_t * wallpaper_old = NULL;
+static uint64_t timer = 0;
 static char title[512]; /* Application title bar */
 static int FILE_HEIGHT = 80; /* Height of one row of icons */
 static int FILE_WIDTH = 100; /* Width of one column of icons */
@@ -547,7 +550,19 @@ static void redraw_window(void) {
 		render_decorations(main_window, ctx, title);
 	} else {
 		/* Draw wallpaper in desktop mode */
-		draw_sprite(ctx, wallpaper_buffer, 0, 0);
+		if (wallpaper_old) {
+			draw_sprite(ctx, wallpaper_old, 0, 0);
+			uint64_t ellapsed = precise_time_since(timer);
+			if (ellapsed > 1000) {
+				free(wallpaper_old);
+				wallpaper_old = NULL;
+				draw_sprite(ctx, wallpaper_buffer, 0, 0);
+			} else {
+				draw_sprite_alpha(ctx, wallpaper_buffer, 0, 0, (float)ellapsed / 1000.0);
+			}
+		} else {
+			draw_sprite(ctx, wallpaper_buffer, 0, 0);
+		}
 	}
 
 	struct decor_bounds bounds;
@@ -622,7 +637,11 @@ static void draw_background(int width, int height) {
 
 	/* If the wallpaper is already loaded, free it. */
 	if (wallpaper_buffer) {
-		sprite_free(wallpaper_buffer);
+		if (wallpaper_old) {
+			free(wallpaper_old);
+		}
+		wallpaper_old = wallpaper_buffer;
+		timer = precise_current_time();
 	}
 
 	/* Open the wallpaper */
@@ -1081,6 +1100,11 @@ static void sig_usr1(int sig) {
 	signal(SIGUSR1, sig_usr1);
 }
 
+static int restart = 0;
+static void sig_alrm(int sig) {
+	restart = 1;
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -1093,6 +1117,7 @@ int main(int argc, char * argv[]) {
 		menu_bar_height = 0;
 		signal(SIGUSR1, sig_usr1);
 		signal(SIGUSR2, sig_usr2);
+		signal(SIGALRM, sig_alrm);
 		draw_background(yctx->display_width, yctx->display_height);
 		main_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);
 		yutani_window_move(yctx, main_window, 0, 0);
@@ -1186,10 +1211,26 @@ int main(int argc, char * argv[]) {
 
 	while (application_running) {
 		waitpid(-1, NULL, WNOHANG);
+		int fds[1] = {fileno(yctx->sock)};
+		int index = fswait2(1,fds,wallpaper_old ? 10 : 200);
+
+		if (index == 1) {
+			if (wallpaper_old) {
+				redraw_window();
+			}
+			continue;
+		}
+
+		if (restart) {
+			execvp(argv[0],argv);
+			return 1;
+		}
+
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
+			int redraw = 0;
 			if (menu_process_event(yctx, m)) {
-				redraw_window();
+				redraw = 1;
 			}
 			switch (m->type) {
 				case YUTANI_MSG_WELCOME:
@@ -1215,7 +1256,7 @@ int main(int argc, char * argv[]) {
 						if (win == main_window) {
 							win->focused = wf->focused;
 							redraw_files();
-							redraw_window();
+							redraw = 1;
 						}
 					}
 					break;
@@ -1310,7 +1351,7 @@ int main(int argc, char * argv[]) {
 								if (_button_hover != -1) {
 									_button_hilights[_button_hover] = 3;
 									_button_hover = -1;
-									redraw_window(); /* Double redraw ??? */
+									redraw = 1; /* Double redraw ??? */
 								}
 							}
 
@@ -1325,7 +1366,7 @@ int main(int argc, char * argv[]) {
 									if (scroll_offset < 0) {
 										scroll_offset = 0;
 									}
-									redraw_window();
+									redraw = 1;
 								} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
 									if (available_height > contents->height) {
 										scroll_offset = 0;
@@ -1335,7 +1376,7 @@ int main(int argc, char * argv[]) {
 											scroll_offset = contents->height - available_height;
 										}
 									}
-									redraw_window();
+									redraw = 1;
 								}
 
 								/* Get offset into contents */
@@ -1361,7 +1402,7 @@ int main(int argc, char * argv[]) {
 										clear_offset(hilighted_offset);
 										draw_file(f, hilighted_offset);
 									}
-									redraw_window();
+									redraw = 1;
 								}
 
 								if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
@@ -1384,7 +1425,7 @@ int main(int argc, char * argv[]) {
 													draw_file(file_pointers[i], i);
 												}
 											}
-											redraw_window();
+											redraw = 1;
 										}
 									}
 								} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
@@ -1408,7 +1449,7 @@ int main(int argc, char * argv[]) {
 										clear_offset(old_offset);
 										draw_file(f, old_offset);
 									}
-									redraw_window();
+									redraw = 1;
 								}
 							}
 
@@ -1421,6 +1462,9 @@ int main(int argc, char * argv[]) {
 					break;
 				default:
 					break;
+			}
+			if (redraw || wallpaper_old) {
+				redraw_window();
 			}
 			free(m);
 			m = yutani_poll_async(yctx);
