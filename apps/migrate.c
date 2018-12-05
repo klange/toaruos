@@ -52,7 +52,7 @@ void copy_link(char * source, char * dest, int mode, int uid, int gid) {
 	char tmp[1024];
 	readlink(source, tmp, 1024);
 	symlink(tmp, dest);
-	chmod(dest, mode);
+	//chmod(dest, mode); /* links don't have modes */
 	chown(dest, uid, gid);
 }
 
