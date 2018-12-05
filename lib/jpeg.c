@@ -454,5 +454,7 @@ int load_sprite_jpg(sprite_t * tsprite, char * filename) {
 		}
 	}
 
+	fclose(f);
+
 	return 0;
 }
