@@ -432,7 +432,7 @@ static void load_directory(const char * path, int modifies_history) {
 						sprintf(f->icon, "c");
 					} else if (has_extension(f, ".h")) {
 						sprintf(f->icon, "h");
-					} else if (has_extension(f, ".bmp")) {
+					} else if (has_extension(f, ".bmp") || has_extension(f, ".jpg")) {
 						sprintf(f->icon, "image");
 						sprintf(f->launcher, "exec imgviewer");
 					} else if (has_extension(f, ".sdf") || has_extension(f, ".ttf")) {
