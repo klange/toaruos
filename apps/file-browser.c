@@ -805,7 +805,7 @@ static void _menu_action_copy(struct MenuEntry * entry) {
 	if (!output_size) return;
 
 	/* Create the clipboard contents as a LF-separated list of absolute paths */
-	char * clipboard = malloc(output_size);
+	char * clipboard = malloc(output_size+1); /* last nil */
 	clipboard[0] = '\0';
 	for (int i = 0; i < file_pointers_len; ++i) {
 		if (file_pointers[i]->selected) {
@@ -820,6 +820,7 @@ static void _menu_action_copy(struct MenuEntry * entry) {
 		/* Remove trailing line feed */
 		clipboard[output_size-1] = '\0';
 	}
+
 
 	yutani_set_clipboard(yctx, clipboard);
 	free(clipboard);
