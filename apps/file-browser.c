@@ -31,9 +31,6 @@
 #include <toaru/button.h>
 #include <toaru/jpeg.h>
 
-#include <toaru/trace.h>
-#define TRACE_APP_NAME "file-browser"
-
 #define APPLICATION_TITLE "File Browser"
 #define SCROLL_AMOUNT 120
 #define WALLPAPER_PATH "/usr/share/wallpaper.jpg"
@@ -1052,22 +1049,15 @@ int main(int argc, char * argv[]) {
 
 	int arg_ind = 1;
 
-	TRACE("Starting");
-
 	if (argc > 1 && !strcmp(argv[1], "--wallpaper")) {
 		is_desktop_background = 1;
 		menu_bar_height = 0;
 		signal(SIGUSR2, sig_usr2);
-		TRACE("Drawing background");
 		draw_background(yctx->display_width, yctx->display_height);
-		TRACE("Creating window");
 		main_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);
-		TRACE("Moving");
 		yutani_window_move(yctx, main_window, 0, 0);
-		TRACE("Setting stack");
 		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
 		arg_ind++;
-		TRACE("Pid");
 		FILE * f = fopen("/var/run/.wallpaper.pid", "w");
 		fprintf(f, "%d\n", getpid());
 		fclose(f);
