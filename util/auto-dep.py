@@ -136,7 +136,7 @@ if __name__ == "__main__":
             libraries=" ".join([x for x in c.libs]),
             includes=" ".join([x for x in c.includes if x is not None]),
             extra="-Wl,--export-dynamic" if c.export_dynamic_hint else "",
-            ), shell=True)
+            ), shell=False)
     elif command == "--buildlib":
         libname = os.path.basename(filename).replace(".c","")
         _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
@@ -148,7 +148,7 @@ if __name__ == "__main__":
             libraryfiles=" ".join([todep(x)[1] for x in _libs]),
             libraries=" ".join([x for x in _libs]),
             includes=" ".join([x for x in c.includes if x is not None])
-            ),shell=True)
+            ),shell=False)
     elif command == "--make":
         print("base/bin/{app}: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {extra} {includes} -o $@ $< {libraries}".format(
             app=os.path.basename(filename).replace(".c",""),
