@@ -25,6 +25,7 @@
 #include <toaru/auth.h>
 #include <toaru/confreader.h>
 #include <toaru/sdf.h>
+#include <toaru/jpeg.h>
 
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "glogin-provider"
@@ -55,7 +56,7 @@ static int BOX_COLOR_R=0;
 static int BOX_COLOR_G=0;
 static int BOX_COLOR_B=0;
 static int BOX_COLOR_A=127;
-static char * WALLPAPER = "/usr/share/wallpaper.bmp";
+static char * WALLPAPER = "/usr/share/wallpaper.jpg";
 static char * LOGO = "/usr/share/logo_login.bmp";
 
 #define TEXTBOX_INTERIOR_LEFT 4
@@ -294,7 +295,7 @@ redo_everything:
 	TRACE("Loading wallpaper...");
 	{
 		sprite_t * wallpaper = malloc(sizeof(sprite_t));
-		load_sprite(wallpaper, WALLPAPER);
+		load_sprite_jpg(wallpaper, WALLPAPER);
 
 		float x = (float)width  / (float)wallpaper->width;
 		float y = (float)height / (float)wallpaper->height;

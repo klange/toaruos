@@ -20,6 +20,7 @@ class Classifier(object):
         '<toaru/auth.h>':        (None, '-ltoaru_auth',        []),
         '<toaru/graphics.h>':    (None, '-ltoaru_graphics',    []),
         '<toaru/drawstring.h>':  (None, '-ltoaru_drawstring',  ['<toaru/graphics.h>']),
+        '<toaru/jpeg.h>':        (None, '-ltoaru_jpeg',        ['<toaru/graphics.h>']),
         '<toaru/rline.h>':       (None, '-ltoaru_rline',       ['<toaru/kbd.h>']),
         '<toaru/rline_exp.h>':   (None, '-ltoaru_rline_exp',   ['<toaru/rline.h>']),
         '<toaru/confreader.h>':  (None, '-ltoaru_confreader',  ['<toaru/hashmap.h>']),
