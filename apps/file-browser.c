@@ -627,7 +627,41 @@ static void draw_background(int width, int height) {
 
 	/* Open the wallpaper */
 	sprite_t * wallpaper = malloc(sizeof(sprite_t));
-	load_sprite_jpg(wallpaper, WALLPAPER_PATH);
+
+	char * wallpaper_path = WALLPAPER_PATH;
+	int free_it = 0;
+	char * home = getenv("HOME");
+	if (home) {
+		fprintf(stderr, "trying config\n");
+		char tmp[512];
+		sprintf(tmp, "%s/.wallpaper.conf", home);
+		FILE * c = fopen(tmp, "r");
+		if (c) {
+			char line[1024];
+			while (!feof(c)) {
+				fgets(line, 1024, c);
+				char * nl = strchr(line, '\n');
+				if (nl) *nl = '\0';
+				if (line[0] == ';') {
+					continue;
+				}
+				if (strstr(line, "wallpaper=") == line) {
+					free_it = 1;
+					fprintf(stderr, "have config\n");
+					wallpaper_path = strdup(line+strlen("wallpaper="));
+					break;
+				}
+			}
+			fclose(c);
+		}
+	}
+
+	load_sprite_jpg(wallpaper, wallpaper_path);
+
+	if (free_it) {
+		free(wallpaper_path);
+	}
+
 	wallpaper->alpha = 0;
 	fprintf(stderr, "done?\n");
 
@@ -1037,9 +1071,13 @@ static void _handle_button_press(int index) {
  */
 static void sig_usr2(int sig) {
 	yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
-	yutani_flip(yctx, main_window);
-	signal(SIGUSR2, sig_usr2);
 	_menu_action_refresh(NULL);
+	signal(SIGUSR2, sig_usr2);
+}
+
+static void sig_usr1(int sig) {
+	yutani_window_resize_offer(yctx, main_window, yctx->display_width, yctx->display_height);
+	signal(SIGUSR1, sig_usr1);
 }
 
 int main(int argc, char * argv[]) {
@@ -1052,6 +1090,7 @@ int main(int argc, char * argv[]) {
 	if (argc > 1 && !strcmp(argv[1], "--wallpaper")) {
 		is_desktop_background = 1;
 		menu_bar_height = 0;
+		signal(SIGUSR1, sig_usr1);
 		signal(SIGUSR2, sig_usr2);
 		draw_background(yctx->display_width, yctx->display_height);
 		main_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);
