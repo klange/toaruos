@@ -651,7 +651,6 @@ static void draw_background(int width, int height) {
 	int free_it = 0;
 	char * home = getenv("HOME");
 	if (home) {
-		fprintf(stderr, "trying config\n");
 		char tmp[512];
 		sprintf(tmp, "%s/.wallpaper.conf", home);
 		FILE * c = fopen(tmp, "r");
@@ -666,7 +665,6 @@ static void draw_background(int width, int height) {
 				}
 				if (strstr(line, "wallpaper=") == line) {
 					free_it = 1;
-					fprintf(stderr, "have config\n");
 					wallpaper_path = strdup(line+strlen("wallpaper="));
 					break;
 				}
@@ -680,9 +678,6 @@ static void draw_background(int width, int height) {
 	if (free_it) {
 		free(wallpaper_path);
 	}
-
-	wallpaper->alpha = 0;
-	fprintf(stderr, "done?\n");
 
 	/* Create a new buffer to hold the baked wallpaper */
 	wallpaper_buffer = create_sprite(width, height, 0);
