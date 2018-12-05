@@ -59,6 +59,7 @@ static int menu_bar_height = MENU_BAR_HEIGHT + 36; /* Height of the menu bar, if
 static sprite_t * wallpaper_buffer = NULL; /* Prebaked wallpaper texture */
 static sprite_t * wallpaper_old = NULL;
 static uint64_t timer = 0;
+static int restart = 0;
 static char title[512]; /* Application title bar */
 static int FILE_HEIGHT = 80; /* Height of one row of icons */
 static int FILE_WIDTH = 100; /* Width of one column of icons */
@@ -557,6 +558,7 @@ static void redraw_window(void) {
 				free(wallpaper_old);
 				wallpaper_old = NULL;
 				draw_sprite(ctx, wallpaper_buffer, 0, 0);
+				restart = 1; /* quietly restart */
 			} else {
 				draw_sprite_alpha(ctx, wallpaper_buffer, 0, 0, (float)ellapsed / 1000.0);
 			}
@@ -1095,11 +1097,6 @@ static void sig_usr1(int sig) {
 	signal(SIGUSR1, sig_usr1);
 }
 
-static int restart = 0;
-static void sig_alrm(int sig) {
-	restart = 1;
-}
-
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -1112,9 +1109,8 @@ int main(int argc, char * argv[]) {
 		menu_bar_height = 0;
 		signal(SIGUSR1, sig_usr1);
 		signal(SIGUSR2, sig_usr2);
-		signal(SIGALRM, sig_alrm);
 		draw_background(yctx->display_width, yctx->display_height);
-		main_window = yutani_window_create(yctx, yctx->display_width, yctx->display_height);
+		main_window = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
 		yutani_window_move(yctx, main_window, 0, 0);
 		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
 		arg_ind++;
@@ -1209,16 +1205,16 @@ int main(int argc, char * argv[]) {
 		int fds[1] = {fileno(yctx->sock)};
 		int index = fswait2(1,fds,wallpaper_old ? 10 : 200);
 
+		if (restart) {
+			execvp(argv[0],argv);
+			return 1;
+		}
+
 		if (index == 1) {
 			if (wallpaper_old) {
 				redraw_window();
 			}
 			continue;
-		}
-
-		if (restart) {
-			execvp(argv[0],argv);
-			return 1;
 		}
 
 		yutani_msg_t * m = yutani_poll(yctx);
