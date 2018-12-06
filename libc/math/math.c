@@ -467,10 +467,17 @@ double sin(double x) {
 		x += 3.141592654 * 2.0 * 100.0;
 	}
 	int i = x * 360.0 / (3.141592654 * 2.0);
+	double z = x * 360.0 / (3.141592654 * 2.0);
+	z -= i;
 
 	i = i % 360;
 
-	return bad_sine_table[i];
+	//fprintf(stderr, "z = %f\n", z);
+
+	double a = bad_sine_table[i];
+	double b = bad_sine_table[(i+1)%360];
+
+	return a * (1.0-z) + b * (z);
 }
 
 double cos(double x) {

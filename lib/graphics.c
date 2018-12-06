@@ -957,10 +957,7 @@ void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint3
 	}
 }
 
-static void calc_rotation(double x, double y, double px, double py, double rotation, double * u, double * v) {
-	double s = sin(rotation);
-	double c = cos(rotation);
-
+static void calc_rotation(double x, double y, double px, double py, double s, double c, double * u, double * v) {
 	/* Translate to pivot */
 	x -= px;
 	y -= py;
@@ -980,10 +977,15 @@ void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 	double ur_x, ur_y;
 	double lr_x, lr_y;
 
-	calc_rotation(-sprite->width/2, -sprite->height/2, 0, 0, rotation, &ul_x, &ul_y);
-	calc_rotation(-sprite->width/2, sprite->height/2,  0, 0, rotation, &ll_x, &ll_y);
-	calc_rotation(sprite->width/2, -sprite->height/2,  0, 0, rotation, &ur_x, &ur_y);
-	calc_rotation(sprite->width/2, sprite->height/2,   0, 0, rotation, &lr_x, &lr_y);
+	double _s = sin(rotation);
+	double _c = cos(rotation);
+	calc_rotation(-sprite->width/2, -sprite->height/2, 0, 0, _s, _c, &ul_x, &ul_y);
+	calc_rotation(-sprite->width/2, sprite->height/2,  0, 0, _s, _c, &ll_x, &ll_y);
+	calc_rotation(sprite->width/2, -sprite->height/2,  0, 0, _s, _c, &ur_x, &ur_y);
+	calc_rotation(sprite->width/2, sprite->height/2,   0, 0, _s, _c, &lr_x, &lr_y);
+
+	_s = sin(-rotation);
+	_c = cos(-rotation);
 
 	/* Calculate bounds */
 	int32_t _left   = min(min(ul_x, ll_x), min(ur_x, lr_x));
@@ -999,7 +1001,7 @@ void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 			if (_x + x < 0) continue;
 			if (_x + x >= ctx->width) break;
 			double u, v;
-			calc_rotation(_x + originx, _y + originy, originx, originy, -rotation, &u, &v);
+			calc_rotation(_x + originx, _y + originy, originx, originy, _s, _c, &u, &v);
 			uint32_t n_color = getBilinearFilteredPixelColor(sprite, u / (double)sprite->width, v/(double)sprite->height);
 			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
 			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
