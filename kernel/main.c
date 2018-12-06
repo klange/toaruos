@@ -94,8 +94,6 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	/* Initialize core modules */
 	gdt_install();      /* Global descriptor table */
 	idt_install();      /* IDT */
-	isrs_install();     /* Interrupt service requests */
-	irq_install();      /* Hardware interrupt requests */
 
 	uintptr_t last_mod = (uintptr_t)&end;
 	if (mboot_ptr->flags & MULTIBOOT_FLAG_MODS) {
@@ -167,6 +165,9 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	if (cmdline) {
 		args_parse(cmdline);
 	}
+
+	isrs_install();     /* Interrupt service requests */
+	irq_install();      /* Hardware interrupt requests */
 
 	vfs_install();
 	tasking_install();  /* Multi-tasking */

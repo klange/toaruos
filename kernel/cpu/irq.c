@@ -11,6 +11,7 @@
 #include <kernel/logging.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
+#include <kernel/args.h>
 
 /* Programmable interrupt controller */
 #define PIC1           0x20
@@ -153,10 +154,13 @@ void irq_install(void) {
 	 * they were set to level triggered in expectation
 	 * of an IO APIC taking over...
 	 */
+	if (!args_present("noelcr")) {
 #if 0
-	outportb(0x4D0, 0x00);
+		outportb(0x4D0, 0x00);
 #endif
-	outportb(0x4D1, (1 << (10-8)) | (1 << (11-8)));
+		uint8_t val = inportb(0x4D1);
+		outportb(0x4D1, val | (1 << (10-8)) | (1 << (11-8)));
+	}
 }
 
 void irq_ack(size_t irq_no) {
