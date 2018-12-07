@@ -37,14 +37,14 @@ const char * action_name(unsigned int action) {
 char * modifiers(unsigned int m) {
 	static char out[] = "........";
 
-	if (m & KEY_MOD_LEFT_CTRL)   out[0] = 'c'; else out[0] = '.';
-	if (m & KEY_MOD_LEFT_SHIFT)  out[1] = 's'; else out[1] = '.';
-	if (m & KEY_MOD_LEFT_ALT)    out[2] = 'a'; else out[2] = '.';
-	if (m & KEY_MOD_LEFT_SUPER)  out[3] = 'x'; else out[3] = '.';
-	if (m & KEY_MOD_RIGHT_CTRL)  out[4] = 'c'; else out[4] = '.';
-	if (m & KEY_MOD_RIGHT_SHIFT) out[5] = 's'; else out[5] = '.';
-	if (m & KEY_MOD_RIGHT_ALT)   out[6] = 'a'; else out[6] = '.';
-	if (m & KEY_MOD_RIGHT_SUPER) out[7] = 'x'; else out[7] = '.';
+	if (m & YUTANI_KEY_MODIFIER_LEFT_CTRL)   out[0] = 'c'; else out[0] = '.';
+	if (m & YUTANI_KEY_MODIFIER_LEFT_SHIFT)  out[1] = 's'; else out[1] = '.';
+	if (m & YUTANI_KEY_MODIFIER_LEFT_ALT)    out[2] = 'a'; else out[2] = '.';
+	if (m & YUTANI_KEY_MODIFIER_LEFT_SUPER)  out[3] = 'x'; else out[3] = '.';
+	if (m & YUTANI_KEY_MODIFIER_RIGHT_CTRL)  out[4] = 'c'; else out[4] = '.';
+	if (m & YUTANI_KEY_MODIFIER_RIGHT_SHIFT) out[5] = 's'; else out[5] = '.';
+	if (m & YUTANI_KEY_MODIFIER_RIGHT_ALT)   out[6] = 'a'; else out[6] = '.';
+	if (m & YUTANI_KEY_MODIFIER_RIGHT_SUPER) out[7] = 'x'; else out[7] = '.';
 
 	return out;
 }
@@ -127,7 +127,7 @@ int main (int argc, char ** argv) {
 							ke->event.action,
 							ke->event.keycode,
 							modifiers(ke->event.modifiers),
-							ke->event.key, ke->event.key);
+							ke->event.key, ke->event.key == 0 ? '?' : ke->event.key);
 
 						if (ke->event.key == 'm' && ke->event.action == KEY_ACTION_DOWN) {
 							show_cursor = !show_cursor;
@@ -142,12 +142,14 @@ int main (int argc, char ** argv) {
 							"\tnew = %d, %d\n"
 							"\told = %d, %d\n"
 							"\tbuttons = %s\n"
+							"\tmodifiers = %s\n"
 							"\tcommand = %d\n",
 							(int)me->wid,
 							mouse_command(me->command),
 							(int)me->new_x, (int)me->new_y,
 							(int)me->old_x, (int)me->old_y,
 							mouse_buttons(me->buttons),
+							modifiers(me->modifiers),
 							me->command);
 					}
 					break;
