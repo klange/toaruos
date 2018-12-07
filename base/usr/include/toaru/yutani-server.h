@@ -287,6 +287,7 @@ typedef struct YutaniGlobals {
 	void * renderer_ctx;
 
 	int reload_renderer;
+	uint8_t active_modifiers;
 } yutani_globals_t;
 
 struct key_bind {

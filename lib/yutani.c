@@ -290,7 +290,7 @@ void yutani_msg_buildx_window_focus_change(yutani_msg_t * msg, yutani_wid_t wid,
 }
 
 
-void yutani_msg_buildx_window_mouse_event(yutani_msg_t * msg, yutani_wid_t wid, int32_t new_x, int32_t new_y, int32_t old_x, int32_t old_y, uint8_t buttons, uint8_t command) {
+void yutani_msg_buildx_window_mouse_event(yutani_msg_t * msg, yutani_wid_t wid, int32_t new_x, int32_t new_y, int32_t old_x, int32_t old_y, uint8_t buttons, uint8_t command, uint8_t modifiers) {
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_WINDOW_MOUSE_EVENT;
 	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_mouse_event);
@@ -304,6 +304,7 @@ void yutani_msg_buildx_window_mouse_event(yutani_msg_t * msg, yutani_wid_t wid, 
 	mw->old_y = old_y;
 	mw->buttons = buttons;
 	mw->command = command;
+	mw->modifiers = modifiers;
 }
 
 

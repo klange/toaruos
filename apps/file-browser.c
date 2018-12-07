@@ -72,7 +72,6 @@ static struct File ** file_pointers = NULL; /* List of file pointers */
 static ssize_t file_pointers_len = 0; /* How many files are in the current list */
 static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
-static int modifiers = 0; /* For ctrl-click */
 
 static int _button_hilights[4] = {3,3,3,3};
 static int _button_disabled[4] = {1,1,0,0};
@@ -1001,7 +1000,7 @@ static void toggle_selected(int hilighted_offset, int modifiers) {
 	f->selected = !f->selected;
 
 	/* If Ctrl wasn't held, unselect everything else. */
-	if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
+	if (!(modifiers & YUTANI_KEY_MODIFIER_CTRL)) {
 		for (int i = 0; i < file_pointers_len; ++i) {
 			if (file_pointers[i] != f && file_pointers[i]->selected) {
 				file_pointers[i]->selected = 0;
@@ -1232,7 +1231,6 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						modifiers = ke->event.modifiers;
 						if (!is_desktop_background) {
 							if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 								_menu_action_exit(NULL);
@@ -1405,10 +1403,10 @@ int main(int argc, char * argv[]) {
 										} else {
 											last_click = precise_current_time();
 											last_click_offset = hilighted_offset;
-											toggle_selected(hilighted_offset, modifiers);
+											toggle_selected(hilighted_offset, me->modifiers);
 										}
 									} else {
-										if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
+										if (!(me->modifiers & YUTANI_KEY_MODIFIER_CTRL)) {
 											for (int i = 0; i < file_pointers_len; ++i) {
 												if (file_pointers[i]->selected) {
 													file_pointers[i]->selected = 0;
@@ -1423,7 +1421,7 @@ int main(int argc, char * argv[]) {
 									if (!context_menu->window) {
 										struct File * f = get_file_at_offset(hilighted_offset);
 										if (f && !f->selected) {
-											toggle_selected(hilighted_offset, modifiers);
+											toggle_selected(hilighted_offset, me->modifiers);
 										}
 										menu_show(context_menu, main_window->ctx);
 										yutani_window_move(main_window->ctx, context_menu->window, me->new_x + main_window->x, me->new_y + main_window->y);

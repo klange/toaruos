@@ -149,6 +149,7 @@ struct yutani_msg_window_mouse_event {
 	int32_t old_y;
 	uint8_t buttons;
 	uint8_t command;
+	uint8_t modifiers;
 };
 
 struct yutani_msg_mouse_event {
@@ -365,6 +366,28 @@ struct yutani_msg_clipboard {
  */
 #define YUTANI_MOUSE_EVENT_TYPE_RELATIVE 0
 #define YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE 1
+
+/*
+ * YUTANI_KEY_MODIFIER
+ *
+ * These are sent with mouse events. The LEFT and RIGHT
+ * version are specific to those keys. The non-LEFT/RIGHT
+ * versions are masks that can match either key.
+ *
+ * Must match with the <toaru/kbd.h> definitions.
+ */
+#define YUTANI_KEY_MODIFIER_LEFT_CTRL    0x01
+#define YUTANI_KEY_MODIFIER_LEFT_SHIFT   0x02
+#define YUTANI_KEY_MODIFIER_LEFT_ALT     0x04
+#define YUTANI_KEY_MODIFIER_LEFT_SUPER   0x08
+#define YUTANI_KEY_MODIFIER_RIGHT_CTRL   0x10
+#define YUTANI_KEY_MODIFIER_RIGHT_SHIFT  0x40
+#define YUTANI_KEY_MODIFIER_RIGHT_ALT    0x40
+#define YUTANI_KEY_MODIFIER_RIGHT_SUPER  0x80
+#define YUTANI_KEY_MODIFIER_CTRL         0x11
+#define YUTANI_KEY_MODIFIER_SHIFT        0x22
+#define YUTANI_KEY_MODIFIER_ALT          0x44
+#define YUTANI_KEY_MODIFIER_SUPER        0x88
 
 /*
  * YUTANI_BIND

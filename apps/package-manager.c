@@ -38,7 +38,6 @@ static int scroll_offset = 0; /* How far the icon view should be scrolled */
 static int hilighted_offset = -1; /* Which file is hovered by the mouse */
 static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
-static int modifiers = 0; /* For ctrl-click */
 
 struct Package {
 	char name[256];
@@ -446,7 +445,6 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						modifiers = ke->event.modifiers;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							_menu_action_exit(NULL);
 						}
@@ -549,10 +547,10 @@ int main(int argc, char * argv[]) {
 										} else {
 											last_click = precise_current_time();
 											last_click_offset = hilighted_offset;
-											toggle_selected(hilighted_offset, modifiers);
+											toggle_selected(hilighted_offset, me->modifiers);
 										}
 									} else {
-										if (!(modifiers & KEY_MOD_LEFT_CTRL)) {
+										if (!(me->modifiers & YUTANI_KEY_MODIFIER_CTRL)) {
 											for (int i = 0; i < pkg_pointers_len; ++i) {
 												if (pkg_pointers[i]->selected) {
 													pkg_pointers[i]->selected = 0;
@@ -568,7 +566,7 @@ int main(int argc, char * argv[]) {
 									if (!context_menu->window) {
 										struct Package * f = get_package_at_offset(hilighted_offset);
 										if (f && !f->selected) {
-											toggle_selected(hilighted_offset, modifiers);
+											toggle_selected(hilighted_offset, me->modifiers);
 										}
 										menu_show(context_menu, main_window->ctx);
 										yutani_window_move(main_window->ctx, context_menu->window, me->new_x + main_window->x, me->new_y + main_window->y);
