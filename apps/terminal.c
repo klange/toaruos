@@ -2136,7 +2136,7 @@ static void * handle_incoming(void) {
 					if (new_x >= term_width || new_y >= term_height) break;
 
 					/* Map Cursor Action */
-					if (ansi_state->mouse_on) {
+					if (ansi_state->mouse_on && !(me->modifiers & YUTANI_KEY_MODIFIER_SHIFT)) {
 
 						if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 							mouse_event(32+32, new_x, new_y);
