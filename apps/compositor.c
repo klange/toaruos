@@ -1435,7 +1435,6 @@ static void window_untile(yutani_globals_t * yg, yutani_server_window_t * window
 static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event * ke) {
 	yg->active_modifiers = ke->event.modifiers;
 	yutani_server_window_t * focused = get_focused(yg);
-	memcpy(&yg->kbd_state, &ke->state, sizeof(key_event_state_t));
 	if (focused) {
 #if 1
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
@@ -1770,18 +1769,24 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 	switch (yg->mouse_state) {
 		case YUTANI_MOUSE_STATE_NORMAL:
 			{
-				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (yg->kbd_state.k_alt)) {
+				if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) &&
+						(yg->active_modifiers & YUTANI_KEY_MODIFIER_ALT)) {
 					mouse_start_drag(yg, NULL);
-				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_UP) && (yg->kbd_state.k_alt)) {
+				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_UP) &&
+						(yg->active_modifiers & YUTANI_KEY_MODIFIER_ALT)) {
 					adjust_window_opacity(yg, 8);
-				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_DOWN) && (yg->kbd_state.k_alt)) {
+				} else if ((me->event.buttons & YUTANI_MOUSE_SCROLL_DOWN) &&
+						(yg->active_modifiers & YUTANI_KEY_MODIFIER_ALT)) {
 					adjust_window_opacity(yg, -8);
-				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT) && (yg->kbd_state.k_alt)) {
+				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_RIGHT) &&
+						(yg->active_modifiers & YUTANI_KEY_MODIFIER_ALT)) {
 					mouse_start_rotate(yg);
-				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) && (yg->kbd_state.k_alt)) {
+				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_MIDDLE) &&
+						(yg->active_modifiers & YUTANI_KEY_MODIFIER_ALT)) {
 					yg->resizing_button = YUTANI_MOUSE_BUTTON_MIDDLE;
 					mouse_start_resize(yg, SCALE_AUTO);
-				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) && (!yg->kbd_state.k_alt)) {
+				} else if ((me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT) &&
+						!(yg->active_modifiers & YUTANI_KEY_MODIFIER_ALT)) {
 					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
 					set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 					yg->mouse_window = get_focused(yg);

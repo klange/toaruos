@@ -224,9 +224,6 @@ typedef struct YutaniGlobals {
 	int32_t mouse_click_x;
 	int32_t mouse_click_y;
 
-	/* Keyboard library state machine state */
-	key_event_state_t kbd_state;
-
 	/* Pointer to window being resized */
 	yutani_server_window_t * resizing_window;
 	int32_t resizing_w;
