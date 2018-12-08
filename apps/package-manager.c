@@ -381,6 +381,24 @@ static void toggle_selected(int hilighted_offset, int modifiers) {
 	redraw_window();
 }
 
+static void _scroll_up(void) {
+	scroll_offset -= SCROLL_AMOUNT;
+	if (scroll_offset < 0) {
+		scroll_offset = 0;
+	}
+}
+
+static void _scroll_down(void) {
+	if (available_height > contents->height) {
+		scroll_offset = 0;
+	} else {
+		scroll_offset += SCROLL_AMOUNT;
+		if (scroll_offset > contents->height - available_height) {
+			scroll_offset = contents->height - available_height;
+		}
+	}
+}
+
 int main(int argc, char * argv[]) {
 
 	if (geteuid() != 0) {
@@ -445,8 +463,22 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-							_menu_action_exit(NULL);
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							switch (ke->event.keycode) {
+								case KEY_PAGE_UP:
+									_scroll_up();
+									redraw_window();
+									break;
+								case KEY_PAGE_DOWN:
+									_scroll_down();
+									redraw_window();
+									break;
+								case 'q':
+									_menu_action_exit(NULL);
+									break;
+								default:
+									break;
+							}
 						}
 					}
 					break;
@@ -497,21 +529,10 @@ int main(int argc, char * argv[]) {
 								me->new_x > (int)(bounds.left_width) &&
 								me->new_x < (int)(main_window->width - bounds.right_width)) {
 								if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
-									/* Scroll up */
-									scroll_offset -= SCROLL_AMOUNT;
-									if (scroll_offset < 0) {
-										scroll_offset = 0;
-									}
+									_scroll_up();
 									redraw_window();
 								} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
-									if (available_height > contents->height) {
-										scroll_offset = 0;
-									} else {
-										scroll_offset += SCROLL_AMOUNT;
-										if (scroll_offset > contents->height - available_height) {
-											scroll_offset = contents->height - available_height;
-										}
-									}
+									_scroll_down();
 									redraw_window();
 								}
 

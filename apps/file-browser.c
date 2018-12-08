@@ -1081,6 +1081,24 @@ static void _handle_button_press(int index) {
 	}
 }
 
+static void _scroll_up(void) {
+	scroll_offset -= SCROLL_AMOUNT;
+	if (scroll_offset < 0) {
+		scroll_offset = 0;
+	}
+}
+
+static void _scroll_down(void) {
+	if (available_height > contents->height) {
+		scroll_offset = 0;
+	} else {
+		scroll_offset += SCROLL_AMOUNT;
+		if (scroll_offset > contents->height - available_height) {
+			scroll_offset = contents->height - available_height;
+		}
+	}
+}
+
 /**
  * Desktop mode responsds to sig_usr2 by returning to
  * the bottom of the Z-order stack.
@@ -1231,9 +1249,23 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (!is_desktop_background) {
-							if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-								_menu_action_exit(NULL);
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							switch (ke->event.keycode) {
+								case KEY_PAGE_UP:
+									_scroll_up();
+									redraw = 1;
+									break;
+								case KEY_PAGE_DOWN:
+									_scroll_down();
+									redraw = 1;
+									break;
+								case 'q':
+									if (!is_desktop_background) {
+										_menu_action_exit(NULL);
+									}
+									break;
+								default:
+									break;
 							}
 						}
 					}
@@ -1351,20 +1383,10 @@ int main(int argc, char * argv[]) {
 								me->command != YUTANI_MOUSE_EVENT_LEAVE) {
 								if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 									/* Scroll up */
-									scroll_offset -= SCROLL_AMOUNT;
-									if (scroll_offset < 0) {
-										scroll_offset = 0;
-									}
+									_scroll_up();
 									redraw = 1;
 								} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
-									if (available_height > contents->height) {
-										scroll_offset = 0;
-									} else {
-										scroll_offset += SCROLL_AMOUNT;
-										if (scroll_offset > contents->height - available_height) {
-											scroll_offset = contents->height - available_height;
-										}
-									}
+									_scroll_down();
 									redraw = 1;
 								}
 
