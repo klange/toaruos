@@ -26,20 +26,9 @@
 
 #define SUDO_TIME 5 MINUTES
 
-uint32_t child = 0;
-
-void usage(int argc, char * argv[]) {
-	fprintf(stderr, "usage: %s [command]\n", argv[0]);
-}
-
-int main(int argc, char ** argv) {
+static int sudo_loop(int (*prompt_callback)(char * username, char * password, int failures, char * argv[]), char * argv[]) {
 
 	int fails = 0;
-
-	if (argc < 2) {
-		usage(argc, argv);
-		return 1;
-	}
 
 	struct stat buf;
 	if (stat("/var/sudoers", &buf)) {
@@ -77,29 +66,21 @@ int main(int argc, char ** argv) {
 		}
 
 		if (need_password) {
-			char * password = malloc(sizeof(char) * 1024);
-			fprintf(stderr, "[%s] password for %s: ", argv[0], username);
-			fflush(stderr);
+			char * password = calloc(sizeof(char) * 1024, 1);
 
-			/* Disable echo */
-			struct termios old, new;
-			tcgetattr(fileno(stdin), &old);
-			new = old;
-			new.c_lflag &= (~ECHO);
-			tcsetattr(fileno(stdin), TCSAFLUSH, &new);
-
-			fgets(password, 1024, stdin);
-			password[strlen(password)-1] = '\0';
-			tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-			fprintf(stderr, "\n");
+			if (prompt_callback(username, password, fails, argv)) {
+				return 1;
+			}
 
 			int uid = toaru_auth_check_pass(username, password);
+
+			free(password);
 
 			if (uid < 0) {
 				fails++;
 				if (fails == 3) {
 					fprintf(stderr, "%s: %d incorrect password attempts\n", argv[0], fails);
-					break;
+					return 1;
 				}
 				fprintf(stderr, "Sorry, try again.\n");
 				continue;
@@ -161,5 +142,41 @@ int main(int argc, char ** argv) {
 		return 1;
 	}
 
-	return 1;
+	return 0;
 }
+
+static int basic_callback(char * username, char * password, int fails, char * argv[]) {
+	fprintf(stderr, "[%s] password for %s: ", argv[0], username);
+	fflush(stderr);
+
+	/* Disable echo */
+	struct termios old, new;
+	tcgetattr(fileno(stdin), &old);
+	new = old;
+	new.c_lflag &= (~ECHO);
+	tcsetattr(fileno(stdin), TCSAFLUSH, &new);
+
+	fgets(password, 1024, stdin);
+	if (feof(stdin)) return 1;
+
+	password[strlen(password)-1] = '\0';
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+	fprintf(stderr, "\n");
+
+	return 0;
+}
+
+void usage(int argc, char * argv[]) {
+	fprintf(stderr, "usage: %s [command]\n", argv[0]);
+}
+
+int main(int argc, char ** argv) {
+
+	if (argc < 2) {
+		usage(argc, argv);
+		return 1;
+	}
+
+	return sudo_loop(basic_callback, argv);
+}
+
