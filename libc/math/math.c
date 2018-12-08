@@ -78,14 +78,15 @@ float fabsf(float x) {
 
 double fmod(double x, double y) {
 	MATH;
-	if (x >= 0.0) {
-		while (x > y) {
-			x -= y;
-		}
-		return x;
-	} else {
-		return 0.0;
-	}
+
+	long double out;
+	asm volatile (
+		"1: fprem;" /* Partial remainder */
+		"   fnstsw %%ax;" /* store status word */
+		"   sahf;" /* store AX (^ FPU status) into flags */
+		"   jp 1b;" /* jump back to 1 above if parity flag==1 */
+		: "=t"(out) : "0"(x), "u"(y) : "ax", "cc");
+	return out;
 }
 
 double sqrt(double x) {
