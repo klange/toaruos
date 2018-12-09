@@ -121,6 +121,9 @@ DECL_SYSCALL0(setsid);
 DECL_SYSCALL2(setpgid,int,int);
 DECL_SYSCALL1(getpgid,int);
 DECL_SYSCALL0(geteuid);
+DECL_SYSCALL0(getgid);
+DECL_SYSCALL0(getegid);
+DECL_SYSCALL1(setgid, unsigned int);
 
 _End_C_Header
 

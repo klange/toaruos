@@ -450,6 +450,20 @@ static int sys_geteuid(void) {
 	return current_process->user;
 }
 
+static int sys_getgid(void) {
+	return current_process->real_group_id;
+}
+
+static int sys_getegid(void) {
+	return current_process->group_id;
+}
+
+static int sys_setgid(group_t new_gid) {
+	/* TODO do we need similar conditional from sys_setuid()? */
+	current_process->group_id = new_gid;
+	return 0;
+}
+
 static int sys_setuid(user_t new_uid) {
 	if (current_process->user == USER_ROOT_UID) {
 		current_process->user = new_uid;
@@ -1102,6 +1116,9 @@ static int (*syscalls[])() = {
 	[SYS_SETSID]       = sys_setsid,
 	[SYS_SETPGID]      = sys_setpgid,
 	[SYS_GETPGID]      = sys_getpgid,
+	[SYS_GETGID]       = sys_getgid,
+	[SYS_GETEGID]      = sys_getegid,
+	[SYS_SETGID]       = sys_setgid,
 };
 
 uint32_t num_syscalls = sizeof(syscalls) / sizeof(*syscalls);
