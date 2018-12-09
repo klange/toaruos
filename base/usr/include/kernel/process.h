@@ -12,6 +12,7 @@
 
 typedef signed int    pid_t;
 typedef unsigned int  user_t;
+typedef unsigned int  group_t;
 typedef unsigned int  status_t;
 
 #define USER_ROOT_UID (user_t)0
@@ -75,6 +76,8 @@ typedef struct process {
 	char *        description;       /* Process description */
 	user_t        user;              /* Effective user */
 	user_t        real_user;         /* Real user ID */
+	group_t       group_id;          /* Group ID */
+	group_t       real_group_id;     /* Real group ID */
 	int           mask;              /* Umask */
 
 	char **       cmdline;
