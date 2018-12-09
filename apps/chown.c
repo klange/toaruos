@@ -18,7 +18,7 @@ int main(int argc, char * argv[]) {
 
 	int uid = atoi(argv[1]);
 
-	if (chown(argv[2], uid, uid)) {
+	if (chown(argv[2], uid, getgid())) {
 		fprintf(stderr, "chown: %s: %s\n", argv[2], strerror(errno));
 		return 1;
 	}
