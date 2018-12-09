@@ -25,6 +25,7 @@ extern int execve(const char *name, char * const argv[], char * const envp[]);
 extern void _exit(int status);
 
 extern int setuid(uid_t uid);
+extern int setgid(gid_t gid);
 
 extern uid_t getuid(void);
 extern uid_t geteuid(void);
