@@ -2,7 +2,6 @@
 
 #include <_cheader.h>
 #include <stdint.h>
-#include <syscall.h>
 
 _Begin_C_Header
 

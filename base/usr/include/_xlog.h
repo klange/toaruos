@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <syscall.h>
+#include <sys/sysfunc.h>
 
 #define _XLOG(_msg) do { \
 	char * msg[] = { \
@@ -9,6 +9,6 @@
 		(char*)2, \
 		_msg, \
 	}; \
-	syscall_system_function(12, msg); \
+	sysfunc(TOARU_SYS_FUNC_DEBUGPRINT, msg); \
 } while (0);
 
