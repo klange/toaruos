@@ -6,7 +6,6 @@
 #include <syscall_nums.h>
 
 DEFN_SYSCALL1(exit,  SYS_EXT, int);
-DEFN_SYSCALL2(system_function, SYS_SYSFUNC, int, char **);
 DEFN_SYSCALL2(sleepabs,  SYS_SLEEPABS, unsigned long, unsigned long);
 
 extern void _init();

@@ -5,12 +5,13 @@
  *
  * kdebug - Launch kernel shell
  */
-#include <syscall.h>
-#include <sys/wait.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <sys/sysfunc.h>
 
 int main(int argc, char * argv[]) {
-	syscall_system_function(7, NULL);
+	sysfunc(TOARU_SYS_FUNC_KDEBUG, NULL);
 	int status;
 	while (wait(&status)) {
 		if (errno == ECHILD) break;

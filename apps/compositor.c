@@ -16,7 +16,6 @@
  */
 #include <stdio.h>
 #include <stdint.h>
-#include <syscall.h>
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -30,6 +29,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/fswait.h>
+#include <sys/sysfunc.h>
+#include <sys/shm.h>
 #include <pthread.h>
 #include <dlfcn.h>
 /* auto-dep: export-dynamic */
@@ -423,7 +424,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 
 	size_t size = (width * height * 4);
 
-	win->buffer = (uint8_t *)syscall_shm_obtain(key, &size);
+	win->buffer = shm_obtain(key, &size);
 	memset(win->buffer, 0, size);
 
 	list_insert(yg->mid_zs, win);
@@ -469,7 +470,7 @@ static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, win->newbufid);
 
 		size_t size = (width * height * 4);
-		win->newbuffer = (uint8_t *)syscall_shm_obtain(key, &size);
+		win->newbuffer = shm_obtain(key, &size);
 	}
 
 	return win->newbufid;
@@ -504,7 +505,7 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, oldbufid);
-		syscall_shm_release(key);
+		shm_release(key);
 	}
 
 	spin_unlock(&yg->redraw_lock);
@@ -1129,7 +1130,7 @@ void yutani_clip_init(yutani_globals_t * yg) {
  */
 static void * redraw(void * in) {
 
-	syscall_system_function(11,(char *[]){"compositor","render thread",NULL});
+	sysfunc(TOARU_SYS_FUNC_THREADNAME,(char *[]){"compositor","render thread",NULL});
 
 	yutani_globals_t * yg = in;
 	while (yg->server) {
@@ -1276,7 +1277,7 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 		 * thread holds that lock already and we are only called from the
 		 * render thread, so we don't bother.
 		 */
-		syscall_shm_release(key);
+		shm_release(key);
 	}
 
 	/* Notify subscribers that there are changes to windows */
@@ -2128,7 +2129,7 @@ int main(int argc, char * argv[]) {
 		char tmp[100];
 		sprintf(tmp, "sys.%s.fonts", yg->server_ident);
 		size_t s = font_data_size;
-		char * font = (char *)syscall_shm_obtain(tmp, &s);
+		char * font = shm_obtain(tmp, &s);
 		assert((s >= font_data_size) && "Font server failure.");
 
 		uint32_t * data = (uint32_t *)font;

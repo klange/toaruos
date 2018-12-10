@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
-#include <syscall.h>
+#include <sys/shm.h>
 
 #if 0
 #include <toaru/trace.h>
@@ -55,7 +55,7 @@ static char * precache_shmfont(char * ident, char * name) {
 	fseek(f, 0, SEEK_SET);
 
 	size_t shm_size = s;
-	char * font = (char *)syscall_shm_obtain(ident, &shm_size);
+	char * font = shm_obtain(ident, &shm_size);
 	assert((shm_size >= s) && "shm_obtain returned too little memory to load a font into!");
 
 	fread(font, s, 1, f);

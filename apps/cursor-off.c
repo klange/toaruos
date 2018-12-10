@@ -11,9 +11,9 @@
  * try to move the hardware cursor off screen so it doesn't
  * interfere with the rest of the terminal and look weird.
  */
-#include <syscall.h>
+#include <sys/sysfunc.h>
 
 int main(int argc, char * argv[]) {
 	int x[] = {0xFF,0xFF};
-	return syscall_system_function(13, (char **)x);
+	return sysfunc(TOARU_SYS_FUNC_SETVGACURSOR, (char **)x);
 }

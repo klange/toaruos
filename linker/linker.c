@@ -25,9 +25,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <syscall.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/sysfunc.h>
 
 #include <kernel/elf.h>
 
@@ -291,7 +291,7 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 				{
 					/* Request memory to load this PHDR into */
 					char * args[] = {(char *)(base + phdr.p_vaddr), (char *)phdr.p_memsz};
-					syscall_system_function(10, args);
+					sysfunc(TOARU_SYS_FUNC_MMAP, args);
 
 					/* Copy the code into memory */
 					fseek(object->file, phdr.p_offset, SEEK_SET);
@@ -848,7 +848,7 @@ nope:
 	/* Move heap start (kind of like a weird sbrk) */
 	{
 		char * args[] = {(char*)end_addr};
-		syscall_system_function(9, args);
+		sysfunc(TOARU_SYS_FUNC_SETHEAP, args);
 	}
 
 	/* Set heap functions for later usage */

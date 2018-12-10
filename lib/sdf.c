@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <syscall.h>
+#include <sys/shm.h>
 
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
@@ -71,7 +71,7 @@ static void _init_sdf(void) {
 		char * display = getenv("DISPLAY");
 		if (!display) display = "compositor";
 		sprintf(tmp, "sys.%s.fonts", display);
-		_font_data = (char *)syscall_shm_obtain(tmp, &_font_data_size);
+		_font_data = shm_obtain(tmp, &_font_data_size);
 	}
 
 	if (!_font_data_size) return;

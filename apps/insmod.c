@@ -7,7 +7,8 @@
  *
  */
 #include <stdio.h>
-#include <syscall.h>
+#include <errno.h>
+#include <sys/sysfunc.h>
 
 int main(int argc, char * argv[]) {
 	if (argc < 2) {
@@ -16,9 +17,9 @@ int main(int argc, char * argv[]) {
 	}
 	int ret = 0;
 	for (int i = 1; i < argc; ++i) {
-		int status = syscall_system_function(8, &argv[i]);
-		if (status) {
-			fprintf(stderr, "%s: %s: kernel returned %d\n", argv[0], argv[i], status);
+		int status = sysfunc(TOARU_SYS_FUNC_INSMOD, &argv[i]);
+		if (status < 0) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
 			ret = 1;
 		}
 	}

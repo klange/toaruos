@@ -9,7 +9,7 @@
  */
 #include <string.h>
 #include <stdlib.h>
-#include <syscall.h>
+#include <sys/shm.h>
 
 #include <toaru/pex.h>
 #include <toaru/graphics.h>
@@ -581,7 +581,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	YUTANI_SHMKEY(y->server_ident, key, 1024, win);
 
 	size_t size = (width * height * 4);
-	win->buffer = (char *)syscall_shm_obtain(key, &size);
+	win->buffer = shm_obtain(key, &size);
 	return win;
 
 }
@@ -632,7 +632,7 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(y->server_ident, key, 1024, win->bufid);
-		syscall_shm_release(key);
+		shm_release(key);
 	}
 
 	hashmap_remove(y->windows, (void*)win->wid);
@@ -718,7 +718,7 @@ void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint
 		YUTANI_SHMKEY(yctx->server_ident, key, 1024, window);
 
 		size_t size = (window->width * window->height * 4);
-		window->buffer = (char *)syscall_shm_obtain(key, &size);
+		window->buffer = shm_obtain(key, &size);
 	}
 }
 
@@ -734,7 +734,7 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yctx->server_ident, key, 1024, window->oldbufid);
-		syscall_shm_release(key);
+		shm_release(key);
 	}
 
 	yutani_msg_buildx_window_resize_alloc(m);

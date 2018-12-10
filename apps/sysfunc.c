@@ -8,10 +8,17 @@
  * Executes an "extended system function" which
  * is basically just a super-syscall.
  */
-#include <syscall.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+
+#include <sys/sysfunc.h>
 
 int main(int argc, char ** argv) {
 	if (argc < 2) return 1;
-	return syscall_system_function(atoi(argv[1]), &argv[2]);
+	int ret = sysfunc(atoi(argv[1]), &argv[2]);
+	if (ret < 0) {
+		fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
+	}
+	return ret;
 }
