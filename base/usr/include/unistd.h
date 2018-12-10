@@ -2,6 +2,7 @@
 
 #include <_cheader.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 _Begin_C_Header
@@ -88,5 +89,7 @@ extern int setpgid(pid_t, pid_t);
 extern pid_t getpgid(pid_t);
 
 extern unsigned int alarm(unsigned int seconds);
+
+extern void *sbrk(intptr_t increment);
 
 _End_C_Header

@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <syscall.h>
+#include <syscall_nums.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
+
+DEFN_SYSCALL3(execve, SYS_EXECVE, char *, char **, char **);
 
 extern char ** environ;
 extern char * _argv_0;

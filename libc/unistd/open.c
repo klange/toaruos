@@ -4,8 +4,9 @@
 #include <errno.h>
 
 #include <syscall.h>
+#include <syscall_nums.h>
 
-DEFN_SYSCALL3(open,  2, const char *, int, int);
+DEFN_SYSCALL3(open,  SYS_OPEN, const char *, int, int);
 
 int open(const char *name, int flags, ...) {
 	va_list argp;

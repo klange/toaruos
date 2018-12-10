@@ -1,5 +1,8 @@
 #include <syscall.h>
+#include <syscall_nums.h>
 #include <errno.h>
+
+DEFN_SYSCALL3(waitpid, SYS_WAITPID, int, int *, int);
 
 int waitpid(int pid, int *status, int options) {
 	/* XXX: status, options? */

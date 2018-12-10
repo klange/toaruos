@@ -2,8 +2,11 @@
 #include <fcntl.h>
 #include <string.h>
 #include <syscall.h>
+#include <syscall_nums.h>
 #include <errno.h>
 #include <bits/dirent.h>
+
+DEFN_SYSCALL3(readdir, SYS_READDIR, int, int, void *);
 
 DIR * opendir (const char * dirname) {
 	int fd = open(dirname, O_RDONLY);

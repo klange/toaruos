@@ -1,11 +1,11 @@
 #include <errno.h>
 #include <syscall.h>
+#include <syscall_nums.h>
 #include <sys/stat.h>
 #include <string.h>
 
-#ifndef syscall_lstat
-DECL_SYSCALL2(lstat, char *, void *);
-#endif
+DEFN_SYSCALL2(stat,  SYS_STATF, char *, void *);
+DEFN_SYSCALL2(lstat, SYS_LSTAT, char *, void *);
 
 int stat(const char *file, struct stat *st){
 	int ret = syscall_stat((char *)file, (void *)st);
