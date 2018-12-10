@@ -36,12 +36,13 @@ int has_permission(fs_node_t * node, int permission_bit) {
 	uint32_t permissions = node->mask;
 
 	uint8_t user_perm  = (permissions >> 6) & 07;
-	//uint8_t group_perm = (permissions >> 3) & 07;
+	uint8_t group_perm = (permissions >> 3) & 07;
 	uint8_t other_perm = (permissions) & 07;
 
 	if (current_process->user == node->uid) {
 		return (permission_bit & user_perm);
-		/* TODO group permissions? */
+	} else if (current_process->group_id == node->gid) {
+		return (permission_bit & group_perm);
 	} else {
 		return (permission_bit & other_perm);
 	}
