@@ -25,9 +25,10 @@ fatbase/mod/pcnet.ko,\
 fatbase/mod/rtl.ko,\
 fatbase/mod/e1000.ko,\
 fatbase/mod/pcspkr.ko,\
-fatbase/mod/portio.ko \
--append "root=/dev/hda vid=qemu" \
--hda fatbase/ramdisk.img \
+fatbase/mod/portio.ko,\
+fatbase/mod/tarfs.ko,\
+fatbase/ramdisk.img \
+-append "root=/dev/ram0 root_type=tar logtoserial=2 vid=qemu" \
 -enable-kvm \
 -serial mon:stdio \
 -m 1G -soundhw ac97,pcspk
