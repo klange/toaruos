@@ -308,7 +308,7 @@ else
   else
     KVM=
   endif
-  QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk ${KVM} -rtc base=localtime
+  QEMU_ARGS=-serial mon:stdio -m 1G -soundhw ac97,pcspk ${KVM} -rtc base=localtime -k en-us
 endif
 
 
