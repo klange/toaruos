@@ -2,26 +2,43 @@ import struct
 import sys
 
 addresses = {}
+sources = {}
+last_touched = {}
+
+def find_nearby_allocations(addr):
+    for key in addresses.keys():
+        if abs(addr - key) < 0x100 and addresses[key]:
+            print("   nearby: 0x%x (size %d, allocated by 0x%x)" % (key, addresses[key], sources[key]))
 
 while 1:
-    data = sys.stdin.read(13)
+    data = sys.stdin.read(17)
     t, = struct.unpack_from("c",data,0)
     addr, = struct.unpack_from("I",data,1)
     size, = struct.unpack_from("I",data,5)
     extra, = struct.unpack_from("I",data,9)
+    fault, = struct.unpack_from("I",data,13)
 
     if t == 'm':
         addresses[addr] = size
+        sources[addr] = fault
+        last_touched[addr] = t
     elif t == 'v':
         addresses[addr] = size
+        sources[addr] = fault
+        last_touched[addr] = t
     elif t == 'c':
         addresses[addr] = 'c'
+        sources[addr] = 0
+        last_touched[addr] = t
     elif t == 'r':
         if addr not in addresses:
             print("Bad realloc: 0x%x" % addr)
         else:
             addresses[addr] = None
             addresses[extra]  = size
+            sources[extra] = fault
+            last_touched[addr] = t
+            last_touched[extra] = t
     elif t == 'f':
         if addr not in addresses:
             print("Bad free detected: 0x%x" % addr)
@@ -30,13 +47,19 @@ while 1:
         elif addresses[addr] == 'c':
             print("freeing something that was calloced...")
             addresses[addr] = None
-        elif addresses[addr] != size:
-            print("Size on free is incorrect: 0x%x %d %d" % (addr,addresses[addr], size))
         elif extra != 0xDEADBEEF:
-            print("Extremely large buffer or otherwise bad free (but size is right?): 0x%x" % addr)
+            print("Large buffer has bad value: 0x%x (0x%x) expected size is %d, supposed is %d" % (addr, extra, addresses[addr], size))
+        elif addresses[addr] != size:
+            print("Size on free is incorrect: 0x%x %d %d 0x%x allocated by 0x%x last touched by %c" % (addr,addresses[addr], size, fault, sources[addr], last_touched[addr]))
+            find_nearby_allocations(addr)
         else:
             addresses[addr] = None
+    elif t == 'h':
+        if addr not in addresses:
+            print("Spurious halt: 0x%x" % (addr))
+        else:
+            print("Halting on suspected bug: 0x%x size was %d" % (addr, addresses[addr]))
     else:
-        print("Garbage data detected: ", t, addr, size, extra)
+        print("Garbage data detected: %c 0x%x %d 0xx" % (t, addr, size, extra))
         break
 

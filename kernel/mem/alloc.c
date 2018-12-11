@@ -144,10 +144,21 @@ static fs_node_t _kmalloc_log = { .write = &_kmalloc_log_write };
 				uint32_t addr; \
 				uint32_t size; \
 				uint32_t extra; \
-			} __attribute__((packed)) log = {'h',0,0,0}; \
+				uint32_t eip; \
+			} __attribute__((packed)) log = {'h',_addr,0,0,0}; \
 			write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log); \
 			while (1) {} \
 		} } while (0)
+
+#define STACK_TRACE(base)  \
+		uint32_t _eip = 0; \
+		unsigned int * ebp = (unsigned int *)(&(base) - 2); \
+		for (unsigned int frame = 0; frame < 1; ++frame) { \
+			unsigned int eip = ebp[1]; \
+			if (eip == 0) break; \
+			ebp = (unsigned int *)(ebp[0]); \
+			_eip = eip; \
+		}
 #endif
 
 /*
@@ -168,6 +179,7 @@ void * __attribute__ ((malloc)) malloc(uintptr_t size) {
 #endif
 	void * ret = klmalloc(size);
 #ifdef _DEBUG_MALLOC
+	STACK_TRACE(size);
 	if (ret) {
 		char * c = ret;
 		uintptr_t s = size-8;
@@ -180,7 +192,8 @@ void * __attribute__ ((malloc)) malloc(uintptr_t size) {
 		uint32_t addr;
 		uint32_t size;
 		uint32_t extra;
-	} __attribute__((packed)) log = {'m',(uint32_t)ret,size-8,0xDEADBEEF};
+		uint32_t eip;
+	} __attribute__((packed)) log = {'m',(uint32_t)ret,size-8,0xDEADBEEF,_eip};
 	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
 #endif
 	spin_unlock(mem_lock);
@@ -194,6 +207,7 @@ void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
 #endif
 	void * ret = klrealloc(ptr, size);
 #ifdef _DEBUG_MALLOC
+	STACK_TRACE(ptr);
 	if (ret) {
 		char * c = ret;
 		uintptr_t s = size-8;
@@ -206,7 +220,8 @@ void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
 		uint32_t addr;
 		uint32_t size;
 		uint32_t extra;
-	} __attribute__((packed)) log = {'r',(uint32_t)ptr,size-8,(uint32_t)ret};
+		uint32_t eip;
+	} __attribute__((packed)) log = {'r',(uint32_t)ptr,size-8,(uint32_t)ret,_eip};
 	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
 #endif
 	spin_unlock(mem_lock);
@@ -222,7 +237,8 @@ void * __attribute__ ((malloc)) calloc(uintptr_t nmemb, uintptr_t size) {
 		uint32_t addr;
 		uint32_t size;
 		uint32_t extra;
-	} __attribute__((packed)) log = {'c',(uint32_t)ret,size,nmemb};
+		uint32_t eip;
+	} __attribute__((packed)) log = {'c',(uint32_t)ret,size,nmemb,0};
 	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
 #endif
 	spin_unlock(mem_lock);
@@ -236,6 +252,7 @@ void * __attribute__ ((malloc)) valloc(uintptr_t size) {
 #endif
 	void * ret = klvalloc(size);
 #ifdef _DEBUG_MALLOC
+	STACK_TRACE(size);
 	if (ret) {
 		char * c = ret;
 		uintptr_t s = size-8;
@@ -248,7 +265,8 @@ void * __attribute__ ((malloc)) valloc(uintptr_t size) {
 		uint32_t addr;
 		uint32_t size;
 		uint32_t extra;
-	} __attribute__((packed)) log = {'v',(uint32_t)ret,size-8,0xDEADBEEF};
+		uint32_t eip;
+	} __attribute__((packed)) log = {'v',(uint32_t)ret,size-8,0xDEADBEEF,_eip};
 	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
 #endif
 	spin_unlock(mem_lock);
@@ -259,12 +277,14 @@ void free(void * ptr) {
 	spin_lock(mem_lock);
 	if ((uintptr_t)ptr > placement_pointer) {
 #ifdef _DEBUG_MALLOC
-		HALT_ON(0x143c000);
 		IRQ_OFF;
+
+		STACK_TRACE(ptr);
+
 		char * tag = ptr;
 		uintptr_t i = 0;
 		uint32_t * x;
-		while (i < 102400) {
+		while (i < 1024000) {
 			x = (uint32_t*)(tag + i);
 			if (*x == 0xDEADBEEF) break;
 			i++;
@@ -274,7 +294,8 @@ void free(void * ptr) {
 			uint32_t addr;
 			uint32_t size;
 			uint32_t extra;
-		} __attribute__((packed)) log = {'f',(uint32_t)ptr,x[1],x[0]};
+			uint32_t eip;
+		} __attribute__((packed)) log = {'f',(uint32_t)ptr,x[1],x[0],_eip};
 		write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
 #endif
 		klfree(ptr);
