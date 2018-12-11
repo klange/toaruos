@@ -534,8 +534,7 @@ class ISO9660(object):
             # Set up the boot catalog and records
             self.el_torito_catalog.sector_offset = self.allocate_space(1)
             self.boot_record.set_catalog(self.el_torito_catalog.sector_offset)
-            subprocess.run("cp /cdrom/boot.sys /tmp/boot.sys")
-            self.boot_payload = ArbitraryData(path='/tmp/boot.sys')
+            self.boot_payload = ArbitraryData(path='cdrom/boot.sys')
             self.boot_payload.sector_offset = self.allocate_space(self.boot_payload.size // 2048)
             self.el_torito_catalog.initial_entry.data['sector_count'] = self.boot_payload.size // 512
             self.el_torito_catalog.initial_entry.data['load_rba'] = self.boot_payload.sector_offset
@@ -708,6 +707,14 @@ def BuildRamdisk():
         ramdisk.add('modules',arcname='/src/boot',filter=file_filter)
         ramdisk.add('/usr/bin/build-the-world.py',arcname='/usr/bin/build-the-world.py',filter=file_filter)
 
+def BuildBoot():
+    def print_and_run(cmd):
+        print(cmd)
+        subprocess.run(cmd,shell=True)
+
+    print_and_run("as -o boot/boot.o boot/boot.S")
+    print_and_run("gcc -c -Os - o boot/cstuff.o boot/cstuff.c")
+    print_and_run("ld -T boot/link.ld -o cdrom/boot.sys boot/boot.o boot/cstuff.o")
 
 if __name__ == '__main__':
     try:
@@ -718,6 +725,8 @@ if __name__ == '__main__':
     BuildKernel()
     print("Building modules...")
     BuildModules()
+    print("Building boot.sys...")
+    BuildBoot()
     print("Createing ramdisk...")
     BuildRamdisk()
     print("Building ISO...")
