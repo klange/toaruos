@@ -1,9 +1,80 @@
-#!/usr/bin/env python3
-"""
-    Tool for creating ISO 9660 CD images.
-"""
+#!/usr/bin/python3
+
+import tarfile
+import glob
+import subprocess
 import array
 import struct
+import os
+
+def BuildKernel():
+    kernel_c_sources = glob.glob("kernel/*.c") + glob.glob("kernel/*/*.c") + glob.glob("kernel/*/*/*.c")
+    kernel_s_sources = glob.glob("kernel/*.S")
+
+    cflags = "-O2 -std=c99 -finline-functions -ffreestanding -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format -pedantic -fno-omit-frame-pointer -D_KERNEL_ -DKERNEL_GIT_TAG=master"
+
+    for i in kernel_c_sources:
+        cmd = "gcc {cflags} -nostdlib -g -c -o {obj} {src}".format(
+            cflags=cflags,
+            obj=i.replace('.c','.o'),
+            src=i
+        )
+        print(cmd)
+        subprocess.run(cmd, shell=True)
+
+    for i in kernel_s_sources:
+        cmd = "as -o {obj} {src}".format(
+            obj=i.replace('.S','.o'),
+            src=i
+        )
+        print(cmd)
+        subprocess.run(cmd,shell=True)
+
+    objects = [x.replace('.c','.o') for x in kernel_c_sources] + [x.replace('.S','.o') for x in kernel_s_sources if not x.endswith('symbols.S')]
+
+    cmd = "gcc -T kernel/link.ld {cflags} -nostdlib -o .toaruos-kernel {objects} -lgcc".format(
+        cflags=cflags,
+        objects=' '.join(objects),
+    )
+    print(cmd)
+    subprocess.run(cmd, shell=True)
+
+    cmd = "nm -g .toaruos-kernel | generate_symbols.py > kernel/symbols.S"
+    print(cmd)
+    subprocess.run(cmd,shell=True)
+
+    subprocess.run("rm .toaruos-kernel", shell=True)
+
+    cmd = "as -o kernel/symbols.o kernel/symbols.S"
+    print(cmd)
+    subprocess.run(cmd,shell=True)
+
+    cmd = "gcc -T kernel/link.ld {cflags} -nostdlib -o cdrom/kernel {objects} kernel/symbols.o -lgcc".format(
+        cflags=cflags,
+        objects=' '.join(objects),
+    )
+    print(cmd)
+    subprocess.run(cmd, shell=True)
+
+def BuildModules():
+    module_sources = glob.glob('modules/*.c')
+
+    cflags = "-O2 -std=c99 -finline-functions -ffreestanding -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-format -pedantic -fno-omit-frame-pointer -D_KERNEL_ -DKERNEL_GIT_TAG=master"
+
+    try:
+        os.mkdir('cdrom/mod')
+    except:
+        pass
+
+    for i in module_sources:
+        cmd = "gcc {cflags} -nostdlib -g -c -o {obj} {src}".format(
+            cflags=cflags,
+            obj=i.replace('.c','.ko').replace('modules/','cdrom/mod/'),
+            src=i
+        )
+        print(cmd)
+        subprocess.run(cmd, shell=True)
+
 
 class Structure(object):
 
@@ -385,7 +456,7 @@ class ISO9660(object):
             o = t.write(self.root_data.data, o)
 
             # Kernel
-            self.kernel_data  = ArbitraryData(path='fatbase/kernel')
+            self.kernel_data  = ArbitraryData(path='cdrom/kernel')
             self.kernel_data.sector_offset = self.allocate_space(self.kernel_data.size // 2048)
             self.kernel_entry = ISODirectoryEntry()
             self.kernel_entry.set_name('KERNEL.')
@@ -393,7 +464,7 @@ class ISO9660(object):
             o = self.kernel_entry.write(self.root_data.data, o)
 
             # Ramdisk
-            self.ramdisk_data  = ArbitraryData(path='fatbase/ramdisk.img')
+            self.ramdisk_data  = ArbitraryData(path='cdrom/ramdisk.img')
             self.ramdisk_data.sector_offset = self.allocate_space(self.ramdisk_data.size // 2048)
             self.ramdisk_entry = ISODirectoryEntry()
             self.ramdisk_entry.set_name('RAMDISK.IMG')
@@ -419,43 +490,43 @@ class ISO9660(object):
             t.set_name('\1')
             o = t.write(self.mods_data.data, o)
             for mod_file in [
-                'fatbase/mod/ac97.ko',
-                'fatbase/mod/ata.ko',
-                'fatbase/mod/ataold.ko',
-                'fatbase/mod/debug_sh.ko',
-                'fatbase/mod/dospart.ko',
-                'fatbase/mod/e1000.ko',
-                'fatbase/mod/ext2.ko',
-                'fatbase/mod/hda.ko',
-                'fatbase/mod/iso9660.ko',
-                'fatbase/mod/lfbvideo.ko',
-                'fatbase/mod/net.ko',
-                'fatbase/mod/packetfs.ko',
-                'fatbase/mod/pcnet.ko',
-                'fatbase/mod/pcspkr.ko',
-                'fatbase/mod/portio.ko',
-                'fatbase/mod/procfs.ko',
-                'fatbase/mod/ps2kbd.ko',
-                'fatbase/mod/ps2mouse.ko',
-                'fatbase/mod/random.ko',
-                'fatbase/mod/rtl.ko',
-                'fatbase/mod/serial.ko',
-                'fatbase/mod/snd.ko',
-                'fatbase/mod/tmpfs.ko',
-                'fatbase/mod/usbuhci.ko',
-                'fatbase/mod/vbox.ko',
-                'fatbase/mod/vgadbg.ko',
-                'fatbase/mod/vgalog.ko',
-                'fatbase/mod/vidset.ko',
-                'fatbase/mod/vmware.ko',
-                'fatbase/mod/xtest.ko',
-                'fatbase/mod/zero.ko',
-                'fatbase/mod/tarfs.ko',
+                'cdrom/mod/ac97.ko',
+                'cdrom/mod/ata.ko',
+                'cdrom/mod/ataold.ko',
+                'cdrom/mod/debug_sh.ko',
+                'cdrom/mod/dospart.ko',
+                'cdrom/mod/e1000.ko',
+                'cdrom/mod/ext2.ko',
+                'cdrom/mod/hda.ko',
+                'cdrom/mod/iso9660.ko',
+                'cdrom/mod/lfbvideo.ko',
+                'cdrom/mod/net.ko',
+                'cdrom/mod/packetfs.ko',
+                'cdrom/mod/pcnet.ko',
+                'cdrom/mod/pcspkr.ko',
+                'cdrom/mod/portio.ko',
+                'cdrom/mod/procfs.ko',
+                'cdrom/mod/ps2kbd.ko',
+                'cdrom/mod/ps2mouse.ko',
+                'cdrom/mod/random.ko',
+                'cdrom/mod/rtl.ko',
+                'cdrom/mod/serial.ko',
+                'cdrom/mod/snd.ko',
+                'cdrom/mod/tmpfs.ko',
+                'cdrom/mod/usbuhci.ko',
+                'cdrom/mod/vbox.ko',
+                'cdrom/mod/vgadbg.ko',
+                'cdrom/mod/vgalog.ko',
+                'cdrom/mod/vidset.ko',
+                'cdrom/mod/vmware.ko',
+                'cdrom/mod/xtest.ko',
+                'cdrom/mod/zero.ko',
+                'cdrom/mod/tarfs.ko',
             ]:
                 payload = ArbitraryData(path=mod_file)
                 payload.sector_offset = self.allocate_space(payload.size // 2048)
                 entry = ISODirectoryEntry()
-                entry.set_name(mod_file.replace('fatbase/mod/','').upper())
+                entry.set_name(mod_file.replace('cdrom/mod/','').upper())
                 entry.set_extent(payload.sector_offset, payload.actual_size)
                 o = entry.write(self.mods_data.data, o)
                 self.payloads.append(payload)
@@ -463,7 +534,8 @@ class ISO9660(object):
             # Set up the boot catalog and records
             self.el_torito_catalog.sector_offset = self.allocate_space(1)
             self.boot_record.set_catalog(self.el_torito_catalog.sector_offset)
-            self.boot_payload = ArbitraryData(path='cdrom/boot.sys')
+            subprocess.run("cp /cdrom/boot.sys /tmp/boot.sys")
+            self.boot_payload = ArbitraryData(path='/tmp/boot.sys')
             self.boot_payload.sector_offset = self.allocate_space(self.boot_payload.size // 2048)
             self.el_torito_catalog.initial_entry.data['sector_count'] = self.boot_payload.size // 512
             self.el_torito_catalog.initial_entry.data['load_rba'] = self.boot_payload.sector_offset
@@ -565,10 +637,88 @@ class ElToritoCatalog(object):
         o = self.section.write(data, o)
 
 
-iso = ISO9660()
-#print(iso.el_torito_catalog.validation_entry.data)
-#print(iso.el_torito_catalog.initial_entry.data)
-#print(iso.el_torito_catalog.section_header.data)
-#print(iso.el_torito_catalog.section.data)
-iso.write('test.iso')
+def BuildISO():
+    iso = ISO9660()
+    iso.write('toaruos.iso')
 
+
+def BuildRamdisk():
+    users = {
+        'root': 0,
+        'local': 1000,
+    }
+
+    restricted_files = {
+        'etc/master.passwd': 0o600,
+        'etc/sudoers': 0o600,
+        'tmp': 0o777,
+        'var': 0o755,
+        'bin/sudo': 0o4555,
+        'bin/gsudo': 0o4555,
+    }
+
+    def file_filter(tarinfo):
+        # Root owns files by default.
+        tarinfo.uid = 0
+        tarinfo.gid = 0
+
+        if tarinfo.name.startswith('home/'):
+            # Home directory contents are owned by their users.
+            user = tarinfo.name.split('/')[1]
+            tarinfo.uid = users.get(user,0)
+            tarinfo.gid = tarinfo.uid
+        elif tarinfo.name in restricted_files:
+            tarinfo.mode = restricted_files[tarinfo.name]
+
+        if tarinfo.name.startswith('src'):
+            # Let local own the files here
+            tarinfo.uid = users.get('local')
+            tarinfo.gid = tarinfo.uid
+            # Skip object files
+            if tarinfo.name.endswith('.so') or tarinfo.name.endswith('.o'):
+                return None
+
+        return tarinfo
+
+    with tarfile.open('cdrom/ramdisk.img','w') as ramdisk:
+        ramdisk.add('/',arcname='/',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/bin',arcname='/bin',filter=file_filter)
+        ramdisk.add('/',arcname='/usr',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/usr/share',arcname='/usr/share',filter=file_filter)
+        ramdisk.add('/',arcname='/usr/bin',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/',arcname='/usr/lib',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/usr/include',arcname='/usr/include',filter=file_filter)
+        ramdisk.add('/',arcname='/dev',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/',arcname='/cdrom',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/etc',arcname='/etc',filter=file_filter)
+        ramdisk.add('/',arcname='/var',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/',arcname='/tmp',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/',arcname='/proc',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('/home',arcname='/home',filter=file_filter)
+        ramdisk.add('/lib',arcname='/lib',filter=file_filter)
+        ramdisk.add('/opt',arcname='/opt',filter=file_filter)
+
+        ramdisk.add('.',arcname='/src',filter=file_filter,recursive=False) # Add a blank directory
+        ramdisk.add('apps',arcname='/src/apps',filter=file_filter)
+        ramdisk.add('kernel',arcname='/src/kernel',filter=file_filter)
+        ramdisk.add('linker',arcname='/src/linker',filter=file_filter)
+        ramdisk.add('lib',arcname='/src/lib',filter=file_filter)
+        ramdisk.add('libc',arcname='/src/libc',filter=file_filter)
+        ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
+        ramdisk.add('modules',arcname='/src/boot',filter=file_filter)
+        ramdisk.add('/usr/bin/build-the-world.py',arcname='/usr/bin/build-the-world.py',filter=file_filter)
+
+
+if __name__ == '__main__':
+    try:
+        os.mkdir('cdrom')
+    except:
+        pass
+    print("Building the kernel...")
+    BuildKernel()
+    print("Building modules...")
+    BuildModules()
+    print("Createing ramdisk...")
+    BuildRamdisk()
+    print("Building ISO...")
+    BuildISO()
