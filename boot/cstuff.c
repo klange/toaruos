@@ -84,6 +84,7 @@ static char * modules[] = {
 	"E1000.KO",    // 21
 	"PCSPKR.KO",   // 22
 	"PORTIO.KO",   // 23
+	"TARFS.KO",    // 24
 	0
 };
 
