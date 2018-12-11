@@ -431,6 +431,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 	if (this) {
 		debug_print(WARNING, "Tried to mkdir a dir that already exists? (%s)", path);
 		_exists = 1;
+		return -EEXIST;
 	}
 
 	char * f_path = path + strlen(path) - 1;
