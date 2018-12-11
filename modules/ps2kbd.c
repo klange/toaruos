@@ -54,7 +54,6 @@ static int keyboard_install(void) {
 
 	/* Create a device pipe */
 	keyboard_pipe = make_pipe(128);
-	current_process->fds->entries[0] = keyboard_pipe;
 
 	keyboard_pipe->flags = FS_CHARDEVICE;
 
