@@ -124,6 +124,32 @@
 
 /* }}} */
 
+//#define _DEBUG_MALLOC
+
+#ifdef _DEBUG_MALLOC
+#define EARLY_LOG_DEVICE 0x3F8
+static uint32_t _kmalloc_log_write(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
+	for (unsigned int i = 0; i < size; ++i) {
+		outportb(EARLY_LOG_DEVICE, buffer[i]);
+	}
+	return size;
+}
+static fs_node_t _kmalloc_log = { .write = &_kmalloc_log_write };
+
+#define HALT_ON(_addr) do { \
+		if ((uintptr_t)ptr == _addr) { \
+			IRQ_OFF; \
+			struct { \
+				char c; \
+				uint32_t addr; \
+				uint32_t size; \
+				uint32_t extra; \
+			} __attribute__((packed)) log = {'h',0,0,0}; \
+			write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log); \
+			while (1) {} \
+		} } while (0)
+#endif
+
 /*
  * Internal functions.
  */
@@ -137,14 +163,52 @@ static spin_lock_t mem_lock =  { 0 };
 
 void * __attribute__ ((malloc)) malloc(uintptr_t size) {
 	spin_lock(mem_lock);
+#ifdef _DEBUG_MALLOC
+	size += 8;
+#endif
 	void * ret = klmalloc(size);
+#ifdef _DEBUG_MALLOC
+	if (ret) {
+		char * c = ret;
+		uintptr_t s = size-8;
+		memcpy(&c[size-4],&s,sizeof(uintptr_t));
+		s = 0xDEADBEEF;
+		memcpy(&c[size-8],&s,sizeof(uintptr_t));
+	}
+	struct {
+		char c;
+		uint32_t addr;
+		uint32_t size;
+		uint32_t extra;
+	} __attribute__((packed)) log = {'m',(uint32_t)ret,size-8,0xDEADBEEF};
+	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
+#endif
 	spin_unlock(mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
 	spin_lock(mem_lock);
+#ifdef _DEBUG_MALLOC
+	size += 8;
+#endif
 	void * ret = klrealloc(ptr, size);
+#ifdef _DEBUG_MALLOC
+	if (ret) {
+		char * c = ret;
+		uintptr_t s = size-8;
+		memcpy(&c[size-4],&s,sizeof(uintptr_t));
+		s = 0xDEADBEEF;
+		memcpy(&c[size-8],&s,sizeof(uintptr_t));
+	}
+	struct {
+		char c;
+		uint32_t addr;
+		uint32_t size;
+		uint32_t extra;
+	} __attribute__((packed)) log = {'r',(uint32_t)ptr,size-8,(uint32_t)ret};
+	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
+#endif
 	spin_unlock(mem_lock);
 	return ret;
 }
@@ -152,13 +216,41 @@ void * __attribute__ ((malloc)) realloc(void * ptr, uintptr_t size) {
 void * __attribute__ ((malloc)) calloc(uintptr_t nmemb, uintptr_t size) {
 	spin_lock(mem_lock);
 	void * ret = klcalloc(nmemb, size);
+#ifdef _DEBUG_MALLOC
+	struct {
+		char c;
+		uint32_t addr;
+		uint32_t size;
+		uint32_t extra;
+	} __attribute__((packed)) log = {'c',(uint32_t)ret,size,nmemb};
+	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
+#endif
 	spin_unlock(mem_lock);
 	return ret;
 }
 
 void * __attribute__ ((malloc)) valloc(uintptr_t size) {
 	spin_lock(mem_lock);
+#ifdef _DEBUG_MALLOC
+	size += 8;
+#endif
 	void * ret = klvalloc(size);
+#ifdef _DEBUG_MALLOC
+	if (ret) {
+		char * c = ret;
+		uintptr_t s = size-8;
+		memcpy(&c[size-4],&s,sizeof(uintptr_t));
+		s = 0xDEADBEEF;
+		memcpy(&c[size-8],&s,sizeof(uintptr_t));
+	}
+	struct {
+		char c;
+		uint32_t addr;
+		uint32_t size;
+		uint32_t extra;
+	} __attribute__((packed)) log = {'v',(uint32_t)ret,size-8,0xDEADBEEF};
+	write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
+#endif
 	spin_unlock(mem_lock);
 	return ret;
 }
@@ -166,6 +258,25 @@ void * __attribute__ ((malloc)) valloc(uintptr_t size) {
 void free(void * ptr) {
 	spin_lock(mem_lock);
 	if ((uintptr_t)ptr > placement_pointer) {
+#ifdef _DEBUG_MALLOC
+		HALT_ON(0x143c000);
+		IRQ_OFF;
+		char * tag = ptr;
+		uintptr_t i = 0;
+		uint32_t * x;
+		while (i < 102400) {
+			x = (uint32_t*)(tag + i);
+			if (*x == 0xDEADBEEF) break;
+			i++;
+		}
+		struct {
+			char c;
+			uint32_t addr;
+			uint32_t size;
+			uint32_t extra;
+		} __attribute__((packed)) log = {'f',(uint32_t)ptr,x[1],x[0]};
+		write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
+#endif
 		klfree(ptr);
 	}
 	spin_unlock(mem_lock);
