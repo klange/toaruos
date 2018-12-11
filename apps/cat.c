@@ -19,27 +19,40 @@
 
 #define CHUNK_SIZE 4096
 
+static char * _argv_0;
+static char * _file;
+
 void doit(int fd) {
 	while (1) {
 		char buf[CHUNK_SIZE];
 		memset(buf, 0, CHUNK_SIZE);
 		ssize_t r = read(fd, buf, CHUNK_SIZE);
 		if (!r) return;
+		if (r < 0) {
+			fprintf(stderr, "%s: %s: %s\n", _argv_0, _file, strerror(errno));
+			return;
+		}
 		write(STDOUT_FILENO, buf, r);
 	}
 }
 
 int main(int argc, char ** argv) {
 	int ret = 0;
+
+	_argv_0 = argv[0];
+
 	if (argc == 1) {
+		_file = "stdin";
 		doit(0);
 	}
 
 	for (int i = 1; i < argc; ++i) {
 		if (!strcmp(argv[i],"-")) {
+			_file = "stdin";
 			doit(0);
 			continue;
 		}
+		_file = argv[i];
 		int fd = open(argv[i], O_RDONLY);
 		if (fd < 0) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
