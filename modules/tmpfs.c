@@ -95,9 +95,9 @@ static int readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 
 	if (size < strlen(t->target) + 1) {
 		debug_print(INFO, "Requested read size was only %d, need %d.", size, strlen(t->target)+1);
-		memcpy(buf, t->target, size);
-		buf[size] = '\0';
-		return size-1;
+		memcpy(buf, t->target, size-1);
+		buf[size-1] = '\0';
+		return size-2;
 	} else {
 		debug_print(INFO, "Reading link target is [%s]", t->target);
 		memcpy(buf, t->target, strlen(t->target) + 1);
