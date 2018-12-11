@@ -704,7 +704,7 @@ def BuildRamdisk():
         ramdisk.add('lib',arcname='/src/lib',filter=file_filter)
         ramdisk.add('libc',arcname='/src/libc',filter=file_filter)
         ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
-        ramdisk.add('modules',arcname='/src/boot',filter=file_filter)
+        ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
         ramdisk.add('/usr/bin/build-the-world.py',arcname='/usr/bin/build-the-world.py',filter=file_filter)
 
 def BuildBoot():
@@ -713,7 +713,7 @@ def BuildBoot():
         subprocess.run(cmd,shell=True)
 
     print_and_run("as -o boot/boot.o boot/boot.S")
-    print_and_run("gcc -c -Os - o boot/cstuff.o boot/cstuff.c")
+    print_and_run("gcc -c -Os -o boot/cstuff.o boot/cstuff.c")
     print_and_run("ld -T boot/link.ld -o cdrom/boot.sys boot/boot.o boot/cstuff.o")
 
 if __name__ == '__main__':
