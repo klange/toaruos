@@ -107,8 +107,6 @@ static unsigned int round_to_512(unsigned int i) {
 struct ustar * ustar_from_offset(struct tarfs * self, unsigned int offset);
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset);
 
-static char filename_workspace[256];
-
 #ifndef strncat
 static char * strncat(char *dest, const char *src, size_t n) {
 	char * end = dest;
@@ -168,6 +166,8 @@ static struct dirent * readdir_tar_root(fs_node_t *node, uint32_t index) {
 			return NULL;
 		}
 
+		char filename_workspace[256];
+
 		memset(filename_workspace, 0, 256);
 		strncat(filename_workspace, file->prefix, 155);
 		strncat(filename_workspace, file->filename, 100);
@@ -209,7 +209,6 @@ static uint32_t read_tarfs(fs_node_t * node, uint64_t offset, uint32_t size, uin
 	return read_fs(self->device, offset + node->inode + 512, size, buffer);
 }
 
-static char my_filename[256];
 static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
@@ -237,11 +236,14 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 
 	/* Read myself */
 	struct ustar * directory = ustar_from_offset(self, node->inode);
+	char my_filename[256];
 
 	/* Figure out my own filename, with forward slash */
 	memset(my_filename, 0, 256);
 	strncat(my_filename, directory->prefix, 155);
 	strncat(my_filename, directory->filename, 100);
+
+	free(directory);
 
 	while (offset < self->length) {
 		struct ustar * file = ustar_from_offset(self, offset);
@@ -250,6 +252,7 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 			return NULL;
 		}
 
+		char filename_workspace[256];
 		memset(filename_workspace, 0, 256);
 		strncat(filename_workspace, file->prefix, 155);
 		strncat(filename_workspace, file->filename, 100);
@@ -264,6 +267,7 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 						memset(out, 0x00, sizeof(struct dirent));
 						out->ino = offset;
 						strcpy(out->name, filename_workspace+strlen(my_filename));
+						free(file);
 						return out;
 					} else {
 						index--;
@@ -272,6 +276,7 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 			}
 		}
 
+		free(file);
 		offset += 512;
 		offset += round_to_512(interpret_size(file));
 	}
@@ -285,6 +290,7 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 	/* find my own filename */
 	struct ustar * directory = ustar_from_offset(self, node->inode);
 
+	char my_filename[256];
 	/* Figure out my own filename, with forward slash */
 	memset(my_filename, 0, 256);
 	strncat(my_filename, directory->prefix, 155);
@@ -296,6 +302,8 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 		debug_print(CRITICAL, "what");
 	}
 
+	free(directory);
+
 	unsigned int offset = 0;
 	while (offset < self->length) {
 		struct ustar * file = ustar_from_offset(self, offset);
@@ -304,6 +312,7 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 			return NULL;
 		}
 
+		char filename_workspace[256];
 		memset(filename_workspace, 0, 256);
 		strncat(filename_workspace, file->prefix, 155);
 		strncat(filename_workspace, file->filename, 100);
@@ -314,6 +323,8 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 		if (!strcmp(filename_workspace, my_filename)) {
 			return file_from_ustar(self, file, offset);
 		}
+
+		free(file);
 
 		offset += 512;
 		offset += round_to_512(interpret_size(file));
@@ -330,10 +341,12 @@ static int readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 		debug_print(INFO, "Requested read size was only %d, need %d.", size, strlen(file->link)+1);
 		memcpy(buf, file->link, size-1);
 		buf[size-1] = '\0';
+		free(file);
 		return size-1;
 	} else {
 		debug_print(INFO, "Reading link target is [%s]", file->link);
 		memcpy(buf, file->link, strlen(file->link) + 1);
+		free(file);
 		return strlen(file->link);
 	}
 
@@ -345,6 +358,7 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 	fs->device = self;
 	fs->inode  = offset;
 	fs->impl   = 0;
+	char filename_workspace[256];
 	memcpy(fs->name, filename_workspace, strlen(filename_workspace)+1);
 
 	fs->uid = interpret_uid(file);
@@ -367,6 +381,7 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 		fs->flags = FS_FILE;
 		fs->read = read_tarfs;
 	}
+	free(file);
 #if 0
 	/* TODO times are also available from the file */
 	fs->atime = now();
@@ -387,6 +402,7 @@ static fs_node_t * finddir_tar_root(fs_node_t *node, char *name) {
 			return NULL;
 		}
 
+		char filename_workspace[256];
 		memset(filename_workspace, 0, 256);
 		strncat(filename_workspace, file->prefix, 155);
 		strncat(filename_workspace, file->filename, 100);
@@ -401,6 +417,8 @@ static fs_node_t * finddir_tar_root(fs_node_t *node, char *name) {
 			}
 		}
 
+		free(file);
+
 		offset += 512;
 		offset += round_to_512(interpret_size(file));
 	}
@@ -408,18 +426,18 @@ static fs_node_t * finddir_tar_root(fs_node_t *node, char *name) {
 	return NULL;
 }
 
-static struct ustar _star = {0};
-
 struct ustar * ustar_from_offset(struct tarfs * self, unsigned int offset) {
-	read_fs(self->device, offset, sizeof(struct ustar), (unsigned char*)&_star);
-	if (_star.ustar[0] != 'u' ||
-		_star.ustar[1] != 's' ||
-		_star.ustar[2] != 't' ||
-		_star.ustar[3] != 'a' ||
-		_star.ustar[4] != 'r') {
+	struct ustar * out = malloc(sizeof(struct ustar));
+	read_fs(self->device, offset, sizeof(struct ustar), (unsigned char*)out);
+	if (out->ustar[0] != 'u' ||
+		out->ustar[1] != 's' ||
+		out->ustar[2] != 't' ||
+		out->ustar[3] != 'a' ||
+		out->ustar[4] != 'r') {
+		free(out);
 		return NULL;
 	}
-	return &_star;
+	return out;
 }
 
 #if 0
