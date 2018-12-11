@@ -8,7 +8,7 @@
 
 #include <toaru/tree.h>
 
-#define KERNEL_STACK_SIZE 0x8000
+#define KERNEL_STACK_SIZE 0x32000
 
 typedef signed int    pid_t;
 typedef unsigned int  user_t;
