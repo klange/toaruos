@@ -217,8 +217,12 @@ base/bin/%.sh: apps/%.sh
 	chmod +x $@
 
 # Ramdisk
-fatbase/ramdisk.img: ${RAMDISK_FILES} $(shell find base) Makefile util/createramdisk.py | dirs
-	python3 util/createramdisk.py
+
+util/devtable: ${RAMDISK_FILES} $(shell find base) util/update-devtable.py
+	util/update-devtable.py
+
+fatbase/ramdisk.img: ${RAMDISK_FILES} $(shell find base) Makefile util/devtable | dirs
+	genext2fs -B 4096 -d base -D util/devtable -U -b `util/calc-size.sh` -N 2048 $@
 
 # CD image
 
