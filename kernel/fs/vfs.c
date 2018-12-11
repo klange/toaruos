@@ -159,7 +159,7 @@ uint32_t write_fs(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buff
 		uint32_t ret = node->write(node, offset, size, buffer);
 		return ret;
 	} else {
-		return -EINVAL;
+		return -EROFS;
 	}
 }
 
@@ -469,7 +469,7 @@ int mkdir_fs(char *name, uint16_t permission) {
 	if (parent->mkdir) {
 		ret = parent->mkdir(parent, f_path, permission);
 	} else {
-		ret = -EINVAL;
+		ret = -EROFS;
 	}
 
 	free(path);
