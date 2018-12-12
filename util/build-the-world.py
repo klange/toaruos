@@ -681,7 +681,6 @@ def BuildRamdisk():
 
     with tarfile.open('cdrom/ramdisk.img','w') as ramdisk:
         ramdisk.add('/',arcname='/',filter=file_filter,recursive=False) # Add a blank directory
-        ramdisk.add('/bin',arcname='/bin',filter=file_filter)
         ramdisk.add('/',arcname='/usr',filter=file_filter,recursive=False) # Add a blank directory
         ramdisk.add('/usr/share',arcname='/usr/share',filter=file_filter)
         ramdisk.add('/',arcname='/usr/bin',filter=file_filter,recursive=False) # Add a blank directory
@@ -694,8 +693,16 @@ def BuildRamdisk():
         ramdisk.add('/',arcname='/tmp',filter=file_filter,recursive=False) # Add a blank directory
         ramdisk.add('/',arcname='/proc',filter=file_filter,recursive=False) # Add a blank directory
         ramdisk.add('/home',arcname='/home',filter=file_filter)
-        ramdisk.add('/lib',arcname='/lib',filter=file_filter)
         ramdisk.add('/opt',arcname='/opt',filter=file_filter)
+
+        ramdisk.add('.lib',arcname='/lib',filter=file_filter)
+        ramdisk.add('.bin',arcname='/bin',filter=file_filter)
+
+        # Overrides
+        ramdisk.add('/lib/libc.so',arcname='/lib/libc.so',filter=file_filter) # Need to build libc
+        ramdisk.add('/lib/libm.so',arcname='/lib/libm.so',filter=file_filter)
+        ramdisk.add('/lib/ld.so',arcname='/lib/ld.so',filter=file_filter) # Need to build linker
+        ramdisk.add('/bin/init',arcname='/bin/init',filter=file_filter) # Must be static, fixme
 
         ramdisk.add('.',arcname='/src',filter=file_filter,recursive=False) # Add a blank directory
         ramdisk.add('apps',arcname='/src/apps',filter=file_filter)
@@ -707,6 +714,37 @@ def BuildRamdisk():
         ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
         ramdisk.add('/usr/bin/build-the-world.py',arcname='/usr/bin/build-the-world.py',filter=file_filter)
 
+def BuildLibraries():
+    try:
+        os.mkdir(".lib")
+    except:
+        pass # exists
+    os.chdir(".lib")
+    for lib in glob.glob("/src/lib/*.c"):
+        cmd = "auto-dep.py --buildlib {lib}".format(lib=lib)
+        print(cmd)
+        subprocess.run(cmd,shell=True)
+    os.chdir("/src")
+
+def BuildApps():
+    try:
+        os.mkdir(".bin")
+    except:
+        pass # exists
+    os.chdir(".bin")
+    for app in glob.glob("/src/apps/*.c"):
+        if 'init' in app:
+            print("Skipping init (will copy static one)")
+            continue
+        cmd = "auto-dep.py --build {app}".format(app=app)
+        print(cmd)
+        subprocess.run(cmd,shell=True)
+    for script in glob.glob("/src/apps/*.sh"):
+        cmd = "cp {src} {dst} ; chmod +x {dst}".format(src=script,dst=script.replace("/src/apps/","/src/.bin/"))
+        print(cmd)
+        subprocess.run(cmd,shell=True)
+    os.chdir("/src")
+
 def BuildBoot():
     def print_and_run(cmd):
         print(cmd)
@@ -717,6 +755,7 @@ def BuildBoot():
     print_and_run("ld -T boot/link.ld -o cdrom/boot.sys boot/boot.o boot/cstuff.o")
 
 if __name__ == '__main__':
+    os.chdir("/src")
     try:
         os.mkdir('cdrom')
     except:
@@ -727,6 +766,10 @@ if __name__ == '__main__':
     BuildModules()
     print("Building boot.sys...")
     BuildBoot()
+    print("Building libraries...")
+    BuildLibraries()
+    print("Building applications...")
+    BuildApps()
     print("Createing ramdisk...")
     BuildRamdisk()
     print("Building ISO...")
