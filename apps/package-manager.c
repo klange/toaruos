@@ -76,13 +76,13 @@ static uint64_t precise_current_time(void) {
 	time_t sec_diff = t.tv_sec;
 	suseconds_t usec_diff = t.tv_usec;
 
-	return (uint64_t)(sec_diff * 1000 + usec_diff / 1000);
+	return (uint64_t)((uint64_t)sec_diff * 1000LL + usec_diff / 1000);
 }
 
 static uint64_t precise_time_since(uint64_t start_time) {
 
-	uint32_t now = precise_current_time();
-	uint32_t diff = now - start_time; /* Milliseconds */
+	uint64_t now = precise_current_time();
+	uint64_t diff = now - start_time; /* Milliseconds */
 
 	return diff;
 }
