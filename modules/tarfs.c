@@ -104,7 +104,7 @@ static unsigned int round_to_512(unsigned int i) {
 	return i + (512 - t);
 }
 
-struct ustar * ustar_from_offset(struct tarfs * self, unsigned int offset);
+static int ustar_from_offset(struct tarfs * self, unsigned int offset, struct ustar * out);
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset);
 
 #ifndef strncat
@@ -159,10 +159,12 @@ static struct dirent * readdir_tar_root(fs_node_t *node, uint32_t index) {
 	/* Go through each file and pick the ones are at the root */
 	/* Root files will have no /, so this is easy */
 	unsigned int offset = 0;
+	struct ustar * file = malloc(sizeof(struct ustar));
 	while (offset < self->length) {
-		struct ustar * file = ustar_from_offset(self, offset);
+		int status = ustar_from_offset(self, offset, file);
 
-		if (!file) {
+		if (!status) {
+			free(file);
 			return NULL;
 		}
 
@@ -181,6 +183,7 @@ static struct dirent * readdir_tar_root(fs_node_t *node, uint32_t index) {
 					memset(out, 0x00, sizeof(struct dirent));
 					out->ino = offset;
 					strcpy(out->name, filename_workspace);
+					free(file);
 					return out;
 				} else {
 					index--;
@@ -193,18 +196,22 @@ static struct dirent * readdir_tar_root(fs_node_t *node, uint32_t index) {
 
 	}
 
+	free(file);
 	return NULL;
 }
 
 static uint32_t read_tarfs(fs_node_t * node, uint64_t offset, uint32_t size, uint8_t * buffer) {
 	struct tarfs * self = node->device;
-	struct ustar * file = ustar_from_offset(self, node->inode);
+	struct ustar * file = malloc(sizeof(struct ustar));
+	ustar_from_offset(self, node->inode, file);
 	size_t file_size = interpret_size(file);
 
 	if (offset > file_size) return 0;
 	if (offset + size > file_size) {
 		size = file_size - offset;
 	}
+
+	free(file);
 
 	return read_fs(self->device, offset + node->inode + 512, size, buffer);
 }
@@ -235,20 +242,20 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 	unsigned int offset = 0;
 
 	/* Read myself */
-	struct ustar * directory = ustar_from_offset(self, node->inode);
+	struct ustar * file = malloc(sizeof(struct ustar));
+	int status = ustar_from_offset(self, node->inode, file);
 	char my_filename[256];
 
 	/* Figure out my own filename, with forward slash */
 	memset(my_filename, 0, 256);
-	strncat(my_filename, directory->prefix, 155);
-	strncat(my_filename, directory->filename, 100);
-
-	free(directory);
+	strncat(my_filename, file->prefix, 155);
+	strncat(my_filename, file->filename, 100);
 
 	while (offset < self->length) {
-		struct ustar * file = ustar_from_offset(self, offset);
+		ustar_from_offset(self, offset, file);
 
-		if (!file) {
+		if (!status) {
+			free(file);
 			return NULL;
 		}
 
@@ -276,11 +283,11 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 			}
 		}
 
-		free(file);
 		offset += 512;
 		offset += round_to_512(interpret_size(file));
 	}
 
+	free(file);
 	return NULL;
 }
 
@@ -288,13 +295,14 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 	struct tarfs * self = node->device;
 
 	/* find my own filename */
-	struct ustar * directory = ustar_from_offset(self, node->inode);
+	struct ustar * file = malloc(sizeof(struct ustar));
+	ustar_from_offset(self, node->inode, file);
 
 	char my_filename[256];
 	/* Figure out my own filename, with forward slash */
 	memset(my_filename, 0, 256);
-	strncat(my_filename, directory->prefix, 155);
-	strncat(my_filename, directory->filename, 100);
+	strncat(my_filename, file->prefix, 155);
+	strncat(my_filename, file->filename, 100);
 
 	/* Append name */
 	strncat(my_filename, name, strlen(name));
@@ -302,13 +310,12 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 		debug_print(CRITICAL, "what");
 	}
 
-	free(directory);
-
 	unsigned int offset = 0;
 	while (offset < self->length) {
-		struct ustar * file = ustar_from_offset(self, offset);
+		int status = ustar_from_offset(self, offset, file);
 
-		if (!file) {
+		if (!status) {
+			free(file);
 			return NULL;
 		}
 
@@ -324,18 +331,19 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 			return file_from_ustar(self, file, offset);
 		}
 
-		free(file);
-
 		offset += 512;
 		offset += round_to_512(interpret_size(file));
 	}
 
+
+	free(file);
 	return NULL;
 }
 
 static int readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 	struct tarfs * self = node->device;
-	struct ustar * file = ustar_from_offset(self, node->inode);
+	struct ustar * file = malloc(sizeof(struct ustar));
+	ustar_from_offset(self, node->inode, file);
 
 	if (size < strlen(file->link) + 1) {
 		debug_print(INFO, "Requested read size was only %d, need %d.", size, strlen(file->link)+1);
@@ -395,10 +403,12 @@ static fs_node_t * finddir_tar_root(fs_node_t *node, char *name) {
 	struct tarfs * self = node->device;
 
 	unsigned int offset = 0;
+	struct ustar * file = malloc(sizeof(struct ustar));
 	while (offset < self->length) {
-		struct ustar * file = ustar_from_offset(self, offset);
+		int status = ustar_from_offset(self, offset, file);
 
-		if (!file) {
+		if (!status) {
+			free(file);
 			return NULL;
 		}
 
@@ -417,40 +427,25 @@ static fs_node_t * finddir_tar_root(fs_node_t *node, char *name) {
 			}
 		}
 
-		free(file);
-
 		offset += 512;
 		offset += round_to_512(interpret_size(file));
 	}
 
+	free(file);
 	return NULL;
 }
 
-struct ustar * ustar_from_offset(struct tarfs * self, unsigned int offset) {
-	struct ustar * out = malloc(sizeof(struct ustar));
+static int ustar_from_offset(struct tarfs * self, unsigned int offset, struct ustar * out) {
 	read_fs(self->device, offset, sizeof(struct ustar), (unsigned char*)out);
 	if (out->ustar[0] != 'u' ||
 		out->ustar[1] != 's' ||
 		out->ustar[2] != 't' ||
 		out->ustar[3] != 'a' ||
 		out->ustar[4] != 'r') {
-		free(out);
-		return NULL;
+		return 0;
 	}
-	return out;
+	return 1;
 }
-
-#if 0
-static fs_node_t * node_from_directory(struct tarfs * self, struct tarfs_file * file) {
-	struct ustar * s = ustar_from_offset(self, file->offset);
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0, sizeof(fs_node_t));
-
-	fnode->flags = FS_DIRECTORY;
-
-	return fnode;
-}
-#endif
 
 static fs_node_t * tar_mount(char * device, char * mount_path) {
 	char * arg = strdup(device);
