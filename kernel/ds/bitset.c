@@ -17,7 +17,8 @@
 
 void bitset_init(bitset_t *set, size_t size) {
 	set->size = CEIL(size, 8);
-	set->data = calloc(set->size, 1);
+	set->data = malloc(set->size);
+	memset(set->data, 0, set->size);
 }
 
 void bitset_free(bitset_t *set) {

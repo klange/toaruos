@@ -204,7 +204,8 @@ void * module_load_direct(void * blob, size_t length) {
 							 */
 							if (!set && table->st_shndx == 65522) {
 								if (!hashmap_get(symboltable, name)) {
-									void * final = calloc(1, table->st_value);
+									void * final = malloc(table->st_value);
+									memset(final, 0, table->st_value);
 									debug_print(NOTICE, "point %s to 0x%x", name, (uintptr_t)final);
 									hashmap_set(symboltable, name, (void *)final);
 									hashmap_set(local_symbols, name, (void *)final);

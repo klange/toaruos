@@ -827,7 +827,8 @@ static int mkdir_ext2(fs_node_t * parent, char * name, uint16_t permission) {
 	write_inode(this, inode, inode_no);
 
 	uint8_t * tmp = malloc(this->block_size);
-	ext2_dir_t * t = calloc(12,1);
+	ext2_dir_t * t = malloc(12);
+	memset(t, 0, 12);
 	t->inode = inode_no;
 	t->rec_len = 12;
 	t->name_len = 1;
@@ -1544,7 +1545,8 @@ static fs_node_t * mount_ext2(fs_node_t * block_device, int flags) {
 	if (!(this->flags & EXT2_FLAG_NOCACHE)) {
 		debug_print(INFO, "Allocating cache...");
 		DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
-		this->cache_data = calloc(this->block_size, this->cache_entries);
+		this->cache_data = malloc(this->block_size * this->cache_entries);
+		memset(this->cache_data, 0, this->block_size * this->cache_entries);
 		for (uint32_t i = 0; i < this->cache_entries; ++i) {
 			DC[i].block_no = 0;
 			DC[i].dirty = 0;

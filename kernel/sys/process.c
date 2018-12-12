@@ -380,7 +380,8 @@ process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
 
 	/* Allocate a new process */
 	debug_print(INFO,"   process_t {");
-	process_t * proc = calloc(sizeof(process_t),1);
+	process_t * proc = malloc(sizeof(process_t));
+	memset(proc, 0, sizeof(process_t));
 	debug_print(INFO,"   }");
 	proc->id = get_next_pid(); /* Set its PID */
 	proc->group = proc->id;    /* Set the GID */
