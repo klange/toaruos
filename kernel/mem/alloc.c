@@ -135,6 +135,7 @@ static uint32_t _kmalloc_log_write(fs_node_t *node, uint64_t offset, uint32_t si
 	return size;
 }
 static fs_node_t _kmalloc_log = { .write = &_kmalloc_log_write };
+extern uintptr_t map_to_physical(uintptr_t virtual);
 
 #define HALT_ON(_addr) do { \
 		if ((uintptr_t)ptr == _addr) { \
@@ -284,9 +285,19 @@ void free(void * ptr) {
 		char * tag = ptr;
 		uintptr_t i = 0;
 		uint32_t * x;
-		while (i < 1024000) {
+		int _failed = 1;
+		while (i < 0x40000) {
 			x = (uint32_t*)(tag + i);
-			if (*x == 0xDEADBEEF) break;
+			if (map_to_physical((uintptr_t)x) == 0 || map_to_physical((uintptr_t)x + 8) == 0) {
+				x = (uint32_t *)tag;
+				break;
+			}
+			if (*x == 0xDEADBEEF) {
+				if (x[1] == i) {
+					_failed = 0;
+					break;
+				}
+			}
 			i++;
 		}
 		struct {
@@ -295,7 +306,7 @@ void free(void * ptr) {
 			uint32_t size;
 			uint32_t extra;
 			uint32_t eip;
-		} __attribute__((packed)) log = {'f',(uint32_t)ptr,x[1],x[0],_eip};
+		} __attribute__((packed)) log = {'f',(uint32_t)ptr,_failed ? 0xFFFFFFFF : x[1],_failed ? 0xFFFFFFFF : x[0],_eip};
 		write_fs(&_kmalloc_log, 0, sizeof(log), (uint8_t *)&log);
 #endif
 		klfree(ptr);

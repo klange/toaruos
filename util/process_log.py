@@ -10,6 +10,7 @@ def find_nearby_allocations(addr):
         if abs(addr - key) < 0x100 and addresses[key]:
             print("   nearby: 0x%x (size %d, allocated by 0x%x)" % (key, addresses[key], sources[key]))
 
+count = 0
 while 1:
     data = sys.stdin.read(17)
     t, = struct.unpack_from("c",data,0)
@@ -17,6 +18,10 @@ while 1:
     size, = struct.unpack_from("I",data,5)
     extra, = struct.unpack_from("I",data,9)
     fault, = struct.unpack_from("I",data,13)
+
+    count += 1
+    if count % 1000 == 0:
+        print(count)
 
     if t == 'm':
         addresses[addr] = size
