@@ -292,6 +292,10 @@ void free(void * ptr) {
 				x = (uint32_t *)tag;
 				break;
 			}
+			page_t * page = get_page((uintptr_t)x, 0, current_directory);
+			if (page->present != 1) break;
+			page = get_page((uintptr_t)x + 8, 0, current_directory);
+			if (page->present != 1) break;
 			if (*x == 0xDEADBEEF) {
 				if (x[1] == i) {
 					_failed = 0;

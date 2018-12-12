@@ -5,9 +5,16 @@ addresses = {}
 sources = {}
 last_touched = {}
 
-def find_nearby_allocations(addr):
+def find_nearby_allocations(addr,size):
+    results = []
     for key in addresses.keys():
-        if abs(addr - key) < 0x100 and addresses[key]:
+        if abs(addr - key) < size*2 and addresses[key]:
+            results.append(key)
+    results = sorted(results)
+    for key in results:
+        if key == addr:
+            print("     self: 0x%x (size %d, allocated by 0x%x)" % (key, addresses[key], sources[key]))
+        else:
             print("   nearby: 0x%x (size %d, allocated by 0x%x)" % (key, addresses[key], sources[key]))
 
 count = 0
@@ -56,7 +63,7 @@ while 1:
             print("Large buffer has bad value: 0x%x (0x%x) expected size is %d, supposed is %d" % (addr, extra, addresses[addr], size))
         elif addresses[addr] != size:
             print("Size on free is incorrect: 0x%x %d %d 0x%x allocated by 0x%x last touched by %c" % (addr,addresses[addr], size, fault, sources[addr], last_touched[addr]))
-            find_nearby_allocations(addr)
+            find_nearby_allocations(addr,addresses[addr])
         else:
             addresses[addr] = None
     elif t == 'h':
