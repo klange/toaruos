@@ -48,7 +48,7 @@ while 1:
         if addr not in addresses:
             print("Bad free detected: 0x%x" % addr)
         elif addresses[addr] is None:
-            print("Double free detected: 0x%x" % addr)
+            print("Double free detected: 0x%x (allocated by 0x%x)" % (addr,sources[addr]))
         elif addresses[addr] == 'c':
             print("freeing something that was calloced...")
             addresses[addr] = None
