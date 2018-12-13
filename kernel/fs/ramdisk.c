@@ -65,8 +65,14 @@ static int ioctl_ramdisk(fs_node_t * node, int request, void * argp) {
 				return -EPERM;
 			} else {
 				/* Clear all of the memory used by this ramdisk */
-				for (uintptr_t i = node->inode; i < node->inode + node->length; i += 0x1000) {
-					clear_frame(i);
+				if (node->length >= 0x1000) {
+					if (node->length % 0x1000) {
+						/* It would be a very bad idea to wipe the wrong page here. */
+						node->length -= node->length % 0x1000;
+					}
+					for (uintptr_t i = node->inode; i < (node->inode + node->length); i += 0x1000) {
+						clear_frame(i);
+					}
 				}
 				/* Mark the file length as 0 */
 				node->length = 0;
