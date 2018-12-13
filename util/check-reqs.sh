@@ -7,16 +7,6 @@ if ! which python3 >/dev/null; then
     RET=1
 fi
 
-if ! which genext2fs >/dev/null; then
-    echo "genext2fs is needed to build ramdisk images"
-    RET=1
-else
-    if [ -z "$(genext2fs --help 2>&1 | grep -- "block-size")" ]; then
-        echo "genext2fs must support the -B (--block-size) argument; try building with Debian patches"
-        RET=1
-    fi
-fi
-
 if ! which mkfs.fat >/dev/null; then
     echo "mkfs.fat is required (and should be in your PATH) to build EFI file systems"
     RET=1

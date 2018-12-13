@@ -47,7 +47,7 @@ The following projects are currently in progress:
 
 To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment.
 
-Several packages are necessary: `build-essential` (to build the cross-compiler), `xorriso` (to create CD images), `genext2fs` (to build ramdisks), `python3` (various build scripts), `mtools` (for building FAT EFI system partitions), `gnu-efi` (for building the EFI loaders).
+Several packages are necessary: `build-essential` (to build the cross-compiler), `xorriso` (to create CD images), `python3` (various build scripts), `mtools` (for building FAT EFI system partitions), `gnu-efi` (for building the EFI loaders).
 
 Beyond package installation, no part of the build needs root privileges. 
 
@@ -70,7 +70,7 @@ The `Makefile` first checks to see if a toolchain is available and activates it 
 
 The `Makefile` then uses a Python tool, `auto-dep.py`, to generate additional Makefiles for the userspace applications libraries, automatically resolving dependencies based on `#include` directives.
 
-In an indeterminate order, C library, kernel, modules, userspace librares and applications are built. Three boot loaders (one BIOS ATAPI CD loader for emulators, and both a 32-bit and 64-bit EFI loader for general use) are then built. Deployed binaries are stored in `base` which is converted into an EXT2 filesystem image with `genext2fs`. This image, along with the bootloader files and kernel are then placed in `fatbase` which is converted into a FAT image for use as the EFI boot payload. That image is then placed in `cdbase` along with shadow files representing each of the files in the FAT image, and `cdbase` is compiled into an ISO 9660 CD El Torito image. The CD image is then passed through a tool to map the shadow files to their actual data from the FAT image, creating a hybrid ISO 9660 / FAT.
+In an indeterminate order, C library, kernel, modules, userspace librares and applications are built. Three boot loaders (one BIOS ATAPI CD loader for emulators, and both a 32-bit and 64-bit EFI loader for general use) are then built. Deployed binaries are stored in `base` which is then compiled into a tar archive to use as a ramdisk image. This image, along with the bootloader files and kernel are then placed in `fatbase` which is converted into a FAT image for use as the EFI boot payload. That image is then placed in `cdbase` along with shadow files representing each of the files in the FAT image, and `cdbase` is compiled into an ISO 9660 CD El Torito image. The CD image is then passed through a tool to map the shadow files to their actual data from the FAT image, creating a hybrid ISO 9660 / FAT.
 
 ### Clang
 
