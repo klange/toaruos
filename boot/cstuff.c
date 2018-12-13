@@ -34,7 +34,7 @@ EFI_HANDLE ImageHandleIn;
 #define LINK_TEXT "https://toaruos.org - https://gitlab.com/toaruos"
 
 /* Boot command line strings */
-#define DEFAULT_ROOT_CMDLINE "root=/dev/ram0,nocache root_type=ext2 "
+#define DEFAULT_ROOT_CMDLINE "root=/dev/ram0 root_type=tar "
 #define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
 #define DEFAULT_SINGLE_CMDLINE "start=terminal\037-F "
 #define DEFAULT_TEXT_CMDLINE "start=--vga "
