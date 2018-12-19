@@ -58,6 +58,8 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 			/* Expect exact character? */
 			if (*str == *format) {
 				str++;
+			} else {
+				break;
 			}
 		}
 		format++;
