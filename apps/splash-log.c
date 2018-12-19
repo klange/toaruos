@@ -73,7 +73,7 @@ static void update_message(char * c) {
 			c++;
 			x += char_width;
 		}
-		while (x < width) {
+		while (x < width - char_width) {
 			write_char(x, y, ' ', FG_COLOR);
 			x += char_width;
 		}
