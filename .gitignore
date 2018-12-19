@@ -67,3 +67,6 @@
 # Cairo + Pixman
 /base/usr/include/cairo
 /base/usr/include/pixman-1
+
+# SDL
+/base/usr/include/SDL
