@@ -38,6 +38,9 @@
 
 #include <toaru/graphics.h>
 
+#include <xmmintrin.h>
+#include <emmintrin.h>
+
 #if 0
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "jpeg"
@@ -202,14 +205,14 @@ static void define_huffman_table(FILE * f, int len) {
 }
 
 struct idct {
-	double base[64];
+	float base[64];
 };
 
 /**
  * norm_coeff[0] = 0.35355339059
  * norm_coeff[1] = 0.5
  */
-static double cosines[8][8] = {
+static float cosines[8][8] = {
 	{ 0.35355339059,0.35355339059,0.35355339059,0.35355339059,0.35355339059,0.35355339059,0.35355339059,0.35355339059 },
 	{ 0.490392640202,0.415734806151,0.27778511651,0.0975451610081,-0.0975451610081,-0.27778511651,-0.415734806151,-0.490392640202 },
 	{ 0.461939766256,0.191341716183,-0.191341716183,-0.461939766256,-0.461939766256,-0.191341716183,0.191341716183,0.461939766256 },
@@ -220,13 +223,27 @@ static double cosines[8][8] = {
 	{ 0.0975451610081,-0.27778511651,0.415734806151,-0.490392640202,0.490392640202,-0.415734806151,0.27778511651,-0.0975451610081 },
 };
 
-static double premul[8][8][8][8]= {{{{0}}}};
+static float premul[8][8][8][8]= {{{{0}}}};
 
 static void add_idc(struct idct * self, int n, int m, int coeff) {
+	__m128 c = _mm_set_ps(coeff,coeff,coeff,coeff);
 	for (int y = 0; y < 8; ++y) {
-		for (int x = 0; x < 8; ++x) {
-			self->base[xy_to_lin(x, y)] += premul[n][m][x][y] * coeff;
-		}
+		__m128 a, b;
+		/* base[y][x] = base[y][x] + premul[n][m][y][x] * coeff */
+
+		/* x = 0..3 */
+		a = _mm_load_ps(&premul[n][m][y][0]);
+		a = _mm_mul_ps(a,c);
+		b = _mm_load_ps(&self->base[xy_to_lin(0,y)]);
+		a = _mm_add_ps(a,b);
+		_mm_store_ps(&self->base[xy_to_lin(0,y)], a);
+
+		/* x = 4..7 */
+		a = _mm_load_ps(&premul[n][m][y][4]);
+		a = _mm_mul_ps(a,c);
+		b = _mm_load_ps(&self->base[xy_to_lin(4,y)]);
+		a = _mm_add_ps(a,b);
+		_mm_store_ps(&self->base[xy_to_lin(4,y)], a);
 	}
 }
 
@@ -422,7 +439,7 @@ int load_sprite_jpg(sprite_t * tsprite, char * filename) {
 			for (int m = 0; m < 8; ++m) {
 				for (int y = 0; y < 8; ++y) {
 					for (int x = 0; x < 8; ++x) {
-						premul[n][m][x][y] = cosines[n][x] * cosines[m][y];
+						premul[n][m][y][x] = cosines[n][x] * cosines[m][y];
 					}
 				}
 			}
