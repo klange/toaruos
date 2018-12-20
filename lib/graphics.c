@@ -516,8 +516,10 @@ void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 					continue;
 
 				// opaque
-				if ((_mm_movemask_epi8(_mm_cmpeq_epi8(s, _mm_cmpeq_epi8(s,s))) & 0x8888) == 0x8888)
+				if ((_mm_movemask_epi8(_mm_cmpeq_epi8(s, _mm_cmpeq_epi8(s,s))) & 0x8888) == 0x8888) {
 					_mm_storeu_si128((void*)&GFX(ctx, x + _x, y + _y), s);
+					continue;
+				}
 
 				__m128i d_l, d_h;
 				__m128i s_l, s_h;
