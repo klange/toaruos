@@ -339,7 +339,7 @@ static void install_package(struct Package * package) {
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
 	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About " APPLICATION_TITLE "\" /usr/share/icons/48/package.bmp \"ToaruOS " APPLICATION_TITLE "\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://gitlab.com/toarus\" ");
+	strcat(about_cmd, "about \"About " APPLICATION_TITLE "\" /usr/share/icons/48/package.bmp \"ToaruOS " APPLICATION_TITLE "\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
 	char coords[100];
 	sprintf(coords, "%d %d &", (int)main_window->x + (int)main_window->width / 2, (int)main_window->y + (int)main_window->height / 2);
 	strcat(about_cmd, coords);

@@ -31,7 +31,7 @@ EFI_HANDLE ImageHandleIn;
 #endif
 #define HELP_TEXT "Press <Enter> or select a menu option with \030/\031/\032/\033."
 #define COPYRIGHT_TEXT "ToaruOS is free software under the NCSA license."
-#define LINK_TEXT "https://toaruos.org - https://gitlab.com/toaruos"
+#define LINK_TEXT "https://toaruos.org - https://github.com/klange/toaruos"
 
 /* Boot command line strings */
 #define DEFAULT_ROOT_CMDLINE "root=/dev/ram0 root_type=tar "

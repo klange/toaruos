@@ -12,7 +12,7 @@
  *                                   1941-2011
  *
  * Developed by: ToAruOS Kernel Development Team
- *               http://gitlab.com/toaruos
+ *               http://github.com/klange/toaruos
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
