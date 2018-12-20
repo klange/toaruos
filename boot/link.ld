@@ -28,10 +28,12 @@ SECTIONS
 
 	.bss BLOCK(1) : ALIGN(1)
 	{
+		PROVIDE(_bss_start = .);
 		bss = .;
 		*(COMMON)
 		*(.bss)
 		*(.stack)
+		PROVIDE(_bss_end = .);
 	}
 
 	end = .;

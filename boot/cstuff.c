@@ -110,7 +110,10 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	ST = SystemTable;
 	ImageHandleIn = ImageHandle;
 #else
+extern char _bss_start[];
+extern char _bss_end[];
 int kmain() {
+	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
 #endif
 
 	BOOT_OPTION(_debug,       0, "Debug output",
