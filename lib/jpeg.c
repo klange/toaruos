@@ -220,12 +220,12 @@ static double cosines[8][8] = {
 	{ 0.0975451610081,-0.27778511651,0.415734806151,-0.490392640202,0.490392640202,-0.415734806151,0.27778511651,-0.0975451610081 },
 };
 
+static double premul[8][8][8][8]= {{{{0}}}};
+
 static void add_idc(struct idct * self, int n, int m, int coeff) {
 	for (int y = 0; y < 8; ++y) {
 		for (int x = 0; x < 8; ++x) {
-			double nn = cosines[n][x]; // norm_coeff[!!n] * cos((double)n * M_PI * ((double)x + 0.5) / 8.0);
-			double mm = cosines[m][y]; // norm_coeff[!!m] * cos((double)m * M_PI * ((double)y + 0.5) / 8.0);
-			self->base[xy_to_lin(x, y)] += nn * mm * coeff;
+			self->base[xy_to_lin(x, y)] += premul[n][m][x][y] * coeff;
 		}
 	}
 }
@@ -416,6 +416,18 @@ int load_sprite_jpg(sprite_t * tsprite, char * filename) {
 	sprite = tsprite;
 
 	memset(huffman_tables, 0, sizeof(huffman_tables));
+
+	if (premul[0][0][0][0] == 0.0) {
+		for (int n = 0; n < 8; ++n) {
+			for (int m = 0; m < 8; ++m) {
+				for (int y = 0; y < 8; ++y) {
+					for (int x = 0; x < 8; ++x) {
+						premul[n][m][x][y] = cosines[n][x] * cosines[m][y];
+					}
+				}
+			}
+		}
+	}
 
 	while (1) {
 
