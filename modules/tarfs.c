@@ -239,7 +239,7 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint32_t index) {
 
 	/* Go through each file and pick the ones are at the root */
 	/* Root files will have no /, so this is easy */
-	unsigned int offset = 0;
+	unsigned int offset = node->inode;
 
 	/* Read myself */
 	struct ustar * file = malloc(sizeof(struct ustar));
@@ -310,7 +310,7 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 		debug_print(CRITICAL, "what");
 	}
 
-	unsigned int offset = 0;
+	unsigned int offset = node->inode;
 	while (offset < self->length) {
 		int status = ustar_from_offset(self, offset, file);
 
