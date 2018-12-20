@@ -434,8 +434,13 @@ void tab_complete_func(rline_context_t * c) {
 	int command_adj = 0;
 	int cursor_adj = cursor;
 
+	while (command_adj < argc && strstr(argv[command_adj],"=")) {
+		cursor_adj -= 1;
+		command_adj += 1;
+	}
+
 	/* sudo should shift commands */
-	if (cursor_adj > command_adj && (!strcmp(argv[command_adj], "sudo") || !strcmp(argv[command_adj], "gsudo"))) {
+	if (command_adj < argc && (!strcmp(argv[command_adj], "sudo") || !strcmp(argv[command_adj], "gsudo"))) {
 		cursor_adj -= 1;
 		command_adj += 1;
 	}
@@ -659,6 +664,15 @@ void add_argument(list_t * argv, char * buf) {
 	memcpy(c, buf, strlen(buf) + 1);
 
 	list_insert(argv, c);
+}
+
+void add_environment(list_t * env) {
+	if (env->length) {
+		foreach (node, env) {
+			char * c = node->value;
+			putenv(strdup(c));
+		}
+	}
 }
 
 int read_entry(char * buffer) {
@@ -1152,6 +1166,8 @@ _done:
 	int argcs[100] = {0};
 	int next_is_file = 0;
 
+	list_t * extra_env = list_create();
+
 	int i = 0;
 	foreach(node, args) {
 		char * c = node->value;
@@ -1181,6 +1197,11 @@ _done:
 			i++;
 			cmdi++;
 			arg_starts[cmdi] = &argv[i];
+			continue;
+		}
+
+		if (i == 0 && strstr(c,"=")) {
+			list_insert(extra_env, c);
 			continue;
 		}
 
@@ -1285,17 +1306,23 @@ _nope:
 	argv[i] = NULL;
 
 	if (i == 0) {
+		add_environment(extra_env);
+		list_free(extra_env);
+		free(extra_env);
+		list_destroy(args);
+		free(args);
 		return -1;
 	}
 
-	list_free(args);
-
 	if (!*arg_starts[cmdi]) {
 		fprintf(stderr, "Syntax error: Unexpected end of input\n");
+		list_free(extra_env);
+		free(extra_env);
+		list_destroy(args);
+		free(args);
 		return 2;
 	}
 
-	char * cmd = *arg_starts[0];
 	tokenid = i;
 
 	unsigned int child_pid;
@@ -1320,6 +1347,7 @@ _nope:
 			is_subshell = 1;
 			dup2(last_output[1], STDOUT_FILENO);
 			close(last_output[0]);
+			add_environment(extra_env);
 			run_cmd(arg_starts[0]);
 		}
 		wait_semaphore(s);
@@ -1336,6 +1364,7 @@ _nope:
 				dup2(last_output[0], STDIN_FILENO);
 				close(tmp_out[0]);
 				close(last_output[1]);
+				add_environment(extra_env);
 				run_cmd(arg_starts[j]);
 			}
 			close(last_output[0]);
@@ -1359,6 +1388,7 @@ _nope:
 			}
 			dup2(last_output[0], STDIN_FILENO);
 			close(last_output[1]);
+			add_environment(extra_env);
 			run_cmd(arg_starts[cmdi]);
 		}
 		close(last_output[0]);
@@ -1386,6 +1416,7 @@ _nope:
 						dup2(fd, STDOUT_FILENO);
 					}
 				}
+				add_environment(extra_env);
 				run_cmd(arg_starts[0]);
 			}
 
@@ -1403,13 +1434,20 @@ _nope:
 		} else {
 			hashmap_set(job_hash, (void*)(intptr_t)last_child, strdup(arg_starts[0][0]));
 		}
-		free(cmd);
+		list_free(extra_env);
+		free(extra_env);
+		list_destroy(args);
+		free(args);
 		return 0;
 	}
 
 
 	int ret = wait_for_child(shell_interactive == 1 ? pgid : last_child, arg_starts[0][0]);
-	free(cmd);
+
+	list_free(extra_env);
+	free(extra_env);
+	list_destroy(args);
+	free(args);
 	return ret;
 }
 
@@ -1458,7 +1496,7 @@ void sort_commands() {
 }
 
 void show_version(void) {
-	printf("esh 1.3.0\n");
+	printf("esh 1.10.0\n");
 }
 
 void show_usage(int argc, char * argv[]) {
@@ -2150,6 +2188,7 @@ void install_commands() {
 	shell_install_command("return",  shell_cmd_return, "return status code");
 	shell_install_command("export-cmd",   shell_cmd_export_cmd, "set variable to result of command: export-cmd VAR command...");
 	shell_install_command("source",  shell_cmd_source, "run a shell script in the context of this shell");
+	shell_install_command(".",       shell_cmd_source, "alias for 'source'");
 	shell_install_command("exec",    shell_cmd_exec, "replace shell (or subshell) with command");
 	shell_install_command("not",     shell_cmd_not, "invert status of command");
 	shell_install_command("unset",   shell_cmd_unset, "unset variable");
