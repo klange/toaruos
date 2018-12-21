@@ -26,11 +26,15 @@
 #include <toaru/hashmap.h>
 #define TRACE_APP_NAME "migrate"
 
-#define TRACE_(...) do { if (_debug) { TRACE(__VA_ARGS__); } } while (0)
+#define TRACE_(...) do { \
+	if (_splash) { char tmp[512]; sprintf(tmp, __VA_ARGS__); fprintf(_splash, ":%s", tmp); fflush(_splash); } \
+	if (_debug) { TRACE(__VA_ARGS__); } \
+} while (0)
 
 #define CHUNK_SIZE 4096
 
 static int _debug = 0;
+static FILE * _splash = NULL;
 
 int tokenize(char * str, char * sep, char **buf) {
 	char * pch_i;
@@ -58,6 +62,7 @@ void copy_link(char * source, char * dest, int mode, int uid, int gid) {
 
 void copy_file(char * source, char * dest, int mode,int uid, int gid) {
 	//fprintf(stderr, "need to copy file %s to %s %x\n", source, dest, mode);
+	TRACE_("Copying %s...", dest);
 
 	int d_fd = open(dest, O_WRONLY | O_CREAT, mode);
 	int s_fd = open(source, O_RDONLY);
@@ -92,6 +97,7 @@ void copy_directory(char * source, char * dest, int mode, int uid, int gid) {
 		return;
 	}
 
+	TRACE_("Creating %s/...", dest);
 	//fprintf(stderr, "Creating %s\n", dest);
 	if (!strcmp(dest, "/")) {
 		dest = "";
@@ -191,8 +197,10 @@ int main(int argc, char * argv[]) {
 		_debug = 1;
 	}
 
+	_splash = fopen("/dev/pex/splash","r+");
+
 	if (hashmap_has(cmdline, "root")) {
-		TRACE_("Original root was %s", hashmap_get(cmdline, "root"));
+		TRACE_("Original root was %s", (char*)hashmap_get(cmdline, "root"));
 	} else if (hashmap_has(cmdline,"init") && !strcmp(hashmap_get(cmdline,"init"),"/dev/ram0")) {
 		TRACE_("Init is ram0, so this is probably a netboot image, going to assume root is /tmp/netboot.img");
 		hashmap_set(cmdline,"root","/tmp/netboot.img");

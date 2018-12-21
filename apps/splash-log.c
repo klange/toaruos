@@ -64,10 +64,10 @@ static void write_char(int x, int y, int val, uint32_t color) {
 	}
 }
 
-static void update_message(char * c) {
+static void update_message(char * c, int line) {
 	if (framebuffer_fd != -1) {
 		int x = 20;
-		int y = 20;
+		int y = 20 + char_height * line;
 		while (*c) {
 			write_char(x, y, *c, FG_COLOR);
 			c++;
@@ -79,7 +79,7 @@ static void update_message(char * c) {
 		}
 	} else {
 		int x = 2;
-		int y = 2;
+		int y = 2 + line;
 		while (*c) {
 			placech(*c, x, y, 0x7);
 			c++;
@@ -140,7 +140,7 @@ int main(int argc, char * argv[]) {
 	if (!fork()) {
 		check_framebuffer();
 		clear_screen();
-		update_message("ToaruOS is starting up...");
+		update_message("ToaruOS is starting up...", 0);
 
 		while (1) {
 			pex_packet_t * p = calloc(PACKET_SIZE, 1);
@@ -153,12 +153,20 @@ int main(int argc, char * argv[]) {
 				/* Use the special message !quit to exit. */
 				fclose(pex_endpoint);
 				return 0;
+			} else if (p->data[0] == ':') {
+				/* Make sure message is nil terminated (it should be...) */
+				char * tmp = malloc(p->size + 1);
+				memcpy(tmp, p->data, p->size);
+				tmp[p->size] = '\0';
+				update_message(tmp+1, 1);
+				free(tmp);
 			} else {
 				/* Make sure message is nil terminated (it should be...) */
 				char * tmp = malloc(p->size + 1);
 				memcpy(tmp, p->data, p->size);
 				tmp[p->size] = '\0';
-				update_message(tmp);
+				update_message(tmp, 0);
+				update_message("", 1);
 				free(tmp);
 			}
 		}
