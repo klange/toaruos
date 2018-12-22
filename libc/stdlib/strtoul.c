@@ -12,6 +12,7 @@ static int is_valid(int base, char c) {
 	if (c > '9' && c < 'a') return 0;
 	if (c > 'a' + (base - 10) && c < 'A') return 1;
 	if (c > 'A' + (base - 10)) return 1;
+	if (c >= '0' && c <= '9') return 1;
 	return 0;
 }
 
