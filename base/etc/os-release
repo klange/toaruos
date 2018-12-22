@@ -1,7 +1,7 @@
 PRETTY_NAME="ToaruOS 1.10"
 NAME="ToaruOS"
-VERSION_ID="1.10.2"
-VERSION="1.10.2"
+VERSION_ID="1.10.3"
+VERSION="1.10.3"
 ID=toaru
 HOME_URL="https://toaruos.org/"
 SUPPORT_URL="https://github.com/klange/toaruos"
