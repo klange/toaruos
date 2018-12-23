@@ -595,8 +595,11 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 
 	int max_width = main_window->width - bounds.width - x - 12;
 	int len = strlen(nav_bar);
-	char * name = malloc(len + 4);
+	char * name = malloc(len + 5);
 	memcpy(name, nav_bar, len + 1);
+	if (nav_bar_focused) {
+		strcat(name,"|");
+	}
 	int name_width;
 	while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > max_width) {
 		len--;
