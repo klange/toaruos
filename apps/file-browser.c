@@ -16,6 +16,7 @@
 #include <math.h>
 #include <libgen.h>
 #include <signal.h>
+#include <ctype.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -1340,7 +1341,7 @@ int main(int argc, char * argv[]) {
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->wid == main_window->wid) {
 							if (nav_bar_focused) {
-								switch (ke->event.keycode) {
+								switch (ke->event.key) {
 									case KEY_ESCAPE:
 										nav_bar_focused = 0;
 										redraw_window();
@@ -1348,6 +1349,17 @@ int main(int argc, char * argv[]) {
 									case KEY_BACKSPACE:
 										if (strlen(nav_bar)) {
 											nav_bar[strlen(nav_bar)-1] = '\0';
+											_redraw_nav_bar();
+										}
+										break;
+									case KEY_CTRL_W:
+										if (strlen(nav_bar)) {
+											if (nav_bar[strlen(nav_bar)-1] == '/') {
+												nav_bar[strlen(nav_bar)-1] = '\0';
+											}
+											while (nav_bar[strlen(nav_bar)-1] != '/' && strlen(nav_bar)) {
+												nav_bar[strlen(nav_bar)-1] = '\0';
+											}
 											_redraw_nav_bar();
 										}
 										break;
@@ -1359,7 +1371,7 @@ int main(int argc, char * argv[]) {
 										redraw_window();
 										break;
 									default:
-										if (ke->event.key) {
+										if (isgraph(ke->event.key)) {
 											char tmp[2] = {ke->event.key, 0};
 											strcat(nav_bar, tmp);
 											_redraw_nav_bar();
