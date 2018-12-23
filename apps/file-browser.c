@@ -73,6 +73,10 @@ static ssize_t file_pointers_len = 0; /* How many files are in the current list 
 static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
 
+static char nav_bar[512] = {0};
+//static int  nav_bar_cursor = 0;
+static int  nav_bar_focused = 0;
+
 static int _button_hilights[4] = {3,3,3,3};
 static int _button_disabled[4] = {1,1,0,0};
 static int _button_hover = -1;
@@ -349,6 +353,8 @@ static void load_directory(const char * path, int modifies_history) {
 		current_directory = strdup(path);
 	}
 
+	strcpy(nav_bar, current_directory);
+
 	/* TODO: Show relative time informaton... */
 #if 0
 	/* Get the current time */
@@ -540,6 +546,76 @@ static void reinitialize_contents(void) {
 	redraw_files();
 }
 
+#define BUTTON_SPACE 34
+#define BUTTON_COUNT 4
+static void _draw_buttons(struct decor_bounds bounds) {
+	uint32_t gradient_top = rgb(59,59,59);
+	uint32_t gradient_bot = rgb(40,40,40);
+	for (int i = 0; i < 37; ++i) {
+		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
+		draw_rectangle(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT + i,
+				BUTTON_SPACE * BUTTON_COUNT, 1, c);
+				//ctx->width - bounds.width, 1, c);
+	}
+
+	int x = 0;
+	int i = 0;
+#define draw_button(label) do { \
+	struct TTKButton _up = {bounds.left_width + 2 + x,bounds.top_height + MENU_BAR_HEIGHT + 2,32,32,"\033" label,_button_hilights[i] | (_button_disabled[i] << 8)}; \
+	ttk_button_draw(ctx, &_up); \
+	x += BUTTON_SPACE; i++; } while (0)
+
+	draw_button("back");
+	draw_button("forward");
+	draw_button("up");
+	draw_button("home");
+}
+
+static void _draw_nav_bar(struct decor_bounds bounds) {
+	uint32_t gradient_top = rgb(59,59,59);
+	uint32_t gradient_bot = rgb(40,40,40);
+	int x = BUTTON_SPACE * BUTTON_COUNT;
+
+	for (int i = 0; i < 37; ++i) {
+		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
+		draw_rectangle(ctx, bounds.left_width + BUTTON_SPACE * BUTTON_COUNT, bounds.top_height + MENU_BAR_HEIGHT + i,
+				ctx->width - bounds.width - BUTTON_SPACE * BUTTON_COUNT, 1, c);
+	}
+
+	if (nav_bar_focused) {
+		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(0,120,220), rgb(0,120,220)};
+		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
+		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 3, bounds.top_height + MENU_BAR_HEIGHT + 6, main_window->width - bounds.width - x - 10, 22, 3, rgb(250,250,250));
+	} else {
+		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(90,90,90), rgb(110,110,110)};
+		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
+		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 2, bounds.top_height + MENU_BAR_HEIGHT + 5, main_window->width - bounds.width - x - 8, 24, 3, rgb(250,250,250));
+	}
+
+	int max_width = main_window->width - bounds.width - x - 12;
+	int len = strlen(nav_bar);
+	char * name = malloc(len + 4);
+	memcpy(name, nav_bar, len + 1);
+	int name_width;
+	while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > max_width) {
+		len--;
+		name[len+0] = '.';
+		name[len+1] = '.';
+		name[len+2] = '.';
+		name[len+3] = '\0';
+	}
+
+	draw_sdf_string(ctx, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+}
+
+static void _redraw_nav_bar(void) {
+	struct decor_bounds bounds;
+	_decor_get_bounds(main_window, &bounds);
+	_draw_nav_bar(bounds);
+	flip(ctx);
+	yutani_flip(yctx, main_window);
+}
+
 /**
  * Redraw the entire window.
  */
@@ -578,44 +654,8 @@ static void redraw_window(void) {
 		menu_bar_render(&menu_bar, ctx);
 
 		/* Draw toolbar */
-		uint32_t gradient_top = rgb(59,59,59);
-		uint32_t gradient_bot = rgb(40,40,40);
-		for (int i = 0; i < 37; ++i) {
-			uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
-			draw_rectangle(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT + i,
-					ctx->width - bounds.width, 1, c);
-		}
-
-		int x = 0;
-		int i = 0;
-#define draw_button(label) do { \
-		struct TTKButton _up = {bounds.left_width + 2 + x,bounds.top_height + MENU_BAR_HEIGHT + 2,32,32,"\033" label,_button_hilights[i] | (_button_disabled[i] << 8)}; \
-		ttk_button_draw(ctx, &_up); \
-		x += 34; i++; } while (0)
-
-		draw_button("back");
-		draw_button("forward");
-		draw_button("up");
-		draw_button("home");
-
-		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(90,90,90), rgb(110,110,110)};
-		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
-		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 2, bounds.top_height + MENU_BAR_HEIGHT + 5, main_window->width - bounds.width - x - 8, 24, 3, rgb(250,250,250));
-
-		int max_width = main_window->width - bounds.width - x - 12;
-		int len = strlen(current_directory);
-		char * name = malloc(len + 4);
-		memcpy(name, current_directory, len + 1);
-		int name_width;
-		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > max_width) {
-			len--;
-			name[len+0] = '.';
-			name[len+1] = '.';
-			name[len+2] = '.';
-			name[len+3] = '\0';
-		}
-	
-		draw_sdf_string(ctx, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+		_draw_buttons(bounds);
+		_draw_nav_bar(bounds);
 
 	}
 
@@ -1299,6 +1339,35 @@ int main(int argc, char * argv[]) {
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->wid == main_window->wid) {
+							if (nav_bar_focused) {
+								switch (ke->event.keycode) {
+									case KEY_ESCAPE:
+										nav_bar_focused = 0;
+										redraw_window();
+										break;
+									case KEY_BACKSPACE:
+										if (strlen(nav_bar)) {
+											nav_bar[strlen(nav_bar)-1] = '\0';
+											_redraw_nav_bar();
+										}
+										break;
+									case '\n':
+										nav_bar_focused = 0;
+										char * tmp = strdup(nav_bar);
+										load_directory(tmp, 1);
+										reinitialize_contents();
+										redraw_window();
+										break;
+									default:
+										if (ke->event.key) {
+											char tmp[2] = {ke->event.key, 0};
+											strcat(nav_bar, tmp);
+											_redraw_nav_bar();
+										}
+										break;
+								}
+								break;
+							}
 							switch (ke->event.keycode) {
 								case KEY_PAGE_UP:
 									_scroll_up();
@@ -1326,6 +1395,12 @@ int main(int argc, char * argv[]) {
 									break;
 								case '\n':
 									_menu_action_open(NULL);
+									break;
+								case 'l':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_CTRL && !is_desktop_background) {
+										nav_bar_focused = 1;
+										redraw_window();
+									}
 									break;
 								case 'f':
 									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
@@ -1439,6 +1514,7 @@ int main(int argc, char * argv[]) {
 									if (i < 4) {
 										if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
 											_set_hilight(i, 2);
+											nav_bar_focused = 0;
 											_down_button = i;
 										} else if (me->command == YUTANI_MOUSE_EVENT_RAISE || me->command == YUTANI_MOUSE_EVENT_CLICK) {
 											if (_down_button != -1 && _down_button == i) {
@@ -1459,9 +1535,21 @@ int main(int argc, char * argv[]) {
 										}
 									} else {
 										_set_hilight(-1,0);
+										if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
+											if (!nav_bar_focused) {
+												nav_bar_focused = 1;
+												redraw = 1;
+											}
+										}
 									}
 								}
 							} else {
+								if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
+									if (nav_bar_focused) {
+										nav_bar_focused = 0;
+										redraw = 1;
+									}
+								}
 								if (_button_hover != -1) {
 									_button_hilights[_button_hover] = 3;
 									_button_hover = -1;
