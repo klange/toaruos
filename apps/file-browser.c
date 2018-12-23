@@ -80,11 +80,11 @@ static int _button_hover = -1;
 /* Menu bar entries */
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
-	{"File", "file"},
-	{"Edit", "edit"},
-	{"View", "view"},
-	{"Go", "go"},
-	{"Help", "help"},
+	{"File", "file"}, /* 0 */
+	{"Edit", "edit"}, /* 1 */
+	{"View", "view"}, /* 2 */
+	{"Go", "go"},     /* 3 */
+	{"Help", "help"}, /* 4 */
 	{NULL, NULL},
 };
 
@@ -1114,6 +1114,55 @@ static void sig_usr1(int sig) {
 	signal(SIGUSR1, sig_usr1);
 }
 
+static void arrow_select(int x, int y) {
+	if (!file_pointers_len) return;
+
+	/* Find first selected */
+	int selected = -1;
+	for (int i = 0; i < file_pointers_len; ++i) {
+		if (file_pointers[i]->selected) {
+			selected = i;
+		}
+		file_pointers[i]->selected = 0;
+	}
+
+	if (selected == -1) {
+		selected = 0;
+	} else {
+		int offset_y = selected / FILE_PTR_WIDTH;
+		int offset_x = selected % FILE_PTR_WIDTH;
+
+		offset_y += y;
+		offset_x += x;
+
+		if (offset_x >= FILE_PTR_WIDTH) {
+			offset_x = FILE_PTR_WIDTH - 1;
+		}
+		if (offset_x < 0) {
+			offset_x = 0;
+		}
+		if (offset_y < 0) {
+			offset_y = 0;
+		}
+
+		selected = offset_y * FILE_PTR_WIDTH + offset_x;
+		if (selected >= file_pointers_len) selected = file_pointers_len - 1;
+		if (selected < 0) selected = 0;
+	}
+
+	int offset_y = selected / FILE_PTR_WIDTH;
+	if (offset_y * FILE_HEIGHT < scroll_offset) {
+		scroll_offset = offset_y * FILE_HEIGHT;
+	}
+	if (offset_y * FILE_HEIGHT + FILE_HEIGHT > scroll_offset + available_height) {
+		scroll_offset = offset_y * FILE_HEIGHT + FILE_HEIGHT - available_height;
+	}
+
+	file_pointers[selected]->selected = 1;
+	reinitialize_contents();
+	redraw_window();
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -1249,7 +1298,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN) {
+						if (ke->event.action == KEY_ACTION_DOWN && ke->wid == main_window->wid) {
 							switch (ke->event.keycode) {
 								case KEY_PAGE_UP:
 									_scroll_up();
@@ -1258,6 +1307,50 @@ int main(int argc, char * argv[]) {
 								case KEY_PAGE_DOWN:
 									_scroll_down();
 									redraw = 1;
+									break;
+								/* if not focused on anything focusable */
+								case KEY_ARROW_DOWN:
+									arrow_select(0,1);
+									break;
+								case KEY_ARROW_UP:
+									arrow_select(0,-1);
+									break;
+								case KEY_ARROW_LEFT:
+									arrow_select(-1,0);
+									break;
+								case KEY_ARROW_RIGHT:
+									arrow_select(1,0);
+									break;
+								case KEY_BACKSPACE:
+									_menu_action_up(NULL);
+									break;
+								case '\n':
+									_menu_action_open(NULL);
+									break;
+								case 'f':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[0]);
+									}
+									break;
+								case 'e':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[1]);
+									}
+									break;
+								case 'v':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[2]);
+									}
+									break;
+								case 'g':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[3]);
+									}
+									break;
+								case 'h':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[4]);
+									}
 									break;
 								case 'q':
 									if (!is_desktop_background) {
