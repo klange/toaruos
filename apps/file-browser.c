@@ -1418,27 +1418,27 @@ int main(int argc, char * argv[]) {
 									}
 									break;
 								case 'f':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[0]);
 									}
 									break;
 								case 'e':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[1]);
 									}
 									break;
 								case 'v':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[2]);
 									}
 									break;
 								case 'g':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[3]);
 									}
 									break;
 								case 'h':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[4]);
 									}
 									break;
