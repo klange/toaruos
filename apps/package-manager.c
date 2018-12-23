@@ -326,6 +326,8 @@ static void _menu_action_refresh(struct MenuEntry * entry) {
 }
 
 static void install_package(struct Package * package) {
+	if (package->installed) return;
+
 	putenv("MSK_YES=1");
 	char tmp[1024];
 	sprintf(tmp, "terminal msk install %s", package->name);
@@ -399,6 +401,38 @@ static void _scroll_down(void) {
 	}
 }
 
+static void arrow_select(int y) {
+	if (!pkg_pointers_len) return;
+
+	/* Find first selected */
+	int selected = -1;
+	for (int i = 0; i <pkg_pointers_len; ++i) {
+		if (pkg_pointers[i]->selected) {
+			selected = i;
+		}
+		pkg_pointers[i]->selected = 0;
+	}
+
+	if (selected == -1) {
+		selected = 0;
+	} else {
+		selected += y;
+		if (selected >= pkg_pointers_len) selected = pkg_pointers_len - 1;
+		if (selected < 0) selected = 0;
+	}
+
+	if (selected * PKG_HEIGHT < scroll_offset) {
+		scroll_offset = selected * PKG_HEIGHT;
+	}
+	if (selected * PKG_HEIGHT + PKG_HEIGHT > scroll_offset + available_height) {
+		scroll_offset = selected * PKG_HEIGHT + PKG_HEIGHT - available_height;
+	}
+
+	pkg_pointers[selected]->selected = 1;
+	reinitialize_contents();
+	redraw_window();
+}
+
 int main(int argc, char * argv[]) {
 
 	if (geteuid() != 0) {
@@ -463,7 +497,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN) {
+						if (ke->event.action == KEY_ACTION_DOWN && ke->wid == main_window->wid) {
 							switch (ke->event.keycode) {
 								case KEY_PAGE_UP:
 									_scroll_up();
@@ -472,6 +506,34 @@ int main(int argc, char * argv[]) {
 								case KEY_PAGE_DOWN:
 									_scroll_down();
 									redraw_window();
+									break;
+								case KEY_ARROW_DOWN:
+									arrow_select(1);
+									break;
+								case KEY_ARROW_UP:
+									arrow_select(-1);
+									break;
+								case '\n':
+									for (int i = 0; i <pkg_pointers_len; ++i) {
+										if (pkg_pointers[i]->selected) {
+											install_package(pkg_pointers[i]);
+										}
+									}
+									break;
+								case 'f':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[0]);
+									}
+									break;
+								case 'i':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[1]);
+									}
+									break;
+								case 'h':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[2]);
+									}
 									break;
 								case 'q':
 									_menu_action_exit(NULL);
