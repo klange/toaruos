@@ -362,8 +362,27 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-							_menu_action_exit(NULL);
+						if (ke->event.action == KEY_ACTION_DOWN && ke->wid == main_window->wid) {
+							switch (ke->event.keycode) {
+								case 'f':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[0]);
+									}
+									break;
+								case 'g':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[1]);
+									}
+									break;
+								case 'h':
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
+										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[2]);
+									}
+									break;
+								case 'q':
+									_menu_action_exit(NULL);
+									break;
+							}
 						}
 					}
 					break;
