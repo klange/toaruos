@@ -716,6 +716,17 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		}
 	}
 
+	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+		(ke->event.keycode == KEY_F3) &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+		for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
+			if (ads_by_l[i] == NULL) break;
+			if (ads_by_l[i]->flags & 1) {
+				window_show_menu(ads_by_l[i]->wid, ads_by_l[i]->left, PANEL_HEIGHT);
+			}
+		}
+	}
+
 	if ((was_tabbing) && (ke->event.keycode == 0 || ke->event.keycode == KEY_LEFT_ALT) &&
 		(ke->event.modifiers == 0) && (ke->event.action == KEY_ACTION_UP)) {
 
@@ -1104,6 +1115,9 @@ static void bind_keys(void) {
 
 	/* Alt+F2 = show app runner */
 	yutani_key_bind(yctx, KEY_F2, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
+	/* Alt+F3 = window context menu */
+	yutani_key_bind(yctx, KEY_F3, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 
 	/* This lets us receive all just-modifier key releases */
 	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
