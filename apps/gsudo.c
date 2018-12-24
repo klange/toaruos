@@ -114,6 +114,7 @@ int main(int argc, char ** argv) {
 
 	window = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, window, left, top);
+	yutani_window_advertise(yctx, window, "gsudo");
 
 	ctx = init_graphics_yutani_double_buffer(window);
 
