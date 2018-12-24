@@ -89,6 +89,9 @@ static int graphical_callback(char * username, char * password, int fails, char 
 					}
 				}
 				break;
+			case YUTANI_MSG_WINDOW_CLOSE:
+			case YUTANI_MSG_SESSION_END:
+				return 1;
 		}
 	}
 }
