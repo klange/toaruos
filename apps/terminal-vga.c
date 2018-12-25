@@ -39,25 +39,32 @@
 static int fd_master, fd_slave;
 static FILE * terminal;
 
-uint16_t term_width     = 80;    /* Width of the terminal (in cells) */
-uint16_t term_height    = 25;    /* Height of the terminal (in cells) */
-uint16_t csr_x          = 0;    /* Cursor X */
-uint16_t csr_y          = 0;    /* Cursor Y */
-term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
-uint32_t current_fg     = 7;    /* Current foreground color */
-uint32_t current_bg     = 0;    /* Current background color */
-uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
+static uint16_t term_width     = 80;    /* Width of the terminal (in cells) */
+static uint16_t term_height    = 25;    /* Height of the terminal (in cells) */
+static uint16_t csr_x          = 0;    /* Cursor X */
+static uint16_t csr_y          = 0;    /* Cursor Y */
+static term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
+static term_cell_t * term_buffer_a = NULL;
+static term_cell_t * term_buffer_b = NULL;
+static int active_buffer  = 0;
+static int _orig_x = 0;
+static int _orig_y = 0;
+static uint32_t _orig_fg = 7;
+static uint32_t _orig_bg = 0;
+static uint32_t current_fg     = 7;    /* Current foreground color */
+static uint32_t current_bg     = 0;    /* Current background color */
+static uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
 
-uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
+static uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 
-uint64_t mouse_ticks = 0;
+static uint64_t mouse_ticks = 0;
 
-int selection = 0;
-int selection_start_x = 0;
-int selection_start_y = 0;
-int selection_end_x = 0;
-int selection_end_y = 0;
-char * selection_text = NULL;
+static int selection = 0;
+static int selection_start_x = 0;
+static int selection_start_y = 0;
+static int selection_end_x = 0;
+static int selection_end_y = 0;
+static char * selection_text = NULL;
 
 #define char_width 1
 #define char_height 1
@@ -1028,6 +1035,24 @@ void usage(char * argv[]) {
 int unsupported_int(void) { return 0; }
 void unsupported(int x, int y, char * data) { }
 
+#define SWAP(T,a,b) do { T _a = a; a = b; b = _a; } while(0);
+static void term_switch_buffer(int buffer) {
+	if (buffer != 0 && buffer != 1) return;
+	if (buffer != active_buffer) {
+		active_buffer = buffer;
+		term_buffer = active_buffer == 0 ? term_buffer_a : term_buffer_b;
+
+		SWAP(int, csr_x, _orig_x);
+		SWAP(int, csr_y, _orig_y);
+		SWAP(uint32_t, current_fg, _orig_fg);
+		SWAP(uint32_t, current_bg, _orig_bg);
+
+		term_redraw_all();
+	}
+
+}
+
+
 term_callbacks_t term_callbacks = {
 	term_write,
 	term_set_colors,
@@ -1044,15 +1069,20 @@ term_callbacks_t term_callbacks = {
 	unsupported_int,
 	unsupported_int,
 	term_set_csr_show,
-	NULL,
+	term_switch_buffer,
 };
 
 void reinit(void) {
 	if (term_buffer) {
 		/* Do nothing */
 	} else {
-		term_buffer = malloc(sizeof(term_cell_t) * term_width * term_height);
-		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * term_height);
+		term_buffer_a = malloc(sizeof(term_cell_t) * term_width * term_height);
+		memset(term_buffer_a, 0x0, sizeof(term_cell_t) * term_width * term_height);
+
+		term_buffer_b = malloc(sizeof(term_cell_t) * term_width * term_height);
+		memset(term_buffer_b, 0x0, sizeof(term_cell_t) * term_width * term_height);
+
+		term_buffer = term_buffer_a;
 	}
 
 	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);

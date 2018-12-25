@@ -6390,7 +6390,6 @@ void detect_weird_terminals(void) {
 		global_config.can_italic = 0;
 	}
 	if (term && strstr(term,"toaru-vga") == term) {
-		global_config.can_altscreen = 0;
 		global_config.can_24bit = 0; /* Also not strictly true */
 		global_config.can_256color = 0; /* Not strictly true */
 	}
