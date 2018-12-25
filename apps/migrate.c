@@ -27,7 +27,7 @@
 #define TRACE_APP_NAME "migrate"
 
 #define TRACE_(...) do { \
-	if (_splash) { char tmp[512]; sprintf(tmp, __VA_ARGS__); fprintf(_splash, ":%s", tmp); fflush(_splash); } \
+	if (_splash) { char _trace_tmp[512]; sprintf(_trace_tmp, __VA_ARGS__); fprintf(_splash, ":%s", _trace_tmp); fflush(_splash); } \
 	if (_debug) { TRACE(__VA_ARGS__); } \
 } while (0)
 
