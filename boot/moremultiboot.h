@@ -676,12 +676,20 @@ void show_menu(void) {
 				sel = (sel_max + sel - 1)  % sel_max;
 			}
 		} else if (s == 0x4B) { /* LEFT */
-			if (sel > BASE_SEL + 1) {
-				sel -= 1;
+			if (sel > BASE_SEL) {
+				if ((sel - BASE_SEL) % 2) {
+					sel = (sel + 1) % sel_max;
+				} else {
+					sel -= 1;
+				}
 			}
 		} else if (s == 0x4D) { /* RIGHT */
 			if (sel > BASE_SEL) {
-				sel = (sel + 1) % sel_max;
+				if ((sel - BASE_SEL) % 2) {
+					sel = (sel + 1) % sel_max;
+				} else {
+					sel -= 1;
+				}
 			}
 		} else if (s == 0x1c) {
 			if (sel <= BASE_SEL) {
