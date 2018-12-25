@@ -55,6 +55,7 @@
 # zlib
 /base/usr/include/zconf.h
 /base/usr/include/zlib.h
+/util/ungz
 
 # binutils
 /base/usr/i686-pc-toaru

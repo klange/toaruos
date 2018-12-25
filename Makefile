@@ -385,5 +385,5 @@ ext-freetype: base/lib/libtoaru_ext_freetype_fonts.so
 ext-cairo: base/lib/libtoaru_ext_cairo_renderer.so
 
 # Other extra stuff
-fatbase/extra/ungz: util/ungz.c
+util/ungz: util/ungz.c
 	$(CC) -o $@ $< -lz

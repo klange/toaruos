@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
 	while (!gzeof(src)) {
 		char buf[1024];
 		int r = gzread(src, buf, 1024);
+		if (r < 0) return 1;
 		fwrite(buf, r, 1, dest);
 	}
 
