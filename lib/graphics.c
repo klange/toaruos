@@ -284,11 +284,9 @@ static int clamp(int a, int l, int h) {
 }
 
 static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
-	uint32_t * p = (uint32_t *)_src->backbuffer;
 	int w = _src->width;
 	int h = _src->height;
 	int half_radius = radius / 2;
-	int index = 0;
 	uint32_t * out_color = calloc(sizeof(uint32_t), w);
 
 	for (int y = 0; y < h; y++) {
@@ -301,7 +299,7 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 			int old_p = x - half_radius - 1;
 			if (old_p >= 0)
 			{
-				uint32_t col = p[clamp(index + old_p, 0, w*h-1)];
+				uint32_t col = GFX(_src, clamp(old_p,0,w-1), y);
 				if (col) {
 					r -= _RED(col);
 					g -= _GRE(col);
@@ -313,7 +311,7 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 
 			int newPixel = x + half_radius;
 			if (newPixel < w) {
-				int col = p[clamp(index + newPixel, 0, w*h-1)];
+				uint32_t col = GFX(_src, clamp(newPixel,0,w-1), y);
 				if (col != 0) {
 					r += _RED(col);
 					g += _GRE(col);
@@ -323,30 +321,26 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 				hits++;
 			}
 
-			if (x >= 0) {
+			if (x >= 0 && x < w) {
 				out_color[x] = rgba(r / hits, g / hits, b / hits, a / hits);
 			}
 		}
 
+		if (!_is_in_clip(_src, y)) continue;
 		for (int x = 0; x < w; x++) {
-			p[index + x] = out_color[x];
+			GFX(_src,x,y) = out_color[x];
 		}
-
-		index += w;
 	}
 
 	free(out_color);
 }
 
 static void _box_blur_vertical(gfx_context_t * _src, int radius) {
-	uint32_t * p = (uint32_t *)_src->backbuffer;
 	int w = _src->width;
 	int h = _src->height;
 	int half_radius = radius / 2;
 
 	uint32_t * out_color = calloc(sizeof(uint32_t), h);
-	int old_offset = -(half_radius + 1) * w;
-	int new_offset = (half_radius) * w;
 
 	for (int x = 0; x < w; x++) {
 		int hits = 0;
@@ -354,11 +348,10 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 		int g = 0;
 		int b = 0;
 		int a = 0;
-		int index = -half_radius * w + x;
 		for (int y = -half_radius; y < h; y++) {
 			int old_p = y - half_radius - 1;
 			if (old_p >= 0) {
-				uint32_t col = p[clamp(index + old_offset, 0, w*h-1)];
+				uint32_t col = GFX(_src,x,clamp(old_p,0,h-1));
 				if (col != 0) {
 					r -= _RED(col);
 					g -= _GRE(col);
@@ -370,7 +363,7 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 
 			int newPixel = y + half_radius;
 			if (newPixel < h) {
-				uint32_t col = p[clamp(index + new_offset, 0, w*h-1)];
+				uint32_t col = GFX(_src,x,clamp(newPixel,0,h-1));
 				if (col != 0)
 				{
 					r += _RED(col);
@@ -381,15 +374,14 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 				hits++;
 			}
 
-			if (y >= 0) {
+			if (y >= 0 && y < h) {
 				out_color[y] = rgba(r / hits, g / hits, b / hits, a / hits);
 			}
-
-			index += w;
 		}
 
 		for (int y = 0; y < h; y++) {
-			p[y * w + x] = out_color[y];
+			if (!_is_in_clip(_src, y)) continue;
+			GFX(_src,x,y) = out_color[y];
 		}
 	}
 
