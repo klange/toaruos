@@ -725,6 +725,10 @@ int variable_char(uint8_t c) {
 	if (c >= 'a' && c <= 'z') return 1;
 	if (c >= '0' && c <= '9')  return 1;
 	if (c == '_') return 1;
+	return 0;
+}
+
+int variable_char_first(uint8_t c) {
 	if (c == '?') return 1;
 	if (c == '$') return 1;
 	if (c == '#') return 1;
@@ -939,11 +943,11 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 								p++;
 							}
 						} else {
-							while (*p != '\0' && variable_char(*p) && (coll < 100)) {
+							while (*p != '\0' && (variable_char(*p) || (coll == 0 && variable_char_first(*p)))  && (coll < 100)) {
 								var[coll] = *p;
 								coll++;
 								var[coll] = '\0';
-								if (coll == 0 && (isdigit(*p) || *p == '?')) {
+								if (coll == 1 && (isdigit(*p) || *p == '?' || *p == '$' || *p == '#')) {
 									p++;
 									break; /* Don't let these keep going */
 								}

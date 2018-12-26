@@ -955,10 +955,14 @@ static char * syn_sh_keywords[] = {
 };
 
 static int variable_char(uint8_t c) {
-	if (c >= 'A' && c <= 'Z')  return 1;
+	if (c >= 'A' && c <= 'Z') return 1;
 	if (c >= 'a' && c <= 'z') return 1;
-	if (c >= '0' && c <= '9')  return 1;
+	if (c >= '0' && c <= '9') return 1;
 	if (c == '_') return 1;
+	return 0;
+}
+
+int variable_char_first(uint8_t c) {
 	if (c == '?') return 1;
 	if (c == '$') return 1;
 	if (c == '#') return 1;
@@ -1000,8 +1004,17 @@ static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left
 			return FLAG_NUMERAL;
 		}
 		int j = i + 1;
-		for (; j < line->actual + 1; ++j) {
-			if (!variable_char(line->text[j].codepoint)) break;
+		int col = 0;
+		for (; j < line->actual + 1; ++j, ++col) {
+			if (col == 0) {
+				if (variable_char_first(line->text[j].codepoint) || isdigit(line->text[j].codepoint)) {
+					j++;
+					break;
+				}
+				if (!variable_char(line->text[j].codepoint)) break;
+			} else {
+				if (!variable_char(line->text[j].codepoint)) break;
+			}
 		}
 		*out_left = (j - i) - 1;
 		return FLAG_NUMERAL;
