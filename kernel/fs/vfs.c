@@ -423,6 +423,10 @@ int mkdir_fs(char *name, uint16_t permission) {
 	char *cwd = (char *)(current_process->wd_name);
 	char *path = canonicalize_path(cwd, name);
 
+	if (!name || !strlen(name)) {
+		return -EINVAL;
+	}
+
 	char * parent_path = malloc(strlen(path) + 4);
 	sprintf(parent_path, "%s/..", path);
 
@@ -453,6 +457,11 @@ int mkdir_fs(char *name, uint16_t permission) {
 		free(path);
 		close_fs(parent);
 		return -EACCES;
+	}
+
+	if (!f_path || !strlen(f_path)) {
+		/* Odd edge case with / */
+		return -EEXIST;
 	}
 
 	int ret = 0;
