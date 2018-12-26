@@ -140,6 +140,14 @@ gfx_context_t * init_graphics_subregion(gfx_context_t * base, int x, int y, int 
 	out->backbuffer = base->buffer + (base->stride * y) + x * 4;
 	out->buffer = base->buffer + (base->stride * y) + x * 4;
 
+	if (base->clips) {
+		for (int _y = 0; _y < height; ++_y) {
+			if (_is_in_clip(base, y + _y)) {
+				gfx_add_clip(out,0,_y,width,1);
+			}
+		}
+	}
+
 	out->size = 0; /* don't allow flip or clear operations */
 	return out;
 }
