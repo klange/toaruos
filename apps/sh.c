@@ -963,6 +963,9 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 							if (a >= 0 && a < shell_argc) {
 								c = shell_argv[a];
 							}
+						} else if (!strcmp(var, "RANDOM")) {
+							sprintf(tmp,"%d",rand()%32768); /* sure, modulo is bad for range restriction, shut up */
+							c = tmp;
 						} else {
 							c = getenv(var);
 						}
@@ -1578,6 +1581,8 @@ int main(int argc, char ** argv) {
 	pid = getpid();
 
 	signal(SIGINT, sig_break_loop);
+
+	srand(getpid() + time(0));
 
 	job_hash = hashmap_create_int(10);
 
