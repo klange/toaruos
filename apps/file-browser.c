@@ -43,6 +43,8 @@ struct File {
 	char link[256];      /* Link target for symlinks */
 	char launcher[256];  /* Launcher spec */
 	char filename[256];  /* Actual filename for launchers */
+	char filetype[256];  /* Textual description of file type */
+	uint64_t size;       /* File size */
 	int type;            /* File type: 0 = normal, 1 = directory, 2 = launcher */
 	int selected;        /* Selection status */
 };
@@ -147,6 +149,14 @@ static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 }
 
 /**
+ * Select view mode.
+ */
+#define VIEW_MODE_ICONS 0
+#define VIEW_MODE_TILES 1
+#define VIEW_MODE_LIST  2
+static int view_mode = VIEW_MODE_ICONS;
+
+/**
  * Clear out the space for an icon.
  * We clear to transparent so that the desktop background can be shown in desktop mode.
  */
@@ -156,6 +166,23 @@ static void clear_offset(int offset) {
 	int offset_x = offset % FILE_PTR_WIDTH;
 	draw_rectangle_solid(contents, offset_x * FILE_WIDTH, offset_y * FILE_HEIGHT, FILE_WIDTH, FILE_HEIGHT, rgba(0,0,0,0));
 }
+
+static int print_human_readable_size(char * _out, size_t s) {
+	if (s >= 1<<20) {
+		size_t t = s / (1 << 20);
+		return sprintf(_out, "%d.%1d MiB", (int)t, (int)(s - t * (1 << 20)) / ((1 << 20) / 10));
+	} else if (s >= 1<<10) {
+		size_t t = s / (1 << 10);
+		return sprintf(_out, "%d.%1d KiB", (int)t, (int)(s - t * (1 << 10)) / ((1 << 10) / 10));
+	} else {
+		return sprintf(_out, "%d B", (int)s);
+	}
+}
+
+#define HILIGHT_BORDER_TOP rgb(54,128,205)
+#define HILIGHT_GRADIENT_TOP rgb(93,163,236)
+#define HILIGHT_GRADIENT_BOTTOM rgb(56,137,220)
+#define HILIGHT_BORDER_BOTTOM rgb(47,106,167)
 
 /**
  * Draw an icon view entry
@@ -169,57 +196,146 @@ static void draw_file(struct File * f, int offset) {
 	int y = offset_y * FILE_HEIGHT;
 
 	/* Load the icon sprite from the cache */
-	sprite_t * icon = icon_get_48(f->icon);
+	if (view_mode == VIEW_MODE_ICONS) {
+		sprite_t * icon = icon_get_48(f->icon);
 
-	/* If the display name is too long to fit, cut it with an ellipsis. */
-	int len = strlen(f->name);
-	char * name = malloc(len + 4);
-	memcpy(name, f->name, len + 1);
-	int name_width;
-	while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > FILE_WIDTH - 8 /* Padding */) {
-		len--;
-		name[len+0] = '.';
-		name[len+1] = '.';
-		name[len+2] = '.';
-		name[len+3] = '\0';
-	}
-
-	/* Draw the icon */
-	int center_x_icon = (FILE_WIDTH - icon->width) / 2;
-	int center_x_text = (FILE_WIDTH - name_width) / 2;
-	draw_sprite(contents, icon, center_x_icon + x, y + 2);
-
-	if (f->selected) {
-		/* If this file is selected, paint the icon blue... */
-		if (main_window->focused) {
-			draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
+		/* If the display name is too long to fit, cut it with an ellipsis. */
+		int len = strlen(f->name);
+		char * name = malloc(len + 4);
+		memcpy(name, f->name, len + 1);
+		int name_width;
+		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > FILE_WIDTH - 8 /* Padding */) {
+			len--;
+			name[len+0] = '.';
+			name[len+1] = '.';
+			name[len+2] = '.';
+			name[len+3] = '\0';
 		}
-		/* And draw the name with a blue background and white text */
-		draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
-		draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
-	} else {
-		if (is_desktop_background) {
-			/* If this is the desktop view, white text with a drop shadow */
-			draw_sdf_string_stroke(contents, center_x_text + x + 1, y + 55, name, 16, rgba(0,0,0,120), SDF_FONT_THIN, 1.7, 0.5);
+
+		/* Draw the icon */
+		int center_x_icon = (FILE_WIDTH - icon->width) / 2;
+		int center_x_text = (FILE_WIDTH - name_width) / 2;
+		draw_sprite(contents, icon, center_x_icon + x, y + 2);
+
+		if (f->selected) {
+			/* If this file is selected, paint the icon blue... */
+			if (main_window->focused) {
+				draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
+			}
+			/* And draw the name with a blue background and white text */
+			draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
 			draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
 		} else {
-			/* Otherwise, black text */
-			draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+			if (is_desktop_background) {
+				/* If this is the desktop view, white text with a drop shadow */
+				draw_sdf_string_stroke(contents, center_x_text + x + 1, y + 55, name, 16, rgba(0,0,0,120), SDF_FONT_THIN, 1.7, 0.5);
+				draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
+			} else {
+				/* Otherwise, black text */
+				draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+			}
 		}
-	}
 
-	if (offset == hilighted_offset) {
-		/* The hovered icon should have some added brightness, so paint it white */
-		draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.3, rgb(255,255,255));
-	}
+		if (offset == hilighted_offset) {
+			/* The hovered icon should have some added brightness, so paint it white */
+			draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.3, rgb(255,255,255));
+		}
 
-	if (f->link[0]) {
-		/* For symlinks, draw an indicator */
-		sprite_t * arrow = icon_get_16("forward");
-		draw_sprite(contents, arrow, center_x_icon + 32 + x, y + 32);
-	}
+		if (f->link[0]) {
+			/* For symlinks, draw an indicator */
+			sprite_t * arrow = icon_get_16("forward");
+			draw_sprite(contents, arrow, center_x_icon + 32 + x, y + 32);
+		}
 
-	free(name);
+		free(name);
+	} else if (view_mode == VIEW_MODE_TILES) {
+		sprite_t * icon = icon_get_48(f->icon);
+
+		uint32_t text_color = rgb(0,0,0);
+
+		/* If selected, draw background box */
+		if (f->selected) {
+			struct gradient_definition edge = {FILE_HEIGHT - 4, y+2, HILIGHT_BORDER_TOP, HILIGHT_BORDER_BOTTOM};
+			struct gradient_definition body = {FILE_HEIGHT - 6, y+3, HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM};
+			draw_rounded_rectangle_pattern(contents, x + 2,y + 2, FILE_WIDTH-4, FILE_HEIGHT-4, 3, gfx_vertical_gradient_pattern, &edge);
+			draw_rounded_rectangle_pattern(contents, x + 3,y + 3, FILE_WIDTH-6, FILE_HEIGHT-6, 4, gfx_vertical_gradient_pattern, &body);
+
+			text_color = rgb(255,255,255);
+		}
+
+		draw_sprite(contents, icon, x + 11, y + 11);
+		if (offset == hilighted_offset) {
+			/* The hovered icon should have some added brightness, so paint it white */
+			draw_sprite_alpha_paint(contents, icon, x + 11, y + 11, 0.3, rgb(255,255,255));
+		}
+
+		int len = strlen(f->name);
+		char * name = malloc(len + 4);
+		memcpy(name, f->name, len + 1);
+		int name_width;
+		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_BOLD)) > FILE_WIDTH - 81) {
+			len--;
+			name[len+0] = '.';
+			name[len+1] = '.';
+			name[len+2] = '.';
+			name[len+3] = '\0';
+		}
+
+		if (f->type == 0) {
+			draw_sdf_string(contents, x + 70, y + 8, name, 16, text_color, SDF_FONT_BOLD);
+			draw_sdf_string(contents, x + 70, y + 25, f->filetype, 16, text_color, SDF_FONT_THIN);
+
+			char line_three[48] = {0};
+			if (*f->link) {
+				sprintf(line_three, "Symbolic link");
+			} else {
+				print_human_readable_size(line_three, f->size);
+			}
+			draw_sdf_string(contents, x + 70, y + 42, line_three, 16, text_color, SDF_FONT_THIN);
+		} else {
+			draw_sdf_string(contents, x + 70, y + 15, name, 16, text_color, SDF_FONT_BOLD);
+			draw_sdf_string(contents, x + 70, y + 32, f->filetype, 16, text_color, SDF_FONT_THIN);
+		}
+
+		free(name);
+	} else if (view_mode == VIEW_MODE_LIST) {
+		sprite_t * icon = icon_get_16(f->icon);
+		uint32_t text_color = rgb(0,0,0);
+
+		if (f->selected) {
+			struct gradient_definition edge = {FILE_HEIGHT - 4, y+2, HILIGHT_BORDER_TOP, HILIGHT_BORDER_BOTTOM};
+			struct gradient_definition body = {FILE_HEIGHT - 6, y+3, HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM};
+			draw_rounded_rectangle_pattern(contents, x + 2,y + 2, FILE_WIDTH-4, FILE_HEIGHT-4, 3, gfx_vertical_gradient_pattern, &edge);
+			draw_rounded_rectangle_pattern(contents, x + 3,y + 3, FILE_WIDTH-6, FILE_HEIGHT-6, 4, gfx_vertical_gradient_pattern, &body);
+
+			text_color = rgb(255,255,255);
+		} else if (offset == hilighted_offset) {
+			draw_rounded_rectangle(contents, x + 2, y + 2, FILE_WIDTH - 4, FILE_HEIGHT - 4, 3, rgb(180,180,180));
+			draw_rounded_rectangle(contents, x + 3, y + 3, FILE_WIDTH - 6, FILE_HEIGHT - 6, 4, rgb(255,255,255));
+		}
+
+		if (icon->width != 16 || icon->height != 16) {
+			draw_sprite_scaled(contents, icon, x + 4, y + 4, 16, 16);
+		} else {
+			draw_sprite(contents, icon, x + 4, y + 4);
+		}
+
+
+		int len = strlen(f->name);
+		char * name = malloc(len + 4);
+		memcpy(name, f->name, len + 1);
+		int name_width;
+		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > FILE_WIDTH - 26) {
+			len--;
+			name[len+0] = '.';
+			name[len+1] = '.';
+			name[len+2] = '.';
+			name[len+3] = '\0';
+		}
+
+		draw_sdf_string(contents, x + 24, y + 2, name, 16, text_color, SDF_FONT_THIN);
+
+	}
 }
 
 /**
@@ -392,6 +508,8 @@ static void load_directory(const char * path, int modifies_history) {
 			sprintf(tmp, "%s/%s", path, ent->d_name);
 			lstat(tmp, &statbuf);
 
+			f->size = statbuf.st_size;
+
 			/* Read link target for symlinks */
 			if (S_ISLNK(statbuf.st_mode)) {
 				memcpy(&statbufl, &statbuf, sizeof(struct stat));
@@ -402,11 +520,13 @@ static void load_directory(const char * path, int modifies_history) {
 			}
 
 			f->launcher[0] = '\0';
+			f->filetype[0] = '\0';
 			f->selected = 0;
 
 			if (S_ISDIR(statbuf.st_mode)) {
 				/* Directory */
 				sprintf(f->icon, "folder");
+				sprintf(f->filetype, "Directory");
 				f->type = 1;
 			} else {
 				/* Regular file */
@@ -434,36 +554,70 @@ static void load_directory(const char * path, int modifies_history) {
 							sprintf(f->name, eq);
 						}
 					}
+					sprintf(f->filetype, "Launcher");
 					sprintf(f->filename, "%s", ent->d_name);
 					f->type = 2;
 				} else {
 					/* Handle various file types */
 					if (has_extension(f, ".c")) {
 						sprintf(f->icon, "c");
+						sprintf(f->filetype, "C Source");
 					} else if (has_extension(f, ".h")) {
 						sprintf(f->icon, "h");
-					} else if (has_extension(f, ".bmp") || has_extension(f, ".jpg")) {
+						sprintf(f->filetype, "C Header");
+					} else if (has_extension(f, ".bmp")) {
 						sprintf(f->icon, "image");
 						sprintf(f->launcher, "exec imgviewer");
-					} else if (has_extension(f, ".sdf") || has_extension(f, ".ttf")) {
+						sprintf(f->filetype, "Bitmap Image");
+					} else if (has_extension(f, ".jpg") || has_extension(f,".jpeg")) {
+						sprintf(f->icon, "image");
+						sprintf(f->launcher, "exec imgviewer");
+						sprintf(f->filetype, "JPEG Image");
+					} else if (has_extension(f, ".sdf")) {
 						sprintf(f->icon, "font");
+						sprintf(f->filetype, "SDF Font");
 						/* TODO: Font viewer for SDF and TrueType */
-					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar") || has_extension(f, ".tar.gz")) {
-						/* Or dozens of others... */
+					} else if (has_extension(f, ".ttf")) {
+						sprintf(f->icon, "font");
+						sprintf(f->filetype, "TrueType Font");
+					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar.gz")) {
 						sprintf(f->icon, "package");
-						/* TODO: Archive tool? Extract locally? */
+						sprintf(f->filetype, "Compressed Archive File");
+					} else if (has_extension(f, ".tar")) {
+						sprintf(f->icon, "package");
+						sprintf(f->filetype, "Archive File");
 					} else if (has_extension(f, ".sh")) {
 						sprintf(f->icon, "sh");
 						if (statbuf.st_mode & 0111) {
 							/* Make executable */
 							sprintf(f->launcher, "SELF");
+							sprintf(f->filetype, "Executable Shell Script");
+						} else {
+							sprintf(f->filetype, "Shell Script");
 						}
 					} else if (statbuf.st_mode & 0111) {
 						/* Executable files - use their name for their icon, and launch themselves. */
 						sprintf(f->icon, "%s", f->name);
 						sprintf(f->launcher, "SELF");
+						sprintf(f->filetype, "Executable");
+					} else if (has_extension(f, ".ko")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Kernel Module");
+					} else if (has_extension(f, ".o")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Object File");
+					} else if (has_extension(f, ".so")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Shared Object File");
+					} else if (has_extension(f, ".S")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Assembly Source");
+					} else if (has_extension(f, ".ld")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Linker Script");
 					} else {
 						sprintf(f->icon, "file");
+						sprintf(f->filetype, "File");
 					}
 					f->type = 0;
 				}
@@ -532,6 +686,9 @@ static void reinitialize_contents(void) {
 		 *       work properly with vertical rows of files
 		 */
 		FILE_PTR_WIDTH = 1;
+	} else if (view_mode == VIEW_MODE_LIST) {
+		FILE_PTR_WIDTH = 1;
+		FILE_WIDTH = (ctx->width - bounds.width);
 	} else {
 		FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
 	}
@@ -990,6 +1147,44 @@ static void _menu_action_select_all(struct MenuEntry * self) {
 	redraw_window();
 }
 
+static void set_view_mode(int mode) {
+
+	switch (mode) {
+		default:
+		case VIEW_MODE_ICONS:
+			FILE_HEIGHT = 80;
+			FILE_WIDTH = 100;
+			view_mode = VIEW_MODE_ICONS;
+			break;
+		case VIEW_MODE_TILES:
+			FILE_HEIGHT = 70;
+			FILE_WIDTH = 260;
+			view_mode = VIEW_MODE_TILES;
+			break;
+		case VIEW_MODE_LIST:
+			FILE_HEIGHT = 24;
+			FILE_WIDTH  = 100; /* Readjusts elsewhere */
+			view_mode = VIEW_MODE_LIST;
+			break;
+	}
+
+	reinitialize_contents();
+	redraw_window();
+}
+
+static void _menu_action_view_mode(struct MenuEntry * entry) {
+	struct MenuEntry_Normal * _entry = (void*)entry;
+	int mode = VIEW_MODE_ICONS;
+	if (!strcmp(_entry->action, "icons")) {
+		mode = VIEW_MODE_ICONS;
+	} else if (!strcmp(_entry->action, "tiles")) {
+		mode = VIEW_MODE_TILES;
+	} else if (!strcmp(_entry->action, "list")) {
+		mode = VIEW_MODE_LIST;
+	}
+	set_view_mode(mode);
+}
+
 static void handle_clipboard(char * contents) {
 	fprintf(stderr, "Received clipboard:\n%s\n",contents);
 
@@ -1261,6 +1456,10 @@ int main(int argc, char * argv[]) {
 
 	m = menu_create();
 	menu_insert(m, menu_create_normal("refresh",NULL,"Refresh", _menu_action_refresh));
+	menu_insert(m, menu_create_separator());
+	menu_insert(m, menu_create_normal(NULL,"icons","Show Icons", _menu_action_view_mode));
+	menu_insert(m, menu_create_normal(NULL,"tiles","Show Tiles", _menu_action_view_mode));
+	menu_insert(m, menu_create_normal(NULL,"list","Show List", _menu_action_view_mode));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL,NULL,"Show Hidden Files", _menu_action_toggle_hidden));
 	menu_set_insert(menu_bar.set, "view", m);
