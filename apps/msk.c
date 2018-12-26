@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include <toaru/confreader.h>
@@ -23,12 +24,31 @@
 
 #define MSK_VERSION "1.0.0"
 #define VAR_PATH "/var/msk"
+#define LOCK_PATH "/var/run/msk.lock"
 
 static confreader_t * msk_config = NULL;
 static confreader_t * msk_manifest = NULL;
 static hashmap_t *    msk_installed = NULL;
+static int lock_fd = -1;
 
 static int verbose = 0;
+
+static void release_lock(void) {
+	if (lock_fd != -1) {
+		unlink(LOCK_PATH);
+	}
+}
+
+static void needs_lock(void) {
+	if (lock_fd == -1) {
+		lock_fd = open(LOCK_PATH, O_RDWR|O_CREAT|O_EXCL);
+		if (lock_fd < 0) {
+			fprintf(stderr, "msk: failed to obtain exclusive lock\n");
+			exit(1);
+		}
+		atexit(release_lock);
+	}
+}
 
 /**
  * checks whether 'candidate' is newer than 'current'.
@@ -152,6 +172,8 @@ static int update_stores(int argc, char * argv[]) {
 		fprintf(stderr,"%s: %s: unexpected arguments in command\n", argv[0], argv[1]);
 		return usage(argc,argv);
 	}
+
+	needs_lock();
 
 	read_config();
 	make_var();
@@ -377,6 +399,7 @@ static int install_package(char * pkg) {
 
 static int install_packages(int argc, char * argv[]) {
 	needs_root();
+	needs_lock();
 	read_config();
 	read_manifest(1);
 	read_installed();
