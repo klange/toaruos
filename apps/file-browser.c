@@ -709,7 +709,7 @@ static void reinitialize_contents(void) {
 static void _draw_buttons(struct decor_bounds bounds) {
 	uint32_t gradient_top = rgb(59,59,59);
 	uint32_t gradient_bot = rgb(40,40,40);
-	for (int i = 0; i < 37; ++i) {
+	for (int i = 0; i < 36; ++i) {
 		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
 		draw_rectangle(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT + i,
 				BUTTON_SPACE * BUTTON_COUNT, 1, c);
@@ -734,7 +734,7 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 	uint32_t gradient_bot = rgb(40,40,40);
 	int x = BUTTON_SPACE * BUTTON_COUNT;
 
-	for (int i = 0; i < 37; ++i) {
+	for (int i = 0; i < 36; ++i) {
 		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
 		draw_rectangle(ctx, bounds.left_width + BUTTON_SPACE * BUTTON_COUNT, bounds.top_height + MENU_BAR_HEIGHT + i,
 				ctx->width - bounds.width - BUTTON_SPACE * BUTTON_COUNT, 1, c);
