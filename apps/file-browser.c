@@ -595,11 +595,6 @@ static void load_directory(const char * path, int modifies_history) {
 						} else {
 							sprintf(f->filetype, "Shell Script");
 						}
-					} else if (statbuf.st_mode & 0111) {
-						/* Executable files - use their name for their icon, and launch themselves. */
-						sprintf(f->icon, "%s", f->name);
-						sprintf(f->launcher, "SELF");
-						sprintf(f->filetype, "Executable");
 					} else if (has_extension(f, ".ko")) {
 						sprintf(f->icon, "file");
 						sprintf(f->filetype, "Kernel Module");
@@ -615,6 +610,11 @@ static void load_directory(const char * path, int modifies_history) {
 					} else if (has_extension(f, ".ld")) {
 						sprintf(f->icon, "file");
 						sprintf(f->filetype, "Linker Script");
+					} else if (statbuf.st_mode & 0111) {
+						/* Executable files - use their name for their icon, and launch themselves. */
+						sprintf(f->icon, "%s", f->name);
+						sprintf(f->launcher, "SELF");
+						sprintf(f->filetype, "Executable");
 					} else {
 						sprintf(f->icon, "file");
 						sprintf(f->filetype, "File");
