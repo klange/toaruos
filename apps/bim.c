@@ -960,6 +960,8 @@ static int variable_char(uint8_t c) {
 	if (c >= '0' && c <= '9')  return 1;
 	if (c == '_') return 1;
 	if (c == '?') return 1;
+	if (c == '$') return 1;
+	if (c == '#') return 1;
 	return 0;
 }
 
