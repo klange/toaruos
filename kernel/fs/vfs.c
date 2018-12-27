@@ -453,15 +453,22 @@ int mkdir_fs(char *name, uint16_t permission) {
 		return -ENOENT;
 	}
 
-	if (!has_permission(parent, 02)) {
-		free(path);
-		close_fs(parent);
-		return -EACCES;
-	}
-
 	if (!f_path || !strlen(f_path)) {
 		/* Odd edge case with / */
 		return -EEXIST;
+	}
+
+	fs_node_t * this = kopen(path, 0);
+	int _exists = 0;
+	if (this) { /* We need to do this because permission check stuff... */
+		close_fs(this);
+		_exists = 1;
+	}
+
+	if (!has_permission(parent, 02)) {
+		free(path);
+		close_fs(parent);
+		return _exists ? -EEXIST : -EACCES;
 	}
 
 	int ret = 0;
