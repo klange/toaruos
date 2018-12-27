@@ -287,7 +287,7 @@ static fs_node_t * atapi_device_create(struct ata_device * device) {
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;
-	fnode->mask    = 0660;
+	fnode->mask    = 0664;
 	fnode->length  = atapi_max_offset(device);
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_atapi;
