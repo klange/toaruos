@@ -817,7 +817,7 @@ static void _redraw_nav_bar(void) {
 }
 
 static void nav_bar_backspace_word(void) {
-	if (*nav_bar) return;
+	if (!*nav_bar) return;
 	if (nav_bar_cursor == 0) return;
 
 	char * after = strdup(&nav_bar[nav_bar_cursor]);
