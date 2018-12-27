@@ -2618,7 +2618,7 @@ int main(int argc, char * argv[]) {
 							struct yutani_msg_mouse_event me;
 							me.event.x_difference = x;
 							me.event.y_difference = y;
-							me.event.buttons = 0;
+							me.event.buttons = yg->last_mouse_buttons;
 							me.type = YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE;
 							me.wid = wa->wid;
 
