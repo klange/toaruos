@@ -77,7 +77,8 @@ static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
 
 static char nav_bar[512] = {0};
-//static int  nav_bar_cursor = 0;
+static int  nav_bar_cursor = 0;
+static int  nav_bar_cursor_x = 0;
 static int  nav_bar_focused = 0;
 
 static int _button_hilights[4] = {3,3,3,3};
@@ -729,6 +730,36 @@ static void _draw_buttons(struct decor_bounds bounds) {
 	draw_button("home");
 }
 
+static void _figure_out_navbar_cursor(int x, struct decor_bounds bounds) {
+	x = x - bounds.left_width - 2 - BUTTON_SPACE * BUTTON_COUNT - 5;
+	if (x <= 0) {
+		nav_bar_cursor_x = 0;
+		return;
+	}
+
+	char * tmp = strdup(nav_bar);
+	int candidate = 0;
+	while (*tmp && x + 2 < (candidate = draw_sdf_string_width(tmp, 16, SDF_FONT_THIN))) {
+		tmp[strlen(tmp)-1] = '\0';
+	}
+	nav_bar_cursor_x = candidate + 2;
+	nav_bar_cursor = strlen(tmp);
+	free(tmp);
+}
+
+static void _recalculate_nav_bar_cursor(void) {
+	if (nav_bar_cursor < 0) {
+		nav_bar_cursor = 0;
+	}
+	if (nav_bar_cursor > (int)strlen(nav_bar)) {
+		nav_bar_cursor = strlen(nav_bar);
+	}
+	char * tmp = strdup(nav_bar);
+	tmp[nav_bar_cursor] = '\0';
+	nav_bar_cursor_x = draw_sdf_string_width(tmp, 16, SDF_FONT_THIN) + 2;
+	free(tmp);
+}
+
 static void _draw_nav_bar(struct decor_bounds bounds) {
 	uint32_t gradient_top = rgb(59,59,59);
 	uint32_t gradient_bot = rgb(40,40,40);
@@ -750,13 +781,11 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 2, bounds.top_height + MENU_BAR_HEIGHT + 5, main_window->width - bounds.width - x - 8, 24, 3, rgb(250,250,250));
 	}
 
+	/* Draw the nav bar text */
 	int max_width = main_window->width - bounds.width - x - 12;
 	int len = strlen(nav_bar);
 	char * name = malloc(len + 5);
 	memcpy(name, nav_bar, len + 1);
-	if (nav_bar_focused) {
-		strcat(name,"|");
-	}
 	int name_width;
 	while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > max_width) {
 		len--;
@@ -767,6 +796,16 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 	}
 
 	draw_sdf_string(ctx, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+
+	if (nav_bar_focused) {
+		/* Draw cursor indicator at cursor_x */
+		draw_line(ctx,
+				bounds.left_width + 2 + x + 5 + nav_bar_cursor_x,
+				bounds.left_width + 2 + x + 5 + nav_bar_cursor_x,
+				bounds.top_height + MENU_BAR_HEIGHT + 8,
+				bounds.top_height + MENU_BAR_HEIGHT + 8 + 15,
+				rgb(0,0,0));
+	}
 }
 
 static void _redraw_nav_bar(void) {
@@ -775,6 +814,68 @@ static void _redraw_nav_bar(void) {
 	_draw_nav_bar(bounds);
 	flip(ctx);
 	yutani_flip(yctx, main_window);
+}
+
+static void nav_bar_backspace_word(void) {
+	if (*nav_bar) return;
+	if (nav_bar_cursor == 0) return;
+
+	char * after = strdup(&nav_bar[nav_bar_cursor]);
+
+	if (nav_bar[nav_bar_cursor-1] == '/') {
+		nav_bar[nav_bar_cursor-1] = '\0';
+		nav_bar_cursor--;
+	}
+	while (nav_bar_cursor && nav_bar[nav_bar_cursor-1] != '/') {
+		nav_bar[nav_bar_cursor-1] = '\0';
+		nav_bar_cursor--;
+	}
+
+	strcat(nav_bar, after);
+	free(after);
+
+	_recalculate_nav_bar_cursor();
+	_redraw_nav_bar();
+}
+
+static void nav_bar_backspace(void) {
+	if (nav_bar_cursor == 0) return;
+
+	char * after = strdup(&nav_bar[nav_bar_cursor]);
+
+	nav_bar[nav_bar_cursor-1] = '\0';
+	nav_bar_cursor--;
+
+	strcat(nav_bar, after);
+	free(after);
+
+	_recalculate_nav_bar_cursor();
+	_redraw_nav_bar();
+}
+
+static void nav_bar_insert_char(char c) {
+	char * tmp = strdup(nav_bar);
+	tmp[nav_bar_cursor] = '\0';
+	char * after = strdup(&nav_bar[nav_bar_cursor]);
+	sprintf(nav_bar, "%s%c%s", tmp, c, after);
+	free(tmp);
+	free(after);
+
+	nav_bar_cursor += 1;
+	_recalculate_nav_bar_cursor();
+	_redraw_nav_bar();
+}
+
+static void nav_bar_cursor_left(void) {
+	nav_bar_cursor--;
+	_recalculate_nav_bar_cursor();
+	_redraw_nav_bar();
+}
+
+static void nav_bar_cursor_right(void) {
+	nav_bar_cursor++;
+	_recalculate_nav_bar_cursor();
+	_redraw_nav_bar();
 }
 
 /**
@@ -1549,21 +1650,10 @@ int main(int argc, char * argv[]) {
 										redraw_window();
 										break;
 									case KEY_BACKSPACE:
-										if (strlen(nav_bar)) {
-											nav_bar[strlen(nav_bar)-1] = '\0';
-											_redraw_nav_bar();
-										}
+										nav_bar_backspace();
 										break;
 									case KEY_CTRL_W:
-										if (strlen(nav_bar)) {
-											if (nav_bar[strlen(nav_bar)-1] == '/') {
-												nav_bar[strlen(nav_bar)-1] = '\0';
-											}
-											while (nav_bar[strlen(nav_bar)-1] != '/' && strlen(nav_bar)) {
-												nav_bar[strlen(nav_bar)-1] = '\0';
-											}
-											_redraw_nav_bar();
-										}
+										nav_bar_backspace_word();
 										break;
 									case '\n':
 										nav_bar_focused = 0;
@@ -1574,9 +1664,16 @@ int main(int argc, char * argv[]) {
 										break;
 									default:
 										if (isgraph(ke->event.key)) {
-											char tmp[2] = {ke->event.key, 0};
-											strcat(nav_bar, tmp);
-											_redraw_nav_bar();
+											nav_bar_insert_char(ke->event.key);
+										} else {
+											switch (ke->event.keycode) {
+												case KEY_ARROW_LEFT:
+													nav_bar_cursor_left();
+													break;
+												case KEY_ARROW_RIGHT:
+													nav_bar_cursor_right();
+													break;
+											}
 										}
 										break;
 								}
@@ -1750,10 +1847,9 @@ int main(int argc, char * argv[]) {
 									} else {
 										_set_hilight(-1,0);
 										if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
-											if (!nav_bar_focused) {
-												nav_bar_focused = 1;
-												redraw = 1;
-											}
+											nav_bar_focused = 1;
+											_figure_out_navbar_cursor(me->new_x, bounds);
+											redraw = 1;
 										}
 									}
 								}
