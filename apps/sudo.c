@@ -118,7 +118,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		}
 
 		/* Write a timestamp file */
-		FILE * f = fopen(token_file, "a");
+		FILE * f = fopen(token_file, "w");
 		if (!f) {
 			fprintf(stderr, "%s: (warning) failed to create token file\n", argv[0]);
 		}
