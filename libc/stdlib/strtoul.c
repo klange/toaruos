@@ -21,10 +21,10 @@ static int convert_digit(char c) {
 		return c - '0';
 	}
 	if (c >= 'a' && c <= 'z') {
-		return c - 'a';
+		return c - 'a' + 0xa;
 	}
 	if (c >= 'A' && c <= 'Z') {
-		return c - 'A';
+		return c - 'A' + 0xa;
 	}
 	return 0;
 }
