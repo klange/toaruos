@@ -165,8 +165,8 @@ int kmain() {
 			"network interface drivers.");
 
 	BOOT_OPTION(_migrate,     1, "Writable root",
-			"Migrates the ramdisk from ext2 to an in-memory",
-			"temporary filesystem at boot.");
+			"Migrates the ramdisk from tarball to an in-memory",
+			"temporary filesystem at boot. Needed for packages.");
 
 	BOOT_OPTION(_serialshell, 0, "Debug on serial",
 			"Start a kernel debug shell on the first",
