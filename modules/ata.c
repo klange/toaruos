@@ -120,8 +120,9 @@ static uint32_t read_ata(fs_node_t *node, uint64_t offset, uint32_t size, uint8_
 		size = i;
 	}
 
-	if (offset % ATA_SECTOR_SIZE) {
+	if (offset % ATA_SECTOR_SIZE || size < ATA_SECTOR_SIZE) {
 		unsigned int prefix_size = (ATA_SECTOR_SIZE - (offset % ATA_SECTOR_SIZE));
+		if (prefix_size > size) prefix_size = size;
 		char * tmp = malloc(ATA_SECTOR_SIZE);
 		ata_device_read_sector(dev, start_block, (uint8_t *)tmp);
 
@@ -591,10 +592,10 @@ static int ata_device_detect(struct ata_device * dev) {
 		sprintf((char *)&devname, "/dev/hd%c", ata_drive_char);
 		fs_node_t * node = ata_device_create(dev);
 		vfs_mount(devname, node);
-		ata_drive_char++;
-
 		ata_device_init(dev);
+		node->length  = ata_max_offset(dev);
 
+		ata_drive_char++;
 		return 1;
 	} else if ((cl == 0x14 && ch == 0xEB) ||
 	           (cl == 0x69 && ch == 0x96)) {
