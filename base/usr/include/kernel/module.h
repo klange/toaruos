@@ -17,6 +17,7 @@ typedef struct {
     uintptr_t end;
     size_t deps_length;
     char * deps;
+    uintptr_t text_addr;
 } module_data_t;
 
 void (* symbol_find(const char * name))(void);

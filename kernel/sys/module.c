@@ -153,8 +153,11 @@ void * module_load_direct(void * blob, size_t length) {
 		goto mod_load_error_unload;
 	}
 
+	uintptr_t text_addr = 0;
+
 	{
 		debug_print(INFO, "Loading sections.");
+		int index = 0;
 		for (unsigned int x = 0; x < (unsigned int)target->e_shentsize * target->e_shnum; x += target->e_shentsize) {
 			Elf32_Shdr * shdr = (Elf32_Shdr *)((uintptr_t)target + (target->e_shoff + x));
 			if (shdr->sh_type == SHT_NOBITS) {
@@ -162,7 +165,11 @@ void * module_load_direct(void * blob, size_t length) {
 				memset((void *)shdr->sh_addr, 0x00, shdr->sh_size);
 			} else {
 				shdr->sh_addr = (Elf32_Addr)target + shdr->sh_offset;
+				if (index == 1) {
+					text_addr = shdr->sh_addr;
+				}
 			}
+			index++;
 		}
 	}
 
@@ -347,6 +354,7 @@ void * module_load_direct(void * blob, size_t length) {
 	mod_data->end      = (uintptr_t)target + length;
 	mod_data->deps     = deps;
 	mod_data->deps_length = deps_length;
+	mod_data->text_addr = text_addr;
 
 	hashmap_set(modules, mod_info->name, (void *)mod_data);
 
@@ -357,6 +365,12 @@ mod_load_error_unload:
 
 mod_load_error:
 	return NULL;
+}
+
+uintptr_t module_get_text_addr(char * name) {
+	module_data_t * mod_data = hashmap_get(modules, name);
+	if (!mod_data) return -1;
+	return mod_data->text_addr;
 }
 
 /**
