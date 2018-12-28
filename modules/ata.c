@@ -173,8 +173,9 @@ static uint32_t read_atapi(fs_node_t *node, uint64_t offset, uint32_t size, uint
 		size = i;
 	}
 
-	if (offset % dev->atapi_sector_size) {
+	if (offset % dev->atapi_sector_size || size < dev->atapi_sector_size) {
 		unsigned int prefix_size = (dev->atapi_sector_size - (offset % dev->atapi_sector_size));
+		if (prefix_size > size) prefix_size = size;
 		char * tmp = malloc(dev->atapi_sector_size);
 		ata_device_read_sector_atapi(dev, start_block, (uint8_t *)tmp);
 
