@@ -401,9 +401,9 @@ static void start_of_scan(FILE * f, int len) {
 	int old_lum = 0;
 	int old_crd = 0;
 	int old_cbd = 0;
-	for (int y = 0; y < sprite->height / 8 + !!(sprite->height & 0xf); ++y) {
+	for (int y = 0; y < sprite->height / 8 + !!(sprite->height & 0x7); ++y) {
 		TRACE("Star row %d", y );
-		for (int x = 0; x < sprite->width / 8 + !!(sprite->width & 0xf); ++x) {
+		for (int x = 0; x < sprite->width / 8 + !!(sprite->width & 0x7); ++x) {
 			if (y >= 134) {
 				TRACE("Start col %d", x);
 			}
