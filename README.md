@@ -141,7 +141,7 @@ Keep the system chipset set to PIIX3 for best compatibility. 1GB of RAM is recom
 
 ### VMWare
 
-Support for VMWare is experimental, though it has improved significantly in recent months. Optional support is provided for VMware's automatic guest display sizing, which is enabled by default and can be disabled from the bootloader menu.
+Support for VMWare is experimental, though it has improved significantly over the last year. Optional support is provided for VMware's automatic guest display sizing which can be enabled from the bootloader menu (note that the guest resize capability in VMware may be unstable - if your VM boots to an unresponsive black screen, try resetting or disabling the guest display resizing).
 
 - Create a virtual machine for a 64-bit guest. (ToaruOS is 32-bit, but this configuration selects some hardware defaults that are desirable)
 - Ensure the VM has 1GB of RAM.
@@ -177,11 +177,27 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### Is ToaruOS self-hosting?
 
-While the complete ISO build process requires some tools that have not been ported, ToaruOS is capable of building its own core userspace and kernel given an installation of GCC and Binutils, which we believe is sufficient to be considered "self-hosting". The other tools required for the ISO build are in the process of being replaced with native tools. There are also plans to build our own C compiler, as GCC itself requires a plethora of tools to compile.
+With a capable compiler toolchain, ToaruOS is able to build its own kernel, userspace, libraries, and bootloader, and turn these into a working ISO CD image.
+
+To build ToaruOS from within ToaruOS, follow these steps:
+
+    # Install the necessary tools (gcc, python)
+    sudo msk update; sudo msk install src-tools
+    # Update PATH
+    source ~/.eshrc; rehash
+    cd /src
+    # Build the ISO (root is needed as this process copies some protected files from /etc)
+    sudo build-the-world.py
+
+The resulting image can be booted in Bochs, or sent to the host for use in another VM.
+
+ToaruOS is not currently capable of building most of its ports, due to a lack of a proper Posix shell and Make implementation. These are eventual goals of the project.
 
 ### Is ToaruOS a Linux distribution?
 
-As stated several times in this document, ToaruOS's kernel is written entirely from scratch. In addition to legal restrictions related to Linux's and ToaruOS's licensing terms, the very goal of the project prevents us from taking code from Linux in any way. Beyond that, the entire core userspace, all drivers, and the bootloader are also built from scratch. ToaruOS is its own project in all ways beyond the look and feel of its APIs and tools, which are based on Unix.
+ToaruOS is a completely independent project, and all code in this repository - which is the entire codebase of the operating system, including its kernel, bootloaders, libraries, and applications - is original, written by the ToaruOS developers over the course of eight years. The complete source history, going back to when ToaruOS was nothing more than a baremetal "hello world" can be tracked through this git repository.
+
+ToaruOS has taken inspiration from Linux in its choice of binary formats, filesystems, and its approach to kernel modules, but is not derived in any way from Linux code. ToaruOS's userspace is also influenced by the GNU utilities, but does not incorporate any GNU code.
 
 ### Are there plans for a 64-bit port / SMP support?
 
