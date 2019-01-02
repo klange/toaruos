@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+ * Copyright (C) 2018-2019 K. Lange
  *
  * about - Show an "About <Application>" dialog.
  *
@@ -89,7 +89,7 @@ static void init_default(void) {
 		sprintf(version_str, "ToaruOS %s", u.release);
 	}
 
-	copyright_str[0] = "(C) 2011-2018 K. Lange, et al.";
+	copyright_str[0] = "(C) 2011-2019 K. Lange, et al.";
 	copyright_str[1] = "-";
 	copyright_str[2] = "ToaruOS is free software released under the";
 	copyright_str[3] = "NCSA/University of Illinois license.";
