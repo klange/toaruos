@@ -47,6 +47,7 @@ extern char **environ;
 #define PIPE_TOKEN "\xFF\xFFPIPE\xFF\xFF"
 #define STAR_TOKEN "\xFF\xFFSTAR\xFF\xFF"
 #define WRITE_TOKEN "\xFF\xFFWRITE\xFF\xFF"
+#define WRITE_ERR_TOKEN "\xFF\xFFWRITEERR\xFF\xFF"
 #define APPEND_TOKEN "\xFF\xFF""APPEND\xFF"
 
 /* A shell command is like a C program */
@@ -1100,6 +1101,12 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 				case '>':
 					if (!quoted && !backtick) {
 						if (collected || force_collected) {
+							if (!strcmp(buffer_,"2")) {
+								/* Special case */
+								force_collected = 0;
+								collected = sprintf(buffer_,"%s", WRITE_ERR_TOKEN);
+								goto _new_arg;
+							}
 							add_argument(args, buffer_);
 						}
 						force_collected = 0;
@@ -1175,13 +1182,32 @@ _done:
 	char * output_files[100] = { NULL };
 	int file_args[100] = {0};
 	int argcs[100] = {0};
+	char * err_files[100] = { NULL };
+	int err_args[100] = {0};
 	int next_is_file = 0;
+	int next_is_err = 0;
 
 	list_t * extra_env = list_create();
 
 	int i = 0;
 	foreach(node, args) {
 		char * c = node->value;
+
+		if (next_is_err) {
+			if (next_is_err == 1 && !strcmp(c, WRITE_TOKEN)) {
+				next_is_err = 2;
+				err_args[cmdi] = O_WRONLY | O_CREAT | O_APPEND;
+				continue;
+			}
+			err_files[cmdi] = c;
+			continue;
+		}
+
+		if (!strcmp(c, WRITE_ERR_TOKEN)) {
+			next_is_err = 1;
+			err_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC;
+			continue;
+		}
 
 		if (next_is_file) {
 			if (next_is_file == 1 && !strcmp(c, WRITE_TOKEN)) {
@@ -1198,6 +1224,7 @@ _done:
 			file_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC;
 			continue;
 		}
+
 
 		if (!strcmp(c, PIPE_TOKEN)) {
 			if (arg_starts[cmdi] == &argv[i]) {
@@ -1397,6 +1424,15 @@ _nope:
 					dup2(fd, STDOUT_FILENO);
 				}
 			}
+			if (err_files[cmdi]) {
+				int fd = open(err_files[cmdi], err_args[cmdi], 0666);
+				if (fd < 0) {
+					fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
+					return -1;
+				} else {
+					dup2(fd, STDERR_FILENO);
+				}
+			}
 			dup2(last_output[0], STDIN_FILENO);
 			close(last_output[1]);
 			add_environment(extra_env);
@@ -1425,6 +1461,15 @@ _nope:
 						return -1;
 					} else {
 						dup2(fd, STDOUT_FILENO);
+					}
+				}
+				if (err_files[cmdi]) {
+					int fd = open(err_files[cmdi], err_args[cmdi], 0666);
+					if (fd < 0) {
+						fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
+						return -1;
+					} else {
+						dup2(fd, STDERR_FILENO);
 					}
 				}
 				add_environment(extra_env);
