@@ -1445,7 +1445,32 @@ _nope:
 	} else {
 		shell_command_t func = shell_find(*arg_starts[0]);
 		if (func) {
-			return func(argcs[0], arg_starts[0]);
+			int old_out = -1;
+			int old_err = -1;
+			if (output_files[0]) {
+				old_out = dup(STDOUT_FILENO);
+				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
+				if (fd < 0) {
+					fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
+					return -1;
+				} else {
+					dup2(fd, STDOUT_FILENO);
+				}
+			}
+			if (err_files[0]) {
+				old_err = dup(STDERR_FILENO);
+				int fd = open(err_files[cmdi], err_args[cmdi], 0666);
+				if (fd < 0) {
+					fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
+					return -1;
+				} else {
+					dup2(fd, STDERR_FILENO);
+				}
+			}
+			int result = func(argcs[0], arg_starts[0]);
+			if (old_out != -1) dup2(old_out, STDOUT_FILENO);
+			if (old_err != -1) dup2(old_err, STDERR_FILENO);
+			return result;
 		} else {
 			struct semaphore s = create_semaphore();
 			child_pid = fork();
