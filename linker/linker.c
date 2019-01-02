@@ -565,6 +565,7 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 
 	if (!lib) {
 		last_error = "could not open library (not found, or other failure)";
+		TRACE_LD("could not open library");
 		return NULL;
 	}
 
@@ -598,6 +599,7 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 			free((void *)load_addr);
 			last_error = "Failed to load a dependency.";
 			lib->loaded = 0;
+			TRACE_LD("Failed to load object: %s", item->value);
 			return NULL;
 		}
 
@@ -659,6 +661,7 @@ static void * dlopen_ld(const char * filename, int flags) {
 	void * ret = do_actual_load(filename, lib, flags);
 	if (!ret) {
 		/* Dependency load failure, remove us from hash */
+		TRACE_LD("Dependency load failure");
 		hashmap_remove(objects_map, (void*)filename);
 	}
 
