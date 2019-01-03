@@ -855,8 +855,20 @@ static void _draw_status(struct decor_bounds bounds) {
 				ctx->width - bounds.width, 1, c );
 	}
 
-	draw_sdf_string(ctx, bounds.left_width + 4, ctx->height - bounds.bottom_height - STATUS_HEIGHT + 3,
-			window_status, 16, rgb(255,255,255), SDF_FONT_THIN);
+	{
+		sprite_t * _tmp_s = create_sprite(ctx->width - bounds.width - 4, STATUS_HEIGHT-3, ALPHA_EMBEDDED);
+		gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
+
+		draw_fill(_tmp, rgba(0,0,0,0));
+		draw_sdf_string(_tmp, 1, 1, window_status, 16, rgb(0,0,0), SDF_FONT_THIN);
+		blur_context_box(_tmp, 4);
+
+		draw_sdf_string(_tmp, 0, 0, window_status, 16, rgb(255,255,255), SDF_FONT_THIN);
+
+		free(_tmp);
+		draw_sprite(ctx, _tmp_s, bounds.left_width + 4, ctx->height - bounds.bottom_height - STATUS_HEIGHT + 3);
+		sprite_free(_tmp_s);
+	}
 }
 
 static void _redraw_nav_bar(void) {
