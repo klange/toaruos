@@ -855,7 +855,7 @@ static void _draw_status(struct decor_bounds bounds) {
 				ctx->width - bounds.width, 1, c );
 	}
 
-	draw_sdf_string(ctx, bounds.left_width + 4, ctx->height - bounds.bottom_height - STATUS_HEIGHT + 2,
+	draw_sdf_string(ctx, bounds.left_width + 4, ctx->height - bounds.bottom_height - STATUS_HEIGHT + 3,
 			window_status, 16, rgb(255,255,255), SDF_FONT_THIN);
 }
 
