@@ -17,6 +17,7 @@
 #include <libgen.h>
 #include <signal.h>
 #include <ctype.h>
+#include <errno.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -441,23 +442,25 @@ static void update_status(void) {
 static void load_directory(const char * path, int modifies_history) {
 
 	/* Free the current icon view entries */
+	DIR * dirp = opendir(path);
+
+	if (!dirp) {
+		/* XXX show a dialog */
+		if (!fork()) {
+			char tmp[512];
+			sprintf(tmp, "Could not open directory \"%s\": %s", path, strerror(errno));
+			char * args[] = {"showdialog","File Browser","/usr/share/icons/48/folder.bmp",tmp,NULL};
+			execvp(args[0],args);
+			exit(0);
+		}
+		return;
+	}
+
 	if (file_pointers) {
 		for (int i = 0; i < file_pointers_len; ++i) {
 			free(file_pointers[i]);
 		}
 		free(file_pointers);
-	}
-
-	DIR * dirp = opendir(path);
-
-	if (!dirp) {
-		/**
-		 * TODO: This should probably show a dialog and then reload the current directory,
-		 *       or maybe we should be checking this before clearing the current file pointers.
-		 */
-		file_pointers = NULL;
-		file_pointers_len = 0;
-		return;
 	}
 
 	if (modifies_history) {
