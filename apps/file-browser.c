@@ -845,10 +845,18 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 
 #define STATUS_HEIGHT 24
 static void _draw_status(struct decor_bounds bounds) {
+	uint32_t gradient_top = rgb(80,80,80);
+	uint32_t gradient_bot = rgb(59,59,59);
 	draw_rectangle(ctx, bounds.left_width, ctx->height - bounds.bottom_height - STATUS_HEIGHT,
-			ctx->width - bounds.width, STATUS_HEIGHT, rgb(239,238,232));
+			ctx->width - bounds.width, 1, rgb(110,110,110) );
+	for (int i = 1; i < STATUS_HEIGHT; ++i) {
+		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / STATUS_HEIGHT);
+		draw_rectangle(ctx, bounds.left_width, ctx->height - bounds.bottom_height - STATUS_HEIGHT + i,
+				ctx->width - bounds.width, 1, c );
+	}
+
 	draw_sdf_string(ctx, bounds.left_width + 4, ctx->height - bounds.bottom_height - STATUS_HEIGHT + 2,
-			window_status, 16, rgb(0,0,0), SDF_FONT_THIN);
+			window_status, 16, rgb(255,255,255), SDF_FONT_THIN);
 }
 
 static void _redraw_nav_bar(void) {
@@ -1077,6 +1085,7 @@ static void resize_finish(int w, int h) {
 
 	/* Recalculate available size */
 	available_height = ctx->height - menu_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
+	fprintf(stderr, "available_height = %d; bounds.bottom_height = %d, (isd...) = %d\n", available_height, bounds.bottom_height, (is_desktop_background ? 0 : STATUS_HEIGHT));
 
 	/* If the width changed, we need to rebuild the icon view */
 	if (width_changed) {
@@ -1631,6 +1640,7 @@ int main(int argc, char * argv[]) {
 	menu_set_insert(menu_bar.set, "help", m);
 
 	available_height = ctx->height - menu_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
+	fprintf(stderr, "available_height = %d\n", available_height);
 
 	context_menu = menu_create(); /* Right-click menu */
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Open",_menu_action_open));
