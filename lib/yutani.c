@@ -1092,6 +1092,13 @@ void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window) {
 	out->stride = window->width * 4;
 	out->depth  = 32;
 	out->size   = GFX_H(out) * GFX_W(out) * GFX_B(out);
+
+	if (out->clips && out->clips_size != out->height) {
+		free(out->clips);
+		out->clips = NULL;
+		out->clips_size = 0;
+	}
+
 	if (out->buffer == out->backbuffer) {
 		out->buffer = window->buffer;
 		out->backbuffer = out->buffer;
