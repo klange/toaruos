@@ -603,6 +603,10 @@ static void load_directory(const char * path, int modifies_history) {
 						sprintf(f->icon, "image");
 						sprintf(f->launcher, "exec imgviewer");
 						sprintf(f->filetype, "Bitmap Image");
+					} else if (has_extension(f, ".tga")) {
+						sprintf(f->icon, "image");
+						sprintf(f->launcher, "exec imgviewer");
+						sprintf(f->filetype, "Targa Image");
 					} else if (has_extension(f, ".jpg") || has_extension(f,".jpeg")) {
 						sprintf(f->icon, "image");
 						sprintf(f->launcher, "exec imgviewer");

@@ -405,48 +405,111 @@ void load_sprite(sprite_t * sprite, char * filename) {
 	/* Alright, we have the length */
 	char * bufferb = malloc(image_size);
 	fread(bufferb, image_size, 1, image);
-	uint16_t x = 0; /* -> 212 */
-	uint16_t y = 0; /* -> 68 */
-	/* Get the width / height of the image */
-	signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
-	uint32_t width  = bufferi[4];
-	uint32_t height = bufferi[5];
-	uint16_t bpp    = bufferi[6] / 0x10000;
-	uint32_t row_width = (bpp * width + 31) / 32 * 4;
-	/* Skip right to the important part */
-	size_t i = bufferi[2];
 
-	sprite->width = width;
-	sprite->height = height;
-	sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
-	sprite->masks = NULL;
+	if (bufferb[0] == 'B' && bufferb[1] == 'M') {
+		/* Bitmaps */
+		uint16_t x = 0; /* -> 212 */
+		uint16_t y = 0; /* -> 68 */
+		/* Get the width / height of the image */
+		signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
+		uint32_t width  = bufferi[4];
+		uint32_t height = bufferi[5];
+		uint16_t bpp    = bufferi[6] / 0x10000;
+		uint32_t row_width = (bpp * width + 31) / 32 * 4;
+		/* Skip right to the important part */
+		size_t i = bufferi[2];
 
-	for (y = 0; y < height; ++y) {
-		for (x = 0; x < width; ++x) {
-			if (i > image_size) goto _cleanup_sprite;
-			/* Extract the color */
-			uint32_t color;
-			if (bpp == 24) {
-				color =	(bufferb[i   + 3 * x] & 0xFF) +
-						(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
-						(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000 + 0xFF000000;
-			} else if (bpp == 32) {
-				if (bufferb[i + 4 * x] == 0) {
-					color = 0x000000;
+		sprite->width = width;
+		sprite->height = height;
+		sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
+		sprite->masks = NULL;
+
+		for (y = 0; y < height; ++y) {
+			for (x = 0; x < width; ++x) {
+				if (i > image_size) goto _cleanup_sprite;
+				/* Extract the color */
+				uint32_t color;
+				if (bpp == 24) {
+					color =	(bufferb[i   + 3 * x] & 0xFF) +
+							(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
+							(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000 + 0xFF000000;
+				} else if (bpp == 32) {
+					if (bufferb[i + 4 * x] == 0) {
+						color = 0x000000;
+					} else {
+						color =	(bufferb[i   + 4 * x] & 0xFF) * 0x1000000 +
+								(bufferb[i+1 + 4 * x] & 0xFF) * 0x1 +
+								(bufferb[i+2 + 4 * x] & 0xFF) * 0x100 +
+								(bufferb[i+3 + 4 * x] & 0xFF) * 0x10000;
+						color = premultiply(color);
+					}
 				} else {
-					color =	(bufferb[i   + 4 * x] & 0xFF) * 0x1000000 +
-							(bufferb[i+1 + 4 * x] & 0xFF) * 0x1 +
-							(bufferb[i+2 + 4 * x] & 0xFF) * 0x100 +
-							(bufferb[i+3 + 4 * x] & 0xFF) * 0x10000;
-					color = premultiply(color);
+					color = rgb(bufferb[i + x],bufferb[i + x],bufferb[i + x]); /* Unsupported */
 				}
-			} else {
-				color = rgb(bufferb[i + x],bufferb[i + x],bufferb[i + x]); /* Unsupported */
+				/* Set our point */
+				sprite->bitmap[(height - y - 1) * width + x] = color;
 			}
-			/* Set our point */
-			sprite->bitmap[(height - y - 1) * width + x] = color;
+			i += row_width;
 		}
-		i += row_width;
+	} else {
+		/* Assume targa; limited support */
+		struct Header {
+			uint8_t id_length;
+			uint8_t color_map_type;
+			uint8_t image_type;
+
+			uint16_t color_map_first_entry;
+			uint16_t color_map_length;
+			uint8_t color_map_entry_size;
+
+			uint16_t x_origin;
+			uint16_t y_origin;
+			uint16_t width;
+			uint16_t height;
+			uint8_t  depth;
+			uint8_t  descriptor;
+		} __attribute__((packed));
+		struct Header * header = (struct Header *)bufferb;
+
+		if (header->id_length || header->color_map_type || (header->image_type != 2)) {
+			/* Unable to parse */
+			goto _cleanup_sprite;
+		}
+
+		sprite->width = header->width;
+		sprite->height = header->height;
+		sprite->bitmap = malloc(sizeof(uint32_t) * sprite->width * sprite->height);
+		sprite->masks = NULL;
+
+		uint16_t x = 0;
+		uint16_t y = 0;
+
+		int i = sizeof(struct Header);
+		if (header->depth == 24) {
+			for (y = 0; y < sprite->height; ++y) {
+				for (x = 0; x < sprite->width; ++x) {
+					uint32_t color = rgb(
+								bufferb[i+2 + 3 * x],
+								bufferb[i+1 + 3 * x],
+								bufferb[i   + 3 * x]);
+					sprite->bitmap[(sprite->height - y - 1) * sprite->width + x] = color;
+				}
+				i += sprite->width * 3;
+			}
+		} else if (header->depth == 32) {
+			for (y = 0; y < sprite->height; ++y) {
+				for (x = 0; x < sprite->width; ++x) {
+					uint32_t color = rgba(
+								bufferb[i+2 + 4 * x],
+								bufferb[i+1 + 4 * x],
+								bufferb[i   + 4 * x],
+								bufferb[i+3 + 4 * x]);
+					sprite->bitmap[(sprite->height - y - 1) * sprite->width + x] = color;
+				}
+				i += sprite->width * 4;
+			}
+		}
+
 	}
 
 _cleanup_sprite:
