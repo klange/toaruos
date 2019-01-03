@@ -81,6 +81,8 @@ static int  nav_bar_cursor = 0;
 static int  nav_bar_cursor_x = 0;
 static int  nav_bar_focused = 0;
 
+static char window_status[512] = {0};
+
 static int _button_hilights[4] = {3,3,3,3};
 static int _button_disabled[4] = {1,1,0,0};
 static int _button_hover = -1;
@@ -168,8 +170,11 @@ static void clear_offset(int offset) {
 	draw_rectangle_solid(contents, offset_x * FILE_WIDTH, offset_y * FILE_HEIGHT, FILE_WIDTH, FILE_HEIGHT, rgba(0,0,0,0));
 }
 
-static int print_human_readable_size(char * _out, size_t s) {
-	if (s >= 1<<20) {
+static int print_human_readable_size(char * _out, uint64_t s) {
+	if (s >= 1LL << 30) {
+		size_t t = s / (1LL << 30);
+		return sprintf(_out, "%d.%1d GiB", (int)t, (int)((int)(s - t * (1LL << 30)) / ((1LL << 30) / 10)));
+	} else if (s >= 1<<20) {
 		size_t t = s / (1 << 20);
 		return sprintf(_out, "%d.%1d MiB", (int)t, (int)(s - t * (1 << 20)) / ((1 << 20) / 10));
 	} else if (s >= 1<<10) {
@@ -401,6 +406,34 @@ static int has_extension(struct File * f, char * extension) {
 
 static list_t * history_back;
 static list_t * history_forward;
+
+static void update_status(void) {
+	uint64_t total_size = 0;
+	uint64_t selected_size = 0;
+	int selected_count = 0;
+	struct File * selected = NULL;
+
+	for (int i = 0; i < file_pointers_len; ++i) {
+		total_size += file_pointers[i]->size;
+		if (file_pointers[i]->selected) {
+			selected_count += 1;
+			selected_size += file_pointers[i]->size;
+			selected = file_pointers[i];
+		}
+	}
+
+	char tmp_size[50];
+	if (selected_count == 0) {
+		print_human_readable_size(tmp_size, total_size);
+		sprintf(window_status, "%d item%s (%s)", file_pointers_len, file_pointers_len == 1 ? "" : "s", tmp_size);
+	} else if (selected_count == 1) {
+		print_human_readable_size(tmp_size, selected->size);
+		sprintf(window_status, "\"%s\" (%s) %s", selected->name, tmp_size, selected->filetype);
+	} else {
+		print_human_readable_size(tmp_size, selected_size);
+		sprintf(window_status, "%d items selected (%s)", selected_count, tmp_size);
+	}
+}
 
 /**
  * Read the contents of a directory into the icon view.
@@ -639,6 +672,8 @@ static void load_directory(const char * path, int modifies_history) {
 		i++;
 	}
 
+	update_status();
+
 	/* Free our temporary linked list */
 	list_free(file_list);
 	free(file_list);
@@ -808,6 +843,14 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 	}
 }
 
+#define STATUS_HEIGHT 24
+static void _draw_status(struct decor_bounds bounds) {
+	draw_rectangle(ctx, bounds.left_width, ctx->height - bounds.bottom_height - STATUS_HEIGHT,
+			ctx->width - bounds.width, STATUS_HEIGHT, rgb(239,238,232));
+	draw_sdf_string(ctx, bounds.left_width + 4, ctx->height - bounds.bottom_height - STATUS_HEIGHT + 2,
+			window_status, 16, rgb(0,0,0), SDF_FONT_THIN);
+}
+
 static void _redraw_nav_bar(void) {
 	struct decor_bounds bounds;
 	_decor_get_bounds(main_window, &bounds);
@@ -919,6 +962,7 @@ static void redraw_window(void) {
 		_draw_buttons(bounds);
 		_draw_nav_bar(bounds);
 
+		_draw_status(bounds);
 	}
 
 	/* Draw the icon view, clipped to the viewport and scrolled appropriately. */
@@ -1032,7 +1076,7 @@ static void resize_finish(int w, int h) {
 	_decor_get_bounds(main_window, &bounds);
 
 	/* Recalculate available size */
-	available_height = ctx->height - menu_bar_height - bounds.height;
+	available_height = ctx->height - menu_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
 
 	/* If the width changed, we need to rebuild the icon view */
 	if (width_changed) {
@@ -1245,6 +1289,7 @@ static void _menu_action_select_all(struct MenuEntry * self) {
 		file_pointers[i]->selected = 1;
 	}
 	reinitialize_contents();
+	update_status();
 	redraw_window();
 }
 
@@ -1349,6 +1394,8 @@ static void toggle_selected(int hilighted_offset, int modifiers) {
 			}
 		}
 	}
+
+	update_status();
 
 	/* Redraw the file */
 	clear_offset(hilighted_offset);
@@ -1499,6 +1546,7 @@ static void arrow_select(int x, int y) {
 	}
 
 	file_pointers[selected]->selected = 1;
+	update_status();
 	reinitialize_contents();
 	redraw_window();
 }
@@ -1582,7 +1630,7 @@ int main(int argc, char * argv[]) {
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
 
-	available_height = ctx->height - menu_bar_height - bounds.height;
+	available_height = ctx->height - menu_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
 
 	context_menu = menu_create(); /* Right-click menu */
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Open",_menu_action_open));
@@ -1867,7 +1915,9 @@ int main(int argc, char * argv[]) {
 								}
 							}
 
-							if (me->new_y > (int)(bounds.top_height + menu_bar_height) &&
+							if (!is_desktop_background && me->new_y > (int)(main_window->height - bounds.bottom_height - STATUS_HEIGHT)) {
+
+							} else if (me->new_y > (int)(bounds.top_height + menu_bar_height) &&
 								me->new_y < (int)(main_window->height - bounds.bottom_height) &&
 								me->new_x > (int)(bounds.left_width) &&
 								me->new_x < (int)(main_window->width - bounds.right_width) &&
@@ -1923,6 +1973,7 @@ int main(int argc, char * argv[]) {
 											for (int i = 0; i < file_pointers_len; ++i) {
 												if (file_pointers[i]->selected) {
 													file_pointers[i]->selected = 0;
+													update_status();
 													clear_offset(i);
 													draw_file(file_pointers[i], i);
 												}
