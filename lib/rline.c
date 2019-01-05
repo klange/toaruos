@@ -149,6 +149,7 @@ try_rev_search_again:
 			case KEY_NONE:
 				break;
 			case KEY_BACKSPACE:
+			case 0x7F: /* delete */
 				if (collected > 0) {
 					collected--;
 					input[collected] = '\0';
@@ -417,6 +418,7 @@ int rline(char * buffer, int buf_size, rline_callbacks_t * callbacks) {
 				}
 				continue;
 			case KEY_BACKSPACE:
+			case 0x7F: /* delete */
 				if (context.collected) {
 					int should_redraw = 0;
 					if (!context.offset) {
