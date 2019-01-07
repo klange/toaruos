@@ -75,6 +75,7 @@ extern struct MenuSet * menu_set_from_description(const char * path, void (*call
 
 extern void menu_insert(struct MenuList * menu, struct MenuEntry * entry);
 extern void menu_show(struct MenuList * menu, yutani_t * yctx);
+extern void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x, int y);
 extern int menu_process_event(yutani_t * yctx, yutani_msg_t * m);
 extern struct MenuList * menu_set_get_root(struct MenuSet * menu);
 extern struct MenuList * menu_set_get_menu(struct MenuSet * menu, char * submenu);

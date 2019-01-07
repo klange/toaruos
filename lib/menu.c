@@ -549,6 +549,22 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 	hashmap_set(menu_windows, (void*)menu_window->wid, menu_window);
 }
 
+void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x, int y) {
+
+	int final_x;
+	int final_y;
+
+	menu_show(menu, parent->ctx);
+
+	final_x = x + parent->x;
+	final_y = y + parent->y;
+
+	if (final_x + menu->window->width > parent->ctx->display_width) final_x -= menu->window->width;
+	if (final_y + menu->window->height > parent->ctx->display_height) final_y -= menu->window->height;
+
+	yutani_window_move(parent->ctx, menu->window, final_x, final_y);
+}
+
 int menu_has_eventual_child(struct MenuList * root, struct MenuList * child) {
 
 	if (!child) return 0;

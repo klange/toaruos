@@ -2016,12 +2016,7 @@ int main(int argc, char * argv[]) {
 										if (f && !f->selected) {
 											toggle_selected(hilighted_offset, me->modifiers);
 										}
-										menu_show(context_menu, main_window->ctx);
-										if (me->new_x + context_menu->window->width + main_window->x > main_window->ctx->display_width) {
-											yutani_window_move(main_window->ctx, context_menu->window, me->new_x + main_window->x - context_menu->window->width, me->new_y + main_window->y);
-										} else {
-											yutani_window_move(main_window->ctx, context_menu->window, me->new_x + main_window->x, me->new_y + main_window->y);
-										}
+										menu_show_at(context_menu, main_window, me->new_x, me->new_y);
 									}
 								}
 
