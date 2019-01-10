@@ -9,9 +9,9 @@ ToaruOS is a hobbyist, educational, Unix-like operating system built entirely fr
 
 The ToaruOS project began in December 2010 and has its roots in an independent student project. The goals of the project have changed throughout its history, initially as a learning experience for the authors, and more recently as a complete, from-scratch ecosystem.
 
-The 1.6.x release series represented the merging of a project (the "NIH" branch) to replace Newlib, the third-party C standard library employed by earlier versions of the operating system, with a new, in-house libc. With the ports of Python and GCC to this new C library completed, this project has been concluded and considered as success.
+ToaruOS 1.0 was released in January, 2017, and featured a Python userspace built on Newlib. Since 1.6.x, ToaruOS has had its own C library, dependencies on third-party libraries have been removed, and most of the Python userspace has been rewritten in C. More recent releases have focused on improving the C library support, providing more ports in our package repository, and adding new features.
 
-The current release series is 1.10.x, which aims to produce working bootable CD images from within the OS.
+Plans for 2019 include a 64-bit kernel port, more filesystem drivers, and an installer. We're also working on our own C compiler toolchain.
 
 ## Features
 
@@ -47,9 +47,9 @@ The following projects are currently in progress:
 
 To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment.
 
-Several packages are necessary: `build-essential` (to build the cross-compiler), `xorriso` (to create CD images), `python3` (various build scripts), `mtools` (for building FAT EFI system partitions), `gnu-efi` (for building the EFI loaders).
+Several packages are necessary for the build system: `build-essential` (to build the cross-compiler), `xorriso` (to create CD images), `python3` (various build scripts), `mtools` (for building FAT EFI system partitions), `gnu-efi` (for building the EFI loaders).
 
-Beyond package installation, no part of the build needs root privileges. 
+Beyond package installation, no part of the build needs root privileges.
 
 The build process has two parts: building a cross-compiler, and building the operating system. The cross-compiler uses GCC 6.4.0 and will be built automatically by `make` if other dependencies have been met. This only needs to be done once, and the cross-compiler does not depend on any of the components built for the operating system itself, though it is attached to the base directory of the repository so you may need to rebuild the toolchain if you move your checkout. Once the cross-compiler has been built, `make` will continue to build the operating system itself.
 
@@ -76,6 +76,22 @@ In an indeterminate order, C library, kernel, modules, userspace librares and ap
 
 The kernel and driver modules have been successfully built with Clang using the `i686-elf` target. If you would like to experiment with using Clang to build ToaruOS, pass `USE_CLANG=1` to `make` from a clean build. You may confirm that Clang was used to build the kernel by examining `/proc/compiler` within the OS.
 
+### Building in ToaruOS
+
+ToaruOS is self-hosting, though the native build environment is different from the hosted build.
+
+To build ToaruOS from within ToaruOS, follow these steps:
+
+    # Install the necessary tools (gcc, python)
+    sudo msk update; sudo msk install src-tools
+    # Update PATH
+    source ~/.eshrc; rehash
+    cd /src
+    # Build the ISO (root is needed as this process copies some protected files from /etc)
+    sudo build-the-world.py
+
+The resulting image can be booted in Bochs, or sent to the host for use in another VM.
+
 ### Third-Party Components
 
 Prior to ToaruOS 1.6.x, many third-party components were included by default (Python, libpng, zlib, Cairo, freetype, and so on). These are no longer part of the default distribution or build process and must be built manually. Complete guides for building these components are currently being drafted. The instructions for building Python are complete and [available from the wiki](https://github.com/klange/toaruos/wiki/How-to-Python) (note that a host installation of Python 3.6 is required to build Python 3.6 and satisfying this is left as an exercise to the reader).
@@ -97,7 +113,6 @@ Freetype and Cairo have also been successfully built under the new in-house C li
 - **modules** - Kernel modules/drivers.
 - **util** - Utility scripts, staging directory for the toolchain (binutils/gcc).
 - **.make** - Generated Makefiles.
-
 
 ## Running ToaruOS
 
@@ -178,18 +193,6 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 ### Is ToaruOS self-hosting?
 
 With a capable compiler toolchain, ToaruOS is able to build its own kernel, userspace, libraries, and bootloader, and turn these into a working ISO CD image.
-
-To build ToaruOS from within ToaruOS, follow these steps:
-
-    # Install the necessary tools (gcc, python)
-    sudo msk update; sudo msk install src-tools
-    # Update PATH
-    source ~/.eshrc; rehash
-    cd /src
-    # Build the ISO (root is needed as this process copies some protected files from /etc)
-    sudo build-the-world.py
-
-The resulting image can be booted in Bochs, or sent to the host for use in another VM.
 
 ToaruOS is not currently capable of building most of its ports, due to a lack of a proper Posix shell and Make implementation. These are eventual goals of the project.
 
