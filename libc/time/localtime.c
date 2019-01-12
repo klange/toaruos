@@ -129,7 +129,6 @@ struct tm *localtime_r(const time_t *timep, struct tm * _timevalue) {
 
 static unsigned int secs_of_years(int years) {
 	unsigned int days = 0;
-	years += 2000;
 	while (years > 1969) {
 		days += 365;
 		if (year_is_leap(years)) {
