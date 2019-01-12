@@ -348,8 +348,9 @@ int main(int argc, char * argv[]) {
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == '\n') {
-							playing = 0;
-							status = 0;
+							page++;
+							load_page(page);
+							redraw();
 						} else if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == KEY_ESCAPE) {
 							playing = 0;
 							status = 2;
