@@ -376,6 +376,15 @@ static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
 	return yg->bottom_z;
 }
 
+static int yutani_pick_animation(uint32_t flags, int direction) {
+	if (flags & YUTANI_WINDOW_FLAG_DIALOG_ANIMATION) {
+		return (direction == 0) ? YUTANI_EFFECT_SQUEEZE_IN : YUTANI_EFFECT_SQUEEZE_OUT;
+	}
+
+	return (direction == 0) ? YUTANI_EFFECT_FADE_IN : YUTANI_EFFECT_FADE_OUT;
+}
+
+
 /**
  * Create a server window object.
  *
@@ -408,7 +417,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->client_offsets[4] = 0;
 	win->client_length  = 0;
 	win->client_strings = NULL;
-	win->anim_mode = YUTANI_EFFECT_FADE_IN;
+	win->anim_mode = yutani_pick_animation(flags, 0);
 	win->anim_start = yutani_current_time(yg);
 	win->alpha_threshold = 0;
 	win->show_mouse = 1;
@@ -711,7 +720,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 		int frame = yutani_time_since(yg, window->anim_start);
 		if (frame >= yutani_animation_lengths[window->anim_mode]) {
 			/* XXX handle animation-end things like cleanup of closing windows */
-			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
+			if (yutani_is_closing_animation[window->anim_mode]) {
 				list_insert(yg->windows_to_remove, window);
 				goto draw_finish;
 			}
@@ -720,24 +729,34 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 			goto draw_window;
 		} else {
 			switch (window->anim_mode) {
+				case YUTANI_EFFECT_SQUEEZE_OUT:
 				case YUTANI_EFFECT_FADE_OUT:
 					{
 						frame = yutani_animation_lengths[window->anim_mode] - frame;
 					}
+				case YUTANI_EFFECT_SQUEEZE_IN:
 				case YUTANI_EFFECT_FADE_IN:
 					{
 						double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
-						double x = 0.75 + time_diff * 0.25;
-						int t_x = (window->width * (1.0 - x)) / 2;
-						int t_y = (window->height * (1.0 - x)) / 2;
 
-						double opacity = time_diff * (double)(window->opacity) / 255.0;
+						if (window->server_flags & YUTANI_WINDOW_FLAG_DIALOG_ANIMATION) {
+							double x = time_diff;
+							int t_y = (window->height * (1.0 -x)) / 2;
 
-						if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
-							!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
-							draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + t_x, window->y + t_y, window->width * x, window->height * x, opacity);
+							draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x, window->y + t_y, window->width, window->height * x);
 						} else {
-							draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+							double x = 0.75 + time_diff * 0.25;
+							int t_x = (window->width * (1.0 - x)) / 2;
+							int t_y = (window->height * (1.0 - x)) / 2;
+
+							double opacity = time_diff * (double)(window->opacity) / 255.0;
+
+							if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
+									!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
+								draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + t_x, window->y + t_y, window->width * x, window->height * x, opacity);
+							} else {
+								draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+							}
 						}
 					}
 					break;
@@ -1225,7 +1244,7 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) 
  * Set a window as closed. It will be removed after rendering has completed.
  */
 static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t * w) {
-	w->anim_mode = YUTANI_EFFECT_FADE_OUT;
+	w->anim_mode = yutani_pick_animation(w->server_flags, 1);
 	w->anim_start = yutani_current_time(yg);
 }
 

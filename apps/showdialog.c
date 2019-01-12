@@ -142,7 +142,7 @@ int main(int argc, char * argv[]) {
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
 
-	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
+	window = yutani_window_create_flags(yctx, width + bounds.width, height + bounds.height, YUTANI_WINDOW_FLAG_DIALOG_ANIMATION);
 	req_center_x = yctx->display_width / 2;
 	req_center_y = yctx->display_height / 2;
 

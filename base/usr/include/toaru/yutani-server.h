@@ -48,6 +48,10 @@ typedef enum {
 	/* XXX: Are these used? */
 	YUTANI_EFFECT_MINIMIZE,
 	YUTANI_EFFECT_UNMINIMIZE,
+
+	/* Dialog animations, faster than the fades */
+	YUTANI_EFFECT_SQUEEZE_IN,
+	YUTANI_EFFECT_SQUEEZE_OUT,
 } yutani_effect;
 
 /* Animation lengths */
@@ -57,6 +61,18 @@ static int yutani_animation_lengths[] = {
 	200, /* Fade Out */
 	0,   /* Minimize */
 	0,   /* Unminimized */
+	100, /* Squeeze in */
+	100, /* Squeeze out */
+};
+
+static int yutani_is_closing_animation[] = {
+	0,
+	0,
+	1,
+	0,
+	0,
+	0,
+	1,
 };
 
 /* Debug Options */
