@@ -148,7 +148,8 @@ int renderer_blit_window(yutani_globals_t * yg, yutani_server_window_t * window,
 	if (window->anim_mode) {
 		int frame = yutani_time_since(yg, window->anim_start);
 		if (frame >= yutani_animation_lengths[window->anim_mode]) {
-			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT) {
+			if (window->anim_mode == YUTANI_EFFECT_FADE_OUT ||
+				window->anim_mode == YUTANI_EFFECT_SQUEEZE_OUT) {
 				list_insert(yg->windows_to_remove, window);
 				goto draw_finish;
 			}
@@ -157,15 +158,22 @@ int renderer_blit_window(yutani_globals_t * yg, yutani_server_window_t * window,
 			goto draw_window;
 		} else {
 			switch (window->anim_mode) {
+				case YUTANI_EFFECT_SQUEEZE_OUT:
 				case YUTANI_EFFECT_FADE_OUT:
 					{
 						frame = yutani_animation_lengths[window->anim_mode] - frame;
 					}
+				case YUTANI_EFFECT_SQUEEZE_IN:
 				case YUTANI_EFFECT_FADE_IN:
 					{
 						double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
 
-						if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
+						if (window->server_flags & YUTANI_WINDOW_FLAG_DIALOG_ANIMATION) {
+							double x = time_diff;
+							int t_y = (window->height * (1.0 -x)) / 2;
+							cairo_translate(cr, 0, t_y);
+							cairo_scale(cr, 1.0, x);
+						} else if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
 							!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
 							double x = 0.75 + time_diff * 0.25;
 							int t_x = (window->width * (1.0 - x)) / 2;
