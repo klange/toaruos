@@ -99,7 +99,6 @@ static void redraw(void) {
 		ttk_button_draw(ctx, &_prev_button);
 	}
 
-	window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
 	render_decorations(window, ctx, title_str);
 
 	flip(ctx);
