@@ -636,6 +636,15 @@ static void load_directory(const char * path, int modifies_history) {
 						} else {
 							sprintf(f->filetype, "Shell Script");
 						}
+					} else if (has_extension(f, ".py")) {
+						sprintf(f->icon, "py");
+						if (statbuf.st_mode & 0111) {
+							/* Make executable */
+							sprintf(f->launcher, "SELF");
+							sprintf(f->filetype, "Executable Python Script");
+						} else {
+							sprintf(f->filetype, "Python Script");
+						}
 					} else if (has_extension(f, ".ko")) {
 						sprintf(f->icon, "file");
 						sprintf(f->filetype, "Kernel Module");
