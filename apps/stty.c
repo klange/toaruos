@@ -227,7 +227,7 @@ static int show_settings(int all) {
 static void show_size(void) {
 	struct winsize w;
 	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
-	fprintf(stdout, "%d %d\n", w.ws_col, w.ws_row);
+	fprintf(stdout, "%d %d\n", w.ws_row, w.ws_col);
 }
 
 int main(int argc, char * argv[]) {
