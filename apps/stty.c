@@ -42,7 +42,7 @@ static void print_(int flags, const char * lbl, int val, int def) {
 #define print_oflag(lbl,val,def) print_(t.c_oflag, lbl, val, def)
 #define print_lflag(lbl,val,def) print_(t.c_lflag, lbl, val, def)
 
-static void set_char_(struct termios *t, const char * lbl, int val, const char * cmp, const char * arg, int * i) {
+static int set_char_(struct termios *t, const char * lbl, int val, const char * cmp, const char * arg, int * i) {
 	if (!strcmp(cmp, lbl)) {
 		if (!arg) {
 			fprintf(stderr, "%s: expected argument\n", lbl);
@@ -65,37 +65,46 @@ static void set_char_(struct termios *t, const char * lbl, int val, const char *
 			t->c_cc[val] = v;
 		}
 		(*i)++;
+
+		return 1;
 	}
+
+	return 0;
 }
 
-#define set_char(lbl,val) set_char_(&t, lbl, val, argv[i], argv[i+1], &i)
+#define set_char(lbl,val) if (set_char_(&t, lbl, val, argv[i], argv[i+1], &i)) { i += 2; continue; }
 
-static void setunset_flag(tcflag_t * flag, const char * lbl, int val, const char * cmp) {
+static int setunset_flag(tcflag_t * flag, const char * lbl, int val, const char * cmp) {
 	if (*cmp == '-') {
 		if (!strcmp(cmp+1, lbl)) {
 			(*flag) = (*flag) & (~val);
+			return 1;
 		}
 	} else {
 		if (!strcmp(cmp, lbl)) {
 			(*flag) = (*flag) | (val);
+			return 1;
 		}
 	}
+	return 0;
 }
 
-#define set_cflag(lbl,val) setunset_flag(&(t.c_cflag), lbl, val, argv[i])
-#define set_iflag(lbl,val) setunset_flag(&(t.c_iflag), lbl, val, argv[i])
-#define set_oflag(lbl,val) setunset_flag(&(t.c_oflag), lbl, val, argv[i])
-#define set_lflag(lbl,val) setunset_flag(&(t.c_lflag), lbl, val, argv[i])
+#define set_cflag(lbl,val) if (setunset_flag(&(t.c_cflag), lbl, val, argv[i])) { i++; continue; }
+#define set_iflag(lbl,val) if (setunset_flag(&(t.c_iflag), lbl, val, argv[i])) { i++; continue; }
+#define set_oflag(lbl,val) if (setunset_flag(&(t.c_oflag), lbl, val, argv[i])) { i++; continue; }
+#define set_lflag(lbl,val) if (setunset_flag(&(t.c_lflag), lbl, val, argv[i])) { i++; continue; }
 
-static void set_toggle_(tcflag_t * flag, const char * lbl, int base, int val, const char * cmp) {
+static int set_toggle_(tcflag_t * flag, const char * lbl, int base, int val, const char * cmp) {
 	if (!strcmp(cmp, lbl)) {
 		(*flag) = (*flag) & ~(base);
 		(*flag) = (*flag) | (val);
+		return 1;
 	}
+	return 0;
 }
 
-#define set_ctoggle(lbl,base,val) set_toggle_(&(t.c_cflag), lbl, base, val, argv[i])
-#define set_otoggle(lbl,base,val) set_toggle_(&(t.c_oflag), lbl, base, val, argv[i])
+#define set_ctoggle(lbl,base,val) if (set_toggle_(&(t.c_cflag), lbl, base, val, argv[i])) { i++; continue; }
+#define set_otoggle(lbl,base,val) if (set_toggle_(&(t.c_oflag), lbl, base, val, argv[i])) { i++; continue; }
 
 static int show_settings(int all) {
 	/* Size */
@@ -215,6 +224,12 @@ static int show_settings(int all) {
 	return 0;
 }
 
+static void show_size(void) {
+	struct winsize w;
+	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
+	fprintf(stdout, "%d %d\n", w.ws_col, w.ws_row);
+}
+
 int main(int argc, char * argv[]) {
 
 	int i = 1;
@@ -251,6 +266,16 @@ int main(int argc, char * argv[]) {
 			t.c_cc[VTIME]  =  0;
 			t.c_cc[VLNEXT] = 22; /* ^V */
 			t.c_cc[VWERASE] = 23; /* ^W */
+
+			i++;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "size")) {
+			show_size();
+
+			i++;
+			continue;
 		}
 
 		set_char("eof",   VEOF);
@@ -332,10 +357,10 @@ int main(int argc, char * argv[]) {
 		set_lflag("noflsh", NOFLSH);
 		set_lflag("tostop", TOSTOP);
 
-		i++;
+		fprintf(stderr, "%s: invalid argument '%s'\n", argv[0], argv[i]);
+		return 1;
 	}
 
 	tcsetattr(STDERR_FILENO, TCSAFLUSH, &t);
-
 	return 0;
 }
