@@ -68,7 +68,7 @@ int main(int argc, char * argv[]) {
 	while (!feof(f)) {
 		char line[1024];
 		fgets(line, 1024, f);
-		if (line[0] == ' ') {
+		if (line[0] == ' ' || line[0] == '\n') {
 			/* Skip; don't care about this information */
 			continue;
 		}
