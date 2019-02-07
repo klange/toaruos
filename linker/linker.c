@@ -98,8 +98,6 @@ typedef struct elf_object {
 	Elf32_Word * dyn_hash;
 
 	void (*init)(void);
-	void (**ctors)(void);
-	size_t ctors_size;
 	void (**init_array)(void);
 	size_t init_array_size;
 
@@ -360,8 +358,14 @@ static int object_postload(elf_t * object) {
 				case 10: /* Size of string table */
 					object->dyn_string_table_size = table->d_un.d_val;
 					break;
-				case 12:
+				case 12: /* DT_INIT - initialization function */
 					object->init = (void (*)(void))(table->d_un.d_ptr + object->base);
+					break;
+				case 25: /* DT_INIT_ARRAY - array of constructors */
+					object->init_array = (void (**)(void))(table->d_un.d_ptr + object->base);
+					break;
+				case 27: /* DT_INIT_ARRAYSZ - size of the table of constructors */
+					object->init_array_size = table->d_un.d_val / sizeof(uintptr_t);
 					break;
 			}
 			table++;
@@ -381,28 +385,6 @@ static int object_postload(elf_t * object) {
 					break;
 			}
 			table++;
-		}
-	}
-
-	/* Locate constructors */
-	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
-		Elf32_Shdr shdr;
-		/* Read section header */
-		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
-		fread(&shdr, object->header.e_shentsize, 1, object->file);
-
-		/* ctors */
-		if (!strcmp((char *)((uintptr_t)object->string_table + shdr.sh_name), ".ctors")) {
-			/* Store load address and size */
-			object->ctors = (void *)(shdr.sh_addr + object->base);
-			object->ctors_size = shdr.sh_size / sizeof(uintptr_t);
-		}
-
-		/* init_array */
-		if (!strcmp((char *)((uintptr_t)object->string_table + shdr.sh_name), ".init_array")) {
-			/* Store load address and size */
-			object->init_array = (void *)(shdr.sh_addr + object->base);
-			object->init_array_size = shdr.sh_size / sizeof(uintptr_t);
 		}
 	}
 
@@ -617,14 +599,6 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 	/* We're done with the file. */
 	fclose(lib->file);
 
-	/* If there were constructors, call them */
-	if (lib->ctors) {
-		for (size_t i = 0; i < lib->ctors_size; i++) {
-			TRACE_LD(" 0x%x()", lib->ctors[i]);
-			lib->ctors[i]();
-		}
-	}
-
 	/* If there was an init_array, call everything in it */
 	if (lib->init_array) {
 		for (size_t i = 0; i < lib->init_array_size; i++) {
@@ -784,7 +758,7 @@ int main(int argc, char * argv[]) {
 		fclose(lib->file);
 
 		/* Store constructors for later execution */
-		if (lib->ctors || lib->init_array) {
+		if (lib->init_array) {
 			list_insert(ctor_libs, lib);
 		}
 		if (lib->init) {
@@ -812,13 +786,6 @@ nope:
 	} else {
 		foreach(node, ctor_libs) {
 			elf_t * lib = node->value;
-			if (lib->ctors) {
-				TRACE_LD("Executing ctors...");
-				for (size_t i = 0; i < lib->ctors_size; i++) {
-					TRACE_LD(" 0x%x()", lib->ctors[i]);
-					lib->ctors[i]();
-				}
-			}
 			if (lib->init_array) {
 				TRACE_LD("Executing init_array...");
 				for (size_t i = 0; i < lib->init_array_size; i++) {
