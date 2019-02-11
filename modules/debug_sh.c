@@ -245,9 +245,7 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid,
 			(int)pci_extract_func(device),
 			(int)pci_find_type(device),
 			vendorid,
-			deviceid,
-			pci_vendor_lookup(vendorid),
-			pci_device_lookup(vendorid,deviceid));
+			deviceid);
 
 	fprintf(tty, " BAR0: 0x%8x", pci_read_field(device, PCI_BAR0, 4));
 	fprintf(tty, " BAR1: 0x%8x", pci_read_field(device, PCI_BAR1, 4));

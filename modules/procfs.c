@@ -642,15 +642,13 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid,
 
 	struct _pci_buf * b = extra;
 
-	b->offset += sprintf(b->buffer + b->offset, "%2x:%2x.%d (%4x, %4x:%4x) %s %s\n",
+	b->offset += sprintf(b->buffer + b->offset, "%2x:%2x.%d (%4x, %4x:%4x)\n",
 			(int)pci_extract_bus(device),
 			(int)pci_extract_slot(device),
 			(int)pci_extract_func(device),
 			(int)pci_find_type(device),
 			vendorid,
-			deviceid,
-			pci_vendor_lookup(vendorid),
-			pci_device_lookup(vendorid,deviceid));
+			deviceid);
 
 	b->offset += sprintf(b->buffer + b->offset, " BAR0: 0x%8x", pci_read_field(device, PCI_BAR0, 4));
 	b->offset += sprintf(b->buffer + b->offset, " BAR1: 0x%8x", pci_read_field(device, PCI_BAR1, 4));

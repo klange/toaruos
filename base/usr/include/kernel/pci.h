@@ -59,8 +59,6 @@ static inline uint32_t pci_box_device(int bus, int slot, int func) {
 uint32_t pci_read_field(uint32_t device, int field, int size);
 void pci_write_field(uint32_t device, int field, int size, uint32_t value);
 uint16_t pci_find_type(uint32_t dev);
-const char * pci_vendor_lookup(unsigned short vendor_id);
-const char * pci_device_lookup(unsigned short vendor_id, unsigned short device_id);
 void pci_scan_hit(pci_func_t f, uint32_t dev, void * extra);
 void pci_scan_func(pci_func_t f, int type, int bus, int slot, int func, void * extra);
 void pci_scan_slot(pci_func_t f, int type, int bus, int slot, void * extra);
