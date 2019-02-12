@@ -85,9 +85,6 @@ typedef struct elf_object {
 	/* Full copy of the header. */
 	Elf32_Header header;
 
-	/* Pointers to loaded stuff */
-	char * string_table;
-
 	char * dyn_string_table;
 	size_t dyn_string_table_size;
 
@@ -326,16 +323,6 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 
 /* Perform cleanup after loading */
 static int object_postload(elf_t * object) {
-
-	/* Load section string table */
-	{
-		Elf32_Shdr shdr;
-		fseek(object->file, object->header.e_shoff + object->header.e_shentsize * object->header.e_shstrndx, SEEK_SET);
-		fread(&shdr, object->header.e_shentsize, 1, object->file);
-		object->string_table = malloc(shdr.sh_size);
-		fseek(object->file, shdr.sh_offset, SEEK_SET);
-		fread(object->string_table, shdr.sh_size, 1, object->file);
-	}
 
 	/* If there is a dynamic table, parse it. */
 	if (object->dynamic) {
