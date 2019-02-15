@@ -6,7 +6,9 @@
 
 gdt_flush:
     /* Load GDT */
-    mov 4(%esp), %eax
+    push %ebp
+    mov  %esp, %ebp
+    mov 8(%ebp), %eax
     lgdt (%eax)
 
     mov $0x10, %ax
@@ -18,4 +20,6 @@ gdt_flush:
 
     ljmp $0x08, $.flush
 .flush:
+    mov %ebp, %esp
+    pop %ebp
     ret
