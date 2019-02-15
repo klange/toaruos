@@ -239,7 +239,7 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid,
 
 	fs_node_t * tty = extra;
 
-	fprintf(tty, "%2x:%2x.%d (%4x, %4x:%4x) %s %s\n",
+	fprintf(tty, "%2x:%2x.%d (%4x, %4x:%4x)\n",
 			(int)pci_extract_bus(device),
 			(int)pci_extract_slot(device),
 			(int)pci_extract_func(device),
