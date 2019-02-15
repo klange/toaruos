@@ -655,7 +655,7 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid,
 	b->offset += sprintf(b->buffer + b->offset, " BAR2: 0x%8x", pci_read_field(device, PCI_BAR2, 4));
 	b->offset += sprintf(b->buffer + b->offset, " BAR3: 0x%8x", pci_read_field(device, PCI_BAR3, 4));
 	b->offset += sprintf(b->buffer + b->offset, " BAR4: 0x%8x", pci_read_field(device, PCI_BAR4, 4));
-	b->offset += sprintf(b->buffer + b->offset, " BAR6: 0x%8x\n", pci_read_field(device, PCI_BAR5, 4));
+	b->offset += sprintf(b->buffer + b->offset, " BAR5: 0x%8x\n", pci_read_field(device, PCI_BAR5, 4));
 
 	b->offset += sprintf(b->buffer + b->offset, " IRQ Line: %d", pci_read_field(device, 0x3C, 1));
 	b->offset += sprintf(b->buffer + b->offset, " IRQ Pin: %d", pci_read_field(device, 0x3D, 1));
