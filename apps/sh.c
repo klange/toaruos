@@ -1189,6 +1189,8 @@ _done:
 
 	list_t * extra_env = list_create();
 
+	list_t * glob_args = list_create();
+
 	int i = 0;
 	foreach(node, args) {
 		char * c = node->value;
@@ -1301,6 +1303,7 @@ _done:
 									if (!strcmp(after,&t[strlen(t)-strlen(after)])) {
 										char * out = malloc(strlen(s) + 2 + strlen(prepend));
 										sprintf(out,"%s%s%s", prepend, !!*prepend ? "/" : "", s);
+										list_insert(glob_args, out);
 										argv[i] = out;
 										i++;
 										argcs[cmdi]++;
@@ -1309,6 +1312,7 @@ _done:
 							} else {
 								char * out = malloc(strlen(s) + 2 + strlen(prepend));
 								sprintf(out,"%s%s%s", prepend, !!*prepend ? "/" : "", s);
+								list_insert(glob_args, out);
 								argv[i] = out;
 								i++;
 								argcs[cmdi]++;
@@ -1331,8 +1335,6 @@ _nope:
 					argv[i] = c;
 					i++;
 					argcs[cmdi]++;
-				} else {
-					free(c);
 				}
 			}
 		} else {
@@ -1342,6 +1344,13 @@ _nope:
 		}
 	}
 	argv[i] = NULL;
+
+	/* Ensure globs get freed */
+	foreach(node, glob_args) {
+		list_insert(args, node->value);
+	}
+	list_free(glob_args);
+	free(glob_args);
 
 	if (i == 0) {
 		add_environment(extra_env);
