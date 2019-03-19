@@ -14,8 +14,10 @@
 
 #include <sys/ioctl.h>
 
+#ifndef NO_SSE
 #include <xmmintrin.h>
 #include <emmintrin.h>
+#endif
 
 #include <kernel/video.h>
 
@@ -517,6 +519,7 @@ _cleanup_sprite:
 	free(bufferb);
 }
 
+#ifndef NO_SSE
 static __m128i mask00ff;
 static __m128i mask0080;
 static __m128i mask0101;
@@ -526,6 +529,7 @@ __attribute__((constructor)) static void _masks(void) {
 	mask0080 = _mm_set1_epi16(0x0080);
 	mask0101 = _mm_set1_epi16(0x0101);
 }
+#endif
 
 __attribute__((__force_align_arg_pointer__))
 void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
@@ -547,7 +551,7 @@ void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y) {
 		/* Alpha embedded is the most important step. */
 		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 			if (!_is_in_clip(ctx, y + _y)) continue;
-#if 0
+#ifdef NO_SSE
 			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
 				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 					continue;

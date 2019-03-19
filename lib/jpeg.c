@@ -38,8 +38,10 @@
 
 #include <toaru/graphics.h>
 
+#ifndef NO_SSE
 #include <xmmintrin.h>
 #include <emmintrin.h>
+#endif
 
 #if 0
 #include <toaru/trace.h>
@@ -226,6 +228,13 @@ static float cosines[8][8] = {
 static float premul[8][8][8][8]= {{{{0}}}};
 
 static void add_idc(struct idct * self, int n, int m, int coeff) {
+#ifdef NO_SSE
+	for (int y = 0; y < 8; ++y) {
+		for (int x = 0; x < 8; ++x) {
+			self->base[xy_to_lin(x, y)] += premul[n][m][y][x] * coeff;
+		}
+	}
+#else
 	__m128 c = _mm_set_ps(coeff,coeff,coeff,coeff);
 	for (int y = 0; y < 8; ++y) {
 		__m128 a, b;
@@ -245,6 +254,7 @@ static void add_idc(struct idct * self, int n, int m, int coeff) {
 		a = _mm_add_ps(a,b);
 		_mm_store_ps(&self->base[xy_to_lin(4,y)], a);
 	}
+#endif
 }
 
 static void add_zigzag(struct idct * self, int zi, int coeff) {
