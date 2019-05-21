@@ -1,6 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
- * Copyright (C) 2012-2018 K. Lange
+ * Copyright (C) 2012-2019 K. Lange
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -41,8 +41,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.1.6"
-#define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
+#define BIM_VERSION   "1.1.7"
+#define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\r'
@@ -152,6 +152,7 @@ typedef struct {
 	int available;
 	int actual;
 	int istate;
+	int is_current;
 	char_t   text[];
 } line_t;
 
@@ -193,6 +194,7 @@ struct {
 	int can_italic;
 
 	int go_to_line;
+	int hilight_current_line;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -220,6 +222,7 @@ struct {
 	1, /* can use 265 colors */
 	1, /* can use italics (without inverting) */
 	1, /* should go to line when opening file */
+	1, /* hilight the current line */
 };
 
 void redraw_line(int j, int x);
@@ -1765,6 +1768,7 @@ line_t ** add_line(line_t ** lines, int offset) {
 	lines[offset]->available = 32;
 	lines[offset]->actual    = 0;
 	lines[offset]->istate    = 0;
+	lines[offset]->is_current = 0;
 
 	/* There is one new line */
 	env->line_count += 1;
@@ -1904,6 +1908,7 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	lines[line+1]->available = v;
 	lines[line+1]->actual = remaining;
 	lines[line+1]->istate = 0;
+	lines[line+1]->is_current = 0;
 
 	/* Move the data from the old line into the new line */
 	memmove(lines[line+1]->text, &lines[line]->text[split], sizeof(char_t) * remaining);
@@ -2015,6 +2020,7 @@ void setup_buffer(buffer_t * env) {
 	env->lines[0]->available = 32;
 	env->lines[0]->actual    = 0;
 	env->lines[0]->istate    = 0;
+	env->lines[0]->is_current = 0;
 }
 
 /**
@@ -2395,7 +2401,7 @@ void render_line(line_t * line, int width, int offset) {
 	int was_selecting = 0, was_searching = 0;
 
 	/* Set default text colors */
-	set_colors(COLOR_FG, COLOR_BG);
+	set_colors(COLOR_FG, line->is_current ? COLOR_ALT_BG : COLOR_BG);
 
 	/*
 	 * When we are rendering in the middle of a wide character,
@@ -2468,7 +2474,7 @@ void render_line(line_t * line, int width, int offset) {
 				was_searching = 1;
 			} else {
 				if (was_selecting || was_searching) {
-					set_colors(color, COLOR_BG);
+					set_colors(color, line->is_current ? COLOR_ALT_BG : COLOR_BG);
 					last_color = color;
 				} else if (!last_color || strcmp(color, last_color)) {
 					set_fg_color(color);
@@ -2476,7 +2482,10 @@ void render_line(line_t * line, int width, int offset) {
 				}
 			}
 
-#define _set_colors(fg,bg) if (!(c.flags & FLAG_SELECT)) { set_colors(fg,bg); }
+#define _set_colors(fg,bg) \
+	if (!(c.flags & FLAG_SELECT)) { \
+		set_colors(fg,(line->is_current && bg == COLOR_BG) ? COLOR_ALT_BG : bg); \
+	}
 
 			/* Render special characters */
 			if (c.codepoint == '\t') {
@@ -2552,7 +2561,11 @@ void render_line(line_t * line, int width, int offset) {
 	}
 
 	if (env->mode != MODE_LINE_SELECTION) {
-		set_colors(COLOR_FG, COLOR_BG);
+		if (line->is_current) {
+			set_colors(COLOR_FG, COLOR_ALT_BG);
+		} else {
+			set_colors(COLOR_FG, COLOR_BG);
+		}
 	}
 
 	if (!global_config.can_bce) {
@@ -2580,12 +2593,38 @@ int num_width(void) {
  */
 void draw_line_number(int x) {
 	/* Draw the line number */
-	set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
+	if (env->lines[x]->is_current) {
+		set_colors(COLOR_NUMBER_BG, COLOR_NUMBER_FG);
+	} else {
+		set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
+	}
 	int num_size = num_width();
 	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
 	}
 	printf("%d%c", x + 1, (x+1 == env->line_no && env->coffset > 0) ? '<' : ' ');
+}
+
+/**
+ * Used to highlight the current line after moving the cursor.
+ */
+void recalculate_current_line(void) {
+	if (!global_config.hilight_current_line) return;
+	for (int i = 0; i < env->line_count; ++i) {
+		if (env->lines[i]->is_current && i != env->line_no-1) {
+			env->lines[i]->is_current = 0;
+			if ((i) - env->offset > -1 &&
+				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+				redraw_line((i) - env->offset, i);
+			}
+		} else if (i == env->line_no-1 && !env->lines[i]->is_current) {
+			env->lines[i]->is_current = 1;
+			if ((i) - env->offset > -1 &&
+				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+				redraw_line((i) - env->offset, i);
+			}
+		}
+	}
 }
 
 /**
@@ -3011,6 +3050,7 @@ void place_cursor_actual(void) {
 	}
 
 	highlight_matching_paren();
+	recalculate_current_line();
 
 	/* Move the actual terminal cursor */
 	place_cursor(x,y);
@@ -3968,6 +4008,19 @@ void process_command(char * cmd) {
 			redraw_text();
 			place_cursor_actual();
 		}
+	} else if (!strcmp(argv[0], "hlcurrent")) {
+		if (argc < 2) {
+			render_status_message("hlcurrent=%d", global_config.hilight_current_line);
+		} else {
+			global_config.hilight_current_line = atoi(argv[1]);
+			if (!global_config.hilight_current_line) {
+				for (int i = 0; i < env->line_count; ++i) {
+					env->lines[i]->is_current = 0;
+				}
+			}
+			redraw_text();
+			place_cursor_actual();
+		}
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -4047,6 +4100,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("noindent");
 		add_candidate("padding");
 		add_candidate("hlparen");
+		add_candidate("hlcurrent");
 		add_candidate("cursorcolumn");
 		add_candidate("smartcase");
 		goto _accept_candidate;
@@ -5346,6 +5400,12 @@ int handle_escape(int * this_buf, int * timeout, int c) {
  */
 void handle_navigation(int c) {
 	switch (c) {
+		case 2: /* ctrl-b = page up */
+			goto_line(env->line_no - (global_config.term_height - 6));
+			break;
+		case 6: /* ctrl-f = page down */
+			goto_line(env->line_no + global_config.term_height - 6);
+			break;
 		case ':': /* Switch to command mode */
 			command_mode();
 			break;
@@ -6367,6 +6427,11 @@ void load_bimrc(void) {
 
 		if (!strcmp(l,"hlparen") && value) {
 			global_config.highlight_parens = atoi(value);
+		}
+
+		/* Disable hilighting of current line */
+		if (!strcmp(l,"hlcurrent") && value) {
+			global_config.hilight_current_line = atoi(value);
 		}
 	}
 
