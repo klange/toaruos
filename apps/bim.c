@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.1.7"
+#define BIM_VERSION   "1.2.0"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -195,6 +195,7 @@ struct {
 
 	int go_to_line;
 	int hilight_current_line;
+	int split_percent;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -223,6 +224,7 @@ struct {
 	1, /* can use italics (without inverting) */
 	1, /* should go to line when opening file */
 	1, /* hilight the current line */
+	50, /* split percentage */
 };
 
 void redraw_line(int j, int x);
@@ -326,12 +328,18 @@ typedef struct _env {
 
 	history_t * history;
 	history_t * last_save_history;
+
+	int width;
+	int left;
 } buffer_t;
 
 /**
  * Pointer to current active buffer
  */
 buffer_t * env;
+
+buffer_t * left_buffer;
+buffer_t * right_buffer;
 
 /**
  * Editor modes (like in vim)
@@ -359,9 +367,21 @@ buffer_t * buffer_new(void) {
 		buffers = realloc(buffers, sizeof(buffer_t *) * buffers_avail);
 	}
 
+	/* TODO: Support having split buffers with more than two buffers open */
+	if (left_buffer) {
+		left_buffer->left = 0;
+		left_buffer->width = global_config.term_width;
+		right_buffer->left = 0;
+		right_buffer->width = global_config.term_width;
+		left_buffer = NULL;
+		right_buffer = NULL;
+	}
+
 	/* Allocate a new buffer */
 	buffers[buffers_len] = malloc(sizeof(buffer_t));
 	memset(buffers[buffers_len], 0x00, sizeof(buffer_t));
+	buffers[buffers_len]->left = 0;
+	buffers[buffers_len]->width = global_config.term_width;
 	buffers_len++;
 
 	return buffers[buffers_len-1];
@@ -670,13 +690,13 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 		}
 		return FLAG_PRAGMA;
 	}
-	
+
 	if ((!last || !syn_c_iskeywordchar(last)) && syn_c_iskeywordchar(c)) {
 		int j = i;
 		for (int s = 0; syn_c_special[s]; ++s) {
 			int d = 0;
-			while (j + d < line->actual - 1 && line->text[j+d].codepoint == syn_c_special[s][d]) d++;
-			if (syn_c_special[s][d] == '\0' && (j+d > line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
+			while (j + d < line->actual && line->text[j+d].codepoint == syn_c_special[s][d]) d++;
+			if (syn_c_special[s][d] == '\0' && (j+d >= line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
 				*out_left = d-1;
 				return FLAG_NUMERAL;
 			}
@@ -826,9 +846,9 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 				*out_left = j - i - 1;
 				return FLAG_PRAGMA;
 			}
-			*out_left = (line->actual + 1) - i;
-			return FLAG_PRAGMA;
 		}
+		*out_left = (line->actual + 1) - i;
+		return FLAG_PRAGMA;
 	}
 
 	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
@@ -1137,6 +1157,7 @@ static int syn_make_extended(line_t * line, int i, int c, int last, int * out_le
 static char * syn_bimrc_keywords[] = {
 	"theme",
 	"padding",
+	"splitperecent",
 	NULL,
 };
 
@@ -1371,6 +1392,139 @@ static int syn_conf_extended(line_t * line, int i, int c, int last, int * out_le
 
 static char * syn_conf_ext[] = {".conf",NULL};
 
+
+static char * syn_java_keywords[] = {
+	"assert","break","case","catch","class","continue",
+	"default","do","else","enum","exports","extends","finally",
+	"for","if","implements","instanceof","interface","module","native",
+	"new","requires","return","throws",
+	"strictfp","super","switch","synchronized","this","throw","try","while",
+	NULL
+};
+
+static char * syn_java_types[] = {
+	"var","boolean","void","short","long","int","double","float","enum","char",
+	"private","protected","public","static","final","transient","volatile","abstract",
+	NULL
+};
+
+static char * syn_java_special[] = {
+	"true","false","import","package","null",
+	NULL
+};
+
+static int syn_java_extended(line_t * line, int i, int c, int last, int * out_left) {
+	/* Basic numbers */
+	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
+		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
+			int j = 2;
+			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		} else {
+			int j = 1;
+			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
+				j++;
+			}
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		}
+	}
+
+	/* @Stuff */
+	if (c == '@') {
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			if (!syn_c_iskeywordchar(line->text[j].codepoint)) {
+				*out_left = j - i - 1;
+				return FLAG_PRAGMA;
+			}
+		}
+		*out_left = (line->actual + 1) - i;
+		return FLAG_PRAGMA;
+	}
+	
+
+	/* Special matches */
+	if ((!last || !syn_c_iskeywordchar(last)) && syn_c_iskeywordchar(c)) {
+		int j = i;
+		for (int s = 0; syn_java_special[s]; ++s) {
+			int d = 0;
+			while (j + d < line->actual - 1 && line->text[j+d].codepoint == syn_java_special[s][d]) d++;
+			if (syn_java_special[s][d] == '\0' && (j+d > line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
+				*out_left = d-1;
+				return FLAG_NUMERAL;
+			}
+		}
+	}
+
+	/* Comments, both // and */
+	if (c == '/') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT;
+		}
+
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
+			int last = 0;
+			for (int j = i + 2; j < line->actual; ++j) {
+				int c = line->text[j].codepoint;
+				if (c == '/' && last == '*') {
+					*out_left = j - i;
+					return FLAG_COMMENT;
+				}
+				last = c;
+			}
+			/* TODO multiline - update next */
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT | FLAG_CONTINUES;
+		}
+	}
+
+	/* Simple strings */
+	if (c == '"') {
+		int last = 0;
+		for (int j = i+1; j < line->actual; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+static int syn_java_finish(line_t * line, int * left, int state) {
+	/* Close normal multiline comment */
+	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
+		int last = 0;
+		for (int i = 0; i < line->actual; ++i) {
+			if (line->text[i].codepoint == '/' && last == '*') {
+				*left = i+2;
+				return FLAG_COMMENT;
+			}
+			last = line->text[i].codepoint;
+		}
+		return FLAG_COMMENT | FLAG_CONTINUES;
+	}
+	return 0;
+}
+
+static char * syn_java_ext[] = {".java",NULL};
+
 /**
  * Syntax hilighting definition database
  */
@@ -1393,7 +1547,8 @@ struct syntax_definition {
 	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
 	{"rust",syn_rust_ext,syn_rust_keywords,syn_rust_types,syn_rust_extended,syn_c_iskeywordchar,syn_rust_finish},
 	{"conf",syn_conf_ext,NULL,NULL,syn_conf_extended,NULL,NULL},
-	{NULL}
+	{"java",syn_java_ext,syn_java_keywords,syn_java_types,syn_java_extended,syn_c_iskeywordchar,syn_java_finish},
+	{NULL,NULL,NULL,NULL,NULL,NULL,NULL}
 };
 
 /**
@@ -2568,15 +2723,14 @@ void render_line(line_t * line, int width, int offset) {
 		}
 	}
 
-	if (!global_config.can_bce) {
+	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
+		clear_to_end();
+	} else {
 		/* Paint the rest of the line */
 		for (; j < width; ++j) {
 			printf(" ");
 		}
 	}
-
-	/* Clear the rest of the line */
-	clear_to_end();
 }
 
 /**
@@ -2639,7 +2793,7 @@ void redraw_line(int j, int x) {
 	hide_cursor();
 
 	/* Move cursor to upper left most cell of this line */
-	place_cursor(1,2 + j);
+	place_cursor(1 + env->left,2 + j);
 
 	/* Draw a gutter on the left.
 	 * TODO: The gutter can be used to show single-character
@@ -2656,18 +2810,25 @@ void redraw_line(int j, int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], global_config.term_width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
+	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
 }
 
 /**
  * Draw a ~ line where there is no buffer text.
  */
 void draw_excess_line(int j) {
-	place_cursor(1,2 + j);
+	place_cursor(1+env->left,2 + j);
 	paint_line(COLOR_ALT_BG);
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	printf("~");
-	clear_to_end();
+	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
+		clear_to_end();
+	} else {
+		/* Paint the rest of the line */
+		for (int x = 1; x < env->width; ++x) {
+			printf(" ");
+		}
+	}
 }
 
 /**
@@ -2691,6 +2852,44 @@ void redraw_text(void) {
 	for (; j < l; ++j) {
 		draw_excess_line(j);
 	}
+}
+
+static int view_left_offset = 0;
+static int view_right_offset = 0;
+
+void redraw_alt_buffer(buffer_t * buf) {
+	if (left_buffer == right_buffer) {
+		/* draw the opposite view */
+		int left, width, offset;
+		left = env->left;
+		width = env->width;
+		offset = env->offset;
+		if (left == 0) {
+			/* Draw the right side */
+
+			env->left = width;
+			env->width = global_config.term_width - width;
+			env->offset = view_right_offset;
+			view_left_offset = offset;
+		} else {
+			env->left = 0;
+			env->width = global_config.term_width * global_config.split_percent / 100;
+			env->offset = view_left_offset;
+			view_right_offset = offset;
+		}
+		redraw_text();
+
+		env->left = left;
+		env->width = width;
+		env->offset = offset;
+	}
+	/* Swap out active buffer */
+	buffer_t * tmp = env;
+	env = buf;
+	/* Redraw text */
+	redraw_text();
+	/* Return original active buffer */
+	env = tmp;
 }
 
 /**
@@ -2840,6 +3039,16 @@ void render_commandline_message(char * message, ...) {
  * Draw all screen elements
  */
 void redraw_all(void) {
+	redraw_tabbar();
+	redraw_text();
+	if (left_buffer) {
+		redraw_alt_buffer(left_buffer == env ? right_buffer : left_buffer);
+	}
+	redraw_statusbar();
+	redraw_commandline();
+}
+
+void redraw_most(void) {
 	redraw_tabbar();
 	redraw_text();
 	redraw_statusbar();
@@ -3033,9 +3242,9 @@ void place_cursor_actual(void) {
 	}
 
 	/* If the cursor has gone off screen to the right... */
-	if (x > global_config.term_width - 1) {
+	if (x > env->width - 1) {
 		/* Adjust the offset appropriately to scroll horizontally */
-		int diff = x - (global_config.term_width - 1);
+		int diff = x - (env->width - 1);
 		env->coffset += diff;
 		x -= diff;
 		redraw_text();
@@ -3053,10 +3262,27 @@ void place_cursor_actual(void) {
 	recalculate_current_line();
 
 	/* Move the actual terminal cursor */
-	place_cursor(x,y);
+	place_cursor(x+env->left,y);
 
 	/* Show the cursor */
 	show_cursor();
+}
+
+void update_split_size(void) {
+	if (!left_buffer) return;
+	if (left_buffer == right_buffer) {
+		if (left_buffer->left == 0) {
+			left_buffer->width = global_config.term_width * global_config.split_percent / 100;
+		} else {
+			right_buffer->left = global_config.term_width * global_config.split_percent / 100;
+			right_buffer->width = global_config.term_width - right_buffer->left;
+		}
+		return;
+	}
+	left_buffer->left = 0;
+	left_buffer->width = global_config.term_width * global_config.split_percent / 100;
+	right_buffer->left = left_buffer->width;
+	right_buffer->width = global_config.term_width - left_buffer->width;
 }
 
 /**
@@ -3067,6 +3293,13 @@ void update_screen_size(void) {
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	global_config.term_width = w.ws_col;
 	global_config.term_height = w.ws_row;
+	if (env) {
+		if (left_buffer) {
+			update_split_size();
+		} else if (env != left_buffer && env != right_buffer) {
+			env->width = w.ws_col;
+		}
+	}
 }
 
 /**
@@ -3121,7 +3354,7 @@ void goto_line(int line) {
 	env->offset = line - 1;
 	env->line_no = line;
 	env->col_no  = 1;
-	redraw_all();
+	redraw_most();
 }
 
 
@@ -3236,6 +3469,8 @@ int is_all_numbers(const char * c) {
  */
 void open_file(char * file) {
 	env = buffer_new();
+	env->width = global_config.term_width;
+	env->left = 0;
 	env->loading = 1;
 
 	setup_buffer(env);
@@ -3479,6 +3714,17 @@ void close_buffer(void) {
 		/* ?? Failed to close buffer */
 		render_error("lolwat");
 	}
+	if (left_buffer && env == left_buffer) {
+		left_buffer = NULL;
+		right_buffer->left = 0;
+		right_buffer->width = global_config.term_width;
+		right_buffer = NULL;
+	} else if (left_buffer && env == right_buffer) {
+		right_buffer = NULL;
+		left_buffer->left = 0;
+		left_buffer->width = global_config.term_width;
+		left_buffer = NULL;
+	}
 	/* No more buffers, exit */
 	if (!new_env) {
 		quit();
@@ -3553,7 +3799,7 @@ void cursor_down(void) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
-			if (global_config.can_scroll) {
+			if (global_config.can_scroll && !left_buffer) {
 				shift_up();
 
 				/* A new line appears on screen at the bottom, draw it */
@@ -3563,15 +3809,13 @@ void cursor_down(void) {
 				} else {
 					draw_excess_line(l - 1);
 				}
-
-				/* Redraw elements that were moved by scrolling */
-				redraw_tabbar();
-				redraw_statusbar();
-				redraw_commandline();
-				place_cursor_actual();
 			} else {
-				redraw_all();
+				redraw_text();
 			}
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
 			return;
 		} else if (redraw) {
 			/* Otherwise, if we need to redraw because of coffset change, do that */
@@ -3638,7 +3882,7 @@ void cursor_up(void) {
 			env->offset -= 1;
 
 			/* Tell terminal to scroll */
-			if (global_config.can_scroll) {
+			if (global_config.can_scroll && !left_buffer) {
 				shift_down();
 
 				/*
@@ -3646,15 +3890,13 @@ void cursor_up(void) {
 				 * so we can just call redraw_line here
 				 */
 				redraw_line(0,env->offset);
-
-				/* Redraw elements that were moved by scrolling */
-				redraw_tabbar();
-				redraw_statusbar();
-				redraw_commandline();
-				place_cursor_actual();
 			} else {
-				redraw_all();
+				redraw_text();
 			}
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
 			return;
 		} else if (redraw) {
 			/* Otherwise, if we need to redraw because of coffset change, do that */
@@ -3915,6 +4157,38 @@ void process_command(char * cmd) {
 				return;
 			}
 		}
+	} else if (!strcmp(argv[0], "splitpercent")) {
+		if (argc < 2) {
+			render_status_message("splitpercent=%d", global_config.split_percent);
+			return;
+		} else {
+			global_config.split_percent = atoi(argv[1]);
+			if (left_buffer) {
+				update_split_size();
+				redraw_all();
+			}
+		}
+	} else if (!strcmp(argv[0], "split")) {
+		if (argc < 2 && buffers_len == 1) {
+			left_buffer = buffers[0];
+			right_buffer = buffers[0];
+			update_split_size();
+			redraw_all();
+		} else if ((argc < 2 && buffers_len != 2) || (argc == 2 && buffers_len != 1)) {
+			render_error("(splits are experimental and only work with two buffers; sorry!)");
+			return;
+		} else {
+			if (argc == 2) {
+				open_file(argv[1]);
+			}
+			left_buffer = buffers[0];
+			right_buffer = buffers[1];
+
+			update_split_size();
+
+			redraw_alt_buffer(left_buffer);
+			redraw_alt_buffer(right_buffer);
+		}
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
@@ -4103,6 +4377,8 @@ void command_tab_complete(char * buffer) {
 		add_candidate("hlcurrent");
 		add_candidate("cursorcolumn");
 		add_candidate("smartcase");
+		add_candidate("split");
+		add_candidate("splitpercent");
 		goto _accept_candidate;
 	}
 
@@ -4123,7 +4399,7 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew"))) {
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split"))) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
@@ -4673,6 +4949,26 @@ _match_found:
 	*out_col  = col;
 }
 
+void use_left_buffer(void) {
+	if (left_buffer == right_buffer && env->left != 0) {
+		view_right_offset = env->offset;
+		env->width = env->left;
+		env->left = 0;
+		env->offset = view_left_offset;
+	}
+	env = left_buffer;
+}
+
+void use_right_buffer(void) {
+	if (left_buffer == right_buffer && env->left == 0) {
+		view_left_offset = env->offset;
+		env->left = env->width;
+		env->width = global_config.term_width - env->width;
+		env->offset = view_right_offset;
+	}
+	env = right_buffer;
+}
+
 /**
  * Handle mouse event
  */
@@ -4713,6 +5009,21 @@ void handle_mouse(void) {
 				}
 			}
 			return;
+		}
+
+		if (env->mode == MODE_NORMAL || env->mode == MODE_INSERT) {
+			int current_mode = env->mode;
+			if (x < env->left && env == right_buffer) {
+				use_left_buffer();
+			} else if (x > env->width && env == left_buffer) {
+				use_right_buffer();
+			}
+			env->mode = current_mode;
+			redraw_all();
+		}
+
+		if (env->left) {
+			x -= env->left;
 		}
 
 		/* Figure out y coordinate */
@@ -5320,6 +5631,13 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 			case 'C': // right
 				if (this_buf[*timeout-1] == '5') {
 					word_right();
+				} else if (this_buf[*timeout-1] == '3') {
+					global_config.split_percent += 1;
+					update_split_size();
+					redraw_all();
+				} else if (this_buf[*timeout-1] == '4') {
+					use_right_buffer();
+					redraw_all();
 				} else {
 					cursor_right();
 				}
@@ -5327,6 +5645,13 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 			case 'D': // left
 				if (this_buf[*timeout-1] == '5') {
 					word_left();
+				} else if (this_buf[*timeout-1] == '3') {
+					global_config.split_percent -= 1;
+					update_split_size();
+					redraw_all();
+				} else if (this_buf[*timeout-1] == '4') {
+					use_left_buffer();
+					redraw_all();
 				} else {
 					cursor_left();
 				}
@@ -6432,6 +6757,10 @@ void load_bimrc(void) {
 		/* Disable hilighting of current line */
 		if (!strcmp(l,"hlcurrent") && value) {
 			global_config.hilight_current_line = atoi(value);
+		}
+
+		if (!strcmp(l,"splitpercent") && value) {
+			global_config.split_percent = atoi(value);
 		}
 	}
 
