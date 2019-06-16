@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.2.0"
+#define BIM_VERSION   "1.3.2"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -196,6 +196,9 @@ struct {
 	int go_to_line;
 	int hilight_current_line;
 	int split_percent;
+
+	int shift_scrolling;
+	int scroll_amount;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -225,6 +228,8 @@ struct {
 	1, /* should go to line when opening file */
 	1, /* hilight the current line */
 	50, /* split percentage */
+	1, /* shift scrolling (shifts view rather than moving cursor) */
+	5, /* how many lines to scroll on mouse wheel */
 };
 
 void redraw_line(int j, int x);
@@ -331,6 +336,9 @@ typedef struct _env {
 
 	int width;
 	int left;
+
+	int start_line;
+	int sel_col;
 } buffer_t;
 
 /**
@@ -349,6 +357,8 @@ buffer_t * right_buffer;
 #define MODE_LINE_SELECTION 2
 #define MODE_REPLACE 3
 #define MODE_CHAR_SELECTION 4
+#define MODE_COL_SELECTION 5
+#define MODE_COL_INSERT 6
 
 /**
  * Available buffers
@@ -1158,6 +1168,8 @@ static char * syn_bimrc_keywords[] = {
 	"theme",
 	"padding",
 	"splitperecent",
+	"scrollamount",
+	"shiftscrolling",
 	NULL,
 };
 
@@ -2369,10 +2381,26 @@ void set_bold(void) {
 }
 
 /**
+ * Disable bold
+ */
+void unset_bold(void) {
+	printf("\033[22m");
+	fflush(stdout);
+}
+
+/**
  * Enable underlined text display
  */
 void set_underline(void) {
 	printf("\033[4m");
+	fflush(stdout);
+}
+
+/**
+ * Disable underlined text display
+ */
+void unset_underline(void) {
+	printf("\033[24m");
 	fflush(stdout);
 }
 
@@ -2548,7 +2576,7 @@ int log_base_10(unsigned int v) {
  * width: width of the text display region (term width - line number width)
  * offset: how many cells into the line to start rendering at
  */
-void render_line(line_t * line, int width, int offset) {
+void render_line(line_t * line, int width, int offset, int line_no) {
 	int i = 0; /* Offset in char_t line data entries */
 	int j = 0; /* Offset in terminal cells */
 
@@ -2637,8 +2665,17 @@ void render_line(line_t * line, int width, int offset) {
 				}
 			}
 
+			if ((env->mode == MODE_COL_SELECTION || env->mode == MODE_COL_INSERT) &&
+				line_no >= ((env->start_line < env->line_no) ? env->start_line : env->line_no) &&
+				line_no <= ((env->start_line < env->line_no) ? env->line_no : env->start_line) &&
+				((j == env->sel_col) ||
+				(j < env->sel_col && j + c.display_width > env->sel_col))) {
+				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+				was_selecting = 1;
+			}
+
 #define _set_colors(fg,bg) \
-	if (!(c.flags & FLAG_SELECT)) { \
+	if (!(c.flags & FLAG_SELECT) && !(was_selecting)) { \
 		set_colors(fg,(line->is_current && bg == COLOR_BG) ? COLOR_ALT_BG : bg); \
 	}
 
@@ -2721,13 +2758,39 @@ void render_line(line_t * line, int width, int offset) {
 		} else {
 			set_colors(COLOR_FG, COLOR_BG);
 		}
+	} else {
+		if (!line->actual) {
+			if (env->line_no == line_no ||
+				(env->start_line > env->line_no && 
+					(line_no >= env->line_no && line_no <= env->start_line)) ||
+				(env->start_line < env->line_no &&
+					(line_no >= env->start_line && line_no <= env->line_no))) {
+				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+			}
+		}
+	}
+
+	if ((env->mode == MODE_COL_SELECTION  || env->mode == MODE_COL_INSERT) &&
+		line_no >= ((env->start_line < env->line_no) ? env->start_line : env->line_no) &&
+		line_no <= ((env->start_line < env->line_no) ? env->line_no : env->start_line) &&
+		j <= env->sel_col &&
+		env->sel_col < width) {
+		set_colors(COLOR_FG, COLOR_BG);
+		while (j < env->sel_col) {
+			printf(" ");
+			j++;
+		}
+		set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+		printf(" ");
+		j++;
+		set_colors(COLOR_FG, COLOR_BG);
 	}
 
 	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
 		clear_to_end();
 	} else {
 		/* Paint the rest of the line */
-		for (; j < width; ++j) {
+		for (; j - offset < width; ++j) {
 			printf(" ");
 		}
 	}
@@ -2810,7 +2873,8 @@ void redraw_line(int j, int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
+	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0, x+1);
+
 }
 
 /**
@@ -2985,20 +3049,41 @@ void redraw_commandline(void) {
 		set_bold();
 		printf("-- INSERT --");
 		clear_to_end();
-		reset();
+		unset_bold();
 	} else if (env->mode == MODE_LINE_SELECTION) {
 		set_bold();
-		printf("-- LINE SELECTION --");
+		printf("-- LINE SELECTION -- (%d:%d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line
+		);
 		clear_to_end();
-		reset();
+		unset_bold();
+	} else if (env->mode == MODE_COL_SELECTION) {
+		set_bold();
+		printf("-- COL SELECTION -- (%d:%d %d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line,
+			(env->sel_col)
+		);
+		clear_to_end();
+		unset_bold();
+	} else if (env->mode == MODE_COL_INSERT) {
+		set_bold();
+		printf("-- COL INSERT -- (%d:%d %d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line,
+			(env->sel_col)
+		);
+		clear_to_end();
+		unset_bold();
 	} else if (env->mode == MODE_REPLACE) {
 		set_bold();
 		printf("-- REPLACE --");
 		clear_to_end();
-		reset();
+		unset_bold();
 	} else if (env->mode == MODE_CHAR_SELECTION) {
 		set_bold();
-		printf("-- CHAR SELECTION --");
+		printf("-- CHAR SELECTION -- ");
 		clear_to_end();
 		reset();
 	} else {
@@ -3521,6 +3606,9 @@ void open_file(char * file) {
 			env->syntax = match_syntax(file);
 		}
 		env->loading = 0;
+		if (global_config.go_to_line) {
+			goto_line(init_line);
+		}
 		return;
 	}
 
@@ -3993,6 +4081,54 @@ void leave_insert(void) {
 	redraw_commandline();
 }
 
+int search_matches(uint32_t a, uint32_t b, int mode) {
+	if (mode == 0) {
+		return a == b;
+	} else if (mode == 1) {
+		return tolower(a) == tolower(b);
+	}
+	return 0;
+}
+
+void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement, int col, int ignorecase, int *out_col) {
+	line_t * line = env->lines[line_no-1];
+	int j = col;
+	while (j < line->actual + 1) {
+		int k = j;
+		uint32_t * match = needle;
+		while (k < line->actual + 1) {
+			if (*match == '\0') {
+				/* Perform replacement */
+				for (uint32_t * n = needle; *n; ++n) {
+					line_delete(line, j+1, line_no-1);
+				}
+				int t = 0;
+				for (uint32_t * r = replacement; *r; ++r) {
+					char_t _c;
+					_c.codepoint = *r;
+					_c.flags = 0;
+					_c.display_width = codepoint_width(*r);
+					line_t * nline = line_insert(line, _c, j + t, line_no -1);
+					if (line != nline) {
+						env->lines[line_no-1] = nline;
+						line = nline;
+					}
+					t++;
+				}
+
+				*out_col = j + t;
+				set_modified();
+				return;
+			}
+			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
+			match++;
+			k++;
+		}
+		j++;
+	}
+	*out_col = -1;
+}
+
 /**
  * Process a user command.
  */
@@ -4023,18 +4159,33 @@ void process_command(char * cmd) {
 		return;
 	}
 
-	/* Tokenize argument string on spaces */
-	char *p, *argv[512], *last;
+	/* Arguments aren't really tokenized, but the first command before a space is extracted */
+	char *argv[512]; /* If a specific command wants to tokenize further, it can do that later. */
 	int argc = 0;
-	for ((p = strtok_r(cmd, " ", &last)); p;
-			(p = strtok_r(NULL, " ", &last)), argc++) {
-		if (argc < 511) argv[argc] = p;
+	argv[0] = cmd;
+	if (*cmd) argc++;
+
+	/* Collect up until first space for argv[0] */
+	for (char * c = cmd; *c; ++c) {
+		if (*c == ' ') {
+			*c = '\0';
+			argv[1] = c+1;
+			if (*argv[1]) argc++;
+			break;
+		}
 	}
 	argv[argc] = NULL;
 
 	if (argc < 1) {
 		/* no op */
 		return;
+	}
+
+	int all_lines = 0;
+
+	if (argv[0][0] == '%') {
+		all_lines = 1;
+		argv[0]++;
 	}
 
 	if (!strcmp(argv[0], "e")) {
@@ -4046,6 +4197,119 @@ void process_command(char * cmd) {
 		} else {
 			/* TODO: Reopen file? */
 			render_error("Expected a file to open...");
+		}
+	} else if (!strcmp(argv[0], "s")) {
+		if (argc < 2) {
+			render_error("expected substitution argument");
+			return;
+		}
+		/* Substitution */
+		int range_top, range_bot;
+		if (env->mode == MODE_LINE_SELECTION) {
+			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
+			range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
+		} else if (all_lines) {
+			range_top = 1;
+			range_bot = env->line_count;
+		} else {
+			range_top = env->line_no;
+			range_bot = env->line_no;
+		}
+
+		/* Determine replacement parameters */
+		char divider = argv[1][0];
+
+		char * needle = &argv[1][1];
+		char * c = needle;
+		char * replacement = NULL;
+		char * options = "";
+
+		while (*c) {
+			if (*c == divider) {
+				*c = '\0';
+				replacement = c + 1;
+				break;
+			}
+			c++;
+		}
+
+		if (!replacement) {
+			render_error("nothing to replace with");
+			return;
+		}
+
+		c = replacement;
+		while (*c) {
+			if (*c == divider) {
+				*c = '\0';
+				options = c + 1;
+				break;
+			}
+			c++;
+		}
+
+		int global = 0;
+		int case_insensitive = 0;
+
+		/* Parse options */
+		while (*options) {
+			switch (*options) {
+				case 'g':
+					global = 1;
+					break;
+				case 'i':
+					case_insensitive = 1;
+					break;
+			}
+			options++;
+		}
+
+		uint32_t * needle_c = malloc(sizeof(uint32_t) * (strlen(needle) + 1));
+		uint32_t * replacement_c = malloc(sizeof(uint32_t) * (strlen(replacement) + 1));
+
+		{
+			int i = 0;
+			uint32_t c, state = 0;
+			for (char * cin = needle; *cin; cin++) {
+				if (!decode(&state, &c, *cin)) {
+					needle_c[i] = c;
+					i++;
+				} else if (state == UTF8_REJECT) {
+					state = 0;
+				}
+			}
+			needle_c[i] = 0;
+			i = 0;
+			c = 0;
+			state = 0;
+			for (char * cin = replacement; *cin; cin++) {
+				if (!decode(&state, &c, *cin)) {
+					replacement_c[i] = c;
+					i++;
+				} else if (state == UTF8_REJECT) {
+					state = 0;
+				}
+			}
+			replacement_c[i] = 0;
+		}
+
+		int replacements = 0;
+		for (int line = range_top; line <= range_bot; ++line) {
+			int col = 0;
+			while (col != -1) {
+				perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col);
+				if (col != -1) replacements++;
+				if (!global) break;
+			}
+		}
+		free(needle_c);
+		free(replacement_c);
+		if (replacements) {
+			render_status_message("replaced %d instance%s of %s", replacements, replacements == 1 ? "" : "s", needle);
+			set_history_break();
+			redraw_text();
+		} else {
+			render_error("Pattern not found: %s", needle);
 		}
 	} else if (!strcmp(argv[0], "tabnew")) {
 		if (argc > 1) {
@@ -4514,6 +4778,42 @@ _accept_candidate:
 		/* End of longest common substring */
 _reject:
 		*cstart = '\0';
+		/* Just make sure the buffer doesn't end on an incomplete multibyte sequence */
+		if (start > buf) { /* Start point needs to be something other than first byte */
+			char * tmp = cstart - 1;
+			if ((*tmp & 0xC0) == 0x80) {
+				/* Count back until we find the start byte and make sure we have the right number */
+				int count = 1;
+				int x = 0;
+				while (tmp >= start) {
+					x++;
+					tmp--;
+					if ((*tmp & 0xC0) == 0x80) {
+						count++;
+					} else if ((*tmp & 0xC0) == 0xC0) {
+						/* How many should we have? */
+						int i = 1;
+						int j = *tmp;
+						while (j & 0x20) {
+							i += 1;
+							j <<= 1;
+						}
+						if (count != i) {
+							*tmp = '\0';
+							break;
+						}
+						break;
+					} else {
+						/* This isn't right, we had a bad multibyte sequence? Or someone is typing Latin-1. */
+						tmp++;
+						*tmp = '\0';
+						break;
+					}
+				}
+			} else if ((*tmp & 0xC0) == 0xC0) {
+				*tmp = '\0';
+			}
+		}
 	}
 
 	/* Free candidates */
@@ -4529,6 +4829,55 @@ done:
 	free(candidates);
 	free(buf);
 }
+
+int handle_command_escape(int * this_buf, int * timeout, int c) {
+	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 1;
+	}
+	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
+		*timeout = 0;
+		bim_unget(c);
+		return 1;
+	}
+	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
+		*timeout = 1;
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 0;
+	}
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+			(isdigit(c) || c == ';')) {
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 0;
+	}
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+		int out = 0;
+		switch (c) {
+			case 'M':
+				out = 2;
+				break;
+
+			case 'A': // up
+			case 'B': // down
+			case 'C': // right
+			case 'D': // left
+			case 'H': // home
+			case 'F': // end
+				out = c;
+				break;
+		}
+		*timeout = 0;
+		return out;
+	}
+
+	*timeout = 0;
+	return 0;
+
+}
+
 
 /**
  * Command mode
@@ -4546,6 +4895,10 @@ void command_mode(void) {
 	int c;
 	char buffer[1024] = {0};
 	int  buffer_len = 0;
+	int _redraw_on_byte = 0;
+
+	int timeout = 0;
+	int this_buf[20];
 
 	redraw_commandline();
 	printf(":");
@@ -4553,49 +4906,115 @@ void command_mode(void) {
 
 	while ((c = bim_getch())) {
 		if (c == -1) {
-			/* Time out */
-			continue;
-		}
-		if (c == '\033') {
-			/* Escape, cancel command */
-			break;
-		} else if (c == ENTER_KEY || c == LINE_FEED) {
-			/* Enter, run command */
-			process_command(buffer);
-			break;
-		} else if (c == '\t') {
-			/* Handle tab completion */
-			command_tab_complete(buffer);
-			buffer_len = strlen(buffer);
-		} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
-			/* Backspace, delete last character in command buffer */
-			if (buffer_len > 0) {
-				buffer_len -= 1;
-				buffer[buffer_len] = '\0';
-				redraw_commandline();
-				printf(":%s", buffer);
-			} else {
-				/* If backspaced through entire command, cancel command mode */
-				redraw_commandline();
-				break;
+			if (timeout && this_buf[timeout-1] == '\033') {
+				return;
 			}
+			timeout = 0;
+			continue;
 		} else {
-			/* Regular character */
-			buffer[buffer_len] = c;
-			buffer_len++;
-			printf("%c", c);
-		}
-		show_cursor();
-	}
-}
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						/* Escape, cancel command */
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case ENTER_KEY:
+					case LINE_FEED:
+						/* Enter, run command */
+						process_command(buffer);
+						return;
+					case '\t':
+						/* Handle tab completion */
+						command_tab_complete(buffer);
+						buffer_len = strlen(buffer);
+						break;
+					case BACKSPACE_KEY:
+					case DELETE_KEY:
+						/* Backspace, delete last character in command buffer */
+						if (buffer_len > 0) {
+							do {
+								buffer_len--;
+								if ((buffer[buffer_len] & 0xC0) != 0x80) {
+									buffer[buffer_len] = '\0';
+									break;
+								}
+							} while (1);
+							goto _redraw_buffer;
+						} else {
+							/* If backspaced through entire command, cancel command mode */
+							redraw_commandline();
+							return;
+						}
+						break;
+					case 23:
+						while (buffer_len >0 &&
+								(buffer[buffer_len-1] == ' ' ||
+								 buffer[buffer_len-1] == '/')) {
+							buffer_len--;
+							buffer[buffer_len] = '\0';
+						}
+						while (buffer_len > 0 &&
+								buffer[buffer_len-1] != ' ' &&
+								buffer[buffer_len-1] != '/') {
+							buffer_len--;
+							buffer[buffer_len] = '\0';
+						}
+						goto _redraw_buffer;
+					default:
+						/* Regular character */
+						buffer[buffer_len] = c;
+						buffer_len++;
+						if ((c & 0xC0) == 0xC0) {
+							/* This is the start of a UTF-8 character; how many bytes do we need? */
+							int i = 1;
+							int j = c;
+							while (j & 0x20) {
+								i += 1;
+								j <<= 1;
+							}
+							_redraw_on_byte = i;
+						} else if ((c & 0xC0) == 0x80 && _redraw_on_byte) {
+							_redraw_on_byte--;
+							if (_redraw_on_byte == 0) {
+								goto _redraw_buffer;
+							}
+						} else {
+							printf("%c", c);
+						}
+						break;
+				}
+			} else {
+				switch (handle_command_escape(this_buf,&timeout,c)) {
+					case 1:
+						bim_unget(c);
+						return;
+					case 'A':
+						render_status_message("history up");
+						goto _redraw_buffer;
+					case 'B':
+						render_status_message("history down");
+						goto _redraw_buffer;
+					case 'C':
+					case 'D':
+					case 'H':
+					case 'F':
+						render_status_message("line editing not supported in command mode (sorry)");
+						goto _redraw_buffer;
+				}
+			}
 
-int search_matches(uint32_t a, uint32_t b, int mode) {
-	if (mode == 0) {
-		return a == b;
-	} else if (mode == 1) {
-		return tolower(a) == tolower(b);
+			show_cursor();
+			continue;
+
+_redraw_buffer:
+			redraw_commandline();
+			printf(":%s", buffer);
+			show_cursor();
+		}
 	}
-	return 0;
 }
 
 int smart_case(uint32_t * str) {
@@ -4979,14 +5398,36 @@ void handle_mouse(void) {
 
 	if (buttons == 64) {
 		/* Scroll up */
-		for (int i = 0; i < 5; ++i) {
-			cursor_up();
+		if (global_config.shift_scrolling) {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				if (env->offset > 0) env->offset--;
+				if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
+					cursor_up();
+				}
+			}
+
+			redraw_most();
+		} else {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				cursor_up();
+			}
 		}
 		return;
 	} else if (buttons == 65) {
 		/* Scroll down */
-		for (int i = 0; i < 5; ++i) {
-			cursor_down();
+		if (global_config.shift_scrolling) {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				if (env->offset < env->line_count-1) env->offset++;
+				int e = (env->offset == 0) ? env->offset : env->offset + global_config.cursor_padding;
+				if (env->line_no <= e) {
+					cursor_down();
+				}
+			}
+			redraw_most();
+		} else {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				cursor_down();
+			}
 		}
 		return;
 	} else if (buttons == 3) {
@@ -5818,16 +6259,16 @@ void handle_navigation(int c) {
  */
 #define _redraw_line(line, force_start_line) \
 	do { \
-		if (!(force_start_line) && (line) == start_line) break; \
+		if (!(force_start_line) && (line) == env->start_line) break; \
 		if ((line) > env->line_count + 1) { \
 			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
 				draw_excess_line((line) - env->offset - 1); \
 			} \
 			break; \
 		} \
-		if ((env->line_no < start_line  && ((line) < env->line_no || (line) > start_line)) || \
-			(env->line_no > start_line  && ((line) > env->line_no || (line) < start_line)) || \
-			(env->line_no == start_line && (line) != start_line)) { \
+		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
+			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
+			(env->line_no == env->start_line && (line) != env->start_line)) { \
 			recalculate_syntax(env->lines[(line)-1],(line)-1); \
 		} else { \
 			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
@@ -5901,8 +6342,8 @@ void adjust_indent(int start_line, int direction) {
  * Equivalent to visual line in vim; selects lines of texts.
  */
 void line_selection_mode(void) {
-	int start_line = env->line_no;
-	int prev_line  = start_line;
+	env->start_line = env->line_no;
+	int prev_line  = env->start_line;
 
 	env->mode = MODE_LINE_SELECTION;
 	redraw_commandline();
@@ -5938,25 +6379,25 @@ void line_selection_mode(void) {
 						break;
 					case '\t':
 						if (env->readonly) goto _readonly;
-						adjust_indent(start_line, 1);
+						adjust_indent(env->start_line, 1);
 						break;
 					case 'V':
 						goto _leave_select_line;
 					case 'y':
-						yank_lines(start_line, env->line_no);
+						yank_lines(env->start_line, env->line_no);
 						goto _leave_select_line;
 					case 'D':
 					case 'd':
 						if (env->readonly) goto _readonly;
-						yank_lines(start_line, env->line_no);
-						if (start_line <= env->line_no) {
-							int lines_to_delete = env->line_no - start_line + 1;
+						yank_lines(env->start_line, env->line_no);
+						if (env->start_line <= env->line_no) {
+							int lines_to_delete = env->line_no - env->start_line + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
-								remove_line(env->lines, start_line-1);
+								remove_line(env->lines, env->start_line-1);
 							}
-							env->line_no = start_line;
+							env->line_no = env->start_line;
 						} else {
-							int lines_to_delete = start_line - env->line_no + 1;
+							int lines_to_delete = env->start_line - env->line_no + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
 								remove_line(env->lines, env->line_no-1);
 							}
@@ -5970,6 +6411,15 @@ void line_selection_mode(void) {
 						set_preferred_column();
 						set_modified();
 						goto _leave_select_line;
+					case ':': /* Handle command mode specially for redraw */
+						command_mode();
+						for (int i = (env->start_line < env->line_no ? env->start_line : env->line_no);
+							i <= (env->start_line < env->line_no ? env->line_no : env->start_line);
+							++i) {
+							_redraw_line(i,1);
+						}
+						place_cursor_actual();
+						continue;
 					default:
 						handle_navigation(c);
 						break;
@@ -5982,7 +6432,7 @@ void line_selection_mode(void) {
 					case 'Z':
 						/* Unindent */
 						if (env->readonly) goto _readonly;
-						adjust_indent(start_line, -1);
+						adjust_indent(env->start_line, -1);
 						break;
 				}
 			}
@@ -6002,6 +6452,7 @@ void line_selection_mode(void) {
 				}
 				prev_line = env->line_no;
 			}
+			redraw_commandline();
 			place_cursor_actual();
 			continue;
 _readonly:
@@ -6015,6 +6466,251 @@ _leave_select_line:
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_syntax(env->lines[i],i);
 	}
+	redraw_all();
+}
+
+#define _redraw_line_col(line, force_start_line) \
+	do {\
+		if (!(force_start_line) && (line) == env->start_line) break; \
+		if ((line) > env->line_count + 1) { \
+			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
+				draw_excess_line((line) - env->offset - 1); \
+			} \
+			break; \
+		} \
+		if ((line) - env->offset + 1 > 1 && \
+			(line) - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) { \
+			redraw_line((line) - env->offset - 1, (line)-1); \
+		} \
+	} while (0)
+
+
+void col_insert_mode(void) {
+	if (env->start_line < env->line_no) {
+		/* swap */
+		int tmp = env->line_no;
+		env->line_no = env->start_line;
+		env->start_line = tmp;
+	}
+
+	/* Set column to preferred_column */
+	env->mode = MODE_COL_INSERT;
+	redraw_commandline();
+	place_cursor_actual();
+
+	int cin;
+	uint32_t c;
+
+	int timeout = 0;
+	int this_buf[20];
+	uint32_t istate = 0;
+	int redraw = 0;
+	while ((cin = bim_getch_timeout((redraw ? 10 : 200)))) {
+		if (cin == -1) {
+			if (redraw) {
+				if (redraw & 2) {
+					redraw_text();
+				} else {
+					redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+				}
+				redraw_statusbar();
+				place_cursor_actual();
+				redraw = 0;
+			}
+			if (timeout && this_buf[timeout-1] == '\033') {
+				return;
+			}
+			timeout = 0;
+			continue;
+		}
+		if (!decode(&istate, &c, cin)) {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						if (env->sel_col > 0) {
+							int prev_width = 0;
+							for (int i = env->line_no; i <= env->start_line; i++) {
+								line_t * line = env->lines[i - 1];
+
+								int _x = 0;
+								int col = 1;
+
+								int j = 0;
+								for (; j < line->actual; ++j) {
+									char_t * c = &line->text[j];
+									_x += c->display_width;
+									col = j+1;
+									prev_width = c->display_width;
+									if (_x > env->sel_col) break;
+								}
+
+								if ((_x == env->sel_col && j == line->actual)) {
+									line_delete(line, line->actual, i - 1);
+									set_modified();
+								} else if (_x > env->sel_col) {
+									line_delete(line, col - 1, i - 1);
+									set_modified();
+								}
+							}
+
+							env->sel_col -= prev_width;
+							redraw_text();
+							
+						}
+						break;
+					case ENTER_KEY:
+					case LINE_FEED:
+						/* do nothing in these cases */
+						break;
+					case 23: /* ^W */
+						break;
+					case 22: /* ^V */
+						render_commandline_message("^V");
+						while ((cin = bim_getch()) == -1);
+						c = cin;
+						redraw_commandline();
+						/* fallthrough */
+					default:
+						/* Okay, this is going to duplicate a lot of insert_char */
+						if (c) {
+							char_t _c;
+							_c.codepoint = c;
+							_c.flags = 0;
+							_c.display_width = codepoint_width(c);
+
+							/* For each line */
+							for (int i = env->line_no; i <= env->start_line; i++) {
+								line_t * line = env->lines[i - 1];
+
+								int _x = 0;
+								int col = 1;
+
+								int j = 0;
+								for (; j < line->actual; ++j) {
+									char_t * c = &line->text[j];
+									_x += c->display_width;
+									col = j+1;
+									if (_x > env->sel_col) break;
+								}
+
+								if ((_x == env->sel_col && j == line->actual)) {
+									_x = env->sel_col + 1;
+									col = line->actual + 1;
+								}
+
+								if (_x > env->sel_col) {
+									line_t * nline = line_insert(line, _c, col - 1, i - 1);
+									if (line != nline) {
+										env->lines[i - 1] = nline;
+									}
+									set_modified();
+								}
+							}
+
+							env->sel_col += _c.display_width;
+							redraw_text();
+
+						}
+				}
+			} else {
+				/* Don't handle escapes */
+			}
+		} else if (istate == UTF8_REJECT) {
+			istate = 0;
+		}
+	}
+}
+
+/**
+ * COL SELECTION mode
+ *
+ * Limited selection mode for doing inserts on multiple lines.
+ * Experimental. Based on how I usually use vim's VISUAL BLOCK mode.
+ */
+void col_selection_mode(void) {
+	env->start_line = env->line_no;
+	env->sel_col = env->preferred_column;
+	int prev_line = env->start_line;
+
+	env->mode = MODE_COL_SELECTION;
+	redraw_commandline();
+
+	int c;
+	int timeout = 0;
+	int this_buf[20];
+
+	while ((c = bim_getch())) {
+		if (c == -1) {
+			if (timeout && this_buf[timeout-1] == '\033') {
+				goto _leave_select_col;
+			}
+			timeout = 0;
+			continue;
+		} else {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case 'I':
+						if (env->readonly) goto _readonly;
+						col_insert_mode();
+						goto _leave_select_col;
+					case 'a':
+						if (env->readonly) goto _readonly;
+						env->sel_col += 1;
+						redraw_text();
+						col_insert_mode();
+						goto _leave_select_col;
+					default:
+						handle_navigation(c);
+						break;
+				}
+			} else {
+				switch (handle_escape(this_buf,&timeout,c)) {
+					case 1:
+						bim_unget(c);
+						goto _leave_select_col;
+					/* Doesn't support anything else. */
+				}
+			}
+		}
+
+		_redraw_line_col(env->line_no, 0);
+		/* Properly mark everything in the span we just moved through */
+		if (prev_line < env->line_no) {
+			for (int i = prev_line; i < env->line_no; ++i) {
+				_redraw_line_col(i,0);
+			}
+			prev_line = env->line_no;
+		} else if (prev_line > env->line_no) {
+			for (int i = env->line_no + 1; i <= prev_line; ++i) {
+				_redraw_line_col(i,0);
+			}
+			prev_line = env->line_no;
+		}
+
+		/* prev_line... */
+		redraw_commandline();
+		place_cursor_actual();
+		continue;
+_readonly:
+		render_error("Buffer is read-only.");
+	}
+
+_leave_select_col:
+	set_history_break();
+	env->mode = MODE_NORMAL;
 	redraw_all();
 }
 
@@ -6506,6 +7202,9 @@ void normal_mode(void) {
 					case 'v': /* Enter CHAR SELECTION mode */
 						char_selection_mode();
 						break;
+					case 22: /* ctrl-v, enter COL SELECTION mode */
+						col_selection_mode();
+						break;
 					case 'O': /* Append line before and enter INSERT mode */
 						{
 							if (env->readonly) goto _readonly;
@@ -6585,6 +7284,18 @@ void normal_mode(void) {
 							}
 							for (int i = 0; i < env->line_count; ++i) {
 								recalculate_syntax(env->lines[i],i);
+							}
+							if (c == 'p') {
+								if (global_config.yank_is_full_lines) {
+									env->line_no += 1;
+								} else {
+									if (global_config.yank_count == 1) {
+										env->col_no = env->col_no + global_config.yanks[0]->actual;
+									} else {
+										env->line_no = env->line_no + global_config.yank_count - 1;
+										env->col_no = global_config.yanks[global_config.yank_count-1]->actual;
+									}
+								}
 							}
 							set_history_break();
 							set_modified();
@@ -6762,6 +7473,14 @@ void load_bimrc(void) {
 		if (!strcmp(l,"splitpercent") && value) {
 			global_config.split_percent = atoi(value);
 		}
+
+		if (!strcmp(l,"shiftscrolling")) {
+			global_config.shift_scrolling = (value ? atoi(value) : 1);
+		}
+
+		if (!strcmp(l,"scrollamount") && value) {
+			global_config.scroll_amount = atoi(value);
+		}
 	}
 
 	fclose(bimrc);
@@ -6851,7 +7570,7 @@ int main(int argc, char * argv[]) {
 					if (opt == 'C') {
 						draw_line_number(i);
 					}
-					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0);
+					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0, i + 1);
 					reset();
 					fprintf(stdout, "\n");
 				}
