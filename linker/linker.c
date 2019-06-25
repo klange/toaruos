@@ -79,6 +79,8 @@ static hashmap_t * objects_map;
 /* Used for dlerror */
 static char * last_error = NULL;
 
+static int _target_is_suid = 0;
+
 typedef struct elf_object {
 	FILE * file;
 
@@ -115,7 +117,7 @@ static char * find_lib(const char * file) {
 	if (strchr(file, '/')) return strdup(file);
 
 	/* Collect the environment variable. */
-	char * path = getenv("LD_LIBRARY_PATH");
+	char * path = _target_is_suid ? NULL : getenv("LD_LIBRARY_PATH");
 	if (!path) {
 		/* Not set - this is the default state. Should probably read from config file? */
 		path = "/lib:/usr/lib";
@@ -692,6 +694,20 @@ int main(int argc, char * argv[]) {
 	while (ex->name) {
 		hashmap_set(dumb_symbol_table, ex->name, ex->symbol);
 		ex++;
+	}
+
+	/* Technically there's a potential time-of-use probably if we check like this but
+	 * this is a toy linker for a toy OS so the fact that we even need to check suid
+	 * bits at all is outrageous
+	 */
+	struct stat buf;
+	if (stat(file, &buf)) {
+		fprintf(stderr, "%s: target binary '%s' not available\n", argv[0], file);
+	}
+
+	/* Technically there's a way to know we're running suid, but let's check the actual file */
+	if (buf.st_mode & S_ISUID) {
+		_target_is_suid = 1;
 	}
 
 	/* Open the requested main object */
