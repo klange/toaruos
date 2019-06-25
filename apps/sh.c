@@ -781,14 +781,22 @@ void run_cmd(char ** args) {
 		i = func(argc, args);
 	} else {
 		if (i != 0) {
-			fprintf(stderr, "%s: Command not found\n", *args);
-			for (struct alternative * alt = cmd_alternatives; alt->command; alt++) {
-				if (!strcmp(*args, alt->command)) {
-					fprintf(stderr, "Consider this alternative:\n\n\t%s -- \033[3m%s\033[0m\n\n",
-						alt->replacement,
-						alt->description);
-					break;
+			if (errno == ENOENT) {
+				fprintf(stderr, "%s: Command not found\n", *args);
+				for (struct alternative * alt = cmd_alternatives; alt->command; alt++) {
+					if (!strcmp(*args, alt->command)) {
+						fprintf(stderr, "Consider this alternative:\n\n\t%s -- \033[3m%s\033[0m\n\n",
+							alt->replacement,
+							alt->description);
+						break;
+					}
 				}
+			} else if (errno == ELOOP) {
+				fprintf(stderr, "esh: Bad interpreter (maximum recursion depth reached)\n");
+			} else if (errno == ENOEXEC) {
+				fprintf(stderr, "esh: Bad interpreter\n");
+			} else {
+				fprintf(stderr, "esh: Invalid executable\n");
 			}
 			i = 127;
 		}
