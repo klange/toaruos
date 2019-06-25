@@ -309,7 +309,7 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 
 	debug_print(INFO,"Executing...");
 	/* Discard envp */
-	return exec((char *)filename, argc, (char **)argv_, (char **)envp_);
+	return exec((char *)filename, argc, (char **)argv_, (char **)envp_, 0);
 }
 
 static int sys_seek(int fd, int offset, int whence) {

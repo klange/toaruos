@@ -189,6 +189,9 @@ int exec_elf(char * path, fs_node_t * file, int argc, char ** argv, char ** env,
 }
 
 int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** env, int interp) {
+	if (interp > 4) /* sounds good to me */ {
+		return -ELOOP;
+	}
 	/* Read MAX_LINE... */
 	char tmp[100];
 	read_fs(file, 0, 100, (unsigned char *)tmp); close_fs(file);
@@ -231,7 +234,7 @@ int exec_shebang(char * path, fs_node_t * file, int argc, char ** argv, char ** 
 	}
 	args[j] = NULL;
 
-	return exec(cmd, nargc, args, env);
+	return exec(cmd, nargc, args, env, interp+1);
 }
 
 /* Consider exposing this and making it a list so it can be extended ... */
@@ -269,7 +272,8 @@ int exec(
 		char *  path, /* Path to the executable to run */
 		int     argc, /* Argument count (ie, /bin/echo hello world = 3) */
 		char ** argv, /* Argument strings (including executable path) */
-		char ** env   /* Environmen variables */
+		char ** env,  /* Environmen variables */
+		int interp_depth
 	) {
 	/* Open the file */
 	fs_node_t * file = kopen(path,0);
@@ -294,7 +298,7 @@ int exec(
 	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
 		if (matches(fmts[i].bytes, head, fmts[i].match)) {
 			debug_print(NOTICE, "Matched executor: %s", fmts[i].name);
-			return fmts[i].func(path, file, argc, argv, env, 0);
+			return fmts[i].func(path, file, argc, argv, env, interp_depth);
 		}
 	}
 
@@ -323,7 +327,7 @@ system(
 
 	current_process->cmdline = argv_;
 
-	exec(path,argc,argv_,envin ? envin : env);
+	exec(path,argc,argv_,envin ? envin : env, 0);
 	debug_print(ERROR, "Failed to execute process!");
 	kexit(-1);
 	return -1;

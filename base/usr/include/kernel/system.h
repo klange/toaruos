@@ -204,7 +204,7 @@ extern void unswitch_fpu(void);
 extern void fpu_install(void);
 
 /* ELF */
-extern int exec( char *, int, char **, char **);
+extern int exec( char *, int, char **, char **, int);
 extern int system( char *, int, char **, char **);
 
 /* Sytem Calls */
