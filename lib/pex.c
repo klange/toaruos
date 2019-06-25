@@ -48,6 +48,7 @@ size_t pex_recv(FILE * sock, char * blob) {
 
 FILE * pex_connect(char * target) {
 	char tmp[100];
+	if (strlen(target) > 80) return NULL;
 	sprintf(tmp, "/dev/pex/%s", target);
 	FILE * out = fopen(tmp, "r+");
 	if (out) {
@@ -58,6 +59,7 @@ FILE * pex_connect(char * target) {
 
 FILE * pex_bind(char * target) {
 	char tmp[100];
+	if (strlen(target) > 80) return NULL;
 	sprintf(tmp, "/dev/pex/%s", target);
 	FILE * out = fopen(tmp, "a+");
 	if (out) {
