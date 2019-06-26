@@ -3480,7 +3480,7 @@ void redraw_statusbar(void) {
 	if (env->file_name) {
 		int len = strlen(env->file_name);
 		int i = 0;
-		while (len > 5 && len > (int)env->width - (int)strlen(right_hand) - (int)strlen(status_bits) - 5) {
+		while (len > 5 && len > (int)global_config.term_width - (int)strlen(right_hand) - (int)strlen(status_bits) - 5) {
 			len--;
 			i += 1;
 		}
