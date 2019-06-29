@@ -65,4 +65,9 @@ typedef struct { long int quot; long int rem; } ldiv_t;
 extern div_t div(int numerator, int denominator);
 extern ldiv_t ldiv(long numerator, long denominator);
 
+/* These are supposed to be in limits, but gcc screwed us */
+#define PATH_MAX 4096
+#define NAME_MAX 255
+extern char *realpath(const char *path, char *resolved_path);
+
 _End_C_Header
