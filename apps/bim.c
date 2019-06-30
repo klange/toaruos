@@ -1630,6 +1630,24 @@ static int syn_bimrc_calculate(struct syntax_state * state) {
 
 static char * bimrc_ext[] = {".bimrc",NULL};
 
+static int syn_biminfo_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (charat() == '#') {
+			while (charat() != -1) paint(1, FLAG_COMMENT);
+		} else if (charat() == '>') {
+			paint(1, FLAG_KEYWORD);
+			while (charat() != ' ') paint(1, FLAG_TYPE);
+			skip();
+			while (charat() != -1) paint(1, FLAG_NUMERAL);
+		} else {
+			while (charat() != -1) paint(1, FLAG_DIFFMINUS); /* Add a FLAG_ERROR maybe? */
+		}
+	}
+	return -1;
+}
+
+static char * biminfo_ext[] = {".biminfo",NULL};
+
 static int syn_gitcommit_calculate(struct syntax_state * state) {
 	if (state->i == 0 && charat() == '#') {
 		while (charat() != -1) paint(1, FLAG_COMMENT);
@@ -2252,6 +2270,7 @@ struct syntax_definition {
 	{"conf",conf_ext,syn_conf_calculate,0},
 	{"rust",rust_ext,syn_rust_calculate,1},
 	{"bimrc",bimrc_ext,syn_bimrc_calculate,0},
+	{"biminfo",biminfo_ext,syn_biminfo_calculate,0},
 	{"gitcommit",gitcommit_ext,syn_gitcommit_calculate,0},
 	{"gitrebase",gitrebase_ext,syn_gitrebase_calculate,0},
 	{"make",make_ext,syn_make_calculate,0}, /* Definitely don't use spaces for Make */
