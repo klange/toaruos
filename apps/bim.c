@@ -3547,22 +3547,29 @@ void redraw_line(int j, int x) {
 	switch (env->lines[x]->rev_status) {
 		case 1:
 			set_colors(COLOR_NUMBER_FG, COLOR_GREEN);
+			printf(" ");
 			break;
 		case 2:
 			set_colors(COLOR_NUMBER_FG, global_config.color_gutter ? COLOR_SEARCH_BG : COLOR_ALT_FG);
+			printf(" ");
 			break;
 		case 3:
 			set_colors(COLOR_NUMBER_FG, COLOR_KEYWORD);
+			printf(" ");
 			break;
 		case 4:
-			set_colors(COLOR_NUMBER_FG, COLOR_RED);
+			set_colors(COLOR_ALT_FG, COLOR_RED);
+			printf("▆");
+			break;
+		case 5:
+			set_colors(COLOR_KEYWORD, COLOR_RED);
+			printf("▆");
 			break;
 		default:
 			set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
+			printf(" ");
 			break;
 	}
-
-	printf(" ");
 
 	draw_line_number(x);
 
@@ -4402,8 +4409,8 @@ void open_file(char * file) {
 			env->line_no = 1;
 			env->col_no = 1;
 			fetch_from_biminfo(env);
-			redraw_all();
 			place_cursor_actual();
+			redraw_all();
 			set_preferred_column();
 		}
 	}
@@ -4516,53 +4523,70 @@ int git_examine(char * filename) {
 	FILE * f = fdopen(fds[0],"r");
 
 	int line_offset = 0;
-	int line_count = 0;
-	int lines_to_pull = 0;
-	int line_no = 0;
-	int pre_count = 0;
 	while (!feof(f)) {
 		int c = fgetc(f);
 		if (c < 0) break;
 
-		if (lines_to_pull > 0 && line_offset == 0) {
-			if (c != '-') {
-				if (c == '+') {
-					if (pre_count == lines_to_pull) {
-						env->lines[line_no-1]->rev_status = 3;
-					} else {
-						env->lines[line_no-1]->rev_status = 1;
-					}
-				}
-				lines_to_pull--;
-				pre_count--;
-				line_no++;
-			}
-		} else if (c == '@' && line_offset == 0) {
+		if (c == '@' && line_offset == 0) {
 			/* Read line offset, count */
 			if (fgetc(f) == '@' && fgetc(f) == ' ' && fgetc(f) == '-') {
-				while (isdigit(c = fgetc(f)));
-				if (c != ',') {
-					fscanf(f,"%d",&line_no);
-					pre_count = 1;
-				} else {
-					while ((c = fgetc(f)) == ',');
-					ungetc(c,f);
-					fscanf(f,"%d",&pre_count);
-				}
-				while ((c = fgetc(f)) == ' ');
-				ungetc(c,f);
-				/* Read one integer */
-				fscanf(f,"%d",&line_no);
-				lines_to_pull = 1;
+				/* This algorithm is borrowed from Kakoune and only requires us to parse the @@ line */
+				int from_line = 0;
+				int from_count = 0;
+				int to_line = 0;
+				int to_count = 0;
+				fscanf(f,"%d",&from_line);
 				if (fgetc(f) == ',') {
-					fscanf(f,"%d",&lines_to_pull);
+					fscanf(f,"%d",&from_count);
+				} else {
+					from_count = 1;
+				}
+				fscanf(f,"%d",&to_line);
+				if (fgetc(f) == ',') {
+					fscanf(f,"%d",&to_count);
+				} else {
+					to_count = 1;
+				}
+
+				if (to_line > env->line_count) continue;
+
+				if (from_count == 0 && to_count > 0) {
+					/* No -, all + means all of to_count is green */
+					for (int i = 0; i < to_count; ++i) {
+						env->lines[to_line+i-1]->rev_status = 1; /* Green */
+					}
+				} else if (from_count > 0 && to_count == 0) {
+					/*
+					 * No +, all - means we have a deletion. We mark the next line such that it has a red bar at the top
+					 * Note that to_line is one lower than the affacted line, so we don't need to mes with indexes.
+					 */
+					if (to_line >= env->line_count) continue;
+					env->lines[to_line]->rev_status = 4; /* Red */
+				} else if (from_count > 0 && from_count == to_count) {
+					/* from = to, all modified */
+					for (int i = 0; i < to_count; ++i) {
+						env->lines[to_line+i-1]->rev_status = 3; /* Blue */
+					}
+				} else if (from_count > 0 && from_count < to_count) {
+					/* from < to, some modified, some added */
+					for (int i = 0; i < from_count; ++i) {
+						env->lines[to_line+i-1]->rev_status = 3; /* Blue */
+					}
+					for (int i = from_count; i < to_count; ++i) {
+						env->lines[to_line+i-1]->rev_status = 1; /* Green */
+					}
+				} else if (to_count > 0 && from_count > to_count) {
+					/* from > to, we deleted but also modified some lines */
+					env->lines[to_line-1]->rev_status = 5; /* Red + Blue */
+					for (int i = 1; i < to_count-1; ++i) {
+						env->lines[to_line+i-1]->rev_status = 3; /* Blue */
+					}
 				}
 			}
 		}
 
 		if (c == '\n') {
 			line_offset = 0;
-			line_count++;
 			continue;
 		}
 
