@@ -42,7 +42,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.5.1"
+#define BIM_VERSION   "1.5.2"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -2254,6 +2254,187 @@ static char * esh_ext[] = {
 #ifdef __toaru__
 	".sh",
 #endif
+	".eshrc",".yutanirc",
+	NULL
+};
+
+static char * syn_bash_keywords[] = {
+	/* Actual bash keywords */
+	"if","then","else","elif","fi","case","esac","for","coproc",
+	"select","while","until","do","done","in","function","time",
+	/* Other keywords */
+	"exit","return","source","function","export","alias","complete","shopt","local","eval",
+	/* Common Unix utilities */
+	"echo","cd","pushd","popd","printf","sed","rm","mv",
+	NULL
+};
+
+static int bash_pop_state(int state) {
+	int new_state = state / 100;
+	return new_state * 10;
+}
+
+static int bash_push_state(int state, int new) {
+	return state * 10 + new;
+}
+
+static int bash_paint_tick(struct syntax_state * state, int out_state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return bash_pop_state(out_state);
+		} else if (last == '\\') {
+			paint(1, FLAG_STRING);
+			last = -1;
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, FLAG_STRING);
+		}
+	}
+	return out_state;
+}
+
+static int bash_paint_braced_variable(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (charat() == '}') {
+			paint(1, FLAG_NUMERAL);
+			return 0;
+		}
+		paint(1, FLAG_NUMERAL);
+	}
+	return 0;
+}
+
+static int bash_special_variable(int c) {
+	return (c == '@' || c == '?');
+}
+
+static int bash_paint_string(struct syntax_state * state, char terminator, int out_state, int color) {
+	int last = -1;
+	state->state = out_state;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == terminator) {
+			paint(1, color);
+			return bash_pop_state(state->state);
+		} else if (last == '\\') {
+			paint(1, color);
+			last = -1;
+		} else if (terminator != '`' && charat() == '`') {
+			paint(1, FLAG_ESCAPE);
+			state->state = bash_paint_string(state,'`',bash_push_state(out_state, 20),FLAG_ESCAPE);
+		} else if (terminator != ')' && charat() == '$' && nextchar() == '(') {
+			paint(2, FLAG_TYPE);
+			state->state = bash_paint_string(state,')',bash_push_state(out_state, 30),FLAG_TYPE);
+		} else if (charat() == '$' && nextchar() == '{') {
+			paint(2, FLAG_NUMERAL);
+			bash_paint_braced_variable(state);
+		} else if (charat() == '$') {
+			paint(1, FLAG_NUMERAL);
+			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); continue; }
+			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
+		} else if (terminator != '"' && charat() == '"') {
+			paint(1, FLAG_STRING);
+			state->state = bash_paint_string(state,'"',bash_push_state(out_state, 40),FLAG_STRING);
+		} else if (terminator != '"' && charat() == '\'') { /* No single quotes in regular quotes */
+			paint(1, FLAG_STRING);
+			state->state = bash_paint_tick(state, out_state);
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, color);
+		}
+	}
+	return state->state;
+}
+
+static int syn_bash_calculate(struct syntax_state * state) {
+	if (state->state < 1) {
+		if (charat() == '#') {
+			while (charat() != -1) paint(1, FLAG_COMMENT);
+			return -1;
+		} else if (charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return bash_paint_tick(state, 10);
+		} else if (charat() == '`') {
+			paint(1, FLAG_ESCAPE);
+			return bash_paint_string(state,'`',20,FLAG_ESCAPE);
+		} else if (charat() == '$' && nextchar() == '(') {
+			paint(2, FLAG_TYPE);
+			return bash_paint_string(state,')',30,FLAG_TYPE);
+		} else if (charat() == '"') {
+			paint(1, FLAG_STRING);
+			return bash_paint_string(state,'"',40,FLAG_STRING);
+		} else if (charat() == '$' && nextchar() == '{') {
+			paint(2, FLAG_NUMERAL);
+			bash_paint_braced_variable(state);
+			return 0;
+		} else if (charat() == '$') {
+			paint(1, FLAG_NUMERAL);
+			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); return 0; }
+			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
+			return 0;
+		} else if (find_keywords(state, syn_bash_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+			return 0;
+		} else if (charat() == ';') {
+			paint(1, FLAG_KEYWORD);
+			return 0;
+		} else if (c_keyword_qualifier(charat())) {
+			for (int i = 0; charrel(i) != -1; ++i) {
+				if (charrel(i) == ' ') break;
+				if (charrel(i) == '=') {
+					for (int j = 0; j < i; ++j) {
+						paint(1, FLAG_TYPE);
+					}
+					skip(); /* equals sign */
+					return 0;
+				}
+			}
+			for (int i = 0; charrel(i) != -1; ++i) {
+				if (charrel(i) == '(') {
+					for (int j = 0; j < i; ++j) {
+						paint(1, FLAG_TYPE);
+					}
+					return 0;
+				}
+				if (!c_keyword_qualifier(charrel(i)) && charrel(i) != '-' && charrel(i) != ' ') break;
+			}
+			skip();
+			return 0;
+		} else if (charat() != -1) {
+			skip();
+			return 0;
+		}
+	} else if (state->state < 10) {
+		/*
+		 * TODO: I have an idea of how to do up to `n` (here... 8?) heredocs
+		 * by storing them in a static table and using the index into that table
+		 * for the state, but it's iffy. It would work well in situations where
+		 * someoen used the same heredoc repeatedly throughout their document.
+		 */
+	} else if (state->state >= 10) {
+		/* Nested string states */
+		while (charat() != -1) {
+			int s = (state->state / 10) % 10;
+			if (s == 1) {
+				state->state = bash_paint_string(state,'\'',state->state,FLAG_STRING);
+			} else if (s == 2) {
+				state->state = bash_paint_string(state,'`',state->state,FLAG_ESCAPE);
+			} else if (s == 3) {
+				state->state = bash_paint_string(state,')',state->state,FLAG_TYPE);
+			} else if (s == 4) {
+				state->state = bash_paint_string(state,'"',state->state,FLAG_STRING);
+			}
+		}
+		return state->state;
+	}
+	return -1;
+}
+
+static char * bash_ext[] = {
+#ifndef __toaru__
+	".sh",
+#endif
+	".bash",".bashrc",
 	NULL
 };
 
@@ -2279,6 +2460,7 @@ struct syntax_definition {
 	{"xml",xml_ext,syn_xml_calculate,1},
 	{"protobuf",proto_ext,syn_proto_calculate,1},
 	{"toarush",esh_ext,syn_esh_calculate,0},
+	{"bash",bash_ext,syn_bash_calculate,0},
 	{NULL,NULL,NULL,0},
 };
 
