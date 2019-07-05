@@ -570,6 +570,8 @@ uint32_t ununicode(uint32_t c) {
 		case L'ⁿ': return 252;
 		case L'²': return 253;
 		case L'■': return 254;
+		/* Special cases */
+		case L'▏': return 179; /* Replace with vertical bar to support bim better */
 	}
 	return 4;
 }
