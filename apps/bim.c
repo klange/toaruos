@@ -42,7 +42,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.5.2"
+#define BIM_VERSION   "1.6.0"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -104,6 +104,7 @@ const char * current_theme = "none";
 #define FLAG_BOLD      11
 #define FLAG_LINK      12
 #define FLAG_ESCAPE    13
+#define FLAG_ERROR     14
 
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
@@ -211,6 +212,8 @@ struct {
 	int cursor_padding;
 	int split_percent;
 	int scroll_amount;
+	const char * syntax_fallback;
+	uint32_t * search;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -244,12 +247,17 @@ struct {
 	4, /* cursor padding */
 	50, /* split percentage */
 	5, /* how many lines to scroll on mouse wheel */
+	NULL, /* syntax to fall back to if none other match applies */
+	NULL, /* search text */
 };
 
 void redraw_line(int j, int x);
 int git_examine(char * filename);
 void search_next(void);
 void set_preferred_column(void);
+void quit(const char * message);
+void close_buffer(void);
+void set_syntax_by_name(const char * name);
 
 /**
  * Special implementation of getch with a timeout
@@ -345,7 +353,6 @@ typedef struct _env {
 	int    line_avail;
 	int    col_no;
 	int    preferred_column;
-	uint32_t * search;
 	struct syntax_definition * syntax;
 	line_t ** lines;
 
@@ -553,10 +560,6 @@ buffer_t * buffer_close(buffer_t * buf) {
 	}
 
 	free(buf->lines);
-
-	if (buf->search) {
-		free(buf->search);
-	}
 
 	if (buf->file_name) {
 		free(buf->file_name);
@@ -958,6 +961,21 @@ static void paint_c_string(struct syntax_state * state) {
 				}
 			}
 			last = -1;
+		} else if (charat() == '%') {
+			paint(1, FLAG_ESCAPE);
+			if (charat() == '%') {
+				paint(1, FLAG_ESCAPE);
+			} else {
+				while (charat() == '-' || charat() == '#' || charat() == '*' || charat() == '0' || charat() == '+') paint(1, FLAG_ESCAPE);
+				while (isdigit(charat())) paint(1, FLAG_ESCAPE);
+				if (charat() == '.') {
+					paint(1, FLAG_ESCAPE);
+					if (charat() == '*') paint(1, FLAG_ESCAPE);
+					else while (isdigit(charat())) paint(1, FLAG_ESCAPE);
+				}
+				while (charat() == 'l' || charat() == 'z') paint(1, FLAG_ESCAPE);
+				paint(1, FLAG_ESCAPE);
+			}
 		} else if (charat() == '\\' && nextchar() == 'x') {
 			paint(2, FLAG_ESCAPE);
 			while (isxdigit(charat())) paint(1, FLAG_ESCAPE);
@@ -971,16 +989,15 @@ static void paint_c_string(struct syntax_state * state) {
 static void paint_simple_string(struct syntax_state * state) {
 	/* Assumes you came in from a check of charat() == '"' */
 	paint(1, FLAG_STRING);
-	int last = -1;
 	while (charat() != -1) {
-		if (last != '\\' && charat() == '"') {
+		if (charat() == '\\' && nextchar() == '"') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '"') {
 			paint(1, FLAG_STRING);
 			return;
-		} else if (last == '\\' && charat() == '\\') {
-			paint(1, FLAG_STRING);
-			last = -1;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
 		} else {
-			last = charat();
 			paint(1, FLAG_STRING);
 		}
 	}
@@ -1220,17 +1237,15 @@ static int paint_py_triple_single(struct syntax_state * state) {
 
 static int paint_py_single_string(struct syntax_state * state) {
 	paint(1, FLAG_STRING);
-	int last = -1;
 	while (charat() != -1) {
-		if (last != '\\' && charat() == '\'') {
+		if (charat() == '\\' && nextchar() == '\'') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '\'') {
 			paint(1, FLAG_STRING);
 			return 0;
-		} else if (last == '\\' && charat() == '\\') {
-			paint(1, FLAG_STRING);
-			last = -1;
-			/* TODO check for \0, \r, \n, \0xxx, etc. */
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
 		} else {
-			last = charat();
 			paint(1, FLAG_STRING);
 		}
 	}
@@ -1274,6 +1289,33 @@ static int paint_py_numeral(struct syntax_state * state) {
 	return 0;
 }
 
+static void paint_py_format_string(struct syntax_state * state) {
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == '"') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '"') {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '{') {
+			paint(1, FLAG_NUMERAL);
+			if (charat() == '}') {
+				state->i--;
+				paint(2, FLAG_ERROR); /* Can't do that. */
+			} else {
+				while (charat() != -1 && charat() != '}') {
+					paint(1, FLAG_NUMERAL);
+				}
+				paint(1, FLAG_NUMERAL);
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+}
+
 static int syn_py_calculate(struct syntax_state * state) {
 	switch (state->state) {
 		case -1:
@@ -1290,6 +1332,12 @@ static int syn_py_calculate(struct syntax_state * state) {
 				if (nextchar() == '"' && charrel(2) == '"') {
 					paint(3, FLAG_STRING);
 					return paint_py_triple_double(state);
+				} else if (lastchar() == 'f') {
+					/* I don't like backtracking like this, but it makes this parse easier */
+					state->i--;
+					paint(1,FLAG_TYPE);
+					paint_py_format_string(state);
+					return 0;
 				} else {
 					paint_simple_string(state);
 					return 0;
@@ -1305,8 +1353,7 @@ static int syn_py_calculate(struct syntax_state * state) {
 					paint(3, FLAG_STRING);
 					return paint_py_triple_single(state);
 				} else {
-					paint_py_single_string(state);
-					return 0;
+					return paint_py_single_string(state);
 				}
 			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
 				paint_py_numeral(state);
@@ -1450,6 +1497,7 @@ static int syn_java_calculate(struct syntax_state * state) {
 			} else if (charat() == '@') {
 				paint(1, FLAG_PRAGMA);
 				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
+				return 0;
 			} else if (charat() != -1) {
 				skip();
 				return 0;
@@ -1892,9 +1940,7 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 					return 1;
 				}
 			}
-			if (charat() == ' ' && charrel(1) == ' ' && charrel(2) == ' ' && charrel(3) == ' ') {
-				return -1;
-			} else if (charat() == '`') {
+			if (charat() == '`') {
 				paint(1, FLAG_STRING);
 				while (charat() != -1) {
 					if (charat() == '`') {
@@ -2423,6 +2469,8 @@ static int syn_bash_calculate(struct syntax_state * state) {
 				state->state = bash_paint_string(state,')',state->state,FLAG_TYPE);
 			} else if (s == 4) {
 				state->state = bash_paint_string(state,'"',state->state,FLAG_STRING);
+			} else if (!s) {
+				return -1;
 			}
 		}
 		return state->state;
@@ -2904,7 +2952,7 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 int line_ends_with_brace(line_t * line) {
 	int i = line->actual-1;
 	while (i >= 0) {
-		if ((line->text[i].flags & 0xF) == FLAG_COMMENT || line->text[i].codepoint == ' ') {
+		if ((line->text[i].flags & 0x1F) == FLAG_COMMENT || line->text[i].codepoint == ' ') {
 			i--;
 		} else {
 			break;
@@ -3359,12 +3407,24 @@ void unset_alternate_screen(void) {
 	}
 }
 
+/**
+ * Get the name of just a file from a full path.
+ * Returns a pointer within the original string.
+ */
 char * file_basename(char * file) {
 	char * c = strrchr(file, '/');
 	if (!c) return file;
 	return (c+1);
 }
 
+/**
+ * Print a tab name with fixed width and modifiers
+ * into an output buffer and return the written width.
+ *
+ * TODO this isn't unicode/display-width aware, so it returns
+ *      byte lengths and doesn't limit the width of the file
+ *      properly if it has wide characters. FIXME
+ */
 int draw_tab_name(buffer_t * _env, char * out) {
 	return sprintf(out, "%s %.40s ",
 		_env->modified ? " +" : "",
@@ -3460,6 +3520,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 	 */
 	int remainder = 0;
 
+	int is_spaces = 1;
+
 	/* For each character in the line ... */
 	while (i < line->actual) {
 
@@ -3494,6 +3556,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		/* Get the next character to draw */
 		char_t c = line->text[i];
 
+		if (c.codepoint != ' ') is_spaces = 0;
+
 		/* If we should be drawing by now... */
 		if (j >= offset) {
 
@@ -3522,8 +3586,13 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			} else if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 				was_searching = 1;
+			} else if ((c.flags == FLAG_ERROR)) {
+				set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
+				was_searching = 1; /* co-opting this should work... */
 			} else {
 				if (was_selecting || was_searching) {
+					was_selecting = 0;
+					was_searching = 0;
 					set_colors(color, line->is_current ? COLOR_ALT_BG : COLOR_BG);
 					last_color = color;
 				} else if (!last_color || strcmp(color, last_color)) {
@@ -3586,10 +3655,22 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("[U+%06x]", c.codepoint);
 				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (i > 0 && is_spaces && c.codepoint == ' ' && !(i % env->tabstop)) {
+				_set_colors(COLOR_ALT_FG, COLOR_BG); /* Normal background so this is more subtle */
+				if (global_config.can_unicode) {
+					printf("▏");
+				} else {
+					printf("|");
+				}
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint == ' ' && i == line->actual - 1) {
 				/* Special case: space at end of line */
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-				printf("·");
+				if (global_config.can_unicode) {
+					printf("·");
+				} else {
+					printf("-");
+				}
 				_set_colors(COLOR_FG, COLOR_BG);
 			} else {
 				/* Normal characters get output */
@@ -3808,6 +3889,11 @@ void redraw_text(void) {
 static int view_left_offset = 0;
 static int view_right_offset = 0;
 
+/**
+ * When in split view, draw the other buffer.
+ * Has special handling for when the split is
+ * on a single buffer.
+ */
 void redraw_alt_buffer(buffer_t * buf) {
 	if (left_buffer == right_buffer) {
 		/* draw the opposite view */
@@ -4031,6 +4117,9 @@ void redraw_all(void) {
 	redraw_commandline();
 }
 
+/**
+ * Redraw all screen elements except the other split view.
+ */
 void redraw_most(void) {
 	redraw_tabbar();
 	redraw_text();
@@ -4038,6 +4127,9 @@ void redraw_most(void) {
 	redraw_commandline();
 }
 
+/**
+ * Disable screen splitting.
+ */
 void unsplit(void) {
 	if (left_buffer) {
 		left_buffer->left = 0;
@@ -4269,6 +4361,10 @@ void place_cursor_actual(void) {
 	show_cursor();
 }
 
+/**
+ * If the screen is split, update the split sizes based
+ * on the new terminal width and the user's split_percent setting.
+ */
 void update_split_size(void) {
 	if (!left_buffer) return;
 	if (left_buffer == right_buffer) {
@@ -4299,6 +4395,11 @@ void update_screen_size(void) {
 			update_split_size();
 		} else if (env != left_buffer && env != right_buffer) {
 			env->width = w.ws_col;
+		}
+	}
+	for (int i = 0; i < buffers_len; ++i) {
+		if (buffers[i] != left_buffer && buffers[i] != right_buffer) {
+			buffers[i]->width = w.ws_col;
 		}
 	}
 }
@@ -4435,6 +4536,9 @@ void add_buffer(uint8_t * buf, int size) {
 	}
 }
 
+/**
+ * Find a syntax highlighter for the given filename.
+ */
 struct syntax_definition * match_syntax(char * file) {
 	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
 		for (char ** ext = s->ext; *ext; ++ext) {
@@ -4453,6 +4557,37 @@ struct syntax_definition * match_syntax(char * file) {
 
 	return NULL;
 }
+
+/**
+ * Set the syntax configuration by the name of the syntax highlighter.
+ */
+void set_syntax_by_name(const char * name) {
+	if (!strcmp(name,"none")) {
+		for (int i = 0; i < env->line_count; ++i) {
+			env->lines[i]->istate = 0;
+			for (int j = 0; j < env->lines[i]->actual; ++j) {
+				env->lines[i]->text[j].flags = 0;
+			}
+		}
+		redraw_all();
+		return;
+	}
+	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+		if (!strcmp(name,s->name)) {
+			env->syntax = s;
+			for (int i = 0; i < env->line_count; ++i) {
+				env->lines[i]->istate = 0;
+			}
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_syntax(env->lines[i],i);
+			}
+			redraw_all();
+			return;
+		}
+	}
+	render_error("unrecognized syntax type");
+}
+
 
 /**
  * Check if a string is all numbers.
@@ -4483,8 +4618,15 @@ void open_file(char * file) {
 		/**
 		 * Read file from stdin. stderr provides terminal input.
 		 */
+		if (isatty(STDIN_FILENO)) {
+			if (buffers_len == 1) {
+				quit("stdin is a terminal and you tried to open -; not letting you do that");
+			}
+			close_buffer();
+			render_error("stdin is a terminal and you tried to open -; not letting you do that");
+			return;
+		}
 		f = stdin;
-		global_config.tty_in = STDERR_FILENO;
 		env->modified = 1;
 	} else {
 		char * l = strrchr(file, ':');
@@ -4552,6 +4694,9 @@ void open_file(char * file) {
 
 	if (global_config.hilight_on_open) {
 		env->syntax = match_syntax(file);
+		if (!env->syntax && global_config.syntax_fallback) {
+			set_syntax_by_name(global_config.syntax_fallback);
+		}
 		for (int i = 0; i < env->line_count; ++i) {
 			recalculate_syntax(env->lines[i],i);
 		}
@@ -4603,13 +4748,16 @@ void open_file(char * file) {
 /**
  * Clean up the terminal and exit the editor.
  */
-void quit(void) {
+void quit(const char * message) {
 	mouse_disable();
 	set_buffered();
 	reset();
 	clear_screen();
 	show_cursor();
 	unset_alternate_screen();
+	if (message) {
+		fprintf(stdout, "%s\n", message);
+	}
 	exit(0);
 }
 
@@ -4633,7 +4781,7 @@ void try_quit(void) {
 	while (buffers_len) {
 		buffer_close(buffers[0]);
 	}
-	quit();
+	quit(NULL);
 }
 
 /**
@@ -4858,7 +5006,7 @@ void close_buffer(void) {
 	}
 	/* No more buffers, exit */
 	if (!new_env) {
-		quit();
+		quit(NULL);
 	}
 
 	/* Set the new active buffer */
@@ -4868,6 +5016,13 @@ void close_buffer(void) {
 	redraw_all();
 }
 
+/**
+ * Set the visual column the cursor should attempt to keep
+ * when moving up and down based on where the cursor currently is.
+ * This should happen whenever the user intentionally changes
+ * the cursor's horizontal positioning, such as with left/right
+ * arrow keys, word-move, search, mouse, etc.
+ */
 void set_preferred_column(void) {
 	int c = 0;
 	for (int i = 0; i < env->lines[env->line_no-1]->actual && i < env->col_no-1; ++i) {
@@ -5122,6 +5277,9 @@ void leave_insert(void) {
 	redraw_commandline();
 }
 
+/**
+ * Helper for handling smart case sensitivity.
+ */
 int search_matches(uint32_t a, uint32_t b, int mode) {
 	if (mode == 0) {
 		return a == b;
@@ -5131,6 +5289,9 @@ int search_matches(uint32_t a, uint32_t b, int mode) {
 	return 0;
 }
 
+/**
+ * Replace text on a given line with other text.
+ */
 void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement, int col, int ignorecase, int *out_col) {
 	line_t * line = env->lines[line_no-1];
 	int j = col;
@@ -5173,6 +5334,12 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 #define COMMAND_HISTORY_MAX 255
 char * command_history[COMMAND_HISTORY_MAX] = {NULL};
 
+/**
+ * Add a command to the history. If that command was
+ * already in history, it is moved to the front of the list;
+ * otherwise, the whole list is shifted backwards and
+ * overflow is freed up.
+ */
 void insert_command_history(char * cmd) {
 	/* See if this is already in the history. */
 	size_t amount_to_shift = COMMAND_HISTORY_MAX - 1;
@@ -5193,6 +5360,246 @@ void insert_command_history(char * cmd) {
 	memmove(&command_history[1], &command_history[0], sizeof(char *) * (amount_to_shift));
 
 	command_history[0] = strdup(cmd);
+}
+
+/**
+ * Add a raw string to a buffer. Convenience wrapper
+ * for add_buffer for nil-terminated strings.
+ */
+static void add_string(char * string) {
+	add_buffer((uint8_t*)string,strlen(string));
+}
+
+static uint32_t term_colors[] = {
+ 0x000000, 0xcc0000, 0x3e9a06, 0xc4a000, 0x3465a4, 0x75507b, 0x06989a, 0xeeeeec, 0x555753, 0xef2929, 0x8ae234, 0xfce94f, 0x729fcf, 0xad7fa8, 0x34e2e2,
+ 0xFFFFFF, 0x000000, 0x00005f, 0x000087, 0x0000af, 0x0000d7, 0x0000ff, 0x005f00, 0x005f5f, 0x005f87, 0x005faf, 0x005fd7, 0x005fff, 0x008700, 0x00875f,
+ 0x008787, 0x0087af, 0x0087d7, 0x0087ff, 0x00af00, 0x00af5f, 0x00af87, 0x00afaf, 0x00afd7, 0x00afff, 0x00d700, 0x00d75f, 0x00d787, 0x00d7af, 0x00d7d7,
+ 0x00d7ff, 0x00ff00, 0x00ff5f, 0x00ff87, 0x00ffaf, 0x00ffd7, 0x00ffff, 0x5f0000, 0x5f005f, 0x5f0087, 0x5f00af, 0x5f00d7, 0x5f00ff, 0x5f5f00, 0x5f5f5f,
+ 0x5f5f87, 0x5f5faf, 0x5f5fd7, 0x5f5fff, 0x5f8700, 0x5f875f, 0x5f8787, 0x5f87af, 0x5f87d7, 0x5f87ff, 0x5faf00, 0x5faf5f, 0x5faf87, 0x5fafaf, 0x5fafd7,
+ 0x5fafff, 0x5fd700, 0x5fd75f, 0x5fd787, 0x5fd7af, 0x5fd7d7, 0x5fd7ff, 0x5fff00, 0x5fff5f, 0x5fff87, 0x5fffaf, 0x5fffd7, 0x5fffff, 0x870000, 0x87005f,
+ 0x870087, 0x8700af, 0x8700d7, 0x8700ff, 0x875f00, 0x875f5f, 0x875f87, 0x875faf, 0x875fd7, 0x875fff, 0x878700, 0x87875f, 0x878787, 0x8787af, 0x8787d7,
+ 0x8787ff, 0x87af00, 0x87af5f, 0x87af87, 0x87afaf, 0x87afd7, 0x87afff, 0x87d700, 0x87d75f, 0x87d787, 0x87d7af, 0x87d7d7, 0x87d7ff, 0x87ff00, 0x87ff5f,
+ 0x87ff87, 0x87ffaf, 0x87ffd7, 0x87ffff, 0xaf0000, 0xaf005f, 0xaf0087, 0xaf00af, 0xaf00d7, 0xaf00ff, 0xaf5f00, 0xaf5f5f, 0xaf5f87, 0xaf5faf, 0xaf5fd7,
+ 0xaf5fff, 0xaf8700, 0xaf875f, 0xaf8787, 0xaf87af, 0xaf87d7, 0xaf87ff, 0xafaf00, 0xafaf5f, 0xafaf87, 0xafafaf, 0xafafd7, 0xafafff, 0xafd700, 0xafd75f,
+ 0xafd787, 0xafd7af, 0xafd7d7, 0xafd7ff, 0xafff00, 0xafff5f, 0xafff87, 0xafffaf, 0xafffd7, 0xafffff, 0xd70000, 0xd7005f, 0xd70087, 0xd700af, 0xd700d7,
+ 0xd700ff, 0xd75f00, 0xd75f5f, 0xd75f87, 0xd75faf, 0xd75fd7, 0xd75fff, 0xd78700, 0xd7875f, 0xd78787, 0xd787af, 0xd787d7, 0xd787ff, 0xd7af00, 0xd7af5f,
+ 0xd7af87, 0xd7afaf, 0xd7afd7, 0xd7afff, 0xd7d700, 0xd7d75f, 0xd7d787, 0xd7d7af, 0xd7d7d7, 0xd7d7ff, 0xd7ff00, 0xd7ff5f, 0xd7ff87, 0xd7ffaf, 0xd7ffd7,
+ 0xd7ffff, 0xff0000, 0xff005f, 0xff0087, 0xff00af, 0xff00d7, 0xff00ff, 0xff5f00, 0xff5f5f, 0xff5f87, 0xff5faf, 0xff5fd7, 0xff5fff, 0xff8700, 0xff875f,
+ 0xff8787, 0xff87af, 0xff87d7, 0xff87ff, 0xffaf00, 0xffaf5f, 0xffaf87, 0xffafaf, 0xffafd7, 0xffafff, 0xffd700, 0xffd75f, 0xffd787, 0xffd7af, 0xffd7d7,
+ 0xffd7ff, 0xffff00, 0xffff5f, 0xffff87, 0xffffaf, 0xffffd7, 0xffffff, 0x080808, 0x121212, 0x1c1c1c, 0x262626, 0x303030, 0x3a3a3a, 0x444444, 0x4e4e4e,
+ 0x585858, 0x626262, 0x6c6c6c, 0x767676, 0x808080, 0x8a8a8a, 0x949494, 0x9e9e9e, 0xa8a8a8, 0xb2b2b2, 0xbcbcbc, 0xc6c6c6, 0xd0d0d0, 0xdadada, 0xe4e4e4,
+ 0xeeeeee,
+};
+
+/**
+ * Convert a color setting from terminal format
+ * to a hexadecimal color code and add it to the current
+ * buffer. This is used for HTML conversion, but could
+ * possibly be used for other purposes.
+ */
+static void html_convert_color(const char * color_string) {
+	char tmp[100];
+	if (!strncmp(color_string,"2;",2)) {
+		/* 24-bit color */
+		int red, green, blue;
+		sscanf(color_string+2,"%d;%d;%d",&red,&green,&blue);
+		sprintf(tmp, "#%02x%02x%02x;", red,green,blue);
+	} else if (!strncmp(color_string,"5;",2)) {
+		/* 256 colors; needs lookup table */
+		int index;
+		sscanf(color_string+2,"%d",&index);
+		sprintf(tmp,"#%06x;", (unsigned int)term_colors[(index >= 0 && index <= 255) ? index : 0]);
+	} else {
+		/* 16 colors; needs lookup table */
+		int index;
+		uint32_t color;
+		sscanf(color_string+1,"%d",&index);
+		if (index >= 10) {
+			index -= 10;
+			color = term_colors[index+8];
+		} else if (index == 9) {
+			color = term_colors[0];
+		} else {
+			color = term_colors[index];
+		}
+		sprintf(tmp,"#%06x;", (unsigned int)color);
+	}
+	add_string(tmp);
+	char * italic = strstr(color_string,";3");
+	if (italic && italic[2] == '\0') {
+		add_string(" font-style: oblique;");
+	}
+	char * bold = strstr(color_string,";1");
+	if (bold && bold[2] == '\0') {
+		add_string(" font-weight: bold;");
+	}
+	char * underline = strstr(color_string,";4");
+	if (underline && underline[2] == '\0') {
+		add_string(" font-decoration: underline;");
+	}
+}
+
+/**
+ * Based on vim's :TOhtml
+ * Convert syntax-highlighted buffer contents to HTML.
+ */
+void convert_to_html(void) {
+	buffer_t * old = env;
+	env = buffer_new();
+	setup_buffer(env);
+	env->loading = 1;
+
+	add_string("<!doctype html>\n");
+	add_string("<html>\n");
+	add_string("	<head>\n");
+	add_string("		<meta charset=\"UTF-8\">\n");
+	add_string("		<style>\n");
+	add_string("			body {\n");
+	add_string("				font-family: monospace;\n");
+	add_string("				margin: 0;\n");
+	add_string("				counter-reset: line-no;\n");
+	add_string("				background-color: ");
+	/* Convert color */
+	html_convert_color(COLOR_BG);
+	add_string("\n");
+	add_string("			}\n");
+	for (int i = 0; i < 15; ++i) {
+		/* For each of the relevant flags... */
+		char tmp[20];
+		sprintf(tmp,"			.s%d { color: ", i);
+		add_string(tmp);
+		/* These are special */
+		if (i == FLAG_NOTICE) {
+			html_convert_color(COLOR_SEARCH_FG);
+			add_string(" background-color: ");
+			html_convert_color(COLOR_SEARCH_BG);
+		} else if (i == FLAG_ERROR) {
+			html_convert_color(COLOR_ERROR_FG);
+			add_string(" background-color: ");
+			html_convert_color(COLOR_ERROR_BG);
+		} else {
+			html_convert_color(flag_to_color(i));
+		}
+		add_string("}\n");
+	}
+	add_string("			pre {\n");
+	add_string("				margin: 0;\n");
+	add_string("				white-space: pre-wrap;\n");
+	add_string("			}\n");
+	add_string("			pre>span {\n");
+	add_string("				display: inline-block;\n");
+	add_string("				width: 100%;\n");
+	add_string("			}\n");
+	add_string("			pre>span::before {\n");
+	add_string("				counter-increment: line-no;\n");
+	add_string("				content: counter(line-no);\n");
+	add_string("				padding-right: 1em;\n");
+	add_string("				width: 3em;\n");
+	add_string("				display: inline-block;\n");
+	add_string("				text-align: right;\n");
+	add_string("				background-color: ");
+	html_convert_color(COLOR_NUMBER_BG);
+	add_string("\n");
+	add_string("				color: ");
+	html_convert_color(COLOR_NUMBER_FG);
+	add_string("\n");
+	add_string("			}\n");
+	add_string("			pre>span:target {\n");
+	add_string("				background-color: ");
+	html_convert_color(COLOR_ALT_BG);
+	add_string("\n");
+	add_string("			}\n");
+	for (int i = 1; i <= env->tabstop; ++i) {
+		char tmp[10];
+		sprintf(tmp, ".tab%d", i);
+		add_string("			");
+		add_string(tmp);
+		add_string(">span {\n");
+		add_string("				font-size: 0;\n");
+		add_string("			}\n");
+		add_string("			");
+		add_string(tmp);
+		add_string("::after {\n");
+		add_string("				content: '»");
+		for (int j = 1; j < i; ++j) {
+			add_string("·");
+		}
+		add_string("';\n");
+		add_string("			background-color: ");
+		html_convert_color(COLOR_ALT_BG);
+		add_string("\n");
+		add_string("			color: ");
+		html_convert_color(COLOR_ALT_FG);
+		add_string("\n");
+		add_string("			}\n");
+	}
+	add_string("		</style>\n");
+	add_string("	</head>\n");
+	add_string("	<body><pre>\n");
+
+	for (int i = 0; i < old->line_count; ++i) {
+		char tmp[100];
+		sprintf(tmp, "<span id=\"L%d\">", i+1);
+		add_string(tmp);
+		int last_flag = -1;
+		int opened = 0;
+		for (int j = 0; j < old->lines[i]->actual; ++j) {
+			char_t c = old->lines[i]->text[j];
+
+			if (last_flag == -1 || last_flag != (c.flags & 0x1F)) {
+				if (opened) add_string("</span>");
+				opened = 1;
+				char tmp[100];
+				sprintf(tmp, "<span class=\"s%d\">", c.flags & 0x1F);
+				add_string(tmp);
+				last_flag = (c.flags & 0x1F);
+			}
+
+			if (c.codepoint == '<') {
+				add_string("&lt;");
+			} else if (c.codepoint == '>') {
+				add_string("&gt;");
+			} else if (c.codepoint == '&') {
+				add_string("&amp;");
+			} else if (c.codepoint == '\t') {
+				char tmp[100];
+				sprintf(tmp, "<span class=\"tab%d\"><span>	</span></span>",c.display_width);
+				add_string(tmp);
+			} else {
+				char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
+				to_eight(c.codepoint, tmp);
+				add_string(tmp);
+			}
+		}
+		if (opened) {
+			add_string("</span>");
+		} else {
+			add_string("<wbr>");
+		}
+		add_string("</span>\n");
+	}
+
+	add_string("</pre></body>\n");
+	add_string("</html>\n");
+
+	env->loading = 0;
+	env->modified = 1;
+	if (old->file_name) {
+		char * base = file_basename(old->file_name);
+		char * tmp = malloc(strlen(base) + 5);
+		*tmp = '\0';
+		strcat(tmp, base);
+		strcat(tmp, ".htm");
+		env->file_name = tmp;
+	}
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_tabs(env->lines[i]);
+	}
+	env->syntax = match_syntax(".htm");
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	redraw_all();
 }
 
 /**
@@ -5452,7 +5859,7 @@ void process_command(char * cmd) {
 		while (buffers_len) {
 			buffer_close(buffers[0]);
 		}
-		quit();
+		quit(NULL);
 	} else if (!strcmp(argv[0], "tabp")) {
 		/* Next tab */
 		previous_tab();
@@ -5487,9 +5894,9 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "cursorcolumn")) {
 		render_status_message("cursorcolumn=%d", env->preferred_column);
 	} else if (!strcmp(argv[0], "noh")) {
-		if (env->search) {
-			free(env->search);
-			env->search = NULL;
+		if (global_config.search) {
+			free(global_config.search);
+			global_config.search = NULL;
 			for (int i = 0; i < env->line_count; ++i) {
 				recalculate_syntax(env->lines[i],i);
 			}
@@ -5567,6 +5974,7 @@ void process_command(char * cmd) {
 			if (argc == 2) {
 				open_file(argv[1]);
 			}
+			if (buffers_len != 2) return; /* something bad happened when trying to open the new file */
 			left_buffer = buffers[0];
 			right_buffer = buffers[1];
 
@@ -5582,30 +5990,7 @@ void process_command(char * cmd) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
 			return;
 		}
-		if (!strcmp(argv[1],"none")) {
-			for (int i = 0; i < env->line_count; ++i) {
-				env->lines[i]->istate = 0;
-				for (int j = 0; j < env->lines[i]->actual; ++j) {
-					env->lines[i]->text[j].flags = 0;
-				}
-			}
-			redraw_all();
-			return;
-		}
-		for (struct syntax_definition * s = syntaxes; s->name; ++s) {
-			if (!strcmp(argv[1],s->name)) {
-				env->syntax = s;
-				for (int i = 0; i < env->line_count; ++i) {
-					env->lines[i]->istate = 0;
-				}
-				for (int i = 0; i < env->line_count; ++i) {
-					recalculate_syntax(env->lines[i],i);
-				}
-				redraw_all();
-				return;
-			}
-		}
-		render_error("unrecognized syntax type");
+		set_syntax_by_name(argv[1]);
 	} else if (!strcmp(argv[0], "recalc")) {
 		for (int i = 0; i < env->line_count; ++i) {
 			env->lines[i]->istate = 0;
@@ -5685,6 +6070,19 @@ void process_command(char * cmd) {
 			redraw_text();
 			place_cursor_actual();
 		}
+	} else if (!strcmp(argv[0],"TOhtml") || !strcmp(argv[0],"tohtml")) { /* TOhtml is for vim compatibility */
+		convert_to_html();
+	} else if (!strcmp(argv[0],"buffers")) {
+		for (int i = 0; i < buffers_len; ++i) {
+			render_commandline_message("%d: %s\n", i, buffers[i]->file_name ? buffers[i]->file_name : "(no name)");
+		}
+		redraw_tabbar();
+		redraw_commandline();
+		fflush(stdout);
+		int c;
+		while ((c = bim_getch())== -1);
+		bim_unget(c);
+		redraw_all();
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -5772,6 +6170,8 @@ void command_tab_complete(char * buffer) {
 		add_candidate("unsplit");
 		add_candidate("git");
 		add_candidate("colorgutter");
+		add_candidate("tohtml");
+		add_candidate("buffers");
 		goto _accept_candidate;
 	}
 
@@ -5792,7 +6192,7 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split"))) {
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w"))) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
@@ -5959,6 +6359,11 @@ done:
 	free(buf);
 }
 
+/**
+ * Handle complex keyboard escapes when taking in a command.
+ * This allows us to not muck up the command input and also
+ * handle things like up/down arrow keys to go through history.
+ */
 int handle_command_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
@@ -6160,6 +6565,11 @@ _redraw_buffer:
 	}
 }
 
+/**
+ * Determine whether a string should be searched
+ * case-sensitive or not based on whether it contains
+ * any upper-case letters.
+ */
 int smart_case(uint32_t * str) {
 	if (!global_config.smart_case) return 0;
 
@@ -6297,10 +6707,10 @@ void search_mode(int direction) {
 
 	redraw_commandline();
 	printf(direction == 1 ? "/" : "?");
-	if (env->search) {
+	if (global_config.search) {
 		printf("\0337");
 		set_colors(COLOR_ALT_FG, COLOR_BG);
-		uint32_t * c = env->search;
+		uint32_t * c = global_config.search;
 		while (*c) {
 			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
 			to_eight(*c, tmp);
@@ -6336,16 +6746,16 @@ void search_mode(int direction) {
 			} else if (c == ENTER_KEY || c == LINE_FEED) {
 				/* Exit search */
 				if (!buffer_len) {
-					if (env->search) {
+					if (global_config.search) {
 						search_next();
 					}
 					break;
 				}
-				if (env->search) {
-					free(env->search);
+				if (global_config.search) {
+					free(global_config.search);
 				}
-				env->search = malloc((buffer_len + 1) * sizeof(uint32_t));
-				memcpy(env->search, buffer, (buffer_len + 1) * sizeof(uint32_t));
+				global_config.search = malloc((buffer_len + 1) * sizeof(uint32_t));
+				memcpy(global_config.search, buffer, (buffer_len + 1) * sizeof(uint32_t));
 				break;
 			} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
 				/* Backspace, delete last character in search buffer */
@@ -6420,40 +6830,40 @@ void search_mode(int direction) {
  * Find the next search result, or loop back around if at the end.
  */
 void search_next(void) {
-	if (!env->search) return;
+	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
-	find_match(env->line_no, env->col_no+1, &line, &col, env->search);
+	find_match(env->line_no, env->col_no+1, &line, &col, global_config.search);
 
 	if (line == -1) {
-		find_match(1,1, &line, &col, env->search);
+		find_match(1,1, &line, &col, global_config.search);
 		if (line == -1) return;
 	}
 
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(env->search, -1);
+	draw_search_match(global_config.search, -1);
 }
 
 /**
  * Find the previous search result, or loop to the end of the file.
  */
 void search_prev(void) {
-	if (!env->search) return;
+	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
-	find_match_backwards(env->line_no, env->col_no-1, &line, &col, env->search);
+	find_match_backwards(env->line_no, env->col_no-1, &line, &col, global_config.search);
 
 	if (line == -1) {
-		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, env->search);
+		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, global_config.search);
 		if (line == -1) return;
 	}
 
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(env->search, -1);
+	draw_search_match(global_config.search, -1);
 }
 
 /**
@@ -6476,7 +6886,7 @@ void find_matching_paren(int * out_line, int * out_col, int in_col) {
 	int paren_match = 0;
 	int direction = 0;
 	int start = env->lines[env->line_no-1]->text[env->col_no-in_col].codepoint;
-	int flags = env->lines[env->line_no-1]->text[env->col_no-in_col].flags & 0xF;
+	int flags = env->lines[env->line_no-1]->text[env->col_no-in_col].flags & 0x1F;
 	int count = 0;
 
 	/* TODO what about unicode parens? */
@@ -6497,7 +6907,7 @@ void find_matching_paren(int * out_line, int * out_col, int in_col) {
 	do {
 		while (col > 0 && col < env->lines[line-1]->actual + 1) {
 			/* Only match on same syntax */
-			if ((env->lines[line-1]->text[col-1].flags & 0xF) == flags) {
+			if ((env->lines[line-1]->text[col-1].flags & 0x1F) == flags) {
 				/* Count up on same direction */
 				if (env->lines[line-1]->text[col-1].codepoint == start) count++;
 				/* Count down on opposite direction */
@@ -6530,6 +6940,10 @@ _match_found:
 	*out_col  = col;
 }
 
+/**
+ * Switch to the left split view
+ * (Primarily to handle cases where the left and right are the same buffer)
+ */
 void use_left_buffer(void) {
 	if (left_buffer == right_buffer && env->left != 0) {
 		view_right_offset = env->offset;
@@ -6540,6 +6954,10 @@ void use_left_buffer(void) {
 	env = left_buffer;
 }
 
+/**
+ * Switch to the right split view
+ * (Primarily to handle cases where the left and right are the same buffer)
+ */
 void use_right_buffer(void) {
 	if (left_buffer == right_buffer && env->left == 0) {
 		view_left_offset = env->offset;
@@ -6635,6 +7053,10 @@ void handle_mouse(void) {
 
 		if (line_no > env->line_count) {
 			line_no = env->line_count;
+		}
+
+		if (line_no != env->line_no) {
+			env->coffset = 0;
 		}
 
 		/* Account for the left hand gutter */
@@ -7082,6 +7504,10 @@ int is_special(int codepoint) {
 	return !is_normal(codepoint) && !is_whitespace(codepoint);
 }
 
+/**
+ * Delete a "word"; the logic here is a bit complex, but it attempts to do
+ * what vim does when you hit ^W (and it's what we bind ^W to as well)
+ */
 void delete_word(void) {
 	if (!env->lines[env->line_no-1]) return;
 	if (env->col_no > 1) {
@@ -7369,22 +7795,22 @@ void search_under_cursor(void) {
 	if (!c_before && !c_after) return;
 
 	/* Populate with characters */
-	if (env->search) free(env->search);
-	env->search = malloc(sizeof(uint32_t) * (c_before+c_after+1));
+	if (global_config.search) free(global_config.search);
+	global_config.search = malloc(sizeof(uint32_t) * (c_before+c_after+1));
 	int j = 0;
 	while (c_before) {
-		env->search[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
+		global_config.search[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
 		c_before--;
 		j++;
 	}
 	int x = 0;
 	while (c_after) {
-		env->search[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
+		global_config.search[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
 		j++;
 		x++;
 		c_after--;
 	}
-	env->search[j] = 0;
+	global_config.search[j] = 0;
 
 	/* Find it */
 	search_next();
@@ -7713,7 +8139,13 @@ _leave_select_line:
 		} \
 	} while (0)
 
-
+/**
+ * COL INSERT MODE
+ *
+ * Allows entering text on multiple lines simultaneously.
+ * A full multi-cursor insert mode would be way cooler, but
+ * this is all we need for my general use case of vim's BLOCK modes.
+ */
 void col_insert_mode(void) {
 	if (env->start_line < env->line_no) {
 		/* swap */
@@ -8226,12 +8658,28 @@ void insert_mode(void) {
 						break;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
+						if (!env->tabs && env->col_no > 1) {
+							int i;
+							for (i = 0; i < env->col_no-1; ++i) {
+								if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) break;
+							}
+							render_commandline_message("i=%d, col_no-1=%d", i, env->col_no-1);
+							if (i == env->col_no-1) {
+								/* Backspace until aligned */
+								delete_at_cursor();
+								while (env->col_no > 1 && (env->col_no-1) % env->tabstop) {
+									delete_at_cursor();
+								}
+								redraw |= 2;
+								break; /* out of case */
+							}
+						}
 						delete_at_cursor();
 						break;
 					case ENTER_KEY:
 					case LINE_FEED:
 						if (env->indent) {
-							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0xF) == FLAG_COMMENT &&
+							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
 								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
 								(env->col_no > 3) &&
 								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
@@ -8275,7 +8723,7 @@ void insert_mode(void) {
 						break;
 					case '/':
 						if (env->indent) {
-							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0xF) == FLAG_COMMENT &&
+							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
 								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
 								(env->col_no > 3) &&
 								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
@@ -8417,6 +8865,13 @@ void replace_mode(void) {
 	}
 }
 
+/**
+ * Handler for 'r'; takes in input to replace a single
+ * character in the document. Handles Unicode, so we
+ * can replace a character with complex input. Also
+ * handles ^V so we can replace with escape sequences
+ * we would otherwise gobble up.
+ */
 void replace_one(void) {
 	/* Read one character and replace */
 	render_commandline_message("r");
@@ -8838,6 +9293,9 @@ void initialize(void) {
  * Initialize terminal for editor display.
  */
 void init_terminal(void) {
+	if (!isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) {
+		global_config.tty_in = STDERR_FILENO;
+	}
 	set_alternate_screen();
 	update_screen_size();
 	get_initial_termios();
@@ -8851,7 +9309,7 @@ void init_terminal(void) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?c:C:u:RO:-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
 		switch (opt) {
 			case 'R':
 				global_config.initial_file_is_read_only = 1;
@@ -8873,6 +9331,9 @@ int main(int argc, char * argv[]) {
 				return 0;
 			case 'u':
 				global_config.bimrc_path = optarg;
+				break;
+			case 'S':
+				global_config.syntax_fallback = optarg;
 				break;
 			case 'O':
 				/* Set various display options */
@@ -8908,7 +9369,10 @@ int main(int argc, char * argv[]) {
 				} else if (!strcmp(optarg,"help")) {
 					show_usage(argv);
 					return 0;
-				}
+				} else if (strlen(optarg)) {
+					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);
+					return 1;
+				} /* Else, this is -- to indicate end of arguments */
 				break;
 			case '?':
 				show_usage(argv);
@@ -8922,11 +9386,15 @@ int main(int argc, char * argv[]) {
 
 	/* Open file */
 	if (argc > optind) {
-		open_file(argv[optind]);
-		update_title();
-		if (global_config.initial_file_is_read_only) {
-			env->readonly = 1;
+		while (argc > optind) {
+			open_file(argv[optind]);
+			update_title();
+			if (global_config.initial_file_is_read_only) {
+				env->readonly = 1;
+			}
+			optind++;
 		}
+		env = buffers[0];
 	} else {
 		env = buffer_new();
 		update_title();
