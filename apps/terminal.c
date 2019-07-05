@@ -566,7 +566,6 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 
 /* Draw a partial block character. */
 static void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
-	int height;
 	bg = premultiply(bg);
 	fg = premultiply(fg);
 	if (c == 0x2580) {
@@ -579,12 +578,21 @@ static void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 				term_set_point(x+j,y+i,bg);
 			}
 		}
-	}
-	c -= 0x2580;
-	height = char_height - ((c * char_height) / 8);
-	for (uint8_t i = height; i < char_height; ++i) {
-		for (uint8_t j = 0; j < char_width; ++j) {
-			term_set_point(x+j, y+i,fg);
+	} else if (c >= 0x2589) {
+		c -= 0x2588;
+		int width = char_width - ((c * char_width) / 8);
+		for (uint8_t i = 0; i < char_height; ++i) {
+			for (uint8_t j = 0; j < width; ++j) {
+				term_set_point(x+j, y+i, fg);
+			}
+		}
+	} else {
+		c -= 0x2580;
+		int height = char_height - ((c * char_height) / 8);
+		for (uint8_t i = height; i < char_height; ++i) {
+			for (uint8_t j = 0; j < char_width; ++j) {
+				term_set_point(x+j, y+i,fg);
+			}
 		}
 	}
 }
@@ -781,7 +789,7 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 	}
 
 	/* Draw block characters */
-	if (val >= 0x2580 && val <= 0x2588) {
+	if (val >= 0x2580 && val <= 0x258F) {
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
 				term_set_point(x+j,y+i,premultiply(_bg));
