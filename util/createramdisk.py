@@ -4,6 +4,7 @@ Generates, from this source repository, a "tarramdisk" - a ustar archive
 suitable for booting ToaruOS. 
 """
 
+import os
 import tarfile
 
 users = {
@@ -54,6 +55,8 @@ with tarfile.open('fatbase/ramdisk.img','w') as ramdisk:
     ramdisk.add('libc',arcname='/src/libc',filter=file_filter)
     ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
     ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
+    if os.path.exists('tags'):
+        ramdisk.add('tags',arcname='/src/tags',filter=file_filter)
     ramdisk.add('util/build-the-world.py',arcname='/usr/bin/build-the-world.py',filter=file_filter)
 
 

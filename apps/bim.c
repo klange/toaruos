@@ -42,7 +42,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.6.0"
+#define BIM_VERSION   "1.6.1"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -478,6 +478,9 @@ int fetch_from_biminfo(buffer_t * buf) {
 			/* Read */
 			sscanf(line+1+strlen(tmp_path)+1,"%d",&buf->line_no);
 			sscanf(line+1+strlen(tmp_path)+21,"%d",&buf->col_no);
+
+			if (buf->line_no > buf->line_count) buf->line_no = buf->line_count;
+			if (buf->col_no > buf->lines[buf->line_no-1]->actual) buf->col_no = buf->lines[buf->line_no-1]->actual;
 			return 0;
 		}
 	}
@@ -1394,8 +1397,9 @@ static char * syn_java_special[] = {
 };
 
 static char * syn_java_at_comments[] = {
-	"@author","@see","@since","@param","@return","@throws",
+	"@author","@see","@since","@return","@throws",
 	"@version","@exception","@deprecated",
+	/* @param is special */
 	NULL
 };
 
@@ -1422,8 +1426,13 @@ static int paint_java_comment(struct syntax_state * state) {
 		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else if (charat() == '@') {
 			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
-				/* Paint the @ */
-				paint(1, FLAG_COMMENT);
+				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
+					while (charat() == ' ') skip();
+					while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+				} else {
+					/* Paint the @ */
+					paint(1, FLAG_COMMENT);
+				}
 			}
 		} else if (charat() == '{') {
 			/* see if this terminates */
@@ -8609,6 +8618,200 @@ _leave_select_char:
 }
 
 /**
+ * Read ctags file to find matches for a symbol
+ */
+int read_tags(uint32_t * comp, char *** matches, int * matches_count) {
+	int matches_len = 4;
+	*matches_count = 0;
+	*matches = malloc(sizeof(char *) * (matches_len));
+
+	FILE * tags = fopen("tags","r");
+	if (!tags) return 1;
+	char tmp[4096]; /* max line */
+	while (!feof(tags) && fgets(tmp, 4096, tags)) {
+		if (tmp[0] == '!') continue;
+		int i = 0;
+		while (comp[i] && comp[i] == (unsigned int)tmp[i]) i++;
+		if (comp[i] == '\0') {
+			int j = i;
+			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
+			tmp[j] = '\0';
+
+			/* Dedup */
+			int match_found = 0;
+			for (int i = 0; i < *matches_count; ++i) {
+				if (!strcmp((*matches)[i], tmp)) {
+					match_found = 1;
+					break;
+				}
+			}
+			if (match_found) continue;
+
+			if (*matches_count == matches_len) {
+				matches_len *= 2;
+				*matches = realloc(*matches, sizeof(char *) * (matches_len));
+			}
+			(*matches)[*matches_count] = strdup(tmp);
+			(*matches_count)++;
+		}
+	}
+	fclose(tags);
+	return 0;
+}
+
+/**
+ * Draw an autocomplete popover with matches.
+ */
+void draw_completion_matches(uint32_t * tmp, char ** matches, int matches_count) {
+	int original_length = 0;
+	while (tmp[original_length]) original_length++;
+	int max_width = 0;
+	for (int i = 0; i < matches_count; ++i) {
+		/* TODO unicode width */
+		if (strlen(matches[i]) > (unsigned int)max_width) {
+			max_width = strlen(matches[i]);
+		}
+	}
+
+	/* Figure out how much space we have to display the window */
+	int cursor_y = env->line_no - env->offset + 1;
+	int max_y = global_config.term_height - 2 - cursor_y;
+
+	/* Find a good place to put the box horizontally */
+	int num_size = num_width() + 3;
+	int x = num_size + 1 - env->coffset;
+
+	/* Determine where the cursor is physically */
+	for (int i = 0; i < env->col_no - 1 - original_length; ++i) {
+		char_t * c = &env->lines[env->line_no-1]->text[i];
+		x += c->display_width;
+	}
+
+	int box_width = max_width;
+	int box_x = x;
+	int box_y = cursor_y+1;
+	if (max_width > env->width - num_width()) {
+		box_width = env->width - num_width();
+		box_x = 1;
+	} else if (env->width - x < max_width) {
+		box_width = max_width;
+		box_x = env->width - max_width;
+	}
+
+	int max_count = (max_y < matches_count) ? max_y - 1 : matches_count;
+
+	for (int i = 0; i < max_count; ++i) {
+		place_cursor(box_x, box_y+i);
+		set_colors(COLOR_KEYWORD, COLOR_STATUS_BG);
+		/* TODO wide characters */
+		int match_width = strlen(matches[i]);
+		for (int j = 0; j < box_width; ++j) {
+			if (j == original_length) set_colors(i == 0 ? COLOR_NUMERAL : COLOR_STATUS_FG, COLOR_STATUS_BG);
+			if (j < match_width) printf("%c", matches[i][j]);
+			else printf(" ");
+		}
+	}
+	if (max_count == 0) {
+		place_cursor(box_x, box_y);
+		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
+		printf(" (no matches) ");
+	} else if (max_count != matches_count) {
+		place_cursor(box_x, box_y+max_count);
+		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
+		printf(" (%d more) ", matches_count-max_count);
+	}
+}
+
+/**
+ * Autocomplete words (function/variable names, etc.) in input mode.
+ */
+int omni_complete(void) {
+	int c;
+
+	/* Pull the word from before the cursor */
+	int c_before = 0;
+	int i = env->col_no-1;
+	while (i > 0) {
+		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		c_before++;
+		i--;
+	}
+
+	/* Populate with characters */
+	uint32_t * tmp = malloc(sizeof(uint32_t) * (c_before+1));
+	int j = 0;
+	while (c_before) {
+		tmp[j] = env->lines[env->line_no-1]->text[env->col_no-c_before-1].codepoint;
+		c_before--;
+		j++;
+	}
+	tmp[j] = 0;
+
+	/*
+	 * TODO matches should probably be a struct with more data than just
+	 * the matching string; maybe offset where the needle was found,
+	 * class information, source file information - anything we can extract
+	 * from ctags, but also other information for other sources of completion.
+	 */
+	char ** matches;
+	int matches_count;
+
+	/* TODO just reading ctags is rather mediocre; can we do something cool here? */
+	if (read_tags(tmp, &matches, &matches_count)) goto _completion_done;
+
+	/* Draw box with matches at cursor-width(tmp) */
+	draw_completion_matches(tmp, matches, matches_count);
+
+	int retval = 0;
+
+_completion_done:
+	place_cursor_actual();
+	while (1) {
+		c = bim_getch();
+		if (c == -1) continue;
+		if (matches_count < 1) {
+			redraw_all();
+			break;
+		}
+		if (c == '\t') {
+			for (unsigned int i = j; i < strlen(matches[0]); ++i) {
+				insert_char(matches[0][i]);
+			}
+			set_preferred_column();
+			redraw_text();
+			place_cursor_actual();
+			goto _finish_completion;
+		} else if (isgraph(c) && c != '}') {
+			/* insert and continue matching */
+			insert_char(c);
+			set_preferred_column();
+			redraw_text();
+			place_cursor_actual();
+			retval = 1;
+			goto _finish_completion;
+		} else if (c == DELETE_KEY || c == BACKSPACE_KEY) {
+			delete_at_cursor();
+			set_preferred_column();
+			redraw_text();
+			place_cursor_actual();
+			retval = 1;
+			goto _finish_completion;
+		}
+		/* TODO: Keyboard navigation of the matches list would be nice */
+		redraw_all();
+		break;
+	}
+	bim_unget(c);
+_finish_completion:
+	for (int i = 0; i < matches_count; ++i) {
+		free(matches[i]);
+	}
+	free(matches);
+	free(tmp);
+	return retval;
+}
+
+/**
  * INSERT mode
  *
  * Accept input into the text buffer.
@@ -8663,7 +8866,6 @@ void insert_mode(void) {
 							for (i = 0; i < env->col_no-1; ++i) {
 								if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) break;
 							}
-							render_commandline_message("i=%d, col_no-1=%d", i, env->col_no-1);
 							if (i == env->col_no-1) {
 								/* Backspace until aligned */
 								delete_at_cursor();
@@ -8688,6 +8890,9 @@ void insert_mode(void) {
 						}
 						insert_line_feed();
 						redraw |= 2;
+						break;
+					case 15: /* ^O */
+						while (omni_complete() == 1);
 						break;
 					case 22: /* ^V */
 						/* Insert next byte raw */
