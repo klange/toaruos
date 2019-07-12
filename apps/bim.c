@@ -42,7 +42,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.6.2"
+#define BIM_VERSION   "1.6.3"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -258,6 +258,7 @@ void set_preferred_column(void);
 void quit(const char * message);
 void close_buffer(void);
 void set_syntax_by_name(const char * name);
+void rehilight_search(line_t * line);
 
 /**
  * Special implementation of getch with a timeout
@@ -304,6 +305,8 @@ typedef struct history {
 	struct history * previous;
 	struct history * next;
 	int type;
+	int line;
+	int col;
 	union {
 		struct {
 			int lineno;
@@ -2564,10 +2567,12 @@ void recalculate_syntax(line_t * line, int line_no) {
 		state.state = env->syntax->calculate(&state);
 
 		if (state.state != 0) {
+			rehilight_search(line);
 			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
 				env->lines[line_no+1]->istate = state.state;
 				if (env->loading) return;
 				recalculate_syntax(env->lines[line_no+1], line_no+1);
+				rehilight_search(env->lines[line_no+1]);
 				if (line_no + 1 >= env->offset && line_no + 1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
 					redraw_line(line_no + 1 - env->offset, line_no + 1);
 				}
@@ -2622,6 +2627,8 @@ void recursive_history_free(history_t * root) {
 }
 
 #define HIST_APPEND(e) do { \
+		e->col = env->col_no; \
+		e->line = env->line_no; \
 		if (env->history) { \
 			e->previous = env->history; \
 			recursive_history_free(env->history); \
@@ -4718,7 +4725,7 @@ void open_file(char * file) {
 
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
 		/* Remove blank line from end */
-		remove_line(env->lines, env->line_no-1);
+		env->lines = remove_line(env->lines, env->line_no-1);
 	}
 
 	if (global_config.hilight_on_open) {
@@ -5140,6 +5147,8 @@ void cursor_down(void) {
 			redraw_text();
 		}
 
+		set_history_break();
+
 		/* Update the status bar */
 		redraw_statusbar();
 
@@ -5221,6 +5230,8 @@ void cursor_up(void) {
 			redraw_text();
 		}
 
+		set_history_break();
+
 		/* Update the status bar */
 		redraw_statusbar();
 
@@ -5242,6 +5253,7 @@ void cursor_left(void) {
 		/* Place the terminal cursor again */
 		place_cursor_actual();
 	}
+	set_history_break();
 	set_preferred_column();
 }
 
@@ -5260,6 +5272,7 @@ void cursor_right(void) {
 		/* Place the terminal cursor again */
 		place_cursor_actual();
 	}
+	set_history_break();
 	set_preferred_column();
 }
 
@@ -5268,6 +5281,7 @@ void cursor_right(void) {
  */
 void cursor_home(void) {
 	env->col_no = 1;
+	set_history_break();
 	set_preferred_column();
 
 	/* Update the status bar */
@@ -5285,6 +5299,7 @@ void cursor_home(void) {
  */
 void cursor_end(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+!!(env->mode == MODE_INSERT);
+	set_history_break();
 	set_preferred_column();
 
 	/* Update the status bar */
@@ -5356,6 +5371,7 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 				set_modified();
 				return;
 			}
+			if (k == line->actual) break;
 			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 			match++;
 			k++;
@@ -6642,6 +6658,7 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, uint
 					*out_col = j + 1;
 					return;
 				}
+				if (k == line->actual) break;
 				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 				match++;
 				k++;
@@ -6673,6 +6690,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 					*out_col = j + 1;
 					return;
 				}
+				if (k == line->actual) break;
 				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 				match++;
 				k++;
@@ -6681,7 +6699,36 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 		}
 		col = (i > 1) ? (env->lines[i-2]->actual) : -1;
 	}
+}
 
+/**
+ * Re-mark search matches while editing text.
+ * This gets called after recalculate_syntax, so it works as we're typing or
+ * whenever syntax calculation would redraw other lines.
+ * XXX There's a bunch of code duplication between the (now three) search match functions.
+ *     and search should be improved to support regex anyway, so this needs to be fixed.
+ */
+void rehilight_search(line_t * line) {
+	if (!global_config.search) return;
+	int j = 0;
+	int ignorecase = smart_case(global_config.search);
+	while (j < line->actual) {
+		int k = j;
+		uint32_t * match = global_config.search;
+		while (k < line->actual+1) {
+			if (*match == '\0') {
+				for (int i = j; i < k; ++i) {
+					line->text[i].flags |= FLAG_SEARCH;
+				}
+				break;
+			}
+			if (k == line->actual) break;
+			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
+			match++;
+			k++;
+		}
+		j++;
+	}
 }
 
 /**
@@ -6777,6 +6824,7 @@ void search_mode(int direction) {
 					for (int j = 0; j < env->lines[i]->actual; ++j) {
 						env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
 					}
+					rehilight_search(env->lines[i]);
 				}
 				redraw_all();
 				break;
@@ -7119,6 +7167,7 @@ void handle_mouse(void) {
 
 		env->line_no = line_no;
 		env->col_no = col_no;
+		set_history_break();
 		set_preferred_column();
 		place_cursor_actual();
 	}
@@ -7192,8 +7241,6 @@ void undo_history(void) {
 						e->contents.insert_delete_replace.offset+1,
 						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
@@ -7206,8 +7253,6 @@ void undo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
@@ -7220,39 +7265,27 @@ void undo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REMOVE_LINE:
 				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
 				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_ADD_LINE:
 				env->lines = remove_line(env->lines, e->contents.add_merge_split_lines.lineno);
-				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
 				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
-				env->line_no = e->contents.remove_replace_line.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
 				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno+1);
-				env->line_no = e->contents.add_merge_split_lines.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
 				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno-1, e->contents.add_merge_split_lines.split);
-				env->line_no = e->contents.add_merge_split_lines.lineno;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_BREAK:
@@ -7263,12 +7296,17 @@ void undo_history(void) {
 				break;
 		}
 
+		env->line_no = env->history->line;
+		env->col_no = env->history->col;
+
 		env->history = e->previous;
 		e = env->history;
 	} while (e->type != HISTORY_BREAK);
 
 	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->line_no < 1) env->line_no = 1;
 	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+	if (env->col_no < 1) env->col_no = 1;
 
 	env->modified = (env->history != env->last_save_history);
 
@@ -7324,8 +7362,6 @@ void redo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
@@ -7335,8 +7371,6 @@ void redo_history(void) {
 						e->contents.insert_delete_replace.offset,
 						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
@@ -7349,38 +7383,26 @@ void redo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_ADD_LINE:
 				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REMOVE_LINE:
 				env->lines = remove_line(env->lines, e->contents.remove_replace_line.lineno);
-				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
 				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.contents);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
 				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno);
-				env->line_no = e->contents.remove_replace_line.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
 				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno, e->contents.add_merge_split_lines.split);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_BREAK:
@@ -7395,8 +7417,13 @@ void redo_history(void) {
 		e = e->next;
 	}
 
+	env->line_no = env->history->line;
+	env->col_no = env->history->col;
+
 	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->line_no < 1) env->line_no = 1;
 	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+	if (env->col_no < 1) env->col_no = 1;
 
 	env->modified = (env->history != env->last_save_history);
 
@@ -8094,13 +8121,13 @@ void line_selection_mode(void) {
 						if (env->start_line <= env->line_no) {
 							int lines_to_delete = env->line_no - env->start_line + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
-								remove_line(env->lines, env->start_line-1);
+								env->lines = remove_line(env->lines, env->start_line-1);
 							}
 							env->line_no = env->start_line;
 						} else {
 							int lines_to_delete = env->start_line - env->line_no + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
-								remove_line(env->lines, env->line_no-1);
+								env->lines = remove_line(env->lines, env->line_no-1);
 							}
 						}
 						if (env->line_no > env->line_count) {
@@ -8250,8 +8277,8 @@ void col_insert_mode(void) {
 									char_t * c = &line->text[j];
 									_x += c->display_width;
 									col = j+1;
-									prev_width = c->display_width;
 									if (_x > env->sel_col) break;
+									prev_width = c->display_width;
 								}
 
 								if ((_x == env->sel_col && j == line->actual)) {
@@ -8264,8 +8291,8 @@ void col_insert_mode(void) {
 							}
 
 							env->sel_col -= prev_width;
+							env->col_no--;
 							redraw_text();
-							
 						}
 						break;
 					case ENTER_KEY:
@@ -8287,6 +8314,8 @@ void col_insert_mode(void) {
 							_c.codepoint = c;
 							_c.flags = 0;
 							_c.display_width = codepoint_width(c);
+
+							int inserted_width = 0;
 
 							/* For each line */
 							for (int i = env->line_no; i <= env->start_line; i++) {
@@ -8312,12 +8341,16 @@ void col_insert_mode(void) {
 									line_t * nline = line_insert(line, _c, col - 1, i - 1);
 									if (line != nline) {
 										env->lines[i - 1] = nline;
+										line = nline;
 									}
 									set_modified();
 								}
+								recalculate_tabs(line);
+								inserted_width = line->text[col-1].display_width;
 							}
 
-							env->sel_col += _c.display_width;
+							env->sel_col += inserted_width;
+							env->col_no++;
 							redraw_text();
 
 						}
@@ -8582,7 +8615,7 @@ void char_selection_mode(void) {
 								yank_text(start_line, start_col, end_line, end_col);
 								/* Delete lines */
 								for (int i = start_line+1; i < end_line; ++i) {
-									remove_line(env->lines, start_line);
+									env->lines = remove_line(env->lines, start_line);
 								} /* end_line is no longer valid; should be start_line+1*/
 								/* Delete from start_col forward */
 								int tmp = env->lines[start_line-1]->actual;
@@ -9209,6 +9242,7 @@ void normal_mode(void) {
 						char_selection_mode();
 						break;
 					case 22: /* ctrl-v, enter COL SELECTION mode */
+						set_preferred_column();
 						col_selection_mode();
 						break;
 					case 'O': /* Append line before and enter INSERT mode */
