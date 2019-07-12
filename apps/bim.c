@@ -42,7 +42,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.6.1"
+#define BIM_VERSION   "1.6.2"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -2495,6 +2495,25 @@ static char * bash_ext[] = {
 	NULL
 };
 
+int syn_ctags_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (charat() == '!') {
+			paint_comment(state);
+			return -1;
+		} else {
+			while (charat() != -1 && charat() != '\t') paint(1, FLAG_TYPE);
+			if (charat() == '\t') skip();
+			while (charat() != -1 && charat() != '\t') paint(1, FLAG_NUMERAL);
+			if (charat() == '\t') skip();
+			while (charat() != -1 && !(charat() == ';' && nextchar() == '"')) paint(1, FLAG_KEYWORD);
+			return -1;
+		}
+	}
+	return -1;
+}
+
+static char * ctags_ext[] = { "tags", NULL };
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -2518,6 +2537,7 @@ struct syntax_definition {
 	{"protobuf",proto_ext,syn_proto_calculate,1},
 	{"toarush",esh_ext,syn_esh_calculate,0},
 	{"bash",bash_ext,syn_bash_calculate,0},
+	{"ctags",ctags_ext,syn_ctags_calculate,0},
 	{NULL,NULL,NULL,0},
 };
 
@@ -3595,7 +3615,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			} else if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 				was_searching = 1;
-			} else if ((c.flags == FLAG_ERROR)) {
+			} else if (c.flags == FLAG_ERROR) {
 				set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
 				was_searching = 1; /* co-opting this should work... */
 			} else {
@@ -4805,10 +4825,12 @@ void previous_tab(void) {
 				/* Wrap around */
 				env = last;
 				redraw_all();
+				update_title();
 				return;
 			} else {
 				env = buffers[buffers_len-1];
 				redraw_all();
+				update_title();
 				return;
 			}
 		}
@@ -4826,11 +4848,13 @@ void next_tab(void) {
 			if (i != buffers_len - 1) {
 				env = buffers[i+1];
 				redraw_all();
+				update_title();
 				return;
 			} else {
 				/* Wrap around */
 				env = buffers[0];
 				redraw_all();
+				update_title();
 				return;
 			}
 		}
@@ -5023,6 +5047,7 @@ void close_buffer(void) {
 
 	/* Redraw the screen */
 	redraw_all();
+	update_title();
 }
 
 /**
@@ -5857,9 +5882,11 @@ void process_command(char * cmd) {
 		} else {
 			close_buffer();
 		}
+		update_title();
 	} else if (!strcmp(argv[0], "q!")) {
 		/* close buffer without warning if unmodified */
 		close_buffer();
+		update_title();
 	} else if (!strcmp(argv[0], "qa") || !strcmp(argv[0], "qall")) {
 		/* Close all */
 		try_quit();
@@ -5991,6 +6018,7 @@ void process_command(char * cmd) {
 
 			redraw_alt_buffer(left_buffer);
 			redraw_alt_buffer(right_buffer);
+			update_title();
 		}
 	} else if (!strcmp(argv[0], "unsplit")) {
 		unsplit();
@@ -6961,6 +6989,7 @@ void use_left_buffer(void) {
 		env->offset = view_left_offset;
 	}
 	env = left_buffer;
+	update_title();
 }
 
 /**
@@ -6975,6 +7004,7 @@ void use_right_buffer(void) {
 		env->offset = view_right_offset;
 	}
 	env = right_buffer;
+	update_title();
 }
 
 /**
@@ -7035,6 +7065,7 @@ void handle_mouse(void) {
 				if (_x >= x) {
 					env = buffers[i];
 					redraw_all();
+					update_title();
 					return;
 				}
 			}
@@ -8202,6 +8233,8 @@ void col_insert_mode(void) {
 							timeout++;
 						}
 						break;
+					case 3: /* ^C */
+						return;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
 						if (env->sel_col > 0) {
@@ -8617,13 +8650,23 @@ _leave_select_char:
 	redraw_all();
 }
 
+struct completion_match {
+	char * string;
+	char * file;
+};
+
+void free_completion_match(struct completion_match * match) {
+	if (match->string) free(match->string);
+	if (match->file) free(match->file);
+}
+
 /**
  * Read ctags file to find matches for a symbol
  */
-int read_tags(uint32_t * comp, char *** matches, int * matches_count) {
+int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_count) {
 	int matches_len = 4;
 	*matches_count = 0;
-	*matches = malloc(sizeof(char *) * (matches_len));
+	*matches = malloc(sizeof(struct completion_match) * (matches_len));
 
 	FILE * tags = fopen("tags","r");
 	if (!tags) return 1;
@@ -8635,23 +8678,29 @@ int read_tags(uint32_t * comp, char *** matches, int * matches_count) {
 		if (comp[i] == '\0') {
 			int j = i;
 			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
-			tmp[j] = '\0';
+			tmp[j] = '\0'; j++;
+			char * file = &tmp[j];
+			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
+			tmp[j] = '\0'; j++;
 
 			/* Dedup */
+			#if 0
 			int match_found = 0;
 			for (int i = 0; i < *matches_count; ++i) {
-				if (!strcmp((*matches)[i], tmp)) {
+				if (!strcmp((*matches)[i].string, tmp)) {
 					match_found = 1;
 					break;
 				}
 			}
 			if (match_found) continue;
+			#endif
 
 			if (*matches_count == matches_len) {
 				matches_len *= 2;
-				*matches = realloc(*matches, sizeof(char *) * (matches_len));
+				*matches = realloc(*matches, sizeof(struct completion_match) * (matches_len));
 			}
-			(*matches)[*matches_count] = strdup(tmp);
+			(*matches)[*matches_count].string = strdup(tmp);
+			(*matches)[*matches_count].file = strdup(file);
 			(*matches_count)++;
 		}
 	}
@@ -8662,14 +8711,15 @@ int read_tags(uint32_t * comp, char *** matches, int * matches_count) {
 /**
  * Draw an autocomplete popover with matches.
  */
-void draw_completion_matches(uint32_t * tmp, char ** matches, int matches_count) {
+void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, int matches_count, int index) {
 	int original_length = 0;
 	while (tmp[original_length]) original_length++;
 	int max_width = 0;
 	for (int i = 0; i < matches_count; ++i) {
 		/* TODO unicode width */
-		if (strlen(matches[i]) > (unsigned int)max_width) {
-			max_width = strlen(matches[i]);
+		unsigned int my_width = strlen(matches[i].string) + (matches[i].file ? strlen(matches[i].file) + 1 : 0);
+		if (my_width > (unsigned int)max_width) {
+			max_width = my_width;
 		}
 	}
 
@@ -8700,14 +8750,18 @@ void draw_completion_matches(uint32_t * tmp, char ** matches, int matches_count)
 
 	int max_count = (max_y < matches_count) ? max_y - 1 : matches_count;
 
-	for (int i = 0; i < max_count; ++i) {
-		place_cursor(box_x, box_y+i);
+	for (int x = index; x < max_count+index; ++x) {
+		int i = x % matches_count;
+		place_cursor(box_x, box_y+x-index);
 		set_colors(COLOR_KEYWORD, COLOR_STATUS_BG);
 		/* TODO wide characters */
-		int match_width = strlen(matches[i]);
+		int match_width = strlen(matches[i].string);
+		int file_width = matches[i].file ? strlen(matches[i].file) : 0;
 		for (int j = 0; j < box_width; ++j) {
-			if (j == original_length) set_colors(i == 0 ? COLOR_NUMERAL : COLOR_STATUS_FG, COLOR_STATUS_BG);
-			if (j < match_width) printf("%c", matches[i][j]);
+			if (j == original_length) set_colors(i == index ? COLOR_NUMERAL : COLOR_STATUS_FG, COLOR_STATUS_BG);
+			if (j == match_width) set_colors(COLOR_TYPE, COLOR_STATUS_BG);
+			if (j < match_width) printf("%c", matches[i].string[j]);
+			else if (j > match_width && j - match_width - 1 < file_width) printf("%c", matches[i].file[j-match_width-1]);
 			else printf(" ");
 		}
 	}
@@ -8753,16 +8807,17 @@ int omni_complete(void) {
 	 * class information, source file information - anything we can extract
 	 * from ctags, but also other information for other sources of completion.
 	 */
-	char ** matches;
+	struct completion_match *matches;
 	int matches_count;
 
 	/* TODO just reading ctags is rather mediocre; can we do something cool here? */
 	if (read_tags(tmp, &matches, &matches_count)) goto _completion_done;
 
 	/* Draw box with matches at cursor-width(tmp) */
-	draw_completion_matches(tmp, matches, matches_count);
+	draw_completion_matches(tmp, matches, matches_count, 0);
 
 	int retval = 0;
+	int index = 0;
 
 _completion_done:
 	place_cursor_actual();
@@ -8773,9 +8828,14 @@ _completion_done:
 			redraw_all();
 			break;
 		}
-		if (c == '\t') {
-			for (unsigned int i = j; i < strlen(matches[0]); ++i) {
-				insert_char(matches[0][i]);
+		if (c == 15) {
+			index = (index + 1) % matches_count;
+			draw_completion_matches(tmp, matches, matches_count, index);
+			place_cursor_actual();
+			continue;
+		} else if (c == '\t') {
+			for (unsigned int i = j; i < strlen(matches[index].string); ++i) {
+				insert_char(matches[index].string[i]);
 			}
 			set_preferred_column();
 			redraw_text();
@@ -8804,7 +8864,7 @@ _completion_done:
 	bim_unget(c);
 _finish_completion:
 	for (int i = 0; i < matches_count; ++i) {
-		free(matches[i]);
+		free_completion_match(&matches[i]);
 	}
 	free(matches);
 	free(tmp);
@@ -8859,6 +8919,9 @@ void insert_mode(void) {
 							timeout++;
 						}
 						break;
+					case 3: /* ^C */
+						leave_insert();
+						return;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
 						if (!env->tabs && env->col_no > 1) {
@@ -9602,9 +9665,10 @@ int main(int argc, char * argv[]) {
 		env = buffers[0];
 	} else {
 		env = buffer_new();
-		update_title();
 		setup_buffer(env);
 	}
+
+	update_title();
 
 	/* Draw the screen once */
 	redraw_all();
