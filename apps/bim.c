@@ -7801,10 +7801,6 @@ void big_word_left(void) {
 	do {
 		col_no--;
 		if (col_no == 0) {
-			col_no = 1;
-			break;
-		}
-		if (col_no == 1) {
 			env->col_no = 1;
 			env->line_no = line_no;
 			set_preferred_column();
@@ -8265,6 +8261,7 @@ void find_character(int type, int c) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
 				env->col_no = i - !!(type == 't');
 				place_cursor_actual();
+				set_preferred_column();
 				return;
 			}
 		}
@@ -8273,6 +8270,7 @@ void find_character(int type, int c) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
 				env->col_no = i + !!(type == 'T');
 				place_cursor_actual();
+				set_preferred_column();
 				return;
 			}
 		}
@@ -9933,6 +9931,15 @@ void normal_mode(void) {
 									} else {
 										env->line_no = env->line_no + global_config.yank_count - 1;
 										env->col_no = global_config.yanks[global_config.yank_count-1]->actual;
+									}
+								}
+							}
+							if (global_config.yank_is_full_lines) {
+								env->col_no = 1;
+								for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+									if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
+										env->col_no = i + 1;
+										break;
 									}
 								}
 							}
