@@ -108,6 +108,12 @@ int main(int argc, char * argv[]) {
 		{0,0,0,0}
 	};
 
+	if (argc < 1) {
+		/* No arguments exit */
+		usage(argv);
+		exti(0);
+	}
+	
 	if (argc > 1) {
 		/* Read some arguments */
 		int index, c;
