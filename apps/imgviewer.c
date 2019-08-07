@@ -111,7 +111,7 @@ int main(int argc, char * argv[]) {
 	if (argc < 1) {
 		/* No arguments exit */
 		usage(argv);
-		exti(0);
+		exit(0);
 	}
 	
 	if (argc > 1) {
