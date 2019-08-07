@@ -20,6 +20,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <fcntl.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -47,15 +48,28 @@ int height = 300;
 sprite_t img = {0};
 
 #define APPLICATION_TITLE "Image Viewer"
+#define IMGVIEWER_VERSION   "1.4.0" 
+#define IMGVIEWER_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
+#define DEBUG 1
+
+/**
+ * Show help text for -?
+ */
 void usage(char * argv[]) {
+#define _s "\033[3m"
+#define _e "\033[0m\n"
 	printf(
 			"Image Viewer - Shows images.\n"
 			"\n"
-			"usage: %s \033[3mimage\033[0m\n"
+			"usage: %s [file image]\n"			
 			"\n"
-			" -? --help      \033[3mShow this help message.\033[0m\n",
-			argv[0]);
+			" -?     " _s "show this help text" _e
+			"\n"
+			" --version     " _s "show apps version" _e
+			"\n", argv[0]);
+#undef _e
+#undef _s
 }
 
 static void decors() {
@@ -102,91 +116,97 @@ void resize_finish(int w, int h) {
 
 
 int main(int argc, char * argv[]) {
-
-	static struct option long_opts[] = {
-		{"help",   no_argument,       0, '?'},
-		{0,0,0,0}
-	};
-
-	if (argc < 1) {
-		/* No arguments exit */
-		usage(argv);
-		exit(0);
-	}
-	
-	if (argc > 1) {
-		/* Read some arguments */
-		int index, c;
-		while ((c = getopt_long(argc, argv, "h", long_opts, &index)) != -1) {
-			if (!c) {
-				if (long_opts[index].flag == 0) {
-					c = long_opts[index].val;
+	int opt;
+	while ((opt = getopt(argc, argv, "?:-:")) != -1) {
+		switch (opt) {
+			case '-':
+				if (!strcmp(optarg,"version")) {				
+					printf("imgviewer %s %s\n", IMGVIEWER_VERSION, IMGVIEWER_COPYRIGHT);				
+					return 0;
 				}
-			}
-			switch (c) {
-				case 'h':
-					usage(argv);
-					exit(0);
-					break;
-				default:
-					break;
-			}
+				break;
+			case '?':
+				usage(argv);
+				return 0;
 		}
 	}
+	/* Open file */
+	if (argc > optind) {
+		//open_file(argv[optind]);
 
-	yctx = yutani_init();
-	if (!yctx) {
-		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
-		return 1;
-	}
-	init_decorations();
+		yctx = yutani_init();
+		if (!yctx) {
+			fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+#ifdef DEBUG			
+			printf("%s: failed to connect to compositor\n", argv[0]);
+#endif
+			return 1;
+		}
+		init_decorations();
+#ifdef DEBUG		
+		printf("\ninit_decorations()");
+#endif
+		struct decor_bounds bounds;
+		decor_get_bounds(NULL, &bounds);
 
-	struct decor_bounds bounds;
-	decor_get_bounds(NULL, &bounds);
+		decor_left_width = bounds.left_width;
+		decor_top_height = bounds.top_height;
+		decor_right_width = bounds.right_width;
+		decor_bottom_height = bounds.bottom_height;
+		decor_width = bounds.width;
+		decor_height = bounds.height;
 
-	decor_left_width = bounds.left_width;
-	decor_top_height = bounds.top_height;
-	decor_right_width = bounds.right_width;
-	decor_bottom_height = bounds.bottom_height;
-	decor_width = bounds.width;
-	decor_height = bounds.height;
+		if( access( argv[optind], R_OK ) != -1 ) {
+#ifdef DEBUG
+		printf("System thinks file access to read");
+#endif			
+    		// file exists
+			if (strstr(argv[optind],".jpg")) {
+				load_sprite_jpg(&img, argv[optind]);			
+			} else {
+				load_sprite(&img, argv[optind]);
+			}
+		} else {
+    		// file doesn't exist
+			printf("\n File %s not found!", argv[optind]);
+				usage(argv);
+				return 0;
+		}
+		
+		if (!img.width) {
+			fprintf(stderr, "%s: failed to open image %s\n", argv[0], argv[optind]);
+#ifdef DEBUG			
+			printf( "%s: failed to open image %s\n", argv[0], argv[optind]);
+#endif
+			return 1;
+		}
+		img.alpha = ALPHA_EMBEDDED;
 
-	if (strstr(argv[optind],".jpg")) {
-		load_sprite_jpg(&img, argv[optind]);
-	} else {
-		load_sprite(&img, argv[optind]);
-	}
-	if (!img.width) {
-		fprintf(stderr, "%s: failed to open image %s\n", argv[0], argv[optind]);
-		return 1;
-	}
-	img.alpha = ALPHA_EMBEDDED;
+		width = img.width;
+		height = img.height;
 
-	width = img.width;
-	height = img.height;
+		window = yutani_window_create(yctx, width + decor_width, height + decor_height);
+		yutani_window_move(yctx, window, left, top);
 
-	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
-	yutani_window_move(yctx, window, left, top);
+		yutani_window_advertise_icon(yctx, window, APPLICATION_TITLE, "imgviewer");
 
-	yutani_window_advertise_icon(yctx, window, APPLICATION_TITLE, "imgviewer");
+		ctx = init_graphics_yutani_double_buffer(window);
 
-	ctx = init_graphics_yutani_double_buffer(window);
+		redraw();
+		yutani_flip(yctx, window);
 
-	redraw();
-	yutani_flip(yctx, window);
-
-	int playing = 1;
-	while (playing) {
+		int playing = 1;
+		while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
-		while (m) {
-			if (menu_process_event(yctx, m)) {
+			while (m) {
+				if (menu_process_event(yctx, m)) {
 				/* just decorations should be fine */
 				decors();
 				flip(ctx);
 				yutani_flip(yctx, window);
-			}
-			switch (m->type) {
-				case YUTANI_MSG_KEY_EVENT:
+				}
+				switch (m->type) {
+					case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
@@ -194,7 +214,7 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
-				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+					case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 					{
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
@@ -206,13 +226,13 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
-				case YUTANI_MSG_RESIZE_OFFER:
+					case YUTANI_MSG_RESIZE_OFFER:
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						resize_finish(wr->width, wr->height);
 					}
 					break;
-				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+					case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
 						int result = decor_handle_event(yctx, m);
@@ -230,9 +250,9 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
-				case YUTANI_MSG_WINDOW_CLOSE:
-				case YUTANI_MSG_SESSION_END:
-					playing = 0;
+					case YUTANI_MSG_WINDOW_CLOSE:
+					case YUTANI_MSG_SESSION_END:
+						playing = 0;
 					break;
 				default:
 					break;
@@ -243,6 +263,11 @@ int main(int argc, char * argv[]) {
 	}
 
 	yutani_close(yctx, window);
+
+	} else {
+		usage(argv);
+		exit(0);
+	}
 
 	return 0;
 }
