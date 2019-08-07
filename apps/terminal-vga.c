@@ -570,6 +570,8 @@ uint32_t ununicode(uint32_t c) {
 		case L'ⁿ': return 252;
 		case L'²': return 253;
 		case L'■': return 254;
+		/* Special cases */
+		case L'▏': return 179; /* Replace with vertical bar to support bim better */
 	}
 	return 4;
 }
@@ -1124,7 +1126,49 @@ static int mouse_is_dragging = 0;
 static int old_x = 0;
 static int old_y = 0;
 
+static void mouse_event(int button, int x, int y) {
+	char buf[7];
+	sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
+	handle_input_s(buf);
+}
+
+static void redraw_mouse(void) {
+	cell_redraw(old_x, old_y);
+	cell_redraw_inverted(mouse_x, mouse_y);
+	old_x = mouse_x;
+	old_y = mouse_y;
+}
+
+static unsigned int button_state = 0;
+
 void handle_mouse_event(mouse_device_packet_t * packet) {
+	if (ansi_state->mouse_on) {
+		/* TODO: Handle shift */
+		if (packet->buttons & MOUSE_SCROLL_UP) {
+			mouse_event(32+32, mouse_x, mouse_y);
+		} else if (packet->buttons & MOUSE_SCROLL_DOWN) {
+			mouse_event(32+32+1, mouse_x, mouse_y);
+		}
+
+		if (packet->buttons != button_state) {
+			if (packet->buttons & LEFT_CLICK && !(button_state & LEFT_CLICK)) mouse_event(0, mouse_x, mouse_y);
+			if (packet->buttons & MIDDLE_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(1, mouse_x, mouse_y);
+			if (packet->buttons & RIGHT_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(2, mouse_x, mouse_y);
+			if (!(packet->buttons & LEFT_CLICK) && (button_state & LEFT_CLICK)) mouse_event(3, mouse_x, mouse_y);
+			if (!(packet->buttons & MIDDLE_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
+			if (!(packet->buttons & RIGHT_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
+			button_state = packet->buttons;
+		} else if (ansi_state->mouse_on == 2) {
+			if (old_x != mouse_x || old_y != mouse_y) {
+				if (button_state & LEFT_CLICK) mouse_event(32, mouse_x, mouse_y);
+				if (button_state & MIDDLE_CLICK) mouse_event(33, mouse_x, mouse_y);
+				if (button_state & RIGHT_CLICK) mouse_event(34, mouse_x, mouse_y);
+			}
+		}
+
+		redraw_mouse();
+		return;
+	}
 	if (mouse_is_dragging) {
 		if (packet->buttons & LEFT_CLICK) {
 			int old_end_x = selection_end_x;
@@ -1146,10 +1190,7 @@ void handle_mouse_event(mouse_device_packet_t * packet) {
 			redraw_selection();
 			mouse_is_dragging = 1;
 		} else {
-			cell_redraw(old_x, old_y);
-			cell_redraw_inverted(mouse_x, mouse_y);
-			old_x = mouse_x;
-			old_y = mouse_y;
+			redraw_mouse();
 		}
 	}
 

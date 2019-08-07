@@ -31,6 +31,7 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 			if (*format == 'd') {
 				int i = 0;
 				int sign = 1;
+				while (isspace(*str)) str++;
 				if (*str == '-') {
 					sign = -1;
 					str++;
@@ -45,6 +46,7 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 				*out = i * sign;
 			} else if (*format == 'u') {
 				unsigned int i = 0;
+				while (isspace(*str)) str++;
 				while (*str && *str >= '0' && *str <= '9') {
 					i = i * 10 + *str - '0';
 					str++;

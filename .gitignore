@@ -4,6 +4,7 @@
 *.iso
 *.efi
 .gdb_history
+/tags
 
 /.make/*
 /base/bin/*

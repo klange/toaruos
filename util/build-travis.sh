@@ -7,6 +7,11 @@ chmod o+x /root
 # Who owns this directory?
 NEWUID=`stat -c '%u' .`
 
+if [[ "$NEWUID" == "0" ]]; then
+    echo "Are you running this on Docker for Mac? Owner UID is 0, going to use 501 instead."
+    NEWUID=501
+fi
+
 # Create a fake user with this name
 useradd -u $NEWUID local
 

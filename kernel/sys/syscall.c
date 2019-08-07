@@ -309,7 +309,7 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 
 	debug_print(INFO,"Executing...");
 	/* Discard envp */
-	return exec((char *)filename, argc, (char **)argv_, (char **)envp_);
+	return exec((char *)filename, argc, (char **)argv_, (char **)envp_, 0);
 }
 
 static int sys_seek(int fd, int offset, int whence) {
@@ -684,7 +684,13 @@ static int sys_sysfunc(int fn, char ** args) {
 				}
 				spin_lock(proc->image.lock);
 				/* Set new heap start */
-				proc->image.heap = (uintptr_t)args[0];
+				uintptr_t address = (uintptr_t)args[0];
+				/* TODO: These virtual address bounds should be in a header somewhere */
+				if (address < 0x20000000) {
+					spin_unlock(proc->image.lock);
+					return -EINVAL;
+				}
+				proc->image.heap = (uintptr_t)address;
 				proc->image.heap_actual = proc->image.heap & 0xFFFFF000;
 				assert(proc->image.heap_actual % 0x1000 == 0);
 				alloc_frame(get_page(proc->image.heap_actual, 1, current_directory), 0, 1);

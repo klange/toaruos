@@ -55,6 +55,12 @@ LIBS=$(patsubst lib/%.c,%,$(wildcard lib/*.c))
 LIBS_X=$(foreach lib,$(LIBS),base/lib/libtoaru_$(lib).so)
 LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
+SOURCE_FILES  = $(wildcard kernel/*.c kernel/*/*.c kernel/*/*/*.c modules/*.c)
+SOURCE_FILES += $(wildcard apps/*.c linker/*.c libc/*.c libc/*/*.c lib/*.c)
+
+tags: $(SOURCE_FILES)
+	ctags -f tags $(SOURCE_FILES)
+
 ##
 # Files that must be present in the ramdisk (apps, libraries)
 RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so

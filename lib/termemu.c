@@ -140,6 +140,15 @@ static void _ansi_put(term_state_t * s, char c) {
 			} else if (c == 'T') {
 				s->escape = 5;
 				ansi_buf_add(s, c);
+			} else if (c == '7') {
+				s->escape = 0;
+				s->buflen = 0;
+				s->save_x = callbacks->get_csr_x();
+				s->save_y = callbacks->get_csr_y();
+			} else if (c == '8') {
+				s->escape = 0;
+				s->buflen = 0;
+				callbacks->set_csr(s->save_x, s->save_y);
 			} else {
 				/* This isn't a bracket, we're not actually escaped!
 				 * Get out of here! */

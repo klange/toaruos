@@ -12,6 +12,7 @@
 #include <wait.h>
 #include <pthread.h>
 #include <sched.h>
+#include <signal.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -34,6 +35,10 @@ uint16_t off_y;
 static int volatile draw_lock = 0;
 
 gfx_context_t * ctx;
+
+void sigint_handler() {
+	should_exit = 1;
+}
 
 void redraw_borders() {
 	render_decorations(wina, ctx, "Plasma");
@@ -141,6 +146,7 @@ int main (int argc, char ** argv) {
 	pthread_t thread;
 	pthread_create(&thread, NULL, draw_thread, NULL);
 
+	signal(SIGINT, sigint_handler);
 	while (!should_exit) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
