@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -77,6 +78,7 @@ static void decors() {
 }
 
 void redraw() {
+
 	static double r = 0.0;
 
 	for (int y = 0; y < height; ++y) {
@@ -114,6 +116,27 @@ void resize_finish(int w, int h) {
 	yutani_flip(yctx, window);
 }
 
+int file_exists(char * filename){
+	return access(filename, F_OK);
+}
+
+int is_readable(char * filename){	
+
+	if ( file_exists( filename) != 0 ){
+		fprintf(stderr, "%s: not exist! error_info: %s\n", filename, strerror( errno ) );
+		return 1;
+	}
+	
+	FILE * tmp = fopen( filename, "r" );
+
+	if ( tmp == NULL ) {
+        fprintf(stderr, "%s: failed to open! error_info %s\n", filename, strerror( errno ) );		
+		return 1;
+    } 
+	
+	fclose( tmp );	
+	return  0;
+}
 
 int main(int argc, char * argv[]) {
 	int opt;
@@ -132,142 +155,135 @@ int main(int argc, char * argv[]) {
 	}
 	/* Open file */
 	if (argc > optind) {
-		//open_file(argv[optind]);
+		char *in_file = argv[optind];
+		if ( file_exists ( in_file) == 0 ){
+			if ( is_readable( in_file) == 0 ) {
 
-		yctx = yutani_init();
-		if (!yctx) {
-			fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
-#ifdef DEBUG			
-			printf("%s: failed to connect to compositor\n", argv[0]);
-#endif
-			return 1;
-		}
-		init_decorations();
-#ifdef DEBUG		
-		printf("\ninit_decorations()");
-#endif
-		struct decor_bounds bounds;
-		decor_get_bounds(NULL, &bounds);
-
-		decor_left_width = bounds.left_width;
-		decor_top_height = bounds.top_height;
-		decor_right_width = bounds.right_width;
-		decor_bottom_height = bounds.bottom_height;
-		decor_width = bounds.width;
-		decor_height = bounds.height;
-
-		if( access( argv[optind], R_OK ) != -1 ) {
-#ifdef DEBUG
-		printf("System thinks file access to read");
-#endif			
-    		// file exists
-			if (strstr(argv[optind],".jpg")) {
-				load_sprite_jpg(&img, argv[optind]);			
-			} else {
-				load_sprite(&img, argv[optind]);
-			}
-		} else {
-    		// file doesn't exist
-			printf("\n File %s not found!", argv[optind]);
-				usage(argv);
-				return 0;
-		}
-		
-		if (!img.width) {
-			fprintf(stderr, "%s: failed to open image %s\n", argv[0], argv[optind]);
-#ifdef DEBUG			
-			printf( "%s: failed to open image %s\n", argv[0], argv[optind]);
-#endif
-			return 1;
-		}
-		img.alpha = ALPHA_EMBEDDED;
-
-		width = img.width;
-		height = img.height;
-
-		window = yutani_window_create(yctx, width + decor_width, height + decor_height);
-		yutani_window_move(yctx, window, left, top);
-
-		yutani_window_advertise_icon(yctx, window, APPLICATION_TITLE, "imgviewer");
-
-		ctx = init_graphics_yutani_double_buffer(window);
-
-		redraw();
-		yutani_flip(yctx, window);
-
-		int playing = 1;
-		while (playing) {
-		yutani_msg_t * m = yutani_poll(yctx);
-			while (m) {
-				if (menu_process_event(yctx, m)) {
-				/* just decorations should be fine */
-				decors();
-				flip(ctx);
-				yutani_flip(yctx, window);
+				if (strstr(argv[optind],".jpg")) {
+					load_sprite_jpg(&img, in_file);			
+				} else {
+					load_sprite(&img, in_file);
 				}
-				switch (m->type) {
-					case YUTANI_MSG_KEY_EVENT:
-					{
-						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-							playing = 0;
-						}
-					}
-					break;
-					case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
-					{
-						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
-						if (win && win == window) {
-							win->focused = wf->focused;
+								
+				if ( !img.width ) {
+					fprintf(stderr, "%s: failed to open image %s!\n", argv[0], argv[optind]);
+					return 1;
+				}
+				
+				img.alpha = ALPHA_EMBEDDED;
+				width = img.width;
+				height = img.height;
+
+				// main steps
+				yctx = yutani_init();
+				if (!yctx) {
+					fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+					return 1;
+				}
+
+				init_decorations();
+				struct decor_bounds bounds;
+				decor_get_bounds(NULL, &bounds);
+
+				decor_left_width = bounds.left_width;
+				decor_top_height = bounds.top_height;
+				decor_right_width = bounds.right_width;
+				decor_bottom_height = bounds.bottom_height;
+				decor_width = bounds.width;
+				decor_height = bounds.height;
+				
+	
+				window = yutani_window_create(yctx, width + decor_width, height + decor_height);
+				yutani_window_move(yctx, window, left, top);
+
+				yutani_window_advertise_icon(yctx, window, APPLICATION_TITLE, "imgviewer");
+
+				ctx = init_graphics_yutani_double_buffer(window);
+
+				redraw();
+				yutani_flip(yctx, window);
+
+				int playing = 1;
+				while (playing) {
+					yutani_msg_t * m = yutani_poll(yctx);
+					while (m) {
+						if (menu_process_event(yctx, m)) {
+							/* just decorations should be fine */
 							decors();
 							flip(ctx);
 							yutani_flip(yctx, window);
 						}
-					}
-					break;
-					case YUTANI_MSG_RESIZE_OFFER:
-					{
-						struct yutani_msg_window_resize * wr = (void*)m->data;
-						resize_finish(wr->width, wr->height);
-					}
-					break;
-					case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-					{
-						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						int result = decor_handle_event(yctx, m);
-						switch (result) {
-							case DECOR_CLOSE:
+						switch (m->type) {
+							case YUTANI_MSG_KEY_EVENT:
+							{
+								struct yutani_msg_key_event * ke = (void*)m->data;
+								if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+									playing = 0;
+								}
+							}
+							break;
+							case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+							{
+								struct yutani_msg_window_focus_change * wf = (void*)m->data;
+								yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+								if (win && win == window) {
+									win->focused = wf->focused;
+									decors();
+									flip(ctx);
+									yutani_flip(yctx, window);
+								}
+							}
+							break;
+							case YUTANI_MSG_RESIZE_OFFER:
+							{
+								struct yutani_msg_window_resize * wr = (void*)m->data;
+								resize_finish(wr->width, wr->height);
+							}		
+							break;
+							case YUTANI_MSG_WINDOW_MOUSE_EVENT:
+							{
+								struct yutani_msg_window_mouse_event * me = (void*)m->data;
+								int result = decor_handle_event(yctx, m);
+								switch (result) {
+									case DECOR_CLOSE:
+										playing = 0;
+									break;
+								case DECOR_RIGHT:
+									/* right click in decoration, show appropriate menu */
+									decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
+									break;
+								default:
+									/* Other actions */
+								break;
+								}
+							}	
+							break;
+							case YUTANI_MSG_WINDOW_CLOSE:
+							case YUTANI_MSG_SESSION_END:
 								playing = 0;
-								break;
-							case DECOR_RIGHT:
-								/* right click in decoration, show appropriate menu */
-								decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
-								break;
+							break;
 							default:
-								/* Other actions */
-								break;
+							break;
 						}
+						free(m);
+						m = yutani_poll_async(yctx);
 					}
-					break;
-					case YUTANI_MSG_WINDOW_CLOSE:
-					case YUTANI_MSG_SESSION_END:
-						playing = 0;
-					break;
-				default:
-					break;
+				}
+				
+				yutani_close(yctx, window);
+			}else{
+				printf("\nfile %s exist, but not readable!\n",in_file);
+				usage(argv);
+				return 1;
 			}
-			free(m);
-			m = yutani_poll_async(yctx);
-		}
-	}
-
-	yutani_close(yctx, window);
-
+		}else{
+			printf("\nfile %s not exist!\n",in_file);
+			usage(argv);
+			return 1;
+		}		
 	} else {
 		usage(argv);
-		exit(0);
+		return 0;
 	}
-
 	return 0;
 }
