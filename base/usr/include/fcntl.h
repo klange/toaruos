@@ -17,11 +17,6 @@ _Begin_C_Header
 #define O_NONBLOCK   0x4000
 #define O_DIRECTORY  0x8000
 
-#define F_OK 1
-#define R_OK 4
-#define W_OK 2
-#define X_OK 1
-
 #define F_GETFD 1
 #define F_SETFD 2
 
