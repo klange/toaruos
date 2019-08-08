@@ -128,6 +128,11 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
+	if (optind >= argc) {
+		usage(argv);
+		return 1;
+	}
+
 	yctx = yutani_init();
 	if (!yctx) {
 		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
@@ -145,12 +150,13 @@ int main(int argc, char * argv[]) {
 	decor_width = bounds.width;
 	decor_height = bounds.height;
 
+	int status;
 	if (strstr(argv[optind],".jpg")) {
-		load_sprite_jpg(&img, argv[optind]);
+		status = load_sprite_jpg(&img, argv[optind]);
 	} else {
-		load_sprite(&img, argv[optind]);
+		status = load_sprite(&img, argv[optind]);
 	}
-	if (!img.width) {
+	if (status) {
 		fprintf(stderr, "%s: failed to open image %s\n", argv[0], argv[optind]);
 		return 1;
 	}
