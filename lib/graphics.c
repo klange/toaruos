@@ -395,9 +395,12 @@ void blur_context_box(gfx_context_t * _src, int radius) {
 	_box_blur_vertical(_src,radius);
 }
 
-void load_sprite(sprite_t * sprite, char * filename) {
+int load_sprite(sprite_t * sprite, char * filename) {
 	/* Open the requested binary */
 	FILE * image = fopen(filename, "r");
+
+	if (!image) return 1;
+
 	size_t image_size= 0;
 
 	fseek(image, 0, SEEK_END);
@@ -517,6 +520,7 @@ void load_sprite(sprite_t * sprite, char * filename) {
 _cleanup_sprite:
 	fclose(image);
 	free(bufferb);
+	return 0;
 }
 
 #ifndef NO_SSE
