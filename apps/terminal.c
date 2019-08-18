@@ -1215,7 +1215,7 @@ static void term_scroll(int how_much) {
 
 	if (how_much > 0) {
 		/* Scroll up */
-		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), sizeof(term_cell_t) * term_width * (term_height - how_much));
+		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * how_much), sizeof(term_cell_t) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
 		memset((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * (term_height - how_much)), 0x0, sizeof(term_cell_t) * term_width * how_much);
 		/* In graphical modes, we will shift the graphics buffer up as necessary */
@@ -1242,7 +1242,7 @@ static void term_scroll(int how_much) {
 	} else {
 		how_much = -how_much;
 		/* Scroll down */
-		memmove((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width), term_buffer, sizeof(term_cell_t) * term_width * (term_height - how_much));
+		memmove((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * how_much), term_buffer, sizeof(term_cell_t) * term_width * (term_height - how_much));
 		/* Reset the "new" row to clean cells */
 		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * how_much);
 		uintptr_t dst, src;
