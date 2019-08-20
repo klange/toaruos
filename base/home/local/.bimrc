@@ -1,4 +1,6 @@
-# Nice 256-color default
+# First try to enable the ansi theme
+theme=ansi
+# Then try to enable sunsmoke, the default high-color theme
 theme=sunsmoke
 # Enable experimental history support
 history
