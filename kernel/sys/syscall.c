@@ -847,6 +847,8 @@ static int sys_shm_release(char * path) {
 static int sys_kill(pid_t process, uint32_t signal) {
 	if (process < -1) {
 		return group_send_signal(-process, signal, 0);
+	} else if (process == 0) {
+		return group_send_signal(current_process->job, signal, 0);
 	} else {
 		return send_signal(process, signal, 0);
 	}
