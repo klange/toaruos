@@ -290,6 +290,8 @@ struct theme_def {
 
 extern struct theme_def * themes;
 
+extern void add_colorscheme(struct theme_def theme);
+
 struct syntax_state {
 	line_t * line;
 	int line_no;
@@ -364,9 +366,34 @@ struct action_def {
 #define BIM_ACTION(name, options, description) \
 	void name (); /* Define the action with unknown arguments */ \
 	void __attribute__((constructor)) _install_ ## name (void) { \
-		add_action(#name, name, options, description); \
+		add_action((struct action_def){#name, name, options, description}); \
 	} \
 	void name
+
+struct command_def {
+	char * name;
+	int (*command)(char *, int, char * arg[]);
+	const char * description;
+};
+
+#define BIM_COMMAND(cmd_name, cmd_str, description) \
+	int bim_command_ ## cmd_name (char * cmd, int argc, char * argv[]); \
+	void __attribute__((constructor)) _install_cmd_ ## cmd_name (void) { \
+		add_command((struct command_def){cmd_str, bim_command_ ## cmd_name, description}); \
+	} \
+	int bim_command_ ## cmd_name (char * cmd __attribute__((unused)), int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
+
+#define BIM_ALIAS(alias, alias_name, cmd_name) \
+	void __attribute__((constructor)) _install_alias_ ## alias_name (void) { \
+		add_command((struct command_def){alias, bim_command_ ## cmd_name, "Alias for " #cmd_name}); \
+	}
+
+#define BIM_PREFIX_COMMAND(cmd_name, cmd_prefix, description) \
+	int bim_command_ ## cmd_name (char * cmd, int argc, char * argv[]); \
+	void __attribute__((constructor)) _install_cmd_ ## cmd_name (void) { \
+		add_prefix_command((struct command_def){cmd_prefix, bim_command_ ## cmd_name, description}); \
+	} \
+	int bim_command_ ## cmd_name (char * cmd __attribute__((unused)), int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
 
 extern buffer_t * env;
 extern buffer_t * left_buffer;
@@ -377,7 +404,6 @@ extern int nav_buffer;
 extern int    buffers_len;
 extern int    buffers_avail;
 extern buffer_t ** buffers;
-extern char * bim_command_names[];
 
 extern const char * flag_to_color(int _flag);
 extern void redraw_line(int x);
@@ -400,11 +426,12 @@ extern int update_biminfo(buffer_t * buf);
 extern buffer_t * buffer_close(buffer_t * buf);
 extern int to_eight(uint32_t codepoint, char * out);
 extern char * name_from_key(enum Key keycode);
-extern void add_action(const char * raw_name, void (*action)(), int options, const char * description);
+extern void add_action(struct action_def action);
 extern void open_file(char * file);
 extern void recalculate_selected_lines(void);
+extern void add_command(struct command_def command);
+extern void add_prefix_command(struct command_def command);
 
-extern void add_colorscheme(const char * name, void (*load)(void));
 extern void add_syntax(struct syntax_definition def);
 
 /* Included from bim-theme.h */
@@ -412,7 +439,7 @@ extern void add_syntax(struct syntax_definition def);
 #define BIM_THEME(name) \
 	static void load_colorscheme_ ## name (void); \
 	__attribute__((constructor)) static void _load_ ## name (void) { \
-		add_colorscheme(#name, load_colorscheme_ ## name); \
+		add_colorscheme((struct theme_def){#name, load_colorscheme_ ## name}); \
 	} \
 	static void load_colorscheme_ ## name (void)
 
@@ -550,35 +577,27 @@ char * name_from_key(enum Key keycode) {
 	return keyNameTmp;
 }
 
-char * bim_command_names[] = {
-	"help","recalc","syntax","tabn","tabp","tabnew","theme","colorscheme",
-	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
-	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
-	"smartcase","split","splitpercent","unsplit","git","colorgutter",
-	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history","crnl",
-	"numbers","version","wq",
-	NULL
-};
-
-int action_count = 0;
-int action_space = 0;
-struct action_def * mappable_actions = NULL;
-
-void add_action(const char * raw_name, void (*action)(), int options, const char * description) {
-	if (action_space == 0) {
-		action_space = 4;
-		mappable_actions = calloc(sizeof(struct action_def), action_space);
-	} else if (action_count + 1 == action_space) {
-		action_space *= 2;
-		mappable_actions = realloc(mappable_actions, sizeof(struct action_def) * action_space);
-		for (int i = action_count; i < action_space; ++i) mappable_actions[i].name = NULL;
+#define FLEXIBLE_ARRAY(name, add_name, type, zero) \
+	int flex_ ## name ## _count = 0; \
+	int flex_ ## name ## _space = 0; \
+	type * name = NULL; \
+	void add_name (type input) { \
+		if (flex_ ## name ## _space == 0) { \
+			flex_ ## name ## _space = 4; \
+			name = calloc(sizeof(type), flex_ ## name ## _space); \
+		} else if (flex_ ## name ## _count + 1 == flex_ ## name ## _space) { \
+			flex_ ## name ## _space *= 2; \
+			name = realloc(name, sizeof(type) * flex_ ## name ## _space); \
+			for (int i = flex_ ## name ## _count; i < flex_ ## name ## _space; ++i) name[i] = zero; \
+		} \
+		name[flex_ ## name ## _count] = input; \
+		flex_ ## name ## _count ++; \
 	}
-	mappable_actions[action_count].name = (char*)raw_name; /* TODO _ to - */
-	mappable_actions[action_count].action = action;
-	mappable_actions[action_count].options = options;
-	mappable_actions[action_count].description = description;
-	action_count++;
-}
+
+FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_def){NULL,NULL,0,NULL}))
+FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
+FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
+FLEXIBLE_ARRAY(themes, add_colorscheme, struct theme_def, ((struct theme_def){NULL,NULL}))
 
 /**
  * Special implementation of getch with a timeout
@@ -1040,24 +1059,6 @@ const char * COLOR_BOLD      = "@9";
 const char * COLOR_LINK      = "@9";
 const char * COLOR_ESCAPE    = "@9";
 const char * current_theme = "none";
-
-int theme_count = 0;
-int theme_space = 0;
-struct theme_def * themes = NULL;
-
-void add_colorscheme(const char * name, void (*load)(void)) {
-	if (theme_space == 0) {
-		theme_space = 4;
-		themes = calloc(sizeof(struct theme_def), theme_space);
-	} else if (theme_count + 1 == theme_space) {
-		theme_space *= 2;
-		themes = realloc(themes, sizeof(struct theme_def) * theme_space);
-		for (int i = theme_count; i < theme_space; ++i) themes[i].name = NULL;
-	}
-	themes[theme_count].name = name;
-	themes[theme_count].load = load;
-	theme_count++;
-}
 
 /**
  * Convert syntax highlighting flag to color code
@@ -1847,13 +1848,8 @@ void get_initial_termios(void) {
 
 void set_unbuffered(void) {
 	struct termios new = old;
-	new.c_iflag &= (~ICRNL);
-	new.c_lflag &= (~ICANON) & (~ECHO);
-	new.c_cc[VINTR] = 0;
-	new.c_cc[VLNEXT] = 0;
-	new.c_cc[VQUIT] = 0;
-	new.c_cc[VSTART] = 0;
-	new.c_cc[VSTOP] = 0;
+	new.c_iflag &= (~ICRNL) & (~IXON);
+	new.c_lflag &= (~ICANON) & (~ECHO) & (~ISIG);
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
 
@@ -2896,6 +2892,13 @@ BIM_ACTION(redraw_all, 0,
 	redraw_commandline();
 }
 
+void pause_for_key(void) {
+	int c;
+	while ((c = bim_getch())== -1);
+	bim_unget(c);
+	redraw_all();
+}
+
 /**
  * Redraw all screen elements except the other split view.
  */
@@ -3239,6 +3242,12 @@ void try_to_center() {
 	} else {
 		env->offset = 0;
 	}
+}
+
+BIM_ACTION(suspend, 0,
+	"Suspend bim and the rest of the job it was run in."
+)(void) {
+	kill(0, SIGTSTP);
 }
 
 /**
@@ -4341,7 +4350,7 @@ static void html_convert_color(const char * color_string) {
  * Based on vim's :TOhtml
  * Convert syntax-highlighted buffer contents to HTML.
  */
-void convert_to_html(void) {
+BIM_COMMAND(tohtml,"tohtml","Convert the document to an HTML representation with syntax highlighting.") {
 	buffer_t * old = env;
 	env = buffer_new();
 	setup_buffer(env);
@@ -4527,421 +4536,424 @@ void convert_to_html(void) {
 		recalculate_syntax(env->lines[i],i);
 	}
 	redraw_all();
+
+	return 0;
 }
 
-/**
- * Process a user command.
- */
-void process_command(char * cmd) {
-	/* Special case ! to run shell commands without parsing tokens */
-	int c;
+BIM_ALIAS("TOhtml",tohtml,tohtml)
 
-	/* Add command to history */
-	insert_command_history(cmd);
+int _prefix_command_run_script(char * cmd) {
+	if (env->mode == MODE_LINE_SELECTION) {
+		int range_top, range_bot;
+		range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
+		range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
 
-	if (*cmd == '!' || *cmd == '`') {
-		if (env->mode == MODE_LINE_SELECTION) {
-			int range_top, range_bot;
-			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
-			range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
+		int in[2];
+		pipe(in);
+		int out[2];
+		pipe(out);
+		int child = fork();
 
-			int in[2];
-			pipe(in);
-			int out[2];
-			pipe(out);
-			int child = fork();
-
-			/* Open child process and set up pipes */
-			if (child == 0) {
-				FILE * dev_null = fopen("/dev/null","w"); /* for stderr */
-				close(out[0]);
-				close(in[1]);
-				dup2(out[1], STDOUT_FILENO);
-				dup2(in[0], STDIN_FILENO);
-				dup2(fileno(dev_null), STDERR_FILENO);
-				if (*cmd == '!') {
-					system(&cmd[1]); /* Yes we can just do this */
-				} else {
-					char * const args[] = {"python3","-c",&cmd[1],NULL};
-					execvp("python3",args);
-				}
-				exit(1);
-			} else if (child < 0) {
-				render_error("Failed to fork");
-				return;
-			}
-			close(out[1]);
-			close(in[0]);
-
-			/* Write lines to child process */
-			FILE * f = fdopen(in[1],"w");
-			for (int i = range_top; i <= range_bot; ++i) {
-				line_t * line = env->lines[i-1];
-				for (int j = 0; j < line->actual; j++) {
-					char_t c = line->text[j];
-					if (c.codepoint == 0) {
-						char buf[1] = {0};
-						fwrite(buf, 1, 1, f);
-					} else {
-						char tmp[8] = {0};
-						int i = to_eight(c.codepoint, tmp);
-						fwrite(tmp, i, 1, f);
-					}
-				}
-				fputc('\n', f);
-			}
-			fclose(f);
+		/* Open child process and set up pipes */
+		if (child == 0) {
+			FILE * dev_null = fopen("/dev/null","w"); /* for stderr */
+			close(out[0]);
 			close(in[1]);
-
-			/* Read results from child process into a new buffer */
-			FILE * result = fdopen(out[0],"r");
-			buffer_t * old = env;
-			env = buffer_new();
-			setup_buffer(env);
-			env->loading = 1;
-			uint8_t buf[BLOCK_SIZE];
-			state = 0;
-			while (!feof(result) && !ferror(result)) {
-				size_t r = fread(buf, 1, BLOCK_SIZE, result);
-				add_buffer(buf, r);
-			}
-			if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
-				env->lines = remove_line(env->lines, env->line_no-1);
-			}
-			fclose(result);
-			env->loading = 0;
-
-			/* Return to the original buffer and replace the selected lines with the output */
-			buffer_t * new = env;
-			env = old;
-			for (int i = range_top; i <= range_bot; ++i) {
-				/* Remove the existing lines */
-				env->lines = remove_line(env->lines, range_top-1);
-			}
-			for (int i = 0; i < new->line_count; ++i) {
-				/* Add the new lines */
-				env->lines = add_line(env->lines, range_top + i - 1);
-				replace_line(env->lines, range_top + i - 1, new->lines[i]);
-				recalculate_tabs(env->lines[range_top+i-1]);
-			}
-
-			env->modified = 1;
-
-			/* Close the temporary buffer */
-			buffer_close(new);
-		} else {
-			/* Reset and draw some line feeds */
-			reset();
-			printf("\n\n");
-
-			/* Set buffered for shell application */
-			set_buffered();
-
-			/* Call the shell and wait for completion */
+			dup2(out[1], STDOUT_FILENO);
+			dup2(in[0], STDIN_FILENO);
+			dup2(fileno(dev_null), STDERR_FILENO);
 			if (*cmd == '!') {
-				system(&cmd[1]);
+				system(&cmd[1]); /* Yes we can just do this */
 			} else {
-				setenv("PYCMD",&cmd[1],1);
-				system("python3 -c \"$PYCMD\"");
+				char * const args[] = {"python3","-c",&cmd[1],NULL};
+				execvp("python3",args);
 			}
+			exit(1);
+		} else if (child < 0) {
+			render_error("Failed to fork");
+			return 1;
+		}
+		close(out[1]);
+		close(in[0]);
 
-			/* Return to the editor, wait for user to press enter. */
-			set_unbuffered();
-			printf("\n\nPress ENTER to continue.");
-			while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
+		/* Write lines to child process */
+		FILE * f = fdopen(in[1],"w");
+		for (int i = range_top; i <= range_bot; ++i) {
+			line_t * line = env->lines[i-1];
+			for (int j = 0; j < line->actual; j++) {
+				char_t c = line->text[j];
+				if (c.codepoint == 0) {
+					char buf[1] = {0};
+					fwrite(buf, 1, 1, f);
+				} else {
+					char tmp[8] = {0};
+					int i = to_eight(c.codepoint, tmp);
+					fwrite(tmp, i, 1, f);
+				}
+			}
+			fputc('\n', f);
+		}
+		fclose(f);
+		close(in[1]);
 
-			/* Redraw the screen */
-			redraw_all();
+		/* Read results from child process into a new buffer */
+		FILE * result = fdopen(out[0],"r");
+		buffer_t * old = env;
+		env = buffer_new();
+		setup_buffer(env);
+		env->loading = 1;
+		uint8_t buf[BLOCK_SIZE];
+		state = 0;
+		while (!feof(result) && !ferror(result)) {
+			size_t r = fread(buf, 1, BLOCK_SIZE, result);
+			add_buffer(buf, r);
+		}
+		if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
+			env->lines = remove_line(env->lines, env->line_no-1);
+		}
+		fclose(result);
+		env->loading = 0;
+
+		/* Return to the original buffer and replace the selected lines with the output */
+		buffer_t * new = env;
+		env = old;
+		for (int i = range_top; i <= range_bot; ++i) {
+			/* Remove the existing lines */
+			env->lines = remove_line(env->lines, range_top-1);
+		}
+		for (int i = 0; i < new->line_count; ++i) {
+			/* Add the new lines */
+			env->lines = add_line(env->lines, range_top + i - 1);
+			replace_line(env->lines, range_top + i - 1, new->lines[i]);
+			recalculate_tabs(env->lines[range_top+i-1]);
 		}
 
-		/* Done processing command */
-		return;
+		env->modified = 1;
+
+		/* Close the temporary buffer */
+		buffer_close(new);
+	} else {
+		/* Reset and draw some line feeds */
+		reset();
+		printf("\n\n");
+
+		/* Set buffered for shell application */
+		set_buffered();
+
+		/* Call the shell and wait for completion */
+		if (*cmd == '!') {
+			system(&cmd[1]);
+		} else {
+			setenv("PYCMD",&cmd[1],1);
+			system("python3 -c \"$PYCMD\"");
+		}
+
+		/* Return to the editor, wait for user to press enter. */
+		set_unbuffered();
+		printf("\n\nPress ENTER to continue.");
+		int c;
+		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
+
+		/* Redraw the screen */
+		redraw_all();
 	}
 
-	/* Arguments aren't really tokenized, but the first command before a space is extracted */
-	char *argv[3]; /* If a specific command wants to tokenize further, it can do that later. */
-	int argc = 0;
-	if (*cmd) argc++;
+	/* Done processing command */
+	return 0;
+}
 
-	int i = 0;
-	char tmp[512] = {0};
+BIM_PREFIX_COMMAND(bang,"!","Executes shell commands.") {
+	(void)argc, (void)argv;
+	return _prefix_command_run_script(cmd);
+}
 
-	/* Collect up until first space for argv[0] */
-	for (char * c = cmd; *c; ++c) {
-		if (i == 511) break;
-		if (*c == ' ') {
-			tmp[i] = '\0';
-			argv[1] = c+1;
-			if (*argv[1]) argc++;
+BIM_PREFIX_COMMAND(tick,"`","Executes Python commands.") {
+	(void)argc, (void)argv;
+	return _prefix_command_run_script(cmd);
+}
+
+int replace_text(int range_top, int range_bot, char divider, char * needle) {
+	char * c = needle;
+	char * replacement = NULL;
+	char * options = "";
+
+	while (*c) {
+		if (*c == divider) {
+			*c = '\0';
+			replacement = c + 1;
 			break;
-		} else {
-			tmp[i] = *c;
 		}
-		i++;
-	}
-	argv[0] = tmp;
-	argv[argc] = NULL;
-
-	if (argc < 1) {
-		/* no op */
-		return;
+		c++;
 	}
 
-	int all_lines = 0;
-
-	if (argv[0][0] == '%') {
-		all_lines = 1;
-		argv[0]++;
+	if (!replacement) {
+		render_error("nothing to replace with");
+		return 1;
 	}
 
-	if (!strcmp(argv[0], "e")) {
-		/* e: edit file */
-		if (argc > 1) {
-			/* This actually opens a new tab */
-			open_file(argv[1]);
-			update_title();
-		} else {
-			if (env->modified) {
-				render_error("File is modified, can not reload.");
-				return;
+	c = replacement;
+	while (*c) {
+		if (*c == divider) {
+			*c = '\0';
+			options = c + 1;
+			break;
+		}
+		c++;
+	}
+
+	int global = 0;
+	int case_insensitive = 0;
+
+	/* Parse options */
+	while (*options) {
+		switch (*options) {
+			case 'g':
+				global = 1;
+				break;
+			case 'i':
+				case_insensitive = 1;
+				break;
+		}
+		options++;
+	}
+
+	uint32_t * needle_c = malloc(sizeof(uint32_t) * (strlen(needle) + 1));
+	uint32_t * replacement_c = malloc(sizeof(uint32_t) * (strlen(replacement) + 1));
+
+	{
+		int i = 0;
+		uint32_t c, state = 0;
+		for (char * cin = needle; *cin; cin++) {
+			if (!decode(&state, &c, *cin)) {
+				needle_c[i] = c;
+				i++;
+			} else if (state == UTF8_REJECT) {
+				state = 0;
 			}
+		}
+		needle_c[i] = 0;
+		i = 0;
+		c = 0;
+		state = 0;
+		for (char * cin = replacement; *cin; cin++) {
+			if (!decode(&state, &c, *cin)) {
+				replacement_c[i] = c;
+				i++;
+			} else if (state == UTF8_REJECT) {
+				state = 0;
+			}
+		}
+		replacement_c[i] = 0;
+	}
 
-			buffer_t * old_env = env;
-			open_file(env->file_name);
-			buffer_t * new_env = env;
-			env = old_env;
+	int replacements = 0;
+	for (int line = range_top; line <= range_bot; ++line) {
+		int col = 0;
+		while (col != -1) {
+			perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col);
+			if (col != -1) replacements++;
+			if (!global) break;
+		}
+	}
+	free(needle_c);
+	free(replacement_c);
+	if (replacements) {
+		render_status_message("replaced %d instance%s of %s", replacements, replacements == 1 ? "" : "s", needle);
+		set_history_break();
+		redraw_text();
+	} else {
+		render_error("Pattern not found: %s", needle);
+	}
+
+	return 0;
+}
+
+BIM_PREFIX_COMMAND(repsome,"s","Perform a replacement over selected lines") {
+	int range_top, range_bot;
+	if (env->mode == MODE_LINE_SELECTION) {
+		range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
+		range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
+	} else {
+		range_top = env->line_no;
+		range_bot = env->line_no;
+	}
+	return replace_text(range_top, range_bot, cmd[1], &cmd[2]);
+}
+
+BIM_PREFIX_COMMAND(repall,"%s","Perform a replacement over the entire file.") {
+	return replace_text(1, env->line_count, cmd[2], &cmd[3]);
+}
+
+BIM_COMMAND(e,"e","Open a file") {
+	if (argc > 1) {
+		/* This actually opens a new tab */
+		open_file(argv[1]);
+		update_title();
+	} else {
+		if (env->modified) {
+			render_error("File is modified, can not reload.");
+			return 1;
+		}
+
+		buffer_t * old_env = env;
+		open_file(env->file_name);
+		buffer_t * new_env = env;
+		env = old_env;
 
 #define SWAP(T,a,b) do { T x = a; a = b; b = x; } while (0)
-			SWAP(line_t **, env->lines, new_env->lines);
-			SWAP(int, env->line_count, new_env->line_count);
-			SWAP(int, env->line_avail, new_env->line_avail);
+		SWAP(line_t **, env->lines, new_env->lines);
+		SWAP(int, env->line_count, new_env->line_count);
+		SWAP(int, env->line_avail, new_env->line_avail);
 
-			buffer_close(new_env); /* Should probably also free, this needs editing. */
-			redraw_all();
-		}
-	} else if (argv[0][0] == 's' && !isalpha(argv[0][1])) {
-		if (!argv[0][1]) {
-			render_error("expected substitution argument");
-			return;
-		}
-		if (env->readonly) {
-			render_error("Buffer is read-only");
-			return;
-		}
-		/* Substitution */
-		int range_top, range_bot;
-		if (env->mode == MODE_LINE_SELECTION) {
-			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
-			range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
-		} else if (all_lines) {
-			range_top = 1;
-			range_bot = env->line_count;
-		} else {
-			range_top = env->line_no;
-			range_bot = env->line_no;
-		}
-
-		/* Determine replacement parameters */
-		char divider = cmd[1];
-
-		char * needle = &cmd[2];
-		char * c = needle;
-		char * replacement = NULL;
-		char * options = "";
-
-		while (*c) {
-			if (*c == divider) {
-				*c = '\0';
-				replacement = c + 1;
-				break;
-			}
-			c++;
-		}
-
-		if (!replacement) {
-			render_error("nothing to replace with");
-			return;
-		}
-
-		c = replacement;
-		while (*c) {
-			if (*c == divider) {
-				*c = '\0';
-				options = c + 1;
-				break;
-			}
-			c++;
-		}
-
-		int global = 0;
-		int case_insensitive = 0;
-
-		/* Parse options */
-		while (*options) {
-			switch (*options) {
-				case 'g':
-					global = 1;
-					break;
-				case 'i':
-					case_insensitive = 1;
-					break;
-			}
-			options++;
-		}
-
-		uint32_t * needle_c = malloc(sizeof(uint32_t) * (strlen(needle) + 1));
-		uint32_t * replacement_c = malloc(sizeof(uint32_t) * (strlen(replacement) + 1));
-
-		{
-			int i = 0;
-			uint32_t c, state = 0;
-			for (char * cin = needle; *cin; cin++) {
-				if (!decode(&state, &c, *cin)) {
-					needle_c[i] = c;
-					i++;
-				} else if (state == UTF8_REJECT) {
-					state = 0;
-				}
-			}
-			needle_c[i] = 0;
-			i = 0;
-			c = 0;
-			state = 0;
-			for (char * cin = replacement; *cin; cin++) {
-				if (!decode(&state, &c, *cin)) {
-					replacement_c[i] = c;
-					i++;
-				} else if (state == UTF8_REJECT) {
-					state = 0;
-				}
-			}
-			replacement_c[i] = 0;
-		}
-
-		int replacements = 0;
-		for (int line = range_top; line <= range_bot; ++line) {
-			int col = 0;
-			while (col != -1) {
-				perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col);
-				if (col != -1) replacements++;
-				if (!global) break;
-			}
-		}
-		free(needle_c);
-		free(replacement_c);
-		if (replacements) {
-			render_status_message("replaced %d instance%s of %s", replacements, replacements == 1 ? "" : "s", needle);
-			set_history_break();
-			redraw_text();
-		} else {
-			render_error("Pattern not found: %s", needle);
-		}
-	} else if (!strcmp(argv[0], "tabnew")) {
-		if (argc > 1) {
-			open_file(argv[1]);
-			update_title();
-		} else {
-			env = buffer_new();
-			setup_buffer(env);
-			redraw_all();
-			update_title();
-		}
-	} else if (!strcmp(argv[0], "w")) {
-		/* w: write file */
-		if (argc > 1) {
-			write_file(argv[1]);
-		} else {
-			write_file(env->file_name);
-		}
-	} else if (!strcmp(argv[0], "history")) {
-		render_commandline_message(""); /* To clear command line */
-		for (int i = COMMAND_HISTORY_MAX; i > 1; --i) {
-			if (command_history[i-1]) render_commandline_message("%d:%s\n", i-1, command_history[i-1]);
-		}
-		render_commandline_message("\n");
-		redraw_tabbar();
-		redraw_commandline();
-		int c;
-		while ((c = bim_getch())== -1);
-		bim_unget(c);
+		buffer_close(new_env); /* Should probably also free, this needs editing. */
 		redraw_all();
-	} else if (!strcmp(argv[0], "wq")) {
-		/* wq: write file and close buffer; if there's no file to write to, may do weird things */
+	}
+	return 0;
+}
+
+BIM_COMMAND(tabnew,"tabnew","Open a new tab") {
+	if (argc > 1) {
+		open_file(argv[1]);
+		update_title();
+	} else {
+		env = buffer_new();
+		setup_buffer(env);
+		redraw_all();
+		update_title();
+	}
+	return 0;
+}
+
+BIM_COMMAND(w,"w","Write a file") {
+	/* w: write file */
+	if (argc > 1) {
+		write_file(argv[1]);
+	} else {
 		write_file(env->file_name);
+	}
+	return 0;
+}
+
+BIM_COMMAND(wq,"wq","Write and close buffer") {
+	write_file(env->file_name);
+	close_buffer();
+	return 0;
+}
+
+BIM_COMMAND(history,"history","Display command history") {
+	render_commandline_message(""); /* To clear command line */
+	for (int i = COMMAND_HISTORY_MAX; i > 1; --i) {
+		if (command_history[i-1]) render_commandline_message("%d:%s\n", i-1, command_history[i-1]);
+	}
+	render_commandline_message("\n");
+	redraw_tabbar();
+	redraw_commandline();
+	pause_for_key();
+	return 0;
+}
+
+BIM_COMMAND(q,"q","Close buffer") {
+	if (left_buffer && left_buffer == right_buffer) {
+		unsplit();
+		return 0;
+	}
+	if (env->modified) {
+		render_error("No write since last change. Use :q! to force exit.");
+	} else {
 		close_buffer();
-	} else if (!strcmp(argv[0], "q")) {
-		/* close buffer if unmodified */
-		if (left_buffer && left_buffer == right_buffer) {
-			unsplit();
-			return;
-		}
-		if (env->modified) {
-			render_error("No write since last change. Use :q! to force exit.");
-		} else {
-			close_buffer();
-		}
-		update_title();
-	} else if (!strcmp(argv[0], "q!")) {
-		/* close buffer without warning if unmodified */
-		close_buffer();
-		update_title();
-	} else if (!strcmp(argv[0], "qa") || !strcmp(argv[0], "qall")) {
-		/* Close all */
-		try_quit();
-	} else if (!strcmp(argv[0], "qa!")) {
-		/* Forcefully exit editor */
-		while (buffers_len) {
-			buffer_close(buffers[0]);
-		}
-		quit(NULL);
-	} else if (!strcmp(argv[0], "tabp")) {
-		/* Next tab */
-		previous_tab();
-		update_title();
-	} else if (!strcmp(argv[0], "tabn")) {
-		/* Previous tab */
-		next_tab();
-		update_title();
-	} else if (!strcmp(argv[0], "git")) {
-		if (argc < 2) {
-			render_status_message("git=%d", env->checkgitstatusonwrite);
-		} else {
-			env->checkgitstatusonwrite = !!atoi(argv[1]);
-			if (env->checkgitstatusonwrite && !env->modified && env->file_name) {
-				git_examine(env->file_name);
-				redraw_text();
-			}
-		}
-	} else if (!strcmp(argv[0], "colorgutter")) {
-		if (argc < 2) {
-			render_status_message("colorgutter=%d", global_config.color_gutter);
-		} else {
-			global_config.color_gutter = !!atoi(argv[1]);
+	}
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(qbang,"q!","Force close buffer") {
+	close_buffer();
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(qa,"qa","Try to close all buffers") {
+	try_quit();
+	return 0;
+}
+
+BIM_ALIAS("qall",qall,qa)
+
+BIM_COMMAND(qabang,"qa!","Force exit") {
+	/* Forcefully exit editor */
+	while (buffers_len) {
+		buffer_close(buffers[0]);
+	}
+	quit(NULL);
+	return 1; /* doesn't return */
+}
+
+BIM_COMMAND(tabp,"tabp","Previous tab") {
+	previous_tab();
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(tabn,"tabn","Next tab") {
+	next_tab();
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(git,"git","Show or change status of git integration") {
+	if (argc < 2) {
+		render_status_message("git=%d", env->checkgitstatusonwrite);
+	} else {
+		env->checkgitstatusonwrite = !!atoi(argv[1]);
+		if (env->checkgitstatusonwrite && !env->modified && env->file_name) {
+			git_examine(env->file_name);
 			redraw_text();
 		}
-	} else if (!strcmp(argv[0], "indent")) {
-		env->indent = 1;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "noindent")) {
-		env->indent = 0;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "cursorcolumn")) {
-		render_status_message("cursorcolumn=%d", env->preferred_column);
-	} else if (!strcmp(argv[0], "noh")) {
-		if (global_config.search) {
-			free(global_config.search);
-			global_config.search = NULL;
-			for (int i = 0; i < env->line_count; ++i) {
-				recalculate_syntax(env->lines[i],i);
-			}
-			redraw_text();
+	}
+	return 0;
+}
+
+BIM_COMMAND(colorgutter,"colorgutter","Show or change status of gutter colorization for unsaved modifications") {
+	if (argc < 2) {
+		render_status_message("colorgutter=%d", global_config.color_gutter);
+	} else {
+		global_config.color_gutter = !!atoi(argv[1]);
+		redraw_text();
+	}
+	return 0;
+}
+
+BIM_COMMAND(indent,"indent","Enable smart indentation") {
+	env->indent = 1;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(noindent,"noindent","Disable smrat indentation") {
+	env->indent = 0;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(cursorcolumn,"cursorcolumn","Show the visual column offset of the cursor.") {
+	render_status_message("cursorcolumn=%d", env->preferred_column);
+	return 0;
+}
+
+BIM_COMMAND(noh,"noh","Clear search term") {
+	if (global_config.search) {
+		free(global_config.search);
+		global_config.search = NULL;
+		for (int i = 0; i < env->line_count; ++i) {
+			recalculate_syntax(env->lines[i],i);
 		}
-	} else if (!strcmp(argv[0], "help")) {
-		/*
-		 * The repeated calls to redraw_commandline here make use
-		 * of scrolling to draw this multiline help message on
-		 * the same background as the command line.
-		 */
+		redraw_text();
+	}
+	return 0;
+}
+
+BIM_COMMAND(help,"help","Show help text.") {
+	if (argc < 2) {
 		render_commandline_message(""); /* To clear command line */
 		render_commandline_message("\n");
 		render_commandline_message(" \033[1mbim - a text editor \033[22m\n");
@@ -4959,205 +4971,332 @@ void process_command(char * cmd) {
 		render_commandline_message(" Bim %s\n", BIM_VERSION);
 		render_commandline_message(" %s\n", BIM_COPYRIGHT);
 		render_commandline_message("\n");
-		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
-		redraw_tabbar();
-		redraw_commandline();
-		/* Wait for a character so we can redraw the screen before continuing */
-		int c;
-		while ((c = bim_getch())== -1);
-		/* Make sure that key press actually gets used */
-		bim_unget(c);
-		/*
-		 * Redraw everything to hide the help message and get the
-		 * upper few lines of text on screen again
-		 */
-		redraw_all();
-	} else if (!strcmp(argv[0], "version")) {
-		render_status_message("Bim %s", BIM_VERSION);
-	} else if (!strcmp(argv[0], "theme") || !strcmp(argv[0],"colorscheme")) {
-		if (argc < 2) {
-			render_status_message("theme=%s", current_theme);
-			return;
+	} else {
+		int found = 0;
+		for (struct command_def * c = regular_commands; !found && regular_commands && c->name; ++c) {
+			if (!strcmp(c->name, argv[1])) {
+				render_commandline_message(""); /* To clear command line */
+				render_commandline_message("Help description for `%s`:\n", c->name);
+				render_commandline_message("  %s\n", c->description);
+				found = 1;
+				break;
+			}
 		}
+		for (struct command_def * c = prefix_commands; !found && prefix_commands && c->name; ++c) {
+			if (!strcmp(c->name, argv[1])) {
+				render_commandline_message(""); /* To clear command line */
+				render_commandline_message("Help description for `%s`:\n", c->name);
+				render_commandline_message("  %s\n", c->description);
+				found = 1;
+				break;
+			}
+		}
+		if (!found) {
+			render_error("Unknown command: %s", argv[1]);
+			return 1;
+		}
+	}
+	/* Redrawing the tabbar makes it look like we just shifted the whole view up */
+	redraw_tabbar();
+	redraw_commandline();
+	/* Wait for a character so we can redraw the screen before continuing */
+	pause_for_key();
+	return 0;
+}
+
+BIM_COMMAND(version,"version","Show version information.") {
+	render_status_message("Bim %s", BIM_VERSION);
+	return 0;
+}
+
+BIM_COMMAND(theme,"theme","Set color theme") {
+	if (argc < 2) {
+		render_status_message("theme=%s", current_theme);
+	} else {
 		for (struct theme_def * d = themes; themes && d->name; ++d) {
 			if (!strcmp(argv[1], d->name)) {
 				d->load();
 				redraw_all();
-				return;
+				return 0;
 			}
 		}
-	} else if (!strcmp(argv[0], "splitpercent")) {
-		if (argc < 2) {
-			render_status_message("splitpercent=%d", global_config.split_percent);
-			return;
+	}
+	return 0;
+}
+
+BIM_ALIAS("colorscheme",colorscheme,theme)
+
+BIM_COMMAND(splitpercent,"splitpercent","Display or change view split") {
+	if (argc < 2) {
+		render_status_message("splitpercent=%d", global_config.split_percent);
+		return 0;
+	} else {
+		global_config.split_percent = atoi(argv[1]);
+		if (left_buffer) {
+			update_split_size();
+			redraw_all();
+		}
+	}
+	return 0;
+}
+
+BIM_COMMAND(split,"split","Split the current view.") {
+	buffer_t * original = env;
+	if (argc > 1) {
+		int is_not_number = 0;
+		for (char * c = argv[1]; *c; ++c) is_not_number |= !isdigit(*c);
+		if (is_not_number) {
+			/* Open a file for the new split */
+			open_file(argv[1]);
+			right_buffer = buffers[buffers_len-1];
 		} else {
-			global_config.split_percent = atoi(argv[1]);
-			if (left_buffer) {
-				update_split_size();
-				redraw_all();
+			/* Use an existing buffer for the new split */
+			int other = atoi(argv[1]);
+			if (other >= buffers_len || other < 0) {
+				render_error("Invalid buffer number: %d", other);
+				return 1;
 			}
+			right_buffer = buffers[other];
 		}
-	} else if (!strcmp(argv[0], "split")) {
-		/* Force split the current buffer; will become unsplit under certain circumstances */
-		buffer_t * original = env;
-		if (argc > 1) {
-			int is_not_number = 0;
-			for (char * c = argv[1]; *c; ++c) is_not_number |= !isdigit(*c);
-			if (is_not_number) {
-				open_file(argv[1]);
-				right_buffer = buffers[buffers_len-1];
-			} else {
-				int other = atoi(argv[1]);
-				if (other >= buffers_len || other < 0) {
-					render_error("Invalid buffer number: %d", other);
-					return;
-				}
-				right_buffer = buffers[other];
-			}
-		} else {
-			right_buffer = original;
-		}
-		left_buffer = original;
-		update_split_size();
-		redraw_all();
-	} else if (!strcmp(argv[0], "unsplit")) {
-		unsplit();
-	} else if (!strcmp(argv[0], "syntax")) {
-		if (argc < 2) {
-			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
-			return;
-		}
+	} else {
+		/* Use the current buffer for the new split */
+		right_buffer = original;
+	}
+	left_buffer = original;
+	update_split_size();
+	redraw_all();
+	return 0;
+}
+
+BIM_COMMAND(unsplit,"unsplit","Show only one buffer on screen") {
+	unsplit();
+	return 0;
+}
+
+BIM_COMMAND(syntax,"syntax","Show or set the active syntax highlighter") {
+	if (argc < 2) {
+		render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
+	} else {
 		set_syntax_by_name(argv[1]);
-	} else if (!strcmp(argv[0], "recalc")) {
-		for (int i = 0; i < env->line_count; ++i) {
-			env->lines[i]->istate = -1;
+	}
+	return 0;
+}
+
+BIM_COMMAND(recalc,"recalc","Recalculate syntax for the entire file.") {
+	for (int i = 0; i < env->line_count; ++i) {
+		env->lines[i]->istate = -1;
+	}
+	env->loading = 1;
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	env->loading = 0;
+	redraw_all();
+	return 0;
+}
+
+BIM_COMMAND(tabs,"tabs","Use tabs for indentation") {
+	env->tabs = 1;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(spaces,"spaces","Use spaces for indentation") {
+	env->tabs = 0;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(tabstop,"tabstop","Show or set the tabstop (width of an indentation unit)") {
+	if (argc < 2) {
+		render_status_message("tabstop=%d", env->tabstop);
+	} else {
+		int t = atoi(argv[1]);
+		if (t > 0 && t < 32) {
+			env->tabstop = t;
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_tabs(env->lines[i]);
+			}
+			redraw_all();
+		} else {
+			render_error("Invalid tabstop: %s", argv[1]);
 		}
-		env->loading = 1;
+	}
+	return 0;
+}
+
+BIM_COMMAND(clearyear,"clearyank","Clear the yank buffer") {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+		global_config.yanks = NULL;
+		global_config.yank_count = 0;
+		redraw_statusbar();
+	}
+	return 0;
+}
+
+BIM_COMMAND(padding,"padding","Show or set cursor padding when scrolling vertically") {
+	if (argc < 2) {
+		render_status_message("padding=%d", global_config.cursor_padding);
+	} else {
+		global_config.cursor_padding = atoi(argv[1]);
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(smartcase,"smartcase","Show or set the status of the smartcase search option") {
+	if (argc < 2) {
+		render_status_message("smartcase=%d", global_config.smart_case);
+	} else {
+		global_config.smart_case = atoi(argv[1]);
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(hlparen,"hlparen","Show or set the configuration option to highlight matching braces") {
+	if (argc < 2) {
+		render_status_message("hlparen=%d", global_config.highlight_parens);
+	} else {
+		global_config.highlight_parens = atoi(argv[1]);
 		for (int i = 0; i < env->line_count; ++i) {
 			recalculate_syntax(env->lines[i],i);
 		}
-		env->loading = 0;
-		redraw_all();
-	} else if (!strcmp(argv[0], "tabs")) {
-		env->tabs = 1;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "spaces")) {
-		env->tabs = 0;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "tabstop")) {
-		if (argc < 2) {
-			render_status_message("tabstop=%d", env->tabstop);
-		} else {
-			int t = atoi(argv[1]);
-			if (t > 0 && t < 32) {
-				env->tabstop = t;
-				for (int i = 0; i < env->line_count; ++i) {
-					recalculate_tabs(env->lines[i]);
-				}
-				redraw_all();
-			} else {
-				render_error("Invalid tabstop: %s", argv[1]);
-			}
-		}
-	} else if (!strcmp(argv[0], "clearyank")) {
-		if (global_config.yanks) {
-			for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-				free(global_config.yanks[i]);
-			}
-			free(global_config.yanks);
-			global_config.yanks = NULL;
-			global_config.yank_count = 0;
-			redraw_statusbar();
-		}
-	} else if (!strcmp(argv[0], "padding")) {
-		if (argc < 2) {
-			render_status_message("padding=%d", global_config.cursor_padding);
-		} else {
-			global_config.cursor_padding = atoi(argv[1]);
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0], "smartcase")) {
-		if (argc < 2) {
-			render_status_message("smartcase=%d", global_config.smart_case);
-		} else {
-			global_config.smart_case = atoi(argv[1]);
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0], "hlparen")) {
-		if (argc < 2) {
-			render_status_message("hlparen=%d", global_config.highlight_parens);
-		} else {
-			global_config.highlight_parens = atoi(argv[1]);
+		redraw_text();
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(hlcurrent,"hlcurrent","Show or set the configuration option to highlight the current line") {
+	if (argc < 2) {
+		render_status_message("hlcurrent=%d", global_config.highlight_current_line);
+	} else {
+		global_config.highlight_current_line = atoi(argv[1]);
+		if (!global_config.highlight_current_line) {
 			for (int i = 0; i < env->line_count; ++i) {
-				recalculate_syntax(env->lines[i],i);
+				env->lines[i]->is_current = 0;
 			}
-			redraw_text();
-			place_cursor_actual();
 		}
-	} else if (!strcmp(argv[0], "hlcurrent")) {
-		if (argc < 2) {
-			render_status_message("hlcurrent=%d", global_config.highlight_current_line);
-		} else {
-			global_config.highlight_current_line = atoi(argv[1]);
-			if (!global_config.highlight_current_line) {
-				for (int i = 0; i < env->line_count; ++i) {
-					env->lines[i]->is_current = 0;
-				}
-			}
-			redraw_text();
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0], "crnl")) {
-		if (argc < 2) {
-			render_status_message("crnl=%d", env->crnl);
-		} else {
-			env->crnl = !!atoi(argv[1]);
-			redraw_statusbar();
-		}
-	} else if (!strcmp(argv[0], "numbers")) {
-		if (argc < 2) {
-			render_status_message("numbers=%d", global_config.numbers);
-		} else {
-			global_config.numbers = !!atoi(argv[1]);
-			redraw_all();
-		}
-	} else if (!strcmp(argv[0], "relativenumber")) {
-		if (argc < 2) {
-			render_status_message("relativenumber=%d", global_config.relative_lines);
-		} else {
-			global_config.relative_lines = atoi(argv[1]);
-			if (!global_config.relative_lines) {
-				for (int i = 0; i < env->line_count; ++i) {
-					env->lines[i]->is_current = 0;
-				}
-			}
-			redraw_text();
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0],"TOhtml") || !strcmp(argv[0],"tohtml")) { /* TOhtml is for vim compatibility */
-		convert_to_html();
-	} else if (!strcmp(argv[0],"buffers")) {
-		for (int i = 0; i < buffers_len; ++i) {
-			render_commandline_message("%d: %s\n", i, buffers[i]->file_name ? buffers[i]->file_name : "(no name)");
-		}
-		redraw_tabbar();
-		redraw_commandline();
-		int c;
-		while ((c = bim_getch())== -1);
-		bim_unget(c);
+		redraw_text();
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(crnl,"crnl","Show or set the line ending mode") {
+	if (argc < 2) {
+		render_status_message("crnl=%d", env->crnl);
+	} else {
+		env->crnl = !!atoi(argv[1]);
+		redraw_statusbar();
+	}
+	return 0;
+}
+
+BIM_COMMAND(numbers,"numbers","Show or set the display of line numbers") {
+	if (argc < 2) {
+		render_status_message("numbers=%d", global_config.numbers);
+	} else {
+		global_config.numbers = !!atoi(argv[1]);
 		redraw_all();
-	} else if (argv[0][0] == '-' && isdigit(argv[0][1])) {
-		global_config.break_from_selection = 1;
+	}
+	return 0;
+}
+
+BIM_COMMAND(relativenumbers,"relativenumbers","Show or set the display of relative line numbers") {
+	if (argc < 2) {
+		render_status_message("relativenumber=%d", global_config.relative_lines);
+	} else {
+		global_config.relative_lines = atoi(argv[1]);
+		if (!global_config.relative_lines) {
+			for (int i = 0; i < env->line_count; ++i) {
+				env->lines[i]->is_current = 0;
+			}
+		}
+		redraw_text();
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(buffers,"buffers","Show the open buffers") {
+	for (int i = 0; i < buffers_len; ++i) {
+		render_commandline_message("%d: %s\n", i, buffers[i]->file_name ? buffers[i]->file_name : "(no name)");
+	}
+	redraw_tabbar();
+	redraw_commandline();
+	pause_for_key();
+	return 0;
+}
+
+BIM_COMMAND(keyname,"keyname","Press and key and get its name.") {
+	int c;
+	render_commandline_message("(press a key)");
+	while ((c = bim_getkey(200)) == KEY_TIMEOUT);
+	render_commandline_message("%d = %s", c, name_from_key(c));
+	return 0;
+}
+
+/**
+ * Process a user command.
+ */
+void process_command(char * cmd) {
+	/* Add command to history */
+	insert_command_history(cmd);
+
+	/* First, check prefix commands */
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		if (strstr(cmd, c->name) == cmd &&
+		    (!isalpha(cmd[strlen(c->name)]) || !isalpha(cmd[0]))) {
+			c->command(cmd, 0, NULL);
+			return;
+		}
+	}
+
+	char * argv[3] = {NULL, NULL, NULL};
+	int argc = !!(*cmd);
+	char cmd_name[512] = {0};
+	for (char * c = cmd; *c; ++c) {
+		if (c-cmd == 511) break;
+		if (*c == ' ') {
+			cmd_name[c-cmd] = '\0';
+			argv[1] = c+1;
+			if (*argv[1]) argc++;
+			break;
+		}
+		cmd_name[c-cmd] = *c;
+	}
+
+	argv[0] = cmd_name;
+	argv[argc] = NULL;
+
+	if (argc < 1) {
+		/* no op */
+		return;
+	}
+
+	/* Now check regular commands */
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		if (!strcmp(argv[0], c->name)) {
+			c->command(cmd, argc, argv);
+			return;
+		}
+	}
+
+	global_config.break_from_selection = 1;
+
+	if (argv[0][0] == '-' && isdigit(argv[0][1])) {
 		goto_line(env->line_no-atoi(&argv[0][1]));
 	} else if (argv[0][0] == '+' && isdigit(argv[0][1])) {
-		global_config.break_from_selection = 1;
 		goto_line(env->line_no+atoi(&argv[0][1]));
 	} else if (isdigit(*argv[0])) {
-		/* Go to line number */
-		global_config.break_from_selection = 1;
 		goto_line(atoi(argv[0]));
 	} else {
-		/* Unrecognized command */
 		render_error("Not an editor command: %s", argv[0]);
 	}
 }
@@ -5224,11 +5363,15 @@ void command_tab_complete(char * buffer) {
 		} \
 	} while (0)
 
-	if (arg == 0) {
+	if (arg == 0 || (arg == 1 && !strcmp(args[0], "help"))) {
 		/* Complete command names */
-		for (char ** c = bim_command_names; *c; ++c) {
-			add_candidate(*c);
+		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+			add_candidate(c->name);
 		}
+		for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+			add_candidate(c->name);
+		}
+
 		goto _accept_candidate;
 	}
 
@@ -5814,7 +5957,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 			}
 			j--;
 		}
-		col = (i > 1) ? (env->lines[i-2]->actual) : -1;
+		col = (i > 1) ? (env->lines[i-2]->actual + 1) : -1;
 	}
 }
 
@@ -6945,34 +7088,28 @@ BIM_ACTION(search_under_cursor, 0,
 	search_next();
 }
 
-/**
- * Handler for f,F,t,T
- * Find the selected character based on the search requirement:
- * f: forward, stop on character
- * F: backward, stop on character
- * t: forward, stop before character
- * T: backward, stop after character
- */
-BIM_ACTION(find_character, ARG_IS_PROMPT | ARG_IS_INPUT,
-	"Find a character forward (`f`, `t`), backward (`F`, `T`), and place the cursor on (`f`, `F`) or before (`t`, `T`) it."
+BIM_ACTION(find_character_forward, ARG_IS_PROMPT | ARG_IS_INPUT,
+	"Find a character forward on the current line and place the cursor on (`f`) or before (`t`) it."
 )(int type, int c) {
-	if (type == 'f' || type == 't') {
-		for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
-			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
-				env->col_no = i - !!(type == 't');
-				place_cursor_actual();
-				set_preferred_column();
-				return;
-			}
+	for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
+		if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
+			env->col_no = i - !!(type == 't');
+			place_cursor_actual();
+			set_preferred_column();
+			return;
 		}
-	} else if (type == 'F' || type == 'T') {
-		for (int i = env->col_no-1; i >= 1; --i) {
-			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
-				env->col_no = i + !!(type == 'T');
-				place_cursor_actual();
-				set_preferred_column();
-				return;
-			}
+	}
+}
+
+BIM_ACTION(find_character_backward, ARG_IS_PROMPT | ARG_IS_INPUT,
+	"Find a character backward on the current line and place the cursor on (`F`) or after (`T`) it."
+)(int type, int c) {
+	for (int i = env->col_no-1; i >= 1; --i) {
+		if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
+			env->col_no = i + !!(type == 'T');
+			place_cursor_actual();
+			set_preferred_column();
+			return;
 		}
 	}
 }
@@ -7935,7 +8072,13 @@ BIM_ACTION(delete_forward, ACTION_IS_RW,
 	if (env->col_no <= env->lines[env->line_no-1]->actual) {
 		line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
 		redraw_text();
+	} else if (env->col_no == env->lines[env->line_no-1]->actual + 1) {
+		merge_lines(env->lines, env->line_no);
+		redraw_text();
 	}
+	set_modified();
+	redraw_statusbar();
+	place_cursor_actual();
 }
 
 BIM_ACTION(delete_forward_and_insert, ACTION_IS_RW,
@@ -8235,6 +8378,20 @@ BIM_ACTION(smart_brace_end, ARG_IS_INPUT | ACTION_IS_RW,
 	insert_char(c);
 }
 
+BIM_ACTION(enter_line_selection_and_cursor_up, 0,
+	"Enter line selection and move the cursor up one line."
+)(void) {
+	enter_line_selection();
+	cursor_up();
+}
+
+BIM_ACTION(enter_line_selection_and_cursor_down, 0,
+	"Enter line selection and move the cursor down one line."
+)(void) {
+	enter_line_selection();
+	cursor_down();
+}
+
 struct action_map {
 	int key;
 	void (*method)();
@@ -8270,6 +8427,8 @@ struct action_map NORMAL_MAP[] = {
 	{KEY_CTRL_G,    goto_definition, 0, 0},
 	{'i',           enter_insert, opt_rw, 0},
 	{'R',           enter_replace, opt_rw, 0},
+	{KEY_SHIFT_UP,   enter_line_selection_and_cursor_up, 0, 0},
+	{KEY_SHIFT_DOWN, enter_line_selection_and_cursor_down, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -8310,6 +8469,9 @@ struct action_map LINE_SELECTION_MAP[] = {
 	{'x',           delete_and_yank_lines, opt_rw | opt_norm, 0},
 	{'s',           delete_lines_and_enter_insert, opt_rw, 0},
 	{'r',           replace_chars_in_line, opt_char | opt_rw, 0},
+
+	{KEY_SHIFT_UP,   cursor_up, 0, 0},
+	{KEY_SHIFT_DOWN, cursor_down, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -8368,10 +8530,10 @@ struct action_map NAVIGATION_MAP[] = {
 	{'B',           big_word_left, opt_rep, 0},
 	{'W',           big_word_right, opt_rep, 0},
 
-	{'f',           find_character, opt_rep | opt_arg | opt_char, 'f'},
-	{'F',           find_character, opt_rep | opt_arg | opt_char, 'F'},
-	{'t',           find_character, opt_rep | opt_arg | opt_char, 't'},
-	{'T',           find_character, opt_rep | opt_arg | opt_char, 'T'},
+	{'f',           find_character_forward, opt_rep | opt_arg | opt_char, 'f'},
+	{'F',           find_character_backward, opt_rep | opt_arg | opt_char, 'F'},
+	{'t',           find_character_forward, opt_rep | opt_arg | opt_char, 't'},
+	{'T',           find_character_backward, opt_rep | opt_arg | opt_char, 'T'},
 
 	{'G',           goto_line, opt_nav, 0},
 	{'*',           search_under_cursor, 0, 0},
@@ -8412,6 +8574,8 @@ struct action_map ESCAPE_MAP[] = {
 	{KEY_END, cursor_end, 0, 0},
 	{KEY_PAGE_UP, go_page_up, opt_rep, 0},
 	{KEY_PAGE_DOWN, go_page_down, opt_rep, 0},
+
+	{KEY_CTRL_Z,   suspend, 0, 0},
 
 	{-1, NULL, 0, 0}
 };
@@ -9010,7 +9174,7 @@ void init_terminal(void) {
 
 struct action_def * find_action(void (*action)()) {
 	if (!action) return NULL;
-	for (int i = 0; i < action_count; ++i) {
+	for (int i = 0; i < flex_mappable_actions_count; ++i) {
 		if (action == mappable_actions[i].action) return &mappable_actions[i];
 	}
 	return NULL;
@@ -9031,6 +9195,80 @@ void dump_mapping(const char * description, struct action_map * map) {
 		m++;
 	}
 	printf("\n");
+}
+
+BIM_COMMAND(whatis,"whatis","Describe actions bound to a key in different modes.") {
+	int key = 0;
+
+	if (argc < 2) {
+		render_commandline_message("(press a key)");
+		while ((key = bim_getkey(200)) == KEY_TIMEOUT);
+	} else if (strlen(argv[1]) > 1 && argv[1][0] == '^') {
+		/* See if it's a valid ctrl key */
+		if (argv[1][2] != '\0') {
+			goto _invalid_key_name;
+		}
+		if ((unsigned char)argv[1][1] < '@' || (unsigned char)argv[1][1] > '@' + '_') {
+			goto _invalid_key_name;
+		}
+		key = argv[1][1] - '@';
+	} else if (argv[1][1] != '\0') {
+		for (unsigned int i = 0; i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
+			if (!strcmp(KeyNames[i].name,argv[1])) {
+				key = KeyNames[i].keycode;
+			}
+		}
+		if (!key) goto _invalid_key_name;
+	} else {
+		key = (unsigned char)argv[1][0];
+	}
+
+	struct MappingNames {
+		char * name;
+		struct action_map * map;
+	} maps[] = {
+		{"Normal", NORMAL_MAP},
+		{"Insert", INSERT_MAP},
+		{"Replace", REPLACE_MAP},
+		{"Line Selection", LINE_SELECTION_MAP},
+		{"Char Selection", CHAR_SELECTION_MAP},
+		{"Col Selection", COL_SELECTION_MAP},
+		{"Col Insert", COL_INSERT_MAP},
+		{"Navigation (Select)", NAVIGATION_MAP},
+		{"Escape (Select, Insert)", ESCAPE_MAP},
+		{"Command", COMMAND_MAP},
+		{"Search", SEARCH_MAP},
+		{"Input (Command, Search)", INPUT_BUFFER_MAP},
+		{NULL, NULL},
+	};
+
+	render_commandline_message("");
+	int found_something = 0;
+
+	for (struct MappingNames * map = maps; map->name; ++map) {
+		/* See if this key is mapped */
+		struct action_map * m = map->map;
+		while (m->key != -1) {
+			if (m->key == key) {
+				struct action_def * action = find_action(m->method);
+				render_commandline_message("%s: %s\n", map->name, action ? action->description : "(unmapped)");
+				found_something = 1;
+				break;
+			}
+			m++;
+		}
+	}
+
+	if (!found_something) {
+		render_commandline_message("Nothing bound for this key");
+	}
+
+	pause_for_key();
+
+	return 0;
+_invalid_key_name:
+	render_error("Invalid key name");
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
@@ -9189,6 +9427,86 @@ BIM_THEME(ansi) {
 }
 
 
+BIM_THEME(sunsmoke256) {
+	if (!global_config.can_256color) return;
+	COLOR_FG        = "5;188";
+	COLOR_BG        = "5;234";
+	COLOR_ALT_FG    = "5;244";
+	COLOR_ALT_BG    = "5;236";
+	COLOR_NUMBER_FG = "5;101";
+	COLOR_NUMBER_BG = "5;232";
+	COLOR_STATUS_FG = "5;188";
+	COLOR_STATUS_BG = "5;59";
+	COLOR_TABBAR_BG = "5;59";
+	COLOR_TAB_BG    = "5;59";
+	COLOR_KEYWORD   = "5;74";
+	COLOR_STRING    = "5;71";
+	COLOR_COMMENT   = global_config.can_italic ? "5;102;3" : "5;102";
+	COLOR_TYPE      = "5;221";
+	COLOR_PRAGMA    = "5;160";
+	COLOR_NUMERAL   = "5;161";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "5;17";
+	COLOR_SELECTBG  = "5;109";
+
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
+
+	COLOR_BOLD      = "5;188;1";
+	COLOR_LINK      = "5;74;4";
+	COLOR_ESCAPE    = "5;79";
+
+	current_theme = "sunsmoke256";
+}
+
+/* Custom theme */
+BIM_THEME(sunsmoke) {
+	if (!global_config.can_24bit) {
+		load_colorscheme_sunsmoke256();
+		return;
+	}
+	COLOR_FG        = "2;230;230;230";
+	COLOR_BG        = "2;31;31;31";
+	COLOR_ALT_FG    = "2;122;122;122";
+	COLOR_ALT_BG    = "2;46;43;46";
+	COLOR_NUMBER_FG = "2;150;139;57";
+	COLOR_NUMBER_BG = "2;0;0;0";
+	COLOR_STATUS_FG = "2;230;230;230";
+	COLOR_STATUS_BG = "2;71;64;58";
+	COLOR_TABBAR_BG = "2;71;64;58";
+	COLOR_TAB_BG    = "2;71;64;58";
+	COLOR_KEYWORD   = "2;51;162;230";
+	COLOR_STRING    = "2;72;176;72";
+	COLOR_COMMENT   = "2;158;153;129;3";
+	COLOR_TYPE      = "2;230;206;110";
+	COLOR_PRAGMA    = "2;194;70;54";
+	COLOR_NUMERAL   = "2;230;43;127";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "2;0;43;54";
+	COLOR_SELECTBG  = "2;147;161;161";
+
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
+
+	COLOR_BOLD      = "2;230;230;230;1";
+	COLOR_LINK      = "2;51;162;230;4";
+	COLOR_ESCAPE    = "2;113;203;173";
+
+	current_theme = "sunsmoke";
+}
+
+
+
 /* Solarized Dark, popular theme */
 BIM_THEME(solarized_dark) {
 	if (!global_config.can_24bit) return;
@@ -9306,113 +9624,394 @@ BIM_THEME(citylights) {
 }
 
 
-BIM_THEME(sunsmoke256) {
-	if (!global_config.can_256color) return;
-	COLOR_FG        = "5;188";
-	COLOR_BG        = "5;234";
-	COLOR_ALT_FG    = "5;244";
-	COLOR_ALT_BG    = "5;236";
-	COLOR_NUMBER_FG = "5;101";
-	COLOR_NUMBER_BG = "5;232";
-	COLOR_STATUS_FG = "5;188";
-	COLOR_STATUS_BG = "5;59";
-	COLOR_TABBAR_BG = "5;59";
-	COLOR_TAB_BG    = "5;59";
-	COLOR_KEYWORD   = "5;74";
-	COLOR_STRING    = "5;71";
-	COLOR_COMMENT   = global_config.can_italic ? "5;102;3" : "5;102";
-	COLOR_TYPE      = "5;221";
-	COLOR_PRAGMA    = "5;160";
-	COLOR_NUMERAL   = "5;161";
+char * syn_bash_keywords[] = {
+	/* Actual bash keywords */
+	"if","then","else","elif","fi","case","esac","for","coproc",
+	"select","while","until","do","done","in","function","time",
+	/* Other keywords */
+	"exit","return","source","function","export","alias","complete","shopt","local","eval",
+	/* Common Unix utilities */
+	"echo","cd","pushd","popd","printf","sed","rm","mv",
+	NULL
+};
 
-	COLOR_ERROR_FG  = "5;15";
-	COLOR_ERROR_BG  = "5;196";
-	COLOR_SEARCH_FG = "5;234";
-	COLOR_SEARCH_BG = "5;226";
-
-	COLOR_SELECTFG  = "5;17";
-	COLOR_SELECTBG  = "5;109";
-
-	COLOR_RED       = "@1";
-	COLOR_GREEN     = "@2";
-
-	COLOR_BOLD      = "5;188;1";
-	COLOR_LINK      = "5;74;4";
-	COLOR_ESCAPE    = "5;79";
-
-	current_theme = "sunsmoke256";
+int bash_pop_state(int state) {
+	int new_state = state / 100;
+	return new_state * 10;
 }
 
-/* Custom theme */
-BIM_THEME(sunsmoke) {
-	if (!global_config.can_24bit) {
-		load_colorscheme_sunsmoke256();
-		return;
-	}
-	COLOR_FG        = "2;230;230;230";
-	COLOR_BG        = "2;31;31;31";
-	COLOR_ALT_FG    = "2;122;122;122";
-	COLOR_ALT_BG    = "2;46;43;46";
-	COLOR_NUMBER_FG = "2;150;139;57";
-	COLOR_NUMBER_BG = "2;0;0;0";
-	COLOR_STATUS_FG = "2;230;230;230";
-	COLOR_STATUS_BG = "2;71;64;58";
-	COLOR_TABBAR_BG = "2;71;64;58";
-	COLOR_TAB_BG    = "2;71;64;58";
-	COLOR_KEYWORD   = "2;51;162;230";
-	COLOR_STRING    = "2;72;176;72";
-	COLOR_COMMENT   = "2;158;153;129;3";
-	COLOR_TYPE      = "2;230;206;110";
-	COLOR_PRAGMA    = "2;194;70;54";
-	COLOR_NUMERAL   = "2;230;43;127";
-
-	COLOR_ERROR_FG  = "5;15";
-	COLOR_ERROR_BG  = "5;196";
-	COLOR_SEARCH_FG = "5;234";
-	COLOR_SEARCH_BG = "5;226";
-
-	COLOR_SELECTFG  = "2;0;43;54";
-	COLOR_SELECTBG  = "2;147;161;161";
-
-	COLOR_RED       = "2;222;53;53";
-	COLOR_GREEN     = "2;55;167;0";
-
-	COLOR_BOLD      = "2;230;230;230;1";
-	COLOR_LINK      = "2;51;162;230;4";
-	COLOR_ESCAPE    = "2;113;203;173";
-
-	current_theme = "sunsmoke";
+int bash_push_state(int state, int new) {
+	return state * 10 + new;
 }
 
-
-
-int syn_conf_calculate(struct syntax_state * state) {
-	if (state->i == 0) {
-		if (charat() == ';') {
-			while (charat() != -1) {
-				if (common_comment_buzzwords(state)) continue;
-				else paint(1, FLAG_COMMENT);
-			}
-		} else if (charat() == '#') {
-			while (charat() != -1) {
-				if (common_comment_buzzwords(state)) continue;
-				else paint(1, FLAG_COMMENT);
-			}
-		} else if (charat() == '[') {
-			paint(1, FLAG_KEYWORD);
-			while (charat() != ']' && charat() != -1) paint(1, FLAG_KEYWORD);
-			if (charat() == ']') paint(1, FLAG_KEYWORD);
-		} else {
-			while (charat() != '=' && charat() != -1) paint(1, FLAG_TYPE);
+int bash_paint_tick(struct syntax_state * state, int out_state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return bash_pop_state(out_state);
+		} else if (last == '\\') {
+			paint(1, FLAG_STRING);
+			last = -1;
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, FLAG_STRING);
 		}
 	}
+	return out_state;
+}
 
+int bash_paint_braced_variable(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (charat() == '}') {
+			paint(1, FLAG_NUMERAL);
+			return 0;
+		}
+		paint(1, FLAG_NUMERAL);
+	}
+	return 0;
+}
+
+int bash_special_variable(int c) {
+	return (c == '@' || c == '?');
+}
+
+int bash_paint_string(struct syntax_state * state, char terminator, int out_state, int color) {
+	int last = -1;
+	state->state = out_state;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == terminator) {
+			paint(1, color);
+			return bash_pop_state(state->state);
+		} else if (last == '\\') {
+			paint(1, color);
+			last = -1;
+		} else if (terminator != '`' && charat() == '`') {
+			paint(1, FLAG_ESCAPE);
+			state->state = bash_paint_string(state,'`',bash_push_state(out_state, 20),FLAG_ESCAPE);
+		} else if (terminator != ')' && charat() == '$' && nextchar() == '(') {
+			paint(2, FLAG_TYPE);
+			state->state = bash_paint_string(state,')',bash_push_state(out_state, 30),FLAG_TYPE);
+		} else if (charat() == '$' && nextchar() == '{') {
+			paint(2, FLAG_NUMERAL);
+			bash_paint_braced_variable(state);
+		} else if (charat() == '$') {
+			paint(1, FLAG_NUMERAL);
+			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); continue; }
+			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
+		} else if (terminator != '"' && charat() == '"') {
+			paint(1, FLAG_STRING);
+			state->state = bash_paint_string(state,'"',bash_push_state(out_state, 40),FLAG_STRING);
+		} else if (terminator != '"' && charat() == '\'') { /* No single quotes in regular quotes */
+			paint(1, FLAG_STRING);
+			state->state = bash_paint_tick(state, out_state);
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, color);
+		}
+	}
+	return state->state;
+}
+
+int syn_bash_calculate(struct syntax_state * state) {
+	if (state->state < 1) {
+		if (charat() == '#') {
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
+			return -1;
+		} else if (charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return bash_paint_tick(state, 10);
+		} else if (charat() == '`') {
+			paint(1, FLAG_ESCAPE);
+			return bash_paint_string(state,'`',20,FLAG_ESCAPE);
+		} else if (charat() == '$' && nextchar() == '(') {
+			paint(2, FLAG_TYPE);
+			return bash_paint_string(state,')',30,FLAG_TYPE);
+		} else if (charat() == '"') {
+			paint(1, FLAG_STRING);
+			return bash_paint_string(state,'"',40,FLAG_STRING);
+		} else if (charat() == '$' && nextchar() == '{') {
+			paint(2, FLAG_NUMERAL);
+			bash_paint_braced_variable(state);
+			return 0;
+		} else if (charat() == '$') {
+			paint(1, FLAG_NUMERAL);
+			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); return 0; }
+			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
+			return 0;
+		} else if (find_keywords(state, syn_bash_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+			return 0;
+		} else if (charat() == ';') {
+			paint(1, FLAG_KEYWORD);
+			return 0;
+		} else if (c_keyword_qualifier(charat())) {
+			for (int i = 0; charrel(i) != -1; ++i) {
+				if (charrel(i) == ' ') break;
+				if (charrel(i) == '=') {
+					for (int j = 0; j < i; ++j) {
+						paint(1, FLAG_TYPE);
+					}
+					skip(); /* equals sign */
+					return 0;
+				}
+			}
+			for (int i = 0; charrel(i) != -1; ++i) {
+				if (charrel(i) == '(') {
+					for (int j = 0; j < i; ++j) {
+						paint(1, FLAG_TYPE);
+					}
+					return 0;
+				}
+				if (!c_keyword_qualifier(charrel(i)) && charrel(i) != '-' && charrel(i) != ' ') break;
+			}
+			skip();
+			return 0;
+		} else if (charat() != -1) {
+			skip();
+			return 0;
+		}
+	} else if (state->state < 10) {
+		/*
+		 * TODO: I have an idea of how to do up to `n` (here... 8?) heredocs
+		 * by storing them in a static table and using the index into that table
+		 * for the state, but it's iffy. It would work well in situations where
+		 * someoen used the same heredoc repeatedly throughout their document.
+		 */
+	} else if (state->state >= 10) {
+		/* Nested string states */
+		while (charat() != -1) {
+			int s = (state->state / 10) % 10;
+			if (s == 1) {
+				state->state = bash_paint_string(state,'\'',state->state,FLAG_STRING);
+			} else if (s == 2) {
+				state->state = bash_paint_string(state,'`',state->state,FLAG_ESCAPE);
+			} else if (s == 3) {
+				state->state = bash_paint_string(state,')',state->state,FLAG_TYPE);
+			} else if (s == 4) {
+				state->state = bash_paint_string(state,'"',state->state,FLAG_STRING);
+			} else if (!s) {
+				return -1;
+			}
+		}
+		return state->state;
+	}
 	return -1;
 }
 
-char * syn_conf_ext[] = {".conf",".ini",".git/config",NULL};
+char * syn_bash_ext[] = {
+#ifndef __toaru__
+	".sh",
+#endif
+	".bash",".bashrc",
+	NULL
+};
 
-BIM_SYNTAX(conf, 1)
+BIM_SYNTAX(bash, 0)
+
+char * syn_py_keywords[] = {
+	"class","def","return","del","if","else","elif","for","while","continue",
+	"break","assert","as","and","or","except","finally","from","global",
+	"import","in","is","lambda","with","nonlocal","not","pass","raise","try","yield",
+	NULL
+};
+
+char * syn_py_types[] = {
+	/* built-in functions */
+	"abs","all","any","ascii","bin","bool","breakpoint","bytes",
+	"bytearray","callable","compile","complex","delattr","chr",
+	"dict","dir","divmod","enumerate","eval","exec","filter","float",
+	"format","frozenset","getattr","globals","hasattr","hash","help",
+	"hex","id","input","int","isinstance","issubclass","iter","len",
+	"list","locals","map","max","memoryview","min","next","object",
+	"oct","open","ord","pow","print","property","range","repr","reverse",
+	"round","set","setattr","slice","sorted","staticmethod","str","sum",
+	"super","tuple","type","vars","zip",
+	NULL
+};
+
+char * syn_py_special[] = {
+	"True","False","None",
+	NULL
+};
+
+int paint_py_triple_double(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (charat() == '"') {
+			paint(1, FLAG_STRING);
+			if (charat() == '"' && nextchar() == '"') {
+				paint(2, FLAG_STRING);
+				return 0;
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+	return 1; /* continues */
+}
+
+int paint_py_triple_single(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (charat() == '\'') {
+			paint(1, FLAG_STRING);
+			if (charat() == '\'' && nextchar() == '\'') {
+				paint(2, FLAG_STRING);
+				return 0;
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+	return 2; /* continues */
+}
+
+int paint_py_single_string(struct syntax_state * state) {
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == '\'') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return 0;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+	return 0;
+}
+
+int paint_py_numeral(struct syntax_state * state) {
+	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
+		paint(2, FLAG_NUMERAL);
+		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && nextchar() == '.') {
+		paint(2, FLAG_NUMERAL);
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
+			paint(2, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		} else if (charat() == 'e' || charat() == 'E') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		}
+		if (charat() == 'j') paint(1, FLAG_NUMERAL);
+		return 0;
+	} else {
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		if (charat() == '.') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
+				paint(2, FLAG_NUMERAL);
+				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			} else if (charat() == 'e' || charat() == 'E') {
+				paint(1, FLAG_NUMERAL);
+				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			}
+			if (charat() == 'j') paint(1, FLAG_NUMERAL);
+			return 0;
+		}
+		if (charat() == 'j') paint(1, FLAG_NUMERAL);
+	}
+	while (charat() == 'l' || charat() == 'L') paint(1, FLAG_NUMERAL);
+	return 0;
+}
+
+void paint_py_format_string(struct syntax_state * state, char type) {
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == type) {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == type) {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '{') {
+			paint(1, FLAG_NUMERAL);
+			if (charat() == '}') {
+				state->i--;
+				paint(2, FLAG_ERROR); /* Can't do that. */
+			} else {
+				while (charat() != -1 && charat() != '}') {
+					paint(1, FLAG_NUMERAL);
+				}
+				paint(1, FLAG_NUMERAL);
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+}
+
+int syn_py_calculate(struct syntax_state * state) {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (charat() == '#') {
+				paint_comment(state);
+			} else if (state->i == 0 && match_and_paint(state, "import", FLAG_PRAGMA, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '@') {
+				paint(1, FLAG_PRAGMA);
+				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
+				return 0;
+			} else if (charat() == '"') {
+				if (nextchar() == '"' && charrel(2) == '"') {
+					paint(3, FLAG_STRING);
+					return paint_py_triple_double(state);
+				} else if (lastchar() == 'f') {
+					/* I don't like backtracking like this, but it makes this parse easier */
+					state->i--;
+					paint(1,FLAG_TYPE);
+					paint_py_format_string(state,'"');
+					return 0;
+				} else {
+					paint_simple_string(state);
+					return 0;
+				}
+			} else if (find_keywords(state, syn_py_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (lastchar() != '.' && find_keywords(state, syn_py_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_py_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\'') {
+				if (nextchar() == '\'' && charrel(2) == '\'') {
+					paint(3, FLAG_STRING);
+					return paint_py_triple_single(state);
+				} else if (lastchar() == 'f') {
+					/* I don't like backtracking like this, but it makes this parse easier */
+					state->i--;
+					paint(1,FLAG_TYPE);
+					paint_py_format_string(state,'\'');
+					return 0;
+				} else {
+					return paint_py_single_string(state);
+				}
+			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_py_numeral(state);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		case 1: /* multiline """ string */
+			return paint_py_triple_double(state);
+		case 2: /* multiline ''' string */
+			return paint_py_triple_single(state);
+	}
+	return -1;
+}
+
+char * syn_py_ext[] = {".py",NULL};
+
+BIM_SYNTAX(py, 1)
 
 char * syn_json_keywords[] = {
 	"true","false","null",
@@ -9470,68 +10069,324 @@ char * syn_json_ext[] = {".json",NULL}; // TODO other stuff that uses json
 
 BIM_SYNTAX(json, 1)
 
-int syn_gitcommit_calculate(struct syntax_state * state) {
-	if (state->i == 0 && charat() == '#') {
-		while (charat() != -1) paint(1, FLAG_COMMENT);
-	} else if (state->line_no == 0) {
-		/* First line is special */
-		while (charat() != -1 && state->i < 50) paint(1, FLAG_KEYWORD);
-		while (charat() != -1) paint(1, FLAG_DIFFMINUS);
-	} else if (state->line_no == 1) {
-		/* No text on second line */
-		while (charat() != -1) paint(1, FLAG_DIFFMINUS);
-	} else if (charat() != -1) {
-		skip();
-		return 0;
-	}
-	return -1;
-}
-
-char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG", NULL};
-
-char * syn_gitrebase_commands[] = {
-	"p","r","e","s","f","x","d",
-	"pick","reword","edit","squash","fixup",
-	"exec","drop",
-	NULL
-};
-
-int syn_gitrebase_calculate(struct syntax_state * state) {
-	if (state->i == 0 && charat() == '#') {
-		while (charat() != -1) paint(1, FLAG_COMMENT);
-	} else if (state->i == 0 && find_keywords(state, syn_gitrebase_commands, FLAG_KEYWORD, c_keyword_qualifier)) {
-		while (charat() == ' ') skip();
-		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
-		return -1;
-	}
-
-	return -1;
-}
-
-char * syn_gitrebase_ext[] = {"git-rebase-todo",NULL};
-
-BIM_SYNTAX(gitcommit, 1)
-BIM_SYNTAX(gitrebase, 1)
-
-int syn_biminfo_calculate(struct syntax_state * state) {
+int syn_ctags_calculate(struct syntax_state * state) {
 	if (state->i == 0) {
-		if (charat() == '#') {
-			while (charat() != -1) paint(1, FLAG_COMMENT);
-		} else if (charat() == '>') {
-			paint(1, FLAG_KEYWORD);
-			while (charat() != ' ') paint(1, FLAG_TYPE);
-			skip();
-			while (charat() != -1) paint(1, FLAG_NUMERAL);
+		if (charat() == '!') {
+			paint_comment(state);
+			return -1;
 		} else {
-			while (charat() != -1) paint(1, FLAG_ERROR);
+			while (charat() != -1 && charat() != '\t') paint(1, FLAG_TYPE);
+			if (charat() == '\t') skip();
+			while (charat() != -1 && charat() != '\t') paint(1, FLAG_NUMERAL);
+			if (charat() == '\t') skip();
+			while (charat() != -1 && !(charat() == ';' && nextchar() == '"')) paint(1, FLAG_KEYWORD);
+			return -1;
 		}
 	}
 	return -1;
 }
 
-char * syn_biminfo_ext[] = {".biminfo",NULL};
+char * syn_ctags_ext[] = { "tags", NULL };
 
-BIM_SYNTAX(biminfo, 0)
+BIM_SYNTAX(ctags, 0)
+
+static char * syn_java_keywords[] = {
+	"assert","break","case","catch","class","continue",
+	"default","do","else","enum","exports","extends","finally",
+	"for","if","implements","instanceof","interface","module","native",
+	"new","requires","return","throws",
+	"strictfp","super","switch","synchronized","this","throw","try","while",
+	NULL
+};
+
+static char * syn_java_types[] = {
+	"var","boolean","void","short","long","int","double","float","enum","char",
+	"private","protected","public","static","final","transient","volatile","abstract",
+	NULL
+};
+
+static char * syn_java_special[] = {
+	"true","false","import","package","null",
+	NULL
+};
+
+static char * syn_java_at_comments[] = {
+	"@author","@see","@since","@return","@throws",
+	"@version","@exception","@deprecated",
+	/* @param is special */
+	NULL
+};
+
+static int at_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_') || (c == '@');
+}
+
+static char * syn_java_brace_comments[] = {
+	"{@docRoot","{@inheritDoc","{@link","{@linkplain",
+	"{@value","{@code","{@literal","{@serial",
+	"{@serialData","{@serialField",
+	NULL
+};
+
+static int brace_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '{') || (c == '@');
+}
+
+static int paint_java_comment(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (common_comment_buzzwords(state)) continue;
+		else if (charat() == '@') {
+			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
+				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
+					while (charat() == ' ') skip();
+					while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+				} else {
+					/* Paint the @ */
+					paint(1, FLAG_COMMENT);
+				}
+			}
+		} else if (charat() == '{') {
+			/* see if this terminates */
+			if (find_keywords(state, syn_java_brace_comments, FLAG_ESCAPE, brace_keyword_qualifier)) {
+				while (charat() != '}' && charat() != -1) {
+					paint(1, FLAG_ESCAPE);
+				}
+				if (charat() == '}') paint(1, FLAG_ESCAPE);
+			} else {
+				paint(1, FLAG_COMMENT);
+			}
+		} else if (charat() == '<') {
+			int is_tag = 0;
+			for (int i = 1; charrel(i) != -1; ++i) {
+				if (charrel(i) == '>') {
+					is_tag = 1;
+					break;
+				}
+				if (!isalnum(charrel(i)) && charrel(i) != '/') {
+					is_tag = 0;
+					break;
+				}
+			}
+			if (is_tag) {
+				paint(1, FLAG_TYPE);
+				while (charat() != -1 && charat() != '>') {
+					if (charat() == '/') paint(1, FLAG_TYPE);
+					else paint(1, FLAG_KEYWORD);
+				}
+				if (charat() == '>') paint(1, FLAG_TYPE);
+			} else {
+				/* Paint the < */
+				paint(1, FLAG_COMMENT);
+			}
+		} else if (last == '*' && charat() == '/') {
+			paint(1, FLAG_COMMENT);
+			return 0;
+		} else {
+			last = charat();
+			paint(1, FLAG_COMMENT);
+		}
+	}
+	return 1;
+}
+
+int syn_java_calculate(struct syntax_state * state) {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_c_numeral(state);
+				return 0;
+			} else if (charat() == '/' && nextchar() == '/') {
+				/* C++-style comments */
+				paint_comment(state);
+			} else if (charat() == '/' && nextchar() == '*') {
+				/* C-style comments; TODO: Needs special stuff for @author; <html>; etc. */
+				if (paint_java_comment(state) == 1) return 1;
+			} else if (find_keywords(state, syn_java_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_java_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_java_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\"') {
+				paint_simple_string(state);
+				return 0;
+			} else if (charat() == '\'') {
+				paint_c_char(state);
+				return 0;
+			} else if (charat() == '@') {
+				paint(1, FLAG_PRAGMA);
+				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		case 1:
+			if (paint_java_comment(state) == 1) return 1;
+			return 0;
+	}
+	return -1;
+}
+
+char * syn_java_ext[] = {".java",NULL};
+
+BIM_SYNTAX(java, 1)
+
+int syn_xml_calculate(struct syntax_state * state) {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (charat() == -1) return -1;
+			if (charat() != '<') {
+				skip();
+				return 0;
+			}
+			/* Opening brace */
+			if (charat() == '<' && nextchar() == '!' && charrel(2) == '-' && charrel(3) == '-') {
+				paint(4, FLAG_COMMENT);
+				goto _comment;
+			}
+			paint(1, FLAG_TYPE);
+			/* Fall through */
+		case 1:
+			/* State 1: We saw an opening brace. */
+			while (charat() != -1) {
+				if (charat() == '/') paint(1, FLAG_TYPE);
+				if (charat() == '?') paint(1, FLAG_TYPE);
+				if (charat() == ' ' || charat() == '\t') skip();
+				if (isalnum(charat())) {
+					while (isalnum(charat()) || charat() == '-') paint(1, FLAG_KEYWORD);
+					if (charat() == -1) return 2;
+					goto _in_tag;
+				} else {
+					paint(1, FLAG_TYPE);
+				}
+			}
+			return -1;
+_in_tag:
+		case 2:
+			while (charat() != -1) {
+				if (charat() == '>') {
+					paint(1, FLAG_TYPE);
+					return 0;
+				} else if (charat() == '"') {
+					paint_simple_string(state);
+					if (charat() == -1 && lastchar() != '"') {
+						return 3;
+					}
+				} else {
+					paint(1, FLAG_TYPE);
+				}
+			}
+			return 2;
+		case 3:
+			/* In a string in tag */
+			if (charat() == '"') {
+				paint(1, FLAG_STRING);
+				return 2;
+			} else {
+				paint_simple_string(state);
+				if (charat() == -1 && lastchar() != '"') {
+					return 3;
+				}
+			}
+			break;
+_comment:
+		case 4:
+			while (charat() != -1) {
+				if (charat() == '-' && nextchar() == '-' && charrel(2) == '>') {
+					paint(3, FLAG_COMMENT);
+					return 0;
+				} else {
+					if (common_comment_buzzwords(state)) continue;
+					else paint(1, FLAG_COMMENT);
+				}
+			}
+			return 4;
+	}
+	return -1;
+}
+
+char * syn_xml_ext[] = {".xml",".htm",".html",NULL}; // TODO other stuff that uses xml (it's a lot!); FIXME htm/html are temporary; make dedicated SGML ones for this
+
+BIM_SYNTAX(xml, 1)
+
+int cmd_qualifier(int c) { return c != -1 && c != ' '; }
+
+extern int syn_bash_calculate(struct syntax_state * state);
+extern int syn_py_calculate(struct syntax_state * state);
+
+static int bimcmd_paint_replacement(struct syntax_state * state) {
+	paint(1, FLAG_KEYWORD);
+	char special = charat();
+	paint(1, FLAG_TYPE);
+	while (charat() != -1 && charat() != special) {
+		paint(1, FLAG_DIFFMINUS);
+	}
+	if (charat() == special) paint(1, FLAG_TYPE);
+	while (charat() != -1 && charat() != special) {
+		paint(1, FLAG_DIFFPLUS);
+	}
+	if (charat() == special) paint(1, FLAG_TYPE);
+	while (charat() != -1) paint(1, FLAG_NUMERAL);
+	return -1;
+}
+
+extern struct command_def * regular_commands;
+extern struct command_def * prefix_commands;
+
+static int bimcmd_find_commands(struct syntax_state * state) {
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		if (match_and_paint(state, c->name, FLAG_KEYWORD, cmd_qualifier)) return 1;
+	}
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		if (match_and_paint(state, c->name, FLAG_KEYWORD, cmd_qualifier)) return 1;
+	}
+	return 0;
+}
+
+int syn_bimcmd_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
+			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct theme_def * s = themes; themes && s->name; ++s) {
+				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) break;
+			}
+		} else if (match_and_paint(state, "syntax", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
+				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) return -1;
+			}
+			if (match_and_paint(state, "none", FLAG_TYPE, cmd_qualifier)) return -1;
+		} else if (charat() == '%' && nextchar() == 's') {
+			paint(1, FLAG_KEYWORD);
+			return bimcmd_paint_replacement(state);
+		} else if (charat() == 's' && !isalpha(nextchar())) {
+			return bimcmd_paint_replacement(state);
+		} else if (bimcmd_find_commands(state)) {
+			return -1;
+		} else if (charat() == '!') {
+			paint(1, FLAG_NUMERAL);
+			nest(syn_bash_calculate, 1);
+		} else if (charat() == '`') {
+			paint(1, FLAG_NUMERAL);
+			nest(syn_py_calculate, 1);
+		} else if (isdigit(charat()) || charat() == '-' || charat() == '+') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			return -1;
+		}
+	}
+	return -1;
+}
+
+char * syn_bimcmd_ext[] = {NULL}; /* no files */
+
+BIM_SYNTAX(bimcmd, 1)
 
 int syn_diff_calculate(struct syntax_state * state) {
 	/* No states to worry about */
@@ -9557,160 +10412,78 @@ char * syn_diff_ext[] = {".patch",".diff",NULL};
 
 BIM_SYNTAX(diff, 1)
 
-int make_command_qualifier(int c) {
-	return isalnum(c) || c == '_' || c == '-' || c == '.';
-}
-
-char * syn_make_commands[] = {
-	"define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
-	"include","sinclude","override","export","unexport","private","vpath",
-	"-include",
-	NULL
-};
-
-char * syn_make_functions[] = {
-	"subst","patsubst","findstring","filter","filter-out",
-	"sort","word","words","wordlist","firstword","lastword",
-	"dir","notdir","suffix","basename","addsuffix","addprefix",
-	"join","wildcard","realpath","abspath","error","warning",
-	"shell","origin","flavor","foreach","if","or","and",
-	"call","eval","file","value",
-	NULL
-};
-
-char * syn_make_special_targets[] = {
-	"all", /* Not really special, but highlight it 'cause I feel like it. */
-	".PHONY", ".SUFFIXES", ".DEFAULT", ".PRECIOUS", ".INTERMEDIATE",
-	".SECONDARY", ".SECONDEXPANSION", ".DELETE_ON_ERROR", ".IGNORE",
-	".LOW_RESOLUTION_TIME", ".SILENT", ".EXPORT_ALL_VARIABLES",
-	".NOTPARALLEL", ".ONESHELL", ".POSIX",
-	NULL
-};
-
-int make_close_paren(struct syntax_state * state) {
-	paint(2, FLAG_TYPE);
-	find_keywords(state, syn_make_functions, FLAG_KEYWORD, c_keyword_qualifier);
-	int i = 1;
-	while (charat() != -1) {
-		if (charat() == '(') {
-			i++;
-		} else if (charat() == ')') {
-			i--;
-			if (i == 0) {
-				paint(1,FLAG_TYPE);
-				return 0;
-			}
-		} else if (charat() == '"') {
-			paint_simple_string(state);
-		}
-		paint(1,FLAG_TYPE);
-	}
-	return 0;
-}
-
-int make_close_brace(struct syntax_state * state) {
-	paint(2, FLAG_TYPE);
-	while (charat() != -1) {
-		if (charat() == '}') {
-			paint(1, FLAG_TYPE);
-			return 0;
-		}
-		paint(1, FLAG_TYPE);
-	}
-	return 0;
-}
-
-int make_variable_or_comment(struct syntax_state * state, int flag) {
-	while (charat() != -1) {
-		if (charat() == '$') {
-			switch (nextchar()) {
-				case '(':
-					make_close_paren(state);
-					break;
-				case '{':
-					make_close_brace(state);
-					break;
-				default:
-					paint(2, FLAG_TYPE);
-					break;
-			}
-		} else if (charat() == '#') {
+int syn_dirent_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (charat() == '#') {
 			while (charat() != -1) paint(1, FLAG_COMMENT);
-		} else {
-			paint(1, flag);
-		}
-	}
-	return 0;
-}
-
-int syn_make_calculate(struct syntax_state * state) {
-	if (state->i == 0 && charat() == '\t') {
-		make_variable_or_comment(state, FLAG_NUMERAL);
-	} else {
-		while (charat() == ' ') { skip(); }
-		/* Peek forward to see if this is a rule or a variable */
-		int whatisit = 0;
-		for (int i = 0; charrel(i) != -1; ++i) {
-			if (charrel(i) == ':' && charrel(i+1) != '=') {
-				whatisit = 1;
-				break;
-			} else if (charrel(i) == '=') {
-				whatisit = 2;
-				break;
-			} else if (charrel(i) == '#') {
-				break;
-			}
-		}
-		if (!whatisit) {
-			/* Check for functions */
-			while (charat() != -1) {
-				if (charat() == '#') {
-					while (charat() != -1) {
-						if (common_comment_buzzwords(state)) continue;
-						else paint(1, FLAG_COMMENT);
-					}
-				} else if (find_keywords(state, syn_make_commands, FLAG_KEYWORD, make_command_qualifier)) {
-					continue;
-				} else if (charat() == '$') {
-					make_variable_or_comment(state, FLAG_NONE);
-				} else {
-					skip();
-				}
-			}
-		} else if (whatisit == 1) {
-			/* It's a rule */
-			while (charat() != -1) {
-				if (charat() == '#') {
-					while (charat() != -1) {
-						if (common_comment_buzzwords(state)) continue;
-						else paint(1, FLAG_COMMENT);
-					}
-				} else if (charat() == ':') {
-					paint(1, FLAG_TYPE);
-					make_variable_or_comment(state, FLAG_NONE);
-				} else if (find_keywords(state, syn_make_special_targets, FLAG_KEYWORD, make_command_qualifier)) {
-						continue;
-				} else {
-					paint(1, FLAG_TYPE);
-				}
-			}
-		} else if (whatisit == 2) {
-			/* It's a variable definition */
-			match_and_paint(state, "export", FLAG_KEYWORD, c_keyword_qualifier);
-			while (charat() != -1 && charat() != '+' && charat() != '=' && charat() != ':' && charat() != '?') {
-				paint(1, FLAG_TYPE);
-			}
-			while (charat() != -1 && charat() != '=') skip();
-			/* Highlight variable expansions */
-			make_variable_or_comment(state, FLAG_NONE);
+		} else if (charat() == 'd') {
+			paint(1, FLAG_COMMENT);
+			while (charat() != -1) paint(1, FLAG_KEYWORD);
+		} else if (charat() == 'f') {
+			paint(1, FLAG_COMMENT);
+			return -1;
 		}
 	}
 	return -1;
 }
 
-char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
+char * syn_dirent_ext[] = {NULL};
 
-BIM_SYNTAX(make, 0)
+BIM_SYNTAX(dirent, 1)
+
+char * syn_proto_keywords[] = {
+	"syntax","import","option","package","message","group","oneof",
+	"optional","required","repeated","default","extend","extensions","to","max","reserved",
+	"service","rpc","returns","stream",
+	NULL
+};
+
+char * syn_proto_types[] = {
+	"int32","int64","uint32","uint64","sint32","sint64",
+	"fixed32","fixed64","sfixed32","sfixed64",
+	"float","double","bool","string","bytes",
+	"enum",
+	NULL
+};
+
+char * syn_proto_special[] = {
+	"true","false",
+	NULL
+};
+
+int syn_proto_calculate(struct syntax_state * state) {
+	if (state->state < 1) {
+		if (charat() == '/' && nextchar() == '/') {
+			paint_comment(state);
+		} else if (charat() == '/' && nextchar() == '*') {
+			if (paint_c_comment(state) == 1) return 1;
+			return 0;
+		} else if (find_keywords(state, syn_proto_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+			return 0;
+		} else if (find_keywords(state, syn_proto_types, FLAG_TYPE, c_keyword_qualifier)) {
+			return 0;
+		} else if (find_keywords(state, syn_proto_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+			return 0;
+		} else if (charat() == '"') {
+			paint_simple_string(state);
+			return 0;
+		} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+			paint_c_numeral(state);
+			return 0;
+		} else if (charat() != -1) {
+			skip();
+			return 0;
+		}
+		return -1;
+	} else {
+		if (paint_c_comment(state) == 1) return 1;
+		return 0;
+	}
+}
+
+char * syn_proto_ext[] = {".proto",NULL};
+
+BIM_SYNTAX(proto, 1)
 
 int esh_variable_qualifier(int c) {
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_');
@@ -9826,6 +10599,358 @@ char * syn_esh_ext[] = {
 };
 
 BIM_SYNTAX(esh, 0)
+
+int syn_biminfo_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (charat() == '#') {
+			while (charat() != -1) paint(1, FLAG_COMMENT);
+		} else if (charat() == '>') {
+			paint(1, FLAG_KEYWORD);
+			while (charat() != ' ') paint(1, FLAG_TYPE);
+			skip();
+			while (charat() != -1) paint(1, FLAG_NUMERAL);
+		} else {
+			while (charat() != -1) paint(1, FLAG_ERROR);
+		}
+	}
+	return -1;
+}
+
+char * syn_biminfo_ext[] = {".biminfo",NULL};
+
+BIM_SYNTAX(biminfo, 0)
+
+char * syn_bimrc_keywords[] = {
+	"history","padding","hlparen","hlcurrent","splitpercent","numbers",
+	"shiftscrolling","scrollamount","git","colorgutter","relativenumber",
+	NULL
+};
+
+int syn_bimrc_calculate(struct syntax_state * state) {
+	/* No states */
+	if (state->i == 0) {
+		if (charat() == '#') {
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
+		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, c_keyword_qualifier)) {
+			if (charat() == '=') {
+				skip();
+				for (struct theme_def * s = themes; themes && s->name; ++s) {
+					if (match_and_paint(state, s->name, FLAG_TYPE, c_keyword_qualifier)) break;
+				}
+			}
+		} else if (find_keywords(state, syn_bimrc_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+			return -1;
+		}
+	}
+	return -1;
+}
+
+char * syn_bimrc_ext[] = {".bimrc",NULL};
+
+BIM_SYNTAX(bimrc, 0)
+
+int syn_gitcommit_calculate(struct syntax_state * state) {
+	if (state->i == 0 && charat() == '#') {
+		while (charat() != -1) paint(1, FLAG_COMMENT);
+	} else if (state->line_no == 0) {
+		/* First line is special */
+		while (charat() != -1 && state->i < 50) paint(1, FLAG_KEYWORD);
+		while (charat() != -1) paint(1, FLAG_DIFFMINUS);
+	} else if (state->line_no == 1) {
+		/* No text on second line */
+		while (charat() != -1) paint(1, FLAG_DIFFMINUS);
+	} else if (charat() != -1) {
+		skip();
+		return 0;
+	}
+	return -1;
+}
+
+char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG", NULL};
+
+char * syn_gitrebase_commands[] = {
+	"p","r","e","s","f","x","d",
+	"pick","reword","edit","squash","fixup",
+	"exec","drop",
+	NULL
+};
+
+int syn_gitrebase_calculate(struct syntax_state * state) {
+	if (state->i == 0 && charat() == '#') {
+		while (charat() != -1) paint(1, FLAG_COMMENT);
+	} else if (state->i == 0 && find_keywords(state, syn_gitrebase_commands, FLAG_KEYWORD, c_keyword_qualifier)) {
+		while (charat() == ' ') skip();
+		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+		return -1;
+	}
+
+	return -1;
+}
+
+char * syn_gitrebase_ext[] = {"git-rebase-todo",NULL};
+
+BIM_SYNTAX(gitcommit, 1)
+BIM_SYNTAX(gitrebase, 1)
+
+static char * syn_rust_keywords[] = {
+	"as","break","const","continue","crate","else","enum","extern",
+	"false","fn","for","if","impl","in","let","loop","match","mod",
+	"move","mut","pub","ref","return","Self","self","static","struct",
+	"super","trait","true","type","unsafe","use","where","while",
+	NULL,
+};
+
+static char * syn_rust_types[] = {
+	"bool","char","str",
+	"i8","i16","i32","i64",
+	"u8","u16","u32","u64",
+	"isize","usize",
+	"f32","f64",
+	NULL,
+};
+
+static int paint_rs_comment(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (common_comment_buzzwords(state)) continue;
+		else if (charat() == '*' && nextchar() == '/') {
+			paint(2, FLAG_COMMENT);
+			state->state--;
+			if (state->state == 0) return 0;
+		} else if (charat() == '/' && nextchar() == '*') {
+			state->state++;
+			paint(2, FLAG_COMMENT);
+		} else {
+			paint(1, FLAG_COMMENT);
+		}
+	}
+	return state->state;
+}
+
+int paint_rust_numeral(struct syntax_state * state) {
+	if (charat() == '0' && nextchar() == 'b') {
+		paint(2, FLAG_NUMERAL);
+		while (charat() == '0' || charat() == '1' || charat() == '_') paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && nextchar() == 'o') {
+		paint(2, FLAG_NUMERAL);
+		while ((charat() >= '0' && charat() <= '7') || charat() == '_') paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && nextchar() == 'x') {
+		paint(2, FLAG_NUMERAL);
+		while (isxdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && nextchar() == '.') {
+		paint(2, FLAG_NUMERAL);
+		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
+	} else {
+		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
+		if (charat() == '.') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
+		}
+	}
+	return 0;
+}
+
+static int syn_rust_calculate(struct syntax_state * state) {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (charat() == '/' && nextchar() == '/') {
+				/* C++-style comments */
+				paint_comment(state);
+			} else if (charat() == '/' && nextchar() == '*') {
+				paint(2, FLAG_COMMENT);
+				state->state = 1;
+				return paint_rs_comment(state);
+			} else if (find_keywords(state, syn_rust_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_rust_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\"') {
+				paint_simple_string(state);
+				return 0;
+			} else if (charat() == '\'') {
+				paint_c_char(state);
+				return 0;
+			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_rust_numeral(state);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		default: /* Nested comments */
+			return paint_rs_comment(state);
+	}
+
+	return -1;
+}
+
+char * syn_rust_ext[] = {".rs",NULL};
+
+BIM_SYNTAX(rust, 1)
+
+int syn_conf_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (charat() == ';') {
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
+		} else if (charat() == '#') {
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
+		} else if (charat() == '[') {
+			paint(1, FLAG_KEYWORD);
+			while (charat() != ']' && charat() != -1) paint(1, FLAG_KEYWORD);
+			if (charat() == ']') paint(1, FLAG_KEYWORD);
+		} else {
+			while (charat() != '=' && charat() != -1) paint(1, FLAG_TYPE);
+		}
+	}
+
+	return -1;
+}
+
+char * syn_conf_ext[] = {".conf",".ini",".git/config",NULL};
+
+BIM_SYNTAX(conf, 1)
+
+static struct syntax_definition * syn_c = NULL;
+static struct syntax_definition * syn_py = NULL;
+static struct syntax_definition * syn_java = NULL;
+static struct syntax_definition * syn_json = NULL;
+static struct syntax_definition * syn_xml = NULL;
+static struct syntax_definition * syn_make = NULL;
+static struct syntax_definition * syn_diff = NULL;
+static struct syntax_definition * syn_rust = NULL;
+
+static int _initialized = 0;
+
+int syn_markdown_calculate(struct syntax_state * state) {
+	if (!_initialized) {
+		_initialized = 1;
+		syn_c    = find_syntax_calculator("c");
+		syn_py   = find_syntax_calculator("py");
+		syn_java = find_syntax_calculator("java");
+		syn_json = find_syntax_calculator("json");
+		syn_xml  = find_syntax_calculator("xml");
+		syn_make = find_syntax_calculator("make");
+		syn_diff = find_syntax_calculator("diff");
+		syn_rust = find_syntax_calculator("rust");
+	}
+	if (state->state < 1) {
+		while (charat() != -1) {
+			if (state->i == 0 && charat() == '#') {
+				while (charat() == '#') paint(1, FLAG_KEYWORD);
+				while (charat() != -1) paint(1, FLAG_BOLD);
+				return -1;
+			} else if (state->i == 0) {
+				while (charat() == ' ') skip();
+				if (charat() == '`' && nextchar() == '`' && charrel(2) == '`') {
+					paint(3, FLAG_STRING);
+					if (syn_c &&match_forward(state, "c")) {
+						nest(syn_c->calculate, 100);
+					} else if (syn_c && match_forward(state,"c++")) {
+						nest(syn_c->calculate, 100);
+					} else if (syn_py && (match_forward(state,"py") || match_forward(state,"python"))) {
+						nest(syn_py->calculate, 200);
+					} else if (syn_java && match_forward(state, "java")) {
+						nest(syn_java->calculate, 300);
+					} else if (syn_json && match_forward(state,"json")) {
+						nest(syn_json->calculate, 400);
+					} else if (syn_xml && match_forward(state,"xml")) {
+						nest(syn_xml->calculate, 500);
+					} else if (syn_xml && match_forward(state,"html")) {
+						nest(syn_xml->calculate, 500); // TODO this will be a different highlighter later
+					} else if (syn_make && match_forward(state,"make")) {
+						nest(syn_make->calculate, 600);
+					} else if (syn_diff && match_forward(state, "diff")) {
+						nest(syn_diff->calculate, 700);
+					} else if (syn_rust && match_forward(state, "rust")) {
+						nest(syn_rust->calculate, 800); /* Keep this at the end for now */
+					}
+					return 1;
+				}
+			}
+			if (charat() == '`') {
+				paint(1, FLAG_STRING);
+				while (charat() != -1) {
+					if (charat() == '`') {
+						paint(1, FLAG_STRING);
+						return 0;
+					}
+					paint(1, FLAG_STRING);
+				}
+			} else if (charat() == '[') {
+				skip();
+				while (charat() != -1 && charat() != ']') {
+					paint(1, FLAG_LINK);
+				}
+				if (charat() == ']') skip();
+				if (charat() == '(') {
+					skip();
+					while (charat() != -1 && charat() != ')') {
+						paint(1, FLAG_NUMERAL);
+					}
+				}
+			} else {
+				skip();
+				return 0;
+			}
+		}
+		return -1;
+	} else if (state->state >= 1) {
+		/* Continuing generic triple-` */
+		if (state->i == 0) {
+			/* Go backwards until we find the source ``` */
+			int count = 0;
+			for (int i = state->line_no; i > 0; i--) {
+				if (env->lines[i]->istate < 1) {
+					while (env->lines[i]->text[count].codepoint == ' ') {
+						if (charrel(count) != ' ') goto _nope;
+						count++;
+					}
+					break;
+				}
+			}
+			if (charrel(count) == '`' && charrel(count+1) == '`' && charrel(count+2) == '`' && charrel(count+3) == -1) {
+				paint(count+3,FLAG_STRING);
+				return -1;
+			}
+		}
+_nope:
+		if (state->state == 1) {
+			while (charat() != -1) paint(1, FLAG_STRING);
+			return 1;
+		} else if (state->state < 199) {
+			nest(syn_c->calculate, 100);
+		} else if (state->state < 299) {
+			nest(syn_py->calculate, 200);
+		} else if (state->state < 399) {
+			nest(syn_java->calculate, 300);
+		} else if (state->state < 499) {
+			nest(syn_json->calculate, 400);
+		} else if (state->state < 599) {
+			nest(syn_xml->calculate, 500);
+		} else if (state->state < 699) {
+			nest(syn_make->calculate, 600);
+		} else if (state->state < 799) {
+			nest(syn_diff->calculate, 700);
+		} else {
+			nest(syn_rust->calculate, 800);
+		}
+	}
+	return -1;
+}
+
+char * syn_markdown_ext[] = {".md",".markdown",NULL};
+
+BIM_SYNTAX(markdown, 1)
 
 /**
  * Syntax definition for C
@@ -10091,1023 +11216,157 @@ char * syn_c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",".cc",".hh",NULL};
 
 BIM_SYNTAX(c, 0)
 
-char * syn_proto_keywords[] = {
-	"syntax","import","option","package","message","group","oneof",
-	"optional","required","repeated","default","extend","extensions","to","max","reserved",
-	"service","rpc","returns","stream",
+int make_command_qualifier(int c) {
+	return isalnum(c) || c == '_' || c == '-' || c == '.';
+}
+
+char * syn_make_commands[] = {
+	"define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
+	"include","sinclude","override","export","unexport","private","vpath",
+	"-include",
 	NULL
 };
 
-char * syn_proto_types[] = {
-	"int32","int64","uint32","uint64","sint32","sint64",
-	"fixed32","fixed64","sfixed32","sfixed64",
-	"float","double","bool","string","bytes",
-	"enum",
+char * syn_make_functions[] = {
+	"subst","patsubst","findstring","filter","filter-out",
+	"sort","word","words","wordlist","firstword","lastword",
+	"dir","notdir","suffix","basename","addsuffix","addprefix",
+	"join","wildcard","realpath","abspath","error","warning",
+	"shell","origin","flavor","foreach","if","or","and",
+	"call","eval","file","value",
 	NULL
 };
 
-char * syn_proto_special[] = {
-	"true","false",
+char * syn_make_special_targets[] = {
+	"all", /* Not really special, but highlight it 'cause I feel like it. */
+	".PHONY", ".SUFFIXES", ".DEFAULT", ".PRECIOUS", ".INTERMEDIATE",
+	".SECONDARY", ".SECONDEXPANSION", ".DELETE_ON_ERROR", ".IGNORE",
+	".LOW_RESOLUTION_TIME", ".SILENT", ".EXPORT_ALL_VARIABLES",
+	".NOTPARALLEL", ".ONESHELL", ".POSIX",
 	NULL
 };
 
-int syn_proto_calculate(struct syntax_state * state) {
-	if (state->state < 1) {
-		if (charat() == '/' && nextchar() == '/') {
-			paint_comment(state);
-		} else if (charat() == '/' && nextchar() == '*') {
-			if (paint_c_comment(state) == 1) return 1;
-			return 0;
-		} else if (find_keywords(state, syn_proto_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-			return 0;
-		} else if (find_keywords(state, syn_proto_types, FLAG_TYPE, c_keyword_qualifier)) {
-			return 0;
-		} else if (find_keywords(state, syn_proto_special, FLAG_NUMERAL, c_keyword_qualifier)) {
-			return 0;
+int make_close_paren(struct syntax_state * state) {
+	paint(2, FLAG_TYPE);
+	find_keywords(state, syn_make_functions, FLAG_KEYWORD, c_keyword_qualifier);
+	int i = 1;
+	while (charat() != -1) {
+		if (charat() == '(') {
+			i++;
+		} else if (charat() == ')') {
+			i--;
+			if (i == 0) {
+				paint(1,FLAG_TYPE);
+				return 0;
+			}
 		} else if (charat() == '"') {
 			paint_simple_string(state);
-			return 0;
-		} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
-			paint_c_numeral(state);
-			return 0;
-		} else if (charat() != -1) {
-			skip();
-			return 0;
 		}
-		return -1;
-	} else {
-		if (paint_c_comment(state) == 1) return 1;
-		return 0;
-	}
-}
-
-char * syn_proto_ext[] = {".proto",NULL};
-
-BIM_SYNTAX(proto, 1)
-
-int cmd_qualifier(int c) { return c != -1 && c != ' '; }
-
-extern int syn_bash_calculate(struct syntax_state * state);
-extern int syn_py_calculate(struct syntax_state * state);
-
-int syn_bimcmd_calculate(struct syntax_state * state) {
-	if (state->i == 0) {
-		if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
-			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
-			while (charat() == ' ') skip();
-			for (struct theme_def * s = themes; themes && s->name; ++s) {
-				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) break;
-			}
-		} else if (match_and_paint(state, "syntax", FLAG_KEYWORD, cmd_qualifier)) {
-			while (charat() == ' ') skip();
-			for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
-				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) return -1;
-			}
-			if (match_and_paint(state, "none", FLAG_TYPE, cmd_qualifier)) return -1;
-		} else if (charat() == 's' && !isalpha(nextchar())) {
-			paint(1, FLAG_KEYWORD);
-			char special = charat();
-			paint(1, FLAG_TYPE);
-			while (charat() != -1 && charat() != special) {
-				paint(1, FLAG_DIFFMINUS);
-			}
-			if (charat() == special) paint(1, FLAG_TYPE);
-			while (charat() != -1 && charat() != special) {
-				paint(1, FLAG_DIFFPLUS);
-			}
-			if (charat() == special) paint(1, FLAG_TYPE);
-			while (charat() != -1) paint(1, FLAG_NUMERAL);
-		} else if (find_keywords(state, bim_command_names, FLAG_KEYWORD, cmd_qualifier)) {
-			return -1;
-		} else if (charat() == '!') {
-			paint(1, FLAG_NUMERAL);
-			nest(syn_bash_calculate, 1);
-		} else if (charat() == '`') {
-			paint(1, FLAG_NUMERAL);
-			nest(syn_py_calculate, 1);
-		} else if (isdigit(charat()) || charat() == '-' || charat() == '+') {
-			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-			return -1;
-		}
-	}
-	return -1;
-}
-
-char * syn_bimcmd_ext[] = {NULL}; /* no files */
-
-BIM_SYNTAX(bimcmd, 1)
-
-int syn_ctags_calculate(struct syntax_state * state) {
-	if (state->i == 0) {
-		if (charat() == '!') {
-			paint_comment(state);
-			return -1;
-		} else {
-			while (charat() != -1 && charat() != '\t') paint(1, FLAG_TYPE);
-			if (charat() == '\t') skip();
-			while (charat() != -1 && charat() != '\t') paint(1, FLAG_NUMERAL);
-			if (charat() == '\t') skip();
-			while (charat() != -1 && !(charat() == ';' && nextchar() == '"')) paint(1, FLAG_KEYWORD);
-			return -1;
-		}
-	}
-	return -1;
-}
-
-char * syn_ctags_ext[] = { "tags", NULL };
-
-BIM_SYNTAX(ctags, 0)
-
-char * syn_bimrc_keywords[] = {
-	"history","padding","hlparen","hlcurrent","splitpercent","numbers",
-	"shiftscrolling","scrollamount","git","colorgutter","relativenumber",
-	NULL
-};
-
-int syn_bimrc_calculate(struct syntax_state * state) {
-	/* No states */
-	if (state->i == 0) {
-		if (charat() == '#') {
-			while (charat() != -1) {
-				if (common_comment_buzzwords(state)) continue;
-				else paint(1, FLAG_COMMENT);
-			}
-		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, c_keyword_qualifier)) {
-			if (charat() == '=') {
-				skip();
-				for (struct theme_def * s = themes; themes && s->name; ++s) {
-					if (match_and_paint(state, s->name, FLAG_TYPE, c_keyword_qualifier)) break;
-				}
-			}
-		} else if (find_keywords(state, syn_bimrc_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-			return -1;
-		}
-	}
-	return -1;
-}
-
-char * syn_bimrc_ext[] = {".bimrc",NULL};
-
-BIM_SYNTAX(bimrc, 0)
-
-static char * syn_rust_keywords[] = {
-	"as","break","const","continue","crate","else","enum","extern",
-	"false","fn","for","if","impl","in","let","loop","match","mod",
-	"move","mut","pub","ref","return","Self","self","static","struct",
-	"super","trait","true","type","unsafe","use","where","while",
-	NULL,
-};
-
-static char * syn_rust_types[] = {
-	"bool","char","str",
-	"i8","i16","i32","i64",
-	"u8","u16","u32","u64",
-	"isize","usize",
-	"f32","f64",
-	NULL,
-};
-
-static int paint_rs_comment(struct syntax_state * state) {
-	while (charat() != -1) {
-		if (common_comment_buzzwords(state)) continue;
-		else if (charat() == '*' && nextchar() == '/') {
-			paint(2, FLAG_COMMENT);
-			state->state--;
-			if (state->state == 0) return 0;
-		} else if (charat() == '/' && nextchar() == '*') {
-			state->state++;
-			paint(2, FLAG_COMMENT);
-		} else {
-			paint(1, FLAG_COMMENT);
-		}
-	}
-	return state->state;
-}
-
-int paint_rust_numeral(struct syntax_state * state) {
-	if (charat() == '0' && nextchar() == 'b') {
-		paint(2, FLAG_NUMERAL);
-		while (charat() == '0' || charat() == '1' || charat() == '_') paint(1, FLAG_NUMERAL);
-	} else if (charat() == '0' && nextchar() == 'o') {
-		paint(2, FLAG_NUMERAL);
-		while ((charat() >= '0' && charat() <= '7') || charat() == '_') paint(1, FLAG_NUMERAL);
-	} else if (charat() == '0' && nextchar() == 'x') {
-		paint(2, FLAG_NUMERAL);
-		while (isxdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
-	} else if (charat() == '0' && nextchar() == '.') {
-		paint(2, FLAG_NUMERAL);
-		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
-	} else {
-		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
-		if (charat() == '.') {
-			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
-		}
+		paint(1,FLAG_TYPE);
 	}
 	return 0;
 }
 
-static int syn_rust_calculate(struct syntax_state * state) {
-	switch (state->state) {
-		case -1:
-		case 0:
-			if (charat() == '/' && nextchar() == '/') {
-				/* C++-style comments */
-				paint_comment(state);
-			} else if (charat() == '/' && nextchar() == '*') {
-				paint(2, FLAG_COMMENT);
-				state->state = 1;
-				return paint_rs_comment(state);
-			} else if (find_keywords(state, syn_rust_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-				return 0;
-			} else if (find_keywords(state, syn_rust_types, FLAG_TYPE, c_keyword_qualifier)) {
-				return 0;
-			} else if (charat() == '\"') {
-				paint_simple_string(state);
-				return 0;
-			} else if (charat() == '\'') {
-				paint_c_char(state);
-				return 0;
-			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
-				paint_rust_numeral(state);
-				return 0;
-			} else if (charat() != -1) {
-				skip();
-				return 0;
-			}
-			break;
-		default: /* Nested comments */
-			return paint_rs_comment(state);
-	}
-
-	return -1;
-}
-
-char * syn_rust_ext[] = {".rs",NULL};
-
-BIM_SYNTAX(rust, 1)
-
-char * syn_bash_keywords[] = {
-	/* Actual bash keywords */
-	"if","then","else","elif","fi","case","esac","for","coproc",
-	"select","while","until","do","done","in","function","time",
-	/* Other keywords */
-	"exit","return","source","function","export","alias","complete","shopt","local","eval",
-	/* Common Unix utilities */
-	"echo","cd","pushd","popd","printf","sed","rm","mv",
-	NULL
-};
-
-int bash_pop_state(int state) {
-	int new_state = state / 100;
-	return new_state * 10;
-}
-
-int bash_push_state(int state, int new) {
-	return state * 10 + new;
-}
-
-int bash_paint_tick(struct syntax_state * state, int out_state) {
-	int last = -1;
-	while (charat() != -1) {
-		if (last != '\\' && charat() == '\'') {
-			paint(1, FLAG_STRING);
-			return bash_pop_state(out_state);
-		} else if (last == '\\') {
-			paint(1, FLAG_STRING);
-			last = -1;
-		} else if (charat() != -1) {
-			last = charat();
-			paint(1, FLAG_STRING);
-		}
-	}
-	return out_state;
-}
-
-int bash_paint_braced_variable(struct syntax_state * state) {
+int make_close_brace(struct syntax_state * state) {
+	paint(2, FLAG_TYPE);
 	while (charat() != -1) {
 		if (charat() == '}') {
-			paint(1, FLAG_NUMERAL);
-			return 0;
-		}
-		paint(1, FLAG_NUMERAL);
-	}
-	return 0;
-}
-
-int bash_special_variable(int c) {
-	return (c == '@' || c == '?');
-}
-
-int bash_paint_string(struct syntax_state * state, char terminator, int out_state, int color) {
-	int last = -1;
-	state->state = out_state;
-	while (charat() != -1) {
-		if (last != '\\' && charat() == terminator) {
-			paint(1, color);
-			return bash_pop_state(state->state);
-		} else if (last == '\\') {
-			paint(1, color);
-			last = -1;
-		} else if (terminator != '`' && charat() == '`') {
-			paint(1, FLAG_ESCAPE);
-			state->state = bash_paint_string(state,'`',bash_push_state(out_state, 20),FLAG_ESCAPE);
-		} else if (terminator != ')' && charat() == '$' && nextchar() == '(') {
-			paint(2, FLAG_TYPE);
-			state->state = bash_paint_string(state,')',bash_push_state(out_state, 30),FLAG_TYPE);
-		} else if (charat() == '$' && nextchar() == '{') {
-			paint(2, FLAG_NUMERAL);
-			bash_paint_braced_variable(state);
-		} else if (charat() == '$') {
-			paint(1, FLAG_NUMERAL);
-			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); continue; }
-			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
-		} else if (terminator != '"' && charat() == '"') {
-			paint(1, FLAG_STRING);
-			state->state = bash_paint_string(state,'"',bash_push_state(out_state, 40),FLAG_STRING);
-		} else if (terminator != '"' && charat() == '\'') { /* No single quotes in regular quotes */
-			paint(1, FLAG_STRING);
-			state->state = bash_paint_tick(state, out_state);
-		} else if (charat() != -1) {
-			last = charat();
-			paint(1, color);
-		}
-	}
-	return state->state;
-}
-
-int syn_bash_calculate(struct syntax_state * state) {
-	if (state->state < 1) {
-		if (charat() == '#') {
-			while (charat() != -1) {
-				if (common_comment_buzzwords(state)) continue;
-				else paint(1, FLAG_COMMENT);
-			}
-			return -1;
-		} else if (charat() == '\'') {
-			paint(1, FLAG_STRING);
-			return bash_paint_tick(state, 10);
-		} else if (charat() == '`') {
-			paint(1, FLAG_ESCAPE);
-			return bash_paint_string(state,'`',20,FLAG_ESCAPE);
-		} else if (charat() == '$' && nextchar() == '(') {
-			paint(2, FLAG_TYPE);
-			return bash_paint_string(state,')',30,FLAG_TYPE);
-		} else if (charat() == '"') {
-			paint(1, FLAG_STRING);
-			return bash_paint_string(state,'"',40,FLAG_STRING);
-		} else if (charat() == '$' && nextchar() == '{') {
-			paint(2, FLAG_NUMERAL);
-			bash_paint_braced_variable(state);
-			return 0;
-		} else if (charat() == '$') {
-			paint(1, FLAG_NUMERAL);
-			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); return 0; }
-			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
-			return 0;
-		} else if (find_keywords(state, syn_bash_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-			return 0;
-		} else if (charat() == ';') {
-			paint(1, FLAG_KEYWORD);
-			return 0;
-		} else if (c_keyword_qualifier(charat())) {
-			for (int i = 0; charrel(i) != -1; ++i) {
-				if (charrel(i) == ' ') break;
-				if (charrel(i) == '=') {
-					for (int j = 0; j < i; ++j) {
-						paint(1, FLAG_TYPE);
-					}
-					skip(); /* equals sign */
-					return 0;
-				}
-			}
-			for (int i = 0; charrel(i) != -1; ++i) {
-				if (charrel(i) == '(') {
-					for (int j = 0; j < i; ++j) {
-						paint(1, FLAG_TYPE);
-					}
-					return 0;
-				}
-				if (!c_keyword_qualifier(charrel(i)) && charrel(i) != '-' && charrel(i) != ' ') break;
-			}
-			skip();
-			return 0;
-		} else if (charat() != -1) {
-			skip();
-			return 0;
-		}
-	} else if (state->state < 10) {
-		/*
-		 * TODO: I have an idea of how to do up to `n` (here... 8?) heredocs
-		 * by storing them in a static table and using the index into that table
-		 * for the state, but it's iffy. It would work well in situations where
-		 * someoen used the same heredoc repeatedly throughout their document.
-		 */
-	} else if (state->state >= 10) {
-		/* Nested string states */
-		while (charat() != -1) {
-			int s = (state->state / 10) % 10;
-			if (s == 1) {
-				state->state = bash_paint_string(state,'\'',state->state,FLAG_STRING);
-			} else if (s == 2) {
-				state->state = bash_paint_string(state,'`',state->state,FLAG_ESCAPE);
-			} else if (s == 3) {
-				state->state = bash_paint_string(state,')',state->state,FLAG_TYPE);
-			} else if (s == 4) {
-				state->state = bash_paint_string(state,'"',state->state,FLAG_STRING);
-			} else if (!s) {
-				return -1;
-			}
-		}
-		return state->state;
-	}
-	return -1;
-}
-
-char * syn_bash_ext[] = {
-#ifndef __toaru__
-	".sh",
-#endif
-	".bash",".bashrc",
-	NULL
-};
-
-BIM_SYNTAX(bash, 0)
-
-int syn_dirent_calculate(struct syntax_state * state) {
-	if (state->i == 0) {
-		if (charat() == '#') {
-			while (charat() != -1) paint(1, FLAG_COMMENT);
-		} else if (charat() == 'd') {
-			paint(1, FLAG_COMMENT);
-			while (charat() != -1) paint(1, FLAG_KEYWORD);
-		} else if (charat() == 'f') {
-			paint(1, FLAG_COMMENT);
-			return -1;
-		}
-	}
-	return -1;
-}
-
-char * syn_dirent_ext[] = {NULL};
-
-BIM_SYNTAX(dirent, 1)
-
-char * syn_py_keywords[] = {
-	"class","def","return","del","if","else","elif","for","while","continue",
-	"break","assert","as","and","or","except","finally","from","global",
-	"import","in","is","lambda","with","nonlocal","not","pass","raise","try","yield",
-	NULL
-};
-
-char * syn_py_types[] = {
-	/* built-in functions */
-	"abs","all","any","ascii","bin","bool","breakpoint","bytes",
-	"bytearray","callable","compile","complex","delattr","chr",
-	"dict","dir","divmod","enumerate","eval","exec","filter","float",
-	"format","frozenset","getattr","globals","hasattr","hash","help",
-	"hex","id","input","int","isinstance","issubclass","iter","len",
-	"list","locals","map","max","memoryview","min","next","object",
-	"oct","open","ord","pow","print","property","range","repr","reverse",
-	"round","set","setattr","slice","sorted","staticmethod","str","sum",
-	"super","tuple","type","vars","zip",
-	NULL
-};
-
-char * syn_py_special[] = {
-	"True","False","None",
-	NULL
-};
-
-int paint_py_triple_double(struct syntax_state * state) {
-	while (charat() != -1) {
-		if (charat() == '"') {
-			paint(1, FLAG_STRING);
-			if (charat() == '"' && nextchar() == '"') {
-				paint(2, FLAG_STRING);
-				return 0;
-			}
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-	return 1; /* continues */
-}
-
-int paint_py_triple_single(struct syntax_state * state) {
-	while (charat() != -1) {
-		if (charat() == '\'') {
-			paint(1, FLAG_STRING);
-			if (charat() == '\'' && nextchar() == '\'') {
-				paint(2, FLAG_STRING);
-				return 0;
-			}
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-	return 2; /* continues */
-}
-
-int paint_py_single_string(struct syntax_state * state) {
-	paint(1, FLAG_STRING);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '\'') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '\'') {
-			paint(1, FLAG_STRING);
-			return 0;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-	return 0;
-}
-
-int paint_py_numeral(struct syntax_state * state) {
-	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
-		paint(2, FLAG_NUMERAL);
-		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
-	} else if (charat() == '0' && nextchar() == '.') {
-		paint(2, FLAG_NUMERAL);
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-		if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
-			paint(2, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-		} else if (charat() == 'e' || charat() == 'E') {
-			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-		}
-		if (charat() == 'j') paint(1, FLAG_NUMERAL);
-		return 0;
-	} else {
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-		if (charat() == '.') {
-			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-			if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
-				paint(2, FLAG_NUMERAL);
-				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-			} else if (charat() == 'e' || charat() == 'E') {
-				paint(1, FLAG_NUMERAL);
-				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-			}
-			if (charat() == 'j') paint(1, FLAG_NUMERAL);
-			return 0;
-		}
-		if (charat() == 'j') paint(1, FLAG_NUMERAL);
-	}
-	while (charat() == 'l' || charat() == 'L') paint(1, FLAG_NUMERAL);
-	return 0;
-}
-
-void paint_py_format_string(struct syntax_state * state, char type) {
-	paint(1, FLAG_STRING);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == type) {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == type) {
-			paint(1, FLAG_STRING);
-			return;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '{') {
-			paint(1, FLAG_NUMERAL);
-			if (charat() == '}') {
-				state->i--;
-				paint(2, FLAG_ERROR); /* Can't do that. */
-			} else {
-				while (charat() != -1 && charat() != '}') {
-					paint(1, FLAG_NUMERAL);
-				}
-				paint(1, FLAG_NUMERAL);
-			}
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-}
-
-int syn_py_calculate(struct syntax_state * state) {
-	switch (state->state) {
-		case -1:
-		case 0:
-			if (charat() == '#') {
-				paint_comment(state);
-			} else if (state->i == 0 && match_and_paint(state, "import", FLAG_PRAGMA, c_keyword_qualifier)) {
-				return 0;
-			} else if (charat() == '@') {
-				paint(1, FLAG_PRAGMA);
-				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
-				return 0;
-			} else if (charat() == '"') {
-				if (nextchar() == '"' && charrel(2) == '"') {
-					paint(3, FLAG_STRING);
-					return paint_py_triple_double(state);
-				} else if (lastchar() == 'f') {
-					/* I don't like backtracking like this, but it makes this parse easier */
-					state->i--;
-					paint(1,FLAG_TYPE);
-					paint_py_format_string(state,'"');
-					return 0;
-				} else {
-					paint_simple_string(state);
-					return 0;
-				}
-			} else if (find_keywords(state, syn_py_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-				return 0;
-			} else if (lastchar() != '.' && find_keywords(state, syn_py_types, FLAG_TYPE, c_keyword_qualifier)) {
-				return 0;
-			} else if (find_keywords(state, syn_py_special, FLAG_NUMERAL, c_keyword_qualifier)) {
-				return 0;
-			} else if (charat() == '\'') {
-				if (nextchar() == '\'' && charrel(2) == '\'') {
-					paint(3, FLAG_STRING);
-					return paint_py_triple_single(state);
-				} else if (lastchar() == 'f') {
-					/* I don't like backtracking like this, but it makes this parse easier */
-					state->i--;
-					paint(1,FLAG_TYPE);
-					paint_py_format_string(state,'\'');
-					return 0;
-				} else {
-					return paint_py_single_string(state);
-				}
-			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
-				paint_py_numeral(state);
-				return 0;
-			} else if (charat() != -1) {
-				skip();
-				return 0;
-			}
-			break;
-		case 1: /* multiline """ string */
-			return paint_py_triple_double(state);
-		case 2: /* multiline ''' string */
-			return paint_py_triple_single(state);
-	}
-	return -1;
-}
-
-char * syn_py_ext[] = {".py",NULL};
-
-BIM_SYNTAX(py, 1)
-
-static char * syn_java_keywords[] = {
-	"assert","break","case","catch","class","continue",
-	"default","do","else","enum","exports","extends","finally",
-	"for","if","implements","instanceof","interface","module","native",
-	"new","requires","return","throws",
-	"strictfp","super","switch","synchronized","this","throw","try","while",
-	NULL
-};
-
-static char * syn_java_types[] = {
-	"var","boolean","void","short","long","int","double","float","enum","char",
-	"private","protected","public","static","final","transient","volatile","abstract",
-	NULL
-};
-
-static char * syn_java_special[] = {
-	"true","false","import","package","null",
-	NULL
-};
-
-static char * syn_java_at_comments[] = {
-	"@author","@see","@since","@return","@throws",
-	"@version","@exception","@deprecated",
-	/* @param is special */
-	NULL
-};
-
-static int at_keyword_qualifier(int c) {
-	return isalnum(c) || (c == '_') || (c == '@');
-}
-
-static char * syn_java_brace_comments[] = {
-	"{@docRoot","{@inheritDoc","{@link","{@linkplain",
-	"{@value","{@code","{@literal","{@serial",
-	"{@serialData","{@serialField",
-	NULL
-};
-
-static int brace_keyword_qualifier(int c) {
-	return isalnum(c) || (c == '{') || (c == '@');
-}
-
-static int paint_java_comment(struct syntax_state * state) {
-	int last = -1;
-	while (charat() != -1) {
-		if (common_comment_buzzwords(state)) continue;
-		else if (charat() == '@') {
-			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
-				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
-					while (charat() == ' ') skip();
-					while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
-				} else {
-					/* Paint the @ */
-					paint(1, FLAG_COMMENT);
-				}
-			}
-		} else if (charat() == '{') {
-			/* see if this terminates */
-			if (find_keywords(state, syn_java_brace_comments, FLAG_ESCAPE, brace_keyword_qualifier)) {
-				while (charat() != '}' && charat() != -1) {
-					paint(1, FLAG_ESCAPE);
-				}
-				if (charat() == '}') paint(1, FLAG_ESCAPE);
-			} else {
-				paint(1, FLAG_COMMENT);
-			}
-		} else if (charat() == '<') {
-			int is_tag = 0;
-			for (int i = 1; charrel(i) != -1; ++i) {
-				if (charrel(i) == '>') {
-					is_tag = 1;
-					break;
-				}
-				if (!isalnum(charrel(i)) && charrel(i) != '/') {
-					is_tag = 0;
-					break;
-				}
-			}
-			if (is_tag) {
-				paint(1, FLAG_TYPE);
-				while (charat() != -1 && charat() != '>') {
-					if (charat() == '/') paint(1, FLAG_TYPE);
-					else paint(1, FLAG_KEYWORD);
-				}
-				if (charat() == '>') paint(1, FLAG_TYPE);
-			} else {
-				/* Paint the < */
-				paint(1, FLAG_COMMENT);
-			}
-		} else if (last == '*' && charat() == '/') {
-			paint(1, FLAG_COMMENT);
-			return 0;
-		} else {
-			last = charat();
-			paint(1, FLAG_COMMENT);
-		}
-	}
-	return 1;
-}
-
-int syn_java_calculate(struct syntax_state * state) {
-	switch (state->state) {
-		case -1:
-		case 0:
-			if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
-				paint_c_numeral(state);
-				return 0;
-			} else if (charat() == '/' && nextchar() == '/') {
-				/* C++-style comments */
-				paint_comment(state);
-			} else if (charat() == '/' && nextchar() == '*') {
-				/* C-style comments; TODO: Needs special stuff for @author; <html>; etc. */
-				if (paint_java_comment(state) == 1) return 1;
-			} else if (find_keywords(state, syn_java_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-				return 0;
-			} else if (find_keywords(state, syn_java_types, FLAG_TYPE, c_keyword_qualifier)) {
-				return 0;
-			} else if (find_keywords(state, syn_java_special, FLAG_NUMERAL, c_keyword_qualifier)) {
-				return 0;
-			} else if (charat() == '\"') {
-				paint_simple_string(state);
-				return 0;
-			} else if (charat() == '\'') {
-				paint_c_char(state);
-				return 0;
-			} else if (charat() == '@') {
-				paint(1, FLAG_PRAGMA);
-				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
-				return 0;
-			} else if (charat() != -1) {
-				skip();
-				return 0;
-			}
-			break;
-		case 1:
-			if (paint_java_comment(state) == 1) return 1;
-			return 0;
-	}
-	return -1;
-}
-
-char * syn_java_ext[] = {".java",NULL};
-
-BIM_SYNTAX(java, 1)
-
-static struct syntax_definition * syn_c = NULL;
-static struct syntax_definition * syn_py = NULL;
-static struct syntax_definition * syn_java = NULL;
-static struct syntax_definition * syn_json = NULL;
-static struct syntax_definition * syn_xml = NULL;
-static struct syntax_definition * syn_make = NULL;
-static struct syntax_definition * syn_diff = NULL;
-static struct syntax_definition * syn_rust = NULL;
-
-static int _initialized = 0;
-
-int syn_markdown_calculate(struct syntax_state * state) {
-	if (!_initialized) {
-		_initialized = 1;
-		syn_c    = find_syntax_calculator("c");
-		syn_py   = find_syntax_calculator("py");
-		syn_java = find_syntax_calculator("java");
-		syn_json = find_syntax_calculator("json");
-		syn_xml  = find_syntax_calculator("xml");
-		syn_make = find_syntax_calculator("make");
-		syn_diff = find_syntax_calculator("diff");
-		syn_rust = find_syntax_calculator("rust");
-	}
-	if (state->state < 1) {
-		while (charat() != -1) {
-			if (state->i == 0 && charat() == '#') {
-				while (charat() == '#') paint(1, FLAG_KEYWORD);
-				while (charat() != -1) paint(1, FLAG_BOLD);
-				return -1;
-			} else if (state->i == 0) {
-				while (charat() == ' ') skip();
-				if (charat() == '`' && nextchar() == '`' && charrel(2) == '`') {
-					paint(3, FLAG_STRING);
-					if (syn_c &&match_forward(state, "c")) {
-						nest(syn_c->calculate, 100);
-					} else if (syn_c && match_forward(state,"c++")) {
-						nest(syn_c->calculate, 100);
-					} else if (syn_py && (match_forward(state,"py") || match_forward(state,"python"))) {
-						nest(syn_py->calculate, 200);
-					} else if (syn_java && match_forward(state, "java")) {
-						nest(syn_java->calculate, 300);
-					} else if (syn_json && match_forward(state,"json")) {
-						nest(syn_json->calculate, 400);
-					} else if (syn_xml && match_forward(state,"xml")) {
-						nest(syn_xml->calculate, 500);
-					} else if (syn_xml && match_forward(state,"html")) {
-						nest(syn_xml->calculate, 500); // TODO this will be a different highlighter later
-					} else if (syn_make && match_forward(state,"make")) {
-						nest(syn_make->calculate, 600);
-					} else if (syn_diff && match_forward(state, "diff")) {
-						nest(syn_diff->calculate, 700);
-					} else if (syn_rust && match_forward(state, "rust")) {
-						nest(syn_rust->calculate, 800); /* Keep this at the end for now */
-					}
-					return 1;
-				}
-			}
-			if (charat() == '`') {
-				paint(1, FLAG_STRING);
-				while (charat() != -1) {
-					if (charat() == '`') {
-						paint(1, FLAG_STRING);
-						return 0;
-					}
-					paint(1, FLAG_STRING);
-				}
-			} else if (charat() == '[') {
-				skip();
-				while (charat() != -1 && charat() != ']') {
-					paint(1, FLAG_LINK);
-				}
-				if (charat() == ']') skip();
-				if (charat() == '(') {
-					skip();
-					while (charat() != -1 && charat() != ')') {
-						paint(1, FLAG_NUMERAL);
-					}
-				}
-			} else {
-				skip();
-				return 0;
-			}
-		}
-		return -1;
-	} else if (state->state >= 1) {
-		/* Continuing generic triple-` */
-		if (state->i == 0) {
-			/* Go backwards until we find the source ``` */
-			int count = 0;
-			for (int i = state->line_no; i > 0; i--) {
-				if (env->lines[i]->istate < 1) {
-					while (env->lines[i]->text[count].codepoint == ' ') {
-						if (charrel(count) != ' ') goto _nope;
-						count++;
-					}
-					break;
-				}
-			}
-			if (charrel(count) == '`' && charrel(count+1) == '`' && charrel(count+2) == '`' && charrel(count+3) == -1) {
-				paint(count+3,FLAG_STRING);
-				return -1;
-			}
-		}
-_nope:
-		if (state->state == 1) {
-			while (charat() != -1) paint(1, FLAG_STRING);
-			return 1;
-		} else if (state->state < 199) {
-			nest(syn_c->calculate, 100);
-		} else if (state->state < 299) {
-			nest(syn_py->calculate, 200);
-		} else if (state->state < 399) {
-			nest(syn_java->calculate, 300);
-		} else if (state->state < 499) {
-			nest(syn_json->calculate, 400);
-		} else if (state->state < 599) {
-			nest(syn_xml->calculate, 500);
-		} else if (state->state < 699) {
-			nest(syn_make->calculate, 600);
-		} else if (state->state < 799) {
-			nest(syn_diff->calculate, 700);
-		} else {
-			nest(syn_rust->calculate, 800);
-		}
-	}
-	return -1;
-}
-
-char * syn_markdown_ext[] = {".md",".markdown",NULL};
-
-BIM_SYNTAX(markdown, 1)
-
-int syn_xml_calculate(struct syntax_state * state) {
-	switch (state->state) {
-		case -1:
-		case 0:
-			if (charat() == -1) return -1;
-			if (charat() != '<') {
-				skip();
-				return 0;
-			}
-			/* Opening brace */
-			if (charat() == '<' && nextchar() == '!' && charrel(2) == '-' && charrel(3) == '-') {
-				paint(4, FLAG_COMMENT);
-				goto _comment;
-			}
 			paint(1, FLAG_TYPE);
-			/* Fall through */
-		case 1:
-			/* State 1: We saw an opening brace. */
-			while (charat() != -1) {
-				if (charat() == '/') paint(1, FLAG_TYPE);
-				if (charat() == '?') paint(1, FLAG_TYPE);
-				if (charat() == ' ' || charat() == '\t') skip();
-				if (isalnum(charat())) {
-					while (isalnum(charat()) || charat() == '-') paint(1, FLAG_KEYWORD);
-					if (charat() == -1) return 2;
-					goto _in_tag;
-				} else {
-					paint(1, FLAG_TYPE);
-				}
+			return 0;
+		}
+		paint(1, FLAG_TYPE);
+	}
+	return 0;
+}
+
+int make_variable_or_comment(struct syntax_state * state, int flag) {
+	while (charat() != -1) {
+		if (charat() == '$') {
+			switch (nextchar()) {
+				case '(':
+					make_close_paren(state);
+					break;
+				case '{':
+					make_close_brace(state);
+					break;
+				default:
+					paint(2, FLAG_TYPE);
+					break;
 			}
-			return -1;
-_in_tag:
-		case 2:
+		} else if (charat() == '#') {
+			while (charat() != -1) paint(1, FLAG_COMMENT);
+		} else {
+			paint(1, flag);
+		}
+	}
+	return 0;
+}
+
+int syn_make_calculate(struct syntax_state * state) {
+	if (state->i == 0 && charat() == '\t') {
+		make_variable_or_comment(state, FLAG_NUMERAL);
+	} else {
+		while (charat() == ' ') { skip(); }
+		/* Peek forward to see if this is a rule or a variable */
+		int whatisit = 0;
+		for (int i = 0; charrel(i) != -1; ++i) {
+			if (charrel(i) == ':' && charrel(i+1) != '=') {
+				whatisit = 1;
+				break;
+			} else if (charrel(i) == '=') {
+				whatisit = 2;
+				break;
+			} else if (charrel(i) == '#') {
+				break;
+			}
+		}
+		if (!whatisit) {
+			/* Check for functions */
 			while (charat() != -1) {
-				if (charat() == '>') {
-					paint(1, FLAG_TYPE);
-					return 0;
-				} else if (charat() == '"') {
-					paint_simple_string(state);
-					if (charat() == -1 && lastchar() != '"') {
-						return 3;
+				if (charat() == '#') {
+					while (charat() != -1) {
+						if (common_comment_buzzwords(state)) continue;
+						else paint(1, FLAG_COMMENT);
 					}
+				} else if (find_keywords(state, syn_make_commands, FLAG_KEYWORD, make_command_qualifier)) {
+					continue;
+				} else if (charat() == '$') {
+					make_variable_or_comment(state, FLAG_NONE);
+				} else {
+					skip();
+				}
+			}
+		} else if (whatisit == 1) {
+			/* It's a rule */
+			while (charat() != -1) {
+				if (charat() == '#') {
+					while (charat() != -1) {
+						if (common_comment_buzzwords(state)) continue;
+						else paint(1, FLAG_COMMENT);
+					}
+				} else if (charat() == ':') {
+					paint(1, FLAG_TYPE);
+					make_variable_or_comment(state, FLAG_NONE);
+				} else if (find_keywords(state, syn_make_special_targets, FLAG_KEYWORD, make_command_qualifier)) {
+						continue;
 				} else {
 					paint(1, FLAG_TYPE);
 				}
 			}
-			return 2;
-		case 3:
-			/* In a string in tag */
-			if (charat() == '"') {
-				paint(1, FLAG_STRING);
-				return 2;
-			} else {
-				paint_simple_string(state);
-				if (charat() == -1 && lastchar() != '"') {
-					return 3;
-				}
+		} else if (whatisit == 2) {
+			/* It's a variable definition */
+			match_and_paint(state, "export", FLAG_KEYWORD, c_keyword_qualifier);
+			while (charat() != -1 && charat() != '+' && charat() != '=' && charat() != ':' && charat() != '?') {
+				paint(1, FLAG_TYPE);
 			}
-			break;
-_comment:
-		case 4:
-			while (charat() != -1) {
-				if (charat() == '-' && nextchar() == '-' && charrel(2) == '>') {
-					paint(3, FLAG_COMMENT);
-					return 0;
-				} else {
-					if (common_comment_buzzwords(state)) continue;
-					else paint(1, FLAG_COMMENT);
-				}
-			}
-			return 4;
+			while (charat() != -1 && charat() != '=') skip();
+			/* Highlight variable expansions */
+			make_variable_or_comment(state, FLAG_NONE);
+		}
 	}
 	return -1;
 }
 
-char * syn_xml_ext[] = {".xml",".htm",".html",NULL}; // TODO other stuff that uses xml (it's a lot!); FIXME htm/html are temporary; make dedicated SGML ones for this
+char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
 
-BIM_SYNTAX(xml, 1)
+BIM_SYNTAX(make, 0)
