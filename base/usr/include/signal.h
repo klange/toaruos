@@ -16,5 +16,6 @@ typedef int sig_atomic_t;
 
 extern sighandler_t signal(int signum, sighandler_t handler);
 extern int raise(int sig);
+extern int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 
 _End_C_Header

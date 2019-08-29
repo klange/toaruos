@@ -18,6 +18,11 @@ struct tm {
     int tm_isdst;  /* Daylight saving time */
 };
 
+struct timespec {
+	time_t tv_sec;
+	long tv_nsec;
+};
+
 extern struct tm *localtime(const time_t *timep);
 extern struct tm *gmtime(const time_t *timep);
 
