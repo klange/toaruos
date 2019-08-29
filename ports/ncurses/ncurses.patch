@@ -1,0 +1,23 @@
+diff -urN ncurses-6.1/config.sub ncurses-6.1-patched/config.sub
+--- ncurses-6.1/config.sub	2017-11-25 21:49:31.000000000 +0100
++++ ncurses-6.1-patched/config.sub	2019-08-29 10:43:49.936110078 +0200
+@@ -1392,6 +1392,7 @@
+ 	# -sysv* is not here because it comes later, after sysvr4.
+ 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
++	      | -toaru* \
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+diff -urN ncurses-6.1/ncurses/tty/lib_twait.c ncurses-6.1-patched/ncurses/tty/lib_twait.c
+--- ncurses-6.1/ncurses/tty/lib_twait.c	2016-05-29 01:32:40.000000000 +0200
++++ ncurses-6.1-patched/ncurses/tty/lib_twait.c	2019-08-29 10:47:44.392115891 +0200
+@@ -75,6 +75,8 @@
+ #endif
+ #undef CUR
+ 
++#include <sys/time.h>
++
+ MODULE_ID("$Id: lib_twait.c,v 1.71 2016/05/28 23:32:40 tom Exp $")
+ 
+ static long
