@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# NOTE: This list is manually compiled, and should catch all ncurses files.
+# This takes a lot of work, must be a better way
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 TOARU_ROOT="$DIR/../../base"
 PKG_PREFIX=/usr
