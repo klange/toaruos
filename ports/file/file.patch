@@ -1,0 +1,45 @@
+diff -urN file-5.37/config.sub file-5.37-patched/config.sub
+--- file-5.37/config.sub	2019-05-17 04:27:46.000000000 +0200
++++ file-5.37-patched/config.sub	2019-08-29 12:08:41.324236321 +0200
+@@ -1385,6 +1385,7 @@
+ 	# -sysv* is not here because it comes later, after sysvr4.
+ 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
++	      | -toaru* \
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+diff -urN file-5.37/src/ascmagic.c file-5.37-patched/src/ascmagic.c
+--- file-5.37/src/ascmagic.c	2019-05-07 04:27:11.000000000 +0200
++++ file-5.37-patched/src/ascmagic.c	2019-08-29 12:18:15.452250557 +0200
+@@ -40,7 +40,7 @@
+ 
+ #include "magic.h"
+ #include <string.h>
+-#include <memory.h>
++//#include <memory.h>
+ #include <ctype.h>
+ #include <stdlib.h>
+ #ifdef HAVE_UNISTD_H
+diff -urN file-5.37/src/der.h file-5.37-patched/src/der.h
+--- file-5.37/src/der.h	2016-03-21 23:46:40.000000000 +0100
++++ file-5.37-patched/src/der.h	2019-08-29 12:22:43.236257197 +0200
+@@ -24,5 +24,5 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
+-extern int der_offs(struct magic_set *, struct magic *, size_t);
++extern int32_t der_offs(struct magic_set *, struct magic *, size_t);
+ extern int der_cmp(struct magic_set *, struct magic *);
+diff -urN file-5.37/src/encoding.c file-5.37-patched/src/encoding.c
+--- file-5.37/src/encoding.c	2019-04-15 18:48:41.000000000 +0200
++++ file-5.37-patched/src/encoding.c	2019-08-29 12:18:45.068251292 +0200
+@@ -40,7 +40,7 @@
+ 
+ #include "magic.h"
+ #include <string.h>
+-#include <memory.h>
++//#include <memory.h>
+ #include <stdlib.h>
+ 
+ 
