@@ -9,6 +9,19 @@ diff -urN ncurses-6.1/config.sub ncurses-6.1-patched/config.sub
  	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
  	      | -sym* | -kopensolaris* | -plan9* \
  	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+diff -urN ncurses-6.1/ncurses/SigAction.h ncurses-6.1-patched/ncurses/SigAction.h
+--- ncurses-6.1/ncurses/SigAction.h	2005-08-06 22:05:32.000000000 +0200
++++ ncurses-6.1-patched/ncurses/SigAction.h	2019-08-29 12:53:46.320303393 +0200
+@@ -41,6 +41,9 @@
+ #ifndef _SIGACTION_H
+ #define _SIGACTION_H
+ 
++// Patched this for now, sigaction is stubbed!
++#undef HAVE_SIGACTION
++#warning sigaction is stubbed, so disabled for now
+ #ifndef HAVE_SIGACTION
+ #define HAVE_SIGACTION 0
+ #endif
 diff -urN ncurses-6.1/ncurses/tty/lib_twait.c ncurses-6.1-patched/ncurses/tty/lib_twait.c
 --- ncurses-6.1/ncurses/tty/lib_twait.c	2016-05-29 01:32:40.000000000 +0200
 +++ ncurses-6.1-patched/ncurses/tty/lib_twait.c	2019-08-29 10:47:44.392115891 +0200
