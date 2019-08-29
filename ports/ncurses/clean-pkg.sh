@@ -37,6 +37,10 @@ rm -rv $TOARU_ROOT$PKG_PREFIX/lib/libncurses.a
 rm -rv $TOARU_ROOT$PKG_PREFIX/lib/libncurses_g.a
 rm -rv $TOARU_ROOT$PKG_PREFIX/lib/libpanel.a
 rm -rv $TOARU_ROOT$PKG_PREFIX/lib/libpanel_g.a
+rm -rv $TOARU_ROOT$PKG_PREFIX/lib/pkgconfig/form.pc
+rm -rv $TOARU_ROOT$PKG_PREFIX/lib/pkgconfig/menu.pc
+rm -rv $TOARU_ROOT$PKG_PREFIX/lib/pkgconfig/ncurses.pc
+rm -rv $TOARU_ROOT$PKG_PREFIX/lib/pkgconfig/panel.pc
 rm -rv $TOARU_ROOT$PKG_PREFIX/lib/terminfo
 rm -rv $TOARU_ROOT$PKG_PREFIX/share/tabset
 rm -rv $TOARU_ROOT$PKG_PREFIX/share/terminfo

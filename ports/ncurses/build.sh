@@ -23,9 +23,12 @@ cd $PKG_ARCHIVE_DIR
 patch -p1 < ../$PKG_NAME.patch || exit 1
 
 # Configure and build the program
-./configure --host=i686-pc-toaru --prefix=$PKG_PREFIX --without-tests || exit 1
+./configure --host=i686-pc-toaru --prefix=$PKG_PREFIX --without-tests --without-ada --enable-pc-files || exit 1
 make || exit 1
 
 # Install it
 make DESTDIR=$TOARU_ROOT install || exit 1
+mkdir -pv $TOARU_ROOT/usr/lib/pkgconfig || exit 1
+cp $TOARU_ROOT/usr/lib/x86_64-linux-gnu/pkgconfig/* $TOARU_ROOT/usr/lib/pkgconfig || exit 1
+rm -r $TOARU_ROOT/usr/lib/x86_64-linux-gnu/
 cd ..
