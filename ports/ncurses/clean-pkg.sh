@@ -4,6 +4,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 TOARU_ROOT="$DIR/../../base"
 PKG_PREFIX=/usr
+
 rm -rv $TOARU_ROOT$PKG_PREFIX/bin/captoinfo
 rm -rv $TOARU_ROOT$PKG_PREFIX/bin/clear
 rm -rv $TOARU_ROOT$PKG_PREFIX/bin/infocmp

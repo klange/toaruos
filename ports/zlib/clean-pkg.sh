@@ -5,7 +5,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 TOARU_ROOT="$DIR/../../base"
 PKG_PREFIX=/usr
 
-
 rm -rv $TOARU_ROOT$PKG_PREFIX/include/zconf.h
 rm -rv $TOARU_ROOT$PKG_PREFIX/include/zlib.h
 rm -rv $TOARU_ROOT$PKG_PREFIX/lib/libz.a
