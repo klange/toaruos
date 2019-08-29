@@ -27,6 +27,5 @@ CHOST=i686-pc-toaru ./configure --prefix=$PKG_PREFIX || exit 1
 make || exit 1
 
 # Install it
-#make DESTDIR=/root/FS-TOARU-STORAGE install || exit 1
 make DESTDIR=$TOARU_ROOT install || exit 1
 cd ..
