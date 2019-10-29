@@ -1,8 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Wed Aug 28 22:49:42 2019
- * It is based on git commit 4f52c877d6c208a30feac7afefb3e141a8adf5fd
+ * It was built Tue Oct 29 15:49:07 2019
+ * It is based on git commit 49224a0fb301e747f6358258483bf612045099a5
  */
+#define GIT_TAG "49224a0-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -54,7 +55,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.0.0" TAG
+#define BIM_VERSION   "2.1.2" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -374,6 +375,8 @@ struct action_def {
 	const char * description;
 };
 
+extern struct action_def * mappable_actions;
+
 #define ARG_IS_INPUT   0x01 /* Takes the key that triggered it as the first argument */
 #define ARG_IS_CUSTOM  0x02 /* Takes a custom argument which is specific to the method */
 #define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
@@ -448,8 +451,16 @@ extern void recalculate_selected_lines(void);
 extern void add_command(struct command_def command);
 extern void add_prefix_command(struct command_def command);
 extern void render_command_input_buffer(void);
+extern void unhighlight_matching_paren(void);
 
 extern void add_syntax(struct syntax_definition def);
+
+struct ColorName {
+	const char * name;
+	const char ** value;
+};
+
+extern struct ColorName color_names[];
 
 /* End of bim-core.h */
 
@@ -598,6 +609,38 @@ char * name_from_key(enum Key keycode) {
 	to_eight(keycode, keyNameTmp);
 	return keyNameTmp;
 }
+
+struct ColorName color_names[] = {
+	{"text-fg", &COLOR_FG},
+	{"text-bg", &COLOR_BG},
+	{"alternate-fg", &COLOR_ALT_FG},
+	{"alternate-bg", &COLOR_ALT_BG},
+	{"number-fg", &COLOR_NUMBER_FG},
+	{"number-bg", &COLOR_NUMBER_BG},
+	{"status-fg", &COLOR_STATUS_FG},
+	{"status-bg", &COLOR_STATUS_BG},
+	{"tabbar-bg", &COLOR_TABBAR_BG},
+	{"tab-bg", &COLOR_TAB_BG},
+	{"error-fg", &COLOR_ERROR_FG},
+	{"error-bg", &COLOR_ERROR_BG},
+	{"search-fg", &COLOR_SEARCH_FG},
+	{"search-bg", &COLOR_SEARCH_BG},
+	{"keyword", &COLOR_KEYWORD},
+	{"string", &COLOR_STRING},
+	{"comment", &COLOR_COMMENT},
+	{"type", &COLOR_TYPE},
+	{"pragma", &COLOR_PRAGMA},
+	{"numeral", &COLOR_NUMERAL},
+	{"select-fg", &COLOR_SELECTFG},
+	{"select-bg", &COLOR_SELECTBG},
+	{"red", &COLOR_RED},
+	{"green", &COLOR_GREEN},
+	{"bold", &COLOR_BOLD},
+	{"link", &COLOR_LINK},
+	{"escape", &COLOR_ESCAPE},
+	{NULL,NULL},
+};
+
 
 #define FLEXIBLE_ARRAY(name, add_name, type, zero) \
 	int flex_ ## name ## _count = 0; \
@@ -1390,7 +1433,7 @@ void set_history_break(void) {
 /**
  * Insert a character into an existing line.
  */
-line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
+__attribute__((warn_unused_result)) line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 
 	if (!env->loading && global_config.history_enabled && lineno != -1) {
 		history_t * e = malloc(sizeof(history_t));
@@ -1673,6 +1716,10 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	if (env->line_count == env->line_avail) {
 		env->line_avail *= 2;
 		lines = realloc(lines, sizeof(line_t *) * env->line_avail);
+	}
+
+	if (!env->loading) {
+		unhighlight_matching_paren();
 	}
 
 	/* Shift later lines down */
@@ -2238,12 +2285,13 @@ void redraw_tabbar(void) {
 
 		if (offset + size >= global_config.term_width) {
 			if (global_config.term_width - offset - 1 > 0) {
-				printf("%*s", global_config.term_width - offset - 1, title);
+				title[global_config.term_width - offset - 1] = '\0';
 			}
-			break;
-		} else {
 			printf("%s", title);
+			break;
 		}
+
+		printf("%s", title);
 
 		offset += size;
 	}
@@ -3115,8 +3163,12 @@ void highlight_matching_paren(void) {
  */
 void unhighlight_matching_paren(void) {
 	if (env->highlighting_paren > 0 && env->highlighting_paren <= env->line_count) {
-		recalculate_syntax(env->lines[env->highlighting_paren-1], env->highlighting_paren-1);
-		redraw_line(env->highlighting_paren-1);
+		for (int i = env->highlighting_paren - 1; i <= env->highlighting_paren + 1; ++i) {
+			if (i >= 1 && i <= env->line_count) {
+				recalculate_syntax(env->lines[i-1], i-1);
+				redraw_line(i-1);
+			}
+		}
 		env->highlighting_paren = -1;
 	}
 }
@@ -3742,7 +3794,9 @@ void try_quit(void) {
 /**
  * Switch to the previous buffer
  */
-void previous_tab(void) {
+BIM_ACTION(previous_tab, 0,
+	"Switch the previoius tab"
+)(void) {
 	buffer_t * last = NULL;
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
@@ -3769,7 +3823,9 @@ void previous_tab(void) {
 /**
  * Switch to the next buffer
  */
-void next_tab(void) {
+BIM_ACTION(next_tab, 0,
+	"Switch to the next tab"
+)(void) {
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 		if (_env == env) {
@@ -5329,16 +5385,15 @@ BIM_COMMAND(keyname,"keyname","Press and key and get its name.") {
 /**
  * Process a user command.
  */
-void process_command(char * cmd) {
-	/* Add command to history */
-	insert_command_history(cmd);
+int process_command(char * cmd) {
+
+	if (*cmd == '#') return 0;
 
 	/* First, check prefix commands */
 	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
 		if (strstr(cmd, c->name) == cmd &&
 		    (!isalpha(cmd[strlen(c->name)]) || !isalpha(cmd[0]))) {
-			c->command(cmd, 0, NULL);
-			return;
+			return c->command(cmd, 0, NULL);
 		}
 	}
 
@@ -5361,14 +5416,13 @@ void process_command(char * cmd) {
 
 	if (argc < 1) {
 		/* no op */
-		return;
+		return 0;
 	}
 
 	/* Now check regular commands */
 	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
 		if (!strcmp(argv[0], c->name)) {
-			c->command(cmd, argc, argv);
-			return;
+			return c->command(cmd, argc, argv);
 		}
 	}
 
@@ -5376,12 +5430,16 @@ void process_command(char * cmd) {
 
 	if (argv[0][0] == '-' && isdigit(argv[0][1])) {
 		goto_line(env->line_no-atoi(&argv[0][1]));
+		return 0;
 	} else if (argv[0][0] == '+' && isdigit(argv[0][1])) {
 		goto_line(env->line_no+atoi(&argv[0][1]));
+		return 0;
 	} else if (isdigit(*argv[0])) {
 		goto_line(atoi(argv[0]));
+		return 0;
 	} else {
 		render_error("Not an editor command: %s", argv[0]);
+		return 1;
 	}
 }
 
@@ -5447,6 +5505,8 @@ void command_tab_complete(char * buffer) {
 		} \
 	} while (0)
 
+	int _candidates_are_files = 0;
+
 	if (arg == 0 || (arg == 1 && !strcmp(args[0], "help"))) {
 		/* Complete command names */
 		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
@@ -5476,7 +5536,21 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w"))) {
+	if (arg == 1 && (!strcmp(args[0], "setcolor"))) {
+		for (struct ColorName * c = color_names; c->name; ++c) {
+			add_candidate(c->name);
+		}
+		goto _accept_candidate;
+	}
+
+	if (arg == 1 && (!strcmp(args[0], "action"))) {
+		for (struct action_def * a = mappable_actions; a->name; ++a) {
+			add_candidate(a->name);
+		}
+		goto _accept_candidate;
+	}
+
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript") || args[0][0] == '!')) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
@@ -5502,6 +5576,8 @@ void command_tab_complete(char * buffer) {
 			free(tmp);
 			goto done;
 		}
+
+		_candidates_are_files = 1;
 
 		struct dirent * ent = readdir(dirp);
 		while (ent != NULL) {
@@ -5577,7 +5653,15 @@ _accept_candidate:
 		memset(tmp, 0, global_config.term_width+1);
 		int offset = 0;
 		for (int i = 0; i < candidate_count; ++i) {
-			if (offset + 1 + (signed)strlen(candidates[i]) > global_config.term_width - 5) {
+			char * printed_candidate = candidates[i];
+			if (_candidates_are_files) {
+				for (char * c = printed_candidate; *c; ++c) {
+					if (c[0] == '/' && c[1] != '\0') {
+						printed_candidate = c+1;
+					}
+				}
+			}
+			if (offset + 1 + (signed)strlen(printed_candidate) > global_config.term_width - 5) {
 				strcat(tmp, "...");
 				break;
 			}
@@ -5585,8 +5669,8 @@ _accept_candidate:
 				strcat(tmp, " ");
 				offset++;
 			}
-			strcat(tmp, candidates[i]);
-			offset += strlen(candidates[i]);
+			strcat(tmp, printed_candidate);
+			offset += strlen(printed_candidate);
 		}
 		render_status_message("%s", tmp);
 		free(tmp);
@@ -5667,7 +5751,7 @@ done:
 	while (*t) { \
 		if (!decode(&state, &c, *t)) { \
 			char_t _c = {codepoint_width(c), 0, c}; \
-			line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1); \
+			global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1); \
 			global_config.command_col_no++; \
 		} else if (state == UTF8_REJECT) state = 0; \
 		t++; \
@@ -5807,6 +5891,7 @@ BIM_ACTION(command_accept, 0,
 
 	/* Run the converted command */
 	global_config.break_from_selection = 0;
+	insert_command_history(tmp);
 	process_command(tmp);
 	free(tmp);
 
@@ -6065,7 +6150,6 @@ void rehighlight_search(line_t * line) {
 			for (int i = j; matchlen > 0; ++i, matchlen--) {
 				line->text[i].flags |= FLAG_SEARCH;
 			}
-			break;
 		}
 		j++;
 	}
@@ -8538,6 +8622,8 @@ struct action_map NORMAL_MAP[] = {
 	{'R',           enter_replace, opt_rw, 0},
 	{KEY_SHIFT_UP,   enter_line_selection_and_cursor_up, 0, 0},
 	{KEY_SHIFT_DOWN, enter_line_selection_and_cursor_down, 0, 0},
+	{KEY_ALT_UP,    previous_tab, 0, 0},
+	{KEY_ALT_DOWN,  next_tab, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -9385,6 +9471,149 @@ _invalid_key_name:
 	return 1;
 }
 
+BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
+	if (argc < 2) {
+		/* Print colors */
+		struct ColorName * c = color_names;
+		while (c->name) {
+			render_commandline_message("%20s = ", c->name);
+			set_colors(*c->value, *c->value);
+			printf("   ");
+			set_colors(COLOR_FG, COLOR_BG);
+			printf(" %s\n", *c->value);
+			c++;
+		}
+		pause_for_key();
+	} else {
+		char * colorname = argv[1];
+		char * space = strstr(colorname, " ");
+		if (!space) {
+			render_error(":setcolor <colorname> <colorvalue>");
+			return 1;
+		}
+		char * colorvalue = space + 1;
+		*space = '\0';
+		struct ColorName * c = color_names;
+		while (c->name) {
+			if (!strcmp(c->name, colorname)) {
+				*(c->value) = strdup(colorvalue);
+				return 0;
+			}
+			c++;
+		}
+		render_error("Unknown color: %s", colorname);
+		return 1;
+	}
+	return 0;
+}
+
+BIM_COMMAND(runscript,"runscript","Run a script file") {
+	if (argc < 2) {
+		render_error("Expected a script to run");
+		return 1;
+	}
+
+	/* Run commands */
+	FILE * f = fopen(argv[1],"r");
+	if (!f) {
+		render_error("Failed to open script");
+		return 1;
+	}
+
+	int retval = 0;
+
+	char linebuf[4096];
+
+	while (!feof(f)) {
+		memset(linebuf, 0, 4096);
+		fgets(linebuf, 4095, f);
+		/* Remove linefeed */
+		char * s = strstr(linebuf, "\n");
+		if (s) *s = '\0';
+		int result = process_command(linebuf);
+		if (result != 0) {
+			retval = result;
+			break;
+		}
+	}
+
+	fclose(f);
+	return retval;
+}
+
+BIM_COMMAND(checkprop,"checkprop","Check a property value; returns the inverse of the property") {
+	if (argc < 2) {
+		return 1;
+	}
+	if (!strcmp(argv[1],"can_scroll")) return !global_config.can_scroll;
+	else if (!strcmp(argv[1],"can_hideshow")) return !global_config.can_hideshow;
+	else if (!strcmp(argv[1],"can_altscreen")) return !global_config.can_altscreen;
+	else if (!strcmp(argv[1],"can_mouse")) return !global_config.can_mouse;
+	else if (!strcmp(argv[1],"can_unicode")) return !global_config.can_unicode;
+	else if (!strcmp(argv[1],"can_bright")) return !global_config.can_bright;
+	else if (!strcmp(argv[1],"can_title")) return !global_config.can_title;
+	else if (!strcmp(argv[1],"can_bce")) return !global_config.can_bce;
+	else if (!strcmp(argv[1],"can_24bit")) return !global_config.can_24bit;
+	else if (!strcmp(argv[1],"can_256color")) return !global_config.can_256color;
+	else if (!strcmp(argv[1],"can_italic")) return !global_config.can_italic;
+	render_error("Unknown property '%s'", argv[1]);
+	return 1;
+}
+
+BIM_COMMAND(action,"action","Execute a bim action") {
+	if (argc < 2) {
+		render_error("Expected :action <action-name> [arg [arg [arg...]]]");
+		return 1;
+	}
+
+	/* Split argument on spaces */
+	char * action = argv[1];
+	char * arg1 = NULL, * arg2 = NULL, * arg3 = NULL;
+	arg1 = strstr(argv[1]," ");
+	if (arg1) {
+		*arg1 = '\0';
+		arg1++;
+		arg2 = strstr(arg1," ");
+		if (arg2) {
+			*arg2 = '\0';
+			arg2++;
+			arg3 = strstr(arg1," ");
+			if (arg3) {
+				*arg3 = '\0';
+				arg3++;
+			}
+		}
+	}
+
+	/* Find the action */
+	for (int i = 0; i < flex_mappable_actions_count; ++i) {
+		if (!strcmp(mappable_actions[i].name, action)) {
+			/* Count arguments */
+			int args = 0;
+			if (mappable_actions[i].options & ARG_IS_CUSTOM) args++;
+			if (mappable_actions[i].options & ARG_IS_INPUT) args++;
+			if (mappable_actions[i].options & ARG_IS_PROMPT) args++;
+
+			if (args == 0) {
+				mappable_actions[i].action();
+			} else if (args == 1) {
+				if (!arg1) { render_error("Expected one argument"); return 1; }
+				mappable_actions[i].action(atoi(arg1));
+			} else if (args == 2) {
+				if (!arg2) { render_error("Expected two arguments"); return 1; }
+				mappable_actions[i].action(atoi(arg1), atoi(arg2));
+			} else if (args == 3) {
+				if (!arg3) { render_error("Expected three arguments"); return 1; }
+				mappable_actions[i].action(atoi(arg1), atoi(arg2), atoi(arg3));
+			}
+			return 0;
+		}
+	}
+
+	render_error("Unknown action: %s", action);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
 	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
@@ -9952,9 +10181,30 @@ static int bimcmd_find_commands(struct syntax_state * state) {
 	return 0;
 }
 
+static char * bimscript_comments[] = {
+	"@author","@version","@url","@description",
+	NULL
+};
+
+static int bcmd_at_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_') || (c == '@');
+}
+
 int syn_bimcmd_calculate(struct syntax_state * state) {
 	if (state->i == 0) {
-		if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
+		while (charat() == ' ') skip();
+		if (charat() == '#') {
+			while (charat() != -1) {
+				if (charat() == '@') {
+					if (!find_keywords(state, bimscript_comments, FLAG_ESCAPE, bcmd_at_keyword_qualifier)) {
+						paint(1, FLAG_COMMENT);
+					}
+				} else {
+					paint(1, FLAG_COMMENT);
+				}
+			}
+			return -1;
+		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
 			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
 			while (charat() == ' ') skip();
 			for (struct theme_def * s = themes; themes && s->name; ++s) {
@@ -9966,6 +10216,20 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) return -1;
 			}
 			if (match_and_paint(state, "none", FLAG_TYPE, cmd_qualifier)) return -1;
+		} else if (match_and_paint(state, "setcolor", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct ColorName * c = color_names; c->name; ++c) {
+				if (match_and_paint(state, c->name, FLAG_TYPE, cmd_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_STRING);
+					return -1;
+				}
+			}
+			return -1;
+		} else if (match_and_paint(state, "action", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct action_def * a = mappable_actions; a->name; ++a) {
+				if (match_and_paint(state, a->name, FLAG_TYPE, cmd_qualifier)) return -1;
+			}
 		} else if (charat() == '%' && nextchar() == 's') {
 			paint(1, FLAG_KEYWORD);
 			return bimcmd_paint_replacement(state);
@@ -9988,7 +10252,7 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_bimcmd_ext[] = {NULL}; /* no files */
+char * syn_bimcmd_ext[] = {".bimscript",NULL}; /* no files */
 
 BIM_SYNTAX(bimcmd, 1)
 int syn_biminfo_calculate(struct syntax_state * state) {
@@ -10806,7 +11070,7 @@ int syn_groovy_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_groovy_ext[] = {".groovy",".jenkinsfile",NULL};
+char * syn_groovy_ext[] = {".groovy",".jenkinsfile",".gradle",NULL};
 
 BIM_SYNTAX(groovy, 1)
 int syn_hosts_calculate(struct syntax_state * state) {
@@ -10825,7 +11089,7 @@ int syn_hosts_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_hosts_ext[] = {"hosts"};
+char * syn_hosts_ext[] = {"hosts",NULL};
 
 BIM_SYNTAX(hosts, 1)
 
@@ -11190,6 +11454,7 @@ static struct syntax_definition * syn_xml = NULL;
 static struct syntax_definition * syn_make = NULL;
 static struct syntax_definition * syn_diff = NULL;
 static struct syntax_definition * syn_rust = NULL;
+static struct syntax_definition * syn_bash = NULL;
 
 static int _initialized = 0;
 
@@ -11204,6 +11469,7 @@ int syn_markdown_calculate(struct syntax_state * state) {
 		syn_make = find_syntax_calculator("make");
 		syn_diff = find_syntax_calculator("diff");
 		syn_rust = find_syntax_calculator("rust");
+		syn_bash = find_syntax_calculator("bash");
 	}
 	if (state->state < 1) {
 		while (charat() != -1) {
@@ -11233,8 +11499,10 @@ int syn_markdown_calculate(struct syntax_state * state) {
 						nest(syn_make->calculate, 600);
 					} else if (syn_diff && match_forward(state, "diff")) {
 						nest(syn_diff->calculate, 700);
+					} else if (syn_bash && match_forward(state, "bash")) {
+						nest(syn_bash->calculate, 800);
 					} else if (syn_rust && match_forward(state, "rust")) {
-						nest(syn_rust->calculate, 800); /* Keep this at the end for now */
+						nest(syn_rust->calculate, 900); /* Keep this at the end for now */
 					}
 					return 1;
 				}
@@ -11303,8 +11571,10 @@ _nope:
 			nest(syn_make->calculate, 600);
 		} else if (state->state < 799) {
 			nest(syn_diff->calculate, 700);
+		} else if (state->state < 899) {
+			nest(syn_bash->calculate, 800);
 		} else {
-			nest(syn_rust->calculate, 800);
+			nest(syn_rust->calculate, 900);
 		}
 	}
 	return -1;
