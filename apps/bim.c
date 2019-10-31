@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Tue Oct 29 15:49:07 2019
- * It is based on git commit 49224a0fb301e747f6358258483bf612045099a5
+ * It was built Thu Oct 31 12:34:51 2019
+ * It is based on git commit 50936d4d1f47720fc0ef1151b0102d3d53a3f5f3
  */
-#define GIT_TAG "49224a0-baked"
+#define GIT_TAG "50936d4-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -55,7 +55,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.1.2" TAG
+#define BIM_VERSION   "2.1.3" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -4324,7 +4324,48 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 			match++;
 			continue;
 		}
-		if (*match == '\\' && (match[1] == '$' || match[1] == '^' || match[1] == '/' || match[1] == '\\')) {
+		if (*match == '.') {
+			if (match[1] == '*') {
+				int greedy = !(match[2] == '?');
+				/* Short-circuit chained .*'s */
+				if (match[greedy ? 2 : 3] == '.' && match[greedy ? 3 : 4] == '*') {
+					int _len;
+					if (subsearch_matches(line, k, &match[greedy ? 2 : 3], ignorecase, &_len)) {
+						if (len) *len = _len + k - j;
+						return 1;
+					}
+					return 0;
+				}
+				int _j = greedy ? line->actual : k;
+				int _break = -1;
+				int _len = -1;
+				if (!match[greedy ? 2 : 3]) {
+					_len = greedy ? (line->actual - _j) : 0;
+					_break = _j;
+				} else {
+					while (_j < line->actual + 1 && _j >= k) {
+						int len;
+						if (subsearch_matches(line, _j, &match[greedy ? 2 : 3], ignorecase, &len)) {
+							_break = _j;
+							_len = len;
+							break;
+						}
+						_j += (greedy ? -1 : 1);
+					}
+				}
+				if (_break != -1) {
+					if (len) *len = (_break - j) + _len;
+					return 1;
+				}
+				return 0;
+			} else {
+				if (k >= line->actual) return 0;
+				match++;
+				k++;
+				continue;
+			}
+		}
+		if (*match == '\\' && (match[1] == '$' || match[1] == '^' || match[1] == '/' || match[1] == '\\' || match[1] == '.')) {
 			match++;
 		} else if (*match == '\\' && match[1] == 't') {
 			if (line->text[k].codepoint != '\t') break;
