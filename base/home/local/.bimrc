@@ -1,6 +1,10 @@
-# First try to enable the ansi theme
-theme=ansi
-# Then try to enable sunsmoke, the default high-color theme
-theme=sunsmoke
-# Enable experimental history support
-history
+# Last theme config is the preferred theme
+colorscheme ansi
+colorscheme sunsmoke256
+colorscheme sunsmoke
+
+# Enable statusbar (default)
+global.statusbar 1
+
+# Autohide tabs
+global.autohidetabs 1

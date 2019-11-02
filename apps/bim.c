@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Thu Oct 31 12:34:51 2019
- * It is based on git commit 50936d4d1f47720fc0ef1151b0102d3d53a3f5f3
+ * It was built Sat Nov  2 11:35:22 2019
+ * It is based on git commit 30fc0a610f2ac71b6350024a1e9a0fe24a098585
  */
-#define GIT_TAG "50936d4-baked"
+#define GIT_TAG "30fc0a6-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -55,7 +55,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.1.3" TAG
+#define BIM_VERSION   "2.2.0" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -203,6 +203,10 @@ typedef struct {
 	unsigned int relative_lines:1;
 	unsigned int numbers:1;
 	unsigned int horizontal_shift_scrolling:1;
+	unsigned int hide_statusbar:1;
+	unsigned int tabs_visible:1;
+	unsigned int autohide_tabs:1;
+	unsigned int smart_complete:1;
 
 	int cursor_padding;
 	int split_percent;
@@ -271,6 +275,8 @@ typedef struct _env {
 	unsigned int indent:1;
 	unsigned int checkgitstatusonwrite:1;
 	unsigned int crnl:1;
+	unsigned int numbers:1;
+	unsigned int gutter:1;
 
 	int highlighting_paren;
 
@@ -567,6 +573,10 @@ global_config_t global_config = {
 	.relative_lines = 0,
 	.numbers = 1,
 	.horizontal_shift_scrolling = 0, /* Whether to shift the whole screen when scrolling horizontally */
+	.hide_statusbar = 0,
+	.tabs_visible = 1,
+	.autohide_tabs = 0,
+	.smart_complete = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -902,7 +912,10 @@ buffer_t * buffer_new(void) {
 	buffers[buffers_len]->left = 0;
 	buffers[buffers_len]->width = global_config.term_width;
 	buffers[buffers_len]->highlighting_paren = -1;
+	buffers[buffers_len]->numbers = global_config.numbers;
+	buffers[buffers_len]->gutter = 1;
 	buffers_len++;
+	global_config.tabs_visible = (!global_config.autohide_tabs) || (buffers_len > 1);
 
 	return buffers[buffers_len-1];
 }
@@ -1074,6 +1087,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 
 	/* There is one less buffer */
 	buffers_len--;
+	global_config.tabs_visible = (!global_config.autohide_tabs) || (buffers_len > 1);
 	if (!buffers_len) { 
 		/* There are no more buffers. */
 		return NULL;
@@ -2255,6 +2269,7 @@ int draw_tab_name(buffer_t * _env, char * out) {
  * The active buffer is highlighted.
  */
 void redraw_tabbar(void) {
+	if (!global_config.tabs_visible) return;
 	/* Hide cursor while rendering UI */
 	hide_cursor();
 
@@ -2568,17 +2583,24 @@ void render_line(line_t * line, int width, int offset, int line_no) {
  * Get the width of the line number region
  */
 int num_width(void) {
-	if (!global_config.numbers) return -2; /* Accounts for the padding */
-	int w = log_base_10(env->line_count) + 1;
-	if (w < 2) return 2;
+	if (!env->numbers) return 0;
+	int w = log_base_10(env->line_count) + 3;
+	if (w < 2) return 4;
 	return w;
+}
+
+/**
+ * Display width of the revision status gutter.
+ */
+int gutter_width(void) {
+	return env->gutter;
 }
 
 /**
  * Draw the gutter and line numbers.
  */
 void draw_line_number(int x) {
-	if (!global_config.numbers) return;
+	if (!env->numbers) return;
 	/* Draw the line number */
 	if (env->lines[x]->is_current) {
 		set_colors(COLOR_NUMBER_BG, COLOR_NUMBER_FG);
@@ -2589,7 +2611,7 @@ void draw_line_number(int x) {
 		x = x+1 - env->line_no;
 		x = ((x < 0) ? -x : x)-1;
 	}
-	int num_size = num_width();
+	int num_size = num_width() - 2; /* Padding */
 	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
 	}
@@ -2619,7 +2641,7 @@ void recalculate_current_line(void) {
 	if (something_changed && global_config.relative_lines) {
 		for (int i = env->offset; i < env->offset + global_config.term_height - global_config.bottom_size - 1 && i < env->line_count; ++i) {
 			/* Place cursor for line number */
-			place_cursor(2 + env->left, (i)-env->offset+2);
+			place_cursor(1 + gutter_width() + env->left, (i)-env->offset + 1 + global_config.tabs_visible);
 			draw_line_number(i);
 		}
 	}
@@ -2634,7 +2656,7 @@ void redraw_line(int x) {
 	if (env->loading) return;
 
 	/* Determine if this line is visible. */
-	if (x - env->offset < 0 || x - env->offset > global_config.term_height - global_config.bottom_size - 2) {
+	if (x - env->offset < 0 || x - env->offset > global_config.term_height - global_config.bottom_size - 1 - global_config.tabs_visible) {
 		return;
 	}
 
@@ -2645,34 +2667,36 @@ void redraw_line(int x) {
 	hide_cursor();
 
 	/* Move cursor to upper left most cell of this line */
-	place_cursor(1 + env->left,2 + j);
+	place_cursor(1 + env->left,1 + global_config.tabs_visible + j);
 
 	/* Draw a gutter on the left. */
-	switch (env->lines[x]->rev_status) {
-		case 1:
-			set_colors(COLOR_NUMBER_FG, COLOR_GREEN);
-			printf(" ");
-			break;
-		case 2:
-			set_colors(COLOR_NUMBER_FG, global_config.color_gutter ? COLOR_SEARCH_BG : COLOR_ALT_FG);
-			printf(" ");
-			break;
-		case 3:
-			set_colors(COLOR_NUMBER_FG, COLOR_KEYWORD);
-			printf(" ");
-			break;
-		case 4:
-			set_colors(COLOR_ALT_FG, COLOR_RED);
-			printf("▆");
-			break;
-		case 5:
-			set_colors(COLOR_KEYWORD, COLOR_RED);
-			printf("▆");
-			break;
-		default:
-			set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
-			printf(" ");
-			break;
+	if (env->gutter) {
+		switch (env->lines[x]->rev_status) {
+			case 1:
+				set_colors(COLOR_NUMBER_FG, COLOR_GREEN);
+				printf(" ");
+				break;
+			case 2:
+				set_colors(COLOR_NUMBER_FG, global_config.color_gutter ? COLOR_SEARCH_BG : COLOR_ALT_FG);
+				printf(" ");
+				break;
+			case 3:
+				set_colors(COLOR_NUMBER_FG, COLOR_KEYWORD);
+				printf(" ");
+				break;
+			case 4:
+				set_colors(COLOR_ALT_FG, COLOR_RED);
+				printf("▆");
+				break;
+			case 5:
+				set_colors(COLOR_KEYWORD, COLOR_RED);
+				printf("▆");
+				break;
+			default:
+				set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
+				printf(" ");
+				break;
+		}
 	}
 
 	draw_line_number(x);
@@ -2682,7 +2706,7 @@ void redraw_line(int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
+	render_line(env->lines[x], env->width - gutter_width() - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
 
 }
 
@@ -2690,7 +2714,7 @@ void redraw_line(int x) {
  * Draw a ~ line where there is no buffer text.
  */
 void draw_excess_line(int j) {
-	place_cursor(1+env->left,2 + j);
+	place_cursor(1+env->left,1 + global_config.tabs_visible + j);
 	paint_line(COLOR_ALT_BG);
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	printf("~");
@@ -2708,11 +2732,13 @@ void draw_excess_line(int j) {
  * Redraw the entire text area
  */
 void redraw_text(void) {
+	if (!env) return;
+
 	/* Hide cursor while rendering */
 	hide_cursor();
 
 	/* Figure out the available size of the text region */
-	int l = global_config.term_height - global_config.bottom_size - 1;
+	int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 	int j = 0;
 
 	/* Draw each line */
@@ -2779,6 +2805,8 @@ void redraw_alt_buffer(buffer_t * buf) {
  * The right side of the tatus bar shows the line number and column.
  */
 void redraw_statusbar(void) {
+	if (global_config.hide_statusbar) return;
+	if (!env) return;
 	/* Hide cursor while rendering */
 	hide_cursor();
 
@@ -2873,6 +2901,8 @@ void redraw_nav_buffer() {
  * or shows the INSERT (or VISUAL in the future) mode name.
  */
 void redraw_commandline(void) {
+	if (!env) return;
+
 	/* Hide cursor while rendering */
 	hide_cursor();
 
@@ -2971,6 +3001,7 @@ void render_commandline_message(char * message, ...) {
 BIM_ACTION(redraw_all, 0,
 	"Repaint the screen."
 )(void) {
+	if (!env) return;
 	redraw_tabbar();
 	redraw_text();
 	if (left_buffer) {
@@ -3053,6 +3084,7 @@ void set_modified(void) {
  * Draw a message on the status line
  */
 void render_status_message(char * message, ...) {
+	if (!env) return; /* Don't print when there's no active environment; this usually means a bimrc command tried to print something */
 	/* varargs setup */
 	va_list args;
 	va_start(args, message);
@@ -3091,17 +3123,22 @@ void render_error(char * message, ...) {
 	vsnprintf(buf, 1024, message, args);
 	va_end(args);
 
-	/* Hide cursor while rendering */
-	hide_cursor();
+	if (env) {
+		/* Hide cursor while rendering */
+		hide_cursor();
 
-	/* Move cursor to the command line */
-	place_cursor(1, global_config.term_height);
+		/* Move cursor to the command line */
+		place_cursor(1, global_config.term_height);
 
-	/* Set appropriate error message colors */
-	set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
+		/* Set appropriate error message colors */
+		set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
 
-	/* Draw the message */
-	printf("%s", buf);
+		/* Draw the message */
+		printf("%s", buf);
+	} else {
+		printf("bim: error during startup: %s\n", buf);
+	}
+
 }
 
 char * paren_pairs = "()[]{}<>";
@@ -3187,7 +3224,7 @@ void place_cursor_actual(void) {
 	if (env->col_no  < 1) env->col_no  = 1;
 
 	/* Account for the left hand gutter */
-	int num_size = num_width() + 3;
+	int num_size = num_width() + gutter_width();
 	int x = num_size + 1 - env->coffset;
 
 	/* Determine where the cursor is physically */
@@ -3201,7 +3238,7 @@ void place_cursor_actual(void) {
 
 	int needs_redraw = 0;
 
-	while (y < 2 + global_config.cursor_padding && env->offset > 0) {
+	while (y < 2 + global_config.tabs_visible + global_config.cursor_padding && env->offset > 0) {
 		y++;
 		env->offset--;
 		needs_redraw = 1;
@@ -3241,7 +3278,7 @@ void place_cursor_actual(void) {
 	recalculate_current_line();
 
 	/* Move the actual terminal cursor */
-	place_cursor(x+env->left,y);
+	place_cursor(x+env->left,y - !global_config.tabs_visible);
 
 	/* Show the cursor */
 	show_cursor();
@@ -4099,7 +4136,7 @@ BIM_ACTION(cursor_down, 0,
 		}
 
 		/* If we've scrolled past the bottom of the screen, scroll the screen */
-		if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
+		if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - global_config.tabs_visible - global_config.cursor_padding) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
@@ -4107,7 +4144,7 @@ BIM_ACTION(cursor_down, 0,
 				shift_up(1);
 
 				/* A new line appears on screen at the bottom, draw it */
-				int l = global_config.term_height - global_config.bottom_size - 1;
+				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 				if (env->offset + l < env->line_count + 1) {
 					redraw_line(env->offset + l-1);
 				} else {
@@ -5070,7 +5107,20 @@ BIM_COMMAND(tabn,"tabn","Next tab") {
 	return 0;
 }
 
+BIM_COMMAND(global_git,"global.git","Show or change the default status of git integration") {
+	if (argc < 2) {
+		render_status_message("global.git=%d", global_config.check_git);
+	} else {
+		global_config.check_git = !!atoi(argv[1]);
+	}
+	return 0;
+}
+
 BIM_COMMAND(git,"git","Show or change status of git integration") {
+	if (!env) {
+		render_error("requires environment (did you mean global.git?)");
+		return 1;
+	}
 	if (argc < 2) {
 		render_status_message("git=%d", env->checkgitstatusonwrite);
 	} else {
@@ -5379,11 +5429,52 @@ BIM_COMMAND(crnl,"crnl","Show or set the line ending mode") {
 	return 0;
 }
 
-BIM_COMMAND(numbers,"numbers","Show or set the display of line numbers") {
+BIM_COMMAND(global_numbers,"global.numbers","Set whether numbers are displayed by default") {
 	if (argc < 2) {
-		render_status_message("numbers=%d", global_config.numbers);
+		render_status_message("global.numbers=%d", global_config.numbers);
 	} else {
 		global_config.numbers = !!atoi(argv[1]);
+		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(global_statusbar,"global.statusbar","Show or set whether to display the statusbar") {
+	if (argc < 2) {
+		render_status_message("global.statusbar=%d",!global_config.hide_statusbar);
+	} else {
+		global_config.hide_statusbar = !atoi(argv[1]);
+		global_config.bottom_size = global_config.hide_statusbar ? 1 : 2;
+		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(smartcomplete,"smartcomplete","Enable autocompletion while typing") {
+	if (argc < 2) {
+		render_status_message("smartcomplete=%d",global_config.smart_complete);
+	} else {
+		global_config.smart_complete = !!atoi(argv[1]);
+	}
+	return 0;
+}
+
+BIM_COMMAND(global_autohide_tabs,"global.autohidetabs","Whether to show the tab bar when there is only one tab") {
+	if (argc < 2) {
+		render_status_message("global.autohidetabs=%d", global_config.autohide_tabs);
+	} else {
+		global_config.autohide_tabs = !!atoi(argv[1]);
+		global_config.tabs_visible = (!global_config.autohide_tabs) || (buffers_len > 1);
+		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(numbers,"numbers","Show or set the display of line numbers") {
+	if (argc < 2) {
+		render_status_message("numbers=%d", env->numbers);
+	} else {
+		env->numbers = !!atoi(argv[1]);
 		redraw_all();
 	}
 	return 0;
@@ -6507,7 +6598,7 @@ BIM_ACTION(handle_mouse, 0,
 			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
 				shift_up(shifted);
-				int l = global_config.term_height - global_config.bottom_size - 1;
+				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 				for (int i = 0; i < shifted; ++i) {
 					if (env->offset + l - i < env->line_count + 1) {
 						redraw_line(env->offset + l-1-i);
@@ -6534,7 +6625,7 @@ BIM_ACTION(handle_mouse, 0,
 		if (x < 0) return;
 		if (y < 0) return;
 
-		if (y == 1) {
+		if (y == 1 && global_config.tabs_visible) {
 			/* Pick from tabs */
 			int _x = 0;
 			if (env->mode != MODE_NORMAL && env->mode != MODE_INSERT) return; /* Don't let the tab be switched in other modes for now */
@@ -6569,7 +6660,7 @@ BIM_ACTION(handle_mouse, 0,
 		}
 
 		/* Figure out y coordinate */
-		int line_no = y + env->offset - 1;
+		int line_no = y + env->offset - global_config.tabs_visible;
 		int col_no = -1;
 
 		if (line_no > env->line_count) {
@@ -6581,7 +6672,7 @@ BIM_ACTION(handle_mouse, 0,
 		}
 
 		/* Account for the left hand gutter */
-		int num_size = num_width() + 3;
+		int num_size = num_width() + gutter_width();
 		int _x = num_size - (line_no == env->line_no ? env->coffset : 0);
 
 		/* Determine where the cursor is physically */
@@ -7954,11 +8045,11 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 	}
 
 	/* Figure out how much space we have to display the window */
-	int cursor_y = env->line_no - env->offset + 1;
-	int max_y = global_config.term_height - 2 - cursor_y;
+	int cursor_y = env->line_no - env->offset + global_config.tabs_visible;
+	int max_y = global_config.term_height - global_config.bottom_size - cursor_y;
 
 	/* Find a good place to put the box horizontally */
-	int num_size = num_width() + 3;
+	int num_size = num_width() + gutter_width();
 	int x = num_size + 1 - env->coffset;
 
 	/* Determine where the cursor is physically */
@@ -7969,10 +8060,10 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 
 	int box_width = max_width;
 	int box_x = x;
-	int box_y = cursor_y+1;
-	if (max_width > env->width - num_width()) {
-		box_width = env->width - num_width();
-		box_x = 1;
+	int box_y = cursor_y + 1;
+	if (max_width > env->width - num_width() - gutter_width()) {
+		box_width = env->width - num_width() - gutter_width();
+		box_x = num_width() + gutter_width() + 1;
 	} else if (env->width - x < max_width) {
 		box_width = max_width;
 		box_x = env->width - max_width;
@@ -7982,7 +8073,7 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 
 	for (int x = index; x < max_count+index; ++x) {
 		int i = x % matches_count;
-		place_cursor(box_x, box_y+x-index);
+		place_cursor(box_x + env->left, box_y+x-index);
 		set_colors(COLOR_KEYWORD, COLOR_STATUS_BG);
 		/* TODO wide characters */
 		int match_width = strlen(matches[i].string);
@@ -7996,11 +8087,11 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 		}
 	}
 	if (max_count == 0) {
-		place_cursor(box_x, box_y);
+		place_cursor(box_x + env->left, box_y);
 		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 		printf(" (no matches) ");
 	} else if (max_count != matches_count) {
-		place_cursor(box_x, box_y+max_count);
+		place_cursor(box_x + env->left, box_y+max_count);
 		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 		printf(" (%d more) ", matches_count-max_count);
 	}
@@ -8009,7 +8100,7 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 /**
  * Autocomplete words (function/variable names, etc.) in input mode.
  */
-int omni_complete(void) {
+int omni_complete(int quit_quietly_on_none) {
 	int c;
 
 	/* Pull the word from before the cursor */
@@ -8020,6 +8111,8 @@ int omni_complete(void) {
 		c_before++;
 		i--;
 	}
+
+	if (!c_before && quit_quietly_on_none) return 0;
 
 	/* Populate with characters */
 	uint32_t * tmp = malloc(sizeof(uint32_t) * (c_before+1));
@@ -8044,6 +8137,7 @@ int omni_complete(void) {
 	if (read_tags(tmp, &matches, &matches_count, 0)) goto _completion_done;
 
 	/* Draw box with matches at cursor-width(tmp) */
+	if (quit_quietly_on_none && matches_count == 0) return 0;
 	draw_completion_matches(tmp, matches, matches_count, 0);
 
 	int retval = 0;
@@ -8407,7 +8501,15 @@ BIM_ACTION(enter_replace, ACTION_IS_RW,
 BIM_ACTION(toggle_numbers, 0,
 	"Toggle the display of line numbers."
 )(void) {
-	global_config.numbers = !global_config.numbers;
+	env->numbers = !env->numbers;
+	redraw_all();
+	place_cursor_actual();
+}
+
+BIM_ACTION(toggle_gutter, 0,
+	"Toggle the display of the revision status gutter."
+)(void) {
+	env->gutter = !env->gutter;
 	redraw_all();
 	place_cursor_actual();
 }
@@ -8538,7 +8640,7 @@ BIM_ACTION(perform_omni_completion, ACTION_IS_RW,
 	"(temporary) Perform smart symbol competion from ctags."
 )(void) {
 	/* This should probably be a submode */
-	while (omni_complete() == 1);
+	while (omni_complete(0) == 1);
 }
 
 BIM_ACTION(smart_tab, ACTION_IS_RW,
@@ -8792,6 +8894,7 @@ struct action_map NAVIGATION_MAP[] = {
 struct action_map ESCAPE_MAP[] = {
 	{KEY_F1,        toggle_numbers, 0, 0},
 	{KEY_F2,        toggle_indent, 0, 0},
+	{KEY_F3,        toggle_gutter, 0, 0},
 	{KEY_MOUSE,     handle_mouse, 0, 0},
 
 	{KEY_UP,        cursor_up, opt_rep, 0},
@@ -9036,6 +9139,10 @@ void normal_mode(void) {
 				/* Do nothing */
 			} else if (key < KEY_ESCAPE) {
 				insert_char(key);
+				if (global_config.smart_complete) {
+					redraw_line(env->line_no-1);
+					while (omni_complete(1) == 1);
+				}
 				refresh |= 1;
 			}
 		} else if (env->mode == MODE_REPLACE) {
@@ -9215,6 +9322,40 @@ static void show_usage(char * argv[]) {
 #undef _s
 }
 
+BIM_COMMAND(runscript,"runscript","Run a script file") {
+	if (argc < 2) {
+		render_error("Expected a script to run");
+		return 1;
+	}
+
+	/* Run commands */
+	FILE * f = fopen(argv[1],"r");
+	if (!f) {
+		render_error("Failed to open script");
+		return 1;
+	}
+
+	int retval = 0;
+
+	char linebuf[4096];
+
+	while (!feof(f)) {
+		memset(linebuf, 0, 4096);
+		fgets(linebuf, 4095, f);
+		/* Remove linefeed */
+		char * s = strstr(linebuf, "\n");
+		if (s) *s = '\0';
+		int result = process_command(linebuf);
+		if (result != 0) {
+			retval = result;
+			break;
+		}
+	}
+
+	fclose(f);
+	return retval;
+}
+
 /**
  * Load bimrc configuration file.
  *
@@ -9247,101 +9388,12 @@ void load_bimrc(void) {
 		tmp = strdup(path);
 	}
 
-	/* Try to open the file */
-	FILE * bimrc = fopen(tmp, "r");
-	free(tmp);
-
-	if (!bimrc) {
-		/* No bimrc, or bad permissions */
-		return;
+	char * args[] = {"runscript", tmp, NULL};
+	if (bim_command_runscript("runscript", 2, args)) {
+		/* Wait */
+		render_error("Errors were encountered when loading bimrc. Press ENTER to continue.");
+		pause_for_key();
 	}
-
-	/* Parse through lines */
-	char line[1024];
-	while (!feof(bimrc)) {
-		char * l = fgets(line, 1023, bimrc);
-
-		/* Ignore bad lines */
-		if (!l) break;
-		if (!*l) continue;
-		if (*l == '\n') continue;
-
-		/* Ignore comment lines */
-		if (*l == '#') continue;
-
-		/* Remove linefeed at the end */
-		char *nl = strstr(l,"\n");
-		if (nl) *nl = '\0';
-
-		/* Extract value from keypair, if available
-		 * (I foresee options without values in the future) */
-		char *value= strstr(l,"=");
-		if (value) {
-			*value = '\0';
-			value++;
-		}
-
-		/* theme=... */
-		if (!strcmp(l,"theme") && value) {
-			/* Examine available themes for a match. */
-			for (struct theme_def * d = themes; themes && d->name; ++d) {
-				if (!strcmp(value, d->name)) {
-					d->load();
-					break;
-				}
-			}
-		}
-
-		/* enable history (experimental) */
-		if (!strcmp(l,"history")) {
-			global_config.history_enabled = (value ? atoi(value) : 1);
-		}
-
-		/* padding= */
-		if (!strcmp(l,"padding") && value) {
-			global_config.cursor_padding = atoi(value);
-		}
-
-		if (!strcmp(l,"hlparen") && value) {
-			global_config.highlight_parens = atoi(value);
-		}
-
-		/* Disable highlighting of current line */
-		if (!strcmp(l,"hlcurrent") && value) {
-			global_config.highlight_current_line = atoi(value);
-		}
-
-		/* Relative line numbers */
-		if (!strcmp(l,"relativenumber") && value) {
-			global_config.relative_lines = atoi(value);
-		}
-
-		if (!strcmp(l,"splitpercent") && value) {
-			global_config.split_percent = atoi(value);
-		}
-
-		if (!strcmp(l,"shiftscrolling")) {
-			global_config.shift_scrolling = (value ? atoi(value) : 1);
-		}
-
-		if (!strcmp(l,"scrollamount") && value) {
-			global_config.scroll_amount = atoi(value);
-		}
-
-		if (!strcmp(l,"git") && value) {
-			global_config.check_git = !!atoi(value);
-		}
-
-		if (!strcmp(l,"colorgutter") && value) {
-			global_config.color_gutter = !!atoi(value);
-		}
-
-		if (!strcmp(l,"numbers") && value) {
-			global_config.numbers = !!atoi(value);
-		}
-	}
-
-	fclose(bimrc);
 }
 
 /**
@@ -9546,40 +9598,6 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 		return 1;
 	}
 	return 0;
-}
-
-BIM_COMMAND(runscript,"runscript","Run a script file") {
-	if (argc < 2) {
-		render_error("Expected a script to run");
-		return 1;
-	}
-
-	/* Run commands */
-	FILE * f = fopen(argv[1],"r");
-	if (!f) {
-		render_error("Failed to open script");
-		return 1;
-	}
-
-	int retval = 0;
-
-	char linebuf[4096];
-
-	while (!feof(f)) {
-		memset(linebuf, 0, 4096);
-		fgets(linebuf, 4095, f);
-		/* Remove linefeed */
-		char * s = strstr(linebuf, "\n");
-		if (s) *s = '\0';
-		int result = process_command(linebuf);
-		if (result != 0) {
-			retval = result;
-			break;
-		}
-	}
-
-	fclose(f);
-	return retval;
 }
 
 BIM_COMMAND(checkprop,"checkprop","Check a property value; returns the inverse of the property") {
@@ -10293,7 +10311,7 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_bimcmd_ext[] = {".bimscript",NULL}; /* no files */
+char * syn_bimcmd_ext[] = {".bimscript",".bimrc",NULL}; /* no files */
 
 BIM_SYNTAX(bimcmd, 1)
 int syn_biminfo_calculate(struct syntax_state * state) {
@@ -10315,37 +10333,6 @@ int syn_biminfo_calculate(struct syntax_state * state) {
 char * syn_biminfo_ext[] = {".biminfo",NULL};
 
 BIM_SYNTAX(biminfo, 0)
-char * syn_bimrc_keywords[] = {
-	"history","padding","hlparen","hlcurrent","splitpercent","numbers",
-	"shiftscrolling","scrollamount","git","colorgutter","relativenumber",
-	NULL
-};
-
-int syn_bimrc_calculate(struct syntax_state * state) {
-	/* No states */
-	if (state->i == 0) {
-		if (charat() == '#') {
-			while (charat() != -1) {
-				if (common_comment_buzzwords(state)) continue;
-				else paint(1, FLAG_COMMENT);
-			}
-		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, c_keyword_qualifier)) {
-			if (charat() == '=') {
-				skip();
-				for (struct theme_def * s = themes; themes && s->name; ++s) {
-					if (match_and_paint(state, s->name, FLAG_TYPE, c_keyword_qualifier)) break;
-				}
-			}
-		} else if (find_keywords(state, syn_bimrc_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-			return -1;
-		}
-	}
-	return -1;
-}
-
-char * syn_bimrc_ext[] = {".bimrc",NULL};
-
-BIM_SYNTAX(bimrc, 0)
 /**
  * Syntax definition for C
  */
