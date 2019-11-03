@@ -494,7 +494,15 @@ void tab_complete_func(rline_context_t * c) {
 			if (last_slash == tmp) {
 				dirp = opendir("/");
 			} else {
-				dirp = opendir(tmp);
+				char * home;
+				if (*tmp == '~' && (home = getenv("HOME"))) {
+					char * t = malloc(strlen(tmp) + strlen(home) + 4);
+					sprintf(t, "%s%s",home,tmp+1);
+					dirp = opendir(t);
+					free(t);
+				} else {
+					dirp = opendir(tmp);
+				}
 			}
 		} else {
 			dirp = opendir(".");
@@ -512,8 +520,15 @@ void tab_complete_func(rline_context_t * c) {
 					struct stat statbuf;
 					/* stat it */
 					if (last_slash) {
-						char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
-						sprintf(x,"%s/%s",tmp,ent->d_name);
+						char * x;
+						char * home;
+						if (tmp[0] == '~' && (home = getenv("HOME"))) {
+							x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1);
+							snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1, "%s%s/%s",home,tmp+1,ent->d_name);
+						} else {
+							x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
+							snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
+						}
 						lstat(x, &statbuf);
 						free(x);
 					} else {
