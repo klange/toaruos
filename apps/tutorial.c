@@ -152,6 +152,9 @@ static void load_page(int page) {
 			body_text[i++] = "";
 			body_text[i++] = "ToaruOS is free software, released under the terms of the";
 			body_text[i++] = "NCSA/University of Illinois license.";
+			body_text[i++] = "";
+			body_text[i++] = "You can help support ToaruOS by donating:";
+			body_text[i++] = "%https://github.com/sponsors/klange";
 			body_text[i++] = NULL;
 			break;
 		case 1:
@@ -162,6 +165,9 @@ static void load_page(int page) {
 			body_text[i++] = "may be missing, incomplete, or unstable. Contributions in the form";
 			body_text[i++] = "of bug-fixes and new software are welcome. You can join our community";
 			body_text[i++] = "through IRC by joining the #toaruos channel on Freenode.";
+			body_text[i++] = "";
+			body_text[i++] = "You can help support ToaruOS by donating:";
+			body_text[i++] = "%https://github.com/sponsors/klange";
 			body_text[i++] = NULL;
 			break;
 		case 2:
