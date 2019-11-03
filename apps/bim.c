@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Sat Nov  2 11:35:22 2019
- * It is based on git commit 30fc0a610f2ac71b6350024a1e9a0fe24a098585
+ * It was built Sun Nov  3 15:37:22 2019
+ * It is based on git commit 7c6b36d576fea1d7ceb7ac4165eac7ee03290d7f
  */
-#define GIT_TAG "30fc0a6-baked"
+#define GIT_TAG "7c6b36d-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -55,7 +55,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.2.0" TAG
+#define BIM_VERSION   "2.3.0" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -279,6 +279,7 @@ typedef struct _env {
 	unsigned int gutter:1;
 
 	int highlighting_paren;
+	int maxcolumn;
 
 	short  mode;
 	short  tabstop;
@@ -467,6 +468,18 @@ struct ColorName {
 };
 
 extern struct ColorName color_names[];
+
+struct bim_function {
+	char * command;
+	struct bim_function * next;
+};
+
+extern struct bim_function ** user_functions;
+extern int run_function(char * name);
+extern int has_function(char * name);
+extern void find_matching_paren(int * out_line, int * out_col, int in_col);
+extern void render_error(char * message, ...);
+extern void pause_for_key(void);
 
 /* End of bim-core.h */
 
@@ -673,6 +686,7 @@ FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_
 FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(themes, add_colorscheme, struct theme_def, ((struct theme_def){NULL,NULL}))
+FLEXIBLE_ARRAY(user_functions, add_user_function, struct bim_function *, NULL)
 
 /**
  * Special implementation of getch with a timeout
@@ -1792,7 +1806,7 @@ int line_ends_with_brace(line_t * line) {
 		}
 	}
 	if (i < 0) return 0;
-	return (line->text[i].codepoint == '{' || line->text[i].codepoint == ':');
+	return (line->text[i].codepoint == '{' || line->text[i].codepoint == ':') ? i+1 : 0;
 }
 
 int line_is_comment(line_t * line) {
@@ -1807,6 +1821,33 @@ int line_is_comment(line_t * line) {
 	}
 
 	return 0;
+}
+
+int find_brace_line_start(int line, int col) {
+	int ncol = col - 1;
+	while (ncol > 0) {
+		if (env->lines[line-1]->text[ncol-1].codepoint == ')') {
+			int t_line_no = env->line_no;
+			int t_col_no = env->col_no;
+			env->line_no = line;
+			env->col_no = ncol;
+			int paren_match_line = -1, paren_match_col = -1;
+			find_matching_paren(&paren_match_line, &paren_match_col, 1);
+
+			if (paren_match_line != -1) {
+				line = paren_match_line;
+			}
+
+			env->line_no = t_line_no;
+			env->col_no = t_col_no;
+			break;
+		} else if (env->lines[line-1]->text[ncol-1].codepoint == ' ') {
+			ncol--;
+		} else {
+			break;
+		}
+	}
+	return line;
 }
 
 /**
@@ -1848,15 +1889,23 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 				}
 			}
 		} else {
-			for (int i = 0; i < env->lines[old_line]->actual; ++i) {
-				if (old_line < new_line && i == env->lines[old_line]->actual - 3 &&
-					env->lines[old_line]->text[i].codepoint == ' ' &&
-					env->lines[old_line]->text[i+1].codepoint == '*' &&
-					env->lines[old_line]->text[i+2].codepoint == '/') {
+			int line_to_copy_from = old_line;
+			int col;
+			if (old_line < new_line &&
+				!ignore_brace &&
+				(col = line_ends_with_brace(env->lines[old_line])) &&
+				env->lines[old_line]->text[col-1].codepoint == '{') {
+				line_to_copy_from = find_brace_line_start(old_line+1, col)-1;
+			}
+			for (int i = 0; i < env->lines[line_to_copy_from]->actual; ++i) {
+				if (line_to_copy_from < new_line && i == env->lines[line_to_copy_from]->actual - 3 &&
+					env->lines[line_to_copy_from]->text[i].codepoint == ' ' &&
+					env->lines[line_to_copy_from]->text[i+1].codepoint == '*' &&
+					env->lines[line_to_copy_from]->text[i+2].codepoint == '/') {
 					break;
-				} else if (env->lines[old_line]->text[i].codepoint == ' ' ||
-					env->lines[old_line]->text[i].codepoint == '\t') {
-					env->lines[new_line] = line_insert(env->lines[new_line],env->lines[old_line]->text[i],i,new_line);
+				} else if (env->lines[line_to_copy_from]->text[i].codepoint == ' ' ||
+					env->lines[line_to_copy_from]->text[i].codepoint == '\t') {
+					env->lines[new_line] = line_insert(env->lines[new_line],env->lines[line_to_copy_from]->text[i],i,new_line);
 					env->col_no++;
 					changed = 1;
 				} else {
@@ -2568,6 +2617,29 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		set_colors(COLOR_FG, COLOR_BG);
 	}
 
+	if (env->maxcolumn && line_no > -1 /* ensures we don't do this for command line */) {
+
+		/* Fill out the normal background */
+		if (j < offset) j = offset;
+		for (; j < width + offset && j < env->maxcolumn; ++j) {
+			printf(" ");
+		}
+
+		/* Draw the line */
+		if (j < width + offset && j == env->maxcolumn) {
+			j++;
+			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+			if (global_config.can_unicode) {
+				printf("▏");
+			} else {
+				printf("|");
+			}
+		}
+
+		/* Fill the rest with the alternate background color */
+		set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+	}
+
 	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
 		clear_to_end();
 	} else {
@@ -3142,7 +3214,6 @@ void render_error(char * message, ...) {
 }
 
 char * paren_pairs = "()[]{}<>";
-void find_matching_paren(int * out_line, int * out_col, int in_col);
 
 int is_paren(int c) {
 	char * p = paren_pairs;
@@ -3649,6 +3720,19 @@ int line_matches(line_t * line, char * string) {
 	return 1;
 }
 
+void run_onload(buffer_t * env) {
+	if (has_function("onload:*")) {
+		run_function("onload:*");
+	}
+	if (env->syntax) {
+		char tmp[512];
+		sprintf(tmp, "onload:%s", env->syntax->name);
+		if (has_function(tmp)) {
+			run_function(tmp);
+		}
+	}
+}
+
 /**
  * Create a new buffer from a file.
  */
@@ -3685,12 +3769,24 @@ void open_file(char * file) {
 			init_line = atoi(l);
 		}
 
+		char * _file = file;
+
+		if (file[0] == '~') {
+			char * home = getenv("HOME");
+			if (home) {
+				_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+				sprintf(_file, "%s%s", home, file+1);
+			}
+		}
+
 		struct stat statbuf;
-		if (!stat(file, &statbuf) && S_ISDIR(statbuf.st_mode)) {
-			read_directory_into_buffer(file);
+		if (!stat(_file, &statbuf) && S_ISDIR(statbuf.st_mode)) {
+			read_directory_into_buffer(_file);
+			if (file != _file) free(_file);
 			return;
 		}
-		f = fopen(file, "r");
+		f = fopen(_file, "r");
+		if (file != _file) free(_file);
 		env->file_name = strdup(file);
 	}
 
@@ -3705,6 +3801,7 @@ void open_file(char * file) {
 		if (env->syntax && env->syntax->prefers_spaces) {
 			env->tabs = 0;
 		}
+		run_onload(env);
 		return;
 	}
 
@@ -3787,6 +3884,8 @@ void open_file(char * file) {
 	}
 
 	fclose(f);
+
+	run_onload(env);
 }
 
 /**
@@ -5155,6 +5254,17 @@ BIM_COMMAND(noindent,"noindent","Disable smrat indentation") {
 	return 0;
 }
 
+/* TODO: global.maxcolumn */
+BIM_COMMAND(maxcolumn,"maxcolumn","Highlight past the given column to indicate maximum desired line length") {
+	if (argc < 2) {
+		render_error("Expected argument");
+		return 1;
+	}
+	env->maxcolumn = atoi(argv[1]);
+	redraw_text();
+	return 0;
+}
+
 BIM_COMMAND(cursorcolumn,"cursorcolumn","Show the visual column offset of the cursor.") {
 	render_status_message("cursorcolumn=%d", env->preferred_column);
 	return 0;
@@ -5682,6 +5792,13 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
+	if (arg == 1 && (!strcmp(args[0], "call") || !strcmp(args[0], "trycall") || !strcmp(args[0], "showfunction"))) {
+		for (int i = 0; i < flex_user_functions_count; ++i) {
+			add_candidate(user_functions[i]->command);
+		}
+		goto _accept_candidate;
+	}
+
 	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript") || args[0][0] == '!')) {
 		/* Complete file paths */
 
@@ -5695,7 +5812,15 @@ void command_tab_complete(char * buffer) {
 				/* Started with slash, and it was the only slash */
 				dirp = opendir("/");
 			} else {
-				dirp = opendir(tmp);
+				char * home;
+				if (*tmp == '~' && (home = getenv("HOME"))) {
+					char * t = malloc(strlen(tmp) + strlen(home) + 4);
+					sprintf(t, "%s%s",home,tmp+1);
+					dirp = opendir(t);
+					free(t);
+				} else {
+					dirp = opendir(tmp);
+				}
 			}
 		} else {
 			/* No directory match, completing from current directory */
@@ -5717,8 +5842,15 @@ void command_tab_complete(char * buffer) {
 				struct stat statbuf;
 				/* Figure out if this file is a directory */
 				if (last_slash) {
-					char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
-					snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
+					char * x;
+					char * home;
+					if (tmp[0] == '~' && (home = getenv("HOME"))) {
+						x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1);
+						snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1, "%s%s/%s",home,tmp+1,ent->d_name);
+					} else {
+						x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
+						snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
+					}
 					stat(x, &statbuf);
 					free(x);
 				} else {
@@ -8692,6 +8824,7 @@ BIM_ACTION(smart_brace_end, ARG_IS_INPUT | ACTION_IS_RW,
 			env->col_no--;
 			find_matching_paren(&line,&col, 1);
 			if (line != -1) {
+				line = find_brace_line_start(line, col);
 				while (env->lines[env->line_no-1]->actual) {
 					line_delete(env->lines[env->line_no-1], env->lines[env->line_no-1]->actual, env->line_no-1);
 				}
@@ -9317,9 +9450,132 @@ static void show_usage(char * argv[]) {
 			" --help          " _s "show this help text" _e
 			" --version       " _s "show version information and available plugins" _e
 			" --dump-mappings " _s "dump markdown description of key mappings" _e
+			" --dump-commands " _s "dump markdown description of all commands" _e
 			"\n", argv[0], argv[0]);
 #undef _e
 #undef _s
+}
+
+void free_function(struct bim_function * func) {
+	do {
+		struct bim_function * next = func->next;
+		free(func->command);
+		free(func);
+		func = next;
+	} while (func);
+}
+
+int run_function(char * name) {
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
+			/* Execute function */
+			struct bim_function * this = user_functions[i]->next;
+			while (this) {
+				char * tmp = strdup(this->command);
+				int result = process_command(tmp);
+				free(tmp);
+				if (result != 0) {
+					return result;
+				}
+				this = this->next;
+			}
+			return 0;
+		}
+	}
+	return -1;
+}
+
+int has_function(char * name) {
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+BIM_COMMAND(call,"call","Call a function") {
+	if (argc < 2) {
+		render_error("Expected function name");
+		return 1;
+	}
+	int result = run_function(argv[1]);
+	if (result == -1) {
+		render_error("Undefined function: %s", argv[1]);
+		return 1;
+	}
+	return result;
+}
+
+BIM_COMMAND(try_call,"trycall","Call a function but return quietly if it fails") {
+	if (argc < 2) return 0;
+	run_function(argv[1]);
+	return 0;
+}
+
+BIM_COMMAND(list_functions,"listfunctions","List functions") {
+	render_commandline_message("");
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		render_commandline_message("%s\n", user_functions[i]->command);
+	}
+	pause_for_key();
+	return 0;
+}
+
+BIM_COMMAND(show_function,"showfunction","Show the commands in a function") {
+	if (argc < 2) return 1;
+	struct bim_function * this = NULL;
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		if (user_functions[i] && !strcmp(user_functions[i]->command, argv[1])) {
+			this = user_functions[i];
+			break;
+		}
+	}
+	if (!this) {
+		render_error("Not a function: %s", argv[1]);
+		return 1;
+	}
+
+	/* We really should rewrite this so syntax highlighting takes a highlighter */
+	struct syntax_definition * old_syntax = env->syntax;
+	env->syntax = find_syntax_calculator("bimcmd");
+
+	int i = 0;
+
+	while (this) {
+		/* Turn command into line */
+		line_t * tmp = calloc(sizeof(line_t) + sizeof(char_t) * strlen(this->command),1);
+		tmp->available = strlen(this->command);
+
+		unsigned char * t = (unsigned char *)this->command;
+		uint32_t state = 0;
+		uint32_t c = 0;
+		int col = 1;
+		while (*t) {
+			if (!decode(&state, &c, *t)) {
+				char_t _c = {codepoint_width(c), 0, c};
+				tmp = line_insert(tmp, _c, col - 1, -1);
+				col++;
+			}
+			t++;
+		}
+
+		render_commandline_message("");
+		render_line(tmp, global_config.term_width - 1, 0, -1);
+		printf("\n");
+		this = this->next;
+		i++;
+		if (this && i == global_config.term_height - 3) {
+			printf("(function continues)");
+			while (bim_getkey(200) == KEY_TIMEOUT);
+		}
+	}
+
+	/* Restore previous syntax */
+	env->syntax = old_syntax;
+
+	pause_for_key();
+	return 0;
 }
 
 BIM_COMMAND(runscript,"runscript","Run a script file") {
@@ -9329,15 +9585,28 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 	}
 
 	/* Run commands */
-	FILE * f = fopen(argv[1],"r");
+	FILE * f;
+	char * home;
+	if (argv[1][0] == '~' && (home = getenv("HOME"))) {
+		char * tmp = malloc(strlen(argv[1]) + strlen(home) + 4);
+		sprintf(tmp,"%s%s", home, argv[1]+1);
+		f = fopen(tmp,"r");
+		free(tmp);
+	} else {
+		f = fopen(argv[1],"r");
+	}
 	if (!f) {
 		render_error("Failed to open script");
 		return 1;
 	}
 
 	int retval = 0;
-
 	char linebuf[4096];
+	int line = 1;
+	int was_collecting_function = 0;
+	char * function_name = NULL;
+	struct bim_function * new_function = NULL;
+	struct bim_function * last_function = NULL;
 
 	while (!feof(f)) {
 		memset(linebuf, 0, 4096);
@@ -9345,13 +9614,79 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 		/* Remove linefeed */
 		char * s = strstr(linebuf, "\n");
 		if (s) *s = '\0';
-		int result = process_command(linebuf);
-		if (result != 0) {
-			retval = result;
-			break;
+
+		/* See if this is a special syntax element */
+		if (!strncmp(linebuf, "function ", 9)) {
+			/* Confirm we have a function name */
+			if (was_collecting_function) {
+				free_function(new_function);
+				render_error("Syntax error on line %d: attempt nest function while already defining function '%s'", line, function_name);
+				retval = 1;
+				break;
+			}
+			if (!strlen(linebuf+9)) {
+				render_error("Syntax error on line %d: function needs a name", line);
+				retval = 1;
+				break;
+			}
+			function_name = strdup(linebuf+9);
+			was_collecting_function = 1;
+			new_function = malloc(sizeof(struct bim_function));
+			new_function->command = strdup(function_name);
+			new_function->next = NULL;
+			last_function = new_function;
+			/* Set up function */
+		} else if (!strcmp(linebuf,"end")) {
+			if (!was_collecting_function) {
+				render_error("Syntax error on line %d: unexpected 'end'", line);
+				retval = 1;
+				break;
+			}
+			was_collecting_function = 0;
+			/* See if a function with this name is already defined */
+			int this = -1;
+			for (int i = 0; i < flex_user_functions_count; ++i) {
+				if (user_functions[i] && !strcmp(user_functions[i]->command, function_name)) {
+					this = i;
+					break;
+				}
+			}
+			if (this > -1) {
+				free_function(user_functions[this]);
+				user_functions[this] = new_function;
+			} else {
+				add_user_function(new_function);
+			}
+			free(function_name);
+			new_function = NULL;
+			last_function = NULL;
+			function_name = NULL;
+		} else if (was_collecting_function) {
+			/* Collect function */
+			last_function->next = malloc(sizeof(struct bim_function));
+			last_function = last_function->next;
+			char * s = linebuf;
+			while (*s == ' ') s++;
+			last_function->command = strdup(s);
+			last_function->next = NULL;
+		} else {
+			int result = process_command(linebuf);
+			if (result != 0) {
+				retval = result;
+				break;
+			}
 		}
+
+		line++;
 	}
 
+	if (was_collecting_function) {
+		free_function(new_function);
+		render_error("Syntax error on line %d: unexpected end of file while defining function '%s'", line, function_name);
+		retval = 1;
+	}
+
+	if (function_name) free(function_name);
 	fclose(f);
 	return retval;
 }
@@ -9392,7 +9727,8 @@ void load_bimrc(void) {
 	if (bim_command_runscript("runscript", 2, args)) {
 		/* Wait */
 		render_error("Errors were encountered when loading bimrc. Press ENTER to continue.");
-		pause_for_key();
+		int c;
+		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
 	}
 }
 
@@ -9486,6 +9822,25 @@ void dump_mapping(const char * description, struct action_map * map) {
 			action ? action->name : "(unbound)",
 			action ? action->description : "(unbound)");
 		m++;
+	}
+	printf("\n");
+}
+
+void dump_commands(void) {
+	printf("## Regular Commands\n");
+	printf("\n");
+	printf("| **Command** | **Description** |\n");
+	printf("|-------------|-----------------|\n");
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		printf("| `:%s` | %s |\n", c->name, c->description);
+	}
+	printf("\n");
+	printf("## Prefix Commands\n");
+	printf("\n");
+	printf("| **Command** | **Description** |\n");
+	printf("|-------------|-----------------|\n");
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		printf("| `:%s...` | %s |\n", !strcmp(c->name, "`") ? "`(backtick)`" : c->name, c->description);
 	}
 	printf("\n");
 }
@@ -9748,6 +10103,9 @@ int main(int argc, char * argv[]) {
 					dump_mapping("Command", COMMAND_MAP);
 					dump_mapping("Search", SEARCH_MAP);
 					dump_mapping("Input (Command, Search)", INPUT_BUFFER_MAP);
+					return 0;
+				} else if (!strcmp(optarg,"dump-commands")) {
+					dump_commands();
 					return 0;
 				} else if (strlen(optarg)) {
 					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);
@@ -10263,6 +10621,25 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				}
 			}
 			return -1;
+		} else if (match_and_paint(state, "function", FLAG_PRAGMA, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			while (charat() != -1 && charat() != ' ') paint(1, FLAG_TYPE);
+			while (charat() != -1) paint(1, FLAG_ERROR);
+			return -1;
+		} else if (match_and_paint(state, "end", FLAG_PRAGMA, cmd_qualifier)) {
+			while (charat() != -1) paint(1, FLAG_ERROR);
+			return -1;
+		} else if (match_and_paint(state, "return", FLAG_PRAGMA, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			while (charat() != -1 && charat() != ' ') paint(1, FLAG_NUMERAL);
+			return -1;
+		} else if (match_and_paint(state, "call", FLAG_KEYWORD, cmd_qualifier) ||
+			match_and_paint(state, "trycall", FLAG_KEYWORD, cmd_qualifier) ||
+			match_and_paint(state, "showfunction", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct bim_function ** f = user_functions; user_functions && *f; ++f) {
+				if (match_and_paint(state, (*f)->command, FLAG_TYPE, cmd_qualifier)) break;
+			}
 		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
 			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
 			while (charat() == ' ') skip();
