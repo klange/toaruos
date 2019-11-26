@@ -70,9 +70,13 @@ RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
 ifeq (,${USE_CLANG})
 KCC = $(TARGET_TRIPLET)-gcc
 LGCC = -lgcc
+EXTRALIB = 
 else
 KCC = clang --target=i686-elf -static -Ibase/usr/include -nostdinc -mno-sse
-LGCC = -lgcc
+LGCC = util/compiler-rt.o
+EXTRALIB = util/compiler-rt.o
+util/compiler-rt.o: util/compiler-rt.S
+	${KAS} ${ASFLAGS} $< -o $@
 endif
 KAS = $(TARGET_TRIPLET)-as
 KLD = $(TARGET_TRIPLET)-ld
@@ -98,7 +102,7 @@ KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard ker
 
 # Kernel
 
-fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
+fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o ${EXTRALIB}
 	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o ${LGCC}
 
 ##
@@ -109,7 +113,7 @@ fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 # build the kernel as a flat binary or load it with less-capable
 # multiboot loaders and still get symbols, which we need to
 # load kernel modules and link them properly.
-kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py
+kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py ${EXTRALIB}
 	-rm -f kernel/symbols.o
 	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o .toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} ${LGCC}
 	${KNM} .toaruos-kernel -g | util/generate_symbols.py > kernel/symbols.S
