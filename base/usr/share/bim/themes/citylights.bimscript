@@ -1,0 +1,32 @@
+function theme:citylights
+    checkprop can_24bit
+    setcolor text-fg 2;151;178;198
+    setcolor text-bg 2;29;37;44
+    setcolor alternate-fg 2;45;55;65
+    setcolor alternate-bg 2;33;42;50
+    setcolor number-fg 2;71;89;103
+    setcolor number-bg 2;37;47;56
+    setcolor status-fg 2;151;178;198
+    setcolor status-bg 2;53;67;78
+    setcolor status-alt 2;116;144;166
+    setcolor tabbar-bg 2;37;47;56
+    setcolor tab-bg 2;29;37;44
+    setcolor keyword 2;94;196;255
+    setcolor string 2;83;154;252
+    setcolor comment 2;107;133;153;3
+    setcolor type 2;139;212;156
+    setcolor pragma 2;0;139;148
+    setcolor numeral 2;207;118;132
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor select-fg 2;29;37;44
+    setcolor select-bg 2;151;178;198
+    setcolor red 2;222;53;53
+    setcolor green 2;55;167;0
+    setcolor bold 2;151;178;198;1
+    setcolor link 2;94;196;255;4
+    setcolor escape 2;133;182;249
+    action redraw_all
+end

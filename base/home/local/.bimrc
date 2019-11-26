@@ -1,4 +1,7 @@
-# Last theme config is the preferred theme
+# Load theme files
+rundir /usr/share/bim/themes
+
+# Fallback order - last successful theme "sticks"
 colorscheme ansi
 colorscheme sunsmoke256
 colorscheme sunsmoke

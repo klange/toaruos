@@ -1,0 +1,39 @@
+# Wombat 256-color theme
+function theme:wombat
+    checkprop can_256color
+    setcolor text-fg 5;230
+    setcolor text-bg 5;235
+    setcolor alternate-fg 5;244
+    setcolor alternate-bg 5;236
+    setcolor number-bg 5;232
+    setcolor number-fg 5;101
+    setcolor status-fg 5;230
+    setcolor status-bg 5;238
+    setcolor status-alt 5;186
+    setcolor tabbar-bg 5;230
+    setcolor tab-bg 5;248
+    setcolor keyword 5;117
+    setcolor string 5;113
+    setcolor comment 5;102
+    setcolor type 5;186
+    setcolor pragma 5;173
+    setcolor numeral 5;173
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor select-fg 5;235
+    setcolor select-bg 5;230
+    setcolor red @1
+    setcolor green @2
+    setcolor bold 5;230;1
+    setcolor link 5;117;4
+    setcolor escape 5;194
+    trycall _sunsmoke_italics
+    action redraw_all
+end
+
+function _sunsmoke_italics
+    checkprop can_italic
+    setcolor comment 5;102;3
+end

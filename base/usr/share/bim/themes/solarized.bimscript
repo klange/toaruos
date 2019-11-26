@@ -1,0 +1,32 @@
+function theme:solarized_dark
+    checkprop can_24bit
+    setcolor text-fg 2;147;161;161
+    setcolor text-bg 2;0;43;54
+    setcolor alternate-fg 2;147;161;161
+    setcolor alternate-bg 2;7;54;66
+    setcolor number-fg 2;131;148;149
+    setcolor number-bg 2;7;54;66
+    setcolor status-fg 2;131;148;150
+    setcolor status-bg 2;7;54;66
+    setcolor status-alt 2;133;153;0
+    setcolor tabbar-bg 2;7;54;66
+    setcolor tab-bg 2;131;148;150
+    setcolor keyword 2;133;153;0
+    setcolor string 2;42;161;152
+    setcolor comment 2;101;123;131
+    setcolor type 2;181;137;0
+    setcolor pragma 2;203;75;22
+    setcolor numeral 2;220;50;47
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor select-fg 2;0;43;54
+    setcolor select-bg 2;147;161;161
+    setcolor red 2;222;53;53
+    setcolor green 2;55;167;0
+    setcolor bold 2;147;161;161;1
+    setcolor link 2;42;161;152;4
+    setcolor escape 2;133;153;0
+    action redraw_all
+end

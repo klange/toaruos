@@ -1,0 +1,51 @@
+function theme:ansi
+    # First set regular colors
+    setcolor text-fg @7
+    setcolor text-bg @0
+    setcolor alternate-fg @5
+    setcolor alternate-bg @9
+    setcolor number-fg @3
+    setcolor number-bg @9
+    setcolor status-fg @7
+    setcolor status-bg @4
+    setcolor status-alt @4
+    setcolor tabbar-bg @4
+    setcolor tab-bg @4
+    setcolor keyword @4
+    setcolor string @2
+    setcolor comment @5
+    setcolor type @3
+    setcolor pragma @1
+    setcolor numeral @1
+    setcolor error-fg @7
+    setcolor error-bg @1
+    setcolor search-fg @0
+    setcolor search-bg @3
+    setcolor select-bg @7
+    setcolor select-fg @0
+    setcolor red @1
+    setcolor green @2
+    setcolor bold @7
+    setcolor link @4
+    setcolor escape @2
+
+    trycall _ansi_brights
+
+    action redraw_all
+end
+
+function _ansi_brights
+    checkprop can_bright
+    setcolor text-fg @17
+    setcolor text-bg @9
+    setcolor alternate-fg @10
+    setcolor status-fg @17
+    setcolor status-alt @14
+    setcolor keyword @14
+    setcolor comment @10
+    setcolor error-fg @17
+    setcolor search-bg @13
+    setcolor select-bg @17
+    setcolor link @14
+    setcolor escape @12
+end

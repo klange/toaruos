@@ -1,0 +1,34 @@
+# A light color scheme
+# Based on selenized by Jan Warchoł
+function theme:light
+    checkprop can_24bit
+
+    setcolor text-fg 2;57;76;82
+    setcolor text-bg 2;250;242;218
+    setcolor alternate-fg 2;144;153;149
+    setcolor alternate-bg 2;236;227;204
+    setcolor number-fg 2;57;76;82
+    setcolor number-bg 2;212;204;181
+    setcolor status-fg 2;82;102;109
+    setcolor status-bg 2;212;204;181
+    setcolor status-alt 2;129;61;19
+    setcolor tab-bg 2;212;204;181
+    setcolor tabbar-bg 2;236;227;204
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor keyword 2;0;114;212;1
+    setcolor string 2;72;145;0
+    setcolor comment 2;144;153;149;3
+    setcolor type 2;193;92;29
+    setcolor pragma 2;210;33;45;1
+    setcolor numeral 2;202;72;152;1
+    setcolor select-fg 2;213;205;182
+    setcolor select-bg 2;144;153;149
+    setcolor red 2;222;53;53
+    setcolor green 2;55;167;0
+    setcolor bold 2;57;76;82;1
+    setcolor link 2;0;114;212;4
+    setcolor escape 2;0;156;143
+end

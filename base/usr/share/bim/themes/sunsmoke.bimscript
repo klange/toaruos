@@ -1,0 +1,68 @@
+# Sunsmoke Color Scheme
+function theme:sunsmoke
+    checkprop can_24bit
+
+    setcolor text-fg 2;230;230;230
+    setcolor text-bg 2;31;31;31
+    setcolor alternate-fg 2;122;122;122
+    setcolor alternate-bg 2;46;43;46
+    setcolor number-fg 2;150;139;57
+    setcolor number-bg 2;0;0;0
+    setcolor status-fg 2;230;230;230
+    setcolor status-bg 2;71;64;58
+    setcolor status-alt 2;122;122;122
+    setcolor tabbar-bg 2;71;64;58
+    setcolor tab-bg 2;71;64;58
+    setcolor keyword 2;51;162;230
+    setcolor string 2;72;176;72
+    setcolor comment 2;158;153;129;3
+    setcolor type 2;230;206;110
+    setcolor pragma 2;194;70;54
+    setcolor numeral 2;230;43;127
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor select-fg 2;0;43;54
+    setcolor select-bg 2;147;161;161
+    setcolor red 2;222;53;53
+    setcolor green 2;55;167;0
+    setcolor bold 2;230;230;230;1
+    setcolor link 2;51;162;230;4
+    setcolor escape 2;113;203;173
+end
+
+function theme:sunsmoke256
+    checkprop can_256color
+    setcolor text-fg 5;188
+    setcolor text-bg 5;234
+    setcolor alternate-fg 5;244
+    setcolor alternate-bg 5;236
+    setcolor number-fg 5;101
+    setcolor number-bg 5;232
+    setcolor status-fg 5;188
+    setcolor status-bg 5;59
+    setcolor status-alt 5;244
+    setcolor tabbar-bg 5;59
+    setcolor tab-bg 5;59
+    setcolor keyword 5;74
+    setcolor string 5;71
+    setcolor comment 5;102
+    setcolor type 5;221
+    setcolor pragma 5;160
+    setcolor numeral 5;161
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor select-fg 5;17
+    setcolor select-bg 5;109
+    setcolor red @1
+    setcolor green @2
+    setcolor bold 5;188;1
+    setcolor link 5;74;4
+    setcolor escape 5;79
+
+    checkprop can_italic
+    setcolor comment 5;102;3
+end
