@@ -1127,9 +1127,15 @@ static int old_x = 0;
 static int old_y = 0;
 
 static void mouse_event(int button, int x, int y) {
-	char buf[7];
-	sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
-	handle_input_s(buf);
+	if (ansi_state->mouse_on & TERMEMU_MOUSE_SGR) {
+		char buf[100];
+		sprintf(buf,"\033[<%d;%d;%d%c", button == 3 ? 0 : button, x+1, y+1, button == 3 ? 'm' : 'M');
+		handle_input_s(buf);
+	} else {
+		char buf[7];
+		sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
+		handle_input_s(buf);
+	}
 }
 
 static void redraw_mouse(void) {
@@ -1142,7 +1148,7 @@ static void redraw_mouse(void) {
 static unsigned int button_state = 0;
 
 void handle_mouse_event(mouse_device_packet_t * packet) {
-	if (ansi_state->mouse_on) {
+	if (ansi_state->mouse_on & TERMEMU_MOUSE_ENABLE) {
 		/* TODO: Handle shift */
 		if (packet->buttons & MOUSE_SCROLL_UP) {
 			mouse_event(32+32, mouse_x, mouse_y);
@@ -1158,7 +1164,7 @@ void handle_mouse_event(mouse_device_packet_t * packet) {
 			if (!(packet->buttons & MIDDLE_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
 			if (!(packet->buttons & RIGHT_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
 			button_state = packet->buttons;
-		} else if (ansi_state->mouse_on == 2) {
+		} else if (ansi_state->mouse_on & TERMEMU_MOUSE_DRAG) {
 			if (old_x != mouse_x || old_y != mouse_y) {
 				if (button_state & LEFT_CLICK) mouse_event(32, mouse_x, mouse_y);
 				if (button_state & MIDDLE_CLICK) mouse_event(33, mouse_x, mouse_y);

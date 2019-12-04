@@ -2022,9 +2022,15 @@ static void resize_finish(int width, int height) {
 
 /* Insert a mouse event sequence into the PTY */
 static void mouse_event(int button, int x, int y) {
-	char buf[7];
-	sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
-	handle_input_s(buf);
+	if (ansi_state->mouse_on & TERMEMU_MOUSE_SGR) {
+		char buf[100];
+		sprintf(buf,"\033[<%d;%d;%d%c", button == 3 ? 0 : button, x+1, y+1, button == 3 ? 'm' : 'M');
+		handle_input_s(buf);
+	} else {
+		char buf[7];
+		sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
+		handle_input_s(buf);
+	}
 }
 
 /* Handle Yutani messages */
@@ -2144,7 +2150,7 @@ static void * handle_incoming(void) {
 					if (new_x >= term_width || new_y >= term_height) break;
 
 					/* Map Cursor Action */
-					if (ansi_state->mouse_on && !(me->modifiers & YUTANI_KEY_MODIFIER_SHIFT)) {
+					if ((ansi_state->mouse_on & TERMEMU_MOUSE_ENABLE) && !(me->modifiers & YUTANI_KEY_MODIFIER_SHIFT)) {
 
 						if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
 							mouse_event(32+32, new_x, new_y);
@@ -2175,7 +2181,7 @@ static void * handle_incoming(void) {
 							last_mouse_x = new_x;
 							last_mouse_y = new_y;
 							button_state = me->buttons;
-						} else if (ansi_state->mouse_on == 2) {
+						} else if (ansi_state->mouse_on & TERMEMU_MOUSE_DRAG) {
 							/* Report motion for pressed buttons */
 							if (last_mouse_x == new_x && last_mouse_y == new_y) break;
 							if (button_state & YUTANI_MOUSE_BUTTON_LEFT) mouse_event(32, new_x, new_y);
