@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Tue Nov 26 10:43:47 2019
- * It is based on git commit e8229a256df999de290bfaa725ec5b0c8c5a32cc
+ * It was built Wed Dec  4 13:11:42 2019
+ * It is based on git commit b45f9f5a71732a07a87f79b9ad33e6667ccce276
  */
-#define GIT_TAG "e8229a2-baked"
+#define GIT_TAG "b45f9f5-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -88,6 +88,7 @@ enum Key {
 	KEY_F9, KEY_F10, KEY_F11, KEY_F12,
 	/* TODO ALT, SHIFT, etc., for F keys */
 	KEY_MOUSE, /* Must be followed with a 3-byte mouse read */
+	KEY_MOUSE_SGR, /* Followed by an SGR-style sequence of mouse data */
 	KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
 	KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_LEFT,
 	KEY_SHIFT_UP, KEY_SHIFT_DOWN, KEY_SHIFT_RIGHT, KEY_SHIFT_LEFT,
@@ -211,6 +212,7 @@ typedef struct {
 	unsigned int autohide_tabs:1;
 	unsigned int smart_complete:1;
 	unsigned int has_terminal:1;
+	unsigned int use_sgr_mouse:1;
 
 	int cursor_padding;
 	int split_percent;
@@ -653,6 +655,7 @@ global_config_t global_config = {
 	.autohide_tabs = 0,
 	.smart_complete = 0,
 	.has_terminal = 0,
+	.use_sgr_mouse = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -672,6 +675,7 @@ struct key_name_map KeyNames[] = {
 	{'|', "<pipe>"},
 	{KEY_DELETE, "<del>"},
 	{KEY_MOUSE, "<mouse>"},
+	{KEY_MOUSE_SGR, "<mouse-sgr>"},
 	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
 	{KEY_F5, "<f5>"},{KEY_F6, "<f6>"},{KEY_F7, "<f7>"},{KEY_F8, "<f8>"},
 	{KEY_F9, "<f9>"},{KEY_F10, "<f10>"},{KEY_F11, "<f11>"},{KEY_F12, "<f12>"},
@@ -915,6 +919,7 @@ int bim_getkey(int read_timeout) {
 				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 					switch (c) {
 						case 'M': timeout = 0; return KEY_MOUSE;
+						case '<': timeout = 0; return KEY_MOUSE_SGR;
 						case 'A': return shift_key(KEY_UP);
 						case 'B': return shift_key(KEY_DOWN);
 						case 'C': return shift_key(KEY_RIGHT);
@@ -2359,6 +2364,9 @@ void restore_cursor(void) {
 void mouse_enable(void) {
 	if (global_config.can_mouse) {
 		printf("\033[?1000h");
+		if (global_config.use_sgr_mouse) {
+			printf("\033[?1006h");
+		}
 	}
 }
 
@@ -2367,6 +2375,9 @@ void mouse_enable(void) {
  */
 void mouse_disable(void) {
 	if (global_config.can_mouse) {
+		if (global_config.use_sgr_mouse) {
+			printf("\033[?1006l");
+		}
 		printf("\033[?1000l");
 	}
 }
@@ -5495,6 +5506,17 @@ BIM_COMMAND(spaceindicator,"spaceindicator","Set the space indicator") {
 	return 0;
 }
 
+BIM_COMMAND(global_sgr,"global.sgr_mouse","Enable SGR mouse escapes") {
+	if (argc < 2) {
+		render_status_message("global.sgr_mouse=%d", global_config.use_sgr_mouse);
+	} else {
+		mouse_disable();
+		global_config.use_sgr_mouse = !!atoi(argv[1]);
+		mouse_enable();
+	}
+	return 0;
+}
+
 BIM_COMMAND(global_git,"global.git","Show or change the default status of git integration") {
 	if (argc < 2) {
 		render_status_message("global.git=%d", global_config.check_git);
@@ -6116,6 +6138,7 @@ void command_tab_complete(char * buffer) {
 				start = &args[arg][i];
 				arg++;
 				args[arg] = start;
+				i = 0;
 				if (arg == 32) {
 					arg = 31;
 					break;
@@ -6130,6 +6153,16 @@ void command_tab_complete(char * buffer) {
 		} else if (arg == 2) {
 			for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
 				add_candidate(KeyNames[i].name);
+			}
+		} else if (arg == 3) {
+			for (struct action_def * a = mappable_actions; a->name; ++a) {
+				add_candidate(a->name);
+			}
+			add_candidate("none");
+		} else if (arg == 4) {
+			for (char * c = "racnwmb"; *c; ++c) {
+				char tmp[] = {*c,'\0'};
+				add_candidate(tmp);
 			}
 		}
 		goto _accept_candidate;
@@ -7005,16 +7038,7 @@ BIM_ACTION(use_right_buffer, 0,
 	update_title();
 }
 
-/**
- * Handle mouse event
- */
-BIM_ACTION(handle_mouse, 0,
-	"Process mouse actions."
-)(void) {
-	int buttons = bim_getch() - 32;
-	int x = bim_getch() - 32;
-	int y = bim_getch() - 32;
-
+void handle_common_mouse(int buttons, int x, int y) {
 	if (buttons == 64) {
 		/* Scroll up */
 		if (global_config.shift_scrolling) {
@@ -7181,6 +7205,65 @@ BIM_ACTION(handle_mouse, 0,
 	}
 	return;
 }
+
+/**
+ * Handle mouse event
+ */
+BIM_ACTION(handle_mouse, 0,
+	"Process mouse actions."
+)(void) {
+	int buttons = bim_getch() - 32;
+	int x = bim_getch() - 32;
+	int y = bim_getch() - 32;
+
+	handle_common_mouse(buttons, x, y);
+}
+
+BIM_ACTION(handle_mouse_sgr, 0,
+	"Process SGR-style mouse actions."
+)(void) {
+	int values[3] = {0};
+	char tmp[512] = {0};
+	char * c = tmp;
+	int buttons = 0;
+	do {
+		int _c = bim_getch();
+		if (_c == -1) {
+			break;
+		}
+		if (_c == 'm') {
+			buttons = 3;
+			break;
+		} else if (_c == 'M') {
+			buttons = 0;
+			break;
+		}
+		*c = _c;
+		++c;
+	} while (1);
+	char * j = tmp;
+	char * last = tmp;
+	int i = 0;
+	while (*j) {
+		if (*j == ';') {
+			*j = '\0';
+			values[i] = atoi(last);
+			last = j+1;
+			i++;
+			if (i == 3) break;
+		}
+		j++;
+	}
+	if (last && i < 3) values[i] = atoi(last);
+	if (buttons != 3) {
+		buttons = values[0];
+	}
+	int x = values[1];
+	int y = values[2];
+
+	handle_common_mouse(buttons, x, y);
+}
+
 
 BIM_ACTION(insert_char, ARG_IS_INPUT | ACTION_IS_RW,
 	"Insert one character."
@@ -9363,6 +9446,7 @@ struct action_map _ESCAPE_MAP[] = {
 	{KEY_F3,        toggle_gutter, 0, 0},
 	{KEY_F4,        toggle_smartcomplete, 0, 0},
 	{KEY_MOUSE,     handle_mouse, 0, 0},
+	{KEY_MOUSE_SGR, handle_mouse_sgr, 0, 0},
 
 	{KEY_UP,        cursor_up, opt_rep, 0},
 	{KEY_DOWN,      cursor_down, opt_rep, 0},
@@ -11371,6 +11455,11 @@ int syn_c_calculate(struct syntax_state * state) {
 					/* (for "includes", normal pragma highlighting covers that. */
 				} else if (match_and_paint(state, "if", FLAG_PRAGMA, c_keyword_qualifier)) {
 					/* These are to prevent #if and #else from being highlighted as keywords */
+					if (charat() == ' ' && nextchar() == '0' && charrel(2) == -1) {
+						state->i -= 4;
+						while (charat() != -1) paint(1, FLAG_COMMENT);
+						return 4;
+					}
 				} else if (match_and_paint(state, "else", FLAG_PRAGMA, c_keyword_qualifier)) {
 					/* ... */
 				}
@@ -11413,6 +11502,29 @@ int syn_c_calculate(struct syntax_state * state) {
 			/* In a block comment within an unclosed preprocessor statement */
 			if (paint_c_comment(state) == 1) return 3;
 			return paint_c_pragma(state);
+		default:
+			while (charat() == ' ' || charat() == '\t') paint(1, FLAG_COMMENT);
+			if (charat() == '#') {
+				paint(1, FLAG_COMMENT);
+				while (charat() == ' ' || charat() == '\t') paint(1, FLAG_COMMENT);
+				if (match_and_paint(state,"if",FLAG_COMMENT, c_keyword_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return state->state + 1;
+				} else if (match_and_paint(state, "else", FLAG_COMMENT, c_keyword_qualifier) || match_and_paint(state, "elif", FLAG_COMMENT, c_keyword_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return (state->state == 4) ? 0 : (state->state);
+				} else if (match_and_paint(state, "endif", FLAG_COMMENT, c_keyword_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return (state->state == 4) ? 0 : (state->state - 1);
+				} else {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return (state->state);
+				}
+			} else {
+				while (charat() != -1) paint(1, FLAG_COMMENT);
+				return state->state;
+			}
+			break;
 	}
 	return -1;
 }
