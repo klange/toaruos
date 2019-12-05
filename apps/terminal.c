@@ -1282,7 +1282,9 @@ static void save_scrollback(void) {
 
 	/* If the scrollback is already full, remove the oldest element. */
 	if (scrollback_list->length == MAX_SCROLLBACK) {
-		free(list_dequeue(scrollback_list));
+		node_t * n = list_dequeue(scrollback_list);
+		free(n->value);
+		free(n);
 	}
 
 	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(term_cell_t) * term_width + 20);
