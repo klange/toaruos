@@ -24,6 +24,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 
 	int fswait_fds[count_pollin];
 	int fswait_backref[count_pollin];
+	int fswait_results[count_pollin];
 	int j = 0;
 	for (nfds_t i = 0; i < nfds; ++i) {
 		if (fds[i].events & POLLIN) {
@@ -33,11 +34,17 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		}
 	}
 
-	int ret = fswait2(count_pollin, fswait_fds, timeout);
+	int ret = fswait3(count_pollin, fswait_fds, timeout, fswait_results);
 
 	if (ret >= 0 && ret < count_pollin) {
-		fds[fswait_backref[ret]].revents = POLLIN;
-		return 1;
+		int count = 0;
+		for (int i = 0; i < count_pollin; ++i) {
+			if (fswait_results[i]) {
+				fds[fswait_backref[i]].revents = POLLIN;
+				count++;
+			}
+		}
+		return count;
 	} else if (ret == count_pollin) {
 		return 0;
 	} else {
