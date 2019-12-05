@@ -14,6 +14,9 @@
 #include <toaru/hashmap.h>
 #include <toaru/sdf.h>
 #include <toaru/spinlock.h>
+#include <toaru/decodeutf8.h>
+
+#include "apps/ununicode.h"
 
 #define BASE_WIDTH 50
 #define BASE_HEIGHT 50
@@ -135,25 +138,26 @@ static sprite_t * _select_font(int font) {
 	}
 }
 
-static int _select_width(char ch, int font) {
+static int _select_width(int _ch, int font) {
+	int ch = (_ch >= 0 && _ch <= 128) ? _ch : (int)ununicode(_ch);
 	switch (font) {
 		case SDF_FONT_BOLD:
 		case SDF_FONT_BOLD_OBLIQUE:
-			return _char_data[(int)ch].width_bold;
+			return _char_data[ch].width_bold;
 		case SDF_FONT_MONO:
 		case SDF_FONT_MONO_BOLD:
 		case SDF_FONT_MONO_OBLIQUE:
 		case SDF_FONT_MONO_BOLD_OBLIQUE:
-			return _char_data[(int)ch].width_mono;
+			return _char_data[ch].width_mono;
 		case SDF_FONT_OBLIQUE:
 		case SDF_FONT_THIN:
 		default:
-			return _char_data[(int)ch].width_thin;
+			return _char_data[ch].width_thin;
 	}
 }
 
-static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int ch, int size, uint32_t color, sprite_t * tmp, int font, sprite_t * _font_data, double buffer) {
-	if (ch < 0 || ch > 255) return 0;
+static int draw_sdf_character(gfx_context_t * ctx, int32_t x, int32_t y, int _ch, int size, uint32_t color, sprite_t * tmp, int font, sprite_t * _font_data, double buffer) {
+	int ch = (_ch >= 0 && _ch <= 128) ? _ch : (int)ununicode(_ch);
 
 	double scale = (double)size / 50.0;
 	int width = _select_width(ch, font) * scale;
@@ -212,12 +216,16 @@ int draw_sdf_string_stroke(gfx_context_t * ctx, int32_t x, int32_t y, const char
 		tmp = hashmap_get(_font_cache, (void *)(scale_height | (font << 16)));
 	}
 
+	uint32_t state = 0;
+	uint32_t c = 0;
 	int32_t out_width = 0;
 	gamma = _gamma;
 	while (*str) {
-		int w = draw_sdf_character(ctx,x,y,*((uint8_t *)str),size,color,tmp,font,_font_data, stroke);
-		out_width += w;
-		x += w;
+		if (!decode(&state, &c, (unsigned char)*str)) {
+			int w = draw_sdf_character(ctx,x,y,c,size,color,tmp,font,_font_data, stroke);
+			out_width += w;
+			x += w;
+		}
 		str++;
 	}
 	spin_unlock(&_sdf_lock);
@@ -233,7 +241,7 @@ int draw_sdf_string(gfx_context_t * ctx, int32_t x, int32_t y, const char * str,
 	return draw_sdf_string_stroke(ctx,x,y,str,size,color,font,1.7, 0.75);
 }
 
-static int char_width(char ch, int font) {
+static int char_width(int ch, int font) {
 	return _select_width(ch, font);
 }
 
@@ -241,10 +249,17 @@ static int char_width(char ch, int font) {
 int draw_sdf_string_width(const char * str, int size, int font) {
 	double scale = (double)size / 50.0;
 
+	uint32_t state = 0;
+	uint32_t c = 0;
+
 	int32_t out_width = 0;
 	while (*str) {
-		int w = char_width(*str,font) * scale;
-		out_width += w;
+		if (!decode(&state, &c, (unsigned char)*str)) {
+			int w = char_width(c,font) * scale;
+			out_width += w;
+		} else if (state == UTF8_REJECT) {
+			state = 0;
+		}
 		str++;
 	}
 
