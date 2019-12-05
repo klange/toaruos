@@ -984,6 +984,33 @@ static int sys_fswait_timeout(int c, int fds[], int timeout) {
 	return result;
 }
 
+static int sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
+	PTR_VALIDATE(fds);
+	PTR_VALIDATE(out);
+	int has_match = -1;
+	for (int i = 0; i < c; ++i) {
+		if (!FD_CHECK(fds[i])) {
+			return -EBADF;
+		}
+		if (selectcheck_fs(FD_ENTRY(fds[i])) == 0) {
+			out[i] = 1;
+			has_match = (has_match == -1) ? i : has_match;
+		} else {
+			out[i] = 0;
+		}
+	}
+
+	/* Already found a match, return immediately with the first match */
+	if (has_match != -1) return has_match;
+
+	int result = sys_fswait_timeout(c, fds, timeout);
+	if (result != -1) out[result] = 1;
+	if (result == -1) {
+		debug_print(ERROR,"negative result from fswait3");
+	}
+	return result;
+}
+
 static int sys_setsid(void) {
 	if (current_process->job == current_process->group) {
 		return -EPERM;
@@ -1106,6 +1133,7 @@ static int (*syscalls[])() = {
 	[SYS_LSTAT]        = sys_lstat,
 	[SYS_FSWAIT]       = sys_fswait,
 	[SYS_FSWAIT2]      = sys_fswait_timeout,
+	[SYS_FSWAIT3]      = sys_fswait_multi,
 	[SYS_CHOWN]        = sys_chown,
 	[SYS_SETSID]       = sys_setsid,
 	[SYS_SETPGID]      = sys_setpgid,

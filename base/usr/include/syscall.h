@@ -122,6 +122,7 @@ DECL_SYSCALL2(setpgid,int,int);
 DECL_SYSCALL1(getpgid,int);
 DECL_SYSCALL0(geteuid);
 DECL_SYSCALL2(lstat, char *, void *);
+DECL_SYSCALL4(fswait3, int, int*, int, int*);
 
 _End_C_Header
 

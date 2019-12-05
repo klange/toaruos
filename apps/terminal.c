@@ -2533,29 +2533,32 @@ int main(int argc, char ** argv) {
 		int fds[2] = {fileno(yctx->sock), fd_master};
 
 		/* PTY read buffer */
-		unsigned char buf[1024];
+		unsigned char buf[4096];
 
 		while (!exit_application) {
 
 			/* Wait for something to happen. */
-			int index = fswait2(2,fds,200);
+			int res[] = {0,0};
+			int index = fswait3(2,fds,200,res);
 
 			/* Check if the child application has closed. */
 			check_for_exit();
 
-			if (index == 1) {
+			if (res[1]) {
 				/* Read from PTY */
 				maybe_flip_cursor();
-				int r = read(fd_master, buf, 1024);
+				int r = read(fd_master, buf, 4096);
 				for (int i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
 				display_flip();
-			} else if (index == 0) {
+			}
+			if (res[0]) {
 				/* Handle Yutani events. */
 				maybe_flip_cursor();
 				handle_incoming();
-			} else if (index == 2) {
+			}
+			if (index < 0) {
 				/* Timeout, flip the cursor. */
 				maybe_flip_cursor();
 			}
