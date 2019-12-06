@@ -1183,24 +1183,12 @@ int main(int argc, char ** argv) {
 
 		int fds[] = {fd_master, kfd, mfd, amfd};
 
-		term_height = 24;
-
 		#define BUF_SIZE 4096
 		unsigned char buf[4096];
 		while (!exit_application) {
 
 			int res[] = {0,0,0,0};
-			placech('*', 19, 24, 0xf);
 			int index = fswait3(amfd == -1 ? 3 : 4,fds,200,res);
-			placech(' ', 19, 24, 0xf);
-			placech('0' + res[0], 20, 24, 0xf);
-			placech('0' + res[1], 22, 24, 0xf);
-			placech('0' + res[2], 24, 24, 0xf);
-			placech('0' + res[3], 26, 24, 0xf);
-			placech(' ', 21, 24, 0xf);
-			placech(' ', 23, 24, 0xf);
-			placech(' ', 25, 24, 0xf);
-			placech(' ', 27, 24, 0xf);
 
 			check_for_exit();
 
@@ -1208,36 +1196,28 @@ int main(int argc, char ** argv) {
 
 			if (res[0]) {
 				maybe_flip_cursor();
-				placech('r', 21, 24, 0xf);
 				int r = read(fd_master, buf, BUF_SIZE);
 				for (int i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
-				placech('*', 21, 24, 0xf);
 			}
 			if (res[1]) {
 				maybe_flip_cursor();
-				placech('r', 23, 24, 0xf);
 				int r = read(kfd, buf, BUF_SIZE);
-				placech('w', 23, 24, 0xf);
 				for (int i = 0; i < r; ++i) {
 					int ret = kbd_scancode(&kbd_state, buf[i], &event);
 					key_event(ret, &event);
 				}
-				placech('*', 23, 24, 0xf);
 			}
 			if (res[2]) {
 				/* mouse event */
 				int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
-				placech('r', 25, 24, 0xf);
 				if (r > 0) {
 					last_mouse_buttons = packet.buttons;
 					handle_mouse(&packet);
 				}
-				placech('*', 25, 24, 0xf);
 			}
 			if (amfd != -1 && res[3]) {
-				placech('r', 27, 24, 0xf);
 				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
 					if (!vmmouse) {
@@ -1247,7 +1227,6 @@ int main(int argc, char ** argv) {
 					}
 					handle_mouse_abs(&packet);
 				}
-				placech('*', 27, 24, 0xf);
 			}
 			if (index < 0) {
 				maybe_flip_cursor();
