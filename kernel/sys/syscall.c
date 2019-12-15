@@ -314,9 +314,6 @@ static int sys_execve(const char * filename, char *const argv[], char *const env
 
 static int sys_seek(int fd, int offset, int whence) {
 	if (FD_CHECK(fd)) {
-		if (fd < 3) {
-			return 0;
-		}
 		switch (whence) {
 			case 0:
 				FD_OFFSET(fd) = offset;
