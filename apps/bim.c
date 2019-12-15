@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Wed Dec  4 13:11:42 2019
- * It is based on git commit b45f9f5a71732a07a87f79b9ad33e6667ccce276
+ * It was built Sun Dec 15 17:12:06 2019
+ * It is based on git commit bea55a03559f6bb2c29ffa29ddb0770f50d3c901
  */
-#define GIT_TAG "b45f9f5-baked"
+#define GIT_TAG "bea55a0-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -55,7 +55,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.5.0" TAG
+#define BIM_VERSION   "2.5.1" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -3821,6 +3821,7 @@ void set_syntax_by_name(const char * name) {
 				env->lines[i]->text[j].flags = 0;
 			}
 		}
+		env->syntax = NULL;
 		redraw_all();
 		return;
 	}
@@ -5382,6 +5383,7 @@ BIM_COMMAND(e,"e","Open a file") {
 		SWAP(line_t **, env->lines, new_env->lines);
 		SWAP(int, env->line_count, new_env->line_count);
 		SWAP(int, env->line_avail, new_env->line_avail);
+		SWAP(history_t *, env->history, new_env->history);
 
 		buffer_close(new_env); /* Should probably also free, this needs editing. */
 		redraw_all();
@@ -12495,6 +12497,45 @@ int syn_make_calculate(struct syntax_state * state) {
 char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
 
 BIM_SYNTAX(make, 0)
+/**
+ * NROFF highlighter
+ */
+
+int syn_man_calculate(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (state->i == 0 && charat() == '.') {
+			if (nextchar() == 'S' && charrel(2) == 'H' && charrel(3) == ' ') {
+				paint(3, FLAG_KEYWORD);
+				while (charat() != -1) paint(1, FLAG_STRING);
+			} else if (nextchar() == 'B' && charrel(2) == ' ') {
+				paint(2, FLAG_KEYWORD);
+				while (charat() != -1) paint(1, FLAG_BOLD);
+			} else if (isalpha(nextchar())) {
+				paint(1, FLAG_KEYWORD);
+				while (charat() != -1 && isalpha(charat())) paint(1, FLAG_KEYWORD);
+			} else if (nextchar() == '\\' && charrel(2) == '"') {
+				while (charat() != -1) paint(1, FLAG_COMMENT);
+			} else {
+				skip();
+			}
+		} else if (charat() == '\\') {
+			if (nextchar() == 'f') {
+				paint(2, FLAG_NUMERAL);
+				paint(1, FLAG_PRAGMA);
+			} else {
+				paint(2, FLAG_ESCAPE);
+			}
+		} else {
+			skip();
+		}
+	}
+	return -1;
+}
+
+/* Yes this is dumb. No, I don't care. */
+char * syn_man_ext[] = {".1",".2",".3",".4",".5",".6",".7",".8",NULL};
+
+BIM_SYNTAX(man, 0)
 static struct syntax_definition * syn_c = NULL;
 static struct syntax_definition * syn_py = NULL;
 static struct syntax_definition * syn_java = NULL;
