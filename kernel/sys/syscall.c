@@ -325,6 +325,8 @@ static int sys_seek(int fd, int offset, int whence) {
 			case 2:
 				FD_OFFSET(fd) = FD_ENTRY(fd)->length + offset;
 				break;
+			default:
+				return -EINVAL;
 		}
 		return FD_OFFSET(fd);
 	}
