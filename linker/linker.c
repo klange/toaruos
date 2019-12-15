@@ -777,6 +777,7 @@ nope:
 	/* Relocate the main object */
 	TRACE_LD("Relocating main object");
 	object_relocate(main_obj);
+	fclose(main_obj->file);
 	TRACE_LD("Placing heap at end");
 	while (end_addr & 0xFFF) {
 		end_addr++;
