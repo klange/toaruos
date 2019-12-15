@@ -395,11 +395,14 @@ void input_buffer_stuff(char * str) {
 }
 
 unsigned short * textmemptr = (unsigned short *)0xB8000;
+unsigned short * mirrorcopy = NULL;
 void placech(unsigned char c, int x, int y, int attr) {
-	unsigned short *where;
-	unsigned att = attr << 8;
-	where = textmemptr + (y * 80 + x);
-	*where = c | att;
+	unsigned int where = y * term_width + x;
+	unsigned int att = (c | (attr << 8));
+	if (mirrorcopy[where] != att) {
+		mirrorcopy[where] = att;
+		textmemptr[where] = att;
+	}
 }
 
 /* ANSI-to-VGA */
@@ -491,7 +494,8 @@ void draw_cursor() {
 	render_cursor();
 }
 
-void term_redraw_all() { 
+void term_redraw_all() {
+	/* Redraw to a temp buffer */
 	for (uint16_t y = 0; y < term_height; ++y) {
 		for (uint16_t x = 0; x < term_width; ++x) {
 			cell_redraw(x,y);
@@ -919,6 +923,8 @@ void reinit(void) {
 		memset(term_buffer_b, 0x0, sizeof(term_cell_t) * term_width * term_height);
 
 		term_buffer = term_buffer_a;
+		mirrorcopy = malloc(sizeof(unsigned short) * term_width * term_height);
+		memset(mirrorcopy, 0, sizeof(unsigned short) * term_width * term_height);
 	}
 
 	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);
