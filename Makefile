@@ -208,10 +208,10 @@ endif
 # Init (static)
 
 base/bin/init: apps/init.c base/lib/libc.a | dirs
-	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $<
 
 fatbase/netinit: util/netinit.c base/lib/libc.a | dirs
-	$(CC) -static -Wl,-static $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $<
 
 # Userspace applications
 
