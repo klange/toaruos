@@ -43,7 +43,7 @@ LC=base/lib/libc.so
 #  APPS_SH_X = destinations for shell scripts
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
 APPS_X=$(foreach app,$(APPS),base/bin/$(app))
-APPS_Y=$(foreach app,$(filter-out init,$(APPS)),.make/$(app).mak)
+APPS_Y=$(foreach app,$(APPS),.make/$(app).mak)
 APPS_SH=$(patsubst apps/%.sh,%.sh,$(wildcard apps/*.sh))
 APPS_SH_X=$(foreach app,$(APPS_SH),base/bin/$(app))
 
@@ -205,11 +205,7 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${LIBS_Y}
 endif
 
-# Init (static)
-
-base/bin/init: apps/init.c base/lib/libc.a | dirs
-	$(CC) $(CFLAGS) -o $@ $<
-
+# netinit needs to go in the CD/FAT root, so it gets built specially
 fatbase/netinit: util/netinit.c base/lib/libc.a | dirs
 	$(CC) $(CFLAGS) -o $@ $<
 
