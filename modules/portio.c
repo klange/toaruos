@@ -61,7 +61,7 @@ static fs_node_t * port_device_create(void) {
 	fnode->uid = 0;
 	fnode->gid = 0;
 	fnode->mask = 0660;
-	fnode->flags   = FS_CHARDEVICE;
+	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_port;
 	fnode->write   = write_port;
 	fnode->open    = NULL;
