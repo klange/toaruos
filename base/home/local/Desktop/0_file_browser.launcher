@@ -1,3 +1,3 @@
 icon=folder
-run=cd ~ ; file-browser
+run=cd ~ ; exec file-browser
 title=File Browser
