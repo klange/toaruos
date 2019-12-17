@@ -702,7 +702,6 @@ def BuildRamdisk():
         ramdisk.add('/lib/libc.so',arcname='/lib/libc.so',filter=file_filter) # Need to build libc
         ramdisk.add('/lib/libm.so',arcname='/lib/libm.so',filter=file_filter)
         ramdisk.add('/lib/ld.so',arcname='/lib/ld.so',filter=file_filter) # Need to build linker
-        ramdisk.add('/bin/init',arcname='/bin/init',filter=file_filter) # Must be static, fixme
 
         ramdisk.add('.',arcname='/src',filter=file_filter,recursive=False) # Add a blank directory
         ramdisk.add('apps',arcname='/src/apps',filter=file_filter)
@@ -733,9 +732,6 @@ def BuildApps():
         pass # exists
     os.chdir(".bin")
     for app in glob.glob("/src/apps/*.c"):
-        if 'init' in app:
-            print("Skipping init (will copy static one)")
-            continue
         cmd = "auto-dep.py --build {app}".format(app=app)
         print(cmd)
         subprocess.run(cmd,shell=True)
