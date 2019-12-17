@@ -2373,14 +2373,14 @@ int main(int argc, char ** argv) {
 
 			/* Wait for something to happen. */
 			int res[] = {0,0};
-			int index = fswait3(2,fds,200,res);
+			fswait3(2,fds,200,res);
 
 			/* Check if the child application has closed. */
 			check_for_exit();
+			maybe_flip_cursor();
 
 			if (res[1]) {
 				/* Read from PTY */
-				maybe_flip_cursor();
 				int r = read(fd_master, buf, 4096);
 				for (int i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
@@ -2389,12 +2389,7 @@ int main(int argc, char ** argv) {
 			}
 			if (res[0]) {
 				/* Handle Yutani events. */
-				maybe_flip_cursor();
 				handle_incoming();
-			}
-			if (index < 0) {
-				/* Timeout, flip the cursor. */
-				maybe_flip_cursor();
 			}
 		}
 	}

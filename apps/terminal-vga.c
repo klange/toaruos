@@ -1194,21 +1194,20 @@ int main(int argc, char ** argv) {
 		while (!exit_application) {
 
 			int res[] = {0,0,0,0};
-			int index = fswait3(amfd == -1 ? 3 : 4,fds,200,res);
+			fswait3(amfd == -1 ? 3 : 4,fds,200,res);
 
 			check_for_exit();
 
 			if (input_stopped) continue;
 
+			maybe_flip_cursor();
 			if (res[0]) {
-				maybe_flip_cursor();
 				int r = read(fd_master, buf, BUF_SIZE);
 				for (int i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
 			}
 			if (res[1]) {
-				maybe_flip_cursor();
 				int r = read(kfd, buf, BUF_SIZE);
 				for (int i = 0; i < r; ++i) {
 					int ret = kbd_scancode(&kbd_state, buf[i], &event);
@@ -1233,9 +1232,6 @@ int main(int argc, char ** argv) {
 					}
 					handle_mouse_abs(&packet);
 				}
-			}
-			if (index < 0) {
-				maybe_flip_cursor();
 			}
 		}
 
