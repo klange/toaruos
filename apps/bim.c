@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Sun Dec 15 17:12:06 2019
- * It is based on git commit bea55a03559f6bb2c29ffa29ddb0770f50d3c901
+ * It was built Tue Dec 17 13:18:29 2019
+ * It is based on git commit 2f4da2036745c3f1b7d532988f346abcca0e59eb
  */
-#define GIT_TAG "bea55a0-baked"
+#define GIT_TAG "2f4da20-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -3566,13 +3566,13 @@ void place_cursor_actual(void) {
 
 	int needs_redraw = 0;
 
-	while (y < 2 + global_config.tabs_visible + global_config.cursor_padding && env->offset > 0) {
+	while (y < 2 + global_config.cursor_padding && env->offset > 0) {
 		y++;
 		env->offset--;
 		needs_redraw = 1;
 	}
 
-	while (y > global_config.term_height - global_config.bottom_size - global_config.cursor_padding) {
+	while (y > 1 + global_config.term_height - global_config.bottom_size - global_config.cursor_padding - global_config.tabs_visible) {
 		y--;
 		env->offset++;
 		needs_redraw = 1;
@@ -7049,7 +7049,7 @@ void handle_common_mouse(int buttons, int x, int y) {
 			for (int i = 0; i < global_config.scroll_amount; ++i) {
 				if (env->offset > 0) {
 					env->offset--;
-					if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
+					if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - global_config.tabs_visible - global_config.cursor_padding) {
 						cursor_up();
 					}
 					shifted++;
