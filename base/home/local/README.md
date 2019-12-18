@@ -1,4 +1,4 @@
-Welcome to ToaruOS!
+# Welcome to ToaruOS!
 
 ToaruOS provides a familiar Unix-like environment, but please be
 aware that the shell is incomplete and does not implement all Unix
@@ -7,9 +7,9 @@ functions, run `help`. For a list of available commands, press Tab
 twice. Tab completion is available for both commands and file names.
 
 To edit files, try using `bim` - a vi-like editor with syntax
-highlighting, line and character selection, history stack, and tabs.
+highlighting, line and character selection, history stack, tabs, and more.
 
-To install packages, use the `msk` tool. You can install GCC
+To install packages, use the `msk` tool. You can install a GCC/binutils
 toolchain with:
 
     sudo msk install build-essential
@@ -18,7 +18,7 @@ Or you can install Python with:
 
     sudo msk install python
 
-The password for the default user "local" is "local".
+The password for the default user (`local`) is `local`.
 
 ToaruOS's compositing window server includes many common keybindings:
 - Hold Alt to drag windows.
@@ -29,4 +29,4 @@ ToaruOS's compositing window server includes many common keybindings:
 - Alt-F4 closes windows.
 
 (If this file is too long to view in one screenful in your terminal,
-you can open it with `bim README`)
+ you can open it with `bim README`)
