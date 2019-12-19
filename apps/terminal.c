@@ -1062,16 +1062,22 @@ static void term_shift_region(int top, int height, int how_much) {
 		cell_redraw(csr_x, csr_y); /* Otherwise we may copy the inverted cursor */
 		uintptr_t dst = (uintptr_t)ctx->backbuffer + GFX_W(ctx) * (destination / term_width * char_height) * GFX_B(ctx);
 		uintptr_t src = (uintptr_t)ctx->backbuffer + GFX_W(ctx) * (source / term_width * char_height) * GFX_B(ctx);
-		size_t siz = count * char_height * GFX_W(ctx) * GFX_B(ctx);
 		if (!_no_frame) {
-			/*
-			 * Adjust for decorations; note that since we're copying everything, that includes the decorations!
-			 * we'll redraw them later which should account for anything we broke by doing this.
-			 */
-			dst += GFX_W(ctx) * GFX_B(ctx) * (decor_top_height + menu_bar_height);
-			src += GFX_W(ctx) * GFX_B(ctx) * (decor_top_height + menu_bar_height);
+			dst += (GFX_W(ctx) * (decor_top_height + menu_bar_height) + decor_left_width) * GFX_B(ctx);
+			src += (GFX_W(ctx) * (decor_top_height + menu_bar_height) + decor_left_width) * GFX_B(ctx);
+			if (dst < src) {
+				for (int i = 0; i < count * char_height; ++i) {
+					memmove((void*)(dst + i * GFX_W(ctx) * GFX_B(ctx)), (void*)(src + i * GFX_W(ctx) * GFX_B(ctx)), term_width * char_width * GFX_B(ctx));
+				}
+			} else {
+				for (int i = (count - 1) * char_height; i == 0; --i) {
+					memmove((void*)(dst + i * GFX_W(ctx) * GFX_B(ctx)), (void*)(src + i * GFX_W(ctx) * GFX_B(ctx)), term_width * char_width * GFX_B(ctx));
+				}
+			}
+		} else {
+			size_t siz = count * char_height * GFX_W(ctx) * GFX_B(ctx);
+			memmove((void*)dst, (void*)src, siz);
 		}
-		memmove((void*)dst, (void*)src, siz);
 	}
 
 	/* Clear new lines at bottom */
@@ -1092,11 +1098,7 @@ static void term_scroll(int how_much) {
 	flush_unused_images();
 
 	/* Flip the entire window. */
-	if (!_fullscreen) {
-		render_decors();
-	} else {
-		yutani_flip(yctx, window);
-	}
+	yutani_flip(yctx, window);
 }
 
 static void insert_delete_lines(int how_many) {
