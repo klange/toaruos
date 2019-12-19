@@ -1070,7 +1070,7 @@ static void term_shift_region(int top, int height, int how_much) {
 					memmove((void*)(dst + i * GFX_W(ctx) * GFX_B(ctx)), (void*)(src + i * GFX_W(ctx) * GFX_B(ctx)), term_width * char_width * GFX_B(ctx));
 				}
 			} else {
-				for (int i = (count - 1) * char_height; i == 0; --i) {
+				for (int i = (count - 1) * char_height; i >= 0; --i) {
 					memmove((void*)(dst + i * GFX_W(ctx) * GFX_B(ctx)), (void*)(src + i * GFX_W(ctx) * GFX_B(ctx)), term_width * char_width * GFX_B(ctx));
 				}
 			}
