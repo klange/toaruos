@@ -2309,7 +2309,7 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
 	menu_insert(m, menu_create_normal(NULL, NULL, _use_aa ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_sdf));
 	menu_insert(m, menu_create_normal(NULL, NULL, _free_size ? "Snap to Cell Size" : "Freely Resize", _menu_action_toggle_free_size));
-	menu_insert(menu_right_click, menu_create_separator());
+	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
