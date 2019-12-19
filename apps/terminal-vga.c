@@ -503,32 +503,57 @@ void term_redraw_all() {
 	}
 }
 
-void term_scroll(int how_much) {
-	if (how_much >= term_height || -how_much >= term_height) {
-		term_clear();
-		return;
+void term_shift_region(int top, int height, int how_much) {
+	if (how_much == 0) return;
+
+	void * destination, * source;
+	int count, new_top, new_bottom;
+	if (how_much > height) {
+		count = 0;
+		new_top = top;
+		new_bottom = top + height;
+	} else if (how_much > 0) {
+		destination = term_buffer + term_width * top;
+		source = term_buffer + term_width * (top + how_much);
+		count = height - how_much;
+		new_top = top + height - how_much;
+		new_bottom = top + height;
+	} else if (how_much < 0) {
+		destination = term_buffer + term_width * (top - how_much);
+		source = term_buffer + term_width * top;
+		count = height + how_much;
+		new_top = top;
+		new_bottom = top - how_much;
 	}
-	if (how_much == 0) {
-		return;
+
+	/* Move from top+how_much to top */
+	if (count) {
+		memmove(destination, source, count * term_width * sizeof(term_cell_t));
+		
 	}
-	if (how_much > 0) {
-		/* Shift terminal cells one row up */
-		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * how_much), sizeof(term_cell_t) * term_width * (term_height - how_much));
-		/* Reset the "new" row to clean cells */
-		memset((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * (term_height - how_much)), 0x0, sizeof(term_cell_t) * term_width * how_much);
-		for (int i = 0; i < how_much; ++i) {
-			for (uint16_t x = 0; x < term_width; ++x) {
-				cell_set(x,term_height - how_much,' ', current_fg, current_bg, ansi_state->flags);
-			}
+
+	/* Clear new lines at bottom */
+	for (int i = new_top; i < new_bottom; ++i) {
+		for (uint16_t x = 0; x < term_width; ++x) {
+			cell_set(x, i, ' ', current_fg, current_bg, ansi_state->flags);
 		}
-		term_redraw_all();
+	}
+
+	term_redraw_all();
+}
+
+void term_scroll(int how_much) {
+	term_shift_region(0,term_height,how_much);
+}
+
+void insert_delete_lines(int how_many) {
+	if (how_many == 0) return;
+
+	if (how_many > 0) {
+		/* Insert lines is equivalent to scrolling from the current line */
+		term_shift_region(csr_y,term_height-csr_y,-how_many);
 	} else {
-		how_much = -how_much;
-		/* Shift terminal cells one row up */
-		memmove((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * how_much), term_buffer, sizeof(term_cell_t) * term_width * (term_height - how_much));
-		/* Reset the "new" row to clean cells */
-		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * how_much);
-		term_redraw_all();
+		term_shift_region(csr_y,term_height-csr_y,-how_many);
 	}
 }
 
@@ -910,6 +935,7 @@ term_callbacks_t term_callbacks = {
 	unsupported_int,
 	term_set_csr_show,
 	term_switch_buffer,
+	insert_delete_lines,
 };
 
 void reinit(void) {

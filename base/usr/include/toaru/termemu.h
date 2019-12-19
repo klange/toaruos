@@ -37,6 +37,7 @@ typedef struct {
 	int  (*get_cell_height)(void);
 	void (*set_csr_on)(int);
 	void (*switch_buffer)(int);
+	void (*insert_delete_lines)(int);
 } term_callbacks_t;
 
 typedef struct {
@@ -90,6 +91,8 @@ typedef struct {
 #define ANSI_RCP    'u' /* Restore Cursor Position    */
 #define ANSI_HIDE   'l' /* DECTCEM - Hide Cursor      */
 #define ANSI_SHOW   'h' /* DECTCEM - Show Cursor      */
+#define ANSI_IL     'L' /* Insert Line(s)             */
+#define ANSI_DL     'M' /* Delete Line(s)             */
 /* Display flags */
 #define ANSI_BOLD      0x01
 #define ANSI_UNDERLINE 0x02

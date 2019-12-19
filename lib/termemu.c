@@ -450,6 +450,24 @@ static void _ansi_put(term_state_t * s, char c) {
 							callbacks->scroll(-how_many);
 						}
 						break;
+					case ANSI_IL:
+						{
+							int how_many = 1;
+							if (argc > 0) {
+								how_many = atoi(argv[0]);
+							}
+							callbacks->insert_delete_lines(how_many);
+						}
+						break;
+					case ANSI_DL:
+						{
+							int how_many = 1;
+							if (argc > 0) {
+								how_many = atoi(argv[0]);
+							}
+							callbacks->insert_delete_lines(-how_many);
+						}
+						break;
 					case 'X':
 						{
 							int how_many = 1;

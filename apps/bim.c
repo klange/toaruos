@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Tue Dec 17 13:18:29 2019
- * It is based on git commit 2f4da2036745c3f1b7d532988f346abcca0e59eb
+ * It was built Thu Dec 19 13:41:35 2019
+ * It is based on git commit 8860761a4e0906246a38f41939551fe7ed050c5b
  */
-#define GIT_TAG "2f4da20-baked"
+#define GIT_TAG "8860761-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -197,6 +197,7 @@ typedef struct {
 	unsigned int can_24bit:1;
 	unsigned int can_256color:1;
 	unsigned int can_italic:1;
+	unsigned int can_insert:1;
 	unsigned int history_enabled:1;
 	unsigned int highlight_parens:1;
 	unsigned int smart_case:1;
@@ -639,6 +640,7 @@ global_config_t global_config = {
 	.can_24bit = 1, /* can use 24-bit color */
 	.can_256color = 1, /* can use 265 colors */
 	.can_italic = 1, /* can use italics (without inverting) */
+	.can_insert = 0, /* ^[[L */
 	/* Configuration options */
 	.history_enabled = 1,
 	.highlight_parens = 1, /* highlight parens/braces when cursor moves */
@@ -2394,6 +2396,16 @@ void shift_up(int amount) {
  */
 void shift_down(int amount) {
 	printf("\033[%dT", amount);
+}
+
+void insert_lines_at(int line, int count) {
+	place_cursor(1, line);
+	printf("\033[%dL", count);
+}
+
+void delete_lines_at(int line, int count) {
+	place_cursor(1, line);
+	printf("\033[%dM", count);
 }
 
 /**
@@ -4507,7 +4519,12 @@ BIM_ACTION(cursor_down, 0,
 
 			/* Tell terminal to scroll */
 			if (global_config.can_scroll && !left_buffer) {
-				shift_up(1);
+				if (!global_config.can_insert) {
+					shift_up(1);
+					redraw_tabbar();
+				} else {
+					delete_lines_at(global_config.tabs_visible ? 2 : 1, 1);
+				}
 
 				/* A new line appears on screen at the bottom, draw it */
 				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
@@ -4519,7 +4536,6 @@ BIM_ACTION(cursor_down, 0,
 			} else {
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
@@ -4593,7 +4609,12 @@ BIM_ACTION(cursor_up, 0,
 
 			/* Tell terminal to scroll */
 			if (global_config.can_scroll && !left_buffer) {
-				shift_down(1);
+				if (!global_config.can_insert) {
+					shift_down(1);
+					redraw_tabbar();
+				} else {
+					insert_lines_at(global_config.tabs_visible ? 2 : 1, 1);
+				}
 
 				/*
 				 * The line at the top of the screen should always be real
@@ -4601,9 +4622,9 @@ BIM_ACTION(cursor_up, 0,
 				 */
 				redraw_line(env->offset);
 			} else {
+				redraw_tabbar();
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
@@ -7058,14 +7079,19 @@ void handle_common_mouse(int buttons, int x, int y) {
 			env->loading = 0;
 			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
-				shift_down(shifted);
+				if (!global_config.can_insert) {
+					shift_down(shifted);
+					redraw_tabbar();
+				} else {
+					insert_lines_at(global_config.tabs_visible ? 2 : 1, shifted);
+				}
 				for (int i = 0; i < shifted; ++i) {
 					redraw_line(env->offset+i);
 				}
 			} else {
+				redraw_tabbar();
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
@@ -7093,7 +7119,12 @@ void handle_common_mouse(int buttons, int x, int y) {
 			env->loading = 0;
 			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
-				shift_up(shifted);
+				if (!global_config.can_insert) {
+					shift_up(shifted);
+					redraw_tabbar();
+				} else {
+					delete_lines_at(global_config.tabs_visible ? 2 : 1, shifted);
+				}
 				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 				for (int i = 0; i < shifted; ++i) {
 					if (env->offset + l - i < env->line_count + 1) {
@@ -7103,9 +7134,9 @@ void handle_common_mouse(int buttons, int x, int y) {
 					}
 				}
 			} else {
+				redraw_tabbar();
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
@@ -10258,6 +10289,10 @@ void detect_weird_terminals(void) {
 	if (term && strstr(term,"toaru-vga") == term) {
 		global_config.can_24bit = 0; /* Also not strictly true */
 		global_config.can_256color = 0; /* Not strictly true */
+		global_config.can_insert = 1;
+	}
+	if (term && strstr(term,"xterm-256color") == term) {
+		global_config.can_insert = 1;
 	}
 
 	if (!global_config.can_unicode) {
