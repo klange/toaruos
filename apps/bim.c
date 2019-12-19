@@ -10289,6 +10289,8 @@ void detect_weird_terminals(void) {
 	if (term && strstr(term,"toaru-vga") == term) {
 		global_config.can_24bit = 0; /* Also not strictly true */
 		global_config.can_256color = 0; /* Not strictly true */
+	}
+	if (term && strstr(term,"toaru") == term) {
 		global_config.can_insert = 1;
 	}
 	if (term && strstr(term,"xterm-256color") == term) {

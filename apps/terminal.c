@@ -1007,6 +1007,10 @@ static void term_redraw_all() {
 	}
 }
 
+static void _menu_action_redraw(struct MenuEntry * self) {
+	term_redraw_all();
+}
+
 /* Remove no-longer-visible image cell data. */
 static void flush_unused_images(void) {
 	list_t * tmp = list_create();
@@ -1028,79 +1032,82 @@ static void flush_unused_images(void) {
 	images_list = tmp;
 }
 
+static void term_shift_region(int top, int height, int how_much) {
+	if (how_much == 0) return;
+
+	int destination, source;
+	int count, new_top, new_bottom;
+	if (how_much > height) {
+		count = 0;
+		new_top = top;
+		new_bottom = top + height;
+	} else if (how_much > 0) {
+		destination = term_width * top;
+		source = term_width * (top + how_much);
+		count = height - how_much;
+		new_top = top + height - how_much;
+		new_bottom = top + height;
+	} else if (how_much < 0) {
+		destination = term_width * (top - how_much);
+		source = term_width * top;
+		count = height + how_much;
+		new_top = top;
+		new_bottom = top - how_much;
+	}
+
+	/* Move from top+how_much to top */
+	if (count) {
+		memmove(term_buffer + destination, term_buffer + source, count * term_width * sizeof(term_cell_t));
+		/* Move displayed as well */
+		cell_redraw(csr_x, csr_y); /* Otherwise we may copy the inverted cursor */
+		uintptr_t dst = (uintptr_t)ctx->backbuffer + GFX_W(ctx) * (destination / term_width * char_height) * GFX_B(ctx);
+		uintptr_t src = (uintptr_t)ctx->backbuffer + GFX_W(ctx) * (source / term_width * char_height) * GFX_B(ctx);
+		size_t siz = count * char_height * GFX_W(ctx) * GFX_B(ctx);
+		if (!_no_frame) {
+			/*
+			 * Adjust for decorations; note that since we're copying everything, that includes the decorations!
+			 * we'll redraw them later which should account for anything we broke by doing this.
+			 */
+			dst += GFX_W(ctx) * GFX_B(ctx) * (decor_top_height + menu_bar_height);
+			src += GFX_W(ctx) * GFX_B(ctx) * (decor_top_height + menu_bar_height);
+		}
+		memmove((void*)dst, (void*)src, siz);
+	}
+
+	/* Clear new lines at bottom */
+	for (int i = new_top; i < new_bottom; ++i) {
+		for (uint16_t x = 0; x < term_width; ++x) {
+			cell_set(x, i, ' ', current_fg, current_bg, ansi_state->flags);
+			cell_redraw(x, i);
+		}
+	}
+}
+
 /* Scroll the terminal up or down. */
 static void term_scroll(int how_much) {
 
-	/* A large scroll request should just clear the screen. */
-	if (how_much >= term_height || -how_much >= term_height) {
-		term_clear();
-		return;
-	}
-
-	/* A request to scroll 0... is a request not to scroll. */
-	if (how_much == 0) {
-		return;
-	}
-
-	/* Redraw the cursor before continuing. */
-	cell_redraw(csr_x, csr_y);
-
-	if (how_much > 0) {
-		/* Scroll up */
-		memmove(term_buffer, (void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * how_much), sizeof(term_cell_t) * term_width * (term_height - how_much));
-		/* Reset the "new" row to clean cells */
-		memset((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * (term_height - how_much)), 0x0, sizeof(term_cell_t) * term_width * how_much);
-		/* In graphical modes, we will shift the graphics buffer up as necessary */
-		uintptr_t dst, src;
-		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-		if (!_no_frame) {
-			/* Must include decorations */
-			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height)) * GFX_B(ctx);
-			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height + char_height * how_much)) * GFX_B(ctx);
-		} else {
-			/* Can skip decorations */
-			dst = (uintptr_t)ctx->backbuffer;
-			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
-		}
-		/* Perform the shift */
-		memmove((void *)dst, (void *)src, siz);
-		/* And redraw the new rows */
-		for (int i = 0; i < how_much; ++i) {
-			for (uint16_t x = 0; x < term_width; ++x) {
-				cell_set(x,term_height - how_much,' ', current_fg, current_bg, ansi_state->flags);
-				cell_redraw(x, term_height - how_much);
-			}
-		}
-	} else {
-		how_much = -how_much;
-		/* Scroll down */
-		memmove((void *)((uintptr_t)term_buffer + sizeof(term_cell_t) * term_width * how_much), term_buffer, sizeof(term_cell_t) * term_width * (term_height - how_much));
-		/* Reset the "new" row to clean cells */
-		memset(term_buffer, 0x0, sizeof(term_cell_t) * term_width * how_much);
-		uintptr_t dst, src;
-		size_t    siz = char_height * (term_height - how_much) * GFX_W(ctx) * GFX_B(ctx);
-		if (!_no_frame) {
-			src = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height)) * GFX_B(ctx);
-			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) * (decor_top_height+menu_bar_height + char_height * how_much)) * GFX_B(ctx);
-		} else {
-			src = (uintptr_t)ctx->backbuffer;
-			dst = (uintptr_t)ctx->backbuffer + (GFX_W(ctx) *  char_height * how_much) * GFX_B(ctx);
-		}
-		/* Perform the shift */
-		memmove((void *)dst, (void *)src, siz);
-		/* And redraw the new rows */
-		for (int i = 0; i < how_much; ++i) {
-			for (uint16_t x = 0; x < term_width; ++x) {
-				cell_redraw(x, i);
-			}
-		}
-	}
+	term_shift_region(0, term_height, how_much);
 
 	/* Remove image data for image cells that are no longer on screen. */
 	flush_unused_images();
 
 	/* Flip the entire window. */
-	yutani_flip(yctx, window);
+	if (!_fullscreen) {
+		render_decors();
+	} else {
+		yutani_flip(yctx, window);
+	}
+}
+
+static void insert_delete_lines(int how_many) {
+	if (how_many == 0) return;
+
+	if (how_many > 0) {
+		/* Insert lines is equivalent to scrolling from the current line */
+		term_shift_region(csr_y,term_height-csr_y,-how_many);
+	} else {
+		term_shift_region(csr_y,term_height-csr_y,-how_many);
+	}
 }
 
 /* Is this a wide character? (does wcwidth == 2) */
@@ -1420,6 +1427,7 @@ term_callbacks_t term_callbacks = {
 	term_get_cell_height,
 	term_set_csr_show,
 	term_switch_buffer,
+	insert_delete_lines,
 };
 
 /* Write data into the PTY */
@@ -2299,6 +2307,8 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
 	menu_insert(m, menu_create_normal(NULL, NULL, _use_aa ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_sdf));
 	menu_insert(m, menu_create_normal(NULL, NULL, _free_size ? "Snap to Cell Size" : "Freely Resize", _menu_action_toggle_free_size));
+	menu_insert(menu_right_click, menu_create_separator());
+	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();

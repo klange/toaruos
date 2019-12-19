@@ -506,21 +506,21 @@ void term_redraw_all() {
 void term_shift_region(int top, int height, int how_much) {
 	if (how_much == 0) return;
 
-	void * destination, * source;
+	int destination, source;
 	int count, new_top, new_bottom;
 	if (how_much > height) {
 		count = 0;
 		new_top = top;
 		new_bottom = top + height;
 	} else if (how_much > 0) {
-		destination = term_buffer + term_width * top;
-		source = term_buffer + term_width * (top + how_much);
+		destination = term_width * top;
+		source = term_width * (top + how_much);
 		count = height - how_much;
 		new_top = top + height - how_much;
 		new_bottom = top + height;
 	} else if (how_much < 0) {
-		destination = term_buffer + term_width * (top - how_much);
-		source = term_buffer + term_width * top;
+		destination = term_width * (top - how_much);
+		source = term_width * top;
 		count = height + how_much;
 		new_top = top;
 		new_bottom = top - how_much;
@@ -528,8 +528,7 @@ void term_shift_region(int top, int height, int how_much) {
 
 	/* Move from top+how_much to top */
 	if (count) {
-		memmove(destination, source, count * term_width * sizeof(term_cell_t));
-		
+		memmove(term_buffer + destination, term_buffer + source, count * term_width * sizeof(term_cell_t));
 	}
 
 	/* Clear new lines at bottom */
