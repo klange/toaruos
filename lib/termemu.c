@@ -329,6 +329,8 @@ static void _ansi_put(term_state_t * s, char c) {
 								s->mouse_on |= TERMEMU_MOUSE_SGR;
 							} else if (!strcmp(argv[0], "?25")) {
 								callbacks->set_csr_on(1);
+							} else if (!strcmp(argv[0], "?2004")) {
+								s->paste_mode = 1;
 							}
 						}
 						break;
@@ -344,6 +346,8 @@ static void _ansi_put(term_state_t * s, char c) {
 								s->mouse_on &= ~TERMEMU_MOUSE_SGR;
 							} else if (!strcmp(argv[0], "?25")) {
 								callbacks->set_csr_on(0);
+							} else if (!strcmp(argv[0], "?2004")) {
+								s->paste_mode = 0;
 							}
 						}
 						break;

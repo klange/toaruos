@@ -1942,7 +1942,13 @@ static void * handle_incoming(void) {
 						memcpy(selection_text, cb->content, cb->size);
 						selection_text[cb->size] = '\0';
 					}
-					handle_input_s(selection_text);
+					if (ansi_state->paste_mode) {
+						handle_input_s("\033[200~");
+						handle_input_s(selection_text);
+						handle_input_s("\033[201~");
+					} else {
+						handle_input_s(selection_text);
+					}
 				}
 				break;
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:

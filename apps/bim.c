@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Thu Dec 19 13:41:35 2019
- * It is based on git commit 8860761a4e0906246a38f41939551fe7ed050c5b
+ * It was built Fri Dec 20 20:55:42 2019
+ * It is based on git commit 7c3983dd0c630558d7b7cd9573145e75ceecf4d7
  */
-#define GIT_TAG "8860761-baked"
+#define GIT_TAG "7c3983d-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -96,6 +96,8 @@ enum Key {
 	KEY_ALT_UP, KEY_ALT_DOWN, KEY_ALT_RIGHT, KEY_ALT_LEFT,
 	KEY_ALT_SHIFT_UP, KEY_ALT_SHIFT_DOWN, KEY_ALT_SHIFT_RIGHT, KEY_ALT_SHIFT_LEFT,
 	KEY_SHIFT_TAB,
+	/* Special signals for paste start, paste end */
+	KEY_PASTE_BEGIN, KEY_PASTE_END,
 };
 
 struct key_name_map {
@@ -198,6 +200,7 @@ typedef struct {
 	unsigned int can_256color:1;
 	unsigned int can_italic:1;
 	unsigned int can_insert:1;
+	unsigned int can_bracketedpaste:1;
 	unsigned int history_enabled:1;
 	unsigned int highlight_parens:1;
 	unsigned int smart_case:1;
@@ -641,6 +644,7 @@ global_config_t global_config = {
 	.can_256color = 1, /* can use 265 colors */
 	.can_italic = 1, /* can use italics (without inverting) */
 	.can_insert = 0, /* ^[[L */
+	.can_bracketedpaste = 0, /* puts escapes before and after pasted stuff */
 	/* Configuration options */
 	.history_enabled = 1,
 	.highlight_parens = 1, /* highlight parens/braces when cursor moves */
@@ -688,6 +692,7 @@ struct key_name_map KeyNames[] = {
 	{KEY_ALT_UP, "<alt-up>"},{KEY_ALT_DOWN, "<alt-down>"},{KEY_ALT_RIGHT, "<alt-right>"},{KEY_ALT_LEFT, "<alt-left>"},
 	{KEY_ALT_SHIFT_UP, "<alt-shift-up>"},{KEY_ALT_SHIFT_DOWN, "<alt-shift-down>"},{KEY_ALT_SHIFT_RIGHT, "<alt-shift-right>"},{KEY_ALT_SHIFT_LEFT, "<alt-shift-left>"},
 	{KEY_SHIFT_TAB,"<shift-tab>"},
+	{KEY_PASTE_BEGIN,"<paste-begin>"},{KEY_PASTE_END,"<paste-end>"},
 };
 
 char * name_from_key(enum Key keycode) {
@@ -939,6 +944,12 @@ int bim_getkey(int read_timeout) {
 									case '4': timeout = 0; return KEY_END;
 									case '5': timeout = 0; return KEY_PAGE_UP;
 									case '6': timeout = 0; return KEY_PAGE_DOWN;
+								}
+							} else if (timeout == 5) {
+								if (this_buf[2] == '2' && this_buf[3] == '0' && this_buf[4] == '0') {
+									return KEY_PASTE_BEGIN;
+								} else if (this_buf[2] == '2' && this_buf[3] == '0' && this_buf[4] == '1') {
+									return KEY_PASTE_END;
 								}
 							} else if (this_buf[2] == '1') {
 								switch (this_buf[3]) {
@@ -2427,6 +2438,24 @@ void unset_alternate_screen(void) {
 }
 
 /**
+ * Enable bracketed paste mode.
+ */
+void set_bracketed_paste(void) {
+	if (global_config.can_bracketedpaste) {
+		printf("\033[?2004h");
+	}
+}
+
+/**
+ * Disable bracketed paste mode.
+ */
+void unset_bracketed_paste(void) {
+	if (global_config.can_bracketedpaste) {
+		printf("\033[?2004l");
+	}
+}
+
+/**
  * Get the name of just a file from a full path.
  * Returns a pointer within the original string.
  */
@@ -3688,6 +3717,7 @@ void SIGTSTP_handler(int sig) {
 	reset();
 	clear_screen();
 	show_cursor();
+	unset_bracketed_paste();
 	unset_alternate_screen();
 	fflush(stdout);
 
@@ -3698,6 +3728,7 @@ void SIGTSTP_handler(int sig) {
 void SIGCONT_handler(int sig) {
 	(void)sig;
 	set_alternate_screen();
+	set_bracketed_paste();
 	set_unbuffered();
 	update_screen_size();
 	mouse_enable();
@@ -4169,6 +4200,7 @@ void quit(const char * message) {
 	reset();
 	clear_screen();
 	show_cursor();
+	unset_bracketed_paste();
 	unset_alternate_screen();
 	if (message) {
 		fprintf(stdout, "%s\n", message);
@@ -9325,6 +9357,22 @@ BIM_ACTION(shift_horizontally, ARG_IS_CUSTOM,
 	redraw_text();
 }
 
+static int state_before_paste = 0;
+BIM_ACTION(paste_begin, 0, "Begin bracketed paste; disable indentation, completion, etc.")(void) {
+	if (global_config.smart_complete) state_before_paste |= 0x01;
+	if (env->indent) state_before_paste |= 0x02;
+
+	global_config.smart_complete = 0;
+	env->indent = 0;
+	/* TODO: We need env->loading == 1, but with history (manual breaks, though) */
+}
+
+BIM_ACTION(paste_end, 0, "End bracketed paste; restore indentation, completion, etc.")(void) {
+	if (state_before_paste & 0x01) global_config.smart_complete = 1;
+	if (state_before_paste & 0x02) env->indent = 1;
+	redraw_statusbar();
+}
+
 struct action_map _NORMAL_MAP[] = {
 	{KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0},
 	{'V',           enter_line_selection, 0, 0},
@@ -9364,6 +9412,8 @@ struct action_map _INSERT_MAP[] = {
 	{'\t',          smart_tab, 0, 0},
 	{'/',           smart_comment_end, opt_arg, '/'},
 	{'}',           smart_brace_end, opt_arg, '}'},
+	{KEY_PASTE_BEGIN, paste_begin, 0, 0},
+	{KEY_PASTE_END, paste_end, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -10290,11 +10340,13 @@ void detect_weird_terminals(void) {
 		global_config.can_24bit = 0; /* Also not strictly true */
 		global_config.can_256color = 0; /* Not strictly true */
 	}
-	if (term && strstr(term,"toaru") == term) {
-		global_config.can_insert = 1;
-	}
 	if (term && strstr(term,"xterm-256color") == term) {
 		global_config.can_insert = 1;
+		global_config.can_bracketedpaste = 1;
+	}
+	if (term && strstr(term,"toaru") == term) {
+		global_config.can_insert = 1;
+		global_config.can_bracketedpaste = 1;
 	}
 
 	if (!global_config.can_unicode) {
@@ -10359,6 +10411,7 @@ void init_terminal(void) {
 		global_config.tty_in = STDERR_FILENO;
 	}
 	set_alternate_screen();
+	set_bracketed_paste();
 	update_screen_size();
 	get_initial_termios();
 	set_unbuffered();
@@ -11337,7 +11390,7 @@ void paint_c_string(struct syntax_state * state) {
 				}
 			}
 			last = -1;
-		} else if (charat() == '%') {
+		} else if (charat() == '%' && nextchar() != '"') {
 			paint(1, FLAG_ESCAPE);
 			if (charat() == '%') {
 				paint(1, FLAG_ESCAPE);

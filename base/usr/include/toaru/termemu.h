@@ -60,6 +60,7 @@ typedef struct {
 	uint32_t img_collected;
 	uint32_t img_size;
 	char *   img_data;
+	uint8_t  paste_mode;
 } term_state_t;
 
 /* Triggers escape mode. */

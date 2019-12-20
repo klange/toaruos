@@ -741,7 +741,13 @@ void key_event(int ret, key_event_t * event) {
 			(event->keycode == 'v')) {
 			/* Paste selection */
 			if (selection_text) {
-				handle_input_s(selection_text);
+				if (ansi_state->paste_mode) {
+					handle_input_s("\033[200~");
+					handle_input_s(selection_text);
+					handle_input_s("\033[201~");
+				} else {
+					handle_input_s(selection_text);
+				}
 			}
 			return;
 		}
