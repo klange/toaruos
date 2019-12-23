@@ -17,6 +17,7 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
+#include <toaru/menu.h>
 
 /* Pointer to graphics memory */
 static yutani_t * yctx;
@@ -93,6 +94,10 @@ int main(int argc, char * argv[]) {
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		if (m) {
+			if (menu_process_event(yctx, m)) {
+				redraw();
+				continue;
+			}
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
@@ -132,10 +137,16 @@ int main(int argc, char * argv[]) {
 					break;
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
+						struct yutani_msg_window_mouse_event * me = (void*)m->data;
+						if (me->wid != window->wid) break;
 						int result = decor_handle_event(yctx, m);
 						switch (result) {
 							case DECOR_CLOSE:
 								playing = 0;
+								break;
+							case DECOR_RIGHT:
+								/* right click in decoration, show appropriate menu */
+								decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
 								break;
 							default:
 								/* Other actions */
@@ -143,6 +154,7 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
+				case YUTANI_MSG_WINDOW_CLOSE:
 				case YUTANI_MSG_SESSION_END:
 					playing = 0;
 					break;
@@ -157,4 +169,3 @@ int main(int argc, char * argv[]) {
 
 	return 0;
 }
-
