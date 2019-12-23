@@ -2337,9 +2337,11 @@ int main(int argc, char ** argv) {
 	menu_right_click = menu_create();
 	menu_insert(menu_right_click, _menu_copy);
 	menu_insert(menu_right_click, _menu_paste);
-	menu_insert(menu_right_click, menu_create_separator());
-	_menu_toggle_borders_context = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
-	menu_insert(menu_right_click, _menu_toggle_borders_context);
+	if (!_fullscreen) {
+		menu_insert(menu_right_click, menu_create_separator());
+		_menu_toggle_borders_context = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
+		menu_insert(menu_right_click, _menu_toggle_borders_context);
+	}
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_exit);
 
