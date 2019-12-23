@@ -74,11 +74,6 @@ void tty_output_process_slave(pty_t * pty, uint8_t c) {
 }
 
 void tty_output_process(pty_t * pty, uint8_t c) {
-	/* XXX hack to allow ^C to work when the tty is full */
-	while (pty->write_out == pty_write_out && ring_buffer_available(pty->out) < 16) {
-		unsigned char garbage[1];
-		ring_buffer_read(pty->out, 1, garbage);
-	}
 	output_process_slave(pty, c);
 }
 
@@ -654,8 +649,6 @@ pty_t * pty_new(struct winsize * size) {
 	/* stdin linkage; characters from terminal → PTY slave */
 	pty->in  = ring_buffer_create(TTY_BUFFER_SIZE);
 	pty->out = ring_buffer_create(TTY_BUFFER_SIZE);
-
-	pty->in->discard = 1;
 
 	/* Master endpoint - writes go to stdin, reads come from stdout */
 	pty->master = pty_master_create(pty);

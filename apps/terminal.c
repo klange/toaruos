@@ -28,6 +28,7 @@
 #include <pty.h>
 #include <wchar.h>
 #include <dlfcn.h>
+#include <pthread.h>
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -513,12 +514,63 @@ static char * copy_selection(void) {
 	return selection_text;
 }
 
+static volatile int input_buffer_lock = 0;
+static int input_buffer_semaphore[2];
+static list_t * input_buffer_queue = NULL;
+struct input_data {
+	size_t len;
+	char data[];
+};
+
+void * handle_input_writing(void * unused) {
+	(void)unused;
+
+	while (1) {
+
+		/* Read one byte from semaphore; as long as semaphore has data,
+		 * there is another input blob to write to the TTY */
+		char tmp[1];
+		int c = read(input_buffer_semaphore[0],tmp,1);
+		if (c > 0) {
+			/* Retrieve blob */
+			spin_lock(&input_buffer_lock);
+			node_t * blob = list_dequeue(input_buffer_queue);
+			spin_unlock(&input_buffer_lock);
+			/* No blobs? This shouldn't happen, but just in case, just continue */
+			if (!blob) {
+				continue;
+			}
+			/* Write blob data to the tty */
+			struct input_data * value = blob->value;
+			write(fd_master, value->data, value->len);
+			free(blob->value);
+			free(blob);
+		} else {
+			/* The pipe has closed, terminal is exiting */
+			break;
+		}
+	}
+
+	return NULL;
+}
+
+static void write_input_buffer(char * data, size_t len) {
+	struct input_data * d = malloc(sizeof(struct input_data) + len);
+	d->len = len;
+	memcpy(&d->data, data, len);
+	spin_lock(&input_buffer_lock);
+	list_insert(input_buffer_queue, d);
+	spin_unlock(&input_buffer_lock);
+	write(input_buffer_semaphore[1], d, 1);
+}
+
 /* Stuffs a string into the stdin of the terminal's child process
  * Useful for things like the ANSI DSR command. */
 static void input_buffer_stuff(char * str) {
-	size_t s = strlen(str) + 1;
-	write(fd_master, str, s);
+	size_t len = strlen(str);
+	write_input_buffer(str, len);
 }
+
 
 /* Redraw the decorations */
 static void render_decors(void) {
@@ -1432,9 +1484,8 @@ term_callbacks_t term_callbacks = {
 	insert_delete_lines,
 };
 
-/* Write data into the PTY */
 static void handle_input(char c) {
-	write(fd_master, &c, 1);
+	write_input_buffer(&c, 1);
 	display_flip();
 	if (scrollback_offset != 0) {
 		scrollback_offset = 0;
@@ -1442,15 +1493,16 @@ static void handle_input(char c) {
 	}
 }
 
-/* Write a string into the PTY */
 static void handle_input_s(char * c) {
-	write(fd_master, c, strlen(c));
+	size_t len = strlen(c);
+	write_input_buffer(c, len);
 	display_flip();
 	if (scrollback_offset != 0) {
 		scrollback_offset = 0;
 		term_redraw_all();
 	}
 }
+
 
 /* Scroll the view up (scrollback) */
 static void scroll_up(int amount) {
@@ -1689,6 +1741,7 @@ static void check_for_exit(void) {
 	/* Write [Process terminated] */
 	char exit_message[] = "[Process terminated]\n";
 	write(fd_slave, exit_message, sizeof(exit_message));
+	close(input_buffer_semaphore[1]);
 }
 
 static term_cell_t * copy_terminal(int old_width, int old_height, term_cell_t * term_buffer) {
@@ -2344,6 +2397,12 @@ int main(int argc, char ** argv) {
 	/* Initialize the terminal buffer and ANSI library for the first time. */
 	reinit();
 
+	/* Run thread to handle asynchronous writes to the tty */
+	pthread_t input_buffer_thread;
+	pipe(input_buffer_semaphore);
+	input_buffer_queue = list_create();
+	pthread_create(&input_buffer_thread, NULL, handle_input_writing, NULL);
+
 	/* Make sure we're not passing anything to stdin on the child */
 	fflush(stdin);
 
@@ -2411,6 +2470,8 @@ int main(int argc, char ** argv) {
 			}
 		}
 	}
+
+	close(input_buffer_semaphore[1]);
 
 	/* Windows will close automatically on exit. */
 	return 0;

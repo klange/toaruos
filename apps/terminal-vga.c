@@ -14,6 +14,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -30,6 +31,8 @@
 #include <toaru/graphics.h>
 #include <toaru/termemu.h>
 #include <toaru/mouse.h>
+#include <toaru/list.h>
+#include <toaru/spinlock.h>
 
 #include "vga-palette.h"
 
@@ -389,9 +392,63 @@ char * copy_selection(void) {
 	return selection_text;
 }
 
-void input_buffer_stuff(char * str) {
-	size_t s = strlen(str) + 1;
-	write(fd_master, str, s);
+static volatile int input_buffer_lock = 0;
+static int input_buffer_semaphore[2];
+static list_t * input_buffer_queue = NULL;
+struct input_data {
+	size_t len;
+	char data[];
+};
+
+void * handle_input_writing(void * unused) {
+	(void)unused;
+
+	while (1) {
+
+		/* Read one byte from semaphore; as long as semaphore has data,
+		 * there is another input blob to write to the TTY */
+		char tmp[1];
+		int c = read(input_buffer_semaphore[0],tmp,1);
+		if (c > 0) {
+			/* Retrieve blob */
+			spin_lock(&input_buffer_lock);
+			node_t * blob = list_dequeue(input_buffer_queue);
+			spin_unlock(&input_buffer_lock);
+			/* No blobs? This shouldn't happen, but just in case, just continue */
+			if (!blob) {
+				continue;
+			}
+			/* Write blob data to the tty */
+			struct input_data * value = blob->value;
+			write(fd_master, value->data, value->len);
+			free(blob->value);
+			free(blob);
+		} else {
+			/* The pipe has closed, terminal is exiting */
+			break;
+		}
+	}
+
+	return NULL;
+}
+
+static void write_input_buffer(char * data, size_t len) {
+	struct input_data * d = malloc(sizeof(struct input_data) + len);
+	d->len = len;
+	memcpy(&d->data, data, len);
+	spin_lock(&input_buffer_lock);
+	list_insert(input_buffer_queue, d);
+	spin_unlock(&input_buffer_lock);
+	write(input_buffer_semaphore[1], d, 1);
+}
+
+void handle_input(char c) {
+	write_input_buffer(&c, 1);
+}
+
+void handle_input_s(char * c) {
+	size_t len = strlen(c);
+	write_input_buffer(c, len);
 }
 
 unsigned short * textmemptr = (unsigned short *)0xB8000;
@@ -705,24 +762,7 @@ void term_clear(int i) {
 	}
 }
 
-#define INPUT_SIZE 1024
-char input_buffer[INPUT_SIZE];
-int  input_collected = 0;
-
-void clear_input() {
-	memset(input_buffer, 0x0, INPUT_SIZE);
-	input_collected = 0;
-}
-
 pid_t child_pid = 0;
-
-void handle_input(char c) {
-	write(fd_master, &c, 1);
-}
-
-void handle_input_s(char * c) {
-	write(fd_master, c, strlen(c));
-}
 
 void key_event(int ret, key_event_t * event) {
 	if (ret) {
@@ -933,7 +973,7 @@ term_callbacks_t term_callbacks = {
 	term_clear,
 	term_scroll,
 	term_redraw_cursor,
-	input_buffer_stuff,
+	handle_input_s,
 	set_title,
 	unsupported,
 	unsupported_int,
@@ -984,6 +1024,7 @@ void check_for_exit(void) {
 	/* Exit */
 	char exit_message[] = "[Process terminated]\n";
 	write(fd_slave, exit_message, sizeof(exit_message));
+	close(input_buffer_semaphore[1]);
 }
 
 static int mouse_x = 0;
@@ -1156,6 +1197,11 @@ int main(int argc, char ** argv) {
 
 	reinit();
 
+	pthread_t input_buffer_thread;
+	pipe(input_buffer_semaphore);
+	input_buffer_queue = list_create();
+	pthread_create(&input_buffer_thread, NULL, handle_input_writing, NULL);
+
 	fflush(stdin);
 
 	system("cursor-off"); /* Might GPF */
@@ -1268,5 +1314,6 @@ int main(int argc, char ** argv) {
 
 	}
 
+	close(input_buffer_semaphore[1]);
 	return 0;
 }

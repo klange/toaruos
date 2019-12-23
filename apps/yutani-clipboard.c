@@ -42,8 +42,9 @@ int set_clipboard_from_file(char * file) {
 	size_t size = ftell(f);
 	fseek(f, 0, SEEK_SET);
 
-	char * tmp = malloc(size);
+	char * tmp = malloc(size+1);
 	fread(tmp, 1, size, f);
+	tmp[size] = '\0';
 
 	yutani_set_clipboard(yctx, tmp);
 
