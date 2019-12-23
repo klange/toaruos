@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Fri Dec 20 20:55:42 2019
- * It is based on git commit 7c3983dd0c630558d7b7cd9573145e75ceecf4d7
+ * It was built Tue Dec 24 07:11:42 2019
+ * It is based on git commit 6f2c849074d208c91dffc0c7020b98230c304f78
  */
-#define GIT_TAG "7c3983d-baked"
+#define GIT_TAG "6f2c849-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -55,7 +55,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.5.1" TAG
+#define BIM_VERSION   "2.6.0" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -11909,7 +11909,7 @@ int esh_variable_qualifier(int c) {
 int paint_esh_variable(struct syntax_state * state) {
 	if (charat() == '{') {
 		paint(1, FLAG_TYPE);
-		while (charat() != '}') paint(1, FLAG_TYPE);
+		while (charat() != '}' && charat() != -1) paint(1, FLAG_TYPE);
 		if (charat() == '}') paint(1, FLAG_TYPE);
 	} else {
 		if (charat() == '?' || charat() == '$' || charat() == '#') {
