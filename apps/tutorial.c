@@ -6,6 +6,8 @@
  * tutorial - A recreation of the original wizard.py, explaining
  *            the functionality of ToaruOS and how to use the WM.
  */
+#include <time.h>
+
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
@@ -129,6 +131,18 @@ static void circle(int x, int y, int r) {
 	invert_background_alpha();
 }
 
+static char * randomly_select_begging(void) {
+	char * options[] = {
+		"You can help support ToaruOS by donating:",
+		"Your donation helps us continue developing ToaruOS:",
+		"You can sponsor ToaruOS development on Github:",
+		"Please give me money:",
+	};
+
+	return options[rand() % (sizeof(options) / sizeof(*options))];
+
+}
+
 static void load_page(int page) {
 
 	int i = 0;
@@ -153,7 +167,7 @@ static void load_page(int page) {
 			body_text[i++] = "ToaruOS is free software, released under the terms of the";
 			body_text[i++] = "NCSA/University of Illinois license.";
 			body_text[i++] = "";
-			body_text[i++] = "You can help support ToaruOS by donating:";
+			body_text[i++] = randomly_select_begging();
 			body_text[i++] = "%https://github.com/sponsors/klange";
 			body_text[i++] = NULL;
 			break;
@@ -288,6 +302,7 @@ void set_hilight(struct TTKButton * button, int hilight) {
 
 
 int main(int argc, char * argv[]) {
+	srand(time(NULL));
 	int req_center_x, req_center_y;
 	yctx = yutani_init();
 	if (!yctx) {
