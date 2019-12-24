@@ -250,6 +250,9 @@ static const char * COLOR_PRAGMA    = "@1";
 static const char * COLOR_NUMERAL   = "@1";
 static const char * COLOR_RED       = "@1";
 static const char * COLOR_GREEN     = "@2";
+static const char * COLOR_ESCAPE    = "@2";
+static const char * COLOR_SEARCH_FG = "@0";
+static const char * COLOR_SEARCH_BG = "@3";
 
 /**
  * Themes are selected from the $RLINE_THEME
@@ -268,6 +271,9 @@ static void rline_exp_load_colorscheme_default(void) {
 	COLOR_NUMERAL   = "@1";
 	COLOR_RED       = "@1";
 	COLOR_GREEN     = "@2";
+	COLOR_ESCAPE    = "@12";
+	COLOR_SEARCH_FG = "@0";
+	COLOR_SEARCH_BG = "@13";
 }
 
 static void rline_exp_load_colorscheme_sunsmoke(void) {
@@ -283,7 +289,11 @@ static void rline_exp_load_colorscheme_sunsmoke(void) {
 	COLOR_NUMERAL   = "2;230;43;127";
 	COLOR_RED       = "2;222;53;53";
 	COLOR_GREEN     = "2;55;167;0";
+	COLOR_ESCAPE    = "2;113;203;173";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
 }
+
 /**
  * Syntax highlighting flags.
  */
@@ -294,292 +304,437 @@ static void rline_exp_load_colorscheme_sunsmoke(void) {
 #define FLAG_TYPE      4
 #define FLAG_PRAGMA    5
 #define FLAG_NUMERAL   6
-#define FLAG_SELECT    7
-#define FLAG_STRING2   8
-#define FLAG_DIFFPLUS  9
-#define FLAG_DIFFMINUS 10
+#define FLAG_ERROR     7
+#define FLAG_DIFFPLUS  8
+#define FLAG_DIFFMINUS 9
+#define FLAG_NOTICE    10
+#define FLAG_BOLD      11
+#define FLAG_LINK      12
+#define FLAG_ESCAPE    13
 
-#define FLAG_CONTINUES (1 << 6)
+#define FLAG_SELECT    (1 << 5)
+#define FLAG_SEARCH    (1 << 6)
+
+struct syntax_state {
+	line_t * line;
+	int line_no;
+	int state;
+	int i;
+};
+
+#define paint(length, flag) do { for (int i = 0; i < (length) && state->i < state->line->actual; i++, state->i++) { state->line->text[state->i].flags = (flag); } } while (0)
+#define charat() (state->i < state->line->actual ? state->line->text[(state->i)].codepoint : -1)
+#define nextchar() (state->i + 1 < state->line->actual ? state->line->text[(state->i+1)].codepoint : -1)
+#define lastchar() (state->i - 1 >= 0 ? state->line->text[(state->i-1)].codepoint : -1)
+#define skip() (state->i++)
+#define charrel(x) (state->i + (x) < state->line->actual ? state->line->text[(state->i+(x))].codepoint : -1)
 
 /**
- * Syntax definition for ToaruOS shell
+ * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
+ * so it can be used for prefix checking for things that need further special handling.
  */
-static char * syn_sh_keywords[] = {
-	"cd","exit","export","help","history","if",
-	"empty?","equals?","return","export-cmd",
-	"source","exec","not","while","then","else",
-	NULL,
-};
+int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
+	if (keyword_qualifier(lastchar())) return 0;
+	if (!keyword_qualifier(charat())) return 0;
+	int i = state->i;
+	int slen = 0;
+	while (i < state->line->actual || *keyword == '\0') {
+		if (*keyword == '\0' && (i >= state->line->actual || !keyword_qualifier(state->line->text[i].codepoint))) {
+			for (int j = 0; j < slen; ++j) {
+				paint(1, flag);
+			}
+			return 1;
+		}
+		if (*keyword != state->line->text[i].codepoint) return 0;
 
-static int variable_char(uint8_t c) {
-	if (c >= 'A' && c <= 'Z')  return 1;
-	if (c >= 'a' && c <= 'z') return 1;
-	if (c >= '0' && c <= '9')  return 1;
-	if (c == '_') return 1;
+		i++;
+		keyword++;
+		slen++;
+	}
 	return 0;
 }
 
-int variable_char_first(uint8_t c) {
-	if (c == '?') return 1;
-	if (c == '$') return 1;
-	if (c == '#') return 1;
-	return 0;
-}
-
-static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
-	if (c == '#' && last != '\\') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	if (line->text[i].codepoint == '\'' && last != '\\') {
-		int last = 0;
-		for (int j = i+1; j < line->actual + 1; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '\'') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
+/**
+ * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
+ * Returns 1 if a keyword from the last was found, otherwise 0.
+ */
+int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
+	if (keyword_qualifier(lastchar())) return 0;
+	if (!keyword_qualifier(charat())) return 0;
+	for (char ** keyword = keywords; *keyword; ++keyword) {
+		int d = 0;
+		while (state->i + d < state->line->actual && state->line->text[state->i+d].codepoint == (*keyword)[d]) d++;
+		if ((*keyword)[d] == '\0' && (state->i + d >= state->line->actual || !keyword_qualifier(state->line->text[state->i+d].codepoint))) {
+			paint((int)strlen(*keyword), flag);
+			return 1;
 		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	if (line->text[i].codepoint == '$' && last != '\\') {
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '{') {
-			int j = i + 2;
-			for (; j < line->actual+1; ++j) {
-				if (line->text[j].codepoint == '}') break;
-			}
-			*out_left = (j - i);
-			return FLAG_NUMERAL;
-		}
-		int j = i + 1;
-		int col = 0;
-		for (; j < line->actual + 1; ++j, ++col) {
-			if (col == 0) {
-				if (variable_char_first(line->text[j].codepoint) || isdigit(line->text[j].codepoint)) {
-					j++;
-					break;
-				}
-				if (!variable_char(line->text[j].codepoint)) break;
-			} else {
-				if (!variable_char(line->text[j].codepoint)) break;
-			}
-		}
-		*out_left = (j - i) - 1;
-		return FLAG_NUMERAL;
-	}
-
-	if (line->text[i].codepoint == '"' && last != '\\') {
-		int last = 0;
-		for (int j = i+1; j < line->actual + 1; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '"') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
 	}
 
 	return 0;
 }
 
-static int syn_sh_iskeywordchar(int c) {
-	if (isalnum(c)) return 1;
-	if (c == '-') return 1;
-	if (c == '_') return 1;
-	if (c == '?') return 1;
-	if (c == '/') return 1;
-	if (c == '.') return 1;
+/**
+ * This is a basic character matcher for "keyword" characters.
+ */
+int simple_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_');
+}
+
+
+int common_comment_buzzwords(struct syntax_state * state) {
+	if (match_and_paint(state, "TODO", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
+	else if (match_and_paint(state, "XXX", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
+	else if (match_and_paint(state, "FIXME", FLAG_ERROR, simple_keyword_qualifier)) { return 1; }
 	return 0;
 }
 
-static char * syn_py_keywords[] = {
-	"class","def","return","del","if","else","elif",
-	"for","while","continue","break","assert",
-	"as","and","or","except","finally","from",
-	"global","import","in","is","lambda","with",
-	"nonlocal","not","pass","raise","try","yield",
-	NULL
-};
-
-static char * syn_py_types[] = {
-	"True","False","None",
-	"object","set","dict","int","str","bytes",
-	NULL
-};
-
-int syn_c_iskeywordchar(int c) {
-	if (isalnum(c)) return 1;
-	if (c == '_') return 1;
-	return 0;
+/**
+ * Paint a comment until end of line, assumes this comment can not continue.
+ * (Some languages have comments that can continue with a \ - don't use this!)
+ * Assumes you've already painted your comment start characters.
+ */
+int paint_comment(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (common_comment_buzzwords(state)) continue;
+		else { paint(1, FLAG_COMMENT); }
+	}
+	return -1;
 }
 
-static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left) {
+int c_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_');
+}
 
-	if (i == 0 && c == 'i') {
-		/* Check for import */
-		char * import = "import ";
-		for (int j = 0; j < line->actual + 1; ++j) {
-			if (import[j] == '\0') {
-				*out_left = j - 2;
-				return FLAG_PRAGMA;
-			}
-			if (line->text[j].codepoint != import[j]) break;
-		}
-	}
+int esh_variable_qualifier(int c) {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_');
+}
 
-	if (c == '#') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	if (c == '@') {
-		for (int j = i+1; j < line->actual + 1; ++j) {
-			if (!syn_c_iskeywordchar(line->text[j].codepoint)) {
-				*out_left = j - i - 1;
-				return FLAG_PRAGMA;
-			}
-			*out_left = (line->actual + 1) - i;
-			return FLAG_PRAGMA;
-		}
-	}
-
-	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
-		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
-			int j = 2;
-			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
+int paint_esh_variable(struct syntax_state * state) {
+	if (charat() == '{') {
+		paint(1, FLAG_TYPE);
+		while (charat() != '}' && charat() != -1) paint(1, FLAG_TYPE);
+		if (charat() == '}') paint(1, FLAG_TYPE);
+	} else {
+		if (charat() == '?' || charat() == '$' || charat() == '#') {
+			paint(1, FLAG_TYPE);
 		} else {
-			int j = 1;
-			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
-				j++;
-			}
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
+			while (esh_variable_qualifier(charat())) paint(1, FLAG_TYPE);
 		}
 	}
-
-	if (line->text[i].codepoint == '\'') {
-		if (i + 2 < line->actual && line->text[i+1].codepoint == '\'' && line->text[i+2].codepoint == '\'') {
-			/* Begin multiline */
-			for (int j = i + 3; j < line->actual - 2; ++j) {
-				if (line->text[j].codepoint == '\'' &&
-					line->text[j+1].codepoint == '\'' &&
-					line->text[j+2].codepoint == '\'') {
-					*out_left = (j+2) - i;
-					return FLAG_STRING;
-				}
-			}
-			return FLAG_STRING | FLAG_CONTINUES;
-		}
-
-		int last = 0;
-		for (int j = i+1; j < line->actual; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '\'') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	if (line->text[i].codepoint == '"') {
-		if (i + 2 < line->actual && line->text[i+1].codepoint == '"' && line->text[i+2].codepoint == '"') {
-			/* Begin multiline */
-			for (int j = i + 3; j < line->actual - 2; ++j) {
-				if (line->text[j].codepoint == '"' &&
-					line->text[j+1].codepoint == '"' &&
-					line->text[j+2].codepoint == '"') {
-					*out_left = (j+2) - i;
-					return FLAG_STRING;
-				}
-			}
-			return FLAG_STRING2 | FLAG_CONTINUES;
-		}
-
-		int last = 0;
-		for (int j = i+1; j < line->actual; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '"') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
 	return 0;
 }
 
-static int syn_py_finish(line_t * line, int * left, int state) {
-	/* TODO support multiline quotes */
-	if (state == (FLAG_STRING | FLAG_CONTINUES)) {
-		for (int j = 0; j < line->actual - 2; ++j) {
-			if (line->text[j].codepoint == '\'' &&
-				line->text[j+1].codepoint == '\'' &&
-				line->text[j+2].codepoint == '\'') {
-				*left = (j+3);
-				return FLAG_STRING;
-			}
+int paint_esh_string(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '"') {
+			paint(1, FLAG_STRING);
+			return 0;
+		} else if (charat() == '$') {
+			paint(1, FLAG_TYPE);
+			paint_esh_variable(state);
+			last = -1;
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, FLAG_STRING);
 		}
-		return FLAG_STRING | FLAG_CONTINUES;
 	}
-	if (state == (FLAG_STRING2 | FLAG_CONTINUES)) {
-		for (int j = 0; j < line->actual - 2; ++j) {
-			if (line->text[j].codepoint == '"' &&
-				line->text[j+1].codepoint == '"' &&
-				line->text[j+2].codepoint == '"') {
-				*left = (j+3);
-				return FLAG_STRING2;
-			}
+	return 2;
+}
+
+int paint_esh_single_string(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return 0;
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, FLAG_STRING);
 		}
-		return FLAG_STRING2 | FLAG_CONTINUES;
+	}
+	return 1;
+}
+
+int esh_keyword_qualifier(int c) {
+	return (isalnum(c) || c == '?' || c == '_' || c == '-'); /* technically anything that isn't a space should qualify... */
+}
+
+char * esh_keywords[] = {
+	"cd","exit","export","help","history","if","empty?",
+	"equals?","return","export-cmd","source","exec","not","while",
+	"then","else","echo",
+	NULL
+};
+
+int syn_esh_calculate(struct syntax_state * state) {
+	if (state->state == 1) {
+		return paint_esh_single_string(state);
+	} else if (state->state == 2) {
+		return paint_esh_string(state);
+	}
+	if (charat() == '#') {
+		while (charat() != -1) {
+			if (common_comment_buzzwords(state)) continue;
+			else paint(1, FLAG_COMMENT);
+		}
+		return -1;
+	} else if (charat() == '$') {
+		paint(1, FLAG_TYPE);
+		paint_esh_variable(state);
+		return 0;
+	} else if (charat() == '\'') {
+		paint(1, FLAG_STRING);
+		return paint_esh_single_string(state);
+	} else if (charat() == '"') {
+		paint(1, FLAG_STRING);
+		return paint_esh_string(state);
+	} else if (match_and_paint(state, "export", FLAG_KEYWORD, esh_keyword_qualifier)) {
+		while (charat() == ' ') skip();
+		while (esh_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+		return 0;
+	} else if (match_and_paint(state, "export-cmd", FLAG_KEYWORD, esh_keyword_qualifier)) {
+		while (charat() == ' ') skip();
+		while (esh_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+		return 0;
+	} else if (find_keywords(state, esh_keywords, FLAG_KEYWORD, esh_keyword_qualifier)) {
+		return 0;
+	} else if (find_keywords(state, shell_commands, FLAG_KEYWORD, esh_keyword_qualifier)) {
+		return 0;
+	} else if (isdigit(charat())) {
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		return 0;
+	} else if (charat() != -1) {
+		skip();
+		return 0;
+	}
+	return -1;
+}
+
+void paint_simple_string(struct syntax_state * state) {
+	/* Assumes you came in from a check of charat() == '"' */
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == '"') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '"') {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+}
+
+char * syn_py_keywords[] = {
+	"class","def","return","del","if","else","elif","for","while","continue",
+	"break","assert","as","and","or","except","finally","from","global",
+	"import","in","is","lambda","with","nonlocal","not","pass","raise","try","yield",
+	NULL
+};
+
+char * syn_py_types[] = {
+	/* built-in functions */
+	"abs","all","any","ascii","bin","bool","breakpoint","bytes",
+	"bytearray","callable","compile","complex","delattr","chr",
+	"dict","dir","divmod","enumerate","eval","exec","filter","float",
+	"format","frozenset","getattr","globals","hasattr","hash","help",
+	"hex","id","input","int","isinstance","issubclass","iter","len",
+	"list","locals","map","max","memoryview","min","next","object",
+	"oct","open","ord","pow","print","property","range","repr","reverse",
+	"round","set","setattr","slice","sorted","staticmethod","str","sum",
+	"super","tuple","type","vars","zip",
+	NULL
+};
+
+char * syn_py_special[] = {
+	"True","False","None",
+	NULL
+};
+
+int paint_py_triple_double(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (charat() == '"') {
+			paint(1, FLAG_STRING);
+			if (charat() == '"' && nextchar() == '"') {
+				paint(2, FLAG_STRING);
+				return 0;
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+	return 1; /* continues */
+}
+
+int paint_py_triple_single(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (charat() == '\'') {
+			paint(1, FLAG_STRING);
+			if (charat() == '\'' && nextchar() == '\'') {
+				paint(2, FLAG_STRING);
+				return 0;
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+	return 2; /* continues */
+}
+
+int paint_py_single_string(struct syntax_state * state) {
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == '\'') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return 0;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else {
+			paint(1, FLAG_STRING);
+		}
 	}
 	return 0;
+}
+
+int paint_py_numeral(struct syntax_state * state) {
+	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
+		paint(2, FLAG_NUMERAL);
+		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && nextchar() == '.') {
+		paint(2, FLAG_NUMERAL);
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
+			paint(2, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		} else if (charat() == 'e' || charat() == 'E') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		}
+		if (charat() == 'j') paint(1, FLAG_NUMERAL);
+		return 0;
+	} else {
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		if (charat() == '.') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
+				paint(2, FLAG_NUMERAL);
+				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			} else if (charat() == 'e' || charat() == 'E') {
+				paint(1, FLAG_NUMERAL);
+				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			}
+			if (charat() == 'j') paint(1, FLAG_NUMERAL);
+			return 0;
+		}
+		if (charat() == 'j') paint(1, FLAG_NUMERAL);
+	}
+	while (charat() == 'l' || charat() == 'L') paint(1, FLAG_NUMERAL);
+	return 0;
+}
+
+void paint_py_format_string(struct syntax_state * state, char type) {
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == type) {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == type) {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '{') {
+			paint(1, FLAG_NUMERAL);
+			if (charat() == '}') {
+				state->i--;
+				paint(2, FLAG_ERROR); /* Can't do that. */
+			} else {
+				while (charat() != -1 && charat() != '}') {
+					paint(1, FLAG_NUMERAL);
+				}
+				paint(1, FLAG_NUMERAL);
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+}
+
+int syn_py_calculate(struct syntax_state * state) {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (charat() == '#') {
+				paint_comment(state);
+			} else if (state->i == 0 && match_and_paint(state, "import", FLAG_PRAGMA, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '@') {
+				paint(1, FLAG_PRAGMA);
+				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
+				return 0;
+			} else if (charat() == '"') {
+				if (nextchar() == '"' && charrel(2) == '"') {
+					paint(3, FLAG_STRING);
+					return paint_py_triple_double(state);
+				} else if (lastchar() == 'f') {
+					/* I don't like backtracking like this, but it makes this parse easier */
+					state->i--;
+					paint(1,FLAG_TYPE);
+					paint_py_format_string(state,'"');
+					return 0;
+				} else {
+					paint_simple_string(state);
+					return 0;
+				}
+			} else if (find_keywords(state, syn_py_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (lastchar() != '.' && find_keywords(state, syn_py_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_py_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\'') {
+				if (nextchar() == '\'' && charrel(2) == '\'') {
+					paint(3, FLAG_STRING);
+					return paint_py_triple_single(state);
+				} else if (lastchar() == 'f') {
+					/* I don't like backtracking like this, but it makes this parse easier */
+					state->i--;
+					paint(1,FLAG_TYPE);
+					paint_py_format_string(state,'\'');
+					return 0;
+				} else {
+					return paint_py_single_string(state);
+				}
+			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_py_numeral(state);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		case 1: /* multiline """ string */
+			return paint_py_triple_double(state);
+		case 2: /* multiline ''' string */
+			return paint_py_triple_single(state);
+	}
+	return -1;
 }
 
 /**
  * Convert syntax hilighting flag to color code
  */
 static const char * flag_to_color(int _flag) {
-	int flag = _flag & 0x3F;
+	int flag = _flag & 0xF;
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
 		case FLAG_STRING:
-		case FLAG_STRING2: /* allows python to differentiate " and ' */
 			return COLOR_STRING;
 		case FLAG_COMMENT:
 			return COLOR_COMMENT;
@@ -595,22 +750,24 @@ static const char * flag_to_color(int _flag) {
 			return COLOR_RED;
 		case FLAG_SELECT:
 			return COLOR_FG;
+//		case FLAG_BOLD:
+//			return COLOR_BOLD;
+//		case FLAG_LINK:
+//			return COLOR_LINK;
+		case FLAG_ESCAPE:
+			return COLOR_ESCAPE;
 		default:
 			return COLOR_FG;
 	}
 }
 
-static struct syntax_definition {
+struct syntax_definition {
 	char * name;
-	char ** keywords;
-	char ** types;
-	int (*extended)(line_t *, int, int, int, int *);
-	int (*iskwchar)(int);
-	int (*finishml)(line_t *, int *, int); /* TODO: How do we use this here? */
+	int (*calculate)(struct syntax_state *);
 } syntaxes[] = {
-	{"python",syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
-	{"esh",syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,NULL},
-	{NULL}
+	{"esh",syn_esh_calculate},
+	{"python",syn_py_calculate},
+	{NULL, NULL},
 };
 
 static struct syntax_definition * syntax;
@@ -626,20 +783,6 @@ int rline_exp_set_syntax(char * name) {
 }
 
 /**
- * Compare a line against a list of keywords
- */
-static int check_line(line_t * line, int c, char * str, int last) {
-	if (syntax->iskwchar(last)) return 0;
-	for (int i = c; i < line->actual; ++i, ++str) {
-		if (*str == '\0' && !syntax->iskwchar(line->text[i].codepoint)) return 1;
-		if (line->text[i].codepoint == *str) continue;
-		return 0;
-	}
-	if (*str == '\0') return 1;
-	return 0;
-}
-
-/**
  * Syntax highlighting
  * Slimmed down from the bim implementation a bit,
  * but generally compatible with the same definitions.
@@ -650,78 +793,50 @@ static int check_line(line_t * line, int c, char * str, int last) {
  * out into dynamically-loaded libraries?
  */
 static void recalculate_syntax(line_t * line) {
-
-	if (!syntax) return;
-
-	/* Start from the line's stored in initial state */
-	int state = line->istate;
-	int left  = 0;
-	int last  = 0;
-
-	for (int i = 0; i < line->actual; last = line->text[i++].codepoint) {
-		if (!left) state = 0;
-
-		if (state) {
-			/* Currently hilighting, have `left` characters remaining with this state */
-			left--;
-			line->text[i].flags = state;
-
-			if (!left) {
-				/* Done hilighting this state, go back to parsing on next character */
-				state = 0;
-			}
-
-			/* If we are hilighting something, don't parse */
-			continue;
+	/* Clear syntax for this line first */
+	int line_no = 0;
+	//int is_original = 1;
+	while (1) {
+		for (int i = 0; i < line->actual; ++i) {
+			line->text[i].flags = 0;
 		}
 
-		int c = line->text[i].codepoint;
-		line->text[i].flags = FLAG_NONE;
-
-		/* Language-specific syntax hilighting */
-		int s = syntax->extended(line,i,c,last,&left);
-		if (s) {
-			state = s;
-			goto _continue;
+		if (!syntax) {
+			return;
 		}
 
-		/* Keywords */
-		if (syntax->keywords) {
-			for (char ** kw = syntax->keywords; *kw; kw++) {
-				int c = check_line(line, i, *kw, last);
-				if (c == 1) {
-					left = strlen(*kw)-1;
-					state = FLAG_KEYWORD;
-					goto _continue;
+		/* Start from the line's stored in initial state */
+		struct syntax_state state;
+		state.line = line;
+		state.line_no = line_no;
+		state.state = line->istate;
+		state.i = 0;
+
+		while (1) {
+			state.state = syntax->calculate(&state);
+
+			if (state.state != 0) {
+				/* TODO: Figure out a way to make this work for multiline input */
+#if 0
+				if (line_no == -1) return;
+				if (!is_original) {
+					redraw_line(line_no);
 				}
-			}
-		}
-
-		for (int s = 0; s < shell_commands_len; ++s) {
-			int c = check_line(line, i, shell_commands[s], last);
-			if (c == 1) {
-				left = strlen(shell_commands[s])-1;
-				state = FLAG_KEYWORD;
-				goto _continue;
-			}
-		}
-
-		if (syntax->types) {
-			for (char ** kw = syntax->types; *kw; kw++) {
-				int c = check_line(line, i, *kw, last);
-				if (c == 1) {
-					left = strlen(*kw)-1;
-					state = FLAG_TYPE;
-					goto _continue;
+				if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
+					line_no++;
+					line = env->lines[line_no];
+					line->istate = state.state;
+					if (env->loading) return;
+					is_original = 0;
+					goto _next;
 				}
+#endif
+				return;
 			}
 		}
-
-_continue:
-		line->text[i].flags = state;
+//_next:
+//		(void)0;
 	}
-
-	state = 0;
 }
 
 /**
@@ -793,6 +908,7 @@ static void render_line(void) {
 	int j = 0; /* Offset in terminal cells */
 
 	const char * last_color = NULL;
+	int was_searching = 0;
 
 	/* Set default text colors */
 	set_colors(COLOR_FG, COLOR_BG);
@@ -863,7 +979,13 @@ static void render_line(void) {
 
 			/* Syntax hilighting */
 			const char * color = flag_to_color(c.flags);
-			if (!last_color || strcmp(color, last_color)) {
+			if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
+				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
+				was_searching = 1;
+			} else if (was_searching) {
+				set_colors(color, COLOR_BG);
+				last_color = color;
+			} else if (!last_color || strcmp(color, last_color)) {
 				set_fg_color(color);
 				last_color = color;
 			}
@@ -935,6 +1057,8 @@ static void render_line(void) {
 			i++;
 		}
 	}
+
+	set_colors(COLOR_FG, COLOR_BG);
 
 	/* Fill to end right hand side */
 	for (; j < width + offset - prompt_width_calc; ++j) {

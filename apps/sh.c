@@ -117,7 +117,7 @@ void reset_pgrp() {
 }
 
 void shell_install_command(char * name, shell_command_t func, char * desc) {
-	if (shell_commands_len == SHELL_COMMANDS) {
+	if (shell_commands_len == SHELL_COMMANDS-1) {
 		SHELL_COMMANDS *= 2;
 		shell_commands = realloc(shell_commands, sizeof(char *) * SHELL_COMMANDS);
 		shell_pointers = realloc(shell_pointers, sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -127,6 +127,7 @@ void shell_install_command(char * name, shell_command_t func, char * desc) {
 	shell_pointers[shell_commands_len] = func;
 	shell_descript[shell_commands_len] = desc;
 	shell_commands_len++;
+	shell_commands[shell_commands_len] = NULL;
 }
 
 shell_command_t shell_find(char * str) {
