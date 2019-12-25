@@ -19,3 +19,4 @@ exec julia,julia,Julia Fractals
 exec plasma,plasma,Plasma
 :settings
 exec gsudo package-manager,package,Package Manager
+exec wallpaper-picker,wallpaper-picker,Select Wallpaper
