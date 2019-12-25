@@ -298,7 +298,7 @@ int main(int argc, char * argv[]) {
 
 	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 
-	yutani_window_advertise_icon(yctx, window, title_str, "star");
+	yutani_window_advertise_icon(yctx, window, title_str, "wallpaper-picker");
 
 	ctx = init_graphics_yutani_double_buffer(window);
 	setup_buttons();
@@ -308,7 +308,6 @@ int main(int argc, char * argv[]) {
 	struct TTKButton * _down_button = NULL;
 
 	int playing = 1;
-	int status = 0;
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
@@ -321,10 +320,8 @@ int main(int argc, char * argv[]) {
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == '\n') {
 							playing = 0;
-							status = 0;
 						} else if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == KEY_ESCAPE) {
 							playing = 0;
-							status = 2;
 						}
 					}
 					break;
@@ -352,7 +349,6 @@ int main(int argc, char * argv[]) {
 							switch (result) {
 								case DECOR_CLOSE:
 									playing = 0;
-									status = 2;
 									break;
 								case DECOR_RIGHT:
 									/* right click in decoration, show appropriate menu */
