@@ -167,6 +167,36 @@ void set_title(char * c) {
 static void cell_redraw(uint16_t x, uint16_t y);
 static void cell_redraw_inverted(uint16_t x, uint16_t y);
 
+int is_in_selection(int x, int y) {
+	if (selection_end_y < selection_start_y) {
+		if (y == selection_end_y) {
+			return (x >= selection_end_x);
+		} else if (y == selection_start_y) {
+			return (x <= selection_start_x);
+		} else {
+			return (y > selection_end_y && y < selection_start_y);
+		}
+	} else if (selection_end_y > selection_start_y) {
+		if (y == selection_start_y) {
+			return (x >= selection_start_x);
+		} else if (y == selection_end_y) {
+			return (x <= selection_end_x);
+		} else {
+			return (y > selection_start_y && y < selection_end_y);
+		}
+	} else if (selection_end_y == selection_start_y) {
+		if (y != selection_end_y) return 0;
+		if (selection_start_x > selection_end_x) {
+			return (x >= selection_end_x && x <= selection_start_x);
+		} else if (selection_start_x < selection_end_x) {
+			return (x >= selection_start_x && x <= selection_end_x);
+		} else {
+			return x == selection_start_x;
+		}
+	}
+	return 0;
+}
+
 void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 	if (selection_end_y < selection_start_y) {
 		for (int x = selection_end_x; x < term_width; ++x) {
@@ -1052,8 +1082,20 @@ static void mouse_event(int button, int x, int y) {
 }
 
 static void redraw_mouse(void) {
-	cell_redraw(old_x, old_y);
-	cell_redraw_inverted(mouse_x, mouse_y);
+	/* Redraw previous cursor position */
+	if (is_in_selection(old_x, old_y)) {
+		cell_redraw_inverted(old_x, old_y);
+	} else {
+		cell_redraw(old_x, old_y);
+	}
+	term_cell_t * cell = term_buffer + (mouse_y * term_width + mouse_x);
+	int current_background = cell->bg;
+	if (is_in_selection(mouse_x, mouse_y)) {
+		current_background = (((uint32_t *)cell)[0] == 0) ? TERM_DEFAULT_FG : cell->fg;
+	}
+	/* Get new cursor position character */
+	int cursor_color = (current_background == 12) ? 15 : 12;
+	term_write_char(L'▲', mouse_x, mouse_y, cursor_color, current_background, 0);
 	old_x = mouse_x;
 	old_y = mouse_y;
 }
