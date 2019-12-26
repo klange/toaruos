@@ -309,9 +309,10 @@ done_video:
 
 	uint64_t upper_mem = 0;
 	for (int i = 0; i < mmap_ent; ++i) {
-		print("entry "); print_hex(i); print("\n");
-		print("base: "); print_hex((uint32_t)e820[i].base); print("\n");
-		print("type: "); print_hex(e820[i].type); print("\n");
+		print("entry "); print_hex(i);
+		print(" "); print_hex((uint32_t)(e820[i].base >> 32ULL)); print_hex((uint32_t)e820[i].base);
+		print(" "); print_hex((uint32_t)(e820[i].len >> 32ULL)); print_hex((uint32_t)e820[i].len);
+		print(" "); print_hex(e820[i].type); print("\n");
 
 		mmap->size = sizeof(uint64_t) * 2 + sizeof(uintptr_t);
 		mmap->base_addr = e820[i].base;
