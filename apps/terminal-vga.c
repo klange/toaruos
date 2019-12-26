@@ -479,7 +479,8 @@ term_write_char(
 		uint32_t bg,
 		uint8_t flags
 		) {
-	if (val > 128) val = ununicode(val);
+	if (val == L'▏') val = 179;
+	else if (val > 128) val = ununicode(val);
 	if (fg > 256) {
 		fg = best_match(fg);
 	}
