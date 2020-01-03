@@ -668,6 +668,17 @@ ld_exports_t ld_builtin_exports[] = {
 
 int main(int argc, char * argv[]) {
 
+	if (argc < 2) {
+		fprintf(stderr,
+				"ld.so - dynamic binary loader\n"
+				"\n"
+				"usage: %s [-e] [EXECUTABLE PATH]\n"
+				"\n"
+				" -e     \033[3mAdjust argument offset\033[0m\n"
+				"\n", argv[0]);
+		return -1;
+	}
+
 	char * file = argv[1];
 	size_t arg_offset = 1;
 
