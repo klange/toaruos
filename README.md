@@ -11,8 +11,6 @@ The ToaruOS project began in December 2010 and has its roots in an independent s
 
 ToaruOS 1.0 was released in January, 2017, and featured a Python userspace built on Newlib. Since 1.6.x, ToaruOS has had its own C library, dependencies on third-party libraries have been removed, and most of the Python userspace has been rewritten in C. More recent releases have focused on improving the C library support, providing more ports in our package repository, and adding new features.
 
-Plans for 2019 include a 64-bit kernel port, more filesystem drivers, and an installer. We're also working on our own C compiler toolchain.
-
 ## Features
 
 - **Dynamically linked userspace** with support for runtime `dlopen`ing of additional libraries.
