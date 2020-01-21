@@ -621,13 +621,9 @@ static void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 	bg = premultiply(bg);
 	fg = premultiply(fg);
 	if (c == 0x2580) {
-		uint32_t t = bg;
-		bg = fg;
-		fg = t;
-		c = 0x2584;
-		for (uint8_t i = 0; i < char_height; ++i) {
+		for (uint8_t i = 0; i < char_height / 2; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
-				term_set_point(x+j,y+i,bg);
+				term_set_point(x+j,y+i,fg);
 			}
 		}
 	} else if (c >= 0x2589) {
