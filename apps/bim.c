@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Tue Dec 24 07:11:42 2019
- * It is based on git commit 6f2c849074d208c91dffc0c7020b98230c304f78
+ * It was built Wed Jan 22 09:03:36 2020
+ * It is based on git commit d037c4a7076352b3afbcc91970e91a086f6541c6
  */
-#define GIT_TAG "6f2c849-baked"
+#define GIT_TAG "d037c4a-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
@@ -217,6 +217,7 @@ typedef struct {
 	unsigned int smart_complete:1;
 	unsigned int has_terminal:1;
 	unsigned int use_sgr_mouse:1;
+	unsigned int search_wraps:1;
 
 	int cursor_padding;
 	int split_percent;
@@ -662,6 +663,7 @@ global_config_t global_config = {
 	.smart_complete = 0,
 	.has_terminal = 0,
 	.use_sgr_mouse = 0,
+	.search_wraps = 1,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -5565,9 +5567,9 @@ BIM_COMMAND(global_sgr,"global.sgr_mouse","Enable SGR mouse escapes") {
 	if (argc < 2) {
 		render_status_message("global.sgr_mouse=%d", global_config.use_sgr_mouse);
 	} else {
-		mouse_disable();
+		if (global_config.has_terminal) mouse_disable();
 		global_config.use_sgr_mouse = !!atoi(argv[1]);
-		mouse_enable();
+		if (global_config.has_terminal) mouse_enable();
 	}
 	return 0;
 }
@@ -5938,6 +5940,15 @@ BIM_COMMAND(global_statusbar,"global.statusbar","Show or set whether to display 
 		global_config.hide_statusbar = !atoi(argv[1]);
 		global_config.bottom_size = global_config.hide_statusbar ? 1 : 2;
 		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(global_search_wraps,"wrapsearch","Enable search wrapping around from top or bottom") {
+	if (argc < 2) {
+		render_status_message("wrapsearch=%d",global_config.search_wraps);
+	} else {
+		global_config.search_wraps = !!atoi(argv[1]);
 	}
 	return 0;
 }
@@ -6953,6 +6964,7 @@ BIM_ACTION(search_next, 0,
 	find_match(env->line_no, env->col_no+1, &line, &col, global_config.search, NULL);
 
 	if (line == -1) {
+		if (!global_config.search_wraps) return;
 		find_match(1,1, &line, &col, global_config.search, NULL);
 		if (line == -1) return;
 	}
@@ -6975,6 +6987,7 @@ BIM_ACTION(search_prev, 0,
 	find_match_backwards(env->line_no, env->col_no-1, &line, &col, global_config.search);
 
 	if (line == -1) {
+		if (!global_config.search_wraps) return;
 		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, global_config.search);
 		if (line == -1) return;
 	}
@@ -9743,13 +9756,13 @@ void normal_mode(void) {
 						int line = -1, col = -1;
 						if (global_config.search_direction == 1) {
 							find_match(global_config.prev_line, global_config.prev_col, &line, &col, buffer, NULL);
-							if (line == -1) {
-								find_match(1, global_config.prev_col, &line, &col, buffer, NULL);
+							if (line == -1 && global_config.search_wraps) {
+								find_match(1, 1, &line, &col, buffer, NULL);
 							}
 						} else {
 							find_match_backwards(global_config.prev_line, global_config.prev_col, &line, &col, buffer);
-							if (line == -1) {
-								find_match_backwards(env->line_count, global_config.prev_col, &line, &col, buffer);
+							if (line == -1 && global_config.search_wraps) {
+								find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, buffer);
 							}
 						}
 
@@ -11390,7 +11403,7 @@ void paint_c_string(struct syntax_state * state) {
 				}
 			}
 			last = -1;
-		} else if (charat() == '%' && nextchar() != '"') {
+		} else if (charat() == '%') {
 			paint(1, FLAG_ESCAPE);
 			if (charat() == '%') {
 				paint(1, FLAG_ESCAPE);
@@ -11403,6 +11416,7 @@ void paint_c_string(struct syntax_state * state) {
 					else while (isdigit(charat())) paint(1, FLAG_ESCAPE);
 				}
 				while (charat() == 'l' || charat() == 'z') paint(1, FLAG_ESCAPE);
+				if (charat() == '\\' || charat() == '"') continue;
 				paint(1, FLAG_ESCAPE);
 			}
 		} else if (charat() == '\\' && nextchar() == 'x') {
