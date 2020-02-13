@@ -57,7 +57,7 @@ static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0);
 
 void gdt_install(void) {
 	gdt_pointer_t *gdtp = &gdt.pointer;
-	gdtp->limit = sizeof gdt.entries - 1;
+	gdtp->limit = sizeof gdt.entries * 5 - 1;
 	gdtp->base = (uintptr_t)&ENTRY(0);
 
 	gdt_set_gate(0, 0, 0, 0, 0);                /* NULL segment */
