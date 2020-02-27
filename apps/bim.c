@@ -1,12 +1,12 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Wed Jan 22 09:03:36 2020
- * It is based on git commit d037c4a7076352b3afbcc91970e91a086f6541c6
+ * It was built Thu Feb 27 21:56:23 2020
+ * It is based on git commit 83e6cc609584bd31e961c3873a9f3a5c7c2973ec
  */
-#define GIT_TAG "d037c4a-baked"
+#define GIT_TAG "83e6cc6-baked"
 /* Bim - A Text Editor
  *
- * Copyright (C) 2012-2019 K. Lange
+ * Copyright (C) 2012-2020 K. Lange
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -55,8 +55,8 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.6.0" TAG
-#define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
+#define BIM_VERSION   "2.6.1" TAG
+#define BIM_COPYRIGHT "Copyright 2012-2020 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\r'
@@ -1943,6 +1943,8 @@ int line_is_comment(line_t * line) {
 	if (!strcmp(env->syntax->name,"c")) {
 		if (line->istate == 1) return 1;
 	} else if (!strcmp(env->syntax->name,"java")) {
+		if (line->istate == 1) return 1;
+	} else if (!strcmp(env->syntax->name,"kotlin")) {
 		if (line->istate == 1) return 1;
 	} else if (!strcmp(env->syntax->name,"rust")) {
 		if (line->istate > 0) return 1;
@@ -10356,6 +10358,10 @@ void detect_weird_terminals(void) {
 	if (term && strstr(term,"xterm-256color") == term) {
 		global_config.can_insert = 1;
 		global_config.can_bracketedpaste = 1;
+		char * term_emu = getenv("TERMINAL_EMULATOR");
+		if (term_emu && strstr(term_emu,"JetBrains")) {
+			global_config.can_bce = 0;
+		}
 	}
 	if (term && strstr(term,"toaru") == term) {
 		global_config.can_insert = 1;
@@ -12200,7 +12206,7 @@ static char * syn_java_at_comments[] = {
 	NULL
 };
 
-static int at_keyword_qualifier(int c) {
+static int java_at_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_') || (c == '@');
 }
 
@@ -12211,7 +12217,7 @@ static char * syn_java_brace_comments[] = {
 	NULL
 };
 
-static int brace_keyword_qualifier(int c) {
+static int java_brace_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '{') || (c == '@') || (c == '_');
 }
 
@@ -12220,8 +12226,8 @@ static int paint_java_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (common_comment_buzzwords(state)) continue;
 		else if (charat() == '@') {
-			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
-				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
+			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, java_at_keyword_qualifier)) {
+				if (match_and_paint(state, "@param", FLAG_ESCAPE, java_at_keyword_qualifier)) {
 					while (charat() == ' ') skip();
 					while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
 				} else {
@@ -12231,7 +12237,7 @@ static int paint_java_comment(struct syntax_state * state) {
 			}
 		} else if (charat() == '{') {
 			/* see if this terminates */
-			if (find_keywords(state, syn_java_brace_comments, FLAG_ESCAPE, brace_keyword_qualifier)) {
+			if (find_keywords(state, syn_java_brace_comments, FLAG_ESCAPE, java_brace_keyword_qualifier)) {
 				while (charat() != '}' && charat() != -1) {
 					paint(1, FLAG_ESCAPE);
 				}
@@ -12340,7 +12346,7 @@ BIM_SYNTAX_COMPLETER(java) {
 	return 0;
 }
 
-BIM_SYNTAX_EXT(java, 1, brace_keyword_qualifier)
+BIM_SYNTAX_EXT(java, 1, java_brace_keyword_qualifier)
 char * syn_json_keywords[] = {
 	"true","false","null",
 	NULL
@@ -12396,6 +12402,180 @@ int syn_json_calculate(struct syntax_state * state) {
 char * syn_json_ext[] = {".json",NULL}; // TODO other stuff that uses json
 
 BIM_SYNTAX(json, 1)
+static char * syn_kotlin_keywords[] = {
+	"as","as?","break","class","continue","do","else","false","for",
+	"fun","if","in","!in","interface","is","!is","null","object",
+	"package","return","super","this","throw","true","try","typealias",
+	"typeof","val","var","when","while",
+	"by","catch","constructor","delegate","dynamic","field","file",
+	"finally","get","import","init","param","property","receiver",
+	"set","setparam","where",
+	"actual","abstract","annotation","companion","const",
+	"crossinline","data","enum","expect","external","final",
+	"infix","inner","internal","lateinit","noinline","open",
+	"operator","out","override","private","protected","public",
+	"reified","sealed","suspend","tailrec","vararg",
+	"field","it","inline",
+	NULL
+};
+
+static char * syn_kotlin_types[] = {
+	"Byte","Short","Int","Long",
+	"Float","Double",
+	NULL
+};
+
+static char * syn_kotlin_at_comments[] = {
+	"@author","@see","@since","@return","@throws",
+	"@version","@exception","@deprecated",
+	/* @param is special */
+	NULL
+};
+
+static int kt_at_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_') || (c == '@');
+}
+
+static char * syn_kotlin_brace_comments[] = {
+	"{@docRoot","{@inheritDoc","{@link","{@linkplain",
+	"{@value","{@code","{@literal","{@serial",
+	"{@serialData","{@serialField",
+	NULL
+};
+
+static int kotlin_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '?') || (c == '!') || (c == '_');
+}
+
+static int kt_brace_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '{') || (c == '@') || (c == '_');
+}
+
+static int paint_kotlin_comment(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (common_comment_buzzwords(state)) continue;
+		else if (charat() == '@') {
+			if (!find_keywords(state, syn_kotlin_at_comments, FLAG_ESCAPE, kt_at_keyword_qualifier)) {
+				if (match_and_paint(state, "@param", FLAG_ESCAPE, kt_at_keyword_qualifier)) {
+					while (charat() == ' ') skip();
+					while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+				} else {
+					/* Paint the @ */
+					paint(1, FLAG_COMMENT);
+				}
+			}
+		} else if (charat() == '{') {
+			/* see if this terminates */
+			if (find_keywords(state, syn_kotlin_brace_comments, FLAG_ESCAPE, kt_brace_keyword_qualifier)) {
+				while (charat() != '}' && charat() != -1) {
+					paint(1, FLAG_ESCAPE);
+				}
+				if (charat() == '}') paint(1, FLAG_ESCAPE);
+			} else {
+				paint(1, FLAG_COMMENT);
+			}
+		} else if (charat() == '<') {
+			int is_tag = 0;
+			for (int i = 1; charrel(i) != -1; ++i) {
+				if (charrel(i) == '>') {
+					is_tag = 1;
+					break;
+				}
+				if (!isalnum(charrel(i)) && charrel(i) != '/') {
+					is_tag = 0;
+					break;
+				}
+			}
+			if (is_tag) {
+				paint(1, FLAG_TYPE);
+				while (charat() != -1 && charat() != '>') {
+					if (charat() == '/') paint(1, FLAG_TYPE);
+					else paint(1, FLAG_KEYWORD);
+				}
+				if (charat() == '>') paint(1, FLAG_TYPE);
+			} else {
+				/* Paint the < */
+				paint(1, FLAG_COMMENT);
+			}
+		} else if (last == '*' && charat() == '/') {
+			paint(1, FLAG_COMMENT);
+			return 0;
+		} else {
+			last = charat();
+			paint(1, FLAG_COMMENT);
+		}
+	}
+	return 1;
+}
+
+int syn_kotlin_calculate(struct syntax_state * state) {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_c_numeral(state);
+				return 0;
+			} else if (charat() == '/' && nextchar() == '/') {
+				/* C++-style comments */
+				paint_comment(state);
+			} else if (charat() == '/' && nextchar() == '*') {
+				/* C-style comments; TODO: Needs special stuff for @author; <html>; etc. */
+				if (paint_kotlin_comment(state) == 1) return 1;
+			} else if (find_keywords(state, syn_kotlin_keywords, FLAG_KEYWORD, kotlin_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_kotlin_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\"') {
+				paint_simple_string(state);
+				return 0;
+			} else if (charat() == '\'') {
+				paint_c_char(state);
+				return 0;
+			} else if (charat() == '@') {
+				paint(1, FLAG_PRAGMA);
+				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		case 1:
+			if (paint_kotlin_comment(state) == 1) return 1;
+			return 0;
+	}
+	return -1;
+}
+
+char * syn_kotlin_ext[] = {".kt",NULL};
+
+BIM_SYNTAX_COMPLETER(kotlin) {
+	for (char ** keyword = syn_kotlin_keywords; *keyword; ++keyword) {
+		add_if_match((*keyword),"(kotlin keyword)");
+	}
+	for (char ** keyword = syn_kotlin_types; *keyword; ++keyword) {
+		add_if_match((*keyword),"(kotlin type)");
+	}
+
+	/* XXX Massive hack */
+	if (env->col_no > 1 && env->lines[env->line_no-1]->text[env->col_no-2].flags == FLAG_COMMENT) {
+		if (comp[0] == '@') {
+			for (char ** keyword = syn_kotlin_at_comments; *keyword; ++keyword) {
+				add_if_match((*keyword),"(javadoc annotation)");
+			}
+		} else if (comp[0] == '{') {
+			for (char ** keyword = syn_kotlin_brace_comments; *keyword; ++keyword) {
+				add_if_match((*keyword),"(javadoc annotation)");
+			}
+		}
+	}
+
+	return 0;
+}
+
+BIM_SYNTAX_EXT(kotlin, 1, kt_brace_keyword_qualifier)
+
 int lisp_paren_flags[] = {
 	FLAG_DIFFPLUS, FLAG_TYPE, FLAG_PRAGMA, FLAG_KEYWORD,
 };
@@ -12906,30 +13086,30 @@ int paint_py_single_string(struct syntax_state * state) {
 int paint_py_numeral(struct syntax_state * state) {
 	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
 		paint(2, FLAG_NUMERAL);
-		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isxdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 	} else if (charat() == '0' && nextchar() == '.') {
 		paint(2, FLAG_NUMERAL);
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
 			paint(2, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		} else if (charat() == 'e' || charat() == 'E') {
 			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		}
 		if (charat() == 'j') paint(1, FLAG_NUMERAL);
 		return 0;
 	} else {
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		if (charat() == '.') {
 			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 			if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
 				paint(2, FLAG_NUMERAL);
-				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+				while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 			} else if (charat() == 'e' || charat() == 'E') {
 				paint(1, FLAG_NUMERAL);
-				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+				while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 			}
 			if (charat() == 'j') paint(1, FLAG_NUMERAL);
 			return 0;
