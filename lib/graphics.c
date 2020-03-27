@@ -429,6 +429,13 @@ int load_sprite(sprite_t * sprite, char * filename) {
 		sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
 		sprite->masks = NULL;
 
+		int bgr = ((unsigned char *)&bufferi[13])[2] == 0xFF;
+
+		#define _BMP_A 0x1000000
+		#define _BMP_R 0x1
+		#define _BMP_G 0x100
+		#define _BMP_B 0x10000
+
 		for (y = 0; y < height; ++y) {
 			for (x = 0; x < width; ++x) {
 				if (i > image_size) goto _cleanup_sprite;
@@ -438,16 +445,18 @@ int load_sprite(sprite_t * sprite, char * filename) {
 					color =	(bufferb[i   + 3 * x] & 0xFF) +
 							(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
 							(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000 + 0xFF000000;
-				} else if (bpp == 32) {
-					if (bufferb[i + 4 * x] == 0) {
-						color = 0x000000;
-					} else {
-						color =	(bufferb[i   + 4 * x] & 0xFF) * 0x1000000 +
-								(bufferb[i+1 + 4 * x] & 0xFF) * 0x1 +
-								(bufferb[i+2 + 4 * x] & 0xFF) * 0x100 +
-								(bufferb[i+3 + 4 * x] & 0xFF) * 0x10000;
-						color = premultiply(color);
-					}
+				} else if (bpp == 32 && bgr == 0) {
+					color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_A +
+							(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_R +
+							(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_G +
+							(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_B;
+					color = premultiply(color);
+				} else if (bpp == 32 && bgr == 1) {
+					color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_B +
+							(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_G +
+							(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_R +
+							(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_A;
+					color = premultiply(color);
 				} else {
 					color = rgb(bufferb[i + x],bufferb[i + x],bufferb[i + x]); /* Unsupported */
 				}
