@@ -429,7 +429,7 @@ int load_sprite(sprite_t * sprite, char * filename) {
 		sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
 		sprite->masks = NULL;
 
-		int bgr = ((unsigned char *)&bufferi[13])[2] == 0xFF;
+		int alpha_after = ((unsigned char *)&bufferi[13])[2] == 0xFF;
 
 		#define _BMP_A 0x1000000
 		#define _BMP_R 0x1
@@ -445,16 +445,16 @@ int load_sprite(sprite_t * sprite, char * filename) {
 					color =	(bufferb[i   + 3 * x] & 0xFF) +
 							(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
 							(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000 + 0xFF000000;
-				} else if (bpp == 32 && bgr == 0) {
+				} else if (bpp == 32 && alpha_after == 0) {
 					color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_A +
 							(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_R +
 							(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_G +
 							(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_B;
 					color = premultiply(color);
-				} else if (bpp == 32 && bgr == 1) {
-					color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_B +
+				} else if (bpp == 32 && alpha_after == 1) {
+					color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_R +
 							(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_G +
-							(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_R +
+							(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_B +
 							(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_A;
 					color = premultiply(color);
 				} else {
