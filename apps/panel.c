@@ -497,13 +497,9 @@ static void show_cal_menu(void) {
 	}
 }
 
-static void weather_call_updater(void) {
-	system("weather-tool &");
-}
-
 static void weather_refresh(struct MenuEntry * self) {
 	(void)self;
-	weather_call_updater();
+	system("weather-tool &");
 }
 
 static void weather_configure(struct MenuEntry * self) {
@@ -1505,7 +1501,7 @@ int main (int argc, char ** argv) {
 	}
 
 	/* TODO Probably should use the app launch shortcut */
-	weather_call_updater();
+	system("sh -c \"sleep 4; weather-tool\" &");
 
 	/* Draw the background */
 	for (int i = 0; i < width; i += sprite_panel->width) {
