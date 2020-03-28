@@ -508,7 +508,7 @@ static void weather_refresh(struct MenuEntry * self) {
 
 static void weather_configure(struct MenuEntry * self) {
 	(void)self;
-	system("terminal sudo weather-configurator &");
+	system("terminal sh -c \"sudo weather-configurator; weather-tool\" &");
 }
 
 static void show_weather_status(void) {
