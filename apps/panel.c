@@ -94,6 +94,7 @@ static int height;
 static int widgets_width = 0;
 static int widgets_volume_enabled = 0;
 static int widgets_network_enabled = 0;
+static int widgets_weather_enabled = 0;
 
 static int network_status = 0;
 
@@ -113,6 +114,7 @@ struct MenuList * window_menu;
 struct MenuList * logout_menu;
 struct MenuList * netstat;
 struct MenuList * calmenu;
+struct MenuList * weather;
 static yutani_wid_t _window_menu_wid = 0;
 
 static int _close_enough(struct yutani_msg_window_mouse_event * me) {
@@ -284,6 +286,107 @@ static void volume_lower(void) {
 	redraw();
 }
 
+static int weather_left = 0;
+static struct MenuEntry_Normal * weather_title_entry;
+static struct MenuEntry_Normal * weather_updated_entry;
+static struct MenuEntry_Normal * weather_conditions_entry;
+static struct MenuEntry_Normal * weather_humidity_entry;
+static struct MenuEntry_Normal * weather_clouds_entry;
+static char * weather_title_str;
+static char * weather_updated_str;
+static char * weather_conditions_str;
+static char * weather_humidity_str;
+static char * weather_clouds_str;
+static char * weather_temp_str;
+static int weather_status_valid = 0;
+static hashmap_t * weather_icons = NULL;
+static sprite_t * weather_icon = NULL;
+
+static void update_weather_status(void) {
+	FILE * f = fopen("/tmp/weather-parsed.conf","r");
+	if (!f) {
+		weather_status_valid = 0;
+		if (widgets_weather_enabled) {
+			widgets_weather_enabled = 0;
+			/* Unshow */
+			widgets_width -= WIDGET_WIDTH;
+		}
+		return;
+	}
+
+	weather_status_valid = 1;
+	if (!widgets_weather_enabled) {
+		widgets_weather_enabled = 1;
+		widgets_width += WIDGET_WIDTH;
+	}
+
+	if (weather_title_str) free(weather_title_str);
+	if (weather_updated_str) free(weather_updated_str);
+	if (weather_conditions_str) free(weather_conditions_str);
+	if (weather_humidity_str) free(weather_humidity_str);
+	if (weather_clouds_str) free(weather_clouds_str);
+	if (weather_temp_str) free(weather_temp_str);
+
+	/* read the entire status file */
+	fseek(f, 0, SEEK_END);
+	size_t size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char * data = malloc(size + 1);
+	fread(data, size, 1, f);
+	data[size] = 0;
+	fclose(f);
+
+	/* Find relevant pieces */
+	char * t = data;
+	char * temp = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * temp_r = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * conditions = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * icon = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * humidity = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * clouds = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * city = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * updated = t;
+
+	if (!weather_icons) {
+		weather_icons = hashmap_create(10);
+	}
+
+	if (!hashmap_has(weather_icons, icon)) {
+		sprite_t * tmp = malloc(sizeof(sprite_t));
+		char path[512];
+		sprintf(path,"/usr/share/icons/weather/%s.bmp", icon);
+		load_sprite(tmp, path);
+		tmp->alpha = ALPHA_FORCE_SLOW_EMBEDDED;
+		hashmap_set(weather_icons, icon, tmp);
+	}
+
+	weather_icon = hashmap_get(weather_icons, icon);
+
+	char tmp[300];
+	sprintf(tmp, "Weather for %s", city);
+	weather_title_str = strdup(tmp);
+	sprintf(tmp, "%s", updated);
+	weather_updated_str = strdup(tmp);
+	sprintf(tmp, "%s° - %s", temp, conditions);
+	weather_conditions_str = strdup(tmp);
+	sprintf(tmp, "Humidity: %s%%", humidity);
+	weather_humidity_str = strdup(tmp);
+	sprintf(tmp, "Clouds: %s%%", clouds);
+	weather_clouds_str = strdup(tmp);
+
+	sprintf(tmp, "%s°", temp_r);
+	weather_temp_str = strdup(tmp);
+
+	free(data);
+}
+
 static int netstat_left = 0;
 
 static struct MenuEntry_Normal * netstat_ip_entry;
@@ -394,6 +497,60 @@ static void show_cal_menu(void) {
 	}
 }
 
+static void weather_call_updater(void) {
+	system("weather-tool &");
+}
+
+static void weather_refresh(struct MenuEntry * self) {
+	(void)self;
+	weather_call_updater();
+}
+
+static void weather_configure(struct MenuEntry * self) {
+	(void)self;
+	system("terminal sudo weather-configurator &");
+}
+
+static void show_weather_status(void) {
+	if (!weather) {
+		weather = menu_create();
+		weather_title_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(weather, weather_title_entry);
+		weather_updated_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(weather, weather_updated_entry);
+		menu_insert(weather, menu_create_separator());
+		weather_conditions_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(weather, weather_conditions_entry);
+		weather_humidity_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(weather, weather_humidity_entry);
+		weather_clouds_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		menu_insert(weather, weather_clouds_entry);
+		menu_insert(weather, menu_create_separator());
+		menu_insert(weather, menu_create_normal("refresh", NULL, "Refresh...", weather_refresh));
+		menu_insert(weather, menu_create_normal("config", NULL, "Configure...", weather_configure));
+		menu_insert(weather, menu_create_separator());
+		menu_insert(weather, menu_create_normal(NULL, NULL, "Weather data provided by", NULL));
+		menu_insert(weather, menu_create_normal(NULL, NULL, "OpenWeatherMap.org", NULL));
+	}
+	if (weather_status_valid) {
+		menu_update_title(weather_title_entry, weather_title_str);
+		menu_update_title(weather_updated_entry, weather_updated_str);
+		menu_update_title(weather_conditions_entry, weather_conditions_str);
+		menu_update_title(weather_humidity_entry, weather_humidity_str);
+		menu_update_title(weather_clouds_entry, weather_clouds_str);
+	}
+	if (!weather->window) {
+		menu_show(weather, yctx);
+		if (weather->window) {
+			if (weather_left + weather->window->width > (unsigned int)width) {
+				yutani_window_move(yctx, weather->window, width - weather->window->width, PANEL_HEIGHT);
+			} else {
+				yutani_window_move(yctx, weather->window, weather_left, PANEL_HEIGHT);
+			}
+		}
+	}
+}
+
 static void show_network_status(void) {
 	if (!netstat) {
 		netstat = menu_create();
@@ -456,6 +613,13 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				}
 			}
 			int widget = 0;
+			if (widgets_weather_enabled) {
+				if (evt->new_x > WIDGET_POSITION(widget+1) && evt->new_x < WIDGET_POSITION(widget-1)) {
+					weather_left = WIDGET_POSITION(widget);
+					show_weather_status();
+				}
+				widget += 2;
+			}
 			if (widgets_network_enabled) {
 				if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
 					netstat_left = WIDGET_POSITION(widget);
@@ -501,6 +665,12 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 
 			if (scroll_direction) {
 				int widget = 0;
+				if (widgets_weather_enabled) {
+					if (evt->new_x > WIDGET_POSITION(widget+1) && evt->new_x < WIDGET_POSITION(widget-1)) {
+						/* Ignore */
+					}
+					widget += 2;
+				}
 				if (widgets_network_enabled) {
 					if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
 						/* Ignore */
@@ -838,8 +1008,16 @@ static void redraw(void) {
 	draw_sdf_string(ctx, 8, 3, "Applications", 20, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Draw each widget */
-	/* - Volume */
 	int widget = 0;
+	/* Weather */
+	if (widgets_weather_enabled) {
+		uint32_t color = (weather && weather->window) ? HILIGHT_COLOR : ICON_COLOR;
+		int t = draw_sdf_string_width(weather_temp_str, 15, SDF_FONT_THIN);
+		draw_sdf_string(ctx, WIDGET_POSITION(widget) + (WIDGET_WIDTH - t) / 2, 5, weather_temp_str, 15, color, SDF_FONT_THIN);
+		draw_sprite_alpha_paint(ctx, weather_icon, WIDGET_POSITION(widget+1), 0, 1.0, color);
+		widget += 2;
+	}
+	/* - Network */
 	if (widgets_network_enabled) {
 		uint32_t color = (netstat && netstat->window) ? HILIGHT_COLOR : ICON_COLOR;
 		if (network_status == 1) {
@@ -849,6 +1027,7 @@ static void redraw(void) {
 		}
 		widget++;
 	}
+	/* - Volume */
 	if (widgets_volume_enabled) {
 		if (volume_level < 10) {
 			draw_sprite_alpha_paint(ctx, sprite_volume_mute, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
@@ -1325,6 +1504,9 @@ int main (int argc, char ** argv) {
 		sprite_net_disabled->alpha = ALPHA_FORCE_SLOW_EMBEDDED;
 	}
 
+	/* TODO Probably should use the app launch shortcut */
+	weather_call_updater();
+
 	/* Draw the background */
 	for (int i = 0; i < width; i += sprite_panel->width) {
 		draw_sprite(ctx, sprite_panel, i, 0);
@@ -1415,6 +1597,7 @@ int main (int argc, char ** argv) {
 				waitpid(-1, NULL, WNOHANG);
 				update_volume_level();
 				update_network_status();
+				update_weather_status();
 				redraw();
 			}
 		}
