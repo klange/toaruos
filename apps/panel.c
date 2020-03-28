@@ -112,6 +112,7 @@ struct MenuList * appmenu;
 struct MenuList * window_menu;
 struct MenuList * logout_menu;
 struct MenuList * netstat;
+struct MenuList * calmenu;
 static yutani_wid_t _window_menu_wid = 0;
 
 static int _close_enough(struct yutani_msg_window_mouse_event * me) {
@@ -384,6 +385,15 @@ static void show_app_menu(void) {
 	}
 }
 
+static void show_cal_menu(void) {
+	if (!calmenu->window) {
+		menu_show(calmenu, yctx);
+		if (calmenu->window) {
+			yutani_window_move(yctx, calmenu->window, width - 24 - calmenu->window->width, PANEL_HEIGHT);
+		}
+	}
+}
+
 static void show_network_status(void) {
 	if (!netstat) {
 		netstat = menu_create();
@@ -434,6 +444,8 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				show_logout_menu();
 			} else if (evt->new_x < APP_OFFSET) {
 				show_app_menu();
+			} else if (evt->new_x >= width - TIME_LEFT) {
+				show_cal_menu();
 			} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
 					if (ads_by_l[i] == NULL) break;
@@ -808,7 +820,7 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	draw_sdf_string(ctx, width - TIME_LEFT, 3, buffer, 20, txt_color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, width - TIME_LEFT, 3, buffer, 20, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
@@ -1131,6 +1143,116 @@ static void sig_usr2(int sig) {
 	signal(SIGUSR2, sig_usr2);
 }
 
+const char * month_names[] = {
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+};
+
+int days_in_months[] = {
+	31, 0, 31, 30, 31, 30, 31,
+	31, 30, 31, 30, 31,
+};
+
+void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
+	self->offset = offset;
+
+	char lines[9][22];
+	memset(lines, 0, sizeof(lines));
+
+	struct timeval now;
+	gettimeofday(&now, NULL);
+
+	struct tm actual;
+	struct tm * timeinfo;
+	timeinfo = localtime((time_t *)&now.tv_sec);
+	memcpy(&actual, timeinfo, sizeof(struct tm));
+	timeinfo = &actual;
+
+	char month[20];
+	sprintf(month, "%s %d", month_names[timeinfo->tm_mon], timeinfo->tm_year + 1900);
+
+	int len = (20 - strlen(month)) / 2;
+	while (len > 0) {
+		strcat(lines[0]," ");
+		len--;
+	}
+	strcat(lines[0],month);
+
+	/* Days of week */
+	strcat(lines[1],"Su Mo Tu We Th Fr Sa");
+
+	int days_in_month = days_in_months[timeinfo->tm_mon];
+	if (days_in_month == 0) {
+		/* How many days in February? */
+		struct tm tmp;
+		memcpy(&tmp, timeinfo, sizeof(struct tm));
+		tmp.tm_mday = 29;
+		tmp.tm_hour = 12;
+		time_t tmp3 = mktime(&tmp);
+		struct tm * tmp2 = localtime(&tmp3);
+		if (tmp2->tm_mday == 29) {
+			days_in_month = 29;
+		} else {
+			days_in_month = 28;
+		}
+	}
+
+	int mday = timeinfo->tm_mday;
+	int wday = timeinfo->tm_wday; /* 0 == sunday */
+
+	while (mday > 1) {
+		mday--;
+		wday = (wday + 6) % 7;
+	}
+
+	for (int i = 0; i < wday; ++i) {
+		strcat(lines[2],"   ");
+	}
+
+	int line = 2;
+	while (mday <= days_in_month) {
+		/* TODO Bold text? */
+		char tmp[5];
+		sprintf(tmp, "%2d ", mday);
+		strcat(lines[line], tmp);
+		if (wday == 6) line++;
+		mday++;
+		wday = (wday + 1) % 7;
+	}
+
+	self->height = 16 * (line+1) + 8;
+
+	/* Go through each and draw with monospace font */
+	for (int i = 0; i < 9; ++i) {
+		if (lines[i][0] != 0) {
+			draw_sdf_string(ctx, 10, 4 + i * 17, lines[i], 16, rgb(0,0,0), i == 0 ? SDF_FONT_MONO_BOLD : SDF_FONT_MONO);
+		}
+	}
+}
+
+/*
+ * Special menu entry to display a calendar
+ */
+struct MenuEntry * menu_create_calendar(void) {
+	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
+
+	out->_type = -1; /* Special */
+	out->height = 16 * 9 + 8;
+	out->rwidth = draw_sdf_string_width("XX XX XX XX XX XX XX", 16, SDF_FONT_MONO) + 20;
+	out->renderer = _menu_draw_MenuEntry_Calendar;
+	return out;
+}
+
 int main (int argc, char ** argv) {
 	if (argc < 2 || strcmp(argv[1],"--really")) {
 		fprintf(stderr,
@@ -1218,6 +1340,9 @@ int main (int argc, char ** argv) {
 	signal(SIGUSR2, sig_usr2);
 
 	appmenu = menu_set_get_root(menu_set_from_description("/etc/panel.menu", launch_application_menu));
+
+	calmenu = menu_create();
+	menu_insert(calmenu, menu_create_calendar());
 
 	window_menu = menu_create();
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Maximize", _window_menu_start_maximize));
