@@ -166,6 +166,15 @@ int list_index_of(list_t * list, void * value) {
 	return -1; /* not find */
 }
 
+void * list_index(list_t * list, int index) {
+	int i = 0;
+	foreach(item, list) {
+		if (i == index) return item->value;
+		i++;
+	}
+	return NULL;
+}
+
 void list_remove(list_t * list, size_t index) {
 	/* remove index from the list */
 	if (index > list->length) return;

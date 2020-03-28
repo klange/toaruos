@@ -42,6 +42,7 @@ extern node_t * list_pop(list_t * list);
 extern node_t * list_dequeue(list_t * list);
 extern list_t * list_copy(list_t * original);
 extern void list_merge(list_t * target, list_t * source);
+extern void * list_index(list_t * list, int index);
 
 extern void list_append_after(list_t * list, node_t * before, node_t * node);
 extern node_t * list_insert_after(list_t * list, node_t * before, void * item);
