@@ -23,7 +23,7 @@ int main(int argc, char * argv[]) {
 	char * units = JSON_KEY(config, "units")->string;
 
 	char cmdline[1024];
-	sprintf(cmdline, "fetch -o /tmp/weather-data.json http://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=%s", city, key, units);
+	sprintf(cmdline, "fetch -o /tmp/weather-data.json \"http://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=%s\"", city, key, units);
 	system(cmdline);
 
 	Value * result = json_parse_file("/tmp/weather-data.json");
