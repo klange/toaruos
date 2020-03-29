@@ -101,6 +101,7 @@ static unsigned int interpret_size(struct ustar * file) {
 }
 
 static const char * type_to_string(char type) {
+	static char unknown[100];
 	switch (type) {
 		case '\0':
 		case '0':
@@ -122,7 +123,8 @@ static const char * type_to_string(char type) {
 		case 'x':
 			return "Extended preheader";
 		default:
-			return "Unknown";
+			sprintf(unknown, "Uknown: %c", type);
+			return unknown;
 	}
 }
 
@@ -218,6 +220,9 @@ int main(int argc, char * argv[]) {
 		size_t length = ftell(f);
 		fseek(f, 0, SEEK_SET);
 
+		char tmpname[1024] = {0};
+		int  last_was_long = 0;
+
 		size_t off = 0;
 		while (!feof(f)) {
 			struct ustar * file = file_from_offset(f, off);
@@ -231,9 +236,14 @@ int main(int argc, char * argv[]) {
 			}
 
 			if (action == TAR_ACTION_EXTRACT) {
-				char name[256] = {0};
-				strncat(name, file->prefix, 155);
-				strncat(name, file->filename, 100);
+				char name[1024] = {0};
+				if (last_was_long) {
+					strncat(name, tmpname, 1023);
+					last_was_long = 0;
+				} else {
+					strncat(name, file->prefix, 155);
+					strncat(name, file->filename, 100);
+				}
 
 				if (file->type[0] == '0' || file->type[0] == 0) {
 					FILE * mf = fopen(name,"w");
@@ -275,6 +285,14 @@ int main(int argc, char * argv[]) {
 					if (symlink(tmp, name) < 0) {
 						fprintf(stderr, "%s: %s: %s: %s: %s\n", argv[0], fname, name, tmp, strerror(errno));
 					}
+				} else if (file->type[0] == 'L') {
+					/* This is a GNU Long Name block; store its contents as a file name */
+					size_t s = interpret_size(file);
+					fseek(f, off + 512, SEEK_SET);
+					fread(tmpname, 1, s, f);
+					tmpname[s] = '\0';
+					fseek(f, off, SEEK_SET);
+					last_was_long = 1;
 				} else {
 					fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, type_to_string(file->type[0]));
 				}
