@@ -114,6 +114,7 @@ struct MenuList * window_menu;
 struct MenuList * logout_menu;
 struct MenuList * netstat;
 struct MenuList * calmenu;
+struct MenuList * clockmenu;
 struct MenuList * weather;
 static yutani_wid_t _window_menu_wid = 0;
 
@@ -497,6 +498,15 @@ static void show_cal_menu(void) {
 	}
 }
 
+static void show_clock_menu(void) {
+	if (!clockmenu->window) {
+		menu_show(clockmenu, yctx);
+		if (clockmenu->window) {
+			yutani_window_move(yctx, clockmenu->window, width - 24 - clockmenu->window->width, PANEL_HEIGHT);
+		}
+	}
+}
+
 static void weather_refresh(struct MenuEntry * self) {
 	(void)self;
 	system("weather-tool &");
@@ -598,6 +608,8 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			} else if (evt->new_x < APP_OFFSET) {
 				show_app_menu();
 			} else if (evt->new_x >= width - TIME_LEFT) {
+				show_clock_menu();
+			} else if (evt->new_x >= width - TIME_LEFT - DATE_WIDTH) {
 				show_cal_menu();
 			} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
@@ -986,19 +998,19 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	draw_sdf_string(ctx, width - TIME_LEFT, 3, buffer, 20, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, width - TIME_LEFT, 3, buffer, 20, clockmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
 	t = draw_sdf_string_width(buffer, 12, SDF_FONT_THIN);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2, buffer, 12, txt_color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Month Day */
 	strftime(buffer, 80, "%h %e", timeinfo);
 	t = draw_sdf_string_width(buffer, 12, SDF_FONT_BOLD);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 12, txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
 
 	/* Applications menu */
 	draw_sdf_string(ctx, 8, 3, "Applications", 20, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
@@ -1318,6 +1330,53 @@ static void sig_usr2(int sig) {
 	signal(SIGUSR2, sig_usr2);
 }
 
+static sprite_t * watchface = NULL;
+
+static void watch_draw_line(gfx_context_t * ctx, int offset, double r, double a, double b, uint32_t color, float thickness) {
+	double theta = (a / b) * 2.0 * M_PI;
+	draw_line_aa(ctx,
+		70 + 4,
+		70 + 4 + sin(theta) * r,
+		70 + offset,
+		70 + offset - cos(theta) * r, color, thickness);
+}
+
+void _menu_draw_MenuEntry_Clock(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
+	self->offset = offset;
+
+	draw_sprite(ctx, watchface, 4, offset);
+
+	struct timeval now;
+	struct tm * timeinfo;
+	gettimeofday(&now, NULL);
+	timeinfo = localtime((time_t *)&now.tv_sec);
+
+	double sec = timeinfo->tm_sec + (double)now.tv_usec / 1000000.0;
+	double min = timeinfo->tm_min + sec / 60.0;
+	double hour = (timeinfo->tm_hour % 12) + min / 60.0;
+
+	watch_draw_line(ctx, offset, 40, hour, 12, rgb(0,0,0), 2.0);
+	watch_draw_line(ctx, offset, 60, min, 60, rgb(0,0,0), 1.5);
+	watch_draw_line(ctx, offset, 65, sec, 60, rgb(240,0,0), 1.0);
+
+}
+
+struct MenuEntry * menu_create_clock(void) {
+	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
+
+	if (!watchface) {
+		watchface = malloc(sizeof(sprite_t));
+		load_sprite(watchface, "/usr/share/icons/watchface.bmp");
+		watchface->alpha = ALPHA_EMBEDDED;
+	}
+
+	out->_type = -1; /* Special */
+	out->height = 140;
+	out->rwidth = 148;
+	out->renderer = _menu_draw_MenuEntry_Clock;
+	return out;
+}
+
 const char * month_names[] = {
 	"January",
 	"February",
@@ -1519,6 +1578,9 @@ int main (int argc, char ** argv) {
 
 	appmenu = menu_set_get_root(menu_set_from_description("/etc/panel.menu", launch_application_menu));
 
+	clockmenu = menu_create();
+	menu_insert(clockmenu, menu_create_clock());
+
 	calmenu = menu_create();
 	menu_insert(calmenu, menu_create_calendar());
 
@@ -1546,7 +1608,11 @@ int main (int argc, char ** argv) {
 
 	while (_continue) {
 
-		int index = fswait2(1,fds,200);
+		int index = fswait2(1,fds,clockmenu->window ? 50 : 200);
+
+		if (clockmenu->window) {
+			menu_force_redraw(clockmenu);
+		}
 
 		if (index == 0) {
 			/* Respond to Yutani events */
