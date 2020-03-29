@@ -784,6 +784,12 @@ void menu_mouse_action(struct MenuList * menu, struct yutani_msg_window_mouse_ev
 	}
 }
 
+void menu_force_redraw(struct MenuList * menu) {
+	yutani_window_t * window = menu->window;
+	yutani_t * yctx = window->ctx;
+	_menu_redraw(window,yctx,menu);
+}
+
 struct MenuList * menu_any_contains(int x, int y) {
 	struct MenuList * out = NULL;
 	list_t * menu_keys = hashmap_keys(menu_windows);
