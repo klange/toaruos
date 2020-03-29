@@ -83,27 +83,5 @@ int main(int argc, char * argv[]) {
 		assert(fabs(((Value *)hashmap_get(hash, "bix"))->number - 123.0) < 0.00001);
 	}
 
-	{
-		FILE * f = fopen("/opt/demo.json","r");
-
-		char str[1024];
-		fgets(str, 1024, f);
-
-		Value * result = json_parse(str);
-		assert(result && result->type == JSON_TYPE_OBJECT);
-
-		Value * _main = JSON_KEY(result,"main");
-		Value * conditions = (JSON_KEY(result,"weather") && JSON_KEY(result,"weather")->array->length > 0) ?
-			JSON_IND(JSON_KEY(result,"weather"),0) : NULL;
-
-		fprintf(stdout, "temp=%lf\n", JSON_KEY(_main,"temp")->number);
-		fprintf(stdout, "temp_r=%d\n", (int)JSON_KEY(_main,"temp")->number);
-		fprintf(stdout, "conditions=%s\n", conditions ? JSON_KEY(conditions,"main")->string : "");
-		fprintf(stdout, "icon=%s\n", conditions ? JSON_KEY(conditions,"icon")->string : "");
-		fprintf(stderr, "humidity=%d\n", (int)JSON_KEY(_main,"humidity")->number);
-		fprintf(stderr, "clouds=%d\n", (int)JSON_KEY(JSON_KEY(result,"clouds"),"all") ? JSON_KEY(JSON_KEY(result,"clouds"),"all")->number : 0);
-		fprintf(stderr, "city=%s\n", "Tokyo");
-	}
-
 	return 0;
 }
