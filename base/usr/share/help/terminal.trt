@@ -1,0 +1,8 @@
+<h1>Terminal</h1>
+
+Terminal emulator providing extensive ANSI escape sequence support.<br />
+
+Supports most xterm-compatible escape squences, as well as 24-bit color.<br />
+
+Text display supports anti-aliased (using either the native SDF renderer, or
+the Freetype backend, if available) as well as bitmap fonts.

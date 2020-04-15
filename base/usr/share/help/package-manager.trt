@@ -1,0 +1,5 @@
+<h1>Package Manager</h1>
+
+Graphical interface to the msk command-line utility.<br />
+
+Double click packages to install them. Dependencies will be installed automatically.

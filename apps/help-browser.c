@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+ * Copyright (C) 2018-2020 K. Lange
  *
  * help-browser - Display documentation.
  *
@@ -22,6 +22,7 @@
 #include <toaru/markup.h>
 
 #define APPLICATION_TITLE "Help Browser"
+#define HELP_DIR "/usr/share/help"
 
 static yutani_t * yctx;
 static yutani_window_t * main_window;
@@ -32,19 +33,19 @@ static int application_running = 1;
 static gfx_context_t * contents = NULL;
 static sprite_t * contents_sprite = NULL;
 
-static char * current_topic = "This is the ToaruOS Help Browser. No help document is currently loaded.";
+static char * current_topic = NULL;
 
 /* Markup Renderer { */
 #define BASE_X 0
 #define BASE_Y 0
 #define LINE_HEIGHT 20
+#define HEAD_HEIGHT 28
 
 static gfx_context_t * nctx = NULL;
 static int cursor_y = 0;
 static int cursor_x = 0;
 static list_t * state = NULL;
 static int current_state = 0;
-static int size = 16;
 
 struct Char {
 	char c; /* TODO: unicode */
@@ -66,6 +67,13 @@ static int state_to_font(int current_state) {
 	return SDF_FONT_THIN;
 }
 
+static int current_size(void) {
+	if (current_state & (1 << 2)) {
+		return 24;
+	}
+	return 16;
+}
+
 static int buffer_width(list_t * buffer) {
 	int out = 0;
 	foreach(node, buffer) {
@@ -73,7 +81,7 @@ static int buffer_width(list_t * buffer) {
 
 		char tmp[2] = {c->c, '\0'};
 
-		out += draw_sdf_string_width(tmp, size, state_to_font(c->state));
+		out += draw_sdf_string_width(tmp, current_size(), state_to_font(c->state));
 	}
 	return out;
 }
@@ -84,7 +92,7 @@ static int draw_buffer(list_t * buffer) {
 		node_t * node = list_dequeue(buffer);
 		struct Char * c = node->value;
 		char tmp[2] = { c->c, '\0' };
-		x += draw_sdf_string(nctx, cursor_x + x, cursor_y, tmp, size, 0xFF000000, state_to_font(c->state));
+		x += draw_sdf_string(nctx, cursor_x + x, cursor_y, tmp, current_size(), 0xFF000000, state_to_font(c->state));
 		free(c);
 		free(node);
 	}
@@ -92,10 +100,18 @@ static int draw_buffer(list_t * buffer) {
 	return x;
 }
 
+static int current_line_height(void) {
+	if (current_state & (1 << 2)) {
+		return HEAD_HEIGHT;
+	} else {
+		return LINE_HEIGHT;
+	}
+}
+
 static void write_buffer(void) {
 	if (buffer_width(buffer) + cursor_x > nctx->width) {
 		cursor_x = BASE_X;
-		cursor_y += LINE_HEIGHT;
+		cursor_y += current_line_height();
 	}
 	cursor_x += draw_buffer(buffer);
 }
@@ -107,10 +123,13 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 	} else if (!strcmp(tag->name, "i")) {
 		list_insert(state, (void*)current_state);
 		current_state |= (1 << 1);
+	} else if (!strcmp(tag->name, "h1")) {
+		list_insert(state, (void*)current_state);
+		current_state |= (1 << 2);
 	} else if (!strcmp(tag->name, "br")) {
 		write_buffer();
 		cursor_x = BASE_X;
-		cursor_y += LINE_HEIGHT;
+		cursor_y += current_line_height();
 	}
 	markup_free_tag(tag);
 	return 0;
@@ -125,6 +144,13 @@ static int parser_close(struct markup_state * self, void * user, char * tag_name
 		node_t * nstate = list_pop(state);
 		current_state = (int)nstate->value;
 		free(nstate);
+	} else if (!strcmp(tag_name, "h1")) {
+		write_buffer();
+		cursor_x = BASE_X;
+		cursor_y += current_line_height();
+		node_t * nstate = list_pop(state);
+		current_state = (int)nstate->value;
+		free(nstate);
 	}
 	return 0;
 }
@@ -132,7 +158,7 @@ static int parser_close(struct markup_state * self, void * user, char * tag_name
 static int parser_data(struct markup_state * self, void * user, char * data) {
 	char * c = data;
 	while (*c) {
-		if (*c == ' ') {
+		if (*c == ' ' || *c == '\n') {
 			if (buffer->length) {
 				write_buffer();
 			}
@@ -245,36 +271,30 @@ static void resize_finish(int w, int h) {
 
 static void navigate(const char * t) {
 
-	if (!strcmp(t,"file-browser.trt")) {
-		current_topic =
-			"<b>File Browser</b><br />"
-			"The File Browser shows files. Double click to navigate through the file system.";
-	} else if (!strcmp(t,"terminal.trt")) {
-		current_topic = 
-			"<b>Terminal</b><br />"
-			"It's a terminal emulator. Supports a large set of xterm escapes, plus 24-bit color.";
-	} else if (!strcmp(t,"help_browser.trt")) {
-		current_topic =
-			"<b>Help Browser</b><br />"
-			"A bit meta, reading about the Help Browser from within the Help Browser...<br />"
-			"This is an incomplete port of the original Python Help Browser, which was, effectively "
-			"a very bad web browser, built off of the expanding text label widget library.";
-	} else if (!strcmp(t,"package-manager.trt")) {
-		current_topic =
-			"<b>Package Manager</b><br />"
-			"Install additional third-party software through packages from the ToaruOS Package Repository. "
-			"Packages can be installed by double-clicking. Dependencies will automatically be installed. "
-			"At this time it is not possible to remove packages.";
-	} else if (!strcmp(t,"0_index.trt")) {
-		current_topic =
-			"<b>Welcome!</b><br />"
-			"Welcome to ToaruOS. This Help Browser is still a bit experimental.";
-	} else if (!strcmp(t,"special:contents")) {
-		current_topic =
-			"<i>A list of topics should go here, but, alas...</i>";
+	if (current_topic) free(current_topic);
+
+	char file_path[1024];
+
+	if (t[0] == '/') {
+		sprintf(file_path, "%s", t);
 	} else {
-		current_topic =
-			"<i>No help document exists for this topic.</i>";
+		sprintf(file_path, "%s/%s", HELP_DIR, t);
+	}
+
+	FILE * f = fopen(file_path, "r");
+
+	if (!f) {
+		current_topic = strdup("File not found.");
+	} else {
+		fseek(f, 0, SEEK_END);
+		size_t size = ftell(f);
+		fseek(f, 0, SEEK_SET);
+
+		current_topic = malloc(size+1);
+		fread(current_topic, 1, size, f);
+		current_topic[size] = '\0';
+
+		fclose(f);
 	}
 
 	reinitialize_contents();
@@ -301,7 +321,7 @@ static void _menu_action_forward(struct MenuEntry * entry) {
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
 	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About Help Browser\" /usr/share/icons/48/help.bmp \"ToaruOS Help Browser\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
+	strcat(about_cmd, "about \"About Help Browser\" /usr/share/icons/48/help.bmp \"ToaruOS Help Browser\" \"(C) 2018-2020 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
 	char coords[100];
 	sprintf(coords, "%d %d &", (int)main_window->x + (int)main_window->width / 2, (int)main_window->y + (int)main_window->height / 2);
 	strcat(about_cmd, coords);
@@ -340,7 +360,7 @@ int main(int argc, char * argv[]) {
 	menu_set_insert(menu_bar.set, "go", m);
 
 	m = menu_create();
-	menu_insert(m, menu_create_normal("help","help_browser.trt","Contents",_menu_action_navigate));
+	menu_insert(m, menu_create_normal("help","help-browser.trt","Contents",_menu_action_navigate));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
 	menu_set_insert(menu_bar.set, "help", m);
@@ -348,8 +368,7 @@ int main(int argc, char * argv[]) {
 	if (argc > 1) {
 		navigate(argv[1]);
 	} else {
-		reinitialize_contents();
-		redraw_window();
+		navigate("0_index.trt");
 	}
 
 	while (application_running) {
