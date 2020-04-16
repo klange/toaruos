@@ -310,7 +310,7 @@ static void update_weather_status(void) {
 		if (widgets_weather_enabled) {
 			widgets_weather_enabled = 0;
 			/* Unshow */
-			widgets_width -= WIDGET_WIDTH;
+			widgets_width -= 2*WIDGET_WIDTH;
 		}
 		return;
 	}
@@ -318,7 +318,7 @@ static void update_weather_status(void) {
 	weather_status_valid = 1;
 	if (!widgets_weather_enabled) {
 		widgets_weather_enabled = 1;
-		widgets_width += WIDGET_WIDTH;
+		widgets_width += 2*WIDGET_WIDTH;
 	}
 
 	if (weather_title_str) free(weather_title_str);
