@@ -331,7 +331,8 @@ fast: image.iso
 headless: image.iso
 	@qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
 	  -nographic -no-reboot \
-	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless
+	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless \
+	  -fw_cfg name=etc/sercon-port,string=0
 
 .PHONY: shell
 shell: image.iso
