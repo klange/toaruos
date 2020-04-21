@@ -26,6 +26,7 @@
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
 #include <toaru/jpeg.h>
+#include <toaru/png.h>
 
 /* Pointer to graphics memory */
 static yutani_t * yctx;
@@ -153,6 +154,8 @@ int main(int argc, char * argv[]) {
 	int status;
 	if (strstr(argv[optind],".jpg")) {
 		status = load_sprite_jpg(&img, argv[optind]);
+	} else if (strstr(argv[optind],".png")) {
+		status = load_sprite_png(&img, argv[optind]);
 	} else {
 		status = load_sprite(&img, argv[optind]);
 	}
