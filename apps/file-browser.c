@@ -614,6 +614,10 @@ static void load_directory(const char * path, int modifies_history) {
 						sprintf(f->icon, "image");
 						sprintf(f->launcher, "exec imgviewer");
 						sprintf(f->filetype, "JPEG Image");
+					} else if (has_extension(f, ".png")) {
+						sprintf(f->icon, "image");
+						sprintf(f->launcher, "exec imgviewer");
+						sprintf(f->filetype, "Portable Network Graphics Image");
 					} else if (has_extension(f, ".sdf")) {
 						sprintf(f->icon, "font");
 						sprintf(f->filetype, "SDF Font");
