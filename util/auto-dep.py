@@ -19,6 +19,7 @@ class Classifier(object):
         '<toaru/pex.h>':         (None, '-ltoaru_pex',         []),
         '<toaru/auth.h>':        (None, '-ltoaru_auth',        []),
         '<toaru/graphics.h>':    (None, '-ltoaru_graphics',    []),
+        '<toaru/inflate.h>':     (None, '-ltoaru_inflate',     []),
         '<toaru/drawstring.h>':  (None, '-ltoaru_drawstring',  ['<toaru/graphics.h>']),
         '<toaru/jpeg.h>':        (None, '-ltoaru_jpeg',        ['<toaru/graphics.h>']),
         '<toaru/rline.h>':       (None, '-ltoaru_rline',       ['<toaru/kbd.h>']),
