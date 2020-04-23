@@ -49,7 +49,6 @@ static void _init_caches(void) {
 	{ /* Generic fallback icon */
 		sprite_t * app_icon = malloc(sizeof(sprite_t));
 		load_sprite(app_icon, "/usr/share/icons/16/applications-generic.bmp");
-		app_icon->alpha = ALPHA_EMBEDDED;
 		hashmap_set(icon_cache_16, "generic", app_icon);
 	}
 
@@ -57,7 +56,6 @@ static void _init_caches(void) {
 	{ /* Generic fallback icon */
 		sprite_t * app_icon = malloc(sizeof(sprite_t));
 		load_sprite(app_icon, "/usr/share/icons/48/applications-generic.bmp");
-		app_icon->alpha = ALPHA_EMBEDDED;
 		hashmap_set(icon_cache_48, "generic", app_icon);
 	}
 }
@@ -86,7 +84,6 @@ static sprite_t * icon_get_int(const char * name, hashmap_t * icon_cache, char *
 					/* And if we find one, cache it */
 					icon = malloc(sizeof(sprite_t));
 					load_sprite(icon, path);
-					icon->alpha = ALPHA_EMBEDDED;
 					hashmap_set(icon_cache, (void*)name, icon);
 					return icon;
 				}

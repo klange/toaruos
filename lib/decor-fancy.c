@@ -42,7 +42,6 @@ static int (*freetype_draw_string_width)(char * s) = NULL;
 static void init_sprite(int id, char * path) {
 	sprites[id] = malloc(sizeof(sprite_t));
 	load_sprite(sprites[id], path);
-	sprites[id]->alpha = ALPHA_EMBEDDED;
 }
 
 static int get_bounds_fancy(yutani_window_t * window, struct decor_bounds * bounds) {
