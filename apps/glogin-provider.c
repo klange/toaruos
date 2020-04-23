@@ -260,7 +260,6 @@ int main (int argc, char ** argv) {
 
 	TRACE("Loading logo...");
 	load_sprite(&logo, LOGO);
-	logo.alpha = ALPHA_EMBEDDED;
 	TRACE("... done.");
 
 	/* Generate surface for background */

@@ -180,7 +180,6 @@ int main(int argc, char * argv[]) {
 	ctx = init_graphics_yutani_double_buffer(window);
 	setup_buttons();
 	load_sprite(&logo, icon_path);
-	logo.alpha = ALPHA_EMBEDDED;
 	redraw();
 
 	struct TTKButton * _down_button = NULL;

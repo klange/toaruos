@@ -91,7 +91,6 @@ int main (int argc, char * argv[]) {
 	while (optind < argc) {
 		sprite_t * image = calloc(sizeof(sprite_t),1);
 		load_sprite(image, argv[optind]);
-		image->alpha = ALPHA_EMBEDDED;
 
 		sprite_t * source = image;
 

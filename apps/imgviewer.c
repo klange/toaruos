@@ -154,7 +154,6 @@ int main(int argc, char * argv[]) {
 		fprintf(stderr, "%s: failed to open image %s\n", argv[0], argv[optind]);
 		return 1;
 	}
-	img.alpha = ALPHA_EMBEDDED;
 
 	width = img.width;
 	height = img.height;

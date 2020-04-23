@@ -470,6 +470,10 @@ int load_sprite_bmp(sprite_t * sprite, char * filename) {
 		#define _BMP_G 0x100
 		#define _BMP_B 0x10000
 
+		if (bpp == 32) {
+			sprite->alpha = ALPHA_EMBEDDED;
+		}
+
 		for (y = 0; y < height; ++y) {
 			for (x = 0; x < width; ++x) {
 				if (i > image_size) goto _cleanup_sprite;

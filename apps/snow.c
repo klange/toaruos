@@ -110,9 +110,6 @@ int main (int argc, char ** argv) {
 	}
 
 	load_sprite(&snowflake, "/usr/share/snowflake.bmp");
-	snowflake.alpha = ALPHA_EMBEDDED;
-	snowflake.masks = NULL;
-	snowflake.blank = 0;
 
 	wina = yutani_window_create(yctx, 100, 100);
 	if (argc < 2 || strcmp(argv[1],"--no-ad")) {
