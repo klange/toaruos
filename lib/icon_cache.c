@@ -37,6 +37,12 @@ static char * icon_directories_48[] = {
 	NULL
 };
 
+static char * prefixes[] = {
+	"png",
+	"bmp",
+	NULL
+};
+
 __attribute__((constructor))
 static void _init_caches(void) {
 	icon_cache_16 = hashmap_create(10);
@@ -73,14 +79,18 @@ static sprite_t * icon_get_int(const char * name, hashmap_t * icon_cache, char *
 		char path[100];
 		while (icon_directories[i]) {
 			/* Check each path... */
-			sprintf(path, "%s/%s.bmp", icon_directories[i], name);
-			if (access(path, R_OK) == 0) {
-				/* And if we find one, cache it */
-				icon = malloc(sizeof(sprite_t));
-				load_sprite(icon, path);
-				icon->alpha = ALPHA_EMBEDDED;
-				hashmap_set(icon_cache, (void*)name, icon);
-				return icon;
+			char ** prefix = prefixes;
+			while (*prefix) {
+				sprintf(path, "%s/%s.%s", icon_directories[i], name, *prefix);
+				if (access(path, R_OK) == 0) {
+					/* And if we find one, cache it */
+					icon = malloc(sizeof(sprite_t));
+					load_sprite(icon, path);
+					icon->alpha = ALPHA_EMBEDDED;
+					hashmap_set(icon_cache, (void*)name, icon);
+					return icon;
+				}
+				prefix++;
 			}
 			i++;
 		}

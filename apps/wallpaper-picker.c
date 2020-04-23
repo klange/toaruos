@@ -13,7 +13,6 @@
 #include <toaru/sdf.h>
 #include <toaru/menu.h>
 #include <toaru/button.h>
-#include <toaru/jpeg.h>
 #include <toaru/list.h>
 
 #include <sys/utsname.h>
@@ -157,8 +156,8 @@ void set_hilight(struct TTKButton * button, int hilight) {
 void load_wallpaper(void) {
 	if (wallpaper.bitmap) free(wallpaper.bitmap);
 	wallpaper.bitmap = NULL;
-	/* load JPG */
-	load_sprite_jpg(&wallpaper, wallpaper_path);
+	/* load wallpaper */
+	load_sprite(&wallpaper, wallpaper_path);
 	/* Ensures we render correctly when scaling */
 	wallpaper.alpha = ALPHA_EMBEDDED;
 }

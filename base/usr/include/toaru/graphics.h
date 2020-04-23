@@ -75,6 +75,7 @@ extern void blur_context_box(gfx_context_t * _src, int radius);
 extern void sprite_free(sprite_t * sprite);
 
 extern int load_sprite(sprite_t * sprite, char * filename);
+extern int load_sprite_bmp(sprite_t * sprite, char * filename);
 //extern int load_sprite_png(sprite_t * sprite, char * file);
 extern void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y);
 extern void draw_line(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color);

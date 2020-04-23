@@ -25,8 +25,6 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
-#include <toaru/jpeg.h>
-#include <toaru/png.h>
 
 /* Pointer to graphics memory */
 static yutani_t * yctx;
@@ -151,14 +149,7 @@ int main(int argc, char * argv[]) {
 	decor_width = bounds.width;
 	decor_height = bounds.height;
 
-	int status;
-	if (strstr(argv[optind],".jpg")) {
-		status = load_sprite_jpg(&img, argv[optind]);
-	} else if (strstr(argv[optind],".png")) {
-		status = load_sprite_png(&img, argv[optind]);
-	} else {
-		status = load_sprite(&img, argv[optind]);
-	}
+	int status = load_sprite(&img, argv[optind]);
 	if (status) {
 		fprintf(stderr, "%s: failed to open image %s\n", argv[0], argv[optind]);
 		return 1;

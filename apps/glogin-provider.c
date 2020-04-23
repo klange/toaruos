@@ -25,7 +25,6 @@
 #include <toaru/auth.h>
 #include <toaru/confreader.h>
 #include <toaru/sdf.h>
-#include <toaru/jpeg.h>
 
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "glogin-provider"
@@ -295,7 +294,7 @@ redo_everything:
 	TRACE("Loading wallpaper...");
 	{
 		sprite_t * wallpaper = malloc(sizeof(sprite_t));
-		load_sprite_jpg(wallpaper, WALLPAPER);
+		load_sprite(wallpaper, WALLPAPER);
 
 		float x = (float)width  / (float)wallpaper->width;
 		float y = (float)height / (float)wallpaper->height;

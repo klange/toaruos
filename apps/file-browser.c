@@ -32,7 +32,6 @@
 #include <toaru/list.h>
 #include <toaru/sdf.h>
 #include <toaru/button.h>
-#include <toaru/jpeg.h>
 
 #define APPLICATION_TITLE "File Browser"
 #define SCROLL_AMOUNT 120
@@ -1060,7 +1059,7 @@ static void draw_background(int width, int height) {
 		}
 	}
 
-	load_sprite_jpg(wallpaper, wallpaper_path);
+	load_sprite(wallpaper, wallpaper_path);
 
 	if (free_it) {
 		free(wallpaper_path);
