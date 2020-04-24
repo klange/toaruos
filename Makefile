@@ -329,10 +329,11 @@ fast: image.iso
 
 .PHONY: headless
 headless: image.iso
-	@qemu-system-i386 -cdrom $< ${QEMU_ARGS} \
+	@qemu-system-i386 -cdrom $< -m 1G ${KVM} -rtc base=localtime ${QEMU_EXTRA} \
+	  -serial null -serial mon:stdio \
 	  -nographic -no-reboot -audiodev none,id=id \
 	  -fw_cfg name=opt/org.toaruos.bootmode,string=headless \
-	  -fw_cfg name=etc/sercon-port,string=0
+	  -fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1"
 
 .PHONY: shell
 shell: image.iso
