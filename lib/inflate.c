@@ -413,21 +413,14 @@ int deflate_decompress(struct inflate_context * ctx) {
 #define GZIP_FLAG_NAME (1 << 3)
 #define GZIP_FLAG_COMM (1 << 4)
 
-static unsigned int _read_32be(struct inflate_context * ctx) {
+static unsigned int read_32le(struct inflate_context * ctx) {
 	unsigned int a, b, c, d;
 	a = ctx->get_input(ctx);
 	b = ctx->get_input(ctx);
 	c = ctx->get_input(ctx);
 	d = ctx->get_input(ctx);
 
-	return (a << 24) | (b << 16) | (c << 8) | (d << 0);
-}
-
-static unsigned int _read_16be(struct inflate_context * ctx) {
-	unsigned int a, b;
-	a = ctx->get_input(ctx);
-	b = ctx->get_input(ctx);
-	return (a << 8) | (b << 0);
+	return (d << 24) | (c << 16) | (b << 8) | (a << 0);
 }
 
 int gzip_decompress(struct inflate_context * ctx) {
@@ -439,7 +432,7 @@ int gzip_decompress(struct inflate_context * ctx) {
 	unsigned int flags = ctx->get_input(ctx);
 
 	/* Read mtime */
-	unsigned int mtime = _read_32be(ctx);
+	unsigned int mtime = read_32le(ctx);
 	(void)mtime;
 
 	/* Read extra flags */
@@ -452,7 +445,7 @@ int gzip_decompress(struct inflate_context * ctx) {
 
 	/* Extra bytes */
 	if (flags & GZIP_FLAG_EXTR) {
-		unsigned short size = _read_16be(ctx);
+		unsigned short size = read_16le(ctx);
 		for (unsigned int i = 0; i < size; ++i) ctx->get_input(ctx);
 	}
 
@@ -468,15 +461,15 @@ int gzip_decompress(struct inflate_context * ctx) {
 
 	unsigned int crc16 = 0;
 	if (flags & GZIP_FLAG_HCRC) {
-		crc16 = _read_16be(ctx);
+		crc16 = read_16le(ctx);
 	}
 	(void)crc16;
 
 	deflate_decompress(ctx);
 
 	/* Read CRC and decompressed size from end of input */
-	unsigned int crc32 = _read_32be(ctx);
-	unsigned int dsize = _read_32be(ctx);
+	unsigned int crc32 = read_32le(ctx);
+	unsigned int dsize = read_32le(ctx);
 
 	(void)crc32;
 	(void)dsize;
