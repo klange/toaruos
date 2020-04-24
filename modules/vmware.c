@@ -140,7 +140,7 @@ static void mouse_absolute(void) {
 	vmware_send(&cmd);
 }
 
-volatile int8_t vmware_mouse_byte;
+volatile int8_t vmware_mouse_byte = 0;
 
 static void vmware_mouse(void) {
 	/* unused, but we need to read the fake mouse event bytes from the PS/2 device. */
