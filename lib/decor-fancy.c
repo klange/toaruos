@@ -200,27 +200,27 @@ static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
 }
 
 void decor_init() {
-	init_sprite(0, TTK_FANCY_PATH "active/ul.bmp");
-	init_sprite(1, TTK_FANCY_PATH "active/um.bmp");
-	init_sprite(2, TTK_FANCY_PATH "active/ur.bmp");
-	init_sprite(3, TTK_FANCY_PATH "active/ml.bmp");
-	init_sprite(4, TTK_FANCY_PATH "active/mr.bmp");
-	init_sprite(5, TTK_FANCY_PATH "active/ll.bmp");
-	init_sprite(6, TTK_FANCY_PATH "active/lm.bmp");
-	init_sprite(7, TTK_FANCY_PATH "active/lr.bmp");
-	init_sprite(8, TTK_FANCY_PATH "active/button-close.bmp");
-	init_sprite(9, TTK_FANCY_PATH "active/button-maximize.bmp");
+	init_sprite(0, TTK_FANCY_PATH "active/ul.png");
+	init_sprite(1, TTK_FANCY_PATH "active/um.png");
+	init_sprite(2, TTK_FANCY_PATH "active/ur.png");
+	init_sprite(3, TTK_FANCY_PATH "active/ml.png");
+	init_sprite(4, TTK_FANCY_PATH "active/mr.png");
+	init_sprite(5, TTK_FANCY_PATH "active/ll.png");
+	init_sprite(6, TTK_FANCY_PATH "active/lm.png");
+	init_sprite(7, TTK_FANCY_PATH "active/lr.png");
+	init_sprite(8, TTK_FANCY_PATH "active/button-close.png");
+	init_sprite(9, TTK_FANCY_PATH "active/button-maximize.png");
 
-	init_sprite(INACTIVE + 0, TTK_FANCY_PATH "inactive/ul.bmp");
-	init_sprite(INACTIVE + 1, TTK_FANCY_PATH "inactive/um.bmp");
-	init_sprite(INACTIVE + 2, TTK_FANCY_PATH "inactive/ur.bmp");
-	init_sprite(INACTIVE + 3, TTK_FANCY_PATH "inactive/ml.bmp");
-	init_sprite(INACTIVE + 4, TTK_FANCY_PATH "inactive/mr.bmp");
-	init_sprite(INACTIVE + 5, TTK_FANCY_PATH "inactive/ll.bmp");
-	init_sprite(INACTIVE + 6, TTK_FANCY_PATH "inactive/lm.bmp");
-	init_sprite(INACTIVE + 7, TTK_FANCY_PATH "inactive/lr.bmp");
-	init_sprite(INACTIVE + 8, TTK_FANCY_PATH "inactive/button-close.bmp");
-	init_sprite(INACTIVE + 9, TTK_FANCY_PATH "inactive/button-maximize.bmp");
+	init_sprite(INACTIVE + 0, TTK_FANCY_PATH "inactive/ul.png");
+	init_sprite(INACTIVE + 1, TTK_FANCY_PATH "inactive/um.png");
+	init_sprite(INACTIVE + 2, TTK_FANCY_PATH "inactive/ur.png");
+	init_sprite(INACTIVE + 3, TTK_FANCY_PATH "inactive/ml.png");
+	init_sprite(INACTIVE + 4, TTK_FANCY_PATH "inactive/mr.png");
+	init_sprite(INACTIVE + 5, TTK_FANCY_PATH "inactive/ll.png");
+	init_sprite(INACTIVE + 6, TTK_FANCY_PATH "inactive/lm.png");
+	init_sprite(INACTIVE + 7, TTK_FANCY_PATH "inactive/lr.png");
+	init_sprite(INACTIVE + 8, TTK_FANCY_PATH "inactive/button-close.png");
+	init_sprite(INACTIVE + 9, TTK_FANCY_PATH "inactive/button-maximize.png");
 
 	decor_render_decorations = render_decorations_fancy;
 	decor_check_button_press = check_button_press_fancy;

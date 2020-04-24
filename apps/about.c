@@ -76,7 +76,7 @@ static void redraw(void) {
 
 static void init_default(void) {
 	title_str = "About ToaruOS";
-	icon_path = "/usr/share/logo_login.bmp";
+	icon_path = "/usr/share/logo_login.png";
 
 	{
 		version_str = malloc(100);

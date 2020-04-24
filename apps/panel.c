@@ -362,7 +362,7 @@ static void update_weather_status(void) {
 	if (!hashmap_has(weather_icons, icon)) {
 		sprite_t * tmp = malloc(sizeof(sprite_t));
 		char path[512];
-		sprintf(path,"/usr/share/icons/weather/%s.bmp", icon);
+		sprintf(path,"/usr/share/icons/weather/%s.png", icon);
 		load_sprite(tmp, path);
 		hashmap_set(weather_icons, icon, tmp);
 	}
@@ -1365,7 +1365,7 @@ struct MenuEntry * menu_create_clock(void) {
 
 	if (!watchface) {
 		watchface = malloc(sizeof(sprite_t));
-		load_sprite(watchface, "/usr/share/icons/watchface.bmp");
+		load_sprite(watchface, "/usr/share/icons/watchface.png");
 	}
 
 	out->_type = -1; /* Special */
@@ -1522,8 +1522,8 @@ int main (int argc, char ** argv) {
 	sprite_panel  = malloc(sizeof(sprite_t));
 	sprite_logout = malloc(sizeof(sprite_t));
 
-	load_sprite(sprite_panel,  "/usr/share/panel.bmp");
-	load_sprite(sprite_logout, "/usr/share/icons/panel-shutdown.bmp");
+	load_sprite(sprite_panel,  "/usr/share/panel.png");
+	load_sprite(sprite_logout, "/usr/share/icons/panel-shutdown.png");
 
 	struct stat stat_tmp;
 	if (!stat("/dev/dsp",&stat_tmp)) {
@@ -1533,10 +1533,10 @@ int main (int argc, char ** argv) {
 		sprite_volume_low  = malloc(sizeof(sprite_t));
 		sprite_volume_med  = malloc(sizeof(sprite_t));
 		sprite_volume_high = malloc(sizeof(sprite_t));
-		load_sprite(sprite_volume_mute, "/usr/share/icons/24/volume-mute.bmp");
-		load_sprite(sprite_volume_low,  "/usr/share/icons/24/volume-low.bmp");
-		load_sprite(sprite_volume_med,  "/usr/share/icons/24/volume-medium.bmp");
-		load_sprite(sprite_volume_high, "/usr/share/icons/24/volume-full.bmp");
+		load_sprite(sprite_volume_mute, "/usr/share/icons/24/volume-mute.png");
+		load_sprite(sprite_volume_low,  "/usr/share/icons/24/volume-low.png");
+		load_sprite(sprite_volume_med,  "/usr/share/icons/24/volume-medium.png");
+		load_sprite(sprite_volume_high, "/usr/share/icons/24/volume-full.png");
 		/* XXX store current volume */
 	}
 
@@ -1544,9 +1544,9 @@ int main (int argc, char ** argv) {
 		widgets_network_enabled = 1;
 		widgets_width += WIDGET_WIDTH;
 		sprite_net_active = malloc(sizeof(sprite_t));
-		load_sprite(sprite_net_active, "/usr/share/icons/24/net-active.bmp");
+		load_sprite(sprite_net_active, "/usr/share/icons/24/net-active.png");
 		sprite_net_disabled = malloc(sizeof(sprite_t));
-		load_sprite(sprite_net_disabled, "/usr/share/icons/24/net-disconnected.bmp");
+		load_sprite(sprite_net_disabled, "/usr/share/icons/24/net-disconnected.png");
 	}
 
 	/* TODO Probably should use the app launch shortcut */

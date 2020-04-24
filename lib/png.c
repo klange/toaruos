@@ -185,7 +185,7 @@ static void _write(struct inflate_context * ctx, unsigned int sym) {
 		} else if (c->sf == PNG_FILTER_AVG) {
 			/* Add raw value to the average of the pixel above and left */
 			uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
-			uint32_t up = (c->x > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+			uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
 
 			r += ((int)_RED(left) + (int)_RED(up)) / 2;
 			g += ((int)_GRE(left) + (int)_GRE(up)) / 2;

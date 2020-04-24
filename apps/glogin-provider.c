@@ -56,7 +56,7 @@ static int BOX_COLOR_G=0;
 static int BOX_COLOR_B=0;
 static int BOX_COLOR_A=127;
 static char * WALLPAPER = "/usr/share/wallpaper.jpg";
-static char * LOGO = "/usr/share/logo_login.bmp";
+static char * LOGO = "/usr/share/logo_login.png";
 
 #define TEXTBOX_INTERIOR_LEFT 4
 #define EXTRA_TEXT_OFFSET 15

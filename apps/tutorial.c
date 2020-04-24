@@ -327,7 +327,7 @@ int main(int argc, char * argv[]) {
 	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
 
 	/* Load icons */
-	load_sprite(&logo, "/usr/share/logo_login.bmp");
+	load_sprite(&logo, "/usr/share/logo_login.png");
 	load_sprite(&terminal, "/usr/share/icons/48/utilities-terminal.bmp");
 	load_sprite(&folder, "/usr/share/icons/48/folder.bmp");
 	load_sprite(&package, "/usr/share/icons/48/package.bmp");
