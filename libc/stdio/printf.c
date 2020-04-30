@@ -2,9 +2,10 @@
 #include <string.h>
 #include <va_list.h>
 
-static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr, int fill_zero, int align_right) {
+static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr, int fill_zero, int align_right, int precision) {
 	unsigned int n_width = 1;
 	unsigned int i = 9;
+	if (precision == -1) precision = 1;
 
 	if (value < 10UL) {
 		n_width = 1;
@@ -27,6 +28,8 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 	} else {
 		n_width = 10;
 	}
+
+	if (n_width < (unsigned int)precision) n_width = precision;
 
 	int printed = 0;
 	if (align_right) {
@@ -248,7 +251,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 						*b++ = '+';
 						buf++;
 					}
-					print_dec(val, arg_width, buf, &i, fill_zero, align);
+					print_dec(val, arg_width, buf, &i, fill_zero, align, precision);
 				}
 				b = buf + i;
 				break;
@@ -261,7 +264,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					} else {
 						val = (unsigned long)va_arg(args, unsigned long);
 					}
-					print_dec(val, arg_width, buf, &i, fill_zero, align);
+					print_dec(val, arg_width, buf, &i, fill_zero, align, precision);
 				}
 				b = buf + i;
 				break;
@@ -275,7 +278,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 						buf++;
 						val = -val;
 					}
-					print_dec((long)val, arg_width, buf, &i, fill_zero, align);
+					print_dec((long)val, arg_width, buf, &i, fill_zero, align, 1);
 					b = buf + i;
 					i = b - buf;
 					*b++ = '.';
@@ -283,7 +286,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					for (int j = 0; j < ((precision > -1 && precision < 8) ? precision : 8); ++j) {
 						if ((int)(val * 100000.0) % 100000 == 0 && j != 0) break;
 						val *= 10.0;
-						print_dec((int)(val) % 10, 0, buf, &i, 0, 0);
+						print_dec((int)(val) % 10, 0, buf, &i, 0, 0, 1);
 					}
 					b = buf + i;
 				}
