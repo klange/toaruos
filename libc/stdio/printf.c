@@ -7,7 +7,9 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 	unsigned int i = 9;
 	if (precision == -1) precision = 1;
 
-	if (value < 10UL) {
+	if (value == 0) {
+		n_width = 0;
+	} else if (value < 10UL) {
 		n_width = 1;
 	} else if (value < 100UL) {
 		n_width = 2;
