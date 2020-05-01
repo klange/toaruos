@@ -607,6 +607,58 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 	return (void *)lib;
 }
 
+static uintptr_t end_addr = 0;
+/**
+ * Half loads an object using the dumb allocator and performs dependency
+ * resolution. This is a separate process from do_actual_load and dlopen_ld
+ * to avoid problems with malloc and library functions while loading.
+ * Preloaded objects will be fully loaded everything is relocated.
+ */
+static elf_t * preload(hashmap_t * libs, list_t * load_libs, char * lib_name) {
+	/* Find and open the library */
+	elf_t * lib = open_object(lib_name);
+
+	if (!lib) {
+		fprintf(stderr, "Failed to load dependency '%s'.\n", lib_name);
+		return NULL;
+	}
+
+	/* Skip already loaded libraries */
+	if (lib->loaded) return lib;
+
+	/* Mark this library available */
+	hashmap_set(libs, lib_name, lib);
+
+	TRACE_LD("Loading %s at 0x%x", lib_name, end_addr);
+
+	/* Adjust dumb allocator */
+	while (end_addr & 0xFFF) {
+		end_addr++;
+	}
+
+	/* Load PHDRs */
+	end_addr = object_load(lib, end_addr);
+
+	/* Extract information */
+	object_postload(lib);
+
+	/* Mark loaded */
+	lib->loaded = 1;
+
+	/* Verify dependencies are loaded before we relocate */
+	foreach(node, lib->dependencies) {
+		if (!hashmap_has(libs, node->value)) {
+			TRACE_LD("Need unloaded dependency %s", node->value);
+			preload(libs, load_libs, node->value);
+		}
+	}
+
+	/* Add this to the (forward scan) list of libraries to finish loading */
+	list_insert(load_libs, lib);
+
+	return lib;
+}
+
 /* exposed dlopen() method */
 static void * dlopen_ld(const char * filename, int flags) {
 	TRACE_LD("dlopen(%s,0x%x)", filename, flags);
@@ -731,7 +783,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	/* Load the main object */
-	uintptr_t end_addr = object_load(main_obj, 0x0);
+	end_addr = object_load(main_obj, 0x0);
 	object_postload(main_obj);
 	object_find_copy_relocations(main_obj);
 
@@ -742,33 +794,36 @@ int main(int argc, char * argv[]) {
 		end_addr++;
 	}
 
-	list_t * ctor_libs = list_create();
-	list_t * init_libs = list_create();
-
+	/* Load dependent libraries, recursively. */
 	TRACE_LD("Loading dependencies.");
+	list_t * load_libs = list_create();
 	node_t * item;
 	while ((item = list_pop(main_obj->dependencies))) {
-		while (end_addr & 0xFFF) {
-			end_addr++;
-		}
-
 		char * lib_name = item->value;
-		/* Reject libg.so */
+
+		/* Skip libg.so which is a fake library that doesn't really exist.
+		 * XXX: Only binaries should depend on this I think? */
 		if (!strcmp(lib_name, "libg.so")) goto nope;
 
-		elf_t * lib = open_object(lib_name);
-		if (!lib) {
-			fprintf(stderr, "Failed to load dependency '%s'.\n", lib_name);
-			return 1;
-		}
-		hashmap_set(libs, lib_name, lib);
+		/* Preload library */
+		elf_t * lib = preload(libs, load_libs, lib_name);
 
-		TRACE_LD("Loading %s at 0x%x", lib_name, end_addr);
-		end_addr = object_load(lib, end_addr);
-		object_postload(lib);
-		TRACE_LD("Relocating %s", lib_name);
+		/* Failed to load */
+		if (!lib) return 1;
+
+nope:
+		free(item);
+	}
+
+	list_t * ctor_libs = list_create();
+	list_t * init_libs = list_create();
+	while ((item = list_dequeue(load_libs))) {
+		elf_t * lib = item->value;
+
+		/* Complete relocation */
 		object_relocate(lib);
 
+		/* Close the underlying file */
 		fclose(lib->file);
 
 		/* Store constructors for later execution */
@@ -779,9 +834,6 @@ int main(int argc, char * argv[]) {
 			list_insert(init_libs, lib);
 		}
 
-		lib->loaded = 1;
-
-nope:
 		free(item);
 	}
 
