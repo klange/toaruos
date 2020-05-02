@@ -60,9 +60,9 @@ static int available_height = 0; /* How much space is available in the main wind
 static int is_desktop_background = 0; /* If we're in desktop background mode */
 static int menu_bar_height = MENU_BAR_HEIGHT + 36; /* Height of the menu bar, if present - it's not in desktop mode */
 static sprite_t * wallpaper_buffer = NULL; /* Prebaked wallpaper texture */
-static sprite_t * wallpaper_old = NULL;
-static uint64_t timer = 0;
-static int restart = 0;
+static sprite_t * wallpaper_old = NULL; /* Previous wallpaper when transitioning */
+static uint64_t timer = 0; /* Timer for wallpaper transition fade */
+static int restart = 0; /* Signal for desktop wallpaper to kill itself to save memory (this is dumb) */
 static char title[512]; /* Application title bar */
 static int FILE_HEIGHT = 80; /* Height of one row of icons */
 static int FILE_WIDTH = 100; /* Width of one column of icons */
@@ -76,13 +76,18 @@ static ssize_t file_pointers_len = 0; /* How many files are in the current list 
 static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
 
+/**
+ * Navigation input box
+ */
 static char nav_bar[512] = {0};
 static int  nav_bar_cursor = 0;
 static int  nav_bar_cursor_x = 0;
 static int  nav_bar_focused = 0;
 
+/* Status bar displayed at the bottom of the window */
 static char window_status[512] = {0};
 
+/* Button row visibility statuses */
 static int _button_hilights[4] = {3,3,3,3};
 static int _button_disabled[4] = {1,1,0,0};
 static int _button_hover = -1;
@@ -98,6 +103,7 @@ static struct menu_bar_entries menu_entries[] = {
 	{NULL, NULL},
 };
 
+/* Right click context menu */
 static struct MenuList * context_menu = NULL;
 
 /**
@@ -191,6 +197,27 @@ static int print_human_readable_size(char * _out, uint64_t s) {
 #define HILIGHT_BORDER_BOTTOM rgb(47,106,167)
 
 /**
+ * Clip text and add ellipsis to fit a specified display width.
+ */
+static char * ellipsify(char * input, int font_size, int font, int max_width, int * out_width) {
+	int len = strlen(input);
+	char * out = malloc(len + 4);
+	memcpy(out, input, len + 1);
+	int width;
+	while ((width = draw_sdf_string_width(out, font_size, font)) > max_width) {
+		len--;
+		out[len+0] = '.';
+		out[len+1] = '.';
+		out[len+2] = '.';
+		out[len+3] = '\0';
+	}
+
+	if (out_width) *out_width = width;
+
+	return out;
+}
+
+/**
  * Draw an icon view entry
  */
 static void draw_file(struct File * f, int offset) {
@@ -206,17 +233,8 @@ static void draw_file(struct File * f, int offset) {
 		sprite_t * icon = icon_get_48(f->icon);
 
 		/* If the display name is too long to fit, cut it with an ellipsis. */
-		int len = strlen(f->name);
-		char * name = malloc(len + 4);
-		memcpy(name, f->name, len + 1);
 		int name_width;
-		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > FILE_WIDTH - 8 /* Padding */) {
-			len--;
-			name[len+0] = '.';
-			name[len+1] = '.';
-			name[len+2] = '.';
-			name[len+3] = '\0';
-		}
+		char * name = ellipsify(f->name, 16, SDF_FONT_THIN, FILE_WIDTH - 8, &name_width);
 
 		/* Draw the icon */
 		int center_x_icon = (FILE_WIDTH - icon->width) / 2;
@@ -275,21 +293,12 @@ static void draw_file(struct File * f, int offset) {
 			draw_sprite_alpha_paint(contents, icon, x + 11, y + 11, 0.3, rgb(255,255,255));
 		}
 
-		int len = strlen(f->name);
-		char * name = malloc(len + 4);
-		memcpy(name, f->name, len + 1);
-		int name_width;
-		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_BOLD)) > FILE_WIDTH - 81) {
-			len--;
-			name[len+0] = '.';
-			name[len+1] = '.';
-			name[len+2] = '.';
-			name[len+3] = '\0';
-		}
+		char * name = ellipsify(f->name, 16, SDF_FONT_BOLD, FILE_WIDTH - 81, NULL);
+		char * type = ellipsify(f->filetype, 16, SDF_FONT_THIN, FILE_WIDTH - 81, NULL);
 
 		if (f->type == 0) {
 			draw_sdf_string(contents, x + 70, y + 8, name, 16, text_color, SDF_FONT_BOLD);
-			draw_sdf_string(contents, x + 70, y + 25, f->filetype, 16, text_color, SDF_FONT_THIN);
+			draw_sdf_string(contents, x + 70, y + 25, type, 16, text_color, SDF_FONT_THIN);
 
 			char line_three[48] = {0};
 			if (*f->link) {
@@ -300,10 +309,11 @@ static void draw_file(struct File * f, int offset) {
 			draw_sdf_string(contents, x + 70, y + 42, line_three, 16, text_color, SDF_FONT_THIN);
 		} else {
 			draw_sdf_string(contents, x + 70, y + 15, name, 16, text_color, SDF_FONT_BOLD);
-			draw_sdf_string(contents, x + 70, y + 32, f->filetype, 16, text_color, SDF_FONT_THIN);
+			draw_sdf_string(contents, x + 70, y + 32, type, 16, text_color, SDF_FONT_THIN);
 		}
 
 		free(name);
+		free(type);
 	} else if (view_mode == VIEW_MODE_LIST) {
 		sprite_t * icon = icon_get_16(f->icon);
 		uint32_t text_color = rgb(0,0,0);
@@ -326,20 +336,11 @@ static void draw_file(struct File * f, int offset) {
 			draw_sprite(contents, icon, x + 4, y + 4);
 		}
 
-
-		int len = strlen(f->name);
-		char * name = malloc(len + 4);
-		memcpy(name, f->name, len + 1);
-		int name_width;
-		while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > FILE_WIDTH - 26) {
-			len--;
-			name[len+0] = '.';
-			name[len+1] = '.';
-			name[len+2] = '.';
-			name[len+3] = '\0';
-		}
+		char * name = ellipsify(f->name, 16, SDF_FONT_THIN, FILE_WIDTH - 26, NULL);
 
 		draw_sdf_string(contents, x + 24, y + 2, name, 16, text_color, SDF_FONT_THIN);
+
+		free(name);
 
 	}
 }
@@ -404,9 +405,18 @@ static int has_extension(struct File * f, char * extension) {
 	return 0;
 }
 
+/**
+ * Forward/backward history; we're always in the middle of these.
+ * When we navigate somewhere new, clear the forward history, but
+ * keep the back history and append the previous location.
+ */
 static list_t * history_back;
 static list_t * history_forward;
 
+/**
+ * Update the status bar text at the bottom of the window
+ * based on the selected items in the file view.
+ */
 static void update_status(void) {
 	uint64_t total_size = 0;
 	uint64_t selected_size = 0;
@@ -444,7 +454,11 @@ static void load_directory(const char * path, int modifies_history) {
 	DIR * dirp = opendir(path);
 
 	if (!dirp) {
-		/* XXX show a dialog */
+		/*
+		 * Display a warning dialog with the appropriate error message for
+		 * why this directory failed to load. XXX This uses `showdialog`
+		 * but it should use a dialog library like with the buttons.
+		 */
 		if (!fork()) {
 			char tmp[512];
 			sprintf(tmp, "Could not open directory \"%s\": %s", path, strerror(errno));
@@ -455,6 +469,7 @@ static void load_directory(const char * path, int modifies_history) {
 		return;
 	}
 
+	/* Free the previously loaded directory */
 	if (file_pointers) {
 		for (int i = 0; i < file_pointers_len; ++i) {
 			free(file_pointers[i]);
@@ -478,18 +493,21 @@ static void load_directory(const char * path, int modifies_history) {
 		free(current_directory);
 	}
 
-	_button_disabled[0] = !(history_back->length);
-	_button_disabled[1] = !(history_forward->length);
-	_button_disabled[2] = 0;
-	_button_disabled[3] = 0;
+	/* Set button displays appropriately */
+	_button_disabled[0] = !(history_back->length);    /* Back */
+	_button_disabled[1] = !(history_forward->length); /* Forward */
+	_button_disabled[2] = 0; /* Up */
+	_button_disabled[3] = 0; /* Home */
 
 	char * home = getenv("HOME");
 	if (home && !strcmp(path, home)) {
 		/* If the current directory is the user's homedir, present it that way in the title */
 		set_title("Home");
+		/* Disable the 'go home' button */
 		_button_disabled[3] = 1;
 	} else if (!strcmp(path, "/")) {
 		set_title("File System");
+		/* If this is the root of the file system, disable the up button */
 		_button_disabled[2] = 1;
 	} else {
 		/* Otherwise use just the directory base name */
@@ -761,14 +779,18 @@ static void reinitialize_contents(void) {
 
 #define BUTTON_SPACE 34
 #define BUTTON_COUNT 4
+/**
+ * Render toolbar buttons
+ */
 static void _draw_buttons(struct decor_bounds bounds) {
+
+	/* Draws the toolbar background as a gradient; XXX hardcoded theme details */
 	uint32_t gradient_top = rgb(59,59,59);
 	uint32_t gradient_bot = rgb(40,40,40);
 	for (int i = 0; i < 36; ++i) {
 		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
 		draw_rectangle(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT + i,
 				BUTTON_SPACE * BUTTON_COUNT, 1, c);
-				//ctx->width - bounds.width, 1, c);
 	}
 
 	int x = 0;
@@ -778,12 +800,17 @@ static void _draw_buttons(struct decor_bounds bounds) {
 	ttk_button_draw(ctx, &_up); \
 	x += BUTTON_SPACE; i++; } while (0)
 
+	/* Draw actual buttons */
 	draw_button("back");
 	draw_button("forward");
 	draw_button("up");
 	draw_button("home");
 }
 
+/**
+ * Determine what character offset the cursor should be at for
+ * a given X coordinate.
+ */
 static void _figure_out_navbar_cursor(int x, struct decor_bounds bounds) {
 	x = x - bounds.left_width - 2 - BUTTON_SPACE * BUTTON_COUNT - 5;
 	if (x <= 0) {
@@ -801,6 +828,12 @@ static void _figure_out_navbar_cursor(int x, struct decor_bounds bounds) {
 	free(tmp);
 }
 
+/**
+ * Recalculate the location of the cursor indicator bar
+ * based on the current cursor character offset;
+ * also handles cursor bounds within the text
+ * (eg. to avoid cursor moving beyond the beginning)
+ */
 static void _recalculate_nav_bar_cursor(void) {
 	if (nav_bar_cursor < 0) {
 		nav_bar_cursor = 0;
@@ -814,7 +847,12 @@ static void _recalculate_nav_bar_cursor(void) {
 	free(tmp);
 }
 
+/**
+ * Draw the navigation input box.
+ */
 static void _draw_nav_bar(struct decor_bounds bounds) {
+
+	/* Draw toolbar background */
 	uint32_t gradient_top = rgb(59,59,59);
 	uint32_t gradient_bot = rgb(40,40,40);
 	int x = BUTTON_SPACE * BUTTON_COUNT;
@@ -825,6 +863,7 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 				ctx->width - bounds.width - BUTTON_SPACE * BUTTON_COUNT, 1, c);
 	}
 
+	/* Draw input box */
 	if (nav_bar_focused) {
 		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(0,120,220), rgb(0,120,220)};
 		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
@@ -835,21 +874,11 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 2, bounds.top_height + MENU_BAR_HEIGHT + 5, main_window->width - bounds.width - x - 8, 24, 3, rgb(250,250,250));
 	}
 
-	/* Draw the nav bar text */
+	/* Draw the nav bar text, ellipsified if needed */
 	int max_width = main_window->width - bounds.width - x - 12;
-	int len = strlen(nav_bar);
-	char * name = malloc(len + 5);
-	memcpy(name, nav_bar, len + 1);
-	int name_width;
-	while ((name_width = draw_sdf_string_width(name, 16, SDF_FONT_THIN)) > max_width) {
-		len--;
-		name[len+0] = '.';
-		name[len+1] = '.';
-		name[len+2] = '.';
-		name[len+3] = '\0';
-	}
-
+	char * name = ellipsify(nav_bar, 16, SDF_FONT_THIN, max_width, NULL);
 	draw_sdf_string(ctx, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+	free(name);
 
 	if (nav_bar_focused) {
 		/* Draw cursor indicator at cursor_x */
@@ -863,7 +892,12 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 }
 
 #define STATUS_HEIGHT 24
+/**
+ * Draw the status bar at the bottom of the window
+ */
 static void _draw_status(struct decor_bounds bounds) {
+
+	/* Background gradient */
 	uint32_t gradient_top = rgb(80,80,80);
 	uint32_t gradient_bot = rgb(59,59,59);
 	draw_rectangle(ctx, bounds.left_width, ctx->height - bounds.bottom_height - STATUS_HEIGHT,
@@ -874,6 +908,8 @@ static void _draw_status(struct decor_bounds bounds) {
 				ctx->width - bounds.width, 1, c );
 	}
 
+
+	/* Text with draw shadow */
 	{
 		sprite_t * _tmp_s = create_sprite(ctx->width - bounds.width - 4, STATUS_HEIGHT-3, ALPHA_EMBEDDED);
 		gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
@@ -890,6 +926,9 @@ static void _draw_status(struct decor_bounds bounds) {
 	}
 }
 
+/**
+ * Redraw the navigation input box (while typing)
+ */
 static void _redraw_nav_bar(void) {
 	struct decor_bounds bounds;
 	_decor_get_bounds(main_window, &bounds);
@@ -898,6 +937,9 @@ static void _redraw_nav_bar(void) {
 	yutani_flip(yctx, main_window);
 }
 
+/**
+ * navbar: Text editing helpers for ^W, deletes one directory element
+ */
 static void nav_bar_backspace_word(void) {
 	if (!*nav_bar) return;
 	if (nav_bar_cursor == 0) return;
@@ -920,6 +962,9 @@ static void nav_bar_backspace_word(void) {
 	_redraw_nav_bar();
 }
 
+/**
+ * navbar: Text editing helper for backspace, deletes one character
+ */
 static void nav_bar_backspace(void) {
 	if (nav_bar_cursor == 0) return;
 
@@ -935,6 +980,9 @@ static void nav_bar_backspace(void) {
 	_redraw_nav_bar();
 }
 
+/**
+ * navbar: Text editing helper for inserting characters
+ */
 static void nav_bar_insert_char(char c) {
 	char * tmp = strdup(nav_bar);
 	tmp[nav_bar_cursor] = '\0';
@@ -948,12 +996,18 @@ static void nav_bar_insert_char(char c) {
 	_redraw_nav_bar();
 }
 
+/**
+ * navbar: Move editing cursor one character left
+ */
 static void nav_bar_cursor_left(void) {
 	nav_bar_cursor--;
 	_recalculate_nav_bar_cursor();
 	_redraw_nav_bar();
 }
 
+/**
+ * navbar: Move editing cursor one character right
+ */
 static void nav_bar_cursor_right(void) {
 	nav_bar_cursor++;
 	_recalculate_nav_bar_cursor();
@@ -1287,7 +1341,7 @@ static void open_file(struct File * f) {
 			/* "SELF" launchers are for binaries. */
 			sprintf(tmp, "exec ./%s", f->name);
 		} else {
-			/* Other launchers shouuld take file names as arguments.
+			/* Other launchers should take file names as arguments.
 			 * NOTE: If you don't want the file name, you can append # to your launcher.
 			 *       Since it's parsed by the shell, this will yield a comment.
 			 */
@@ -1333,6 +1387,14 @@ static void _menu_action_select_all(struct MenuEntry * self) {
 	redraw_window();
 }
 
+/**
+ * Set the view mode for the file view
+ * We support three modes:
+ * - Icons: Standard view, label centered below icon.
+ * - Tiles: Like Windows Explorer, labels left-aligned to the right of
+ *          the icon, with extra details also displayed. Bold file name.
+ * - List:  One-line-per-file, icon on the left, left aligne file name.
+ */
 static void set_view_mode(int mode) {
 
 	switch (mode) {
@@ -1358,6 +1420,10 @@ static void set_view_mode(int mode) {
 	redraw_window();
 }
 
+/**
+ * Dropdown action handler for view mode entries;
+ * use menuitem action to determine which view mode to set.
+ */
 static void _menu_action_view_mode(struct MenuEntry * entry) {
 	struct MenuEntry_Normal * _entry = (void*)entry;
 	int mode = VIEW_MODE_ICONS;
@@ -1371,6 +1437,17 @@ static void _menu_action_view_mode(struct MenuEntry * entry) {
 	set_view_mode(mode);
 }
 
+/**
+ * Receive pastes, which are presumed to be file names of files
+ * which have been copied and should now be pasted into a new
+ * directory; will not overwrite if pasted into the same directory
+ * or a directory with a file with the same name.
+ *
+ * XXX: Calls `cp` to perform actual copy.
+ *
+ * TODO: Actually check if clipboard contains a file name.
+ * TODO: Handle pastes into the navbar of arbitrary text.
+ */
 static void handle_clipboard(char * contents) {
 	fprintf(stderr, "Received clipboard:\n%s\n",contents);
 
@@ -1445,6 +1522,9 @@ static void toggle_selected(int hilighted_offset, int modifiers) {
 	redraw_window();
 }
 
+/**
+ * Handle button hover highlights
+ */
 static int _down_button = -1;
 static void _set_hilight(int index, int hilight) {
 	int _update = 0;
@@ -1464,6 +1544,9 @@ static void _set_hilight(int index, int hilight) {
 	}
 }
 
+/**
+ * Handle toolbar button clicking
+ */
 static void _handle_button_press(int index) {
 	if (index != -1 && _button_disabled[index]) return; /* can't click disabled buttons */
 	switch (index) {
@@ -1508,6 +1591,9 @@ static void _handle_button_press(int index) {
 	}
 }
 
+/**
+ * Scroll file view up
+ */
 static void _scroll_up(void) {
 	scroll_offset -= SCROLL_AMOUNT;
 	if (scroll_offset < 0) {
@@ -1515,6 +1601,9 @@ static void _scroll_up(void) {
 	}
 }
 
+/**
+ * Scroll file view down
+ */
 static void _scroll_down(void) {
 	if (available_height > contents->height) {
 		scroll_offset = 0;
@@ -1536,11 +1625,21 @@ static void sig_usr2(int sig) {
 	signal(SIGUSR2, sig_usr2);
 }
 
+/**
+ * Desktop mode responds to sig_usr1 by resizing the window
+ * to the current display size.
+ */
 static void sig_usr1(int sig) {
 	yutani_window_resize_offer(yctx, main_window, yctx->display_width, yctx->display_height);
 	signal(SIGUSR1, sig_usr1);
 }
 
+/**
+ * Accept keyboard arrows left/right/up/down and select the appropriate
+ * file in the file view based on the currently selected file; if multiple
+ * files are currently selected, the first one (up/left) is used as the basis
+ * for the new selection.
+ */
 static void arrow_select(int x, int y) {
 	if (!file_pointers_len) return;
 
@@ -1654,11 +1753,6 @@ int main(int argc, char * argv[]) {
 	menu_set_insert(menu_bar.set, "view", m);
 
 	m = menu_create(); /* Go */
-	/* TODO implement input dialog for Path... */
-#if 0
-	menu_insert(m, menu_create_normal("open",NULL,"Path...", _menu_action_input_path));
-	menu_insert(m, menu_create_separator());
-#endif
 	menu_insert(m, menu_create_normal("home",getenv("HOME"),"Home",_menu_action_navigate));
 	menu_insert(m, menu_create_normal(NULL,"/","File System",_menu_action_navigate));
 	menu_insert(m, menu_create_normal("up",NULL,"Up",_menu_action_up));
