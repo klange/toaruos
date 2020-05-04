@@ -429,6 +429,9 @@ int gzip_decompress(struct inflate_context * ctx) {
 	if (ctx->get_input(ctx) != 0x1F) return 1;
 	if (ctx->get_input(ctx) != 0x8B) return 1;
 
+	unsigned int cm = ctx->get_input(ctx);
+	if (cm != 8) return 1;
+
 	unsigned int flags = ctx->get_input(ctx);
 
 	/* Read mtime */
@@ -465,7 +468,7 @@ int gzip_decompress(struct inflate_context * ctx) {
 	}
 	(void)crc16;
 
-	deflate_decompress(ctx);
+	int status = deflate_decompress(ctx);
 
 	/* Read CRC and decompressed size from end of input */
 	unsigned int crc32 = read_32le(ctx);
@@ -474,5 +477,5 @@ int gzip_decompress(struct inflate_context * ctx) {
 	(void)crc32;
 	(void)dsize;
 
-	return 0;
+	return status;
 }
