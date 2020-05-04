@@ -83,7 +83,9 @@ int main(int argc, char * argv[]) {
 	ctx.write_output = _write;
 	ctx.ring = NULL; /* Use the global one */
 
-	gzip_decompress(&ctx);
+	if (gzip_decompress(&ctx)) {
+		return 1;
+	}
 
 	if (!to_stdout) {
 		fclose(ctx.output_priv);
