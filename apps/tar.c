@@ -170,11 +170,12 @@ int main(int argc, char * argv[]) {
 	char * fname = NULL;
 	int verbose = 0;
 	int action = 0;
+	int compressed = 0;
 #define TAR_ACTION_EXTRACT 1
 #define TAR_ACTION_CREATE  2
 #define TAR_ACTION_LIST    3
 
-	while ((opt = getopt(argc, argv, "?ctxvaf:")) != -1) {
+	while ((opt = getopt(argc, argv, "?ctxzvaf:")) != -1) {
 		switch (opt) {
 			case 'c':
 				if (action) {
@@ -203,6 +204,9 @@ int main(int argc, char * argv[]) {
 			case 'v':
 				verbose = 1;
 				break;
+			case 'z':
+				compressed = 1;
+				break;
 			case '?':
 				usage(argv);
 				return 1;
@@ -229,6 +233,31 @@ int main(int argc, char * argv[]) {
 		if (!f) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], fname, strerror(errno));
 			return 1;
+		}
+
+		if (compressed) {
+			int fds[2];
+			pipe(fds);
+
+			int child = fork();
+			if (child == 0) {
+				/* Close the read end */
+				close(fds[0]);
+				/* Put f's fd into stdin */
+				dup2(fileno(f), STDIN_FILENO);
+				/* Make stdout the pipe */
+				dup2(fds[1], STDOUT_FILENO);
+				/* Execeute gzunzip */
+				char * args[] = {"gunzip","-c",NULL};
+				exit(execvp("gunzip",args));
+			} else if (child < 0) {
+				fprintf(stderr, "%s: failed to fork gunzip for compressed archive\n", argv[0]);
+				return 1;
+			}
+
+			/* Reattach f to pipe */
+			close(fds[1]);
+			f = fdopen(fds[0], "r");
 		}
 
 		char tmpname[1024] = {0};
