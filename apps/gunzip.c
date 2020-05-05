@@ -13,6 +13,9 @@
 
 #include <toaru/inflate.h>
 
+static int to_stdout = 0;
+static int keep = 0;
+
 static uint8_t _get(struct inflate_context * ctx) {
 	return fgetc(ctx->input_priv);
 }
@@ -34,11 +37,9 @@ static int usage(int argc, char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
-	int to_stdout = 0;
-	int keep = 0;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "ck")) != -1) {
+	while ((opt = getopt(argc, argv, "?ck")) != -1) {
 		switch (opt) {
 			case 'c':
 				to_stdout = 1;
@@ -47,17 +48,20 @@ int main(int argc, char * argv[]) {
 			case 'k':
 				keep = 1;
 				break;
+			case '?':
+				return usage(argc, argv);
 			default:
 				fprintf(stderr, "%s: unrecognized option '%c'\n", argv[0], opt);
 				break;
 		}
 	}
 
-	if (optind >= argc) {
-		return usage(argc, argv);
+	FILE * f;
+	if (optind >= argc || !strcmp(argv[optind],"-")) {
+		f = stdin;
+	} else {
+		f =fopen(argv[optind],"r");
 	}
-
-	FILE * f = fopen(argv[optind],"r");
 
 	if (!f) {
 		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
