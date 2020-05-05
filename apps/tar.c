@@ -143,8 +143,10 @@ static void write_file(struct ustar * file, FILE * f, FILE * mf, char * name) {
 		fread( buf, 1, length, f);
 		fwrite(buf, 1, length, mf);
 	}
-	fclose(mf);
-	chmod(name, interpret_mode(file));
+	if (mf != stdout) {
+		fclose(mf);
+		chmod(name, interpret_mode(file));
+	}
 }
 
 static void _seek_forward(FILE * f, size_t amount) {
@@ -164,6 +166,15 @@ static void usage(char * argv[]) {
 			"\n", argv[0]);
 }
 
+static int matches_files(int argc, char * argv[], int optind, char * filename) {
+	while (optind < argc) {
+		if (!strcmp(argv[optind], filename)) return 1;
+		optind++;
+	}
+
+	return 0;
+}
+
 int main(int argc, char * argv[]) {
 
 	int opt;
@@ -171,11 +182,13 @@ int main(int argc, char * argv[]) {
 	int verbose = 0;
 	int action = 0;
 	int compressed = 0;
+	int to_stdout = 0;
+	int only_matches = 0;
 #define TAR_ACTION_EXTRACT 1
 #define TAR_ACTION_CREATE  2
 #define TAR_ACTION_LIST    3
 
-	while ((opt = getopt(argc, argv, "?ctxzvaf:")) != -1) {
+	while ((opt = getopt(argc, argv, "?ctxzvaf:O")) != -1) {
 		switch (opt) {
 			case 'c':
 				if (action) {
@@ -207,6 +220,9 @@ int main(int argc, char * argv[]) {
 			case 'z':
 				compressed = 1;
 				break;
+			case 'O':
+				to_stdout = 1;
+				break;
 			case '?':
 				usage(argv);
 				return 1;
@@ -218,6 +234,10 @@ int main(int argc, char * argv[]) {
 
 	if (!fname) {
 		fname = "-";
+	}
+
+	if (optind < argc) {
+		only_matches = 1;
 	}
 
 	if (action == TAR_ACTION_EXTRACT || action == TAR_ACTION_LIST) {
@@ -291,46 +311,56 @@ int main(int argc, char * argv[]) {
 				}
 
 				if (file->type[0] == '0' || file->type[0] == 0) {
-					FILE * mf = fopen(name,"w");
+					FILE * mf = to_stdout ? stdout : fopen(name,"w");
 					if (!mf) {
 						fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
 						_seek_forward(f, interpret_size(file));
 					} else {
-						write_file(file,f,mf,name);
+						if (!only_matches || matches_files(argc,argv,optind,name)) {
+							write_file(file,f,mf,name);
+						}
 					}
 					struct ustar * tmp = malloc(sizeof(struct ustar));
 					memcpy(tmp, file, sizeof(struct ustar));
 					hashmap_set(files, name, tmp);
 				} else if (file->type[0] == '5') {
-					if (name[strlen(name)-1] == '/') {
-						name[strlen(name)-1] = '\0';
-					}
-					if (strlen(name)) {
-						if (mkdir(name, 0777) < 0) {
-							if (errno != EEXIST) {
-								fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
+					if (!to_stdout) {
+						if (name[strlen(name)-1] == '/') {
+							name[strlen(name)-1] = '\0';
+						}
+						if (strlen(name)) {
+							if (!only_matches || matches_files(argc,argv,optind,name)) {
+								if (mkdir(name, 0777) < 0) {
+									if (errno != EEXIST) {
+										fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
+									}
+								}
 							}
 						}
 					}
 				} else if (file->type[0] == '1') {
-					char tmp[101] = {0};
-					strncat(tmp, file->link, 100);
-					if (!hashmap_has(files, tmp)) {
-						fprintf(stderr, "%s: %s: %s: %s: missing target\n", argv[0], fname, name, tmp);
-					} else {
-						FILE * mf = fopen(name,"w");
-						if (!mf) {
-							fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
+					if (!to_stdout && (!only_matches || matches_files(argc,argv,optind,name))) {
+						char tmp[101] = {0};
+						strncat(tmp, file->link, 100);
+						if (!hashmap_has(files, tmp)) {
+							fprintf(stderr, "%s: %s: %s: %s: missing target\n", argv[0], fname, name, tmp);
 						} else {
-							write_file(hashmap_get(files,tmp),f,mf,name);
+							FILE * mf = fopen(name,"w");
+							if (!mf) {
+								fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
+							} else {
+								write_file(hashmap_get(files,tmp),f,mf,name);
+							}
 						}
 					}
 					_seek_forward(f, interpret_size(file));
 				} else if (file->type[0] == '2') {
-					char tmp[101] = {0};
-					strncat(tmp, file->link, 100);
-					if (symlink(tmp, name) < 0) {
-						fprintf(stderr, "%s: %s: %s: %s: %s\n", argv[0], fname, name, tmp, strerror(errno));
+					if (!to_stdout && (!only_matches || matches_files(argc,argv,optind,name))) {
+						char tmp[101] = {0};
+						strncat(tmp, file->link, 100);
+						if (symlink(tmp, name) < 0) {
+							fprintf(stderr, "%s: %s: %s: %s: %s\n", argv[0], fname, name, tmp, strerror(errno));
+						}
 					}
 					_seek_forward(f, interpret_size(file));
 				} else if (file->type[0] == 'L') {
