@@ -19,7 +19,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <toaru/hashmap.h>
 #include <toaru/inflate.h>
 
 struct ustar {
@@ -242,8 +241,6 @@ int main(int argc, char * argv[]) {
 
 	if (action == TAR_ACTION_EXTRACT || action == TAR_ACTION_LIST) {
 
-		hashmap_t * files = hashmap_create(10);
-
 		FILE * f;
 		if (!strcmp(fname,"-")) {
 			f = stdin;
@@ -292,7 +289,7 @@ int main(int argc, char * argv[]) {
 
 			if (action == TAR_ACTION_LIST) {
 				if (verbose) {
-					fprintf(stdout, "%10d %.155s%.100s\n", interpret_size(file), file->prefix, file->filename);
+					fprintf(stdout, "%10d %c %.155s%.100s\n", interpret_size(file), file->type[0], file->prefix, file->filename);
 				} else {
 					fprintf(stdout, "%.155s%.100s\n", file->prefix, file->filename);
 				}
@@ -320,9 +317,6 @@ int main(int argc, char * argv[]) {
 							write_file(file,f,mf,name);
 						}
 					}
-					struct ustar * tmp = malloc(sizeof(struct ustar));
-					memcpy(tmp, file, sizeof(struct ustar));
-					hashmap_set(files, name, tmp);
 				} else if (file->type[0] == '5') {
 					if (!to_stdout) {
 						if (name[strlen(name)-1] == '/') {
@@ -342,15 +336,23 @@ int main(int argc, char * argv[]) {
 					if (!to_stdout && (!only_matches || matches_files(argc,argv,optind,name))) {
 						char tmp[101] = {0};
 						strncat(tmp, file->link, 100);
-						if (!hashmap_has(files, tmp)) {
-							fprintf(stderr, "%s: %s: %s: %s: missing target\n", argv[0], fname, name, tmp);
+						FILE * mf = fopen(name,"w");
+						if (!mf) {
+							fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
 						} else {
-							FILE * mf = fopen(name,"w");
-							if (!mf) {
-								fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
+							FILE * source = fopen(tmp, "r");
+							if (!source) {
+								fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, tmp, strerror(errno));
 							} else {
-								write_file(hashmap_get(files,tmp),f,mf,name);
+								while (!feof(source)) {
+									char buf[4096];
+									ssize_t r = fread(buf, 1, 4096, source);
+									fwrite(buf, 1, r, mf);
+								}
+								fclose(source);
 							}
+							fclose(mf);
+							chmod(name, interpret_mode(file));
 						}
 					}
 					_seek_forward(f, interpret_size(file));
