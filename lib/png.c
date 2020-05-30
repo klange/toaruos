@@ -98,6 +98,8 @@ static uint8_t _get(struct inflate_context * ctx) {
 		unsigned int size = read_32(c->f);
 		unsigned int type = read_32(c->f);
 
+		c->size = size;
+
 		if (type != PNG_IDAT) {
 			/* This isn't an IDAT? That's wrong! */
 			fprintf(stderr, "And this is the wrong type (0x%x), I'm just bailing.\n", type);
@@ -131,6 +133,202 @@ static int paeth(int a, int b, int c) {
 	return c;
 }
 
+static void write_pixel(struct png_ctx * c, uint32_t color) {
+	SPRITE((c->sprite), (c->x), (c->y)) = color;
+
+	/* Reset the short buffer */
+	c->buf_off = 0;
+
+	/* Advance to next pixel */
+	c->x++;
+	if (c->x == (int)c->width) {
+		/* Advance to next line; next read is scanline filter type */
+		c->x = -1;
+		c->y++;
+	}
+}
+
+static void process_pixel_type_6(struct png_ctx * c) {
+	/*
+	 * Obtain pixel data from short buffer;
+	 * For color type 6, this is always in R G B A order in the
+	 * bytestream, so we don't have to worry about subpixel ordering
+	 * or weird color masks.
+	 */
+	unsigned int r = c->buffer[0];
+	unsigned int g = c->buffer[1];
+	unsigned int b = c->buffer[2];
+	unsigned int a = c->buffer[3];
+
+	/* Apply filters */
+	if (c->sf == PNG_FILTER_SUB) {
+		/* Add raw value to the pixel on the left */
+		if (c->x > 0) {
+			uint32_t left = SPRITE((c->sprite), (c->x - 1), (c->y));
+			r += _RED(left);
+			g += _GRE(left);
+			b += _BLU(left);
+			a += _ALP(left);
+		}
+	} else if (c->sf == PNG_FILTER_UP) {
+		/* Add raw value to the pixel above */
+		if (c->y > 0) {
+			uint32_t up = SPRITE((c->sprite), (c->x), (c->y - 1));
+			r += _RED(up);
+			g += _GRE(up);
+			b += _BLU(up);
+			a += _ALP(up);
+		}
+	} else if (c->sf == PNG_FILTER_AVG) {
+		/* Add raw value to the average of the pixel above and left */
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+
+		r += ((int)_RED(left) + (int)_RED(up)) / 2;
+		g += ((int)_GRE(left) + (int)_GRE(up)) / 2;
+		b += ((int)_BLU(left) + (int)_BLU(up)) / 2;
+		a += ((int)_ALP(left) + (int)_ALP(up)) / 2;
+	} else if (c->sf == PNG_FILTER_PAETH) {
+		/* Use the Paeth predictor */
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+		uint32_t upleft = (c->x > 0 && c->y > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y - 1)) : 0;
+
+		r = ((int)r + paeth((int)_RED(left),(int)_RED(up),(int)_RED(upleft))) % 256;
+		g = ((int)g + paeth((int)_GRE(left),(int)_GRE(up),(int)_GRE(upleft))) % 256;
+		b = ((int)b + paeth((int)_BLU(left),(int)_BLU(up),(int)_BLU(upleft))) % 256;
+		a = ((int)a + paeth((int)_ALP(left),(int)_ALP(up),(int)_ALP(upleft))) % 256;
+	}
+
+	/* Write new pixel to the image */
+	write_pixel(c, rgba(r,g,b,a));
+}
+
+static void process_pixel_type_2(struct png_ctx * c) {
+	/*
+	 * Obtain pixel data from short buffer;
+	 * For color type 6, this is always in R G B A order in the
+	 * bytestream, so we don't have to worry about subpixel ordering
+	 * or weird color masks.
+	 */
+	unsigned int r = c->buffer[0];
+	unsigned int g = c->buffer[1];
+	unsigned int b = c->buffer[2];
+
+	/* Apply filters */
+	if (c->sf == PNG_FILTER_SUB) {
+		/* Add raw value to the pixel on the left */
+		if (c->x > 0) {
+			uint32_t left = SPRITE((c->sprite), (c->x - 1), (c->y));
+			r += _RED(left);
+			g += _GRE(left);
+			b += _BLU(left);
+		}
+	} else if (c->sf == PNG_FILTER_UP) {
+		/* Add raw value to the pixel above */
+		if (c->y > 0) {
+			uint32_t up = SPRITE((c->sprite), (c->x), (c->y - 1));
+			r += _RED(up);
+			g += _GRE(up);
+			b += _BLU(up);
+		}
+	} else if (c->sf == PNG_FILTER_AVG) {
+		/* Add raw value to the average of the pixel above and left */
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+
+		r += ((int)_RED(left) + (int)_RED(up)) / 2;
+		g += ((int)_GRE(left) + (int)_GRE(up)) / 2;
+		b += ((int)_BLU(left) + (int)_BLU(up)) / 2;
+	} else if (c->sf == PNG_FILTER_PAETH) {
+		/* Use the Paeth predictor */
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+		uint32_t upleft = (c->x > 0 && c->y > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y - 1)) : 0;
+
+		r = ((int)r + paeth((int)_RED(left),(int)_RED(up),(int)_RED(upleft))) % 256;
+		g = ((int)g + paeth((int)_GRE(left),(int)_GRE(up),(int)_GRE(upleft))) % 256;
+		b = ((int)b + paeth((int)_BLU(left),(int)_BLU(up),(int)_BLU(upleft))) % 256;
+	}
+
+	/* Write new pixel to the image */
+	write_pixel(c, rgb(r,g,b));
+}
+
+static void process_pixel_type_4(struct png_ctx * c) {
+	/*
+	 * Obtain pixel data from short buffer;
+	 * For color type 6, this is always in R G B A order in the
+	 * bytestream, so we don't have to worry about subpixel ordering
+	 * or weird color masks.
+	 */
+	unsigned int b = c->buffer[0];
+	unsigned int a = c->buffer[1];
+
+	/* Apply filters */
+	if (c->sf == PNG_FILTER_SUB) {
+		/* Add raw value to the pixel on the left */
+		if (c->x > 0) {
+			uint32_t left = SPRITE((c->sprite), (c->x - 1), (c->y));
+			b += _BLU(left);
+			a += _ALP(left);
+		}
+	} else if (c->sf == PNG_FILTER_UP) {
+		/* Add raw value to the pixel above */
+		if (c->y > 0) {
+			uint32_t up = SPRITE((c->sprite), (c->x), (c->y - 1));
+			b += _BLU(up);
+			a += _ALP(up);
+		}
+	} else if (c->sf == PNG_FILTER_AVG) {
+		/* Add raw value to the average of the pixel above and left */
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+
+		b += ((int)_BLU(left) + (int)_BLU(up)) / 2;
+		a += ((int)_ALP(left) + (int)_ALP(up)) / 2;
+	} else if (c->sf == PNG_FILTER_PAETH) {
+		/* Use the Paeth predictor */
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+		uint32_t upleft = (c->x > 0 && c->y > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y - 1)) : 0;
+
+		b = ((int)b + paeth((int)_BLU(left),(int)_BLU(up),(int)_BLU(upleft))) % 256;
+		a = ((int)a + paeth((int)_ALP(left),(int)_ALP(up),(int)_ALP(upleft))) % 256;
+	}
+
+	/* Write new pixel to the image */
+	write_pixel(c, rgba(b,b,b,a));
+}
+
+static void process_pixel_type_0(struct png_ctx * c) {
+	unsigned int b = c->buffer[0];
+	if (c->sf == PNG_FILTER_SUB) {
+		if (c->x > 0) {
+			uint32_t left = SPRITE((c->sprite), (c->x - 1), (c->y));
+			b += _BLU(left);
+		}
+	} else if (c->sf == PNG_FILTER_UP) {
+		if (c->y > 0) {
+			uint32_t up = SPRITE((c->sprite), (c->x), (c->y - 1));
+			b += _BLU(up);
+		}
+	} else if (c->sf == PNG_FILTER_AVG) {
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+		b += ((int)_BLU(left) + (int)_BLU(up)) / 2;
+	} else if (c->sf == PNG_FILTER_PAETH) {
+		uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
+		uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
+		uint32_t upleft = (c->x > 0 && c->y > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y - 1)) : 0;
+		b = ((int)b + paeth((int)_BLU(left),(int)_BLU(up),(int)_BLU(upleft))) % 256;
+	}
+
+	/* Write new pixel to the image */
+	write_pixel(c, rgb(b,b,b));
+}
+
+
 /**
  * Handle decompressed output from the inflater
  *
@@ -151,71 +349,24 @@ static void _write(struct inflate_context * ctx, unsigned int sym) {
 		/* Reset the buffer, advance to the beginning of the actual scanline */
 		c->x = 0;
 		c->buf_off = 0;
-	} else if (c->buf_off == 4) {
-		/*
-		 * Obtain pixel data from short buffer;
-		 * For color type 6, this is always in R G B A order in the
-		 * bytestream, so we don't have to worry about subpixel ordering
-		 * or weird color masks.
-		 */
-		unsigned int r = c->buffer[0];
-		unsigned int g = c->buffer[1];
-		unsigned int b = c->buffer[2];
-		unsigned int a = c->buffer[3];
+	} else if (c->buf_off == 1 && c->color_type == 0) {
+		process_pixel_type_0(c);
+	} else if (c->buf_off == 2 && c->color_type == 4) {
+		process_pixel_type_4(c);
+	} else if (c->buf_off == 3 && c->color_type == 2) {
+		process_pixel_type_2(c);
+	} else if (c->buf_off == 4 && c->color_type == 6) {
+		process_pixel_type_6(c);
+	}
+}
 
-		/* Apply filters */
-		if (c->sf == PNG_FILTER_SUB) {
-			/* Add raw value to the pixel on the left */
-			if (c->x > 0) {
-				uint32_t left = SPRITE((c->sprite), (c->x - 1), (c->y));
-				r += _RED(left);
-				g += _GRE(left);
-				b += _BLU(left);
-				a += _ALP(left);
-			}
-		} else if (c->sf == PNG_FILTER_UP) {
-			/* Add raw value to the pixel above */
-			if (c->y > 0) {
-				uint32_t up = SPRITE((c->sprite), (c->x), (c->y - 1));
-				r += _RED(up);
-				g += _GRE(up);
-				b += _BLU(up);
-				a += _ALP(up);
-			}
-		} else if (c->sf == PNG_FILTER_AVG) {
-			/* Add raw value to the average of the pixel above and left */
-			uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
-			uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
-
-			r += ((int)_RED(left) + (int)_RED(up)) / 2;
-			g += ((int)_GRE(left) + (int)_GRE(up)) / 2;
-			b += ((int)_BLU(left) + (int)_BLU(up)) / 2;
-			a += ((int)_ALP(left) + (int)_ALP(up)) / 2;
-		} else if (c->sf == PNG_FILTER_PAETH) {
-			/* Use the Paeth predictor */
-			uint32_t left = (c->x > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y)) : 0;
-			uint32_t up = (c->y > 0) ? SPRITE((c->sprite), (c->x), (c->y - 1)) : 0;
-			uint32_t upleft = (c->x > 0 && c->y > 0) ? SPRITE((c->sprite), (c->x - 1), (c->y - 1)) : 0;
-
-			r = ((int)r + paeth((int)_RED(left),(int)_RED(up),(int)_RED(upleft))) % 256;
-			g = ((int)g + paeth((int)_GRE(left),(int)_GRE(up),(int)_GRE(upleft))) % 256;
-			b = ((int)b + paeth((int)_BLU(left),(int)_BLU(up),(int)_BLU(upleft))) % 256;
-			a = ((int)a + paeth((int)_ALP(left),(int)_ALP(up),(int)_ALP(upleft))) % 256;
-		}
-
-		/* Write new pixel to the image */
-		SPRITE((c->sprite), (c->x), (c->y)) = rgba(r,g,b,a);
-
-		/* Reset the short buffer */
-		c->buf_off = 0;
-
-		/* Advance to next pixel */
-		c->x++;
-		if (c->x == (int)c->width) {
-			/* Advance to next line; next read is scanline filter type */
-			c->x = -1;
-			c->y++;
-		}
+static int color_type_has_alpha(int c) {
+	switch (c) {
+		case 4:
+		case 6:
+			return ALPHA_EMBEDDED;
+		default:
+			return 0;
 	}
 }
 
@@ -275,14 +426,14 @@ int load_sprite_png(sprite_t * sprite, char * filename) {
 					if (c.interlace != 0 && c.interlace != 1) return 1;
 
 					if (c.bit_depth != 8) return 1; /* Sorry */
-					if (c.color_type != 6) return 1; /* Sorry */
+					if (c.color_type < 0 || c.color_type > 6 || (c.color_type & 1)) return 1; /* Sorry, no indexed support */
 
 					/* Allocate space */
 					sprite->width  = c.width;
 					sprite->height = c.height;
 					sprite->bitmap = malloc(sizeof(uint32_t) * sprite->width * sprite->height);
 					sprite->masks = NULL;
-					sprite->alpha = (c.color_type == 4 || c.color_type == 6) ? ALPHA_EMBEDDED : 0;
+					sprite->alpha = color_type_has_alpha(c.color_type);
 					sprite->blank = 0;
 
 
