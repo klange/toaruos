@@ -328,10 +328,10 @@ int main(int argc, char * argv[]) {
 
 	/* Load icons */
 	load_sprite(&logo, "/usr/share/logo_login.png");
-	load_sprite(&terminal, "/usr/share/icons/48/utilities-terminal.bmp");
-	load_sprite(&folder, "/usr/share/icons/48/folder.bmp");
-	load_sprite(&package, "/usr/share/icons/48/package.bmp");
-	load_sprite(&mouse_drag, "/usr/share/cursor/drag.bmp");
+	load_sprite(&terminal, "/usr/share/icons/48/utilities-terminal.png");
+	load_sprite(&folder, "/usr/share/icons/48/folder.png");
+	load_sprite(&package, "/usr/share/icons/48/package.png");
+	load_sprite(&mouse_drag, "/usr/share/cursor/drag.png");
 
 	load_page(0);
 

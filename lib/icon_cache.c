@@ -48,14 +48,14 @@ static void _init_caches(void) {
 	icon_cache_16 = hashmap_create(10);
 	{ /* Generic fallback icon */
 		sprite_t * app_icon = malloc(sizeof(sprite_t));
-		load_sprite(app_icon, "/usr/share/icons/16/applications-generic.bmp");
+		load_sprite(app_icon, "/usr/share/icons/16/applications-generic.png");
 		hashmap_set(icon_cache_16, "generic", app_icon);
 	}
 
 	icon_cache_48 = hashmap_create(10);
 	{ /* Generic fallback icon */
 		sprite_t * app_icon = malloc(sizeof(sprite_t));
-		load_sprite(app_icon, "/usr/share/icons/48/applications-generic.bmp");
+		load_sprite(app_icon, "/usr/share/icons/48/applications-generic.png");
 		hashmap_set(icon_cache_48, "generic", app_icon);
 	}
 }

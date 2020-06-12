@@ -462,7 +462,7 @@ static void load_directory(const char * path, int modifies_history) {
 		if (!fork()) {
 			char tmp[512];
 			sprintf(tmp, "Could not open directory \"%s\": %s", path, strerror(errno));
-			char * args[] = {"showdialog","File Browser","/usr/share/icons/48/folder.bmp",tmp,NULL};
+			char * args[] = {"showdialog","File Browser","/usr/share/icons/48/folder.png",tmp,NULL};
 			execvp(args[0],args);
 			exit(0);
 		}
@@ -1289,7 +1289,7 @@ static void _menu_action_paste(struct MenuEntry * entry) {
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
 	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About File Browser\" /usr/share/icons/48/folder.bmp \"ToaruOS File Browser\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
+	strcat(about_cmd, "about \"About File Browser\" /usr/share/icons/48/folder.png \"ToaruOS File Browser\" \"(C) 2018 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
 	char coords[100];
 	sprintf(coords, "%d %d &", (int)main_window->x + (int)main_window->width / 2, (int)main_window->y + (int)main_window->height / 2);
 	strcat(about_cmd, coords);
@@ -1470,14 +1470,14 @@ static void handle_clipboard(char * contents) {
 		struct stat statbuf;
 		if (!stat(destination, &statbuf)) {
 			char message[4096];
-			sprintf(message, "showdialog \"File Browser\" /usr/share/icons/48/folder.bmp \"Not overwriting file '%s'.\"", cheap_basename);
+			sprintf(message, "showdialog \"File Browser\" /usr/share/icons/48/folder.png \"Not overwriting file '%s'.\"", cheap_basename);
 			launch_application(message);
 		} else {
 			char cp[1024];
 			sprintf(cp, "cp -r \"%s\" \"%s\"", file, current_directory);
 			if (system(cp)) {
 				char message[4096];
-				sprintf(message, "showdialog \"File Browser\" /usr/share/icons/48/folder.bmp \"Error copying file '%s'.\"", cheap_basename);
+				sprintf(message, "showdialog \"File Browser\" /usr/share/icons/48/folder.png \"Error copying file '%s'.\"", cheap_basename);
 				launch_application(message);
 			}
 		}
