@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Thu Feb 27 21:56:23 2020
- * It is based on git commit 83e6cc609584bd31e961c3873a9f3a5c7c2973ec
+ * It was built Mon Nov  9 19:12:55 2020
+ * It is based on git commit 8e290a15fa796eed3cb2edf9a656f2b00c4d33fa
  */
-#define GIT_TAG "83e6cc6-baked"
+#define GIT_TAG "8e290a1-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2020 K. Lange
@@ -43,8 +43,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#ifdef __TIMESTAMP__
-# define BIM_BUILD_DATE " built " __TIMESTAMP__
+#ifdef __DATE__
+# define BIM_BUILD_DATE " built " __DATE__ " at " __TIME__
 #else
 # define BIM_BUILD_DATE DATE ""
 #endif
@@ -3161,6 +3161,7 @@ int statusbar_build_right(char * right_hand) {
  */
 void redraw_statusbar(void) {
 	if (global_config.hide_statusbar) return;
+	if (!global_config.has_terminal) return;
 	if (!env) return;
 	/* Hide cursor while rendering */
 	hide_cursor();
@@ -3258,6 +3259,7 @@ void redraw_statusbar(void) {
  * Redraw the navigation numbers on the right side of the command line
  */
 void redraw_nav_buffer() {
+	if (!global_config.has_terminal) return;
 	if (nav_buffer) {
 		store_cursor();
 		place_cursor(global_config.term_width - nav_buffer - 2, global_config.term_height);
@@ -3274,6 +3276,7 @@ void redraw_nav_buffer() {
  * or shows the INSERT (or VISUAL in the future) mode name.
  */
 void redraw_commandline(void) {
+	if (!global_config.has_terminal) return;
 	if (!env) return;
 
 	/* Hide cursor while rendering */
@@ -8997,6 +9000,7 @@ BIM_ACTION(append_and_insert, ACTION_IS_RW,
 	"Insert a new line after the current line and enter insert mode."
 )(void) {
 	set_history_break();
+	unhighlight_matching_paren();
 	env->lines = add_line(env->lines, env->line_no);
 	env->col_no = 1;
 	env->line_no += 1;
@@ -11072,29 +11076,29 @@ int bash_paint_string(struct syntax_state * state, char terminator, int out_stat
 
 int syn_bash_calculate(struct syntax_state * state) {
 	if (state->state < 1) {
-		if (charat() == '#') {
+		if (charat() == '#' && lastchar() != '\\') {
 			while (charat() != -1) {
 				if (common_comment_buzzwords(state)) continue;
 				else paint(1, FLAG_COMMENT);
 			}
 			return -1;
-		} else if (charat() == '\'') {
+		} else if (charat() == '\'' && lastchar() != '\\') {
 			paint(1, FLAG_STRING);
 			return bash_paint_tick(state, 10);
-		} else if (charat() == '`') {
+		} else if (charat() == '`' && lastchar() != '\\') {
 			paint(1, FLAG_ESCAPE);
 			return bash_paint_string(state,'`',20,FLAG_ESCAPE);
-		} else if (charat() == '$' && nextchar() == '(') {
+		} else if (charat() == '$' && nextchar() == '(' && lastchar() != '\\') {
 			paint(2, FLAG_TYPE);
 			return bash_paint_string(state,')',30,FLAG_TYPE);
-		} else if (charat() == '"') {
+		} else if (charat() == '"' && lastchar() != '\\') {
 			paint(1, FLAG_STRING);
 			return bash_paint_string(state,'"',40,FLAG_STRING);
-		} else if (charat() == '$' && nextchar() == '{') {
+		} else if (charat() == '$' && nextchar() == '{' && lastchar() != '\\') {
 			paint(2, FLAG_NUMERAL);
 			bash_paint_braced_variable(state);
 			return 0;
-		} else if (charat() == '$') {
+		} else if (charat() == '$' && lastchar() != '\\') {
 			paint(1, FLAG_NUMERAL);
 			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); return 0; }
 			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
