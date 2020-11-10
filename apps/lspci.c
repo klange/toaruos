@@ -31,6 +31,8 @@ struct device_class {
 	{0x0604, "PCI bridge"},
 	{0x0680, "Bridge"},
 	{0x0880, "System peripheral"},
+	{0x0c03, "USB controller"},
+	{0x0c05, "SMBus controller"},
 };
 
 struct {
