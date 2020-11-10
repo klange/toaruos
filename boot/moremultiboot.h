@@ -916,6 +916,9 @@ static void boot(void) {
 		do_it(&ata_secondary_slave);
 	}
 
+	print_("Unable to find boot drive, can not continue.\n");
+	print_("Please try GRUB or the EFI loader instead.\n");
+
 	while (1);
 }
 #endif
