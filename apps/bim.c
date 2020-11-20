@@ -1,9 +1,9 @@
 /**
  * This is a baked, single-file version of bim.
- * It was built Mon Nov  9 19:12:55 2020
- * It is based on git commit 8e290a15fa796eed3cb2edf9a656f2b00c4d33fa
+ * It was built Fri Nov 20 14:06:22 2020
+ * It is based on git commit 496849bab42290f42e9928f510a1d91534fe2a51
  */
-#define GIT_TAG "8e290a1-baked"
+#define GIT_TAG "496849b-baked"
 /* Bim - A Text Editor
  *
  * Copyright (C) 2012-2020 K. Lange
@@ -55,7 +55,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.6.1" TAG
+#define BIM_VERSION   "2.6.2" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2020 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -4425,7 +4425,19 @@ void write_file(char * file) {
 		return;
 	}
 
-	FILE * f = fopen(file, "w+");
+	char * _file = file;
+
+	if (file[0] == '~') {
+		char * home = getenv("HOME");
+		if (home) {
+			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+			sprintf(_file, "%s%s", home, file+1);
+		}
+	}
+
+
+	FILE * f = fopen(_file, "w+");
+	if (file != _file) free(_file);
 
 	if (!f) {
 		render_error("Failed to open file for writing.");
