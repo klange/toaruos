@@ -58,7 +58,7 @@ You can skip the process of building the cross-compiler toolchain (which doesn't
     git clone https://github.com/klange/toaruos
     cd toaruos
     docker pull toaruos/build-tools:1.8.x
-    docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
+    docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-in-docker.sh
 
 After building like this, you can run the various utility targets (`make run`, etc.) by setting `TOOLCHAIN=none`. Try `TOOLCHAIN=none make shell` to run a ToaruOS shell (using QEMU and a network socket - you'll need netcat for this to work).
 

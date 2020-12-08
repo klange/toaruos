@@ -9,7 +9,7 @@ jobs:
       - name: Pull Builder Image
         run: docker pull toaruos/build-tools:1.8.x
       - name: Run Builder
-        run: docker run -v ${GITHUB_WORKSPACE}:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
+        run: docker run -v ${GITHUB_WORKSPACE}:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-in-docker.sh
       - name: Upload Image
         uses: actions/upload-artifact@v2
         with:
