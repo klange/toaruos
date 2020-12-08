@@ -27,7 +27,7 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: ToaruOS ${{ github.ref }}
-          body_file: ./notes.md
+          body_path: ./notes.md
           draft: true
       - name: Upload Release Image
         if: startsWith(github.ref, 'refs/tags/v')
