@@ -1,7 +1,4 @@
-on:
-  push:
-    tags:
-      - 'v*'
+on: [push, workflow_dispatch]
 name: Build Release Image
 jobs:
   build-image:
@@ -14,6 +11,7 @@ jobs:
       - name: Run Builder
         run: docker run -v ${GITHUB_WORKSPACE}:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
       - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/create-relase@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
