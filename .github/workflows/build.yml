@@ -1,8 +1,8 @@
 on: [push, workflow_dispatch]
-name: Build Release Image
+name: Build Image
 jobs:
   build-image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Clone Repository
         uses: actions/checkout@v2
@@ -10,12 +10,27 @@ jobs:
         run: docker pull toaruos/build-tools:1.8.x
       - name: Run Builder
         run: docker run -v ${GITHUB_WORKSPACE}:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-travis.sh
-      - name: Publish Release
+      - name: Upload Image
+        uses: actions/upload-artifact@v2
+        with:
+          name: image
+          path: ./image.iso
+      - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/create-relase@v1
+        uses: actions/create-release@v1
+        id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
           release_name: ToaruOS ${{ github.ref }}
           draft: true
+      - name: Upload Image
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./image.iso
+          asset_name: image.iso
+          asset_content_type: application/x-iso9660-image
