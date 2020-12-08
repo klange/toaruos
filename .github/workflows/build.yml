@@ -27,6 +27,7 @@ jobs:
           draft: true
       - name: Upload Image
         if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
