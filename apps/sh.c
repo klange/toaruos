@@ -441,6 +441,11 @@ void tab_complete_func(rline_context_t * c) {
 		command_adj += 1;
 	}
 
+	if (command_adj < argc && (!strcmp(argv[command_adj], "time"))) {
+		cursor_adj -= 1;
+		command_adj += 1;
+	}
+
 	/* sudo should shift commands */
 	if (command_adj < argc && (!strcmp(argv[command_adj], "sudo") || !strcmp(argv[command_adj], "gsudo"))) {
 		cursor_adj -= 1;
@@ -2287,6 +2292,45 @@ uint32_t shell_cmd_rehash(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_time(int argc, char * argv[]) {
+	int pid, ret_code = 0;
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+
+	if (argc > 1) {
+		pid_t child_pid = fork();
+		if (!child_pid) {
+			set_pgid(0);
+			set_pgrp(getpid());
+			is_subshell = 1;
+			run_cmd(&argv[1]);
+		}
+
+		do {
+			pid = waitpid(child_pid, &ret_code, 0);
+		} while (pid != -1 || (pid == -1 && errno != ECHILD));
+
+		reset_pgrp();
+		handle_status(ret_code);
+	}
+
+	gettimeofday(&end, NULL);
+
+	time_t sec_diff = end.tv_sec - start.tv_sec;
+	suseconds_t usec_diff = end.tv_usec - start.tv_usec;
+	if (end.tv_usec < start.tv_usec) {
+		sec_diff -= 1;
+		usec_diff = (1000000 + end.tv_usec) - start.tv_usec;
+	}
+
+	int minutes = sec_diff / 60;
+	sec_diff = sec_diff % 60;
+
+	printf("\nreal\t%dm%d.%.03d\n", minutes, (int)sec_diff, (int)(usec_diff / 1000));
+
+	return WEXITSTATUS(ret_code);
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -2313,4 +2357,5 @@ void install_commands() {
 	shell_install_command("jobs",    shell_cmd_jobs, "list stopped jobs");
 	shell_install_command("bg",      shell_cmd_bg, "restart suspended job in the background");
 	shell_install_command("rehash",  shell_cmd_rehash, "reset shell command memory");
+	shell_install_command("time",    shell_cmd_time, "time a command");
 }
