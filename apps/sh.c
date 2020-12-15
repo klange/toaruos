@@ -58,6 +58,7 @@ int SHELL_COMMANDS = 64;
 char ** shell_commands;          /* Command names */
 shell_command_t * shell_pointers; /* Command functions */
 char ** shell_descript;          /* Command descriptions */
+FILE * shell_stderr; /* specifically for `time` */
 
 /* This is the number of actual commands installed */
 int shell_commands_len = 0;
@@ -1707,6 +1708,9 @@ int main(int argc, char ** argv) {
 
 	install_commands();
 
+	int err = dup(STDERR_FILENO);
+	shell_stderr = fdopen(err, "w");
+
 	if (argc > 1) {
 		int c;
 		while ((c = getopt(argc, argv, "Rc:v?")) != -1) {
@@ -2326,7 +2330,7 @@ uint32_t shell_cmd_time(int argc, char * argv[]) {
 	int minutes = sec_diff / 60;
 	sec_diff = sec_diff % 60;
 
-	printf("\nreal\t%dm%d.%.03d\n", minutes, (int)sec_diff, (int)(usec_diff / 1000));
+	fprintf(shell_stderr, "\nreal\t%dm%d.%.03ds\n", minutes, (int)sec_diff, (int)(usec_diff / 1000));
 
 	return WEXITSTATUS(ret_code);
 }
