@@ -13,6 +13,11 @@
 int main(int argc, char ** argv) {
 	int ret = 0;
 
+	if (argc < 2) {
+		fprintf(stderr, "%s: missing operand\n", argv[0]);
+		return 1;
+	}
+
 	char * arg = strdup(argv[1]);
 
 	float time = atof(arg);
