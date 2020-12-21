@@ -94,7 +94,7 @@ int main(int argc, char * argv[]) {
 				s++;
 			}
 		} else {
-			if (!isdigit(argv[1][1] < '0')) {
+			if (!isdigit(argv[1][1])) {
 				struct sig_def * s = signals;
 				while (s->name) {
 					if (!strcmp(argv[1]+1,s->name)) {
