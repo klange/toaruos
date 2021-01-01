@@ -194,11 +194,7 @@ base/lib/libc.so: ${LIBC_OBJS} | dirs crts
 base/lib/libm.so: util/lm.c | dirs crts
 	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
 
-KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/rline.c kuroko/kuroko.c, $(sort $(wildcard kuroko/*.c)))) kuroko/builtins.o
-kuroko/builtins.c: kuroko/builtins.krk
-	echo "const char _builtins_src[] = {\n" > $@
-	hexdump -v -e '16/1 "0x%02x,"' -e '"\n"' $< | sed s'/0x  ,//g' >> $@
-	echo "0x00 };" >> $@
+KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/rline.c kuroko/kuroko.c, $(sort $(wildcard kuroko/*.c))))
 kuroko/%.o: kuroko/%.c
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $^
 
