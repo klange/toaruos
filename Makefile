@@ -38,7 +38,7 @@ LC=base/lib/libc.so
 ##
 #  APPS      = C sources from apps/
 #  APPS_X    = binaries
-#  APPS_Y    = generated makefiles for binaries (except init)
+#  APPS_Y    = generated makefiles for binaries
 #  APPS_SH   = shell scripts to copy to base/bin/ and mark executable
 #  APPS_SH_X = destinations for shell scripts
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
@@ -63,7 +63,7 @@ tags: $(SOURCE_FILES)
 
 ##
 # Files that must be present in the ramdisk (apps, libraries)
-RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so
+RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so ${KUROKO_FILES}
 
 # Kernel / module flags
 
@@ -162,13 +162,15 @@ base/cdrom:
 	mkdir -p $@
 base/var:
 	mkdir -p $@
+base/usr/share/kuroko:
+	mkdir -p $@
 fatbase/efi/boot:
 	mkdir -p $@
 cdrom:
 	mkdir -p $@
 .make:
 	mkdir -p .make
-dirs: base/dev base/tmp base/proc base/bin base/lib base/cdrom cdrom base/var fatbase/efi/boot .make
+dirs: base/dev base/tmp base/proc base/bin base/lib base/cdrom base/usr/share/kuroko cdrom base/var fatbase/efi/boot .make
 
 # C Library
 
@@ -191,6 +193,34 @@ base/lib/libc.so: ${LIBC_OBJS} | dirs crts
 
 base/lib/libm.so: util/lm.c | dirs crts
 	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
+
+KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/rline.c kuroko/kuroko.c, $(sort $(wildcard kuroko/*.c)))) kuroko/builtins.o
+kuroko/builtins.c: kuroko/builtins.krk
+	echo "const char _builtins_src[] = {\n" > $@
+	hexdump -v -e '16/1 "0x%02x,"' -e '"\n"' $< | sed s'/0x  ,//g' >> $@
+	echo "0x00 };" >> $@
+kuroko/%.o: kuroko/%.c
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $^
+
+KUROKO_CMODS=$(patsubst kuroko/src/%.c,%,$(wildcard kuroko/src/*.c))
+KUROKO_CMODS_X=$(foreach lib,$(KUROKO_CMODS),base/usr/share/kuroko/$(lib).so)
+KUROKO_CMODS_Y=$(foreach lib,$(KUROKO_CMODS),.make/$(lib).kmak)
+KUROKO_KRK_MODS=$(patsubst kuroko/modules/%.krk,base/usr/share/kuroko/%.krk,$(wildcard kuroko/modules/*.krk))
+
+KUROKO_FILES=$(KUROKO_CMODS_X) $(KUROKO_KRK_MODS) base/lib/libkuroko.so
+
+base/usr/share/kuroko/%.krk: kuroko/modules/%.krk
+	cp $< $@
+
+.make/%.kmak: kuroko/src/%.c util/auto-dep.py | dirs
+	util/auto-dep.py --makekurokomod $< > $@
+
+ifeq (,$(findstring clean,$(MAKECMDGOALS)))
+-include ${KUROKO_CMODS_Y}
+endif
+
+base/lib/libkuroko.so: $(KUROKO_OBJS)  | dirs crts ${LC}
+	$(CC) $(CFLAGS) -shared -fPIC -o $@ $^ -lgcc
 
 # Userspace Linker/Loader
 
@@ -305,6 +335,7 @@ clean:
 	rm -f base/lib/crt*.o
 	rm -f ${MODULES}
 	rm -f ${APPS_Y} ${LIBS_Y} ${EXT_LIBS_Y}
+	rm -f ${KUROKO_FILES}
 
 ifneq (,$(findstring Microsoft,$(shell uname -r)))
   QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime -vnc :0

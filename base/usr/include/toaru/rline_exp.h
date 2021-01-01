@@ -10,5 +10,6 @@ extern int rline_exp_set_prompts(char * left, char * right, int left_width, int 
 extern int rline_exp_set_shell_commands(char ** cmds, int len);
 extern int rline_exp_set_tab_complete_func(rline_callback_t func);
 extern int rline_exp_set_syntax(char * name);
+extern char * rline_preload;
 
 _End_C_Header

@@ -726,6 +726,95 @@ int syn_py_calculate(struct syntax_state * state) {
 	return -1;
 }
 
+void paint_single_string(struct syntax_state * state) {
+	/* Assumes you came in from a check of charat() == '\'' */
+	paint(1, FLAG_NUMERAL);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == '\'') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '\'') {
+			paint(1, FLAG_NUMERAL);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else {
+			paint(1, FLAG_NUMERAL);
+		}
+	}
+}
+
+
+char * syn_krk_keywords[] = {
+	"and","class","def","else","export","for","if","in","import",
+	"let","not","or","print","return","while","try","except","raise",
+	"continue","break",
+	NULL
+};
+
+char * syn_krk_types[] = {
+	/* built-in functions */
+	"self", "super", /* implicit in a class method */
+	"len", "str", "int", "float", "dir", "repr", /* global functions from __builtins__ */
+	"list","dict","range", /* builtin classes */
+	"object","exception","isinstance","type",
+	NULL
+};
+
+char * syn_krk_special[] = {
+	"True","False","None",
+	NULL
+};
+
+int paint_krk_numeral(struct syntax_state * state) {
+	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
+		paint(2, FLAG_NUMERAL);
+		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && (nextchar() == 'o' || nextchar() == 'O')) {
+		paint(2, FLAG_NUMERAL);
+		while (charat() >= '0' && charat() <= '7') paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && (nextchar() == 'b' || nextchar() == 'B')) {
+		paint(2, FLAG_NUMERAL);
+		while (charat() == '0' || charat() == '1') paint(1, FLAG_NUMERAL);
+	} else {
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		if (charat() == '.') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		}
+	}
+	return 0;
+}
+
+int syn_krk_calculate(struct syntax_state * state) {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (charat() == '#') {
+				paint_comment(state);
+			} else if (charat() == '"') {
+				paint_simple_string(state);
+				return 0;
+			} else if (charat() == '\'') {
+				paint_single_string(state);
+				return 0;
+			} else if (find_keywords(state, syn_krk_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (lastchar() != '.' && find_keywords(state, syn_krk_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_krk_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+				return 0;
+			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_krk_numeral(state);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+	}
+	return -1;
+}
+
 /**
  * Convert syntax hilighting flag to color code
  */
@@ -767,6 +856,7 @@ struct syntax_definition {
 } syntaxes[] = {
 	{"esh",syn_esh_calculate},
 	{"python",syn_py_calculate},
+	{"krk",syn_krk_calculate},
 	{NULL, NULL},
 };
 
@@ -1579,6 +1669,8 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 	place_cursor_actual();
 }
 
+char * rline_preload = NULL;
+
 /**
  * Perform actual interactive line editing.
  *
@@ -1600,6 +1692,17 @@ static int read_line(void) {
 	for (int i = 0; i < full_width - 1; ++i) {
 		fprintf(stdout, " ");
 	}
+
+	if (rline_preload) {
+		char * c = rline_preload;
+		while (*c) {
+			insert_char(*c);
+			c++;
+		}
+		free(rline_preload);
+		rline_preload = NULL;
+	}
+
 	render_line();
 	place_cursor_actual();
 

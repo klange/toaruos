@@ -217,6 +217,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 			case 'p':
 				if (!arg_width) {
 					arg_width = 8;
+					alt = 1;
 				}
 			case 'x': /* Hexadecimal number */
 				if (alt) {

@@ -71,3 +71,6 @@
 
 # SDL
 /base/usr/include/SDL
+
+# Kuroko build files
+/base/usr/share/kuroko

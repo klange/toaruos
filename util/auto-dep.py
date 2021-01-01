@@ -36,6 +36,8 @@ class Classifier(object):
         '<toaru/menu.h>':        (None, '-ltoaru_menu',        ['<toaru/sdf.h>', '<toaru/yutani.h>', '<toaru/icon_cache.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/textregion.h>':  (None, '-ltoaru_textregion',  ['<toaru/sdf.h>', '<toaru/yutani.h>','<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/button.h>':      (None, '-ltoaru_button',      ['<toaru/graphics.h>','<toaru/sdf.h>', '<toaru/icon_cache.h>']),
+        # Kuroko
+        '<kuroko.h>':            ('../../../kuroko', '-lkuroko', []),
         # OPTIONAL third-party libraries, for extensions / ports
         '<ft2build.h>':        ('freetype2', '-lfreetype', []),
         '<pixman.h>':          ('pixman-1', '-lpixman-1', []),
@@ -100,6 +102,8 @@ def todep(name):
     if name.startswith("-l"):
         name = name.replace("-l","",1)
         if name.startswith('toaru'):
+            return (True, "%s/lib%s.so" % ('base/lib', name))
+        elif name.startswith('kuroko'):
             return (True, "%s/lib%s.so" % ('base/lib', name))
         else:
             return (True, "%s/lib%s.so" % ('base/usr/lib', name))
@@ -166,6 +170,17 @@ if __name__ == "__main__":
         libname = os.path.basename(filename).replace(".c","")
         _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
         print("base/lib/libtoaru_{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {includes} -shared -fPIC -o $@ $< {libraries}".format(
+            lib=libname,
+            source=filename,
+            headers=" ".join([toheader(x) for x in c.libs]),
+            libraryfiles=" ".join([todep(x)[1] for x in _libs]),
+            libraries=" ".join([x for x in _libs]),
+            includes=" ".join([x for x in c.includes if x is not None])
+            ))
+    elif command == "--makekurokomod":
+        libname = os.path.basename(filename).replace(".c","")
+        _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
+        print("base/usr/share/kuroko/{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {includes} -shared -fPIC -o $@ $< {libraries}".format(
             lib=libname,
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
