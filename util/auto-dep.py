@@ -24,7 +24,6 @@ class Classifier(object):
         '<toaru/jpeg.h>':        (None, '-ltoaru_jpeg',        ['<toaru/graphics.h>']),
         '<toaru/png.h>':         (None, '-ltoaru_png',         ['<toaru/graphics.h>','<toaru/inflate.h>']),
         '<toaru/rline.h>':       (None, '-ltoaru_rline',       ['<toaru/kbd.h>']),
-        '<toaru/rline_exp.h>':   (None, '-ltoaru_rline_exp',   ['<toaru/rline.h>']),
         '<toaru/confreader.h>':  (None, '-ltoaru_confreader',  ['<toaru/hashmap.h>']),
         '<toaru/markup.h>':      (None, '-ltoaru_markup',      ['<toaru/hashmap.h>']),
         '<toaru/json.h>':        (None, '-ltoaru_json',        ['<toaru/hashmap.h>']),

@@ -38,7 +38,6 @@
 #include <toaru/hashmap.h>
 #include <toaru/kbd.h>
 #include <toaru/rline.h>
-#include <toaru/rline_exp.h>
 
 #ifndef environ
 extern char **environ;
@@ -67,7 +66,6 @@ int shell_interactive = 1;
 int last_ret = 0;
 char ** shell_argv = NULL;
 int shell_argc = 0;
-int experimental_rline = 1;
 
 static int current_line = 0;
 static char * current_file = NULL;
@@ -362,26 +360,6 @@ void sig_break_loop(int sig) {
 		signal(sig, SIG_DFL);
 		raise(sig);
 	}
-}
-
-void redraw_prompt_func(rline_context_t * context) {
-	draw_prompt();
-}
-
-void draw_prompt_c() {
-	char * ps2 = getenv("PS2");
-	if (ps2) {
-		char buf[1024];
-		int display_width;
-		print_extended_ps(ps2, buf, &display_width);
-		fprintf(stdout, "%s", buf);
-	} else {
-		printf("> ");
-	}
-	fflush(stdout);
-}
-void redraw_prompt_func_c(rline_context_t * context) {
-	draw_prompt_c();
 }
 
 void tab_complete_func(rline_context_t * c) {
@@ -699,48 +677,30 @@ void add_environment(list_t * env) {
 }
 
 int read_entry(char * buffer) {
-	if (experimental_rline) {
-		char lprompt[1024], rprompt[1024];
-		int lwidth, rwidth;
+	char lprompt[1024], rprompt[1024];
+	int lwidth, rwidth;
 
-		char * ps1 = getenv("PS1_LEFT");
-		print_extended_ps(ps1 ? ps1 : FALLBACK_PS1, lprompt, &lwidth);
+	char * ps1 = getenv("PS1_LEFT");
+	print_extended_ps(ps1 ? ps1 : FALLBACK_PS1, lprompt, &lwidth);
 
-		char * ps1r = getenv("PS1_RIGHT");
-		print_extended_ps(ps1r ? ps1r : "", rprompt, &rwidth);
+	char * ps1r = getenv("PS1_RIGHT");
+	print_extended_ps(ps1r ? ps1r : "", rprompt, &rwidth);
 
-		rline_exit_string="exit";
-		rline_exp_set_syntax("esh");
-		rline_exp_set_prompts(lprompt, rprompt, lwidth, rwidth);
-		rline_exp_set_shell_commands(shell_commands, shell_commands_len);
-		rline_exp_set_tab_complete_func(tab_complete_func);
-		return rline_experimental(buffer, LINE_LEN);
-	} else {
-		rline_callbacks_t callbacks = {
-			tab_complete_func, redraw_prompt_func, NULL,
-			NULL, NULL, NULL, NULL, NULL
-		};
-		draw_prompt();
-		return rline((char *)buffer, LINE_LEN, &callbacks);
-	}
+	rline_exit_string="exit";
+	rline_exp_set_syntax("esh");
+	rline_exp_set_prompts(lprompt, rprompt, lwidth, rwidth);
+	rline_exp_set_shell_commands(shell_commands, shell_commands_len);
+	rline_exp_set_tab_complete_func(tab_complete_func);
+	return rline(buffer, LINE_LEN);
 }
 
 int read_entry_continued(char * buffer) {
-	if (experimental_rline) {
-		rline_exit_string="exit";
-		rline_exp_set_syntax("esh");
-		rline_exp_set_prompts("> ", "", 2, 0);
-		rline_exp_set_shell_commands(shell_commands, shell_commands_len);
-		rline_exp_set_tab_complete_func(tab_complete_func);
-		return rline_experimental(buffer, LINE_LEN);
-	} else {
-		rline_callbacks_t callbacks = {
-			tab_complete_func, redraw_prompt_func_c, NULL,
-			NULL, NULL, NULL, NULL, NULL
-		};
-		draw_prompt_c();
-		return rline((char *)buffer, LINE_LEN, &callbacks);
-	}
+	rline_exit_string="exit";
+	rline_exp_set_syntax("esh");
+	rline_exp_set_prompts("> ", "", 2, 0);
+	rline_exp_set_shell_commands(shell_commands, shell_commands_len);
+	rline_exp_set_tab_complete_func(tab_complete_func);
+	return rline(buffer, LINE_LEN);
 }
 
 int variable_char(uint8_t c) {
@@ -1713,11 +1673,8 @@ int main(int argc, char ** argv) {
 
 	if (argc > 1) {
 		int c;
-		while ((c = getopt(argc, argv, "Rc:v?")) != -1) {
+		while ((c = getopt(argc, argv, "c:v?")) != -1) {
 			switch (c) {
-				case 'R':
-					experimental_rline = 0;
-					break;
 				case 'c':
 					shell_interactive = 0;
 					{

@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include <toaru/rline.h>
-#include <toaru/rline_exp.h>
 #include <kuroko.h>
 #include "chunk.h"
 #include "debug.h"
@@ -72,7 +71,7 @@ int main(int argc, char * argv[]) {
 				}
 
 				rline_scroll = 0;
-				if (rline_experimental(buf, 4096) == 0) {
+				if (rline(buf, 4096) == 0) {
 					valid = 0;
 					exit = 1;
 					break;

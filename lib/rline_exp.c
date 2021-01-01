@@ -1,11 +1,9 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+ * Copyright (C) 2018-2021 K. Lange
  *
- * Experimental rline replacement with syntax highlighting, based
- * on bim's highlighting and line editing.
- *
+ * Line editor with syntax highlighting based on older, smaller version of bim.
  */
 #define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE
@@ -24,6 +22,7 @@
 
 #include <toaru/decodeutf8.h>
 #include <toaru/rline.h>
+#include <toaru/kbd.h>
 
 #define ENTER_KEY     '\n'
 #define BACKSPACE_KEY 0x08
@@ -885,7 +884,6 @@ int rline_exp_set_syntax(char * name) {
 static void recalculate_syntax(line_t * line) {
 	/* Clear syntax for this line first */
 	int line_no = 0;
-	//int is_original = 1;
 	while (1) {
 		for (int i = 0; i < line->actual; ++i) {
 			line->text[i].flags = 0;
@@ -906,26 +904,9 @@ static void recalculate_syntax(line_t * line) {
 			state.state = syntax->calculate(&state);
 
 			if (state.state != 0) {
-				/* TODO: Figure out a way to make this work for multiline input */
-#if 0
-				if (line_no == -1) return;
-				if (!is_original) {
-					redraw_line(line_no);
-				}
-				if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
-					line_no++;
-					line = env->lines[line_no];
-					line->istate = state.state;
-					if (env->loading) return;
-					is_original = 0;
-					goto _next;
-				}
-#endif
 				return;
 			}
 		}
-//_next:
-//		(void)0;
 	}
 }
 
@@ -1667,6 +1648,106 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 	recalculate_syntax(the_line);
 	render_line();
 	place_cursor_actual();
+}
+
+void rline_redraw_clean(rline_context_t * context) {
+	if (context->quiet) return;
+	printf("\033[u%s", context->buffer);
+	for (int i = context->offset; i < context->collected; ++i) {
+		printf("\033[D");
+	}
+	fflush(stdout);
+}
+
+void rline_reverse_search(rline_context_t * context) {
+	char input[512] = {0};
+	int collected = 0;
+	int start_at = 0;
+	int changed = 0;
+	fprintf(stderr, "\033[G\033[0m\033[s");
+	fflush(stderr);
+	key_event_state_t kbd_state = {0};
+	char * match = "";
+	int match_index = 0;
+	while (1) {
+		/* Find matches */
+try_rev_search_again:
+		if (collected && changed) {
+			match = "";
+			match_index = 0;
+			for (int i = start_at; i < rline_history_count; i++) {
+				char * c = rline_history_prev(i+1);
+				if (strstr(c, input)) {
+					match = c;
+					match_index = i;
+					break;
+				}
+			}
+			if (!strcmp(match,"")) {
+				if (start_at) {
+					start_at = 0;
+					goto try_rev_search_again;
+				}
+				collected--;
+				input[collected] = '\0';
+				if (collected) {
+					goto try_rev_search_again;
+				}
+			}
+		}
+		fprintf(stderr, "\033[u(reverse-i-search)`%s': %s\033[K", input, match);
+		fflush(stderr);
+		changed = 0;
+
+		uint32_t key_sym = kbd_key(&kbd_state, fgetc(stdin));
+		switch (key_sym) {
+			case KEY_NONE:
+				break;
+			case KEY_BACKSPACE:
+			case 0x7F: /* delete */
+				if (collected > 0) {
+					collected--;
+					input[collected] = '\0';
+					start_at = 0;
+					changed = 1;
+				}
+				break;
+			case KEY_CTRL_C:
+				printf("^C\n");
+				return;
+			case KEY_CTRL_R:
+				start_at = match_index + 1;
+				changed = 1;
+				break;
+			case KEY_ESCAPE:
+			case KEY_ARROW_LEFT:
+			case KEY_ARROW_RIGHT:
+				context->cancel = 1;
+			case '\n':
+				memcpy(context->buffer, match, strlen(match) + 1);
+				context->collected = strlen(match);
+				context->offset = context->collected;
+				if (!context->quiet && context->callbacks->redraw_prompt) {
+					fprintf(stderr, "\033[G\033[K");
+					context->callbacks->redraw_prompt(context);
+				}
+				fprintf(stderr, "\033[s");
+				rline_redraw_clean(context);
+				if (key_sym == '\n' && !context->quiet) {
+					fprintf(stderr, "\n");
+				}
+				return;
+			default:
+				if (key_sym < KEY_NORMAL_MAX) {
+					input[collected] = (char)key_sym;
+					collected++;
+					input[collected] = '\0';
+					start_at = 0;
+					changed = 1;
+				}
+				break;
+		}
+	}
 }
 
 char * rline_preload = NULL;
