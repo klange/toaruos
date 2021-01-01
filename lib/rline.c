@@ -222,11 +222,11 @@ static int getch(int immediate, int timeout) {
 		_unget = -1;
 		return out;
 	}
-	if (timeout != 1) return fgetc(stdin);
+	if (immediate) return fgetc(stdin);
 	struct pollfd fds[1];
 	fds[0].fd = STDIN_FILENO;
 	fds[0].events = POLLIN;
-	int ret = poll(fds,1,(timeout == 1) ? 50 : -1);
+	int ret = poll(fds,1,10);
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		unsigned char buf[1];
 		int unused = read(STDIN_FILENO, buf, 1);
