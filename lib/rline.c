@@ -530,11 +530,27 @@ void paint_single_string(struct syntax_state * state) {
 	}
 }
 
+void paint_krk_string(struct syntax_state * state, int type) {
+	/* Assumes you came in from a check of charat() == '"' */
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == type) {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == type) {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+}
 
 char * syn_krk_keywords[] = {
-	"and","class","def","else","export","for","if","in","import",
-	"let","not","or","print","return","while","try","except","raise",
-	"continue","break",
+	"and","class","def","else","for","if","in","import",
+	"let","not","or","return","while","try","except","raise",
+	"continue","break","as","from","elif","lambda",
 	NULL
 };
 
@@ -544,6 +560,7 @@ char * syn_krk_types[] = {
 	"len", "str", "int", "float", "dir", "repr", /* global functions from __builtins__ */
 	"list","dict","range", /* builtin classes */
 	"object","exception","isinstance","type",
+	"print",
 	NULL
 };
 
@@ -564,12 +581,27 @@ int paint_krk_numeral(struct syntax_state * state) {
 		while (charat() == '0' || charat() == '1') paint(1, FLAG_NUMERAL);
 	} else {
 		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-		if (charat() == '.') {
+		if (charat() == '.' && isdigit(nextchar())) {
 			paint(1, FLAG_NUMERAL);
 			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
 		}
 	}
 	return 0;
+}
+
+int paint_krk_triple_string(struct syntax_state * state, int type) {
+	while (charat() != -1) {
+		if (charat() == type) {
+			paint(1, FLAG_STRING);
+			if (charat() == type && nextchar() == type) {
+				paint(2, FLAG_STRING);
+				return 0;
+			}
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+	return (type == '"') ? 1 : 2; /* continues */
 }
 
 int syn_krk_calculate(struct syntax_state * state) {
@@ -578,11 +610,18 @@ int syn_krk_calculate(struct syntax_state * state) {
 		case 0:
 			if (charat() == '#') {
 				paint_comment(state);
-			} else if (charat() == '"') {
-				paint_simple_string(state);
+			} else if (charat() == '@') {
+				paint(1, FLAG_TYPE);
+				while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
 				return 0;
-			} else if (charat() == '\'') {
-				paint_single_string(state);
+			} else if (charat() == '"' || charat() == '\'') {
+				if (nextchar() == charat() && charrel(2) == charat()) {
+					int type = charat();
+					paint(3, FLAG_STRING);
+					return paint_krk_triple_string(state, type);
+				} else {
+					paint_krk_string(state, charat());
+				}
 				return 0;
 			} else if (find_keywords(state, syn_krk_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
 				return 0;
@@ -598,6 +637,10 @@ int syn_krk_calculate(struct syntax_state * state) {
 				return 0;
 			}
 			break;
+		case 1:
+			return paint_krk_triple_string(state, '"');
+		case 2:
+			return paint_krk_triple_string(state, '\'');
 	}
 	return -1;
 }
@@ -1069,6 +1112,35 @@ static void set_fg_color(const char * fg) {
 	fflush(stdout);
 }
 
+void rline_set_colors(rline_style_t style) {
+	switch (style) {
+		case RLINE_STYLE_MAIN:
+			set_colors(COLOR_FG, COLOR_BG);
+			break;
+		case RLINE_STYLE_ALT:
+			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+			break;
+		case RLINE_STYLE_KEYWORD:
+			set_fg_color(COLOR_KEYWORD);
+			break;
+		case RLINE_STYLE_STRING:
+			set_fg_color(COLOR_STRING);
+			break;
+		case RLINE_STYLE_COMMENT:
+			set_fg_color(COLOR_COMMENT);
+			break;
+		case RLINE_STYLE_TYPE:
+			set_fg_color(COLOR_TYPE);
+			break;
+		case RLINE_STYLE_PRAGMA:
+			set_fg_color(COLOR_PRAGMA);
+			break;
+		case RLINE_STYLE_NUMERAL:
+			set_fg_color(COLOR_NUMERAL);
+			break;
+	}
+}
+
 /**
  * Mostly copied from bim, but with some minor
  * alterations and removal of selection support.
@@ -1357,6 +1429,10 @@ static void place_cursor_actual(void) {
 
 	printf("\033[?25h\033[%dG", x);
 	fflush(stdout);
+}
+
+void rline_place_cursor(void) {
+	place_cursor_actual();
 }
 
 /**

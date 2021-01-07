@@ -27,6 +27,19 @@ typedef struct rline_callback {
 	rline_callback_t rev_search;
 } rline_callbacks_t;
 
+typedef enum {
+	/* Base colors */
+	RLINE_STYLE_MAIN,
+	RLINE_STYLE_ALT,
+	/* Syntax flags */
+	RLINE_STYLE_KEYWORD,
+	RLINE_STYLE_STRING,
+	RLINE_STYLE_COMMENT,
+	RLINE_STYLE_TYPE,
+	RLINE_STYLE_PRAGMA,
+	RLINE_STYLE_NUMERAL,
+} rline_style_t;
+
 extern int rline(char * buffer, int buf_size);
 extern int rline_exp_set_prompts(char * left, char * right, int left_width, int right_width);
 extern int rline_exp_set_shell_commands(char ** cmds, int len);
@@ -36,6 +49,8 @@ extern void rline_history_insert(char * str);
 extern void rline_history_append_line(char * str);
 extern char * rline_history_get(int item);
 extern char * rline_history_prev(int item);
+extern void rline_place_cursor(void);
+extern void rline_set_colors(rline_style_t style);
 
 #define RLINE_HISTORY_ENTRIES 128
 extern char * rline_history[RLINE_HISTORY_ENTRIES];
