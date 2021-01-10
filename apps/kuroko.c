@@ -9,12 +9,15 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #ifdef __toaru__
 #include <toaru/rline.h>
 #include <kuroko.h>
 #else
+#ifndef NO_RLINE
 #include "rline.h"
+#endif
 #include "kuroko.h"
 #endif
 
@@ -23,6 +26,9 @@
 #include "vm.h"
 #include "memory.h"
 #include "scanner.h"
+
+#define PROMPT_MAIN  ">>> "
+#define PROMPT_BLOCK "  > "
 
 static int enableRline = 1;
 static int exitRepl = 0;
@@ -38,6 +44,7 @@ static KrkValue paste(int argc, KrkValue argv[]) {
 	return NONE_VAL();
 }
 
+#ifndef NO_RLINE
 /**
  * Given an object, find a property with the same name as a scanner token.
  * This can be either a field of an instance, or a method of the type of
@@ -205,6 +212,15 @@ static void tab_complete_func(rline_context_t * c) {
 		return;
 	}
 }
+#endif
+
+static void handleSigint(int sigNum) {
+	if (vm.frameCount) {
+		krk_runtimeError(vm.exceptions.keyboardInterrupt, "Keyboard interrupt.");
+	}
+
+	signal(sigNum, handleSigint);
+}
 
 /* Runs the interpreter to get the version information. */
 static int version(void) {
@@ -214,10 +230,27 @@ static int version(void) {
 	return 0;
 }
 
+static int modulePaths(void) {
+	krk_initVM(0);
+	krk_interpret("import kuroko\nprint(kuroko.module_paths)\n", 1, "<stdin>","<stdin>");
+	krk_freeVM();
+	return 0;
+}
+
+#ifdef BUNDLE_LIBS
+#define BUNDLED(name) do { \
+	extern KrkValue krk_module_onload_ ## name (); \
+	KrkValue moduleOut = krk_module_onload_ ## name (); \
+	krk_attachNamedValue(&vm.modules, # name, moduleOut); \
+	krk_attachNamedObject(&AS_INSTANCE(moduleOut)->fields, "__name__", (KrkObj*)krk_copyString(#name, sizeof(#name)-1)); \
+	krk_attachNamedValue(&AS_INSTANCE(moduleOut)->fields, "__file__", NONE_VAL()); \
+} while (0)
+#endif
+
 int main(int argc, char * argv[]) {
 	int flags = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "dgrstV-:")) != -1) {
+	while ((opt = getopt(argc, argv, "dgrstMV-:")) != -1) {
 		switch (opt) {
 			case 'd':
 				/* Disassemble code blocks after compilation. */
@@ -238,6 +271,8 @@ int main(int argc, char * argv[]) {
 			case 'r':
 				enableRline = 0;
 				break;
+			case 'M':
+				return modulePaths();
 			case 'V':
 				return version();
 			case '-':
@@ -270,6 +305,26 @@ int main(int argc, char * argv[]) {
 
 	krk_initVM(flags);
 
+	/* Attach kuroko.argv - argv[0] will be set to an empty string for the repl */
+	if (argc == optind) krk_push(OBJECT_VAL(krk_copyString("",0)));
+	for (int arg = optind; arg < argc; ++arg) {
+		krk_push(OBJECT_VAL(krk_copyString(argv[arg],strlen(argv[arg]))));
+	}
+	KrkValue argList = krk_list_of(argc - optind + (optind == argc), &vm.stackTop[-(argc - optind + (optind == argc))]);
+	krk_attachNamedValue(&vm.system->fields, "argv", argList);
+	for (int arg = optind; arg < argc + (optind == argc); ++arg) krk_pop();
+
+	/* Bind interrupt signal */
+	signal(SIGINT, handleSigint);
+
+#ifdef BUNDLE_LIBS
+	/* Add any other modules you want to include that are normally built as shared objects. */
+	BUNDLED(fileio);
+	BUNDLED(dis);
+	BUNDLED(os);
+	BUNDLED(time);
+#endif
+
 	KrkValue result = INTEGER_VAL(0);
 
 	if (optind == argc) {
@@ -282,12 +337,14 @@ int main(int argc, char * argv[]) {
 		krk_startModule("<module>");
 		krk_attachNamedValue(&vm.module->fields,"__doc__", NONE_VAL());
 
+#ifndef NO_RLINE
 		/* Set ^D to send EOF */
 		rline_exit_string="";
 		/* Enable syntax highlight for Kuroko */
 		rline_exp_set_syntax("krk");
 		/* Bind a callback for \t */
 		rline_exp_set_tab_complete_func(tab_complete_func);
+#endif
 
 		/**
 		 * Python stores version info in a built-in module called `sys`.
@@ -321,17 +378,20 @@ int main(int argc, char * argv[]) {
 			int inBlock = 0;
 			int blockWidth = 0;
 
+#ifndef NO_RLINE
 			/* Main prompt is >>> like in Python */
-			rline_exp_set_prompts(">>> ", "", 4, 0);
+			rline_exp_set_prompts(PROMPT_MAIN, "", 4, 0);
+#endif
 
 			while (1) {
 				/* This would be a nice place for line editing */
 				char buf[4096] = {0};
 
+#ifndef NO_RLINE
 				if (inBlock) {
 					/* When entering multiple lines, the additional lines
 					 * will show a single > (and keep the left side aligned) */
-					rline_exp_set_prompts("  > ", "", 4, 0);
+					rline_exp_set_prompts(PROMPT_BLOCK, "", 4, 0);
 					/* Also add indentation as necessary */
 					if (!pasteEnabled) {
 						rline_preload = malloc(blockWidth + 1);
@@ -343,10 +403,14 @@ int main(int argc, char * argv[]) {
 				}
 
 				if (!enableRline) {
-					fprintf(stdout, "%s", inBlock ? "  > " : ">>> ");
+#else
+				if (1) {
+#endif
+					fprintf(stdout, "%s", inBlock ? PROMPT_BLOCK : PROMPT_MAIN);
 					fflush(stdout);
 				}
 
+#ifndef NO_RLINE
 				rline_scroll = 0;
 				if (enableRline) {
 					if (rline(buf, 4096) == 0) {
@@ -355,6 +419,7 @@ int main(int argc, char * argv[]) {
 						break;
 					}
 				} else {
+#else
 					char * out = fgets(buf, 4096, stdin);
 					if (!out || !strlen(buf)) {
 						fprintf(stdout, "^D\n");
@@ -362,7 +427,11 @@ int main(int argc, char * argv[]) {
 						exitRepl = 1;
 						break;
 					}
+#endif
+#ifndef NO_RLINE
 				}
+#endif
+
 				if (buf[strlen(buf)-1] != '\n') {
 					/* rline shouldn't allow this as it doesn't accept ^D to submit input
 					 * unless the line is empty, but just in case... */
@@ -433,7 +502,9 @@ int main(int argc, char * argv[]) {
 
 			for (size_t i = 0; i < lineCount; ++i) {
 				if (valid) strcat(allData, lines[i]);
+#ifndef NO_RLINE
 				if (enableRline) rline_history_insert(strdup(lines[i]));
+#endif
 				free(lines[i]);
 			}
 			FREE_ARRAY(char *, lines, lineCapacity);
@@ -446,8 +517,10 @@ int main(int argc, char * argv[]) {
 					fprintf(stdout, "\033[0m\n");
 					krk_resetStack();
 				}
+				free(allData);
 			}
 
+			(void)blockWidth;
 		}
 	} else {
 		/* Expect the rest of the arguments to be scripts to run;
