@@ -51,6 +51,7 @@ extern char * rline_history_get(int item);
 extern char * rline_history_prev(int item);
 extern void rline_place_cursor(void);
 extern void rline_set_colors(rline_style_t style);
+extern int rline_terminal_width;
 
 #define RLINE_HISTORY_ENTRIES 128
 extern char * rline_history[RLINE_HISTORY_ENTRIES];

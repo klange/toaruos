@@ -55,7 +55,7 @@ static KrkValue paste(int argc, KrkValue argv[]) {
  */
 static KrkValue findFromProperty(KrkValue current, KrkToken next) {
 	KrkValue value;
-	KrkValue member = OBJECT_VAL(krk_copyString(next.start, next.length));
+	KrkValue member = OBJECT_VAL(krk_copyString(next.start, next.literalWidth));
 	krk_push(member);
 
 	if (IS_INSTANCE(current)) {
@@ -64,7 +64,7 @@ static KrkValue findFromProperty(KrkValue current, KrkToken next) {
 		if (krk_tableGet(&AS_INSTANCE(current)->_class->methods, member, &value)) goto _found;
 	} else {
 		/* try methods */
-		KrkClass * _class = AS_CLASS(krk_typeOf(1,(KrkValue[]){current}));
+		KrkClass * _class = krk_getType(current);
 		if (krk_tableGet(&_class->methods, member, &value)) goto _found;
 	}
 
@@ -93,7 +93,9 @@ static void tab_complete_func(rline_context_t * c) {
 		} while (space[count-1].type != TOKEN_EOF && space[count-1].type != TOKEN_ERROR);
 
 		/* If count == 1, it was EOF or an error and we have nothing to complete. */
-		if (count == 1) return;
+		if (count == 1) {
+			goto _cleanup;
+		}
 
 		/* Otherwise we want to see if we're on an identifier or a dot. */
 		int base = 2;
@@ -102,15 +104,11 @@ static void tab_complete_func(rline_context_t * c) {
 			/* Dots we need to look back at the previous tokens for */
 			n--;
 			base--;
-		} else if (space[count-base].type == TOKEN_IDENTIFIER) {
-			/* Identifiers we will consider as partial matches. */
+		} else if (space[count-base].type >= TOKEN_IDENTIFIER && space[count-base].type <= TOKEN_WITH) {
+			/* Something alphanumeric; only for the last element */
 		} else {
-			/* TODO: What if something the user typed as a partial token was a keyword?
-			 *       The scanner will give us the keyword's token type...
-			 *       Need to split token types between word-y and non-word-y
-			 *       so we can quietly ignore keywords and let them continue... */
-			free(tmp);
-			return;
+			/* Some other symbol */
+			goto _cleanup;
 		}
 
 		/* Work backwards to find the start of this chain of identifiers */
@@ -125,6 +123,7 @@ static void tab_complete_func(rline_context_t * c) {
 		if (n <= count) {
 			/* Now work forwards, starting from the current globals. */
 			KrkValue root = OBJECT_VAL(vm.module);
+			int isGlobal = 1;
 			while (n > base) {
 				/* And look at the potential fields for instances/classes */
 				KrkValue next = findFromProperty(root, space[count-n]);
@@ -132,41 +131,83 @@ static void tab_complete_func(rline_context_t * c) {
 					/* If we hit None, we found something invalid (or literally hit a None
 					 * object, but really the difference is minimal in this case: Nothing
 					 * useful to tab complete from here. */
-					free(tmp);
-					return;
+					goto _cleanup;
 				}
+				isGlobal = 0;
 				root = next;
 				n -= 2; /* To skip every other dot. */
 			}
 
 			/* Now figure out what we're completing - did we already have a partial symbol name? */
 			int length = (space[count-base].type == TOKEN_DOT) ? 0 : (space[count-base].length);
-
-			/* Take the last symbol name from the chain and get its member list from dir() */
-			KrkValue dirList = krk_dirObject(1,(KrkValue[]){root});
-			if (!IS_INSTANCE(dirList)) {
-				fprintf(stderr,"\nInternal error while tab completting.\n");
-				free(tmp);
-				return;
-			}
-			krk_push(dirList);
-			KrkValue _list_internal = OBJECT_VAL(AS_INSTANCE(dirList)->_internal);
+			isGlobal = isGlobal && (length != 0);
 
 			/* Collect up to 256 of those that match */
 			char * matches[256];
-			int matchCount = 0;;
-			for (size_t i = 0; i < AS_LIST(_list_internal)->count; ++i) {
-				KrkString * s = AS_STRING(AS_LIST(_list_internal)->values[i]);
+			int matchCount = 0;
 
-				/* If this symbol is shorter than the current submatch, skip it. */
-				if (length && (int)s->length < length) continue;
+			/* Take the last symbol name from the chain and get its member list from dir() */
+			KRK_PAUSE_GC();
 
-				if (!memcmp(s->chars, space[count-base].start, length)) {
-					matches[matchCount] = s->chars;
-					matchCount++;
-					if (matchCount == 255) break;
+			for (;;) {
+				KrkValue dirList = krk_dirObject(1,(KrkValue[]){root});
+				if (!IS_INSTANCE(dirList)) {
+					fprintf(stderr,"\nInternal error while tab completting.\n");
+					goto _cleanup;
+				}
+				KrkValue _list_internal = OBJECT_VAL(AS_INSTANCE(dirList)->_internal);
+
+				for (size_t i = 0; i < AS_LIST(_list_internal)->count; ++i) {
+					KrkString * s = AS_STRING(AS_LIST(_list_internal)->values[i]);
+					KrkToken asToken = {.start = s->chars, .literalWidth = s->length};
+					KrkValue thisValue = findFromProperty(root, asToken);
+					if (IS_CLOSURE(thisValue) || IS_BOUND_METHOD(thisValue) ||
+						(IS_NATIVE(thisValue) && ((KrkNative*)AS_OBJECT(thisValue))->isMethod != 2)) {
+						char * tmp = malloc(s->length + 2);
+						sprintf(tmp, "%s(", s->chars);
+						s = krk_takeString(tmp, strlen(tmp));
+					}
+
+					/* If this symbol is shorter than the current submatch, skip it. */
+					if (length && (int)s->length < length) continue;
+
+					/* See if it's already in the matches */
+					int found = 0;
+					for (int i = 0; i < matchCount; ++i) {
+						if (!strcmp(matches[i], s->chars)) {
+							found = 1;
+							break;
+						}
+					}
+					if (found) continue;
+
+					if (!memcmp(s->chars, space[count-base].start, length)) {
+						matches[matchCount] = s->chars;
+						matchCount++;
+						if (matchCount == 255) goto _toomany;
+					}
+				}
+
+				/*
+				 * If the object we were scanning was the current module,
+				 * then we should also throw the builtins into the ring.
+				 */
+				if (isGlobal && AS_OBJECT(root) == (KrkObj*)vm.module) {
+					root = OBJECT_VAL(vm.builtins);
+					continue;
+				} else if (isGlobal && AS_OBJECT(root) == (KrkObj*)vm.builtins) {
+					extern char * syn_krk_keywords[];
+					KrkInstance * fakeKeywordsObject = krk_newInstance(vm.objectClass);
+					for (char ** keyword = syn_krk_keywords; *keyword; keyword++) {
+						krk_attachNamedValue(&fakeKeywordsObject->fields, *keyword, NONE_VAL());
+					}
+					root = OBJECT_VAL(fakeKeywordsObject);
+					continue;
+				} else {
+					break;
 				}
 			}
+_toomany:
 
 			/* Now we can do things with the matches. */
 			if (matchCount == 1) {
@@ -191,12 +232,24 @@ static void tab_complete_func(rline_context_t * c) {
 				}
 				/* If no common sub string could be filled in, we print the list. */
 				if (j == length) {
-					/* We could do something prettier, but this will work for now. */
-					fprintf(stderr, "\n");
+					/* First find the maximum width of an entry */
+					int maxWidth = 0;
 					for (int i = 0; i < matchCount; ++i) {
-						fprintf(stderr, "%s ", matches[i]);
+						if ((int)strlen(matches[i]) > maxWidth) maxWidth = strlen(matches[i]);
 					}
+					/* Now how many can we fit in a screen */
+					int colsPerLine = rline_terminal_width / (maxWidth + 2); /* +2 for the spaces */
 					fprintf(stderr, "\n");
+					int column = 0;
+					for (int i = 0; i < matchCount; ++i) {
+						fprintf(stderr, "%-*s  ", maxWidth, matches[i]);
+						column += 1;
+						if (column >= colsPerLine) {
+							fprintf(stderr, "\n");
+							column = 0;
+						}
+					}
+					if (column != 0) fprintf(stderr, "\n");
 				} else {
 					/* If we do have a common sub string, fill in those characters. */
 					for (int i = length; i < j; ++i) {
@@ -205,10 +258,11 @@ static void tab_complete_func(rline_context_t * c) {
 					}
 				}
 			}
-
-			krk_pop(); /* dirList */
 		}
+_cleanup:
+		free(tmp);
 		free(space);
+		KRK_RESUME_GC();
 		return;
 	}
 }
@@ -249,8 +303,9 @@ static int modulePaths(void) {
 
 int main(int argc, char * argv[]) {
 	int flags = 0;
+	int moduleAsMain = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "dgrstMV-:")) != -1) {
+	while ((opt = getopt(argc, argv, "dgm:rstMV-:")) != -1) {
 		switch (opt) {
 			case 'd':
 				/* Disassemble code blocks after compilation. */
@@ -268,6 +323,10 @@ int main(int argc, char * argv[]) {
 				/* Disassemble instructions as they are executed. */
 				flags |= KRK_ENABLE_TRACING;
 				break;
+			case 'm':
+				moduleAsMain = 1;
+				optind--; /* to get us back to optarg */
+				goto _finishArgs;
 			case 'r':
 				enableRline = 0;
 				break;
@@ -284,6 +343,7 @@ int main(int argc, char * argv[]) {
 						"Interpreter options:\n"
 						" -d          Debug output from the bytecode compiler.\n"
 						" -g          Collect garbage on every allocation.\n"
+						" -m mod      Run a module as a script.\n"
 						" -r          Disable complex line editing in the REPL.\n"
 						" -s          Debug output from the scanner/tokenizer.\n"
 						" -t          Disassemble instructions as they are exceuted.\n"
@@ -303,6 +363,7 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
+_finishArgs:
 	krk_initVM(flags);
 
 	/* Attach kuroko.argv - argv[0] will be set to an empty string for the repl */
@@ -311,7 +372,9 @@ int main(int argc, char * argv[]) {
 		krk_push(OBJECT_VAL(krk_copyString(argv[arg],strlen(argv[arg]))));
 	}
 	KrkValue argList = krk_list_of(argc - optind + (optind == argc), &vm.stackTop[-(argc - optind + (optind == argc))]);
+	krk_push(argList);
 	krk_attachNamedValue(&vm.system->fields, "argv", argList);
+	krk_pop();
 	for (int arg = optind; arg < argc + (optind == argc); ++arg) krk_pop();
 
 	/* Bind interrupt signal */
@@ -323,11 +386,28 @@ int main(int argc, char * argv[]) {
 	BUNDLED(dis);
 	BUNDLED(os);
 	BUNDLED(time);
+	BUNDLED(math);
 #endif
 
 	KrkValue result = INTEGER_VAL(0);
 
-	if (optind == argc) {
+	if (moduleAsMain) {
+		/* This isn't going to do what we want for built-in modules, but I'm not sure
+		 * what we _should_ do for them anyway... let's just leave that as a TODO;
+		 * we do let C modules know they are the __main__ now, so non-built-in
+		 * C modules can still act as scripts if they want... */
+		KrkValue module;
+		krk_push(OBJECT_VAL(krk_copyString("__main__",8)));
+		int out = !krk_loadModule(
+			AS_STRING(AS_LIST(OBJECT_VAL(AS_INSTANCE(argList)->_internal))->values[0]),
+			&module,
+			AS_STRING(krk_peek(0)));
+		if (vm.flags & KRK_HAS_EXCEPTION) {
+			krk_dumpTraceback();
+			krk_resetStack();
+		}
+		return out;
+	} else if (optind == argc) {
 		/* Add builtins for the repl, but hide them from the globals() list. */
 		krk_defineNative(&vm.builtins->fields, "exit", exitFunc);
 		krk_defineNative(&vm.builtins->fields, "paste", paste);
@@ -419,7 +499,7 @@ int main(int argc, char * argv[]) {
 						break;
 					}
 				} else {
-#else
+#endif
 					char * out = fgets(buf, 4096, stdin);
 					if (!out || !strlen(buf)) {
 						fprintf(stdout, "^D\n");
@@ -427,7 +507,6 @@ int main(int argc, char * argv[]) {
 						exitRepl = 1;
 						break;
 					}
-#endif
 #ifndef NO_RLINE
 				}
 #endif
@@ -468,9 +547,12 @@ int main(int argc, char * argv[]) {
 				 * continue to accept input. Our compiler isn't really
 				 * set up to let us compile "on the fly" so we can't just
 				 * run lines through it and see if it wants more... */
-				if (lineLength > 2 && lines[i][lineLength-2] == ':') {
+				if (lineLength > 1 && lines[i][lineLength-2] == ':') {
 					inBlock = 1;
 					blockWidth = countSpaces + 4;
+					continue;
+				} else if (lineLength > 1 && lines[i][lineLength-2] == '\\') {
+					inBlock = 1;
 					continue;
 				} else if (inBlock && lineLength != 1) {
 					if (isSpaces) {
@@ -512,9 +594,20 @@ int main(int argc, char * argv[]) {
 			if (valid) {
 				KrkValue result = krk_interpret(allData, 0, "<module>","<stdin>");
 				if (!IS_NONE(result)) {
-					fprintf(stdout, " \033[1;30m=> ");
-					krk_printValue(stdout, result);
-					fprintf(stdout, "\033[0m\n");
+					KrkClass * type = krk_getType(result);
+					const char * formatStr = " \033[1;30m=> %s\033[0m\n";
+					if (type->_reprer) {
+						krk_push(result);
+						result = krk_callSimple(OBJECT_VAL(type->_reprer), 1, 0);
+					} else if (type->_tostr) {
+						krk_push(result);
+						result = krk_callSimple(OBJECT_VAL(type->_tostr), 1, 0);
+					}
+					if (!IS_STRING(result)) {
+						fprintf(stdout, " \033[1;31m=> Unable to produce representation for value.\033[0m\n");
+					} else {
+						fprintf(stdout, formatStr, AS_CSTRING(result));
+					}
 					krk_resetStack();
 				}
 				free(allData);

@@ -194,11 +194,11 @@ base/lib/libc.so: ${LIBC_OBJS} | dirs crts
 base/lib/libm.so: util/lm.c | dirs crts
 	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
 
-KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/rline.c kuroko/kuroko.c, $(sort $(wildcard kuroko/*.c))))
+KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/src/module_% kuroko/src/rline.c kuroko/src/kuroko.c, $(sort $(wildcard kuroko/src/*.c))))
 kuroko/%.o: kuroko/%.c
-	$(CC) $(CFLAGS) -fPIC -c -o $@ $^
+	$(CC) $(CFLAGS) -DDEBUG -fPIC -c -o $@ $^
 
-KUROKO_CMODS=$(patsubst kuroko/src/%.c,%,$(wildcard kuroko/src/*.c))
+KUROKO_CMODS=$(patsubst kuroko/src/module_%.c,%,$(wildcard kuroko/src/module_*.c)) $(patsubst lib/kuroko/%.c,%,$(wildcard lib/kuroko/*.c))
 KUROKO_CMODS_X=$(foreach lib,$(KUROKO_CMODS),base/usr/local/lib/kuroko/$(lib).so)
 KUROKO_CMODS_Y=$(foreach lib,$(KUROKO_CMODS),.make/$(lib).kmak)
 KUROKO_KRK_MODS=$(patsubst kuroko/modules/%.krk,base/usr/local/lib/kuroko/%.krk,$(wildcard kuroko/modules/*.krk))
@@ -208,7 +208,10 @@ KUROKO_FILES=$(KUROKO_CMODS_X) $(KUROKO_KRK_MODS) base/lib/libkuroko.so
 base/usr/local/lib/kuroko/%.krk: kuroko/modules/%.krk
 	cp $< $@
 
-.make/%.kmak: kuroko/src/%.c util/auto-dep.py | dirs
+.make/%.kmak: kuroko/src/module_%.c util/auto-dep.py | dirs
+	util/auto-dep.py --makekurokomod $< > $@
+
+.make/%.kmak: lib/kuroko/%.c util/auto-dep.py | dirs
 	util/auto-dep.py --makekurokomod $< > $@
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
@@ -216,7 +219,7 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 endif
 
 base/lib/libkuroko.so: $(KUROKO_OBJS)  | dirs crts ${LC}
-	$(CC) $(CFLAGS) -shared -fPIC -o $@ $^ -lgcc
+	$(CC) $(CFLAGS) -DDEBUG -shared -fPIC -o $@ $^ -lgcc
 
 # Userspace Linker/Loader
 

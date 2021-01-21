@@ -13,21 +13,39 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <ctype.h>
-#include <termios.h>
 #include <string.h>
 #include <wchar.h>
 #include <unistd.h>
 #include <locale.h>
-#include <poll.h>
 #include <signal.h>
+#ifndef _WIN32
+#include <termios.h>
 #include <sys/ioctl.h>
+#else
+#include <windows.h>
+/* How do we get this in Windows? Seems WT asks the font? */
+#define wcwidth(c) (1)
+#endif
+#ifdef __toaru__
 #include <toaru/rline.h>
+#else
+#include "rline.h"
+#endif
+
+static __attribute__((used)) int _isdigit(int c) { if (c > 128) return 0; return isdigit(c); }
+static __attribute__((used)) int _isxdigit(int c) { if (c > 128) return 0; return isxdigit(c); }
+
+#undef isdigit
+#undef isxdigit
+#define isdigit(c) _isdigit(c)
+#define isxdigit(c) _isxdigit(c)
 
 char * rline_history[RLINE_HISTORY_ENTRIES];
 int rline_history_count  = 0;
 int rline_history_offset = 0;
 int rline_scroll = 0;
 char * rline_exit_string = "exit\n";
+int rline_terminal_width = 0;
 
 void rline_history_insert(char * str) {
 	if (str[strlen(str)-1] == '\n') {
@@ -161,7 +179,6 @@ static int loading = 0;
 static int column = 0;
 static int offset = 0;
 static int width =  0;
-static int full_width = 0;
 static int show_right_side = 0;
 static int show_left_side = 0;
 static int prompt_width_calc = 0;
@@ -211,30 +228,15 @@ int rline_exp_set_tab_complete_func(rline_callback_t func) {
 	return 0;
 }
 
-static int _unget = -1;
-static void _ungetc(int c) {
-	_unget = c;
-}
-
-static int getch(int immediate, int timeout) {
-	if (_unget != -1) {
-		int out = _unget;
-		_unget = -1;
-		return out;
-	}
-	if (immediate) return fgetc(stdin);
-	struct pollfd fds[1];
-	fds[0].fd = STDIN_FILENO;
-	fds[0].events = POLLIN;
-	int ret = poll(fds,1,10);
-	if (ret > 0 && fds[0].revents & POLLIN) {
-		unsigned char buf[1];
-		int unused = read(STDIN_FILENO, buf, 1);
-		(void)unused;
-		return buf[0];
-	} else {
-		return -1;
-	}
+static int getch(int timeout) {
+#ifndef _WIN32
+	return fgetc(stdin);
+#else
+	TCHAR buf[1];
+	DWORD dwRead;
+	while (!ReadConsole(GetStdHandle(STD_INPUT_HANDLE),buf,1,&dwRead,NULL));
+	return buf[0];
+#endif
 }
 
 /**
@@ -281,7 +283,7 @@ static int to_eight(uint32_t codepoint, char * out) {
  * This is copied from bim. Supports a few useful
  * things like rendering escapes as codepoints.
  */
-static int codepoint_width(wchar_t codepoint) {
+static int codepoint_width(int codepoint) {
 	if (codepoint == '\t') {
 		return 1; /* Recalculate later */
 	}
@@ -496,37 +498,11 @@ int c_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
 
-void paint_simple_string(struct syntax_state * state) {
-	/* Assumes you came in from a check of charat() == '"' */
-	paint(1, FLAG_STRING);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '"') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '"') {
-			paint(1, FLAG_STRING);
-			return;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-}
-
-void paint_single_string(struct syntax_state * state) {
-	/* Assumes you came in from a check of charat() == '\'' */
-	paint(1, FLAG_NUMERAL);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '\'') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '\'') {
-			paint(1, FLAG_NUMERAL);
-			return;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else {
-			paint(1, FLAG_NUMERAL);
-		}
+void paintNHex(struct syntax_state * state, int n) {
+	paint(2, FLAG_ESCAPE);
+	/* Why is my FLAG_ERROR not valid in rline? */
+	for (int i = 0; i < n; ++i) {
+		paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_DIFFMINUS);
 	}
 }
 
@@ -540,7 +516,15 @@ void paint_krk_string(struct syntax_state * state, int type) {
 			paint(1, FLAG_STRING);
 			return;
 		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
+			if (nextchar() == 'x') {
+				paintNHex(state, 2);
+			} else if (nextchar() == 'u') {
+				paintNHex(state, 4);
+			} else if (nextchar() == 'U') {
+				paintNHex(state, 8);
+			} else {
+				paint(2, FLAG_ESCAPE);
+			}
 		} else {
 			paint(1, FLAG_STRING);
 		}
@@ -548,9 +532,10 @@ void paint_krk_string(struct syntax_state * state, int type) {
 }
 
 char * syn_krk_keywords[] = {
-	"and","class","def","else","for","if","in","import",
+	"and","class","def","else","for","if","in","import","del",
 	"let","not","or","return","while","try","except","raise",
-	"continue","break","as","from","elif","lambda",
+	"continue","break","as","from","elif","lambda","with","is",
+	"pass",
 	NULL
 };
 
@@ -560,7 +545,7 @@ char * syn_krk_types[] = {
 	"len", "str", "int", "float", "dir", "repr", /* global functions from __builtins__ */
 	"list","dict","range", /* builtin classes */
 	"object","exception","isinstance","type",
-	"print",
+	"print","set","any","all","bool","ord","chr","hex",
 	NULL
 };
 
@@ -645,6 +630,7 @@ int syn_krk_calculate(struct syntax_state * state) {
 	return -1;
 }
 
+#ifdef __toaru__
 int esh_variable_qualifier(int c) {
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_');
 }
@@ -888,6 +874,23 @@ void paint_py_format_string(struct syntax_state * state, char type) {
 	}
 }
 
+void paint_simple_string(struct syntax_state * state) {
+	/* Assumes you came in from a check of charat() == '"' */
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == '"') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '"') {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+}
+
 int syn_py_calculate(struct syntax_state * state) {
 	switch (state->state) {
 		case -1:
@@ -949,6 +952,32 @@ int syn_py_calculate(struct syntax_state * state) {
 	return -1;
 }
 
+void * rline_exp_for_python(void * _stdin, void * _stdout, char * prompt) {
+
+	rline_exp_set_prompts(prompt, "", strlen(prompt), 0);
+
+	char * buf = malloc(1024);
+	memset(buf, 0, 1024);
+
+	rline_exp_set_syntax("python");
+	rline_exit_string = "";
+	rline(buf, 1024);
+	rline_history_insert(strdup(buf));
+	rline_scroll = 0;
+
+	return buf;
+}
+#endif
+
+void rline_redraw(rline_context_t * context) {
+	if (context->quiet) return;
+	printf("\033[u%s\033[K", context->buffer);
+	for (int i = context->offset; i < context->collected; ++i) {
+		printf("\033[D");
+	}
+	fflush(stdout);
+}
+
 
 /**
  * Convert syntax hilighting flag to color code
@@ -988,11 +1017,14 @@ static const char * flag_to_color(int _flag) {
 struct syntax_definition {
 	char * name;
 	int (*calculate)(struct syntax_state *);
+	int tabIndents;
 } syntaxes[] = {
-	{"esh",syn_esh_calculate},
-	{"python",syn_py_calculate},
-	{"krk",syn_krk_calculate},
-	{NULL, NULL},
+	{"krk",syn_krk_calculate, 1},
+#ifdef __toaru__
+	{"python",syn_py_calculate, 1},
+	{"esh",syn_esh_calculate, 0},
+#endif
+	{NULL, NULL, 0},
 };
 
 static struct syntax_definition * syntax;
@@ -1321,15 +1353,18 @@ static void render_line(void) {
 
 	set_colors(COLOR_FG, COLOR_BG);
 
-	/* Fill to end right hand side */
-	for (; j < width + offset - prompt_width_calc; ++j) {
-		printf(" ");
-	}
+	if (show_right_side && prompt_right_width) {
+		/* Fill to end right hand side */
+		for (; j < width + offset - prompt_width_calc; ++j) {
+			printf(" ");
+		}
 
-	/* Print right hand side */
-	if (show_right_side) {
+		/* Print right hand side */
 		printf("\033[0m%s", prompt_right);
+	} else {
+		printf("\033[0K");
 	}
+	fflush(stdout);
 }
 
 /**
@@ -1380,31 +1415,37 @@ static line_t * line_insert(line_t * line, char_t c, int offset) {
  * We don't listen for sigwinch for various reasons...
  */
 static void get_size(void) {
+#ifndef _WIN32
 	struct winsize w;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-	full_width = w.ws_col;
-	if (full_width - prompt_right_width - prompt_width > MINIMUM_SIZE) {
+	rline_terminal_width = w.ws_col;
+#else
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	rline_terminal_width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+#endif
+	if (rline_terminal_width - prompt_right_width - prompt_width > MINIMUM_SIZE) {
 		show_right_side = 1;
 		show_left_side = 1;
 		prompt_width_calc = prompt_width;
-		width = full_width - prompt_right_width;
+		width = rline_terminal_width - prompt_right_width;
 	} else {
 		show_right_side = 0;
-		if (full_width - prompt_width > MINIMUM_SIZE) {
+		if (rline_terminal_width - prompt_width > MINIMUM_SIZE) {
 			show_left_side = 1;
 			prompt_width_calc = prompt_width;
 		} else {
 			show_left_side = 0;
 			prompt_width_calc = 1;
 		}
-		width = full_width;
+		width = rline_terminal_width;
 	}
 }
 
 /**
  * Place the cursor within the line
  */
-static void place_cursor_actual(void) {
+void rline_place_cursor(void) {
 	int x = prompt_width_calc + 1 - offset;
 	for (int i = 0; i < column; ++i) {
 		char_t * c = &the_line->text[i];
@@ -1429,10 +1470,6 @@ static void place_cursor_actual(void) {
 
 	printf("\033[?25h\033[%dG", x);
 	fflush(stdout);
-}
-
-void rline_place_cursor(void) {
-	place_cursor_actual();
 }
 
 /**
@@ -1516,7 +1553,7 @@ static void insert_char(uint32_t c) {
  */
 static void cursor_left(void) {
 	if (column > 0) column--;
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /**
@@ -1524,7 +1561,7 @@ static void cursor_left(void) {
  */
 static void cursor_right(void) {
 	if (column < the_line->actual) column++;
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /**
@@ -1540,7 +1577,7 @@ static void word_left(void) {
 		if (the_line->text[column-1].codepoint == ' ') break;
 		column--;
 	}
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /**
@@ -1552,9 +1589,9 @@ static void word_right(void) {
 	}
 	while (column < the_line->actual) {
 		column++;
-		if (the_line->text[column].codepoint == ' ') break;
+		if (column < the_line->actual && the_line->text[column].codepoint == ' ') break;
 	}
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /**
@@ -1562,7 +1599,7 @@ static void word_right(void) {
  */
 static void cursor_home(void) {
 	column = 0;
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /*
@@ -1570,7 +1607,7 @@ static void cursor_home(void) {
  */
 static void cursor_end(void) {
 	column = the_line->actual;
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /**
@@ -1614,7 +1651,7 @@ static void history_previous(void) {
 	recalculate_tabs(the_line);
 	recalculate_syntax(the_line);
 	render_line();
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /**
@@ -1658,7 +1695,7 @@ static void history_next(void) {
 	recalculate_tabs(the_line);
 	recalculate_syntax(the_line);
 	render_line();
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 /**
@@ -1666,13 +1703,8 @@ static void history_next(void) {
  */
 static int handle_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 1;
-	}
-	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
-		*timeout = 0;
-		_ungetc(c);
+		this_buf[0]= c;
+		*timeout = 1;
 		return 1;
 	}
 	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
@@ -1743,6 +1775,7 @@ static int handle_escape(int * this_buf, int * timeout, int c) {
 	return 0;
 }
 
+#ifndef _WIN32
 static unsigned int _INTR, _EOF;
 static struct termios old;
 static void get_initial_termios(void) {
@@ -1750,7 +1783,6 @@ static void get_initial_termios(void) {
 	_INTR = old.c_cc[VINTR];
 	_EOF  = old.c_cc[VEOF];
 }
-
 static void set_unbuffered(void) {
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO & ~ISIG);
@@ -1760,29 +1792,18 @@ static void set_unbuffered(void) {
 static void set_buffered(void) {
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &old);
 }
-
-void rline_redraw(rline_context_t * context) {
-	if (context->quiet) return;
-	printf("\033[u%s\033[K", context->buffer);
-	for (int i = context->offset; i < context->collected; ++i) {
-		printf("\033[D");
-	}
-	fflush(stdout);
+#else
+static unsigned int _INTR = 3;
+static unsigned int _EOF  = 4;
+static void get_initial_termios(void) {
 }
-
-void rline_insert(rline_context_t * context, const char * what) {
-	size_t insertion_length = strlen(what);
-
-	if (context->collected + (int)insertion_length > context->requested) {
-		insertion_length = context->requested - context->collected;
-	}
-
-	/* Move */
-	memmove(&context->buffer[context->offset + insertion_length], &context->buffer[context->offset], context->collected - context->offset);
-	memcpy(&context->buffer[context->offset], what, insertion_length);
-	context->collected += insertion_length;
-	context->offset += insertion_length;
+static void set_unbuffered(void) {
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT);
 }
+static void set_buffered(void) {
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT);
+}
+#endif
 
 static int tabbed;
 
@@ -1877,7 +1898,7 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 	recalculate_tabs(the_line);
 	recalculate_syntax(the_line);
 	render_line();
-	place_cursor_actual();
+	rline_place_cursor();
 }
 
 char * rline_preload = NULL;
@@ -1896,13 +1917,15 @@ static int read_line(void) {
 	int timeout = 0;
 	int this_buf[20];
 	uint32_t istate = 0;
-	int immediate = 1;
 
+	#ifndef _WIN32
+	/* Let's disable this under Windows... */
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	fprintf(stdout, "◄\033[0m"); /* TODO: This could be retrieved from an envvar */
-	for (int i = 0; i < full_width - 1; ++i) {
+	for (int i = 0; i < rline_terminal_width - 1; ++i) {
 		fprintf(stdout, " ");
 	}
+	#endif
 
 	if (rline_preload) {
 		char * c = rline_preload;
@@ -1915,9 +1938,9 @@ static int read_line(void) {
 	}
 
 	render_line();
-	place_cursor_actual();
+	rline_place_cursor();
 
-	while ((cin = getch(immediate,timeout))) {
+	while ((cin = getch(timeout))) {
 		if (cin == -1) continue;
 		get_size();
 		if (!decode(&istate, &c, cin)) {
@@ -1931,7 +1954,6 @@ static int read_line(void) {
 					the_line->actual = 0;
 					column = 0;
 					insert_char('\n');
-					immediate = 0;
 					raise(SIGINT);
 					return 1;
 				}
@@ -1941,7 +1963,7 @@ static int read_line(void) {
 							insert_char(*_c);
 						}
 						render_line();
-						place_cursor_actual();
+						rline_place_cursor();
 						if (!*rline_exit_string) {
 							set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 							printf("^D\033[0m");
@@ -1951,7 +1973,6 @@ static int read_line(void) {
 						if (column < the_line->actual) {
 							line_delete(the_line, column+1);
 							if (offset > 0) offset--;
-							immediate = 0;
 						}
 						continue;
 					}
@@ -1966,72 +1987,64 @@ static int read_line(void) {
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
 						delete_at_cursor();
-						immediate = 0;
 						break;
+					case 13:
 					case ENTER_KEY:
 						/* Finished */
 						loading = 1;
 						column = the_line->actual;
 						render_line();
 						insert_char('\n');
-						immediate = 0;
 						return 1;
 					case 22: /* ^V */
 						/* Don't bother with unicode, just take the next byte */
-						place_cursor_actual();
+						rline_place_cursor();
 						printf("^\b");
 						insert_char(getc(stdin));
-						immediate = 0;
 						break;
 					case 23: /* ^W */
 						delete_word();
-						immediate = 0;
 						break;
 					case 12: /* ^L - Repaint the whole screen */
 						printf("\033[2J\033[H");
 						render_line();
-						place_cursor_actual();
+						rline_place_cursor();
 						break;
 					case 11: /* ^K - Clear to end */
 						the_line->actual = column;
-						immediate = 0;
 						break;
 					case 21: /* ^U - Kill to beginning */
 						while (column) {
 							delete_at_cursor();
 						}
-						immediate = 0;
 						break;
 					case '\t':
-						if (tab_complete_func) {
-							/* Tab complete */
-							rline_context_t context = {0};
-							call_rline_func(tab_complete_func, &context);
-							immediate = 0;
-						} else if (column == 0 || the_line->text[column-1].codepoint == ' ') {
+						if ((syntax && syntax->tabIndents) && (column == 0 || the_line->text[column-1].codepoint == ' ')) {
 							/* Insert tab character */
 							insert_char(' ');
 							insert_char(' ');
 							insert_char(' ');
 							insert_char(' ');
-							immediate = 0;
+						} else if (tab_complete_func) {
+							/* Tab complete */
+							rline_context_t context = {0};
+							call_rline_func(tab_complete_func, &context);
+							continue;
 						}
 						break;
 					default:
 						insert_char(c);
-						immediate = 0;
 						break;
 				}
 			} else {
 				if (handle_escape(this_buf,&timeout,c)) {
 					render_line();
-					place_cursor_actual();
+					rline_place_cursor();
 					continue;
 				}
-				immediate = 0;
 			}
 			render_line();
-			place_cursor_actual();
+			rline_place_cursor();
 		} else if (istate == UTF8_REJECT) {
 			istate = 0;
 		}
@@ -2077,18 +2090,16 @@ int rline(char * buffer, int buf_size) {
 	return strlen(buffer);
 }
 
-void * rline_exp_for_python(void * _stdin, void * _stdout, char * prompt) {
+void rline_insert(rline_context_t * context, const char * what) {
+	size_t insertion_length = strlen(what);
 
-	rline_exp_set_prompts(prompt, "", strlen(prompt), 0);
+	if (context->collected + (int)insertion_length > context->requested) {
+		insertion_length = context->requested - context->collected;
+	}
 
-	char * buf = malloc(1024);
-	memset(buf, 0, 1024);
-
-	rline_exp_set_syntax("python");
-	rline_exit_string = "";
-	rline(buf, 1024);
-	rline_history_insert(strdup(buf));
-	rline_scroll = 0;
-
-	return buf;
+	/* Move */
+	memmove(&context->buffer[context->offset + insertion_length], &context->buffer[context->offset], context->collected - context->offset);
+	memcpy(&context->buffer[context->offset], what, insertion_length);
+	context->collected += insertion_length;
+	context->offset += insertion_length;
 }

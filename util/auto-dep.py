@@ -36,7 +36,7 @@ class Classifier(object):
         '<toaru/textregion.h>':  (None, '-ltoaru_textregion',  ['<toaru/sdf.h>', '<toaru/yutani.h>','<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/button.h>':      (None, '-ltoaru_button',      ['<toaru/graphics.h>','<toaru/sdf.h>', '<toaru/icon_cache.h>']),
         # Kuroko
-        '<kuroko.h>':            ('../../../kuroko', '-lkuroko', []),
+        '<kuroko.h>':            ('../../../kuroko/src', '-lkuroko', []),
         # OPTIONAL third-party libraries, for extensions / ports
         '<ft2build.h>':        ('freetype2', '-lfreetype', []),
         '<pixman.h>':          ('pixman-1', '-lpixman-1', []),
@@ -177,9 +177,9 @@ if __name__ == "__main__":
             includes=" ".join([x for x in c.includes if x is not None])
             ))
     elif command == "--makekurokomod":
-        libname = os.path.basename(filename).replace(".c","")
+        libname = os.path.basename(filename).replace(".c","").replace("module_","")
         _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
-        print("base/usr/local/lib/kuroko/{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) {includes} -shared -fPIC -o $@ $< {libraries}".format(
+        print("base/usr/local/lib/kuroko/{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -DDEBUG {includes} -shared -fPIC -o $@ $< {libraries}".format(
             lib=libname,
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
