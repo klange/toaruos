@@ -238,7 +238,6 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				break;
 			case 'i':
 			case 'd': /* Decimal number */
-				i = b - buf;
 				{
 					long long val;
 					if (big == 2) {
@@ -248,15 +247,14 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					}
 					if (val < 0) {
 						*b++ = '-';
-						buf++;
 						val = -val;
 					} else if (always_sign) {
 						*b++ = '+';
-						buf++;
 					}
+					i = b - buf;
 					print_dec(val, arg_width, buf, &i, fill_zero, align, precision);
+					b = buf + i;
 				}
-				b = buf + i;
 				break;
 			case 'u': /* Unsigned ecimal number */
 				i = b - buf;
@@ -275,17 +273,15 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 			case 'f':
 				{
 					double val = (double)va_arg(args, double);
-					i = b - buf;
 					if (val < 0) {
 						*b++ = '-';
-						buf++;
 						val = -val;
 					}
+					i = b - buf;
 					print_dec((long)val, arg_width, buf, &i, fill_zero, align, 1);
 					b = buf + i;
-					i = b - buf;
 					*b++ = '.';
-					buf++;
+					i = b - buf;
 					for (int j = 0; j < ((precision > -1 && precision < 8) ? precision : 8); ++j) {
 						if ((int)(val * 100000.0) % 100000 == 0 && j != 0) break;
 						val *= 10.0;
