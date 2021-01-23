@@ -14,6 +14,16 @@ static KrkInstance * yctxInstance = NULL;
 
 #define S(c) (krk_copyString(c,sizeof(c)-1))
 
+struct MessageClass {
+	KrkInstance inst;
+	yutani_msg_t * msg;
+};
+
+struct YutaniClass {
+	KrkInstance inst;
+	yutani_t * yctx;
+};
+
 /**
  * Convenience wrapper to make a class and attach it to the module, while
  * handling stack push/pop to keep things from being prematurely GC'd.
@@ -22,13 +32,9 @@ KrkClass * krk_createClass(KrkInstance * inModule, const char * name, KrkClass *
 	if (!base) base = vm.objectClass;
 	KrkString * str_Name = krk_copyString(name, strlen(name));
 	krk_push(OBJECT_VAL(str_Name));
-	KrkClass * obj_Class = krk_newClass(str_Name);
+	KrkClass * obj_Class = krk_newClass(str_Name, base);
 	krk_push(OBJECT_VAL(obj_Class));
-
 	krk_attachNamedObject(&inModule->fields, name, (KrkObj *)obj_Class);
-
-	krk_tableAddAll(&base->methods, &obj_Class->methods);
-	krk_tableAddAll(&base->fields,  &obj_Class->fields);
 	krk_pop(); /* obj_Class */
 	krk_pop(); /* str_Name */
 
@@ -47,11 +53,15 @@ KrkClass * krk_createClass(KrkInstance * inModule, const char * name, KrkClass *
 #define WID() DO_FIELD("wid", TO_INT(wid))
 #define STRUCT(type) type * me = (void*)msg->data
 
+static void _message_sweep(KrkInstance * self) {
+	free(((struct MessageClass*)self)->msg);
+}
+
 static KrkValue _message_getattr(int argc, KrkValue argv[]) {
 	assert(argc == 2);
 	KrkInstance * self = AS_INSTANCE(argv[0]);
 
-	yutani_msg_t * msg = self->_internal;
+	yutani_msg_t * msg = ((struct MessageClass*)self)->msg;
 	if (!msg) return NONE_VAL();
 
 	DO_FIELD("magic", TO_INT_(magic));
@@ -154,7 +164,7 @@ static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
 		return NONE_VAL();
 	}
 	fprintf(stderr, "Attaching field...\n");
-	self->_internal = yctx;
+	((struct YutaniClass*)self)->yctx = yctx;
 	yctxInstance = self;
 	krk_attachNamedObject(&module->fields, "_yutani_t", (KrkObj*)self);
 
@@ -163,13 +173,13 @@ static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
 
 static KrkValue _yutani_display_width(int argc, KrkValue argv[]) {
 	KrkInstance * self = AS_INSTANCE(argv[0]);
-	yutani_t * ctx = self->_internal;
+	yutani_t * ctx = ((struct YutaniClass*)self)->yctx;
 	return INTEGER_VAL(ctx->display_width);
 }
 
 static KrkValue _yutani_display_height(int argc, KrkValue argv[]) {
 	KrkInstance * self = AS_INSTANCE(argv[0]);
-	yutani_t * ctx = self->_internal;
+	yutani_t * ctx = ((struct YutaniClass*)self)->yctx;
 	return INTEGER_VAL(ctx->display_height);
 }
 
@@ -179,16 +189,16 @@ static KrkValue _yutani_poll(int argc, KrkValue argv[], int hasKw) {
 	int sync = (argc > 1 && IS_BOOLEAN(argv[1])) ? AS_BOOLEAN(argv[1]) : 1;
 	yutani_msg_t * result;
 	if (sync) {
-		result = yutani_poll((yutani_t*)self->_internal);
+		result = yutani_poll(((struct YutaniClass*)self)->yctx);
 	} else {
-		result = yutani_poll_async((yutani_t *)self->_internal);
+		result = yutani_poll_async(((struct YutaniClass*)self)->yctx);
 	}
 
 	if (!result) return NONE_VAL();
 
 	KrkInstance * out = krk_newInstance(Message);
 	krk_push(OBJECT_VAL(out));
-	out->_internal = result;
+	((struct MessageClass*)out)->msg = result;
 
 	return krk_pop();
 }
@@ -196,10 +206,10 @@ static KrkValue _yutani_poll(int argc, KrkValue argv[], int hasKw) {
 static KrkValue _yutani_wait_for(int argc, KrkValue argv[]) {
 	if (argc != 2) { krk_runtimeError(vm.exceptions.argumentError, "Expected two arguments"); return NONE_VAL(); }
 	KrkInstance * self = AS_INSTANCE(argv[0]);
-	yutani_msg_t * result = yutani_wait_for((yutani_t*)self->_internal, AS_INTEGER(argv[1]));
+	yutani_msg_t * result = yutani_wait_for(((struct YutaniClass*)self)->yctx, AS_INTEGER(argv[1]));
 	KrkInstance * out = krk_newInstance(Message);
 	krk_push(OBJECT_VAL(out));
-	out->_internal = result;
+	((struct MessageClass*)out)->msg = result;
 
 	return krk_pop();
 }
@@ -216,6 +226,8 @@ KrkValue krk_module_onload__yutani(void) {
 	 *     MSG_... = ... # Directly from the library headers.
 	 */
 	Message = krk_createClass(module, "Message", NULL);
+	Message->allocSize = sizeof(struct MessageClass);
+	Message->_ongcsweep = _message_sweep;
 	/* All the MSG_ constants */
 #define TYPE(type) krk_attachNamedValue(&Message->fields, "MSG_" #type, INTEGER_VAL(YUTANI_MSG_ ## type))
 	TYPE(HELLO); TYPE(WINDOW_NEW); TYPE(FLIP); TYPE(KEY_EVENT); TYPE(MOUSE_EVENT);
@@ -235,13 +247,14 @@ KrkValue krk_module_onload__yutani(void) {
 
 	/**
 	 * class Yutani(object):
-	 *     _internal = yutani_t *
-	 *     display_width  = _internal->display_width
-	 *     display_height = _internal->display_height
+	 *     yctx = yutani_t *
+	 *     display_width  = yctx->display_width
+	 *     display_height = yctx->display_height
 	 *
-	 * def __init__(self): # Call yutani_init(), attach _internal
+	 * def __init__(self): # Call yutani_init()
 	 */
 	Yutani = krk_createClass(module, "Yutani", NULL);
+	Yutani->allocSize = sizeof(struct YutaniClass);
 	krk_defineNative(&Yutani->methods, ":display_width", _yutani_display_width);
 	krk_defineNative(&Yutani->methods, ":display_height", _yutani_display_height);
 	krk_defineNative(&Yutani->methods, ".__init__", _yutani_init);
