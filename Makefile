@@ -46,6 +46,8 @@ APPS_X=$(foreach app,$(APPS),base/bin/$(app))
 APPS_Y=$(foreach app,$(APPS),.make/$(app).mak)
 APPS_SH=$(patsubst apps/%.sh,%.sh,$(wildcard apps/*.sh))
 APPS_SH_X=$(foreach app,$(APPS_SH),base/bin/$(app))
+APPS_KRK=$(patsubst apps/%.krk,%.krk,$(wildcard apps/*.krk))
+APPS_KRK_X=$(foreach app,$(APPS_KRK),base/bin/$(app))
 
 ##
 # LIBS   = C sources from lib/
@@ -63,7 +65,7 @@ tags: $(SOURCE_FILES)
 
 ##
 # Files that must be present in the ramdisk (apps, libraries)
-RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so ${KUROKO_FILES}
+RAMDISK_FILES= ${APPS_X} ${APPS_SH_X} ${APPS_KRK_X} ${LIBS_X} base/lib/ld.so base/lib/libm.so ${KUROKO_FILES}
 
 # Kernel / module flags
 
@@ -248,6 +250,10 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 endif
 
 base/bin/%.sh: apps/%.sh
+	cp $< $@
+	chmod +x $@
+
+base/bin/%.krk: apps/%.krk
 	cp $< $@
 	chmod +x $@
 

@@ -1,0 +1,35 @@
+#!/bin/kuroko
+import _yutani
+
+# Connect
+let y = _yutani.Yutani()
+
+# Create window
+let w = _yutani.Window(300,200,title="Kuroko Demo")
+w.move(100,100)
+
+def drawWindow():
+	w.fill()
+	_yutani.Decorator.render(w)
+	w.flip()
+
+drawWindow()
+
+while True:
+	let msg = y.poll()
+	if msg.type == _yutani.Message.MSG_SESSION_END:
+		print("Asked to exit.")
+		break
+	else if msg.type == _yutani.Message.MSG_KEY_EVENT:
+		print("key event")
+	else if msg.type == _yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
+		print("focus change")
+		if msg.wid == w.wid:
+			w.set_focused(msg.focused)
+			drawWindow()
+	else if msg.type == _yutani.Message.MSG_WINDOW_MOUSE_EVENT:
+		if _yutani.Decorator.handle_event(msg) == 2:
+			print("Clicked close button")
+			break
+		print(f"W({msg.wid}) mouse {msg.new_x},{msg.new_y}")
+
