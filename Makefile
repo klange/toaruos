@@ -60,8 +60,8 @@ LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 SOURCE_FILES  = $(wildcard kernel/*.c kernel/*/*.c kernel/*/*/*.c modules/*.c)
 SOURCE_FILES += $(wildcard apps/*.c linker/*.c libc/*.c libc/*/*.c lib/*.c)
 
-tags: $(SOURCE_FILES)
-	ctags -f tags $(SOURCE_FILES)
+tags: $(SOURCE_FILES) $(wildcard kuroko/src/*.c kuroko/src/*.h)
+	ctags -f tags $(SOURCE_FILES) $(wildcard kuroko/src/*.c kuroko/src/*.h)
 
 ##
 # Files that must be present in the ramdisk (apps, libraries)
@@ -203,11 +203,12 @@ kuroko/%.o: kuroko/%.c
 KUROKO_CMODS=$(patsubst kuroko/src/module_%.c,%,$(wildcard kuroko/src/module_*.c)) $(patsubst lib/kuroko/%.c,%,$(wildcard lib/kuroko/*.c))
 KUROKO_CMODS_X=$(foreach lib,$(KUROKO_CMODS),base/usr/local/lib/kuroko/$(lib).so)
 KUROKO_CMODS_Y=$(foreach lib,$(KUROKO_CMODS),.make/$(lib).kmak)
-KUROKO_KRK_MODS=$(patsubst kuroko/modules/%.krk,base/usr/local/lib/kuroko/%.krk,$(wildcard kuroko/modules/*.krk))
+KUROKO_KRK_MODS=$(patsubst kuroko/modules/%.krk,base/usr/local/lib/kuroko/%.krk,$(wildcard kuroko/modules/*.krk kuroko/modules/*/*.krk))
 
 KUROKO_FILES=$(KUROKO_CMODS_X) $(KUROKO_KRK_MODS) base/lib/libkuroko.so
 
 base/usr/local/lib/kuroko/%.krk: kuroko/modules/%.krk
+	@mkdir -p `dirname $@`
 	cp $< $@
 
 .make/%.kmak: kuroko/src/module_%.c util/auto-dep.py | dirs

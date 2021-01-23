@@ -1,0 +1,11 @@
+#!/bin/kuroko
+import fileio, syntax.highlighter, kuroko
+
+let code
+with fileio.open(kuroko.argv[-1]) as f:
+    code = f.read()
+
+let highlighter = syntax.highlighter.KurokoHighlighter(code)
+
+highlighter.highlight()
+syntax.highlighter.toTerminal(highlighter.process())
