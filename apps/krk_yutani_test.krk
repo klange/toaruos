@@ -8,8 +8,9 @@ let y = _yutani.Yutani()
 let w = _yutani.Window(300,200,title="Kuroko Demo")
 w.move(100,100)
 
+
 def drawWindow():
-	w.fill()
+	w.fill(_yutani.color(127,127,127))
 	_yutani.Decorator.render(w)
 	w.flip()
 

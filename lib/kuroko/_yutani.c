@@ -7,25 +7,47 @@
 #include "kuroko/src/value.h"
 #include "kuroko/src/object.h"
 
-static KrkClass * Message;
-static KrkClass * Yutani;
-static KrkClass * YutaniWindow;
-static KrkClass * Decorator;
-
 static KrkInstance * module;
 static KrkInstance * yctxInstance = NULL;
 
 #define S(c) (krk_copyString(c,sizeof(c)-1))
 
+static KrkClass * Message;
 struct MessageClass {
 	KrkInstance inst;
 	yutani_msg_t * msg;
 };
 
+static KrkClass * Yutani;
 struct YutaniClass {
 	KrkInstance inst;
 	yutani_t * yctx;
 };
+
+static KrkClass * GraphicsContext;
+struct GraphicsContext {
+	KrkInstance inst;
+	gfx_context_t * ctx;
+	int doubleBuffered;
+};
+
+static KrkClass * YutaniWindow;
+struct WindowClass {
+	KrkInstance inst;
+	gfx_context_t * ctx;
+	int doubleBuffered;
+	yutani_window_t * window;
+};
+
+static KrkClass * Decorator;
+/* no additional fields */
+
+static KrkClass * YutaniColor;
+struct YutaniColor {
+	KrkInstance inst;
+	uint32_t color;
+};
+
 
 /**
  * Convenience wrapper to make a class and attach it to the module, while
@@ -151,7 +173,6 @@ static KrkValue _message_getattr(int argc, KrkValue argv[]) {
 #undef WID
 
 static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
-	fprintf(stderr, "Creating connection.\n");
 	if (yctxInstance) {
 		krk_runtimeError(vm.exceptions.valueError, "class 'Yutani' is a singleton and has already been initialized.");
 		return NONE_VAL();
@@ -162,14 +183,12 @@ static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
 	/* Connect and let's go. */
 	yutani_t * yctx = yutani_init();
 	if (!yctx) {
-		fprintf(stderr, "Connection failed?\n");
 		krk_runtimeError(vm.exceptions.ioError, "Failed to connect to compositor.");
 		return NONE_VAL();
 	}
 
 	init_decorations();
 
-	fprintf(stderr, "Attaching field...\n");
 	((struct YutaniClass*)self)->yctx = yctx;
 	yctxInstance = self;
 	krk_attachNamedObject(&module->fields, "_yutani_t", (KrkObj*)self);
@@ -220,13 +239,6 @@ static KrkValue _yutani_wait_for(int argc, KrkValue argv[]) {
 	return krk_pop();
 }
 
-struct WindowClass {
-	KrkInstance inst;
-	yutani_window_t * window;
-	gfx_context_t * ctx;
-	int doubleBuffered;
-};
-
 #define GET_ARG(p,name,type) do { \
 	if (hasKw && krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S(#name)), &name)) { \
 		if (!krk_isInstanceOf(name,type)) \
@@ -237,6 +249,124 @@ struct WindowClass {
 			return krk_runtimeError(vm.exceptions.typeError, #name " argument should be " #type ", not '%s'", krk_typeName(name)); \
 	} \
 } while (0)
+
+#define GFX_PROPERTY(name) \
+static KrkValue _gfx_ ## name (int argc, KrkValue argv[]) { \
+	if (argc != 1 || !krk_isInstanceOf(argv[0], GraphicsContext)) \
+		return krk_runtimeError(vm.exceptions.typeError, "Expected GraphicsContext"); \
+	struct GraphicsContext * self = (struct GraphicsContext *)AS_INSTANCE(argv[0]); \
+	return INTEGER_VAL(self->ctx-> name); \
+}
+
+GFX_PROPERTY(width);
+GFX_PROPERTY(height);
+
+#define CHECK_GFX() \
+	if (argc < 1 || !krk_isInstanceOf(argv[0], GraphicsContext)) \
+		return krk_runtimeError(vm.exceptions.typeError, "expected GraphicsContext"); \
+	struct GraphicsContext * self = (struct GraphicsContext*)AS_INSTANCE(argv[0])
+
+static KrkValue _gfx_fill(int argc, KrkValue argv[]) {
+	CHECK_GFX();
+	if (argc < 2 || !krk_isInstanceOf(argv[1], YutaniColor))
+		return krk_runtimeError(vm.exceptions.typeError, "fill() takes one color() argument");
+	struct YutaniColor * color = (struct YutaniColor*)AS_INSTANCE(argv[1]);
+	draw_fill(self->ctx, color->color);
+	return NONE_VAL();
+}
+
+static KrkValue _gfx_flip(int argc, KrkValue argv[]) {
+	CHECK_GFX();
+	if (self->doubleBuffered) {
+		flip(self->ctx);
+	}
+	return NONE_VAL();
+}
+
+static KrkValue _gfx_blur(int argc, KrkValue argv[]) {
+	CHECK_GFX();
+	int radius = 2;
+	if (argc > 1 && IS_INTEGER(argv[1])) radius = AS_INTEGER(argv[1]);
+	else if (argc > 1) return krk_runtimeError(vm.exceptions.typeError, "expected int");
+	blur_context_box(self->ctx, radius);
+	return NONE_VAL();
+}
+
+static KrkValue _gfx_line(int argc, KrkValue argv[]) {
+	CHECK_GFX();
+	if (argc < 6 ||
+		!IS_INTEGER(argv[1]) ||
+		!IS_INTEGER(argv[2]) ||
+		!IS_INTEGER(argv[3]) ||
+		!IS_INTEGER(argv[4]) ||
+		!krk_isInstanceOf(argv[5], YutaniColor)) {
+		return krk_runtimeError(vm.exceptions.typeError, "line() expects 4 ints and a color");
+	}
+
+	int32_t x0 = AS_INTEGER(argv[1]);
+	int32_t x1 = AS_INTEGER(argv[2]);
+	int32_t y0 = AS_INTEGER(argv[3]);
+	int32_t y1 = AS_INTEGER(argv[4]);
+	struct YutaniColor * color = (struct YutaniColor*)AS_INSTANCE(argv[5]);
+
+	if (argc > 6) {
+		if (IS_INTEGER(argv[6])) {
+			draw_line_thick(self->ctx,x0,x1,y0,y1,color->color,AS_INTEGER(argv[6]));
+		} else if (IS_FLOATING(argv[6])) {
+			draw_line_aa(self->ctx,x0,x1,y0,y1,color->color,AS_FLOATING(argv[6]));
+		} else {
+			return krk_runtimeError(vm.exceptions.typeError, "thickness must be int or float, not '%s'", krk_typeName(argv[6]));
+		}
+	} else {
+		draw_line(self->ctx,x0,x1,y0,y1,color->color);
+	}
+
+	return NONE_VAL();
+}
+
+static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
+	CHECK_GFX();
+
+	if (hasKw) argc--;
+
+	if (argc != 6 ||
+		!IS_INTEGER(argv[1]) ||
+		!IS_INTEGER(argv[2]) ||
+		!IS_INTEGER(argv[3]) ||
+		!IS_INTEGER(argv[4]) ||
+		!krk_isInstanceOf(argv[5], YutaniColor)) {
+		return krk_runtimeError(vm.exceptions.typeError, "rect() expects 4 ints and a color");
+	}
+
+	int32_t x = AS_INTEGER(argv[1]);
+	int32_t y = AS_INTEGER(argv[2]);
+	uint16_t width = AS_INTEGER(argv[3]);
+	uint16_t height = AS_INTEGER(argv[4]);
+	struct YutaniColor * color = (struct YutaniColor*)AS_INSTANCE(argv[5]);
+
+	KrkValue solid = BOOLEAN_VAL(0), radius = NONE_VAL();
+	if (hasKw) {
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("solid")), &solid);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("radius")), &radius);
+	}
+
+	if (!IS_BOOLEAN(solid))
+		return krk_runtimeError(vm.exceptions.typeError, "solid must be bool");
+	if (!IS_NONE(radius) && !IS_INTEGER(radius))
+		return krk_runtimeError(vm.exceptions.typeError, "radius must be int");
+	if (!IS_INTEGER(radius) && AS_BOOLEAN(solid))
+		return krk_runtimeError(vm.exceptions.typeError, "radius and solid can not be used together");
+
+	if (AS_BOOLEAN(solid)) {
+		draw_rectangle_solid(self->ctx, x, y, width, height, color->color);
+	} else if (IS_INTEGER(radius)) {
+		draw_rounded_rectangle(self->ctx, x, y, width, height, AS_INTEGER(radius), color->color);
+	} else {
+		draw_rectangle(self->ctx, x, y, width, height, color->color);
+	}
+
+	return NONE_VAL();
+}
 
 static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
 	if (!yctxInstance) return krk_runtimeError(vm.exceptions.valueError, "Compositor is not initialized");
@@ -285,15 +415,6 @@ static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
-static KrkValue _window_fill(int argc, KrkValue argv[]) {
-	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
-		return krk_runtimeError(vm.exceptions.typeError, "expected window");
-	KrkInstance * _self = AS_INSTANCE(argv[0]);
-	struct WindowClass * self = (struct WindowClass*)_self;
-	draw_fill(self->ctx, rgba(127,127,127,255));
-	return NONE_VAL();
-}
-
 static KrkValue _window_flip(int argc, KrkValue argv[]) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
 		return krk_runtimeError(vm.exceptions.typeError, "expected window");
@@ -330,13 +451,12 @@ static KrkValue _window_set_focused(int argc, KrkValue argv[]) {
 
 #define WINDOW_PROPERTY(name) \
 static KrkValue _window_ ## name (int argc, KrkValue argv[]) { \
-	KrkInstance * _self = AS_INSTANCE(argv[0]); \
-	struct WindowClass * self = (struct WindowClass*)_self; \
+	if (argc != 1 || !krk_isInstanceOf(argv[0], YutaniWindow)) \
+		return krk_runtimeError(vm.exceptions.typeError, "Expected Window"); \
+	struct WindowClass * self = (struct WindowClass*)AS_INSTANCE(argv[0]); \
 	return INTEGER_VAL(self->window-> name); \
 }
 
-WINDOW_PROPERTY(width);
-WINDOW_PROPERTY(height);
 WINDOW_PROPERTY(wid);
 WINDOW_PROPERTY(focused);
 
@@ -387,8 +507,46 @@ static KrkValue _decor_render(int argc, KrkValue argv[]) {
 	return NONE_VAL();
 }
 
+extern void krk_dumpStack(void);
+
+static KrkValue _yutani_color_init(int argc, KrkValue argv[]) {
+	if (argc < 4 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]) || !IS_INTEGER(argv[3]) ||
+	   (argc > 5) || (argc == 5 && !IS_INTEGER(argv[4]))) return krk_runtimeError(vm.exceptions.typeError, "color() expects three or four integer arguments");
+	if (!krk_isInstanceOf(argv[0], YutaniColor)) return krk_runtimeError(vm.exceptions.typeError, "expected color [__init__], not '%s'", krk_typeName(argv[0]));
+	struct YutaniColor * self = (struct YutaniColor*)AS_INSTANCE(argv[0]);
+	if (argc == 5) {
+		self->color = rgba(AS_INTEGER(argv[1]),AS_INTEGER(argv[2]),AS_INTEGER(argv[3]),AS_INTEGER(argv[4]));
+	} else {
+		self->color = rgb(AS_INTEGER(argv[1]),AS_INTEGER(argv[2]),AS_INTEGER(argv[3]));
+	}
+	return argv[0];
+}
+
+static KrkValue _yutani_color_repr(int argc, KrkValue argv[]) {
+	if (argc != 1 || !krk_isInstanceOf(argv[0], YutaniColor)) return krk_runtimeError(vm.exceptions.typeError, "expected color [__repr__], not '%s'", krk_typeName(argv[0]));
+	struct YutaniColor * self = (struct YutaniColor*)AS_INSTANCE(argv[0]);
+	char tmp[30];
+	if (_ALP(self->color) != 255) {
+		sprintf(tmp, "color<#%02x%02x%02x%02x>", (int)_RED(self->color), (int)_GRE(self->color), (int)_BLU(self->color), (int)_ALP(self->color));
+	} else {
+		sprintf(tmp, "color<#%02x%02x%02x>", (int)_RED(self->color), (int)_GRE(self->color), (int)_BLU(self->color));
+	}
+	return OBJECT_VAL(krk_copyString(tmp,strlen(tmp)));
+}
+
+static KrkValue _yutani_color_str(int argc, KrkValue argv[]) {
+	if (argc != 1 || !krk_isInstanceOf(argv[0], YutaniColor)) return krk_runtimeError(vm.exceptions.typeError, "expected color [__str__], not '%s'", krk_typeName(argv[0]));
+	struct YutaniColor * self = (struct YutaniColor*)AS_INSTANCE(argv[0]);
+	char tmp[30];
+	if (_ALP(self->color) != 255) {
+		sprintf(tmp, "#%02x%02x%02x%02x", (int)_RED(self->color), (int)_GRE(self->color), (int)_BLU(self->color), (int)_ALP(self->color));
+	} else {
+		sprintf(tmp, "#%02x%02x%02x", (int)_RED(self->color), (int)_GRE(self->color), (int)_BLU(self->color));
+	}
+	return OBJECT_VAL(krk_copyString(tmp,strlen(tmp)));
+}
+
 KrkValue krk_module_onload__yutani(void) {
-	fprintf(stderr, "Loading...\n");
 	module = krk_newInstance(vm.moduleClass);
 	/* Store it on the stack for now so we can do stuff that may trip GC
 	 * and not lose it to garbage colletion... */
@@ -418,6 +576,13 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&Message->methods, ".__getattr__", _message_getattr);
 	krk_finalizeClass(Message);
 
+	YutaniColor = krk_createClass(module, "color", NULL);
+	YutaniColor->allocSize = sizeof(struct YutaniColor);
+	krk_defineNative(&YutaniColor->methods, ".__init__", _yutani_color_init);
+	krk_defineNative(&YutaniColor->methods, ".__repr__", _yutani_color_repr);
+	krk_defineNative(&YutaniColor->methods, ".__str__", _yutani_color_str);
+	krk_finalizeClass(YutaniColor);
+
 	/**
 	 * class Yutani(object):
 	 *     yctx = yutani_t *
@@ -445,16 +610,25 @@ KrkValue krk_module_onload__yutani(void) {
 	#endif
 	krk_finalizeClass(Yutani);
 
-	YutaniWindow = krk_createClass(module, "Window", NULL);
+	GraphicsContext = krk_createClass(module, "GraphicsContext", NULL);
+	GraphicsContext->allocSize = sizeof(struct GraphicsContext);
+	/* No initializers for now until I bother with them... */
+	krk_defineNative(&GraphicsContext->methods, ":width", _gfx_width);
+	krk_defineNative(&GraphicsContext->methods, ":height", _gfx_height);
+	krk_defineNative(&GraphicsContext->methods, ".fill", _gfx_fill);
+	krk_defineNative(&GraphicsContext->methods, ".flip", _gfx_flip);
+	krk_defineNative(&GraphicsContext->methods, ".blur", _gfx_blur);
+	krk_defineNative(&GraphicsContext->methods, ".line", _gfx_line);
+	krk_defineNative(&GraphicsContext->methods, ".rect", _gfx_rect);
+	krk_finalizeClass(GraphicsContext);
+
+	YutaniWindow = krk_createClass(module, "Window", GraphicsContext);
 	YutaniWindow->allocSize = sizeof(struct WindowClass);
 	krk_defineNative(&YutaniWindow->methods, ".__init__", _window_init);
-	krk_defineNative(&YutaniWindow->methods, ".fill", _window_fill);
 	krk_defineNative(&YutaniWindow->methods, ".flip", _window_flip);
 	krk_defineNative(&YutaniWindow->methods, ".move", _window_move);
 	krk_defineNative(&YutaniWindow->methods, ".set_focused", _window_set_focused);
 	/* Properties */
-	krk_defineNative(&YutaniWindow->methods, ":width", _window_width);
-	krk_defineNative(&YutaniWindow->methods, ":height", _window_height);
 	krk_defineNative(&YutaniWindow->methods, ":wid", _window_wid);
 	krk_defineNative(&YutaniWindow->methods, ":focused", _window_focused);
 	krk_finalizeClass(YutaniWindow);

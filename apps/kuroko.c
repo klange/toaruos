@@ -310,19 +310,10 @@ static void findInterpreter(char * argv[]) {
 #endif
 }
 
-/* Runs the interpreter to get the version information. */
-static int version(char * argv[]) {
+static int runString(char * argv[], char * string) {
 	findInterpreter(argv);
 	krk_initVM(0);
-	krk_interpret("import kuroko\nprint('Kuroko',kuroko.version)\n", 1, "<stdin>","<stdin>");
-	krk_freeVM();
-	return 0;
-}
-
-static int modulePaths(char * argv[]) {
-	findInterpreter(argv);
-	krk_initVM(0);
-	krk_interpret("import kuroko\nprint(kuroko.module_paths)\n", 1, "<stdin>","<stdin>");
+	krk_interpret(string, 1, "<stdin>","<stdin>");
 	krk_freeVM();
 	return 0;
 }
@@ -341,8 +332,10 @@ int main(int argc, char * argv[]) {
 	int flags = 0;
 	int moduleAsMain = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "dgm:rstMV-:")) != -1) {
+	while ((opt = getopt(argc, argv, "c:dgm:rstMV-:")) != -1) {
 		switch (opt) {
+			case 'c':
+				return runString(argv, optarg);
 			case 'd':
 				/* Disassemble code blocks after compilation. */
 				flags |= KRK_ENABLE_DISASSEMBLY;
@@ -367,12 +360,12 @@ int main(int argc, char * argv[]) {
 				enableRline = 0;
 				break;
 			case 'M':
-				return modulePaths(argv);
+				return runString(argv,"import kuroko; print(kuroko.module_paths)\n");
 			case 'V':
-				return version(argv);
+				return runString(argv,"import kuroko; print('Kuroko',kuroko.version)\n");
 			case '-':
 				if (!strcmp(optarg,"version")) {
-					return version(argv);
+					return runString(argv,"import kuroko; print('Kuroko',kuroko.version)\n");
 				} else if (!strcmp(optarg,"help")) {
 					fprintf(stderr,"usage: %s [flags] [FILE...]\n"
 						"\n"
