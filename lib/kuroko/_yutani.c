@@ -39,6 +39,14 @@ struct WindowClass {
 	yutani_window_t * window;
 };
 
+static KrkClass * YutaniSprite;
+struct YutaniSprite {
+	KrkInstance inst;
+	gfx_context_t * ctx;
+	int doubleBuffered;
+	sprite_t sprite;
+};
+
 static KrkClass * Decorator;
 /* no additional fields */
 
@@ -47,7 +55,6 @@ struct YutaniColor {
 	KrkInstance inst;
 	uint32_t color;
 };
-
 
 /**
  * Convenience wrapper to make a class and attach it to the module, while
@@ -325,9 +332,8 @@ static KrkValue _gfx_line(int argc, KrkValue argv[]) {
 }
 
 static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
-	CHECK_GFX();
-
 	if (hasKw) argc--;
+	CHECK_GFX();
 
 	if (argc != 6 ||
 		!IS_INTEGER(argv[1]) ||
@@ -366,6 +372,93 @@ static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
 	}
 
 	return NONE_VAL();
+}
+
+static KrkValue _gfx_draw_sprite(int argc, KrkValue argv[], int hasKw) {
+	if (hasKw) argc--;
+	CHECK_GFX();
+
+	if (argc < 2 || !krk_isInstanceOf(argv[1], YutaniSprite))
+		return krk_runtimeError(vm.exceptions.typeError, "expected Sprite");
+
+	if (argc < 4 || !IS_INTEGER(argv[2]) || !IS_INTEGER(argv[3]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected integer coordinate pair");
+
+	/* Potential kwargs: rotation:float, alpha:float, scale:(int,int)... */
+	KrkValue rotation = NONE_VAL(), alpha = NONE_VAL(), scale=NONE_VAL(), color=NONE_VAL();
+	if (hasKw) {
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("alpha")), &alpha);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("rotation")), &rotation);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("scale")), &scale);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("color")), &color);
+	}
+
+	if (!IS_NONE(alpha) && !IS_FLOATING(alpha))
+		return krk_runtimeError(vm.exceptions.typeError, "alpha must be float");
+	if (!IS_NONE(rotation) && !IS_FLOATING(rotation))
+		return krk_runtimeError(vm.exceptions.typeError, "rotation must be float");
+	if (!IS_NONE(color) && !krk_isInstanceOf(color,YutaniColor))
+		return krk_runtimeError(vm.exceptions.typeError, "color must be color");
+	if (!IS_NONE(scale) && (!IS_TUPLE(scale) || AS_TUPLE(scale)->values.count != 2 ||
+		!IS_INTEGER(AS_TUPLE(scale)->values.values[0]) ||
+		!IS_INTEGER(AS_TUPLE(scale)->values.values[1])))
+		return krk_runtimeError(vm.exceptions.typeError, "scale must be 2-tuple of ints");
+	if (!IS_NONE(rotation) + !IS_NONE(scale) + !IS_NONE(color) > 1)
+		return krk_runtimeError(vm.exceptions.typeError, "can not combine rotation / scale / color");
+
+	if ((!IS_NONE(rotation) || !IS_NONE(color)) && IS_NONE(alpha))
+		alpha = FLOATING_VAL(1.0);
+
+	struct YutaniSprite * sprite = (struct YutaniSprite*)AS_INSTANCE(argv[1]);
+	int32_t x = AS_INTEGER(argv[2]);
+	int32_t y = AS_INTEGER(argv[3]);
+
+	if (!IS_NONE(scale)) {
+		int32_t width = AS_INTEGER(AS_TUPLE(scale)->values.values[0]);
+		int32_t height = AS_INTEGER(AS_TUPLE(scale)->values.values[1]);
+		if (IS_NONE(alpha)) {
+			draw_sprite_scaled(self->ctx, &sprite->sprite, x, y, width, height);
+		} else {
+			draw_sprite_scaled_alpha(self->ctx, &sprite->sprite, x, y, width, height, AS_FLOATING(alpha));
+		}
+	} else if (IS_NONE(alpha)) {
+		draw_sprite(self->ctx, &sprite->sprite, x, y);
+	} else if (!IS_NONE(color)) {
+		draw_sprite_alpha_paint(self->ctx, &sprite->sprite, x, y, AS_FLOATING(alpha), ((struct YutaniColor*)AS_INSTANCE(color))->color);
+	} else if (!IS_NONE(rotation)) {
+		draw_sprite_rotate(self->ctx, &sprite->sprite, x, y, AS_FLOATING(rotation), AS_FLOATING(alpha));
+	} else {
+		draw_sprite_alpha(self->ctx, &sprite->sprite, x, y, AS_FLOATING(alpha));
+	}
+
+	return NONE_VAL();
+}
+
+static void _sprite_sweep(KrkInstance * self) {
+	struct YutaniSprite * sprite = (struct YutaniSprite*)self;
+
+	if (sprite->sprite.masks) free(sprite->sprite.masks);
+	if (sprite->sprite.bitmap) free(sprite->sprite.bitmap);
+	if (sprite->ctx) free(sprite->ctx);
+}
+
+static KrkValue _sprite_init(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniSprite))
+		return krk_runtimeError(vm.exceptions.typeError, "expected sprite");
+
+	if (argc < 2 || !IS_STRING(argv[1]))
+		return krk_runtimeError(vm.exceptions.typeError, "Sprite() takes one str argument");
+
+	struct YutaniSprite * self = (struct YutaniSprite*)AS_INSTANCE(argv[0]);
+
+	int result = load_sprite(&self->sprite, AS_CSTRING(argv[1]));
+	if (result) {
+		return krk_runtimeError(vm.exceptions.ioError, "Sprite() could not be initialized");
+	}
+
+	self->ctx = init_graphics_sprite(&self->sprite);
+
+	return argv[0];
 }
 
 static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
@@ -620,6 +713,7 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&GraphicsContext->methods, ".blur", _gfx_blur);
 	krk_defineNative(&GraphicsContext->methods, ".line", _gfx_line);
 	krk_defineNative(&GraphicsContext->methods, ".rect", _gfx_rect);
+	krk_defineNative(&GraphicsContext->methods, ".draw_sprite", _gfx_draw_sprite);
 	krk_finalizeClass(GraphicsContext);
 
 	YutaniWindow = krk_createClass(module, "Window", GraphicsContext);
@@ -632,6 +726,12 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&YutaniWindow->methods, ":wid", _window_wid);
 	krk_defineNative(&YutaniWindow->methods, ":focused", _window_focused);
 	krk_finalizeClass(YutaniWindow);
+
+	YutaniSprite = krk_createClass(module, "Sprite", GraphicsContext);
+	YutaniSprite->allocSize = sizeof(struct YutaniSprite);
+	YutaniSprite->_ongcsweep = _sprite_sweep;
+	krk_defineNative(&YutaniSprite->methods, ".__init__", _sprite_init);
+	krk_finalizeClass(YutaniSprite);
 
 	Decorator = krk_createClass(module, "Decorator", NULL);
 	krk_defineNative(&Decorator->fields, "get_bounds", _decor_get_bounds);
