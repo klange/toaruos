@@ -214,27 +214,30 @@ static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
+#define CHECK_YUTANI() \
+	if (argc < 1 || !krk_isInstanceOf(argv[0], Yutani)) \
+		return krk_runtimeError(vm.exceptions.typeError, "expected Yutani"); \
+	struct YutaniClass * self = (struct YutaniClass*)AS_INSTANCE(argv[0])
+
 static KrkValue _yutani_display_width(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	yutani_t * ctx = ((struct YutaniClass*)self)->yctx;
-	return INTEGER_VAL(ctx->display_width);
+	CHECK_YUTANI();
+	return INTEGER_VAL(self->yctx->display_width);
 }
 
 static KrkValue _yutani_display_height(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	yutani_t * ctx = ((struct YutaniClass*)self)->yctx;
-	return INTEGER_VAL(ctx->display_height);
+	CHECK_YUTANI();
+	return INTEGER_VAL(self->yctx->display_height);
 }
 
 static KrkValue _yutani_poll(int argc, KrkValue argv[], int hasKw) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
+	CHECK_YUTANI();
 
 	int sync = (argc > 1 && IS_BOOLEAN(argv[1])) ? AS_BOOLEAN(argv[1]) : 1;
 	yutani_msg_t * result;
 	if (sync) {
-		result = yutani_poll(((struct YutaniClass*)self)->yctx);
+		result = yutani_poll(self->yctx);
 	} else {
-		result = yutani_poll_async(((struct YutaniClass*)self)->yctx);
+		result = yutani_poll_async(self->yctx);
 	}
 
 	if (!result) return NONE_VAL();
@@ -247,14 +250,42 @@ static KrkValue _yutani_poll(int argc, KrkValue argv[], int hasKw) {
 }
 
 static KrkValue _yutani_wait_for(int argc, KrkValue argv[]) {
-	if (argc != 2) { krk_runtimeError(vm.exceptions.argumentError, "Expected two arguments"); return NONE_VAL(); }
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	yutani_msg_t * result = yutani_wait_for(((struct YutaniClass*)self)->yctx, AS_INTEGER(argv[1]));
+	CHECK_YUTANI();
+	if (argc != 2 || !IS_INTEGER(argv[1])) { krk_runtimeError(vm.exceptions.argumentError, "expected int for msgtype"); return NONE_VAL(); }
+	yutani_msg_t * result = yutani_wait_for(self->yctx, AS_INTEGER(argv[1]));
 	KrkInstance * out = krk_newInstance(Message);
 	krk_push(OBJECT_VAL(out));
 	((struct MessageClass*)out)->msg = result;
 
 	return krk_pop();
+}
+
+static KrkValue _yutani_subscribe(int argc, KrkValue argv[]) {
+	CHECK_YUTANI();
+	yutani_subscribe_windows(self->yctx);
+	return NONE_VAL();
+}
+
+static KrkValue _yutani_unsubscribe(int argc, KrkValue argv[]) {
+	CHECK_YUTANI();
+	yutani_unsubscribe_windows(self->yctx);
+	return NONE_VAL();
+}
+
+static KrkValue _yutani_query_windows(int argc, KrkValue argv[]) {
+	CHECK_YUTANI();
+	yutani_query_windows(self->yctx);
+	return NONE_VAL();
+}
+
+static KrkValue _yutani_fileno(int argc, KrkValue argv[]) {
+	CHECK_YUTANI();
+	return INTEGER_VAL(fileno(self->yctx->sock));
+}
+
+static KrkValue _yutani_query(int argc, KrkValue argv[]) {
+	CHECK_YUTANI();
+	return INTEGER_VAL(yutani_query(self->yctx));
 }
 
 #define GET_ARG(p,name,type) do { \
@@ -371,7 +402,7 @@ static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
 		return krk_runtimeError(vm.exceptions.typeError, "solid must be bool");
 	if (!IS_NONE(radius) && !IS_INTEGER(radius))
 		return krk_runtimeError(vm.exceptions.typeError, "radius must be int");
-	if (!IS_INTEGER(radius) && AS_BOOLEAN(solid))
+	if (!IS_NONE(radius) && AS_BOOLEAN(solid))
 		return krk_runtimeError(vm.exceptions.typeError, "radius and solid can not be used together");
 
 	if (AS_BOOLEAN(solid)) {
@@ -487,8 +518,14 @@ static KrkValue _sprite_init(int argc, KrkValue argv[]) {
 	return argv[0];
 }
 
+#define CHECK_WINDOW() \
+	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow)) \
+		return krk_runtimeError(vm.exceptions.typeError, "expected Window"); \
+	struct WindowClass * self = (struct WindowClass*)AS_INSTANCE(argv[0]); \
+	if (!self->window) return krk_runtimeError(vm.exceptions.valueError, "Window is closed")
+
 static KrkValue _window_repr(int argc, KrkValue argv[]) {
-	struct WindowClass * self = (struct WindowClass*)AS_INSTANCE(argv[0]);
+	CHECK_WINDOW();
 	KrkValue title;
 	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("title")), &title);
 	char out[500];
@@ -548,10 +585,7 @@ static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
 }
 
 static KrkValue _window_flip(int argc, KrkValue argv[]) {
-	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
-		return krk_runtimeError(vm.exceptions.typeError, "expected window");
-	KrkInstance * _self = AS_INSTANCE(argv[0]);
-	struct WindowClass * self = (struct WindowClass*)_self;
+	CHECK_WINDOW();
 	if (self->doubleBuffered) {
 		flip(self->ctx);
 	}
@@ -560,24 +594,128 @@ static KrkValue _window_flip(int argc, KrkValue argv[]) {
 }
 
 static KrkValue _window_move(int argc, KrkValue argv[]) {
-	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
-		return krk_runtimeError(vm.exceptions.typeError, "expected window");
+	CHECK_WINDOW();
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions.typeError, "expected two integer arguments");
-	KrkInstance * _self = AS_INSTANCE(argv[0]);
-	struct WindowClass * self = (struct WindowClass*)_self;
 	yutani_window_move(((struct YutaniClass*)yctxInstance)->yctx, self->window, AS_INTEGER(argv[1]), AS_INTEGER(argv[2]));
 	return NONE_VAL();
 }
 
 static KrkValue _window_set_focused(int argc, KrkValue argv[]) {
-	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
-		return krk_runtimeError(vm.exceptions.typeError, "expected window");
+	CHECK_WINDOW();
 	if (argc < 2 || !IS_INTEGER(argv[1]))
 		return krk_runtimeError(vm.exceptions.typeError, "expected integer argument");
-	KrkInstance * _self = AS_INSTANCE(argv[0]);
-	struct WindowClass * self = (struct WindowClass*)_self;
 	self->window->focused = AS_INTEGER(argv[1]);
+	return NONE_VAL();
+}
+
+static KrkValue _window_close(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	yutani_close(((struct YutaniClass*)yctxInstance)->yctx, self->window);
+	self->window = NULL;
+	release_graphics_yutani(self->ctx);
+	self->ctx = NULL;
+	return NONE_VAL();
+}
+
+static KrkValue _window_set_stack(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions.typeError, "expected int for z-order");
+	int z = AS_INTEGER(argv[1]);
+	yutani_set_stack(((struct YutaniClass*)yctxInstance)->yctx, self->window, z);
+	return NONE_VAL();
+}
+
+static KrkValue _window_update_shape(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions.typeError, "expected int for shape specifier");
+	int set_shape = AS_INTEGER(argv[1]);
+	yutani_window_update_shape(((struct YutaniClass*)yctxInstance)->yctx, self->window, set_shape);
+	return NONE_VAL();
+}
+
+static KrkValue _window_warp_mouse(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected two int values for x, y");
+	int32_t x = AS_INTEGER(argv[1]);
+	int32_t y = AS_INTEGER(argv[2]);
+	yutani_window_warp_mouse(((struct YutaniClass*)yctxInstance)->yctx, self->window, x, y);
+	return NONE_VAL();
+}
+
+static KrkValue _window_show_mouse(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions.typeError, "expected int for show_mouse");
+	int show_mouse = AS_INTEGER(argv[1]);
+	yutani_window_show_mouse(((struct YutaniClass*)yctxInstance)->yctx, self->window, show_mouse);
+	return NONE_VAL();
+}
+
+static KrkValue _window_resize_start(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions.typeError, "expected int for direction");
+	yutani_scale_direction_t direction = AS_INTEGER(argv[1]);
+	yutani_window_resize_start(((struct YutaniClass*)yctxInstance)->yctx, self->window, direction);
+	return NONE_VAL();
+}
+
+static KrkValue _window_resize(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected two int values for width, height");
+	uint32_t width = AS_INTEGER(argv[1]);
+	uint32_t height = AS_INTEGER(argv[2]);
+	yutani_window_resize(((struct YutaniClass*)yctxInstance)->yctx, self->window, width, height);
+	return NONE_VAL();
+}
+
+static KrkValue _window_resize_offer(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected two int values for width, height");
+	uint32_t width = AS_INTEGER(argv[1]);
+	uint32_t height = AS_INTEGER(argv[2]);
+	yutani_window_resize_offer(((struct YutaniClass*)yctxInstance)->yctx, self->window, width, height);
+	return NONE_VAL();
+}
+
+static KrkValue _window_resize_accept(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected two int values for width, height");
+	uint32_t width = AS_INTEGER(argv[1]);
+	uint32_t height = AS_INTEGER(argv[2]);
+	yutani_window_resize_accept(((struct YutaniClass*)yctxInstance)->yctx, self->window, width, height);
+	return NONE_VAL();
+}
+
+static KrkValue _window_resize_done(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	yutani_window_resize_done(((struct YutaniClass*)yctxInstance)->yctx, self->window);
+	return NONE_VAL();
+}
+
+static KrkValue _window_advertise(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 2 || !IS_STRING(argv[1]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected string for title");
+	if (argc > 2 && !IS_STRING(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected string for icon");
+
+	if (argc > 2) {
+		yutani_window_advertise_icon(((struct YutaniClass*)yctxInstance)->yctx, self->window, AS_CSTRING(argv[1]), AS_CSTRING(argv[2]));
+	} else {
+		yutani_window_advertise(((struct YutaniClass*)yctxInstance)->yctx, self->window, AS_CSTRING(argv[1]));
+	}
+	return NONE_VAL();
+}
+
+static KrkValue _window_special_request(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions.typeError, "expected int for request");
+	uint32_t request = AS_INTEGER(argv[1]);
+	yutani_special_request(((struct YutaniClass*)yctxInstance)->yctx, self->window, request);
 	return NONE_VAL();
 }
 
@@ -638,8 +776,6 @@ static KrkValue _decor_render(int argc, KrkValue argv[]) {
 		((struct WindowClass*)AS_INSTANCE(argv[0]))->ctx, title);
 	return NONE_VAL();
 }
-
-extern void krk_dumpStack(void);
 
 static KrkValue _yutani_color_init(int argc, KrkValue argv[]) {
 	if (argc < 4 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]) || !IS_INTEGER(argv[3]) ||
@@ -735,18 +871,22 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&Yutani->methods, ".__init__", _yutani_init);
 	krk_defineNative(&Yutani->methods, ".poll", _yutani_poll);
 	krk_defineNative(&Yutani->methods, ".wait_for", _yutani_wait_for);
-	#if 0
 	krk_defineNative(&Yutani->methods, ".subscribe", _yutani_subscribe);
 	krk_defineNative(&Yutani->methods, ".unsubscribe", _yutani_unsubscribe);
 	krk_defineNative(&Yutani->methods, ".query_windows", _yutani_query_windows);
+	krk_defineNative(&Yutani->methods, ".fileno", _yutani_fileno);
+	krk_defineNative(&Yutani->methods, ".query", _yutani_query);
+	#if 0
 	krk_defineNative(&Yutani->methods, ".focus_window", _yutani_focus_window);
 	krk_defineNative(&Yutani->methods, ".session_end", _yutani_session_end);
 	krk_defineNative(&Yutani->methods, ".key_bind", _yutani_key_bind);
-	krk_defineNative(&Yutani->methods, ".query", _yutani_query);
-	krk_defineNative(&Yutani->methods, ".fileno", _yutani_fileno);
 	#endif
 	krk_finalizeClass(Yutani);
 
+	/**
+	 * class GraphicsContext():
+	 *     ctx = gfx_context_t *
+	 */
 	GraphicsContext = krk_createClass(module, "GraphicsContext", NULL);
 	GraphicsContext->allocSize = sizeof(struct GraphicsContext);
 	krk_defineNative(&GraphicsContext->methods, ":width", _gfx_width);
@@ -759,6 +899,11 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&GraphicsContext->methods, ".draw_sprite", _gfx_draw_sprite);
 	krk_finalizeClass(GraphicsContext);
 
+	/**
+	 * class Window(GraphicsContext):
+	 *     ctx = gfx_context_t *
+	 *     window = yutani_window_t *
+	 */
 	YutaniWindow = krk_createClass(module, "Window", GraphicsContext);
 	YutaniWindow->allocSize = sizeof(struct WindowClass);
 	krk_defineNative(&YutaniWindow->methods, ".__repr__", _window_repr);
@@ -766,10 +911,28 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&YutaniWindow->methods, ".flip", _window_flip);
 	krk_defineNative(&YutaniWindow->methods, ".move", _window_move);
 	krk_defineNative(&YutaniWindow->methods, ".set_focused", _window_set_focused);
+	krk_defineNative(&YutaniWindow->methods, ".close", _window_close);
+	krk_defineNative(&YutaniWindow->methods, ".set_stack", _window_set_stack);
+	krk_defineNative(&YutaniWindow->methods, ".special_request", _window_special_request);
+	krk_defineNative(&YutaniWindow->methods, ".resize", _window_resize);
+	krk_defineNative(&YutaniWindow->methods, ".resize_start", _window_resize_start);
+	krk_defineNative(&YutaniWindow->methods, ".resize_done", _window_resize_done);
+	krk_defineNative(&YutaniWindow->methods, ".resize_offer", _window_resize_offer);
+	krk_defineNative(&YutaniWindow->methods, ".resize_accept", _window_resize_accept);
+	krk_defineNative(&YutaniWindow->methods, ".update_shape", _window_update_shape);
+	krk_defineNative(&YutaniWindow->methods, ".show_mouse", _window_show_mouse);
+	krk_defineNative(&YutaniWindow->methods, ".warp_mouse", _window_warp_mouse);
+	krk_defineNative(&YutaniWindow->methods, ".set_stack", _window_set_stack);
+	krk_defineNative(&YutaniWindow->methods, ".advertise", _window_advertise);
 	krk_defineNative(&YutaniWindow->methods, ":wid", _window_wid);
 	krk_defineNative(&YutaniWindow->methods, ":focused", _window_focused);
 	krk_finalizeClass(YutaniWindow);
 
+	/**
+	 * class Sprite(GraphicsContext):
+	 *     ctx = gfx_context_t *
+	 *     sprite = sprite_t
+	 */
 	YutaniSprite = krk_createClass(module, "Sprite", GraphicsContext);
 	YutaniSprite->allocSize = sizeof(struct YutaniSprite);
 	YutaniSprite->_ongcsweep = _sprite_sweep;
