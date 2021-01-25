@@ -1,36 +1,65 @@
 #!/bin/kuroko
-import _yutani
+from _yutani import color, Yutani, Window, Decorator, Message, MenuBar, MenuList, MenuEntry
 
-# Connect
-let y = _yutani.Yutani()
-
-# Create window
-let w = _yutani.Window(300,200,title="Kuroko Demo")
-w.move(100,100)
-
+let y = Yutani()
+let w = Window(640,480,title="Test Window",doublebuffer=True)
+let mb = MenuBar((("File",'file'),("Help",'help')))
+let _menu_File = MenuList()
+let _menu_File_test = MenuEntry("Test",lambda menu: print("hello, world"))
+_menu_File.insert(_menu_File_test)
+mb.insert('file', _menu_File)
+let _menu_Help = MenuList()
+let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
+_menu_Help.insert(_menu_Help_help)
+mb.insert('help', _menu_Help)
 
 def drawWindow():
-	w.fill(_yutani.color(127,127,127))
-	_yutani.Decorator.render(w)
-	w.flip()
+    w.fill(color(255,255,255))
+    Decorator.render(w)
+    let bounds = Decorator.get_bounds(w)
+    mb.place(bounds['left_width'],bounds['top_height'],w.width-bounds['width'],w)
+    mb.render(w)
+    w.flip()
 
 drawWindow()
 
+mb.callback = lambda x: drawWindow()
+
+print(globals())
+
+def handleMouseEvent(msg):
+    let decResponse = Decorator.handle_event(msg)
+    if decResponse == Decorator.DECOR_CLOSE:
+        w.close()
+        return True
+    else if decResponse == Decorator.DECOR_RIGHT:
+        Decorator.show_default_menu(w,w.x+msg.new_x,w.y+msg.new_y)
+    mb.mouse_event(w,msg)
+
+def finishResize(msg):
+    w.resize_accept(msg.width, msg.height)
+    w.reinit()
+    drawWindow()
+    w.resize_done()
+    w.flip()
+
 while True:
-	let msg = y.poll()
-	if msg.type == _yutani.Message.MSG_SESSION_END:
-		print("Asked to exit.")
-		break
-	else if msg.type == _yutani.Message.MSG_KEY_EVENT:
-		print("key event")
-	else if msg.type == _yutani.Message.MSG_WINDOW_FOCUS_CHANGE:
-		print("focus change")
-		if msg.wid == w.wid:
-			w.set_focused(msg.focused)
-			drawWindow()
-	else if msg.type == _yutani.Message.MSG_WINDOW_MOUSE_EVENT:
-		if _yutani.Decorator.handle_event(msg) == 2:
-			print("Clicked close button")
-			break
-		print(f"W({msg.wid}) mouse {msg.new_x},{msg.new_y}")
+    let msg = y.poll()
+    if y.menu_process_event(msg):
+        drawWindow()
+    if msg.type == Message.MSG_SESSION_END:
+        w.close()
+        break
+    else if msg.type == Message.MSG_KEY_EVENT:
+        print(msg.keycode)
+    else if msg.type == Message.MSG_WINDOW_FOCUS_CHANGE:
+        if msg.wid == w.wid:
+            print("focus changed")
+            w.set_focused(msg.focused)
+            drawWindow()
+    else if msg.type == Message.MSG_RESIZE_OFFER:
+        finishResize(msg)
+    else if msg.type == Message.MSG_WINDOW_MOUSE_EVENT:
+        if msg.wid == w.wid:
+            if handleMouseEvent(msg): break
 
