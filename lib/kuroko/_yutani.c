@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
+#include <toaru/sdf.h>
 #include "kuroko/src/kuroko.h"
 #include "kuroko/src/vm.h"
 #include "kuroko/src/value.h"
@@ -54,6 +55,16 @@ static KrkClass * YutaniColor;
 struct YutaniColor {
 	KrkInstance inst;
 	uint32_t color;
+};
+
+static KrkClass * YutaniFont;
+struct YutaniFont {
+	KrkInstance inst;
+	int fontType;
+	int fontSize;
+	double fontGamma;
+	double fontStroke;
+	uint32_t fontColor;
 };
 
 /**
@@ -814,6 +825,67 @@ static KrkValue _yutani_color_str(int argc, KrkValue argv[]) {
 	return OBJECT_VAL(krk_copyString(tmp,strlen(tmp)));
 }
 
+#define CHECK_FONT() \
+	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniFont)) \
+		return krk_runtimeError(vm.exceptions.typeError, "expected Font"); \
+	struct YutaniFont * self = (struct YutaniFont*)AS_INSTANCE(argv[0])
+
+static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
+	if (hasKw) argc--;
+	CHECK_FONT();
+
+	if (argc < 2 || !IS_INTEGER(argv[1]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected int for font type");
+	if (argc < 3 || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected int for font size");
+
+	KrkValue fontGamma = FLOATING_VAL(1.7);
+	KrkValue fontStroke = FLOATING_VAL(0.75);
+	KrkValue fontColor = NONE_VAL();
+	if (hasKw) {
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("gamma")), &fontGamma);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("stroke")), &fontStroke);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("color")), &fontColor);
+		if (!IS_FLOATING(fontGamma)) return krk_runtimeError(vm.exceptions.typeError, "expected float for gamma");
+		if (!IS_FLOATING(fontStroke)) return krk_runtimeError(vm.exceptions.typeError, "expected float for stroke");
+		if (!krk_isInstanceOf(fontColor, YutaniColor)) return krk_runtimeError(vm.exceptions.typeError, "expected color");
+	}
+
+	self->fontType = AS_INTEGER(argv[1]);
+	self->fontSize = AS_INTEGER(argv[2]);
+	self->fontGamma = AS_FLOATING(fontGamma);
+	self->fontStroke = AS_FLOATING(fontStroke);
+	self->fontColor = IS_NONE(fontColor) ? rgb(0,0,0) : ((struct YutaniColor*)AS_INSTANCE(fontColor))->color;
+
+	return argv[0];
+}
+
+static KrkValue _font_draw_string(int argc, KrkValue argv[]) {
+	CHECK_FONT();
+	if (argc < 2 || !krk_isInstanceOf(argv[1], GraphicsContext))
+		return krk_runtimeError(vm.exceptions.typeError, "expected GraphicsContext");
+	if (argc < 3 || !IS_STRING(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected str");
+	if (argc < 5 || !IS_INTEGER(argv[3]) || !IS_INTEGER(argv[4]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected int coordinate pair");
+
+	gfx_context_t * ctx = ((struct GraphicsContext*)AS_INSTANCE(argv[1]))->ctx;
+	const char * str = AS_CSTRING(argv[2]);
+	int32_t x = AS_INTEGER(argv[3]);
+	int32_t y = AS_INTEGER(argv[4]);
+
+	return INTEGER_VAL(draw_sdf_string_stroke(ctx,x,y,str,self->fontSize,self->fontColor,self->fontType,self->fontGamma,self->fontStroke));
+}
+
+static KrkValue _font_width(int argc, KrkValue argv[]) {
+	CHECK_FONT();
+	if (argc < 2 || !IS_STRING(argv[1]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected str");
+
+	const char * str = AS_CSTRING(argv[1]);
+	return INTEGER_VAL(draw_sdf_string_width(str, self->fontSize, self->fontType));
+}
+
 KrkValue krk_module_onload__yutani(void) {
 	module = krk_newInstance(vm.moduleClass);
 	/* Store it on the stack for now so we can do stuff that may trip GC
@@ -850,6 +922,7 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	YutaniColor = krk_createClass(module, "color", NULL);
 	YutaniColor->allocSize = sizeof(struct YutaniColor);
+	YutaniColor->docstring = S("color(r,g,b,a=255)\n  Representation of an RGB(A) color.");
 	krk_defineNative(&YutaniColor->methods, ".__init__", _yutani_color_init);
 	krk_defineNative(&YutaniColor->methods, ".__repr__", _yutani_color_repr);
 	krk_defineNative(&YutaniColor->methods, ".__str__", _yutani_color_str);
@@ -865,6 +938,7 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	Yutani = krk_createClass(module, "Yutani", NULL);
 	Yutani->allocSize = sizeof(struct YutaniClass);
+	Yutani->docstring = S("Yutani()\n  Establish a connection to the compositor display server.");
 	krk_defineNative(&Yutani->methods, ":display_width", _yutani_display_width);
 	krk_defineNative(&Yutani->methods, ":display_height", _yutani_display_height);
 	krk_defineNative(&Yutani->methods, ".__repr__", _yutani_repr);
@@ -891,12 +965,35 @@ KrkValue krk_module_onload__yutani(void) {
 	GraphicsContext->allocSize = sizeof(struct GraphicsContext);
 	krk_defineNative(&GraphicsContext->methods, ":width", _gfx_width);
 	krk_defineNative(&GraphicsContext->methods, ":height", _gfx_height);
-	krk_defineNative(&GraphicsContext->methods, ".fill", _gfx_fill);
-	krk_defineNative(&GraphicsContext->methods, ".flip", _gfx_flip);
-	krk_defineNative(&GraphicsContext->methods, ".blur", _gfx_blur);
-	krk_defineNative(&GraphicsContext->methods, ".line", _gfx_line);
-	krk_defineNative(&GraphicsContext->methods, ".rect", _gfx_rect);
-	krk_defineNative(&GraphicsContext->methods, ".draw_sprite", _gfx_draw_sprite);
+	krk_defineNative(&GraphicsContext->methods, ".fill", _gfx_fill)->doc =
+		"GraphicsContext.fill(color)\n"
+		"  Fill the entire context with the given color.";
+	krk_defineNative(&GraphicsContext->methods, ".flip", _gfx_flip)->doc =
+		"GraphicsContext.flip()\n"
+		"  If the context is double-buffered, flip its backbuffer.";
+	krk_defineNative(&GraphicsContext->methods, ".blur", _gfx_blur)->doc =
+		"GraphicsContext.blur(radius=2)\n"
+		"  Perform an in-place box blur on this graphics context.";
+	krk_defineNative(&GraphicsContext->methods, ".line", _gfx_line)->doc =
+		"GraphicsContext.line(x0,x1,y0,y1,color,thickness=None)\n"
+		"  Draw a line between the given points. If thickness is not provided, uses a\n"
+		"  a simple Bresenham algorithm. If thickness is an int, draws with a box-shaped pen.\n"
+		"  If thickness is a float, draws using a point-distance antialiasing algorithm.";
+	krk_defineNative(&GraphicsContext->methods, ".rect", _gfx_rect)->doc =
+		"GraphicsContext.rect(x,y,width,height,color,solid=False,radius=None)\n"
+		"  Draw a filled rectangle. If solid is True, paints the given color directly to\n"
+		"  the underlying backbuffer with no alpha calculations. If radius is provided,\n"
+		"  draws a rounded rectangle.";
+	krk_defineNative(&GraphicsContext->methods, ".draw_sprite", _gfx_draw_sprite)->doc =
+		"GraphicsContext.draw_sprite(sprite,x,y,alpha=None,rotation=None,scale=None,color=None)\n"
+		"  Blit a sprite to this graphics context at the given coordinates.\n"
+		"  alpha:    float of opacity; 1.0 = fully opaque (default)\n"
+		"  rotation: float of radians; when a rotation is given, the coordinates provided are\n"
+		"            the center of the rendered sprite, rather than the upper left corner.\n"
+		"  scale:    (int,int) of final resolution of sprite; can not be used with rotation.\n"
+		"  color:    color to paint the sprite as, can not be used with rotation or scale;\n"
+		"            used to paint a given color with this sprite as a 'brush'. Useful for\n"
+		"            colored icons, such as those found in the panel.";
 	krk_finalizeClass(GraphicsContext);
 
 	/**
@@ -906,6 +1003,8 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	YutaniWindow = krk_createClass(module, "Window", GraphicsContext);
 	YutaniWindow->allocSize = sizeof(struct WindowClass);
+	YutaniWindow->docstring = S("Window(width,height,flags=0,title=None,icon=None,doublebuffer=False)\n"
+		"  Create a new window and initializes a graphics rendering context for it.");
 	krk_defineNative(&YutaniWindow->methods, ".__repr__", _window_repr);
 	krk_defineNative(&YutaniWindow->methods, ".__init__", _window_init);
 	krk_defineNative(&YutaniWindow->methods, ".flip", _window_flip);
@@ -936,9 +1035,37 @@ KrkValue krk_module_onload__yutani(void) {
 	YutaniSprite = krk_createClass(module, "Sprite", GraphicsContext);
 	YutaniSprite->allocSize = sizeof(struct YutaniSprite);
 	YutaniSprite->_ongcsweep = _sprite_sweep;
+	YutaniSprite->docstring = S("Sprite(filename)\n  Create a sprite from the requested texture file.");
 	krk_defineNative(&YutaniSprite->methods, ".__repr__", _sprite_repr);
 	krk_defineNative(&YutaniSprite->methods, ".__init__", _sprite_init);
 	krk_finalizeClass(YutaniSprite);
+
+	/**
+	 * class Font():
+	 *     fontType, fontSize, fontGamma, fontStroke
+	 */
+	YutaniFont = krk_createClass(module, "Font", NULL);
+	YutaniFont->allocSize = sizeof(struct YutaniFont);
+	YutaniFont->docstring = S("Font(type,size,gamma=1.7,stroke=0.75,color=color(0,0,0))\n"
+		"  Create a Font specification for rendering text.");
+	krk_defineNative(&YutaniFont->methods, ".__init__", _font_init);
+	krk_defineNative(&YutaniFont->methods, ".draw_string", _font_draw_string)->doc =
+		"Font.draw_string(gfxContext, string, x, y)\n"
+		"  Draw text to a graphics context with this font.";
+	krk_defineNative(&YutaniFont->methods, ".width", _font_width)->doc =
+		"Font.width(string)\n"
+		"  Calculate the rendered width of the given string when drawn with this font.";
+	/* Some static values */
+#define ATTACH_FONT(name) krk_attachNamedValue(&YutaniFont->fields, #name, INTEGER_VAL(SDF_ ## name))
+	ATTACH_FONT(FONT_THIN);
+	ATTACH_FONT(FONT_BOLD);
+	ATTACH_FONT(FONT_MONO);
+	ATTACH_FONT(FONT_MONO_BOLD);
+	ATTACH_FONT(FONT_MONO_OBLIQUE);
+	ATTACH_FONT(FONT_MONO_BOLD_OBLIQUE);
+	ATTACH_FONT(FONT_OBLIQUE);
+	ATTACH_FONT(FONT_BOLD_OBLIQUE);
+	krk_finalizeClass(YutaniFont);
 
 	Decorator = krk_createClass(module, "Decorator", NULL);
 	krk_defineNative(&Decorator->fields, "get_bounds", _decor_get_bounds);
