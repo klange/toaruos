@@ -19,6 +19,7 @@ struct MenuList;
 struct MenuEntry {
 	enum MenuEntry_Type _type;
 	struct MenuList * _owner;
+	void * _private;
 
 	int height; /* All must have a height, so put it here. */
 	int width; /* Actual width */
@@ -115,7 +116,8 @@ struct menu_bar {
 
 	int num_entries;
 
-	void (*redraw_callback)(void);
+	void * _private;
+	void (*redraw_callback)(struct menu_bar *);
 };
 
 extern void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx);

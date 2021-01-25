@@ -713,7 +713,7 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 					int active = (bar->active_entry_idx + 1 + bar->num_entries) % (bar->num_entries);
 					bar->active_entry = &bar->entries[active];
 					if (bar->redraw_callback) {
-						bar->redraw_callback();
+						bar->redraw_callback(bar);
 					}
 					menu_bar_show_menu(yctx, bar->window, bar, -1, bar->active_entry);
 				} else {
@@ -738,7 +738,7 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			int active = (menu->_bar->active_entry_idx - 1 + menu->_bar->num_entries) % (menu->_bar->num_entries);
 			menu->_bar->active_entry = &menu->_bar->entries[active];
 			if (menu->_bar->redraw_callback) {
-				menu->_bar->redraw_callback();
+				menu->_bar->redraw_callback(menu->_bar);
 			}
 			menu_bar_show_menu(yctx, menu->_bar->window, menu->_bar, -1, menu->_bar->active_entry);
 		} else if (menu->parent && menu->parent->window) {
@@ -941,7 +941,7 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 	self->active_entry = _entries;
 	self->active_entry_idx = i;
 	if (self->redraw_callback) {
-		self->redraw_callback();
+		self->redraw_callback(self);
 	}
 }
 

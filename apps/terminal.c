@@ -2212,6 +2212,11 @@ static void _menu_action_set_scale(struct MenuEntry * self) {
 	reinit();
 }
 
+static void render_decors_callback(struct menu_bar * self) {
+	(void)self;
+	render_decors();
+}
+
 int main(int argc, char ** argv) {
 
 	window_width  = char_width * 80;
@@ -2324,7 +2329,7 @@ int main(int argc, char ** argv) {
 
 	/* Set up menus */
 	terminal_menu_bar.entries = terminal_menu_entries;
-	terminal_menu_bar.redraw_callback = render_decors;
+	terminal_menu_bar.redraw_callback = render_decors_callback;
 
 	struct MenuEntry * _menu_exit = menu_create_normal("exit","exit","Exit", _menu_action_exit);
 	struct MenuEntry * _menu_copy = menu_create_normal(NULL, NULL, "Copy", _menu_action_copy);

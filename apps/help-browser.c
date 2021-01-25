@@ -329,6 +329,11 @@ static void _menu_action_about(struct MenuEntry * entry) {
 	redraw_window();
 }
 
+static void redraw_window_callback(struct menu_bar * self) {
+	(void)self;
+	redraw_window();
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -340,7 +345,7 @@ int main(int argc, char * argv[]) {
 	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "help");
 
 	menu_bar.entries = menu_entries;
-	menu_bar.redraw_callback = redraw_window;
+	menu_bar.redraw_callback = redraw_window_callback;
 
 	menu_bar.set = menu_set_create();
 

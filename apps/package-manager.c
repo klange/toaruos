@@ -433,6 +433,11 @@ static void arrow_select(int y) {
 	redraw_window();
 }
 
+static void redraw_window_callback(struct menu_bar * self) {
+	(void)self;
+	redraw_window();
+}
+
 int main(int argc, char * argv[]) {
 
 	if (geteuid() != 0) {
@@ -455,7 +460,7 @@ int main(int argc, char * argv[]) {
 	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "package");
 
 	menu_bar.entries = menu_entries;
-	menu_bar.redraw_callback = redraw_window;
+	menu_bar.redraw_callback = redraw_window_callback;
 
 	menu_bar.set = menu_set_create();
 
