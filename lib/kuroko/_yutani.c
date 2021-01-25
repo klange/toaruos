@@ -3,6 +3,7 @@
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
+#include <toaru/menu.h>
 #include "kuroko/src/kuroko.h"
 #include "kuroko/src/vm.h"
 #include "kuroko/src/value.h"
@@ -66,6 +67,27 @@ struct YutaniFont {
 	double fontStroke;
 	uint32_t fontColor;
 };
+
+static KrkClass * MenuBarClass;
+struct MenuBarClass {
+	KrkInstance inst;
+	struct menu_bar menuBar;
+};
+
+static KrkClass * MenuListClass;
+struct MenuListClass {
+	KrkInstance inst;
+	struct MenuList * menuList;
+};
+
+static KrkClass * MenuEntryClass;
+struct MenuEntryClass {
+	KrkInstance inst;
+	struct MenuEntry * menuEntry;
+};
+
+static KrkClass * MenuEntrySubmenuClass;
+static KrkClass * MenuEntrySeparatorClass;
 
 /**
  * Convenience wrapper to make a class and attach it to the module, while
@@ -256,6 +278,7 @@ static KrkValue _yutani_poll(int argc, KrkValue argv[], int hasKw) {
 	KrkInstance * out = krk_newInstance(Message);
 	krk_push(OBJECT_VAL(out));
 	((struct MessageClass*)out)->msg = result;
+	krk_attachNamedValue(&out->fields, "type", INTEGER_VAL(result->type));
 
 	return krk_pop();
 }
@@ -267,6 +290,7 @@ static KrkValue _yutani_wait_for(int argc, KrkValue argv[]) {
 	KrkInstance * out = krk_newInstance(Message);
 	krk_push(OBJECT_VAL(out));
 	((struct MessageClass*)out)->msg = result;
+	krk_attachNamedValue(&out->fields, "type", INTEGER_VAL(result->type));
 
 	return krk_pop();
 }
@@ -297,6 +321,15 @@ static KrkValue _yutani_fileno(int argc, KrkValue argv[]) {
 static KrkValue _yutani_query(int argc, KrkValue argv[]) {
 	CHECK_YUTANI();
 	return INTEGER_VAL(yutani_query(self->yctx));
+}
+
+static KrkValue _yutani_menu_process_event(int argc, KrkValue argv[]) {
+	CHECK_YUTANI();
+	if (argc < 2 || !krk_isInstanceOf(argv[1],Message))
+		return krk_runtimeError(vm.exceptions.typeError, "expected Message");
+	struct MessageClass* msg = (struct MessageClass*)AS_INSTANCE(argv[1]);
+
+	return INTEGER_VAL(menu_process_event(self->yctx, msg->msg));
 }
 
 #define GET_ARG(p,name,type) do { \
@@ -730,6 +763,12 @@ static KrkValue _window_special_request(int argc, KrkValue argv[]) {
 	return NONE_VAL();
 }
 
+static KrkValue _window_reinit(int argc, KrkValue argv[]) {
+	CHECK_WINDOW();
+	reinit_graphics_yutani(self->ctx, self->window);
+	return NONE_VAL();
+}
+
 #define WINDOW_PROPERTY(name) \
 static KrkValue _window_ ## name (int argc, KrkValue argv[]) { \
 	if (argc != 1 || !krk_isInstanceOf(argv[0], YutaniWindow)) \
@@ -739,6 +778,8 @@ static KrkValue _window_ ## name (int argc, KrkValue argv[]) { \
 }
 
 WINDOW_PROPERTY(wid);
+WINDOW_PROPERTY(x);
+WINDOW_PROPERTY(y);
 WINDOW_PROPERTY(focused);
 
 static KrkValue _decor_get_bounds(int argc, KrkValue argv[]) {
@@ -785,6 +826,20 @@ static KrkValue _decor_render(int argc, KrkValue argv[]) {
 	}
 	render_decorations(((struct WindowClass*)AS_INSTANCE(argv[0]))->window,
 		((struct WindowClass*)AS_INSTANCE(argv[0]))->ctx, title);
+	return NONE_VAL();
+}
+
+static KrkValue _decor_show_default_menu(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
+		return krk_runtimeError(vm.exceptions.typeError, "show_default_menu() expects Window");
+	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "show_default_menu() expects int coordinate pair");
+
+	struct WindowClass * window = (void*)AS_INSTANCE(argv[0]);
+	int32_t x = AS_INTEGER(argv[1]);
+	int32_t y = AS_INTEGER(argv[2]);
+
+	decor_show_default_menu(window->window, x, y);
 	return NONE_VAL();
 }
 
@@ -860,6 +915,11 @@ static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
+static KrkValue _font_size(int argc, KrkValue argv[]) {
+	CHECK_FONT();
+	return INTEGER_VAL(self->fontSize);
+}
+
 static KrkValue _font_draw_string(int argc, KrkValue argv[]) {
 	CHECK_FONT();
 	if (argc < 2 || !krk_isInstanceOf(argv[1], GraphicsContext))
@@ -884,6 +944,240 @@ static KrkValue _font_width(int argc, KrkValue argv[]) {
 
 	const char * str = AS_CSTRING(argv[1]);
 	return INTEGER_VAL(draw_sdf_string_width(str, self->fontSize, self->fontType));
+}
+
+static void _MenuBar_gcsweep(KrkInstance * _self) {
+	struct MenuBarClass * self = (struct MenuBarClass*)_self;
+	if (self->menuBar.entries) {
+		for (size_t i = 0; self->menuBar.entries[i].title; ++i) {
+			free(self->menuBar.entries[i].title);
+			free(self->menuBar.entries[i].action);
+		}
+		free(self->menuBar.entries);
+	}
+}
+
+static void _menubar_callback(struct menu_bar * _self) {
+	struct MenuBarClass * self = _self->_private;
+	KrkValue callback;
+	if (krk_tableGet(&self->inst.fields, OBJECT_VAL(S("callback")), &callback)) {
+		krk_push(OBJECT_VAL(self));
+		krk_callSimple(callback, 1, 0);
+	}
+}
+
+static KrkValue _MenuBar_init(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuBar");
+	if (argc < 2 || !IS_TUPLE(argv[1]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected tuple of tuples");
+
+	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
+	self->menuBar.entries = malloc(sizeof(struct menu_bar_entries) * (AS_TUPLE(argv[1])->values.count + 1));
+	for (size_t i = 0; i < AS_TUPLE(argv[1])->values.count; ++i) {
+		if (!IS_TUPLE(AS_TUPLE(argv[1])->values.values[i]) ||
+			AS_TUPLE(AS_TUPLE(argv[1])->values.values[i])->values.count != 2 ||
+			!IS_STRING(AS_TUPLE(AS_TUPLE(argv[1])->values.values[i])->values.values[0]) || 
+			!IS_STRING(AS_TUPLE(AS_TUPLE(argv[1])->values.values[i])->values.values[1])) {
+			return krk_runtimeError(vm.exceptions.typeError, "invalid menu bar entry: expected (str,str) but %d is '%s'",
+				(int)i, krk_typeName(AS_TUPLE(argv[1])->values.values[i]));
+		}
+
+		KrkString * title = AS_STRING(AS_TUPLE(AS_TUPLE(argv[1])->values.values[i])->values.values[0]);
+		KrkString * action = AS_STRING(AS_TUPLE(AS_TUPLE(argv[1])->values.values[i])->values.values[1]);
+
+		self->menuBar.entries[i].title = strdup(title->chars);
+		self->menuBar.entries[i].action = strdup(action->chars);
+	}
+	self->menuBar.entries[AS_TUPLE(argv[1])->values.count].title = NULL;
+	self->menuBar.entries[AS_TUPLE(argv[1])->values.count].action = NULL;
+
+	self->menuBar.set = menu_set_create();
+	self->menuBar._private = self;
+	self->menuBar.redraw_callback = _menubar_callback;
+
+	krk_attachNamedValue(&self->inst.fields, "entries", argv[1]);
+
+	/* Give ourselves a dict to track the same information */
+	KrkValue dict = krk_dict_of(0,NULL);
+	krk_attachNamedValue(&self->inst.fields, "set", dict);
+
+	return argv[0];
+}
+
+static KrkValue _MenuBar_place(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuBar");
+	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
+	if (argc < 4 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]) || !IS_INTEGER(argv[3]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected int for x, y, width");
+	if (argc < 5 || !krk_isInstanceOf(argv[4],YutaniWindow))
+		return krk_runtimeError(vm.exceptions.typeError, "expected Window");
+
+	self->menuBar.x = AS_INTEGER(argv[1]);
+	self->menuBar.y = AS_INTEGER(argv[2]);
+	self->menuBar.width = AS_INTEGER(argv[3]);
+	self->menuBar.window = ((struct WindowClass*)AS_INSTANCE(argv[4]))->window;
+	return NONE_VAL();
+}
+
+static KrkValue _MenuBar_render(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuBar");
+	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
+	if (argc < 2 || !krk_isInstanceOf(argv[1], GraphicsContext))
+		return krk_runtimeError(vm.exceptions.typeError, "expected GraphicsContext");
+	menu_bar_render(&self->menuBar, ((struct GraphicsContext*)AS_INSTANCE(argv[1]))->ctx);
+	return NONE_VAL();
+}
+
+static KrkValue _MenuBar_mouse_event(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuBar");
+	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
+	if (argc < 3 || !krk_isInstanceOf(argv[1], YutaniWindow) ||
+		!krk_isInstanceOf(argv[2], Message))
+		return krk_runtimeError(vm.exceptions.typeError, "expected Window and Message");
+
+	struct MessageClass * msg = ((struct MessageClass*)AS_INSTANCE(argv[2]));
+	struct yutani_msg_window_mouse_event * me = (struct yutani_msg_window_mouse_event*)msg->msg->data;
+
+	return INTEGER_VAL(menu_bar_mouse_event(((struct YutaniClass*)yctxInstance)->yctx,
+		((struct WindowClass*)AS_INSTANCE(argv[1]))->window,
+		&self->menuBar, me, me->new_x, me->new_y));
+}
+
+static KrkValue _MenuBar_insert(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuBar");
+	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
+	if (argc < 3 || !IS_STRING(argv[1]) || !krk_isInstanceOf(argv[2], MenuListClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected str and MenuList");
+
+	menu_set_insert(self->menuBar.set, AS_CSTRING(argv[1]), ((struct MenuListClass*)AS_INSTANCE(argv[2]))->menuList);
+
+	/* Also assign it to our dict */
+	KrkValue dict = NONE_VAL();
+	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("set")), &dict);
+	if (IS_NONE(dict) || !krk_isInstanceOf(dict,vm.baseClasses.dictClass))
+		return krk_runtimeError(vm.exceptions.baseException, "Failed to get set entries?");
+	krk_tableSet(AS_DICT(dict), argv[1], argv[2]);
+
+	return NONE_VAL();
+}
+
+static KrkValue _MenuList_init(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuListClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuList");
+	struct MenuListClass * self = (struct MenuListClass*)AS_INSTANCE(argv[0]);
+	self->menuList = menu_create();
+
+	/* Give us a list to put entries in for GC tracking and retrieval by kuroko code */
+	KrkValue list = krk_list_of(0,NULL);
+	krk_attachNamedValue(&self->inst.fields, "entries", list);
+
+	return argv[0];
+}
+
+static KrkValue _MenuList_insert(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuListClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuList");
+	struct MenuListClass * self = (struct MenuListClass*)AS_INSTANCE(argv[0]);
+	if (argc < 2 || !krk_isInstanceOf(argv[1], MenuEntryClass))
+		return krk_runtimeError(vm.exceptions.typeError, "Expected MenuEntry");
+
+	/* Append to menu */
+	menu_insert(self->menuList, ((struct MenuEntryClass*)AS_INSTANCE(argv[1]))->menuEntry);
+
+	/* Append to internal list */
+	KrkValue list = NONE_VAL();
+	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("entries")), &list);
+	if (IS_NONE(list) || !krk_isInstanceOf(list,vm.baseClasses.listClass))
+		return krk_runtimeError(vm.exceptions.baseException, "Failed to get entries?");
+	krk_writeValueArray(AS_LIST(list), argv[1]);
+
+	return NONE_VAL();
+}
+
+static void _MenuEntry_callback_internal(struct MenuEntry * _self) {
+	struct MenuEntryClass * self = (struct MenuEntryClass *)_self->_private;
+	KrkValue callback = NONE_VAL();
+	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("callback")), &callback);
+	krk_push(OBJECT_VAL(self));
+	krk_callSimple(callback, 1, 0);
+}
+
+static KrkValue _MenuEntry_init(int argc, KrkValue argv[], int hasKw) {
+	if (hasKw) argc--;
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntryClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuEntry");
+	struct MenuEntryClass * self = (struct MenuEntryClass*)AS_INSTANCE(argv[0]);
+
+	if (argc < 3 || !IS_STRING(argv[1]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected title and callback");
+
+	KrkValue icon = NONE_VAL(), action = NONE_VAL();
+	if (hasKw) {
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("icon")), &icon);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("action")), &action);
+		if (!IS_NONE(icon) && !IS_STRING(icon))
+			return krk_runtimeError(vm.exceptions.typeError, "icon must be str, not '%s'", krk_typeName(icon));
+		if (!IS_NONE(action) && !IS_STRING(action))
+			return krk_runtimeError(vm.exceptions.typeError, "action must be str, not '%s'", krk_typeName(action));
+	}
+
+	self->menuEntry = menu_create_normal(
+		IS_STRING(icon) ? AS_CSTRING(icon) : NULL,
+		IS_STRING(action) ? AS_CSTRING(action) : NULL,
+		AS_CSTRING(argv[1]),
+		_MenuEntry_callback_internal);
+
+	self->menuEntry->_private = self;
+
+	krk_attachNamedValue(&self->inst.fields, "callback", argv[2]);
+
+	return argv[0];
+}
+
+/* TODO properties: icon, action, title */
+
+static KrkValue _MenuEntrySubmenu_init(int argc, KrkValue argv[], int hasKw) {
+	if (hasKw) argc--;
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntrySubmenuClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuEntrySubmenu");
+
+	struct MenuEntryClass * self = (struct MenuEntryClass*)AS_INSTANCE(argv[0]);
+
+	if (argc < 2 || !IS_STRING(argv[1]))
+		return krk_runtimeError(vm.exceptions.typeError, "expected title to be a str");
+
+	KrkValue icon = NONE_VAL(), action = NONE_VAL();
+	if (hasKw) {
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("icon")), &icon);
+		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("action")), &action);
+		if (!IS_NONE(icon) && !IS_STRING(icon))
+			return krk_runtimeError(vm.exceptions.typeError, "icon must be str, not '%s'", krk_typeName(icon));
+		if (!IS_NONE(action) && !IS_STRING(action))
+			return krk_runtimeError(vm.exceptions.typeError, "action must be str, not '%s'", krk_typeName(action));
+	}
+
+	self->menuEntry = menu_create_submenu(
+		IS_STRING(icon) ? AS_CSTRING(icon) : NULL,
+		IS_STRING(action) ? AS_CSTRING(action) : NULL,
+		AS_CSTRING(argv[1]));
+
+	self->menuEntry->_private = self;
+
+	return argv[0];
+}
+
+static KrkValue _MenuEntrySeparator_init(int argc, KrkValue argv[]) {
+	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntrySeparatorClass))
+		return krk_runtimeError(vm.exceptions.typeError, "expected MenuEntrySeparator");
+	struct MenuEntryClass * self = (struct MenuEntryClass*)AS_INSTANCE(argv[0]);
+	self->menuEntry = menu_create_separator();
+	self->menuEntry->_private = self;
+	return argv[0];
 }
 
 KrkValue krk_module_onload__yutani(void) {
@@ -950,6 +1244,7 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&Yutani->methods, ".query_windows", _yutani_query_windows);
 	krk_defineNative(&Yutani->methods, ".fileno", _yutani_fileno);
 	krk_defineNative(&Yutani->methods, ".query", _yutani_query);
+	krk_defineNative(&Yutani->methods, ".menu_process_event", _yutani_menu_process_event);
 	#if 0
 	krk_defineNative(&Yutani->methods, ".focus_window", _yutani_focus_window);
 	krk_defineNative(&Yutani->methods, ".session_end", _yutani_session_end);
@@ -1023,7 +1318,10 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&YutaniWindow->methods, ".warp_mouse", _window_warp_mouse);
 	krk_defineNative(&YutaniWindow->methods, ".set_stack", _window_set_stack);
 	krk_defineNative(&YutaniWindow->methods, ".advertise", _window_advertise);
+	krk_defineNative(&YutaniWindow->methods, ".reinit", _window_reinit);
 	krk_defineNative(&YutaniWindow->methods, ":wid", _window_wid);
+	krk_defineNative(&YutaniWindow->methods, ":x", _window_x);
+	krk_defineNative(&YutaniWindow->methods, ":y", _window_y);
 	krk_defineNative(&YutaniWindow->methods, ":focused", _window_focused);
 	krk_finalizeClass(YutaniWindow);
 
@@ -1055,6 +1353,7 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&YutaniFont->methods, ".width", _font_width)->doc =
 		"Font.width(string)\n"
 		"  Calculate the rendered width of the given string when drawn with this font.";
+	krk_defineNative(&YutaniFont->methods, ":size", _font_size);
 	/* Some static values */
 #define ATTACH_FONT(name) krk_attachNamedValue(&YutaniFont->fields, #name, INTEGER_VAL(SDF_ ## name))
 	ATTACH_FONT(FONT_THIN);
@@ -1067,10 +1366,57 @@ KrkValue krk_module_onload__yutani(void) {
 	ATTACH_FONT(FONT_BOLD_OBLIQUE);
 	krk_finalizeClass(YutaniFont);
 
+	MenuBarClass = krk_createClass(module, "MenuBar", NULL);
+	MenuBarClass->allocSize = sizeof(struct MenuBarClass);
+	MenuBarClass->_ongcsweep = _MenuBar_gcsweep;
+	krk_defineNative(&MenuBarClass->methods, ".__init__", _MenuBar_init);
+	krk_defineNative(&MenuBarClass->methods, ".place", _MenuBar_place);
+	krk_defineNative(&MenuBarClass->methods, ".render", _MenuBar_render);
+	krk_defineNative(&MenuBarClass->methods, ".mouse_event", _MenuBar_mouse_event);
+	krk_defineNative(&MenuBarClass->methods, ".insert", _MenuBar_insert);
+	krk_finalizeClass(MenuBarClass);
+
+	MenuListClass = krk_createClass(module, "MenuList", NULL);
+	MenuListClass->allocSize = sizeof(struct MenuListClass);
+	krk_defineNative(&MenuListClass->methods, ".__init__", _MenuList_init);
+	krk_defineNative(&MenuListClass->methods, ".insert", _MenuList_insert);
+	krk_finalizeClass(MenuListClass);
+
+	MenuEntryClass = krk_createClass(module, "MenuEntry", NULL);
+	MenuEntryClass->allocSize = sizeof(struct MenuEntryClass);
+	krk_defineNative(&MenuEntryClass->methods, ".__init__", _MenuEntry_init);
+	krk_finalizeClass(MenuEntryClass);
+
+	MenuEntrySubmenuClass = krk_createClass(module, "MenuEntrySubmenu", MenuEntryClass);
+	krk_defineNative(&MenuEntrySubmenuClass->methods, ".__init__", _MenuEntrySubmenu_init);
+	krk_finalizeClass(MenuEntrySubmenuClass);
+	MenuEntrySeparatorClass = krk_createClass(module, "MenuEntrySeparator", MenuEntryClass);
+	krk_defineNative(&MenuEntrySeparatorClass->methods, ".__init__", _MenuEntrySeparator_init);
+	krk_finalizeClass(MenuEntrySeparatorClass);
+
 	Decorator = krk_createClass(module, "Decorator", NULL);
 	krk_defineNative(&Decorator->fields, "get_bounds", _decor_get_bounds);
 	krk_defineNative(&Decorator->fields, "render", _decor_render);
 	krk_defineNative(&Decorator->fields, "handle_event", _decor_handle_event);
+	krk_defineNative(&Decorator->fields, "show_default_menu", _decor_show_default_menu);
+#define ATTACH_CONSTANT(name) krk_attachNamedValue(&Decorator->fields, #name, INTEGER_VAL(name))
+	ATTACH_CONSTANT(DECOR_OTHER);
+	ATTACH_CONSTANT(DECOR_CLOSE);
+	ATTACH_CONSTANT(DECOR_RESIZE);
+	ATTACH_CONSTANT(DECOR_MAXIMIZE);
+	ATTACH_CONSTANT(DECOR_RIGHT);
+
+	ATTACH_CONSTANT(DECOR_ACTIVE);
+	ATTACH_CONSTANT(DECOR_INACTIVE);
+
+	ATTACH_CONSTANT(DECOR_FLAG_DECORATED);
+	ATTACH_CONSTANT(DECOR_FLAG_NO_MAXIMIZE);
+	ATTACH_CONSTANT(DECOR_FLAG_TILED);
+	ATTACH_CONSTANT(DECOR_FLAG_TILE_LEFT);
+	ATTACH_CONSTANT(DECOR_FLAG_TILE_RIGHT);
+	ATTACH_CONSTANT(DECOR_FLAG_TILE_UP);
+	ATTACH_CONSTANT(DECOR_FLAG_TILE_DOWN);
+#undef ATTACH_CONSTANT
 	krk_finalizeClass(Decorator);
 
 	/* Pop the module object before returning; it'll get pushed again
