@@ -418,7 +418,6 @@ static KrkValue _gfx_line(int argc, KrkValue argv[]) {
 }
 
 static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
-	if (hasKw) argc--;
 	CHECK_GFX();
 
 	if (argc != 6 ||
@@ -461,7 +460,6 @@ static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
 }
 
 static KrkValue _gfx_draw_sprite(int argc, KrkValue argv[], int hasKw) {
-	if (hasKw) argc--;
 	CHECK_GFX();
 
 	if (argc < 2 || !krk_isInstanceOf(argv[1], YutaniSprite))
@@ -588,8 +586,6 @@ static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
 
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions.argumentError, "Expected at least two (integer) arguments (width, height)");
-
-	if (hasKw) argc--;
 
 	KrkInstance * _self = AS_INSTANCE(argv[0]);
 	struct WindowClass * self = (struct WindowClass*)_self;
@@ -886,7 +882,6 @@ static KrkValue _yutani_color_str(int argc, KrkValue argv[]) {
 	struct YutaniFont * self = (struct YutaniFont*)AS_INSTANCE(argv[0])
 
 static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
-	if (hasKw) argc--;
 	CHECK_FONT();
 
 	if (argc < 2 || !IS_INTEGER(argv[1]))
@@ -1108,7 +1103,6 @@ static void _MenuEntry_callback_internal(struct MenuEntry * _self) {
 }
 
 static KrkValue _MenuEntry_init(int argc, KrkValue argv[], int hasKw) {
-	if (hasKw) argc--;
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntryClass))
 		return krk_runtimeError(vm.exceptions.typeError, "expected MenuEntry");
 	struct MenuEntryClass * self = (struct MenuEntryClass*)AS_INSTANCE(argv[0]);
@@ -1142,7 +1136,6 @@ static KrkValue _MenuEntry_init(int argc, KrkValue argv[], int hasKw) {
 /* TODO properties: icon, action, title */
 
 static KrkValue _MenuEntrySubmenu_init(int argc, KrkValue argv[], int hasKw) {
-	if (hasKw) argc--;
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntrySubmenuClass))
 		return krk_runtimeError(vm.exceptions.typeError, "expected MenuEntrySubmenu");
 
