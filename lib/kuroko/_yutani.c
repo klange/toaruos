@@ -179,6 +179,17 @@ static KrkValue _message_getattr(int argc, KrkValue argv[]) {
 #undef TO_INT
 #undef WID
 
+static KrkValue _yutani_repr(int argc, KrkValue argv[]) {
+	struct YutaniClass * self = (struct YutaniClass*)AS_INSTANCE(argv[0]);
+	char out[500];
+	size_t len = sprintf(out, "Yutani(fd=%d,server=%s,display_width=%d,display_height=%d)",
+		fileno(self->yctx->sock),
+		self->yctx->server_ident,
+		(int)self->yctx->display_width,
+		(int)self->yctx->display_height);
+	return OBJECT_VAL(krk_copyString(out,len));
+}
+
 static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
 	if (yctxInstance) {
 		krk_runtimeError(vm.exceptions.valueError, "class 'Yutani' is a singleton and has already been initialized.");
@@ -442,6 +453,20 @@ static void _sprite_sweep(KrkInstance * self) {
 	if (sprite->ctx) free(sprite->ctx);
 }
 
+static KrkValue _sprite_repr(int argc, KrkValue argv[]) {
+	struct YutaniSprite * self = (struct YutaniSprite *)AS_INSTANCE(argv[0]);
+
+	KrkValue file;
+	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("file")), &file);
+
+	char out[500];
+	size_t len = sprintf(out, "Sprite('%s',width=%d,height=%d)",
+		!IS_STRING(file) ? "" : AS_CSTRING(file),
+		(int)self->sprite.width,
+		(int)self->sprite.height);
+	return OBJECT_VAL(krk_copyString(out,len));
+}
+
 static KrkValue _sprite_init(int argc, KrkValue argv[]) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniSprite))
 		return krk_runtimeError(vm.exceptions.typeError, "expected sprite");
@@ -457,8 +482,22 @@ static KrkValue _sprite_init(int argc, KrkValue argv[]) {
 	}
 
 	self->ctx = init_graphics_sprite(&self->sprite);
+	krk_attachNamedValue(&self->inst.fields, "file", argv[1]);
 
 	return argv[0];
+}
+
+static KrkValue _window_repr(int argc, KrkValue argv[]) {
+	struct WindowClass * self = (struct WindowClass*)AS_INSTANCE(argv[0]);
+	KrkValue title;
+	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("title")), &title);
+	char out[500];
+	size_t len = sprintf(out, "Window(wid=%d,title=%s,width=%d,height=%d)",
+		self->window->wid,
+		IS_NONE(title) ? "" : AS_CSTRING(title),
+		(int)self->window->width,
+		(int)self->window->height);
+	return OBJECT_VAL(krk_copyString(out,len));
 }
 
 static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
@@ -669,6 +708,10 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&Message->methods, ".__getattr__", _message_getattr);
 	krk_finalizeClass(Message);
 
+	/**
+	 * class color():
+	 *     rgb(a) value for use with graphics functions.
+	 */
 	YutaniColor = krk_createClass(module, "color", NULL);
 	YutaniColor->allocSize = sizeof(struct YutaniColor);
 	krk_defineNative(&YutaniColor->methods, ".__init__", _yutani_color_init);
@@ -688,6 +731,7 @@ KrkValue krk_module_onload__yutani(void) {
 	Yutani->allocSize = sizeof(struct YutaniClass);
 	krk_defineNative(&Yutani->methods, ":display_width", _yutani_display_width);
 	krk_defineNative(&Yutani->methods, ":display_height", _yutani_display_height);
+	krk_defineNative(&Yutani->methods, ".__repr__", _yutani_repr);
 	krk_defineNative(&Yutani->methods, ".__init__", _yutani_init);
 	krk_defineNative(&Yutani->methods, ".poll", _yutani_poll);
 	krk_defineNative(&Yutani->methods, ".wait_for", _yutani_wait_for);
@@ -705,7 +749,6 @@ KrkValue krk_module_onload__yutani(void) {
 
 	GraphicsContext = krk_createClass(module, "GraphicsContext", NULL);
 	GraphicsContext->allocSize = sizeof(struct GraphicsContext);
-	/* No initializers for now until I bother with them... */
 	krk_defineNative(&GraphicsContext->methods, ":width", _gfx_width);
 	krk_defineNative(&GraphicsContext->methods, ":height", _gfx_height);
 	krk_defineNative(&GraphicsContext->methods, ".fill", _gfx_fill);
@@ -718,11 +761,11 @@ KrkValue krk_module_onload__yutani(void) {
 
 	YutaniWindow = krk_createClass(module, "Window", GraphicsContext);
 	YutaniWindow->allocSize = sizeof(struct WindowClass);
+	krk_defineNative(&YutaniWindow->methods, ".__repr__", _window_repr);
 	krk_defineNative(&YutaniWindow->methods, ".__init__", _window_init);
 	krk_defineNative(&YutaniWindow->methods, ".flip", _window_flip);
 	krk_defineNative(&YutaniWindow->methods, ".move", _window_move);
 	krk_defineNative(&YutaniWindow->methods, ".set_focused", _window_set_focused);
-	/* Properties */
 	krk_defineNative(&YutaniWindow->methods, ":wid", _window_wid);
 	krk_defineNative(&YutaniWindow->methods, ":focused", _window_focused);
 	krk_finalizeClass(YutaniWindow);
@@ -730,6 +773,7 @@ KrkValue krk_module_onload__yutani(void) {
 	YutaniSprite = krk_createClass(module, "Sprite", GraphicsContext);
 	YutaniSprite->allocSize = sizeof(struct YutaniSprite);
 	YutaniSprite->_ongcsweep = _sprite_sweep;
+	krk_defineNative(&YutaniSprite->methods, ".__repr__", _sprite_repr);
 	krk_defineNative(&YutaniSprite->methods, ".__init__", _sprite_init);
 	krk_finalizeClass(YutaniSprite);
 
@@ -738,13 +782,6 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&Decorator->fields, "render", _decor_render);
 	krk_defineNative(&Decorator->fields, "handle_event", _decor_handle_event);
 	krk_finalizeClass(Decorator);
-
-
-	/**
-	 * class MsgKeyEvent(Message):
-	 *     type = Message.MSG_KEY_EVENT
-	 */
-	//KrkClass * MsgKeyEvent = krk_createClass(module, "MsgKeyEvent", Message);
 
 	/* Pop the module object before returning; it'll get pushed again
 	 * by the VM before the GC has a chance to run, so it's safe. */
