@@ -1,0 +1,25 @@
+'''
+Sample config file for bim3
+'''
+
+# Quirks work the same as they did in bim2, except for the obvious syntax change
+quirk('TERM','screen','no24bit','noitalic')
+quirk('TERM','xterm-256color','caninsert','canpaste','cansgrmouse')
+quirk('TERMINAL_EMULATOR','JetBrains','nobce')
+
+# checkprop() returns 0 if we _can_ do something, so
+# call it with 'not' to check capabilities...
+if not checkprop('can_unicode'):
+    tabindicator('»')
+    spaceindicator('·')
+
+# Themes are actually Kuroko functions now, but we load
+# them into a table like always for the :theme command
+theme('sunsmoke')
+
+# Non-string values are coerced into strings, so these commands
+# can take integer values.
+global.git(1)
+global.statusbar(1)
+global.autohidetabs(1)
+smartcomplete(1)
