@@ -1,6 +1,6 @@
 /* Bim - A Text Editor
  *
- * Copyright (C) 2012-2020 K. Lange
+ * Copyright (C) 2012-2021 K. Lange
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -264,7 +264,7 @@ int bim_getch_timeout(int timeout) {
 			global_config.background_task = task->next;
 			task->func(task);
 			free(task);
-			if (task->next == NULL) {
+			if (!global_config.background_task) {
 				global_config.tail_task = NULL;
 				redraw_statusbar();
 			}
@@ -5820,6 +5820,32 @@ int process_command(char * cmd) {
 		return bim_command_repall(cmd, 0, NULL);
 	}
 
+	/* See if it's a bim command in the classic format */
+	{
+		char * argv[3] = {NULL, NULL, NULL};
+		int argc = !!(*cmd);
+		char cmd_name[512] = {0};
+		for (char * c = (char*)cmd; *c; ++c) {
+			if (c-cmd == 511) break;
+			if (*c == ' ') {
+				cmd_name[c-cmd] = '\0';
+				argv[1] = c+1;
+				if (*argv[1]) argc++;
+				break;
+			}
+			cmd_name[c-cmd] = *c;
+		}
+
+		argv[0] = cmd_name;
+		argv[argc] = NULL;
+		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+			if (!strcmp(argv[0], c->name)) {
+				krk_resetStack();
+				return c->command((char*)cmd, argc, argv);
+			}
+		}
+	}
+
 	int retval = process_krk_command(cmd, NULL);
 
 	return retval;
@@ -9918,28 +9944,6 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	/* If we got an exception during execution, print it now */
 	if (vm.flags & KRK_HAS_EXCEPTION) {
 		if (krk_isInstanceOf(vm.currentException, vm.exceptions.syntaxError)) {
-			char * argv[3] = {NULL, NULL, NULL};
-			int argc = !!(*cmd);
-			char cmd_name[512] = {0};
-			for (char * c = (char*)cmd; *c; ++c) {
-				if (c-cmd == 511) break;
-				if (*c == ' ') {
-					cmd_name[c-cmd] = '\0';
-					argv[1] = c+1;
-					if (*argv[1]) argc++;
-					break;
-				}
-				cmd_name[c-cmd] = *c;
-			}
-
-			argv[0] = cmd_name;
-			argv[argc] = NULL;
-			for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
-				if (!strcmp(argv[0], c->name)) {
-					krk_resetStack();
-					return c->command((char*)cmd, argc, argv);
-				}
-			}
 		}
 		set_fg_color(COLOR_RED);
 		fflush(stdout);
@@ -10239,6 +10243,8 @@ static KrkValue bim_krk_state_setstate(int argc, KrkValue argv[]) {
 	BIM_STATE();
 	if (argc > 1 && IS_INTEGER(argv[1])) {
 		state->state = AS_INTEGER(argv[1]);
+	} else if (argc > 1 && IS_NONE(argv[1])) {
+		state->state = -1;
 	} else {
 		return krk_runtimeError(vm.exceptions.typeError, "expected int");
 	}
@@ -10464,6 +10470,7 @@ static KrkValue bim_krk_command_call(int argc, KrkValue argv[]) {
 	for (int i = 0; i < argc; ++i) {
 		free(args[i]);
 	}
+	free(args);
 
 	return INTEGER_VAL(result);
 }
@@ -10536,6 +10543,7 @@ void import_directory(char * dirName) {
 		}
 		ent = readdir(dirp);
 	}
+	closedir(dirp);
 }
 
 static void findBim(char * argv[]) {
