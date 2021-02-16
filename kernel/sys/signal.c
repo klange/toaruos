@@ -24,6 +24,7 @@ void enter_signal_handler(uintptr_t location, int signum, uintptr_t stack) {
 			"mov %%ax, %%ds\n"
 			"mov %%ax, %%es\n"
 			"mov %%ax, %%fs\n"
+			"mov $0x33, %%ax\n"    /* Segment selector */
 			"mov %%ax, %%gs\n"
 			"mov %%esp, %%eax\n"   /* Stack -> EAX */
 			"pushl $0x23\n"        /* Segment selector again */
